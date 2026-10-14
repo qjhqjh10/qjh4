@@ -37,7 +37,10 @@ namespace CardPresentation
         /// <summary>费用的**上界**（含）。`&lt;= 0` ⇒ 只看 `Cost` 这一个值（旧行为）。
         /// 🔴 为什么要它：原版**收藏窗的 Cost 筛选是 8 个区间档**（`1-` / `2`…`7` / `8+`，
         ///    `CardCostFilter.options` 的 `alternativeText` 实读），不是「每个费用一格」——
-        ///    只有 `Cost` 一个数表达不了 `8+`。卡组编辑那边只填 `Cost`（⇒ 退化成精确匹配，行为不变）。
+        ///    只有 `Cost` 一个数表达不了 `8+`。卡组编辑那边只填 `Cost`（⇒ 退化成精确匹配
+        ///    —— ⚠️ **2026-10-14（账 `N10`）就地订正**：原写「行为不变」，夹取补上之后**变了** ——
+        ///    今天匹配的是**夹过 `[1,8]` 的费用**（见 <see cref="ClampPoolCost"/>），
+        ///    所以 `Cost = 1` 会把**费用 ≤ 1（含 0）**的卡都列出来，`Cost = 8` 会把 **≥ 8** 的都列出来）。
         ///    出处：`资料/普查产出_0923/A3_Cards页.md` §五·1 + `bundle_menus_assets_all` 的 `CardCostFilter` MB。</summary>
         public int CostMax;
 
@@ -333,6 +336,30 @@ namespace CardPresentation
 
         // ------------------------------------------------------------ 筛选
 
+        /// <summary>费用档夹取的下界 / 上界（原版 `CardCostFilter` 的 `1-` 与 `8+` 那一头）。</summary>
+        public const int PoolCostMin = 1, PoolCostMax = 8;
+
+        /// <summary>把**卡的费用**夹到 <c>[1,8]</c> —— 判据 = 原版 `CardCostFilter__FilterItem.c:15-20`
+        /// （`d:/2/tools/decomp_full/`，现读，**逐字**）：
+        /// <code>
+        /// iVar2 = *(int *)(param_2 + 0x78);   // 这张卡的 manaCost
+        /// if (iVar2 &lt; 2) iVar2 = 1;
+        /// else if (7 &lt; iVar2) iVar2 = 8;
+        /// </code>
+        /// 那两个字面量 <c>2</c> / <c>7</c> **照抄原版**（所以下面写的是 `<c>cost &lt; 2</c>` / `<c>cost &gt; 7</c>`，
+        /// ⛔ 别改写成 `&lt; PoolCostMin + 1` 之类 —— 那会让人以为边界可调，而原版是**写死的**）。
+        /// 调用链（原版）：`DeckEditingWindow.FilterToDeck()` → `CardCollectionFilterController.SetFiltersToDeck()`
+        /// → 本族各 filter 的 `FilterItem`。**收藏窗与卡组编辑共用同一份**（我们两个宿主也共用
+        /// <see cref="VisibleCards"/>）⇒ 判据只此一处，⛔ 别在宿主里再写第二份。
+        /// 🔴 **夹的是卡那一侧**：「≤1 折进第 1 档 / ≥8 折进第 8 档」正是那两档能匹配上边界卡的原因。
+        /// </summary>
+        public static int ClampPoolCost(int cost)
+        {
+            if (cost < 2) return PoolCostMin;    // 原版 `iVar2 < 2 ⇒ 1`（含 0 / 负 —— 就这一条）
+            if (cost > 7) return PoolCostMax;    // 原版 `7 < iVar2 ⇒ 8`
+            return cost;
+        }
+
         /// <summary>按当前筛选条件过一遍卡池。顺序保持卡池原序 —— **不排序**，
         /// 原版有没有排序规则没查到（见方案文档；`DeckCollectionDisplay.SaveDeckOrder` 只管卡组列表的拖拽序）。</summary>
         public List<CardDef> VisibleCards()
@@ -376,7 +403,33 @@ namespace CardPresentation
                 {
                     // `CostMax <= 0` ⇒ 只看 `Cost` 这一个值（卡组编辑那条老路）
                     int hi = f.CostMax > 0 ? f.CostMax : f.Cost;
-                    if (c.Cost < f.Cost || c.Cost > hi) continue;
+                    // 🔴🆕 **2026-10-14（账 `N10`）：比的是**夹过**的卡费（`[1,8]`），不是裸 `c.Cost`。**
+                    //   判据 = 原版 `d:/2/tools/decomp_full/CardCostFilter__FilterItem.c:15-20`（现读）：
+                    //     `iVar2 = *(int *)(card + 0x78);`（= 这张卡的 `manaCost`）
+                    //     `if (iVar2 < 2) iVar2 = 1; else if (7 < iVar2) iVar2 = 8;`
+                    //   —— 夹完**才**交给那条筛选谓词（`:22` `FUN_1817002f0(filter + 0x38, iVar2, …)`）。
+                    //   🔑 **谓词是什么，现读清了**：`CardCostFilter` 的桩是
+                    //     `class CardCostFilter : ToggleCollectionFilter&lt;RawCardScript, int&gt;`
+                    //     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardCostFilter.cs`）
+                    //     ⇒ `+0x38` = 那一族**已选中的 int 档位集**，那句就是
+                    //     **「夹过的费用 ∈ 已选档位」**。八档的 `alternativeText` 是
+                    //     `1-` / `2`…`7` / `8+`（本工程 `FilterPanelModel.CostBuckets` 实读）
+                    //     ⇒ **夹取正是为了把「≤1」折进第 1 档、「≥8」折进第 8 档** ——
+                    //     不夹的话那两档的边界卡永远匹配不上。**夹的是【卡】那一侧**，
+                    //     档位（`Cost` / `CostMax`）原版不动 ⇒ 我们这边夹的也只有 `c.Cost`。
+                    //   📐 **与我们的区间写法等价**：我们 `CostBucketHi` 给的是
+                    //     `1-` ⇒ `[1,1]` · `2`…`7` ⇒ `[n,n]` · `8+` ⇒ `[8, int.MaxValue]`
+                    //     ⇒ 夹过之后 `[1,1]` ⇔ 原值 ≤ 1、`[8,∞)` ⇔ 原值 ≥ 8（逐档都对得上）。
+                    //   📌 **可达性（我们池子实测，`RuleEngine/Resources/cards_engine.json` 1126 张）**：
+                    //     · `cost == 0` **111 张**（56 个督军 + 55 张其它：`ASH_Flickerjump` /
+                    //       `ASH56 Inspiring Legacy` 这类）⇒ 夹成 1 ⇒ 在 `1-` 档里
+                    //       **改前被筛掉（`0 < 1`）、改后列得出来**；
+                    //     · `cost >= 8` **83 张**（8…14）⇒ 夹成 8；我们 `8+` 档的上界是
+                    //       `int.MaxValue` ⇒ **这一半今天看不出差别**，公式照原版补全（铁律 11）。
+                    //   ⚠️ **本笔只改筛选口径、不改卡表**：督军 `cost = 0` 是**真值偏差**
+                    //     （真值 `2`，另一笔 `A1773` 去改）—— ⛔ 别在这里顺手改数据。
+                    int ccost = ClampPoolCost(c.Cost);
+                    if (ccost < f.Cost || ccost > hi) continue;
                 }
                 outList.Add(c);
             }

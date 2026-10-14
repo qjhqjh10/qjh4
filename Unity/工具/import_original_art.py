@@ -188,45 +188,69 @@ ART_NAME_ALIAS = {
 # ⚠️ 加条目之前**先验 PNG 和同目录 `Sprite/<同名>.json` 都在**，否则卡面会缺 rect 裁歪。
 # 🔴 **2026-10-13（第二十六会话）本表的【键】已整族换成真值 id** —— 卡 id 从 PnP 自建编号
 #   换成原版卡 SO 的 uniqueId（判据 → d:/2/远端缓存_旧profile_1013/README.md）。
+# 🔵 **2026-10-14（第三十一会话 · P1 id 置换批 · 账 `A1782`/`A1800`）本表的【键】又跟着换了一次** ——
+#   卡池里 171 张卡的 id 从「自造名样式」换成真值（GUID / 短 id），本表那 15 个键同步换算；**值一字未动**。
+#   判据 → `Unity/资料/普查产出_第三十会话/卡表块_施工设计_1014.md` §一（P1）。
 #   22 个键按「旧 id → 同名同阵营的新 id」逐条换算；**值（贴图名）与注释一字未动**。
 ART_ID_ALIAS = {
     # ---- 黑军团：4 张黑暗契约 + 天赋，原版叫「Mark of Chaos_<神>」/「Warmaster」 ----
-    'BL_Dark_Pact_of_Fate': 'CSM_BlackLegion_strat_Mark of Chaos_Tzeench',      # Dark Pact of Fate
-    'BL_Dark_Pact_of_Blood': 'CSM_BlackLegion_strat_Mark of Chaos_Khorne',       # Dark Pact of Blood
-    'BL_Dark_Pact_of_Excess': 'CSM_BlackLegion_strat_Mark of Chaos_Slaanesh',     # Dark Pact of Excess
-    'BL_Dark_Pact_of_Resilience': 'CSM_BlackLegion_strat_Mark of Chaos_Nurgle',       # Dark Pact of Resilience
-    'BL_Chosen_of_the_Four':  'CSM_BlackLegion_strat_Warmaster',                  # Chosen of the Four
+    '4a48457c24877f345be2e96f867c1e94': 'CSM_BlackLegion_strat_Mark of Chaos_Tzeench',      # Dark Pact of Fate
+    '9a2cadc64c80a6b42912441105bb1cee': 'CSM_BlackLegion_strat_Mark of Chaos_Khorne',       # Dark Pact of Blood
+    'b8e81b2fe85cda747a68c4d6326b669c': 'CSM_BlackLegion_strat_Mark of Chaos_Slaanesh',     # Dark Pact of Excess
+    '1dfc9bc738bfc4f4d93d48f165aee510': 'CSM_BlackLegion_strat_Mark of Chaos_Nurgle',       # Dark Pact of Resilience
+    '97e959444b53f424ea4285e2ca02c7e6':  'CSM_BlackLegion_strat_Warmaster',                  # Chosen of the Four
     # ---- 黑军团：这两张（`BL_Hellfire_Torch` / `BL_Hellfire_Pit`）的卡名拼写（`Hellfire` 双 l）和原版贴图名（`Helfire` 单 l）对不上 ----
     # ⚠️ 2026-09-15 改：原来这里点的是**卡池重复行** `BL_Helfire_Pit` / `BL_Helfire_Torch`；
     #    那两行已作为幽灵卡删掉（`card_stats.json` 的 `noise`），**存活的是编号型的那两行**
     #    （⚠️ 2026-10-14 · `W16` 更正：换 id 那趟（`A1758`）之后它们的 id 就是下面点名表里
     #     那两个键 **`BL_Hellfire_Torch` / `BL_Hellfire_Pit`**；原来那对编号型 id 现在指**别的卡**），
     #    所以点名表要跟着挪到它们身上，否则它们会掉到相似度兜底（0.96）去碰运气。
-    'BL_Hellfire_Torch': 'CSM_BlackLegion_strat_Helfire Torch',   # Hellfire Torch
-    'BL_Hellfire_Pit': 'CSM_BlackLegion_strat_Helfire Pit',     # Hellfire Pit
+    'BL57': 'CSM_BlackLegion_strat_Helfire Torch',   # Hellfire Torch
+    'BL58': 'CSM_BlackLegion_strat_Helfire Pit',     # Hellfire Pit
     # ---- 极限战士：原版把 Bladeguard Lieutenant 改名成了 Veteran ----
     'UM23': 'SM_UM_inf_Bladeguard Lieutenant',
     # ⚠️ 与现存卡 `Righteous Fury` **共用同一张图**（原版 00a/00b 两张天赋同一幅画，
     #    插图区指纹 2/256 vs 无关对照 90/256，2026-09-15 实测）
-    'UM_Exemplary_Warrior': 'SM_UM_strat_Righteous Fury',
+    'cc1400347b15ee3449bc18bbdb9ddec9': 'SM_UM_strat_Righteous Fury',
     'UM72': 'SM_UM_veh_Predator Destructor',
     # ⚠️ 它的图在两个**重复行**之间抢：**极限战士**那张 `Terminator`（现 id = `UM_Terminator`；
     #    ⛔ 别与**帝王之子**那张 `EC_Terminator` 混 —— 新池里叫 `Terminator` 的有两张）的子串也命中 `2nd Company Terminator`，
     #    按 id 钉死才稳（卡表把 2nd 改名成了 1st，贴图名留的还是 2nd）
     'UM_2nd_Company_Terminator': 'SM_UM_inf_2nd Company Terminator',
-    'AM_Lord_Commander': 'AstraMilitarum_strat_Righteous Gaze',
-    'DA_Master_of_Repentance': 'DarkAngels_strat_Exemplar of Hate',
+    'c06453b330af61745beb5fa567ba863e': 'AstraMilitarum_strat_Righteous Gaze',
+    '4cdc1b5f965f99945b685bca7660e9fa': 'DarkAngels_strat_Exemplar of Hate',
     # ---- 帝皇之子：4 张全是原版旧名 ----
+    # 🔴 **2026-10-15（A1770）PnP 已亲核：本表这条是对的，别照真值快照改** ——
+    #   真值 `cards_1195_2022时代.json` 里 `EC56` 的 `cardImageReference` 解析出来是
+    #   `CSM_EmperorsChildren_inf_Icon of Excess Infractor`，但那是**另一张卡（`EC9`）的图**
+    #   （`guid_map.tsv` 里同一个资产名被 `EC9` 与 `EC56` 两行同时引用 ⇒ 快照里这条是脏值）。
+    #   开 PnP 亲核：`d:/2/Warpforge部队卡片/Emperor_s Children/1督军/Warpforge_01_Lord-Kaphrael.png`
+    #   印的是**绿发、金环、紫刃**的那位 —— 与 `warlord_Lord Exultant` 那张**逐处吻合**，
+    #   与 `inf_Icon of Excess Infractor`（粉甲背罐、持枪）**完全不是一张画**。
     'EC56':  'CSM_EmperorsChildren_warlord_Lord Exultant',
-    # ⚠️ 别写成 `Threnodic Choir Flawless` 的裸子串：那个前缀还命中
-    #    `..._inf_Threnodic Choir Flawless Blade.png`（另一张卡），这里是**全名点名**才安全
-    'EC22': 'CSM_EmperorsChildren_inf_Threnodic Choir Flawless',
-    'EC_Armoury_of_Excess': 'CSM_EmperorsChildren_strat_Tools of Torture',
-    'EC_Decadent_Throne': 'CSM_EmperorsChildren_strat_Dark Prince´s Throne',  # ´ 是 U+00B4，原版就长这样
+    # 🔴 **2026-10-15（A1770）就地把这一条改了** —— 原来点的是 `..._Flawless`（不带 ` Blade`），
+    #   注释写着「`..._Flawless Blade` 是**另一张卡**」。两条都站不住：
+    #   ⓐ **两张图其实是同一幅画**：`inf_Threnodic Choir Flawless` 与
+    #      `inf_Threnodic Choir Flawless Blade` 同尺寸逐像素比 —— **NCC = 1.0000、平均绝对差 0.10**，
+    #      只有 **2 个像素**差 > 40 ⇒「另一张卡」的说法不成立（同一幅画的两个副本）；
+    #   ⓑ **真值只认 ` Blade` 那张**：`guid_map.tsv` 里 `field=cardImageReference` 且
+    #      `name=CSM_EmperorsChildren_inf_Threnodic Choir Flawless Blade` 的行**只有一条 = `EC22 Veldras the Sublime`**；
+    #      而不带 ` Blade` 的那张 **全库 0 条卡引用它**（孤儿资产）。
+    #   ⇒ 按已裁⑥（PnP 分不出两张时落「照真值快照」）取 ` Blade` 那张，
+    #      **视觉上无差别**（只差 2 个像素）—— 判据见 `资料/普查产出_第三十一会话/AA_A1770.md`。
+    'EC22': 'CSM_EmperorsChildren_inf_Threnodic Choir Flawless Blade',   # Veldras the Sublime
+    # 🔴 **2026-10-15（A1770）PnP 已亲核：本表这条是对的，别照真值快照改** ——
+    #   真值里 `EC60` 的 `cardImageReference` 解析出来是 `CSM_EmperorsChildren_dae_Blissbringer`，
+    #   同样是**另一张卡（`EC35`）的图**（同一资产名被 `EC35`/`EC60` 两行引用 ⇒ 快照里是脏值）。
+    #   开 PnP 亲核：`d:/2/Warpforge部队卡片/Emperor_s Children/5防御卡/Warpforge_62_Armoury-of-Excess.png`
+    #   印的是**摆满武器架、紫色天光的仓库**（= `strat_Tools of Torture` 那张），
+    #   与 `dae_Blissbringer` 不符（把两张各缩到 PnP 插图窗比：本表那张 NCC 0.59 / 真值那张 0.27 / 无关对照 0.42）。
+    'EC60': 'CSM_EmperorsChildren_strat_Tools of Torture',
+    'EC61': 'CSM_EmperorsChildren_strat_Dark Prince´s Throne',  # ´ 是 U+00B4，原版就长这样
     # ---- 死灵：这两张都有**重复行**（`SAU_Awakening_Obelisk` / `TL_Sporecaster_Biostructure`）----
     'SAU53': 'Necron_Sautekh_strat_Annihilation Command',
     'SAU59': 'Necron_Sautekh_strat_Awakening Obelisk',
-    'TL_Protective_Bio_structure':  'Tyranid_Leviathan_strat_Sporecaster Biostructure',
+    'TL55':  'Tyranid_Leviathan_strat_Sporecaster Biostructure',
     # ---- 钛：按卡面改过名（`ART_NAME_ALIAS` 那条也覆盖它，这里按 id 再钉一遍）----
     'TAU18': 'Tau_Empire_inf_Fire Warrior Sniper',
     # ---- 修女会：**原版旧名和现名错开了一位**（2026-09-15 用户指出后实测）----
@@ -234,7 +258,7 @@ ART_ID_ALIAS = {
     #   贴图 `strat_Purgator Mirabilis`    画的是「金色赎罪引擎」      = 现卡 `Righteous Repugnance`（PnP 06）
     # ⚠️ 教训：**贴图文件名是原版的旧名，不能拿它当现卡名的索引** —— 这正是那 21 张里 15 张「缺图」的根因。
     #   名字对不上时必须**开图看**（铁律 7），不能拿「没有同名文件」当成「原版没有这张图」。
-    'SOR_Righteous_Repugnance':  'Sororitas_strat_Purgator Mirabilis',       # Righteous Repugnance（原名对应的是别人）
+    'f104d4c21abe84546abc9365d9eda8dd':  'Sororitas_strat_Purgator Mirabilis',       # Righteous Repugnance（原名对应的是别人）
     'SOR44': 'Sororitas_strat_Righteous Repugnance',     # Moment of Grace（原名被 `SOR_Righteous_Repugnance` 占了）
     # ---- 星界军：**原版把这张督军画了两张图**，子串匹配分不出哪张是主立绘（2026-09-16）----
     #   目录里同时有 `AstraMilitarum_warlord_Ursula Creed.png`（灰金发、年老女性、持动力锤）
@@ -842,7 +866,7 @@ ALT_ART = [
     # (引擎卡 id, 风格, assets_full 下的相对路径)
     ('AM2',                   'AA_HB', 'bundle_astramilitarumcardassets_assets_all/Texture2D/AA_HB_AstraMilitarum_war_Ursula Creed.png'),
     ('BL34',                   'AA_HB', 'bundle_chaosspacemarinesblacklegioncardassets_assets_all/Texture2D/AA_HB__BlackLegion_war_Abaddon the Despoiler.png'),
-    ('DA_Azrael',                   'v2',    'bundle_spacemarinesdarkangelscardassets_assets_all/Texture2D/DarkAngels_AA_warlord_Azrael_v2.png'),
+    ('DA1',                   'v2',    'bundle_spacemarinesdarkangelscardassets_assets_all/Texture2D/DarkAngels_AA_warlord_Azrael_v2.png'),
     ('SAU35',                  'AA_HB', 'bundle_necronssautekhcardassets_assets_all/Texture2D/Necron_Sautekh_warlord_Imotekh the Stormlord_AA_HB.png'),
     ('GOF28',                  'AA_HB', 'bundle_orksgoffcardassets_assets_all/Texture2D/AA_HB_Ork_Goff_war_Ghazghkull Thraka.png'),
     ('SW1',                   'AA_HB', 'bundle_spacemarinesspacewolvescardassets_assets_all/Texture2D/AA_HB_SpaceWolves_war_Logan Grimnar.png'),
@@ -1206,8 +1230,21 @@ def portrait_jobs():
             print(f'🔴 缺目录：{folder} ⇒ **{fac} 这一整个阵营的插图这次全都没导**'
                   f'（它们也不会进 `配不上` 清单 —— 下游的 `card_cutouts.json` 会少掉它们）')
             continue
+        # 🔴 **2026-10-15（A1770）再加一条排除：督军异画（`ALT_ART` 那 7 张）**
+        #   原来只排 `Cardframe`，异画就留在候选池里；而下面那个排序键是「取更短的名字」，
+        #   7 张异画里有 6 张恰好比真立绘名字长（靠运气躲过），
+        #   **只有 `SW1 Logan Grimnar` 那张短一个字符**
+        #   （`AA_HB_SpaceWolves_war_Logan Grimnar` 30 < `SM_SpaceWolves_warlord_Logan Grimnar` 31）
+        #   ⇒ 它一直是被异画顶掉的。判据（开 PnP 成品图亲核，`A1770`）：
+        #   `d:/2/Warpforge部队卡片/Space Wolves/1督军/Warpforge_01_Logan-Grimnar.png`
+        #   印的是**扛发光斧、戴狼皮兜帽**的那张（= `SM_SpaceWolves_warlord_Logan Grimnar`），
+        #   而异画那张画的是「持狮盾、站在岩石上」的另一个人 —— 与 PnP 不符。
+        #   做法 = 把 `ALT_ART` 表里那 7 个**文件名**整批从候选池里剔掉
+        #   （异画照旧由 `altart_jobs()` 走 `altarts/alt_<id>.png` 那条独立通道导出，不受影响）。
+        _altart_names = {os.path.basename(_rel) for _i, _s, _rel in ALT_ART}
         files = [p for p in glob.glob(os.path.join(folder, '*.png'))
-                 if 'Cardframe' not in os.path.basename(p)]
+                 if 'Cardframe' not in os.path.basename(p)
+                 and os.path.basename(p) not in _altart_names]
         # ⚠️ 池子里放**整条卡**而不是只放名字 —— 文件名要用 `id`（见下面那段注释）
         pool = [c for c in cards if c['faction'] == fac and c.get('id')]
         nf = {p: norm(os.path.basename(p)[:-4]) for p in files}
@@ -1261,12 +1298,24 @@ def portrait_jobs():
                 if p in taken:
                     continue
                 if n in nf[p] or (n_alias and n_alias in nf[p]):
-                    # 排序键：**先看类型前缀对不对，再看文件名短不短**（短的 = 更具体的）。
-                    # ⚠️ 类型这一条是必需的：原版对同一张图给了 `defence_` 和 `strat_` **两个变体**
-                    #    （`GenestealerCults_defence_Alien Idol` vs `..._strat_Alien Idol`），
-                    #    光按「谁短」会挑成 `strat_` —— 而 PnP 把 Alien Idol 印在 `5防御卡/` 里，
-                    #    它是**防御卡**（2026-09-15 实测：改成只看长度会让 `GSC63`/67 配错变体）。
-                    key = (1 if is_de != ('defence' in nf[p]) else 0, len(nf[p]))
+                    # 排序键：**只看文件名短不短**（短的 = 更具体的）。
+                    # 🔴 **2026-10-15（A1770）就地把「类型前缀」那一位撤掉了** ——
+                    #    原来这里是 `(1 if is_de != ('defence' in nf[p]) else 0, len(nf[p]))`，
+                    #    理由是「PnP 把 Alien Idol 印在 `5防御卡/` ⇒ 该取 `defence_` 变体」。
+                    #    **那条理由不成立**：全库只有 `Genestealers`(3 张) 与 `AstraMilitarum`(3 张)
+                    #    有 `defence_` 变体，而 AM 那 3 张**没有 `strat_` 孪生**（取谁都一样）
+                    #    ⇒ 这条规则**唯一会生效的地方就是 GSC 那 3 张**。而：
+                    #    · `GSC63 Alien Idol` / `GSC65 Pilfered Supplies` 的 `defence_`/`strat_`
+                    #      **逐字节相同**（md5 `d9d608b8821df4573c0dfde18a606937` / `84905e4f4b954b3050a149b4bed362bf`）⇒ 取谁都一样；
+                    #    · `GSC64 Rusted Vents` 那两张**只差 516 个像素**（同一幅画、改动集中在一个细节），
+                    #      **按 PnP 实测取 `strat_`**：把两张各缩到 PnP 插图窗（t=586）对齐后，
+                    #      在这 516 个差异像素上比 —— `strat_` 与 PnP 的平均 |Δ| = **21.5**（中位 9.8），
+                    #      `defence_` = **94.5**（中位 96.5）⇒ **PnP 印的是 `strat_`**
+                    #      （判据：`d:/2/Warpforge部队卡片/Genestealer Cult/5防御卡/Warpforge_68_Rusted-Vent.png`
+                    #       x 326..658 · y 382..553 那处「通风口里的发光眼」是**金黄**，`defence_` 那张是**红**）。
+                    #    ⇒ 撤掉类型那一位后「谁短取谁」= `strat_`，与真值快照（GSC63/64/65 全指 `strat_`）一致。
+                    #    ⚠️ `is_de` 因此不再参与排序（变量保留、上面那句取值的注释仍有效）。
+                    key = (len(nf[p]),)
                     if hit is None or key < hit_key:
                         hit, hit_key = p, key
             if hit is not None:

@@ -1224,18 +1224,18 @@ public static class DeckScene
                 //   · `UM_Smite`                  真值 `inv=10 show=0`（`NotInInventory`）⇒ **不能进**
                 //     🧨 **灭自证①**：旧口径按 `Subtype`（`Psychic Power`）判它是**能进**的 ——
                 //        谁把实现改回「按兵种猜」，这一条立刻红。
-                CheckTrue(byId("UM_Smite") != null && DeckRules.CannotAddToDeck(byId("UM_Smite")),
+                CheckTrue(byId("cf0b346f70e748c4bbfc4dc03ab39ead") != null && DeckRules.CannotAddToDeck(byId("cf0b346f70e748c4bbfc4dc03ab39ead")),
                           "★（A1798）`UM_Smite`（原版 `inventoryOptions=10`）⇒ **不能进卡组**"
                         + "｜🧨 旧口径（按兵种）放它过 ⇒ 改回旧口径这条红");
                 //   · `EC72` Antrak Silk           真值 `inv=10 show=0`（药剂）
-                CheckTrue(byId("EC72") != null && DeckRules.CannotAddToDeck(byId("EC72")),
+                CheckTrue(byId("5a8a11b2a89796f48b34fbec8db6f452") != null && DeckRules.CannotAddToDeck(byId("5a8a11b2a89796f48b34fbec8db6f452")),
                           "★（A1798）`EC72` Antrak Silk（原版 `inventoryOptions=10`）⇒ **不能进卡组**");
                 //   · `DA_Convoke_the_Circle`      真值 `inv=10` **`show=5`**（秘仪）
                 //     🧨 **灭自证②**：原版 `CardDeck__CanAddCard.c:40` 把两条写成 `&&` ——
                 //        照抄那个变体的话，这张 `show=5` 的卡会被**放行** ⇒ 这一条同时钉住
                 //        「用的是 `||` 那一版」与「`show` 那一条也判了」。
-                CheckTrue(byId("DA_Convoke_the_Circle") != null
-                          && DeckRules.CannotAddToDeck(byId("DA_Convoke_the_Circle")),
+                CheckTrue(byId("3e99603a7b7b2c54c8f1ad40250ee2ae") != null
+                          && DeckRules.CannotAddToDeck(byId("3e99603a7b7b2c54c8f1ad40250ee2ae")),
                           "★（A1798）`DA_Convoke_the_Circle`（`inv=10` **`show=5`**）⇒ **不能进卡组**"
                         + "｜🧨 照抄 `CanAddCard` 那个 `&&` 变体会放行它");
                 //   · `AM60` Timely Reinforcements 真值 `inv=5`（`CantAddToDeck`）**但它是防御卡**
@@ -1321,6 +1321,99 @@ public static class DeckScene
             foreach (var c in s.VisibleCards())
                 if (c.Cost != 3) { Check(true, false, "费用筛选没生效"); break; }
             CheckTrue(s.VisibleCards().Count > 0, "按费用 3 筛能得到卡");
+
+            // ---- 🆕 2026-10-14（账 `N10`）：费用档把**卡的费用**夹到 `[1,8]` ----
+            //  判据 = `d:/2/tools/decomp_full/CardCostFilter__FilterItem.c:15-20`（现读，逐字）：
+            //    `iVar2 = *(int *)(param_2 + 0x78);`   // 这张卡的 `manaCost`
+            //    `if (iVar2 < 2) { iVar2 = 1; } else if (7 < iVar2) { iVar2 = 8; }`
+            //  —— **夹完才**交给那条筛选谓词（`:22`）⇒ 落点 = `DeckEditorState.VisibleCards()` 里那句
+            //    `int ccost = ClampPoolCost(c.Cost);`（`DeckEditorState.cs:431`）。
+            //  🔑 谓词 = 「**夹过的费用 ∈ 已选档位**」（`CardCostFilter : ToggleCollectionFilter<RawCardScript,int>`
+            //     ⇒ `+0x38` 是已选中的 int 档位集）—— 我们那八档（`1-` / `2`…`7` / `8+`，
+            //     `FilterPanelModel.CostBucketHi` 实读）的边界卡正是靠夹取才匹配得上。
+            //  ⚠️ **夹的是【卡】那一侧**，档位（`Cost` / `CostMax`）不夹 —— 照原版。
+            //  🔴 **判别式是一组**：②③ 方向相反（一个要收 0 费卡、一个不许收）⇒ 任何**单一**错实现
+            //     不可能同时满足；① 是**字面量**锚（②③ 的期望值是用 `ClampPoolCost` 现算的，
+            //     把夹取函数本身改坏时两边会一起动 ⇒ 只有 ① 会红）；⑤ 单独钉**上夹**。
+            //  ⚠️ ④ 那一格**没有鉴别力**（裸值 ≥ 8 的本来就 ≥ 8）—— **如实标**，见那一行。
+
+            // ① `ClampPoolCost` **逐值 8 格**（照原版那两行字面量 `2` / `7`）
+            Check(DeckEditorState.ClampPoolCost(0), 1, "★ N10 ①：`0` 费 ⇒ **1**（原版 `iVar2 < 2 ⇒ 1`）");
+            Check(DeckEditorState.ClampPoolCost(1), 1, "★ N10 ①：`1` ⇒ **1**");
+            Check(DeckEditorState.ClampPoolCost(2), 2, "★ N10 ①：`2` ⇒ **2**（下夹的边界：`< 2` **不含** 2）");
+            Check(DeckEditorState.ClampPoolCost(7), 7, "★ N10 ①：`7` ⇒ **7**（上夹的边界：`7 < iVar2` **不含** 7）");
+            Check(DeckEditorState.ClampPoolCost(8), 8, "★ N10 ①：`8` ⇒ **8**");
+            Check(DeckEditorState.ClampPoolCost(9), 8,
+                  "★ N10 ①：`9` ⇒ **8**｜🧨 去掉上夹那一条（`cost > 7 ⇒ PoolCostMax`）⇒ 本行实得 **9**");
+            Check(DeckEditorState.ClampPoolCost(14), 8, "★ N10 ①：`14` ⇒ **8**（我们池里最大的费用）");
+            Check(DeckEditorState.ClampPoolCost(-3), 1, "★ N10 ①：`-3` ⇒ **1**（负数与 0 同一条路：`< 2`）");
+
+            // ② `1-` 档（= `[1,1]`）：**夹过之后 == 1** 的都进来 ⇒ 收的是费用 `{0,1}` 那一批
+            f = DeckFilter.None; f.Cost = 1; f.CostMax = 1;
+            s.SetFilter(f);
+            int got1 = s.VisibleCards().Count, raw1 = 0, want1 = 0;
+            foreach (var c in s.Pool)
+            {
+                if (c.Cost == 1) raw1++;
+                if (DeckEditorState.ClampPoolCost(c.Cost) == 1) want1++;
+            }
+            Check(got1, want1,
+                  "★ N10 ②：`1-` 档 = **夹过 `[1,8]` 之后 == 1** 的张数（" + want1 + "）"
+                + "｜🧨 用裸 `c.Cost` 比（= 去掉夹取）⇒ 本行实得 " + raw1);
+            CheckTrue(want1 > raw1,
+                  "★ N10 ② 灭自证（与 ③ **方向相反**）：池里**有 0 费卡** ⇒ 夹过之后严格多于裸值（裸 "
+                  + raw1 + " < 夹后 " + want1 + "）—— 把 `ClampPoolCost` 改成恒等 / 删掉夹取 ⇒ 本行红");
+
+            // ③ `2` 档（= `[2,2]`）：**一张 0/1 费卡都不许收**（它们被夹成 1、不进第 2 档）
+            f = DeckFilter.None; f.Cost = 2; f.CostMax = 2;
+            s.SetFilter(f);
+            int got2 = s.VisibleCards().Count, raw2 = 0, want2 = 0;
+            foreach (var c in s.Pool)
+            {
+                if (c.Cost == 2) raw2++;
+                if (DeckEditorState.ClampPoolCost(c.Cost) == 2) want2++;
+            }
+            Check(got2, want2,
+                  "★ N10 ③：`2` 档 = **夹过之后 == 2** 的张数（" + want2 + "）"
+                + "｜🧨 把夹取写成「≤ 2 ⇒ 1」⇒ 本行实得 **0**（第 2 档一张都匹配不上）");
+            CheckTrue(want2 == raw2,
+                  "★ N10 ③（与 ② 配对）：**夹过 == 2 的张数正好等于裸 == 2 的张数（" + raw2 + "）** —— "
+                  + "② 要收 0 费卡、③ 不许收 ⇒ 单一错实现不可能两格一起绿");
+
+            // ④ `8+` 档（= `[8, int.MaxValue]`）—— ⚠️ **这一格没有鉴别力**：
+            //    裸值 ≥ 8 的本来就 ≥ 8 ⇒ 去掉上夹照样绿。**如实标**：它钉的是「这一档不漏卡」。
+            f = DeckFilter.None; f.Cost = 8; f.CostMax = int.MaxValue;
+            s.SetFilter(f);
+            int got8 = s.VisibleCards().Count, want8 = 0;
+            foreach (var c in s.Pool)
+                if (DeckEditorState.ClampPoolCost(c.Cost) >= 8) want8++;
+            Check(got8, want8, "★ N10 ④：`8+` 档 = **夹过之后 ≥ 8** 的张数（" + want8 + "）"
+                + "（费用 8…14 那一批；⚠️ **无鉴别力** —— 上夹在这一档看不出来）");
+
+            // ⑤ **上夹单独钉一格**：`CostMax = 8`（我们 UI 到不了这一档 —— `8+` 给的是 `int.MaxValue`）
+            //    ⇒ `[8,8]`：夹过 == 8 的都要收（裸 8/9/14 全被夹成 8）。
+            f = DeckFilter.None; f.Cost = 8; f.CostMax = 8;
+            s.SetFilter(f);
+            int gotC = s.VisibleCards().Count, rawC = 0, wantC = 0;
+            foreach (var c in s.Pool)
+            {
+                if (c.Cost == 8) rawC++;
+                if (DeckEditorState.ClampPoolCost(c.Cost) == 8) wantC++;
+            }
+            Check(gotC, wantC,
+                  "★ N10 ⑤：`[8,8]` = **夹过 == 8** 的张数（" + wantC + "）"
+                + "｜🧨 去掉**上夹**（`cost > 7 ⇒ PoolCostMax` 那一条）⇒ 本行实得 " + rawC);
+            CheckTrue(wantC > rawC,
+                  "★ N10 ⑤ 判别式：池里**有费用 > 8 的卡** ⇒ 夹过 == 8 严格多于裸 == 8（裸 "
+                  + rawC + " < 夹后 " + wantC + "）");
+
+            // ⑥ 回归：`Cost = -1` = **不限**（`VisibleCards` 里那句 `if (f.Cost >= 0)`）⇒ 全池一张不少
+            f = DeckFilter.None; f.Cost = DeckEditorState.AnyCost;
+            s.SetFilter(f);
+            Check(s.VisibleCards().Count, s.PoolCount,
+                  "★ N10 ⑥ 回归：`Cost = -1`（不限）⇒ 命中全池 —— ⛔ 夹取只在 `f.Cost >= 0` 那一段里跑，"
+                + "别把它提到那个 `if` 前面去");
+            s.SetFilter(DeckFilter.None);
 
             f = DeckFilter.None; f.Name = "autarch";
             s.SetFilter(f);
@@ -2571,6 +2664,65 @@ public static class DeckScene
                         _rt.RefreshAll();
                         Check(_rt.State.Deck.WarlordId, wl, "（把督军放回去 —— 后面的断言仍按原状态跑）");
                     }
+                }
+                // 🧨 **本节的判别式（每格各挡一种改坏法，⛔ 只断「现在对」= 自证）**：
+                //    ① 有督军 ⇒ 显示            —— 挡「探针落在带口外」/「这一格根本没建」（`null` 也算红）
+                //    ② 没督军 ⇒ 不显示 + 点不到 —— 挡「改前那种恒显示」（本条的靶心）
+                //    ② 反向控制 Army 族照旧活  —— 挡「整栏一起 SetActive(false)」那种改法
+                //    ③ 督军放回 ⇒ 显示回来      —— 挡「关掉就再也点亮不回来」那种改法
+                // 🔴 **2026-10-14（账 `N14`）：卡组没有督军 ⇒ 费用那一行（`Energy Cost` 小标题 + 8 档）整个不显示。**
+                //    判据 = 原版 `CardCostFilter__SetFilterToDeck.c:13-23` 那句
+                //    `SetActive(self.gameObject, deck.deckHero != null)`（整节点一关 ⇒ 其下
+                //    `Title` 与 `Content` 一起不画）；收藏窗那两份恒 active（全库只有
+                //    `DeckEditingWindow.FilterToDeck` 调 `SetFiltersToDeck`）⇒ 本条**只**该在卡组编辑这里成立。
+                //    ⚠️ 断 **`activeSelf`**（我们自己 SetActive 的那一层）：抽屉是当场 `UiToggleFilters()`
+                //       打开的（前提那条钉着），而 `ApplyDrawerSlide` 只开关**容器**、不碰格子树
+                //       ⇒ 父链必定活着，不需要退到 `activeInHierarchy`。
+                //        （本文件 `FilterTitleLabel` 走的是自己的 `FindDeep` = `GetComponentsInChildren(true)`
+                //          ⇒ 关掉的 `flt_title_*` 仍取得到，`tOff != null` 这半个条件是成立的。）
+                //    ⚠️ 探针**只能用 `CostBuckets[0]`（`$cost:1`）**：滚动位 0 时第 2 排（档 5~8）**整块在带口外**
+                //       ⇒ 那些格子本来就 `SetActive(false)`（`ClipCellToBand`），拿它们断这条是假绿。
+                {
+                    string wlK = _rt.State.Deck.WarlordId;
+                    bool wasOpen = _rt.FiltersOpen;
+                    CheckTrue(!string.IsNullOrEmpty(wlK),
+                              "（前提）此刻卡组**有督军**（下面两态都建立在「有督军」这个基线上）");
+                    if (!wasOpen) _rt.UiToggleFilters();
+                    _rt.UiScrollFilters(-1e6f);
+                    CheckTrue(_rt.FiltersOpen, "（前提）筛选栏打开（关着时 `_fltCells` 是空的，读不到格子）");
+                    string ck = "$cost:" + FilterPanelModel.CostBuckets[0].Lo;      // `$cost:1` —— 带口内那一排
+                    // ---- ① 有督军 ⇒ 显示（基线与「探针确实在带口内」一并钉住）----
+                    var qOn = _rt.UiFilterCellQuad(ck);
+                    var tOn = FilterTitleLabel("Energy Cost");
+                    CheckTrue(qOn != null && qOn.gameObject.activeSelf,
+                              "★ N14 ①：**有督军**时费用那一格**显示**（顺带证明探针不在带口外）");
+                    CheckTrue(tOn != null && tOn.gameObject.activeSelf,
+                              "★ N14 ① ……`Energy Cost` 小标题也显示");
+                    // ---- ② 摘掉督军 ⇒ 整行不显示 ----
+                    _rt.State.ClearWarlord();
+                    _rt.RefreshAll();
+                    var qOff = _rt.UiFilterCellQuad(ck);
+                    var tOff = FilterTitleLabel("Energy Cost");
+                    CheckTrue(qOff != null && !qOff.gameObject.activeSelf,
+                              "★★ N14 ②：**没有督军** ⇒ 费用那一格**不显示**"
+                            + "（改前恒显示 ⇒ 这条红；判据 `SetActive(deckHero != null)`）");
+                    CheckTrue(!_rt.UiDrawerHitRect(ck, out _, out _, out _, out _),
+                              "★★ N14 ② ……而且**点不到**（原版整节点一关 ⇒ 子树连射线一起没；"
+                            + "⛔ 不许留「看不见却点得动」的空格）");
+                    CheckTrue(tOff != null && !tOff.gameObject.activeSelf,
+                              "★★ N14 ② ……`Energy Cost` 小标题也不显示（原版 `Cost Filter` 那两个子件一起不画）");
+                    var qArmy = _rt.UiFilterCellQuad("$fac:" + _rt.State.Factions()[0]);
+                    CheckTrue(qArmy != null && qArmy.gameObject.activeSelf,
+                              "★ N14 ② 反向控制：**同一拍**里 `Army` 那一族照旧活着"
+                            + "（「整栏一起关掉」那种改法会被这条抓住）");
+                    // ---- ③ 放回督军 ⇒ 显示回来（免得「关掉就再也回不来」也绿）----
+                    _rt.State.SetWarlord(wlK);
+                    _rt.RefreshAll();
+                    var qBack = _rt.UiFilterCellQuad(ck);
+                    CheckTrue(qBack != null && qBack.gameObject.activeSelf,
+                              "★ N14 ③：督军放回去 ⇒ 费用那一行**显示回来**");
+                    Check(_rt.State.Deck.WarlordId, wlK, "（把督军原样放回 —— 后面的断言仍按原状态跑）");
+                    if (!wasOpen) _rt.UiToggleFilters();     // 收回去：本节不许改后面用例的初态
                 }
             }
 
@@ -4134,7 +4286,7 @@ public static class DeckScene
                 {
                     string wlProbe = state.Deck.WarlordId, dfProbe = state.Deck.DefensiveId;
                     state.Deck.WarlordId = "ASH83";      // 费用 6 · SaimHann
-                    state.Deck.DefensiveId = "DA_Plasma_Generator";           // 费用 3 · `Plasma Generator`
+                    state.Deck.DefensiveId = "DA61";           // 费用 3 · `Plasma Generator`
                     _rt.UiScrollDeck(-9999f);
                     var pr = _rt.DeckEntries();
                     string p0 = (pr.Count > 0 && pr[0] != null) ? pr[0].Id : "<空>";
@@ -4142,7 +4294,7 @@ public static class DeckScene
                     Check(p0, "ASH83",
                           "★ 探针：**督军位那张（费用 6）钉在第 0 行**（`DeckEntries` 前两行按 `WarlordId` / `DefensiveId` 取卡、不进排序）"
                         + "｜🧨 把它也丢进 `cards.Sort` ⇒ 它按费用 6 被排到后面去 ⇒ 红");
-                    Check(p1, "DA_Plasma_Generator",
+                    Check(p1, "DA61",
                           "★ 探针：**防御位那张（费用 3）钉在第 1 行**｜🧨 同上 ⇒ 红");
                     bool tail = pr.Count > 2 && pr[2] != null;
                     int c2 = tail ? pr[2].Cost : -1;

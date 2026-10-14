@@ -12724,6 +12724,180 @@ public static class BattleScene
                       "★ 反例：正文里没有记号 ⇒ `Rewrite` 原样返回、不塞 link");
             }
 
+            // ②·D 🆕 2026-10-15（`AF` 波落地；四条 + 判别式由 `AC` 写好）：**官方记号渲染** ——
+            //      `Loc.BulkOr` 原来那道「值里含 `[[`/`((` ⇒ 当取不到」的闸**已拆**，
+            //      新判据 = 「**渲完还有没有记号**」（先过 `CardIcons.RewriteMarks`、渲不掉才回兜底 + 出声）。
+            //      逐条出自 `资料/普查产出_第三十一会话/AC_Loc记号闸.md` §五；实现 → `Core/Loc.cs:2697-2765`。
+            //      🔴 **落点为什么选这里**（`AC` 只给 ④ 指定了本节）：本节已被 ②·B 那条 `withLink > 100`
+            //      证明 `CardIcons` 的 sprite asset **是活的** —— ① 里「`Atlas_trait_icon_stun` 那张图在场」
+            //      才判得动（放到不渲卡面的宿主里，资源没加载时这条会**假红**）。
+            {
+                // （前提）本段靠的是 15c 开头摆的中文档（`:12592-12593`）—— ③ 钉的中文值只在中文档成立。
+                Check(Loc.Current == AvailableLanguages.Chinese,
+                      "（前提）本段跑在中文档上（③ 的中文期望值只在这里成立）—— 现得 " + Loc.Current);
+
+                Loc.ResetBulkWarnedForTest();   // ⓪ 摆基线（只清去重表，⛔ 不动 PlayerPrefs）
+
+                // ① 正路：拆闸前被整条挡掉的值，现在**必须渲染出来**，且一个记号都不许留
+                string markStun = Loc.BulkOr("Modular_Description/Stun_an_enemy", "<FALLBACK>");
+                Check(markStun != "<FALLBACK>"
+                      && markStun.IndexOf("[[", System.StringComparison.Ordinal) < 0
+                      && markStun.IndexOf("<sprite name=\"Atlas_trait_icon_stun\">", System.StringComparison.Ordinal) >= 0,
+                      "★ 拆闸后：`Modular_Description/Stun_an_enemy` 必须**渲染出来**"
+                      + "（记号 0 个 + 眩晕那张图在场）——实得：" + markStun);
+
+                // ② 判别式（灭自证）：同一口对【渲染不掉】的那条**必须回兜底**。
+                //    ①② 不可能被**同一份实现**同时满足 —— 「一律渲染」让 ② 红、「一律回兜底」让 ① 红。
+                //    ⚠️ ② 的**前提**（现读）：`Card_Trait/tainted` 与 `Atlas_trait_icon_tainted` 两边都缺。
+                //    将来谁把 `tainted` 补上，这条要**换一个同类值**（同类候选 `Modular_Description/Maintenance_x`），
+                //    ⛔ 不是把断言删掉。
+                Check(Loc.BulkOr("Modular_Description/Duplicitous", "<FALLBACK>") == "<FALLBACK>",
+                      "★ 判别式：值里那条 `[[tainted]]` 本地既无词条、也无字形 ⇒ 必须**回兜底**"
+                      + "（⛔ 不许把 `[[tainted]]` 原样印到界面上）");
+
+                // ③ 不带记号的值**逐字不变**（拆闸不许动这条路）。
+                //    期望值 = `Resources/official_names.json` 里 `Achievements/Types/Battle` 的 zh 列**现读** = 「战斗」。
+                //    ⛔ 别写成「对战」—— `AC` 原稿那两字后面自己批了「以现读表为准」，现读是「战斗」。
+                string markAch = Loc.BulkOr("Achievements/Types/Battle", "<F>");
+                Check(markAch == "战斗",
+                      "不带记号的值与拆闸前逐字相同（`Achievements/Types/Battle` 的 zh 列 = 「战斗」）"
+                      + "—— 实得「" + markAch + "」");
+
+                // ④ 卡面那一层：**全池** `descZh` 过 `CardIcons.Rewrite` 之后不许再出现 `((`/`[[`/`$$`。
+                //    （`AC` 原稿是**单张点名**（`Howling Banshee`，本段照抄那一条）；另加的**全池**那一扫是
+                //     判别式：单张贴「`HasOfficialMarks(...) == false`」在**池里一张带记号的卡都没有**时
+                //     也会绿 = 空转 ⇒ 先数「带记号的张数」当前提。）
+                {
+                    int faceMarked = 0, faceResidual = 0; string faceFirst = null;
+                    CardDef faceHb = null;
+                    foreach (var c in RuleEngine.CardDatabase.Load())
+                    {
+                        if (c == null) continue;
+                        if (c.Name == "Howling Banshee") faceHb = c;
+                        if (string.IsNullOrEmpty(c.DescZh) || !CardIcons.HasOfficialMarks(c.DescZh)) continue;
+                        faceMarked++;
+                        string rw = CardIcons.Rewrite(c.Id, CardIcons.DescZhField, c.DescZh);
+                        if (CardIcons.HasOfficialMarks(rw))
+                        {
+                            faceResidual++;
+                            if (faceFirst == null) faceFirst = c.Id + " " + c.Name + " ⇒ " + rw;
+                        }
+                    }
+                    Check(faceMarked > 100,
+                          $"★（前提）卡池 `descZh` 里**带官方记号**的卡 **{faceMarked} 张**"
+                          + "（没有这一条，下面那条「0 张残留」就是空转）");
+                    Check(faceResidual == 0,
+                          "★ 卡面 ④：全池 `descZh` 过 `CardIcons.Rewrite` 后**一张都不许残留记号**"
+                          + $"（带记号的 {faceMarked} 张 / 残留 {faceResidual} 张"
+                          + (faceFirst == null ? "）" : "，首例 " + faceFirst + "）"));
+                    // `AC` 原稿点的那一张（`descZh` = `[[waystone]]。[[flank]]。[[rally]]：((Stun_an_enemy))`）
+                    if (faceHb == null) Check(false, "卡池里找不到 `Howling Banshee`（④ 的前提）");
+                    else
+                    {
+                        Check(CardIcons.HasOfficialMarks(faceHb.DescZh),
+                              "（前提）`Howling Banshee` 的 `descZh` 确实带记号 —— 实得「" + faceHb.DescZh + "」");
+                        string hbRw = CardIcons.Rewrite(faceHb.Id, CardIcons.DescZhField, faceHb.DescZh);
+                        Check(!CardIcons.HasOfficialMarks(hbRw),
+                              "★ 卡面 `Howling Banshee`（`" + faceHb.Id + "`）：记号必须**全部渲染掉**"
+                              + "（拆闸前这条必红）—— 实得「" + hbRw + "」");
+                    }
+                }
+            }
+
+            // ②·E 🆕 2026-10-15（`AH` 笔）：**`<br>` 是【换行】，不是会印出来的四个字符**。
+            //   `AD` 那笔的「顺手发现③」记的是「全仓 0 处处理 `<br>` ⇒ 卡面会**原样印出来**」
+            //   —— **那条不成立**：`<br>` **根本不经过我们的代码**，是 **TMP 自己的解析器**把它换成换行。
+            //     · `Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TMP_Text.cs:2277-2296`
+            //       （`PopulateTextProcessingArray()` 里 `if (c == '<' && m_isRichText)` 之后
+            //        `case MarkupTag.BR:` ⇒ 塞一个 `unicode = 10` 的字符元素、`readIndex += 3`）
+            //     · 字面量表 `TMP_RichTextTagsCommon.cs:133`：`BR = 2256,  // <br> Line Feed (LF) \u000A`
+            //     · 原版侧也是**原样交给 TMP**：全量反编译 `d:/2/tools/decomp_full/` 里 `<br>` **0 命中**
+            //       （`ModifyLocalization` 那四支只管 `((…))` / `$$…$$` / `[[…]]` / `(N)`）
+            //     · 铁律 7 人眼判据：PnP 成品卡面印的就是两段 ——
+            //       `d:/2/Warpforge部队卡片/Aeldari/4计策/Warpforge_52_Cosmic-Serpent.png`、以及
+            //       `…/Aeldari/3部队/Warpforge_7_Guardian-Defender.png`（`Waystone.` 与 `Shuriken 2`
+            //       各占一行，而上一行右边还空着一大片 ⇒ 是**显式断行**、不是折行兜出来的）。
+            //   ⇒ 本段钉两件：① 数据里的 `<br>` 必须**活着穿过** `CardIcons.Rewrite`；
+            //                ② **TMP 收到带 `<br>` 的串必须真的多出一行**（且与 `\n` **同粒度**）。
+            //   🔴 **判别式**（结构上不可能同时满足）：
+            //     · 谁往链子里加一刀把 `<br>` 剥掉 / 转义成 `&lt;br&gt;` / 折行时把它掐成两半
+            //       ⇒ ① 的处数掉下来、② 的 `lineCount` 回落成 1 ⇒ **两条一起红**；
+            //     · 谁把 TMP 的富文本关了 ⇒ ② 红（`<sprite>` 那批也一起红）；
+            //     · 谁把 `StripTags` 那类「一律剥掉」搬上卡面这条路 ⇒ ① 红。
+            {
+                int Cnt(string s, string sub)
+                {
+                    int n = 0, i = 0;
+                    while ((i = s.IndexOf(sub, i, System.StringComparison.Ordinal)) >= 0) { n++; i += sub.Length; }
+                    return n;
+                }
+
+                int brCards = 0, brBefore = 0, brAfter = 0; string brFirst = null;
+                foreach (var c in RuleEngine.CardDatabase.Load())
+                {
+                    if (c == null || string.IsNullOrEmpty(c.DescZh)) continue;
+                    int nb = Cnt(c.DescZh, "<br>");
+                    if (nb == 0) continue;
+                    brCards++; brBefore += nb;
+                    int na = Cnt(CardIcons.Rewrite(c.Id, CardIcons.DescZhField, c.DescZh), "<br>");
+                    brAfter += na;
+                    if (na != nb && brFirst == null) brFirst = c.Id + " " + c.Name + "：" + nb + "→" + na;
+                }
+                Check(brCards > 20,
+                      $"★（前提）卡池 `descZh` 里带 `<br>` 的卡 **{brCards} 张 / {brBefore} 处**"
+                      + "（没有这一条，下面那条「一处都不许少」就是空转）");
+                Check(brAfter == brBefore,
+                      "★ ① 数据侧：`<br>` 必须**一处不少地**穿过 `CardIcons.Rewrite`"
+                      + $"（改前 {brBefore} 处 / 改后 {brAfter} 处"
+                      + (brFirst == null ? "）" : "，首例 " + brFirst + "）"));
+
+                // ② 渲染侧：拿**真的 TMP** 量 `lineCount`。
+                //    ⚠️ 建法与 `Core/TmpFont.MeasureGlyph` 那处**同一份**（世界空间那一版 ——
+                //       UI 那版要 Canvas 才出网格，批处理下没有 Canvas），并且 `NoWrap`
+                //       ⇒ 行数**只可能**由 `<br>`/`\n` 这种显式断行造成、折行不参与。
+                //    ⚠️ **不显式设 `richText`**：要断的就是**默认那一档**（原版也没关它）。
+                var brGo = new GameObject("ah_br_probe") { hideFlags = HideFlags.HideAndDontSave };
+                var brTmp = brGo.AddComponent<TMPro.TextMeshPro>();
+                brTmp.font = TmpFont.Font;
+                brTmp.fontSize = 100f;
+                brTmp.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
+                int Lines(string t)
+                {
+                    brTmp.text = t;
+                    brTmp.ForceMeshUpdate();
+                    return brTmp.textInfo != null ? brTmp.textInfo.lineCount : -1;
+                }
+                int lPlain = Lines("AB");
+                int lBr = Lines("A<br>B");
+                int lNl = Lines("A\nB");
+                UnityEngine.Object.DestroyImmediate(brGo);
+                Check(lPlain == 1, $"★ ②·前提：`\"AB\"` 必须只有 **1** 行（实得 {lPlain}）—— 不然下面两条是空转");
+                Check(lBr == 2,
+                      "★ ② TMP 把 `<br>` 渲染成**换行**：`\"A<br>B\"` 的 `lineCount` 必须是 **2**"
+                      + $"（实得 {lBr}）。判别式：`<br>` 被剥掉/转义/掐断 ⇒ 这里回落成 1、与上面 ① 一起红");
+                Check(lBr == lNl,
+                      $"★ ② ……而且它与 `\"A\\nB\"` **同粒度**（实得 `<br>` = {lBr} / `\\n` = {lNl}）");
+
+                // ③ 卡名：`TAU51` 我们原来**多了一个尾巴 `t`**（`Saviour Protocolst`）——
+                //    `AD` 那笔报过，2026-10-15 `AH` 笔按**已裁⑤**（卡名一律以官方 `Card_Name` 为准）改正。
+                //    三源一致 = 官方 `Card_Name/TAU51` = `Saviour Protocols` ·
+                //    `数据/游戏数据/card_ids.json` 的真值映射 `TAU51 → Saviour Protocols` ·
+                //    PnP 卡面 `Tau/4计策/Warpforge_63_Saviour-Protocols.png` **亲读**。
+                //    判别式：把拼写写回带 `t` 的那一版 ⇒ 第 2 条立刻红（两条不可能同时成立）。
+                string tau51Name = null;
+                int nTypo = 0;
+                foreach (var c in RuleEngine.CardDatabase.Load())
+                {
+                    if (c == null) continue;
+                    if (c.Id == "TAU51") tau51Name = c.Name;
+                    if (c.Name == "Saviour Protocolst") nTypo++;
+                }
+                Check(tau51Name == "Saviour Protocols",
+                      $"★ ③ `TAU51` 的卡名必须是官方写法 `Saviour Protocols`（实得「{tau51Name}」）");
+                Check(nTypo == 0,
+                      $"★ ③……全池**不许**再出现带尾巴 `t` 的 `Saviour Protocolst`（现扫 {nTypo} 张）");
+            }
+
             // ②·C 🔴 **折行不能把标签掐断**（2026-09-21 踩到：`Wrap` 原来是**逐字符**折的，
             //      行满时正好落在标签中间就会在 `<sprite name="codex">` **里面**插一个 `\n`，
             //      TMP 认不出半个标签 ⇒ 把标签原样印出来）。
@@ -14694,8 +14868,8 @@ public static class BattleScene
 
             // 域里那 4 张的 `CardDef.Id`（判据 = `cards_engine.json`）——
             // 下面按**集合**比，不比顺序（面板怎么排是表现层的事）。
-            string[] sabIds = { "GSC_Cult_Propaganda", "GSC_Improvised_Barricade",
-                                "GSC_Jammed_Communications", "GSC_Poisoned_Supplies" };
+            string[] sabIds = { "7c666a04c1b9e8b4e9a96247e9fe115a", "334a32d196d46ed4387bf3740cce069b",
+                                "68909cf02f472734ea391665e0d28e15", "a7bb23355a30d344e9d2decf976d91e1" };
 
             // ---- (a) `GSC65`（原版 `maxTargets = 4`）⇒ **4 张全摆** ----
             var g65 = CardDatabase.Find(showPool, "Pilfered Supplies");

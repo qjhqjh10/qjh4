@@ -11,14 +11,14 @@
   9,
   4
  ],
- "mappedCards": 157,
- "mappedEdges": 191,
+ "mappedCards": 176,
+ "mappedEdges": 214,
  "cards": [
   {
    "srcUid": "1688c6146abb1e04f98e540b4cbbabd7",
    "srcName": "Homing Beacon",
    "srcMName": "Z-NC TauEmpire-Homing Beacon",
-   "srcId": "TAU_Homing_Beacon",
+   "srcId": "1688c6146abb1e04f98e540b4cbbabd7",
    "related": [
     {
      "uid": "TAU11",
@@ -32,7 +32,7 @@
    "srcUid": "2621d4280735baf4c952e6afea8d0686",
    "srcName": "Excessive Vigour",
    "srcMName": "Z-NC EmperorsChildren-Excessive Vigour",
-   "srcId": "EC_Excessive_Vigour_Daemon_Prince_s_Talent",
+   "srcId": "2621d4280735baf4c952e6afea8d0686",
    "related": [
     {
      "uid": "ca169f2a6b7b2364ca99bd951c60f1d5",
@@ -46,7 +46,7 @@
    "srcUid": "3ebb159036778d14ebd1c48451aa6ca0",
    "srcName": "Greatest Warboss",
    "srcMName": "Z-NC Goff-Greatest Warboss",
-   "srcId": "GOF_Greatest_Warboss",
+   "srcId": "3ebb159036778d14ebd1c48451aa6ca0",
    "related": [
     {
      "uid": "GOF1",
@@ -60,7 +60,7 @@
    "srcUid": "4d348cff71208c24d8e39252d913ff9d",
    "srcName": "Hymn of Battle",
    "srcMName": "Z-NC Sororitas-Hymn of Battle",
-   "srcId": "SOR_Hymn_of_Battle",
+   "srcId": "4d348cff71208c24d8e39252d913ff9d",
    "related": [
     {
      "uid": "SOR7",
@@ -80,8 +80,8 @@
     {
      "uid": "20d0f4451f16fc441836a02f99bf77da",
      "name": "Da Red Waaagh",
-     "id": "GOF_Da_Red_Waaagh",
-     "via": "名字+阵营"
+     "id": "20d0f4451f16fc441836a02f99bf77da",
+     "via": "id"
     }
    ]
   },
@@ -89,7 +89,7 @@
    "srcUid": "61046837c330b48978b4af5201230b6e",
    "srcName": "Helspear Assault",
    "srcMName": "Z-NC BlackLegion-Helspear Assault",
-   "srcId": "BL_Helspear_Assault",
+   "srcId": "61046837c330b48978b4af5201230b6e",
    "related": [
     {
      "uid": "BL2",
@@ -103,7 +103,7 @@
    "srcUid": "65cfec7d2bc719040b3b4b88622931b2",
    "srcName": "Lead the Righteous",
    "srcMName": "Z-NC Sororitas-Lead the Righteous",
-   "srcId": "SOR_Lead_the_Righteous",
+   "srcId": "65cfec7d2bc719040b3b4b88622931b2",
    "related": [
     {
      "uid": "SOR5",
@@ -132,7 +132,7 @@
    "srcUid": "7c666a04c1b9e8b4e9a96247e9fe115a",
    "srcName": "Cult Propaganda",
    "srcMName": "Z-NC Sabotage - GenestealerCults-Cult Propaganda",
-   "srcId": "GSC_Cult_Propaganda",
+   "srcId": "7c666a04c1b9e8b4e9a96247e9fe115a",
    "related": [
     {
      "uid": "GSC6",
@@ -146,7 +146,7 @@
    "srcUid": "9c3562ffa183ede41b1626d9c9dc1e2f",
    "srcName": "Path of Command",
    "srcMName": "Z-NC SaimHann-Path of Command",
-   "srcId": "ASH_Path_of_Command",
+   "srcId": "9c3562ffa183ede41b1626d9c9dc1e2f",
    "related": [
     {
      "uid": "ASH5",
@@ -160,25 +160,25 @@
    "srcUid": "9dcbe3d0c04b02f4fbb19974ae0e37b2",
    "srcName": "Mekaniak",
    "srcMName": "Z-NC Goff-Mekaniak",
-   "srcId": "GOF_Mekaniak",
+   "srcId": "9dcbe3d0c04b02f4fbb19974ae0e37b2",
    "related": [
     {
      "uid": "9f4e1b7ea9f00da458c6a859a4e958c8",
      "name": "More Dakka",
-     "id": "GOF_More_Dakka",
-     "via": "名字+阵营"
+     "id": "9f4e1b7ea9f00da458c6a859a4e958c8",
+     "via": "id"
     },
     {
      "uid": "98d3c65702746b04baf7f5ead1a9e507",
      "name": "Ramshackle",
-     "id": "GOF_Ramshackle",
-     "via": "名字+阵营"
+     "id": "98d3c65702746b04baf7f5ead1a9e507",
+     "via": "id"
     },
     {
      "uid": "508002f5d7ee54f4686aefa2e6adce41",
      "name": "Wreckin Ball",
-     "id": "GOF_Wreckin_Ball",
-     "via": "名字+阵营"
+     "id": "508002f5d7ee54f4686aefa2e6adce41",
+     "via": "id"
     }
    ]
   },
@@ -191,8 +191,8 @@
     {
      "uid": "c06453b330af61745beb5fa567ba863e",
      "name": "Lord Commander",
-     "id": "AM_Lord_Commander",
-     "via": "名字+阵营"
+     "id": "c06453b330af61745beb5fa567ba863e",
+     "via": "id"
     }
    ]
   },
@@ -233,8 +233,8 @@
     {
      "uid": "3a52026b99bb56f40aa9dc130fc66f34",
      "name": "Cadian Honour",
-     "id": "AM_Cadian_Honour",
-     "via": "名字+阵营"
+     "id": "3a52026b99bb56f40aa9dc130fc66f34",
+     "via": "id"
     }
    ]
   },
@@ -247,8 +247,8 @@
     {
      "uid": "af98d423c7279a14c84c0d0382c53541",
      "name": "Legendary Commandant",
-     "id": "AM_Legendary_Commandant",
-     "via": "名字+阵营"
+     "id": "af98d423c7279a14c84c0d0382c53541",
+     "via": "id"
     },
     {
      "uid": "AM5",
@@ -281,8 +281,8 @@
     {
      "uid": "98cd4c021d615174aba88df6012219c4",
      "name": "Renowned Bodyguard",
-     "id": "AM_Renowned_Bodyguard",
-     "via": "名字+阵营"
+     "id": "98cd4c021d615174aba88df6012219c4",
+     "via": "id"
     }
    ]
   },
@@ -304,14 +304,13 @@
    "srcUid": "AM3",
    "srcName": "Commissar Denkler",
    "srcMName": "AstraMilitarum_war_Commissar Denkler",
-   "srcId": null,
-   "srcVia": "查不到「Commissar Denkler」（阵营 AstraMilitarum）",
+   "srcId": "AM3",
    "related": [
     {
      "uid": "cc11838649ff68a40b7d5d2b9fccd2bc",
      "name": "Lead by Example",
-     "id": "AM_Lead_by_Example",
-     "via": "名字+阵营"
+     "id": "cc11838649ff68a40b7d5d2b9fccd2bc",
+     "via": "id"
     }
    ]
   },
@@ -375,14 +374,13 @@
    "srcUid": "AM66",
    "srcName": "Tempestor Prime",
    "srcMName": "AstraMilitarum_war_Hektor Thenmann",
-   "srcId": null,
-   "srcVia": "查不到「Tempestor Prime」（阵营 AstraMilitarum）",
+   "srcId": "AM66",
    "related": [
     {
      "uid": "1ff4815a506d2f34e94ec2f50900d352",
      "name": "Efficiency and Excellence",
-     "id": "AM_Efficiency_and_Excellence",
-     "via": "名字+阵营"
+     "id": "1ff4815a506d2f34e94ec2f50900d352",
+     "via": "id"
     }
    ]
   },
@@ -432,7 +430,7 @@
    "srcUid": "AM76",
    "srcName": "Armoured Lightning",
    "srcMName": "T3 AstraMilitarum-Armoured Lightning",
-   "srcId": "AM_Armoured_Lightning",
+   "srcId": "AM76",
    "related": [
     {
      "uid": "AM68",
@@ -451,8 +449,8 @@
     {
      "uid": "09bcb1b3b8794c4429d82d4b2e68fa1f",
      "name": "Path of the Seer",
-     "id": "ASH_Path_of_the_Seer",
-     "via": "名字+阵营"
+     "id": "09bcb1b3b8794c4429d82d4b2e68fa1f",
+     "via": "id"
     }
    ]
   },
@@ -479,8 +477,8 @@
     {
      "uid": "d3e99cb18b8cbba4081486f57f510f75",
      "name": "Witchfire",
-     "id": "ASH_Witchfire",
-     "via": "名字+阵营"
+     "id": "d3e99cb18b8cbba4081486f57f510f75",
+     "via": "id"
     }
    ]
   },
@@ -493,8 +491,8 @@
     {
      "uid": "1bfe0893592c9dd40bed8d68d5d2b516",
      "name": "Path of the Warrior",
-     "id": "ASH_Path_of_the_Warrior",
-     "via": "名字+阵营"
+     "id": "1bfe0893592c9dd40bed8d68d5d2b516",
+     "via": "id"
     }
    ]
   },
@@ -507,8 +505,8 @@
     {
      "uid": "e59ac9e46f4ea804784e954c3b820e77",
      "name": "Path of the Warrior",
-     "id": "ASH_Path_of_the_Warrior",
-     "via": "名字+阵营"
+     "id": "e59ac9e46f4ea804784e954c3b820e77",
+     "via": "id"
     },
     {
      "uid": "ASH5",
@@ -527,8 +525,8 @@
     {
      "uid": "9c3562ffa183ede41b1626d9c9dc1e2f",
      "name": "Path of Command",
-     "id": "ASH_Path_of_Command",
-     "via": "名字+阵营"
+     "id": "9c3562ffa183ede41b1626d9c9dc1e2f",
+     "via": "id"
     },
     {
      "uid": "ASH5",
@@ -547,8 +545,8 @@
     {
      "uid": "33eabec155f628440a426a4ba480ec24",
      "name": "Wrath of Khaine",
-     "id": "ASH_Wrath_of_Khaine",
-     "via": "名字+阵营"
+     "id": "33eabec155f628440a426a4ba480ec24",
+     "via": "id"
     }
    ]
   },
@@ -589,8 +587,8 @@
     {
      "uid": "851f73daf747eb642934a16429b391db",
      "name": "Storm of Silence",
-     "id": "ASH_Storm_of_Silence",
-     "via": "名字+阵营"
+     "id": "851f73daf747eb642934a16429b391db",
+     "via": "id"
     }
    ]
   },
@@ -603,8 +601,8 @@
     {
      "uid": "dc7e575c0a328f446be1521c23ec850b",
      "name": "Empyric Ambush",
-     "id": "ASH_Empyric_Ambush",
-     "via": "名字+阵营"
+     "id": "dc7e575c0a328f446be1521c23ec850b",
+     "via": "id"
     }
    ]
   },
@@ -617,8 +615,8 @@
     {
      "uid": "67adbc7f7bce2bd4c8f6937fab3134e5",
      "name": "Flickerjump",
-     "id": "ASH_Flickerjump",
-     "via": "名字+阵营"
+     "id": "67adbc7f7bce2bd4c8f6937fab3134e5",
+     "via": "id"
     }
    ]
   },
@@ -631,8 +629,8 @@
     {
      "uid": "1dfc9bc738bfc4f4d93d48f165aee510",
      "name": "Mark of Nurgle (enchantment)",
-     "id": null,
-     "via": "查不到「Mark of Nurgle (enchantment)」（阵营 BlackLegion）"
+     "id": "1dfc9bc738bfc4f4d93d48f165aee510",
+     "via": "id"
     }
    ]
   },
@@ -645,8 +643,8 @@
     {
      "uid": "9a2cadc64c80a6b42912441105bb1cee",
      "name": "Mark of Khorne (enchantment)",
-     "id": null,
-     "via": "查不到「Mark of Khorne (enchantment)」（阵营 BlackLegion）"
+     "id": "9a2cadc64c80a6b42912441105bb1cee",
+     "via": "id"
     }
    ]
   },
@@ -659,8 +657,8 @@
     {
      "uid": "3f38d2e2c83df4b4c9052ef4a510cfbb",
      "name": "Rites of Possession",
-     "id": "BL_Rites_of_Possession",
-     "via": "名字+阵营"
+     "id": "3f38d2e2c83df4b4c9052ef4a510cfbb",
+     "via": "id"
     },
     {
      "uid": "BL9",
@@ -679,20 +677,20 @@
     {
      "uid": "7bf8ce67fb6be4744ae44345a5b465fd",
      "name": "Diabolic Strength",
-     "id": "BL_Diabolic_Strength",
-     "via": "名字+阵营"
+     "id": "7bf8ce67fb6be4744ae44345a5b465fd",
+     "via": "id"
     },
     {
      "uid": "453b0e8f88e094a17866a6979f389ef5",
      "name": "Infernal Gaze",
-     "id": "BL_Infernal_Gaze",
-     "via": "名字+阵营"
+     "id": "453b0e8f88e094a17866a6979f389ef5",
+     "via": "id"
     },
     {
      "uid": "141c5ed661a9e42bd9a793f0d2a1c682",
      "name": "Unhallowed Gifts",
-     "id": "BL_Unhallowed_Gifts",
-     "via": "名字+阵营"
+     "id": "141c5ed661a9e42bd9a793f0d2a1c682",
+     "via": "id"
     }
    ]
   },
@@ -705,8 +703,8 @@
     {
      "uid": "97e959444b53f424ea4285e2ca02c7e6",
      "name": "Warmaster",
-     "id": null,
-     "via": "查不到「Warmaster」（阵营 BlackLegion）"
+     "id": "97e959444b53f424ea4285e2ca02c7e6",
+     "via": "id"
     }
    ]
   },
@@ -719,8 +717,8 @@
     {
      "uid": "61046837c330b48978b4af5201230b6e",
      "name": "Helspear Assault",
-     "id": "BL_Helspear_Assault",
-     "via": "名字+阵营"
+     "id": "61046837c330b48978b4af5201230b6e",
+     "via": "id"
     },
     {
      "uid": "BL2",
@@ -734,26 +732,25 @@
    "srcUid": "BL36",
    "srcName": "Sylar Hexscorn",
    "srcMName": "BlackLegion_war_Sylar Hexscorn",
-   "srcId": null,
-   "srcVia": "查不到「Sylar Hexscorn」（阵营 BlackLegion）",
+   "srcId": "BL36",
    "related": [
     {
      "uid": "7bf8ce67fb6be4744ae44345a5b465fd",
      "name": "Diabolic Strength",
-     "id": "BL_Diabolic_Strength",
-     "via": "名字+阵营"
+     "id": "7bf8ce67fb6be4744ae44345a5b465fd",
+     "via": "id"
     },
     {
      "uid": "453b0e8f88e094a17866a6979f389ef5",
      "name": "Infernal Gaze",
-     "id": "BL_Infernal_Gaze",
-     "via": "名字+阵营"
+     "id": "453b0e8f88e094a17866a6979f389ef5",
+     "via": "id"
     },
     {
      "uid": "141c5ed661a9e42bd9a793f0d2a1c682",
      "name": "Unhallowed Gifts",
-     "id": "BL_Unhallowed_Gifts",
-     "via": "名字+阵营"
+     "id": "141c5ed661a9e42bd9a793f0d2a1c682",
+     "via": "id"
     }
    ]
   },
@@ -794,8 +791,8 @@
     {
      "uid": "4a48457c24877f345be2e96f867c1e94",
      "name": "Mark of Tzeentch (enchantment)",
-     "id": null,
-     "via": "查不到「Mark of Tzeentch (enchantment)」（阵营 BlackLegion）"
+     "id": "4a48457c24877f345be2e96f867c1e94",
+     "via": "id"
     }
    ]
   },
@@ -822,8 +819,8 @@
     {
      "uid": "9176318eaf469354e858f51af2333aa3",
      "name": "Litany of Despair",
-     "id": "BL_Litany_of_Despair",
-     "via": "名字+阵营"
+     "id": "9176318eaf469354e858f51af2333aa3",
+     "via": "id"
     }
    ]
   },
@@ -842,8 +839,8 @@
     {
      "uid": "36892cd906b0e5e4c9bbbe249db009b8",
      "name": "Bitter Blows",
-     "id": "BL_Bitter_Blows",
-     "via": "名字+阵营"
+     "id": "36892cd906b0e5e4c9bbbe249db009b8",
+     "via": "id"
     }
    ]
   },
@@ -856,8 +853,8 @@
     {
      "uid": "9a2cadc64c80a6b42912441105bb1cee",
      "name": "Mark of Khorne (enchantment)",
-     "id": null,
-     "via": "查不到「Mark of Khorne (enchantment)」（阵营 BlackLegion）"
+     "id": "9a2cadc64c80a6b42912441105bb1cee",
+     "via": "id"
     }
    ]
   },
@@ -870,8 +867,8 @@
     {
      "uid": "b8e81b2fe85cda747a68c4d6326b669c",
      "name": "Mark of Slaanesh (enchantment)",
-     "id": null,
-     "via": "查不到「Mark of Slaanesh (enchantment)」（阵营 BlackLegion）"
+     "id": "b8e81b2fe85cda747a68c4d6326b669c",
+     "via": "id"
     }
    ]
   },
@@ -879,14 +876,13 @@
    "srcUid": "DA1",
    "srcName": "Azrael, Grand Master",
    "srcMName": "DarkAngels_war_Azrael",
-   "srcId": null,
-   "srcVia": "查不到「Azrael, Grand Master」（阵营 DarkAngels）",
+   "srcId": "DA1",
    "related": [
     {
      "uid": "dd535f7a54bcf6241b24ca6d0e81bbb4",
      "name": "Supreme Grand Master",
-     "id": "DA_Supreme_Grand_Master",
-     "via": "名字+阵营"
+     "id": "dd535f7a54bcf6241b24ca6d0e81bbb4",
+     "via": "id"
     },
     {
      "uid": "DA4",
@@ -900,14 +896,13 @@
    "srcUid": "DA2",
    "srcName": "Belial, Master of the Deathwing",
    "srcMName": "DarkAngels_war_Belial",
-   "srcId": null,
-   "srcVia": "查不到「Belial, Master of the Deathwing」（阵营 DarkAngels）",
+   "srcId": "DA2",
    "related": [
     {
      "uid": "9e0eecf8cb9a8df49bf18cc5d9051109",
      "name": "Master of the Deathwing",
-     "id": "DA_Master_of_the_Deathwing",
-     "via": "名字+阵营"
+     "id": "9e0eecf8cb9a8df49bf18cc5d9051109",
+     "via": "id"
     }
    ]
   },
@@ -915,14 +910,13 @@
    "srcUid": "DA3",
    "srcName": "Asmodai, Master Interrogator",
    "srcMName": "DarkAngels_war_Asmodai",
-   "srcId": null,
-   "srcVia": "查不到「Asmodai, Master Interrogator」（阵营 DarkAngels）",
+   "srcId": "DA3",
    "related": [
     {
      "uid": "4cdc1b5f965f99945b685bca7660e9fa",
      "name": "Exemplar of Hate",
-     "id": null,
-     "via": "查不到「Exemplar of Hate」（阵营 DarkAngels）"
+     "id": "4cdc1b5f965f99945b685bca7660e9fa",
+     "via": "id"
     }
    ]
   },
@@ -935,8 +929,8 @@
     {
      "uid": "a84a5b49f0ca9144585058db6987c2a0",
      "name": "Master Interromancer",
-     "id": "DA_Master_Interromancer",
-     "via": "名字+阵营"
+     "id": "a84a5b49f0ca9144585058db6987c2a0",
+     "via": "id"
     }
    ]
   },
@@ -949,8 +943,8 @@
     {
      "uid": "7c45a641ec845994097d185af58715f6",
      "name": "Master of Manoeuvre",
-     "id": "DA_Master_of_Manoeuvre",
-     "via": "名字+阵营"
+     "id": "7c45a641ec845994097d185af58715f6",
+     "via": "id"
     }
    ]
   },
@@ -963,8 +957,8 @@
     {
      "uid": "DA6",
      "name": "Sergeant Taaman",
-     "id": null,
-     "via": "查不到「Sergeant Taaman」（阵营 DarkAngels）"
+     "id": "DA6",
+     "via": "id"
     }
    ]
   },
@@ -1089,8 +1083,8 @@
     {
      "uid": "6ed51d59b9f8ea24ab0dc7ceaef7956c",
      "name": "Duelist's Hubris",
-     "id": "EC_Duelist_s_Hubris_Lucius_Talent",
-     "via": "名字+阵营"
+     "id": "6ed51d59b9f8ea24ab0dc7ceaef7956c",
+     "via": "id"
     }
    ]
   },
@@ -1103,8 +1097,8 @@
     {
      "uid": "b9665eadf1207ff49bcf0a730b0b7f9d",
      "name": "Euphoric Strike",
-     "id": "EC_Euphoric_Strike_Lord_Exultant_s_Talent",
-     "via": "名字+阵营"
+     "id": "b9665eadf1207ff49bcf0a730b0b7f9d",
+     "via": "id"
     }
    ]
   },
@@ -1117,8 +1111,8 @@
     {
      "uid": "2621d4280735baf4c952e6afea8d0686",
      "name": "Excessive Vigour",
-     "id": "EC_Excessive_Vigour_Daemon_Prince_s_Talent",
-     "via": "名字+阵营"
+     "id": "2621d4280735baf4c952e6afea8d0686",
+     "via": "id"
     }
    ]
   },
@@ -1146,8 +1140,7 @@
    "srcUid": "EC60",
    "srcName": "Tools of Torture",
    "srcMName": "Z-EmperorsChildren-Tools of Torture",
-   "srcId": null,
-   "srcVia": "查不到「Tools of Torture」（阵营 EmperorsChildren）",
+   "srcId": "EC60",
    "related": [
     {
      "uid": "ca169f2a6b7b2364ca99bd951c60f1d5",
@@ -1161,8 +1154,7 @@
    "srcUid": "EC9",
    "srcName": "Icon of Excess",
    "srcMName": "7 EmperorsChildren-Icon of Excess",
-   "srcId": null,
-   "srcVia": "查不到「Icon of Excess」（阵营 EmperorsChildren）",
+   "srcId": "EC9",
    "related": [
     {
      "uid": "ca169f2a6b7b2364ca99bd951c60f1d5",
@@ -1195,8 +1187,8 @@
     {
      "uid": "GOF12",
      "name": "Spanner",
-     "id": null,
-     "via": "查不到「Spanner」（阵营 Goff）"
+     "id": "GOF12",
+     "via": "id"
     },
     {
      "uid": "GOF21",
@@ -1215,8 +1207,8 @@
     {
      "uid": "b4d6d186eb95a3f468013c5be649ee3b",
      "name": "Sawbonez",
-     "id": "GOF_Sawbonez",
-     "via": "名字+阵营"
+     "id": "b4d6d186eb95a3f468013c5be649ee3b",
+     "via": "id"
     }
    ]
   },
@@ -1238,8 +1230,7 @@
    "srcUid": "GOF20",
    "srcName": "Veteran Stormboy",
    "srcMName": "20 Goff-Veteran Stormboy",
-   "srcId": null,
-   "srcVia": "查不到「Veteran Stormboy」（阵营 Goff）",
+   "srcId": "GOF20",
    "related": [
     {
      "uid": "GOF6",
@@ -1258,26 +1249,26 @@
     {
      "uid": "9dcbe3d0c04b02f4fbb19974ae0e37b2",
      "name": "Mekaniak",
-     "id": "GOF_Mekaniak",
-     "via": "名字+阵营"
+     "id": "9dcbe3d0c04b02f4fbb19974ae0e37b2",
+     "via": "id"
     },
     {
      "uid": "9f4e1b7ea9f00da458c6a859a4e958c8",
      "name": "More Dakka",
-     "id": "GOF_More_Dakka",
-     "via": "名字+阵营"
+     "id": "9f4e1b7ea9f00da458c6a859a4e958c8",
+     "via": "id"
     },
     {
      "uid": "98d3c65702746b04baf7f5ead1a9e507",
      "name": "Ramshackle",
-     "id": "GOF_Ramshackle",
-     "via": "名字+阵营"
+     "id": "98d3c65702746b04baf7f5ead1a9e507",
+     "via": "id"
     },
     {
      "uid": "508002f5d7ee54f4686aefa2e6adce41",
      "name": "Wreckin Ball",
-     "id": "GOF_Wreckin_Ball",
-     "via": "名字+阵营"
+     "id": "508002f5d7ee54f4686aefa2e6adce41",
+     "via": "id"
     }
    ]
   },
@@ -1290,8 +1281,8 @@
     {
      "uid": "6ba4b132d24528844a86304f8ce67833",
      "name": "Follower of Gork",
-     "id": "GOF_Follower_of_Gork",
-     "via": "名字+阵营"
+     "id": "6ba4b132d24528844a86304f8ce67833",
+     "via": "id"
     }
    ]
   },
@@ -1304,8 +1295,8 @@
     {
      "uid": "8425b809e9e64e24f9035f709f5aaee4",
      "name": "Worst Temper",
-     "id": "GOF_Worst_Temper",
-     "via": "名字+阵营"
+     "id": "8425b809e9e64e24f9035f709f5aaee4",
+     "via": "id"
     }
    ]
   },
@@ -1318,8 +1309,8 @@
     {
      "uid": "3ebb159036778d14ebd1c48451aa6ca0",
      "name": "Greatest Warboss",
-     "id": "GOF_Greatest_Warboss",
-     "via": "名字+阵营"
+     "id": "3ebb159036778d14ebd1c48451aa6ca0",
+     "via": "id"
     },
     {
      "uid": "GOF1",
@@ -1338,8 +1329,8 @@
     {
      "uid": "20d0f4451f16fc441836a02f99bf77da",
      "name": "Da Red Waaagh",
-     "id": "GOF_Da_Red_Waaagh",
-     "via": "名字+阵营"
+     "id": "20d0f4451f16fc441836a02f99bf77da",
+     "via": "id"
     }
    ]
   },
@@ -1422,8 +1413,8 @@
     {
      "uid": "6899b199f5e36144ebbdd7ed9d9e7afe",
      "name": "Uge Choppa",
-     "id": "GOF_Uge_Choppa",
-     "via": "名字+阵营"
+     "id": "6899b199f5e36144ebbdd7ed9d9e7afe",
+     "via": "id"
     }
    ]
   },
@@ -1436,8 +1427,8 @@
     {
      "uid": "64a657fc5ed5bbb4fa7b585cf29c1e95",
      "name": "Da Bigger Dey Iz...",
-     "id": "GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent",
-     "via": "名字+阵营"
+     "id": "64a657fc5ed5bbb4fa7b585cf29c1e95",
+     "via": "id"
     }
    ]
   },
@@ -1450,8 +1441,8 @@
     {
      "uid": "84d4d192e0f57a34a90ac0f6172c3358",
      "name": "Ferocious Rage",
-     "id": "GOF_Ferocious_Rage_Beastboss_Talent",
-     "via": "名字+阵营"
+     "id": "84d4d192e0f57a34a90ac0f6172c3358",
+     "via": "id"
     }
    ]
   },
@@ -1490,8 +1481,8 @@
     {
      "uid": "d19e8b68aaa9a884781d06697ad237a6",
      "name": "Special Dose",
-     "id": "GOF_Special_Dose_Zodgrod_Wortsnagga_Talent",
-     "via": "名字+阵营"
+     "id": "d19e8b68aaa9a884781d06697ad237a6",
+     "via": "id"
     }
    ]
   },
@@ -1504,8 +1495,8 @@
     {
      "uid": "e3d67d86f73f7564eb0bf886ec848af6",
      "name": "Waaagh! Energy",
-     "id": "GOF_Waaagh_Energy_Weirdboy_Talent",
-     "via": "名字+阵营"
+     "id": "e3d67d86f73f7564eb0bf886ec848af6",
+     "via": "id"
     }
    ]
   },
@@ -1518,8 +1509,8 @@
     {
      "uid": "8f35df0536e4f7e4d86f3885e2597404",
      "name": "Dok’s Toolz",
-     "id": "GOF_Dok_s_Toolz_Painboss_talent",
-     "via": "名字+阵营"
+     "id": "8f35df0536e4f7e4d86f3885e2597404",
+     "via": "id"
     }
    ]
   },
@@ -1546,8 +1537,8 @@
     {
      "uid": "d01a5ba5865ded4418194ea50e333b21",
      "name": "Inscrutable Cunning",
-     "id": "GSC_Inscrutable_Cunning",
-     "via": "名字+阵营"
+     "id": "d01a5ba5865ded4418194ea50e333b21",
+     "via": "id"
     }
    ]
   },
@@ -1560,14 +1551,14 @@
     {
      "uid": "a7bb23355a30d344e9d2decf976d91e1",
      "name": "Poisoned Supplies",
-     "id": "GSC_Poisoned_Supplies",
-     "via": "名字+阵营"
+     "id": "a7bb23355a30d344e9d2decf976d91e1",
+     "via": "id"
     },
     {
      "uid": "4959cd9e99597f74ca9af0bd65ae6307",
      "name": "Experimental Bio-Horrors",
-     "id": "GSC_Experimental_Bio_Horrors",
-     "via": "名字+阵营"
+     "id": "4959cd9e99597f74ca9af0bd65ae6307",
+     "via": "id"
     }
    ]
   },
@@ -1594,8 +1585,8 @@
     {
      "uid": "fd67b47572987b84cb2990ea1ecfe982",
      "name": "Brood Prophet",
-     "id": "GSC_Brood_Prophet",
-     "via": "名字+阵营"
+     "id": "fd67b47572987b84cb2990ea1ecfe982",
+     "via": "id"
     }
    ]
   },
@@ -1608,8 +1599,8 @@
     {
      "uid": "e9952f50921d2844a94d39ce883430f4",
      "name": "Vox-Hacker",
-     "id": "GSC_Vox_Hacker",
-     "via": "名字+阵营"
+     "id": "e9952f50921d2844a94d39ce883430f4",
+     "via": "id"
     }
    ]
   },
@@ -1617,14 +1608,13 @@
    "srcUid": "GSC3",
    "srcName": "Iconward Malak Vorenth",
    "srcMName": "GenestealerCult_war_Iconward Malak Vorenth",
-   "srcId": null,
-   "srcVia": "查不到「Iconward Malak Vorenth」（阵营 Genestealers）",
+   "srcId": "GSC3",
    "related": [
     {
      "uid": "7831725387c8a774dbdf5b6492d928e0",
      "name": "Nexus of Devotion",
-     "id": "GSC_Nexus_of_Devotion",
-     "via": "名字+阵营"
+     "id": "7831725387c8a774dbdf5b6492d928e0",
+     "via": "id"
     }
    ]
   },
@@ -1665,8 +1655,8 @@
     {
      "uid": "f45dd53721b645b4ab45d334edb986af",
      "name": "Deadliest Killer",
-     "id": "GSC_Deadliest_Killer",
-     "via": "名字+阵营"
+     "id": "f45dd53721b645b4ab45d334edb986af",
+     "via": "id"
     }
    ]
   },
@@ -1688,14 +1678,13 @@
    "srcUid": "GSC66",
    "srcName": "Shanus Daskovian",
    "srcMName": "GenestealerCult_war_Lhaska Szenari",
-   "srcId": null,
-   "srcVia": "查不到「Shanus Daskovian」（阵营 Genestealers）",
+   "srcId": "GSC66",
    "related": [
     {
      "uid": "c433e3dde4952cc448220908226127ae",
      "name": "Master Outrider",
-     "id": "GSC_Master_Outrider",
-     "via": "名字+阵营"
+     "id": "c433e3dde4952cc448220908226127ae",
+     "via": "id"
     }
    ]
   },
@@ -1708,8 +1697,8 @@
     {
      "uid": "334a32d196d46ed4387bf3740cce069b",
      "name": "Improvised Barricade",
-     "id": "GSC_Improvised_Barricade",
-     "via": "名字+阵营"
+     "id": "334a32d196d46ed4387bf3740cce069b",
+     "via": "id"
     }
    ]
   },
@@ -1750,8 +1739,8 @@
     {
      "uid": "27a4b748a7bf358499f038aa09895ead",
      "name": "Reanimate",
-     "id": "SAU_Reanimate",
-     "via": "名字+阵营"
+     "id": "27a4b748a7bf358499f038aa09895ead",
+     "via": "id"
     }
    ]
   },
@@ -1764,8 +1753,8 @@
     {
      "uid": "27a4b748a7bf358499f038aa09895ead",
      "name": "Reanimate",
-     "id": "SAU_Reanimate",
-     "via": "名字+阵营"
+     "id": "27a4b748a7bf358499f038aa09895ead",
+     "via": "id"
     }
    ]
   },
@@ -1778,8 +1767,8 @@
     {
      "uid": "27a4b748a7bf358499f038aa09895ead",
      "name": "Reanimate",
-     "id": "SAU_Reanimate",
-     "via": "名字+阵营"
+     "id": "27a4b748a7bf358499f038aa09895ead",
+     "via": "id"
     }
    ]
   },
@@ -1798,8 +1787,8 @@
     {
      "uid": "27a4b748a7bf358499f038aa09895ead",
      "name": "Reanimate",
-     "id": "SAU_Reanimate",
-     "via": "名字+阵营"
+     "id": "27a4b748a7bf358499f038aa09895ead",
+     "via": "id"
     }
    ]
   },
@@ -1812,8 +1801,8 @@
     {
      "uid": "65b2be828179515458a282cf1b027182",
      "name": "Indomitable Will",
-     "id": "SAU_Indomitable_Will",
-     "via": "名字+阵营"
+     "id": "65b2be828179515458a282cf1b027182",
+     "via": "id"
     }
    ]
   },
@@ -1826,8 +1815,8 @@
     {
      "uid": "eb17cd22c6a5d7941a7456838d927ab1",
      "name": "Particle Whip",
-     "id": "SAU_Particle_Whip",
-     "via": "名字+阵营"
+     "id": "eb17cd22c6a5d7941a7456838d927ab1",
+     "via": "id"
     },
     {
      "uid": "SAU5",
@@ -1846,8 +1835,8 @@
     {
      "uid": "30007162b68992e41a422f2061705b65",
      "name": "Lord of the Storm",
-     "id": "SAU_Lord_of_the_Storm",
-     "via": "名字+阵营"
+     "id": "30007162b68992e41a422f2061705b65",
+     "via": "id"
     }
    ]
   },
@@ -1860,8 +1849,8 @@
     {
      "uid": "d8a14171b08b54144ba9dbf324b0a042",
      "name": "Relentless March",
-     "id": "SAU_Relentless_March",
-     "via": "名字+阵营"
+     "id": "d8a14171b08b54144ba9dbf324b0a042",
+     "via": "id"
     },
     {
      "uid": "SAU5",
@@ -1880,8 +1869,8 @@
     {
      "uid": "cbabeb234380634479feab1a1b4c733a",
      "name": "Master Chronomancer",
-     "id": "SAU_Master_Chronomancer",
-     "via": "名字+阵营"
+     "id": "cbabeb234380634479feab1a1b4c733a",
+     "via": "id"
     }
    ]
   },
@@ -1922,8 +1911,8 @@
     {
      "uid": "SAU38",
      "name": "Extermination Protocol",
-     "id": null,
-     "via": "查不到「Extermination Protocol」（阵营 Sautekh）"
+     "id": "SAU38",
+     "via": "id"
     }
    ]
   },
@@ -1936,8 +1925,8 @@
     {
      "uid": "461354d98aa5e3142afa4eb4922e5456",
      "name": "Hardwired Destruction",
-     "id": "SAU_Hardwired_Destruction",
-     "via": "名字+阵营"
+     "id": "461354d98aa5e3142afa4eb4922e5456",
+     "via": "id"
     }
    ]
   },
@@ -1987,7 +1976,7 @@
    "srcUid": "SAU76",
    "srcName": "Inescapable Retribution",
    "srcMName": "T3 Sautekh-Inescapable Retribution",
-   "srcId": "SAU_Inescapable_Retribution",
+   "srcId": "SAU76",
    "related": [
     {
      "uid": "SAU12",
@@ -2006,8 +1995,8 @@
     {
      "uid": "8901e35c5de30eb48804da6651cfb132",
      "name": "Fury of the Righteous",
-     "id": "SOR_Fury_of_the_Righteous",
-     "via": "名字+阵营"
+     "id": "8901e35c5de30eb48804da6651cfb132",
+     "via": "id"
     }
    ]
   },
@@ -2020,8 +2009,8 @@
     {
      "uid": "4d348cff71208c24d8e39252d913ff9d",
      "name": "Hymn of Battle",
-     "id": "SOR_Hymn_of_Battle",
-     "via": "名字+阵营"
+     "id": "4d348cff71208c24d8e39252d913ff9d",
+     "via": "id"
     }
    ]
   },
@@ -2034,8 +2023,8 @@
     {
      "uid": "65cfec7d2bc719040b3b4b88622931b2",
      "name": "Lead the Righteous",
-     "id": "SOR_Lead_the_Righteous",
-     "via": "名字+阵营"
+     "id": "65cfec7d2bc719040b3b4b88622931b2",
+     "via": "id"
     },
     {
      "uid": "SOR5",
@@ -2054,8 +2043,8 @@
     {
      "uid": "f104d4c21abe84546abc9365d9eda8dd",
      "name": "Righteous Repugnance",
-     "id": "SOR_Righteous_Repugnance",
-     "via": "名字+阵营"
+     "id": "f104d4c21abe84546abc9365d9eda8dd",
+     "via": "id"
     }
    ]
   },
@@ -2096,8 +2085,8 @@
     {
      "uid": "e01f4d54e8a474d96b5a1167cc28eebf",
      "name": "Daemonbreaker",
-     "id": "SOR_Daemonbreaker",
-     "via": "名字+阵营"
+     "id": "e01f4d54e8a474d96b5a1167cc28eebf",
+     "via": "id"
     }
    ]
   },
@@ -2138,8 +2127,8 @@
     {
      "uid": "4d348cff71208c24d8e39252d913ff9d",
      "name": "Hymn of Battle",
-     "id": "SOR_Hymn_of_Battle",
-     "via": "名字+阵营"
+     "id": "4d348cff71208c24d8e39252d913ff9d",
+     "via": "id"
     }
    ]
   },
@@ -2152,8 +2141,8 @@
     {
      "uid": "9f75a6fe11922eb409ffbad4ecdeb405",
      "name": "Hero of the Empire",
-     "id": "TAU_Hero_of_the_Empire",
-     "via": "名字+阵营"
+     "id": "9f75a6fe11922eb409ffbad4ecdeb405",
+     "via": "id"
     }
    ]
   },
@@ -2166,8 +2155,8 @@
     {
      "uid": "f279c5cf1c3e16e4db6b9df4d941ad11",
      "name": "Structural Analyzer",
-     "id": "TAU_Structural_Analyzer",
-     "via": "名字+阵营"
+     "id": "f279c5cf1c3e16e4db6b9df4d941ad11",
+     "via": "id"
     }
    ]
   },
@@ -2180,8 +2169,8 @@
     {
      "uid": "f2b80d575cbf8f64597b991022beaf35",
      "name": "Serene Unifier",
-     "id": "TAU_Serene_Unifier",
-     "via": "名字+阵营"
+     "id": "f2b80d575cbf8f64597b991022beaf35",
+     "via": "id"
     }
    ]
   },
@@ -2194,14 +2183,14 @@
     {
      "uid": "f8260229254a09746af6d9ff7a9b0b54",
      "name": "Ethereal Supreme",
-     "id": "TAU_Ethereal_Supreme",
-     "via": "名字+阵营"
+     "id": "f8260229254a09746af6d9ff7a9b0b54",
+     "via": "id"
     },
     {
      "uid": "f2b80d575cbf8f64597b991022beaf35",
      "name": "Serene Unifier",
-     "id": "TAU_Serene_Unifier",
-     "via": "名字+阵营"
+     "id": "f2b80d575cbf8f64597b991022beaf35",
+     "via": "id"
     }
    ]
   },
@@ -2228,8 +2217,8 @@
     {
      "uid": "1688c6146abb1e04f98e540b4cbbabd7",
      "name": "Homing Beacon",
-     "id": "TAU_Homing_Beacon",
-     "via": "名字+阵营"
+     "id": "1688c6146abb1e04f98e540b4cbbabd7",
+     "via": "id"
     },
     {
      "uid": "TAU11",
@@ -2304,8 +2293,8 @@
     {
      "uid": "c4f5c920744030c4e84428dc5a0f1bf2",
      "name": "Drone Companion",
-     "id": "TAU_Drone_Companion",
-     "via": "名字+阵营"
+     "id": "c4f5c920744030c4e84428dc5a0f1bf2",
+     "via": "id"
     },
     {
      "uid": "TAU6",
@@ -2345,14 +2334,13 @@
    "srcUid": "TAU32",
    "srcName": "Aun'Shi",
    "srcMName": "29 TauEmpire-Aun'Shi",
-   "srcId": null,
-   "srcVia": "查不到「Aun'Shi」（阵营 TauEmpire）",
+   "srcId": "TAU32",
    "related": [
     {
      "uid": "f2b80d575cbf8f64597b991022beaf35",
      "name": "Serene Unifier",
-     "id": "TAU_Serene_Unifier",
-     "via": "名字+阵营"
+     "id": "f2b80d575cbf8f64597b991022beaf35",
+     "via": "id"
     }
    ]
   },
@@ -2379,8 +2367,8 @@
     {
      "uid": "684196db974ab254090f39ef6e89868c",
      "name": "Shield Generator",
-     "id": "TAU_Shield_Generator",
-     "via": "名字+阵营"
+     "id": "684196db974ab254090f39ef6e89868c",
+     "via": "id"
     }
    ]
   },
@@ -2388,14 +2376,13 @@
    "srcUid": "TAU38",
    "srcName": "Stormsurge",
    "srcMName": "35 TauEmpire-Stormsurge",
-   "srcId": null,
-   "srcVia": "查不到「Stormsurge」（阵营 TauEmpire）",
+   "srcId": "TAU38",
    "related": [
     {
      "uid": "507f79fa60945d04e93fe806aca912b7",
      "name": "Deploy Anchors",
-     "id": "TAU_Deploy_Anchors",
-     "via": "名字+阵营"
+     "id": "507f79fa60945d04e93fe806aca912b7",
+     "via": "id"
     }
    ]
   },
@@ -2422,8 +2409,8 @@
     {
      "uid": "b3735ef3d1408d544b0947e31f898e20",
      "name": "Grisly Feast",
-     "id": "TAU_Grisly_Feast",
-     "via": "名字+阵营"
+     "id": "b3735ef3d1408d544b0947e31f898e20",
+     "via": "id"
     }
    ]
   },
@@ -2431,7 +2418,7 @@
    "srcUid": "TAU75",
    "srcName": "Hunter's Instincts",
    "srcMName": "T3 TauEmpire-Hunter's Instincts",
-   "srcId": "TAU_Hunters_Instincts",
+   "srcId": "TAU75",
    "related": [
     {
      "uid": "TAU67",
@@ -2478,8 +2465,8 @@
     {
      "uid": "c0ddba6cc45944f46a65f4fd93bcc0a5",
      "name": "Aerial Seeding",
-     "id": "TL_Aerial_Seeding",
-     "via": "名字+阵营"
+     "id": "c0ddba6cc45944f46a65f4fd93bcc0a5",
+     "via": "id"
     }
    ]
   },
@@ -2506,8 +2493,8 @@
     {
      "uid": "a58e05916eb5e994daa0349cbe237001",
      "name": "Synaptic Imperative",
-     "id": "TL_Synaptic_Imperative",
-     "via": "名字+阵营"
+     "id": "a58e05916eb5e994daa0349cbe237001",
+     "via": "id"
     }
    ]
   },
@@ -2520,8 +2507,8 @@
     {
      "uid": "cbc9d98e39cc7fb4fa6f94c7e69bda18",
      "name": "Brood Progenitor",
-     "id": "TL_Brood_Progenitor",
-     "via": "名字+阵营"
+     "id": "cbc9d98e39cc7fb4fa6f94c7e69bda18",
+     "via": "id"
     },
     {
      "uid": "TL4",
@@ -2540,8 +2527,8 @@
     {
      "uid": "5b5425f6e2848b449807bd1643d0d936",
      "name": "Hive Commander",
-     "id": "TL_Hive_Commander",
-     "via": "名字+阵营"
+     "id": "5b5425f6e2848b449807bd1643d0d936",
+     "via": "id"
     }
    ]
   },
@@ -2554,8 +2541,8 @@
     {
      "uid": "760bd3afde513774d96d6492f995fd37",
      "name": "Spirit Leech",
-     "id": "TL_Spirit_Leech",
-     "via": "名字+阵营"
+     "id": "760bd3afde513774d96d6492f995fd37",
+     "via": "id"
     }
    ]
   },
@@ -2577,13 +2564,13 @@
    "srcUid": "TL68",
    "srcName": "Psychophage",
    "srcMName": "5 Leviathan-Psychophage",
-   "srcId": "TL_Psychophage",
+   "srcId": "TL68",
    "related": [
     {
      "uid": "468db99b4b10d0745bab346df37d3fb2",
      "name": "Feeding Frenzy",
-     "id": "TL81",
-     "via": "名字+阵营"
+     "id": "468db99b4b10d0745bab346df37d3fb2",
+     "via": "id"
     }
    ]
   },
@@ -2596,8 +2583,8 @@
     {
      "uid": "8f2da557fe484ee4bbf427c13eccd4cb",
      "name": "Alpha Warrior",
-     "id": "TL_Alpha_Warrior",
-     "via": "名字+阵营"
+     "id": "8f2da557fe484ee4bbf427c13eccd4cb",
+     "via": "id"
     }
    ]
   },
@@ -2610,8 +2597,8 @@
     {
      "uid": "d94f91051ecfe014f97577ff573571aa",
      "name": "Spear of Macragge",
-     "id": "UM_Spear_of_Macragge",
-     "via": "名字+阵营"
+     "id": "d94f91051ecfe014f97577ff573571aa",
+     "via": "id"
     }
    ]
   },
@@ -2638,8 +2625,8 @@
     {
      "uid": "0544047df88d2ba4cad9c17ff080c0eb",
      "name": "Greatest Deeds",
-     "id": "UM_Greatest_Deeds",
-     "via": "名字+阵营"
+     "id": "0544047df88d2ba4cad9c17ff080c0eb",
+     "via": "id"
     }
    ]
   },
@@ -2652,8 +2639,8 @@
     {
      "uid": "dcbd28525888ce54aaa93a47ba4de1e6",
      "name": "Master Tactician",
-     "id": "UM_Master_Tactician",
-     "via": "名字+阵营"
+     "id": "dcbd28525888ce54aaa93a47ba4de1e6",
+     "via": "id"
     }
    ]
   },
@@ -2666,8 +2653,8 @@
     {
      "uid": "9238c27730a0c424288d46ed0f4a742c",
      "name": "Master of the Fleet",
-     "id": "UM_Master_of_the_Fleet",
-     "via": "名字+阵营"
+     "id": "9238c27730a0c424288d46ed0f4a742c",
+     "via": "id"
     }
    ]
   },
@@ -2680,26 +2667,26 @@
     {
      "uid": "f923701f207d23a4f81d6ff5891b4a0c",
      "name": "Master of Arcana",
-     "id": "UM_Master_of_Arcana",
-     "via": "名字+阵营"
+     "id": "f923701f207d23a4f81d6ff5891b4a0c",
+     "via": "id"
     },
     {
      "uid": "0740581c2c0523745a42dbec1b2ef82a",
      "name": "Might of Heroes",
-     "id": "UM_Might_of_Heroes",
-     "via": "名字+阵营"
+     "id": "0740581c2c0523745a42dbec1b2ef82a",
+     "via": "id"
     },
     {
      "uid": "c4ff279078605aa42942c8dd16b77147",
      "name": "Scryer's Gaze",
-     "id": "UM_Scryer_s_Gaze",
-     "via": "名字+阵营"
+     "id": "c4ff279078605aa42942c8dd16b77147",
+     "via": "id"
     },
     {
      "uid": "cf0b346f70e748c4bbfc4dc03ab39ead",
      "name": "Smite",
-     "id": "UM_Smite",
-     "via": "名字+阵营"
+     "id": "cf0b346f70e748c4bbfc4dc03ab39ead",
+     "via": "id"
     }
    ]
   },
@@ -2726,8 +2713,8 @@
     {
      "uid": "315d9f293e4f56d4f813584b43f0511c",
      "name": "Exhortation of Rage",
-     "id": "UM_Exhortation_of_Rage",
-     "via": "名字+阵营"
+     "id": "315d9f293e4f56d4f813584b43f0511c",
+     "via": "id"
     }
    ]
   },
@@ -2740,26 +2727,26 @@
     {
      "uid": "cc1400347b15ee3449bc18bbdb9ddec9",
      "name": "Exemplary Warrior",
-     "id": "UM_Exemplary_Warrior",
-     "via": "名字+阵营"
+     "id": "cc1400347b15ee3449bc18bbdb9ddec9",
+     "via": "id"
     },
     {
      "uid": "26d4ded12b28a3742b5c8fc155e29803",
      "name": "Righteous Fury",
-     "id": "UM_Righteous_Fury",
-     "via": "名字+阵营"
+     "id": "26d4ded12b28a3742b5c8fc155e29803",
+     "via": "id"
     },
     {
      "uid": "7693f2b21b2f85644b739da990bc2216",
      "name": "Paragon of Ultramar",
-     "id": "UM_Paragon_of_Ultramar",
-     "via": "名字+阵营"
+     "id": "7693f2b21b2f85644b739da990bc2216",
+     "via": "id"
     },
     {
      "uid": "55b8e3d2040f86d4190ffb1a91abb5ed",
      "name": "Master of Arms",
-     "id": "UM_Master_of_Arms",
-     "via": "名字+阵营"
+     "id": "55b8e3d2040f86d4190ffb1a91abb5ed",
+     "via": "id"
     }
    ]
   },
@@ -2787,8 +2774,8 @@
     {
      "uid": "61046837c330b48978b4af5201230b6e",
      "name": "Helspear Assault",
-     "id": "BL_Helspear_Assault",
-     "via": "名字+阵营"
+     "id": "61046837c330b48978b4af5201230b6e",
+     "via": "id"
     }
    ]
   },
@@ -2802,20 +2789,20 @@
     {
      "uid": "7bf8ce67fb6be4744ae44345a5b465fd",
      "name": "Diabolic Strength",
-     "id": "BL_Diabolic_Strength",
-     "via": "名字+阵营"
+     "id": "7bf8ce67fb6be4744ae44345a5b465fd",
+     "via": "id"
     },
     {
      "uid": "453b0e8f88e094a17866a6979f389ef5",
      "name": "Infernal Gaze",
-     "id": "BL_Infernal_Gaze",
-     "via": "名字+阵营"
+     "id": "453b0e8f88e094a17866a6979f389ef5",
+     "via": "id"
     },
     {
      "uid": "141c5ed661a9e42bd9a793f0d2a1c682",
      "name": "Unhallowed Gifts",
-     "id": "BL_Unhallowed_Gifts",
-     "via": "名字+阵营"
+     "id": "141c5ed661a9e42bd9a793f0d2a1c682",
+     "via": "id"
     }
    ]
   },
@@ -2829,8 +2816,8 @@
     {
      "uid": "9238c27730a0c424288d46ed0f4a742c",
      "name": "Master of the Fleet",
-     "id": "UM_Master_of_the_Fleet",
-     "via": "名字+阵营"
+     "id": "9238c27730a0c424288d46ed0f4a742c",
+     "via": "id"
     }
    ]
   },
@@ -2844,8 +2831,8 @@
     {
      "uid": "cbc9d98e39cc7fb4fa6f94c7e69bda18",
      "name": "Brood Progenitor",
-     "id": "TL_Brood_Progenitor",
-     "via": "名字+阵营"
+     "id": "cbc9d98e39cc7fb4fa6f94c7e69bda18",
+     "via": "id"
     },
     {
      "uid": "TL4",
@@ -2865,8 +2852,8 @@
     {
      "uid": "d8a14171b08b54144ba9dbf324b0a042",
      "name": "Relentless March",
-     "id": "SAU_Relentless_March",
-     "via": "名字+阵营"
+     "id": "d8a14171b08b54144ba9dbf324b0a042",
+     "via": "id"
     },
     {
      "uid": "SAU5",
@@ -2880,7 +2867,7 @@
    "srcUid": "cbc9d98e39cc7fb4fa6f94c7e69bda18",
    "srcName": "Brood Progenitor",
    "srcMName": "Z-NC Leviathan-Brood Progenitor",
-   "srcId": "TL_Brood_Progenitor",
+   "srcId": "cbc9d98e39cc7fb4fa6f94c7e69bda18",
    "related": [
     {
      "uid": "TL4",
@@ -2939,7 +2926,7 @@
    "srcUid": "d8a14171b08b54144ba9dbf324b0a042",
    "srcName": "Relentless March",
    "srcMName": "Z-NC Sautekh-Relentless March",
-   "srcId": "SAU_Relentless_March",
+   "srcId": "d8a14171b08b54144ba9dbf324b0a042",
    "related": [
     {
      "uid": "SAU5",
@@ -2953,7 +2940,7 @@
    "srcUid": "dd535f7a54bcf6241b24ca6d0e81bbb4",
    "srcName": "Supreme Grand Master",
    "srcMName": "Z-NC DarkAngels-Supreme Grand Master",
-   "srcId": "DA_Supreme_Grand_Master",
+   "srcId": "dd535f7a54bcf6241b24ca6d0e81bbb4",
    "related": [
     {
      "uid": "DA4",
@@ -2967,7 +2954,7 @@
    "srcUid": "e59ac9e46f4ea804784e954c3b820e77",
    "srcName": "Path of the Warrior",
    "srcMName": "Z-NC SaimHann-Skyborne Deployment",
-   "srcId": "ASH_Path_of_the_Warrior",
+   "srcId": "e59ac9e46f4ea804784e954c3b820e77",
    "related": [
     {
      "uid": "ASH5",
@@ -2987,8 +2974,8 @@
     {
      "uid": "9c3562ffa183ede41b1626d9c9dc1e2f",
      "name": "Path of Command",
-     "id": "ASH_Path_of_Command",
-     "via": "名字+阵营"
+     "id": "9c3562ffa183ede41b1626d9c9dc1e2f",
+     "via": "id"
     },
     {
      "uid": "ASH5",
@@ -3023,8 +3010,8 @@
     {
      "uid": "d8a14171b08b54144ba9dbf324b0a042",
      "name": "Relentless March",
-     "id": "SAU_Relentless_March",
-     "via": "名字+阵营"
+     "id": "d8a14171b08b54144ba9dbf324b0a042",
+     "via": "id"
     },
     {
      "uid": "SAU5",
@@ -3038,13 +3025,13 @@
    "srcUid": "f8260229254a09746af6d9ff7a9b0b54",
    "srcName": "Ethereal Supreme",
    "srcMName": "Z-NC TauEmpire-Ethereal Supreme",
-   "srcId": "TAU_Ethereal_Supreme",
+   "srcId": "f8260229254a09746af6d9ff7a9b0b54",
    "related": [
     {
      "uid": "f2b80d575cbf8f64597b991022beaf35",
      "name": "Serene Unifier",
-     "id": "TAU_Serene_Unifier",
-     "via": "名字+阵营"
+     "id": "f2b80d575cbf8f64597b991022beaf35",
+     "via": "id"
     }
    ]
   }

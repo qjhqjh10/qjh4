@@ -6,26 +6,23 @@
  "invariant": "① `inv` 非 -1 时取自真值行、一字不改；② `-1` = 真值里查不到（四级定位全落空），**不是 0**（⛔ 别把 -1 当 InInventory）；③ 259 张 32 位 hex 键的卡**全部** `inv=10`（本会话现核 259/259）；④ `type` = 我们卡池里那张卡的卡型，用来复现原版「hero 走 CanAddHero / 防御卡走 CanAddDefensive、都不吃这两个字段」那两条路由。",
  "counts": {
   "truthRows": 1195,
-  "poolCards": 1126,
-  "resolved": 955,
-  "unresolvedTruthRows": 242,
-  "poolUnknown": 171,
+  "poolCards": 1127,
+  "resolved": 1009,
+  "unresolvedTruthRows": 186,
+  "poolUnknown": 118,
   "byVia": {
-   "id": 837,
-   "name+army": 108,
-   "name-dup-agree": 8,
-   "name": 2
+   "id": 1009
   },
   "inv": {
-   "0": 826,
-   "5": 31,
-   "10": 98
+   "0": 860,
+   "5": 36,
+   "10": 113
   },
   "show": {
-   "5": 862,
-   "0": 93
+   "5": 901,
+   "0": 108
   },
-  "blockedNonHeroDefence": 98
+  "blockedNonHeroDefence": 113
  },
  "map": {
   "ASH83": {
@@ -315,11 +312,11 @@
    "via": "id",
    "ref": "ASH49"
   },
-  "ASH_Empyric_Ambush": {
+  "dc7e575c0a328f446be1521c23ec850b": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "dc7e575c0a328f446be1521c23ec850b"
   },
   "ASH50": {
@@ -343,11 +340,11 @@
    "via": "id",
    "ref": "ASH36"
   },
-  "ASH_Flickerjump": {
+  "67adbc7f7bce2bd4c8f6937fab3134e5": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "67adbc7f7bce2bd4c8f6937fab3134e5"
   },
   "ASH86": {
@@ -392,25 +389,25 @@
    "via": "id",
    "ref": "ASH40"
   },
-  "ASH_Path_of_Command": {
+  "9c3562ffa183ede41b1626d9c9dc1e2f": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "9c3562ffa183ede41b1626d9c9dc1e2f"
   },
-  "ASH_Path_of_the_Seer": {
+  "09bcb1b3b8794c4429d82d4b2e68fa1f": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "09bcb1b3b8794c4429d82d4b2e68fa1f"
   },
-  "ASH_Path_of_the_Warrior": {
+  "1bfe0893592c9dd40bed8d68d5d2b516": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name-dup-agree",
+   "via": "id",
    "ref": "1bfe0893592c9dd40bed8d68d5d2b516"
   },
   "ASH53": {
@@ -420,12 +417,19 @@
    "via": "id",
    "ref": "ASH53"
   },
-  "ASH_Storm_of_Silence": {
+  "e59ac9e46f4ea804784e954c3b820e77": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name-dup-agree",
-   "ref": "4b8214d3b5e589f42beab20e56ca21b0"
+   "via": "id",
+   "ref": "e59ac9e46f4ea804784e954c3b820e77"
+  },
+  "851f73daf747eb642934a16429b391db": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "851f73daf747eb642934a16429b391db"
   },
   "ASH43": {
    "inv": 0,
@@ -483,18 +487,18 @@
    "via": "id",
    "ref": "ASH38"
   },
-  "ASH_Witchfire": {
+  "d3e99cb18b8cbba4081486f57f510f75": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "d3e99cb18b8cbba4081486f57f510f75"
   },
-  "ASH_Wrath_of_Khaine": {
+  "33eabec155f628440a426a4ba480ec24": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "33eabec155f628440a426a4ba480ec24"
   },
   "ASH81": {
@@ -700,11 +704,11 @@
    "via": "id",
    "ref": "AM60"
   },
-  "AM_Astropath": {
+  "AM59": {
    "inv": 0,
    "show": 5,
    "type": "unit",
-   "via": "name+army",
+   "via": "id",
    "ref": "AM59"
   },
   "AM19": {
@@ -875,11 +879,11 @@
    "via": "id",
    "ref": "AM7"
   },
-  "AM_Armoured_Lightning": {
+  "AM76": {
    "inv": 0,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "AM76"
   },
   "AM52": {
@@ -917,18 +921,18 @@
    "via": "id",
    "ref": "AM51"
   },
-  "AM_Cadian_Honour": {
+  "3a52026b99bb56f40aa9dc130fc66f34": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "3a52026b99bb56f40aa9dc130fc66f34"
   },
-  "AM_Efficiency_and_Excellence": {
+  "1ff4815a506d2f34e94ec2f50900d352": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "1ff4815a506d2f34e94ec2f50900d352"
   },
   "AM74": {
@@ -959,18 +963,18 @@
    "via": "id",
    "ref": "AM46"
   },
-  "AM_Lead_by_Example": {
+  "cc11838649ff68a40b7d5d2b9fccd2bc": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "cc11838649ff68a40b7d5d2b9fccd2bc"
   },
-  "AM_Legendary_Commandant": {
+  "af98d423c7279a14c84c0d0382c53541": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "af98d423c7279a14c84c0d0382c53541"
   },
   "AM55": {
@@ -1015,11 +1019,11 @@
    "via": "id",
    "ref": "AM48"
   },
-  "AM_Renowned_Bodyguard": {
+  "98cd4c021d615174aba88df6012219c4": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "98cd4c021d615174aba88df6012219c4"
   },
   "AM44": {
@@ -1134,6 +1138,13 @@
    "via": "id",
    "ref": "AM35"
   },
+  "AM32": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM32"
+  },
   "AM30": {
    "inv": 0,
    "show": 5,
@@ -1175,6 +1186,20 @@
    "type": "unit",
    "via": "id",
    "ref": "AM34"
+  },
+  "AM3": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "AM3"
+  },
+  "AM66": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "AM66"
   },
   "AM1": {
    "inv": 0,
@@ -1456,11 +1481,11 @@
    "via": "id",
    "ref": "BL37"
   },
-  "BL_Bitter_Blows": {
+  "36892cd906b0e5e4c9bbbe249db009b8": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "36892cd906b0e5e4c9bbbe249db009b8"
   },
   "BL55": {
@@ -1498,11 +1523,11 @@
    "via": "id",
    "ref": "BL49"
   },
-  "BL_Diabolic_Strength": {
+  "7bf8ce67fb6be4744ae44345a5b465fd": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "7bf8ce67fb6be4744ae44345a5b465fd"
   },
   "BL47": {
@@ -1540,12 +1565,12 @@
    "via": "id",
    "ref": "BL53"
   },
-  "BL_Helspear_Assault": {
+  "61046837c330b48978b4af5201230b6e": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name-dup-agree",
-   "ref": "3df005b0c8973d5419eb1a4981f777b0"
+   "via": "id",
+   "ref": "61046837c330b48978b4af5201230b6e"
   },
   "BL39": {
    "inv": 0,
@@ -1561,11 +1586,18 @@
    "via": "id",
    "ref": "BL51"
   },
-  "BL_Infernal_Gaze": {
+  "BL75": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL75"
+  },
+  "453b0e8f88e094a17866a6979f389ef5": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "453b0e8f88e094a17866a6979f389ef5"
   },
   "BL40": {
@@ -1575,12 +1607,12 @@
    "via": "id",
    "ref": "BL40"
   },
-  "BL_Litany_of_Despair": {
+  "9176318eaf469354e858f51af2333aa3": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name-dup-agree",
-   "ref": "e09280c7545371941b57dc0cc813012f"
+   "via": "id",
+   "ref": "9176318eaf469354e858f51af2333aa3"
   },
   "BL73": {
    "inv": 0,
@@ -1603,11 +1635,11 @@
    "via": "id",
    "ref": "BL41"
   },
-  "BL_Rites_of_Possession": {
+  "3f38d2e2c83df4b4c9052ef4a510cfbb": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "3f38d2e2c83df4b4c9052ef4a510cfbb"
   },
   "BL48": {
@@ -1624,6 +1656,13 @@
    "via": "id",
    "ref": "BL45"
   },
+  "BL74": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL74"
+  },
   "BL56": {
    "inv": 5,
    "show": 5,
@@ -1638,12 +1677,12 @@
    "via": "id",
    "ref": "BL42"
   },
-  "BL_Unhallowed_Gifts": {
+  "141c5ed661a9e42bd9a793f0d2a1c682": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name-dup-agree",
-   "ref": "f70efd9867a9cf3458b722aeaf2982bc"
+   "via": "id",
+   "ref": "141c5ed661a9e42bd9a793f0d2a1c682"
   },
   "BL52": {
    "inv": 0,
@@ -1693,6 +1732,13 @@
    "type": "hero",
    "via": "id",
    "ref": "BL35"
+  },
+  "BL36": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "BL36"
   },
   "BL65": {
    "inv": 0,
@@ -1841,6 +1887,13 @@
    "via": "id",
    "ref": "DA8"
   },
+  "DA6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA6"
+  },
   "DA22": {
    "inv": 0,
    "show": 5,
@@ -1862,11 +1915,11 @@
    "via": "id",
    "ref": "DA47"
   },
-  "DA_Convoke_the_Circle": {
+  "3e99603a7b7b2c54c8f1ad40250ee2ae": {
    "inv": 10,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "3e99603a7b7b2c54c8f1ad40250ee2ae"
   },
   "DA51": {
@@ -1911,11 +1964,11 @@
    "via": "id",
    "ref": "DA58"
   },
-  "DA_Grim_Effigy": {
+  "DA59": {
    "inv": 5,
    "show": 5,
    "type": "defence",
-   "via": "name+army",
+   "via": "id",
    "ref": "DA59"
   },
   "DA43": {
@@ -1953,46 +2006,46 @@
    "via": "id",
    "ref": "DA41"
   },
-  "DA_Master_Interromancer": {
+  "a84a5b49f0ca9144585058db6987c2a0": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "a84a5b49f0ca9144585058db6987c2a0"
   },
-  "DA_Master_of_Manoeuvre": {
+  "7c45a641ec845994097d185af58715f6": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "7c45a641ec845994097d185af58715f6"
   },
-  "DA_Master_of_the_Deathwing": {
+  "9e0eecf8cb9a8df49bf18cc5d9051109": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "9e0eecf8cb9a8df49bf18cc5d9051109"
   },
-  "DA_None_Must_Know": {
+  "24fcaf45556573549b922c06cad3aa2c": {
    "inv": 10,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "24fcaf45556573549b922c06cad3aa2c"
   },
-  "DA_Obscure_Ritual": {
+  "b3364cdc54882b04e8a931e86700ac23": {
    "inv": 10,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "b3364cdc54882b04e8a931e86700ac23"
   },
-  "DA_Plasma_Generator": {
+  "DA61": {
    "inv": 5,
    "show": 5,
    "type": "defence",
-   "via": "name+army",
+   "via": "id",
    "ref": "DA61"
   },
   "DA42": {
@@ -2002,11 +2055,11 @@
    "via": "id",
    "ref": "DA42"
   },
-  "DA_Rites_of_Penance": {
+  "e01e8e933ad574b44bce5473ae486667": {
    "inv": 10,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "e01e8e933ad574b44bce5473ae486667"
   },
   "DA50": {
@@ -2023,11 +2076,11 @@
    "via": "id",
    "ref": "DA44"
   },
-  "DA_Smothering_Decree": {
+  "708c0306e73fd494eb0f718ddaeea48a": {
    "inv": 10,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "708c0306e73fd494eb0f718ddaeea48a"
   },
   "DA53": {
@@ -2044,11 +2097,11 @@
    "via": "id",
    "ref": "DA45"
   },
-  "DA_Supreme_Grand_Master": {
+  "dd535f7a54bcf6241b24ca6d0e81bbb4": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "dd535f7a54bcf6241b24ca6d0e81bbb4"
   },
   "DA46": {
@@ -2163,6 +2216,27 @@
    "via": "id",
    "ref": "DA34"
   },
+  "DA3": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "DA3"
+  },
+  "DA1": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "DA1"
+  },
+  "DA2": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "DA2"
+  },
   "EC33": {
    "inv": 0,
    "show": 5,
@@ -2219,6 +2293,13 @@
    "via": "id",
    "ref": "EC3"
   },
+  "EC16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC16"
+  },
   "EC12": {
    "inv": 0,
    "show": 5,
@@ -2239,6 +2320,13 @@
    "type": "unit",
    "via": "id",
    "ref": "EC18"
+  },
+  "EC9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC9"
   },
   "EC10": {
    "inv": 0,
@@ -2267,6 +2355,13 @@
    "type": "unit",
    "via": "id",
    "ref": "EC13"
+  },
+  "EC14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC14"
   },
   "EC21": {
    "inv": 0,
@@ -2303,12 +2398,26 @@
    "via": "id",
    "ref": "EC1"
   },
-  "EC_Terminator_Champion": {
+  "EC26": {
    "inv": 0,
    "show": 5,
    "type": "unit",
-   "via": "name",
-   "ref": "BL29"
+   "via": "id",
+   "ref": "EC26"
+  },
+  "EC25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC25"
+  },
+  "EC19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC19"
   },
   "EC7": {
    "inv": 0,
@@ -2373,46 +2482,53 @@
    "via": "id",
    "ref": "EC54"
   },
-  "EC72": {
+  "6ed51d59b9f8ea24ab0dc7ceaef7956c": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
+   "ref": "6ed51d59b9f8ea24ab0dc7ceaef7956c"
+  },
+  "5a8a11b2a89796f48b34fbec8db6f452": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
    "ref": "5a8a11b2a89796f48b34fbec8db6f452"
   },
-  "EC73": {
+  "70199b6f183ec364082ca16e62f3d0cb": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "70199b6f183ec364082ca16e62f3d0cb"
   },
-  "EC74": {
+  "6e6d14006d8e9514b83a6c99e572081c": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "6e6d14006d8e9514b83a6c99e572081c"
   },
-  "EC75": {
+  "9215799995ff7a941b14737e27021032": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "9215799995ff7a941b14737e27021032"
   },
-  "EC76": {
+  "4eec3b13d157dae48b14ed412169e692": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "4eec3b13d157dae48b14ed412169e692"
   },
-  "EC77": {
+  "aa45079b714e3ff498549e533c5954a1": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "aa45079b714e3ff498549e533c5954a1"
   },
   "EC40": {
@@ -2428,6 +2544,20 @@
    "type": "tactic",
    "via": "id",
    "ref": "EC39"
+  },
+  "b9665eadf1207ff49bcf0a730b0b7f9d": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "b9665eadf1207ff49bcf0a730b0b7f9d"
+  },
+  "2621d4280735baf4c952e6afea8d0686": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "2621d4280735baf4c952e6afea8d0686"
   },
   "EC47": {
    "inv": 0,
@@ -2548,12 +2678,12 @@
    "via": "id",
    "ref": "EC29"
   },
-  "EC_Maulerfiend": {
+  "EC30": {
    "inv": 0,
    "show": 5,
    "type": "unit",
-   "via": "name",
-   "ref": "BL31"
+   "via": "id",
+   "ref": "EC30"
   },
   "EC55": {
    "inv": 0,
@@ -2807,11 +2937,11 @@
    "via": "id",
    "ref": "GSC56"
   },
-  "GSC_Backstab": {
+  "GSC40": {
    "inv": 0,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "GSC40"
   },
   "GSC46": {
@@ -2821,11 +2951,11 @@
    "via": "id",
    "ref": "GSC46"
   },
-  "GSC_Brood_Prophet": {
+  "fd67b47572987b84cb2990ea1ecfe982": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "fd67b47572987b84cb2990ea1ecfe982"
   },
   "GSC50": {
@@ -2835,11 +2965,11 @@
    "via": "id",
    "ref": "GSC50"
   },
-  "GSC_Cult_Propaganda": {
+  "7c666a04c1b9e8b4e9a96247e9fe115a": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "7c666a04c1b9e8b4e9a96247e9fe115a"
   },
   "GSC76": {
@@ -2856,11 +2986,11 @@
    "via": "id",
    "ref": "GSC59"
   },
-  "GSC_Deadliest_Killer": {
+  "f45dd53721b645b4ab45d334edb986af": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "f45dd53721b645b4ab45d334edb986af"
   },
   "GSC53": {
@@ -2891,11 +3021,11 @@
    "via": "id",
    "ref": "GSC55"
   },
-  "GSC_Experimental_Bio_Horrors": {
+  "4959cd9e99597f74ca9af0bd65ae6307": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "4959cd9e99597f74ca9af0bd65ae6307"
   },
   "GSC58": {
@@ -2905,25 +3035,25 @@
    "via": "id",
    "ref": "GSC58"
   },
-  "GSC_Improvised_Barricade": {
+  "334a32d196d46ed4387bf3740cce069b": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "334a32d196d46ed4387bf3740cce069b"
   },
-  "GSC_Inscrutable_Cunning": {
+  "d01a5ba5865ded4418194ea50e333b21": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name-dup-agree",
+   "via": "id",
    "ref": "d01a5ba5865ded4418194ea50e333b21"
   },
-  "GSC_Jammed_Communications": {
+  "68909cf02f472734ea391665e0d28e15": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "68909cf02f472734ea391665e0d28e15"
   },
   "GSC51": {
@@ -2940,18 +3070,18 @@
    "via": "id",
    "ref": "GSC39"
   },
-  "GSC_Master_Outrider": {
+  "c433e3dde4952cc448220908226127ae": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name-dup-agree",
-   "ref": "70ce5448c46c2c34d80192472e976a67"
+   "via": "id",
+   "ref": "c433e3dde4952cc448220908226127ae"
   },
-  "GSC_Nexus_of_Devotion": {
+  "7831725387c8a774dbdf5b6492d928e0": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "7831725387c8a774dbdf5b6492d928e0"
   },
   "GSC41": {
@@ -2975,11 +3105,11 @@
    "via": "id",
    "ref": "GSC47"
   },
-  "GSC_Poisoned_Supplies": {
+  "a7bb23355a30d344e9d2decf976d91e1": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "a7bb23355a30d344e9d2decf976d91e1"
   },
   "GSC54": {
@@ -2989,11 +3119,11 @@
    "via": "id",
    "ref": "GSC54"
   },
-  "GSC_Roaming_Outriders": {
+  "GSC75": {
    "inv": 0,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "GSC75"
   },
   "GSC74": {
@@ -3031,11 +3161,11 @@
    "via": "id",
    "ref": "GSC45"
   },
-  "GSC_Vox_Hacker": {
+  "e9952f50921d2844a94d39ce883430f4": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "e9952f50921d2844a94d39ce883430f4"
   },
   "GSC27": {
@@ -3121,6 +3251,20 @@
    "type": "unit",
    "via": "id",
    "ref": "GSC73"
+  },
+  "GSC3": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "GSC3"
+  },
+  "GSC66": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "GSC66"
   },
   "GSC2": {
    "inv": 0,
@@ -3219,6 +3363,20 @@
    "type": "unit",
    "via": "id",
    "ref": "SAU69"
+  },
+  "SAU8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU8"
+  },
+  "SAU4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU4"
   },
   "SAU25": {
    "inv": 0,
@@ -3325,6 +3483,13 @@
    "via": "id",
    "ref": "SAU11"
   },
+  "SAU6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU6"
+  },
   "SAU10": {
    "inv": 0,
    "show": 5,
@@ -3395,11 +3560,18 @@
    "via": "id",
    "ref": "SAU60"
   },
-  "SAU_Hardwired_Destruction": {
+  "SAU38": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU38"
+  },
+  "461354d98aa5e3142afa4eb4922e5456": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "461354d98aa5e3142afa4eb4922e5456"
   },
   "SAU45": {
@@ -3423,32 +3595,32 @@
    "via": "id",
    "ref": "SAU58"
   },
-  "SAU_Indomitable_Will": {
+  "65b2be828179515458a282cf1b027182": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "65b2be828179515458a282cf1b027182"
   },
-  "SAU_Inescapable_Retribution": {
+  "SAU76": {
    "inv": 0,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "SAU76"
   },
-  "SAU_Lord_of_the_Storm": {
+  "30007162b68992e41a422f2061705b65": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "30007162b68992e41a422f2061705b65"
   },
-  "SAU_Master_Chronomancer": {
+  "cbabeb234380634479feab1a1b4c733a": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "cbabeb234380634479feab1a1b4c733a"
   },
   "SAU56": {
@@ -3458,11 +3630,11 @@
    "via": "id",
    "ref": "SAU56"
   },
-  "SAU_Particle_Whip": {
+  "eb17cd22c6a5d7941a7456838d927ab1": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "eb17cd22c6a5d7941a7456838d927ab1"
   },
   "SAU40": {
@@ -3472,11 +3644,11 @@
    "via": "id",
    "ref": "SAU40"
   },
-  "SAU_Reanimate": {
+  "27a4b748a7bf358499f038aa09895ead": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "27a4b748a7bf358499f038aa09895ead"
   },
   "SAU41": {
@@ -3486,6 +3658,13 @@
    "via": "id",
    "ref": "SAU41"
   },
+  "SAU39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU39"
+  },
   "SAU42": {
    "inv": 0,
    "show": 5,
@@ -3493,11 +3672,11 @@
    "via": "id",
    "ref": "SAU42"
   },
-  "SAU_Relentless_March": {
+  "d8a14171b08b54144ba9dbf324b0a042": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "d8a14171b08b54144ba9dbf324b0a042"
   },
   "SAU49": {
@@ -3773,6 +3952,13 @@
    "via": "id",
    "ref": "GOF101"
   },
+  "8f35df0536e4f7e4d86f3885e2597404": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "8f35df0536e4f7e4d86f3885e2597404"
+  },
   "GOF104": {
    "inv": 0,
    "show": 5,
@@ -3786,6 +3972,13 @@
    "type": "tactic",
    "via": "id",
    "ref": "GOF107"
+  },
+  "84d4d192e0f57a34a90ac0f6172c3358": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "84d4d192e0f57a34a90ac0f6172c3358"
   },
   "GOF98": {
    "inv": 0,
@@ -3870,6 +4063,27 @@
    "type": "unit",
    "via": "id",
    "ref": "GOF92"
+  },
+  "64a657fc5ed5bbb4fa7b585cf29c1e95": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "64a657fc5ed5bbb4fa7b585cf29c1e95"
+  },
+  "d19e8b68aaa9a884781d06697ad237a6": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "d19e8b68aaa9a884781d06697ad237a6"
+  },
+  "e3d67d86f73f7564eb0bf886ec848af6": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "e3d67d86f73f7564eb0bf886ec848af6"
   },
   "GOF23": {
    "inv": 0,
@@ -3990,6 +4204,13 @@
    "via": "id",
    "ref": "GOF57"
   },
+  "GOF12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF12"
+  },
   "GOF18": {
    "inv": 0,
    "show": 5,
@@ -4053,6 +4274,13 @@
    "via": "id",
    "ref": "GOF5"
   },
+  "GOF20": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF20"
+  },
   "GOF33": {
    "inv": 0,
    "show": 5,
@@ -4088,11 +4316,11 @@
    "via": "id",
    "ref": "GOF42"
   },
-  "GOF_Da_Red_Waaagh": {
+  "20d0f4451f16fc441836a02f99bf77da": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "20d0f4451f16fc441836a02f99bf77da"
   },
   "GOF72": {
@@ -4109,11 +4337,11 @@
    "via": "id",
    "ref": "GOF53"
   },
-  "GOF_Follower_of_Gork": {
+  "6ba4b132d24528844a86304f8ce67833": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "6ba4b132d24528844a86304f8ce67833"
   },
   "GOF45": {
@@ -4123,11 +4351,11 @@
    "via": "id",
    "ref": "GOF45"
   },
-  "GOF_Greatest_Warboss": {
+  "3ebb159036778d14ebd1c48451aa6ca0": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "3ebb159036778d14ebd1c48451aa6ca0"
   },
   "GOF43": {
@@ -4165,18 +4393,18 @@
    "via": "id",
    "ref": "GOF71"
   },
-  "GOF_Mekaniak": {
+  "9dcbe3d0c04b02f4fbb19974ae0e37b2": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "9dcbe3d0c04b02f4fbb19974ae0e37b2"
   },
-  "GOF_More_Dakka": {
+  "9f4e1b7ea9f00da458c6a859a4e958c8": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "9f4e1b7ea9f00da458c6a859a4e958c8"
   },
   "GOF40": {
@@ -4214,11 +4442,11 @@
    "via": "id",
    "ref": "GOF64"
   },
-  "GOF_Ramshackle": {
+  "98d3c65702746b04baf7f5ead1a9e507": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "98d3c65702746b04baf7f5ead1a9e507"
   },
   "GOF48": {
@@ -4228,11 +4456,11 @@
    "via": "id",
    "ref": "GOF48"
   },
-  "GOF_Sawbonez": {
+  "b4d6d186eb95a3f468013c5be649ee3b": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "b4d6d186eb95a3f468013c5be649ee3b"
   },
   "GOF36": {
@@ -4277,12 +4505,12 @@
    "via": "id",
    "ref": "GOF52"
   },
-  "GOF_Uge_Choppa": {
+  "6899b199f5e36144ebbdd7ed9d9e7afe": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name-dup-agree",
-   "ref": "6b945ed622dee0e479d44e0bfd2273c5"
+   "via": "id",
+   "ref": "6899b199f5e36144ebbdd7ed9d9e7afe"
   },
   "GOF41": {
    "inv": 0,
@@ -4298,18 +4526,18 @@
    "via": "id",
    "ref": "GOF47"
   },
-  "GOF_Worst_Temper": {
+  "8425b809e9e64e24f9035f709f5aaee4": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "8425b809e9e64e24f9035f709f5aaee4"
   },
-  "GOF_Wreckin_Ball": {
+  "508002f5d7ee54f4686aefa2e6adce41": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "508002f5d7ee54f4686aefa2e6adce41"
   },
   "GOF24": {
@@ -4620,6 +4848,13 @@
    "via": "id",
    "ref": "SOR24"
   },
+  "SOR31": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR31"
+  },
   "SOR4": {
    "inv": 0,
    "show": 5,
@@ -4633,6 +4868,13 @@
    "type": "unit",
    "via": "id",
    "ref": "SOR17"
+  },
+  "SOR10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR10"
   },
   "SOR37": {
    "inv": 0,
@@ -4683,11 +4925,11 @@
    "via": "id",
    "ref": "SOR41"
   },
-  "SOR_Daemonbreaker": {
+  "e01f4d54e8a474d96b5a1167cc28eebf": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "e01f4d54e8a474d96b5a1167cc28eebf"
   },
   "SOR45": {
@@ -4718,11 +4960,11 @@
    "via": "id",
    "ref": "SOR51"
   },
-  "SOR_Emperor_s_Judgement": {
+  "SOR74": {
    "inv": 0,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "SOR74"
   },
   "SOR54": {
@@ -4739,11 +4981,11 @@
    "via": "id",
    "ref": "SOR46"
   },
-  "SOR_Fury_of_the_Righteous": {
+  "8901e35c5de30eb48804da6651cfb132": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "8901e35c5de30eb48804da6651cfb132"
   },
   "SOR61": {
@@ -4767,11 +5009,11 @@
    "via": "id",
    "ref": "SOR60"
   },
-  "SOR_Hymn_of_Battle": {
+  "4d348cff71208c24d8e39252d913ff9d": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "4d348cff71208c24d8e39252d913ff9d"
   },
   "SOR48": {
@@ -4788,11 +5030,11 @@
    "via": "id",
    "ref": "SOR40"
   },
-  "SOR_Lead_the_Righteous": {
+  "65cfec7d2bc719040b3b4b88622931b2": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "65cfec7d2bc719040b3b4b88622931b2"
   },
   "SOR47": {
@@ -4816,11 +5058,11 @@
    "via": "id",
    "ref": "SOR50"
   },
-  "SOR_Righteous_Repugnance": {
+  "f104d4c21abe84546abc9365d9eda8dd": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "f104d4c21abe84546abc9365d9eda8dd"
   },
   "SOR42": {
@@ -4998,6 +5240,13 @@
    "via": "id",
    "ref": "TAU26"
   },
+  "TAU38": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU38"
+  },
   "TAU4": {
    "inv": 0,
    "show": 5,
@@ -5039,6 +5288,20 @@
    "type": "unit",
    "via": "id",
    "ref": "TAU10"
+  },
+  "TAU32": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU32"
+  },
+  "TAU14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU14"
   },
   "TAU23": {
    "inv": 0,
@@ -5173,18 +5436,18 @@
    "via": "id",
    "ref": "TAU58"
   },
-  "TAU_Deploy_Anchors": {
+  "507f79fa60945d04e93fe806aca912b7": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "507f79fa60945d04e93fe806aca912b7"
   },
-  "TAU_Drone_Companion": {
+  "c4f5c920744030c4e84428dc5a0f1bf2": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "c4f5c920744030c4e84428dc5a0f1bf2"
   },
   "TAU47": {
@@ -5201,12 +5464,19 @@
    "via": "id",
    "ref": "TAU48"
   },
-  "TAU_Ethereal_Supreme": {
+  "f8260229254a09746af6d9ff7a9b0b54": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "f8260229254a09746af6d9ff7a9b0b54"
+  },
+  "TAU42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU42"
   },
   "TAU43": {
    "inv": 0,
@@ -5222,18 +5492,18 @@
    "via": "id",
    "ref": "TAU53"
   },
-  "TAU_Grisly_Feast": {
+  "b3735ef3d1408d544b0947e31f898e20": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "b3735ef3d1408d544b0947e31f898e20"
   },
-  "TAU_Hero_of_the_Empire": {
+  "9f75a6fe11922eb409ffbad4ecdeb405": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "9f75a6fe11922eb409ffbad4ecdeb405"
   },
   "TAU73": {
@@ -5243,12 +5513,19 @@
    "via": "id",
    "ref": "TAU73"
   },
-  "TAU_Homing_Beacon": {
+  "1688c6146abb1e04f98e540b4cbbabd7": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "1688c6146abb1e04f98e540b4cbbabd7"
+  },
+  "TAU75": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU75"
   },
   "TAU49": {
    "inv": 0,
@@ -5299,6 +5576,13 @@
    "via": "id",
    "ref": "TAU55"
   },
+  "TAU51": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU51"
+  },
   "TAU46": {
    "inv": 0,
    "show": 5,
@@ -5306,18 +5590,18 @@
    "via": "id",
    "ref": "TAU46"
   },
-  "TAU_Serene_Unifier": {
+  "f2b80d575cbf8f64597b991022beaf35": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "f2b80d575cbf8f64597b991022beaf35"
   },
-  "TAU_Shield_Generator": {
+  "684196db974ab254090f39ef6e89868c": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "684196db974ab254090f39ef6e89868c"
   },
   "TAU52": {
@@ -5327,11 +5611,11 @@
    "via": "id",
    "ref": "TAU52"
   },
-  "TAU_Structural_Analyzer": {
+  "f279c5cf1c3e16e4db6b9df4d941ad11": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "f279c5cf1c3e16e4db6b9df4d941ad11"
   },
   "TAU40": {
@@ -5418,6 +5702,13 @@
    "via": "id",
    "ref": "TAU20"
   },
+  "TAU33": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU33"
+  },
   "TAU30": {
    "inv": 0,
    "show": 5,
@@ -5474,11 +5765,11 @@
    "via": "id",
    "ref": "TL74"
   },
-  "TL_Barbgaunt": {
+  "TL67": {
    "inv": 0,
    "show": 5,
    "type": "unit",
-   "via": "name+army",
+   "via": "id",
    "ref": "TL67"
   },
   "TL6": {
@@ -5544,18 +5835,18 @@
    "via": "id",
    "ref": "TL60"
   },
-  "TL_Neurogaunt": {
+  "TL66": {
    "inv": 0,
    "show": 5,
    "type": "unit",
-   "via": "name+army",
+   "via": "id",
    "ref": "TL66"
   },
-  "TL_Neuroloid": {
+  "TL65": {
    "inv": 0,
    "show": 5,
    "type": "unit",
-   "via": "name+army",
+   "via": "id",
    "ref": "TL65"
   },
   "TL9": {
@@ -5593,11 +5884,11 @@
    "via": "id",
    "ref": "TL61"
   },
-  "TL_Termagant_Brood": {
+  "TL75": {
    "inv": 0,
    "show": 5,
    "type": "unit",
-   "via": "name+army",
+   "via": "id",
    "ref": "TL75"
   },
   "TL4": {
@@ -5705,25 +5996,25 @@
    "via": "id",
    "ref": "TL16"
   },
-  "TL_Neurotyrant": {
+  "TL69": {
    "inv": 0,
    "show": 5,
    "type": "unit",
-   "via": "name+army",
+   "via": "id",
    "ref": "TL69"
   },
-  "TL_Norn_Emissary": {
+  "TL70": {
    "inv": 0,
    "show": 5,
    "type": "unit",
-   "via": "name+army",
+   "via": "id",
    "ref": "TL70"
   },
-  "TL_Psychophage": {
+  "TL68": {
    "inv": 0,
    "show": 5,
    "type": "unit",
-   "via": "name+army",
+   "via": "id",
    "ref": "TL68"
   },
   "TL21": {
@@ -5768,18 +6059,18 @@
    "via": "id",
    "ref": "TL33"
   },
-  "TL_Aerial_Seeding": {
+  "c0ddba6cc45944f46a65f4fd93bcc0a5": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "c0ddba6cc45944f46a65f4fd93bcc0a5"
   },
-  "TL_Alpha_Warrior": {
+  "8f2da557fe484ee4bbf427c13eccd4cb": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "8f2da557fe484ee4bbf427c13eccd4cb"
   },
   "TL39": {
@@ -5803,11 +6094,11 @@
    "via": "id",
    "ref": "TL43"
   },
-  "TL_Bestial_Rage": {
+  "TL73": {
    "inv": 0,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "TL73"
   },
   "TL63": {
@@ -5817,11 +6108,11 @@
    "via": "id",
    "ref": "TL63"
   },
-  "TL_Brood_Progenitor": {
+  "cbc9d98e39cc7fb4fa6f94c7e69bda18": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "cbc9d98e39cc7fb4fa6f94c7e69bda18"
   },
   "TL42": {
@@ -5852,11 +6143,11 @@
    "via": "id",
    "ref": "TL31"
   },
-  "TL81": {
+  "468db99b4b10d0745bab346df37d3fb2": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "468db99b4b10d0745bab346df37d3fb2"
   },
   "TL44": {
@@ -5866,11 +6157,11 @@
    "via": "id",
    "ref": "TL44"
   },
-  "TL_Hive_Commander": {
+  "5b5425f6e2848b449807bd1643d0d936": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "5b5425f6e2848b449807bd1643d0d936"
   },
   "TL47": {
@@ -5886,6 +6177,13 @@
    "type": "tactic",
    "via": "id",
    "ref": "TL49"
+  },
+  "TL40": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL40"
   },
   "TL50": {
    "inv": 0,
@@ -5929,11 +6227,11 @@
    "via": "id",
    "ref": "TL64"
   },
-  "TL_Spirit_Leech": {
+  "760bd3afde513774d96d6492f995fd37": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "760bd3afde513774d96d6492f995fd37"
   },
   "TL53": {
@@ -5943,18 +6241,18 @@
    "via": "id",
    "ref": "TL53"
   },
-  "TL_Synaptic_Imperative": {
+  "a58e05916eb5e994daa0349cbe237001": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "a58e05916eb5e994daa0349cbe237001"
   },
-  "TL_Toxic_Entanglement": {
+  "TL71": {
    "inv": 0,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "TL71"
   },
   "TL51": {
@@ -5971,11 +6269,11 @@
    "via": "id",
    "ref": "TL56"
   },
-  "TL_Tyranid_Invasion": {
+  "TL72": {
    "inv": 0,
    "show": 5,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "TL72"
   },
   "TL36": {
@@ -6265,11 +6563,11 @@
    "via": "id",
    "ref": "UM64"
   },
-  "UM_Might_of_Heroes": {
+  "0740581c2c0523745a42dbec1b2ef82a": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "0740581c2c0523745a42dbec1b2ef82a"
   },
   "UM75": {
@@ -6321,11 +6619,11 @@
    "via": "id",
    "ref": "UM37"
   },
-  "UM_Exhortation_of_Rage": {
+  "315d9f293e4f56d4f813584b43f0511c": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "315d9f293e4f56d4f813584b43f0511c"
   },
   "UM52": {
@@ -6349,11 +6647,11 @@
    "via": "id",
    "ref": "UM45"
   },
-  "UM_Greatest_Deeds": {
+  "0544047df88d2ba4cad9c17ff080c0eb": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "0544047df88d2ba4cad9c17ff080c0eb"
   },
   "UM36": {
@@ -6398,32 +6696,32 @@
    "via": "id",
    "ref": "UM54"
   },
-  "UM_Master_Tactician": {
+  "dcbd28525888ce54aaa93a47ba4de1e6": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "dcbd28525888ce54aaa93a47ba4de1e6"
   },
-  "UM_Master_of_Arcana": {
+  "f923701f207d23a4f81d6ff5891b4a0c": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "f923701f207d23a4f81d6ff5891b4a0c"
   },
-  "UM_Master_of_Arms": {
+  "55b8e3d2040f86d4190ffb1a91abb5ed": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "55b8e3d2040f86d4190ffb1a91abb5ed"
   },
-  "UM_Master_of_the_Fleet": {
+  "9238c27730a0c424288d46ed0f4a742c": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "9238c27730a0c424288d46ed0f4a742c"
   },
   "UM73": {
@@ -6433,11 +6731,11 @@
    "via": "id",
    "ref": "UM73"
   },
-  "UM_Paragon_of_Ultramar": {
+  "7693f2b21b2f85644b739da990bc2216": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "7693f2b21b2f85644b739da990bc2216"
   },
   "UM33": {
@@ -6461,11 +6759,11 @@
    "via": "id",
    "ref": "UM74"
   },
-  "UM_Righteous_Fury": {
+  "26d4ded12b28a3742b5c8fc155e29803": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "26d4ded12b28a3742b5c8fc155e29803"
   },
   "UM41": {
@@ -6475,11 +6773,11 @@
    "via": "id",
    "ref": "UM41"
   },
-  "UM_Scryer_s_Gaze": {
+  "c4ff279078605aa42942c8dd16b77147": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "c4ff279078605aa42942c8dd16b77147"
   },
   "UM31": {
@@ -6489,18 +6787,18 @@
    "via": "id",
    "ref": "UM31"
   },
-  "UM_Smite": {
+  "cf0b346f70e748c4bbfc4dc03ab39ead": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "cf0b346f70e748c4bbfc4dc03ab39ead"
   },
-  "UM_Spear_of_Macragge": {
+  "d94f91051ecfe014f97577ff573571aa": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "d94f91051ecfe014f97577ff573571aa"
   },
   "UM38": {
@@ -6657,12 +6955,47 @@
    "via": "id",
    "ref": "UM85"
   },
-  "AM_Lord_Commander": {
+  "c06453b330af61745beb5fa567ba863e": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "c06453b330af61745beb5fa567ba863e"
+  },
+  "4a48457c24877f345be2e96f867c1e94": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "4a48457c24877f345be2e96f867c1e94"
+  },
+  "9a2cadc64c80a6b42912441105bb1cee": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "9a2cadc64c80a6b42912441105bb1cee"
+  },
+  "b8e81b2fe85cda747a68c4d6326b669c": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "b8e81b2fe85cda747a68c4d6326b669c"
+  },
+  "1dfc9bc738bfc4f4d93d48f165aee510": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "1dfc9bc738bfc4f4d93d48f165aee510"
+  },
+  "4cdc1b5f965f99945b685bca7660e9fa": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "4cdc1b5f965f99945b685bca7660e9fa"
   },
   "EC56": {
    "inv": 0,
@@ -6678,6 +7011,20 @@
    "via": "id",
    "ref": "EC22"
   },
+  "EC60": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "EC60"
+  },
+  "EC61": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "EC61"
+  },
   "SAU53": {
    "inv": 0,
    "show": 5,
@@ -6692,11 +7039,11 @@
    "via": "id",
    "ref": "SOR44"
   },
-  "UM_Exemplary_Warrior": {
+  "cc1400347b15ee3449bc18bbdb9ddec9": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
-   "via": "name+army",
+   "via": "id",
    "ref": "cc1400347b15ee3449bc18bbdb9ddec9"
   },
   "UM72": {
@@ -6706,70 +7053,43 @@
    "via": "id",
    "ref": "UM72"
   },
+  "BL57": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "BL57"
+  },
+  "BL58": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "BL58"
+  },
   "SAU59": {
    "inv": 5,
    "show": 5,
    "type": "defence",
    "via": "id",
    "ref": "SAU59"
+  },
+  "TL55": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "TL55"
+  },
+  "97e959444b53f424ea4285e2ca02c7e6": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "97e959444b53f424ea4285e2ca02c7e6"
   }
  },
  "unknown": {
-  "ASH_Skyborne_Deployment": {
-   "name": "Skyborne Deployment",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "AM_Leman_Russ": {
-   "name": "Leman Russ",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "AM_Commissar_Elan": {
-   "name": "Commissar Elan",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
-  "AM_Hektor_Thenmann": {
-   "name": "Hektor Thenmann",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
-  "BL_Idolatrous_Despoilers": {
-   "name": "Idolatrous Despoilers",
-   "type": "tactic",
-   "why": "name-ambiguous"
-  },
-  "BL_Spreading_Corruption": {
-   "name": "Spreading Corruption",
-   "type": "tactic",
-   "why": "name-ambiguous"
-  },
-  "BL_Sylar_Hexcorn": {
-   "name": "Sylar Hexcorn",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
-  "DA_Sergeant_Naaman": {
-   "name": "Sergeant Naaman",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "DA_Asmodai": {
-   "name": "Asmodai",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
-  "DA_Azrael": {
-   "name": "Azrael",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
-  "DA_Belial": {
-   "name": "Belial",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
   "DA76": {
    "name": "Refuse to Yield",
    "type": "tactic",
@@ -6828,126 +7148,6 @@
   "DA75": {
    "name": "Master Zacharial",
    "type": "hero",
-   "why": "no-truth-row"
-  },
-  "EC_Dual_Screamer_Kakophonist": {
-   "name": "Dual Screamer Kakophonist",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "EC_Icon_of_Excess_Infractor": {
-   "name": "Icon of Excess Infractor",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "EC_Lord_Kakophonist": {
-   "name": "Lord Kakophonist",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "EC_Terminator": {
-   "name": "Terminator",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "EC_Threnodic_Choir_Noise_Marine": {
-   "name": "Threnodic Choir Noise Marine",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "EC_Duelist_s_Hubris_Lucius_Talent": {
-   "name": "Duelist's Hubris (Lucius' Talent)",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "EC_Euphoric_Strike_Lord_Exultant_s_Talent": {
-   "name": "Euphoric Strike (Lord Exultant's Talent)",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "EC_Excessive_Vigour_Daemon_Prince_s_Talent": {
-   "name": "Excessive Vigour (Daemon Prince's Talent)",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "GSC_Acolyte_Iconward": {
-   "name": "Acolyte Iconward",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
-  "GSC_Lhaska_Szenari": {
-   "name": "Lhaska Szenari",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
-  "SAU_Gauss_Blaster_Immortal": {
-   "name": "Gauss Blaster Immortal",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SAU_Gauss_Reaper_Warrior": {
-   "name": "Gauss Reaper Warrior",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SAU_Tesla_Carbine_Immortal": {
-   "name": "Tesla Carbine Immortal",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SAU_Extermination_Protocols": {
-   "name": "Extermination Protocols",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SAU_Reconstitution_Protocols": {
-   "name": "Reconstitution Protocols",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "GOF_Dok_s_Toolz_Painboss_talent": {
-   "name": "Dok’s Toolz (Painboss' talent)",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "GOF_Ferocious_Rage_Beastboss_Talent": {
-   "name": "Ferocious Rage (Beastboss' Talent)",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent": {
-   "name": "Da Bigger Dey Iz... (Mozrog's Talent)",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "GOF_Special_Dose_Zodgrod_Wortsnagga_Talent": {
-   "name": "Special Dose (Zodgrod Wortsnagga Talent)",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "GOF_Waaagh_Energy_Weirdboy_Talent": {
-   "name": "Waaagh! Energy (Weirdboy Talent)",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "GOF_Ork_Spanner": {
-   "name": "Ork Spanner",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "GOF_Veteran_Flyboy": {
-   "name": "Veteran Flyboy",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SOR_Sister_Dogmata": {
-   "name": "Sister Dogmata",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SOR_Sisters_Repentia": {
-   "name": "Sisters Repentia",
-   "type": "unit",
    "why": "no-truth-row"
   },
   "SW1": {
@@ -7290,41 +7490,6 @@
    "type": "hero",
    "why": "no-truth-row"
   },
-  "TAU_Stormsurge_Battlesuit": {
-   "name": "Stormsurge Battlesuit",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "TAU_Aunshi_Ethereal": {
-   "name": "Aunshi Ethereal",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "TAU_Breacher_Fire_Warrior": {
-   "name": "Breacher Fire Warrior",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "TAU_Experimental_Drone": {
-   "name": "Experimental Drone",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "TAU_Hunters_Instincts": {
-   "name": "Hunters Instincts",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "TAU_Saviour_Protocolst": {
-   "name": "Saviour Protocolst",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "TAU_Razorshark": {
-   "name": "Razorshark",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
   "UM_2nd_Company_Terminator": {
    "name": "2nd Company Terminator",
    "type": "unit",
@@ -7514,71 +7679,9 @@
    "name": "Valius Paxor",
    "type": "hero",
    "why": "no-truth-row"
-  },
-  "BL_Dark_Pact_of_Fate": {
-   "name": "Dark Pact of Fate",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "BL_Dark_Pact_of_Blood": {
-   "name": "Dark Pact of Blood",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "BL_Dark_Pact_of_Excess": {
-   "name": "Dark Pact of Excess",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "BL_Dark_Pact_of_Resilience": {
-   "name": "Dark Pact of Resilience",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "DA_Master_of_Repentance": {
-   "name": "Master of Repentance",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "EC_Armoury_of_Excess": {
-   "name": "Armoury of Excess",
-   "type": "defence",
-   "why": "no-truth-row"
-  },
-  "EC_Decadent_Throne": {
-   "name": "Decadent Throne",
-   "type": "defence",
-   "why": "no-truth-row"
-  },
-  "BL_Hellfire_Torch": {
-   "name": "Hellfire Torch",
-   "type": "defence",
-   "why": "no-truth-row"
-  },
-  "BL_Hellfire_Pit": {
-   "name": "Hellfire Pit",
-   "type": "defence",
-   "why": "no-truth-row"
-  },
-  "TL_Protective_Bio_structure": {
-   "name": "Protective Bio-structure",
-   "type": "defence",
-   "why": "no-truth-row"
-  },
-  "BL_Chosen_of_the_Four": {
-   "name": "Chosen of the Four",
-   "type": "tactic",
-   "why": "no-truth-row"
   }
  },
  "unmatchedTruthRows": [
-  {
-   "ref": "EC16",
-   "name": "Screamer Kakophonist",
-   "army": 120,
-   "inv": 0,
-   "show": 5
-  },
   {
    "ref": "8a028d3771c60014aa35c7269d38159e",
    "name": "The Rock",
@@ -7592,13 +7695,6 @@
    "army": 20,
    "inv": 10,
    "show": 0
-  },
-  {
-   "ref": "TL40",
-   "name": "Infestation Node",
-   "army": 60,
-   "inv": 0,
-   "show": 5
   },
   {
    "ref": "fbdc291f3a847a846905c46fe98de618",
@@ -7622,13 +7718,6 @@
    "show": 0
   },
   {
-   "ref": "b8e81b2fe85cda747a68c4d6326b669c",
-   "name": "Mark of Slaanesh (enchantment)",
-   "army": 50,
-   "inv": 10,
-   "show": 0
-  },
-  {
    "ref": "35b64a8458fc60745b2f49204081c1cb",
    "name": "Hyper-adaptation",
    "army": 60,
@@ -7643,37 +7732,9 @@
    "show": 0
   },
   {
-   "ref": "TAU38",
-   "name": "Stormsurge",
-   "army": 70,
-   "inv": 0,
-   "show": 5
-  },
-  {
-   "ref": "SAU39",
-   "name": "Reconstitution Protocol",
-   "army": 40,
-   "inv": 0,
-   "show": 5
-  },
-  {
-   "ref": "BL58",
-   "name": "Helfire Pit",
-   "army": 50,
-   "inv": 5,
-   "show": 5
-  },
-  {
    "ref": "c69c3f3a38002844ca8e3324850df22a",
    "name": "Hyper-adaptation",
    "army": 60,
-   "inv": 10,
-   "show": 0
-  },
-  {
-   "ref": "1dfc9bc738bfc4f4d93d48f165aee510",
-   "name": "Mark of Nurgle (enchantment)",
-   "army": 50,
    "inv": 10,
    "show": 0
   },
@@ -7685,18 +7746,11 @@
    "show": 0
   },
   {
-   "ref": "SOR10",
-   "name": "Sister Repentia",
-   "army": 80,
-   "inv": 0,
-   "show": 5
-  },
-  {
-   "ref": "EC26",
-   "name": "Emperor's Children Terminator Champion",
-   "army": 120,
-   "inv": 0,
-   "show": 5
+   "ref": "f70efd9867a9cf3458b722aeaf2982bc",
+   "name": "Unhallowed Gifts",
+   "army": 50,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "da8a1ba85a045484eb90f55394873119",
@@ -7711,13 +7765,6 @@
    "army": 50,
    "inv": 10,
    "show": 0
-  },
-  {
-   "ref": "DA3",
-   "name": "Asmodai, Master Interrogator",
-   "army": 110,
-   "inv": 0,
-   "show": 5
   },
   {
    "ref": "0094e6b79ffe12e4c8d9fd70beb02b5e",
@@ -7741,18 +7788,11 @@
    "show": 0
   },
   {
-   "ref": "TAU33",
-   "name": "Razorshark Fighter",
-   "army": 70,
-   "inv": 0,
-   "show": 5
-  },
-  {
-   "ref": "EC61",
-   "name": "Dark Prince's Throne",
-   "army": 120,
-   "inv": 5,
-   "show": 5
+   "ref": "4b8214d3b5e589f42beab20e56ca21b0",
+   "name": "Storm of Silence",
+   "army": 30,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "d4ed3be9de80b00469a9cd255df63f35",
@@ -7790,13 +7830,6 @@
    "show": 0
   },
   {
-   "ref": "4a48457c24877f345be2e96f867c1e94",
-   "name": "Mark of Tzeentch (enchantment)",
-   "army": 50,
-   "inv": 10,
-   "show": 0
-  },
-  {
    "ref": "2882d40f009bf8c46a89e975c37d00ab",
    "name": "Ancient Reliquary",
    "army": 110,
@@ -7830,20 +7863,6 @@
    "army": 120,
    "inv": 10,
    "show": 0
-  },
-  {
-   "ref": "EC25",
-   "name": "Emperor's Children Terminator",
-   "army": 120,
-   "inv": 0,
-   "show": 5
-  },
-  {
-   "ref": "DA2",
-   "name": "Belial, Master of the Deathwing",
-   "army": 110,
-   "inv": 0,
-   "show": 5
   },
   {
    "ref": "b432e12e60e66a94fa032cd62011d2e1",
@@ -7895,13 +7914,6 @@
    "show": 0
   },
   {
-   "ref": "SAU38",
-   "name": "Extermination Protocol",
-   "army": 40,
-   "inv": 0,
-   "show": 5
-  },
-  {
    "ref": "eab54e4c131034e4dacf8ce72807ed07",
    "name": "Undying Legions",
    "army": 40,
@@ -7940,20 +7952,6 @@
    "ref": "239f468a65ba1b24ba119ab1a1ac53cc",
    "name": "Normal Conditions (GSC)",
    "army": 90,
-   "inv": 10,
-   "show": 0
-  },
-  {
-   "ref": "97e959444b53f424ea4285e2ca02c7e6",
-   "name": "Warmaster",
-   "army": 50,
-   "inv": 10,
-   "show": 0
-  },
-  {
-   "ref": "e3d67d86f73f7564eb0bf886ec848af6",
-   "name": "Waaagh! Energy",
-   "army": 20,
    "inv": 10,
    "show": 0
   },
@@ -8126,13 +8124,6 @@
    "show": 0
   },
   {
-   "ref": "6ed51d59b9f8ea24ab0dc7ceaef7956c",
-   "name": "Duelist's Hubris",
-   "army": 120,
-   "inv": 10,
-   "show": 0
-  },
-  {
    "ref": "eb815e1e93912d24394c7fca6d3558f4",
    "name": "Primaris Intercessor (tutorial)",
    "army": 10,
@@ -8147,24 +8138,10 @@
    "show": 5
   },
   {
-   "ref": "AM32",
-   "name": "Leman Russ Tank",
-   "army": 100,
-   "inv": 0,
-   "show": 5
-  },
-  {
    "ref": "UM49",
    "name": "Aerial Clash",
    "army": 10,
    "inv": 5,
-   "show": 5
-  },
-  {
-   "ref": "BL74",
-   "name": "Spreading Corruption",
-   "army": 50,
-   "inv": 0,
    "show": 5
   },
   {
@@ -8203,25 +8180,11 @@
    "show": 0
   },
   {
-   "ref": "DA1",
-   "name": "Azrael, Grand Master",
-   "army": 110,
-   "inv": 0,
-   "show": 5
-  },
-  {
    "ref": "ef547f829b6491f45a8ad371f492278e",
    "name": "Nemesor Zahndrekh",
    "army": 40,
    "inv": 10,
    "show": 0
-  },
-  {
-   "ref": "BL36",
-   "name": "Sylar Hexscorn",
-   "army": 50,
-   "inv": 0,
-   "show": 5
   },
   {
    "ref": "b3dd8a39126b31342b38756e72e8660b",
@@ -8259,11 +8222,11 @@
    "show": 0
   },
   {
-   "ref": "TL55",
-   "name": "Sporecaster Biostructure",
-   "army": 60,
-   "inv": 5,
-   "show": 5
+   "ref": "e09280c7545371941b57dc0cc813012f",
+   "name": "Litany of Despair",
+   "army": 50,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "59a4d20eed92a624c9512a392b163bf3",
@@ -8276,13 +8239,6 @@
    "ref": "4cc68a0d541c4364e937d77d0838fb0d",
    "name": "Electro-Static Interference",
    "army": 70,
-   "inv": 10,
-   "show": 0
-  },
-  {
-   "ref": "64a657fc5ed5bbb4fa7b585cf29c1e95",
-   "name": "Da Bigger Dey Iz...",
-   "army": 20,
    "inv": 10,
    "show": 0
   },
@@ -8315,20 +8271,6 @@
    "show": 0
   },
   {
-   "ref": "851f73daf747eb642934a16429b391db",
-   "name": "Storm of Silence",
-   "army": 30,
-   "inv": 10,
-   "show": 0
-  },
-  {
-   "ref": "EC9",
-   "name": "Icon of Excess",
-   "army": 120,
-   "inv": 0,
-   "show": 5
-  },
-  {
    "ref": "4889d3ae002db2d4785cb2286a84e48e",
    "name": "Sweeping Infestation",
    "army": 60,
@@ -8341,20 +8283,6 @@
    "army": 50,
    "inv": 10,
    "show": 0
-  },
-  {
-   "ref": "BL75",
-   "name": "Idolatrous Despoilers",
-   "army": 50,
-   "inv": 0,
-   "show": 5
-  },
-  {
-   "ref": "EC19",
-   "name": "Threnodic Noise Marine",
-   "army": 120,
-   "inv": 0,
-   "show": 5
   },
   {
    "ref": "cd155c09a88e15c428b29ef000bd8954",
@@ -8385,6 +8313,13 @@
    "show": 0
   },
   {
+   "ref": "3df005b0c8973d5419eb1a4981f777b0",
+   "name": "Helspear Assault",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "61ef8171ef572ac4b98e33c25fbefc70",
    "name": "Oath of Moment",
    "army": 10,
@@ -8397,13 +8332,6 @@
    "army": 10,
    "inv": 10,
    "show": 0
-  },
-  {
-   "ref": "TAU14",
-   "name": "Fire Warrior Breacher",
-   "army": 70,
-   "inv": 0,
-   "show": 5
   },
   {
    "ref": "b5cdf76897db0a84ca518725d20168a7",
@@ -8427,13 +8355,6 @@
    "show": 0
   },
   {
-   "ref": "BL57",
-   "name": "Helfire Torch",
-   "army": 50,
-   "inv": 5,
-   "show": 5
-  },
-  {
    "ref": "TL58",
    "name": "Sweeping Infestation",
    "army": 60,
@@ -8455,23 +8376,16 @@
    "show": 0
   },
   {
-   "ref": "EC60",
-   "name": "Tools of Torture",
-   "army": 120,
-   "inv": 5,
-   "show": 5
+   "ref": "70ce5448c46c2c34d80192472e976a67",
+   "name": "Master Outrider",
+   "army": 90,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "847acecf682cb0748bc4445b52125cb4",
    "name": "Gauss Warrior (tutorial)",
    "army": 40,
-   "inv": 10,
-   "show": 0
-  },
-  {
-   "ref": "c433e3dde4952cc448220908226127ae",
-   "name": "Master Outrider",
-   "army": 90,
    "inv": 10,
    "show": 0
   },
@@ -8511,18 +8425,11 @@
    "show": 5
   },
   {
-   "ref": "DA6",
-   "name": "Sergeant Taaman",
-   "army": 110,
-   "inv": 0,
-   "show": 5
-  },
-  {
-   "ref": "AM3",
-   "name": "Commissar Denkler",
-   "army": 100,
-   "inv": 0,
-   "show": 5
+   "ref": "6b945ed622dee0e479d44e0bfd2273c5",
+   "name": "Uge Choppa",
+   "army": 20,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "51e88ac3d55f7d947bee19f8eb02c06a",
@@ -8530,20 +8437,6 @@
    "army": 60,
    "inv": 10,
    "show": 0
-  },
-  {
-   "ref": "GOF20",
-   "name": "Veteran Stormboy",
-   "army": 20,
-   "inv": 0,
-   "show": 5
-  },
-  {
-   "ref": "AM66",
-   "name": "Tempestor Prime",
-   "army": 100,
-   "inv": 0,
-   "show": 5
   },
   {
    "ref": "364bf7f669176924eab7fbb1a477e3a4",
@@ -8630,32 +8523,11 @@
    "show": 0
   },
   {
-   "ref": "2621d4280735baf4c952e6afea8d0686",
-   "name": "Excessive Vigour",
-   "army": 120,
-   "inv": 10,
-   "show": 0
-  },
-  {
-   "ref": "6899b199f5e36144ebbdd7ed9d9e7afe",
-   "name": "Uge Choppa",
-   "army": 20,
-   "inv": 10,
-   "show": 0
-  },
-  {
    "ref": "ASH60",
    "name": "Webway Rift",
    "army": 30,
    "inv": 5,
    "show": 5
-  },
-  {
-   "ref": "4cdc1b5f965f99945b685bca7660e9fa",
-   "name": "Exemplar of Hate",
-   "army": 110,
-   "inv": 10,
-   "show": 0
   },
   {
    "ref": "d0ac7c259308ab540aabb5123d0c1633",
@@ -8679,13 +8551,6 @@
    "show": 0
   },
   {
-   "ref": "TAU51",
-   "name": "Saviour Protocols",
-   "army": 70,
-   "inv": 0,
-   "show": 5
-  },
-  {
    "ref": "EC63",
    "name": "Stimm-Vents Leak",
    "army": 120,
@@ -8693,38 +8558,10 @@
    "show": 5
   },
   {
-   "ref": "TAU75",
-   "name": "Hunter's Instincts",
-   "army": 70,
-   "inv": 0,
-   "show": 5
-  },
-  {
    "ref": "ASH58",
    "name": "Blackout",
    "army": 30,
    "inv": 5,
-   "show": 5
-  },
-  {
-   "ref": "GSC66",
-   "name": "Shanus Daskovian",
-   "army": 90,
-   "inv": 0,
-   "show": 5
-  },
-  {
-   "ref": "GSC3",
-   "name": "Iconward Malak Vorenth",
-   "army": 90,
-   "inv": 0,
-   "show": 5
-  },
-  {
-   "ref": "TAU32",
-   "name": "Aun'Shi",
-   "army": 70,
-   "inv": 0,
    "show": 5
   },
   {
@@ -8740,13 +8577,6 @@
    "army": 110,
    "inv": null,
    "show": null
-  },
-  {
-   "ref": "9176318eaf469354e858f51af2333aa3",
-   "name": "Litany of Despair",
-   "army": 50,
-   "inv": 10,
-   "show": 0
   },
   {
    "ref": "f8ba395632901b84397bd14282472c35",
@@ -8819,13 +8649,6 @@
    "show": 0
   },
   {
-   "ref": "9a2cadc64c80a6b42912441105bb1cee",
-   "name": "Mark of Khorne (enchantment)",
-   "army": 50,
-   "inv": 10,
-   "show": 0
-  },
-  {
    "ref": "2aa8026988b605d40874798f3992bc81",
    "name": "Infinite Biomorphologies",
    "army": 60,
@@ -8838,13 +8661,6 @@
    "army": 60,
    "inv": 10,
    "show": 0
-  },
-  {
-   "ref": "EC14",
-   "name": "Varius, Lord Kakophonist",
-   "army": 120,
-   "inv": 0,
-   "show": 5
   },
   {
    "ref": "74d2e50e16f323548a7c329ff80b788b",
@@ -8866,13 +8682,6 @@
    "army": 110,
    "inv": 10,
    "show": 0
-  },
-  {
-   "ref": "SAU8",
-   "name": "Gauss Immortal",
-   "army": 40,
-   "inv": 0,
-   "show": 5
   },
   {
    "ref": "77621c4437867564a8eb7cf208e1c64d",
@@ -8973,13 +8782,6 @@
    "show": 0
   },
   {
-   "ref": "d19e8b68aaa9a884781d06697ad237a6",
-   "name": "Special Dose",
-   "army": 20,
-   "inv": 10,
-   "show": 0
-  },
-  {
    "ref": "GOF50",
    "name": "Dust Storm",
    "army": 20,
@@ -9029,25 +8831,11 @@
    "show": 0
   },
   {
-   "ref": "8f35df0536e4f7e4d86f3885e2597404",
-   "name": "Dok’s Toolz",
-   "army": 20,
-   "inv": 10,
-   "show": 0
-  },
-  {
    "ref": "0161699f3a4cf5c489126356b3538ce5",
    "name": "Normal Conditions (Black Legion)",
    "army": 50,
    "inv": 10,
    "show": 0
-  },
-  {
-   "ref": "SAU4",
-   "name": "Gauss Warrior",
-   "army": 40,
-   "inv": 0,
-   "show": 5
   },
   {
    "ref": "5b427f1ad98e8534f8590dad5bd560af",
@@ -9064,23 +8852,9 @@
    "show": 5
   },
   {
-   "ref": "e59ac9e46f4ea804784e954c3b820e77",
-   "name": "Path of the Warrior",
-   "army": 30,
-   "inv": 10,
-   "show": 0
-  },
-  {
    "ref": "77fd626140a8c164fbb708a46956898d",
    "name": "Primaris Chaplain (tutorial)",
    "army": 10,
-   "inv": 10,
-   "show": 0
-  },
-  {
-   "ref": "84d4d192e0f57a34a90ac0f6172c3358",
-   "name": "Ferocious Rage",
-   "army": 20,
    "inv": 10,
    "show": 0
   },
@@ -9099,13 +8873,6 @@
    "show": 0
   },
   {
-   "ref": "EC30",
-   "name": "Emperor's Children Maulerfiend",
-   "army": 120,
-   "inv": 0,
-   "show": 5
-  },
-  {
    "ref": "ca169f2a6b7b2364ca99bd951c60f1d5",
    "name": "Mark of Slaanesh (enchantment)",
    "army": 120,
@@ -9116,20 +8883,6 @@
    "ref": "b5eedae31b83f564baba23db311c9112",
    "name": "Uriel Ventris",
    "army": 10,
-   "inv": 10,
-   "show": 0
-  },
-  {
-   "ref": "TAU42",
-   "name": "Experimental Drones",
-   "army": 70,
-   "inv": 0,
-   "show": 5
-  },
-  {
-   "ref": "141c5ed661a9e42bd9a793f0d2a1c682",
-   "name": "Unhallowed Gifts",
-   "army": 50,
    "inv": 10,
    "show": 0
   },
@@ -9176,13 +8929,6 @@
    "show": 5
   },
   {
-   "ref": "SOR31",
-   "name": "Dogmata",
-   "army": 80,
-   "inv": 0,
-   "show": 5
-  },
-  {
    "ref": "UM50",
    "name": "Orbital Bombardment",
    "army": 10,
@@ -9211,13 +8957,6 @@
    "show": null
   },
   {
-   "ref": "b9665eadf1207ff49bcf0a730b0b7f9d",
-   "name": "Euphoric Strike",
-   "army": 120,
-   "inv": 10,
-   "show": 0
-  },
-  {
    "ref": "cb29b9bcde7995948a3c373401e67e3c",
    "name": "Nemesor Zahndrekh",
    "army": 40,
@@ -9232,20 +8971,6 @@
    "show": 0
   },
   {
-   "ref": "GOF12",
-   "name": "Spanner",
-   "army": 20,
-   "inv": 0,
-   "show": 5
-  },
-  {
-   "ref": "SAU6",
-   "name": "Tesla Immortal",
-   "army": 40,
-   "inv": 0,
-   "show": 5
-  },
-  {
    "ref": "b380adbe398519740958b1cc7e0736cb",
    "name": "Blazing Biomass",
    "army": 60,
@@ -9256,13 +8981,6 @@
    "ref": "468a87d4e3969ac47b58555970456895",
    "name": "Beastboss on Squigosaur",
    "army": 20,
-   "inv": 10,
-   "show": 0
-  },
-  {
-   "ref": "61046837c330b48978b4af5201230b6e",
-   "name": "Helspear Assault",
-   "army": 50,
    "inv": 10,
    "show": 0
   }

@@ -6,7 +6,7 @@
   "notComputed": "`animInfo.tweenAnim`（UnitTweenSO）的长度；`waitAnimToApplyEffect` 只如实带出不参与求和",
   "scope": "只取 `activeAbility.activeAbilityLogic[*].cardAnimations[*]`（原版「单位主动发动能力」那一条路）；`cardAbilities[*]` 归 `EvtKind.Trigger`/`Play`，不在本表"
  },
- "_headline": "🔴 `A1767`：`EventTiming.DurationOf(EvtKind.Ability)` 的那条常数 **1.0** 换成**逐卡真值**。判据 = 该卡 `activeAbility` 各 `cardAnimations` 的 `AnimInfo.GetAnimDuration()` 之和（`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；原版 `AnimInfo__GetAnimDuration.c`）。覆盖 **56 张卡 / 89 条 CardAnim**，min 0.2 / 中位 **1.0** / max 4.0。⚠️ **三处如实标注**：① **只覆盖 2022 快照里有的卡** —— 池子里 UM/SW 那批（会发 Ability 事件的 21 张 UM 誓约 + 7 张 SW 凶暴）**一张都没有真值** ⇒ 判据为空（铁律 11 例外①）；② 原版 `_ResolveAnim` 里 tween 那一段（`animInfo.tweenAnim != null && waitAnimation != 0` 时 `WaitForCompletion(BuildSequence)`）**本表没算**（`UnitTweenSO` 的长度本地没接）；③ `cardAbilities[*]`（`ThisCardPlayed` / `Slay` / … 那一族）是**别的时机**播的，**不进这张表**（留在 `cards[*].otherAbilityAnims` 备查）。",
+ "_headline": "🔴 `A1767`：`EventTiming.DurationOf(EvtKind.Ability)` 的那条常数 **1.0** 换成**逐卡真值**。判据 = 该卡 `activeAbility` 各 `cardAnimations` 的 `AnimInfo.GetAnimDuration()` 之和（`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；原版 `AnimInfo__GetAnimDuration.c`）。覆盖 **62 张卡 / 99 条 CardAnim**，min 0.2 / 中位 **1.0** / max 4.0。⚠️ **三处如实标注**：① **只覆盖 2022 快照里有的卡** —— 池子里 UM/SW 那批（会发 Ability 事件的 21 张 UM 誓约 + 7 张 SW 凶暴）**一张都没有真值** ⇒ 判据为空（铁律 11 例外①）；② 原版 `_ResolveAnim` 里 tween 那一段（`animInfo.tweenAnim != null && waitAnimation != 0` 时 `WaitForCompletion(BuildSequence)`）**本表没算**（`UnitTweenSO` 的长度本地没接）；③ `cardAbilities[*]`（`ThisCardPlayed` / `Slay` / … 那一族）是**别的时机**播的，**不进这张表**（留在 `cards[*].otherAbilityAnims` 备查）。",
  "_sources": {
   "cardAnimDumps": "d:/2/新解包资源/assets_full/bundle_*cardanims*/MonoBehaviour/*.json",
   "cardSoTruth": "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json",
@@ -17,6 +17,1589 @@
   "splitter": "d:/2/tools/decomp_full/AbilityLogic__PlayAnim.c"
  },
  "cards": [
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "0544047df88d2ba4cad9c17ff080c0eb",
+   "name": "Greatest Deeds",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Hand_Buff_UM_AllCards",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "0740581c2c0523745a42dbec1b2ef82a",
+   "name": "Might of Heroes",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "UM_MightOfHeroes",
+     "chosenAbility": "buffOthers",
+     "seconds": 2.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "09bcb1b3b8794c4429d82d4b2e68fa1f",
+   "name": "Path of the Seer",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "PathOfTheSeer",
+     "chosenAbility": "recallToDeck",
+     "seconds": 2.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Blue_warlord",
+     "chosenAbility": "drawCard",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "1688c6146abb1e04f98e540b4cbbabd7",
+   "name": "Homing Beacon",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Tau_Summon",
+     "chosenAbility": "summonBuffedUnit",
+     "seconds": 0.3,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "1bfe0893592c9dd40bed8d68d5d2b516",
+   "name": "Path of the Warrior",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "PathOfTheWarrior",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "GainShuriken",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "1dfc9bc738bfc4f4d93d48f165aee510",
+   "name": "Dark Pact of Resilience",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_MarkOfNurgle_self",
+     "chosenAbility": "buffSelf",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "TriggerEnchantment",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "1ff4815a506d2f34e94ec2f50900d352",
+   "name": "Efficiency and Excellence",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Sniper Target",
+     "chosenAbility": "doDamage",
+     "seconds": 0.7,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Lasrifle Off-screen Target single quick",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "20d0f4451f16fc441836a02f99bf77da",
+   "name": "Da Red Waaagh",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Goff_Waaagh_red_warlord",
+     "chosenAbility": "drawCard",
+     "seconds": 0.6,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "24fcaf45556573549b922c06cad3aa2c",
+   "name": "None Must Know",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_DA_warlord_Intense_Secret",
+     "chosenAbility": "destroy",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Atk_Sword Slash DA Heavy",
+     "chosenAbility": "destroy",
+     "seconds": 1.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "2621d4280735baf4c952e6afea8d0686",
+   "name": "Excessive Vigour (Daemon Prince's Talent)",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Shadow_Volley_warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_MarkOfSlaanesh_enchantment_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    },
+    {
+     "cardanim": "Buff EC Dark",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "26d4ded12b28a3742b5c8fc155e29803",
+   "name": "Righteous Fury",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_UM_Chainsword",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "30007162b68992e41a422f2061705b65",
+   "name": "Lord of the Storm",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Lord_of_the_storm_hit",
+     "chosenAbility": "doDamage",
+     "seconds": 0.3,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "CreateCard_Necrons",
+     "chosenAbility": "createCardInHand",
+     "seconds": 1.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "OtherUnitDeath",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "315d9f293e4f56d4f813584b43f0511c",
+   "name": "Exhortation of Rage",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_UM_Chaplain_warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.8,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Purple_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "334a32d196d46ed4387bf3740cce069b",
+   "name": "Improvised Barricade",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "GSC_Warlord Sabotage",
+     "chosenAbility": "doOnlyVfx",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "33eabec155f628440a426a4ba480ec24",
+   "name": "Wrath of Khaine",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Khaine",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.1,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Eldar_TriggerSpiritstone_Warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 2.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "UseSpiritStone",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Eldar_TriggerSpiritstone_Mana",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.2,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "UseSpiritStone",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    },
+    {
+     "cardanim": "Buff_Khaine",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.1,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "UseSpiritStone",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "36892cd906b0e5e4c9bbbe249db009b8",
+   "name": "Bitter Blows",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "BitterBlows",
+     "chosenAbility": "destroy",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "3a52026b99bb56f40aa9dc130fc66f34",
+   "name": "Cadian Honour",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_Guard_target_quick",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Duty Reset Target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "3e99603a7b7b2c54c8f1ad40250ee2ae",
+   "name": "Convoke the Circle",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_DA_warlord_Intense_Secret",
+     "chosenAbility": "drawCard",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Card_Buff_Hand_Basic UI",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "3ebb159036778d14ebd1c48451aa6ca0",
+   "name": "Greatest Warboss",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Ork Summon BeastSnagga",
+     "chosenAbility": "summonUnit",
+     "seconds": 0.4,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "EarthCrack_Single",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.2,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "FollowUpResolution",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    },
+    {
+     "cardanim": "Goff_GreatestWarboss",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "FollowUpResolution",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Green_ork",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.8,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "FollowUpResolution",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "3f38d2e2c83df4b4c9052ef4a510cfbb",
+   "name": "Rites of Possession",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "RitesOfPossession_target",
+     "chosenAbility": "doDamage",
+     "seconds": 1.6,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": -6839369368566568072,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 0
+    },
+    {
+     "cardanim": "RitesOfPossession_self",
+     "chosenAbility": "doDamage",
+     "seconds": 1.6,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "453b0e8f88e094a17866a6979f389ef5",
+   "name": "Infernal Gaze",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "UnholySmite_random",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "461354d98aa5e3142afa4eb4922e5456",
+   "name": "Hardwired Destruction",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Damage_Protocol_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Damage_Protocol_quick_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.25,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "GainArmourEffect",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.8,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "468db99b4b10d0745bab346df37d3fb2",
+   "name": "Feeding Frenzy",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "FeedingFrenzy",
+     "chosenAbility": "doDamage",
+     "seconds": 2.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Tyranid Health",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.45,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "OtherUnitDeath",
+     "tweenAnim": {
+      "m_PathID": 4970856932857792203,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "4959cd9e99597f74ca9af0bd65ae6307",
+   "name": "Experimental Bio-Horrors",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "CreateCard_GSC",
+     "chosenAbility": "createCardInHand",
+     "seconds": 1.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "4a48457c24877f345be2e96f867c1e94",
+   "name": "Dark Pact of Fate",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_MarkOfTzeentch_self",
+     "chosenAbility": "buffSelf",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "TriggerEnchantment",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "4cdc1b5f965f99945b685bca7660e9fa",
+   "name": "Master of Repentance",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "BluntImpact_Hit_Lightning",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": 5096351763409750592,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Trait_GainQuest_warlord",
+     "chosenAbility": "buffMana",
+     "seconds": 0.7,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "4eec3b13d157dae48b14ed412169e692",
+   "name": "Skorflense",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff EC Stimulate target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Purple_target_quick",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "507f79fa60945d04e93fe806aca912b7",
+   "name": "Deploy Anchors",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_TauRanged_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "508002f5d7ee54f4686aefa2e6adce41",
+   "name": "Wreckin Ball",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Ork_Mek",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.3,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "55b8e3d2040f86d4190ffb1a91abb5ed",
+   "name": "Master of Arms",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_UM_Hammer",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "5a8a11b2a89796f48b34fbec8db6f452",
+   "name": "Antrak Silk",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff EC Stimulate target",
+     "chosenAbility": "doDamage",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff EC Pink",
+     "chosenAbility": "doDamage",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "5b5425f6e2848b449807bd1643d0d936",
+   "name": "Hive Commander",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Tyranid Generic",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.45,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": -6121470673489406951,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "61046837c330b48978b4af5201230b6e",
+   "name": "Helspear Assault",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Helspear_Buff",
+     "chosenAbility": "buffOthers",
+     "seconds": 2.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "WorstTemper_Warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 2.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "64a657fc5ed5bbb4fa7b585cf29c1e95",
+   "name": "Da Bigger Dey Iz... (Mozrog's Talent)",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "BigChompa_JawsBite",
+     "chosenAbility": "doDamage",
+     "seconds": 0.7,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Ork_Snakebite_2_warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.6,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "65b2be828179515458a282cf1b027182",
+   "name": "Indomitable Will",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Indomitable_Will_Effect",
+     "chosenAbility": "createCardInHand",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "65cfec7d2bc719040b3b4b88622931b2",
+   "name": "Lead the Righteous",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "SororitasSummon_Basic",
+     "chosenAbility": "summonUnit",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "SororitasSummon_Basic",
+     "chosenAbility": "summonUnit",
+     "seconds": 0.2,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "UseFaith",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "67adbc7f7bce2bd4c8f6937fab3134e5",
+   "name": "Flickerjump",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Eldar_Warp Spider_intense_Target",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "GainShuriken",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Flank Effect",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "684196db974ab254090f39ef6e89868c",
+   "name": "Shield Generator",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Tau Blue_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "68909cf02f472734ea391665e0d28e15",
+   "name": "Jammed Communications",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Card_Buff_Sabotage_self",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "OtherCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Jammed Communications Damage",
+     "chosenAbility": "doDamage",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "OtherCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "GSC_Warlord Sabotage",
+     "chosenAbility": "doOnlyVfx",
+     "seconds": 0.5,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "6899b199f5e36144ebbdd7ed9d9e7afe",
+   "name": "Uge Choppa",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Goff_Waaagh_red_skulls_warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.6,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "6ba4b132d24528844a86304f8ce67833",
+   "name": "Follower of Gork",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "GainArmourEffect",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.8,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "6e6d14006d8e9514b83a6c99e572081c",
+   "name": "Quail",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff EC Stimulate target",
+     "chosenAbility": "doHeal",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "6ed51d59b9f8ea24ab0dc7ceaef7956c",
+   "name": "Duelist's Hubris (Lucius' Talent)",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "EC Target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "EC Target User Warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Shadow_Volley_warlord",
+     "chosenAbility": "doHeal",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "70199b6f183ec364082ca16e62f3d0cb",
+   "name": "Heliotrophos",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff EC Stimulate target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Purple_target_quick",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "708c0306e73fd494eb0f718ddaeea48a",
+   "name": "Smothering Decree",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "SmokeEmbers_Board",
+     "chosenAbility": "doDamage",
+     "seconds": 1.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "BluntImpact_Hit_Lightning",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": 5096351763409750592,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "760bd3afde513774d96d6492f995fd37",
+   "name": "Spirit Leech",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Atk_SmiteLightning_Tyranid_warlord",
+     "chosenAbility": "doDamage",
+     "seconds": 0.65,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": 5657933893940981911,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Scream_purple_warlord_Quick",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "7693f2b21b2f85644b739da990bc2216",
+   "name": "Paragon of Ultramar",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_UM_Chant",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Purple_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "7831725387c8a774dbdf5b6492d928e0",
+   "name": "Nexus of Devotion",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_GSC_Target",
+     "chosenAbility": "doHeal",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "7bf8ce67fb6be4744ae44345a5b465fd",
+   "name": "Diabolic Strength",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_DiabolicStrength",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "7c45a641ec845994097d185af58715f6",
+   "name": "Master of Manoeuvre",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "DA Teleport Recall",
+     "chosenAbility": "recallToOwnerHand",
+     "seconds": 1.15,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": 7638676588329807742,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "7c666a04c1b9e8b4e9a96247e9fe115a",
+   "name": "Cult Propaganda",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Card_Buff_Sabotage_self",
+     "chosenAbility": "createCardInHand",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "TurnEnd",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "CreateCard_GSC",
+     "chosenAbility": "createCardInHand",
+     "seconds": 1.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "TurnEnd",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "GSC_Warlord Sabotage",
+     "chosenAbility": "doOnlyVfx",
+     "seconds": 0.5,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "8425b809e9e64e24f9035f709f5aaee4",
+   "name": "Worst Temper",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "WorstTemper_Warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 2.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "84d4d192e0f57a34a90ac0f6172c3358",
+   "name": "Ferocious Rage (Beastboss' Talent)",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Red_ork_warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "8901e35c5de30eb48804da6651cfb132",
+   "name": "Fury of the Righteous",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Atk_Plasma_Blue_Pointblank",
+     "chosenAbility": "doDamage",
+     "seconds": 0.75,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": 5096351763409750592,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Faith_trigger_warlord",
+     "chosenAbility": "doDamage",
+     "seconds": 1.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "UseFaith",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Atk_Plasma_Blue_Pointblank_double",
+     "chosenAbility": "doDamage",
+     "seconds": 0.75,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "UseFaith",
+     "tweenAnim": {
+      "m_PathID": 5096351763409750592,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Faith_trigger_warlord",
+     "chosenAbility": "stun",
+     "seconds": 1.0,
+     "slot": "cardAbilities[2].abilityLogic[0]",
+     "trigger": "UseFaith",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Atk_Plasma_Blue_Pointblank_double",
+     "chosenAbility": "stun",
+     "seconds": 0.75,
+     "slot": "cardAbilities[2].abilityLogic[0]",
+     "trigger": "UseFaith",
+     "tweenAnim": {
+      "m_PathID": 5096351763409750592,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "8f2da557fe484ee4bbf427c13eccd4cb",
+   "name": "Alpha Warrior",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "AlphaWarrior_Warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 2.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "8f35df0536e4f7e4d86f3885e2597404",
+   "name": "Dok’s Toolz (Painboss' talent)",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Goff_ArdAsNails",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Ork_Snakebite_2_warlord",
+     "chosenAbility": "doHeal",
+     "seconds": 0.6,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "9176318eaf469354e858f51af2333aa3",
+   "name": "Litany of Despair",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Curse_BL",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "9215799995ff7a941b14737e27021032",
+   "name": "Shivversplint",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff EC Stimulate target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "GainArmourEffect",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.8,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "9238c27730a0c424288d46ed0f4a742c",
+   "name": "Master of the Fleet",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Air to Ground Big",
+     "chosenAbility": "doDamage",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "97e959444b53f424ea4285e2ca02c7e6",
+   "name": "Chosen of the Four",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Abaddon_TalentWarmaster",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "98cd4c021d615174aba88df6012219c4",
+   "name": "Renowned Bodyguard",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_Guard_intense_warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "98d3c65702746b04baf7f5ead1a9e507",
+   "name": "Ramshackle",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Ork_Mek",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.3,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "9a2cadc64c80a6b42912441105bb1cee",
+   "name": "Dark Pact of Blood",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_MarkOfKhorne_self",
+     "chosenAbility": "buffSelf",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "TriggerEnchantment",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "9c3562ffa183ede41b1626d9c9dc1e2f",
+   "name": "Path of Command",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "PathOfCommand",
+     "chosenAbility": "summonUnit",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "AeldariSummon",
+     "chosenAbility": "summonUnit",
+     "seconds": 0.75,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "9e0eecf8cb9a8df49bf18cc5d9051109",
+   "name": "Master of the Deathwing",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_DA_warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "GainArmourEffect",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.8,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "9f4e1b7ea9f00da458c6a859a4e958c8",
+   "name": "More Dakka",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Ork_Mek",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.3,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "9f75a6fe11922eb409ffbad4ecdeb405",
+   "name": "Hero of the Empire",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_TauRanged_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
   {
    "active": 0.5,
    "activeAnims": [
@@ -477,6 +2060,41 @@
    ]
   },
   {
+   "active": 1.5,
+   "activeAnims": [
+    {
+     "cardanim": "DutyAnim",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.0,
+     "slot": "activeAbility.activeAbilityLogic[0]",
+     "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    },
+    {
+     "cardanim": "Basic_army_Guard_target_quick",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "activeAbility.activeAbilityLogic[0]",
+     "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Flank Effect",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "activeAbility.activeAbilityLogic[0]",
+     "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ],
+   "id": "AM3",
+   "name": "Commissar Elan",
+   "otherAbilityAnims": []
+  },
+  {
    "active": 2.0,
    "activeAnims": [
     {
@@ -524,6 +2142,26 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Regiment",
      "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "AM32",
+   "name": "Leman Russ",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Atk_TankShot_big",
+     "chosenAbility": "doDamage",
+     "seconds": 0.75,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Regiment",
+     "tweenAnim": {
+      "m_PathID": 3203395777126525160,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
      "waitAnimToApplyEffect": 1
     }
    ]
@@ -1277,6 +2915,23 @@
    ]
   },
   {
+   "active": 0.8,
+   "activeAnims": [
+    {
+     "cardanim": "Basic_army_Guard_self Digital",
+     "chosenAbility": "drawCard",
+     "seconds": 0.8,
+     "slot": "activeAbility.activeAbilityLogic[0]",
+     "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ],
+   "id": "AM59",
+   "name": "Astropath",
+   "otherAbilityAnims": []
+  },
+  {
    "active": null,
    "activeAnims": [],
    "id": "AM6",
@@ -1338,6 +2993,35 @@
      "waitAnimToApplyEffect": 1
     }
    ]
+  },
+  {
+   "active": 0.2,
+   "activeAnims": [
+    {
+     "cardanim": "DutyAnim",
+     "chosenAbility": "doDamage",
+     "seconds": 0.0,
+     "slot": "activeAbility.activeAbilityLogic[0]",
+     "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    },
+    {
+     "cardanim": "BluntImpact_Hit_Lightning",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "activeAbility.activeAbilityLogic[0]",
+     "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+     "tweenAnim": {
+      "m_PathID": 5096351763409750592,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    }
+   ],
+   "id": "AM66",
+   "name": "Hektor Thenmann",
+   "otherAbilityAnims": []
   },
   {
    "active": null,
@@ -1604,44 +3288,7 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "AM8",
-   "name": "Cadian Medic",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Healing_Volley_Green",
-     "chosenAbility": "doHeal",
-     "seconds": 0.75,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "FollowUpResolution",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "AM9",
-   "name": "Kasrkin",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Atk_BulletImpact_Lasrifle_1shot",
-     "chosenAbility": "doDamage",
-     "seconds": 0.4,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "Regiment",
-     "tweenAnim": {
-      "m_PathID": -6655598350004933657,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "AM_Armoured_Lightning",
+   "id": "AM76",
    "name": "Armoured Lightning",
    "otherAbilityAnims": [
     {
@@ -1701,43 +3348,17 @@
    ]
   },
   {
-   "active": 0.8,
-   "activeAnims": [
-    {
-     "cardanim": "Basic_army_Guard_self Digital",
-     "chosenAbility": "drawCard",
-     "seconds": 0.8,
-     "slot": "activeAbility.activeAbilityLogic[0]",
-     "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ],
-   "id": "AM_Astropath",
-   "name": "Astropath",
-   "otherAbilityAnims": []
-  },
-  {
    "active": null,
    "activeAnims": [],
-   "id": "AM_Cadian_Honour",
-   "name": "Cadian Honour",
+   "id": "AM8",
+   "name": "Cadian Medic",
    "otherAbilityAnims": [
     {
-     "cardanim": "Basic_army_Guard_target_quick",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Duty Reset Target",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
+     "cardanim": "Healing_Volley_Green",
+     "chosenAbility": "doHeal",
+     "seconds": 0.75,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "FollowUpResolution",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -1746,111 +3367,19 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "AM_Efficiency_and_Excellence",
-   "name": "Efficiency and Excellence",
+   "id": "AM9",
+   "name": "Kasrkin",
    "otherAbilityAnims": [
     {
-     "cardanim": "Sniper Target",
+     "cardanim": "Atk_BulletImpact_Lasrifle_1shot",
      "chosenAbility": "doDamage",
-     "seconds": 0.7,
+     "seconds": 0.4,
      "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Lasrifle Off-screen Target single quick",
-     "chosenAbility": "doDamage",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "AM_Lead_by_Example",
-   "name": "Lead by Example",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Green_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Duty Reset Target",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "AM_Legendary_Commandant",
-   "name": "Legendary Commandant",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_Guard_warlord Digital",
-     "chosenAbility": "createCardInHand",
-     "seconds": 0.8,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "AM_Lord_Commander",
-   "name": "Lord Commander",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_Guard_intense_warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Basic_army_Guard_target_quick",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "AM_Renowned_Bodyguard",
-   "name": "Renowned Bodyguard",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_Guard_intense_warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
+     "trigger": "Regiment",
+     "tweenAnim": {
+      "m_PathID": -6655598350004933657,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
      "waitAnimToApplyEffect": 1
     }
    ]
@@ -3343,310 +4872,6 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "ASH_Empyric_Ambush",
-   "name": "Empyric Ambush",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "AeldariRecall_warlord",
-     "chosenAbility": "doDamage",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Cuts Brutal Warp Spider",
-     "chosenAbility": "doDamage",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "AeldariRecall_reverse_warlord",
-     "chosenAbility": "doDamage",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Eldar_Warp Spider_Target",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "ASH_Flickerjump",
-   "name": "Flickerjump",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Eldar_Warp Spider_intense_Target",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "GainShuriken",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Flank Effect",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[1]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "ASH_Path_of_Command",
-   "name": "Path of Command",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "PathOfCommand",
-     "chosenAbility": "summonUnit",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "AeldariSummon",
-     "chosenAbility": "summonUnit",
-     "seconds": 0.75,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "ASH_Path_of_the_Seer",
-   "name": "Path of the Seer",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "PathOfTheSeer",
-     "chosenAbility": "recallToDeck",
-     "seconds": 2.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Blue_warlord",
-     "chosenAbility": "drawCard",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[1]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "ASH_Path_of_the_Warrior",
-   "name": "Path of the Warrior",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "PathOfTheWarrior",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "GainShuriken",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "AeldariSummon",
-     "chosenAbility": "summonUnit",
-     "seconds": 0.75,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "AeldariSummon",
-     "chosenAbility": "summonUnit",
-     "seconds": 0.75,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "ASH_Storm_of_Silence",
-   "name": "Storm of Silence",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Red_warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "BansheeHowl warlord",
-     "chosenAbility": "stun",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    },
-    {
-     "cardanim": "BansheeHowl_blood glow",
-     "chosenAbility": "stun",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "ASH_Witchfire",
-   "name": "Witchfire",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "SmiteLightning_Down",
-     "chosenAbility": "doDamage",
-     "seconds": 0.75,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": {
-      "m_PathID": 5657933893940981911,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Eldar_TriggerSpiritstone_Warlord",
-     "chosenAbility": "doDamage",
-     "seconds": 2.0,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "UseSpiritStone",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Eldar_TriggerSpiritstone_Mana",
-     "chosenAbility": "doDamage",
-     "seconds": 0.2,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "UseSpiritStone",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    },
-    {
-     "cardanim": "SmiteLightning_Down",
-     "chosenAbility": "doDamage",
-     "seconds": 0.75,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "UseSpiritStone",
-     "tweenAnim": {
-      "m_PathID": 5657933893940981911,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "ASH_Wrath_of_Khaine",
-   "name": "Wrath of Khaine",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Khaine",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.1,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Eldar_TriggerSpiritstone_Warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 2.0,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "UseSpiritStone",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Eldar_TriggerSpiritstone_Mana",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.2,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "UseSpiritStone",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    },
-    {
-     "cardanim": "Buff_Khaine",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.1,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "UseSpiritStone",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
    "id": "BL12",
    "name": "Aspiring Champion",
    "otherAbilityAnims": [
@@ -4178,6 +5403,23 @@
   {
    "active": null,
    "activeAnims": [],
+   "id": "BL58",
+   "name": "Hellfire Pit",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Offense_Hellfire_Pit_Damage",
+     "chosenAbility": "doDamage",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
    "id": "BL62",
    "name": "Dark Disciple",
    "otherAbilityAnims": [
@@ -4357,156 +5599,7 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "BL_Bitter_Blows",
-   "name": "Bitter Blows",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "BitterBlows",
-     "chosenAbility": "destroy",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "BL_Diabolic_Strength",
-   "name": "Diabolic Strength",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_DiabolicStrength",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "BL_Helspear_Assault",
-   "name": "Helspear Assault",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Helspear_Buff",
-     "chosenAbility": "buffOthers",
-     "seconds": 2.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "WorstTemper_Warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 2.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "BL_Idolatrous_Despoilers",
-   "name": "Idolatrous Despoilers",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_BL_Intense_warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "BL_Infernal_Gaze",
-   "name": "Infernal Gaze",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "UnholySmite_random",
-     "chosenAbility": "doDamage",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "BL_Litany_of_Despair",
-   "name": "Litany of Despair",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "DeckBuff_BlackLegion",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisUnitDeath",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Curse_BL",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "BL_Rites_of_Possession",
-   "name": "Rites of Possession",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "RitesOfPossession_target",
-     "chosenAbility": "doDamage",
-     "seconds": 1.6,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": {
-      "m_PathID": -6839369368566568072,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 0
-    },
-    {
-     "cardanim": "RitesOfPossession_self",
-     "chosenAbility": "doDamage",
-     "seconds": 1.6,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "BL_Spreading_Corruption",
+   "id": "BL74",
    "name": "Spreading Corruption",
    "otherAbilityAnims": [
     {
@@ -4523,19 +5616,45 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "BL_Unhallowed_Gifts",
-   "name": "Unhallowed Gifts",
+   "id": "BL75",
+   "name": "Idolatrous Despoilers",
    "otherAbilityAnims": [
     {
-     "cardanim": "Abaddon_TalentWarmaster",
+     "cardanim": "Buff_BL_Intense_warlord",
      "chosenAbility": "buffOthers",
-     "seconds": 1.0,
+     "seconds": 0.5,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "ThisCardPlayed",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
    ]
+  },
+  {
+   "active": 1.2,
+   "activeAnims": [
+    {
+     "cardanim": "Buff_Green_Agenda_Self",
+     "chosenAbility": "setCardDeckToTop",
+     "seconds": 0.2,
+     "slot": "activeAbility.activeAbilityLogic[0]",
+     "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "DeckBuff_MoveToTop",
+     "chosenAbility": "setCardDeckToTop",
+     "seconds": 1.0,
+     "slot": "activeAbility.activeAbilityLogic[0]",
+     "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ],
+   "id": "DA1",
+   "name": "Azrael",
+   "otherAbilityAnims": []
   },
   {
    "active": null,
@@ -4937,6 +6056,23 @@
      "waitAnimToApplyEffect": 1
     }
    ]
+  },
+  {
+   "active": 0.2,
+   "activeAnims": [
+    {
+     "cardanim": "Buff_Green_Agenda_Self",
+     "chosenAbility": "buffMana",
+     "seconds": 0.2,
+     "slot": "activeAbility.activeAbilityLogic[0]",
+     "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ],
+   "id": "DA3",
+   "name": "Asmodai",
+   "otherAbilityAnims": []
   },
   {
    "active": null,
@@ -5637,6 +6773,66 @@
    ]
   },
   {
+   "active": null,
+   "activeAnims": [],
+   "id": "DA59",
+   "name": "Grim Effigy",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Trait_GainQuest_warlord",
+     "chosenAbility": "buffMana",
+     "seconds": 0.7,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "DA6",
+   "name": "Sergeant Naaman",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Trait_GainQuest_self",
+     "chosenAbility": "buffMana",
+     "seconds": 0.7,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Slay",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "DA61",
+   "name": "Plasma Generator",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_DA_warlord",
+     "chosenAbility": "buffMana",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Mana_2 UI",
+     "chosenAbility": "buffMana",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
    "active": 0.9,
    "activeAnims": [
     {
@@ -5674,301 +6870,6 @@
      "seconds": 0.7,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Strike",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "DA_Convoke_the_Circle",
-   "name": "Convoke the Circle",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_DA_warlord_Intense_Secret",
-     "chosenAbility": "drawCard",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Card_Buff_Hand_Basic UI",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[1]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "DA_Grim_Effigy",
-   "name": "Grim Effigy",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Trait_GainQuest_warlord",
-     "chosenAbility": "buffMana",
-     "seconds": 0.7,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "DA_Master_Interromancer",
-   "name": "Master Interromancer",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Atk_SmiteLightning_white_Down",
-     "chosenAbility": "doDamage",
-     "seconds": 0.65,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": {
-      "m_PathID": 5657933893940981911,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Trait_GainQuest_self",
-     "chosenAbility": "buffMana",
-     "seconds": 0.7,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "OtherUnitDeath",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "DA_Master_of_Manoeuvre",
-   "name": "Master of Manoeuvre",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "DA Teleport Recall",
-     "chosenAbility": "recallToOwnerHand",
-     "seconds": 1.15,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": {
-      "m_PathID": 7638676588329807742,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "DA_Master_of_the_Deathwing",
-   "name": "Master of the Deathwing",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_DA_warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "GainArmourEffect",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.8,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "DA_None_Must_Know",
-   "name": "None Must Know",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_DA_warlord_Intense_Secret",
-     "chosenAbility": "destroy",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Atk_Sword Slash DA Heavy",
-     "chosenAbility": "destroy",
-     "seconds": 1.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "DA_Obscure_Ritual",
-   "name": "Obscure Ritual",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_DA_warlord_Intense_Secret",
-     "chosenAbility": "buffMana",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Mana_2 UI",
-     "chosenAbility": "buffMana",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "DA_Plasma_Generator",
-   "name": "Plasma Generator",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_DA_warlord",
-     "chosenAbility": "buffMana",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Mana_2 UI",
-     "chosenAbility": "buffMana",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "DA_Rites_of_Penance",
-   "name": "Rites of Penance",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_DA_warlord_Intense_Secret",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Red_target_Quick",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Purple_target_quick",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "DA_Smothering_Decree",
-   "name": "Smothering Decree",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "SmokeEmbers_Board",
-     "chosenAbility": "doDamage",
-     "seconds": 1.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "BluntImpact_Hit_Lightning",
-     "chosenAbility": "doDamage",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": {
-      "m_PathID": 5096351763409750592,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "DA_Supreme_Grand_Master",
-   "name": "Supreme Grand Master",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_DA_warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Purple_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Basic_army_DA_warlord",
-     "chosenAbility": "createCardInHand",
-     "seconds": 1.0,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -6063,6 +6964,40 @@
      "seconds": 0.5,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Stimulation",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "EC14",
+   "name": "Lord Kakophonist",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Debuff EC Lower Stats",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Stimulation",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "EC16",
+   "name": "Dual Screamer Kakophonist",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Debuff EC Lower Stats",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -6225,6 +7160,49 @@
   {
    "active": null,
    "activeAnims": [],
+   "id": "EC25",
+   "name": "Terminator",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff EC Pink",
+     "chosenAbility": "buffSelf",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Ecstasy",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "EC26",
+   "name": "Terminator Champion",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Sword EC User",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Cruelty",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    },
+    {
+     "cardanim": "Cut EC 1x target",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Cruelty",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
    "id": "EC28",
    "name": "Chaos Land Raider",
    "otherAbilityAnims": [
@@ -6272,6 +7250,26 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Stimulation",
      "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "EC30",
+   "name": "Maulerfiend",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_HideousMutation_EC",
+     "chosenAbility": "buffSelf",
+     "seconds": 1.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Ecstasy",
+     "tweenAnim": {
+      "m_PathID": -3678793900283740710,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
      "waitAnimToApplyEffect": 1
     }
    ]
@@ -6926,109 +7924,32 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "EC7",
-   "name": "Tormentor Obsessionist",
+   "id": "EC60",
+   "name": "Armoury of Excess",
    "otherAbilityAnims": [
     {
-     "cardanim": "Buff EC Pink",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "Ecstasy",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "EC72",
-   "name": "Antrak Silk",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff EC Stimulate target",
+     "cardanim": "Sword EC User Warlord",
      "chosenAbility": "doDamage",
-     "seconds": 0.5,
+     "seconds": 0.3,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "ThisCardPlayed",
      "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
+     "waitAnimToApplyEffect": 0
     },
     {
-     "cardanim": "Buff EC Pink",
+     "cardanim": "Cut EC 1x Reverse target",
      "chosenAbility": "doDamage",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "EC73",
-   "name": "Heliotrophos",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff EC Stimulate target",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Purple_target_quick",
-     "chosenAbility": "buffOthers",
      "seconds": 0.2,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "ThisCardPlayed",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "EC74",
-   "name": "Quail",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff EC Stimulate target",
-     "chosenAbility": "doHeal",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "EC75",
-   "name": "Shivversplint",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff EC Stimulate target",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
     },
     {
-     "cardanim": "GainArmourEffect",
+     "cardanim": "Buff_MarkOfSlaanesh_enchantment_target",
      "chosenAbility": "buffOthers",
-     "seconds": 1.8,
-     "slot": "cardAbilities[0].abilityLogic[0]",
+     "seconds": 0.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "ThisCardPlayed",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 0
@@ -7038,22 +7959,13 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "EC76",
-   "name": "Skorflense",
+   "id": "EC61",
+   "name": "Decadent Throne",
    "otherAbilityAnims": [
     {
-     "cardanim": "Buff EC Stimulate target",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Purple_target_quick",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.2,
+     "cardanim": "CreateCard_EC Pink",
+     "chosenAbility": "drawCard",
+     "seconds": 1.2,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "ThisCardPlayed",
      "tweenAnim": null,
@@ -7064,24 +7976,15 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "EC77",
-   "name": "Xylocil",
+   "id": "EC7",
+   "name": "Tormentor Obsessionist",
    "otherAbilityAnims": [
     {
-     "cardanim": "Buff EC Stimulate target",
+     "cardanim": "Buff EC Pink",
      "chosenAbility": "buffOthers",
      "seconds": 0.5,
      "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Red_target_Quick",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
+     "trigger": "Ecstasy",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -7101,6 +8004,23 @@
      "trigger": "Cruelty",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "EC9",
+   "name": "Icon of Excess Infractor",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_MarkOfSlaanesh_enchantment_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Ecstasy",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
     }
    ]
   },
@@ -7318,6 +8238,59 @@
      "seconds": 0.2,
      "slot": "cardAbilities[0].abilityLogic[1]",
      "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "GOF12",
+   "name": "Ork Spanner",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Ork_Mek",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.3,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Mob",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Ork_Mek",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.3,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "Mob",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Ork_Mek",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.3,
+     "slot": "cardAbilities[0].abilityLogic[2]",
+     "trigger": "Mob",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Ork_Mek",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.3,
+     "slot": "cardAbilities[0].abilityLogic[3]",
+     "trigger": "Mob",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Ork_Mek",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.3,
+     "slot": "cardAbilities[0].abilityLogic[4]",
+     "trigger": "Mob",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -8831,169 +9804,6 @@
    ]
   },
   {
-   "active": null,
-   "activeAnims": [],
-   "id": "GOF_Da_Red_Waaagh",
-   "name": "Da Red Waaagh",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Goff_Waaagh_red_warlord",
-     "chosenAbility": "drawCard",
-     "seconds": 0.6,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GOF_Follower_of_Gork",
-   "name": "Follower of Gork",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "GainArmourEffect",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.8,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GOF_Greatest_Warboss",
-   "name": "Greatest Warboss",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Ork Summon BeastSnagga",
-     "chosenAbility": "summonUnit",
-     "seconds": 0.4,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "EarthCrack_Single",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.2,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "FollowUpResolution",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    },
-    {
-     "cardanim": "Goff_GreatestWarboss",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "FollowUpResolution",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Green_ork",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.8,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "FollowUpResolution",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GOF_More_Dakka",
-   "name": "More Dakka",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Ork_Mek",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.3,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GOF_Ramshackle",
-   "name": "Ramshackle",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Ork_Mek",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.3,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GOF_Uge_Choppa",
-   "name": "Uge Choppa",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Goff_Waaagh_red_skulls_warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.6,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GOF_Worst_Temper",
-   "name": "Worst Temper",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "WorstTemper_Warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 2.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GOF_Wreckin_Ball",
-   "name": "Wreckin Ball",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Ork_Mek",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.3,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
    "active": 1.2,
    "activeAnims": [
     {
@@ -9413,6 +10223,23 @@
    ]
   },
   {
+   "active": 1.0,
+   "activeAnims": [
+    {
+     "cardanim": "Buff_Sororitas_quick_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "activeAbility.activeAbilityLogic[0]",
+     "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ],
+   "id": "GSC3",
+   "name": "Acolyte Iconward",
+   "otherAbilityAnims": []
+  },
+  {
    "active": null,
    "activeAnims": [],
    "id": "GSC31",
@@ -9604,6 +10431,23 @@
      "chosenAbility": "buffOthers",
      "seconds": 0.2,
      "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "GSC40",
+   "name": "Backstab",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Dagger Backstab",
+     "chosenAbility": "doDamage",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "ThisCardPlayed",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
@@ -10087,6 +10931,26 @@
    ]
   },
   {
+   "active": 1.2,
+   "activeAnims": [
+    {
+     "cardanim": "Atk_BulletImpact_MissileToTarget_warlord",
+     "chosenAbility": "doDamage",
+     "seconds": 1.2,
+     "slot": "activeAbility.activeAbilityLogic[0]",
+     "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+     "tweenAnim": {
+      "m_PathID": -8275538427997360676,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    }
+   ],
+   "id": "GSC66",
+   "name": "Lhaska Szenari",
+   "otherAbilityAnims": []
+  },
+  {
    "active": null,
    "activeAnims": [],
    "id": "GSC67",
@@ -10287,6 +11151,47 @@
   {
    "active": null,
    "activeAnims": [],
+   "id": "GSC75",
+   "name": "Roaming Outriders",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Sniper Target",
+     "chosenAbility": "doDamage",
+     "seconds": 0.7,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Atk_BulletImpact_autogun_Sniper_Warlord",
+     "chosenAbility": "doDamage",
+     "seconds": 0.25,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": -8275538427997360676,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Atk_BulletImpact_autogun_Sniper_Warlord_instant",
+     "chosenAbility": "doDamageMultiRandom",
+     "seconds": 0.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": -8275538427997360676,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
    "id": "GSC76",
    "name": "Cut Them Off",
    "otherAbilityAnims": [
@@ -10357,314 +11262,6 @@
      "seconds": 1.0,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Ambush",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Backstab",
-   "name": "Backstab",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Dagger Backstab",
-     "chosenAbility": "doDamage",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Brood_Prophet",
-   "name": "Brood Prophet",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "CreateCard_GSC",
-     "chosenAbility": "createCardInHand",
-     "seconds": 1.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Cult_Propaganda",
-   "name": "Cult Propaganda",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Card_Buff_Sabotage_self",
-     "chosenAbility": "createCardInHand",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "TurnEnd",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "CreateCard_GSC",
-     "chosenAbility": "createCardInHand",
-     "seconds": 1.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "TurnEnd",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "GSC_Warlord Sabotage",
-     "chosenAbility": "doOnlyVfx",
-     "seconds": 0.5,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Deadliest_Killer",
-   "name": "Deadliest Killer",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Cuts Brutal",
-     "chosenAbility": "doDamage",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Experimental_Bio_Horrors",
-   "name": "Experimental Bio-Horrors",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "CreateCard_GSC",
-     "chosenAbility": "createCardInHand",
-     "seconds": 1.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Improvised_Barricade",
-   "name": "Improvised Barricade",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "GSC_Warlord Sabotage",
-     "chosenAbility": "doOnlyVfx",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Inscrutable_Cunning",
-   "name": "Inscrutable Cunning",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_GSC_warlord",
-     "chosenAbility": "drawCard",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Jammed_Communications",
-   "name": "Jammed Communications",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Card_Buff_Sabotage_self",
-     "chosenAbility": "doDamage",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "OtherCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Jammed Communications Damage",
-     "chosenAbility": "doDamage",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "OtherCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "GSC_Warlord Sabotage",
-     "chosenAbility": "doOnlyVfx",
-     "seconds": 0.5,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Master_Outrider",
-   "name": "Master Outrider",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "CreateCard_GSC_Sabotage_tactic",
-     "chosenAbility": "createCardInHand",
-     "seconds": 1.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "Slay",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Basic_army_GSC_warlord_jackal",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Nexus_of_Devotion",
-   "name": "Nexus of Devotion",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_GSC_Target",
-     "chosenAbility": "doHeal",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Poisoned_Supplies",
-   "name": "Poisoned Supplies",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Card_Buff_Sabotage_self",
-     "chosenAbility": "doDamage",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "TurnEnd",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Toxic Vapors Damage quick",
-     "chosenAbility": "doDamage",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "TurnEnd",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "GSC_Warlord Sabotage",
-     "chosenAbility": "doOnlyVfx",
-     "seconds": 0.5,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Roaming_Outriders",
-   "name": "Roaming Outriders",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Sniper Target",
-     "chosenAbility": "doDamage",
-     "seconds": 0.7,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Atk_BulletImpact_autogun_Sniper_Warlord",
-     "chosenAbility": "doDamage",
-     "seconds": 0.25,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": {
-      "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Atk_BulletImpact_autogun_Sniper_Warlord_instant",
-     "chosenAbility": "doDamageMultiRandom",
-     "seconds": 0.0,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": {
-      "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "GSC_Vox_Hacker",
-   "name": "Vox-Hacker",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "CreateCard_GSC",
-     "chosenAbility": "createCardInHand",
-     "seconds": 1.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -10861,6 +11458,66 @@
      "seconds": 0.25,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "OtherUnitDeath",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "SAU38",
+   "name": "Extermination Protocols",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Explosion_Gauss_ability",
+     "chosenAbility": "doDamage",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "SAU39",
+   "name": "Reconstitution Protocols",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Sau_Reconstitution_Protocols",
+     "chosenAbility": "recallToOwnerHand",
+     "seconds": 3.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "SAU4",
+   "name": "Gauss Reaper Warrior",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Damage_Protocol_target",
+     "chosenAbility": "buffSelf",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Reanimated",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Heal_Protocol_target",
+     "chosenAbility": "buffSelf",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Reanimated",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -11302,6 +11959,23 @@
   {
    "active": null,
    "activeAnims": [],
+   "id": "SAU6",
+   "name": "Tesla Carbine Immortal",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Atk_Gauss_Tesla",
+     "chosenAbility": "doDamage",
+     "seconds": 0.75,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Artifice",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
    "id": "SAU60",
    "name": "Divination Menhir",
    "otherAbilityAnims": [
@@ -11516,59 +12190,7 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "SAU_Hardwired_Destruction",
-   "name": "Hardwired Destruction",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Damage_Protocol_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Damage_Protocol_quick_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.25,
-     "slot": "cardAbilities[0].abilityLogic[1]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "GainArmourEffect",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.8,
-     "slot": "cardAbilities[0].abilityLogic[1]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "SAU_Indomitable_Will",
-   "name": "Indomitable Will",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Indomitable_Will_Effect",
-     "chosenAbility": "createCardInHand",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "SAU_Inescapable_Retribution",
+   "id": "SAU76",
    "name": "Inescapable Retribution",
    "otherAbilityAnims": [
     {
@@ -11592,92 +12214,6 @@
    ]
   },
   {
-   "active": null,
-   "activeAnims": [],
-   "id": "SAU_Lord_of_the_Storm",
-   "name": "Lord of the Storm",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Lord_of_the_storm_hit",
-     "chosenAbility": "doDamage",
-     "seconds": 0.3,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "CreateCard_Necrons",
-     "chosenAbility": "createCardInHand",
-     "seconds": 1.0,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "OtherUnitDeath",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "SAU_Master_Chronomancer",
-   "name": "Master Chronomancer",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Master_Chronomancer_Effect",
-     "chosenAbility": "setCardDeckToTop",
-     "seconds": 3.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    },
-    {
-     "cardanim": "Wait_1s",
-     "chosenAbility": "doOnlyVfx",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[1]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "SAU_Particle_Whip",
-   "name": "Particle Whip",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "ParticleWhip",
-     "chosenAbility": "doDamage",
-     "seconds": 1.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "SAU_Relentless_March",
-   "name": "Relentless March",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "RelentlessMarchSummon",
-     "chosenAbility": "summonUnit",
-     "seconds": 0.3,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
    "active": 1.0,
    "activeAnims": [
     {
@@ -11693,6 +12229,23 @@
    "id": "SOR1",
    "name": "Erika Luminas",
    "otherAbilityAnims": []
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "SOR10",
+   "name": "Sisters Repentia",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "PenitenceTraitTrigger",
+     "chosenAbility": "buffSelf",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "Rage",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
   },
   {
    "active": null,
@@ -12134,6 +12687,35 @@
    "id": "SOR3",
    "name": "Morvenn Vahl",
    "otherAbilityAnims": []
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "SOR31",
+   "name": "Sister Dogmata",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "BluntImpact_Hit_Lightning",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": 5096351763409750592,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Faith_trigger_self",
+     "chosenAbility": "buffMana",
+     "seconds": 1.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
   },
   {
    "active": null,
@@ -13267,6 +13849,41 @@
   {
    "active": null,
    "activeAnims": [],
+   "id": "SOR74",
+   "name": "Emperor's Judgement",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Sororitas_Destroy",
+     "chosenAbility": "destroy",
+     "seconds": 3.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Sororitas_warlord",
+     "chosenAbility": "buffMana",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Mana_3 Holy UI",
+     "chosenAbility": "buffMana",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
    "id": "SOR75",
    "name": "Devout Serenity",
    "otherAbilityAnims": [
@@ -13316,190 +13933,6 @@
     {
      "cardanim": "Faith_trigger_self",
      "chosenAbility": "buffSelf",
-     "seconds": 1.0,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "UseFaith",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "SOR_Daemonbreaker",
-   "name": "Daemonbreaker",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Sororitas_quick_fire_warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Faith_trigger_warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "UseFaith",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Sororitas_quick_fire_warlord_intense",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "UseFaith",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "SOR_Emperor_s_Judgement",
-   "name": "Emperor's Judgement",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Sororitas_Destroy",
-     "chosenAbility": "destroy",
-     "seconds": 3.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Sororitas_warlord",
-     "chosenAbility": "buffMana",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[1]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Mana_3 Holy UI",
-     "chosenAbility": "buffMana",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[1]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "SOR_Fury_of_the_Righteous",
-   "name": "Fury of the Righteous",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Atk_Plasma_Blue_Pointblank",
-     "chosenAbility": "doDamage",
-     "seconds": 0.75,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": {
-      "m_PathID": 5096351763409750592,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Faith_trigger_warlord",
-     "chosenAbility": "doDamage",
-     "seconds": 1.0,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "UseFaith",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Atk_Plasma_Blue_Pointblank_double",
-     "chosenAbility": "doDamage",
-     "seconds": 0.75,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "UseFaith",
-     "tweenAnim": {
-      "m_PathID": 5096351763409750592,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Faith_trigger_warlord",
-     "chosenAbility": "stun",
-     "seconds": 1.0,
-     "slot": "cardAbilities[2].abilityLogic[0]",
-     "trigger": "UseFaith",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Atk_Plasma_Blue_Pointblank_double",
-     "chosenAbility": "stun",
-     "seconds": 0.75,
-     "slot": "cardAbilities[2].abilityLogic[0]",
-     "trigger": "UseFaith",
-     "tweenAnim": {
-      "m_PathID": 5096351763409750592,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "SOR_Lead_the_Righteous",
-   "name": "Lead the Righteous",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "SororitasSummon_Basic",
-     "chosenAbility": "summonUnit",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "SororitasSummon_Basic",
-     "chosenAbility": "summonUnit",
-     "seconds": 0.2,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "UseFaith",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "SOR_Righteous_Repugnance",
-   "name": "Righteous Repugnance",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Sororitas_quick_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Sororitas_quick_target",
-     "chosenAbility": "buffOthers",
      "seconds": 1.0,
      "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "UseFaith",
@@ -13615,6 +14048,23 @@
      "seconds": 1.0,
      "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "OtherUnitSummoned",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "TAU33",
+   "name": "Razorshark",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Tau_Pulse_AerialBombardment",
+     "chosenAbility": "doDamage",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -13744,6 +14194,23 @@
   {
    "active": null,
    "activeAnims": [],
+   "id": "TAU42",
+   "name": "Experimental Drone",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Tau_Intense_warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
    "id": "TAU43",
    "name": "For the Greater Good",
    "otherAbilityAnims": [
@@ -13862,6 +14329,32 @@
      "cardanim": "Buff_Tau Blue_target",
      "chosenAbility": "buffOthers",
      "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "TAU51",
+   "name": "Saviour Protocolst",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Tau_Intense_warlord",
+     "chosenAbility": "buffHand",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "DeckBuff_Tau",
+     "chosenAbility": "buffHand",
+     "seconds": 0.5,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "ThisCardPlayed",
      "tweenAnim": null,
@@ -14252,127 +14745,7 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "TAU9",
-   "name": "Pathfinder",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "MarkerlightSource",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TAU_Deploy_Anchors",
-   "name": "Deploy Anchors",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_TauRanged_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TAU_Ethereal_Supreme",
-   "name": "Ethereal Supreme",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Tau Blue_quick_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Tau Blue_quick_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.5,
-     "slot": "cardAbilities[0].abilityLogic[1]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TAU_Grisly_Feast",
-   "name": "Grisly Feast",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_TauRanged_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_TauRanged_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[1]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TAU_Hero_of_the_Empire",
-   "name": "Hero of the Empire",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_TauRanged_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TAU_Homing_Beacon",
-   "name": "Homing Beacon",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Tau_Summon",
-     "chosenAbility": "summonBuffedUnit",
-     "seconds": 0.3,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TAU_Hunters_Instincts",
+   "id": "TAU75",
    "name": "Hunters Instincts",
    "otherAbilityAnims": [
     {
@@ -14389,34 +14762,17 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "TAU_Serene_Unifier",
-   "name": "Serene Unifier",
+   "id": "TAU9",
+   "name": "Pathfinder",
    "otherAbilityAnims": [
     {
-     "cardanim": "Buff_Tau_Generic_warlord",
-     "chosenAbility": "createCardInHand",
+     "cardanim": "MarkerlightSource",
+     "chosenAbility": "buffOthers",
      "seconds": 0.5,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "ThisCardPlayed",
      "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TAU_Shield_Generator",
-   "name": "Shield Generator",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Tau Blue_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
+     "waitAnimToApplyEffect": 0
     }
    ]
   },
@@ -14751,6 +15107,35 @@
   {
    "active": null,
    "activeAnims": [],
+   "id": "TL40",
+   "name": "Infestation Node",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Tyranid Health",
+     "chosenAbility": "doHeal",
+     "seconds": 0.45,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": 4970856932857792203,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 0
+    },
+    {
+     "cardanim": "Tyranid_Spawn_Warlord",
+     "chosenAbility": "doHeal",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
    "id": "TL41",
    "name": "Overwhelming Swarm",
    "otherAbilityAnims": [
@@ -15005,6 +15390,26 @@
   {
    "active": null,
    "activeAnims": [],
+   "id": "TL55",
+   "name": "Protective Bio-structure",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Tyranid Atk",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.45,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": 4970856932857792203,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
    "id": "TL56",
    "name": "Toxic Vapours",
    "otherAbilityAnims": [
@@ -15085,161 +15490,7 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "TL8",
-   "name": "Genestealer",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Swarm_OnTarget_Self",
-     "chosenAbility": "createCardInHand",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "TurnStartPlayer",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TL81",
-   "name": "Feeding Frenzy",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "FeedingFrenzy",
-     "chosenAbility": "doDamage",
-     "seconds": 2.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Buff_Tyranid Health",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.45,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "OtherUnitDeath",
-     "tweenAnim": {
-      "m_PathID": 4970856932857792203,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TL_Aerial_Seeding",
-   "name": "Aerial Seeding",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "TyranidInvasion_Spawn",
-     "chosenAbility": "summonUnit",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TL_Alpha_Warrior",
-   "name": "Alpha Warrior",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "AlphaWarrior_Warlord",
-     "chosenAbility": "buffOthers",
-     "seconds": 2.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TL_Bestial_Rage",
-   "name": "Bestial Rage",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Tyranid Atk",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.45,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": {
-      "m_PathID": 4970856932857792203,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TL_Brood_Progenitor",
-   "name": "Brood Progenitor",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Tyranid_Spawn_Warlord",
-     "chosenAbility": "createCardInHand",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TL_Hive_Commander",
-   "name": "Hive Commander",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Tyranid Generic",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.45,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": {
-      "m_PathID": -6121470673489406951,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TL_Neurotyrant",
-   "name": "Neurotyrant",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Scream_purple_troopSelf_Quick",
-     "chosenAbility": "createCardInHand",
-     "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "OtherCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TL_Psychophage",
+   "id": "TL68",
    "name": "Psychophage",
    "otherAbilityAnims": [
     {
@@ -15259,27 +15510,15 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "TL_Spirit_Leech",
-   "name": "Spirit Leech",
+   "id": "TL69",
+   "name": "Neurotyrant",
    "otherAbilityAnims": [
     {
-     "cardanim": "Atk_SmiteLightning_Tyranid_warlord",
-     "chosenAbility": "doDamage",
-     "seconds": 0.65,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": {
-      "m_PathID": 5657933893940981911,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    },
-    {
-     "cardanim": "Scream_purple_warlord_Quick",
-     "chosenAbility": "buffOthers",
+     "cardanim": "Scream_purple_troopSelf_Quick",
+     "chosenAbility": "createCardInHand",
      "seconds": 0.2,
-     "slot": "cardAbilities[0].abilityLogic[1]",
-     "trigger": "ThisCardPlayed",
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "OtherCardPlayed",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -15288,47 +15527,7 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "TL_Synaptic_Imperative",
-   "name": "Synaptic Imperative",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Buff_Tyranid Atk",
-     "chosenAbility": "buffOthers",
-     "seconds": 0.45,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": {
-      "m_PathID": 4970856932857792203,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TL_Termagant_Brood",
-   "name": "Termagant Brood",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Atk_BulletImpact_Tyranid_Fleshborer",
-     "chosenAbility": "doDamage",
-     "seconds": 0.85,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "TriggeredSwarm",
-     "tweenAnim": {
-      "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
-     },
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "TL_Toxic_Entanglement",
+   "id": "TL71",
    "name": "Toxic Entanglement",
    "otherAbilityAnims": [
     {
@@ -15354,7 +15553,7 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "TL_Tyranid_Invasion",
+   "id": "TL72",
    "name": "Tyranid Invasion",
    "otherAbilityAnims": [
     {
@@ -15399,6 +15598,63 @@
      "seconds": 0.2,
      "slot": "cardAbilities[0].abilityLogic[3]",
      "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "TL73",
+   "name": "Bestial Rage",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Tyranid Atk",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.45,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": 4970856932857792203,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "TL75",
+   "name": "Termagant Brood",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Atk_BulletImpact_Tyranid_Fleshborer",
+     "chosenAbility": "doDamage",
+     "seconds": 0.85,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "TriggeredSwarm",
+     "tweenAnim": {
+      "m_PathID": -8275538427997360676,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "TL8",
+   "name": "Genestealer",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Swarm_OnTarget_Self",
+     "chosenAbility": "createCardInHand",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "TurnStartPlayer",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -16674,23 +16930,52 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "UM_Exhortation_of_Rage",
-   "name": "Exhortation of Rage",
+   "id": "a58e05916eb5e994daa0349cbe237001",
+   "name": "Synaptic Imperative",
    "otherAbilityAnims": [
     {
-     "cardanim": "Basic_army_UM_Chaplain_warlord",
+     "cardanim": "Buff_Tyranid Atk",
      "chosenAbility": "buffOthers",
-     "seconds": 0.8,
+     "seconds": 0.45,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": 4970856932857792203,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "a7bb23355a30d344e9d2decf976d91e1",
+   "name": "Poisoned Supplies",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Card_Buff_Sabotage_self",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "TurnEnd",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     },
     {
-     "cardanim": "Buff_Purple_target",
-     "chosenAbility": "buffOthers",
+     "cardanim": "Toxic Vapors Damage quick",
+     "chosenAbility": "doDamage",
      "seconds": 1.0,
      "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "TurnEnd",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "GSC_Warlord Sabotage",
+     "chosenAbility": "doOnlyVfx",
+     "seconds": 0.5,
+     "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "ThisCardPlayed",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
@@ -16700,11 +16985,49 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "UM_Greatest_Deeds",
-   "name": "Greatest Deeds",
+   "id": "a84a5b49f0ca9144585058db6987c2a0",
+   "name": "Master Interromancer",
    "otherAbilityAnims": [
     {
-     "cardanim": "Hand_Buff_UM_AllCards",
+     "cardanim": "Atk_SmiteLightning_white_Down",
+     "chosenAbility": "doDamage",
+     "seconds": 0.65,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": 5657933893940981911,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Trait_GainQuest_self",
+     "chosenAbility": "buffMana",
+     "seconds": 0.7,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "OtherUnitDeath",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "aa45079b714e3ff498549e533c5954a1",
+   "name": "Xylocil",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff EC Stimulate target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Red_target_Quick",
      "chosenAbility": "buffOthers",
      "seconds": 0.2,
      "slot": "cardAbilities[0].abilityLogic[0]",
@@ -16717,46 +17040,38 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "UM_Master_Tactician",
-   "name": "Master Tactician",
+   "id": "af98d423c7279a14c84c0d0382c53541",
+   "name": "Legendary Commandant",
    "otherAbilityAnims": [
     {
-     "cardanim": "UM_ScryersGaze",
-     "chosenAbility": "drawCard",
-     "seconds": 2.5,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "UM_Master_of_Arcana",
-   "name": "Master of Arcana",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "UM_MasterOfArcana",
+     "cardanim": "Basic_army_Guard_warlord Digital",
      "chosenAbility": "createCardInHand",
-     "seconds": 3.0,
+     "seconds": 0.8,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "ThisCardPlayed",
      "tweenAnim": null,
-     "waitAnimToApplyEffect": 0
+     "waitAnimToApplyEffect": 1
     }
    ]
   },
   {
    "active": null,
    "activeAnims": [],
-   "id": "UM_Master_of_Arms",
-   "name": "Master of Arms",
+   "id": "b3364cdc54882b04e8a931e86700ac23",
+   "name": "Obscure Ritual",
    "otherAbilityAnims": [
     {
-     "cardanim": "Basic_army_UM_Hammer",
-     "chosenAbility": "buffOthers",
+     "cardanim": "Basic_army_DA_warlord_Intense_Secret",
+     "chosenAbility": "buffMana",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Mana_2 UI",
+     "chosenAbility": "buffMana",
      "seconds": 1.0,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "ThisCardPlayed",
@@ -16768,45 +17083,11 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "UM_Master_of_the_Fleet",
-   "name": "Master of the Fleet",
+   "id": "b3735ef3d1408d544b0947e31f898e20",
+   "name": "Grisly Feast",
    "otherAbilityAnims": [
     {
-     "cardanim": "Air to Ground Big",
-     "chosenAbility": "doDamage",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "UM_Might_of_Heroes",
-   "name": "Might of Heroes",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "UM_MightOfHeroes",
-     "chosenAbility": "buffOthers",
-     "seconds": 2.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "UM_Paragon_of_Ultramar",
-   "name": "Paragon of Ultramar",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_UM_Chant",
+     "cardanim": "Buff_TauRanged_target",
      "chosenAbility": "buffOthers",
      "seconds": 1.0,
      "slot": "cardAbilities[0].abilityLogic[0]",
@@ -16815,24 +17096,7 @@
      "waitAnimToApplyEffect": 1
     },
     {
-     "cardanim": "Buff_Purple_target",
-     "chosenAbility": "buffOthers",
-     "seconds": 1.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "ThisCardPlayed",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    }
-   ]
-  },
-  {
-   "active": null,
-   "activeAnims": [],
-   "id": "UM_Righteous_Fury",
-   "name": "Righteous Fury",
-   "otherAbilityAnims": [
-    {
-     "cardanim": "Basic_army_UM_Chainsword",
+     "cardanim": "Buff_TauRanged_target",
      "chosenAbility": "buffOthers",
      "seconds": 1.0,
      "slot": "cardAbilities[0].abilityLogic[1]",
@@ -16845,7 +17109,119 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "UM_Scryer_s_Gaze",
+   "id": "b8e81b2fe85cda747a68c4d6326b669c",
+   "name": "Dark Pact of Excess",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_MarkOfSlaanesh_self",
+     "chosenAbility": "buffSelf",
+     "seconds": 0.7,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "TriggerEnchantment",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "b9665eadf1207ff49bcf0a730b0b7f9d",
+   "name": "Euphoric Strike (Lord Exultant's Talent)",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Sword EC User Warlord",
+     "chosenAbility": "doDamage",
+     "seconds": 0.3,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    },
+    {
+     "cardanim": "Cut EC 1x Reverse target",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "CreateCard_EC Elixir",
+     "chosenAbility": "createCardInHand",
+     "seconds": 1.2,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "c06453b330af61745beb5fa567ba863e",
+   "name": "Lord Commander",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_Guard_intense_warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Basic_army_Guard_target_quick",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "c0ddba6cc45944f46a65f4fd93bcc0a5",
+   "name": "Aerial Seeding",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "TyranidInvasion_Spawn",
+     "chosenAbility": "summonUnit",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "c433e3dde4952cc448220908226127ae",
+   "name": "Master Outrider",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_GSC_warlord_jackal",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "c4ff279078605aa42942c8dd16b77147",
    "name": "Scryer's Gaze",
    "otherAbilityAnims": [
     {
@@ -16862,7 +17238,76 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "UM_Smite",
+   "id": "cbabeb234380634479feab1a1b4c733a",
+   "name": "Master Chronomancer",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Master_Chronomancer_Effect",
+     "chosenAbility": "setCardDeckToTop",
+     "seconds": 3.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    },
+    {
+     "cardanim": "Wait_1s",
+     "chosenAbility": "doOnlyVfx",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "cbc9d98e39cc7fb4fa6f94c7e69bda18",
+   "name": "Brood Progenitor",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Tyranid_Spawn_Warlord",
+     "chosenAbility": "createCardInHand",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "cc11838649ff68a40b7d5d2b9fccd2bc",
+   "name": "Lead by Example",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Green_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Duty Reset Target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "cf0b346f70e748c4bbfc4dc03ab39ead",
    "name": "Smite",
    "otherAbilityAnims": [
     {
@@ -16882,7 +17327,91 @@
   {
    "active": null,
    "activeAnims": [],
-   "id": "UM_Spear_of_Macragge",
+   "id": "d19e8b68aaa9a884781d06697ad237a6",
+   "name": "Special Dose (Zodgrod Wortsnagga Talent)",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Ork_Snakebite_1",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.6,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "d3e99cb18b8cbba4081486f57f510f75",
+   "name": "Witchfire",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "SmiteLightning_Down",
+     "chosenAbility": "doDamage",
+     "seconds": 0.75,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": {
+      "m_PathID": 5657933893940981911,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Eldar_TriggerSpiritstone_Warlord",
+     "chosenAbility": "doDamage",
+     "seconds": 2.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "UseSpiritStone",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Eldar_TriggerSpiritstone_Mana",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "UseSpiritStone",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    },
+    {
+     "cardanim": "SmiteLightning_Down",
+     "chosenAbility": "doDamage",
+     "seconds": 0.75,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "UseSpiritStone",
+     "tweenAnim": {
+      "m_PathID": 5657933893940981911,
+      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+     },
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "d8a14171b08b54144ba9dbf324b0a042",
+   "name": "Relentless March",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "RelentlessMarchSummon",
+     "chosenAbility": "summonUnit",
+     "seconds": 0.3,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "d94f91051ecfe014f97577ff573571aa",
    "name": "Spear of Macragge",
    "otherAbilityAnims": [
     {
@@ -16895,51 +17424,395 @@
      "waitAnimToApplyEffect": 0
     }
    ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "dc7e575c0a328f446be1521c23ec850b",
+   "name": "Empyric Ambush",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "AeldariRecall_warlord",
+     "chosenAbility": "doDamage",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Cuts Brutal Warp Spider",
+     "chosenAbility": "doDamage",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "AeldariRecall_reverse_warlord",
+     "chosenAbility": "doDamage",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Eldar_Warp Spider_Target",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "dcbd28525888ce54aaa93a47ba4de1e6",
+   "name": "Master Tactician",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "UM_ScryersGaze",
+     "chosenAbility": "drawCard",
+     "seconds": 2.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "dd535f7a54bcf6241b24ca6d0e81bbb4",
+   "name": "Supreme Grand Master",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_DA_warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Purple_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Basic_army_DA_warlord",
+     "chosenAbility": "createCardInHand",
+     "seconds": 1.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "e01e8e933ad574b44bce5473ae486667",
+   "name": "Rites of Penance",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Basic_army_DA_warlord_Intense_Secret",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Red_target_Quick",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Purple_target_quick",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "e01f4d54e8a474d96b5a1167cc28eebf",
+   "name": "Daemonbreaker",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Sororitas_quick_fire_warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Faith_trigger_warlord",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "UseFaith",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Sororitas_quick_fire_warlord_intense",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "UseFaith",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "e3d67d86f73f7564eb0bf886ec848af6",
+   "name": "Waaagh! Energy (Weirdboy Talent)",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Atk_SmiteLightning_Waaagh_Board",
+     "chosenAbility": "doDamage",
+     "seconds": 2.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Red_ork",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "e59ac9e46f4ea804784e954c3b820e77",
+   "name": "Skyborne Deployment",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "AeldariSummon",
+     "chosenAbility": "summonUnit",
+     "seconds": 0.75,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "AeldariSummon",
+     "chosenAbility": "summonUnit",
+     "seconds": 0.75,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "e9952f50921d2844a94d39ce883430f4",
+   "name": "Vox-Hacker",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "CreateCard_GSC",
+     "chosenAbility": "createCardInHand",
+     "seconds": 1.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "eb17cd22c6a5d7941a7456838d927ab1",
+   "name": "Particle Whip",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "ParticleWhip",
+     "chosenAbility": "doDamage",
+     "seconds": 1.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "f104d4c21abe84546abc9365d9eda8dd",
+   "name": "Righteous Repugnance",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Sororitas_quick_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Sororitas_quick_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 1.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "UseFaith",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "f2b80d575cbf8f64597b991022beaf35",
+   "name": "Serene Unifier",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Tau_Generic_warlord",
+     "chosenAbility": "createCardInHand",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "f45dd53721b645b4ab45d334edb986af",
+   "name": "Deadliest Killer",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Cuts Brutal",
+     "chosenAbility": "doDamage",
+     "seconds": 0.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "f8260229254a09746af6d9ff7a9b0b54",
+   "name": "Ethereal Supreme",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Buff_Tau Blue_quick_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Tau Blue_quick_target",
+     "chosenAbility": "buffOthers",
+     "seconds": 0.5,
+     "slot": "cardAbilities[0].abilityLogic[1]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "f923701f207d23a4f81d6ff5891b4a0c",
+   "name": "Master of Arcana",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "UM_MasterOfArcana",
+     "chosenAbility": "createCardInHand",
+     "seconds": 3.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "id": "fd67b47572987b84cb2990ea1ecfe982",
+   "name": "Brood Prophet",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "CreateCard_GSC",
+     "chosenAbility": "createCardInHand",
+     "seconds": 1.2,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
   }
  ],
  "generatedBy": "d:/4/Unity/工具/gen_ability_anim_durations.py",
  "schema": "ability_anim_durations/v1",
  "stats": {
-  "activeAnims": 89,
-  "cardsMatchedButNoActiveAnim": 666,
-  "cardsWithTruth": 56,
+  "activeAnims": 99,
+  "cardsMatchedButNoActiveAnim": 701,
+  "cardsWithTruth": 62,
   "max": 4.0,
   "median": 1.0,
   "min": 0.2,
-  "otherAbilityAnims": 1106,
-  "uncoveredCards": 37,
+  "otherAbilityAnims": 1157,
+  "uncoveredCards": 35,
   "unresolved": 9,
-  "wantedCards": 87
+  "wantedCards": 89
  },
  "uncovered": [
-  {
-   "faction": "AstraMilitarum",
-   "id": "AM_Commissar_Elan",
-   "inTruthSnapshot": false,
-   "name": "Commissar Elan",
-   "why": "**2022 快照里根本没有这张卡**（真值源年代，UM/SW 是后来的扩军）⇒ 判据为空"
-  },
-  {
-   "faction": "AstraMilitarum",
-   "id": "AM_Hektor_Thenmann",
-   "inTruthSnapshot": false,
-   "name": "Hektor Thenmann",
-   "why": "**2022 快照里根本没有这张卡**（真值源年代，UM/SW 是后来的扩军）⇒ 判据为空"
-  },
-  {
-   "faction": "DarkAngels",
-   "id": "DA_Asmodai",
-   "inTruthSnapshot": false,
-   "name": "Asmodai",
-   "why": "**2022 快照里根本没有这张卡**（真值源年代，UM/SW 是后来的扩军）⇒ 判据为空"
-  },
-  {
-   "faction": "DarkAngels",
-   "id": "DA_Azrael",
-   "inTruthSnapshot": false,
-   "name": "Azrael",
-   "why": "**2022 快照里根本没有这张卡**（真值源年代，UM/SW 是后来的扩军）⇒ 判据为空"
-  },
   {
    "faction": "DarkAngels",
    "id": "DA82",
@@ -16974,6 +17847,13 @@
    "inTruthSnapshot": true,
    "name": "Celestian Sacresant Aveline",
    "why": "快照里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西）—— 判据不足以定「该等 0 还是等一拍」⇒ 退回兜底值并**出声**"
+  },
+  {
+   "faction": "SpaceWolves",
+   "id": "SW13",
+   "inTruthSnapshot": false,
+   "name": "Blackmane Reiver",
+   "why": "**2022 快照里根本没有这张卡**（真值源年代，UM/SW 是后来的扩军）⇒ 判据为空"
   },
   {
    "faction": "SpaceWolves",
@@ -17022,6 +17902,13 @@
    "id": "SW42",
    "inTruthSnapshot": false,
    "name": "Bjorn the Fell-Handed",
+   "why": "**2022 快照里根本没有这张卡**（真值源年代，UM/SW 是后来的扩军）⇒ 判据为空"
+  },
+  {
+   "faction": "SpaceWolves",
+   "id": "SW31",
+   "inTruthSnapshot": false,
+   "name": "Fenrisian Drop Pod",
    "why": "**2022 快照里根本没有这张卡**（真值源年代，UM/SW 是后来的扩军）⇒ 判据为空"
   },
   {

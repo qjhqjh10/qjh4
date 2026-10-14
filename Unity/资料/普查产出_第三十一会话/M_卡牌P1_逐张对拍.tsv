@@ -1,0 +1,172 @@
+旧id	新id	卡名	阵营	判据	图(新)	图(旧孤儿)	voice	icon	vfx	inv	initiative
+AM_Armoured_Lightning	AM76	Armoured Lightning	AstraMilitarum	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+AM_Astropath	AM59	Astropath	AstraMilitarum	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+AM_Cadian_Honour	3a52026b99bb56f40aa9dc130fc66f34	Cadian Honour	AstraMilitarum	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+AM_Commissar_Elan	AM3	Commissar Elan	AstraMilitarum	short|off:ocr(1);truth:ocr	Y	Y	Y	Y	Y	Y	Y
+AM_Efficiency_and_Excellence	1ff4815a506d2f34e94ec2f50900d352	Efficiency and Excellence	AstraMilitarum	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+AM_Hektor_Thenmann	AM66	Hektor Thenmann	AstraMilitarum	short|off:name(1);off:ocr(1)	Y	Y	Y	Y	Y	Y	Y
+AM_Lead_by_Example	cc11838649ff68a40b7d5d2b9fccd2bc	Lead by Example	AstraMilitarum	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+AM_Legendary_Commandant	af98d423c7279a14c84c0d0382c53541	Legendary Commandant	AstraMilitarum	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+AM_Leman_Russ	AM32	Leman Russ	AstraMilitarum	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	-	Y	Y	Y
+AM_Lord_Commander	c06453b330af61745beb5fa567ba863e	Lord Commander	AstraMilitarum	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+AM_Renowned_Bodyguard	98cd4c021d615174aba88df6012219c4	Renowned Bodyguard	AstraMilitarum	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+BL_Bitter_Blows	36892cd906b0e5e4c9bbbe249db009b8	Bitter Blows	BlackLegion	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+BL_Chosen_of_the_Four	97e959444b53f424ea4285e2ca02c7e6	Chosen of the Four	BlackLegion	guid/tail==name|off:name(1);off:ocr(1)	Y	Y	-	Y	Y	Y	Y
+BL_Dark_Pact_of_Blood	9a2cadc64c80a6b42912441105bb1cee	Dark Pact of Blood	BlackLegion	guid/tail==name|off:name(1);off:ocr(1)	Y	Y	-	Y	Y	Y	Y
+BL_Dark_Pact_of_Excess	b8e81b2fe85cda747a68c4d6326b669c	Dark Pact of Excess	BlackLegion	guid/tail==name|off:name(1);off:ocr(1)	Y	Y	-	Y	Y	Y	Y
+BL_Dark_Pact_of_Fate	4a48457c24877f345be2e96f867c1e94	Dark Pact of Fate	BlackLegion	guid/tail==name|off:name(1);off:ocr(1)	Y	Y	-	Y	Y	Y	Y
+BL_Dark_Pact_of_Resilience	1dfc9bc738bfc4f4d93d48f165aee510	Dark Pact of Resilience	BlackLegion	guid/tail==name|off:name(1);off:ocr(1)	Y	Y	-	Y	Y	Y	Y
+BL_Diabolic_Strength	7bf8ce67fb6be4744ae44345a5b465fd	Diabolic Strength	BlackLegion	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+BL_Hellfire_Pit	BL58	Hellfire Pit	BlackLegion	short|off:name(1);off:ocr(1)	Y	Y	-	-	Y	Y	Y
+BL_Hellfire_Torch	BL57	Hellfire Torch	BlackLegion	short|off:name(1);off:ocr(1)	Y	Y	-	Y	Y	Y	Y
+BL_Helspear_Assault	61046837c330b48978b4af5201230b6e	Helspear Assault	BlackLegion	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+BL_Idolatrous_Despoilers	BL75	Idolatrous Despoilers	BlackLegion	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+BL_Infernal_Gaze	453b0e8f88e094a17866a6979f389ef5	Infernal Gaze	BlackLegion	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+BL_Litany_of_Despair	9176318eaf469354e858f51af2333aa3	Litany of Despair	BlackLegion	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+BL_Rites_of_Possession	3f38d2e2c83df4b4c9052ef4a510cfbb	Rites of Possession	BlackLegion	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+BL_Spreading_Corruption	BL74	Spreading Corruption	BlackLegion	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+BL_Sylar_Hexcorn	BL36	Sylar Hexcorn	BlackLegion	short|off:ocr(1);truth:ocr	Y	Y	Y	Y	Y	Y	Y
+BL_Unhallowed_Gifts	141c5ed661a9e42bd9a793f0d2a1c682	Unhallowed Gifts	BlackLegion	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+DA_Asmodai	DA3	Asmodai	DarkAngels	short|off:name(1);off:ocr(1)	Y	Y	Y	Y	Y	Y	Y
+DA_Azrael	DA1	Azrael	DarkAngels	short|off:name(1);off:ocr(1)	Y	Y	Y	Y	Y	Y	Y
+DA_Belial	DA2	Belial	DarkAngels	short|off:name(1);off:ocr(1)	Y	Y	Y	Y	Y	Y	Y
+DA_Convoke_the_Circle	3e99603a7b7b2c54c8f1ad40250ee2ae	Convoke the Circle	DarkAngels	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+DA_Grim_Effigy	DA59	Grim Effigy	DarkAngels	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+DA_Master_Interromancer	a84a5b49f0ca9144585058db6987c2a0	Master Interromancer	DarkAngels	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+DA_Master_of_Manoeuvre	7c45a641ec845994097d185af58715f6	Master of Manoeuvre	DarkAngels	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+DA_Master_of_Repentance	4cdc1b5f965f99945b685bca7660e9fa	Master of Repentance	DarkAngels	guid/tail==name|off:name(1);off:ocr(1)	Y	Y	-	Y	Y	Y	Y
+DA_Master_of_the_Deathwing	9e0eecf8cb9a8df49bf18cc5d9051109	Master of the Deathwing	DarkAngels	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+DA_None_Must_Know	24fcaf45556573549b922c06cad3aa2c	None Must Know	DarkAngels	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+DA_Obscure_Ritual	b3364cdc54882b04e8a931e86700ac23	Obscure Ritual	DarkAngels	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+DA_Plasma_Generator	DA61	Plasma Generator	DarkAngels	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+DA_Rites_of_Penance	e01e8e933ad574b44bce5473ae486667	Rites of Penance	DarkAngels	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+DA_Sergeant_Naaman	DA6	Sergeant Naaman	DarkAngels	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+DA_Smothering_Decree	708c0306e73fd494eb0f718ddaeea48a	Smothering Decree	DarkAngels	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+DA_Supreme_Grand_Master	dd535f7a54bcf6241b24ca6d0e81bbb4	Supreme Grand Master	DarkAngels	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+EC72	5a8a11b2a89796f48b34fbec8db6f452	Antrak Silk	EmperorsChildren	guid/collide/tail==name|legacy-collide	Y	Y	-	Y	Y	Y	Y
+EC_Armoury_of_Excess	EC60	Armoury of Excess	EmperorsChildren	short|off:name(1);off:ocr(1)	Y	Y	-	Y	Y	Y	Y
+EC_Decadent_Throne	EC61	Decadent Throne	EmperorsChildren	short|off:name(1);off:ocr(1)	Y	Y	-	-	Y	Y	Y
+EC_Dual_Screamer_Kakophonist	EC16	Dual Screamer Kakophonist	EmperorsChildren	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+EC_Duelist_s_Hubris_Lucius_Talent	6ed51d59b9f8ea24ab0dc7ceaef7956c	Duelist's Hubris (Lucius' Talent)	EmperorsChildren	guid/tail==name|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	Y	Y	Y	Y
+EC_Euphoric_Strike_Lord_Exultant_s_Talent	b9665eadf1207ff49bcf0a730b0b7f9d	Euphoric Strike (Lord Exultant's Talent)	EmperorsChildren	guid/tail==name|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	-	Y	Y	Y
+EC_Excessive_Vigour_Daemon_Prince_s_Talent	2621d4280735baf4c952e6afea8d0686	Excessive Vigour (Daemon Prince's Talent)	EmperorsChildren	guid/tail==name|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	Y	Y	Y	Y
+EC73	70199b6f183ec364082ca16e62f3d0cb	Heliotrophos	EmperorsChildren	guid/collide/tail==name|legacy-collide	Y	Y	-	Y	Y	Y	Y
+EC_Icon_of_Excess_Infractor	EC9	Icon of Excess Infractor	EmperorsChildren	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+EC_Lord_Kakophonist	EC14	Lord Kakophonist	EmperorsChildren	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+EC_Maulerfiend	EC30	Maulerfiend	EmperorsChildren	short|off:name(2);off:ocr(2);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+EC74	6e6d14006d8e9514b83a6c99e572081c	Quail	EmperorsChildren	guid/collide/tail==name|legacy-collide	Y	Y	-	-	Y	Y	Y
+EC75	9215799995ff7a941b14737e27021032	Shivversplint	EmperorsChildren	guid/collide/tail==name|legacy-collide	Y	Y	-	Y	Y	Y	Y
+EC76	4eec3b13d157dae48b14ed412169e692	Skorflense	EmperorsChildren	guid/collide/tail==name|legacy-collide	Y	Y	-	Y	Y	Y	Y
+EC_Terminator	EC25	Terminator	EmperorsChildren	short|off:name(1);off:ocr(1);tail:name;tail:ocr	Y	Y	Y	Y	Y	Y	Y
+EC_Terminator_Champion	EC26	Terminator Champion	EmperorsChildren	short|off:name(2);off:ocr(2);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+EC_Threnodic_Choir_Noise_Marine	EC19	Threnodic Choir Noise Marine	EmperorsChildren	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+EC77	aa45079b714e3ff498549e533c5954a1	Xylocil	EmperorsChildren	guid/collide/tail==name|legacy-collide	Y	Y	-	Y	Y	Y	Y
+GSC_Acolyte_Iconward	GSC3	Acolyte Iconward	Genestealers	short|off:ocr(1);truth:ocr	Y	Y	Y	Y	Y	Y	Y
+GSC_Backstab	GSC40	Backstab	Genestealers	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GSC_Brood_Prophet	fd67b47572987b84cb2990ea1ecfe982	Brood Prophet	Genestealers	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+GSC_Cult_Propaganda	7c666a04c1b9e8b4e9a96247e9fe115a	Cult Propaganda	Genestealers	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+GSC_Deadliest_Killer	f45dd53721b645b4ab45d334edb986af	Deadliest Killer	Genestealers	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+GSC_Experimental_Bio_Horrors	4959cd9e99597f74ca9af0bd65ae6307	Experimental Bio-Horrors	Genestealers	guid/single|off:name(1);off:ocr(1);truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+GSC_Improvised_Barricade	334a32d196d46ed4387bf3740cce069b	Improvised Barricade	Genestealers	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+GSC_Inscrutable_Cunning	d01a5ba5865ded4418194ea50e333b21	Inscrutable Cunning	Genestealers	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+GSC_Jammed_Communications	68909cf02f472734ea391665e0d28e15	Jammed Communications	Genestealers	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+GSC_Lhaska_Szenari	GSC66	Lhaska Szenari	Genestealers	short|off:name(1);off:ocr(1)	Y	Y	Y	Y	Y	Y	Y
+GSC_Master_Outrider	c433e3dde4952cc448220908226127ae	Master Outrider	Genestealers	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GSC_Nexus_of_Devotion	7831725387c8a774dbdf5b6492d928e0	Nexus of Devotion	Genestealers	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GSC_Poisoned_Supplies	a7bb23355a30d344e9d2decf976d91e1	Poisoned Supplies	Genestealers	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+GSC_Roaming_Outriders	GSC75	Roaming Outriders	Genestealers	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GSC_Vox_Hacker	e9952f50921d2844a94d39ce883430f4	Vox-Hacker	Genestealers	guid/single|off:name(1);off:ocr(1);truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent	64a657fc5ed5bbb4fa7b585cf29c1e95	Da Bigger Dey Iz... (Mozrog's Talent)	Goff	guid/tail==name|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GOF_Da_Red_Waaagh	20d0f4451f16fc441836a02f99bf77da	Da Red Waaagh	Goff	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GOF_Dok_s_Toolz_Painboss_talent	8f35df0536e4f7e4d86f3885e2597404	Dok’s Toolz (Painboss' talent)	Goff	guid/tail==name|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	-	Y	Y	Y
+GOF_Ferocious_Rage_Beastboss_Talent	84d4d192e0f57a34a90ac0f6172c3358	Ferocious Rage (Beastboss' Talent)	Goff	guid/tail==name|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GOF_Follower_of_Gork	6ba4b132d24528844a86304f8ce67833	Follower of Gork	Goff	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GOF_Greatest_Warboss	3ebb159036778d14ebd1c48451aa6ca0	Greatest Warboss	Goff	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GOF_Mekaniak	9dcbe3d0c04b02f4fbb19974ae0e37b2	Mekaniak	Goff	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+GOF_More_Dakka	9f4e1b7ea9f00da458c6a859a4e958c8	More Dakka	Goff	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GOF_Ork_Spanner	GOF12	Ork Spanner	Goff	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	-	Y	Y	Y
+GOF_Ramshackle	98d3c65702746b04baf7f5ead1a9e507	Ramshackle	Goff	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+GOF_Sawbonez	b4d6d186eb95a3f468013c5be649ee3b	Sawbonez	Goff	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+GOF_Special_Dose_Zodgrod_Wortsnagga_Talent	d19e8b68aaa9a884781d06697ad237a6	Special Dose (Zodgrod Wortsnagga Talent)	Goff	guid/tail==name|off:ocr(1)	Y	Y	-	Y	Y	Y	Y
+GOF_Uge_Choppa	6899b199f5e36144ebbdd7ed9d9e7afe	Uge Choppa	Goff	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GOF_Veteran_Flyboy	GOF20	Veteran Flyboy	Goff	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GOF_Waaagh_Energy_Weirdboy_Talent	e3d67d86f73f7564eb0bf886ec848af6	Waaagh! Energy (Weirdboy Talent)	Goff	guid/tail==name|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GOF_Worst_Temper	8425b809e9e64e24f9035f709f5aaee4	Worst Temper	Goff	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+GOF_Wreckin_Ball	508002f5d7ee54f4686aefa2e6adce41	Wreckin Ball	Goff	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TL_Aerial_Seeding	c0ddba6cc45944f46a65f4fd93bcc0a5	Aerial Seeding	Leviathan	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+TL_Alpha_Warrior	8f2da557fe484ee4bbf427c13eccd4cb	Alpha Warrior	Leviathan	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TL_Barbgaunt	TL67	Barbgaunt	Leviathan	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+TL_Bestial_Rage	TL73	Bestial Rage	Leviathan	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TL_Brood_Progenitor	cbc9d98e39cc7fb4fa6f94c7e69bda18	Brood Progenitor	Leviathan	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+TL81	468db99b4b10d0745bab346df37d3fb2	Feeding Frenzy	Leviathan	guid/collide/tail==name|legacy-collide	Y	Y	-	-	Y	Y	Y
+TL_Hive_Commander	5b5425f6e2848b449807bd1643d0d936	Hive Commander	Leviathan	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TL_Neurogaunt	TL66	Neurogaunt	Leviathan	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+TL_Neuroloid	TL65	Neuroloid	Leviathan	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+TL_Neurotyrant	TL69	Neurotyrant	Leviathan	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+TL_Norn_Emissary	TL70	Norn Emissary	Leviathan	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+TL_Protective_Bio_structure	TL55	Protective Bio-structure	Leviathan	short|off:name(1);off:ocr(1)	Y	Y	-	Y	Y	Y	Y
+TL_Psychophage	TL68	Psychophage	Leviathan	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+TL_Spirit_Leech	760bd3afde513774d96d6492f995fd37	Spirit Leech	Leviathan	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TL_Synaptic_Imperative	a58e05916eb5e994daa0349cbe237001	Synaptic Imperative	Leviathan	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TL_Termagant_Brood	TL75	Termagant Brood	Leviathan	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+TL_Toxic_Entanglement	TL71	Toxic Entanglement	Leviathan	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TL_Tyranid_Invasion	TL72	Tyranid Invasion	Leviathan	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+ASH_Empyric_Ambush	dc7e575c0a328f446be1521c23ec850b	Empyric Ambush	SaimHann	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+ASH_Flickerjump	67adbc7f7bce2bd4c8f6937fab3134e5	Flickerjump	SaimHann	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+ASH_Path_of_Command	9c3562ffa183ede41b1626d9c9dc1e2f	Path of Command	SaimHann	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+ASH_Path_of_the_Seer	09bcb1b3b8794c4429d82d4b2e68fa1f	Path of the Seer	SaimHann	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+ASH_Path_of_the_Warrior	1bfe0893592c9dd40bed8d68d5d2b516	Path of the Warrior	SaimHann	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+ASH_Skyborne_Deployment	e59ac9e46f4ea804784e954c3b820e77	Skyborne Deployment	SaimHann	guid/single|off:name(1);off:ocr(1);tail:name;tail:ocr	Y	Y	-	-	Y	Y	Y
+ASH_Storm_of_Silence	851f73daf747eb642934a16429b391db	Storm of Silence	SaimHann	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+ASH_Witchfire	d3e99cb18b8cbba4081486f57f510f75	Witchfire	SaimHann	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+ASH_Wrath_of_Khaine	33eabec155f628440a426a4ba480ec24	Wrath of Khaine	SaimHann	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+SAU_Extermination_Protocols	SAU38	Extermination Protocols	Sautekh	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	-	Y	Y	Y
+SAU_Gauss_Blaster_Immortal	SAU8	Gauss Blaster Immortal	Sautekh	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+SAU_Gauss_Reaper_Warrior	SAU4	Gauss Reaper Warrior	Sautekh	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+SAU_Hardwired_Destruction	461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	Sautekh	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+SAU_Indomitable_Will	65b2be828179515458a282cf1b027182	Indomitable Will	Sautekh	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+SAU_Inescapable_Retribution	SAU76	Inescapable Retribution	Sautekh	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+SAU_Lord_of_the_Storm	30007162b68992e41a422f2061705b65	Lord of the Storm	Sautekh	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+SAU_Master_Chronomancer	cbabeb234380634479feab1a1b4c733a	Master Chronomancer	Sautekh	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+SAU_Particle_Whip	eb17cd22c6a5d7941a7456838d927ab1	Particle Whip	Sautekh	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+SAU_Reanimate	27a4b748a7bf358499f038aa09895ead	Reanimate	Sautekh	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+SAU_Reconstitution_Protocols	SAU39	Reconstitution Protocols	Sautekh	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	-	Y	Y	Y
+SAU_Relentless_March	d8a14171b08b54144ba9dbf324b0a042	Relentless March	Sautekh	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+SAU_Tesla_Carbine_Immortal	SAU6	Tesla Carbine Immortal	Sautekh	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	-	Y	Y	Y
+SOR_Daemonbreaker	e01f4d54e8a474d96b5a1167cc28eebf	Daemonbreaker	Sororitas	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+SOR_Emperor_s_Judgement	SOR74	Emperor's Judgement	Sororitas	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+SOR_Fury_of_the_Righteous	8901e35c5de30eb48804da6651cfb132	Fury of the Righteous	Sororitas	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+SOR_Hymn_of_Battle	4d348cff71208c24d8e39252d913ff9d	Hymn of Battle	Sororitas	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+SOR_Lead_the_Righteous	65cfec7d2bc719040b3b4b88622931b2	Lead the Righteous	Sororitas	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+SOR_Righteous_Repugnance	f104d4c21abe84546abc9365d9eda8dd	Righteous Repugnance	Sororitas	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+SOR_Sister_Dogmata	SOR31	Sister Dogmata	Sororitas	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+SOR_Sisters_Repentia	SOR10	Sisters Repentia	Sororitas	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+TAU_Aunshi_Ethereal	TAU32	Aunshi Ethereal	TauEmpire	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TAU_Breacher_Fire_Warrior	TAU14	Breacher Fire Warrior	TauEmpire	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+TAU_Deploy_Anchors	507f79fa60945d04e93fe806aca912b7	Deploy Anchors	TauEmpire	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TAU_Drone_Companion	c4f5c920744030c4e84428dc5a0f1bf2	Drone Companion	TauEmpire	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+TAU_Ethereal_Supreme	f8260229254a09746af6d9ff7a9b0b54	Ethereal Supreme	TauEmpire	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+TAU_Experimental_Drone	TAU42	Experimental Drone	TauEmpire	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TAU_Grisly_Feast	b3735ef3d1408d544b0947e31f898e20	Grisly Feast	TauEmpire	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TAU_Hero_of_the_Empire	9f75a6fe11922eb409ffbad4ecdeb405	Hero of the Empire	TauEmpire	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TAU_Homing_Beacon	1688c6146abb1e04f98e540b4cbbabd7	Homing Beacon	TauEmpire	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TAU_Hunters_Instincts	TAU75	Hunters Instincts	TauEmpire	short|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TAU_Razorshark	TAU33	Razorshark	TauEmpire	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	-	Y	Y	Y
+TAU_Saviour_Protocolst	TAU51	Saviour Protocolst	TauEmpire	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	-	-	Y	Y	Y
+TAU_Serene_Unifier	f2b80d575cbf8f64597b991022beaf35	Serene Unifier	TauEmpire	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TAU_Shield_Generator	684196db974ab254090f39ef6e89868c	Shield Generator	TauEmpire	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+TAU_Stormsurge_Battlesuit	TAU38	Stormsurge Battlesuit	TauEmpire	short|off:ocr(1);tail:ocr;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+TAU_Structural_Analyzer	f279c5cf1c3e16e4db6b9df4d941ad11	Structural Analyzer	TauEmpire	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+UM_Exemplary_Warrior	cc1400347b15ee3449bc18bbdb9ddec9	Exemplary Warrior	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+UM_Exhortation_of_Rage	315d9f293e4f56d4f813584b43f0511c	Exhortation of Rage	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+UM_Greatest_Deeds	0544047df88d2ba4cad9c17ff080c0eb	Greatest Deeds	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+UM_Master_Tactician	dcbd28525888ce54aaa93a47ba4de1e6	Master Tactician	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	Y	Y	Y	Y	Y
+UM_Master_of_Arcana	f923701f207d23a4f81d6ff5891b4a0c	Master of Arcana	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+UM_Master_of_Arms	55b8e3d2040f86d4190ffb1a91abb5ed	Master of Arms	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+UM_Master_of_the_Fleet	9238c27730a0c424288d46ed0f4a742c	Master of the Fleet	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+UM_Might_of_Heroes	0740581c2c0523745a42dbec1b2ef82a	Might of Heroes	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+UM_Paragon_of_Ultramar	7693f2b21b2f85644b739da990bc2216	Paragon of Ultramar	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+UM_Righteous_Fury	26d4ded12b28a3742b5c8fc155e29803	Righteous Fury	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y
+UM_Scryer_s_Gaze	c4ff279078605aa42942c8dd16b77147	Scryer's Gaze	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+UM_Smite	cf0b346f70e748c4bbfc4dc03ab39ead	Smite	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	-	Y	Y	Y
+UM_Spear_of_Macragge	d94f91051ecfe014f97577ff573571aa	Spear of Macragge	Ultramarines	guid/tail==name|off:name(1);off:ocr(1);tail:name;tail:ocr;truth:name;truth:ocr	Y	Y	-	Y	Y	Y	Y

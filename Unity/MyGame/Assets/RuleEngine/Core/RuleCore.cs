@@ -1281,6 +1281,39 @@ namespace RuleEngine
                 if (u.IsStunned) u.StunnedAtStartOfTurn = true;
                 if (u.IsBlind) u.BlindedAtStartOfTurn = true;
             }
+
+            // ---- 🔴 2026-10-14（账 `A1155②`）：**「正在祈祷」按回合清 —— 不分敌我** ----
+            //  判据 = 原版 `CardScript__OnTurnStart.c:100`：`*(undefined1 *)(param_1 + 0x67) = 0;`
+            //    （`+0x67` = `EntityScript.isPraying`，`EntityScript.cs:66`；写点在**全量反编译里只有 3 处**，
+            //     见 `UseAlternative` 里 `u.Prayed = true` 那一段的逐行判据）。
+            //    这一句**没有任何侧别守卫**（同一个 `if (card.manager != null)` 块里，
+            //    紧挨着 `:99 CardScript__ActivateMinion`、在 `:102` 开舱之前）；而那个 `OnTurnStart`
+            //    被**全场逐张**调 —— `BattleManagerSupport__BroadcastTurnStart.c:20-26` 扫
+            //    `BattleManager.CardsInPlay`（`+0x470`，**全场**），`:35-51` 再把双方手牌各扫一遍
+            //    ⇒ **每一次回合开始（谁的不分）都把全场每一张在场卡的这一位清掉**。
+            //  ⚠️ **我们原来只在上面那一圈 `RefreshForNewTurn` 里清**（那一圈只跑 `p.Board`，
+            //    见 `UnitState.cs` 里那句已删掉的 `Prayed = false;` 的注释）⇒ 对手祈祷过的单位
+            //    要**等它自己的回合开始**才清 = **比原版多活一整个回合**。
+            //    时机没变（都在「回合开始」这一刻），变的是**扫的边**。
+            //  🔴 所以这一句**不能**留在 `RefreshForNewTurn` 里（那个口按设计只服务当前行动方）——
+            //    收在这里一份，⛔ 别在两处各写一遍（那边留了指针注释）。
+            //  ⚠️ **位置** = 逐卡那圈**之后**、`ResolveAtTurn("turn_start")` **之前**：
+            //    与原版「先清 `:100`、再跑 `:137+` 的 `TurnStart` 触发」同序 ——
+            //    顺序反了的话，`If any friendly unit is Praying, …`（`Sororitas Rhino`）/
+            //    `Each friendly unit that is Praying heals 3`（`Devout Serenity`）读到的
+            //    就是**清之前**的值（多治一次）。
+            //  ⚠️ **与上面那圈逐卡循环的差别（如实标着）**：原版是**逐卡**「解疲劳 → 清 `+0x67` → 开舱…」，
+            //    我们拆成「逐卡（只己方）」＋「整段清 `Prayed`（双方）」两步 ⇒ 那一刻**没人读** `Prayed`
+            //    （`OpenDropPod` / stealth 到期 / 晕瞎闸门都不读它），今天不可观测。
+            for (int side = 0; side < ctx.Players.Length; side++)
+            {
+                var sideBoard = ctx.Players[side].Board;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var pu = sideBoard[s];
+                    if (pu != null) pu.Prayed = false;
+                }
+            }
             if (lostStealth > 0)
                 // 🔴 2026-10-14（账 `A1666`）：本句原来写「…失效 —— **规则书 :211**；原版 `CardScript__OnTurnStart.c:110-118`」。
                 //    那个「规则书 :N」指向的《Warpforge Offline Rulebook》**自己第 5 行就写着
@@ -1872,6 +1905,17 @@ namespace RuleEngine
                 // 疲劳也算「挨了一下」—— 不带走 ApplyDamage（它不吃护盾/护甲），但要发事件，
                 // 否则画面上督军莫名其妙掉血、一点反馈都没有
                 ctx.Emit(EvtKind.Hit, p, BoardSpec.WarlordSlot, ps.Warlord.Name, amount: ps.Fatigue);
+                // 🆕 2026-10-14（账 `A1155②`）：**「挨伤害就不再祈祷」这一条也要在这里补一份** ——
+                //   原版疲劳走的是 `BattleManager._ResolveFatigue_d__587__MoveNext.c:125-137`
+                //   `DealMultiDamage(DamageInfo(量 = 疲劳值, 类型 = 2))` → `_ResolveMultiDamage_d__456__MoveNext.c:141
+                //   BattleManager__BroadcastUnitDamaged` ⇒ **同样落进** `CardScript__ResolveDamageDealt.c:168`
+                //   那一句（闸 = 受伤者 == 自己）。
+                //   ⚠️ 我们这一支**绕开了 `ApplyDamage`**（直扣血 + 手发 `EvtKind.Hit`，见上一行），
+                //     所以 `ApplyDamage` 里那一句盖不到它 ⇒ 在这里照同一条判据补一次。
+                //   ⚠️ 不需要 `dmg != 0` 那道闸：疲劳值恒 ≥ 1（`ps.Fatigue++` 之后才扣）。
+                //   ⛔ 别改成「调 `ApplyDamage`」：那会连带把护盾/护甲/堡垒/伏击都拉进来 ——
+                //     那不是本笔要改的东西（上面那句注释「它不吃护盾/护甲」是既有口径）。
+                ps.Warlord.Prayed = false;
                 CheckWinner(ctx);
                 return null;
             }
@@ -3206,6 +3250,39 @@ namespace RuleEngine
         public const string Unstunnable = "unstunnable";
 
         /// <summary>
+        /// 🆕 **2026-10-15（接线批 · 卡牌线 P2/P3 交回）**：**`unstoppable`（不可阻挡）**
+        /// —— 原版 `DefinedTrait.unstoppable = 180`
+        /// （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:18`；反编译里写作 `0xb4`）。
+        ///
+        /// **原版在哪读它**（方法体已读）：`decomp_full/BattleManager__IsValidAttackTarget.c:149`
+        ///   —— 攻击者带 `0xb4` ⇒ **跳过**「敌方场上有 Vanguard 就只能打 Vanguard」那道硬闸
+        ///   （落到 `LAB_18096ea4f`）。⇒ 语义 = **这套单位攻击时无视 Vanguard 的硬约束**，
+        ///   与 `SAU7 Canoptek Wraith` 卡面那句
+        ///   `This troop can ignore enemy units with Vanguard when attacking` **逐字对应**。
+        ///   旁证两条（都现核）：`FilterMethods__MeetsConditionCriteria.c:39`（卡组筛选里
+        ///   `0xb4 OR 0xflying` 同族）· `TraitDefinitionDisplay__GetAbilityList.c:124`
+        ///   （图标展示时带 `0xb4` 就把 `flying` 从列表里去掉 —— 两者共用展示位，
+        ///   这也解释了**为什么它没有自己的卡面文字 / 没有 `Card_Trait/unstoppable` 这个官方键**）。
+        ///
+        /// 🔴 **我们这边的落点：一条规则、两个入口**（照 `noncombatant` ≡ `CantAttack` 的先例）：
+        ///   · 入口 ①（早就有的）= **卡面英文句** `CardDef.IgnoresVanguard`
+        ///     （`MatchStaticBattleRule` 认那句话，`CardDef.cs:1275`/`:1370`）；
+        ///   · 入口 ②（本笔新加）= **本关键词**，在 `RuleCore.IsValidTarget` 那道 `&&` 里
+        ///     （`RuleCore.cs` 的 `enemyHasVanguard && …` 那一句）。
+        ///   ⛔ **判定口还是那一个**（`IsValidTarget` 里同一句 `&&`），别在别处再写第二份。
+        ///   ⚠️ 入口 ② 读的是 **`UnitState.Has`（当前关键词）**、入口 ① 读的是**印刷那一份**
+        ///     （卡级静态字段）—— 与 <see cref="Unstunnable"/> 同一条口径：光环/效果给的也算。
+        ///
+        /// ⚠️ **常量为什么声明在本文件**（同 <see cref="Noncombatant"/> / <see cref="Unstunnable"/>）：
+        ///   `KeywordTable` 那一族常量在 `Core/CardDef.cs`，本笔沿用既有先例、由 `CardDef.cs`
+        ///   反向引用（`new[] { "unstoppable", RuleCore.Unstoppable }` + `Implemented` 两处）。
+        /// ⚠️ **可达性**：全池 1127 张 **0 张**卡在 `keywords` 里带它（`SAU7` 走的是入口 ①）
+        ///   ⇒ 加这一条**不改动任何现有解析结果**（2026-10-15 实测：`Has(unstoppable)` 改前改后都是 0，
+        ///   而「以 `unstoppable` 开头的卡面串」= 0 条）。
+        /// </summary>
+        public const string Unstoppable = "unstoppable";
+
+        /// <summary>
         /// **「这个单位晕不了」的共用判定口** —— `EffectResolver.DoStun`（战吼/效果那条路）、
         /// `RuleCore` 的震荡（Concussion，`DeclareAttack` 里那一格）与 `SimpleAI.ScoreStun`
         /// **三处都调它**（一条规则只有一个判定口；`SimpleAI` 原来自己写了一份裸字符串比较，
@@ -3474,8 +3551,13 @@ namespace RuleEngine
             }
             // `This troop can ignore enemy units with Vanguard when attacking`（`Canoptek Wraith`，
             // Sautekh，2026-09-14 A5 批 4）—— 带这个标记的攻击者**跳过**这条限制。
+            // 🔴 **2026-10-15（接线批）：这一句 `&&` 是【一条规则、两个入口】的唯一判定口** ——
+            //   ① `CardDef.IgnoresVanguard`（卡面英文句那条，2026-09-14 建）；
+            //   ② `RuleCore.Unstoppable`（原版 trait 名那条，本笔新加 —— 判据见那个常量的 doc）。
+            //   ⛔ 别在别处再写第三份「无视 Vanguard」。
             if (enemyHasVanguard && !target.Has(KeywordTable.Vanguard)
-                && !(attacker.Card != null && attacker.Card.IgnoresVanguard))
+                && !(attacker.Card != null && attacker.Card.IgnoresVanguard)
+                && !attacker.Has(Unstoppable))
                 return RuleCodes.ErrTarget;
 
             // 毁灭者（Destroyer）：规则书 `:180`「总是优先攻击可被摧毁的单位」。
@@ -3483,7 +3565,7 @@ namespace RuleEngine
             // 🔴 **判据降级（`D26`，2026-10-19）**：原来这里写「**判据照抄参考实现**
             //    `rule_core.gd:4136-4147`」—— 那份 `.gd` 是**我们自己的上一版 Godot 复刻**、
             //    拿它当判据 = **自证**（`CLAUDE.md` 铁律 2 的 2026-09-18 更正）。
-            //    🔴 **回反编译找过、这一条【判据查不到】**，如实记（铁律 2：查不到就说查不到）：
+            //    ~~🔴 **回反编译找过、这一条【判据查不到】**，如实记（铁律 2：查不到就说查不到）：
             //      · 攻击目标合法性的**唯一那个函数**是
             //        `decomp_full/BattleManager__IsValidAttackTarget.c`（343 行，Vanguard / Flying /
             //        Stealth / Tainted / GiantKiller 那几族都在它里面 —— 见下面 Flying 那一段）；
@@ -3493,7 +3575,43 @@ namespace RuleEngine
             //        （`Destroyer` 在原版**不是一个 `DefinedTrait`**，卡表里它是**关键词**、只有卡面文字）。
             //    ⇒ 这一支目前只有 **`rule_core.gd:4136-4147`（旁证、非权威）+ 规则书 :180（粉丝实体版）**
             //      两条依据 ⇒ **标着「判据不足」，⛔ 别当原版结论**；要定案得**逐卡解出 Sautekh 那几张的
-            //      ability 数据**（`assets_full/…/MonoBehaviour/*`，今天没解）。
+            //      ability 数据**（`assets_full/…/MonoBehaviour/*`，今天没解）。~~
+            //    🔴 **2026-10-15（`AF` 波）就地订正（铁律 5）**：**上面那一整段（连它的每一条论据）
+            //      【全都不成立】—— 原写「这一条判据查不到」⇒ 实际判据【就在】反编译里**：
+            //      · 那一支**就在** `decomp_full/BattleManager__IsValidAttackTarget.c:207` ——
+            //        `EntityScript__HasCurrentTrait(param_2 /*= 攻方*/, 0x2a8, 0)`
+            //        （同一文件 `:177-181` 的 Flying 那一段里 `param_3` 才是**目标**、`param_2` 是**攻方**
+            //         —— 与我们这里 `attacker.Has(...)` 同侧），紧接着 `:208` 调
+            //        `BattleManager__CheckIfAttackKillsTarget(param_1, param_2 /*攻方*/, param_3 /*目标*/, 0)`
+            //        ⇒ **原版语义 = 「带毁灭者的攻击者，只能打『这一下打死得了』的目标」**
+            //        （`param_7 != 0` 那一支绕过它）。`CheckIfAttackKillsTarget.c:19-45` = 先攒伤害表
+            //        （`GetCombatDamageWithType`）再调 `CardScript__EnoughPendingDamageToDieWithDamageValues`
+            //        ⇒ **就是我们 `WouldKill` 那一族的形状**。
+            //      · `0x2a8` = **680** = `DefinedTrait.frenzied`
+            //        （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:69`），
+            //        而**官方词条 `Card_Trait/frenzied` 的 en 列就是 `Destroyer`**（`Resources/official_names.json`；
+            //        我们手写表 `Core/Loc.cs:2532` 同键也写「毁灭者」；`Core/CardDef.cs:4247` 早记过同一条）
+            //        ⇒ **它确实是毁灭者那个 trait**，不是同名巧合。
+            //      · 🔑 **根因（本仓会反复踩 —— ⛔ 记住这一条）**：**IL2CPP 的 C dump 里【永远不会有】
+            //        枚举成员名** —— 它把 `DefinedTrait.frenzied` 烘成裸字面量 `0x2a8`。
+            //        ⇒ **「`grep -rn -i "destroyer" decomp_full/` ⇒ 0 命中」不能当「原版没有」的证据**
+            //        （原记那两条 grep 就是被这一点骗的）。**正确找法**：先拿**枚举值那个【数】**去反查
+            //        （在 `DefinedTrait.cs` 里找到成员 = 多少），再拿那个数去 grep 反编译。
+            //      · 原记「`Destroyer` **不是一个 `DefinedTrait`**」也**不成立** —— 它就是 `frenzied`(680)
+            //        （卡的 `cardTraits` 列里写的 `Frenzied` 指的就是它）。
+            //        🔴 **2026-10-15（`AG` 波）就地订正（铁律 5）**：这个**括号里的列名**已经过期
+            //        —— **原写「`cardTraits` 列里写的 `Frenzied`」⇒ 实际今天该列写的是 `Destroyer`**
+            //        （`cardTraits` 里 `Frenzied` 这个字面量**一张都没有**；现读 `Destroyer` 那 10 张 =
+            //        `SAU3`/`SAU9`/`SAU18`/`SAU22`/`SAU25`/`SAU32`/`SAU66`/`SAU68`/`SAU70`/`SAU72`）。
+            //        错因 = 生成器同一天把 `TRAIT_DISPLAY` 的 `frenzied` 从枚举名改成卡面字
+            //        （见 `Core/CardDef.cs` 里同一条订正）。**结论不变**：`0x2a8`(680) 就是
+            //        `DefinedTrait.frenzied`，也就是卡面那个 `Destroyer` 的 trait。
+            //    ⇒ 这一支的**判据现在有了**（原版方法体 = 第一权威）。⚠️ **本支的【实现】本笔不动**
+            //      （只订正判据/注释）：我们是「`enemyDestroyable && target.Has("invulnerable") ⇒ 不合法`」，
+            //      与原版 `:207-210` 那一支**同向、形状不同**（原版是「打不死就不合法」这一条硬判据）。
+            //      要不要照 `CheckIfAttackKillsTarget` 改写 = **另一笔**（已在账上），⛔ 别顺手改。
+            //    ⚠️ 下面那两处「参考实现 / 规则书」的引用仍在：`rule_core.gd` **只是旁证**（自证的反面），
+            //      规则书 `:180` 是**粉丝实体版**（铁律 2）—— 现在都只当旁证，判据是上面这处方法体。
             //    它和 Vanguard **同构**：一条**硬约束**，不是「AI 打分偏好」。
             //      攻击者带 destroyer，且敌方场上存在**另一个「可被摧毁」的单位**
             //      （**不是 invulnerable、也不是 remnant**）
@@ -4739,19 +4857,30 @@ namespace RuleEngine
         ///
         /// ⛔ **别把它并回 `DamageAfterReduction` 的那个乘法/加法里** —— 那正是本笔要治的错
         ///    （并回去之后「普通档」就错了，而且**只看带堡垒/空投舱的档位根本看不出来**）。
-        /// ⚠️ **仍然没做的那三档**（如实标着，源头上都是「易伤那一次是【另一条】伤害」这件事的
-        ///    下游，我们的模型把它算成一个数 ⇒ 结构上表达不了，需另立一笔）：
-        ///   ① **空投舱那一档** —— 原版那一次落进池子（`HasCurrentTrait(0xe6)` 在嵌套调用里仍为真
-        ///      ⇒ 走 `:159-183`，**不减护甲、生命一点不动**）；我们 `ApplyDamage` 在池子那一支
-        ///      `return 0`，**这一份易伤根本没走到**。
-        ///   ② **堡垒被打穿那一档** —— 原版 `bVar17` **只在「没打穿」时抑制**；打穿之后嵌套调用
-        ///      走普通路 ⇒ 原版 = `溢出量 + max(1, 易伤 − 护甲)`；我们那一支用 `actual = −remaining`
-        ///      **覆盖**掉了算好的值 ⇒ **少补这一份**。
-        ///   ③ **` :211` 那道「主伤害之后血还 > 0 且不是残骸」的闸** ——
-        ///      我们的模型把两份**先加起来再判血**，主伤害本来就能打死时**会多算**这一份
-        ///      （影响 `ApplyDamage` 的返回值 = 事件里的 `Amount` / 践踏溢出量）。
-        ///   三条**今天都不可达**（全池 0 张卡带 `dropPod` / `bastion`；易伤是 `give` 出来的），
-        ///   但按铁律 11 **不是「不做」、只是「还没做」** —— 已交回调度台立账。
+        /// ⚠️ **`A1335①` 那三档的现状（🔴 2026-10-14 就地订正 —— 原来这一整段写的是
+        ///    「三条今天都不可达、已交回调度台立账」，那已经过期）**：
+        ///   ① **空投舱那一档 —— ✅ 已做**（`ApplyDamage` 的空投舱那一段）：池还在 ⇒ 第二发也落进池子
+        ///      （不减护甲、生命一点不动）；池已碎 ⇒ 第二发走普通路（真掉血）。
+        ///   ② **堡垒被打穿那一档 —— ✅ 已做**（`ApplyDamage` 的堡垒那一段）：
+        ///      原版 = `溢出量 + max(1, 易伤 − 护甲)`，改前我们那一支用 `actual = −remaining`
+        ///      **覆盖**掉了算好的值 ⇒ **少补这一份**（判别式：堡垒 3 / 这一下 5 / 易伤 2 / 护甲 1
+        ///      ⇒ 原版掉 3、改前我们掉 2）。
+        ///   ③ **`:210-211` 那道「主伤害之后血还 > 0 且不是残骸」的闸 —— ✅ 2026-10-14 已做**
+        ///      （本批 `N7`，落点 = <see cref="DamageAfterReduction"/> 的最后那两行；
+        ///      **连 `:200` 那半格一起** —— 这一下的量 ≤ 0 时第二发也不发，见那里的注释）：
+        ///      改前普通档（既无空投舱也无堡垒）把两份**先加起来再判血** ⇒ 主伤害本来就能打死时
+        ///      **会多算**这一份（影响 `ApplyDamage` 的返回值 = 事件里的 `Amount` / 践踏溢出量；
+        ///      血本身由 `CleanupDeaths` 兜住，不会多掉）。
+        ///      ⚠️ **它与①②两个模型无关、是纯顺序问题，而 `vulnerable` 是【可达的】**
+        ///      （①②今天仍不可达：全池 0 张卡带 `dropPod` / `bastion`；这一档可达）。
+        ///      ⚠️ **预览侧（`DamageAfterReductionOne` / `WouldKillByEntries`）不加这道闸** ——
+        ///      原版预览 `…WithDamageValues.c:183-205` 本来就是**每条各加一次、不看血**，
+        ///      而那道闸只在结算 `_ReceiveDamage…:210-211` 里 ⇒ **两边各照自己的原版**，
+        ///      ⛔ 别为了「同式」往预览里补闸（补了就与 `:183-205` 不符）。
+        ///      判别式（一对，⛔ 缺一个都会被单一错实现同时满足）→ `DamageAfterReduction` 的 body 注释。
+        ///   ✅ **同笔 `N8`**：护甲那一步补上原版 `:78` 的 `damageValue < 1` 守卫
+        ///      （改前 `dmg = 0` 会被抬成 1）—— 预览侧本来就有，本笔让**两边同式**。
+        ///   按铁律 11：①②③ 三档**全部落地**，本小节不再是待办。
         /// </summary>
         public static int VulnerableDamagePart(UnitState u)
         {
@@ -4768,10 +4897,15 @@ namespace RuleEngine
         ///    **预测**与**实际结算**不可能分叉（本工程红线：两处写同一条规则 = 迟早不一致）。
         ///    谁要用这个公式（目前：`EffectResolver.PreferKillable`），**读这里，别抄第二份**。
         ///
-        /// 五道（顺序照原版，逐条出处见 <see cref="ApplyDamage"/> 的注释）：
-        ///   护盾挡下 → 0 · **闪避**挡下 → 0 · 无敌 → 0 · **护甲** `max(1, 这一下 − 护甲)` ·
+        /// 六道（顺序照原版，逐条出处见 <see cref="ApplyDamage"/> 的注释）：
+        ///   护盾挡下 → 0 · **闪避**挡下 → 0 · 无敌 → 0 · **护甲** `max(1, 这一下 − 护甲)`
+        ///   （🆕 `A1335①` 第三档 = `N8`：**这一下 < 1 时整段跳过** —— 原版 `:78` 的
+        ///   `damageValue < 1` 守卫，改前缺 ⇒ 会把 0 抬成 1；
+        ///   🆕 `N12`：**残骸整段跳过** —— 原版 `:64` 的 `*(char*)(lVar2 + 0x65) == '\0'` 守卫） ·
         ///   **易伤** `+ max(1, 易伤 − 护甲)`（🆕 `A1563`：**是【另一份】伤害**，
-        ///   走 <see cref="VulnerableDamagePart"/>，⛔ 别再折进上面那个数）。
+        ///   走 <see cref="VulnerableDamagePart"/>，⛔ 别再折进上面那个数；
+        ///   🆕 `A1335①` 第三档 = `N7`：**只在「这一下的量 > 0（原版 `:200`）∧ 主伤害落完之后
+        ///   血还 > 0 ∧ 不是残骸」时才落下来**，原版 `:200` + `:210-211`，见下面那段注释与判别式）
         ///   ⚠️ 盾 / 闪避 / 无敌三条的**挡下判据在原版是并列的**
         ///      （`CardScript__GetAdjustedDamage.c:36-48`：`0xf0`/`0x50`/`0x136` 都写进同一个
         ///      `uVar3 = 1`）⇒ **先判谁后判谁结果一样**，这里只照 `ApplyDamage` 的书写顺序排。
@@ -4791,14 +4925,76 @@ namespace RuleEngine
             if (u.Has("invulnerable")) return 0;        // 无敌完全免疫
             int actual = dmg;
             // **护甲**：`max(1, 这一下 − 护甲)`（⛔ 最低 1，不是 0）
-            if (u.Armor > 0) actual = Math.Max(1, actual - u.Armor);
+            // 🔴 **2026-10-14（账 `A1335①` 第三档 · 本批 `N8`）：两道守卫都要照原版。**
+            //   · `armour < 1` ⇒ 整段跳过（原版 `_ReceiveDamage…:75` `if (iVar8 < 1) goto LAB_1806144ca;`
+            //     —— `iVar8` 就是 `+0xb8` 那个护甲值）⇒ 就是这里的 `u.Armor > 0`；
+            //   · **`damageValue < 1` ⇒ 也跳过**（原版 `:78` `if (*(int *)(lVar3 + 0x18) < 1) goto LAB_1806144ca;`
+            //     —— 跳过去之后走的是「`health -= damageValue`」那条共同尾巴，
+            //     `damageValue = 0` 时**生命一点不动**）⇒ **就是这里的 `actual > 0`**。
+            //   改前缺的是后一半 ⇒ `dmg = 0` 会被 `Math.Max(1, 0 − 护甲)` **抬成 1**。
+            //   预览侧本来就有这道守卫（`CardScript__EnoughPendingDamageToDieWithDamageValues.c:138`
+            //   的那个 `0 < iVar7`，落在 `DamageAfterArmourOne` 的 `&& actual > 0` 上）
+            //   ⇒ 本笔是**结算侧对齐预览侧**（两处同式）。
+            //   ⚠️ **这一档的【可达性】没查清**：全仓没有一处写死 0 的伤害点，0 只可能由
+            //     「攻击力被减到 0 / 某条算式算出 0」这类路径出现 —— 但公式本身照原版补（铁律 11）。
+            // 🔴🆕 **2026-10-14（账 `N12`）：残骸（`Remnant`）【不吃护甲】。**
+            //   原版 `_ReceiveDamage…:64` 把**整个减甲段**（`:65-98`）包在
+            //   `if (*(char *)(lVar2 + 0x65) == '\0')` 里 —— `+0x65` 就是
+            //   `EntityScript__get_isRemnant.c`（`return *(undefined1 *)(param_1 + 0x65);`）
+            //   ⇒ **残骸走 `:99` 的 `else`（`:100` `LAB_1806144ca`）= 按原值扣**
+            //   （不减甲，直接落到 `:113-115` 那句 `health − damageValue`）。
+            //   ⚠️ **残骸身上确实可能带甲**（所以这一档不是死代码）：
+            //     · `CardScript__TransformIntoRemnant.c` 只写 `+0x65`（`:29`）与那一组生命字段
+            //       （`:49-53`，= 1 血），**一个字都不碰 `+0xb8`（护甲）** ⇒ 甲留着；
+            //     · 真卡 `SAU23 Lychguard` = `Remnant + Armour 2 + Vanguard`
+            //       （`RuleEngine/Resources/cards_engine.json`）⇒ 这具 1 血残骸带 **2 甲**；
+            //       我们这边 `Armor` 同样照卡保留（`UnitState` 构造里那条 `Armor = KwValue(Armour)`）。
+            //   ⛔ **预览侧（`DamageAfterArmourOne` / `DamageAfterReductionOne` / `WouldKillByEntries`）
+            //      【不跟着改】** —— 原版预览 `CardScript__EnoughPendingDamageToDieWithDamageValues.c:138`
+            //      现读只有 `if ((0 < iVar8) && (0 < iVar7))`（= `armour > 0 && dmg > 0`），
+            //      **整段没有 `+0x65` 这一档** ⇒ **两边各照自己的原版**（与 `:210-211` 那道闸同族：
+            //      原版自己就是两条口径，⛔ 别为了「对齐」往预览里补）。
+            if (!u.IsRemnant && u.Armor > 0 && actual > 0) actual = Math.Max(1, actual - u.Armor);
             // 🔴🆕 **2026-10-21（账 `A1563` = `A1335①`）：易伤是【另一份】伤害，不并进上面那个数。**
             //   改前这里写的是 `if (u.Has("vulnerable")) actual += u.KwValue("vulnerable");`
             //   （**折进**一个数）⇒ 与原本的 `max(1, 伤害 − 护甲) + max(1, 易伤 − 护甲)`
             //   **普通档就不等价**（账上的例子：伤害 5 / 易伤 2 / 护甲 1 ⇒ 折进去算 6、原本 5）。
             //   判据与「为什么是两份」→ <see cref="VulnerableDamagePart"/> 的 doc。
-            actual += VulnerableDamagePart(u);
-            return actual;
+            //
+            // 🔴🆕 **2026-10-14（账 `A1335①` 第三档 · 本批 `N7`）：那一份【落不落下来】还有一道闸。**
+            //   原版易伤那一发是**另一条独立的 `DealMultiDamage`**（`:252-254`）——
+            //   而它前面有 `:210-211` 那道闸：
+            //     · `:210` `iVar8 = op_Implicit(&local_58)`，`local_58` 来自 `:201-203` 的
+            //       `*(undefined8 *)(lVar2 + 0x68)` = **主伤害写完之后**的 `EntityScript.Health`；
+            //     · `:211` `if ((0 < iVar8) && (*(char *)(lVar2 + 0x65) == '\0'))`
+            //       —— `+0x65` = `EntityScript__get_isRemnant.c`（`return *(undefined1 *)(param_1 + 0x65);`）
+            //       ⇒ **血还 > 0 ∧ 不是残骸**。
+            //   ⇒ **主伤害本来就能打死它时，那一份根本不发**。改前我们把两份**先加起来再判血**
+            //      ⇒ 「一击致死」那一档**多算一份易伤**（影响本函数的返回值 = 事件 `Amount` /
+            //      践踏溢出量；**血本身由 `CleanupDeaths` 兜住，不会多掉**）。
+            //   🔴 **还有 `:200` 那半格**（`if (0 < *(int *)(*(longlong *)(param_1 + 0x28) + 0x18))`
+            //      —— `param_1 + 0x28` = 那条 `DamageInfo`，`+0x18` = 它的 `damageValue`）：
+            //      **这一发进管线的量必须 > 0**，否则第二发也不发。
+            //      ⚠️ 本笔**必须**带上它：`N8` 把「`dmg = 0` 时护甲不再把它抬成 1」补上之后，
+            //      若不判这一格，`dmg = 0` 的伤害会**只剩易伤那一份**（= 凭空多打了一份）。
+            //      （落点就是下面那句 `actual <= 0`；与堡垒那一段的 `hit > 0`、
+            //       空投舱那一段的 `dmg > 0` 是**同一条原版闸的不同写法**。）
+            //   ⚠️ `u.Health` 在这里读的是**扣血前**的值（本函数是纯函数、不改状态）
+            //      ⇒ `u.Health - actual <= 0` 就是原版那个「主伤害写完之后 `0 < 血量`」的反面。
+            //   🔴 **判别式是一组**（结构上不可能被同一个错实现一起满足）：
+            //     · (a) 致死档（血 3 / 打 3 / 易伤 2）⇒ **3**（🧨 去掉这道闸 ⇒ 5）；
+            //     · (b) 不致死档（血 6 / 打 2 / 易伤 2）⇒ **4**（🧨 把易伤那一行整条删掉 ⇒ 2）；
+            //     · (c) 残骸档 ⇒ 挡住（🧨 去掉 `u.IsRemnant` ⇒ +2）；
+            //     · (d) 进伤 0 档 ⇒ 挡住（🧨 去掉 `actual <= 0` ⇒ +2）。
+            //   ⚠️ **预览侧（`DamageAfterReductionOne` / `WouldKillByEntries`）【没有】这道闸** ——
+            //      原版预览 `…WithDamageValues.c:183-205` 就是**每条各加一次**、整段不看血
+            //      （那道闸只在**结算** `_ReceiveDamage` 里）⇒ **这【不是】「两边写了两条规则」，
+            //      是原版自己就两条口径**（⛔ 别为了「对齐」往预览里补闸）。
+            //      后果如实记着：「预览合计 == 真打一局的实际掉血」这条不变式在
+            //      **一击就能致死 + 带易伤**那一档**不再成立**（非致死档仍然相等 ——
+            //      `RuleEngineTest` 的 `A1563` ⑤ 取的就是非致死档）。
+            if (actual <= 0 || u.IsRemnant || u.Health - actual <= 0) return actual;
+            return actual + VulnerableDamagePart(u);
         }
 
         /// <summary>
@@ -4994,7 +5190,7 @@ namespace RuleEngine
         ///   · `:138-156` 护甲**每一条各扣一次** —— <see cref="DamageAfterArmourOne"/>；
         ///   · 🆕 `:183-205` **易伤那一份**（`Max(1, 易伤 − 护甲)`）**每一条各加一次**，
         ///     且**位置在「第一层清零」之后、屏障判死之前** —— `A1563`（2026-10-21）落地，
-        ///     判据与三档还没做的 → <see cref="VulnerableDamagePart"/>；
+        ///     判据（`A1335①` 三档 2026-10-14 已全部落地）→ <see cref="VulnerableDamagePart"/>；
         ///   · `:161/206` 当 `CurrentSurvivor >= 1` 且**堡垒层还没被打穿**时，
         ///     累计伤害一旦 ≥ `生命 + 堡垒` ⇒ **这一层清零、计数重来**（`iVar5 = 0`，原版 `bVar2`）；
         ///   · `:231-248` 之后把**幸存者**当第二层屏障：累计 ≥ `survivor` ⇒ `return 1`（判死）；
@@ -5498,6 +5694,7 @@ namespace RuleEngine
             //    2026-09-14：公式原来内联在这里，抽出去是为了让 `WouldKill` 的**预测**与实际**不可能分叉**。
             int actual = DamageAfterReduction(u, dmg);
 
+
             // ---- ① 盾 / 闪避（**一次性**：挡下这一下 + 把这条摘掉）----
             // 🔴 2026-10-08（`A1077`）**`Dodge` 补进来了**，判据（两份反编译逐句读过）：
             //   · **挡下**：`CardScript__GetAdjustedDamage.c:36-48` —— `0xe6`(dropPod) / `0xf0`(dodge) /
@@ -5562,43 +5759,43 @@ namespace RuleEngine
             //    `if (!dodge && !invuln && !shield) { if (dropPod) … else if (bastion<1 || dt==10) … else 堡垒 }`；
             //    我们上面那两段挡下（①dodge/shield ②invulnerable）就是它的前半）。
             //
-            //  🔴 **这两条吃的是【原始伤害】`dmg`，不是 `actual`** —— 原版 `:64-98` 那段
+            //  🔴 **这两条吃的是【原始伤害】`hit`（平时恒等于形参 `dmg`），不是 `actual`** —— 原版 `:64-98` 那段
             //     「`damage = Math.Max(1, damage - 护甲)`」**整段在 `bastion < 1` 那一支里**
-            //     ⇒ 堡垒路与空投舱路**都不减护甲**。（我们这边 `DamageAfterReduction` 把
-            //     易伤 + 护甲折成了一个数 ⇒ 这里刻意回到 `dmg`。⛔ 别改成 `actual`：
+            //     ⇒ 堡垒路与空投舱路**都不减护甲**。（我们这边 `DamageAfterReduction` 返回的那个数里
+            //     **已经减过护甲、也加过易伤** ⇒ 这里刻意回到**原始值**。⛔ 别改成 `actual`：
             //     那会让护甲去保护堡垒，方向与原版相反。）
-            //  🔴 **2026-10-11（`A1335`）本会话把这一格的三条判据【全部读清了】，记账如下**：
-            //     ① **易伤那一份**（`_ReceiveDamage…:188-257`）—— **判据已读全，但仍【没做】**，
-            //        而且**这次明确判成「要动别的文件」，⛔ 不做半抄**（理由见下面 ①②③ 三条）：
-            //        · 原版那一次是**另一条独立的 `ReceiveDamage`**（`:252-254 DealMultiDamage`，
-            //          `DamageInfo(量 = CurrentVulnerable, 类型 = 7/8)`），不是把值并进本条伤害 ⇒
-            //          它**自己再走一遍** dodge/shield/invuln → 堡垒 → 空投舱 → **护甲** 整条管线：
-            //          · **空投舱那一档**：那次伤害**落进池子**（`HasCurrentTrait(0xe6)` 在嵌套调用里
-            //            仍为真 ⇒ 走 `:159-183`）⇒ **不减护甲**、生命一点不动；
-            //          · **堡垒被打穿那一档**：堡垒已钳到 0 ⇒ 嵌套调用走普通路 ⇒
-            //            `Math.Max(1, 易伤值 − 护甲)`（`:89-93`、预览侧同一式 `…WithDamageValues.c:203`）。
-            //        · 触发闸（`:189-191`）：`易伤 > 0` ∧ `!dodge(0xf0)` ∧ `!shield(0x50)`
-            //          ∧ `!invulnerable(0x136)` ∧ **`!bVar17`**（`bVar17` = 堡垒把这一击**整份**吃下
-            //          —— 即「没打穿」那一档）∧ 进伤 > 0（`:200`）∧ **血还 > 0**（`:211`）
-            //          ∧ **不是残骸**（`+0x65`）。
-            //        · `IsVulnerableDamage`（`:197`）= `(uint)(type - 7) < 2`（`GameStaticData__IsVulnerableDamage.c`）
-            //          ⇒ **只挡「易伤伤害自己再生一份」这一格**；我们引擎不携带伤害类型、且这里
-            //          直接算而不递归 ⇒ **结构上恒满足**。
-            //        🔴 **为什么不做（三条，⛔ 不是「影响小 / 成本高」）**：
-            //          ⓐ 我们的模型把易伤**折进** `DamageAfterReduction` **一个数**
-            //             （`max(1, 伤害 + 易伤 − 护甲)`），与原版的
-            //             `max(1, 伤害 − 护甲) + max(1, 易伤 − 护甲)` **在普通档就不等价**；
-            //             只补堡垒/空投舱那两档 ⇒ **同一份规则出现第三个算式**，比现在更难核
-            //             （这正是账上那句「半抄会做出更没法核的东西」）。
-            //          ⓑ 要**拉开**（unfurl）就必须动 `DamageAfterReduction` —— 而它**被现有断言钉着**：
-            //             `RuleEngine/Editor/RuleEngineTest_S14.cs:633`
-            //             `Check(RuleCore.DamageAfterReduction(t, 3), 5, "（前提）易伤 2 确实折进了伤害公式（3 + 2 = 5）")`
-            //             ⇒ 一动就红，而**那个文件不在本笔白名单**（铁律 13·3：一个文件一个写手）。
-            //          ⓒ 它还会牵动**预览侧**（`DamageAfterReductionOne` / `WouldKillByEntries`）——
-            //             预览与结算必须同式，否则就是我们一直在防的「预览与结算不一致」。
-            //        ⇒ **结论：本笔【不落半抄】，把上面这份判据交回调度台**（要拉开模型就得
-            //          连同 `RuleEngineTest_S14.cs` 一起动 = 单开一笔）。如实挂账，⛔ 不许把
-            //          「打穿之后会少算」写成任何断言的期望值。
+            //     ⚠️ 就地订正（2026-10-14）：本行原写「`DamageAfterReduction` 把**易伤 + 护甲折成了一个数**」
+            //     —— 那句在 `A1563`（易伤拆成另一份）之后就过期了。今天**折**的是「护甲 + 易伤那一份」
+            //     这两样**同属`actual`**，结论不变（`actual` 仍不是原始值）。
+            //  🔴 **2026-10-11（`A1335`）把这一格的三条判据【全部读清】；2026-10-14（账 `A1335①`）三档全部落地**：
+            //     ① **易伤那一份**（`_ReceiveDamage…:188-257`）—— 它**不是把值并进本条伤害**，而是
+            //        **另一条独立的 `DealMultiDamage`**（`:252-254`，`DamageInfo(量 = CurrentVulnerable(card),
+            //        类型 = 7/8)`）⇒ 它**自己再走一遍** dodge/shield/invuln → 堡垒 → 空投舱 → **护甲** 整条管线。
+            //        **触发闸**（`:188-191` ∧ `:200` ∧ `:210-211`）= `易伤 > 0` ∧ `!dodge(0xf0)` ∧ `!shield(0x50)`
+            //          ∧ `!invulnerable(0x136)` ∧ **`!bVar17`** ∧ `0 < damageValue` ∧ **血还 > 0** ∧ **不是残骸**。
+            //        `IsVulnerableDamage`（`:197`）= `(uint)(type − 7) < 2`（`GameStaticData__IsVulnerableDamage.c`）
+            //          ⇒ **只挡「易伤伤害自己再生一份」**（我们引擎不携带伤害类型 ⇒ 用显式标志表达，
+            //          见下面 `alreadyVulnerableHit`）。
+            //        ✅ **2026-10-14 落地的三档**（各自带逐行判据与判别式）：
+            //          · **空投舱那一档**（原版「嵌套调用里 `HasCurrentTrait(0xe6)` 仍为真 ⇒ 走 `:159-183`」）
+            //            ⇒ 池还在就**落进池子**（不减护甲、生命一点不动）；池已碎就走普通路（**真掉血**）
+            //            —— 落点 = 下面空投舱那一段；
+            //          · **堡垒被打穿那一档** ⇒ 溢出量 **＋** `max(1, 易伤 − 护甲)`（两份都打到生命）
+            //            —— 落点 = 下面堡垒那一段；
+            //          · 🆕 **普通档的 `:210-211` 闸**（**主伤害落完之后血还 > 0 ∧ 不是残骸**）
+            //            **＋ `:200` 那半格**（这一下的量 > 0）
+            //            —— 落点 = `DamageAfterReduction` 的最后两行（本批 `N7`）。改前我们在
+            //            **普通档**（既无空投舱、也无堡垒）把两份**先加起来再判血** ⇒
+            //            「主伤害本来就能打死它」时**多算这一份**（影响本函数的返回值 =
+            //            事件里的 `Amount` / 践踏溢出量；血本身由 `CleanupDeaths` 兜住，不会多掉）。
+            //            它与空投舱/堡垒两个模型**无关**、是**纯顺序**问题，
+            //            而且 `vulnerable` 是**可达的**（全池 0 张卡带 `dropPod` / `bastion`
+            //            ⇒ 前两档今天不可达，这一档**可达**）。
+            //            ⚠️ **预览侧（`DamageAfterReductionOne` / `WouldKillByEntries`）不加这道闸** ——
+            //            原版预览 `…WithDamageValues.c:183-205` 本来就**每条各加一次、不看血**，
+            //            闸只在结算 `:210-211` 里 ⇒ 两边**各照自己的原版**，⛔ 别去「对齐」。
+            //        ✅ **同批 `N8`**：护甲那一步补上原版 `:78` 的 `damageValue < 1` 守卫
+            //          （改前 `dmg = 0` 被抬成 1）—— 落点同在 `DamageAfterReduction`。
             //     ② 原版 `:63` 的守卫含 `deathType == combatAttacker(10)` —— **已做**，见 `ignoreBastion`
             //        （全仓只有反击那一处传 `true`；将来**新增伤害点**要照 `TryCreditKill` 的口径再判）。
             //     ③ 🆕 **「被堡垒整份吃下」算不算「受到伤害」—— 判据本会话读清了：算。**
@@ -5611,6 +5808,23 @@ namespace RuleEngine
             //          它**不影响广播发不发**，只影响听众读到的那个「挡没挡下」标记。
             //        ⇒ **原版照样广播**；我们这一支（堡垒整份吃下 ⇒ `EmitHit(ctx, u, 0)` + `return 0`）
             //          与盾 / 无敌 / 空投舱**同一个口径** ⇒ **两边一致，不需要改**。
+            //
+            // 🔴 **`hit` = 「这一发打进堡垒/空投舱管线里的量」**（平时**恒等于**形参 `dmg`）。
+            //    唯一的改写点 = 下面空投舱那一支的「**池已碎 ⇒ 易伤第二发走普通路**」——
+            //    原版第二发是一条**独立的** `ReceiveDamage`，轮到它时读的是**它自己的 `damageValue`**
+            //    ⇒ 这里把它换掉，好让下面堡垒那一段**不必写第二份**。
+            //    ⛔ 别把下面那些 `hit` 改回 `dmg`：改回去 = 池碎之后那一发按**主伤害的量**去磕堡垒。
+            int hit = dmg;
+            // 🔴 **`alreadyVulnerableHit` = 「这一发本身就是易伤伤害」**（原版 `:197` 那条
+            //    `IsVulnerableDamage(damageType)` = `(uint)(type − 7) < 2`）—— 我们引擎不携带伤害类型
+            //    ⇒ 用这个显式标志表达同一个意思：**易伤第二发不再生第三发**。⛔ 别删。
+            bool alreadyVulnerableHit = false;
+            // 🔴 **`absorbed` = 「这一下被挡下了」（原版 `DamageInfo.damageAbsorbed`）** —— 目前只被
+            //    **空投舱**那一支置真（见那一段）。它是 `A1155②` 那条「挨到伤害就不再祈祷」的闸之一：
+            //    原版 `CardScript__ResolveDamageDealt.c:31 if (damageInfo.damageAbsorbed != 0) return;`
+            //    —— **被挡下的不算「挨到伤害」**。盾 / 闪避 / 无敌那三支在本函数上面已经 `return`，
+            //    走不到下面那句，所以不需要在这里置它。
+            bool absorbed = false;
 
             // ---- 空投舱（`dropPod`）：**另开一个血池，生命一点不动** ----
             // 判据 = `_ReceiveDamage…:60-61`（有 `dropPod` **优先于堡垒**）+ `:159-183`
@@ -5620,6 +5834,11 @@ namespace RuleEngine
             {
                 int pod = u.KwValue(KeywordTable.DropPod);
                 int after = pod - dmg;
+                // 🔴 **空投舱这一整条支路都是「被挡下」**（原版 `CardScript__GetAdjustedDamage.c:39-47`：
+                //    `HasCurrentTrait(0xe6)` 命中就写 `absorbed = 1`，**不看池子够不够**；
+                //    而它在 `ResolveAttackDamage.c:28-29` 里排在 `ReceiveDamage` **之前**算好
+                //    ⇒ 池子被这一下打空也照样是 absorbed）⇒ `A1155②` 那条「挨到伤害不再祈祷」**不清**。
+                absorbed = true;
                 // 池的表示 = 这个关键词自己的值。原版是 `+0xcc..0xdc` 一个独立 ObscuredInt、
                 // **初值来自 `GameStaticData` 的一个全局常量**（`ActivateTraitsOnSummonOrEnchantment.c:105-120`
                 // 读 `+0x1fc`）—— 那份全局表我们引擎里没有 ⇒ **初值取卡面写的那个数字**
@@ -5639,36 +5858,112 @@ namespace RuleEngine
                     //    ⚠️ 出手那一处的第二支（卡上带 `landing` trait ⇒ 取消攻击 + 发 `Landing`）
                     //      **仍未做**，判据与理由写在 `DeclareAttack` 那一段的注释里。
                     ctx.Log($"{u.Name} 的 Drop Pod 被打空 ⇒ 移除（原版 `CheckIfDead.c:94` `RemoveDropPod`）");
-                EmitHit(ctx, u, 0);   // 挨了一下、一点血没掉（与 Shield / Invulnerable 同一个口径）
-                return 0;
+
+                // 🔴 **2026-10-14（账 `A1335①`）：易伤那一发（第二发）也要照原版再路由一遍。**
+                //   原版 `_ReceiveDamage…:252-254` 把第二发交给 `BattleManager__DealMultiDamage`，
+                //   它**自己再走一遍**整条管线（闪避 → 空投舱 → 堡垒 → 护甲 → 血）
+                //   ⇒ 这一格必须先判**池子还在不在**：
+                //     · 池子**还在**（`after >= 1`）⇒ 第二发**也落进池子**
+                //       （嵌套调用里 `HasCurrentTrait(0xe6)` 仍为真 ⇒ 走 `:159-183`）
+                //       ⇒ **不减护甲、生命一点不动**（下面第一支）；
+                //     · 池子**已碎**（`after < 1`；原版 `CheckIfDead.c:94` 这时已经把 trait 摘掉）
+                //       ⇒ 第二发走**普通路**（下面第二支）。
+                //   **触发闸** = `:188-191` ∧ `:200` ∧ `:210-211`：
+                //     `易伤 > 0` ∧ `!dodge(0xf0)` ∧ `!shield(0x50)` ∧ `!invulnerable(0x136)`
+                //     ∧ **`!bVar17`** ∧ `0 < damageValue` ∧ **血还 > 0**（`+0x68`）∧ **不是残骸**（`+0x65`）。
+                //     ⚠️ **`!dodge/!shield/!invulnerable` 三格不在这里判**：本函数在上面已经为它们早退过
+                //        （走不到这一段）。
+                //     ⚠️ **`bVar17` 在本支【恒假】**：`:57 bVar17 = false;` 之后**只有**堡垒那一支
+                //        （`:130`）会把它置真，空投舱这一支从来没碰过 ⇒ 闸恒过。
+                //     ⚠️ **「血还 > 0」在本支读的是进来时的血**：空投舱路**生命一点不动** ⇒ 等价。
+                //   ⚠️ **我们这一侧只有一个数、不另发事件**（如实标着的近似）：原版第二发是**另一条
+                //      `DealMultiDamage`**、有它自己的那一次 `BroadcastUnitDamaged`；我们把它**折进同一次调用**
+                //      ——「池子还在」那一档连血都不动 ⇒ **事件上没有差异**；「池已碎」那一档才真掉血，
+                //      交给下面那条共用尾巴发 `EmitHit`（仍是**一条**事件，原版是两条）。
+                int podVuln = VulnerableDamagePart(u);
+                if (podVuln > 0 && dmg > 0 && !u.IsRemnant && u.Health > 0)
+                {
+                    if (after >= 1)
+                    {
+                        int after2 = after - podVuln;
+                        u.RemoveAll(KeywordTable.DropPod);
+                        if (after2 > 0) u.AddKeyword(KeywordTable.DropPod, after2);
+                        ctx.Log($"{u.Name} 的 Drop Pod **也吃掉易伤那一发** {podVuln} 点"
+                              + $"（血池 {after} → {System.Math.Max(0, after2)}"
+                              + (after2 < 1 ? "，池空 ⇒ 移除；原版 `CheckIfDead.c:94` `RemoveDropPod`" : "")
+                              + "，生命仍不动）");
+                        EmitHit(ctx, u, 0);
+                        return 0;
+                    }
+                    // 池已碎 ⇒ 第二发走普通路（这时 `dropPod` 已经不在身上了）⇒ **落到下面堡垒/血那一段**。
+                    // ⚠️ 下面堡垒那一段读的是 `hit`（不是形参 `dmg`）—— 这里的赋值就是它唯一的改写点。
+                    ctx.Log($"{u.Name} 的 Drop Pod 已被这一发打空 ⇒ **易伤那一发** {podVuln} 点"
+                          + "走普通路（原版：第二发自己再走一遍管线，此时 `dropPod` 已摘）");
+                    hit = podVuln;
+                    // ⚠️ 第二发**不再生第三发**：原版 `:197 IsVulnerableDamage(damageType)`
+                    //    （= `(type − 7) < 2`，第二发的类型就是 7/8）把「易伤伤害自己再判一次易伤」挡掉
+                    //    ⇒ 下面堡垒那一段不许再算一份易伤（那个标志就是它）。
+                    alreadyVulnerableHit = true;
+                }
+                else
+                {
+                    EmitHit(ctx, u, 0);   // 挨了一下、一点血没掉（与 Shield / Invulnerable 同一个口径）
+                    return 0;
+                }
             }
 
             // ---- 堡垒（`bastion`）：**整份伤害进堡垒；打穿了才把溢出打到生命** ----
             // 判据 = `_ReceiveDamage…:126-156` + `CardScript__RemoveBastionDamage.c`（逐句）：
             //   · 扣减：原版先扣 `activeEffects` 里那几层 **buffed** 的、再扣**基础 trait 的值**，
             //     最后把基础值**钳到 0**（`:54-65`）。我们这边关键词只有**一份值**
-            //     ⇒ 一句 `RemoveKeyword(Bastion, dmg)` 就是那两层的**等价折叠**
+            //     ⇒ 一句 `RemoveKeyword(Bastion, hit)` 就是那两层的**等价折叠**
             //     （`RemoveKeyword` 的语义正是「减 N、减到 ≤0 就整个摘掉」，与原版「扣减 + 钳 0」同义）。
             //   · 返回值 = **扣减之后**的 `CurrentBastion`（`RemoveBastionDamage.c:59-66`），
             //     **可以为负** = 溢出量；`:131-153` 就是 `health + 那个负数`。
             if (u.Bastion >= 1 && !ignoreBastion)
             {
                 int bastion = u.Bastion;
-                int remaining = bastion - dmg;
-                u.RemoveKeyword(KeywordTable.Bastion, dmg);
+                int remaining = bastion - hit;
+                u.RemoveKeyword(KeywordTable.Bastion, hit);
                 if (remaining >= 0)
                 {
                     // 整份吃下（**含刚好打平 `remaining == 0`** —— 原版那一格 `health += 0`、`bVar17 = true`）
                     // ⇒ **生命一点都不动**，也就**不进**下面伏击那一段（伏击的判据是「真掉血」）
-                    ctx.Log($"{u.Name} 的 Bastion {bastion} 整份吃掉 {source} 的 {dmg} 点伤害"
+                    // ⚠️ 原版那一格 `bVar17 = true` **同时挡掉易伤第二发**（`:191 !bVar17`）——
+                    //    下面这一支 `return 0` 天然同形（连同 `hit` 那一档也不发第二发）。
+                    // ⚠️ 也是「**被挡下**」（原版 `GetAdjustedDamage.c:52-60`：isCombat ∧
+                    //    `damage <= CurrentBastion` ⇒ `damageAbsorbed = 1`）⇒ `A1155②` 那条
+                    //    「挨到伤害不再祈祷」**不清** —— 本支直接 `return`，天然同形。
+                    //    ⛔ 别为了「统一」在这里补一句 `u.Prayed = false`。
+                    ctx.Log($"{u.Name} 的 Bastion {bastion} 整份吃掉 {source} 的 {hit} 点伤害"
                           + $"（堡垒剩 {remaining}，生命 {u.Health} 不动）");
                     EmitHit(ctx, u, 0);
                     return 0;
                 }
                 // 打穿 ⇒ 把**溢出量**打到生命（原版 `:131-153` 的 `health + remaining`，此时 `remaining < 0`）
-                actual = -remaining;
-                ctx.Log($"{u.Name} 的 Bastion {bastion} 被打穿 —— {source} 的 {dmg} 点里"
-                      + $"溢出 {actual} 点打到生命");
+                int overflow = -remaining;
+                // 🔴 **2026-10-14（账 `A1335①`）就地改的**：本行原来写 `actual = -remaining;`
+                //   —— 那是**用溢出量【覆盖】**掉 `DamageAfterReduction` 算好的值（里面含易伤那一份）
+                //   ⇒ **少补一份易伤**（判别式：堡垒 3 / 这一下 5 / 易伤 2 / 护甲 1 ⇒ 原版掉 **3**
+                //    〔溢出 2 ＋ `max(1, 2 − 1)` = 1〕，改前我们只掉 **2**）。
+                //   判据 = 原版 `CardScript._ReceiveDamage_d__381__MoveNext.c`：
+                //     · `:128-130` `iVar8 = RemoveBastionDamage(card, damageValue)`、`bVar17 = (iVar8 >= 0)`
+                //       —— **没打穿**那一档 `bVar17 = true`（上面那条早退已同形）；本支是打穿档 ⇒ `bVar17 = false`；
+                //     · `:145-153`（`iVar8 < 1`）`health += iVar8` ⇒ **溢出进血**；
+                //     · `:188-191` 易伤第二发的触发闸含 **`!bVar17`** ⇒ **打穿之后照发**；
+                //     · `:210-211` 那两道闸 = **主伤害落完之后血还 > 0**（读 `+0x68`）∧ **不是残骸**（`+0x65 == 0`）；
+                //     · `:226` 第二发 = `DamageInfo(量 = CurrentVulnerable(card), 类型 = 7/8)`，
+                //       `:252-254 DealMultiDamage` ⇒ 它自己再走一遍「闪避 → 空投舱 → 堡垒 → 护甲 → 血」
+                //       —— 此时堡垒已经 0 ⇒ 落到**护甲那一路** = `max(1, 易伤 − 护甲)`
+                //       （= `VulnerableDamagePart`；预览侧同一式 `…WithDamageValues.c:203`）。
+                //   ⚠️ **`hit > 0` 那一格** = 原版 `:200 if (0 < damageInfo.damageValue)`；本支读的是
+                //      **原值 `hit`**（堡垒路不减护甲，同上面那段注释）。
+                int vuln = alreadyVulnerableHit ? 0 : VulnerableDamagePart(u);
+                bool vulnSecond = vuln > 0 && hit > 0 && !u.IsRemnant && (u.Health - overflow) > 0;
+                actual = vulnSecond ? overflow + vuln : overflow;
+                ctx.Log($"{u.Name} 的 Bastion {bastion} 被打穿 —— {source} 的 {hit} 点里"
+                      + $"溢出 {overflow} 点打到生命"
+                      + (vulnSecond ? $"；另有易伤那一发 {vuln} 点（堡垒已空 ⇒ 走护甲路）" : ""));
             }
 
             // ---- 🆕 伏击（`Ambush`）：**被伤害就翻开、而且那次的伏击效果作废**（规则书 `:166`）----
@@ -5691,6 +5986,35 @@ namespace RuleEngine
                 //   新增的 `Log` 会改 `ctx.Events.Count` ⇒ 动到 `Fingerprint`。
                 EmitUnit(ctx, EvtKind.AmbushExit, u, 0, effect: "damage");
             }
+
+            // ---- 🔴 2026-10-14（账 `A1155②`）：**真挨到伤害 ⇒ 不再「正在祈祷」** ----
+            //  判据 = 原版 `CardScript__ResolveDamageDealt.c:168`：`*(undefined1 *)(param_1 + 0x67) = 0;`
+            //    （= `EntityScript.isPraying` 置假），闸 = `:166 UnityEngine.Object.op_Equality(param_2, param_1)`
+            //    —— `param_1` 是 `this`、`param_2` 是形参 `damagedCard`
+            //    （签名 `Assembly-CSharp/CardScript.cs:2514
+            //     `ResolveDamageDealt(CardScript damagedCard, DamageInfo damageInfo)`）
+            //    ⇒ 就是「**受伤的那张卡 == 自己**」。
+            //  **谁调的** = `BattleManagerSupport__BroadcastUnitDamaged.c:19`
+            //    `CardScript__ResolveDamageDealt(param_2, param_2, param_3)` —— 广播时**先给受伤那张卡自己**
+            //    调一次（`damagedCard == this` 天然成立）；`:59/:70/:82` 再给场上监听者各调一次
+            //    （那些位置的 `this` 是**监听者** ⇒ **不会**清监听者自己的那一份）。
+            //  ⚠️ **它前面还有两道早退闸，两道都要照抄**：
+            //    · `:31 if (damageInfo.damageAbsorbed) return;` —— **被挡下的不算「挨到伤害」、不清**。
+            //      `damageAbsorbed` 由 `CardScript__GetAdjustedDamage.c:36-60` 置：
+            //      `dropPod(0xe6)` / `dodge(0xf0)` / `invulnerable(0x136)` / `shield(0x50)`
+            //      **任一存在就置 1**（`:39-47`），外加 `:52-60` 的「**isCombat 且堡垒 ≥ 这一击**」。
+            //      ⇒ 我们这边：盾/闪避、无敌那两支在上面已经 `return`（到不了这里）；
+            //        **空投舱整条支路**由上面那个 `absorbed = true` 表达。
+            //      ⚠️ 本格的**判别式**：先上盾再打 ⇒ 掉 0 血、`Prayed` **仍为真**。
+            //    · `:34 if (damageInfo.damageValue == 0) return;` —— **这一下本来就是 0 点**时不清
+            //      （下面那个 `dmg != 0`；用的是**原始值**，同 `GetAdjustedDamage` 写进 DamageInfo 的那一份）。
+            //  🔴 **别挪到函数最前面**（那会把「被盾/被池子挡下」也算成挨到了），也**别挪进 `EmitHit`**
+            //    （那一口从每一条出口被调、且**拿不到 `dmg`**）—— 收在这条「真扣血」的尾巴上一份。
+            //  ⚠️ **同一条判据的第二个落点 = 疲劳**（`MoveDeckTopToHand` 里那一段）：原版疲劳走
+            //    `BattleManager._ResolveFatigue_d__587__MoveNext.c:125-137 DealMultiDamage` →
+            //    `_ResolveMultiDamage_d__456__MoveNext.c:141 BroadcastUnitDamaged` ⇒ 同样落进这一口；
+            //    我们那边是**直扣血 + 手发 `EvtKind.Hit`**（绕开了 `ApplyDamage`）⇒ 在那一处也补一句。
+            if (!absorbed && dmg != 0) u.Prayed = false;
 
             u.Health -= actual;
             EmitHit(ctx, u, actual);
@@ -7495,14 +7819,30 @@ namespace RuleEngine
                      targetPlayer: chosen != null ? (pickedEnemySide ? 1 - p : p) : -1,
                      targetSlot:   chosen != null ? targetSlot : -1,
                      targetCardId: chosen != null ? chosen.Name : null);
-            // 「正在祈祷」= **状态**，一直挂到本单位控制者的下个回合开始
+            // 「正在祈祷」= **状态**，真值区间 = 「**祈祷那一刻**」→「**下一个回合开始（不分敌我）**」
+            //   或 「**自己挨一次伤害**」，**以先到者为准**
+            //   ✅ **2026-10-14（账 `A1155②`）时长【已核】—— 原来这一行写的是「一直挂到
+            //      **本单位控制者的**下个回合开始」，那一句【错的】**（多活了**一整个回合**）。
+            //      判据（`grep -rn "param_1 + 0x67)" d:/2/tools/decomp_full/` **全量只有 3 个写点**，
+            //      另加 `EntityScript__get/set_isPraying.c` 那一对各一次）：
+            //        · **置真一处** = `BattleManager__ResolveTriggerPray.c:266
+            //          EntityScript__set_isPraying(local_1f8, 1)`（排在 `:217
+            //          RawCardScript__OnTrigger(…, 0x28f /* = `Pray` = 655 */, …)` 之后）；
+            //        · **置假①** = `CardScript__OnTurnStart.c:100 *(undefined1 *)(param_1 + 0x67) = 0;`
+            //          —— **无条件**（同一个 `if (card.manager != null)` 块里，紧挨着 `:99
+            //          CardScript__ActivateMinion`、在 `:102` 开舱之前），
+            //          而那个 `OnTurnStart` 被**全场逐张**调：`BattleManagerSupport__BroadcastTurnStart.c:20-26`
+            //          扫 `BattleManager.CardsInPlay`（`+0x470`，**全场**）逐张调用，`:35-51` 再把双方手牌各扫一遍
+            //          ⇒ **每一次回合开始（谁的不分）都把全场每一张在场卡的这一位清掉**；
+            //        · **置假②** = `CardScript__ResolveDamageDealt.c:168`（闸 = **受伤者 == 自己**）。
+            //      ⇒ 我们这一侧两处置假分别落在 `RuleCore.BeginTurn`（**不分敌我**，见那一圈）
+            //        与 `RuleCore.ApplyDamage`（＋ 疲劳那一处的手发事件分支）。
             // 🔴 **判据 = 原版反编译**（`D26`，2026-10-19 改指真权威）：`pray` 在原版是一个
             //    **`DefinedTrait`**（`dump.cs:45839` `pray = 1185`），祈祷那条路是
             //    `AbilityLogic__PlayAbility.c:1847 AddTriggerPray` → `BattleManager__ResolveTriggerPray.c`
             //    → `BattleManagerSupport__BroadcastUnitPray.c`（= `EntityScript.HasCurrentTrait(…, pray)`）。
             //    ⚠️ `rule_core.gd:2371` 置位 / `:1953` 复位是**我们上一版复刻**怎么写这个状态机的
-            //      （**旁证、非权威**）；「一直挂到控制者的下个回合开始」这个**时长**是否与
-            //      `ResolveTriggerPray` 逐句一致，**尚未核**（判据不足，⛔ 别当已查实）。
+            //      （**旁证、非权威**），⛔ 别再拿它当判据。
             // ⚠️ 和下面那条 `BroadcastWhen(Prays)` 是**两件事** ——
             //    那个是「祈祷发生了」的**事件**（监听者当场响应），这个是**状态**（`Devout Serenity` 那种
             //    「每个正在祈祷的单位」要读的）。两者都要，缺一个就有一类卡不响。
@@ -7892,7 +8232,10 @@ namespace RuleEngine
 
         /// <summary>
         /// **典籍（Codex）的自动触发点** —— 「**打出任何一张牌之后**，你的能量**恰好为 0**
-        /// ⇒ 触发**一个**带 `Codex` 的单位的正文」。
+        /// ⇒ 触发**每一个**带 `Codex` 的**己方**单位的正文」。
+        /// 🔴 **2026-10-14（账 `A1155①`）就地订正**：这一行原来写的是「触发**一个**」——
+        ///    那是**我们多写的一道 `break`**（旧注释还给它编了个「② 一次只触发第一个」的号）。
+        ///    判据见下面「那个 `break` 是【多写的】」那一段（**已查实**：原版不是这样）。
         ///
         /// 🔴 **判据 = 原版反编译**（`D26`，2026-10-19 改指真权威；原来这一句只引
         /// **我们自己的 Godot 复刻** `rule_core.gd:2397 _check_codex`，那是**旁证、非判据**）：
@@ -7908,8 +8251,33 @@ namespace RuleEngine
         ///     → `BattleManager__ResolveTriggerCodex.c` → `BattleManager__BroadcastUnitCodex.c`
         ///     （另有 `AddTriggerCodex` / `AddTriggerPlayerCodex` / `CardScript__TriggerCodex` /
         ///      `CardScript__TriggerOtherCardCodex`）。
-        ///   ⚠️ **仍未核的一条**：原来那句「扫 0→8 号格、命中**第一个**就 `break` ⇒ 一次只触发一个单位」
-        ///      只来自 gd 旁证 ⇒ **标着判据不足**（要定案得逐句读 `ResolveTriggerCodex` 那条广播循环）。
+        ///   🔴 **2026-10-14（账 `A1155①`）「只触发一个单位」那一句【已核 —— 判为原版没有】：**
+        ///      逐行读过 `decomp_full/BattleManager__ResolveTriggerPlayerCodex.c`（518 行全文）：
+        ///        · `:97 lVar16 = *(longlong *)(param_1 + 0x470)` —— 扫的是 `BattleManager.CardsInPlay`
+        ///          （**全场**，与 `BattleManagerSupport__BroadcastUnitSummoned.c:19` 同一个字段）；
+        ///        · `:285-509` 那个 `do { … :509 iVar18 += 1; } while(true)` **循环到 `list.Count` 为止**
+        ///          —— `:286 if (*(int *)(lVar16 + 0x18) <= iVar18)` 成立才走 `:286-334`
+        ///          的收尾（`:334 FinishResolvingAction` + `return`）⇒ **触发完一张接着下一张，没有早退**；
+        ///        · 函数里 `break` 一共 **5 处**（`:391` / `:396` / `:444` / `:495` / `:499`），
+        ///          **全部**是 `X == 0 ⇒ break` 那个形状的 **null 守卫**，与「只触发一个」无关；
+        ///        · 逐张的两道判据 = 被触发者的 `CardScript__IsInPlay` ∧
+        ///          `:445 *(char *)(card + 0x40) == *(char *)(local_140 + 0x40)`（**同队**；
+        ///          `+0x40` = `EntityScript._isPlayer`）⇒ `:496 CardScript__TriggerCodex`
+        ///          ＋ `:500 EntityScript__HasCurrentTrait(card, 1000 /*codex*/)` 之后再广播一次。
+        ///      ⇒ **我们那道 `break` 是【多写的】= 少触发**；本笔去掉（循环体只留「跳过空/无 Codex」）。
+        ///      ⚠️ **`local_140` / `local_240` 是两个【幻影局部量】**（全文件里**从来没有被赋值过**：
+        ///        `grep -n "local_140"` / `"local_240"` 逐行数过）—— 那是 Ghidra **没建模出来的形参**
+        ///        （`EntityScript._isPlayer`、`BroadcastUnitCodex` 都从它们身上读）。
+        ///        从用法能确定的只有：`:184-185` **先把其中一张自己的 codex 触发一次**，
+        ///        而 `:388 op_Inequality(local_240, 本项)` **在循环里跳过某一张**
+        ///        ⇒ 「先单发一张、循环再扫全场」= **并集与我们「扫一遍 `p.Board`」相同**（各一次）。
+        ///        ⚠️ **顺序可能不同（如实标着）**：原版把「那一张」排在最前，我们按**槽号**升序 ⇒
+        ///        「那一张不是槽号最小的那个」时两边触发次序不同；今天卡池里没有依赖这个次序的卡
+        ///        （`Codex:` 正文都是给自己加值那种），**未验**。
+        ///      ⚠️ **同族的另一条顺手而记（仍开着、未逐句核）**：
+        ///        `AbilityLogic__PlayAbility.c:1694 AddTriggerCodex` 落在一个 `while` 循环里
+        ///        （能力 `0x19a = 410 = FollowUpResolution`）⇒「**强行触发** Codex」那条路
+        ///        **可能也是多目标**（对应下面那两句卡面）—— **没逐句核**，如实记着。
         /// 调用点也照那边三个来（`rule_core.gd:2183` 战术打完 · `:2244` 虫群合并之后 ·
         /// `:2337` 单位部署完，**旁证**）：我们把三条路各自汇到 <see cref="PlayCard"/> 与
         /// `PlayTactic` 的**末尾**各调一次（虫群合并与普通部署本来就都在 `PlayCard` 里）。
@@ -7932,8 +8300,16 @@ namespace RuleEngine
             {
                 var u = ctx.Players[p].Board[s];
                 if (u == null || !u.Has(KeywordTable.Codex)) continue;
+                // 🔴 **2026-10-14（账 `A1155①`）：这里原来有一句 `break;`（旧注释写着「② 一次只触发第一个」）
+                //    —— 已删。** 原版 `BattleManager__ResolveTriggerPlayerCodex.c:285-509` 是
+                //    `do{…}while(true)` **循环到 `list.Count` 为止**，逐张判定、逐张触发，**没有早退**
+                //    （函数里那 5 处 `break` 全是 `X == 0` 形状的 null 守卫，见本方法头注）。
+                //    ⚠️ 循环体每轮都**重新读一次 `Board[s]`**（不是快照）—— 与原版一样读的是**活列表**
+                //      （原版每轮都判一次 `IsInPlay`）⇒ 前一张的 Codex 正文打死/移走后面的单位时，
+                //      那一个自然被跳过；递归深度由 `FireTriggerAt` 里的 `ctx.EffectChain` 上限截断。
+                //    ⛔ 别再加回来：加回来是**静默少触发**（20 张带 `Codex` 的卡里，
+                //      同回合能量归零时只会响**槽号最小的那一个**）。
                 FireTriggerAt(ctx, u, KeywordTable.Codex, p, s);
-                break;                                           // ② 一次只触发第一个
             }
         }
 

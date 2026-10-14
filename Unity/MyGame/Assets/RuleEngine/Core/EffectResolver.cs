@@ -3308,12 +3308,31 @@ namespace RuleEngine
                 {
                     // 复制品 = **各发一份新实例**（不是选中那一份本身）
                     int n = op.ChooseCopies > 0 ? op.ChooseCopies : 2;
+                    var made = new List<CardInstance>(n);
                     for (int i = 0; i < n; i++)
                     {
                         var copy = ctx.NewInstance(pick);
                         ps.Hand.Add(copy);
+                        made.Add(copy);
                         RuleCore.SetupCardInHand(ctx, owner, copy);   // 🆕 `A885` ②
                     }
+                    // 🔴 **2026-10-14（账 `A1989`）就地补：指代槽改指向【刚造出来的那批复制品】。**
+                    //    与 `DoCreate` 的 `hand` 支**同形**（那支的 `ctx.LastCreated.AddRange(made)`
+                    //    注释写的就是「`They cost 1 less` 指着**那几份**」）——
+                    //    而这一支**以前不写**，槽里留的是上面 `:3130` 那份**卡池里凭空发的幽灵**
+                    //    （不在任何区域）⇒ 后面那句 `Lower their cost by 1` 会**钉在幽灵上**，
+                    //    `CostModApplies` 拿 `HandInstanceId` 一比就落空（`:900`）⇒
+                    //    **卡面印的「复制品便宜 1 费」静默不发生**。
+                    //    📏 实测（`ruleprobe.sh play GSC29`，2026-10-14）：改前两张复制品仍按
+                    //    2 费算（手牌总价 7 → 6 = 只少了出牌那 5 费 + 两张各 2 费），
+                    //    日志还写着「刚才造出来的那批（…）登记 **1** 张」= 登的是那个幽灵。
+                    //    ⚠️ **判据来自解析层**：`Lower their cost by N` 由 `EffectText.FeedChooseResidue`
+                    //    （`A1989`）作为**独立 op** 排在 `choosecard` 之后产出 —— 它的
+                    //    `Payload = (指代上一张)` 读的就是本槽。⛔ 别把这两行删了又指望它生效。
+                    //    ⚠️ 影响面：`ChooseAct == "copies"` 的卡全池**只有 2 张**
+                    //    （`GSC29` / `UM97`），后者**没有后续句** ⇒ 本笔只对 `GSC29` 可观测。
+                    ctx.LastCreated.Clear();
+                    ctx.LastCreated.AddRange(made);
                     EnforceHandLimit(ctx, owner);
                     ctx.Log($"{by}：「{op.Source}」选了「{pick.Name}」（{what}）→ 造 {n} 张复制进手牌");
                     return true;

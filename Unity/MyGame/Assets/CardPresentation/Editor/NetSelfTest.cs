@@ -664,7 +664,7 @@ public static class NetSelfTest
             var d1 = new PlayerDeck { Name = "自检主机牌", WarlordId = "UM_WARLORD" };
             d1.CardIds.Add("UM46");
             var d2 = new PlayerDeck { Name = "自检客机牌", WarlordId = "UM_WARLORD" };
-            d2.CardIds.Add("UM_Master_Tactician");
+            d2.CardIds.Add("dcbd28525888ce54aaa93a47ba4de1e6");
 
             // ---- ① **大厅阶段**：取消得了，而且对面会收到 ----
             NetMatchmaking.Reset();
@@ -2006,7 +2006,7 @@ public static class NetSelfTest
                    "Q⑮-b 两边握手到 `Lobby`（对面报上来的就是那条 200+ 字的名字）");
 
                 var d1 = new PlayerDeck { Name = "自检主机牌", WarlordId = "UM_WARLORD" }; d1.CardIds.Add("UM46");
-                var d2 = new PlayerDeck { Name = "自检客机牌", WarlordId = "UM_WARLORD" }; d2.CardIds.Add("UM_Master_Tactician");
+                var d2 = new PlayerDeck { Name = "自检客机牌", WarlordId = "UM_WARLORD" }; d2.CardIds.Add("dcbd28525888ce54aaa93a47ba4de1e6");
 
                 NetMatchmaking.Reset();
                 rt6.AttachForTest(host6);

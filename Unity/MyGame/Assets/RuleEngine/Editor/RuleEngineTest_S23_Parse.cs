@@ -214,7 +214,7 @@ public static partial class RuleEngineTest
                                  + "多了说明有战术卡的效果被静默吃掉（实得：" + string.Join(",", hits) + "）");
             if (hits.Count == 1)
             {
-                Check(hits[0], "GSC_Jammed_Communications", "★ 而且必须是那张手牌陷阱");
+                Check(hits[0], "68909cf02f472734ea391665e0d28e15", "★ 而且必须是那张手牌陷阱");
                 var jc = CardDatabase.Find(pool, "Jammed Communications");
                 CheckTrue(jc != null && EffectText.IsHandTrap(jc),
                           "★ 它确实是手牌陷阱（`IsHandTrap`）⇒ 效果由 `HandTrapWhens` 那条路结算，没丢");

@@ -1932,6 +1932,16 @@ namespace CardPresentation
             //     · **战斗日志那 11 句模板**（`BattleDriver` 里那一族）—— 同文件那段（`G5`）的 in-code 判据写着
             //       「它们没有原版 `mTerm`，接的时候要和这次重构一起决定键名，**⛔ 别先自造一批键**」；P4 也「建议【先不加】」
             //       ⇒ 等重构那一轮（**要做，只是先后** —— 铁律 11）。
+            //       ✅ **2026-10-14（`A985⑥③` · L 波）就地订正（铁律 5）：这一格【已办】—— 那一轮就是本会话。**
+            //          日志重构（`A985⑥` 的 ③ 半）已把 `BattleDriver.RefreshBattleLog` 那 12 句模板整段改走词条，
+            //          键 = `Battle/Log/{Play,Deploy,Attack,Melee,Ranged,Heal,Damage,Death,Return,Ability,Trigger,Bare}`
+            //          **同批进本表**（落在本节下面 `Battle/Log/*` 那一小节的 `EffectFallback` 之后）。
+            //          ⚠️ 原文写「**11 句**」是**旧数**（同一件事在本文件另两处都写「12 句」）—— 现读 **12** 条；
+            //          错因 = 那句是抄更早的普查 ⇒ 同一件事在本文件里有**三份说法**，另两份同在**本文件里**
+            //          （本节下面 `Battle/Log/*` 那一小节的那段订正 · §⑬ 双语③ 波 0b2 那一节的那段订正）
+            //          —— ⛔ 这里**刻意不写行号**（本文件还在动、行号会漂 ⇒ 按小节的标题找，别按行号找）。
+            //          🔴 ⇒ **本行那句「两族【故意没建】」现在只剩【一族】**：`Battle/CardDisplayWindow` 的
+            //          `Battle/CardWindow/TapToClose`（下一条，**仍未建、理由照旧成立** —— 铁律 11 例外①）。
             //     · **`Battle/CardWindow/TapToClose`** —— in-code 判据写着「原版子树没这个节点、`Battle/` 93 条字面量里也没有键
             //       ⇒ 铁律 11 例外① ⇒ 保留中文不改」（`Battle/CardDisplayWindow` 里那处；附件把它列成 ① 是错的）。
             //   ⚠️ `Battle/{Hint,Log,Chat,MultiCard,ChooseCard,CardWindow}/` 整族在 `stringliteral.json` 里**不存在**
@@ -1971,12 +1981,37 @@ namespace CardPresentation
             { "Battle/Log/SideFoe",                    new Entry("敌方", "Enemy") },
             // 🔴 **2026-10-08（波 0b3）**：EN 列原来那个**全角空格**（U+3000）会被 `Loc.HasCjk`（区间 `0x3000-0x303F`，
             //   见 `Loc.cs` 本文件 `HasCjk`）判成「含汉字」 ⇒ 换成**半角**（1:1，与 `Settings/Online/*` 那 6 条同法）。
-            //   ⚠️ **行为影响 = 零**（本件现读判据）：全仓 `*.cs` grep `Battle/Log/TurnPrefix` ⇒ **0 个调用点**
-            //   （只有本行的定义）⇒ 今天没有任何地方取它。ZH 列那个全角空格**不动**（中文档本来就该有）。
-            //   ⚠️ `Battle/Log/*` 另外 12 句按 `Battle/BattleDriver` 里那段 in-code 判据**仍未建**
-            //   （等日志重构那一轮）——那一条与本行无关，本行只是把已存在的键修干净。
+            //   ⚠️ ZH 列那个全角空格**不动**（中文档本来就该有）。本行只是把已存在的键修干净。
+            //   🔴 **2026-10-14（`A985⑥③` · L 波）就地订正（铁律 5）—— 本段原来那两句【都已过期】**：
+            //     · 原写「全仓 `*.cs` grep `Battle/Log/TurnPrefix` ⇒ **0 个调用点**（只有本行的定义）、
+            //       ⇒ 今天没有任何地方取它」⇒ **不成立**：`BattleDriver.cs` 现在有键名常量
+            //       `LogTurnPrefixTerm = "Battle/Log/TurnPrefix"`（`:6587`）**且被调用**
+            //       （`RefreshBattleLog` `:6814`）；错因 = 那句是**接线之前**写的，日志重构那一轮把调用点接上了。
+            //     · 原写「`Battle/Log/*` 另外 12 句**仍未建**（等日志重构那一轮）」⇒ **那一轮就是本会话**：
+            //       12 条键**同批进本表**（紧接本行下面的 `Play`/`Deploy`/`Attack`/`Melee`/`Ranged`/
+            //       `Heal`/`Damage`/`Death`/`Return`/`Ability`/`Trigger`/`Bare` 那 12 行），
+            //       调用点 `BattleDriver.RefreshBattleLog`（`:6739-6808`）已全部改走词条。
+            //   ⚠️ 本段引用的 `BattleDriver.cs` 行号是 **2026-10-14 现读**值 —— 那份文件**另有写手**在收尾
+            //      ⇒ 行号可能漂；要找就按**常量名 / 方法名**找（`LogTurnPrefixTerm` · `RefreshBattleLog` · `LogTerm`）。
             { "Battle/Log/TurnPrefix",                 new Entry("回合 {0}　{1}", "Round {0} {1}") },
             { "Battle/Log/EffectFallback",             new Entry("效果", "effect") },
+            // ---- 🆕 2026-10-14（`A985⑥③` · L 波）：`BattleDriver.RefreshBattleLog` 那 12 句模板 ----
+            //   判据 = `资料/普查产出_第三十一会话/H_A985尾巴6.md` §六（ready-to-paste）；键名出处 =
+            //   `资料/普查产出_第四会话/施工单_双语③逐处换key_附_BattleDeck.md:44-54`（当时就定名、裁定「要做、只是先后」）。
+            //   🔴 两列的 `{N}` 编号 = `BattleDriver.cs` 那 12 个调用点传的实参次序（占位符个数逐条点过）。
+            //   ✅ 这 12 行进表之后，`BattleDriver.LogTerm` 里那两列**过渡期兜底**永不触发（值与本表逐字相同）。
+            { "Battle/Log/Play",                       new Entry("{0}打出「{1}」", "{0} plays {1}") },
+            { "Battle/Log/Deploy",                     new Entry("{0}「{1}」进入格位 {2}", "{0} {1} enters slot {2}") },
+            { "Battle/Log/Attack",                     new Entry("{0}「{1}」{2}攻击「{3}」", "{0} {1} makes a {2} attack on {3}") },
+            { "Battle/Log/Melee",                      new Entry("近战", "melee") },
+            { "Battle/Log/Ranged",                     new Entry("远程", "ranged") },
+            { "Battle/Log/Heal",                       new Entry("{0}「{1}」回复 {2} 点生命", "{0} {1} restores {2} health") },
+            { "Battle/Log/Damage",                     new Entry("{0}「{1}」受到 {2} 点伤害", "{0} {1} takes {2} damage") },
+            { "Battle/Log/Death",                      new Entry("{0}「{1}」阵亡", "{0} {1} dies") },
+            { "Battle/Log/Return",                     new Entry("{0}「{1}」离开格位（回手牌或牌库）", "{0} {1} leaves its slot (back to hand or deck)") },
+            { "Battle/Log/Ability",                    new Entry("{0}「{1}」发动技能", "{0} {1} uses an ability") },
+            { "Battle/Log/Trigger",                    new Entry("{0}「{1}」触发「{2}」", "{0} {1} triggers {2}") },
+            { "Battle/Log/Bare",                       new Entry("{0}「{1}」", "{0} {1}") },
             { "Battle/BattleEnd/ForfeitMe",            new Entry("我方投降", "we forfeited") },
             { "Battle/BattleEnd/ForfeitFoe",           new Entry("对方投降", "the opponent forfeited") },
             { "Battle/BattleEnd/Rounds",               new Entry("{0} 回合   ", "{0} rounds   ") },
@@ -1999,6 +2034,11 @@ namespace CardPresentation
             //       接 `Loc.T` 等于把发送方的语言灌到接收方界面上 ⇒ 单开 `P6d`（发键标识、接收侧取词）；
             //    ⛔ `Battle/Log/*` 12 句**也不建**（`Battle/BattleDriver` 里那段 in-code 判据：
             //       「原版记动作、我们记后果，接的时候和日志重构一起定键名 —— ⛔ 别先自造一批键」；要做、只是先后）。
+            //       ✅ **2026-10-14（`A985⑥③` · L 波）就地订正（铁律 5）：这半句【已过期】—— 日志重构那一轮就是本会话。**
+            //          那 12 句**已建**：键 = `Battle/Log/*`，两列值见 §⑫·D 那一小节（`EffectFallback` 之后那 12 行）——
+            //          **中文列 = 调用点原话逐字**（⇒ 中文档显示零变化）、英文列 = 调用点那句英文的逐字副本；
+            //          ⛔ **不是「先自造一批键」**：键名出处 = `…/施工单_双语③逐处换key_附_BattleDeck.md:44-54`。
+            //       🔴 **同一段上面那半句（`Wire/*` 7 条）【仍然成立】**（那 7 条**今天仍不建**，理由照旧）⇒ ⛔ 别一起当成过期。
             //
             //  🔴 查证口径（**两张表都搜过** —— 出处 = P6 §⑥·3）：
             //    · `d:/2/新解包资源/assets_full/**/MonoBehaviour/*.json` 的 `mTerm` 全库扫
@@ -2602,6 +2642,18 @@ namespace CardPresentation
         static Dictionary<string, BulkRow> _bulk;
         static readonly HashSet<string> _warnedBulk = new HashSet<string>();
 
+        /// <summary>🆕 **2026-10-15（`AC` 波）：`BulkOr` 里那次记号渲染的重入闩**。
+        /// true = 本口这次被调用，是**从另一次词条取值的渲染里**进来的（路径固定是
+        /// `CardIcons.RewriteMarks` → ①/②/③ → `CardIcons.OfficialTerm` → 本口）⇒ 那一路**不再渲染**。
+        /// <para>两个理由，缺一不可：① **与原版同口径** —— 原版四支（`ModifyLocalization.c`）是
+        /// **一遍扫过去、不回头再看自己插进来的串**（「①→③ 的顺序是承重的」就是这件事），
+        /// 词条里再嵌一层 `((K))` 原版**不会**再展开；② **结构上杜绝无限递归** —— 词条 A 的值引 `((A))`
+        /// 这种数据今天不存在，但「今天不存在」挡不住明天，而 `StackOverflow` 在 Unity 里是**硬崩**、
+        /// 不是一条红。**判据/现数 → `资料/普查产出_第三十一会话/AC_Loc记号闸.md`**。</para>
+        /// <para>⚠️ 只在本口这一处读/写；`Loc` 本来就是主线程用的（同 `_bulk` / `_warnedBulk`），
+        /// ⛔ 不为它引锁。</para></summary>
+        static bool _inBulkRender;
+
         static void LoadBulk()
         {
             if (_bulk != null) return;
@@ -2636,15 +2688,32 @@ namespace CardPresentation
         public static void ResetBulkWarnedForTest() { _warnedBulk.Clear(); }
 
         /// <summary>
-        /// 按**当前语言**取一条**数据面词条**；取不到（或取到的是**未渲染的 I2 记号**）⇒ 回 `fallback` + 出声一次。
+        /// 按**当前语言**取一条**数据面词条**；取不到（或取到的是**渲染不出来的官方记号**）⇒ 回 `fallback` + 出声一次。
         ///
         /// <para>🔴 **为什么返回兜底而不是键名**：调用方那几族的兜底**改前就有**（资源名反推的显示名），
         /// 而「印 GUID 键名」是退化。⇒ 本口**先出声、再给兜底**（本工程要的是「不静默」而不是「印键名」；
         /// 与 `CardText.TermOr` 同一口径，⛔ 两条别合并 —— 那条走 `Table`、这条走 bulk）。</para>
         ///
-        /// <para>🔴 **记号闸**：官方词条里有一批值**不是成品文字**而是 I2 模板（`[[pray]]` / `((Deal_x,2))`，
-        /// 实测本产物里 23 条）⇒ 那种值**原样印出去就是把模板打在屏幕上** ⇒ 本口**判成「取不到」**、
-        /// 回兜底并出声（要真接上，先做 `A1763` 的记号渲染层）。</para>
+        /// <para>🆕 **2026-10-15（`AC` 波）：原「记号闸」已拆，改成「**先渲染、渲染不掉才回兜底**」** ——
+        /// 原来本口判「值里含 `[[` / `((` ⇒ 当取不到」，理由写的是「要真接上，先做 `A1763` 的记号渲染层」。
+        /// **那个层已经有了**（`Core/CardIcons.cs` 的 <see cref="CardIcons.RewriteMarks"/>，
+        /// 公开口、按原版四支实现、自带「词条缺就留着 + 出声」的闸）⇒ 现在分三路走：
+        /// <list type="number">
+        ///  <item>值**不带**记号 ⇒ **原样返回**（与拆闸前逐字相同）。</item>
+        ///  <item>值**带**记号 ⇒ 过一遍 `RewriteMarks(v, 该值所在的列)`；渲完**记号没了** ⇒ 返回**渲染后的串**
+        ///        （这就是要治的病：以前这批被整条当「取不到」，卡面会原样印出 `((Stun_an_enemy))`）。</item>
+        ///  <item>渲完**还留着记号** ⇒ 那是**渲染不了**的（词条缺 / 枚举名认不出）⇒ 照旧当「取不到」、
+        ///        回兜底 + 出声（⛔ 不许把 `[[maintenance]]` 原样印到界面上 —— 那正是本闸要治的病；
+        ///        也⛔ 不许静默丢）。</item>
+        /// </list>
+        /// ⚠️ **三路各有多少、逐条是哪些，一律看指针**（⛔ 不在这里抄第二份数）：
+        /// `资料/普查产出_第三十一会话/AC_Loc记号闸.md`。</para>
+        ///
+        /// <para>⚠️ **渲染那一路按「值在哪一列」传语档**（`r.zh` ⇒ 中文档、回退到 `r.en` ⇒ 英文档）——
+        /// `RewriteMarks` 的 `zh` 决定它去取哪一列的**子词条**（`Card_Trait/*` 那种）。</para>
+        ///
+        /// <para>⚠️ **重入**：值是在**另一次渲染里**被取出来的（①/②/③ 取词条那三支就是）⇒ 那一层
+        /// **不再渲染**（原版四支不回头 + 结构上不可能无限递归），见 <see cref="_inBulkRender"/>。</para>
         /// </summary>
         public static string BulkOr(string term, string fallback)
         {
@@ -2659,18 +2728,38 @@ namespace CardPresentation
             }
             var cur = Current;
             string v = null;
-            if (cur == AvailableLanguages.Chinese && !string.IsNullOrEmpty(r.zh)) v = r.zh;
+            bool zhCol = false;                                                        // 这个值落在哪一列（渲染记号时要按它取子词条）
+            if (cur == AvailableLanguages.Chinese && !string.IsNullOrEmpty(r.zh)) { v = r.zh; zhCol = true; }
             else if (cur == AvailableLanguages.English && !string.IsNullOrEmpty(r.en)) v = r.en;
-            if (string.IsNullOrEmpty(v)) v = string.IsNullOrEmpty(r.en) ? r.zh : r.en;   // 回退英文（同 `T`）
-            if (string.IsNullOrEmpty(v)) return fallback;
-            // 记号闸（见上面那段 doc）：值是 I2 模板 ⇒ 当「取不到」
-            if (v.IndexOf("[[", System.StringComparison.Ordinal) >= 0
-                || v.IndexOf("((", System.StringComparison.Ordinal) >= 0)
+            if (string.IsNullOrEmpty(v))                                               // 回退英文（同 `T`）
             {
-                if (_warnedBulk.Add(term))
-                    Debug.LogWarning("[Loc] 数据面词条 `" + term + "` 的值是**未渲染的 I2 记号**（`[[..]]`/`((..))`）"
-                                   + " ⇒ 回兜底「" + fallback + "」（要真用先做 `A1763` 的记号渲染层）");
-                return fallback;
+                zhCol = string.IsNullOrEmpty(r.en);
+                v = zhCol ? r.zh : r.en;
+            }
+            if (string.IsNullOrEmpty(v)) return fallback;
+
+            // 记号渲染（拆掉的那道闸原来就在这个位置）。三路见上面那段 doc。
+            if (CardIcons.HasOfficialMarks(v))
+            {
+                // 这一层若已经在另一次渲染里 ⇒ 不重入（原版四支不回头；也保证不会无限递归）→ 见 `_inBulkRender`
+                if (_inBulkRender) return v;
+
+                string rendered;
+                _inBulkRender = true;
+                try { rendered = CardIcons.RewriteMarks(v, zhCol); }
+                finally { _inBulkRender = false; }
+
+                // 渲完还留着记号 = 渲染不掉（词条缺 / 枚举名认不出）⇒ 当「取不到」。⛔ 不原样印、⛔ 不静默丢
+                if (CardIcons.HasOfficialMarks(rendered))
+                {
+                    if (_warnedBulk.Add(term))
+                        Debug.LogWarning("[Loc] 数据面词条 `" + term + "` 的值里有**渲染不出来的官方记号**"
+                                       + "（`RewriteMarks` 过完仍留着 `[[..]]`/`((..))`/`$$..$$` —— 多半是子词条缺）"
+                                       + " ⇒ 回兜底「" + fallback + "」。缺在哪，看 `Core/CardIcons.cs` 各支那声 "
+                                       + "`[CardIcons]` 告警（逐条记在 `资料/普查产出_第三十一会话/AC_Loc记号闸.md`）");
+                    return fallback;
+                }
+                v = rendered;
             }
             return v;
         }

@@ -616,15 +616,14 @@ public static partial class RuleEngineTest
     /// <summary>
     /// **`#20` 易伤 + 堡垒**：`vulnerable 2` + `bastion 3`、5 血、打 3 ⇒ `Health == 5`。
     ///
-    /// ⚠️ **规格表标着「建议·非必须」，并且明确写了只能断这一种**：原版在
-    ///   「打穿、且扣完溢出血还 &gt; 0」那一档会**另补一次易伤伤害**（`:188-257 DealMultiDamage`），
-    ///   我们**没补** ⇒ ⛔ **别把「打穿之后会少算」写成期望**（那会把我方缺口固化成断言）。
-    ///   本格取的是「没打穿」那一档：堡垒整份吃下 ⇒ 易伤那一次被 `bVar17` 抑制 ⇒ 两边一致。
-    /// 🔴 **2026-10-21（账 `A1563`）补一句**：「易伤是另一次伤害」这条**口径**已经落地了
-    ///   （`RuleCore.VulnerableDamagePart` —— 普通档不再折进一个数），但上面这一档
-    ///   （**堡垒被打穿**）**仍然少补**：那一支用 `actual = −remaining` 覆盖掉算好的值。
-    ///   余下三档（空投舱 / 堡垒打穿 / `:211` 血&gt;0 那道闸）逐条记在
-    ///   `RuleCore.VulnerableDamagePart` 的 doc 里，**不是「不做」、是「还没做」**（铁律 11）。
+    /// 🔴 **2026-10-14（账 `A1335①`）就地订正本段**：原来这里写着
+    ///   「原版在『打穿、且扣完溢出血还 &gt; 0』那一档会另补一次易伤（`:188-257 DealMultiDamage`），
+    ///    我们**没补** ⇒ ⛔ **别把『打穿之后会少算』写成期望**」——**那一档【已经补上了】**，
+    ///   所以原来那句「⛔ 别补」**反过来不成立了**：现在**必须**断它（否则缺口会再被静默放回来）。
+    ///   新增的那一格见本方法末尾的 `#20-bis`。
+    /// 🔴 **2026-10-21（账 `A1563`）那一段留痕**：「易伤是另一次伤害」这条**口径**落地在
+    ///   `RuleCore.VulnerableDamagePart`（普通档不再折进一个数）。
+    /// ⚠️ 本格（`#20`）取的是「**没打穿**」那一档：堡垒整份吃下 ⇒ 易伤那一次被 `bVar17` 抑制 ⇒ 两边一致。
     /// </summary>
     static void TestS14VulnerableWithBastion()
     {
@@ -641,14 +640,42 @@ public static partial class RuleEngineTest
             + "｜🔴 2026-10-21（`A1563`）**就地订正这句话**：原文写「易伤 2 确实**折进**了伤害公式"
             + "（3 + 2 = 5）」—— **那个「折进」的口径已经废了**（现在是两份**各自**取 `max(1, …)`）。"
             + " ⚠️ 本格的**数值 5 两种口径下相同**（护甲 0 时 `max(1,3)+max(1,2)` == `max(1,3+2)`）"
-            + " ⇒ 它**不是** `A1563` 的判别式，判别式在 `TestA1563VulnerableDamageSplit` 那一组");
+            + " ⇒ 它**不是** `A1563` 的判别式，判别式在 `TestA1563VulnerableDamageSplit` 那一组"
+            + "｜🆕 2026-10-14（`A1335①` 第三档 · `N7`）**本格落在 `:210-211` 那道闸的【过】这一侧**"
+            + "（生命 5 − 3 = 2 > 0 ⇒ 易伤那一份照落）⇒ 数值仍然 **5**；判闸的**两侧**"
+            + "（致死档 = 3、不致死档 = 4）与残骸那半格在 `TestA1563VulnerableDamageSplit` 的 ⑧");
 
         int ret = RuleCore.ApplyDamage(ctx, t, 3, "自检");
         Check(ret, 0, "★ 堡垒整份吃下 ⇒ 返回 0");
         Check(t.Health, hp0,
               "★ **生命一点不动** —— 原版这一档易伤被 `bVar17`（堡垒吃下整份）抑制，两边一致"
-            + "｜⚠️ ⛔ 别补一条「打穿之后血该剩多少」：那一档我们**少算一次易伤**（如实记着，"
-            + "判据 = `_ReceiveDamage…:188-257` 的 `DealMultiDamage`），写成期望就是固化缺口");
+            + "（🔴 2026-10-14：原来这句还接着写「⛔ 别补一条『打穿之后血该剩多少』：那一档我们**少算一次易伤**」"
+            + " —— **那一档已经补上了**，反向断言见下面的 `#20-bis`）");
+
+        // ---- 🆕 `#20-bis` 2026-10-14（账 `A1335①`）：**打穿 + 溢出后血还 > 0 ⇒ 补一次易伤** ----
+        //   原版：主伤害 = 溢出量进血（`_ReceiveDamage…:145-153`），**随后第二发**
+        //   （`:252-254 DealMultiDamage`，量 = `CurrentVulnerable(card)`）自己再走一遍整条管线 ——
+        //   此时堡垒已 0 ⇒ 落到**护甲那一路** ⇒ `max(1, 易伤 − 护甲)`。
+        //   触发闸 = `:188-191`（含 `!bVar17`）∧ `:200` 进伤 > 0 ∧ `:210-211` **血还 > 0 ∧ 不是残骸**。
+        //   我们改前用 `actual = −remaining` **覆盖**掉算好的值 ⇒ **少补这一份**。
+        //   🔴 **判别式**：把堡垒那一段的 `actual = vulnSecond ? overflow + vuln : overflow;`
+        //   改回 `actual = -remaining;` ⇒ **本格前两行都红**（3 → 得 2）。
+        {
+            var ctx2 = Battle(new[] { Unit("S14_A9b", 1, 1, 5) }, new[] { Unit("S14_B9b", 1, 1, 5) });
+            ToP1Turn(ctx2, 2);
+            var t2 = Place(ctx2, 1, 3, Unit("S14_VulBasBreak", 1, 1, 5), exhausted: true);
+            t2.AddKeyword(KeywordTable.Bastion, 3);
+            t2.AddKeyword("vulnerable", 2);
+            int hp2 = t2.Health;
+            ctx2.ClearSignals();
+            int ret2 = RuleCore.ApplyDamage(ctx2, t2, 5, "自检");
+            Check(ret2, 4,
+                  "★ **溢出 2 ＋ 易伤那一发 `max(1, 2 − 0)` = 2** ⇒ 返回 **4**"
+                + "（改前是 2 —— 只报溢出量）");
+            Check(t2.Health, hp2 - 4, "★ 生命 5 → 1（`5 − 溢出 2 − 易伤 2`）");
+            CheckTrue(!t2.Has(KeywordTable.Bastion), "★ 堡垒见底 ⇒ 整个摘掉");
+            Check(S14Sig(ctx2, EvtKind.Hit, null, 4), 1, "……发的是那条 `Hit{Amount = 4}`");
+        }
     }
 
     // ==================================================================
@@ -1525,7 +1552,7 @@ public static partial class RuleEngineTest
                 + "（`WhenFired` 那类日志量不到它 —— 它量的是**监听器**，这条是**结算**）");
         }
         {
-            var sor6Card = new CardDef("SOR_Righteous_Repugnance", "Righteous Repugnance", "tactic",
+            var sor6Card = new CardDef("f104d4c21abe84546abc9365d9eda8dd", "Righteous Repugnance", "tactic",
                                        "Give +1 [Attack] and +1 [Ranged] to your units this turn. "
                                      + "4 Energy: Give +2 [Attack] and +2 [Ranged] instead and Heal them 1",
                                        "common", "Sororitas", 2, 0, 0, 0, null);

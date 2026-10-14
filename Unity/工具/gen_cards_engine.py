@@ -268,6 +268,15 @@ STAT_FIXES = {
     "2nd Company Terminator": {"ranged": 6},
     # 9 张督军的「费用」：卡面**费用槽是空的**（子代理逐张开图核过 9/9；对照卡同槽有蓝色六边形）
     # ⇒ 引擎里都该是 0。剩下 6 张（本表上面已有条目的并进去了）。
+    #
+    # 🔴 **2026-10-15（P2 相 `A1773`）就地补充：这几条的【适用条件】变了，仍然有用、但只在
+    #    「真值里没有这张督军」时才生效** —— 现在督军费用走了一条**更权威的路**：
+    #    `build()` 里 `trow` 那一段 = **有真值行且 `manaCost >= 0` ⇒ 取真值**（PnP 56/56 不印费用格
+    #    ⇒ 已裁⑥ 的闸落到「照真值」那一档；裁决理由与对抗性验证见 `项目任务.md:498-516`）。
+    #    · 上面那 9 张里 **`Njal Stormcaller` 是 SpaceWolves** —— 快照整个 SW 阵营 0 张
+    #      ⇒ 它**靠这几条保持 0**（否则会退回 OCR 从「阵营徽记」误读出来的那个数）。
+    #    · 其余 8 张有真值 ⇒ **被真值覆盖成 `2`**（跑完摘要「督军费用」那一段会逐张打出来）。
+    #    这段注释是**曾经的**判据记录，别删（它同时是「右上角徽记 ≠ 费用六边形」那件事的出处）。
     "Njal Stormcaller":       {"cost": 0},
     "War Shaper":             {"cost": 0},
     "Terror of Vardenghast":  {"cost": 0},
@@ -354,6 +363,19 @@ STAT_FIXES = {
     #      ⇒ **当前表督军 cost 全 0 是对的，不必再动**。
     #      🔧 测法留档：**费用六边形的位置包络 = x[628,787] y[291,451]**（13 阵营控制卡实测），裁这个框看图即判。
     #      要查就照上面这个法子：**开图看右上角有没有蓝色费用六边形**。
+    #
+    # 🔴 **2026-10-15（P2 相 `A1773`）就地订正上面那句结论**（铁律 5）：
+    #    上面证明的是 **「PnP 不印督军的费用」**——**这件事仍然成立、而且正是本笔的判据之一**；
+    #    但由此得出的 **「所以引擎里该是 0」不再成立**：
+    #      · 🔬 2026-10-15 亲开 `Aeldari/1督军/Warpforge_1_Anvirr-Keltoc.png`（**就是这 5 张之一**）：
+    #        右上角是**阵营徽记**（深绿圆盘里的 Saim-Hann 蛇纹），**没有费用六边形** ✅ 与上面一致；
+    #      · 而 `施工设计 §七 已裁⑥` 那句「PnP 在这一点上自相矛盾：大多数督军不印费用格、
+    #        `Anvirr Keltoc` 却印 5」——**那半句是照 OCR 误读写的**（OCR 把徽记读成了 5），
+    #        PnP 上**并没有那个 5**。⇒ **PnP 在这一点上不矛盾，是「统一不印」**。
+    #      · ⇒ 按已裁⑥ 的闸（**PnP 上没有 ⇒ 照真值快照**）⇒ **督军 `cost` 取真值的 `2`**
+    #        （`A1773`；裁决与对抗性验证见 `项目任务.md:498-516`）。
+    #    ⚠️ 这几条**仍然保留**：它们的适用面缩到「**真值里没有这张督军**」那一档
+    #      （`A1773` 里 `hero_cost_kept` 会把这档逐张报出来），5 张 Saim-Hann **全都有真值** ⇒ 都会被改成 `2`。
     "Jain Zar":          {"cost": 0},
     "Anvirr Keltoc":     {"cost": 0},
     "Eliac Zephyrblade": {"cost": 0},
@@ -422,6 +444,31 @@ STATS_EXCEPTIONS = {
                               "keywords": ["Long Range", "Strike"],
                               "desc": "Long Range. Strike: If the target survives, give it Markerlight 2",
                               "hasStats": True},
+    # 🆕 2026-10-15（P1 收尾笔 · 账 `A1783` 的那 1 张真新增）：源表里这条**早就在**
+    #    （`card_stats.json` 的 `Infestation Node` 行：`decks: ["LEV_InfestationNode"]` ·
+    #     `art: …/Tyranid_Leviathan_strat_Infestation Node.png`），但 `cost/desc/rarity/subtype` 全 null
+    #     + `hasStats=false` ⇒ 在 `build():1016` 被整条跳过 ⇒ **卡池里一直没有这张**。
+    #     ⇒ 按本表的既定用法「补上数值后照常收」补进来（**不是**往源表插一行）。
+    #
+    # **收录依据（五条独立证据）** —— 2026-10-15 核，判据来源逐条给出：
+    #   ① 原版 `allcards`（`d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json`）有 `uniqueId: TL40`：
+    #      `cardName "Infestation Node"` · `m_Name "T7 Leviathan-Infestation Node"` · `manaCost 2` ·
+    #      `cardType 20`（`CardTypeOptions.Tactic`）· `cardRarity 3`（`CardRarity.Epic`） ·
+    #      `cardImageReference.m_SubObjectName "Tyranid_Leviathan_strat_Infestation Node"`
+    #   ② 官方本地化（`Unity/数据/游戏数据/官方本地化_en+zh-CN.json`）：`Card_Name/TL40` = (`Infestation Node`, `感染节点`) ·
+    #      `Card_Description/TL40` = (`Heal 2 to a friendly troop and create a copy of it in your hand`, 中文齐)
+    #   ③ 原版**抽包** SO `bundle_draftpacks_assets_all/MonoBehaviour/Infestation Node.json` 的 `cardIds` 里有 `TL40`
+    #      （`packId = LEV_InfestationNode` = 源表那条 `decks` 值 ⇒ 两处自洽）
+    #   ④ 立绘本地有：`bundle_tyranidsleviathancardassets_assets_all/Texture2D/Tyranid_Leviathan_strat_Infestation Node.png`
+    #   ⑤ 我们有它的中文名（`zh_cards.json` → 「侵染节点」），那 74 张真噪音只有「正常条件」这种通用词
+    # ⚠️ **没给 `subtype`**：卡面那行橙字**本地取不到判据** —— PnP 成品卡图那一套（1118 张）**没有这张**
+    #    （`d:/2/Warpforge部队卡片/` 全树无 `Infestation`），真值里 `CardTraits`/`ShowTraits` 都是空、
+    #    `cardRaceTextReferenceId` 全库 1194 行**全是空串**、`_stratagem` 全库同为 0、`spellType` 同为 0
+    #    ⇒ **没有可推出的口径**（实测：`_strat_` 立绘名与 subtype 完全无关，`Spell` 245 / `Tactic` 57 / …）。
+    #    ⇒ 宁可留空（卡面不画那一行），**不猜**（铁律 2 / 铁律 11 例外①）。
+    "Infestation Node": {"cost": 2, "rarity": "epic",
+                         "desc": "Heal 2 to a friendly troop and create a copy of it in your hand",
+                         "hasStats": True},
 }
 
 # ============================================================================
@@ -579,6 +626,54 @@ IDS_SRC = r"d:/4/Unity/数据/游戏数据/card_ids.json"
 # 自造 id 的**全量清单**（跑一次自检/生成器就重写一份）—— 给「哪些卡没有原版 id」留证据
 MADE_LIST = r"d:/4/_tmp_view/card_ids_made.txt"
 
+# ---- 真值 id 索引（2026-10-14 · P1 相 `A1782` / `A1778` / `A1783` / `A1800`）-------------------
+# **为什么在 `card_ids.json` 之外单开一层**：上面那张表只能按「卡名逐字相等」查，实测有三类卡必然落空 ——
+#   ① 我们池里的卡名有一部分是**美术 / VO 资产名**（Godot 期 `d:/warpforge/data/cards.json` 带过来）
+#      ⇒ `Commissar Elan` ↔ 官方 `Commissar Denkler` · `Veteran Flyboy` ↔ `Veteran Stormboy` …
+#      **逐字比一定落空**（`A1779` 查实的根因）；
+#   ② 原版 259 张卡的 `uniqueId` 是 **32 位 GUID**，而 `pick_id()` 只认「前缀 + 纯数字」
+#      ⇒ 表里就算收了也挑不出（`A1800` 的第一根因：「`mapping` 里 0 个 GUID 形键」）；
+#   ③ 同名组里「**基准卡**」与「附魔 / 教程副本」同名（`Uge Choppa` = 本体 + `_enchantment` 副本）
+#      ⇒ 按名取会把副本当本体。
+# ⇒ 这三件事**只有真值侧的数据能判**，所以在 `工具/gen_card_id_truth_index.py` 里**一次性算成索引**
+#   （级联 join ①官方 `Card_Name/*` 英文值 → 键 ②真值 `m_Name` 尾巴 ③真值 `cardName`；
+#    `base` = 基准卡；`army` = 真值 `cardArmy`，与源表 `factionId` **同口径**）。
+#   判据原文 → `Unity/资料/普查产出_第三十会话/乙档六笔_判据查证.md` §`A1800`；
+#   施工图（P1 在五相里的位置）→ `Unity/资料/普查产出_第三十会话/卡表块_施工设计_1014.md` §一。
+# ⚠️ **快照年代限制**：2025-07-30 之后新增的卡（SpaceWolves 68 / Ultramarines 51 …）索引里没有
+#   ⇒ 那些卡**照旧走下面那条老路**（`card_ids.json` → 自造）。这是预期，不是缺陷。
+TRUTH_IDX_SRC = r"d:/4/Unity/数据/游戏数据/card_id_truth_index.json"
+
+# ---- 🔴 真值卡 SO 快照本体（2026-10-15 · P2 相：`A1773` / `A1776` / `A1799`）-------------------
+# 上面那份 `card_id_truth_index.json` 只是**它派生出来的 join 索引**；本相要的是**字段值**，
+# 所以直接读本体。同一份文件、同一年代口径（Unity 2022.3.38f1 · 缓存 **2025-07-30**）。
+#   · 结构 = JSON **数组**，1195 个元素；1194 个 `RawCardScript` + 1 个 `AddressablesBuildNumber`
+#     （后者**没有 `uniqueId`/`cardName`/`cardType`** ⇒ 加载时按 `uniqueId` 建键会自然把它排除）。
+#   · 键 = `uniqueId`（`AM12` 这种短码，或 32 位 GUID）。
+#   · 判据原文 → `资料/普查产出_第二十七会话/allcards_未挖字段盘点.md`（§2 逐字段总表）。
+#   · 到手经过 → `d:/2/远端缓存_旧profile_1013/README.md`。
+#
+# 🔴🔴 **本相的第一纪律 = 「每一处换值先过一道闸」**（用户 2026-10-15 拍板总口径 ·
+#   `资料/普查产出_第三十会话/卡表块_施工设计_1014.md` §七 已裁⑥）：
+#
+#   | 情形 | 取谁 |
+#   |---|---|
+#   | **PnP 成品卡图（`d:/2/Warpforge部队卡片/`）也印了的内容** | **PnP 优先** |
+#   | **PnP 上没有 / 印得自相矛盾的** | **照真值快照** |
+#
+#   ⇒ **快照比我们要复刻的客户端【旧】**（独立判据：快照 `cardArmy` 只有 12 个阵营、
+#     **整个 SpaceWolves 0 张**，而 PnP 里有 SW 督军）⇒ **照快照整列覆盖 = 把新版的数换成旧版的数**。
+#   🔬 **本相实测（不是推断）**：2026-10-15 逐张开 PnP 成品图核过 **13 张**「我们 vs 快照」有出入的卡
+#     （`Kommando` 7/8/4/7 · `Metamorph Leader` 6/3/4/5 · `Strike Team` 4/2/6/5 · `Acolyte Heavy` 4/5/2/5 ·
+#      `Big Shoota Boy` 6/3/6/6 · `Avenging Zeal` 费 12 · `Skrag Every Stash!` 费 3 ·
+#      `Skyborne Deployment` 费 1 · `Witchfire` 费 0 · `Waaagh! Energy` 费 0 · `Tactical Insight` 费 0 ·
+#      `Abominant` 盾 1 · `Hulking Aberrant` 盾 1 · `Rukkatrukk Squigbuggy` 盾 1），
+#     **13/13 = 「我们 == PnP」且「快照 ≠ PnP」** ⇒ **三围/费用/护甲一律保留我们的值**（那就是 PnP 的值）。
+#   ⇒ **本相真正从快照取的，只有「PnP 不印」的那几样**：**督军 `cost`**（PnP 56/56 不印费用格 ——
+#     右上角是**阵营徽记**，`Anvirr Keltoc` 那张亲开图核过）、**`CardTraits`**（补空那一层）、
+#     **`armour` 数值兜底**、以及 **A1799 那 10 个 SO 字段**（PnP 上根本没有的东西）。
+TRUTH_CARDS_SRC = r"d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json"
+
 # id 前缀 → 我们卡表里的阵营名。**来源是 decklists.json 的实测统计**（见上面那张表）。
 # 别的阵营名一律不许出现在这里 —— 加阵营要连证据一起补。
 ID_PREFIX = {
@@ -627,6 +722,369 @@ def pick_id(cands, faction):
         return None
     hit = [cid for cid, _ in cands if cid.startswith(pre) and cid[len(pre):].isdigit()]
     return hit[0] if len(hit) == 1 else None
+
+
+def load_truth_index():
+    """读真值 id 索引（见 `TRUTH_IDX_SRC` 那段）。文件不在 ⇒ 返回 None 并**出声**（别静默退回旧行为）。"""
+    if not os.path.exists(TRUTH_IDX_SRC):
+        print(f"⚠️ 找不到 {TRUTH_IDX_SRC} —— 卡 id 这一层将退回「按卡名查 card_ids.json」那条老路"
+              f"（自造 id 会明显变多；重出：`python -I -X utf8 d:/4/Unity/工具/gen_card_id_truth_index.py`）")
+        return None
+    with open(TRUTH_IDX_SRC, encoding="utf-8") as f:
+        ix = json.load(f)
+    ix["_base"] = set(ix.get("base") or [])
+    return ix
+
+
+def pick_truth_id(ix, faction, faction_id, name, ocrname):
+    """按真值索引挑这张卡的 id；挑不出返回 None（**不猜**，由调用方自造并出声）。
+
+    口径（判据 → `资料/普查产出_第三十会话/乙档六笔_判据查证.md` §`A1800`）：
+      · 候选 = ①官方英文名 ②真值 `m_Name` 尾巴 ③真值 `cardName`（名字**先用 `name`、再退 `ocrname`**）
+      · 过滤 = 真值 `cardArmy` == 本卡 `factionId`（**与源表 `factionId` 同口径**）；两边取不到才退回
+        「前缀 + 纯数字」那条
+      · 取谁 = **基准卡唯一** → 取它；否则**同阵营短 id 唯一** → 取它；否则**候选只剩一个** → 取它
+      · 其余（多个候选且不唯一）⇒ **None**（例：`Normal Conditions` 那族在真值里根本没有基准卡）
+    """
+    if not ix:
+        return None
+    keys = [k for k in (name, ocrname) if k]
+    cands, seen = [], set()
+    for tbl in ("by_official_en", "by_tail", "by_name"):
+        for k in keys:
+            for c in ix[tbl].get(_norm_name(k), []):
+                if c not in seen:
+                    seen.add(c)
+                    cands.append(c)
+    pre = PREFIX_OF.get(faction)
+
+    def _short(cid):
+        return bool(pre) and cid.startswith(pre) and cid[len(pre):].isdigit()
+
+    army = ix.get("army") or {}
+    same = [c for c in cands if faction_id is not None and army.get(c) == faction_id]
+    if not same:
+        same = [c for c in cands if _short(c)]
+    base = [c for c in same if c in ix["_base"]]
+    sh = [c for c in same if _short(c)]
+    if len(base) == 1:
+        return base[0]
+    if len(sh) == 1:
+        return sh[0]
+    if len(same) == 1:
+        return same[0]
+    return None
+
+
+# ============================================================================
+#  真值卡 SO 快照本体（`A1773` / `A1776` / `A1799` · P2 相，2026-10-15）
+# ============================================================================
+def load_truth_cards():
+    """读 `TRUTH_CARDS_SRC` → `({uniqueId: 原始行}, {归一化名: [uniqueId, …]})`。
+
+    取不到就返回两个空 dict 并**出声**（卡表照旧生成，只是所有真值列退化成 `-1`/空 —— 不许静默）。
+
+    ⚠️ 两条口径（都写死在这里，消费侧别再各判一次）：
+      · **键只认 `uniqueId`** —— 我们卡池里 1009/1127 张的 id 就是它（P1 相换过一次；
+        其余 118 张是 2025-07-30 之后的新卡，快照里本来就没有）。这是**已裁过的 join**，
+        见 `pick_truth_id` 的 docstring —— 本函数**不另开第二条 join**。
+      · 那个 `AddressablesBuildNumber` 元素没有 `uniqueId`，建键时自然被丢掉（不特判）。
+    """
+    if not os.path.exists(TRUTH_CARDS_SRC):
+        print(f"⚠️ 找不到真值卡 SO 快照 {TRUTH_CARDS_SRC} —— "
+              f"`armour`/`cardTraits`/A1799 那 10 列将**全空**、督军 `cost` 保持现状（⛔ 不猜）")
+        return {}, {}
+    with open(TRUTH_CARDS_SRC, encoding="utf-8") as f:
+        rows = json.load(f)
+    by_id, by_name = {}, {}
+    for r in rows:
+        uid = r.get("uniqueId")
+        if not uid:
+            continue
+        by_id[uid] = r
+        # 名字索引**只为「把这批被丢的卡归类」用**（`classify_discarded`）—— 不参与 id 解析。
+        # 收两条：`cardName` + `m_Name` 的尾段（`Z-NC BlackLegion-Warmaster` → `Warmaster`）。
+        for nm in (r.get("cardName"), (r.get("m_Name") or "").split("_")[-1]):
+            if nm:
+                by_name.setdefault(_norm_name(nm), []).append(uid)
+    print(f"真值卡快照   {len(by_id)} 行（源文件 {len(rows)} 个元素 · "
+          f"名字索引 {len(by_name)} 键）")
+    return by_id, by_name
+
+
+# 🔴 **真值 `CardTraits[].name` → 我们卡池里的**显示写法**。
+#   ⚠️ **这张表不是猜的** —— 每一条的取值都是**我们卡池 `keywords` 里已经在用的那个串**
+#   （2026-10-15 现算：拿 `_norm_name` 把两边归一之后逐个反查出来的，45 个 trait 里 42 个直接命中）。
+#
+#   🔴 **2026-10-15（`AD` 笔 · 卡牌线收口）就地订正（铁律 5）**：上面那句原来接着写
+#     「只有三个（`frenzied` / `rage` / `unstoppable`）卡池里一个都没用过 ⇒ 取惯例的 Title Case」
+#     —— **那个改法本身是错的**，三处都改了（后两个不再是猜测、第一个的猜法也不对）：
+#     · `frenzied` → **`Destroyer`**（**官方显示名**，判据 = 官方本地化表
+#       `Card_Trait/frenzied` = `Destroyer`/`毁灭者`；卡面 `SAU18 Skorpekh Destroyer` 亲读 =
+#       `Remnant. Destroyer. Flank`，**全图没有 `Frenzied` 这个字**）；
+#     · `rage` → **`Penitence`**（同据：`Card_Trait/rage` = `Penitence`/`忏悔`；卡面
+#       `SOR10 Sisters Repentia` 亲读 = `… 。` + `[骷髅图标] Penitence: Gain +2 ✊`）；
+#       ⚠️ 官方表里另有一条**化石键** `Card_Trait/frenzied_old` = `Frenzied` ⇒ 那是**改名史**的实据。
+#     · `unstoppable` → **`Unstoppable`**（**官方表里根本没有这条**：全 9441 条按词搜只有成就标题等命中；
+#       卡面 `SAU7 Canoptek Wraith` 亲读**也没印这个词**）。它保留 Title Case **不是「惯例」，是必需** ——
+#       引擎侧 `CardDef.Prefixes` 登记的就是字面量 `unstoppable`（`RuleCore.Unstoppable`），
+#       写成别的拼法会被 `KeywordTable.Normalize` 丢掉。⇒ **它没有官方显示名，这一格是「引擎的拼法」。**
+#   ⚠️ **这张表的键 = 真值枚举名，值 = 进 `keywords` / `cardTraits` 的字面串** —— 两张口径（下表的值
+#     与 `merge_truth_traits` 的 `unreg` 判据）**都按「值」走**，别一边按枚举名一边按显示名。
+TRAIT_DISPLAY = {
+    "agenda": "Agenda", "ambush": "Ambush", "armour": "Armour", "artifice": "Artifice",
+    "backlash": "Backlash", "blast": "Blast", "bloodThirst": "Blood Thirst",
+    "camouflage": "Camouflage", "cantAttack": "Can't Attack", "codex": "Codex",
+    "companion": "Companion", "concussive": "Concussive", "cruelty": "Cruelty",
+    "duty": "Duty", "ecstasy": "Ecstasy", "ephemeral": "Ephemeral", "flank": "Flank",
+    "flying": "Flying", "frenzied": "Destroyer", "longrange": "Long Range", "mob": "Mob",
+    "pray": "Pray", "rage": "Penitence", "rally": "Rally", "regeneration": "Regeneration",
+    "regiment": "Regiment", "remnant": "Remnant", "shield": "Shield", "shuriken": "Shuriken",
+    "slay": "Slay", "sniper": "Sniper", "stealth": "Stealth", "stimulation": "Stimulation",
+    "stomp": "Stomp", "strike": "Strike", "swarm": "Swarm", "synapse": "Synapse",
+    "talent": "Talent", "teleport": "Teleport", "tide": "Tide", "unstable": "Unstable",
+    "unstoppable": "Unstoppable", "uprising": "Uprising", "vanguard": "Vanguard",
+    "waystone": "Waystone",
+}
+
+# 🔴 **引擎 `CardDef.Prefixes` 里【没有登记】的 trait** —— 写进 `keywords` 会被
+#   `KeywordTable.Normalize` 返回 null ⇒ `Parse` 与 `CardDef` 构造函数**双双静默丢弃**
+#   （正是本工程「不许静默失败」红线，`CardDef.cs` 那几张表上一字一句写着的）。
+#   ⚠️ **键 = `TRAIT_DISPLAY` 的【值】归一化之后那个串**（`merge_truth_traits` 就是这么查的），
+#      ⛔ 不是真值枚举名 —— 改 `TRAIT_DISPLAY` 的值时必须同步看这里。
+#
+#   🔴 **2026-10-15（`AD` 笔 · 卡牌线收口）：本集合【已空】，下面三条历史留痕（铁律 5 就地订正）** ——
+#     原来这里有 `{"frenzied", "rage", "unstoppable"}`（`AD` 之前那笔留下的），判据是
+#     「现扫 `Prefixes`，45 个 trait 里有 4 个匹配不上」。
+#     🔴 **那条判据【过期了】** —— 引擎侧已于同日登记了这三个词
+#     （`Core/CardDef.cs` 的 `Prefixes`：`rage`→`Penitence` · `frenzied`→`Destroyer` ·
+#      `unstoppable`→`RuleCore.Unstoppable`；判据与影响面见 `资料/普查产出_第三十一会话/AB_接线批.md` §三）。
+#     ⇒ 生成器这一侧**必须跟着改**，否则「引擎认得 / 生成器仍排除」两处写法并存
+#       （`RuleEngine/Core/KeywordTable.Dropped` 从 3 变 0 之后，这里还把它们挡在外面）。
+#     ⚠️ **本集合仍然留着**（不是删掉）：它是**将来新 trait 的保险闸** —— 往 `TRAIT_DISPLAY`
+#        加一个引擎还没登记的名字时，先加到这里、让摘要**逐条报数**（`truth_traits_of` →
+#        `merge_truth_traits` 的 `skipped`），而不是静默写进 `keywords` 再被引擎丢掉。
+#     ⚠️ **本笔放行的后果（`AD` 已离线逐张量过，如实记）**：真值那一层会往 `keywords` 里追加
+#        `Destroyer` 10 张（**全是重名 ⇒ 被 `have` 挡下、0 张真追加**）、`Penitence` 4 张
+#        （`SOR8`/`SOR21`/`SOR10`/`SOR27`；`SOR32` 本来就有）、`Unstoppable` 1 张（`SAU7`）。
+#        引擎行为**不变**（那几张卡的效果是从 `Desc` 收的 —— `CardDef.CollectTriggerOps` ①，
+#        ⛔ 不靠 `Has()`），变的是 `Has(penitence)` 1→5 · `Has(unstoppable)` 0→1 与卡面关键词行。
+TRAIT_ENGINE_UNREGISTERED = set()
+
+
+def truth_traits_of(row):
+    """真值行的 `CardTraits` → **我们卡池惯用的显示写法列表**（`["Armour 1", "Long Range"]`）。
+
+    取值的三条口径：
+      · 读 **`CardTraits`**，⛔ **不读 `ShowTraits`** —— 实测（`A1748_原版trait真值.md` §6）
+        `ShowTraits` 非空只 **32** 张、而与它平行的 `CardTraits` 有 **650** 张，
+        且 `A1748` 那 18 张的 `ShowTraits` **全是空**（`CardTraits` 全非空）
+        ⇒ **「空 `ShowTraits`」≠「没有 trait」**，判「挂了什么」只能读 `CardTraits`。
+      · `_traitValue > 0` ⇒ 写成 `"<显示名> <值>"`（`Blast 2` / `Armour 1` / `Ecstasy 5`）；
+        `0` ⇒ **裸词**（原版「没写数字」，与卡面 `Armour` 那种写法一致）。
+        ⚠️ 引擎侧 `FirstNumber` 对裸词**兜底返回 1**（`CardDef.cs:4242` 那条）——那是引擎的既有取舍，本相不动。
+      · `name == "none"`（`_trait` 0，全快照 1 张）**丢掉**。
+    """
+    out = []
+    for t in row.get("CardTraits") or []:
+        nm = t.get("name")
+        if not nm or nm == "none":
+            continue
+        disp = TRAIT_DISPLAY.get(nm)
+        if disp is None:
+            disp = nm                      # 表里没有的新 trait：原样落，别猜显示写法
+        v = t.get("_traitValue")
+        v = int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0
+        out.append(f"{disp} {v}" if v > 0 else disp)
+    return out
+
+
+def merge_truth_traits(ocr_kw, trow):
+    """`keywords` 那一列的 **【权威序 第 1 层】真值铺底**（主对话已裁③，序表见下面的注释）。
+
+    🔴 **只补空、⛔ 不覆盖** —— 逐 trait 判：`keywords` 里**已经有的名字**（归一后比对）不碰，
+    只把**真值有、我们没有**的那些追加到**列表末尾**。
+    （追加在末尾是**我们挑的**：`keywords` 的先后序**本地没有判据**，而追加对既有显示扰动最小。）
+
+    🔴 **三条断言**（`施工设计 §七 已裁③` 点名要的两条 + 一条完整性；**跑完不变** ⇒ 违反就当场炸、
+    ⛔ 不落盘 —— 与 `_bad` 那条同一条口径「结构错不许静默写出去」）：
+      ⓐ **只补空**：追进去的每一条，在 OCR 层里都**不该**已经有（有就该被 OCR 覆盖）；
+      ⓑ **OCR 已有的原样保留**：真值里与 OCR 同名的那些，返回的列表里**必须还是 OCR 那个写法**
+         （不是被真值的写法换掉）；
+      ⓒ **完整性**：真值里每个「引擎认得的」trait，必须落在「已有 / 已追加 / 只因引擎不认而跳过」
+         三者之一 —— 漏一个就说明这一层静默吞了东西。
+
+    返回 `(新列表, 追加了哪些, 因引擎不认而跳过的哪些, 违例说明列表)`。
+    """
+    kw = list(ocr_kw or [])
+    _ocr_kw = list(ocr_kw or [])
+    have = {}
+    for k in kw:
+        have.setdefault(_norm_name(re.split(r"[:\d]", str(k).strip())[0]), str(k))
+    ocr_names = set(have)
+    unreg = {_norm_name(x) for x in TRAIT_ENGINE_UNREGISTERED}
+    added, skipped, bad = [], [], []
+    for t in truth_traits_of(trow):
+        nm = _norm_name(re.split(r"[:\d]", t)[0])
+        if nm in have:
+            continue                                # 已有 ⇒ OCR/卡面那一层说了算（不覆盖）
+        if nm in unreg:
+            skipped.append(t)                       # 引擎 Prefixes 没登记 ⇒ 写了也会被静默丢弃
+            continue
+        kw.append(t)
+        have[nm] = t
+        added.append(t)
+
+    # ---- ⓐ 只补空（**结构上不可能同时满足**的判据：追加的那几条不许是 OCR 层已有的）----
+    for t in added:
+        if _norm_name(re.split(r"[:\d]", t)[0]) in ocr_names:
+            bad.append(f"ⓐ 追加了 OCR 层已有的 `{t}` —— 应当被 OCR 覆盖、不该追加")
+    # ---- ⓑ OCR 已有的那几条必须【逐字原样】留在返回列表里（真值不许换掉它们的写法）----
+    if kw[:len(_ocr_kw)] != _ocr_kw:
+        bad.append(f"ⓑ OCR 层那 {len(_ocr_kw)} 条在返回列表里被改动了（前 N 条必须逐字原样）")
+    for t in truth_traits_of(trow):
+        nm = _norm_name(re.split(r"[:\d]", t)[0])
+        if nm in ocr_names and have.get(nm) is None:
+            bad.append(f"ⓑ 真值的 `{t}` 与 OCR 同名、却把 OCR 那条弄丢了")
+    # ---- ⓒ 完整性：真值每一条都必须有归宿（已有 / 已追加 / 只因引擎不认而跳过）----
+    _all_truth = truth_traits_of(trow)
+    _seen_norms = set()
+    for t in _all_truth:
+        nm = _norm_name(re.split(r"[:\d]", t)[0])
+        _seen_norms.add(nm)
+    _covered = len(added) + len(skipped) + len(ocr_names & _seen_norms)
+    if _covered != len(_all_truth):
+        bad.append(f"ⓒ 真值 {len(_all_truth)} 条 trait 只有 {_covered} 条有归宿"
+                   f"（OCR 已有 {len(ocr_names & _seen_norms)} · 追加 {len(added)} · 跳过 {len(skipped)}）")
+    return kw, added, skipped, bad
+
+
+def classify_discarded(name, ocr_name, by_name, rows):
+    """把「被整批丢掉的卡」按**真值**归类（`A1773` 的判别器那半）。
+
+    返回 `(判词, uid or None, 真值行 or None)`。判词四档（顺序有意义）：
+      · `未在快照` —— 快照里根本没有这张（快照 2025-07-30，多为环境/进攻卡）；
+        名字有**多条候选**时也走这一档（`同名 N 条候选，不猜`）—— ⛔ 不挑一条。
+      · `进攻/防御卡(另一条线)` —— `spellType ∈ {200 OffensiveCard, 210 DefensiveCard}`
+        （`Assembly-CSharp/SpellType.cs`，**施工设计点名的判别器**）或
+        `inventoryOptions == 5 (CantAddToDeck)` ⇒ 走 `工具/gen_offensive_cards.py` 那条线，不进主池；
+      · `非收藏(生成/附魔/教程副本)` —— `inventoryOptions == 10 (NotInInventory)`
+        （唯一的权威标志；🔬 这批的 `m_Name` 一律带 **`Z-NC`** 前缀 = 非收藏，教程副本还带 `_Tutorial_`）。
+        ⛔ **不拿 `cantBeRandomlyCreated` 当主判据** —— 它 149 张为 1、其中 73 张是短码可收藏卡。
+      · 🔴 `疑似误丢(真值是可收藏的卡)` —— 以上都不是 ⇒ **要人来判**（摘要里会逐张打出来）。
+    """
+    ids = []
+    for k in (name, ocr_name):
+        if k:
+            for uid in by_name.get(_norm_name(k), []):
+                if uid not in ids:
+                    ids.append(uid)
+    if not ids:
+        return "未在快照", None, None
+    if len(ids) > 1:
+        return f"未在快照(同名 {len(ids)} 条候选，不猜)", None, None
+    uid = ids[0]
+    row = rows.get(uid) or {}
+    inv = row.get("inventoryOptions")
+    inv = int(inv) if isinstance(inv, (int, float)) and not isinstance(inv, bool) else 0
+    spell = row.get("spellType")
+    spell = int(spell) if isinstance(spell, (int, float)) and not isinstance(spell, bool) else 0
+    # ① 先判「进攻/防御卡」——**这是施工设计点名的判别器**（`spellType`：200 OffensiveCard /
+    #    210 DefensiveCard），而且这一档**比「非收藏」更specific**：实测 `EC60`/`EC61`
+    #    两个 flag **都**成立（`spellType=210` 且 `inventoryOptions=5`），它们是**防御卡**、
+    #    已在我们池里（`Armoury of Excess` / `Decadent Throne`）⇒ 必须先归到这一档，否则会
+    #    被误报成「非收藏的生成卡」。⚠️ `inventoryOptions == 5 (CantAddToDeck)` 是同一条判据的第二形态。
+    if spell in (200, 210) or inv == 5:
+        return "进攻/防御卡(另一条线)", uid, row
+    # ② 再判「非收藏」—— **只看 `inventoryOptions == 10 (NotInInventory)`**（唯一的权威标志）。
+    #    ⛔ **不拿 `cantBeRandomlyCreated` 当主判据**：它 149 张为 1，其中 **73 张是短码卡**
+    #    （可收藏）⇒ 拿它判会把可收藏的卡误归成「非收藏」。它只作**旁证**打出来。
+    if inv == 10:
+        return "非收藏(生成/附魔/教程副本)", uid, row
+    return "🔴 疑似误丢(真值是可收藏的卡)", uid, row
+
+
+# ---- `A1799`：其余「有真值、我们在猜」的卡 SO 字段 → 卡表新列 -------------------------------
+# 判据原文 → `资料/普查产出_第二十七会话/allcards_未挖字段盘点.md` §2 与
+#            `资料/普查产出_第三十一会话/Q_A1770与A1799判据.md`「A1799」那张 12 行表。
+#
+# 🔴 **本笔只【落值】**（与施工设计对 `attackDamageType` 的定调一致）—— 这些列的**机制/消费者另立**：
+#   `attackDamageType` 是「补机制不是换数据」（我们引擎**整条没有伤害类型概念**，
+#   `RuleCore.cs:5745` 注释自陈）；其余各列同理。⛔ **本笔不把它们接进 `CardDef`**
+#   —— `CardDef` 住在 `RuleEngine/Core/`，不在本笔的改动白名单里。
+#
+# 🔴 **缺值一律 `-1`（整数）/ `""`（字符串），⛔ 不许拿 0 顶**（与 `inventoryOptions` /
+#   `initiative` 同一条口径）：真值快照是 2025-07-30 的、比现池旧，我们池里
+#   **118 张新卡快照里根本没有** —— 把「没数据」写成 `0` 就是静默把缺值当数据。
+#
+# 覆盖（2026-10-15 现算，分母 = 1009 张能在快照里按 id 找到的行）：
+#   attackDamageType 965 · cardShortId 831 · useOverDraw 572 · cantBeRandomlyCreated 149 ·
+#   expansionPack 181 · refNameId **0** · itemDescriptionKey 36 ·
+#   fullHeroSpriteReference 50（另有 `m_SubObjectName` 可读——见下面那条特判）·
+#   eventSpriteName 44 · targeted 212。
+A1799_FIELDS = (
+    # 我们的列名                   真值字段                              缺值  说明/出处
+    ("attackDamageType",        "attackDamageType",                     -1,
+     "`DamageType` 枚举（`Assembly-CSharp/DamageType.cs`）：`0 Normal` ×54（多为督军）·"
+     "`4 Attack` ×1138。⚠️ 我们引擎**没有伤害类型概念** ⇒ 本笔只落值。"
+     "原版消费点 = `GameStaticData__IsVulnerableDamage`（`(uint)(t-7) < 2`）+ `CardScript._ReceiveDamage:189-197`"),
+    ("cardShortId",             "cardShortId",                          -1,
+     "短数字 id（1…914、860 种、294 张为 0）。🔴 **⛔ 不许拿它当卡 id 换** —— "
+     "Q 现核：它与 `A970` 那套（= PnP 图文件名编号）**0/763 重合**，且按名引用在 `decomp_full` 全库 **0 处**。"
+     "实测形状 = 「标的是哪张卡、不是哪个卡 SO」（本体与 `(tutorial)` 副本同号），像内容作者的全局顺序号"),
+    ("useOverDraw",             "useOverDraw",                          -1,
+     "立绘**溢出卡框**的逐卡 opt-in（0/1）。原版消费点 = "
+     "`CardDisplayWindow__ChangeCardPosition.c:75-79` → `BasicCardUI.SetImageOverDraw`。"
+     "⚠️ `CardView.cs:1984,5330` 那句「值在服务器、我们拿不到」**已过期**（铁律 5）"),
+    ("cantBeRandomlyCreated",   "cantBeRandomlyCreated",                -1,
+     "「不能被随机生成」（0/1；301 张 = 1 = 228 张 GUID 卡 + 73 张短码卡）。"
+     "⚠️ **读取点没找到**（`allcards_未挖字段盘点.md` §四）⇒ 是不是 `CreatePool` 该用的闸门**未证**"),
+    ("expansionPack",           "expansionPack",                        -1,
+     "`CardExpansionType` 枚举桩齐（10 LevaithanDrop1 … 80 DarkAngelsDrop1）；201 张非 0（13 种）、"
+     "0 = 基础（993 张）。用途（商店/卡包/收藏筛选）另接"),
+    ("refNameId",               "refNameId",                            "",
+     "卡名的 I2 键后缀（`Card_Name/<值>`）⇒ **这 70 张的显示名 ≠ `cardName`**"
+     "（例 `cardName`=`Normal Conditions (Black Legion)`、显示 =「Normal Conditions」）。"
+     "⚠️ **本列在现池全空** —— 那 70 条**全在 GUID 卡上**，而它们在 P1 相没进我们池（Q 现核）"),
+    ("itemDescriptionKey",      "itemDescriptionKey",                   "",
+     "卡面「说明行」的 I2 键。现读只有两种：`Item_Description/OffenceCardExplanation`（进攻卡，"
+     "「可选效果…先手可选激活」×47）与 `…/DefenceCardExplanation`（防御卡，「后手加入起手牌」×36）"
+     "——**中文已在官方表里**（`itemDescriptionKey` 消费者可用）"),
+    ("fullHeroSpriteReference", "fullHeroSpriteReference",              "",
+     "督军**整幅立绘**引用的 `m_AssetGUID`（59 张；我们池命中 50）。"
+     "⚠️ 有 `m_SubObjectName` 时优先写它（实测 `UI_Deck_…`），否则写 GUID 本身。"
+     "🔴 **资产名解析不了**：`guid_map.tsv` 那 9 类引用里**没含它**（命中 0/59）—— 要另跑一次"
+     "`工具/_guid_resolve_probe.py` 才拿得到文件名（⛔ 本笔不猜）"),
+    ("eventSpriteName",         "eventSpriteName",                      "",
+     "督军「事件」立绘的 sprite 名。⚠️ **54 张值全同** = `Warlord_events_Loken` ⇒ 多半是**图集名**、"
+     "单图按 id 取（语义**未查清**，`allcards_未挖字段盘点.md` §四）—— 本笔只落值"),
+    ("targeted",                "targeted",                             -1,
+     "这张牌**要选目标**（0/1；218 张 = 1）。⚠️ 我们**从效果解析推**（`SimpleAI` 引 "
+     "`EntityScript__get_targeted`）—— 两者是否等价**未核**，所以本笔只落值、⛔ 不替换现有推断"),
+)
+
+
+def truth_int(row, key, default=-1):
+    """真值行的整数列 → int（缺/非数字 → `default`）。"""
+    v = (row or {}).get(key)
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return default
+    return int(v)
+
+
+def truth_ref_name(row, key):
+    """真值行的「引用」列（PPtr 或字符串）→ 字符串。
+
+    PPtr 形状（`{m_AssetGUID, m_SubObjectName, m_SubObjectType}`）优先取 `m_SubObjectName`，
+    没有再取 `m_AssetGUID`（`fullHeroSpriteReference` 只有 GUID、没有资产名 —— 见上表那条说明）。
+    """
+    v = (row or {}).get(key)
+    if isinstance(v, dict):
+        sub = (v.get("m_SubObjectName") or "").strip()
+        if sub:
+            return sub
+        return (v.get("m_AssetGUID") or "").strip()
+    return "" if v is None else str(v).strip()
 
 
 # ============================================================================
@@ -855,12 +1313,17 @@ def load_official_cardname():
 
 
 def official_name(by_id, by_en, cid, name, faction, conflicts):
-    """一张卡的官方中文名（两级查，见 `load_official_cardname`）→ `(值 or None, 命中路)`。"""
+    """一张卡的官方中文名（两级查，见 `load_official_cardname`）→ `(值 or None, 命中路, 官方键 or None)`。
+
+    🔴 **第三个返回值（官方键）是 `A1763` 数据层要的**：官方表里 `Card_Name/*` 与
+    `Card_Description/*` **共用同一个键空间**（都是卡 id / 32 位 GUID）⇒ 这里解出来的那个键
+    就是去 `Card_Description/` 查描述的钥匙（否则那 147 个 GUID 键的卡一张都查不到）。
+    """
     if cid in by_id:
-        return by_id[cid], "id"
+        return by_id[cid], "id", cid
     cands = by_en.get(name)
     if not cands:
-        return None, None
+        return None, None, None
     if len(cands) > 1:
         vals = {z for _k, z in cands}
         if len(vals) > 1:
@@ -870,8 +1333,61 @@ def official_name(by_id, by_en, cid, name, faction, conflicts):
         for _k, _z in cands:
             m = re.match(r"^([A-Za-z]+?)(?:_|[0-9]|$)", _k)
             if m and m.group(1).upper() == pre:
-                return _z, "en"
-    return cands[0][1], "en"
+                return _z, "en", _k
+    return cands[0][1], "en", cands[0][0]
+
+
+def load_official_desc():
+    """原版**官方中文卡面描述**（`A1763` 的数据层）→ `(by_id, bad, stats)`。见 `OFFICIAL_LOC_SRC`。
+
+    键空间 = `Card_Description/*`（`AM12`/`ASH83` 这种短 id，另有 **147 个 32 位 GUID 键**）
+    —— 与 `Card_Name/*` **同源**（判据：现读 `Card_Description` 里那 147 个 hex 键
+    全部也在 `Card_Name` 里）⇒ 取值的钥匙一律先用 `official_name()` 解出来的**官方键**，
+    再拿它查这张表（`build()` 里那一段）。
+
+    🔴 **值不成立的那 181 条必须挑出来**（与 `load_official_cardname` 的 `AM24 = "u"` 同一条纪律）：
+    官方表里有一批**被截断的**条目 —— 现读全表 1098 条里 **181** 条的值**就是单个字符**：
+    `(` **91** 条 · `[` **89** 条 · `N`/`o` **1** 条（`5c4d9e78…`）。EN 列与 zh-CN 列**同时**是这样
+    （181 条**两边都** ≤ 4 字符，没有「只有一边坏」的）⇒ ⛔ 照搬会把卡面印成一个 `(`。
+    判据写成「去空白后**短于 3 个字符**」：实测**恰好**命中这 181 条、一条不多一条不少
+    ⇒ **可用 = 1098 − 181 = 917**，与 `资料/普查产出_第三十一会话/C_远端判据重判.md` §〇
+    写死的「`Card_Description/*` **1098 键 / 917 非空**」**逐字吻合**（那 181 条就是它说的「空」）。
+
+    ⚠️ **不拿「值里没有汉字」当判据**：官方正文是**模板层**，有一大批值整条只有记号
+    （例 `ASH6` = `[[waystone]]。[[stealth]]。[[sniper]]`，393 条无汉字）—— 那是**正常值**。
+    """
+    if not os.path.exists(OFFICIAL_LOC_SRC):
+        print(f"⚠️ 找不到官方中文表 {OFFICIAL_LOC_SRC} —— `descZh` 将只有 `zh_cards.json` 那一份自译")
+        return {}, [], None
+    terms = json.load(open(OFFICIAL_LOC_SRC, encoding="utf-8")).get("terms") or {}
+    by_id, bad = {}, []
+    for k, v in terms.items():
+        if not k.startswith("Card_Description/"):
+            continue
+        _id = k[len("Card_Description/"):]
+        zh = ((v[1] if len(v) > 1 else "") or "").strip()
+        if len(zh) < 3:
+            bad.append((_id, (v[0] if len(v) > 0 else "") or "", zh))
+            continue
+        by_id[_id] = zh
+    stats = {"terms": sum(1 for k in terms if k.startswith("Card_Description/")),
+             "ok": len(by_id), "bad": len(bad),
+             "guid": sum(1 for k in by_id if re.fullmatch(r"[0-9a-f]{32}", k))}
+    print(f"官方中文效果 `Card_Description/*` {stats['terms']} 条（可用 {stats['ok']} · GUID 键 {stats['guid']} ·"
+          f" 值不成立丢弃 {stats['bad']}）")
+    _bc = {}
+    for _id, _en, _zh in bad:
+        _k = "(" if _zh == "(" else ("[" if _zh == "[" else "其它")
+        _bc[_k] = _bc.get(_k, 0) + 1
+    if bad:
+        print(f"            ⚠️ 官方值**被截断**、整条丢弃 {len(bad)} 条（"
+              + " · ".join(f"{k!r}×{n}" for k, n in sorted(_bc.items())) + "）"
+              " —— 这些卡保持我们自译（⛔ 照搬会把卡面印成一个 `(`）")
+        for _id, _en, _zh in bad[:6]:
+            print(f"            · `Card_Description/{_id}` = ({_en!r}, {_zh!r})")
+        if len(bad) > 6:
+            print(f"            … 其余 {len(bad) - 6} 条同理")
+    return by_id, bad, stats
 
 
 def norm_int(v):
@@ -905,6 +1421,21 @@ def build():
     zh = load_zh()
     # 🆕 2026-10-14（`A1801`）：**官方中文卡名**（`OFFICIAL_LOC_SRC`）—— 它在下面**盖掉自译**。
     off_id, off_en, off_bad, off_stats = load_official_cardname()
+    # 🆕 2026-10-15（P3 相 · `A1763` 数据层）：**官方中文卡面描述**（`Card_Description/*`）——
+    #    它灌进 `descZh`，插在 `zh_cards.json`（自译）之后、`cardface_fixes.descZh`（人工）**之前**。
+    #    为什么要它：`nameZh` 2026-10-14（`A1801`）已经换成官方了，而 `descZh` 还是我们自译
+    #    ⇒ **同一张卡现在中英自相矛盾**（官方中文卡名 + 自译中文效果）⇒ 本笔把 `descZh` 也换成官方的。
+    #    ⚠️ 口径（已裁，`资料/任务_卡组卡牌战斗.md:289`）：**只换 `descZh`、`desc` 不动**
+    #    （`desc` 是引擎唯一的解析输入；`descZh` 全仓无一处进解析器）。
+    off_desc_by_id, off_desc_bad, off_desc_stats = load_official_desc()
+    off_desc_hit = []     # (卡id, 英文名, 换前, 换后, 命中路) —— 真换掉的
+    off_desc_same = []    # 官方值 == 我们自译（不必动）
+    off_desc_miss = []    # 两级都查不到（含「官方值被截断」那 181 条）→ 保持自译，**要出声**
+    # 🔴 `descZh` 三个写手的**顺序断言**的违例（人工值必须最终生效）——
+    #    非空 ⇒ 当场炸、一个字节都不写（与 `_bad` 同一条口径）。
+    desc_zh_order_violations = []
+    man_desc_total = 0    # 人工 `descZh` 里**真匹配到卡**的条数
+    man_desc_ok = 0       # 其中**最终生效**的条数（== total 才算层序对）
     off_hit = []          # (卡id, 英文名, 换前, 换后, 命中路) —— 真改掉的那些
     off_same = []         # 官方值 == 我们自译（不需要动）
     off_miss = []         # 两级都没查到 → 保持自译（**要出声**，见跑完的摘要）
@@ -920,7 +1451,27 @@ def build():
     raw_def = load_warlord_defence()        # 督军后手那张防御卡（原版真值，见 `DEFENCE_SRC` 那段）
     raw_inv = load_inventory_options()      # 卡能不能进卡组（原版真值，见 `INV_SRC` 那段）
     raw_init = load_initiative()            # 先后手用的先攻值（原版真值，见 `INIT_SRC` 那段）
+    # 🆕 2026-10-15（P2 相 `A1773`/`A1776`/`A1799`）：**真值卡 SO 快照本体**（见 `TRUTH_CARDS_SRC` 那段）。
+    # 键只认 `uniqueId` —— 与我们卡池 id 是**同一套**（P1 相换过一次），所以 `truth_cards.get(cid)`
+    # 就是那份**已裁过的 join**，本相不另开第二条。
+    truth_cards, truth_by_name = load_truth_cards()
+    truth_hit = 0                           # 能在快照里按 id 找到的卡（跑完打出来 —— 它是各列的覆盖率分母）
+    kw_truth_filled = []                    # (卡id, 追加了哪些 trait) —— **真值铺底**那一层的读数
+    kw_truth_skipped = []                   # (卡id, 卡名, 跳过了哪些) —— 引擎 Prefixes 不认的那三个 trait
+    kw_truth_wiped = []                     # (卡id, 卡名, 被更高层换掉的) —— 规则内、但**要看得见**
+    # 🔴 `keywords` 权威序（已裁③）的**三条断言**的违例（见 `merge_truth_traits`）——
+    #    非空 ⇒ **当场炸、一个字节都不写**（与 `_bad` 同一条口径：结构错不许静默写出去）。
+    kw_order_violations = []
+    armour_src_pnp = []                     # `armour > 0` 且值来自 **PnP**（我们的 keywords/desc）
+    armour_src_truth = []                   # `armour > 0` 且值来自 **真值兜底**（PnP 那一层没读到）
+    hero_cost_from_truth = []               # 督军 `cost` 被真值改掉的（`A1773` + 已裁④）
+    hero_cost_kept = []                     # 督军 `cost` 没真值可依、保持现状的（要出声）
+    discarded_hasstats = []                 # 被 `hasStats=false` 整批丢的那批 → 跑完按真值归类
     id_orig, id_made = [], []               # 用上原版 id 的 / 自造 id 的（跑完打出来给人看）
+    # 🆕 2026-10-14（P1 相 · `A1782`/`A1800`）：走【真值索引】那一层拿到 id 的（见 `TRUTH_IDX_SRC` 那段）。
+    # 单列一份只为把「这一层救回多少张」打在摘要里 —— 它是 id 置换那批账的验收读数。
+    id_truth = []
+    truth_idx = load_truth_index()
     inv_unknown = []                        # `inventoryOptions` 真值查不到的卡（`A1798`，跑完打出来）
     init_unknown = []                       # `initiative` 真值查不到的卡（`A1775`，跑完打出来）
     cards, skipped = [], []
@@ -941,6 +1492,11 @@ def build():
             continue
         if not c.get("hasStats") and norm_str(c.get("name")).strip() not in STATS_EXCEPTIONS:
             skipped.append((norm_str(c.get("name")), "无数值(hasStats=false)"))
+            # 🆕 2026-10-15（`A1773`）：这批**不再只是一句「丢掉了」** —— 记下来，
+            #    跑完用真值逐张归类（判别器 = `spellType` + `inventoryOptions`/`cantBeRandomlyCreated`，
+            #    见 `classify_discarded`）。目的是把「真卡被误丢」这件事变成**可复核的读数**。
+            discarded_hasstats.append((norm_str(c.get("name")), norm_str(c.get("faction")),
+                                       norm_str(c.get("type")), norm_str(c.get("ocrName"))))
             continue
         if ctype not in TYPES:
             skipped.append((norm_str(c.get("name")), "未知类型 " + ctype))
@@ -1010,23 +1566,108 @@ def build():
             if "health" in fix: health = fix["health"]
             if "ranged" in fix: ranged = fix["ranged"]
 
-        # ---- 稳定 id（2026-09-13 第三十三轮）----
-        # **优先用原版 id**：按「归一化卡名」查表，再按**本卡的阵营**在前缀上挑一个。
-        # 这一步同时解决了跨阵营重名 —— `Aggressor` / `Terminator` / `Terminator Champion` /
-        # `Maulerfiend` 四组同名卡各有各的 id（例：`Terminator Champion` = `BL44` 或 `EC33`）。
-        # 挑不出（表里没有这张 / 同名候选 >1 个）就**自造**，并记进 `id_made` 由跑完的报告列出 ——
-        # **不许静默**：自造意味着「这张卡没有原版 id」，下游要能一眼看出来。
+        # ---- 稳定 id（2026-09-13 第三十三轮 · 2026-10-14 P1 相加了真值索引那一层）----
+        # **① 先查真值索引**（`TRUTH_IDX_SRC` 那段长注释 —— 它管三类老路查不到的卡：
+        #    美术名 ≠ 原版名 / GUID 形 id / 同名组里的副本）。判据只有真值侧有，所以那一层是索引。
+        # **② 再走老路**：按「归一化卡名」查 `card_ids.json`，再按**本卡的阵营**在前缀上挑一个。
+        #    这一步仍然解决跨阵营重名 —— `Aggressor` / `Terminator` / `Terminator Champion` /
+        #    `Maulerfiend` 四组同名卡各有各的 id。
+        # **③ 两条都挑不出**（快照之后的新卡 / 表里没有这张 / 同名候选 >1 个）就**自造**，并记进
+        #    `id_made` 由跑完的报告列出 —— **不许静默**：自造意味着「这张卡没有原版 id」。
         faction = norm_str(c.get("faction"))
-        cid = pick_id(id_by_name.get(_norm_name(name), []), faction)
+        cid = pick_truth_id(truth_idx, faction, norm_int(c.get("factionId")),
+                            name, norm_str(c.get("ocrName")))
         if cid:
-            id_orig.append((cid, name, faction))
+            id_truth.append((cid, name, faction))
         else:
-            cid = make_id(faction, name)
-            id_made.append((cid, name, faction))
+            cid = pick_id(id_by_name.get(_norm_name(name), []), faction)
+            if cid:
+                id_orig.append((cid, name, faction))
+            else:
+                cid = make_id(faction, name)
+                id_made.append((cid, name, faction))
         if cid in _seen_ids:
             # id 撞了 = 稳定 id 这件事本身就塌了，**当场炸**，别生成一份带重复 id 的卡表
             sys.exit(f"❌ id 撞车：{cid}（{name} / {faction}）—— 自造规则要改，不能把重复 id 写进卡表")
         _seen_ids.add(cid)
+
+        # ---- 🆕 2026-10-15（P2 相）：本卡对应的**真值行**（`TRUTH_CARDS_SRC` 那段）--------------
+        # 取法 = **按 id 直查**（我们卡池 id 与真值 `uniqueId` 是同一套，P1 相换过）。
+        # 查不到 ⇒ `trow = None` ⇒ 所有真值列走**缺值**（`-1`/`""`），**不许拿 0 顶**。
+        trow = truth_cards.get(cid)
+        if trow is not None:
+            truth_hit += 1
+
+        # ---- 🆕 `A1773`：督军 `cost` —— **PnP 不印，所以照真值**（已裁④ + 已裁⑥）--------------
+        # 🔬 **PnP 在这一点上是空的、不是矛盾的**：2026-10-15 亲开 `Anvirr Keltoc` 的成品图
+        #    （`Aeldari/1督军/Warpforge_1_Anvirr-Keltoc.png`）—— 右上角是**阵营徽记**
+        #    （深绿圆盘里的 Saim-Hann 蛇纹），**根本没有费用六边形**。当年 OCR 把它读成了 `5`，
+        #    `施工设计 §七 已裁⑥` 那句「`Anvirr Keltoc` 却印 5」就是**照这处 OCR 误读写的**（已订正）。
+        #    ⇒ 与 `STAT_FIXES` 里 2026-09-14 那条「56/56 无蓝色费用六边形」**一致**。
+        # 判据（`项目任务.md:498-516` 的对抗性验证）：`manaCost` 是**序列化字段**（整条继承链
+        #    四个环节没有一个把它读成 0/忽略）、`CardScript__UpdateCostText` 对**任何**卡无条件
+        #    `SetText(cost)=CurrentCost`、原版只是**显示侧**在 `IsWarlordEquivalent` 时把它藏起来
+        #    （`BasicCardUI__SetRawCardData.c:51,81,84` 的 `Toggle(costCtrl,false)`）。
+        # ⇒ **`cost=2` 是真值，`0` 是我们当年为了「卡面不显示」而选的表达** —— 而显示侧已经由
+        #    `A2006①` 接掉了（`CardView.ShowsCost` = `cost >= 0 && type != "hero"`），
+        #    ⇒ 现在改数据**不会**让督军在卡面/卡组行印出费用。
+        if ctype == "hero":
+            _mc = truth_int(trow, "manaCost") if trow is not None else -1
+            if _mc >= 0:
+                if _mc != cost:
+                    hero_cost_from_truth.append((cid, name, cost, _mc))
+                    cost = _mc
+            else:
+                hero_cost_kept.append((cid, name, faction, cost))
+
+        # ---- 🆕 `A1776`：`keywords` 那一列的落位（**权威序抄在这里，别再另写一份**）----------
+        # 主对话已裁③（`施工设计 §七`）—— **从低到高，后面的赢**：
+        #   ① 真值 `CardTraits`（**本处**）        —— 🔴 **只补空**：OCR 那格为空时才填，⛔ 不覆盖已有值
+        #   ② OCR 源表（`card_stats.json`）        —— `_kw_ocr`，现状不动
+        #   ③ `cardface_fixes.json` 的 `keywords`  —— 下面 `_ff` 那一段（阵营键 > 裸键）
+        #   ④ `fix_own_armour` 正则追加            —— 下面 `fix_own_armour(entry)`
+        #   ⑤ `_manual_keywords`（人工最终裁定）   —— 由 `gen_cardface_fixes.py` 落进第 ③ 层，**最高**
+        # **为什么真值在最低**（三条，都已核）：① 它是 2025-07-30 的老快照，**SW/UM/DA 等后来加的
+        #   内容根本不在里面** ⇒ 拿它当高权威会把新卡的 `keywords` 抹空；② 它自己覆盖率就不全
+        #   （`CardTraits` 非空 650 · `ShowTraits` 非空只 32）；③ 本仓铁律 7 —— **卡面（PnP 成品图）
+        #   的关键词图标才是「内容」层的尺子**，逐张看图抄的第 ③ 层本来就该压过老快照。
+        # 配套断言在 `RuleEngineTest`（主对话侧）：①「真值填的值，在 OCR 也有的那张卡上被 OCR 覆盖」
+        #   ②「OCR 为空的卡上保留真值」—— 本处的实现形状保证了这两条（逐 trait 只补空）。
+        _kw_ocr = norm_list(c.get("keywords"))
+        _kw_filled, _kw_added, _kw_skip, _kw_bad = merge_truth_traits(_kw_ocr, trow or {})
+        kw_order_violations.extend((cid, name, m) for m in _kw_bad)
+        if _kw_added:
+            kw_truth_filled.append((cid, name, _kw_added))
+        if _kw_skip:
+            kw_truth_skipped.append((cid, name, _kw_skip))
+
+        # ---- 🆕 `A1776`：`cardTraits` 列（真值 `CardTraits` 全量，显示写法）-----------------
+        # 🔴 与 `keywords` **不是一回事**：这一列**不喂引擎**，是**纯落值**（判「原版挂了什么」用）。
+        #    ⚠️ **2026-10-15（`AD` 笔）就地订正（铁律 5）**：本行原来写
+        #      「⇒ 它可以带上引擎 `Prefixes` 不认的那三个（`Frenzied`/`Rage`/`Unstoppable`），
+        #        而 `keywords` 里没有它们」—— **两句都不再成立**：引擎已登记那三个词
+        #      （`AB_接线批.md` §三），`TRAIT_ENGINE_UNREGISTERED` 已清空 ⇒ **两列今天都带得上它们**。
+        #    🔴 本列的**取值口径 = `TRAIT_DISPLAY` 的【值】**（与 `keywords` 追加的那条**同一个串**）——
+        #      所以 `Frenzied`/`Rage` 现在**写的是卡面字** `Destroyer`/`Penitence`（官方显示名），
+        #      ⛔ 不再是真值枚举名。**要判「真值枚举名是什么」看 `CardTraits[].name`，不是看本列。**
+        # ⚠️ **读 `CardTraits`、⛔ 不读 `ShowTraits`** —— 理由见 `truth_traits_of` 的 docstring。
+        _traits = truth_traits_of(trow) if trow is not None else []
+
+        # ---- 🆕 `A1776`：`armour` 列 —— **护甲值与 trait 解耦** --------------------------
+        # 值先取 **PnP 那一层**（`keywords` 里的 `Armour N`，来源 = OCR + `cardface_fixes` +
+        # 下面 `fix_own_armour` 从 `desc` 正则补的）；PnP 那一层读不到才退**真值 `armour` 字段**。
+        #   ① **P 优先**（已裁⑥）：实测 13/13 逐张开图 —— `Abominant`/`Hulking Aberrant`/
+        #      `Rukkatrukk Squigbuggy` 三张 PnP 卡底**银盾都印着 `1`**，而快照 `armour = 0`。
+        #   ② 图上有银盾、而 `desc` 又没以 `Armour N` 开头时，`fix_own_armour` 读不到 ⇒ 真值兜底。
+        #   ⚠️ 真值 `armour` 只 **62** 张 >0（46×1 · 15×2 · 1×3），而 PnP 那一层读出 **65** 张
+        #      ⇒ 实测两条**同一方向**（PnP ⊇ 真值，3 张差额就是上面那三张），所以兜底那支**今天一次都不触发** ——
+        #      `armour_src_truth` 的条数会如实打成 **0**（不是没接，是没得兜）。
+        _armour_pnp = 0
+        for _k in _kw_filled:
+            _m = re.search(r"armou?r\s*(\d+)", str(_k), re.I)
+            if _m:
+                _armour_pnp = int(_m.group(1))
+                break
 
         entry = {
             "id":       cid,
@@ -1036,7 +1677,7 @@ def build():
             "attack":   attack,
             "health":   health,
             "ranged":   ranged,
-            "keywords": norm_list(c.get("keywords")),
+            "keywords": _kw_filled,
             "desc":     norm_str(c.get("desc")),
             "faction":  norm_str(c.get("faction")),
             "rarity":   rarity,
@@ -1049,6 +1690,13 @@ def build():
             #      —— 规则书附录 C 的骰子查找表就是按 subtype 分组的
             # 覆盖：1212 张里 1117 张有值（95 张没有，多半是 token / 未实装卡）
             "subtype":  norm_str(c.get("subtype")),
+            # ---- 🆕 2026-10-15（`A1776`）：`armour` / `cardTraits` -------------------------
+            # `armour` = **数值**（`Armour N` 关键词里的那个 N 的**一等公民**版本）——
+            #   用途是「护甲值别再去 `keywords` 里正则捞」（`A1776` 的「与 trait 解耦」）。
+            #   ⚠️ **消费者还没切**：引擎今天仍读 `KwValue("armour")`（`Core/` 的两个读点，
+            #   本笔白名单外）⇒ 本列**现在不改变任何结算**，只是把值落下来。
+            "armour":   _armour_pnp,
+            "cardTraits": _traits,
         }
         # ---- 卡能不能进卡组（原版 `inventoryOptions` / `showInCollectionOptions`，`A1798` 2026-10-14）----
         # 🔴 **原版真值直搬**（`工具/gen_card_inventory_options.py` 四级定位出来的），本处**一个字不推**。
@@ -1069,6 +1717,15 @@ def build():
         entry["initiative"] = int(_init)
         if _init < 0:
             init_unknown.append((cid, norm_str(c.get("name")), norm_str(c.get("faction"))))
+        # ---- 🆕 `A1799`：其余「有真值、我们在猜」的卡 SO 字段（2026-10-15）------------------------
+        # 🔴 **本笔只落值** —— 这 10 列**现在没有任何消费者**（机制/接线另立，见 `A1799_FIELDS` 那段）。
+        #    缺值一律 `-1`（整数）/ `""`（字符串）—— ⛔ 不许拿 0 顶（`0` 多半是**合法取值**：
+        #    `attackDamageType=0` 是 `Normal`、`useOverDraw=0` 是「不溢出」）。
+        for _col, _tf, _dflt, _doc in A1799_FIELDS:
+            if _dflt == "":
+                entry[_col] = truth_ref_name(trow, _tf)
+            else:
+                entry[_col] = truth_int(trow, _tf, _dflt)
         # ---- 卡面逐张核对修正（2026-09-13）----
         # 上面那两列 `subtype` / `keywords` 都是**从 OCR 那份源表来的**，实测会串列、会掉数值。
         # 这一层用「1118 张逐张看卡图独立抄」的结果盖掉 —— 见 `CARD_FACE_FIXES_SRC` 的长注释。
@@ -1111,6 +1768,32 @@ def build():
                 face_fixed.append((name, "desc", entry["desc"], _ff["desc"]))
                 entry["desc"] = _ff["desc"]
         fix_own_armour(entry)          # 补「卡自己的护甲」—— 源数据漏了一批，见那个函数
+        # ---- 🆕 `A1776`：`armour` 列的**最终值**（在 `fix_own_armour` 之后算，它也会追加 `Armour N`）----
+        # 口径 = **P（PnP 那一层）优先，真值兜底**（已裁⑥；理由与实测见上面 `_armour_pnp` 那段注释）。
+        _armour_pnp = 0
+        for _k in entry["keywords"]:
+            _m = re.search(r"armou?r\s*(\d+)", str(_k), re.I)
+            if _m:
+                _armour_pnp = int(_m.group(1))
+                break
+        _armour_truth = truth_int(trow, "armour", 0) if trow is not None else 0
+        if _armour_pnp > 0:
+            entry["armour"] = _armour_pnp
+            armour_src_pnp.append((cid, name, _armour_pnp, _armour_truth))
+        elif _armour_truth > 0:
+            # PnP 那一层没读到（`desc` 不以 `Armour N` 开头、关键词里也没有）⇒ 退真值。
+            # ⚠️ 今天**一次都不触发**（PnP ⊇ 真值，见上面那段）—— 留着是因为「PnP 读不到」是
+            #    由**我们的读法**造成的（只认段首），真值兜底比留 0 诚实。
+            entry["armour"] = _armour_truth
+            armour_src_truth.append((cid, name, _armour_truth))
+        # ---- 🆕 `A1776`：真值铺底那一层**被更高层盖掉了多少**（**不许静默**）----------------
+        # 权威序里 ③④⑤ 都在 ① 上面，所以「① 填了、③ 又整列换掉」是**规则内的**行为 ——
+        # 但必须**看得见**：跑完打出来（`_manual_keywords` 是人工最终裁定，它换掉是真值该让位）。
+        if _kw_added:
+            _have_now = {_norm_name(re.split(r"[:\d]", str(k).strip())[0]) for k in entry["keywords"]}
+            _gone = [t for t in _kw_added if _norm_name(re.split(r"[:\d]", t)[0]) not in _have_now]
+            if _gone:
+                kw_truth_wiped.append((cid, name, _gone))
         # 中文（有才写：没翻译的卡面自动回英文，不写空串进来白占体积）
         # 🔴 先查**改名别名**（见 `ZH_NAME_ALIAS` 的注释）：中文表里还留着**改名前**的键，
         #    按新名查会落空 ⇒ 卡面印英文名（实测 6 张，全是刚改名/补录的那批）。
@@ -1125,7 +1808,7 @@ def build():
         #    ⚠️ 两级查法是**必需**的，⛔ 不能只按 id：官方表是 2025-07-30 快照，之后原版还出过新卡，
         #       那批的 `Card_Name` 键是 32 位 GUID、**对不上我们的卡 id** ⇒ 要走**英文名桥**
         #       （拿卡名去官方表里找英文值相同的那一条）。现读命中 974（id 837 + 英文名补 137）。
-        _ozh, _ovia = official_name(off_id, off_en, cid, name, faction, off_conflict)
+        _ozh, _ovia, _okey = official_name(off_id, off_en, cid, name, faction, off_conflict)
         if _ozh is None:
             off_miss.append((cid, name, entry.get("nameZh") or ""))
         elif _ozh == (entry.get("nameZh") or ""):
@@ -1133,10 +1816,51 @@ def build():
         else:
             off_hit.append((cid, name, entry.get("nameZh") or "", _ozh, _ovia))
             entry["nameZh"] = _ozh
+        # ==========================================================================================
+        #  🆕 2026-10-15（P3 相 · `A1763` 数据层）：**官方中文卡面描述**灌进 `descZh`
+        # ==========================================================================================
+        # 🔴 **`descZh` 一列一共 3 个写手，本层插在【第 2 位】**（从低到高，**后面的赢**）：
+        #
+        #   | 序 | 写手 | 在哪 | 为什么在这个位置 |
+        #   |---|---|---|---|
+        #   | ① | `数据/卡牌翻译/zh_cards.json`（**我们自译**） | 上面 `for k, v in zh.get(...)` 那一段 | 兜底：官方表里查不到这张卡时才用它 |
+        #   | ② | **官方表 `Card_Description/*`**（**本层**） | 这里 | 权威 —— 与 `A1801` 把 `nameZh` 换官方是**同一把尺子** |
+        #   | ③ | `cardface_fixes.json` 的 `descZh`（**逐张 PnP 核过的人工值**） | 紧接本层之后那三行 | **最高**（铁律 7：PnP 成品卡图是尺子） |
+        #
+        # 🔴 **本层必须排在 ③【之前】** —— 反过来排会把那个人工值**静默盖掉**
+        #    （`资料/普查产出_第三十会话/卡表块_施工设计_1014.md` §五·10 点名的坑）。
+        #    现读 ③ 有 **251** 条（`cardface_fixes.json` 的 `descZh` 是 251 个叶子键 ——
+        #    账面写的 248 是旧读数，**2026-10-15 现数 251**）。下面紧跟一条**结构断言**钉死这件事。
+        #
+        # ⚠️ **取值钥匙 = `official_name()` 解出来的那个官方键**（`Card_Name/*` 与
+        #    `Card_Description/*` **共用同一个键空间**）—— 那 147 个 GUID 键的卡只有走这条路才查得到。
+        #    先按我们的卡 id 直查一次（现读能中 1004 张），直查不到再退回官方键。
+        _dkey = cid if cid in off_desc_by_id else (_okey if (_okey in off_desc_by_id) else None)
+        _ozd = off_desc_by_id.get(_dkey) if _dkey else None
+        if _ozd is None:
+            off_desc_miss.append((cid, name, entry.get("descZh") or ""))
+        elif _ozd == (entry.get("descZh") or ""):
+            off_desc_same.append((cid, name))
+        else:
+            off_desc_hit.append((cid, name, entry.get("descZh") or "", _ozd,
+                                 "id" if _dkey == cid else "官方名键"))
+            entry["descZh"] = _ozd
         # ⚠️ `descZh` 的卡面修正必须**放在中文表之后** —— 否则刚写的又被上面那两行盖回去
         if _ff and "descZh" in _ff and _ff["descZh"] != entry.get("descZh"):
             face_fixed.append((name, "descZh", entry.get("descZh") or "", _ff["descZh"]))
             entry["descZh"] = _ff["descZh"]
+        # 🔴 **结构断言（上面那张序表的判据）**：`cardface_fixes.json` 的 `descZh` 是**最高序**
+        #    ⇒ **人工值必须最终生效**。这一条**结构上不可能**在层序排错时还成立：
+        #    · 本层若插到人工层**之后**，官方值会盖掉人工值 ⇒ 这里 `entry["descZh"] != _man` ⇒ 红；
+        #    · 谁把人工那一层删掉，同样红。
+        #    ⛔ 它不是「再断言一遍已经写对的东西」—— 它比的是**表里那条人工原文**，不是本函数的中间产物。
+        _man_desc = (_ff or {}).get("descZh")
+        if _man_desc is not None:
+            man_desc_total += 1
+            if entry.get("descZh") == _man_desc:
+                man_desc_ok += 1
+            else:
+                desc_zh_order_violations.append((cid, name, _man_desc, entry.get("descZh") or ""))
         cards.append(entry)
 
     # ---- 督军后手那张防御卡（`A1070` 第 ③ 档，2026-10-14）----
@@ -1167,13 +1891,21 @@ def build():
             if ("fac", _fac, _k) not in used_face_fix: orphan_face_fix.append(f"{_fac}/{_k}")
 
     return {
-        "version": 8,          # v6: 每张卡带稳定 id（原版 id 优先，对不上的自造 —— 见 IDS_SRC 那段）
+        "version": 9,          # v6: 每张卡带稳定 id（原版 id 优先，对不上的自造 —— 见 IDS_SRC 那段）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
+                               # v9（2026-10-15 P2 相 `A1776`/`A1799`）：加 `armour` / `cardTraits` 两列，
+                               #    再加 A1799 那 10 个 SO 字段列（attackDamageType · cardShortId ·
+                               #    useOverDraw · cantBeRandomlyCreated · expansionPack · refNameId ·
+                               #    itemDescriptionKey · fullHeroSpriteReference · eventSpriteName · targeted）
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声），
+                               #       否则新列会被静默读成 `0`/`null`（`施工设计 §五·3`）
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "中文名以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
                   "（2025-07-30 远端包快照；官方表里没有的卡才用 数据/卡牌翻译/zh_cards.json 那份自译），"
-                  "中文效果另取 数据/卡牌翻译/zh_cards.json；"
+                  "中文效果 2026-10-15（P3 相 `A1763`）起**同样以该表的 `Card_Description/*` 为准**"
+                  "（键空间与 `Card_Name/*` 同源；官方表里没有、或官方值被截断的那批才用 zh_cards.json 的自译）"
+                  "—— 🔴 口径：**只换 `descZh`、`desc` 不动**（`资料/任务_卡组卡牌战斗.md` 的 `A1763` 那一行）；"
                   "subtype/keywords 另按 数据/游戏数据/cardface_fixes.json 修正；"
                   "id 另取 数据/游戏数据/card_ids.json，对不上的自造；"
                   "督军的 goesSecond 另取 数据/游戏数据/warlord_goes_second.json —— **原版真值**，"
@@ -1181,11 +1913,20 @@ def build():
                   "inventoryOptions / showInCollectionOptions 另取 数据/游戏数据/card_inventory_options.json"
                   "—— 同为**原版真值**（同包），由 工具/gen_card_inventory_options.py 落到我们卡池的 id 上；"
                   "initiative 另取 数据/游戏数据/card_initiative.json"
-                  "—— 同为**原版真值**（同包），由 工具/gen_card_initiative.py 落到我们卡池的 id 上）",
+                  "—— 同为**原版真值**（同包），由 工具/gen_card_initiative.py 落到我们卡池的 id 上；"
+                  "cardTraits / armour（兜底那半）/ A1799 那 10 列另取**原版 allcards 快照本体**"
+                  " d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json（2025-07-30 · 比现池旧）"
+                  "—— 🔴 **它只在 PnP 成品卡图【不印】的地方生效**（闸 = `施工设计 §七 已裁⑥`）："
+                  "三围/费用/护甲的值一律**以 PnP 为准**，而**督军的 cost** PnP 56/56 不印 ⇒ 取真值的 2）",
         "note": "由 工具/gen_cards_engine.py 生成，不要手改。"
                 "改数据请改 card_stats.json / 数据/游戏数据/官方本地化_en+zh-CN.json / "
                 "数据/卡牌翻译/zh_cards.json / 数据/游戏数据/cardface_fixes.json 后重跑。"
-                "nameZh 优先取原版官方中文表（查不到才回自译，见 source）；descZh 是我们自译；"
+                "nameZh 与 descZh 都优先取原版官方中文表（`Card_Name/*` / `Card_Description/*`；"
+                "查不到、或官方值被截断的才回 数据/卡牌翻译/zh_cards.json 那份自译，见 source）；"
+                "🔴 `descZh` 一列有 3 个写手，权威序（低→高）= zh_cards.json（自译）→ 官方 `Card_Description/*` → "
+                "`cardface_fixes.json` 的 `descZh`（逐张 PnP 核过的人工值，**最高**）；"
+                "⚠️ 官方正文是 **I2 模板层**（带 `[[枚举名]]` / `((Key,arg))` / `$$卡id$$` 记号）——"
+                "印之前要过记号渲染层 `CardPresentation/Core/CardIcons.cs` 的 `RewriteMarks`（`A1763` 代码层）；"
                 "subtype 是**卡面那行橙字**（部队卡=兵种 Infantry/Vehicle/…；防御卡=Defence；"
                 "督军=Warlord；有些计策=Dark Pact/Overlord Power/Combat Elixir…），空串=卡面没这行。"
                 "id 是**稳定身份**：原版 id 形如 `AM12`（字母前缀+纯数字）；"
@@ -1199,14 +1940,35 @@ def build():
                 "initiative = 原版 `RawCardScript.initiative`（`Initiative` 枚举："
                 "Undefined=0/Low=10/Medium=20/High=30/VeryHigh=40），**`-1` = 真值里查不到这张卡**"
                 "（同上快照原因）—— 先后手判据（`RuleEngine/Core/FirstSeatRules.cs`）对 `-1` **不比**，"
-                "退回原版最后一步掷硬币；⛔ 别拿默认值顶上。",
+                "退回原版最后一步掷硬币；⛔ 别拿默认值顶上。"
+                "🔴 `armour`（v9）= **护甲值的一等公民**（`Armour N` 关键词里的那个 N），"
+                "值与 trait **解耦**（真值 `CardTraits` 里 `name==\"armour\"` 全快照只有 2 条，"
+                "而 `armour` 数值 >0 有 62 张 —— `A1748_原版trait真值.md` §7）。"
+                "取值 = **PnP 那一层（`keywords` 里的 `Armour N`）优先、真值 `armour` 兜底**。"
+                "⚠️ **消费者尚未切换**（引擎今天仍读 `KwValue(\"armour\")`）⇒ 本列现在不改变任何结算。"
+                "🔴 `cardTraits`（v9）= 真值 `CardTraits` 的**全量**显示写法（**读 `CardTraits`、不读 "
+                "`ShowTraits`** —— 后者非空只 32 张，对着它判会把 633 张误判成「没挂 trait」）。"
+                "⚠️ 它**不喂引擎**（纯落值）：里面包含 `Frenzied`/`Rage`/`Unstoppable` 三个"
+                "**引擎 `CardDef.Prefixes` 未登记**的词，那三个**不进 `keywords`**（写了会被静默丢弃）。"
+                "🔴 A1799 那 10 列（`attackDamageType` / `cardShortId` / `useOverDraw` / "
+                "`cantBeRandomlyCreated` / `expansionPack` / `refNameId` / `itemDescriptionKey` / "
+                "`fullHeroSpriteReference` / `eventSpriteName` / `targeted`）= 原版同名字段的**落值**，"
+                "**目前没有任何消费者**（机制另立）；缺值 = `-1`（整数）/ `\"\"`（字符串），"
+                "**⛔ 别把 `-1` 当成 `0`**（`attackDamageType=0` 是 `Normal`、`useOverDraw=0` 是「不溢出」——"
+                "都是合法取值）。`cardShortId` **⛔ 不许当卡 id 换**（与 `A970` 那套 0/763 重合、全库 0 处读取点）。",
         "count": len(cards),
         "cards": cards,
-    }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, orphan_face_fix, \
+    }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, id_truth, \
+       orphan_face_fix, \
        key_conflicts, (def_report, _gs_n, _gs_hero, _gs_missing_fac), \
        (off_hit, off_same, off_miss, off_conflict, off_bad, off_stats), \
+       (off_desc_hit, off_desc_same, off_desc_miss, off_desc_bad, off_desc_stats,
+        desc_zh_order_violations, man_desc_ok, man_desc_total), \
        (inv_unknown, raw_inv), \
-       (init_unknown, raw_init)
+       (init_unknown, raw_init), \
+       (truth_hit, kw_truth_filled, kw_truth_skipped, kw_truth_wiped,
+        armour_src_pnp, armour_src_truth, hero_cost_from_truth, hero_cost_kept,
+        discarded_hasstats, truth_cards, truth_by_name, kw_order_violations)
 
 
 def fix_own_armour(entry):
@@ -1221,15 +1983,37 @@ def fix_own_armour(entry):
       · `Armour 1. Codex: Gain +1 melee this turn` → 自己的护甲 1 ✓
       · `Gain Armour 2` / `Give Armour 1 to a friendly troop` → 是**效果给的**，不是自己的 ✗
     这样只补该补的，不会把「给别人加护甲」的卡也变成有护甲。
+
+    🔴 **2026-10-15（`AD` 笔 · `DA83`）：上面那道「已有就不补」的闸原来写宽了，已收窄（铁律 5）。**
+      · **原写法** = `any(re.search(r"armou?r", k, ...) for k in keywords)` ⇒ **裸词 `Armour` 也算「已有」**
+        ⇒ 直接 `return`。而裸词**恰恰是「OCR 没读到数字」的形态**，不是「已经有护甲值了」。
+      · **实测代价**（`AB` 亲开 PnP 成品卡图核过）：`DA83 Ravenwing Ballistus Dreadnought`
+        —— `keywords` = `['Armour']`（裸词）· `desc` = `Armour 1. When you create or play a Secret, …`
+        ⇒ 被那道闸挡下 ⇒ `armour` 列写 **0**，而卡面关键词行印 `Armour 1.`、右下银盾印 **1**。
+        （全池**只此一张**：现扫「关键词里有裸 `Armour` 且 `desc` 以 `Armour N` 开头」= 1 张。）
+      · **改法**（两条）：
+        ⓐ 闸只看**带数字**的护甲条目（`Armour N`）—— 有数字才是「已经有值」；
+        ⓑ 裸词那一格**原地升级**成 `Armour N`（保序、不追加第二条）——
+           追加会让卡面印两遍（`护甲。护甲 1。`，`CardText.KeywordSegment` 逐条比字面）。
+      ⚠️ **旧口径那一支不受影响**：`CardDef.KwValue(armour)` 对裸词本来就走 `FirstNumber` 兜底 = 1
+        ⇒ 改前改后**都是 1**（`AD` 离线逐张量过：全池只有 `DA83` 这一张落到本分支）。
     """
     if not entry.get("desc"):
         return
     m = re.match(r"^\s*Armour (\d+)", entry["desc"], re.I)
     if not m:
         return
-    if any(re.search(r"armou?r", k, re.I) for k in entry.get("keywords") or []):
+    kws = list(entry.get("keywords") or [])
+    # ⓐ 已经有「带数字」的护甲条目 ⇒ 不再补（⛔ 裸词不算 —— 那正是本函数要救的形态）
+    if any(re.search(r"armou?r\s*\d+", str(k), re.I) for k in kws):
         return
-    entry["keywords"] = list(entry.get("keywords") or []) + ["Armour " + m.group(1)]
+    # ⓑ 有裸词就**原地升级**（保序、不出现第二条）；没有才追加到末尾
+    for i, k in enumerate(kws):
+        if re.match(r"^\s*armou?r\s*\.?\s*$", str(k), re.I):
+            kws[i] = "Armour " + m.group(1)
+            entry["keywords"] = kws
+            return
+    entry["keywords"] = kws + ["Armour " + m.group(1)]
 
 
 def main():
@@ -1238,12 +2022,17 @@ def main():
     args = ap.parse_args()
 
     (doc, skipped, total, filled, still_missing, stat_fixed, face_fixed,
-     id_orig, id_made, orphan_face_fix, key_conflicts, goes_second, off, inv,
-     init) = build()
+     id_orig, id_made, id_truth, orphan_face_fix, key_conflicts, goes_second, off, off_desc,
+     inv, init, truth) = build()
     def_report, _gs_n, _gs_hero, _gs_missing_fac = goes_second
     off_hit, off_same, off_miss, off_conflict, off_bad, off_stats = off
+    (off_desc_hit, off_desc_same, off_desc_miss, off_desc_bad, off_desc_stats,
+     desc_zh_order_violations, _man_desc_ok, _man_desc_total) = off_desc
     inv_unknown, raw_inv = inv
     init_unknown, raw_init = init
+    (truth_hit, kw_truth_filled, kw_truth_skipped, kw_truth_wiped, armour_src_pnp, armour_src_truth,
+     hero_cost_from_truth, hero_cost_kept, discarded_hasstats, truth_rows, truth_by_name,
+     kw_order_violations) = truth
 
     by_type = {}
     for c in doc["cards"]:
@@ -1389,6 +2178,47 @@ def main():
     else:
         print("\n官方中文名   ⚠️ 没读到官方表 ⇒ 卡名仍是我们自译（见 `OFFICIAL_LOC_SRC`）")
 
+    # 🆕 2026-10-15（P3 相 · `A1763` 数据层）：**官方中文效果文字**逐档如实报（与上面那一段同形）。
+    #    ⛔ 不许把「官方表里没有这张卡 / 官方值被截断」写成「换过了」—— 那 122 + 181 张仍是我们自译，
+    #    **要看得见**（铁律：不许静默失败）。
+    if off_desc_stats:
+        _dh = off_desc_hit
+        print(f"\n官方中文效果 `Card_Description/*` {off_desc_stats['terms']} 条"
+              f"（可用 {off_desc_stats['ok']} · 值被截断丢弃 {off_desc_stats['bad']} · GUID 键 {off_desc_stats['guid']}）"
+              f" → 命中 {len(off_desc_hit) + len(off_desc_same)}/{doc['count']} 张"
+              f"（直查我们的 id {sum(1 for x in _dh if x[-1] == 'id')}"
+              f" · 走官方名键 {sum(1 for x in _dh if x[-1] == '官方名键')}）")
+        print(f"            与自译**逐字相同**（不必动）{len(off_desc_same)} 张 · "
+              f"**换掉** {len(off_desc_hit)} 张 · 官方表里查不到 / 值被截断 ⇒ **保持自译** {len(off_desc_miss)} 张")
+        for cid, nm, old, new, how in off_desc_hit[:8]:
+            print(f"            · {cid:<26} {nm:<30} 「{old or '(空)'}」→「{new}」  [{how}]")
+        if len(off_desc_hit) > 8:
+            print(f"            … 其余 {len(off_desc_hit) - 8} 张同理")
+        if off_desc_miss:
+            _mf2 = {}
+            for cid, nm, z in off_desc_miss:
+                m = re.match(r"^([A-Za-z]+?)(?:_|[0-9]|$)", cid)
+                _mf2[m.group(1) if m else cid] = _mf2.get(m.group(1) if m else cid, 0) + 1
+            print(f"  ⚠️ 这 {len(off_desc_miss)} 张的 `descZh` 仍是**我们自译**（官方快照比现池旧 / 值被截断）：")
+            print("            " + " · ".join(f"{k} {v}" for k, v in sorted(_mf2.items(), key=lambda x: -x[1])))
+            for cid, nm, z in off_desc_miss[:6]:
+                print(f"            · {cid:<26} {nm:<30} 自译「{z or '(空)'}」")
+            if len(off_desc_miss) > 6:
+                print(f"            … 其余 {len(off_desc_miss) - 6} 张同理")
+    else:
+        print("\n官方中文效果 ⚠️ 没读到官方表 ⇒ `descZh` 全是 `zh_cards.json` 那份自译（见 `OFFICIAL_LOC_SRC`）")
+
+    # 🤖 **`descZh` 三个写手的顺序断言**（人工值必须最终生效）—— 见 `build()` 里那张序表。
+    #    违例 ⇒ 退出码 1、一个字节都不写（同 `_bad`）。没违例时把**实际生效的条数**打出来
+    #    （它是「那一层真的接上了」的读数：应为人工表里命中到卡的那几条）。
+    print(f"\n`descZh` 层序  断言：`cardface_fixes.descZh`（人工、最高序）最终生效 "
+          f"**{_man_desc_ok}/{_man_desc_total}** 条 · 违例 **{len(desc_zh_order_violations)}** 处"
+          + (" ✅" if not desc_zh_order_violations else " 🔴"))
+    if desc_zh_order_violations:
+        for cid, nm, want, got in desc_zh_order_violations[:8]:
+            print(f"            🔴 {cid} {nm}：人工值「{want}」被盖成「{got}」")
+        print("            ⇒ 层序排错了（官方层必须在人工层**之前**）—— 见 `build()` 里那张序表")
+
     # 督军后手那张防御卡（`A1070` 第 ③ 档）—— 原版真值，来源见 `DEFENCE_SRC` 那段
     print(f"\n督军防御卡   字段 `goesSecond` 落在 **{_gs_n} 张督军**上（全池督军 {_gs_hero} 张）"
           f"· 真值覆盖 {len(def_report)} 个阵营")
@@ -1453,8 +2283,130 @@ def main():
               + "  ".join(f"{k}={len(v)}" for k, v in sorted(_byfac.items(), key=lambda x: -len(x[1]))))
         print(f"     {INIT_SRC} 的 `unknown` 段有逐张清单")
 
-    # 稳定 id（2026-09-13 第三十三轮）—— **自造的必须报出来**，不许静默
-    print(f"\n卡 id        用原版 {len(id_orig)} 张 · 自造 {len(id_made)} 张（共 {doc['count']}）")
+    # ================================================================================
+    #  🆕 2026-10-15（P2 相 `A1773` / `A1776` / `A1799`）—— **真值落位批的三个读数**
+    #  闸（用户 2026-10-15 拍板 · `施工设计 §七 已裁⑥`）= **PnP 印了的取 PnP，PnP 没有的取真值**。
+    #  下面每一段都**只报「真值真被用在了哪」**，⛔ 不把「我们保留了自己的值」说成「换了真值」。
+    # ================================================================================
+    print(f"\n真值快照     卡池 id 能在快照里找到 **{truth_hit}/{doc['count']}** 张"
+          f"（其余 {doc['count'] - truth_hit} 张 = 2025-07-30 之后的新卡 ⇒ 所有真值列走缺值，⛔ 不猜）")
+
+    # ---- `A1773`：督军 `cost` —— **唯一一处「真值赢过我们现值」的换值** -----------------
+    print(f"\n督军费用     `A1773`：PnP **56/56 不印费用格**（右上角是阵营徽记）⇒ 照真值 `manaCost`"
+          f"· 改掉 **{len(hero_cost_from_truth)}** 张（`0` → `2`，与 `项目任务.md:498-516` 的裁决一致）")
+    for cid, nm, old, new in hero_cost_from_truth[:5]:
+        print(f"            · {cid:<26} {nm:<28} {old} → {new}")
+    if len(hero_cost_from_truth) > 5:
+        print(f"            … 其余 {len(hero_cost_from_truth) - 5} 张同理")
+    if hero_cost_kept:
+        _kf = {}
+        for cid, nm, fac, cst in hero_cost_kept:
+            _kf.setdefault(fac or "(无阵营)", []).append(nm)
+        print(f"  ⚠️ 真值里**没有**这 {len(hero_cost_kept)} 张督军（快照比现池旧）⇒ `cost` **保持现值**、⛔ 不猜："
+              + "  ".join(f"{k}={len(v)}" for k, v in sorted(_kf.items(), key=lambda x: -len(x[1]))))
+        for cid, nm, fac, cst in hero_cost_kept[:4]:
+            print(f"            · {cid:<34} {nm:<24} cost={cst}")
+        if len(hero_cost_kept) > 4:
+            print(f"            … 其余 {len(hero_cost_kept) - 4} 张同理")
+    print("             ⚠️ **三围（近战/远程/生命）与护甲一律没动** —— 那几项 PnP 都印，"
+          "2026-10-15 逐张开图核过 13 张，**13/13 是我们 == PnP、快照 ≠ PnP**（见 `TRUTH_CARDS_SRC` 那段）")
+
+    # ---- `A1776`：`keywords` 的「真值铺底」那一层 -------------------------------------
+    print(f"\n关键词铺底   `A1776`：真值 `CardTraits` **只补空**（已裁③ 权威序第 1 层）"
+          f"· 命中 **{len(kw_truth_filled)}** 张 · 追加 **{sum(len(x[2]) for x in kw_truth_filled)}** 个 trait")
+    # 已裁③ 点名要的**断言**（三条，全池逐卡跑；非空 ⇒ 退出码 1、一个字节都不写）
+    if kw_order_violations:
+        print(f"  🔴 **`keywords` 权威序的三条断言有 {len(kw_order_violations)} 处违例**"
+              f"（ⓐ 只补空 · ⓑ OCR 条逐字原样 · ⓒ 真值每条有归宿）—— **退出码 1、不落盘**：")
+        for cid, nm, m in kw_order_violations[:10]:
+            print(f"            · {cid:<28} {nm:<26} {m}")
+        if len(kw_order_violations) > 10:
+            print(f"            … 其余 {len(kw_order_violations) - 10} 处同理")
+    else:
+        print("             断言（已裁③ 那三条）：ⓐ 只补空 · ⓑ OCR 条逐字原样 · ⓒ 真值每条有归宿"
+              " —— **全池 {n} 张 0 违例 ✅**".format(n=doc["count"]))
+    _td = {}
+    for cid, nm, added in kw_truth_filled:
+        for a in added:
+            _td[a] = _td.get(a, 0) + 1
+    if _td:
+        print("            " + " · ".join(f"{k}={v}" for k, v in sorted(_td.items(), key=lambda x: -x[1])))
+    if kw_truth_skipped:
+        _sd = {}
+        for cid, nm, sk in kw_truth_skipped:
+            for s in sk:
+                _sd[s] = _sd.get(s, 0) + 1
+        print(f"  ⚠️ **{sum(_sd.values())} 处没进 `keywords`**（{len(kw_truth_skipped)} 张卡）："
+              + " · ".join(f"{k}={v}" for k, v in sorted(_sd.items(), key=lambda x: -x[1])))
+        print("     ⇒ 理由 = `RuleEngine/Core/CardDef.cs` 的 `Prefixes` **没登记**这些词 ——"
+              "写进 `keywords` 会被 `KeywordTable.Normalize` 返回 null 后**静默丢掉**"
+              "（本工程红线）。它们**已进 `cardTraits` 列**（那列不喂引擎）。要接进引擎得动 `Core/`，"
+              "接完再把那个词从 `TRAIT_ENGINE_UNREGISTERED` 里去掉（**现读该集合为空**）。")
+    if kw_truth_wiped:
+        # 规则内（③④⑤ 都压过 ①），但**必须看得见** —— 否则「填了 134 个、实际只生效几十个」
+        # 这句账谁也复核不了。🔬 抽验过一处：`ASH12 Swooping Hawk` 的 `Rally` 被 ③ 换掉，
+        # 2026-10-15 亲开它的 PnP 成品图 —— **卡面只印 `Waystone.` + `Flying.`、没有 `Rally`**
+        # ⇒ 那是**快照自己的旧数据**，③ 换掉它是对的（PnP 优先，已裁⑥）。
+        _wd = {}
+        for cid, nm, gone in kw_truth_wiped:
+            for g in gone:
+                _wd[g] = _wd.get(g, 0) + 1
+        print(f"  ℹ️ 另有 **{sum(_wd.values())} 处**（{len(kw_truth_wiped)} 张）被**更高层**换掉"
+              f"（权威序 ③/⑤ 压过 ①，**规则内**）：" + " · ".join(f"{k}={v}" for k, v in sorted(_wd.items(), key=lambda x: -x[1])))
+
+    # ---- `A1776`：`armour` 列 --------------------------------------------------------
+    print(f"\n护甲值列     `A1776`：`armour` 列 >0 共 **{len(armour_src_pnp) + len(armour_src_truth)}** 张"
+          f"· 其中**取 PnP 那一层** {len(armour_src_pnp)} 张 · **真值兜底** {len(armour_src_truth)} 张")
+    _zd = sum(1 for c in doc["cards"] if c.get("armour", 0) == 0)
+    print(f"             （另 {_zd} 张 = 0，即卡底没有银盾）")
+    if armour_src_truth:
+        for cid, nm, v in armour_src_truth[:5]:
+            print(f"            · {cid:<26} {nm:<28} 真值兜底 armour={v}")
+
+    # ---- `A1773`：被 `hasStats=false` 整批丢掉那批的**真值归类** ----------------------
+    print(f"\n丢弃批归类   `A1773`：`hasStats=false` 整批丢了 **{len(discarded_hasstats)}** 张"
+          f"（`STATS_EXCEPTIONS` 里那几张另有白名单，不在其中）⇒ 逐张拿真值归类：")
+    _cls = {}
+    for nm, fac, ty, ocr in discarded_hasstats:
+        why, uid, row = classify_discarded(nm, ocr, truth_by_name, truth_rows)
+        _cls.setdefault(why, []).append((nm, fac, uid, row))
+    for why, lst in sorted(_cls.items(), key=lambda x: -len(x[1])):
+        print(f"            · {why} —— {len(lst)} 张")
+    _mis = _cls.get("🔴 疑似误丢(真值是可收藏的卡)") or []
+    if _mis:
+        print("  🔴 **真值说这些是可收藏的卡、却被我们丢了** —— 逐张（要人判）：")
+        for nm, fac, uid, row in _mis:
+            print(f"            · {nm:<34} {fac:<16} 真值 id={uid} · m_Name={row.get('m_Name')}"
+                  f" · inv={row.get('inventoryOptions')} show={row.get('showInCollectionOptions')}"
+                  f" spell={row.get('spellType')} cantRand={row.get('cantBeRandomlyCreated')}")
+    else:
+        print("  ✅ **真值归类里没有「疑似误丢」** —— 即这批丢掉的一张真卡都没有。")
+    for why in ("非收藏(生成/附魔/教程副本)", "进攻/防御卡(另一条线)"):
+        for nm, fac, uid, row in (_cls.get(why) or [])[:8]:
+            print(f"            · [{why}] {nm:<30} {fac:<16} id={uid} · m_Name={row.get('m_Name')}")
+    if _cls.get("未在快照") or any(k.startswith("未在快照(同名") for k in _cls):
+        _amb = {k: v for k, v in _cls.items() if k.startswith("未在快照(同名")}
+        print(f"  ℹ️ 「未在快照」{sum(len(v) for k, v in _cls.items() if k.startswith('未在快照'))} 张里，"
+              f"**同名多候选**的 {sum(len(v) for v in _amb.values())} 张（⛔ 不替它挑）：")
+        for k, v in sorted(_amb.items()):
+            print(f"            · [{k}] " + " · ".join(x[0] for x in v[:10]))
+
+    # ---- `A1799`：10 个 SO 字段列的覆盖率（**本笔只落值，没有消费者**）------------------
+    print(f"\nSO 字段列    `A1799`：10 列已落值（**目前没有任何消费者** —— 机制/接线另立）：")
+    _n = len(doc["cards"])
+    for _col, _tf, _dflt, _doc in A1799_FIELDS:
+        if _dflt == "":
+            _hit = sum(1 for c in doc["cards"] if c.get(_col))
+        else:
+            _hit = sum(1 for c in doc["cards"] if c.get(_col, _dflt) != _dflt)
+        print(f"            · {_col:<26} 有值 {_hit:>4}/{_n}"
+              + ("   ⚠️ **现池全空**（快照里那批卡不在我们池）" if _hit == 0 else ""))
+    print("             ⚠️ 缺值 = `-1`（整数）/ `\"\"`（字符串）—— ⛔ **别把 `-1` 当成 `0`**"
+          "（`attackDamageType=0` 是 `Normal`、`useOverDraw=0` 是「不溢出」，都是合法取值）")
+
+    # 稳定 id（2026-09-13 第三十三轮 · 2026-10-14 P1 相加了真值索引那一层）—— **自造的必须报出来**，不许静默
+    print(f"\n卡 id        用原版 {len(id_orig) + len(id_truth)} 张"
+          f"（其中**真值索引**那一层 {len(id_truth)} 张）· 自造 {len(id_made)} 张（共 {doc['count']}）")
     if id_made:
         by_fac = {}
         for cid, nm, fac in id_made:
@@ -1475,7 +2427,7 @@ def main():
     # 🔴 **退出码先算、再决定落不落盘**（与 `工具/gen_icon_plan.py` 的 `A1626` 同一条口径）——
     #    「非 0」必须等于「没写文件」。`bare_ambiguous` 是**数据侧的错**，不是提示：
     #    这时写出去的卡表里有一张卡带着**别人那张卡的效果**，宁可让它保持旧值、由人来判。
-    _bad = bool(bare_ambiguous)
+    _bad = bool(bare_ambiguous) or bool(kw_order_violations) or bool(desc_zh_order_violations)
 
     if args.check:
         if os.path.exists(DST):
@@ -1488,7 +2440,15 @@ def main():
         return 1
 
     if _bad:
-        print("\n🔴 退出码 1、**一个字节都不写**（上面那条「裸卡名键用在同名卡上」没解决之前"
+        _why = []
+        if bare_ambiguous:
+            _why.append("「裸卡名键用在同名卡上」")
+        if kw_order_violations:
+            _why.append(f"「`keywords` 权威序三条断言 {len(kw_order_violations)} 处违例」")
+        if desc_zh_order_violations:
+            _why.append(f"「`descZh` 层序断言 {len(desc_zh_order_violations)} 处违例"
+                        "（人工值被官方层盖掉）」")
+        print(f"\n🔴 退出码 1、**一个字节都不写**（{' ＋ '.join(_why)} 没解决之前"
               "不落盘 —— 见 `A1626` 那条口径）")
         return 1
 

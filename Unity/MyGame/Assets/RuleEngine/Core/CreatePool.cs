@@ -201,6 +201,29 @@ namespace RuleEngine
                     {
                         if (c == null) continue;
                         if (unitsOnly && !c.IsUnit) continue;
+                        // 🔴 **2026-10-14（`A2006③`）：督军不进这一支 —— 补上原版那道 type 门。**
+                        //   判据 = 原版 `FilterMethods.CheckIfRawCardMeetsCriteria`
+                        //   （`d:/2/tools/decomp_full/FilterMethods__CheckIfRawCardMeetsCriteria.c:29-35`，现读全文）：
+                        //   `iVar10 = card.cardType(+0x94)`，然后
+                        //     `(iVar10 != 10 || *(char*)(criteria + 0x16) != '\0')` —— 督军要
+                        //     `TargetCriteria.includeHero` 为真才放行，**否则整条 `return 0`**。
+                        //   同一条判据另有**两处**独立复现，不是孤证：
+                        //     · `FilterMethods__CheckIfMeetsCriteria.c`（末段同四行，逐字同形）
+                        //     · `FilterMethods__MeetsCardTypeCriteria.c`（同四行，抽成了具名方法）
+                        //   字段名与偏移对得上：`TargetCriteria`（`Assembly-CSharp/TargetCriteria.cs`）的声明序 =
+                        //     `targetsAffected`(0x10) · `friendlyUnits`(0x14) · `enemyUnits`(0x15) ·
+                        //     **`includeHero`(0x16)** · `includeMinions`(0x17) · `includeSpells`(0x18) ·
+                        //     `includeWhispers`(0x19)，而 `CardTypeOptions` 里 `Minion=0 / Hero=10 / Tactic=20 /
+                        //     Whispers=40` ⇒ 四个 bool **就是那四种卡类的准入位**，`bool` 缺省 `false`
+                        //     ⇒ **「默认不包督军」**。
+                        //   ⚠️ **为什么现在才必须补**：`unitsOnly` 挡不住督军（`CardDef.IsUnit` 明写
+                        //     `Type == "unit" || Type == "hero"`），而**费用区间**今天是靠「督军 `cost` 恒 `0`」
+                        //     顺带挡住的 —— `A1773` 把 `cost` 换成真值（督军 `2`）之后，`Create a random
+                        //     Ultramarines card costing 2 or less` 这族效果**就会开始造出督军**，而原版不会。
+                        //   ⚠️ 只补了**督军这一位**：`includeMinions/Spells/Whispers` 那三位原版是按效果逐个
+                        //     撰写的（`TargetCriteria` 是 `[Serializable]`、由效果数据填），我们这一支是**按文本**
+                        //     推的、拿不到那一层 ⇒ 只落「按缺省值」这一半，**别当整道门都补完了**（见报告）。
+                        if (c.Type == "hero") continue;
                         if (!SameFaction(c.Faction, facOnly)) continue;
                         if (costMin > 0 && c.Cost < costMin) continue;
                         if (costMax > 0 && c.Cost > costMax) continue;

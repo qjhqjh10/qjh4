@@ -3,14 +3,64 @@
  "source": "d:/2/远端缓存_旧profile_1013/Unity缓存_按哈希/54bdb7b1…/…/__data （RawCardScript × 1195）",
  "provenance": "同包内按 m_PathID 反查裸 PPtr（m_FileID 全 0）；快照 = Unity 2022.3.38f1 / 2025-07-30，比现池旧 ⇒ 部分原版卡我们池子里没有（含 `_EASY`/`_tutorial`/`_enchantment` 那些另形态），那些边**没猜、丢在 skipped 里**。落 id 两级：① 原版 uniqueId 直命中卡池 id；② 归一化卡名（砍尾部括号）+ 同阵营、且候选只限「我们自造 id」的卡、唯一命中。全量真值（含落不下的每一条）→ 数据/游戏数据/related_cards.json，同一次运行产出。",
  "invariant": "① entries 里每个 related 至多 4 条、顺序 = relatedCard1..4；② 同一卡内无重复；③ 源/目标 id 一律是 cards_engine.json 里现用的 id；④ 真值里没有「空槽后还有非空槽」的卡。",
- "count": 157,
- "edges": 191,
- "skipped": 27,
+ "count": 176,
+ "edges": 214,
+ "skipped": 14,
  "entries": [
+  {
+   "id": "1688c6146abb1e04f98e540b4cbbabd7",
+   "related": [
+    "TAU11"
+   ]
+  },
+  {
+   "id": "3ebb159036778d14ebd1c48451aa6ca0",
+   "related": [
+    "GOF1"
+   ]
+  },
+  {
+   "id": "4d348cff71208c24d8e39252d913ff9d",
+   "related": [
+    "SOR7"
+   ]
+  },
+  {
+   "id": "61046837c330b48978b4af5201230b6e",
+   "related": [
+    "BL2"
+   ]
+  },
+  {
+   "id": "65cfec7d2bc719040b3b4b88622931b2",
+   "related": [
+    "SOR5"
+   ]
+  },
+  {
+   "id": "7c666a04c1b9e8b4e9a96247e9fe115a",
+   "related": [
+    "GSC6"
+   ]
+  },
+  {
+   "id": "9c3562ffa183ede41b1626d9c9dc1e2f",
+   "related": [
+    "ASH5"
+   ]
+  },
+  {
+   "id": "9dcbe3d0c04b02f4fbb19974ae0e37b2",
+   "related": [
+    "9f4e1b7ea9f00da458c6a859a4e958c8",
+    "98d3c65702746b04baf7f5ead1a9e507",
+    "508002f5d7ee54f4686aefa2e6adce41"
+   ]
+  },
   {
    "id": "AM1",
    "related": [
-    "AM_Lord_Commander"
+    "c06453b330af61745beb5fa567ba863e"
    ]
   },
   {
@@ -28,13 +78,13 @@
   {
    "id": "AM15",
    "related": [
-    "AM_Cadian_Honour"
+    "3a52026b99bb56f40aa9dc130fc66f34"
    ]
   },
   {
    "id": "AM2",
    "related": [
-    "AM_Legendary_Commandant",
+    "af98d423c7279a14c84c0d0382c53541",
     "AM5"
    ]
   },
@@ -47,13 +97,19 @@
   {
    "id": "AM27",
    "related": [
-    "AM_Renowned_Bodyguard"
+    "98cd4c021d615174aba88df6012219c4"
    ]
   },
   {
    "id": "AM28",
    "related": [
     "AM5"
+   ]
+  },
+  {
+   "id": "AM3",
+   "related": [
+    "cc11838649ff68a40b7d5d2b9fccd2bc"
    ]
   },
   {
@@ -81,6 +137,12 @@
    ]
   },
   {
+   "id": "AM66",
+   "related": [
+    "1ff4815a506d2f34e94ec2f50900d352"
+   ]
+  },
+  {
    "id": "AM72",
    "related": [
     "AM71"
@@ -99,7 +161,7 @@
    ]
   },
   {
-   "id": "AM_Armoured_Lightning",
+   "id": "AM76",
    "related": [
     "AM68"
    ]
@@ -107,7 +169,7 @@
   {
    "id": "ASH1",
    "related": [
-    "ASH_Path_of_the_Seer"
+    "09bcb1b3b8794c4429d82d4b2e68fa1f"
    ]
   },
   {
@@ -119,33 +181,33 @@
   {
    "id": "ASH19",
    "related": [
-    "ASH_Witchfire"
+    "d3e99cb18b8cbba4081486f57f510f75"
    ]
   },
   {
    "id": "ASH2",
    "related": [
-    "ASH_Path_of_the_Warrior"
+    "1bfe0893592c9dd40bed8d68d5d2b516"
    ]
   },
   {
    "id": "ASH29",
    "related": [
-    "ASH_Path_of_the_Warrior",
+    "e59ac9e46f4ea804784e954c3b820e77",
     "ASH5"
    ]
   },
   {
    "id": "ASH3",
    "related": [
-    "ASH_Path_of_Command",
+    "9c3562ffa183ede41b1626d9c9dc1e2f",
     "ASH5"
    ]
   },
   {
    "id": "ASH34",
    "related": [
-    "ASH_Wrath_of_Khaine"
+    "33eabec155f628440a426a4ba480ec24"
    ]
   },
   {
@@ -163,53 +225,67 @@
   {
    "id": "ASH74",
    "related": [
-    "ASH_Storm_of_Silence"
+    "851f73daf747eb642934a16429b391db"
    ]
   },
   {
    "id": "ASH76",
    "related": [
-    "ASH_Empyric_Ambush"
+    "dc7e575c0a328f446be1521c23ec850b"
    ]
   },
   {
    "id": "ASH79",
    "related": [
-    "ASH_Flickerjump"
+    "67adbc7f7bce2bd4c8f6937fab3134e5"
    ]
   },
   {
-   "id": "ASH_Path_of_Command",
+   "id": "BL10",
    "related": [
-    "ASH5"
+    "1dfc9bc738bfc4f4d93d48f165aee510"
    ]
   },
   {
-   "id": "ASH_Path_of_the_Warrior",
+   "id": "BL21",
    "related": [
-    "ASH5"
+    "9a2cadc64c80a6b42912441105bb1cee"
    ]
   },
   {
    "id": "BL22",
    "related": [
-    "BL_Rites_of_Possession",
+    "3f38d2e2c83df4b4c9052ef4a510cfbb",
     "BL9"
    ]
   },
   {
    "id": "BL23",
    "related": [
-    "BL_Diabolic_Strength",
-    "BL_Infernal_Gaze",
-    "BL_Unhallowed_Gifts"
+    "7bf8ce67fb6be4744ae44345a5b465fd",
+    "453b0e8f88e094a17866a6979f389ef5",
+    "141c5ed661a9e42bd9a793f0d2a1c682"
+   ]
+  },
+  {
+   "id": "BL34",
+   "related": [
+    "97e959444b53f424ea4285e2ca02c7e6"
    ]
   },
   {
    "id": "BL35",
    "related": [
-    "BL_Helspear_Assault",
+    "61046837c330b48978b4af5201230b6e",
     "BL2"
+   ]
+  },
+  {
+   "id": "BL36",
+   "related": [
+    "7bf8ce67fb6be4744ae44345a5b465fd",
+    "453b0e8f88e094a17866a6979f389ef5",
+    "141c5ed661a9e42bd9a793f0d2a1c682"
    ]
   },
   {
@@ -225,6 +301,12 @@
    ]
   },
   {
+   "id": "BL6",
+   "related": [
+    "4a48457c24877f345be2e96f867c1e94"
+   ]
+  },
+  {
    "id": "BL62",
    "related": [
     "BL37"
@@ -233,44 +315,69 @@
   {
    "id": "BL65",
    "related": [
-    "BL_Litany_of_Despair"
+    "9176318eaf469354e858f51af2333aa3"
    ]
   },
   {
    "id": "BL67",
    "related": [
     "BL68",
-    "BL_Bitter_Blows"
+    "36892cd906b0e5e4c9bbbe249db009b8"
    ]
   },
   {
-   "id": "BL_Helspear_Assault",
+   "id": "BL7",
    "related": [
-    "BL2"
+    "9a2cadc64c80a6b42912441105bb1cee"
+   ]
+  },
+  {
+   "id": "BL8",
+   "related": [
+    "b8e81b2fe85cda747a68c4d6326b669c"
+   ]
+  },
+  {
+   "id": "DA1",
+   "related": [
+    "dd535f7a54bcf6241b24ca6d0e81bbb4",
+    "DA4"
+   ]
+  },
+  {
+   "id": "DA2",
+   "related": [
+    "9e0eecf8cb9a8df49bf18cc5d9051109"
+   ]
+  },
+  {
+   "id": "DA3",
+   "related": [
+    "4cdc1b5f965f99945b685bca7660e9fa"
    ]
   },
   {
    "id": "DA31",
    "related": [
-    "DA_Master_Interromancer"
+    "a84a5b49f0ca9144585058db6987c2a0"
    ]
   },
   {
    "id": "DA36",
    "related": [
-    "DA_Master_of_Manoeuvre"
+    "7c45a641ec845994097d185af58715f6"
+   ]
+  },
+  {
+   "id": "DA46",
+   "related": [
+    "DA6"
    ]
   },
   {
    "id": "DA57",
    "related": [
     "DA10"
-   ]
-  },
-  {
-   "id": "DA_Supreme_Grand_Master",
-   "related": [
-    "DA4"
    ]
   },
   {
@@ -294,19 +401,19 @@
   {
    "id": "EC55",
    "related": [
-    "EC_Duelist_s_Hubris_Lucius_Talent"
+    "6ed51d59b9f8ea24ab0dc7ceaef7956c"
    ]
   },
   {
    "id": "EC56",
    "related": [
-    "EC_Euphoric_Strike_Lord_Exultant_s_Talent"
+    "b9665eadf1207ff49bcf0a730b0b7f9d"
    ]
   },
   {
    "id": "EC57",
    "related": [
-    "EC_Excessive_Vigour_Daemon_Prince_s_Talent"
+    "2621d4280735baf4c952e6afea8d0686"
    ]
   },
   {
@@ -325,13 +432,14 @@
   {
    "id": "GOF15",
    "related": [
+    "GOF12",
     "GOF21"
    ]
   },
   {
    "id": "GOF18",
    "related": [
-    "GOF_Sawbonez"
+    "b4d6d186eb95a3f468013c5be649ee3b"
    ]
   },
   {
@@ -341,37 +449,43 @@
    ]
   },
   {
+   "id": "GOF20",
+   "related": [
+    "GOF6"
+   ]
+  },
+  {
    "id": "GOF21",
    "related": [
-    "GOF_Mekaniak",
-    "GOF_More_Dakka",
-    "GOF_Ramshackle",
-    "GOF_Wreckin_Ball"
+    "9dcbe3d0c04b02f4fbb19974ae0e37b2",
+    "9f4e1b7ea9f00da458c6a859a4e958c8",
+    "98d3c65702746b04baf7f5ead1a9e507",
+    "508002f5d7ee54f4686aefa2e6adce41"
    ]
   },
   {
    "id": "GOF23",
    "related": [
-    "GOF_Follower_of_Gork"
+    "6ba4b132d24528844a86304f8ce67833"
    ]
   },
   {
    "id": "GOF27",
    "related": [
-    "GOF_Worst_Temper"
+    "8425b809e9e64e24f9035f709f5aaee4"
    ]
   },
   {
    "id": "GOF28",
    "related": [
-    "GOF_Greatest_Warboss",
+    "3ebb159036778d14ebd1c48451aa6ca0",
     "GOF1"
    ]
   },
   {
    "id": "GOF29",
    "related": [
-    "GOF_Da_Red_Waaagh"
+    "20d0f4451f16fc441836a02f99bf77da"
    ]
   },
   {
@@ -407,19 +521,19 @@
   {
    "id": "GOF75",
    "related": [
-    "GOF_Uge_Choppa"
+    "6899b199f5e36144ebbdd7ed9d9e7afe"
    ]
   },
   {
    "id": "GOF76",
    "related": [
-    "GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent"
+    "64a657fc5ed5bbb4fa7b585cf29c1e95"
    ]
   },
   {
    "id": "GOF77",
    "related": [
-    "GOF_Ferocious_Rage_Beastboss_Talent"
+    "84d4d192e0f57a34a90ac0f6172c3358"
    ]
   },
   {
@@ -433,19 +547,19 @@
    "related": [
     "GOF78",
     "GOF1",
-    "GOF_Special_Dose_Zodgrod_Wortsnagga_Talent"
+    "d19e8b68aaa9a884781d06697ad237a6"
    ]
   },
   {
    "id": "GOF92",
    "related": [
-    "GOF_Waaagh_Energy_Weirdboy_Talent"
+    "e3d67d86f73f7564eb0bf886ec848af6"
    ]
   },
   {
    "id": "GOF94",
    "related": [
-    "GOF_Dok_s_Toolz_Painboss_talent"
+    "8f35df0536e4f7e4d86f3885e2597404"
    ]
   },
   {
@@ -455,30 +569,16 @@
    ]
   },
   {
-   "id": "GOF_Greatest_Warboss",
-   "related": [
-    "GOF1"
-   ]
-  },
-  {
-   "id": "GOF_Mekaniak",
-   "related": [
-    "GOF_More_Dakka",
-    "GOF_Ramshackle",
-    "GOF_Wreckin_Ball"
-   ]
-  },
-  {
    "id": "GSC1",
    "related": [
-    "GSC_Inscrutable_Cunning"
+    "d01a5ba5865ded4418194ea50e333b21"
    ]
   },
   {
    "id": "GSC10",
    "related": [
-    "GSC_Poisoned_Supplies",
-    "GSC_Experimental_Bio_Horrors"
+    "a7bb23355a30d344e9d2decf976d91e1",
+    "4959cd9e99597f74ca9af0bd65ae6307"
    ]
   },
   {
@@ -490,13 +590,19 @@
   {
    "id": "GSC2",
    "related": [
-    "GSC_Brood_Prophet"
+    "fd67b47572987b84cb2990ea1ecfe982"
    ]
   },
   {
    "id": "GSC21",
    "related": [
-    "GSC_Vox_Hacker"
+    "e9952f50921d2844a94d39ce883430f4"
+   ]
+  },
+  {
+   "id": "GSC3",
+   "related": [
+    "7831725387c8a774dbdf5b6492d928e0"
    ]
   },
   {
@@ -514,7 +620,7 @@
   {
    "id": "GSC37",
    "related": [
-    "GSC_Deadliest_Killer"
+    "f45dd53721b645b4ab45d334edb986af"
    ]
   },
   {
@@ -524,15 +630,15 @@
    ]
   },
   {
-   "id": "GSC76",
+   "id": "GSC66",
    "related": [
-    "GSC_Improvised_Barricade"
+    "c433e3dde4952cc448220908226127ae"
    ]
   },
   {
-   "id": "GSC_Cult_Propaganda",
+   "id": "GSC76",
    "related": [
-    "GSC6"
+    "334a32d196d46ed4387bf3740cce069b"
    ]
   },
   {
@@ -550,58 +656,58 @@
   {
    "id": "SAU19",
    "related": [
-    "SAU_Reanimate"
+    "27a4b748a7bf358499f038aa09895ead"
    ]
   },
   {
    "id": "SAU20",
    "related": [
-    "SAU_Reanimate"
+    "27a4b748a7bf358499f038aa09895ead"
    ]
   },
   {
    "id": "SAU24",
    "related": [
-    "SAU_Reanimate"
+    "27a4b748a7bf358499f038aa09895ead"
    ]
   },
   {
    "id": "SAU28",
    "related": [
     "SAU5",
-    "SAU_Reanimate"
+    "27a4b748a7bf358499f038aa09895ead"
    ]
   },
   {
    "id": "SAU29",
    "related": [
-    "SAU_Indomitable_Will"
+    "65b2be828179515458a282cf1b027182"
    ]
   },
   {
    "id": "SAU34",
    "related": [
-    "SAU_Particle_Whip",
+    "eb17cd22c6a5d7941a7456838d927ab1",
     "SAU5"
    ]
   },
   {
    "id": "SAU35",
    "related": [
-    "SAU_Lord_of_the_Storm"
+    "30007162b68992e41a422f2061705b65"
    ]
   },
   {
    "id": "SAU36",
    "related": [
-    "SAU_Relentless_March",
+    "d8a14171b08b54144ba9dbf324b0a042",
     "SAU5"
    ]
   },
   {
    "id": "SAU37",
    "related": [
-    "SAU_Master_Chronomancer"
+    "cbabeb234380634479feab1a1b4c733a"
    ]
   },
   {
@@ -617,9 +723,15 @@
    ]
   },
   {
+   "id": "SAU59",
+   "related": [
+    "SAU38"
+   ]
+  },
+  {
    "id": "SAU66",
    "related": [
-    "SAU_Hardwired_Destruction"
+    "461354d98aa5e3142afa4eb4922e5456"
    ]
   },
   {
@@ -641,40 +753,34 @@
    ]
   },
   {
-   "id": "SAU_Inescapable_Retribution",
+   "id": "SAU76",
    "related": [
     "SAU12"
    ]
   },
   {
-   "id": "SAU_Relentless_March",
-   "related": [
-    "SAU5"
-   ]
-  },
-  {
    "id": "SOR1",
    "related": [
-    "SOR_Fury_of_the_Righteous"
+    "8901e35c5de30eb48804da6651cfb132"
    ]
   },
   {
    "id": "SOR16",
    "related": [
-    "SOR_Hymn_of_Battle"
+    "4d348cff71208c24d8e39252d913ff9d"
    ]
   },
   {
    "id": "SOR2",
    "related": [
-    "SOR_Lead_the_Righteous",
+    "65cfec7d2bc719040b3b4b88622931b2",
     "SOR5"
    ]
   },
   {
    "id": "SOR3",
    "related": [
-    "SOR_Righteous_Repugnance"
+    "f104d4c21abe84546abc9365d9eda8dd"
    ]
   },
   {
@@ -692,7 +798,7 @@
   {
    "id": "SOR65",
    "related": [
-    "SOR_Daemonbreaker"
+    "e01f4d54e8a474d96b5a1167cc28eebf"
    ]
   },
   {
@@ -710,44 +816,32 @@
   {
    "id": "SOR9",
    "related": [
-    "SOR_Hymn_of_Battle"
-   ]
-  },
-  {
-   "id": "SOR_Hymn_of_Battle",
-   "related": [
-    "SOR7"
-   ]
-  },
-  {
-   "id": "SOR_Lead_the_Righteous",
-   "related": [
-    "SOR5"
+    "4d348cff71208c24d8e39252d913ff9d"
    ]
   },
   {
    "id": "TAU1",
    "related": [
-    "TAU_Hero_of_the_Empire"
+    "9f75a6fe11922eb409ffbad4ecdeb405"
    ]
   },
   {
    "id": "TAU12",
    "related": [
-    "TAU_Structural_Analyzer"
+    "f279c5cf1c3e16e4db6b9df4d941ad11"
    ]
   },
   {
    "id": "TAU19",
    "related": [
-    "TAU_Serene_Unifier"
+    "f2b80d575cbf8f64597b991022beaf35"
    ]
   },
   {
    "id": "TAU2",
    "related": [
-    "TAU_Ethereal_Supreme",
-    "TAU_Serene_Unifier"
+    "f8260229254a09746af6d9ff7a9b0b54",
+    "f2b80d575cbf8f64597b991022beaf35"
    ]
   },
   {
@@ -759,7 +853,7 @@
   {
    "id": "TAU21",
    "related": [
-    "TAU_Homing_Beacon",
+    "1688c6146abb1e04f98e540b4cbbabd7",
     "TAU11"
    ]
   },
@@ -790,7 +884,7 @@
   {
    "id": "TAU3",
    "related": [
-    "TAU_Drone_Companion",
+    "c4f5c920744030c4e84428dc5a0f1bf2",
     "TAU6",
     "TAU4",
     "TAU7"
@@ -803,6 +897,12 @@
    ]
   },
   {
+   "id": "TAU32",
+   "related": [
+    "f2b80d575cbf8f64597b991022beaf35"
+   ]
+  },
+  {
    "id": "TAU34",
    "related": [
     "TAU7"
@@ -811,7 +911,13 @@
   {
    "id": "TAU36",
    "related": [
-    "TAU_Shield_Generator"
+    "684196db974ab254090f39ef6e89868c"
+   ]
+  },
+  {
+   "id": "TAU38",
+   "related": [
+    "507f79fa60945d04e93fe806aca912b7"
    ]
   },
   {
@@ -823,31 +929,19 @@
   {
    "id": "TAU65",
    "related": [
-    "TAU_Grisly_Feast"
+    "b3735ef3d1408d544b0947e31f898e20"
+   ]
+  },
+  {
+   "id": "TAU75",
+   "related": [
+    "TAU67"
    ]
   },
   {
    "id": "TAU9",
    "related": [
     "TAU7"
-   ]
-  },
-  {
-   "id": "TAU_Ethereal_Supreme",
-   "related": [
-    "TAU_Serene_Unifier"
-   ]
-  },
-  {
-   "id": "TAU_Homing_Beacon",
-   "related": [
-    "TAU11"
-   ]
-  },
-  {
-   "id": "TAU_Hunters_Instincts",
-   "related": [
-    "TAU67"
    ]
   },
   {
@@ -859,7 +953,7 @@
   {
    "id": "TL23",
    "related": [
-    "TL_Aerial_Seeding"
+    "c0ddba6cc45944f46a65f4fd93bcc0a5"
    ]
   },
   {
@@ -871,26 +965,26 @@
   {
    "id": "TL25",
    "related": [
-    "TL_Synaptic_Imperative"
+    "a58e05916eb5e994daa0349cbe237001"
    ]
   },
   {
    "id": "TL34",
    "related": [
-    "TL_Brood_Progenitor",
+    "cbc9d98e39cc7fb4fa6f94c7e69bda18",
     "TL4"
    ]
   },
   {
    "id": "TL35",
    "related": [
-    "TL_Hive_Commander"
+    "5b5425f6e2848b449807bd1643d0d936"
    ]
   },
   {
    "id": "TL36",
    "related": [
-    "TL_Spirit_Leech"
+    "760bd3afde513774d96d6492f995fd37"
    ]
   },
   {
@@ -900,27 +994,21 @@
    ]
   },
   {
+   "id": "TL68",
+   "related": [
+    "468db99b4b10d0745bab346df37d3fb2"
+   ]
+  },
+  {
    "id": "TL74",
    "related": [
-    "TL_Alpha_Warrior"
-   ]
-  },
-  {
-   "id": "TL_Brood_Progenitor",
-   "related": [
-    "TL4"
-   ]
-  },
-  {
-   "id": "TL_Psychophage",
-   "related": [
-    "TL81"
+    "8f2da557fe484ee4bbf427c13eccd4cb"
    ]
   },
   {
    "id": "UM12",
    "related": [
-    "UM_Spear_of_Macragge"
+    "d94f91051ecfe014f97577ff573571aa"
    ]
   },
   {
@@ -932,28 +1020,28 @@
   {
    "id": "UM29",
    "related": [
-    "UM_Greatest_Deeds"
+    "0544047df88d2ba4cad9c17ff080c0eb"
    ]
   },
   {
    "id": "UM46",
    "related": [
-    "UM_Master_Tactician"
+    "dcbd28525888ce54aaa93a47ba4de1e6"
    ]
   },
   {
    "id": "UM47",
    "related": [
-    "UM_Master_of_the_Fleet"
+    "9238c27730a0c424288d46ed0f4a742c"
    ]
   },
   {
    "id": "UM48",
    "related": [
-    "UM_Master_of_Arcana",
-    "UM_Might_of_Heroes",
-    "UM_Scryer_s_Gaze",
-    "UM_Smite"
+    "f923701f207d23a4f81d6ff5891b4a0c",
+    "0740581c2c0523745a42dbec1b2ef82a",
+    "c4ff279078605aa42942c8dd16b77147",
+    "cf0b346f70e748c4bbfc4dc03ab39ead"
    ]
   },
   {
@@ -965,22 +1053,52 @@
   {
    "id": "UM65",
    "related": [
-    "UM_Exhortation_of_Rage"
+    "315d9f293e4f56d4f813584b43f0511c"
    ]
   },
   {
    "id": "UM76",
    "related": [
-    "UM_Exemplary_Warrior",
-    "UM_Righteous_Fury",
-    "UM_Paragon_of_Ultramar",
-    "UM_Master_of_Arms"
+    "cc1400347b15ee3449bc18bbdb9ddec9",
+    "26d4ded12b28a3742b5c8fc155e29803",
+    "7693f2b21b2f85644b739da990bc2216",
+    "55b8e3d2040f86d4190ffb1a91abb5ed"
    ]
   },
   {
    "id": "UM81",
    "related": [
     "UM8"
+   ]
+  },
+  {
+   "id": "cbc9d98e39cc7fb4fa6f94c7e69bda18",
+   "related": [
+    "TL4"
+   ]
+  },
+  {
+   "id": "d8a14171b08b54144ba9dbf324b0a042",
+   "related": [
+    "SAU5"
+   ]
+  },
+  {
+   "id": "dd535f7a54bcf6241b24ca6d0e81bbb4",
+   "related": [
+    "DA4"
+   ]
+  },
+  {
+   "id": "e59ac9e46f4ea804784e954c3b820e77",
+   "related": [
+    "ASH5"
+   ]
+  },
+  {
+   "id": "f8260229254a09746af6d9ff7a9b0b54",
+   "related": [
+    "f2b80d575cbf8f64597b991022beaf35"
    ]
   }
  ]

@@ -3,22 +3,22 @@
  "source": "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json（只读） ＋ d:/4/Unity/数据/游戏数据/related_cards.json（PathID→我们 id 的翻译表）",
  "judge": "CardScript__GetTalentCard.c（取 trigger==46 的 abilityLogic[0].summonCriteria.unitsToSummon） · AbilityLogic__GetCardToSummon.c（N>1 且非 summonAllTargets ⇒ 随机挑一张） · CardScript__OnTurnStart.c:166（回合开始发 AbilityTrigger.Talent） · AbilityLogic__PlayAbility.c:1110/1141（createCardInHand → AddNewCardToHand）",
  "slots": {
-  "1": 91,
+  "1": 93,
   "2": 6,
   "3": 4
  },
  "candidateCounts": {
-  "1": 92,
+  "1": 94,
   "3": 3
  },
  "srcResolution": {
-  "related_cards.json": 79,
-  "认不出（名字对不上，且 related_cards.json 里这张没落 id）": 11,
-  "名字": 7
+  "related_cards.json": 89,
+  "名字": 7,
+  "认不出（名字对不上，且 related_cards.json 里这张没落 id）": 1
  },
  "truthCards": 97,
- "mapped": 85,
- "unmapped": 12,
+ "mapped": 96,
+ "unmapped": 1,
  "cards": [
   {
    "uid": "SAU37",
@@ -26,7 +26,7 @@
    "ourId": "SAU37",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SAU_Master_Chronomancer"
+    "cbabeb234380634479feab1a1b4c733a"
    ],
    "n": 1,
    "why": null
@@ -37,7 +37,7 @@
    "ourId": "SOR3",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SOR_Righteous_Repugnance"
+    "f104d4c21abe84546abc9365d9eda8dd"
    ],
    "n": 1,
    "why": null
@@ -48,7 +48,7 @@
    "ourId": "GOF87",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GOF_Special_Dose_Zodgrod_Wortsnagga_Talent"
+    "d19e8b68aaa9a884781d06697ad237a6"
    ],
    "n": 1,
    "why": null
@@ -59,7 +59,7 @@
    "ourId": "ASH34",
    "srcVia": "related_cards.json",
    "candidates": [
-    "ASH_Wrath_of_Khaine"
+    "33eabec155f628440a426a4ba480ec24"
    ],
    "n": 1,
    "why": null
@@ -70,9 +70,9 @@
    "ourId": "BL23",
    "srcVia": "related_cards.json",
    "candidates": [
-    "BL_Diabolic_Strength",
-    "BL_Infernal_Gaze",
-    "BL_Unhallowed_Gifts"
+    "7bf8ce67fb6be4744ae44345a5b465fd",
+    "453b0e8f88e094a17866a6979f389ef5",
+    "141c5ed661a9e42bd9a793f0d2a1c682"
    ],
    "n": 3,
    "why": null
@@ -83,7 +83,7 @@
    "ourId": "ASH29",
    "srcVia": "related_cards.json",
    "candidates": [
-    "ASH_Path_of_the_Warrior"
+    "e59ac9e46f4ea804784e954c3b820e77"
    ],
    "n": 1,
    "why": null
@@ -94,7 +94,7 @@
    "ourId": "GOF27",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GOF_Worst_Temper"
+    "8425b809e9e64e24f9035f709f5aaee4"
    ],
    "n": 1,
    "why": null
@@ -102,13 +102,13 @@
   {
    "uid": "TAU38",
    "name": "Stormsurge",
-   "ourId": null,
-   "srcVia": "认不出（名字对不上，且 related_cards.json 里这张没落 id）",
+   "ourId": "TAU38",
+   "srcVia": "related_cards.json",
    "candidates": [
-    "TAU_Deploy_Anchors"
+    "507f79fa60945d04e93fe806aca912b7"
    ],
    "n": 1,
-   "why": "认不出（名字对不上，且 related_cards.json 里这张没落 id）"
+   "why": null
   },
   {
    "uid": "TAU19",
@@ -116,7 +116,7 @@
    "ourId": "TAU19",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TAU_Serene_Unifier"
+    "f2b80d575cbf8f64597b991022beaf35"
    ],
    "n": 1,
    "why": null
@@ -127,7 +127,7 @@
    "ourId": "ASH74",
    "srcVia": "related_cards.json",
    "candidates": [
-    "ASH_Storm_of_Silence"
+    "851f73daf747eb642934a16429b391db"
    ],
    "n": 1,
    "why": null
@@ -138,7 +138,7 @@
    "ourId": "UM76",
    "srcVia": "related_cards.json",
    "candidates": [
-    "UM_Exemplary_Warrior"
+    "cc1400347b15ee3449bc18bbdb9ddec9"
    ],
    "n": 1,
    "why": null
@@ -146,11 +146,13 @@
   {
    "uid": "DA3",
    "name": "Asmodai, Master Interrogator",
-   "ourId": null,
-   "srcVia": "认不出（名字对不上，且 related_cards.json 里这张没落 id）",
-   "candidates": [],
-   "n": 0,
-   "why": "真值里「Exemplar of Hate」落不进我们卡池（查不到「Exemplar of Hate」（阵营 DarkAngels））"
+   "ourId": "DA3",
+   "srcVia": "related_cards.json",
+   "candidates": [
+    "4cdc1b5f965f99945b685bca7660e9fa"
+   ],
+   "n": 1,
+   "why": null
   },
   {
    "uid": "TL25",
@@ -158,7 +160,7 @@
    "ourId": "TL25",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TL_Synaptic_Imperative"
+    "a58e05916eb5e994daa0349cbe237001"
    ],
    "n": 1,
    "why": null
@@ -169,7 +171,7 @@
    "ourId": "SAU36",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SAU_Relentless_March"
+    "d8a14171b08b54144ba9dbf324b0a042"
    ],
    "n": 1,
    "why": null
@@ -180,7 +182,7 @@
    "ourId": "SAU66",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SAU_Hardwired_Destruction"
+    "461354d98aa5e3142afa4eb4922e5456"
    ],
    "n": 1,
    "why": null
@@ -191,7 +193,7 @@
    "ourId": "BL35",
    "srcVia": "related_cards.json",
    "candidates": [
-    "BL_Helspear_Assault"
+    "61046837c330b48978b4af5201230b6e"
    ],
    "n": 1,
    "why": null
@@ -199,13 +201,13 @@
   {
    "uid": "DA2",
    "name": "Belial, Master of the Deathwing",
-   "ourId": null,
-   "srcVia": "认不出（名字对不上，且 related_cards.json 里这张没落 id）",
+   "ourId": "DA2",
+   "srcVia": "related_cards.json",
    "candidates": [
-    "DA_Master_of_the_Deathwing"
+    "9e0eecf8cb9a8df49bf18cc5d9051109"
    ],
    "n": 1,
-   "why": "认不出（名字对不上，且 related_cards.json 里这张没落 id）"
+   "why": null
   },
   {
    "uid": "SOR9",
@@ -213,7 +215,7 @@
    "ourId": "SOR9",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SOR_Hymn_of_Battle"
+    "4d348cff71208c24d8e39252d913ff9d"
    ],
    "n": 1,
    "why": null
@@ -224,7 +226,7 @@
    "ourId": "TAU2",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TAU_Ethereal_Supreme"
+    "f8260229254a09746af6d9ff7a9b0b54"
    ],
    "n": 1,
    "why": null
@@ -235,7 +237,7 @@
    "ourId": "ASH3",
    "srcVia": "名字",
    "candidates": [
-    "ASH_Path_of_Command"
+    "9c3562ffa183ede41b1626d9c9dc1e2f"
    ],
    "n": 1,
    "why": null
@@ -246,7 +248,7 @@
    "ourId": "TL35",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TL_Hive_Commander"
+    "5b5425f6e2848b449807bd1643d0d936"
    ],
    "n": 1,
    "why": null
@@ -256,9 +258,11 @@
    "name": "Abaddon the Despoiler",
    "ourId": "BL34",
    "srcVia": "related_cards.json",
-   "candidates": [],
-   "n": 0,
-   "why": "真值里「Warmaster」落不进我们卡池（查不到「Warmaster」（阵营 BlackLegion））"
+   "candidates": [
+    "97e959444b53f424ea4285e2ca02c7e6"
+   ],
+   "n": 1,
+   "why": null
   },
   {
    "uid": "TAU21",
@@ -266,7 +270,7 @@
    "ourId": "TAU21",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TAU_Homing_Beacon"
+    "1688c6146abb1e04f98e540b4cbbabd7"
    ],
    "n": 1,
    "why": null
@@ -277,7 +281,7 @@
    "ourId": "SAU29",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SAU_Indomitable_Will"
+    "65b2be828179515458a282cf1b027182"
    ],
    "n": 1,
    "why": null
@@ -288,7 +292,7 @@
    "ourId": "BL35",
    "srcVia": "名字",
    "candidates": [
-    "BL_Helspear_Assault"
+    "61046837c330b48978b4af5201230b6e"
    ],
    "n": 1,
    "why": null
@@ -299,7 +303,7 @@
    "ourId": "BL65",
    "srcVia": "related_cards.json",
    "candidates": [
-    "BL_Litany_of_Despair"
+    "9176318eaf469354e858f51af2333aa3"
    ],
    "n": 1,
    "why": null
@@ -310,7 +314,7 @@
    "ourId": "SAU35",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SAU_Lord_of_the_Storm"
+    "30007162b68992e41a422f2061705b65"
    ],
    "n": 1,
    "why": null
@@ -321,7 +325,7 @@
    "ourId": "GSC10",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GSC_Experimental_Bio_Horrors"
+    "4959cd9e99597f74ca9af0bd65ae6307"
    ],
    "n": 1,
    "why": null
@@ -332,7 +336,7 @@
    "ourId": "GSC21",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GSC_Vox_Hacker"
+    "e9952f50921d2844a94d39ce883430f4"
    ],
    "n": 1,
    "why": null
@@ -343,7 +347,7 @@
    "ourId": "ASH19",
    "srcVia": "related_cards.json",
    "candidates": [
-    "ASH_Witchfire"
+    "d3e99cb18b8cbba4081486f57f510f75"
    ],
    "n": 1,
    "why": null
@@ -351,13 +355,13 @@
   {
    "uid": "DA1",
    "name": "Azrael, Grand Master",
-   "ourId": null,
-   "srcVia": "认不出（名字对不上，且 related_cards.json 里这张没落 id）",
+   "ourId": "DA1",
+   "srcVia": "related_cards.json",
    "candidates": [
-    "DA_Supreme_Grand_Master"
+    "dd535f7a54bcf6241b24ca6d0e81bbb4"
    ],
    "n": 1,
-   "why": "认不出（名字对不上，且 related_cards.json 里这张没落 id）"
+   "why": null
   },
   {
    "uid": "ef547f829b6491f45a8ad371f492278e",
@@ -365,7 +369,7 @@
    "ourId": "SAU36",
    "srcVia": "名字",
    "candidates": [
-    "SAU_Relentless_March"
+    "d8a14171b08b54144ba9dbf324b0a042"
    ],
    "n": 1,
    "why": null
@@ -376,7 +380,7 @@
    "ourId": "EC55",
    "srcVia": "related_cards.json",
    "candidates": [
-    "EC_Duelist_s_Hubris_Lucius_Talent"
+    "6ed51d59b9f8ea24ab0dc7ceaef7956c"
    ],
    "n": 1,
    "why": null
@@ -384,15 +388,15 @@
   {
    "uid": "BL36",
    "name": "Sylar Hexscorn",
-   "ourId": null,
-   "srcVia": "认不出（名字对不上，且 related_cards.json 里这张没落 id）",
+   "ourId": "BL36",
+   "srcVia": "related_cards.json",
    "candidates": [
-    "BL_Diabolic_Strength",
-    "BL_Infernal_Gaze",
-    "BL_Unhallowed_Gifts"
+    "7bf8ce67fb6be4744ae44345a5b465fd",
+    "453b0e8f88e094a17866a6979f389ef5",
+    "141c5ed661a9e42bd9a793f0d2a1c682"
    ],
    "n": 3,
-   "why": "认不出（名字对不上，且 related_cards.json 里这张没落 id）"
+   "why": null
   },
   {
    "uid": "TAU12",
@@ -400,7 +404,7 @@
    "ourId": "TAU12",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TAU_Structural_Analyzer"
+    "f279c5cf1c3e16e4db6b9df4d941ad11"
    ],
    "n": 1,
    "why": null
@@ -411,7 +415,7 @@
    "ourId": "GOF23",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GOF_Follower_of_Gork"
+    "6ba4b132d24528844a86304f8ce67833"
    ],
    "n": 1,
    "why": null
@@ -422,7 +426,7 @@
    "ourId": "TAU65",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TAU_Grisly_Feast"
+    "b3735ef3d1408d544b0947e31f898e20"
    ],
    "n": 1,
    "why": null
@@ -433,7 +437,7 @@
    "ourId": "UM48",
    "srcVia": "related_cards.json",
    "candidates": [
-    "UM_Master_of_Arcana"
+    "f923701f207d23a4f81d6ff5891b4a0c"
    ],
    "n": 1,
    "why": null
@@ -444,7 +448,7 @@
    "ourId": "SAU24",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SAU_Reanimate"
+    "27a4b748a7bf358499f038aa09895ead"
    ],
    "n": 1,
    "why": null
@@ -455,7 +459,7 @@
    "ourId": "BL67",
    "srcVia": "related_cards.json",
    "candidates": [
-    "BL_Bitter_Blows"
+    "36892cd906b0e5e4c9bbbe249db009b8"
    ],
    "n": 1,
    "why": null
@@ -466,7 +470,7 @@
    "ourId": "GOF75",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GOF_Uge_Choppa"
+    "6899b199f5e36144ebbdd7ed9d9e7afe"
    ],
    "n": 1,
    "why": null
@@ -477,7 +481,7 @@
    "ourId": "GOF77",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GOF_Ferocious_Rage_Beastboss_Talent"
+    "84d4d192e0f57a34a90ac0f6172c3358"
    ],
    "n": 1,
    "why": null
@@ -488,7 +492,7 @@
    "ourId": "TL34",
    "srcVia": "名字",
    "candidates": [
-    "TL_Brood_Progenitor"
+    "cbc9d98e39cc7fb4fa6f94c7e69bda18"
    ],
    "n": 1,
    "why": null
@@ -499,7 +503,7 @@
    "ourId": "UM65",
    "srcVia": "related_cards.json",
    "candidates": [
-    "UM_Exhortation_of_Rage"
+    "315d9f293e4f56d4f813584b43f0511c"
    ],
    "n": 1,
    "why": null
@@ -510,7 +514,7 @@
    "ourId": "UM29",
    "srcVia": "related_cards.json",
    "candidates": [
-    "UM_Greatest_Deeds"
+    "0544047df88d2ba4cad9c17ff080c0eb"
    ],
    "n": 1,
    "why": null
@@ -521,7 +525,7 @@
    "ourId": "TAU3",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TAU_Drone_Companion"
+    "c4f5c920744030c4e84428dc5a0f1bf2"
    ],
    "n": 1,
    "why": null
@@ -532,7 +536,7 @@
    "ourId": "GOF94",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GOF_Dok_s_Toolz_Painboss_talent"
+    "8f35df0536e4f7e4d86f3885e2597404"
    ],
    "n": 1,
    "why": null
@@ -543,7 +547,7 @@
    "ourId": "GOF29",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GOF_Da_Red_Waaagh"
+    "20d0f4451f16fc441836a02f99bf77da"
    ],
    "n": 1,
    "why": null
@@ -554,7 +558,7 @@
    "ourId": "GOF28",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GOF_Greatest_Warboss"
+    "3ebb159036778d14ebd1c48451aa6ca0"
    ],
    "n": 1,
    "why": null
@@ -565,7 +569,7 @@
    "ourId": "BL22",
    "srcVia": "related_cards.json",
    "candidates": [
-    "BL_Rites_of_Possession"
+    "3f38d2e2c83df4b4c9052ef4a510cfbb"
    ],
    "n": 1,
    "why": null
@@ -576,7 +580,7 @@
    "ourId": "ASH1",
    "srcVia": "related_cards.json",
    "candidates": [
-    "ASH_Path_of_the_Seer"
+    "09bcb1b3b8794c4429d82d4b2e68fa1f"
    ],
    "n": 1,
    "why": null
@@ -587,7 +591,7 @@
    "ourId": "SAU34",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SAU_Particle_Whip"
+    "eb17cd22c6a5d7941a7456838d927ab1"
    ],
    "n": 1,
    "why": null
@@ -598,7 +602,7 @@
    "ourId": "ASH76",
    "srcVia": "related_cards.json",
    "candidates": [
-    "ASH_Empyric_Ambush"
+    "dc7e575c0a328f446be1521c23ec850b"
    ],
    "n": 1,
    "why": null
@@ -606,13 +610,13 @@
   {
    "uid": "AM3",
    "name": "Commissar Denkler",
-   "ourId": null,
-   "srcVia": "认不出（名字对不上，且 related_cards.json 里这张没落 id）",
+   "ourId": "AM3",
+   "srcVia": "related_cards.json",
    "candidates": [
-    "AM_Lead_by_Example"
+    "cc11838649ff68a40b7d5d2b9fccd2bc"
    ],
    "n": 1,
-   "why": "认不出（名字对不上，且 related_cards.json 里这张没落 id）"
+   "why": null
   },
   {
    "uid": "TL34",
@@ -620,7 +624,7 @@
    "ourId": "TL34",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TL_Brood_Progenitor"
+    "cbc9d98e39cc7fb4fa6f94c7e69bda18"
    ],
    "n": 1,
    "why": null
@@ -631,7 +635,7 @@
    "ourId": "GOF18",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GOF_Sawbonez"
+    "b4d6d186eb95a3f468013c5be649ee3b"
    ],
    "n": 1,
    "why": null
@@ -639,21 +643,21 @@
   {
    "uid": "AM66",
    "name": "Tempestor Prime",
-   "ourId": null,
-   "srcVia": "认不出（名字对不上，且 related_cards.json 里这张没落 id）",
+   "ourId": "AM66",
+   "srcVia": "related_cards.json",
    "candidates": [
-    "AM_Efficiency_and_Excellence"
+    "1ff4815a506d2f34e94ec2f50900d352"
    ],
    "n": 1,
-   "why": "认不出（名字对不上，且 related_cards.json 里这张没落 id）"
+   "why": null
   },
   {
    "uid": "TL68",
    "name": "Psychophage",
-   "ourId": "TL_Psychophage",
+   "ourId": "TL68",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TL81"
+    "468db99b4b10d0745bab346df37d3fb2"
    ],
    "n": 1,
    "why": null
@@ -664,7 +668,7 @@
    "ourId": "UM47",
    "srcVia": "related_cards.json",
    "candidates": [
-    "UM_Master_of_the_Fleet"
+    "9238c27730a0c424288d46ed0f4a742c"
    ],
    "n": 1,
    "why": null
@@ -675,7 +679,7 @@
    "ourId": "SOR1",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SOR_Fury_of_the_Righteous"
+    "8901e35c5de30eb48804da6651cfb132"
    ],
    "n": 1,
    "why": null
@@ -686,7 +690,7 @@
    "ourId": "SOR2",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SOR_Lead_the_Righteous"
+    "65cfec7d2bc719040b3b4b88622931b2"
    ],
    "n": 1,
    "why": null
@@ -697,7 +701,7 @@
    "ourId": "GOF21",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GOF_Mekaniak"
+    "9dcbe3d0c04b02f4fbb19974ae0e37b2"
    ],
    "n": 1,
    "why": null
@@ -708,7 +712,7 @@
    "ourId": "GOF29",
    "srcVia": "名字",
    "candidates": [
-    "GOF_Da_Red_Waaagh"
+    "20d0f4451f16fc441836a02f99bf77da"
    ],
    "n": 1,
    "why": null
@@ -719,7 +723,7 @@
    "ourId": "ASH2",
    "srcVia": "related_cards.json",
    "candidates": [
-    "ASH_Path_of_the_Warrior"
+    "1bfe0893592c9dd40bed8d68d5d2b516"
    ],
    "n": 1,
    "why": null
@@ -727,13 +731,13 @@
   {
    "uid": "GSC66",
    "name": "Shanus Daskovian",
-   "ourId": null,
-   "srcVia": "认不出（名字对不上，且 related_cards.json 里这张没落 id）",
+   "ourId": "GSC66",
+   "srcVia": "related_cards.json",
    "candidates": [
-    "GSC_Master_Outrider"
+    "c433e3dde4952cc448220908226127ae"
    ],
    "n": 1,
-   "why": "认不出（名字对不上，且 related_cards.json 里这张没落 id）"
+   "why": null
   },
   {
    "uid": "DA36",
@@ -741,7 +745,7 @@
    "ourId": "DA36",
    "srcVia": "related_cards.json",
    "candidates": [
-    "DA_Master_of_Manoeuvre"
+    "7c45a641ec845994097d185af58715f6"
    ],
    "n": 1,
    "why": null
@@ -749,24 +753,24 @@
   {
    "uid": "GSC3",
    "name": "Iconward Malak Vorenth",
-   "ourId": null,
-   "srcVia": "认不出（名字对不上，且 related_cards.json 里这张没落 id）",
+   "ourId": "GSC3",
+   "srcVia": "related_cards.json",
    "candidates": [
-    "GSC_Nexus_of_Devotion"
+    "7831725387c8a774dbdf5b6492d928e0"
    ],
    "n": 1,
-   "why": "认不出（名字对不上，且 related_cards.json 里这张没落 id）"
+   "why": null
   },
   {
    "uid": "TAU32",
    "name": "Aun'Shi",
-   "ourId": null,
-   "srcVia": "认不出（名字对不上，且 related_cards.json 里这张没落 id）",
+   "ourId": "TAU32",
+   "srcVia": "related_cards.json",
    "candidates": [
-    "TAU_Serene_Unifier"
+    "f2b80d575cbf8f64597b991022beaf35"
    ],
    "n": 1,
-   "why": "认不出（名字对不上，且 related_cards.json 里这张没落 id）"
+   "why": null
   },
   {
    "uid": "AM1",
@@ -774,7 +778,7 @@
    "ourId": "AM1",
    "srcVia": "related_cards.json",
    "candidates": [
-    "AM_Lord_Commander"
+    "c06453b330af61745beb5fa567ba863e"
    ],
    "n": 1,
    "why": null
@@ -785,7 +789,7 @@
    "ourId": "UM12",
    "srcVia": "related_cards.json",
    "candidates": [
-    "UM_Spear_of_Macragge"
+    "d94f91051ecfe014f97577ff573571aa"
    ],
    "n": 1,
    "why": null
@@ -796,7 +800,7 @@
    "ourId": "GSC1",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GSC_Inscrutable_Cunning"
+    "d01a5ba5865ded4418194ea50e333b21"
    ],
    "n": 1,
    "why": null
@@ -807,7 +811,7 @@
    "ourId": "SAU28",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SAU_Reanimate"
+    "27a4b748a7bf358499f038aa09895ead"
    ],
    "n": 1,
    "why": null
@@ -818,7 +822,7 @@
    "ourId": "TL74",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TL_Alpha_Warrior"
+    "8f2da557fe484ee4bbf427c13eccd4cb"
    ],
    "n": 1,
    "why": null
@@ -829,7 +833,7 @@
    "ourId": "SOR65",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SOR_Daemonbreaker"
+    "e01f4d54e8a474d96b5a1167cc28eebf"
    ],
    "n": 1,
    "why": null
@@ -840,7 +844,7 @@
    "ourId": "GOF92",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GOF_Waaagh_Energy_Weirdboy_Talent"
+    "e3d67d86f73f7564eb0bf886ec848af6"
    ],
    "n": 1,
    "why": null
@@ -851,7 +855,7 @@
    "ourId": "SAU19",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SAU_Reanimate"
+    "27a4b748a7bf358499f038aa09895ead"
    ],
    "n": 1,
    "why": null
@@ -862,7 +866,7 @@
    "ourId": "AM2",
    "srcVia": "related_cards.json",
    "candidates": [
-    "AM_Legendary_Commandant"
+    "af98d423c7279a14c84c0d0382c53541"
    ],
    "n": 1,
    "why": null
@@ -873,7 +877,7 @@
    "ourId": "AM15",
    "srcVia": "related_cards.json",
    "candidates": [
-    "AM_Cadian_Honour"
+    "3a52026b99bb56f40aa9dc130fc66f34"
    ],
    "n": 1,
    "why": null
@@ -884,7 +888,7 @@
    "ourId": "DA31",
    "srcVia": "related_cards.json",
    "candidates": [
-    "DA_Master_Interromancer"
+    "a84a5b49f0ca9144585058db6987c2a0"
    ],
    "n": 1,
    "why": null
@@ -895,7 +899,7 @@
    "ourId": "GSC37",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GSC_Deadliest_Killer"
+    "f45dd53721b645b4ab45d334edb986af"
    ],
    "n": 1,
    "why": null
@@ -906,7 +910,7 @@
    "ourId": "EC56",
    "srcVia": "related_cards.json",
    "candidates": [
-    "EC_Euphoric_Strike_Lord_Exultant_s_Talent"
+    "b9665eadf1207ff49bcf0a730b0b7f9d"
    ],
    "n": 1,
    "why": null
@@ -917,7 +921,7 @@
    "ourId": "TAU36",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TAU_Shield_Generator"
+    "684196db974ab254090f39ef6e89868c"
    ],
    "n": 1,
    "why": null
@@ -928,7 +932,7 @@
    "ourId": "SAU20",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SAU_Reanimate"
+    "27a4b748a7bf358499f038aa09895ead"
    ],
    "n": 1,
    "why": null
@@ -939,9 +943,9 @@
    "ourId": null,
    "srcVia": "认不出（名字对不上，且 related_cards.json 里这张没落 id）",
    "candidates": [
-    "BL_Diabolic_Strength",
-    "BL_Infernal_Gaze",
-    "BL_Unhallowed_Gifts"
+    "7bf8ce67fb6be4744ae44345a5b465fd",
+    "453b0e8f88e094a17866a6979f389ef5",
+    "141c5ed661a9e42bd9a793f0d2a1c682"
    ],
    "n": 3,
    "why": "认不出（名字对不上，且 related_cards.json 里这张没落 id）"
@@ -952,7 +956,7 @@
    "ourId": "GSC2",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GSC_Brood_Prophet"
+    "fd67b47572987b84cb2990ea1ecfe982"
    ],
    "n": 1,
    "why": null
@@ -963,7 +967,7 @@
    "ourId": "ASH3",
    "srcVia": "related_cards.json",
    "candidates": [
-    "ASH_Path_of_Command"
+    "9c3562ffa183ede41b1626d9c9dc1e2f"
    ],
    "n": 1,
    "why": null
@@ -974,7 +978,7 @@
    "ourId": "UM46",
    "srcVia": "related_cards.json",
    "candidates": [
-    "UM_Master_Tactician"
+    "dcbd28525888ce54aaa93a47ba4de1e6"
    ],
    "n": 1,
    "why": null
@@ -985,7 +989,7 @@
    "ourId": "TL36",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TL_Spirit_Leech"
+    "760bd3afde513774d96d6492f995fd37"
    ],
    "n": 1,
    "why": null
@@ -996,7 +1000,7 @@
    "ourId": "TAU1",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TAU_Hero_of_the_Empire"
+    "9f75a6fe11922eb409ffbad4ecdeb405"
    ],
    "n": 1,
    "why": null
@@ -1007,7 +1011,7 @@
    "ourId": "EC57",
    "srcVia": "related_cards.json",
    "candidates": [
-    "EC_Excessive_Vigour_Daemon_Prince_s_Talent"
+    "2621d4280735baf4c952e6afea8d0686"
    ],
    "n": 1,
    "why": null
@@ -1018,7 +1022,7 @@
    "ourId": "UM47",
    "srcVia": "名字",
    "candidates": [
-    "UM_Master_of_the_Fleet"
+    "9238c27730a0c424288d46ed0f4a742c"
    ],
    "n": 1,
    "why": null
@@ -1029,7 +1033,7 @@
    "ourId": "GOF76",
    "srcVia": "related_cards.json",
    "candidates": [
-    "GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent"
+    "64a657fc5ed5bbb4fa7b585cf29c1e95"
    ],
    "n": 1,
    "why": null
@@ -1040,7 +1044,7 @@
    "ourId": "SOR16",
    "srcVia": "related_cards.json",
    "candidates": [
-    "SOR_Hymn_of_Battle"
+    "4d348cff71208c24d8e39252d913ff9d"
    ],
    "n": 1,
    "why": null
@@ -1051,7 +1055,7 @@
    "ourId": "AM27",
    "srcVia": "related_cards.json",
    "candidates": [
-    "AM_Renowned_Bodyguard"
+    "98cd4c021d615174aba88df6012219c4"
    ],
    "n": 1,
    "why": null
@@ -1062,7 +1066,7 @@
    "ourId": "ASH79",
    "srcVia": "related_cards.json",
    "candidates": [
-    "ASH_Flickerjump"
+    "67adbc7f7bce2bd4c8f6937fab3134e5"
    ],
    "n": 1,
    "why": null
@@ -1073,7 +1077,7 @@
    "ourId": "TL23",
    "srcVia": "related_cards.json",
    "candidates": [
-    "TL_Aerial_Seeding"
+    "c0ddba6cc45944f46a65f4fd93bcc0a5"
    ],
    "n": 1,
    "why": null
@@ -1084,7 +1088,7 @@
    "ourId": "SAU36",
    "srcVia": "名字",
    "candidates": [
-    "SAU_Relentless_March"
+    "d8a14171b08b54144ba9dbf324b0a042"
    ],
    "n": 1,
    "why": null

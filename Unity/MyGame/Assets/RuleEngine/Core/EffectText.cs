@@ -5063,7 +5063,21 @@ namespace RuleEngine
             // 先于 ` to your deck`，否则「洗回牌库」会被判成「从别处拿一张放进牌库」。
             string act = ""; int copies = 0;
             int costDelta = 0;
-            if (low.Contains("return it to your deck")) act = "return";
+            // 🔴 **2026-10-14（账 `A1989`）：动作词组命中时【顺手记下它的结束下标】** ——
+            //   本函数末尾要靠它把「动作之后的残句」交回管线（`FeedChooseResidue`）。
+            //   没找到动作 ⇒ 恒 `-1` ⇒ 末尾那一段**一个字都不动**（今天的行为原样保留）。
+            //   ⚠️ `ActIs` 同时替掉了原来的 `low.Contains(...)`：`low` 在 `Dispatch` 里
+            //      **恒是 `ToLowerInvariant` 过的**（`ParseSegment:2132`），且 `ActPhraseAt`
+            //      用的是 `Ordinal` ⇒ 「命中与否」与原来**逐个字符同判据**，只是顺带带回下标。
+            int actEnd = -1;
+            bool ActIs(string phrase)
+            {
+                int e = ActPhraseAt(low, phrase);
+                if (e < 0) return false;
+                actEnd = e;
+                return true;
+            }
+            if (ActIs("return it to your deck")) act = "return";
             // 🆕 2026-10-17（B24）：`… and return it to your hand` —— 把挑中那张**收回手牌**。
             //   实测 1 处：`Suppressor`（Ultramarines 单位，`Oath 1:` 的主动技能）。
             //   **判据 = 成品卡图上的卡面原文**（`d:/2/Warpforge部队卡片/Ultramarines/3部队/
@@ -5076,34 +5090,43 @@ namespace RuleEngine
             //   ⚠️ 顺序：上面 `return it to your **deck**` 那条先判（两半句不会互相吃）；
             //      落到 `DoChooseCard` 的 `case "hand"`（与 `put/add/create it in your hand`
             //      同一个去处）—— 从**弃牌堆**把**那一份实例**摘回来（B19 落的 `played` 域那一支）。
-            else if (low.Contains("return it to your hand")) act = "hand";
-            else if (low.Contains("shuffle it into their deck")) act = "shuffle";
-            else if (low.Contains("draw it")) act = "draw";
-            else if (low.Contains("at the top of your deck")) act = "decktop";
-            else if (low.Contains(" to the enemy hand") || low.Contains(" to your opponent's hand")) act = "enemyhand";
-            else if (low.Contains(" to your deck")) act = "todeck";
+            else if (ActIs("return it to your hand")) act = "hand";
+            else if (ActIs("shuffle it into their deck")) act = "shuffle";
+            else if (ActIs("draw it")) act = "draw";
+            else if (ActIs("at the top of your deck")) act = "decktop";
+            else if (ActIs(" to the enemy hand") || ActIs(" to your opponent's hand")) act = "enemyhand";
+            else if (ActIs(" to your deck")) act = "todeck";
             // 🆕 2026-10-17（B14）：`… and increase its cost by N` —— **给挑中那张加价**。
             //   实测 1 处：`Jackal Scout`（`Rally: Choose a card in your opponent's hand and
             //   increase its cost by 1`，`desc` 原文；卡面英文亲读一致 —— 见报告）。
             //   ⚠️ 加它之前这一条判不出动作 ⇒ `ChooseAct` 空串 ⇒ **挑完什么都不发生**，
             //      而且不报错（卡面写的事没做）。出处 `资料/普查产出_1017/盘点_战斗部分文档.md`
             //      「选牌 · 动作表缺项」。
-            else if (low.Contains("increase its cost by"))
+            else if (ActIs("increase its cost by"))
             {
                 act = "inccost";
                 var mi = ReChooseIncCost.Match(low);
                 costDelta = mi.Success ? int.Parse(mi.Groups[1].Value) : 1;
+                // 🔴 `A1989`：下标改取**正则匹配的结尾**（它比上面那个字面量**更准** ——
+                //    字面量只到 `by`，正则连数字一起吃掉）。
+                if (mi.Success) actEnd = mi.Index + mi.Length;
             }
             else
             {
                 var mc = ReChooseCopies.Match(low);
-                if (mc.Success) { act = "copies"; copies = CountWord(mc.Groups[1].Value); }
-                else if (low.Contains(" deploy it")) act = "deploy";
+                if (mc.Success)
+                {
+                    act = "copies"; copies = CountWord(mc.Groups[1].Value);
+                    // 🔴 `A1989`：`create N copies` 后面还跟着目的地（`in your hand`）——
+                    //    它属于**本动作**，由 `FeedChooseResidue` 剥掉，不算残句。
+                    actEnd = mc.Index + mc.Length;
+                }
+                else if (ActIs(" deploy it")) act = "deploy";
                 // ⚠️ 这四种**都是显式写法**。**故意不收** 裸的 `" in your hand"`（见上面 ②）——
                 //    `Choose a card in your opponent's hand` 会被它误判。
-                else if (low.Contains("put it in your hand") || low.Contains("add it to your hand")
-                      || low.Contains("add it your hand")      // ← 原版数据里真有这个少 `to` 的写法
-                      || low.Contains("create it in your hand")) act = "hand";
+                else if (ActIs("put it in your hand") || ActIs("add it to your hand")
+                      || ActIs("add it your hand")      // ← 原版数据里真有这个少 `to` 的写法
+                      || ActIs("create it in your hand")) act = "hand";
             }
 
             r.Ops.Add(new EffectOp
@@ -5118,7 +5141,104 @@ namespace RuleEngine
                 ChooseCostDelta = costDelta,
             });
             r.Kind = SegKind.Ok;
+
+            // 🔴 **2026-10-14（账 `A1989`）：动作之后那半句交回管线**（⛔ 不是丢掉）——
+            //   见 `FeedChooseResidue` 的长注释。放在**本 op 记完之后**：残句产出的 op
+            //   必须排在 `choosecard` **后面**（`Lower their cost by 1` 指着刚造出来那批）。
+            FeedChooseResidue(low, actEnd, src, r);
             return true;
+        }
+
+        /// <summary>词组 <paramref name="phrase"/> 在 <paramref name="low"/> 里的**结束下标**
+        /// （找不到返回 `-1`）。判据与原来的 `Contains` **逐个字符相同**（`Ordinal`）——
+        /// 见 `TryChooseCard` 里 `ActIs` 那段注释。⛔ **别改成 `IgnoreCase`**（那是行为改动）。</summary>
+        static int ActPhraseAt(string low, string phrase)
+        {
+            if (string.IsNullOrEmpty(low) || string.IsNullOrEmpty(phrase)) return -1;
+            int i = low.IndexOf(phrase, System.StringComparison.Ordinal);
+            return i < 0 ? -1 : i + phrase.Length;
+        }
+
+        /// <summary>
+        /// 动作词组之后**属于本动作**的目的地短语（`in your hand` / `to your deck` …）。
+        /// 它**不是**新的一句 ⇒ 算「残句」之前要剥掉。
+        ///
+        /// ⚠️ 这张表**只用来把残句【缩短】**（`FeedChooseResidue` 只在剥完仍非空时才动手）
+        /// ⇒ 它**多一条少一条都不改任何既有段**，⛔ **更不是**在给动作表加词汇
+        /// （动作表 = `TryChooseCard` 里那一串 `ActIs`，判据仍只此一处）。
+        /// 词源 = **动作表自己的写法**（`put it in your hand` / `to your deck` / `at the top of your deck` …）。
+        /// </summary>
+        static readonly string[] ChooseActDests =
+        {
+            "at the top of your deck",
+            "to your opponent's hand", "in the enemy hand",
+            "into your hand", "to your hand", "in your hand",
+            "into your deck", "to your deck",
+        };
+
+        /// <summary>
+        /// 🔴 **2026-10-14（账 `A1989`）：`TryChooseCard` 领走动作之后，把【剩下的残句】交回
+        /// 正常的分段解析管线** —— 而不是像以前那样**整段吞掉**。
+        ///
+        /// **要治的形状**（全池**只有这一张**）：`GSC29 Metamorph Iconbearer`
+        /// （Genestealer Cult 部队，`Rally:`）——
+        /// `Rally: Choose a 2-cost Genestealer Cults troop and create 2 copies in your hand
+        ///  Lower their cost by 1`
+        /// 卡面**逐字如此**（🔴 铁律 7：成品卡图亲读 `d:/2/Warpforge部队卡片/Genestealer Cult/3部队/
+        /// Warpforge_31_Metamorph-Iconbearer.png` —— `hand` 与 `Lower` 之间**既没有 `and`
+        /// 也没有句号**）。于是：
+        ///   · `Split` 只按 `.`/换行切 ⇒ 这是**一段**；
+        ///   · 段里唯一那个 ` and ` 在**动作之前**（`… troop and create 2 copies …`），
+        ///     尾句切分（`SplitAndTail`）**用不上**；
+        ///   · 本函数命中后**整段领走** ⇒ `lower their cost by 1` **既不是 op、也不进
+        ///     `unparsed`/`partial`**（`_tmp_view/w15_scan.txt` 现读：`GSC29` 那行只有
+        ///     一条 `choosecard/…/copies`）——**静默丢失**（红线）。
+        ///
+        /// **做法**：把动作词组之后剩下的那截**原样送进 `ParseSegment`** ——
+        ///   · 它前面若还挂着**本动作的目的地**（`in your hand`）先剥掉（`ChooseActDests`）；
+        ///   · 剥完为空 ⇒ **一个字都不动**（今天的行为，例如 `UM97` 的
+        ///     `… create two copies in your hand`）；
+        ///   · 非空则要求**以效果动词开头**（判据 = `IsVerbWord` —— **管线自己那一份**，
+        ///     与 `SplitAndTail` 判「`and` 后面算不算新效果」**同一个口**，⛔ 不另写动词表）；
+        ///   · 解出来的 op **追加在 `choosecard` 之后**（`Lower their cost by 1` 是
+        ///     `(指代上一张)` ⇒ 指着**刚造出来那批**，顺序不能反）。
+        ///
+        /// 🔴 **不许静默失败**：残句非空而**解不干净**时，整段**如实降级成
+        /// `SegKind.Partial`**（报表的 `partial` 栏会点名这一句、卡面也打 `*`）——
+        /// 不是动词开头的那种也走同一档，⛔ **绝不拿猜测去填**（本工程红线）。
+        ///
+        /// ⚠️ **为什么不换个做法**（把 `TryChooseCard` 挪到 `and` 尾句切分之后 / 按卡面替它断句）：
+        ///   那等于**替原版断句** —— `GSC29` 那句卡面**本来就没有 `and`、没有句号**，
+        ///   切开它会连带动到别的 `choose` 句（`项目任务.md` 的 `A1989` 行已把这个备选判死）。
+        /// ⚠️ **判据出处**：原版**不解析英文卡面**（效果是序列化 `cardAbilities[].abilityLogic[]`）
+        ///   ⇒ 反编译里**没有**这个顺序的判据（`lower_cost`/`LowerCost`/`lower cost` 在
+        ///   `d:/2/tools/decomp_full/` **0 命中**，只读代理搜过）。**这是我们自己解析器的事**，
+        ///   判据 = **卡面** ＋ 我们自己的 op 扫描（同类形状**全池扫过 = 1 张**，
+        ///   见 `资料/普查产出_第三十一会话/F_三条判据查证.md` 的「A1989 全池扫描」）。
+        /// </summary>
+        static void FeedChooseResidue(string low, int actEnd, string src, SegResult r)
+        {
+            if (actEnd < 0 || actEnd >= low.Length) return;          // 没动作 / 后面没东西 ⇒ 原样
+            string rest = low.Substring(actEnd).Trim().TrimStart(',', ';').Trim();
+            foreach (string d in ChooseActDests)
+                if (rest.StartsWith(d, System.StringComparison.Ordinal))
+                {
+                    rest = rest.Substring(d.Length).Trim().TrimStart(',', ';').Trim();
+                    break;
+                }
+            if (rest.Length == 0) return;
+
+            if (!IsVerbWord(FirstWord(rest)))
+            {
+                // 不是动词开头 ⇒ **不猜**，但**要出声**（整段降成「半懂」）
+                r.Kind = SegKind.Partial;
+                return;
+            }
+
+            var sub = ParseSegment(rest);
+            if (sub.Ops != null && sub.Ops.Count > 0) r.Ops.AddRange(sub.Ops);
+            // 残句自己没解干净（半懂 / 不认）⇒ 整段如实降级（⛔ 别把「只懂一半」报成 OK）
+            if (sub.Kind != SegKind.Ok && sub.Kind != SegKind.KeywordOnly) r.Kind = SegKind.Partial;
         }
 
         // `Deal 1 additional damage`（`Death from Above` 的 `[Codex]` 段）—— `additional` 是语气词。

@@ -183,8 +183,18 @@ namespace RuleEngine
         public bool DutyUsed;
 
         /// <summary>
-        /// **正在祈祷**（2026-09-13 A4 批 1）—— 执行过 `Pray` 替代行动的单位，**按回合重置**。
+        /// **正在祈祷**（2026-09-13 A4 批 1）—— 执行过 `Pray` 替代行动的单位。
         ///
+        /// 🔴 **2026-10-14（账 `A1155②`）时长【已核】—— 原来这里写「按回合重置」是【模糊的】**：
+        ///    真值区间 = 「**祈祷那一刻**」→ 「**下一个回合开始（不分敌我）**」或
+        ///    「**自己挨一次伤害**」，**以先到者为准**。
+        ///    判据 = `d:/2/tools/decomp_full/` 里 `EntityScript.isPraying`（`+0x67`）的**全部写点**
+        ///    （`grep -rn "param_1 + 0x67)"` **只有 3 处**）：
+        ///      · 置真 `BattleManager__ResolveTriggerPray.c:266`；
+        ///      · 置假① `CardScript__OnTurnStart.c:100`（**无条件**，且对**全场**每张在场卡各跑一次
+        ///        —— `BattleManagerSupport__BroadcastTurnStart.c:20-26`）⇒ 落在 `RuleCore.BeginTurn`；
+        ///      · 置假② `CardScript__ResolveDamageDealt.c:168`（闸 = 受伤者 == 自己）⇒ 落在 `RuleCore.ApplyDamage`。
+        ///    ⛔ **别再写成「按回合重置」**（那样读起来像「只在自己回合开始清」，正是改前的错口径）。
         /// 出处：我们上一版复刻 `rule_core.gd:2371`（`u["prayed"] = true`，在 `Pray` 那一点）·
         ///       `:1953`（`u["prayed"] = false`，和 `exhausted` / `attacks_turn` 同一批清）。
         /// ⚠️ 2026-10-18 更正：这里原来把这行标成「**规格书**」—— 那份 `.gd` 是我们自己的复刻、
@@ -192,7 +202,7 @@ namespace RuleEngine
         /// 卡面两处：`Each friendly unit that is Praying heals 3`（`Devout Serenity`）·
         ///           `If any friendly unit is Praying, …`（`Sororitas Rhino`）。
         /// ⚠️ 它和 `When a friendly unit Prays` **不是一回事**：那个是**事件**（发生的那一下），
-        ///    这个是**状态**（本回合一直挂着，回合开始才掉）。两张卡各要各的。
+        ///    这个是**状态**（挂着，直到上面那两件事之一发生）。两张卡各要各的。
         /// </summary>
         public bool Prayed;
 
@@ -1205,10 +1215,16 @@ namespace RuleEngine
             //      所以它在对手回合仍然为真 —— 那是对的：对手回合本来就 `ErrNotTurn`。
             CannotAttackThisTurn = false;
             AttacksThisTurn = 0;
-            // 「正在祈祷」是**按回合**的状态（我们上一版复刻 `rule_core.gd:1953` 就在这一批里清；⚠️ **旁证**）。
-            // 卡面：`Each friendly unit that is Praying heals 3`（`Devout Serenity`）·
-            //       `If any friendly unit is Praying, …`（`Sororitas Rhino`）。
-            Prayed = false;
+            // 🔴 **2026-10-14（账 `A1155②`）：「正在祈祷」不再在这里复位** ——
+            //    它**不属于**「只刷当前行动方」的那一批。判据 = 原版 `CardScript__OnTurnStart.c:100`
+            //    的 `+0x67 = 0` 对**全场**每一张在场卡各来一次
+            //    （`BattleManagerSupport__BroadcastTurnStart.c:20-26` 扫 `CardsInPlay` 全场），
+            //    而本方法**只被 `RuleCore.BeginTurn` 对 `p.Board`（当前行动方）调**。
+            //    ⇒ 清的动作已搬到 `RuleCore.BeginTurn` 里那一圈（**不分敌我**，有逐行判据）。
+            //    ⛔ **别再往这里加回来**：加回来只会让**对手**那一侧又慢一个回合才失状态
+            //    —— 静默、且只在那半边现形。
+            //    ⚠️ 卡面（读它的人）：`Each friendly unit that is Praying heals 3`（`Devout Serenity`）·
+            //       `If any friendly unit is Praying, …`（`Sororitas Rhino`）（判据见 `UnitState.Prayed`）。
             // 「本回合下一次用狂暴时留在场上」的**兜底复位**（2026-09-14 A4 批 3）——
             // 卡面写 `this turn`：这一回合没用到，就作废。
             // ⚠️ **消费点是 `RuleCore.UseAlternative` 的狂暴那一段**（用掉当场清，才是「下一次」）；

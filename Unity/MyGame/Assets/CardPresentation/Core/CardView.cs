@@ -894,7 +894,11 @@ namespace CardPresentation
             Show(_frame, !board);
             Show(_artFront, !board);
             Show(_textBg, !board);       // 效果文字底板
-            Show(_costBg, !board);       // 费用六边形
+            // 🔴 **2026-10-14（`A2006①`）：费用六边形多一个门 —— 督军整格不印。**
+            //   判据 = `ShowsCost(d)`（出处见那个函数的注释；⛔ 别在这里另写一份 `cost >= 0`）。
+            //   ⚠️ 这里是**换形态入口**，`Build` 是**出生入口**（铁律 10 第 5 条）—— 两个都要走同一个口径，
+            //      否则就是「手牌打出去的督军带着费用六边形上场 / 出生在场的督军没有」这种一形态一套值。
+            Show(_costBg, !board && ShowsCost(Data));   // 费用六边形
             Show(_gem, !board);          // 稀有度宝石
             Show(_title, !board);
             Show(_keywords, !board);
@@ -955,6 +959,28 @@ namespace CardPresentation
         {
             return _faceMode == CardFace.Board && d.isUnit && PragatiDigits.Available;
         }
+
+        /// <summary>卡面上要不要画「**费用**」那一格（右上角那块六边形底板 + 圆里那个数）。
+        /// <para>🔴 **判据 = 原版 `BasicCardUI.SetRawCardData`**（`d:/2/tools/decomp_full/BasicCardUI__SetRawCardData.c`
+        /// —— 2026-10-14 现读全文，内容与文件名相符；`A2006①`）：
+        /// `:51` 取 `GameStaticData.IsWarlordEquivalent(card)` → `:56` 先给 `bVar6 = 0` →
+        /// `:80-82` **只在「不是督军」时**才把它算成 `(manaCost 的符号位取反)` = **`manaCost >= 0`** →
+        /// `:77-78` **无论是不是督军都照样 `SetText`** 把值写进去 → `:84` 拿 `bVar6` 去 `Toggle(costCtrl, …)`。
+        /// ⇒ **督军：值照写、整格不显示（与值无关）；非督军：`cost >= 0` 才显示。**
+        /// <br/>`IsWarlordEquivalent` 的判据是 `cardType == 10`（`GameStaticData__IsWarlordEquivalent.c:6`），
+        /// 而 `CardTypeOptions`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardTypeOptions.cs`）里
+        /// `Hero = 10` ⇒ 落到我们这份数据上就是 **`type == "hero"`**。</para>
+        /// <para>⚠️ **不能只留 `cost >= 0`**：卡池里 56 张督军 `cost` 恒 `0`（`A1773` 换真值后会变 `2`），
+        /// `cost >= 0` **恒真 ⇒ 一颗都藏不住** —— 今天印 `0`、`A1773` 之后印 `2`，**两边都错**
+        /// （这正是 `A2006` 说「只改数字 = 把一个错数换成另一个错数」的那件事）。</para>
+        /// <para>⚠️ 判据**只有这一处**：`Build`（出生入口）· `SetFace`（手牌 ↔ 场上）· `InfoTexture`（烘数字）
+        /// 三个入口都要用它 —— 铁律 10 第 5 条（多入口各显式设一次）**且**口径共用一份。</para>
+        /// <para>⚠️ **没填 `type` 的构造点**（`CardData.Simple` / `Placeholder` / 自检夹具）仍走老口径
+        /// （只看 `cost >= 0`）—— 与 `SubtypeLine` 对空 `type` 的处理同一个态度：
+        /// 判不出来时**不改行为**。</para>
+        /// <para>⚠️ 底板（`_costBg` 图层）与烘进 `_info` 的那个**数字**是**两处**，
+        /// 两处都必须过这一条 —— 只关一处会留下「一块空六边形」或「一颗飘着的数字」。</para></summary>
+        public static bool ShowsCost(CardData d) { return d.cost >= 0 && d.type != "hero"; }
 
         static void Show(MeshRenderer r, bool on) { if (r != null) r.gameObject.SetActive(on); }
         static void Show(TextMeshPro t, bool on) { if (t != null) t.gameObject.SetActive(on); }
@@ -1999,7 +2025,11 @@ namespace CardPresentation
                 // 费用底板 / 护甲盾：原版的**两张真图**（A2 表），垫在数值底下 ——
                 // z 比 `_info`(−0.02) 远、比卡框(0) 近，所以数字盖在它们上面，和原版层级一致。
                 var costTex = CardArt.DeckUi("Card_Frame_Cost_Icon");
-                if (!board && costTex != null)
+                // 🔴 **2026-10-14（`A2006①`）：督军不建这一层** —— 判据 = `ShowsCost(d)`（出处见它的注释）。
+                //    ⚠️ 这一条是**出生入口**、`SetFace` 是**换形态入口**（铁律 10 第 5 条）：
+                //      出生就在手牌/池子里的卡**从不走 `SetFace`**（它开头 `if (_faceMode == f) return;` 直接返回）
+                //      ⇒ 只在 `SetFace` 里关**等于没关**（这正是 `A2006` 说的「卡组池 / 收藏 / 详情里督军会印出费用」）。
+                if (!board && costTex != null && ShowsCost(d))
                     _costBg = AddLayer("costBg", costTex, -0.015f, costTex,
                                        SpriteQuad("costBg", CostAt, CostBgW, CostBgH));
                 // ⚠️ 只有**单位卡且有护甲**才画那面盾：战术卡的卡面上没有数值格
@@ -4266,7 +4296,14 @@ namespace CardPresentation
             if (HitAt(l, board ? BoardRangedAt : RangedAt)) return StatRanged;
             if (HitAt(l, board ? BoardArmourAt : ArmourAt)) return StatArmour;
             if (HitAt(l, board ? BoardHealthAt : HealthAt)) return StatHealth;
-            if (HitAt(l, CostAt))                           return StatCost;
+            // 🔴 **费用那一格要跟「画不画」走同一份判据**（2026-10-14 第三十一会话 · `A2006` 顺手发现）：
+            //    原版对督军是 `Toggle(costCtrl, bVar6)`（`d:/2/tools/decomp_full/BasicCardUI__SetRawCardData.c:84`，
+            //    督军 `bVar6` 恒 0）⇒ **容器整个 `SetActive(false)`**，挂在它上面的触发器**也不响应射线**。
+            //    我们这套没有 uGUI 射线靶，是按「点到数值中心的距离」判的 ⇒ 不加这道门，
+            //    督军卡上那块**空白**仍会弹出费用 tooltip（消费者：`BattleDriver.cs:15252` / `DeckRuntime.cs:1181`）。
+            //    ⚠️ 判据**只此一处** `ShowsCost`（与 `:901` 的显示口径同一份，铁律 10 第 5 条：两处写同一条规则 = 迟早不一致）。
+            //    ⚠️ `!board` 那一半照 `:901` —— 场上那套（`CardFace.Board`）本来就不画费用。
+            if (!board && ShowsCost(Data) && HitAt(l, CostAt)) return StatCost;
             return StatNone;
         }
 
@@ -5595,7 +5632,9 @@ namespace CardPresentation
 
         static string CacheKey(CardData d)
         {
-            return $"{ColorUtility.ToHtmlStringRGBA(d.frame)}|{d.title}|{d.cost}|{d.melee}|{d.ranged}|{d.health}|{d.armor}|{d.keywords}|{d.isUnit}";
+            // 🔴 **2026-10-14（`A2006①`）末尾补上 `d.type`**：费用那一格画不画由 `ShowsCost(d)` 判，
+            //    而它读 `d.type` ⇒ 照上面那条「缓存键必须带**所有画进贴图的字段**」的口径，它必须在键里。
+            return $"{ColorUtility.ToHtmlStringRGBA(d.frame)}|{d.title}|{d.cost}|{d.melee}|{d.ranged}|{d.health}|{d.armor}|{d.keywords}|{d.isUnit}|{d.type}";
         }
 
         /// <summary>数值层（透明底）：费用 + 卡名 + 关键词 + 三个数值</summary>
@@ -5616,7 +5655,10 @@ namespace CardPresentation
             //    原版这一格是**一张真图** —— `Cost Container/Cost Background`，sprite `Card Frame Cost Icon`
             //    （248×244，0.4891×0.4809 卡单位），由 `Build` 里那个 `costBg` 图层画（那样才用得上原图）。
             //    只有**取不到那张图**时才退回六边形（不静默失败：形状差一点，但费用数字照常看得见）。
-            if (d.cost >= 0)
+            // 🔴 **2026-10-14（`A2006①`）：判据改成 `ShowsCost(d)`**（督军不印费用数字；出处见那个函数）。
+            //    原来这里只写 `cost >= 0` ⇒ **督军照样把数字烘进 `_info`**（今天印 `0`、`A1773` 之后印 `2`）。
+            //    ⚠️ 底板那一层（`Build` 的 `_costBg`）是**另一处**，两处都要过这一条 —— 见 `ShowsCost` 末段。
+            if (ShowsCost(d))
             {
                 if (CardArt.DeckUi("Card_Frame_Cost_Icon") == null)
                 {

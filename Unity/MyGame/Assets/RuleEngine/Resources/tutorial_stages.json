@@ -100,8 +100,8 @@
  ],
  "unresolvedNotPool": [],
  "ocrNameFixes": [
-  "「Gauss Warrior (tutorial)」(= SO 原名，产物 `name` 字段**原样保留**) → `SAU10`（我们卡池里叫「Gauss Reaper Warrior」，其 `card_stats.json` 的 `ocrName` = 'Gauss Warrior'）",
-  "「Tesla Immortal」(= SO 原名，产物 `name` 字段**原样保留**) → `SAU12`（我们卡池里叫「Tesla Carbine Immortal」，其 `card_stats.json` 的 `ocrName` = 'Tesla Immortal'）"
+  "「Gauss Warrior (tutorial)」(= SO 原名，产物 `name` 字段**原样保留**) → `SAU4`（我们卡池里叫「Gauss Reaper Warrior」，其 `card_stats.json` 的 `ocrName` = 'Gauss Warrior'）",
+  "「Tesla Immortal」(= SO 原名，产物 `name` 字段**原样保留**) → `SAU6`（我们卡池里叫「Tesla Carbine Immortal」，其 `card_stats.json` 的 `ocrName` = 'Tesla Immortal'）"
  ],
  "ocrNameFixNote": "🔴 **这 2 条是【裁定映射】，不是原版明确指认**：判据 = 教程 SO 用的那个名字（= 原版卡 SO 的 `cardName`）与 `数据/游戏数据/card_stats.json` 的 **`ocrName`** 列（当年从 **PnP 成品卡图**上 OCR 出来的名字）**逐字吻合**、且在我们卡池里**位置唯一**。⚠️ 原版那份卡 SO（`allcards_assets_all.bundle`）本地没有 ⇒ **钉不死**它俩与映射到的那两张是同一张卡（数值可能被教程改过）。产物里 **SO 原名原样保留**（`name` 字段），只在 `ourId` 写我们的 id、`matchTier` 写 `ocrName`（⛔ 别当 exact/norm 用）。裁定：调度台 2026-10-17。",
  "refNote": "`pid` 是原版 SO 里 `RawCardScript` 的 PPtr（64 位有符号，当**坐标**用）；`name` 来自原版 SO 自己的 `actionType` 字符串（**一个字都不改**，见 gen_tutorial_stages.py 的 parse_action_arg）；`ourId` 是 `cards_engine.json` 里的卡 id，`matchTier` = exact / norm / ocrName（**不做模糊匹配**，宁可认不出；`ocrName` = 走了裁定映射，见 `ocrNameFixes`）；`note` 只在解不出时给候选线索（⛔ 候选不当结果用）",
@@ -482,7 +482,7 @@
          "unitTypeName": "PlayerMinion",
          "pid": "2590347532802576856",
          "name": "Primaris Intercessor",
-         "ourId": "UM14",
+         "ourId": "UM6",
          "matchTier": "exact",
          "note": ""
         },
@@ -1321,7 +1321,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-1896962019756710892",
           "name": "Primaris Reiver",
-          "ourId": "UM_Primaris_Reiver",
+          "ourId": "UM5",
           "matchTier": "exact",
           "note": ""
          },
@@ -2113,7 +2113,7 @@
           "unitTypeName": "None",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          },
@@ -2164,7 +2164,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          },
@@ -2215,7 +2215,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          },
@@ -2266,7 +2266,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          },
@@ -2377,7 +2377,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-1896962019756710892",
           "name": "Primaris Reiver",
-          "ourId": "UM_Primaris_Reiver",
+          "ourId": "UM5",
           "matchTier": "exact",
           "note": ""
          },
@@ -2590,7 +2590,7 @@
           "unitTypeName": "None",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          },
@@ -2803,7 +2803,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          },
@@ -3322,7 +3322,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3125297114274469715",
           "name": "Primaris Reiver (tutorial)",
-          "ourId": "UM_Primaris_Reiver",
+          "ourId": "UM5",
           "matchTier": "norm",
           "note": ""
          },
@@ -3373,7 +3373,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "6343641872617711132",
           "name": "Primaris Reiver (tutorial1)",
-          "ourId": "UM_Primaris_Reiver",
+          "ourId": "UM5",
           "matchTier": "norm",
           "note": ""
          },
@@ -3739,7 +3739,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          },
@@ -3901,7 +3901,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8206932990222692476",
           "name": "Devastator Centurion (tutorial)",
-          "ourId": "UM39",
+          "ourId": "UM25",
           "matchTier": "norm",
           "note": ""
          },
@@ -3952,7 +3952,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8206932990222692476",
           "name": "Devastator Centurion (tutorial)",
-          "ourId": "UM39",
+          "ourId": "UM25",
           "matchTier": "norm",
           "note": ""
          },
@@ -4105,7 +4105,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "6343641872617711132",
           "name": "Primaris Reiver (tutorial1)",
-          "ourId": "UM_Primaris_Reiver",
+          "ourId": "UM5",
           "matchTier": "norm",
           "note": ""
          },
@@ -4216,7 +4216,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          },
@@ -4429,7 +4429,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8206932990222692476",
           "name": "Devastator Centurion (tutorial)",
-          "ourId": "UM39",
+          "ourId": "UM25",
           "matchTier": "norm",
           "note": ""
          },
@@ -5003,7 +5003,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "1463984737241958750",
           "name": "Makari the Grot",
-          "ourId": "GOF5",
+          "ourId": "GOF2",
           "matchTier": "exact",
           "note": ""
          },
@@ -5267,7 +5267,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-5258643873645347188",
           "name": "Firstborn (tutorial)",
-          "ourId": "UM13",
+          "ourId": "UM3",
           "matchTier": "norm",
           "note": ""
          },
@@ -5684,7 +5684,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3079129606857888211",
           "name": "Grot",
-          "ourId": "GOF4",
+          "ourId": "GOF1",
           "matchTier": "exact",
           "note": ""
          },
@@ -5735,7 +5735,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "3079129606857888211",
           "name": "Grot",
-          "ourId": "GOF4",
+          "ourId": "GOF1",
           "matchTier": "exact",
           "note": ""
          },
@@ -5786,7 +5786,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3079129606857888211",
           "name": "Grot",
-          "ourId": "GOF4",
+          "ourId": "GOF1",
           "matchTier": "exact",
           "note": ""
          },
@@ -5837,7 +5837,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3079129606857888211",
           "name": "Grot",
-          "ourId": "GOF4",
+          "ourId": "GOF1",
           "matchTier": "exact",
           "note": ""
          },
@@ -5897,7 +5897,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-5258643873645347188",
           "name": "Firstborn (tutorial)",
-          "ourId": "UM13",
+          "ourId": "UM3",
           "matchTier": "norm",
           "note": ""
          }
@@ -5999,7 +5999,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          },
@@ -6314,7 +6314,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "5869009015909125340",
           "name": "Shoota Boy",
-          "ourId": "GOF13",
+          "ourId": "GOF9",
           "matchTier": "exact",
           "note": ""
          },
@@ -6365,7 +6365,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "5869009015909125340",
           "name": "Shoota Boy",
-          "ourId": "GOF13",
+          "ourId": "GOF9",
           "matchTier": "exact",
           "note": ""
          },
@@ -6587,7 +6587,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "5869009015909125340",
           "name": "Shoota Boy",
-          "ourId": "GOF13",
+          "ourId": "GOF9",
           "matchTier": "exact",
           "note": ""
          }
@@ -6629,7 +6629,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-129556799007971213",
           "name": "Point-Blank Shot",
-          "ourId": "UM54",
+          "ourId": "UM34",
           "matchTier": "exact",
           "note": ""
          },
@@ -6638,7 +6638,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "5869009015909125340",
           "name": "Shoota Boy",
-          "ourId": "GOF13",
+          "ourId": "GOF9",
           "matchTier": "exact",
           "note": ""
          }
@@ -6842,7 +6842,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-1436903533376650005",
           "name": "Grot Bomb",
-          "ourId": "GOF41",
+          "ourId": "GOF32",
           "matchTier": "exact",
           "note": ""
          },
@@ -6893,7 +6893,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-1436903533376650005",
           "name": "Grot Bomb",
-          "ourId": "GOF41",
+          "ourId": "GOF32",
           "matchTier": "exact",
           "note": ""
          },
@@ -7004,7 +7004,7 @@
           "unitTypeName": "None",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          },
@@ -7055,7 +7055,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          },
@@ -7106,7 +7106,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "4389092107264808524",
           "name": "Pariah Vanguard",
-          "ourId": "UM_Pariah_Vanguard",
+          "ourId": "UM33",
           "matchTier": "exact",
           "note": ""
          },
@@ -7115,7 +7115,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          }
@@ -7157,7 +7157,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "norm",
           "note": ""
          },
@@ -7370,7 +7370,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "3649279552078744616",
           "name": "Greatest Warboss",
-          "ourId": "GOF_Greatest_Warboss",
+          "ourId": "3ebb159036778d14ebd1c48451aa6ca0",
           "matchTier": "exact",
           "note": ""
          },
@@ -7421,7 +7421,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3649279552078744616",
           "name": "Greatest Warboss",
-          "ourId": "GOF_Greatest_Warboss",
+          "ourId": "3ebb159036778d14ebd1c48451aa6ca0",
           "matchTier": "exact",
           "note": ""
          },
@@ -7472,7 +7472,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-4629209585521307817",
           "name": "Slugga Boy",
-          "ourId": "GOF8",
+          "ourId": "GOF4",
           "matchTier": "exact",
           "note": ""
          },
@@ -7523,7 +7523,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-4629209585521307817",
           "name": "Slugga Boy",
-          "ourId": "GOF8",
+          "ourId": "GOF4",
           "matchTier": "exact",
           "note": ""
          },
@@ -7574,7 +7574,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3649279552078744616",
           "name": "Greatest Warboss",
-          "ourId": "GOF_Greatest_Warboss",
+          "ourId": "3ebb159036778d14ebd1c48451aa6ca0",
           "matchTier": "exact",
           "note": ""
          },
@@ -7694,7 +7694,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "3079129606857888211",
           "name": "Grot",
-          "ourId": "GOF4",
+          "ourId": "GOF1",
           "matchTier": "exact",
           "note": ""
          }
@@ -7847,7 +7847,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3649279552078744616",
           "name": "Greatest Warboss",
-          "ourId": "GOF_Greatest_Warboss",
+          "ourId": "3ebb159036778d14ebd1c48451aa6ca0",
           "matchTier": "exact",
           "note": ""
          },
@@ -8012,21 +8012,21 @@
     {
      "pid": "1289725038268339793",
      "name": "Gauss Warrior (tutorial)",
-     "ourId": "SAU10",
+     "ourId": "SAU4",
      "matchTier": "ocrName",
-     "note": "🔴 按裁定映射到 SAU10（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+     "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
     },
     {
      "pid": "3356863723264883210",
      "name": "Reanimation Protocol",
-     "ourId": "SAU46",
+     "ourId": "SAU41",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "9206675737327497321",
      "name": "Triarch Praetorian",
-     "ourId": "SAU18",
+     "ourId": "SAU10",
      "matchTier": "exact",
      "note": ""
     }
@@ -8035,21 +8035,21 @@
     {
      "pid": "661283721020941443",
      "name": "Necron Warrior",
-     "ourId": "SAU11",
+     "ourId": "SAU5",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "3356863723264883210",
      "name": "Reanimation Protocol",
-     "ourId": "SAU46",
+     "ourId": "SAU41",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "-5320547842097736041",
      "name": "Extermination Protocol",
-     "ourId": "SAU45",
+     "ourId": "SAU38",
      "matchTier": "norm",
      "note": ""
     }
@@ -8421,7 +8421,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "661283721020941443",
           "name": "Necron Warrior",
-          "ourId": "SAU11",
+          "ourId": "SAU5",
           "matchTier": "exact",
           "note": ""
          },
@@ -8541,7 +8541,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "661283721020941443",
           "name": "Necron Warrior",
-          "ourId": "SAU11",
+          "ourId": "SAU5",
           "matchTier": "exact",
           "note": ""
          }
@@ -8583,7 +8583,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "661283721020941443",
           "name": "Necron Warrior",
-          "ourId": "SAU11",
+          "ourId": "SAU5",
           "matchTier": "exact",
           "note": ""
          },
@@ -8634,7 +8634,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "4493244867210794565",
           "name": "Relentless March",
-          "ourId": "SAU4",
+          "ourId": "d8a14171b08b54144ba9dbf324b0a042",
           "matchTier": "exact",
           "note": ""
          },
@@ -8796,7 +8796,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "661283721020941443",
           "name": "Necron Warrior",
-          "ourId": "SAU11",
+          "ourId": "SAU5",
           "matchTier": "exact",
           "note": ""
          },
@@ -8847,7 +8847,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "3356863723264883210",
           "name": "Reanimation Protocol",
-          "ourId": "SAU46",
+          "ourId": "SAU41",
           "matchTier": "exact",
           "note": ""
          },
@@ -8907,7 +8907,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "661283721020941443",
           "name": "Necron Warrior",
-          "ourId": "SAU11",
+          "ourId": "SAU5",
           "matchTier": "exact",
           "note": ""
          }
@@ -9060,7 +9060,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "9206675737327497321",
           "name": "Triarch Praetorian",
-          "ourId": "SAU18",
+          "ourId": "SAU10",
           "matchTier": "exact",
           "note": ""
          },
@@ -9171,7 +9171,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "661283721020941443",
           "name": "Necron Warrior",
-          "ourId": "SAU11",
+          "ourId": "SAU5",
           "matchTier": "exact",
           "note": ""
          }
@@ -9213,7 +9213,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "661283721020941443",
           "name": "Necron Warrior",
-          "ourId": "SAU11",
+          "ourId": "SAU5",
           "matchTier": "exact",
           "note": ""
          },
@@ -9435,7 +9435,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "9206675737327497321",
           "name": "Triarch Praetorian",
-          "ourId": "SAU18",
+          "ourId": "SAU10",
           "matchTier": "exact",
           "note": ""
          }
@@ -9477,7 +9477,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-5320547842097736041",
           "name": "Extermination Protocol",
-          "ourId": "SAU45",
+          "ourId": "SAU38",
           "matchTier": "norm",
           "note": ""
          },
@@ -9486,7 +9486,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "9206675737327497321",
           "name": "Triarch Praetorian",
-          "ourId": "SAU18",
+          "ourId": "SAU10",
           "matchTier": "exact",
           "note": ""
          }
@@ -9528,9 +9528,9 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU10",
+          "ourId": "SAU4",
           "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU10（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
          },
          "target": {
           "unitType": 0,
@@ -9579,7 +9579,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-8764190400608714716",
           "name": "Flayed One",
-          "ourId": "SAU9",
+          "ourId": "SAU3",
           "matchTier": "exact",
           "note": ""
          },
@@ -9690,7 +9690,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3356863723264883210",
           "name": "Reanimation Protocol",
-          "ourId": "SAU46",
+          "ourId": "SAU41",
           "matchTier": "exact",
           "note": ""
          },
@@ -9699,7 +9699,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "9206675737327497321",
           "name": "Triarch Praetorian",
-          "ourId": "SAU18",
+          "ourId": "SAU10",
           "matchTier": "exact",
           "note": ""
          }
@@ -9741,9 +9741,9 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU10",
+          "ourId": "SAU4",
           "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU10（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
          },
          "target": {
           "unitType": 0,
@@ -9852,7 +9852,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-8764190400608714716",
           "name": "Flayed One",
-          "ourId": "SAU9",
+          "ourId": "SAU3",
           "matchTier": "exact",
           "note": ""
          }
@@ -10005,7 +10005,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "1146170342685248586",
           "name": "Doom Scythe",
-          "ourId": "SAU28",
+          "ourId": "SAU21",
           "matchTier": "exact",
           "note": ""
          },
@@ -10056,7 +10056,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "1146170342685248586",
           "name": "Doom Scythe",
-          "ourId": "SAU28",
+          "ourId": "SAU21",
           "matchTier": "exact",
           "note": ""
          },
@@ -10065,7 +10065,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "9206675737327497321",
           "name": "Triarch Praetorian",
-          "ourId": "SAU18",
+          "ourId": "SAU10",
           "matchTier": "exact",
           "note": ""
          }
@@ -10116,9 +10116,9 @@
           "unitTypeName": "PlayerMinion",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU10",
+          "ourId": "SAU4",
           "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU10（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
          }
         }
        ]
@@ -10158,7 +10158,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "661283721020941443",
           "name": "Necron Warrior",
-          "ourId": "SAU11",
+          "ourId": "SAU5",
           "matchTier": "exact",
           "note": ""
          },
@@ -10320,7 +10320,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-5320547842097736041",
           "name": "Extermination Protocol",
-          "ourId": "SAU45",
+          "ourId": "SAU38",
           "matchTier": "norm",
           "note": ""
          },
@@ -10329,7 +10329,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "1146170342685248586",
           "name": "Doom Scythe",
-          "ourId": "SAU28",
+          "ourId": "SAU21",
           "matchTier": "exact",
           "note": ""
          }
@@ -10371,7 +10371,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "2958364110469231324",
           "name": "Technomancer",
-          "ourId": "SAU16",
+          "ourId": "SAU11",
           "matchTier": "exact",
           "note": ""
          },
@@ -10422,7 +10422,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "2958364110469231324",
           "name": "Technomancer",
-          "ourId": "SAU16",
+          "ourId": "SAU11",
           "matchTier": "exact",
           "note": ""
          },
@@ -10473,7 +10473,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3356863723264883210",
           "name": "Reanimation Protocol",
-          "ourId": "SAU46",
+          "ourId": "SAU41",
           "matchTier": "exact",
           "note": ""
          },
@@ -10482,7 +10482,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "9206675737327497321",
           "name": "Triarch Praetorian",
-          "ourId": "SAU18",
+          "ourId": "SAU10",
           "matchTier": "exact",
           "note": ""
          }
@@ -10524,9 +10524,9 @@
           "unitTypeName": "PlayerMinion",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU10",
+          "ourId": "SAU4",
           "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU10（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
          },
          "target": {
           "unitType": 0,
@@ -10788,7 +10788,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "6615995731386909572",
           "name": "Night Scythe",
-          "ourId": "SAU22",
+          "ourId": "SAU16",
           "matchTier": "exact",
           "note": ""
          },
@@ -10848,7 +10848,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "2958364110469231324",
           "name": "Technomancer",
-          "ourId": "SAU16",
+          "ourId": "SAU11",
           "matchTier": "exact",
           "note": ""
          }
@@ -10959,7 +10959,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "661283721020941443",
           "name": "Necron Warrior",
-          "ourId": "SAU11",
+          "ourId": "SAU5",
           "matchTier": "exact",
           "note": ""
          }
@@ -11001,9 +11001,9 @@
           "unitTypeName": "PlayerMinion",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU10",
+          "ourId": "SAU4",
           "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU10（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
          },
          "target": {
           "unitType": 0,
@@ -11052,16 +11052,16 @@
           "unitTypeName": "PlayerMinion",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU10",
+          "ourId": "SAU4",
           "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU10（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
          },
          "target": {
           "unitType": 40,
           "unitTypeName": "EnemyMinion",
           "pid": "6615995731386909572",
           "name": "Night Scythe",
-          "ourId": "SAU22",
+          "ourId": "SAU16",
           "matchTier": "exact",
           "note": ""
          }
@@ -11103,7 +11103,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "661283721020941443",
           "name": "Necron Warrior",
-          "ourId": "SAU11",
+          "ourId": "SAU5",
           "matchTier": "exact",
           "note": ""
          },
@@ -11154,7 +11154,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "9206675737327497321",
           "name": "Triarch Praetorian",
-          "ourId": "SAU18",
+          "ourId": "SAU10",
           "matchTier": "exact",
           "note": ""
          },
@@ -11163,7 +11163,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "661283721020941443",
           "name": "Necron Warrior",
-          "ourId": "SAU11",
+          "ourId": "SAU5",
           "matchTier": "exact",
           "note": ""
          }
@@ -11256,7 +11256,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "2724493809973931084",
           "name": "Plasmancer",
-          "ourId": "SAU33",
+          "ourId": "SAU26",
           "matchTier": "exact",
           "note": ""
          },
@@ -11367,7 +11367,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "5964075492036391457",
           "name": "Cryptothrall",
-          "ourId": "SAU20",
+          "ourId": "SAU14",
           "matchTier": "exact",
           "note": ""
          },
@@ -11427,7 +11427,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "9206675737327497321",
           "name": "Triarch Praetorian",
-          "ourId": "SAU18",
+          "ourId": "SAU10",
           "matchTier": "exact",
           "note": ""
          }
@@ -11520,7 +11520,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-5447612144486899778",
           "name": "Master Chronomancer",
-          "ourId": "SAU6",
+          "ourId": "cbabeb234380634479feab1a1b4c733a",
           "matchTier": "exact",
           "note": ""
          },
@@ -11738,21 +11738,21 @@
     {
      "pid": "3179808472284028389",
      "name": "Chaos Spawn",
-     "ourId": "BL9",
+     "ourId": "BL1",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "3039671354545102424",
      "name": "Noise Marine",
-     "ourId": "BL19",
+     "ourId": "BL8",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "8335751062386682226",
      "name": "Chaos Legionary",
-     "ourId": "BL12",
+     "ourId": "BL3",
      "matchTier": "exact",
      "note": ""
     }
@@ -11761,28 +11761,28 @@
     {
      "pid": "-5023650756645874710",
      "name": "Octavio Infiltrator",
-     "ourId": "UM10",
+     "ourId": "UM2",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "-3837662757098088507",
      "name": "Hellblaster (tutorial)",
-     "ourId": "UM_Hellblaster",
+     "ourId": "UM10",
      "matchTier": "norm",
      "note": ""
     },
     {
      "pid": "649335698799241562",
      "name": "Scout",
-     "ourId": "UM11",
+     "ourId": "UM1",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "-3121030030727649252",
      "name": "Intercessor Sergeant",
-     "ourId": "UM18",
+     "ourId": "UM56",
      "matchTier": "exact",
      "note": ""
     }
@@ -12154,7 +12154,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8335751062386682226",
           "name": "Chaos Legionary",
-          "ourId": "BL12",
+          "ourId": "BL3",
           "matchTier": "exact",
           "note": ""
          },
@@ -12265,7 +12265,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-5023650756645874710",
           "name": "Octavio Infiltrator",
-          "ourId": "UM10",
+          "ourId": "UM2",
           "matchTier": "exact",
           "note": ""
          },
@@ -12274,7 +12274,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8335751062386682226",
           "name": "Chaos Legionary",
-          "ourId": "BL12",
+          "ourId": "BL3",
           "matchTier": "exact",
           "note": ""
          }
@@ -12376,7 +12376,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8335751062386682226",
           "name": "Chaos Legionary",
-          "ourId": "BL12",
+          "ourId": "BL3",
           "matchTier": "exact",
           "note": ""
          }
@@ -12640,7 +12640,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-5023650756645874710",
           "name": "Octavio Infiltrator",
-          "ourId": "UM10",
+          "ourId": "UM2",
           "matchTier": "exact",
           "note": ""
          }
@@ -12682,7 +12682,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8335751062386682226",
           "name": "Chaos Legionary",
-          "ourId": "BL12",
+          "ourId": "BL3",
           "matchTier": "exact",
           "note": ""
          },
@@ -12733,7 +12733,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-7697671370654853561",
           "name": "Unhallowed Gifts",
-          "ourId": "BL8",
+          "ourId": "141c5ed661a9e42bd9a793f0d2a1c682",
           "matchTier": "exact",
           "note": ""
          },
@@ -12742,7 +12742,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8335751062386682226",
           "name": "Chaos Legionary",
-          "ourId": "BL12",
+          "ourId": "BL3",
           "matchTier": "exact",
           "note": ""
          }
@@ -12784,7 +12784,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8335751062386682226",
           "name": "Chaos Legionary",
-          "ourId": "BL12",
+          "ourId": "BL3",
           "matchTier": "exact",
           "note": ""
          },
@@ -12835,7 +12835,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8335751062386682226",
           "name": "Chaos Legionary",
-          "ourId": "BL12",
+          "ourId": "BL3",
           "matchTier": "exact",
           "note": ""
          },
@@ -12997,7 +12997,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-3121030030727649252",
           "name": "Intercessor Sergeant",
-          "ourId": "UM18",
+          "ourId": "UM56",
           "matchTier": "exact",
           "note": ""
          },
@@ -13108,7 +13108,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3039671354545102424",
           "name": "Noise Marine",
-          "ourId": "BL19",
+          "ourId": "BL8",
           "matchTier": "exact",
           "note": ""
          },
@@ -13159,7 +13159,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "3039671354545102424",
           "name": "Noise Marine",
-          "ourId": "BL19",
+          "ourId": "BL8",
           "matchTier": "exact",
           "note": ""
          },
@@ -13270,7 +13270,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-3121030030727649252",
           "name": "Intercessor Sergeant",
-          "ourId": "UM18",
+          "ourId": "UM56",
           "matchTier": "exact",
           "note": ""
          }
@@ -13312,7 +13312,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "3039671354545102424",
           "name": "Noise Marine",
-          "ourId": "BL19",
+          "ourId": "BL8",
           "matchTier": "exact",
           "note": ""
          },
@@ -13363,7 +13363,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3179808472284028389",
           "name": "Chaos Spawn",
-          "ourId": "BL9",
+          "ourId": "BL1",
           "matchTier": "exact",
           "note": ""
          },
@@ -13414,7 +13414,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "3179808472284028389",
           "name": "Chaos Spawn",
-          "ourId": "BL9",
+          "ourId": "BL1",
           "matchTier": "exact",
           "note": ""
          },
@@ -13423,7 +13423,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-3121030030727649252",
           "name": "Intercessor Sergeant",
-          "ourId": "UM18",
+          "ourId": "UM56",
           "matchTier": "exact",
           "note": ""
          }
@@ -13576,7 +13576,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-3837662757098088507",
           "name": "Hellblaster (tutorial)",
-          "ourId": "UM_Hellblaster",
+          "ourId": "UM10",
           "matchTier": "norm",
           "note": ""
          },
@@ -13738,7 +13738,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-950630935443773410",
           "name": "Infernal Gaze (tutorial)",
-          "ourId": "BL7",
+          "ourId": "453b0e8f88e094a17866a6979f389ef5",
           "matchTier": "norm",
           "note": ""
          },
@@ -13798,7 +13798,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-3837662757098088507",
           "name": "Hellblaster (tutorial)",
-          "ourId": "UM_Hellblaster",
+          "ourId": "UM10",
           "matchTier": "norm",
           "note": ""
          }
@@ -13840,7 +13840,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "3039671354545102424",
           "name": "Noise Marine",
-          "ourId": "BL19",
+          "ourId": "BL8",
           "matchTier": "exact",
           "note": ""
          },
@@ -13942,7 +13942,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-321315940937136913",
           "name": "Black Legionary",
-          "ourId": "BL11",
+          "ourId": "BL2",
           "matchTier": "exact",
           "note": ""
          },
@@ -14053,7 +14053,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "649335698799241562",
           "name": "Scout",
-          "ourId": "UM11",
+          "ourId": "UM1",
           "matchTier": "exact",
           "note": ""
          },
@@ -14062,7 +14062,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "3039671354545102424",
           "name": "Noise Marine",
-          "ourId": "BL19",
+          "ourId": "BL8",
           "matchTier": "exact",
           "note": ""
          }
@@ -14155,7 +14155,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "2590347532802576856",
           "name": "Primaris Intercessor",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "exact",
           "note": ""
          },
@@ -14206,7 +14206,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "7750930892288725894",
           "name": "Assault Intercessor",
-          "ourId": "UM12",
+          "ourId": "UM4",
           "matchTier": "exact",
           "note": ""
          },
@@ -14266,7 +14266,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-321315940937136913",
           "name": "Black Legionary",
-          "ourId": "BL11",
+          "ourId": "BL2",
           "matchTier": "exact",
           "note": ""
          }
@@ -14368,7 +14368,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
-          "ourId": "BL31",
+          "ourId": "BL18",
           "matchTier": "norm",
           "note": ""
          },
@@ -14419,7 +14419,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
-          "ourId": "BL31",
+          "ourId": "BL18",
           "matchTier": "norm",
           "note": ""
          },
@@ -14581,7 +14581,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "7750930892288725894",
           "name": "Assault Intercessor",
-          "ourId": "UM12",
+          "ourId": "UM4",
           "matchTier": "exact",
           "note": ""
          }
@@ -14623,7 +14623,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3179808472284028389",
           "name": "Chaos Spawn",
-          "ourId": "BL9",
+          "ourId": "BL1",
           "matchTier": "exact",
           "note": ""
          },
@@ -14674,7 +14674,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "3179808472284028389",
           "name": "Chaos Spawn",
-          "ourId": "BL9",
+          "ourId": "BL1",
           "matchTier": "exact",
           "note": ""
          },
@@ -14683,7 +14683,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "2590347532802576856",
           "name": "Primaris Intercessor",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "exact",
           "note": ""
          }
@@ -14785,7 +14785,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "4373096480433422743",
           "name": "Lieutenant Calsius (tutorial)",
-          "ourId": "UM_Lieutenant_Calsius",
+          "ourId": "UM24",
           "matchTier": "norm",
           "note": ""
          },
@@ -14836,7 +14836,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "649335698799241562",
           "name": "Scout",
-          "ourId": "UM11",
+          "ourId": "UM1",
           "matchTier": "exact",
           "note": ""
          },
@@ -14845,7 +14845,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
-          "ourId": "BL31",
+          "ourId": "BL18",
           "matchTier": "norm",
           "note": ""
          }
@@ -14998,7 +14998,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-5392198408603717641",
           "name": "Abaddon's Chosen (tutortial)",
-          "ourId": "BL49",
+          "ourId": "BL37",
           "matchTier": "norm",
           "note": ""
          },
@@ -15007,7 +15007,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
-          "ourId": "BL31",
+          "ourId": "BL18",
           "matchTier": "norm",
           "note": ""
          }
@@ -15049,7 +15049,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
-          "ourId": "BL31",
+          "ourId": "BL18",
           "matchTier": "norm",
           "note": ""
          },
@@ -15100,7 +15100,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
-          "ourId": "BL31",
+          "ourId": "BL18",
           "matchTier": "norm",
           "note": ""
          },
@@ -15151,7 +15151,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
-          "ourId": "BL31",
+          "ourId": "BL18",
           "matchTier": "norm",
           "note": ""
          },
@@ -15160,7 +15160,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "4373096480433422743",
           "name": "Lieutenant Calsius (tutorial)",
-          "ourId": "UM_Lieutenant_Calsius",
+          "ourId": "UM24",
           "matchTier": "norm",
           "note": ""
          }
@@ -15202,7 +15202,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-950630935443773410",
           "name": "Infernal Gaze (tutorial)",
-          "ourId": "BL7",
+          "ourId": "453b0e8f88e094a17866a6979f389ef5",
           "matchTier": "norm",
           "note": ""
          },
@@ -15253,7 +15253,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-4973387284867030986",
           "name": "Rubric Marine",
-          "ourId": "BL15",
+          "ourId": "BL6",
           "matchTier": "exact",
           "note": ""
          },
@@ -15364,7 +15364,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-1896962019756710892",
           "name": "Primaris Reiver",
-          "ourId": "UM_Primaris_Reiver",
+          "ourId": "UM5",
           "matchTier": "exact",
           "note": ""
          },
@@ -15415,7 +15415,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-1896962019756710892",
           "name": "Primaris Reiver",
-          "ourId": "UM_Primaris_Reiver",
+          "ourId": "UM5",
           "matchTier": "exact",
           "note": ""
          },
@@ -15424,7 +15424,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
-          "ourId": "BL31",
+          "ourId": "BL18",
           "matchTier": "norm",
           "note": ""
          }
@@ -15466,7 +15466,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "227436827453207767",
           "name": "Primaris Impulsor (tutorial)",
-          "ourId": "UM_Primaris_Impulsor",
+          "ourId": "UM17",
           "matchTier": "norm",
           "note": ""
          },
@@ -15628,7 +15628,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-4973387284867030986",
           "name": "Rubric Marine",
-          "ourId": "BL15",
+          "ourId": "BL6",
           "matchTier": "exact",
           "note": ""
          },
@@ -15679,7 +15679,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "2354632283766578016",
           "name": "Possessed Champion",
-          "ourId": "BL29",
+          "ourId": "BL16",
           "matchTier": "exact",
           "note": ""
          },
@@ -15730,7 +15730,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "2354632283766578016",
           "name": "Possessed Champion",
-          "ourId": "BL29",
+          "ourId": "BL16",
           "matchTier": "exact",
           "note": ""
          },
@@ -15781,7 +15781,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "2354632283766578016",
           "name": "Possessed Champion",
-          "ourId": "BL29",
+          "ourId": "BL16",
           "matchTier": "exact",
           "note": ""
          },
@@ -15790,7 +15790,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "227436827453207767",
           "name": "Primaris Impulsor (tutorial)",
-          "ourId": "UM_Primaris_Impulsor",
+          "ourId": "UM17",
           "matchTier": "norm",
           "note": ""
          }
@@ -15832,7 +15832,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-4973387284867030986",
           "name": "Rubric Marine",
-          "ourId": "BL15",
+          "ourId": "BL6",
           "matchTier": "exact",
           "note": ""
          },
@@ -15841,7 +15841,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "227436827453207767",
           "name": "Primaris Impulsor (tutorial)",
-          "ourId": "UM_Primaris_Impulsor",
+          "ourId": "UM17",
           "matchTier": "norm",
           "note": ""
          }
@@ -15934,7 +15934,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "735299352711337270",
           "name": "Skeins of Fate",
-          "ourId": "BL58",
+          "ourId": "BL48",
           "matchTier": "exact",
           "note": ""
          },
@@ -15943,7 +15943,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "2354632283766578016",
           "name": "Possessed Champion",
-          "ourId": "BL29",
+          "ourId": "BL16",
           "matchTier": "exact",
           "note": ""
          }
@@ -16096,7 +16096,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-7095860604550739625",
           "name": "Honour Guard",
-          "ourId": "UM_Honour_Guard",
+          "ourId": "UM14",
           "matchTier": "exact",
           "note": ""
          },
@@ -16147,7 +16147,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-619566825307718120",
           "name": "Eliminator",
-          "ourId": "UM17",
+          "ourId": "UM8",
           "matchTier": "exact",
           "note": ""
          },
@@ -16415,37 +16415,37 @@
     {
      "pid": "661283721020941443",
      "name": "Necron Warrior",
-     "ourId": "SAU11",
+     "ourId": "SAU5",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "1289725038268339793",
      "name": "Gauss Warrior (tutorial)",
-     "ourId": "SAU10",
+     "ourId": "SAU4",
      "matchTier": "ocrName",
-     "note": "🔴 按裁定映射到 SAU10（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+     "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
     }
    ],
    "playerStartingTroopsInHand": [
     {
      "pid": "-2643521360535931",
      "name": "Guardian Defender",
-     "ourId": "ASH7",
+     "ourId": "ASH4",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "2321124253960275388",
      "name": "Striking Scorpion",
-     "ourId": "ASH15",
+     "ourId": "ASH11",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "-3340668084539451666",
      "name": "Windrider",
-     "ourId": "ASH13",
+     "ourId": "ASH9",
      "matchTier": "exact",
      "note": ""
     }
@@ -16454,28 +16454,28 @@
     {
      "pid": "9144355707003112947",
      "name": "Tesla Immortal",
-     "ourId": "SAU12",
+     "ourId": "SAU6",
      "matchTier": "ocrName",
-     "note": "🔴 按裁定映射到 SAU12（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+     "note": "🔴 按裁定映射到 SAU6（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
     },
     {
      "pid": "3356863723264883210",
      "name": "Reanimation Protocol",
-     "ourId": "SAU46",
+     "ourId": "SAU41",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "-8764190400608714716",
      "name": "Flayed One",
-     "ourId": "SAU9",
+     "ourId": "SAU3",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "5964075492036391457",
      "name": "Cryptothrall",
-     "ourId": "SAU20",
+     "ourId": "SAU14",
      "matchTier": "exact",
      "note": ""
     }
@@ -16898,7 +16898,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-3340668084539451666",
           "name": "Windrider",
-          "ourId": "ASH13",
+          "ourId": "ASH9",
           "matchTier": "exact",
           "note": ""
          },
@@ -16949,7 +16949,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-3340668084539451666",
           "name": "Windrider",
-          "ourId": "ASH13",
+          "ourId": "ASH9",
           "matchTier": "exact",
           "note": ""
          },
@@ -17000,7 +17000,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-3340668084539451666",
           "name": "Windrider",
-          "ourId": "ASH13",
+          "ourId": "ASH9",
           "matchTier": "exact",
           "note": ""
          },
@@ -17102,7 +17102,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-3340668084539451666",
           "name": "Windrider",
-          "ourId": "ASH13",
+          "ourId": "ASH9",
           "matchTier": "exact",
           "note": ""
          },
@@ -17111,7 +17111,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "661283721020941443",
           "name": "Necron Warrior",
-          "ourId": "SAU11",
+          "ourId": "SAU5",
           "matchTier": "exact",
           "note": ""
          }
@@ -17162,9 +17162,9 @@
           "unitTypeName": "EnemyMinion",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU10",
+          "ourId": "SAU4",
           "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU10（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
          }
         }
        ]
@@ -17204,7 +17204,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-3340668084539451666",
           "name": "Windrider",
-          "ourId": "ASH13",
+          "ourId": "ASH9",
           "matchTier": "exact",
           "note": ""
          },
@@ -17426,7 +17426,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-3340668084539451666",
           "name": "Windrider",
-          "ourId": "ASH13",
+          "ourId": "ASH9",
           "matchTier": "exact",
           "note": ""
          }
@@ -17468,9 +17468,9 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "9144355707003112947",
           "name": "Tesla Immortal",
-          "ourId": "SAU12",
+          "ourId": "SAU6",
           "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU12（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "note": "🔴 按裁定映射到 SAU6（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
          },
          "target": {
           "unitType": 0,
@@ -17639,9 +17639,9 @@
           "unitTypeName": "EnemyMinion",
           "pid": "9144355707003112947",
           "name": "Tesla Immortal",
-          "ourId": "SAU12",
+          "ourId": "SAU6",
           "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU12（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "note": "🔴 按裁定映射到 SAU6（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
          }
         }
        ]
@@ -17681,7 +17681,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-3340668084539451666",
           "name": "Windrider",
-          "ourId": "ASH13",
+          "ourId": "ASH9",
           "matchTier": "exact",
           "note": ""
          },
@@ -17690,9 +17690,9 @@
           "unitTypeName": "EnemyMinion",
           "pid": "9144355707003112947",
           "name": "Tesla Immortal",
-          "ourId": "SAU12",
+          "ourId": "SAU6",
           "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU12（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "note": "🔴 按裁定映射到 SAU6（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
          }
         }
        ]
@@ -17732,7 +17732,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "2321124253960275388",
           "name": "Striking Scorpion",
-          "ourId": "ASH15",
+          "ourId": "ASH11",
           "matchTier": "exact",
           "note": ""
          },
@@ -17945,7 +17945,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "3356863723264883210",
           "name": "Reanimation Protocol",
-          "ourId": "SAU46",
+          "ourId": "SAU41",
           "matchTier": "exact",
           "note": ""
          },
@@ -17954,9 +17954,9 @@
           "unitTypeName": "EnemyMinion",
           "pid": "9144355707003112947",
           "name": "Tesla Immortal",
-          "ourId": "SAU12",
+          "ourId": "SAU6",
           "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU12（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "note": "🔴 按裁定映射到 SAU6（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
          }
         }
        ]
@@ -17996,7 +17996,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-8764190400608714716",
           "name": "Flayed One",
-          "ourId": "SAU9",
+          "ourId": "SAU3",
           "matchTier": "exact",
           "note": ""
          },
@@ -18056,7 +18056,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-3340668084539451666",
           "name": "Windrider",
-          "ourId": "ASH13",
+          "ourId": "ASH9",
           "matchTier": "exact",
           "note": ""
          }
@@ -18209,7 +18209,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "2321124253960275388",
           "name": "Striking Scorpion",
-          "ourId": "ASH15",
+          "ourId": "ASH11",
           "matchTier": "exact",
           "note": ""
          },
@@ -18218,9 +18218,9 @@
           "unitTypeName": "EnemyMinion",
           "pid": "9144355707003112947",
           "name": "Tesla Immortal",
-          "ourId": "SAU12",
+          "ourId": "SAU6",
           "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU12（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "note": "🔴 按裁定映射到 SAU6（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
          }
         }
        ]
@@ -18320,7 +18320,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-8764190400608714716",
           "name": "Flayed One",
-          "ourId": "SAU9",
+          "ourId": "SAU3",
           "matchTier": "exact",
           "note": ""
          }
@@ -18362,7 +18362,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-2643521360535931",
           "name": "Guardian Defender",
-          "ourId": "ASH7",
+          "ourId": "ASH4",
           "matchTier": "exact",
           "note": ""
          },
@@ -18413,7 +18413,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "5656188184648496856",
           "name": "Path of Command",
-          "ourId": "ASH6",
+          "ourId": "9c3562ffa183ede41b1626d9c9dc1e2f",
           "matchTier": "exact",
           "note": ""
          },
@@ -18524,7 +18524,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "5964075492036391457",
           "name": "Cryptothrall",
-          "ourId": "SAU20",
+          "ourId": "SAU14",
           "matchTier": "exact",
           "note": ""
          },
@@ -18584,7 +18584,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "2321124253960275388",
           "name": "Striking Scorpion",
-          "ourId": "ASH15",
+          "ourId": "ASH11",
           "matchTier": "exact",
           "note": ""
          }
@@ -18737,7 +18737,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "2321124253960275388",
           "name": "Striking Scorpion",
-          "ourId": "ASH15",
+          "ourId": "ASH11",
           "matchTier": "exact",
           "note": ""
          },
@@ -18788,7 +18788,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "2321124253960275388",
           "name": "Striking Scorpion",
-          "ourId": "ASH15",
+          "ourId": "ASH11",
           "matchTier": "exact",
           "note": ""
          },
@@ -18839,7 +18839,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "2321124253960275388",
           "name": "Striking Scorpion",
-          "ourId": "ASH15",
+          "ourId": "ASH11",
           "matchTier": "exact",
           "note": ""
          },
@@ -18941,7 +18941,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "4418432806384190128",
           "name": "Storm Guardian",
-          "ourId": "ASH8",
+          "ourId": "ASH5",
           "matchTier": "exact",
           "note": ""
          },
@@ -18992,7 +18992,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "4418432806384190128",
           "name": "Storm Guardian",
-          "ourId": "ASH8",
+          "ourId": "ASH5",
           "matchTier": "exact",
           "note": ""
          },
@@ -19001,7 +19001,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "5964075492036391457",
           "name": "Cryptothrall",
-          "ourId": "SAU20",
+          "ourId": "SAU14",
           "matchTier": "exact",
           "note": ""
          }
@@ -19043,7 +19043,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2643521360535931",
           "name": "Guardian Defender",
-          "ourId": "ASH7",
+          "ourId": "ASH4",
           "matchTier": "exact",
           "note": ""
          },
@@ -19052,7 +19052,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "5964075492036391457",
           "name": "Cryptothrall",
-          "ourId": "SAU20",
+          "ourId": "SAU14",
           "matchTier": "exact",
           "note": ""
          }
@@ -19094,7 +19094,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "4418432806384190128",
           "name": "Storm Guardian",
-          "ourId": "ASH8",
+          "ourId": "ASH5",
           "matchTier": "exact",
           "note": ""
          },
@@ -19145,7 +19145,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-2379812733684527115",
           "name": "Vengeful Wraithblade",
-          "ourId": "ASH28",
+          "ourId": "ASH24",
           "matchTier": "exact",
           "note": ""
          },
@@ -19196,7 +19196,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-2379812733684527115",
           "name": "Vengeful Wraithblade",
-          "ourId": "ASH28",
+          "ourId": "ASH24",
           "matchTier": "exact",
           "note": ""
          },
@@ -19247,7 +19247,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2379812733684527115",
           "name": "Vengeful Wraithblade",
-          "ourId": "ASH28",
+          "ourId": "ASH24",
           "matchTier": "exact",
           "note": ""
          },
@@ -19256,7 +19256,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "5964075492036391457",
           "name": "Cryptothrall",
-          "ourId": "SAU20",
+          "ourId": "SAU14",
           "matchTier": "exact",
           "note": ""
          }
@@ -19409,7 +19409,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "1146170342685248586",
           "name": "Doom Scythe",
-          "ourId": "SAU28",
+          "ourId": "SAU21",
           "matchTier": "exact",
           "note": ""
          },
@@ -19460,7 +19460,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "1146170342685248586",
           "name": "Doom Scythe",
-          "ourId": "SAU28",
+          "ourId": "SAU21",
           "matchTier": "exact",
           "note": ""
          },
@@ -19469,7 +19469,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2379812733684527115",
           "name": "Vengeful Wraithblade",
-          "ourId": "ASH28",
+          "ourId": "ASH24",
           "matchTier": "exact",
           "note": ""
          }
@@ -19571,7 +19571,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2379812733684527115",
           "name": "Vengeful Wraithblade",
-          "ourId": "ASH28",
+          "ourId": "ASH24",
           "matchTier": "exact",
           "note": ""
          }
@@ -19673,7 +19673,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-4013971124206457660",
           "name": "Banshee Mask",
-          "ourId": "ASH51",
+          "ourId": "ASH45",
           "matchTier": "exact",
           "note": ""
          },
@@ -19682,7 +19682,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "1146170342685248586",
           "name": "Doom Scythe",
-          "ourId": "SAU28",
+          "ourId": "SAU21",
           "matchTier": "exact",
           "note": ""
          }
@@ -19724,7 +19724,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2643521360535931",
           "name": "Guardian Defender",
-          "ourId": "ASH7",
+          "ourId": "ASH4",
           "matchTier": "exact",
           "note": ""
          },
@@ -19733,7 +19733,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "1146170342685248586",
           "name": "Doom Scythe",
-          "ourId": "SAU28",
+          "ourId": "SAU21",
           "matchTier": "exact",
           "note": ""
          }
@@ -19775,7 +19775,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2379812733684527115",
           "name": "Vengeful Wraithblade",
-          "ourId": "ASH28",
+          "ourId": "ASH24",
           "matchTier": "exact",
           "note": ""
          },
@@ -19877,7 +19877,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "6865006080032400107",
           "name": "Swooping Hawk (tutorial)",
-          "ourId": "ASH16",
+          "ourId": "ASH12",
           "matchTier": "norm",
           "note": ""
          },
@@ -19988,7 +19988,7 @@
           "unitTypeName": "AiWarlord",
           "pid": "649335698799241562",
           "name": "Scout",
-          "ourId": "UM11",
+          "ourId": "UM1",
           "matchTier": "exact",
           "note": ""
          },
@@ -20048,7 +20048,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2379812733684527115",
           "name": "Vengeful Wraithblade",
-          "ourId": "ASH28",
+          "ourId": "ASH24",
           "matchTier": "exact",
           "note": ""
          }
@@ -20090,7 +20090,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "2464701684454868768",
           "name": "Tomb Blade",
-          "ourId": "SAU17",
+          "ourId": "SAU12",
           "matchTier": "exact",
           "note": ""
          },
@@ -20141,7 +20141,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "2464701684454868768",
           "name": "Tomb Blade",
-          "ourId": "SAU17",
+          "ourId": "SAU12",
           "matchTier": "exact",
           "note": ""
          },
@@ -20150,7 +20150,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "6865006080032400107",
           "name": "Swooping Hawk (tutorial)",
-          "ourId": "ASH16",
+          "ourId": "ASH12",
           "matchTier": "norm",
           "note": ""
          }
@@ -20192,7 +20192,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "3356863723264883210",
           "name": "Reanimation Protocol",
-          "ourId": "SAU46",
+          "ourId": "SAU41",
           "matchTier": "exact",
           "note": ""
          },
@@ -20201,7 +20201,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "2464701684454868768",
           "name": "Tomb Blade",
-          "ourId": "SAU17",
+          "ourId": "SAU12",
           "matchTier": "exact",
           "note": ""
          }
@@ -20243,7 +20243,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "2464701684454868768",
           "name": "Tomb Blade",
-          "ourId": "SAU17",
+          "ourId": "SAU12",
           "matchTier": "exact",
           "note": ""
          },
@@ -20252,7 +20252,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2643521360535931",
           "name": "Guardian Defender",
-          "ourId": "ASH7",
+          "ourId": "ASH4",
           "matchTier": "exact",
           "note": ""
          }
@@ -20345,7 +20345,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-9091246760582546208",
           "name": "Lord of the Storm",
-          "ourId": "SAU2",
+          "ourId": "30007162b68992e41a422f2061705b65",
           "matchTier": "exact",
           "note": ""
          },
@@ -20507,7 +20507,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "6865006080032400107",
           "name": "Swooping Hawk (tutorial)",
-          "ourId": "ASH16",
+          "ourId": "ASH12",
           "matchTier": "norm",
           "note": ""
          },
@@ -20558,7 +20558,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-3064009318848306770",
           "name": "Witchblade Warlock",
-          "ourId": "ASH23",
+          "ourId": "ASH19",
           "matchTier": "exact",
           "note": ""
          },
@@ -20609,7 +20609,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "5656188184648496856",
           "name": "Path of Command",
-          "ourId": "ASH6",
+          "ourId": "9c3562ffa183ede41b1626d9c9dc1e2f",
           "matchTier": "exact",
           "note": ""
          },
@@ -20660,7 +20660,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-2643521360535931",
           "name": "Guardian Defender",
-          "ourId": "ASH7",
+          "ourId": "ASH4",
           "matchTier": "exact",
           "note": ""
          },
@@ -20720,7 +20720,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "2464701684454868768",
           "name": "Tomb Blade",
-          "ourId": "SAU17",
+          "ourId": "SAU12",
           "matchTier": "exact",
           "note": ""
          }
@@ -20831,7 +20831,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2643521360535931",
           "name": "Guardian Defender",
-          "ourId": "ASH7",
+          "ourId": "ASH4",
           "matchTier": "exact",
           "note": ""
          }
@@ -20873,7 +20873,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "2809790321321892648",
           "name": "Protection Protocol",
-          "ourId": "SAU49",
+          "ourId": "SAU40",
           "matchTier": "exact",
           "note": ""
          },
@@ -20882,7 +20882,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "2464701684454868768",
           "name": "Tomb Blade",
-          "ourId": "SAU17",
+          "ourId": "SAU12",
           "matchTier": "exact",
           "note": ""
          }
@@ -20924,7 +20924,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "2464701684454868768",
           "name": "Tomb Blade",
-          "ourId": "SAU17",
+          "ourId": "SAU12",
           "matchTier": "exact",
           "note": ""
          },
@@ -20933,7 +20933,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "4418432806384190128",
           "name": "Storm Guardian",
-          "ourId": "ASH8",
+          "ourId": "ASH5",
           "matchTier": "exact",
           "note": ""
          }
@@ -20975,7 +20975,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "5712293556679081375",
           "name": "Lokhust Heavy Destroyer",
-          "ourId": "SAU29",
+          "ourId": "SAU22",
           "matchTier": "exact",
           "note": ""
          },
@@ -21086,7 +21086,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "6665126878937597607",
           "name": "Witchfire",
-          "ourId": "ASH24",
+          "ourId": "d3e99cb18b8cbba4081486f57f510f75",
           "matchTier": "exact",
           "note": ""
          },
@@ -21137,7 +21137,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "6665126878937597607",
           "name": "Witchfire",
-          "ourId": "ASH24",
+          "ourId": "d3e99cb18b8cbba4081486f57f510f75",
           "matchTier": "exact",
           "note": ""
          },
@@ -21146,7 +21146,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "5712293556679081375",
           "name": "Lokhust Heavy Destroyer",
-          "ourId": "SAU29",
+          "ourId": "SAU22",
           "matchTier": "exact",
           "note": ""
          }
@@ -21239,7 +21239,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "1617560099108117706",
           "name": "Warlock Skyrunner",
-          "ourId": "ASH30",
+          "ourId": "ASH25",
           "matchTier": "exact",
           "note": ""
          },
@@ -21290,7 +21290,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2643521360535931",
           "name": "Guardian Defender",
-          "ourId": "ASH7",
+          "ourId": "ASH4",
           "matchTier": "exact",
           "note": ""
          },
@@ -21341,7 +21341,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "4418432806384190128",
           "name": "Storm Guardian",
-          "ourId": "ASH8",
+          "ourId": "ASH5",
           "matchTier": "exact",
           "note": ""
          },
@@ -21499,7 +21499,7 @@
     {
      "pid": "9190186939806086069",
      "name": "Lictor",
-     "ourId": "TL19",
+     "ourId": "TL13",
      "matchTier": "exact",
      "note": ""
     },
@@ -21522,28 +21522,28 @@
     {
      "pid": "2590347532802576856",
      "name": "Primaris Intercessor",
-     "ourId": "UM14",
+     "ourId": "UM6",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "7750930892288725894",
      "name": "Assault Intercessor",
-     "ourId": "UM12",
+     "ourId": "UM4",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "8803131864228023536",
      "name": "Primaris Chaplain",
-     "ourId": "UM_Primaris_Chaplain",
+     "ourId": "UM13",
      "matchTier": "exact",
      "note": ""
     },
     {
      "pid": "-5519533755926697909",
      "name": "Inspired Retribution",
-     "ourId": "UM62",
+     "ourId": "UM39",
      "matchTier": "exact",
      "note": ""
     }
@@ -21915,7 +21915,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8212336871999038263",
           "name": "Brood Progenitor",
-          "ourId": "TL6",
+          "ourId": "cbc9d98e39cc7fb4fa6f94c7e69bda18",
           "matchTier": "exact",
           "note": ""
          },
@@ -22026,7 +22026,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "3104122573917023626",
           "name": "Master of the Fleet",
-          "ourId": "UM4",
+          "ourId": "9238c27730a0c424288d46ed0f4a742c",
           "matchTier": "exact",
           "note": ""
          },
@@ -22290,7 +22290,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -22341,7 +22341,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "9168736911750094392",
           "name": "Spore Mine",
-          "ourId": "TL8",
+          "ourId": "TL37",
           "matchTier": "exact",
           "note": ""
          },
@@ -22452,7 +22452,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "2590347532802576856",
           "name": "Primaris Intercessor",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "exact",
           "note": ""
          },
@@ -22563,7 +22563,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "9168736911750094392",
           "name": "Spore Mine",
-          "ourId": "TL8",
+          "ourId": "TL37",
           "matchTier": "exact",
           "note": ""
          }
@@ -22716,7 +22716,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -22767,7 +22767,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -22818,7 +22818,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -22827,7 +22827,7 @@
           "unitTypeName": "PlayerMinionLeft",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          }
@@ -22869,7 +22869,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -22878,7 +22878,7 @@
           "unitTypeName": "PlayerMinionLeft",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          }
@@ -22971,7 +22971,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -22980,7 +22980,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "2590347532802576856",
           "name": "Primaris Intercessor",
-          "ourId": "UM14",
+          "ourId": "UM6",
           "matchTier": "exact",
           "note": ""
          }
@@ -23133,7 +23133,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "7750930892288725894",
           "name": "Assault Intercessor",
-          "ourId": "UM12",
+          "ourId": "UM4",
           "matchTier": "exact",
           "note": ""
          },
@@ -23244,7 +23244,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "9190186939806086069",
           "name": "Lictor",
-          "ourId": "TL19",
+          "ourId": "TL13",
           "matchTier": "exact",
           "note": ""
          },
@@ -23295,7 +23295,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -23346,7 +23346,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -23355,7 +23355,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "7750930892288725894",
           "name": "Assault Intercessor",
-          "ourId": "UM12",
+          "ourId": "UM4",
           "matchTier": "exact",
           "note": ""
          }
@@ -23397,7 +23397,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8212336871999038263",
           "name": "Brood Progenitor",
-          "ourId": "TL6",
+          "ourId": "cbc9d98e39cc7fb4fa6f94c7e69bda18",
           "matchTier": "exact",
           "note": ""
          },
@@ -23508,7 +23508,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "8803131864228023536",
           "name": "Primaris Chaplain",
-          "ourId": "UM_Primaris_Chaplain",
+          "ourId": "UM13",
           "matchTier": "exact",
           "note": ""
          },
@@ -23619,7 +23619,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          }
@@ -23823,7 +23823,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "9190186939806086069",
           "name": "Lictor",
-          "ourId": "TL19",
+          "ourId": "TL13",
           "matchTier": "exact",
           "note": ""
          },
@@ -23832,7 +23832,7 @@
           "unitTypeName": "EnemyMinion",
           "pid": "8803131864228023536",
           "name": "Primaris Chaplain",
-          "ourId": "UM_Primaris_Chaplain",
+          "ourId": "UM13",
           "matchTier": "exact",
           "note": ""
          }
@@ -23874,7 +23874,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -23883,7 +23883,7 @@
           "unitTypeName": "PlayerMinionLeft",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          }
@@ -23925,7 +23925,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -23934,7 +23934,7 @@
           "unitTypeName": "PlayerMinionLeft",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          }
@@ -23976,7 +23976,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -24027,7 +24027,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -24078,7 +24078,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -24087,7 +24087,7 @@
           "unitTypeName": "PlayerMinionNotLeft",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          }
@@ -24129,7 +24129,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -24180,7 +24180,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -24291,7 +24291,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-5519533755926697909",
           "name": "Inspired Retribution",
-          "ourId": "UM62",
+          "ourId": "UM39",
           "matchTier": "exact",
           "note": ""
          },
@@ -24300,7 +24300,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          }
@@ -24402,7 +24402,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "9190186939806086069",
           "name": "Lictor",
-          "ourId": "TL19",
+          "ourId": "TL13",
           "matchTier": "exact",
           "note": ""
          }
@@ -24504,7 +24504,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8212336871999038263",
           "name": "Brood Progenitor",
-          "ourId": "TL6",
+          "ourId": "cbc9d98e39cc7fb4fa6f94c7e69bda18",
           "matchTier": "exact",
           "note": ""
          },
@@ -24555,7 +24555,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "6795886821506598274",
           "name": "Tyranid Warrior",
-          "ourId": "TL18",
+          "ourId": "TL5",
           "matchTier": "exact",
           "note": ""
          },
@@ -24564,7 +24564,7 @@
           "unitTypeName": "PlayerMinionLeft",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          }
@@ -24606,7 +24606,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "6795886821506598274",
           "name": "Tyranid Warrior",
-          "ourId": "TL18",
+          "ourId": "TL5",
           "matchTier": "exact",
           "note": ""
          },
@@ -24657,7 +24657,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8051705354670719408",
           "name": "Termagant",
-          "ourId": "TL13",
+          "ourId": "TL4",
           "matchTier": "exact",
           "note": ""
          },
@@ -24666,7 +24666,7 @@
           "unitTypeName": "PlayerMinionLeft",
           "pid": "6795886821506598274",
           "name": "Tyranid Warrior",
-          "ourId": "TL18",
+          "ourId": "TL5",
           "matchTier": "exact",
           "note": ""
          }
@@ -24708,7 +24708,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-7484707318155131627",
           "name": "Encircle the Prey",
-          "ourId": "TL45",
+          "ourId": "TL32",
           "matchTier": "exact",
           "note": ""
          },
@@ -24717,7 +24717,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "6795886821506598274",
           "name": "Tyranid Warrior",
-          "ourId": "TL18",
+          "ourId": "TL5",
           "matchTier": "exact",
           "note": ""
          }
@@ -24921,7 +24921,7 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-8500042654006139415",
           "name": "Bladeguard Lieutenant",
-          "ourId": "UM34",
+          "ourId": "UM23",
           "matchTier": "exact",
           "note": ""
          },
@@ -25032,7 +25032,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-2835143111577191027",
           "name": "Zoanthrope",
-          "ourId": "TL29",
+          "ourId": "TL18",
           "matchTier": "exact",
           "note": ""
          },
@@ -25083,7 +25083,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2835143111577191027",
           "name": "Zoanthrope",
-          "ourId": "TL29",
+          "ourId": "TL18",
           "matchTier": "exact",
           "note": ""
          },
@@ -25134,7 +25134,7 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-7895024825623077097",
           "name": "Adrenal Surge",
-          "ourId": "TL47",
+          "ourId": "TL33",
           "matchTier": "exact",
           "note": ""
          },
@@ -25143,7 +25143,7 @@
           "unitTypeName": "PlayerMinion",
           "pid": "6795886821506598274",
           "name": "Tyranid Warrior",
-          "ourId": "TL18",
+          "ourId": "TL5",
           "matchTier": "exact",
           "note": ""
          }

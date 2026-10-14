@@ -1383,7 +1383,7 @@
    ]
   },
   {
-   "id": "ASH_Empyric_Ambush",
+   "id": "dc7e575c0a328f446be1521c23ec850b",
    "fields": [
     {
      "name": "desc",
@@ -1478,7 +1478,7 @@
    ]
   },
   {
-   "id": "ASH_Flickerjump",
+   "id": "67adbc7f7bce2bd4c8f6937fab3134e5",
    "fields": [
     {
      "name": "desc",
@@ -1683,7 +1683,7 @@
    ]
   },
   {
-   "id": "ASH_Path_of_Command",
+   "id": "9c3562ffa183ede41b1626d9c9dc1e2f",
    "fields": [
     {
      "name": "desc",
@@ -1708,7 +1708,7 @@
    ]
   },
   {
-   "id": "ASH_Path_of_the_Seer",
+   "id": "09bcb1b3b8794c4429d82d4b2e68fa1f",
    "fields": [
     {
      "name": "desc",
@@ -1738,7 +1738,7 @@
    ]
   },
   {
-   "id": "ASH_Path_of_the_Warrior",
+   "id": "1bfe0893592c9dd40bed8d68d5d2b516",
    "fields": [
     {
      "name": "desc",
@@ -1798,7 +1798,7 @@
    ]
   },
   {
-   "id": "ASH_Storm_of_Silence",
+   "id": "851f73daf747eb642934a16429b391db",
    "fields": [
     {
      "name": "desc",
@@ -1978,7 +1978,7 @@
    ]
   },
   {
-   "id": "ASH_Witchfire",
+   "id": "d3e99cb18b8cbba4081486f57f510f75",
    "fields": [
     {
      "name": "desc",
@@ -2003,7 +2003,7 @@
    ]
   },
   {
-   "id": "ASH_Wrath_of_Khaine",
+   "id": "33eabec155f628440a426a4ba480ec24",
    "fields": [
     {
      "name": "desc",
@@ -2918,7 +2918,7 @@
    ]
   },
   {
-   "id": "AM_Astropath",
+   "id": "AM59",
    "fields": [
     {
      "name": "desc",
@@ -3578,7 +3578,7 @@
    ]
   },
   {
-   "id": "AM_Armoured_Lightning",
+   "id": "AM76",
    "fields": [
     {
      "name": "desc",
@@ -3613,7 +3613,7 @@
    ]
   },
   {
-   "id": "AM_Cadian_Honour",
+   "id": "3a52026b99bb56f40aa9dc130fc66f34",
    "fields": [
     {
      "name": "desc",
@@ -3648,7 +3648,7 @@
    ]
   },
   {
-   "id": "AM_Efficiency_and_Excellence",
+   "id": "1ff4815a506d2f34e94ec2f50900d352",
    "fields": [
     {
      "name": "desc",
@@ -3698,7 +3698,7 @@
    ]
   },
   {
-   "id": "AM_Lead_by_Example",
+   "id": "cc11838649ff68a40b7d5d2b9fccd2bc",
    "fields": [
     {
      "name": "desc",
@@ -3733,7 +3733,7 @@
    ]
   },
   {
-   "id": "AM_Legendary_Commandant",
+   "id": "af98d423c7279a14c84c0d0382c53541",
    "fields": [
     {
      "name": "desc",
@@ -3893,7 +3893,7 @@
    ]
   },
   {
-   "id": "AM_Renowned_Bodyguard",
+   "id": "98cd4c021d615174aba88df6012219c4",
    "fields": [
     {
      "name": "desc",
@@ -4453,7 +4453,7 @@
    ]
   },
   {
-   "id": "AM_Commissar_Elan",
+   "id": "AM3",
    "fields": [
     {
      "name": "desc",
@@ -4498,7 +4498,7 @@
    ]
   },
   {
-   "id": "AM_Hektor_Thenmann",
+   "id": "AM66",
    "fields": [
     {
      "name": "desc",
@@ -4561,6 +4561,31 @@
       {
        "token": "职责：",
        "sprite": "duty",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL34",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -5578,7 +5603,7 @@
    ]
   },
   {
-   "id": "BL_Diabolic_Strength",
+   "id": "7bf8ce67fb6be4744ae44345a5b465fd",
    "fields": [
     {
      "name": "desc",
@@ -5688,7 +5713,7 @@
    ]
   },
   {
-   "id": "BL_Helspear_Assault",
+   "id": "61046837c330b48978b4af5201230b6e",
    "fields": [
     {
      "name": "desc",
@@ -5758,7 +5783,7 @@
    ]
   },
   {
-   "id": "BL_Idolatrous_Despoilers",
+   "id": "BL75",
    "fields": [
     {
      "name": "desc",
@@ -5808,7 +5833,7 @@
    ]
   },
   {
-   "id": "BL_Litany_of_Despair",
+   "id": "9176318eaf469354e858f51af2333aa3",
    "fields": [
     {
      "name": "desc",
@@ -5923,7 +5948,7 @@
    ]
   },
   {
-   "id": "BL_Spreading_Corruption",
+   "id": "BL74",
    "fields": [
     {
      "name": "desc",
@@ -5948,7 +5973,7 @@
    ]
   },
   {
-   "id": "BL_Unhallowed_Gifts",
+   "id": "141c5ed661a9e42bd9a793f0d2a1c682",
    "fields": [
     {
      "name": "desc",
@@ -6178,7 +6203,7 @@
    ]
   },
   {
-   "id": "BL_Sylar_Hexcorn",
+   "id": "BL36",
    "fields": [
     {
      "name": "desc",
@@ -6948,7 +6973,7 @@
    ]
   },
   {
-   "id": "DA_Sergeant_Naaman",
+   "id": "DA6",
    "fields": [
     {
      "name": "desc",
@@ -7138,7 +7163,7 @@
    ]
   },
   {
-   "id": "DA_Grim_Effigy",
+   "id": "DA59",
    "fields": [
     {
      "name": "desc",
@@ -7273,7 +7298,7 @@
    ]
   },
   {
-   "id": "DA_Master_Interromancer",
+   "id": "a84a5b49f0ca9144585058db6987c2a0",
    "fields": [
     {
      "name": "desc",
@@ -7308,7 +7333,7 @@
    ]
   },
   {
-   "id": "DA_Master_of_Manoeuvre",
+   "id": "7c45a641ec845994097d185af58715f6",
    "fields": [
     {
      "name": "desc",
@@ -7333,7 +7358,7 @@
    ]
   },
   {
-   "id": "DA_Master_of_the_Deathwing",
+   "id": "9e0eecf8cb9a8df49bf18cc5d9051109",
    "fields": [
     {
      "name": "desc",
@@ -7368,7 +7393,7 @@
    ]
   },
   {
-   "id": "DA_None_Must_Know",
+   "id": "24fcaf45556573549b922c06cad3aa2c",
    "fields": [
     {
      "name": "desc",
@@ -7418,7 +7443,7 @@
    ]
   },
   {
-   "id": "DA_Rites_of_Penance",
+   "id": "e01e8e933ad574b44bce5473ae486667",
    "fields": [
     {
      "name": "desc",
@@ -7548,7 +7573,7 @@
    ]
   },
   {
-   "id": "DA_Supreme_Grand_Master",
+   "id": "dd535f7a54bcf6241b24ca6d0e81bbb4",
    "fields": [
     {
      "name": "desc",
@@ -8148,7 +8173,7 @@
    ]
   },
   {
-   "id": "DA_Asmodai",
+   "id": "DA3",
    "fields": [
     {
      "name": "desc",
@@ -8193,7 +8218,7 @@
    ]
   },
   {
-   "id": "DA_Azrael",
+   "id": "DA1",
    "fields": [
     {
      "name": "descZh",
@@ -8213,7 +8238,7 @@
    ]
   },
   {
-   "id": "DA_Belial",
+   "id": "DA2",
    "fields": [
     {
      "name": "desc",
@@ -8933,7 +8958,7 @@
    ]
   },
   {
-   "id": "EC_Dual_Screamer_Kakophonist",
+   "id": "EC16",
    "fields": [
     {
      "name": "desc",
@@ -9093,7 +9118,7 @@
    ]
   },
   {
-   "id": "EC_Icon_of_Excess_Infractor",
+   "id": "EC9",
    "fields": [
     {
      "name": "desc",
@@ -9263,7 +9288,7 @@
    ]
   },
   {
-   "id": "EC_Lord_Kakophonist",
+   "id": "EC14",
    "fields": [
     {
      "name": "desc",
@@ -9503,7 +9528,7 @@
    ]
   },
   {
-   "id": "EC_Terminator_Champion",
+   "id": "EC26",
    "fields": [
     {
      "name": "desc",
@@ -9558,7 +9583,7 @@
    ]
   },
   {
-   "id": "EC_Terminator",
+   "id": "EC25",
    "fields": [
     {
      "name": "desc",
@@ -9603,7 +9628,7 @@
    ]
   },
   {
-   "id": "EC_Threnodic_Choir_Noise_Marine",
+   "id": "EC19",
    "fields": [
     {
      "name": "desc",
@@ -9798,7 +9823,7 @@
    ]
   },
   {
-   "id": "EC_Duelist_s_Hubris_Lucius_Talent",
+   "id": "6ed51d59b9f8ea24ab0dc7ceaef7956c",
    "fields": [
     {
      "name": "desc",
@@ -9823,7 +9848,7 @@
    ]
   },
   {
-   "id": "EC72",
+   "id": "5a8a11b2a89796f48b34fbec8db6f452",
    "fields": [
     {
      "name": "desc",
@@ -9858,7 +9883,7 @@
    ]
   },
   {
-   "id": "EC73",
+   "id": "70199b6f183ec364082ca16e62f3d0cb",
    "fields": [
     {
      "name": "desc",
@@ -9883,7 +9908,7 @@
    ]
   },
   {
-   "id": "EC75",
+   "id": "9215799995ff7a941b14737e27021032",
    "fields": [
     {
      "name": "desc",
@@ -9908,7 +9933,7 @@
    ]
   },
   {
-   "id": "EC76",
+   "id": "4eec3b13d157dae48b14ed412169e692",
    "fields": [
     {
      "name": "desc",
@@ -9933,7 +9958,7 @@
    ]
   },
   {
-   "id": "EC77",
+   "id": "aa45079b714e3ff498549e533c5954a1",
    "fields": [
     {
      "name": "desc",
@@ -9958,7 +9983,7 @@
    ]
   },
   {
-   "id": "EC_Excessive_Vigour_Daemon_Prince_s_Talent",
+   "id": "2621d4280735baf4c952e6afea8d0686",
    "fields": [
     {
      "name": "desc",
@@ -10183,7 +10208,7 @@
    ]
   },
   {
-   "id": "EC_Maulerfiend",
+   "id": "EC30",
    "fields": [
     {
      "name": "desc",
@@ -11288,7 +11313,7 @@
    ]
   },
   {
-   "id": "GSC_Backstab",
+   "id": "GSC40",
    "fields": [
     {
      "name": "desc",
@@ -11498,7 +11523,7 @@
    ]
   },
   {
-   "id": "GSC_Master_Outrider",
+   "id": "c433e3dde4952cc448220908226127ae",
    "fields": [
     {
      "name": "desc",
@@ -11553,7 +11578,7 @@
    ]
   },
   {
-   "id": "GSC_Nexus_of_Devotion",
+   "id": "7831725387c8a774dbdf5b6492d928e0",
    "fields": [
     {
      "name": "desc",
@@ -11658,7 +11683,7 @@
    ]
   },
   {
-   "id": "GSC_Roaming_Outriders",
+   "id": "GSC75",
    "fields": [
     {
      "name": "desc",
@@ -11758,7 +11783,7 @@
    ]
   },
   {
-   "id": "GSC_Vox_Hacker",
+   "id": "e9952f50921d2844a94d39ce883430f4",
    "fields": [
     {
      "name": "desc",
@@ -12178,7 +12203,7 @@
    ]
   },
   {
-   "id": "GSC_Acolyte_Iconward",
+   "id": "GSC3",
    "fields": [
     {
      "name": "desc",
@@ -12203,7 +12228,7 @@
    ]
   },
   {
-   "id": "GSC_Lhaska_Szenari",
+   "id": "GSC66",
    "fields": [
     {
      "name": "desc",
@@ -12598,7 +12623,7 @@
    ]
   },
   {
-   "id": "SAU_Gauss_Blaster_Immortal",
+   "id": "SAU8",
    "fields": [
     {
      "name": "desc",
@@ -12633,7 +12658,7 @@
    ]
   },
   {
-   "id": "SAU_Gauss_Reaper_Warrior",
+   "id": "SAU4",
    "fields": [
     {
      "name": "desc",
@@ -13233,7 +13258,7 @@
    ]
   },
   {
-   "id": "SAU_Hardwired_Destruction",
+   "id": "461354d98aa5e3142afa4eb4922e5456",
    "fields": [
     {
      "name": "desc",
@@ -13313,7 +13338,7 @@
    ]
   },
   {
-   "id": "SAU_Lord_of_the_Storm",
+   "id": "30007162b68992e41a422f2061705b65",
    "fields": [
     {
      "name": "desc",
@@ -13338,7 +13363,7 @@
    ]
   },
   {
-   "id": "SAU_Particle_Whip",
+   "id": "eb17cd22c6a5d7941a7456838d927ab1",
    "fields": [
     {
      "name": "desc",
@@ -13398,7 +13423,7 @@
    ]
   },
   {
-   "id": "SAU_Reanimate",
+   "id": "27a4b748a7bf358499f038aa09895ead",
    "fields": [
     {
      "name": "desc",
@@ -14478,7 +14503,7 @@
    ]
   },
   {
-   "id": "GOF_Ferocious_Rage_Beastboss_Talent",
+   "id": "84d4d192e0f57a34a90ac0f6172c3358",
    "fields": [
     {
      "name": "desc",
@@ -14813,7 +14838,7 @@
    ]
   },
   {
-   "id": "GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent",
+   "id": "64a657fc5ed5bbb4fa7b585cf29c1e95",
    "fields": [
     {
      "name": "desc",
@@ -14858,7 +14883,7 @@
    ]
   },
   {
-   "id": "GOF_Special_Dose_Zodgrod_Wortsnagga_Talent",
+   "id": "d19e8b68aaa9a884781d06697ad237a6",
    "fields": [
     {
      "name": "desc",
@@ -14883,7 +14908,7 @@
    ]
   },
   {
-   "id": "GOF_Waaagh_Energy_Weirdboy_Talent",
+   "id": "e3d67d86f73f7564eb0bf886ec848af6",
    "fields": [
     {
      "name": "desc",
@@ -15347,6 +15372,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -15356,6 +15386,11 @@
       {
        "token": "集结：",
        "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -15623,7 +15658,7 @@
    ]
   },
   {
-   "id": "GOF_Veteran_Flyboy",
+   "id": "GOF20",
    "fields": [
     {
      "name": "desc",
@@ -15698,7 +15733,7 @@
    ]
   },
   {
-   "id": "GOF_Da_Red_Waaagh",
+   "id": "20d0f4451f16fc441836a02f99bf77da",
    "fields": [
     {
      "name": "desc",
@@ -15758,7 +15793,7 @@
    ]
   },
   {
-   "id": "GOF_Follower_of_Gork",
+   "id": "6ba4b132d24528844a86304f8ce67833",
    "fields": [
     {
      "name": "desc",
@@ -15808,7 +15843,7 @@
    ]
   },
   {
-   "id": "GOF_Greatest_Warboss",
+   "id": "3ebb159036778d14ebd1c48451aa6ca0",
    "fields": [
     {
      "name": "desc",
@@ -15908,7 +15943,7 @@
    ]
   },
   {
-   "id": "GOF_More_Dakka",
+   "id": "9f4e1b7ea9f00da458c6a859a4e958c8",
    "fields": [
     {
      "name": "desc",
@@ -16148,7 +16183,7 @@
    ]
   },
   {
-   "id": "GOF_Uge_Choppa",
+   "id": "6899b199f5e36144ebbdd7ed9d9e7afe",
    "fields": [
     {
      "name": "desc",
@@ -16193,7 +16228,7 @@
    ]
   },
   {
-   "id": "GOF_Worst_Temper",
+   "id": "8425b809e9e64e24f9035f709f5aaee4",
    "fields": [
     {
      "name": "desc",
@@ -16258,7 +16293,7 @@
    ]
   },
   {
-   "id": "GOF_Wreckin_Ball",
+   "id": "508002f5d7ee54f4686aefa2e6adce41",
    "fields": [
     {
      "name": "desc",
@@ -17649,6 +17684,11 @@
      "name": "desc",
      "items": [
       {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "☀",
        "sprite": "faith",
        "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
@@ -17913,7 +17953,7 @@
    ]
   },
   {
-   "id": "SOR_Sister_Dogmata",
+   "id": "SOR31",
    "fields": [
     {
      "name": "desc",
@@ -18003,7 +18043,7 @@
    ]
   },
   {
-   "id": "SOR_Sisters_Repentia",
+   "id": "SOR10",
    "fields": [
     {
      "name": "desc",
@@ -18248,7 +18288,7 @@
    ]
   },
   {
-   "id": "SOR_Daemonbreaker",
+   "id": "e01f4d54e8a474d96b5a1167cc28eebf",
    "fields": [
     {
      "name": "desc",
@@ -18458,7 +18498,7 @@
    ]
   },
   {
-   "id": "SOR_Fury_of_the_Righteous",
+   "id": "8901e35c5de30eb48804da6651cfb132",
    "fields": [
     {
      "name": "desc",
@@ -18563,7 +18603,7 @@
    ]
   },
   {
-   "id": "SOR_Hymn_of_Battle",
+   "id": "4d348cff71208c24d8e39252d913ff9d",
    "fields": [
     {
      "name": "desc",
@@ -18658,7 +18698,7 @@
    ]
   },
   {
-   "id": "SOR_Lead_the_Righteous",
+   "id": "65cfec7d2bc719040b3b4b88622931b2",
    "fields": [
     {
      "name": "desc",
@@ -18788,7 +18828,7 @@
    ]
   },
   {
-   "id": "SOR_Righteous_Repugnance",
+   "id": "f104d4c21abe84546abc9365d9eda8dd",
    "fields": [
     {
      "name": "desc",
@@ -21508,7 +21548,7 @@
    ]
   },
   {
-   "id": "TAU_Stormsurge_Battlesuit",
+   "id": "TAU38",
    "fields": [
     {
      "name": "desc",
@@ -21698,7 +21738,7 @@
    ]
   },
   {
-   "id": "TAU_Aunshi_Ethereal",
+   "id": "TAU32",
    "fields": [
     {
      "name": "desc",
@@ -21733,7 +21773,7 @@
    ]
   },
   {
-   "id": "TAU_Breacher_Fire_Warrior",
+   "id": "TAU14",
    "fields": [
     {
      "name": "desc",
@@ -22383,7 +22423,7 @@
    ]
   },
   {
-   "id": "TAU_Deploy_Anchors",
+   "id": "507f79fa60945d04e93fe806aca912b7",
    "fields": [
     {
      "name": "desc",
@@ -22433,7 +22473,7 @@
    ]
   },
   {
-   "id": "TAU_Experimental_Drone",
+   "id": "TAU42",
    "fields": [
     {
      "name": "desc",
@@ -22518,7 +22558,7 @@
    ]
   },
   {
-   "id": "TAU_Grisly_Feast",
+   "id": "b3735ef3d1408d544b0947e31f898e20",
    "fields": [
     {
      "name": "desc",
@@ -22543,7 +22583,7 @@
    ]
   },
   {
-   "id": "TAU_Hero_of_the_Empire",
+   "id": "9f75a6fe11922eb409ffbad4ecdeb405",
    "fields": [
     {
      "name": "desc",
@@ -22613,7 +22653,7 @@
    ]
   },
   {
-   "id": "TAU_Homing_Beacon",
+   "id": "1688c6146abb1e04f98e540b4cbbabd7",
    "fields": [
     {
      "name": "desc",
@@ -22648,7 +22688,7 @@
    ]
   },
   {
-   "id": "TAU_Hunters_Instincts",
+   "id": "TAU75",
    "fields": [
     {
      "name": "desc",
@@ -22838,7 +22878,7 @@
    ]
   },
   {
-   "id": "TAU_Serene_Unifier",
+   "id": "f2b80d575cbf8f64597b991022beaf35",
    "fields": [
     {
      "name": "desc",
@@ -22863,7 +22903,7 @@
    ]
   },
   {
-   "id": "TAU_Shield_Generator",
+   "id": "684196db974ab254090f39ef6e89868c",
    "fields": [
     {
      "name": "desc",
@@ -22923,7 +22963,7 @@
    ]
   },
   {
-   "id": "TAU_Structural_Analyzer",
+   "id": "f279c5cf1c3e16e4db6b9df4d941ad11",
    "fields": [
     {
      "name": "desc",
@@ -23261,6 +23301,16 @@
    "id": "TAU2",
    "fields": [
     {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
      "name": "descZh",
      "items": [
       {
@@ -23438,7 +23488,7 @@
    ]
   },
   {
-   "id": "TL_Barbgaunt",
+   "id": "TL67",
    "fields": [
     {
      "name": "desc",
@@ -23718,7 +23768,7 @@
    ]
   },
   {
-   "id": "TL_Neurogaunt",
+   "id": "TL66",
    "fields": [
     {
      "name": "desc",
@@ -23763,7 +23813,7 @@
    ]
   },
   {
-   "id": "TL_Neuroloid",
+   "id": "TL65",
    "fields": [
     {
      "name": "desc",
@@ -23858,7 +23908,7 @@
    ]
   },
   {
-   "id": "TL_Termagant_Brood",
+   "id": "TL75",
    "fields": [
     {
      "name": "desc",
@@ -24333,7 +24383,7 @@
    ]
   },
   {
-   "id": "TL_Neurotyrant",
+   "id": "TL69",
    "fields": [
     {
      "name": "desc",
@@ -24358,7 +24408,7 @@
    ]
   },
   {
-   "id": "TL_Norn_Emissary",
+   "id": "TL70",
    "fields": [
     {
      "name": "desc",
@@ -24383,11 +24433,16 @@
    ]
   },
   {
-   "id": "TL_Psychophage",
+   "id": "TL68",
    "fields": [
     {
      "name": "desc",
      "items": [
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
       {
        "token": "Rally:",
        "sprite": "rally",
@@ -24588,7 +24643,7 @@
    ]
   },
   {
-   "id": "TL_Alpha_Warrior",
+   "id": "8f2da557fe484ee4bbf427c13eccd4cb",
    "fields": [
     {
      "name": "desc",
@@ -24718,7 +24773,7 @@
    ]
   },
   {
-   "id": "TL_Bestial_Rage",
+   "id": "TL73",
    "fields": [
     {
      "name": "desc",
@@ -24818,7 +24873,7 @@
    ]
   },
   {
-   "id": "TL_Hive_Commander",
+   "id": "5b5425f6e2848b449807bd1643d0d936",
    "fields": [
     {
      "name": "desc",
@@ -24913,7 +24968,7 @@
    ]
   },
   {
-   "id": "TL_Spirit_Leech",
+   "id": "760bd3afde513774d96d6492f995fd37",
    "fields": [
     {
      "name": "desc",
@@ -24963,7 +25018,7 @@
    ]
   },
   {
-   "id": "TL_Synaptic_Imperative",
+   "id": "a58e05916eb5e994daa0349cbe237001",
    "fields": [
     {
      "name": "desc",
@@ -24998,7 +25053,7 @@
    ]
   },
   {
-   "id": "TL_Toxic_Entanglement",
+   "id": "TL71",
    "fields": [
     {
      "name": "desc",
@@ -26963,7 +27018,7 @@
    ]
   },
   {
-   "id": "UM_Might_of_Heroes",
+   "id": "0740581c2c0523745a42dbec1b2ef82a",
    "fields": [
     {
      "name": "desc",
@@ -27268,7 +27323,7 @@
    ]
   },
   {
-   "id": "UM_Exhortation_of_Rage",
+   "id": "315d9f293e4f56d4f813584b43f0511c",
    "fields": [
     {
      "name": "desc",
@@ -27513,7 +27568,7 @@
    ]
   },
   {
-   "id": "UM_Master_Tactician",
+   "id": "dcbd28525888ce54aaa93a47ba4de1e6",
    "fields": [
     {
      "name": "desc",
@@ -27548,7 +27603,7 @@
    ]
   },
   {
-   "id": "UM_Master_of_Arms",
+   "id": "55b8e3d2040f86d4190ffb1a91abb5ed",
    "fields": [
     {
      "name": "desc",
@@ -27713,7 +27768,7 @@
    ]
   },
   {
-   "id": "UM_Paragon_of_Ultramar",
+   "id": "7693f2b21b2f85644b739da990bc2216",
    "fields": [
     {
      "name": "desc",
@@ -27818,7 +27873,7 @@
    ]
   },
   {
-   "id": "UM_Righteous_Fury",
+   "id": "26d4ded12b28a3742b5c8fc155e29803",
    "fields": [
     {
      "name": "desc",
@@ -27948,7 +28003,7 @@
    ]
   },
   {
-   "id": "UM_Spear_of_Macragge",
+   "id": "d94f91051ecfe014f97577ff573571aa",
    "fields": [
     {
      "name": "desc",
@@ -28753,7 +28808,7 @@
    ]
   },
   {
-   "id": "AM_Lord_Commander",
+   "id": "c06453b330af61745beb5fa567ba863e",
    "fields": [
     {
      "name": "desc",
@@ -28798,7 +28853,7 @@
    ]
   },
   {
-   "id": "BL_Dark_Pact_of_Fate",
+   "id": "4a48457c24877f345be2e96f867c1e94",
    "fields": [
     {
      "name": "desc",
@@ -28823,7 +28878,7 @@
    ]
   },
   {
-   "id": "BL_Dark_Pact_of_Blood",
+   "id": "9a2cadc64c80a6b42912441105bb1cee",
    "fields": [
     {
      "name": "desc",
@@ -28858,7 +28913,7 @@
    ]
   },
   {
-   "id": "BL_Dark_Pact_of_Excess",
+   "id": "b8e81b2fe85cda747a68c4d6326b669c",
    "fields": [
     {
      "name": "desc",
@@ -28893,7 +28948,7 @@
    ]
   },
   {
-   "id": "BL_Dark_Pact_of_Resilience",
+   "id": "1dfc9bc738bfc4f4d93d48f165aee510",
    "fields": [
     {
      "name": "desc",
@@ -28918,7 +28973,7 @@
    ]
   },
   {
-   "id": "DA_Master_of_Repentance",
+   "id": "4cdc1b5f965f99945b685bca7660e9fa",
    "fields": [
     {
      "name": "desc",
@@ -29043,7 +29098,7 @@
    ]
   },
   {
-   "id": "EC_Armoury_of_Excess",
+   "id": "EC60",
    "fields": [
     {
      "name": "desc",
@@ -29133,7 +29188,7 @@
    ]
   },
   {
-   "id": "BL_Hellfire_Torch",
+   "id": "BL57",
    "fields": [
     {
      "name": "desc",
@@ -29158,7 +29213,7 @@
    ]
   },
   {
-   "id": "TL_Protective_Bio_structure",
+   "id": "TL55",
    "fields": [
     {
      "name": "desc",
@@ -29183,7 +29238,7 @@
    ]
   },
   {
-   "id": "BL_Chosen_of_the_Four",
+   "id": "97e959444b53f424ea4285e2ca02c7e6",
    "fields": [
     {
      "name": "desc",

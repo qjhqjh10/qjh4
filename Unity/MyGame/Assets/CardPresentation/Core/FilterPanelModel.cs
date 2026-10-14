@@ -499,6 +499,12 @@ namespace CardPresentation
             public UnityEngine.Color OffTint;
             public string Key;          // 点了改哪一项
             public bool On;
+            /// <summary>🔴 **2026-10-14（账 `N14`）**：这一格**现在不显示** —— 照原版
+            /// `CardCostFilter.SetFilterToDeck` 的 `SetActive(false)`。**节点照建**（原版那棵树里
+            /// `Cost Filter` 那个节点也在、只是被关掉），只是**不画、也不登记点击区**
+            /// （原版那颗节点一关，子件连射线一起没了）⇒ 宿主只认这一个字段，⛔ 别在宿主里另判一次。
+            /// 今天只有**费用那 8 档**会置它（判据与状态表 → <see cref="CostRowVisible"/>）。</summary>
+            public bool Hidden;
         }
 
         /// <summary>四行的小标题（原版 `Title` TMP · **fs32**）。
@@ -511,6 +517,12 @@ namespace CardPresentation
             /// 是为了让「给矩形的那一处」把对齐**一起交代掉** —— `Cell.LabelCenter` 是同一个道理，
             /// 那个字段的教训正是「渲染方自己猜对齐」猜错过一次。</summary>
             public bool Left;
+            /// <summary>🔴 **2026-10-14（账 `N14`）**：这一行小标题**现在不显示** —— 与 `Cell.Hidden`
+            /// **同一条判据、同一拍**（原版那颗 `Cost Filter` 节点一关，它下面的 `Title` 与 `Content`
+            /// **一起**不画：`Cost Filter` 的子件实测就是 `Title` + `Content` 两个）。
+            /// ⚠️ **节点必须照建**：`_fltTitles` 是**复用件**、节点名 `flt_title_*` 还有自检按名找
+            /// ⇒ 显隐只在**刷新那一拍**做（`DeckRuntime.RefreshFilterTitles`），⛔ 别改成「不建」。</summary>
+            public bool Hidden;
         }
 
         /// <summary>搜索框那一行的三个矩形（面板内）。</summary>
@@ -546,6 +558,67 @@ namespace CardPresentation
             lab = new PxRect(ToggleLabLeft, rowTop, lx2, rowTop + ToggleRowH);
         }
 
+        // ============================================================ 费用那一行的显隐（账 `N14`）
+        //
+        // 🔴 **判据（原版第一权威 = 反编译方法体，`d:/2/tools/decomp_full/`，2026-10-14 现读）**：
+        //   `CardCostFilter__SetFilterToDeck.c:13-23` 逐句 ——
+        //     `lVar2 = Component__get_gameObject(param_1)`；
+        //     `uVar1 = *(undefined8 *)(deck + 0x40)`（= **`CardDeck.deckHero`**）；
+        //     `uVar3 = UnityEngine_Object__op_Inequality(uVar1, 0)`；
+        //     `UnityEngine_GameObject__SetActive(lVar2, uVar3)`；
+        //   ⇒ **卡组没有督军 ⇒ 整个 `Cost Filter` 节点 `SetActive(false)`**（那一关之下，
+        //     `Title`（`Energy Cost` 小标题）与 `Content`（8 档开关）**一起**不画 ——
+        //     `Cost Filter` 的子件实测就这两个，见下面那条 prefab 判据）。
+        //
+        // 🔴 **为什么必须有 `costRowNeedsWarlord` 这一档（而不是「没有督军就一律隐藏」）** ——
+        //   全库 `SetFiltersToDeck` 的调用点**只有两个**（`grep -rln SetFiltersToDeck d:/2/tools/decomp_full/`）：
+        //   `CardCollectionFilterController__SetFiltersToDeck.c`（定义）与
+        //   `DeckEditingWindow__FilterToDeck.c:24`（唯一调用）⇒ **只有卡组编辑那扇窗会给 filter 下发卡组**。
+        //   `bundle_menus_assets_all` 里 `CardCostFilter` 一共 **3 个实例**（按 `m_Script`
+        //   pid `4129675047944424206` 全包枚举，逐级解 `RectTransform.m_Father` 父链）：
+        //     · `Deck Editing Menu/Content Area/Card Display/Card Filters/Scroll View/Viewport/Filters/Cost Filter`
+        //       （pid `1802889686455676708`）—— **本条要管的那一个**；
+        //     · `Collection Menu Variant/Content Area/Tabs/CardsTab/Collection Display/…/Filters/Cost Filter`
+        //       （pid `453677649316602581`）· `…/Tabs/Alternate Art Tab/…/Filters/Cost Filter`
+        //       （pid `1602881388888187605`）—— 收藏窗那两份**没有任何代码去关它**
+        //       （收藏窗从不调 `SetFiltersToDeck`）⇒ **恒显示**；三个实例的 prefab `m_IsActive`
+        //       实测**都是 `True`**（关是运行期 `SetActive` 干的）。
+        //   ⇒ 收藏窗那两份必须**保持原样**：所以这个开关是**显式形参、缺省 false**
+        //     （与 `raritySpX/costSpX/typePadL` 三个「按窗分」的形参同一个做法）。
+        //
+        // ⚠️ **同表的另外两条【不要一起改】**（判据：`CardTypeFilter__SetFilterToDeck.c:30-31` /
+        //   `CardArmyFilter__SetFilterToDeck.c:15-28`）：卡类那一格是 `ShowOnlyHero()` / `ShowAll()`
+        //   （没督军时**强制只勾 `Hero` 并隐藏自己**）、阵营那一格是 `ClearArmyFilter()` + 显示 /
+        //   `FilterToArmy(deckArmy)` + **自身隐藏** —— 主对话已裁定「我们现有形状已经等于原版」，
+        //   **本条只动费用这一格**。
+
+        /// <summary>这份卡组**现在有没有督军** —— 判据 = 原版 `CardDeck.deckHero != null`
+        /// （`CardCostFilter__SetFilterToDeck.c:15` 读的 `deck + 0x40`；`0x40` 与
+        /// `CardArmyFilter__SetFilterToDeck.c:16` 读的是**同一个偏移** ⇒ 两处互证）。
+        /// 🔴 **全工程只此一处**：宿主里 ⛔ 别再拼一份 `string.IsNullOrEmpty(Deck.WarlordId)`
+        /// （两处写同一条规则 = 迟早不一致）。</summary>
+        public static bool HasWarlord(DeckEditorState state)
+        {
+            return state != null && state.Deck != null && !string.IsNullOrEmpty(state.Deck.WarlordId);
+        }
+
+        /// <summary>🔴 **卡组编辑那扇窗的「费用行要不要督军」那一档**（= 上面 `<see cref="Build"/>` 的
+        /// `costRowNeedsWarlord` 实参；`Deck/DeckRuntime.cs` 传 `true`）。
+        /// ⚠️ 与 `WarlordGatedPool` **不是**同一件事（那个是「卡池按督军分流」，管的是**卡池内容**）
+        /// ⇒ ⛔ 别拿它顶替这一档：那个开关一改，这一行的显隐会**静默**跟着变。
+        /// 今天只有 `Deck/DeckRuntime.cs` 传 `true`（收藏窗两页走缺省 `false`）。</summary>
+        public const bool CostRowNeedsWarlordDeckEdit = true;
+
+        /// <summary>费用那一行（`Energy Cost` 小标题 + 8 档格子）**现在该不该显示** ——
+        /// **判据只此一处**（<see cref="Build"/> 与 <see cref="BuildTitles"/> 都走它，⛔ 别各写一份）。
+        /// <param name="costRowNeedsWarlord">`true` = 卡组编辑那一份（照原版按 `deckHero` 开关）；
+        /// `false` = 收藏窗那两份（原版**从不**给它下发卡组 ⇒ 恒显示）。</param></summary>
+        public static bool CostRowVisible(DeckEditorState state, bool costRowNeedsWarlord)
+        {
+            if (!costRowNeedsWarlord) return true;
+            return HasWarlord(state);
+        }
+
         /// <summary>七行里**后六行**的格子表（① 搜索框是单独一行，见 <see cref="NameRowRects"/>）。
         /// 坐标 = **面板内**。`state` 提供当前筛选条件（决定每格 `On`）与阵营表。</summary>
         /// <param name="togglePx">两个开关标签（`Owned only`/`Upgradable only`）的字号。
@@ -564,13 +637,24 @@ namespace CardPresentation
         /// 卡组编辑传 <see cref="CostSpXDeckEdit"/> = 7（⇒ 步进 72 而不是 80）。</param>
         /// <param name="typePadL">🔴 **同上，Type 左内缩**。缺省 <see cref="TypePadL"/> = 15（收藏窗）；
         /// 卡组编辑传 <see cref="TypePadLDeckEdit"/> = 40（HLG 的 `m_Padding.Left`）。</param>
+        /// <param name="costRowNeedsWarlord">🔴 **2026-10-14（账 `N14`）按窗分**：费用那一行要不要**督军**才显示。
+        /// **卡组编辑传 <see cref="CostRowNeedsWarlordDeckEdit"/> = true**（原版
+        /// `CardCostFilter__SetFilterToDeck.c:21` 的 `SetActive(deckHero != null)`）；**缺省 false = 收藏窗**
+        /// （原版收藏窗从不调 `SetFiltersToDeck` ⇒ 那两份 `Cost Filter` 恒 active）。
+        /// 判据全文（含「哪 3 个实例 / 为什么必须按窗分」）→ 上面「费用那一行的显隐」那一段。
+        /// ⚠️ 置位的结果落在 <see cref="Cell.Hidden"/> 上（**节点照建、只是不画**），由宿主兑现。</param>
         public static void Build(DeckEditorState state, float w, List<Cell> cells,
                                  float togglePx = ToggleFontPx, float toggleAutoMin = ToggleFontAutoMin,
                                  float toggleAutoMax = ToggleFontAutoMax, float toggleBase = ToggleFontBase,
-                                 float raritySpX = ArmySpX, float costSpX = CostSpX, float typePadL = TypePadL)
+                                 float raritySpX = ArmySpX, float costSpX = CostSpX, float typePadL = TypePadL,
+                                 bool costRowNeedsWarlord = false)
         {
             var f = state.Filter;
             var facs = state.Factions();
+            // 🔴 费用那一行的显隐（判据只此一处 = `CostRowVisible`）—— 只**标记**，兑现（不画 + 不登记点击区）
+            //   在宿主 `Deck/DeckRuntime.RefreshFilterCells` 那一拍（同 `ClipCellToBand` 的口径：
+            //   **节点照建**，只是不画 ⇒ 自检按 key 仍找得到这一格、能断它的 `activeSelf`）。
+            bool costHidden = !CostRowVisible(state, costRowNeedsWarlord);
             // 🔴 **行顶随阵营数变**（Army 行高 = 它自己的内容高）—— 为什么这么算，见 `ArmyRowH` 那段。
             var L = ComputeLayout(facs.Count);
 
@@ -649,6 +733,10 @@ namespace CardPresentation
             }
 
             // ---- ⑥ Cost：**8 档（`1-`/2…7/`8+`）** · 格 65×65 · sp15/20 · pad L15 ⇒ 4 格/行 ----
+            //   🔴 **2026-10-14（账 `N14`）**：这一族的 8 格**照建**，但卡组没有督军时整个
+            //   `Cost Filter` 节点在原版是 `SetActive(false)` ⇒ 这里只**标记** `Hidden`（见 `costHidden`
+            //   那段与「费用那一行的显隐」整节）。⚠️ **别改成「不 Add 进 cells」** ——
+            //   格数与 key 都要照旧（`Editor/DeckScene.cs` 的「31 个格子」与 `$cost:` 探针按 key 找）。
             for (int i = 0; i < CostBuckets.Length; i++)
             {
                 float x = CostPadL + (i % 4) * (CostCell + costSpX);
@@ -664,6 +752,7 @@ namespace CardPresentation
                     Key = "$cost:" + CostBuckets[i].Lo,
                     On = f.Cost == CostBuckets[i].Lo,
                     OffTint = OffTintCostType,
+                    Hidden = costHidden,                 // 🆕 N14（卡组编辑：没督军 ⇒ 原版整节点关掉）
                 });
             }
 
@@ -772,17 +861,23 @@ namespace CardPresentation
             return term == null ? titleText : Loc.T(term);
         }
 
+        /// <param name="costRowNeedsWarlord">🔴 **2026-10-14（账 `N14`）**：与 <see cref="Build"/> 的**同名同义**
+        /// 那一个形参（同一份判据 <see cref="CostRowVisible"/>，⛔ 别在这里另写一份条件）。
+        /// ⚠️ **`Title` 必须照旧四条全发**（行的顺序与下标是**两个调用方共用的映射**：
+        /// `DeckRuntime.RefreshFilterTitles` 与 `CollectionWindow.BuildFilterTitles` 都按下标取）
+        /// ⇒ 显隐只置 <see cref="Title.Hidden"/>，**不改条数、不改顺序**。</param>
         public static void BuildTitles(DeckEditorState state, float w, List<Title> titles,
-                                       float titlePx = TitleFontPx)
+                                       float titlePx = TitleFontPx, bool costRowNeedsWarlord = false)
         {
             var L = ComputeLayout(state);
+            bool costHidden = !CostRowVisible(state, costRowNeedsWarlord);   // 🆕 N14（同 `Build` 那一处）
             // 🔴 **`Title.Text` 是【英文原名】，一行两用**：① 渲染方拿它当**显示文案的输入**
             //   （要过 `TitleText` 换成词条文案）；② **节点名**就直接由它拼出来
             //   （`DeckRuntime` 的 `"flt_title_" + Text.Replace(" ","_")`、`CollectionWindow` 的 `"Title " + Text`）
             //   ⇒ ⛔ **这一列一个字都别改成中文**（改了 = 两个宿主的按名查找全断）。
             titles.Add(new Title { Text = "Army", R = new PxRect(TitleArmyX, L.ArmyTop, w, L.ArmyTop + TitleH), Px = titlePx, Left = true });
             titles.Add(new Title { Text = "Rarity", R = new PxRect(TitleRarityX, L.RarityTop + TitleRarityYIn, w, L.RarityTop + TitleRarityYIn + TitleH), Px = titlePx, Left = true });
-            titles.Add(new Title { Text = "Energy Cost", R = new PxRect(TitleCostX, L.CostTop + TitleCostYIn, w, L.CostTop + TitleCostYIn + TitleH), Px = titlePx, Left = true });
+            titles.Add(new Title { Text = "Energy Cost", R = new PxRect(TitleCostX, L.CostTop + TitleCostYIn, w, L.CostTop + TitleCostYIn + TitleH), Px = titlePx, Left = true, Hidden = costHidden });
             titles.Add(new Title { Text = "Type", R = new PxRect(TitleTypeX, L.TypeTop + TitleTypeYIn, w, L.TypeTop + TitleTypeYIn + TitleH), Px = titlePx, Left = true });
         }
 

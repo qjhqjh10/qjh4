@@ -252,9 +252,11 @@ def build_card_resolver(pool):
 #    ✅ 每次重跑都**当场重验这条判据**（`verify_ocr_fix`）：卡在池里 + `ocrName` 与 SO 名按 `norm` 相等，不成立就抛。
 #    ⛔ `Bladeguard Lieutenant` **故意不在这张表里**：`card_stats.json` 里有、我们池里**没有** ⇒ 那是**池缺卡**，
 #       另开一件查（硬塞一张相近的卡 = 静默错一张，项目红线）。
+# 🔵 2026-10-14（P1 id 置换批）：本表那 2 处 id 已随卡池换成真值 id
+#   （`SAU_Gauss_Reaper_Warrior`→`SAU4` · `SAU_Tesla_Carbine_Immortal`→`SAU6`）。
 OCR_NAME_FIX = {
-    "Gauss Warrior (tutorial)": "SAU_Gauss_Reaper_Warrior",
-    "Tesla Immortal": "SAU_Tesla_Carbine_Immortal",
+    "Gauss Warrior (tutorial)": "SAU4",
+    "Tesla Immortal": "SAU6",
 }
 
 

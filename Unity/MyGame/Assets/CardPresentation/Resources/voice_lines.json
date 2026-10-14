@@ -503,6 +503,130 @@
    ]
   },
   {
+   "id": "AM3",
+   "name": "Commissar Elan",
+   "faction": "AstraMilitarum",
+   "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_AM_Commissar Elan_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_AM_Commissar Elan_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "backup1",
+     "file": "VO_AM_Commissar Elan_Backup1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "cantdo",
+     "file": "VO_AM_Commissar Elan_cantDo.ogg",
+     "text": ""
+    },
+    {
+     "ev": "concede",
+     "file": "VO_AM_Commissar Elan_concede.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen1",
+     "file": "VO_AM_Commissar Elan_gen1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen2",
+     "file": "VO_AM_Commissar Elan_gen2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen3",
+     "file": "VO_AM_Commissar Elan_gen3.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen4",
+     "file": "VO_AM_Commissar Elan_gen4.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen5",
+     "file": "VO_AM_Commissar Elan_gen5.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen6",
+     "file": "VO_AM_Commissar Elan_gen6.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen7",
+     "file": "VO_AM_Commissar Elan_gen7.ogg",
+     "text": ""
+    },
+    {
+     "ev": "greet",
+     "file": "VO_AM_Commissar Elan_greet.ogg",
+     "text": ""
+    },
+    {
+     "ev": "hurry",
+     "file": "VO_AM_Commissar Elan_hurry.ogg",
+     "text": ""
+    },
+    {
+     "ev": "intro",
+     "file": "VO_AM_Commissar Elan_intro.ogg",
+     "text": ""
+    },
+    {
+     "ev": "mirror",
+     "file": "VO_AM_Commissar Elan_mirror.ogg",
+     "text": ""
+    },
+    {
+     "ev": "threat",
+     "file": "VO_AM_Commissar Elan_threat.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsghazghkull",
+     "file": "VO_AM_Commissar Elan_vsGhazghkull.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vshaarken",
+     "file": "VO_AM_Commissar Elan_vsHaarken.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsleontus",
+     "file": "VO_AM_Commissar Elan_vsLeontus.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsminka",
+     "file": "VO_AM_Commissar Elan_vsMinka.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsursula",
+     "file": "VO_AM_Commissar Elan_vsUrsula.ogg",
+     "text": ""
+    },
+    {
+     "ev": "wp",
+     "file": "VO_AM_Commissar Elan_wp.ogg",
+     "text": ""
+    }
+   ]
+  },
+  {
    "id": "AM30",
    "name": "Manticore",
    "faction": "AstraMilitarum",
@@ -524,6 +648,19 @@
      "ev": "line",
      "file": "VO_AM_Cadian Castellan - Stand fast, not one step back.ogg",
      "text": "Stand fast, not one step back",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "AM32",
+   "name": "Leman Russ",
+   "faction": "AstraMilitarum",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_AM_Leman Russ Tank - The battlefield trembles under our treads.ogg",
+     "text": "The battlefield trembles under our treads",
      "src": "cardSO"
     }
    ]
@@ -633,6 +770,19 @@
    ]
   },
   {
+   "id": "AM59",
+   "name": "Astropath",
+   "faction": "AstraMilitarum",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_AM_Astropath - I see beyond sight.ogg",
+     "text": "I see beyond sight",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
    "id": "AM6",
    "name": "Ratling",
    "faction": "AstraMilitarum",
@@ -642,6 +792,155 @@
      "file": "VO_AM_Ratling - One shot should do it.ogg",
      "text": "One shot should do it",
      "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "AM66",
+   "name": "Hektor Thenmann",
+   "faction": "AstraMilitarum",
+   "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_AM_Hektor Thenmann_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_AM_Hektor Thenmann_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "backup1",
+     "file": "VO_AM_Hektor Thenmann_Backup1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup2",
+     "file": "VO_AM_Hektor Thenmann_Backup2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup3",
+     "file": "VO_AM_Hektor Thenmann_Backup3.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup4",
+     "file": "VO_AM_Hektor Thenmann_Backup4.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup5",
+     "file": "VO_AM_Hektor Thenmann_Backup5.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup6",
+     "file": "VO_AM_Hektor Thenmann_Backup6.ogg",
+     "text": ""
+    },
+    {
+     "ev": "cantdo",
+     "file": "VO_AM_Hektor Thenmann_cantDo.ogg",
+     "text": ""
+    },
+    {
+     "ev": "concede",
+     "file": "VO_AM_Hektor Thenmann_concede.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen1",
+     "file": "VO_AM_Hektor Thenmann_gen1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen2",
+     "file": "VO_AM_Hektor Thenmann_gen2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen3",
+     "file": "VO_AM_Hektor Thenmann_gen3.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen4",
+     "file": "VO_AM_Hektor Thenmann_gen4.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen5",
+     "file": "VO_AM_Hektor Thenmann_gen5.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen6",
+     "file": "VO_AM_Hektor Thenmann_gen6.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen7",
+     "file": "VO_AM_Hektor Thenmann_gen7.ogg",
+     "text": ""
+    },
+    {
+     "ev": "greet",
+     "file": "VO_AM_Hektor Thenmann_greet.ogg",
+     "text": ""
+    },
+    {
+     "ev": "hurry",
+     "file": "VO_AM_Hektor Thenmann_hurry.ogg",
+     "text": ""
+    },
+    {
+     "ev": "intro",
+     "file": "VO_AM_Hektor Thenmann_intro.ogg",
+     "text": ""
+    },
+    {
+     "ev": "mirror",
+     "file": "VO_AM_Hektor Thenmann_mirror.ogg",
+     "text": ""
+    },
+    {
+     "ev": "threat",
+     "file": "VO_AM_Hektor Thenmann_threat.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsdenkler",
+     "file": "VO_AM_Hektor Thenmann_vsDenkler.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsleontus-ursula-sm",
+     "file": "VO_AM_Hektor Thenmann_vsLeontus-Ursula-SM.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsorks",
+     "file": "VO_AM_Hektor Thenmann_vsOrks.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vstau",
+     "file": "VO_AM_Hektor Thenmann_vsTau.ogg",
+     "text": ""
+    },
+    {
+     "ev": "line",
+     "file": "VO_AM_Hektor Thenmann_vsTau_v2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "wp",
+     "file": "VO_AM_Hektor Thenmann_wp.ogg",
+     "text": ""
     }
    ]
   },
@@ -782,300 +1081,6 @@
      "file": "VO_AM_Karskin - Hotshot rifles primed Kill-shots authorised.ogg",
      "text": "Hotshot rifles primed Kill-shots authorised",
      "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "AM_Astropath",
-   "name": "Astropath",
-   "faction": "AstraMilitarum",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_AM_Astropath - I see beyond sight.ogg",
-     "text": "I see beyond sight",
-     "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "AM_Commissar_Elan",
-   "name": "Commissar Elan",
-   "faction": "AstraMilitarum",
-   "lines": [
-    {
-     "ev": "backup1",
-     "file": "VO_AM_Commissar Elan_Backup1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "attack",
-     "file": "VO_AM_Commissar Elan_attack.ogg",
-     "text": ""
-    },
-    {
-     "ev": "cantdo",
-     "file": "VO_AM_Commissar Elan_cantDo.ogg",
-     "text": ""
-    },
-    {
-     "ev": "concede",
-     "file": "VO_AM_Commissar Elan_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_AM_Commissar Elan_death.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen1",
-     "file": "VO_AM_Commissar Elan_gen1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen2",
-     "file": "VO_AM_Commissar Elan_gen2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen3",
-     "file": "VO_AM_Commissar Elan_gen3.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen4",
-     "file": "VO_AM_Commissar Elan_gen4.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen5",
-     "file": "VO_AM_Commissar Elan_gen5.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen6",
-     "file": "VO_AM_Commissar Elan_gen6.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen7",
-     "file": "VO_AM_Commissar Elan_gen7.ogg",
-     "text": ""
-    },
-    {
-     "ev": "greet",
-     "file": "VO_AM_Commissar Elan_greet.ogg",
-     "text": ""
-    },
-    {
-     "ev": "hurry",
-     "file": "VO_AM_Commissar Elan_hurry.ogg",
-     "text": ""
-    },
-    {
-     "ev": "intro",
-     "file": "VO_AM_Commissar Elan_intro.ogg",
-     "text": ""
-    },
-    {
-     "ev": "mirror",
-     "file": "VO_AM_Commissar Elan_mirror.ogg",
-     "text": ""
-    },
-    {
-     "ev": "threat",
-     "file": "VO_AM_Commissar Elan_threat.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsghazghkull",
-     "file": "VO_AM_Commissar Elan_vsGhazghkull.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vshaarken",
-     "file": "VO_AM_Commissar Elan_vsHaarken.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsleontus",
-     "file": "VO_AM_Commissar Elan_vsLeontus.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsminka",
-     "file": "VO_AM_Commissar Elan_vsMinka.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsursula",
-     "file": "VO_AM_Commissar Elan_vsUrsula.ogg",
-     "text": ""
-    },
-    {
-     "ev": "wp",
-     "file": "VO_AM_Commissar Elan_wp.ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "AM_Hektor_Thenmann",
-   "name": "Hektor Thenmann",
-   "faction": "AstraMilitarum",
-   "lines": [
-    {
-     "ev": "backup1",
-     "file": "VO_AM_Hektor Thenmann_Backup1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup2",
-     "file": "VO_AM_Hektor Thenmann_Backup2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup3",
-     "file": "VO_AM_Hektor Thenmann_Backup3.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup4",
-     "file": "VO_AM_Hektor Thenmann_Backup4.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup5",
-     "file": "VO_AM_Hektor Thenmann_Backup5.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup6",
-     "file": "VO_AM_Hektor Thenmann_Backup6.ogg",
-     "text": ""
-    },
-    {
-     "ev": "attack",
-     "file": "VO_AM_Hektor Thenmann_attack.ogg",
-     "text": ""
-    },
-    {
-     "ev": "cantdo",
-     "file": "VO_AM_Hektor Thenmann_cantDo.ogg",
-     "text": ""
-    },
-    {
-     "ev": "concede",
-     "file": "VO_AM_Hektor Thenmann_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_AM_Hektor Thenmann_death.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen1",
-     "file": "VO_AM_Hektor Thenmann_gen1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen2",
-     "file": "VO_AM_Hektor Thenmann_gen2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen3",
-     "file": "VO_AM_Hektor Thenmann_gen3.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen4",
-     "file": "VO_AM_Hektor Thenmann_gen4.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen5",
-     "file": "VO_AM_Hektor Thenmann_gen5.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen6",
-     "file": "VO_AM_Hektor Thenmann_gen6.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen7",
-     "file": "VO_AM_Hektor Thenmann_gen7.ogg",
-     "text": ""
-    },
-    {
-     "ev": "greet",
-     "file": "VO_AM_Hektor Thenmann_greet.ogg",
-     "text": ""
-    },
-    {
-     "ev": "hurry",
-     "file": "VO_AM_Hektor Thenmann_hurry.ogg",
-     "text": ""
-    },
-    {
-     "ev": "intro",
-     "file": "VO_AM_Hektor Thenmann_intro.ogg",
-     "text": ""
-    },
-    {
-     "ev": "mirror",
-     "file": "VO_AM_Hektor Thenmann_mirror.ogg",
-     "text": ""
-    },
-    {
-     "ev": "threat",
-     "file": "VO_AM_Hektor Thenmann_threat.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsdenkler",
-     "file": "VO_AM_Hektor Thenmann_vsDenkler.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsleontus-ursula-sm",
-     "file": "VO_AM_Hektor Thenmann_vsLeontus-Ursula-SM.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsorks",
-     "file": "VO_AM_Hektor Thenmann_vsOrks.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vstau",
-     "file": "VO_AM_Hektor Thenmann_vsTau.ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
-     "file": "VO_AM_Hektor Thenmann_vsTau_v2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "wp",
-     "file": "VO_AM_Hektor Thenmann_wp.ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "AM_Leman_Russ",
-   "name": "Leman Russ",
-   "faction": "AstraMilitarum",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_AM_Leman Russ Tank - The battlefield trembles under our treads.ogg",
-     "text": "The battlefield trembles under our treads"
     }
    ]
   },
@@ -2566,7 +2571,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Terminator Champion - You are an unworthy foe.ogg",
-     "text": "You are an unworthy foe"
+     "text": "You are an unworthy foe",
+     "src": "cardSO"
     }
    ]
   },
@@ -2764,6 +2770,135 @@
     {
      "ev": "wp",
      "file": "VO_BlackLegion_Haarken_wp.ogg",
+     "text": ""
+    }
+   ]
+  },
+  {
+   "id": "BL36",
+   "name": "Sylar Hexcorn",
+   "faction": "BlackLegion",
+   "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_BlackLegion_Hexscorn_Attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_BlackLegion_Hexscorn_Death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "cantdo",
+     "file": "VO_BlackLegion_Hexscorn_CantDo.ogg",
+     "text": ""
+    },
+    {
+     "ev": "concede",
+     "file": "VO_BlackLegion_Hexscorn_Concede.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen1",
+     "file": "VO_BlackLegion_Hexscorn_Gen1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen2",
+     "file": "VO_BlackLegion_Hexscorn_Gen2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen3",
+     "file": "VO_BlackLegion_Hexscorn_Gen3.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen4",
+     "file": "VO_BlackLegion_Hexscorn_Gen4.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen5",
+     "file": "VO_BlackLegion_Hexscorn_Gen5.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen6",
+     "file": "VO_BlackLegion_Hexscorn_Gen6.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen7",
+     "file": "VO_BlackLegion_Hexscorn_Gen7.ogg",
+     "text": ""
+    },
+    {
+     "ev": "greet",
+     "file": "VO_BlackLegion_Hexscorn_Greet.ogg",
+     "text": ""
+    },
+    {
+     "ev": "hurry",
+     "file": "VO_BlackLegion_Hexscorn_Hurry.ogg",
+     "text": ""
+    },
+    {
+     "ev": "intro",
+     "file": "VO_BlackLegion_Hexscorn_Intro.ogg",
+     "text": ""
+    },
+    {
+     "ev": "mirror",
+     "file": "VO_BlackLegion_Hexscorn_Mirror.ogg",
+     "text": ""
+    },
+    {
+     "ev": "threat",
+     "file": "VO_BlackLegion_Hexscorn_Threat.ogg",
+     "text": ""
+    },
+    {
+     "ev": "line",
+     "file": "VO_BlackLegion_Hexscorn_vs_Abaddon.ogg",
+     "text": ""
+    },
+    {
+     "ev": "line",
+     "file": "VO_BlackLegion_Hexscorn_vs_Keltoc.ogg",
+     "text": ""
+    },
+    {
+     "ev": "line",
+     "file": "VO_BlackLegion_Hexscorn_vs_UrsulaCreed.ogg",
+     "text": ""
+    },
+    {
+     "ev": "line",
+     "file": "VO_BlackLegion_Hexscorn_vs_Varro.ogg",
+     "text": ""
+    },
+    {
+     "ev": "line",
+     "file": "VO_BlackLegion_Hexscorn_vs_tbc2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "line",
+     "file": "VO_BlackLegion_Hexscorn_vs_tbc3.ogg",
+     "text": ""
+    },
+    {
+     "ev": "line",
+     "file": "VO_BlackLegion_Hexscorn_vs_tbc4.ogg",
+     "text": ""
+    },
+    {
+     "ev": "wp",
+     "file": "VO_BlackLegion_Hexscorn_wp.ogg",
      "text": ""
     }
    ]
@@ -3193,128 +3328,105 @@
    ]
   },
   {
-   "id": "BL_Sylar_Hexcorn",
-   "name": "Sylar Hexcorn",
-   "faction": "BlackLegion",
+   "id": "DA1",
+   "name": "Azrael",
+   "faction": "DarkAngels",
    "lines": [
     {
      "ev": "attack",
-     "file": "VO_BlackLegion_Hexscorn_Attack.ogg",
-     "text": ""
+     "file": "VO_DA_Azrael_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_DA_Azrael_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
-     "file": "VO_BlackLegion_Hexscorn_CantDo.ogg",
+     "file": "VO_DA_Azrael_cantDo.ogg",
      "text": ""
     },
     {
      "ev": "concede",
-     "file": "VO_BlackLegion_Hexscorn_Concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_BlackLegion_Hexscorn_Death.ogg",
+     "file": "VO_DA_Azrael_concede.ogg",
      "text": ""
     },
     {
      "ev": "gen1",
-     "file": "VO_BlackLegion_Hexscorn_Gen1.ogg",
+     "file": "VO_DA_Azrael_gen1.ogg",
      "text": ""
     },
     {
      "ev": "gen2",
-     "file": "VO_BlackLegion_Hexscorn_Gen2.ogg",
+     "file": "VO_DA_Azrael_gen2.ogg",
      "text": ""
     },
     {
      "ev": "gen3",
-     "file": "VO_BlackLegion_Hexscorn_Gen3.ogg",
+     "file": "VO_DA_Azrael_gen3.ogg",
      "text": ""
     },
     {
      "ev": "gen4",
-     "file": "VO_BlackLegion_Hexscorn_Gen4.ogg",
+     "file": "VO_DA_Azrael_gen4.ogg",
      "text": ""
     },
     {
      "ev": "gen5",
-     "file": "VO_BlackLegion_Hexscorn_Gen5.ogg",
+     "file": "VO_DA_Azrael_gen5.ogg",
      "text": ""
     },
     {
      "ev": "gen6",
-     "file": "VO_BlackLegion_Hexscorn_Gen6.ogg",
+     "file": "VO_DA_Azrael_gen6.ogg",
      "text": ""
     },
     {
      "ev": "gen7",
-     "file": "VO_BlackLegion_Hexscorn_Gen7.ogg",
+     "file": "VO_DA_Azrael_gen7.ogg",
      "text": ""
     },
     {
      "ev": "greet",
-     "file": "VO_BlackLegion_Hexscorn_Greet.ogg",
+     "file": "VO_DA_Azrael_greet.ogg",
      "text": ""
     },
     {
      "ev": "hurry",
-     "file": "VO_BlackLegion_Hexscorn_Hurry.ogg",
+     "file": "VO_DA_Azrael_hurry.ogg",
      "text": ""
     },
     {
      "ev": "intro",
-     "file": "VO_BlackLegion_Hexscorn_Intro.ogg",
+     "file": "VO_DA_Azrael_intro.ogg",
      "text": ""
     },
     {
      "ev": "mirror",
-     "file": "VO_BlackLegion_Hexscorn_Mirror.ogg",
+     "file": "VO_DA_Azrael_mirror.ogg",
      "text": ""
     },
     {
      "ev": "threat",
-     "file": "VO_BlackLegion_Hexscorn_Threat.ogg",
+     "file": "VO_DA_Azrael_threat.ogg",
      "text": ""
     },
     {
-     "ev": "line",
-     "file": "VO_BlackLegion_Hexscorn_vs_Abaddon.ogg",
+     "ev": "vsabaddon",
+     "file": "VO_DA_Azrael_vsAbaddon.ogg",
      "text": ""
     },
     {
-     "ev": "line",
-     "file": "VO_BlackLegion_Hexscorn_vs_Keltoc.ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
-     "file": "VO_BlackLegion_Hexscorn_vs_UrsulaCreed.ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
-     "file": "VO_BlackLegion_Hexscorn_vs_Varro.ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
-     "file": "VO_BlackLegion_Hexscorn_vs_tbc2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
-     "file": "VO_BlackLegion_Hexscorn_vs_tbc3.ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
-     "file": "VO_BlackLegion_Hexscorn_vs_tbc4.ogg",
+     "ev": "vsbelial",
+     "file": "VO_DA_Azrael_vsBelial.ogg",
      "text": ""
     },
     {
      "ev": "wp",
-     "file": "VO_BlackLegion_Hexscorn_wp.ogg",
+     "file": "VO_DA_Azrael_wp.ogg",
      "text": ""
     }
    ]
@@ -3450,6 +3562,110 @@
    ]
   },
   {
+   "id": "DA2",
+   "name": "Belial",
+   "faction": "DarkAngels",
+   "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_DA_Belial_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_DA_Belial_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "cantdo",
+     "file": "VO_DA_Belial_cantDo.ogg",
+     "text": ""
+    },
+    {
+     "ev": "concede",
+     "file": "VO_DA_Belial_concede.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen1",
+     "file": "VO_DA_Belial_gen1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen2",
+     "file": "VO_DA_Belial_gen2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen3",
+     "file": "VO_DA_Belial_gen3.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen4",
+     "file": "VO_DA_Belial_gen4.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen5",
+     "file": "VO_DA_Belial_gen5.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen6",
+     "file": "VO_DA_Belial_gen6.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen7",
+     "file": "VO_DA_Belial_gen7.ogg",
+     "text": ""
+    },
+    {
+     "ev": "greet",
+     "file": "VO_DA_Belial_greet.ogg",
+     "text": ""
+    },
+    {
+     "ev": "hurry",
+     "file": "VO_DA_Belial_hurry.ogg",
+     "text": ""
+    },
+    {
+     "ev": "intro",
+     "file": "VO_DA_Belial_intro.ogg",
+     "text": ""
+    },
+    {
+     "ev": "mirror",
+     "file": "VO_DA_Belial_mirror.ogg",
+     "text": ""
+    },
+    {
+     "ev": "threat",
+     "file": "VO_DA_Belial_threat.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsasmodai",
+     "file": "VO_DA_Belial_vsAsmodai.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsazrael",
+     "file": "VO_DA_Belial_vsAzrael.ogg",
+     "text": ""
+    },
+    {
+     "ev": "wp",
+     "file": "VO_DA_Belial_wp.ogg",
+     "text": ""
+    }
+   ]
+  },
+  {
    "id": "DA20",
    "name": "Master Lazarus",
    "faction": "DarkAngels",
@@ -3576,6 +3792,125 @@
      "file": "VO_DA_Darkshroud - Caliban’s legacy shall not fade.ogg",
      "text": "Caliban’s legacy shall not fade",
      "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "DA3",
+   "name": "Asmodai",
+   "faction": "DarkAngels",
+   "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_DA_Asmodai_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_DA_Asmodai_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "cantdo",
+     "file": "VO_DA_Asmodai_cantDo.ogg",
+     "text": ""
+    },
+    {
+     "ev": "concede",
+     "file": "VO_DA_Asmodai_concede.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen1",
+     "file": "VO_DA_Asmodai_gen1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen2",
+     "file": "VO_DA_Asmodai_gen2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen3",
+     "file": "VO_DA_Asmodai_gen3.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen4",
+     "file": "VO_DA_Asmodai_gen4.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen5",
+     "file": "VO_DA_Asmodai_gen5.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen6",
+     "file": "VO_DA_Asmodai_gen6.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen7",
+     "file": "VO_DA_Asmodai_gen7.ogg",
+     "text": ""
+    },
+    {
+     "ev": "greet",
+     "file": "VO_DA_Asmodai_greet.ogg",
+     "text": ""
+    },
+    {
+     "ev": "hurry",
+     "file": "VO_DA_Asmodai_hurry.ogg",
+     "text": ""
+    },
+    {
+     "ev": "intro",
+     "file": "VO_DA_Asmodai_intro.ogg",
+     "text": ""
+    },
+    {
+     "ev": "mirror",
+     "file": "VO_DA_Asmodai_mirror.ogg",
+     "text": ""
+    },
+    {
+     "ev": "threat",
+     "file": "VO_DA_Asmodai_threat.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsazrael",
+     "file": "VO_DA_Asmodai_vsAzrael.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsbelial",
+     "file": "VO_DA_Asmodai_vsBelial.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsorkstyranids",
+     "file": "VO_DA_Asmodai_vsOrksTyranids.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vstbc1",
+     "file": "VO_DA_Asmodai_vsTBC1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vstbc2",
+     "file": "VO_DA_Asmodai_vsTBC2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "wp",
+     "file": "VO_DA_Asmodai_wp.ogg",
+     "text": ""
     }
    ]
   },
@@ -3719,6 +4054,24 @@
      "file": "VO_DA_Apothecary - The Lion's sons endure I will see to it.ogg",
      "text": "The Lion's sons endure I will see to it",
      "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "DA6",
+   "name": "Sergeant Naaman",
+   "faction": "DarkAngels",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_DA_Sergeant Taaman - None shall escape the wrath of Caliban!.ogg",
+     "text": "None shall escape the wrath of Caliban!",
+     "src": "cardSO"
+    },
+    {
+     "ev": "line",
+     "file": "VO_DA_Sergeant Naaman - None shall escape the wrath of Caliban!.ogg",
+     "text": "None shall escape the wrath of Caliban!"
     }
    ]
   },
@@ -3973,344 +4326,6 @@
    ]
   },
   {
-   "id": "DA_Asmodai",
-   "name": "Asmodai",
-   "faction": "DarkAngels",
-   "lines": [
-    {
-     "ev": "attack",
-     "file": "VO_DA_Asmodai_attack.ogg",
-     "text": ""
-    },
-    {
-     "ev": "cantdo",
-     "file": "VO_DA_Asmodai_cantDo.ogg",
-     "text": ""
-    },
-    {
-     "ev": "concede",
-     "file": "VO_DA_Asmodai_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_DA_Asmodai_death.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen1",
-     "file": "VO_DA_Asmodai_gen1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen2",
-     "file": "VO_DA_Asmodai_gen2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen3",
-     "file": "VO_DA_Asmodai_gen3.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen4",
-     "file": "VO_DA_Asmodai_gen4.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen5",
-     "file": "VO_DA_Asmodai_gen5.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen6",
-     "file": "VO_DA_Asmodai_gen6.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen7",
-     "file": "VO_DA_Asmodai_gen7.ogg",
-     "text": ""
-    },
-    {
-     "ev": "greet",
-     "file": "VO_DA_Asmodai_greet.ogg",
-     "text": ""
-    },
-    {
-     "ev": "hurry",
-     "file": "VO_DA_Asmodai_hurry.ogg",
-     "text": ""
-    },
-    {
-     "ev": "intro",
-     "file": "VO_DA_Asmodai_intro.ogg",
-     "text": ""
-    },
-    {
-     "ev": "mirror",
-     "file": "VO_DA_Asmodai_mirror.ogg",
-     "text": ""
-    },
-    {
-     "ev": "threat",
-     "file": "VO_DA_Asmodai_threat.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsazrael",
-     "file": "VO_DA_Asmodai_vsAzrael.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsbelial",
-     "file": "VO_DA_Asmodai_vsBelial.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsorkstyranids",
-     "file": "VO_DA_Asmodai_vsOrksTyranids.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vstbc1",
-     "file": "VO_DA_Asmodai_vsTBC1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vstbc2",
-     "file": "VO_DA_Asmodai_vsTBC2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "wp",
-     "file": "VO_DA_Asmodai_wp.ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "DA_Azrael",
-   "name": "Azrael",
-   "faction": "DarkAngels",
-   "lines": [
-    {
-     "ev": "attack",
-     "file": "VO_DA_Azrael_attack.ogg",
-     "text": ""
-    },
-    {
-     "ev": "cantdo",
-     "file": "VO_DA_Azrael_cantDo.ogg",
-     "text": ""
-    },
-    {
-     "ev": "concede",
-     "file": "VO_DA_Azrael_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_DA_Azrael_death.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen1",
-     "file": "VO_DA_Azrael_gen1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen2",
-     "file": "VO_DA_Azrael_gen2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen3",
-     "file": "VO_DA_Azrael_gen3.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen4",
-     "file": "VO_DA_Azrael_gen4.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen5",
-     "file": "VO_DA_Azrael_gen5.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen6",
-     "file": "VO_DA_Azrael_gen6.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen7",
-     "file": "VO_DA_Azrael_gen7.ogg",
-     "text": ""
-    },
-    {
-     "ev": "greet",
-     "file": "VO_DA_Azrael_greet.ogg",
-     "text": ""
-    },
-    {
-     "ev": "hurry",
-     "file": "VO_DA_Azrael_hurry.ogg",
-     "text": ""
-    },
-    {
-     "ev": "intro",
-     "file": "VO_DA_Azrael_intro.ogg",
-     "text": ""
-    },
-    {
-     "ev": "mirror",
-     "file": "VO_DA_Azrael_mirror.ogg",
-     "text": ""
-    },
-    {
-     "ev": "threat",
-     "file": "VO_DA_Azrael_threat.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsabaddon",
-     "file": "VO_DA_Azrael_vsAbaddon.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsbelial",
-     "file": "VO_DA_Azrael_vsBelial.ogg",
-     "text": ""
-    },
-    {
-     "ev": "wp",
-     "file": "VO_DA_Azrael_wp.ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "DA_Belial",
-   "name": "Belial",
-   "faction": "DarkAngels",
-   "lines": [
-    {
-     "ev": "attack",
-     "file": "VO_DA_Belial_attack.ogg",
-     "text": ""
-    },
-    {
-     "ev": "cantdo",
-     "file": "VO_DA_Belial_cantDo.ogg",
-     "text": ""
-    },
-    {
-     "ev": "concede",
-     "file": "VO_DA_Belial_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_DA_Belial_death.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen1",
-     "file": "VO_DA_Belial_gen1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen2",
-     "file": "VO_DA_Belial_gen2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen3",
-     "file": "VO_DA_Belial_gen3.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen4",
-     "file": "VO_DA_Belial_gen4.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen5",
-     "file": "VO_DA_Belial_gen5.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen6",
-     "file": "VO_DA_Belial_gen6.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen7",
-     "file": "VO_DA_Belial_gen7.ogg",
-     "text": ""
-    },
-    {
-     "ev": "greet",
-     "file": "VO_DA_Belial_greet.ogg",
-     "text": ""
-    },
-    {
-     "ev": "hurry",
-     "file": "VO_DA_Belial_hurry.ogg",
-     "text": ""
-    },
-    {
-     "ev": "intro",
-     "file": "VO_DA_Belial_intro.ogg",
-     "text": ""
-    },
-    {
-     "ev": "mirror",
-     "file": "VO_DA_Belial_mirror.ogg",
-     "text": ""
-    },
-    {
-     "ev": "threat",
-     "file": "VO_DA_Belial_threat.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsasmodai",
-     "file": "VO_DA_Belial_vsAsmodai.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsazrael",
-     "file": "VO_DA_Belial_vsAzrael.ogg",
-     "text": ""
-    },
-    {
-     "ev": "wp",
-     "file": "VO_DA_Belial_wp.ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "DA_Sergeant_Naaman",
-   "name": "Sergeant Naaman",
-   "faction": "DarkAngels",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_DA_Sergeant Naaman - None shall escape the wrath of Caliban!.ogg",
-     "text": "None shall escape the wrath of Caliban!"
-    },
-    {
-     "ev": "line",
-     "file": "VO_DA_Sergeant Taaman - None shall escape the wrath of Caliban!.ogg",
-     "text": "None shall escape the wrath of Caliban!"
-    }
-   ]
-  },
-  {
    "id": "EC1",
    "name": "Sonic Blaster Noise Marine",
    "faction": "EmperorsChildren",
@@ -4376,6 +4391,19 @@
    ]
   },
   {
+   "id": "EC14",
+   "name": "Lord Kakophonist",
+   "faction": "EmperorsChildren",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_CSM_EC_Lord Kakophonist (Joey).ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
    "id": "EC15",
    "name": "Winged Daemon Prince",
    "faction": "EmperorsChildren",
@@ -4383,6 +4411,19 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Winged Daemon Prince (Andrew Dennis).ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "EC16",
+   "name": "Dual Screamer Kakophonist",
+   "faction": "EmperorsChildren",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_CSM_EC_Dual Screamer Kakophonist (Joey).ogg",
      "text": "",
      "src": "cardSO"
     }
@@ -4409,6 +4450,19 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Glittering Myriad Infractor (Joey).ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "EC19",
+   "name": "Threnodic Choir Noise Marine",
+   "faction": "EmperorsChildren",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_CSM_EC_Threnodic Choir Noise Marine (Joey).ogg",
      "text": "",
      "src": "cardSO"
     }
@@ -4493,6 +4547,32 @@
    ]
   },
   {
+   "id": "EC25",
+   "name": "Terminator",
+   "faction": "EmperorsChildren",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_CSM_EC_Terminator (Andrew).ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "EC26",
+   "name": "Terminator Champion",
+   "faction": "EmperorsChildren",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_CSM_EC_Terminator Champion (Andrew).ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
    "id": "EC27",
    "name": "Rugged Disharmonist",
    "faction": "EmperorsChildren",
@@ -4539,6 +4619,19 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Disharmonist (Andrew Dennis).ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "EC30",
+   "name": "Maulerfiend",
+   "faction": "EmperorsChildren",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_CSM_EC_Maulerfiend_Roaring_Bellow.ogg",
      "text": "",
      "src": "cardSO"
     }
@@ -5020,86 +5113,15 @@
    ]
   },
   {
-   "id": "EC_Dual_Screamer_Kakophonist",
-   "name": "Dual Screamer Kakophonist",
-   "faction": "EmperorsChildren",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_CSM_EC_Dual Screamer Kakophonist (Joey).ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "EC_Icon_of_Excess_Infractor",
+   "id": "EC9",
    "name": "Icon of Excess Infractor",
    "faction": "EmperorsChildren",
    "lines": [
     {
      "ev": "line",
      "file": "VO_CSM_EC_Icon of Excess Infractor (Andrew Dennis).ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "EC_Lord_Kakophonist",
-   "name": "Lord Kakophonist",
-   "faction": "EmperorsChildren",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_CSM_EC_Lord Kakophonist (Joey).ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "EC_Maulerfiend",
-   "name": "Maulerfiend",
-   "faction": "EmperorsChildren",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_CSM_EC_Maulerfiend_Roaring_Bellow.ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "EC_Terminator",
-   "name": "Terminator",
-   "faction": "EmperorsChildren",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_CSM_EC_Terminator (Andrew).ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "EC_Terminator_Champion",
-   "name": "Terminator Champion",
-   "faction": "EmperorsChildren",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_CSM_EC_Terminator Champion (Andrew).ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "EC_Threnodic_Choir_Noise_Marine",
-   "name": "Threnodic Choir Noise Marine",
-   "faction": "EmperorsChildren",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_CSM_EC_Threnodic Choir Noise Marine (Joey).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -5138,6 +5160,19 @@
      "ev": "line",
      "file": "VO_Goff_Banner Nob - Ill mount yer skull to my stick.ogg",
      "text": "Ill mount yer skull to my stick",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "GOF12",
+   "name": "Ork Spanner",
+   "faction": "Goff",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Goff_Spanner - Still not workin Den I hitz it arder.ogg",
+     "text": "Still not workin Den I hitz it arder",
      "src": "cardSO"
     }
    ]
@@ -5242,6 +5277,19 @@
      "ev": "line",
      "file": "VO_Goff_Makari - Ready for fightin boss.ogg",
      "text": "Ready for fightin boss",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "GOF20",
+   "name": "Veteran Flyboy",
+   "faction": "Goff",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Goff_Veteran Stormboy - Are you ready to go boom.ogg",
+     "text": "Are you ready to go boom",
      "src": "cardSO"
     }
    ]
@@ -5786,11 +5834,6 @@
      "file": "VO_Goff_Stormboy - Once Iz get goin there aint no stoppin.ogg",
      "text": "Once Iz get goin there aint no stoppin",
      "src": "cardSO"
-    },
-    {
-     "ev": "line",
-     "file": "VO_Goff_Veteran Stormboy - Are you ready to go boom.ogg",
-     "text": "Are you ready to go boom"
     }
    ]
   },
@@ -6601,18 +6644,6 @@
    ]
   },
   {
-   "id": "GOF_Ork_Spanner",
-   "name": "Ork Spanner",
-   "faction": "Goff",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Goff_Spanner - Still not workin Den I hitz it arder.ogg",
-     "text": "Still not workin Den I hitz it arder"
-    }
-   ]
-  },
-  {
    "id": "GSC1",
    "name": "Primus Saffa Rhiannor",
    "faction": "Genestealers",
@@ -7096,6 +7127,150 @@
    ]
   },
   {
+   "id": "GSC3",
+   "name": "Acolyte Iconward",
+   "faction": "Genestealers",
+   "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_GSC_Acolyte Iconward_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_GSC_Acolyte Iconward_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "backup1",
+     "file": "VO_GSC_Acolyte Iconward_Backup1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup2",
+     "file": "VO_GSC_Acolyte Iconward_Backup2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup3",
+     "file": "VO_GSC_Acolyte Iconward_Backup3.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup4",
+     "file": "VO_GSC_Acolyte Iconward_Backup4.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup5",
+     "file": "VO_GSC_Acolyte Iconward_Backup5.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup6",
+     "file": "VO_GSC_Acolyte Iconward_Backup6.ogg",
+     "text": ""
+    },
+    {
+     "ev": "cantdo",
+     "file": "VO_GSC_Acolyte Iconward_cantDo.ogg",
+     "text": ""
+    },
+    {
+     "ev": "concede",
+     "file": "VO_GSC_Acolyte Iconward_concede.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen1",
+     "file": "VO_GSC_Acolyte Iconward_gen1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen2",
+     "file": "VO_GSC_Acolyte Iconward_gen2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen3",
+     "file": "VO_GSC_Acolyte Iconward_gen3.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen4",
+     "file": "VO_GSC_Acolyte Iconward_gen4.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen5",
+     "file": "VO_GSC_Acolyte Iconward_gen5.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen6",
+     "file": "VO_GSC_Acolyte Iconward_gen6.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen7",
+     "file": "VO_GSC_Acolyte Iconward_gen7.ogg",
+     "text": ""
+    },
+    {
+     "ev": "greet",
+     "file": "VO_GSC_Acolyte Iconward_greet.ogg",
+     "text": ""
+    },
+    {
+     "ev": "hurry",
+     "file": "VO_GSC_Acolyte Iconward_hurry.ogg",
+     "text": ""
+    },
+    {
+     "ev": "intro",
+     "file": "VO_GSC_Acolyte Iconward_intro.ogg",
+     "text": ""
+    },
+    {
+     "ev": "mirror",
+     "file": "VO_GSC_Acolyte Iconward_mirror.ogg",
+     "text": ""
+    },
+    {
+     "ev": "threat",
+     "file": "VO_GSC_Acolyte Iconward_threat.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsastramilitarum",
+     "file": "VO_GSC_Acolyte Iconward_vsAstraMilitarum.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsmagus",
+     "file": "VO_GSC_Acolyte Iconward_vsMagus.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsnecrons",
+     "file": "VO_GSC_Acolyte Iconward_vsNecrons.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsorks",
+     "file": "VO_GSC_Acolyte Iconward_vsOrks.ogg",
+     "text": ""
+    },
+    {
+     "ev": "wp",
+     "file": "VO_GSC_Acolyte Iconward_wp.ogg",
+     "text": ""
+    }
+   ]
+  },
+  {
    "id": "GSC30",
    "name": "Metamorph Leader",
    "faction": "Genestealers",
@@ -7252,6 +7427,125 @@
    ]
   },
   {
+   "id": "GSC66",
+   "name": "Lhaska Szenari",
+   "faction": "Genestealers",
+   "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_GSC_Lhaska Szenari_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_GSC_Lhaska Szenari_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "cantdo",
+     "file": "VO_GSC_Lhaska Szenari_cantDo.ogg",
+     "text": ""
+    },
+    {
+     "ev": "concede",
+     "file": "VO_GSC_Lhaska Szenari_concede.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen1",
+     "file": "VO_GSC_Lhaska Szenari_gen1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen2",
+     "file": "VO_GSC_Lhaska Szenari_gen2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen3",
+     "file": "VO_GSC_Lhaska Szenari_gen3.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen4",
+     "file": "VO_GSC_Lhaska Szenari_gen4.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen5",
+     "file": "VO_GSC_Lhaska Szenari_gen5.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen6",
+     "file": "VO_GSC_Lhaska Szenari_gen6.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen7",
+     "file": "VO_GSC_Lhaska Szenari_gen7.ogg",
+     "text": ""
+    },
+    {
+     "ev": "greet",
+     "file": "VO_GSC_Lhaska Szenari_greet.ogg",
+     "text": ""
+    },
+    {
+     "ev": "hurry",
+     "file": "VO_GSC_Lhaska Szenari_hurry.ogg",
+     "text": ""
+    },
+    {
+     "ev": "intro",
+     "file": "VO_GSC_Lhaska Szenari_intro.ogg",
+     "text": ""
+    },
+    {
+     "ev": "mirror",
+     "file": "VO_GSC_Lhaska Szenari_mirror.ogg",
+     "text": ""
+    },
+    {
+     "ev": "threat",
+     "file": "VO_GSC_Lhaska Szenari_threat.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vscalgar",
+     "file": "VO_GSC_Lhaska Szenari_vsCalgar.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vscommissar",
+     "file": "VO_GSC_Lhaska Szenari_vsCommissar.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsletharius",
+     "file": "VO_GSC_Lhaska Szenari_vsLetharius.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vstyranids",
+     "file": "VO_GSC_Lhaska Szenari_vsTyranids.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsursulacreed",
+     "file": "VO_GSC_Lhaska Szenari_vsUrsulaCreed.ogg",
+     "text": ""
+    },
+    {
+     "ev": "wp",
+     "file": "VO_GSC_Lhaska Szenari_wp.ogg",
+     "text": ""
+    }
+   ]
+  },
+  {
    "id": "GSC67",
    "name": "Jackal Scout",
    "faction": "Genestealers",
@@ -7378,265 +7672,6 @@
      "file": "VO_GSC_Acolyte Hybrid_Our bodies are blessed.ogg",
      "text": "",
      "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "GSC_Acolyte_Iconward",
-   "name": "Acolyte Iconward",
-   "faction": "Genestealers",
-   "lines": [
-    {
-     "ev": "backup1",
-     "file": "VO_GSC_Acolyte Iconward_Backup1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup2",
-     "file": "VO_GSC_Acolyte Iconward_Backup2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup3",
-     "file": "VO_GSC_Acolyte Iconward_Backup3.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup4",
-     "file": "VO_GSC_Acolyte Iconward_Backup4.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup5",
-     "file": "VO_GSC_Acolyte Iconward_Backup5.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup6",
-     "file": "VO_GSC_Acolyte Iconward_Backup6.ogg",
-     "text": ""
-    },
-    {
-     "ev": "attack",
-     "file": "VO_GSC_Acolyte Iconward_attack.ogg",
-     "text": ""
-    },
-    {
-     "ev": "cantdo",
-     "file": "VO_GSC_Acolyte Iconward_cantDo.ogg",
-     "text": ""
-    },
-    {
-     "ev": "concede",
-     "file": "VO_GSC_Acolyte Iconward_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_GSC_Acolyte Iconward_death.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen1",
-     "file": "VO_GSC_Acolyte Iconward_gen1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen2",
-     "file": "VO_GSC_Acolyte Iconward_gen2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen3",
-     "file": "VO_GSC_Acolyte Iconward_gen3.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen4",
-     "file": "VO_GSC_Acolyte Iconward_gen4.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen5",
-     "file": "VO_GSC_Acolyte Iconward_gen5.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen6",
-     "file": "VO_GSC_Acolyte Iconward_gen6.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen7",
-     "file": "VO_GSC_Acolyte Iconward_gen7.ogg",
-     "text": ""
-    },
-    {
-     "ev": "greet",
-     "file": "VO_GSC_Acolyte Iconward_greet.ogg",
-     "text": ""
-    },
-    {
-     "ev": "hurry",
-     "file": "VO_GSC_Acolyte Iconward_hurry.ogg",
-     "text": ""
-    },
-    {
-     "ev": "intro",
-     "file": "VO_GSC_Acolyte Iconward_intro.ogg",
-     "text": ""
-    },
-    {
-     "ev": "mirror",
-     "file": "VO_GSC_Acolyte Iconward_mirror.ogg",
-     "text": ""
-    },
-    {
-     "ev": "threat",
-     "file": "VO_GSC_Acolyte Iconward_threat.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsastramilitarum",
-     "file": "VO_GSC_Acolyte Iconward_vsAstraMilitarum.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsmagus",
-     "file": "VO_GSC_Acolyte Iconward_vsMagus.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsnecrons",
-     "file": "VO_GSC_Acolyte Iconward_vsNecrons.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsorks",
-     "file": "VO_GSC_Acolyte Iconward_vsOrks.ogg",
-     "text": ""
-    },
-    {
-     "ev": "wp",
-     "file": "VO_GSC_Acolyte Iconward_wp.ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "GSC_Lhaska_Szenari",
-   "name": "Lhaska Szenari",
-   "faction": "Genestealers",
-   "lines": [
-    {
-     "ev": "attack",
-     "file": "VO_GSC_Lhaska Szenari_attack.ogg",
-     "text": ""
-    },
-    {
-     "ev": "cantdo",
-     "file": "VO_GSC_Lhaska Szenari_cantDo.ogg",
-     "text": ""
-    },
-    {
-     "ev": "concede",
-     "file": "VO_GSC_Lhaska Szenari_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_GSC_Lhaska Szenari_death.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen1",
-     "file": "VO_GSC_Lhaska Szenari_gen1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen2",
-     "file": "VO_GSC_Lhaska Szenari_gen2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen3",
-     "file": "VO_GSC_Lhaska Szenari_gen3.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen4",
-     "file": "VO_GSC_Lhaska Szenari_gen4.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen5",
-     "file": "VO_GSC_Lhaska Szenari_gen5.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen6",
-     "file": "VO_GSC_Lhaska Szenari_gen6.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen7",
-     "file": "VO_GSC_Lhaska Szenari_gen7.ogg",
-     "text": ""
-    },
-    {
-     "ev": "greet",
-     "file": "VO_GSC_Lhaska Szenari_greet.ogg",
-     "text": ""
-    },
-    {
-     "ev": "hurry",
-     "file": "VO_GSC_Lhaska Szenari_hurry.ogg",
-     "text": ""
-    },
-    {
-     "ev": "intro",
-     "file": "VO_GSC_Lhaska Szenari_intro.ogg",
-     "text": ""
-    },
-    {
-     "ev": "mirror",
-     "file": "VO_GSC_Lhaska Szenari_mirror.ogg",
-     "text": ""
-    },
-    {
-     "ev": "threat",
-     "file": "VO_GSC_Lhaska Szenari_threat.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vscalgar",
-     "file": "VO_GSC_Lhaska Szenari_vsCalgar.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vscommissar",
-     "file": "VO_GSC_Lhaska Szenari_vsCommissar.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsletharius",
-     "file": "VO_GSC_Lhaska Szenari_vsLetharius.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vstyranids",
-     "file": "VO_GSC_Lhaska Szenari_vsTyranids.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsursulacreed",
-     "file": "VO_GSC_Lhaska Szenari_vsUrsulaCreed.ogg",
-     "text": ""
-    },
-    {
-     "ev": "wp",
-     "file": "VO_GSC_Lhaska Szenari_wp.ogg",
-     "text": ""
     }
    ]
   },
@@ -8403,6 +8438,19 @@
    ]
   },
   {
+   "id": "SAU4",
+   "name": "Gauss Reaper Warrior",
+   "faction": "Sautekh",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Sautekh_Gauss Warrior - Fire.ogg",
+     "text": "Fire",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
    "id": "SAU5",
    "name": "Necron Warrior",
    "faction": "Sautekh",
@@ -8411,6 +8459,19 @@
      "ev": "line",
      "file": "VO_Sautekh_Necron Warrior - Obey.ogg",
      "text": "Obey",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "SAU6",
+   "name": "Tesla Carbine Immortal",
+   "faction": "Sautekh",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Sautekh_Tesla Immortal - I remember.ogg",
+     "text": "I remember",
      "src": "cardSO"
     }
    ]
@@ -8672,6 +8733,19 @@
    ]
   },
   {
+   "id": "SAU8",
+   "name": "Gauss Blaster Immortal",
+   "faction": "Sautekh",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Sautekh_Gauss Immortal - Disintegrate.ogg",
+     "text": "Disintegrate",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
    "id": "SAU9",
    "name": "Ophydian Destroyer",
    "faction": "Sautekh",
@@ -8681,35 +8755,6 @@
      "file": "VO_Sautekh_Ophydian Destroyer - I sense life.ogg",
      "text": "I sense life",
      "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "SAU_Gauss_Blaster_Immortal",
-   "name": "Gauss Blaster Immortal",
-   "faction": "Sautekh",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Sautekh_Gauss Immortal - Disintegrate.ogg",
-     "text": "Disintegrate"
-    },
-    {
-     "ev": "line",
-     "file": "VO_Sautekh_Tesla Immortal - I remember.ogg",
-     "text": "I remember"
-    }
-   ]
-  },
-  {
-   "id": "SAU_Gauss_Reaper_Warrior",
-   "name": "Gauss Reaper Warrior",
-   "faction": "Sautekh",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Sautekh_Gauss Warrior - Fire.ogg",
-     "text": "Fire"
     }
    ]
   },
@@ -8854,6 +8899,19 @@
      "ev": "wp",
      "file": "VO_ADS_Erika Luminas_wp.ogg",
      "text": ""
+    }
+   ]
+  },
+  {
+   "id": "SOR10",
+   "name": "Sisters Repentia",
+   "faction": "Sororitas",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_ADS_Sister Repentia- Only in penance shall my soul be cleansed.ogg",
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -9391,6 +9449,19 @@
    ]
   },
   {
+   "id": "SOR31",
+   "name": "Sister Dogmata",
+   "faction": "Sororitas",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_ADS_Dogmata - Do not dare to fail in your duties.ogg",
+     "text": "Do not dare to fail in your duties",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
    "id": "SOR32",
    "name": "Mortifier",
    "faction": "Sororitas",
@@ -9781,30 +9852,6 @@
      "file": "VO_ADS_Preacher - The holy radiance of the Emperor burns within me.ogg",
      "text": "The holy radiance of the Emperor burns within me",
      "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "SOR_Sister_Dogmata",
-   "name": "Sister Dogmata",
-   "faction": "Sororitas",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_ADS_Dogmata - Do not dare to fail in your duties.ogg",
-     "text": "Do not dare to fail in your duties"
-    }
-   ]
-  },
-  {
-   "id": "SOR_Sisters_Repentia",
-   "name": "Sisters Repentia",
-   "faction": "Sororitas",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_ADS_Sister Repentia- Only in penance shall my soul be cleansed.ogg",
-     "text": ""
     }
    ]
   },
@@ -10808,6 +10855,19 @@
    ]
   },
   {
+   "id": "TAU14",
+   "name": "Breacher Fire Warrior",
+   "faction": "TauEmpire",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tau_Empire_Fire Warrior Breacher - The Greater Good brooks no obstacle.ogg",
+     "text": "The Greater Good brooks no obstacle",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
    "id": "TAU15",
    "name": "Sniper Drone",
    "faction": "TauEmpire",
@@ -11287,6 +11347,32 @@
    ]
   },
   {
+   "id": "TAU32",
+   "name": "Aunshi Ethereal",
+   "faction": "TauEmpire",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tau_Empire_Aun'Shi - The prosecution of any war courts the perils of barbarism.ogg",
+     "text": "The prosecution of any war courts the perils of barbarism",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "TAU33",
+   "name": "Razorshark",
+   "faction": "TauEmpire",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tau_Empire_Razorshark Fighter - The Air Caste bring fire from the skies.ogg",
+     "text": "The Air Caste bring fire from the skies",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
    "id": "TAU34",
    "name": "Coldstar Battlesuit",
    "faction": "TauEmpire",
@@ -11339,6 +11425,19 @@
    ]
   },
   {
+   "id": "TAU38",
+   "name": "Stormsurge Battlesuit",
+   "faction": "TauEmpire",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tau_Empire_Stormsurge - Resistance will be met with unyielding fire.ogg",
+     "text": "Resistance will be met with unyielding fire",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
    "id": "TAU4",
    "name": "Guardian Drone",
    "faction": "TauEmpire",
@@ -11361,18 +11460,6 @@
      "file": "VO_Tau_Empire_Fire Warrior - Fire on my signal.ogg",
      "text": "Fire on my signal",
      "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "TAU57",
-   "name": "Burgeoning Empire",
-   "faction": "TauEmpire",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Tau_Empire_Razorshark Fighter - The Air Caste bring fire from the skies.ogg",
-     "text": "The Air Caste bring fire from the skies"
     }
    ]
   },
@@ -11625,30 +11712,6 @@
      "file": "VO_Tau_Empire_Pathfinder - Optimal target marked for elimination.ogg",
      "text": "Optimal target marked for elimination",
      "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "TAU_Breacher_Fire_Warrior",
-   "name": "Breacher Fire Warrior",
-   "faction": "TauEmpire",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Tau_Empire_Fire Warrior Breacher - The Greater Good brooks no obstacle.ogg",
-     "text": "The Greater Good brooks no obstacle"
-    }
-   ]
-  },
-  {
-   "id": "TAU_Stormsurge_Battlesuit",
-   "name": "Stormsurge Battlesuit",
-   "faction": "TauEmpire",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Tau_Empire_Stormsurge - Resistance will be met with unyielding fire.ogg",
-     "text": "Resistance will be met with unyielding fire"
     }
    ]
   },
@@ -12406,6 +12469,71 @@
    ]
   },
   {
+   "id": "TL65",
+   "name": "Neuroloid",
+   "faction": "Leviathan",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tyranid_Leviathan_Neuroloid.ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "TL66",
+   "name": "Neurogaunt",
+   "faction": "Leviathan",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tyranid_Leviathan_Neurogaunt.ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "TL67",
+   "name": "Barbgaunt",
+   "faction": "Leviathan",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tyranid_Leviathan_Barbgaunt.ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "TL68",
+   "name": "Psychophage",
+   "faction": "Leviathan",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tyranid_Leviathan_Psychophage.ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "TL69",
+   "name": "Neurotyrant",
+   "faction": "Leviathan",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tyranid_Leviathan_Neurotyrant.ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
    "id": "TL7",
    "name": "Gargoyle",
    "faction": "Leviathan",
@@ -12414,6 +12542,19 @@
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Gargoyle - Harsh scream.ogg",
      "text": "Harsh scream",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "TL70",
+   "name": "Norn Emissary",
+   "faction": "Leviathan",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tyranid_Leviathan_Norn Emissary.ogg",
+     "text": "",
      "src": "cardSO"
     }
    ]
@@ -12432,6 +12573,19 @@
     {
      "ev": "death",
      "file": "VO_Tyranid_Leviathan_Winged Tyranid Prime_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "TL75",
+   "name": "Termagant Brood",
+   "faction": "Leviathan",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tyranid_Leviathan_Termagant Brood.ogg",
      "text": "",
      "src": "cardSO"
     }
@@ -12459,97 +12613,6 @@
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Pyrovore - Brooding grumble.ogg",
      "text": "Brooding grumble",
-     "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "TL_Barbgaunt",
-   "name": "Barbgaunt",
-   "faction": "Leviathan",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Tyranid_Leviathan_Barbgaunt.ogg",
-     "text": "",
-     "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "TL_Neurogaunt",
-   "name": "Neurogaunt",
-   "faction": "Leviathan",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Tyranid_Leviathan_Neurogaunt.ogg",
-     "text": "",
-     "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "TL_Neuroloid",
-   "name": "Neuroloid",
-   "faction": "Leviathan",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Tyranid_Leviathan_Neuroloid.ogg",
-     "text": "",
-     "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "TL_Neurotyrant",
-   "name": "Neurotyrant",
-   "faction": "Leviathan",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Tyranid_Leviathan_Neurotyrant.ogg",
-     "text": "",
-     "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "TL_Norn_Emissary",
-   "name": "Norn Emissary",
-   "faction": "Leviathan",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Tyranid_Leviathan_Norn Emissary.ogg",
-     "text": "",
-     "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "TL_Psychophage",
-   "name": "Psychophage",
-   "faction": "Leviathan",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Tyranid_Leviathan_Psychophage.ogg",
-     "text": "",
-     "src": "cardSO"
-    }
-   ]
-  },
-  {
-   "id": "TL_Termagant_Brood",
-   "name": "Termagant Brood",
-   "faction": "Leviathan",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Tyranid_Leviathan_Termagant Brood.ogg",
-     "text": "",
      "src": "cardSO"
     }
    ]
@@ -13929,18 +13992,6 @@
    ]
   },
   {
-   "id": "UM_Master_Tactician",
-   "name": "Master Tactician",
-   "faction": "Ultramarines",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_UM_Tactical Marine - We are all sons of Lord Guilliman We all serve the Emperor.wav",
-     "text": "We are all sons of Lord Guilliman We all serve the Emperor"
-    }
-   ]
-  },
-  {
    "id": "UM_Phobos_Librarian",
    "name": "Phobos Librarian",
    "faction": "Ultramarines",
@@ -14343,6 +14394,18 @@
      "ev": "line",
      "file": "VO_UM_Vico Therbeus - Our foes seem without limit but we will find it.wav",
      "text": "Our foes seem without limit but we will find it"
+    }
+   ]
+  },
+  {
+   "id": "dcbd28525888ce54aaa93a47ba4de1e6",
+   "name": "Master Tactician",
+   "faction": "Ultramarines",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_UM_Tactical Marine - We are all sons of Lord Guilliman We all serve the Emperor.wav",
+     "text": "We are all sons of Lord Guilliman We all serve the Emperor"
     }
    ]
   }

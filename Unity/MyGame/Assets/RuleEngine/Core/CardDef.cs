@@ -179,6 +179,33 @@ namespace RuleEngine
         public int Initiative { get; }
 
         /// <summary>
+        /// 🆕 **2026-10-15（接线批）**：卡池 v9 的 **`armour` 数值列**原值（`>0` = 卡底那枚银盾里的数字，
+        /// `0` = 没有银盾）。
+        ///
+        /// 🔴 **它不是结算读的那个值，是「列怎么写的」那一个** —— 结算读
+        /// <see cref="KwValue"/>`(KeywordTable.Armour)`（= `_keywords` 那一格，构造里已按
+        /// 「列优先、旧口径兜底」定下来）。本属性留着只为**对账/自检**：
+        /// 自检里那条断言就是拿它与 <see cref="ArmourFromKeywords"/> 逐张比，看两套口径有没有分叉。
+        ///
+        /// ⚠️ **`0` 是合法值**（卡底没银盾），不是「缺值」—— 与 `inventoryOptions`/`initiative`
+        /// 那两列的 `-1` 哨兵**口径不同**，别混用（列本身的 doc → `CardDto.armour`）。
+        /// ⚠️ 旧卡表（`version &lt; 9`）读出来**一律是 `0`**（那一列不存在）——
+        /// `CardDatabase.Parse` 对 `< 9` 会 `LogWarning`，别把「这一列不存在」静默当成「没有护甲」。
+        /// </summary>
+        public int ArmourFromPool { get; }
+
+        /// <summary>
+        /// 🆕 **2026-10-15（接线批）**：**旧口径**算出来的护甲值 —— `keywords` 里那条 `Armour N`
+        /// 字符串经 `KeywordTable.Parse` 抠出来的数（裸 `Armour` 按「存在即真」取 1）。
+        ///
+        /// 它**只在对账时读**（自检那条断言 + `CardDatabase.Parse` 装载时的出声）。
+        /// ⛔ **别拿它当结算判据** —— 结算那一份是 <see cref="KwValue"/>`(KeywordTable.Armour)`，
+        /// 两份值只在「列与旧口径都 > 0 且相等」时才必然相同（现读全池 1127 张：**80 张相同 ·
+        /// 1 张只有旧口径有（`DA83`）· 0 张只有列有 · 0 张值不等**）。
+        /// </summary>
+        public int ArmourFromKeywords { get; }
+
+        /// <summary>
         /// 费用（能量）。**这是印在卡上的基准值** —— 真正要付多少要看降费/加费那几族
         /// （`CardDef.CostWhens` / `CostIfControls` / `ctx.CostMods`），判据只有 `RuleCore.CostOf` 一处。
         /// ⚠️ 别在别处直接读它算「打得起吗」。
@@ -213,7 +240,8 @@ namespace RuleEngine
                        string nameZh = null, string descZh = null, bool fromOriginalPool = false,
                        string subtype = null, string goesSecondId = null,
                        int inventoryOptions = -1, int showInCollectionOptions = -1,
-                       int initiative = -1)
+                       int initiative = -1,
+                       int armour = 0)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -229,6 +257,48 @@ namespace RuleEngine
             FromOriginalPool = fromOriginalPool;
             Cost = cost; Attack = attack; Health = health; RangedAttack = rangedAttack;
             _keywords = KeywordTable.Parse(keywords);
+
+            // ==================================================================
+            //  护甲（关键词 `armour`）—— **读数切到 v9 的 `armour` 列**（2026-10-15 · 接线批）
+            // ==================================================================
+            //
+            // **为什么动这里**：卡池 v9 新加了 `armour` 数值列（`A1776`，>0 共 80 张 ——
+            //   ⚠️ 2026-10-15 现读 **81**，见下面那条订正），
+            //   而引擎此前唯一的来源是 `keywords` 里那条 `Armour N` **字符串**（`KeywordTable.Parse` 抠出来）
+            //   ⇒ 同一件事**两处写**（铁律 9：迟早不一致）。这一步把**读点收成一处**：
+            //   **全仓的护甲读点 = `_keywords[KeywordTable.Armour]` 这一格**（`KwValue` / `Has` /
+            //   `UnitState.Armor`（`UnitState.cs` 构造里那句 `Armor = KwValue(KeywordTable.Armour)`）/
+            //   表现层 `BattleDriver` 的卡面显示，全部走它）。
+            //
+            // 🔴 **取值口径（两处对账过，2026-10-15 用离线演算台逐张量过全池 1127 张）**：
+            //   · **列 > 0 ⇒ 用列**（它是生成器那一侧算好的：PnP 那一层优先、真值兜底）。
+            //   · **列 = 0、而 `keywords` 抠出 > 0 ⇒ 用 `keywords` 那一份**（兜底）——
+            //     ⛔ 不是「列说没有就没有」：**实测正好差了 1 张**（`DA83 Ravenwing Ballistus Dreadnought`），
+            //     它的 `keywords` 是**裸 `Armour`**（没数字）、`desc` 却写着 `Armour 1.`，
+            //     而 **PnP 成品卡图 `d:/2/Warpforge部队卡片/Dark Angels/3部队/Warpforge_09_Ballistus-Dreadnought.png`
+            //     右下银盾印 `1`、关键词行印 `Armour 1.`**（2026-10-15 亲读）⇒ 真值 = 1，
+            //     **是列的缺陷**（生成器那一侧漏了这张，已另立账），不是旧口径错。
+            //     ⛔ 所以**不能**把这一支删掉 —— 删了这张卡会**静默少 1 点护甲**。
+            //     🔴 **2026-10-15（`AG` 波）就地订正（铁律 5）—— 上面这段的【依据】已经变了**
+            //     （原句**照留**）。**原写 X ⇒ 实际 Y**：上面说「那一张是**列的缺陷**、生成器那一侧
+            //     漏了这张，**已另立账**」⇒ **那一笔账当天就结了**：生成器 `工具/gen_cards_engine.py`
+            //     的 `fix_own_armour` 已把**裸 `Armour`** 那一格原地升级成 `Armour N`
+            //     ⇒ 现读 `DA83` 的 `keywords` = `['Armour 1']`、`armour` 列 = **1**
+            //     ⇒ **「列 = 0 而 keywords 抠出 > 0」这一档今天已经是空集**
+            //     （自检那一格现读 `onlyKw.Count == 0`，`RuleEngineTest.cs` 的护甲块）。
+            //     🔑 **结论照旧、理由要换**：兜底那一支**仍然不能删** —— 但今天的理由是
+            //     「**列的覆盖面是生成器算出来的，它会不会再漏一张不由这里保证**」，
+            //     ⛔ **不再是**「`DA83` 今天正靠它」。
+            //     ⚠️ 同段那句「`>0` 共 **80** 张」现读 = **81**（`DA83` 补上之后）。
+            //   · **两处都 > 0 且不相等** ⇒ 🔴 **出声**（`ArmourFromPool` vs `ArmourFromKeywords`，
+            //     `CardDatabase.Parse` 会在装载时把差异逐张打出来，自检里也有一条断言盯着）。
+            //   · ⛔ **列 = 0 不等于「缺值」**：`0` = **卡底没有银盾**（真值），与
+            //     `inventoryOptions`/`initiative` 那种 `-1` 哨兵**不是一回事**（列的 doc 见 `CardDto.armour`）。
+            ArmourFromKeywords = KwValue(KeywordTable.Armour);
+            ArmourFromPool = armour > 0 ? armour : 0;
+            if (ArmourFromPool > 0) _keywords[KeywordTable.Armour] = ArmourFromPool;
+            // 两个值都留着（只读）—— 只给对账/自检用，**结算一律读 `KwValue`/`Has`**
+            //   （同 `NumericKeywords` 的口径：多留一列是为了能**验**，不是为了能**用**）。
 
             // 🆕 2026-09-29 **卡面原文里写了数字**的那些关键词（角标画不画看它，见 `KeywordTable.HasNumber`）。
             // 顺手把 `keywords` 收进列表 —— 下面那段解析还要再走一遍同一份入参。
@@ -2950,6 +3020,11 @@ namespace RuleEngine
         /// （`UnitState.SyncKeywordState` 加值 / `UnitState.RemoveAll` 清零 / 光环收回时减值）——
         /// **别在别处直接改 `Armor`**（「同一条判据两处写」正是当年 `HasShield` 脱节的成因）。
         /// 数据侧的坑见 <see cref="RangedAttack"/>：JSON 里的 `armor` 字段**是远程攻击**，不是它。
+        ///
+        /// 🔴 **2026-10-15（接线批）—— 值的【来源】有两条腿，判据只此一处**：
+        ///   `CardDef` 构造函数里「**卡池 v9 的 `armour` 列优先、`keywords` 字符串旧口径兜底**」那一段
+        ///   （现读全池 1127 张：**80 张取列 · 1 张取旧口径**（`DA83`，列的缺陷，已立账）·
+        ///   两套口径**值不等的 0 张**）。⛔ 别在别处再写第二份「护甲从哪来」。
         /// </summary>
         public const string Armour = "armour";
 
@@ -3110,16 +3185,27 @@ namespace RuleEngine
         ///      · 堡垒的存量按伤害量扣减，**打穿了才把溢出量打到生命**
         ///        （`RemoveBastionDamage` 返回**扣减之后**的 `CurrentBastion`，可为负 =
         ///        溢出量；`:131-153` 就是 `health + 那个负数`）。
-        ///    ⚠️ **两条如实标着的、没做的细节**（都在 `ApplyDamage` 那一段的注释里重复了一遍）：
+        ///    ⚠️ **两条细节的现状**（都在 `ApplyDamage` 那一段的注释里带逐行判据）：
         ///      ① 原版 `:63` 的守卫是 `bastion < 1 \|\| deathType == combatAttacker(10)` ——
         ///        **攻击方挨的那一下反击不吃堡垒**。我们的 `deathType` 是**靠调用点映射**的
         ///        （见 `RuleCore.TryCreditKill` 的注释），本笔只把那**一处**（反击，
         ///        `RuleCore` 里 `Hurt(ctx, attacker, counterAtk, …)`）接上；
         ///      ② 原版这两条支路**在护甲扣减之外**（`:64-98` 整段在 `bastion < 1` 那一支里）
-        ///        ⇒ 我们照它用**原始伤害**；而**易伤**在我们的模型里是折进一个数的
-        ///        （`DamageAfterReduction`），原版是**另一次伤害**、且被 `bVar17` 抑制
-        ///        ⇒ 「堡垒没被打穿」那一档两边一致，「打穿且血还 > 0」那一档原版会补一次易伤、
-        ///        我们**没补**（如实标着）。
+        ///        ⇒ 我们照它用**原始伤害**；
+        ///        🔴 **2026-10-14（账 `A1335①`）就地订正**：本行原来接着写
+        ///        「『打穿且血还 > 0』那一档原版会补一次易伤、我们**没补**」—— **现在补上了**：
+        ///        `ApplyDamage` 的堡垒那一段改成 `溢出量 + max(1, 易伤 − 护甲)`，
+        ///        闸 = 原版 `:210-211`（**主伤害落完之后血还 > 0 ∧ 不是残骸**）∧ `!bVar17`
+        ///        （= 打穿，本支天然成立）∧ `:200` 进伤 > 0。判别式：堡垒 3 / 这一下 5 /
+        ///        易伤 2 / 护甲 1 ⇒ 原版掉 **3**，改前我们只掉 **2**。
+        ///        🆕 **2026-10-14（账 `A1335①` 第三档 = 本批 `N7`）就地订正**：本行原来接着写
+        ///        「仍开着的那一档是**普通档**（既无堡垒也无空投舱）的 `:210-211` 闸」——
+        ///        **那一档也补上了**：落点 = `RuleCore.DamageAfterReduction` 的最后两行
+        ///        （闸 = 主伤害落完之后**血还 > 0 ∧ 不是残骸**（原版 `:210-211`）∧
+        ///        **这一下的量 > 0**（原版 `:200`））。
+        ///        ⇒ `A1335①` 三档全部落地，见 `RuleCore.VulnerableDamagePart` 的 doc。
+        ///        ⚠️ **预览侧不加这道闸**（原版预览 `…WithDamageValues.c:183-205` 本来就每条各加一次、
+        ///        不看血）⇒ 两边各照自己的原版，⛔ 别去「对齐」。
         /// ⚠️ **全池今天 0 张卡带它**（`cards_engine.json` 1126 张现读 0 命中）。
         ///
         /// ✅ **2026-10-11（`W4`）已进 `Implemented`** —— 预览侧与结算侧都有了机制；
@@ -3180,6 +3266,11 @@ namespace RuleEngine
         ///   把 `+0xcc..0xdc` 写成 `GameStaticData` 的**一个全局常量**（`+0x1fc`）——
         ///   我们引擎里没有那份全局表 ⇒ 池的**初值取卡面写的那个数字**
         ///   （`KwValue(DropPod)`），如实标着（这是我们的口径，不是原版证的）。
+        ///   🔴 **2026-10-14（账 `A1335①`）**：池子还吃**易伤那一发（第二发）** ——
+        ///   原版易伤是**另一条独立的 `DealMultiDamage`**（`_ReceiveDamage…:252-254`），
+        ///   它**自己再走一遍**整条管线 ⇒ 池子还剩（`after >= 1`）时第二发**也落进池子**
+        ///   （不减护甲、生命一点不动）；池子已被这一发打碎时第二发走**普通路**（真掉血）。
+        ///   落点 = `RuleCore.ApplyDamage` 的空投舱那一段（含逐行判据与触发闸）。
         ///
         /// ✅ **那「两半」都做了**（第二十二会话 · `A1395` 就地订正 · 铁律 5 —— 本段原来写着
         ///   「**没有做的两半**」，**已过期**，⛔ 别再照着它判「没做」）：
@@ -3762,6 +3853,12 @@ namespace RuleEngine
             //   ⚠️ 不登记在这一栏 ⇒ 卡面会白打一个 `*`、`UnimplementedKeywords` 会多报一条。
             //   判据与全池张数见 `RuleCore.Unstunnable` 的注释。全池今天 **0 张卡**带它。
             RuleCore.Unstunnable,
+            // 🆕 2026-10-15（接线批）：**`unstoppable`（不可阻挡，trait 180）** —— 机制本笔接上
+            //   （`RuleCore.IsValidTarget` 里「无视 Vanguard」那句 `&&` 的第二个入口，
+            //  判据 = 原版 `BattleManager__IsValidAttackTarget.c:149`）。
+            //  ⚠️ 不登记在这一栏 ⇒ 卡面会白打一个 `*`、`UnimplementedKeywords` 会多报一条 ——
+            //    而那个时机**真的有人读它**（判据成立），所以该进。全池今天 **0 张卡**带它。
+            RuleCore.Unstoppable,
             // 触发类 + 主动技能：结算全部走 `RuleCore.FireUnitTrigger` / `UseAbility`。
             // ⚠️ 「关键词已实现」≠「这张卡的效果能跑」。
             // 🔴🔴 **2026-10-12（`A1618`）就地订正（铁律 5）**：本句原来写
@@ -4151,6 +4248,70 @@ namespace RuleEngine
             new[] { "landing", Landing },
             new[] { "about to attack", AboutToAttack },
             new[] { "abouttoattack", AboutToAttack },
+            // 🆕 2026-10-15（接线批 · 卡牌线 P2/P3 交回）：**`rage` / `frenzied` / `unstoppable`** ——
+            //    这三个是**原版 trait 的【枚举名】**，P2 那批把它们落进了 `cardTraits` 列
+            //    （现读 16 张：`Frenzied` 10 · `Rage` 5 · `Unstoppable` 1）。
+            //    🔴 不登记 ⇒ `Normalize` 返回 null ⇒ 写进 `keywords` 会被**静默丢弃**
+            //    （2026-10-15 实测改前：`Dropped` 记 **3 个** = `Rage` / `Frenzied` / `Unstoppable`），
+            //    正是本工程「不许静默失败」红线。
+            //
+            // 🔴 **`rage` 与 `frenzied` 不是新词，是同一个 trait 的【第二种拼法】**（三条判据都现核）：
+            //      · 官方本地化表：`Card_Trait/rage` = `Penitence`/忏悔 · `Card_Trait/frenzied` = `Destroyer`/毁灭者
+            //        （另有一条化石键 `Card_Trait/frenzied_old` = `Frenzied` ⇒ 改名史的实据）；
+            //      · 卡面（**亲开 PnP 成品图**，铁律 7）：`SOR10 Sisters Repentia` 印
+            //        `[骷髅图标] Penitence: …` · `SAU18 Skorpekh Destroyer` 印 `[爪拳图标] Destroyer.`
+            //        ⇒ **卡面字是 `Penitence` / `Destroyer`**；
+            //      · 全池 10 张 `cardTraits=Frenzied` 的卡，`keywords` **全部**带 `Destroyer`。
+            //        🔴 **2026-10-15（`AG` 波）就地订正（铁律 5）**：这半句里的**列名**已经过期
+            //        —— **原写「全池 10 张 `cardTraits=Frenzied` 的卡」⇒ 实际那 10 张的 `cardTraits`
+            //        写的是 `Destroyer`（`Frenzied` 这个字面量在 `cardTraits` 列里已经【一张都没有】）**。
+            //        错因 = 生成器同一天把 `TRAIT_DISPLAY` 的 `frenzied` 从枚举名 `Frenzied`
+            //        改成**卡面字** `Destroyer`（`工具/gen_cards_engine.py`；判据 = 官方 `Card_Trait/frenzied`
+            //        的 en 列就是 `Destroyer`，卡面也印 `Destroyer.`），**这一列变了、`keywords` 一张没动**
+            //        ⇒ **结论（10 张、`keywords` 全带 `Destroyer`）一字不变**，只是列名那一格要照现值读。
+            //        ⚠️ 10 张逐 id 现核 = `SAU3` / `SAU9` / `SAU18` / `SAU22` / `SAU25` /
+            //        `SAU32` / `SAU66` / `SAU68` / `SAU70` / `SAU72`（`cardTraits` 与 `keywords` 两列**逐张**核对过）。
+            //    ⇒ 两条都指向**已存在的常量**（`Penitence` / `Destroyer`，两者都在 `Implemented`，
+            //      结算点分别 = `RuleCore.Hurt`（受伤触发）与 `RuleCore.IsValidTarget`（只能打打得死的））
+            //      ⇒ **只多一个入口、不多一条规则**（与 `armour`/`armor`、`about to attack`/`abouttoattack`
+            //        那两条「同词第二种拼法」同形）。⛔ **别为它们新建 `Rage`/`Frenzied` 常量** ——
+            //      那就是同一个 trait 两份表示（本工程点名的红线）。
+            new[] { "rage", Penitence },
+            new[] { "frenzied", Destroyer },
+            // 🔴 `unstoppable`（`DefinedTrait.unstoppable = 180`，`DefinedTrait.cs:18`）**与前两个不同**：
+            //    它是**独立 trait**，而且**卡面上没有字** —— 亲开 `SAU7 Canoptek Wraith` 的 PnP 图，
+            //    关键词行只有 `Remnant. This troop can ignore enemy units with Vanguard when attacking`；
+            //    官方表里也**没有** `Card_Trait/unstoppable` 这个键（全 9441 条里只有成就标题等命中）
+            //    ⇒ **不能归并到任何现有词**，单独一个常量（`RuleCore.Unstoppable`）。
+            //    它的机制我们**早就实现了**，只是入口是**卡面英文句**
+            //    （`CardDef.IgnoresVanguard`，由 `MatchStaticBattleRule` 认那句
+            //     `this troop can ignore enemy units with vanguard when attacking`）
+            //    ⇒ 登记之后**接进同一个判定口**（`RuleCore.IsValidTarget` 里 `IgnoresVanguard` 那一句 `&&`），
+            //      做法同 `noncombatant` ≡ `CantAttack`（**一条规则、两个入口**）。
+            //    判据 = 原版 `BattleManager__IsValidAttackTarget.c:149`（攻击者带 `0xb4` ⇒
+            //    **跳过**「敌方场上有 Vanguard 就只能打 Vanguard」那道硬闸）；
+            //    旁证两条 = `FilterMethods__MeetsConditionCriteria.c:39`（卡组筛选里与 `flying` 同族）
+            //    · `TraitDefinitionDisplay__GetAbilityList.c:124`（图标展示时与 `flying` 互相去重，
+            //    这也是它没有自己的卡面文字的原因）。
+            //    ⚠️ **全池今天 0 张卡在 `keywords` 里带它**（`SAU7` 走的是上面那个卡面句）
+            //      ⇒ 加这一条**不改动任何现有解析结果**（实测见下）。
+            new[] { "unstoppable", RuleCore.Unstoppable },
+            // ⚠️ **前缀撞车已现核**（`Normalize` = `StartsWith` + **先到先得**）：
+            //   · 以 `r` 开头的既有条目 `rally` / `regeneration` / `remnant` / `regiment` 与 `rage`
+            //     在**第二个字母**就分开（`r-a-g` vs `r-a-l` / `r-e…`）；
+            //   · 以 `f` 开头的既有条目 `fast` / `flank` / `ferocity` / `flying` 与 `frenzied`
+            //     第一个字母之后就分开（`f-r` vs `f-a` / `f-l`）；
+            //   · `unstoppable` 与既有 `unstable` **不撞**（`unst` 之后是 `o` vs `a`）；
+            //   · **反向（新词抢先吃掉老词）也不成立**：既有条目里没有任何一个以
+            //     `rage` / `frenzied` / `unstoppable` 开头。
+            //   · 🔴 **影响面实测（2026-10-15，拿真编译出来的 `KeywordTable` 扫全池三条文本列** ——
+            //     `keywords` 每一项 / `desc` / `descZh`，按 `[.:;。！？\n]` 切成句）：
+            //     **以这三个词开头的串 = 0 条** ⇒ 加这三条**不改动任何现有解析结果**。
+            //     现池读数（改前 == 改后）：`Has(penitence)` **1** 张 · `Has(destroyer)` **10** 张 ·
+            //     `Has(unstoppable)` **0** 张。
+            //   ⚠️ **另有一笔挂给生成器**（不在本笔白名单）：`工具/gen_cards_engine.py` 里那张
+            //     `TRAIT_ENGINE_UNREGISTERED = {"frenzied","rage","unstoppable"}` 排除表**现在过期了**
+            //     （这三个词引擎已经认得出）—— 改它属生成器那一侧，本笔只报（见报告 §③）。
             // 🔴 2026-09-13 补（派子代理做「关键词三列对账」时查出）：这三个词**根本不在表里**，
             //    于是 `Normalize` 返回 null → `Parse`/构造函数**双双丢弃**
             //    ⇒ 它们既不出现在 `UnimplementedKeywords()` 单上，**卡面也不打 `*`**

@@ -1543,7 +1543,9 @@ public static partial class RuleEngineTest
         }
 
         // ---- ④ `Each friendly unit that is Praying heals 3` ----
-        //  「正在祈祷」是**状态**（`UnitState.Prayed`，回合开始掉），由 `Pray` 替代行动置位。
+        //  「正在祈祷」是**状态**（`UnitState.Prayed`），由 `Pray` 替代行动置位；
+        //  掉它的是**两件事、以先到者为准**：① **下一个回合开始（不分敌我）** ② **自己挨一次伤害**
+        //  （🔴 2026-10-14 账 `A1155②` 已核 —— 判据见 `UnitState.Prayed` 的 doc）。
         {
             var r = EffectText.ParseSegment("Each friendly unit that is Praying heals 3");
             Check(r.Kind, EffectText.SegKind.Ok, "`Each friendly unit that is Praying heals 3` 认得出");
@@ -1578,11 +1580,42 @@ public static partial class RuleEngineTest
             Check(b.Health, 3, "★ 反例：**没祈祷的那个一点没治** —— 目标筛没接上的话它会跟着一起治"
                              + LogTail(ctx));
 
-            // 反例二：状态**按回合掉**（`rule_core.gd:1953`）—— 转一圈回到自己回合就不该再算了。
-            // ⚠️ 要 **两次** `PassTurn`：`RefreshForNewTurn` 只刷**当前行动方**的单位，
-            //    一次之后轮到对手，自己这边还没刷（这是既有口径，不是 bug）。
-            PassTurn(ctx); PassTurn(ctx);
-            CheckTrue(!a.Prayed, "★ 过了一个自己的回合开始 ⇒ `Prayed` 复位（不是「本局一直算」）");
+            // 反例二：状态**按回合掉** —— 判据 = 原版 `CardScript__OnTurnStart.c:100`
+            //    （`*(undefined1 *)(card + 0x67) = 0;` **无条件**，且对**全场**每张在场卡各来一次：
+            //     `BattleManagerSupport__BroadcastTurnStart.c:20-26` 扫 `CardsInPlay`）。
+            // 🔴 **2026-10-14（账 `A1155②`）就地订正**：本处原来写「要**两次** `PassTurn`：
+            //    `RefreshForNewTurn` 只刷**当前行动方**的单位」—— **那是改前的口径**。
+            //    现在清的动作在 `RuleCore.BeginTurn` 里**不分敌我** ⇒ **一次就掉**。
+            PassTurn(ctx);
+            CheckTrue(!a.Prayed, "★ 一次 `PassTurn`（= 转到**对手**的回合开始）就 ⇒ `Prayed` 复位"
+                                + "（**不分敌我**：原版 `OnTurnStart` 对全场每张在场卡都跑）");
+            PassTurn(ctx);
+            CheckTrue(!a.Prayed, "★ 转回自己的回合开始 ⇒ 仍然复位（不是「本局一直算」）");
+
+            // 反例三（🆕 2026-10-14 账 `A1155②`）：**自己挨一次伤害就掉** ——
+            //   判据 = 原版 `CardScript__ResolveDamageDealt.c:168`（闸 = 受伤者 == 自己），
+            //   逐行出处见 `RuleCore.ApplyDamage` 那句的注释。
+            // ⚠️ 判别式：删掉 `ApplyDamage` 里那句 `if (!absorbed && dmg != 0) u.Prayed = false;` ⇒ 本格红。
+            {
+                var c = Place(ctx, 0, 5, prayer);
+                CheckCode(RuleCore.UseAlternative(ctx, 0, 5, "pray"), RuleCodes.OK, "5 号格执行 `Pray`");
+                CheckTrue(c.Prayed, "（前提）它进了「正在祈祷」");
+                RuleCore.ApplyDamage(ctx, c, 1, "自检");
+                CheckTrue(!c.Prayed, "★ 自己挨一次伤害 ⇒ `Prayed` 复位");
+            }
+
+            // 反例四：**被挡下的不算「挨到伤害」** —— 原版 `ResolveDamageDealt.c:31`
+            //   `if (damageInfo.damageAbsorbed != 0) return;`（`GetAdjustedDamage.c:36-47`：
+            //   盾 / 闪避 / 无敌 / 空投舱**任一在场**就把 `absorbed` 置 1）。
+            // ⚠️ 判别式：把那一句挪到 `ApplyDamage` **最前面**（不判 `absorbed`）⇒ 本格红。
+            {
+                var c = Place(ctx, 0, 6, prayer);
+                CheckCode(RuleCore.UseAlternative(ctx, 0, 6, "pray"), RuleCodes.OK, "6 号格执行 `Pray`");
+                CheckTrue(c.Prayed, "（前提）它进了「正在祈祷」");
+                c.AddKeyword(KeywordTable.Shield, 1);
+                RuleCore.ApplyDamage(ctx, c, 3, "自检");
+                CheckTrue(c.Prayed, "★ **被 Shield 全挡下**（掉 0 血）⇒ **不算挨到伤害**、`Prayed` **仍在**");
+            }
         }
 
         // ---- ⑤ 付费**修饰型**激活：`6 [Energy]: Extend effect until your next turn` ----
@@ -2016,6 +2049,45 @@ public static partial class RuleEngineTest
         var bare = new CardDef("t2", "T2", "unit", "", null, null, 1, 1, 1, 0, new[] { "Armour" });
         Check(bare.KwValue("armour"), 1, "光写 Armour 不带数字 → 1（不是 0）");
 
+        // ---- 🆕 2026-10-15（接线批）：护甲的**读数已切到卡池 v9 的 `armour` 列** ----
+        //   判别式（**结构上不可能同时满足**）：三张造出来的卡分别只走**列有值 / 两处都有 / 只有旧口径**
+        //   三条路 —— 「只把列接上不读它」「只留旧口径」「两处都读」都会至少红一条。
+        var fromCol = new CardDef("t4", "T4", "unit", "", null, null, 1, 1, 1, 0, null,
+                                  null, null, true, null, null, -1, -1, -1, 3);
+        Check(fromCol.KwValue("armour"), 3, "★ 只给 `armour` 列（`keywords` 为空）⇒ 护甲 = 3（列真的接上了）");
+        CheckTrue(fromCol.Has("armour"), "★ 列给的护甲也进 `Has`（`UnitState.Armor` 读的正是这一格）");
+        Check(fromCol.ArmourFromKeywords, 0, "对账列：旧口径那一份是 0（说明这条路上没在读旧口径）");
+
+        var colWins = new CardDef("t5", "T5", "unit", "", null, null, 1, 1, 1, 0, new[] { "Armour 1" },
+                                  null, null, true, null, null, -1, -1, -1, 2);
+        Check(colWins.KwValue("armour"), 2, "★ 列 = 2 而 `keywords` 写 `Armour 1` ⇒ **列赢**"
+                                          + "（唯一读点在列上；两处并存的写法以后只该出现在造出来的卡上）");
+        Check(colWins.ArmourFromKeywords, 1, "对账列把旧口径那一份留着（1）—— 两处不等才有得比");
+
+        var kwFallback = new CardDef("t6", "T6", "unit", "", null, null, 1, 1, 1, 0, new[] { "Armour" },
+                                     null, null, true, null, null, -1, -1, -1, 0);
+        Check(kwFallback.KwValue("armour"), 1, "★ 列 = 0 而 `keywords` 有裸 `Armour` ⇒ 旧口径兜底 = 1"
+                                             + "（`DA83` 就是这一支；**删掉兜底会让它静默少 1 点护甲**）");
+
+        // ---- 🆕 2026-10-15（接线批）：三个**原版 trait 枚举名**写进 `keywords` 必须读得到 ----
+        //   改前实测（2026-10-15）：`KeywordTable.Normalize` 对这三个词**全部返回 null**
+        //   ⇒ 写进 `keywords` 会被**静默丢弃**（`Dropped` 记满 3 个）。
+        //   判别式：这三条断两件事 ——「规范键读得回来」+「没进丢弃名单」；
+        //   「只加断言不改 `Prefixes`」（返回 null）或「改了表但落到别的键」都会露。
+        var kwRage = new CardDef("k1", "K1", "unit", "", null, null, 1, 1, 1, 0, new[] { "Rage" });
+        var kwFren = new CardDef("k2", "K2", "unit", "", null, null, 1, 1, 1, 0, new[] { "Frenzied" });
+        var kwUnst = new CardDef("k3", "K3", "unit", "", null, null, 1, 1, 1, 0, new[] { "Unstoppable" });
+        CheckTrue(kwRage.Has(KeywordTable.Penitence),
+                  "★ `Rage`（trait 280 的**枚举名**）⇒ 规范键 `penitence`（卡面字；官方键 `Card_Trait/rage` 也是它）");
+        CheckTrue(kwFren.Has(KeywordTable.Destroyer),
+                  "★ `Frenzied`（trait 680）⇒ 规范键 `destroyer`（卡面字；官方键 `Card_Trait/frenzied` 也是它）");
+        CheckTrue(kwUnst.Has(RuleCore.Unstoppable),
+                  "★ `Unstoppable`（trait 180）⇒ 规范键 `unstoppable`（**独立 trait** —— 卡面上没有这个字）");
+        Check(kwRage.KwValue(KeywordTable.Penitence), 1, "裸写 `Rage` 不带数字 → 1（存在即真）");
+        CheckTrue(!KeywordTable.Dropped.Contains("Rage") && !KeywordTable.Dropped.Contains("Frenzied")
+               && !KeywordTable.Dropped.Contains("Unstoppable"),
+                  "★ 三个词都**没有**进「认不出、被静默丢弃」那份名单（`KeywordTable.Dropped`；改前是 3 个）");
+
         var none = new CardDef("t3", "T3", "unit", "", null, null, 1, 1, 1, 0, null);
         Check(none.Keywords.Count, 0, "keywords 为 null 不炸");
     }
@@ -2035,6 +2107,204 @@ public static partial class RuleEngineTest
                   KeywordTable.Dropped.Count == 0
                       ? "没有认不出的关键词（认不出就会被静默丢掉，见 `KeywordTable.Dropped`）"
                       : $"关键词被静默丢弃 {KeywordTable.Dropped.Count} 个：{string.Join(" / ", KeywordTable.Dropped.ToArray())}");
+
+        // ---- 🔴 🆕 2026-10-15（接线批）：护甲那两套口径的**全池对账** ----
+        //   引擎的护甲读点已切到卡池 v9 的 `armour` 列（落点 = `Core/CardDef.cs` 构造函数里
+        //   「列优先、`keywords` 旧口径兜底」那一段）。这条断言盯的是**分叉**：
+        //     · **两处都 > 0 且值不等** ⇒ 红（列被改 / 旧口径被改，两边都会露）
+        //     · **只有列有值** ⇒ 红（那张卡的 `keywords` 里没有 `Armour N` —— 列多写还是漏了关键词，要人判）
+        //     · **只有旧口径有值** ⇒ 只放行**已知那一张**（`DA83`：列写 0 是**列的缺陷**、旧口径 1 才是真值
+        //       —— 判据 = PnP 成品卡图 `Dark Angels/3部队/Warpforge_09_Ballistus-Dreadnought.png`
+        //       右下银盾印 **1**，2026-10-15 亲读）。⛔ 白名单只放这一张：新出现的任何一张都会红。
+        {
+            var onlyPool = new List<string>();     // 只有 `armour` 列有值
+            var onlyKw = new List<string>();       // 只有旧口径（`keywords`）有值
+            var mismatch = new List<string>();     // 两处都有、值不等
+            int agree = 0;                         // 两处都有且相等
+            foreach (var c in pool)
+            {
+                if (c == null) continue;
+                int fp = c.ArmourFromPool, fk = c.ArmourFromKeywords;
+                if (fp == 0 && fk == 0) continue;
+                if (fp > 0 && fk > 0)
+                {
+                    if (fp == fk) agree++;
+                    else mismatch.Add($"{c.Id}（列={fp} · keywords={fk}）");
+                }
+                else if (fp > 0) onlyPool.Add(c.Id);
+                else onlyKw.Add(c.Id);
+            }
+            CheckTrue(agree >= 70, $"护甲：两套口径**都 >0 且相等**的卡 {agree} 张（应 ≥ 70 —— 2026-10-15 现读 79）");
+            Check(mismatch.Count, 0, "★ 护甲：两套口径**值不等**的卡 0 张"
+                + (mismatch.Count > 0 ? " —— 还有：" + string.Join(" / ", mismatch.ToArray()) : ""));
+            Check(onlyPool.Count, 0, "★ 护甲：**只有 `armour` 列**有值的卡 0 张"
+                + "（多出来说明那张卡的 `keywords` 缺了 `Armour N`）"
+                + (onlyPool.Count > 0 ? " —— 还有：" + string.Join(" / ", onlyPool.ToArray()) : ""));
+            CheckTrue(onlyKw.Count == 0 || (onlyKw.Count == 1 && onlyKw[0] == "DA83"),
+                onlyKw.Count == 0
+                    ? "护甲：旧口径兜底那一支今天没触发（说明 `armour` 列已补齐）"
+                    : $"★ 护甲：**只有旧 `keywords` 口径**有值的卡 = 1 张且是 {onlyKw[0]}"
+                      + "（列的缺陷 · PnP 卡图银盾印 1 ⇒ 兜底那一支**不能删**）");
+            // 兜底那一支的**值锁**（判别式：删掉兜底 / 列被改成别的数，这两件事不可能同时让下面这条绿）
+            var da83 = CardDatabase.FindById(pool, "DA83");
+            if (da83 != null)
+                Check(da83.KwValue("armour"), 1,
+                      "★ `DA83` 的有效护甲 = 1（列写 0 · 旧口径给 1 · PnP 卡图银盾印 1）"
+                    + " ⚠️ **它测的是【有效值】** —— 列那一半的回退它测不出，见下面那两格");
+
+            // 🔴 🆕 2026-10-15（源 = `AD_descZh两代.md` §四·1）：**列的锁** —— 上面那条测的是
+            //   **有效值**（`KwValue`），而有效值那一支是「列 > 0 ⇒ 用列，否则旧口径兜底」
+            //   ⇒ 列被写回 0 之后**旧口径照旧接得住**（还是 1）⇒ 上面那条**照旧绿**、
+            //   **测不出列的回退**。本格把**列本身**钉住。
+            //   判别式（**结构上不可能同时满足**）：把 `工具/gen_cards_engine.py` 的 `fix_own_armour`
+            //   闸写回**宽**那一版（`any(re.search(r"armou?r", k) for k in keywords)` —— 裸 `Armour`
+            //   也算「已经有值」）⇒ `DA83` 的 `armour` 列回落 **0**、`keywords` 那条 `Armour 1` 消失
+            //   ⇒ **本格红**，而上面那条有效值断言**照旧绿** —— 这正是要补它的理由。
+            //   判据 = PnP 成品卡图 `d:/2/Warpforge部队卡片/Dark Angels/3部队/Warpforge_09_Ballistus-Dreadnought.png`
+            //   右下银盾印 1、关键词行印 `Armour 1.`（2026-10-15 亲读）。
+            if (da83 != null)
+                Check(da83.ArmourFromPool, 1,
+                      "★ `DA83` 的 `armour` **列** = 1（PnP 卡图银盾印 1 —— 列是生成器那一侧的产物，"
+                    + "⛔ 不许靠旧口径兜底把它蒙过去）");
+
+            // 🔴 🆕 2026-10-15（源 = `AD_descZh两代.md` §四·2）：**全池 `armour` 列 > 0 的张数**。
+            //   判别式：① 列的读点被改窄（`armour > 0` 那半句被删 / 换成别的字段）⇒ 这个数掉下去；
+            //   ② `fix_own_armour` 被回退（闸写回宽的版本）⇒ `DA83` 那一张掉出这一档 ⇒ **81 → 80**。
+            //   ⚠️ 用 **`==`** 不用 `>= 80`：`>= 80` 对 ② 这一种回退**不敏感**（而 ② 正是要挡的那一种）。
+            //   现读（2026-10-15）= **81**。改这个数之前先看它为什么变 —— 列是生成器那一侧
+            //   （PnP 那一层优先、真值兜底）算出来的，摘要行的原话见 `gen_cards_engine.py`。
+            {
+                int armourCol = 0;
+                foreach (var c in pool) if (c != null && c.ArmourFromPool > 0) armourCol++;
+                Check(armourCol, 81, "★ 全池 `armour` 列 > 0 = 81 张（2026-10-15 现读；"
+                                   + "`fix_own_armour` 被回退会使 `DA83` 掉出这一档 ⇒ 80）");
+            }
+        }
+
+        // ---- 🆕 2026-10-15（接线批）：三个「原版 trait 枚举名」登记之后，**现池读数必须一字不变** ----
+        //   登记 `rage` / `frenzied` / `unstoppable` 之前实测（2026-10-15）：
+        //   `Has(penitence)` **1** · `Has(destroyer)` **10** · `Has(unstoppable)` **0**，
+        //   且「以这三个词开头的卡面串」= **0** 条 ⇒ 这三条是**纯保险**（防将来写进 `keywords` 被静默丢）。
+        //   ⛔ 下面这几个数一旦变了，说明有卡面/`keywords` 串被**新前缀抢走**了（前缀撞车）——
+        //   那才是真缺陷（判别式：只加词不改池 ⇒ 三个数都不动；撞车 ⇒ 至少一个动）。
+        //
+        // 🔴 **2026-10-15 就地重钉（`AG` 波 · 铁律 5）：第一格 `1` → `5`。**
+        //   **原写**「全池 `Has(penitence)` = **1** 张（登记 `Rage` 前后必须相同 —— 多了就是前缀撞车）」。
+        //   **实际 = 5**，而且**不是前缀撞车** —— 多出来的是 `SOR8` / `SOR10` / `SOR21` / `SOR27`
+        //   （`SOR32` 改前就在名单上）。**错因** = 写这条断言时只算了「引擎登记」那一半的池，
+        //   而同一天**生成器侧也动了**：`工具/gen_cards_engine.py` 的 `TRAIT_ENGINE_UNREGISTERED`
+        //   从 `{frenzied, rage, unstoppable}` **清空**（那只表是「引擎还不认这三个词」时的保险闸，
+        //   登记完就没它的事了）⇒ `Penitence`（= `Rage` 的**卡面字**，映射见 `CardDef` 的 `Prefixes`）
+        //   第一次真的流进 `keywords`。
+        //   ⇒ 这 4 张是**「生成器放行」这条指令本身要的效果**，⛔ **不是撞车、不许改回 1**
+        //   （改回去 = 把生成器那一笔推翻，铁律 11）；**理由与逐张实据**就写在这里，别只留一个数。
+        //   ✅ **逐张核过**（判据 = 那几张卡的 `desc` 里确实印着 `Penitence:` 那句正文）：
+        //     `SOR8 Arco-Flagellant`　`Penitence: Deal 1 damage to all other units` ·
+        //     `SOR10 Sisters Repentia`　`… Penitence: Gain +2 [Attack]` ·
+        //     `SOR21 Death Cult Assassin`　`Penitence: Deal 2 damage to a random enemy` ·
+        //     `SOR27 Penitent Engine`　`Penitence: Gain Flank and Blast 2`。
+        {
+            int pen = 0, des = 0, uns = 0;
+            var penIds = new List<string>();
+            foreach (var c in pool)
+            {
+                if (c == null) continue;
+                if (c.Has(KeywordTable.Penitence)) { pen++; penIds.Add(c.Id); }
+                if (c.Has(KeywordTable.Destroyer)) des++;
+                if (c.Has(RuleCore.Unstoppable)) uns++;
+            }
+            Check(pen, 5, "★ 全池 `Has(penitence)` = 5 张（`SOR8`/`SOR10`/`SOR21`/`SOR27`/`SOR32` —— "
+                        + "其中 4 张是 2026-10-15「生成器清空排除表」放行的，**逐张核过不是前缀撞车**；"
+                        + "⛔ 改回 1 = 推翻那一笔）");
+            // 🔴 **名单锁**（比只数个数强）：「数出来还是 5 张、但换成了别的卡」这一种改法，
+            //   上面那格看不出来、本格看得出来。判别式：个数一样、名单不同 ⇒ 本格红。
+            CheckTrue(penIds.Count == 5 && penIds.Contains("SOR8") && penIds.Contains("SOR10")
+                   && penIds.Contains("SOR21") && penIds.Contains("SOR27") && penIds.Contains("SOR32"),
+                "★ 上一条那 5 张**逐 id** 就是 `SOR8`/`SOR10`/`SOR21`/`SOR27`/`SOR32`"
+                + "（现得 " + penIds.Count + " 张：" + string.Join(" / ", penIds.ToArray()) + "）");
+            Check(des, 10, "★ 全池 `Has(destroyer)` = 10 张（登记 `Frenzied` 前后必须相同）");
+            Check(uns, 0, "★ 全池 `Has(unstoppable)` = 0 张（`SAU7` 走的是卡面句那条入口）");
+
+            // 🔴 🆕 2026-10-15（源 = `AD_descZh两代.md` §四·4）：上面**新进来**的那 4 张，
+            //   正文**真的会跑** —— 立这一格是为了让下个会话**别只看到 `Has(penitence)` 从 1 变 5
+            //   就以为坏了**。
+            //   判据 = `CardDef.BodyResolves`（`A1618` 立的**唯一判据**，`Core/CardDef.cs:2887`）；
+            //   它问的是「`TriggerOps(penitence)` 拿不拿得到 op」，**不经过 `Has`**
+            //   ⇒ 与上面那格「名单锁」看的是**两条不同的路**（互补，不是重复）。
+            //   判别式（**两格各自能单独红**）：本格测的是**判据链的末端** ——
+            //   `TriggerOps("penitence") != null` 要同时满足「`penitence` 在 `RoutableTriggers` 里」
+            //   ＋「那几句正文 `EffectText.Parse` 至少解出一条 op」。链上任一环断掉
+            //   （例：把 `Penitence` 从 `Core/CardDef.cs:476` 的 `RoutableTriggers` 里拿掉）
+            //   ⇒ 本格红，而「名单锁」看的是 `keywords` 那一列（**不相干的一列**）⇒ 照旧绿；
+            //   反过来把生成器那张排除表改回去 ⇒ 名单锁红、本格照旧绿。
+            //   ⚠️ 这里**只点这 4 张**：`SOR32` 改前就在名单上，它的「正文会跑」早被
+            //   `A1618` 的 `star == 0`（`TestA1618TwoParsersAgree` 里那条 `Check(star, 0, …)`）覆盖着。
+            string[] penNew = { "SOR8", "SOR10", "SOR21", "SOR27" };
+            foreach (var id in penNew)
+            {
+                var pc = CardDatabase.FindById(pool, id);
+                CheckTrue(pc != null && pc.Has(KeywordTable.Penitence)
+                       && pc.BodyResolves(KeywordTable.Penitence),
+                    $"★ `{id}` 的 `Penitence` 正文**真的会跑**（`Has` 与 `BodyResolves` 同时为真）"
+                    + " —— `A1618` 的 `star == 0` 靠的就是它");
+            }
+        }
+
+        // ---- 🔴 🆕 2026-10-15（源 = `AD_descZh两代.md` §四·3 与 §四·1 的**原文那一半**）----
+        //   这两格读的是**卡表原文**（`keywords` / `cardTraits` 两列），⛔ **不是 `CardDef`**：
+        //   `CardDef` **不保留** `keywords` 原文（它只留归一键 —— 裸 `Armour` 与 `Armour 1`
+        //   归一后**都是** `armour = 1`，从 `CardDef` 上分不出来），也**没有** `cardTraits` 这一栏
+        //   （全仓只有 `CardDatabase` 把它读进 `CardDto.cardTraits`、没有消费点）。
+        //   读法照抄本文件既有的 `LoadRawKeywordEntries`（`Resources.Load<TextAsset>` +
+        //   `CardDatabase.FileDto`，⛔ 不另写一套 JSON 形状）。
+        {
+            var rawAsset = Resources.Load<TextAsset>(CardDatabase.ResourcePath);
+            var rawDto = rawAsset == null ? null
+                       : JsonUtility.FromJson<CardDatabase.FileDto>(rawAsset.text);
+            CheckTrue(rawDto != null && rawDto.cards != null,
+                "卡表原文读得回来（下面两格的**前提** —— 读不到就**不是绿、是红**，⛔ 别当空转放过去）");
+            if (rawDto != null && rawDto.cards != null)
+            {
+                // ① `cardTraits` 列里**不许**出现 `Frenzied` / `Rage`（源 = §四·3）。
+                //    判据 = 官方表把这两个**原版枚举名**对应的**显示名**给了卡面字：
+                //      `Card_Trait/frenzied` = `Destroyer` · `Card_Trait/rage` = `Penitence`
+                //      （`Resources/official_names.json`；另有化石键 `Card_Trait/frenzied_old` =
+                //       `Frenzied` ⇒ 改名史的实据）。
+                //    判别式：把 `gen_cards_engine.py` 的 `TRAIT_DISPLAY` 改回 Title Case
+                //      （`frenzied` → `Frenzied`、`rage` → `Rage`）⇒ 本格**立刻红**。
+                var badTrait = new List<string>();
+                foreach (var c in rawDto.cards)
+                {
+                    if (c == null || c.cardTraits == null) continue;
+                    foreach (var t in c.cardTraits)
+                        if (t == "Frenzied" || t == "Rage")
+                            badTrait.Add((string.IsNullOrEmpty(c.id) ? c.name : c.id) + "/" + t);
+                }
+                Check(badTrait.Count, 0, "★ `cardTraits` 列里**没有** `Frenzied` / `Rage`"
+                    + "（那一列写的是**卡面字** `Destroyer` / `Penitence` —— 判据 = 官方 "
+                    + "`Card_Trait/frenzied` / `Card_Trait/rage`）"
+                    + (badTrait.Count > 0 ? " —— 还有：" + string.Join(" / ", badTrait.ToArray()) : ""));
+
+                // ② `DA83` 的 `keywords` 原文里那条**已经是 `Armour 1`**（源 = §四·1 的原文那一半）。
+                //    判别式：`fix_own_armour` 的闸写回**宽**那一版 ⇒ 裸词那一格**不再升级**
+                //      ⇒ 原文停在裸 `Armour` ⇒ 本格红（而「有效护甲 = 1」那条**照旧绿** ——
+                //      裸词按「存在即真」也是 1）⇒ 两格看的不是同一件事。
+                //    ⚠️ **「恰好 1 条」也是判据的一部分**：改成「追加一条」会让卡面印成
+                //      `护甲。护甲 1。`（`CardText.KeywordSegment` **逐条**比字面）⇒ 同样要红。
+                int da83Armour1 = 0;
+                string da83Kws = "";
+                foreach (var c in rawDto.cards)
+                {
+                    if (c == null) continue;
+                    string rawId = string.IsNullOrEmpty(c.id) ? c.name : c.id;
+                    if (rawId != "DA83" || c.keywords == null) continue;
+                    da83Kws = string.Join(" / ", c.keywords);
+                    foreach (var k in c.keywords) if (k != null && k.Trim() == "Armour 1") da83Armour1++;
+                }
+                Check(da83Armour1, 1, "★ `DA83` 的 `keywords` 原文里 **`Armour 1` 恰好 1 条**"
+                    + "（裸词那一格是**原地升级**、⛔ 不是追加第二条）—— 现读该列 = " + da83Kws);
+            }
+        }
 
         int units = CardDatabase.Units(pool).Count;
         CheckTrue(units >= 500, $"单位卡 {units} 张（应 ≥ 500）");
@@ -4380,7 +4650,9 @@ public static partial class RuleEngineTest
         //    ⚠️ **改前是 4**，而那一行的依据是「我们上一版复刻 `_damage_unit` 的函数头写着这个顺序」
         //    —— `rule_core.gd` 是**我们自己的复刻、只是一份旁证，不是原版** ⇒ 那个「先加伤、
         //    再减甲」的**折进口径已被证伪**（两种口径**普通档就不等价**，例 伤害 5/易伤 2/护甲 1 ⇒ 6 vs 5）。
-        //    判别式全文与「还没做的三档」→ `RuleCore.VulnerableDamagePart` 的 doc。
+        //    判别式全文 → `RuleCore.VulnerableDamagePart` 的 doc；
+        //    🆕 2026-10-14（`A1335①` 三档全部落地，含普通档那道 `:210-211` 闸）判别式 →
+        //    `TestA1563VulnerableDamageSplit` 的 ⑧/⑨。
         var both = Place(ctx, 0, 3, Unit("Both", 1, 1, 9, "Vulnerable 2", "Armour 1"));
         Check(RuleCore.ApplyDamage(ctx, both, 3, "自检"), 3,
               "★ 易伤2 + 护甲1 吃 3 点 → 掉 **3** 点 = `max(1, 3−1)` + `max(1, 2−1)`"
@@ -8463,8 +8735,8 @@ public static partial class RuleEngineTest
         //    ⇒ 同名跨阵营的**自造 id** 那条路现在没有样本了；以后再出现自造 id 要另立断言。
         var pairs = new[]
         {
-            new[] { "Terminator Champion", "BlackLegion",     "EC_Terminator_Champion" },
-            new[] { "Maulerfiend",         "BlackLegion",     "EC_Maulerfiend" },
+            new[] { "Terminator Champion", "BlackLegion",     "EC26" },
+            new[] { "Maulerfiend",         "BlackLegion",     "EC30" },
             // ⚠️ **2026-10-17 删掉了一行**：原来是第 4 组
             //    `new[] { "Bladeguard Veteran", "DarkAngels", "UM23" }` —— 它量的**不是**同名跨阵营了：
             //    `DA26` 仍叫 `Bladeguard Veteran`，而 `UM34` 已撤回成 `Bladeguard Lieutenant`
@@ -12042,8 +12314,15 @@ public static partial class RuleEngineTest
         //  🔴 改之前：`Codex:` 的正文**只有** `Author of the Codex` 那一类「强行触发」会消费，
         //     **没有任何自动触发点** ⇒ 20 张带 `Codex` 的卡（10 张写前缀 + 10 张裸写）的正文
         //     **一条都不会自己发生**，而且报表上看不出来（解析得了、载荷也有机制）。
-        //  语义照我们上一版复刻 `d:/warpforge/scripts/rule_core.gd:2397 _check_codex`（旁证，非原版判据；两条都照抄）：
-        //     ① 能量**恰好为 0**；② 扫格位、**一次只触发第一个**带 `codex` 的单位（那边是 `break`）。
+        //  语义判据 = **原版反编译**（🔴 2026-10-14 账 `A1155①` 就地订正）：
+        //     `decomp_full/BattleManager__ResolveTriggerPlayerCodex.c` ——
+        //     ① **入口闸** = 付款后剩余能量 == 0（由调用方 `BattleManager__PayCardCost.c:30
+        //        → BattleManager__CheckIfCodexTriggered.c:31` 那一条管，本文件这一段只做②）；
+        //     ② **扫的是全场 `CardsInPlay`、逐张判「在场 ∧ 同队」，触发完一张接着下一张** ——
+        //        循环条件 `:283 if (*(int *)(lVar16 + 0x18) <= iVar18)` 到 `list.Count` 才收尾 `return`。
+        //     ⚠️ **本行原来引用的是**我们上一版 Godot 复刻 `d:/warpforge/scripts/rule_core.gd:2397
+        //        _check_codex`（**旁证、非判据**），并把它的 `break` 当成原版 ⇒ **那个口径是错的**，
+        //        见下面 ④ 那一格（**那一格已经翻面**）。
         {
             // ---- ① 裸写那一族：正文收得到，而且**挂着 `EnergyZero`**（两条路共用一份判据）----
             var pool = CardDatabase.Load();
@@ -12110,7 +12389,20 @@ public static partial class RuleEngineTest
                           + LogTail(ctx));
             }
 
-            // ---- ④ **一次只触发第一个**（原版那条 `break`，别改成「全体各来一次」）----
+            // ---- ④ 🔴 **2026-10-14（账 `A1155①`）：本条【翻面】** ——
+            //    **原来断的是反的**：改前这里写着「**一次只触发第一个**（原版那条 `break`，
+            //    别改成「全体各来一次」）」，判据是**我们上一版 Godot 复刻**
+            //    `rule_core.gd:2397 _check_codex` 的 `break`（**旁证、非权威**）。
+            //  ✅ **现核第一权威**（逐行读过）：`decomp_full/BattleManager__ResolveTriggerPlayerCodex.c:281-509`
+            //    那个 `do{…}while(true)` **循环到 `list.Count` 为止** ——
+            //    `:283 if (*(int *)(lVar16 + 0x18) <= iVar18)` 才走收尾（`FinishResolvingAction` + `return`）；
+            //    函数里那三处 `break`（`:392` / `:445` / `:494`）**全是 `get_Item` 之后的 null 守卫**
+            //    ⇒ **触发完一张接着下一张，没有早退**。逐张的判据 = `:392 IsInPlay` ∧
+            //    `:445 *(char*)(card + 0x40) == *(char*)(local_140 + 0x40)`（**同队**）
+            //    ⇒ `:496 CardScript__TriggerCodex`。
+            //  ⚠️ **这是「自检绿 ≠ 口径对」的活例**：这条断言把我们的错口径钉了很久，绿得毫无提示。
+            //  ⚠️ **判别式**：把 `RuleCore.CheckCodex` 循环尾那句 `break` 加回去 ⇒ **下面第二行必红**
+            //    （只加回实现、不动本行 = 本行是它的检测器）。
             {
                 var ca = new CardDef("FixtureCodexA", "FixtureCodexA", "unit",
                                      "Codex: Gain +1 Attack", "common", "Test",
@@ -12127,9 +12419,10 @@ public static partial class RuleEngineTest
                 ctx.Players[0].Energy = 2;                 // 打出这张战术卡之后归零
                 CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "FixtureSpend2"), 3),
                           RuleCodes.OK, "打出一张把能量打光的战术卡");
-                Check(Board(ctx, 0, 2).Attack, 3, "★ 2 号格那个（先放上去的）**触发了**");
-                Check(Board(ctx, 0, 3).Attack, 2,
-                      "★ 3 号格那个**不触发**（原版 `break`：一次只触发一个）" + LogTail(ctx));
+                Check(Board(ctx, 0, 2).Attack, 3, "★ 2 号格那个**触发了**");
+                Check(Board(ctx, 0, 3).Attack, 3,
+                      "★ 3 号格那个**也触发**（原版循环到 `list.Count`、没有早退 ⇒ "
+                    + "**每一个**带 `codex` 的己方在场单位各来一次）" + LogTail(ctx));
             }
         }
 
@@ -18873,28 +19166,61 @@ public static partial class RuleEngineTest
         //   `资料/普查产出_第六会话/WRelated_相关卡中文索引.md` **§⑦** 的建议逐条落地。
         //
         // 🔴 **三个中文数的口径**（⛔ **都不是从被测代码现算的**，与上面 ⑤ 那两个**同一性质** ——
-        //   钉的是**本轮实测数**）：
-        //   · 中文档 **132 / 67**（喂 `DescZh`）：用**真编译出来的引擎代码**整体跑出来的，而且
-        //     **另有一条独立复核** —— 先写一份 python 复刻，**10 个既有期望数逐字对上**才信它。
-        //   · 中文档 `Reanimate` **12**（英文是 8；差的 4 处是「中文里关键词与卡名同词」，
-        //     中文没有词边界 ⇒ 只能逐位置取最长名，那 4 处是**已知的松**，不是漏）。
-        //   ⚠️ **英文档那两个数（125 / 64）不许因为这段改动而变** —— 上面 ⑤ 已钉住。
+        //   钉的是**本轮实测数**）：三个数都用**真编译出来的引擎代码**整体跑出来；
+        //   **另有一条独立复核臂** —— 同一份演算台跑 **HEAD 版卡池**，把那 10 个英文期望数
+        //   与当时钉的中文数**逐字对回来**，对上了才信它。
+        //   📌 **逐次读数（留痕，别只留最新那个）**：`132 / 67 / 12`（换官方卡名前）
+        //   → `82 / 33 / 0`（2026-10-14 `A1801` 换官方中文卡名）
+        //   → **`80 / 31 / 0`**（P1/P2 之后、换官方 `descZh` 之前；⚠️ 这一档**不是本轮**造成的）
+        //   → **`60 / 32 / 0`**（2026-10-15 P3 相 `A1763`：`descZh` 换成**官方模板**）。
+        //   ⚠️ **英文档那两个数（125 / 64）不许因为这段改动而变** —— 上面 ⑤ 已钉住（本轮实测：**没变**）。
+        // 🔴 **2026-10-15（P3 相 · `A1763` 数据层）就地改过这一段**：`descZh` 全池换成**官方模板**
+        //   （`数据/游戏数据/官方本地化_en+zh-CN.json` 的 `Card_Description/*`）之后：
+        //   ① 三个中文期望值 **82 / 33 / 0 → 60 / 32 / 0**（`Reanimate` 那格本来就是 0）；
+        //   ② **官方中文用 `$$ID$$` 指卡**（不再写卡名）⇒ 「按字面卡名匹配」这条路的**中文件天然哑火**
+        //      ⇒ 下面 (1) 那条从「查得到」改成「**钉住这个哑火事实**」（真缺口另立，见那一段的注释）。
+        //   ⚠️ 数字仍按**同一套口径**取：用**真编译出来的引擎代码**整体跑 `MentionedCards`。
+        //      🔑 **本次的复核臂**：同一份演算台跑 **HEAD 版卡池**给出 **82 / 33**（与改前钉死的值**逐字相同**）
+        //      ⇒ **演算台是可信的**，60 / 32 那两个差就是本轮改动造成的、不是工具错。
         {
-            // ---- (1) 用户举的那个例子 · **中文档版** ----
-            // 期望值来源：**两条都能拿 `cards_engine.json` 手工核** ——
-            //   `Path of Command`（`ASH6`）的 `descZh` 逐字是「临时。部署 1 个风暴守护者」，
-            //   而 `Storm Guardian`（`ASH8`）的 `nameZh` 逐字是「风暴守护者」。**不是**从 `MentionedCards` 算的。
+            // ---- (1) 用户举的那个例子 · **中文档版** —— ⚠️ 2026-10-15 起**语义反了**，如实钉住 ----
+            //
+            // 🔴 **改前**：`Path of Command` 的 `descZh` 逐字是「临时。部署 1 个风暴守护者」⇒ 字面匹配
+            //   命中 `Storm Guardian`（那一张的 `nameZh` 就是「风暴守护者」）。**这条当时是真的。**
+            // 🔴 **改后（本轮）**：这一张的 `descZh` 换成了官方模板
+            //   `[[ephemeral]]。<br>((Deploy_x,$$ASH5$$))` —— **卡名被包在 `$$ID$$` 记号里**，
+            //   正文里**一个字面卡名都没有** ⇒ `MentionedCards`（按字面卡名匹配）**必然查不到**。
+            // ⇒ 所以这一条现在断的是**那个事实**（不是「查得到」）：
+            //   ① 正文里**有** `$$ASH5$$`（`ASH5` = `Storm Guardian`，它的 `nameZh` = 「风暴守护者」）；
+            //   ② 正文里**没有**「风暴守护者」这个字面；
+            //   ③ 于是字面匹配**确实**给不出 `Storm Guardian`（`relZh` 空）。
+            //   ⛔ 这三条**结构上互相牵制**：谁把 `descZh` 换回自译（② → 假）、或把 `$$` 渲染接进来
+            //      （`MentionedCards` 改吃渲染后的文本 ⇒ ③ → 假），这里都会当场红、逼人回来改口径。
+            //   📌 **真缺口（另立，不在本笔）**：「相关卡」要按**渲染后的**中文正文匹配
+            //      （把 `$$ID$$`/`[[X]]`/`((Key))` 过一遍 `CardIcons.RewriteMarks` 再喂进来）——
+            //      落点在 `CardPresentation/Core/RelatedCards.cs`（本轮不在白名单）。
             CardDef poc2 = null;
             foreach (var c in pool) if (c.Name == "Path of Command") { poc2 = c; break; }
+            CheckTrue(poc2 != null, "（前提）卡池里有 `Path of Command`");
             if (poc2 != null)
             {
+                CardDef sg = null;
+                foreach (var c in pool) if (c.Name == "Storm Guardian") { sg = c; break; }
+                CheckTrue(sg != null && sg.NameZh == "风暴守护者",
+                          $"（前提·数据侧事实）`Storm Guardian` 的 `nameZh` = 「风暴守护者」（现得 `{sg?.NameZh}`）");
+                CheckTrue(poc2.DescZh.IndexOf("$$ASH5$$", System.StringComparison.Ordinal) >= 0,
+                          "★ 官方中文正文用 `$$ID$$` 指卡：`Path of Command` 的 `descZh` 里**有** `$$ASH5$$`"
+                          + $"（现得「{poc2.DescZh}」）");
+                CheckTrue(poc2.DescZh.IndexOf("风暴守护者", System.StringComparison.Ordinal) < 0,
+                          "★ ……而**没有**「风暴守护者」这个**字面**（官方模板不给卡名）");
                 string whyZh;
                 var relZh = CreatePool.MentionedCards(pool, poc2, poc2.DescZh, out whyZh, 8);
                 bool hasSgZh = false;
                 foreach (var r in relZh) if (r.Name == "Storm Guardian") hasSgZh = true;
-                CheckTrue(hasSgZh && whyZh == null,
-                          "★ **中文档下 `Path of Command` 的相关卡里也有 `Storm Guardian`**"
-                          + "（判据是两条**数据字面**：它的 `descZh` 写「风暴守护者」、那张卡的 `nameZh` 就是它）");
+                CheckTrue(!hasSgZh && whyZh == null,
+                          "★ 所以**按字面卡名匹配**（`MentionedCards` 的现行口径）给不出 `Storm Guardian`"
+                          + $"（实得 {relZh.Count} 张）—— 这是**官方模板带来的已知缺口**，"
+                          + "⛔ 不是回归；修法 = 先渲染记号再匹配（见本段注释末那条）");
             }
 
             // ---- (2) **顺序合并**（合成夹具；🔴 灭自证用）----
@@ -18972,24 +19298,31 @@ public static partial class RuleEngineTest
                         if (reanimate != null && r.Id == reanimate.Id) reanimateViaZh++;
                     }
                 }
-                CheckTrue(pool.Count == 1126,
+                // 🔴 **2026-10-15（P3 相 · `A1763` 数据层）：卡池张数 1126 → 1127。**
+                //    多的是 **`TL40 Infestation Node`**（P1 那批 id 置换顺手补上的那一张；
+                //    判据 = 拿 HEAD 版卡池与现池按 `id` 求差集：**只多这一张、一张都没少**）。
+                //    ⚠️ 这一格**只是前提检查**，权威数字仍写在 `资料/阵营推进_清单与交接.md` §一
+                //    （那份文件里现在写的 1126 是**旧读数**，⛔ 本笔不动别的文件）。
+                CheckTrue(pool.Count == 1127,
                           $"（前提）卡池张数（判据只写在 `资料/阵营推进_清单与交接.md` §一，这里只做前提检查）：{pool.Count}");
-                // 🔴 **2026-10-14（第二十八会话收口）就地改期望值（铁律 5 · 账 `A1824`）**：
-                //   三个数从 **132 / 67 / 12** 掉到 **82 / 33 / 0** —— 根因是**卡名换成了官方 zh-CN**
-                //   （`A1801`），而**卡面 `descZh` 里还写着旧词**（例 `Reanimate` 的官方中文名是「重生」，
-                //   而 `descZh` 里写的是「复生」）⇒ **关键词与卡名对不上**、中文档自然点不到它。
-                //   ⚠️ **这不是「断言坏了」，是那个不一致的现场证据** ⇒ **真缺口 = `A1827`**
-                //   （descZh 里仍写着 89 个旧卡名 / 150 处）—— 修完 `A1827` 之后这三个数要**重取**。
-                Check(mentionsZh, 82, "★ **中文档**（喂 `DescZh`）全池总处数 —— 现读 **82**（换官方卡名之前是 132；"
-                                    + "差值是「关键词名与 descZh 用词不一致」造成的，见 `A1827`，⛔ 别当成回归）");
-                Check(distinctZh.Count, 33, "★ 中文档被点到的**卡**数 —— 现读 **33**（换官方卡名之前是 67；同上，"
-                                          + "真缺口 = `A1827`，修完要重取）");
-                // 🔴 **2026-10-14 就地改期望值 12 → 0（铁律 5 · 账 `A1824`/`A1827`）**：**0 不是「坏消息」，
-                //   是那个不一致的极端例子** —— `Reanimate` 的官方中文名换成了「**重生**」，而 `descZh` 里
-                //   写的一律是「**复生**」⇒ 中文档**一次都点不到它**（英文侧仍是 8 次）。
-                //   ⇒ 修完 `A1827`（descZh 里那 89 个旧卡名 / 150 处）之后这个数要**重取**，⛔ 别把它当基准。
-                Check(reanimateViaZh, 0, "★ 中文档 `Reanimate` 被点名 **0** 次（英文是 8）—— 因为它的官方中文名是「重生」"
-                                       + "而 `descZh` 里写的是「复生」⇒ 关键词与卡面文字对不上（真缺口 = `A1827`）");
+                // 🔴 **2026-10-15（P3 相 · `A1763` 数据层）就地改期望值（铁律 5）：82 / 33 → 60 / 32。**
+                //    **成因查实**：本轮把 `descZh` 全池换成**官方模板**（`Card_Description/*`）——
+                //    **官方中文用 `$$ID$$` 指卡、不写字面卡名**（现读现池 **120 张**卡的 `descZh` 里有 `$$`），
+                //    而 `MentionedCards` 是**按字面卡名**匹配的 ⇒ 中文档天然少点到一批。
+                //    ⚠️ 这两条**不是回归**、也不是「断言坏了」：它是**新口径下的实测数**（口径没变、数据变了）。
+                //    🔑 **可信度**：同一份演算台（`d:/4/_tmp_p3/mention`，仓外、非交付物）跑 **HEAD 版卡池**
+                //    给出 **82 / 33**（与原来钉的值**逐字相同**）⇒ 工具可信，差值是本轮改动造成的。
+                //    ⚠️ 另一个**已存在**的成因：`cardface_fixes.json` 的 `descZh` 手工列在这中间还改过
+                //    ⇒ 从 82/33 到换官方前的 80/31 那一小段差**不是本轮**造成的（如实记，⛔ 别混算在本笔头上）。
+                Check(mentionsZh, 60, "★ **中文档**（喂 `DescZh`）全池总处数 —— 现读 **60**（换官方 `descZh` 之前是 80/82；"
+                                    + "差值是「官方正文用 `$$ID$$` 指卡、不含字面卡名」造成的，见 `A1763`）");
+                Check(distinctZh.Count, 32, "★ 中文档被点到的**卡**数 —— 现读 **32**（同上，换官方 `descZh` 之前是 31/33）");
+                // 🔴 **2026-10-14 就地改期望值 12 → 0；2026-10-15 复核仍是 0（成因换了）**：
+                //    · 旧成因（`A1827`）：`Reanimate` 的官方中文名是「重生」而 `descZh` 里写「复生」；
+                //    · **现成因**：`Reanimate` 这张的 `descZh` 已是官方模板（`$$` 指卡、按字面匹配更点不到）。
+                //    ⛔ 别把它当基准 —— 修好「先渲染再匹配」之后这个数要**重取**。
+                Check(reanimateViaZh, 0, "★ 中文档 `Reanimate` 被点名 **0** 次（英文是 8）—— 官方中文正文不含字面卡名"
+                                       + "（`$$ID$$` 指卡）⇒ 按字面匹配点不到它");
             }
 
             // ---- (6) 结构不变量：中文索引**不是一张空表** ----
@@ -19054,7 +19387,7 @@ public static partial class RuleEngineTest
         // ① 前提：那一族**正好 4 张**，id 就是判据里写的那四个
         var contracts = CreatePool.DarkPactContracts(pool, null);
         Check(contracts.Count, 4, "★ `subtype = Dark Pact` 的卡正好 **4 张**（判据点名的 BL16/18/20/22）");
-        var wantIds = new[] { "BL_Dark_Pact_of_Fate", "BL_Dark_Pact_of_Blood", "BL_Dark_Pact_of_Excess", "BL_Dark_Pact_of_Resilience" };
+        var wantIds = new[] { "4a48457c24877f345be2e96f867c1e94", "9a2cadc64c80a6b42912441105bb1cee", "b8e81b2fe85cda747a68c4d6326b669c", "1dfc9bc738bfc4f4d93d48f165aee510" };
         foreach (var id in wantIds)
         {
             bool hit = false;
@@ -19078,7 +19411,7 @@ public static partial class RuleEngineTest
 
         // ③ **主卡本身就是契约** —— `Dark Pact of Fate`：列出另外三张、**不含自己**
         CardDef fate = null;
-        foreach (var c in pool) if (c.Id == "BL_Dark_Pact_of_Fate") fate = c;
+        foreach (var c in pool) if (c.Id == "4a48457c24877f345be2e96f867c1e94") fate = c;
         CheckTrue(fate != null, "（前提）卡池里有 `BL16 Dark Pact of Fate`");
         if (fate != null)
         {
@@ -19257,11 +19590,11 @@ public static partial class RuleEngineTest
             CheckTrue(n >= 78, $"（前提）`TalentCardData` 载到 **{n}** 张 —— 真值 97 张里落得下的那批"
                              + "（落不下的每一条与原因在 `数据/游戏数据/talent_cards.json`）");
             var a1 = TalentCardData.Get("ASH1");
-            CheckTrue(a1 != null && a1.Length == 1 && a1[0] == "ASH_Path_of_the_Seer",
+            CheckTrue(a1 != null && a1.Length == 1 && a1[0] == "09bcb1b3b8794c4429d82d4b2e68fa1f",
                       "★ `ASH1`（卡面 `Talent: Path of the Seer`）⇒ 真值指向 `ASH_Path_of_the_Seer`"
                       + "（按 **id**，⛔ 不按卡名）");
             var ec = TalentCardData.Get("EC55");
-            CheckTrue(ec != null && ec.Length == 1 && ec[0] == "EC_Duelist_s_Hubris_Lucius_Talent",
+            CheckTrue(ec != null && ec.Length == 1 && ec[0] == "6ed51d59b9f8ea24ab0dc7ceaef7956c",
                       "★ `EC55`（`Talent: Duelist's Hubris`）⇒ 真值指向 `EC_Duelist_s_Hubris_Lucius_Talent`");
             var bl = TalentCardData.Get("BL23");
             CheckTrue(bl != null && bl.Length == 3,
@@ -19615,7 +19948,7 @@ public static partial class RuleEngineTest
 
         // ---- ② 钉一条原版真值（现读那份包：`SAU37 Orikan the Diviner` 的 `relatedCard1` = `Master Chronomancer`）----
         var sa = RelatedCardData.Get("SAU37");
-        CheckTrue(sa != null && sa.Length == 1 && sa[0] == "SAU_Master_Chronomancer",
+        CheckTrue(sa != null && sa.Length == 1 && sa[0] == "cbabeb234380634479feab1a1b4c733a",
                   "★ 原版 `SAU37 Orikan the Diviner` 的 `relatedCard1` = `Master Chronomancer`"
                   + "（实测 " + (sa == null ? "null" : string.Join(",", sa)) + "）");
 
@@ -19630,7 +19963,7 @@ public static partial class RuleEngineTest
                       + $"｜desc=`{minka.Desc}`");
             var rel = CardPresentation.RelatedCards.Find(minka, 8);
             Check(rel.Count, 1, "★ 真值非空 ⇒ **只列真值那一条**（替身那三支一支都不跑）");
-            CheckTrue(rel.Count == 1 && rel[0].Id == "AM_Cadian_Honour",
+            CheckTrue(rel.Count == 1 && rel[0].Id == "3a52026b99bb56f40aa9dc130fc66f34",
                       "★ 而且就是原版写的那一张（`AM15` 的 `relatedCard1` = `Cadian Honour`）"
                       + "｜实得 " + (rel.Count == 0 ? "(空)" : string.Join(",", rel.ConvertAll(r => r.Id))));
         }
@@ -19786,7 +20119,7 @@ public static partial class RuleEngineTest
                 CheckTrue(got.EphemeralMarked,
                           "它和普通天赋一样是**临时卡**（回合结束没用掉就移出游戏）");
                 // 池子实算 3 张（BL6/BL7/BL8）—— 抽哪张由种子定，**这里只钉「抽到的是池内的」**
-                CheckTrue(got.Card.Id == "BL_Diabolic_Strength" || got.Card.Id == "BL_Infernal_Gaze" || got.Card.Id == "BL_Unhallowed_Gifts",
+                CheckTrue(got.Card.Id == "7bf8ce67fb6be4744ae44345a5b465fd" || got.Card.Id == "453b0e8f88e094a17866a6979f389ef5" || got.Card.Id == "141c5ed661a9e42bd9a793f0d2a1c682",
                           $"抽到的是池子那 3 张之一（实得 `{got.Card.Id}`）");
             }
 
@@ -22822,6 +23155,17 @@ public static partial class RuleEngineTest
     /// 而**卡面那个 `*` 与 `UnparsedEffects` 听的是前者** ⇒ 全池 **122 处**触发正文
     /// （带 `rally` 86 / `strike` 23 / `slay` 9 / `backlash` 3 / `penitence` 1）
     /// **被标成「解析不出来」，而它们的正文真会跑**（`TriggerOps` 122/122 命中）。
+    ///
+    /// ⚠️ **2026-10-15（`AG` 波）就地订正（铁律 5）**：上面那个 **`122`** 与它那 5 个分项
+    /// **是【改前那一刻】的读数**，⛔ **不是「今天重算还是这个数」**。
+    /// **原写 X ⇒ 实际 Y**：现核**至少 `penitence` 那一项已经不是 1** ——
+    /// 生成器侧 `TRAIT_ENGINE_UNREGISTERED` 清空之后，`SOR8`/`SOR10`/`SOR21`/`SOR27` 的
+    /// `keywords` 里也带上了 `Penitence` ⇒ **`Has(penitence)` 1 → 5**
+    /// （逐 id 的名单锁在 `TestCardDatabase`，本文件 `:2221-2223`）。
+    /// ⇒ **这一段的几个数今天【不给新值】**（本次未跑 Unity，⛔ 不拿推算冒充实测）——
+    /// 要现池读数就真跑一趟；**别把 `122` 当现池的账**。
+    /// 🔴 **本方法的两条断言不看这几个数** —— 它们只看 `star == 0`（本文件 `:23227`）与
+    /// `hasTrig > 100`；这几个数字只是**说明这段历史**用的。
     ///
     /// **判据（⛔ 不是「让两边一样」就算完）**：**机制那台对** —— 只有 `EffectText` 那一路
     /// （`CardDef.TriggerOps` → `UnitState.FxOps` → `RuleCore.FireTriggerAt`）喂给结算器。
@@ -27160,7 +27504,9 @@ public static partial class RuleEngineTest
     //  🆕 2026-10-21（第二十会话 · 账 `A1563` = `A1335①`）：**易伤口径 —— 它是【另一份】伤害**
     // ==================================================================
     //  规格 → `资料/普查产出_第二十会话/引擎线_文件所有权表.md` §一 `A1563` 那一行；
-    //  判据全文（含「还没做的三档」）→ `RuleCore.VulnerableDamagePart` 的 doc。
+    //  判据全文 → `RuleCore.VulnerableDamagePart` 的 doc；
+    //  🆕 2026-10-14（`A1335①` 第三档 = `N7` 普通档的 `:210-211` 闸 · 同批 `N8` 护甲的
+    //    `damageValue < 1` 守卫，两者都落在 `RuleCore.DamageAfterReduction`）⇒ 本组末尾的 ⑧/⑨。
     //
     //  🔴 **判别式一句话**：`max(1, 伤 − 甲) + max(1, 易 − 甲)` 与 `max(1, 伤 + 易 − 甲)`
     //     **普通档就不等价** ⇒ 下面**每一组都取「两种口径给不同答案」的输入**，
@@ -27253,6 +27599,11 @@ public static partial class RuleEngineTest
         // ---- ⑤【灭自证】预览合计必须 == 真打一局的实际掉血 ----
         //  🔴 这是 `A1107`（2026-10-09）起的那条口径：预览与结算**共用同一个数**。
         //     本笔把两边**同时**改（只改一边 ⇒ 下面两行必有一行红）。
+        //  ⚠️ **2026-10-14（`A1335①` 第三档 = `N7`）起，这条等式【有边界】**：它只在
+        //     「没有任何一发**一击就能打死**」时成立 —— 结算侧那道 `:210-211` 闸
+        //     （主伤害之后血还 > 0）会去掉易伤那一份，而**原版预览 `…WithDamageValues.c:183-205`
+        //     本来就没有这道闸**（每条各加一次、不看血）⇒ **是原版自己两条口径**。
+        //     本格取的是**非致死档**（9 血挨 6 点）⇒ 仍然相等。判闸的那一格见下面的 ⑧(a)(b)。
         {
             UnitState a, b;
             var atk = Unit("A1563_ShuProbe", 1, 3, 9, "Shuriken 3");
@@ -27307,6 +27658,204 @@ public static partial class RuleEngineTest
                       "★ 3 + 易伤 2 = 5 ≥ 生命 3 + 幸存者 1 ⇒ **判死**"
                     + "｜🧨 把 `acc += VulnerableDamagePart(u)` 挪到 `DamageAfterArmourOne` 那一步"
                     + "（= 并回第一条）⇒ 本行实得 **false**");
+        }
+
+        // ---- ⑧ 🆕 2026-10-14（`A1335①` 第三档 = 本批 `N7`）----
+        //  **`_ReceiveDamage…:210-211` 那道闸**：易伤那一发（`:252-254` 那条独立 `DealMultiDamage`）
+        //  前面还有三道 —— `:200` `if (0 < *(int *)(*(longlong *)(param_1 + 0x28) + 0x18))`
+        //  （**这一发进管线的量 > 0**）、`:210` 读的是**主伤害写完之后**的 `+0x68`（生命）、`:211`
+        //  `if ((0 < iVar8) && (*(char *)(lVar2 + 0x65) == '\0'))`
+        //  （`+0x65` = `EntityScript__get_isRemnant.c`）⇒ **血还 > 0 ∧ 不是残骸**。
+        //  ⇒ **主伤害本来就能打死它时，那一份根本不发**（改前我们「先加起来再判血」⇒ 多算）。
+        //  🔴 **判别式是一组四格**（⛔ 缺任何一个，单一错实现都能蒙过去）：
+        //    · (a) 致死档 ⇒ 那一份**不落**（🧨 去掉闸 ⇒ +2）；
+        //    · (b) 不致死档 ⇒ 那一份**照落**（🧨 把易伤整条删掉 ⇒ −2）；
+        //    · (c) 残骸档 ⇒ 挡住（🧨 去掉 `u.IsRemnant` ⇒ +2）；
+        //    · (d) 进伤 0 档 ⇒ 挡住（🧨 去掉 `actual <= 0` ⇒ +2）。
+        //  ⚠️ **预览侧不加这道闸**（原版 `…WithDamageValues.c:183-205` 本来就每条各加一次、不看血）
+        //     ⇒ 上面 ⑤ 那条「预览合计 == 真打一局」的不变式只在**非致死档**成立。
+        {
+            // (a) 致死档：3 血、打 3 ⇒ 主伤害正好打完 ⇒ 易伤那一份落不下来
+            UnitState a, b;
+            var ctx = Duel(Unit("A1335_Peer", 1, 1, 9),
+                           Unit("A1335_Def", 1, 0, 3), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword("vulnerable", 2);
+            Check(t.Health, 3, "（前提）目标 3 血");
+            Check(t.Armor, 0, "（前提）护甲 0（这一格只看那道闸）");
+            Check(RuleCore.VulnerableDamagePart(t), 2,
+                  "（前提）易伤那一份**确实存在** = `max(1, 2 − 0)` = 2"
+                + " ⇒ 下面那个 3 **不是**「本来就没易伤」的那种 3");
+            Check(RuleCore.DamageAfterReduction(t, 3), 3,
+                  "★★【`A1335①` 第三档主判别式 · (a) 致死档】打 3 正好打完 3 血 ⇒ "
+                + "原版 `:210-211` 那道闸（主伤害之后**血还 > 0** ∧ **不是残骸**）**不放行** "
+                + "⇒ 易伤那一份**落不下来** = **3**"
+                + "｜🧨 去掉 `DamageAfterReduction` 结尾那句"
+                + "`if (actual <= 0 || u.IsRemnant || u.Health - actual <= 0) return actual;`"
+                + "（= 改回「先加起来再判血」）⇒ 本行实得 **5**");
+            ctx.ClearSignals();
+            Check(RuleCore.ApplyDamage(ctx, t, 3, "自检"), 3,
+                  "★ 结算侧同一个数（返回值 = 事件 `Amount` / 践踏溢出量 —— 血那一半 `CleanupDeaths` 会兜，"
+                + "返回值不会）");
+            Check(t.Health, 0, "★ 生命 3 → **0**（⛔ 不是 −2）");
+            Check(S14Sig(ctx, EvtKind.Hit, null, 3), 1,
+                  "★ ……而且那条 `Hit` 的 `Amount` = **3**（⛔ 不是 5）");
+        }
+        {
+            // (b) 不致死档（与 (a) **方向相反**）：6 血、打 2 ⇒ 主伤害之后血还 4 > 0 ⇒ 那一份照落
+            UnitState a, b;
+            var ctx = Duel(Unit("A1335_Peer2", 1, 1, 9),
+                           Unit("A1335_Def2", 1, 0, 6), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword("vulnerable", 2);
+            Check(RuleCore.DamageAfterReduction(t, 2), 4,
+                  "★★【`A1335①` 第三档 · (b) 反向格】打 2 打 6 血 ⇒ 主伤害之后血还 4 > 0 "
+                + "⇒ 闸**放行**、易伤那一份照落 = 2 + 2 = **4**"
+                + "｜🧨 把易伤那一行整条删掉（或把闸写成恒不过 / 判反）⇒ 本行实得 **2**"
+                + "（(a)(b) 两格方向相反 ⇒ 任何**单一**错实现都不可能一起满足）");
+            ctx.ClearSignals();
+            Check(RuleCore.ApplyDamage(ctx, t, 2, "自检"), 4, "★ 结算侧同一个数");
+            Check(t.Health, 2, "★ 生命 6 → 2（`6 − 2 − 2`）");
+            Check(S14Sig(ctx, EvtKind.Hit, null, 4), 1, "★ 那条 `Hit` 的 `Amount` = **4**");
+        }
+        {
+            // (c) 闸的**另一半**：残骸（`EntityScript.isRemnant` = `+0x65`）—— 血还够、照样挡住
+            UnitState a, b;
+            var ctx = Duel(Unit("A1335_Peer3", 1, 1, 9),
+                           Unit("A1335_Def3", 1, 0, 9), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword("vulnerable", 2);
+            t.IsRemnant = true;     // 夹具直设（引擎里由残骸那条路置真；本格只验闸读它）
+            Check(RuleCore.DamageAfterReduction(t, 3), 3,
+                  "★【闸的另一半 · 残骸】血 9 − 3 = 6 > 0，但 `+0x65` = 残骸 ⇒ `:211` 那半个条件仍然挡住 = **3**"
+                + "｜🧨 把 `u.IsRemnant` 从闸里去掉 ⇒ 本行实得 **5**");
+        }
+        {
+            // (d) 闸的**最后一格**（`:200`）：**这一发进管线的量本来就是 0** ⇒ 第二发也不发
+            UnitState a, b;
+            var ctx = Duel(Unit("A1335_Peer5", 1, 1, 9),
+                           Unit("A1335_Def5", 1, 0, 9), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword("vulnerable", 2);
+            Check(RuleCore.VulnerableDamagePart(t), 2, "（前提）易伤那一份 = 2");
+            Check(RuleCore.DamageAfterReduction(t, 0), 0,
+                  "★【闸的第三格 · 进伤必须 > 0】原版 `:200 if (0 < damageInfo.damageValue)` "
+                + "⇒ 这一发本来就是 0 时，易伤那一份**也不发** = **0**"
+                + "｜🧨 把 `actual <= 0` 从闸里去掉 ⇒ 本行实得 **2**"
+                + "（⚠️ 这一格是本笔**必须**带的：`N8` 把「0 点伤害不再被护甲抬成 1」补上之后，"
+                + "不判 `:200` 就会让 0 点伤害**只剩易伤那一份** —— 凭空多打一份）");
+        }
+
+        // ---- 🆕 2026-10-14（账 `N12`）：残骸（`Remnant`）**不吃护甲** ----
+        //  判据 = `d:/2/tools/decomp_full/CardScript._ReceiveDamage_d__381__MoveNext.c:64`（现读）
+        //    `if (*(char *)(lVar2 + 0x65) == '\0') {`
+        //  —— **整个减甲段**（`:65-98`）都包在这道守卫里 ⇒ 残骸走 `:99` 那支 `else`（`:100`
+        //  `LAB_1806144ca`）= **按原值扣**。`+0x65` = `EntityScript__get_isRemnant.c` 那个字节。
+        //  落点 = `RuleCore.DamageAfterReduction` 里那一行
+        //    `if (!u.IsRemnant && u.Armor > 0 && actual > 0) actual = Math.Max(1, actual - u.Armor);`
+        //  ⚠️ **残骸身上确实带甲**（否则这一档是死代码）：`CardScript__TransformIntoRemnant.c` 只写
+        //     `+0x65` 与那一组生命字段，**一个字都不碰 `+0xb8`（护甲）**；真卡 `SAU23 Lychguard`
+        //     = `Remnant + Armour 2 + Vanguard`（`cards_engine.json`）。
+        //  ⚠️ **预览侧不跟着改**（原版预览 `…WithDamageValues.c:138` 整段没有 `+0x65` 这一档）⇒
+        //     ⛔ 别为了「对齐」往 `DamageAfterArmourOne` / `DamageAfterReductionOne` 里补 `!IsRemnant`。
+        //  🔴 **判别式是一组五格**（(a)/(b) 方向相反 ⇒ 任何**单一**错实现都不可能一起满足）：
+        //     · N12 (a) 残骸·甲 2·挨 5 ⇒ **5**（🧨 去掉 `!u.IsRemnant` ⇒ 3）；
+        //     · N12 (b) 非残骸·同甲 ⇒ **3**（🧨 把它写成恒真 ⇒ 5）；
+        //     · N12 (c) 残骸·甲 2·易伤 2·挨 5 ⇒ **5**（一格同时钉住「减甲段被跳过」与
+        //       「`N7` 那道闸（`:210-211`）没被动到」）；
+        //     · N12 (d) 非残骸·同甲·同易伤 ⇒ **4**（🧨 把易伤那一行删掉 ⇒ 3）；
+        //     · N12 (e) 残骸·**甲 0**·挨 5 ⇒ **5**（回归格，本格**没有鉴别力**）。
+        {
+            // N12 (a)：残骸**不吃护甲**（原版 `_ReceiveDamage…:64` 的 `+0x65 == 0` 守卫）
+            UnitState a, b;
+            var ctx = Duel(Unit("N12_Peer", 1, 1, 9), Unit("N12_Def", 1, 0, 9, "Armour 2"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.IsRemnant = true;                       // 夹具直设（引擎里由 `CleanupDeaths` 那条路置真）
+            Check(t.Armor, 2, "（前提）残骸身上**真的有甲**（`SAU23 Lychguard` = Remnant + Armour 2）");
+            Check(RuleCore.DamageAfterReduction(t, 5), 5,
+                  "★ N12：残骸(甲 2) 挨 5 ⇒ **5**（不减甲）｜🧨 去掉 `!u.IsRemnant` ⇒ 本行实得 **3**");
+        }
+        {
+            // N12 (b) 反向格：同一张卡、**不是残骸** ⇒ `max(1, 5 − 2)` = 3
+            UnitState a, b;
+            var ctx = Duel(Unit("N12_Peer2", 1, 1, 9), Unit("N12_Def2", 1, 0, 9, "Armour 2"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            Check(RuleCore.DamageAfterReduction(t, 5), 3,
+                  "★ N12 判别式（与上一格**方向相反**）：非残骸同甲 ⇒ **3**｜🧨 把 `!u.IsRemnant` 写成恒真 ⇒ 实得 **5**");
+        }
+        {
+            // N12 (c)：残骸 + 甲 2 + **易伤 2** ⇒ 仍然 5 —— 一格同时钉住两件事：
+            //   ① 减甲整段被跳过（本笔）② `N7` 那道闸（`:4922` 的「血还 > 0 ∧ 不是残骸」）
+            //   **仍然挡住易伤那一份**（N12 没把这半格碰松）。
+            UnitState a, b;
+            var ctx = Duel(Unit("N12_Peer3", 1, 1, 9), Unit("N12_Def3", 1, 0, 9, "Armour 2"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.IsRemnant = true;
+            t.AddKeyword("vulnerable", 2);
+            Check(t.Armor, 2, "（前提）甲 2");
+            Check(RuleCore.VulnerableDamagePart(t), 1,
+                  "（前提）易伤那一份 = `max(1, 易伤 2 − 甲 2)` = **1**（⚠️ 它**自己也减甲** ⇒ 这一份不是 2）");
+            Check(RuleCore.DamageAfterReduction(t, 5), 5,
+                  "★ N12：残骸(甲 2 · 易伤 2) 挨 5 ⇒ **5**（减甲整段被跳过 ∧ 那道闸仍然挡住易伤那一份）"
+                + "｜🧨 把 `u.IsRemnant` 从 `:4922` 那道闸里去掉 ⇒ 本行实得 **6**（= 5 + 上面那个 1）"
+                + "；⚠️ 逐条判据文档原文这里写的是 **7**，2026-10-14 现测为 **6** —— 多算 1 的根因是"
+                + "`VulnerableDamagePart` 自己也减甲（`max(1, 2 − 2)` = 1，不是 2）");
+        }
+        {
+            // N12 (d) 反向格：非残骸 + 甲 2 + 易伤 2 ⇒ `max(1, 5 − 2)` + `max(1, 2 − 2)` = 3 + 1 = 4
+            UnitState a, b;
+            var ctx = Duel(Unit("N12_Peer4", 1, 1, 9), Unit("N12_Def4", 1, 0, 9, "Armour 2"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword("vulnerable", 2);
+            Check(RuleCore.DamageAfterReduction(t, 5), 4,
+                  "★ N12：非残骸(甲 2 · 易伤 2) 挨 5 ⇒ **4**（3 + 1）"
+                + "｜🧨 把结尾那句 `return actual + VulnerableDamagePart(u);` 删掉（只 `return actual`）⇒ 本行实得 **3**");
+        }
+        {
+            // N12 (e) 回归格：**无甲的残骸** —— 甲 0 时 `u.Armor > 0` 那道守卫本来就命中，改前改后同值
+            UnitState a, b;
+            var ctx = Duel(Unit("N12_Peer5", 1, 1, 9), Unit("N12_Def5", 1, 0, 9), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.IsRemnant = true;
+            Check(t.Armor, 0,
+                  "（前提）甲 0 —— ⚠️ 本格**没有鉴别力**（那道守卫本来就命中）；它钉的是"
+                + "「加了 `!u.IsRemnant` 之后，**无甲**残骸照样挨满」");
+            Check(RuleCore.DamageAfterReduction(t, 5), 5, "★ N12 回归：残骸(甲 0) 挨 5 ⇒ **5**");
+        }
+
+        // ---- ⑨ 🆕 2026-10-14（同批 `N8`）：护甲那一步的 `damageValue < 1` 守卫 ----
+        //  原版 `_ReceiveDamage…:78` `if (*(int *)(lVar3 + 0x18) < 1) goto LAB_1806144ca;`
+        //  —— 跳过去之后走的是**共同尾巴**（`:111-124` 的 `health -= damageValue`）⇒
+        //  **`damageValue = 0` 时生命一点不动**（改前我们 `Math.Max(1, 0 − 护甲)` 会把它抬成 1）。
+        //  预览侧本来就有这道守卫（`…WithDamageValues.c:138` 的 `0 < iVar7`，
+        //  落在 `DamageAfterArmourOne` 的 `&& actual > 0` 上）⇒ 本笔是**结算侧对齐预览侧**。
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("A1335_Peer4", 1, 1, 9),
+                           Unit("A1335_Def4", 1, 0, 5, "Armour 3"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            Check(t.Armor, 3, "（前提）护甲 3");
+            Check(RuleCore.DamageAfterReduction(t, 0), 0,
+                  "★★【`N8` 主判别式】这一下**本来就是 0** ⇒ 原版 `:78` 那道 `damageValue < 1` 守卫"
+                + "让**扣甲整段跳过** = **0**"
+                + "｜🧨 去掉 `DamageAfterReduction` 里那句 `&& actual > 0` ⇒ 本行实得 **1**（`Math.Max(1, 0 − 3)`）");
+            Check(RuleCore.DamageAfterReduction(t, 5), 2,
+                  "★ 同一条腿的反向格：`0 < 5` 照走减甲 ⇒ `max(1, 5 − 3)` = **2**"
+                + "｜🧨 把减甲整段删掉 ⇒ 本行实得 **5**"
+                + "（与上一格结构上不可能被同一个错实现一起满足）");
+            Check(RuleCore.DamageAfterReductionOne(t, 0, 0), 0,
+                  "★ **预览侧同一式**（原版 `…WithDamageValues.c:138` 的 `0 < iVar7`）= **0**"
+                + " —— 改前结算侧给 1、预览侧给 0，**两边不同式**，本笔让它同式");
+            Check(RuleCore.DamageAfterReductionOne(t, 5, 0), 2, "…逐条版同一个数 = **2**");
+            ctx.ClearSignals();
+            Check(RuleCore.ApplyDamage(ctx, t, 0, "自检"), 0,
+                  "★ 结算侧：这一发 0 点 ⇒ 返回值 **0**"
+                + "｜🧨 去掉守卫 ⇒ 实得 1"
+                + "（⚠️ 这一档的**可达性没查清**：全仓没有写死 0 的伤害点，0 只可能由"
+                + "「攻击力被减到 0 / 某条算式算出 0」这类路径出现 —— 公式照原版补（铁律 11））");
+            Check(t.Health, 5, "★ ……生命一点不动（⛔ 不是 −1）");
+            Check(S14Sig(ctx, EvtKind.Hit, null, 0), 1,
+                  "★ 事件仍然是 `Hit{Amount = 0}`（一条）—— 改前是 `Hit{Amount = 1}`");
         }
     }
 

@@ -6562,6 +6562,75 @@ namespace CardPresentation
         /// <summary>🆕 **2026-10-18（W6）**：splash 上那行字**写的是什么**（原版词条 `Battle/Overtime/Title`）。</summary>
         public string OvertimeSplashText { get { return _overtimeSplashText != null ? _overtimeSplashText.Text : null; } }
 
+        // ==================================================================
+        //  战斗日志那一族的**词条键**（键名只写在这一处）
+        //
+        //  🔴 **2026-10-18（`A985⑥` 的 ③ 半）**：`RefreshBattleLog` 现在**一律走词条**了 ——
+        //     ① **新接的三种事件**（`Draw` / `AmbushExit` / `SecretOrder`）用**原版真键**
+        //        （`Battle/Cemetery/*`，两列值早在 `Core/Loc.cs` 里，2026-10-14 由官方 zh-CN 表录入）；
+        //     ② **我们自己那 12 句模板**用 `Battle/Log/*` —— 键名**不是本笔现编的**：
+        //        `资料/普查产出_第四会话/施工单_双语③逐处换key_附_BattleDeck.md` 第 11~21 行当时就定了
+        //        这 12 个名字（`{Play,Deploy,Attack,Melee,Ranged,Heal,Damage,Death,Return,Ability,Trigger,Bare}`），
+        //        并裁定「**要做、只是先后** = 等日志重构这一轮」—— 就是本轮。
+        //
+        //  ⏳ **过渡期（⛔ 本笔解不掉，如实标着）**：`Battle/Log/*` 那 12 条**今天还不在 `Loc` 表里** ——
+        //     `Core/Loc.cs` 的 `Table` 是**私有字段、没有任何写入口**（公开口只有查询），而那份文件
+        //     **不在本笔白名单**（已有别的写手在 `CardPresentation/Core/`）⇒ 本文件这一族的调用
+        //     **都带了「过渡期兜底」两列**（见 `LogTerm`）：**键在表里 ⇒ 一切照表**（中英两档都对），
+        //     **键不在表里 ⇒ 出声 + 回兜底**（⛔ 不静默）。
+        //     ⇒ **那 12 条一进表，兜底这两列就永不触发、可以整段删掉**（删之前核一句：值与表里两列
+        //        **逐字相同** —— ⛔ 别让兜底变成第二份权威，那正是「两处写同一条规则」）。
+        //     📌 两列文案（ready-to-paste）→ `资料/普查产出_第三十一会话/H_A985尾巴6.md`。
+        // ==================================================================
+        const string LogSideMeTerm         = "Battle/Log/SideMe";          // 我方  / Our side
+        const string LogSideFoeTerm        = "Battle/Log/SideFoe";         // 敌方  / Enemy
+        const string LogTurnPrefixTerm     = "Battle/Log/TurnPrefix";      // 回合 {0}　{1}
+        const string LogEffectFallbackTerm = "Battle/Log/EffectFallback";  // 效果  / effect
+        const string LogPlayTerm           = "Battle/Log/Play";
+        const string LogDeployTerm         = "Battle/Log/Deploy";
+        const string LogAttackTerm         = "Battle/Log/Attack";
+        const string LogMeleeTerm          = "Battle/Log/Melee";           // 定语（近战）
+        const string LogRangedTerm         = "Battle/Log/Ranged";          // 定语（远程）
+        const string LogHealTerm           = "Battle/Log/Heal";
+        const string LogDamageTerm         = "Battle/Log/Damage";
+        const string LogDeathTerm          = "Battle/Log/Death";
+        const string LogReturnTerm         = "Battle/Log/Return";
+        const string LogAbilityTerm        = "Battle/Log/Ability";
+        const string LogTriggerTerm        = "Battle/Log/Trigger";
+        const string LogBareTerm           = "Battle/Log/Bare";
+        // 原版那一族（`Battle/Cemetery/*`）—— 本文件今天用到的四条（另 16 条仍无消费点，见本节头注）
+        // ⚠️ 前两条（`ActionYouDraw` / `ActionOpponentDraws`）**今天只被 `switch` 里 `Draw` 那一支的
+        //    「接线位」注释引用**（那档照原版不产出行）—— 保留 = 把接线那天的键名与文案一起钉在这儿，
+        //    ⛔ 别因为「看着没人用」就删掉。
+        const string CemeteryYouDrawTerm       = "Battle/Cemetery/ActionYouDraw";        // 你抽取 {0}
+        const string CemeteryOpponentDrawsTerm = "Battle/Cemetery/ActionOpponentDraws";  // 对手抽取 {0}
+        const string CemeteryExitAmbushTerm    = "Battle/Cemetery/ActionExitAmbush";     // {0} 从伏击中出现
+        const string CemeterySecretOrderTerm   = "Battle/Cemetery/ActionSecretOrder";    // {0} 执行 {1}
+
+        /// <summary>**战斗日志取词条的【唯一口】**（`RefreshBattleLog` 那一族全走它）。
+        ///
+        /// <para>两态，⛔ 别合并：① **键在表里** ⇒ `CardText.Term(键)`（= 按**当前语档**取，顺带过
+        /// 「拿不到中文字体资产就回英文」那道闸）；② **表里没这条键** ⇒ `Loc.T(键)` **出声 + 记账**
+        /// （`MissingCount` / `LastMissingKey`），界面回**过渡期兜底**。占位符由本方法统一
+        /// `string.Format` 填 ⇒ <paramref name="en"/>/<paramref name="zh"/> 两列**必须同一套 `{N}` 编号**。</para>
+        ///
+        /// <para>⛔ **不许改写成 <c>Loc.T(键) ?? 兜底</c>**：`Loc.T` **缺键返回的是【键名本身】、
+        /// 从不返回 `null`** ⇒ `??` 那一半永不触发，日志会印 `Battle/Log/Death` 这种串
+        /// （本仓踩过；同族 doc → `HintForCodeWithKey` 与 `CardText.TermOr`）。</para>
+        ///
+        /// <para>⏳ <paramref name="zh"/>/<paramref name="en"/> = **过渡期兜底**：那 12 条 `Battle/Log/*`
+        /// 键**还没进表**，而本笔**不许动 `Core/Loc.cs`**（别的写手在那边）⇒ 只能先带两列。
+        /// **键进表之后这两列一个字都用不上**（形状与同文件的 `HandFullText()` 一样：先 `Loc.HasEntry`、
+        /// 缺了才回自己那两列）。⚠️ 选列照 `CardText.Zh` 那道闸（= **拿得到中文字体 ∧ 语档是中文**）
+        /// —— ⛔ 别只看语档，那会在没有中文字体的机器上印出方块；这样选还保证「键没进表的今天」
+        /// 与「键进表之后」**中英两档显示完全一致**。</para></summary>
+        static string LogTerm(string key, string en, string zh, params object[] args)
+        {
+            if (Loc.HasEntry(key)) return string.Format(CardText.Term(key), args);
+            Loc.T(key);                          // 缺键：出声 + 记账（⛔ 不静默）；它回的是键名，丢弃
+            return string.Format(CardText.Zh ? zh : en, args);
+        }
+
         /// <summary>
         /// 把引擎**留档的**战斗日志（`Ctx.ActionLog`）翻成人话喂给面板 —— **新的在前**
         /// （原版就是从最新一条往下排）。卡名走 `Zh` 翻中文，查不到就原样显示英文（不静默丢）。
@@ -6610,71 +6679,166 @@ namespace CardPresentation
             //      ⇒ **这是发行版真在跑的一条链**（`G9` 判死的 `CemeteryLogManager` 是**另一个类**、
             //      TypeDefIndex 766，两者别混 —— 见 `Battle/BattleLogPanel.cs` 的 `Z2`/`Z3` 那两段）。
             //
-            // **③ 但【今天还不能接】，卡在两处（都不是「影响小所以不做」）：**
+            // **③ ~~但【今天还不能接】，卡在两处（都不是「影响小所以不做」）~~ ⇒ 2026-10-18 起【已接】
+            //    （原先那两处卡点逐条订正见下）**：**
             //    · 🔴 **原版记的是「谁做了什么动作」，我们 `RefreshBattleLog` 记的是【动作的后果】**
             //      （伤害 / 阵亡 / 回手 / 触发）。**现有事件里能直接推出原版键的只有 6 条**：
             //      `Attack`（+`Ranged`）→ `ActionAttackMelee`/`ActionAttackRanged` ·
             //      `Play`（+`Player`）→ `ActionYouPlay`/`ActionOpponentPlays` ·
             //      `CollectWaystone`（+`Player`）→ `ActionYouCollectSpiritStone`/`ActionEnemyCollectsSpiritStone`。
-            //      原版那 **6 条 `Play` 细分**（靶向 2 + 伏击 2）我们**分不出来**（`BattleEvent` 的 `Play`
-            //      不带目标、不带「这是伏击」），`Ability` → `ActionAbility`/`ActionTargetedAbility`
-            //      那个二选一分不出来（要看 `param_2[10]` 那个目标引用）—— 都缺字段。
-            //      剩下 **7 条**（`ActionYouDraw`/`ActionOpponentDraws` · `ActionSecretOrder` ·
-            //      `ActionDisplay{Your,Enemy}CardInHand` · `ActionExitAmbush` · `AmbushedTroop`）
-            //      **我们引擎根本不发对应事件** —— `RuleEngine/Core/BattleEvent.cs` 的 `EvtKind` 只有 12 种、
-            //      **没有 `Draw` / `AmbushExit` / `SecretOrder`**（本批实点过全仓 `EvtKind.` 的发出点，逐种计数：
-            //      Combat 那 12 种里 `GainQuest` 等三种也各有发出点，但抽牌/撤伏击/密令**一个都没有**）。
-            //      ⇒ 要接全，**先要在 `RuleEngine/` 加 3 种事件 + 给 `Play`/`Ability` 补目标与伏击标记**
-            //      （那是**别人手里的文件**，⛔ 不在本笔白名单）。
-            //    · 🔴 **19 条键的文案值（中英）本地一条都没有** —— 原版显示串在**远端 I2 表**，
-            //      本地 84 个 bundle 里没有 `localization_assets_all.bundle`；`数据/本地化/i18n/zh_CN.csv`
-            //      按英文源串精确查过（`draws a card` / `you play` / `secret order` / `collects a…` 等）**0 命中**
-            //      ⇒ 接上去 = **两列全是我们编的**。
+            //      ⚠️ **2026-10-18（`A985⑥` 的 ③ 半）就地订正（铁律 5）**：下面这三条**都过期了**，
+            //      留着只当踩坑痕迹 —— ⛔ 别再照它们下结论：
+            //      · 原文写「原版那 **6 条 `Play` 细分**（靶向 2 + 伏击 2）我们**分不出来**……都缺字段」
+            //        ⇒ **字段已经补上了**（`A985⑥` 的 ①）：`BattleEvent` 现有 `PlayAmbush`
+            //        （伏击专用位，判据 = 原版那个字节 `0x1C`，**不是从 `isPlayer` 推的**）
+            //        ＋ `TargetPlayer`/`TargetSlot`/`TargetCardId`（`Play`/`Ability` 只有在**卡面要求选目标**
+            //        时才填）⇒ 靶向那一档也分得出来。**但日志这一侧本轮没动那 6+2 档**（会改掉现有行
+            //        的中文 ⇒ 见下面那条「仍只接了 4 条」）。
+            //      · 原文写「剩下 **7 条**……**我们引擎根本不发对应事件** —— `EvtKind` 只有 12 种、
+            //        没有 `Draw`/`AmbushExit`/`SecretOrder`」⇒ **已过期**：`EvtKind` 现读 **15 种**
+            //        （三条都补在枚举表尾，`RuleEngine/Core/BattleEvent.cs`），且 `Draw`（`RuleCore.cs:1883`）
+            //        与 `AmbushExit`（`:5832` 伤害路 / `:6065` 窗口路）**都有发出点**；
+            //        **仍缺的两条** = `ActionDisplay{Your,Enemy}CardInHand`（亮手牌）与 `AmbushedTroop`
+            //        （我们不发这两种事件）；**`SecretOrder` 仍无发出点**（密令 = 战将身上的面朝下附魔，
+            //        我们**没有那一层机制** —— 判据写在 `EvtKind.SecretOrder` 的 doc 里）。
+            //      · 原文写「要接全，**先要在 `RuleEngine/` 加 3 种事件** + 给 `Play`/`Ability` 补字段」
+            //        （那是**别人手里的文件**）⇒ **那一步已经做完了**（同上）⇒ 本轮才轮到日志侧。
+            //    · ✅ **「19 条键的文案值本地一条都没有」已过期（2026-10-18 就地订正，铁律 5）**：
+            //      官方 zh-CN 表 2026-10-14 从旧 profile 缓存里抢救出来并解开
+            //      （`数据/游戏数据/官方本地化_en+zh-CN.json`）⇒ 这一族**两列都是官方值**，已落进
+            //      `Core/Loc.cs` 的 `Battle/Cemetery/*`（**20 条**；判据 → `Loc.cs` 那一块 + `BattleEvent`
+            //      逐条的 doc）。原文那三句（远端 I2 表 / `zh_CN.csv` 0 命中 / 「两列全是我们编的」）
+            //      **当时是对的**，现在不成立；`Loc.cs:1038-1039` 自陈的「只是把值备好、⛔ 不是已接」
+            //      **就是本轮的活**（现已接上其中 4 条）。
             //    · 另外原版的日志是**整块面板**（`shade` + `DOLocalMoveX(initialX −1200 → finalX 87)`
             //      + 每行一张 `playerActionBg`/`enemyActionBg` 底图）—— 与我们这 8 行的形状也不同。
             //  ⇒ **结论：要做（不是「不做」），先做哪几条 → 先加那 3 种引擎事件、再把日志按原版重新分类**
             //    （表现层重构，`RefreshBattleLog` 就是落点）；**判据已全部就位**（上面那张枚举表 + 19 条键）。
-            //  ⚠️ 上面那 12 条中文模板**照旧写死中文** ⇒ **英文档下战斗日志仍是中文**（这是同一个待办的
-            //    另一半：它们没有原版 `mTerm`，接的时候要和这次重构一起决定键名，⛔ 别先自造一批键）。
+            //  ✅ **2026-10-18（`A985⑥` 的 ③ 半）就地订正（铁律 5）：两半都办了** ——
+            //    ① **三种事件的分支补齐**：`switch` 里新增 `Draw` / `AmbushExit` / `SecretOrder`
+            //       （键 = 原版那四条 `Battle/Cemetery/{ActionYouDraw,ActionOpponentDraws,ActionExitAmbush,ActionSecretOrder}`）；
+            //    ② **原来那 12 句模板不再写死中文**（键 = 波 0b/P4 定好的 `Battle/Log/*` 那一族，
+            //       见本方法上面那段「词条键」常量块；**过渡期兜底**也在那儿说明）⇒ 英文档下战斗日志
+            //       这一族现在是英文（原文那句「照旧写死中文」**作废**）。
+            //    ⚠️ **原版那 20 条键今天仍只接了 4 条**：另 16 条要「按原版重新分类」（`Play` 那 6 档 +
+            //      `Ability` 那 2 档 + `Display{Your,Enemy}CardInHand` + `AmbushedTroop` + `ActionAttack` 两条），
+            //      而那**会改掉现有行的中文** ⇒ `Editor/BattleScene.cs` 那几条盯「打出 / 进入格位 / 我方 /
+            //      敌方」的断言得一起改 ⇒ **单开一轮**（如实记着，⛔ 不是「不做」）。
+            //    ⚠️ **`Draw` 那一支今天【不产出日志行】**（主对话 2026-10-18 裁定：原版只在抽到**已布设的陷阱**
+            //      时才记 ⇒ 照原版 = 一次都不该印）—— 判据与**接线位**都写在那支的注释里。
+            //    ⚠️ **`AmbushExit` 只印 `"damage"` 那一档**（同上裁定：`"window"` 是我们模型的产物、原版没有）
+            //      —— 过滤写在那一支的第一行。
+            //    ⚠️ **`SecretOrder` 今天不可达**（引擎侧没有发出点），但**分布写好了**（键/实参取法见那支）。
             if (_logPanel == null || Ctx == null) return;
             _logEntries.Clear();
             var log = Ctx.ActionLog;
             for (int i = log.Count - 1; i >= 0 && _logEntries.Count < 8; i--)
             {
                 var e = log[i];
-                string who = e.Player == _me ? "我方" : "敌方";
+                // 🔴 **2026-10-18（`A985⑥` 的 ③ 半）**：这一族**一律走 `LogTerm`**（= 先 `Loc.HasEntry`、
+                //    缺键出声、回过渡期兜底）—— 键名见本方法上面的常量块。⛔ 别再在这里写中文/英文整句。
+                string who = LogTerm(e.Player == _me ? LogSideMeTerm : LogSideFoeTerm, "Our side", "我方");
                 string card = Zh(e.CardId);
-                string line;
+                // ⚠️ **必须给初值**：下面那两支只走 `skipRow = true`、**不碰 `line`** ⇒ 不给初值 `csc` 报
+                //    `CS0165 使用了未赋值的局部变量`（2026-10-18 实测踩到）。初值本身**用不到**（`skipRow`
+                //    为真时下一句就 `continue` 了）。
+                string line = null;
+                // 🔴 **2026-10-18（主对话裁定）：有两档【今天不产出日志行】** —— `Draw` 与 `AmbushExit`
+                //    的非伤害路（两条都是「照原版」：判据写在各自那一支里）。
+                //    ⛔ 它们**既不许落到 `default:`**（那会印一行没有动词的裸行 `{who}「{card}」`，比不印更糟），
+                //    ⛔ **也不许往 `_logEntries` Add 一个空行** ⇒ 统一在这一处 `continue`：**连行都不占**，
+                //    继续往前找真行（`_logEntries.Count < 8` 这个上限因此只数**真正产出的行**）。
+                bool skipRow = false;
                 switch (e.Kind)
                 {
                     case EvtKind.Play:
-                        line = $"{who}打出「{card}」"; break;
+                        line = LogTerm(LogPlayTerm, "{0} plays {1}", "{0}打出「{1}」", who, card); break;
                     case EvtKind.Deploy:
-                        line = $"{who}「{card}」进入格位 {e.Slot + 1}"; break;
+                        line = LogTerm(LogDeployTerm, "{0} {1} enters slot {2}", "{0}「{1}」进入格位 {2}",
+                                       who, card, e.Slot + 1); break;
                     case EvtKind.Attack:
-                        line = $"{who}「{card}」{(e.Ranged ? "远程" : "近战")}攻击「{Zh(e.TargetCardId)}」"; break;
+                        line = LogTerm(LogAttackTerm, "{0} {1} makes a {2} attack on {3}", "{0}「{1}」{2}攻击「{3}」",
+                                       who, card,
+                                       LogTerm(e.Ranged ? LogRangedTerm : LogMeleeTerm,
+                                               e.Ranged ? "ranged" : "melee", e.Ranged ? "远程" : "近战"),
+                                       Zh(e.TargetCardId));
+                        break;
                     case EvtKind.Hit:
                         line = e.Amount < 0
-                             ? $"{who}「{card}」回复 {-e.Amount} 点生命"
-                             : $"{who}「{card}」受到 {e.Amount} 点伤害";
+                             ? LogTerm(LogHealTerm, "{0} {1} restores {2} health", "{0}「{1}」回复 {2} 点生命",
+                                       who, card, -e.Amount)
+                             : LogTerm(LogDamageTerm, "{0} {1} takes {2} damage", "{0}「{1}」受到 {2} 点伤害",
+                                       who, card, e.Amount);
                         break;
                     case EvtKind.Death:
-                        line = $"{who}「{card}」阵亡"; break;
+                        line = LogTerm(LogDeathTerm, "{0} {1} dies", "{0}「{1}」阵亡", who, card); break;
                     case EvtKind.Return:
                         // 回手/回牌库**不是阵亡** —— 日志上分开写（和 `PlayReturnFeel` 一个口径）
-                        line = $"{who}「{card}」离开格位（回手牌或牌库）"; break;
+                        line = LogTerm(LogReturnTerm, "{0} {1} leaves its slot (back to hand or deck)",
+                                       "{0}「{1}」离开格位（回手牌或牌库）", who, card); break;
                     case EvtKind.Ability:
-                        line = $"{who}「{card}」发动技能"; break;
+                        line = LogTerm(LogAbilityTerm, "{0} {1} uses an ability", "{0}「{1}」发动技能",
+                                       who, card); break;
                     case EvtKind.Trigger:
-                        line = $"{who}「{card}」触发「{e.Keyword ?? "效果"}」"; break;
+                        line = LogTerm(LogTriggerTerm, "{0} {1} triggers {2}", "{0}「{1}」触发「{2}」",
+                                       who, card,
+                                       e.Keyword ?? LogTerm(LogEffectFallbackTerm, "effect", "效果")); break;
+
+                    // ------------------------------------------------------------------
+                    //  🆕 2026-10-18（`A985⑥` 的 ③ 半）：**原版那 20 条键里新接的这三条**
+                    //    （引擎侧那三种事件早已有 —— `EvtKind.Draw` / `AmbushExit` / `SecretOrder`；
+                    //      本轮补的是**日志侧**这三个分支。判据 → 本节头注那三处表的 `0x14` / `0x28` / `0x19` 三行。）
+                    //  ⚠️ **三支的今日可印档**：`Draw` **不印**（原版只记陷阱那一档）· `AmbushExit` **只印**
+                    //     `"damage"` · `SecretOrder` **不可达**（引擎侧无发出点）—— 逐支判据写在各自那一支里。
+                    // ------------------------------------------------------------------
+                    case EvtKind.Draw:
+                        // ✅ **2026-10-18（主对话裁定）：这一档【今天不产出日志行】。**
+                        // 判据（= 原版）：那一行**只在「抽到的是【已布设的陷阱】」时才记** ——
+                        //   `CemeteryManager.AddDrawTrapAction` 的**唯一**调用点包在 `if (card.armedTrap != 0)` 里
+                        //   （`EntityScript.armedTrap` = `dump.cs:21983 // 0x54`）；而我们**没有陷阱机制**、
+                        //   事件里也没有那个位 ⇒ **照原版 = 一次都不该印**（印普通抽牌属于「比原版多」那一档）。
+                        // 🔌 **接线位**（陷阱机制落地那天，照原版 `AddDrawTrapAction` 的位置接回本支）——
+                        //   键与实参写法就是下面这两行，⛔ 别重新发明（两支键都是**原版真键**，
+                        //   值在 `Core/Loc.cs`：`Battle/Cemetery/ActionYouDraw` = `你抽取 {0}` /
+                        //   `ActionOpponentDraws` = `对手抽取 {0}`）：
+                        //     line = LogTerm(e.Player == _me ? CemeteryYouDrawTerm : CemeteryOpponentDrawsTerm,
+                        //                    e.Player == _me ? "You draw {0}" : "Opponent draws {0}",
+                        //                    e.Player == _me ? "你抽取 {0}" : "对手抽取 {0}", card);
+                        // ⛔ 别为了「今天也能印一行」去加一个恒假的 `armedTrap` 字段（那正是静默的假数据）。
+                        skipRow = true; break;
+                    case EvtKind.AmbushExit:
+                        // ✅ **2026-10-18（主对话裁定）：只印 `"damage"` 那一档，⛔ 不印 `"window"`。**
+                        // 判据（= 原版）：`CemeteryManager.AddExitAmbushActionToCemetery` 的**唯一**调用点是
+                        //   `CardScript.SetAmbush(card, **false**)` 的尾部，而 `SetAmbush(card, 0)` 的三个调用点
+                        //   **全是伤害路**（`ResolveUnitAttacked.c:111` · `ResolveDamageDealt.c:173` ·
+                        //   `_ResolveAttack…:305`）；`"window"`（= `RuleCore.RevealAmbush`，我们模型那条
+                        //   「撑满一轮才翻开」）**原版根本没有**（原版那条路走 `CardScript.TriggerAmbush`，
+                        //   **不翻面**）⇒ 照原版 = 那一档**不产出日志行**。
+                        // ⚠️ 那条出口本身**另立着账**（「我们多了一条伏击出口」）—— ⛔ 别把它做成恒假字段。
+                        if (e.Effect != "damage") { skipRow = true; break; }
+                        line = LogTerm(CemeteryExitAmbushTerm, "{0} exits from Ambush", "{0} 从伏击中出现", card);
+                        break;
+                    case EvtKind.SecretOrder:
+                        // ⚠️ **今天不可达**：`EvtKind.SecretOrder` 全仓**尚无发出点**（密令 = 战将身上的一件
+                        //    面朝下附魔，我们没有那一层机制 —— 判据写在 `EvtKind.SecretOrder` 的 doc 里）。
+                        //    实参取法照 `Attack` 那条惯例（`CardId` = 动作的**主体**、`TargetCardId` = 另一方）：
+                        //    原版那行 = 「{督军} 执行 {密令}」（`AddExecuteSecretOrderAction.c` 的 `param_2`
+                        //    = 挂着密令的督军、`param_3` = 那张密令）⇒ **密令机制落地时按实际发出点核一遍**。
+                        line = LogTerm(CemeterySecretOrderTerm, "{0} executes {1}", "{0} 执行 {1}",
+                                       card, Zh(e.TargetCardId));
+                        break;
+
                     default:
-                        line = $"{who}「{card}」"; break;
+                        // 其余种类（`GainFaith` / `GainSpirit` / `GainQuest` / `CollectWaystone`…）原版日志里
+                        // **没有对应行**（它们不是「谁做了什么动作」）⇒ 保持原来那个「裸」形状。
+                        line = LogTerm(LogBareTerm, "{0} {1}", "{0}「{1}」", who, card); break;
                 }
+                if (skipRow) continue;      // 本档今天不产出行（见上面 `skipRow` 那段注释）
                 _logEntries.Add(new BattleLogPanel.Entry
                 {
                     CardId = e.CardId,
                     LinkText = card,        // ⚠️ **文字里印的是中文名**（`Zh(CardId)`）—— 链接包的是它，不是 `CardId`
-                    Text = $"回合 {e.Turn}　{line}",
+                    Text = LogTerm(LogTurnPrefixTerm, "Round {0} {1}", "回合 {0}　{1}", e.Turn, line),
                     // 🆕 2026-09-29：**底板按「谁做的动作」换**（原版三张 `40k_battlelog_display_*`）。
                     //   判据 = `BattleEvent.Player`（0/1 = 归属方；`-1` = 没有归属 ⇒ neutral）。
                     Side = e.Player < 0 ? BattleLogPanel.RowSide.Neutral

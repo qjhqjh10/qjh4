@@ -22,7 +22,20 @@
   python -I -X utf8 _guid_resolve_probe.py survey      # 目录结构 + 各字段覆盖率
   python -I -X utf8 _guid_resolve_probe.py card EC29   # 一张卡的全部 GUID 解析
   python -I -X utf8 _guid_resolve_probe.py g <guid>    # 单个 GUID
-  python -I -X utf8 _guid_resolve_probe.py map         # 产出 guid_map.tsv + card_field_map.tsv
+  python -I -X utf8 _guid_resolve_probe.py map         # 产出 guid_map.tsv（唯一产物）
+
+🔴 「退键」的判据（⛔ 别按「容器键短」判 —— 这条踩过）：
+  · **退键 ⟺ `containerKey` ≠ 该 GUID 在 catalog 里的 `internalId`**。
+    `guid_map.tsv` 的 **`internalId` 列**就是目录给这条 GUID 的容器键，**`exact` 列** =
+    `(containerKey == internalId)` ⇒ **`exact=False` 就是退过键**。
+    （为什么会有退键：目录的 `internalId` 与束里的容器键对少数资产不一致 —— 例 `db92a11e…`
+     目录给 `'d'`、而束里 `'d'` 是另一条 AudioClip，该资产真在 `'db9'` ⇒ 类型核对不过、退到最长前缀键。）
+  · ⛔ **「容器键 ≤2 字符 = 退键」不成立**：实测 2 字符键里 **172/201 是非退键**；
+    按「≤2 字符」判 = **真阳 30 / 假阳 171 / 假阴 26**。出处 →
+    `d:/4/Unity/资料/普查产出_第三十一会话/AI_guid退键.md` §1.2（`AA_A1770.md:177` 那句是**线索不是判据**）。
+  · ⚠️ **2026-10-15 补**：本探针原先**只算了 `exact` 没落盘** ⇒ 下游（`gen_card_vfx_by_card.py` 等）
+    拿着 TSV 也**看不出退没退键**。现已把 `internalId` / `exact` 两列写进 TSV ⇒
+    **重建时（`map`）必须让这两列一起落**，⛔ 别再退回 9 列（账见 `AI_guid退键.md` §倾向·2）。
 """
 import sys, os, io, json, base64, struct, collections
 
@@ -180,7 +193,11 @@ def load_bundle(path):
 
 
 def lookup(c, guid):
-    """GUID -> [(bundle, containerKey, type, className, name)]（只留类型对得上的）"""
+    """GUID -> [(bundle, containerKey, type, className, name)]（只留类型对得上的）
+
+    `internalId` = 目录（catalog）给这条 GUID 的容器键；`exact = (containerKey == internalId)`
+    ⇒ **`exact=False` ⟺ 退过键**（见文件头「退键的判据」，⛔ 别按容器键长度判）。
+    """
     ki = key_index(c, guid)
     if ki is None:
         return []
@@ -190,14 +207,16 @@ def lookup(c, guid):
         for bf in r['bundles']:
             p = local_bundle_path(bf)
             if not p:
-                hits.append(dict(bundle=os.path.basename(bf), key=r['iid'], type=None, name=None,
+                hits.append(dict(bundle=os.path.basename(bf), key=r['iid'], iid=r['iid'],
+                                 type=None, name=None,
                                  cls=None, note='本地无此束'))
                 continue
             cont, names = load_bundle(p)
             # 候选键：束内所有「GUID 的前缀」键（同一束里 'd' 可能指别的资产、'db9' 才是目标）
             ks = sorted([k for k in cont if guid.startswith(k)], key=lambda k: (k != r['iid'], -len(k)))
             if not ks:
-                hits.append(dict(bundle=os.path.basename(p), key=r['iid'], type=None, name=None,
+                hits.append(dict(bundle=os.path.basename(p), key=r['iid'], iid=r['iid'],
+                                 type=None, name=None,
                                  cls=None, note='束里无匹配键'))
                 continue
             for k in ks:
@@ -215,7 +234,8 @@ def lookup(c, guid):
                             ok = False
                         if not ok:
                             continue
-                    got.append(dict(bundle=os.path.basename(p), key=k, type=ty, name=nm,
+                    # `exact` = 用的键就是目录给的 internalId ⇒ 没退键（`iid` 一并带出，供 TSV 落盘）
+                    got.append(dict(bundle=os.path.basename(p), key=k, iid=r['iid'], type=ty, name=nm,
                                     cls=cls, pathid=pid, exact=(k == r['iid'])))
                 hits.extend(got)
                 if got and exp:
@@ -324,14 +344,23 @@ def main():
                     if h.get('note'):
                         continue
                     rows.append((card.get('uniqueId'), card.get('cardName'), f, g,
-                                 h['bundle'], h['key'], h['type'], h.get('cls'), h['name']))
+                                 h['bundle'], h['key'], h['type'], h.get('cls'), h['name'],
+                                 h.get('iid'), h.get('exact')))
         os.makedirs(OUTDIR, exist_ok=True)
         fp = os.path.join(OUTDIR, 'guid_map.tsv')
+        # 🔴 列定义（⛔ 别删 `internalId` / `exact` 两列 —— 2026-10-15 补，判据见文件头「退键的判据」）：
+        #   containerKey = 束里实际用的容器键 · internalId = catalog 给这条 GUID 的键
+        #   ⇒ **exact = (containerKey == internalId)**；`exact=False` ⟺ **退键**。
+        #   原先只有 9 列（没这两列）⇒ 下游看不出退没退键，只能回目录比（账 = AI_guid退键.md）。
+        hdr = ('uniqueId\tcardName\tfield\tassetGuid\tbundle\tcontainerKey\ttype\tclassName\tname'
+               '\tinternalId\texact\n')
         with io.open(fp, 'w', encoding='utf-8', newline='') as fh:
-            fh.write('uniqueId\tcardName\tfield\tassetGuid\tbundle\tcontainerKey\ttype\tclassName\tname\n')
+            fh.write(hdr)
             for r in rows:
                 fh.write('\t'.join('' if x is None else str(x) for x in r) + '\n')
-        print('wrote', fp, len(rows), 'rows;', len(gcache), 'distinct guids')
+        nexact = sum(1 for r in rows if r[-1] is False)
+        print('wrote', fp, len(rows), 'rows;', len(gcache), 'distinct guids;',
+              '退键(exact=False)', nexact, '行')
 
 
 if __name__ == '__main__':

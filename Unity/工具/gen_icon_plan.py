@@ -96,6 +96,8 @@ SYMBOLS = {
 
 # ── 方括号 token：**按卡**给答案 ───────────────────────────────────────────────
 #      每条都有证据（成卡图路径 / 还原表原文）。同一条证据覆盖多张卡时逐条列出，别用通配。
+# 🔵 **2026-10-14（第三十一会话 · P1 id 置换批）**：本表与 `BARE_TOKEN_BY_CARD` 的**卡 id 键已整族换算**
+#   （171 张卡的 id 从「自造名样式」换成真值 —— 60 个键 / 107 处），**答案与注释一字未动**。
 TOKEN_BY_CARD = {
     # ---- 名字骗人最狠的四对（卡面看过的）----
     # ⚪ 2026-10-10（`A1411`）：`("EC33","[Health]")` **已删** —— 死键（该卡文本里已无 `[Health]`）；
@@ -107,8 +109,8 @@ TOKEN_BY_CARD = {
     #    （旧答案不是错，是给**改名之前**那个 token 写的 —— 那个 token 已经不在文本里了。）
     # 🔴 2026-10-10（`A1411`）：键由 `[Health]` **订正成 `[Ranged]`** —— 死键，卡表那一处 2026-10-18
     #    已写成 `[Ranged]`（英文第二个属性）。答案不变（Ranged）、证据沿用原来那份。
-    ("SAU_Hardwired_Destruction", "[Ranged]"): ("Ranged", "卡图 Hardwired Destruction：第二个圆徽 = 紫枪"),
-    ("SAU_Hardwired_Destruction", "[Attack]"): ("Melee", "还原表：`Give +1Melee and +1Ranged`"),
+    ("461354d98aa5e3142afa4eb4922e5456", "[Ranged]"): ("Ranged", "卡图 Hardwired Destruction：第二个圆徽 = 紫枪"),
+    ("461354d98aa5e3142afa4eb4922e5456", "[Attack]"): ("Melee", "还原表：`Give +1Melee and +1Ranged`"),
     ("GOF88", "[attack]"): ("Melee", "还原表 Nob on Smasha Squig：`+1 Melee and +1 Ranged`"),
     # ⚪ 2026-10-10（`A1411`）：`("GOF88","[health]")` **已删** —— 死键；
     #    同位置的 `("GOF88","[ranged]")` / `("GOF88","[远程]")` 两条一直活着（同答案 Ranged）。
@@ -120,16 +122,16 @@ TOKEN_BY_CARD = {
     #    它当年那个答案（Ranged）**和现在的卡表一致**（写着 attack、画的是枪），所以是换键、不是丢弃。
     ("UM40", "[Ranged]"): ("Ranged", "卡图 + NCC 0.688（写着 attack、画的是枪），键 2026-10-10 由 `[attack icon]` 订正"),
     # ---- 其余逐条 ----
-    ("GOF_Ferocious_Rage_Beastboss_Talent", "[fist]"): ("Melee", "卡图：粉拳圆徽"),
-    ("GOF_Ferocious_Rage_Beastboss_Talent", "[skull]"): ("slay", "卡图：橙红骷髅 + 橙准星 = slay.png"),
+    ("84d4d192e0f57a34a90ac0f6172c3358", "[fist]"): ("Melee", "卡图：粉拳圆徽"),
+    ("84d4d192e0f57a34a90ac0f6172c3358", "[skull]"): ("slay", "卡图：橙红骷髅 + 橙准星 = slay.png"),
     ("UM40", "[Codex icon]"): ("codex", "卡图 + NCC 0.815"),
     ("UM37", "[Codex]"): ("codex", "卡图 + NCC 0.777"),
     ("UM_Phobos_Lieutenant", "[eye icon]"): ("stealth", "卡图 + NCC 0.955"),
     # ⚪ 2026-10-10（`A1411`）：`("UM_Phobos_Lieutenant","[Talent]")` **已删** —— 死键，而且**那个位置整处没了**：
     #    本卡 `desc` 今天是 `Long Range. Oath 1: Gain [eye icon] Stealth. Slay: …`（无 `Talent` 词、`descZh` 也无「天赋」）
     #    ⇒ 没有可换的键，只能删（删前实测：本卡的 `plan` 条目一字未变）。
-    ("EC_Maulerfiend", "[Melee]"): ("Melee", "卡图 + NCC 0.599"),
-    ("EC_Maulerfiend", "[Ranged]"): ("Ranged", "卡图 + NCC 0.578"),
+    ("EC30", "[Melee]"): ("Melee", "卡图 + NCC 0.599"),
+    ("EC30", "[Ranged]"): ("Ranged", "卡图 + NCC 0.578"),
     # ⚪ 2026-10-12（`A1605`）：**下面 6 条信仰前缀的逐卡键已删** —— 那 6 张卡的文本已统一写成 `☀`
     #     （判据 = 成品卡图逐张亲读，见 `数据/游戏数据/cardface_fixes.json` 的
     #      `_2026-10-12_A1605_信仰前缀统一`）⇒ 那 6 个键**再也不会命中**（一场生成会报 6 条死条目）。
@@ -138,7 +140,7 @@ TOKEN_BY_CARD = {
     #     删前实测：本批 13 个（卡, 字段）的 `faith` 枚数**一枚都没变**（71 枚 / 37 张，改前改后相同）。
     #     旧键（保留痕迹，别照抄回去）：
     #        ("SOR38", "[Faith Icon]") · ("SOR4", "[Icon]") · ("SOR53", "[Icon]") ·
-    #        ("SOR73", "[icon]") · ("SOR9", "[faith]") · ("SOR_Lead_the_Righteous", "[Faith]")
+    #        ("SOR73", "[icon]") · ("SOR9", "[faith]") · ("65cfec7d2bc719040b3b4b88622931b2", "[Faith]")
     #     另：`TOKEN_BY_RULE` 的 `("[Energy]", None, "faith", …)` 那条**今天是死规则**（池里再无 `[Energy]`）——
     #     它不在死条目自检的覆盖面里（本文件只查两张**逐卡**表的死键），**如实留在这里**、不删，
     #     下次谁再写 `[Energy]` 时它仍然是对的（`资料/卡面图标_现状与缺口.md:257` 判过「数据 token 错」）。
@@ -157,16 +159,16 @@ TOKEN_BY_CARD = {
     ("GOF101", "[Stomp]"): ("stomp", "卡图 + NCC 0.866 / 0.848（同一张卡两处）"),
     ("GOF73", "[Mob]"): ("mob", "卡图 + NCC 0.857"),
     ("GOF73", "[attack]"): ("Melee", "还原表：`+1 Melee`"),
-    ("GOF_Worst_Temper", "[Shield]"): ("shield", "卡面：图标 + 词 `Armour 1`"),
-    ("GOF_Worst_Temper", "[Wings]"): ("flying", "卡面：图标 + 词 `Flying`"),
+    ("8425b809e9e64e24f9035f709f5aaee4", "[Shield]"): ("shield", "卡面：图标 + 词 `Armour 1`"),
+    ("8425b809e9e64e24f9035f709f5aaee4", "[Wings]"): ("flying", "卡面：图标 + 词 `Flying`"),
     ("BL38", "[Dark Pact]"): ("markOfChaos", "卡图 + NCC 0.932（暗红盘 + 白八芒星）"),
     # ⚪ 2026-10-10（`A1411`）：`("BL_Helfire_Torch","[Chaos]")` **已删** —— **卡 id 写错了**：
     #    池里没有 `BL_Helfire_Torch`，真卡是下一行那个 `BL69 Hellfire Torch`（`Hellfire` 不是 `Helfire`），
-    #    而 `("BL_Hellfire_Torch","[Chaos]")` **本来就在**（同 sprite）⇒ 这条是错 id 上的重复条目。
-    ("BL_Hellfire_Torch", "[Chaos]"): ("markOfChaos", "同上（同一张精灵图）"),
+    #    而 `("BL57","[Chaos]")` **本来就在**（同 sprite）⇒ 这条是错 id 上的重复条目。
+    ("BL57", "[Chaos]"): ("markOfChaos", "同上（同一张精灵图）"),
     ("SW68", "[Shield]"): ("shield", "卡面：图标 + 词"),
-    ("GOF_Uge_Choppa", "[Slay]"): ("slay", "卡面：图标 + 词 `Slay:`"),
-    # ⚪ 2026-10-10（`A1411`）：`("GOF_Uge_Choppa","[Shield]")` **已删** —— 死键，而且那个位置**判给 `Slay` 了**：
+    ("6899b199f5e36144ebbdd7ed9d9e7afe", "[Slay]"): ("slay", "卡面：图标 + 词 `Slay:`"),
+    # ⚪ 2026-10-10（`A1411`）：`("6899b199f5e36144ebbdd7ed9d9e7afe","[Shield]")` **已删** —— 死键，而且那个位置**判给 `Slay` 了**：
     #    卡表 2026-10-18（`8b84a3d`）把 `"+2 [Attack] and [Shield] Shield: Heals 3"` 改成
     #    `"+2 [Attack] and [Slay] Slay: Heals 3"`（补回被方括号换掉的词时一并订正）⇒ 上一行那条才是这一处的答案。
     # 🔴 2026-10-18：`("UM_Chaplain_Cassius", "[Oath]")` / `("UM_Chaplain_Cassius", "[Talent]")` 两条**方括号键**已作废 ——
@@ -198,7 +200,7 @@ TOKEN_BY_CARD = {
     ("AM74", "[Ranged]"): ("Ranged", "还原表：`+2 Ranged`（键 2026-10-10 由 `[Attack]` 订正）"),
     ("DA85", "[Ranged]"): ("Ranged", "还原表：`+1 Ranged`（键 2026-10-10 由 `[Attack]` 订正）"),
     ("DA45", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
-    ("DA_Master_of_the_Deathwing", "[attack]"): ("Melee", "还原表：`+2 Melee`"),
+    ("9e0eecf8cb9a8df49bf18cc5d9051109", "[attack]"): ("Melee", "还原表：`+2 Melee`"),
     ("DA76", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
     ("EC35", "[attack]"): ("Melee", "还原表：`+1 Melee`"),
     ("EC15", "[attack]"): ("Melee", "还原表：`+2 Melee`"),
@@ -207,11 +209,11 @@ TOKEN_BY_CARD = {
     ("GSC58", "[Attack]"): ("Melee", "还原表：`+2 Melee`"),
     ("GOF77", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
     ("GOF72", "[attack]"): ("Melee", "还原表：`+2 Melee`"),
-    ("GOF_Wreckin_Ball", "[Attack]"): ("Melee", "还原表：`+2 Melee`"),
-    ("GOF_Special_Dose_Zodgrod_Wortsnagga_Talent", "[Attack]"): ("Melee", "还原表：`+3 Melee`"),
+    ("508002f5d7ee54f4686aefa2e6adce41", "[Attack]"): ("Melee", "还原表：`+2 Melee`"),
+    ("d19e8b68aaa9a884781d06697ad237a6", "[Attack]"): ("Melee", "还原表：`+3 Melee`"),
     ("SAU44", "[Attack]"): ("Melee", "还原表：`+1 Melee … +3 Melee`（两处都是拳）"),
     ("SAU66", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
-    ("SOR_Daemonbreaker", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
+    ("e01f4d54e8a474d96b5a1167cc28eebf", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
     ("SOR68", "[attack]"): ("Melee", "还原表：`+3 Melee`"),
     ("SOR65", "[attack]"): ("Melee", "还原表：`+1 Melee`"),
     ("SW44", "[attack]"): ("Melee", "还原表：`+2 Melee`"),
@@ -224,9 +226,9 @@ TOKEN_BY_CARD = {
     #    **两条答案相同（Melee）**，所以删掉它**零行为变化**（删前实测：本卡 `plan` 条目逐字未变），
     #    只是把"静默重复"这种坑清掉。
     ("UM92", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
-    ("UM_Master_of_Arms", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
-    ("UM_Righteous_Fury", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
-    # ⚪ 2026-10-10（`A1411`）：`("TL_Termagant_Brood","[Attack]")` **已删** —— 死键，而且**两个答案打架**：
+    ("55b8e3d2040f86d4190ffb1a91abb5ed", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
+    ("26d4ded12b28a3742b5c8fc155e29803", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
+    # ⚪ 2026-10-10（`A1411`）：`("TL75","[Attack]")` **已删** —— 死键，而且**两个答案打架**：
     #    这条写 Melee，而卡表现已写 `[Ranged]`（`+1 Ranged Attack` → `+1 [Ranged]`，`8b84a3d` 改的）
     #    且 `[Ranged]`→Ranged 有按规则条目 ⇒ 这条旧答案**已被卡表推翻**，删（不是换键）。
     ("TAU70", "[attack]"): ("Melee", "还原表：`+1 Melee`"),
@@ -236,11 +238,11 @@ TOKEN_BY_CARD = {
     #    （`cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。答案不变（Melee）、证据沿用。
     ("GOF106", "[\u653b\u51fb]"): ("Melee", "卡面原文 `Gain +1 Attack` —— **中文数据自己把「攻击」写成了护甲**"
         "（键 2026-10-10 由 `[\u62a4\u7532]` 订正）"),
-    # ⚪ 2026-10-10（`A1411`）：`("SOR_Sisters_Repentia","[\u62a4\u7532]")` **已删** —— **卡 id 写错了**：
+    # ⚪ 2026-10-10（`A1411`）：`("SOR10","[\u62a4\u7532]")` **已删** —— **卡 id 写错了**：
     #    池里没有 `SOR_Sisters_Repentia`，真卡是 `SOR19 Sisters Repentia`（`Warpforge_19`），
-    #    而它那一处今天写 `[Attack]`、本表已有 `("SOR_Sisters_Repentia","[Attack]")`（同答案 Melee）⇒ 错 id 上的重复条目。
+    #    而它那一处今天写 `[Attack]`、本表已有 `("SOR10","[Attack]")`（同答案 Melee）⇒ 错 id 上的重复条目。
     ("GOF14", "[\u653b\u51fb]"): ("Melee", "还原表 Skarboy Nob：`Mob: Gain +1 Melee`"),
-    ("ASH_Storm_of_Silence", "[\u653b\u51fb]"): ("Melee", "还原表 Storm of Silence：`Your Warlord gains +2 Melee this turn`"
+    ("851f73daf747eb642934a16429b391db", "[\u653b\u51fb]"): ("Melee", "还原表 Storm of Silence：`Your Warlord gains +2 Melee this turn`"
         "（中文 token 当年写「生命」、卡面画的是拳；键 2026-10-10 由 `[\u751f\u547d]` 订正）"),
     # ---- 2026-09-15 补：把「锚点自动对齐」那几处升级成有证据的（还原表原文见每条）----
     ("AM45", "[attack]"): ("Melee", "还原表：`Give +2 Melee, +2 Ranged and Concussive`"),
@@ -271,22 +273,22 @@ TOKEN_BY_CARD = {
     #    **就是这条死条目**（死条目不参与渲染，所以「不一致」本来就落不到画面上；
     #    而五张 `markOf*` 切片**渲染上完全一样**，见 `SYMBOLS` 里 `❄` 那条的说明）。
     #    ⛔ **别把它加回来** —— 加回来就是死条目，生成器的自检会再报一次。
-    ("DA_Supreme_Grand_Master", "[Attack]"): ("Melee", "还原表 Supreme Grand Master：`Give +1Melee and +1Ranged`"),
+    ("dd535f7a54bcf6241b24ca6d0e81bbb4", "[Attack]"): ("Melee", "还原表 Supreme Grand Master：`Give +1Melee and +1Ranged`"),
     # 🔴 2026-10-10（`A1411`）：键 `[Armor]` **订正成 `[Ranged]`**（死键）—— 同一处的键名早就是错的
     #    （`[Armor]` 是 OCR 起的名字，答案从来是「紫枪」），卡表 2026-10-18 已写成 `[Ranged]`。答案不变。
-    ("DA_Supreme_Grand_Master", "[Ranged]"): ("Ranged", "同上（键 2026-10-10 由 `[Armor]` 订正）"),
+    ("dd535f7a54bcf6241b24ca6d0e81bbb4", "[Ranged]"): ("Ranged", "同上（键 2026-10-10 由 `[Armor]` 订正）"),
     ("EC3", "[Attack]"): ("Melee", "还原表 Disharmonist：`-2Melee and -2Ranged`"),
     ("EC3", "[Ranged]"): ("Ranged", "同上（键 2026-10-10 由 `[Armor]` 订正）"),
-    ("EC72", "[Attack]"): ("Melee", "还原表 Antrak Silk：`+1Melee and +1Ranged`"),
-    ("EC72", "[Ranged]"): ("Ranged", "同上（键 2026-10-10 由 `[Armor]` 订正）"),
+    ("5a8a11b2a89796f48b34fbec8db6f452", "[Attack]"): ("Melee", "还原表 Antrak Silk：`+1Melee and +1Ranged`"),
+    ("5a8a11b2a89796f48b34fbec8db6f452", "[Ranged]"): ("Ranged", "同上（键 2026-10-10 由 `[Armor]` 订正）"),
     ("SW62", "[Attack]"): ("Melee", "还原表 Legendary Tenacity：`+4Melee, +4Ranged`"),
     ("SW62", "[Ranged]"): ("Ranged", "同上（键 2026-10-10 由 `[Armour]` 订正）"),
     # ⚪ 2026-10-10（`A1411`）：`("EC1","[armor]")` **已删** —— 死键；这一处（第一枚 = 拳）今天写 `[Attack]`，
     #    本表已有 `("EC1","[Attack]")`（同答案 Melee）⇒ 删掉不丢覆盖。
     ("EC1", "[Ranged]"): ("Ranged", "还原表 Sonic Blaster Noise Marine：`-1Melee and -1Ranged`"
                                      "（第二枚 = 紫枪；键 2026-10-10 由 `[attack]` 订正）"),
-    ("EC_Dual_Screamer_Kakophonist", "[attack]"): ("Melee", "还原表 Screamer Kakophonist：`-4Melee and -4Ranged`"),
-    ("EC_Dual_Screamer_Kakophonist", "[Ranged]"): ("Ranged", "同上（本批把 token 名换成了它真正的含义 —— 写着 health、画的是枪）"),
+    ("EC16", "[attack]"): ("Melee", "还原表 Screamer Kakophonist：`-4Melee and -4Ranged`"),
+    ("EC16", "[Ranged]"): ("Ranged", "同上（本批把 token 名换成了它真正的含义 —— 写着 health、画的是枪）"),
     # ⚠️ 2026-09-16：这一张的 desc 已按卡面**把 token 名换成了它真正的含义、顺序也摆正**
     #    （`Give +1 [attack] and +1 [ranged]`，卡面第一枚=粉拳、第二枚=紫枪）。
     #    所以键要从 `[armor]`/`[attack]` 换成 `[ranged]`；`[attack]`→Melee 那条见上面（现在是对的）。
@@ -309,8 +311,8 @@ TOKEN_BY_CARD = {
     ("DA34", "[honour]"): ("questPoints", "还原表 Unforgiven Redemptor：`When you gain Quest Point, deal 2 damage`"
                           "　⛔ **别删：`[honour]` 是个词、不是图标名，靠本逐卡条目才对上**"
                           "（删条目 / 改 token ⇒ 徽记整枚不画；`DA38` 的 token 本来就**不是** `[Quest Point]`）"),
-    ("GOF_Worst_Temper", "[Attack]"): ("Melee", "还原表：`+1Melee, Armour Armour 1 and Flying Flying`"),
-    ("GOF_Uge_Choppa", "[Attack]"): ("Melee", "还原表：`+2Melee and Slay Slay:`"),
+    ("8425b809e9e64e24f9035f709f5aaee4", "[Attack]"): ("Melee", "还原表：`+1Melee, Armour Armour 1 and Flying Flying`"),
+    ("6899b199f5e36144ebbdd7ed9d9e7afe", "[Attack]"): ("Melee", "还原表：`+2Melee and Slay Slay:`"),
     ("GOF101", "[Attack]"): ("Melee", "还原表 Da Old Ways：`give it +2 Melee this turn instead`"),
     ("AM56", "[Ranged]"): ("Ranged", "还原表：`Give +2 Ranged to your units`"),
     # 🔴 2026-10-10（`A1411`）：键 `[Armor]` **订正成 `[Ranged]`**（死键）—— 同一处卡表 2026-10-18
@@ -332,7 +334,7 @@ TOKEN_BY_CARD = {
         "`Regiment: Give +1〔紫圈枪〕`"),
     ("AM74", "[远程]"): ("Ranged",
         "2026-09-16 逐张开图核过（`Astra Militarum/4计策/Warpforge_10_Forged-Killers.png`）：`Give +2〔紫圈枪〕`"),
-    ("SAU_Hardwired_Destruction", "[远程]"): ("Ranged",
+    ("461354d98aa5e3142afa4eb4922e5456", "[远程]"): ("Ranged",
         "2026-09-16 补上那条**一直挂着的缺口**（本文件 2026-09-15 收口时它还在「锚点没对上」）："
         "同卡的英文 `[Ranged]` 已经由锚点对齐到 Ranged，中文这一枚是同一个位置。"
         "判据：`Necron/2天赋/Warpforge_02_Hardwired-Destruction.png` —— `Give +1〔拳〕 and +1〔准星/枪〕`"),
@@ -343,13 +345,13 @@ TOKEN_BY_CARD = {
     #      ⚠️ 这四条都是**按卡**的，别升级成 token 规则 —— token 名不可信（见文件头），
     #         而且 `[Destroyer]` 这一枚**图集里根本没有 `destroyer.png`**：原版给它用的就是
     #         `frenzied` 那张图，所以按名查永远查不到。
-    ("SAU_Hardwired_Destruction", "[Destroyer]"): ("frenzied",
+    ("461354d98aa5e3142afa4eb4922e5456", "[Destroyer]"): ("frenzied",
         "2026-09-15 用户裁决。**图集里没有 `destroyer.png` 不是缺口 —— 原版给「毁灭者」用的就是 "
         "`frenzied` 那张图**：`Necron/3部队/Warpforge_24_Skorpekh-Destroyer.png` 卡面直接印着 "
         "`〔此图标〕Destroyer.`（关键词紧挨着它），`Necron/1督军/Warpforge_01_Ramatekh-the-Cruel.png` 同。"
         "并排比对 `icons/frenzied.png`：金圆盘 + 白色张开的爪掌 + 背后两把交叉刀 + 掌下一块小牌，逐处一致"
         "（同批候选 `huntMark` / `rally` 完全不同）。"),
-    ("SAU_Hardwired_Destruction", "[毁灭者]"): ("frenzied",
+    ("461354d98aa5e3142afa4eb4922e5456", "[毁灭者]"): ("frenzied",
         "同 `[Destroyer]`（同一张卡、同一个位置的中文写法）"),
     ("DA5", "[Quest Point]"): ("questPoints",
         "2026-09-15 用户裁决 + 逐图核过。这枚是**暗黑天使的任务点徽记**（深绿圆盘 + 银灰尖刺环 + "
@@ -374,9 +376,9 @@ TOKEN_BY_CARD = {
     #    英文 `desc` 是**引擎输入**，`GivePayload.ReAttr` 认的是字面 `attack` ⇒ 写 `[Attack]`
     #    才能让去括号后的串与改前**逐字节相同**（`EffectText.ParseSegment` 只剥方括号、不剥内容）。
     #    唯一例外 `EC39` 用 `[Melee]` —— 那句走 `TryDouble` 的**字面** `melee and ranged` 匹配。
-    ("AM_Lord_Commander", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("c06453b330af61745beb5fa567ba863e", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("ASH32", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("ASH_Storm_of_Silence", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("851f73daf747eb642934a16429b391db", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("ASH69", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("ASH86", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("DA26", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
@@ -395,12 +397,12 @@ TOKEN_BY_CARD = {
     ("EC1", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("EC22", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("EC23", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC_Terminator_Champion", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC26", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("EC13", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("EC57", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("EC47", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("EC32", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC77", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("aa45079b714e3ff498549e533c5954a1", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("EC33", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("GOF29", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("GOF106", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
@@ -415,29 +417,29 @@ TOKEN_BY_CARD = {
     ("GOF85", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("GOF98", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("GOF100", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF_Da_Red_Waaagh", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF_Follower_of_Gork", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF_Greatest_Warboss", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("64a657fc5ed5bbb4fa7b585cf29c1e95", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("20d0f4451f16fc441836a02f99bf77da", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("6ba4b132d24528844a86304f8ce67833", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("3ebb159036778d14ebd1c48451aa6ca0", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("GOF70", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF_Waaagh_Energy_Weirdboy_Talent", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("e3d67d86f73f7564eb0bf886ec848af6", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("GSC9", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GSC_Nexus_of_Devotion", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("7831725387c8a774dbdf5b6492d928e0", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("GSC18", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("GSC16", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("GSC14", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("GSC24", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("GSC4", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC_Terminator", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC25", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("SOR7", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("SOR13", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR_Sisters_Repentia", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR10", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("SOR23", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("SOR25", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("SOR24", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("SOR56", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("SOR44", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR_Righteous_Repugnance", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("f104d4c21abe84546abc9365d9eda8dd", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("SOR60", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("SOR67", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("SOR5", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
@@ -451,10 +453,10 @@ TOKEN_BY_CARD = {
     ("TAU71", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("TAU73", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("TAU74", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("TAU_Grisly_Feast", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("TL_Hive_Commander", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("TL_Psychophage", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("TL_Bestial_Rage", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("b3735ef3d1408d544b0947e31f898e20", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("5b5425f6e2848b449807bd1643d0d936", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("TL68", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("TL73", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("UM_Tactical_Marine", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("UM_Chapter_Champion", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("UM_Catechism_of_Death", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
@@ -474,7 +476,7 @@ TOKEN_BY_CARD = {
     #    `Oath 6: Deal damage to all enemy troops equal to its〔**粉拳**〕` —— 本批作者亲读）。
     ("UM101", "[Attack]"): ("Melee", "卡图 `Ultramarines/4计策/Warpforge_37_Indomitus-Crusade.png`：`equal to its〔粉拳〕`（亲读）"),
     ("UM67", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("UM_Paragon_of_Ultramar", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("7693f2b21b2f85644b739da990bc2216", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     ("UM_Primarch_of_the_XIII", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     # 🔴 2026-10-18 **第二批**：同上一张，英文 `desc` 已改（`[Attack]` → `[Ranged]`）。
     ("UM9", "[Ranged]"): ("Ranged", "卡图 `Ultramarines/3部队/inceptor.png`：那一枚是**紫圈枪**（锚点核对 + 亲读两处一致）"),
@@ -598,17 +600,17 @@ _STUN_CARDS = [
     # (卡 id, 判据出处, 卡图文件名) —— 判据出处 = 逐张抄录里 `Stun` **双写**的那一行
     ("AM42", "`资料/卡表核对_卡图提取/_还原效果文字.md:161`", "Warpforge_47_Pinning-Fire.png"),
     ("AM68", "`资料/卡表核对_卡图提取/_还原效果文字.md:110`", "Warpforge_04_Tempestus-Scion.png"),
-    ("AM_Hektor_Thenmann", "`资料/卡表核对_卡图提取/_还原效果文字.md:104`",
+    ("AM66", "`资料/卡表核对_卡图提取/_还原效果文字.md:104`",
      "Warpforge_01_Hektor-Thenmann.png"),
     ("ASH15", "`资料/卡表核对_卡图提取/_还原效果文字.md:31`", "Warpforge_20_Howling-Banshee.png"),
     ("ASH39", "`资料/卡表核对_卡图提取/_还原效果文字.md:71`", "Warpforge_48_Deadly-Ambush.png"),
     ("ASH45", "`资料/卡表核对_卡图提取/_还原效果文字.md:74`", "Warpforge_51_Banshee-Mask.png"),
     ("ASH74", "`资料/卡表核对_卡图提取/_还原效果文字.md:11`", "Warpforge_01_Jain-Zar.png"),
-    ("ASH_Storm_of_Silence", "`资料/卡表核对_卡图提取/_还原效果文字.md:12`", "Warpforge_02_Storm-of-Silence.png"),
+    ("851f73daf747eb642934a16429b391db", "`资料/卡表核对_卡图提取/_还原效果文字.md:12`", "Warpforge_02_Storm-of-Silence.png"),
     ("ASH75", "`资料/卡表核对_卡图提取/_还原效果文字.md:19`", "Warpforge_09_Yrlla-the-Huntress.png"),
     ("BL73", "`资料/卡表核对_卡图提取/_还原效果文字.md:226`", "Warpforge_11_Malicious-Volleys.png"),
     ("DA35", "`资料/卡表核对_卡图提取/_还原效果文字.md:316`", "Warpforge_39_Dark-Talon.png"),
-    ("DA_None_Must_Know", "`资料/卡表核对_卡图提取/DarkAngels__3.md:9` **＋** 同文件 `:18`（形状存疑条）",
+    ("24fcaf45556573549b922c06cad3aa2c", "`资料/卡表核对_卡图提取/DarkAngels__3.md:9` **＋** 同文件 `:18`（形状存疑条）",
      "Dark Angels/6秘密/IMG_3696.jpg"),
     ("EC1", "`资料/卡表核对_卡图提取/_还原效果文字.md:364`",
      "Warpforge_17_Sonic-Blaster-Noise-Marine.png"),
@@ -624,13 +626,13 @@ _STUN_CARDS = [
     ("GSC21", "`资料/卡表核对_卡图提取/_还原效果文字.md:453`", "Warpforge_28_Clamavus.png"),
     ("GSC28", "`资料/卡表核对_卡图提取/_还原效果文字.md:460`",
      "Warpforge_35_Hulking-Aberrant.png"),
-    ("GSC_Roaming_Outriders", "`资料/卡表核对_卡图提取/_还原效果文字.md:465`",
+    ("GSC75", "`资料/卡表核对_卡图提取/_还原效果文字.md:465`",
      "Warpforge_13_Roaming-Outriders.png"),
     ("SAU17", "`资料/卡表核对_卡图提取/_还原效果文字.md:525`", "Warpforge_23_Psychomancer.png"),
     ("SOR48", "`资料/卡表核对_卡图提取/_还原效果文字.md:769`", "Warpforge_59_Imperial-Creed.png"),
     ("TAU45", "`资料/卡表核对_卡图提取/_还原效果文字.md:911`", "Warpforge_57_Recon-Sweep.png"),
     ("TL17", "`资料/卡表核对_卡图提取/_还原效果文字.md:944`", "Warpforge_26_Deathleaper.png"),
-    ("TL_Toxic_Entanglement", "`资料/卡表核对_卡图提取/_还原效果文字.md:970`",
+    ("TL71", "`资料/卡表核对_卡图提取/_还原效果文字.md:970`",
      "Warpforge_11_Toxic-Entanglement.png"),
     ("UM21", "`资料/卡表核对_卡图提取/_还原效果文字.md:1067`",
      "Warpforge_32_Primaris-Judiciar.png"),
@@ -746,17 +748,17 @@ _FAMILY8 = [
      "`资料/卡表核对_卡图提取/_还原效果文字.md:264`", "Warpforge_9_Havoc-Champion.png"),
     ("BL44", "Vulnerable 2", "脆弱", "vulnerable",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:248`", "Warpforge_60_Daemonic-Pact.png"),
-    ("BL_Idolatrous_Despoilers", "Vulnerable", "脆弱", "vulnerable",
+    ("BL75", "Vulnerable", "脆弱", "vulnerable",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:227`", "Warpforge_12_Idolatrous-Despoilers.png"),
-    ("BL_Litany_of_Despair", "Vulnerable", "脆弱", "vulnerable",
+    ("9176318eaf469354e858f51af2333aa3", "Vulnerable", "脆弱", "vulnerable",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:201`", "Warpforge_2_Litany-of-Despair.png"),
-    ("BL_Spreading_Corruption", "Vulnerable", "脆弱", "vulnerable",
+    ("BL74", "Vulnerable", "脆弱", "vulnerable",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:228`", "Warpforge_13_Spreading-Corruption.png"),
     ("BL65", "Vulnerable", "脆弱", "vulnerable",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:191`", "Warpforge_1_Ghallaron-the-Pious.png"),
     ("DA86", "Vulnerable", "脆弱", "vulnerable",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:312`", "Warpforge_12_Hunters-of-Heretics.png"),
-    ("EC_Duelist_s_Hubris_Lucius_Talent", "Vulnerable", "脆弱", "vulnerable",
+    ("6ed51d59b9f8ea24ab0dc7ceaef7956c", "Vulnerable", "脆弱", "vulnerable",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:351`", "Warpforge_04_Duelists-Hubris.png"),
     # ⚠️ 中文 token 是 **`易伤`** —— 全池 14 张里**只有这一张**这么写（其余 13 张写 `脆弱`），
     #    本批逐卡核过 `descZh`；⛔ 别按「统一成 `脆弱`」去改（改了就与卡面对不上、还会变死条目）。
@@ -764,7 +766,7 @@ _FAMILY8 = [
      "`资料/卡表核对_卡图提取/_还原效果文字.md:563`", "Warpforge_54_Curse-of-the-Phaeron.png"),
     ("TL27", "Vulnerable", "脆弱", "vulnerable",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:962`", "Warpforge_40_Exocrine.png"),
-    ("TL_Toxic_Entanglement", "Vulnerable", "脆弱", "vulnerable",
+    ("TL71", "Vulnerable", "脆弱", "vulnerable",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:970`", "Warpforge_11_Toxic-Entanglement.png"),
     # ---- `huntMark`（22 张）----
     ("SW14", "Hunt Mark", "猎杀标记", "huntMark",
@@ -820,11 +822,11 @@ _FAMILY8 = [
      "`资料/卡表核对_卡图提取/_还原效果文字.md:446`", "Warpforge_21_Acolyte-Heavy.png"),
     ("GSC15", "Sabotage", "破坏", "sabotage",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:448`", "Warpforge_23_Acolyte-Specialist.png"),
-    ("GSC_Vox_Hacker", "Sabotage", "破坏", "sabotage",
+    ("e9952f50921d2844a94d39ce883430f4", "Sabotage", "破坏", "sabotage",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:454`", "Warpforge_29_Vox-Hacker.png"),
     ("GSC27", "Sabotage", "破坏", "sabotage",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:459`", "Warpforge_34_Achilles-Ridgerunner.png"),
-    ("GSC_Backstab", "Sabotage", "破坏", "sabotage",
+    ("GSC40", "Sabotage", "破坏", "sabotage",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:476`", "Warpforge_48_Backstab.png"),
     ("GSC50", "Sabotage", "破坏", "sabotage",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:477`", "Warpforge_49_Clandestine-Operation.png"),
@@ -838,7 +840,7 @@ _FAMILY8 = [
      "`资料/卡表核对_卡图提取/_还原效果文字.md:424`", "Warpforge_04_Atalan-Jackal.png"),
     ("GSC70", "Sabotage", "破坏", "sabotage",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:431`", "Warpforge_07_Jackal-Specialist.png"),
-    ("GSC_Master_Outrider", "Sabotage", "破坏", "sabotage",
+    ("c433e3dde4952cc448220908226127ae", "Sabotage", "破坏", "sabotage",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:420`", "Warpforge_02_Master-Outrider.png"),
     # ---- `sniper`（5 张）----
     ("ASH6", "Sniper", "狙击", "sniper",
@@ -847,14 +849,14 @@ _FAMILY8 = [
      "`资料/卡表核对_卡图提取/_还原效果文字.md:24`", "Warpforge_14_Shroud-Runner.png"),
     ("UM8", "Sniper", "狙击", "sniper",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:1053`", "Warpforge_17_Eliminator.png"),
-    ("GSC_Master_Outrider", "Sniper", "狙击", "sniper",
+    ("c433e3dde4952cc448220908226127ae", "Sniper", "狙击", "sniper",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:420`", "Warpforge_02_Master-Outrider.png"),
     ("ASH81", "Sniper", None, "sniper",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:97`", "Zrzut ekranu 2026-04-16 o 18.54.28.png"),
     # ---- `bloodThirst`（7 张）----
     ("AM19", "Blood Thirst", "嗜血", "bloodThirst",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:132`", "Warpforge_21_Attilan-Rough-Rider.png"),
-    ("EC_Threnodic_Choir_Noise_Marine", "Blood Thirst", "嗜血", "bloodThirst",
+    ("EC19", "Blood Thirst", "嗜血", "bloodThirst",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:365`", "Warpforge_18_Threnodic-Noise-Marine.png"),
     ("GOF72", "Blood Thirst", "嗜血", "bloodThirst",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:627`", "Warpforge_09_Dead-Choppy.png"),
@@ -1009,7 +1011,7 @@ BARE_TOKEN_BY_CARD[("GOF91", "嗜血")] = (
 _INVULNERABLE = [
     ("ASH16", "`资料/卡表核对_卡图提取/_还原效果文字.md:32`",
      "Aeldari/3部队/Warpforge_21_Nuadhu-Fireheart.png"),
-    ("AM_Renowned_Bodyguard", "`资料/卡表核对_卡图提取/_还原效果文字.md:147`",
+    ("98cd4c021d615174aba88df6012219c4", "`资料/卡表核对_卡图提取/_还原效果文字.md:147`",
      "Astra Militarum/2天赋/Warpforge_36_Renowned-Bodyguard.png"),
     ("BL44", "`资料/卡表核对_卡图提取/_还原效果文字.md:248`",
      "Chaos/4计策/Warpforge_60_Daemonic-Pact.png"),
@@ -1035,7 +1037,7 @@ _INVULNERABLE = [
      "Ultramarines/4计策/Warpforge_52_Humanitys-Shield.png"),
     # ⚠️ 第 14 张**不在** `_还原效果文字.md` 里（它来自 `6秘密/` 的 5 张**手机翻拍**，
     #    同 `DA_None_Must_Know`）⇒ 判据 = 本批作者**亲读** `IMG_3698.jpg`（见 ②）。
-    ("DA_Rites_of_Penance", "`资料/卡表核对_卡图提取/DarkAngels__3.md:11` **＋** 亲读 "
+    ("e01e8e933ad574b44bce5473ae486667", "`资料/卡表核对_卡图提取/DarkAngels__3.md:11` **＋** 亲读 "
                             "`d:/2/Warpforge部队卡片/Dark Angels/6秘密/IMG_3698.jpg`",
      "Dark Angels/6秘密/IMG_3698.jpg"),
 ]
@@ -1051,7 +1053,7 @@ for _inv_cid, _inv_src, _inv_png in _INVULNERABLE:
         _inv_why += ("⚠️ 本卡同一段正文里**还有** `Vulnerable 2`（`A1376` 按卡补的）——"
                      "两条**安全共存**（`Rewrite` 是 `Ordinal` 替换、`invulnerable` 图名不含大写 `Vulnerable`），"
                      "见本块 ④。")
-    if _inv_cid == "DA_Rites_of_Penance":
+    if _inv_cid == "e01e8e933ad574b44bce5473ae486667":
         _inv_why += ("⚠️ 这一张**不在** `_还原效果文字.md` 里（`6秘密/` 的手机翻拍），"
                      "判据 = 本批作者亲读那张 `.jpg`。")
     BARE_TOKEN_BY_CARD[(_inv_cid, "Invulnerable")] = ("invulnerable", _inv_why)
@@ -1446,8 +1448,8 @@ _A1613_GAP = [
     ("AM38", "装甲 1", "descZh", "armour", 157, "Warpforge_43_Baneblade-Tank.png", "Armour"),
     ("AM50", "Armour", "desc", "armour", 168, "Warpforge_54_Thermal-Weaponry.png", "Armour"),
     ("AM50", "装甲", "descZh", "armour", 168, "Warpforge_54_Thermal-Weaponry.png", "Armour"),
-    ("AM_Armoured_Lightning", "Armour", "desc", "armour", 150, "Warpforge_12_Armoured-Lightning.png", "Armour"),
-    ("AM_Armoured_Lightning", "装甲", "descZh", "armour", 150, "Warpforge_12_Armoured-Lightning.png", "Armour"),
+    ("AM76", "Armour", "desc", "armour", 150, "Warpforge_12_Armoured-Lightning.png", "Armour"),
+    ("AM76", "装甲", "descZh", "armour", 150, "Warpforge_12_Armoured-Lightning.png", "Armour"),
     ("ASH14", "Armour", "desc", "armour", 28, "Warpforge_18_Wraithblade.png", "Armour"),
     ("ASH14", "护甲", "descZh", "armour", 28, "Warpforge_18_Wraithblade.png", "Armour"),
     ("ASH24", "Armour", "desc", "armour", 39, "Warpforge_28_Vengeful-Wraithblade.png", "Armour"),
@@ -1462,12 +1464,12 @@ _A1613_GAP = [
     ("DA23", "护甲 2", "descZh", "armour", 299, "Warpforge_26_Bladeguard-Veteran.png", "Armour"),
     ("DA53", "Armour", "desc", "armour", 334, "Warpforge_58_Steadfast-Warriors.png", "Armour"),
     ("DA53", "护甲", "descZh", "armour", 334, "Warpforge_58_Steadfast-Warriors.png", "Armour"),
-    ("DA_Master_of_the_Deathwing", "Armour", "desc", "armour", 275, "Warpforge_06_Master-of-the-Deathwing.png", "Armour"),
-    ("DA_Master_of_the_Deathwing", "护甲", "descZh", "armour", 275, "Warpforge_06_Master-of-the-Deathwing.png", "Armour"),
+    ("9e0eecf8cb9a8df49bf18cc5d9051109", "Armour", "desc", "armour", 275, "Warpforge_06_Master-of-the-Deathwing.png", "Armour"),
+    ("9e0eecf8cb9a8df49bf18cc5d9051109", "护甲", "descZh", "armour", 275, "Warpforge_06_Master-of-the-Deathwing.png", "Armour"),
     ("EC2", "Armour", "desc", "armour", 366, "Warpforge_19_Blastmaster-Noise-Marine.png", "Armour"),
     ("EC2", "护甲", "descZh", "armour", 366, "Warpforge_19_Blastmaster-Noise-Marine.png", "Armour"),
-    ("EC75", "Armour", "desc", "armour", 415, "Warpforge_75_Shivversplint.png", "Armour"),
-    ("EC75", "护甲", "descZh", "armour", 415, "Warpforge_75_Shivversplint.png", "Armour"),
+    ("9215799995ff7a941b14737e27021032", "Armour", "desc", "armour", 415, "Warpforge_75_Shivversplint.png", "Armour"),
+    ("9215799995ff7a941b14737e27021032", "护甲", "descZh", "armour", 415, "Warpforge_75_Shivversplint.png", "Armour"),
     ("GOF35", "Armour", "desc", "armour", 680, "Warpforge_44_Ork-Encampment.png", "Armour"),
     ("GOF35", "护甲", "descZh", "armour", 680, "Warpforge_44_Ork-Encampment.png", "Armour"),
     ("GOF95", "Armour", "desc", "armour", 644, "Warpforge_20_Kill-Rig.png", "Armour"),
@@ -1476,8 +1478,8 @@ _A1613_GAP = [
     ("GOF74", "护甲", "descZh", "armour", 628, "Warpforge_10_Grizzled-Skarboy.png", "Armour"),
     ("GOF70", "Armour", "desc", "armour", 604, "Warpforge_07A_Krumpaklaw.png", "Armour"),
     ("GOF70", "护甲", "descZh", "armour", 604, "Warpforge_07A_Krumpaklaw.png", "Armour"),
-    ("GOF_Worst_Temper", "Armour", "desc", "armour", 587, "Warpforge_02B_Worst-Temper.png", "Armour"),
-    ("GOF_Worst_Temper", "护甲", "descZh", "armour", 587, "Warpforge_02B_Worst-Temper.png", "Armour"),
+    ("8425b809e9e64e24f9035f709f5aaee4", "Armour", "desc", "armour", 587, "Warpforge_02B_Worst-Temper.png", "Armour"),
+    ("8425b809e9e64e24f9035f709f5aaee4", "护甲", "descZh", "armour", 587, "Warpforge_02B_Worst-Temper.png", "Armour"),
     # 🔴 **2026-10-12（`A1624`）：`GSC38 Abominant` —— token 取 `Armour 1`（**不是** `Armour`）**。
     #    这张卡是 `A1613` 那一批**唯一挑不出 token** 的一张：字段里同时有段首的 `Armour 1.`（句首关键词
     #    那一支给的）和第二处（**文末**）的 `Armour 1` ⇒ `Armour 1` ⊂ `Armour 1.`、**右延长到文本尽头仍撞**。
@@ -1493,8 +1495,8 @@ _A1613_GAP = [
     ("GSC46", "护甲", "descZh", "armour", 482, "Warpforge_54_Bore-Through.png", "Armour"),
     ("SAU55", "Armour", "desc", "armour", 566, "Warpforge_57_Immortal-Pride.png", "Armour"),
     ("SAU55", "装甲", "descZh", "armour", 566, "Warpforge_57_Immortal-Pride.png", "Armour"),
-    ("SAU_Hardwired_Destruction", "Armour", "desc", "armour", 503, "Warpforge_02_Hardwired-Destruction.png", "Armour"),
-    ("SAU_Hardwired_Destruction", "装甲", "descZh", "armour", 503, "Warpforge_02_Hardwired-Destruction.png", "Armour"),
+    ("461354d98aa5e3142afa4eb4922e5456", "Armour", "desc", "armour", 503, "Warpforge_02_Hardwired-Destruction.png", "Armour"),
+    ("461354d98aa5e3142afa4eb4922e5456", "装甲", "descZh", "armour", 503, "Warpforge_02_Hardwired-Destruction.png", "Armour"),
     ("SOR7", "Armour", "desc", "armour", 718, "Warpforge_11_Crusader.png", "Armour"),
     ("SOR7", "护甲", "descZh", "armour", 718, "Warpforge_11_Crusader.png", "Armour"),
     ("SOR23", "Armour", "desc", "armour", 734, "Warpforge_27_Canoness.png", "Armour"),
@@ -1517,10 +1519,10 @@ _A1613_GAP = [
     ("TL20", "护甲", "descZh", "armour", 943, "Warpforge_25_Carnifex.png", "Armour"),
     ("TL44", "Armour", "desc", "armour", 984, "Warpforge_55_Hardened-Biology.png", "Armour"),
     ("TL44", "护甲", "descZh", "armour", 984, "Warpforge_55_Hardened-Biology.png", "Armour"),
-    ("UM_Master_Tactician", "Armour", "desc", "armour", 1040, "Warpforge_2_Master-Tactician-2.png", "Armour"),
-    ("UM_Master_Tactician", "护甲", "descZh", "armour", 1040, "Warpforge_2_Master-Tactician-2.png", "Armour"),
-    ("UM_Spear_of_Macragge", "Armour", "desc", "armour", 1039, "Warpforge_23_Spear-of-Macragge.png", "Armour"),
-    ("UM_Spear_of_Macragge", "护甲", "descZh", "armour", 1039, "Warpforge_23_Spear-of-Macragge.png", "Armour"),
+    ("dcbd28525888ce54aaa93a47ba4de1e6", "Armour", "desc", "armour", 1040, "Warpforge_2_Master-Tactician-2.png", "Armour"),
+    ("dcbd28525888ce54aaa93a47ba4de1e6", "护甲", "descZh", "armour", 1040, "Warpforge_2_Master-Tactician-2.png", "Armour"),
+    ("d94f91051ecfe014f97577ff573571aa", "Armour", "desc", "armour", 1039, "Warpforge_23_Spear-of-Macragge.png", "Armour"),
+    ("d94f91051ecfe014f97577ff573571aa", "护甲", "descZh", "armour", 1039, "Warpforge_23_Spear-of-Macragge.png", "Armour"),
     ("UM25", "Armour", "desc", "armour", 1070, "Warpforge_39_Devastator-Centurion.png", "Armour"),
     ("UM25", "护甲", "descZh", "armour", 1070, "Warpforge_39_Devastator-Centurion.png", "Armour"),
     ("UM44", "Armour", "desc", "armour", 1114, "Warpforge_59_Armoured-Support.png", "Armour"),
@@ -1558,8 +1560,8 @@ _A1613_GAP = [
     ("SAU2", "Destroyer", "desc", "frenzied", 578, "Warpforge_8_Canoptek-Plasmacyte.png", "Destroyer"),
     ("SAU2", "毁灭者", "descZh", "frenzied", 578, "Warpforge_8_Canoptek-Plasmacyte.png", "Destroyer"),
     # ---- `Ephemeral` → `ephemeral` ----
-    ("TL_Neurotyrant", "Ephemeral", "desc", "ephemeral", 1002, "Warpforge_9_Neurotyrant.png", "Ephemeral"),
-    ("TL_Neurotyrant", "临时", "descZh", "ephemeral", 1002, "Warpforge_9_Neurotyrant.png", "Ephemeral"),
+    ("TL69", "Ephemeral", "desc", "ephemeral", 1002, "Warpforge_9_Neurotyrant.png", "Ephemeral"),
+    ("TL69", "临时", "descZh", "ephemeral", 1002, "Warpforge_9_Neurotyrant.png", "Ephemeral"),
     # ---- `Penitence` → `rage` ----
     ("SOR57", "Penitence", "desc", "rage", 766, "Warpforge_56_Hallowed-Martyrs.png", "Penitence"),
     ("SOR57", "忏悔", "descZh", "rage", 766, "Warpforge_56_Hallowed-Martyrs.png", "Penitence"),
@@ -1574,8 +1576,8 @@ _A1613_GAP = [
     ("SAU11", "残骸", "descZh", "remnant", 517, "Warpforge_16_Technomancer.png", "Remnant"),
     ("SAU19", "Remnant", "desc", "remnant", 527, "Warpforge_25_Canoptek-Reanimator.png", "Remnant"),
     ("SAU19", "残骸", "descZh", "remnant", 527, "Warpforge_25_Canoptek-Reanimator.png", "Remnant"),
-    ("SAU_Reanimate", "Remnant", "desc", "remnant", 549, "Warpforge_26_Reanimate.png", "Remnant"),
-    ("SAU_Reanimate", "残骸", "descZh", "remnant", 549, "Warpforge_26_Reanimate.png", "Remnant"),
+    ("27a4b748a7bf358499f038aa09895ead", "Remnant", "desc", "remnant", 549, "Warpforge_26_Reanimate.png", "Remnant"),
+    ("27a4b748a7bf358499f038aa09895ead", "残骸", "descZh", "remnant", 549, "Warpforge_26_Reanimate.png", "Remnant"),
     ("SAU20", "Remnant", "desc", "remnant", 528, "Warpforge_27_Chronomancer.png", "Remnant"),
     ("SAU20", "残骸", "descZh", "remnant", 528, "Warpforge_27_Chronomancer.png", "Remnant"),
     ("SAU41", "Remnant", "desc", "remnant", 555, "Warpforge_46_Reanimation-Protocol.png", "Remnant"),
@@ -1764,11 +1766,11 @@ FACE_ICON_COUNT = [
                         "**无声明行** ⇒ `keywords` 为空、`KeywordSegment` 一枚都不补）"),
     ("AM50", "descZh", 2, "中文同英文逐处对应"),
     # 🆕 2026-10-12（`A1683`）：这一行**改前是 4 ≠ 3**（多出来的那一枚是 `faith`）。
-    ("ASH_Storm_of_Silence", "desc", 3, "卡面 `Aeldari/2天赋/Warpforge_02_Storm-of-Silence.png` 亲读 **4** 枚 = 正文 3 枚"
+    ("851f73daf747eb642934a16429b391db", "desc", 3, "卡面 `Aeldari/2天赋/Warpforge_02_Storm-of-Silence.png` 亲读 **4** 枚 = 正文 3 枚"
                          "（`+2`〔粉拳〕/ `〔绿圈·1〕` 灵魂石 / `Stun` 前那枚〔橙金螺旋〕）+ **段首 `Ephemeral` 1 枚**"
                          "（由 `KeywordSegment` 补 ⇒ `desc` 正文里不补那个词）。🔴 **正文这 3 枚里【没有金太阳】"
                          "—— `ASH75` 是 SaimHann，跟修女会的信仰无关**"),
-    ("ASH_Storm_of_Silence", "descZh", 3, "中文同英文逐处对应（`[攻击]`/`①`/`眩晕`）⇒ **3 枚、一枚信仰都不许有**。"
+    ("851f73daf747eb642934a16429b391db", "descZh", 3, "中文同英文逐处对应（`[攻击]`/`①`/`眩晕`）⇒ **3 枚、一枚信仰都不许有**。"
                            "⚠️ **改前这条是 4 ≠ 3**（多出 `[能量]`→`faith`，见 `ASH75_FAITH_TOKENS` 那一节）"
                            "—— 本表就是抓住它的那条判据（`A1683`）"),
     # 🆕 2026-10-13（`A1707`）：这一行**改前是 2 ≠ 1**（多出来的那一枚是天赋名里的 `Shield`）。
@@ -1819,7 +1821,7 @@ LEGACY_FAITH_PREFIX = re.compile(
 # ⚠️ 枚数 = `text.count("☀")`（`Rewrite` 是**全局**替换 ⇒ 一个 token 画 N 枚）——
 #    本笔**改前/改后逐字段相同**（改前每个字段恰好 1 枚，只是那一枚由旧写法画）。
 FAITH_PREFIX_UNIFIED = [
-    ("SOR_Lead_the_Righteous",  "desc",   1, "卡面 `Sorotitas/2天赋/Warpforge_04_Lead-the-Righteous.png` 亲读 `8 〔金太阳〕: Deploy an additional Battle Sister`（原 `[Faith]`）"),
+    ("65cfec7d2bc719040b3b4b88622931b2",  "desc",   1, "卡面 `Sorotitas/2天赋/Warpforge_04_Lead-the-Righteous.png` 亲读 `8 〔金太阳〕: Deploy an additional Battle Sister`（原 `[Faith]`）"),
     ("SOR4",  "desc",   1, "卡面 `Sorotitas/3部队/Warpforge_07_Sister-Novitiate.png`（原 `[Icon]`）"),
     ("SOR9", "desc",   1, "卡面 `Sorotitas/3部队/Warpforge_12_Preacher.png`（原 `[faith]`；`SYMBOLS[SUN]` 那条证据点名了它）"),
     ("SOR38", "desc",   1, "卡面 `Sorotitas/3部队/Warpforge_40_Paragon-Warsuit.png` 亲读 `6 〔金太阳〕 : Gain 〔先锋〕Vanguard`（原 `[Faith Icon]`）"),
@@ -1828,10 +1830,10 @@ FAITH_PREFIX_UNIFIED = [
     ("SOR73", "desc",   1, "卡面 `Sorotitas/4计策/Warpforge_10_Sacred-Rose.png` 亲读 `6 〔金太阳〕 Give them 〔侧翼〕Flank`（**卡面本来就没有冒号**，原 `[icon]`）"),
     ("SOR47", "desc",   1, "卡面 `Sorotitas/4计策/Warpforge_52_Miraculous-Feat.png` 亲读 `6 〔金太阳〕 : Extend effect until your next turn`（原 `[Energy]` —— **它就是信仰、不是能量**）"),
     ("SOR54", "desc",   1, "卡面 `Sorotitas/4计策/Warpforge_55_Fiery-Conviction.png`（原 `[Energy]`；还原表 `_还原效果文字.md:765` = `4 Faith:`）"),
-    ("SOR_Daemonbreaker", "desc",   1, "卡面 `Sorotitas/2天赋/Warpforge_02_Daemonbreaker.png` 亲读 `8 〔金太阳〕 : Give it permanently`（原 `[Energy]`）"),
+    ("e01f4d54e8a474d96b5a1167cc28eebf", "desc",   1, "卡面 `Sorotitas/2天赋/Warpforge_02_Daemonbreaker.png` 亲读 `8 〔金太阳〕 : Give it permanently`（原 `[Energy]`）"),
     ("SOR47", "descZh", 1, "中文同英文逐处对应（原来写的是「能量」，本次只改成 `☀`、词与标点一字未动）"),
     ("SOR54", "descZh", 1, "中文同英文逐处对应（原写 `[能量]`）"),
-    ("SOR_Daemonbreaker", "descZh", 1, "中文同英文逐处对应（原写 `[能量]`）"),
+    ("e01f4d54e8a474d96b5a1167cc28eebf", "descZh", 1, "中文同英文逐处对应（原写 `[能量]`）"),
 ]
 
 
@@ -1862,7 +1864,7 @@ FAITH_PREFIX_UNIFIED = [
 # 🔴 **下面两道就是这个决定的机械保证**（谁把信仰记号写回 `ASH75` 的中文 ⇒ 当场 rc 非 0、两份 json 都不落盘）：
 #   ① `ASH75_FAITH_TOKENS` 一个都不许出现在 `descZh` 里，**且**计划表里不许有 `faith` 条目；
 #   ② `①`→`SpiritStone_1` **必须还在**（判「不许画信仰」时别把灵魂石一起删了 —— 那是**另一种**静默错）。
-#      ⚠️ 反向的错（**删过头**）由 `FACE_ICON_COUNT` 的 `("ASH_Storm_of_Silence","descZh",3,…)` 那一行兜住。
+#      ⚠️ 反向的错（**删过头**）由 `FACE_ICON_COUNT` 的 `("851f73daf747eb642934a16429b391db","descZh",3,…)` 那一行兜住。
 ASH75_FAITH_TOKENS = ("[能量]", "[Energy]", "[faith]", "[Faith]", "[Faith Icon]",
                       "[Icon]", "[icon]", "☀")
 
@@ -1892,7 +1894,7 @@ _DARKPACT_ALREADY_ROWS = [
      "同上那半（中文比英文早就有 `❄`；`A1473` 2026-10-10 才把英文侧对齐过来）。"
      "⚠️ 中文这里 `❄` 与词之间还夹着一个「纵欲」（`❄纵欲黑暗契约`）⇒ **别改成「紧邻才让位」那种判据**"
      "（那样这一格会漏判、同一处画两枚）。"),
-    ("BL_Hellfire_Torch", "desc", "[Chaos]",
+    ("BL57", "desc", "[Chaos]",
      "卡面 `Chaos/5防御卡/Warpforge_69_Hellfire-Torch.png` 亲读 = `Give a 〔同一枚红盘白八芒星〕"
      "Dark Pact to a friendly troop` —— `[Chaos]` 那个 token **就是**这一枚（`TOKEN_BY_CARD` 里那条的"
      "`why` 写着「卡图 + NCC 0.932（暗红盘 + 白八芒星）」），词留在后面。"),
@@ -1925,8 +1927,8 @@ DARKPACT_ALREADY = {(c, f) for c, f, _t, _w in _DARKPACT_ALREADY_ROWS}
 #     （`[黑暗契约]混沌黑暗契约` = 1 枚）、`BL74` 的 `descZh`（我们译成两处词、卡面 1 枚）。
 DARKPACT_FACE_COUNT = [
     # (卡 id, `desc` 该画几枚, `descZh` 该画几枚, 卡图文件名)
-    ("BL_Chosen_of_the_Four", 1, 1, "Warpforge_2_Chosen-of-the-Four.png"),
-    ("BL_Unhallowed_Gifts", 1, 1, "Warpforge_8_Unhallowed-Gifts.png"),
+    ("97e959444b53f424ea4285e2ca02c7e6", 1, 1, "Warpforge_2_Chosen-of-the-Four.png"),
+    ("141c5ed661a9e42bd9a793f0d2a1c682", 1, 1, "Warpforge_8_Unhallowed-Gifts.png"),
     ("BL3", 1, 1, "Warpforge_12_Chaos-Legionary.png"),
     ("BL4", 1, 1, "Warpforge_13_Chaos-Sergeant.png"),
     ("BL6", 1, 1, "Warpforge_15_Rubric-Marine.png"),
@@ -1951,17 +1953,17 @@ DARKPACT_FACE_COUNT = [
     ("BL48", 1, 1, "Warpforge_58_Skeins-of-Fate.png"),
     ("BL49", 1, 1, "Warpforge_61_Delightful-Agonies.png"),
     ("BL52", 1, 1, "Warpforge_66_Unholy-Smite.png"),
-    ("BL_Hellfire_Torch", 1, 1, "Warpforge_69_Hellfire-Torch.png"),
+    ("BL57", 1, 1, "Warpforge_69_Hellfire-Torch.png"),
     ("BL72", 1, 1, "Warpforge_10_Accursed-Helbrute.png"),
-    ("BL_Litany_of_Despair", 1, 1, "Warpforge_2_Litany-of-Despair.png"),
+    ("9176318eaf469354e858f51af2333aa3", 1, 1, "Warpforge_2_Litany-of-Despair.png"),
     ("BL69", 1, 1, "Warpforge_7_Meltagun-Legionary.png"),
-    ("EC_Excessive_Vigour_Daemon_Prince_s_Talent", 1, 1, "Warpforge_06_Excessive-Vigour.png"),
-    ("EC_Icon_of_Excess_Infractor", 1, 1, "Warpforge_14_Icon-of-Excess.png"),
+    ("2621d4280735baf4c952e6afea8d0686", 1, 1, "Warpforge_06_Excessive-Vigour.png"),
+    ("EC9", 1, 1, "Warpforge_14_Icon-of-Excess.png"),
     ("EC20", 1, 1, "Warpforge_34_Turyan-Ghauze.png"),
     ("EC36", 1, 1, "Warpforge_42_Chosen-of-Slaanesh.png"),
     ("EC41", 1, 1, "Warpforge_50_Internal-Rivalry.png"),
     ("EC38", 1, 1, "Warpforge_52_Pledge-to-the-Dark-Prince.png"),
-    ("EC_Armoury_of_Excess", 1, 1, "Warpforge_62_Armoury-of-Excess.png"),
+    ("EC60", 1, 1, "Warpforge_62_Armoury-of-Excess.png"),
 ]
 
 
@@ -2391,7 +2393,7 @@ ZH2EN = {
 #    （卡表文字改过了，见 `TOKEN_BY_CARD` 里那两条的说明）—— 留着旧 token 就成了永远不会命中的死条目。
 # 🔴 2026-10-12（`N2`）：`("DA75","[1]")` **已摘掉** —— 那个 token 已随 `desc` 改写（`[1]` → `1 Quest Point`）
 #    从卡表里消失，留着就是永远不会命中的死条目（同族先例见本表上面那条 `("DA5","[Shield]")` 的注释）。
-ANCHOR_NOISE = {("GOF88", "[health]"), ("GOF_Uge_Choppa", "[Slay]"), ("DA5", "[Quest Point]"),
+ANCHOR_NOISE = {("GOF88", "[health]"), ("6899b199f5e36144ebbdd7ed9d9e7afe", "[Slay]"), ("DA5", "[Quest Point]"),
                 # 2026-09-16：`GOF87` 的 `[health]` 按卡面改名成 `[ranged]`（实为紫枪），
                 # 而**锚点对这一枚一直给 `armour`** —— 那句话里紧邻的前一个图标是 `Armour 1.` 的银盾，
                 # 锚点被它带偏了。判据是逐张开图（`Orks/3部队/Warpforge_13_Nob-on-Smasha-Squig.png`：
@@ -3157,8 +3159,8 @@ def main():
     #     ⇒ 它抓不到 `ASH75`，改前就是绿的）；本条要的是「**这个字段里一枚信仰都不许有**」。
     #  ② **不许删过头**：`①`→`SpiritStone_1` 必须还在（症状会是「灵魂石那枚也没了」= 另一种静默错）。
     #  ③ **灭自证**：把 `①` 那条记号从计划里**抽掉** ⇒ 这一格必须变红（谓词写成自引用时它必红）。
-    _a75_txt = _texts.get("ASH_Storm_of_Silence", {}).get("descZh", "") or ""
-    _a75_pl = plan.get("ASH_Storm_of_Silence", {}).get("descZh", {})
+    _a75_txt = _texts.get("851f73daf747eb642934a16429b391db", {}).get("descZh", "") or ""
+    _a75_pl = plan.get("851f73daf747eb642934a16429b391db", {}).get("descZh", {})
     _a75_faith = sorted(t for t, v in _a75_pl.items() if (v[0][0] or "") == "faith")
     _a75_tok = sorted(t for t in ASH75_FAITH_TOKENS if t in _a75_txt)
     _a75_ss = (_a75_pl.get("①") or [("", "")])[0][0]
@@ -3167,14 +3169,14 @@ def main():
                                  ("`①`→SpiritStone_1", _a75_ss == "SpiritStone_1")) if not ok]
 
     def _a75_ok(_plans, _txt):
-        _e = _plans.get("ASH_Storm_of_Silence", {}).get("descZh", {})
+        _e = _plans.get("851f73daf747eb642934a16429b391db", {}).get("descZh", {})
         if any((v[0][0] or "") == "faith" for v in _e.values()):
             return False
         if any(t in _txt for t in ASH75_FAITH_TOKENS):
             return False
         return (_e.get("①") or [("", "")])[0][0] == "SpiritStone_1" and _txt.count("①") == 1
 
-    _a75_stripped = {c_: {f_: {t: sp for t, sp in items.items() if c_ != "ASH_Storm_of_Silence" or t != "①"}
+    _a75_stripped = {c_: {f_: {t: sp for t, sp in items.items() if c_ != "851f73daf747eb642934a16429b391db" or t != "①"}
                           for f_, items in fs_.items()}
                      for c_, fs_ in plan.items()}
     _a75_ctrl = _a75_ok(_a75_stripped, _a75_txt)

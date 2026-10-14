@@ -27,6 +27,13 @@
     "defensiveName": "",
     "defensiveNameZh": "",
     "cardIds": [
+     "UM6",
+     "UM5",
+     "UM5",
+     "UM25",
+     "UM6",
+     "UM5",
+     "UM5",
      "UM9",
      "UM9",
      "UM9",
@@ -34,6 +41,12 @@
      "UM9",
      "UM1",
      "UM1",
+     "UM13",
+     "UM13",
+     "UM13",
+     "UM13",
+     "UM13",
+     "UM13",
      "UM19",
      "UM19",
      "UM19",
@@ -45,18 +58,10 @@
      "UM26",
      "UM26"
     ],
-    "complete": false,
-    "missing": [
-     "eb815e1e93912d24394c7fca6d3558f4 x1 (miss-unknown)",
-     "d0ac7c259308ab540aabb5123d0c1633 x1 (miss-unknown)",
-     "9be8bfe7063f14345966de388c7ba3ec x1 (miss-unknown)",
-     "711ec03391d6f46a3a07de5ffb409d6b x1 (miss-unknown)",
-     "eb815e1e93912d24394c7fca6d3558f4 x1 (miss-unknown)",
-     "d0ac7c259308ab540aabb5123d0c1633 x2 (miss-unknown)",
-     "77fd626140a8c164fbb708a46956898d x6 (miss-unknown)"
-    ],
+    "complete": true,
+    "missing": [],
     "problems": [
-     "over2:UM9 x5;UM19 x4;UM22 x3;UM26 x3"
+     "over2:UM5 x4;UM9 x5;UM13 x6;UM19 x4;UM22 x3;UM26 x3"
     ],
     "overLegendary": [
      "UM26 x3 (Epistolary Librarian)"
@@ -80,6 +85,11 @@
     "defensiveName": "",
     "defensiveNameZh": "",
     "cardIds": [
+     "UM5",
+     "UM5",
+     "UM6",
+     "UM6",
+     "UM6",
      "UM26",
      "UM26",
      "UM26",
@@ -106,13 +116,10 @@
      "UM26",
      "UM26"
     ],
-    "complete": false,
-    "missing": [
-     "d0ac7c259308ab540aabb5123d0c1633 x2 (miss-unknown)",
-     "eb815e1e93912d24394c7fca6d3558f4 x3 (miss-unknown)"
-    ],
+    "complete": true,
+    "missing": [],
     "problems": [
-     "over2:UM26 x25"
+     "over2:UM6 x3;UM26 x25"
     ],
     "overLegendary": [
      "UM26 x25 (Epistolary Librarian)"
@@ -139,6 +146,7 @@
     "defensiveName": "",
     "defensiveNameZh": "",
     "cardIds": [
+     "GOF2",
      "GOF1",
      "GOF9",
      "GOF32",
@@ -164,10 +172,8 @@
      "GOF7",
      "GOF7"
     ],
-    "complete": false,
-    "missing": [
-     "77a7253295da8234f8c04de2ad5e2d59 x1 (miss-unknown)"
-    ],
+    "complete": true,
+    "missing": [],
     "problems": [
      "over2:GOF1 x3;GOF9 x3;GOF32 x3;GOF4 x3;GOF16 x3"
     ],
@@ -193,9 +199,15 @@
     "defensiveName": "",
     "defensiveNameZh": "",
     "cardIds": [
+     "UM3",
+     "UM6",
      "UM34",
      "UM33",
      "UM33",
+     "UM6",
+     "UM3",
+     "UM6",
+     "UM3",
      "UM2",
      "UM7",
      "UM7",
@@ -208,15 +220,11 @@
      "UM38",
      "UM41"
     ],
-    "complete": false,
-    "missing": [
-     "0fca8843c85ec1148b3bb77cc834a010 x1 (miss-unknown)",
-     "eb815e1e93912d24394c7fca6d3558f4 x2 (miss-unknown)",
-     "0fca8843c85ec1148b3bb77cc834a010 x1 (miss-unknown)",
-     "eb815e1e93912d24394c7fca6d3558f4 x1 (miss-unknown)",
-     "0fca8843c85ec1148b3bb77cc834a010 x1 (miss-unknown)"
+    "complete": true,
+    "missing": [],
+    "problems": [
+     "over2:UM3 x3;UM6 x3"
     ],
-    "problems": [],
     "overLegendary": [],
     "so": "Ultramarines_Deck0_Tutorial2_Uriel"
    }
@@ -243,7 +251,7 @@
      "SAU26",
      "SAU41",
      "SAU11",
-     "SAU_Extermination_Protocols",
+     "SAU38",
      "SAU19",
      "SAU15",
      "SAU23",
@@ -261,7 +269,7 @@
      "SAU40",
      "SAU22",
      "SAU28",
-     "SAU_Extermination_Protocols",
+     "SAU38",
      "SAU40",
      "SAU44",
      "SAU44",
@@ -271,7 +279,7 @@
     ],
     "complete": false,
     "missing": [
-     "847acecf682cb0748bc4445b52125cb4 x2 (miss-unknown)"
+     "847acecf682cb0748bc4445b52125cb4 x2 (miss-known)"
     ],
     "problems": [],
     "overLegendary": [
@@ -297,7 +305,7 @@
     "defensiveNameZh": "",
     "cardIds": [
      "SAU3",
-     "SAU_Extermination_Protocols",
+     "SAU38",
      "SAU21",
      "SAU16",
      "SAU14",
@@ -323,9 +331,9 @@
     ],
     "complete": false,
     "missing": [
-     "847acecf682cb0748bc4445b52125cb4 x1 (miss-unknown)",
+     "847acecf682cb0748bc4445b52125cb4 x1 (miss-known)",
      "SAU8 x1 (miss-known)",
-     "847acecf682cb0748bc4445b52125cb4 x1 (miss-unknown)",
+     "847acecf682cb0748bc4445b52125cb4 x1 (miss-known)",
      "SAU6 x2 (miss-known)",
      "SAU8 x1 (miss-known)"
     ],
@@ -346,7 +354,7 @@
     "armyOrder": 50,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "BL_Sylar_Hexcorn",
+    "heroId": "BL36",
     "heroNote": "疑似(子串)",
     "cardback": "Cardback_BL_Premium_Dark Hereticus",
     "cardbackFrom": "column",
@@ -357,8 +365,12 @@
     "cardIds": [
      "BL2",
      "BL18",
+     "141c5ed661a9e42bd9a793f0d2a1c682",
      "BL1",
+     "453b0e8f88e094a17866a6979f389ef5",
      "BL6",
+     "BL37",
+     "453b0e8f88e094a17866a6979f389ef5",
      "BL48",
      "BL16",
      "BL46",
@@ -382,13 +394,8 @@
      "BL1",
      "BL8"
     ],
-    "complete": false,
-    "missing": [
-     "f70efd9867a9cf3458b722aeaf2982bc x1 (miss-unknown)",
-     "319bfeba880818c4690067f2596cd6f9 x1 (miss-unknown)",
-     "7ae784e51720db24985842a91f91ad6d x1 (miss-unknown)",
-     "319bfeba880818c4690067f2596cd6f9 x1 (miss-unknown)"
-    ],
+    "complete": true,
+    "missing": [],
     "problems": [],
     "overLegendary": [],
     "so": "BlackLegion_Deck0_Tutorial4_Sylar"
@@ -412,7 +419,10 @@
     "cardIds": [
      "UM6",
      "UM4",
+     "UM24",
      "UM5",
+     "UM17",
+     "UM14",
      "UM8",
      "UM19",
      "UM9",
@@ -420,12 +430,15 @@
      "UM16",
      "UM7",
      "UM2",
+     "UM10",
      "UM15",
      "UM1",
      "UM9",
      "UM6",
      "UM4",
+     "UM24",
      "UM5",
+     "UM17",
      "UM19",
      "UM25",
      "UM34",
@@ -435,15 +448,8 @@
      "UM16",
      "UM21"
     ],
-    "complete": false,
-    "missing": [
-     "f8ba395632901b84397bd14282472c35 x1 (miss-unknown)",
-     "d2b16a347052dc541a07c40cd9b40b78 x1 (miss-unknown)",
-     "5b427f1ad98e8534f8590dad5bd560af x1 (miss-unknown)",
-     "8204f59a011f94d5c9ea1bed18ae9c57 x1 (miss-unknown)",
-     "f8ba395632901b84397bd14282472c35 x1 (miss-unknown)",
-     "d2b16a347052dc541a07c40cd9b40b78 x1 (miss-unknown)"
-    ],
+    "complete": true,
+    "missing": [],
     "problems": [],
     "overLegendary": [],
     "so": "Ultramarines_Deck0_Tutorial4_Varro"
@@ -471,6 +477,7 @@
      "ASH24",
      "ASH45",
      "ASH29",
+     "ASH12",
      "ASH4",
      "ASH25",
      "ASH32",
@@ -498,9 +505,7 @@
     ],
     "complete": false,
     "missing": [
-     "7a02359776e89f243b8cf41642dc44c9 x1 (miss-unknown)",
-     "b888bfd3849c4da48973f8217e41129c x1 (miss-unknown)",
-     "7a02359776e89f243b8cf41642dc44c9 x1 (miss-unknown)"
+     "7a02359776e89f243b8cf41642dc44c9 x2 (miss-unknown)"
     ],
     "problems": [],
     "overLegendary": [],
@@ -644,6 +649,7 @@
      "UM7",
      "UM10",
      "UM15",
+     "UM17",
      "UM19",
      "UM20",
      "UM35",
@@ -666,10 +672,8 @@
      "UM8",
      "UM15"
     ],
-    "complete": false,
-    "missing": [
-     "d2b16a347052dc541a07c40cd9b40b78 x1 (miss-unknown)"
-    ],
+    "complete": true,
+    "missing": [],
     "problems": [
      "over2:UM15 x3;UM19 x3"
     ],

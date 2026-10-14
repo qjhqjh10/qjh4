@@ -1513,7 +1513,7 @@ namespace CardPresentation
             new AltArtCard("GOF28",                StyleHammerAndBolter),
             new AltArtCard("SW1",                 StyleHammerAndBolter),
             new AltArtCard("UM76", StyleHammerAndBolter),
-            new AltArtCard("DA_Azrael",                 StyleHammerAndBolter),
+            new AltArtCard("DA1",                 StyleHammerAndBolter),
         };
 
         /// <summary>风格顺序（**表里第一次出现的次序**，稳定）。</summary>

@@ -67,52 +67,52 @@ namespace CardPresentation
         {
             // 列 = NodeId, x, y, Cost, IsRepeatable, HasPremium, NextIndexes[]
             new NodeSpec("UM0", -8, -8, 100, false, true, new int[]{ 1, 2 }),
-            new NodeSpec("UM46", 312, -136, 200, false, false, new int[]{ 3, 4 }),
-            new NodeSpec("UM_Master_Tactician", 312, 120, 200, false, false, new int[]{ 5, 6 }),
-            new NodeSpec("UM47", 632, -392, 300, false, true, new int[]{ 7 }),
-            new NodeSpec("UM_Master_of_the_Fleet", 632, -136, 300, false, true, new int[]{ 8 }),
-            new NodeSpec("UM48", 632, 120, 300, false, true, new int[]{ 9 }),
+            new NodeSpec("UM1", 312, -136, 200, false, false, new int[]{ 3, 4 }),
+            new NodeSpec("UM2", 312, 120, 200, false, false, new int[]{ 5, 6 }),
+            new NodeSpec("UM3", 632, -392, 300, false, true, new int[]{ 7 }),
+            new NodeSpec("UM4", 632, -136, 300, false, true, new int[]{ 8 }),
+            new NodeSpec("UM5", 632, 120, 300, false, true, new int[]{ 9 }),
             new NodeSpec("UM6", 632, 376, 300, false, true, new int[]{ 10 }),
-            new NodeSpec("UM_Might_of_Heroes", 952, -392, 400, false, false, new int[]{ 11 }),
+            new NodeSpec("UM7", 952, -392, 400, false, false, new int[]{ 11 }),
             new NodeSpec("UM8", 952, -136, 400, false, false, new int[]{ 11 }),
-            new NodeSpec("UM_Smite", 952, 120, 400, false, false, new int[]{ 12 }),
-            new NodeSpec("UM2", 952, 376, 400, false, false, new int[]{ 12 }),
-            new NodeSpec("UM1", 1272, -136, 500, false, false, new int[]{ 13 }),
-            new NodeSpec("UM4", 1272, 120, 500, false, false, new int[]{ 13 }),
-            new NodeSpec("UM3", 1592, -8, 500, false, true, new int[]{ 14, 15 }),
+            new NodeSpec("UM9", 952, 120, 400, false, false, new int[]{ 12 }),
+            new NodeSpec("UM10", 952, 376, 400, false, false, new int[]{ 12 }),
+            new NodeSpec("UM11", 1272, -136, 500, false, false, new int[]{ 13 }),
+            new NodeSpec("UM12", 1272, 120, 500, false, false, new int[]{ 13 }),
+            new NodeSpec("UM13", 1592, -8, 500, false, true, new int[]{ 14, 15 }),
             new NodeSpec("UM15", 1912, -136, 500, false, false, new int[]{ 16 }),
-            new NodeSpec("UM11", 1912, 120, 500, false, false, new int[]{ 17, 18 }),
-            new NodeSpec("UM8", 2232, -264, 500, false, true, new int[]{ 19 }),
-            new NodeSpec("UM56", 2232, -8, 500, false, true, new int[]{ 20 }),
+            new NodeSpec("UM16", 1912, 120, 500, false, false, new int[]{ 17, 18 }),
+            new NodeSpec("UM17", 2232, -264, 500, false, true, new int[]{ 19 }),
+            new NodeSpec("UM18", 2232, -8, 500, false, true, new int[]{ 20 }),
             new NodeSpec("UM19", 2232, 248, 500, false, true, new int[]{ 21 }),
             new NodeSpec("UM20", 2552, -264, 600, false, false, new int[]{ 22 }),
             new NodeSpec("UM21", 2552, -8, 600, false, false, new int[]{ 22 }),
             new NodeSpec("UM22", 2552, 248, 600, false, false, new int[]{ 23 }),
-            new NodeSpec("UM_Spear_of_Macragge", 2872, -136, 700, false, false, new int[]{ 24 }),
+            new NodeSpec("UM23", 2872, -136, 700, false, false, new int[]{ 24 }),
             new NodeSpec("UM24", 2872, 248, 700, false, false, new int[]{ 24 }),
             new NodeSpec("UM25", 3192, -8, 800, false, true, new int[]{ 25, 26, 27 }),
             new NodeSpec("UM26", 3512, -264, 900, false, false, new int[]{ 28 }),
             new NodeSpec("UM27", 3512, -8, 900, false, false, new int[]{ 28 }),
-            new NodeSpec("UM16", 3512, 248, 900, false, false, new int[]{ 29 }),
+            new NodeSpec("UM28", 3512, 248, 900, false, false, new int[]{ 29 }),
             new NodeSpec("UM29", 3832, -264, 1000, false, true, new int[]{ 30 }),
-            new NodeSpec("UM15", 3832, 248, 1000, false, true, new int[]{ 31, 32 }),
+            new NodeSpec("UM30", 3832, 248, 1000, false, true, new int[]{ 31, 32 }),
             new NodeSpec("UM31", 4152, -264, 1000, false, false, new int[]{ 33 }),
-            new NodeSpec("UM21", 4152, -8, 1000, false, false, new int[]{ 33 }),
+            new NodeSpec("UM32", 4152, -8, 1000, false, false, new int[]{ 33 }),
             new NodeSpec("UM33", 4152, 248, 1000, false, false, new int[]{ 33 }),
-            new NodeSpec("UM23", 4472, -8, 1000, false, true, new int[]{ 34, 35, 36 }),
-            new NodeSpec("UM18", 4792, -264, 1000, false, false, new int[]{ 37 }),
+            new NodeSpec("UM34", 4472, -8, 1000, false, true, new int[]{ 34, 35, 36 }),
+            new NodeSpec("UM35", 4792, -264, 1000, false, false, new int[]{ 37 }),
             new NodeSpec("UM36", 4792, -8, 1000, false, false, new int[]{ 37, 38 }),
             new NodeSpec("UM37", 4792, 248, 1000, false, false, new int[]{ 38 }),
             new NodeSpec("UM38", 5112, -136, 1000, false, true, new int[]{ 39, 40 }),
-            new NodeSpec("UM25", 5112, 120, 1000, false, true, new int[]{ 40, 41 }),
-            new NodeSpec("UM26", 5432, -264, 1000, false, false, new int[]{ 42 }),
-            new NodeSpec("UM59", 5432, -8, 1000, false, false, new int[]{ 42, 43 }),
+            new NodeSpec("UM39", 5112, 120, 1000, false, true, new int[]{ 40, 41 }),
+            new NodeSpec("UM40", 5432, -264, 1000, false, false, new int[]{ 42 }),
+            new NodeSpec("UM41", 5432, -8, 1000, false, false, new int[]{ 42, 43 }),
             new NodeSpec("UM42", 5432, 248, 1000, false, false, new int[]{ 43 }),
             new NodeSpec("UM43", 5752, -136, 1000, false, true, new int[]{ 44 }),
-            new NodeSpec("UM29", 5752, 120, 1000, false, true, new int[]{ 44 }),
-            new NodeSpec("UM_Greatest_Deeds", 6072, -8, 1000, false, true, new int[]{ 45 }),
+            new NodeSpec("UM44", 5752, 120, 1000, false, true, new int[]{ 44 }),
+            new NodeSpec("UM45", 6072, -8, 1000, false, true, new int[]{ 45 }),
             new NodeSpec("UM46", 6392, -8, 1000, false, true, new int[]{ 46 }),
-            new NodeSpec("UM32", 6712, -8, 1100, true, false, new int[]{  }),
+            new NodeSpec("UM47", 6712, -8, 1100, true, false, new int[]{  }),
         };
 
         public static int NodeCount { get { return Nodes.Length; } }
@@ -349,36 +349,36 @@ namespace CardPresentation
             new RewardSpec[] { new RewardSpec("WildcardUltramarines2", 1, TierBasic), new RewardSpec("DT Ultramarines All", 3, TierBasic), new RewardSpec("Booster Pack Ultramarines", 1, TierPremium) },	// UM4
             new RewardSpec[] { new RewardSpec("C2", 400, TierBasic), new RewardSpec("DT Ultramarines All", 3, TierBasic), new RewardSpec("Booster Pack Ultramarines", 1, TierPremium) },	// UM5
             new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic), new RewardSpec("C2", 400, TierPremium) },	// UM6
-            new RewardSpec[] { new RewardSpec("UM23", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM7
-            new RewardSpec[] { new RewardSpec("UM_Master_Tactician", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM8
-            new RewardSpec[] { new RewardSpec("UM47", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM9
+            new RewardSpec[] { new RewardSpec("UM34", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM7
+            new RewardSpec[] { new RewardSpec("UM2", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM8
+            new RewardSpec[] { new RewardSpec("UM3", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM9
             new RewardSpec[] { new RewardSpec("UM27", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM10
             new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic) },	// UM11
             new RewardSpec[] { new RewardSpec("C2", 400, TierBasic), new RewardSpec("DT Ultramarines All", 3, TierBasic) },	// UM12
             new RewardSpec[] { new RewardSpec("643ee10a8aeb99a4990e3bb9a2a0faf8", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic), new RewardSpec("c79939c3d8c97438980edf66e212c412", 1, TierPremium) },	// UM13
-            new RewardSpec[] { new RewardSpec("UM25", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM15
+            new RewardSpec[] { new RewardSpec("UM39", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM15
             new RewardSpec[] { new RewardSpec("UM8", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM16
             new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic), new RewardSpec("Booster Pack Ultramarines", 1, TierPremium) },	// UM17
             new RewardSpec[] { new RewardSpec("WildcardUltramarines1", 3, TierBasic), new RewardSpec("WildcardUltramarines2", 1, TierPremium) },	// UM18
             new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic), new RewardSpec("Booster Pack Ultramarines", 1, TierPremium) },	// UM19
-            new RewardSpec[] { new RewardSpec("UM3", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM20
-            new RewardSpec[] { new RewardSpec("UM8", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM21
+            new RewardSpec[] { new RewardSpec("UM13", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM20
+            new RewardSpec[] { new RewardSpec("UM17", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM21
             new RewardSpec[] { new RewardSpec("C2", 500, TierBasic) },	// UM22
             new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic) },	// UM23
             new RewardSpec[] { new RewardSpec("UM24", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM24
             new RewardSpec[] { new RewardSpec("d139f53f941ce40f88bd07adf20c08ad", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic), new RewardSpec("WildcardUltramarines3", 1, TierPremium) },	// UM25
-            new RewardSpec[] { new RewardSpec("UM29", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM26
+            new RewardSpec[] { new RewardSpec("UM44", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM26
             new RewardSpec[] { new RewardSpec("UM22", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM27
             new RewardSpec[] { new RewardSpec("C2", 500, TierBasic) },	// UM28
             new RewardSpec[] { new RewardSpec("C2", 500, TierBasic), new RewardSpec("C2", 500, TierPremium) },	// UM29
             new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic), new RewardSpec("Booster Pack Ultramarines", 1, TierPremium) },	// UM30
             new RewardSpec[] { new RewardSpec("UM55", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM31
-            new RewardSpec[] { new RewardSpec("UM16", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM32
+            new RewardSpec[] { new RewardSpec("UM28", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM32
             new RewardSpec[] { new RewardSpec("WildcardUltramarines1", 3, TierBasic) },	// UM33
             new RewardSpec[] { new RewardSpec("10a1e3f4c77c0491196b655ad4d7d72d", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic), new RewardSpec("WildcardUltramarines3", 1, TierPremium) },	// UM34
             new RewardSpec[] { new RewardSpec("UM37", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM35
             new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic) },	// UM36
-            new RewardSpec[] { new RewardSpec("UM56", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM37
+            new RewardSpec[] { new RewardSpec("UM18", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM37
             new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic), new RewardSpec("Booster Pack Ultramarines", 1, TierPremium) },	// UM38
             new RewardSpec[] { new RewardSpec("C2", 500, TierBasic), new RewardSpec("WildcardUltramarines2", 1, TierPremium) },	// UM39
             new RewardSpec[] { new RewardSpec("WildcardUltramarines2", 1, TierBasic) },	// UM40

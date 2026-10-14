@@ -2675,7 +2675,11 @@ namespace CardPresentation
                                 QFltIconTop, true, FltParent);
 
             var titles = new List<FilterPanelModel.Title>();
-            FilterPanelModel.BuildTitles(State, FltW, titles);
+            // 🔴 **2026-10-14（账 `N14`）**：这里传 `false` = **四行小标题全建**（含 `Energy Cost`）。
+            //   费用那一行的显隐**不在建的时候定** —— 它是**复用件**、节点名 `flt_title_Energy_Cost`
+            //   还有自检按名找（`DeckScene.FilterTitleLabel` / `TitleLeftPx`）⇒ 建的时候必须四条都在，
+            //   显隐留给 `RefreshFilterTitles` 那一拍（那一拍会随卡组状态重跑）。⛔ 别在这里按状态少建一条。
+            FilterPanelModel.BuildTitles(State, FltW, titles, costRowNeedsWarlord: false);
             foreach (var tl in titles)
             {
                 var r = new PxRect(FltX + tl.R.x1, FltY + tl.R.y1, FltX + tl.R.x2, FltY + tl.R.y2);
@@ -4129,6 +4133,29 @@ namespace CardPresentation
                 //      （`PieceShared` 原来恒被处理）⇒ **第四实参必须与这一句同值**（已补：`on && !heroRow`）。
                 //      旁证：`deck.log` 里 `row_c0` 红（圆亮着）而 `row_cnt0` 绿（数没亮）——
                 //      「一开一关」正是「圆在 `_rowPieces` 里、数不在」的形状。
+                //   🔴 **2026-10-14（`A2006②` 现核 —— 把「原版会印」那条疑问一次关死）：**
+                //      `A2006` 的说法是「原版**会**印（`UICardInfoItem` 无督军分支、只看 `manaCost >= 0`），
+                //      而我们反而藏了 ⇒ **可能反向偏离**」。**逐条现核后：这条疑问【不成立】** ——
+                //      它只看了解析代码、**没看那份代码跑在哪个预制体上**（「一个值 ≠ 全部情况」）。
+                //      三条独立判据（2026-10-14 亲读）：
+                //      ① **预制体里根本没有这颗** —— 真包现读（`工具/menu_dump.py bundle_menus_assets_all
+                //         "Deck Selector Hero Card Info button" --depth 6`）：
+                //         `Deck Selector Hero Card Info button/Content` 的孩子是
+                //         Background · Rarity Gradient · Background Border · Card Name · Count · Ban Icon ·
+                //         Background Slot Free · Slot Free Text —— **没有 `Cost Image`**；
+                //         而 `Deck Selector Card Info button/Content/Background` 与
+                //         `Deck Selector Defensive Card Slot/Content` **两族都有**
+                //         `Cost Image → Cost`（`资料/说明书/04_界面UI/菜单全树.md:9337` / `:9348`）。
+                //      ② **那一格在预制体里就是 `null`** —— 英雄族 `UICardInfoItem.cardCost`
+                //         = `{m_FileID: 0, m_PathID: 0}`（`bundle_menus_assets_all/MonoBehaviour/
+                //         MonoBehaviour_5640407100770658749.json`），而卡行族那颗指着一个真对象
+                //         （同目录 `…6564024808884203300.json` 里 `cardCost` = `-8034090272549376220`）
+                //         ⇒ `UICardInfoItem__Initialize` 里那句
+                //         `SetActive(cardCost, manaCost >= 0)` **前面还有一道判空**（`op_Implicit`）
+                //         ⇒ **英雄族那一段整个不执行**（连 `SetText` 都不会跑）。
+                //      ③ 选哪一族由**卡种**定：`DeckListDrawer__SpawnCardInfo.c`（现读）第 29/40/51 行
+                //         `card+0x94 == 10`（= `CardTypeOptions.Hero`）⇒ 英雄族。
+                //      ⇒ **原版督军行【不印】费用**，我们这两句 `on && !heroRow` **是对的**（`A2006②` 判为**无偏离、不改**）。
                 bool heroRow = on && shown[firstRow + i].Type == "hero";
                 // 🔴 **2026-10-21（`A1720`）：槽 0 那**两套件**二选一** ——
                 //   本行装的是督军（`heroRow`）就开督军档 `row_0/row_g0/row_b0`，否则开卡行档
@@ -7288,10 +7315,16 @@ namespace CardPresentation
             //   判据三条（全包逐实例枚举：`spacing.x=5` 的 9 颗里只有 1 颗是卡组编辑、`=7` 的 3 颗里同样只有 1 颗、
             //   `pad.Left=40` 的 3 颗里也只有 1 颗）→ `资料/普查产出_1017/对账_卡组编辑部分_差异与待办.md` D36–D38。
             //   ⛔ **别去改缺省常量** —— 改了会把收藏窗改歪（模型侧已按「新增专用常量 + 可选形参」落地）。
+            // 🔴 **2026-10-14（账 `N14`）第四个按窗分的形参**：**费用那一行要不要督军才显示** ——
+            //   卡组编辑传 `CostRowNeedsWarlordDeckEdit`（原版 `CardCostFilter__SetFilterToDeck.c:21`
+            //   的 `SetActive(deckHero != null)`），缺省 `false` = 收藏窗（原版**从不**给它下发卡组
+            //   ⇒ 那两份 `Cost Filter` 恒 active）。判据全文与那 3 个实例的父链 → `Core/FilterPanelModel.cs`
+            //   的「费用那一行的显隐」整节。
             FilterPanelModel.Build(State, FltW, _fltCells,
                                    raritySpX: FilterPanelModel.RaritySpXDeckEdit,
                                    costSpX: FilterPanelModel.CostSpXDeckEdit,
-                                   typePadL: FilterPanelModel.TypePadLDeckEdit);
+                                   typePadL: FilterPanelModel.TypePadLDeckEdit,
+                                   costRowNeedsWarlord: FilterPanelModel.CostRowNeedsWarlordDeckEdit);
             var band = FltBand;                    // 带口在这一趟里恒定（原版 `Viewport`；见 `FltBand`）
             foreach (var c in _fltCells)
             {
@@ -7322,7 +7355,11 @@ namespace CardPresentation
                 //   整块在带外 ⇒ `ClipRect` 答 false ⇒ 不登记（= 与「被裁掉的那些点不到」一致，
                 //   也就是删除早退**之前**那些格的既有行为）。
                 PxRect hr;
-                if (MenuDraw.ClipRect(r, band, out hr))
+                // 🔴 **2026-10-14（账 `N14`）**：`Hidden` 的格子（今天只有「卡组还没督军时的费用 8 档」）
+                //   **一个点击区都不登记** —— 原版那颗 `Cost Filter` 节点一关，子树**连射线一起没了**
+                //   （uGUI 的 `Graphic.Raycast` 沿父链判 `activeInHierarchy`）⇒ 我们兑现同一条。
+                //   ⛔ 少了这一句就是本仓明令禁止的「**看不见却点得动**」的空格。
+                if (!c.Hidden && MenuDraw.ClipRect(r, band, out hr))
                     _fltHit.Add(new Btn { Key = c.Key, X = hr.x1, Y = hr.y1, W = hr.W, H = hr.H });
                 float w = b.W, h = Mathf.Max(1f, b.H);
                 // 原版 `m_PreserveAspect`：按图自身宽高比**内接**进框、中心不动（与 `Img(keepAspect)` 同一条）
@@ -7344,7 +7381,11 @@ namespace CardPresentation
                     // 🔴 2026-10-10（A224②）：**建的时候照常整格建**（原版全量 `Instantiate`），
                     //   建完这一刀把它截到带口内（等价原版 `Viewport` 的 `Mask`）。
                     //   ⚠️ 放在 `SetTint`/`HoverTint` **之后**：那一对只抓材质色/图，与几何无关。
-                    ClipCellToBand(q, band);
+                    // 🔴 **2026-10-14（账 `N14`）**：`Hidden` ⇒ **不画**。**节点照建**（与上面
+                    //   「整块在带外 ⇒ 只关不删」同一口径：自检按 key 仍找得到这一格，
+                    //   `UiFilterCellQuad` 能读它的 `activeSelf`）⇒ ⛔ 别改成「不建」。
+                    if (c.Hidden) q.gameObject.SetActive(false);
+                    else ClipCellToBand(q, band);
                     _fltCellObjs.Add(q.gameObject);
                     if (!string.IsNullOrEmpty(c.Key)) _fltCellQuads[c.Key] = q;   // 自检读它（`UiFilterCellTex`）
                 }
@@ -7387,7 +7428,11 @@ namespace CardPresentation
                 //     都会重排 TMP 的 mesh（`MenuDraw.ClipText` 那段注释写明了这一点）—— 放前面等于没裁。
                 //   ⚠️ 整块在带外 ⇒ 同 quad：**只关不删**（`Visible` 判的是**标签矩形**；
                 //     那种格子的图与点击区上面已经一起落空了）。
-                if (!MenuDraw.Visible(lr, band)) lb.gameObject.SetActive(false);
+                // 🔴 **2026-10-14（账 `N14`）**：`Hidden` ⇒ 标签同样**不画**（节点照建；口径同上面那一格）。
+                //   ⚠️ 它排在最后、在 `SetGlyphHeight` / `SetAutoFitBox` / `SetWrapping` / 对齐**之后**
+                //     —— 「TMP 在非激活对象上量不出尺寸」那条老坑要求这些调用都在**激活态**里跑完。
+                if (c.Hidden) lb.gameObject.SetActive(false);
+                else if (!MenuDraw.Visible(lr, band)) lb.gameObject.SetActive(false);
                 else MenuDraw.ClipText(lb, band, Vector2.zero);
                 _fltCellObjs.Add(lb.gameObject);
             }
@@ -7415,15 +7460,39 @@ namespace CardPresentation
             // 🔴 同 `RefreshFilterInput`：显隐用 `live`（A67 —— 收起的那 0.3 秒里四个小标题也得在）；
             //   而**摆位**仍只在逻辑态开着时做（位置本来就固定，收起途中不必重算）。
             bool live = _filtersOpen || DrawerLive(_fltSlide);
-            foreach (var lb in _fltTitles) SetOn(lb, live);
-            if (!_filtersOpen) return;
+            // 🔴🔴 **2026-10-14（账 `N14`）：费用那一行（`Energy Cost` 小标题 + 8 档格子）在
+            //    【卡组还没有督军】时**不显示** —— 判据只此一处 = `FilterPanelModel.CostRowVisible`
+            //    （原版 `CardCostFilter__SetFilterToDeck.c:21` 的 `SetActive(deckHero != null)`；
+            //     整节点一关，它下面的 `Title` 与 `Content` 一起不画）。**
+            //    ⚠️ 两条形状上的硬要求（都是本仓踩过的坑）：
+            //    ① **`BuildTitles` 必须挪到下面那句 `if (!_filtersOpen) return;` 【之前】** ——
+            //       否则抽屉收起/展开那 0.3 秒里 `titles` 还是空的、判据读不到，那一行会被 `SetOn`
+            //       重新点亮（原版那颗节点是**持久**关着的，不会闪）。
+            //    ② **`Title` 仍发四条**（`Hidden` 只是标记）—— 行的顺序/下标是两个宿主共用的映射，
+            //       少发一条会把 `Type` 那行错配到 `Energy Cost` 的位置上。
             var titles = new List<FilterPanelModel.Title>();
-            FilterPanelModel.BuildTitles(State, FltW, titles);
+            FilterPanelModel.BuildTitles(State, FltW, titles,
+                                         costRowNeedsWarlord: FilterPanelModel.CostRowNeedsWarlordDeckEdit);
+            for (int i = 0; i < _fltTitles.Count; i++)
+            {
+                var lb0 = _fltTitles[i];
+                if (lb0 == null) continue;
+                // ⚠️ 这一句**必须排在 `SetOn(lb, live)` 之前**（见上面 ①）
+                if (i < titles.Count && titles[i].Hidden) { lb0.gameObject.SetActive(false); continue; }
+                SetOn(lb0, live);
+            }
+            if (!_filtersOpen) return;
             var band = FltBand;           // 🆕 A289：与格子**同一道带口**（`FltBand` 那段记了判据）
             for (int i = 0; i < _fltTitles.Count && i < titles.Count; i++)
             {
                 var lb = _fltTitles[i];
                 if (lb == null) continue;
+                // 🔴 **2026-10-14（账 `N14`）**：关着的那一行（今天只有 `Energy Cost`）**整条跳过** ——
+                //   它此刻是 `SetActive(false)`，而下面 `ForceRelayout()` / `AlignLeft` 都要**量 TMP 宽度**
+                //   （`Label.WorldW` → `EnsureMeasured`），**在非激活对象上量出来是 0** ⇒ 会写进一个错的
+                //   x（本仓那条老坑：「TMP 在对象没激活时量不出尺寸」）。不摆位不影响它 ——
+                //   重新显示的那一拍 `SetOn` 之后，本循环照样会重排 + 重对齐一次。
+                if (titles[i].Hidden) continue;
                 // 🔴🔴 **2026-10-11（A289）：这四个小标题也要吃带口那一刀** —— 它们与格子住在**同一个
                 //   滚动内容里**（`FltAbs` 减 `_fltScroll` 摆位）⇒ 滚到中间位置时**会压进 `Header`**
                 //   （算例：`_fltScroll = 200` ⇒ `Army` 小标题绝对 y = `156 + 179.02 − 200 = 135.02`，

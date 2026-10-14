@@ -1,476 +1,544 @@
 {
  "note": "天赋造哪一张（原版 unitsToSummon 候选表；n>1 = 随机挑一张）。键 = 我们卡池 id。由 工具/gen_talent_cards.py 生成，⛔ 别手改。",
  "source": "原版 cards_1195_2022时代.json 的 cardAbilities[trigger==46].abilityLogic[0].summonCriteria.unitsToSummon",
- "count": 78,
+ "count": 89,
  "entries": [
   {
    "id": "AM1",
    "talents": [
-    "AM_Lord_Commander"
+    "c06453b330af61745beb5fa567ba863e"
    ]
   },
   {
    "id": "AM15",
    "talents": [
-    "AM_Cadian_Honour"
+    "3a52026b99bb56f40aa9dc130fc66f34"
    ]
   },
   {
    "id": "AM2",
    "talents": [
-    "AM_Legendary_Commandant"
+    "af98d423c7279a14c84c0d0382c53541"
    ]
   },
   {
    "id": "AM27",
    "talents": [
-    "AM_Renowned_Bodyguard"
+    "98cd4c021d615174aba88df6012219c4"
+   ]
+  },
+  {
+   "id": "AM3",
+   "talents": [
+    "cc11838649ff68a40b7d5d2b9fccd2bc"
+   ]
+  },
+  {
+   "id": "AM66",
+   "talents": [
+    "1ff4815a506d2f34e94ec2f50900d352"
    ]
   },
   {
    "id": "ASH1",
    "talents": [
-    "ASH_Path_of_the_Seer"
+    "09bcb1b3b8794c4429d82d4b2e68fa1f"
    ]
   },
   {
    "id": "ASH19",
    "talents": [
-    "ASH_Witchfire"
+    "d3e99cb18b8cbba4081486f57f510f75"
    ]
   },
   {
    "id": "ASH2",
    "talents": [
-    "ASH_Path_of_the_Warrior"
+    "1bfe0893592c9dd40bed8d68d5d2b516"
    ]
   },
   {
    "id": "ASH29",
    "talents": [
-    "ASH_Path_of_the_Warrior"
+    "e59ac9e46f4ea804784e954c3b820e77"
    ]
   },
   {
    "id": "ASH3",
    "talents": [
-    "ASH_Path_of_Command"
+    "9c3562ffa183ede41b1626d9c9dc1e2f"
    ]
   },
   {
    "id": "ASH34",
    "talents": [
-    "ASH_Wrath_of_Khaine"
+    "33eabec155f628440a426a4ba480ec24"
    ]
   },
   {
    "id": "ASH74",
    "talents": [
-    "ASH_Storm_of_Silence"
+    "851f73daf747eb642934a16429b391db"
    ]
   },
   {
    "id": "ASH76",
    "talents": [
-    "ASH_Empyric_Ambush"
+    "dc7e575c0a328f446be1521c23ec850b"
    ]
   },
   {
    "id": "ASH79",
    "talents": [
-    "ASH_Flickerjump"
+    "67adbc7f7bce2bd4c8f6937fab3134e5"
    ]
   },
   {
    "id": "BL22",
    "talents": [
-    "BL_Rites_of_Possession"
+    "3f38d2e2c83df4b4c9052ef4a510cfbb"
    ]
   },
   {
    "id": "BL23",
    "talents": [
-    "BL_Diabolic_Strength",
-    "BL_Infernal_Gaze",
-    "BL_Unhallowed_Gifts"
+    "7bf8ce67fb6be4744ae44345a5b465fd",
+    "453b0e8f88e094a17866a6979f389ef5",
+    "141c5ed661a9e42bd9a793f0d2a1c682"
+   ]
+  },
+  {
+   "id": "BL34",
+   "talents": [
+    "97e959444b53f424ea4285e2ca02c7e6"
    ]
   },
   {
    "id": "BL35",
    "talents": [
-    "BL_Helspear_Assault"
+    "61046837c330b48978b4af5201230b6e"
+   ]
+  },
+  {
+   "id": "BL36",
+   "talents": [
+    "7bf8ce67fb6be4744ae44345a5b465fd",
+    "453b0e8f88e094a17866a6979f389ef5",
+    "141c5ed661a9e42bd9a793f0d2a1c682"
    ]
   },
   {
    "id": "BL65",
    "talents": [
-    "BL_Litany_of_Despair"
+    "9176318eaf469354e858f51af2333aa3"
    ]
   },
   {
    "id": "BL67",
    "talents": [
-    "BL_Bitter_Blows"
+    "36892cd906b0e5e4c9bbbe249db009b8"
+   ]
+  },
+  {
+   "id": "DA1",
+   "talents": [
+    "dd535f7a54bcf6241b24ca6d0e81bbb4"
+   ]
+  },
+  {
+   "id": "DA2",
+   "talents": [
+    "9e0eecf8cb9a8df49bf18cc5d9051109"
+   ]
+  },
+  {
+   "id": "DA3",
+   "talents": [
+    "4cdc1b5f965f99945b685bca7660e9fa"
    ]
   },
   {
    "id": "DA31",
    "talents": [
-    "DA_Master_Interromancer"
+    "a84a5b49f0ca9144585058db6987c2a0"
    ]
   },
   {
    "id": "DA36",
    "talents": [
-    "DA_Master_of_Manoeuvre"
+    "7c45a641ec845994097d185af58715f6"
    ]
   },
   {
    "id": "EC55",
    "talents": [
-    "EC_Duelist_s_Hubris_Lucius_Talent"
+    "6ed51d59b9f8ea24ab0dc7ceaef7956c"
    ]
   },
   {
    "id": "EC56",
    "talents": [
-    "EC_Euphoric_Strike_Lord_Exultant_s_Talent"
+    "b9665eadf1207ff49bcf0a730b0b7f9d"
    ]
   },
   {
    "id": "EC57",
    "talents": [
-    "EC_Excessive_Vigour_Daemon_Prince_s_Talent"
+    "2621d4280735baf4c952e6afea8d0686"
    ]
   },
   {
    "id": "GOF18",
    "talents": [
-    "GOF_Sawbonez"
+    "b4d6d186eb95a3f468013c5be649ee3b"
    ]
   },
   {
    "id": "GOF21",
    "talents": [
-    "GOF_Mekaniak"
+    "9dcbe3d0c04b02f4fbb19974ae0e37b2"
    ]
   },
   {
    "id": "GOF23",
    "talents": [
-    "GOF_Follower_of_Gork"
+    "6ba4b132d24528844a86304f8ce67833"
    ]
   },
   {
    "id": "GOF27",
    "talents": [
-    "GOF_Worst_Temper"
+    "8425b809e9e64e24f9035f709f5aaee4"
    ]
   },
   {
    "id": "GOF28",
    "talents": [
-    "GOF_Greatest_Warboss"
+    "3ebb159036778d14ebd1c48451aa6ca0"
    ]
   },
   {
    "id": "GOF29",
    "talents": [
-    "GOF_Da_Red_Waaagh"
+    "20d0f4451f16fc441836a02f99bf77da"
    ]
   },
   {
    "id": "GOF75",
    "talents": [
-    "GOF_Uge_Choppa"
+    "6899b199f5e36144ebbdd7ed9d9e7afe"
    ]
   },
   {
    "id": "GOF76",
    "talents": [
-    "GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent"
+    "64a657fc5ed5bbb4fa7b585cf29c1e95"
    ]
   },
   {
    "id": "GOF77",
    "talents": [
-    "GOF_Ferocious_Rage_Beastboss_Talent"
+    "84d4d192e0f57a34a90ac0f6172c3358"
    ]
   },
   {
    "id": "GOF87",
    "talents": [
-    "GOF_Special_Dose_Zodgrod_Wortsnagga_Talent"
+    "d19e8b68aaa9a884781d06697ad237a6"
    ]
   },
   {
    "id": "GOF92",
    "talents": [
-    "GOF_Waaagh_Energy_Weirdboy_Talent"
+    "e3d67d86f73f7564eb0bf886ec848af6"
    ]
   },
   {
    "id": "GOF94",
    "talents": [
-    "GOF_Dok_s_Toolz_Painboss_talent"
+    "8f35df0536e4f7e4d86f3885e2597404"
    ]
   },
   {
    "id": "GSC1",
    "talents": [
-    "GSC_Inscrutable_Cunning"
+    "d01a5ba5865ded4418194ea50e333b21"
    ]
   },
   {
    "id": "GSC10",
    "talents": [
-    "GSC_Experimental_Bio_Horrors"
+    "4959cd9e99597f74ca9af0bd65ae6307"
    ]
   },
   {
    "id": "GSC2",
    "talents": [
-    "GSC_Brood_Prophet"
+    "fd67b47572987b84cb2990ea1ecfe982"
    ]
   },
   {
    "id": "GSC21",
    "talents": [
-    "GSC_Vox_Hacker"
+    "e9952f50921d2844a94d39ce883430f4"
+   ]
+  },
+  {
+   "id": "GSC3",
+   "talents": [
+    "7831725387c8a774dbdf5b6492d928e0"
    ]
   },
   {
    "id": "GSC37",
    "talents": [
-    "GSC_Deadliest_Killer"
+    "f45dd53721b645b4ab45d334edb986af"
+   ]
+  },
+  {
+   "id": "GSC66",
+   "talents": [
+    "c433e3dde4952cc448220908226127ae"
    ]
   },
   {
    "id": "SAU19",
    "talents": [
-    "SAU_Reanimate"
+    "27a4b748a7bf358499f038aa09895ead"
    ]
   },
   {
    "id": "SAU20",
    "talents": [
-    "SAU_Reanimate"
+    "27a4b748a7bf358499f038aa09895ead"
    ]
   },
   {
    "id": "SAU24",
    "talents": [
-    "SAU_Reanimate"
+    "27a4b748a7bf358499f038aa09895ead"
    ]
   },
   {
    "id": "SAU28",
    "talents": [
-    "SAU_Reanimate"
+    "27a4b748a7bf358499f038aa09895ead"
    ]
   },
   {
    "id": "SAU29",
    "talents": [
-    "SAU_Indomitable_Will"
+    "65b2be828179515458a282cf1b027182"
    ]
   },
   {
    "id": "SAU34",
    "talents": [
-    "SAU_Particle_Whip"
+    "eb17cd22c6a5d7941a7456838d927ab1"
    ]
   },
   {
    "id": "SAU35",
    "talents": [
-    "SAU_Lord_of_the_Storm"
+    "30007162b68992e41a422f2061705b65"
    ]
   },
   {
    "id": "SAU36",
    "talents": [
-    "SAU_Relentless_March"
+    "d8a14171b08b54144ba9dbf324b0a042"
    ]
   },
   {
    "id": "SAU37",
    "talents": [
-    "SAU_Master_Chronomancer"
+    "cbabeb234380634479feab1a1b4c733a"
    ]
   },
   {
    "id": "SAU66",
    "talents": [
-    "SAU_Hardwired_Destruction"
+    "461354d98aa5e3142afa4eb4922e5456"
    ]
   },
   {
    "id": "SOR1",
    "talents": [
-    "SOR_Fury_of_the_Righteous"
+    "8901e35c5de30eb48804da6651cfb132"
    ]
   },
   {
    "id": "SOR16",
    "talents": [
-    "SOR_Hymn_of_Battle"
+    "4d348cff71208c24d8e39252d913ff9d"
    ]
   },
   {
    "id": "SOR2",
    "talents": [
-    "SOR_Lead_the_Righteous"
+    "65cfec7d2bc719040b3b4b88622931b2"
    ]
   },
   {
    "id": "SOR3",
    "talents": [
-    "SOR_Righteous_Repugnance"
+    "f104d4c21abe84546abc9365d9eda8dd"
    ]
   },
   {
    "id": "SOR65",
    "talents": [
-    "SOR_Daemonbreaker"
+    "e01f4d54e8a474d96b5a1167cc28eebf"
    ]
   },
   {
    "id": "SOR9",
    "talents": [
-    "SOR_Hymn_of_Battle"
+    "4d348cff71208c24d8e39252d913ff9d"
    ]
   },
   {
    "id": "TAU1",
    "talents": [
-    "TAU_Hero_of_the_Empire"
+    "9f75a6fe11922eb409ffbad4ecdeb405"
    ]
   },
   {
    "id": "TAU12",
    "talents": [
-    "TAU_Structural_Analyzer"
+    "f279c5cf1c3e16e4db6b9df4d941ad11"
    ]
   },
   {
    "id": "TAU19",
    "talents": [
-    "TAU_Serene_Unifier"
+    "f2b80d575cbf8f64597b991022beaf35"
    ]
   },
   {
    "id": "TAU2",
    "talents": [
-    "TAU_Ethereal_Supreme"
+    "f8260229254a09746af6d9ff7a9b0b54"
    ]
   },
   {
    "id": "TAU21",
    "talents": [
-    "TAU_Homing_Beacon"
+    "1688c6146abb1e04f98e540b4cbbabd7"
    ]
   },
   {
    "id": "TAU3",
    "talents": [
-    "TAU_Drone_Companion"
+    "c4f5c920744030c4e84428dc5a0f1bf2"
+   ]
+  },
+  {
+   "id": "TAU32",
+   "talents": [
+    "f2b80d575cbf8f64597b991022beaf35"
    ]
   },
   {
    "id": "TAU36",
    "talents": [
-    "TAU_Shield_Generator"
+    "684196db974ab254090f39ef6e89868c"
+   ]
+  },
+  {
+   "id": "TAU38",
+   "talents": [
+    "507f79fa60945d04e93fe806aca912b7"
    ]
   },
   {
    "id": "TAU65",
    "talents": [
-    "TAU_Grisly_Feast"
+    "b3735ef3d1408d544b0947e31f898e20"
    ]
   },
   {
    "id": "TL23",
    "talents": [
-    "TL_Aerial_Seeding"
+    "c0ddba6cc45944f46a65f4fd93bcc0a5"
    ]
   },
   {
    "id": "TL25",
    "talents": [
-    "TL_Synaptic_Imperative"
+    "a58e05916eb5e994daa0349cbe237001"
    ]
   },
   {
    "id": "TL34",
    "talents": [
-    "TL_Brood_Progenitor"
+    "cbc9d98e39cc7fb4fa6f94c7e69bda18"
    ]
   },
   {
    "id": "TL35",
    "talents": [
-    "TL_Hive_Commander"
+    "5b5425f6e2848b449807bd1643d0d936"
    ]
   },
   {
    "id": "TL36",
    "talents": [
-    "TL_Spirit_Leech"
+    "760bd3afde513774d96d6492f995fd37"
+   ]
+  },
+  {
+   "id": "TL68",
+   "talents": [
+    "468db99b4b10d0745bab346df37d3fb2"
    ]
   },
   {
    "id": "TL74",
    "talents": [
-    "TL_Alpha_Warrior"
-   ]
-  },
-  {
-   "id": "TL_Psychophage",
-   "talents": [
-    "TL81"
+    "8f2da557fe484ee4bbf427c13eccd4cb"
    ]
   },
   {
    "id": "UM12",
    "talents": [
-    "UM_Spear_of_Macragge"
+    "d94f91051ecfe014f97577ff573571aa"
    ]
   },
   {
    "id": "UM29",
    "talents": [
-    "UM_Greatest_Deeds"
+    "0544047df88d2ba4cad9c17ff080c0eb"
    ]
   },
   {
    "id": "UM46",
    "talents": [
-    "UM_Master_Tactician"
+    "dcbd28525888ce54aaa93a47ba4de1e6"
    ]
   },
   {
    "id": "UM47",
    "talents": [
-    "UM_Master_of_the_Fleet"
+    "9238c27730a0c424288d46ed0f4a742c"
    ]
   },
   {
    "id": "UM48",
    "talents": [
-    "UM_Master_of_Arcana"
+    "f923701f207d23a4f81d6ff5891b4a0c"
    ]
   },
   {
    "id": "UM65",
    "talents": [
-    "UM_Exhortation_of_Rage"
+    "315d9f293e4f56d4f813584b43f0511c"
    ]
   },
   {
    "id": "UM76",
    "talents": [
-    "UM_Exemplary_Warrior"
+    "cc1400347b15ee3449bc18bbdb9ddec9"
    ]
   }
  ]
