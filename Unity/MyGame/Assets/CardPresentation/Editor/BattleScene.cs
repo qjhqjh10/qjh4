@@ -14651,6 +14651,162 @@ public static class BattleScene
             }
         }
 
+        // ---- 20-b. 🆕 2026-10-14（账 `A1964`）：候选上限是【逐卡数据】，不是一条常数 ----
+        //   原版 `choicesDefinition.maxTargets` **逐卡不同**（分布：`= 3` 204 张 · `= 4` 10 张 ·
+        //   `= 2` 1 张）⇒「同一句 `Choose a …` 子句 ⇒ 同一个上限」是**错的**。两张卡就是那对反例：
+        //     · `GSC65 Pilfered Supplies`（`type = defence`）—— 原版 `maxTargets = 4`
+        //       `desc = "Choose a Sabotage card and add it to your opponent's hand"`
+        //     · `GSC50 Clandestine Operation`（`type = tactic`）—— 原版 `maxTargets = 3`
+        //       `desc` **前面那半句与 `GSC65` 逐字相同**，只多一句 `Draw a card`
+        //       （⚠️ **不是「一字不差」** —— 别把这两张卡的 `desc` 写成同一条）
+        //   两张卡的**候选域完全一样** —— 都是 `subtype == "Sabotage"` 的那 4 张
+        //   （`GSC_Cult_Propaganda` / `GSC_Improvised_Barricade` / `GSC_Jammed_Communications` /
+        //    `GSC_Poisoned_Supplies`；实测 4/4 全是 `type = tactic` · `faction = Genestealers`）。
+        //   ⇒ **域相同、摆出来的张数必须不同** —— 这一节钉的就是这件事。
+        //   判据链（`BattleDriver`）：`ChooseShowByCardId`（`{"GSC65", 4}`）→ `ChooseShowLimit`
+        //   → 打开面板那一段（`cands.Count > showMax` 才抽）。本节**只断行为、不读那张表**
+        //   （读表 = 拿我们自己的常量证明我们自己）。
+        //   防御卡打得出去这件事的判据：`RuleEngine/Core/EffectResolver.cs:1373-1379`（防御卡走
+        //   战术卡同一条链）+ `RuleEngine/Core/RuleCore.cs:2333-2335`（非单位卡一律分流 `PlayTactic`）。
+        //
+        //   🧨 **改坏法（灭自证）**：
+        //     · 把 `ChooseShowLimit` 退回一条常数 `3` ⇒ **(a) 红**（4 变 3）、(b) 绿；
+        //     · 把 `ChooseShowLimit` 改成「一律返回全部候选」 ⇒ (a) 绿、**(b) 红**（3 变 4）。
+        //   **两条必须同时绿**才说明「逐卡数据」真的在起作用 —— 只绿一条 = 那两种退化写法之一还活着。
+        Debug.Log(P + "--- 选牌面板：候选上限是逐卡数据（A1964）---");
+        {
+            // ⚠️ 面板是**一份对象四族共用**（`BattleDriver` 只有一个 `_choosePanel`）——
+            //    这里先断一次「它是关着的」，免得拿别的族摆的东西当数。
+            var showPanel = driver != null ? driver.Choose : null;
+            Check(showPanel != null && !showPanel.Visible,
+                  "★（前提）接着第 20 节 —— 面板是**关着的**（没被别的族占着）");
+
+            var showPool = CardDatabase.Load();
+
+            // 候选域的**分母**在测试侧独立数一遍（不靠驱动那张逐卡表）——
+            // 它一变，(a) 那条 `== 4` 就会红，而且红得有据可查。
+            int sabInPool = 0;
+            foreach (var c in ctx.CardPool)
+                if (c != null && c.Subtype == "Sabotage") sabInPool++;
+            Check(sabInPool == 4,
+                  $"（前提）卡池里 `subtype == \"Sabotage\"` 的正好 **{sabInPool}** 张"
+                  + "（= 两张卡共用的那个候选域）");
+
+            // 域里那 4 张的 `CardDef.Id`（判据 = `cards_engine.json`）——
+            // 下面按**集合**比，不比顺序（面板怎么排是表现层的事）。
+            string[] sabIds = { "GSC_Cult_Propaganda", "GSC_Improvised_Barricade",
+                                "GSC_Jammed_Communications", "GSC_Poisoned_Supplies" };
+
+            // ---- (a) `GSC65`（原版 `maxTargets = 4`）⇒ **4 张全摆** ----
+            var g65 = CardDatabase.Find(showPool, "Pilfered Supplies");
+            Check(g65 != null && g65.Id == "GSC65",
+                  "卡池里有 `Pilfered Supplies`（`GSC65`，防御卡）");
+            if (g65 != null && showPanel != null)
+            {
+                ctx = driver.Ctx;                       // 上一节动过对局，这里重新取一次（与 20/21 节同规矩）
+                ctx.Players[0].Hand.Add(ctx.NewInstance(g65));
+                ctx.Players[0].Energy = 9;              // 这张费 0，给足只是保险
+                driver.RefreshAll();
+                Step(0.05f);
+
+                int i65 = -1;
+                for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                    if (ReferenceEquals(ctx.Players[0].Hand[i].Card, g65)) { i65 = i; break; }
+                Check(i65 >= 0, "注入的那张 `GSC65` 在手牌里");
+
+                Check(driver.SimulatePlayViaPanel(i65, SimpleAI.FirstFreeSlot(ctx.Players[0])),
+                      "走**面板那条路**打出 `GSC65`（防御卡走战术卡同一条链）");
+                Step(0.05f);
+
+                Check(showPanel.Visible, "★（a）**面板弹出来了**");
+                Check(driver.ChooseOptionCount == 4,
+                      $"★（a）原版 `maxTargets = 4` ⇒ 上面摆 **{driver.ChooseOptionCount}** 张候选"
+                      + "（🔴 改坏法：把 `ChooseShowLimit` 退回常数 3 ⇒ 这里变 3、这条红）");
+
+                var got4 = new List<string>();
+                for (int i = 0; i < driver.ChooseOptionCount; i++)
+                    got4.Add(driver.ChooseOptionStableId(i));
+                bool sameSet = got4.Count == sabIds.Length;
+                foreach (string w in sabIds)
+                {
+                    int n = 0;
+                    foreach (string g in got4) if (g == w) n++;
+                    if (n != 1) sameSet = false;
+                }
+                Check(sameSet,
+                      "★（a）摆出来的 4 张**就是**那个域里的 4 张（各一张、一张不多一张不少）："
+                      + $"`{string.Join("/", got4.ToArray())}`");
+
+                Check(driver.SimulateChoosePick(0), "（a）点第 1 张候选");
+                // 这一条是「点到了卡、不是点到了『继续』」的判据：`TogglePick` 只做标记、
+                // 不关面板；hit 到 Done 则会把它关掉（`HitDone` 在 `HandleClick` 里**排在**卡片之前）。
+                Check(showPanel.IsPicked(0),
+                      "★（a）第 1 张候选**真的被标记成选中**了（面板没被「继续」吃掉）");
+                Check(driver.SimulateChooseDone(), "（a）点「继续」");
+                Check(!showPanel.Visible, "★（a）选完**面板关掉了**");
+                Check(ctx.LastChosenCard != null && ctx.LastChosenCard.Card != null
+                      && ctx.LastChosenCard.Card.Subtype == "Sabotage",
+                      "★（a）引擎真的按面板选了一张 `Sabotage`"
+                      + $"（`{ctx.LastChosenCard.Card.Name}`）");
+                ClearEffects();
+                Step(0.15f);
+            }
+
+            // ---- (b) `GSC50`（**同一句 `Choose a Sabotage card`**、原版 `maxTargets = 3`）⇒ **只摆 3 张** ----
+            var g50 = CardDatabase.Find(showPool, "Clandestine Operation");
+            Check(g50 != null && g50.Id == "GSC50",
+                  "卡池里有 `Clandestine Operation`（`GSC50`，计策卡）");
+            if (g50 != null && showPanel != null)
+            {
+                ctx = driver.Ctx;
+                ctx.Players[0].Hand.Add(ctx.NewInstance(g50));
+                ctx.Players[0].Energy = 9;              // 这张费 2
+                driver.RefreshAll();
+                Step(0.05f);
+
+                int i50 = -1;
+                for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                    if (ReferenceEquals(ctx.Players[0].Hand[i].Card, g50)) { i50 = i; break; }
+                Check(i50 >= 0, "注入的那张 `GSC50` 在手牌里");
+
+                Check(driver.SimulatePlayViaPanel(i50, SimpleAI.FirstFreeSlot(ctx.Players[0])),
+                      "走**面板那条路**打出 `GSC50`（与 `GSC65` 同一句 `Choose a Sabotage card`）");
+                Step(0.05f);
+
+                Check(showPanel.Visible, "★（b）**面板弹出来了**");
+                Check(driver.ChooseOptionCount == 3,
+                      $"★（b）原版 `maxTargets = 3` ⇒ 摆 **{driver.ChooseOptionCount}** 张"
+                      + "（🔴 改坏法：把 `ChooseShowLimit` 改成「一律返回全部候选」⇒ 这里变 4、这条红）");
+
+                // 这 3 张必须是**从 (a) 那个 4 张域里抽出来**的（都在域内、互不重复）——
+                // 钉住「(b) 少了那一张是**抽掉的**，不是它换了个更小的域」；
+                // 否则 (a)/(b) 的差可能来自「域不同」而不是「上限不同」，那就白断了。
+                var got3 = new List<string>();
+                for (int i = 0; i < driver.ChooseOptionCount; i++)
+                    got3.Add(driver.ChooseOptionStableId(i));
+                bool subOf4 = got3.Count == 3;
+                foreach (string g in got3)
+                {
+                    bool inDom = false;
+                    foreach (string w in sabIds) if (g == w) inDom = true;
+                    if (!inDom) subOf4 = false;
+                }
+                for (int i = 0; i < got3.Count; i++)
+                    for (int j = i + 1; j < got3.Count; j++)
+                        if (got3[i] == got3[j]) subOf4 = false;
+                Check(subOf4,
+                      "★（b）这 3 张是**从 (a) 那个 4 张域里抽出来**的（都在域内、互不重复）："
+                      + $"`{string.Join("/", got3.ToArray())}`");
+
+                Check(driver.SimulateChoosePick(0), "（b）点第 1 张候选");
+                Check(showPanel.IsPicked(0), "★（b）第 1 张候选真的被标记成选中了");
+                Check(driver.SimulateChooseDone(), "（b）点「继续」");
+                Check(!showPanel.Visible, "★（b）选完**面板关掉了**");
+                ClearEffects();
+                Step(0.15f);
+            }
+        }
+
         // ---- 21. 🆕 2026-09-14：三选一 / 选效果 / 变身 —— **同一个面板**，候选不是卡池里的卡 ----
         //   为什么是同一个面板：原版 `ChooseCardMenu` 全树**只有两个调用点**（`ChoiceOfCardPlayer`
         //   与 `_SetupEnviromentalEffectPhase`），**没有第三个** —— 「choose one」走的也是它

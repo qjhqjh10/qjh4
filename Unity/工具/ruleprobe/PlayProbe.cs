@@ -57,6 +57,59 @@ class PlayProbe
     /// <summary>夹具手牌张数 —— 3 张摆场部队 + 1 张被测卡。</summary>
     const int FixtureHand = 4;
 
+    // ------------------------------------------------------------------
+    //  🆕 `A1943`（2026-10-14）：**夹具的起始【派系资源】三件**
+    // ------------------------------------------------------------------
+    // 🔴 **这三个值是我们挑的、⛔ 不是原版的做法**（本仓铁律 3：资源里查不到的部分，
+    //    要么写「查不到」，要么明确标成「这是我们挑的」—— ⛔ 绝不能把猜测写成「原版就是这样」）。
+    //
+    // **为什么要有它**：在这之前夹具**只给能量**（`SetEnergy`），`Faith` / `SpiritStones` /
+    //   `QuestPoints` **从头到尾没人写过** ⇒ 恒为 `int` 默认 **0** ⇒ 全池
+    //   `N [Spirit Stone]: …`（15 张）与 `N ☀: …`（6 张）那两族的**能力前缀付不起** ⇒
+    //   它们在**主档那一拍就已经结算不了**（`play check` 的 ①-c 里那 21 张的根因）。
+    //
+    // **取值怎么来的**（都是**全池实测**的边界值 · 2026-10-14 现读
+    //   `MyGame/Assets/RuleEngine/Resources/cards_engine.json`（1126 张）；⛔ 不是从原版抄的 ——
+    //   原版判据见下）：
+    //   · `FixtureFaith = 12` —— 全池**阈值**最大的 N = **12**（`SOR50` 的 `Gain 3 ☀. 12 ☀: Draw 3 cards`；
+    //     全池 ☀ 阈值现读分布 = 1×11 · 2×5 · 3×4 · 4×7 · 5×1 · 6×6 · 7×1 · 8×4 · **12×1**）
+    //     ⇒ 12 让**所有** ☀ 阈值都够得着。
+    //   · `FixtureSpirit = 5` —— 全池**当代价**最大的 N = **5**（`ASH53` 的
+    //     `Draw 5 cards. 5 [Spirit Stone]: Reduce their cost by 5`；全池**带 `N [Spirit Stone]`
+    //     代价前缀的正好 28 张**，代价现读分布 = 1×15 · 2×8 · 3×4 · **5×1**；
+    //     另有 9 张正文只是提到这个 token、不带代价前缀）⇒ 5 让**所有**代价都付得起。
+    //     ⚠️ 与信仰不同：信仰是**阈值**（到了就触发）、灵魂石是**货币**（要**扣掉**）⇒
+    //        这里给的是「够付最大的一笔」而不是「达到最高的阈值」。
+    //   · `FixtureQuestpoints = 0` —— 🔴 **必须保持 0**：全池**没有任何一张卡**把任务点当代价
+    //     （33 张全是 `Gain N Quest Points`），而引擎里它**只被** `EffectResolver.cs:7269`
+    //     「每满 3 点加 1 张隐秘」消费 ⇒ **给一个非 0 值会凭空触发里程碑**
+    //     （那是**夹具自己造出来的**变化，会被读成「这张卡的实得」）。**这一格是「原版就是 0」**
+    //     （见下），所以它同时满足「照原版」与「别造噪声」两条。
+    //
+    // **原版真值（反编译方法体 · 2026-10-14 本会话逐条现核，出处 = `d:/2/tools/decomp_full/`）**：
+    //   · `BattleManager__SetupInitialMana` 收尾那一调 = `PlayerManager__ResetMana(this, <能量>,
+    //     *(督军 + 0x124), …, *(督军 + 0x128), 0)` ⇒ **灵魂石是唯一从督军身上取初值的派系资源**
+    //     （`RawCardScript.cs:83-87` 那五个「修饰符」之一）。
+    //   · `PlayerManager__ResetMana` 现读写到的字段 = `+0x28 / +0x30 / +0x38~+0x5c / +0x74~+0xac`，
+    //     其中第 **5** 个形参写的就是 `+0x9c`~`+0xac`（`GetCurrentSpiritStone` 读的正是它）
+    //     ⇒ 🔴 **`+0xb0`（信仰 = `GetCurrentFaith` 读的）与 `+0xc4`（任务点 = `GetCurrentQuestPoints`
+    //     读的）它【一个都不写】**。
+    //   · `PlayerManager___ctor` 把 `+0x38`~`+0xd8` 那一整片 `ObscuredInt`（每个 5 个 dword）
+    //     全用 `op_Implicit(…, 0, 0)` 初始化 ⇒ **开局 Faith = 0 · QuestPoints = 0（灵魂石也是 0）**。
+    //   ⇒ 三格里**只有灵魂石是「本该由督军给、而我们没接」的那个缺口**（→ 账 `A1966`），
+    //     另两格**原版本来就是 0**。
+    //   · 而「督军给几颗灵魂石」的**逐督军真值本地取不到**（⚠️ 这一条**是台账转述**、本会话**没复核**：
+    //     台账 `A1966` 记「`d:/2` 全盘含 `assets_full` 二进制 grep `initialSpiritStoneModifier`
+    //     **0 命中**、`d:/4` 数据表无此字段」，并附了复核口 —— 要动它先回那一行）
+    //     ⇒ 夹具只能取一个**覆盖面够宽的常数**。
+    //   🔴 **本质是一次【量具干预】，⛔ 不是「把原版值补回来」**：它让那两族**有活目标**、
+    //      于是「付得起之后数字动没动」这件事才**照得到**。读数里它表现为
+    //      **`Gain N Faith` 那类卡的起点从 0 变成 12**（`Gain N Spirit Stones` 同理）
+    //      —— 判读时按「**夹具起点**」读，⛔ 别当原版。
+    const int FixtureFaith = 12;
+    const int FixtureSpirit = 5;
+    const int FixtureQuestpoints = 0;
+
     // ==================================================================
     //  读数
     // ==================================================================
@@ -222,6 +275,24 @@ class PlayProbe
         ctx.Players[p].MaxEnergy = FixtureMaxEnergy;
     }
 
+    /// <summary>🆕 `A1943`：夹具的**起始派系资源**三件 —— 与 <see cref="SetEnergy"/> **同一个
+    /// 调用点、同一个形状**（见 `BuildFixture` 与 `HeroPass`，共 **4 处**；⛔ 少跟一处就会
+    /// 「有的档给了、有的档没给」，而那种漏**不会报错**，只会让读数**静默地一半一半**）。
+    ///
+    /// 🔴 **取值是「我们挑的」、⛔ 不是原版的做法** —— 逐条的来龙去脉与「原版真值」见
+    /// <see cref="FixtureFaith"/> 上面那一整段注释（**先读它再改这三个数**）。
+    ///
+    /// ⚠️ **这不是「补回原版起始值」**：原版开局 Faith / QuestPoints 本来就是 0
+    /// （`PlayerManager__.ctor.c` 十个 `ObscuredInt` 全 `op_Implicit(0)`）；
+    /// 这里把三者一次写成常数 = **量具干预**（让 Sp/Faith 两族能力**付得起**，结算对不对才照得到）。
+    /// ⇒ 读数里那三列（信仰/灵魂石/任务点）的**起点**变成这三个数，⛔ 别按原版读。</summary>
+    static void SetFaction(BattleContext ctx, int p)
+    {
+        ctx.Players[p].Faith = FixtureFaith;
+        ctx.Players[p].SpiritStones = FixtureSpirit;
+        ctx.Players[p].QuestPoints = FixtureQuestpoints;
+    }
+
     /// <summary>摆场：两边各 3 张固定部队，落在 3 / 6 / 7 三格（**贴着督军格 4、且有相邻对 6-7**）——
     /// 这样「相邻」族与「督军旁边的」族都有活目标。</summary>
     static readonly int[] DeploySlots = { 3, 6, 7 };
@@ -258,6 +329,7 @@ class PlayProbe
         var ctx = RuleCore.NewBattle(d0, d1, seed: 0, shuffle: false, cardPool: pool, vars: vars);
 
         SetEnergy(ctx, 0);
+        SetFaction(ctx, 0);      // 🆕 `A1943`：起始派系资源（⛔ 与 `SetEnergy` 成对，别只跟一处）
         for (int i = 0; i < 3; i++)
         {
             int hi = HandIdx(ctx, 0, hand[i]);
@@ -265,12 +337,15 @@ class PlayProbe
         }
         RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);      // → P1
         SetEnergy(ctx, 1);
+        SetFaction(ctx, 1);      // 🆕 `A1943`
         RuleCore.PlayCard(ctx, 1, HandIdx(ctx, 1, e1), DeploySlots[0]);
         RuleCore.PlayCard(ctx, 1, HandIdx(ctx, 1, e2), DeploySlots[1]);
         RuleCore.PlayCard(ctx, 1, HandIdx(ctx, 1, e3), DeploySlots[2]);
         RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);      // → P0（被测卡这一手）
 
         SetEnergy(ctx, 0);
+        SetFaction(ctx, 0);      // 🆕 `A1943` —— 🔴 这一处是**被测卡那一拍**看得见的那一次：
+                                 //    被测卡打出去时用的就是这里给的三件（前面两处只服务摆场）
         // 🔴 **把我方三张部队各扣 2 血**（见 `FixtureChip`）—— 不扣的话满血治疗看不见。
         //    ⚠️ 走引擎自己的 `ApplyDamage`（⛔ 不直接改 `u.Health`）：它会走盾/闪避/触发那一套，
         //       与我们手改出来的状态**不同口径**。它引发的那些副作用都发生在**基线快照之前**。
@@ -486,6 +561,8 @@ class PlayProbe
         var before = Capture(ctx);
         RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);      // → P1
         SetEnergy(ctx, 1);
+        SetFaction(ctx, 1);      // 🆕 `A1943`（第 4 处 —— 督军档 `HeroPass` 那条路；
+                                 //    ⚠️ 只补 `BuildFixture` 里那三处会漏掉它）
         RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);      // → P0
         var after = Capture(ctx);
         var ch = new List<string>();
@@ -562,18 +639,28 @@ class PlayProbe
     /// 判据**全部转调引擎自己的公开访问器**（`CardDef.SpiritOps` / `FaithOps`），⛔ 不在探针里另写表：
     ///   · **灵魂石能力**（`N [Spirit Stone]: …`）—— 收在 `CardDef.SpiritOps`、代价在 `EffectOp.Cost`；
     ///     结算点 = **部署那一拍**（`RuleCore.PlayCard` → `EffectResolver.ResolveSpiritAbility`）。
-    ///     🔴 **根因不在电池**：本夹具**起始派系资源 = 0**（`SpiritStones` / `Faith` 都是 0，
-    ///     见 `BuildFixture` —— 它只给能量）⇒ 前缀付不起 ⇒ **主档那一拍就已经结算不了**
-    ///     （实测：临时给 P0 灌 10 颗，同一批卡里有 22 张当场变成有净差）。要治得动
-    ///     **`BuildFixture` 的起始资源** ⇒ 那会改**主档**每行的「信仰/灵魂石/任务点」三列
-    ///     ⇒ **基线整体重钉** ⇒ 是独立的一轮（`A1431` 账文那句「得单独一轮」正是这个形状）。
-    ///   · **信仰能力**（`N ☀: …`）—— 同形（`CardDef.FaithOps`，`Faith = 0` 发不起来）。
-    ///   · **其余** —— 电池**抬不到那个事件**（`steps` 列里哪一步不是 `rc=0`，或那个事件本夹具没有）。</summary>
+    ///   · **信仰能力**（`N ☀: …`）—— 同形（`CardDef.FaithOps`），阈值那一拍发。
+    ///   · **其余** —— 电池**抬不到那个事件**（`steps` 列里哪一步不是 `rc=0`，或那个事件本夹具没有）。
+    ///
+    /// 🔴 **`A1943`（2026-10-14）把前两格的根因治掉了 —— 这里记的是【治之前】的事，别照旧话再治一轮**：
+    ///   · **治之前**：夹具**只给能量**（`SetEnergy`），`Faith` / `SpiritStones` 恒为 `int` 默认 **0**
+    ///     ⇒ 那两族能力**前缀付不起** ⇒ **主档那一拍就已经结算不了**（实测：临时给 P0 灌 10 颗，
+    ///     同一批卡里有 22 张当场变成有净差）⇒ 它们全落进这两格。
+    ///   · **现在**：`BuildFixture` 与 `HeroPass` 里那 **4 处** `SetEnergy` 各配了一次 `SetFaction`
+    ///     （Faith **12** / Spirit **5** / Quest **0**，取值依据见 `FixtureFaith` 那一段）⇒
+    ///     🔴 **全池实测：原来那 21 张（15 灵魂石 + 6 信仰）全部转成 `net > 0`**
+    ///     （`play check` 的 ①-c 净差 = 0 由 **175 降到 154**，**这两格一张都不剩**）。
+    ///   ⇒ ⚠️ **这两格现在的含义只剩「这张卡有 Sp/Faith 能力」**（判据就是那两个字面量非空），
+    ///     ⛔ **它【不再】蕴含「夹具付不起」** —— 真要判付不起，得拿 `EffectOp.Cost`（灵魂石）
+    ///     或阈值（信仰）与夹具给的那两个常数**逐个比**，本函数**不替你做那一步**（那是另一轮的口径）。
+    ///   ⇒ 留着这两格是为了**卡池或夹具再变时**仍能指名，⛔ 不是「它们还有货」。
+    /// </summary>
     static string EcCause(CardDef c)
     {
         if (c == null) return "?";
-        if (c.SpiritOps != null && c.SpiritOps.Count > 0) return "灵魂石能力（夹具起始资源=0）";
-        if (c.FaithOps != null && c.FaithOps.Count > 0) return "信仰能力（夹具起始资源=0）";
+        // ⚠️ 下面两个串**只报告「有没有这类能力」**，⛔ 不声称根因 —— 见函数头 `A1943` 那一段。
+        if (c.SpiritOps != null && c.SpiritOps.Count > 0) return "有灵魂石能力（判据 = `SpiritOps` 非空）";
+        if (c.FaithOps != null && c.FaithOps.Count > 0) return "有信仰能力（判据 = `FaithOps` 非空）";
         return "电池抬不到那个事件";
     }
 
@@ -1460,7 +1547,9 @@ class PlayProbe
                                   + " ⇒ **这一档里它们仍然没被「事件的结算」验过**（⛔ 不是「没有差异」，"
                                   + "是**没验**；逐张对着卡面看）");
                 // 🔴 **按根因分**（判据 = 引擎自己的公开访问器，见 `EcCause`）——
-                //    ⛔ 不写「总之没验到」那种没信息量的话：灵魂石/信仰那两族**根因不在电池**。
+                //    ⛔ 不写「总之没验到」那种没信息量的话。
+                //    ⚠️ `A1943`（2026-10-14）之后前两格**只表示「有 Sp/Faith 能力」**（夹具已给资源：
+                //    Faith 12 / Spirit 5）⇒ 它们**不再声称根因**；真判根因要逐条比代价/阈值（见 `EcCause` 头注）。
                 foreach (var grp in zero.GroupBy(r => EcCause(r.C)).OrderByDescending(x => x.Count()))
                     Console.WriteLine("          · " + Pad(grp.Key, 30) + " = " + grp.Count() + " 张");
                 foreach (var r in zero.Take(60))
@@ -1769,10 +1858,46 @@ class PlayProbe
     //   ⚠️ 它钉的仍是**当时那一版**、⛔ **不是「当时就对」**：主档那 407 张候选**还没逐张对过卡面**；
     //     而电池那 586 行里有 **189 张候选的净差 = 0**（**没被验到**，逐条列在 `play check` 的 ①-c）。
     //
+    // 🔴 **2026-10-14：有意重钉（`A1943` · 夹具的起始【派系资源】）** ——
+    //   改的是**量具**，⛔ 不是把红抹平。**理由**：`BuildFixture` 原来**只给能量**（`SetEnergy`），
+    //   `Faith` / `SpiritStones` / `QuestPoints` **从头到尾没人写过** ⇒ 恒为 `int` 默认 **0** ⇒
+    //   全池 `N [Spirit Stone]: …`（15 张）与 `N ☀: …`（6 张）那两族的**能力前缀付不起**
+    //   ⇒ 它们在**主档那一拍就已经结算不了**（`play check` ①-c 里那 21 张的根因）。
+    //   ⇒ 现在 `BuildFixture` / `HeroPass` 的 **4 处 `SetEnergy` 各配了一次 `SetFaction`**
+    //      （Faith **12** / Spirit **5** / Quest **0**）。⚠️ **取值是【我们挑的】、⛔ 不是原版的做法**
+    //      （原版开局 Faith / QuestPoints **本来就是 0**，三格里只有灵魂石是真缺口）——
+    //      逐条依据与那句免责 → `FixtureFaith` 上面那一整段注释。
+    //
+    //   **这一版钉住的读数**（2026-10-14 现跑）：
+    //     · `play check` **rc=0**（①-a / ①-b 逐卡全等 · ② 哨兵过）；
+    //     · **①-c 净差 = 0 由 175 降到 154**（分母 382 → 356 · 净差 > 0 由 207 → 202）——
+    //       原来那 21 张（15 灵魂石 + 6 信仰）**全部转成 `net > 0`**，根因分组里那两格**一张都不剩**。
+    //
+    //   **机器验过的证据（夹具改动那一份，是【隔离】量出来的）**：
+    //     · 改之前先把现算读数固化了一份（同一棵树 · `play all pf`）⇒ 改前 / 改后**逐行比**：
+    //       变化 **89 行** · **新增 0 · 消失 0**；89 行**全部**落在 **`ASH*`（灵族 · 灵魂石）与
+    //       `SOR*`（修女会 · 信仰）**两个阵营 ⇒ **其余阵营一行都没动**（= 只由夹具资源引起，无连带）。
+    //     · 主档 md5 `888869e68be7df5c347854b8ed3b6de0` → **`fc6da398465b770c0fb21e347f2195a1`**；
+    //       电池 md5 `08a1d44b5639f71785ad29db9bb2f229` → **`a601642ba4b942d4cfef78f0273573fe`**。
+    //     · 重钉前 `git status -sb`（本仓纪律 · 铁律 13·6）：只有 `ruleprobe/PlayProbe.cs`（**我**在改）·
+    //       两张**文档**正本 · 以及**另一路写手在飞**的 `CardPresentation/Editor/BattleScene.cs`。
+    //       🔴 最后那份**进不了本探针的编译**：`ruleprobe.csproj` 关掉了 `EnableDefaultCompileItems`，
+    //       只显式列 `工具/ruleprobe/*.cs` ＋ `MyGame/Assets/RuleEngine/Core/*.cs`
+    //       ⇒ `CardPresentation/` 下的改动**改不成这个 md5**（现核 csproj 的 `<Compile Include>` 清单）。
+    //
+    //   🔴 **这一版【另外】吞掉了一批【预先就存在】的漂移 —— 如实记在这里，⛔ 别读成「本账治好的」**：
+    //     重钉前 `play check` **就已经是 rc=1**：**①-a 773 变 · 增 193 · 消 193** ·
+    //     **①-b 345 变 · 增 179 · 消 179**（那是 `A1943` 之前就在的、**与本次夹具改动无关**）。
+    //     台账（`资料/任务_卡组卡牌战斗.md` 的 `A1943` 行）把它归给 **`A1758`（卡牌 id 整族换原版真值）
+    //     ＋ 第二十五~二十九会话的引擎改动**；🔴 **本账【没有】逐条归因过那 1118 行**（只隔离出上面那 89 行）。
+    //     ⇒ 「整体重生成 ＋ 重钉」是**台账明写的顺序**，但它**同时把这批一起钉住了**。
+    //   🔴 **剩下那 154 张也不是本账治好的**：根因是「**电池抬不到那个事件**」，属 **`A1965`**
+    //     （事件电池那一轮）—— ⛔ 本账不治，⛔ 也别把这次重钉读成「它已经验过了」。
+    //
     // 🔴 **重钉（⛔ 没有「一条命令重钉」）**：`play check` 会把该抄的**整行**打出来，**手改这一个常量**。
     //   **重钉前必须先确认这批变化是对的**（对着卡面 / 反编译 / 真机逐张看过）——
     //   为了「把红抹平」而重钉 = **正是它在抓的那件事**。
-    public const string PinnedPlayMd5 = "d1fe0d96b725c6b2b12444527d94b7e4";
+    public const string PinnedPlayMd5 = "76ced8a686a9c316624c37415a91d58c";
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，
@@ -2136,11 +2261,16 @@ class PlayProbe
                 if (!groups.TryGetValue(k, out var l)) groups[k] = l = new List<string>();
                 l.Add(id);
             }
-            Console.WriteLine("       ⛔ **按根因分**（判据 = 引擎自己的 `CardDef.SpiritOps` / `FaithOps`）：");
+            Console.WriteLine("       ⛔ **按根因分**（判据 = 引擎自己的 `CardDef.SpiritOps` / `FaithOps`；"
+                              + "⚠️ 后两格 `A1943` 之后**只表示「有这类能力」**，⛔ 不再等于「夹具付不起」）：");
             foreach (var kv in groups.OrderByDescending(x => x.Value.Count))
                 Console.WriteLine("         · " + Pad(kv.Key, 30) + " = " + kv.Value.Count + " 张");
-            Console.WriteLine("       🔴 前两族的根因**不在电池**（夹具起始派系资源 = 0 ⇒ 主档那一拍就结算不了），"
-                              + "要治得动 `BuildFixture` 的起始资源 ⇒ **基线整体重钉** ⇒ 那是另一轮（见 `EcCause`）。");
+            Console.WriteLine("       🔴 `A1943`（2026-10-14）**已经把夹具的起始派系资源补齐**"
+                              + "（`BuildFixture` / `HeroPass` 的 4 处 `SetEnergy` 各配一次 `SetFaction`："
+                              + "Faith " + FixtureFaith + " / Spirit " + FixtureSpirit + " / Quest " + FixtureQuestpoints + "）");
+            Console.WriteLine("         ⇒ 原来那 21 张「有 Sp/Faith 能力」的全部转成 `net > 0`"
+                              + "（**①-c 净差 = 0 由 175 降到 154**）⇒ 🔴 **今天这两格应为空**；"
+                              + "若又冒出几格，先比 `EffectOp.Cost` / 阈值与上面三个常数（见 `EcCause`），⛔ 别再照旧话治一遍。");
         }
         int ecNote = liveE.Count(r => ColOf(r, PfECols, "note").Length > 0);
         Console.WriteLine("     行内出声（`note` 非空 = 对照局没起步） = **" + ecNote + " 张**"

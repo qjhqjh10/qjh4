@@ -299,6 +299,8 @@ def main():
             #    是 `git diff` 才看出来的（脚本自己的注释里正警告过同一件事，见下面 2026-09-15 那条）。
             #    **判据**：本脚本**只会写 `subtype` / `keywords` 两列**，而那些名字**都不带下划线前缀**
             #    ⇒ 顶层凡是 `_` 开头的，一律是**人写的**，原样带走（`_note` 除外 —— 那个由本脚本写）。
+            #    🆕 **2026-10-14（`A1992`）**：`desc` / `descZh` 同样是人写的（由下面那行白名单带走），
+            #    而它们**也**有了「手工赢」的覆盖列 `_manual_desc` / `_manual_descZh`（见文件末尾那一支）。
             for k in old:
                 if (k.startswith('_') and k != '_note') or k in ('desc', 'descZh'):
                     keep[k] = old[k]
@@ -335,10 +337,25 @@ def main():
     #    2026-09-14 逐张开图读过）。没有源表行可改 ⇒ 只能在这里手工覆盖。
     #    ⚠️ **原来手工加进 `subtype` 列会被下一次重跑静默抹掉**（那正是本文件 160 行那段注释抱怨的坑），
     #       所以覆盖必须走**单独一列**、由脚本原样保留并**最后应用**（手工赢过算出来的）。
-    for col, target in (('_manual_subtype', 'subtype'), ('_manual_keywords', 'keywords')):
+    # 🔴 **2026-10-14（`A1992`）：`desc` / `descZh` 也要有「手工覆盖列」** ——
+    #    本脚本今天**只算** `subtype` / `keywords` 两列，`desc` / `descZh` 是**手工维护**的
+    #    （靠 `keep` 原样带走，见上面那一大段）。但「带走」**不等于「手工赢」**：
+    #    一旦将来有人给本脚本加一条「从 `_合并总表.md` / `卡牌完整信息库_0824.md` 重算 `desc`」
+    #    的分支，那些补进 `desc` 的行会被**静默盖回**。`A1992` 实测的那个例子就是
+    #    `资料/卡牌数据表/卡牌完整信息库_0824.md` **自己漏了 `Painboy Sniklaw` 的 `Talent:` 行**
+    #    （效果列只到 `Rally: Heal 3 to a friendly unit.`）⇒ `A1987` 补进 `desc` 的那一行会被重算掉。
+    #    ⇒ 与 `_manual_subtype` / `_manual_keywords` **同一条口径**：`_manual_desc` /
+    #      `_manual_descZh` 排在**最后**应用、**手工赢过算出来的**（覆盖发生在 `out[target]` 上，
+    #      而 `out['desc']` 此时已经是 `keep` 带过来的那一份 ⇒ 手工列赢）。
+    #    ⚠️ **这两列不存在时行为与改前逐字节相同**（`keep.get` 拿到 `None` ⇒ 直接 `continue`），
+    #      所以加它**不动任何现有卡**；`_manual_*_note` 说明照旧由人写（见文件里那几段）。
+    for col, target in (('_manual_subtype', 'subtype'), ('_manual_keywords', 'keywords'),
+                        ('_manual_desc', 'desc'), ('_manual_descZh', 'descZh')):
         man = keep.get(col)
         if not isinstance(man, dict):
             continue
+        if not isinstance(out.get(target), dict):      # 该列整个丢了（人删过）⇒ 补一个空表再覆盖，
+            out[target] = {}                           #   别 `KeyError`（同族取舍见上面那段「不敢覆盖」）
         nd = 0
         for name, val in man.items():
             if name.startswith('_'):

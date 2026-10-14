@@ -8,7 +8,12 @@
 """报告数字汇总（现读）。"""
 import io, json, collections, re
 
-TSV = r'd:/4/Unity/资料/普查产出_第二十八会话/A1759_逐条对账.tsv'
+# 🔴 2026-10-14（第三十会话）：**改前** = `…/普查产出_第二十八会话/A1759_逐条对账.tsv`
+#   —— 那份是 `Talent:` 修复**之前**的口径（它的 `createCardInHand 我们缺 = 79`,
+#   现读同族只有 22）⇒ 本汇总器与仪器读**两份不同的表**，正是「同一件上三套数字并存」的成因。
+#   现在与 `工具/_a1759_reconcile.py` 的 `OUT` **对齐**（账 `A1977`）。
+#   ⚠️ 列下标没变：`E2` 那一列是**追加在最末尾**（index 10）⇒ `r[3]/r[4]/r[5]/r[8]/r[9]` 照旧可用。
+TSV = r'd:/4/Unity/资料/普查产出_第三十会话/A1977_对账_E1E2_1014.tsv'
 TRUTH = r'd:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json'
 DICT = r'd:/4/Unity/资料/普查产出_第二十七会话/abilityLogic_枚举词典.tsv'
 rows = [l.rstrip('\n').split('\t') for l in io.open(TSV, 'r', encoding='utf-8')][1:]

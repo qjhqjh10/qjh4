@@ -1,0 +1,69 @@
+env.files 类型 <class 'dict'>  条数 1
+  file: d:\2\unity_run_ref\Warpforge_Data\resources.assets SerializedFile
+enable_type_tree = N/A
+unity_version    = 6000.2.6f2
+externals 条数    = 3
+   [0] globalgamemanagers.assets
+   [1] Library/unity default resources
+   [2] sharedassets0.assets
+
+第一个 MB: path_id=1424 byte_start=25834944 byte_size=12148
+   有 get_raw_data ? True
+   有 get_raw_data_io ? True
+   有 read ? True
+   有 read_typetree ? True
+   原始字节 12148 个，前 48 字节 hex: 0000000000000000000000000100000001000000fd07000000000000180000004e6f746f5365726966434a4b2d526567
+   m_GameObject fileID=0 pathID=0
+   m_Enabled=1
+   m_Script fileID=1 pathID=2045
+   m_Name len=24 = b'NotoSerifCJK-Regular SDF'
+
+616 个 MB 的 m_Script 分布（前 30）:
+   fileID=1    pathID=4528                   x174
+   fileID=1    pathID=1721                   x149
+   fileID=1    pathID=2630                   x66
+   fileID=1    pathID=115                    x64
+   fileID=1    pathID=932                    x24
+   fileID=1    pathID=1627                   x23
+   fileID=1    pathID=1422                   x22
+   fileID=1    pathID=3480                   x13
+   fileID=1    pathID=817                    x12
+   fileID=1    pathID=4077                   x8
+   fileID=1    pathID=2045                   x4
+   fileID=1    pathID=903                    x3
+   fileID=1    pathID=2413                   x2
+   fileID=1    pathID=875                    x2
+   fileID=2    pathID=11998                  x2
+   fileID=1    pathID=796                    x2
+   fileID=1    pathID=3917                   x2
+   fileID=1    pathID=3355                   x2
+   fileID=1    pathID=327                    x2
+   fileID=1    pathID=3711                   x2
+   fileID=1    pathID=2867                   x1
+   fileID=1    pathID=2564                   x1
+   fileID=1    pathID=4555                   x1
+   fileID=1    pathID=3237                   x1
+   fileID=1    pathID=3064                   x1
+   fileID=1    pathID=742                    x1
+   fileID=2    pathID=11995                  x1
+   fileID=1    pathID=1720                   x1
+   fileID=1    pathID=4133                   x1
+   fileID=1    pathID=2775                   x1
+
+616 个 MB 的 m_Name（前 60，去重）:
+   I2Languages                                          x2
+   NotoSerifCJK-Regular SDF                             x1
+   RobotoCondensed-Regular SDF                          x1
+   Warpforge Trait TextSprites                          x1
+   PhotonServerSettings                                 x1
+   PlayFabSharedSettings                                x1
+   DOTweenSettings                                      x1
+   UnityPlayerAccountSettings                           x1
+   LiberationSans SDF - Fallback                        x1
+   LiberationSans SDF                                   x1
+   EmojiOne                                             x1
+   Default Style Sheet                                  x1
+   TMP Settings                                         x1
+   inlineStyle                                          x1
+   SamplesSelectionUSS                                  x1
+   SamplesSelectionUXML                                 x1

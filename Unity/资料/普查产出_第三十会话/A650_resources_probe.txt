@@ -1,0 +1,16 @@
+== 文件 == d:\2\unity_run_ref\Warpforge_Data\resources.assets 36823304 B
+对象总数 = 2039
+按类型（前 20）: [('MonoBehaviour', 616), ('GameObject', 514), ('RectTransform', 514), ('CanvasRenderer', 323), ('Shader', 21), ('Sprite', 16), ('Texture2D', 14), ('Material', 11), ('TextAsset', 5), ('Font', 3), ('Canvas', 2)]
+MonoBehaviour 数 = 616
+
+read_typetree 成功 = 0  失败 = 616
+m_Script pathID 分布（前 25）:
+   pathID=None                   x616
+
+包内 MonoScript 数 = 0
+按类名归并（前 40）:
+   None                                           x616
+
+★ 名字里带 Enemy/Info/Touch 的：
+
+== 包内所有 MonoScript 类名（前 80）==
