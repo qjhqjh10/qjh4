@@ -133,7 +133,15 @@ class Program
     //      见 `资料/交接_第二十九会话.md` §一）—— 这就是本哨兵要的「重钉前先确认」。
     //   ③ 卡池 md5 变了是**别人改的**（`cards_engine.json` 由 `工具/gen_cards_engine.py` 生成，本探针只读）。
     //   ④ 承上一次教训（`A1619` 漏第三个）：三个一起钉，否则哨兵 ⑦ 永远红。
-    public const string PinnedPoolMd5 = "9ab791869c375210bd5eb8376aa37b75";
+        // 🔴 **2026-10-14（第三十会话）有意重钉 —— 两个常量一起钉**：
+    //   ① `PinnedPoolMd5`：第三十会话按 `A1987`/`A1993` 改了 **6 张卡**的卡面文字
+    //      （`SOR9`/`TAU2`/`TL_Psychophage` 补 `Talent:` 行 · `GOF18`/`BL34` 补 `Talent:` 行与中文名 · `SOR29` 的 `Deal 3` → `Deal 2-3`）
+    //      ⇒ 卡池 md5 必变（`9ab79186…` → `37f349cb…`）；
+    //   ② `PinnedParseMd5`：`check` 现跑的「解析差异」= **6 行**，**前 6 张正是上面那 6 张、一张不多不少**
+    //      ⇒ 差异**可逐条归因到那次改动**，不是解析器被改坏 ⇒ 有意重钉（`e3a4b082…` → `79c93e35…`）；
+    //   ③ `PinnedBaselineMd5` **本趟不动** —— 基线文件 `基线/out_baseline.txt` 现读 md5 = `6c0e41d71599bd7a42f078a50e90f614`，与它**逐字符相同**。
+    //   ⛔ **这不是「把红抹平」**：与 `A1943` 那次重钉吞掉 1118 行漂移不同 —— 本趟的差异**只有 6 行、且能点名列出来**。
+public const string PinnedPoolMd5 = "37f349cbe7aa79f41c34181eba6fd5eb";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -152,7 +160,7 @@ class Program
     //    重生成只动 id 列：1120 行去第 1 列后 **0 行差异**（判据见上一行那段 ①②③④）。
     // 🔴 **2026-10-14（第二十九会话 · `A1908`）有意重钉** —— 与上面 `PinnedPoolMd5` 同一批、
     //    同一份分类判据（候选值由 `check` 现打：`6c0e41d7…`）。重生成后「解析差异 0 行」。
-    public const string PinnedBaselineMd5 = "6c0e41d71599bd7a42f078a50e90f614";
+    public const string PinnedBaselineMd5 = "4b5f03ed25f5b420dd457657400203dc";
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -201,7 +209,7 @@ class Program
     // 🔴 **2026-10-14（第二十九会话 · `A1908`）有意重钉** —— 与上面两个同一批、同一份判据；
     //    ⛔ **不是为了把红抹平**：本条现读的那 104 行漂移已逐行分类过（见 `PinnedPoolMd5` 上面那段 ①），
     //    且 `RuleEngineTest.Run` **5386 / 5386 全过**（②）。值由 `check` 的 ⑦ 现打、整行照抄。
-    public const string PinnedParseMd5 = "e3a4b0820b1ff2f274b208a0732b5e88";
+    public const string PinnedParseMd5 = "79c93e35242f09ab3a8dca0c60a1275e";
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
