@@ -2841,7 +2841,7 @@ public static class CollectionScene
                                 // ---- ⑥ 反例：**门关着**的那一颗 —— 点了**什么都不发生**（面板不关、没发送那一跳）----
                                 //  🔴 `Interactable = false` 的**三半**：
                                 //    · **视觉①** = 底图 tint 换 `m_DisabledColor`（`RebuildButtons` 里那一句）；
-                                //    · **视觉②** = 🆕 **A1726**：`wb.Interactable = false` ⇒ 九宫底 **9 块全灰**
+                                //    · **视觉②** = 🆕 **A1726**：`wb.Interactable = false` ⇒ 九宫底 **画出来的那几块全灰**（⚠️ 这一档尺寸下只有 6 块，见 `:2909` 那条断言的注释）
                                 //      （材质换原版 `Everguild/UI/Greyscale` —— 同 `EverguildButton.DoStateTransition(Disabled)`）；
                                 //    · **行为** = **两道闸**：第一道 `WindowButton.Click()` 头一句
                                 //      （= 原版 `Selectable.OnPointerClick` 头一句 `!IsInteractable() ⇒ return`，
@@ -2853,7 +2853,7 @@ public static class CollectionScene
                                 //    ⇒ 那条会**假红**。**改的是「哪一道闸出声」这个前提**，⛔ **不是把断言改松**：
                                 //    声源换成**第一道闸**那条（`[Button] … 点了不生效`），并**另加两条**——
                                 //    「那颗钮自己的 `WindowButton.Interactable` **真的是 `false`**」+
-                                //    「九宫底 9 块**全灰**（视觉态）」。三条合起来 = 灭自证的那两条并存
+                                //    「九宫底**画出来的那几块**全灰（⚠️ 6 块，见 `:2909` 注释）（视觉态）」。三条合起来 = 灭自证的那两条并存
                                 //    （只断「动作不生效」的话，把 `Interactable` 全设 true 也可能照样绿）。
                                 ReopenPanel(false, false, false);           // 「群组」那道门关着
                                 var lsOff = ClickPanelButton(0);
@@ -2873,7 +2873,7 @@ public static class CollectionScene
                                         + (wOffLog == null ? "（实得 0 条；那一下的日志共 " + lsOff.Count + " 条）" : ""));
                                 // 🔴 **A1726 的真判据（两半并存）**：① 那颗钮自己那一位布尔**真的**是 `false`
                                 //    （⛔ 上面那条只证明「有出声」—— 第二道闸也会出声，分不出是哪一道拦的）；
-                                //    ② **看得出来被禁用**（九宫底 9 块全换灰化 shader）。
+                                //    ② **看得出来被禁用**（九宫底**画出来的那几块**全换灰化 shader（⚠️ 6 块，见 `:2909` 注释））。
                                 var gOffNow = GenericOptionsPanel.LastOpened;
                                 var bnOff = gOffNow != null
                                             ? FindChild(FindChild(gOffNow.transform, "Buttons"), "Button 0") : null;
@@ -2906,13 +2906,22 @@ public static class CollectionScene
                                                 && mOff.shader.name == "Everguild/UI/Greyscale") nGreyOff++;
                                         }
                                 }
-                                CheckTrue(nNineOff >= 9 && nGreyOff == nNineOff,
-                                          "★ A1045⑥（A1726）：门关着那颗**看得出来被禁用** —— 九宫底 "
+                                // 🔴 **2026-10-14 就地改判据（铁律 5 · 收口自检 α）**：原来写的是 `nNineOff >= 9`
+                                //   —— **那句前提不成立**：这一颗钮高只有 **60 px**、而九宫角块
+                                //   `borderOutPx=(111,32,111,32)` ⇒ **32+32 = 64 > 60** ⇒ 原版 uGUI
+                                //   （`Image.GetAdjustedBorders` 逐轴缩 + `GenerateSlicedSprite` 跳零尺寸格）
+                                //   把该轴角块缩到 30、**中段高 = 0 ⇒ 中行 3 块根本不会被画出来**（横向 111+111 ≪ 357.3 ⇒ 中列还在）
+                                //   ⇒ **只有 6 块**。这是**原版行为**、不是缺陷（旁证：日志里 `[ImageQuad] border 比图还大` 50 条）。
+                                //   ⇒ 判据改成「**灰组 == 亮组 且 ≥ 6**」（亮组那边没写死 9、是个不变量）。
+                                //   🧨 鉴别力没丢：只灰 1 块那种坏法仍然红（`nGreyOff(1) == nNineOff(6)` 为假）。
+                                CheckTrue(nNineOff >= 6 && nGreyOff == nNineOff,
+                                          "★ A1045⑥（A1726）：门关着那颗**看得出来被禁用** —— 九宫底**画出来的那 "
                                         + nNineOff + " 块**全部**换成原版灰化 shader `Everguild/UI/Greyscale`"
                                         + "（实得灰了 " + nGreyOff + " 块；判据 = 原版"
-                                        + " `EverguildButton.DoStateTransition(Disabled)`）"
+                                        + " `EverguildButton.DoStateTransition(Disabled)`；"
+                                        + "⚠️ 这一档尺寸下原版只画得出 6 块，见上面那条注释）"
                                         + " —— 🧨 改坏法：把 `RebuildButtons` 里 `wb.Interactable = …` 删掉 ⇒ 这一条红"
-                                        + "（= A1719 之前那种「只灰 1/9、看着像没禁用」）");
+                                        + "（= A1719 之前那种「只灰 1/6、看着像没禁用」）");
                                 var gStill = GenericOptionsPanel.LastOpened;
                                 CheckTrue(gStill != null && gStill.gameObject.activeSelf,
                                           "★ A1045⑥：……而且面板**没被关掉**（原版没派发 ⇒ 也就没有 `Close` 那一下）");
@@ -3484,7 +3493,10 @@ public static class CollectionScene
                                 CheckText(Loc.T(TitleTerm), "选择一个卡组进行对战",
                                           "★ 中文列 = 官方 zh-CN 表的值（⚠️ 用户 1017 实拍那颗是「选择卡组」，两者不同）");
                                 Loc.SetLanguage(AvailableLanguages.English);
-                                CheckText(Loc.T(TitleTerm), "Select deck", "…英文列 = 我们原来写死的那一句");
+                                CheckText(Loc.T(TitleTerm), "Select a deck to play against",
+                                          "★ 英文列 = 官方 EN（🔴 **2026-10-14（`W4`/`A1803`）就地改期望值**："
+                                        + "原先这里是**我们写死的** `Select deck`，官方 `MenuDeck/Tip/SelectDeckAgainst`"
+                                        + " 的 EN 是 `Select a deck to play against`）");
                             }
                             finally { Loc.RestoreForTest(langBack); Loc.PersistOverride = false; }
 
@@ -7158,14 +7170,16 @@ public static class CollectionScene
             //
             // 几何出处：`CollectionWindow.StyleView` 那段注释（**从 `Collection Menu Variant` 根走下来实读的**）。
             // 判据一律是**原版数**，不是我们自己的常量（否则是自证）。
-            Section("Styles 页：换风格条 + 异画网格（6 列 · 262.5×384 · 本地 7 张 / 2 种风格）");
+            Section("Styles 页：换风格条 + 异画网格（6 列 · 262.5×384 · 本地 7 张 / **1 档**）");
             win.tabButtons.Click(3);
             Check(win.CurrentTab, WindowTabType.CollectionStyles, "点第 4 键 ⇒ 切到 **Styles** 页");
             CheckTrue(win.PageRoot(3) != null, "页节点 `Alternate Art Tab` 在（**卡面文案是 `STYLES`**）");
             Check(CollectionWindow.AltArtCards.Length, 7,
-                  "异画读数 = **7**（本地只有这 7 张督军异画；文件名 `AA_HB_…` / `…_v2`）");
-            Check(CollectionWindow.AltStyles.Length, 2,
-                  "风格数 = **2**（`AA_HB` 6 张 + `v2` 1 张；其余风格在远端 CCD 的 `alternateartstyles` 包）");
+                  "异画读数 = **7**（本地只有这 7 张督军异画；图片文件名两套写法 `AA_HB_…` / `…_v2`，**但那不是两种风格**）");
+            Check(CollectionWindow.AltStyles.Length, 1,
+                  "风格数 = **1**（原版 `AlternateArtSyle` 只有 `Default`/`HammerAndBolter`，而轮播走 "
+                  + "`GetAlternateArtStyleOnly` = `FindAll(style != 0)` ⇒ 只剩 `HammerAndBolter`；"
+                  + "本地 7 张卡的 `style` 现读全是 **5**。判据 → `CollectionWindow.StyleLogoName` 头注）");
             Check(CollectionWindow.StyleCols, 6,
                   "列数 = **6** = floor(1589.78 ÷ 262.5)（⚠️ 不是 `_segments=4` —— 那是死值）");
             var spage = win.PageRoot(3);
@@ -7202,11 +7216,30 @@ public static class CollectionScene
                           $"箭头那层队列 **{(iq != null ? iq.RenderQueue : -1)}** > 黄底那层 **{(bq2 != null ? bq2.RenderQueue : -1)}**"
                           + "（同队列时箭头会被盖掉 —— 实测过一次）");
             }
-            // `Art Style Logo` 那一格：原版 `sprite=0`（运行时喂风格图 SO，**本地没有**）⇒ 我们画风格名（**我们挑的**）
+            // `Art Style Logo` 那一格：**原版是 `Image`**（`AlternateArtCardCollectionTab.styleImage`
+            //   ← `AlternateArtStylesUtilities.GetStyleIcon(style)`）⇒ 现在**照原版画 logo 图**。
+            //   🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1808`）**：原来这里断的是「那一格的字 == `Hammer and Bolter`」
+            //   以及「字的渲染宽度 ≤ 512」—— 那两条**随「我们画字」一起作废**；原来那句「原版 `sprite=0`、
+            //   风格图 SO **本地没有**」也**不成立**（SO 在本地内置文件里、它那两张图现在都在工程里）。
+            //   映射与判据 → `CollectionWindow.StyleLogoName` 的头注（SO 序列化体 + 远端 catalog + 束内 `m_Container` 三路互证）。
             var sLogo = FindChild(spage, "Art Style Logo");
-            CheckText(TextOf(sLogo), "Hammer and Bolter",
-                      "风格名 = **Hammer and Bolter**（`AA_HB` 的显示名，出处 `解包资源使用地图.md:1174`）"
-                      + " —— ⚠️ **原版这格是图不是字**，我们这里是**我们挑的做法**");
+            var sLogoIq = sLogo != null ? sLogo.GetComponentInChildren<ImageQuad>() : null;
+            CheckTrue(sLogoIq != null && sLogoIq.Texture != null,
+                      "`Art Style Logo` 那格**真画出了图**（原版那格是 `Image`，⛔ 不是字）—— "
+                      + "载不到图时实现会**退回画字并出声**，所以这一条同时盯着那个兜底有没有被静默触发");
+            CheckText(sLogoIq != null && sLogoIq.Texture != null ? sLogoIq.Texture.name : "(null)",
+                      "Cell_Shaded_Alternative_Art_Style",
+                      "那一格的图 = **`Cell_Shaded_Alternative_Art_Style`**（= 原版 `HammerAndBolter` 档的 logo，"
+                      + "图上印的是 `CEL SHADED`）");
+            // 🔴 **量画出来那块**（⛔ 不是量字）：那一格 512×128、图也是 512×128 ⇒ 画出来就该是 512×128。
+            //    量法走同文件 `QuadRectOf`（= `MenuDraw.QuadRectPx`，**独立于实现**的渲染四边形）。
+            {
+                float qx1 = 0f, qy1 = 0f, qx2 = 0f, qy2 = 0f;   // ⚠️ 必须给初值：`gotQ && …` 短路 ⇒ 编译器证不出已赋值（CS0165，已踩过）
+                bool gotQ = sLogoIq != null && QuadRectOf(sLogoIq, out qx1, out qy1, out qx2, out qy2);
+                CheckTrue(gotQ && Mathf.Abs((qx2 - qx1) - 512f) <= 1.5f && Mathf.Abs((qy2 - qy1) - 128f) <= 1.5f,
+                          $"`Art Style Logo` 画出来 **{(gotQ ? qx2 - qx1 : 0f):F1}×{(gotQ ? qy2 - qy1 : 0f):F1}**"
+                          + " = 原版那一格 **512×128**（图与框同比例 ⇒ 等比不缩、也不溢出到右箭钮上）");
+            }
             // 🔴 **量渲染宽度**（不是比字号）：那一格是 **512×128**，56px 的 `Hammer and Bolter`
             //    实测宽 ≈1270px ⇒ **会压到右箭钮上**（第一版实拍一眼可见）。判据照 `AutoFitBox` 那条教训。
             // 🔴 **2026-10-16（A830 换口）**：那个数**不再从实现里读**。原来读 `win.StyleLogoWidthPx`，
@@ -7226,13 +7259,15 @@ public static class CollectionScene
             //    A1173 把 autosize 收进 `MainMenuSubmenuWindow.Text` 的四个形参）：
             //    **把漏斗里那两步（`SetWrapWidth` + `SetAutoFitBox`）删掉**，或把调用点的
             //    `wrapPx` / `autoMinPx` 传 `0` ⇒ 自适应不生效、`Hammer and Bolter` 按 56px 渲出来 ≈1270px ⇒ 这条当场红。
-            var sLogoLb = sLogo != null ? sLogo.GetComponentInChildren<Label>() : null;
-            float sLogoW = LabelRenderedPx(sLogoLb).x;
-            CheckTrue(sLogoLb != null && sLogoW > 5f && sLogoW <= 512f + 1f,
-                      $"`Art Style Logo` 那行字的**渲染宽度 {sLogoW:F0}px ≤ 512**"
-                      + "（超出就会压到右边那颗换风格钮上 —— 这条**矩形断言量不到**，得量 TMP 自己渲出来那块 `textBounds`）");
+            // 🔴 **2026-10-14（`A1808`）删掉一条**：原来这里还有「那行字的**渲染宽度 ≤ 512**」——
+            //    它量的是**风格名文字**，而那一格现在画的是 **logo 图** ⇒ 已由上面那两条（图在不在、图是不是那一张、
+            //    画出来是不是 512×128）替代。
+            //    ⚠️ 不是把「文字那一档」的判据一起丢了：下面那条 **`A1173` 形参契约探针自己建两个 `Label`**
+            //    （`A1173 Probe Fit` / `NoFit`）验的就是同一件事，`wrapPx` 那一档仍被它盯着。
             // 网格：7 张里当前风格 6 张 ⇒ 2 行；首格中心
-            Check(win.StyleVisibleCount, 6, "当前风格（`AA_HB`）下可见 **6** 张异画");
+            Check(win.StyleVisibleCount, 7,
+                  "当前风格（**只有 `HammerAndBolter` 这一档**）下可见 **7** 张异画"
+                  + "（本地就这 7 张、全是同一档 —— 判据 → `CollectionWindow.StyleLogoName` 头注）");
             // ================================================================
             //  🆕 **2026-10-09（A1173）**：`MainMenuSubmenuWindow.Text` 那四个 autosize 形参的**契约判别式**。
             //  ⛔ **别删这一对** —— 它是「形参真的接上了」唯一**独立**的判据：屏上那 11 处收口点只看
@@ -7286,7 +7321,7 @@ public static class CollectionScene
                 if (p1 != null) Object.DestroyImmediate(p1.gameObject);
                 if (p2 != null) Object.DestroyImmediate(p2.gameObject);
             }
-            Check(win.StyleCells.Count, 6, $"画出了 {win.StyleCells.Count} 格（视口外的不建 = 那套裁切）");
+            Check(win.StyleCells.Count, 7, $"画出了 {win.StyleCells.Count} 格（视口外的不建 = 那套裁切；7 张 = 2 行全在视口内）");
             if (win.StyleCells.Count > 0)
             {
                 var s0 = win.StyleCells[0];
@@ -7846,29 +7881,29 @@ public static class CollectionScene
                 CheckTrue(!win.StyleFiltersOpen && styleDrawer != null && !styleDrawer.gameObject.activeSelf,
                           "再点一下 ⇒ 收回**收起**态（本节收尾 = 与进本节时同一个状态）");
             }
-            Check(win.StyleVisibleCount, 6, "抽屉开合都不影响卡数（起手没有筛选条件）");
-            // 换风格：右箭钮 = 下一个（`v2` 只有 1 张）
+            Check(win.StyleVisibleCount, 7, "抽屉开合都不影响卡数（起手没有筛选条件）");
+            // 换风格：**原版只有 1 档** ⇒ 两颗箭钮**点了也不动**。
+            //   🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1808`/`A1830`）**：原来这里断的是「点右箭 ⇒ 下标 1、
+            //   切到 `v2`、只剩 1 张、再点回绕」—— 那一套建立在**我们自己按图片文件名拆出来的第二档**上，
+            //   而那第二档**原版没有**（`AlternateArtSyle` 只有 `Default`/`HammerAndBolter`；
+            //   `GetAlternateArtStyleOnly` = `FindAll(style != 0)` ⇒ 轮播只剩 `HammerAndBolter`；
+            //   本地 7 张卡的 `style` 现读全是 **5**。判据 → `CollectionWindow.StyleLogoName` 头注）。
+            //   ⇒ 改成断「**只有 1 档、箭钮是死键**」—— 那才是原版的行为。
             var rhit = FindChild(spage, "ArrowHit Right");
             var rbtn = rhit != null ? rhit.GetComponent<WindowButton>() : null;
             CheckTrue(rbtn != null, "右箭钮有点击区");
-            if (rbtn != null)
-            {
-                rbtn.Click();
-                Check(win.StyleIndex, 1, "点右箭 ⇒ 风格下标 = **1**（切到 `v2`）");
-                CheckText(TextOf(FindChild(spage, "Art Style Logo")), "v2",
-                          "风格名跟着变（`v2` 的**显示名查不到** ⇒ 直接印 token，如实记）");
-                Check(win.StyleVisibleCount, 1, "`v2` 风格下只有 **1** 张异画（Azrael —— 本地就这么一张）");
-                rbtn.Click();
-                Check(win.StyleIndex, 0, "再点一下（`v2` 只有一格）⇒ **回绕**到第 0 种");
-            }
             var lhit = spage != null ? FindChild(spage, "ArrowHit Left") : null;
             var lbtn = lhit != null ? lhit.GetComponent<WindowButton>() : null;
-            if (lbtn != null)
+            CheckTrue(lbtn != null, "左箭钮有点击区");
+            Check(CollectionWindow.AltStyles.Length, 1,
+                  "风格**只有 1 档**（`AltStyles` 现读长度 —— 原版 `FindAll(style != 0)` 之后只剩 `HammerAndBolter`）");
+            if (rbtn != null && lbtn != null)
             {
+                rbtn.Click();
+                Check(win.StyleIndex, 0, "点右箭 ⇒ 下标**仍是 0**（只有 1 档；⛔ 既不是回绕也不是报错）");
+                Check(win.StyleVisibleCount, 7, "点数不受影响（还是那 7 张）");
                 lbtn.Click();
-                Check(win.StyleIndex, 1, "点**左**箭 ⇒ 往回一个（`(0−1+2)%2` = 1）");
-                lbtn.Click();
-                Check(win.StyleIndex, 0, "再点左箭 ⇒ 回到 0");
+                Check(win.StyleIndex, 0, "点左箭 ⇒ 下标**仍是 0**");
             }
             // 筛选**真的筛得动**（复用同一套 `DeckEditorState`：筛 `legendary` 只剩传奇那几张）
             {

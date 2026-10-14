@@ -213,6 +213,8 @@ desktop.ini
 # （它是 net8 控制台工具，跑在 d:/4、不依赖 d:/2；源码与基线进库，bin/obj 不进）
 /Unity/工具/ruleprobe/bin/
 /Unity/工具/ruleprobe/obj/
+# 🆕 2026-10-14 · 探针跑出来的**产物**（`ruleprobe.sh scan` 每次重写；判据在源码里，⛔ 别提交它）
+/Unity/工具/ruleprobe/scan.txt
 # 🆕 2026-10-11 · 原版 mod `SceneJumpShot` 的**本地副本**（源码进库、编译产物不进）
 # 为什么要有这份副本：原件在 `d:/2/Warpforge_tools/scenejumpshot/`，而 **`d:/2` 是只读档案库**
 # ⇒ 要改 mod 必须先拷到 `d:/4`。（第十八会话给 mod 加了 `env:<SO 名>` 动作，判据原文 → `资料/普查产出_第十八会话/M1_mod加环境动作.md`）

@@ -14,6 +14,12 @@
 // 唯一一处「事件之间要互相等」的**显式**标记：`UnitTweenSO.waitAnimation = 1`
 // （18 个 tween，如 `Mutation` / `Execution_BL` / `Hammer Slam` / `AeldariRecall`）
 // —— 原版会**等这段 tween 播完再走下一步**。我们用 `Duration` 表达同一件事。
+//
+// 🆕 2026-10-14（`A1767`）：**「发动能力」这一格不再是常数** —— 它按**卡**取值，
+//   判据 = 该卡 `activeAbility` 各 CardAnim 的 `AnimInfo.GetAnimDuration()` 之和。
+//   表在 `Resources/ability_anim_durations.json`（56 张卡），入口 `Core/AbilityAnimDurations.cs`，
+//   消费点 = 本文件的 `DurationOf(BattleEvent)`（⚠️ **只按 `EvtKind` 的那条重载给兜底**）。
+//   ⛔ 改这一格之前先读那两个文件的文件头（含「只覆盖 2022 快照」等三处如实标注）。
 using RuleEngine;
 
 namespace CardPresentation
@@ -55,6 +61,22 @@ namespace CardPresentation
                 // 触发：用 `BattleManager` 里那两个命名延迟常量（见 `TriggerHold` 的注释）
                 case EvtKind.Trigger: return TriggerHold;
 
+                // 🔴 **2026-10-14（收口自检 β 回归）：抽卡那一条【从本函数搬去 `DurationOf`】**。
+                //   原来 `case EvtKind.Draw: return DrawDeal;` 写在这里（= 「上一条到这一条的**间隔**」），
+                //   而三处自述（`DrawDeal` 的 doc · `SourceOf(Draw)` · `A1816` 的断言）说的都是
+                //   「**占多久**」；原版也是「入队之后才 `WaitForSeconds`」（`_AddDrawnCardToHand:78-80`）
+                //   ⇒ 落到 `DurationOf` 才对。⚠️ **⛔ 别两处都留**（那会多排 0.3 s）。
+
+                // 🆕 2026-10-14（`A1816`）**伏击翻面**占 **0** —— 🔴 **这不是「没查到时长的填死值」**，
+                //   是查过之后**故意**取 0：原版那一下是 `CardScript.SetAmbush(card, false)`
+                //   （**普通方法、不阻塞**，`CardScript__SetAmbush.c` 逐行读过：它换材质/开数值/
+                //    记 `AddExitAmbushActionToCemetery` 之后直接返回），而
+                //   `RuleCore.ApplyDamage` 里它**紧跟着同一击的 `Hit`**（`:5651` → `:5655`）。
+                //   ⇒ 本表若给它一段时长，就会把**同一下伤害的挨打反馈**整段推后（1.35 s 那种量级），
+                //     那是实打实的**新偏离**。那件特效自己多长是**它自己的事**（见 `SourceOf`），
+                //     `WarpforgeEffectPlayer` 会照 prefab 的 `destroyTime` 播完 —— **不进时间线**。
+                case EvtKind.AmbushExit: return 0f;
+
                 default: return 0f;
             }
         }
@@ -93,52 +115,50 @@ namespace CardPresentation
                     //    ⇒ 用同一个判据（`CardFeel.DeathDissolve`）—— 督军那档 0.5 由消散那侧自己带。
                     return CardFeel.DeathDissolveMinion;
 
-                // 技能：🔴 **2026-09-29 查实：原版没有「技能展示时长」这个常数。**
-                //   真判据 = 那条技能自己的 `AnimInfo` 四个计时字段之和
-                //   （`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；`AnimInfo.GetAnimDuration`）
-                //   **＋（仅当 `UnitTweenSO.waitAnimation == 1` 时）** 那条 tween 序列跑完。
-                //   出处：`BattleManager._ResolveAnim_d__466`（`:137-149` 等 tween 完成 / `:204-211` 等 AnimInfo 时长）
-                //   + `AnimInfo__GetAnimDuration`。整条 `ResolvePlayActiveAbility` 协程里**没有**「等动画播完」
-                //   的回调，也没有 clip.length 参与。
-                //   ⚠️ **我们只接得上「统计中值」，接不上逐卡真值** —— 逐卡绑定断在
-                //     「卡 → 它自己的 animInfo 列表」那一跳：判据是**卡预制体**，而它只在远端 CCD 的
-                //     `allcards_assets_all.bundle` 里。🔴 **第五会话（2026-10-18 之后）三条路全试过、全断**：
-                //     ① 名字推 —— 1099 条 CardAnim 名对 1213 个卡名，**只中 48 条（4.3%）**；
-                //     ② CardAnim 资产自带 owner 字段 —— 实测 `m_GameObject` = `{FileID:0, PathID:0}` = **null**，
-                //        全资产**没有任何卡/owner 字段**；
-                //     ③ 本地 84 个 bundle / `LocalLow` 的 Addressables 缓存 / `assets_full` 24.7 万文件 —— **都没有该包**。
-                //     ⇒ **1.0 = 本地 506 条【有名字】的 `AnimInfo` 时长之和的中位数**
-                //       （表 = `数据/游戏数据/card_anim_map.json`：908 条总条目 = **506 有名 + 402 光 GUID**；
-                //        时长 = `vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`）—— **可复查**，
-                //        ⛔ **但不是逐卡真值**，别写成「原版就是 1.0」。
-                //     📊 同表的**分档中位数**（仅供参照；**我们【没有】按档取值**）：board 1.50(14) ·
-                //        warlord 0.75(59) · self 0.80(44) · target 0.60(47) · ability 0.60(17) · summon 0.40(21) ·
-                //        其余 1.00(246)。⇒ **全局中位恰好就是 1.0**，分档收益小、而改它 = 改手感且无逐卡判据兜底
-                //        ⇒ **保留常数、只如实标注**。
-                //     ⚠️ 另注：原版真值还**要加** `waitAnimation == 1` 时那条 tween 序列的长度（上一条注释），
-                //        本表算不到那一项 ⇒ 两者不叠加就不能叫「原版时长」。
-                //   🔴 原来这句「`Mutation` 0.5 / `Execution_BL` 1.5 / `Vanguard` 1.2 / `Hammer Slam` 1.5 取中」
-                //     **两个口径都错**：`Vanguard Tween` 的 `waitAnimation = 0`（原版**根本不等它**，不该在集合里）；
-                //     `Mutation` 是 **4 条 0.5 的 `After` 串起来 = 2.0**（不是 0.5）。照原版口径区间是 **1.5–2.5**。
-                case EvtKind.Ability: return 1.0f;
+                // 技能：**逐卡真值**（🆕 2026-10-14 `A1767`）——
+                //   `DurationOf(BattleEvent)` 那个重载按事件里的卡（`CardId`）去
+                //   `AbilityAnimDurations` 查这张卡的 `activeAbility` 时长；
+                //   **这个只按 `EvtKind` 的重载拿不到卡** ⇒ 一律返回兜底值
+                //   （= 真值表的中位数 `AbilityFallbackSeconds`，见那个常量的注释）。
+                //   ⛔ **别把逐卡那一半写回这里** —— 它需要事件（`BattleEvent.CardId`），
+                //      而这条重载的签名里没有；两条路都要能跑到才是接完。
+                case EvtKind.Ability: return AbilityFallbackSeconds;
 
                 // 触发：见 `TriggerLen`（有出处，但那两个常量是引擎的**通用节拍**，不是 Trigger 专用）
                 case EvtKind.Trigger: return TriggerLen;
+
+                // 🆕 2026-10-14（`A1816` · 收口时从 `DelayBetween` **搬到这里**）**抽卡**占多久 =
+                //   发牌入场那条补间自己的时长（`CardFeel.DealDuration` = `VarsGlobal.timeToDrawPlayerCard` = 0.3）。
+                //   ⚠️ 原版**是分敌我的一对**（我方 0.3 / 敌方 0.15），而本表**拿不到「哪一方是我」**
+                //      ⇒ 这里只覆盖**我方档**（见 `DrawDeal` 的注释）。敌方**动画**那一侧是对的
+                //      （`CardFeel.DealInQuad` 走 `DealDurationFoe = 0.15`），只有这条时间线会多排 0.15 s。
+                case EvtKind.Draw: return DrawDeal;
 
                 default: return 0f;
             }
         }
 
-        /// <summary>带事件的重载 —— **只有攻击要分远近两档**（起手→命中：近战 0.10 / 远程 0.20），
+        /// <summary>带事件的重载 —— **两处要按事件分档**：① 攻击分远近（起手→命中：近战 0.10 / 远程 0.20）；
+        /// ② 🆕 2026-10-14（`A1767`）**发动能力分逐卡**（见 <see cref="AbilityAnimDurations"/> 的判据链）。
         /// 其余一律转发给 <see cref="DurationOf(EvtKind)"/>。
-        /// 为什么要这个重载：`DurationOf(EvtKind)` 拿不到 `BattleEvent.Ranged`，
-        /// 而原版这两档**是两个不同的秒数**（见 `AttackStepMelee` / `AttackStepRanged` 的出处）。
-        /// **别退回「一刀切」** —— 那会让远程的出手比原版快一倍。</summary>
+        /// 为什么要这个重载：`DurationOf(EvtKind)` 拿不到 `BattleEvent` 里那两个参数
+        /// （`Ranged` / `CardId`），而原版这两处**各自都是分档的**
+        /// （见 `AttackStepMelee` / `AttackStepRanged` 与 `AbilityFallbackSeconds` 的出处）。
+        /// **别退回「一刀切」** —— 那会让远程的出手比原版快一倍、所有卡的发动能力都变成同一个数。</summary>
         public static float DurationOf(BattleEvent e)
         {
             if (e == null) return 0f;
             if (e.Kind == EvtKind.Attack)
                 return e.Ranged ? AttackStepRanged : AttackStepMelee;
+            // 🆕 `A1767`：**发动能力 = 逐卡真值**。`e.CardId` 装的是 `CardDef.Name`（英文卡名），
+            //    表里 id 与卡名两个键都有（见 `AbilityAnimDurations.TryGet`）。
+            //    查不到 ⇒ 退回 `AbilityFallbackSeconds`，`TryGet` 自己会**出声**（每张卡一次，不刷屏）。
+            if (e.Kind == EvtKind.Ability)
+            {
+                float s;
+                if (AbilityAnimDurations.TryGet(e.CardId, out s)) return s;
+                return AbilityFallbackSeconds;
+            }
             return DurationOf(e.Kind);
         }
 
@@ -237,6 +257,41 @@ namespace CardPresentation
         /// `twoFractDelay(0.2)` ⇒ **图标/触发这条线是 0.2 s**（440 那种是 0.7 s）。</summary>
         public const float TriggerLen = 0.2f;
 
+        /// <summary>🆕 2026-10-14（`A1767`）**发动能力**在「不知道是哪张卡」时的兜底秒数。
+        ///
+        /// 🔴 **它现在只是兜底，不再是「原版就是 1.0」** —— 逐卡真值走
+        /// <see cref="DurationOf(BattleEvent)"/> → <see cref="AbilityAnimDurations"/>。
+        ///
+        /// 这个 `1.0` 的来历（**旧口径，保留痕迹**）：本地 506 条【有名字】的 `AnimInfo` 时长之和的**中位数**
+        /// （表 = `数据/游戏数据/card_anim_map.json`：908 条总条目 = 506 有名 + 402 光 GUID）。
+        /// 新的逐卡表（`Resources/ability_anim_durations.json`，56 张卡）**中位也恰好是 1.0**
+        /// ⇒ 两代口径在这一格上偶然相等 —— 所以「兜底取 1.0」不是拍脑袋，**但也不能当成原版值**。
+        /// ⚠️ `AbilityAnimDurations.FallbackSeconds`（表里现读的那个数）**必须等于本常量** ——
+        ///    自检会逐字比（`BattleScene.Run` 那条「兜底值与表一致」）。
+        ///
+        /// 🔴 **为什么这条重载一定拿不到逐卡值**：原版判据是「**那条技能自己的** `AnimInfo` 四字段之和」
+        /// （`AnimInfo.GetAnimDuration` = `vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`），
+        /// 而「哪条技能」只存在于**事件**里（`BattleEvent.CardId`）。`DurationOf(EvtKind)` 的签名里没有卡
+        /// ⇒ 它只能给兜底值。**两条路都要跑到才算接完**，缺一条就会「看着接上了、其实一半还是常数」。
+        /// 判据链全文 → `Core/AbilityAnimDurations.cs` 文件头（含三处如实标注：只覆盖 2022 快照、
+        /// tween 那一段没算、`cardAbilities` 那一族不进本表）。</summary>
+        public const float AbilityFallbackSeconds = 1.0f;
+
+        /// <summary>🆕 2026-10-14（`A1816`）**抽卡**这一条事件占多久 = **0.3 s**。
+        ///
+        /// 出处 = `VarsGlobal.timeToDrawPlayerCard`（整表见 `资料/VarsGlobal_原版数值.md` §一），
+        /// 也就是**发牌入场那条补间自己的时长** —— 判据只此一处，所以这里直接引用
+        /// `CardFeel.DealDuration`（⛔ **别再写一个字面量 0.3**，那正是「两处写同一条规则」）。
+        /// 原版这一档**确实会等**：`PlayerHand._AddDrawnCardToHand_d__37__MoveNext.c:78-80`
+        /// 在把牌送进手牌之后 `WaitForSeconds(TimeToDrawCard + DAT_1834b2dc4)` 才走下一步。
+        ///
+        /// ⚠️ **本值只覆盖我方档**（原版是 `VarsGlobal.TimeToDrawCard(bool isPlayer)` 分敌我的一对：
+        ///    我方 0.3 / 敌方 0.15）。`DurationOf(EvtKind)` 拿不到「哪一方是我」
+        ///    （`DurationOf(BattleEvent)` 那个重载也只有 `e.Player`、没有座位号）
+        ///    ⇒ 敌方抽卡在时间线上会被多排 0.15 s。这不是「值查不到」，是**这张表取不到那个参数** ——
+        ///    动画那一侧**没有**这个问题（`CardFeel.DealSeconds(false)` / `DealInQuad` 用的就是 0.15）。</summary>
+        public const float DrawDeal = CardFeel.DealDuration;
+
         /// <summary>
         /// 这条数值**有没有原版出处**。
         /// 🔴 **2026-09-18 更正**：原来写「`Death` 是唯一的 false —— `VarsGlobal` 资产缺失」——
@@ -254,10 +309,20 @@ namespace CardPresentation
                 case EvtKind.Deploy: return "`Summon Troop Tween` 的 DelayTween duration=1.0";
                 case EvtKind.Attack: return "`CardScript.attackStepTime`=0.1（位移完成即命中帧；远程 0.2）";
                 case EvtKind.Hit: return "`Impact Light Tween`：Punch 0.5 + ResetBody 0.25（`appendType=After`）";
-                case EvtKind.Ability: return "🔴 **原版没有这个常数**（2026-09-29 查实）：真判据 = 该技能的 `AnimInfo` "
-                                             + "四字段之和 +（`waitAnimation` 时）tween 序列长度；**1.0 是我们的临时中值**";
+                case EvtKind.Ability: return "🆕 2026-10-14（`A1767`）**逐卡真值**：该卡 `activeAbility` 各 CardAnim 的 "
+                                             + "`AnimInfo.GetAnimDuration()`（`vfxDelayTime + timeAtStartPos + timeMoving "
+                                             + "+ timeAtEndPos`）之和 → `AbilityAnimDurations`（56 张卡）；"
+                                             + "**只按 `EvtKind` 的这条重载拿不到卡** ⇒ 返回兜底 "
+                                             + $"{AbilityFallbackSeconds}（= 真值表中位数，与旧常数恰好相等）";
                 case EvtKind.Trigger: return "`BattleManager.twoFractDelay`(**+0x4C8**) = 0.2 —— `_ResolveTriggerTraitAnim` 那条链的等待";
                 case EvtKind.Death: return "`VarsGlobal.deathTimeMinionDuration`=0.2（督军那档 0.5 见 `CardFeel.DeathDissolve`）";
+                case EvtKind.Draw: return "`VarsGlobal.timeToDrawPlayerCard`=0.3（= `CardFeel.DealDuration`，发牌入场那条补间）"
+                                        + "；⚠️ 只覆盖**我方档**（敌方 0.15 这一张表取不到座位号）";
+                case EvtKind.AmbushExit: return "**占 0**（原版 `CardScript.SetAmbush(card,false)` 是普通方法、不阻塞，"
+                                              + "紧跟着就是同一击的 `Hit`）；那件特效自己的材质补间 = "
+                                              + "`AmbushEffect` 的 `MaterialTweenFloat(_Blend)` delay 0.35 + duration 1.0 = 1.35"
+                                              + "（**不进时间线**；原件 = `新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/"
+                                              + "MonoBehaviour/MonoBehaviour_6849782588473963486.json` 的 `references.RefIds[0].data`）";
                 default: return "（无）";
             }
         }

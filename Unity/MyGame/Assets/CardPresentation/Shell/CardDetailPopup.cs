@@ -985,14 +985,20 @@ namespace CardPresentation
         /// <summary>🆕 **2026-10-12（A1699）**：这张卡的那几种异画风格（**按 `CollectionWindow.AltArtCards`
         /// 的次序**）。
         ///
-        /// <para>🔴 **本表只有一份** —— `Shell/CollectionWindow.cs:1478` 的 `AltArtCards`（7 张 · 2 种风格，
+        /// <para>🔴 **本表只有一份** —— `Shell/CollectionWindow.cs` 的 `AltArtCards`（7 张，
         /// 出处 = `工具/import_original_art.py` 的 `ALT_ART`）。**这里只是按卡 id 筛一遍，不是新写一张表**
         /// （本仓红线「两处写同一条规则 = 迟早不一致」；收藏窗第 4 页签 Styles 那套是**同一份数据**的另一个视图）。
+        /// 🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1808`/`A1830`）**：原文写「7 张 · **2 种风格**」—— **不成立**，
+        /// 那 7 张**全是 `HammerAndBolter` 同一档**（判据 → `CollectionWindow.StyleLogoName` 头注）⇒ 本表
+        /// 每张卡实际**最多 1 条**。</para>
         /// ⛔ **别在这里自己枚举 `Resources/Art/altarts/`，也别改成 `CardArt.AltArt(id) != null`** ——
         /// 后者是「贴图加载成功没有」，理由同 <see cref="HasAltArtStyle"/> 的注释。</para>
         /// <para>⚠️ 本地 7 张里**每张卡只有 1 种风格**（`AA_HB` ×6 / `v2` ×1）⇒ 实际总是 0 或 1 张；
         /// 但原版的 `currentStateIndex` 是**按张卡的风格表**走的（1 基）⇒ 这里照**列表**建模、不写死「1 种」，
-        /// 将来远端 CCD 那批 `alternateartstyles` 到手时不用改结构。</para></summary>
+        /// 🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1808`/`A1830`）**：原来这里写「将来远端 CCD 那批 `alternateartstyles`
+        /// 到手时不用改结构」—— **那批已经在手了**（两张风格 logo 已导进 `Resources/Art/ui_menu/`），
+        /// 而且**本地 7 张卡的 `style` 全是 `HammerAndBolter` 同一档** ⇒ 张卡的风格表实际最多 1 条
+        /// （判据 → `CollectionWindow.StyleLogoName` 头注）。列表建模**保留**（结构不用改，正是这句的用处）。</para></summary>
         public static List<CollectionWindow.AltArtCard> AltStylesOf(string cardId)
         {
             var list = new List<CollectionWindow.AltArtCard>();
@@ -1038,9 +1044,14 @@ namespace CardPresentation
             //    照这一格自己的意思写（**出声**）。
             Title(p, "AltArt Title", has ? "Alternate art (owned)" : "Alternate art", 1307.5f, 690f, 1726f, 760f, 31.7f);
             // `Current Style`：原版那一格跟着当前档走（`SetStyle` 里写 `+0x30 styleImageContainer` 的
-            //   `set_enabled` + `set_sprite(该风格的图标)`）。**风格图标 SO 在服务端**（本地没有）
-            //   ⇒ 我们印**风格名 + 第几档**（**显示名与档号是我们挑的**，如实标；风格名走
-            //   `CollectionWindow.StyleLabel` 那一份，不另写映射）。
+            //   `set_enabled` + `set_sprite(该风格的图标)`）。
+            //   🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1808`）**：原文写「**风格图标 SO 在服务端**（本地没有）」
+            //   —— **不成立**：SO 的本体在**本地内置文件**里，它那两张 logo 图**已在工程**（`Resources/Art/ui_menu/`；
+            //   映射与判据 → `CollectionWindow.StyleLogoName` 头注）。
+            //   ⇒ **要做**（铁律 11）：那一格原版喂的是 **`Image`**，我们现在印的是**文字**
+            //   （**显示名与档号是我们挑的**，如实标；风格名走 `CollectionWindow.StyleLabel` 那一份，不另写映射）。
+            //   ⚠️ **本轮没做**：换成图要原版那个 `styleImageContainer`（`AlternateArtPanel` 的 `+0x30`）
+            //   的**矩形**，那个值本地还没核 ⇒ 已立账（`A1837`），别照着这一行的文字框硬套。
             string cur = !has ? "No alternate art"
                        : AltStyleIndex == 0 ? "Original art  (0/" + styles.Count + ")"
                        : CollectionWindow.StyleLabel(styles[AltStyleIndex - 1].Style)

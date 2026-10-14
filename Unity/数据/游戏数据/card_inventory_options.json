@@ -1,0 +1,9270 @@
+{
+ "note": "原版 `RawCardScript.inventoryOptions` / `showInCollectionOptions` 真值，键 = **我们卡池的 id**。消费点 = `工具/gen_cards_engine.py` 的 `load_inventory_options()`。",
+ "source": "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json（原版远端包 allcards_assets_all，1195 张卡 SO，全字段）",
+ "provenance": "抢救来源 = 旧 Windows 用户目录的 Unity 缓存（按哈希命名）里的原版远端包 allcards_assets_all；原件与全部导出 → d:/2/远端缓存_旧profile_1013/（含 README）。⚠️ 年代限制：该包是 Unity 2022.3.38f1 / 2025-07-30 的快照（1195 张 vs 现池 1126 张）—— 整个 SpaceWolves 阵营与暗黑天使 DA75..DA86 等新卡快照里没有 ⇒ 那些 `inv`/`show` = -1（未知）。",
+ "usage": "`DeckUtility__ValidateDeckCards.c:68-72`（`inventoryOptions != 0` ⇒ 非法）· :73-77（`showInCollectionOptions != 5` ⇒ 非法）· `DeckUtility__TryRemoveInvalidCards.c:39-43` · ⚠️ `CardDeck__CanAddCard.c:40` 写的是 `&&`（与前三处不一致，差集 77 张）—— 解释见本文件生成器头部注释；我们按 `||` 那一版做（单机全解锁、没有持有数那道闸）。",
+ "invariant": "① `inv` 非 -1 时取自真值行、一字不改；② `-1` = 真值里查不到（四级定位全落空），**不是 0**（⛔ 别把 -1 当 InInventory）；③ 259 张 32 位 hex 键的卡**全部** `inv=10`（本会话现核 259/259）；④ `type` = 我们卡池里那张卡的卡型，用来复现原版「hero 走 CanAddHero / 防御卡走 CanAddDefensive、都不吃这两个字段」那两条路由。",
+ "counts": {
+  "truthRows": 1195,
+  "poolCards": 1126,
+  "resolved": 955,
+  "unresolvedTruthRows": 242,
+  "poolUnknown": 171,
+  "byVia": {
+   "id": 837,
+   "name+army": 108,
+   "name-dup-agree": 8,
+   "name": 2
+  },
+  "inv": {
+   "0": 826,
+   "5": 31,
+   "10": 98
+  },
+  "show": {
+   "5": 862,
+   "0": 93
+  },
+  "blockedNonHeroDefence": 98
+ },
+ "map": {
+  "ASH83": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH83"
+  },
+  "ASH77": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH77"
+  },
+  "ASH63": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH63"
+  },
+  "ASH62": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH62"
+  },
+  "ASH80": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH80"
+  },
+  "ASH22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH22"
+  },
+  "ASH4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH4"
+  },
+  "ASH69": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH69"
+  },
+  "ASH15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH15"
+  },
+  "ASH79": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH79"
+  },
+  "ASH6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH6"
+  },
+  "ASH28": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH28"
+  },
+  "ASH17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH17"
+  },
+  "ASH5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH5"
+  },
+  "ASH23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH23"
+  },
+  "ASH11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH11"
+  },
+  "ASH70": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH70"
+  },
+  "ASH12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH12"
+  },
+  "ASH24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH24"
+  },
+  "ASH7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH7"
+  },
+  "ASH8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH8"
+  },
+  "ASH78": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH78"
+  },
+  "ASH13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH13"
+  },
+  "ASH61": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH61"
+  },
+  "ASH31": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH31"
+  },
+  "ASH19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH19"
+  },
+  "ASH14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH14"
+  },
+  "ASH20": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH20"
+  },
+  "ASH75": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH75"
+  },
+  "ASH34": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH34"
+  },
+  "ASH46": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH46"
+  },
+  "ASH84": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH84"
+  },
+  "ASH55": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "ASH55"
+  },
+  "ASH45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH45"
+  },
+  "ASH47": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH47"
+  },
+  "ASH48": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH48"
+  },
+  "ASH71": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH71"
+  },
+  "ASH42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH42"
+  },
+  "ASH39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH39"
+  },
+  "ASH64": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH64"
+  },
+  "ASH49": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH49"
+  },
+  "ASH_Empyric_Ambush": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "dc7e575c0a328f446be1521c23ec850b"
+  },
+  "ASH50": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH50"
+  },
+  "ASH85": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH85"
+  },
+  "ASH36": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH36"
+  },
+  "ASH_Flickerjump": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "67adbc7f7bce2bd4c8f6937fab3134e5"
+  },
+  "ASH86": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH86"
+  },
+  "ASH72": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH72"
+  },
+  "ASH52": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH52"
+  },
+  "ASH51": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH51"
+  },
+  "ASH56": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "ASH56"
+  },
+  "ASH40": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH40"
+  },
+  "ASH_Path_of_Command": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "9c3562ffa183ede41b1626d9c9dc1e2f"
+  },
+  "ASH_Path_of_the_Seer": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "09bcb1b3b8794c4429d82d4b2e68fa1f"
+  },
+  "ASH_Path_of_the_Warrior": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name-dup-agree",
+   "ref": "1bfe0893592c9dd40bed8d68d5d2b516"
+  },
+  "ASH53": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH53"
+  },
+  "ASH_Storm_of_Silence": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name-dup-agree",
+   "ref": "4b8214d3b5e589f42beab20e56ca21b0"
+  },
+  "ASH43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH43"
+  },
+  "ASH54": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH54"
+  },
+  "ASH57": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "ASH57"
+  },
+  "ASH41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH41"
+  },
+  "ASH37": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH37"
+  },
+  "ASH73": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH73"
+  },
+  "ASH44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH44"
+  },
+  "ASH38": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ASH38"
+  },
+  "ASH_Witchfire": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "d3e99cb18b8cbba4081486f57f510f75"
+  },
+  "ASH_Wrath_of_Khaine": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "33eabec155f628440a426a4ba480ec24"
+  },
+  "ASH81": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH81"
+  },
+  "ASH21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH21"
+  },
+  "ASH27": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH27"
+  },
+  "ASH82": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH82"
+  },
+  "ASH30": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH30"
+  },
+  "ASH33": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH33"
+  },
+  "ASH67": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH67"
+  },
+  "ASH68": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH68"
+  },
+  "ASH16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH16"
+  },
+  "ASH66": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH66"
+  },
+  "ASH65": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH65"
+  },
+  "ASH10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH10"
+  },
+  "ASH18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH18"
+  },
+  "ASH26": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH26"
+  },
+  "ASH25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH25"
+  },
+  "ASH29": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH29"
+  },
+  "ASH9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH9"
+  },
+  "ASH35": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH35"
+  },
+  "ASH32": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "ASH32"
+  },
+  "ASH1": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "ASH1"
+  },
+  "ASH2": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "ASH2"
+  },
+  "ASH3": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "ASH3"
+  },
+  "ASH74": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "ASH74"
+  },
+  "ASH76": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "ASH76"
+  },
+  "AM2": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "AM2"
+  },
+  "AM15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM15"
+  },
+  "AM61": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "AM61"
+  },
+  "AM62": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "AM62"
+  },
+  "AM60": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "AM60"
+  },
+  "AM_Astropath": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "name+army",
+   "ref": "AM59"
+  },
+  "AM19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM19"
+  },
+  "AM24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM24"
+  },
+  "AM31": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM31"
+  },
+  "AM8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM8"
+  },
+  "AM10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM10"
+  },
+  "AM17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM17"
+  },
+  "AM4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM4"
+  },
+  "AM12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM12"
+  },
+  "AM9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM9"
+  },
+  "AM36": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM36"
+  },
+  "AM18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM18"
+  },
+  "AM70": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM70"
+  },
+  "AM27": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM27"
+  },
+  "AM13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM13"
+  },
+  "AM22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM22"
+  },
+  "AM6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM6"
+  },
+  "AM11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM11"
+  },
+  "AM5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM5"
+  },
+  "AM21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM21"
+  },
+  "AM69": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM69"
+  },
+  "AM71": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM71"
+  },
+  "AM68": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM68"
+  },
+  "AM72": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM72"
+  },
+  "AM7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM7"
+  },
+  "AM_Armoured_Lightning": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "AM76"
+  },
+  "AM52": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM52"
+  },
+  "AM53": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM53"
+  },
+  "AM54": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM54"
+  },
+  "AM39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM39"
+  },
+  "AM51": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM51"
+  },
+  "AM_Cadian_Honour": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "3a52026b99bb56f40aa9dc130fc66f34"
+  },
+  "AM_Efficiency_and_Excellence": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "1ff4815a506d2f34e94ec2f50900d352"
+  },
+  "AM74": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM74"
+  },
+  "AM40": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM40"
+  },
+  "AM57": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM57"
+  },
+  "AM46": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM46"
+  },
+  "AM_Lead_by_Example": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "cc11838649ff68a40b7d5d2b9fccd2bc"
+  },
+  "AM_Legendary_Commandant": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "af98d423c7279a14c84c0d0382c53541"
+  },
+  "AM55": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM55"
+  },
+  "AM41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM41"
+  },
+  "AM42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM42"
+  },
+  "AM47": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM47"
+  },
+  "AM43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM43"
+  },
+  "AM48": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM48"
+  },
+  "AM_Renowned_Bodyguard": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "98cd4c021d615174aba88df6012219c4"
+  },
+  "AM44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM44"
+  },
+  "AM58": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM58"
+  },
+  "AM49": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM49"
+  },
+  "AM50": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM50"
+  },
+  "AM45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM45"
+  },
+  "AM75": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM75"
+  },
+  "AM56": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "AM56"
+  },
+  "AM67": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM67"
+  },
+  "AM25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM25"
+  },
+  "AM14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM14"
+  },
+  "AM38": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM38"
+  },
+  "AM33": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM33"
+  },
+  "AM23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM23"
+  },
+  "AM28": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM28"
+  },
+  "AM29": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM29"
+  },
+  "AM35": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM35"
+  },
+  "AM30": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM30"
+  },
+  "AM37": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM37"
+  },
+  "AM16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM16"
+  },
+  "AM73": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM73"
+  },
+  "AM26": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM26"
+  },
+  "AM34": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "AM34"
+  },
+  "AM1": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "AM1"
+  },
+  "BL34": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "BL34"
+  },
+  "BL12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL12"
+  },
+  "BL2": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL2"
+  },
+  "BL18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL18"
+  },
+  "BL3": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL3"
+  },
+  "BL30": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL30"
+  },
+  "BL4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL4"
+  },
+  "BL1": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL1"
+  },
+  "BL19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL19"
+  },
+  "BL20": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL20"
+  },
+  "BL24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL24"
+  },
+  "BL13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL13"
+  },
+  "BL14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL14"
+  },
+  "BL25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL25"
+  },
+  "BL62": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL62"
+  },
+  "BL67": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL67"
+  },
+  "BL66": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL66"
+  },
+  "BL71": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL71"
+  },
+  "BL63": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL63"
+  },
+  "BL5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL5"
+  },
+  "BL32": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL32"
+  },
+  "BL7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL7"
+  },
+  "BL21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL21"
+  },
+  "BL15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL15"
+  },
+  "BL22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL22"
+  },
+  "BL69": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL69"
+  },
+  "BL8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL8"
+  },
+  "BL26": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL26"
+  },
+  "BL10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL10"
+  },
+  "BL16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL16"
+  },
+  "BL9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL9"
+  },
+  "BL6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL6"
+  },
+  "BL23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL23"
+  },
+  "BL29": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL29"
+  },
+  "BL70": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL70"
+  },
+  "BL11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL11"
+  },
+  "BL17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL17"
+  },
+  "BL68": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL68"
+  },
+  "BL37": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL37"
+  },
+  "BL_Bitter_Blows": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "36892cd906b0e5e4c9bbbe249db009b8"
+  },
+  "BL55": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL55"
+  },
+  "BL43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL43"
+  },
+  "BL44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL44"
+  },
+  "BL38": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL38"
+  },
+  "BL49": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL49"
+  },
+  "BL_Diabolic_Strength": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "7bf8ce67fb6be4744ae44345a5b465fd"
+  },
+  "BL47": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL47"
+  },
+  "BL54": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL54"
+  },
+  "BL50": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL50"
+  },
+  "BL46": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL46"
+  },
+  "BL53": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL53"
+  },
+  "BL_Helspear_Assault": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name-dup-agree",
+   "ref": "3df005b0c8973d5419eb1a4981f777b0"
+  },
+  "BL39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL39"
+  },
+  "BL51": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL51"
+  },
+  "BL_Infernal_Gaze": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "453b0e8f88e094a17866a6979f389ef5"
+  },
+  "BL40": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL40"
+  },
+  "BL_Litany_of_Despair": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name-dup-agree",
+   "ref": "e09280c7545371941b57dc0cc813012f"
+  },
+  "BL73": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL73"
+  },
+  "BL64": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL64"
+  },
+  "BL41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL41"
+  },
+  "BL_Rites_of_Possession": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "3f38d2e2c83df4b4c9052ef4a510cfbb"
+  },
+  "BL48": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL48"
+  },
+  "BL45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL45"
+  },
+  "BL56": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "BL56"
+  },
+  "BL42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL42"
+  },
+  "BL_Unhallowed_Gifts": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name-dup-agree",
+   "ref": "f70efd9867a9cf3458b722aeaf2982bc"
+  },
+  "BL52": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "BL52"
+  },
+  "BL72": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL72"
+  },
+  "BL28": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL28"
+  },
+  "BL31": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL31"
+  },
+  "BL27": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL27"
+  },
+  "BL33": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "BL33"
+  },
+  "BL35": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "BL35"
+  },
+  "BL65": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "BL65"
+  },
+  "DA9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA9"
+  },
+  "DA5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA5"
+  },
+  "DA23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA23"
+  },
+  "DA16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA16"
+  },
+  "DA11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA11"
+  },
+  "DA24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA24"
+  },
+  "DA28": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA28"
+  },
+  "DA12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA12"
+  },
+  "DA32": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA32"
+  },
+  "DA37": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA37"
+  },
+  "DA25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA25"
+  },
+  "DA30": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA30"
+  },
+  "DA17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA17"
+  },
+  "DA31": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA31"
+  },
+  "DA18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA18"
+  },
+  "DA4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA4"
+  },
+  "DA19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA19"
+  },
+  "DA13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA13"
+  },
+  "DA20": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA20"
+  },
+  "DA8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA8"
+  },
+  "DA22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA22"
+  },
+  "DA39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA39"
+  },
+  "DA47": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA47"
+  },
+  "DA_Convoke_the_Circle": {
+   "inv": 10,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "3e99603a7b7b2c54c8f1ad40250ee2ae"
+  },
+  "DA51": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA51"
+  },
+  "DA57": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA57"
+  },
+  "DA48": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA48"
+  },
+  "DA60": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "DA60"
+  },
+  "DA56": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA56"
+  },
+  "DA58": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA58"
+  },
+  "DA_Grim_Effigy": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "name+army",
+   "ref": "DA59"
+  },
+  "DA43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA43"
+  },
+  "DA49": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA49"
+  },
+  "DA40": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA40"
+  },
+  "DA52": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA52"
+  },
+  "DA41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA41"
+  },
+  "DA_Master_Interromancer": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "a84a5b49f0ca9144585058db6987c2a0"
+  },
+  "DA_Master_of_Manoeuvre": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "7c45a641ec845994097d185af58715f6"
+  },
+  "DA_Master_of_the_Deathwing": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "9e0eecf8cb9a8df49bf18cc5d9051109"
+  },
+  "DA_None_Must_Know": {
+   "inv": 10,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "24fcaf45556573549b922c06cad3aa2c"
+  },
+  "DA_Obscure_Ritual": {
+   "inv": 10,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "b3364cdc54882b04e8a931e86700ac23"
+  },
+  "DA_Plasma_Generator": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "name+army",
+   "ref": "DA61"
+  },
+  "DA42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA42"
+  },
+  "DA_Rites_of_Penance": {
+   "inv": 10,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "e01e8e933ad574b44bce5473ae486667"
+  },
+  "DA50": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA50"
+  },
+  "DA44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA44"
+  },
+  "DA_Smothering_Decree": {
+   "inv": 10,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "708c0306e73fd494eb0f718ddaeea48a"
+  },
+  "DA53": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA53"
+  },
+  "DA45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA45"
+  },
+  "DA_Supreme_Grand_Master": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "dd535f7a54bcf6241b24ca6d0e81bbb4"
+  },
+  "DA46": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA46"
+  },
+  "DA54": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA54"
+  },
+  "DA55": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA55"
+  },
+  "DA10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA10"
+  },
+  "DA35": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA35"
+  },
+  "DA29": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA29"
+  },
+  "DA21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA21"
+  },
+  "DA33": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA33"
+  },
+  "DA26": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA26"
+  },
+  "DA7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA7"
+  },
+  "DA15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA15"
+  },
+  "DA14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA14"
+  },
+  "DA27": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA27"
+  },
+  "DA38": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA38"
+  },
+  "DA36": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA36"
+  },
+  "DA34": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA34"
+  },
+  "EC33": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC33"
+  },
+  "EC35": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC35"
+  },
+  "EC32": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC32"
+  },
+  "EC34": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC34"
+  },
+  "EC24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC24"
+  },
+  "EC15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC15"
+  },
+  "EC2": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC2"
+  },
+  "EC3": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC3"
+  },
+  "EC12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC12"
+  },
+  "EC11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC11"
+  },
+  "EC18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC18"
+  },
+  "EC10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC10"
+  },
+  "EC8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC8"
+  },
+  "EC17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC17"
+  },
+  "EC13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC13"
+  },
+  "EC21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC21"
+  },
+  "EC6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC6"
+  },
+  "EC27": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC27"
+  },
+  "EC23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC23"
+  },
+  "EC1": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC1"
+  },
+  "EC_Terminator_Champion": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "name",
+   "ref": "BL29"
+  },
+  "EC7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC7"
+  },
+  "EC5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC5"
+  },
+  "EC20": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC20"
+  },
+  "EC4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC4"
+  },
+  "EC42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC42"
+  },
+  "EC48": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC48"
+  },
+  "EC36": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC36"
+  },
+  "EC51": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC51"
+  },
+  "EC54": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC54"
+  },
+  "EC72": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "5a8a11b2a89796f48b34fbec8db6f452"
+  },
+  "EC73": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "70199b6f183ec364082ca16e62f3d0cb"
+  },
+  "EC74": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "6e6d14006d8e9514b83a6c99e572081c"
+  },
+  "EC75": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "9215799995ff7a941b14737e27021032"
+  },
+  "EC76": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "4eec3b13d157dae48b14ed412169e692"
+  },
+  "EC77": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "aa45079b714e3ff498549e533c5954a1"
+  },
+  "EC40": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC40"
+  },
+  "EC39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC39"
+  },
+  "EC47": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC47"
+  },
+  "EC41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC41"
+  },
+  "EC45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC45"
+  },
+  "EC52": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC52"
+  },
+  "EC46": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC46"
+  },
+  "EC43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC43"
+  },
+  "EC38": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC38"
+  },
+  "EC44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC44"
+  },
+  "EC50": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC50"
+  },
+  "EC53": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC53"
+  },
+  "EC49": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC49"
+  },
+  "EC37": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC37"
+  },
+  "EC58": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "EC58"
+  },
+  "EC59": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "EC59"
+  },
+  "EC28": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC28"
+  },
+  "EC31": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC31"
+  },
+  "EC29": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC29"
+  },
+  "EC_Maulerfiend": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "name",
+   "ref": "BL31"
+  },
+  "EC55": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "EC55"
+  },
+  "EC57": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "EC57"
+  },
+  "GSC63": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "GSC63"
+  },
+  "GSC65": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "GSC65"
+  },
+  "GSC64": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "GSC64"
+  },
+  "GSC26": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC26"
+  },
+  "GSC20": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC20"
+  },
+  "GSC32": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC32"
+  },
+  "GSC16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC16"
+  },
+  "GSC9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC9"
+  },
+  "GSC14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC14"
+  },
+  "GSC15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC15"
+  },
+  "GSC35": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC35"
+  },
+  "GSC10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC10"
+  },
+  "GSC21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC21"
+  },
+  "GSC5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC5"
+  },
+  "GSC4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC4"
+  },
+  "GSC28": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC28"
+  },
+  "GSC23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC23"
+  },
+  "GSC34": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC34"
+  },
+  "GSC17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC17"
+  },
+  "GSC29": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC29"
+  },
+  "GSC30": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC30"
+  },
+  "GSC11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC11"
+  },
+  "GSC7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC7"
+  },
+  "GSC12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC12"
+  },
+  "GSC6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC6"
+  },
+  "GSC18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC18"
+  },
+  "GSC13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC13"
+  },
+  "GSC8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC8"
+  },
+  "GSC24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC24"
+  },
+  "GSC37": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC37"
+  },
+  "GSC19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC19"
+  },
+  "GSC31": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC31"
+  },
+  "GSC25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC25"
+  },
+  "GSC56": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC56"
+  },
+  "GSC_Backstab": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "GSC40"
+  },
+  "GSC46": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC46"
+  },
+  "GSC_Brood_Prophet": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "fd67b47572987b84cb2990ea1ecfe982"
+  },
+  "GSC50": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC50"
+  },
+  "GSC_Cult_Propaganda": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "7c666a04c1b9e8b4e9a96247e9fe115a"
+  },
+  "GSC76": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC76"
+  },
+  "GSC59": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC59"
+  },
+  "GSC_Deadliest_Killer": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "f45dd53721b645b4ab45d334edb986af"
+  },
+  "GSC53": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC53"
+  },
+  "GSC42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC42"
+  },
+  "GSC43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC43"
+  },
+  "GSC55": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC55"
+  },
+  "GSC_Experimental_Bio_Horrors": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "4959cd9e99597f74ca9af0bd65ae6307"
+  },
+  "GSC58": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC58"
+  },
+  "GSC_Improvised_Barricade": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "334a32d196d46ed4387bf3740cce069b"
+  },
+  "GSC_Inscrutable_Cunning": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name-dup-agree",
+   "ref": "d01a5ba5865ded4418194ea50e333b21"
+  },
+  "GSC_Jammed_Communications": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "68909cf02f472734ea391665e0d28e15"
+  },
+  "GSC51": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC51"
+  },
+  "GSC39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC39"
+  },
+  "GSC_Master_Outrider": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name-dup-agree",
+   "ref": "70ce5448c46c2c34d80192472e976a67"
+  },
+  "GSC_Nexus_of_Devotion": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "7831725387c8a774dbdf5b6492d928e0"
+  },
+  "GSC41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC41"
+  },
+  "GSC57": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC57"
+  },
+  "GSC47": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC47"
+  },
+  "GSC_Poisoned_Supplies": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "a7bb23355a30d344e9d2decf976d91e1"
+  },
+  "GSC54": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC54"
+  },
+  "GSC_Roaming_Outriders": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "GSC75"
+  },
+  "GSC74": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC74"
+  },
+  "GSC44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC44"
+  },
+  "GSC52": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC52"
+  },
+  "GSC49": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC49"
+  },
+  "GSC45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GSC45"
+  },
+  "GSC_Vox_Hacker": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "e9952f50921d2844a94d39ce883430f4"
+  },
+  "GSC27": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC27"
+  },
+  "GSC68": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC68"
+  },
+  "GSC71": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC71"
+  },
+  "GSC72": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC72"
+  },
+  "GSC38": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC38"
+  },
+  "GSC22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC22"
+  },
+  "GSC36": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC36"
+  },
+  "GSC33": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC33"
+  },
+  "GSC69": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC69"
+  },
+  "GSC67": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC67"
+  },
+  "GSC70": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC70"
+  },
+  "GSC73": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GSC73"
+  },
+  "GSC2": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "GSC2"
+  },
+  "GSC1": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "GSC1"
+  },
+  "SAU9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU9"
+  },
+  "SAU2": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU2"
+  },
+  "SAU1": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU1"
+  },
+  "SAU13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU13"
+  },
+  "SAU7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU7"
+  },
+  "SAU20": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU20"
+  },
+  "SAU14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU14"
+  },
+  "SAU70": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU70"
+  },
+  "SAU67": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU67"
+  },
+  "SAU15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU15"
+  },
+  "SAU3": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU3"
+  },
+  "SAU69": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU69"
+  },
+  "SAU25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU25"
+  },
+  "SAU71": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU71"
+  },
+  "SAU68": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU68"
+  },
+  "SAU22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU22"
+  },
+  "SAU72": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU72"
+  },
+  "SAU23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU23"
+  },
+  "SAU29": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU29"
+  },
+  "SAU5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU5"
+  },
+  "SAU26": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU26"
+  },
+  "SAU17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU17"
+  },
+  "SAU65": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU65"
+  },
+  "SAU27": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU27"
+  },
+  "SAU18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU18"
+  },
+  "SAU32": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU32"
+  },
+  "SAU11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU11"
+  },
+  "SAU10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU10"
+  },
+  "SAU33": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU33"
+  },
+  "SAU19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU19"
+  },
+  "SAU75": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU75"
+  },
+  "SAU54": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU54"
+  },
+  "SAU47": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU47"
+  },
+  "SAU50": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU50"
+  },
+  "SAU74": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU74"
+  },
+  "SAU44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU44"
+  },
+  "SAU60": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "SAU60"
+  },
+  "SAU_Hardwired_Destruction": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "461354d98aa5e3142afa4eb4922e5456"
+  },
+  "SAU45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU45"
+  },
+  "SAU55": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU55"
+  },
+  "SAU58": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU58"
+  },
+  "SAU_Indomitable_Will": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "65b2be828179515458a282cf1b027182"
+  },
+  "SAU_Inescapable_Retribution": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "SAU76"
+  },
+  "SAU_Lord_of_the_Storm": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "30007162b68992e41a422f2061705b65"
+  },
+  "SAU_Master_Chronomancer": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "cbabeb234380634479feab1a1b4c733a"
+  },
+  "SAU56": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU56"
+  },
+  "SAU_Particle_Whip": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "eb17cd22c6a5d7941a7456838d927ab1"
+  },
+  "SAU40": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU40"
+  },
+  "SAU_Reanimate": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "27a4b748a7bf358499f038aa09895ead"
+  },
+  "SAU41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU41"
+  },
+  "SAU42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU42"
+  },
+  "SAU_Relentless_March": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "d8a14171b08b54144ba9dbf324b0a042"
+  },
+  "SAU49": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU49"
+  },
+  "SAU61": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "SAU61"
+  },
+  "SAU51": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU51"
+  },
+  "SAU52": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU52"
+  },
+  "SAU43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU43"
+  },
+  "SAU46": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU46"
+  },
+  "SAU57": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU57"
+  },
+  "SAU73": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU73"
+  },
+  "SAU24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU24"
+  },
+  "SAU21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU21"
+  },
+  "SAU31": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU31"
+  },
+  "SAU28": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU28"
+  },
+  "SAU34": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU34"
+  },
+  "SAU16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU16"
+  },
+  "SAU12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU12"
+  },
+  "SAU30": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SAU30"
+  },
+  "SAU35": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "SAU35"
+  },
+  "SAU36": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "SAU36"
+  },
+  "SAU37": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "SAU37"
+  },
+  "SAU66": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "SAU66"
+  },
+  "GOF28": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "GOF28"
+  },
+  "GOF79": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF79"
+  },
+  "GOF91": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF91"
+  },
+  "GOF97": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF97"
+  },
+  "GOF80": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF80"
+  },
+  "GOF83": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF83"
+  },
+  "GOF93": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF93"
+  },
+  "GOF95": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF95"
+  },
+  "GOF88": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF88"
+  },
+  "GOF94": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF94"
+  },
+  "GOF84": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF84"
+  },
+  "GOF78": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF78"
+  },
+  "GOF89": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF89"
+  },
+  "GOF81": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF81"
+  },
+  "GOF90": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF90"
+  },
+  "GOF87": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF87"
+  },
+  "GOF100": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF100"
+  },
+  "GOF103": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF103"
+  },
+  "GOF101": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF101"
+  },
+  "GOF104": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF104"
+  },
+  "GOF107": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF107"
+  },
+  "GOF98": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF98"
+  },
+  "GOF105": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF105"
+  },
+  "GOF106": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF106"
+  },
+  "GOF99": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF99"
+  },
+  "GOF102": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF102"
+  },
+  "GOF96": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF96"
+  },
+  "GOF77": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "GOF77"
+  },
+  "GOF76": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "GOF76"
+  },
+  "GOF82": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF82"
+  },
+  "GOF85": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF85"
+  },
+  "GOF86": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF86"
+  },
+  "GOF92": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF92"
+  },
+  "GOF23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF23"
+  },
+  "GOF11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF11"
+  },
+  "GOF68": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF68"
+  },
+  "GOF16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF16"
+  },
+  "GOF59": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF59"
+  },
+  "GOF3": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF3"
+  },
+  "GOF67": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF67"
+  },
+  "GOF15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF15"
+  },
+  "GOF13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF13"
+  },
+  "GOF1": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF1"
+  },
+  "GOF8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF8"
+  },
+  "GOF62": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF62"
+  },
+  "GOF2": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF2"
+  },
+  "GOF19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF19"
+  },
+  "GOF21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF21"
+  },
+  "GOF55": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF55"
+  },
+  "GOF57": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF57"
+  },
+  "GOF18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF18"
+  },
+  "GOF66": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF66"
+  },
+  "GOF9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF9"
+  },
+  "GOF14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF14"
+  },
+  "GOF4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF4"
+  },
+  "GOF65": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF65"
+  },
+  "GOF6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF6"
+  },
+  "GOF60": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF60"
+  },
+  "GOF5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF5"
+  },
+  "GOF33": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF33"
+  },
+  "GOF30": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF30"
+  },
+  "GOF31": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF31"
+  },
+  "GOF37": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF37"
+  },
+  "GOF42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF42"
+  },
+  "GOF_Da_Red_Waaagh": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "20d0f4451f16fc441836a02f99bf77da"
+  },
+  "GOF72": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF72"
+  },
+  "GOF53": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "GOF53"
+  },
+  "GOF_Follower_of_Gork": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "6ba4b132d24528844a86304f8ce67833"
+  },
+  "GOF45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF45"
+  },
+  "GOF_Greatest_Warboss": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "3ebb159036778d14ebd1c48451aa6ca0"
+  },
+  "GOF43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF43"
+  },
+  "GOF49": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "GOF49"
+  },
+  "GOF74": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF74"
+  },
+  "GOF32": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF32"
+  },
+  "GOF71": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF71"
+  },
+  "GOF_Mekaniak": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "9dcbe3d0c04b02f4fbb19974ae0e37b2"
+  },
+  "GOF_More_Dakka": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "9f4e1b7ea9f00da458c6a859a4e958c8"
+  },
+  "GOF40": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF40"
+  },
+  "GOF35": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF35"
+  },
+  "GOF38": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF38"
+  },
+  "GOF34": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF34"
+  },
+  "GOF64": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF64"
+  },
+  "GOF_Ramshackle": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "98d3c65702746b04baf7f5ead1a9e507"
+  },
+  "GOF48": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF48"
+  },
+  "GOF_Sawbonez": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "b4d6d186eb95a3f468013c5be649ee3b"
+  },
+  "GOF36": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF36"
+  },
+  "GOF44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF44"
+  },
+  "GOF73": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF73"
+  },
+  "GOF46": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF46"
+  },
+  "GOF39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF39"
+  },
+  "GOF52": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "GOF52"
+  },
+  "GOF_Uge_Choppa": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name-dup-agree",
+   "ref": "6b945ed622dee0e479d44e0bfd2273c5"
+  },
+  "GOF41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF41"
+  },
+  "GOF47": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "GOF47"
+  },
+  "GOF_Worst_Temper": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "8425b809e9e64e24f9035f709f5aaee4"
+  },
+  "GOF_Wreckin_Ball": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "508002f5d7ee54f4686aefa2e6adce41"
+  },
+  "GOF24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF24"
+  },
+  "GOF58": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF58"
+  },
+  "GOF22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF22"
+  },
+  "GOF56": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF56"
+  },
+  "GOF25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF25"
+  },
+  "GOF10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF10"
+  },
+  "GOF63": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF63"
+  },
+  "GOF17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF17"
+  },
+  "GOF70": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF70"
+  },
+  "GOF61": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF61"
+  },
+  "GOF26": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF26"
+  },
+  "GOF7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF7"
+  },
+  "GOF27": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "GOF27"
+  },
+  "GOF29": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "GOF29"
+  },
+  "GOF75": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "GOF75"
+  },
+  "GOF69": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "GOF69"
+  },
+  "SOR71": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR71"
+  },
+  "SOR26": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR26"
+  },
+  "SOR14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR14"
+  },
+  "SOR8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR8"
+  },
+  "SOR66": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR66"
+  },
+  "SOR6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR6"
+  },
+  "SOR5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR5"
+  },
+  "SOR23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR23"
+  },
+  "SOR30": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR30"
+  },
+  "SOR34": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR34"
+  },
+  "SOR15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR15"
+  },
+  "SOR7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR7"
+  },
+  "SOR21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR21"
+  },
+  "SOR18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR18"
+  },
+  "SOR22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR22"
+  },
+  "SOR11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR11"
+  },
+  "SOR29": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR29"
+  },
+  "SOR20": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR20"
+  },
+  "SOR25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR25"
+  },
+  "SOR68": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR68"
+  },
+  "SOR16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR16"
+  },
+  "SOR9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR9"
+  },
+  "SOR12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR12"
+  },
+  "SOR67": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR67"
+  },
+  "SOR33": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR33"
+  },
+  "SOR19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR19"
+  },
+  "SOR13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR13"
+  },
+  "SOR24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR24"
+  },
+  "SOR4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR4"
+  },
+  "SOR17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR17"
+  },
+  "SOR37": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR37"
+  },
+  "SOR69": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR69"
+  },
+  "SOR28": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR28"
+  },
+  "SOR56": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR56"
+  },
+  "SOR53": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR53"
+  },
+  "SOR43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR43"
+  },
+  "SOR41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR41"
+  },
+  "SOR_Daemonbreaker": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "e01f4d54e8a474d96b5a1167cc28eebf"
+  },
+  "SOR45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR45"
+  },
+  "SOR75": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR75"
+  },
+  "SOR58": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR58"
+  },
+  "SOR51": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR51"
+  },
+  "SOR_Emperor_s_Judgement": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "SOR74"
+  },
+  "SOR54": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR54"
+  },
+  "SOR46": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR46"
+  },
+  "SOR_Fury_of_the_Righteous": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "8901e35c5de30eb48804da6651cfb132"
+  },
+  "SOR61": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "SOR61"
+  },
+  "SOR57": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR57"
+  },
+  "SOR60": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "SOR60"
+  },
+  "SOR_Hymn_of_Battle": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "4d348cff71208c24d8e39252d913ff9d"
+  },
+  "SOR48": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR48"
+  },
+  "SOR40": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR40"
+  },
+  "SOR_Lead_the_Righteous": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "65cfec7d2bc719040b3b4b88622931b2"
+  },
+  "SOR47": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR47"
+  },
+  "SOR39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR39"
+  },
+  "SOR50": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR50"
+  },
+  "SOR_Righteous_Repugnance": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "f104d4c21abe84546abc9365d9eda8dd"
+  },
+  "SOR42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR42"
+  },
+  "SOR59": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "SOR59"
+  },
+  "SOR73": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR73"
+  },
+  "SOR49": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR49"
+  },
+  "SOR52": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR52"
+  },
+  "SOR55": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR55"
+  },
+  "SOR72": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR72"
+  },
+  "SOR36": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR36"
+  },
+  "SOR35": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR35"
+  },
+  "SOR32": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR32"
+  },
+  "SOR38": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR38"
+  },
+  "SOR27": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR27"
+  },
+  "SOR70": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SOR70"
+  },
+  "SOR65": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "SOR65"
+  },
+  "SOR1": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "SOR1"
+  },
+  "SOR2": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "SOR2"
+  },
+  "SOR3": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "SOR3"
+  },
+  "TAU27": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU27"
+  },
+  "TAU34": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU34"
+  },
+  "TAU11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU11"
+  },
+  "TAU17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU17"
+  },
+  "TAU28": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU28"
+  },
+  "TAU36": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU36"
+  },
+  "TAU21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU21"
+  },
+  "TAU26": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU26"
+  },
+  "TAU4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU4"
+  },
+  "TAU6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU6"
+  },
+  "TAU7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU7"
+  },
+  "TAU8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU8"
+  },
+  "TAU15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU15"
+  },
+  "TAU10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU10"
+  },
+  "TAU23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU23"
+  },
+  "TAU29": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU29"
+  },
+  "TAU12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU12"
+  },
+  "TAU18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU18"
+  },
+  "TAU5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU5"
+  },
+  "TAU25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU25"
+  },
+  "TAU70": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU70"
+  },
+  "TAU19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU19"
+  },
+  "TAU66": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU66"
+  },
+  "TAU67": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU67"
+  },
+  "TAU71": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU71"
+  },
+  "TAU69": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU69"
+  },
+  "TAU72": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU72"
+  },
+  "TAU9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU9"
+  },
+  "TAU22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU22"
+  },
+  "TAU68": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU68"
+  },
+  "TAU16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU16"
+  },
+  "TAU57": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU57"
+  },
+  "TAU58": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU58"
+  },
+  "TAU_Deploy_Anchors": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "507f79fa60945d04e93fe806aca912b7"
+  },
+  "TAU_Drone_Companion": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "c4f5c920744030c4e84428dc5a0f1bf2"
+  },
+  "TAU47": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU47"
+  },
+  "TAU48": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU48"
+  },
+  "TAU_Ethereal_Supreme": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "f8260229254a09746af6d9ff7a9b0b54"
+  },
+  "TAU43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU43"
+  },
+  "TAU53": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU53"
+  },
+  "TAU_Grisly_Feast": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "b3735ef3d1408d544b0947e31f898e20"
+  },
+  "TAU_Hero_of_the_Empire": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "9f75a6fe11922eb409ffbad4ecdeb405"
+  },
+  "TAU73": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU73"
+  },
+  "TAU_Homing_Beacon": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "1688c6146abb1e04f98e540b4cbbabd7"
+  },
+  "TAU49": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU49"
+  },
+  "TAU39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU39"
+  },
+  "TAU50": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU50"
+  },
+  "TAU44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU44"
+  },
+  "TAU54": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU54"
+  },
+  "TAU45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU45"
+  },
+  "TAU55": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU55"
+  },
+  "TAU46": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU46"
+  },
+  "TAU_Serene_Unifier": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "f2b80d575cbf8f64597b991022beaf35"
+  },
+  "TAU_Shield_Generator": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "684196db974ab254090f39ef6e89868c"
+  },
+  "TAU52": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU52"
+  },
+  "TAU_Structural_Analyzer": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "f279c5cf1c3e16e4db6b9df4d941ad11"
+  },
+  "TAU40": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU40"
+  },
+  "TAU74": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU74"
+  },
+  "TAU64": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "TAU64"
+  },
+  "TAU63": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "TAU63"
+  },
+  "TAU56": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU56"
+  },
+  "TAU62": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "TAU62"
+  },
+  "TAU41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TAU41"
+  },
+  "TAU13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU13"
+  },
+  "TAU24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU24"
+  },
+  "TAU31": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU31"
+  },
+  "TAU35": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU35"
+  },
+  "TAU20": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU20"
+  },
+  "TAU30": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU30"
+  },
+  "TAU37": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TAU37"
+  },
+  "TAU2": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "TAU2"
+  },
+  "TAU3": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "TAU3"
+  },
+  "TAU1": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "TAU1"
+  },
+  "TAU65": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "TAU65"
+  },
+  "TL38": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL38"
+  },
+  "TL74": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "TL74"
+  },
+  "TL_Barbgaunt": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "name+army",
+   "ref": "TL67"
+  },
+  "TL6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL6"
+  },
+  "TL19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL19"
+  },
+  "TL17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL17"
+  },
+  "TL7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL7"
+  },
+  "TL8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL8"
+  },
+  "TL2": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL2"
+  },
+  "TL13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL13"
+  },
+  "TL3": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL3"
+  },
+  "TL60": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL60"
+  },
+  "TL_Neurogaunt": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "name+army",
+   "ref": "TL66"
+  },
+  "TL_Neuroloid": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "name+army",
+   "ref": "TL65"
+  },
+  "TL9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL9"
+  },
+  "TL62": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL62"
+  },
+  "TL1": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL1"
+  },
+  "TL37": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL37"
+  },
+  "TL61": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL61"
+  },
+  "TL_Termagant_Brood": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "name+army",
+   "ref": "TL75"
+  },
+  "TL4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL4"
+  },
+  "TL15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL15"
+  },
+  "TL5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL5"
+  },
+  "TL12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL12"
+  },
+  "TL11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL11"
+  },
+  "TL10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL10"
+  },
+  "TL18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL18"
+  },
+  "TL20": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL20"
+  },
+  "TL27": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL27"
+  },
+  "TL24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL24"
+  },
+  "TL28": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL28"
+  },
+  "TL22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL22"
+  },
+  "TL25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL25"
+  },
+  "TL26": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL26"
+  },
+  "TL16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL16"
+  },
+  "TL_Neurotyrant": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "name+army",
+   "ref": "TL69"
+  },
+  "TL_Norn_Emissary": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "name+army",
+   "ref": "TL70"
+  },
+  "TL_Psychophage": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "name+army",
+   "ref": "TL68"
+  },
+  "TL21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL21"
+  },
+  "TL14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL14"
+  },
+  "TL23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL23"
+  },
+  "TL30": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL30"
+  },
+  "TL29": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "TL29"
+  },
+  "TL33": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL33"
+  },
+  "TL_Aerial_Seeding": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "c0ddba6cc45944f46a65f4fd93bcc0a5"
+  },
+  "TL_Alpha_Warrior": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "8f2da557fe484ee4bbf427c13eccd4cb"
+  },
+  "TL39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL39"
+  },
+  "TL45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL45"
+  },
+  "TL43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL43"
+  },
+  "TL_Bestial_Rage": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "TL73"
+  },
+  "TL63": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL63"
+  },
+  "TL_Brood_Progenitor": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "cbc9d98e39cc7fb4fa6f94c7e69bda18"
+  },
+  "TL42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL42"
+  },
+  "TL54": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "TL54"
+  },
+  "TL32": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL32"
+  },
+  "TL31": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL31"
+  },
+  "TL81": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "468db99b4b10d0745bab346df37d3fb2"
+  },
+  "TL44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL44"
+  },
+  "TL_Hive_Commander": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "5b5425f6e2848b449807bd1643d0d936"
+  },
+  "TL47": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL47"
+  },
+  "TL49": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL49"
+  },
+  "TL50": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL50"
+  },
+  "TL52": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL52"
+  },
+  "TL41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL41"
+  },
+  "TL48": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL48"
+  },
+  "TL46": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL46"
+  },
+  "TL64": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL64"
+  },
+  "TL_Spirit_Leech": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "760bd3afde513774d96d6492f995fd37"
+  },
+  "TL53": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL53"
+  },
+  "TL_Synaptic_Imperative": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "a58e05916eb5e994daa0349cbe237001"
+  },
+  "TL_Toxic_Entanglement": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "TL71"
+  },
+  "TL51": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "TL51"
+  },
+  "TL56": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "TL56"
+  },
+  "TL_Tyranid_Invasion": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "TL72"
+  },
+  "TL36": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "TL36"
+  },
+  "TL35": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "TL35"
+  },
+  "TL34": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "TL34"
+  },
+  "UM76": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "UM76"
+  },
+  "UM58": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM58"
+  },
+  "UM19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM19"
+  },
+  "UM12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM12"
+  },
+  "UM15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM15"
+  },
+  "UM27": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM27"
+  },
+  "UM4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM4"
+  },
+  "UM23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM23"
+  },
+  "UM80": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM80"
+  },
+  "UM29": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM29"
+  },
+  "UM77": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM77"
+  },
+  "UM18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM18"
+  },
+  "UM25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM25"
+  },
+  "UM81": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM81"
+  },
+  "UM8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM8"
+  },
+  "UM26": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM26"
+  },
+  "UM3": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM3"
+  },
+  "UM78": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM78"
+  },
+  "UM10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM10"
+  },
+  "UM14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM14"
+  },
+  "UM22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM22"
+  },
+  "UM56": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM56"
+  },
+  "UM24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM24"
+  },
+  "UM2": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM2"
+  },
+  "UM13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM13"
+  },
+  "UM79": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM79"
+  },
+  "UM9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM9"
+  },
+  "UM6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM6"
+  },
+  "UM21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM21"
+  },
+  "UM5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM5"
+  },
+  "UM68": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM68"
+  },
+  "UM1": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM1"
+  },
+  "UM16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM16"
+  },
+  "UM82": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM82"
+  },
+  "UM20": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM20"
+  },
+  "UM55": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM55"
+  },
+  "UM7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM7"
+  },
+  "UM64": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM64"
+  },
+  "UM_Might_of_Heroes": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "0740581c2c0523745a42dbec1b2ef82a"
+  },
+  "UM75": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM75"
+  },
+  "UM44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM44"
+  },
+  "UM40": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM40"
+  },
+  "UM62": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM62"
+  },
+  "UM63": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM63"
+  },
+  "UM35": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM35"
+  },
+  "UM37": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM37"
+  },
+  "UM_Exhortation_of_Rage": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "315d9f293e4f56d4f813584b43f0511c"
+  },
+  "UM52": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "UM52"
+  },
+  "UM42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM42"
+  },
+  "UM45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM45"
+  },
+  "UM_Greatest_Deeds": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "0544047df88d2ba4cad9c17ff080c0eb"
+  },
+  "UM36": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM36"
+  },
+  "UM53": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "UM53"
+  },
+  "UM60": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM60"
+  },
+  "UM39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM39"
+  },
+  "UM43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM43"
+  },
+  "UM54": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "UM54"
+  },
+  "UM_Master_Tactician": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "dcbd28525888ce54aaa93a47ba4de1e6"
+  },
+  "UM_Master_of_Arcana": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "f923701f207d23a4f81d6ff5891b4a0c"
+  },
+  "UM_Master_of_Arms": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "55b8e3d2040f86d4190ffb1a91abb5ed"
+  },
+  "UM_Master_of_the_Fleet": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "9238c27730a0c424288d46ed0f4a742c"
+  },
+  "UM73": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM73"
+  },
+  "UM_Paragon_of_Ultramar": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "7693f2b21b2f85644b739da990bc2216"
+  },
+  "UM33": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM33"
+  },
+  "UM34": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM34"
+  },
+  "UM74": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM74"
+  },
+  "UM_Righteous_Fury": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "26d4ded12b28a3742b5c8fc155e29803"
+  },
+  "UM41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM41"
+  },
+  "UM_Scryer_s_Gaze": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "c4ff279078605aa42942c8dd16b77147"
+  },
+  "UM31": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM31"
+  },
+  "UM_Smite": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "cf0b346f70e748c4bbfc4dc03ab39ead"
+  },
+  "UM_Spear_of_Macragge": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "d94f91051ecfe014f97577ff573571aa"
+  },
+  "UM38": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM38"
+  },
+  "UM32": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM32"
+  },
+  "UM61": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM61"
+  },
+  "UM11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM11"
+  },
+  "UM70": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM70"
+  },
+  "UM69": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM69"
+  },
+  "UM67": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM67"
+  },
+  "UM17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM17"
+  },
+  "UM57": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM57"
+  },
+  "UM28": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM28"
+  },
+  "UM30": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM30"
+  },
+  "UM66": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM66"
+  },
+  "UM71": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM71"
+  },
+  "UM59": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM59"
+  },
+  "UM83": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM83"
+  },
+  "UM65": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "UM65"
+  },
+  "UM46": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "UM46"
+  },
+  "UM47": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "UM47"
+  },
+  "UM48": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "UM48"
+  },
+  "UM86": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM86"
+  },
+  "UM84": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM84"
+  },
+  "UM85": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM85"
+  },
+  "AM_Lord_Commander": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "c06453b330af61745beb5fa567ba863e"
+  },
+  "EC56": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "EC56"
+  },
+  "EC22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "EC22"
+  },
+  "SAU53": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SAU53"
+  },
+  "SOR44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SOR44"
+  },
+  "UM_Exemplary_Warrior": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "name+army",
+   "ref": "cc1400347b15ee3449bc18bbdb9ddec9"
+  },
+  "UM72": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM72"
+  },
+  "SAU59": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "SAU59"
+  }
+ },
+ "unknown": {
+  "ASH_Skyborne_Deployment": {
+   "name": "Skyborne Deployment",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "AM_Leman_Russ": {
+   "name": "Leman Russ",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "AM_Commissar_Elan": {
+   "name": "Commissar Elan",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "AM_Hektor_Thenmann": {
+   "name": "Hektor Thenmann",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "BL_Idolatrous_Despoilers": {
+   "name": "Idolatrous Despoilers",
+   "type": "tactic",
+   "why": "name-ambiguous"
+  },
+  "BL_Spreading_Corruption": {
+   "name": "Spreading Corruption",
+   "type": "tactic",
+   "why": "name-ambiguous"
+  },
+  "BL_Sylar_Hexcorn": {
+   "name": "Sylar Hexcorn",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "DA_Sergeant_Naaman": {
+   "name": "Sergeant Naaman",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "DA_Asmodai": {
+   "name": "Asmodai",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "DA_Azrael": {
+   "name": "Azrael",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "DA_Belial": {
+   "name": "Belial",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "DA76": {
+   "name": "Refuse to Yield",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "DA81": {
+   "name": "Assault Terminator",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "DA82": {
+   "name": "Chaplain Gabutheron",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "DA80": {
+   "name": "Vengeful Brethren Bladeguard",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "DA79": {
+   "name": "Vengeful Brethren Hellblaster",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "DA78": {
+   "name": "Vengeful Brethren Intercessor",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "DA77": {
+   "name": "Watcher in the Dark",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "DA86": {
+   "name": "Hunters of Heretics",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "DA85": {
+   "name": "Relic Munitions",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "DA84": {
+   "name": "Vengeful Brethren",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "DA83": {
+   "name": "Ravenwing Ballistus Dreadnought",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "DA75": {
+   "name": "Master Zacharial",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "EC_Dual_Screamer_Kakophonist": {
+   "name": "Dual Screamer Kakophonist",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "EC_Icon_of_Excess_Infractor": {
+   "name": "Icon of Excess Infractor",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "EC_Lord_Kakophonist": {
+   "name": "Lord Kakophonist",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "EC_Terminator": {
+   "name": "Terminator",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "EC_Threnodic_Choir_Noise_Marine": {
+   "name": "Threnodic Choir Noise Marine",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "EC_Duelist_s_Hubris_Lucius_Talent": {
+   "name": "Duelist's Hubris (Lucius' Talent)",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "EC_Euphoric_Strike_Lord_Exultant_s_Talent": {
+   "name": "Euphoric Strike (Lord Exultant's Talent)",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "EC_Excessive_Vigour_Daemon_Prince_s_Talent": {
+   "name": "Excessive Vigour (Daemon Prince's Talent)",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "GSC_Acolyte_Iconward": {
+   "name": "Acolyte Iconward",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "GSC_Lhaska_Szenari": {
+   "name": "Lhaska Szenari",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "SAU_Gauss_Blaster_Immortal": {
+   "name": "Gauss Blaster Immortal",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SAU_Gauss_Reaper_Warrior": {
+   "name": "Gauss Reaper Warrior",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SAU_Tesla_Carbine_Immortal": {
+   "name": "Tesla Carbine Immortal",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SAU_Extermination_Protocols": {
+   "name": "Extermination Protocols",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SAU_Reconstitution_Protocols": {
+   "name": "Reconstitution Protocols",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "GOF_Dok_s_Toolz_Painboss_talent": {
+   "name": "Dok’s Toolz (Painboss' talent)",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "GOF_Ferocious_Rage_Beastboss_Talent": {
+   "name": "Ferocious Rage (Beastboss' Talent)",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent": {
+   "name": "Da Bigger Dey Iz... (Mozrog's Talent)",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "GOF_Special_Dose_Zodgrod_Wortsnagga_Talent": {
+   "name": "Special Dose (Zodgrod Wortsnagga Talent)",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "GOF_Waaagh_Energy_Weirdboy_Talent": {
+   "name": "Waaagh! Energy (Weirdboy Talent)",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "GOF_Ork_Spanner": {
+   "name": "Ork Spanner",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "GOF_Veteran_Flyboy": {
+   "name": "Veteran Flyboy",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SOR_Sister_Dogmata": {
+   "name": "Sister Dogmata",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SOR_Sisters_Repentia": {
+   "name": "Sisters Repentia",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW1": {
+   "name": "Logan Grimnar",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "SW24": {
+   "name": "Iron Priest",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW29": {
+   "name": "Arjac Rockfist",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW35": {
+   "name": "Blackmane Aggressor",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW13": {
+   "name": "Blackmane Reiver",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW14": {
+   "name": "Blood Claw Pack Leader",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW11": {
+   "name": "Blood Claw",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW15": {
+   "name": "Deathwolf Scout",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW16": {
+   "name": "Fenrisian Wolf",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW32": {
+   "name": "Frost Claw Wulfen",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW18": {
+   "name": "Fyrri Askar",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW19": {
+   "name": "Grey Hunter Pack Leader",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW17": {
+   "name": "Grey Hunter",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW23": {
+   "name": "Hrolf the Ironhowl",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW12": {
+   "name": "Hunting Wolf",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW25": {
+   "name": "Long Fang",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW36": {
+   "name": "Morkai Eliminator",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW37": {
+   "name": "Terminator Rune Priest",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW26": {
+   "name": "Thunderwolf Cavalry Pack Leader",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW20": {
+   "name": "Thunderwolf Cavalry",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW3": {
+   "name": "Tyrnak and Fenrir",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW33": {
+   "name": "Wolf Guard Battle Leader",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW21": {
+   "name": "Wolf Guard Headtaker",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW34": {
+   "name": "Wolf Guard Terminator Pack Leader",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW38": {
+   "name": "Wolf Guard Terminator",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW22": {
+   "name": "Wolf Priest",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW28": {
+   "name": "Wulfen Pack Leader",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW27": {
+   "name": "Wulfen",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW51": {
+   "name": "Anvil of Endurance",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW64": {
+   "name": "Birth of a Saga",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW46": {
+   "name": "Bjorn's Shrine",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW47": {
+   "name": "Canis Helix",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW48": {
+   "name": "Death Shun",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW55": {
+   "name": "Embers of Prospero",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW56": {
+   "name": "Fenrisian Blizzard",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW60": {
+   "name": "Fenrisian Monstrosities",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW66": {
+   "name": "Fenrisian Runestones",
+   "type": "defence",
+   "why": "no-truth-row"
+  },
+  "SW65": {
+   "name": "Fenrisian Wolfpack",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW68": {
+   "name": "Halls of Legend",
+   "type": "defence",
+   "why": "no-truth-row"
+  },
+  "SW2": {
+   "name": "High King of Fenris",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW5": {
+   "name": "High Rune Priest",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW61": {
+   "name": "Hordeslayer",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW57": {
+   "name": "Hunter's Guile",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW62": {
+   "name": "Legendary Tenacity",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW63": {
+   "name": "Let Loose",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW8": {
+   "name": "Living Lightning",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW7": {
+   "name": "Murderous Hurricane",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW67": {
+   "name": "Orbital Defences",
+   "type": "defence",
+   "why": "no-truth-row"
+  },
+  "SW49": {
+   "name": "Pack of One",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW58": {
+   "name": "Proper Hunt",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW59": {
+   "name": "Raid Tactics",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW52": {
+   "name": "Saga of the Bold",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW50": {
+   "name": "Savage Legacy",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW6": {
+   "name": "Tempest's Wrath",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW53": {
+   "name": "The Fang",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW54": {
+   "name": "Unbridled Fury",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW10": {
+   "name": "War Howl",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "SW42": {
+   "name": "Bjorn the Fell-Handed",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW30": {
+   "name": "Blackmane Inceptor",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW31": {
+   "name": "Fenrisian Drop Pod",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW45": {
+   "name": "Land Rider",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW39": {
+   "name": "Murderfang",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW40": {
+   "name": "Stormwolf",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW43": {
+   "name": "Venerable Dreadnought",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW41": {
+   "name": "Vindicator",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW44": {
+   "name": "Wulfen Dreadnought",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "SW4": {
+   "name": "Njal Stormcaller",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "SW9": {
+   "name": "Ragnar Blackmane",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "TAU_Stormsurge_Battlesuit": {
+   "name": "Stormsurge Battlesuit",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "TAU_Aunshi_Ethereal": {
+   "name": "Aunshi Ethereal",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "TAU_Breacher_Fire_Warrior": {
+   "name": "Breacher Fire Warrior",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "TAU_Experimental_Drone": {
+   "name": "Experimental Drone",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "TAU_Hunters_Instincts": {
+   "name": "Hunters Instincts",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "TAU_Saviour_Protocolst": {
+   "name": "Saviour Protocolst",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "TAU_Razorshark": {
+   "name": "Razorshark",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_2nd_Company_Terminator": {
+   "name": "2nd Company Terminator",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM87": {
+   "name": "Bladeguard Ancient",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Chaplain_Cassius": {
+   "name": "Chaplain Cassius",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Chapter_Champion": {
+   "name": "Chapter Champion",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Devastator_Marine": {
+   "name": "Devastator Marine",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM89": {
+   "name": "Ferren Areios",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Incursor": {
+   "name": "Incursor",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Phobos_Librarian": {
+   "name": "Phobos Librarian",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Phobos_Lieutenant": {
+   "name": "Phobos Lieutenant",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Scout_Sniper": {
+   "name": "Scout Sniper",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Suppressor": {
+   "name": "Suppressor",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Tactical_Marine": {
+   "name": "Tactical Marine",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM88": {
+   "name": "Terminator Captain",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Terminator": {
+   "name": "Terminator",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Vico_Therbeus": {
+   "name": "Vico Therbeus",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM92": {
+   "name": "Adaptive Strategy",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM_Angel_s_Wrath": {
+   "name": "Angel's Wrath",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM_Author_of_the_Codex": {
+   "name": "Author of the Codex",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM_Catechism_of_Death": {
+   "name": "Catechism of Death",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM94": {
+   "name": "Champions of Humanity",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM95": {
+   "name": "Duty's End",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM93": {
+   "name": "Fall Back",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM101": {
+   "name": "Indomitus Crusade",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM97": {
+   "name": "Lead From the Front",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM_Master_of_Battle": {
+   "name": "Master of Battle",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM99": {
+   "name": "No Mercy",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM100": {
+   "name": "No Respite",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM_Primarch_of_the_XIII": {
+   "name": "Primarch of the XIII",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM96": {
+   "name": "Shall Know No Fear",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM98": {
+   "name": "Stormhawk Interception",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM_Supreme_Strategist": {
+   "name": "Supreme Strategist",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "UM_Attack_Bike": {
+   "name": "Attack Bike",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM91": {
+   "name": "Brutalis Dreadnought",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Dreadnought": {
+   "name": "Dreadnought",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Firestrike_Servo_Turret": {
+   "name": "Firestrike Servo Turret",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM90": {
+   "name": "Whirlwind",
+   "type": "unit",
+   "why": "no-truth-row"
+  },
+  "UM_Roboute_Guilliman": {
+   "name": "Roboute Guilliman",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "UM_Valius_Paxor": {
+   "name": "Valius Paxor",
+   "type": "hero",
+   "why": "no-truth-row"
+  },
+  "BL_Dark_Pact_of_Fate": {
+   "name": "Dark Pact of Fate",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "BL_Dark_Pact_of_Blood": {
+   "name": "Dark Pact of Blood",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "BL_Dark_Pact_of_Excess": {
+   "name": "Dark Pact of Excess",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "BL_Dark_Pact_of_Resilience": {
+   "name": "Dark Pact of Resilience",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "DA_Master_of_Repentance": {
+   "name": "Master of Repentance",
+   "type": "tactic",
+   "why": "no-truth-row"
+  },
+  "EC_Armoury_of_Excess": {
+   "name": "Armoury of Excess",
+   "type": "defence",
+   "why": "no-truth-row"
+  },
+  "EC_Decadent_Throne": {
+   "name": "Decadent Throne",
+   "type": "defence",
+   "why": "no-truth-row"
+  },
+  "BL_Hellfire_Torch": {
+   "name": "Hellfire Torch",
+   "type": "defence",
+   "why": "no-truth-row"
+  },
+  "BL_Hellfire_Pit": {
+   "name": "Hellfire Pit",
+   "type": "defence",
+   "why": "no-truth-row"
+  },
+  "TL_Protective_Bio_structure": {
+   "name": "Protective Bio-structure",
+   "type": "defence",
+   "why": "no-truth-row"
+  },
+  "BL_Chosen_of_the_Four": {
+   "name": "Chosen of the Four",
+   "type": "tactic",
+   "why": "no-truth-row"
+  }
+ },
+ "unmatchedTruthRows": [
+  {
+   "ref": "EC16",
+   "name": "Screamer Kakophonist",
+   "army": 120,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "8a028d3771c60014aa35c7269d38159e",
+   "name": "The Rock",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "b2f3624dc0fdad84d9eacd4a3a3ff8ea",
+   "name": "Drag it Down",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "TL40",
+   "name": "Infestation Node",
+   "army": 60,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "fbdc291f3a847a846905c46fe98de618",
+   "name": "Enhanced Aggression",
+   "army": 90,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "ASH59",
+   "name": "Infinity Circuit Overload",
+   "army": 30,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "4604f2deaa3fad6418e2d8f4b3dc36e4",
+   "name": "Infinite Biomorphologies",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "b8e81b2fe85cda747a68c4d6326b669c",
+   "name": "Mark of Slaanesh (enchantment)",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "35b64a8458fc60745b2f49204081c1cb",
+   "name": "Hyper-adaptation",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "8d1fbc34ac945c547b61bc9627a77fda",
+   "name": "Normal Conditions (Black Legion)",
+   "army": 120,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "TAU38",
+   "name": "Stormsurge",
+   "army": 70,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "SAU39",
+   "name": "Reconstitution Protocol",
+   "army": 40,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "BL58",
+   "name": "Helfire Pit",
+   "army": 50,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "c69c3f3a38002844ca8e3324850df22a",
+   "name": "Hyper-adaptation",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "1dfc9bc738bfc4f4d93d48f165aee510",
+   "name": "Mark of Nurgle (enchantment)",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "d7255ddd4822c954c9f4cc0826ea1d47",
+   "name": "Inscrutable Cunning 3",
+   "army": 90,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "SOR10",
+   "name": "Sister Repentia",
+   "army": 80,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "EC26",
+   "name": "Emperor's Children Terminator Champion",
+   "army": 120,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "da8a1ba85a045484eb90f55394873119",
+   "name": "Infinite Biomorphologies",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "b15f2dbd58f65b5468f4e0e483cf500a",
+   "name": "Idolatrous Despoilers",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "DA3",
+   "name": "Asmodai, Master Interrogator",
+   "army": 110,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "0094e6b79ffe12e4c8d9fd70beb02b5e",
+   "name": "Power of the Waaagh!",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "45974e4f54c6c44419704741e6b76aa9",
+   "name": "Radiation Storm",
+   "army": 70,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "c8d33688d555809488ea506274e5927b",
+   "name": "Solar Storm",
+   "army": 40,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "TAU33",
+   "name": "Razorshark Fighter",
+   "army": 70,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "EC61",
+   "name": "Dark Prince's Throne",
+   "army": 120,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "d4ed3be9de80b00469a9cd255df63f35",
+   "name": "Graceful Avoidance",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "648c492fa988aba44ad9a4507bd43ee4",
+   "name": "Wurrboy",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "AM63",
+   "name": "Dawn Attack",
+   "army": 100,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "ea971f5e838a9c14aa3790af44e42e19",
+   "name": "Hyper-adaptation",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "28a3c2e48250bd247b793ae1c80daa92",
+   "name": "Solar Eclipse",
+   "army": 70,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "4a48457c24877f345be2e96f867c1e94",
+   "name": "Mark of Tzeentch (enchantment)",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "2882d40f009bf8c46a89e975c37d00ab",
+   "name": "Ancient Reliquary",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "bfd9797b5365aa0429914f12ec4d6df2",
+   "name": "Experimental Drones",
+   "army": 70,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "d722e8df0e8bbb944b5d6d1fc80e2cb5",
+   "name": "Thunderstorm",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "4fb657397011daf47829ed4e135f8eab",
+   "name": "Shrine Bombardment",
+   "army": 80,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "32ed2b1e771ee494fa072c24c959a5a0",
+   "name": "Stimm-Vents Leak",
+   "army": 120,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "EC25",
+   "name": "Emperor's Children Terminator",
+   "army": 120,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "DA2",
+   "name": "Belial, Master of the Deathwing",
+   "army": 110,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "b432e12e60e66a94fa032cd62011d2e1",
+   "name": "Orbital Bombardment",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "76d59d92d5d2d4ec89b2e441b1d18548",
+   "name": "Immortal Beams",
+   "army": 40,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "cea9ccf7dae74b240a4c514608f256a1",
+   "name": "Disrupted Ceremony",
+   "army": 80,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "ef42ad6c970ec5f49804b1f9f9ad5685",
+   "name": "Dust Storm",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "7ae784e51720db24985842a91f91ad6d",
+   "name": "Abaddon's Chosen (tutortial)",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "ae8e1ca230ab7714e87b50e5cfe47db5",
+   "name": "Hyper-adaptation",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "66486b3f61682ab42ba2ce0fa921002f",
+   "name": "Tempestus Scion",
+   "army": 100,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "SAU38",
+   "name": "Extermination Protocol",
+   "army": 40,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "eab54e4c131034e4dacf8ce72807ed07",
+   "name": "Undying Legions",
+   "army": 40,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "edb0fd16ad0760e47b4b37737f3e60bd",
+   "name": "Medreyal Ghaelyn",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "0fca8843c85ec1148b3bb77cc834a010",
+   "name": "Firstborn (tutorial)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "ba33eab5a0587d34d8809cfae2f14058",
+   "name": "Daemonic Feast",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "592d08f237a69e14cb738607af3da0d1",
+   "name": "Normal Conditions (TauEmpire)",
+   "army": 70,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "239f468a65ba1b24ba119ab1a1ac53cc",
+   "name": "Normal Conditions (GSC)",
+   "army": 90,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "97e959444b53f424ea4285e2ca02c7e6",
+   "name": "Warmaster",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "e3d67d86f73f7564eb0bf886ec848af6",
+   "name": "Waaagh! Energy",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "cd9b6eaafe52865409cbb239abb00525",
+   "name": "Craftworld Convergence",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "7552fe029df141946b0f813e28bfac98",
+   "name": "Mining Tremors",
+   "army": 90,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "1c7892a2816a53d4388d6dc5272853b6",
+   "name": "Warp Storm",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "d4ef67e300a56834f9cef7715118362f",
+   "name": "Sergeant Gadriel",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "SAU64",
+   "name": "Solar Storm",
+   "army": 40,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "e4bb5208917e50248b1913c0f0daa691",
+   "name": "Normal Conditions (Leviathan)",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "BL59",
+   "name": "Helfire Outburst",
+   "army": 50,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "744e35eddd8fa0a489902221ed82a733",
+   "name": "Normal Conditions (Saim Hann)",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "0360bbe6c59d84b4aaf03454a7e0e4ff",
+   "name": "Normal Conditions (Sororitas)",
+   "army": 80,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "EC62",
+   "name": "Aural Hijack",
+   "army": 120,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "GOF51",
+   "name": "Night Attack",
+   "army": 20,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "8204f59a011f94d5c9ea1bed18ae9c57",
+   "name": "Hellblaster (tutorial)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "a5960475756bec144a1d6d8a9d141fc9",
+   "name": "Hive Fleet Leviathan",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "aa3b6aa4741556e4998c300975b15230",
+   "name": "Crushing Claws",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "b3a0be3e80b938144ba9364714823062",
+   "name": "Haarken Worldclaimer",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "GSC60",
+   "name": "Mining Tremors",
+   "army": 90,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "1a647ea39bbb0154b9673c5194e51a46",
+   "name": "Telephatic Domination",
+   "army": 90,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "BL61",
+   "name": "Warp Storm",
+   "army": 50,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "6e2399fed068fd3409bd2c1cf4b5bbd0",
+   "name": "Factories Overdrive",
+   "army": 100,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "77af39fae01dff044ac948424e5479c1",
+   "name": "Night",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "0fbe7282202537b4aad103e73cc20223",
+   "name": "Helfire Outburst",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "b7e5ee472ec1b2d48a36aee54b1862c5",
+   "name": "Inscrutable Cunning",
+   "army": 90,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "ef43a2362ee779f429aad3d0a5097964",
+   "name": "Raging Storm",
+   "army": 80,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "c40a06616a2968240b1f765d0f919b69",
+   "name": "Deffkopta",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "6ed51d59b9f8ea24ab0dc7ceaef7956c",
+   "name": "Duelist's Hubris",
+   "army": 120,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "eb815e1e93912d24394c7fca6d3558f4",
+   "name": "Primaris Intercessor (tutorial)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "SOR63",
+   "name": "Shrine Bombardment",
+   "army": 80,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "AM32",
+   "name": "Leman Russ Tank",
+   "army": 100,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "UM49",
+   "name": "Aerial Clash",
+   "army": 10,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "BL74",
+   "name": "Spreading Corruption",
+   "army": 50,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "GSC61",
+   "name": "Sump Overspill",
+   "army": 90,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "5b8d4332867628448a3b0e66882f8f1b",
+   "name": "Hyper-adaptation",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "TAU61",
+   "name": "Radiation Storm",
+   "army": 70,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "5a790d31393197845a833476a455c598",
+   "name": "Acid Rain",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "898b7eb633e8336419642d3e96664ccc",
+   "name": "Sump Overspill",
+   "army": 90,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "DA1",
+   "name": "Azrael, Grand Master",
+   "army": 110,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "ef547f829b6491f45a8ad371f492278e",
+   "name": "Nemesor Zahndrekh",
+   "army": 40,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "BL36",
+   "name": "Sylar Hexscorn",
+   "army": 50,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "b3dd8a39126b31342b38756e72e8660b",
+   "name": "Dawn Attack",
+   "army": 100,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "d0549600681827a42963bd24a46f297a",
+   "name": "Pledge to the Dark Prince",
+   "army": 120,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "SOR64",
+   "name": "Disrupted Sanctuary",
+   "army": 80,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": null,
+   "name": null,
+   "army": null,
+   "inv": null,
+   "show": null
+  },
+  {
+   "ref": "cde6b147d68431341a6408b7720ca460",
+   "name": "EnchantmentCloud of Smoke",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "TL55",
+   "name": "Sporecaster Biostructure",
+   "army": 60,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "59a4d20eed92a624c9512a392b163bf3",
+   "name": "Infinite Biomorphologies",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "4cc68a0d541c4364e937d77d0838fb0d",
+   "name": "Electro-Static Interference",
+   "army": 70,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "64a657fc5ed5bbb4fa7b585cf29c1e95",
+   "name": "Da Bigger Dey Iz...",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "e8cf1eb55ca41534abe38efc90b302e9",
+   "name": "Reconnaissance Mission",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "TL59",
+   "name": "Blazing Biomass",
+   "army": 60,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "2f00dde3a303fe34b99399c8bf987140",
+   "name": "Planetary Invasion",
+   "army": 100,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "9a13583b689e99c43b33020d7dac6e2f",
+   "name": "Hyper-adaptation",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "851f73daf747eb642934a16429b391db",
+   "name": "Storm of Silence",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "EC9",
+   "name": "Icon of Excess",
+   "army": 120,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "4889d3ae002db2d4785cb2286a84e48e",
+   "name": "Sweeping Infestation",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "319bfeba880818c4690067f2596cd6f9",
+   "name": "Infernal Gaze (tutorial)",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "BL75",
+   "name": "Idolatrous Despoilers",
+   "army": 50,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "EC19",
+   "name": "Threnodic Noise Marine",
+   "army": 120,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "cd155c09a88e15c428b29ef000bd8954",
+   "name": "Cacophonic Surge",
+   "army": 120,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "875eedc90a1608d49a95b34a863ca104",
+   "name": "Spreading Corruption",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "bd6baa4e586791244a25861a52dfab02",
+   "name": "Tervigon",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "e9b45df57f8a55d49a5083327af8377b",
+   "name": "Normal Conditions (Ultramarines)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "61ef8171ef572ac4b98e33c25fbefc70",
+   "name": "Oath of Moment",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "d2b16a347052dc541a07c40cd9b40b78",
+   "name": "Primaris Impulsor (tutorial)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "TAU14",
+   "name": "Fire Warrior Breacher",
+   "army": 70,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "b5cdf76897db0a84ca518725d20168a7",
+   "name": "Ancient Reliquary",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "3d012092ba60a2f49acbf766ab556600",
+   "name": "Armoured Support",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "db34f054e134c094aaf92e7a6ae124c0",
+   "name": "Asteroid Zone",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "BL57",
+   "name": "Helfire Torch",
+   "army": 50,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "TL58",
+   "name": "Sweeping Infestation",
+   "army": 60,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "AM65",
+   "name": "Manufactorum Overdrive",
+   "army": 100,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "59e47125a7f5b36448bd1f71fd17b4cf",
+   "name": "Tale of the Faithful",
+   "army": 80,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "EC60",
+   "name": "Tools of Torture",
+   "army": 120,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "847acecf682cb0748bc4445b52125cb4",
+   "name": "Gauss Warrior (tutorial)",
+   "army": 40,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "c433e3dde4952cc448220908226127ae",
+   "name": "Master Outrider",
+   "army": 90,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "77a7253295da8234f8c04de2ad5e2d59",
+   "name": "Makari the Grot",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "9218576fd3e26554db5b4c239a36dbc7",
+   "name": "Pray Enchantment",
+   "army": 80,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "3852c4775eacc5b4da2e6099e2bffff7",
+   "name": "Blackout",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "91fed153a7ef8734b89b7892c67201ef",
+   "name": "Krump da Gitz",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "EC64",
+   "name": "Empyric Rift",
+   "army": 120,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "DA6",
+   "name": "Sergeant Taaman",
+   "army": 110,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "AM3",
+   "name": "Commissar Denkler",
+   "army": 100,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "51e88ac3d55f7d947bee19f8eb02c06a",
+   "name": "Devourer Cannon",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "GOF20",
+   "name": "Veteran Stormboy",
+   "army": 20,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "AM66",
+   "name": "Tempestor Prime",
+   "army": 100,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "364bf7f669176924eab7fbb1a477e3a4",
+   "name": "Aerial Clash",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "44761bc257d1f1243ac5f6058459ede6",
+   "name": "Cadia Stands",
+   "army": 100,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "GSC62",
+   "name": "Toxic Fumes",
+   "army": 90,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "0474b16360827b6408fb02b6820e7e63",
+   "name": "Living Icon",
+   "army": 90,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "98efedc81da043a48ba219d1aaed8965",
+   "name": "Craftworld Convergence",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "5c4d9e7824bf8d941b69eeb2589e30aa",
+   "name": "Normal Conditions (Goff)",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "fdacb4e306ae79547883557cce46f557",
+   "name": "Saviour Protocols",
+   "army": 70,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "TAU59",
+   "name": "Solar Eclipse",
+   "army": 70,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "d1a037ffd7c538c4aae209e1708aef13",
+   "name": "Marneus Calgar (tutorial)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "cdc015de8cecdc74fa0aaa2bbeb29d8f",
+   "name": "Tale of the Faithful",
+   "army": 80,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "SAU62",
+   "name": "Earthquake",
+   "army": 40,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "fae4ef61e87b2ee44b8e52fc705c2030",
+   "name": "Unbridled Carnage",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "2621d4280735baf4c952e6afea8d0686",
+   "name": "Excessive Vigour",
+   "army": 120,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "6899b199f5e36144ebbdd7ed9d9e7afe",
+   "name": "Uge Choppa",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "ASH60",
+   "name": "Webway Rift",
+   "army": 30,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "4cdc1b5f965f99945b685bca7660e9fa",
+   "name": "Exemplar of Hate",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "d0ac7c259308ab540aabb5123d0c1633",
+   "name": "Primaris Reiver (tutorial)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "0cc4533fc0bee374196e55fb1569e63b",
+   "name": "The Rock",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "52520927841c93c4785d2690edb9fb1f",
+   "name": "Grukk Face-Rippa",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "TAU51",
+   "name": "Saviour Protocols",
+   "army": 70,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "EC63",
+   "name": "Stimm-Vents Leak",
+   "army": 120,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "TAU75",
+   "name": "Hunter's Instincts",
+   "army": 70,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "ASH58",
+   "name": "Blackout",
+   "army": 30,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "GSC66",
+   "name": "Shanus Daskovian",
+   "army": 90,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "GSC3",
+   "name": "Iconward Malak Vorenth",
+   "army": 90,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "TAU32",
+   "name": "Aun'Shi",
+   "army": 70,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "340fad5472405bf4296618152c4f003b",
+   "name": "Armoured Exoskeleton",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "#HB_DA1",
+   "name": null,
+   "army": 110,
+   "inv": null,
+   "show": null
+  },
+  {
+   "ref": "9176318eaf469354e858f51af2333aa3",
+   "name": "Litany of Despair",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "f8ba395632901b84397bd14282472c35",
+   "name": "Lieutenant Calsius (tutorial)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "03b4f1012b03fbe4193b68c99d9a7129",
+   "name": "Earthquake",
+   "army": 40,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "752141bbf0543314987e3b9afed938af",
+   "name": "Hallowed Martyrs",
+   "army": 80,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "DA63",
+   "name": "Void Combat",
+   "army": 110,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "e9f33f1a8acbc3949a99f3ad69078d4d",
+   "name": "Tale of the Faithful",
+   "army": 80,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "e8711efdd74a2a544a3ff12c729c230c",
+   "name": "Craftworld Convergence",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "202fb454856a2b04d904c4ff7bc2410f",
+   "name": "Toxic Fumes",
+   "army": 90,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "9b1a9b14d290b4d07a575e0af8ffdf9b",
+   "name": "Delightful Agonies",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "UM51",
+   "name": "Thunderstorm",
+   "army": 10,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "bf538271ab431244399a01e3ba3a103f",
+   "name": "Normal Conditions (GSC)",
+   "army": 100,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "9a2cadc64c80a6b42912441105bb1cee",
+   "name": "Mark of Khorne (enchantment)",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "2aa8026988b605d40874798f3992bc81",
+   "name": "Infinite Biomorphologies",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "d34f1b514c330e646b609a106bb8a76a",
+   "name": "Infinite Biomorphologies",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "EC14",
+   "name": "Varius, Lord Kakophonist",
+   "army": 120,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "74d2e50e16f323548a7c329ff80b788b",
+   "name": "Sudden Assault",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "0078441d07f6d604db6c6cfb1c1fa46f",
+   "name": "Ferocious Rage",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "41642ef512a2dbf42889c51fff3a8aaa",
+   "name": "Wages of Retribution",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "SAU8",
+   "name": "Gauss Immortal",
+   "army": 40,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "77621c4437867564a8eb7cf208e1c64d",
+   "name": "Normal Conditions (DA)",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "a3f0dda16acf35140add842152477c94",
+   "name": "Self-Destruction",
+   "army": 40,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "SAU48",
+   "name": "Disintegration Capacitors",
+   "army": 40,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "2ece07942d1524d2e8856cfa94d21db1",
+   "name": "Aerial Dominion",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "TAU60",
+   "name": "Electro-Static Interference",
+   "army": 70,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "b12d246ee426d0f48861a5842b7b0ba5",
+   "name": "Void Combat",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "13fc6dfbba030b643a1e8893a611c88e",
+   "name": "Star Orbit",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "ec0d25faeb266ea4eaec41ae72b8d8ad",
+   "name": "Uriel Ventris (tutorial)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "DA62",
+   "name": "Asteroid Zone",
+   "army": 110,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "9be8bfe7063f14345966de388c7ba3ec",
+   "name": "Primaris Reiver (tutorial1)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "571aa5da2842f49478c6cccb3cf369b9",
+   "name": "Inscrutable Cunning 1",
+   "army": 90,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "2ef404c4fa412f840b8b6fa5ea6469a2",
+   "name": "Raging Storm",
+   "army": 80,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "430c733f7e6de72489e2f0586ccc8d3d",
+   "name": "Empyric Rift",
+   "army": 120,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "b5ee585c2678220478c4aed4893f4cc4",
+   "name": "Sylar Hexscorn (tutorial)",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "d19e8b68aaa9a884781d06697ad237a6",
+   "name": "Special Dose",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "GOF50",
+   "name": "Dust Storm",
+   "army": 20,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "SAU63",
+   "name": "Immortal Beams",
+   "army": 40,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "b888bfd3849c4da48973f8217e41129c",
+   "name": "Swooping Hawk (tutorial)",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "BL60",
+   "name": "Daemonic Feast",
+   "army": 50,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "TL57",
+   "name": "Acid Rain",
+   "army": 60,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "GOF54",
+   "name": "Spore Cloud",
+   "army": 20,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "1d9ff6a401bba1f44a65bf843c21a586",
+   "name": "Storm of Silence",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "8f35df0536e4f7e4d86f3885e2597404",
+   "name": "Dok’s Toolz",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "0161699f3a4cf5c489126356b3538ce5",
+   "name": "Normal Conditions (Black Legion)",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "SAU4",
+   "name": "Gauss Warrior",
+   "army": 40,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "5b427f1ad98e8534f8590dad5bd560af",
+   "name": "Honour Guard (tutorial)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "AM64",
+   "name": "Planetary Invasion",
+   "army": 100,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "e59ac9e46f4ea804784e954c3b820e77",
+   "name": "Path of the Warrior",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "77fd626140a8c164fbb708a46956898d",
+   "name": "Primaris Chaplain (tutorial)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "84d4d192e0f57a34a90ac0f6172c3358",
+   "name": "Ferocious Rage",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "2ef504be18b9be54a91ef4e6750d86c7",
+   "name": "Ancient Reliquary",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "9f7068f052d4a8b4f99b007134f2d8f1",
+   "name": "Infinite Biomorphologies",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "EC30",
+   "name": "Emperor's Children Maulerfiend",
+   "army": 120,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "ca169f2a6b7b2364ca99bd951c60f1d5",
+   "name": "Mark of Slaanesh (enchantment)",
+   "army": 120,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "b5eedae31b83f564baba23db311c9112",
+   "name": "Uriel Ventris",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "TAU42",
+   "name": "Experimental Drones",
+   "army": 70,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "141c5ed661a9e42bd9a793f0d2a1c682",
+   "name": "Unhallowed Gifts",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "6ffe2680a560aa94496080a025f561a1",
+   "name": "The Rock",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "711ec03391d6f46a3a07de5ffb409d6b",
+   "name": "Devastator Centurion (tutorial)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "8d04a976efd628e43ad37d67e57140a0",
+   "name": "Aggressor Sergeant (tutorial)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "1dd9a2768507ae6429409c4eec54b422",
+   "name": "Spore Cloud",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "25875bfb8bb08564aa03a3c9bfef25c3",
+   "name": "Webway Rift",
+   "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "SOR62",
+   "name": "Raging Storm",
+   "army": 80,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "SOR31",
+   "name": "Dogmata",
+   "army": 80,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "UM50",
+   "name": "Orbital Bombardment",
+   "army": 10,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "DA64",
+   "name": "Star Orbit",
+   "army": 110,
+   "inv": 5,
+   "show": 5
+  },
+  {
+   "ref": "e9d68c658708e7149b6ddefa492e7357",
+   "name": "Coterie of the Conceited",
+   "army": 120,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "#HB_BL34",
+   "name": null,
+   "army": 50,
+   "inv": null,
+   "show": null
+  },
+  {
+   "ref": "b9665eadf1207ff49bcf0a730b0b7f9d",
+   "name": "Euphoric Strike",
+   "army": 120,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "cb29b9bcde7995948a3c373401e67e3c",
+   "name": "Nemesor Zahndrekh",
+   "army": 40,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "96748dc1b99eea34babbceb588ff601b",
+   "name": "Normal Conditions (Sautekh)",
+   "army": 40,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "GOF12",
+   "name": "Spanner",
+   "army": 20,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "SAU6",
+   "name": "Tesla Immortal",
+   "army": 40,
+   "inv": 0,
+   "show": 5
+  },
+  {
+   "ref": "b380adbe398519740958b1cc7e0736cb",
+   "name": "Blazing Biomass",
+   "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "468a87d4e3969ac47b58555970456895",
+   "name": "Beastboss on Squigosaur",
+   "army": 20,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "61046837c330b48978b4af5201230b6e",
+   "name": "Helspear Assault",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  }
+ ]
+}

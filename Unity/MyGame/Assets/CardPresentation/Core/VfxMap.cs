@@ -43,6 +43,38 @@ namespace CardPresentation
         /// 那条是「玩家资源变了」（挂 HUD 计数图标上），这条是「**在那颗石头原来那一格**播收集特效」。 </summary>
         public const string CollectWaystone = "collect_waystone";
 
+        /// <summary>🆕 2026-10-14（`A1816`）：**抽卡**（`EvtKind.Draw`）—— 「卡飞进手牌区那一下」。
+        ///
+        /// **判据 = 原版那件东西真的叫这个名**：原版抽牌走 `PlayerHand._AddDrawnCardToHand`
+        /// （`d:/2/tools/decomp_full/PlayerHand._AddDrawnCardToHand_d__37__MoveNext.c:43-69`：
+        /// `BattleHud.GetCardDrawPosition` → `CardScript.DrawCard`），而**逐阵营**那件特效
+        /// 由旧台账 `d:/2/Warpforge_tools/data/vfx_wiring_j4.tsv:65` 记着：
+        /// `UM_CardDraw` 判 `UI`（「极限战士抽卡特效(**卡飞入手牌区闪光**)」）、挂点 =
+        /// 「`_fx_from_event` 抽卡事件(draw) UM 阵营处 / 手牌接收动画」，证据 = `anim SAU_CardDraw`。
+        ///
+        /// 🔴 **它走「按阵营」那一档，⛔ 不在 `ByEvent` 里** —— 本地**只有 2 个阵营**有这件
+        /// （`UM_CardDraw` / `SAU_CardDraw`，都在效果库里 ✓），其余 11 个阵营**留白**
+        /// （`Resolve` 回 null ⇒ 不播）。⚠️ **同 `SummonCircleOf` 的先例**：宁可留白，⛔ 不硬凑一件。
+        /// ⇒ 「不带阵营」的默认口径解析出来是 null 是**预期的**，不是「这个事件没配」
+        /// （见 <see cref="ResolvesForSomeFaction"/>）。</summary>
+        public const string Draw = "draw";
+
+        /// <summary>🆕 2026-10-14（`A1816`）：**伏击翻面**（`EvtKind.AmbushExit` —— `Ambush` 面朝下的
+        /// 单位翻开那一刻）。
+        ///
+        /// **判据 = 原版**：旧台账 `d:/2/Warpforge_tools/data/vfx_wiring_j1.tsv:3` 记着
+        /// `AmbushEffect` 判 `TRAIT`（「伏击单位翻开瞬间」）、挂点 = 「`_fx_from_event`
+        /// "flipped on damage (Ambush no effect)" 分支 + Ambush 翻开（at-turn 翻面）处」。
+        /// 这件 prefab **在我们工程里**（`Assets/WarpforgeVFX/Prefabs/AmbushEffect.prefab`，
+        /// `effect_index.json` 判定 **对得上 / 高 / ratio 0.89**），而且它自己把三层都带齐了：
+        ///   · 音效 —— `AnimFXController.sounds[0].sound` = cue **`Trait Ambush`**（→ clip `Ambush`）
+        ///   · 动画 —— `AnimFXModuleChangeMaterial`：把**卡**的材质换成
+        ///     `Card 3d Dissolve Blend Image Ambush`，`_Blend` 0→1（`delay 0.35 + duration 1.0`）
+        ///   · 粒子 —— 它自己的 ps（台账组件列写 `-`，即没有额外挂点，全靠 prefab 内部）
+        /// ⚠️ 逐字段实读（那条 1.35 s 补间的原件路径与 `RefIds`）→ `EventTiming.SourceOf(EvtKind.AmbushExit)`
+        ///    的文本 + `DurationOf` 里那个 case 的注释（**那里同时写了为什么它占 0**）。</summary>
+        public const string AmbushExit = "ambush_exit";
+
         /// <summary>
         /// 按事件兜底。
         ///
@@ -143,12 +175,21 @@ namespace CardPresentation
             //    ⚠️ **实拍还没看**（本工程规矩：挑特效要看 `Editor/VfxPicker.cs` 的试片）——
             //      `BattleScene` 的 `29_残骸体…` 那张只演了残骸体本身、没演收集。
             { CollectWaystone, "WaystoneCollect" },
+            // 🆕 2026-10-14（`A1816`）**伏击翻面** —— 判据与「它自己带齐三层」见 <see cref="AmbushExit"/> 的 doc。
+            //    ⚠️ 原版**两条翻面出口**（`EvtKind.AmbushExit.Effect` = `"damage"` / `"window"`）
+            //    用的是**同一件**：本事件的语义 = 「这个单位不再面朝下」这个状态迁移，两条出口都是它
+            //    （`"window"` 那一档是我们模型的形状、原版没有 —— 见 `RuleCore.RevealAmbush` 的注释）。
+            //    ⇒ 两档都播；要严格照原版就只认 `Effect == "damage"`，但**那一条是消费端的事**，
+            //      本表没有「同一事件按 `Effect` 分特效」这一层（今天也没有第二件可用）。
+            { AmbushExit,   "AmbushEffect" },
         };
 
-        /// <summary>阵营覆盖：**远程攻击**按阵营换（判据齐的那 4 个阵营，见下面每条）。
+        /// <summary>阵营覆盖：**远程攻击**与**抽卡**按阵营换。
         /// ⚠️ **登场那条不在这里** —— 原版登场是「卡的淡入（`VfxMap.Deploy`）+ 阵营召唤法阵」**两件叠加**，
         /// 而 `Resolve` 一次只回一个名字 ⇒ 法阵改由 `BattleDriver.PlaySignal` 的 deploy 分支**单独补一发**
-        /// （判据 → <see cref="SummonCircleOf"/>）。</summary>
+        /// （判据 → <see cref="SummonCircleOf"/>）。
+        /// ⚠️ **没配到的阵营一律留白**（回 null ⇒ 不播），**两条都是**：`Draw` 只有 UM / SAU 两件
+        /// （见 <see cref="Draw"/> 的 doc）、`AttackRanged` 只有原版那 4 个阵营有专属粒子。</summary>
         static readonly Dictionary<string, Dictionary<string, string>> ByFaction =
             new Dictionary<string, Dictionary<string, string>>
         {
@@ -159,10 +200,17 @@ namespace CardPresentation
             //   10 Ultramarines / 20 Goff / 40 Sautekh / 50 BlackLegion）。
             //   出处：`数据/游戏数据/card_vfx_by_card.json` 的 `generic.attackRangedByArmy`（`conf: exact`），
             //   四件的 prefab 都在效果库里 ✓。
-            { "Ultramarines", new Dictionary<string, string> { { AttackRanged, "BulletImpact_2shot_trail" } } },
-            { "Goff",         new Dictionary<string, string> { { AttackRanged, "BulletImpact_2shot_trail_ork_NEW" } } },
-            { "Sautekh",      new Dictionary<string, string> { { AttackRanged, "NecronGauss" } } },
-            { "BlackLegion",  new Dictionary<string, string> { { AttackRanged, "BulletImpact_2shot_trail_chaos" } } },
+            //   🆕 2026-10-14（`A1816`）**抽卡**也挂这两家的行 —— `UM_CardDraw` / `SAU_CardDraw`
+            //   （判据 = `vfx_wiring_j4.tsv:65` 那条台账 + 两件都在 `effect_index.json` 与效果库里的实证，
+            //    见 <see cref="Draw"/> 的 doc）。⚠️ **只加有判据的那两个阵营**，别顺手给别家配一件。
+            { "Ultramarines", new Dictionary<string, string> {
+                  { AttackRanged, "BulletImpact_2shot_trail" }, { Draw, "UM_CardDraw" } } },
+            { "Goff",         new Dictionary<string, string> {
+                  { AttackRanged, "BulletImpact_2shot_trail_ork_NEW" } } },
+            { "Sautekh",      new Dictionary<string, string> {
+                  { AttackRanged, "NecronGauss" }, { Draw, "SAU_CardDraw" } } },
+            { "BlackLegion",  new Dictionary<string, string> {
+                  { AttackRanged, "BulletImpact_2shot_trail_chaos" } } },
         };
 
         /// <summary>登场时那个**召唤法阵**（原版按阵营/逐卡，本地只有 4 个候选）。
@@ -224,8 +272,13 @@ namespace CardPresentation
         /// ⇒ 原版真值（卡 SO 的 `customRangedAttackParticles` / `customDeathParticles` /
         /// `cardAbilities[].abilityLogic[].cardAnimations[]` 解出来的 **3326 条**）**一条都没进游戏**。
         ///
-        /// **数据**：`Resources/card_vfx_by_card.json`（240 KB · 979 张卡 · 2323 条），
+        /// **数据**：`Resources/card_vfx_by_card.json`（288.9 KB · **989 张卡** · 2323 条），
         /// 与 `数据/游戏数据/card_vfx_by_card.json`（全量、给工具看）**由同一次运行产出** ⇒ 不会分叉。
+        /// ⚠️ **2026-10-14 就地订正（铁律 5 · 账 `A1833`）**：这一行原来写「**240 KB · 979 张卡**」——
+        ///    那是**当天上午那一版**的读数（246,036 B），下午 `A1817`（逐卡音效）重跑生成器之后就变了。
+        ///    现读 = **295,821 B（288.9 KB）· `cardCount` 989 · `entryCount` 2323 · `audioCount` 586**
+        ///    （`generatedAt` 2026-10-14 12:24）。⛔ **别再把这两个数当成手写常量** ——
+        ///    要看真值就读文件头那几个字段（本行的数也会再变）。
         ///
         /// **取哪一条**：同一条 (卡, 事件) 可能有多个候选（原版真值 + 我们早先按名/按关键词推的），
         /// 按 JSON 自带的 `confPriority`（`authoritative` 最前）**取第一个命中的**。
@@ -336,7 +389,30 @@ namespace CardPresentation
             //    `Unmapped()` / `Describe()` 两个自检口**覆盖不到它**（本表自己的注释就写着
             //    「加了新事件、列表没跟上，正是 2026-09-15 那个 bug 的形状」—— 同一形状又犯了一次）。
             CollectWaystone,
+            // 🔴 **2026-10-14（`A1816`）补 `Draw` / `AmbushExit`** —— 两条都早就在 `EvtKind` 里、
+            //    引擎也在发（`RuleCore.Draw` 的 `:1841` / `ApplyDamage` 的 `:5651` 与 `RevealAmbush` 的 `:5855`），
+            //    **就是没进这张表**，而且 `BattleDriver.PlaySignal` 的 switch 里也没有它们的 case
+            //    ⇒ 掉 `default: return`（**连 `PlayFeel` 都不进**）。同一形状第三次了（`CollectWaystone` 那次是第二次）。
+            //    ⚠️ `Draw` 是**按阵营**配的（见它的 doc）⇒ 默认口径解析不出是预期的，
+            //       `Unmapped()` 会把它列出来，判断时要配 <see cref="ResolvesForSomeFaction"/>。
+            Draw, AmbushExit,
         };
+
+        /// <summary>自检用：这个事件**至少有一个已注册阵营**配得上 —— <see cref="Unmapped"/> 的搭档。
+        ///
+        /// **为什么要有它**：`Draw` 这类**按阵营**配的事件（本地只有 2 个阵营有那件 prefab）在
+        /// 「不带阵营」的默认口径下**必然**解析成 null，而那不是「结构上永远不播」——
+        /// 对配了的阵营它是播的。⛔ **别拿它放宽判据**：它只在 `ByFaction` 里找，
+        /// 「一个阵营都没有」仍然算没配。
+        /// ⚠️ 它是**只读**的（不碰 `ByCard`、不触发 `EnsureLoaded`）—— 逐卡那一档
+        /// 按设计就**不该**救一个事件名（逐卡表是「这张卡的这个动作」的覆盖，不是「事件有没有配」的兜底）。</summary>
+        public static bool ResolvesForSomeFaction(string evt)
+        {
+            if (string.IsNullOrEmpty(evt)) return false;
+            foreach (var f in ByFaction.Keys)
+                if (Resolve(evt, f) != null) return true;
+            return false;
+        }
 
         /// <summary>自检用：**解析不出特效名**的事件（正常应当为空）。见 <see cref="Events"/>。</summary>
         public static IEnumerable<string> Unmapped()

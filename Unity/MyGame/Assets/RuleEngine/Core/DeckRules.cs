@@ -57,8 +57,16 @@ namespace RuleEngine
         WarlordInCards,     // 督军/防御卡又混进了普通卡位
         WarlordAlreadySet,  // 已经有督军了，再选就是换 —— 换要走 SetWarlord（会清掉不合阵营的卡）
         DefensiveAlreadySet,
-        // 🆕 2026-09-27：**效果生成的卡不能进卡组**（药剂 / 破坏 / 秘仪，判据见 `IsEffectOnly`）。
-        //    ⚠️ 用户明确要求、**明知有一条反例也照办**（`GSC15` 在原版 GSC 官方起手牌里 —— 见 `项目任务.md` §三 第 20 条）。
+        // 🔴 **2026-10-14（`A1798`）改口径：从「我们自己按 `Subtype` 猜的三类」改成【原版卡组准入】。**
+        //    判据只此一处 = `CannotAddToDeck`（原版 `DeckUtility__ValidateDeckCards.c:68-77` +
+        //    `TryRemoveInvalidCards.c:39-43`）。**枚举名 `EffectOnlyCard` 故意留旧**：
+        //    它就是 I2 词条键 `MenuDeck/Error/EffectOnlyCard` 的那一段（`DeckRules.Describe` 拼的），
+        //    改名会**连带改掉词条键** ⇒ 与 `Core/Loc.cs` 那张表对不上（那条键在表里是 `Loc.HasEntry` 抽查过的）。
+        //    ⚠️ **但「效果生成的卡」这个说法现在【不准确了】** —— 新口径管的是**原版 `inventoryOptions`**
+        //    （171→ 现读 98 张，多半是「督军天赋/法术」这类不在玩家库存里的计策卡）。
+        //    两列文案（`Core/Loc.cs` 那条中文「这张是效果生成的卡（药剂/破坏/秘仪），不能放进卡组」）
+        //    **还没跟着改** —— 那是**白名单之外**的文件，已如实记进
+        //    `资料/普查产出_第二十八会话/W9_卡组分流按原版.md` 的「没做」一节，⛔ 别当成已收口。
         EffectOnlyCard,
     }
 
@@ -186,31 +194,215 @@ namespace RuleEngine
         /// ⛔ 别把它读成「校验顺序照原版」。
         /// 后面的判据依赖前面的结果，顺序反了会给出误导性的错误码。
         /// </summary>
-        /// <summary>🆕 **2026-09-27 用户拍板：这三类是【效果生成的】卡，不能加入 30 张卡组。**
+        // ── 卡组准入：原版 `inventoryOptions` / `showInCollectionOptions`（`A1798`）──────────
+        // 取值表（原版枚举，逐条照抄）：
+        //   `CardInventoryOptions`   `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardInventoryOptions.cs`
+        //       `InInventory = 0` · `CantAddToDeck = 5` · `NotInInventory = 10`
+        //   `ShowInCollectionOptions` 同目录 `ShowInCollectionOptions.cs`
+        //       `Hide = 0` · `Show = 5` · `OnlyIfOwned = 10`
+        public const int OptUnknown = -1;            // 真值里查不到这张卡（⛔ 别当 0！见 `CardDef.InventoryOptions`）
+        public const int InInventory = 0;
+        public const int OptionCantAddToDeck = 5;
+        public const int OptionNotInInventory = 10;
+        public const int ShowInCollection = 5;
+
+        /// <summary>**这张卡能不能进 30 张卡组**（`true` = 不能）。**判据只此一处**
+        /// —— `Validate`、卡组编辑器的 `CanAdd`、卡池筛选都转发到它，⛔ 别在别处再写一份。
         ///
-        /// · `Combat Elixir`（**药剂** · 6 张 · 帝王之子）—— 卡面就是 `create a random Combat Elixir in your hand`；
-        /// · `Sabotage`（**破坏** · 4 张 · 基因窃取者）—— 效果把破坏卡塞进**对手手牌**
-        ///   （`BattleCardManager__CreateCard.c:98` 专门判 `spellType == 0xE6` 换敌方卡背）；
-        /// · `Secret`（**秘仪** · 5 张 · 暗黑天使）—— `CreateSecret`。
+        /// <para>🔴🔴 **2026-10-14 就地订正（铁律 5）—— 本节原来写着「那个字段本地解包产物里根本没有」。**
+        /// 原文（2026-09-27 加，已删）：<i>「**原版那侧的判据**是 `spellType ∈ {Sabotage 230, Secret 150,
+        /// CombatElixir 260}` + **`inventoryOptions == CantAddToDeck(5)`**；而**那个字段本地解包产物里根本没有**
+        /// （卡资产包只有 Sprite/Audio/Texture2D）⇒ 我们改用 `Subtype`（唯一能拿到的等价信号）。」</i>
+        /// **实际**：`inventoryOptions` **有**，而且是**全字段真值** —— 它住在**卡 SO 所在的包**
+        /// （原版远端包 `allcards_assets_all`，1195 张卡 SO、2025-07-30 快照），**不在图/音包**里；
+        /// 实测 **332 张非 0**（`CantAddToDeck = 5` **72 张** · `NotInInventory = 10` **260 张**）。
+        /// **错因**：把「卡资产包只有 Sprite/Audio/Texture2D」（那是**图与音**那两个包）读成了「字段不存在」
+        /// —— 判据源认错了包。该包 2026-10-13 从旧 Windows 用户缓存里抢救出来、2026-10-14 已解出。
+        /// 数据链 → `数据/游戏数据/card_inventory_options.json`（生成器 `工具/gen_card_inventory_options.py`）。
+        /// ⚠️ **原来那段还有一句要订正**：「`CantAddToDeck(5)`」并**不是**药剂/破坏/秘仪那 15 张的旗标
+        /// —— 那 15 张的真值是 **`NotInInventory(10)`**；`CantAddToDeck(5)` 实际打在**环境/进攻/防御卡**
+        /// 那一族上（我们卡池里落进 **31 张、全是 `type == "defence"`**）。两族**都被新口径拦下**，
+        /// 所以用户 2026-09-27 那条「药剂/破坏/秘仪不能进卡组」的口径**继续成立**
+        /// （`GSC15` 那个反例也一并被原版口径解释：它 `NotInInventory` ⇒ 原版本来就进不了卡组）。</para>
         ///
-        /// **原版那侧的判据**是 `spellType ∈ {Sabotage 230, Secret 150, CombatElixir 260}`
-        /// + **`inventoryOptions == CantAddToDeck(5)`**；而**那个字段本地解包产物里根本没有**
-        /// （卡资产包只有 Sprite/Audio/Texture2D）⇒ 我们改用 `Subtype`（唯一能拿到的等价信号）。
+        /// <para>**原版判据（三个方法体逐句实读，`d:/2/tools/decomp_full/`）**：
+        /// · `DeckUtility__ValidateDeckCards.c:68-72` —— `*(int*)(card + 0x4C) != 0` ⇒ `*param_3 = 4`，return 0
+        ///   （`+0x4C` = `inventoryOptions`，偏移判据 `d:/2/tools/il2cpp_out/dump.cs:23250`）；
+        /// · 同文件 `:73-77` —— `*(int*)(card + 0x48) != 5` ⇒ `*param_3 = 4`，return 0
+        ///   （`+0x48` = `showInCollectionOptions`，同 `dump.cs:23249`）；
+        /// · `DeckUtility__TryRemoveInvalidCards.c:39-43` —— 上面两条 + 卡型 + 阵营，**任一成立就移除该卡**。
         ///
-        /// 🔴 **这是【用户定的口径】，不是从原版推出来的** —— `GSC15`（= `Poisoned Supplies`，一张破坏卡）
-        ///   **确实出现在原版 GSC 官方起手牌里**（判据全文 → `项目任务.md` §三 第 20 条）。
-        ///   **别再拿那条来翻案**：用户 2026-09-27 二次确认「总之药剂/破坏卡不能加入卡组」。
-        /// ⚠️ **防御卡不在此列** —— 它本来就该在卡池里（玩家要从那儿挑防御卡，用户同一天指出）。</summary>
-        public static bool IsEffectOnly(string subtype)
+        /// 🔴 **已知的【原版自相矛盾】，我们按多数那一版做（本件现核，如实记）**：
+        /// `CardDeck__CanAddCard.c:40` 把这两条写成 **`&&`**（`A && B` ⇒ `MenuDeck/Error/InvalidCard`），
+        /// 与上面三处的「各自独立成立即拦」（= `||`）**不一致**，差集实测 **77 张**
+        /// （72 张 `CantAddToDeck` + 5 张 `NotInInventory & Show` 的暗黑天使秘仪卡）。
+        /// ✅ **可自洽的解释**：`NotInInventory` 的原意在原版由**持有数**兜住 ——
+        /// `CanAddCard.c:76-77` 的 `InventoryManager.GetOwnedCount` 对这类卡返回 0 ⇒ 照样加不进去，
+        /// 所以 `&&` 那两条只是「完全内部的卡」的**冗余兜底**，原版看不出差别。
+        /// 🔴 **我们是单机全解锁（没有持有数那道闸 —— 那正是 `MenuDeckErrorNumber` 里
+        /// 「`CardsNotOwned` 我们永远不回」的原因）** ⇒ 必须按 `||` 那一版做，
+        /// 否则那 77 张会**静默变得能进卡组**（`Append` 里那句「不许静默失败」）。</para>
+        ///
+        /// <para>**两条路由照原版**：`CanAddCard.c:32-39` 先把 `cardType == Hero(10)` 交给 `CanAddHero`、
+        /// 把 `cardType == Tactic(20) && spellType == 210` 交给 `CanAddDefensive` —— **这两个分支在
+        /// 那两个字段之前就 return 了** ⇒ **督军与防御卡不吃本条判据**（防御卡本来就该留在卡池里，
+        /// 玩家要从那儿挑 —— 用户 2026-09-27 指出过）。本函数把这条路由**收在内部**（判据只此一处），
+        /// 于是调用点不用各自记得先挡 hero/defence。</para>
+        ///
+        /// <para>**落地的效果（2026-10-14 现读 `cards_engine.json`）**：全池 1126 张里
+        /// **955 张**接上真值（`id` 837 · 卡名+阵营 108 · 卡名唯一 2 · 重名但值一致 8），
+        /// 本条拦下 **98 张**（全是 `type == "tactic"` 的 `NotInInventory(10)`；其中 5 张
+        /// 暗黑天使秘仪的 `show` 是 `Show(5)`，靠 `||` 那一条才拦得住 —— 就是上面那个「差集」）。</para>
+        ///
+        /// <para>⚠️ **真值接不上的 171 张**（快照 2025-07-30 比现池旧：整个 SpaceWolves 阵营 68 张 +
+        /// 暗黑天使 `DA75..DA86` 等新卡）记 `-1` ⇒ **本条不拦**（⛔ **不猜**；清单在
+        /// `card_inventory_options.json` 的 `unknown` 段，重跑生成器时也会打出来）。
+        /// 那 171 张里若混着 `NotInInventory` 的卡，本条会**放它们进卡组** —— 这是**已知的覆盖缺口**，
+        /// 要堵得先补真值（`A1800` 的「自造 id ↔ GUID 卡」那笔），不是在解析层猜一个默认值。</para>
+        /// </summary>
+        public static bool CannotAddToDeck(CardDef c)
         {
-            switch (subtype)
+            if (c == null) return false;
+            // 原版那两条路由（`CanAddCard.c:32-39`）：督军与防御卡各走各的校验，不吃本条。
+            if (c.Type == "hero" || c.Type == "defence") return false;
+            // 真值里查不到（-1）⇒ 不拦，并**出声**（静默用默认值就等于「发明口径」，见铁律 2）。
+            if (c.InventoryOptions < 0 || c.ShowInCollectionOptions < 0)
             {
-                case "Combat Elixir": case "Sabotage": case "Secret": return true;
-                default: return false;
+                WarnUnknown(c);
+                return false;
             }
+            return c.InventoryOptions != InInventory || c.ShowInCollectionOptions != ShowInCollection;
+        }
+
+        // 真值缺失（`-1`）**总共只出一次声** —— 卡池是 1126 张级的、实测缺 171 张，
+        // 逐张打会把日志刷掉（进一次卡组编辑就是 149 行）。⚠️ 这条**不是**判据的一部分，
+        // 只是「不许静默失败」那一句的落点；逐张清单在 `card_inventory_options.json` 的 `unknown` 段。
+        static string _unknownReported = null;
+
+        static void WarnUnknown(CardDef c)
+        {
+            if (_unknownReported != null) return;
+            _unknownReported = c.Id;
+            UnityEngine.Debug.LogWarning(
+                $"[RuleEngine] 卡组准入真值缺失：至少 `{c.Id}`（{c.Name}）的 `inventoryOptions` / "
+                + "`showInCollectionOptions` 是 `-1`（真值快照 2025-07-30 比现池旧）—— 这些卡按原版口径"
+                + "**不拦**它们进卡组。**同类不再逐张打**（实测 171 张，其中非督军/防御卡 149 张）；"
+                + "逐张清单见 `数据/游戏数据/card_inventory_options.json` 的 `unknown` 段。");
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════
+        //  `A1866`：原版 `DeckUtility.RemoveInvalidCards` —— **逐张摘除不合法卡**
+        // ══════════════════════════════════════════════════════════════════════════════
+        // 🔴 **2026-10-14（`A1866`，用户点名「照原版」）**：原版**从不**因为「卡组里有不合法的卡」
+        //    把**整副**判废 —— 它跑 `DeckUtility.RemoveInvalidCards(deck)` 把**那几张摘掉、其余照用**。
+        //    （我们原来那条路是 `BattleDriver.ResolveDeck`：「`Validate` 非 `None` ⇒ 整副退回自动凑」
+        //      ⇒ 一份老存档里只要混进 1 张 `inv=10` 的战术卡，**玩家编的 30 张全被换掉**。）
+        //
+        // **判据（`d:/2/tools/decomp_full/`，四个方法体逐句实读）**：
+        //   · `DeckUtility__RemoveInvalidCards.c` = 公开入口，顺序固定：
+        //       ① `TryRemoveCardsNotOwned` → ② `TryRemoveInvalidHero` → ③ `TryRemoveInvalidCards`；
+        //       返回值 = 「有没有摘掉东西」（`:78` `return 0 < removed.Count`）。
+        //   · `DeckUtility__TryRemoveInvalidHero.c:26-27` —— 督军位上那张的 `cardType`（`+0x94`）
+        //       `!= 10`(`CardTypeOptions.Hero`) ⇒ 把它从卡组里摘掉。
+        //   · `DeckUtility__TryRemoveInvalidCards.c:29-50` —— **从尾到头**遍历 `deck.cardLibrary`
+        //       （`+0x58`），任一条件成立就 `RemoveCardFromDeck` 那一张：
+        //         a. `cardType ∉ {0 Minion, 0x14 Tactic}`（`:39-43`）
+        //         b. `inventoryOptions`(`+0x4C`) `!= 0`（`:41`）
+        //         c. `showInCollectionOptions`(`+0x48`) `!= 5`（`:42`）
+        //         d. `cardArmy`(`+0x2C`) `!= deck.deckArmy`(`+0x50`）（`:42`）
+        //         e. 自定义模式（`CustomGameModeEvent != null`）下同名张数超
+        //            `GetMaxCopiesInDeck`（`:47-54`）
+        //         f. 卡自己的虚方法谓词（vtable 槽 `0x2A8`）为真（`:56-57`）
+        //   · 另一处调用点**只有一处**：`DeckEditingWindow__TryOpen.c:47`（**打开卡组编辑器**时对
+        //       **编辑器里那份副本**跑一遍，结果用来置 `deck+0x60`）—— **不是**开局那一趟。
+        //       ⇒ 原版开局不跑它；我们把它放在 `ResolveDeck`（开局）是**为了兜住「存档里已经有
+        //       不合法卡」这个状态在原版结构下不会出现**（原版编辑器那一趟 + `CanAddCard` 两道闸
+        //       已经清理过）—— 如实记着：**调用点比原版多一处**，判据（摘谁）逐条照抄。
+        //
+        // **原版那三条在本件里【做不到】的**（`CLAUDE.md` 铁律 11 例外①：判据本身是空的）：
+        //   · ① `TryRemoveCardsNotOwned` —— 判据是 `InventoryManager.GetOwnedCount`（**持有数**），
+        //        我们是**单机全解锁**、没有持有数这道闸（这正是 `MenuDeckErrorNumber` 里
+        //        「`CardsNotOwned` 我们永远不回」的原因）⇒ **整条不做**，理由记在这里。
+        //   · ⑤ 自定义模式同名上限 —— 判据是 LiveOps 事件（`CustomGameModeEvent` 我们恒 null）
+        //        ⇒ 永不成立，不写。
+        //   · ⑥ 那个虚方法谓词 = `PlayerItem.IsHidden()`（槽位换算：`IsHidden` 在
+        //        `PlayerItem` 的 slot 23，`23*16` 落在 `0x2A8`；唯一的同槽调用点
+        //        `PrebuiltDeck__HasHiddenCards.c` 的语义就是它）⇒ 判据是**远端 LiveOps 配置**
+        //        （`FeatureConfig.IsItemHidden`，逐句读过：它拿服务器下发的配置去比 item）
+        //        ⇒ 本地**没有判据**，不写（⛔ 不许拿我们自己的某个字段顶替）。
+        //
+        // ⚠️ **未知 id 那一支是我们加的**：原版 `cardLibrary` 里是**对象引用**、不可能有
+        //    「查不到的 id」（真有 null 时原版直接抛——`TryRemoveInvalidCards.c:38`）。
+        //    我们的卡组存的是**字符串 id**，所以「卡池里没有这张」必须有个处置 ⇒ **摘掉并出声**
+        //    （= `DeckError.UnknownCard`，与 `Validate` ① 同一个码）。
+        public struct RemovedCard
+        {
+            /// <summary>我们卡池的 id（未知 id 时就是**原样那个串**，所以可能查不到卡）。</summary>
+            public string Id;
+            /// <summary>原版**哪一条判据**把它摘掉的 —— 复用既有 `DeckError` 码，
+            /// 于是文案可以直接走 <see cref="Describe"/>（`MenuDeck/Error/*` 那族词条）。
+            /// ⛔ 本层仍然**一个给人看的字都不产**。</summary>
+            public DeckError Why;
+        }
+
+        /// <summary>摘掉卡组里**不合法的那几张**（原版 `DeckUtility.RemoveInvalidCards` 的引擎侧实现）。
+        /// **就地改 <paramref name="deck"/>**（照原版：它也是就地 `RemoveCardFromDeck`）。
+        ///
+        /// <para>返回**摘掉的那些** + 各自的原因（原版只回一个 `bool` —— 我们多给原因，
+        /// 调用方要用它给玩家/日志一个交代；`Count > 0` 就等价于原版那个 `true`）。</para>
+        ///
+        /// <para>⚠️ **调用方该传一份副本**：原版是对**编辑器里那份 `CardDeck` 副本**跑
+        /// （`DeckEditingWindow__TryOpen.c:41` 那行先 `new CardDeck(deckToCopy)`），
+        /// 存盘那份不动。⇒ 开局那条路请 `saved.Clone()` 之后再传进来。</para>
+        ///
+        /// <para>⚠️ 摘完之后**够不够张数、还有没有督军**是**调用方**的事 —— 原版也是：
+        /// 它摘完就返回，`ValidateDeck` 是**另一条**路（`RemoveInvalidCards` 摘完可能仍然不合法）。
+        /// ⇒ 本函数**不判张数、不判上限、不碰防御卡位**。</para></summary>
+        public static List<RemovedCard> RemoveInvalidCards(PlayerDeck deck, Func<string, CardDef> lookup)
+        {
+            var removed = new List<RemovedCard>();
+            if (deck == null || lookup == null) return removed;
+
+            // ---- ① 督军位（原版 `TryRemoveInvalidHero.c:26-27`）----
+            //   ⚠️ 原版摘的是**那张卡**；我们的督军是**一个槽**（`WarlordId`）⇒ 摘 = 清空该槽。
+            //     清空之后卡组就没有督军了（`Validate` 会报 `NoWarlord`），与原版一致。
+            var warlord = string.IsNullOrEmpty(deck.WarlordId) ? null : lookup(deck.WarlordId);
+            if (!string.IsNullOrEmpty(deck.WarlordId) && (warlord == null || warlord.Type != "hero"))
+            {
+                removed.Add(new RemovedCard
+                {
+                    Id = deck.WarlordId,
+                    Why = warlord == null ? DeckError.UnknownCard : DeckError.WarlordNotHero,
+                });
+                deck.WarlordId = null;
+                warlord = null;
+            }
+
+            // ---- ② 逐张（原版 `TryRemoveInvalidCards.c:29-62`）----
+            //   原版**从尾到头**遍历（`iVar1 = count-1; --iVar1`）—— 位置不动照样照抄，
+            //   因为摘除顺序会进日志、也会进「摘掉的是第几张」这类记录。
+            //   ⚠️ `CardIds` 在 JSON 缺键时会被 `JsonUtility` 置成 null（字段初始化跑不到）——
+            //      `Validate` 那条老路也一样直接 `foreach` 它，这里补一句不是发明行为、是防 NPE。
+            if (deck.CardIds == null) deck.CardIds = new List<string>();
+            for (int i = deck.CardIds.Count - 1; i >= 0; i--)
+            {
+                string id = deck.CardIds[i];
+                var c = string.IsNullOrEmpty(id) ? null : lookup(id);
+                DeckError why;
+                if (c == null) why = DeckError.UnknownCard;                       // 我们加的（见上文）
+                else if (c.Type != "unit" && c.Type != "tactic") why = DeckError.WarlordInCards;   // a：卡型
+                else if (CannotAddToDeck(c)) why = DeckError.EffectOnlyCard;      // b + c：inv / show
+                else if (warlord != null && !SameFaction(c.Faction, warlord.Faction))
+                    why = DeckError.WrongFaction;                                 // d：阵营
+                else continue;
+                deck.CardIds.RemoveAt(i);
+                removed.Add(new RemovedCard { Id = id, Why = why });
+            }
+            return removed;
         }
 
         public static DeckError Validate(PlayerDeck deck, Func<string, CardDef> lookup, bool skirmish = false)
+
         {
             if (deck == null) return DeckError.NoWarlord;
             if (lookup == null) throw new ArgumentNullException(nameof(lookup));
@@ -255,9 +447,11 @@ namespace RuleEngine
             foreach (var c in cards)
                 if (c.Type == "hero" || c.Type == "defence") return DeckError.WarlordInCards;
 
-            // ⑥b 🆕 2026-09-27：**效果生成的卡**（药剂/破坏/秘仪）不能是卡组的一部分（判据 = `IsEffectOnly`）
+            // ⑥b 2026-10-14（`A1798`）：**原版卡组准入** —— 判据只此一处 = `CannotAddToDeck`
+            //     （原版 `DeckUtility__ValidateDeckCards.c:68-77`；这里是它的卡片清单那一支）。
+            //     原来的 `IsEffectOnly(c.Subtype)`（按兵种猜的三类）**已删** —— 见那个方法的订正注。
             foreach (var c in cards)
-                if (IsEffectOnly(c.Subtype)) return DeckError.EffectOnlyCard;
+                if (CannotAddToDeck(c)) return DeckError.EffectOnlyCard;
 
             // ⑦ 同名上限
             var copies = new Dictionary<string, int>();

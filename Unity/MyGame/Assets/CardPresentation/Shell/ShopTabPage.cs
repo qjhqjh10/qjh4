@@ -105,9 +105,14 @@ namespace CardPresentation
         /// <summary>上面那条词条的**键**（原版 `Localize.mTerm` 原文；自检/诊断口与
         /// <see cref="TxtEmpty"/> 共用这一份）。</summary>
         public const string TxtEmptyTerm = "MenuCollection/NoDecksFound";
-        /// <summary>原版那颗 TMP 的 `m_text` **原文**（留档用：本地唯一那份英文；渲染**不**读它）。
-        /// 🔴 **含原版自己的语病**（`no deck` 单数、`for the selected filters` 复数）—— ⛔ 别「顺手修正」。</summary>
-        public const string TxtEmptyEn = "There are no deck in your collection for the selected filters";
+        /// <summary>无卡组那句的**英文兜底**。
+        /// 🔴 **2026-10-14 就地订正（铁律 5 · `W4`/`A1803`）**：原来这里写「原版那颗 TMP 的 `m_text` **原文**，
+        /// **含原版自己的语病**（`no deck` 单数）—— ⛔ 别顺手修正」—— **两句都错**：
+        /// 官方 I2 表 `MenuCollection/NoDecksFound` 的 EN 是 **复数 `decks`**（`There are no decks in your
+        /// collection for the selected filters`）⇒ **单数 `deck` 是我们自己写错的、不是原版语病**。
+        /// （那串「原版 TMP 原文」是 **prefab 的静态默认值**，不是运行时真值 —— 运行时喂的是 I2 表。）
+        /// ⇒ 按用户 2026-10-14 口径「**照抄官方**」取表里的值。</summary>
+        public const string TxtEmptyEn = "There are no decks in your collection for the selected filters";
 
         // ---- 格里（相对 `Catalog Item Shop Container` 的 335.6×475；`menu_rect --root-size 335.6x475 --relative`）----
         public static readonly PxRect CellBg = new PxRect(-1f, -1f, 336.60f, 476f);

@@ -45,12 +45,12 @@ class PlayProbe
     const int FixtureEnergy = 20;
 
     /// <summary>夹具的能量上限 —— 🔴 **必须留余量**：`Refill all your Energy` 那一族
-    /// （`AM57 High Command`）在「能=上限」时**本来就什么都没发生** ⇒ 拿它当缺陷就是误报。
+    /// （`AM46 High Command`）在「能=上限」时**本来就什么都没发生** ⇒ 拿它当缺陷就是误报。
     /// 30 &gt; 起始 20 ⇒ 灌满看得见。</summary>
     const int FixtureMaxEnergy = 30;
 
     /// <summary>摆场之后把**我方**三张部队各扣多少血 —— 🔴 不扣的话，全池 `Heal …` 那一族
-    /// （`AM52 Regimental Doctrine` / `BL61 Delightful Agonies` / `DA8 Apothecary` …）
+    /// （`AM48 Regimental Doctrine` / `BL49 Delightful Agonies` / `DA5 Apothecary` …）
     /// **满血治疗 = 什么都不发生** ⇒ 全都会被误列成候选。扣 2 点既让治疗看得见、又不致死。</summary>
     const int FixtureChip = 2;
 
@@ -107,7 +107,7 @@ class PlayProbe
         public readonly List<string>[] DiscIds = { new List<string>(), new List<string>() };
         public readonly int[] HandCost = new int[2];
         /// <summary>🆕 **阵营资源三件**（信仰 / 灵魂石 / 任务点）——
-        /// 不加的话 `Gain 5 Spirit Stones`（`ASH61 Infinity Circuit`）这类卡会**被误列成候选**
+        /// 不加的话 `Gain 5 Spirit Stones`（`ASH51 Infinity Circuit`）这类卡会**被误列成候选**
         /// （它明明改了资源，只是读数里没这一格）。</summary>
         public readonly int[] Faith = new int[2];
         public readonly int[] Spirit = new int[2];
@@ -352,7 +352,7 @@ class PlayProbe
         //    「实得变化」里摘出去。⛔ 别用「能量变了就算付费」那种近似：
         //    `Refill 2 Energy` 类的卡**效果本身就是改能量**，按近似会被整张漏掉。
         //    ⚠️ **应付 ≠ 卡的 `cost`**：卡面上 `N Energy:` 那种**付费能力前缀**是**另付**的
-        //    （`EffectOp.Cost > 0 && !CostShared` 的那几条，实测 `SOR6` = 卡费 2 + 前缀 4 = 6）。
+        //    （`EffectOp.Cost > 0 && !CostShared` 的那几条，实测 `SOR_Righteous_Repugnance` = 卡费 2 + 前缀 4 = 6）。
         //    ⚠️ 单位卡的 `2 ☀: …` 段**不在部署这一步付**（归 `UseAbility`）⇒ 单位卡不加前缀那部分。
         int expectedPay = RuleCore.CostOf(ctx, 0, inst);
         int instCost = expectedPay;      // 这张牌**自己**的价（= 手牌总价里该减掉的那一份）
@@ -396,7 +396,7 @@ class PlayProbe
         r.HandCostDelta = after.HandCost[0] - before.HandCost[0];
         // 🔴 单位卡：这张卡**刚落地时「应该是」什么样** —— 拿引擎**自己**的初值算
         //    （`new UnitState(CardInstance.Detached(card), false)`，≡ `PlayCard` 里那一句）。
-        //    ⚠️ **不能只按「那一格从空变成了这张卡」就一律算「自身落场」** —— 实测 `BL13 Chaos Sergeant`
+        //    ⚠️ **不能只按「那一格从空变成了这张卡」就一律算「自身落场」** —— 实测 `BL4 Chaos Sergeant`
         //       （卡面 `2/1/2`、`keywords=[rally1]`）落地时是 `4/3/0/2 {darkpact1, rally1}`：
         //       **Rally 的效果就发生在同一格里**，一律当「自身落场」会把**它整个吞掉**（误报成候选）。
         string naiveCell = card.IsUnit ? Cell(new UnitState(CardInstance.Detached(card), false)) : null;
@@ -465,7 +465,7 @@ class PlayProbe
         r.Changes = a.Changes.Where(x => !b.Changes.Contains(x)).ToList();
         // 🔴 **静态那一半要单独算** —— 上面那份 diff 是「同一局内 before→after」，
         //    而**督军自己那一格**从头到尾都在场、数值没变过 ⇒ 它**永远不出现在 diff 里**。
-        //    而「这位督军的攻/远/甲/血/关键词」恰恰是它最要紧的读数（例：`ASH3` 是 `2/2/0/40`，
+        //    而「这位督军的攻/远/甲/血/关键词」恰恰是它最要紧的读数（例：`ASH2` 是 `2/2/0/40`，
         //    空白对照是 `2/0/0/30`）⇒ 直接比两趟**终局的督军格**。
         string wa = a.End.Cells[0][BoardSpec.WarlordSlot], wb = b.End.Cells[0][BoardSpec.WarlordSlot];
         if (wa != wb)
@@ -861,7 +861,7 @@ class PlayProbe
     static string List(List<string> l) { return l.Count == 0 ? "(空)" : "[" + string.Join(",", l) + "]"; }
 
     /// <summary>手牌里一张牌的读数键 —— 🔴 **带上它的手牌增益条数**：
-    /// 手牌加成（`Give +1 [Attack] to a random troop in your hand`，`GOF99`）**不改卡的定义、也不改棋盘**，
+    /// 手牌加成（`Give +1 [Attack] to a random troop in your hand`，`GOF100`）**不改卡的定义、也不改棋盘**，
     /// 不加这一格就**整族照不到**（会被误列成候选）。`*N` = 这张牌身上挂了几条 `HandEffect`。</summary>
     static string HandEntry(CardInstance c)
     {
@@ -956,7 +956,7 @@ class PlayProbe
     //
     // 🔴 **为什么必须有这一层**：`other == 0` 这个判据**本身不区分**
     //   「该发生而没发生」（= `A1431` 那一类）与「**本夹具产生不了那个事件**」。
-    //   实测反例（不加这一层时误列进候选）：`AM12 Autocannon Squad` 的 `Regiment: Gain +1 [Ranged]`
+    //   实测反例（不加这一层时误列进候选）：`AM14 Autocannon Squad` 的 `Regiment: Gain +1 [Ranged]`
     //   —— `Regiment`（团）**不是部署时触发**，它是**攻击时**触发
     //   （`RuleCore.cs:4027-4031`：`团（Regiment）：和 Mob 成对，差别只在远程`；
     //    消费点 = `FireTriggerAt(ctx, attacker, KeywordTable.Regiment, p, atkSlot)`）⇒
@@ -994,7 +994,7 @@ class PlayProbe
             int col = s.IndexOf(':');
             string head = col <= 0 ? null : s.Substring(0, col).Trim().ToLowerInvariant();
             // ⚠️ **不是可执行正文段的直接跳过**（`Waystone.` / `Stealth.` / `Armour 1.` 这种裸关键词句）
-            //    —— 不加这一道，`ASH_Death_Spinner_Warp_Spider` 的 `Waystone. Stealth. …` 会被判成
+            //    —— 不加这一道，`ASH77` 的 `Waystone. Stealth. …` 会被判成
             //    「无头 + 该发生」（那两个词根本没有 `:`，`HeadOfBody` 当然查不到），**整整一族误报**。
             string probe = head == null ? s : s.Substring(col + 1).Trim();
             if (string.IsNullOrEmpty(probe)) continue;
@@ -1005,10 +1005,10 @@ class PlayProbe
             {
                 // 🔴 **无头正文不能一律当「部署时该发生」** —— 卡面常常把触发头**印成图标**
                 //    （`Agenda:` / `Duty:` / `Artifice:` …），而我们的 `desc` 里那个头**没了**。
-                //    实测反例：`DA21 Inner Circle Companion` 的 `Gain Vanguard and 2 Quest Points`
-                //    （`keywords=[stealth1, agenda1]`）· `BL40 Dark Apostle` 的
+                //    实测反例：`DA18 Inner Circle Companion` 的 `Gain Vanguard and 2 Quest Points`
+                //    （`keywords=[stealth1, agenda1]`）· `BL25 Dark Apostle` 的
                 //    `Give a random Dark Pact to each friendly troop`（`artifice1`）·
-                //    `AM27 Bombast Field Gun`（`duty1`/`longrange1`）—— 三张都**不是**部署时该发生的。
+                //    `AM23 Bombast Field Gun`（`duty1`/`longrange1`）—— 三张都**不是**部署时该发生的。
                 //    ⇒ 判据**转调引擎自己的答案**：这段正文落在 `TriggerTexts` 的哪个头下面
                 //      （`CollectBareKeywordBody` 收进去的那一条，`key` 就是那个头）。
                 string h = WillRun.HeadOfBody(c, s);
@@ -1730,9 +1730,9 @@ class PlayProbe
     //   ① `GSC_Jammed_Communications` 的 `faceOps 0 → 1` = **本会话 `W1`（`A1686`）** 给前缀形 `When <事件>, …`
     //      产出的 `whenclause` 标记 op（**该卡因此从「空表」变「收到一条」**，正是那笔要的）——
     //      已由 `RuleEngineTest.Run` **5246 / 5246 全过**确认（日志 `_tmp_view/s23_ruleengine2.log`）。
-    //   ② `SOR52` / `SOR55` / `SOR66` 的 `other` / `energyDelta` / `changesFull` = **上一会话 `A1605`**
+    //   ② `SOR47` / `SOR54` / `SOR_Daemonbreaker` 的 `other` / `energyDelta` / `changesFull` = **上一会话 `A1605`**
     //      （信仰前缀 8 种写法统一成 `☀`；那三张原来的 `[Energy]` 被认成能量 ⇒ 现在按信仰计）—— 已确认的改动。
-    //   ③ `TAU20` + 16 张 `UM*` 的 `bucket C → B` = **上一会话 `A1599`（`W7`）** 改 `IsPaidSegment` 的
+    //   ③ `TAU15` + 16 张 `UM*` 的 `bucket C → B` = **上一会话 `A1599`（`W7`）** 改 `IsPaidSegment` 的
     //      直接后果（它自己的报告就写着「16 张档位真变了」）。
     //   ⚠️ **以上 21 张与本会话的 `W2` 结算改动无关** —— 它自己用 8 张逐张真打 A/B 证明过（逐字相同）。
     //   ⚠️ 重钉只能**手改源码**（⛔ 没有自动口子），判据与纪律 → `README.md` 的「改探针输出格式三步」。

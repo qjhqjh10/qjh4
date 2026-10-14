@@ -197,11 +197,76 @@ namespace CardPresentation
         /// `OverwriteCameraShakePreset.SetAmplitude`；三个常量的值**从 `GameAssembly.dll` 读出**
         /// = 2.0 / 4.0 / 8.0（读法见 `资料/战斗规则与数值_出处.md` §三）。
         /// ⚠️ **卡上写的 `amplitude 2.0` 只是壳** —— 运行时会被这三个数覆盖。
-        /// ⚠️ **我们只用到第 1 档**：我们的单位不占多格，没有「尺寸」这个概念
-        /// （尺寸 2/3 那两档**查到了但接不上**，别以为用上了）。</summary>
+        /// 🔴 **2026-10-14（`A1767` / #10）就地订正（铁律 5）**：这里原来写着
+        ///   「**我们只用到第 1 档**：我们的单位不占多格，没有「尺寸」这个概念（尺寸 2/3 查到了但接不上）」
+        ///   —— **那句是错的**，而且错在两个地方：
+        ///   ① `GetUnitSize` **不是**「占几格」，它的判据是**单位的当前近战攻击**
+        ///      （`SupportMethods__GetUnitSize.c:11-16`：`m = e.CurrentMeleeAttack; m ≤ 3 ? 0 : (m ≤ 7 ? 2 : 3)`）
+        ///      —— 这一份判据**我们在本地早就有**（同文件 `UnitSizeOf`，`PushBackMagnitude` 就在用它）；
+        ///   ② 所以三档**全都接得上**，只要按攻击方的近战档取（见下面 `ShakeAmplitudeForUnitSize`）。
+        ///   **错因**：把 `size` 读成了「棋盘格占用数」（那是另一件事），于是拿「我们的单位不占多格」当结论。
+        ///   判据同 `PushBackMagnitude` 的那段注释（那里一直是按近战攻击分档的，两处本该同源）。</summary>
         public const float ShakeAmpUnitSize1 = 2.0f;
         public const float ShakeAmpUnitSize2 = 4.0f;
         public const float ShakeAmpUnitSize3 = 8.0f;
+
+        /// <summary>原版 preset 真件 `Shake Hit Small` 的 `amplitude` 字段。
+        /// 出处：`d:/2/解包整理/09_游戏数据/动画曲线/MonoBehaviour/Shake Hit Small_4555857231027011253.json`
+        /// 的 `preset.amplitude = 2.0`（`CameraShakePreset`）。⚠️ 它**只是壳** —— 尺寸 2/3 那两档
+        /// 会被 `ShakeAmpUnitSize2/3` 覆盖（见上）。</summary>
+        public const float ShakePresetAmplitude = 2.0f;
+
+        /// <summary>同一个真件的 `preset.direction = (0, 0.2, 0.2)` 的**模长** = 0.28284271…
+        /// 原版 `m_AmplitudeGain = preset.amplitude × |direction|` ⇒ 这一位**单独**量出来，
+        /// ⛔ 不要再把 0.5657 这个**乘积**当字面量写死（拆开才能按档换 amplitude）。</summary>
+        public const float ShakePresetDirMag = 0.28284f;
+
+        /// <summary>归一化方向的**屏幕竖直分量** = `normalize((0, 0.2, 0.2)).y` = 0.70710678…
+        /// ⚠️ **这一步是我们的换算**（原版是 3D：相机沿 +z 看 ⇒ 那个 z 分量在屏幕上不动，只有 y 分量走屏幕上下）。
+        /// 出处判据与两处软连接见 `ShakeWorldAmplitude` 的注释。</summary>
+        public const float ShakeVerticalFrac = 0.70711f;
+
+        /// <summary>原版 **BoardCamera 在棋盘平面**上的像素密度（px / 原版世界单位）。
+        /// 推导：相机 z = −13.57、棋盘平面 z ≈ 3.66 ⇒ 距离 17.23；可见高 = 2 × 17.23 × tan(FOV 46.397°/2)
+        /// = 14.77 世界单位 = 1080 px ⇒ **73.1 px/单位**。
+        /// 🔴 **它和 `OriginalBoardPxPerUnit`(182.14) 不是同一个东西**：那个是**棋盘排版**的密度
+        /// （用来折算卡的体型/位移），这个是**相机像平面**的密度（用来折算**相机位移**在屏幕上走多少像素）。
+        /// 混用会把震屏幅度算错 2.5 倍。</summary>
+        public const float ShakeOriginalPxPerUnit = 73.1f;
+
+        /// <summary>按 `SupportMethods.GetUnitSize` 的档取 preset 的 amplitude 覆盖值（2 / 4 / 8）。
+        /// 判据：`CardScript__ResolveAttackAnimationEffects.c:32-52`（三个 `_DAT_` 从 DLL 实读）。
+        /// ⚠️ **传 0 与 1 是同一档**（`GetUnitSize` 永不返回 1 —— 见 `UnitSizeOf`）。</summary>
+        public static float ShakeAmplitudeForUnitSize(int unitSize)
+        {
+            return unitSize >= 3 ? ShakeAmpUnitSize3
+                 : unitSize == 2 ? ShakeAmpUnitSize2
+                                 : ShakeAmpUnitSize1;
+        }
+
+        /// <summary>🆕 **某一档的世界单位峰值幅度**（我们这套坐标）—— **由真件字段现算，不再写死**。
+        ///
+        /// `= ShakeAmplitudeForUnitSize(size) × ShakePresetDirMag × ShakeBandPeak × ShakeVerticalFrac
+        ///    × (ShakeOriginalPxPerUnit ÷ OurPxPerUnit)`
+        ///
+        /// 逐项出处与两处软连接见 `ShakeWorldAmplitude` 的注释（那条注释整段仍然成立，
+        /// 只是**那个数从此是算出来的**）。
+        /// 🔴 与老写法的差别：老的只有第 1 档那一个数（0.04），**第 2/3 档永远用不上**
+        ///   —— 而原版是按攻击方的近战档换幅度的（`ResolveAttackAnimationEffects`）⇒ 那是实打实的偏离。</summary>
+        public static float ShakeWorldAmplitudeFor(int unitSize)
+        {
+            float ampGain = ShakeAmplitudeForUnitSize(unitSize) * ShakePresetDirMag;   // 0/1 档 = 0.5657
+            float origUnits = ampGain * ShakeBandPeak * ShakeVerticalFrac;            // 0/1 档 = 0.0596
+            return origUnits * (ShakeOriginalPxPerUnit / OurPxPerUnit);               // 0/1 档 = 0.0403
+        }
+
+        /// <summary>**按攻击方的近战攻击**取震屏的档（`SupportMethods.GetUnitSize`）——
+        /// 🔴 **判据只此一处**：`UnitSizeOf`（挨打后坐 `PushBackMagnitude` 用的也是它）。
+        /// 传 `&lt; 0` = 不知道攻击方是谁（疲劳 / 反伤那类）⇒ 退回第 1 档，与原版「尺寸 0」同档。</summary>
+        public static int ShakeUnitSizeOf(int attackerMeleeAttack)
+        {
+            return attackerMeleeAttack < 0 ? 0 : UnitSizeOf(attackerMeleeAttack);
+        }
 
         /// <summary>`CameraShakePreset.frequency`（= 0.05）。原版把它原封不动写进 Cinemachine 的
         /// `m_FrequencyGain`（ImpulseSource `MonoBehaviour_4914.json`）—— 那是**信号时间轴的缩放**
@@ -241,11 +306,26 @@ namespace CardPresentation
         ///
         /// ⚠️ **两处软连接（照这个数用之前先知道）**：
         ///   ① ②→④ 那一步按的是 **Cinemachine「Legacy impulse：位移 = velocity × AmplitudeGain × 信号」**
-        ///      这条公式，**没有从原版二进制里验**（要验得跑原版实测）；
+        ///      这条公式，**没有从原版二进制里验**（要验得跑原版实测）；⚠️ 补充：这条链上的
+        ///      **Cinemachine 方法体本地读不到**（`decomp_full/` 只装了 Assembly-CSharp；Cinemachine 是
+        ///      单独的 asm，`d:/2/Warpforge_code/Scripts/Cinemachine/` 那边只有**签名桩**）
+        ///      ⇒ 公式这一环**只能算旁证**，不能算「逐行读过」；
         ///   ② 「世界 y 分量 = 屏幕竖直、z 分量在屏幕上不动」是**我们的换算**（见文件头「3D → 2D 的迁移」）。
         /// ⚠️ 至于「向上还是向下」，静态数据**判不出来**（要跑原版实测），这里取**相机向上抬**。
-        /// ⚠️ 另有一条**没有复刻**：原版 `m_Randomize: 1` ⇒ **每次抖的相位是随机的**
-        ///   （所以「原版那一条波形」本来就不存在，复刻相位没有意义）。我们固定用 cos（t=0 在峰值）。</summary>
+        /// ✅ **2026-10-14（`A1767` / #10）**：「原版 `m_Randomize: 1` ⇒ 每次抖的相位随机」**已经从
+        ///   本地资产坐实**（原来这里写「没有复刻」）—— 真件 = 场景里那台 `CinemachineImpulseSource`
+        ///   的 `m_ImpulseDefinition`（battlearena1 `MonoBehaviour_4914.json`）：
+        ///   `m_ImpulseType = 3`（**Legacy**）· `m_RawSignal` = `Warpforge 6D Shake` ·
+        ///   `m_RepeatMode = 0`（Stretch）· `m_ImpulseDuration = 1.0` · `m_AmplitudeGain = 0.1` ·
+        ///   `m_FrequencyGain = 0.05` · **`m_Randomize = 1`**。而 `m_Randomize` 的语义写在
+        ///   **本地签名桩自己的 Tooltip 上**（`d:/2/Warpforge_code/Scripts/Cinemachine/Cinemachine/
+        ///   CinemachineImpulseDefinition.cs`）：**「Legacy mode only: Randomize the signal start time」**
+        ///   ⇒ 它随机的**不是方向、也不是幅度，是「从噪声信号的哪一刻开始播」**。
+        ///   ⇒ 复刻方式见下面的 `ShakePhaseOffset` / `ShakeNoise01`（**Perlin + 每次随机的起播时刻**）。
+        /// 🔴 **2026-10-14（`A1767` / #10）幅度改成按档现算**：本常量**只是「尺寸 0/1」那一档**
+        ///   （= `ShakeWorldAmplitudeFor(0)` 四舍五入到两位），**运行时该走 `ShakeWorldAmplitudeFor`**
+        ///   （按攻击方的近战档取 2 / 4 / 8）。留它是因为 `BattleDriver` 那两处调用点还在用它
+        ///   —— ⚠️ **那两处是待接的一半**（见 `ShakeCameraForHit` 的注释）。</summary>
         public const float ShakeWorldAmplitude = 0.04f;
 
         // ==================================================================
@@ -422,11 +502,17 @@ namespace CardPresentation
             P("ShakeDecayTime", ShakeDecayTime, Src.Field, "`Shake Hit Small` 的 `decayTime=0.3`"),
             P("ShakeDecayTo", ShakeDecayTo, Src.Field, "场景 `CinemachineImpulseSource`(battlearena1 MB_4914) 的 `m_DecayShape` 终点 **0.01**（两点、切线被忽略 ⇒ 线性）"),
             P("ShakeAmpUnitSize1", ShakeAmpUnitSize1, Src.Field, "`ResolveAttackAnimationEffects.c:38` 传给 `SetAmplitude` 的 `_DAT_1834b2bbc`，从 `GameAssembly.dll` 读出 = **2.0**（尺寸 0/1）"),
-            P("ShakeAmpUnitSize2", ShakeAmpUnitSize2, Src.Field, "同上 `_DAT_1834b2df0` = **4.0**（尺寸 2）—— ⚠️ **我们接不上**（我们的单位不占多格，没有「尺寸」这个概念）"),
-            P("ShakeAmpUnitSize3", ShakeAmpUnitSize3, Src.Field, "同上 `_DAT_1834b2e00` = **8.0**（尺寸 3）—— ⚠️ **同上，接不上**"),
+            P("ShakeAmpUnitSize2", ShakeAmpUnitSize2, Src.Field, "同上 `_DAT_1834b2df0` = **4.0**（尺寸 2）—— 🔴 **2026-10-14 订正**：原来这里写「我们接不上（我们的单位不占多格）」**是错的**，`GetUnitSize` 的判据是**近战攻击**（`SupportMethods__GetUnitSize.c:11-16`），我们本地就有（`UnitSizeOf`）⇒ **接得上**，见 `ShakeWorldAmplitudeFor`"),
+            P("ShakeAmpUnitSize3", ShakeAmpUnitSize3, Src.Field, "同上 `_DAT_1834b2e00` = **8.0**（尺寸 3）—— 🔴 **同上，2026-10-14 订正：也接得上**"),
+            P("ShakePresetAmplitude", ShakePresetAmplitude, Src.Field, "preset 真件 `Shake Hit Small` 的 `preset.amplitude = 2.0`（`d:/2/解包整理/09_游戏数据/动画曲线/MonoBehaviour/Shake Hit Small_4555857231027011253.json`）"),
+            P("ShakePresetDirMag", ShakePresetDirMag, Src.Field, "同一个真件的 `preset.direction = (0,0.2,0.2)` 的模长 0.28284271 —— 从 `ShakeWorldAmplitude` 那个**乘积** 0.5657 里拆出来（拆开才能按档换 amplitude）"),
+            P("ShakeVerticalFrac", ShakeVerticalFrac, Src.Derived, "`normalize((0,0.2,0.2)).y` = 0.7071 —— **z 分量在屏幕上不动、只有 y 走屏幕上下**是我们的换算（3D→2D）"),
+            P("ShakeOriginalPxPerUnit", ShakeOriginalPxPerUnit, Src.Derived, "原版 BoardCamera **在棋盘平面**的像素密度 73.1 px/单位（2×17.23×tan(46.397/2)=14.77 单位=1080px）。⚠️ **别和 `OriginalBoardPxPerUnit`(182.14) 混** —— 那个是棋盘排版密度，这个是相机像平面密度"),
+            P("ShakePhaseRange", ShakePhaseRange, Src.Ours, "噪声的**起播时刻**取值范围（信号时间轴秒）。**语义有出处**（`CinemachineImpulseDefinition.m_Randomize` 的 Tooltip：「Legacy mode only: Randomize the signal start time」，桩在本地）但 **Cinemachine 没写范围/分布**（方法体本地读不到）⇒ 取 100 s 是我们的"),
+            P("ShakeSeedBaseDefault", ShakeSeedBaseDefault, Src.Ours, "相位种子的出厂基线（固定常量 ⇒ 同一串事件给同一串相位 = 可复现）。⛔ 不是原版值"),
             P("ShakeFrequencyGain", ShakeFrequencyGain, Src.Field, "`Shake Hit Small` 的 `frequency=0.05` → Cinemachine `m_FrequencyGain`（信号时间轴缩放，0.05 = 放慢 20 倍），乘在 `ShakeBandHz` 上"),
             P("ShakeBandPeak", ShakeBandPeak, Src.Field, "`Warpforge 6D Shake`(Cinemachine `NoiseSettings`) 的 `PositionNoise[*].Y.Amplitude` 三条带之和 = 0.059+0.040+0.050；拿去归一化，让 `ShakeWorldAmplitude` 表示**峰值**"),
-            P("ShakeWorldAmplitude", ShakeWorldAmplitude, Src.Derived, "**由原版值推导**：0.149(带峰) × 0.5657(`amplitude × |direction|`) × 0.7071(velocity 的竖直分量) = 0.0596 原版世界单位 → 按原版 BoardCamera 在棋盘平面的 73.1 px/单位 → 4.36 px @1080p → ÷108(我们的 px/单位) = 0.0404。⚠️ **两处软连接**（Cinemachine impulse 公式未从二进制验；y→屏幕竖直是我们的换算）见常量注释"),
+            P("ShakeWorldAmplitude", ShakeWorldAmplitude, Src.Derived, "**只在「尺寸 0/1」这一档** = `ShakeWorldAmplitudeFor(0)` 的近似：0.149(带峰) × 0.5657(`amplitude × |direction|`) × 0.7071(velocity 的竖直分量) = 0.0596 原版世界单位 → 按 73.1 px/单位 → 4.36 px @1080p → ÷108 = 0.0403。🔴 **2026-10-14 起运行时应走 `ShakeWorldAmplitudeFor(size)`**（2/4/8 三档），本常量只是 `BattleDriver` 那两个调用点还没换过来的兜底。⚠️ **两处软连接**（Cinemachine impulse 公式未从二进制验；y→屏幕竖直是我们的换算）见常量注释"),
 
             // ---- 蓄力 / 出手：卡预制体 ----
             P("ChargeTime", ChargeTime, Src.Field, "卡预制体 `timeToChargeAttack`"),
@@ -717,8 +803,14 @@ namespace CardPresentation
         /// 位移 = 峰值 × **包络**(t) × **噪声**(t)，噪声是 `Warpforge 6D Shake` 的 Y 轴三条带按
         /// `m_FrequencyGain` 放慢后叠加（见 `ShakeBandHz` / `ShakeNoise01`）。
         /// </summary>
+        /// <param name="worldAmp">**峰值**幅度（世界单位）。⚠️ **取哪一档由调用方决定** ——
+        /// 原版是按攻击方的近战档取 2/4/8（→ 世界单位 0.04 / 0.08 / 0.16），
+        /// 走 `ShakeWorldAmplitudeFor` / 更省事的 `ShakeCameraForHit`。</param>
+        /// <param name="phaseSeed">噪声的**起播时刻**种子（见 `ShakePhaseOffset`）。
+        /// `-1`（默认）= 用本进程内单调递增的序号 ⇒ **同一串事件必然给同一串相位**（对局可复现）。
+        /// 传具体值 = 逐帧可复算（自检用）。</param>
         public static Tween ShakeCamera(Camera cam, Transform hudRoot, float worldAmp, float delay = 0f,
-                                        Camera extraCam = null)
+                                        Camera extraCam = null, int phaseSeed = -1)
         {
             if (cam == null) return null;
 
@@ -741,9 +833,16 @@ namespace CardPresentation
             Vector3 extraHome = extraTr != null ? extraTr.position : Vector3.zero;
             Vector3 dir = Vector3.up;
 
+            // 🆕 2026-10-14（`A1767` / #10）：**每次震的起播时刻不同**（原版 `m_Randomize = 1`，
+            //   见 `ShakeWorldAmplitude` 的注释）。⚠️ 种子必须**可复现** —— 一律 `System.Random`
+            //   派生，⛔ 绝不用 `UnityEngine.Random`（工程红线：对局必须可复现）。
+            LastShakeSeed = phaseSeed >= 0 ? phaseSeed : (ShakeSeedBase + _shakeSeq++);
+            float phase = ShakePhaseOffset(LastShakeSeed);
+            LastShakePhase = phase;
+
             System.Action<float> apply = t =>
             {
-                Vector3 d = dir * (worldAmp * ShakeEnvelope(t) * ShakeNoise01(t));
+                Vector3 d = dir * (worldAmp * ShakeEnvelope(t) * ShakeNoise01(t, phase));
                 if (camTr != null) camTr.position = camHome + d;
                 if (hudRoot != null) hudRoot.localPosition = hudHome + d;
                 if (extraTr != null) extraTr.position = extraHome + d;
@@ -769,6 +868,72 @@ namespace CardPresentation
             });
             LastShake = t;
             return t;
+        }
+
+        /// <summary>🆕 2026-10-14（`A1767` / #10）**挨打震屏的完整一档** —— 幅度自己按
+        /// **攻击方的近战攻击**取（原版 `ResolveAttackAnimationEffects` 的 2/4/8 档），
+        /// 而不是永远第 1 档。
+        ///
+        /// 🔴 **为什么要有这条**：`BattleDriver` 现在两处都传的是 `ShakeWorldAmplitude`
+        /// （写死第 1 档），而原版是按 `SupportMethods.GetUnitSize(攻击方)` 换幅度的
+        /// ⇒ 尺寸 2 / 3 的单位挨打时，**我们的镜头抖得比原版小 2 倍 / 4 倍**。
+        /// 判据链全程本地可复核（`GetUnitSize` → `ResolveAttackAnimationEffects` 那三个 `_DAT_`）。
+        ///
+        /// ⚠️ **它是 opt-in 的**：调用方不换过来，档位仍然只用得到第 1 档 ——
+        ///    `BattleDriver.cs` **不在本件的白名单里** ⇒ 落地那一处写在写手报告里
+        ///    （要换的只有 `PlaySignal` 里那一句：`ShakeCamera(cam, hudRoot, CardFeel.ShakeWorldAmplitude, 0f, boardCam)`
+        ///     → `ShakeCameraForHit(cam, hudRoot, 攻击方的 CurrentMeleeAttack, 0f, boardCam)`）。
+        /// </summary>
+        /// <param name="attackerMeleeAttack">**攻击方**的当前近战攻击（`UnitState.Attack`）。
+        /// 传 `-1` = 不知道攻击方是谁（疲劳 / 反伤那类）⇒ 第 1 档，与原版「尺寸 0」同档。</param>
+        public static Tween ShakeCameraForHit(Camera cam, Transform hudRoot, int attackerMeleeAttack,
+                                              float delay = 0f, Camera extraCam = null,
+                                              int phaseSeed = -1)
+        {
+            int size = ShakeUnitSizeOf(attackerMeleeAttack);
+            return ShakeCamera(cam, hudRoot, ShakeWorldAmplitudeFor(size), delay, extraCam, phaseSeed);
+        }
+
+        /// <summary>🆕 **震屏噪声的起播时刻基线**（原版 `m_Randomize = 1` 那一位）。
+        /// 每次震动用的种子 = `ShakeSeedBase + 递增序号`。
+        ///
+        /// 🔴 **可复现性怎么保证**（工程红线：对局必须可复现）：
+        ///   · 种子**全部**来自 `System.Random`（纯托管、定序），⛔ **一处都没用 `UnityEngine.Random`**；
+        ///   · 序号是**本进程内的单调计数** ⇒ **同一串事件流**（= 同一局重放两次，事件顺序与条数相同）
+        ///     必然给**同一串种子** ⇒ 逐帧位移逐位相同；
+        ///   · `ShakeSeedBase` 是**可写**的：要让「两局之间也不同」（更贴原版 `m_Randomize`）——
+        ///     开局时把它设成该局的种子即可。⚠️ **那一句还没接**（`BattleDriver` 不在本件白名单；
+        ///     而且 `BattleEngine` 的 `BattleContext` **没有暴露对局种子** —— 只有 `System.Random` 实例）
+        ///     ⇒ **今天的口径**：同一局可复现 ✅，两局之间第一下的相位相同（如实标注，不是「原版那样」）。
+        /// </summary>
+        public static int ShakeSeedBase = ShakeSeedBaseDefault;
+        /// <summary>`ShakeSeedBase` 的出厂值（固定常量 ⇒ 可复现）</summary>
+        public const int ShakeSeedBaseDefault = 0x5D2A17;
+
+        /// <summary>起播时刻的取值范围（秒，**信号时间轴**上的量，不是真实秒）。
+        /// ⚠️ **这个范围是我们的**：Cinemachine 的方法体本地读不到（只有桩），
+        /// 桩上的 Tooltip 只说「randomize the signal start time」，**没说分布/范围**。
+        /// 取 100 s ⇒ 比最低频那条带的周期（1/1.9×0.05 ≈ 10.5）大一个量级，足以把相位彻底打散。</summary>
+        public const float ShakePhaseRange = 100f;
+
+        /// <summary>本进程内已经震过几次（诊断 / 自检复位用）。**它决定相位种子的序号**。</summary>
+        public static int ShakeSeq { get { return _shakeSeq; } }
+        static int _shakeSeq;
+        /// <summary>最近一次震动用的**种子**与**起播时刻**（自检读它核「种子确实进了噪声」）。</summary>
+        public static int LastShakeSeed { get; private set; }
+        public static float LastShakePhase { get; private set; }
+
+        /// <summary>把「震过几次」的计数清零（**自检专用**：批处理里跑两遍要拿到同一串相位）。</summary>
+        public static void ResetShakePhases() { _shakeSeq = 0; LastShakeSeed = 0; LastShakePhase = 0f; }
+
+        /// <summary>一个种子 → 该次震动的**起播时刻**（秒，信号时间轴）。
+        /// 判据：原版 `m_Randomize = 1`（Tooltip：「Legacy mode only: Randomize the signal start time」）。
+        /// ⚠️ **分布/范围查不到**（见 `ShakePhaseRange`）⇒ 这一句是**我们的代理**，如实标注。
+        /// **纯函数**：同 `seed` 恒得到同一个值（自检靠这条钉「可复现」）。</summary>
+        public static float ShakePhaseOffset(int seed)
+        {
+            var rng = new System.Random(seed);
+            return (float)rng.NextDouble() * ShakePhaseRange;
         }
 
         /// <summary>
@@ -799,16 +964,36 @@ namespace CardPresentation
             return Mathf.Lerp(1f, ShakeDecayTo, Mathf.Clamp01((t - held) / ShakeDecayTime));
         }
 
-        /// <summary>归一化到 [−1, 1] 的噪声（三条带同相时 = 1，也就是 t=0）。
-        /// ⚠️ 起相用 **cos** 不是 sin：原版 `attackTime 0` 是「一帧到满」，
-        /// 而 sin 从 0 起会让第一帧完全没有位移。
-        /// ⚠️ 原版是 Perlin 噪声、而且 `m_Randomize: 1`（**相位每次随机**）；我们用**同频同幅的正弦**叠加近似
-        /// —— 这条近似是我们的，但因为原版自己每次都不同，「复刻原版那一条」本来就没有意义。</summary>
-        static float ShakeNoise01(float t)
+        /// <summary>归一化到 [−1, 1] 的噪声（三条带同相时 = 1）。
+        ///
+        /// 🔴 **2026-10-14（`A1767` / #10）改成正解**：原来是**同频同幅的正弦叠加**（cos），
+        ///   那是一条**我们自己的近似**。原版 `Warpforge 6D Shake` 是 **程序化噪声**
+        ///   （`Cinemachine.NoiseSettings` —— 它**没有采样点数组**，就是 Perlin），
+        ///   而且场景上开了 `m_Randomize = 1`（= **每次随机起播时刻**，见 `ShakeWorldAmplitude` 的注释）。
+        ///   ⇒ 现在：**每条带一个 Perlin 采样**，再按 `ShakeBandAmp` 加权求和、除以带峰归一化；
+        ///   起播时刻由 <see cref="ShakePhaseOffset"/> 给（**每次不同、且可复现**）。
+        ///   判据出处：真件 `Warpforge 6D Shake.json` 的 `PositionNoise[*].Y.{Frequency,Amplitude}`
+        ///   （三条带，见 `ShakeBandHz` / `ShakeBandAmp`）+ `m_Randomize` 的 Tooltip。
+        ///
+        /// ⚠️ **一处如实标注**：Cinemachine 那个**逐通道求值的表达式本身本地读不到**
+        ///   （`decomp_full/` 只装了 Assembly-CSharp，Cinemachine 的方法体是空的桩）
+        ///   ⇒ `Mathf.PerlinNoise(0, f·t + offset)` 这个**写法是我们的**。
+        ///   要坐实它得反汇编 `GameAssembly.dll` 的 `NoiseSettings.NoiseParams.GetValueAt`
+        ///   （VA 见 `dump.cs` 的 `NoiseSettings` 那一段）—— **本件没做**。
+        ///   站得住的只有「是程序化噪声、每次起播时刻随机、三条带按 Frequency/Amplitude 叠加」这三条。
+        /// ⚠️ **起相不再固定为峰值**（旧注释：「起相用 cos 不是 sin，因为 sin 从 0 起会让第一帧没有位移」）——
+        ///   现在第一帧的值由随机起播时刻决定，**这正是原版的形状**（`attackTime 0` 说的是**包络**
+        ///   一帧到满，不是「噪声一帧到峰值」）。包络那一半没变（见 `ShakeEnvelope`）。
+        /// </summary>
+        public static float ShakeNoise01(float t, float phase)
         {
             float s = 0f;
             for (int i = 0; i < ShakeBandHz.Length; i++)
-                s += ShakeBandAmp[i] * Mathf.Cos(2f * Mathf.PI * ShakeBandHz[i] * ShakeFrequencyGain * t);
+            {
+                // Perlin 输出 [0,1]（可能略微越界）⇒ `×2 − 1` 折到 [−1,1]，再乘该带振幅
+                float x = Mathf.PerlinNoise(0f, ShakeBandHz[i] * ShakeFrequencyGain * t + phase) * 2f - 1f;
+                s += ShakeBandAmp[i] * x;
+            }
             return s / ShakeBandPeak;
         }
 

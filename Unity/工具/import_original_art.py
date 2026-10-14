@@ -196,10 +196,11 @@ ART_ID_ALIAS = {
     'BL_Dark_Pact_of_Excess': 'CSM_BlackLegion_strat_Mark of Chaos_Slaanesh',     # Dark Pact of Excess
     'BL_Dark_Pact_of_Resilience': 'CSM_BlackLegion_strat_Mark of Chaos_Nurgle',       # Dark Pact of Resilience
     'BL_Chosen_of_the_Four':  'CSM_BlackLegion_strat_Warmaster',                  # Chosen of the Four
-    # ---- 黑军团：这两张是**卡池重复行**把图抢走了（`BL69/BL71` 见对账文档 §六）----
-    # ---- 黑军团：这两张的卡名拼写（`Hellfire` 双 l）和原版贴图名（`Helfire` 单 l）对不上 ----
+    # ---- 黑军团：这两张（`BL_Hellfire_Torch` / `BL_Hellfire_Pit`）的卡名拼写（`Hellfire` 双 l）和原版贴图名（`Helfire` 单 l）对不上 ----
     # ⚠️ 2026-09-15 改：原来这里点的是**卡池重复行** `BL_Helfire_Pit` / `BL_Helfire_Torch`；
-    #    那两行已作为幽灵卡删掉（`card_stats.json` 的 `noise`），**存活的是编号型的 `BL69` / `BL71`**，
+    #    那两行已作为幽灵卡删掉（`card_stats.json` 的 `noise`），**存活的是编号型的那两行**
+    #    （⚠️ 2026-10-14 · `W16` 更正：换 id 那趟（`A1758`）之后它们的 id 就是下面点名表里
+    #     那两个键 **`BL_Hellfire_Torch` / `BL_Hellfire_Pit`**；原来那对编号型 id 现在指**别的卡**），
     #    所以点名表要跟着挪到它们身上，否则它们会掉到相似度兜底（0.96）去碰运气。
     'BL_Hellfire_Torch': 'CSM_BlackLegion_strat_Helfire Torch',   # Hellfire Torch
     'BL_Hellfire_Pit': 'CSM_BlackLegion_strat_Helfire Pit',     # Hellfire Pit
@@ -209,7 +210,8 @@ ART_ID_ALIAS = {
     #    插图区指纹 2/256 vs 无关对照 90/256，2026-09-15 实测）
     'UM_Exemplary_Warrior': 'SM_UM_strat_Righteous Fury',
     'UM72': 'SM_UM_veh_Predator Destructor',
-    # ⚠️ 它的图在两个**重复行**之间抢：`Terminator`(UM82) 的子串也命中 `2nd Company Terminator`，
+    # ⚠️ 它的图在两个**重复行**之间抢：**极限战士**那张 `Terminator`（现 id = `UM_Terminator`；
+    #    ⛔ 别与**帝王之子**那张 `EC_Terminator` 混 —— 新池里叫 `Terminator` 的有两张）的子串也命中 `2nd Company Terminator`，
     #    按 id 钉死才稳（卡表把 2nd 改名成了 1st，贴图名留的还是 2nd）
     'UM_2nd_Company_Terminator': 'SM_UM_inf_2nd Company Terminator',
     'AM_Lord_Commander': 'AstraMilitarum_strat_Righteous Gaze',
@@ -233,7 +235,7 @@ ART_ID_ALIAS = {
     # ⚠️ 教训：**贴图文件名是原版的旧名，不能拿它当现卡名的索引** —— 这正是那 21 张里 15 张「缺图」的根因。
     #   名字对不上时必须**开图看**（铁律 7），不能拿「没有同名文件」当成「原版没有这张图」。
     'SOR_Righteous_Repugnance':  'Sororitas_strat_Purgator Mirabilis',       # Righteous Repugnance（原名对应的是别人）
-    'SOR44': 'Sororitas_strat_Righteous Repugnance',     # Moment of Grace（原名被 SOR6 占了）
+    'SOR44': 'Sororitas_strat_Righteous Repugnance',     # Moment of Grace（原名被 `SOR_Righteous_Repugnance` 占了）
     # ---- 星界军：**原版把这张督军画了两张图**，子串匹配分不出哪张是主立绘（2026-09-16）----
     #   目录里同时有 `AstraMilitarum_warlord_Ursula Creed.png`（灰金发、年老女性、持动力锤）
     #   与 `AA_HB_AstraMilitarum_war_Ursula Creed.png`（举剑嘶吼、扛 CADIA 旗的**另一个人**）。
@@ -838,13 +840,13 @@ MENU_FROM_ART = [
 ALT_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/altarts'
 ALT_ART = [
     # (引擎卡 id, 风格, assets_full 下的相对路径)
-    ('AM5',                   'AA_HB', 'bundle_astramilitarumcardassets_assets_all/Texture2D/AA_HB_AstraMilitarum_war_Ursula Creed.png'),
-    ('BL1',                   'AA_HB', 'bundle_chaosspacemarinesblacklegioncardassets_assets_all/Texture2D/AA_HB__BlackLegion_war_Abaddon the Despoiler.png'),
-    ('DA3',                   'v2',    'bundle_spacemarinesdarkangelscardassets_assets_all/Texture2D/DarkAngels_AA_warlord_Azrael_v2.png'),
-    ('SAU1',                  'AA_HB', 'bundle_necronssautekhcardassets_assets_all/Texture2D/Necron_Sautekh_warlord_Imotekh the Stormlord_AA_HB.png'),
-    ('GOF3',                  'AA_HB', 'bundle_orksgoffcardassets_assets_all/Texture2D/AA_HB_Ork_Goff_war_Ghazghkull Thraka.png'),
+    ('AM2',                   'AA_HB', 'bundle_astramilitarumcardassets_assets_all/Texture2D/AA_HB_AstraMilitarum_war_Ursula Creed.png'),
+    ('BL34',                   'AA_HB', 'bundle_chaosspacemarinesblacklegioncardassets_assets_all/Texture2D/AA_HB__BlackLegion_war_Abaddon the Despoiler.png'),
+    ('DA_Azrael',                   'v2',    'bundle_spacemarinesdarkangelscardassets_assets_all/Texture2D/DarkAngels_AA_warlord_Azrael_v2.png'),
+    ('SAU35',                  'AA_HB', 'bundle_necronssautekhcardassets_assets_all/Texture2D/Necron_Sautekh_warlord_Imotekh the Stormlord_AA_HB.png'),
+    ('GOF28',                  'AA_HB', 'bundle_orksgoffcardassets_assets_all/Texture2D/AA_HB_Ork_Goff_war_Ghazghkull Thraka.png'),
     ('SW1',                   'AA_HB', 'bundle_spacemarinesspacewolvescardassets_assets_all/Texture2D/AA_HB_SpaceWolves_war_Logan Grimnar.png'),
-    ('UM_Lieutenant_Titus',   'AA_HB', 'bundle_spacemarinesultramarinescardassets_assets_all/Texture2D/AA_HB_Ultramarines_war_Lieutenant Titus.png'),
+    ('UM76',   'AA_HB', 'bundle_spacemarinesultramarinescardassets_assets_all/Texture2D/AA_HB_Ultramarines_war_Lieutenant Titus.png'),
 ]
 
 
@@ -1219,7 +1221,7 @@ def portrait_jobs():
         #    而卡池里有 **5 组同名跨阵营**的卡（`Terminator`/`Terminator Champion`/`Aggressor`/
         #    `Maulerfiend`/`Bladeguard Veteran`）⇒ 后写的那张**直接覆盖**前一张。
         #    实测：`art_aggressor.png` 与 `art_blackmane_aggressor.png` **逐字节相同**（太空野狼那张），
-        #    而暗黑天使的 `DA12 Aggressor` 卡面是**深绿甲 + 兜帽红眼**的另一张画。
+        #    而暗黑天使的 `DA9 Aggressor` 卡面是**深绿甲 + 兜帽红眼**的另一张画。
         #    出处：`资料/PnP卡图_逐张对账_0915.md` §五。
         #    C# 侧配套：`CardData.artId`（= 引擎卡 id）+ `CardArt.Portrait(artId)`。
         ordered = sorted(pool, key=lambda c: -len(norm(c['name'])))
@@ -1263,7 +1265,7 @@ def portrait_jobs():
                     # ⚠️ 类型这一条是必需的：原版对同一张图给了 `defence_` 和 `strat_` **两个变体**
                     #    （`GenestealerCults_defence_Alien Idol` vs `..._strat_Alien Idol`），
                     #    光按「谁短」会挑成 `strat_` —— 而 PnP 把 Alien Idol 印在 `5防御卡/` 里，
-                    #    它是**防御卡**（2026-09-15 实测：改成只看长度会让 GSC66/67 配错变体）。
+                    #    它是**防御卡**（2026-09-15 实测：改成只看长度会让 `GSC63`/67 配错变体）。
                     key = (1 if is_de != ('defence' in nf[p]) else 0, len(nf[p]))
                     if hit is None or key < hit_key:
                         hit, hit_key = p, key

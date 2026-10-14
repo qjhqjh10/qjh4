@@ -12,7 +12,9 @@ namespace CardPresentation
 {
     public static class RelatedCards
     {
-        /// <summary>相关卡（最多 `max` 张）。**三个来源**（判据 → 正本 §八 / §九 / §十·1）：
+        /// <summary>相关卡（最多 `max` 张）。**四个来源**：
+        ///   ⓪ 🆕 **原版真值 `relatedCard1..4`（`A1796`，2026-10-14 起就是它当第一判据）** ——
+        ///      见本文件头那段「2026-10-14 更正」；真值非空 ⇒ **下面三支一支都不跑**（原版也只读这四个字段）；
         ///   ① **效果文本里点名的卡** —— `CreatePool.MentionedCards`（用户原话：「看效果文本的意思结合
         ///      部队卡牌名字这一关键词，**提到就是相关卡**」）；
         ///      🔴 **喂的是【卡面正文那一串】**（`A1405`，2026-10-22）：直接调 `BattleDriver.FaceTextFull`
@@ -32,8 +34,20 @@ namespace CardPresentation
         ///    `CardDisplayWindow__InitializeRelatedCards.c:26` 调 `card.GetRelatedCards(0)`，而
         ///    `RawCardScript__GetRelatedCards.c` 逐字读出来是**把卡的 `+0xE8/+0xF0/+0xF8/+0x100` 四个引用
         ///    原样塞进 List**（无筛选、无匹配）；字段名在签名桩 `RawCardScript.cs:66-72` 是
-        ///    `relatedCard1..4`。⇒ **这解释了「原版为什么正好 5 格」**，也说明**我们这套是替身**：
-        ///    那 4 个字段的值**在服务端**，本地拿不到 ⇒ 只能按用户的判据算（判据全文 → 正本 §十·1）。</summary>
+        ///    `relatedCard1..4`。⇒ **这解释了「原版为什么正好 5 格」**。
+        ///    ⚠️ 当时紧跟着写的「那 4 个字段的值**在服务端**，本地拿不到 ⇒ 只能按用户的判据算」
+        ///    —— **2026-10-14（`A1796`）已推翻**（铁律 5 就地订正）：**值本地有**。原版卡 SO 的
+        ///    `relatedCard1..4`（同包内裸 PPtr、`m_FileID` 全 0）已经解出来、落成
+        ///    `Resources/related_cards.json`（**240 条边 · 196 张卡**；生成器 `工具/gen_related_cards.py`，
+        ///    运行时读 `RuleEngine.RelatedCardData`）⇒ 本方法现在**真值优先**，替身那三支降成兜底。
+        ///    （原来那句的出处 = `资料/阶段二_卡片详情窗_原版规格.md` §十·1 —— 那一条也该订正）
+        ///    🔑 **顺带把上面那条假设证成了**：逐张看真值，原版那四个字段装的就是
+        ///    「**这张卡的天赋** + **它带出来的部队/权能**」（`AM1`→`Lord Commander`=它的 Talent；
+        ///    `SAU37`→`Master Chronomancer`；`TAU9`→`Marker Drone`=它的 Companion）——
+        ///    与正本 §8·2 猜的方向一致，**不再是猜的**。
+        /// ⚠️ **真值非空时，替身那三支一支都不跑** —— 原版 `InitializeRelatedCards` 只读那四个字段
+        ///    （`RawCardScript__GetRelatedCards.c` 原样塞进 List、**无筛选无匹配**）⇒ 再叠替身 = 多印格子。
+        /// </summary>
         public static List<CardDef> Find(CardDef card, int max)
         {
             var outp = new List<CardDef>();
@@ -43,6 +57,23 @@ namespace CardPresentation
             {
                 Debug.LogWarning("[相关卡] 没有卡池 ⇒ 一张都算不了（**出声**，不许静默）");
                 return outp;
+            }
+
+            // ⓪ 🆕 **原版真值优先**（`A1796`）：`relatedCard1..4` 真有值就用它，顺序 = 槽 1→4。
+            //    真值表里**没有这张卡的键** ⇒ 原版本来就没给它写相关卡 ⇒ 落回下面那三支替身
+            //    （用户 2026-09-26/29 拍板要的那三支仍然有效，只是**降为兜底**）。
+            //    ⚠️ 这里判的是 **`Get != null`（键在不在）**，不是「列表空不空」—— 键在、但四个 id 一个都
+            //    落不进我们卡池时，`Resolve` 会**逐条出声**，我们再退回替身（有比没有强，但要说清）。
+            if (RelatedCardData.Get(card.Id) != null)
+            {
+                var truth = RelatedCardData.Resolve(pool, card.Id);
+                if (truth.Count > 0)
+                {
+                    while (truth.Count > max) truth.RemoveAt(truth.Count - 1);
+                    return truth;
+                }
+                Debug.LogWarning($"[相关卡] `{card.Id}` 在**原版真值表里有键**，但那几张"
+                               + "**一张都落不进我们卡池** ⇒ 本格退回替身那三支（原版是那个引用，我们是 id）");
             }
 
             // ① **效果文本里点名的卡** —— 🔴 **喂进去的就是【卡面正文那一串】**（`A1405`，2026-10-22）：

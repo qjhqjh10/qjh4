@@ -930,6 +930,70 @@ namespace CardPresentation
         //
         // 📌 两态断言（开关关 = 逐值不变 / 开关开 = 命中区 = 设计矩形 × M）在 `Editor/SettingsScene.cs`。
 
+        // ============================================================ 🆕 2026-10-14（A1814）：命中区 ≠ 画出来那块
+        //
+        // 🔴 **判据（原版两关，本地都能读）**：
+        //   · `GraphicRaycaster.cs:327` = `RectangleContainsScreenPoint(graphic.rectTransform,
+        //     pointerPosition, eventCamera, **graphic.raycastPadding**)` ⇒ 射线认的是**那件自己的
+        //     `RectTransform` 矩形 + 它自己的 `m_RaycastPadding`**；`m_PreserveAspect` **不在这一句里**
+        //     （它只改生成的网格 ⇒ **只改画面、不改射线区**）。
+        //   · 样板（本仓已收口）= `Battle/BattleDriver.cs:3596-3636`；算式**只此一份** =
+        //     `MenuDraw.PaddedHitRect`（符号口径 + 退化守卫都在那份 doc 里）。
+        // 🔴 **我们原来错在哪**：命中区是从「那一颗 `ImageQuad` 画出来多大」现算的（本函数下面那两行）
+        //   ⇒ **「原版布局框」与「画出来那块」被合成一个数**。保宽高比时两者不等 —— 顶栏齿轮那一格：
+        //   布局框 `87.78 × 61.73`、179² 的贴图内缩之后**只画 61.73²**（左右各少 13.03）
+        //   ⇒ 真机「看着在齿轮上、点不动」（`A1814`；真机日志 `_tmp_view/click_log.txt`）。
+
+        /// <summary>🆕 **命中区不是它画出来那块**时的登记表（本类唯一入口 = <see cref="RegisterHitRect"/>）。
+        ///
+        /// <para>🔴 **为什么用登记表，而不是在子树里另挂一颗 `Hit` quad（`MenuDraw.Hit` 那条路）**：
+        /// ① 顶栏那 4 颗钮的 `WindowButton` **必须留在画出来那颗 quad 上** —— `Editor/MainMenuScene.cs`
+        /// 一族断言认的就是「挂载点 = `SettingsBtn/Image`」、以及「那一点上吃到的**还是这颗按钮**」；
+        /// ② <see cref="HitQuad"/> 取的是**按钮自己那一颗**（`GetComponentInChildren` **self 优先**）
+        /// ⇒ 子树里另挂一颗**永远轮不到**；改成按名字取会动全工程每一颗钮（且 `Hit` / `HitBox`
+        /// 这两个名字**已经有主**：`MenuDraw.MakeHitQuad` 与 `Shell/{SettingsWindow,CampaignRewardWindow}.cs`）；
+        /// ③ 登记表**不往场景里加任何节点** ⇒ 不碰「同一层的图不许压住」那条通用检查（`Editor/DeckScene`
+        /// 的 `TestLayout`）、不多一次 draw call、也不改「顶栏带子里几张图」那种计数。</para>
+        ///
+        /// <para>🔴 **帧**：登记的是【设计帧】的两个矩形（`M = 1`、16:9 时**画出来的样子**）；
+        /// 命中区由 <see cref="ApplyHitRectOverride"/> 按**比例**从「画出来那块」的**指针帧**读数推出来
+        /// ⇒ **父链缩放（A167）与非 16:9（A990②）都自动跟对**，本文件里**不再写第二份换算**。</para></summary>
+        struct HitRectOverride { public WindowButton Btn; public PxRect Drawn; public PxRect Hit; }
+        static readonly System.Collections.Generic.List<HitRectOverride> _hitRects =
+            new System.Collections.Generic.List<HitRectOverride>();
+
+        /// <summary>登记「这颗钮的命中区**不是**它画出来那块」（原版 `Graphic.m_RaycastPadding` 的语义）。
+        /// 全工程唯一调用点 = `Shell/TopBar.cs` 的 `Wire`（顶栏那 4 颗钮）。
+        /// <para><paramref name="drawn"/> = 它**画出来**那块（设计 px —— ⛔ 不是原版布局框：保宽高比时两者不等）；
+        /// <paramref name="hit"/> = 它**应该**吃指针那块（设计 px）—— 由
+        /// `MenuDraw.PaddedHitRect(原版布局框, 原版那块 `Image` 的 `m_RaycastPadding`)` 算出来。</para>
+        /// <para>⚠️ 只登记**非零 pad** 的那些（pad = 0 ⇒ `hit` 就等于 `drawn`，登记它只是白跑一趟）。</para></summary>
+        public static void RegisterHitRect(WindowButton b, PxRect drawn, PxRect hit)
+        {
+            if (b == null) return;
+            // 死条目（上一个场景里那些按钮已经销毁）顺手清掉 —— 与 `_scrolls` 那条路同一条规矩
+            for (int i = _hitRects.Count - 1; i >= 0; i--) if (_hitRects[i].Btn == null) _hitRects.RemoveAt(i);
+            _hitRects.Add(new HitRectOverride { Btn = b, Drawn = drawn, Hit = hit });
+        }
+
+        /// <summary>把登记的那块换到**指针帧**上（算式只此一份 —— 生产命中与三个自检口共用）。
+        /// 斜率 = 从「画出来那块」的指针帧读数反推（`half.x * 2 / Drawn.W`）⇒ 两侧同量纲、倍率自己约掉；
+        /// 退化（登记的框宽/高 ≈ 0）⇒ **不换**（照旧用画出来那块，⛔ 不造一块能盖住全屏的命中区）。</summary>
+        static void ApplyHitRectOverride(WindowButton b, ref Vector2 center, ref Vector2 half)
+        {
+            for (int i = 0; i < _hitRects.Count; i++)
+            {
+                var o = _hitRects[i];
+                if (o.Btn != b) continue;
+                if (o.Drawn.W <= 1e-4f || o.Drawn.H <= 1e-4f) return;
+                float kx = half.x * 2f / o.Drawn.W, ky = half.y * 2f / o.Drawn.H;
+                center = new Vector2(center.x + (o.Hit.CX - o.Drawn.CX) * kx,
+                                     center.y + (o.Hit.CY - o.Drawn.CY) * ky);
+                half = new Vector2(half.x * (o.Hit.W / o.Drawn.W), half.y * (o.Hit.H / o.Drawn.H));
+                return;
+            }
+        }
+
         /// <summary>同上，顺手把那一颗 quad 也交出来（`CollectHits` 要用它列候选）。</summary>
         static bool HitBoxPx(WindowButton b, out Vector2 center, out Vector2 half, out ImageQuad q)
         {
@@ -962,6 +1026,10 @@ namespace CardPresentation
             var ls = q.transform.lossyScale;
             half = new Vector2(q.WorldW * ScaleAbs(ls.x) * LayoutSpace.PxPerWorldX * 0.5f,
                                q.WorldH * ScaleAbs(ls.y) * k * 0.5f);
+            // 🆕 **2026-10-14（A1814）**：命中区**不是它画出来那块**时（原版 `m_RaycastPadding`），
+            //    按比例把那两块换过来 —— 判据与「为什么用登记表」→ `RegisterHitRect` 上面那一整段。
+            //    ⚠️ 没登记过 = 逐位不变（出厂态：只有顶栏那 4 颗钮登记）。
+            ApplyHitRectOverride(b, ref center, ref half);
             return true;
         }
 

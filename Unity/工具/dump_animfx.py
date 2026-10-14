@@ -221,13 +221,30 @@ DEFAULT_MAX_DEPTH = 6
 #   ⛔ **别抬 `DEFAULT_MAX_DEPTH`** —— 上面 4→6 那次的教训就是「一抬就连带放宽几百个别的字段」。
 COLLISION_EVENT_MAX_DEPTH = 18
 
+# 🔴 2026-10-14（A1882）**再单独放宽 `references` 这一条路径**（同样⛔ 不抬 `DEFAULT_MAX_DEPTH`）：
+#   实测（本件亲跑 UnityPy，读数见 `资料/普查产出_第二十八会话/W14_材质过渡数据链与多点落点.md`）：
+#   `references` 是 Unity 的**内联托管引用注册表**（`ManagedReferencesRegistry`：
+#   `version` + `RefIds[] = { rid, type{class,ns,asm}, data{…} }`），
+#   `AnimFXModuleChangeMaterial.materialAnimations` 里那几个 `MaterialTween*` **就内联在这棵子树里**
+#   （不在 `数据/游戏数据/tween/` 那 74 份 `UnitTweenSO` 目录里 —— 当年正是按那份目录搜，
+#    才写成了「3 例都是空的」）。而 `data.materialProperty` / `type.class` 落在 **depth 7**，
+#   正好卡在默认护栏 6 之外 ⇒ 整块被写成 `<深>` ⇒ **三条材质补间一条都进不了数据**
+#   （`WFModuleChangeMaterial.TweenCount == 0`，那段代码是死码）。
+#   这棵子树的形状固定且有限：注册表 → RefIds[] → {rid, type, data} → 6~10 个叶子，
+#   最深的叶子（`data.startValue` 的 `r/g/b/a`）在 **depth 8** ⇒ 给 10 = 「刚好够 + 一点余量」。
+#   ✅ **面**：全库只有 `AnimFXModuleChangeMaterial` 有 `references` 字段（本件扫了 84 个包 / 3 实例），
+#      别的模块一条都没有 ⇒ 放宽它**不会连带放过任何别的字段**。
+REFERENCES_MAX_DEPTH = 10
+
 
 def _depth_limit(path):
-    """这一条键路径允许用到第几层。**只有 `collisionEvent` 子树放宽**，其余一律默认值。"""
+    """这一条键路径允许用到第几层。**只放宽两条子树**（`collisionEvent` / `references`），其余默认值。"""
     if path:
         for seg in path.split("."):
             if seg.split("[", 1)[0] == "collisionEvent":
                 return COLLISION_EVENT_MAX_DEPTH
+            if seg.split("[", 1)[0] == "references":
+                return REFERENCES_MAX_DEPTH
     return DEFAULT_MAX_DEPTH
 
 
@@ -284,6 +301,24 @@ def short(v, depth=0, path=None):
                 return {axes[i]: float(nums[i]) for i in range(len(nums))}
             except ValueError:
                 pass
+    # 🔴 2026-10-14（A1882）：**带名字的**那种 repr（`ColorRGBA(r=0.0, g=0.0, b=0.0, a=1.0)`）
+    #   上面那条正则**匹配不上**（`r=` 的等号不在 `[-+0-9eE.,\s]` 里）⇒ 整块退成 `{"__repr__": …}`，
+    #   而 `ColorRGBA` **没有 `__dict__`**（`vars()` 抛异常，本件实测）⇒ 连 `vars()` 兜底也接不住。
+    #   `MaterialTweenColor` 的 `startValue`/`finalValue` 正是这个形状，C# 侧读的是
+    #   `.startValue.r/.g/.b/.a`（键名约定 → `WFModuleChangeMaterial.WFMatTween` 的注释）
+    #   ⇒ 不拆出来，那一条 Color 补间就只有一串文字、进不了数据。
+    #   ⚠️ 只在**全部都是「名字=数」**时才认（`AnimationCurve(m_Curve=[Keyframe(…` 那种不匹配，
+    #     照旧走 `__repr__` 兜底）—— 本件核过：全库现有 `__repr__` 只有 1 处，是 `AnimationCurve`。
+    mn = re.match(r"^([A-Za-z_]\w*)\(((?:[A-Za-z_]\w*=[-+0-9eE.]+)"
+                  r"(?:\s*,\s*[A-Za-z_]\w*=[-+0-9eE.]+)*)\)$", repr(v)[:160])
+    if mn:
+        try:
+            # ⚠️ 分隔符是 `", "`（带空格）⇒ 键名**必须 strip**，否则会写出 `" g"` 这种键，
+            #    C# 侧按 `.g` 取就取不到（本件踩过一次：先写成 `" g"`，回读才发现）。
+            return {kv.split("=", 1)[0].strip(): float(kv.split("=", 1)[1])
+                    for kv in mn.group(2).split(",")}
+        except ValueError:
+            pass
     return {"__repr__": repr(v)[:120]}
 
 

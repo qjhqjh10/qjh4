@@ -109,6 +109,46 @@ namespace CardPresentation
         public const int QBarLevel = 2993;                                   // 等级图标（G）
         public const int QBarText = MainMenuRuntime.QBarText;                // 2997 文字
 
+        // ============================================================ 🆕 2026-10-14（A1814）：那 4 颗钮的【命中区】
+        //
+        // 🔴 **原版判据（两条，本地都能读）**：
+        //   · 射线那一关 = `Library/PackageCache/com.unity.ugui…/Runtime/UGUI/UI/Core/GraphicRaycaster.cs:327`
+        //     `RectangleContainsScreenPoint(graphic.rectTransform, pointerPosition, eventCamera,
+        //     graphic.raycastPadding)` ⇒ **射线认的是那件自己的 `RectTransform` 矩形 + 它自己的 pad**；
+        //     **`m_PreserveAspect` 不在这一句里**（它只改生成的网格 ⇒ 只改**画面**）。
+        //   · 逐颗的原版值 = `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_{2526,2529,2296,2531}.json`
+        //     （`m_RaycastTarget = 1` · `m_PreserveAspect = 1` · 四个 pad **两两不同**）；矩形 = 同包
+        //     `RectTransform/RectTransform_{1560,1561,1391,1562}.json`。**2026-10-14 逐条现读**。
+        //     ✅ **独立复核过一遍**：全包 1134 个 `MonoBehaviour` 里**只有 12 条非零 `m_RaycastPadding`**，
+        //     这四颗就是其中之四（另 8 条不在本件 —— 清单见报告）。
+        //
+        // 🔴 **我们原来错在哪**（`A1814`）：命中区是从「那一颗 `ImageQuad` 画出来多大」现算的
+        //   （`PointerLayer.HitBoxPx`）⇒ 保宽高比时**画出来那块比原版布局框小**：齿轮 `87.78 × 61.73`
+        //   的框里，179² 的贴图内缩之后**只画 61.73²** ⇒ **右缘少 22.7 设计 px**（左右各少 13.03 的**框**差
+        //   ＋ pad 的外扩）⇒ 真机上「看着在齿轮上、点不动」（`_tmp_view/click_log.txt` 的探针 #8 只差 0.9px，
+        //   而那一点在原版里**点得中**、余量 21.8px）。
+        // ⇒ **两个数必须分开表达**（铁律 5·c）：`*Box` = **原版那件自己的矩形**（= 我们建它时用的那个框）、
+        //   `*Pad` = 它那颗 `Image` 的 `m_RaycastPadding`；命中区 =
+        //   `MenuDraw.PaddedHitRect(Box, Pad)`（**共用件** ⇒ ⛔ 别在本件自写 `±pad` 算式，符号口径与退化守卫
+        //   都在那份 doc 里），再经 `PointerLayer.RegisterHitRect` 登记（⛔ 那 4 颗钮的 `WindowButton`
+        //   **必须留在画出来那颗 quad 上**，别改成在子树里另挂一颗命中 quad）。
+        // ⚠️ pad 分量序 = **(L, B, R, T)**、**负值 = 外扩**（`PaddedRect`：`x1+pad.x · y1+pad.w · x2−pad.z · y2−pad.y`；
+        //   上式那对 y 在「y 向下」的框里正好把**上沿往上、下沿往下**推）。样板 → `Battle/BattleDriver.cs:3596-3636`。
+        // ⚠️ **`Challenge button` / `Feedback Button` 出厂关着**（见 `Build` 里那两句 `SetActive(false)`），
+        //   但**结构与命中区照原版照样登记**（原版那两颗的 `Image` 同样带 pad）—— 开着的都是原版值。
+        static readonly PxRect GearBox = new PxRect(1803.1f, 4.6f, 1890.9f, 66.4f);
+        static readonly Vector4 GearPad = new Vector4(-4.38f, -18.10f, -9.70f, -17.86f);
+        static readonly PxRect InboxBox = new PxRect(425.3f, 15.5f, 480.3f, 55.5f);
+        static readonly Vector4 InboxPad = new Vector4(-6.28f, -23.00f, -5.70f, -23.00f);
+        static readonly PxRect ChallengeBox = new PxRect(490.1f, 11.8f, 537.6f, 59.2f);
+        static readonly Vector4 ChallengePad = new Vector4(-4.14f, -10.10f, -5.22f, -10.40f);
+        static readonly PxRect FeedbackBox = new PxRect(565.44f, 10.5f, 615.44f, 60.5f);
+        static readonly Vector4 FeedbackPad = new Vector4(-4.35f, -17.90f, -5.18f, -18.30f);
+        /// <summary>头像那一格（`Player_Profile_Border`）—— **本次不动它**：原版那颗 `Border` 的 `Image`
+        /// `m_RaycastTarget = **0**`、pad 也全 0（2026-10-14 现读）⇒ **原版那一刻吃指针的其实不是它**
+        /// （「可射线件的并集」还没查 — 铁律 3）⇒ 我们**不给它换一个数**（⛔ 不许拿一个数顶另一个；见报告「没查清」）。这一格只把矩形提成常量，好与上面四颗一个写法。</summary>
+        static readonly PxRect AvatarBorderBox = new PxRect(-10.0f, 9.0f, 165.5f, 139.1f);
+
         /// <summary>等级徽章的**圆底图**（`A1637`）：`Player Level` 那颗 `Image` 的 `m_Sprite`
         /// = pid `2381704724431365035` = **`UI_Button_Round_background`**（深色圆 + 一圈细亮环，237²）。
         /// 判据三条（真包扫 pid · 场景 MB 2359 · `bundle_menus_assets_all` 里 4 份 `Player Level` 同 pid）
@@ -151,8 +191,9 @@ namespace CardPresentation
             // ---- 齿轮（右上角那一格）----
             var settings = New(bar, "SettingsBtn", 87.78f, 61.73f);
             // 原版 `m_PreserveAspect = 1`、贴图 179×179 塞进 87.78×61.73 ⇒ 实绘 61.73²（居中）
-            var gear = Rect(settings, "UI_Settings_Icon", 1803.1f, 1890.9f, 4.6f, 66.4f, "Image",
-                            QBarContent, null, true, onMissing);
+            // 🔴 **画出来那块（61.73²）≠ 原版那件自己的矩形（`GearBox` = 87.78×61.73）** ——
+            //    命中区取**后者** + `GearPad`（`A1814`：两个数分开表达，判据见文件头那一整段）。
+            var gear = Rect(settings, "UI_Settings_Icon", GearBox, "Image", QBarContent, null, true, onMissing);
             // ⚙️ 设置钮的红点：**没有通知源** ⇒ 画出来但 alpha = 0（原版由 `UiBadgeNotification` 按通知亮）
             Rect(settings, "40K_notification_number", 1865.9f, 1890.9f, 4.4f, 29.4f, "Badge Highlight",
                  QBarBadge, MainMenuRuntime.BadgeAlpha(false), false, onMissing);
@@ -160,14 +201,13 @@ namespace CardPresentation
             // ---- 信封 + 挑战（那两个顶栏钮）----
             var btns = New(bar, "TopBarButtons", 311.4f, 71.33f);
             var inbox = New(btns, "InboxBtn", 55f, 40f);
-            var inboxImg = Rect(inbox, "40K_notification", 425.3f, 480.3f, 15.5f, 55.5f, "Image",
-                                QBarContent, null, true, onMissing);
+            var inboxImg = Rect(inbox, "40K_notification", InboxBox, "Image", QBarContent, null, true, onMissing);
             // 红点：原版 `Inbox.CheckNotification` = **未读条数**，走 `UiBadgeNotification` 的 **alpha 补间**
             // （`Show()` 把 alpha 置 1、`Hide()` 置 0 —— **不是 `SetActive`**）。⚠️ **照主菜单那一份**：
             // 原来本件写死 `BadgeAlpha(false)`（恒 0）⇒ 有未读也永远不亮（见文件头 ②）。
             Rect(inbox, "40K_notification_number", 454.3f, 489.3f, 2.0f, 37.0f, "Badge Highlight",
                  QBarBadge, MainMenuRuntime.BadgeAlpha(DailyData.InboxHasBadge), false, onMissing);
-            var challenge = Rect(btns, "40K_icon_duel", 490.1f, 537.6f, 11.8f, 59.2f, "Challenge button",
+            var challenge = Rect(btns, "40K_icon_duel", ChallengeBox, "Challenge button",
                                  QBarContent, null, false, onMissing);
             // 🔴 **2026-10-11（`A1523①`）：这一颗【建出来、但出厂 `SetActive(false)`】。**
             //   原版**运行期实况就是关着的**（两条互相独立的判据）：
@@ -196,7 +236,7 @@ namespace CardPresentation
             //   ⇒ 它那格是**手写死值 `565.44`**：条内一重排它就与 `Challenge` 对不上了
             //   （判据 → `P_信箱与名牌.md` §「谁被 LayoutGroup 托管」那张表）。
             //   我们的实现在本件里**本来就全部写绝对坐标** ⇒ 这一点自动成立，⛔ 别改成跟着 `InboxBtn` 算。
-            var feedback = Rect(btns, "40K_icon_feedback", 565.44f, 615.44f, 10.5f, 60.5f, "Feedback Button",
+            var feedback = Rect(btns, "40K_icon_feedback", FeedbackBox, "Feedback Button",
                                 QBarContent, null, false, onMissing);
             if (feedback != null) feedback.gameObject.SetActive(false);
 
@@ -209,23 +249,40 @@ namespace CardPresentation
             // 🔴 **派发靠 `PointerLayer`**（全壳唯一那条「真鼠标 → 界面」的路）：主菜单场景由壳建
             //    （`ShellRuntime` → `WindowsManager.EnsureHost`，壳是 `DontDestroyOnLoad` ⇒ **进卡组编辑场景时
             //    它还在**）；`PointerLayer.Instance` 自己也会**惰性现建**一台 ⇒ 两条路都到得了。
-            parts.SettingsHit = Wire(gear, OpenSettings);
+            parts.SettingsHit = Wire(gear, GearBox, true, GearPad, OpenSettings);
             // ⚠️ 这两个入口**有返回值**（那扇窗）⇒ 包一层 lambda（方法组转不了 `Action`）
-            parts.InboxHit = Wire(inboxImg, () => MainMenuRuntime.OpenInbox());
-            parts.ProfileHit = Wire(BorderQuad(bar), () => MainMenuRuntime.OpenProfile());
-            parts.ChallengeHit = Wire(challenge, ChallengeClicked);
+            parts.InboxHit = Wire(inboxImg, InboxBox, true, InboxPad, () => MainMenuRuntime.OpenInbox());
+            // 头像那一格：原版那颗 `Border` 的 pad 全 0（且 `m_RaycastTarget = 0`）⇒ **零 pad = 不登记**
+            // （`Wire` 里那一句早退），命中区逐位照旧 —— 见 `AvatarBorderBox` 的注释与报告「没查清」。
+            parts.ProfileHit = Wire(BorderQuad(bar), AvatarBorderBox, true, Vector4.zero,
+                                    () => MainMenuRuntime.OpenProfile());
+            parts.ChallengeHit = Wire(challenge, ChallengeBox, false, ChallengePad, ChallengeClicked);
             return parts;
         }
 
         // ============================================================ 接线
 
         /// <summary>给一格挂上 `WindowButton`（原版那一件上挂的是 `OpenWindowButton` / `EverguildButton`）。
-        /// 建不出那格（缺图）⇒ 返回 `null`（调用方/自检能看出「这颗钮根本没画」）。</summary>
-        static WindowButton Wire(ImageQuad quad, System.Action onClick)
+        /// 建不出那格（缺图）⇒ 返回 `null`（调用方/自检能看出「这颗钮根本没画」）。
+        ///
+        /// <para>🆕 **2026-10-14（`A1814`）：命中区要按原版 `m_RaycastPadding` 登记**（判据 → 文件头那段）。
+        /// 🔴 **两个矩形在这里分开**：<paramref name="box"/> = **原版那件自己的矩形**（= 建它时用的那个框）、
+        /// 「画出来那块」= `keepAspect ? FitAspect(贴图, box) : box`（`m_PreserveAspect` 只改画面）。
+        /// 命中区 = `MenuDraw.PaddedHitRect(box, pad)`（**共用件，⛔ 别自写算式**）。</para>
+        /// <param name="box">**原版那一件自己的矩形**（设计 px）—— ⛔ 不是画出来那块。</param>
+        /// <param name="keepAspect">它是不是保宽高比画的（原版 `m_PreserveAspect`）—— 用来算「画出来那块」。</param>
+        /// <param name="pad">原版那颗 `Image` 的 `m_RaycastPadding`（UGUI 序 **L,B,R,T**，**负 = 外扩**）。
+        /// 全 0 = 不登记（命中区照旧逐位不变 —— 头像那一格走的就是这一支）。</param></summary>
+        static WindowButton Wire(ImageQuad quad, PxRect box, bool keepAspect, Vector4 pad, System.Action onClick)
         {
             if (quad == null) return null;
             var hit = quad.gameObject.AddComponent<WindowButton>();
             hit.onClick = onClick;
+            if (pad != Vector4.zero)
+            {
+                var drawn = keepAspect ? FitAspect(quad.Texture, box.x1, box.x2, box.y1, box.y2) : box;
+                PointerLayer.RegisterHitRect(hit, drawn, MenuDraw.PaddedHitRect(box, pad));
+            }
             return hit;
         }
 
@@ -314,8 +371,7 @@ namespace CardPresentation
 
             var av = New(p, "Avatar Item Small", 138.42f, 139.568f);
             // 盾框：**保宽高比**（原版 `m_PreserveAspect = 1`，39/39 都带）—— 拉伸会宽 1.6 倍
-            Rect(av, "Player_Profile_Border", -10.0f, 165.5f, 9.0f, 139.1f, "Border", QBarAvatarFrame,
-                 null, true, onMissing);
+            Rect(av, "Player_Profile_Border", AvatarBorderBox, "Border", QBarAvatarFrame, null, true, onMissing);
             BuildTopAvatar(av, parts, onMissing);
 
             // ============================================================ 等级徽章（头像右下那颗圆牌）
@@ -577,6 +633,23 @@ namespace CardPresentation
             return t;
         }
 
+        /// <summary>`m_PreserveAspect = 1` 的**唯一实现**（本件）：把框**内缩**成贴图的比例，返回
+        /// 「**画出来那块**」（⛔ 只改框，贴图一个字不动 —— 原版 `Image.GetDrawingDimensions`：
+        /// 图比框宽 ⇒ 按宽定，否则按高定；与 `MenuDraw.Rect` 那条**同一条算法**）。
+        ///
+        /// <para>🔴 **2026-10-14（`A1814`）它有了第二个用途**：`Wire` 要用它把「画出来那块」算出来，
+        /// 再拿【原版那件自己的矩形】去算命中区 —— 这两个数在保宽高比时**本来就不相等**
+        /// （齿轮 87.78×61.73 的框，画出来只有 61.73²）。⛔ 别把两件事合成一个数。</para>
+        /// <para>贴图比例拿不到（`tex == null` / 高 0）⇒ **原样返回**（不内缩）。</para></summary>
+        static PxRect FitAspect(Texture tex, float x1, float x2, float y1, float y2)
+        {
+            if (tex == null || tex.height <= 0) return new PxRect(x1, y1, x2, y2);
+            float sprAspect = (float)tex.width / tex.height, rectAspect = (x2 - x1) / Mathf.Max(1e-6f, y2 - y1);
+            if (sprAspect > rectAspect) { float nh = (x2 - x1) / sprAspect, d = ((y2 - y1) - nh) * 0.5f; y1 += d; y2 -= d; }
+            else { float nw = (y2 - y1) * sprAspect, d = ((x2 - x1) - nw) * 0.5f; x1 += d; x2 -= d; }
+            return new PxRect(x1, y1, x2, y2);
+        }
+
         static ImageQuad Rect(Transform parent, string art, float x1, float x2, float y1, float y2, string name,
                               int q, Color? tint, bool keepAspect, Action<string> onMissing)
         {
@@ -588,17 +661,24 @@ namespace CardPresentation
             return quad;
         }
 
+        /// <summary>🆕 **2026-10-14（`A1814`）**：吃 `PxRect` 的薄包装 —— 给「**同一个框既要拿去建、又要拿
+        /// 去算命中区**」的那 5 颗钮用（那 4 颗 + 头像）。⛔ 别把框写成两份字面量（「两处写同一条规则 = 迟早不一致」）。</summary>
+        static ImageQuad Rect(Transform parent, string art, PxRect box, string name, int q, Color? tint,
+                              bool keepAspect, Action<string> onMissing)
+            => Rect(parent, art, box.x1, box.x2, box.y1, box.y2, name, q, tint, keepAspect, onMissing);
+
         /// <summary>`keepAspect = true` ⇒ 先把矩形**内缩**成贴图的宽高比再建（原版 `m_PreserveAspect = 1`；
-        /// 算法与 `MenuDraw.Rect` 那条**同一条**）。</summary>
+        /// 算法与 `MenuDraw.Rect` 那条**同一条**）。
+        /// 🔴 **2026-10-14（`A1814`）**：内缩那一段收口到 <see cref="FitAspect"/> —— 因为 `Wire` 也要算
+        /// 「**画出来那块**」（命中区要用**两个数**：原版布局框 vs 画出来那块）。</summary>
         static ImageQuad RectTex(Transform parent, Texture tex, float x1, float x2, float y1, float y2, string name,
                                  int q, bool keepAspect)
         {
             if (tex == null) return null;
-            if (keepAspect && tex.height > 0)
+            if (keepAspect)
             {
-                float sprAspect = (float)tex.width / tex.height, rectAspect = (x2 - x1) / Mathf.Max(1e-6f, y2 - y1);
-                if (sprAspect > rectAspect) { float nh = (x2 - x1) / sprAspect, d = ((y2 - y1) - nh) * 0.5f; y1 += d; y2 -= d; }
-                else { float nw = (y2 - y1) * sprAspect, d = ((x2 - x1) - nw) * 0.5f; x1 += d; x2 -= d; }
+                var f = FitAspect(tex, x1, x2, y1, y2);
+                x1 = f.x1; x2 = f.x2; y1 = f.y1; y2 = f.y2;
             }
             var quad = ImageQuad.Create(parent, tex, Center(x1, x2, y1, y2), H(y1, y2),
                                         new Vector2(0.5f, 0.5f), name);

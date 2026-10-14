@@ -5,7 +5,9 @@ gen_cards_engine.py — 卡牌原始数据 → 规则引擎用的精简卡表
 
 为什么要有这一道：
   1. `card_stats.json` 有 978 KB，大头是 `art` / `voice` / `ocrSrc` / `face` 这些
-     **引擎完全用不到的路径字符串**。精简后只剩 273 KB，能进构建、能进仓库。
+     **引擎完全用不到的路径字符串**。精简后能进构建、能进仓库
+     （⚠️ **2026-10-14 `A1801` 订正**：这里原写「只剩 273 KB」—— 那是**当时**的读数、早就过期；
+     现读 = **387,741 B ≈ 379 KB**。⛔ 别在这种注释里写会烂的死数，要写就写现读的）。
   2. 原始数据里数值字段**大量为 null**（`"cost": null` 有 124 处）。
      C# 侧 `JsonUtility` 遇到显式 null 不可靠 —— 在这里一次性归一化掉，
      生成的 JSON 里每个字段都有确定类型，`CardDatabase.cs` 就不用写防御代码了。
@@ -32,6 +34,12 @@ RARITY_SRC = r"d:/4/Unity/资料/卡牌数据表/卡牌宝石稀有度_0824.md"
 # 中文卡名/效果文字：键 = 英文卡名。**只有这一份**（原来是 7 个 `_tmp_zhcards_g*.json`，
 # 2026-09-12 合并成 zh_cards.json —— `_tmp_` 那个名字有被当临时文件清掉的风险）。
 ZH_SRC = r"d:/4/Unity/数据/卡牌翻译/zh_cards.json"
+# 🔴 **原版官方中文表**（`A1801`，2026-10-14 起）：原版客户端真有中文表 —— 由远端 Addressables 包
+#    `localization_assets_all`（2025-07-30 快照）下发，2026-10-14 解开（I2 `I2Languages` 的 `temp`
+#    是**逐字节重复密钥 XOR**，不是压缩）。结构：`terms` 是 dict、值 = `[en, zh-CN]` 两元素数组。
+#    ⇒ **卡中文名以它为准**（下面 `load_official_cardname()`），`zh_cards.json` 降为**兜底**
+#    （官方表里没有的卡才用它那份自译）。判据出处：`资料/普查产出_第二十七会话/I2词条表_解码路径.md`。
+OFFICIAL_LOC_SRC = r"d:/4/Unity/数据/游戏数据/官方本地化_en+zh-CN.json"
 
 # 🔴 **卡改过名之后，中文表里还留着旧名** ⇒ 按新名查落空 ⇒ 卡面印英文名。
 #    这张表 = 「引擎卡名 → 中文表里的键」。**只填「同一张卡改了名」的**，
@@ -39,8 +47,15 @@ ZH_SRC = r"d:/4/Unity/数据/卡牌翻译/zh_cards.json"
 #    ⚠️ **2026-09-18 更正**：原来这里写「**官方本地化**里那个旧名」—— **那个说法站不住**。
 #       实测原版客户端**根本没有中文表**（246,807 个文件扫中文串零命中 · 84 个 bundle 无本地化包 ·
 #       I2 表在远端 CCD）⇒ 这张 csv **是我们自己译的**，不是官方产物。
-#       它仍然可以当**我们内部的命名基准**用（避免同一个名字两处不一致），但**不是「原版怎么说」的判据** ——
-#       要判原版语义得走卡图（铁律 7）或反编译。
+#       🔴 **2026-10-14 更正（铁律 5，本会话现核）**：上面这条**只说对了一半、结论写反了** ——
+#          原版客户端**有**官方中文表：它**不在客户端安装目录里**，而是由**远端 Addressables 包
+#          `localization_assets_all`**（2025-07-30 快照）下发。⇒ 「246,807 个文件扫中文串零命中」
+#          **只证明「不在离线包体里」**，**不等于「根本没有」**（当年就是把这两句读成了一句）。
+#          该包 2026-10-14 已解开并落进 `Unity/数据/游戏数据/官方本地化_en+zh-CN.json`
+#          （判据 → `资料/普查产出_第二十七会话/I2词条表_解码路径.md`）。
+#        ✅ **仍然成立的两条**：① 这张 `zh_CN.csv` **是我们自己译的**（不是官方产物）；
+#          ② **客户端安装目录里**确实没有中文表。这张 csv 继续当**我们内部的命名基准**用。
+#          ⛔ 但「中文名以谁为准」已经从「我们自译」改成**官方表**（见 `OFFICIAL_LOC_SRC`）。
 #    翻译本身不抄进代码（免得两处各写一份，迟早不一致）。
 #    出处：`资料/PnP卡图_逐张对账_0915.md` §四·F 的改名清单（每条都带三处独立证据）。
 ZH_NAME_ALIAS = {
@@ -639,6 +654,70 @@ def load_warlord_defence():
     return m
 
 
+# ============================================================================
+#  卡能不能进卡组（原版 `RawCardScript.inventoryOptions` / `showInCollectionOptions`，`A1798`）
+# ============================================================================
+# 🔴 **2026-10-14（`A1798`）：这份数据是【原版真值】，不是我们推的。**
+#   来源 = 同 `allcards` 包（1195 张卡 SO 全字段）→ `数据/游戏数据/card_inventory_options.json`，
+#   由 `工具/gen_card_inventory_options.py` 生成（四级定位：原版 id → 卡名+阵营 → 卡名唯一 →
+#   卡名重名但值一致；落不下的**记 -1「未知」，不猜**）。
+#   ⚠️ 本件**必须在 `gen_card_inventory_options.py` 之后跑**（那个脚本要读现卡池的 id/阵营）。
+#   原版用法 = `DeckUtility__ValidateDeckCards.c:68-72`（`inv != 0` ⇒ 非法）/ `:73-77`（`show != 5` ⇒ 非法）；
+#   ⚠️ `CardDeck__CanAddCard.c:40` 写的是 `&&`（与前三处不一致，差集 77 张）—— 解释见那个脚本头部。
+INV_SRC = r"d:/4/Unity/数据/游戏数据/card_inventory_options.json"
+
+
+def load_inventory_options():
+    """读 `card_inventory_options.json` → `{我们的卡id: (inv, show)}`（`-1` = 真值里查不到）。
+
+    取不到就返回空表并**出声**（卡表照旧生成，只是那两列全 `-1` ⇒ 引擎按原版口径
+    **一张都不会拦** —— 这必须让跑的人看见，不许静默退回旧口径）。
+    """
+    if not os.path.exists(INV_SRC):
+        print(f"⚠️ 找不到 {INV_SRC} —— 卡表的 `inventoryOptions`/`showInCollectionOptions` 两列将**全是 -1**"
+              f"（`DeckRules.CannotAddToDeck` 于是谁也拦不住 —— 请先跑 工具/gen_card_inventory_options.py）")
+        return {}
+    d = json.load(open(INV_SRC, encoding="utf-8"))
+    m = d.get("map") or {}
+    if not m:
+        print(f"⚠️ {INV_SRC} 的 `map` 是空的 —— 两列将全 -1")
+    return {k: (v.get("inv"), v.get("show")) for k, v in m.items()}
+
+
+# ============================================================================
+#  先后手：原版 `RawCardScript.initiative`（`A1775`，2026-10-14）
+# ============================================================================
+# 🔴 **原版真值**（不是我们推的）。来源 = 同 `allcards` 包（1195 张卡 SO 的 `initiative` 字段）
+#   → `数据/游戏数据/card_initiative.json`，由 `工具/gen_card_initiative.py` 生成
+#   （它**复用** `card_inventory_options.json` 的 `map` 做 id 匹配 —— 一处匹配、两处消费）。
+#   `Initiative` 枚举（`Assembly-CSharp/Initiative.cs`）：`Undefined=0 / Low=10 / Medium=20 /
+#   High=30 / VeryHigh=40`；真值实测 **1190 行 = 20 · 2 行 = 30（两张教程督军）· 3 行缺**。
+#   原版用法（方法体逐句实读）：
+#     `BattleManager__GetPlayerGoesFirst.c`（顶层：① 模式特例 ② 比 initiative ③ 平局缓存
+#       ④ `MatchData.playerIdGoesFirst` ⑤ 掷硬币）·
+#     `SupportMethods__GetPlayerGoesFirstWithInitiative.c`（比大小那一支的真身）。
+#   ⚠️ `-1` = 真值里查不到这张卡（快照 2025-07-30 比现池旧）⇒ 判先后手时**不比**（退回 ③④⑤），
+#      ⛔ **不许拿默认值顶上**（那会把「没数据」静默变成「有数据」）。
+INIT_SRC = r"d:/4/Unity/数据/游戏数据/card_initiative.json"
+
+
+def load_initiative():
+    """读 `card_initiative.json` → `{我们的卡id: initiative}`（`-1` = 真值里查不到）。
+
+    取不到就返回空表并**出声**（卡表照旧生成，只是整列 `-1` ⇒ 先后手判据退化成原版的
+    最后一步「掷硬币」= 今天的行为 —— 这必须让跑的人看见，不许静默退回）。
+    """
+    if not os.path.exists(INIT_SRC):
+        print(f"⚠️ 找不到 {INIT_SRC} —— 卡表的 `initiative` 一列将**全是 -1**"
+              f"（先后手提不到先攻值、只会掷硬币 —— 请先跑 工具/gen_card_initiative.py）")
+        return {}
+    d = json.load(open(INIT_SRC, encoding="utf-8"))
+    m = d.get("map") or {}
+    if not m:
+        print(f"⚠️ {INIT_SRC} 的 `map` 是空的 —— 整列将全 -1")
+    return {k: v.get("initiative", -1) for k, v in m.items()}
+
+
 def resolve_warlord_defence(raw_map, cards):
     """把真值表按【阵营】落到我们的卡池上 → `({阵营: 我们的防御卡id}, 报告行)`。
 
@@ -720,6 +799,73 @@ def load_zh():
     return out
 
 
+def load_official_cardname():
+    """原版**官方中文卡名**（`A1801`）→ `(by_id, by_en, bad, stats)`。见 `OFFICIAL_LOC_SRC` 那段。
+
+    `by_id`  = {`Card_Name/` 的键 id : 中文}`（`AM12` / `ASH83` 这种）
+    `by_en`  = {官方英文名 : 中文}` —— **桥**：官方那 1065 条 `Card_Name` 里有 124 条键是
+               32 位 GUID（原版包里的 `m_SubObjectName` 形态），**拿不到我们的卡 id**
+               ⇒ 只能拿**卡的英文名**去官方表里找「`Card_Name/*` 的英文值 == 这个英文名」的那一条。
+               ⚠️ **同名卡（Terminator Champion / Maulerfiend / Terminator）会有多条候选** ——
+               现读那 5 组候选的**中文值逐组相同**，故取哪条都一样；仍然**按阵营前缀优先**取，
+               并把「候选值不一致」报出来（`bad`），⛔ 不许静默挑一条。
+    `bad`    = **官方表自身坏掉的条目**（值不成立）—— 现读只有 `AM24`（中文 = `"u"`）。
+               ⛔ 这一条**绝不能进卡表**（会把卡名印成一个字母），故**整个键丢弃**、
+               让它退回我们自译并出声。
+
+    🔴 **为什么不能只按 id 整批换**（铁律 5·c）：官方表是 2025-07-30 快照，之后原版还出过新卡
+       ⇒ 现池 1126 张里有一批**在快照里根本没有** ⇒ 走英文名桥补回 137 张，最后 152 张
+       **两族都查不到**（保持自译、出声，⛔ 不填占位）。
+    """
+    if not os.path.exists(OFFICIAL_LOC_SRC):
+        print(f"⚠️ 找不到官方中文表 {OFFICIAL_LOC_SRC} —— 卡中文名将退回 `zh_cards.json`（我们自译）")
+        return {}, {}, [], None
+    terms = json.load(open(OFFICIAL_LOC_SRC, encoding="utf-8")).get("terms") or {}
+    by_id, by_en, bad = {}, {}, []
+    for k, v in terms.items():
+        if not k.startswith("Card_Name/"):
+            continue
+        _id = k[len("Card_Name/"):]
+        en = (v[0] if len(v) > 0 else "") or ""
+        zh = (v[1] if len(v) > 1 else "") or ""
+        zh = zh.strip()
+        # 「值不成立」= 空白 / 只有一个字符 / 一个汉字都没有（现读 `AM24` = `"u"` 是唯一一条）
+        if len(zh) < 2 or not re.search(r"[一-鿿]", zh):
+            bad.append((_id, en, zh))
+            continue
+        by_id[_id] = zh
+        by_en.setdefault(en, []).append((_id, zh))
+    stats = {"terms": sum(1 for k in terms if k.startswith("Card_Name/")),
+             "ok": len(by_id), "bad": len(bad),
+             "guid": sum(1 for k in by_id if re.fullmatch(r"[0-9a-f]{32}", k))}
+    print(f"官方中文表   `Card_Name/*` {stats['terms']} 条（可用 {stats['ok']} · GUID 键 {stats['guid']} ·"
+          f" 值不成立丢弃 {stats['bad']}）")
+    for _id, _en, _zh in bad:
+        print(f"            ⚠️ 官方值不成立、**丢弃**：`Card_Name/{_id}` = ({_en!r}, {_zh!r})"
+              f" —— 这张卡退回我们自译（理由见 `load_official_cardname` 的 docstring）")
+    return by_id, by_en, bad, stats
+
+
+def official_name(by_id, by_en, cid, name, faction, conflicts):
+    """一张卡的官方中文名（两级查，见 `load_official_cardname`）→ `(值 or None, 命中路)`。"""
+    if cid in by_id:
+        return by_id[cid], "id"
+    cands = by_en.get(name)
+    if not cands:
+        return None, None
+    if len(cands) > 1:
+        vals = {z for _k, z in cands}
+        if len(vals) > 1:
+            conflicts.append((cid, name, cands))
+        # 同名卡：取**阵营前缀相同**的那条（取不到就按官方表的先后序取第一条）
+        pre = (faction or "").upper()
+        for _k, _z in cands:
+            m = re.match(r"^([A-Za-z]+?)(?:_|[0-9]|$)", _k)
+            if m and m.group(1).upper() == pre:
+                return _z, "en"
+    return cands[0][1], "en"
+
+
 def norm_int(v):
     """None/非数字 → 0。原始数据里 null 很常见（59 张卡无数值）"""
     if v is None:
@@ -749,6 +895,12 @@ def build():
 
     rarity_lookup = make_rarity_lookup(load_rarity())
     zh = load_zh()
+    # 🆕 2026-10-14（`A1801`）：**官方中文卡名**（`OFFICIAL_LOC_SRC`）—— 它在下面**盖掉自译**。
+    off_id, off_en, off_bad, off_stats = load_official_cardname()
+    off_hit = []          # (卡id, 英文名, 换前, 换后, 命中路) —— 真改掉的那些
+    off_same = []         # 官方值 == 我们自译（不需要动）
+    off_miss = []         # 两级都没查到 → 保持自译（**要出声**，见跑完的摘要）
+    off_conflict = []     # 同名卡的多条候选值不一致（要出声）
     face_fixes, face_fixes_by_fac = load_cardface_fixes()   # 卡面逐张核对修正（2026-09-13），见那张表的长注释
     # ⚠️ 两张表：裸卡名 / 带阵营 —— **同名卡必须用后者**，见 `load_cardface_fixes` 的注释
     face_fixed = []                         # 被修正过的卡（跑完打出来给人看）
@@ -758,7 +910,11 @@ def build():
     key_conflicts = []
     id_by_name = load_ids()                 # 原版 id（见 `IDS_SRC` 那段长注释）
     raw_def = load_warlord_defence()        # 督军后手那张防御卡（原版真值，见 `DEFENCE_SRC` 那段）
+    raw_inv = load_inventory_options()      # 卡能不能进卡组（原版真值，见 `INV_SRC` 那段）
+    raw_init = load_initiative()            # 先后手用的先攻值（原版真值，见 `INIT_SRC` 那段）
     id_orig, id_made = [], []               # 用上原版 id 的 / 自造 id 的（跑完打出来给人看）
+    inv_unknown = []                        # `inventoryOptions` 真值查不到的卡（`A1798`，跑完打出来）
+    init_unknown = []                       # `initiative` 真值查不到的卡（`A1775`，跑完打出来）
     cards, skipped = [], []
     _seen_ids = set()                       # 生成的 id 必须两两不同（下面有断言）
     _seen_names = set()   # (阵营, 归一化卡名) —— 判重只在这个粒度上做
@@ -886,6 +1042,25 @@ def build():
             # 覆盖：1212 张里 1117 张有值（95 张没有，多半是 token / 未实装卡）
             "subtype":  norm_str(c.get("subtype")),
         }
+        # ---- 卡能不能进卡组（原版 `inventoryOptions` / `showInCollectionOptions`，`A1798` 2026-10-14）----
+        # 🔴 **原版真值直搬**（`工具/gen_card_inventory_options.py` 四级定位出来的），本处**一个字不推**。
+        #    `-1` = 真值里查不到这张卡（快照比现池旧：整个 SpaceWolves + DA75..DA86 等）⇒ 引擎**不拦**，
+        #    但跑完的摘要会把条数与原因**打出来**（不许静默 —— 见 `main()` 那一段）。
+        _inv, _show = raw_inv.get(cid, (-1, -1))
+        entry["inventoryOptions"] = -1 if _inv is None else _inv
+        entry["showInCollectionOptions"] = -1 if _show is None else _show
+        if _inv is None:
+            inv_unknown.append((cid, norm_str(c.get("name")), norm_str(c.get("faction"))))
+        # ---- 先后手：原版 `initiative`（`A1775` 2026-10-14）----
+        # 🔴 **原版真值直搬**（`工具/gen_card_initiative.py`，id 匹配复用 `card_inventory_options.json`），
+        #    本处**一个字不推**。`-1` = 真值里查不到这张卡 ⇒ 判先后手时**不比**（退回原版最后一步掷硬币），
+        #    跑完的摘要会把条数打出来（不许静默）。取值表见 `INIT_SRC` 那段。
+        _init = raw_init.get(cid, -1)
+        if _init is None:
+            _init = -1
+        entry["initiative"] = int(_init)
+        if _init < 0:
+            init_unknown.append((cid, norm_str(c.get("name")), norm_str(c.get("faction"))))
         # ---- 卡面逐张核对修正（2026-09-13）----
         # 上面那两列 `subtype` / `keywords` 都是**从 OCR 那份源表来的**，实测会串列、会掉数值。
         # 这一层用「1118 张逐张看卡图独立抄」的结果盖掉 —— 见 `CARD_FACE_FIXES_SRC` 的长注释。
@@ -937,6 +1112,19 @@ def build():
         #    别名端过来的是旧名字的译文（会印错「第二连」），这一层再盖掉。
         if name in ZH_NAME_OVERRIDE:
             entry["nameZh"] = ZH_NAME_OVERRIDE[name]
+        # 🆕 2026-10-14（`A1801`）：**官方中文名放在最后面** —— 它是权威（见 `OFFICIAL_LOC_SRC`），
+        #    `zh_cards.json` 那份自译降为**兜底**（官方表里查不到这张卡时才用它）。
+        #    ⚠️ 两级查法是**必需**的，⛔ 不能只按 id：官方表是 2025-07-30 快照，之后原版还出过新卡，
+        #       那批的 `Card_Name` 键是 32 位 GUID、**对不上我们的卡 id** ⇒ 要走**英文名桥**
+        #       （拿卡名去官方表里找英文值相同的那一条）。现读命中 974（id 837 + 英文名补 137）。
+        _ozh, _ovia = official_name(off_id, off_en, cid, name, faction, off_conflict)
+        if _ozh is None:
+            off_miss.append((cid, name, entry.get("nameZh") or ""))
+        elif _ozh == (entry.get("nameZh") or ""):
+            off_same.append((cid, name, _ozh, _ovia))
+        else:
+            off_hit.append((cid, name, entry.get("nameZh") or "", _ozh, _ovia))
+            entry["nameZh"] = _ozh
         # ⚠️ `descZh` 的卡面修正必须**放在中文表之后** —— 否则刚写的又被上面那两行盖回去
         if _ff and "descZh" in _ff and _ff["descZh"] != entry.get("descZh"):
             face_fixed.append((name, "descZh", entry.get("descZh") or "", _ff["descZh"]))
@@ -971,26 +1159,46 @@ def build():
             if ("fac", _fac, _k) not in used_face_fix: orphan_face_fix.append(f"{_fac}/{_k}")
 
     return {
-        "version": 6,          # v6: 每张卡带稳定 id（原版 id 优先，对不上的自造 —— 见 IDS_SRC 那段）
+        "version": 8,          # v6: 每张卡带稳定 id（原版 id 优先，对不上的自造 —— 见 IDS_SRC 那段）
+                               # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
+                               # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
-                  "中文另取 数据/卡牌翻译/zh_cards.json；"
+                  "中文名以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
+                  "（2025-07-30 远端包快照；官方表里没有的卡才用 数据/卡牌翻译/zh_cards.json 那份自译），"
+                  "中文效果另取 数据/卡牌翻译/zh_cards.json；"
                   "subtype/keywords 另按 数据/游戏数据/cardface_fixes.json 修正；"
                   "id 另取 数据/游戏数据/card_ids.json，对不上的自造；"
                   "督军的 goesSecond 另取 数据/游戏数据/warlord_goes_second.json —— **原版真值**，"
-                  "来源 = 抢救出的原版远端包 allcards（见该文件里的 provenance））",
+                  "来源 = 抢救出的原版远端包 allcards（见该文件里的 provenance）；"
+                  "inventoryOptions / showInCollectionOptions 另取 数据/游戏数据/card_inventory_options.json"
+                  "—— 同为**原版真值**（同包），由 工具/gen_card_inventory_options.py 落到我们卡池的 id 上；"
+                  "initiative 另取 数据/游戏数据/card_initiative.json"
+                  "—— 同为**原版真值**（同包），由 工具/gen_card_initiative.py 落到我们卡池的 id 上）",
         "note": "由 工具/gen_cards_engine.py 生成，不要手改。"
-                "改数据请改 card_stats.json / 数据/卡牌翻译/zh_cards.json / 数据/游戏数据/cardface_fixes.json 后重跑。"
-                "nameZh / descZh 是可选字段 —— 没有的卡面回英文；"
+                "改数据请改 card_stats.json / 数据/游戏数据/官方本地化_en+zh-CN.json / "
+                "数据/卡牌翻译/zh_cards.json / 数据/游戏数据/cardface_fixes.json 后重跑。"
+                "nameZh 优先取原版官方中文表（查不到才回自译，见 source）；descZh 是我们自译；"
                 "subtype 是**卡面那行橙字**（部队卡=兵种 Infantry/Vehicle/…；防御卡=Defence；"
                 "督军=Warlord；有些计策=Dark Pact/Overlord Power/Combat Elixir…），空串=卡面没这行。"
                 "id 是**稳定身份**：原版 id 形如 `AM12`（字母前缀+纯数字）；"
                 "**自造 id 形如 `AM_Some_Card`（带下划线）** —— 一眼能分出「原版有 id」和「我们补的」。"
                 "goesSecond = 原版 `RawCardScript.goSecondCardInHand`（只写在督军卡上）："
-                "该督军后手那一局会拿到的防御卡 id；空串 = 真值里没有这个阵营的督军。",
+                "该督军后手那一局会拿到的防御卡 id；空串 = 真值里没有这个阵营的督军。"
+                "inventoryOptions / showInCollectionOptions = 原版同名字段（`CardInventoryOptions` /"
+                "`ShowInCollectionOptions` 枚举），**`-1` = 真值里查不到这张卡**（快照比现池旧）——"
+                "⛔ 别把 -1 当成 0（InInventory）；判据消费者 = `RuleEngine/Core/DeckRules.cs` 的"
+                "`CannotAddToDeck`（原版 `DeckUtility__ValidateDeckCards.c:68-77`）。"
+                "initiative = 原版 `RawCardScript.initiative`（`Initiative` 枚举："
+                "Undefined=0/Low=10/Medium=20/High=30/VeryHigh=40），**`-1` = 真值里查不到这张卡**"
+                "（同上快照原因）—— 先后手判据（`RuleEngine/Core/FirstSeatRules.cs`）对 `-1` **不比**，"
+                "退回原版最后一步掷硬币；⛔ 别拿默认值顶上。",
         "count": len(cards),
         "cards": cards,
     }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, orphan_face_fix, \
-       key_conflicts, (def_report, _gs_n, _gs_hero, _gs_missing_fac)
+       key_conflicts, (def_report, _gs_n, _gs_hero, _gs_missing_fac), \
+       (off_hit, off_same, off_miss, off_conflict, off_bad, off_stats), \
+       (inv_unknown, raw_inv), \
+       (init_unknown, raw_init)
 
 
 def fix_own_armour(entry):
@@ -1022,8 +1230,12 @@ def main():
     args = ap.parse_args()
 
     (doc, skipped, total, filled, still_missing, stat_fixed, face_fixed,
-     id_orig, id_made, orphan_face_fix, key_conflicts, goes_second) = build()
+     id_orig, id_made, orphan_face_fix, key_conflicts, goes_second, off, inv,
+     init) = build()
     def_report, _gs_n, _gs_hero, _gs_missing_fac = goes_second
+    off_hit, off_same, off_miss, off_conflict, off_bad, off_stats = off
+    inv_unknown, raw_inv = inv
+    init_unknown, raw_init = init
 
     by_type = {}
     for c in doc["cards"]:
@@ -1137,6 +1349,38 @@ def main():
     print(f"\n中文名       {zh_n}/{doc['count']}   中文效果 {zh_d}/{doc['count']}"
           f"   （缺 {missing} 张，卡面回英文、不静默）")
 
+    # 🆕 2026-10-14（`A1801`）：**中文卡名换官方**（来源见 `OFFICIAL_LOC_SRC`）—— 逐档如实报。
+    #    ⛔ 不许把「官方表里没有这张卡」写成「换过了」：那 152 张仍是我们自译，**要看得见**。
+    if off_stats:
+        print(f"\n官方中文名   `Card_Name/*` {off_stats['terms']} 条（可用 {off_stats['ok']}）"
+              f" → 两级命中 {len(off_hit) + len(off_same)}/{doc['count']} 张"
+              f"（其中 id 直查 {sum(1 for x in off_hit + off_same if x[-1] == 'id')}"
+              f" · 英文名桥 {sum(1 for x in off_hit + off_same if x[-1] == 'en')}）")
+        print(f"            与自译**逐字相同**（不必动）{len(off_same)} 张 · "
+              f"**换掉** {len(off_hit)} 张 · 官方表查不到、**保持自译** {len(off_miss)} 张")
+        for cid, nm, old, new, how in off_hit[:8]:
+            print(f"            · {cid:<26} {nm:<30} 「{old or '(空)'}」→「{new}」  [{how}]")
+        if len(off_hit) > 8:
+            print(f"            … 其余 {len(off_hit) - 8} 张同理")
+        if off_miss:
+            _mf = {}
+            for cid, nm, z in off_miss:
+                m = re.match(r"^([A-Za-z]+?)(?:_|[0-9]|$)", cid)
+                _mf[m.group(1) if m else cid] = _mf.get(m.group(1) if m else cid, 0) + 1
+            print(f"  ⚠️ 官方表（2025-07-30 快照）里**没有**这 {len(off_miss)} 张卡 ⇒ 卡名仍是我们自译：")
+            print("            " + " · ".join(f"{k} {v}" for k, v in sorted(_mf.items(), key=lambda x: -x[1])))
+            for cid, nm, z in off_miss[:6]:
+                print(f"            · {cid:<26} {nm:<30} 自译「{z or '(空)'}」")
+            if len(off_miss) > 6:
+                print(f"            … 其余 {len(off_miss) - 6} 张同理")
+        for cid, nm, cands in off_conflict:
+            print(f"  ⚠️ 同名卡的多条官方候选**值不一致**：{cid} {nm} → "
+                  + " · ".join(f"{k}=「{z}」" for k, z in cands))
+        for _id, _en, _zh in off_bad:
+            print(f"  ⚠️ 官方值不成立已丢弃：`Card_Name/{_id}` = ({_en!r}, {_zh!r}) ⇒ 该卡保持自译")
+    else:
+        print("\n官方中文名   ⚠️ 没读到官方表 ⇒ 卡名仍是我们自译（见 `OFFICIAL_LOC_SRC`）")
+
     # 督军后手那张防御卡（`A1070` 第 ③ 档）—— 原版真值，来源见 `DEFENCE_SRC` 那段
     print(f"\n督军防御卡   字段 `goesSecond` 落在 **{_gs_n} 张督军**上（全池督军 {_gs_hero} 张）"
           f"· 真值覆盖 {len(def_report)} 个阵营")
@@ -1146,6 +1390,60 @@ def main():
     if _gs_missing_fac:
         print(f"  ⚠️ 真值里没有这些阵营的督军（原版那份快照**根本没有这个字段**）⇒ "
               f"`goesSecond` 空着，引擎第 ③ 档会**出声 + 不给卡**：{'、'.join(_gs_missing_fac)}")
+
+    # 卡能不能进卡组（`A1798`）—— 原版真值，来源见 `INV_SRC` 那段
+    _inv_of = {}
+    for c in doc["cards"]:
+        _inv_of[c["id"]] = (c.get("inventoryOptions", -1), c.get("showInCollectionOptions", -1))
+    _n_ok = sum(1 for v in _inv_of.values() if v[0] >= 0)
+    _dist = {}
+    for v in _inv_of.values():
+        _dist[v[0]] = _dist.get(v[0], 0) + 1
+    # 原版 `CardDeck.CanAddCard` 把 hero / 防御卡**先路由走**（`CanAddHero` / `CanAddDefensive`）
+    # ⇒ 那两个字段对它们不生效 —— 这条路由也写进 `DeckRules.CannotAddToDeck`，两处只此一条判据。
+    _blocked = [c["id"] for c in doc["cards"]
+                if c["type"] not in ("hero", "defence")
+                and _inv_of[c["id"]][0] >= 0 and (_inv_of[c["id"]][0] != 0 or _inv_of[c["id"]][1] != 5)]
+    print(f"\n卡组准入     字段 `inventoryOptions`/`showInCollectionOptions` 接上真值 "
+          f"**{_n_ok}/{doc['count']}** 张"
+          f"· inv 分布 " + " · ".join(f"{k if k >= 0 else '-1(未知)'}={v}" for k, v in sorted(
+              _dist.items(), key=lambda kv: -kv[0])))
+    print(f"             ⇒ `DeckRules.CannotAddToDeck` 拦下 **{len(_blocked)}** 张"
+          f"（已排除 hero / 防御卡 —— 原版把它们路由给 `CanAddHero`/`CanAddDefensive`）")
+    if inv_unknown:
+        _byfac = {}
+        for cid, nm, fac in inv_unknown:
+            _byfac.setdefault(fac or "(无阵营)", []).append(nm)
+        print(f"  ⚠️ 真值里查不到这 **{len(inv_unknown)}** 张卡（快照 2025-07-30、比现池旧）"
+              f"⇒ 两列记 **-1**、引擎**不拦**（⛔ 不猜）："
+              + "  ".join(f"{k}={len(v)}" for k, v in sorted(_byfac.items(), key=lambda x: -len(x[1]))))
+        print(f"     {INV_SRC} 的 `unknown` 里有逐张清单；真值侧还有 "
+              f"{len(json.load(open(INV_SRC, encoding='utf-8')).get('unmatchedTruthRows') or [])} "
+              f"行没落进我们卡池（卡池里压根没这些卡）")
+
+    # 先后手（`A1775`）—— 原版真值，**分布要打出来**（实测现池**只有 20 一种**，那正是
+    # 「按真值判先后手」在现数据下等价于「平局 ⇒ 掷硬币」的原因，必须让人看见）
+    _idist = {}
+    for c in doc["cards"]:
+        v = c.get("initiative", -1)
+        _idist[v] = _idist.get(v, 0) + 1
+    print(f"\n先后手       字段 `initiative` 接上真值 **{doc['count'] - len(init_unknown)}/{doc['count']}** 张"
+          f"· 分布 " + " · ".join(f"{k if k >= 0 else '-1(未知)'}={v}" for k, v in sorted(
+              _idist.items(), key=lambda kv: -kv[0])))
+    print("             ⇒ 取值表 `Undefined=0/Low=10/Medium=20/High=30/VeryHigh=40`；"
+          "判据 = `RuleEngine/Core/FirstSeatRules.cs`（原版 `SupportMethods.GetPlayerGoesFirstWithInitiative`）")
+    if len(_idist) == 1 and -1 not in _idist:
+        print("             ⚠️ **只有一种取值** ⇒ 按原版那条链会**永远平局**、落到最后一步"
+              "（`MatchData.playerIdGoesFirst` / 掷硬币）—— 这就是现数据下「按真值判先后手」的真实结果，"
+              "不是我们没做")
+    if init_unknown:
+        _byfac = {}
+        for cid, nm, fac in init_unknown:
+            _byfac.setdefault(fac or "(无阵营)", []).append(nm)
+        print(f"  ⚠️ 真值里查不到这 **{len(init_unknown)}** 张卡（快照 2025-07-30、比现池旧）"
+              f"⇒ 记 **-1**、判先后手时**不比**（⛔ 不猜）："
+              + "  ".join(f"{k}={len(v)}" for k, v in sorted(_byfac.items(), key=lambda x: -len(x[1]))))
+        print(f"     {INIT_SRC} 的 `unknown` 段有逐张清单")
 
     # 稳定 id（2026-09-13 第三十三轮）—— **自造的必须报出来**，不许静默
     print(f"\n卡 id        用原版 {len(id_orig)} 张 · 自造 {len(id_made)} 张（共 {doc['count']}）")

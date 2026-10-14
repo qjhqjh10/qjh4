@@ -421,12 +421,20 @@ namespace CardPresentation
         //  （`TextTooltipController__GetTraitTooltip.c:30,35-36`），面板是 `EverguildTraitTooltipItem`
         //  （比基础版多 **图标 + 标题**）。
         //
-        //  **文案从哪来**：`工具/gen_trait_tips.py` 把
-        //  `资料/关键词图标/_规则书关键词表.md`（规则书 `:161-225` 的 61 条）生成
-        //  `Resources/trait_tips.json`。**不手抄进 C#** —— 手抄 61 条迟早和规则书对不上
-        //  （一处改了另一处不动，正是本工程反复强调的「判据只写一处」）。
-        //  ⚠️ 原版文案走 **I2 词条表**，那份在**远端 CCD** ⇒ 这一份是**我们照规则书写**的，
-        //     别当成「原版这么说」（同本类文件头那段）。
+        //  **文案从哪来**：`工具/gen_trait_tips.py` 生成 `Resources/trait_tips.json`。
+        //  **不手抄进 C#**（手抄一份迟早和源头对不上，正是本工程反复强调的「判据只写一处」）。
+        //
+        //  🔴 **2026-10-14（`A1803`）就地更正（铁律 5）**：这里原来写「文案 = 规则书那 61 条」——
+        //     **今天不对了**。正文本源 = **官方 zh-CN 词条表的 `CardTraitDescription/<规范键>`**
+        //     （56 条，`src:official`）；官方**确实没有**的那 5 个词（`ferocity` / `huntmark` /
+        //     `oath` / `pack` / `sentry`）才退回《Warpforge Offline Rulebook》
+        //     （`src:rulebook` —— 那是**粉丝实体版**、`Not official. Fan project.`，⛔ 别当原版）；
+        //     `ability` 两边都没有（`src:none`，正文空、如实说明）。
+        //     ⇒ **「这一份是我们照规则书写」这句只对那 5 条成立**，⛔ 别按旧口径理解整张表。
+        //     判据逐条 → `资料/普查产出_第二十八会话/W4_官方文案族.md`。
+        //
+        //  ⚠️ 原版那套走 **I2 词条表**（`TextTooltipController__GetTraitTooltip` → `GetTraitDesc`），
+        //     那份表 2026-10-14 已经解开了 ⇒ 现在**就是照它取的**（不是「在远端拿不到」了）。
         //
         //  **图标**：`Badges.SpriteOf(key)` —— 与卡面/徽标**同一份判据**，别另写一张表。
 
@@ -434,11 +442,24 @@ namespace CardPresentation
         //   生成物 `trait_tips.json` **已不再输出这个字段**（`工具/gen_trait_tips.py` 同步改了）
         //   ⇒ 字段一起删掉（`JsonUtility` 对多余的 json key 不报错，但留着就是个**死字段**：
         //   没人读、却让人以为正文里还有出处）。判据 → `资料/普查产出_第二十二会话/DIAG_tooltip出处行.md`。
-        [System.Serializable] class TraitTipRow { public string zh; public string en; public string body; }
+        //
+        // 🔴 **2026-10-14（`A1803`）形状换了（v2）**：正文的来源从「规则书」换成
+        //   **官方 zh-CN 词条表的 `CardTraitDescription/*`**（官方没有的那几个词才退回规则书）
+        //   ⇒ ① 查表的键从「中文显示名」改成**小写规范键**（`key`）；
+        //     ② 多了 `bodyEn`（官方那一列英文 —— 原来只有中文，英文档的 tooltip 正文也是中文）；
+        //     ③ `src` = `official` / `rulebook` / `none`，运行时**出声**用（不静默）。
+        //   判据与逐条表 → `资料/普查产出_第二十八会话/W4_官方文案族.md`；生成器文件头也写了一遍。
+        [System.Serializable] class TraitTipRow
+        {
+            public string key; public string zh; public string en;
+            public string bodyZh; public string bodyEn; public string src;
+        }
         [System.Serializable] class TraitTipTable { public TraitTipRow[] entries; }
 
         static Dictionary<string, TraitTipRow> _tips;
         static readonly HashSet<string> _warnedNoEntry = new HashSet<string>();
+        /// <summary>已经为哪些键报过「这一条正文退回规则书 / 干脆没有」（**按键去重**，理由同 `Loc._warnedMissing`）。</summary>
+        static readonly HashSet<string> _warnedSrc = new HashSet<string>();
 
         static void LoadTips()
         {
@@ -455,11 +476,23 @@ namespace CardPresentation
             var d = JsonUtility.FromJson<TraitTipTable>(ta.text);
             if (d == null || d.entries == null) return;
             foreach (var e in d.entries)
-                if (e != null && !string.IsNullOrEmpty(e.zh)) _tips[e.zh] = e;
+                if (e != null && !string.IsNullOrEmpty(e.key)) _tips[e.key.Trim().ToLowerInvariant()] = e;
         }
 
-        /// <summary>规则书表里收了多少条（自检用）。</summary>
+        /// <summary>文案表里收了多少条（自检用）。🔴 v2 起 = **规范键的条数**（= `Card_Trait/*` 那一族），
+        /// ⛔ 不是「规则书 61 条」—— 那 61 条里官方覆盖的 56 条已换成官方正文。</summary>
         public static int TraitCount { get { LoadTips(); return _tips.Count; } }
+
+        /// <summary>这一条正文的来源（自检/诊断用）：`official` / `rulebook` / `none` / `<不认识>`。</summary>
+        public static string TraitSource(string key)
+        {
+            LoadTips();
+            string k = key == null ? null : key.Trim().ToLowerInvariant();
+            string canon = string.IsNullOrEmpty(k) ? null : Badges.KeyOf(k);
+            TraitTipRow t;
+            if (string.IsNullOrEmpty(canon) || !_tips.TryGetValue(canon, out t)) return null;
+            return t.src;
+        }
 
         /// <summary>
         /// 🆕 2026-09-21：**`&lt;link>` 的统一入口** —— 先看那几个**资源/数值**键，其余一律当关键词。
@@ -490,15 +523,19 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 一个关键词的 tooltip 正文：**图标 + 标题（中文名 + 英文名）+ 规则书原文**。
+        /// 一个关键词的 tooltip 正文：**图标 + 标题（显示名 + 英文名）+ 正文**。
         /// <para>🔴 **2026-10-12（`A1660`）**：原来末尾还贴一句「（规则书 :NNN）」—— **已整条删除**
         /// （那是我们自加的，原版 `TextTooltipController__GetTraitTooltip` 只凑**标题 + 描述**两段）。
         /// 用户真机的原话是「**只写该词条的效果就行，不要多余的出处**」。</para>
         ///
-        /// 🔴 **规则书 61 条里没有这个词时，只出「图标 + 名字」，并**明写**「（规则书里没有这个词的条目）」**
+        /// <para>🔴 **2026-10-14（`A1803`）正文换成官方那两列**（判据 → `工具/gen_trait_tips.py` 文件头）：
+        /// `src:official`（56 条）取官方 zh/en 各取各的；`src:rulebook`（5 条）只有中文 ⇒ **英文档下会印中文**、
+        /// 并 `Debug.Log` 出声；两边都没有（`ability`）⇒ 正文空。</para>
+        ///
+        /// <para>🔴 **正文凑不出来时只出「图标 + 名字」+ 如实说明**（`Tips/Trait/NoRulebookEntry`）
         /// —— **不编一句解释**（自造词 `ability` 就是这一种）。
         /// 这也是原版的行为：`EverguildTraitTooltipItem` 一样是「图标 + 标题 + 正文」，查不到描述就没有正文。
-        /// 连名字都凑不出来（键是空的）才返回 null，调用方**不弹面板**。
+        /// 连名字都凑不出来（键是空的）才返回 null，调用方**不弹面板**。</para>
         /// </summary>
         public static string Trait(string key)
         {
@@ -512,9 +549,6 @@ namespace CardPresentation
             //   而且括注会印成 `护甲（Armour）` 这种中英混排。
             //   ⇒ ① 显示名改走 `CardText.KeywordDisplay`（**跟语档**：中文档中文名、英文档英文名）；
             //     ② 那对括号落成词条 `Tips/Trait/TitleWithEn`（形状 `{0}（{1}）` / `{0} ({1})`）。
-            // ⚠️ **查规则书文案表的索引键仍然是 `zhKey`（恒中文）** —— 那张表（`Resources/trait_tips.json`）
-            //    是按**中文名**索引的（`LoadTips` 里 `_tips[e.zh] = e`），⛔ 别换成显示名。
-            string zhKey = CardText.KeywordZh(key);          // 表索引：**恒中文**（⛔ 不跟语档）
             string disp  = CardText.KeywordDisplay(key);     // 显示名：**跟语档**
             string en    = CardText.KeywordEn(key);          // 英文名：恒英文（只用来补那条括注）
             string title = !string.IsNullOrEmpty(disp) ? disp : en;
@@ -528,18 +562,27 @@ namespace CardPresentation
             string sprite = Badges.SpriteOf(key);
             string icon = string.IsNullOrEmpty(sprite) ? "" : "<sprite name=\"" + sprite + "\">";
 
+            // 🔴 **2026-10-14（`A1803`）查表的键改口径**：原来是「中文显示名」
+            //   （`CardText.KeywordZh(key)`），v2 起是**小写规范键**。
+            //   ⚠️ **必须过 `Badges.KeyOf` 归一**（不是裸 `ToLowerInvariant`）：来的键可能是**图名**
+            //      或**官方键**（`frenzied` / `rage` / `markOfChaos` / `concussive` / `markOfSlaanesh`
+            //      —— 见 `CardIcons.Rewrite` 那条路），而表里存的是**我们 Loc 的规范键**
+            //      （`destroyer` / `penitence` / `darkpact` / `concussion`）。
+            //   判据表**只此一处**（`Badges.SpriteKey`）—— ⛔ 别在这里另写一张别名表。
+            string canon = Badges.KeyOf(key);
             TraitTipRow t = null;
-            if (!string.IsNullOrEmpty(zhKey)) _tips.TryGetValue(zhKey, out t);
+            if (!string.IsNullOrEmpty(canon)) _tips.TryGetValue(canon, out t);
 
             if (t == null)
             {
                 // 🔴 下面那句是**我们自己加的**：原版查不到描述时**只有「图标 + 标题」、没有正文**
                 //    （`EverguildTraitTooltipItem`，见 `资料/tooltip_原版规格与实现.md` §五）
                 //    ⇒ 键 `Tips/Trait/NoRulebookEntry` **自拟**（两列都是我们写的）。
-                // ⚠️ **不静默**：日志里说一次「规则书里没这条」，免得以后有人以为文案表漏生成
+                // ⚠️ **不静默**：日志里说一次「文案表里没这条」，免得以后有人以为文案表漏生成
                 if (_warnedNoEntry.Add(key))
-                    Debug.Log("[TipText] `" + key + "` 在规则书关键词表里没有条目 —— "
-                              + "tooltip 只出名字、不出解释（不是 bug，规则书那 61 条里就没有它）。");
+                    Debug.Log("[TipText] `" + key + "` 在关键词文案表里没有条目 —— "
+                              + "tooltip 只出名字、不出解释（`ability` 就是这一种：官方 `CardTraitDescription/*` "
+                              + "与规则书 61 条里都没有它）。");
                 return "<b>" + icon + title + "</b>\n"
                               + Loc.T("Tips/Trait/NoRulebookEntry");
             }
@@ -552,8 +595,25 @@ namespace CardPresentation
             //   **正文节点只有 `Description` 一处** ⇒ 零出处节点。
             //   ⇒ 三处一起清（⛔ 不是只在渲染处 `if` 掉）：键 `Tips/Trait/RulebookLine`（`Core/Loc.cs`）、
             //     生成物的 `line` 字段（`工具/gen_trait_tips.py` → `Resources/trait_tips.json`）、本句。
-            //   ⇒ 正文 = **标题行 + 规则书原文**，与原版同形。回归见 `Editor/BattleScene.cs` §15c。
-            return "<b>" + icon + title + "</b>\n" + t.body;
+            //   ⇒ 正文 = **标题行 + 正文**，与原版同形。回归见 `Editor/BattleScene.cs` §15c。
+
+            // 🔴 **2026-10-14（`A1803`）正文跟语档**：
+            //   · `src == "official"` ⇒ 官方那两列（中/英）**都在**，各取各的；
+            //   · `src == "rulebook"` ⇒ 官方**确实没有**这个词（`ferocity`/`huntmark`/`oath`/`pack`/
+            //     `sentry`）⇒ 只有中文那一列，**英文档下会印中文** ⇒ **出声**说明（⛔ 不静默、⛔ 也不许
+            //     自己译一句冒充官方）。判据 → `资料/普查产出_第二十八会话/W4_官方文案族.md`。
+            bool useZh = Loc.Effective == AvailableLanguages.Chinese;
+            string body = useZh ? t.bodyZh : t.bodyEn;
+            if (string.IsNullOrEmpty(body))
+            {
+                body = useZh ? t.bodyEn : t.bodyZh;          // 另一列兜底（别让正文整段没了）
+                if (!string.IsNullOrEmpty(body) && _warnedSrc.Add(canon))
+                    Debug.Log("[TipText] `" + canon + "` 的正文没有 "
+                              + (useZh ? "中文" : "英文") + "那一列（`src=" + t.src + "`）⇒ 退回另一列。");
+            }
+            if (string.IsNullOrEmpty(body))
+                return "<b>" + icon + title + "</b>\n" + Loc.T("Tips/Trait/NoRulebookEntry");
+            return "<b>" + icon + title + "</b>\n" + body;
         }
     }
 }

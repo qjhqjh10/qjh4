@@ -1176,8 +1176,8 @@ public static class DeckScene
                 s.SetWarlord(hw.Id);
                 int eff = 0; string firstEff = "";
                 foreach (var c in s.VisibleCards())
-                    if (DeckRules.IsEffectOnly(c.Subtype)) { eff++; if (firstEff.Length == 0) firstEff = c.Name; }
-                Check(eff, 0, $"★ {probe} 的卡池里**没有效果生成的卡**（药剂/破坏/秘仪）"
+                    if (DeckRules.CannotAddToDeck(c)) { eff++; if (firstEff.Length == 0) firstEff = c.Name; }
+                Check(eff, 0, $"★ {probe} 的卡池里**没有不能进卡组的卡**"
                             + $"—— 现在有 {eff} 张" + (eff > 0 ? $"（如 `{firstEff}`）" : ""));
             }
             // 而且**加不进去**（负例：绕开卡池直接 TryAdd 一张药剂）
@@ -1192,6 +1192,89 @@ public static class DeckScene
                     bool added = s.TryAdd(elix, out why);
                     Check(added, false, $"★ 直接 `TryAdd` 一张药剂 `{elix.Name}` ⇒ **被拒**（{why}）"
                                       + " —— 用户 2026-09-27：药剂/破坏卡不能加入卡组");
+                }
+            }
+
+            // 🔴🔴 **2026-10-14（`A1798`）：卡组准入改用【原版真值】`inventoryOptions` / `showInCollectionOptions`**
+            //   判据 = `DeckRules.CannotAddToDeck`（原版 `DeckUtility__ValidateDeckCards.c:68-77`）。
+            //   原来那条 `DeckRules.IsEffectOnly(c.Subtype)`（我们自己按兵种猜的三类）同批**已删**。
+            //   ⚠️ 下面的期望值**全部来自原版真值**（`数据/游戏数据/card_inventory_options.json` 的 `map`，
+            //     括号里是原版那两个字段的原始取值），⛔ **不是**从我们自己的常量反推的。
+            {
+                System.Func<string, CardDef> byId = id =>
+                {
+                    var ph2 = s.Pool;
+                    for (int i = 0; i < ph2.Count; i++) if (ph2[i].Id == id) return ph2[i];
+                    return null;
+                };
+                // ① 两列的取值只许是原版枚举那几档 + `-1`（未知）—— 挡「随手填个数」
+                int badOpt = 0; string firstBadOpt = null;
+                foreach (var c in s.Pool)
+                {
+                    bool okInv = c.InventoryOptions == -1 || c.InventoryOptions == 0
+                              || c.InventoryOptions == 5 || c.InventoryOptions == 10;
+                    bool okShow = c.ShowInCollectionOptions == -1 || c.ShowInCollectionOptions == 0
+                               || c.ShowInCollectionOptions == 5 || c.ShowInCollectionOptions == 10;
+                    if (!okInv || !okShow) { badOpt++; if (firstBadOpt == null) firstBadOpt = c.Id; }
+                }
+                CheckTrue(badOpt == 0, $"★（A1798）卡池两列取值全落在原版枚举里（坏 {badOpt} 张"
+                                     + (firstBadOpt == null ? "" : $"，如 `{firstBadOpt}`") + "）");
+
+                // ② **跟着原版真值走的锚点**（逐张钉住 id 与原版原始字段值）
+                //   · `UM_Smite`                  真值 `inv=10 show=0`（`NotInInventory`）⇒ **不能进**
+                //     🧨 **灭自证①**：旧口径按 `Subtype`（`Psychic Power`）判它是**能进**的 ——
+                //        谁把实现改回「按兵种猜」，这一条立刻红。
+                CheckTrue(byId("UM_Smite") != null && DeckRules.CannotAddToDeck(byId("UM_Smite")),
+                          "★（A1798）`UM_Smite`（原版 `inventoryOptions=10`）⇒ **不能进卡组**"
+                        + "｜🧨 旧口径（按兵种）放它过 ⇒ 改回旧口径这条红");
+                //   · `EC72` Antrak Silk           真值 `inv=10 show=0`（药剂）
+                CheckTrue(byId("EC72") != null && DeckRules.CannotAddToDeck(byId("EC72")),
+                          "★（A1798）`EC72` Antrak Silk（原版 `inventoryOptions=10`）⇒ **不能进卡组**");
+                //   · `DA_Convoke_the_Circle`      真值 `inv=10` **`show=5`**（秘仪）
+                //     🧨 **灭自证②**：原版 `CardDeck__CanAddCard.c:40` 把两条写成 `&&` ——
+                //        照抄那个变体的话，这张 `show=5` 的卡会被**放行** ⇒ 这一条同时钉住
+                //        「用的是 `||` 那一版」与「`show` 那一条也判了」。
+                CheckTrue(byId("DA_Convoke_the_Circle") != null
+                          && DeckRules.CannotAddToDeck(byId("DA_Convoke_the_Circle")),
+                          "★（A1798）`DA_Convoke_the_Circle`（`inv=10` **`show=5`**）⇒ **不能进卡组**"
+                        + "｜🧨 照抄 `CanAddCard` 那个 `&&` 变体会放行它");
+                //   · `AM60` Timely Reinforcements 真值 `inv=5`（`CantAddToDeck`）**但它是防御卡**
+                //     ⇒ 原版把它路由给 `CanAddDefensive`、**不吃**这条判据 ⇒ **不拦**（玩家要挑防御卡）
+                CheckTrue(byId("AM60") != null && !DeckRules.CannotAddToDeck(byId("AM60")),
+                          "★（A1798）防御卡 `AM60`（原版 `inventoryOptions=5`）**不拦**"
+                        + "—— 原版 `CanAddCard` 把它路由给 `CanAddDefensive`（用户 2026-09-27：防御卡要在卡池里）");
+                //   · `ASH83` Autarch              真值 `inv=0 show=5`（`InInventory`）⇒ **能进**
+                //     🧨 谁把判据改成「inv != 5」或「inv >= 0」之类，这一条红
+                CheckTrue(byId("ASH83") != null && !DeckRules.CannotAddToDeck(byId("ASH83")),
+                          "★（A1798）普通卡 `ASH83`（原版 `inv=0 show=5`）⇒ **能进**（判据不是「inv != 5」）");
+
+                // ③ 交叉核：拦下的张数 == 直接从两列 + 卡型现算出来的张数（**不写死数字**）
+                int viaPred = 0, viaCols = 0;
+                foreach (var c in s.Pool)
+                {
+                    if (DeckRules.CannotAddToDeck(c)) viaPred++;
+                    if (c.Type != "hero" && c.Type != "defence" && c.InventoryOptions >= 0
+                        && (c.InventoryOptions != 0 || c.ShowInCollectionOptions != 5)) viaCols++;
+                }
+                Check(viaPred, viaCols, $"★（A1798）拦下的张数两条路现算一致（判据 {viaPred} / 两列直算 {viaCols}）");
+
+                // ④ 🧨 **灭自证③（新旧口径的差集）**：新口径必须**严格宽于**旧口径，
+                //    且「旧放行、新拦下」的那些**必须是原版 `NotInInventory(10)`** ——
+                //    ⛔ 下面这段是**旧口径的复刻副本**，只为当变更传感器，**不是判据**（判据只有 `DeckRules` 一处）。
+                {
+                    int newOnly = 0, oldOnly = 0; string firstNew = null;
+                    foreach (var c in s.Pool)
+                    {
+                        string st = c.Subtype ?? "";
+                        bool oldRule = st == "Combat Elixir" || st == "Sabotage" || st == "Secret";
+                        bool newRule = DeckRules.CannotAddToDeck(c);
+                        if (!oldRule && newRule)
+                        { newOnly++; if (firstNew == null) firstNew = c.Id; }
+                        if (oldRule && !newRule) oldOnly++;
+                    }
+                    CheckTrue(oldOnly == 0, $"★（A1798）旧口径拦下的卡，新口径**一张都没漏**（漏 {oldOnly} 张）");
+                    CheckTrue(newOnly > 0, $"★（A1798）新口径**严格宽于**旧口径（多拦 {newOnly} 张，"
+                                         + $"如 `{firstNew}`）｜🧨 实现改回「按兵种猜三类」⇒ 这里变 0、红");
                 }
             }
 
@@ -1614,12 +1697,31 @@ public static class DeckScene
             //   ⚠️ 挑的是**普通卡**（`Type == "unit"`）：`TryRemove` 对 hero / defence 走的是
             //     `ClearWarlord` / `ClearDefensive`（`Deck/DeckEditorState.cs:299-302`）⇒ 那样会把
             //     阵营/督军一起清掉、卡池的筛选跟着变（本节后面全按卡池下标在跑）。
+            // 🔴 **2026-10-14（`DIAG_deck七条红.md` ① · 铁律 5 订正）：上面那一版**腾错了卡**。**
+            //   原来腾的是 `DeckEntries()` 里**第一张 unit** = 实测 **`ASH4` 守护者防御小队**，
+            //   而它在卡池里的**可见下标 = 6**（现读 `cards_engine.json`，`SaimHann` 卡表原序：
+            //   `ASH83 ASH77 ASH63 ASH62 ASH80 ASH22 ASH4 …`）—— **正好在被扫的 `0..5` 之外一格**
+            //   ⇒ 「腾了等于没腾」，下面那条前提照样红。
+            //   **错因**：`DeckEntries()` 按「费用 → 显示名」排（`DeckRuntime.cs:4018-4029`）、
+            //   卡池按**卡表原序**排（`DeckEditorState.VisibleCards` 明写「不排序」）⇒
+            //   两个「第一张」根本不是同一张。
+            //   ⇒ 改成：**从卡池可见前 6 格里挑那张 `CanAdd` 不过的**，腾掉它的**副本**
+            //     （副本数 2→1、总数 30→29 ⇒ 这一张下一拍就 `CanAdd == None`）。
+            //   ⚠️ 仍**只挑 hero / defence 之外**的：`TryRemove` 对那两型走的是
+            //     `ClearWarlord` / `ClearDefensive`（`Deck/DeckEditorState.cs:315-321`）⇒ 会把
+            //     阵营/督军一起清掉、卡池的筛选跟着变（本节后面全按卡池下标在跑）。
             {
                 bool freed = false;
-                foreach (var c in rt.DeckEntries())
-                    if (c != null && c.Type == "unit") { freed = rt.State.TryRemove(c); break; }
-                CheckTrue(freed, "（夹具）先腾一个空位 —— `PlayerDeckForDemo` 把卡组填满到 30，"
-                               + "不腾就挑不出 `CanAdd` 过得去的卡（那样本节整段等于没跑）");
+                for (int i = 0; i < 6 && !freed; i++)
+                {
+                    var d = rt.UiPoolCardAt(i);
+                    if (d == null || d.Type == "hero" || d.Type == "defence") continue;
+                    if (rt.State.CanAdd(d) == DeckError.None) continue;   // 这一张本来就加得进去 ⇒ 不用动它
+                    freed = rt.State.TryRemove(d);
+                }
+                CheckTrue(freed, "（夹具）腾掉「卡池前 6 格里**现在加不进去的那一张**」的副本 —— "
+                               + "`PlayerDeckForDemo` 把卡组填满到 30，不腾就挑不出 `CanAdd` 过得去的卡"
+                               + "（那样本节整段等于没跑）");
                 // 张数变了 ⇒ 卡池那几格上的 `x N` 也要跟着刷（本文件后面那条移除也是这么做的：
                 // `UiSetTab(1); UiSetTab(0);` —— 切页会重建列表）。
                 rt.UiSetTab(1); rt.UiSetTab(0);
@@ -1906,6 +2008,27 @@ public static class DeckScene
             int overlaps = 0; var pairs = new List<string>();
             int sameQueue = 0;
             float tightest = float.MaxValue; string tightestPair = null;
+            // 🔴 **2026-10-14（`DIAG_deck七条红.md` ②③）：费用圆那一族【原版本来就是互相压着的】。**
+            //   圆 = **61.7** 见方（`DeckRuntime.cs` 的 `RowCostS`：原版 prefab `Cost Image` 锚
+            //   `(0.03,0)/(0.03,1)` + `m_SizeDelta=(0,6)` ⇒ 高 = `RowH 55.7 + 6 = 61.7`，**垂直居中**
+            //   ⇒ 上下各溢出 3px），而**行距 = 57.7**（`RowH 55.7 + m_Spacing 2.0`）
+            //   ⇒ **相邻两行的圆重叠 `61.7 − 57.7 = 4.0px`** —— 这是原版设计，不是版面错
+            //   （12 个槽 = 11 对相邻行；**非相邻对**间隙 `+53.7`，不重合）。
+            //   ⇒ ① 给这一对**加「本来就是压着的」豁免**（照上面 `Resource Bar Background` 那条的写法）；
+            //      ② **同时把这一族移出 `tightest`** —— 那条是「同层最紧的一对 = 相邻页签格、恰好相接」
+            //         的**校准尺**（`tab_ic{i}` 宽 `TabCellW`、相邻格左缘 `TabsX + TabCellW*i` ⇒ 间隙恒 0），
+            //         被 −4.0 的 `row_c*` 抢走之后尺子就废了。⛔ **别把期望值改成 −4.0**（那是把尺子废掉），
+            //         也⛔ **别把 `RowCostS` 改小** —— `DeckScene.cs` 的 `A1735③` 正钉着它必须是 **61.7**
+            //         （prefab 实读）⇒ 两条打架时按原版判据。
+            //   ⚠️ 名字判据 =「`row_c` + **全数字**」，⛔ **不是** `StartsWith("row_c")` ——
+            //     圆里那个数 `row_cnt*` 也吃那个前缀（今天它是 `Label`、不在本扫描里，但别留这个口子）。
+            //   🧨 白名单只放这一族：别的任何同层重叠照旧报红。
+            bool IsRowCostQuad(string n)
+            {
+                if (n == null || n.Length <= 5 || !n.StartsWith("row_c", StringComparison.Ordinal)) return false;
+                for (int k = 5; k < n.Length; k++) if (n[k] < '0' || n[k] > '9') return false;
+                return true;
+            }
             for (int i = 0; i < quads.Length; i++)
                 for (int j = i + 1; j < quads.Length; j++)
                 {
@@ -1919,7 +2042,10 @@ public static class DeckScene
                     //   🧨 **白名单只放这一对**（具名 + 前缀匹配）：别的任何同层重叠照旧报红。
                     bool byDesign = (A.name == "Image" || B.name == "Image")
                                  && (A.name.StartsWith("Resource Bar Background") || B.name.StartsWith("Resource Bar Background"));
-                    if (byDesign) continue;
+                    // 费用圆那一族：**相邻两行原版就压着 4px**（见上面 `IsRowCostQuad` 那段）。
+                    // ⚠️ 要求**两颗都是**费用圆 —— 圆与别的件真压住 = 版面错，照旧报红。
+                    bool rowCostPair = IsRowCostQuad(A.name) && IsRowCostQuad(B.name);
+                    if (byDesign || rowCostPair) continue;
                     // 🔴 用**世界坐标**（`PxOfWorld`）而不是 `localPosition` ——
                     //    九宫格的 9 块是**根的子物体**，它们的 localPosition 都在根附近
                     //    ⇒ 用 local 会把每一行的块都判成「同一处」，660 处假重叠（2026-09-23 踩）。
@@ -1943,9 +2069,14 @@ public static class DeckScene
             //    **相邻两个页签格的边缘**，原版把它们做成**恰好相接**（`[0.3,109.2][109.2,218.2]`）
             //    ⇒ px 间隙 = **0**。若右边漏乘 `PxPerUnit`（老写法），这个数会变成 ~109 —— **这里会红**。
             //    期望值 0 出自**原版 rect 相接**，不是从我们的实现里读回来的。
+            // 🔴 **2026-10-14（`DIAG_deck七条红.md` ③）**：这一族**必须把 `row_c*` 排除掉**
+            //    （上面那段同名豁免已经排除）—— 它们**原版就压着 4px**（61.7 圆 ÷ 57.7 行距），
+            //    一进 `tightest` 就把尺子抢走（实测 **−4.0000**）⇒ 这条会红在「尺子被抢」上、**不是版面错**。
+            //    ⛔ **别把期望值改成 −4.0**（那是把尺子废掉）。
             CheckNear(tightest, 0f, LayTol,
                       $"同层最紧的一对（{tightestPair}）**恰好相接**、px 间隙 = 0"
-                      + "（判据 = 原版相邻页签格边缘相接；这条同时是「判据的两个量都是 px」的校准）");
+                      + "（判据 = 原版相邻页签格边缘相接；这条同时是「判据的两个量都是 px」的校准"
+                      + "｜⚠️ 费用圆那一族已排除 —— 它原版就压着 4px）");
 
             CheckTrue(state.VisibleCards().Count > 0, "版面用的状态里有卡可显示");
 
@@ -2302,8 +2433,17 @@ public static class DeckScene
                     + "`firstRow_max = Count−12`、槽 0..10 只覆盖到 `Count−2`）");
                 CheckTrue(_rt.UiQuadRect("row_g11", out q11x, out q11y, out q11w, out q11h),
                           "（前提）滚到底后 `row_g11` 仍量得到");
-                CheckTrue(q11y >= vy1 - 0.05f && q11y + q11h <= vy2 + 0.05f,
-                          $"★ 滚到底：最后一行**整块落在视口内**（y {q11y:F1}..{q11y + q11h:F1} ⊂ [{vy1:F1}, {vy2:F1}]）"
+                // 🔴 **2026-10-14（`DIAG_deck七条红.md` ④ · (α) 断言自己用错了量）：**
+                //   原来写的是 `q11y >= vy1 && q11y + q11h <= vy2` —— 把 `UiQuadRect` 的 **中心 y
+                //   当成了上缘**（它的出参是 `(cx, cy, w, h)`，`cy` 是**中心**：`DeckRuntime.cs:6170`
+                //   `ToPx(q.transform.position)`；同文件上面那句「中心 x = 162.9」也是这个语义）
+                //   ⇒ 后半条凭空多算了半行高、**几何本来是对的**却报红。**错因**：把「中心 + 高」
+                //   当成了「上缘 + 下缘」两把尺子混用。
+                //   ⇒ 上下缘一律 `cy ∓ h/2`。⚠️ 后半条余量只有 **0.05px**（行 18 的底 = 1010.1 = 视口底，
+                //   正好装下）⇒ **容差别收紧**。
+                float q11t = q11y - q11h * 0.5f, q11b = q11y + q11h * 0.5f;
+                CheckTrue(q11t >= vy1 - 0.05f && q11b <= vy2 + 0.05f,
+                          $"★ 滚到底：最后一行**整块落在视口内**（y {q11t:F1}..{q11b:F1} ⊂ [{vy1:F1}, {vy2:F1}]）"
                         + " —— 裁切把所有行都夹进了框里（⛔ 这一条与上面「只露 9.4px」是同一条裁切的**两个方向**）");
                 CheckNear(q11h, 55.7f, 0.05f, $"……而且它是**整行高 55.7**（没被白裁；实测 {q11h:F2}）");
                 _rt.UiScrollDeck(-9999f);             // 摆回顶（下一个前提要用）
@@ -3877,28 +4017,70 @@ public static class DeckScene
                                        + " —— 一副牌里没有同费用对 ⇒ 下面那条是空转");
                     CheckTrue(bad == null,
                               "★ 同费用内按**显示名（码点序）**升序 —— 判据 = `DeckListDrawer__Reorder.c` 的 `OrderBy(键1).ThenBy(键2)`，"
-                            + "第二把键拿参考图三组逐张对码点反推（费用 2 `游 U+6E38 < 驭 U+9A6D` · "
-                            + "费用 3 `女 U+5973 < 帷 U+5E37 < 突 U+7A81` · 费用 4 `努 U+52AA < 灵 U+7075 < 狂 U+72C2 < 邪 U+90AA`）"
+                            + "第二把键拿逐张对码点反推（**2026-10-14 现读本节实际跑的这份 `entries`，逐张核**："
+                            + "费用 3 `先知 U+5148 < 突击蝎 U+7A81` · "
+                            + "费用 4 `凶暴复仇者 U+51F6 < 奥里安·拉拉塔乔斯 U+5965 < 狂嚎女妖 U+72C2` · "
+                            + "费用 5 `灵魂先知 U+7075 < 狂嚎女妖神官 U+72C2 < 突击战蝎神官 U+7A81`）"
                             + "｜🧨 `ThenBy` 换成**英文名**或 `Id` ⇒ 红"
                             + (bad == null ? "" : "｜实得：" + bad));
+                    // ⚠️ **2026-10-14（铁律 5 订正）**：上面这一段原来抄的三组名字（费用 2 `游/驭` ·
+                    //   费用 3 `女/帷/突` · 费用 4 `努/灵/狂/邪`）是 **`W2 卡名换官方` 之前**的写法，
+                    //   现在**与本节实际跑的这份 `entries` 对不上**（连组内张数都不一样）⇒
+                    //   **判据一个字没变，但那段文字成了误导源** ⇒ 已换成上列现值（现读 `cards_engine.json`）。
 
                     // 🔴 **一条钉死的期望值**（⛔ 不是从实现读回来的）：演示牌里费用 6 那五张的**显示名码点序** ——
-                    //   俯冲猎鹰长老 U+4FEF · 复仇者长老 U+590D · 总督 U+603B · 火龙 U+706B · 灵先知·奎莱纳里斯 U+7075。
+                    //   司战 U+53F8 · 恶狠狠的复仇者主宰 U+6076 · 火龙 U+706B · 灵魂先知凯伦纳瑞斯 U+7075 · 翔鹰神官 U+7FD4。
+                    //   ⚠️ **2026-10-14（铁律 5 订正）**：这一行原来写的是换名前那五个名字
+                    //   （俯冲猎鹰长老 U+4FEF · 复仇者长老 U+590D · 总督 U+603B · 火龙 U+706B · 灵先知·奎莱纳里斯 U+7075），
+                    //   照它读会以为期望值是那一串 ⇒ 已换成现值（现读 `cards_engine.json` 的 `nameZh`，逐位核过）。
                     //   此举的用处 = 给上一条**加固**：三条候选键在这一组上**互相分得开** ——
                     //     · 英文名序：`Autarch < Dire Avenger Exarch < Fire Dragon < Spiritseer Qelenaris < Swooping Hawk Exarch`（总督打头）
                     //     · `Id` 序：`ASH32 < ASH34 < ASH35 < ASH80 < ASH_Autarch`（复仇者长老打头）
                     //   两条都与下面这个序**不同** ⇒ 任一把键换错都红（而上一条只能管「不升序」）。
-                    string[] want6 = { "ASH70", "ASH63", "ASH83", "ASH22", "ASH28" };
+                    //   ⚠️ **2026-10-14（铁律 5 订正 · 对应红 7）**：上面那 6 行（名字与那两条「分得开」的论据）
+                    //   全是 **`W2 卡名换官方` 之前**的 —— 换名后**期望值本身过期**（实测值 = 新的中文码点序，
+                    //   排序实现**是对的**），而且 **`Id` 序那一行也早就过期了**（写的是 `ASH32…ASH_Autarch`，
+                    //   现读是 `ASH22 < ASH28 < ASH63 < ASH70 < ASH83`）。现值逐条写在下面。
+                    //   🔴🔴 **换名之后这一组【失去了鉴别力】**（诊断顺手点出）：它原来靠「三条候选键互相分得开」
+                    //   立得住，现在**英文名序与中文码点序给出同一个序列**
+                    //   （`Autarch < Dire Avenger Exarch < Fire Dragon < Spiritseer Qelenaris < Swooping Hawk Exarch`）
+                    //   ⇒ 它只剩「挡 `Id` 键」这半边。⛔ **不许只把期望值改绿就算完**（那就是自证）
+                    //   ⇒ **下面另钉一组补回来**（费用 4）：三把键**两两不同**。
+                    string[] want6 = { "ASH83", "ASH63", "ASH22", "ASH28", "ASH70" };
                     var got6 = new List<string>();
                     for (int i = seg; i < entries.Count; i++)
                         if (entries[i] != null && entries[i].Cost == 6) got6.Add(entries[i].Id);
                     bool same6 = got6.Count == want6.Length;
                     for (int i = 0; same6 && i < want6.Length; i++) same6 = got6[i] == want6[i];
                     CheckTrue(same6,
-                              "★ 费用 6 那一组**逐张对得上**：俯冲猎鹰长老 → 复仇者长老 → 总督 → 火龙 → 灵先知·奎莱纳里斯"
-                            + "（码点 U+4FEF < U+590D < U+603B < U+706B < U+7075）"
-                            + "｜🧨 英文名序（总督打头）/ `Id` 序（复仇者长老打头）⇒ 红"
+                              "★ 费用 6 那一组**逐张对得上**：司战 → 恶狠狠的复仇者主宰 → 火龙 → 灵魂先知凯伦纳瑞斯 → 翔鹰神官"
+                            + "（码点 U+53F8 < U+6076 < U+706B < U+7075 < U+7FD4）"
+                            + "｜🧨 `Id` 序（火龙打头）⇒ 红 —— ⚠️ 换官方名之后**中/英两把键在这一组上同序** ⇒"
+                            + "「`ThenBy` 用了英文名」这一条**本组已照不出来**，由下面费用 4 那一组负责"
                             + "｜实得：" + string.Join(", ", got6.ToArray()));
+
+                    // 🔴 **2026-10-14（红 7 补的鉴别力 · ⛔ 不是「把期望值改绿」）**：费用 6 那一组换名后
+                    //   **中/英两把键同序** ⇒ 它挡不住「`ThenBy` 用了**英文名**」。这里另钉**费用 4**那一组
+                    //   （演示牌 3 张，三把键**两两不同**）——任一把换错都红：
+                    //     · 中文码点序（**唯一正确的那把键**）：`ASH62` 凶 U+51F6 < `ASH79` 奥 U+5965 < `ASH15` 狂 U+72C2
+                    //     · 英文名序：`ASH62` Dire Avenger < `ASH15` Howling Banshee < `ASH79` Orian Laratharjos
+                    //     · `Id` 序：`ASH15` < `ASH62` < `ASH79`
+                    //   ⇒ 三把两两不同 ⇒ 任一把换错都照得出来。⚠️ **两组要合起来看**：
+                    //     费用 6 那组管 `Id` 键、这一组管**英文名**键（今天单靠费用 6 那组只剩一半鉴别力）。
+                    string[] want4 = { "ASH62", "ASH79", "ASH15" };
+                    var got4 = new List<string>();
+                    for (int i = seg; i < entries.Count; i++)
+                        if (entries[i] != null && entries[i].Cost == 4) got4.Add(entries[i].Id);
+                    bool same4 = got4.Count == want4.Length;
+                    for (int i = 0; same4 && i < want4.Length; i++) same4 = got4[i] == want4[i];
+                    CheckTrue(same4,
+                              "★ 费用 4 那一组**逐张对得上**（红 7 补的鉴别力）：凶暴复仇者 → 奥里安·拉拉塔乔斯 → 狂嚎女妖"
+                            + "（码点 U+51F6 < U+5965 < U+72C2）"
+                            + "｜🧨 英文名序（`Dire Avenger` → `Howling Banshee` → `Orian Laratharjos`）"
+                            + " / `Id` 序（狂嚎女妖打头）⇒ 红"
+                            + "｜⛔ 这一组是**专门为此挑的**：换名后费用 6 那一组的中/英两把键**同序**，"
+                            + "只有这一组能把「`ThenBy` 用了英文名」照出来"
+                            + "｜实得：" + string.Join(", ", got4.ToArray()));
                 }
 
                 // ---- ⑦ A1525③：行名**左对齐**（左沿 = 68 · 与名字长短无关）----
@@ -7689,7 +7871,9 @@ public static class DeckScene
                                 "Create Deck", "Import Deck", "Random", "Confirm", "Create deck", "Tap to edit deck name",
                                 "There are no cards in your collection for the selected filters",
                                 "There are no cardbacks in your collection for the selected filters",
-                                "There are no deck in your collection for the selected filters",
+                                // 🔴 2026-10-14（`A1803`）就地改期望值：原来是我们写的 `There are no deck…`（单数 `deck`）；
+                                //    官方 zh-CN 表 = `There are no decks in your collection for the selected filters`（复数）⇒ 以官方为准。
+                                "There are no decks in your collection for the selected filters",
                                 "Your cosmetics collection", "Back",
                             };
                             var sSrc = new[]

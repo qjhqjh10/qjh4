@@ -159,7 +159,7 @@
    "cardbackOrig": "Cardback_ASH_Warlord_Ghaelyn",
    "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
-   "defensiveNameZh": "激励传承",
+   "defensiveNameZh": "鼓舞遗产",
    "cardIds": [
     "ASH5",
     "ASH7",
@@ -194,7 +194,7 @@
    "cardbackOrig": "Cardback_ASH_Warlord_Anvirr",
    "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
-   "defensiveNameZh": "激励传承",
+   "defensiveNameZh": "鼓舞遗产",
    "cardIds": [
     "ASH14",
     "ASH19",
@@ -229,7 +229,7 @@
    "cardbackOrig": "Cardback_ASH_Warlord_Eliac",
    "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
-   "defensiveNameZh": "激励传承",
+   "defensiveNameZh": "鼓舞遗产",
    "cardIds": [
     "ASH61",
     "ASH9",
@@ -264,7 +264,7 @@
    "cardbackOrig": "Cardback_ASH_Jain Zar",
    "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
-   "defensiveNameZh": "激励传承",
+   "defensiveNameZh": "鼓舞遗产",
    "cardIds": [
     "ASH65",
     "ASH66",
@@ -299,7 +299,7 @@
    "cardbackOrig": "Cardback_ASH_Warp Spiders",
    "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
-   "defensiveNameZh": "激励传承",
+   "defensiveNameZh": "鼓舞遗产",
    "cardIds": [
     "ASH77",
     "ASH78",
@@ -334,7 +334,7 @@
    "cardbackOrig": "Cardback_ASH_Campaign_Premium",
    "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
-   "defensiveNameZh": "激励传承",
+   "defensiveNameZh": "鼓舞遗产",
    "cardIds": [
     "ASH7",
     "ASH7",
@@ -387,7 +387,7 @@
    "cardbackOrig": "Cardback_ASH_Warlord_Ghaelyn",
    "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
-   "defensiveNameZh": "激励传承",
+   "defensiveNameZh": "鼓舞遗产",
    "cardIds": [
     "ASH4",
     "ASH4",
@@ -440,7 +440,7 @@
    "cardbackOrig": "Cardback_ASH_Campaign_Free",
    "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
-   "defensiveNameZh": "激励传承",
+   "defensiveNameZh": "鼓舞遗产",
    "cardIds": [
     "ASH6",
     "ASH6",
@@ -493,7 +493,7 @@
    "cardbackOrig": "Cardback_ASH_RF_Path of the Warrior",
    "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
-   "defensiveNameZh": "激励传承",
+   "defensiveNameZh": "鼓舞遗产",
    "cardIds": [
     "ASH5",
     "ASH7",
@@ -705,7 +705,7 @@
    "cardbackOrig": "Cardback_BL_Campaign_Free",
    "defensiveId": "BL56",
    "defensiveName": "Throne of the Heretic",
-   "defensiveNameZh": "异端王座",
+   "defensiveNameZh": "异端者的王座",
    "cardIds": [
     "BL4",
     "BL8",
@@ -740,7 +740,7 @@
    "cardbackOrig": "Cardback_BL_Premium_Dark Hereticus",
    "defensiveId": "BL56",
    "defensiveName": "Throne of the Heretic",
-   "defensiveNameZh": "异端王座",
+   "defensiveNameZh": "异端者的王座",
    "cardIds": [
     "BL6",
     "BL11",
@@ -775,7 +775,7 @@
    "cardbackOrig": "Cardback_BL_Premium_Eye of Horus",
    "defensiveId": "BL56",
    "defensiveName": "Throne of the Heretic",
-   "defensiveNameZh": "异端王座",
+   "defensiveNameZh": "异端者的王座",
    "cardIds": [
     "BL5",
     "BL7",
@@ -810,7 +810,7 @@
    "cardbackOrig": "Cardback_BL_RF1_Unholy Prayers",
    "defensiveId": "BL56",
    "defensiveName": "Throne of the Heretic",
-   "defensiveNameZh": "异端王座",
+   "defensiveNameZh": "异端者的王座",
    "cardIds": [
     "BL66",
     "BL67",
@@ -845,7 +845,7 @@
    "cardbackOrig": "Cardback_BL_Campaign_Premium",
    "defensiveId": "BL56",
    "defensiveName": "Throne of the Heretic",
-   "defensiveNameZh": "异端王座",
+   "defensiveNameZh": "异端者的王座",
    "cardIds": [
     "BL1",
     "BL1",
@@ -898,7 +898,7 @@
    "cardbackOrig": "Cardback_BL_Campaign_Free",
    "defensiveId": "BL56",
    "defensiveName": "Throne of the Heretic",
-   "defensiveNameZh": "异端王座",
+   "defensiveNameZh": "异端者的王座",
    "cardIds": [
     "BL1",
     "BL1",
@@ -951,7 +951,7 @@
    "cardbackOrig": "Cardback_BL_Premium_Dark Hereticus",
    "defensiveId": "BL56",
    "defensiveName": "Throne of the Heretic",
-   "defensiveNameZh": "异端王座",
+   "defensiveNameZh": "异端者的王座",
    "cardIds": [
     "BL3",
     "BL3",
@@ -1004,7 +1004,7 @@
    "cardbackOrig": "Cardback_BL_Campaign_Premium",
    "defensiveId": "BL56",
    "defensiveName": "Throne of the Heretic",
-   "defensiveNameZh": "异端王座",
+   "defensiveNameZh": "异端者的王座",
    "cardIds": [
     "BL3",
     "BL3",
@@ -1057,7 +1057,7 @@
    "cardbackOrig": "Cardback_BL_Campaign_Premium",
    "defensiveId": "BL56",
    "defensiveName": "Throne of the Heretic",
-   "defensiveNameZh": "异端王座",
+   "defensiveNameZh": "异端者的王座",
    "cardIds": [
     "BL66",
     "BL66",
@@ -1460,7 +1460,7 @@
    "cardbackOrig": "Cardback_UM_Warlord_Titus",
    "defensiveId": "UM52",
    "defensiveName": "Firestrike Turrets",
-   "defensiveNameZh": "火击炮塔",
+   "defensiveNameZh": "火力炮塔",
    "cardIds": [
     "UM1",
     "UM2",
@@ -1513,7 +1513,7 @@
    "cardbackOrig": "Cardback_EC_Feeding the Addiction",
    "defensiveId": "EC59",
    "defensiveName": "Vial Tanks",
-   "defensiveNameZh": "药剂罐",
+   "defensiveNameZh": "瓶罐",
    "cardIds": [
     "EC18",
     "EC6",
@@ -1548,7 +1548,7 @@
    "cardbackOrig": "Cardback_EC_Dark Tempations",
    "defensiveId": "EC59",
    "defensiveName": "Vial Tanks",
-   "defensiveNameZh": "药剂罐",
+   "defensiveNameZh": "瓶罐",
    "cardIds": [
     "EC32",
     "EC33",
@@ -1583,7 +1583,7 @@
    "cardbackOrig": "Cardback_EC_Genesis of Perfection",
    "defensiveId": "EC59",
    "defensiveName": "Vial Tanks",
-   "defensiveNameZh": "药剂罐",
+   "defensiveNameZh": "瓶罐",
    "cardIds": [
     "EC5",
     "EC_Icon_of_Excess_Infractor",
@@ -1621,7 +1621,7 @@
    "cardbackOrig": "Cardback_EC_Emperors Children",
    "defensiveId": "EC59",
    "defensiveName": "Vial Tanks",
-   "defensiveNameZh": "药剂罐",
+   "defensiveNameZh": "瓶罐",
    "cardIds": [
     "EC8",
     "EC8",
@@ -1674,7 +1674,7 @@
    "cardbackOrig": "Cardback_EC_Chorus of Excess",
    "defensiveId": "EC59",
    "defensiveName": "Vial Tanks",
-   "defensiveNameZh": "药剂罐",
+   "defensiveNameZh": "瓶罐",
    "cardIds": [
     "EC17",
     "EC17",
@@ -1727,7 +1727,7 @@
    "cardbackOrig": "Cardback_EC_Emperors Children",
    "defensiveId": "EC59",
    "defensiveName": "Vial Tanks",
-   "defensiveNameZh": "药剂罐",
+   "defensiveNameZh": "瓶罐",
    "cardIds": [
     "EC5",
     "EC5",
@@ -2726,7 +2726,7 @@
    "cardbackOrig": "Cardback_SAU_Campaign_Free",
    "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
-   "defensiveNameZh": "觉醒方尖碑",
+   "defensiveNameZh": "觉醒的方尖碑",
    "cardIds": [
     "SAU5",
     "SAU12",
@@ -2764,7 +2764,7 @@
    "cardbackOrig": "Cardback_SAU_Campaign_Premium",
    "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
-   "defensiveNameZh": "觉醒方尖碑",
+   "defensiveNameZh": "觉醒的方尖碑",
    "cardIds": [
     "SAU9",
     "SAU25",
@@ -2802,7 +2802,7 @@
    "cardbackOrig": "Cardback_SAU_Biotransference",
    "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
-   "defensiveNameZh": "觉醒方尖碑",
+   "defensiveNameZh": "觉醒的方尖碑",
    "cardIds": [
     "SAU67",
     "SAU10",
@@ -2837,7 +2837,7 @@
    "cardbackOrig": "Cardback_SAU_Soulless Reaper",
    "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
-   "defensiveNameZh": "觉醒方尖碑",
+   "defensiveNameZh": "觉醒的方尖碑",
    "cardIds": [
     "SAU2",
     "SAU9",
@@ -2872,7 +2872,7 @@
    "cardbackOrig": "Cardback_SOR_Campaign_Free",
    "defensiveId": "SOR60",
    "defensiveName": "Holy Fire",
-   "defensiveNameZh": "圣火",
+   "defensiveNameZh": "神圣之火",
    "cardIds": [
     "SOR7",
     "SOR9",
@@ -2907,7 +2907,7 @@
    "cardbackOrig": "Cardback_SOR_Campaign_Premium",
    "defensiveId": "SOR60",
    "defensiveName": "Holy Fire",
-   "defensiveNameZh": "圣火",
+   "defensiveNameZh": "神圣之火",
    "cardIds": [
     "SOR16",
     "SOR12",
@@ -2942,7 +2942,7 @@
    "cardbackOrig": "Cardback_SOR_Sisters of Battle",
    "defensiveId": "SOR60",
    "defensiveName": "Holy Fire",
-   "defensiveNameZh": "圣火",
+   "defensiveNameZh": "神圣之火",
    "cardIds": [
     "SOR8",
     "SOR21",
@@ -2977,7 +2977,7 @@
    "cardbackOrig": "Cardback_SOR_Sacred Rose",
    "defensiveId": "SOR60",
    "defensiveName": "Holy Fire",
-   "defensiveNameZh": "圣火",
+   "defensiveNameZh": "神圣之火",
    "cardIds": [
     "SOR66",
     "SOR67",
@@ -3117,7 +3117,7 @@
    "cardbackOrig": "Cardback_SAU_Campaign_Free",
    "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
-   "defensiveNameZh": "觉醒方尖碑",
+   "defensiveNameZh": "觉醒的方尖碑",
    "cardIds": [
     "SAU3",
     "SAU3",
@@ -3172,7 +3172,7 @@
    "cardbackOrig": "Cardback_SAU_Warlord_Orikan",
    "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
-   "defensiveNameZh": "觉醒方尖碑",
+   "defensiveNameZh": "觉醒的方尖碑",
    "cardIds": [
     "SAU11",
     "SAU11",
@@ -3227,7 +3227,7 @@
    "cardbackOrig": "Cardback_SAU_Warlord_Orikan",
    "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
-   "defensiveNameZh": "觉醒方尖碑",
+   "defensiveNameZh": "觉醒的方尖碑",
    "cardIds": [
     "SAU2",
     "SAU67",
@@ -3280,7 +3280,7 @@
    "cardbackOrig": "Cardback_SAU_Campaign_Premium",
    "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
-   "defensiveNameZh": "觉醒方尖碑",
+   "defensiveNameZh": "觉醒的方尖碑",
    "cardIds": [
     "SAU12",
     "SAU10",
@@ -3335,7 +3335,7 @@
    "cardbackOrig": "Cardback_SOR_Campaign_Free",
    "defensiveId": "SOR60",
    "defensiveName": "Holy Fire",
-   "defensiveNameZh": "圣火",
+   "defensiveNameZh": "神圣之火",
    "cardIds": [
     "SOR6",
     "SOR6",
@@ -3388,7 +3388,7 @@
    "cardbackOrig": "Cardback_SOR_Campaign_Free",
    "defensiveId": "SOR60",
    "defensiveName": "Holy Fire",
-   "defensiveNameZh": "圣火",
+   "defensiveNameZh": "神圣之火",
    "cardIds": [
     "SOR6",
     "SOR8",
@@ -3441,7 +3441,7 @@
    "cardbackOrig": "Cardback_SOR_Campaign_Premium",
    "defensiveId": "SOR60",
    "defensiveName": "Holy Fire",
-   "defensiveNameZh": "圣火",
+   "defensiveNameZh": "神圣之火",
    "cardIds": [
     "SOR5",
     "SOR5",
@@ -4152,7 +4152,7 @@
    "cardbackOrig": "Cardback_UM_Campaign_Free",
    "defensiveId": "UM52",
    "defensiveName": "Firestrike Turrets",
-   "defensiveNameZh": "火击炮塔",
+   "defensiveNameZh": "火力炮塔",
    "cardIds": [
     "UM1",
     "UM1",
@@ -4205,7 +4205,7 @@
    "cardbackOrig": "Cardback_UM_Warlord_Tigurius",
    "defensiveId": "UM52",
    "defensiveName": "Firestrike Turrets",
-   "defensiveNameZh": "火击炮塔",
+   "defensiveNameZh": "火力炮塔",
    "cardIds": [
     "UM1",
     "UM1",
@@ -4258,7 +4258,7 @@
    "cardbackOrig": "Cardback_UM_Campaign_Premium",
    "defensiveId": "UM52",
    "defensiveName": "Firestrike Turrets",
-   "defensiveNameZh": "火击炮塔",
+   "defensiveNameZh": "火力炮塔",
    "cardIds": [
     "UM2",
     "UM5",
@@ -4311,7 +4311,7 @@
    "cardbackOrig": "Cardback_UM_Campaign_Premium",
    "defensiveId": "UM52",
    "defensiveName": "Firestrike Turrets",
-   "defensiveNameZh": "火击炮塔",
+   "defensiveNameZh": "火力炮塔",
    "cardIds": [
     "UM66",
     "UM66",
@@ -4364,7 +4364,7 @@
    "cardbackOrig": "Cardback_UM_Campaign_Free",
    "defensiveId": "UM52",
    "defensiveName": "Firestrike Turrets",
-   "defensiveNameZh": "火击炮塔",
+   "defensiveNameZh": "火力炮塔",
    "cardIds": [
     "UM66",
     "UM11",
@@ -4399,7 +4399,7 @@
    "cardbackOrig": "Cardback_UM_Warlord_Tigurius",
    "defensiveId": "UM52",
    "defensiveName": "Firestrike Turrets",
-   "defensiveNameZh": "火击炮塔",
+   "defensiveNameZh": "火力炮塔",
    "cardIds": [
     "UM3",
     "UM55",
@@ -4434,7 +4434,7 @@
    "cardbackOrig": "Cardback_UM_Campaign_Premium",
    "defensiveId": "UM52",
    "defensiveName": "Firestrike Turrets",
-   "defensiveNameZh": "火击炮塔",
+   "defensiveNameZh": "火力炮塔",
    "cardIds": [
     "UM55",
     "UM55",
@@ -4469,7 +4469,7 @@
    "cardbackOrig": "Cardback_UM_Primaris Chaplain",
    "defensiveId": "UM52",
    "defensiveName": "Firestrike Turrets",
-   "defensiveNameZh": "火击炮塔",
+   "defensiveNameZh": "火力炮塔",
    "cardIds": [
     "UM66",
     "UM67",
@@ -4504,7 +4504,7 @@
    "cardbackOrig": "Cardback_UM_Primaris Lieutenant",
    "defensiveId": "UM52",
    "defensiveName": "Firestrike Turrets",
-   "defensiveNameZh": "火击炮塔",
+   "defensiveNameZh": "火力炮塔",
    "cardIds": [
     "UM77",
     "UM78",

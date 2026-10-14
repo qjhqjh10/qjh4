@@ -24,7 +24,7 @@ using RuleEngine;
 ///     **如实标出来**（本仓红线：不许静默），⛔ 不判它是缺陷还是正常。
 ///
 /// 🔴 **但 ①②③ 四档【全部以 `Head:` 为锚】**（`A1459` 实测）⇒ 「**卡面没有头、又没被消费**」的句子
-///   只会掉进 ①/③、**永远不会被点名**。最要紧的后果：`SW23` / `GSC71` / `GSC36` 三张**真缺陷**
+///   只会掉进 ①/③、**永远不会被点名**。最要紧的后果：`SW23` / `GSC71` / `GSC30` 三张**真缺陷**
 ///   正因为这道缝躲开了清单 —— 它们各**还有一条别的 op**（`Rally` / `Strike` / `Uprising`）
 ///   ⇒ **腿 A ≠ 0** ⇒ 连「③ 未归因」都进不去（③ 的判据是「腿 A 收到 0 条」）。
 ///   ⇒ **第五档 `⑤「无头正文」逐句报账`**（见 <see cref="AddHeadless"/> / <see cref="ClassifyHeadless"/>）：
@@ -41,7 +41,7 @@ using RuleEngine;
 /// ⚠️ **只对 `unit` / `hero` 做「段级对账」** —— 因为只有这两种卡的 `WillRunOps` 是**注册层**产出的。
 ///   `tactic` / `defence` 的 `WillRunOps` **就是** `Parse(c.Desc)`（整条 desc 一次解析，
 ///   子效果藏在 `chooseone` 的 `ChooseWhat` 或 `give "…"` 的引号里）⇒ **按「段」对账会产生假警报**：
-///   实测 `ASH83`（`Choose one: …`）· `BL4`（`Your Warlord gains "Blast 2 and Slay: …"`）
+///   实测 `ASH71`（`Choose one: …`）· `BL4`（`Your Warlord gains "Blast 2 and Slay: …"`）
 ///   两族被逐条误报过。⇒ 那两类卡只报「整条 desc 解不出 op」那一档。
 ///
 /// ⛔ **本文件一行都不改引擎**（`MyGame/Assets/**` 不在本工具的白名单里）——
@@ -58,7 +58,7 @@ using RuleEngine;
 ///   · **今天【已查实】的两处分叉**（改一侧必须同时改另一侧，反之亦然）：
 ///     ① **④ 档「这一段收到了没有」的比法**：本文件自 `A1593` 起**按【通道】比**（`ClaimChannel`），
 ///        那份副本还停在**全卡 `op` 签名并集** ⇒ 并集更宽、那份副本**结构上会少报**
-///        （实测：`SOR28` / `SOR36` 两张的付费段就是被并集顶成「已收到」的，见 `SelfCheck` ⑦ 断言 A/B）。
+///        （实测：`SOR22` / `SOR34` 两张的付费段就是被并集顶成「已收到」的，见 `SelfCheck` ⑦ 断言 A/B）。
 ///     ② **② 判别式（付费段）**：本文件用**引擎自己的 `EffectText.ParseSegment`**（`FaceBody.PaidCost`），
 ///        那份副本原来用**头正则**（会漏掉引擎同样认的 `Oath N:`）—— `A1594` 已把那份改成同一份判据
 ///        （`RuleEngineTest.cs` 的 `WillRunPaid`），⛔ 别再让它长回正则。
@@ -111,7 +111,7 @@ class WillRun
     /// <summary>🆕 **无头档**（`A1459`）的三档 —— 判据见 <see cref="ClassifyHeadless"/>。
     ///   这一档治的是：**卡面没有 `Head:` 的句子，腿 B 结构上抽不到**（`AddFaceBody` 里 `col &lt;= 0` 直接 return）
     ///   ⇒ 凡是「没头的句子又没被消费」，它只会掉进 ①「本来没正文」/ ③「未归因」，
-    ///   **永远不会被点名**（`SW23` / `GSC71` / `GSC36` 就是这么躲开清单的）。</summary>
+    ///   **永远不会被点名**（`SW23` / `GSC71` / `GSC30` 就是这么躲开清单的）。</summary>
     const string KHNone = "无消费点";    // 🔴 腿 A 没收到、**也没有任何别的层认领** ⇒ 这句永不发生。**计入 rc**
     const string KHAtTurn = "回合起止";  // ⚠️ `EffectText.AtTurnClauses` 认领（`ResolveAtTurn:4792` 扫 `u.Card.Desc` 吃它）。**不计入 rc**
     const string KHCostWhen = "降费触发器"; // ⚠️ `CardDef.CostWhens` 认领（`FireCostWhen` 吃它）。**不计入 rc**
@@ -323,7 +323,7 @@ class WillRun
         Console.WriteLine("  --- ⑤ 🔴 「无头正文」逐句报账（`A1459`）—— 腿 B **结构上抽不到**的那一半 ---");
         Console.WriteLine("    🔴 **这一档为什么必须单开**：腿 B 只抽 `Head: body`（`AddFaceBody` 里 `col <= 0` 直接 return）");
         Console.WriteLine("       ⇒ 「**卡面没有头、又没被消费**」的句子只会掉进 ①「本来没正文」/ ③「未归因」，");
-        Console.WriteLine("         **永远不会被点名**。实测后果（`A1459` 出处 §④㈡）：`SW23` / `GSC71` / `GSC36`");
+        Console.WriteLine("         **永远不会被点名**。实测后果（`A1459` 出处 §④㈡）：`SW23` / `GSC71` / `GSC30`");
         Console.WriteLine("         三张真缺陷**正是因为这道缝**躲开清单 —— 它们各有一条别的 op（`Rally`/`Strike`/`Uprising`）");
         Console.WriteLine("         ⇒ **腿 A ≠ 0** ⇒ 连「③ 未归因」也进不去；而**那句无头的**在腿 B 里结构上不成段"
                           + "（`faceBodies` 是 1，是它那条有头的 `Rally:`）⇒ 段级那一趟（④）也照不到。");
@@ -342,7 +342,7 @@ class WillRun
         Console.WriteLine("       探针里**一行新文法都没写** —— 这正是它不会误报的原因。");
         Console.WriteLine("    ⚠️ 与 ③「未归因」**不是两笔账** —— 同一件事的两种粒度（③ 按卡、⑤ 按句）："
                           + "「整张卡空表」的卡会同时出现在两边，⛔ **别把两个数相加**；");
-        Console.WriteLine("       而**卡上还有别的 op** 的那一批（`SW23` / `GSC71` / `GSC36`）**只有 ⑤ 看得见**。");
+        Console.WriteLine("       而**卡上还有别的 op** 的那一批（`SW23` / `GSC71` / `GSC30`）**只有 ⑤ 看得见**。");
         if (headNone.Count > 0)
         {
             Console.WriteLine("    🔴 「" + KHNone + "」逐条（⛔ **候选**，判决归调度台/引擎侧）：");
@@ -457,11 +457,21 @@ class WillRun
             Console.WriteLine();
         }
 
-        Console.WriteLine("  判据：**②「收漏了」= 0 张**、段级 **" + KMiss + " / " + KPaid
-                          + " 都为 0**、**⑤「" + KHNone + "」= 0 条**、且 **⑦ 判据自检（`A1593`）= 0 条红**、"
-                          + "**⑧ 头→通道键近似自检（`A1598②`）= 0 条红**、"
-                          + "**⑨ 收集层 `Source` 自检（`A1694`）= 0 条红**"
-                          + " ⇒ rc=0；否则 rc=1（⛔ 不许静默绿）。");
+        // 🔴 **2026-10-14（第二十八会话 · `W16` · 台账 `A1879`）：这一段原来只打【判据】，不打【读数】。**
+        //   原文是「判据：②…= 0 张、…、⑦ 判据自检（`A1593`）= 0 条红、⑧…= 0 条红、⑨…= 0 条红
+        //   ⇒ rc=0；否则 rc=1」—— 那**是一句条件式**，但报出来长得像**结论**：
+        //   `A1759` 的普查正是照它写成「⑦ 判据自检 = 0 条红」，而**同一趟实得 ⑦ 红 1 条**
+        //   （`资料/普查产出_第二十八会话/A1759_逐条对账.md` 顺手发现 1）⇒ **报告与实况不符**
+        //   （同族 `A1466`「拿假读数当证据」）。
+        //   ⇒ 修法：**先把这一趟的六个数打出来**（现算，⛔ 不是判据），再另起一行写判据。
+        //     `scFail` / `tkFail` / `srcFail` 本来就是那三段自检的**返回值**（红几条就是几），
+        //     ②④⑤ 三项用的是它们各自那一栏的条数 —— 全是**当次跑出来的值**。
+        Console.WriteLine("  实况读数（**本趟现算**：②「收漏了」 " + missed.Count + " 张 · 段级 "
+                          + KMiss + " " + nMiss + " 条 / " + KPaid + " " + nPaid + " 条 · ⑤「"
+                          + KHNone + "」 " + headNone.Count + " 条 · ⑦ 判据自检（`A1593`）红 **" + scFail
+                          + " 条** · ⑧ 头→通道键近似自检（`A1598②`）红 **" + tkFail
+                          + " 条** · ⑨ 收集层 `Source` 自检（`A1694`）红 **" + srcFail + " 条**）");
+        Console.WriteLine("  判据：上面这六项**全为 0** ⇒ rc=0；否则 rc=1（⛔ 不许静默绿）。");
         Console.WriteLine("  ⚠️「本来没正文」「未归因」「" + KTwice + "」「" + KHAtTurn + "」「" + KHCostWhen
                           + "」**不算失败**，但它们**也绝不混进「全通」**。");
         return (missed.Count > 0 || nMiss > 0 || nPaid > 0 || headNone.Count > 0 || scFail > 0
@@ -478,8 +488,21 @@ class WillRun
     ///   而 <see cref="Sig"/> **不带「属于哪条 ability」那一维** ⇒ 同一张卡**别的** ability 里
     ///   出现过的同签名 `op`，会把这一段顶成「已收到」。**两个已查实的实例**
     ///   （出处 `资料/普查产出_第二十会话/W1_信仰阈值落地.md` §1·4）：
-    ///     · `SOR28 Dominion Superior` = `Rally: Deal 1 damage. 2 ☀: Deal 1 additional damage`；
-    ///     · `SOR36 Celestian Superior` = `Pray: Deploy a Celestian. 6☀: Deploy a Celestian`。
+    ///     · `SOR22 Dominion Superior` = `Rally: Deal 1 damage. 2 ☀: Deal 1 additional damage`；
+    ///     · `SOR34 Celestian Superior` = `Pray: Deploy a Celestian. 6☀: Deploy a Celestian`。
+    ///
+    /// 🔴 **2026-10-14（第二十八会话 · `W16` · 台账 `A1879`）就地换卡** —— 这两条的 id
+    ///   原来写的是 **`SOR28` / `SOR36`**（⛔ 错因见下），现改为 `SOR22` / `SOR34`。
+    ///   **错因**：第二十六会话把全池卡 id 换成原版真值（`A1758`）⇒ 卡名搬家了：
+    ///     `SOR28` 现在是 **`Zephyrim`**（`Flying. Flank`，**整张卡没有付费段**）·
+    ///     `SOR36` 现在是 **`Exorcist`**（`8 ☀: Deal 5 damage to all enemies`）；
+    ///     而 `Dominion Superior` 的现 id = **`SOR22`**、`Celestian Superior` = **`SOR34`**
+    ///     （判据 = 现读 `cards_engine.json`：那两句 `desc` 与本节要的形状**逐字相同**）。
+    ///   **症状（修前实测）**：断言 B 里 `SOR28` 那一格**红**（期望「付费段全由信仰通道认领」、
+    ///     实得**通道栏为空** —— 因为 `Zephyrim` 根本没有付费段）；
+    ///     ⚠️ 而 `SOR36` 那一格是**假绿** —— `Exorcist` 恰好也有信仰付费段，**换了张卡照样过**。
+    ///     ⇒ 这正是「**哨兵卡要跟着换**」那一族（同族 `Program.cs` 的 `UM64` / `SOR71` 两处，
+    ///     也是 2026-10-14 就地换的卡）。⛔ **别把它当实现缺陷**（引擎那两条付费段一直是好的）。
     ///
     /// **断言 A —— 会红的那一条（`A1593` 的正面对照）**
     ///   拿**两张夹具卡**，形状**逐字照抄**上面那两个实例，**只把付费货币换成没有通道的那一种**
@@ -489,7 +512,7 @@ class WillRun
     ///   🔴 **旧口径必红**：它按全卡并集比，`deal 1` / `deploy` 撞上同一张卡 `Rally:` / `Pray:`
     ///      那一条 ⇒ 判成「收到了」⇒ 报 **0 条**。**这一条断言在旧口径下结构上不可能绿**。
     /// **断言 B —— 两个实例的正面归属**
-    ///   池里的 `SOR28` / `SOR36`：那两条付费段**必须由【信仰通道】认领**（不是被
+    ///   池里的 `SOR22` / `SOR34`：那两条付费段**必须由【信仰通道】认领**（不是被
     ///   `Rally:` / `Pray:` 顶上）。⚠️ 这一步在**旧口径里根本无从表达**（它没有「通道」这一维）
     ///   ⇒ 它钉的是「新口径**认得出是哪条 ability**」，而 `GlobalHit`（旧口径的答案）
     ///   同时为真正好说明**旧口径的「收到」与巧合无法区分**。
@@ -507,7 +530,7 @@ class WillRun
         Func<string, string, CardDef> fx = (id, desc) =>
             new CardDef(id, id, "unit", desc, "common", "Fixture", 1, 1, 1, 0, null, subtype: "Troop");
 
-        // ---- 断言 A：形状照 SOR28 / SOR36，货币换成「没有通道」的那一种 ----
+        // ---- 断言 A：形状照 SOR22 / SOR34，货币换成「没有通道」的那一种 ----
         var a1 = fx("FX-A1", "Rally: Deal 1 damage. 2 [Might]: Deal 1 additional damage");
         var a2 = fx("FX-A2", "Pray: Deploy a Celestian. 6 [Might]: Deploy a Celestian");
         foreach (var f in new[] { a1, a2 })
@@ -534,7 +557,7 @@ class WillRun
         }
 
         // ---- 断言 B：池里那两个实例 —— 付费段必须由【信仰通道】认领 ----
-        foreach (var id in new[] { "SOR28", "SOR36" })
+        foreach (var id in new[] { "SOR22", "SOR34" })
         {
             var c = pool.FirstOrDefault(x => x != null && x.Id == id);
             if (c == null) { fail++; Console.WriteLine("    🔴 B 池里没有 `" + id + "` —— 断言无从判"); continue; }
@@ -955,9 +978,9 @@ class WillRun
             //   出现过的同签名 `op`，会把这一段顶成「已收到」——`Sig()` 本来就**不带**
             //   「属于哪条 ability」那一维（见 `Sig` 的注释：它连 `Source` 都故意不算）。
             //   **两个已查实的实例**（出处 `资料/普查产出_第二十会话/W1_信仰阈值落地.md` §1·4）：
-            //     · `SOR28 Dominion Superior` = `Rally: Deal 1 damage. 2 ☀: Deal 1 additional damage`
+            //     · `SOR22 Dominion Superior` = `Rally: Deal 1 damage. 2 ☀: Deal 1 additional damage`
             //       —— ☀ 那半句的 `deal 1` 撞上**同一张卡** `Rally:` 那一条；
-            //     · `SOR36 Celestian Superior` = `Pray: Deploy a Celestian. 6☀: Deploy a Celestian`
+            //     · `SOR34 Celestian Superior` = `Pray: Deploy a Celestian. 6☀: Deploy a Celestian`
             //       —— 两段正文**逐字相同** ⇒ 签名必然相同。
             //   ⇒ 那两张的付费段**从没进过 ④ 的名单**（`A1452` 台账里「11 条 / 9 张」就是这个低报）。
             //   ⚠️ **影响面不止信仰**：④ 档的名单被拿去当「射程」的账都会少算。
@@ -1021,7 +1044,7 @@ class WillRun
     ///    卡面把触发关键词印成图标（`⚡ Rally: …`）时，不剥字形 `head` 会变成 `⚡ rally`。
     ///
     /// 🔴 **必须先问一句「这一句是不是已经由别的层接手了」**（转调 `CardDef.HandledByOtherLayer`）——
-    ///    否则有**假警报**：`Talent: Deploy Anchors`（`TAU45 Stormsurge Battlesuit`）里
+    ///    否则有**假警报**：`Talent: Deploy Anchors`（`TAU_Stormsurge_Battlesuit Stormsurge Battlesuit`）里
     ///    `Deploy Anchors` **恰好解得出一条 `deploy` op**，而它是**天赋名**、归
     ///    `TalentName` + `RuleCore.SpawnTalents` 那一层，**根本不是正文**（实测：不过这道闸时被误报）。
     ///    同族还有 `Companion N: <卡名>` / 光环 / 开局上手 —— 引擎自己有「谁接手」的判据，
@@ -1039,7 +1062,7 @@ class WillRun
         var ops = EffectText.Parse(body, out _, out _);
         if (ops == null || ops.Count == 0) return;                 // 解不出来的段不是「可执行正文」
         if (CardDef.HandledByOtherLayer(c, seg) != null) return;   // 已有别的层接手 ⇒ 不是「漏」
-        // ⚠️ **同一段正文在 `desc` 和 `keywords` 里各印一遍是常态**（实测 `ASH32 Dire Avenger Exarch`
+        // ⚠️ **同一段正文在 `desc` 和 `keywords` 里各印一遍是常态**（实测 `ASH63 Dire Avenger Exarch`
         //    两处都是 `Rally: All enemies lose Stealth and Camouflage`）⇒ 按「头 + 正文」去重，
         //    否则**同一个洞会被数两次**、把「收漏了几条」这个数灌水。
         //    ⛔ 去重键**不含 `where`**：段落在哪儿印的不改变它是一条正文这件事。
@@ -1064,7 +1087,7 @@ class WillRun
     ///    ⇒ 「卡面没有头、又没被消费」的句子**永远不可能是腿 B 的段**、也就**永远不会进任何一档**。
     ///    实测后果（出处 `资料/普查产出_第十四会话/诊断_未归因24张.md` §④㈡）：`SW23 Hrolf the Ironhowl`
     ///    （`Friendly Beasts cost 1 less.`）/ `GSC71 Atalan Leader`（`Friendly Vehicles cost 1 less.`）/
-    ///    `GSC36 Metamorph Leader`（`Your troops cost 1 less.`）**三张真缺陷**正是**因为这道缝**躲开了清单
+    ///    `GSC30 Metamorph Leader`（`Your troops cost 1 less.`）**三张真缺陷**正是**因为这道缝**躲开了清单
     ///    —— 它们**有一条别的 op**（`Rally` / `Strike` / `Uprising`）⇒ 腿 A ≠ 0 ⇒ 连「③ 未归因」也进不去。
     ///
     /// ⚠️ **「无头」的判据 = `AddFaceBody` 拒收那一条的【同一个表达式】**（`s.IndexOf(':') &gt; 0` 才算有头）——
@@ -1092,7 +1115,7 @@ class WillRun
     /// 🔴 **为什么要有它**：④「付费段」档的第三道闸原来问的是「**全卡**的 `op` 里有没有同签名的
     ///   那一条」，而 <see cref="Sig"/> **不带「属于哪条 ability」那一维** ⇒ 同一张卡**别的**
     ///   ability 里出现过的同签名 `op`，会把这一段顶成「已收到」。两个已查实的实例
-    ///   （`SOR28` / `SOR36`，逐条见 `Measure` 里那段注释）就**从没进过 ④ 的名单**。
+    ///   （`SOR22` / `SOR34`，逐条见 `Measure` 里那段注释）就**从没进过 ④ 的名单**。
     ///
     /// **两条规则**（判据**全部转调引擎的公开面**，探针里**一行新文法都不写**）：
     ///   ① 这一段**自带付费前缀**（<see cref="FaceBody.PaidCost"/> &gt; 0，= **引擎** `ParseSegment`
@@ -1107,7 +1130,7 @@ class WillRun
     ///
     /// ⚠️ **头 → 通道键**的解析（<see cref="ResolveTriggerKey"/>）：精确等值；带参数的触发头
     ///   （`Ecstasy 5:`）按 `CardDef.StripParamSuffix` 的**形状**退回那个键 —— 那个方法是**私有**的，
-    ///   而**不认它会把 `EC39 Maulerfiend` 误报**（它的 `ecstasy 5` 头对不上字典里的 `ecstasy`）。
+    ///   而**不认它会把 `BL31 Maulerfiend` 误报**（它的 `ecstasy 5` 头对不上字典里的 `ecstasy`）。
     ///   ⛔ **只差这一处形状**，别再放宽（放宽 = 「假收到」）。
     /// ⚠️ **无头段不走这里**（没有头 ⇒ 没有通道，见 `Measure` 里那段说明）。
     ///
@@ -1280,13 +1303,13 @@ class WillRun
     ///    1. `CardDef.HandledByOtherLayer` —— 事件层 / 天赋 / 伴生 / 开局上手 / 光环 / 静态改战斗规则；
     ///    2. `EffectText.AtTurnClauses` —— **回合起止从句**：它**不在** `WillRunOps` 里，
     ///       由 `EffectResolver.ResolveAtTurn:4792` 直接扫 `u.Card.Desc` 消费 ⇒ 无头、解得开、腿 A = 0，
-    ///       **但它确实在跑**（`AM15 Master of Ordnance` 那一批就是）。
+    ///       **但它确实在跑**（`AM18 Master of Ordnance` 那一批就是）。
     ///       ⚠️ **不加这道闸会把它整整一族误报成「无消费点」**（实测：这是本档最容易误报的一处）；
     ///    3. `CardDef.CostWhens` 的 `Body` —— **降费触发器**那一层（`Lower cost by N every time …`，
-    ///       `TL83 Norn Emissary`）：`_costWhens` **不经过 `WillRunOps`**（那个方法只收
+    ///       `TL_Norn_Emissary Norn Emissary`）：`_costWhens` **不经过 `WillRunOps`**（那个方法只收
     ///       `WhenTriggers`/`TriggerTexts`/`SpiritOps`/`OathOps`/`AttackedOps`/`AuraSpecs` 六个来源）
     ///       ⇒ 同样会「无头 + 解得开 + 腿 A = 0」，**而 `FireCostWhen` 在吃它**。
-    ///       ⚠️ **不加这道闸会把 `TL83` 误报**。
+    ///       ⚠️ **不加这道闸会把 `TL_Norn_Emissary` 误报**。
     ///
     /// 三道闸都没认领 ⇒ <see cref="KHNone"/>：**这句卡面正文【没有任何一层会执行】**（不是「查不到」，
     ///   是「全仓唯一读 `u.Card.Desc` 的地方只有 `ResolveAtTurn`，而它只收回合起止从句」）。</summary>
@@ -1326,9 +1349,9 @@ class WillRun
     static void Classify(CardDef c, FaceBody b)
     {
         // ① 同一个头**本卡注册过**（`TriggerTexts` 是公开面）⇒ 两份正文不一样，后者被「先到先得」丢了。
-        //    实测（同一族三例）：`ASH79 Howling Banshee Exarch` 的 `Strike` 在 `desc` 里写
+        //    实测（同一族三例）：`ASH69 Howling Banshee Exarch` 的 `Strike` 在 `desc` 里写
         //    `Give +1 [Attack] to your units`、在 `keywords` 里写 `Give +1 to your units`；
-        //    `DA9 Ravenwing Bikes` 的 `Agenda` 在两处写 `Gain 1 Quest Point` / `Gain 1`。
+        //    `DA7 Ravenwing Bikes` 的 `Agenda` 在两处写 `Gain 1 Quest Point` / `Gain 1`。
         //    ⚠️ 这不是「空转」（效果照样由另一份跑）⇒ **单独一档、不计入 rc**。
         var tt = c.TriggerTexts;
         if (tt != null && tt.ContainsKey(b.Head))

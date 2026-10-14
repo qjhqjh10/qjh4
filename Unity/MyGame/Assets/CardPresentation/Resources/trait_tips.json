@@ -1,312 +1,503 @@
 {
- "version": 1,
- "note": "关键词（trait）tooltip 的文案。由 工具/gen_trait_tips.py 从 资料/关键词图标/_规则书关键词表.md 生成，别手改。键 = 规则书里的**中文名**（运行时要先用 CardText.KeywordZh(规范键) 换过来）。⚠️ 这是**我们照规则书写的那一份**，不是原版的 I2 词条 —— 原版词条表在远端 CCD，见 资料/tooltip_原版规格与实现.md §二。⚠️ 形状是**数组**不是字典 —— `JsonUtility` 读不了字典（同 `card_icon_plan.json`）。",
- "source": "资料/关键词图标/_规则书关键词表.md",
+ "version": 2,
+ "note": "关键词（trait）tooltip 的文案。由 工具/gen_trait_tips.py 生成，别手改。**正文 = 官方 zh-CN 词条表的 `CardTraitDescription/*`（`src:official`）**；官方确实没有的那几个词退回《Warpforge Offline Rulebook》（粉丝实体版，`src:rulebook`，那几条**不是原版文案**）；两边都没有的 `src:none`（正文空，运行时如实印「没有这个词的条目」，⛔ 不编）。键 = `KeywordTable.Normalize` 出来的**小写规范名**。⚠️ 形状是**数组**不是字典 —— `JsonUtility` 读不了字典（同 `card_icon_plan.json`）。",
+ "source": "数据/游戏数据/官方本地化_en+zh-CN.json（`CardTraitDescription/*`） + 资料/关键词图标/_规则书关键词表.md（仅兜底）",
  "entries": [
   {
+   "key": "ability",
+   "zh": "技能",
+   "en": "Ability",
+   "bodyZh": "",
+   "bodyEn": "",
+   "src": "none"
+  },
+  {
+   "key": "agenda",
    "zh": "议程",
    "en": "Agenda",
-   "body": "以触发效果代替攻击"
+   "bodyZh": "执行一个动作，而不是攻击。通常会提供任务进度。",
+   "bodyEn": "Do an action instead of attacking. Usually grants Quest Progress.",
+   "src": "official"
   },
   {
+   "key": "ambush",
    "zh": "伏击",
    "en": "Ambush",
-   "body": "面朝下打出；下次回合前若被伤害：翻开无效果；若未被伤害：翻开并触发效果"
+   "bodyZh": "部队在被互动之前隐藏部署，己方回合揭示时触发X",
+   "bodyEn": "Troop is deployed hidden in play until interacted with, trigger X when revealed during your turn",
+   "src": "official"
   },
   {
+   "key": "armour",
    "zh": "护甲",
    "en": "Armour",
-   "body": "所受任何来源伤害减少 X（最低 1）"
+   "bodyZh": "受到的伤害减少X点，最少为1",
+   "bodyEn": "Damage received is reduced by X, to a minimum of 1",
+   "src": "official"
   },
   {
+   "key": "artifice",
    "zh": "巧技",
    "en": "Artifice",
-   "body": "每次打出战术时触发额外效果"
+   "bodyZh": "在打出计谋时做些什么",
+   "bodyEn": "Does something when playing a Stratagem",
+   "src": "official"
   },
   {
+   "key": "backlash",
    "zh": "反噬",
    "en": "Backlash",
-   "body": "单位死亡时触发效果"
+   "bodyZh": "当此单位死亡时触发一个效果",
+   "bodyEn": "Trigger an effect when this unit dies",
+   "src": "official"
   },
   {
+   "key": "blast",
    "zh": "爆裂",
    "en": "Blast",
-   "body": "攻击时对相邻单位造成 X 伤害"
+   "bodyZh": "攻击时，对目标相邻的单位造成X点伤害",
+   "bodyEn": "When attacking, deal X damage to units adjacent to the target",
+   "src": "official"
   },
   {
+   "key": "blind",
    "zh": "失明",
    "en": "Blind",
-   "body": "本单位失明期间远程攻击设为 0"
+   "bodyZh": "一个被致盲的单位的远程攻击在一回合内变为0",
+   "bodyEn": "A blinded unit's Ranged attack becomes 0 for one turn",
+   "src": "official"
   },
   {
+   "key": "bloodthirst",
    "zh": "嗜血",
    "en": "Blood Thirst",
-   "body": "你的回合可进行至多 2 次攻击"
+   "bodyZh": "每回合可以攻击两次",
+   "bodyEn": "Can attack twice per turn",
+   "src": "official"
   },
   {
+   "key": "camouflage",
    "zh": "伪装",
    "en": "Camouflage",
-   "body": "攻击前不能被敌方战术/效果选中"
+   "bodyZh": "此单位在攻击前不能被敌方计谋目标",
+   "bodyEn": "This unit cannot be targeted by enemy Stratagems until it attacks",
+   "src": "official"
   },
   {
+   "key": "cantattack",
    "zh": "无法攻击",
    "en": "Can't Attack",
-   "body": "永远无法攻击敌方单位"
+   "bodyZh": "不能攻击敌方单位",
+   "bodyEn": "Cannot attack enemy units",
+   "src": "official"
   },
   {
+   "key": "codex",
    "zh": "典籍",
    "en": "Codex",
-   "body": "你的能量为 0 时触发效果"
+   "bodyZh": "当你用完所有能量时做些什么",
+   "bodyEn": "Does something when you use up all your Energy",
+   "src": "official"
   },
   {
+   "key": "companion",
    "zh": "伴生",
    "en": "Companion",
-   "body": "从手牌打出时，可打出至多 X 张其伴生部队"
+   "bodyZh": "当这张牌从手牌中打出时，你可以在同一回合中打出多达X张其伙伴的复制品",
+   "bodyEn": "When this card is played from hand, you can play up to X copies of its Companion this same turn",
+   "src": "official"
   },
   {
+   "key": "concussion",
    "zh": "震荡",
    "en": "Concussion",
-   "body": "被本单位攻击的单位获得眩晕（Stun）"
+   "bodyZh": "当此单位对另一单位造成攻击伤害时，对其应用[[stun]]",
+   "bodyEn": "When this unit deals attack damage to another unit, [[stun]] it",
+   "src": "official"
   },
   {
+   "key": "cruelty",
    "zh": "残忍",
    "en": "Cruelty",
-   "body": "你的回合敌方单位受伤害未死亡时激活效果"
+   "bodyZh": "在你的回合中，当敌方单位受到伤害但未被摧毁时，会做出某种反应",
+   "bodyEn": "During your turn, does something when an enemy unit receives damage but is not destroyed",
+   "src": "official"
   },
   {
+   "key": "darkpact",
    "zh": "黑暗契约",
    "en": "Dark Pacts",
-   "body": "给予 4 种增益之一：(1) 鲜血：+2 近战与先锋；(2) 纵欲：+2 近战 +2 远程；(3) 命运：+2 生命与伪装；(4) 韧性：+1 生命与再生"
+   "bodyZh": "赐予混沌诸神中的四神之一的祝福",
+   "bodyEn": "Give a blessing from one of the four Chaos Gods",
+   "src": "official"
   },
   {
+   "key": "destroyer",
    "zh": "毁灭者",
    "en": "Destroyer",
-   "body": "总是优先攻击可被摧毁的单位"
+   "bodyZh": "如果此单位可以杀死一个敌人，那么它不能攻击另一个目标",
+   "bodyEn": "If this unit can kill an enemy, then it cannot attack a different target",
+   "src": "official"
   },
   {
+   "key": "duty",
    "zh": "职责",
    "en": "Duty",
-   "body": "一次性能力；可由其他卡牌效果\"装填\"再次使用"
+   "bodyZh": "执行一个动作而不是攻击，然后失去这个能力",
+   "bodyEn": "Do an action instead of attacking, then lose this ability",
+   "src": "official"
   },
   {
+   "key": "ecstasy",
    "zh": "狂喜",
    "en": "Ecstasy",
-   "body": "本单位生命降至 X 或以下未死亡时触发效果"
+   "bodyZh": "当这个单位的生命值降低到X或更少时（如果还活着），会做出某种反应",
+   "bodyEn": "Does something when this unit’s Health is lowered to X or less, if still alive",
+   "src": "official"
   },
   {
+   "key": "ephemeral",
    "zh": "临时",
    "en": "Ephemeral",
-   "body": "回合结束时若在手牌则移除"
+   "bodyZh": "在你的回合结束时从你的手中丢弃这张牌",
+   "bodyEn": "Discard this card from your hand at the end of your turn",
+   "src": "official"
   },
   {
+   "key": "faith",
    "zh": "信仰",
    "en": "Faith",
-   "body": "总信仰达到指定值时触发效果"
+   "bodyZh": "如果你的信仰达到了最低值，触发一个额外的效果",
+   "bodyEn": "Trigger an additional effect if your Faith has reached a minimum value",
+   "src": "official"
   },
   {
+   "key": "fast",
    "zh": "迅捷",
    "en": "Fast",
-   "body": "打出的当回合即可攻击任意敌方单位"
+   "bodyZh": "此单位可以在进入战场的同一回合攻击",
+   "bodyEn": "This unit can attack the same turn it goes into play",
+   "src": "official"
   },
   {
+   "key": "ferocity",
    "zh": "狂暴",
    "en": "Ferocity",
-   "body": "快速非战斗行动；执行时触发效果，然后洗回牌库"
+   "bodyZh": "快速非战斗行动；执行时触发效果，然后洗回牌库",
+   "bodyEn": "",
+   "src": "rulebook"
   },
   {
+   "key": "flank",
    "zh": "侧翼",
    "en": "Flank",
-   "body": "打出当回合可攻击任意敌方部队"
+   "bodyZh": "此单位可以在进入战场的同一回合攻击敌方军队",
+   "bodyEn": "This unit can attack enemy troops the same turn it goes into play",
+   "src": "official"
   },
   {
+   "key": "flying",
    "zh": "飞行",
    "en": "Flying",
-   "body": "只能被其他飞行单位以近战攻击选中"
+   "bodyZh": "非飞行单位不能以近战攻击为目标",
+   "bodyEn": "Cannot be targeted with Melee attacks by non-flying units",
+   "src": "official"
   },
   {
+   "key": "huntmark",
    "zh": "猎杀标记",
    "en": "Hunt Mark",
-   "body": "可叠加。带此标记的敌方部队被摧毁时：对敌方战将造成伤害并治疗我方战将，数值 = 标记数"
+   "bodyZh": "可叠加。带此标记的敌方部队被摧毁时：对敌方战将造成伤害并治疗我方战将，数值 = 标记数",
+   "bodyEn": "",
+   "src": "rulebook"
   },
   {
+   "key": "invulnerable",
    "zh": "无敌",
    "en": "Invulnerable",
-   "body": "无法被伤害或摧毁"
+   "bodyZh": "此单位不能被伤害或摧毁",
+   "bodyEn": "This unit cannot be damaged or destroyed",
+   "src": "official"
   },
   {
+   "key": "longrange",
    "zh": "远射",
    "en": "Long Range",
-   "body": "远程攻击时不承受伤害；被攻击后失去此关键词"
+   "bodyZh": "进行远程攻击时，敌人不会反击。受到攻击时失去此能力",
+   "bodyEn": "When doing a Ranged attack, enemies don't retaliate. Lose this ability when attacked",
+   "src": "official"
   },
   {
+   "key": "markerlight",
    "zh": "标记光",
    "en": "Markerlight",
-   "body": "受到远程攻击伤害 +X；受远程伤害后移除全部标记光"
+   "bodyZh": "当此单位受到远程攻击时，它将额外受到 X 点伤害，并在回合结束时失去标记灯",
+   "bodyEn": "When this unit receives a Ranged attack, it receives X additional damage and loses Markerlight at the end of the turn",
+   "src": "official"
   },
   {
+   "key": "mob",
    "zh": "群体",
    "en": "Mob",
-   "body": "友方部队执行近战攻击后触发效果"
+   "bodyZh": "在另一友方单位进行近战攻击后触发一个效果",
+   "bodyEn": "Trigger an effect after another friendly unit does a Melee attack",
+   "src": "official"
   },
   {
+   "key": "oath",
    "zh": "誓言",
    "en": "Oath",
-   "body": "部署时支付 X 能量以触发效果"
+   "bodyZh": "部署时支付 X 能量以触发效果",
+   "bodyEn": "",
+   "src": "rulebook"
   },
   {
+   "key": "pack",
    "zh": "兽群",
    "en": "Pack",
-   "body": "场上每有 1 个友方部队 +1 近战 +1 远程"
+   "bodyZh": "场上每有 1 个友方部队 +1 近战 +1 远程",
+   "bodyEn": "",
+   "src": "rulebook"
   },
   {
+   "key": "penitence",
    "zh": "忏悔",
    "en": "Penitence",
-   "body": "受到伤害但未死亡时触发效果"
+   "bodyZh": "受到伤害时做些什么",
+   "bodyEn": "Does something when damaged",
+   "src": "official"
   },
   {
+   "key": "pindown",
    "zh": "压制",
    "en": "Pindown",
-   "body": "无法执行近战攻击"
+   "bodyZh": "此单位不能进行近战攻击",
+   "bodyEn": "This unit cannot do Melee attacks",
+   "src": "official"
   },
   {
+   "key": "pray",
    "zh": "祈祷",
    "en": "Pray",
-   "body": "缓慢非战斗行动（详见战斗修女阵营指南）"
+   "bodyZh": "执行一个动作，而不是攻击。除非被伤害打断，在你下一个回合开始时获得1点信仰。",
+   "bodyEn": "Do an action instead of attacking. Gain 1 Faith at the start of your next turn, unless interrupted by damage",
+   "src": "official"
   },
   {
+   "key": "quest",
    "zh": "任务",
    "en": "Quest",
-   "body": "每获得 3 点任务：向牌库加入 1 张隐秘（Secret）并洗牌"
+   "bodyZh": "为每赚取的3点任务进度向你的卡组中添加一个秘密。",
+   "bodyEn": "Add a Secret to your deck for each 3 Quest Progress earned.",
+   "src": "official"
   },
   {
+   "key": "rally",
    "zh": "集结",
    "en": "Rally",
-   "body": "从手牌部署后触发效果"
+   "bodyZh": "当此单位从手中打出时触发一个效果",
+   "bodyEn": "Trigger an effect when this unit is played from hand",
+   "src": "official"
   },
   {
+   "key": "regeneration",
    "zh": "再生",
    "en": "Regeneration",
-   "body": "每回合结束时治疗 X"
+   "bodyZh": "在每个回合结束时，治疗X",
+   "bodyEn": "At the end of each turn, heal X",
+   "src": "official"
   },
   {
+   "key": "regiment",
    "zh": "团",
    "en": "Regiment",
-   "body": "友方单位执行远程攻击时触发效果"
+   "bodyZh": "在另一个友方单位进行远程攻击后触发一个效果",
+   "bodyEn": "Trigger an effect after another friendly unit does a Ranged attack",
+   "src": "official"
   },
   {
+   "key": "remnant",
    "zh": "残骸",
    "en": "Remnant",
-   "body": "本部队死亡时翻面表示残骸；残骸受伤害或控制者回合结束时被摧毁"
+   "bodyZh": "当此单位死亡时，它留下一个残余。残余在你的回合结束时被摧毁。",
+   "bodyEn": "When this unit dies, it leaves behind a Remnant. Remnants are destroyed at the end of your turn.",
+   "src": "official"
   },
   {
+   "key": "sabotage",
    "zh": "破坏",
    "en": "Sabotage",
-   "body": "创造 1 张破坏卡放入对手手牌"
+   "bodyZh": "在敌方手中创建一张破坏牌，直到其被打出前具有负面效果",
+   "bodyEn": "Create a Sabotage card in enemy hand, with a negative effect until it is played",
+   "src": "official"
   },
   {
+   "key": "sentry",
    "zh": "哨戒",
    "en": "Sentry",
-   "body": "对攻击者造成 X 伤害，然后照常结算攻击"
+   "bodyZh": "对攻击者造成 X 伤害，然后照常结算攻击",
+   "bodyEn": "",
+   "src": "rulebook"
   },
   {
+   "key": "shield",
    "zh": "护盾",
    "en": "Shield",
-   "body": "防止本单位下一次将受的伤害，然后失去护盾"
+   "bodyZh": "吸收一次攻击或效果的所有伤害",
+   "bodyEn": "Absorb all damage from one attack or effect",
+   "src": "official"
   },
   {
+   "key": "shuriken",
    "zh": "星镖",
    "en": "Shuriken",
-   "body": "攻击时：结算攻击伤害前对目标额外造成 X 伤害"
+   "bodyZh": "在攻击解决前，对目标造成X点伤害",
+   "bodyEn": "When attacking, deal X damage to the target before the attack is resolved",
+   "src": "official"
   },
   {
+   "key": "slay",
    "zh": "斩杀",
    "en": "Slay",
-   "body": "攻击并摧毁单位后触发能力（本单位存活时）"
+   "bodyZh": "在战斗中摧毁敌人并存活下来后做些什么",
+   "bodyEn": "Does something after destroying an enemy in combat and surviving",
+   "src": "official"
   },
   {
+   "key": "sniper",
    "zh": "狙击",
    "en": "Sniper",
-   "body": "若远程攻击会摧毁目标：不承受反击伤害"
+   "bodyZh": "进行远程攻击时，被杀死的敌人不会反击",
+   "bodyEn": "When doing a Ranged attack, enemies killed don't retaliate",
+   "src": "official"
   },
   {
+   "key": "spiritstone",
    "zh": "灵魂石",
    "en": "Spirit Stone",
-   "body": "携带路标石的灵族单位被摧毁时生成；受伤害被摧毁；控制者回合可收集；收集数量按触发所需减少"
+   "bodyZh": "一些艾达灵族的卡会消耗灵魂石来触发额外的效果",
+   "bodyEn": "Spirit Stones are consumed by some Aeldari cards to trigger additional effects",
+   "src": "official"
   },
   {
+   "key": "stealth",
    "zh": "潜行",
    "en": "Stealth",
-   "body": "一回合内或本单位攻击前，不能被任何方式选中"
+   "bodyZh": "这个单位在一回合内或直到它攻击为止不能被选为目标",
+   "bodyEn": "This unit cannot be targeted for one turn or until it attacks",
+   "src": "official"
   },
   {
+   "key": "stimulation",
    "zh": "激励",
    "en": "Stimulation",
-   "body": "被战术选中时、结算前：触发能力"
+   "bodyZh": "当被计谋目标时会做出某种反应",
+   "bodyEn": "Does something when targeted by a Stratagem",
+   "src": "official"
   },
   {
+   "key": "stomp",
    "zh": "践踏",
    "en": "Stomp",
-   "body": "攻击时，溢出伤害对目标相邻随机敌方单位造成"
+   "bodyZh": "在攻击时，超出的伤害会随机对目标旁边的敌人造成",
+   "bodyEn": "When attacking, excess damage is dealt to a random enemy adjacent to the target",
+   "src": "official"
   },
   {
+   "key": "strike",
    "zh": "猛击",
    "en": "Strike",
-   "body": "攻击后触发能力（本单位存活时）"
+   "bodyZh": "如果此单位在攻击后存活，触发一个效果",
+   "bodyEn": "Trigger an effect after attacking, if this unit survives the attack",
+   "src": "official"
   },
   {
+   "key": "stun",
    "zh": "眩晕",
    "en": "Stun",
-   "body": "被眩晕期间无法以任何方式行动"
+   "bodyZh": "晕眩的单位在下一回合不能行动",
+   "bodyEn": "A stunned unit cannot act during its next turn",
+   "src": "official"
   },
   {
+   "key": "swarm",
    "zh": "虫群",
    "en": "Swarm",
-   "body": "打出在同名部队左侧时：合并（置于其下，攻击生命相加）"
+   "bodyZh": "当在同名军队的左侧出牌时，它会与之合并，增加其属性",
+   "bodyEn": "When played on the left side of a troop with the same name, it is combined with it, adding its stats",
+   "src": "official"
   },
   {
+   "key": "synapse",
    "zh": "突触",
    "en": "Synapse",
-   "body": "被友方战术选中时：对相邻部队/单位重复效果（依战术而定）"
+   "bodyZh": "当此单位被友方计谋目标时，相邻单位也会受到该计谋的影响",
+   "bodyEn": "When this unit is targeted by a friendly Stratagem, adjacent units are affected by that Stratagem as well",
+   "src": "official"
   },
   {
+   "key": "talent",
    "zh": "天赋",
    "en": "Talent",
-   "body": "回合开始时在手牌中生成临时战术"
+   "bodyZh": "在你的回合开始时在你的手中创建一张牌",
+   "bodyEn": "Create a card in your hand at the start of your turn",
+   "src": "official"
   },
   {
+   "key": "teleport",
    "zh": "传送",
    "en": "Teleport",
-   "body": "当回合从牌库抽到即打出时触发能力"
+   "bodyZh": "如果在抽到的同一回合内出牌，则做些什么",
+   "bodyEn": "Does something if played on the same turn it was drawn",
+   "src": "official"
   },
   {
+   "key": "tide",
    "zh": "潮涌",
    "en": "Tide",
-   "body": "从手牌打出时：本回合可打出 X 张额外复制；费用与首张相同"
+   "bodyZh": "当这张牌从手中打出时，你可以在这个回合再打出它X次",
+   "bodyEn": "When this card is played from hand, you can play it again up to X times this turn",
+   "src": "official"
   },
   {
+   "key": "unstable",
    "zh": "不稳定",
    "en": "Unstable",
-   "body": "本单位死亡时：对随机单位造成 1-3 伤害"
+   "bodyZh": "当此单位死亡时，对一个随机单位造成 1-3 点伤害",
+   "bodyEn": "When this unit dies, it deals 1-3 damage to a random unit",
+   "src": "official"
   },
   {
+   "key": "uprising",
    "zh": "起义",
    "en": "Uprising",
-   "body": "本单位之后部署的部队，在其部署当回合触发能力"
+   "bodyZh": "在你部署另一支部队的同一回合做某事",
+   "bodyEn": "Do something when you deploy another troop on the same turn as this one",
+   "src": "official"
   },
   {
+   "key": "vanguard",
    "zh": "先锋",
    "en": "Vanguard",
-   "body": "其他单位不能被选为攻击目标"
+   "bodyZh": "你的其他单位不能被攻击目标",
+   "bodyEn": "Your other units cannot be targeted with attacks ",
+   "src": "official"
   },
   {
+   "key": "vulnerable",
    "zh": "脆弱",
    "en": "Vulnerable",
-   "body": "本单位每次受伤害 +X"
+   "bodyZh": "当此单位受到伤害时，它会受到额外的X点伤害",
+   "bodyEn": "When this unit is damaged, it receives an additional X damage",
+   "src": "official"
   },
   {
+   "key": "waystone",
    "zh": "路标石",
    "en": "Waystone",
-   "body": "本单位死亡时翻面表示生成 1 颗灵魂石"
+   "bodyZh": "当此单位死亡时，它留下一个可以被收集的灵魂石",
+   "bodyEn": "When this unit dies, it leaves behind a Spirit Stone that can be collected",
+   "src": "official"
   }
  ]
 }

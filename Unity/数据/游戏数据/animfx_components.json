@@ -424,17 +424,17 @@
        {
         "rid": 8983766030527496194,
         "type": {
-         "class": "<深>",
-         "ns": "<深>",
-         "asm": "<深>"
+         "class": "MaterialTweenFloat",
+         "ns": "",
+         "asm": "Assembly-CSharp"
         },
         "data": {
-         "materialProperty": "<深>",
-         "duration": "<深>",
-         "delay": "<深>",
-         "initializeToValue": "<深>",
-         "startValue": "<深>",
-         "finalValue": "<深>"
+         "materialProperty": "_Blend",
+         "duration": 1.0,
+         "delay": 0.3499999940395355,
+         "initializeToValue": 1,
+         "startValue": 0.0,
+         "finalValue": 1.0
         }
        }
       ]
@@ -84343,33 +84343,43 @@
        {
         "rid": 4324706479636480015,
         "type": {
-         "class": "<深>",
-         "ns": "<深>",
-         "asm": "<深>"
+         "class": "MaterialTweenColor",
+         "ns": "",
+         "asm": "Assembly-CSharp"
         },
         "data": {
-         "materialProperty": "<深>",
-         "duration": "<深>",
-         "delay": "<深>",
-         "initializeToValue": "<深>",
-         "startValue": "<深>",
-         "finalValue": "<深>"
+         "materialProperty": "_Color",
+         "duration": 0.4000000059604645,
+         "delay": 0.0,
+         "initializeToValue": 1,
+         "startValue": {
+          "r": 0.0,
+          "g": 0.0,
+          "b": 0.0,
+          "a": 1.0
+         },
+         "finalValue": {
+          "r": 0.125490203499794,
+          "g": 0.1764705926179886,
+          "b": 0.26274511218070984,
+          "a": 1.0
+         }
         }
        },
        {
         "rid": 4324706479636480016,
         "type": {
-         "class": "<深>",
-         "ns": "<深>",
-         "asm": "<深>"
+         "class": "MaterialTweenFloat",
+         "ns": "",
+         "asm": "Assembly-CSharp"
         },
         "data": {
-         "materialProperty": "<深>",
-         "duration": "<深>",
-         "delay": "<深>",
-         "initializeToValue": "<深>",
-         "startValue": "<深>",
-         "finalValue": "<深>"
+         "materialProperty": "_InteriorAlphaSpread",
+         "duration": 0.4000000059604645,
+         "delay": 0.0,
+         "initializeToValue": 1,
+         "startValue": 2.75,
+         "finalValue": 1.3899999856948853
         }
        }
       ]
@@ -89274,17 +89284,17 @@
        {
         "rid": 7335955422999478272,
         "type": {
-         "class": "<深>",
-         "ns": "<深>",
-         "asm": "<深>"
+         "class": "MaterialTweenFloat",
+         "ns": "",
+         "asm": "Assembly-CSharp"
         },
         "data": {
-         "materialProperty": "<深>",
-         "duration": "<深>",
-         "delay": "<深>",
-         "initializeToValue": "<深>",
-         "startValue": "<深>",
-         "finalValue": "<深>"
+         "materialProperty": "_DissolveAmount",
+         "duration": 1.0,
+         "delay": 0.0,
+         "initializeToValue": 1,
+         "startValue": 0.0,
+         "finalValue": 1.0
         }
        }
       ]

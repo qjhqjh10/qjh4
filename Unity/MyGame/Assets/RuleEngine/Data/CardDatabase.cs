@@ -53,6 +53,26 @@ namespace RuleEngine
             /// 只有督军卡有值；**只有 11 个阵营有真值**（见 `CardDef.GoesSecondCard`）。
             /// 数据源 = `数据/游戏数据/warlord_goes_second.json` → `工具/gen_cards_engine.py`。</summary>
             public string goesSecond;
+            /// <summary>🔴 🆕 2026-10-14（`A1798`）：原版 `RawCardScript.inventoryOptions`
+            /// （`CardInventoryOptions`：`InInventory = 0` / `CantAddToDeck = 5` / `NotInInventory = 10`）。
+            /// 判据消费者 = `DeckRules.CannotAddToDeck`（原版 `DeckUtility__ValidateDeckCards.c:68-72`）。
+            /// ⚠️ **`-1` = 真值里查不到这张卡**（真值快照 2025-07-30、比现池旧）—— ⛔ **别当成 0**。
+            /// 数据源 = `数据/游戏数据/card_inventory_options.json` → `工具/gen_card_inventory_options.py`
+            /// → `工具/gen_cards_engine.py`。</summary>
+            public int inventoryOptions;
+            /// <summary>同上的 `RawCardScript.showInCollectionOptions`
+            /// （`ShowInCollectionOptions`：`Hide = 0` / `Show = 5` / `OnlyIfOwned = 10`）。
+            /// 原版 `DeckUtility__ValidateDeckCards.c:73-77` 也拿它拦卡组。`-1` 含义同上。</summary>
+            public int showInCollectionOptions;
+            /// <summary>🔴 🆕 2026-10-14（`A1775`）：原版 `RawCardScript.initiative`
+            /// （`Initiative` 枚举：`Undefined = 0` / `Low = 10` / `Medium = 20` / `High = 30` /
+            /// `VeryHigh = 40`）—— **谁先手**的判据。
+            /// ⚠️ **`-1` = 真值里查不到这张卡**（快照 2025-07-30、比现池旧）—— ⛔ **别当成 `0`**；
+            /// 判先后手时 `-1` **不比**（退回原版最后一步），见 `CardDef.Initiative` /
+            /// `RuleEngine/Core/FirstSeatRules.cs`。
+            /// 数据源 = `数据/游戏数据/card_initiative.json` → `工具/gen_card_initiative.py`
+            /// → `工具/gen_cards_engine.py`。</summary>
+            public int initiative;
         }
 
         /// <summary>从 Resources 读卡表。取不到返回空表（不抛异常 —— 让调用方能自己决定怎么报）。</summary>
@@ -81,6 +101,14 @@ namespace RuleEngine
             if (dto.version < 6)
                 Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 6 —— 没有稳定 id，"
                                + "`CardDef.Id` 退回**卡名**（同名卡会串）。跑一下 gen_cards_engine.py 重生成。");
+            // 🆕 2026-10-14（`A1775`）：v8 起才有 `initiative`。**旧表读进来会全是 `0`**，
+            //   而 `0` = `Initiative.Undefined` —— 那会让 `FirstSeatRules.ByInitiative` 把
+            //   **「没有这个字段」读成「先攻值 = 0」**（静默把「没数据」当数据）。
+            //   ⇒ 这里必须出声（判据：`FirstSeatRules` 只认 `-1` 为缺值，`0` 是**合法取值**）。
+            if (dto.version < 8)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 8 —— 没有 `initiative` 一列，"
+                               + "它会被读成 **0**（`Initiative.Undefined`）而不是「缺值(-1)」⇒ "
+                               + "先后手判据拿到的是一堆假值。跑一下 gen_cards_engine.py 重生成。");
 
             int noId = 0;
 
@@ -127,7 +155,10 @@ namespace RuleEngine
                     descZh: c.descZh,
                     fromOriginalPool: true,     // 这条路上来的都是原版卡（卡面文字取它自己的效果原文）
                     subtype: c.subtype,
-                    goesSecondId: c.goesSecond));
+                    goesSecondId: c.goesSecond,
+                    inventoryOptions: c.inventoryOptions,
+                    showInCollectionOptions: c.showInCollectionOptions,
+                    initiative: c.initiative));
             }
             // ⚠️ 2026-10-17 订正：下面这句原来写「跨阵营那 **4** 组」—— 第 4 组
             //    （`Bladeguard Veteran` = DarkAngels / Ultramarines）是 09-13 一次错改名的产物，

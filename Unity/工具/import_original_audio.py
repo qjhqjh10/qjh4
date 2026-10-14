@@ -14,8 +14,17 @@
 数据源（**唯一来源**，2026-09-12 起「以 `assets_full` 为准」那条规矩）：
   · 音频  `d:/2/新解包资源/assets_full/bundle_*cardassets_assets_all/AudioClip/`
           （13 个包、**1857 条 / 70.59 MiB**；`d:/2/解包整理/01_卡牌/*/AudioClip/` 是同内容第二份）
-  · 归属  `d:/4/Unity/数据/索引/card_index.json` 的 `cards[].voice`
+  · 归属① 🔴 **权威** = 原版**卡 SO** 的 `summonAudio` / `attackAudio` / `deathAudio`
+          （`RawCardScript`，签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/RawCardScript.cs:54/56/58`）。
+          **读它的落地产物**：`d:/4/Unity/数据/游戏数据/card_vfx_by_card.json` 的
+          `byCard[*]._assetRefs`（取 `assetKind == "audio"` 且 `assetName` 非空）；键 `byCard` 的键
+          = **我们的卡 id**（该文件里 `origCardId` 与之逐条相等）。
+          ⚠️ **为什么读产物、不重解 `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json`**：
+          那条链（SO 字段 → GUID → `assetName`）**只有一处正本** = `工具/gen_card_vfx_by_card.py`
+          （`CARD_SO_TRUTH`），在这儿再实现一遍就是「同一条规则两处写」（本仓红线）。
+  · 归属② **兜底** = `d:/4/Unity/数据/索引/card_index.json` 的 `cards[].voice`
           （602 张卡 / 1778 条引用；实测 **1778/1778 在音频源里都找得到**）
+  · 归属③ **兜底之后再猜** = 前两者都没收录的孤儿，按文件名比卡名（`match_owner`，标 `src=orphan`）
   · 卡名  `MyGame/Assets/RuleEngine/Resources/cards_engine.json`
           （拿 `(阵营, 卡名)` 把 index 的卡并到**我们的 id** 上 —— index 里没有 id 字段）
 
@@ -27,6 +36,11 @@
      `_backup` 与 `_Backup1..N` ⇒ 事件名一律**小写规范化**后再比。
   4. **卡名本身含 `_`**（`Blissbringer_High-pitch_Screech`）⇒ **不能按最后一个 `_` 切分**，
      归属一律用 `card_index.json`，脚本只对**孤儿**（索引没收录的）才按名字猜，并标出来。
+     🔴 **2026-10-14 更正（账 A1832）**：原来写「归属一律用 `card_index.json`」—— **已降为兜底**。
+       实测 `card_index.json` 的 `cards[].voice` **归属本身就错**（**34 条** clip 记在别的卡名下：
+       `BL4`「Chaos Sergeant」→ 记在 `BL46`「Gifts of Chaos」· `DA34` → `DA83` ·
+       `EC21` → `EC_Terminator` …；成因见坑 6），而**卡 SO 是对的** ⇒
+       改成 **卡 SO 权威 → index 兜底 → 孤儿按名字猜** 三级。逐级条数由脚本运行输出打印。
   🔴 **5.（2026-09-18 更正第 4 条的后半句）「只对孤儿才按名字猜」这个设计漏了 70 条。**
      当时只有一条判据 —— `("_" + 卡名 + "_") in stem or stem.endswith("_" + 卡名)` —— 三类都漏：
        · **卡名两侧不是下划线**：`VO_AM_Bullgryn Bone'ead - Get behind me!.ogg`，名字后面跟的是 ` - `
@@ -40,6 +54,13 @@
        只拿 `- ` 之前那一段（`header`）去比，撇号/大小写/标点全部归一化，
        允许**卡名首段**当短名 —— 但**必须过唯一性护栏**（首段在池里只指向这一张卡），
        否则不认（项目原则：**宁可认不出，不可认错**）。
+  🔴 **6.（2026-10-14 新增 · 账 A1832）`card_index.json` 的归属错在**它自己**，不在本脚本。**
+     它是**上游产物**（`d:/2/解包整理/card_index.json`，2026-08-15 生成，由 `工具/sync_from_d2.py`
+     原样搬进 `数据/索引/`；两份 **md5 逐字节相同**）—— 那时**卡 SO 还没解出来**，
+     它的 `cards[].voice` 是靠名字/目录对出来的，对不上就**并到邻近那张卡**上
+     （实测 `Gifts of Chaos` 名下挂着 `Chaos Sergeant` + `Chaos Spawn` 两条，而这两张卡的
+     `voice` 是**空数组**）。⇒ **本脚本不修它**（`d:/2/` 不在本仓的写范围），
+     只把它从「唯一来源」降为「兜底」，并在它和卡 SO 冲突时**以卡 SO 为准**。
 
 用法：
     PYTHONIOENCODING=utf-8 python 工具/import_original_audio.py --check   # 只报告，不写盘
@@ -59,6 +80,10 @@ sys.stdout.reconfigure(encoding="utf-8")
 UNPACK = "d:/2/新解包资源/assets_full"
 CARD_INDEX = "d:/4/Unity/数据/索引/card_index.json"
 CARDS_ENGINE = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
+# 🔴 **归属①（权威）**：卡 SO 的 `summonAudio`/`attackAudio`/`deathAudio` 的落地产物。
+# ⚠️ 取**全量那份**（`数据/` 下），不是 `Resources/` 下那份运行时的投影 ——
+#    全量的带 `assetKind`/`assetName`/`soField`，且不进包体。
+CARD_SO_VFX = "d:/4/Unity/数据/游戏数据/card_vfx_by_card.json"
 DST_AUDIO = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/audio/vo"
 DST_JSON = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/voice_lines.json"
 
@@ -182,6 +207,37 @@ def load_engine_name_alias():
     return alias
 
 
+def load_card_so_audio():
+    """🔴 **归属①（权威）**：原版**卡 SO** 的逐卡语音绑定 → `{文件名 stem: [卡 id, ...]}`。
+
+    读的是它的**落地产物**（见文件头「为什么读产物、不重解 SO」）。
+    值是 **list** —— 同一个 `AudioClip` 可能被**两张卡**引用（实测 2 处：
+    `VO_BL_Terminator Champion - …` = `BL29`+`BL_Unhallowed_Gifts` ·
+    `VO_UM_Primaris Intercessor - …` = `UM6`+`EC57`）⇒ 调用方按「唯一才认」处置
+    （项目原则：**宁可认不出，不可认错**）。
+
+    返回 `(map, problems)`：`problems` 是该出声的异常（读不动 / 形状变了），⛔ 不静默吞。
+    """
+    problems = []
+    try:
+        by = json.load(io.open(CARD_SO_VFX, encoding="utf-8"))["byCard"]
+    except Exception as e:                                  # noqa: BLE001
+        problems.append(f"🔴 读不到卡 SO 产物 `{CARD_SO_VFX}`（{e}）"
+                        "⇒ **归属①整级失效**，只剩 `card_index.json` 兜底（那套归属是错的）")
+        return {}, problems
+    out = {}
+    for cid, v in by.items():
+        for r in (v or {}).get("_assetRefs", []):
+            if r.get("assetKind") != "audio":
+                continue
+            name = r.get("assetName")
+            if not name:
+                continue        # 实测 2 条（`GOF2` death / `BL47` summon）：GUID 在 guid_map 里就没有
+            if cid not in out.setdefault(name, []):
+                out[name].append(cid)
+    return out, problems
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只报告，不写盘")
@@ -199,13 +255,56 @@ def main():
     #（`Land Rider` / `Sister Dogmata` / `Morkai Eliminator` …，见 `load_engine_name_alias`）。
     alias = load_engine_name_alias()
 
-    # ---- ① 按 card_index 的归属建表（键 = 我们的 id）----
-    lines = {}          # id -> [ {"ev","file","text"} ]
+    # ---- ① 卡 SO（🔴 **权威**）：逐卡 `summonAudio` / `attackAudio` / `deathAudio` ----
+    # 这一级是 2026-10-14（账 A1832）新加的：以前只有 ② 那一级，而 ② 的归属**本身就是错的**。
+    # 顺序 = 「权威 → 兜底 → 猜」，冲突时**以卡 SO 为准**。
+    lines = {}          # id -> [ {"ev","file","text",[src]} ]
     card_meta = {}      # id -> (name, faction)
     used_files = set()
     missing = []
+    missing_so = []     # 归属① 引用了、音频源里却没有的（应该恒空；非空=上游产物脏了）
     no_join = []
 
+    byid = {c["id"]: c for c in eng_cards}
+    # 音频源按**去扩展名的 stem** 再建一份索引 —— 卡 SO 给的是 AudioClip **名**（不带扩展名）
+    by_stem = {}
+    for base in audio:
+        by_stem.setdefault(os.path.splitext(base)[0], []).append(base)
+
+    so_map, so_problems = load_card_so_audio()
+    for p in so_problems:
+        print(p)
+    so_files = set()      # 被归属① 认走的**实际文件名**（② 必须跳过它们，否则归属又错回去）
+    so_taken = so_ambig = so_nocard = so_dupstem = 0
+
+    for stem in sorted(so_map):
+        bases = by_stem.get(stem, [])
+        if not bases:
+            missing_so.append(stem)
+            continue
+        if len(bases) > 1:                 # 同 stem 两个扩展名 —— 判不了，不猜
+            so_dupstem += 1
+            print(f"⚠️ 音频源里 stem 撞车、跳过：{stem} → {bases}")
+            continue
+        owners = so_map[stem]
+        if len(owners) != 1:               # 两张卡引用同一条 clip ⇒ 不认（宁可认不出）
+            so_ambig += 1
+            continue
+        eng = byid.get(owners[0])
+        if eng is None:                    # SO 里有一张卡不在我们的卡表里 —— 出声，不静默
+            so_nocard += 1
+            continue
+        cid = eng["id"]
+        base = bases[0]
+        ev, text = parse_name(base)
+        card_meta[cid] = (eng["name"], eng["faction"])
+        lines.setdefault(cid, []).append({"ev": ev, "file": base, "text": text, "src": "cardSO"})
+        so_files.add(base)
+        used_files.add(base)
+        so_taken += 1
+
+    # ---- ② 按 card_index 的归属建表（**兜底**；① 认走的文件名一律跳过）----
+    overridden = []
     for c in index_cards:
         if not c.get("voice"):
             continue
@@ -220,6 +319,13 @@ def main():
         card_meta[cid] = (eng["name"], eng["faction"])
         for v in c["voice"]:
             base = os.path.basename(v.replace("\\", "/"))
+            if base in so_files:
+                # 🔴 **归属① 说了算**：index 把这条记在**别的卡**名下（实测 34 处），
+                #    或记对了（同卡）—— 两种都跳过：① 已经把它挂到正确的卡上了。
+                so_owner = so_map.get(os.path.splitext(base)[0])
+                if so_owner and so_owner[0] != cid:
+                    overridden.append((base, cid, so_owner[0]))
+                continue
             if base not in audio:
                 missing.append(base)
                 continue
@@ -227,7 +333,7 @@ def main():
             lines.setdefault(cid, []).append({"ev": ev, "file": base, "text": text})
             used_files.add(base)
 
-    # ---- ② 孤儿：索引没收录、但文件名能对上我们某张卡的（**这一步是猜的，标出来**）----
+    # ---- ③ 孤儿：前两级都没收录、但文件名能对上我们某张卡的（**这一步是猜的，标出来**）----
     # 判据在 `match_owner`（2026-09-18 重写）：归一化 + 整词边界 + 唯一性护栏。
     tables = build_name_tables(eng_cards)
     orphans = []
@@ -244,7 +350,7 @@ def main():
         lines.setdefault(cid, []).append({"ev": ev, "file": base, "text": text, "src": "orphan"})
         used_files.add(base)
 
-    # ---- ③ 拷贝音频 ----
+    # ---- ④ 拷贝音频 ----
     copied = skipped = 0
     if not args.check:
         os.makedirs(DST_AUDIO, exist_ok=True)
@@ -256,17 +362,23 @@ def main():
             shutil.copy2(src, dst)
             copied += 1
 
-    # ---- ④ 写映射 ----
+    # ---- ⑤ 写映射 ----
     # ⚠️ `cards` 是**数组不是字典** —— Unity 的 `JsonUtility` 反序列化不了字典
     #    （`VoiceLines.cs` 直接吃这个形状；要用字典就得再引一个 JSON 库，不值当）。
+    # ⚠️ `lines[].src` 只有**不是兜底②**时才写（`"cardSO"` / `"orphan"`）——
+    #    与 2026-09-18 起 `orphan` 那条同一规矩；`VoiceLines.cs` 的 DTO 不声明它，`JsonUtility` 会忽略。
     out = {
         "version": 1,
         "note": "原版单位语音表。id = 我们卡表的 id（cards_engine.json）；"
                 "file = Resources/Art/audio/vo/<名>（无扩展名时按文件名去掉扩展名）；"
-                "ev 见 语音索引.md §四（`wp` 语义未证实）。",
+                "ev 见 语音索引.md §四（`wp` 语义未证实）。"
+                "归属三级：卡 SO（权威，lines[].src=cardSO）→ card_index.json（兜底，无 src）→ "
+                "按文件名猜（src=orphan）。",
         "source": {
             "audio": "d:/2/新解包资源/assets_full/bundle_*cardassets*_assets_all/AudioClip/",
-            "owner": "d:/4/Unity/数据/索引/card_index.json 的 cards[].voice",
+            "owner": "① 卡 SO 的 summonAudio/attackAudio/deathAudio（经 "
+                     "d:/4/Unity/数据/游戏数据/card_vfx_by_card.json 的 byCard[*]._assetRefs）**权威**；"
+                     "② d:/4/Unity/数据/索引/card_index.json 的 cards[].voice **兜底**",
             "script": "工具/import_original_audio.py",
         },
         "cards": [
@@ -283,11 +395,29 @@ def main():
     for rows in lines.values():
         for r in rows:
             evs[r["ev"]] = evs.get(r["ev"], 0) + 1
-    print(f"卡片：有语音 {len(lines)} 张（其中并到我们卡表 {len(lines) - 0} 张）· 台词 {total_lines} 条")
+    n_so = sum(1 for v in lines.values() for r in v if r.get("src") == "cardSO")
+    n_orph = sum(1 for v in lines.values() for r in v if r.get("src") == "orphan")
+    print("=" * 78)
+    print("卡 SO（归属① · 权威）：引用 {0} 条 / 唯一文件名 {1} 个 / 卡 {2} 张".format(
+        sum(len(v) for v in so_map.values()), len(so_map),
+        len({x for v in so_map.values() for x in v})))
+    print(f"  并进我们卡表 {so_taken} 条 · "
+          f"**两张卡共用、不认** {so_ambig} 条 · **卡不在我们卡表** {so_nocard} 条 · "
+          f"**同 stem 两个扩展名** {so_dupstem} 条 · **音频源里没有** {len(missing_so)} 条")
+    for s in missing_so:                  # 应该恒空；非空 = 上游产物脏了，逐条复核
+        print(f"    ❌ 卡 SO 引用但音频源里没有：{s}")
+    print(f"card_index（归属② · 兜底）：被归属① **改判** {len(overridden)} 条"
+          f"（index 记在别的卡名下 → 卡 SO 说了算）")
+    for base, wrong, right in overridden[:12]:
+        print(f"    · {base}：index={wrong} → cardSO={right}")
+    if len(overridden) > 12:
+        print(f"    …（共 {len(overridden)} 条，全表见 voice_lines.json 的 src=cardSO 行）")
+    print("=" * 78)
+    print(f"卡片：有语音 {len(lines)} 张 · 台词 {total_lines} 条"
+          f"（其中 归属① {n_so} 条 · 归属③按名字猜 {n_orph} 条）")
     print(f"对不上卡表的 index 卡：{len(no_join)} 张 {no_join[:6]}")
     print(f"音频源里找不到的引用：{len(missing)} 条 {missing[:3]}")
-    print(f"孤儿（按文件名并进我们卡表的）：{sum(1 for v in lines.values() for r in v if r.get('src') == 'orphan')} 条；"
-          f"**仍未并上的 {len(orphans)} 条**：")
+    print(f"孤儿（按文件名并进我们卡表的）：{n_orph} 条；**仍未并上的 {len(orphans)} 条**：")
     for b in orphans:                     # 全列出来 —— 残差要能逐条复核，不能只报个数
         print(f"    {b}")
     print("事件分布：", dict(sorted(evs.items(), key=lambda kv: -kv[1])))

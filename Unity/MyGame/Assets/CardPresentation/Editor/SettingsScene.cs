@@ -2587,7 +2587,8 @@ public static class SettingsScene
                 //    原版 TMP 印的是西语 `Sobremuestreo` ⇒ EN 列是**我们挑的**（同文件头 ② 那条口径）。
                 CheckTrue(ssOn != null && TextOf(ssOn) == Loc.T("Settings/Graphics/EnableSuperSampling"),
                           $"② …行文字 = `Loc.T(\"Settings/Graphics/EnableSuperSampling\")`（实得「{TextOf(ssOn)}」；"
-                        + "EN `Use super sampling` / ZH `超采样`）");
+                        + "🔴 **2026-10-14（`A1803`）**：EN 列已换成**官方值 `Supersampling`**"
+                        + "（原 `Use super sampling` 是我们挑的）/ ZH `超采样`）");
 
                 // ③ 点它 ⇒ **只写 flag**（原版 `SuperSamplingToggleClick`：写 +0x124 + 置脏），**不当场改分辨率**
                 var ssBox = ssOn != null && FindChild(ssOn, "Toggle") != null

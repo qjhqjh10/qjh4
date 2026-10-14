@@ -27,6 +27,15 @@
 //   · 勋章图          = `40k_Achievements_icon_medal{档}`（原版 `AchievementsManager.GetIconByTier(tier)`；
 //                      ⚠️ **档位图 ↔ 档位的对应关系本地查不到**，我们按 `medal1..5` 顺序 = 档 1..5 推 —— **这是推断**）
 // ⚠️ **分类那 4 行文案是我们挑的**（用枚举名，真译在远端）—— 见 `ProfileData.TypeName` 的注释。
+//
+// 🔴 **2026-10-14（第二十八会话 · `A1803`）就地订正上面两条「远端查不到」**（铁律 5）：
+//   官方 zh-CN 词条表已解开（`数据/游戏数据/官方本地化_en+zh-CN.json`）⇒
+//     · `title` 那一格现在走 `Achievements/Title/<Ach_N>`（**现读命中 95/102**）；
+//     · `description` 那一格现在走 `Achievements/<Ach_N>`（**同样 95/102**；命中不到的 = 快照之后新增的，
+//       仍回资产里的 `challenge` id）；
+//     · **分类那 4 行**现在走 `Achievements/Types/<枚举名>`。
+//   ⚠️ 但仍**有一格是自拟的**：`rewards` 那句 `"{n} points"` —— 官方 `Achievements/Points` 我们**没接**
+//     （那条是否真是「points」这个字形未核，⛔ 不猜）。判据 → `资料/普查产出_第二十八会话/W4_官方文案族.md`。
 using UnityEngine;
 
 namespace CardPresentation

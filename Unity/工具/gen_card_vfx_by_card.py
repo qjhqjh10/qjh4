@@ -114,7 +114,8 @@ OUT_JSON = r"d:/4/Unity/数据/游戏数据/card_vfx_by_card.json"
 # 🆕 **2026-10-14（第二十七会话）：运行时那一份**（`Resources.Load` 要能取到 ⇒ 必须落在 `Resources/` 下）。
 #   为什么必须由**本脚本**写、而不是另写一个投影脚本：运行时那份与这份**是同一件事的两种形态**
 #   （事件名 / `conf` 优先级 / 卡 id 都要**逐字一致**），两处各算一次**迟早分叉**（本仓红线）。
-#   ⚠️ 它**只保留运行时用得上的字段**（`prefab` / `conf` / `cardanim` 三个），
+#   ⚠️ 它**只保留运行时用得上的字段**（`prefab` / `conf` / `cardanim` 三个，🆕 2026-10-14 起
+#      另加 A1817 的逐卡精确语音 `audio`），
 #      全量那份（含 `_assetRefs` 的立绘/语音引用、`soField`、`guid` 等）留在 `数据/` 下给工具用。
 OUT_RUNTIME = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/card_vfx_by_card.json"
 
@@ -163,6 +164,22 @@ SO_ASSET_FIELDS = [
     ("deathAudio", "audio", "逐卡阵亡语音"),
 ]
 SO_ASSET_KIND = dict((f, k) for f, k, _ in SO_ASSET_FIELDS)
+
+# 🆕 **2026-10-14（A1817）**：卡 SO 里那三个**语音**字段 → 我们的**事件名**。
+#   为什么要一张映射表而不是让消费者自己判 `soField`：运行时（`Core/VoiceLines.cs` 的精确档）
+#   拿到的必须是**我们的事件名**（它要按 `EvtKind.Deploy/Attack/Death` 查），
+#   而 `soField` 是**原版字段名** —— 两者之间**只此一处**翻译（两处各写一次迟早分叉，本仓红线）。
+#   ⚠️ 这三个事件名与 `VfxMap` 的 `deploy`/`death` **同名但是另一条轴**：
+#      `events` 是「播哪个 prefab」，`audio` 是「说哪句话」，⛔ 别混成一张表。
+#   ⚠️ **只有这三个** —— `deathAudio` 是**语音** `VO_*`，**不是**阵亡音效
+#      （`minionDeathCUE` 那一族 SFX 是另一件活，本表不收）。
+AUDIO_SO_FIELD_EVENT = {
+    "summonAudio": "deploy",
+    "attackAudio": "attack",
+    "deathAudio":  "death",
+}
+# 反向：我们的事件名 → 原版字段名（只为打印 / 出错信息用，别拿它当查表键）
+AUDIO_EVENT_SO_FIELD = dict((v, k) for k, v in AUDIO_SO_FIELD_EVENT.items())
 
 # `CardTrait.EffectTriggerType`（签名桩 `CardTrait.cs`）：Start0 / End1 / OnPlay2 / Trigger3 / OnHand4 / FromCode5 / TriggerOnPlay6
 TRAIT_SUFFIX_EVENT = {
@@ -1254,6 +1271,9 @@ def main():
     #   🔴 **形状是给 `JsonUtility` 用的**（它不支持字典）⇒ 一律**数组 + 短键**：
     #      `{"cards":[{"id":…, "events":[{"ev":…, "es":[{"n":prefab,"c":conf,"a":cardanim}]}]}]}`
     rt_cards, rt_entries, rt_noprefab = [], 0, 0
+    # 🆕 2026-10-14（A1817）：逐卡**精确语音**绑定（卡 SO 的 `summonAudio`/`attackAudio`/`deathAudio`）
+    rt_audio, rt_audio_noname, rt_audio_cards = 0, 0, 0
+    rt_audio_names = []          # 所有写出去的 clip 名（下面拿它跟 `Resources/Art/audio/vo/` 对账）
     for _cid in sorted(by_card):
         _evs = by_card[_cid]
         evs_out = []
@@ -1274,21 +1294,90 @@ def main():
                 es.append({"n": nm, "c": _e.get("conf") or "", "a": _e.get("cardanim") or ""})
             if es:
                 evs_out.append({"ev": _ev, "es": es})
-        if evs_out:
-            rt_cards.append({"id": _cid, "events": evs_out})
+
+        # ---- 🆕 A1817：逐卡【精确】语音绑定 ----
+        #   数据 = `byCard[*]._assetRefs` 里 `assetKind == "audio"` 的那三条
+        #   （`summonAudio` / `attackAudio` / `deathAudio`，原版卡 SO 的字段，
+        #     `工具/gen_card_vfx_by_card.py` 的 `SO_ASSET_FIELDS` 收进来的）。
+        #   ⚠️ **在这之前它们一条都没进运行时**（下面 `_assetRefs` 被整类跳过）⇒ 表现层只能按
+        #      文件名后缀猜「这张卡这个事件该放哪条」（`VoiceLines.ForDeploy/ForAttack/ForDeath`）。
+        #   ⚠️ 解不出 `assetName` 的（GUID 在 `guid_map.tsv` 里没有）**不写进来**，但计数并出声。
+        audio_out = []
+        for _e in (_evs.get("_assetRefs") or []):
+            if not isinstance(_e, dict) or _e.get("assetKind") != "audio":
+                continue
+            _evt = AUDIO_SO_FIELD_EVENT.get(_e.get("soField"))
+            if not _evt:                       # 不认识的字段：不猜它归哪个事件
+                continue
+            _n = _e.get("assetName")
+            if not _n:
+                rt_audio_noname += 1
+                continue
+            if any(a["ev"] == _evt for a in audio_out):
+                # 同名多卡（`nameJoinAmbiguous`）可能给同一个字段两条 —— 取第一条，
+                # ⛔ 不静默覆盖（覆盖会让「哪一条是真的」变得不可见）
+                continue
+            audio_out.append({"ev": _evt, "n": _n})
+            rt_audio += 1
+            rt_audio_names.append(_n)
+
+        if evs_out or audio_out:
+            # ⚠️ **空的那一档不写这个键**（不是写 `[]`）：`VfxMap.EnsureLoaded` 判的是
+            #   `c.events == null ⇒ continue` —— 写 `[]` 会让它对这 10 张**只有语音**的卡
+            #   建出**空字典**条目，`VfxMap.CardTableCards` 跟着从 979 变 989（无声的副作用）。
+            _card_out = {"id": _cid}
+            if evs_out:
+                _card_out["events"] = evs_out
+            if audio_out:
+                _card_out["audio"] = audio_out        # 同上：只有真有绑定才写这个键
+                rt_audio_cards += 1
+            rt_cards.append(_card_out)
             rt_entries += sum(len(v["es"]) for v in evs_out)
+    # ---- A1817：**精确语音引用的音频在不在工程里**（`Resources/Art/audio/vo/`）----
+    #   ⚠️ 这个目录是 `.gitignore` 的（原版资产不进仓库）⇒ 读不到时**如实写「没查」**，不猜。
+    _vo_dir = os.path.join(os.path.dirname(OUT_RUNTIME), "Art", "audio", "vo")
+    _vo_missing = None
+    if os.path.isdir(_vo_dir):
+        _have = set()
+        for _f in os.listdir(_vo_dir):
+            if _f.lower().endswith((".ogg", ".wav")):
+                _have.add(os.path.splitext(_f)[0])
+        _vo_missing = sorted(set(n for n in rt_audio_names if n not in _have))
+        if _vo_missing:
+            PROBLEMS.append(
+                "逐卡精确语音：有 **%d 条**卡 SO 引用的音频**不在 `Resources/Art/audio/vo/`**"
+                # 🔴 2026-10-14 就地订正（铁律 5 · 账 A1831）：原来这里写「import_original_audio.py 只按
+                #   card_index.json 的引用导 ⇒ 这批卡的引用不在 index 里」—— **已不成立**：
+                #   那个导入器现在**也按卡 SO 的引用面导**（`used_files` 先由它填）⇒ **本条正常应为 0 条**；
+                #   非 0 就说明源包里也没有那条（真缺件），别当「索引没收录」处理。
+                "（`import_original_audio.py` 现在**也按卡 SO 的引用面导** ⇒ 这条正常应为 0；非 0 = 源包里也缺）"
+                "：%s" % (len(_vo_missing), " · ".join(_vo_missing[:6])))
+    else:
+        print("   ⚠️ `%s` 不存在（`.gitignore` 的原版资产）⇒ **没查**「精确语音引用的音频在不在」"
+              % rel(_vo_dir))
     rt = {
         "_note": "🔴 **运行时那一份**（`gen_card_vfx_by_card.py` 与 `数据/游戏数据/card_vfx_by_card.json` "
                  "**同一次运行产出**，⛔ 别手改、⛔ 别另写脚本再投影一次）。"
                  "只留 `n`(prefab) / `c`(conf) / `a`(cardanim)；全量那份（含立绘/语音引用、字段出处、GUID）在 `数据/` 下。"
                  "消费口 = `CardPresentation/Core/VfxMap.cs` 的 `ByCard`（按 `confPriority` 折叠，取第一个命中的）。"
-                 "⚠️ 形状是**数组**不是字典 —— `JsonUtility` 不支持字典（`VfxMap.EnsureLoaded` 里注明了）。",
+                 "⚠️ 形状是**数组**不是字典 —— `JsonUtility` 不支持字典（`VfxMap.EnsureLoaded` 里注明了）。"
+                 "🆕 **`cards[].audio`（2026-10-14 · A1817）** = **逐卡精确语音绑定**："
+                 "`[{\"ev\":\"deploy|attack|death\",\"n\":\"<原版 AudioClip 名，不带扩展名>\"}]`，"
+                 "来源 = 卡 SO 的 `summonAudio` / `attackAudio` / `deathAudio`（`ev` 的翻译表见脚本的 "
+                 "`AUDIO_SO_FIELD_EVENT`，**只此一处**）；消费口 = `CardPresentation/Core/VoiceLines.cs` "
+                 "的精确档（**精确优先、按文件名后缀猜的那一套兜底**）。"
+                 "⚠️ `cardCount` = **文件里的卡数**（含几张**只有语音、没有 VFX** 的卡 —— 它们只带 `audio` 键、"
+                 "没有 `events` 键，`VfxMap` 会跳过；`entryCount` 只数 `events` 里的条目）。",
         "generatedBy": out.get("generatedBy"),
         "generatedAt": out.get("generatedAt"),
         "confPriority": (out.get("_conventions") or {}).get("confPriority") or [],
         "cardCount": len(rt_cards),
         "entryCount": rt_entries,
         "noPrefabCount": rt_noprefab,
+        # 🆕 A1817：逐卡精确语音的计数（`audioCardCount` = 有语音绑定的卡数）
+        "audioCount": rt_audio,
+        "audioCardCount": rt_audio_cards,
+        "audioNoNameCount": rt_audio_noname,
         "cards": rt_cards,
     }
     os.makedirs(os.path.dirname(OUT_RUNTIME), exist_ok=True)
@@ -1297,6 +1386,10 @@ def main():
     print("[4/4] 写盘 %s（%.1f KB · %d 张卡 · %d 条 · 没解析出 prefab 的 %d 条**没进来**）"
           % (rel(OUT_RUNTIME), os.path.getsize(OUT_RUNTIME) / 1024.0,
              len(rt_cards), rt_entries, rt_noprefab))
+    print("   🆕 逐卡精确语音：%d 条 / %d 张卡（解不出名字的 %d 条**没进来**）"
+          % (rt_audio, rt_audio_cards, rt_audio_noname)
+          + ("" if _vo_missing is None else
+             ("；其中 **%d 条**引用的音频不在 `Resources/Art/audio/vo/`" % len(_vo_missing))))
     if PROBLEMS:
         print("   ⚠️ 问题 %d 条：" % len(PROBLEMS))
         for p in PROBLEMS[:10]:

@@ -7,7 +7,10 @@
 //   · **语音钮** `voiceOverButton`（窗口 `+0x100`）：`SetCardVoiceOver` 按
 //     `GetAvailableSounds().Count > 0` 决定；Hero/Minion 还看两个运行期开关
 //     `EnableWarlordVOs` / `EnableTroopVOs`（实机都是 true）⇒ **等价判据 = 这张卡有没有声音**。
-//     我们的等价物 = **`VoiceLines.Has(卡 id)`**（实测覆盖：hero 50/53 · unit 549/656 · **tactic 4/484**）。
+//     我们的等价物 = **`VoiceLines.Has(卡 id)`**（~~实测覆盖：hero 50/53 · unit 549/656 · **tactic 4/484**~~
+//     → 🔴 **2026-10-14 更正（铁律 5 · 账 `A1832`）**：那组数是**归属订正之前**读的
+//     （当时 34 条 clip 挂在别的卡名下）⇒ 现读数请**现跑**或看 `资料/普查产出_第二十八会话/W7_语音导入漏件与归属.md`；
+//     ⛔ 别再引用这组旧数）。
 //   · **眼睛钮** `showCardTextButton`（`+0x108`）：`ShowCard` 里
 //     `SetActive(cardType == 0 || cardType == 10)` —— **0 = Minion、10 = Hero**
 //     ⇒ 我们的等价判据 = `type` 是 `unit` / `hero`（战术卡与防御卡都不建）。

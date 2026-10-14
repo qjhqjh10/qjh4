@@ -1,0 +1,987 @@
+{
+ "note": "原版卡 SO 的 relatedCard1..4（卡牌详情窗那几格 + Companion 词条要造的那张）—— 键 = 我们卡池的 id，值 = 相关卡 id（按槽 1..4 顺序，最多 4；缺键 = 这张卡没有相关卡）。由 工具/gen_related_cards.py 生成，⛔ 不手改。",
+ "source": "d:/2/远端缓存_旧profile_1013/Unity缓存_按哈希/54bdb7b1…/…/__data （RawCardScript × 1195）",
+ "provenance": "同包内按 m_PathID 反查裸 PPtr（m_FileID 全 0）；快照 = Unity 2022.3.38f1 / 2025-07-30，比现池旧 ⇒ 部分原版卡我们池子里没有（含 `_EASY`/`_tutorial`/`_enchantment` 那些另形态），那些边**没猜、丢在 skipped 里**。落 id 两级：① 原版 uniqueId 直命中卡池 id；② 归一化卡名（砍尾部括号）+ 同阵营、且候选只限「我们自造 id」的卡、唯一命中。全量真值（含落不下的每一条）→ 数据/游戏数据/related_cards.json，同一次运行产出。",
+ "invariant": "① entries 里每个 related 至多 4 条、顺序 = relatedCard1..4；② 同一卡内无重复；③ 源/目标 id 一律是 cards_engine.json 里现用的 id；④ 真值里没有「空槽后还有非空槽」的卡。",
+ "count": 157,
+ "edges": 191,
+ "skipped": 27,
+ "entries": [
+  {
+   "id": "AM1",
+   "related": [
+    "AM_Lord_Commander"
+   ]
+  },
+  {
+   "id": "AM10",
+   "related": [
+    "AM5"
+   ]
+  },
+  {
+   "id": "AM11",
+   "related": [
+    "AM5"
+   ]
+  },
+  {
+   "id": "AM15",
+   "related": [
+    "AM_Cadian_Honour"
+   ]
+  },
+  {
+   "id": "AM2",
+   "related": [
+    "AM_Legendary_Commandant",
+    "AM5"
+   ]
+  },
+  {
+   "id": "AM26",
+   "related": [
+    "AM5"
+   ]
+  },
+  {
+   "id": "AM27",
+   "related": [
+    "AM_Renowned_Bodyguard"
+   ]
+  },
+  {
+   "id": "AM28",
+   "related": [
+    "AM5"
+   ]
+  },
+  {
+   "id": "AM34",
+   "related": [
+    "AM5"
+   ]
+  },
+  {
+   "id": "AM51",
+   "related": [
+    "AM5"
+   ]
+  },
+  {
+   "id": "AM55",
+   "related": [
+    "AM5"
+   ]
+  },
+  {
+   "id": "AM60",
+   "related": [
+    "AM5"
+   ]
+  },
+  {
+   "id": "AM72",
+   "related": [
+    "AM71"
+   ]
+  },
+  {
+   "id": "AM73",
+   "related": [
+    "AM68"
+   ]
+  },
+  {
+   "id": "AM75",
+   "related": [
+    "AM68"
+   ]
+  },
+  {
+   "id": "AM_Armoured_Lightning",
+   "related": [
+    "AM68"
+   ]
+  },
+  {
+   "id": "ASH1",
+   "related": [
+    "ASH_Path_of_the_Seer"
+   ]
+  },
+  {
+   "id": "ASH17",
+   "related": [
+    "ASH20"
+   ]
+  },
+  {
+   "id": "ASH19",
+   "related": [
+    "ASH_Witchfire"
+   ]
+  },
+  {
+   "id": "ASH2",
+   "related": [
+    "ASH_Path_of_the_Warrior"
+   ]
+  },
+  {
+   "id": "ASH29",
+   "related": [
+    "ASH_Path_of_the_Warrior",
+    "ASH5"
+   ]
+  },
+  {
+   "id": "ASH3",
+   "related": [
+    "ASH_Path_of_Command",
+    "ASH5"
+   ]
+  },
+  {
+   "id": "ASH34",
+   "related": [
+    "ASH_Wrath_of_Khaine"
+   ]
+  },
+  {
+   "id": "ASH52",
+   "related": [
+    "ASH20"
+   ]
+  },
+  {
+   "id": "ASH71",
+   "related": [
+    "ASH7"
+   ]
+  },
+  {
+   "id": "ASH74",
+   "related": [
+    "ASH_Storm_of_Silence"
+   ]
+  },
+  {
+   "id": "ASH76",
+   "related": [
+    "ASH_Empyric_Ambush"
+   ]
+  },
+  {
+   "id": "ASH79",
+   "related": [
+    "ASH_Flickerjump"
+   ]
+  },
+  {
+   "id": "ASH_Path_of_Command",
+   "related": [
+    "ASH5"
+   ]
+  },
+  {
+   "id": "ASH_Path_of_the_Warrior",
+   "related": [
+    "ASH5"
+   ]
+  },
+  {
+   "id": "BL22",
+   "related": [
+    "BL_Rites_of_Possession",
+    "BL9"
+   ]
+  },
+  {
+   "id": "BL23",
+   "related": [
+    "BL_Diabolic_Strength",
+    "BL_Infernal_Gaze",
+    "BL_Unhallowed_Gifts"
+   ]
+  },
+  {
+   "id": "BL35",
+   "related": [
+    "BL_Helspear_Assault",
+    "BL2"
+   ]
+  },
+  {
+   "id": "BL45",
+   "related": [
+    "BL1"
+   ]
+  },
+  {
+   "id": "BL51",
+   "related": [
+    "BL37"
+   ]
+  },
+  {
+   "id": "BL62",
+   "related": [
+    "BL37"
+   ]
+  },
+  {
+   "id": "BL65",
+   "related": [
+    "BL_Litany_of_Despair"
+   ]
+  },
+  {
+   "id": "BL67",
+   "related": [
+    "BL68",
+    "BL_Bitter_Blows"
+   ]
+  },
+  {
+   "id": "BL_Helspear_Assault",
+   "related": [
+    "BL2"
+   ]
+  },
+  {
+   "id": "DA31",
+   "related": [
+    "DA_Master_Interromancer"
+   ]
+  },
+  {
+   "id": "DA36",
+   "related": [
+    "DA_Master_of_Manoeuvre"
+   ]
+  },
+  {
+   "id": "DA57",
+   "related": [
+    "DA10"
+   ]
+  },
+  {
+   "id": "DA_Supreme_Grand_Master",
+   "related": [
+    "DA4"
+   ]
+  },
+  {
+   "id": "EC33",
+   "related": [
+    "EC32"
+   ]
+  },
+  {
+   "id": "EC34",
+   "related": [
+    "EC36"
+   ]
+  },
+  {
+   "id": "EC50",
+   "related": [
+    "EC8"
+   ]
+  },
+  {
+   "id": "EC55",
+   "related": [
+    "EC_Duelist_s_Hubris_Lucius_Talent"
+   ]
+  },
+  {
+   "id": "EC56",
+   "related": [
+    "EC_Euphoric_Strike_Lord_Exultant_s_Talent"
+   ]
+  },
+  {
+   "id": "EC57",
+   "related": [
+    "EC_Excessive_Vigour_Daemon_Prince_s_Talent"
+   ]
+  },
+  {
+   "id": "EC58",
+   "related": [
+    "EC8",
+    "EC5"
+   ]
+  },
+  {
+   "id": "GOF105",
+   "related": [
+    "GOF79"
+   ]
+  },
+  {
+   "id": "GOF15",
+   "related": [
+    "GOF21"
+   ]
+  },
+  {
+   "id": "GOF18",
+   "related": [
+    "GOF_Sawbonez"
+   ]
+  },
+  {
+   "id": "GOF19",
+   "related": [
+    "GOF4"
+   ]
+  },
+  {
+   "id": "GOF21",
+   "related": [
+    "GOF_Mekaniak",
+    "GOF_More_Dakka",
+    "GOF_Ramshackle",
+    "GOF_Wreckin_Ball"
+   ]
+  },
+  {
+   "id": "GOF23",
+   "related": [
+    "GOF_Follower_of_Gork"
+   ]
+  },
+  {
+   "id": "GOF27",
+   "related": [
+    "GOF_Worst_Temper"
+   ]
+  },
+  {
+   "id": "GOF28",
+   "related": [
+    "GOF_Greatest_Warboss",
+    "GOF1"
+   ]
+  },
+  {
+   "id": "GOF29",
+   "related": [
+    "GOF_Da_Red_Waaagh"
+   ]
+  },
+  {
+   "id": "GOF43",
+   "related": [
+    "GOF1"
+   ]
+  },
+  {
+   "id": "GOF46",
+   "related": [
+    "GOF6"
+   ]
+  },
+  {
+   "id": "GOF49",
+   "related": [
+    "GOF1"
+   ]
+  },
+  {
+   "id": "GOF61",
+   "related": [
+    "GOF3"
+   ]
+  },
+  {
+   "id": "GOF69",
+   "related": [
+    "GOF32"
+   ]
+  },
+  {
+   "id": "GOF75",
+   "related": [
+    "GOF_Uge_Choppa"
+   ]
+  },
+  {
+   "id": "GOF76",
+   "related": [
+    "GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent"
+   ]
+  },
+  {
+   "id": "GOF77",
+   "related": [
+    "GOF_Ferocious_Rage_Beastboss_Talent"
+   ]
+  },
+  {
+   "id": "GOF83",
+   "related": [
+    "GOF3"
+   ]
+  },
+  {
+   "id": "GOF87",
+   "related": [
+    "GOF78",
+    "GOF1",
+    "GOF_Special_Dose_Zodgrod_Wortsnagga_Talent"
+   ]
+  },
+  {
+   "id": "GOF92",
+   "related": [
+    "GOF_Waaagh_Energy_Weirdboy_Talent"
+   ]
+  },
+  {
+   "id": "GOF94",
+   "related": [
+    "GOF_Dok_s_Toolz_Painboss_talent"
+   ]
+  },
+  {
+   "id": "GOF96",
+   "related": [
+    "GOF79"
+   ]
+  },
+  {
+   "id": "GOF_Greatest_Warboss",
+   "related": [
+    "GOF1"
+   ]
+  },
+  {
+   "id": "GOF_Mekaniak",
+   "related": [
+    "GOF_More_Dakka",
+    "GOF_Ramshackle",
+    "GOF_Wreckin_Ball"
+   ]
+  },
+  {
+   "id": "GSC1",
+   "related": [
+    "GSC_Inscrutable_Cunning"
+   ]
+  },
+  {
+   "id": "GSC10",
+   "related": [
+    "GSC_Poisoned_Supplies",
+    "GSC_Experimental_Bio_Horrors"
+   ]
+  },
+  {
+   "id": "GSC12",
+   "related": [
+    "GSC6"
+   ]
+  },
+  {
+   "id": "GSC2",
+   "related": [
+    "GSC_Brood_Prophet"
+   ]
+  },
+  {
+   "id": "GSC21",
+   "related": [
+    "GSC_Vox_Hacker"
+   ]
+  },
+  {
+   "id": "GSC31",
+   "related": [
+    "GSC5"
+   ]
+  },
+  {
+   "id": "GSC33",
+   "related": [
+    "GSC7"
+   ]
+  },
+  {
+   "id": "GSC37",
+   "related": [
+    "GSC_Deadliest_Killer"
+   ]
+  },
+  {
+   "id": "GSC47",
+   "related": [
+    "GSC7"
+   ]
+  },
+  {
+   "id": "GSC76",
+   "related": [
+    "GSC_Improvised_Barricade"
+   ]
+  },
+  {
+   "id": "GSC_Cult_Propaganda",
+   "related": [
+    "GSC6"
+   ]
+  },
+  {
+   "id": "SAU13",
+   "related": [
+    "SAU1"
+   ]
+  },
+  {
+   "id": "SAU16",
+   "related": [
+    "SAU5"
+   ]
+  },
+  {
+   "id": "SAU19",
+   "related": [
+    "SAU_Reanimate"
+   ]
+  },
+  {
+   "id": "SAU20",
+   "related": [
+    "SAU_Reanimate"
+   ]
+  },
+  {
+   "id": "SAU24",
+   "related": [
+    "SAU_Reanimate"
+   ]
+  },
+  {
+   "id": "SAU28",
+   "related": [
+    "SAU5",
+    "SAU_Reanimate"
+   ]
+  },
+  {
+   "id": "SAU29",
+   "related": [
+    "SAU_Indomitable_Will"
+   ]
+  },
+  {
+   "id": "SAU34",
+   "related": [
+    "SAU_Particle_Whip",
+    "SAU5"
+   ]
+  },
+  {
+   "id": "SAU35",
+   "related": [
+    "SAU_Lord_of_the_Storm"
+   ]
+  },
+  {
+   "id": "SAU36",
+   "related": [
+    "SAU_Relentless_March",
+    "SAU5"
+   ]
+  },
+  {
+   "id": "SAU37",
+   "related": [
+    "SAU_Master_Chronomancer"
+   ]
+  },
+  {
+   "id": "SAU46",
+   "related": [
+    "SAU1"
+   ]
+  },
+  {
+   "id": "SAU52",
+   "related": [
+    "SAU1"
+   ]
+  },
+  {
+   "id": "SAU66",
+   "related": [
+    "SAU_Hardwired_Destruction"
+   ]
+  },
+  {
+   "id": "SAU69",
+   "related": [
+    "SAU3"
+   ]
+  },
+  {
+   "id": "SAU72",
+   "related": [
+    "SAU49"
+   ]
+  },
+  {
+   "id": "SAU75",
+   "related": [
+    "SAU41"
+   ]
+  },
+  {
+   "id": "SAU_Inescapable_Retribution",
+   "related": [
+    "SAU12"
+   ]
+  },
+  {
+   "id": "SAU_Relentless_March",
+   "related": [
+    "SAU5"
+   ]
+  },
+  {
+   "id": "SOR1",
+   "related": [
+    "SOR_Fury_of_the_Righteous"
+   ]
+  },
+  {
+   "id": "SOR16",
+   "related": [
+    "SOR_Hymn_of_Battle"
+   ]
+  },
+  {
+   "id": "SOR2",
+   "related": [
+    "SOR_Lead_the_Righteous",
+    "SOR5"
+   ]
+  },
+  {
+   "id": "SOR3",
+   "related": [
+    "SOR_Righteous_Repugnance"
+   ]
+  },
+  {
+   "id": "SOR34",
+   "related": [
+    "SOR15"
+   ]
+  },
+  {
+   "id": "SOR45",
+   "related": [
+    "SOR5"
+   ]
+  },
+  {
+   "id": "SOR65",
+   "related": [
+    "SOR_Daemonbreaker"
+   ]
+  },
+  {
+   "id": "SOR70",
+   "related": [
+    "SOR67"
+   ]
+  },
+  {
+   "id": "SOR73",
+   "related": [
+    "SOR67"
+   ]
+  },
+  {
+   "id": "SOR9",
+   "related": [
+    "SOR_Hymn_of_Battle"
+   ]
+  },
+  {
+   "id": "SOR_Hymn_of_Battle",
+   "related": [
+    "SOR7"
+   ]
+  },
+  {
+   "id": "SOR_Lead_the_Righteous",
+   "related": [
+    "SOR5"
+   ]
+  },
+  {
+   "id": "TAU1",
+   "related": [
+    "TAU_Hero_of_the_Empire"
+   ]
+  },
+  {
+   "id": "TAU12",
+   "related": [
+    "TAU_Structural_Analyzer"
+   ]
+  },
+  {
+   "id": "TAU19",
+   "related": [
+    "TAU_Serene_Unifier"
+   ]
+  },
+  {
+   "id": "TAU2",
+   "related": [
+    "TAU_Ethereal_Supreme",
+    "TAU_Serene_Unifier"
+   ]
+  },
+  {
+   "id": "TAU20",
+   "related": [
+    "TAU6"
+   ]
+  },
+  {
+   "id": "TAU21",
+   "related": [
+    "TAU_Homing_Beacon",
+    "TAU11"
+   ]
+  },
+  {
+   "id": "TAU22",
+   "related": [
+    "TAU13"
+   ]
+  },
+  {
+   "id": "TAU26",
+   "related": [
+    "TAU10"
+   ]
+  },
+  {
+   "id": "TAU27",
+   "related": [
+    "TAU8"
+   ]
+  },
+  {
+   "id": "TAU28",
+   "related": [
+    "TAU4"
+   ]
+  },
+  {
+   "id": "TAU3",
+   "related": [
+    "TAU_Drone_Companion",
+    "TAU6",
+    "TAU4",
+    "TAU7"
+   ]
+  },
+  {
+   "id": "TAU31",
+   "related": [
+    "TAU6"
+   ]
+  },
+  {
+   "id": "TAU34",
+   "related": [
+    "TAU7"
+   ]
+  },
+  {
+   "id": "TAU36",
+   "related": [
+    "TAU_Shield_Generator"
+   ]
+  },
+  {
+   "id": "TAU64",
+   "related": [
+    "TAU4"
+   ]
+  },
+  {
+   "id": "TAU65",
+   "related": [
+    "TAU_Grisly_Feast"
+   ]
+  },
+  {
+   "id": "TAU9",
+   "related": [
+    "TAU7"
+   ]
+  },
+  {
+   "id": "TAU_Ethereal_Supreme",
+   "related": [
+    "TAU_Serene_Unifier"
+   ]
+  },
+  {
+   "id": "TAU_Homing_Beacon",
+   "related": [
+    "TAU11"
+   ]
+  },
+  {
+   "id": "TAU_Hunters_Instincts",
+   "related": [
+    "TAU67"
+   ]
+  },
+  {
+   "id": "TL14",
+   "related": [
+    "TL37"
+   ]
+  },
+  {
+   "id": "TL23",
+   "related": [
+    "TL_Aerial_Seeding"
+   ]
+  },
+  {
+   "id": "TL24",
+   "related": [
+    "TL37"
+   ]
+  },
+  {
+   "id": "TL25",
+   "related": [
+    "TL_Synaptic_Imperative"
+   ]
+  },
+  {
+   "id": "TL34",
+   "related": [
+    "TL_Brood_Progenitor",
+    "TL4"
+   ]
+  },
+  {
+   "id": "TL35",
+   "related": [
+    "TL_Hive_Commander"
+   ]
+  },
+  {
+   "id": "TL36",
+   "related": [
+    "TL_Spirit_Leech"
+   ]
+  },
+  {
+   "id": "TL6",
+   "related": [
+    "TL37"
+   ]
+  },
+  {
+   "id": "TL74",
+   "related": [
+    "TL_Alpha_Warrior"
+   ]
+  },
+  {
+   "id": "TL_Brood_Progenitor",
+   "related": [
+    "TL4"
+   ]
+  },
+  {
+   "id": "TL_Psychophage",
+   "related": [
+    "TL81"
+   ]
+  },
+  {
+   "id": "UM12",
+   "related": [
+    "UM_Spear_of_Macragge"
+   ]
+  },
+  {
+   "id": "UM17",
+   "related": [
+    "UM6"
+   ]
+  },
+  {
+   "id": "UM29",
+   "related": [
+    "UM_Greatest_Deeds"
+   ]
+  },
+  {
+   "id": "UM46",
+   "related": [
+    "UM_Master_Tactician"
+   ]
+  },
+  {
+   "id": "UM47",
+   "related": [
+    "UM_Master_of_the_Fleet"
+   ]
+  },
+  {
+   "id": "UM48",
+   "related": [
+    "UM_Master_of_Arcana",
+    "UM_Might_of_Heroes",
+    "UM_Scryer_s_Gaze",
+    "UM_Smite"
+   ]
+  },
+  {
+   "id": "UM64",
+   "related": [
+    "UM6"
+   ]
+  },
+  {
+   "id": "UM65",
+   "related": [
+    "UM_Exhortation_of_Rage"
+   ]
+  },
+  {
+   "id": "UM76",
+   "related": [
+    "UM_Exemplary_Warrior",
+    "UM_Righteous_Fury",
+    "UM_Paragon_of_Ultramar",
+    "UM_Master_of_Arms"
+   ]
+  },
+  {
+   "id": "UM81",
+   "related": [
+    "UM8"
+   ]
+  }
+ ]
+}

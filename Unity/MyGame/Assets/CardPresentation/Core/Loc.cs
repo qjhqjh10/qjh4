@@ -57,9 +57,27 @@
 //
 //    ⚠️ **本文件里凡是还写着「原版中文在远端 I2 表 / 中文那一列是我们译的 / 本地没有中文表」的旧注，
 //       一律以本条为准**（逐处已于同日加注，见各处 `2026-10-14`）。
-//    ⚠️ **两条中文没换、要另办**：① `MenuDeck/CantImportDeck` —— 官方文案带 `{0}` 而我们的调用点
-//       **不传参**，照抄会把 `{0}` 字面留在界面上 ⇒ 要换得**同时改调用点**（`Shell/DeckInfoPopup.cs:1432`）；
-//       ② `MainMenu/PurchasePremium/Description` —— 它是**字符串拼接**形态，要单独处理。
+//       🔴 **2026-10-14（第二十八会话 · `A1803`）就地订正上面那句「逐处已于同日加注」—— 不成立**：
+//       本文件里**仍有约 35 处**旧注写着「值在远端 I2 表 / 本地取不到」（`grep -n "远端 I2\|远端 CCD"`
+//       现读）。★ **那批不是「值取不到」，是「当时还没接」** —— 官方 zh-CN 表 2026-10-14 已在本地。
+//       本会话（`A1803`）只按账**逐条接了 `Battle/` 那一族 + 关键词 tooltip + 6 条中文**，
+//       **没有做全量注释扫**；其余各处**仍按文件头这一条理解**（⛔ 别照那些旧注当判据）。
+//    ✅ **2026-10-14（`A1803`）本轮到底动了什么（现读口径，别抄别处的数）**：
+//       · **`Battle/*` 补进 105 条**（官方有、我们表里没有 ⇒ 全按官方两列录入）；
+//       · **EN 列换成官方值的 43 条**（`A1794` 说的那一批的另一半；含 `Tips/*` 13 ·
+//         `Tips/Hud/*` 8 · `MainMenu/Settings/LanguageName/*` 9 —— 语言名下拉在英文档会印**本族语言名**
+//         （`Español`/`Français`…，那就是原版的做法），⛔ 不再是枚举名）；
+//       · **两列都换的 1 条**（`MenuShop/ExtraLegendaryWarning`）。
+//       ⇒ 换完之后 `Loc` 里「官方有这个键」的 382 条中，**只剩 33 条 ZH + 1 条 EN 与官方不同**，
+//         而那 33 条**就是文件头说的那批「暂缓换回」**（`Card_Trait` 25 · `Armies` 4 · `Card_Race` 2
+//         · `MenuDeck/HUD/DeckDescription/Minions`）+ 那条要改调用点的 `MenuDeck/CantImportDeck`。
+//         判据脚本（可复算）：`工具/_loc_official/w4_verify.py`。
+//    ⚠️ **两条中文没换、要另办**：
+//       ✅ **② `MainMenu/PurchasePremium/Description` —— 2026-10-14（`A1803`）【已换】**（它确实是拼接形态，
+//          但拼接只是**写法**：把官方那三段照写进去即可，见那条自己的注释）。本行原来写着「要单独处理」—— 已办。
+//       🔴 **① `MenuDeck/CantImportDeck` —— 仍未换（本轮也没换）**：官方文案带 `{0}` 而我们的调用点
+//          **不传参**，照抄会把 `{0}` 字面留在界面上 ⇒ 要换得**同时改调用点**（`Shell/DeckInfoPopup.cs:1432`，
+//          ⛔ **不在 `A1803` 那批写手的白名单里**）⇒ 已记进 `资料/普查产出_第二十八会话/W4_官方文案族.md`。
 
 //
 // ============================ 🔴 只有中文/英文两套文案 ============================
@@ -276,7 +294,7 @@ namespace CardPresentation
             // 🔴 键名**中间真有一个空格**（原版 `mTerm` 原文就是 `Settings/Account/Switch Account`）——
             //    逐字照抄，⛔ 别「顺手」改成 `SwitchAccount`（改了就取不到词条、界面上印键名）。
             { "Settings/Account/Switch Account",              new Entry("切换账户",     "Switch Account") },
-            { "Settings/Account/Logout",                      new Entry("登出",         "Logout") },
+            { "Settings/Account/Logout",                      new Entry("登出",         "Log Out") },
             { "MainMenu/Settings/ButtonLabel/DeleteAccount",  new Entry("删除账户",     "Delete account") },
             // ⚠️ 原版那颗 `Twitch Button` 的 `mTerm` **指的就是 Youtube 这条**（prefab copy-paste 残留，
             //    prefab 里印的是 `Link Twitch`）—— 照抄原版（铁律 11），⛔ 不另造一条 Twitch 键。
@@ -291,16 +309,16 @@ namespace CardPresentation
             //   `Settings/Support/Title` 在原版里挂了**三处**：页签 `Tab Toggle Title` ·
             //   页标题 `Tab Title` · `Support Button > Button Text`）。
             { "Settings/Support/Title",            new Entry("支持",       "Support") },
-            { "Settings/Support/FAQText",          new Entry("对游戏有疑问？请先看常见问题解答",
+            { "Settings/Support/FAQText",          new Entry("对游戏有疑问？请访问常见问题解答",
                                                                "Questions about the game? Visit the Frequent Asked Questions") },
             { "Settings/Support/FAQButton",        new Entry("常见问题",   "FAQ") },
             { "Settings/Support/MiddleText",       new Entry("您需要我们的帮助吗？", "Do you need help from us?") },
             { "Settings/Support/ContactButton",    new Entry("联系",   "Contact") },
             // ⚠️ 英文列里那个换行是**原版 `m_text` 里的真换行**（照抄），不是我们排的版。
-            { "Settings/Support/ContactText",      new Entry("也可以用 support@everguild.com 联系我们\n我们会尽力帮你！",
+            { "Settings/Support/ContactText",      new Entry("您也可以通过support@everguild.com与我们联系 我们将尽力帮助您！",
                                                                "You can also contact us at support@everguild.com\nWe'll do our best to help you!") },
             { "Settings/Support/TermsOfService",   new Entry("服务条款",   "Terms of Service") },
-            { "Settings/Support/FAQTextMobile",    new Entry("对游戏有疑问？请看常见问题解答，或联系客服",
+            { "Settings/Support/FAQTextMobile",    new Entry("对游戏有疑问？查看常见问题或联系客服",
                                                                "Questions about the game? Check out the Frequent Asked Questions or contact Support") },
             // ⚠️ 这条**不在** `Settings/Support/` 前缀下（原版就那么写的）：底部两颗链里 `Privacy Policy`
             //    那颗 `Button Text` 挂的是 `MainMenu/Settings/ButtonLabel/PrivacyPolicy`，而
@@ -312,16 +330,16 @@ namespace CardPresentation
             //    前缀字面量已在 `global-metadata.dat` 核到）。英文那一列 = **枚举名本身**
             //    （原版本地 TMP 拿不到正式选项名 —— 远端 I2 表）；中文那一列是我们译的。
             { "MainMenu/Settings/LanguageName/English",    new Entry("English",     "English") },
-            { "MainMenu/Settings/LanguageName/Spanish",    new Entry("Español", "Spanish") },
-            { "MainMenu/Settings/LanguageName/French",     new Entry("Français",     "French") },
-            { "MainMenu/Settings/LanguageName/German",     new Entry("Deutsch",     "German") },
+            { "MainMenu/Settings/LanguageName/Spanish",    new Entry("Español", "Español") },
+            { "MainMenu/Settings/LanguageName/French",     new Entry("Français",     "Français") },
+            { "MainMenu/Settings/LanguageName/German",     new Entry("Deutsch",     "Deutsch") },
             { "MainMenu/Settings/LanguageName/Portuguese", new Entry("葡萄牙语", "Portuguese") },
-            { "MainMenu/Settings/LanguageName/Russian",    new Entry("Русский",     "Russian") },
-            { "MainMenu/Settings/LanguageName/Italian",    new Entry("Italiano", "Italian") },
-            { "MainMenu/Settings/LanguageName/Korean",     new Entry("한국어",     "Korean") },
-            { "MainMenu/Settings/LanguageName/Japanese",   new Entry("日本語",     "Japanese") },
-            { "MainMenu/Settings/LanguageName/Czech",      new Entry("Čeština",   "Czech") },
-            { "MainMenu/Settings/LanguageName/Polish",     new Entry("Polski",   "Polish") },
+            { "MainMenu/Settings/LanguageName/Russian",    new Entry("Русский",     "Русский") },
+            { "MainMenu/Settings/LanguageName/Italian",    new Entry("Italiano", "Italiano") },
+            { "MainMenu/Settings/LanguageName/Korean",     new Entry("한국어",     "한국어") },
+            { "MainMenu/Settings/LanguageName/Japanese",   new Entry("日本語",     "日本語") },
+            { "MainMenu/Settings/LanguageName/Czech",      new Entry("Čeština",   "Čeština") },
+            { "MainMenu/Settings/LanguageName/Polish",     new Entry("Polski",   "Polski") },
             { "MainMenu/Settings/LanguageName/Chinese",    new Entry("中文",     "Chinese") },
 
             // ============================================================ 卡组编辑窗（原版 `Deck Editing Menu`）
@@ -446,7 +464,7 @@ namespace CardPresentation
             // 消费侧 = `Shell/PracticeModePopup.cs` 的六处 `Txt(...)` 调用点。
             // ------------- F2 练习窗 -------------
             // `Back button ▸ Text`（TMP 'Back'）→ 见上面的 `MainMenu/MainButtons/ButtonLabel/Back`（共用）
-            { "Demo/ToBattle",                                new Entry("战斗",         "Battle!") },              // `DeckSelectionContinueButton ▸ Text`
+            { "Demo/ToBattle",                                new Entry("战斗",         "Battle") },              // `DeckSelectionContinueButton ▸ Text`
             { "Demo/DeckSelectionDemo/SelectDeck",            new Entry("选择要玩的卡组", "Select deck to play") },   // `Deck Selector ▸ tooltip`
             { "Demo/CardCostBalance",                         new Entry("卡/能量成本", "Card / Energy cost") },     // `Deck info ▸ General container ▸ Deck Information Cost/balance text`
             { "MainMenu/RankedWindow/ChangeDeck",             new Entry("更换卡组",       "Change Deck") },           // `… ▸ General container ▸ Generic Simplified UI Button ▸ Button Text`
@@ -473,7 +491,7 @@ namespace CardPresentation
             // 消费侧 = `Shell/DeckSelectionPopup.cs` 的 `TitleTerm`（`:170`）+ 建那一格时取词（`:381`）；
             //   断言 → `Editor/CollectionScene.cs` 的 D6 那一节（两语档各断一个**字面量**）。
             // 🧨 改坏法：把这条删掉 ⇒ 界面上印键名、那条断言立刻红（`Loc.T` 返回键名）。
-            { "MenuDeck/Tip/SelectDeckAgainst",               new Entry("选择一个卡组进行对战", "Select deck") },
+            { "MenuDeck/Tip/SelectDeckAgainst",               new Entry("选择一个卡组进行对战", "Select a deck to play against") },
 
             // ------------- 🆕 2026-10-17（B11 · A884）：导入窗（`Import Deck Popup`）的**占位符** -------------
             // 节点 = `Import Deck Popup/Window/Input Field/Text Area/Placeholder` —— 键名 = 那颗 `Localize`
@@ -538,7 +556,7 @@ namespace CardPresentation
             //      `Settings/Online/Lobby/PeerLostHint` …）；🔴 但**取词与格式化必须是同一处** ——
             //      这条键的 `String.Format` 只在 `ShareDeck` 那一处做，⛔ 别在别处再折一次。
             // 消费侧 = `Shell/DeckInfoPopup.cs` 的 `ShareDeck`（`ShareSuccessTerm` 那个常量上写着键的判据）。
-            { "MenuDeck/Share/ExportSuccesful",               new Entry("卡组已复制到剪贴板", "Deck code copied to your clipboard ({0} characters)") },
+            { "MenuDeck/Share/ExportSuccesful",               new Entry("卡组已复制到剪贴板", "Deck copied to clipboard") },
 
             // ------------- 🆕 **2026-10-12（`A1045`）：`Share On Chat` 那扇两键面板的三条词条** -------------
             // 键名 = **原版字符串常量表实读**（**不是自拟**）：`d:/2/tools/il2cpp_out/stringliteral.json` 的
@@ -554,9 +572,9 @@ namespace CardPresentation
             //   `Pepito el de siempre`、两颗钮的字是**模板串** `Template`（`Shell/GenericOptionsPanel.cs` 的
             //   `DefTitle` / `TemplateText`）⇒ 别指望从 prefab 抄英文，如实标注「我们译的」。
             // 消费侧 = `Shell/DeckInfoPopup.cs` 的 `ShareOnChat()`（那三个 `ShareChat*Term` 常量上写着判据）。
-            { "MenuDeck/Share/Title",                         new Entry("分享卡组", "Share deck") },
-            { "MenuDeck/Share/ShareOnAlliance",               new Entry("在联盟聊天中分享", "Share with alliance") },
-            { "MenuDeck/Share/ShareOnGlobal",                 new Entry("在全球聊天中分享", "Share with everyone") },
+            { "MenuDeck/Share/Title",                         new Entry("分享卡组", "Share Deck") },
+            { "MenuDeck/Share/ShareOnAlliance",               new Entry("在联盟聊天中分享", "Share on Alliance chat") },
+            { "MenuDeck/Share/ShareOnGlobal",                 new Entry("在全球聊天中分享", "Share on Global chat") },
 
             // ------------- 🆕 **2026-10-17（A891）：导入窗那个 `Confirm` 钮的词条** -------------
             // 节点 = `Import Deck Popup/Window/Buttons/Generic UI Button/**Button Text**`（同一份 prefab）。
@@ -641,7 +659,7 @@ namespace CardPresentation
             //   那会与 `Shell/ShopWindow` 的 `TxtEmpty`（同一句原文）分叉）。
             //   ⚠️ 中文取自 `zh_CN.csv:178`，但那条的英文串是 `…for the selected **filter**`（单数 filter），
             //   与我们这一串（复数 filters）**差一个字母** ⇒ 属「最近邻」，**不是精确命中**（如实记）。
-            { "MenuCollection/NoDecksFound",                  new Entry("在您选择的过滤器中，您的收藏里没有卡组", "There are no deck in your collection for the selected filters") }, // TMP 原文（含原版语病）；zh_CN.csv:178 近邻
+            { "MenuCollection/NoDecksFound",                  new Entry("在您选择的过滤器中，您的收藏里没有卡组", "There are no decks in your collection for the selected filters") }, // TMP 原文（含原版语病）；zh_CN.csv:178 近邻
             // ------------- 收藏窗那两处页头 / 通用钮 --------------
             { "MenuCollection/Label/Cosmetics",               new Entry("你的化妆品收藏", "Your cosmetics collection") }, // TMP 原文；`label < Header < Cardback Tab`；zh_CN.csv:25
             //   `Back`：同键 8 颗，收藏窗那颗 = `Button Text < Close Button < Shared < Tabs < Content Area < Collection Menu Variant`
@@ -687,7 +705,7 @@ namespace CardPresentation
             { "SocialMenu/Alliances/CreateAlliance", new Entry("创建联盟",   "Create alliance") },   // TMP 原文；中文**自拟**（⚠️ `zh_CN.csv:229` 是 `Create Alliance (1000 Gold)`，**另一个串**）
             // ------------- 联盟面板（`Alliance Event Score Panel` 那两处）-------------
             //   2 颗 · `Join Alliance text < No Alliance < Alliance Event Score Panel < …`
-            { "SocialMenu/Alliances/JointToEarnRewards", new Entry("加入联盟以获得额外奖励", "Join an alliance to gain additional rewards") }, // TMP 原文；中文取 `zh_CN.csv:263` 的**近邻**（那条的英文串是 `Join an Alliance for extra Rewards`，**与我们这串不同**）
+            { "SocialMenu/Alliances/JointToEarnRewards", new Entry("加入联盟以获得额外奖励", "Join an Alliance to gain additional rewards") }, // TMP 原文；中文取 `zh_CN.csv:263` 的**近邻**（那条的英文串是 `Join an Alliance for extra Rewards`，**与我们这串不同**）
             // ------------- 🔴 **跨窗共用**的一条（不是排位窗专属！）-------------
             //   6 颗，横跨三处：排位窗（`Ranked Division Info/RankedEventWindow[*]` 的 `LeaderboardButton`）·
             //   **联盟面板**（`View Leaderboard Button` / `Leaderboard Button` 的 `Button Text` —— 就是我们要接的那两颗）·
@@ -763,7 +781,7 @@ namespace CardPresentation
             { "SocialMenu/Alliances/Promote",        new Entry("提升",     "Promote") },            // TMP 原文 `Promote`（**英文**）✅；中文自拟
             { "SocialMenu/Alliances/Demote",         new Entry("降级",     "Demote") },             // 🔴 EN **我们自拟**（原版 TMP = 西语占位串 `Degradar`）；中文自拟
             { "SocialMenu/Alliances/KickPlayer",     new Entry("赶走玩家", "Kick Player") },        // 🔴 EN **我们自拟**（原版 TMP = 西语占位串 `Expulsar Jugador`）；中文自拟
-            { "SocialMenu/Alliances/Quit",           new Entry("退出联盟", "Quit") },              // 🔴 EN **我们自拟**（原版 TMP = 西语占位串 `Abandonar Alianza`）；中文自拟
+            { "SocialMenu/Alliances/Quit",           new Entry("退出联盟", "Quit Alliance") },              // 🔴 EN **我们自拟**（原版 TMP = 西语占位串 `Abandonar Alianza`）；中文自拟
             // ------------- 奖杯详情窗（`Alliance Trophy Info Popup`）那两行 --------------
             //   各 1 颗 · `Next Tier < Progress < Controls < RightSide < window`（TMP `Next Tier:`）·
             //   `Label < Checkbox < selectButton < Controls < RightSide < window`（TMP `Alliance featured trophy`）
@@ -952,7 +970,9 @@ namespace CardPresentation
             //   ⚠️ 这条键**只在代码字面量里**（载波②；prefab 上零 `Localize`）⇒ 本地**没有**它的
             //      显示串 ⇒ EN/ZH **都自拟**（EN 取词条名末段，同 `MenuDeck/Button/Random` 的先例；
             //      `zh_CN.csv` 里 `Undo` 这个英文串**不存在**，2026-10-18 按第一列精确查过）。
-            { "Battle/Mulligan/Undo",              new Entry("撤销",     "Undo") },        // 🔴 EN/ZH **都自拟**（值在远端 I2 表）
+            // 🔴 **2026-10-14（`A1803`）就地订正**：上面那句「EN/ZH 都自拟」**不成立** —— 官方
+            //   `Battle/Mulligan/Undo` = `["Undo", "撤销"]`，与本条两列**逐字相同**（错因：当时表还没解开）。
+            { "Battle/Mulligan/Undo",              new Entry("撤销",     "Undo") },        // ✅ 两列 = 官方值（2026-10-14 核）
             //   `Battle/Mulligan/WaitEnemy`：`…battlearena1/MonoBehaviour_4804.json`（`BackCanvas/WaitText`），
             //   TMP 原文 **`Waiting for enemy`**。🔴 **推翻上一轮**「原版 `WaitText` 文案没查到 ⇒ 这条是我们加的」：
             //   节点有字也有键（当年只看了 dump 里那个空的 `Text`）。我们表里那句中文仍是我们的译法。
@@ -972,11 +992,14 @@ namespace CardPresentation
             // 🆕 2026-10-18（第三会话 · `A985⑦`）：**抽牌被弃的提示**（手牌满 ⇒ 抽到那张直接进弃牌堆）。
             //   原版那支 = `PlayerHand._AddDrawnCardToHand_d__37:129-141` ⇒ `Hand.Count < MaxCardsInHand`
             //   才进手牌，否则**进墓地 + `ShowHeadsUpMessage(GetTermTranslation(0x428A218))`**。
-            //   🔴 **这一条的值【不是原版的】** —— `0x428A218` 查出来的那个键的**文案在远端 I2 表**，本地拿不到；
-            //   下面是**我们自己写的兜底**（`BattleDriver.HandFullText()` 的文档里已如实标注）。
+            //   🔴 **2026-10-14（`A1803`）就地订正**：这一段原来写「这一条的值**不是原版的** —— 文案在远端 I2 表、
+            //   本地拿不到」—— **两句都不成立**：官方 `Battle/Tips/HandFull` = `["Hand is full", "手牌已满"]`，
+            //   表里这两列**就是官方值**（ZH 早已对上；EN 本会话也换成官方那句了）。
+            //   ⚠️ 仍**不是**原版的只有 `BattleDriver.HandFullText()` 里那句兜底副本（`Hand full - the drawn
+            //   card goes to the discard pile`）—— 它今天走不到（`Loc.HasEntry` 为真），但要跟着改。
             //   ⚠️ **本工程的规矩是不许静默失败**：宁可出声说一句我们的话，也不让玩家看着牌凭空消失。
             //   ⛔ 将来若远端值到位，**直接改这一行**即可（代码不用动：`Loc.HasEntry` 有就走它）。
-            { "Battle/Tips/HandFull",              new Entry("手牌已满", "Hand full - the drawn card goes to the discard pile") },
+            { "Battle/Tips/HandFull",              new Entry("手牌已满", "Hand is full") },   // 🔴 EN 2026-10-14（`A1803`）改官方；⚠️ 我们自写的那句「…goes to the discard pile」现在只剩 `BattleDriver.HandFullText()` 里的兜底副本（那份要跟着改）
             //   `Battle/Tips/{MeleeAttack,RangeAttack,HealthPoints}`：13 个 arena 各一颗，父链
             //   `Card Display Window < Card Display < TutorialObjs < UnitObjs < {Melee,Ranged,Health}Text`
             //   ⇒ TMP 原文 **`Melee Attack` / `Ranged Attack` / `Health Points`**。
@@ -984,11 +1007,158 @@ namespace CardPresentation
             //   该处原来的注写「本地没有 ⇒ 这四句是我们按卡面语义写的」**不成立**（四块逐块找得到），已就地订正。
             { "Battle/Tips/MeleeAttack",           new Entry("近战攻击", "Melee Attack") }, // TMP 原文；中文 = 我们原来那句（`Phrases["MELEE"]`）
             { "Battle/Tips/RangeAttack",           new Entry("远程攻击", "Ranged Attack") }, // TMP 原文；中文 = 我们原来那句（`Phrases["RANGED"]`）
-            { "Battle/Tips/HealthPoints",          new Entry("生命值",   "Health Points") },// TMP 原文；中文**自拟**（csv 无 `Health Points`；`Health` 那条 csv:31 是另一个串）// TMP 原文；中文**自拟**（csv 无 `Health Points`；`Health` 那条 csv:31 是另一个串）
+            { "Battle/Tips/HealthPoints",          new Entry("生命点数", "Health Points") },   // TMP 原文；🔴 ZH 2026-10-14（`A1803`）改官方（原「中文自拟」作废）
             //   `Battle/Tips/GoFirst`：**没有 `Localize`（只此载波②）** —— `d:/2/tools/il2cpp_out/stringliteral.json`
             //   `0x428A128` = `Battle/Tips/GoFirst`。消费侧判据 = `MulliganManager.ActivateMulligan` 的先手/后手二选一
             //   （`MulliganPanel` 的 `TurnFirst`）——⚠️ **它的英文原文本地取不到**（远端 I2 表）⇒ EN/ZH 都**自拟**。
-            { "Battle/Tips/GoFirst",               new Entry("你先行",   "You go first") }, // 🔴 中文 = **原版实拍**（2026-10-13 用户参考图）；EN 仍自拟（值在远端 I2 表）
+            { "Battle/Tips/GoFirst",               new Entry("你先行",   "You go first") }, // 🔴 中文 = **原版实拍**（2026-10-13 用户参考图）；✅ **2026-10-14（`A1803`）订正**：EN 那句「值在远端 I2 表」**不成立** —— 官方 = `["You go first", "你先行"]`，**两列都是官方值**
+
+            // ============================================================ 🆕 **2026-10-14（第二十八会话 · `A1803`）：原版 `Battle/` 那一族【剩下的 105 条】**
+            //
+            // 🔴 **这一块为什么今天才填**：这 105 条键原来只在**代码字面量**那一支上（载波②，见 `Battle/` 那一族开头那三句），
+            //   而**值在远端 I2 表** ⇒ 本地一条 value 都没有（几处注释写着「远端 CCD、拿不到」）。
+            //   2026-10-14 官方 zh-CN 表解开（`数据/游戏数据/官方本地化_en+zh-CN.json`）
+            //   ⇒ **两列都照官方表逐字录入**（⛔ 不是我们译的、⛔ 不是兜底句）。
+            //
+            // ⚠️ **值里带记号的那几条**（`I2` 占位符，`gen_official_loc.py` 的文件头写着）：
+            //   `[[vanguard]]` / `[[regeneration]]` / `[[camouflage]]` / `<sprite name=Atlas_trait_icon_armour>`
+            //   —— 那是**原版运行时才替换**的记号。我们这边：`<sprite name=Atlas_…>` **能直接解析**
+            //   （TMP 精灵图集 `Resources/Fonts/Warpforge Trait TextSprites.asset` 里 70 个 `Atlas_trait_icon_*` 全在），
+            //   而 `[[..]]` 还**没有**渲染层（那是 `A1763` 的活）⇒ 这几条照写官方值，**接线之前先补那一层**。
+            //
+            // ⚠️ **消费侧现状（如实记，⛔ 别以为填了就会上屏）**：
+            //   · `Battle/Tips/*`：`BattleDriver.HintForCodeWithKey` 走 `RuleCodes.TermKey(rc)` → `Loc.HasEntry(键)` 两道闸；
+            //     `TermKey` 今天**只映射 4 条**（`ErrCost`/`ErrNotTurn`/`ErrNoTargetAvailable`/`ErrNotEnoughRoom`）
+            //     —— 那 4 条**已在表内**；本块新加的 Tips 键**要 `TermKey` 也跟着映射才会上屏**（`RuleEngine/Core/RuleCodes.cs`，⛔ 不在本笔白名单）。
+            //   · `Battle/Effect/*`：`Battle/CardDisplayWindow.cs` 的 `AttrTerm` 只取 `…OneTurn` 那 4 条（本块的 `ChangeArmour` 等**无后缀**那批= 永久改属性档，今天无消费点）。
+            //   · `Battle/Cemetery/*`（20 条）：消费侧要**先加 3 种引擎事件 + 给 `Play`/`Ability` 补目标与伏击标记**
+            //     （判据全文在 `Battle/BattleDriver.cs` 的 `RefreshBattleLog` 那段注释）⇒ **本块只是把值备好**，⛔ 不是「已接」。
+            //   · `Battle/HUD/{LostConnectionMsg,MatchAlreadyFinished,PleaseWaitConnection,WaitOpponentConnectionMsg}`：
+            //     联机那几处今天走的是 `NetRuntime.Notice` 自己的串 —— 换成词条要动 `Battle/` 与 `Net/`。
+            //   · 其余（`BattleEnd/` 8 · `MatchType/` 5 · `Prebattle/` 4 · `ChooseCard/` 3 · `Settings/` 2 + 4 条裸 `Battle/`）：**今天无消费点**，值备好。
+            // 判据逐条 → `资料/普查产出_第二十八会话/W4_官方文案族.md`。
+
+            // ---- Battle/BattleEnd（8 条）----
+            { "Battle/BattleEnd/CantLoseRating",                       new Entry("在此级别无法失去评级", "Can't lose rating in this division") },
+            { "Battle/BattleEnd/DamageDone",                           new Entry("造成伤害", "Damage dealt") },
+            { "Battle/BattleEnd/Location",                             new Entry("位置", "Location") },
+            { "Battle/BattleEnd/TapToContinue",                        new Entry("点击以继续", "Tap to continue") },
+            { "Battle/BattleEnd/TapToContinueMobile",                  new Entry("点击以继续", "Tap to continue") },
+            { "Battle/BattleEnd/Time",                                 new Entry("持续时间", "Duration") },
+            { "Battle/BattleEnd/Title",                                new Entry("战斗报告", "Battle Report") },
+            { "Battle/BattleEnd/TroopsDead",                           new Entry("敌方伤亡", "Enemy casualties") },
+            // ---- Battle/（裸键）（4 条）----
+            { "Battle/BattleStartError",                               new Entry("已有游戏正在进行中。请在继续之前重新加载游戏。如果问题仍然存在，请联系 support@everguild.com", "There is already a game in progress. Please reload game before continuing.\nIf the problem persists, please contact support@everguild.com") },
+            // ---- Battle/Cemetery（20 条）----
+            { "Battle/Cemetery/ActionAbility",                         new Entry("{0} 使用技能", "{0} uses Ability") },
+            { "Battle/Cemetery/ActionAttack",                          new Entry("{0} 攻击 {1}", "{0} attacks {1}") },
+            { "Battle/Cemetery/ActionAttackMelee",                     new Entry("{0} 对 {1} 进行近战攻击", "{0} does a Melee attack against {1}") },
+            { "Battle/Cemetery/ActionAttackRanged",                    new Entry("{0} 对 {1} 进行远程攻击", "{0} does a Ranged attack against {1}") },
+            { "Battle/Cemetery/ActionDisplayEnemyCardInHand",          new Entry("你展示了敌人手中的 {0}", "You reveal {0} in enemy hand") },
+            { "Battle/Cemetery/ActionDisplayYourCardInHand",           new Entry("对手展示了你手中的 {0}", "Opponent reveals {0} in your hand") },
+            { "Battle/Cemetery/ActionEnemyCollectsSpiritStone",        new Entry("对手收集灵魂石", "Opponent collects Spirit Stone") },
+            { "Battle/Cemetery/ActionExitAmbush",                      new Entry("{0} 从伏击中出现", "{0} exits from Ambush") },
+            { "Battle/Cemetery/ActionOpponentDraws",                   new Entry("对手抽取 {0}", "Opponent draws {0}") },
+            { "Battle/Cemetery/ActionOpponentPlays",                   new Entry("对手出牌 {0}", "Opponent plays {0}") },
+            { "Battle/Cemetery/ActionOpponentPlaysAmbush",             new Entry("对手打出一支具有伏击的军队", "Opponent plays a troop with Ambush") },
+            { "Battle/Cemetery/ActionSecretOrder",                     new Entry("{0} 执行 {1}", "{0} executes {1}") },
+            { "Battle/Cemetery/ActionTargetedAbility",                 new Entry("{0} 对 {1} 使用技能", "{0} uses Ability on {1}") },
+            { "Battle/Cemetery/ActionTargetedOpponentPlay",            new Entry("对手对 {1} 出牌 {0}", "Opponent plays {0} on {1}") },
+            { "Battle/Cemetery/ActionTargetedYouPlay",                 new Entry("你对 {1} 出牌 {0}", "You play {0} on {1}") },
+            { "Battle/Cemetery/ActionYouCollectSpiritStone",           new Entry("你收集灵魂石", "You collect Spirit Stone") },
+            { "Battle/Cemetery/ActionYouDraw",                         new Entry("你抽取 {0}", "You draw {0}") },
+            { "Battle/Cemetery/ActionYouPlay",                         new Entry("你出牌 {0}", "You play {0}") },
+            { "Battle/Cemetery/ActionYouPlayAmbush",                   new Entry("你打出一支具有伏击的军队", "You play a troop with Ambush") },
+            { "Battle/Cemetery/AmbushedTroop",                         new Entry("具有伏击的军队", "troop with Ambush") },
+            // ---- Battle/Chat（1 条）----
+            { "Battle/Chat/Greetings",                                 new Entry("问候", "Greetings") },
+            // ---- Battle/ChooseCard（3 条）----
+            { "Battle/ChooseCard/Instructions-52ecd898b5a42c941afdc891e82d963f", new Entry("选择成为哪个战将", "Choose which Warlord to become") },
+            { "Battle/ChooseCard/Instructions-defensive",              new Entry("选择防御张牌", "Choose defensive card") },
+            { "Battle/ChooseCard/Instructions-offensive",              new Entry("选择进攻张牌", "Choose offensive card") },
+            // ---- Battle/Effect（24 条）----
+            { "Battle/Effect/ChangeAbilityCost",                       new Entry("{[0]} 技能费用", "{[0]} cost of ability") },
+            { "Battle/Effect/ChangeAllStats",                          new Entry("获得 {0} 近战攻击，{1} 远程攻击和 {2} 生命值", "Get {0} Melee Attack, {1} Ranged Attack and {2} Health") },
+            { "Battle/Effect/ChangeAllStatsOneTurn",                   new Entry("获得 {0} 近战攻击，{1} 远程攻击和 {2} 生命值一回合", "Get {0} Melee Attack, {1} Ranged Attack and {2} Health one turn") },
+            { "Battle/Effect/ChangeArmour",                            new Entry("获得 {0} <sprite name=Atlas_trait_icon_armour> 盔甲", "Get {0} <sprite name=Atlas_trait_icon_armour> Armour") },
+            { "Battle/Effect/ChangeBothAttacks",                       new Entry("获得 {0} 近战攻击和 {1} 远程攻击", "Get {0} Melee Attack and {1} Ranged Attack") },
+            { "Battle/Effect/ChangeBothAttacksOneTurn",                new Entry("获得 {0} 近战攻击和 {1} 远程攻击一回合", "Get {0} Melee Attack and {1} Ranged Attack one turn") },
+            { "Battle/Effect/ChangeCost",                              new Entry("{0} 费用", "{0} Cost") },
+            { "Battle/Effect/ChangeHealth",                            new Entry("获得 {0} 生命值", "Get {0} Health") },
+            { "Battle/Effect/ChangeMeleeAndHealth",                    new Entry("获得 {0} 近战攻击和 {1} 生命值", "Get {0} Melee Attack and {1} Health") },
+            { "Battle/Effect/ChangeMeleeAttack",                       new Entry("获得 {0} 近战攻击", "Get {0} Melee Attack") },
+            { "Battle/Effect/ChangeRangedAndHealth",                   new Entry("获得 {0} 远程攻击和 {1} 生命值", "Get {0} Ranged Attack and {1} Health") },
+            { "Battle/Effect/ChangeRangedAttack",                      new Entry("获得 {0} 远程攻击", "Get {0} Ranged Attack") },
+            { "Battle/Effect/GetTrait",                                new Entry("获得 {0}", "Get {0}") },
+            { "Battle/Effect/GetTraitOneTurn",                         new Entry("获得 {0} 一回合", "Get {0} one turn") },
+            { "Battle/Effect/Khorne",                                  new Entry("赋予+2近战攻击和[[先锋]]", "Give +2 Melee Attack and [[vanguard]]") },
+            { "Battle/Effect/Nurgle",                                  new Entry("赋予+1生命值和[[再生]] 1", "Give +1 Health and [[regeneration]] 1") },
+            { "Battle/Effect/RemoveTrait",                             new Entry("移除", "Remove") },
+            { "Battle/Effect/SetCost",                                 new Entry("将费用设为 {[0]}", "Set Cost to {[0]}") },
+            { "Battle/Effect/SetHealth",                               new Entry("将生命值设为 {[0]}", "Set Health to {[0]}") },
+            { "Battle/Effect/SetMeleeAttack",                          new Entry("将近战攻击设为 {[0]}", "Set Melee Attack to {[0]}") },
+            { "Battle/Effect/SetRangeAttack",                          new Entry("将远程攻击设为 {[0]}", "Set Range Attack to {[0]}") },
+            { "Battle/Effect/Slaanesh",                                new Entry("赋予+2近战攻击和+2远程攻击", "Give +2 Melee Attack and +2 Ranged Attack") },
+            { "Battle/Effect/SwapStats",                               new Entry("交换攻击力和生命值", "Swap attack & health") },
+            { "Battle/Effect/Tzeentch",                                new Entry("赋予+2生命值和[[伪装]]", "Give +2 Health and [[camouflage]]") },
+            // ---- Battle/（裸键）（4 条）----
+            { "Battle/EnemySyncError",                                 new Entry("你的对手已离开游戏", "Your opponent has left the game") },
+            // ---- Battle/HUD（8 条）----
+            { "Battle/HUD/BannerNoGuild",                              new Entry("无公会", "No lodge") },
+            { "Battle/HUD/Defeat",                                     new Entry("失败", "Defeat") },
+            { "Battle/HUD/LostConnectionMsg",                          new Entry("你已与服务器断开连接。正在尝试重新连接", "You've lost connection to the server. Trying to reconnect") },
+            { "Battle/HUD/MatchAlreadyFinished",                       new Entry("无法重新连接。比赛已经结束。", "Unable to reconnect. The match has already finished.") },
+            { "Battle/HUD/PleaseWaitConnection",                       new Entry("请等待", "Please wait") },
+            { "Battle/HUD/Replay",                                     new Entry("重播", "Replay") },
+            { "Battle/HUD/ShowingCards",                               new Entry("张牌", "Cards") },
+            { "Battle/HUD/WaitOpponentConnectionMsg",                  new Entry("等待你的对手重新连接", "Waiting for your opponent to reconnect") },
+            // ---- Battle/（裸键）（4 条）----
+            { "Battle/Jammed",                                         new Entry("卡住了", "Jammed") },
+            // ---- Battle/MatchType（5 条）----
+            { "Battle/MatchType/ClosedDeck",                           new Entry("选秀", "Draft") },
+            { "Battle/MatchType/Draft",                                new Entry("选秀", "Draft") },
+            { "Battle/MatchType/Practice",                             new Entry("练习", "Practice") },
+            { "Battle/MatchType/Ranked",                               new Entry("排名", "Ranked") },
+            { "Battle/MatchType/Unranked",                             new Entry("无级别", "Unranked") },
+            // ---- Battle/Mulligan（1 条）----
+            { "Battle/Mulligan/extraWarlord",                          new Entry("战将技能", "Warlord ability") },
+            // ---- Battle/Prebattle（4 条）----
+            { "Battle/Prebattle/CasualString",                         new Entry("加载中...", "Loading...") },
+            { "Battle/Prebattle/RandomAIString",                       new Entry("随机AI", "Random AI") },
+            { "Battle/Prebattle/RandomPlayerString",                   new Entry("随机玩家", "Random Player") },
+            { "Battle/Prebattle/RankedSearchString",                   new Entry("搜索中", "Searching") },
+            // ---- Battle/Settings（2 条）----
+            { "Battle/Settings/Exit",                                  new Entry("退出", "Exit") },
+            { "Battle/Settings/LoginButton",                           new Entry("登录", "Log In") },
+            // ---- Battle/（裸键）（4 条）----
+            { "Battle/SyncError",                                      new Entry("由于连接问题，比赛被取消。不会记录分数。", "Match cancelled due to a connection problem. No score will be recorded.") },
+            // ---- Battle/Tips（25 条）----
+            { "Battle/Tips/AttackBlock",                               new Entry("你必须攻击先锋单位", "You must attack the Vanguard unit") },
+            { "Battle/Tips/AttackBlockFlying",                         new Entry("你不能用近战攻击飞行单位", "You can't attack a flying unit with Melee") },
+            { "Battle/Tips/AttackBlockStealth",                        new Entry("你不能针对隐身单位", "You can't target a Stealth unit") },
+            { "Battle/Tips/AttackGiantKiller",                         new Entry("你必须攻击战将或前线单位", "You must attack the Warlord or a Front Line unit") },
+            { "Battle/Tips/CantAttackDestroyer",                       new Entry("这个军队必须攻击它能摧毁的单位", "This troop must attack the unit it can destroy") },
+            { "Battle/Tips/CantAttackFlank",                           new Entry("不是侧翼攻击的有效目标", "Not a valid target for a Flank attack") },
+            { "Battle/Tips/CantAttackWithZeroMeleeAttack",             new Entry("这个单位不能进行近战攻击", "This unit cannot attack in Melee mode") },
+            { "Battle/Tips/CantAttackWithZeroRangedAttack",            new Entry("这个单位不能进行远程攻击", "This unit cannot attack in Ranged mode") },
+            { "Battle/Tips/CantLoseRank",                              new Entry("在当前级别无法失去评级", "Can't lose rating in current division") },
+            { "Battle/Tips/DamageFatigue",                             new Entry("你的卡组已空。你因疲劳受到{0}点伤害。", "Your deck is empty. You take {0} damage from fatigue.") },
+            { "Battle/Tips/FatigueDamage",                             new Entry("伤害", "damage") },
+            { "Battle/Tips/GoSecond",                                  new Entry("敌人先行", "Enemy goes first") },
+            { "Battle/Tips/HighELOOpponent",                           new Entry("对手的名字在3000评级以上不会显示。", "The opponent's name isn't shown above 3000 rating.") },
+            { "Battle/Tips/InvalidTarget",                             new Entry("无效的目标", "Not a valid target") },
+            { "Battle/Tips/MuteEnemyChat",                             new Entry("你可以在设置中静音敌人聊天", "You can mute enemy chat in settings") },
+            { "Battle/Tips/NoActions",                                 new Entry("让战斗开始。", "Let the battle begin.") },
+            { "Battle/Tips/NoCards",                                   new Entry("没有牌！", "No cards!") },
+            { "Battle/Tips/PendingBerzerk",                            new Entry("狂战士单位必须攻击", "Berzerk units must attack") },
+            { "Battle/Tips/PleaseWait",                                new Entry("请等待！", "Please wait!") },
+            { "Battle/Tips/TutorialAttackDesc",                        new Entry("在战斗中对敌方单位造成伤害", "Damage dealt to enemy unit in combat") },
+            { "Battle/Tips/TutorialAttackTitle",                       new Entry("攻击", "Attack") },
+            { "Battle/Tips/TutorialCostDesc",                          new Entry("花费法力点数来出这张牌", "Mana points spent to play this card") },
+            { "Battle/Tips/TutorialCostTitle",                         new Entry("法力花费", "Mana Cost") },
+            { "Battle/Tips/TutorialHealthDesc",                        new Entry("单位如果生命值降至0则死亡", "Unit dies if health reaches 0") },
+            { "Battle/Tips/TutorialHealthTitle",                       new Entry("生命值", "Health") },
+
 
             // ============================================================ 🆕 **2026-10-08（第六会话 · `Core双语-第一步`）：`Tips/` 那一族**
             //
@@ -1047,29 +1217,29 @@ namespace CardPresentation
             //       与 `DeckRuntime` 的 TickTooltip 都取它），删键会整条丢正文（`Loc.T` 回键名本身）。
             //    ⚠️ 用途不止 tooltip：`TipText.ByLink` 还把近战/远程那两条用于**效果正文里的行内图标**。
             //    判据 → `资料/普查产出_第二十二会话/DIAG_tooltip出处行.md`；回归见 `BattleScene.cs` §15c。
-            { "Tips/MeleeAttackTip",               new Entry("进行或接受近战攻击时所造成的伤害。", "Melee Attack") },   // 键名 = 原版（152 颗触发器）· 值两列自拟
-            { "Tips/RangedAttackTip",              new Entry("进行或接受远程攻击时所造成的伤害。", "Ranged Attack") }, // 键名 = 原版（152 颗）· 值两列自拟
-            { "Tips/HealthTip",                    new Entry("这个单位在死亡前可以承受的伤害量。杀死敌方战将以赢得比赛！", "Health is lost after armour; at zero the card goes to the discard pile") }, // 键名 = 原版（152 颗）· 值两列自拟
-            { "Tips/CostTip",                      new Entry("用来出这张牌的能量。每回合能量会恢复并增加1。", "Energy you must spend to play this card") }, // 键名 = 原版（305 颗）· 值两列自拟
+            { "Tips/MeleeAttackTip",               new Entry("进行或接受近战攻击时所造成的伤害。", "Damage dealt when doing or receiving a Melee attack.") },   // 键名 = 原版（152 颗触发器）· 值两列自拟
+            { "Tips/RangedAttackTip",              new Entry("进行或接受远程攻击时所造成的伤害。", "Damage dealt when doing or receiving a Ranged attack.") }, // 键名 = 原版（152 颗）· 值两列自拟
+            { "Tips/HealthTip",                    new Entry("这个单位在死亡前可以承受的伤害量。杀死敌方战将以赢得比赛！", "Amount of damage this unit can take before dying. Kill the enemy warlord to win the match!") }, // 键名 = 原版（152 颗）· 值两列自拟
+            { "Tips/CostTip",                      new Entry("用来出这张牌的能量。每回合能量会恢复并增加1。", "Energy spent to play this card. Energy is replenished and increases by 1 each turn.") }, // 键名 = 原版（305 颗）· 值两列自拟
             // 🔴 这一条**键名自拟**（原版无护甲 tooltip，见本节开头那条）+ **我们这边零消费点**
             //   （`BattleDriver.TickTooltipAt` 明确不挂它、`Editor/BattleScene.cs` 还有一条
             //   「**护甲上没有 tooltip**（原版那个容器就没有触发器）」的断言）—— 保留它只为
             //   「同一族五条形状一致」+ 谁哪天要挂的时候不会印出键名。⛔ **别拿它当「原版有」的证据**。
             { "Tips/ArmourTip",                    new Entry("受任何来源的伤害都减这么多，最低减到 1", "Reduces damage from any source by this much, to a minimum of 1") }, // 键名 + 值**全自拟**（原版无）
             // HUD 计数那条（`TipText.{Energy,Skulls,QuestPoints,Faith,SpiritStone}`）
-            { "Tips/Hud/Skulls",                   new Entry("减少你对手的生命值以赢得更多的头骨。", "Skulls earned in this match") }, // 键名 = 原版（13 颗 · `Milestones`）· 值两列自拟
-            { "Tips/Hud/PlayerEnergyCount",        new Entry("你可用来出牌的能量。", "Refills every turn; spend it to play cards from your hand") }, // 键名 = 原版（13 颗）· 值两列自拟
-            { "Tips/Hud/PlayerQPCount",            new Entry("你的任务进度，每获得3个任务进度就向你的卡组中添加一个秘密。", "Dark Angels quest point progress (0/3)") }, // 键名 = 原版（13 颗）· 值两列自拟
-            { "Tips/Hud/PlayerFaithCount",         new Entry("你的信仰，当你达到他们所需的数量时，可以赋予某些张牌力量。", "The Battle Sisters faction resource") }, // 键名 = 原版（13 颗）· 值两列自拟
-            { "Tips/Hud/PlayerSpiritStoneCount",   new Entry("你的灵魂石，用于强化某些牌的消耗品。", "The Aeldari faction resource; it also counts as a unit (1 health) on the board - click it to collect") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/Skulls",                   new Entry("减少你对手的生命值以赢得更多的头骨。", "Reduce your opponent's health to win more skulls.") }, // 键名 = 原版（13 颗 · `Milestones`）· 值两列自拟
+            { "Tips/Hud/PlayerEnergyCount",        new Entry("你可用来出牌的能量。", "Your Energy available to play cards.") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/PlayerQPCount",            new Entry("你的任务进度，每获得3个任务进度就向你的卡组中添加一个秘密。", "Your Quest Progress, add a Secret to your deck for each 3 Quest Progress earned.") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/PlayerFaithCount",         new Entry("你的信仰，当你达到他们所需的数量时，可以赋予某些张牌力量。", "Your Faith, which empowers certain cards when your reach their required amount.") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/PlayerSpiritStoneCount",   new Entry("你的灵魂石，用于强化某些牌的消耗品。", "Your Spirit Stones, which are spent to empower certain cards") }, // 键名 = 原版（13 颗）· 值两列自拟
             // ---- 🔴 **对面那四条**（`A1086②`，2026-10-09 补；原版键名各 **13** 颗，判据同上）----
             //   ⚠️ **两列值【全自拟】** —— 同上一段：原版那两个触发器 `localize = 1`，显示串在**远端 I2 表**
             //      （本地两张表都 0 命中，本节开头那两句已交代）⇒ 下面写的是**照 `Player*` 那一族的对面措辞**，
             //      ⛔ **别当成「原版这么说」**。`Tips/Hud/Skulls` 没有对面那一条（双方共用，理由见上）。
-            { "Tips/Hud/OpponentEnergyCount",      new Entry("你的对手的能量。", "Your opponent's; refills every turn and is spent on cards") }, // 键名 = 原版（13 颗）· 值两列自拟
-            { "Tips/Hud/OpponentQPCount",          new Entry("你的对手的任务进度", "Your opponent's Dark Angels quest point progress (0/3)") }, // 键名 = 原版（13 颗）· 值两列自拟
-            { "Tips/Hud/OpponentFaithCount",       new Entry("你的对手的信仰", "Your opponent's Battle Sisters faction resource") }, // 键名 = 原版（13 颗）· 值两列自拟
-            { "Tips/Hud/OpponentSpiritStoneCount", new Entry("你对手的灵魂石。", "Your opponent's Aeldari faction resource; it also counts as a unit (1 health) on the board") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/OpponentEnergyCount",      new Entry("你的对手的能量。", "Your opponent's Energy.") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/OpponentQPCount",          new Entry("你的对手的任务进度", "Your opponent's Quest Progress") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/OpponentFaithCount",       new Entry("你的对手的信仰", "Your opponent's Faith") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/OpponentSpiritStoneCount", new Entry("你对手的灵魂石。", "Your opponent's Spirit Stones") }, // 键名 = 原版（13 颗）· 值两列自拟
             // ---- `Tips/Trait/*`：🔴 **我们自加的、原版没有**（`Core/Tooltip.cs` 的 `TipText.Trait`）----
             //   原版查不到描述时**就只有「图标 + 标题」、没有正文**（`EverguildTraitTooltipItem`，
             //   见 `资料/tooltip_原版规格与实现.md` §五）；这一句是我们替它补的**如实说明**：
@@ -1120,7 +1290,7 @@ namespace CardPresentation
             //     `CardsInHandText` → `Cards left: XX`；`Player Deck Size Tex` → `Cards left: 2/5`）
             //     ⇒ 词条值 = **`Cards left`**（代码拼的是 `<词条>: <数量>`）。
             //   ⚠️ 两条英文一样、中文**分开写**（原版是两个不同的键、挂两处不同节点）。
-            { "Battle/HUD/CardsInHand",            new Entry("手牌", "Cards left") },   // EN = 节点静态 TMP；中文**自拟**
+            { "Battle/HUD/CardsInHand",            new Entry("手牌", "Cards in hand") },   // 🔴 2026-10-14（`A1803`）EN 改官方；原写 `Cards left` = **与同族 `CardsLeft` 抄串了**（节点静态 TMP 是 `Cards left: XX`，但**词条真值**才是权威）
             { "Battle/HUD/CardsLeft",              new Entry("剩余牌", "Cards left") },   // EN = 节点静态 TMP；中文**自拟**
             // ============================================================ 🆕 **2026-10-18（第十三轮 · G2b）：`Battle/HUD/` 那四条**
             //
@@ -1143,14 +1313,14 @@ namespace CardPresentation
             //   （本表存的已经是显示形态；原始 TMP 样例见 `battlearena1` 的 `TurnText` = `END TURN`，无 `Localize`）。
             //   ⚠️ 那个 bool 的**语义**是本批按「自己的回合才显示 END TURN」推的（`param_2 != 0 ⇒ EndTurn`），
             //      调用点没找到 ⇒ 只取「这两条键各对应哪个词」这一层，**不搬那个二选一的行为**。
-            { "Battle/HUD/EndTurn",                new Entry("结束回合", "END TURN") },     // ZH = `zh_CN.csv:34`（`END TURN,~,结束回合`，**精确命中**）
-            { "Battle/HUD/EnemyTurn",              new Entry("敌方回合", "ENEMY TURN") },   // EN/ZH **都自拟**（`zh_CN.csv:446` 是**近邻**：`Enemy turn...,~,敌方回合……`）
+            { "Battle/HUD/EndTurn",                new Entry("结束回合", "End Turn") },     // 🔴 2026-10-14（`A1803`）EN 改官方；⚠️ 卡面那条路走 `CardText.Phrase("END TURN")`（**英文档照原样回大写原文**）⇒ 改这里不影响卡面/`END TURN` 钮的断言
+            { "Battle/HUD/EnemyTurn",              new Entry("敌方回合", "Enemy turn") },   // 🔴 2026-10-14（`A1803`）**EN 与 ZH 都改成官方值**（原注写「EN/ZH 都自拟」—— 官方 zh-CN 表里 ZH 逐字就是「敌方回合」，故 ZH 未动）
             // ── `Battle/HUD/YourTurn` ────────────────────────────────────────────────────
             //   `BattleManager.NextTurn`（`BattleManager._NextTurn_d__395__MoveNext.c:480-483`）：
             //   `BattleTipController.ShowHeadsUpMessage(GetTranslation(词条), …)` = **回合开始那句抬头提示**
             //   （`0x4288a48`）。⇒ 它**不是** HUD 里那颗常驻节点的字（原版 HUD 的 `TurnText` 只有 `END TURN`
             //   那一个样例），所以本表这两条只提供**文案**；我们的回合行本身是自加的（见 `BattleDriver` 的注释）。
-            { "Battle/HUD/YourTurn",               new Entry("你的回合", "YOUR TURN") },    // ZH = `zh_CN.csv:450`（`Your turn,~,你的回合`，**值相同**、键大小写不同 ⇒ 近邻）；EN 自拟（键名本地读得到、值在远端）
+            { "Battle/HUD/YourTurn",               new Entry("你的回合", "Your turn") },    // 🔴 2026-10-14（`A1803`）EN 改官方（原注「值在远端」**作废** —— 官方 zh-CN 表已到手，两列都逐字对上了）
             // ── `Battle/HUD/TargetsAvailable` ────────────────────────────────────────────
             //   `SupportMethods.GetTargetsAvailableText(int n)`
             //   （`SupportMethods__GetTargetsAvailableText.c`，2026-10-18 亲读）= `GetTranslation(词条)`
@@ -1207,7 +1377,7 @@ namespace CardPresentation
             //      = **先**播 `ChatMessage.ICantDoThat`（= 我们的 `SpeakCantDo`）**再** `ShowHeadsUpMessage(text)`
             //      —— 语音与这行**文字**是**同一次**调用的两半；我们过去只做了语音那一半（= 复刻缺漏）。
             //   🔴 EN/ZH **都自拟**（值在远端 I2 表；`zh_CN.csv` 按英文源串精确查过，0 命中）。
-            { "Battle/Tips/DragToTarget",          new Entry("拖动到有效目标", "Drag to a target") },
+            { "Battle/Tips/DragToTarget",          new Entry("拖动到有效目标", "Drag to a valid target") },   // 🔴 EN 2026-10-14（`A1803`）改官方
             // ── `Battle/Tips/UnitNotReady`（`0x428AAB0`）─────────────────────────────────────────
             //   消费点 = `BattleManager.CanUseActiveAbility`（`BattleManager__CanUseActiveAbility.c:116-132`）：
             //   判据是 `card + 0x230` = **`CardScript.canAct`（`ObscuredBool`）**（`dump.cs` 的字段表实读）
@@ -1217,7 +1387,7 @@ namespace CardPresentation
             //      `Phrases` 里那条**没有对应 `mTerm`**（`G2b` §3.2 那 17 条之一），
             //      **本批把这条键找出来了** ⇒ 那一处改用本键（`CardText.Phrases` 那条降级成兜底、不删）。
             //   🔴 EN/ZH **都自拟**（值在远端 I2 表）。
-            { "Battle/Tips/UnitNotReady",          new Entry("单位未准备好", "This unit is not ready") },
+            { "Battle/Tips/UnitNotReady",          new Entry("单位未准备好", "Unit isn't ready") },   // 🔴 EN 2026-10-14（`A1803`）改官方
 
             // ── `Battle/Effect/*` 四条（🔴 **消费面本批已钉死**）──────────────────────────────────
             //   消费链（逐条方法体亲读）：`CardEffectItem.LoadEffect(effect, isPlayer)`
@@ -1237,10 +1407,10 @@ namespace CardPresentation
             //     那两条上（同一个方法体的另外两个 `case`）⇒ 两套占位符**并存**，别互相顶替。
             //   中文列 = **改之前 `CardDisplayWindow.AttrZh` 的那几个词** ⇒ **今天中文档零变化**
             //     （`"{0} 近战"` 里 `{0}` 填 `+2` ⇒ 逐字等于原来的 `"+2 近战"`）。
-            { "Battle/Effect/ChangeMeleeAttackOneTurn",  new Entry("获得 {0} 近战攻击一回合",  "{0} Melee Attack") },
-            { "Battle/Effect/ChangeRangedAttackOneTurn", new Entry("获得 {0} 远程攻击一回合",  "{0} Ranged Attack") },
-            { "Battle/Effect/ChangeHealthOneTurn",       new Entry("获得 {0} 生命值一回合",  "{0} Health") },
-            { "Battle/Effect/ChangeArmourOneTurn",       new Entry("获得 {0} <sprite name=Atlas_trait_icon_armour> 盔甲一回合",  "{0} Armour") },
+            { "Battle/Effect/ChangeMeleeAttackOneTurn",  new Entry("获得 {0} 近战攻击一回合",  "Get {0} Melee Attack one turn") },   // 🔴 EN 2026-10-14（`A1803`）改官方
+            { "Battle/Effect/ChangeRangedAttackOneTurn", new Entry("获得 {0} 远程攻击一回合",  "Get {0} Ranged Attack one turn") },   // 🔴 EN 2026-10-14（`A1803`）改官方
+            { "Battle/Effect/ChangeHealthOneTurn",       new Entry("获得 {0} 生命值一回合",  "Get {0} Health one turn") },   // 🔴 EN 2026-10-14（`A1803`）改官方
+            { "Battle/Effect/ChangeArmourOneTurn",       new Entry("获得 {0} <sprite name=Atlas_trait_icon_armour> 盔甲一回合",  "Get {0} <sprite name=Atlas_trait_icon_armour> Armour one turn") },   // 🔴 EN 2026-10-14（`A1803`）改官方；那个 `<sprite>` 名在 TMP 图集里**存在**（`Resources/Fonts/Warpforge Trait TextSprites.asset`）⇒ 能解析
 
             // ============================================================ 🆕 **2026-10-18（第十四轮 · `G8`）：卡组存档那两条**
             //
@@ -1265,7 +1435,7 @@ namespace CardPresentation
             // ⚠️ 它**不是**「把写死的中文搬个家」：原来那句是 `DeckStore` 拼的**整句**、而且
             //   `DeckLibrary` 曾经拿 `Contains("失败")` 把它**当类型用**；现在这里只是**同一件事的显示形态**，
             //   判据在 `DeckLibrary.LastLoadIssue` / `LastLoadCode`（枚举）。
-            { "CustomErrors/ErrorLoadDeck",             new Entry("加载玩家卡组出错。", "Could not load your decks") },
+            { "CustomErrors/ErrorLoadDeck",             new Entry("加载玩家卡组出错。", "Error loading player deck.") },
             // ------------- ② 落盘失败 —— 🔴 **自拟键（原版没有这一条）** -------------
             // 原版卡组存在**服务器**上（`CardDeck.syncedToServer` / `deckId`），「本机写不进存档文件」
             //   这件事在原版里**不存在** ⇒ 四种载体逐条查过、**都没有**：
@@ -1364,10 +1534,10 @@ namespace CardPresentation
             //      ⛔ 本表不再写任何 `文件:行号` 引用（行号会漂，一律按符号名认）。
             //   ⚠️ 自检两态是**自适应**的（`Editor/BattleScene` 里那条按 `Loc.HasEntry` 自动选期望值的断言，
             //      §3b ③ 那条只断「不许含 `Battle/Tips/` 前缀、不许为空」）⇒ 本批加键**不会让它们变红**。
-            { "Battle/Tips/NotEnoughMana",     new Entry("能量不足",                     "Not enough mana") },   // EN 自拟；ZH = `Describe(ErrCost)` 原话
+            { "Battle/Tips/NotEnoughMana",     new Entry("能量不足",                     "Not enough Energy") },   // 🔴 EN 2026-10-14（`A1803`）改官方（原「EN 自拟」作废；ZH 与官方逐字相同，未动）
             { "Battle/Tips/NotYourTurn",       new Entry("现在不是你的回合",                 "It is not your turn") }, // EN 自拟；ZH = `Describe(ErrNotTurn)` 原话
-            { "Battle/Tips/NoTargetAvailable", new Entry("没有有效的目标", "No valid target for this tactic") }, // EN 自拟；ZH = `Describe(ErrNoTargetAvailable)` 原话
-            { "Battle/Tips/NotEnoughRoom",     new Entry("战场上没有空位",           "No room left on the board") }, // EN 自拟；ZH = `Describe(ErrNotEnoughRoom)` 原话
+            { "Battle/Tips/NoTargetAvailable", new Entry("没有有效的目标", "No valid target available") }, // 🔴 EN 2026-10-14（`A1803`）改官方；原「EN 自拟」作废
+            { "Battle/Tips/NotEnoughRoom",     new Entry("战场上没有空位",           "No room on the battlefield") }, // 🔴 EN 2026-10-14（`A1803`）改官方；原「EN 自拟」作废
             // ---- ② 设置窗 / 战斗内设置面板那一行开关（1 条）----
             //   键名 = 原版 prefab 那颗 `Localize.mTerm`（13 个战场各一颗 + `menus` 一颗，共 **14 颗**；
             //   本批实读 `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_5032.json`）。
@@ -1422,7 +1592,7 @@ namespace CardPresentation
             //     ⚠️ 下一条 `MainMenu/General/Confirm`（ZH「确认」）**原封未动**。
             { "MainMenu/General/OK",           new Entry("好的",     "OK") },      // EN = 原版同 GO TMP `m_text` 逐字符；ZH **自拟**（⚠️ 有可见副作用，见上「留痕」块）
             { "MainMenu/General/Cancel",       new Entry("取消",     "Cancel") },  // EN = 原版同 GO TMP `m_text` 逐字符；ZH = `zh_CN.csv:21`（`Cancel,~,取消`，**精确命中**）
-            { "MainMenu/General/Discard",      new Entry("放弃更改",     "Discard") }, // 🔴 EN **自拟**（本地无 TMP 原文）；ZH **自拟**
+            { "MainMenu/General/Discard",      new Entry("放弃更改",     "Discard changes") }, // 🔴 EN **自拟**（本地无 TMP 原文）；ZH **自拟**
             // ---- ④ ~~退出游戏那两句~~ → 🔴 **2026-10-08（波 0b3）已删**（两条自拟键成了死键）----
             //   原委：这两条是波 0 的**自拟键**（原版没有 —— 同族真键只有 `MainMenu/Settings/ButtonLabel/Exit_Game`）。
             //   后来 `A1026` 把三处调用点**全部改指原版真键** `Demo/MainMenu/{ExitGame,ExitButton,CancelButton}`
@@ -1441,16 +1611,16 @@ namespace CardPresentation
             //     （`0x42D24E0` → 地址表实读 = 本条；消费点 `Shell/ShopWindow` + `Shell/ShopData` 里那条）。
             //     🔴 EN / ZH **都自拟**（同上 **0 命中**）；ZH 一列 = 改之前在
             //     `Shell/ShopData.LegendaryWarnText` 里写死的那句原话 ⇒ **中文档零变化**。
-            { "MenuDeck/HUD/DiscardChanges",    new Entry("放弃更改", "Discard unsaved changes?") },
-            { "MenuShop/ExtraLegendaryWarning", new Entry("你已经有 1 张传奇品质的这一件了。\n确定还要再买一张吗？",
-                                                          "You already own 1 legendary copy of this item.\nAre you sure you want to buy another one?") },
+            { "MenuDeck/HUD/DiscardChanges",    new Entry("放弃更改", "Discard changes") },
+            { "MenuShop/ExtraLegendaryWarning", new Entry("请记住，您的卡组中只能使用每张传奇牌的一份副本。您仍然可以创建此张牌的更多副本，但它们只能用于升级该张牌。您想要继续吗？",
+                                                          "You can only use one copy of each legendary card in your deck. You can buy or craft more copies of this card, but they are only usable to level up the card. Do you wish to continue?") },
             // ---- ⑥ 卡组不合法那条兜底键（1 条）----
             //   键名出处 = 原版 `DeckUtility.ToRawLocalizationString` 查不到词条时的兜底（地址表实读，
             //   见 `资料/普查产出_1011/WB1_A330.md` §2.4；消费点 `Deck/DeckRuntime` 里那个消费点）。
             //   🔴 本地**没有**任何 prefab 用这条 mTerm（全库唯一那条形近的是
             //   `MenuDeck/Error/InvalidDeckBannedCards`，**另一条键**，⛔ 别混）⇒ EN / ZH **都自拟**；
             //   形状照 `MenuDeck/Error/*` 那一族（本表上面那 13 条）。
-            { "MenuDeck/Error/InvalidDeck",     new Entry("所选卡组无效，请编辑或选择其他卡组。", "Invalid deck") },
+            { "MenuDeck/Error/InvalidDeck",     new Entry("所选卡组无效，请编辑或选择其他卡组。", "The deck selected is not valid, please edit it or choose another deck.") },
             // ---- ⑦ 任务页「进度到顶」那一行（1 条）----
             //   键名 = 原版 `MissionCounterDisplay.completedMessage` 的**出厂字面值**（真包 MB
             //   `3476392019656054992` 实读：`displayCompletedMessage=1` · `progressTextFormat="{0}/{1}"`）。
@@ -1472,15 +1642,22 @@ namespace CardPresentation
             //     与 `Shell/PurchasePremiumWindow.TxtInfoBody` **逐字相同**（那边也是照它抄的）
             //     ⇒ 它既是 prefab 原文、也是我们该印的那句（`{0}` = 每日登录给的战役点数）。
             //   🔴 ZH 列 = **我们自译**（原版中文在远端 I2 表；`zh_CN.csv` 里没有这条英文串）。
-            //   消费点 = `Shell/PurchasePremiumWindow` 里那句 `string.Format(TermInfoBody, points)`
-            //   （今天那段**印的是键名 + `{0}`** —— 本行加进去就恢复正常）。
+            //   🔴 **2026-10-14（第二十八会话 · `A1803`）两列都换成官方值**（上面两条「与 prefab 逐字相同」「ZH 我们自译」
+            //     的说法**作废**）：官方 zh-CN 表里这条是
+            //     `["• Unlock the Premium rewards … a Starter Deck and a Legendary Card in the first node. …"
+            //       "• <color=#E98A00FF>{0}</color> Campaign Points …",  "• 解锁此派系的Campaign中的Premium奖励…"]`。
+            //     ⚠️ 与我们原来的写法有 **3 处实质差异**：① `Legendary Wildcard` → **`Starter Deck and a Legendary Card`**；
+            //     ② `{0}` 外面套了 **`<color=#E98A00FF>…</color>`**（TMP 认，⛔ 别删）；③ ZH 那句整个不同。
+            //     ⚠️ **这一条是「字符串拼接形态」**（官方 ZH 用真换行、我们这里写成 `"…\n" + "…"` 三段拼接）——
+            //     拼接**只是写法**，运行期取到的仍是同一串（`Loc.T` 返回拼好的那一串）。
+            //   消费点 = `Shell/PurchasePremiumWindow` 里那句 `string.Format(TermInfoBody, points)`。
             { "MainMenu/PurchasePremium/Description", new Entry(
-                "• 解锁本阵营战役里的高级奖励，第一个节点就含一张传奇万能卡。\n" +
-                "• 每天登录时，为本阵营提供 {0} 点战役点数；若你有多个高级战役，这份奖励会全部给你！\n" +
-                "• 这是一次性购买，永久为本阵营提供收益 —— 因为最后一个战役节点可以反复领取！",
-                "• Unlock the Premium rewards in this faction's Campaign, including a Legendary Wildcard in the first node.\n" +
-                "• {0} Campaign Points for this faction in the Daily Login Bonus, every day, just for logging in. If you have several Premium Campaigns, you get this bonus for ALL of them!\n" +
-                "• This one-time purchase will provide benefits for this faction forever, as the last campaign node can be claimed repeatedly!") },
+                "• 解锁此派系的Campaign中的Premium奖励，包括首个节点的入门卡组和一张传奇牌。\n" +
+                "• <color=#E98A00FF>{0}</color> 每天只需登录，就能在每日登录奖励中为此派系获得Campaign积分。如果你有多个Premium Campaign，那么所有的都可以获得这个奖励！\n" +
+                "• 这个一次性购买将为此派系永久提供利益，因为最后一个Campaign节点可以反复领取！",
+                "• Unlock the Premium rewards in this faction's Campaign, including a Starter Deck and a Legendary Card in the first node.\n" +
+                "• <color=#E98A00FF>{0}</color> Campaign Points for this faction in the Daily Login Bonus, every day, just for logging in. If you have several Premium Campaigns, you get this bonus for ALL of them!\n" +
+                "• This one-time purchase will provide benefits for this faction forever, as the last Campaign node can be claimed repeatedly!") },
             // ---- ⑨ 联盟成员操作弹窗那颗会换字的钮（1 条）----
             //   键名 = **代码字面量**实读（`0x184253cb0`，见 `Shell/AllianceMemberOptionsPopup` 的头注）：
             //   原版按 `role == Admin` 在 `SocialMenu/Alliances/{TransferLeadership,Promote}` 之间二选一。
@@ -1500,8 +1677,8 @@ namespace CardPresentation
             { "Battle/AlliancePanel/PlayerLabel",      new Entry("名称：",   "Name:") },
             { "Battle/AlliancePanel/TitleLabel",       new Entry("标题：",   "Title:") },
             { "Battle/AlliancePanel/AllianceLabel",    new Entry("联盟：",   "Alliance:") },
-            { "Battle/AlliancePanel/NotInAnAlliance",  new Entry("这名玩家还没有加入任何联盟",
-                                                                  "This player is is still not part of an Alliance") },
+            { "Battle/AlliancePanel/NotInAnAlliance",  new Entry("该玩家仍未加入联盟",
+                                                                  "This player is still not part of an Alliance") },
             // ---- ⑪ 默认 / 演示卡组名（3 条）----
             //   🔴 **口径（调度台 2026-10-18 已裁）**：它们**会被画上屏** ⇒ 算 ①、**建键**；
             //     ⛔ **玩家自己命名的卡组名【绝不进表】**（那是玩家数据，不是文案）。
@@ -1555,7 +1732,7 @@ namespace CardPresentation
             //   · `MenuDeck/Filters/{ShowOwnedOnly,ShowUpgradableOnly}` 的 EN = 同 GO TMP `m_text`
             //     （`MonoBehaviour_-8093783194357141724.json` = `Owned only`；`Upgradable only` 三份同字）；
             //     ZH = `zh_CN.csv`（`Owned only,~,仅显示已拥有`）；可升级那条 `zh_CN.csv` **没有** ⇒ **ZH 自拟**。
-            { "MenuDeck/HUD/DragCardsTip",             new Entry("将牌拖到这里以创建您的卡组", "Drag cards here") },
+            { "MenuDeck/HUD/DragCardsTip",             new Entry("将牌拖到这里以创建您的卡组", "Drag cards here to create your deck") },
             { "MenuDeck/Error/ImportEmpty",            new Entry("先粘贴卡组串", "Paste a deck string first") },
             { "MenuDeck/Error/ImportBadString",        new Entry("这不是一条合法的卡组串", "This is not a valid deck string") },
             // ⚠️ `{0}` = 落盘失败的原因；消费点用 `Replace("{0}", …)`（不是 `string.Format` —— 文案里有 `**`，先例 `Battle/HUD/CreatedBy`）。
@@ -1690,8 +1867,8 @@ namespace CardPresentation
             // ⚠️ 这条是**默认玩家名**（`Shell/ProfileData.DefaultPlayerName`）—— P2 §④ 自己标了「也可判 ③ 玩家数据不翻、需裁决」。
             //   本表**按「默认值也是文案」建**（英文档下不该给玩家一个中文名）；若裁决「数据不翻」⇒ 删这一条即可（零连带）。
             { "MainMenu/Profile/DefaultPlayerName",    new Entry("玩家123", "Player123") },
-            { "Demo/MainMenu/ExitGame",                new Entry("退出游戏？", "Are you sure you want to exit the game?") },
-            { "Demo/MainMenu/ExitButton",              new Entry("退出", "Exit game") },
+            { "Demo/MainMenu/ExitGame",                new Entry("退出游戏？", "Exit game?") },
+            { "Demo/MainMenu/ExitButton",              new Entry("退出", "Exit") },
             { "Demo/MainMenu/CancelButton",            new Entry("取消", "Cancel") },
 
             // ---------------------------------------------------------- ⑫·C P3（社交 + 弹窗 + 商店）· 16 条
@@ -1755,8 +1932,14 @@ namespace CardPresentation
             //       ⇒ 铁律 11 例外① ⇒ 保留中文不改」（`Battle/CardDisplayWindow` 里那处；附件把它列成 ① 是错的）。
             //   ⚠️ `Battle/{Hint,Log,Chat,MultiCard,ChooseCard,CardWindow}/` 整族在 `stringliteral.json` 里**不存在**
             //     （P4 逐前缀核过：`Battle/` 93 条 · `MainMenu/` 86 · `Settings/` 10 · `Tips/` 8 · `MenuShop/` 13）⇒ **这一族全自拟**。
-            //   ⚠️ `Battle/Chat/*` 那 6 条：原版标签来自**远端 I2**、序列化兜底 6 个**全是 `Greetings`** ⇒ 本地没有任何一处能印真标签
-            //     （`Battle/ChatPopupPanel` 里那 6 个钮那段头注）；本表的 EN = 调用点现用的那 6 个英文标签，ZH 是**自拟**。
+            //   🔴 **2026-10-14（`A1803`）就地订正**：这一段原来写「原版标签来自远端 I2、本地没有任何一处能印真标签」
+            //     —— **不成立**：官方表里 `Battle/Chat/{Greetings,Threat,WellPlayed,Taunt,Sorry,Oops}` 六条**都在**
+            //     （`Greetings` 那条已随本会话的 105 条进表，本表原来那条键名写错的 `Battle/Chat/Greet` 已删）。
+            //     ⛔ **但今天仍印不出真标签** —— 钮上的字走 `Battle/ChatPopupPanel` 里那颗**硬编码数组**
+            //     `{ "Greet", "Threat", "Well Played", … }`，**没接本表** ⇒ 那一步要改 `Battle/ChatPopupPanel.cs`
+            //     （⛔ 不在本笔白名单，已记进 W4 报告）。
+            //     ⚠️ 同时订正：下面那 5 条里除 `WellPlayed` 的 EN（本会话已换成官方的 `Well played`）外，
+            //     ZH **本来就是官方值**（原来标「自拟」是错的）。
             //   ⚠️ `Battle/BattleEnd/Rounds` 带**三个尾空格**（照 `EndPanel` 里那句 `$"{rounds} 回合   "` 的拼法）；
             //     `RoundsOnly` / `RoundsMinFoeHealth` 是另外两种整句（同文件那三行）—— ⛔ 三条别合并（值不同）。
             { "Battle/Hint/MulliganDone",              new Entry("换牌完成，开打", "Mulligan done — battle on") },
@@ -1796,9 +1979,8 @@ namespace CardPresentation
             { "Battle/BattleEnd/RoundsMinFoeHealth",   new Entry("{0} 回合   敌方战将最低生命 {1}",
                                                                   "{0} rounds   enemy Warlord's lowest health {1}") },
             { "Battle/BattleEnd/RoundsOnly",           new Entry("{0} 回合", "{0} rounds") },
-            { "Battle/Chat/Greet",                     new Entry("问候", "Greet") },
-            { "Battle/Chat/Threat",                    new Entry("威胁", "Threat") },
-            { "Battle/Chat/WellPlayed",                new Entry("打得好", "Well Played") },
+                        { "Battle/Chat/Threat",                    new Entry("威胁", "Threat") },
+            { "Battle/Chat/WellPlayed",                new Entry("打得好", "Well played") },   // 🔴 EN 2026-10-14（`A1803`）改官方（小写 p）
             { "Battle/Chat/Taunt",                     new Entry("嘲讽", "Taunt") },
             { "Battle/Chat/Sorry",                     new Entry("抱歉", "Sorry") },
             { "Battle/Chat/Oops",                      new Entry("哎呀", "Oops") },
@@ -2102,9 +2284,9 @@ namespace CardPresentation
             //     `:1743`（画质）· `:1874`（小屏 UI）· `:1894`（超采样）· `:1897`（VSync）· `:2215`（帧率上限标题）
             //     · `:2243`（滑块刻度 `FpsTickText[2]`）；⚠️ 那几处的**节点名照原版不动**、只有显示字走表。
             //  📌 表 A 记：`FpsTickText[0]/[1]` = `30`/`60` 是**纯数字** ⇒ **不建键**。
-            { "Settings/Graphics/SelectQuality",       new Entry("选择质量",     "Quality") },            // 节点 `…/Quality  Selector/Quality selector text`（TMP = `Seleccionar Calidad`，西语）· EN 自拟
-            { "Settings/Graphics/IncreaseUISize",      new Entry("增大用户界面尺寸",  "Small Screen UI") },    // 节点 `…/Content/Small Screen Size Toggle/Label`（TMP = `Aumentar tamaño de UI`）· EN 自拟
-            { "Settings/Graphics/EnableSuperSampling", new Entry("超采样",   "Use super sampling") }, // 节点 `…/Content/Use super sampling/Label`（TMP = `Sobremuestreo`）· EN 自拟
+            { "Settings/Graphics/SelectQuality",       new Entry("选择质量",     "Select Quality") },            // 节点 `…/Quality  Selector/Quality selector text`（TMP = `Seleccionar Calidad`，西语）· EN 自拟
+            { "Settings/Graphics/IncreaseUISize",      new Entry("增大用户界面尺寸",  "Large font size") },    // 节点 `…/Content/Small Screen Size Toggle/Label`（TMP = `Aumentar tamaño de UI`）· EN 自拟
+            { "Settings/Graphics/EnableSuperSampling", new Entry("超采样",   "Supersampling") }, // 节点 `…/Content/Use super sampling/Label`（TMP = `Sobremuestreo`）· EN 自拟
             { "Settings/Graphics/Vsync",               new Entry("VSync",    "VSync") },              // 节点 `…/Content/Vsync/Label`；🔴 EN **逐字 = 原版 TMP**（本包唯一一条非西语）
             { "Settings/Graphics/FrameLimit",          new Entry("帧率上限", "FPS limit") },          // 节点 `…/Content/FPS Limit/Title`（TMP = `Límite de FPS`）· EN 自拟
             { "Settings/Graphics/UnlimitedFPS",        new Entry("不限帧",   "Unlimited") },          // 节点 `…/Content/FPS Limit/FPS Slider/Unlimited`（TMP = `Ilimitado`）· EN 自拟
@@ -2276,7 +2458,7 @@ namespace CardPresentation
             { "Card_Trait/oath", new Entry("誓言", "Oath") },
             { "Card_Trait/pack", new Entry("兽群", "Pack") },
             { "Card_Trait/penitence", new Entry("忏悔", "Penitence") },
-            { "Card_Trait/pindown", new Entry("压制", "Pindown") },
+            { "Card_Trait/pindown", new Entry("压制", "Pin Down") },
             { "Card_Trait/pray", new Entry("祈祷", "Pray") },
             { "Card_Trait/quest", new Entry("任务", "Quest") },
             { "Card_Trait/rally", new Entry("集结", "Rally") },
@@ -2358,6 +2540,34 @@ namespace CardPresentation
             { "CardEffect/Sentence/DrawOne", new Entry("抽 {0} 张牌", "Draw {0} card") },
             { "CardEffect/Sentence/Heal", new Entry("为{1}回复 {0} 点生命", "Restore {0} health to {1}") },
             { "CardEffect/Sentence/Damage", new Entry("对{1}造成 {0} 点伤害", "Deal {0} damage to {1}") },
+            // ============================================================ 🆕 **2026-10-14（第二十八会话 · `A1803`）：
+            //   「代码引用了、表里没值」那 10 条（原账写 12 条，逐条现核后是 10 条 —— 见下）**
+            //
+            // 🔴 **现核订正（铁律 5）**：账 `I2_全表可挖盘点.md:103-107` 写「代码**已经引用**了这个键、表里却没值 = 12 条」，
+            //   逐条 grep 之后**不成立**：那 12 条里
+            //     · `Battle/Tips/DamageFatigue` —— **真有活引用**（`BattleDriver.DamageFatigueTerm`）⇒ 已随上面 `Battle/` 那 105 条一起进表；
+            //     · `MainMenu/PurchasePremium/Description` —— **本来就在表里**（本表 `:1624`，**多行写法** ⇒
+            //       上一轮那个「表里没有」的普查脚本按单行正则扫的，**漏读了它**）；
+            //     · 剩下 **10 条**：全仓 `grep` 下来，它们**只出现在文档注释里**
+            //       （`TutorialModePopup.cs:182` / `ForgeTab.cs:549` / `CampaignRewardWindow.cs:42` /
+            //        `ForgeData.cs:18,168` / `ItemDrawer.cs:940` / `BoosterInfoPopup.cs:532` /
+            //        `ReferralPopupWindow.cs:44-45` / `DailyData.cs:1083`）——
+            //       **一个运行期取值点都没有**（`grep '"<键>"' Assets --include=*.cs` 逐条现读）。
+            //   ⇒ 本块的口径 = **「值备好」**：键与两列都照官方表逐字录入，⛔ **不是「已接」**
+            //     （接线要动上面那些文件，⛔ 不在本笔白名单）。
+            //   ⚠️ 副作用：其中 `ForgeTab.HelpTipBody = " "`（**故意留空**，配一条 `ShownBody.Trim() == ""` 的断言）
+            //     一旦改成读本表，那条断言会红 —— 接线时一起办。
+            // 判据逐条 → `资料/普查产出_第二十八会话/W4_官方文案族.md`。
+            { "Demo/Tutorial",                          new Entry("教程", "Tutorial") },   // 原版 `String.Format(词条, 完成数, 总关数)`
+            { "MainMenu/Forge/Help",                    new Entry("在你的收藏中升级张牌，通过每个军队的锻造厂轨迹进行进步并获得大奖。", "Upgrade cards in your Collection to progress through the Forge track for each faction and earn great rewards.") },
+            { "MainMenu/General/Claim",                 new Entry("索取", "Claim") },
+            { "MainMenu/Level",                         new Entry("等级", "Level") },      // 原版拼法 `"{0} {1}/{2}"` 套它
+            { "MainMenu/RewardWindow/AlreadyOwned",     new Entry("已拥有", "Already Owned") },
+            { "MenuShop/BoosterInfo/LegendaryTooltip",  new Entry("在最多每30个打开的增强包中，都保证有一张传奇张牌。", "A legendary card is guaranteed in at most every 30 opened booster packs.") },
+            { "MenuShop/referral/counter",              new Entry("你已收集了{0}个推荐奖励！", "You have collected {0} referral rewards!") },
+            { "MenuShop/referral/counterMaximum",       new Entry("您已收集到最多的推荐奖励。", "You have collected the maximum number of referral rewards.") },
+            { "Missions/CollectingRewards",             new Entry("正在收集奖励...", "Collecting Rewards...") },
+            { "Rewards Menu/Claimed",                   new Entry("已认领", "Claimed") },
         };
         //  ⚠️ **`Wire/HostRestarted` 的 ZH/EN 是本轮【故意改过的】**（`A1038` 顺手项，同 `NetBattle` 那条
         //     R7 中性化纪律）：原来 ZH = 调用点原话「主机重开了」，而那个调用点（`NetRuntime.Reset()`）
@@ -2367,6 +2577,99 @@ namespace CardPresentation
         //  ⚠️ `Wire/NotYourTurn` 与 `Battle/Tips/NotYourTurn`（本文件 `Battle/` 那一节）**ZH 同值、语义不同**
         //     —— 后者是**本机 HUD 的提示行**、前者是**回给对面的拒绝码**（判据 → `NetBattle.Dispatch`
         //     那段注释的判据 ②）⇒ **两族并存，⛔ 别合并**。
+
+        // ============================================================ 🆕 **2026-10-14（第二十八会话 · `A1803`）：数据面词条（bulk）**
+        //
+        // 🔴 **为什么单开这一层，⛔ 不写进上面那张 `Table`**：下面这几族的键**太多、而且键是数据面的**
+        //   （GUID / SO 名，不是手写词条）—— 手写进 `Table` 会把那份文件变成一片 GUID：
+        //     `Titles/*` 368（**键 = 32 位 GUID**）· `Avatars/*` 419 · `Achievements/*` 198 ·
+        //     `Cardbacks/*` 157 · `PrebuiltDecks/*` 97 · `Event_Description/*` 111。
+        //   ✅ 也⛔ **别让各 `Shell/*Data.cs` 各抄一份** —— 「两处写同一条规则 = 迟早不一致」（工程红线）。
+        // 产物 = `Resources/official_names.json`，生成器 = `工具/_loc_official/gen_official_names.py`
+        //   （**键 = 原版词条键原样**，拼法逐族写在那个脚本的文件头）。
+        // ⚠️ 取值**一律走 `BulkOr`**（缺键出声 + 兜底），⛔ 别自己 `Resources.Load` 读那份 json。
+
+        [System.Serializable] class BulkRow { public string k; public string en; public string zh; }
+        [System.Serializable] class BulkFile { public BulkRow[] entries; }
+
+        /// <summary>`Resources/official_names.json` 的路径。</summary>
+        public const string BulkResourcePath = "official_names";
+
+        static Dictionary<string, BulkRow> _bulk;
+        static readonly HashSet<string> _warnedBulk = new HashSet<string>();
+
+        static void LoadBulk()
+        {
+            if (_bulk != null) return;
+            _bulk = new Dictionary<string, BulkRow>();
+            var ta = Resources.Load<TextAsset>(BulkResourcePath);
+            if (ta == null)
+            {
+                // **不静默**（缺了它，称号/头像/成就/卡背/预组那几页会回落成资源名反推的串）
+                Debug.LogError("[Loc] 读不到 `Resources/" + BulkResourcePath + ".json` ⇒ "
+                             + "Titles/Avatars/Achievements/Cardbacks/PrebuiltDecks 那几族的**官方名取不到**，"
+                             + "界面会回落成资源名反推的串。生成器：`工具/_loc_official/gen_official_names.py`");
+                return;
+            }
+            var d = JsonUtility.FromJson<BulkFile>(ta.text);
+            if (d == null || d.entries == null) return;
+            foreach (var r in d.entries)
+                if (r != null && !string.IsNullOrEmpty(r.k)) _bulk[r.k] = r;
+        }
+
+        /// <summary>数据面词条一共几条（自检用）。</summary>
+        public static int BulkCount { get { LoadBulk(); return _bulk.Count; } }
+
+        /// <summary>自检用：这条键在数据面表里有没有（⛔ 不改任何状态）。</summary>
+        public static bool HasBulk(string term)
+        {
+            if (string.IsNullOrEmpty(term)) return false;
+            LoadBulk();
+            return _bulk.ContainsKey(term);
+        }
+
+        /// <summary>自检用：清空「数据面缺键」的去重表（同 <see cref="ResetMissingWarnedForTest"/>）。</summary>
+        public static void ResetBulkWarnedForTest() { _warnedBulk.Clear(); }
+
+        /// <summary>
+        /// 按**当前语言**取一条**数据面词条**；取不到（或取到的是**未渲染的 I2 记号**）⇒ 回 `fallback` + 出声一次。
+        ///
+        /// <para>🔴 **为什么返回兜底而不是键名**：调用方那几族的兜底**改前就有**（资源名反推的显示名），
+        /// 而「印 GUID 键名」是退化。⇒ 本口**先出声、再给兜底**（本工程要的是「不静默」而不是「印键名」；
+        /// 与 `CardText.TermOr` 同一口径，⛔ 两条别合并 —— 那条走 `Table`、这条走 bulk）。</para>
+        ///
+        /// <para>🔴 **记号闸**：官方词条里有一批值**不是成品文字**而是 I2 模板（`[[pray]]` / `((Deal_x,2))`，
+        /// 实测本产物里 23 条）⇒ 那种值**原样印出去就是把模板打在屏幕上** ⇒ 本口**判成「取不到」**、
+        /// 回兜底并出声（要真接上，先做 `A1763` 的记号渲染层）。</para>
+        /// </summary>
+        public static string BulkOr(string term, string fallback)
+        {
+            if (string.IsNullOrEmpty(term)) return fallback;
+            LoadBulk();
+            BulkRow r;
+            if (!_bulk.TryGetValue(term, out r))
+            {
+                if (_warnedBulk.Add(term))
+                    Debug.LogWarning("[Loc] 数据面词条表里**没有**这条键：`" + term + "` ⇒ 回兜底「" + fallback + "」");
+                return fallback;
+            }
+            var cur = Current;
+            string v = null;
+            if (cur == AvailableLanguages.Chinese && !string.IsNullOrEmpty(r.zh)) v = r.zh;
+            else if (cur == AvailableLanguages.English && !string.IsNullOrEmpty(r.en)) v = r.en;
+            if (string.IsNullOrEmpty(v)) v = string.IsNullOrEmpty(r.en) ? r.zh : r.en;   // 回退英文（同 `T`）
+            if (string.IsNullOrEmpty(v)) return fallback;
+            // 记号闸（见上面那段 doc）：值是 I2 模板 ⇒ 当「取不到」
+            if (v.IndexOf("[[", System.StringComparison.Ordinal) >= 0
+                || v.IndexOf("((", System.StringComparison.Ordinal) >= 0)
+            {
+                if (_warnedBulk.Add(term))
+                    Debug.LogWarning("[Loc] 数据面词条 `" + term + "` 的值是**未渲染的 I2 记号**（`[[..]]`/`((..))`）"
+                                   + " ⇒ 回兜底「" + fallback + "」（要真用先做 `A1763` 的记号渲染层）");
+                return fallback;
+            }
+            return v;
+        }
 
         // ============================================================ 取值
 

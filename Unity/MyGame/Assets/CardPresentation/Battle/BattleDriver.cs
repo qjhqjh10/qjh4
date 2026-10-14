@@ -2990,7 +2990,12 @@ namespace CardPresentation
             //   ✅ **我们只做 ⑤，而且是「决定」不是「缺口」**（🔴 **用户 2026-09-26 拍板**，原话：
             //     「先手后手还是需要投硬币，因为通过投硬币决定先后手**更加公平**，而且**不需要为每一个督军都设置先攻值**」
             //     ·「或许可以为**全部督军设置先攻值为 1**」）⇒ 等价于「**所有督军的 `initiative` 相同**」
-            //     ⇒ 原版那条比先攻值的分支在我们这里**永远平局**、自然落到硬币。⛔ 别再去补那个字段。
+            //     ⇒ 原版那条比先攻值的分支在我们这里**永远平局**、自然落到硬币。
+            //   🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1775`）**：原来这句末尾写着「⛔ **别再去补那个字段**」——
+            //     **那个字段已经补上了**（`CardDef.Initiative` + 真值表 + `Core/FirstSeatRules.cs`）。
+            //     结论**不变**（照样平局、照样掷硬币），但**理由换了**：不再是「用户拍板说它们相同」，
+            //     而是「**真值里 56 位督军确实全是 20**」⇒ 与原版在这份数据下**逐字一致**。
+            //     ⛔ 别再引用「用户 2026-09-26 拍板所以等价」那条旧理由。
             //   ⚠️ **必须在 `NewBattle` 之前算**，而且要**用对局种子**（对局可复现是工程红线）。
             //   ⚠️ 换先手会连带改四件事（起始能量 / 防御卡给谁 / 加时判哪一边 / 谁先出牌）——
             //      那四处现在全走 `ctx.FirstSeat` / `ctx.SecondSeat`，**别再写死座位号**。
@@ -2998,7 +3003,19 @@ namespace CardPresentation
             // 🆕 2026-10-19（A1100）：**三级优先** —— ① 调用方显式指定（联机 / 重连重建 / 放录像）
             //   ＞ ② 自检的钉子 `ForceFirstSeat` ＞ ③ **掷硬币**（`FirstSeatForSeed`，真 Play 那条路）。
             //   ⛔ **产品一条都不许写 ②** —— 那正是本笔要修的跨局泄漏（`BeginFromPendingCore` 原来写它）。
-            int firstSeat = firstSeatOverride ?? ForceFirstSeat ?? FirstSeatForSeed(seed);
+            // 🆕 2026-10-14（`A1775` · 写手 `W10`）：**原版第 ② 级 —— 督军 `initiative` 高者先手**
+            //   （`SupportMethods.GetPlayerGoesFirstWithInitiative.c`；判据 = `RuleEngine.FirstSeatRules`）。
+            //   🔴 **实测现池 56 位督军【全是 20】**（真值 1190 行 = 20、2 行 = 30，而那 2 行是**教程装订**的督军、
+            //   走 ① 的教程分支、到不了 ②）⇒ 这一段**必然平局**、照样落到下面原来的硬币上，
+            //   与原版在这份数据下的行为**逐字一致**（**不是没做**）。
+            //   ⚠️ **顺序如实标注**：原版 ② 排在 ③④ **之前**；这里让「调用方显式指定」优先，理由是联机/重连/放录像
+            //   **必须复现同一个先手**（工程红线）。现数据下两者等价（必然平局）；将来若 ② 真能判，这一处的先后要重裁。
+            int? byInitiative = FirstSeatRules.ByInitiative(
+                FirstSeatRules.WarlordInitiative(CardDatabase.DeckLookup(pool, _myFaction),
+                                                 myDeck == null ? null : myDeck.WarlordId),
+                FirstSeatRules.WarlordInitiative(CardDatabase.DeckLookup(pool, _foeFaction),
+                                                 foeDeck == null ? null : foeDeck.WarlordId));
+            int firstSeat = firstSeatOverride ?? ForceFirstSeat ?? byInitiative ?? FirstSeatForSeed(seed);
             // 🆕 2026-10-17（B29）：**教程局的先手由关卡说了算** —— 原版 `BattleManager.GetPlayerGoesFirst`
             //   的 `matchType == 100` 那一支就是取 `PlayerDataManager.currentTutorialStage.playerStarts`
             //   （`GetPlayerGoesFirst.c` 的 `LAB_18096a4b5` → `*(byte*)(stage + 0x28)`）。
@@ -3931,18 +3948,27 @@ namespace CardPresentation
         /// <summary>自检用：单位语音条</summary>
         public UnitChatPanel UnitChat { get { return _unitChat; } }
 
-        /// <summary>一条引擎事件 → 一句台词。**只有部署 / 攻击 / 阵亡三种事件会说话**。</summary>
+        /// <summary>一条引擎事件 → 一句台词。**只有部署 / 攻击 / 阵亡三种事件会说话**。
+        ///
+        /// <para>🔴 **2026-10-14（A1817）改了取值口径：精确优先、猜的后缀兜底。**
+        /// 原版卡 SO 有 `summonAudio` / `attackAudio` / `deathAudio` 三个**逐卡**字段
+        /// （`VoiceLines` 的精确档，数据 = `Resources/card_vfx_by_card.json` 的 `cards[].audio`）
+        /// —— 那张卡这个事件**原版放的是哪一条**，它说了算。只有在
+        /// ① 这张卡没绑定 / ② 绑的那条音频**没导进工程**（`Clip` 会出声报缺）时才退回
+        /// `VoiceLines.ForDeploy/ForAttack/ForDeath` 那套**按文件名后缀猜**的顺序。</para></summary>
         void SpeakFor(BattleEvent e)
         {
             if (_unitChat == null || !VoiceLines.Ready) return;
             if (e.Player < 0 || e.Player > 1) return;
 
-            string[] order;
+            // 事件名 = 精确档的键（常量在 `VoiceLines`，与生成侧 `AUDIO_SO_FIELD_EVENT` 是同一套）。
+            // ⚠️ 事件的**后缀顺序**也从它取（`SuffixOrderFor`）—— 判据只此一处，⛔ 别在这儿再写一张表。
+            string evt;
             switch (e.Kind)
             {
-                case EvtKind.Deploy: order = VoiceLines.ForDeploy; break;
-                case EvtKind.Attack: order = VoiceLines.ForAttack; break;
-                case EvtKind.Death:  order = VoiceLines.ForDeath;  break;
+                case EvtKind.Deploy: evt = VoiceLines.ExactDeploy; break;
+                case EvtKind.Attack: evt = VoiceLines.ExactAttack; break;
+                case EvtKind.Death:  evt = VoiceLines.ExactDeath;  break;
                 default: return;
             }
 
@@ -3955,11 +3981,20 @@ namespace CardPresentation
                 card = CardDatabase.Find(_pool, e.CardId, e.Player == _me ? _myFaction : _foeFaction);
             if (card == null) return;
 
-            string file, text;
-            // ⚠️ 随机源传 **null**：**不消耗 `Ctx.Rng`**（那会把同一局的随机序列挪位，
-            //    按种子写死期望值的自检会集体漂移）⇒ 同一局完全可复现；督军那种台词池也取第一条。
-            if (!VoiceLines.TryPick(card.Id, order, null, out file, out text)) return;
-            var clip = VoiceLines.Clip(file);
+            string file = null, text = null;
+            // ① **精确档**（原版卡 SO 的逐卡绑定）
+            AudioClip clip = null;
+            if (VoiceLines.TryPickExact(card.Id, evt, out file, out text))
+                clip = VoiceLines.Clip(file);      // 取不到 ⇒ 它已经报过警告，下面退回兜底
+            // ② 没绑定 / 绑的那条音频不在工程里 ⇒ **后缀兜底**（老行为，一字不改）
+            if (clip == null)
+            {
+                var order = VoiceLines.SuffixOrderFor(evt);
+                // ⚠️ 随机源传 **null**：**不消耗 `Ctx.Rng`**（那会把同一局的随机序列挪位，
+                //    按种子写死期望值的自检会集体漂移）⇒ 同一局完全可复现；督军那种台词池也取第一条。
+                if (order == null || !VoiceLines.TryPick(card.Id, order, null, out file, out text)) return;
+                clip = VoiceLines.Clip(file);
+            }
             if (clip == null) return;      // 表里有、音频没导进来 —— `VoiceLines.Clip` 已经报过警告了
 
             _unitChat.Speak(e.Player == _me ? 0 : 1, card.Id, e.Kind.ToString(),
@@ -4035,10 +4070,10 @@ namespace CardPresentation
         public static string HandFullText()
         {
             if (Loc.HasEntry(HandFullTerm)) return CardText.Term(HandFullTerm);
-            // 🔴 2026-10-14（第二十七会话）就地改期望值：Battle/Tips/HandFull 原来是我们自译的
-            //   「手牌已满，抽到的牌直接进弃牌堆」，官方 zh-CN = 「手牌已满」（兜底同步跟官方值）。
+            // 🔴 2026-10-14（第二十七会话 + `W4`/`A1803`）就地改期望值：Battle/Tips/HandFull 原来是我们自译的
+            //   「手牌已满，抽到的牌直接进弃牌堆」，官方 = zh「手牌已满」/ **EN `Hand is full`**（兜底同步跟官方值）。
             return CardText.Zh ? "手牌已满"
-                               : "Hand full - the drawn card goes to the discard pile";
+                               : "Hand is full";
         }
 
         /// <summary>玩家做了一次**非法操作**（出牌被打回来）→ 让**我方督军**说一句
@@ -4130,7 +4165,10 @@ namespace CardPresentation
                 if (_timeline[i].at < _timeline[best].at) best = i;
             var p = _timeline[best];
             _timeline.RemoveAt(best);
-            PlaySignal(p.evt);
+            // ⚠️ 三个字段**一个都不能漏**：`StepReplaySignal` 是**第二条出口**（回放条的单步）——
+            //   只传 `drawFromEnd` 的话，抽卡那条在「单步」时走的还是老的**单点**路（铁律 10 第 5 条：
+            //   「一个对象有多个入口时，状态要在每个入口都带上」）。
+            PlaySignal(p.evt, p.drawFromEnd, p.points, p.pointIndex);
             return true;
         }
 
@@ -7158,18 +7196,28 @@ namespace CardPresentation
                 //    判据 → `资料/加时与冲突模式_原版规格.md` §2.7）。
                 //    ⚠️ 这一条**不修的话**：玩家自建的遭遇卡组永远进不了对局（打的是自动凑的 30 张），
                 //      「能开一局」那几条断言照样全绿 —— 因为它们只量了**模式**、没量**用的是哪副牌**。
-                var err = DeckRules.Validate(saved, CardDatabase.DeckLookup(pool, faction), saved.IsSkirmish);
+                // 🆕 2026-10-14（`A1866` · 写手 `W10`）：原版 `DeckUtility.RemoveInvalidCards` —— **先逐张摘掉不合法的**、再校验。
+                //   ⚠️ 对**副本**跑（原版也是 `new CardDeck(deckToCopy)`，**存档那份不动**）。
+                //   ⚠️ **如实标注一处偏离**：原版这个调用点**只有一处** = `DeckEditingWindow__TryOpen.c:47`
+                //      （**打开卡组编辑器**时），**不是开局这一趟**；我们放这里 = **比原版多一处**
+                //      （目的是让老存档里带「按原版不能进卡组」的牌也不至于整副被判废、退回自动凑）。
+                var pruned = saved.Clone();
+                var removedCards = DeckRules.RemoveInvalidCards(pruned, CardDatabase.DeckLookup(pool, faction));
+                foreach (var rc in removedCards)
+                    Debug.LogWarning($"[Battle] {who}的卡组「{saved.Name}」按原版摘掉一张 `{rc.Id}`"
+                                   + $"（原版判据 `{DeckRules.Describe(rc.Why)}`）");
+                var err = DeckRules.Validate(pruned, CardDatabase.DeckLookup(pool, faction), pruned.IsSkirmish);
                 if (err == DeckError.None)
                 {
                     var skipped = new List<string>();
                     // `rng` 只喂「卡组没带防御卡时随机补一张」那一处（原版 `AddGoesSecondCardToDeck` 的兜底）；
                     // 用**这一方的种子**（调用方传的 `seed+1`/`seed+2`）⇒ 两边不会补到同一张，且对局可复现。
-                    var list = DeckBuilder.FromDeck(pool, saved, skipped, faction, new System.Random(seed));
+                    var list = DeckBuilder.FromDeck(pool, pruned, skipped, faction, new System.Random(seed));
                     // 🆕 2026-09-26：卡组**没带**防御卡时 `FromDeck` 会补一张（照原版兜底）——
                     //   在这里把它捞出来，用于**对玩家说清楚**（手里多的那张哪来的）。
                     //   卡组带了就保持 null，提示行不加那句。
                     CardDef autoDefence = null;
-                    if (string.IsNullOrEmpty(saved.DefensiveId))
+                    if (string.IsNullOrEmpty(pruned.DefensiveId))
                         foreach (var c in list)
                             if (c != null && c.Type == "defence") { autoDefence = c; break; }
                     if (skipped.Count > 0)
@@ -7188,6 +7236,10 @@ namespace CardPresentation
                         notice = $"本局用你编的「{Short(saved.Name, 14)}」"
                                + (skipped.Count > 0
                                   ? $"·{skipped.Count} 张（效果本版解析不了的战术卡）没上场" : "")
+                               // 🆕 2026-10-14（`A1866`）：按原版**逐张摘掉**的不合法牌也要说出来
+                               //   —— ⛔ 不许静默改玩家的卡组（红线）。判据 → `DeckRules.RemoveInvalidCards`。
+                               + (removedCards.Count > 0
+                                  ? $"·{removedCards.Count} 张不合法的牌已按原版摘掉" : "")
                                // 🆕 2026-09-26：**卡组没带防御卡时，本局会替你补一张**（照原版
                                // `AddGoesSecondCardToDeck` 的兜底）—— 这句是**给玩家看的**：
                                // 手里多出一张他没编过的牌，不说清楚他会以为是 bug。
@@ -10736,20 +10788,83 @@ namespace CardPresentation
 
             // **不立刻全播** —— 按 `EventTiming` 排一条时间线，让动作一段段来。
             // 以前是同一帧把整串一起点着，看着就是「一坨特效」，读不出「谁先谁后」。
+            // 🆕 2026-10-14（`A1865`）：**同一段里的多条抽卡各算自己那一格**。
+            //   `BattleEvent.Draw` **不带下标**（它只有 `Player` / `CardId` / `Slot = -1`，见它的 doc），
+            //   而落点要靠「抽到那张牌在手牌里排第几」算 ⇒ 这里先数一遍这一段里有几条抽卡，
+            //   给**倒数第几条**（`fromEnd`，1 起）记在 `PendingSignal` 上，`HandRow01` 再换算成下标。
+            //   ⚠️ 判据 = 手牌是**追加到末尾**的（`RuleCore.MoveDeckTopToHand` 的 `ps.Hand.Add(inst)`，
+            //     全仓唯一入队口）⇒ 这一段里最后抽到的那张就是末尾那张。⛔ 不是「再猜一个坐标」。
+            int[] drawCount = new int[2];
+            for (int i = 0; i < _signalBuf.Count; i++)
+            {
+                var d = _signalBuf[i];
+                if (d.Kind == EvtKind.Draw && d.Player >= 0 && d.Player < 2) drawCount[d.Player]++;
+            }
+            int[] drawSeen = new int[2];
+
+            // 🆕 2026-10-14（`A1884`）：**同一批（同一个 drain）里一方抽到的 N 张，落点一次算齐**，
+            //   作为 `Vector3[]` 沿 `PendingSignal` 一路传下去。
+            //
+            // 为什么（判据 = 本批的账 `A1884` + `W12` 报告 §A1865）：改之前，每个抽卡事件的**落点**
+            //   是在**它自己播的那一刻**、在 `PlaySignal` 里各算一遍的（`HandRow01` + `drawFromEnd`）
+            //   —— 序号是对的（`A1865` 修的那一半），但**坐标散在两处、各算各的**，
+            //   而且 `CardEffects.FireEvent` 只吃**一个点**（多出来的点根本传不下去）。
+            //   这里把坐标也收成一处：`points[k]`（k 从 0 起 = 这一段里**最先**抽到的那张）
+            //   由 `HandRow01(mine, n - k)` 给出 —— `n - k` 正是 `HandRow01` 的 `drawFromEnd` 语义
+            //   （倒数第几张）。⇒ **N 张各得各的点、且同批用的是同一个 `count`**；
+            //   再由 `PlaySignal` 交给 `CardEffects.FireEvent` 的**多落点重载**。
+            //   ⛔ 别在调用点再算一遍坐标（「两处写同一条规则」）。
+            // ⚠️ 仍然只在 `hl != null` 时给出真实格位；`HandRow01` 的两级兜底（手牌区正中）会让
+            //    N 条落在同一处 —— 那是**兜底**、不是原版语义，如实登记（见它的 doc）。
+            Vector3[][] drawPoints = new Vector3[2][];
+            if (Ctx.Players != null)
+                for (int s = 0; s < 2 && s < Ctx.Players.Length; s++)
+                {
+                    int n = drawCount[s];
+                    if (n <= 0) continue;
+                    var arr = new Vector3[n];
+                    for (int k = 0; k < n; k++)
+                    {
+                        Vector2 p01 = HandRow01(s == _me, n - k);
+                        arr[k] = LayoutSpace.ToWorld(p01.x, p01.y);
+                    }
+                    drawPoints[s] = arr;
+                }
+
             BattleEvent prev = null;
             float t = _clock;
             for (int i = 0; i < _signalBuf.Count; i++)
             {
                 var e = _signalBuf[i];
+                int drawFromEnd = -1;
+                int drawIndex = -1;                 // 本事件在这批抽卡里排第几（0 起）
+                if (e.Kind == EvtKind.Draw && e.Player >= 0 && e.Player < 2)
+                {
+                    drawFromEnd = drawCount[e.Player] - drawSeen[e.Player];
+                    drawIndex = drawSeen[e.Player]++;
+                }
                 t += EventTiming.DelayBetween(prev, e);
-                _timeline.Add(new PendingSignal { evt = e, at = t });
+                _timeline.Add(new PendingSignal
+                {
+                    evt = e, at = t, drawFromEnd = drawFromEnd,
+                    points = drawIndex >= 0 && e.Player < drawPoints.Length ? drawPoints[e.Player] : null,
+                    pointIndex = drawIndex,
+                });
                 t += EventTiming.DurationOf(e);   // 带事件的重载：攻击要分远近两档（见那两个重载的注释）
                 prev = e;
             }
             AdvanceTimeline(0f);        // 延迟为 0 的那几条**这一帧**就播，不用等下一帧
         }
 
-        struct PendingSignal { public BattleEvent evt; public float at; }
+        struct PendingSignal
+        {
+            public BattleEvent evt; public float at; public int drawFromEnd;
+            /// <summary>🆕 2026-10-14（`A1884`）：**这一批抽卡的全部落点**（由 `PlaySignals` 一次算齐）。
+            /// `null` = 这条事件不归那一族（资源图标等），落点照旧单点算。</summary>
+            public Vector3[] points;
+            /// <summary>本事件在 <see cref="points"/> 里占第几个（0 起）。</summary>
+            public int pointIndex;
+        }
         readonly List<PendingSignal> _timeline = new List<PendingSignal>();
         float _clock;
 
@@ -10844,7 +10959,7 @@ namespace CardPresentation
 
                 var p = _timeline[best];
                 _timeline.RemoveAt(best);
-                PlaySignal(p.evt);
+                PlaySignal(p.evt, p.drawFromEnd, p.points, p.pointIndex);
             }
         }
 
@@ -10917,8 +11032,12 @@ namespace CardPresentation
             return v != null ? (Vector3?)v.transform.position : null;
         }
 
-        /// <summary>一条引擎事件 → 一个特效。（事件种类和特效名的对应在 `VfxMap` 里）</summary>
-        void PlaySignal(BattleEvent e)
+        /// <summary>一条引擎事件 → 一个特效。（事件种类和特效名的对应在 `VfxMap` 里）
+        /// <paramref name="drawFromEnd"/> 🆕（`A1865`）= 抽卡那一件专用：**这一段里它是倒数第几张**
+        /// （1 起；别的种类恒 -1）。由 `PlaySignals` 排时间线时算好、随 `PendingSignal` 一路带下来。
+        /// <paramref name="points"/> / <paramref name="pointIndex"/> 🆕（`A1884`）= **同一批抽卡的全部落点**
+        /// 与「本事件占第几个」—— 由 `PlaySignals` **一次算齐**（见那儿那段注释），这里是唯一的消费点。</summary>
+        void PlaySignal(BattleEvent e, int drawFromEnd = -1, Vector3[] points = null, int pointIndex = -1)
         {
             SpeakFor(e);          // 单位语音条（原版 `Unit Chat`）—— 和特效同一个事件流，不另开一条路
             PlayRemnantSfx(e);    // 🆕 2026-09-29：残骸体那三条原版音效（出现 / 收集 / 被打掉）
@@ -10950,6 +11069,17 @@ namespace CardPresentation
                 // 🆕 2026-09-25 收集灵魂石（灵族）：**格位上**那一条（`Slot` = 石头原来那一格）——
                 //    ⚠️ 它**不在** `IsResourceUiEvent` 里，走下面普通那条路（按格位取世界坐标）。
                 case EvtKind.CollectWaystone: evt = VfxMap.CollectWaystone; break;
+                // 🆕 2026-10-14（`A1816`）**伏击翻面**（面朝下的 `Ambush` 单位翻开）。
+                //    原版那一下接的就是 `AmbushEffect` 一件（判据 → `VfxMap.AmbushExit` 的 doc），
+                //    它自己带齐三层（音效 cue `Trait Ambush` / 换卡材质那层动画 / 内部 ps）。
+                //    `Slot` = **那个单位还在场上那一格**（`RuleCore.EmitUnit`）⇒ 走下面普通那条路。
+                //    ⚠️ 两条出口（`Effect` = `"damage"` / `"window"`）**播的是同一件** ——
+                //      本事件的语义是「这个单位不再面朝下」这个状态迁移，两条出口都是它。
+                case EvtKind.AmbushExit: evt = VfxMap.AmbushExit; break;
+                // 🆕 2026-10-14（`A1816`）**抽卡**。🔴 它的 `Slot` **恒为 -1**（`BattleEvent.Draw` 的 doc）
+                //    ⇒ **绝不能走下面那道 `slot < 0 → return`** —— 落点归到「HUD 锚点」那一族
+                //      （见 `IsHudAnchoredEvent`，那里也记着为什么它不在 `IsResourceUiEvent` 里）。
+                case EvtKind.Draw:       evt = VfxMap.Draw;       break;
                 default: return;
             }
 
@@ -10965,17 +11095,26 @@ namespace CardPresentation
             // ⚠️ 必须在 `PlayFeel` **之后**返回 —— 阵亡的消散/爆散体就是 `PlayFeel` 里起的。
             if (evt == null) return;
 
-            // 🔴 **阵营资源这三件是 UI 特效**（原版台账判 `UI`：「计数 UI 闪光」，挂 HUD 上的资源图标），
-            //    而且它们的 `Slot` **本来就是 -1**（`BattleEvent.GainFaith` 的注释：是「给玩家」的）
+            // 🔴 **「挂在 HUD 上、不是挂在格位上」的那一族** —— 它们的 `Slot` **本来就是 -1**
+            //    （阵营资源那三件：`BattleEvent.GainFaith` 的注释写着是「给玩家」的；
+            //     抽卡：`BattleEvent.Draw` 的注释写着「不在场上」）
             //    ⇒ **绝不能走下面那道 `slot < 0 → return`** —— 只加 case 不加这一段的化，
             //      它们还是永远不播（2026-09-15 查实的「结构上播不出来」就是这个）。
-            if (IsResourceUiEvent(e.Kind))
+            //    2026-10-14（`A1816`）把判据收成 `IsHudAnchoredEvent` 一处 —— 原来这里是
+            //    `IsResourceUiEvent(e.Kind)` 内联，加 `Draw` 时要是再写一句 `if`，就成了两份判据。
+            Vector2 hud01;
+            if (TryHudAnchor(e, out hud01, drawFromEnd))
             {
-                Vector2 at = ResourceIcon01(e.Kind, e.Player == _me);
                 _animfxLastEvent = e;
             _animfxCtx = BuildCardContext(e);          // AnimFX 模块要用「为哪两张卡播的」
-                CardEffects.FireEvent(evt, LayoutSpace.ToWorld(at.x, at.y),
-                                      e.Player == _me ? _myFaction : _foeFaction, e.CardId);
+                string hudFaction = e.Player == _me ? _myFaction : _foeFaction;
+                // 🆕 2026-10-14（`A1884`）：落点可能来自**批数组**（同批抽 N 张 ⇒ N 个点，
+                //   由 `PlaySignals` 一次算齐）。本事件占第 `pointIndex` 个 ⇒ 交给**多落点重载**。
+                //   批里没有它（资源图标那三件等）⇒ 退回原来的单点。
+                if (points != null && pointIndex >= 0 && pointIndex < points.Length)
+                    CardEffects.FireEvent(evt, new[] { points[pointIndex] }, hudFaction, e.CardId);
+                else
+                    CardEffects.FireEvent(evt, LayoutSpace.ToWorld(hud01.x, hud01.y), hudFaction, e.CardId);
                 _animfxCtx = default;
                 return;
             }
@@ -11013,6 +11152,89 @@ namespace CardPresentation
         static bool IsResourceUiEvent(EvtKind k)
         {
             return k == EvtKind.GainFaith || k == EvtKind.GainSpirit || k == EvtKind.GainQuest;
+        }
+
+        // ==================================================================
+        //  「HUD 锚点」那一族（`Slot` 是 -1、**不能**走格位那条路的事件）
+        //
+        //  🔴 **为什么单收成一个判据（2026-10-14 · `A1816`）**：`PlaySignal` 里原来是
+        //     `if (IsResourceUiEvent(e.Kind))` 内联的一句，而 `Draw` 也要走这一族 ——
+        //     在调用点再写一句 `if` 就成了**两份判据**（本仓红线：两处写同一条规则迟早不一致）。
+        //     ⇒ 现在**只有一处**说「谁是 HUD 锚点」，`PlaySignal` 和自检都问它。
+        //
+        //  ⚠️ **判据是「这个事件的落点在哪」，不是「它是不是资源事件」**：
+        //     `Draw` 加进来**不是**因为它也是资源事件（它不是），而是因为它的 `Slot` 恒 -1、
+        //     落点是**手牌区**。所以 `IsResourceUiEvent` 保持原样（它是**落点**在资源图标上那三件的
+        //     判据），`IsHudAnchoredEvent` 才是「要不要绕开格位那条路」的判据。
+        // ==================================================================
+
+        /// <summary>这条事件的落点是不是**挂在 HUD 上**（而不是棋盘某一格）。
+        /// `true` ⇒ `PlaySignal` 走 HUD 锚点那条路（**必须**，否则会被 `slot &lt; 0 → return` 静默吃掉）。
+        /// **自检也断言它** —— 这是「只加了 case、没加这一段」那个形状上唯一的锁。</summary>
+        public static bool IsHudAnchoredEvent(EvtKind k)
+        {
+            return IsResourceUiEvent(k) || k == EvtKind.Draw;
+        }
+
+        /// <summary>HUD 锚点事件 → 归一化落点（(0,0) = 左下角）。**自检用**（生产走 <see cref="TryHudAnchor"/>）。
+        /// ⚠️ `mine` = 「**哪一方**的这个事件」（抽卡：抽牌那一方；资源：拿到资源那一方）。</summary>
+        public Vector2 HudAnchor01(EvtKind k, bool mine, int drawFromEnd = -1)
+        {
+            return IsResourceUiEvent(k)
+                 ? ResourceIcon01(k, mine)
+                 : HandRow01(mine, drawFromEnd);
+        }
+
+        /// <summary>HUD 锚点事件 → 归一化落点；不是那一族就返回 `false`（调用方走格位那条路）。</summary>
+        bool TryHudAnchor(BattleEvent e, out Vector2 at01, int drawFromEnd = -1)
+        {
+            at01 = default(Vector2);
+            if (!IsHudAnchoredEvent(e.Kind)) return false;
+            at01 = HudAnchor01(e.Kind, e.Player == _me, drawFromEnd);
+            return true;
+        }
+
+        /// <summary>**手牌区那一点**（归一化）—— 抽卡那一件特效的落点。
+        ///
+        /// **判据 = 原版**：台账 `vfx_wiring_j4.tsv:65` 把 `UM_CardDraw` 判成 `UI`，触发写着
+        /// 「抽卡特效(**卡飞入手牌区闪光**)」、挂点是「手牌接收动画」⇒ 落点 = **手牌区**，
+        /// ⛔ 不是棋盘、也不是牌堆。
+        ///
+        /// **取哪一点**：取**刚抽到那张牌**会在的位置 —— 手牌是**追加到末尾**的
+        /// （判据 → `RuleCore.MoveDeckTopToHand` 的 `ps.Hand.Add(inst)`，全仓唯一入队口），
+        /// 所以 `SlotPosition(count-1, count)` 就是它（**问的是 `HandLayout` 自己那份排布**，
+        /// ⛔ 不另算一份坐标 —— 「两处写同一条规则」）。
+        /// ⚠️ 一张牌都拿不到时（`count == 0` / 排布件没接上）**退成那一行的正中**
+        /// （`HandLayout` 自己的基线 y）—— 两级都落在**手牌区**，不会落到棋盘上。
+        /// ⚠️ 同一帧里抽两张（「抽 2 张」）时 —— 🔴 **2026-10-14（`A1865`/`A1884`）已修**：
+        /// ① 排时间线时算好 `drawFromEnd`（这一段里它是**倒数第几张**，1 起）；
+        /// ② 🆕 这一批的**落点坐标**也在 `PlaySignals` 里**一次算齐**
+        ///    （`Vector3[] points`，`points[k] = HandRow01(mine, n - k)`），随 `PendingSignal`
+        ///    交给 `PlaySignal` ⇒ 两张**各落各的那一格**，且同批用的是同一个 `count`。
+        /// （修前：两条都按**当时**的张数各算一遍 ⇒ 都落在最后那一格。）
+        /// ⚠️ **仍然没做的那一半（如实记着）**：原版那件特效自己会**移动**
+        /// （`card_anim_map.json` 实读 `shouldMoveVFX = 1` · `timeMoving = 2.5`），而**效果 prefab 那一层**
+        /// 还没有「沿路径飞」的实现 ⇒ 我们这边是「两张各在各自那一格闪一下」，
+        /// ⛔ 不是「一件特效从牌堆飞到手上」。**API 那一半 2026-10-14（`A1884`）已开**
+        /// （`Core/CardEffects.cs` 的 `Vector3[] points` 重载：给 N 个点就在 N 个点各播一份）。
+        /// ⚠️ 张数对不上时（手牌满被弃掉 / 这一段里只补了一部分）下标会被**夹回** `[0, count-1]`，
+        /// 不会算出越界格 —— 但那时落点只是近似，**如实记着**。</summary>
+        Vector2 HandRow01(bool mine, int drawFromEnd = -1)
+        {
+            var hl = mine ? (interaction != null ? interaction.hand : null) : foeHand;
+            int side = mine ? _me : 1 - _me;
+            int count = 0;
+            if (Ctx != null && Ctx.Players != null && side >= 0 && side < Ctx.Players.Length
+                && Ctx.Players[side].Hand != null)
+                count = Ctx.Players[side].Hand.Count;
+            if (hl != null && count >= 1)
+            {
+                int idx = count - 1;                                  // 默认：末尾那张（= 只抽一张时那一张）
+                if (drawFromEnd >= 1) idx = count - drawFromEnd;      // 这一段里倒数第几张
+                if (idx < 0) idx = 0; else if (idx > count - 1) idx = count - 1;   // 夹回合法范围
+                return LayoutSpace.ToNormalized(hl.SlotPosition(idx, count));
+            }
+            return new Vector2(0.5f, mine ? HandLayout.DefaultBaselineY : HandLayout.EnemyBaselineY);
         }
 
         /// <summary>HUD 上那个**资源计数图标**的归一化位置（我方 / 敌方各一套）。
@@ -11215,6 +11437,13 @@ namespace CardPresentation
             //    ⇒ `BattleScene.cs` 那条飘字位置断言当场红；在 2D 兜底布局下两种写法**完全等价**（不报错）。
             Vector3 at = layout.DropTargetWorld(e.Slot);
 
+            // 🔴 **2026-10-14（`A1767` · 写手 `W11`）**：这一档**提到 `if` 之前** —— 因为**震镜头**那一条在
+            //   `if (v != null)` **外面**（原版那条是**打人那张卡**的 `CardScript` 触发的，与「被打的视图还在不在」无关），
+            //   而它也要用同一个「**攻击方近战档**」（`CardFeel.ShakeCameraForHit`）。
+            //   ⚠️ **只在「挨打方跟攻击方不是同一侧」时才用** —— 攻击永远跨半场，而**疲劳**那一次
+            //      （`RuleCore` 给玩家自己的督军发的那条 `Hit`）没有攻击方 ⇒ 不加护栏会把**上一刀**的攻击方档位套上去。
+            int melee = (e.Player != _lastAttackerSide) ? _lastAttackerMelee : -1;
+
             if (v != null)
             {
                 // 「背离攻击者」= 往**自己那半场的外侧**弹。攻击永远来自对面半场，
@@ -11224,7 +11453,7 @@ namespace CardPresentation
                 // ⚠️ **只在「挨打方跟攻击方不是同一侧」时才用** —— 攻击永远跨半场，而**疲劳**伤害
                 //    （`RuleCore` 里给玩家自己的督军发的那条 `Hit`）没有攻击方，
                 //    不加这个护栏就会把**上一刀**的攻击方档位套上去。
-                int melee = (e.Player != _lastAttackerSide) ? _lastAttackerMelee : -1;
+                // （`melee` 在上面、`if` 之前 —— 2026-10-14（`A1767`）挪出去给**震镜头**共用）
                 CardFeel.HitReact(v.transform, away, Mathf.Abs(e.Amount) >= CardFeel.HeavyHitDamage,
                                   0f, melee);
             }
@@ -11233,7 +11462,12 @@ namespace CardPresentation
             // ⚠️ **放在 `v != null` 外面**：原版这条是**打人那张卡**的 `CardScript`
             //    （`ResolveAttackAnimationEffects`）触发的，与「被打的那张视图还在不在」无关。
             // 做法与「为什么是相机 + HUD 根一起动」见 `CardFeel.ShakeCamera` 的注释。
-            CardFeel.ShakeCamera(cam, hudRoot, CardFeel.ShakeWorldAmplitude, 0f, boardCam);
+            // 🔴 **2026-10-14（`A1767` · `W11`）**：原来这里传的是**写死的 `ShakeWorldAmplitude`（0.04 = 第 1 档别名）**
+            //   ⇒ 原版那三档（`GetUnitSize` 按**单位当前近战攻击** ≤3→0 / ≤7→2 / 其余→3 ⇒ 幅度 2.0/4.0/8.0）
+            //   **一档都没接上**。现在改传**攻击方那一档**（`melee`，同一条 `if` 外的语义）。
+            //   ⚠️ 判据 = preset 真件 `Shake Hit Small`（amplitude 2.0 · direction (0,0.2,0.2)）＋
+            //      `CardScript__ResolveAttackAnimationEffects.c:32-52` 的覆盖点。
+            CardFeel.ShakeCameraForHit(cam, hudRoot, melee, 0f, boardCam);
 
             // 伤害 0 = 被挡下（原版也发事件）—— 那一条不飘字，免得屏幕上冒出「-0」
             if (e.Amount != 0)
@@ -11556,6 +11790,21 @@ namespace CardPresentation
                 //   ⚠️ 挂在这里（`SyncBoard`）是因为**每一个改动棋盘/回合的地方最后都会走到它**
                 //      —— 和光环那 9 个写入点 + `BeginTurn` 是同一条纪律。
                 v.SetCanAct(RuleCore.CanActNow(Ctx, owner, s));
+
+                // 🆕 2026-10-14（`A1863`）：**伏击「面朝下」**（原版 `CardScript.SetAmbush(card, true)`）。
+                //   · 判据 = **引擎那一格上的事实** `UnitState.FaceDown`（⛔ 不在这里另算一遍
+                //     「是不是伏击」—— 那是 `RuleCore.PlaysFaceDown` 的事，见 `RuleCore.cs:2443`）。
+                //   · 第二个参数 = 原版那道 `isPlayer == 0` 闸（`CardScript__SetAmbush.c:22`，
+                //     偏移坐实于 `dump.cs` 的 `EntityScript.<isPlayer>k__BackingField // 0x40`）：
+                //     **只有对面那一方**面朝下的单位才藏数值；自己那张，主人看得见自己的数值。
+                //   · 🔴 **挂在这里的理由**：这是 `u != null` 那一段的**唯一收口处** ——
+                //     视图是**新建的**还是**换格搬过来的**都从这里过，`SetAmbush` 又会把状态存进
+                //     `CardView`、在 `SetData`/`SetFace` 末尾各重放一次 ⇒ 三个入口全覆盖
+                //     （CLAUDE.md 铁律 10 第 5 条：多入口的场景分层要在每个入口显式设）。
+                //   · ⚠️ **排在 `SetCanAct` 之后、`SetQueue` 之前**：`SetQueue` 要落在这一格所有动作
+                //     的最后（它扫整棵子树盖章，见它上面那段注释）；本方法**不新建任何子物体**
+                //     （只开关已有层 + 换贴图），所以放它前面不破坏那条纪律。
+                v.SetAmbush(u.FaceDown, hideStats: u.FaceDown && !mine);
 
                 // 🆕 2026-10-12（`A1672`）：**这一格上的卡占一段渲染队列**。
                 //   号源 = `BoardLayout.QueueOf(格号)`（⛔ 别在这儿另算一套号），机制 = `CardView.SetQueue`

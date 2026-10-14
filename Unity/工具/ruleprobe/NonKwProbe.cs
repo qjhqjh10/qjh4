@@ -11,7 +11,7 @@ using RuleEngine;
 /// ================================================================
 /// 账文（`资料/任务_卡组卡牌战斗.md` 的 `A1462`）：
 /// 「**`non &lt;关键词&gt;` 的目标筛选【疑似整个丢了】**（第十四会话 `A1441` 诊断代理查出 · ⛔ 未坐实）
-///    —— `GOF85` 及同形 `Hunting Wolf` / `Fenrisian Wolf`；**全仓 0 处** `non &lt;关键词&gt;` 的目标筛选
+///    —— `GOF86` 及同形 `Hunting Wolf` / `Fenrisian Wolf`；**全仓 0 处** `non &lt;关键词&gt;` 的目标筛选
 ///    （`EffectTargetSpec.Raw` **只进日志**、不参与筛选）。」
 ///
 /// ⇒ 本子命令把「**丢没丢 · 丢在哪一层 · 真打会怎样**」逐条量出来（⛔ 只报，不改引擎）。
@@ -350,7 +350,7 @@ static class NonKwProbe
     ///  (a) **判定层**：同一个规格走**引擎自己的** `ApplyTargetFilters`（经 `EffectResolver.ResolveTargets`）——
     ///      摆一个「带 X 的敌人 + 不带 X 的敌人」，比「解析出来的规格」与「只把 `NotKeyword` 补上的规格」
     ///      各筛出谁来。⚠️ 枚举池子时把 `Count` 临时置 0（= `all`）—— **只动这一个字段**，如实标明。
-    ///  (b) **真路径**：`GOF85` 在场上跑真实触发（`EndTurn`/`BeginTurn` ⇒ `ResolveAtTurn("turn_start")`），
+    ///  (b) **真路径**：`GOF86` 在场上跑真实触发（`EndTurn`/`BeginTurn` ⇒ `ResolveAtTurn("turn_start")`），
     ///      用不同的随机数预消耗抽样若干次 ⇒ 数「打出去了 / 空过」各几次。
     ///      空过 = `DoForceAttack` 的 `TryAttackOnce` 只拿到**被随机挑中的那一个**候选，
     ///      而它是飞行单位（近战打不到）⇒ 那一发**什么都没打**（引擎自己会打日志）。
@@ -365,7 +365,7 @@ static class NonKwProbe
             var withKw = Fix("FIX_" + kw.ToUpperInvariant(), 6, "Infantry", kw);
             var plain = Fix("FIX_PLAIN", 6, "Infantry");
             var target = h.Card;
-            // 夹具要求：被测卡得能落场 / 打出去（`GOF85`/`SW12` 都是单位卡）
+            // 夹具要求：被测卡得能落场 / 打出去（`GOF86`/`SW12` 都是单位卡）
             UnitState kwU, plU, selfU;
             BattleContext ctx;
             try
@@ -399,15 +399,15 @@ static class NonKwProbe
                               + (withFix.Count == 1 && withFix[0] == plU ? "   ← ✅ 飞行单位被排除了" : ""));
         }
 
-        // --- (b) 真路径：GOF85 的 at-turn 触发 ---
-        var gof = r.Hits.Select(h => h.Card).FirstOrDefault(c => c.Id == "GOF85");
+        // --- (b) 真路径：GOF86 的 at-turn 触发 ---
+        var gof = r.Hits.Select(h => h.Card).FirstOrDefault(c => c.Id == "GOF86");
         if (gof == null)
         {
-            Console.WriteLine("  (b) 真路径：卡池里没有 `GOF85` ⇒ 这一条跳过（如实说，⛔ 不静默）");
+            Console.WriteLine("  (b) 真路径：卡池里没有 `GOF86` ⇒ 这一条跳过（如实说，⛔ 不静默）");
             return;
         }
         Console.WriteLine();
-        Console.WriteLine("  (b) 真路径：`GOF85 Unleashed TramplaSquig`"
+        Console.WriteLine("  (b) 真路径：`GOF86 Unleashed TramplaSquig`"
                           + "（卡面 `At the start of each turn attack a random non Flying enemy`）");
         // ⚠️ **两种跑法都要**：
         //   · `refresh=false` = **原样**跑 ⇒ 实测 **8/8 全落 `ErrExhausted`**

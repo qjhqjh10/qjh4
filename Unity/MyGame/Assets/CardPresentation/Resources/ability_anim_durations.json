@@ -1,0 +1,345 @@
+{
+ "_headline": "`A1767`：逐卡「发动能力」时长 = 该卡 `activeAbility` 各 CardAnim 的 `AnimInfo.GetAnimDuration()` 之和。56 张卡 · 中位 1.0 · 表里没有这张卡 ⇒ 退回 `fallbackSeconds` 并**出声**。判据长文 / 未覆盖名单 → `数据/游戏数据/ability_anim_durations.json` 的 `_headline` 与 `uncovered`。",
+ "count": 56,
+ "fallbackSeconds": 1.0,
+ "generatedBy": "d:/4/Unity/工具/gen_ability_anim_durations.py",
+ "items": [
+  {
+   "id": "AM1",
+   "n": 2,
+   "name": "Lord Solar Leontus",
+   "s": 0.5
+  },
+  {
+   "id": "AM10",
+   "n": 3,
+   "name": "Cadian Standard Bearer",
+   "s": 1.5
+  },
+  {
+   "id": "AM11",
+   "n": 2,
+   "name": "Shock Trooper Sgt",
+   "s": 0.2
+  },
+  {
+   "id": "AM12",
+   "n": 2,
+   "name": "Flamer Trooper",
+   "s": 1.2
+  },
+  {
+   "id": "AM16",
+   "n": 2,
+   "name": "Scout Sentinel",
+   "s": 1.0
+  },
+  {
+   "id": "AM2",
+   "n": 2,
+   "name": "Ursula Creed",
+   "s": 0.2
+  },
+  {
+   "id": "AM21",
+   "n": 2,
+   "name": "Tech-Priest Enginseer",
+   "s": 0.2
+  },
+  {
+   "id": "AM22",
+   "n": 2,
+   "name": "Primaris Psyker",
+   "s": 0.65
+  },
+  {
+   "id": "AM23",
+   "n": 2,
+   "name": "Bombast Field Gun",
+   "s": 0.75
+  },
+  {
+   "id": "AM28",
+   "n": 3,
+   "name": "Chimera",
+   "s": 0.4
+  },
+  {
+   "id": "AM30",
+   "n": 3,
+   "name": "Manticore",
+   "s": 2.0
+  },
+  {
+   "id": "AM34",
+   "n": 2,
+   "name": "Valkyrie",
+   "s": 1.25
+  },
+  {
+   "id": "AM35",
+   "n": 3,
+   "name": "Leman Russ Vanquisher",
+   "s": 2.0
+  },
+  {
+   "id": "AM36",
+   "n": 3,
+   "name": "Maelon Dhrost",
+   "s": 1.2
+  },
+  {
+   "id": "AM38",
+   "n": 2,
+   "name": "Baneblade Tank",
+   "s": 0.75
+  },
+  {
+   "id": "AM5",
+   "n": 2,
+   "name": "Shock Trooper",
+   "s": 0.4
+  },
+  {
+   "id": "AM68",
+   "n": 1,
+   "name": "Tempestus Scion",
+   "s": 0.6
+  },
+  {
+   "id": "AM69",
+   "n": 2,
+   "name": "Tempestor Sergeant",
+   "s": 0.4
+  },
+  {
+   "id": "AM70",
+   "n": 1,
+   "name": "Medic Scion",
+   "s": 0.2
+  },
+  {
+   "id": "AM73",
+   "n": 2,
+   "name": "Taurox Prime",
+   "s": 0.4
+  },
+  {
+   "id": "AM_Astropath",
+   "n": 1,
+   "name": "Astropath",
+   "s": 0.8
+  },
+  {
+   "id": "DA13",
+   "n": 1,
+   "name": "Librarian",
+   "s": 0.7
+  },
+  {
+   "id": "DA14",
+   "n": 1,
+   "name": "Ravenwing Speeder",
+   "s": 0.75
+  },
+  {
+   "id": "DA18",
+   "n": 2,
+   "name": "Inner Circle Companion",
+   "s": 0.9
+  },
+  {
+   "id": "DA20",
+   "n": 2,
+   "name": "Master Lazarus",
+   "s": 1.2
+  },
+  {
+   "id": "DA23",
+   "n": 2,
+   "name": "Bladeguard Veteran",
+   "s": 2.0
+  },
+  {
+   "id": "DA27",
+   "n": 1,
+   "name": "Ravenwing Talonmaster",
+   "s": 1.0
+  },
+  {
+   "id": "DA29",
+   "n": 2,
+   "name": "Darkshroud",
+   "s": 2.0
+  },
+  {
+   "id": "DA7",
+   "n": 2,
+   "name": "Ravenwing Bikes",
+   "s": 0.9
+  },
+  {
+   "id": "GSC1",
+   "n": 1,
+   "name": "Primus Saffa Rhiannor",
+   "s": 1.2
+  },
+  {
+   "id": "GSC2",
+   "n": 1,
+   "name": "Magus Uthrel Naas",
+   "s": 1.0
+  },
+  {
+   "id": "SOR1",
+   "n": 1,
+   "name": "Erika Luminas",
+   "s": 1.0
+  },
+  {
+   "id": "SOR13",
+   "n": 2,
+   "name": "Simulacrum Bearer",
+   "s": 2.0
+  },
+  {
+   "id": "SOR15",
+   "n": 1,
+   "name": "Celestian",
+   "s": 1.0
+  },
+  {
+   "id": "SOR17",
+   "n": 1,
+   "name": "Sister Superior",
+   "s": 0.4
+  },
+  {
+   "id": "SOR18",
+   "n": 1,
+   "name": "Dialogus",
+   "s": 1.0
+  },
+  {
+   "id": "SOR2",
+   "n": 1,
+   "name": "Junith Eruita",
+   "s": 1.0
+  },
+  {
+   "id": "SOR20",
+   "n": 1,
+   "name": "Hospitaller",
+   "s": 1.0
+  },
+  {
+   "id": "SOR24",
+   "n": 1,
+   "name": "Simulacrum Imperialis",
+   "s": 1.0
+  },
+  {
+   "id": "SOR25",
+   "n": 2,
+   "name": "Imagifier",
+   "s": 2.0
+  },
+  {
+   "id": "SOR26",
+   "n": 1,
+   "name": "Aestred-Thurga",
+   "s": 1.0
+  },
+  {
+   "id": "SOR29",
+   "n": 1,
+   "name": "Ephrael Stern",
+   "s": 0.4
+  },
+  {
+   "id": "SOR3",
+   "n": 1,
+   "name": "Morvenn Vahl",
+   "s": 1.2
+  },
+  {
+   "id": "SOR34",
+   "n": 1,
+   "name": "Celestian Superior",
+   "s": 0.2
+  },
+  {
+   "id": "SOR35",
+   "n": 1,
+   "name": "Immolator",
+   "s": 1.0
+  },
+  {
+   "id": "SOR37",
+   "n": 2,
+   "name": "Triumph of Saint Katherine",
+   "s": 4.0
+  },
+  {
+   "id": "SOR4",
+   "n": 1,
+   "name": "Sister Novitiate",
+   "s": 0.2
+  },
+  {
+   "id": "SOR5",
+   "n": 1,
+   "name": "Battle Sister",
+   "s": 1.0
+  },
+  {
+   "id": "SOR6",
+   "n": 1,
+   "name": "Battle Sister Gunner",
+   "s": 0.65
+  },
+  {
+   "id": "SOR66",
+   "n": 2,
+   "name": "Armorium Cherub",
+   "s": 2.0
+  },
+  {
+   "id": "SOR67",
+   "n": 1,
+   "name": "Sacred Rose Sister",
+   "s": 1.0
+  },
+  {
+   "id": "SOR68",
+   "n": 2,
+   "name": "Ministorum Priest",
+   "s": 2.0
+  },
+  {
+   "id": "SOR69",
+   "n": 1,
+   "name": "Zephyrim Superior",
+   "s": 1.0
+  },
+  {
+   "id": "SOR70",
+   "n": 1,
+   "name": "Sororitas Rhino",
+   "s": 0.2
+  },
+  {
+   "id": "SOR71",
+   "n": 1,
+   "name": "Adelaide the Serene",
+   "s": 0.2
+  },
+  {
+   "id": "SOR72",
+   "n": 1,
+   "name": "Castigator",
+   "s": 0.2
+  }
+ ],
+ "schema": "ability_anim_durations/v1+rt"
+}

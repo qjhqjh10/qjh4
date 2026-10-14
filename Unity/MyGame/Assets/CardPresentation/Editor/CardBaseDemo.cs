@@ -1242,8 +1242,13 @@ public static class CardBaseDemo
             // ---- ① 中文档：行为**与改之前逐字相同**（默认语档就是中文 ⇒ 零变化）----
             Loc.SetLanguage(AvailableLanguages.Chinese);
             Check(CardText.Zh, "① 中文档下 `CardText.Zh` = true（字体 + 语档两条都满足）");
-            string zhName = CardText.Name("TAU46", "石之感知");
-            Check(zhName == "石之感知", $"① 中文档卡名走卡表那一列（实得「{zhName}」）");
+            // ⚠️ **这个字面量是【入参】、不是期望值从卡表里读**（2026-10-14 `A1801` 现核实）：
+            //    `CardText.Name(id, nameZh)` 在中文档下**原样返回传进来的 `nameZh`**
+            //    （`Core/CardText.cs:625-629`）⇒ 这两条断的是「闸通不过」，**换卡名不会让它红/绿**。
+            //    但它的值假装是「卡表那一列」，故跟着卡表一起换成官方值：
+            //    官方 `Card_Name/TAU46` = `["Sense of Stone","石之感"]`（原值「石之感知」是我们自译）。
+            string zhName = CardText.Name("TAU46", "石之感");
+            Check(zhName == "石之感", $"① 中文档卡名走卡表那一列（实得「{zhName}」）");
 
             // ---- ② 英文档：**卡名必须回英文** ----
             Loc.SetLanguage(AvailableLanguages.English);
@@ -1251,7 +1256,7 @@ public static class CardBaseDemo
                   "② 英文档下 `CardText.Zh` = **false** —— 🧨 把 `Zh` 改回只判 `TmpFont.Available` ⇒ 本条红");
 
             // ---- ③ 绕过闸的那一处：`Name(id, nameZh)` 原来无条件返回中文名 ----
-            string enName = CardText.Name("TAU46", "石之感知");
+            string enName = CardText.Name("TAU46", "石之感");
             Check(enName == "TAU46",
                   $"③ ★ 英文档卡名回**英文 id**（实得「{enName}」）—— 🧨 只改 `Zh`、不给 `Name(id,nameZh)` 补闸 ⇒ 本条红");
             Check(enName != zhName,

@@ -70,9 +70,23 @@ namespace CardPresentation
             public string[] problems;  // 张数不符 / 同名 >2（诊断用）
             public string[] overLegendary; // 「我们标成传说、原版放了 2 张」——**口径差不是缺陷**
 
-            /// <summary>显示名：**有中文用中文，没有才回落英文原名**（与卡面同一条口径，
-            /// 判据在 `Core/CardText.cs`；工程里没有语言开关，原版也没有）。</summary>
-            public string DisplayName { get { return string.IsNullOrEmpty(nameZh) ? name : nameZh; } }
+            /// <summary>显示名。🔴 **2026-10-14（第二十八会话 · `A1803`）改成「官方 zh-CN 优先」**：
+            /// 先取官方词条 `PrebuiltDecks/&lt;deckId&gt;`（**键的 join 在生成期做过** —— 官方那 97 条的键是
+            /// **原版 SO 名** `AstraMilitarumDeck1`，与我们的 `deckId`（`AM_SK_1`）**不同源** ⇒ 只能按**英文名**
+            /// 匹配，见 `工具/_loc_official/gen_official_names.py` 的 `resolve_prebuilt_decks`；现读 103 副里配上 **74** 副）。
+            /// 取不到 ⇒ 回改前的口径（**有中文用中文，没有才回落英文原名** —— `zh_decks.json`，**我们自译**）。
+            /// ⚠️ 那 74 副里 **61 副的官方中文与我们自译的不同**（例 `Press the Attack`：我们「主动出击」、
+            /// 官方「发起攻击」）⇒ 换过来之后**界面中文会变**，这是**对的**（官方值）。
+            /// ⚠️ 判据只此一处（与卡面同一条口径，见 `Core/CardText.cs`）。</summary>
+            public string DisplayName
+            {
+                get
+                {
+                    string off = Loc.BulkOr("PrebuiltDecks/" + deckId, null);
+                    if (!string.IsNullOrEmpty(off)) return off;
+                    return string.IsNullOrEmpty(nameZh) ? name : nameZh;
+                }
+            }
 
             /// <summary>这张卡组用的卡背。**判据只一处** ⇒ `CardArt.DeckCardback`（原版 `CardDeck.GetDeckCardback()`）。</summary>
             public Texture2D Cardback { get { return CardArt.DeckCardback(cardback, faction); } }

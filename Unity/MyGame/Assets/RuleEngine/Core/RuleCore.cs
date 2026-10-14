@@ -2685,10 +2685,13 @@ namespace RuleEngine
         ///    ⇒ `Companion 2: Gun Drone` 一共带出 **2 张**，但是「**打一次给一张**」。
         ///    同一说明见 `CardInstance.CompanionCounter` 的注释。
         ///
-        ///    ⚠️ **`relatedCard1` 本地拿不到**（序列化引用，解包资产里为空 ——
-        ///    `资料/阶段二_卡片详情窗_原版规格.md:199-200` 已定案「数据不在库里」）⇒
-        ///    名字那一跳仍然得留着：把卡面 `Companion X: &lt;名字&gt;` 里的 `&lt;名字&gt;`
-        ///    当 `relatedCard1` 的**替身**去卡池里查（`CreatePool.FindByName`）。
+        ///    🔴 **2026-10-14（`A1796`）订正**：原写「**`relatedCard1` 本地拿不到**（序列化引用，
+        ///    解包资产里为空 —— `资料/阶段二_卡片详情窗_原版规格.md:199-200` 已定案「数据不在库里」）」
+        ///    —— **不成立**：值就在本地那份原版包里（同包内裸 PPtr），已解成
+        ///    `Assets/CardPresentation/Resources/related_cards.json`（240 条边 / 196 张卡），
+        ///    读取口 = `RuleEngine.RelatedCardData`。
+        ///    ⇒ 现在**真值优先**（按 id 精确取 `relatedCard1` 那一张）；**按名字查降成兜底**
+        ///    （只有「那张卡没有真值」时才走，实测那 9 张 `Companion` 卡**全都有真值**）。
         ///    ⛔ 但**绝不能**拿它当「从手牌取同名卡」的理由 —— 那是两件事。
         ///
         ///    ⚠️ **查不到那张卡时不许静默**：如实打日志（红线）。
@@ -2697,13 +2700,56 @@ namespace RuleEngine
         {
             if (card == null) return;
 
-            // ---- ① 该不该触发 + 要造的是**哪一张卡的定义** ----
-            //   原版 `ShouldTriggerCompanion`（`CardScript__ShouldTriggerCompanion.c:12-29`）：
-            //   「（带 `Companion` 词条 **且** `relatedCard1 != null`）**或** `companionCounter > 0`」。
+            // ---- ① 该不该触发（原版 `CardScript__ShouldTriggerCompanion.c:12-29`，逐句）----
+            //   门 = 「（带 `Companion` 词条 **且** `relatedCard1 != null`）**或** `companionCounter > 0`」。
+            //   🔴 **2026-10-14（`A1850`）：`relatedCard1 != null` 这半句原来【没实现】**
+            //     （旧写法 = 只要卡面上读得出名字就触发）。现按原版补上，判据 = 真值表
+            //     （`Resources/related_cards.json`，`RelatedCardData.Get`）里这张卡
+            //     **有键、且第一槽非空** —— 那正是原版 `rawCardData + 0xE8` 那个序列化引用
+            //     在本地的等价物（`ProcessCompanion.c:28` 取的就是它）。
+            //   ⚠️ **实测今天【无差异】**：真值里带 `companion` trait 的 **8 张**（`CardTraits`，见
+            //     `资料/普查产出_第二十七会话/A1748_原版trait真值.md` 的同一份包）
+            //     **逐张** `relatedCard1 != null` ⇒ 这一补是**防将来**（`A1850`）：
+            //     真值里一旦出现「有词条、没有 `relatedCard1`」的卡，旧写法会**凭空造一张**。
+            //   🧨 **合成夹具要「连夹具一起改」**：`FixtureHost` 不是卡池真卡、真值表里没有键
+            //     ⇒ 夹具必须自己声明那条边（`RelatedCardData.SetForTest`，见 `TestCompanion`）。
+            bool hasTrait = card.Has(KeywordTable.Companion);
+            string[] relIds = RelatedCardData.Get(card.Id);
+            bool hasRelated1 = relIds != null && relIds.Length > 0 && !string.IsNullOrEmpty(relIds[0]);
+            bool hasCounter = inst != null && inst.CompanionCounter > 0;
+            if (!(hasTrait && hasRelated1) && !hasCounter)
+            {
+                // ---- 无事可做（原版 `ProcessCompanion.c:29` 就是 `return`）----
+                // 🔴 **2026-10-18（`W4` 整改 · 审查问题 4）：这一支不许「静默地」吞掉我们自己的漏解析。**
+                //    原版这儿**真的没有事可做**（没词条、计数 0）⇒ 对**普通卡**打日志是噪声、
+                //    而且会淹掉战斗日志面板（每次部署都来一行）—— 那不是「复刻」。
+                //    ⇒ 出声的条件收紧成**我们自己的失败长相**：**卡面/关键词里读得出伴生名，
+                //      却没有 `Companion` 词条**（`TAU38 Coldstar` / `TAU28 Strike Team` 修之前
+                //      就是这个长相：`desc` 印着 `Companion 2: Marker Drone`、
+                //      `keywords` 数组里却没有它 ⇒ `Has(Companion)` 恒假）。
+                //    ⚠️ `CardDef.CollectCompanionKeyword`（2026-10-18 同批修的**输入侧**）落地之后
+                //      这一支**预期永不触发** —— 留着它是**护栏**：将来再有同类数据缺陷，这里会喊。
+                //    🆕 **2026-10-14（`A1850`）再加一条出声**：**有词条、真值里却没有 `relatedCard1`**
+                //      —— 严格门就是被这一半挡住的，而这是我们**真值缺口**的长相（原版那张卡有定义、
+                //      我们这边没有）⇒ 必须喊，⛔ 不许静默少造一张。
+                if (!hasTrait && !string.IsNullOrEmpty(card.CompanionName))
+                    ctx.Log($"伴生：{card.Name} 的卡面/关键词里**读得出伴生名**"
+                          + $"（「{card.CompanionName}」），但**没有 `Companion` 词条**"
+                          + " —— 这是**我们解析层漏了**（`CardDef.CollectCompanionKeyword` 那一层），"
+                          + "这次没带出任何一张");
+                else if (hasTrait)
+                    ctx.Log($"伴生：{card.Name} **带 `Companion` 词条**，但真值表里**没有它的 `relatedCard1`**"
+                          + "（`Resources/related_cards.json` 没这个键 / 第一槽为空）⇒ 按原版"
+                          + "`ShouldTriggerCompanion` 的严格门（词条 **且** 那张非空）**这次不触发**。"
+                          + "这是**我们真值缺口**的长相（快照 2025-07-30 比现池旧），不是原版没写。");
+                return;
+            }
+
+            // ---- ② 要造的是**哪一张卡的定义**（原版 `ProcessCompanion.c:28` / `:85`）----
             CardDef def;                    // 要造的那张卡的**定义**
             int n;                          // 回填到新卡上的 `companionCounter`
             string why;
-            if (card.Has(KeywordTable.Companion))
+            if (hasTrait)
             {
                 string name = card.CompanionName;
                 int x = card.KwValue(KeywordTable.Companion);
@@ -2719,16 +2765,46 @@ namespace RuleEngine
                           + " —— 查不了（原版这里是 `rawCardData.relatedCard1` 那个引用）");
                     return;
                 }
-                def = CreatePool.FindByName(ctx.CardPool, name);
+                // 🔴 **2026-10-14（`A1796`）：先吃【原版真值】，按名字查降成兜底。**
+                //    原版 `ProcessCompanion.c:28` 取的就是 `rawCardData.relatedCard1`（`+0xE8`）、
+                //    `:85` 拿它当**新卡的定义** —— 那和 `ShouldTriggerCompanion` 读的是同一个字段。
+                //    ⚠️ 本节原来写「**`relatedCard1` 本地拿不到**（序列化引用，解包资产里为空）」
+                //    —— **订正**（铁律 5）：值本地有，已解成 `Resources/related_cards.json`
+                //    （生成器 `工具/gen_related_cards.py`；读取口 `RelatedCardData`）。
+                //    ⇒ 现在**按 id 精确等值**取那一张，比按名字查强在两点：
+                //      ① 不再歧义（卡名在全池有重名，`FindByName` 取的是**池序第一个**）；
+                //      ② 名字解析（`CompanionName` 是从**英文 `desc`** 里切出来的）错了也不影响造牌。
+                //    实测：池里 **9 张**带 `Companion` 的卡（`CompanionName` 读得出来）**逐张有真值**，
+                //    且 `relatedCard1` 与卡面上那个名字**逐张吻合**（`TAU9 Pathfinder` → `TAU7 Marker Drone`…）
+                //    ⇒ 这一跳今天**行为等价**，改的是「判据从哪来」（名字 → 原版字段）。
+                def = RelatedCardData.ResolveFirst(ctx.CardPool, card.Id);
+                bool fromTruth = def != null;
+                // ⚠️ **2026-10-14（`A1850`）退到按名字查的那两种情形，都要说清是哪一种**：
+                //    · ① 真值表里**没有这张卡的键**（`hasRelated1 == false`）—— 走到这一支只可能是
+                //          「词条在、计数也 > 0」（严格门把纯词条那一半挡住了）。**原版在这种状态下
+                //          会拿一个 null 定义去 `AddNewCardToHand`（`ProcessCompanion.c:85` 直接取
+                //          `relatedCard1`）⇒ 原版自己会抛**（那一格在设计数据里不存在）。
+                //          ⇒ **我们不复制崩溃**：退回按卡面名字查（是「造一张」而不是「炸掉」），
+                //          并已在严格门那一支**出过声**（真值缺口）。
+                //    · ② 真值里有键，但**那一张不在我们卡池里** ⇒ 同样按名字查 → 再不行就出声。
+                if (!fromTruth)
+                    def = CreatePool.FindByName(ctx.CardPool, name);
                 if (def == null)
                 {
                     ctx.Log($"伴生：{card.Name} 的伴生部队「{name}」**在卡池里查不到**"
-                          + "（原版取的是 `rawCardData.relatedCard1` 那个引用，本地解包资产里是空的"
-                          + " ⇒ 我们只能按名字查）—— 这次没带出任何一张");
+                          + "（原版取的是 `rawCardData.relatedCard1` 那个引用；我们这边"
+                          + "**真值表和按名字查都没中**）—— 这次没带出任何一张");
                     return;
                 }
                 n = x - 1;
                 why = $"`Companion {x}: {name}`";
+                if (fromTruth && def.Name != null && CreatePool.Norm(def.Name) != CreatePool.Norm(name))
+                {
+                    // 真值取到了，但它和卡面上读出来的名字对不上 ⇒ **不是错，是两种口径打架**，要说出来
+                    // （正常情况两者逐字相同；不同就说明 `CompanionName` 的解析或真值表有一边要查）。
+                    ctx.Log($"伴生：{card.Name} 的原版 `relatedCard1` 是「{def.Name}」，"
+                          + $"而卡面读出来的名字是「{name}」—— 两张对不上，我们信**原版真值**");
+                }
                 // ⚠️ **表示上的已知差异（行为等价，2026-10-18 第三轮如实记着）**：
                 //    原版新卡的 `companionCounter = 源 +0x60 − 1`，而源卡的 `+0x60` 是
                 //    **词条值** —— `Companion:`（**没写数字**，如 `Strike Team`）时那一格是 **0**
@@ -2737,10 +2813,12 @@ namespace RuleEngine
                 //    ⇒ −1 与 0 **行为完全一样**（都只造一张、都停）。⛔ 别为了「数字对齐」去改兜底 1
                 //    （`CardDef.cs` 的 `FirstNumber` 那条兜底被几十处当「有这个关键词」用）。
                 // ⚠️ **同名多份** ⇒ `FindByName` 取的是**池序第一个**（可能张冠李戴）⇒ **出声**。
-                //    原版这里是 `rawCardData.relatedCard1` 那个**引用**、不会歧义；我们的替身只能按名字查。
+                //    原版这里是 `rawCardData.relatedCard1` 那个**引用**、不会歧义。
                 //    实测（审查 2026-10-18）：全池有 3 组同名归一化（`Terminator Champion`（BL44/EC33）·
-                //    `Maulerfiend`（BL46/EC39）· `Terminator`（EC22/UM82））—— **今天不咬人**
-                //    （8 张伴生卡的伴生名全是 Tau Drone 一族），但这条歧义是潜伏的 ⇒ 走到就报。
+                //    `Maulerfiend`（BL46/EC39）· `Terminator`（EC22/UM82））。
+                //    🔴 **2026-10-14（`A1796`）：这一支只在「真值没取到、退回按名字查」时才可能歧义**
+                //    —— 真值那一支按 **id** 取，天然不会撞。所以下面这段**只兜底时才跑**。
+                if (!fromTruth)
                 {
                     string want = CreatePool.Norm(name);
                     int dupN = 0;
@@ -2749,35 +2827,16 @@ namespace RuleEngine
                     if (dupN > 1)
                         ctx.Log($"伴生：卡池里有 **{dupN} 张**叫「{name}」的卡 —— 我们取的是"
                               + "**池序第一个**（原版取的是 `rawCardData.relatedCard1` 那个引用、"
-                              + "不会有歧义；我们的替身只能按名字查）");
+                              + "不会有歧义；这一局那张卡**没有真值**，只能按名字查）");
                 }
             }
-            else if (inst != null && inst.CompanionCounter > 0)
+            else
             {
                 // 不带词条但计数 > 0 ⇒ **再造一张【自己】**（`ProcessCompanion.c:70`：
                 // 不带 `Companion` 词条时源就是它自己的 `rawCardData`）。
                 def = card;
-                n = inst.CompanionCounter - 1;
-                why = $"伴生链还剩 {inst.CompanionCounter} 环";
-            }
-            else
-            {
-                // ---- 无事可做（原版 `ProcessCompanion.c:29` 就是 `return`）----
-                // 🔴 **2026-10-18（`W4` 整改 · 审查问题 4）：这一支不许「静默地」吞掉我们自己的漏解析。**
-                //    原版这儿**真的没有事可做**（没词条、计数 0）⇒ 对**普通卡**打日志是噪声、
-                //    而且会淹掉战斗日志面板（每次部署都来一行）—— 那不是「复刻」。
-                //    ⇒ 出声的条件收紧成**我们自己的失败长相**：**卡面/关键词里读得出伴生名，
-                //      却没有 `Companion` 词条**（`TAU38 Coldstar` / `TAU28 Strike Team` 修之前
-                //      就是这个长相：`desc` 印着 `Companion 2: Marker Drone`、
-                //      `keywords` 数组里却没有它 ⇒ `Has(Companion)` 恒假）。
-                //    ⚠️ `CardDef.CollectCompanionKeyword`（2026-10-18 同批修的**输入侧**）落地之后
-                //      这一支**预期永不触发** —— 留着它是**护栏**：将来再有同类数据缺陷，这里会喊。
-                if (!string.IsNullOrEmpty(card.CompanionName))
-                    ctx.Log($"伴生：{card.Name} 的卡面/关键词里**读得出伴生名**"
-                          + $"（「{card.CompanionName}」），但**没有 `Companion` 词条**"
-                          + " —— 这是**我们解析层漏了**（`CardDef.CollectCompanionKeyword` 那一层），"
-                          + "这次没带出任何一张");
-                return;
+                n = (inst == null ? 0 : inst.CompanionCounter) - 1;
+                why = $"伴生链还剩 {(inst == null ? 0 : inst.CompanionCounter)} 环";
             }
 
             // ---- ② 造一张新卡 → **进手牌** ----
@@ -7376,14 +7435,21 @@ namespace RuleEngine
             // ⚠️ 原来这里照 `Ability`（`EffectSpec`）那条路写死了 `1 - p`（敌方）—— 那会让
             //    「给一个友方单位」的技能把玩家的选择**落到对面棋盘上**（静默打错人）。
             UnitState chosen = null;
+            bool pickedEnemySide = false;      // 🆕 `A1888`：玩家点的那一格在**哪一侧**（事件要用）
             if (ops != null)
             {
                 var pspec = EffectText.PickTarget(ops);
                 if (pspec != null && BoardSpec.IsValid(targetSlot))
-                    chosen = ctx.Players[pspec.Side == "enemy" ? 1 - p : p].Board[targetSlot];
+                {
+                    pickedEnemySide = pspec.Side == "enemy";
+                    chosen = ctx.Players[pickedEnemySide ? 1 - p : p].Board[targetSlot];
+                }
             }
             else if (spec != null && EffectTargets.NeedsPick(spec.Target))
+            {
+                pickedEnemySide = true;        // 封闭文法那条路的目标恒在对面（`EffectTargets` 只有敌方那几个）
                 chosen = ctx.Players[1 - p].Board[targetSlot];
+            }
 
             u.Exhausted = true;
             u.AttacksThisTurn++;                       // 算「本回合已行动」（规则书 `:150`）
@@ -7394,6 +7460,32 @@ namespace RuleEngine
             // 🆕 2026-09-29 替代行动（Duty / Pray / Ferocity / Agenda）同样走
             // 「激活一个主动能力」这条路 ⇒ 原版那一处置的是同一个 `+0x4C`。
             u.UsedActiveAbilityThisTurn = true;
+            // 🆕🔴 **2026-10-14（账 `A1888`）：替代行动也要发 `EvtKind.Ability`** ——
+            //   原来**只有** `UseAbility`（`Ability:`）与 `UseOathAbility`（誓约）发它，
+            //   这一条（`Duty`/`Pray`/`Ferocity`/`Agenda`，全池 **51 张**）**一条都不发**
+            //   ⇒ 表现层三条消费面同时静默：战斗日志那行「发动技能」、`VfxMap.Ability`、
+            //     以及 `EventTiming.DurationOf` 的**逐卡能力时长表**（`A1767`，56 张卡，键 = `e.CardId`）
+            //     —— 那张表的**命中率因此是 0**（只有带 `Ability:` / 誓约的卡查得到）。
+            //
+            //   **判据（全量反编译，逐行读过）**：原版这四族**走的是同一个入口**
+            //   `CardScript__ResolveActiveAbilityPlayed.c:31-32`（`+0x50 += 1`、`+0x4C = 1`）——
+            //   它的调用方是 `BattleManager._ResolvePlayActiveAbility_d__479__MoveNext`，
+            //   而 `CardScript__UsedActiveAbility.c` 里 `duty`（`:31` `HasCurrentTrait(0x4c4)`）、
+            //   `oath`（`:43` `0x4fb`）、`ferocity`（`:50` `0x4f1`）**都在同一个方法里分支**。
+            //   ⇒ **不是「只有誓约该发」**（⛔ 别只补 oath）—— 四族一个入口。
+            //
+            //   ⚠️ **位置 = 「+0x4C 置位」那一行之后**，与 `UseAbility` 同款（原版那两句本来就挨着）；
+            //     `UseOathAbility` 之所以排在付费之后，是因为**它那一步会失败**（付不起 = 没发动），
+            //     而这一条过了 `CanUseAlternative` 就没有会失败的分支。
+            //   ⚠️ **`EffectOp` 那段正文只当 `effect` 文本**（原版是 `CardAnim` 列表，我们这边没这东西）；
+            //     查不到正文就退回关键词名，别留空（日志那行会印它）。
+            ctx.Emit(EvtKind.Ability, p, slot, u.Name,
+                     keyword: keyword,
+                     effect: ops != null && ops.Count > 0 ? ops[0].Source : keyword,
+                     amount: 0,
+                     targetPlayer: chosen != null ? (pickedEnemySide ? 1 - p : p) : -1,
+                     targetSlot:   chosen != null ? targetSlot : -1,
+                     targetCardId: chosen != null ? chosen.Name : null);
             // 「正在祈祷」= **状态**，一直挂到本单位控制者的下个回合开始
             // 🔴 **判据 = 原版反编译**（`D26`，2026-10-19 改指真权威）：`pray` 在原版是一个
             //    **`DefinedTrait`**（`dump.cs:45839` `pray = 1185`），祈祷那条路是
@@ -7967,6 +8059,10 @@ namespace RuleEngine
         ///    —— 这里就是兑现它。
         ///
         /// ⚠️ **查不到同名卡时如实打日志**，不静默（那 8 个名字列在 `CardDef.TalentName` 的注释里）。
+        /// 🔴 **2026-10-14（`A1873`）就地订正**：上面那句「那 8 个查不到」**只对没有真值表的卡成立** ——
+        ///    97 张原版天赋卡里 **85 张**落进了 `TalentCardData`（键 = 我们卡池 id），它们**不再走名字那条路**；
+        ///    只剩**本卡或那张天赋落不进我们池子的 12 张**（名单与原因 → `数据/游戏数据/talent_cards.json`）
+        ///    才可能落到这里。实测其中 14/16 张的真卡仍能按名字查中 ⇒ 真正「认不出」的是极少数。
         /// ⚠️ **一格一张**：几个带天赋的单位就生成几张 —— 卡面写的是「每个天赋…」。
         /// </summary>
         /// <summary>天赋名是**池子**（`A random &lt;阵营> &lt;子类型>`）时从池里抽一张。
@@ -8004,7 +8100,30 @@ namespace RuleEngine
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var u = ps.Board[s];
-                if (u == null || u.Card == null || u.Card.TalentName == null) continue;
+                if (u == null || u.Card == null) continue;
+
+                // ⓪ 🔴 **2026-10-14（`A1873`）：先问真值表**（`TalentCardData`）——
+                //    原版造哪一张是**一条对象引用**（`cardAbilities[trigger==46].abilityLogic[0]
+                //    .summonCriteria.unitsToSummon[*]`，见 `CardScript__GetTalentCard.c`），
+                //    不是卡面文本里那串名字。`N > 1` 时原版**随机挑一张**
+                //    （`AbilityLogic__GetCardToSummon.c` 那支 `GetRandomInt`）⇒ 候选表**整份**交给 `Rng`。
+                //    ⚠️ 原来只按名字查 ⇒ 实测**有一批查不到**（池子里那几张的名字带
+                //       ` (某督军的 Talent)` 后缀）⇒ 天赋**静默不生成**，只有一行日志。
+                //    ⚠️ 表里没有这张卡（本卡或那张天赋落不进我们池子）⇒ 才退回下面那条按名字的老路。
+                var cands = TalentCardData.Resolve(ctx.CardPool, u.Card.Id);
+                if (cands.Count > 0)
+                {
+                    var pick = cands[ctx.Rng.Next(cands.Count)];
+                    var t0 = ctx.NewInstance(pick);   // 天赋生成 = **新造一张**（第 7 行第 2 步）
+                    t0.EphemeralMarked = true;
+                    ps.Hand.Add(t0);
+                    SetupCardInHand(ctx, side, t0);
+                    made++;
+                    ctx.Log($"{ps.Name} 的「{u.Name}」天赋（真值表：原版 `unitsToSummon`"
+                          + $"{(cands.Count > 1 ? $" {cands.Count} 选 1 ⇒ **抽到**" : "")}）生成了「{pick.Name}」（临时卡）");
+                    continue;
+                }
+                if (u.Card.TalentName == null) continue;
 
                 // ① 天赋名就是**一张卡的名字**（`Talent: Author of the Codex`）
                 var c = CreatePool.FindByName(ctx.CardPool, u.Card.TalentName);

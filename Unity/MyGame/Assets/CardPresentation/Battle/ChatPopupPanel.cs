@@ -25,11 +25,15 @@
 //   （`SetupChatOptions.c:54,112` 与 `RefreshChatLines.c:71` 两处独立证实）。
 //   ⇒ 下标 0…5 = 枚举 5…10 = `Greet / Threat / WellPlayed / Taunt / Sorry / Oops`，
 //     对应我们 `VoiceLines.ForChatButton` = `greet / threat / wp / gen1 / gen2 / gen3`。
-//   ⚠️ **钮上印什么字**：原版的字来自 **I2 本地化词条**，而那张表**在远端 CCD、本地没有**
-//     （§1.6.1 已证）。原版**序列化下来的兜底文本 6 个钮全是 `Greetings`**（6 个 TMP 逐一确认）。
-//     ⇒ 我们**用枚举自己的名字当标签**（`Greet / Threat / Well Played / Taunt / Sorry / Oops`）——
-//       那是**原版自己的命名**，只是原版把它交给本地化表印。**这一条是我们挑的，明确标出来**：
-//       本工程里没有任何一处能印出原版那 6 个真标签，因为那个来源不存在于客户端。
+//   🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1845`/`A1804`）** —— 下面这段原来是这么写的：
+//     ~~「原版的字来自 **I2 本地化词条**，而那张表**在远端 CCD、本地没有**（§1.6.1 已证）……
+//       ⇒ 我们**用枚举自己的名字当标签**……**这一条是我们挑的**：本工程里没有任何一处能印出原版那 6 个真标签，
+//       因为那个来源不存在于客户端」~~
+//     **那个理由已经不成立**：I2 表 2026-10-14 已解开，6 条官方词条**就在我们 `Loc` 表里**
+//     （`Battle/Chat/{Greetings,Threat,WellPlayed,Taunt,Sorry,Oops}` ⇒ zh 问候/威胁/打得好/嘲讽/抱歉/哎呀）。
+//     ⇒ 现在走 `LabelFor(i)` = **官方词条优先**，`ButtonLabels` 那份英文枚举名**降为兜底**（缺键才用、且出声）。
+//     ⚠️ 仍然成立的一条：原版**序列化下来的兜底文本 6 个钮全是 `Greetings`**（6 个 TMP 逐一确认）——
+//       那是 prefab 的静态默认值，运行时被 I2 覆盖。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -71,7 +75,36 @@ namespace CardPresentation
         /// 冷却挂在 **`ChatButton`** 上（不是面板上）—— 由 `BattleDriver` 计时。</summary>
         public const float Cooldown = 4f;
 
-        /// <summary>钮上的标签。⚠️ **这一行是我们挑的**，理由见文件头（原版标签来自远端 I18N，本地不存在）。</summary>
+        /// <summary>第 i 颗钮的**官方词条键**（下标 0…5 ↔ 枚举 `ChatMessage` 5…10；
+        /// 判据 = `RawCardScript.GetLocalizedChatMsg(warlord, idx+5)` 起点写死 5）。
+        /// 🔴 **2026-10-14（`A1845`/`A1804`）**：这 6 条**现在在我们 `Loc` 表里了**（原版 I2 表已解开）。</summary>
+        public static readonly string[] ChatTerms =
+            { "Battle/Chat/Greetings", "Battle/Chat/Threat", "Battle/Chat/WellPlayed",
+              "Battle/Chat/Taunt", "Battle/Chat/Sorry", "Battle/Chat/Oops" };
+
+        /// <summary>第 i 颗钮印什么字。
+        /// 🔴 **2026-10-14（`A1845`/`A1804`）**：改成**官方词条优先**（`Loc` 表里的官方 zh-CN/EN）；
+        /// 取不到才退回 <see cref="ButtonLabels"/> 那一份英文枚举名，并**出声**（红线：不许静默）。
+        /// ⚠️ `Loc.T` **缺键会返回【键名本身】**（不是 null/空串）⇒ 必须先判 `Loc.HasEntry`。</summary>
+        public static string LabelFor(int i)
+        {
+            if (i < 0 || i >= ChatTerms.Length) return "";
+            string key = ChatTerms[i];
+            if (Loc.HasEntry(key)) return Loc.T(key);
+            if (!_warnedNoEntry)
+            {
+                _warnedNoEntry = true;
+                Debug.LogWarning("[Chat] 词条缺失，退回英文枚举名：" + key);
+            }
+            return ButtonLabels[i];
+        }
+        static bool _warnedNoEntry;
+
+        /// <summary>钮上的标签 —— ⚠️ **现在只是【兜底】**（`LabelFor` 取不到官方词条时才用它）。
+        /// 🔴 **2026-10-14 就地订正（铁律 5 · `A1845`）**：原来这一行写着「**这一行是我们挑的**，理由见文件头
+        /// （原版标签来自远端 I18N，本地不存在）」—— **那个理由已不成立**：I2 表 2026-10-14 已解开，
+        /// 6 条官方词条（zh 问候/威胁/打得好/嘲讽/抱歉/哎呀）就在 `Loc` 表里 ⇒ 实际印的是它们。
+        /// 这一份英文枚举名只在表缺键时兜底。</summary>
         public static readonly string[] ButtonLabels =
             { "Greet", "Threat", "Well Played", "Taunt", "Sorry", "Oops" };
 
@@ -120,6 +153,14 @@ namespace CardPresentation
             return (i >= 0 && i < _btns.Count) ? _btns[i].rect : new Rect();
         }
 
+        /// <summary>第 i 颗钮**实际印出来的那串字**（自检用）。
+        /// 🔴 **2026-10-14（`A1845`/`A1804`）**：读的是**真挂在那颗 `Label` 上的字符串**（`Label.Text`），
+        /// ⛔ 不是重算一遍 `LabelFor(i)` —— 后者等于拿实现证明实现。</summary>
+        public string TextAt(int i)
+        {
+            return (i >= 0 && i < _btns.Count && _btns[i].text != null) ? _btns[i].text.Text : "(无)";
+        }
+
         public static ChatPopupPanel Create(Transform parent)
         {
             // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
@@ -163,7 +204,7 @@ namespace CardPresentation
                 var b = new Btn();
                 b.bg = Make("ChatButton" + (i + 1) + "_bg", "40k_voicelines_bt_R");
                 b.icon = Make("ChatButton" + (i + 1) + "_icon", "40k_voicelines_bt_L");
-                b.text = Label.Create(transform, ButtonLabels[i], Vector3.zero, 1, Color.white,
+                b.text = Label.Create(transform, LabelFor(i), Vector3.zero, 1, Color.white,
                                       new Vector2(0f, 0.5f), "ChatButton" + (i + 1) + "_Text");
                 _btns.Add(b);
             }

@@ -1,9 +1,9 @@
 {
  "version": 1,
- "note": "原版单位语音表。id = 我们卡表的 id（cards_engine.json）；file = Resources/Art/audio/vo/<名>（无扩展名时按文件名去掉扩展名）；ev 见 语音索引.md §四（`wp` 语义未证实）。",
+ "note": "原版单位语音表。id = 我们卡表的 id（cards_engine.json）；file = Resources/Art/audio/vo/<名>（无扩展名时按文件名去掉扩展名）；ev 见 语音索引.md §四（`wp` 语义未证实）。归属三级：卡 SO（权威，lines[].src=cardSO）→ card_index.json（兜底，无 src）→ 按文件名猜（src=orphan）。",
  "source": {
   "audio": "d:/2/新解包资源/assets_full/bundle_*cardassets*_assets_all/AudioClip/",
-  "owner": "d:/4/Unity/数据/索引/card_index.json 的 cards[].voice",
+  "owner": "① 卡 SO 的 summonAudio/attackAudio/deathAudio（经 d:/4/Unity/数据/游戏数据/card_vfx_by_card.json 的 byCard[*]._assetRefs）**权威**；② d:/4/Unity/数据/索引/card_index.json 的 cards[].voice **兜底**",
   "script": "工具/import_original_audio.py"
  },
  "cards": [
@@ -15,7 +15,14 @@
     {
      "ev": "attack",
      "file": "VO_AM_Arcadian Leontus_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_AM_Arcadian Leontus_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -25,11 +32,6 @@
     {
      "ev": "concede",
      "file": "VO_AM_Arcadian Leontus_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_AM_Arcadian Leontus_death.ogg",
      "text": ""
     },
     {
@@ -142,7 +144,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Cadian Standard Bearer - Cadia stands!.ogg",
-     "text": "Cadia stands!"
+     "text": "Cadia stands!",
+     "src": "cardSO"
     }
    ]
   },
@@ -154,7 +157,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Shock Trooper Sgt - For Cadia, we hold the line here!.ogg",
-     "text": "For Cadia, we hold the line here!"
+     "text": "For Cadia, we hold the line here!",
+     "src": "cardSO"
     }
    ]
   },
@@ -166,7 +170,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Flamer Trooper - Flamers to the front.ogg",
-     "text": "Flamers to the front"
+     "text": "Flamers to the front",
+     "src": "cardSO"
     }
    ]
   },
@@ -178,7 +183,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Ogryn - Yes, sir!.ogg",
-     "text": "Yes, sir!"
+     "text": "Yes, sir!",
+     "src": "cardSO"
     }
    ]
   },
@@ -190,7 +196,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Autocannon Squad - Heavy weapon teams, awaiting target.ogg",
-     "text": "Heavy weapon teams, awaiting target"
+     "text": "Heavy weapon teams, awaiting target",
+     "src": "cardSO"
     }
    ]
   },
@@ -202,7 +209,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Minka Lesk - For Cadia!.ogg",
-     "text": "For Cadia!"
+     "text": "For Cadia!",
+     "src": "cardSO"
     }
    ]
   },
@@ -214,7 +222,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Scout Sentinel - Scout patrol to command I have eyes on the enemy.ogg",
-     "text": "Scout patrol to command I have eyes on the enemy"
+     "text": "Scout patrol to command I have eyes on the enemy",
+     "src": "cardSO"
     }
    ]
   },
@@ -226,7 +235,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Commissar - Do your duty, or die by my hand.ogg",
-     "text": "Do your duty, or die by my hand"
+     "text": "Do your duty, or die by my hand",
+     "src": "cardSO"
     }
    ]
   },
@@ -238,7 +248,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Master of Ordnance - Let's make the cannons sing Fire!.ogg",
-     "text": "Let's make the cannons sing Fire!"
+     "text": "Let's make the cannons sing Fire!",
+     "src": "cardSO"
     }
    ]
   },
@@ -250,7 +261,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Attilan Rough Rider - Ride them down!.ogg",
-     "text": "Ride them down!"
+     "text": "Ride them down!",
+     "src": "cardSO"
     }
    ]
   },
@@ -262,7 +274,14 @@
     {
      "ev": "attack",
      "file": "VO_AM_Ursula Creed_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_AM_Ursula Creed_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -272,11 +291,6 @@
     {
      "ev": "concede",
      "file": "VO_AM_Ursula Creed_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_AM_Ursula Creed_death.ogg",
      "text": ""
     },
     {
@@ -379,7 +393,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Tech-Priest Enginseer - Blessed is the Omnissiah's work.ogg",
-     "text": "Blessed is the Omnissiah's work"
+     "text": "Blessed is the Omnissiah's work",
+     "src": "cardSO"
     }
    ]
   },
@@ -391,7 +406,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Primaris Psyker - I channel the Emperor’s fury!.ogg",
-     "text": "I channel the Emperor’s fury!"
+     "text": "I channel the Emperor’s fury!",
+     "src": "cardSO"
     }
    ]
   },
@@ -403,7 +419,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Bombast Field Gun - Target sighted Let there be fire!.ogg",
-     "text": "Target sighted Let there be fire!"
+     "text": "Target sighted Let there be fire!",
+     "src": "cardSO"
     }
    ]
   },
@@ -416,7 +433,7 @@
      "ev": "line",
      "file": "VO_AM_Bullgryn Bone'ead - Get behind me!.ogg",
      "text": "Get behind me!",
-     "src": "orphan"
+     "src": "cardSO"
     }
    ]
   },
@@ -428,7 +445,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Armoured Sentinel - Nothing will stop our advance.ogg",
-     "text": "Nothing will stop our advance"
+     "text": "Nothing will stop our advance",
+     "src": "cardSO"
     }
    ]
   },
@@ -440,7 +458,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Taurox - Armored transport, moving in!.ogg",
-     "text": "Armored transport, moving in!"
+     "text": "Armored transport, moving in!",
+     "src": "cardSO"
     }
    ]
   },
@@ -452,7 +471,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Nork Deddog - Behind me, Sir Nork's got dis!.ogg",
-     "text": "Behind me, Sir Nork's got dis!"
+     "text": "Behind me, Sir Nork's got dis!",
+     "src": "cardSO"
     }
    ]
   },
@@ -464,7 +484,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Chimera - Prepare for immediate deployment.ogg",
-     "text": "Prepare for immediate deployment"
+     "text": "Prepare for immediate deployment",
+     "src": "cardSO"
     }
    ]
   },
@@ -476,7 +497,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Hydra - Blast them out of the skies!.ogg",
-     "text": "Blast them out of the skies!"
+     "text": "Blast them out of the skies!",
+     "src": "cardSO"
     }
    ]
   },
@@ -488,7 +510,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Manticore - Missiles primed and ready!.ogg",
-     "text": "Missiles primed and ready!"
+     "text": "Missiles primed and ready!",
+     "src": "cardSO"
     }
    ]
   },
@@ -500,7 +523,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Cadian Castellan - Stand fast, not one step back.ogg",
-     "text": "Stand fast, not one step back"
+     "text": "Stand fast, not one step back",
+     "src": "cardSO"
     }
    ]
   },
@@ -512,7 +536,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Basilisk - The earth shakes to the sound of our guns.ogg",
-     "text": "The earth shakes to the sound of our guns"
+     "text": "The earth shakes to the sound of our guns",
+     "src": "cardSO"
     }
    ]
   },
@@ -524,7 +549,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Valkyrie - Prepare for rapid insertion!.ogg",
-     "text": "Prepare for rapid insertion!"
+     "text": "Prepare for rapid insertion!",
+     "src": "cardSO"
     }
    ]
   },
@@ -536,7 +562,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Leman Russ Vanquisher - A single shell is all it takes.ogg",
-     "text": "A single shell is all it takes"
+     "text": "A single shell is all it takes",
+     "src": "cardSO"
     }
    ]
   },
@@ -548,7 +575,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Maelon Dhrost - Duty demands sacrifice.ogg",
-     "text": "Duty demands sacrifice"
+     "text": "Duty demands sacrifice",
+     "src": "cardSO"
     }
    ]
   },
@@ -560,7 +588,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Rogal Dorn Tank - We are the Emperor's fire and fury!.ogg",
-     "text": "We are the Emperor's fire and fury!"
+     "text": "We are the Emperor's fire and fury!",
+     "src": "cardSO"
     }
    ]
   },
@@ -572,7 +601,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Baneblade Tank - All weapons, open fire!.ogg",
-     "text": "All weapons, open fire!"
+     "text": "All weapons, open fire!",
+     "src": "cardSO"
     }
    ]
   },
@@ -584,7 +614,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Faeburn Vanquisher - Armed and ready!.ogg",
-     "text": "Armed and ready!"
+     "text": "Armed and ready!",
+     "src": "cardSO"
     }
    ]
   },
@@ -596,7 +627,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Shock Trooper - Reporting for duty!.ogg",
-     "text": "Reporting for duty!"
+     "text": "Reporting for duty!",
+     "src": "cardSO"
     }
    ]
   },
@@ -608,7 +640,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Ratling - One shot should do it.ogg",
-     "text": "One shot should do it"
+     "text": "One shot should do it",
+     "src": "cardSO"
     }
    ]
   },
@@ -620,7 +653,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Aquilon Servo-Sentry_Scanning for hostiles.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -632,7 +666,21 @@
     {
      "ev": "line",
      "file": "VO_AM_Tempestus Scion - Contact confirmed Engaging.ogg",
-     "text": "Contact confirmed Engaging"
+     "text": "Contact confirmed Engaging",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "AM69",
+   "name": "Tempestor Sergeant",
+   "faction": "AstraMilitarum",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_AM_Tempestus Sergeant - No mercy Bring them down!.ogg",
+     "text": "No mercy Bring them down!",
+     "src": "cardSO"
     }
    ]
   },
@@ -644,7 +692,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Vox Operator - New orders in from command.ogg",
-     "text": "New orders in from command"
+     "text": "New orders in from command",
+     "src": "cardSO"
     }
    ]
   },
@@ -655,13 +704,14 @@
    "lines": [
     {
      "ev": "line",
-     "file": "VO_AM_Medic Scion - No soul left behind.ogg",
-     "text": "No soul left behind"
+     "file": "VO_AM_Medic Scion -On your feet! If you can breathe you can fight.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "line",
-     "file": "VO_AM_Medic Scion -On your feet! If you can breathe you can fight.ogg",
-     "text": ""
+     "file": "VO_AM_Medic Scion - No soul left behind.ogg",
+     "text": "No soul left behind"
     }
    ]
   },
@@ -673,12 +723,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Tempestus Aquilon - Descending into position!.ogg",
-     "text": "Descending into position!"
-    },
-    {
-     "ev": "line",
-     "file": "VO_AM_Tempestus Sergeant - No mercy Bring them down!.ogg",
-     "text": "No mercy Bring them down!"
+     "text": "Descending into position!",
+     "src": "cardSO"
     }
    ]
   },
@@ -690,7 +736,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Vitus Gryf - Fight to the last breath!.ogg",
-     "text": "Fight to the last breath!"
+     "text": "Fight to the last breath!",
+     "src": "cardSO"
     },
     {
      "ev": "line",
@@ -707,7 +754,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Taurox Prime - Reserves are ready for deployment.ogg",
-     "text": "Reserves are ready for deployment"
+     "text": "Reserves are ready for deployment",
+     "src": "cardSO"
     }
    ]
   },
@@ -719,7 +767,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Cadian Medic - Just a flesh-wound, I'll have you back on your feet.ogg",
-     "text": "Just a flesh-wound, I'll have you back on your feet"
+     "text": "Just a flesh-wound, I'll have you back on your feet",
+     "src": "cardSO"
     }
    ]
   },
@@ -731,7 +780,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Karskin - Hotshot rifles primed Kill-shots authorised.ogg",
-     "text": "Hotshot rifles primed Kill-shots authorised"
+     "text": "Hotshot rifles primed Kill-shots authorised",
+     "src": "cardSO"
     }
    ]
   },
@@ -743,7 +793,8 @@
     {
      "ev": "line",
      "file": "VO_AM_Astropath - I see beyond sight.ogg",
-     "text": "I see beyond sight"
+     "text": "I see beyond sight",
+     "src": "cardSO"
     }
    ]
   },
@@ -1036,7 +1087,14 @@
     {
      "ev": "attack",
      "file": "VO_SaimHann_Anvirr_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_SaimHann_Anvirr_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -1046,11 +1104,6 @@
     {
      "ev": "concede",
      "file": "VO_SaimHann_Anvirr_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_SaimHann_Anvirr_death.ogg",
      "text": ""
     },
     {
@@ -1148,7 +1201,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Shroud Runner - Surround them Strangle them like the Serpent.ogg",
-     "text": "Surround them Strangle them like the Serpent"
+     "text": "Surround them Strangle them like the Serpent",
+     "src": "cardSO"
     }
    ]
   },
@@ -1160,7 +1214,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Striking Scorpion - The shadows are always vigilant.ogg",
-     "text": "The shadows are always vigilant"
+     "text": "The shadows are always vigilant",
+     "src": "cardSO"
     }
    ]
   },
@@ -1172,7 +1227,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Swooping Hawk - When the wind cries retribution has arrived.ogg",
-     "text": "When the wind cries retribution has arrived"
+     "text": "When the wind cries retribution has arrived",
+     "src": "cardSO"
     }
    ]
   },
@@ -1184,7 +1240,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Warp Spider - Strike and fade.ogg",
-     "text": "Strike and fade"
+     "text": "Strike and fade",
+     "src": "cardSO"
     }
    ]
   },
@@ -1196,7 +1253,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Wraithblade - I have returned so the Craftworld may never fall.ogg",
-     "text": "I have returned so the Craftworld may never fall"
+     "text": "I have returned so the Craftworld may never fall",
+     "src": "cardSO"
     }
    ]
   },
@@ -1220,7 +1278,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Nuadhu Fireheart - I am the bloodied blade of Khaine.ogg",
-     "text": "I am the bloodied blade of Khaine"
+     "text": "I am the bloodied blade of Khaine",
+     "src": "cardSO"
     }
    ]
   },
@@ -1232,7 +1291,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Spiritseer - Spirits heed my words and rise.ogg",
-     "text": "Spirits heed my words and rise"
+     "text": "Spirits heed my words and rise",
+     "src": "cardSO"
     }
    ]
   },
@@ -1244,7 +1304,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Vyper - I am always swift.ogg",
-     "text": "I am always swift"
+     "text": "I am always swift",
+     "src": "cardSO"
     }
    ]
   },
@@ -1256,7 +1317,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Witchblade Warlock - The skeins of fate tell of nothing but death.ogg",
-     "text": "The skeins of fate tell of nothing but death"
+     "text": "The skeins of fate tell of nothing but death",
+     "src": "cardSO"
     }
    ]
   },
@@ -1268,7 +1330,14 @@
     {
      "ev": "attack",
      "file": "VO_SaimHann_Zephyrblade_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_SaimHann_Zephyrblade_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -1278,11 +1347,6 @@
     {
      "ev": "concede",
      "file": "VO_SaimHann_Zephyrblade_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_SaimHann_Zephyrblade_death.ogg",
      "text": ""
     },
     {
@@ -1375,7 +1439,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Wraithguard - No more pain no more death.ogg",
-     "text": "No more pain no more death"
+     "text": "No more pain no more death",
+     "src": "cardSO"
     }
    ]
   },
@@ -1387,7 +1452,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Crimson Hunter - We are the raging winds.ogg",
-     "text": "We are the raging winds"
+     "text": "We are the raging winds",
+     "src": "cardSO"
     }
    ]
   },
@@ -1399,7 +1465,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Fire Dragon - Burn in Khaines fury.ogg",
-     "text": "Burn in Khaines fury"
+     "text": "Burn in Khaines fury",
+     "src": "cardSO"
     }
    ]
   },
@@ -1411,7 +1478,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Striking Scorpion Exarch - You tread an accursed path.ogg",
-     "text": "You tread an accursed path"
+     "text": "You tread an accursed path",
+     "src": "cardSO"
     }
    ]
   },
@@ -1423,7 +1491,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Vengeful Wraithblade - I am Khaines wrath.ogg",
-     "text": "I am Khaines wrath"
+     "text": "I am Khaines wrath",
+     "src": "cardSO"
     }
    ]
   },
@@ -1435,7 +1504,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Warlock Skyrunner - Follow the wind bring forth Khaines fire.ogg",
-     "text": "Follow the wind bring forth Khaines fire"
+     "text": "Follow the wind bring forth Khaines fire",
+     "src": "cardSO"
     }
    ]
   },
@@ -1447,7 +1517,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_War Walker - May the Sting of Grief commence.ogg",
-     "text": "May the Sting of Grief commence"
+     "text": "May the Sting of Grief commence",
+     "src": "cardSO"
     }
    ]
   },
@@ -1459,7 +1530,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Falcon - Let our enemies feel the rushing wind of death.ogg",
-     "text": "Let our enemies feel the rushing wind of death"
+     "text": "Let our enemies feel the rushing wind of death",
+     "src": "cardSO"
     }
    ]
   },
@@ -1471,7 +1543,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Spiritseer Qelenaris - Rise warden the Craftworld needs you once more.ogg",
-     "text": "Rise warden the Craftworld needs you once more"
+     "text": "Rise warden the Craftworld needs you once more",
+     "src": "cardSO"
     }
    ]
   },
@@ -1483,7 +1556,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Wave Serpent - Forward Crush the interlopers.ogg",
-     "text": "Forward Crush the interlopers"
+     "text": "Forward Crush the interlopers",
+     "src": "cardSO"
     }
    ]
   },
@@ -1495,7 +1569,14 @@
     {
      "ev": "attack",
      "file": "VO_SaimHann_Ghaelyn_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_SaimHann_Ghaelyn_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -1505,11 +1586,6 @@
     {
      "ev": "concede",
      "file": "VO_SaimHann_Ghaelyn_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_SaimHann_Ghaelyn_death.ogg",
      "text": ""
     },
     {
@@ -1602,7 +1678,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Fire Prism - We are the spear of Khaine.ogg",
-     "text": "We are the spear of Khaine"
+     "text": "We are the spear of Khaine",
+     "src": "cardSO"
     }
    ]
   },
@@ -1614,7 +1691,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Winged Autarch - Death rains from the skies.ogg",
-     "text": "Death rains from the skies"
+     "text": "Death rains from the skies",
+     "src": "cardSO"
     }
    ]
   },
@@ -1626,7 +1704,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Wraithlord - The spirits guide me.ogg",
-     "text": "The spirits guide me"
+     "text": "The spirits guide me",
+     "src": "cardSO"
     }
    ]
   },
@@ -1638,7 +1717,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Hemlock Wraithfighter - When my vengeance comes it will be swift.ogg",
-     "text": "When my vengeance comes it will be swift"
+     "text": "When my vengeance comes it will be swift",
+     "src": "cardSO"
     }
    ]
   },
@@ -1650,7 +1730,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Avatar of Khaine - Death Wakes War Calls.ogg",
-     "text": "Death Wakes War Calls"
+     "text": "Death Wakes War Calls",
+     "src": "cardSO"
     }
    ]
   },
@@ -1662,7 +1743,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Wraithknight - Enough blood has flowed The fight must end.ogg",
-     "text": "Enough blood has flowed The fight must end"
+     "text": "Enough blood has flowed The fight must end",
+     "src": "cardSO"
     }
    ]
   },
@@ -1674,7 +1756,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Guardian Defender - So comes the hour of bloodshed.ogg",
-     "text": "So comes the hour of bloodshed"
+     "text": "So comes the hour of bloodshed",
+     "src": "cardSO"
     }
    ]
   },
@@ -1686,7 +1769,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Storm Guardian - The Craftworld will never surrender.ogg",
-     "text": "The Craftworld will never surrender"
+     "text": "The Craftworld will never surrender",
+     "src": "cardSO"
     }
    ]
   },
@@ -1698,7 +1782,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Ranger - Hold still.ogg",
-     "text": "Hold still"
+     "text": "Hold still",
+     "src": "cardSO"
     }
    ]
   },
@@ -1710,7 +1795,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Weapons Platform - low humming.ogg",
-     "text": "low humming"
+     "text": "low humming",
+     "src": "cardSO"
     }
    ]
   },
@@ -1722,7 +1808,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Dire Avenger - When the light fades we must stand as one for the Craftworld.ogg",
-     "text": "When the light fades we must stand as one for the Craftworld"
+     "text": "When the light fades we must stand as one for the Craftworld",
+     "src": "cardSO"
     }
    ]
   },
@@ -1734,7 +1821,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Dire Avenger Exarch_Let slip of mercy.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -1746,7 +1834,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Shining Spear - Strike like the spear of Khaine!.ogg",
-     "text": "Strike like the spear of Khaine!"
+     "text": "Strike like the spear of Khaine!",
+     "src": "cardSO"
     }
    ]
   },
@@ -1758,7 +1847,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Shining Spear Exarch - One perfect strike.ogg",
-     "text": "One perfect strike"
+     "text": "One perfect strike",
+     "src": "cardSO"
     }
    ]
   },
@@ -1770,7 +1860,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Hornet - We strike with lethal precision.ogg",
-     "text": "We strike with lethal precision"
+     "text": "We strike with lethal precision",
+     "src": "cardSO"
     }
    ]
   },
@@ -1782,7 +1873,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Night Spinner - A silent death descends upon our foes.ogg",
-     "text": "A silent death descends upon our foes"
+     "text": "A silent death descends upon our foes",
+     "src": "cardSO"
     }
    ]
   },
@@ -1794,7 +1886,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Howling Banshee Exarch - The wail of Khaine will be your doom!.ogg",
-     "text": "The wail of Khaine will be your doom!"
+     "text": "The wail of Khaine will be your doom!",
+     "src": "cardSO"
     }
    ]
   },
@@ -1806,7 +1899,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Veteran Guardian - We will protect the Craftworld.ogg",
-     "text": "We will protect the Craftworld"
+     "text": "We will protect the Craftworld",
+     "src": "cardSO"
     }
    ]
   },
@@ -1818,7 +1912,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Swooping Hawk Exarch - From the skies, death rains upon you!.ogg",
-     "text": "From the skies, death rains upon you!"
+     "text": "From the skies, death rains upon you!",
+     "src": "cardSO"
     }
    ]
   },
@@ -1830,7 +1925,14 @@
     {
      "ev": "attack",
      "file": "VO_CW_SaimHann_Jain Zar_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_CW_SaimHann_Jain Zar_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -1840,11 +1942,6 @@
     {
      "ev": "concede",
      "file": "VO_CW_SaimHann_Jain Zar_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_CW_SaimHann_Jain Zar_death.ogg",
      "text": ""
     },
     {
@@ -1952,7 +2049,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Yrlla the Huntress - When battle calls, we must all don the mask.ogg",
-     "text": "When battle calls, we must all don the mask"
+     "text": "When battle calls, we must all don the mask",
+     "src": "cardSO"
     }
    ]
   },
@@ -1964,7 +2062,14 @@
     {
      "ev": "attack",
      "file": "VO_CW_SaimHann_Lhykhis_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_CW_SaimHann_Lhykhis_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -1974,11 +2079,6 @@
     {
      "ev": "concede",
      "file": "VO_CW_SaimHann_Lhykhis_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_CW_SaimHann_Lhykhis_death.ogg",
      "text": ""
     },
     {
@@ -2076,7 +2176,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Death Spinner Warp Spider - Death lies in waiting (Vivienne).ogg",
-     "text": "Death lies in waiting"
+     "text": "Death lies in waiting",
+     "src": "cardSO"
     }
    ]
   },
@@ -2088,7 +2189,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Spinneret Warp Spider Exarch - None escapes the spider's bite (Vivienne).ogg",
-     "text": "None escapes the spider's bite"
+     "text": "None escapes the spider's bite",
+     "src": "cardSO"
     }
    ]
   },
@@ -2100,7 +2202,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Orian Laratharjos - Your end is woven in monofilament (Joey).ogg",
-     "text": "Your end is woven in monofilament"
+     "text": "Your end is woven in monofilament",
+     "src": "cardSO"
     }
    ]
   },
@@ -2112,7 +2215,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Warlock - Light dims yet our hope is ever kindled.ogg",
-     "text": "Light dims yet our hope is ever kindled"
+     "text": "Light dims yet our hope is ever kindled",
+     "src": "cardSO"
     }
    ]
   },
@@ -2124,7 +2228,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Farseer - Every strike weaves a future worthy of our sacrifice (Vivienne).ogg",
-     "text": "Every strike weaves a future worthy of our sacrifice"
+     "text": "Every strike weaves a future worthy of our sacrifice",
+     "src": "cardSO"
     }
    ]
   },
@@ -2136,7 +2241,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Bright Lance Vyper - Ride now! The knife-pledge shall be honoured! (Joey).ogg",
-     "text": "Ride now! The knife-pledge shall be honoured!"
+     "text": "Ride now! The knife-pledge shall be honoured!",
+     "src": "cardSO"
     }
    ]
   },
@@ -2148,7 +2254,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Farseer Skyrunner - The winds will howl with the Craftworld's vengeance (Vivienne).ogg",
-     "text": "The winds will howl with the Craftworld's vengeance"
+     "text": "The winds will howl with the Craftworld's vengeance",
+     "src": "cardSO"
     }
    ]
   },
@@ -2160,7 +2267,8 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Autarch - Hesitation leads only to failure We must strike! (Vivienne).ogg",
-     "text": "Hesitation leads only to failure We must strike!"
+     "text": "Hesitation leads only to failure We must strike!",
+     "src": "cardSO"
     }
    ]
   },
@@ -2172,7 +2280,21 @@
     {
      "ev": "line",
      "file": "VO_CW_SaimHann_Windrider - I bring swift demise.ogg",
-     "text": "I bring swift demise"
+     "text": "I bring swift demise",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "BL1",
+   "name": "Chaos Spawn",
+   "faction": "BlackLegion",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_BL_Chaos Spawn - bestial snarling.ogg",
+     "text": "bestial snarling",
+     "src": "cardSO"
     }
    ]
   },
@@ -2184,7 +2306,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Plague Marine - Let your hate fester.ogg",
-     "text": "Let your hate fester"
+     "text": "Let your hate fester",
+     "src": "cardSO"
     }
    ]
   },
@@ -2196,7 +2319,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Veteran Legionary - My hate drives me.ogg",
-     "text": "My hate drives me"
+     "text": "My hate drives me",
+     "src": "cardSO"
     }
    ]
   },
@@ -2208,7 +2332,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Aspiring Champion - Embrace the power of Chaos.ogg",
-     "text": "Embrace the power of Chaos"
+     "text": "Embrace the power of Chaos",
+     "src": "cardSO"
     }
    ]
   },
@@ -2220,7 +2345,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Chosen - Follow me to victory.ogg",
-     "text": "Follow me to victory"
+     "text": "Follow me to victory",
+     "src": "cardSO"
     }
    ]
   },
@@ -2232,7 +2358,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Daemon Blade Legionary - Your armour cannot save you.ogg",
-     "text": "Your armour cannot save you"
+     "text": "Your armour cannot save you",
+     "src": "cardSO"
     }
    ]
   },
@@ -2244,7 +2371,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Master of Executions - Your head will be my trophy.ogg",
-     "text": "Your head will be my trophy"
+     "text": "Your head will be my trophy",
+     "src": "cardSO"
     }
    ]
   },
@@ -2256,12 +2384,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Possessed Champion - I will see your blood flow.ogg",
-     "text": "I will see your blood flow"
-    },
-    {
-     "ev": "line",
-     "file": "VO_BL_Possessed Marine - I live in your nightmares.ogg",
-     "text": "I live in your nightmares"
+     "text": "I will see your blood flow",
+     "src": "cardSO"
     }
    ]
   },
@@ -2273,7 +2397,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Warp Talon - I strike from the warp.ogg",
-     "text": "I strike from the warp"
+     "text": "I strike from the warp",
+     "src": "cardSO"
     }
    ]
   },
@@ -2285,7 +2410,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Bringer of Decay - Wither and die.ogg",
-     "text": "Wither and die"
+     "text": "Wither and die",
+     "src": "cardSO"
     }
    ]
   },
@@ -2297,7 +2423,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Chaos Terminator - I am unstoppable.ogg",
-     "text": "I am unstoppable"
+     "text": "I am unstoppable",
+     "src": "cardSO"
     }
    ]
   },
@@ -2309,7 +2436,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Black Legionary - Death to the False Emperor.ogg",
-     "text": "Death to the False Emperor"
+     "text": "Death to the False Emperor",
+     "src": "cardSO"
     }
    ]
   },
@@ -2321,7 +2449,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Child of Torment - My obsession cannot be sated.ogg",
-     "text": "My obsession cannot be sated"
+     "text": "My obsession cannot be sated",
+     "src": "cardSO"
     }
    ]
   },
@@ -2333,7 +2462,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Lheorvine Ukris - I'll destroy you.ogg",
-     "text": "I'll destroy you"
+     "text": "I'll destroy you",
+     "src": "cardSO"
     }
    ]
   },
@@ -2345,7 +2475,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Master of Possession - Your body will serve as a vessel.ogg",
-     "text": "Your body will serve as a vessel"
+     "text": "Your body will serve as a vessel",
+     "src": "cardSO"
     }
    ]
   },
@@ -2357,7 +2488,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Sorcerer - I have foreseen the Warmaster's victory.ogg",
-     "text": "I have foreseen the Warmaster's victory"
+     "text": "I have foreseen the Warmaster's victory",
+     "src": "cardSO"
     }
    ]
   },
@@ -2369,7 +2501,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Chosen Champion - The crusade cannot be stopped.ogg",
-     "text": "The crusade cannot be stopped"
+     "text": "The crusade cannot be stopped",
+     "src": "cardSO"
     }
    ]
   },
@@ -2381,7 +2514,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Dark Apostle - Dark Gods bestow your gift upon me.ogg",
-     "text": "Dark Gods bestow your gift upon me"
+     "text": "Dark Gods bestow your gift upon me",
+     "src": "cardSO"
     }
    ]
   },
@@ -2393,7 +2527,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Obliterator - Flesh and bone are weak.ogg",
-     "text": "Flesh and bone are weak"
+     "text": "Flesh and bone are weak",
+     "src": "cardSO"
     }
    ]
   },
@@ -2405,7 +2540,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Venomcrawler - hiss snarl clank.ogg",
-     "text": "hiss snarl clank"
+     "text": "hiss snarl clank",
+     "src": "cardSO"
     }
    ]
   },
@@ -2417,7 +2553,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Helbrute - My agony drives me.ogg",
-     "text": "My agony drives me"
+     "text": "My agony drives me",
+     "src": "cardSO"
     }
    ]
   },
@@ -2441,7 +2578,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Chaos Legionary - I serve the Dark Gods.ogg",
-     "text": "I serve the Dark Gods"
+     "text": "I serve the Dark Gods",
+     "src": "cardSO"
     }
    ]
   },
@@ -2453,7 +2591,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Chaos Lord - I take what is mine.ogg",
-     "text": "I take what is mine"
+     "text": "I take what is mine",
+     "src": "cardSO"
     }
    ]
   },
@@ -2465,7 +2604,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Maulerfiend - growl roar.ogg",
-     "text": "growl roar"
+     "text": "growl roar",
+     "src": "cardSO"
     }
    ]
   },
@@ -2477,7 +2617,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Iskandar Khayon - The False Emperor must die.ogg",
-     "text": "The False Emperor must die"
+     "text": "The False Emperor must die",
+     "src": "cardSO"
     }
    ]
   },
@@ -2489,7 +2630,27 @@
     {
      "ev": "line",
      "file": "VO_BL_Vex Machinator - Come spirits of the machines, I will remake you.ogg",
-     "text": "Come spirits of the machines, I will remake you"
+     "text": "Come spirits of the machines, I will remake you",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "BL34",
+   "name": "Abaddon the Despoiler",
+   "faction": "BlackLegion",
+   "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_BlackLegion_Abaddon_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_BlackLegion_Abaddon_death.ogg",
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -2501,7 +2662,14 @@
     {
      "ev": "attack",
      "file": "VO_BlackLegion_Haarken_Attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_BlackLegion_Haarken_Death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -2511,11 +2679,6 @@
     {
      "ev": "concede",
      "file": "VO_BlackLegion_Haarken_Concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_BlackLegion_Haarken_Death.ogg",
      "text": ""
     },
     {
@@ -2606,19 +2769,15 @@
    ]
   },
   {
-   "id": "BL46",
-   "name": "Gifts of Chaos",
+   "id": "BL4",
+   "name": "Chaos Sergeant",
    "faction": "BlackLegion",
    "lines": [
     {
      "ev": "line",
      "file": "VO_BL_Chaos Sergeant - Cruelty is strength.ogg",
-     "text": "Cruelty is strength"
-    },
-    {
-     "ev": "line",
-     "file": "VO_BL_Chaos Spawn - bestial snarling.ogg",
-     "text": "bestial snarling"
+     "text": "Cruelty is strength",
+     "src": "cardSO"
     }
    ]
   },
@@ -2630,12 +2789,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Hound of Abaddon - Your skull is already mine.ogg",
-     "text": "Your skull is already mine"
-    },
-    {
-     "ev": "attack",
-     "file": "VO_BlackLegion_Abaddon_attack.ogg",
-     "text": ""
+     "text": "Your skull is already mine",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -2645,11 +2800,6 @@
     {
      "ev": "concede",
      "file": "VO_BlackLegion_Abaddon_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_BlackLegion_Abaddon_death.ogg",
      "text": ""
     },
     {
@@ -2752,7 +2902,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Rubric Marine - swirling dust.ogg",
-     "text": "swirling dust"
+     "text": "swirling dust",
+     "src": "cardSO"
     }
    ]
   },
@@ -2764,7 +2915,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Dark Disciple - The Dark Powers demand sacrifice.ogg",
-     "text": "The Dark Powers demand sacrifice"
+     "text": "The Dark Powers demand sacrifice",
+     "src": "cardSO"
     }
    ]
   },
@@ -2776,7 +2928,27 @@
     {
      "ev": "line",
      "file": "VO_BL_Havoc - Be rent unto flesh and ruin.ogg",
-     "text": "Be rent unto flesh and ruin"
+     "text": "Be rent unto flesh and ruin",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "BL65",
+   "name": "Ghallaron the Pious",
+   "faction": "BlackLegion",
+   "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_BL_Ghallaron_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_BL_Ghallaron_death.ogg",
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -2788,7 +2960,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Ghallaron's Disciple - Praise Ghallaron beloved in the eyes of the gods.ogg",
-     "text": "Praise Ghallaron beloved in the eyes of the gods"
+     "text": "Praise Ghallaron beloved in the eyes of the gods",
+     "src": "cardSO"
     }
    ]
   },
@@ -2800,7 +2973,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Ghallaron's Champion - Surrender to Ghallaron and your death will be quick.ogg",
-     "text": "Surrender to Ghallaron and your death will be quick"
+     "text": "Surrender to Ghallaron and your death will be quick",
+     "src": "cardSO"
     },
     {
      "ev": "backup2",
@@ -2823,11 +2997,6 @@
      "text": ""
     },
     {
-     "ev": "attack",
-     "file": "VO_BL_Ghallaron_attack.ogg",
-     "text": ""
-    },
-    {
      "ev": "cantdo",
      "file": "VO_BL_Ghallaron_cantDo.ogg",
      "text": ""
@@ -2835,11 +3004,6 @@
     {
      "ev": "concede",
      "file": "VO_BL_Ghallaron_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_BL_Ghallaron_death.ogg",
      "text": ""
     },
     {
@@ -2932,7 +3096,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Zealot Legionary - For the glory of the Dark Gods.ogg",
-     "text": "For the glory of the Dark Gods"
+     "text": "For the glory of the Dark Gods",
+     "src": "cardSO"
     }
    ]
   },
@@ -2944,7 +3109,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Meltagun Legionary - I will leave nothing but ash.ogg",
-     "text": "I will leave nothing but ash"
+     "text": "I will leave nothing but ash",
+     "src": "cardSO"
     }
    ]
   },
@@ -2956,7 +3122,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Khorne Berzerker - Blood for the Blood God.ogg",
-     "text": "Blood for the Blood God"
+     "text": "Blood for the Blood God",
+     "src": "cardSO"
     }
    ]
   },
@@ -2968,7 +3135,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Veteran Havoc - Embrace the fires of oblivion.ogg",
-     "text": "Embrace the fires of oblivion"
+     "text": "Embrace the fires of oblivion",
+     "src": "cardSO"
     }
    ]
   },
@@ -2980,7 +3148,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Havoc Champion - We bring annihilation.ogg",
-     "text": "We bring annihilation"
+     "text": "We bring annihilation",
+     "src": "cardSO"
     }
    ]
   },
@@ -2992,7 +3161,8 @@
     {
      "ev": "line",
      "file": "VO_BL_Accursed Helbrute - Aaaargh Kill KILL.ogg",
-     "text": "Aaaargh Kill KILL"
+     "text": "Aaaargh Kill KILL",
+     "src": "cardSO"
     }
    ]
   },
@@ -3004,7 +3174,21 @@
     {
      "ev": "line",
      "file": "VO_BL_Noise Marine - Such sweet cacophony.ogg",
-     "text": "Such sweet cacophony"
+     "text": "Such sweet cacophony",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "BL9",
+   "name": "Possessed Marine",
+   "faction": "BlackLegion",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_BL_Possessed Marine - I live in your nightmares.ogg",
+     "text": "I live in your nightmares",
+     "src": "cardSO"
     }
    ]
   },
@@ -3143,7 +3327,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Black Knight - We ride for the Lion!.ogg",
-     "text": "We ride for the Lion!"
+     "text": "We ride for the Lion!",
+     "src": "cardSO"
     }
    ]
   },
@@ -3155,7 +3340,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Chaplain - The Lion watches us all Fight with honor!.ogg",
-     "text": "The Lion watches us all Fight with honor!"
+     "text": "The Lion watches us all Fight with honor!",
+     "src": "cardSO"
     }
    ]
   },
@@ -3167,7 +3353,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Company Veteran - Our loyalty is unwavering.ogg",
-     "text": "Our loyalty is unwavering"
+     "text": "Our loyalty is unwavering",
+     "src": "cardSO"
     }
    ]
   },
@@ -3179,7 +3366,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Librarian - Caliban's rage echoes through me.ogg",
-     "text": "Caliban's rage echoes through me"
+     "text": "Caliban's rage echoes through me",
+     "src": "cardSO"
     }
    ]
   },
@@ -3191,7 +3379,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Ravenwing Speeder - Only death follows in our wake!.ogg",
-     "text": "Only death follows in our wake!"
+     "text": "Only death follows in our wake!",
+     "src": "cardSO"
     }
    ]
   },
@@ -3203,7 +3392,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Ravenwing Champion - The chase is over Now the blade falls.ogg",
-     "text": "The chase is over Now the blade falls"
+     "text": "The chase is over Now the blade falls",
+     "src": "cardSO"
     }
    ]
   },
@@ -3215,7 +3405,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Captain - To me Dark Angels! Victory is at hand!.ogg",
-     "text": "To me Dark Angels! Victory is at hand!"
+     "text": "To me Dark Angels! Victory is at hand!",
+     "src": "cardSO"
     }
    ]
   },
@@ -3227,7 +3418,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Deathwing Terminator - Come forth and be slaughtered.ogg",
-     "text": "Come forth and be slaughtered"
+     "text": "Come forth and be slaughtered",
+     "src": "cardSO"
     }
    ]
   },
@@ -3239,7 +3431,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Inner Circle Companion - Heavy blade swing.ogg",
-     "text": "Heavy blade swing"
+     "text": "Heavy blade swing",
+     "src": "cardSO"
     }
    ]
   },
@@ -3251,7 +3444,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Interrogator Chaplain - Your life is forfeit but your soul could still find deliverance.ogg",
-     "text": "Your life is forfeit but your soul could still find deliverance"
+     "text": "Your life is forfeit but your soul could still find deliverance",
+     "src": "cardSO"
     }
    ]
   },
@@ -3263,7 +3457,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Master Lazarus - I will stand sentinel for the Chapter's honor.ogg",
-     "text": "I will stand sentinel for the Chapter's honor"
+     "text": "I will stand sentinel for the Chapter's honor",
+     "src": "cardSO"
     }
    ]
   },
@@ -3275,7 +3470,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Land Speeder Vengeance - No one can outrun our retribution.ogg",
-     "text": "No one can outrun our retribution"
+     "text": "No one can outrun our retribution",
+     "src": "cardSO"
     }
    ]
   },
@@ -3287,7 +3483,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Techmarine - The Chapter's engines will not falter under my watch.ogg",
-     "text": "The Chapter's engines will not falter under my watch"
+     "text": "The Chapter's engines will not falter under my watch",
+     "src": "cardSO"
     }
    ]
   },
@@ -3299,7 +3496,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Bladeguard Veteran - Through sacrifice we find redemption.ogg",
-     "text": "Through sacrifice we find redemption"
+     "text": "Through sacrifice we find redemption",
+     "src": "cardSO"
     }
    ]
   },
@@ -3311,7 +3509,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Company Champion - We shall fulfill our duty no matter the cost.ogg",
-     "text": "We shall fulfill our duty no matter the cost"
+     "text": "We shall fulfill our duty no matter the cost",
+     "src": "cardSO"
     }
    ]
   },
@@ -3323,7 +3522,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Deathwing Knight - The hunt never ends Duty compels us forward.ogg",
-     "text": "The hunt never ends Duty compels us forward"
+     "text": "The hunt never ends Duty compels us forward",
+     "src": "cardSO"
     }
    ]
   },
@@ -3335,7 +3535,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Ravenwing Ancient - The banner of Caliban shall never falter.ogg",
-     "text": "The banner of Caliban shall never falter"
+     "text": "The banner of Caliban shall never falter",
+     "src": "cardSO"
     }
    ]
   },
@@ -3347,7 +3548,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Ravenwing Talonmaster - We are the hunters! We are the Dark Angels!.ogg",
-     "text": "We are the hunters! We are the Dark Angels!"
+     "text": "We are the hunters! We are the Dark Angels!",
+     "src": "cardSO"
     }
    ]
   },
@@ -3359,7 +3561,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Company Master - The fate of the chapter lies in our every action Do not falter!.ogg",
-     "text": "The fate of the chapter lies in our every action Do not falter!"
+     "text": "The fate of the chapter lies in our every action Do not falter!",
+     "src": "cardSO"
     }
    ]
   },
@@ -3371,7 +3574,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Darkshroud - Caliban’s legacy shall not fade.ogg",
-     "text": "Caliban’s legacy shall not fade"
+     "text": "Caliban’s legacy shall not fade",
+     "src": "cardSO"
     }
    ]
   },
@@ -3383,7 +3587,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Deathwing Strikemaster - No mercy! Engage and eliminate!.ogg",
-     "text": "No mercy! Engage and eliminate!"
+     "text": "No mercy! Engage and eliminate!",
+     "src": "cardSO"
     }
    ]
   },
@@ -3395,7 +3600,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Ezekiel - I alone judge the weak from the strong the truth from falsehood.ogg",
-     "text": "I alone judge the weak from the strong the truth from falsehood"
+     "text": "I alone judge the weak from the strong the truth from falsehood",
+     "src": "cardSO"
     }
    ]
   },
@@ -3407,7 +3613,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Deathwing Champion - Duty alone will wash away our shame.ogg",
-     "text": "Duty alone will wash away our shame"
+     "text": "Duty alone will wash away our shame",
+     "src": "cardSO"
     }
    ]
   },
@@ -3419,7 +3626,21 @@
     {
      "ev": "line",
      "file": "VO_DA_Nephilim Jetfighter - From on high a judgment will come!.ogg",
-     "text": "From on high a judgment will come!"
+     "text": "From on high a judgment will come!",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "DA34",
+   "name": "Unforgiven Redemptor",
+   "faction": "DarkAngels",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_DA_Redemptor Dreadnought - My quest for vengeance is eternal.ogg",
+     "text": "My quest for vengeance is eternal",
+     "src": "cardSO"
     }
    ]
   },
@@ -3431,7 +3652,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Dark Talon - None shall escape the Chapter's talons.ogg",
-     "text": "None shall escape the Chapter's talons"
+     "text": "None shall escape the Chapter's talons",
+     "src": "cardSO"
     }
    ]
   },
@@ -3443,7 +3665,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Sammael - If it is death you crave I shall gift it to you!.ogg",
-     "text": "If it is death you crave I shall gift it to you!"
+     "text": "If it is death you crave I shall gift it to you!",
+     "src": "cardSO"
     }
    ]
   },
@@ -3455,7 +3678,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Deathwing Knight Master - We must be eternally vigilant for our own flaws.ogg",
-     "text": "We must be eternally vigilant for our own flaws"
+     "text": "We must be eternally vigilant for our own flaws",
+     "src": "cardSO"
     }
    ]
   },
@@ -3467,7 +3691,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Repulsor - Heavy weapons primed Open fire!.ogg",
-     "text": "Heavy weapons primed Open fire!"
+     "text": "Heavy weapons primed Open fire!",
+     "src": "cardSO"
     }
    ]
   },
@@ -3479,7 +3704,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Intercessor - For the Lion and the Emperor!.ogg",
-     "text": "For the Lion and the Emperor!"
+     "text": "For the Lion and the Emperor!",
+     "src": "cardSO"
     }
    ]
   },
@@ -3491,7 +3717,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Apothecary - The Lion's sons endure I will see to it.ogg",
-     "text": "The Lion's sons endure I will see to it"
+     "text": "The Lion's sons endure I will see to it",
+     "src": "cardSO"
     }
    ]
   },
@@ -3503,7 +3730,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Ravenwing Bikes - The hunt begins No one escapes the Ravenwing!.ogg",
-     "text": "The hunt begins No one escapes the Ravenwing!"
+     "text": "The hunt begins No one escapes the Ravenwing!",
+     "src": "cardSO"
     }
    ]
   },
@@ -3678,7 +3906,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Reiver - Your pleas for mercy will go unheard.ogg",
-     "text": "Your pleas for mercy will go unheard"
+     "text": "Your pleas for mercy will go unheard",
+     "src": "cardSO"
     }
    ]
   },
@@ -3727,11 +3956,6 @@
      "ev": "line",
      "file": "VO_DA_Ballistus Dreadnought - Death is not enough to stay our wrath.wav",
      "text": "Death is not enough to stay our wrath"
-    },
-    {
-     "ev": "line",
-     "file": "VO_DA_Redemptor Dreadnought - My quest for vengeance is eternal.ogg",
-     "text": "My quest for vengeance is eternal"
     }
    ]
   },
@@ -3743,7 +3967,8 @@
     {
      "ev": "line",
      "file": "VO_DA_Aggressor - There shall be no sanctuary.ogg",
-     "text": "There shall be no sanctuary"
+     "text": "There shall be no sanctuary",
+     "src": "cardSO"
     }
    ]
   },
@@ -4093,7 +4318,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Sonic Blaster Noise Marine (Andrew Dennis).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4105,7 +4331,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Infractor Obsessionist (Andrew).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4117,13 +4344,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Flawless Blade (Joey).ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
-     "file": "VO_CSM_EC_Threnodic Choir Flawless Blade (Andrew Dennis).ogg",
      "text": "",
-     "src": "orphan"
+     "src": "cardSO"
     }
    ]
   },
@@ -4135,7 +4357,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Flawless Blade Champion (Kevin).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4147,7 +4370,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Lord Exultant (Kevin).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4159,7 +4383,21 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Winged Daemon Prince (Andrew Dennis).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "EC17",
+   "name": "Konstrictus Tormentor",
+   "faction": "EmperorsChildren",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_CSM_EC_KonstrictusTormentor (Andrew).ogg",
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4171,7 +4409,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Glittering Myriad Infractor (Joey).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4183,7 +4422,47 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Blastmaster Noise Marine (Kevin).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "EC20",
+   "name": "Turyan Ghauze",
+   "faction": "EmperorsChildren",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_CSM_EC_Konstrictus Sorcerer (Joey).ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "EC21",
+   "name": "Malgarash the Adamant",
+   "faction": "EmperorsChildren",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_CSM_EC_Glittering Myriad Terminator (Joey).ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "EC22",
+   "name": "Veldras the Sublime",
+   "faction": "EmperorsChildren",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_CSM_EC_Threnodic Choir Flawless Blade (Andrew Dennis).ogg",
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4194,13 +4473,9 @@
    "lines": [
     {
      "ev": "line",
-     "file": "VO_CSM_EC_Konstrictus Sorcerer (Joey).ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
      "file": "VO_CSM_EC_Slaanesh Sorcerer (Andrew Dennis).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4212,7 +4487,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Slaanesh's Spawn_Revelling_Screech.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4224,7 +4500,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Rugged Disharmonist (Andrew Dennis).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4236,7 +4513,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Chaos Land Raider (Andrew Dennis).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4248,7 +4526,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Heldrake_Roaring_Bellow.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4260,7 +4539,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Disharmonist (Andrew Dennis).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4272,7 +4552,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Chaos Rhino (Andrew Dennis).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4284,7 +4565,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Daemonette (Emily).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4296,7 +4578,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Alluress (Emily).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4308,7 +4591,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Fiend_High-pitch_Screech.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4320,7 +4604,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Blissbringer_High-pitch_Screech.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4332,7 +4617,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Veteran Noise Marine (Andrew).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4344,7 +4630,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Tormentor (Kevin).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4353,6 +4640,18 @@
    "name": "Lucius The Eternal",
    "faction": "EmperorsChildren",
    "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_CSM_EC_Lucius_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_CSM_EC_Lucius_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
     {
      "ev": "backup1",
      "file": "VO_CSM_EC_Lucius_Backup1.ogg",
@@ -4369,11 +4668,6 @@
      "text": ""
     },
     {
-     "ev": "attack",
-     "file": "VO_CSM_EC_Lucius_attack.ogg",
-     "text": ""
-    },
-    {
      "ev": "cantdo",
      "file": "VO_CSM_EC_Lucius_cantDo.ogg",
      "text": ""
@@ -4381,11 +4675,6 @@
     {
      "ev": "concede",
      "file": "VO_CSM_EC_Lucius_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_CSM_EC_Lucius_death.ogg",
      "text": ""
     },
     {
@@ -4506,6 +4795,18 @@
    "faction": "EmperorsChildren",
    "lines": [
     {
+     "ev": "death",
+     "file": "VO_CSM_EC_Lord Kaphrael_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "gen7",
+     "file": "VO_CSM_EC_Lord Kaphrael_gen7.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
      "ev": "attack",
      "file": "VO_CSM_EC_Lord Kaphrael_attack.ogg",
      "text": "",
@@ -4520,12 +4821,6 @@
     {
      "ev": "concede",
      "file": "VO_CSM_EC_Lord Kaphrael_concede.ogg",
-     "text": "",
-     "src": "orphan"
-    },
-    {
-     "ev": "death",
-     "file": "VO_CSM_EC_Lord Kaphrael_death.ogg",
      "text": "",
      "src": "orphan"
     },
@@ -4562,12 +4857,6 @@
     {
      "ev": "gen6",
      "file": "VO_CSM_EC_Lord Kaphrael_gen6.ogg",
-     "text": "",
-     "src": "orphan"
-    },
-    {
-     "ev": "gen7",
-     "file": "VO_CSM_EC_Lord Kaphrael_gen7.ogg",
      "text": "",
      "src": "orphan"
     },
@@ -4699,7 +4988,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Plasma Gun Tormentor (Andrew).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4711,7 +5001,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Tormentor Obsessionist (Andrew Dennis).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4723,7 +5014,8 @@
     {
      "ev": "line",
      "file": "VO_CSM_EC_Infractor (Andrew Dennis).ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4782,11 +5074,6 @@
    "lines": [
     {
      "ev": "line",
-     "file": "VO_CSM_EC_Glittering Myriad Terminator (Joey).ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
      "file": "VO_CSM_EC_Terminator (Andrew).ogg",
      "text": ""
     }
@@ -4824,12 +5111,21 @@
     {
      "ev": "line",
      "file": "VO_Goff_Grot - Yes boss yes boss.ogg",
-     "text": "Yes boss yes boss"
-    },
+     "text": "Yes boss yes boss",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "GOF10",
+   "name": "Grot Tank",
+   "faction": "Goff",
+   "lines": [
     {
      "ev": "line",
      "file": "VO_Goff_Grot Tank - Im drivin No IM drivin.ogg",
-     "text": "Im drivin No IM drivin"
+     "text": "Im drivin No IM drivin",
+     "src": "cardSO"
     }
    ]
   },
@@ -4841,7 +5137,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Banner Nob - Ill mount yer skull to my stick.ogg",
-     "text": "Ill mount yer skull to my stick"
+     "text": "Ill mount yer skull to my stick",
+     "src": "cardSO"
     }
    ]
   },
@@ -4853,7 +5150,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Deffgun Loota - Shootin an lootin in dat order.ogg",
-     "text": "Shootin an lootin in dat order"
+     "text": "Shootin an lootin in dat order",
+     "src": "cardSO"
     }
    ]
   },
@@ -4865,7 +5163,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Skarboy Nob - Watch that stupid gob of yours.ogg",
-     "text": "Watch that stupid gob of yours"
+     "text": "Watch that stupid gob of yours",
+     "src": "cardSO"
     }
    ]
   },
@@ -4877,7 +5176,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Burna Boy - Youz likes it hot.ogg",
-     "text": "Youz likes it hot"
+     "text": "Youz likes it hot",
+     "src": "cardSO"
     }
    ]
   },
@@ -4889,7 +5189,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Big Krumpaz - Get over ere and face me klaw.ogg",
-     "text": "Get over ere and face me klaw"
+     "text": "Get over ere and face me klaw",
+     "src": "cardSO"
     }
    ]
   },
@@ -4901,7 +5202,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Killa Kan - Which button makes this fing go.ogg",
-     "text": "Which button makes this fing go"
+     "text": "Which button makes this fing go",
+     "src": "cardSO"
     }
    ]
   },
@@ -4913,7 +5215,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Painboy Sniklaw - Thisll hurt you more than it hurts me.ogg",
-     "text": "Thisll hurt you more than it hurts me"
+     "text": "Thisll hurt you more than it hurts me",
+     "src": "cardSO"
     }
    ]
   },
@@ -4925,7 +5228,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Meganob Ugrak - Make Gork proud boyz.ogg",
-     "text": "Make Gork proud boyz"
+     "text": "Make Gork proud boyz",
+     "src": "cardSO"
     }
    ]
   },
@@ -4937,7 +5241,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Makari - Ready for fightin boss.ogg",
-     "text": "Ready for fightin boss"
+     "text": "Ready for fightin boss",
+     "src": "cardSO"
     }
    ]
   },
@@ -4949,7 +5254,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Mekboy Gazmek-Orks are da best at scrappin.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -4961,7 +5267,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Deff Dread - Iz stuck inside dis ting an dat makes me MAD.ogg",
-     "text": "Iz stuck inside dis ting an dat makes me MAD"
+     "text": "Iz stuck inside dis ting an dat makes me MAD",
+     "src": "cardSO"
     }
    ]
   },
@@ -4973,7 +5280,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Ardshell Gurk - You cant beat me git.ogg",
-     "text": "You cant beat me git"
+     "text": "You cant beat me git",
+     "src": "cardSO"
     }
    ]
   },
@@ -4985,7 +5293,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Battlewagon - This is gonna be a bumpy ride.ogg",
-     "text": "This is gonna be a bumpy ride"
+     "text": "This is gonna be a bumpy ride",
+     "src": "cardSO"
     }
    ]
   },
@@ -4997,7 +5306,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Gorkanaut - No git can stops da fist of Gork.ogg",
-     "text": "No git can stops da fist of Gork"
+     "text": "No git can stops da fist of Gork",
+     "src": "cardSO"
     }
    ]
   },
@@ -5009,7 +5319,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Stompa - STOMP.ogg",
-     "text": "STOMP"
+     "text": "STOMP",
+     "src": "cardSO"
     }
    ]
   },
@@ -5021,7 +5332,14 @@
     {
      "ev": "attack",
      "file": "VO_Goff_Zagstruk_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Goff_Zagstruk_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -5031,11 +5349,6 @@
     {
      "ev": "concede",
      "file": "VO_Goff_Zagstruk_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Goff_Zagstruk_death.ogg",
      "text": ""
     },
     {
@@ -5126,6 +5439,18 @@
    "faction": "Goff",
    "lines": [
     {
+     "ev": "attack",
+     "file": "VO_Goff_Ghazghkull_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Goff_Ghazghkull_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
      "ev": "cantdo",
      "file": "VO_Goff_Ghazghkull_CantDo.ogg",
      "text": ""
@@ -5158,16 +5483,6 @@
     {
      "ev": "threat",
      "file": "VO_Goff_Ghazghkull_Threat.ogg",
-     "text": ""
-    },
-    {
-     "ev": "attack",
-     "file": "VO_Goff_Ghazghkull_attack.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Goff_Ghazghkull_death.ogg",
      "text": ""
     },
     {
@@ -5245,7 +5560,14 @@
     {
      "ev": "attack",
      "file": "VO_Goff_Grukk_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Goff_Grukk_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -5255,11 +5577,6 @@
     {
      "ev": "concede",
      "file": "VO_Goff_Grukk_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Goff_Grukk_death.ogg",
      "text": ""
     },
     {
@@ -5363,7 +5680,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Bomb Squig - MUNCH.ogg",
-     "text": "MUNCH"
+     "text": "MUNCH",
+     "src": "cardSO"
     }
    ]
   },
@@ -5375,7 +5693,21 @@
     {
      "ev": "line",
      "file": "VO_Goff_Slugga Boy - Stop movin Iz want ta hit yereds.ogg",
-     "text": "Stop movin Iz want ta hit yereds"
+     "text": "Stop movin Iz want ta hit yereds",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "GOF5",
+   "name": "Trukk Boy",
+   "faction": "Goff",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Goff_Trukkboy - Out of da trukk ready ta chop.ogg",
+     "text": "Out of da trukk ready ta chop",
+     "src": "cardSO"
     }
    ]
   },
@@ -5387,7 +5719,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Ork Boy - Oo wantz ta taste me choppa first.ogg",
-     "text": "Oo wantz ta taste me choppa first"
+     "text": "Oo wantz ta taste me choppa first",
+     "src": "cardSO"
     }
    ]
   },
@@ -5399,12 +5732,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Deffkopta - There's no hidin from me rokkits.ogg",
-     "text": "There's no hidin from me rokkits"
-    },
-    {
-     "ev": "line",
-     "file": "VO_Ork_Goff_Megablasta Deffkopta - Ere comes da show-stoppa.ogg",
-     "text": "Ere comes da show-stoppa"
+     "text": "There's no hidin from me rokkits",
+     "src": "cardSO"
     }
    ]
   },
@@ -5416,7 +5745,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Ork Nob - Orkz is made fer two fings only fightin and winnin.ogg",
-     "text": "Orkz is made fer two fings only fightin and winnin"
+     "text": "Orkz is made fer two fings only fightin and winnin",
+     "src": "cardSO"
     }
    ]
   },
@@ -5428,7 +5758,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Boomdakka Snazzwagon - Fasta boyz We'z got lots of gits ta krump.ogg",
-     "text": "Fasta boyz We'z got lots of gits ta krump"
+     "text": "Fasta boyz We'z got lots of gits ta krump",
+     "src": "cardSO"
     }
    ]
   },
@@ -5440,7 +5771,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Big Shoota Boy - More More dakka.ogg",
-     "text": "More More dakka"
+     "text": "More More dakka",
+     "src": "cardSO"
     }
    ]
   },
@@ -5452,7 +5784,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Stormboy - Once Iz get goin there aint no stoppin.ogg",
-     "text": "Once Iz get goin there aint no stoppin"
+     "text": "Once Iz get goin there aint no stoppin",
+     "src": "cardSO"
     },
     {
      "ev": "line",
@@ -5469,7 +5802,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Tankbusta - Saved me boomiest rokkit just fer you.ogg",
-     "text": "Saved me boomiest rokkit just fer you"
+     "text": "Saved me boomiest rokkit just fer you",
+     "src": "cardSO"
     }
    ]
   },
@@ -5481,7 +5815,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Rukkatrukk Squigbuggy_Go lil' chompa Do yer fing.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -5493,7 +5828,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Kommando - Shut yer gobs time ta get all sneakylike.ogg",
-     "text": "Shut yer gobs time ta get all sneakylike"
+     "text": "Shut yer gobs time ta get all sneakylike",
+     "src": "cardSO"
     }
    ]
   },
@@ -5505,7 +5841,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Gunwagon - Big dakka's da bestest dakka.ogg",
-     "text": "Big dakka's da bestest dakka"
+     "text": "Big dakka's da bestest dakka",
+     "src": "cardSO"
     }
    ]
   },
@@ -5517,7 +5854,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Goff_Stikkboy - No time for finkin' only time for krumpin'.ogg",
-     "text": "No time for finkin' only time for krumpin'"
+     "text": "No time for finkin' only time for krumpin'",
+     "src": "cardSO"
     }
    ]
   },
@@ -5529,7 +5867,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Goff_Rokkit Boy - Da only fing betta than dakka are boomy rokkits.ogg",
-     "text": "Da only fing betta than dakka are boomy rokkits"
+     "text": "Da only fing betta than dakka are boomy rokkits",
+     "src": "cardSO"
     }
    ]
   },
@@ -5541,7 +5880,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Goff_Boss Nob - Yer face is callin' fer a good klawin'.ogg",
-     "text": "Yer face is callin' fer a good klawin'"
+     "text": "Yer face is callin' fer a good klawin'",
+     "src": "cardSO"
     }
    ]
   },
@@ -5553,7 +5893,21 @@
     {
      "ev": "line",
      "file": "VO_Ork_Goff_Big Choppa Nob - I'z gonna rip da world in ’arf.ogg",
-     "text": "I'z gonna rip da world in ’arf"
+     "text": "I'z gonna rip da world in ’arf",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "GOF69",
+   "name": "Mega Blasta Deffkopta",
+   "faction": "Goff",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Ork_Goff_Megablasta Deffkopta - Ere comes da show-stoppa.ogg",
+     "text": "Ere comes da show-stoppa",
+     "src": "cardSO"
     }
    ]
   },
@@ -5565,7 +5919,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Warbiker - Dont fink youz can outrunz me.ogg",
-     "text": "Dont fink youz can outrunz me"
+     "text": "Dont fink youz can outrunz me",
+     "src": "cardSO"
     }
    ]
   },
@@ -5577,7 +5932,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Goff_Krumpaklaw - I'z chop ya like yer dead meat.ogg",
-     "text": "I'z chop ya like yer dead meat"
+     "text": "I'z chop ya like yer dead meat",
+     "src": "cardSO"
     }
    ]
   },
@@ -5586,6 +5942,18 @@
    "name": "Warboss Gordrang",
    "faction": "Goff",
    "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_Ork_Goff_Gordrang_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Ork_Goff_Gordrang_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
     {
      "ev": "backup1",
      "file": "VO_Ork_Goff_Gordrang_Backup1.ogg",
@@ -5612,11 +5980,6 @@
      "text": ""
     },
     {
-     "ev": "attack",
-     "file": "VO_Ork_Goff_Gordrang_attack.ogg",
-     "text": ""
-    },
-    {
      "ev": "cantdo",
      "file": "VO_Ork_Goff_Gordrang_cantDo.ogg",
      "text": ""
@@ -5624,11 +5987,6 @@
     {
      "ev": "concede",
      "file": "VO_Ork_Goff_Gordrang_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Ork_Goff_Gordrang_death.ogg",
      "text": ""
     },
     {
@@ -5726,7 +6084,14 @@
     {
      "ev": "attack",
      "file": "VO_Ork_Mozrog Skragbad_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Ork_Mozrog Skragbad_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -5736,11 +6101,6 @@
     {
      "ev": "concede",
      "file": "VO_Ork_Mozrog Skragbad_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Ork_Mozrog Skragbad_death.ogg",
      "text": ""
     },
     {
@@ -5843,7 +6203,14 @@
     {
      "ev": "attack",
      "file": "VO_Ork_Beastboss Morgrim_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Ork_Beastboss Morgrim_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -5853,11 +6220,6 @@
     {
      "ev": "concede",
      "file": "VO_Ork_Beastboss Morgrim_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Ork_Beastboss Morgrim_death.ogg",
      "text": ""
     },
     {
@@ -5960,7 +6322,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Snakebite Grot - C'mon you lot! Da boss needs us! (Andrew).ogg",
-     "text": "C'mon you lot! Da boss needs us!"
+     "text": "C'mon you lot! Da boss needs us!",
+     "src": "cardSO"
     }
    ]
   },
@@ -5972,12 +6335,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Beast Snagga Boy - I'z gonna rip you ta bits! (Andrew).ogg",
-     "text": "I'z gonna rip you ta bits!"
-    },
-    {
-     "ev": "line",
-     "file": "VO_Ork_Squighog Boy - Me squig's noggin's 'arder dan yours! (Andrew).ogg",
-     "text": "Me squig's noggin's 'arder dan yours!"
+     "text": "I'z gonna rip you ta bits!",
+     "src": "cardSO"
     }
    ]
   },
@@ -5989,7 +6348,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Hornhelmz Boy - Charge em boyz jus like der Horned Bull.ogg",
-     "text": "Charge em boyz jus like der Horned Bull"
+     "text": "Charge em boyz jus like der Horned Bull",
+     "src": "cardSO"
     }
    ]
   },
@@ -6001,7 +6361,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Grot Orderly - Here boss I'z going back for more! (Andrew).ogg",
-     "text": "Here boss I'z going back for more!"
+     "text": "Here boss I'z going back for more!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6013,7 +6374,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Thump Gun Beast Snagga - Diz is gonna hurt! (Andrew).ogg",
-     "text": "Diz is gonna hurt!"
+     "text": "Diz is gonna hurt!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6025,7 +6387,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Beast Snagga Nob - Where's da biggest trophy_! (Andrew).ogg",
-     "text": "Where's da biggest trophy_!"
+     "text": "Where's da biggest trophy_!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6037,7 +6400,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Grot on Bombsquig - Da boss always gots da best ideas! (Andrew).ogg",
-     "text": "Da boss always gots da best ideas!"
+     "text": "Da boss always gots da best ideas!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6049,7 +6413,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Runtherd - If ya ain't bitin' ya ain't worth keepin'! (Andrew).ogg",
-     "text": "If ya ain't bitin' ya ain't worth keepin'!"
+     "text": "If ya ain't bitin' ya ain't worth keepin'!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6061,7 +6426,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Snakebite Nob - No zoggin' tricks just proper choppin'! (Joey).ogg",
-     "text": "No zoggin' tricks just proper choppin'!"
+     "text": "No zoggin' tricks just proper choppin'!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6073,7 +6439,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Unleashed Tramplasquig - Bestial roar (SFX).ogg",
-     "text": "Bestial roar"
+     "text": "Bestial roar",
+     "src": "cardSO"
     }
    ]
   },
@@ -6085,7 +6452,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Zodgrod Wortsnagga - Me grots’ll show ya gitz how ta fight! (Joey).ogg",
-     "text": "Me grots’ll show ya gitz how ta fight!"
+     "text": "Me grots’ll show ya gitz how ta fight!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6097,7 +6465,21 @@
     {
      "ev": "line",
      "file": "VO_Ork_Nob on Smasha Squig - Fasta! 'Dis one's gonna get messy (Andrew).ogg",
-     "text": "Fasta! 'Dis one's gonna get messy"
+     "text": "Fasta! 'Dis one's gonna get messy",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "GOF89",
+   "name": "Squighog Boyz",
+   "faction": "Goff",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Ork_Squighog Boy - Me squig's noggin's 'arder dan yours! (Andrew).ogg",
+     "text": "Me squig's noggin's 'arder dan yours!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6109,7 +6491,8 @@
     {
      "ev": "line",
      "file": "VO_Goff_Shoota Boy - Orky dakka is dead killy.ogg",
-     "text": "Orky dakka is dead killy"
+     "text": "Orky dakka is dead killy",
+     "src": "cardSO"
     }
    ]
   },
@@ -6121,7 +6504,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Wurrboy - Da Waaagh's in me bones! Come an 'ave a taste! (Andrew).ogg",
-     "text": "Da Waaagh's in me bones! Come an 'ave a taste!"
+     "text": "Da Waaagh's in me bones! Come an 'ave a taste!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6133,7 +6517,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Beastboss on Squigosaur - Da hunt is on! Waaagh! (Andrew).ogg",
-     "text": "Da hunt is on! Waaagh!"
+     "text": "Da hunt is on! Waaagh!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6145,7 +6530,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Weridboy - Me skull's a-buzzin' You'z gettin' da zzap! (Andrew).ogg",
-     "text": "Me skull's a-buzzin' You'z gettin' da zzap!"
+     "text": "Me skull's a-buzzin' You'z gettin' da zzap!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6157,7 +6543,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Hunta Rig - Load up da boyz we'z got huntin' ta do! (Joey).ogg",
-     "text": "Load up da boyz we'z got huntin' ta do!"
+     "text": "Load up da boyz we'z got huntin' ta do!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6169,7 +6556,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Painboss - Shut yer gob or I'z smack you with yer own bits! (Andrew).ogg",
-     "text": "Shut yer gob or I'z smack you with yer own bits!"
+     "text": "Shut yer gob or I'z smack you with yer own bits!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6181,7 +6569,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Kill Rig - Da wurrboy guids us ta do da best huntin! (Andrew).ogg",
-     "text": "Da wurrboy guids us ta do da best huntin!"
+     "text": "Da wurrboy guids us ta do da best huntin!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6193,7 +6582,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Snakebite Battlewagon - Da biggest wheels get da biggest kills! (Andrew).ogg",
-     "text": "Da biggest wheels get da biggest kills!"
+     "text": "Da biggest wheels get da biggest kills!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6205,7 +6595,8 @@
     {
      "ev": "line",
      "file": "VO_Ork_Gargantuan Squiggoth - Mighty bellow (SFX).ogg",
-     "text": "Mighty bellow"
+     "text": "Mighty bellow",
+     "src": "cardSO"
     }
    ]
   },
@@ -6227,18 +6618,20 @@
    "faction": "Genestealers",
    "lines": [
     {
-     "ev": "line",
-     "file": "VO_GSC_Hybrid Metamorph_Primal Snarl.ogg",
-     "text": ""
+     "ev": "attack",
+     "file": "VO_GSC_Saffa Rhiannor_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_GSC_Saffa Rhiannor_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "backup4",
      "file": "VO_GSC_Saffa Rhiannor_Backup4.ogg",
-     "text": ""
-    },
-    {
-     "ev": "attack",
-     "file": "VO_GSC_Saffa Rhiannor_attack.ogg",
      "text": ""
     },
     {
@@ -6249,11 +6642,6 @@
     {
      "ev": "concede",
      "file": "VO_GSC_Saffa Rhiannor_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_GSC_Saffa Rhiannor_death.ogg",
      "text": ""
     },
     {
@@ -6339,6 +6727,19 @@
    ]
   },
   {
+   "id": "GSC10",
+   "name": "Biophagus",
+   "faction": "Genestealers",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_GSC_Biophagus_The Grizzlepit and I have created such wonders, to fuel our ascension.ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
    "id": "GSC11",
    "name": "Neophyte Heavy",
    "faction": "Genestealers",
@@ -6346,7 +6747,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Neophyte Heavy_Deliverance, or blood.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6358,7 +6760,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Neophyte Iconbearer_For each one of us that falls, a hundred more will rise.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6370,7 +6773,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Neophyte Specialist_None can deny the Star Children's deliverance.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6382,7 +6786,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Acolyte Leader_To me, children of the Grizzlepit.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6394,7 +6799,21 @@
     {
      "ev": "line",
      "file": "VO_GSC_Acolyte Specialist_Your doom already walks among you.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "GSC16",
+   "name": "Acolyte Heavy",
+   "faction": "Genestealers",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_GSC_Acolyte Heavy_For the Great Patriarch.ogg",
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6406,7 +6825,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Locus_Your fate is sealed.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6418,7 +6838,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Neophyte Leader_So comes the moment of deliverance.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6430,7 +6851,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Purestrain Genestealer_Wild Growl.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6442,7 +6864,14 @@
     {
      "ev": "attack",
      "file": "VO_GSC_Uthrel Naas_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_GSC_Uthrel Naas_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -6452,11 +6881,6 @@
     {
      "ev": "concede",
      "file": "VO_GSC_Uthrel Naas_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_GSC_Uthrel Naas_death.ogg",
      "text": ""
     },
     {
@@ -6549,7 +6973,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Aberrant_Crush.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6561,7 +6986,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Clamavus_Heed the call of the stars.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6573,7 +6999,21 @@
     {
      "ev": "line",
      "file": "VO_GSC_Cult Sentinel_The brood is ever watchful.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "GSC23",
+   "name": "Hybrid Metamorph",
+   "faction": "Genestealers",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_GSC_Hybrid Metamorph_Primal Snarl.ogg",
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6585,7 +7025,21 @@
     {
      "ev": "line",
      "file": "VO_GSC_Nexos_Kindred, at the ready, The plan moves forward.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "GSC25",
+   "name": "Sanctus",
+   "faction": "Genestealers",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_GSC_Sanctus_A single, perfect shot to herald our ascension.ogg",
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6597,7 +7051,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Aberrant Hypermorph_They are close.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6609,7 +7064,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Achilles Ridgerunner_Forward! Let's earn our divine reward.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6621,7 +7077,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Hulking Aberrant_Furious Snarl.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6633,7 +7090,21 @@
     {
      "ev": "line",
      "file": "VO_GSC_Metamorph Iconbearer_Feral growl.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "GSC30",
+   "name": "Metamorph Leader",
+   "faction": "Genestealers",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_GSC_Metamorph Leader_Witness our ascension.ogg",
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6645,7 +7116,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Reductus Saboteur_I will topple the walls of the oppressor.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6657,7 +7129,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Abominant_Savage Bellow.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6669,7 +7142,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Goliath Truck_We are in position.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6681,7 +7155,21 @@
     {
      "ev": "line",
      "file": "VO_GSC_Kelermorph_With me My Brothers and Sisters, liberation is at hand.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "GSC35",
+   "name": "Benefictus",
+   "faction": "Genestealers",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_GSC_Benefictus_We will overwhelm all who stand against our ascension.ogg",
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6693,7 +7181,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Goliath Rockgrinder_We will break the chains of the oppressor.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6704,13 +7193,9 @@
    "lines": [
     {
      "ev": "line",
-     "file": "VO_GSC_Acolyte Heavy_For the Great Patriarch.ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
      "file": "VO_GSC_Patriarch_PrimalGrowl.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6722,7 +7207,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Cult Leman Russ_The Star Children call for fire.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6734,7 +7220,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Genestealer Familiar_Menacing Hiss.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6746,34 +7233,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Concealed Explosives_Ticking sounds.ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "GSC59",
-   "name": "Day of Ascension",
-   "faction": "Genestealers",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_GSC_Benefictus_We will overwhelm all who stand against our ascension.ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
-     "file": "VO_GSC_Biophagus_The Grizzlepit and I have created such wonders, to fuel our ascension.ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
-     "file": "VO_GSC_Metamorph Leader_Witness our ascension.ogg",
-     "text": ""
-    },
-    {
-     "ev": "line",
-     "file": "VO_GSC_Sanctus_A single, perfect shot to herald our ascension.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6785,7 +7246,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Neophyte Initiate_The day of ascension approaches.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6797,7 +7259,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Jackal Scout - You see nought but what we want you to see.ogg",
-     "text": "You see nought but what we want you to see"
+     "text": "You see nought but what we want you to see",
+     "src": "cardSO"
     }
    ]
   },
@@ -6809,7 +7272,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Atalan Jackal - The trap is set Our moment draws near.ogg",
-     "text": "The trap is set Our moment draws near"
+     "text": "The trap is set Our moment draws near",
+     "src": "cardSO"
     }
    ]
   },
@@ -6821,7 +7285,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Jackal Outrider -There is nothing you can do to stop our ascension.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6833,7 +7298,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Neophyte Hybrid_We bring you the Star Children's blessing.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6845,7 +7311,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Jackal Specialist - Each blast casts down the unbeliever.ogg",
-     "text": "Each blast casts down the unbeliever"
+     "text": "Each blast casts down the unbeliever",
+     "src": "cardSO"
     }
    ]
   },
@@ -6857,7 +7324,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Atalan Leader - Be ready for anything, and prepare to strike.ogg",
-     "text": "Be ready for anything, and prepare to strike"
+     "text": "Be ready for anything, and prepare to strike",
+     "src": "cardSO"
     }
    ]
   },
@@ -6869,7 +7337,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Atalan Wolfquad - Crush them under our wheels!.ogg",
-     "text": "Crush them under our wheels!"
+     "text": "Crush them under our wheels!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6881,7 +7350,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Spotter Ridgerunner - Forward! We rise from the dust this day!.ogg",
-     "text": "Forward! We rise from the dust this day!"
+     "text": "Forward! We rise from the dust this day!",
+     "src": "cardSO"
     }
    ]
   },
@@ -6893,7 +7363,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Neophyte Trooper_Give praise to the Master below.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -6905,7 +7376,8 @@
     {
      "ev": "line",
      "file": "VO_GSC_Acolyte Hybrid_Our bodies are blessed.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -7176,7 +7648,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Canoptek Scarab - Skitter skitter.ogg",
-     "text": "Skitter skitter"
+     "text": "Skitter skitter",
+     "src": "cardSO"
     }
    ]
   },
@@ -7188,7 +7661,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Triach Praetorian - By the laws of the Necrontyr, you will be judged.ogg",
-     "text": "By the laws of the Necrontyr, you will be judged"
+     "text": "By the laws of the Necrontyr, you will be judged",
+     "src": "cardSO"
     }
    ]
   },
@@ -7200,7 +7674,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Technomancer - Activating reanimation protocol.ogg",
-     "text": "Activating reanimation protocol"
+     "text": "Activating reanimation protocol",
+     "src": "cardSO"
     }
    ]
   },
@@ -7212,7 +7687,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Tomb Blade - Converging on enemy position.ogg",
-     "text": "Converging on enemy position"
+     "text": "Converging on enemy position",
+     "src": "cardSO"
     }
    ]
   },
@@ -7224,7 +7700,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Canoptek Spyder - hiss click tap.ogg",
-     "text": "hiss click tap"
+     "text": "hiss click tap",
+     "src": "cardSO"
     }
    ]
   },
@@ -7236,7 +7713,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Cryptothrall - I must protect.ogg",
-     "text": "I must protect"
+     "text": "I must protect",
+     "src": "cardSO"
     }
    ]
   },
@@ -7248,7 +7726,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Deathmark - Target acquired.ogg",
-     "text": "Target acquired"
+     "text": "Target acquired",
+     "src": "cardSO"
     }
    ]
   },
@@ -7260,7 +7739,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Night Scythe - woosh.ogg",
-     "text": "woosh"
+     "text": "woosh",
+     "src": "cardSO"
     }
    ]
   },
@@ -7272,7 +7752,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Psychomancer - What is it you most fear.ogg",
-     "text": "What is it you most fear"
+     "text": "What is it you most fear",
+     "src": "cardSO"
     }
    ]
   },
@@ -7284,7 +7765,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Skorpekh Destroyer - Purging initiated.ogg",
-     "text": "Purging initiated"
+     "text": "Purging initiated",
+     "src": "cardSO"
     }
    ]
   },
@@ -7296,7 +7778,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Canoptek Reanimator - Reanimate.ogg",
-     "text": "Reanimate"
+     "text": "Reanimate",
+     "src": "cardSO"
     }
    ]
   },
@@ -7308,7 +7791,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Canoptek Plasmacyte - whirr whirr.ogg",
-     "text": "whirr whirr"
+     "text": "whirr whirr",
+     "src": "cardSO"
     }
    ]
   },
@@ -7320,7 +7804,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Chronomancer - Time is fleeting, until I say otherwise.ogg",
-     "text": "Time is fleeting, until I say otherwise"
+     "text": "Time is fleeting, until I say otherwise",
+     "src": "cardSO"
     }
    ]
   },
@@ -7332,7 +7817,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Doom Scythe - woooshh.ogg",
-     "text": "woooshh"
+     "text": "woooshh",
+     "src": "cardSO"
     }
    ]
   },
@@ -7344,7 +7830,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Lokhust Heavy Destroyer - Moving into optimal firing position.ogg",
-     "text": "Moving into optimal firing position"
+     "text": "Moving into optimal firing position",
+     "src": "cardSO"
     }
    ]
   },
@@ -7356,7 +7843,21 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Lychguard - I am eternal, I am death.ogg",
-     "text": "I am eternal, I am death"
+     "text": "I am eternal, I am death",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "SAU24",
+   "name": "Command Barge",
+   "faction": "Sautekh",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Sautekh_Annihilation Barge - Your doom is inevitable.ogg",
+     "text": "Your doom is inevitable",
+     "src": "cardSO"
     }
    ]
   },
@@ -7368,7 +7869,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Hexmark Destroyer - Multiple targets on sight.ogg",
-     "text": "Multiple targets on sight"
+     "text": "Multiple targets on sight",
+     "src": "cardSO"
     }
    ]
   },
@@ -7380,7 +7882,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Plasmancer - Your presence must be eradicated.ogg",
-     "text": "Your presence must be eradicated"
+     "text": "Your presence must be eradicated",
+     "src": "cardSO"
     }
    ]
   },
@@ -7392,7 +7895,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Scarab Swarm - chitter chitter.ogg",
-     "text": "chitter chitter"
+     "text": "chitter chitter",
+     "src": "cardSO"
     }
    ]
   },
@@ -7404,7 +7908,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Ghost Ark - Our ranks are endless.ogg",
-     "text": "Our ranks are endless"
+     "text": "Our ranks are endless",
+     "src": "cardSO"
     }
    ]
   },
@@ -7416,7 +7921,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Necron Lord - Dare you face my undying legions.ogg",
-     "text": "Dare you face my undying legions"
+     "text": "Dare you face my undying legions",
+     "src": "cardSO"
     }
    ]
   },
@@ -7428,7 +7934,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Flayed One - Fleeeessssshhhhh.ogg",
-     "text": "Fleeeessssshhhhh"
+     "text": "Fleeeessssshhhhh",
+     "src": "cardSO"
     }
    ]
   },
@@ -7440,7 +7947,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Triarch Stalker - Locking onto target.ogg",
-     "text": "Locking onto target"
+     "text": "Locking onto target",
+     "src": "cardSO"
     }
    ]
   },
@@ -7452,7 +7960,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Doomstalker - Detecting intruder, Powering doomsday blaster.ogg",
-     "text": "Detecting intruder, Powering doomsday blaster"
+     "text": "Detecting intruder, Powering doomsday blaster",
+     "src": "cardSO"
     }
    ]
   },
@@ -7464,7 +7973,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Skorpekh Lord - Eradicating all enemies.ogg",
-     "text": "Eradicating all enemies"
+     "text": "Eradicating all enemies",
+     "src": "cardSO"
     }
    ]
   },
@@ -7476,7 +7986,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Vargard Obyron - It is my duty to defend the Nemesor.ogg",
-     "text": "It is my duty to defend the Nemesor"
+     "text": "It is my duty to defend the Nemesor",
+     "src": "cardSO"
     }
    ]
   },
@@ -7488,7 +7999,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Monolith - rumble.ogg",
-     "text": "rumble"
+     "text": "rumble",
+     "src": "cardSO"
     }
    ]
   },
@@ -7501,7 +8013,13 @@
      "ev": "attack",
      "file": "VO_Sautekh_Imotekh_attack.ogg",
      "text": "",
-     "src": "orphan"
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Sautekh_Imotekh_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -7512,12 +8030,6 @@
     {
      "ev": "concede",
      "file": "VO_Sautekh_Imotekh_concede.ogg",
-     "text": "",
-     "src": "orphan"
-    },
-    {
-     "ev": "death",
-     "file": "VO_Sautekh_Imotekh_death.ogg",
      "text": "",
      "src": "orphan"
     },
@@ -7639,7 +8151,14 @@
     {
      "ev": "attack",
      "file": "Sautekh_Zahndrekh_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "Sautekh_Zahndrekh_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -7649,11 +8168,6 @@
     {
      "ev": "concede",
      "file": "Sautekh_Zahndrekh_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "Sautekh_Zahndrekh_death.ogg",
      "text": ""
     },
     {
@@ -7752,7 +8266,13 @@
      "ev": "attack",
      "file": "Sautekh_Orikan_attack.ogg",
      "text": "",
-     "src": "orphan"
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "Sautekh_Orikan_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -7763,12 +8283,6 @@
     {
      "ev": "concede",
      "file": "Sautekh_Orikan_concede.ogg",
-     "text": "",
-     "src": "orphan"
-    },
-    {
-     "ev": "death",
-     "file": "Sautekh_Orikan_death.ogg",
      "text": "",
      "src": "orphan"
     },
@@ -7896,7 +8410,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Necron Warrior - Obey.ogg",
-     "text": "Obey"
+     "text": "Obey",
+     "src": "cardSO"
     }
    ]
   },
@@ -7908,7 +8423,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Royal Warden - The Sautekh dynasty is eternal.ogg",
-     "text": "The Sautekh dynasty is eternal"
+     "text": "The Sautekh dynasty is eternal",
+     "src": "cardSO"
     }
    ]
   },
@@ -7917,6 +8433,18 @@
    "name": "Ramatekh The Cruel",
    "faction": "Sautekh",
    "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_Sautekh_Ramatekh the Cruel_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Sautekh_Ramatekh the Cruel_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
     {
      "ev": "backup1",
      "file": "VO_Sautekh_Ramatekh the Cruel_Backup1.ogg",
@@ -7933,11 +8461,6 @@
      "text": ""
     },
     {
-     "ev": "attack",
-     "file": "VO_Sautekh_Ramatekh the Cruel_attack.ogg",
-     "text": ""
-    },
-    {
      "ev": "cantdo",
      "file": "VO_Sautekh_Ramatekh the Cruel_cantDo.ogg",
      "text": ""
@@ -7945,11 +8468,6 @@
     {
      "ev": "concede",
      "file": "VO_Sautekh_Ramatekh the Cruel_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Sautekh_Ramatekh the Cruel_death.ogg",
      "text": ""
     },
     {
@@ -8057,7 +8575,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Damaged Plasmacyte - anti-grav hum.ogg",
-     "text": "anti-grav hum"
+     "text": "anti-grav hum",
+     "src": "cardSO"
     }
    ]
   },
@@ -8069,7 +8588,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Lokhust Destroyer - All life must be expunged.ogg",
-     "text": "All life must be expunged"
+     "text": "All life must be expunged",
+     "src": "cardSO"
     }
    ]
   },
@@ -8081,7 +8601,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Flayed Ones Pack - We hunger.ogg",
-     "text": "We hunger"
+     "text": "We hunger",
+     "src": "cardSO"
     }
    ]
   },
@@ -8093,7 +8614,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Canoptek Wraith - rustle.ogg",
-     "text": "rustle"
+     "text": "rustle",
+     "src": "cardSO"
     }
    ]
   },
@@ -8105,7 +8627,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Damaged Hexmark - L-L-Locating target for an-annihilation.ogg",
-     "text": "L-L-Locating target for an-annihilation"
+     "text": "L-L-Locating target for an-annihilation",
+     "src": "cardSO"
     }
    ]
   },
@@ -8117,7 +8640,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Immortals Phalanx - None can stand against us.ogg",
-     "text": "None can stand against us"
+     "text": "None can stand against us",
+     "src": "cardSO"
     }
    ]
   },
@@ -8129,7 +8653,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Lokhust Lord - By my will Render them down to atoms.ogg",
-     "text": "By my will Render them down to atoms"
+     "text": "By my will Render them down to atoms",
+     "src": "cardSO"
     }
    ]
   },
@@ -8141,12 +8666,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Annihilation Barge - Obliteration protocols activated.ogg",
-     "text": "Obliteration protocols activated"
-    },
-    {
-     "ev": "line",
-     "file": "VO_Sautekh_Annihilation Barge - Your doom is inevitable.ogg",
-     "text": "Your doom is inevitable"
+     "text": "Obliteration protocols activated",
+     "src": "cardSO"
     }
    ]
   },
@@ -8158,7 +8679,8 @@
     {
      "ev": "line",
      "file": "VO_Sautekh_Ophydian Destroyer - I sense life.ogg",
-     "text": "I sense life"
+     "text": "I sense life",
+     "src": "cardSO"
     }
    ]
   },
@@ -8197,6 +8719,18 @@
    "faction": "Sororitas",
    "lines": [
     {
+     "ev": "attack",
+     "file": "VO_ADS_Erika Luminas_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_ADS_Erika Luminas_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
      "ev": "backup1",
      "file": "VO_ADS_Erika Luminas_Backup1.ogg",
      "text": ""
@@ -8212,11 +8746,6 @@
      "text": ""
     },
     {
-     "ev": "attack",
-     "file": "VO_ADS_Erika Luminas_attack.ogg",
-     "text": ""
-    },
-    {
      "ev": "cantdo",
      "file": "VO_ADS_Erika Luminas_cantDo.ogg",
      "text": ""
@@ -8224,11 +8753,6 @@
     {
      "ev": "concede",
      "file": "VO_ADS_Erika Luminas_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_ADS_Erika Luminas_death.ogg",
      "text": ""
     },
     {
@@ -8341,7 +8865,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Dominion - By my flame you will be purged.ogg",
-     "text": "By my flame you will be purged"
+     "text": "By my flame you will be purged",
+     "src": "cardSO"
     }
    ]
   },
@@ -8353,7 +8878,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Retributor - May His hand guide my aim in the coming battle.ogg",
-     "text": "May His hand guide my aim in the coming battle"
+     "text": "May His hand guide my aim in the coming battle",
+     "src": "cardSO"
     }
    ]
   },
@@ -8365,7 +8891,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Simulacrum Bearer - Let the light of the God-Emperor guide our righteous fury.ogg",
-     "text": "Let the light of the God-Emperor guide our righteous fury"
+     "text": "Let the light of the God-Emperor guide our righteous fury",
+     "src": "cardSO"
     }
    ]
   },
@@ -8377,7 +8904,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Amalia Novena - Strike fierce and true For the Emperor.ogg",
-     "text": "Strike fierce and true For the Emperor"
+     "text": "Strike fierce and true For the Emperor",
+     "src": "cardSO"
     }
    ]
   },
@@ -8389,7 +8917,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Celestian - I have seen worse I have vanquished worse.ogg",
-     "text": "I have seen worse I have vanquished worse"
+     "text": "I have seen worse I have vanquished worse",
+     "src": "cardSO"
     }
    ]
   },
@@ -8401,7 +8930,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Missionary - I herald your demise.ogg",
-     "text": "I herald your demise"
+     "text": "I herald your demise",
+     "src": "cardSO"
     }
    ]
   },
@@ -8413,7 +8943,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Battle Sister Superior - Bolters ready Sisters No mercy for the faithless.ogg",
-     "text": "Bolters ready Sisters No mercy for the faithless"
+     "text": "Bolters ready Sisters No mercy for the faithless",
+     "src": "cardSO"
     }
    ]
   },
@@ -8425,7 +8956,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Dialogus - My voice echoes the Emperor's will.ogg",
-     "text": "My voice echoes the Emperor's will"
+     "text": "My voice echoes the Emperor's will",
+     "src": "cardSO"
     }
    ]
   },
@@ -8437,7 +8969,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Seraphim - Our fire will rain from the skies.ogg",
-     "text": "Our fire will rain from the skies"
+     "text": "Our fire will rain from the skies",
+     "src": "cardSO"
     }
    ]
   },
@@ -8446,6 +8979,18 @@
    "name": "Junith Eruita",
    "faction": "Sororitas",
    "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_ADS_Junith Eruita_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_ADS_Junith Eruita_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
     {
      "ev": "backup1",
      "file": "VO_ADS_Junith Eruita_Backup1.ogg",
@@ -8467,11 +9012,6 @@
      "text": ""
     },
     {
-     "ev": "attack",
-     "file": "VO_ADS_Junith Eruita_attack.ogg",
-     "text": ""
-    },
-    {
      "ev": "cantdo",
      "file": "VO_ADS_Junith Eruita_cantDo.ogg",
      "text": ""
@@ -8479,11 +9019,6 @@
     {
      "ev": "concede",
      "file": "VO_ADS_Junith Eruita_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_ADS_Junith Eruita_death.ogg",
      "text": ""
     },
     {
@@ -8581,7 +9116,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Hospitaller - No Sister will be left behind.ogg",
-     "text": "No Sister will be left behind"
+     "text": "No Sister will be left behind",
+     "src": "cardSO"
     }
    ]
   },
@@ -8593,7 +9129,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Death Cult Assassin - I will offer your blood to the holy Emperor.ogg",
-     "text": "I will offer your blood to the holy Emperor"
+     "text": "I will offer your blood to the holy Emperor",
+     "src": "cardSO"
     }
    ]
   },
@@ -8605,7 +9142,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Dominion Superior - Death will be a mercy for the faithless ones.ogg",
-     "text": "Death will be a mercy for the faithless ones"
+     "text": "Death will be a mercy for the faithless ones",
+     "src": "cardSO"
     }
    ]
   },
@@ -8617,7 +9155,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Canoness - We bring righteousness where it is needed most.ogg",
-     "text": "We bring righteousness where it is needed most"
+     "text": "We bring righteousness where it is needed most",
+     "src": "cardSO"
     }
    ]
   },
@@ -8629,7 +9168,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Simulacrum Imperialis - Bow before His divine authority.ogg",
-     "text": "Bow before His divine authority"
+     "text": "Bow before His divine authority",
+     "src": "cardSO"
     }
    ]
   },
@@ -8641,7 +9181,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Imagifier - Listen to my voice and the saintly deeds of the fallen.ogg",
-     "text": "Listen to my voice and the saintly deeds of the fallen"
+     "text": "Listen to my voice and the saintly deeds of the fallen",
+     "src": "cardSO"
     }
    ]
   },
@@ -8653,7 +9194,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Aestred Thurga - My soul is consecrated to this relic.ogg",
-     "text": "My soul is consecrated to this relic"
+     "text": "My soul is consecrated to this relic",
+     "src": "cardSO"
     }
    ]
   },
@@ -8665,7 +9207,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Penitent Engine - Tortured scream.ogg",
-     "text": "Tortured scream"
+     "text": "Tortured scream",
+     "src": "cardSO"
     }
    ]
   },
@@ -8677,7 +9220,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Zephyrim - With wings of faith we soar to glory.ogg",
-     "text": "With wings of faith we soar to glory"
+     "text": "With wings of faith we soar to glory",
+     "src": "cardSO"
     }
    ]
   },
@@ -8689,7 +9233,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Ephrael Stern - I am the Daemonifuge the thrice-born the bane of daemons.ogg",
-     "text": "I am the Daemonifuge the thrice-born the bane of daemons"
+     "text": "I am the Daemonifuge the thrice-born the bane of daemons",
+     "src": "cardSO"
     }
    ]
   },
@@ -8698,6 +9243,18 @@
    "name": "Morvenn Vahl",
    "faction": "Sororitas",
    "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_ADS_Morvenn Vahl_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_ADS_Morvenn Vahl_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
     {
      "ev": "backup1",
      "file": "VO_ADS_Morvenn Vahl_Backup1.ogg",
@@ -8709,11 +9266,6 @@
      "text": ""
     },
     {
-     "ev": "attack",
-     "file": "VO_ADS_Morvenn Vahl_attack.ogg",
-     "text": ""
-    },
-    {
      "ev": "cantdo",
      "file": "VO_ADS_Morvenn Vahl_cantDo.ogg",
      "text": ""
@@ -8721,11 +9273,6 @@
     {
      "ev": "concede",
      "file": "VO_ADS_Morvenn Vahl_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_ADS_Morvenn Vahl_death.ogg",
      "text": ""
     },
     {
@@ -8838,7 +9385,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Celestian Sacresant - Purge this place of the unclean and the damned.ogg",
-     "text": "Purge this place of the unclean and the damned"
+     "text": "Purge this place of the unclean and the damned",
+     "src": "cardSO"
     }
    ]
   },
@@ -8850,7 +9398,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Mortifier  - In battle He offers us redemption.ogg",
-     "text": "In battle He offers us redemption"
+     "text": "In battle He offers us redemption",
+     "src": "cardSO"
     }
    ]
   },
@@ -8862,7 +9411,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Saint Celestine - Believe in the Emperor of Mankind and you shall walk in His light.ogg",
-     "text": "Believe in the Emperor of Mankind and you shall walk in His light"
+     "text": "Believe in the Emperor of Mankind and you shall walk in His light",
+     "src": "cardSO"
     }
    ]
   },
@@ -8874,7 +9424,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Celestian Superior - I am the light to your darkness.ogg",
-     "text": "I am the light to your darkness"
+     "text": "I am the light to your darkness",
+     "src": "cardSO"
     }
    ]
   },
@@ -8886,7 +9437,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Inmolator - Purge the impure with the Emperor's flame.ogg",
-     "text": "Purge the impure with the Emperor's flame"
+     "text": "Purge the impure with the Emperor's flame",
+     "src": "cardSO"
     }
    ]
   },
@@ -8898,7 +9450,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Exorcist - I bring the requiem to your annihilation.ogg",
-     "text": "I bring the requiem to your annihilation"
+     "text": "I bring the requiem to your annihilation",
+     "src": "cardSO"
     }
    ]
   },
@@ -8910,7 +9463,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Triumph of Saint Katherine - Martyred Matriarch grant us thy protection.ogg",
-     "text": "Martyred Matriarch grant us thy protection"
+     "text": "Martyred Matriarch grant us thy protection",
+     "src": "cardSO"
     }
    ]
   },
@@ -8922,7 +9476,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Paragon Warsuit - We bring judgment upon the heretic.ogg",
-     "text": "We bring judgment upon the heretic"
+     "text": "We bring judgment upon the heretic",
+     "src": "cardSO"
     }
    ]
   },
@@ -8934,7 +9489,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Sister Novitiate - I will prove my worth and serve Him with my life.ogg",
-     "text": "I will prove my worth and serve Him with my life"
+     "text": "I will prove my worth and serve Him with my life",
+     "src": "cardSO"
     }
    ]
   },
@@ -8946,7 +9502,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Battle Sister - With unwavering faith.ogg",
-     "text": "With unwavering faith"
+     "text": "With unwavering faith",
+     "src": "cardSO"
     }
    ]
   },
@@ -8958,7 +9515,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Battle Sister Gunner - Purge the unclean.ogg",
-     "text": "Purge the unclean"
+     "text": "Purge the unclean",
+     "src": "cardSO"
     }
    ]
   },
@@ -8967,6 +9525,18 @@
    "name": "Celestian Sacresant Aveline",
    "faction": "Sororitas",
    "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_ADS_Celestian Sacresant Aveline_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_ADS_Celestian Sacresant Aveline_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
     {
      "ev": "backup1",
      "file": "VO_ADS_Celestian Sacresant Aveline_Backup1.ogg",
@@ -8988,11 +9558,6 @@
      "text": ""
     },
     {
-     "ev": "attack",
-     "file": "VO_ADS_Celestian Sacresant Aveline_attack.ogg",
-     "text": ""
-    },
-    {
      "ev": "cantdo",
      "file": "VO_ADS_Celestian Sacresant Aveline_cantDo.ogg",
      "text": ""
@@ -9000,11 +9565,6 @@
     {
      "ev": "concede",
      "file": "VO_ADS_Celestian Sacresant Aveline_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_ADS_Celestian Sacresant Aveline_death.ogg",
      "text": ""
     },
     {
@@ -9102,7 +9662,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Armorium Cherub - Heavy humming.ogg",
-     "text": "Heavy humming"
+     "text": "Heavy humming",
+     "src": "cardSO"
     }
    ]
   },
@@ -9114,7 +9675,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Sacred Rose Sister - No armor will save you from our holy wrath.ogg",
-     "text": "No armor will save you from our holy wrath"
+     "text": "No armor will save you from our holy wrath",
+     "src": "cardSO"
     }
    ]
   },
@@ -9126,7 +9688,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Ministorum Priest - Let the Emperor's judgment sear their flesh!.ogg",
-     "text": "Let the Emperor's judgment sear their flesh!"
+     "text": "Let the Emperor's judgment sear their flesh!",
+     "src": "cardSO"
     }
    ]
   },
@@ -9138,7 +9701,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Zephyrim Superior - Our blades will rain from the skies.ogg",
-     "text": "Our blades will rain from the skies"
+     "text": "Our blades will rain from the skies",
+     "src": "cardSO"
     }
    ]
   },
@@ -9150,7 +9714,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Crusader - No heretic shall pass.ogg",
-     "text": "No heretic shall pass"
+     "text": "No heretic shall pass",
+     "src": "cardSO"
     }
    ]
   },
@@ -9162,7 +9727,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Sororitas Rhino - We march for the Emperor!.ogg",
-     "text": "We march for the Emperor!"
+     "text": "We march for the Emperor!",
+     "src": "cardSO"
     }
    ]
   },
@@ -9174,7 +9740,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Canoness Adelaide the Serene - All that you are and all you have done revolts me.ogg",
-     "text": "All that you are and all you have done revolts me"
+     "text": "All that you are and all you have done revolts me",
+     "src": "cardSO"
     }
    ]
   },
@@ -9186,7 +9753,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Castigator - You will be punished.ogg",
-     "text": "You will be punished"
+     "text": "You will be punished",
+     "src": "cardSO"
     }
    ]
   },
@@ -9198,7 +9766,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Arco-flagellant - Frenzied screams.ogg",
-     "text": "Frenzied screams"
+     "text": "Frenzied screams",
+     "src": "cardSO"
     }
    ]
   },
@@ -9210,7 +9779,8 @@
     {
      "ev": "line",
      "file": "VO_ADS_Preacher - The holy radiance of the Emperor burns within me.ogg",
-     "text": "The holy radiance of the Emperor burns within me"
+     "text": "The holy radiance of the Emperor burns within me",
+     "src": "cardSO"
     }
    ]
   },
@@ -10062,13 +10632,20 @@
    "faction": "TauEmpire",
    "lines": [
     {
-     "ev": "backup",
-     "file": "VO_Tau_Empire_Shadowsun_Backup.ogg",
-     "text": ""
-    },
-    {
      "ev": "attack",
      "file": "VO_Tau_Empire_Shadowsun_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Tau_Empire_Shadowsun_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "backup",
+     "file": "VO_Tau_Empire_Shadowsun_Backup.ogg",
      "text": ""
     },
     {
@@ -10079,11 +10656,6 @@
     {
      "ev": "concede",
      "file": "VO_Tau_Empire_Shadowsun_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Tau_Empire_Shadowsun_death.ogg",
      "text": ""
     },
     {
@@ -10191,7 +10763,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Stealth Drone - Activating stealth field.ogg",
-     "text": "Activating stealth field"
+     "text": "Activating stealth field",
+     "src": "cardSO"
     }
    ]
   },
@@ -10203,7 +10776,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Crisis Battlesuit - We will deliver the killing blow.ogg",
-     "text": "We will deliver the killing blow"
+     "text": "We will deliver the killing blow",
+     "src": "cardSO"
     }
    ]
   },
@@ -10215,7 +10789,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Darkstrider - Study the enemy's vulnerabilities and exploit them.ogg",
-     "text": "Study the enemy's vulnerabilities and exploit them"
+     "text": "Study the enemy's vulnerabilities and exploit them",
+     "src": "cardSO"
     }
    ]
   },
@@ -10227,7 +10802,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_DS8 Support Turret - Calculating enemy trajectory.ogg",
-     "text": "Calculating enemy trajectory"
+     "text": "Calculating enemy trajectory",
+     "src": "cardSO"
     }
    ]
   },
@@ -10239,7 +10815,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Sniper Drone - Target identified.ogg",
-     "text": "Target identified"
+     "text": "Target identified",
+     "src": "cardSO"
     }
    ]
   },
@@ -10251,7 +10828,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Vespid Stingwings.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -10263,7 +10841,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Crisis Bodyguard - To fight for the Greater Good is our duty and our privilege.ogg",
-     "text": "To fight for the Greater Good is our duty and our privilege"
+     "text": "To fight for the Greater Good is our duty and our privilege",
+     "src": "cardSO"
     }
    ]
   },
@@ -10275,7 +10854,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Fire Warrior Sniper - Precision and efficiency.ogg",
-     "text": "Precision and efficiency"
+     "text": "Precision and efficiency",
+     "src": "cardSO"
     }
    ]
   },
@@ -10287,7 +10867,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Honoured Ethereal - With courage and discipline we shall stand victorious.ogg",
-     "text": "With courage and discipline we shall stand victorious"
+     "text": "With courage and discipline we shall stand victorious",
+     "src": "cardSO"
     }
    ]
   },
@@ -10299,7 +10880,14 @@
     {
      "ev": "attack",
      "file": "VO_Tau_Empire_Aun'va_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Tau_Empire_Aun'va_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -10309,11 +10897,6 @@
     {
      "ev": "concede",
      "file": "VO_Tau_Empire_Aun'va_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Tau_Empire_Aun'va_death.ogg",
      "text": ""
     },
     {
@@ -10431,7 +11014,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Piranha - Surveilling engagement area.ogg",
-     "text": "Surveilling engagement area"
+     "text": "Surveilling engagement area",
+     "src": "cardSO"
     }
    ]
   },
@@ -10443,7 +11027,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Stealth Battlesuit - Stealth field active Ready to engage.ogg",
-     "text": "Stealth field active Ready to engage"
+     "text": "Stealth field active Ready to engage",
+     "src": "cardSO"
     }
    ]
   },
@@ -10455,7 +11040,21 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Strike Team - Our flame lights the way to the Greater Good.ogg",
-     "text": "Our flame lights the way to the Greater Good"
+     "text": "Our flame lights the way to the Greater Good",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "TAU23",
+   "name": "Breacher ShasUi",
+   "faction": "TauEmpire",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tau_Empire_Breacher Shas'ui - All that we do is for the Greater Good.ogg",
+     "text": "All that we do is for the Greater Good",
+     "src": "cardSO"
     }
    ]
   },
@@ -10467,7 +11066,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Devilfish - Strike at the heart of the enemy.ogg",
-     "text": "Strike at the heart of the enemy"
+     "text": "Strike at the heart of the enemy",
+     "src": "cardSO"
     }
    ]
   },
@@ -10479,7 +11079,21 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Firesight Marksman - I guide the Fire Caste's fury.ogg",
-     "text": "I guide the Fire Caste's fury"
+     "text": "I guide the Fire Caste's fury",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "TAU26",
+   "name": "Stealth Shas’ui",
+   "faction": "TauEmpire",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tau_Empire_Stealth Shas'ui - Stealth team in position Awaiting orders.ogg",
+     "text": "Stealth team in position Awaiting orders",
+     "src": "cardSO"
     }
    ]
   },
@@ -10491,7 +11105,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Broadside Battlesuit - Broadside deployed Ready to deliver the Mont'ka.ogg",
-     "text": "Broadside deployed Ready to deliver the Mont'ka"
+     "text": "Broadside deployed Ready to deliver the Mont'ka",
+     "src": "cardSO"
     }
    ]
   },
@@ -10503,7 +11118,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Enforcer Battlesuit - Launch protocols initiated.ogg",
-     "text": "Launch protocols initiated"
+     "text": "Launch protocols initiated",
+     "src": "cardSO"
     }
    ]
   },
@@ -10515,7 +11131,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Cadre Fireblade - We fight for the Greater Good And we will triumph.ogg",
-     "text": "We fight for the Greater Good And we will triumph"
+     "text": "We fight for the Greater Good And we will triumph",
+     "src": "cardSO"
     }
    ]
   },
@@ -10527,7 +11144,14 @@
     {
      "ev": "attack",
      "file": "VO_Tau_Empire_Commander O'Maisos_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Tau_Empire_Commander O'Maisos_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -10537,11 +11161,6 @@
     {
      "ev": "concede",
      "file": "VO_Tau_Empire_Commander O'Maisos_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Tau_Empire_Commander O'Maisos_death.ogg",
      "text": ""
     },
     {
@@ -10649,7 +11268,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Sky Ray Gunship - Target locked Deploying seeker missiles.ogg",
-     "text": "Target locked Deploying seeker missiles"
+     "text": "Target locked Deploying seeker missiles",
+     "src": "cardSO"
     }
    ]
   },
@@ -10661,7 +11281,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Hammerhead - The time of diplomacy is over Now comes the time of fire.ogg",
-     "text": "The time of diplomacy is over Now comes the time of fire"
+     "text": "The time of diplomacy is over Now comes the time of fire",
+     "src": "cardSO"
     }
    ]
   },
@@ -10673,7 +11294,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Coldstar Battlesuit - Bright burns the light of the T’au Empire.ogg",
-     "text": "Bright burns the light of the T’au Empire"
+     "text": "Bright burns the light of the T’au Empire",
+     "src": "cardSO"
     }
    ]
   },
@@ -10685,7 +11307,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Longstrike - No foe can withstand the precise application of superior firepower.ogg",
-     "text": "No foe can withstand the precise application of superior firepower"
+     "text": "No foe can withstand the precise application of superior firepower",
+     "src": "cardSO"
     }
    ]
   },
@@ -10697,7 +11320,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Riptide Battlesuit - I am here to end this conflict.ogg",
-     "text": "I am here to end this conflict"
+     "text": "I am here to end this conflict",
+     "src": "cardSO"
     }
    ]
   },
@@ -10709,7 +11333,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Sun Shark Bomber - To secure the expansion we must conquer the skies.ogg",
-     "text": "To secure the expansion we must conquer the skies"
+     "text": "To secure the expansion we must conquer the skies",
+     "src": "cardSO"
     }
    ]
   },
@@ -10721,7 +11346,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Guardian Drone - Projecting energy field.ogg",
-     "text": "Projecting energy field"
+     "text": "Projecting energy field",
+     "src": "cardSO"
     }
    ]
   },
@@ -10733,7 +11359,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Fire Warrior - Fire on my signal.ogg",
-     "text": "Fire on my signal"
+     "text": "Fire on my signal",
+     "src": "cardSO"
     }
    ]
   },
@@ -10744,18 +11371,8 @@
    "lines": [
     {
      "ev": "line",
-     "file": "VO_Tau_Empire_Breacher Shas'ui - All that we do is for the Greater Good.ogg",
-     "text": "All that we do is for the Greater Good"
-    },
-    {
-     "ev": "line",
      "file": "VO_Tau_Empire_Razorshark Fighter - The Air Caste bring fire from the skies.ogg",
      "text": "The Air Caste bring fire from the skies"
-    },
-    {
-     "ev": "line",
-     "file": "VO_Tau_Empire_Stealth Shas'ui - Stealth team in position Awaiting orders.ogg",
-     "text": "Stealth team in position Awaiting orders"
     }
    ]
   },
@@ -10767,7 +11384,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Gun Drone - Weapons systems charged.ogg",
-     "text": "Weapons systems charged"
+     "text": "Weapons systems charged",
+     "src": "cardSO"
     }
    ]
   },
@@ -10779,7 +11397,14 @@
     {
      "ev": "attack",
      "file": "VO_Tau_War Shaper_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Tau_War Shaper_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -10789,11 +11414,6 @@
     {
      "ev": "concede",
      "file": "VO_Tau_War Shaper_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Tau_War Shaper_death.ogg",
      "text": ""
     },
     {
@@ -10886,7 +11506,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Kroot Carnivore - We heed the call of the hunt.ogg",
-     "text": "We heed the call of the hunt"
+     "text": "We heed the call of the hunt",
+     "src": "cardSO"
     }
    ]
   },
@@ -10898,7 +11519,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Kroot Hound - Voracious growl.ogg",
-     "text": "Voracious growl"
+     "text": "Voracious growl",
+     "src": "cardSO"
     }
    ]
   },
@@ -10910,7 +11532,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Trail Shaper - Sharpen your knives Tonight we feast.ogg",
-     "text": "Sharpen your knives Tonight we feast"
+     "text": "Sharpen your knives Tonight we feast",
+     "src": "cardSO"
     }
    ]
   },
@@ -10922,7 +11545,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Krootox Rider - No prey can hide from us.ogg",
-     "text": "No prey can hide from us"
+     "text": "No prey can hide from us",
+     "src": "cardSO"
     }
    ]
   },
@@ -10934,7 +11558,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Marker Drone - Gathering targetting information.ogg",
-     "text": "Gathering targetting information"
+     "text": "Gathering targetting information",
+     "src": "cardSO"
     }
    ]
   },
@@ -10946,7 +11571,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Flesh Shaper - A hunter's senses must be sharp as a butcher's knife.ogg",
-     "text": "A hunter's senses must be sharp as a butcher's knife"
+     "text": "A hunter's senses must be sharp as a butcher's knife",
+     "src": "cardSO"
     }
    ]
   },
@@ -10958,7 +11584,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Krootox Rampager - Show me your strength I will make it mine.ogg",
-     "text": "Show me your strength I will make it mine"
+     "text": "Show me your strength I will make it mine",
+     "src": "cardSO"
     }
    ]
   },
@@ -10970,7 +11597,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Lone-Spear - The hunt does not wait for the hunter.ogg",
-     "text": "The hunt does not wait for the hunter"
+     "text": "The hunt does not wait for the hunter",
+     "src": "cardSO"
     }
    ]
   },
@@ -10982,7 +11610,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Missile Drone - Targeting matrix calculated.ogg",
-     "text": "Targeting matrix calculated"
+     "text": "Targeting matrix calculated",
+     "src": "cardSO"
     }
    ]
   },
@@ -10994,7 +11623,8 @@
     {
      "ev": "line",
      "file": "VO_Tau_Empire_Pathfinder - Optimal target marked for elimination.ogg",
-     "text": "Optimal target marked for elimination"
+     "text": "Optimal target marked for elimination",
+     "src": "cardSO"
     }
    ]
   },
@@ -11030,7 +11660,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Ripper Swarm - Discordant chirrup.ogg",
-     "text": "Discordant chirrup"
+     "text": "Discordant chirrup",
+     "src": "cardSO"
     }
    ]
   },
@@ -11042,7 +11673,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Von Ryan's Leaper - Pack call.ogg",
-     "text": "Pack call"
+     "text": "Pack call",
+     "src": "cardSO"
     }
    ]
   },
@@ -11054,7 +11686,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Venomthrope - Twirling tendrils.ogg",
-     "text": "Twirling tendrils"
+     "text": "Twirling tendrils",
+     "src": "cardSO"
     }
    ]
   },
@@ -11066,7 +11699,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Tyrant Guard - Challenging roar.ogg",
-     "text": "Challenging roar"
+     "text": "Challenging roar",
+     "src": "cardSO"
     }
    ]
   },
@@ -11078,7 +11712,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Lictor - Rising talons menacingly.ogg",
-     "text": "Rising talons menacingly"
+     "text": "Rising talons menacingly",
+     "src": "cardSO"
     }
    ]
   },
@@ -11090,7 +11725,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Sporocyst - Reverberating thrum.ogg",
-     "text": "Reverberating thrum"
+     "text": "Reverberating thrum",
+     "src": "cardSO"
     }
    ]
   },
@@ -11102,12 +11738,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Tyranid Prime - Threatening roar.ogg",
-     "text": "Threatening roar"
-    },
-    {
-     "ev": "attack",
-     "file": "VO_Tyranid_Leviathan_Winged Tyranid Prime_attack.ogg",
-     "text": ""
+     "text": "Threatening roar",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -11117,11 +11749,6 @@
     {
      "ev": "concede",
      "file": "VO_Tyranid_Leviathan_Winged Tyranid Prime_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Tyranid_Leviathan_Winged Tyranid Prime_death.ogg",
      "text": ""
     },
     {
@@ -11179,7 +11806,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Mawloc - Gutwrenching scream.ogg",
-     "text": "Gutwrenching scream"
+     "text": "Gutwrenching scream",
+     "src": "cardSO"
     }
    ]
   },
@@ -11191,7 +11819,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Deathleaper - Lurking in the shadows.ogg",
-     "text": "Lurking in the shadows"
+     "text": "Lurking in the shadows",
+     "src": "cardSO"
     }
    ]
   },
@@ -11203,7 +11832,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Zoanthrope - Psychic humming.ogg",
-     "text": "Psychic humming"
+     "text": "Psychic humming",
+     "src": "cardSO"
     }
    ]
   },
@@ -11215,7 +11845,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Broodlord - Rallying scream.ogg",
-     "text": "Rallying scream"
+     "text": "Rallying scream",
+     "src": "cardSO"
     }
    ]
   },
@@ -11227,7 +11858,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Hormagaunt - Savage growl.ogg",
-     "text": "Savage growl"
+     "text": "Savage growl",
+     "src": "cardSO"
     }
    ]
   },
@@ -11239,7 +11871,21 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Carnifex - Primal roar.ogg",
-     "text": "Primal roar"
+     "text": "Primal roar",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "TL21",
+   "name": "Screamer-Killer",
+   "faction": "Leviathan",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tyranid_Leviathan_ScreamerKiller - Savage scream.ogg",
+     "text": "Savage scream",
+     "src": "cardSO"
     }
    ]
   },
@@ -11251,7 +11897,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Hive Crone - Intense screech.ogg",
-     "text": "Intense screech"
+     "text": "Intense screech",
+     "src": "cardSO"
     }
    ]
   },
@@ -11263,7 +11910,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Tyrannocyte - Viscous gurgle.ogg",
-     "text": "Viscous gurgle"
+     "text": "Viscous gurgle",
+     "src": "cardSO"
     }
    ]
   },
@@ -11275,7 +11923,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Harpy - Ferocious scream.ogg",
-     "text": "Ferocious scream"
+     "text": "Ferocious scream",
+     "src": "cardSO"
     }
    ]
   },
@@ -11287,7 +11936,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Hive Tyrant - Commanding roar.ogg",
-     "text": "Commanding roar"
+     "text": "Commanding roar",
+     "src": "cardSO"
     }
    ]
   },
@@ -11299,7 +11949,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Maleceptor - Malignant bellow.ogg",
-     "text": "Malignant bellow"
+     "text": "Malignant bellow",
+     "src": "cardSO"
     }
    ]
   },
@@ -11311,7 +11962,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Exocrine - Thunderous stomp.ogg",
-     "text": "Thunderous stomp"
+     "text": "Thunderous stomp",
+     "src": "cardSO"
     }
    ]
   },
@@ -11323,7 +11975,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Haruspex - Discordant roar.ogg",
-     "text": "Discordant roar"
+     "text": "Discordant roar",
+     "src": "cardSO"
     }
    ]
   },
@@ -11335,7 +11988,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Winged Tyrant - Deafening scream.ogg",
-     "text": "Deafening scream"
+     "text": "Deafening scream",
+     "src": "cardSO"
     }
    ]
   },
@@ -11347,7 +12001,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Mucolid Spore - Noxious humming B.ogg",
-     "text": "Noxious humming B"
+     "text": "Noxious humming B",
+     "src": "cardSO"
     }
    ]
   },
@@ -11359,7 +12014,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Tyrannofex - Fiery bellow.ogg",
-     "text": "Fiery bellow"
+     "text": "Fiery bellow",
+     "src": "cardSO"
     }
    ]
   },
@@ -11371,7 +12027,14 @@
     {
      "ev": "attack",
      "file": "VO_Tyranid_Leviathan_Tervigon_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Tyranid_Leviathan_Tervigon_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -11381,11 +12044,6 @@
     {
      "ev": "concede",
      "file": "VO_Tyranid_Leviathan_Tervigon_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Tyranid_Leviathan_Tervigon_death.ogg",
      "text": ""
     },
     {
@@ -11463,7 +12121,14 @@
     {
      "ev": "attack",
      "file": "VO_Tyranid_Leviathan_Swarmlord_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Tyranid_Leviathan_Swarmlord_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -11473,11 +12138,6 @@
     {
      "ev": "concede",
      "file": "VO_Tyranid_Leviathan_Swarmlord_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Tyranid_Leviathan_Swarmlord_death.ogg",
      "text": ""
     },
     {
@@ -11555,7 +12215,14 @@
     {
      "ev": "attack",
      "file": "VO_Tyranid_Leviathan_Neurothrope_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Tyranid_Leviathan_Neurothrope_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -11565,11 +12232,6 @@
     {
      "ev": "concede",
      "file": "VO_Tyranid_Leviathan_Neurothrope_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Tyranid_Leviathan_Neurothrope_death.ogg",
      "text": ""
     },
     {
@@ -11647,7 +12309,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Spore Mine - Low Humming B.ogg",
-     "text": "Low Humming B"
+     "text": "Low Humming B",
+     "src": "cardSO"
     }
    ]
   },
@@ -11659,7 +12322,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Hive Guard - Heavy stomp.ogg",
-     "text": "Heavy stomp"
+     "text": "Heavy stomp",
+     "src": "cardSO"
     }
    ]
   },
@@ -11671,7 +12335,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Termagant - Hungry snarl.ogg",
-     "text": "Hungry snarl"
+     "text": "Hungry snarl",
+     "src": "cardSO"
     }
    ]
   },
@@ -11683,7 +12348,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Tyranid Warrior - Intimidating growl.ogg",
-     "text": "Intimidating growl"
+     "text": "Intimidating growl",
+     "src": "cardSO"
     }
    ]
   },
@@ -11695,7 +12361,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Biovore - Low rumbling.ogg",
-     "text": "Low rumbling"
+     "text": "Low rumbling",
+     "src": "cardSO"
     }
    ]
   },
@@ -11707,7 +12374,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Neurogaunt Nodebeast- Low growl.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -11719,7 +12387,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Stranded Termagant - Enraged screech.ogg",
-     "text": "Enraged screech"
+     "text": "Enraged screech",
+     "src": "cardSO"
     }
    ]
   },
@@ -11731,7 +12400,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Ravener - Piercing roar.ogg",
-     "text": "Piercing roar"
+     "text": "Piercing roar",
+     "src": "cardSO"
     }
    ]
   },
@@ -11743,7 +12413,27 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Gargoyle - Harsh scream.ogg",
-     "text": "Harsh scream"
+     "text": "Harsh scream",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "TL74",
+   "name": "Terror of Vardenghast",
+   "faction": "Leviathan",
+   "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_Tyranid_Leviathan_Winged Tyranid Prime_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Tyranid_Leviathan_Winged Tyranid Prime_death.ogg",
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -11755,7 +12445,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Genestealer - Wild talon swinging.ogg",
-     "text": "Wild talon swinging"
+     "text": "Wild talon swinging",
+     "src": "cardSO"
     }
    ]
   },
@@ -11767,7 +12458,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Pyrovore - Brooding grumble.ogg",
-     "text": "Brooding grumble"
+     "text": "Brooding grumble",
+     "src": "cardSO"
     }
    ]
   },
@@ -11779,7 +12471,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Barbgaunt.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -11791,7 +12484,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Neurogaunt.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -11803,7 +12497,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Neuroloid.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -11815,7 +12510,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Neurotyrant.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -11827,7 +12523,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Norn Emissary.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -11839,7 +12536,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Psychophage.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -11851,7 +12549,8 @@
     {
      "ev": "line",
      "file": "VO_Tyranid_Leviathan_Termagant Brood.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -11863,7 +12562,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Scout - Taking cover enemies in range.ogg",
-     "text": "Taking cover enemies in range"
+     "text": "Taking cover enemies in range",
+     "src": "cardSO"
     }
    ]
   },
@@ -11875,7 +12575,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Hellblaster Squad - The bigger they are the harder they fall.ogg",
-     "text": "The bigger they are the harder they fall"
+     "text": "The bigger they are the harder they fall",
+     "src": "cardSO"
     }
    ]
   },
@@ -11887,7 +12588,8 @@
     {
      "ev": "line",
      "file": "VO_UM_7th Company Bikes - Temper your speed with faith and flame.ogg",
-     "text": "Temper your speed with faith and flame"
+     "text": "Temper your speed with faith and flame",
+     "src": "cardSO"
     }
    ]
   },
@@ -11899,7 +12601,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Antaro Chronus - Make the engines roar Its time to scour this battlefield.ogg",
-     "text": "Make the engines roar Its time to scour this battlefield"
+     "text": "Make the engines roar Its time to scour this battlefield",
+     "src": "cardSO"
     }
    ]
   },
@@ -11911,7 +12614,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Primaris Chaplain - Trust in the Emperor at the hour of battle.ogg",
-     "text": "Trust in the Emperor at the hour of battle"
+     "text": "Trust in the Emperor at the hour of battle",
+     "src": "cardSO"
     }
    ]
   },
@@ -11923,7 +12627,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Honour Guard - For courage and honour.ogg",
-     "text": "For courage and honour"
+     "text": "For courage and honour",
+     "src": "cardSO"
     }
    ]
   },
@@ -11935,7 +12640,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Apothecary Polixis - The Emperor's work must be safeguarded.ogg",
-     "text": "The Emperor's work must be safeguarded"
+     "text": "The Emperor's work must be safeguarded",
+     "src": "cardSO"
     }
    ]
   },
@@ -11947,7 +12653,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Sergeant Allectius - Death wont take me without a fight.ogg",
-     "text": "Death wont take me without a fight"
+     "text": "Death wont take me without a fight",
+     "src": "cardSO"
     }
    ]
   },
@@ -11959,7 +12666,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Primaris Impulsor - There's no hiding from Ultramar's wrath.ogg",
-     "text": "There's no hiding from Ultramar's wrath"
+     "text": "There's no hiding from Ultramar's wrath",
+     "src": "cardSO"
     }
    ]
   },
@@ -11971,7 +12679,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Company Ancient - For the Chapter and Lord Guilliman.ogg",
-     "text": "For the Chapter and Lord Guilliman"
+     "text": "For the Chapter and Lord Guilliman",
+     "src": "cardSO"
     }
    ]
   },
@@ -11983,7 +12692,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Aggresor Sergeant - No foe can stand in our wake.ogg",
-     "text": "No foe can stand in our wake"
+     "text": "No foe can stand in our wake",
+     "src": "cardSO"
     }
    ]
   },
@@ -11995,7 +12705,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Octavio Infiltrator - Hold positions, we strike soon.ogg",
-     "text": "Hold positions, we strike soon"
+     "text": "Hold positions, we strike soon",
+     "src": "cardSO"
     }
    ]
   },
@@ -12007,7 +12718,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Sergeant Tellion - Strike at their weakness to prevail.ogg",
-     "text": "Strike at their weakness to prevail"
+     "text": "Strike at their weakness to prevail",
+     "src": "cardSO"
     }
    ]
   },
@@ -12019,13 +12731,27 @@
     {
      "ev": "line",
      "file": "VO_UM_Primaris Judiciar - Intro.ogg",
-     "text": "Intro"
+     "text": "Intro",
+     "src": "cardSO"
     },
     {
      "ev": "line",
      "file": "VO_NOT USED_UM_Primaris Judiciar - You're not ready to take on a foe like me.ogg",
      "text": "You're not ready to take on a foe like me",
      "src": "orphan"
+    }
+   ]
+  },
+  {
+   "id": "UM22",
+   "name": "Inceptor Sergeant",
+   "faction": "Ultramarines",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_UM_Inceptor Sergeant - Ready your jump packs we strike now.ogg",
+     "text": "Ready your jump packs we strike now",
+     "src": "cardSO"
     }
    ]
   },
@@ -12037,7 +12763,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Bladeguard Lieutenant - Draw your blade for the Primarch.ogg",
-     "text": "Draw your blade for the Primarch"
+     "text": "Draw your blade for the Primarch",
+     "src": "cardSO"
     }
    ]
   },
@@ -12049,7 +12776,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Lieutenant Calsius - Form up and advance.ogg",
-     "text": "Form up and advance"
+     "text": "Form up and advance",
+     "src": "cardSO"
     }
    ]
   },
@@ -12061,7 +12789,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Devastator Centurion - We march for Macragge.ogg",
-     "text": "We march for Macragge"
+     "text": "We march for Macragge",
+     "src": "cardSO"
     },
     {
      "ev": "line",
@@ -12078,7 +12807,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Epistolary Librarian - Knowledge is my blade wisdom my bullet.ogg",
-     "text": "Knowledge is my blade wisdom my bullet"
+     "text": "Knowledge is my blade wisdom my bullet",
+     "src": "cardSO"
     }
    ]
   },
@@ -12090,7 +12820,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Assault Centurion - My armour is infused with the Emperors will.ogg",
-     "text": "My armour is infused with the Emperors will"
+     "text": "My armour is infused with the Emperors will",
+     "src": "cardSO"
     }
    ]
   },
@@ -12102,12 +12833,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Redemptor Dreadnought - Even in death I still serve.ogg",
-     "text": "Even in death I still serve"
-    },
-    {
-     "ev": "line",
-     "file": "VO_UM_Valtus, Redemptor Dreadnought- Lead me to the slaughter!.ogg",
-     "text": ""
+     "text": "Even in death I still serve",
+     "src": "cardSO"
     }
    ]
   },
@@ -12119,7 +12846,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Cato Sicarius - Let none stay our wrath.ogg",
-     "text": "Let none stay our wrath"
+     "text": "Let none stay our wrath",
+     "src": "cardSO"
     }
    ]
   },
@@ -12131,7 +12859,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Firstborn - We are the sons of Guilliman.ogg",
-     "text": "We are the sons of Guilliman"
+     "text": "We are the sons of Guilliman",
+     "src": "cardSO"
     }
    ]
   },
@@ -12143,7 +12872,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Repulsor Executioner - Let the roar of our cannons herald their doom.ogg",
-     "text": "Let the roar of our cannons herald their doom"
+     "text": "Let the roar of our cannons herald their doom",
+     "src": "cardSO"
     }
    ]
   },
@@ -12155,12 +12885,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Assault Intercessor - The Emperor guides us to victory.ogg",
-     "text": "The Emperor guides us to victory"
-    },
-    {
-     "ev": "line",
-     "file": "VO_UM_Intercessor Sergeant - For the Emperor and the Primarch.ogg",
-     "text": "For the Emperor and the Primarch"
+     "text": "The Emperor guides us to victory",
+     "src": "cardSO"
     }
    ]
   },
@@ -12172,7 +12898,14 @@
     {
      "ev": "attack",
      "file": "VO_UM_Calgar_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_UM_Calgar_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -12182,11 +12915,6 @@
     {
      "ev": "concede",
      "file": "VO_UM_Calgar_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_UM_Calgar_death.ogg",
      "text": ""
     },
     {
@@ -12294,7 +13022,14 @@
     {
      "ev": "attack",
      "file": "VO_Ultramarines_Ventris_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Ultramarines_Ventris_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -12304,11 +13039,6 @@
     {
      "ev": "concede",
      "file": "VO_Ultramarines_Ventris_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Ultramarines_Ventris_death.ogg",
      "text": ""
     },
     {
@@ -12396,7 +13126,14 @@
     {
      "ev": "attack",
      "file": "VO_Ultramarines_Tigurius_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Ultramarines_Tigurius_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -12406,11 +13143,6 @@
     {
      "ev": "concede",
      "file": "VO_Ultramarines_Tigurius_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_Ultramarines_Tigurius_death.ogg",
      "text": ""
     },
     {
@@ -12518,7 +13250,47 @@
     {
      "ev": "line",
      "file": "VO_UM_Primaris Reiver - They'll be dead before they see me coming.ogg",
-     "text": "They'll be dead before they see me coming"
+     "text": "They'll be dead before they see me coming",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "UM55",
+   "name": "Sternguard Sergeant",
+   "faction": "Ultramarines",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_UM_Sternguard Veteran Sergeant - Shot by shot we will purge the Galaxy.ogg",
+     "text": "Shot by shot we will purge the Galaxy",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "UM56",
+   "name": "Intercessor Sergeant",
+   "faction": "Ultramarines",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_UM_Intercessor Sergeant - For the Emperor and the Primarch.ogg",
+     "text": "For the Emperor and the Primarch",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "UM57",
+   "name": "Primaris Invader",
+   "faction": "Ultramarines",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_UM_Invader ATV - We will carve a path through enemy lines.ogg",
+     "text": "We will carve a path through enemy lines",
+     "src": "cardSO"
     }
    ]
   },
@@ -12530,7 +13302,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Desolation Marine - Enemy located Leave no trace of them.ogg",
-     "text": "Enemy located Leave no trace of them"
+     "text": "Enemy located Leave no trace of them",
+     "src": "cardSO"
     }
    ]
   },
@@ -12542,7 +13315,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Stormtalon - Target located, flying into position.ogg",
-     "text": "Target located, flying into position"
+     "text": "Target located, flying into position",
+     "src": "cardSO"
     }
    ]
   },
@@ -12566,7 +13340,14 @@
     {
      "ev": "attack",
      "file": "VO_UM_Chaplain Letharius_attack.ogg",
-     "text": ""
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_UM_Chaplain Letharius_death.ogg",
+     "text": "",
+     "src": "cardSO"
     },
     {
      "ev": "cantdo",
@@ -12576,11 +13357,6 @@
     {
      "ev": "concede",
      "file": "VO_UM_Chaplain Letharius_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_UM_Chaplain Letharius_death.ogg",
      "text": ""
     },
     {
@@ -12673,7 +13449,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Scout Bike - Aim true and strike them down.ogg",
-     "text": "Aim true and strike them down"
+     "text": "Aim true and strike them down",
+     "src": "cardSO"
     }
    ]
   },
@@ -12685,7 +13462,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Outrider - With all due haste.ogg",
-     "text": "With all due haste"
+     "text": "With all due haste",
+     "src": "cardSO"
     }
    ]
   },
@@ -12697,7 +13475,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Primaris Techmarine - I await your instructions.ogg",
-     "text": "I await your instructions"
+     "text": "I await your instructions",
+     "src": "cardSO"
     }
    ]
   },
@@ -12709,7 +13488,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Land Speeder - None shall stand in our way.ogg",
-     "text": "None shall stand in our way"
+     "text": "None shall stand in our way",
+     "src": "cardSO"
     }
    ]
   },
@@ -12720,13 +13500,9 @@
    "lines": [
     {
      "ev": "line",
-     "file": "VO_UM_Sternguard Veteran Sergeant - Shot by shot we will purge the Galaxy.ogg",
-     "text": "Shot by shot we will purge the Galaxy"
-    },
-    {
-     "ev": "line",
      "file": "VO_UM_Tyrannic War Veteran - We must push back the tide.ogg",
-     "text": "We must push back the tide"
+     "text": "We must push back the tide",
+     "src": "cardSO"
     }
    ]
   },
@@ -12738,7 +13514,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Invictor Warsuit - There is nowhere we fear to tread.ogg",
-     "text": "There is nowhere we fear to tread"
+     "text": "There is nowhere we fear to tread",
+     "src": "cardSO"
     }
    ]
   },
@@ -12750,7 +13527,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Storm Speeder Hailstrike - Target acquired Leave no trace of them.ogg",
-     "text": "Target acquired Leave no trace of them"
+     "text": "Target acquired Leave no trace of them",
+     "src": "cardSO"
     }
    ]
   },
@@ -12763,7 +13541,7 @@
      "ev": "line",
      "file": "VO_UM_Predator Annihilator - Predator in position Let there be fire.ogg",
      "text": "Predator in position Let there be fire",
-     "src": "orphan"
+     "src": "cardSO"
     }
    ]
   },
@@ -12772,6 +13550,18 @@
    "name": "Lieutenant Titus",
    "faction": "Ultramarines",
    "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_UM_Titus_attack.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
+    {
+     "ev": "death",
+     "file": "VO_UM_Titus_death.ogg",
+     "text": "",
+     "src": "cardSO"
+    },
     {
      "ev": "backup1",
      "file": "VO_UM_Titus_Backup1.ogg",
@@ -12783,11 +13573,6 @@
      "text": ""
     },
     {
-     "ev": "attack",
-     "file": "VO_UM_Titus_attack.ogg",
-     "text": ""
-    },
-    {
      "ev": "cantdo",
      "file": "VO_UM_Titus_cantDo.ogg",
      "text": ""
@@ -12795,11 +13580,6 @@
     {
      "ev": "concede",
      "file": "VO_UM_Titus_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_UM_Titus_death.ogg",
      "text": ""
     },
     {
@@ -12896,13 +13676,14 @@
    "lines": [
     {
      "ev": "line",
-     "file": "VO_UM_Chairon (with Gadriel in play) - We shall thin their numbers today, brother.ogg",
-     "text": "We shall thin their numbers today, brother"
+     "file": "VO_UM_Chairon - I will make them suffer now.ogg",
+     "text": "I will make them suffer now",
+     "src": "cardSO"
     },
     {
      "ev": "line",
-     "file": "VO_UM_Chairon - I will make them suffer now.ogg",
-     "text": "I will make them suffer now"
+     "file": "VO_UM_Chairon (with Gadriel in play) - We shall thin their numbers today, brother.ogg",
+     "text": "We shall thin their numbers today, brother"
     }
    ]
   },
@@ -12914,7 +13695,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Heavy Intercessor - Stand firm, sons of Ultramar!.ogg",
-     "text": "Stand firm, sons of Ultramar!"
+     "text": "Stand firm, sons of Ultramar!",
+     "src": "cardSO"
     }
    ]
   },
@@ -12926,7 +13708,8 @@
     {
      "ev": "line",
      "file": "VO_UM_Eradicator - We bring the fires of retribution Burn them down!.ogg",
-     "text": "We bring the fires of retribution Burn them down!"
+     "text": "We bring the fires of retribution Burn them down!",
+     "src": "cardSO"
     }
    ]
   },
@@ -12938,12 +13721,34 @@
     {
      "ev": "line",
      "file": "VO_UM_Eliminator - Target acquired Your fate is sealed.ogg",
-     "text": "Target acquired Your fate is sealed"
-    },
+     "text": "Target acquired Your fate is sealed",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "UM80",
+   "name": "Bladeguard Sergeant",
+   "faction": "Ultramarines",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_UM_Bladeguard Sergeant- Your defiance will end under Ultramar's steel.ogg",
+     "text": "",
+     "src": "cardSO"
+    }
+   ]
+  },
+  {
+   "id": "UM81",
+   "name": "Eliminator Sergeant",
+   "faction": "Ultramarines",
+   "lines": [
     {
      "ev": "line",
      "file": "VO_UM_Eliminator Sergeant - None will escape under my watch.ogg",
-     "text": "None will escape under my watch"
+     "text": "None will escape under my watch",
+     "src": "cardSO"
     }
    ]
   },
@@ -12954,13 +13759,27 @@
    "lines": [
     {
      "ev": "line",
-     "file": "VO_UM_Sergeant Gadriel (with Chairon in play) - You care to see who can slay more Xenos, brother Chairon.ogg",
-     "text": "You care to see who can slay more Xenos, brother Chairon"
+     "file": "VO_UM_Sergeant Gadriel - Take them down!.ogg",
+     "text": "Take them down!",
+     "src": "cardSO"
     },
     {
      "ev": "line",
-     "file": "VO_UM_Sergeant Gadriel - Take them down!.ogg",
-     "text": "Take them down!"
+     "file": "VO_UM_Sergeant Gadriel (with Chairon in play) - You care to see who can slay more Xenos, brother Chairon.ogg",
+     "text": "You care to see who can slay more Xenos, brother Chairon"
+    }
+   ]
+  },
+  {
+   "id": "UM83",
+   "name": "Valtus",
+   "faction": "Ultramarines",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_UM_Valtus, Redemptor Dreadnought- Lead me to the slaughter!.ogg",
+     "text": "",
+     "src": "cardSO"
     }
    ]
   },
@@ -12973,11 +13792,6 @@
      "ev": "line",
      "file": "VO_UM_Bladeguard Ancient - Fight well and your names shall leave on ever after in glory!.wav",
      "text": "Fight well and your names shall leave on ever after in glory!"
-    },
-    {
-     "ev": "line",
-     "file": "VO_UM_Bladeguard Sergeant- Your defiance will end under Ultramar's steel.ogg",
-     "text": ""
     }
    ]
   },
@@ -13012,13 +13826,9 @@
    "lines": [
     {
      "ev": "line",
-     "file": "VO_UM_Inceptor Sergeant - Ready your jump packs we strike now.ogg",
-     "text": "Ready your jump packs we strike now"
-    },
-    {
-     "ev": "line",
      "file": "VO_UM_Primaris Inceptor - One strike is all I need.ogg",
-     "text": "One strike is all I need"
+     "text": "One strike is all I need",
+     "src": "cardSO"
     }
    ]
   },

@@ -1,0 +1,2 @@
+编号	目标文件	锚点（该文件里已存在的整行，原文照抄）	插入内容（完整一行，含首尾 |）
+A1837	`资料/任务_卡组卡牌战斗.md`	| 🆕 **`A1024`** | 🔴 **字体口径（D19 那类「机制已做、渲染值不同」的根因）** → **判据原文（整行，一字未改）→ `资料/待办判据_第四会话.md` §A1024** |	| 🆕 **`A1837`** | 🔴 **卡详情窗  的 `Current Style` 那一格要换成图**（原版喂的是 `Image`：`AlternateArtPanel.SetStyle` 里 `+0x30 styleImageContainer` 的 `set_enabled`+`set_sprite(该风格图标)`；我们现在印的是**文字**「风格名 (N/M)」= **我们挑的**）⇒ 图已在工程（`Resources/Art/ui_menu/`，映射 → `CollectionWindow.StyleLogoName`），**还差原版那颗 `styleImageContainer` 的矩形**（本地未核）。判据 → `资料/普查产出_第二十八会话/A1808_异画风格与logo.md` |

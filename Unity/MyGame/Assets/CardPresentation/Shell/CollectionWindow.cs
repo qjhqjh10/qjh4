@@ -32,7 +32,13 @@
 //      `act=T` 只等于「节点启用」，推不出「抽屉停在哪一头」。判据与更正的完整链见 `:1150` 那段。
 //      · 数据 = **本地 7 张督军异画**（`assets_full/bundle_<阵营>cardassets_assets_all/Texture2D/`，
 //        文件名是 **`AA_HB_…` / `…_AA_HB.png`**，另有 `DarkAngels_AA_warlord_Azrael_v2`）
-//      · 覆盖 **2 种风格**：`AA_HB`(6 张) + `v2`(1 张)；其余风格在远端 CCD 的 `alternateartstyles` 包。
+//      · 🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1808`/`A1830`）**：本条原来写「覆盖 **2 种风格**：
+//        `AA_HB`(6 张) + `v2`(1 张)；其余风格在远端 CCD 的 `alternateartstyles` 包」—— **两句都不成立**：
+//        ① **只有 1 档**（那「2 档」是我们按图片文件名拆的，原版 `AlternateArtSyle` 只有
+//        `Default`/`HammerAndBolter`，且轮播走 `FindAll(style != 0)`）② `alternateartstyles` 包**已经在手**
+//        （旧 profile 的 Unity 缓存里，69,579 B、旧新两版 catalog 内容哈希相同）——
+//        它那两张风格 logo **已导进工程**（`Resources/Art/ui_menu/`，导入器 `工具/import_altstyle_logos.py`）。
+//        映射与判据全文 → 下面 `StyleLogoName` 的头注。
 //        ⚠️ 上一版这里写「远程包、本机零副本」—— **错因是普查搜的词**（`alternate`/`variant`/`skin`）
 //        **一个都不命中 `AA_HB` 这种命名**，是用户拿文件名来问才发现的（`阶段二_卡组线_原版规格.md` §七 ③b）。
 //   ✅ **`Deck info Popup`**（2026-09-23）：点一格卡组 ⇒ 选中 + 开它；窗里 `Edit Deck` 才进编辑
@@ -1435,8 +1441,11 @@ namespace CardPresentation
         //   · **风格图 SO 本地没有**：`Art Style Logo` 原版 `sprite=0`，运行时由 `styleImage` 载
         //     `alternateArtStyles[i]` 的 Addressable，而 `AlternateArtStyleIconsSO` 全库**只有类名没有资产**
         //     ⇒ 我们在那一格里**画风格名文字**（**我们挑的做法，不是原版的**）。
-        //   · **风格清单**：本机只覆盖 `AA_HB`(6 张) + `v2`(1 张)，其余风格在远端 CCD 的 `alternateartstyles` 包。
-        //     `v2` 的**显示名查不到** ⇒ 直接印 token。
+        //   · **风格清单**：🔴 **2026-10-14 就地订正（铁律 5 · `A1808`/`A1830`）** —— 原来写「本机只覆盖
+        //     `AA_HB`(6 张) + `v2`(1 张)，其余风格在远端 CCD 的 `alternateartstyles` 包。`v2` 的**显示名查不到**
+        //     ⇒ 直接印 token」：**①②③ 全不成立** —— ①「2 档」是我们按图片文件名拆的，**原版只有 1 档**；
+        //     ② 那个远端包**已经在手**、两张风格 logo **已导进工程**；③ `v2` 不是一档、也就无所谓「显示名」。
+        //     判据 → 上面 `StyleLogoName` 的头注。
         //   · 点一张卡：原版开 `CardDisplayWindow`（卡片详情窗）—— **那扇窗还没建** ⇒ `NotifyNotBuilt`。
         //   · `Card Filters` 的 `Army Filter` 一格仍然没建（A4 没给格子尺寸）。
 
@@ -1468,22 +1477,43 @@ namespace CardPresentation
         /// <summary>圆钮里 `Background`/`Icon` 那两层（原版 `sd=(0.3774,0.3774)` 等比）56.86×58.13，居中。</summary>
         public const float StyleArrowIconW = 56.86f, StyleArrowIconH = 58.13f;
 
-        /// <summary>本机能拿到的督军异画（**7 张 · 2 种风格**）。表与出处 = `工具/import_original_art.py` 的 `ALT_ART`。</summary>
+        /// <summary>本机能拿到的督军异画（**7 张 · 1 种风格**）。表与出处 = `工具/import_original_art.py` 的 `ALT_ART`。
+        /// 🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1830`）**：原来这里写「7 张 · **2 种风格**」，并把第 7 张标成 `"v2"` ——
+        /// **那 2 档是【我们自己按图片文件名拆的】，原版只有 1 档**。判据（三路互证）：
+        /// ① `AlternateArtSyle` **只有两个成员**：`Default = 0` / `HammerAndBolter = 5`
+        ///    （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/AlternateArtSyle.cs`）；
+        /// ② 原版 `AlternateArtCardCollectionTab.Setup` 调 `AlternateArtStylesUtilities.Instance.styleIcons
+        ///    .GetAlternateArtStyleOnly()`，而那个方法的**方法体**是 `FindAll(style != 0)`
+        ///    （`d:/2/tools/decomp_full/AlternateArtStyleIconsSO__GetAlternateArtStyleOnly.c` + 它的 lambda）
+        ///    ⇒ **轮播里只列非 `Default` 的档**；
+        /// ③ 本地 7 张卡的 `AlternateArtCard.style` 全是 **5**：导出件 `cards_1195_2022时代.json` 里
+        ///    `AA_HB_DarkAngels_war_Azrael` 的 `style = 5`，而它 `cardImage` 的 AssetGUID `50de37c7…`
+        ///    **现解就是** `DarkAngels_AA_warlord_Azrael_v2`（= 我们原来标 `v2` 的那张图）
+        ///    ⇒ **`v2` 与 `AA_HB` 是同一张卡的两种文件名写法，不是两种风格**。
+        /// ⇒ token 现在直接用**原版枚举名**，7 张全 = `HammerAndBolter`。
+        /// ⚠️ **没查清**：`.png` 文件名为什么两套写法（`AA_HB_…` 前缀 vs `…_AA_…_vN` 后缀 + 6 张 `Avatar/Cardback` 共用 `_AA_HB` 后缀）——
+        /// 那是**原版美术自己的命名**，我们只是读它。</summary>
         public struct AltArtCard
         {
             public readonly string CardId, Style;
             public AltArtCard(string id, string style) { CardId = id; Style = style; }
         }
 
+        /// <summary>原版风格枚举名的常量（`AlternateArtSyle.HammerAndBolter = 5` 的**名字**；见上条注释的判据）。</summary>
+        public const string StyleHammerAndBolter = "HammerAndBolter";
+        /// <summary>原版风格枚举名的常量（`AlternateArtSyle.Default = 0`）—— **轮播里不出现**，但
+        /// `AlternateArtPanel.SetStyle(style, image)` 取图时它是一档（见 `StyleLogoName`）。</summary>
+        public const string StyleDefault = "Default";
+
         public static readonly AltArtCard[] AltArtCards =
         {
-            new AltArtCard("AM2",                 "AA_HB"),
-            new AltArtCard("BL34",                 "AA_HB"),
-            new AltArtCard("SAU35",                "AA_HB"),
-            new AltArtCard("GOF28",                "AA_HB"),
-            new AltArtCard("SW1",                 "AA_HB"),
-            new AltArtCard("UM76", "AA_HB"),
-            new AltArtCard("DA_Azrael",                 "v2"),
+            new AltArtCard("AM2",                 StyleHammerAndBolter),
+            new AltArtCard("BL34",                 StyleHammerAndBolter),
+            new AltArtCard("SAU35",                StyleHammerAndBolter),
+            new AltArtCard("GOF28",                StyleHammerAndBolter),
+            new AltArtCard("SW1",                 StyleHammerAndBolter),
+            new AltArtCard("UM76", StyleHammerAndBolter),
+            new AltArtCard("DA_Azrael",                 StyleHammerAndBolter),
         };
 
         /// <summary>风格顺序（**表里第一次出现的次序**，稳定）。</summary>
@@ -1497,12 +1527,43 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>某个风格的**显示名**。`AA_HB` = **Hammer and Bolter**（`AlternateArtStyleIconsSO/HammerAndBolter`，
-        /// 出处 `资料/索引与盘点/解包资源使用地图.md:1174`）；其余**查不到**（风格 SO 在服务端）⇒ 原样印 token。</summary>
+        /// <summary>某个风格的**显示名**（⚠️ **只在 logo 图载不到时当兜底文字用** —— 原版那一格是**图**，没有字）。
+        /// `HammerAndBolter` = **Hammer and Bolter**（出处 `资料/索引与盘点/解包资源使用地图.md:1174` 记的
+        /// `AlternateArtStyleIconsSO/HammerAndBolter`）。
+        /// 🔴 **2026-10-14 就地订正（铁律 5 · `A1808`）**：原来这里写「其余**查不到**（风格 SO 在服务端）⇒ 原样印 token」——
+        /// **不成立**：`AlternateArtStyleIconsSO` 的本体就在**本地**（内置文件 `Warpforge_Data/sharedassets0.assets`，
+        /// 无 type tree ⇒ 按原始字节解），它那两条 `styleIcons` 的两张图**现在都在工程里**（见 `StyleLogoName`）。</summary>
         public static string StyleLabel(string style)
         {
-            if (style == "AA_HB") return "Hammer and Bolter";
+            if (style == StyleHammerAndBolter) return "Hammer and Bolter";
             return style;
+        }
+
+        /// <summary>某个风格的 **logo 图名**（`Resources/Art/ui_menu/` 下、**原版资产名、空格换下划线** ⇒ 走 `CardArt.MenuUi`）。
+        /// 🔴 **映射是原版自己的字节读出来的**（2026-10-14 · `A1808`，判据三路互证）：
+        /// ① 内置文件 `Warpforge_Data/sharedassets0.assets` 里 `AlternateArtStyleIconsSO` 的序列化体
+        ///    （`m_Name`(24) → `count=2` → 每条 `[style:int32][AssetGUID]`）读出
+        ///    **`style 0 (Default)` → `0195addac64424715b03a2310dfbbfe9`** ·
+        ///    **`style 5 (HammerAndBolter)` → `cd516d1bf3fd249f3ad4776db89e70f7`**；
+        /// ② 那两个 GUID 拿**远端 catalog** 解到同一个束 `alternateartstyles_assets_all_9db3b696…bundle`，
+        ///    束内 `m_Container` 键 `'0'` → `WarpForgeLogo Style`、`'c'` → `Cell Shaded Alternative Art Style`（各 512×128）；
+        /// ③ 两张图的**内容**也自洽：`Cell Shaded…` 印的是 `CEL SHADED`，`WarpForgeLogo Style` 印的是
+        ///    `WARPFORGE THE CARD GAME` 徽标。
+        /// ⇒ **`Default` = Warpforge 徽标 · `HammerAndBolter` = CEL SHADED**。
+        /// ⚠️ 本机唯一一份来源 = `d:/2/远端缓存_旧profile_1013/…/9db3b696…/__data`（69,579 B；旧/新两版 catalog 里
+        /// **内容哈希相同** ⇒ 不因「2022 快照」作废）；导入器 = `工具/import_altstyle_logos.py --install`。</summary>
+        public static string StyleLogoName(string style)
+        {
+            if (style == StyleHammerAndBolter) return "Cell_Shaded_Alternative_Art_Style";
+            if (style == StyleDefault) return "WarpForgeLogo_Style";
+            return null;                     // 不认识的档 ⇒ 调用方出声 + 退回文字（⛔ 不静默）
+        }
+
+        /// <summary>某个风格的 logo 贴图（载不到返回 `null`，由调用方出声 —— 红线：不许静默失败）。</summary>
+        public static Texture2D StyleLogo(string style)
+        {
+            string n = StyleLogoName(style);
+            return string.IsNullOrEmpty(n) ? null : CardArt.MenuUi(n);
         }
 
         /// <summary>当前风格下标（0 起）。**自检也读它**。</summary>
@@ -1570,23 +1631,43 @@ namespace CardPresentation
             //    （脚本字段名反着：`leftStyleButton` 挂的是**右边**那颗）
             BuildStyleArrow(page, StyleArrowLx, true, () => ChangeStyle(-1));
             BuildStyleArrow(page, StyleArrowRx, false, () => ChangeStyle(+1));
-            // `Art Style Logo`：原版运行时喂图（**风格图标 SO 本地没有**）⇒ 我们画风格名文字（**我们挑的**）
-            // 🔴 **必须限宽自适应** —— 那一格是 **512×128**，`Hammer and Bolter` 按 56px 画出来宽 ≈1270px，
-            //    **直接压到右箭钮上**（第一版实拍一眼可见）。`SetAutoFitBox` 按框宽缩到放得下为止。
-            //    ⚠️ 判据要量**渲染宽度**，不是比字号 —— 见 `CLAUDE.md` §二 的 `AutoFitBox` 教训。
-            //    🔴 **2026-10-16（A830）**：那个「渲染宽度」现在由**自检自己量**
-            //       （TMP 自己渲出来那块 `textBounds`，`Editor/CollectionScene.cs` 的 `LabelRenderedPx`）——
-            //       ⛔ 本窗那个 `StyleLogoWidthPx` 属性（读 `Label.WorldW` = **字段缓存** `_tmpW/_tmpH`，
-            //       只有 `RefreshBounds()` 写 = **被测实现自己**）**已删**，别再把它加回来当尺子。
-            //       （判据 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3；同族先例 = W4/W5/W6 三个宿主换口。）
-            // 🔴 **2026-10-09（A1173）**：那对 `(18f, 56f)` 现在直接喂 `Text` 的形参（原来是「先 `Text`、
-            //   再手工 `SetAutoFitBox`」两份写法；且 `Text` 里那道裁切还被那次重排抹掉）。
-            _styleLogo = Text(page, StyleLabel(CurrentStyleName()), StyleLogoL, StyleLogoR, StyleBarT, StyleBarB,
-                              6, PageInk, "Art Style Logo", 56f,
-                              // 框 = 那一格自己（`StyleLogoR−L` × `StyleBarB−T`），与收口前手传的两维逐值相同
-                              wrapPx: StyleLogoR - StyleLogoL, autoMinPx: 18f, autoMaxPx: 56f);
-            if (_styleLogo != null)
-                _styleLogo.SetRenderQueue(QPageText);
+            // `Art Style Logo` = **原版那一格是 `Image`**：`AlternateArtCardCollectionTab.styleImage`
+            //   ← `AlternateArtStylesUtilities.GetStyleIcon(style)`（判据 → `StyleLogoName` 的头注）。
+            //   🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1808`）**：原来这里画的是**风格名文字**，注释写着
+            //   「原版运行时喂图（**风格图标 SO 本地没有**）⇒ 我们画风格名文字（**我们挑的**）」——
+            //   **两句都不成立**：SO 的本体就在**本地内置文件**里，而它那两张图（各 512×128）**现在都在工程里**
+            //   （`Resources/Art/ui_menu/Cell_Shaded_Alternative_Art_Style.png` / `WarpForgeLogo_Style.png`）。
+            //   ⇒ 现在**照原版画图**；载不到才退回画名字（并出声 —— 红线：不许静默失败）。
+            //   ⚠️ 图与框同比例（都 512×128 = 4.0）⇒ `keepAspect` 传哪一档画出来都一样；
+            //      原版那颗 `Image.m_PreserveAspect` 的值**本地没有判据**，如实记在这里，别当原版值。
+            var _styleTex = StyleLogo(CurrentStyleName());
+            if (_styleTex != null)
+            {
+                Rect(page, StyleLogoName(CurrentStyleName()),
+                     new PxRect(StyleLogoL, StyleBarT, StyleLogoR, StyleBarB),
+                     "Art Style Logo", QPageText, null, keepAspect: true);
+            }
+            else
+            {
+                Debug.LogWarning("[Collection] 风格 logo 图载不到（style=" + CurrentStyleName()
+                                 + "）⇒ 退回画风格名 —— 查 `Resources/Art/ui_menu/` 与 `CardArt.MenuUi`");
+                // 兜底 = 画风格名。**必须限宽自适应** —— 那一格是 **512×128**，`Hammer and Bolter` 按 56px
+                //   画出来宽 ≈1270px，**直接压到右箭钮上**（第一版实拍一眼可见）。`SetAutoFitBox` 按框宽缩到放得下为止。
+                //   ⚠️ 判据要量**渲染宽度**，不是比字号 —— 见 `CLAUDE.md` §二 的 `AutoFitBox` 教训。
+                //   🔴 **2026-10-16（A830）**：那个「渲染宽度」现在由**自检自己量**
+                //      （TMP 自己渲出来那块 `textBounds`，`Editor/CollectionScene.cs` 的 `LabelRenderedPx`）——
+                //      ⛔ 本窗那个 `StyleLogoWidthPx` 属性（读 `Label.WorldW` = **字段缓存** `_tmpW/_tmpH`，
+                //      只有 `RefreshBounds()` 写 = **被测实现自己**）**已删**，别再把它加回来当尺子。
+                //      （判据 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3；同族先例 = W4/W5/W6 三个宿主换口。）
+                //   🔴 **2026-10-09（A1173）**：那对 `(18f, 56f)` 现在直接喂 `Text` 的形参（原来是「先 `Text`、
+                //      再手工 `SetAutoFitBox`」两份写法；且 `Text` 里那道裁切还被那次重排抹掉）。
+                _styleLogo = Text(page, StyleLabel(CurrentStyleName()), StyleLogoL, StyleLogoR, StyleBarT, StyleBarB,
+                                  6, PageInk, "Art Style Logo", 56f,
+                                  // 框 = 那一格自己（`StyleLogoR−L` × `StyleBarB−T`），与收口前手传的两维逐值相同
+                                  wrapPx: StyleLogoR - StyleLogoL, autoMinPx: 18f, autoMaxPx: 56f);
+                if (_styleLogo != null)
+                    _styleLogo.SetRenderQueue(QPageText);
+            }
             Rect(page, "40k_main_line", new PxRect(StyleSep1L, StyleSep1T, 1920.01f, StyleSep1B),
                  "Separator Line (1)", QPageRow);
 

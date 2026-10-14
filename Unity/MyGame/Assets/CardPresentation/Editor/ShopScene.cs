@@ -1620,8 +1620,10 @@ public static class ShopScene
                       "（前提）词条 `MenuCollection/NoDecksFound` 在表里（⛔ 不在 ⇒ 下面那条两边一起退化成键名 = 假绿）");
             var ewt = ew != null ? FindChild(ew, "Warning") : null;
             Check(ewt != null ? TextOf(ewt) : null, Loc.T("MenuCollection/NoDecksFound"),
-                  "★ 空态那句字 = `Loc.T(\"MenuCollection/NoDecksFound\")`（随语档；原版那颗 TMP 的 `m_text` 原文 "
-                + "= `There are no deck in your collection for the selected filters`，**含原版自己的语病**）");
+                  "★ 空态那句字 = `Loc.T(\"MenuCollection/NoDecksFound\")`（随语档）；"
+                + "🔴 **2026-10-14（`A1803`）订正**：本行原写「原版 TMP 原文 = `There are no deck…`，含原版自己的语病」"
+                + " —— **官方表里是复数的 `There are no decks in your collection for the selected filters`**"
+                + " ⇒ 单数那个 `deck` 是**我们自己写错的**、不是原版语病（已换成官方值）");
         }
 
         // ---------------- 买一件（红线：点了必须有反应）----------------

@@ -2131,6 +2131,30 @@ namespace RuleEngine
             if (s.Length == 0) { r.Kind = SegKind.KeywordOnly; return r; }
             string low = s.ToLowerInvariant();
 
+            // ---- 0) `Talent: <天赋名>`（天赋那一行）—— 2026-10-14（账 `A1873`）----
+            //   🔴 **原版就是这么一条 ability**（判据 = 全量反编译，逐行读过）：
+            //     · `CardScript__OnTurnStart.c:166` —— **回合开始**时，对**回合方自己**的、
+            //       带 `DefinedTrait.talent = 845`（`:163` 的 `HasCurrentTrait(param_1, 0x34d, 0)`）
+            //       的卡发 `RawCardScript__OnTrigger(raw, 0x2e /*AbilityTrigger.Talent = 46*/, …)`；
+            //     · `CardScript__GetTalentCard.c` —— 取 `cardAbilities` 里**第一条** `trigger(+0x10) == 0x2e`
+            //       的 ability，取它的 `abilityLogic(+0x50)[0].summonCriteria(+0x58).unitsToSummon(+0x18)[0]`
+            //       = **要造的那张具名卡**；
+            //     · `AbilityLogic__PlayAbility.c:1110/1141` —— `chosenAbility = 100 /*createCardInHand*/`
+            //       → `GetCardScriptToSummon` → `BattleManager__AddNewCardToHand`（造到**手牌**）。
+            //   ⇒ **`Talent: <名>` 的语义 = 「造一张〈名〉到手上」**，和 `Create <名> in your hand`
+            //     是**同一条 op**（`Verb = "create"`）—— 所以这里产出的是普通 `create`，不另立动词。
+            //
+            //   🔴 **为什么这件事现在才补**：这一段以前**没人认**（`Parse` 把它扔进 `unparsed`），
+            //     而机制那一层是**另写的一条路**（`CardDef.TalentName` + `RuleCore.SpawnTalents`）。
+            //     于是「解析得出」与「真会跑」**两条口径打架**：对账（`A1759`，测量口 = `Parse`）
+            //     量到 `Talent` 一族 **62 条全缺**，而引擎其实每回合都在造牌。
+            //     ⇒ 这里补**标记 op**（与本文件 `costwhen` / `costifcontrol` / `whensuffix` 三条
+            //       **同一条纪律**：让整句「解析得出」，机制仍在它自己那一层），
+            //       造哪一张的**权威判据**见 `RuleEngine.TalentCardData`（真值 = `unitsToSummon[0]`）。
+            //   ⚠️ **名字抽法转调 `CardDef.ExtractTalent`**（全仓唯一一份）—— 这里不自己切。
+            var talentOp = TryTalent(low, s);
+            if (talentOp != null) { r.Ops.Add(talentOp); r.Kind = SegKind.Ok; return r; }
+
             // ---- 付费激活前缀 `12 [Energy]: …` / `4 : …` / `8 [Faith]: …` ----
             // `rule_core.gd:2529` 那族（我们上一版复刻：付不起就**整段不激活**，旁证）。前缀在这里剥掉、
             // 代价记进 op，正文照常往下走各个 handler。
@@ -2233,6 +2257,36 @@ namespace RuleEngine
                     StampPaidCost(inner.Ops, r.PaidCost, r.PaidKind);
                     if (amountRef != null)
                         foreach (var o in inner.Ops) o.AmountRef = amountRef;
+                }
+                // 🆕 2026-10-14（账 `A1874`）：**`Pray: …` 这一段在原版里是【两条】`abilityLogic`。**
+                //   判据（全量反编译，逐句读过）—— 卡面写 `Pray: Deal 1 damage` 的 `SOR3 Morvenn Vahl`：
+                //     · `activeAbility.activeAbilityLogic[0]` = `chosenAbility 10 /*doDamage*/`（= 正文）；
+                //     · `activeAbility.activeAbilityLogic[1]` = **`chosenAbility 462 /*triggerPray*/`**。
+                //   462 的真身 = `AbilityLogic__PlayAbility.c:1838` `case 0x1ce:` →
+                //   `BattleManager__AddTriggerPray` → `BattleManager__ResolveTriggerPray.c:266`
+                //   `EntityScript__set_isPraying(target, 1)` ＋ `:305` `BroadcastUnitPray`
+                //   ⇒ **让施法者进入「正在祈祷」**（读它的是 `SOR70 Sororitas Rhino`
+                //   「At the end of your turn, if any friendly unit is Praying, …」那一类）。
+                //   ⇒ 我们这条正文对应的机制在 `RuleCore.UseAlternative(…, "pray")`（它置 `u.Prayed`
+                //     并发 `WhenEventKind.Prays`）—— 这里补一条**标记 op**，让解析面与原版**逐条对齐**
+                //     （与本文件 `costwhen` / `costifcontrol` / `whensuffix` 三条**同一条纪律**）。
+                //   ⚠️ **排在 `StampPaidCost` 之后**：标记不是「正文」，⛔ 不该跟着付费前缀收钱。
+                //   ⚠️ 目标用 `Subjectless`（= **有施放者就是施放者自己**）—— 原版那条的语义就是
+                //     「**施法者**进入祈祷」，与我们 `UseAlternative` 置的那一位是同一个单位。
+                if (inner.Ops != null
+                    && string.Equals(mtr.Groups[1].Value, KeywordTable.Pray, System.StringComparison.Ordinal))
+                {
+                    inner.Ops.Add(new EffectOp
+                    {
+                        Verb = "triggerability",
+                        Source = s,
+                        Payload = KeywordTable.Pray,
+                        Target = new EffectTargetSpec
+                        {
+                            Raw = "(未写目标：有施放者就是施放者自己)",
+                            Side = "own", Kind = "unit", Count = 0, Auto = true, Subjectless = true,
+                        },
+                    });
                 }
                 return inner;
             }
@@ -7245,6 +7299,47 @@ namespace RuleEngine
             @"\s*that costs?\s+(\d+)\s+or\s+(less|more)$", RegexOptions.Compiled);
         /// <summary>`2-cost ` 前缀（**恰好** N 费）</summary>
         static readonly Regex ReCostExactly = new Regex(@"^(\d+)-cost\s+", RegexOptions.Compiled);
+
+        /// <summary>
+        /// `Talent: &lt;天赋名&gt;` —— **天赋那一行**（账 `A1873`）。
+        ///
+        /// <para>产物固定 = `Verb = "create"` · `Amount = 1` · `Payload` = **天赋名** ·
+        /// `Dest = "hand"`（原版 `BattleManager__AddNewCardToHand`）。</para>
+        ///
+        /// <para>🔴 **判据（原版全量反编译，逐句读过）** —— 见 `ParseSegment` 里 0) 那一段的
+        /// 出处串：触发时机 `CardScript__OnTurnStart.c:166`（`AbilityTrigger.Talent = 46`）·
+        /// 取哪一张 `CardScript__GetTalentCard.c`（`abilityLogic[0].summonCriteria.unitsToSummon[0]`）·
+        /// 干什么 `AbilityLogic__PlayAbility.c:1110/1141`（`createCardInHand` → 造到手上）。</para>
+        ///
+        /// <para>⚠️ **名字的抽法转调 `CardDef.ExtractTalent`**（全仓唯一一份）——
+        /// 它处理了 `[Talent]: X` 方括号写法与「切到 `.` / `,` 为止」；本函数只做**认头**。
+        /// 这样 `op.Payload` 与 `CardDef.TalentName` **逐字同源**，两处不会各切一份。</para>
+        ///
+        /// <para>⚠️ **不查卡池**（与 <see cref="TryCreate"/> 同一条纪律）：解析器是纯函数，
+        /// 「〈名〉是哪一张」由结算层/数据表定。</para>
+        /// </summary>
+        static EffectOp TryTalent(string low, string src)
+        {
+            // 头：`talent:` / `talent :`（`low` 已小写）
+            // ⚠️ 只认**段首**（`A1470` 现扫全池：`Talent:` 落在**非段首 0 处**）。
+            // ⚠️ **只认英文 `Talent:`** —— 引擎这条解析路的输入恒是**英文 `desc`**
+            //    （`DescZh` 全仓**没有任何地方**喂进 `EffectText.Parse`；卡面显示走
+            //    `BattleDriver.FaceTextFull`，不经过解析器）。中文 `天赋：` 的剥除在
+            //    `CreatePool.StripTalentSegments`，那是**另一条路**（认卡名点名的那些）。
+            if (!ReTalentHead.IsMatch(low)) return null;
+            string name = CardDef.ExtractTalent(src);
+            if (string.IsNullOrEmpty(name)) return null;
+            return new EffectOp
+            {
+                Verb = "create",
+                Source = src,
+                Amount = 1,
+                Payload = name,
+                Dest = "hand",
+            };
+        }
+        /// <summary>`Talent:` 的**头**（`ParseSegment` 的 `low` 是小写）。</summary>
+        static readonly Regex ReTalentHead = new Regex(@"^\s*talent\s*:", RegexOptions.Compiled);
 
         /// <summary>
         /// `Create …` —— **造牌**：凭空把卡放进手牌 / 牌库顶（不是从牌库抽，也不是从墓地捞）。

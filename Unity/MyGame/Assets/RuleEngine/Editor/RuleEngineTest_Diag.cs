@@ -58,24 +58,25 @@ public static partial class RuleEngineTest
         "TestChooseCard", "TestChooseFamilyB14", "TestPlayedTableB19", "TestPlayedCountB24", "TestReturnAndRefs", "TestPersistentEffects",
         "TestDeployBuffAndCostMore", "TestUnitDescTriggers", "TestMobAndRegimentKeyword", "TestKeywordTriggeredEvents", "TestFactionResourceEvents", "TestListenerCardType",
         "TestUnknownPayloadAttr", "TestWeaponIsRanged", "TestKeywordImplementedList", "TestUnstableEcstasyCruelty", "TestOrAltIf", "TestDoubleAndCreateCost",
-        "TestTalentKeyword", "TestMentionedCards", "TestDarkPactRelated", "TestWhenEvents", "TestEventLayerTail", "TestEphemeral",
-        "TestSimultaneousDamage", "TestFactionMechanics", "TestWinnerByWarlord", "TestDrawIsDraw", "TestForfeit", "TestBattleVictoryCode",
-        "TestFatigue", "TestDeterminism", "TestSignalDeterminism", "TestFullGameWithRealCards", "TestFactionBattle", "TestAiOriginal",
-        "TestHandInstanceEffects", "TestHandEffectExpiryAndUses", "TestCoreLayerPurity", "TestPlayedCardsExcludesCompanionAndTide", "TestTutorialEngineHalf", "TestW5EngineBacklog",
-        "TestG3EngineRealDiffs", "TestS7BroadcastBeforeBookkeeping", "TestS10CompanyMasterLowerCost", "TestA947NoncombatantAttackBan", "TestDiedThisTurnDuringBacklash", "TestA974NotePlayedAfterPlayBroadcast",
-        "TestA976LastCreatedNotCarriedAcrossCards", "TestA963HandListenerSelfDoesNotSpread", "TestA993TriggerEntryClearsReferentSlots", "TestA992OathDeployExemption", "TestA992CannotAttackThisTurn", "TestA985TermKey",
-        "TestA1098SummonSicknessReads", "TestA992HandSlotThreeWritePoints", "TestA992ReanimateDeployTurnState", "TestA985ErrSlotSplit", "TestA985TargetedAndAmbushFields", "TestS14SurvivorRescueAndDestroyBypass",
-        "TestS14EcstasyPrintedVersusGranted", "TestS14StunWatcherGainsAttack", "TestS14ApplyDeployTurnState", "TestS14PoisonAtOwnTurnEnd", "TestS14PoisonBranchDoesNotSkipStunGate", "TestS14BastionAbsorbsWholeHit",
-        "TestS14CounterIgnoresBastion", "TestS14DropPodPool", "TestS14DropPodTakesPrecedenceOverBastion", "TestS14VulnerableWithBastion", "TestS14SacrificeOnOwnTurnRescue", "TestS14SacrificeNotTriggeredOnEnemyTurn",
-        "TestS14SacrificeNotTriggeredOnRealDeath", "TestS14SurvivorTriggerAlwaysFires", "TestS14WouldKillByEntries", "TestS14HandAndBoardInstancesDisjoint", "TestS14PronounTargetSide", "TestS14PronounSideUnknownStaysUnknown",
-        "TestS14PronounSideChains", "TestS14ParseIsIdempotent", "TestS14ScoreGivingChargeSide", "TestS14KeywordNumberAndHasNumber", "TestS14PaidPrefixCarry", "TestS14OathActivationChargesOnce",
-        "TestS14CostSharedChargesOnce", "TestS14FaithCheckCondition", "TestS14WhenBodyTargetIsSubjectless", "TestS14FaithCostKind", "TestS14WouldKillByEntriesDropPodLayer", "TestS14DropPodOpensAtTurnStart",
-        "TestS14DropPodOpensAfterAttack", "TestS14SwarmTriggerBothHalves", "TestS14BloodThirstTriggerBothHalves", "TestA1564EcstasyHeadGates", "TestA1564Ec28SlayStopsAtEcstasy", "TestA1564DA25WhenBodyCarry",
-        "TestA1564AboutToAttackCancel", "TestA1564StealthExpiryAfterDropPod", "TestA1564BastionFullAbsorbBroadcasts", "TestA1564InsteadTargetCarry", "TestA1562KeywordTriggerSelfExclusion", "TestA1562SelfExclusionNullPair",
-        "TestA1574SwarmSubject", "TestA1576SacrificeOrder", "TestA1563VulnerableDamageSplit", "TestA1566LandingAndAboutToAttackRegistration", "TestA1462NonKeywordTargetFilter", "TestA1606TurnStartForceAttack",
-        "TestA1631HalfUnderstoodTriggerBody", "TestA1632EachTurnAttackOnOpponentTurn", "TestA1455DeployNamedTroop", "TestA1600SelfFatalHitHeard", "TestA1468BatchAllEnemiesHitsStealth", "TestA1600DyingListenerExcluded",
-        "TestA1468SingleTargetStealthGate", "TestS23ParseWhenPrefix", "TestS23ParseCostWhenInstead", "TestS23ParseCostWhenIconMarker", "TestS23AssertImplementedReadSites", "TestS23AssertA1413PayGroup", "TestS23ResolveDeployCopyOfThisTroop",
-        "TestS23ResolveInsteadOnAbilityLayer", "TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", "TestS23ResolveLandingCancelsAttack",
+        "TestTalentKeyword", "TestMentionedCards", "TestDarkPactRelated", "TestRelatedCardsTruth", "TestW10EngineLine", "TestW15TalentLine",
+        "TestW15PrayAndAltAbility", "TestWhenEvents", "TestEventLayerTail", "TestEphemeral", "TestSimultaneousDamage", "TestFactionMechanics",
+        "TestWinnerByWarlord", "TestDrawIsDraw", "TestForfeit", "TestBattleVictoryCode", "TestFatigue", "TestDeterminism",
+        "TestSignalDeterminism", "TestFullGameWithRealCards", "TestFactionBattle", "TestAiOriginal", "TestHandInstanceEffects", "TestHandEffectExpiryAndUses",
+        "TestCoreLayerPurity", "TestPlayedCardsExcludesCompanionAndTide", "TestTutorialEngineHalf", "TestW5EngineBacklog", "TestG3EngineRealDiffs", "TestS7BroadcastBeforeBookkeeping",
+        "TestS10CompanyMasterLowerCost", "TestA947NoncombatantAttackBan", "TestDiedThisTurnDuringBacklash", "TestA974NotePlayedAfterPlayBroadcast", "TestA976LastCreatedNotCarriedAcrossCards", "TestA963HandListenerSelfDoesNotSpread",
+        "TestA993TriggerEntryClearsReferentSlots", "TestA992OathDeployExemption", "TestA992CannotAttackThisTurn", "TestA985TermKey", "TestA1098SummonSicknessReads", "TestA992HandSlotThreeWritePoints",
+        "TestA992ReanimateDeployTurnState", "TestA985ErrSlotSplit", "TestA985TargetedAndAmbushFields", "TestS14SurvivorRescueAndDestroyBypass", "TestS14EcstasyPrintedVersusGranted", "TestS14StunWatcherGainsAttack",
+        "TestS14ApplyDeployTurnState", "TestS14PoisonAtOwnTurnEnd", "TestS14PoisonBranchDoesNotSkipStunGate", "TestS14BastionAbsorbsWholeHit", "TestS14CounterIgnoresBastion", "TestS14DropPodPool",
+        "TestS14DropPodTakesPrecedenceOverBastion", "TestS14VulnerableWithBastion", "TestS14SacrificeOnOwnTurnRescue", "TestS14SacrificeNotTriggeredOnEnemyTurn", "TestS14SacrificeNotTriggeredOnRealDeath", "TestS14SurvivorTriggerAlwaysFires",
+        "TestS14WouldKillByEntries", "TestS14HandAndBoardInstancesDisjoint", "TestS14PronounTargetSide", "TestS14PronounSideUnknownStaysUnknown", "TestS14PronounSideChains", "TestS14ParseIsIdempotent",
+        "TestS14ScoreGivingChargeSide", "TestS14KeywordNumberAndHasNumber", "TestS14PaidPrefixCarry", "TestS14OathActivationChargesOnce", "TestS14CostSharedChargesOnce", "TestS14FaithCheckCondition",
+        "TestS14WhenBodyTargetIsSubjectless", "TestS14FaithCostKind", "TestS14WouldKillByEntriesDropPodLayer", "TestS14DropPodOpensAtTurnStart", "TestS14DropPodOpensAfterAttack", "TestS14SwarmTriggerBothHalves",
+        "TestS14BloodThirstTriggerBothHalves", "TestA1564EcstasyHeadGates", "TestA1564Ec28SlayStopsAtEcstasy", "TestA1564DA25WhenBodyCarry", "TestA1564AboutToAttackCancel", "TestA1564StealthExpiryAfterDropPod",
+        "TestA1564BastionFullAbsorbBroadcasts", "TestA1564InsteadTargetCarry", "TestA1562KeywordTriggerSelfExclusion", "TestA1562SelfExclusionNullPair", "TestA1574SwarmSubject", "TestA1576SacrificeOrder",
+        "TestA1563VulnerableDamageSplit", "TestA1566LandingAndAboutToAttackRegistration", "TestA1462NonKeywordTargetFilter", "TestA1606TurnStartForceAttack", "TestA1631HalfUnderstoodTriggerBody", "TestA1632EachTurnAttackOnOpponentTurn",
+        "TestA1455DeployNamedTroop", "TestA1600SelfFatalHitHeard", "TestA1468BatchAllEnemiesHitsStealth", "TestA1600DyingListenerExcluded", "TestA1468SingleTargetStealthGate", "TestS23ParseWhenPrefix",
+        "TestS23ParseCostWhenInstead", "TestS23ParseCostWhenIconMarker", "TestS23AssertImplementedReadSites", "TestS23AssertA1413PayGroup", "TestS23ResolveDeployCopyOfThisTroop", "TestS23ResolveInsteadOnAbilityLayer",
+        "TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", "TestS23ResolveLandingCancelsAttack",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -355,6 +356,10 @@ public static partial class RuleEngineTest
         Safe("TestTalentKeyword", () => TestTalentKeyword());
         Safe("TestMentionedCards", () => TestMentionedCards());
         Safe("TestDarkPactRelated", () => TestDarkPactRelated());
+        Safe("TestRelatedCardsTruth", () => TestRelatedCardsTruth());
+        Safe("TestW10EngineLine", () => TestW10EngineLine());
+        Safe("TestW15TalentLine", () => TestW15TalentLine());
+        Safe("TestW15PrayAndAltAbility", () => TestW15PrayAndAltAbility());
         Safe("TestWhenEvents", () => TestWhenEvents());
         Safe("TestEventLayerTail", () => TestEventLayerTail());
         Safe("TestEphemeral", () => TestEphemeral());

@@ -704,7 +704,11 @@ namespace CardPresentation
 
         // ============================================================ 督军**异画**（Alternate Art）
         //
-        // 出处：`工具/import_original_art.py` 的 `ALT_ART`（**本机只有 7 张** · 两种风格 `AA_HB` / `v2`）。
+        // 出处：`工具/import_original_art.py` 的 `ALT_ART`（**本机只有 7 张**）。
+        // 🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1808`/`A1830`）**：原文写「**两种风格 `AA_HB` / `v2`**」——
+        //    **不成立**：那两串是**图片文件名的两种写法**，不是两种风格；原版 `AlternateArtSyle` 只有
+        //    `Default`/`HammerAndBolter` 两档，而**轮播只列非 `Default`** ⇒ **本地 7 张全是 `HammerAndBolter` 一档**
+        //    （判据 → `Shell/CollectionWindow.cs` 的 `StyleLogoName` 头注）。
         // 🔴 **绑定规则**：一件异画**绑死在一张卡上**，不能给别的督军用
         //    （`AlternateArtCard.GetIdForClonedCard()` 对原卡资产 id 做一次 `String.Replace` 得到克隆 id，
         //     `AlternateArtInventory.OnFinishUnpack` 再 `AssetLocator.GetAsset(该 id)` ⇒ 一一对应）。

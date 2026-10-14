@@ -171,7 +171,11 @@ namespace CardPresentation
         const string NameLabelEn = "Name:";
         const string TitleLabelEn = "Title:";
         const string AllianceLabelEn = "Alliance:";
-        const string NotInAllianceEn = "This player is is still not part of an Alliance";
+        // 🔴 **2026-10-14 就地订正（铁律 5 · `W4`/`A1803`）**：原来写 `"This player is is still not part of an Alliance"`
+        //   —— 那个 `is is` 是**我们抄错的**（当时的旧注还写着「真值在远端 I2 表」）：官方
+        //   `Battle/AlliancePanel/NotInAnAlliance` = **`This player is still not part of an Alliance`**
+        //   （中文列「该玩家仍未加入联盟」）。⛔ 这是**死兜底**（正常走 `Loc.T`），但值要对。
+        const string NotInAllianceEn = "This player is still not part of an Alliance";
 
         // ============================================================ 建出来的东西
         Transform _root, _background, _allianceGo, _titleHolder, _notInAlliance;

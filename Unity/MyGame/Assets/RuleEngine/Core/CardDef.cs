@@ -139,6 +139,45 @@ namespace RuleEngine
         /// —— 那时 <see cref="GoesSecondCard"/> 是 null 且 `CardDatabase` 已经**出过声**）。</summary>
         public string GoesSecondId { get; }
 
+        /// <summary>🔴 🆕 **2026-10-14（`A1798`）：原版 `RawCardScript.inventoryOptions` 的原样值**
+        /// （`CardInventoryOptions`：`InInventory = 0` / `CantAddToDeck = 5` / `NotInInventory = 10`）。
+        ///
+        /// **它是「这张卡能不能进卡组」的唯一判据**（判据只此一处 = <see cref="DeckRules.CannotAddToDeck"/>）——
+        /// 原来那个「按 `Subtype` 猜」的自定口径（`DeckRules.IsEffectOnly`）**已按用户 2026-10-14 的拍板删掉**。
+        /// 数据源 = `数据/游戏数据/card_inventory_options.json`（原版真值，同 `allcards` 快照）
+        /// → `工具/gen_card_inventory_options.py` → `工具/gen_cards_engine.py` → `CardDatabase.Parse`。
+        ///
+        /// ⚠️ **`-1` = 真值里查不到这张卡**（真值快照 = 2025-07-30，比现池旧；整个 SpaceWolves 阵营与
+        /// 暗黑天使 `DA75..DA86` 等新卡快照里没有）—— ⛔ **别把 `-1` 当成 0（InInventory）**。
+        /// 取值与含义见那个 JSON 的 `invariant` 段；⛔ 别在别处另写一份判定。</summary>
+        public int InventoryOptions { get; }
+
+        /// <summary>同上的 `RawCardScript.showInCollectionOptions`
+        /// （`ShowInCollectionOptions`：`Hide = 0` / `Show = 5` / `OnlyIfOwned = 10`）。
+        /// 原版 `DeckUtility__ValidateDeckCards.c:73-77` 也用它拦卡组（`!= Show` ⇒ 非法）——
+        /// 消费点同样只有 <see cref="DeckRules.CannotAddToDeck"/>。`-1` 含义同上。</summary>
+        public int ShowInCollectionOptions { get; }
+
+        /// <summary>🔴 🆕 **2026-10-14（`A1775`）：原版 `RawCardScript.initiative` 的原样值**
+        /// （`Initiative` 枚举：`Undefined = 0` / `Low = 10` / `Medium = 20` / `High = 30` /
+        /// `VeryHigh = 40`，见 `Assembly-CSharp/Initiative.cs`）—— **谁先手**的判据。
+        ///
+        /// <para>数据源 = `数据/游戏数据/card_initiative.json`（原版真值，同 `allcards` 快照）
+        /// → `工具/gen_card_initiative.py` → `工具/gen_cards_engine.py` 的 `initiative` 一列 →
+        /// `CardDatabase.Parse`。**消费点只有一个** = <see cref="FirstSeatRules.ByInitiative"/>
+        /// （⛔ 别在别处直接读它算先后手 —— 原版那条链还有 ③④⑤ 三级兜底）。</para>
+        ///
+        /// <para>⚠️ **`-1` = 真值里查不到这张卡**（快照 2025-07-30 比现池旧）—— ⛔ **别当成
+        /// `0`(Undefined)**：判先后手时 `-1` **不比**（退回原版最后一步），拿默认值顶上去
+        /// 会把「没数据」静默变成「有数据」。现读实测：**955/1126 有值、全是 `20`(Medium)**，
+        /// 另 171 张是 `-1`（整个 SpaceWolves 阵营等）。</para>
+        ///
+        /// <para>⚠️ 原版真值里只有**两张** ≠ 20（`Marneus Calgar (tutorial)` /
+        /// `Uriel Ventris (tutorial)` = `30`），那是**教程装订的督军**、走的是原版
+        /// `GetPlayerGoesFirst` 的**教程分支**（`TutorialStage.playerStarts`），**不是**比先攻值
+        /// ⇒ 我们池子里这 56 位督军**全是 20**，比先攻值那一段**永远平局**（详见 `FirstSeatRules`）。</para></summary>
+        public int Initiative { get; }
+
         /// <summary>
         /// 费用（能量）。**这是印在卡上的基准值** —— 真正要付多少要看降费/加费那几族
         /// （`CardDef.CostWhens` / `CostIfControls` / `ctx.CostMods`），判据只有 `RuleCore.CostOf` 一处。
@@ -172,11 +211,18 @@ namespace RuleEngine
                        int cost, int attack, int health, int rangedAttack,
                        IEnumerable<string> keywords,
                        string nameZh = null, string descZh = null, bool fromOriginalPool = false,
-                       string subtype = null, string goesSecondId = null)
+                       string subtype = null, string goesSecondId = null,
+                       int inventoryOptions = -1, int showInCollectionOptions = -1,
+                       int initiative = -1)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
             Subtype = subtype ?? "";
+            // 🆕 2026-10-14（`A1798`）：原版那两个字段**原样收下**（`-1` = 真值里没有这张卡，别当 0）。
+            InventoryOptions = inventoryOptions;
+            ShowInCollectionOptions = showInCollectionOptions;
+            // 🆕 2026-10-14（`A1775`）：先攻值同一条规矩 —— **原样收下、缺了就是 -1**。
+            Initiative = initiative;
             // 督军后手那张防御卡：这里只收**数据里的 id**；对象引用由 `CardDatabase.Parse`
             // 建完卡表之后按 id 反查置上（见 `GoesSecondCard` 的说明）。
             GoesSecondId = goesSecondId ?? "";
@@ -1118,7 +1164,12 @@ namespace RuleEngine
         ///    （`Master of Arcana`）· `… choose a Codicil and put it in your hand`（`Author of the Codex`）。
         ///    ⇒ 那两个「选」我们**做了**（`CreatePool` 的 `psychic power → subtype` / `codicil → subtype`
         ///      + `EffectResolver.TakePickCard`）；但**「随机」这一支没人接到天赋这条路上**
-        ///      ⇒ `SpawnTalents` 查不到同名卡就只打日志 ⇒ **这两个督军的天赋现在是哑的**。
+        ///      ⇒ ~~`SpawnTalents` 查不到同名卡就只打日志 ⇒ **这两个督军的天赋现在是哑的**~~。
+        ///      🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1873`）**：**口径已换** —— `SpawnTalents` 现在
+        ///         **先读真值表** `RuleEngine/Resources/talent_cards.json`（原版那条是**对象引用**，
+        ///         `工具/gen_talent_cards.py` 产出、**85 张落表**），**查不到才退回按名字查池子**（老路没删）
+        ///         ⇒ 上面那句「只打日志 / 天赋是哑的」**要按新口径重读**：真值 97 张里 **12 张落不下**，
+        ///         其中 **10 张 = 我们池子里那张卡【名字与真值对不上】**（病根同 `A970`，门票在等远端 `allcards`）。
         ///      📌 **待办**（`项目任务.md`）；判据 = 用户 2026-09-26 拿着卡面指出来的。
         ///    📌 同轮还更正了一个数：第 5 个是 `Waaagh! Energy`（**不是** `Waaagh`）。
         /// </summary>
@@ -1657,7 +1708,13 @@ namespace RuleEngine
             return t;
         }
 
-        static string ExtractTalent(string text)
+        /// <summary>`Talent: &lt;名&gt;` 里那个名字（切到 `.` / `,` 为止）。没有就是 null。
+        ///
+        /// <para>⚠️ **2026-10-14（账 `A1873`）由 `private` 改成 `internal`** —— 现在有**两个**调用点，
+        /// 两处必须是**同一份抽法**（否则 `EffectOp.Payload` 与 <see cref="TalentName"/> 会各切一份）：
+        /// ① `CollectTalent`（认卡那一路）；② `EffectText.TryTalent`（`Talent:` 那一行的**标记 op**）。</para>
+        /// </summary>
+        internal static string ExtractTalent(string text)
         {
             if (string.IsNullOrEmpty(text)) return null;
             // ⚠️ **方括号写法要认**（2026-09-14 A5 批 3）：`[Talent]: Catechism of Death`
@@ -3450,7 +3507,22 @@ namespace RuleEngine
         /// ⚠️ 规则书对「缓慢」**没有定义段**（全书没有），唯一已知差别是「本回合能不能动」那条（`:98`）。</summary>
         public const string Pray = "pray";
         /// <summary>**职责**（星界军）：`一次性能力；可由其他卡牌效果"装填"再次使用`（规则书 `:181`）。
-        /// ⚠️ 规则书**没说是本局一次还是每回合一次**；`Duty:` 在卡池里 0 张（方括号是我们数据层的占位）。</summary>
+        /// ⚠️ 规则书**没说是本局一次还是每回合一次**（这一条**仍然没查清**）。
+        ///
+        /// <para>🔴 **2026-10-14 就地订正（铁律 5，账 `A1774`）**：本行原来后半句写着
+        /// 「**`Duty:` 在卡池里 0 张**（方括号是我们数据层的占位）」—— **两个口径都不是 0**，
+        /// 而且那句话把**两种写法**混成了一句（铁律 5·c：一个值 ≠ 全部情况）。现读三个口径：
+        ///   · 🔴 **原版真值 24 张**：`d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json`
+        ///     （1195 张卡 SO 的 `CardTraits`）里挂 `duty`（`_trait`=1220）的**恰好 24 张**
+        ///     —— 判据 → `资料/普查产出_第二十七会话/A1748_原版trait真值.md` §1⑤/§5；
+        ///   · **我们卡池 `keywords` 带 `duty` 的 23 张**（现读 `cards_engine.json` 1126 张）；
+        ///   · **`desc` 里印着 `Duty:` 前缀的 18 张**（那 23 张里有 5 张卡面正文没带前缀 ——
+        ///     `AM5` / `AM11` / `AM16` / `AM23` / `AM_Hektor_Thenmann`）。
+        /// ⚠️ **唯一成立的那半句**是「**方括号形态 `[Duty]` 在卡池里 0 张**」—— 那是**本工程数据层的
+        ///     图标占位写法**，原版卡面不存在（出处 → `资料/历史/阵营推进_批次记录_0913-14.md:279`），
+        ///     ⇒ 「`[Duty]` 0 张」**不是缺陷**，⛔ 别拿它推「Duty 没卡用」。
+        /// **错因没查清**（一句话被压缩成了另一种写法）；可确定的是**不是数据侧漏抄** ——
+        /// 那 18 张的 `Duty:` 正文一直就在 `desc` 里。</para></summary>
         public const string Duty = "duty";
         /// <summary>**典籍**（极限战士）：`你的能量为 0 时触发效果`（规则书 `:175`）。
         ///

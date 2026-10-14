@@ -944,6 +944,9 @@ namespace CardPresentation
             // 🆕 2026-10-08（A181）：换形态 = 换掉/开关了一堆层 ⇒ **重裁一次**（只在已裁过时走）
             //    🔴 2026-10-13（A435 辛 · A774）：判据 = `Clipping`（显式矩形**或**跟随节点），理由见 `SetData` 那一处。
             if (Clipping) ApplyClip();
+            // 🆕 2026-10-14（`A1863`）：换形态是**第二个入口**（手牌 ↔ 场上），「面朝下」是**按场景分层**
+            //    （只有场上那一档才藏数值）⇒ 必须在这儿也重放一次。理由同 `SetData` 末尾那一处。
+            ApplyAmbush();
         }
 
         /// <summary>**场上要不要把四个数值拆成独立图层** —— 判据只有这一处（`Build` 与 `SetFace`
@@ -1299,6 +1302,11 @@ namespace CardPresentation
             //    🔴 2026-10-13（A435 辛 · A774）：判据是 `Clipping`（显式矩形**或**跟随节点），
             //       ⛔ 不是 `_clip.HasValue` —— 后者在「已开跟随、但这一刻没有节点」时漏掉后面挂上来的节点。
             if (Clipping) ApplyClip();
+            // 🆕 2026-10-14（`A1863`）：**面朝下那一档要在每一次刷新之后重放一遍** ——
+            //   上面那句 `SyncStatLayers()` 会把四个数值层按数据**重新显示出来**，
+            //   而 `_art` 那层也被上面的 `ArtTexture(d)` 刷回了自己的立绘 ⇒ 不在这儿补一次，
+            //   面朝下的单位每刷一次棋盘就「翻开」一次（`SyncBoard` 每轮都调 `SetData`）。
+            ApplyAmbush();
         }
 
         /// <summary>原版 `CardTextCountersController.DoColorChange(old, new)` 那两下：
@@ -3089,7 +3097,169 @@ namespace CardPresentation
         {
             if (_body3D == null || _body3D.sharedMaterial == null) return;
             if (!_body3D.sharedMaterial.HasProperty("_CardImage")) return;
-            _body3D.sharedMaterial.SetTexture("_CardImage", ArtTexture(Data));
+            // 🔴 **2026-10-14（`A1863`）：面朝下那一档喂的是「伏击图」，不是这张卡自己的立绘。**
+            //    原版 `BattleCardUI__SetCardImageTo3DBase.c` 的**开头就是这道闸**（逐行读过）：
+            //      `if (HasCurrentTrait(card, ambush /*0x4B0*/)) tex = CardTraitCollection.GetTrait(ambush).CustomObject;
+            //       else                                    tex = rawCard.cardSprite.texture;`
+            //      → `renderer(+0x180 = 卡 3D 体).GetMaterial().SetTexture(<_CardImage>, tex)`。
+            //    我们这边的对应物 = `UnitState.FaceDown`（= 「身上还挂着伏击词条」那件事，
+            //    见 `RuleEngine/Core/RuleCore.cs` 的 `PlaysFaceDown` / `u.FaceDown = false`）。
+            //    ⚠️ 这道闸**判据只此一处**：`SetData` / `SetCardMaterial` / `RestoreOriginalMaterial`
+            //      / `SetAmbush` 四条路最后都走到这里，⛔ 别在调用点各写一份。
+            //    ⚠️ 伏击图**取不到**时退成这张卡自己的立绘（**绝不喂 null** —— 喂 null 会让 3D 卡体
+            //      整个没有 `_CardImage`，画面上是一张空壳；那条路已经由 `FaceDownArtTexture()` 出声）。
+            var tex = ArtTexture(Data);
+            if (_faceDown) { var amb = FaceDownArtTexture(); if (amb != null) tex = amb; }
+            _body3D.sharedMaterial.SetTexture("_CardImage", tex);
+        }
+
+        // ==================================================================
+        //  伏击「面朝下」（原版 `CardScript.SetAmbush(card, true)`）
+        //  —— 2026-10-14（`A1863`）。在此之前 `CardPresentation` **完全没有**这一档
+        //     （`grep FaceDown` 只在 `RuleEngine/**` 命中）⇒ 面上那张牌**从来就是正面**。
+        // ==================================================================
+        //  判据（**逐行读过**）：`d:/2/tools/decomp_full/CardScript__SetAmbush.c:21-67`
+        //  = `param_2 != 0`（**设为**面朝下）那一支：
+        //    ① `if (*(char *)(card + 0x40) == '\0') { … }` —— **只有对面那一方才藏**：
+        //       · `BattleCardUI.SetAmbushTexts(cardUI, false)`（2D 卡面的名字/说明 → 占位串）
+        //       · `BattleCardUI.ToggleStats(false, false)`     ← **藏数值**
+        //       · `BasicCardUI.SetImageSprite(伏击图, cardType)`（2D 卡面的图也换成伏击图）
+        //       · `BasicCardUI.SetEmptyRarityStars()` · `PlayerManager.ToggleCurrentMana(pm, false, false)`
+        //       · `cardUI.effectsAnchor.gameObject.SetActive(false)`（`BattleCardUI +0x1A0` = `effectsAnchor`）
+        //    ② 两支**都**走末尾那句 `BattleCardUI.SetCardImageTo3DBase()` ⇒
+        //       **3D 卡体的 `_CardImage` 两边都换**（那道闸在方法自己开头，见上面）。
+        //    🔴 `isPlayer` 的偏移是**坐实的**（不是猜）：`d:/2/tools/il2cpp_out/dump.cs` 的
+        //       `EntityScript` 字段表里 `private bool <isPlayer>k__BackingField; // 0x40`
+        //       （`CardScript : EntityScript`，基类字段在前）⇒ `0x40` 就是 `isPlayer`。
+        //       ⛔ 别按「面朝下 = 两边都不给看」想当然 —— **自己的那张，主人看得见自己的数值**。
+        //    ⚠️ 那张「伏击图」= **伏击词条（`DefinedTrait.ambush` = 1200 = `0x4B0`）的 `customObject` 贴图**。
+        //       CardTrait 资产本身**本地没有**（全库 grep `_traitIcon` / `customObject` **0 命中**），
+        //       但同一张图有另一条**可查的引用**：原版材质 `Card 3d Dissolve Blend Image Ambush`
+        //       的 `_CardImage` —— 实读 = `GenestealerCults_special_Ambush`
+        //       （`资料/普查产出_1001/资产导入路三件_侦察.md:258`），而那张贴图**已经在工程里**
+        //       （`WarpforgeVFX/Textures/GenestealerCults_special_Ambush.png`，
+        //       被 `Prefabs/AmbushEffect.prefab` 的 `WFMatDef.texNames[_CardImage]` 引用）
+        //       ⇒ 按 `FaceDownArtTexture()` 那条路取它，⛔ 不另抄一张图、⛔ 不用卡背顶替。
+
+        static Texture2D _faceDownTex;      // 全进程一张（原版也是「伏击词条上那一张图」，与卡无关）
+        static bool _faceDownTexTried;
+        bool _faceDown;              // 面朝下（原版 = 身上挂着伏击词条）
+        bool _ambushHideStats;       // 原版那道 `isPlayer == 0` 闸：**只有对面那一方**才藏数值
+        bool _ambushHidden;          // 数值是不是**正被**藏起来（幂等用）
+        bool _ambushStashValid, _ambushStashInfo, _ambushStashArmour;
+
+        /// <summary>现在是不是面朝下（自检断言用 —— ⛔ 别拿 `grep FaceDown` 当判据）。</summary>
+        public bool FaceDown { get { return _faceDown; } }
+        /// <summary>数值现在被藏起来了没有（= 面朝下 **且** 在场上 **且** 是对面那一方）。</summary>
+        public bool AmbushHidesStats { get { return _ambushHidden; } }
+
+        /// <summary>面朝下那张图（原版 = 伏击词条的 `customObject`，见上面那段判据）。
+        ///
+        /// **取法**：从效果库里的 `AmbushEffect` prefab 上那份 `WarpforgeEffectBinder` 里，
+        /// 按材质名找 `Card 3d Dissolve Blend Image Ambush`，读它的 `_CardImage` 槽 ——
+        /// 那正是原版 `SetCardImageTo3DBase` 会喂给同一个槽的那张图（两边同源）。
+        /// ⚠️ **取不到时只报一次警告**，退成这张卡自己的立绘（画面上就是「看着还是正面」）—— **不静默**。
+        /// </summary>
+        public static Texture2D FaceDownArtTexture()
+        {
+            if (_faceDownTexTried) return _faceDownTex;
+            _faceDownTexTried = true;
+
+            const string kEffect = "AmbushEffect";
+            const string kMat    = "Card 3d Dissolve Blend Image Ambush";
+            const string kProp   = "_CardImage";
+
+            var lib = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
+            WarpforgeVFX.WFEffectEntry entry;
+            if (lib != null && lib.TryGet(kEffect, out entry) && entry.prefab != null)
+            {
+                var binders = entry.prefab.GetComponentsInChildren<WarpforgeVFX.WarpforgeEffectBinder>(true);
+                for (int b = 0; b < binders.Length && _faceDownTex == null; b++)
+                {
+                    var defs = binders[b] != null ? binders[b].materials : null;
+                    if (defs == null) continue;
+                    for (int i = 0; i < defs.Length; i++)
+                    {
+                        var d = defs[i];
+                        if (d == null || d.name != kMat || d.texNames == null || d.texVals == null) continue;
+                        for (int t = 0; t < d.texNames.Length && t < d.texVals.Length; t++)
+                            if (d.texNames[t] == kProp) { _faceDownTex = d.texVals[t] as Texture2D; break; }
+                        break;
+                    }
+                }
+            }
+
+            if (_faceDownTex == null)
+                Debug.LogWarning("[CardView] 🔴 伏击「面朝下」那张图取不到（`" + kEffect + "` → `" + kMat
+                    + "` → `" + kProp + "`）—— 面朝下的单位会**照旧画成正面**。"
+                    + "修法：确认效果库里有 `AmbushEffect`，且 `EffectExporter` 导过它"
+                    + "（那张图就在它 binder 的 `WFMatDef.texNames[_CardImage]` 里）。"
+                    + "这条警告只报一次。");
+            return _faceDownTex;
+        }
+
+        /// <summary>伏击「面朝下」（原版 `CardScript.SetAmbush(card, true)`）。
+        /// <paramref name="hideStats"/> = 原版那道 `isPlayer == 0` 闸 ——
+        /// **只有【对面】那些面朝下的单位才藏数值**（自己那张，主人本来就知道它是什么）。
+        ///
+        /// 🔴 **每个出生 / 迁移入口都要设一次**（CLAUDE.md 铁律 10 第 5 条）：本方法把状态**存下来**，
+        /// 并在 `SetData` / `SetFace` **末尾各重放一次**（`ApplyAmbush`）⇒ 视图重建、形态切换、
+        /// 每刷一次棋盘都不会把它忘掉。调用点 = `BattleDriver.SyncBoard`（棋盘视图唯一的收口处）。</summary>
+        public void SetAmbush(bool faceDown, bool hideStats)
+        {
+            _faceDown = faceDown;
+            _ambushHideStats = faceDown && hideStats;
+            if (_body3D != null) SetCardImageTo3DBase();   // 原版那一支末尾就是它
+            ApplyAmbush();
+        }
+
+        /// <summary>把「面朝下」那一档的画法落到层上。
+        /// 本层只管**藏数值**那一半（原版 `BattleCardUI.ToggleStats(false, false)`）；
+        /// **3D 卡体那张图**由 `SetCardImageTo3DBase` 管（判据只在那儿一份）。
+        ///
+        /// ⚠️ **原版藏的是 2D 卡面那一套**（文字 / 图 / 稀有度星 / 费用 / `effectsAnchor`）——
+        /// 场上（`CardFace.Board`）那套 2D 卡面**本来就没建**（`SetFace` 里全 `!board` 关掉了）
+        /// ⇒ 我们场上要藏的就是**数值**：`ToggleStats` 的对应物是四个数值层 + `_info` + 护甲盾。
+        /// 徽标**不藏**（原版那一支没碰 `boardTraitIcons` —— 伏击这个词条图标本来就该看得见）。</summary>
+        void ApplyAmbush()
+        {
+            // ① **2D 立绘那一层**（原版 `BasicCardUI.SetImageSprite(伏击图, cardType)`）——
+            //    场上正常走 3D 卡体、这层是关的；**只有取不到 3D 卡体**那一档它才顶上来
+            //    （`SetFace` 的 `if (_body3D != null) Show(_art, !board);`）。
+            //    ⚠️ 放在**最前面**：`SetData` 每次都把 `_art` 刷回自己的立绘，这里必须压过它。
+            if (_art != null && _art.sharedMaterial != null)
+            {
+                var t2d = ArtTexture(Data);
+                if (_faceDown) { var amb2 = FaceDownArtTexture(); if (amb2 != null) t2d = amb2; }
+                _art.sharedMaterial.mainTexture = t2d;
+            }
+
+            bool hide = _ambushHideStats && _faceMode == CardFace.Board;
+            if (hide)
+            {
+                if (!_ambushHidden)
+                {
+                    _ambushStashValid = true;
+                    _ambushStashInfo = _info != null && _info.gameObject.activeSelf;
+                    _ambushStashArmour = _armourIcon != null && _armourIcon.gameObject.activeSelf;
+                    _ambushHidden = true;
+                }
+                for (int s = StatMelee; s <= StatHealth; s++)
+                    if (_stats[s] != null) _stats[s].gameObject.SetActive(false);
+                Show(_info, false);
+                Show(_armourIcon, false);
+                return;
+            }
+            if (!_ambushHidden) return;              // 没藏过 ⇒ 什么都不动（别把正常态刷掉）
+            _ambushHidden = false;
+            if (_ambushStashValid)
+            {
+                Show(_info, _ambushStashInfo);
+                Show(_armourIcon, _ambushStashArmour);
+            }
+            else { Show(_info, true); Show(_armourIcon, true); }
+            // 四个数值层的显隐由它按数据重算（⛔ 别在这儿自己判一遍 —— 那是第二份判据）
+            SyncStatLayers();
         }
 
         /// <summary>这张卡的立绘贴图（原版 `actingCard.rawCard.cardSprite.texture`）——

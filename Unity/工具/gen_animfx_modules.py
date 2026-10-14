@@ -55,6 +55,63 @@ CARDANIM_MODULES = ("AnimFXInstanceParticleAdjacent",)
 #   收集起来由 `main` 打印 —— 「不许静默失败」。
 DEEP_KEYS = []
 
+# 🔴 2026-10-16（A828）：`materialAnimations` 里 **rid 在 `references` 注册表里找不到** 的那几条
+#   （本该是空的）。同样由 `main` 打印 —— 不静默。
+MATANIM_MISS = []
+
+# `materialAnimations` 是 `DynamicList<MaterialTweenBase>`，值**内联**在 Unity 的托管引用注册表
+# `references.RefIds[]` 里（不是 `数据/游戏数据/tween/` 那 74 份 `UnitTweenSO` —— 当年正是按那份
+# 目录搜、才写成「3 例都是空的」）。C# 侧（`WFModuleChangeMaterial.WFMatTween`）按
+# `materialAnimations[i].{type,materialProperty,duration,delay,initializeToValue,startValue…}` 取值，
+# 所以这里要把**注册表里那两条**（`type.class` 与 `data`）**改写成列表形状**。
+#
+# 🔴 **为什么非做不可（2026-10-14 `A1882` 实测）**：`WFModuleDef.CountList("materialAnimations")`
+#   数的是 `materialAnimations[0]`、`[1]`… 这种前缀键，而原样拍平出来的是
+#   `materialAnimations.list[0].rid` ⇒ `CountList` 恒为 **0** ⇒ `materialAnimationCount == 0`、
+#   `ReadTweens(def, 0)` 直接返回空 ⇒ 三条材质补间**一条都进不了效果库**（`TweenCount == 0`，死码）。
+MAT_ANIM_MODULES = ("AnimFXModuleChangeMaterial",)
+
+
+def flatten_material_animations(name, cls, fields, flat):
+    """把 `materialAnimations` + `references` 拍平成 C# 要的 `materialAnimations[i].*`。
+
+    ⛔ **`references` 是 Unity 的托管引用注册表，不是模块字段** —— 它整棵子树**不进** `flat`
+    （否则同一批数字会有两份：注册表一份、`materialAnimations[i].*` 一份，
+    而「两处写同一条规则 = 迟早不一致」）。C# 侧也从来不读 `references.*`（本件 grep 过：0 处）。"""
+    if cls not in MAT_ANIM_MODULES:
+        return
+    ma = fields.get("materialAnimations") or {}
+    lst = ma.get("list") or []
+    if not isinstance(lst, list):
+        return
+    reg = {}
+    for r in (fields.get("references") or {}).get("RefIds") or []:
+        if isinstance(r, dict) and "rid" in r:
+            reg[r["rid"]] = r
+    for i, item in enumerate(lst):
+        b = "materialAnimations[%d]" % i
+        rid = item.get("rid") if isinstance(item, dict) else None
+        rec = reg.get(rid)
+        # ⚠️ 即使找不到也**要把 `b` 这个前缀写出来** —— `CountList` 是「数到缺号为止」，
+        #    跳号会让后面那些条**整批读不到**（静默）。写 `rid` 一个键即可让前缀存在。
+        flat[b + ".rid"] = str(rid)
+        if rec is None:
+            MATANIM_MISS.append({"effect": name, "index": i, "rid": rid,
+                                 "why": "references.RefIds 里没有这个 rid"})
+            continue
+        t = rec.get("type") or {}
+        flat[b + ".type"] = t.get("class") or ""
+        data = rec.get("data")
+        if isinstance(data, dict):
+            # 键名与 `WFMatTween` 的注释**逐字一致**（那是两边唯一的契约）：
+            #   float → `.startValue` / `.finalValue`
+            #   color → `.startValue.r/.g/.b/.a`（`dump_animfx.short` 已把 ColorRGBA 拆成名字对）
+            #   vector → `.startValue.x/.y/.z/.w`
+            enc(data, flat, b)
+        else:
+            MATANIM_MISS.append({"effect": name, "index": i, "rid": rid,
+                                 "why": "这条 RefIds 没有 data（类名 %s）" % (t.get("class"),)})
+
 
 def load_cardanim_index():
     """→ (guid→prefabName, guid→为什么解不出)。表不在就返回 (None, None) 并出声。"""
@@ -142,7 +199,11 @@ def main():
             if not cls:
                 continue
             flat = {}
-            enc(m.get("fields", {}), flat, "")
+            fld = m.get("fields", {}) or {}
+            # `references` 是注册表、不是模块字段 ⇒ 不进通用拍平（见 `flatten_material_animations` 的注释）
+            enc(fld if cls not in MAT_ANIM_MODULES else
+                {k: v for k, v in fld.items() if k != "references"}, flat, "")
+            flatten_material_animations(name, cls, fld, flat)
             # 模块自己挂在哪个节点（`__node`）—— 运行时按它把组件挂回原位置，
             # 不是一律挂在根上（`TransformModifier` 这类要看自己所在的 Transform）。
             np = m.get("nodePath") or ""
@@ -220,6 +281,22 @@ def main():
           % (len(DEEP_KEYS),
              "" if not DEEP_KEYS else
              "  ⚠️ 不该有！例：" + " / ".join(sorted(set(DEEP_KEYS))[:5])))
+    # 🔴 2026-10-14（A1882）：`materialAnimations` 那条链的哨兵 —— 一条参数读不到就**出声**
+    #   （⛔ 别再像 2026-09 那样悄悄退成空列表，让 `TweenCount == 0` 的死码躺着没人发现）。
+    n_tw = 0
+    for e in outp:
+        for m in e["modules"]:
+            if m["kind"] == "AnimFXModuleChangeMaterial":
+                n_tw += sum(1 for k in m["keys"] if k.startswith("materialAnimations[")
+                            and k.endswith(".materialProperty"))
+    print("材质补间（`materialAnimations[i].materialProperty` 条数）：%d%s"
+          % (n_tw, "" if n_tw else "  ⚠️ 0 条！数据链没通"))
+    print("materialAnimations 里 rid 在 references 里找不到的：%d 条%s"
+          % (len(MATANIM_MISS),
+             "" if not MATANIM_MISS else
+             "  ⚠️ 不该有！例：" + " / ".join("%s[%d] rid=%s（%s）"
+                                           % (m["effect"], m["index"], m["rid"], m["why"])
+                                           for m in MATANIM_MISS[:3])))
     if stats["cardAnimResolved"] or stats["cardAnimUnresolved"]:
         print("cardAnim → prefabName：解出 %d / 解不出 %d"
               % (stats["cardAnimResolved"], stats["cardAnimUnresolved"]))

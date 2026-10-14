@@ -999,7 +999,12 @@ namespace CardPresentation
         const int PieceHero = 0;
         /// <summary>**卡行档**那一套（槽 0 = `row_0c` / `row_g0c` / `row_b0c`；槽 1+ = `row_i` / `row_gi` / `row_bi`）。</summary>
         const int PieceCard = 1;
-        /// <summary>与档无关的那几件（费用圆 `row_c*`）。</summary>
+        /// <summary>与档无关的那几件（费用圆 `row_c*`）。
+        /// 🔴 **2026-10-14（红 6）：注册进 `_rowPieces` 的件，可见性就【归 `ClipRowToBand` 管】**
+        /// —— 它的 ① 会 `SetActive(true)`（那是给「**上一轮被裁出去**」的件复位用的）。
+        /// ⇒ 凡是「**状态**要关掉它」的件（今天只有费用圆：督军行不显示），调用点必须把
+        /// 「这一行这一颗该不该显示」当 `ClipRowToBand` 的 `shared` 实参传进去，
+        /// ⛔ 否则状态关掉的那一颗会被**静默重新点亮**（本档 2026-10-14 踩过：督军行的圆）。</summary>
         const int PieceShared = 2;
 
         /// <summary>按槽号登记的「这一槽里所有要裁的 quad」（含槽 0 那**两套**）。判据见 `RowQuad` / `ClipRowToBand`。</summary>
@@ -1996,11 +2001,19 @@ namespace CardPresentation
             _rowPieces[slot].Add(new RowQuad { Q = q, R0 = MenuDraw.QuadRectPx(q), Uv0 = q.UvRect, Kind = kind });
         }
 
-        /// <summary>把第 `slot` 行裁到视口内。`hero` = 这一行装的是**督军**（决定开哪一套、裁哪一套）。
+        /// <summary>把第 `slot` 行裁到视口内。
+        /// <para>`hero` = 这一行装的是**督军**（决定开哪一套、裁哪一套）；
+        /// `shared` = **与档无关的那几件（`PieceShared` = 费用圆）这一行该不该显示**
+        /// （= `RefreshDeckList` 里那句 `on && !heroRow`，**与它 `SetOn(_deckRowCost[i], …)` 同一个值**）。</para>
         /// <para>三档各管自己那一套：`PieceHero` 只在 `hero` 时裁、`PieceCard` 只在 `!hero` 时裁、
-        /// `PieceShared`（费用圆）恒跟着这一行。**没被选中的那一套一个字都不动** —— 它已经被
-        /// `RefreshDeckList` 里那几句 `SetOn` 关掉了（去动它 = 把隐藏的那一套点亮）。</para></summary>
-        void ClipRowToBand(int slot, float y, bool hero)
+        /// `PieceShared` 只在 `shared` 时裁。**没被选中的那一套一个字都不动** —— 它已经被
+        /// `RefreshDeckList` 里那几句 `SetOn` 关掉了（去动它 = 把隐藏的那一套点亮）。</para>
+        /// <para>🔴 **2026-10-14（`DIAG_deck七条红.md` ⑥ · 真缺陷）**：原来 `PieceShared` **恒被处理**
+        /// （`Kind` 只挡了 `PieceHero` / `PieceCard` 两条）⇒ 状态刚被 `SetOn(_deckRowCost[i], false)`
+        /// 关掉的费用圆，在同一趟循环末被 ① 那句 `SetActive(true)` **又点亮了**（静默：
+        /// 只有「督军行该没有圆」这一处现形，而 `row_cnt*` 是 `Label`、不在本表 ⇒ 没被点亮）。
+        /// ⇒ 补 `shared` 这一档，让三档**同一条口径**。</para></summary>
+        void ClipRowToBand(int slot, float y, bool hero, bool shared)
         {
             var list = _rowPieces[slot];
             if (list == null) return;
@@ -2011,6 +2024,12 @@ namespace CardPresentation
                 var q = it.Q;
                 if (q == null) continue;
                 if ((it.Kind == PieceHero && !hero) || (it.Kind == PieceCard && hero)) continue;
+                // 🔴 **2026-10-14（红 6）**：`PieceShared`（费用圆）也走**同一条口径** ——
+                //   「这一行这一颗**该不该显示**」由调用点传进来（`shared`），**⛔ 不是**「看到
+                //   `!activeSelf` 就点亮」（那是把「**状态关掉**」误当成「**上一轮被裁出去**」）。
+                //   ⚠️ **这条约定对将来加进 `_rowPieces` 的每一颗都成立**：注册进来 = 这一颗的
+                //     可见性归本函数管 ⇒ 调用点必须把它那一行的「该不该显示」一并传进来。
+                if (it.Kind == PieceShared && !shared) continue;
                 var r = new PxRect(it.R0.x1, it.R0.y1 + dy, it.R0.x2, it.R0.y2 + dy);
                 // ① 先摆回【未裁切】的基准 —— **位置 / 高 / 宽高比 / uv 四件一起**。
                 //    ⚠️ 只摆一半（比如只摆回 uv）会让几何停在上一刀那一块上 ⇒ 越裁越小、且自检不响。
@@ -4080,6 +4099,12 @@ namespace CardPresentation
                 //      所以「`Cost Image` 那一族没有」这件事**要落成两句** ——
                 //      `row_c*`（蓝六边形 = 原版 `Cost Image`）与 `row_cnt*`（圆里那个数 = 原版 `Cost`）
                 //      **是两颗独立物体**（`:1413` / `:1441`），只关一颗会在督军行上留一颗**飘着的数字**。
+                //   🔴 **2026-10-14（`DIAG_deck七条红.md` ⑥）：上面那条判据【今天才真正生效】。** 光在 4123 那一句
+                //      `SetOn(_deckRowCost[i], on && !heroRow)` **还不够** —— 同一趟循环末尾那句
+                //      `ClipRowToBand(...)` 的 ① 会 `SetActive(true)` 把刚关掉的圆**又点亮**
+                //      （`PieceShared` 原来恒被处理）⇒ **第四实参必须与这一句同值**（已补：`on && !heroRow`）。
+                //      旁证：`deck.log` 里 `row_c0` 红（圆亮着）而 `row_cnt0` 绿（数没亮）——
+                //      「一开一关」正是「圆在 `_rowPieces` 里、数不在」的形状。
                 bool heroRow = on && shown[firstRow + i].Type == "hero";
                 // 🔴 **2026-10-21（`A1720`）：槽 0 那**两套件**二选一** ——
                 //   本行装的是督军（`heroRow`）就开督军档 `row_0/row_g0/row_b0`，否则开卡行档
@@ -4162,7 +4187,10 @@ namespace CardPresentation
                 //   **现在这一刻**的世界矩形（`MenuDraw.QuadRectPx` / `ClipCellToBand`），搬之前跑会按旧位裁。
                 //   ⚠️ 它只动**几何与可见性**（截矩形 + 截 uv，整块出框的只 `SetActive(false)`），
                 //   着色/文字都在上面已经落定 ⇒ 两边互不覆盖。
-                ClipRowToBand(i, y, heroPiece);
+                // 🔴 **2026-10-14（红 6）**：第 4 个实参 = 「**与档无关那几件（费用圆）该不该显示**」——
+                //   必须与上面 `SetOn(_deckRowCost[i], on && !heroRow)` 那句**同一个值**
+                //   （⛔ 别写死 `true`：那样督军行的圆会被裁切那一支重新点亮）。
+                ClipRowToBand(i, y, heroPiece, on && !heroRow);
                 ClipRowLabels(i);
             }
 

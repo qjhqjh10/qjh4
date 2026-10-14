@@ -1,0 +1,477 @@
+{
+ "note": "天赋造哪一张（原版 unitsToSummon 候选表；n>1 = 随机挑一张）。键 = 我们卡池 id。由 工具/gen_talent_cards.py 生成，⛔ 别手改。",
+ "source": "原版 cards_1195_2022时代.json 的 cardAbilities[trigger==46].abilityLogic[0].summonCriteria.unitsToSummon",
+ "count": 78,
+ "entries": [
+  {
+   "id": "AM1",
+   "talents": [
+    "AM_Lord_Commander"
+   ]
+  },
+  {
+   "id": "AM15",
+   "talents": [
+    "AM_Cadian_Honour"
+   ]
+  },
+  {
+   "id": "AM2",
+   "talents": [
+    "AM_Legendary_Commandant"
+   ]
+  },
+  {
+   "id": "AM27",
+   "talents": [
+    "AM_Renowned_Bodyguard"
+   ]
+  },
+  {
+   "id": "ASH1",
+   "talents": [
+    "ASH_Path_of_the_Seer"
+   ]
+  },
+  {
+   "id": "ASH19",
+   "talents": [
+    "ASH_Witchfire"
+   ]
+  },
+  {
+   "id": "ASH2",
+   "talents": [
+    "ASH_Path_of_the_Warrior"
+   ]
+  },
+  {
+   "id": "ASH29",
+   "talents": [
+    "ASH_Path_of_the_Warrior"
+   ]
+  },
+  {
+   "id": "ASH3",
+   "talents": [
+    "ASH_Path_of_Command"
+   ]
+  },
+  {
+   "id": "ASH34",
+   "talents": [
+    "ASH_Wrath_of_Khaine"
+   ]
+  },
+  {
+   "id": "ASH74",
+   "talents": [
+    "ASH_Storm_of_Silence"
+   ]
+  },
+  {
+   "id": "ASH76",
+   "talents": [
+    "ASH_Empyric_Ambush"
+   ]
+  },
+  {
+   "id": "ASH79",
+   "talents": [
+    "ASH_Flickerjump"
+   ]
+  },
+  {
+   "id": "BL22",
+   "talents": [
+    "BL_Rites_of_Possession"
+   ]
+  },
+  {
+   "id": "BL23",
+   "talents": [
+    "BL_Diabolic_Strength",
+    "BL_Infernal_Gaze",
+    "BL_Unhallowed_Gifts"
+   ]
+  },
+  {
+   "id": "BL35",
+   "talents": [
+    "BL_Helspear_Assault"
+   ]
+  },
+  {
+   "id": "BL65",
+   "talents": [
+    "BL_Litany_of_Despair"
+   ]
+  },
+  {
+   "id": "BL67",
+   "talents": [
+    "BL_Bitter_Blows"
+   ]
+  },
+  {
+   "id": "DA31",
+   "talents": [
+    "DA_Master_Interromancer"
+   ]
+  },
+  {
+   "id": "DA36",
+   "talents": [
+    "DA_Master_of_Manoeuvre"
+   ]
+  },
+  {
+   "id": "EC55",
+   "talents": [
+    "EC_Duelist_s_Hubris_Lucius_Talent"
+   ]
+  },
+  {
+   "id": "EC56",
+   "talents": [
+    "EC_Euphoric_Strike_Lord_Exultant_s_Talent"
+   ]
+  },
+  {
+   "id": "EC57",
+   "talents": [
+    "EC_Excessive_Vigour_Daemon_Prince_s_Talent"
+   ]
+  },
+  {
+   "id": "GOF18",
+   "talents": [
+    "GOF_Sawbonez"
+   ]
+  },
+  {
+   "id": "GOF21",
+   "talents": [
+    "GOF_Mekaniak"
+   ]
+  },
+  {
+   "id": "GOF23",
+   "talents": [
+    "GOF_Follower_of_Gork"
+   ]
+  },
+  {
+   "id": "GOF27",
+   "talents": [
+    "GOF_Worst_Temper"
+   ]
+  },
+  {
+   "id": "GOF28",
+   "talents": [
+    "GOF_Greatest_Warboss"
+   ]
+  },
+  {
+   "id": "GOF29",
+   "talents": [
+    "GOF_Da_Red_Waaagh"
+   ]
+  },
+  {
+   "id": "GOF75",
+   "talents": [
+    "GOF_Uge_Choppa"
+   ]
+  },
+  {
+   "id": "GOF76",
+   "talents": [
+    "GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent"
+   ]
+  },
+  {
+   "id": "GOF77",
+   "talents": [
+    "GOF_Ferocious_Rage_Beastboss_Talent"
+   ]
+  },
+  {
+   "id": "GOF87",
+   "talents": [
+    "GOF_Special_Dose_Zodgrod_Wortsnagga_Talent"
+   ]
+  },
+  {
+   "id": "GOF92",
+   "talents": [
+    "GOF_Waaagh_Energy_Weirdboy_Talent"
+   ]
+  },
+  {
+   "id": "GOF94",
+   "talents": [
+    "GOF_Dok_s_Toolz_Painboss_talent"
+   ]
+  },
+  {
+   "id": "GSC1",
+   "talents": [
+    "GSC_Inscrutable_Cunning"
+   ]
+  },
+  {
+   "id": "GSC10",
+   "talents": [
+    "GSC_Experimental_Bio_Horrors"
+   ]
+  },
+  {
+   "id": "GSC2",
+   "talents": [
+    "GSC_Brood_Prophet"
+   ]
+  },
+  {
+   "id": "GSC21",
+   "talents": [
+    "GSC_Vox_Hacker"
+   ]
+  },
+  {
+   "id": "GSC37",
+   "talents": [
+    "GSC_Deadliest_Killer"
+   ]
+  },
+  {
+   "id": "SAU19",
+   "talents": [
+    "SAU_Reanimate"
+   ]
+  },
+  {
+   "id": "SAU20",
+   "talents": [
+    "SAU_Reanimate"
+   ]
+  },
+  {
+   "id": "SAU24",
+   "talents": [
+    "SAU_Reanimate"
+   ]
+  },
+  {
+   "id": "SAU28",
+   "talents": [
+    "SAU_Reanimate"
+   ]
+  },
+  {
+   "id": "SAU29",
+   "talents": [
+    "SAU_Indomitable_Will"
+   ]
+  },
+  {
+   "id": "SAU34",
+   "talents": [
+    "SAU_Particle_Whip"
+   ]
+  },
+  {
+   "id": "SAU35",
+   "talents": [
+    "SAU_Lord_of_the_Storm"
+   ]
+  },
+  {
+   "id": "SAU36",
+   "talents": [
+    "SAU_Relentless_March"
+   ]
+  },
+  {
+   "id": "SAU37",
+   "talents": [
+    "SAU_Master_Chronomancer"
+   ]
+  },
+  {
+   "id": "SAU66",
+   "talents": [
+    "SAU_Hardwired_Destruction"
+   ]
+  },
+  {
+   "id": "SOR1",
+   "talents": [
+    "SOR_Fury_of_the_Righteous"
+   ]
+  },
+  {
+   "id": "SOR16",
+   "talents": [
+    "SOR_Hymn_of_Battle"
+   ]
+  },
+  {
+   "id": "SOR2",
+   "talents": [
+    "SOR_Lead_the_Righteous"
+   ]
+  },
+  {
+   "id": "SOR3",
+   "talents": [
+    "SOR_Righteous_Repugnance"
+   ]
+  },
+  {
+   "id": "SOR65",
+   "talents": [
+    "SOR_Daemonbreaker"
+   ]
+  },
+  {
+   "id": "SOR9",
+   "talents": [
+    "SOR_Hymn_of_Battle"
+   ]
+  },
+  {
+   "id": "TAU1",
+   "talents": [
+    "TAU_Hero_of_the_Empire"
+   ]
+  },
+  {
+   "id": "TAU12",
+   "talents": [
+    "TAU_Structural_Analyzer"
+   ]
+  },
+  {
+   "id": "TAU19",
+   "talents": [
+    "TAU_Serene_Unifier"
+   ]
+  },
+  {
+   "id": "TAU2",
+   "talents": [
+    "TAU_Ethereal_Supreme"
+   ]
+  },
+  {
+   "id": "TAU21",
+   "talents": [
+    "TAU_Homing_Beacon"
+   ]
+  },
+  {
+   "id": "TAU3",
+   "talents": [
+    "TAU_Drone_Companion"
+   ]
+  },
+  {
+   "id": "TAU36",
+   "talents": [
+    "TAU_Shield_Generator"
+   ]
+  },
+  {
+   "id": "TAU65",
+   "talents": [
+    "TAU_Grisly_Feast"
+   ]
+  },
+  {
+   "id": "TL23",
+   "talents": [
+    "TL_Aerial_Seeding"
+   ]
+  },
+  {
+   "id": "TL25",
+   "talents": [
+    "TL_Synaptic_Imperative"
+   ]
+  },
+  {
+   "id": "TL34",
+   "talents": [
+    "TL_Brood_Progenitor"
+   ]
+  },
+  {
+   "id": "TL35",
+   "talents": [
+    "TL_Hive_Commander"
+   ]
+  },
+  {
+   "id": "TL36",
+   "talents": [
+    "TL_Spirit_Leech"
+   ]
+  },
+  {
+   "id": "TL74",
+   "talents": [
+    "TL_Alpha_Warrior"
+   ]
+  },
+  {
+   "id": "TL_Psychophage",
+   "talents": [
+    "TL81"
+   ]
+  },
+  {
+   "id": "UM12",
+   "talents": [
+    "UM_Spear_of_Macragge"
+   ]
+  },
+  {
+   "id": "UM29",
+   "talents": [
+    "UM_Greatest_Deeds"
+   ]
+  },
+  {
+   "id": "UM46",
+   "talents": [
+    "UM_Master_Tactician"
+   ]
+  },
+  {
+   "id": "UM47",
+   "talents": [
+    "UM_Master_of_the_Fleet"
+   ]
+  },
+  {
+   "id": "UM48",
+   "talents": [
+    "UM_Master_of_Arcana"
+   ]
+  },
+  {
+   "id": "UM65",
+   "talents": [
+    "UM_Exhortation_of_Rage"
+   ]
+  },
+  {
+   "id": "UM76",
+   "talents": [
+    "UM_Exemplary_Warrior"
+   ]
+  }
+ ]
+}

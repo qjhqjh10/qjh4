@@ -237,6 +237,7 @@ class Program
         if (args.Length == 0)
         {
             Console.WriteLine("usage: seg <text...> | card <name> | scan <out> | check [baseline] | filter <kw> | "
+                              + "layers <out.jsonl> | "
                               + "willrun [dump <out>] | faith [dump <out>] | play <id|卡名> | play all [dump <out>] [pf <out>] | "
                               + "play check [<pf.txt>] | nonkw | jackal | emergency | suppressor | played | b19test");
             Environment.Exit(1);
@@ -245,6 +246,16 @@ class Program
         {
             Scan.ScanMain(new[] { args.Length > 1 ? args[1] : "scan.txt" });
             return;
+        }
+        // 🆕 **`layers <out.jsonl>`**（`A1877①`，2026-10-14 · 写手 `W16`）：把 `scan` 那**两条看不见的层**
+        //   （`CardDef.AuraSpecs` 光环 · `keywords`）连同**执行层 ops**（`EffectText.WillRunOps`）
+        //   摊成**一行一卡的 JSON** ⇒ `A1759` 那类对账口才判得了 `WhileInPlay` / `WhileInPlayVariable`
+        //   与 `bt=3 addTrait` 那几群。形状取舍（为什么不做成 `scan` 多几列）⇒ `Layers.cs` 类注。
+        //   ⚠️ 它**不改** `scan`/`check`/基线/三个指纹 ⇒ 别的写手的仪器不受影响。
+        //   ⚠️ 列名清单腐烂有机器级守卫（`Layers.AuraColsDrift`）；失败条数计入退出码。
+        if (args[0] == "layers")
+        {
+            Environment.Exit(Layers.Run(args.Length > 1 ? args[1] : "layers.jsonl"));
         }
         if (args[0] == "check" && !File.Exists(PoolPath)) { Console.Error.WriteLine("!! 找不到卡池：" + PoolPath); Environment.Exit(2); }
         int i = 0;
@@ -529,7 +540,8 @@ class Program
     }
 
     /// <summary>要追加到 op 尾部的**整块**：`/` ＋ `{T:…}`（＋ `DeathWatchTarget` 非空时的 `/{DW:…}`
-    /// ＋ `Target2` 非空时的 `/{T2:…}` ＋ **恒有的 `/{SRC:…}`**，见 <see cref="SourceText"/>）。
+    /// ＋ `Target2` 非空时的 `/{T2:…}` ＋ `AmountMax > 0` 时的 `/{AM:…}`
+    /// ＋ `Tail` 非空时的 `/{TAIL:…}` ＋ **恒有的 `/{SRC:…}`**，见 <see cref="SourceText"/>）。
     /// `Sentinel.Legacy` 按其中的 `/{T:` 把 legacy 那一段切出来（⇒ 后面那几个块一起被摘掉）。</summary>
     public static string TargetBlock(EffectOp op)
     {
@@ -548,11 +560,25 @@ class Program
         //      所以 `;` 的位置会往后挪）：**把新行里的 `/{T2:…}` 块删掉之后，必须与旧行【逐字节】相同**。
         //      本轮实测：扫描前后 8 个变化行**全部**满足（脚本：`re.sub(r'/\{T2:[^;]*', '', 新行) == 旧行`）。
         if (op.Target2 != null) s += "/" + TargetText(op.Target2, "T2");
-        // 🔴 **`A1568①`（`A1590②`）：`Source` 块【永远】打**（`Source == null` ⇒ `/{SRC:}`）。
-        //    为什么必须排在【所有块的最末尾】：`Sentinel.Legacy` 按 `/{T:` 切、`Tail()` 再**从后往前**
-        //    数尾部列 —— 排在 `/{T:` **前面**会让 `Legacy()` 把 `Source` 吞进 legacy 段，而 `Source`
-        //    是**卡面原文**（可含 `/`）⇒ `Tail()` 会**静默拿错列**（成本 / 货币名那两条哨兵当场失真）。
-        //    排在最末尾 ⇒ `Legacy()` 连同它一起摘掉，尾部列的位置**一个都不动**。
+        // 🔴 **2026-10-14（第二十八会话 · `W16` · 台账 `A1877②`）：补 `AmountMax` 与 `Tail` 两块。**
+        //   病灶（`资料/普查产出_第二十八会话/A1759_逐条对账.md` §查不清最后一行）：
+        //     `scan` 的 op **只打 `Amount`** ⇒ 原版那批**区间值**（`deals 1-2 damage`）在对账里
+        //     **只比得上下界**、上界整个看不见（`EffectOp.AmountMax` 是**另一个字段**，
+        //     `EffectText.cs:76`；消费点 `EffectResolver.cs:1817/2238/2267` 的 `Rng.Next(Amount, AmountMax+1)`）；
+        //     而 `Tail`（`EffectOp.Tail`，`EffectText.cs:119` —— `… and stun it` 那半句 **就存在这里**）
+        //     **三个 dump 入口一个都不打** ⇒ 「区间伤害」与「…and stun it」两族**没有仪器可证**。
+        //   ⚠️ 形状**照 `/{DW:…}` / `/{T2:…}` 那一条**（本仓既有做法）：
+        //     · **只在非默认值时打**（`AmountMax > 0` 才有区间；`Tail` 空 = 没有那半句）——
+        //       这样「只追加」这条自证形状还在：**把这两块删掉之后必须与旧行逐字节相同**；
+        //     · 排位**在 `/{T:…}` 之后、`/{SRC:…}` 之前** —— `Sentinel.Legacy()` 按 `/{T:` 切，
+        //       切点前面的一切都被摘掉 ⇒ **尾部七列的位置一个都不动**（`Tail()` 不受影响）；
+        //       ⚠️ 而 `/{SRC:…}` 必须**仍然排在最末尾**：哨兵 ⑧ 取 `o.Substring(k+6)` 再
+        //       `EndsWith("}")` —— 排在它后面会让那一格把本块也吞进去。
+        //     · **原样打、不转义**（同 `countRef`/`condition`/`Source`）：照 dump 抄进断言的值
+        //       必须与引擎字段**逐字相同**。⚠️ `Tail` 是**卡面原文**，自带 `;` 时那一行会被
+        //       `Ops()` 多切一刀（与 `Source` 同一条已知形状，哨兵 ⑧ 那一栏会如实报出来）。
+        if (op.AmountMax > 0) s += "/{AM:" + op.AmountMax + "}";
+        if (!string.IsNullOrEmpty(op.Tail)) s += "/{TAIL:" + op.Tail + "}";
         s += SourceText(op);
         return s;
     }
@@ -578,7 +604,7 @@ class Program
     /// <summary>🔴 **2026-10-11（第二十会话 · `A1462`）：嵌套 op 的唯一渲染口** ——
     /// `atturn` 的 `AtTurnOps` · `repeat` 的 `RepeatOps` · `paidmod` 的 `BaseOps`。
     ///
-    /// **为什么必须有**：`At the start of each turn attack a random non Flying enemy`（`GOF85`）
+    /// **为什么必须有**：`At the start of each turn attack a random non Flying enemy`（`GOF86`）
     /// 这句话的**目标规格不在顶层 op 上** —— 顶层只有一条 `atturn`（`Target = null`），
     /// 真正的正文解析在 `AtTurnOps[0].Target2` 里 ⇒ 顶层那几栏**看不出目标被解析成什么**
     /// （`A1462` 那条账「判不了」的第二个原因）。
@@ -724,7 +750,7 @@ class Sentinel
 {
     /// <summary>一条 op = `verb/chooseSrc/chooseWhat/chooseAct/amount/payload` ＋ **尾部七列**：
     /// `cost/shared/condKind/countRef/costKind/countScope/condition`（见 `Scan.cs` 文件头）。
-    /// 🔴 取尾部列**必须从后往前数** —— `payload` 里**可以**含 `/`（实测 `ASH65` 的
+    /// 🔴 取尾部列**必须从后往前数** —— `payload` 里**可以**含 `/`（实测 `ASH56` 的
     /// `<i>shuriken</i> 2` 就是，那条 op 有 14 个字段）⇒ 从前往后数下标会**静默拿错列**。
     /// 🔴 **2026-10-11 `A1477`：数之前必须先摘掉尾部的【目标块】** —— 块里是**卡面原文**
     ///   （`Raw`），它自己**可以**含 `/` ⇒ 不摘的话「从后往前数」也会**静默拿错列**

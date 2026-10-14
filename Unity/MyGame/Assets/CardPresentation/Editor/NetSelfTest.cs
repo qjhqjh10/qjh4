@@ -209,6 +209,11 @@ public static class NetSelfTest
             {
                 var cjkEn = new List<string>();
                 var blankEn = new List<string>();
+                // 🔴 **2026-10-14（铁律 5 · 收口自检 α）**：`MainMenu/Settings/LanguageName/*` 那几条**要豁免** ——
+                //   官方表里它们的**英文列就是各语言自己的写法**（`Japanese` = 「日本語」· `Chinese` = 「中文」…）
+                //   ⇒ 原版那颗 12 项语言下拉印的**就是本族文字**，不是「英文列混进汉字」。
+                //   （出处：`W4_官方文案族.md` —— 它把那一族 9 条换成了官方的本族名。）
+                var langNameExempt = new List<string>();
                 int nScan = 0;
                 foreach (System.Collections.DictionaryEntry de in tbl)
                 {
@@ -218,6 +223,8 @@ public static class NetSelfTest
                     var ef = ent.GetType().GetField("En");
                     string en = ef != null ? ef.GetValue(ent) as string : null;
                     if (string.IsNullOrEmpty(en)) { blankEn.Add((string)de.Key); continue; }
+                    if (((string)de.Key).StartsWith("MainMenu/Settings/LanguageName/"))
+                    { langNameExempt.Add((string)de.Key + " = 「" + en + "」"); continue; }   // 见上面那条豁免的理由
                     if (Loc.HasCjk(en)) cjkEn.Add((string)de.Key + " = 「" + en + "」");
                 }
                 // 扫到的条数必须与**公开口** `EntryCount` 相等（两处不同源）⇒ 抓「反射只扫到一部分」
@@ -228,6 +235,8 @@ public static class NetSelfTest
                    "★（P6·A1057(f)）**全表**英文列**一个 CJK 字符都没有**"
                  + "（`Loc.HasCjk` 的区间含 `U+3000-303F` / `U+FF00-FFEF`）"
                  + " —— ② 的 C1 只覆盖本批白名单，这一条才覆盖整张表"
+                 + "（⚠️ **豁免 `MainMenu/Settings/LanguageName/*`** —— 官方那几条的英文列**就是本族文字**，"
+                 + "现读豁免 " + langNameExempt.Count + " 条）"
                  + (cjkEn.Count > 0 ? "（命中 " + cjkEn.Count + " 条：" + string.Join(" · ", cjkEn.ToArray()) + "）" : ""));
                 Eq(blankEn.Count, 0,
                    "★（P6·A1057(f)）全表每条**都有英文列**（英文档下空串 = 那一处没字可显示）"

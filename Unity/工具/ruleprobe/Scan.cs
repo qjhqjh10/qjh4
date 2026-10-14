@@ -81,10 +81,32 @@ using RuleEngine;
 ///   ⚠️ **块必须排在 `/{T:…}` 【之后】**（`Program.TargetBlock` 末尾追加）：`Sentinel.Legacy`
 ///   按 `/{T:` 切、`Tail()` 再从**后往前**数尾部列 —— 排在前面会把**卡面原文**（可含 `/`）
 ///   吞进 legacy 段，`Tail()` 就**静默拿错列**了（成本 / 货币名两条哨兵当场失真）。
-///   排在最末尾 ⇒ `Legacy()` 连它一起摘掉，尾部列位置**一个都不动**。
+///   排在最末尾（`TargetBlock` 里那句 `s += SourceText(op);`）⇒ `Legacy()` 连它一起摘掉，
+///   尾部列位置**一个都不动**。
 ///   ⚠️ 形状失真（`Source` 原文自带 `;` / `/{T:`）由哨兵 ⑧ **出声但不算失败**（同 `Raw` 那条取舍）。
 ///
-/// ⚠️ 2026-10-18 收编时修了两处（原来那份在 D:/tmp/wf_b14_probe）：
+/// 🔴 **`A1877②`（2026-10-14 · 第二十八会话 · 写手 `W16`）：同「只追加」的形状，末尾再补两个块**
+///   —— `/{AM:n}`（`EffectOp.AmountMax > 0` 时）· `/{TAIL:…}`（`EffectOp.Tail` 非空时），
+///   渲染口 = `Program.TargetBlock`。病灶 = **区间伤害只比得上下界**、**「…and stun it」那半句
+///   根本没法比**（`A1759` 逐条对账的 §查不清最后一行点名）。
+///   ⚠️ **排位**：在 `/{T:…}` 之后、`/{SRC:…}` **之前** —— `Sentinel.Legacy` 按 `/{T:` 切，
+///     尾部七列位置**一个都不动**；而 `/{SRC:…}` 必须仍然**排在最末尾**（哨兵 ⑧ 靠它收尾）。
+///   ⚠️ **只在非默认值时打**（同 `/{DW:}` / `/{T2:}` 那条取舍）⇒「只追加」的自证形状还在：
+///     **把这两个块删掉之后，新行必须与旧行【逐字节】相同**。
+///   🔴 **本笔落地时【没有】重生成基线、也【没有】重钉三个指纹 —— 这是有意的。**
+///     2026-10-14 当次实测（脚本 `_tmp_view/w16_attr.py`，逐行比对、**不是**看 diff 行数）：
+///     新旧 dump 差 **201 行**，归因 = **A 类 115 行**（只多了本笔那两个块，删掉即逐字节相同）
+///     ＋ **B 类 86 行**（`unparsed`/`partial`/`ops` **真变了** —— 例 `AM1` 的 `Talent: Lord Commander`
+///     从「不解析」变成一条 `create` op；**那是另一个写手在改 `RuleEngine/Core/EffectText.cs`**，
+///     本件一个字节都没碰 `RuleEngine/**`）。
+///     ⇒ 按 `Program.PinnedParseMd5` 那条纪律「**重钉前必须先确认这批变化是对的**」，
+///       此刻重钉会把 **B 类那 86 行未经确认的漂移一起盖成绿**（正是哨兵 ⑦ 要抓的事）⇒ **不做**。
+///     ⇒ **下一步（建议由主对话在同步点做，等 B 类的改动被确认之后）**：
+///       ① `ruleprobe.sh scan 工具/ruleprobe/基线/out_baseline.txt`（重生成基线）；
+///       ② 手改 `Program.PinnedBaselineMd5`、`Program.PinnedParseMd5` 到 `check` 打出来的现值；
+///       ③ 跑 `check` ⇒ 应当「解析差异 0 行 · 哨兵 0 条失败 · rc=0」。
+///
+/// ⚠️ **2026-10-18 收编时修了两处**（原来那份在 D:/tmp/wf_b14_probe）：
 ///   ① 参数名 `kind` 其实是 `unparsed`（EffectText.Parse 的第二个 out）—— 名字叫反了，正名。
 ///   ② 原来写 `.Append(kind)` ⇒ 命中 `StringBuilder.Append(object)` ⇒ **每张卡都打成字面量
 ///      `System.Collections.Generic.List\`1[System.String]`**，等于那一列恒为常数、**白扔**。

@@ -18,7 +18,7 @@ using RuleEngine;
 ///     且 <see cref="CardDef.HandledByOtherLayer"/> **没认领**、且头形状过 `WillRun.IsPaidHead`。
 ///
 ///   ⇒ 两把尺子的**分母根本不同**（卡型范围 / 冒号要求 / 解不解得开 / 谁接手）。
-///     `A1452` 的射程原来写「11 条 / 9 张」用的是**尺子 Q**，而 `E5` 复核 `SOR72` 用的是**尺子 P**
+///     `A1452` 的射程原来写「11 条 / 9 张」用的是**尺子 Q**，而 `E5` 复核 `SOR71` 用的是**尺子 P**
 ///     ⇒ **19 条 / 17 张 vs 11 条 / 9 张**，看着像打架，其实是**两个问题**。
 ///
 /// 🔴 **本子命令把它拆开**：逐条列出两边各收到谁、差在哪、**差因**是什么；
@@ -31,7 +31,7 @@ using RuleEngine;
 ///    ⚠️ **是【子集检查】，不是相等**：④ 比 Q 多一道「腿 A（**它自己那条通道**）收没收到」的闸，
 ///    所以 `PaidSegments ⊆ Q` 成立、反向不成立。**不通过就出声并计入 rc**（⛔ 不许静默）。
 ///    🔴 **2026-10-11（`A1593`）**：那道闸原来是「全卡 `op` 签名并集比」⇒ 同一张卡**别的**
-///    ability 里出现过的同签名 op 会把这一段顶成「收到了」（`SOR28` / `SOR36` 两个实例）。
+///    ability 里出现过的同签名 op 会把这一段顶成「收到了」（`SOR22` / `SOR34` 两个实例）。
 ///    现在**按通道比**，并且 ④ 的名单**不再只有信仰**（付费货币没有通道的那些也会进来）
 ///    ⇒ §⑤ 只比**货币 = `faith`** 的那些（`PaidSegments` 的第 4 项就是为这一维加的）。
 ///
@@ -124,8 +124,8 @@ class FaithProbe
         // ---------- ④ 收集层覆盖（`CardDef.FaithOps`）—— **这一栏才是射程** ----------
         //
         //   🔴 判据 = **cost 的多重集**逐卡比：解析层（尺子 P，只取 `desc` 那些段）vs 收集层。
-        //      为什么比多重集而不是比条数：一张卡可以有**两段门槛不同**的信仰段（`SOR27` = 2 与 4、
-        //      `SOR68` = 2 与 4）⇒ 只比「有几条」会把「2↔4 张冠李戴」放过。
+        //      为什么比多重集而不是比条数：一张卡可以有**两段门槛不同**的信仰段（`SOR23` = 2 与 4、
+        //      `SOR67` = 2 与 4）⇒ 只比「有几条」会把「2↔4 张冠李戴」放过。
         //   ⚠️ 为什么**只拿 `desc` 的段**比：`FaithOps` 是从 `EffectText.Parse(Desc)` 收的，
         //      `keywords` 原文条目**不在它的输入里** ⇒ 拿 keywords 去比会假报「漏」。
         //   ⚠️ **`Parse(Desc)` 有跨句 `carry`**（本段没前缀时接着付上一段的前缀）⇒ 收集层**可能合法地
@@ -173,7 +173,7 @@ class FaithProbe
         //   ✅ **2026-10-11（`A1593`）：那第二道闸已经改成【按通道比】**（`WillRun.ClaimChannel`）
         //      —— 原来它按「**全卡** `op` 签名并集」比，`Sig()` 不带「属于哪条 ability」那一维
         //      ⇒ 同一张卡**别的** ability 里出现过的同签名 op 会把这一段顶成「收到了」。
-        //      两个实例（`SOR28` / `SOR36`）就**从没进过 ④ 的名单**。
+        //      两个实例（`SOR22` / `SOR34`）就**从没进过 ④ 的名单**。
         //      ⚠️ **那两条今天仍然不在 ④ 里，但理由变了**：`CardDef.FaithOps` 已接进
         //      `WillRunOps` ⇒ 它们的**信仰通道**确实收到了它们（自检见 `willrun` ⑦ 的断言 B）。
         //      🔴 **`A1452` 台账里「11 条 / 9 张」是那个**低报**的数**；形状口径 = **13 条 / 11 张**。
@@ -214,7 +214,7 @@ class FaithProbe
         else Console.WriteLine("   ✅ ④「付费段」档 = **0 条**（`CardDef.FaithOps` 已接进 `WillRunOps`）");
         Console.WriteLine("   ⚠️ 两个数**不相等是正常的**：`PaidSegments` 多一道「腿 A 一条都没收到」的闸。"
                           + "🔴 **那道闸 2026-10-11（`A1593`）已经改成【按通道（= 按 ability）比】** ——"
-                          + "原来它按全卡 `op` 签名并集比，`SOR28` / `SOR36` 那两条会被同一张卡的"
+                          + "原来它按全卡 `op` 签名并集比，`SOR22` / `SOR34` 那两条会被同一张卡的"
                           + "`Rally:` / `Pray:` 顶成「收到了」⇒ **④ 结构上少报那两条**（现已修，"
                           + "自检 = `willrun` ⑦ 的断言 A/B）。");
         Console.WriteLine();
@@ -245,16 +245,16 @@ class FaithProbe
         int nScFail = 0;
         Console.WriteLine("--- ⑥ 真打（夹具直调 `RuleCore.NewBattle` → `PlayCard`）：门槛 + 信仰【不许被扣】 ---");
         //   fixture 里 P1 场上没有单位 ⇒ 只挑**纯自身增益**的段，避免「自动选最弱敌人」那一档干扰。
-        nScFail += Scenario(pool, "SOR27", 0);
-        nScFail += Scenario(pool, "SOR27", 2);
-        nScFail += Scenario(pool, "SOR27", 6);
-        nScFail += Scenario(pool, "SOR11", 2);
-        nScFail += Scenario(pool, "SOR11", 3);
-        nScFail += Scenario(pool, "SOR68", 4);
-        nScFail += Scenario(pool, "SOR12", 4);
-        nScFail += Scenario(pool, "SOR12", 5);
-        nScFail += Scenario(pool, "SOR72", 6);
-        nScFail += Scenario(pool, "SOR40", 6);
+        nScFail += Scenario(pool, "SOR23", 0);
+        nScFail += Scenario(pool, "SOR23", 2);
+        nScFail += Scenario(pool, "SOR23", 6);
+        nScFail += Scenario(pool, "SOR7", 2);
+        nScFail += Scenario(pool, "SOR7", 3);
+        nScFail += Scenario(pool, "SOR67", 4);
+        nScFail += Scenario(pool, "SOR9", 4);
+        nScFail += Scenario(pool, "SOR9", 5);
+        nScFail += Scenario(pool, "SOR71", 6);
+        nScFail += Scenario(pool, "SOR38", 6);
         Console.WriteLine();
 
         int rc = 0;

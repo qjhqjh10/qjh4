@@ -7987,6 +7987,38 @@ namespace RuleEngine
                         unresolved.Add(op.Source + "（" + t.Name + " 没有 spiritstone）");
                         continue;
                     }
+                    // 🆕 2026-10-14（账 `A1874`）：**祈祷（`triggerPray`）**。
+                    // 🔴 **原版这一档【不是】「跑目标身上那条 `Pray:` 正文」** —— 别让它掉进下面那条通用路。
+                    //   判据（全量反编译，逐句读过）：`chosenAbility = 462` 的真身 =
+                    //   `AbilityLogic__PlayAbility.c:1838` `case 0x1ce:` →
+                    //   `BattleManager__AddTriggerPray` → `BattleManager__ResolveTriggerPray.c:266`
+                    //   `EntityScript__set_isPraying(target, 1)` ＋ `:305` `BroadcastUnitPray`
+                    //   ⇒ **让目标进入「正在祈祷」那一刻**，不结算任何 `Pray:` 正文。
+                    //   （读这个状态的是 `SOR70 Sororitas Rhino`「At the end of your turn,
+                    //     if any friendly unit is Praying, deploy a Sacred Rose Sister」那一类。）
+                    //   ⚠️ 掉进通用路的后果是**静默打错东西**：会把目标卡自己的 `Pray: …` 正文
+                    //     （`Deal 1 damage` / `Deploy a Celestian` …）当成「祈祷的响应」再跑一遍。
+                    //   ⚠️ 与 `RuleCore.UseAlternative(…, "pray")` **同一条语义**（那边也置 `Prayed`
+                    //     并发 `WhenEventKind.Prays`）—— 两条路各写一份？不是：这里发的是
+                    //     **「被外部触发」**那一支，`UseAlternative` 是**玩家/AI 主动激活**那一支，
+                    //     原版也是两个入口（`ResolveTriggerPray` vs 主动能力那条路）。
+                    if (kw == KeywordTable.Pray)
+                    {
+                        if (t.Card == null) continue;
+                        int towner = RuleCore.OwnerOf(ctx, t);
+                        if (!t.Prayed)
+                        {
+                            t.Prayed = true;      // = 原版 `EntityScript.set_isPraying(t, 1)`
+                            RuleCore.BroadcastWhen(ctx, WhenEventKind.Prays, towner, t.Card, t);
+                            ctx.Log($"{t.Name} 进入「正在祈祷」（`{op.Source}`）");
+                        }
+                        else
+                        {
+                            ctx.Log($"{t.Name} **本来就在祈祷**（`{op.Source}` 这一下是重复的，不重复广播）");
+                        }
+                        any = true;
+                        continue;
+                    }
                     if (RuleCore.TriggerKeywordOf(ctx, t, kw, forced: true)) { any = true; continue; }
                     ctx.Log($"{t.Name} 身上没有 `{kw}` 的正文/效果 —— 「{op.Source}」在它身上空过");
                     unresolved.Add(op.Source + "（" + t.Name + " 没有 " + kw + "）");

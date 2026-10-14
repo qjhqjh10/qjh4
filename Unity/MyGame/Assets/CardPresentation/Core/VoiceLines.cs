@@ -1,14 +1,20 @@
 // VoiceLines.cs — 原版**单位语音**的运行时索引（哪张卡、哪个事件、放哪条音频、说什么）
 //
 // 数据从哪来：
-//   · `Resources/voice_lines.json`（**进仓库**的分析产物）—— 由 `工具/import_original_audio.py`
-//     从 `d:/4/Unity/数据/索引/card_index.json` 的 `cards[].voice` + 音频源清点合并而成；
+//   · `Resources/voice_lines.json`（**进仓库**的分析产物）—— 由 `工具/import_original_audio.py` 生成。
+//     🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1831`/`A1832`）**：原来这里写「从 `card_index.json` 的
+//     `cards[].voice` + 音频源清点合并而成」—— **归属口径换了**：现在**以卡 SO 的
+//     `summonAudio`/`attackAudio`/`deathAudio` 为权威**（582 条），`card_index.json` 的 `cards[].voice`
+//     **降为兜底**（1208 条），名字对不上的仍按名猜但**标 `src:"orphan"`**（58 条；**9 条**四种来源都认不出）。
+//     ⚠️ 根因 = **`card_index.json` 它自己错了**（`d:/2/解包整理/` 那份 2026-08-15 的产物，那次卡 SO 还没解出来，
+//     它靠名字/目录对、对不上就**并到邻近那张卡**）⇒ 它在 `d:/2` **没改**，只降级。
+//     现读数与逐条对照 → `资料/普查产出_第二十八会话/W7_语音导入漏件与归属.md`。
 //   · 音频本体在 `Resources/Art/audio/vo/`（**被 .gitignore 排除**，和美术同一条规矩：
 //     原版资产不进仓库；重跑那个脚本就能再生）。
 //
 // ⚠️ **能查到的与查不到的**（`资料/战斗UI_原版对账表.md` §三·〇 :127）：
-//   · 查得到：**原版有哪些语音、哪条属于哪张卡**（`card_index.json` 的权威映射，
-//     595 张卡 / 1787 条，实测**一条不差**都找得到音频文件）；
+//   · 查得到：**原版有哪些语音、哪条属于哪张卡**（**卡 SO 是权威**；现读 **637 张卡** ——
+//     ~~595 张卡 / 1787 条~~ 是 2026-10-14 归属订正**之前**的读数，⛔ 别再用，现读数见 W7 报告）；
 //   · 查不到：**原版在什么时机播哪一条**。文件名后缀给出了候选集合
 //     （`greet / attack / death / concede / hurry / intro / mirror / threat / wp / gen1-7 / vs<对手>`），
 //     但没有任何代码或数据说「哪个事件对应哪个后缀」。
@@ -83,6 +89,180 @@ namespace CardPresentation
         {
             EnsureLoaded();
             return cardId != null && _byId != null && _byId.ContainsKey(cardId);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-14（A1817）逐卡**精确**语音绑定
+        //
+        //  🔴 **为什么要有这一档**：下面那整段「事件 → 后缀」**是我们定的**（原版只留下「这张卡
+        //     有哪些台词」，没留下「什么时机播哪一条」）。**但原版卡 SO 上有**：
+        //     `RawCardScript.summonAudio` / `attackAudio` / `deathAudio` 三个**逐卡**字段
+        //     （原值快照 `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json`，
+        //     解出 **505 / 41 / 42 条**）。它们以前**只进全量表、没进运行时**
+        //     （`工具/gen_card_vfx_by_card.py` 把 `_assetRefs` 整类跳过了）⇒ 表现层只能按
+        //     文件名后缀猜「这张卡这个事件该放哪条」。
+        //
+        //  **数据**：`Resources/card_vfx_by_card.json` 的 `cards[].audio`
+        //          （与 `数据/游戏数据/card_vfx_by_card.json` 由**同一次运行**产出 ⇒ 不会分叉）。
+        //  **取值**：**精确优先、猜的后缀兜底**（调用点 = `BattleDriver.SpeakFor`）——
+        //          ⛔ **不是替换**：精确表没覆盖的卡（约 580 张里没绑定的）照样走老后缀顺序。
+        //  ⚠️ **精确表 ≠ 我们的台词表**：同一条 `VO_*` 在我们表里可能**挂在别的卡名下**
+        //     （🔴 **2026-10-14 就地订正（铁律 5 · `A1832`）**：原来写「实测 34 处」——
+        //     归属改以**卡 SO** 为权威后共 **36 处**变化 = **32 条改判** + **4 条新进**，
+        //     例 `BL4`「Chaos Sergeant」的 `summonAudio` 原来被记在 `BL46` 名下；
+        //     ⚠️ 另订正一处：原写「有任意 audio 引用却不在表里 = 35 张」，**实为 34 张**
+        //     —— 多的那 1 张是 `BL47`，它唯一那条引用 `assetName` 是 **null**、没名字可对）
+        //     ⇒ **卡 SO 才是权威**（判据：卡名逐条对得上）。
+        //     气泡文字因此一律**按文件名反查**（`_textByFile`），不按卡 id 查。
+        //  ⚠️ ~~**精确命中的音频可能不在工程里**（`import_original_audio.py` 按 `card_index.json` 的引用导；
+        //     实测 **4 条** SO 引用不在 index 里）~~
+        //     🔴 **2026-10-14 更正（`A1831`）**：那 4 条**已补进工程** —— 导入器现在**也按卡 SO 的引用面导**
+        //     （`used_files` 先由它填，拷贝步自动带上）⇒ 现读「卡 SO 引用的音频缺件」= **0 条**。
+        //     仍保留那两档兜底（`Clip()` 出声 + 退回后缀）—— 防将来再出现缺件时静默。
+        // ==================================================================
+
+        /// <summary>逐卡精确绑定的**事件名**（= `cards[].audio[].ev` 的取值）。
+        /// 🔴 **翻译表只此一处** —— 生成侧 `工具/gen_card_vfx_by_card.py` 的 `AUDIO_SO_FIELD_EVENT`
+        /// （`summonAudio → deploy` · `attackAudio → attack` · `deathAudio → death`）。</summary>
+        public const string ExactDeploy = "deploy";   // ← 原版卡 SO `summonAudio`
+        /// <inheritdoc cref="ExactDeploy"/>
+        public const string ExactAttack = "attack";   // ← 原版卡 SO `attackAudio`
+        /// <inheritdoc cref="ExactDeploy"/>
+        public const string ExactDeath = "death";     // ← 原版卡 SO `deathAudio`
+        /// <summary>精确档认的三个事件 —— **唯一一份**（自检遍历它，⛔ 别在别处再抄一遍）。</summary>
+        public static readonly string[] ExactEvents = { ExactDeploy, ExactAttack, ExactDeath };
+
+        // ---- 运行时那份 JSON 的形状（**数组**，`JsonUtility` 不支持字典）----
+        //  ⚠️ **只声明本档用得上的字段**：`JsonUtility` 会忽略 DTO 里没有的键 ⇒
+        //     同一个文件里 `cards[].events`（`VfxMap` 那份）在这儿**不会被读**，互不干扰。
+        [System.Serializable] class RtAudio { public string ev; public string n; }
+        [System.Serializable] class RtCard { public string id; public RtAudio[] audio; }
+        [System.Serializable] class RtFile { public string[] confPriority; public RtCard[] cards; }
+
+        static Dictionary<string, Dictionary<string, string>> _exactById;
+        /// <summary>音频文件名（去扩展名）→ 台词原文 —— 专给**精确命中**那一条反查气泡文字用。</summary>
+        static Dictionary<string, string> _textByFile;
+        static bool _triedExact;
+
+        /// <summary>精确表读进来了没有（读不出来时 <see cref="ExactError"/> 里是人话）。
+        /// ⚠️ 与 <see cref="Ready"/> 同一条规矩：**自己先 `EnsureExactLoaded()`**，别答「没有」。</summary>
+        public static bool ExactReady { get { EnsureExactLoaded(); return ExactEntries > 0; } }
+        /// <summary>读失败的原因（**不静默**：自检会把它打出来）</summary>
+        public static string ExactError { get; private set; }
+        /// <summary>有精确绑定的卡数 / 条数（自检用）</summary>
+        public static int ExactCards { get { EnsureExactLoaded(); return _exactById != null ? _exactById.Count : 0; } }
+        public static int ExactEntries { get; private set; }
+        /// <summary>所有有精确绑定的卡 id（自检用它遍历，⛔ 别自己去读 JSON 再算一遍）</summary>
+        public static IEnumerable<string> ExactCardIds
+        {
+            get
+            {
+                EnsureExactLoaded();
+                return _exactById != null ? (IEnumerable<string>)_exactById.Keys : new string[0];
+            }
+        }
+
+        static void EnsureExactLoaded()
+        {
+            if (_triedExact) return;
+            _triedExact = true;                    // 失败也只试一次（别每帧重试）
+
+            // ⚠️ 资源路径**借用 `VfxMap` 的那一个常量** —— 同属 `CardPresentation`，
+            //    在这里另写一份字符串就会变成「两处各记一次」（本仓红线）。
+            var asset = Resources.Load<TextAsset>(VfxMap.CardTableResourcePath);
+            if (asset == null)
+            {
+                ExactError = $"`Resources/{VfxMap.CardTableResourcePath}.json` 没读到 ⇒ 逐卡精确语音这一档"
+                           + "**不起作用**（退回按后缀猜的那一套）。重跑："
+                           + "\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_card_vfx_by_card.py";
+                Debug.LogWarning("[VoiceLines] " + ExactError);
+                return;
+            }
+            RtFile db;
+            try { db = JsonUtility.FromJson<RtFile>(asset.text); }
+            catch (System.Exception e)
+            {
+                ExactError = $"`Resources/{VfxMap.CardTableResourcePath}.json` 解析失败：{e.Message} ⇒ "
+                           + "逐卡精确语音这一档不起作用（退回后缀兜底）";
+                Debug.LogError("[VoiceLines] " + ExactError);
+                return;
+            }
+            if (db == null || db.cards == null)
+            {
+                ExactError = $"`Resources/{VfxMap.CardTableResourcePath}.json` 里没有 `cards` ⇒ 逐卡精确语音不起作用";
+                Debug.LogError("[VoiceLines] " + ExactError);
+                return;
+            }
+
+            _exactById = new Dictionary<string, Dictionary<string, string>>();
+            int n = 0;
+            foreach (var c in db.cards)
+            {
+                if (c == null || string.IsNullOrEmpty(c.id) || c.audio == null) continue;
+                Dictionary<string, string> m;
+                if (!_exactById.TryGetValue(c.id, out m))
+                {
+                    m = new Dictionary<string, string>();
+                    _exactById[c.id] = m;
+                }
+                foreach (var a in c.audio)
+                {
+                    if (a == null || string.IsNullOrEmpty(a.ev) || string.IsNullOrEmpty(a.n)) continue;
+                    m[a.ev] = a.n;                 // 同一 (卡, 事件) 生成侧已去重（取第一条）
+                    n++;
+                }
+            }
+            ExactEntries = n;
+
+            // 气泡文字的反查表 —— 从**已经载入的**台词表建（同一次懒加载，不另读文件）
+            EnsureLoaded();
+            _textByFile = new Dictionary<string, string>();
+            if (_byId != null)
+                foreach (var kv in _byId)
+                {
+                    var c = kv.Value;
+                    if (c == null || c.lines == null) continue;
+                    foreach (var l in c.lines)
+                    {
+                        if (l == null || string.IsNullOrEmpty(l.file) || string.IsNullOrEmpty(l.text)) continue;
+                        var k = System.IO.Path.GetFileNameWithoutExtension(l.file);
+                        if (!_textByFile.ContainsKey(k)) _textByFile[k] = l.text;
+                    }
+                }
+
+            Debug.Log($"[VoiceLines] 逐卡精确语音表已载入：{_exactById.Count} 张卡 / {n} 条"
+                    + $"（`Resources/{VfxMap.CardTableResourcePath}.json` 的 `cards[].audio`）");
+        }
+
+        /// <summary>**精确档**：原版卡 SO 给这张卡的**这个事件**绑定的那一条音频。
+        /// 返回 false = 这张卡在这个事件上**没有**精确绑定（⇒ 调用方退回后缀兜底）。
+        /// <paramref name="text"/> 是气泡文字（按**文件名**反查台词表；查不到给 null，
+        /// 调用方会印卡名 —— **不是静默**，见 `UnitChatPanel.Speak`）。</summary>
+        public static bool TryPickExact(string cardId, string evt, out string clipName, out string text)
+        {
+            clipName = null; text = null;
+            if (string.IsNullOrEmpty(cardId) || string.IsNullOrEmpty(evt)) return false;
+            EnsureExactLoaded();
+            if (_exactById == null) return false;
+            Dictionary<string, string> m;
+            if (!_exactById.TryGetValue(cardId, out m)) return false;
+            if (!m.TryGetValue(evt, out clipName) || string.IsNullOrEmpty(clipName)) { clipName = null; return false; }
+            if (_textByFile != null)
+                _textByFile.TryGetValue(System.IO.Path.GetFileNameWithoutExtension(clipName), out text);
+            return true;
+        }
+
+        /// <summary>精确档的**事件名 → 后缀顺序**（= 兜底那一套）。给「精确 miss 之后退哪儿」用，
+        /// 也给自检算「精确值 vs 后缀兜底值」用。认不出的事件返回 null。</summary>
+        public static string[] SuffixOrderFor(string evt)
+        {
+            switch (evt)
+            {
+                case ExactDeploy: return ForDeploy;
+                case ExactAttack: return ForAttack;
+                case ExactDeath:  return ForDeath;
+            }
+            return null;
         }
 
         // ==================================================================

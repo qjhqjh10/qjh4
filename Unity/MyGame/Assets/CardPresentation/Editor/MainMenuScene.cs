@@ -1058,6 +1058,58 @@ public static class MainMenuScene
                 }
             }
         }
+        // ★ 2026-10-14（A1814）：顶栏 4 颗钮的命中区 = **原版那件自己的矩形 + `Graphic.m_RaycastPadding`**
+        // 判据 = `GraphicRaycaster.cs:327`（射线认 rectTransform + raycastPadding；`m_PreserveAspect` 只改网格）。
+        // 期望值一律由**原版字面量现算**（⛔ 不读 `TopBar` 的 `*Box/*Pad`；我们那两个常量取整到 0.1 ⇒ 差 ≤0.04px）。
+        {
+            var plA = PointerLayer.Instance;
+            var qGear = FindChild(FindChild(bar, "SettingsBtn"), "Image");
+            var qInbox = FindChild(FindChild(FindChild(bar, "TopBarButtons"), "InboxBtn"), "40K_notification");
+            var qChal = FindChild(FindChild(bar, "TopBarButtons"), "Challenge button");
+            var qFb = FindChild(FindChild(bar, "TopBarButtons"), "Feedback Button");
+            WindowButton Btn(Transform t) => t != null ? t.GetComponentInChildren<WindowButton>(true) : null;
+            var bG = Btn(qGear); var bI = Btn(qInbox); var bC = Btn(qChal); var bF = Btn(qFb);
+            CheckTrue(plA != null && bG != null && bI != null && bC != null && bF != null,
+                      "★ A1814 前置：指针层在、那 4 颗钮都在（否则下面几条等于没查）");
+            void Geom(WindowButton b, string what, float cx, float cy, float hx, float hy)
+            {
+                Vector2 c, h; ImageQuad dq;
+                bool ok = PointerLayer.HitBoxForTest(b, out c, out h, out dq);
+                CheckTrue(ok && Mathf.Abs(c.x - cx) < 0.1f && Mathf.Abs(c.y - cy) < 0.1f
+                             && Mathf.Abs(h.x - hx) < 0.1f && Mathf.Abs(h.y - hy) < 0.1f,
+                          "★ A1814①：" + what + $" —— 实得中心 ({(ok ? c.x : 0f):F2}, {(ok ? c.y : 0f):F2})、半宽半高 ({(ok ? h.x : 0f):F2}, {(ok ? h.y : 0f):F2})");
+            }
+            if (bG != null)
+            {
+                Geom(bG, "齿轮 87.78×61.73 + pad(-4.38,-18.10,-9.70,-17.86) ⇒ **101.86×97.69** · 心(1849.66,35.62)", 1849.66f, 35.62f, 50.93f, 48.845f);
+                Geom(bI, "信封 55×40 + pad(-6.28,-23.00,-5.70,-23.00) ⇒ **66.98×86.00** · 心(452.51,35.50)", 452.51f, 35.50f, 33.49f, 43.00f);
+                // 挑战 / 反馈**出厂关着**（`HitQuad` 要激活链 ⇒ 量不到）⇒ 临时开一下量、量完关回去
+                qChal.gameObject.SetActive(true);
+                Geom(bC, "挑战 47.464² + pad(-4.14,-10.10,-5.22,-10.40) ⇒ **56.82×67.96** · 心(514.36,35.33)", 514.36f, 35.33f, 28.42f, 33.98f);
+                qChal.gameObject.SetActive(false);
+                qFb.gameObject.SetActive(true);
+                Geom(bF, "反馈 50² + pad(-4.35,-17.90,-5.18,-18.30) ⇒ **59.53×86.20** · 心(590.86,35.30)", 590.86f, 35.30f, 29.76f, 43.10f);
+                qFb.gameObject.SetActive(false);
+                // ②③ 两态 + 灭自证（走**真命中路** `ButtonAt`；判据 = 这一点上到底是谁）
+                var probes = new (float X, float Y, WindowButton B, bool Want, string Why)[]
+                {
+                    (1890.0f, 35.5f, bG, true,  "齿轮**右侧**：原版右缘 1900.59 之内 10.6px、我们**改前**那 61.73² 的右缘 1877.88 之外 12.1px ⇒ **改前必红**"),
+                    (1847.0f, 78.0f, bG, true,  "齿轮**下方**（第二个轴）：原版下缘 84.46 之内 6.5px、改前下缘 66.4 之外 11.6px"),
+                    (1903.0f, 35.5f, bG, false, "**灭自证**：出原版右缘 2.4px ⇒ 不许再吃到齿轮（挡「整块放大」那种反向改坏）"),
+                    (1847.0f, 86.0f, bG, false, "同轴灭自证：出原版下缘 1.5px ⇒ 不许是齿轮（⚠️ 那点上有顶栏聊天区 x[1811,1879] y[81.8,148.3] 盖着 ⇒ **只断「不是齿轮」**，⛔ 不断 null）"),
+                    (423.0f, 35.5f, bI, true,  "信封**左侧**：原版左缘 419.02 之内、改前左缘 427.09 之外 4.1px"),
+                    (452.5f, 70.0f, bI, true,  "信封**下方**：原版下缘 78.50 之内 8.5px、改前下缘 55.5 之外 14.5px"),
+                    (418.0f, 35.5f, bI, false, "**灭自证**：出原版左缘 1.0px ⇒ 不许再吃到信封"),
+                    (452.5f, 82.0f, bI, false, "同轴灭自证：出原版下缘 3.5px ⇒ 不许是信封"),
+                };
+                for (int i = 0; i < probes.Length; i++)
+                {
+                    var p = probes[i]; var got = plA.ButtonAt(p.X, p.Y);
+                    CheckTrue(p.Want ? got == p.B : got != p.B,
+                              "★ A1814②：" + p.Why + $"（点 ({p.X}, {p.Y})；实得 " + (got == null ? "<空点>" : "`" + got.name + "`") + "）");
+                }
+            }
+        }
         CheckAt(FindChild(FindChild(bar, "TopBarButtons"), "Image"), 425.3f, 480.3f, 15.5f, 55.5f,
                 "`InboxBtn`（HLG 算的值，**不是 JSON 的 397.8**）");
         CheckAt(FindChild(FindChild(bar, "TopBarButtons"), "Challenge button"), 490.1f, 537.6f, 11.8f, 59.2f,
@@ -4472,8 +4524,10 @@ public static class MainMenuScene
                         CheckTrue(ProfileData.Avatars.Count == 469,
                                   $"头像条数 = **469**（实数；已排除 `Avatar_WF_*` 两张占位图）——实得 {ProfileData.Avatars.Count}");
                         CheckTrue(TitleTab.Titles.Count == 0 || TitleTab.Titles[0].Name.Length > 0,
-                                  "称号有显示名（**我们是从资源名反推的**：`Title_UM_Premium_1` → `UM Premium 1`，"
-                                  + "原版真名在远端 I2 语言表）");
+                                  "称号有显示名（🔴 **2026-10-14（`A1803`）订正**：原来这条的说明写「我们是从资源名反推的"
+                                  + "（`Title_UM_Premium_1` → `UM Premium 1`）、原版真名在远端 I2 语言表」——"
+                                  + "**今天官方 zh-CN 表已解开** ⇒ 显示名先走 `Loc.BulkOr(\"Titles/\" + <32hex id>, 反推名)`"
+                                  + "（现读 368/462 命中），**反推名只剩兜底**）");
                         // 表格按视口裁：462 条 × 3 列 = 154 行，一屏只该建出看得见的那几行
                         var grid = FindChild(scr, "Item Drawer");
                         int built = grid != null ? grid.childCount : -1;

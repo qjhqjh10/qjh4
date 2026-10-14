@@ -24,7 +24,42 @@ bash d:/4/Unity/工具/ruleprobe.sh play all pf /tmp/play.pf.txt  # 🆕 写结�
 bash d:/4/Unity/工具/ruleprobe.sh play check                    # 🆕 结算层对拍（逐卡差异 + 哨兵）
 bash d:/4/Unity/工具/ruleprobe.sh faith      # 🆕 信仰付费段的【两把尺子】对账 + 真打（见下节）
 bash d:/4/Unity/工具/ruleprobe.sh nonkw      # 🆕 `non <关键词>` 的目标筛选专用探针（见下节）
+bash d:/4/Unity/工具/ruleprobe.sh layers /tmp/layers.jsonl   # 🆕 光环/关键词/执行层 ops 的 JSONL dump（见下节）
 ```
+
+## `layers` —— `AuraSpecs` / `keywords` / 执行层 ops（🆕 `A1877①`，2026-10-14 · 写手 `W16`）
+
+**为什么有它**：`scan` 打的 ops 列走的是 `EffectText.Parse(desc)`（**主解析器**），
+而**光环（`CardDef.AuraSpecs`）与 `keywords` 驱动的机制是【另一层】，结构上不进那个口**。
+`A1759` 那条「原版 `abilityLogic[]` 逐条对账」因此把 `WhileInPlay`(7) / `WhileInPlayVariable`(17)
+那一族 24 条判成「我们缺」——**很可能是口径缺口，不是实现缺口**（`bt=3 addTrait` 那一群同理）。
+
+```bash
+bash d:/4/Unity/工具/ruleprobe.sh layers D:/4/_tmp_view/layers.jsonl
+# wrote … cards=1126 auras=40 willrunOps=1331 rawKeywords=1038
+```
+
+**一行一卡的 JSON**（`json.loads` 直接吃，⛔ 不用再写转义层）。逐卡字段：
+
+| 键 | 是什么 |
+|---|---|
+| `id` / `name` / `type` / `subtype` | 卡标识（**按 `id` 与 `scan` join**） |
+| `kw` | `keywords` 的**原文条目**（`Program.PoolRawKeywords`，与卡池**同序**）—— 规范化键看不到 `"Talent: Cadian Honour"` 这种整条 |
+| `kwKeys` | `CardDef.Keywords`（规范化键 → 值） |
+| `auras` | `CardDef.AuraSpecs` **逐字段**（列名与顺序写死在 `Layers.AuraCols`；`Head`/`Payload`/`Duration`/`CostLess`/`Adjacent`/`Enemy`/`ExcludeSelf`/`Self`/`RemnantStay`/`Filter`/`Source`） |
+| `ch` | 六个通道的**条数**（`trig`/`when`/`spirit`/`oath`/`faith`/`attacked`）—— 「哪一层有东西」一眼可见 |
+| `willrun` | `EffectText.WillRunOps(c)`（**执行层**，含由光环合成的 `give` op）＋ `n2`(`AmountMax`) / `tail`(`Tail`) |
+
+**现读（2026-10-14，池 1126 张）**：带光环的卡 **40 张 / 40 条**。
+⚠️ **`auras` 全空会【出声】**（要么工程里真没有，要么探针造卡时没走 `CardDef` 的收集链）；
+⚠️ **列名清单会腐烂** —— `AuraSpec` 加了字段没跟进 `Layers.AuraCols` ⇒ `AuraColsDrift()` 出声（机器级守卫，形状照 `Program.TargetColsDrift`）。
+
+🔴 **重跑 `A1759` 那类对账会多判出多少条**（本件实测，只读复算）：`WhileInPlay` 族 **40 条**里
+`🔴真差异 30`（`我们缺 26`）。那 30 条中 **28 条的卡在【光环层】里有对照物**且载荷明显对得上
+—— 例 `TAU19` 原版 `buff{addTrait vanguard}` ↔ 我们光环 `Vanguard` ·
+`AM72` `addTrait flank` ↔ `Flank` · `UM14` `armour+1` ↔ `Armour 1` · `BL18` `addTrait vulnerable` ↔ `Vulnerable 1`。
+⇒ **28/30 是仪器缺口**（拿 `scan` 那一个口判「我们缺」判错了层）。
+另：`addTrait` 一族 🔴 **42 条**里 **10 条**的卡在光环层有东西。
 
 判据 = **看那行 `=== 全池 … 解析差异 N 行 … ===`**：
 ⚠️ 🆕 **2026-10-12（`A1382`）：它只说了一半** —— 除「与基线比」之外还有一组

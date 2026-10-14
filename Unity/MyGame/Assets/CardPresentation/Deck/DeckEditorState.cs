@@ -246,9 +246,12 @@ namespace CardPresentation
             if (c.Type == "defence")
                 return Deck.DefensiveId == null ? DeckError.None : DeckError.DefensiveAlreadySet;
 
-            // 🆕 2026-09-27（用户拍板）：**效果生成的卡**（药剂/破坏/秘仪）不能放进卡组。
-            //    判据只此一处 = `DeckRules.IsEffectOnly`（`Validate` 那边也调它）。
-            if (DeckRules.IsEffectOnly(c.Subtype)) return DeckError.EffectOnlyCard;
+            // 🔴 **2026-10-14（`A1798`）改口径**：原来是「用户 2026-09-27 拍板的、按兵种猜的三类
+            //    （药剂/破坏/秘仪）」。现在改用**原版真值**：判据只此一处 = `DeckRules.CannotAddToDeck`
+            //    （原版 `DeckUtility__ValidateDeckCards.c:68-77`，`inventoryOptions` / `showInCollectionOptions`）。
+            //    ⚠️ 那个函数**内部**已经照原版把 hero / 防御卡路由走（`CanAddCard.c:32-39`），
+            //    所以这里不必再自己挡一遍（上面那两行早返回的仍在，是**槽位**口径不是准入口径）。
+            if (DeckRules.CannotAddToDeck(c)) return DeckError.EffectOnlyCard;
 
             if (Deck.CardIds.Count >= MaxDeckCount) return DeckError.TooManyCards;
 
@@ -352,9 +355,10 @@ namespace CardPresentation
                 {
                     if (wl == null) { if (c.Type != "hero") continue; }                 // 还没督军 ⇒ 只列督军
                     else if (!DeckRules.SameFaction(c.Faction, wl.Faction)) continue;   // 定了 ⇒ 只列该阵营
-                    // 🆕 2026-09-27（用户拍板）：**效果生成的卡**（药剂/破坏/秘仪）**不进卡池** ——
-                    //    它们是「打牌时被效果生成出来」的，不是拿来构筑的。判据 = `DeckRules.IsEffectOnly`。
-                    if (DeckRules.IsEffectOnly(c.Subtype)) continue;
+                    // 🔴 **2026-10-14（`A1798`）改口径**：原来按兵种猜的「效果生成的卡」三类，现在走
+                    //    **原版真值**（`inventoryOptions` / `showInCollectionOptions`）。判据 = `DeckRules.CannotAddToDeck`
+                    //    —— 它内部照原版把 hero / 防御卡路由走 ⇒ **防御卡照旧留在卡池里**（用户 2026-09-27 指出的那条）。
+                    if (DeckRules.CannotAddToDeck(c)) continue;
                 }
                 if (needle != null && !NameSearchMatch(c, needle))
                     continue;

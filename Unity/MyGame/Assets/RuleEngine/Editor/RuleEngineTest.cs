@@ -383,6 +383,18 @@ public static partial class RuleEngineTest
         Section("黑暗契约（Q4）：卡面提到 `Dark Pact` ⇒ 那四张契约也要列进相关卡");
         Step(TestDarkPactRelated);
 
+        Section("🆕 相关卡接**原版真值**（`A1796`）：详情窗 + 伴生部队两个消费者都吃 `relatedCard1..4`");
+        Step(TestRelatedCardsTruth);
+
+        Section("🆕 `W10` 引擎线五条账（`A1866` 存档旧卡组逐张摘除 · `A1867` 自动凑牌 · `A1774` `Duty` 张数 · `A1775` 先后手按真值）");
+        Step(TestW10EngineLine);
+
+        Section("🆕 `W15` 引擎线·天赋（`A1873`）：`Talent: <名>` 解析成 `create` + 真值表定「造哪一张」");
+        Step(TestW15TalentLine);
+
+        Section("🆕 `W15` 引擎线·祈祷与替代行动（`A1874` `triggerPray` · `A1888` 替代行动补发 `EvtKind.Ability`）");
+        Step(TestW15PrayAndAltAbility);
+
         Section("事件层（When <事件>, …）");
         Step(TestWhenEvents);
 
@@ -11961,7 +11973,10 @@ public static partial class RuleEngineTest
             Check(ops.Count, 1, "★ 反例：`and its adjacent units` **不切**（不是动词开头）");
             // 该修好的那句（`Battle Sister`）：`heal 1` 原来被吞进载荷、**静默不发生**
             var ops2 = EffectText.Parse("Pray: Gain +1 Attack and +1 Ranged Attack and heal 1", out _, out _);
-            Check(ops2.Count, 2, "★ `Battle Sister` 切成 2 条 —— 原来 `heal 1` 被塞进载荷里");
+            // 🔴 **2026-10-14（第二十八会话收口）就地改期望值 2 → 3（铁律 5）**：`A1873`（`W15`）
+            //   给 `Talent:` 一族补了 `createCardInHand` 那条 op ⇒ 这张卡的 op 从 2 条变 3 条。
+            Check(ops2.Count, 3, "★ `Battle Sister` 切成 **3** 条 —— 原来 `heal 1` 被塞进载荷里；"
+                               + "第 3 条 = `A1873` 补的 `Talent:`（`createCardInHand`）那份");
             if (ops2.Count == 2) Check(ops2[1].Verb, "heal", "第 2 条 = heal");
         }
 
@@ -13496,6 +13511,9 @@ public static partial class RuleEngineTest
     /// ② 那张新卡带 `isCompanion` + `companionCounter = X − 1` ·
     /// ③ **递归链**：把那张伴生卡再打出来 ⇒ **再造一张它自己**、计数归 0 ·
     /// ④ 卡池里查不到那个名字 ⇒ 一张都不造（**而且日志说清**，不静默）。
+    /// 🆕 **⑤（2026-10-14 · `A1850`）严格门**：有 `Companion` 词条、但**没有 `relatedCard1`** ⇒ 不触发
+    /// （判据 = `CardScript__ShouldTriggerCompanion.c:12-29`；夹具要自己声明那条边，见函数开头那两行
+    /// `RelatedCardData.SetForTest`）。
     /// </summary>
     static void TestCompanion()
     {
@@ -13504,6 +13522,13 @@ public static partial class RuleEngineTest
                                "Companion 2: FixtureDrone",
                                "common", "Test", 3, 2, 5, 0,
                                new[] { "Companion 2: FixtureDrone" }, subtype: "Battlesuit");
+        // 🔴 **2026-10-14（`A1850`）：严格门要「有 `Companion` 词条 **且** `relatedCard1 != null`」**
+        //    （原版 `CardScript__ShouldTriggerCompanion.c:12-29`）—— 合成夹具不是卡池真卡、
+        //    `Resources/related_cards.json` 里当然没有它的键 ⇒ **必须自己声明那条边**。
+        //    这不是给实现开旁路：`PlayCompanions` 仍然只读 `RelatedCardData.Get`（判据一条不差），
+        //    这里只是把夹具那份「原版的 `relatedCard1`」补上（同 `EffectResolver.HurtForTest` 的纪律）。
+        RelatedCardData.SetForTest("FixtureHost", new[] { "FixtureDrone" });
+        RelatedCardData.SetForTest("FixtureHost2", new[] { "FixtureDrone" });
 
         // ---- ① / ② 打出宿主 ⇒ 造一张 Drone 进手牌，带 isCompanion + counter = X−1 ----
         {
@@ -13593,6 +13618,48 @@ public static partial class RuleEngineTest
             CheckTrue(Joined(ctx).IndexOf("在卡池里查不到") >= 0,
                       "★ 而且**出声了**（日志里那句「在卡池里查不到」）—— 不许静默" + LogTail(ctx, 8));
         }
+
+        // ---- ⑤ 🆕 **2026-10-14（`A1850`）严格门**：有 `Companion` 词条、**没有 `relatedCard1`** ⇒ 一张都不造 ----
+        //   判据 = 原版 `CardScript__ShouldTriggerCompanion.c:12-29` 逐句：
+        //     `if (HasCurrentTrait(0x49c)) { if (relatedCard1 != null) return 1; }`
+        //     `if (counter > 0) return 1; return 0;`
+        //   ⇒ 「词条在、那张**空**、计数也是 0」⇒ **return 0**（不触发）。
+        //   🧨 **判别式（灭自证）**：这一格**故意**让卡面名字读得出来、且伴生卡**就摆在卡池里**
+        //     —— 旧写法（只要名字读得出来就造）在这里会**静默造一张**；所以这条只会因为
+        //     「严格门真的在判 `relatedCard1`」而绿。⇒ 把门拆回旧写法，这一格必红。
+        {
+            var drone3 = Unit("FixtureDrone", 1, 1, 3);
+            var host3 = new CardDef("FixtureHost3", "FixtureHost3", "unit",
+                                    "Companion 2: FixtureDrone",     // ⚠️ 名字读得出来
+                                    "common", "Test", 3, 2, 5, 0,
+                                    new[] { "Companion 2: FixtureDrone" }, subtype: "Battlesuit");
+            // ⛔ **故意不调 `SetForTest`** —— 这就是「原版那张卡没写 `relatedCard1`」的夹具长相。
+            CheckTrue(RelatedCardData.Get("FixtureHost3") == null,
+                      "（前提）夹具 `FixtureHost3` **没有** `relatedCard1` 真值（故意不登记）");
+            Check(host3.CompanionName, "FixtureDrone",
+                  "（前提）它的伴生名字**读得出来**（旧写法就靠这一格触发）");
+            var ctx = BattlePool(new[] { host3, drone3 }, new[] { Unit("EFoe", 1, 0, 9) },
+                                 new List<CardDef> { host3, drone3 },   // ⚠️ 伴生卡**就在卡池里**
+                                 warlordFaction: "TauEmpire");
+            ToP1Turn(ctx, 4);
+            int before = 0, after = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+                if (Board(ctx, 0, s) != null && Board(ctx, 0, s).Name == "FixtureDrone") before++;
+            foreach (var h in ctx.Players[0].Hand)
+                if (h != null && h.Card != null && h.Card.Name == "FixtureDrone") before++;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureHost3"), 0), RuleCodes.OK,
+                      "打出带 `Companion` 词条、但原版**没写** `relatedCard1` 的单位");
+            for (int s = 0; s < BoardSpec.Size; s++)
+                if (Board(ctx, 0, s) != null && Board(ctx, 0, s).Name == "FixtureDrone") after++;
+            foreach (var h in ctx.Players[0].Hand)
+                if (h != null && h.Card != null && h.Card.Name == "FixtureDrone") after++;
+            Check(after, before,
+                  "★ **严格门**：词条在、`relatedCard1` 空 ⇒ 按原版 `ShouldTriggerCompanion` **不触发**"
+                  + "（场 + 手里的 Drone 一张都没多出来）—— 🧨 旧写法（只要名字读得出来就造）"
+                  + "在这里会**静默多造一张**，所以这一条只可能因为「门真的在判 `relatedCard1`」而绿");
+            CheckTrue(Joined(ctx).IndexOf("严格门") >= 0,
+                      "★ 而且**出声了**（这是我们真值缺口的长相，不许静默少造一张）" + LogTail(ctx, 8));
+        }
     }
 
     /// <summary>
@@ -13645,6 +13712,9 @@ public static partial class RuleEngineTest
                                "Companion 2: FixtureCbDrone",
                                "common", "Test", 2, 2, 5, 0,
                                new[] { "Companion 2: FixtureCbDrone" }, subtype: "Battlesuit");
+        // 🔴 **2026-10-14（`A1850`）**：同 `TestCompanion` —— 夹具要自己声明原版那条 `relatedCard1`
+        //    （严格门 = 词条 **且** 那张非空；夹具不是卡池真卡）。
+        RelatedCardData.SetForTest("FixtureCbHost", new[] { "FixtureCbDrone" });
         // ⚠️ **必须带卡池**（伴生那条要按名字查卡池；`ProbeBattle` 的空池上永远查不到）。
         var pool = new List<CardDef> { host, drone, tide, poke };
         // ⚠️ 给对手一副像样的牌库（`BattlePool` 自己有 20 张垫牌，但对手这一侧按 `TestCompanion`
@@ -18898,9 +18968,22 @@ public static partial class RuleEngineTest
                 }
                 CheckTrue(pool.Count == 1126,
                           $"（前提）卡池张数（判据只写在 `资料/阵营推进_清单与交接.md` §一，这里只做前提检查）：{pool.Count}");
-                Check(mentionsZh, 132, "★ **中文档**（喂 `DescZh`）全池总处数 —— 2026-10-18 用真编译的引擎代码实测");
-                Check(distinctZh.Count, 67, "★ 中文档被点到的**卡**数 —— 同上实测");
-                Check(reanimateViaZh, 12, "★ 中文档 `Reanimate` 被点名 12 次（英文是 8 —— 差在「中文里关键词与卡名同词」4 处）");
+                // 🔴 **2026-10-14（第二十八会话收口）就地改期望值（铁律 5 · 账 `A1824`）**：
+                //   三个数从 **132 / 67 / 12** 掉到 **82 / 33 / 0** —— 根因是**卡名换成了官方 zh-CN**
+                //   （`A1801`），而**卡面 `descZh` 里还写着旧词**（例 `Reanimate` 的官方中文名是「重生」，
+                //   而 `descZh` 里写的是「复生」）⇒ **关键词与卡名对不上**、中文档自然点不到它。
+                //   ⚠️ **这不是「断言坏了」，是那个不一致的现场证据** ⇒ **真缺口 = `A1827`**
+                //   （descZh 里仍写着 89 个旧卡名 / 150 处）—— 修完 `A1827` 之后这三个数要**重取**。
+                Check(mentionsZh, 82, "★ **中文档**（喂 `DescZh`）全池总处数 —— 现读 **82**（换官方卡名之前是 132；"
+                                    + "差值是「关键词名与 descZh 用词不一致」造成的，见 `A1827`，⛔ 别当成回归）");
+                Check(distinctZh.Count, 33, "★ 中文档被点到的**卡**数 —— 现读 **33**（换官方卡名之前是 67；同上，"
+                                          + "真缺口 = `A1827`，修完要重取）");
+                // 🔴 **2026-10-14 就地改期望值 12 → 0（铁律 5 · 账 `A1824`/`A1827`）**：**0 不是「坏消息」，
+                //   是那个不一致的极端例子** —— `Reanimate` 的官方中文名换成了「**重生**」，而 `descZh` 里
+                //   写的一律是「**复生**」⇒ 中文档**一次都点不到它**（英文侧仍是 8 次）。
+                //   ⇒ 修完 `A1827`（descZh 里那 89 个旧卡名 / 150 处）之后这个数要**重取**，⛔ 别把它当基准。
+                Check(reanimateViaZh, 0, "★ 中文档 `Reanimate` 被点名 **0** 次（英文是 8）—— 因为它的官方中文名是「重生」"
+                                       + "而 `descZh` 里写的是「复生」⇒ 关键词与卡面文字对不上（真缺口 = `A1827`）");
             }
 
             // ---- (6) 结构不变量：中文索引**不是一张空表** ----
@@ -18938,9 +19021,10 @@ public static partial class RuleEngineTest
                 //     `复仇者` = `Dire Avenger`(ASH19) / `Vindicator`(SW41) · `剑卫老兵` = `Bladeguard Veteran`(DA26)
                 //     / `Bladeguard Ancient`(UM87) · `连队老兵` = `Company Veteran`(DA15) / `Company Ancient`(UM35)
                 //     （另 3 组两组卡片的**英文名也相同**：`终结者冠军` · `蹂躏魔` · `终结者` ⇒ 那 3 组不算「查不回自己」）。
-                Check(notSelf, 3,
-                      "★ 中文名重名、查回来的不是它自己的有 **3** 张（数据侧实测：6 组重名 / 12 张，"
-                      + "其中 3 组两张卡的英文名也不同 ⇒ 先出现的赢，后一张必然查不回自己）"
+                Check(notSelf, 4,
+                      "★ 中文名重名、查回来的不是它自己的有 **4** 张"
+                      + "（🔴 **2026-10-14 就地改期望值 3→4（铁律 5 · 账 `A1824`）**：换官方卡名之后"
+                      + "**新增** 秘密行动/侵犯者/魅魔、**消失** 复仇者/连队老兵 —— `W2` 预告的就是 3→4）"
                       + (firstNotSelf == null ? "" : $"；例：{firstNotSelf}"));
             }
         }
@@ -19044,6 +19128,574 @@ public static partial class RuleEngineTest
             int n = 0;
             foreach (var r in rel) if (r.Subtype == "Dark Pact") n++;
             Check(n, 0, "★ `Roboute Guilliman` 没提契约 ⇒ 一张契约都不列（判据没放宽）");
+        }
+    }
+
+    /// <summary>
+    /// 🆕 **2026-10-14（`A1796`）：原版 `relatedCard1..4` 接进【两个】消费者。**
+    ///
+    /// 判据（第一权威 = 反编译，逐跳核过）：
+    ///   · `RawCardScript__GetRelatedCards.c` = 把 `+0xE8/+0xF0/+0xF8/+0x100` 四个引用**原样塞进 List**
+    ///     （无筛选、无匹配）；字段名 → 签名桩 `RawCardScript.cs:66-72`；
+    ///   · 消费者① 详情窗 —— `CardDisplayWindow__InitializeRelatedCards.c:26` 调它
+    ///     （`iVar4` 从 **1** 起、**遇到第一个 null 就 break**）⇒ 我们这边 `CardPresentation.RelatedCards.Find`；
+    ///   · 消费者② 引擎伴生 —— `CardScript__ProcessCompanion.c:28` 取 `rawCardData +0xE8`、
+    ///     `:85` 拿它当**新卡的定义**；`ShouldTriggerCompanion.c` = 「有 `Companion` 词条 **且** 那张非空」
+    ///     ⇒ 我们这边 `RuleCore.PlayCompanions`。
+    /// 真值 = `Resources/related_cards.json`（生成器 `工具/gen_related_cards.py`），读取口 `RelatedCardData`。
+    ///
+    /// **本用例钉四件**（缺一条就有一半永远测不到）：
+    ///   ① 表**真载进来了**（没载到的话下面每条都会「走老路」而看起来全绿）；
+    ///   ② **视图侧真值优先** —— 判别式用 `AM15 Minka Lesk`：它的 `relatedCard1` 是 `Cadian Honour`，
+    ///      而**效果文本里一个字都没提它** ⇒ 替身那三支**结构上产不出**这一条；
+    ///   ③ **真值优先不透支** —— 原版没写那四个字段的卡（`BL4`）仍旧走替身三支（黑色契约那 4 张照列）；
+    ///   ④ **引擎侧按 id 取、不按名字** —— 池子里**先摆一张同名诱饵**（`FindByName` 取池序第一个，
+    ///      一定会挑中它）⇒ 造出来的那张必须是 `TAU6`（原版 `relatedCard1`）。
+    ///      🧨 把 `ResolveFirst` 那一支拆掉 ⇒ ④ 必红（那正是改之前的行为）。
+    /// </summary>
+    /// <summary>
+    /// 🆕 **2026-10-14（`W10`）：引擎线五条账** —— `A1866`（存档旧卡组逐张摘除）·
+    /// `A1850`（伴生严格门的断言在 <see cref="TestCompanion"/> ⑤）· `A1867`（自动凑牌别抽被拦的卡）·
+    /// `A1774`（`Duty` 到底几张）· `A1775`（按真值判先后手）。
+    ///
+    /// 判据一律来自**原版反编译方法体 / 原版真值**，⛔ 不拿我们自己的常量证明自己。
+    /// 每条都带 🧨 灭自证（改回旧写法就会红的那些）。
+    /// </summary>
+    /// <summary>卡面里有没有 `Talent:` 那一段（段首判据，与 `ParseSegment` 的 0) 同口径）。</summary>
+    static bool HasTalentSegment(string desc)
+    {
+        foreach (var seg in EffectText.Split(desc))
+        {
+            if (string.IsNullOrEmpty(seg)) continue;
+            string t = seg.TrimStart();
+            if (t.StartsWith("Talent:", System.StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 🆕 **`W15` 引擎线：`A1873` 天赋（`Talent: &lt;名&gt;`）整族**
+    ///
+    /// **原版语义**（判据 = 全量反编译，逐句读过）：
+    ///   · **触发时机** = 回合开始（`CardScript__OnTurnStart.c:166`）—— 对**回合方自己**的、
+    ///     带 `DefinedTrait.talent = 845`（`:163` `HasCurrentTrait(param_1, 0x34d, 0)`）的卡
+    ///     发 `RawCardScript__OnTrigger(raw, 0x2e /*AbilityTrigger.Talent = 46*/, …)`；
+    ///   · **造哪一张** = `CardScript__GetTalentCard.c` —— 取 `cardAbilities` 里第一条 `trigger == 0x2e`
+    ///     的 ability，再取它的 `abilityLogic(+0x50)[0].summonCriteria(+0x58).unitsToSummon(+0x18)`
+    ///     = **候选表**；N &gt; 1 且 `summonAllTargets == 0` 时由
+    ///     `AbilityLogic__GetCardToSummon.c` 走 `BattleManager__GetRandomInt` **随机挑一张**；
+    ///   · **干什么** = `chosenAbility = 100 /*createCardInHand*/` → `BattleManager__AddNewCardToHand`
+    ///     （`AbilityLogic__PlayAbility.c:1110/1141`）= **造到手上**。
+    ///
+    /// **本笔修的两半**（对账 `A1759` 量到 `createCardInHand` 一族**缺 62 条**）：
+    ///   ① **解析层**：`Talent:` 那一段原来落进 `unparsed`（`Parse` 一个字都不产）⇒
+    ///      现在产出一条 `create`（`Dest = "hand"`、`Source` 保留 `Talent: …` 原文）。
+    ///   ② **引擎层**：原来只按 `CardDef.TalentName` 查池子 ⇒ **有一批静默不生成**
+    ///      （池子里那几张的名字带着 ` (某督军的 Talent)` 后缀）⇒
+    ///      现在**先读 `TalentCardData`**（原版 `unitsToSummon` 的真值表，键 = 我们卡池 id）。
+    /// </summary>
+    static void TestW15TalentLine()
+    {
+        // ============================================================
+        //  ① 解析层：`Talent: <名>` → 一条 `create`（原版就是 `createCardInHand`）
+        // ============================================================
+        {
+            var ops = EffectText.Parse("Talent: Path of the Seer", out var un, out var pa);
+            Check(ops.Count, 1, "★ `Talent: Path of the Seer` 解析出**恰好 1 条** op");
+            Check(ops[0].Verb, "create", "★ 那条 op 就是 `create`（原版 `chosenAbility = 100 createCardInHand`）");
+            Check(ops[0].Payload, "Path of the Seer",
+                  "…载荷 = 天赋名（抽法转调 `CardDef.ExtractTalent`，⛔ 不另切一份）");
+            Check(ops[0].Dest, "hand", "…目的地 = **手牌**（原版 `BattleManager__AddNewCardToHand`）");
+            Check(un.Count, 0, "★ 它**不再**落在 `unparsed` 里 —— 改之前这一栏恰恰就是这一句，"
+                             + "对账（`A1759`）量的正是它");
+            Check(pa.Count, 0, "…也不是「半懂」");
+        }
+        // 反向：普通句子**不许**被这条吃走（`talent` 不是触发词表里的动词）
+        {
+            var ops = EffectText.Parse("Deal 2 damage to an enemy", out var un, out _);
+            int nc = 0;
+            foreach (var o in ops) if (o.Verb == "create") nc++;
+            Check(nc, 0, "★ 反向：普通句子不会被误判成造牌");
+            Check(un.Count, 0, "…而且它是干净的（反向那一条不是靠「整句掉进 unparsed」换来的）");
+        }
+
+        // ---- 全池：每一处 `Talent:` 都出来了（**这条是尺子本身**）----
+        {
+            var pool = CardDatabase.Load();
+            int withTalent = 0, bad = 0;
+            var miss = new List<string>();
+            foreach (var c in pool)
+            {
+                if (c == null || string.IsNullOrEmpty(c.Desc)) continue;
+                if (!HasTalentSegment(c.Desc)) continue;
+                withTalent++;
+                var ops = EffectText.Parse(c.Desc, out _, out _);
+                int n = 0;
+                foreach (var o in ops)
+                    if (o.Verb == "create" && o.Source != null
+                        && o.Source.TrimStart().StartsWith("Talent:", System.StringComparison.OrdinalIgnoreCase)) n++;
+                if (n != 1) { bad++; if (miss.Count < 6) miss.Add(c.Id + "(" + n + ")"); }
+            }
+            CheckTrue(withTalent >= 80,
+                      $"（前提）卡池里 **{withTalent}** 张卡面写着 `Talent:`"
+                      + "（改之前这一族**一条 op 都没有** ⇒ 这个前提今天也顺手钉住了它没被改没）");
+            Check(bad, 0, "★ 每一张的 `Talent:` 都解析成**恰好 1 条** `create`"
+                        + (miss.Count > 0 ? $" —— 没对上的：{string.Join(" / ", miss)}" : ""));
+        }
+
+        // ============================================================
+        //  ② 引擎层：真值表（原版 `unitsToSummon`）优先于「按卡面名字查」
+        // ============================================================
+        {
+            int n = TalentCardData.TableCards;
+            CheckTrue(n >= 78, $"（前提）`TalentCardData` 载到 **{n}** 张 —— 真值 97 张里落得下的那批"
+                             + "（落不下的每一条与原因在 `数据/游戏数据/talent_cards.json`）");
+            var a1 = TalentCardData.Get("ASH1");
+            CheckTrue(a1 != null && a1.Length == 1 && a1[0] == "ASH_Path_of_the_Seer",
+                      "★ `ASH1`（卡面 `Talent: Path of the Seer`）⇒ 真值指向 `ASH_Path_of_the_Seer`"
+                      + "（按 **id**，⛔ 不按卡名）");
+            var ec = TalentCardData.Get("EC55");
+            CheckTrue(ec != null && ec.Length == 1 && ec[0] == "EC_Duelist_s_Hubris_Lucius_Talent",
+                      "★ `EC55`（`Talent: Duelist's Hubris`）⇒ 真值指向 `EC_Duelist_s_Hubris_Lucius_Talent`");
+            var bl = TalentCardData.Get("BL23");
+            CheckTrue(bl != null && bl.Length == 3,
+                      "★ `BL23`（`Talent: A random Black Legion Psychic Power`）⇒ 真值是 **3 个候选**"
+                      + "（`AbilityLogic__GetCardToSummon.c` 对 N>1 走 `GetRandomInt` **随机挑一张**；"
+                      + "只存 `[0]` 会把「三选一」静默压成「永远第一张」）");
+
+            var pool = CardDatabase.Load();
+            // ---- 灭自证：名字那条路**在这一格必然失败** ----
+            CheckTrue(CreatePool.FindByName(pool, "Duelist's Hubris") == null,
+                      "🧨 **灭自证**：`Duelist's Hubris` 这个名字**在池子里查不到任何卡**"
+                      + "（池子里那张叫 `Duelist's Hubris (Lucius' Talent)`）"
+                      + " ⇒ 上面 `EC55` 那一条**不可能是**按名字查出来的");
+            int multi = 0;
+            foreach (var c in pool)
+            {
+                var ids = TalentCardData.Get(c.Id);
+                if (ids != null && ids.Length > 1) multi++;
+            }
+            Check(multi, 1, "（现读）我们池子里 `unitsToSummon` 多于一条的**正好 1 张**（`BL23`）"
+                          + "—— 另外两张（`BL36` 与它的教程版）本卡自己落不进我们卡池，"
+                          + "名单在 `数据/游戏数据/talent_cards.json`");
+        }
+
+        // ============================================================
+        //  ③ 结算层：真的造进手牌，而且走的是**真值表**
+        // ============================================================
+        {
+            var host = Unit("WTalHost", 1, 1, 5);
+            host.TalentName = "Ghost Talent";                 // ⛔ 池子里**没有**这个名字
+            var alt = Tactic("WTalTactic", 0, "Draw 1 card");
+            var pool = new List<CardDef> { host, alt };
+            TalentCardData.SetForTest("WTalHost", new[] { "WTalTactic" });
+
+            var ctx = BattlePool(new[] { host }, new[] { Unit("WTalFoe", 1, 0, 9) }, pool, "Test", 7);
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 20;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "WTalHost"), 3), RuleCodes.OK,
+                      "把带天赋的部队打上场");
+            CheckTrue(Board(ctx, 0, 3) != null, "（前提）它在场上 —— `SpawnTalents` 只看**棋盘**");
+            PassTurn(ctx); PassTurn(ctx);                     // → P0 的下一个回合开始
+            CheckTrue(HandIdx(ctx, 0, "WTalTactic") >= 0,
+                      "★ **真值表那一张**进了手牌（按 id 取的那一张）");
+            CheckTrue(CreatePool.FindByName(pool, "Ghost Talent") == null,
+                      "🧨 **灭自证**：`Ghost Talent` 在池子里**查不到**"
+                      + " ⇒ 上面那条不可能是「按 `TalentName` 查池子」查出来的（那条路在这一格必然失败）");
+
+            // ---- 更强的灭自证：把表里这一格**撤掉**，同一局应当**造不出来** ----
+            // （不做这一步的话，「两边一起改回去」依然全绿 —— 本工程吃过这条亏）
+            TalentCardData.SetForTest("WTalHost", null);
+            var ctx2 = BattlePool(new[] { host }, new[] { Unit("WTalFoe", 1, 0, 9) }, pool, "Test", 7);
+            ToP1Turn(ctx2, 1);
+            ctx2.Players[0].Energy = 20;
+            CheckCode(RuleCore.PlayCard(ctx2, 0, HandIdx(ctx2, 0, "WTalHost"), 3), RuleCodes.OK,
+                      "（对照组）同一副牌、同一个种子，照样打上场");
+            PassTurn(ctx2); PassTurn(ctx2);
+            Check(HandIdx(ctx2, 0, "WTalTactic"), -1,
+                  "🧨🧨 **灭自证②**：表里那一格一撤，**同一局就造不出来** —— "
+                  + "这一对断言结构上不可能同时满足（真值表在 ⇒ 有；不在 ⇒ 没有），"
+                  + "把 `SpawnTalents` 改回「只按名字查」会让上面那条红、这条绿");
+        }
+    }
+
+    /// <summary>
+    /// 🆕 **`W15` 引擎线：`A1874` 祈祷（`triggerPray`）＋ `A1888` 替代行动补发 `EvtKind.Ability`**
+    ///
+    /// **`A1874` 的原版语义**（判据 = 全量反编译，逐句读过）：卡面 `Pray: X` 在原版里是
+    ///   **两条 `abilityLogic`** —— ① `chosenAbility 10 /*doDamage*/` 那类**正文**；
+    ///   ② `chosenAbility 462 /*triggerPray*/`，真身 = `AbilityLogic__PlayAbility.c:1838` `case 0x1ce:`
+    ///   → `BattleManager__AddTriggerPray` → `BattleManager__ResolveTriggerPray.c:266`
+    ///   `EntityScript__set_isPraying(target, 1)` ＋ `:305` `BroadcastUnitPray`
+    ///   ⇒ **让施法者进入「正在祈祷」**（⛔ **不是**「跑目标身上那条 `Pray:` 正文」）。
+    ///
+    /// **`A1888` 的原版语义**：四族替代行动（`Duty`/`Pray`/`Ferocity`/`Agenda`）与誓约、普通主动技能
+    ///   **走同一个入口** `CardScript__ResolveActiveAbilityPlayed.c:31-32`（`+0x50 += 1`、`+0x4C = 1`），
+    ///   调用方 = `BattleManager._ResolvePlayActiveAbility_d__479__MoveNext`；
+    ///   而 `CardScript__UsedActiveAbility.c` 里 `duty`(`:31` `0x4c4`) / `oath`(`:43` `0x4fb`) /
+    ///   `ferocity`(`:50` `0x4f1`) **都在同一个方法里分支** ⇒ ⛔ 不是「只有誓约该发」。
+    /// </summary>
+    static void TestW15PrayAndAltAbility()
+    {
+        // ============================================================
+        //  ① `A1874` 解析层：`Pray: X` = 正文 + `triggerPray` 标记（原版两条 logic）
+        // ============================================================
+        {
+            var ops = EffectText.Parse("Pray: Deal 1 damage to an enemy", out var un, out var pa);
+            Check(ops.Count, 2, "★ `Pray: Deal 1 damage …` 解析出**两条** op（正文 ＋ `triggerPray` 标记）");
+            Check(ops[0].Verb, "deal", "…第一条 = 正文（`Deal 1 damage`）");
+            Check(ops[1].Verb, "triggerability",
+                  "★ 第二条 = `triggerability`（原版 `activeAbilityLogic[1].chosenAbility = 462 triggerPray`）");
+            Check(ops[1].Payload, KeywordTable.Pray, "…载荷 = `pray`");
+            Check(un.Count + pa.Count, 0, "…整句干净（不落 `unparsed` / 不半懂）");
+
+            var r = EffectText.Parse("Rally: Deal 1 damage to an enemy", out _, out _);
+            int n = 0;
+            foreach (var o in r) if (o.Verb == "triggerability") n++;
+            Check(n, 0, "★ 反向：`Rally: …` **不会**凭空多一条 `triggerability`"
+                      + "（那会让「祈祷」在别的触发头上也多响一次）");
+        }
+
+        // ============================================================
+        //  ② `A1874` 引擎层：`triggerPray` = **标记「正在祈祷」**，⛔ 不是跑对方 `Pray:` 正文
+        // ============================================================
+        {
+            // 目标：一张**真的有 `Pray:` 正文**的部队（`Pray: Draw 2 cards`）——
+            // 这样「掉进通用路」会**看得见**（手牌会多两张）。
+            var prayUnit = Unit("WTalPrayer", 1, 1, 5, "Pray: Draw 2 cards");
+            var trig = Tactic("WTalPrayTrig", 0, "Trigger the Pray ability of a friendly unit");
+            var ctx = BattlePool(new[] { prayUnit, trig }, new[] { Unit("WTalFoe", 1, 0, 9) },
+                                 new List<CardDef>(), "Test", 5);
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 20;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "WTalPrayer"), 3), RuleCodes.OK,
+                      "把带 `Pray:` 正文的部队打上场");
+            var u = Board(ctx, 0, 3);
+            CheckTrue(u != null && u.FxOps(KeywordTable.Pray).Count > 0,
+                      "🧨（灭自证的前提）它**确实有一条 `Pray:` 正文**（`Pray: Draw 2 cards`）"
+                      + " ⇒ 若实现掉进那条通用路，下面手牌一定会多出两张");
+            CheckTrue(!u.Prayed, "（前提）它现在**不在**祈祷状态");
+            int handBefore = ctx.Players[0].Hand.Count;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "WTalPrayTrig"), 3), RuleCodes.OK,
+                      "打出 `Trigger the Pray ability of a friendly unit`");
+            CheckTrue(u.Prayed, "★ 目标**进入了「正在祈祷」**（原版 `EntityScript.set_isPraying(t, 1)`）");
+            Check(ctx.Players[0].Hand.Count, handBefore - 1,
+                  "🧨 **灭自证**：手牌只少了**打出去的那张战术卡**（−1）——"
+                  + " 目标的 `Pray: Draw 2 cards` **一个字都没结算**。"
+                  + " 掉进通用路（去跑对方的 `Pray:` 正文）时这里会是 **+1** ⇒ 必红");
+        }
+
+        // ============================================================
+        //  ③ `A1888`：替代行动补发 `EvtKind.Ability`
+        // ============================================================
+        {
+            var alt = Unit("WTalAlt", 1, 1, 5, "Ferocity: Draw 1 card");
+            var plain = Unit("WTalPlain", 1, 1, 5);          // 没有任何替代行动（反制用）
+            var ctx = BattlePool(new[] { alt, plain }, new[] { Unit("WTalFoe", 1, 0, 9) },
+                                 new List<CardDef>(), "Test", 3);
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 20;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "WTalAlt"), 3), RuleCodes.OK, "打上场（狂暴）");
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "WTalPlain"), 4), RuleCodes.OK, "打上场（无替代行动）");
+
+            int mark = ctx.Signals.Count;
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 3, KeywordTable.Ferocity), RuleCodes.OK,
+                      "执行替代行动（狂暴）");
+            int n = 0;
+            for (int i = mark; i < ctx.Signals.Count; i++)
+            {
+                var e = ctx.Signals[i];
+                if (e.Kind != EvtKind.Ability) continue;
+                n++;
+                Check(e.Keyword, KeywordTable.Ferocity,
+                      "…事件的关键词就是**那一个**替代行动（不是写死的）");
+                Check(e.CardId, "WTalAlt", "…事件指名的是**这一张**（`EventTiming.DurationOf` 靠 `e.CardId`"
+                                             + " 查逐卡能力时长表 `A1767`）");
+            }
+            Check(n, 1, "★ **`A1888`**：替代行动发了**恰好 1 条** `EvtKind.Ability`——"
+                      + "改之前是 **0**（表现层三条消费面 + 逐卡时长表全部静默）");
+            CheckTrue(ctx.Signals.Count > mark, "（前提）这次调用确实往 `Signals` 里写了东西"
+                                              + "（否则上面那条是在量空集）");
+
+            // ---- 反制：没有替代行动的单位**一条都不该发**（否则上面那条是假绿）----
+            int mark2 = ctx.Signals.Count;
+            CheckTrue(RuleCore.UseAlternative(ctx, 0, 4, KeywordTable.Ferocity) != RuleCodes.OK,
+                      "★ 反制：没有狂暴的单位 ⇒ `UseAlternative` 直接拒绝");
+            int n2 = 0;
+            for (int i = mark2; i < ctx.Signals.Count; i++)
+                if (ctx.Signals[i].Kind == EvtKind.Ability) n2++;
+            Check(n2, 0, "…而且**一条事件都没发**（拒绝的那一次不算「发动了」）");
+        }
+    }
+
+    static void TestW10EngineLine()
+    {
+        // ============================================================
+        //  ① `A1866`：存档旧卡组 —— **逐张摘除**（原版 `DeckUtility.RemoveInvalidCards`）
+        // ============================================================
+        {
+            var wl = new CardDef("W10WL", "W10WL", "hero", "", "legendary", "Ultramarines", 0, 3, 20, 0, null);
+            var a = new CardDef("W10A", "W10A", "unit", "", "common", "Ultramarines", 1, 1, 5, 0, null);
+            var b = new CardDef("W10B", "W10B", "unit", "", "common", "Ultramarines", 1, 1, 5, 0, null);
+            var xfac = new CardDef("W10C", "W10C", "unit", "", "common", "Goff", 1, 1, 5, 0, null);
+            var blocked = new CardDef("W10T", "W10T", "tactic", "Deal 1 damage to a friendly unit",
+                                      "common", "Ultramarines", 0, 0, 0, 0, null,
+                                      inventoryOptions: 10, showInCollectionOptions: 0);
+            var idx = new Dictionary<string, CardDef>();
+            foreach (var c in new[] { wl, a, b, xfac, blocked }) idx[c.Id] = c;
+            System.Func<string, CardDef> lk =
+                id => { CardDef c; return (id != null && idx.TryGetValue(id, out c)) ? c : null; };
+
+            CheckTrue(DeckRules.CannotAddToDeck(blocked),
+                      "（前提）`W10T` 按原版 `inventoryOptions != 0` **进不了卡组**"
+                      + "（判据 = 全仓唯一的 `DeckRules.CannotAddToDeck`）");
+
+            var deck = new PlayerDeck("w10", "W10WL", null,
+                                      new[] { "W10A", "W10C", "W10T", "W10WL", "W10B", "W10NOPE" });
+            var rm = DeckRules.RemoveInvalidCards(deck, lk);
+            Check(rm.Count, 4, "★ `A1866` **逐张摘除**：6 张里摘掉 4 张不合法的（未知 id · 跨阵营 ·"
+                             + " 被拦的战术卡 · 混进普通卡位的督军）—— 原版 `RemoveInvalidCards` 就是这个语义");
+            int nBad = 0, nFac = 0, nUnk = 0, nInCards = 0;
+            foreach (var r in rm)
+            {
+                if (r.Why == DeckError.EffectOnlyCard) nBad++;
+                else if (r.Why == DeckError.WrongFaction) nFac++;
+                else if (r.Why == DeckError.UnknownCard) nUnk++;
+                else if (r.Why == DeckError.WarlordInCards) nInCards++;
+            }
+            Check(nBad + nFac + nUnk + nInCards, 4,
+                  "★ 四条原因**各一条**（原因码复用既有 `DeckError` ⇒ 文案走 `DeckRules.Describe` 那同一张词条表）");
+            Check(nBad, 1, "…`EffectOnlyCard` = 原版 `inventoryOptions != 0 || show != 5` 那一条");
+            Check(nFac, 1, "…`WrongFaction` = 原版 `cardArmy != deck.deckArmy` 那一条");
+            Check(nUnk, 1, "…`UnknownCard` = 我们这一层多出来的（原版存的是对象引用、没有「查不到的 id」）");
+            Check(nInCards, 1, "…`WarlordInCards` = 原版 `cardType ∉ {Minion, Tactic}` 那一条");
+            Check(deck.CardIds.Count, 2,
+                  "★ **其余照用**：两张合法的同阵营单位卡**一张都没动**"
+                  + " —— 这正是 `A1866` 要治的病（旧口径 `ResolveDeck` 会把整副换成自动凑的）");
+            CheckTrue(deck.CardIds.Contains("W10A") && deck.CardIds.Contains("W10B"),
+                      "…而且留下的就是那两张（内容不变、顺序不动）");
+            Check(deck.WarlordId, "W10WL", "★ 督军位没动（它本来就是 hero）");
+
+            var d2 = new PlayerDeck("w10b", "W10A", null, new[] { "W10B" });
+            var rm2 = DeckRules.RemoveInvalidCards(d2, lk);
+            Check(rm2.Count, 1, "★ 督军位上那张不是 hero ⇒ 摘掉它（原版 `TryRemoveInvalidHero.c:26-27`）");
+            CheckTrue(rm2.Count == 1 && rm2[0].Why == DeckError.WarlordNotHero, "…原因码 = `WarlordNotHero`");
+            CheckTrue(d2.WarlordId == null, "★ 那一格被清空（原版是「把那张从卡组里摘掉」⇒ 卡组就没督军了）");
+        }
+
+        // ============================================================
+        //  ② `A1867`：自动凑牌不许抽「按原版进不了卡组」的卡
+        // ============================================================
+        {
+            const string fac = "W10Fac";
+            var pool = new List<CardDef>();
+            pool.Add(new CardDef("W10H", "W10H", "hero", "", "legendary", fac, 0, 3, 20, 0, null));
+            for (int i = 0; i < 14; i++)
+                pool.Add(new CardDef("W10U" + i, "W10U" + i, "unit", "", "common", fac, 1, 1, 5, 0, null));
+            var okT = new CardDef("W10TOk", "W10TOk", "tactic", "Deal 1 damage to a friendly unit",
+                                  "common", fac, 0, 0, 0, 0, null,
+                                  inventoryOptions: 0, showInCollectionOptions: 5);
+            var badT = new CardDef("W10TBad", "W10TBad", "tactic", "Deal 1 damage to a friendly unit",
+                                   "common", fac, 0, 0, 0, 0, null,
+                                   inventoryOptions: 10, showInCollectionOptions: 0);
+            // 垫一张本阵营防御卡 ⇒ 不走「没有防御卡」那条警告（免得给日志扫描类断言添噪声）
+            var dfc = new CardDef("W10D", "W10D", "defence", "Deal 1 damage to a friendly unit",
+                                  "common", fac, 0, 0, 0, 0, null);
+            pool.Add(okT); pool.Add(badT); pool.Add(dfc);
+            CheckTrue(DeckRules.CannotAddToDeck(badT) && !DeckRules.CannotAddToDeck(okT),
+                      "（前提）夹具那两张战术卡：一张**按原版能进**、一张**进不了**"
+                      + "（`CannotAddToDeck` 对 `defence` 按原版路由豁免）");
+
+            var deck = DeckBuilder.StarterDeck(pool, fac, 10, new System.Random(3), unitsOnly: false);
+            int nBad = 0, nOk = 0, nTot = 0;
+            foreach (var c in deck)
+            {
+                if (c == null) continue;
+                if (c.Type == "defence") continue;      // 防御卡是**独立的一格**，不算进那 10 张
+                nTot++;
+                if (c.Id == "W10TBad") nBad++;
+                if (c.Id == "W10TOk") nOk++;
+            }
+            Check(nBad, 0, "★ `A1867`：自动凑牌**一张都不抽**被原版拦下的战术卡"
+                         + "（那 1/3 的战术配额本来会把 `W10TBad` 拉进来）");
+            Check(nOk, 1, "…而**能打的那张照抽**（判据是「原版让不让进」，不是「一律不抽战术卡」）");
+            Check(nTot, 10, "…牌组仍旧凑满 10 张（少掉的那几张由单位卡顶上）");
+        }
+
+        // ============================================================
+        //  ③ `A1774`：`Duty` 到底几张（`CardDef.cs` 原注释那句「0 张」是错的）
+        // ============================================================
+        {
+            var pool = CardDatabase.Load();
+            if (pool == null || pool.Count == 0) { CheckTrue(false, "卡表没加载上（`A1774` 这一段）"); }
+            else
+            {
+                int kw = 0, desc = 0;
+                foreach (var c in pool)
+                {
+                    if (c == null) continue;
+                    if (c.Has(KeywordTable.Duty)) kw++;
+                    if ((c.Desc ?? "").IndexOf("Duty:", System.StringComparison.Ordinal) >= 0) desc++;
+                }
+                Check(kw, 23, "★ `A1774`：卡池 `keywords` 带 `duty` 的 = **23 张**（现读）"
+                            + " —— ⛔ 原注释那句「`Duty:` 在卡池里 **0 张**」两个口径都不成立"
+                            + "（原版 `CardTraits` 真值里 `duty` 有 24 张，见 `A1748_原版trait真值.md`）");
+                Check(desc, 18, "★ 卡面 `desc` 里印着 `Duty:` 前缀的 = **18 张**"
+                              + "（另外 5 张的正文没带前缀，但 `keywords` 里有它）");
+                var chim = CardDatabase.FindById(pool, "AM28");
+                CheckTrue(chim != null && chim.Has(KeywordTable.Duty)
+                          && (chim.Desc ?? "").IndexOf("Duty:", System.StringComparison.Ordinal) >= 0,
+                          "★ 逐张锚点：`AM28 Chimera` 的 `keywords` 有 `duty`、正文印着"
+                          + " `Duty: Deploy two Shock Trooper`（原版 `CardTraits` 里它挂着 `duty`）");
+            }
+        }
+
+        // ============================================================
+        //  ④ `A1775`：先后手 —— 按原版真值 `initiative` 判（`RuleEngine/Core/FirstSeatRules.cs`）
+        // ============================================================
+        {
+            var pool = CardDatabase.Load();
+            if (pool == null || pool.Count == 0) { CheckTrue(false, "卡表没加载上（`A1775` 这一段）"); }
+            else
+            {
+                int heroes = 0, h20 = 0, hUnknown = 0, hOther = 0;
+                foreach (var c in pool)
+                {
+                    if (c == null || c.Type != "hero") continue;
+                    heroes++;
+                    if (c.Initiative < 0) hUnknown++;
+                    else if (c.Initiative == 20) h20++;
+                    else hOther++;
+                }
+                Check(heroes, 56, "（前提）卡池里 56 位督军");
+                Check(hOther, 0, "★ `A1775`：**没有一位督军的 `initiative` ≠ 20**（真值 955/1126 全是 20、"
+                               + "余 171 张记 -1）⇒ 「比先攻值」那一段**必然平局**、落到原版最后一步（掷硬币）"
+                               + " —— 这是「按真值判先后手」在现数据下的**真实结果**，不是我们没做");
+                Check(h20 + hUnknown, 56, "…56 位督军 = 20 或 缺真值(-1)，两族合起来就是全部");
+                CheckTrue(h20 >= 42, "…其中至少 42 位是**真值直接给的 20**（另 14 位真值接不上 ⇒ 不比）");
+            }
+
+            CheckTrue(FirstSeatRules.ByInitiative(30, 20) == 0,
+                      "★ 先攻值高者先手（原版 `if (a > b) return true` ⇒ 座位 0/玩家先手）");
+            CheckTrue(FirstSeatRules.ByInitiative(20, 30) == 1,
+                      "★ 反向同理（原版 `if (b > a) return false` ⇒ 对手先手）");
+            CheckTrue(FirstSeatRules.ByInitiative(30, 20) != FirstSeatRules.ByInitiative(20, 30),
+                      "🧨 灭自证：两个方向**结构上不可能同时相等**（拆掉比较 ⇒ 两边都变 `null` ⇒ 一起红）");
+            CheckTrue(FirstSeatRules.ByInitiative(20, 20) == null,
+                      "★ 平局 ⇒ `null`（交回调用方走原版 ③④⑤，⛔ 不许给一个「平局就玩家先手」的偏置）");
+            CheckTrue(FirstSeatRules.ByInitiative(-1, 20) == null,
+                      "★ 缺真值(-1) ⇒ 同样 `null`（⛔ 不拿默认值顶上：那是把「没数据」静默变成「有数据」）");
+            CheckTrue(FirstSeatRules.ByInitiative((CardDef)null, (CardDef)null) == null,
+                      "★ 督军查不到（卡池里没这张 / 没传卡组）⇒ `null`");
+            Check(Unit("W10InitProbe", 1, 1, 1).Initiative, -1,
+                  "★ `CardDef` 的 `initiative` 缺省 = **-1**（缺值）—— ⛔ 不是 `0`"
+                  + "（`0` = `Initiative.Undefined`，会被读成「有数据」）");
+        }
+    }
+
+    static void TestRelatedCardsTruth()
+    {
+        var pool = CardDatabase.Load();
+        CheckTrue(pool != null && pool.Count > 1000,
+                  $"（前提）卡池读得出来（{((pool == null) ? 0 : pool.Count)} 张）");
+        if (pool == null || pool.Count == 0) return;
+
+        // ---- ① 表真的载进来了 ----
+        //   ⚠️ 这一条不是形式主义：`RelatedCardData` 的两半边（`Core/` 声明 + `Data/` 装载）如果只编到一半，
+        //      `Get` 恒返回 null ⇒ 两个消费者都「安静地」走老路 ⇒ 下面②④会红、而这一条会给出根因。
+        CheckTrue(RelatedCardData.TableCards >= 150,
+                  $"★ `Resources/related_cards.json` 载进来了 **{RelatedCardData.TableCards}** 张卡"
+                  + "（< 150 ⇒ 没载到 / 空表 / 两半边没接上 —— 那两个消费者会安静地走老路）");
+
+        // ---- ② 钉一条原版真值（现读那份包：`SAU37 Orikan the Diviner` 的 `relatedCard1` = `Master Chronomancer`）----
+        var sa = RelatedCardData.Get("SAU37");
+        CheckTrue(sa != null && sa.Length == 1 && sa[0] == "SAU_Master_Chronomancer",
+                  "★ 原版 `SAU37 Orikan the Diviner` 的 `relatedCard1` = `Master Chronomancer`"
+                  + "（实测 " + (sa == null ? "null" : string.Join(",", sa)) + "）");
+
+        // ---- ③ 视图侧：真值优先（判别式 = 「卡面文本里没提那张相关卡」）----
+        var minka = CardDatabase.FindById(pool, "AM15");
+        if (minka == null) CheckTrue(false, "（前提）卡池里有 `AM15 Minka Lesk`");
+        else
+        {
+            CheckTrue((minka.Desc ?? "").IndexOf("Cadian Honour", StringComparison.Ordinal) < 0,
+                      "（前提）`AM15 Minka Lesk` 的效果文本里**没有** `Cadian Honour` 这几个字 ⇒ "
+                      + "替身那三支（点名/池子/契约）**结构上产不出**它 ⇒ 下一条只有「真值优先」成立才绿"
+                      + $"｜desc=`{minka.Desc}`");
+            var rel = CardPresentation.RelatedCards.Find(minka, 8);
+            Check(rel.Count, 1, "★ 真值非空 ⇒ **只列真值那一条**（替身那三支一支都不跑）");
+            CheckTrue(rel.Count == 1 && rel[0].Id == "AM_Cadian_Honour",
+                      "★ 而且就是原版写的那一张（`AM15` 的 `relatedCard1` = `Cadian Honour`）"
+                      + "｜实得 " + (rel.Count == 0 ? "(空)" : string.Join(",", rel.ConvertAll(r => r.Id))));
+        }
+
+        // ---- ④ 真值优先**不透支**：原版没写那四个字段的卡，仍旧走替身三支 ----
+        CheckTrue(RelatedCardData.Get("BL4") == null,
+                  "★ `BL4 Chaos Sergeant` 原版**没写** `relatedCard1..4`（表里没有这个键）⇒ 才轮到替身");
+        var cs = CardDatabase.FindById(pool, "BL4");
+        if (cs != null)
+        {
+            int nDark = 0;
+            foreach (var r in CardPresentation.RelatedCards.Find(cs, 8))
+                if (r.Subtype == "Dark Pact") nDark++;
+            Check(nDark, 4, "★ 没有真值 ⇒ 替身那一支照旧（四张黑暗契约仍然列出来）");
+        }
+
+        // ---- ⑤ 引擎侧读的是**同一张表** ----
+        var comp = RelatedCardData.ResolveFirst(pool, "TAU20");
+        CheckTrue(comp != null && comp.Id == "TAU6",
+                  "★ 引擎读的是**同一张表**：`TAU20 Piranha` 的 `relatedCard1` = `TAU6 Gun Drone`"
+                  + "｜实得 " + (comp == null ? "null" : comp.Id));
+
+        // ---- ⑥ **灭自证**：同名诱饵摆在池子最前面，按名字查一定挑它 ----
+        //    判据：`CreatePool.FindByName` 是**按池序遍历、取第一个**（`CreatePool.cs:465`）。
+        {
+            var foeDeck = new CardDef[10];
+            for (int i = 0; i < foeDeck.Length; i++) foeDeck[i] = Unit("EFoe", 1, 0, 9);
+            var decoy = Unit("Gun Drone", 1, 0, 1);          // 与 `TAU6` 的名字归一化后逐字相同
+            var fixture = new List<CardDef> { decoy };        // ⚠️ **摆在最前面**
+            fixture.AddRange(pool);
+            var piranha = CardDatabase.FindById(pool, "TAU20");
+            if (piranha == null) CheckTrue(false, "（前提）卡池里有 `TAU20`");
+            else
+            {
+                var ctx = BattlePool(new[] { piranha }, foeDeck, fixture, warlordFaction: "TauEmpire");
+                ToP1Turn(ctx, 6);
+                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Piranha"), 0), RuleCodes.OK,
+                          "打出 `TAU20 Piranha`（带 `Companion 1: Gun Drone`）");
+                CardDef made = null;
+                foreach (var h in ctx.Players[0].Hand)
+                    if (h != null && h.Card != null && h.IsCompanion) { made = h.Card; break; }
+                CheckTrue(made != null, "伴生真的造出来了（进**手牌**，原版 `AddNewCardToHand`）");
+                CheckTrue(made != null && made.Id == "TAU6",
+                          "★ **灭自证**：池子里那张同名诱饵（`Gun Drone`）**摆在最前** ⇒ 按名字查"
+                          + "（`CreatePool.FindByName` 取池序第一个）**一定**挑中诱饵；而这里造出来的是"
+                          + " `TAU6`（原版 `relatedCard1`）⇒ 取的是 **id**、不是名字"
+                          + "｜实得 " + (made == null ? "(没造出来)" : made.Id));
+            }
+        }
+
+        // ---- ⑦ **交叉核对**：卡面上 `Companion N: <名字>` 读出来的，与 `relatedCard1` 指的那张**逐张同一个** ----
+        //   两条链**完全独立**：一条是把**英文 `desc`** 切开（`CardDef.ExtractCompanionName`），
+        //   一条是读**原版卡 SO 的字段**（`RawCardScript +0xE8`）⇒ 不同就说明有一边错了。
+        //   ⚠️ 那一族**正好 8 张**（数据侧事实，与实现无关；`CompanionName` 非空的才进来）。
+        {
+            int n = 0, bad = 0; string first = "";
+            foreach (var c in pool)
+            {
+                if (c == null) continue;
+                string nm = c.CompanionName;
+                if (string.IsNullOrEmpty(nm)) continue;      // 这一族按定义就是「读得出来名字」的
+                n++;
+                var d0 = RelatedCardData.ResolveFirst(pool, c.Id);
+                if (d0 != null && CreatePool.Norm(d0.Name) == CreatePool.Norm(nm)) continue;
+                bad++;
+                if (first == "") first = $"{c.Id}「{nm}」→ {(d0 == null ? "真值里没有" : d0.Id + "「" + d0.Name + "」")}";
+            }
+            Check(n, 8, "（前提·数据侧事实）池里 `CompanionName` 读得出来的卡正好 **8** 张");
+            Check(bad, 0, "★ **交叉核对**：这 8 张的卡面名字（切英文 `desc` 得来）与**原版 `relatedCard1`**"
+                          + "**逐张同一个**（两条链完全独立 —— 一条切文本、一条读原版字段）"
+                          + (first == "" ? "" : "｜不符：" + first));
         }
     }
 
@@ -20474,7 +21126,8 @@ public static partial class RuleEngineTest
             var pool = CardDatabase.Load();
             // 真卡：`TAU18 DS8 Support Turret`，卡面整句就是
             // `At the start of your turn, deal 2 damage to all enemies`
-            // （出处 `d:/4/Unity/数据/游戏数据/cards_engine.json`）。
+            // （出处 `MyGame/Assets/RuleEngine/Resources/cards_engine.json` —— 🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1828`）**：
+            //   原来写的是 `d:/4/Unity/数据/游戏数据/cards_engine.json`，**那个路径下没有这个文件**；卡池落盘只有这一处。）
             var turret = PoolCard(pool, "DS8 Support Turret");
             CheckTrue(turret != null, "卡池里找得到 `DS8 Support Turret`（`TAU18`）");
             // **前提**：它这句得被认成「手牌扫描认的那个形状」—— 认不出的话下面量到的就不是相位了。
@@ -23621,6 +24274,8 @@ public static partial class RuleEngineTest
             var host = new CardDef("A920Host", "A920Host", "unit", "Companion 1: A920Drone",
                                    "common", "Test", 3, 2, 5, 0, new[] { "Companion 1: A920Drone" },
                                    subtype: "Battlesuit");
+            // 🔴 **2026-10-14（`A1850`）**：夹具自己声明原版那条 `relatedCard1`（严格门要用它）。
+            RelatedCardData.SetForTest("A920Host", new[] { "A920Drone" });
             var ctx = BattlePool(new[] { host, drone }, new[] { Unit("A920Foe2", 1, 0, 9) },
                                  new List<CardDef> { host, drone }, warlordFaction: "TauEmpire");
             ToP1Turn(ctx, 1);
@@ -26082,7 +26737,9 @@ public static partial class RuleEngineTest
         }
 
         // ==============================================================
-        //  ⑦ 台账：`Play` / `Ability` 的**发出点**各 2 处（防将来新增第 3 处漏填）
+        //  ⑦ 台账：`Play` 的**发出点** 2 处 · **`Ability` 的发出点 3 处**
+        //     （`Ability` 第 3 处 = 2026-10-14（`A1888`）按原版给 `UseAlternative` 补的那一处；
+        //       防将来新增第 4 处漏填）
         // ==============================================================
         {
             string dir = System.IO.Path.Combine(Application.dataPath, "RuleEngine", "Core");
@@ -26104,11 +26761,16 @@ public static partial class RuleEngineTest
                   "★ ⑦ 会发事件的那两个文件里，`EvtKind.Play` 恰好 **2 处** = 单位卡那条（`RuleCore.PlayCard`）"
                 + " + 战术卡那条（`EffectResolver.PlayTactic`）"
                 + "｜🧨 新增第 3 个 `Play` 发出点（且不填 `PlayAmbush`）⇒ 本行红");
-            Check(CountOf(two, "EvtKind.Ability"), 2,
-                  "★ ⑦ ……`EvtKind.Ability` 也恰好 **2 处** = `UseAbility` + `UseOathAbility`"
-                + "｜🧨 同上");
+            // 🔴 **2026-10-14 就地改期望值 2 → 3（铁律 5 · 账 `A1888`）**：`W15` 按原版
+            //   `ResolveActiveAbilityPlayed` 给 **`UseAlternative`（`Duty`/`Ferocity`/`Pray`/`Agenda`）**
+            //   也补发了 `EvtKind.Ability` ⇒ 发出点从 2 处变 3 处。
+            Check(CountOf(two, "EvtKind.Ability"), 3,
+                  "★ ⑦ ……`EvtKind.Ability` 恰好 **3 处** = `UseAbility` + `UseOathAbility` + **`UseAlternative`**"
+                + "（2026-10-14 按原版补的第 3 个发出点）"
+                + "｜🧨 新增第 4 个发出点（且不在这里登记）⇒ 本行红");
 
-            // 全目录合计：`Play` **3** / `Ability` **3**（= 上面各 2 个发出点 + 各 **1 处消费**：
+            // 全目录合计：`Play` **3** / `Ability` **4**（= 上面 `Play` 2 个、`Ability` **3 个**发出点
+            //   + 各 **1 处消费**：
             //   `BattleContext.AppendLog` 的 `last.Kind == EvtKind.Play`（出单位卡时把 Play+Deploy
             //   合并成一行）· `BattleEvent.ToString()` 的 `case EvtKind.Ability:`）。
             // ⚠️ **如实标着扫描范围的边界**：这一条盯的是「`Core/` 里再多出一处 `EvtKind.Play`」，
@@ -26120,9 +26782,10 @@ public static partial class RuleEngineTest
             Check(CountOf(sbAll.ToString(), "EvtKind.Play"), 3,
                   "★ ⑦ 整个 `Core/` 里 `EvtKind.Play` 合计 **3** = 2 个发出点 + `BattleContext.AppendLog` "
                 + "那 1 处**消费**（Play+Deploy 合并）｜🧨 任何地方多一处 ⇒ 红");
-            Check(CountOf(sbAll.ToString(), "EvtKind.Ability"), 3,
-                  "★ ⑦ ……`EvtKind.Ability` 全目录合计 **3** = 2 个发出点 + `BattleEvent.ToString()` 里"
-                + "`case EvtKind.Ability:` 那 1 处**消费**（显示用，不是发出点）｜🧨 同上");
+            Check(CountOf(sbAll.ToString(), "EvtKind.Ability"), 4,
+                  "★ ⑦ ……`EvtKind.Ability` 全目录合计 **4** = **3 个发出点**（`UseAbility`/`UseOathAbility`/`UseAlternative`）"
+                + " + `BattleEvent.ToString()` 里 `case EvtKind.Ability:` 那 1 处**消费**（显示用，不是发出点）"
+                + "（🔴 **2026-10-14 就地改期望值 3→4**，同上面那条）｜🧨 同上");
         }
 
         // ==============================================================

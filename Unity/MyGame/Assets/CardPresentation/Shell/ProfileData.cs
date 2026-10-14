@@ -16,6 +16,15 @@
 //      去掉 `Title_`、下划线换空格 ⇒ `UM Premium 1`。
 //    ⚠️ **所以界面上那些名字不是原版文案**，是从资源名反推的 —— 这一点在代码注释与 `_note` 字段里都写着。
 //
+// 🔴 **2026-10-14（第二十八会话 · `A1803`）就地更正上面那句「不是原版文案」**：
+//    官方 zh-CN 词条表 2026-10-14 已解开 ⇒ **上面那个「资源名反推」现在只是【兜底】** ——
+//    取值改成先走 `Loc.BulkOr("Titles/" + <32hex id>, 反推名)` / `Loc.BulkOr("Avatars/" + <反推名>, 反推名)`
+//    （键的拼法 = 原版 `GetTranslation("…")` 的拼法，见 `工具/_loc_official/gen_official_names.py` 文件头）。
+//    现读命中：**Titles 368/462 · Avatars 234/469 · 成就名 95/102 · 成就描述 95/102**
+//    （命中不到的 = 2025-07-30 快照之后新增的，**保留资源名反推、⛔ 不填占位**）。
+//    ⚠️ **反推名仍是兜底**，别整段删掉（剩下那些要靠它）。
+//    （为什么走 `Loc.BulkOr` 而不是手写进 `Loc.cs` 那张表：键是 368 个 GUID，见 `Loc.BulkOr` 的 doc。）
+//
 // ⚠️ **`Avatar_WF_*` 两张是占位图不是可选头像**（`Warpforge Empty` / `Warpforge Splash`）⇒ 生成器已排除。
 using System;
 using System.Collections.Generic;
@@ -94,18 +103,23 @@ namespace CardPresentation
         public const int TypeBattle = 1, TypeCollection = 2, TypeVictories = 4, TypeAccount = 8;
         /// <summary>四个分类的**运行期顺序** —— 原版 `AchievementsMenu.Awake` 走 `Enum.GetValues`（**按值升序**）⇒ Battle→Collection→Victories→Account。</summary>
         public static readonly int[] TypeOrder = { TypeBattle, TypeCollection, TypeVictories, TypeAccount };
-        /// <summary>分类名。⚠️ **原版真文案是 I2 词条 `Achievements/Types/{枚举名}`，译文在远端查不到**（普查 §C1）
-        /// ⇒ 我们用**枚举名本身**（`%s` 就是它）—— 这是**我们的选择**，预制体里那 4 个 `'Secret'` 是占位，别用。</summary>
+        /// <summary>分类名。🔴 **2026-10-14（`A1803`）改成先取官方词条**
+        /// （`Achievements/Types/{枚举名}`，官方有 `Battle`/`Collection`/`Victories`/`Account` 四条 + `Secret`），
+        /// 取不到才回枚举名本身（改前的行为）。
+        /// <para>⚠️ 改前的注写「原版真文案是 I2 词条 `Achievements/Types/{枚举名}`，译文在远端查不到」——
+        /// 那个「查不到」**作废**（官方 zh-CN 表已到手），今天是**真取得到**。⛔ 预制体里那 4 个 `'Secret'` 仍别用（占位）。</para></summary>
         public static string TypeName(int t)
         {
+            string name;
             switch (t)
             {
-                case TypeBattle: return "Battle";
-                case TypeCollection: return "Collection";
-                case TypeVictories: return "Victories";
-                case TypeAccount: return "Account";
+                case TypeBattle: name = "Battle"; break;
+                case TypeCollection: name = "Collection"; break;
+                case TypeVictories: name = "Victories"; break;
+                case TypeAccount: name = "Account"; break;
                 default: return "?";
             }
+            return Loc.BulkOr("Achievements/Types/" + name, name);
         }
         /// <summary>按分类筛（`0` = 不筛）。</summary>
         public static List<Achievement> OfType(int type)
@@ -217,23 +231,36 @@ namespace CardPresentation
             try { d = JsonUtility.FromJson<FileDto>(ta.text); }
             catch (Exception e) { Debug.LogError("[Profile] `" + ResourcePath + "` 解析失败：" + e.Message); }
             if (d == null) { _failed = true; return; }
-            Fill(d.avatars, _avatars);
-            Fill(d.titles, _titles);
+            Fill(d.avatars, _avatars, "Avatars/", true);
+            Fill(d.titles, _titles, "Titles/", false);
             if (d.achievements != null)
                 for (int i = 0; i < d.achievements.Length; i++)
                 {
                     var a = d.achievements[i];
-                    _ach.Add(new Achievement { Id = a.id, Name = a.n, Challenge = a.c, Type = a.t,
+                    // 🔴 2026-10-14（`A1803`）：名与描述都先取官方词条（键拼法见文件头），取不到回资产里的真字符串。
+                    //   官方 **名** = `Achievements/Title/<Ach_N>` · **描述/挑战** = `Achievements/<Ach_N>`（现读各命中 95/102）。
+                    //   ⚠️ 描述那列里有几条**带 `{0}`**（如 `Log in {0} days`）—— 我们的进度恒 0、没有那个数值可填
+                    //      ⇒ 带占位符的**退回资产里的 challenge id**（⛔ 不许把 `{0}` 原样印上屏）。
+                    string desc = Loc.BulkOr("Achievements/" + a.id, a.c);
+                    if (!string.IsNullOrEmpty(desc) && desc.IndexOf("{0}", System.StringComparison.Ordinal) >= 0)
+                        desc = a.c;
+                    _ach.Add(new Achievement { Id = a.id,
+                                               Name = Loc.BulkOr("Achievements/Title/" + a.id, a.n),
+                                               Challenge = desc, Type = a.t,
                                                Thresholds = a.v, Quantities = a.q });
                 }
             _loaded = true;
         }
 
-        static void Fill(CosmeticDto[] src, List<Item> dst)
+        /// <summary>把 DTO 灌成清单。`prefix` = 官方词条键的前缀；`keyFromName` = true 时**子键取反推出来的显示名**
+        /// （头像那一族的官方键就是显示名），false 时取 `id`（称号那一族的官方键 = 32 位 GUID，与 `id` 同源）。</summary>
+        static void Fill(CosmeticDto[] src, List<Item> dst, string prefix, bool keyFromName)
         {
             if (src == null) return;
             for (int i = 0; i < src.Length; i++)
-                dst.Add(new Item { Id = src[i].id, Name = src[i].n, Army = src[i].a, Art = src[i].art });
+                dst.Add(new Item { Id = src[i].id,
+                                   Name = Loc.BulkOr(prefix + (keyFromName ? src[i].n : src[i].id), src[i].n),
+                                   Army = src[i].a, Art = src[i].art });
         }
 
         /// <summary>按阵营筛（`0` = 全阵营通用，**任何阵营都算它**；`army &lt;= 0` = 不筛）。</summary>

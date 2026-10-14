@@ -46,6 +46,16 @@ namespace RuleEngine
             foreach (var c in pool)
             {
                 if (c == null || c.Faction != faction) continue;
+                // 🔴 **2026-10-14（`A1867`）：按原版**不能进卡组**的卡，自动凑牌也不许抽它。**
+                //    判据只此一处 = `DeckRules.CannotAddToDeck`（原版 `inventoryOptions != 0 ||
+                //    showInCollectionOptions != 5`，出处 `DeckUtility__ValidateDeckCards.c:68-77`）——
+                //    ⛔ 别在这儿另写一份（两处写同一条规则 = 迟早不一致）。
+                //    实测影响面：现池 1126 张里 **98 张**会被这条挡住，**全是 `type == "tactic"`**
+                //    ⇒ 今天只改变 `tactics` 那一支（`hero` / `defence` 走原版路由豁免、
+                //    `unit` 一张都没被挡）。
+                //    ⚠️ **为什么以前没人发现**：它**不产生红** —— 自动凑出来的牌不过 `Validate`，
+                //    原版也不会允许这 98 张进卡组 ⇒ 那几局打的是一副「原版里根本不存在」的牌。
+                if (DeckRules.CannotAddToDeck(c)) continue;
                 if (c.Type == "hero") heroes.Add(c);
                 else if (c.Type == "unit") units.Add(c);
                 // 🆕 2026-09-29：防御卡**是独立的一格**（不进那 `size` 张），单独收着，最后再挂上去。

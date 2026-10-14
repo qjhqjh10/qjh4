@@ -17,6 +17,10 @@
     <Compile Include="FilterAdd.cs" />
     <Compile Include="BattleProbe.cs" />
     <Compile Include="Scan.cs" />
+    <!-- 🆕 `layers`（`A1877①`，2026-10-14）：`AuraSpecs` / `keywords` / 执行层 ops 的 JSONL dump 口。
+         ⚠️ **必须显式列进来** —— 本 csproj 关掉了 `EnableDefaultCompileItems`，漏了就**编不进去、
+         而调用点会在运行时抛**（同族：`Stub.cs` 被拿掉 ⇒ 18 个 `CS0103`，见文件末那段注释）。 -->
+    <Compile Include="Layers.cs" />
     <Compile Include="WillRun.cs" />
     <Compile Include="FaithProbe.cs" />
     <Compile Include="PlayProbe.cs" />
