@@ -12,7 +12,7 @@
 | # | 来源 | 路径 | 说明 |
 |---|---|---|---|
 | ① | **运行时 UI 树** | `资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_drive_0912.tsv` | 2026-09-12 本机重跑 mod 拿的，**1253 行**。每行 = UI 树一个节点：path / name / activeSelf / anchoredPosition / sizeDelta / anchor / pivot / text / fontSize / color / sprite |
-| ② | 同一份树的旧版 | `.../data/runtime_ui_dump_Battle_Arena_1.tsv`（2026-08-25） | 比过 14 个关键节点逐字段一致 → 多数是**预制体静态值**。⚠️ **2026-09-17 更正：至少 `Play`/`Pause` 一项不成立** —— 两源正好相反（dump Play=False/Pause=True；`Play=True/Pause=False`），见 §三之〇 |
+| ② | 同一份树的旧版 | `.../data/runtime_ui_dump_Battle_Arena_1.tsv`（2026-08-25） | 比过 14 个关键节点逐字段一致 → 多数是**预制体静态值**。⚠️ **2026-09-17 更正：至少 `Play`/`Pause` 一项不成立** —— 两源正好相反（dump Play=False/Pause=True；`Play=True/Pause=False`），见 §三之〇。🔴 **2026-10-15 就地订正（铁律 5 · 本条是「同一份表里两处说法不一致」）**：**本节 §三之〇** 已经给出了**裁定** —— 场景里存的那份（Play=T/Pause=F）是**进战场【前】**的样子，**照场景建就错**。⇒ 读到本条时**以 §三之〇 为准**；⛔ 别以为这里在说「两源各有一半对」 |
 | ③ | 静态场景 JSON 的转写 | `资料/战斗规格/战斗重建_0827/战斗界面JSON权威表_0827.md` | 绝对屏幕坐标表（anchor 链算出来的），dump 里没有绝对坐标时用它 |
 
 **⚠️ 关于「原版已关服」**：`drive` 模式进去看到的 **3D 战场是对的**（本地资产），
@@ -33,7 +33,7 @@
 | **卡面 7 个位** | 费用 `(0.788,+0.666)` / 护甲 `(0.899,−0.991)` / 近战 `(−0.836,−1.19)` / 远程 `(−0.595,−1.40)` / 生命 `(0.74,−1.36)` / 稀有度 `(0,−1.458)` / 文字块 `1.3×0.68 @(0,−0.7745)` | ③ A2 表（卡单位） | `CardView.CostAt` 等 7 个常量 |
 | **9 槽跨度 / 中心距** | 1331.6 px / 149.3 px | 同上 | `BattleScene.BoardSpacing` |
 | **END TURN 按钮** | 130.7×80.4，中心 **(1848, 456)**（右侧能量区中段） | ① `.../Energy And turn holder/Clock`；③:140 | `BattleDriver.EndTurnX01/Y01` |
-| **能量竖排三件套** | EnemyMana 97.7² / Clock 130.7×80.4 / PlayerMana 97.7²，都在 x≈1827~1904 | ① + ③:149-156 | `_energyGem` / `EndTurnX01` |
+| **能量竖排三件套** | 🔴 **2026-10-15 就地订正（铁律 5）：原来那三个尺寸【记的是子件，不是这三个节点】。** 实测（`battlearena2` 逐字段）：`EnemyMana` / `Clock` / `PlayerMana` **三个节点全是 stretch 容器**（sizeDelta `0.252×−0.83` / `0.274×−11.19` / `−1.812×1.97`）；**`130.7×80.43` 是 `Clock/TurnBtn` 的**、**`97.71²` 是各自子件 `QuestPointsHolder`（任务点牌子）的**；**能量球本体 = `Energy Player` 75.6×76.99**（贴图 `Card Frame Cost Icon`）。同段那两条「任务点绝对坐标」与「holder 偏移 +89.59 / −88.70」**逐值吻合、不用改**。判据 → `资料/普查产出_1015战斗/B1_HUD左右区_层参数表.md` 表二 #2 | ① + ③:149-156 | `_energyGem` / `EndTurnX01` |
 | **右侧大底板** | `UI_Energy_Holder_big` 302.1×480.8（右侧出血 156 px） | ① `Energy And turn holder` 自己的 rect | `HudImageTex(... HudDecorZ)` |
 | **任务点** | `UI_Quest_Points` 97.7²：我 x[1817.0,1914.7] **y[595.4,693.1]**（水晶**下**方）、敌 x[1816.1,1913.8] **y[150.2,247.9]**（水晶**上**方） | ③ B 节 `QuestPointsHolder` 的**绝对坐标**；接片 `BackgroundJoin` 另有一条 | `MyQuestX01/Y01`、`FoeQuestX01/Y01` + 两块 `QuestJoin`。⚠️ **2026-09-12 更正**：原来写「玩家在能量上方 37.4 px、敌方在下方 36.4 px」—— 那 37.4/36.4 是 **接片 `BackgroundJoin`** 相对 holder 的偏移，holder 自己的偏移是 +89.59（敌）/ −88.70（我）。照接片摆会让两个图标都贴在水晶**内侧**。<br>🔴 **2026-09-13 更正（张冠李戴，已修）**：这一件**只属于暗黑天使**，不是通用件 —— 原版按督军阵营开关（`cmp [督军+0x2c],0x6e`=110=DarkAngels），`ManaTypeHolder.Toggle` → `SetActive`。**我们原来无条件摆给全部 13 个阵营**（其余 12 个不该有）。出处与机器码见 `BattleDriver.ShowsQuestPoints` |
 | **督军名牌** | 实绘 **382.3 × 126.3** px（贴图 442×146，PreserveAspect）。⚠️ **位置**（2026-09-13 更正）：我 rect x[−38.1,397.6] y[951.4,1077.7] / 敌 x[−37.9,397.9] y[15.6,141.9] → **实绘左缘都在 −11.4**（贴屏幕左缘、出血 11 px），文字中心 (237.25, 999.45) / (240.19, 63.9)、**H=居中** | ③:16 + dump `NameBackground 435.7×126.3`；位置出处 `子代理读报_back左区_0827.md:46,55,69,78` | `worldHeight = 126.3/108`。⚠️ **2026-09-13 修正位置**：原来用 `EnemyInfo(157,108)`/`PlayerInfo(32,977)`（那是 `Alliance Panel` 下**另一份** inactive 实例）→ 我方偏右 44 px/偏高 37 px、敌方偏右 ~168 px。见第四节 |
@@ -57,6 +57,11 @@
 ---
 
 ## 三、还没对上的（✅ **2026-09-20 起：没有剩下的了**）
+
+> 🔴 **2026-10-15 就地订正（铁律 5）：这个「没有剩下的了」的范围要写清 —— 它只覆盖【本节 §二 那张尺寸表】。**
+> ⛔ **不覆盖** `项目任务.md` §8b / Q 批 / `真Play待验清单.md` 的 `A964`（命中区覆盖普查）——
+> 那些**仍有开着的**。⚠️ 原标题读起来像「整个战斗 HUD 都做完了」，那是**误导**；
+> 逐条现状以 `项目任务.md` §29·b 与 `资料/任务_卡组卡牌战斗.md` 为准。
 
 > 这一节原有的四项（单位语音条 · 回放条 · 等待提示 · 点开牌堆看张数）**+ 加时**全部了结
 > （收工记录与「哪些是我们挑的」在 **§三之〇**）。✅ **2026-09-22 起没有还差的了**：加时音效 `OvertimeStart` 那份 `.vorbis`
@@ -181,7 +186,7 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 |---|---|---|
 | `TitleBackground` 头衔底条 | 311×42（图**原生 1:1**）我 x[54.2,365.2] y[1028.5,1070.5] / 敌 x[54.5,365.5] y[92.8,134.8] | ✅ 摆上（**在名牌后面** —— 原版它就是名称条的底，z 序有断言） |
 | `Avatar Item Small` 头像块 | 容器 155.6×136.5（我 x[−19.7,136] y[948.1,1084.6]，左缘出屏） | ✅ 摆上。⚠️ **三处照 dump 修过**：① 实绘的 `Border` 在 `Image Container` 里（stretch `size(0,-37.4)`）→ 实际 **155.64×99.1**；② 它是 `PlayerName` 的子节点、**画在名牌上面**（z 序有断言）；③ 原版 `Border` 是 stretch **不保比例**，我们 `SetAspect` 照做。原版场景态里 `avatarImage` **m_Enabled=0** → 我们**只摆框不摆立绘** |
-| `ChatButton` | 64.4×61.9，我名牌下 x[50.9,115.4] y[880.2,942] | ✅ 摆上（⚠️ 🔴 **2026-09-18 更正：那一个对象上挂了两个组件** —— `Button.m_OnClick → BattleManager.ClickChat`（**开 `ChatPopup` 面板**）**和** `PlayerStateToggle.selectedBool = EnableWarlordVOs`（语音开关）；原来只写「是敌方语音开关」是**半对**。哪个生效**待跑实况**，见 `资料/语音线_原版规格与ASR管道.md` §1.7.0） |
+| `ChatButton` | 64.4×61.9，我名牌下 x[50.9,115.4] y[880.2,942] | ✅ 摆上（⚠️ 🔴 **2026-09-18 更正：那一个对象上挂了两个组件** —— `Button.m_OnClick → BattleManager.ClickChat`（**开 `ChatPopup` 面板**）**和** `UnityRemoteConfigObjectToggler`（值 `EnableWarlordVOs`，语音开关）；原来只写「是敌方语音开关」是**半对**。哪个生效**待跑实况**，见 `资料/语音线_原版规格与ASR管道.md` §1.7.0）<br>🔴 **2026-10-15 就地订正（铁律 5）**：本格里那个**类名 `PlayerStateToggle` 是错的** —— 实测是 **`UnityRemoteConfigObjectToggler`**（值 `EnableWarlordVOs` 本身对）；而且那颗钮是 **`EverguildButton` 不是 uGUI 的 `Button`**（它的 `m_OnClick` 确实调 `BattleManager.ClickChat` ✅）。判据 → `资料/普查产出_1015战斗/B1_HUD左右区_层参数表.md` 表二 #1 |
 | `ShowCemeteryBtn` | 64.5×64.2，敌 x[52,116.4] y[135.9,200.1] | ✅ 2026-09-13 早先已做（墓地日志入口） |
 | `CenterCameraButton` | 64.4×61.9（x[17.9,82.4] y[568.2,630]） | ✅ 摆上 |
 | `OffensiveButton` | 109×106.9（x[0,109] y[446.9,553.8]） | ✅ 摆上 |
@@ -247,8 +252,8 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 
 | 事项 | 证据 A | 证据 B | 结论 |
 |---|---|---|---|
-| **攻击方式选择器三钮的位置** | ① dump：近战在槽**左下角**、Active 与 Range **叠在槽中心** —— 但整条 `Drag Attack Selector` 的 `activeSelf=False`，这是**预制体静态值**，运行时很可能由代码重排 | `AttackSelector.cs` 文件头写着「原版三钮同位叠加是错的、以横排为准」，我们做成了横排 | **没定论**。要定得拿到真实战斗里的实况（需要对局数据，现在拿不到）。改动前先看 `资料/规则引擎_进度与交接.md` **§「攻击方式选择器」** 那一节 |
-| **牌堆底板位置** | ③ 绝对坐标表：`PlayerDeck` 贴屏幕右下角 | ① dump 里 `PlayerDeck` 是 stretch 容器（size −0.0,−0.1），**读不出绝对位置** | 按 ③ 做了。**单一来源**，看着不对就说 |
+| **攻击方式选择器三钮的位置** | ① dump：近战在槽**左下角**、Active 与 Range **叠在槽中心** —— 但整条 `Drag Attack Selector` 的 `activeSelf=False`，这是**预制体静态值**，运行时很可能由代码重排 | `AttackSelector.cs` 文件头写着「原版三钮同位叠加是错的、以横排为准」，我们做成了横排 | ✅ **2026-10-15 结案：以【横排】为准（= 证据 B 对，证据 A 的措辞不成立）。** 🔑 **判据（`bundle_scenes_scenes_battlearena2` 现读）**：① **三钮的 `RectTransform` 完全相同**（`aMin(0,0) aMax(0,0) pos(0,0) size 118.372×118.806`）⇒ 说①那句「近战在左下角、另两个叠在中心」**措辞是错的**，真相是**三钮全在同一锚点**（= LayoutGroup 跑之前的模板位）；② 父节点有一个 **`m_Enabled=1` 的 `HorizontalLayoutGroup`**（spacing 37 / MiddleCenter / forceExpand 0 / childControl 0），且 `AttackTypesButtonsController.layoutGroup` 的 PPtr **正好指向它** ⇒ **运行时由布局组重排成横排**。➕ **补一条新知识**：每个按钮另有 `directionToPivotPoint`（近战 -0.5,-1 / 技能 0,-1.1 / 远程 0.5,-1）× `furtherPointDistance`（45 / **80** / 45），`MoveButtons→MoveButton(f)` 把三钮**沿各自方向扇开**。⚠️ 说③「四钮同坐标」是 **Godot 时代的重实现**（原版 `CardDisplayAttackTypeButton` **全库只有 3 个实例**，实测）；那句在 `战斗重建_0827/README.md:23`，**不**在本表原来说的 `审查更正清单_0827.md:23`。⚠️ **一处仍没查到**：`SetOriginalPosition()` 缓存 `localPosition` 给 `MoveButton` 当基准，但**全量反编译里只有定义、没有调用点** ⇒ 扇开基准是「排完的横排位」还是 (0,0) **判不了**，要钉死只能进原版跑实况（已挂 `真Play待验清单`）。<br>🔴 **我们不用改**：`AttackSelector.cs` 的常量与 arena2 实测**逐条相同**。⚠️ **另更正一处**：本条附注原说「整条 `Drag Attack Selector` `activeSelf=False`」—— arena2 实测是 **True**（inactive 的是槽内底板 `Select Attack Background`） |
+| **牌堆底板位置** | ③ 绝对坐标表：`PlayerDeck` 贴屏幕右下角 | ① dump 里 `PlayerDeck` 是 stretch 容器（size −0.0,−0.1），**读不出绝对位置** | ✅ **2026-10-15 销案：证据 B 【不成立】——那条「A/B 冲突」是【量的不是同一个节点】。** 现读 dump 那一行实际是 `pos −190.0,−461.0 · size 230.0,230.0`（**锚点 (1,0) 贴右下角**，与证据 A 一致）；`−0.0,−0.1` 是它**子件 `DeckAndEnergyImage`** 的 sizeDelta。`arena1/2/3` 三场字段**逐值一致**。⇒ **按 ③ 做是对的，没有冲突**。判据 → `资料/普查产出_1015战斗/B1_HUD左右区_层参数表.md` 表二 #3 |
 
 ---
 

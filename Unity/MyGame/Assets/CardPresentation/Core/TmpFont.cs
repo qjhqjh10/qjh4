@@ -378,9 +378,16 @@ namespace CardPresentation
         /// **不经过 `Label`**（那条是按钮/面板用的）⇒ 放在这里才能让两条路**共用一份实现**。
         /// ⚠️ 点阵后端没有 link 这个概念（`tmp == null`）⇒ 如实返回 null，**不猜一个位置出来**。
         /// </summary>
+        /// <summary>🆕 2026-10-15（账 `A2089`）：`LinkAt` 被调了几次（= 跑了几次 `FindIntersectingLink`）。
+        /// 自检用：**指针在空处时这个数不该涨**（原版 `TextTooltipController` 那道字节闸的等价物）。</summary>
+        public static int LinkAtCalls { get; private set; }
+
         public static string LinkAt(TMP_Text tmp, Vector3 world, Camera cam)
         {
             if (tmp == null || cam == null) return null;
+            // 🆕 2026-10-15（账 `A2089`）：**调用计数** —— `FindIntersectingLink` 是这条链上最贵的一步
+            //   （逐字符做矩形判定），自检拿它断「指针在空处时一次都不该跑」。
+            LinkAtCalls++;
             Vector3 sp = cam.WorldToScreenPoint(world);
             if (sp.z < 0f) return null;                       // 落在相机背后
             int idx = TMP_TextUtilities.FindIntersectingLink(tmp, sp, cam);

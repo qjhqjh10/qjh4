@@ -85,8 +85,20 @@ namespace CardPresentation
         /// <summary>Continue 的绿色（原版 Button `colors.normal`）</summary>
         static readonly Color BarColor = new Color(0.369f, 0.894f, 0.587f);
 
-        /// <summary>卡片高度（px）。**我们挑的**（见文件头 ②）</summary>
-        public const float CardHeightPx = 743f;
+        /// <summary>卡片高度（px）。
+        ///
+        /// 🔴🔴 **2026-10-15（账 `A2105`）就地订正：原来是 `743f` —— 那个数【漏乘了父链的 0.7】，卡片高了 43%。**
+        /// **743 的来历**：`223.14 × 3.3313`（`CardUI Reference` 自己的 scale × 卡体高）。
+        /// **漏的是这一跳**：`Generic Multi Card Display Combat`(RT_3370, 1.0) → **`Viewport`(RT_3371,
+        /// `m_LocalScale = 0.7`)** → `Content`(RT_3369) → `CardUI Reference`(RT_3616)
+        /// ⇒ **lossyScale = 223.14 × 0.7 = 156.198** ⇒ 卡体实绘高 = `3.3313 × 156.198` = **520.3 px**。
+        /// ⚠️ **本文件 `:75` 那句注释早就写着这个 0.7**（当时只用它论证「Continue 钮不必乘」）
+        /// —— 也就是说**是同一个文件里自己跟自己对不上**（铁律 5 那一类「听着对、其实错」的注释）。
+        /// 判据 → `资料/普查产出_1015战斗/C2_逐格对账_弹窗与结算转场.md`（那一条是它查出**最大**的一处）。
+        /// ⚠️ **本值是 `public const`、而且被拿去算「装得下几张」**（`:242` 当屏幕高用）⇒
+        /// 改成真值之后**同屏能放下的张数会变多**，那是**应有的**（原版就是这样）——
+        /// ⛔ 别为了保住旧张数再把它改回去。</summary>
+        public const float CardHeightPx = 520.3f;
         /// <summary>卡间距（px）。**我们挑的**（见文件头 ①）</summary>
         public const float SpacingPx = 24f;
         /// <summary>两侧留白（px）—— 判断「装不装得下」时按它算可用宽度</summary>

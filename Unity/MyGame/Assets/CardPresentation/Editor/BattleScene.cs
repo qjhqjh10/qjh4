@@ -625,6 +625,57 @@ public static class BattleScene
                 Check(perCard != fallback,
                       $"★ **灭自证**：逐卡值「{perCard}」≠ 按事件兜底「{fallback}」 ⇒ "
                     + "「把 `ByCard` 改回空字典」时上面那条与这条**同时**变红");
+
+                // 🔴🔴 **2026-10-15（账 `A2082`）：上面那两条【锁错了钥匙】—— 它们拿 id 当尺子，
+                //    而生产路径传的是【卡名】。** 于是它们从 2026-10-14 起一直是绿的，
+                //    而**同一时刻游戏里逐卡那一档一条都取不到**（1,009 卡 / 3,498 条真值全部落空）。
+                //    形状与 2026-10-14 那次**一模一样**（「名字都在库里，只是永远取不到那一条」），
+                //    只是这次错的不是「表没载」，而是「尺寸与调用点不是同一把」。
+                //    ⇒ 下面这几条**照调用点的形状写**：`BattleDriver.PlaySignal` 传的是
+                //      `CardEffects.FireEvent(evt, pos, faction, e.CardId)`，而 `e.CardId` = **卡名**。
+                Check(VfxMap.CardTableNames > 0,
+                      $"★ 逐卡表建了**卡名索引**（{VfxMap.CardTableNames} 个名字）—— 生产路径传的是卡名，"
+                    + "没有这一层，上面那两条 id 断言照样全绿而游戏里一条都取不到");
+                // 尺子同 `SOR5`（Battle Sister）：卡名 → 权威值 `Buff_Sororitas_quick`；兜底 `Buff_Blue_SW`。
+                string byName = VfxMap.Resolve(VfxMap.Ability, "Sororitas", "Battle Sister");
+                Check(byName == "Buff_Sororitas_quick",
+                      $"★ **按【卡名】查逐卡**（= `BattleDriver.PlaySignal` 的真实形状）取到原版真值"
+                    + $"（`Battle Sister` 的 ability —— 实得「{byName}」，期望 `Buff_Sororitas_quick`）");
+                Check(byName == perCard,
+                      $"★ **两条键必须同解**：按卡名「{byName}」= 按 id「{perCard}」 ⇒ "
+                    + "「把 `ResolveCardIdOf` 那一步换算删掉」时**这条单独变红**、上面 id 那条仍绿（灭自证）");
+                // 重名那一族：`Maulerfiend` 全池两张（`BL31` 黑军团 / `EC30` 帝皇之子）⇒ **只能靠 `faction` 钉**，
+                //   这也是「为什么运行时那份必须带 `fa`」的现场证明（⛔ 不是可选的装饰字段）。
+                string mfBL = VfxMap.Resolve(VfxMap.Ability, "BlackLegion", "Maulerfiend");
+                string mfEC = VfxMap.Resolve(VfxMap.Ability, "EmperorsChildren", "Maulerfiend");
+                Check(mfBL == "TraitorsHate_Board" && mfEC == "Buff_HideousMutation_EC",
+                      $"★ **重名靠阵营钉**：`Maulerfiend` 黑军团 →「{mfBL}」（期望 `TraitorsHate_Board`）· "
+                    + $"帝皇之子 →「{mfEC}」（期望 `Buff_HideousMutation_EC`）"
+                    + " —— 钉不出唯一时 `ResolveCardIdOf` **出声并放弃**，⛔ 不拿「先到的那个」充数");
+                Check(mfBL != mfEC,
+                      "★ **灭自证**：同一个卡名 `Maulerfiend` 在两个阵营下**必须解析成不同的 prefab** ⇒ "
+                    + "「改回『重名取第一条』」时这条与上面那条**同时**变红");
+
+                // 🆕 2026-10-15（账 `A2083`）：**阵亡那一档只认 `customDeathParticles`**。
+                //   原版 `CardScript.UnitDeath` 是「逐卡取得到就用它、否则才用默认件」的**二选一**
+                //   （反编译 `CardScript._UnitDeath_d__446__MoveNext.c:233` / `:240` / `:262`），
+                //   而 `remnantBodyPrefab`（触发时刻是**「转化为残骸」**，`CardScript.UnitDeath` 全程没碰它）
+                //   原来和它**挤同一个 `death` 键** ⇒ 42 张两者都有的卡谁进 `death` **是掷硬币**。
+                //   运行时那一份已按 `RT_SKIP_SOFIELDS` 把残骸体挡在外面（全量件里仍保留、带 `soField`）。
+                string dSAU1 = VfxMap.ResolvePerCard(VfxMap.Death, "Sautekh", "SAU1");
+                Check(dSAU1 == "Necrons death explosion",
+                      $"★ 逐卡阵亡档 = 原版的 `customDeathParticles`（`SAU1` —— 实得「{dSAU1}」，"
+                    + "期望 `Necrons death explosion`；66 张卡解出来都是这一件，⛔ 别以为是「一卡一件」）");
+                string dASH5 = VfxMap.ResolvePerCard(VfxMap.Death, "SaimHann", "ASH5");
+                Check(dASH5 == null,
+                      $"★ **只有 `remnantBodyPrefab` 的卡不冒充阵亡爆散**（`ASH5` —— 实得「{dASH5 ?? "null"}」，"
+                    + "期望 null）：它那件 `RemnantBody3D Aeldari` 的触发时刻是「转化为残骸」、**不是阵亡** ⇒ "
+                    + "把残骸体并回 `death` 键 ⇒ 本条红");
+                Check(VfxMap.Resolve(VfxMap.Death, "SaimHann", "ASH5") == VfxMap.Resolve(VfxMap.Death),
+                      "★ **灭自证（`A2083`）**：`ResolvePerCard`（**只**查逐卡档）与 `Resolve`（**带**兜底）"
+                    + "**不是同一条路** —— `ASH5` 在逐卡档上是 null（上一条），在 `Resolve` 上掉到按事件替代品 "
+                    + $"「{VfxMap.Resolve(VfxMap.Death)}」 ⇒ 谁把 `ResolvePerCard` 换成 `Resolve`，"
+                    + "阵亡就会**多播一下原版没有的**（`CardFeel.SpawnDeathBody` 那条注释讲的正是这件事）");
             }
 
             // ---- 事件时序表（`EventTiming`）：数错一位整段动作的节奏就全乱，**截图看不出来** ----
@@ -7847,6 +7898,57 @@ public static class BattleScene
                 var deckWorld = LayoutSpace.ToWorld(0.90104f, 0.10648f);
                 Check(BattleDriver.HitMyDeckPile(deckWorld), "★ 牌堆中心**算命中**（入口判据）");
                 Check(!BattleDriver.HitMyDeckPile(Vector3.zero), "★ 屏幕正中**不算**（不会到处都被当成牌堆）");
+
+                // 🔴🆕 2026-10-15（账 `A2092`）：**换宽高比不许把牌堆弄丢。**
+                //   为什么必须单开一条：**本自检全程把相机 aspect 钉在 16:9**
+                //   （`BattleScene.cs:22701` 的 `cam.aspect = LayoutSpace.DesignAspect` ＋ `Shot()` 里那句），
+                //   而「读回 px 写死 `108 + 960`」那个缺陷**只在非 16:9 下现形**
+                //   ⇒ 上面那两条断言在 16:9 下**恒绿、根本断不出它**。
+                //   这是「自检绿 ≠ 口径对」的又一例，形状是「**断言的环境比生产窄**」——
+                //   生产会跑在 4:3 / 16:10 / 21:9 上，而自检只跑一种。
+                //   用户 2026-10-15 的口径：「原版……**不会被窗口宽高比影响**（窗口模式下可以改窗口大小游玩）」。
+                {
+                    Check(LayoutSpace.Cam == cam,
+                          "（前提）`LayoutSpace.Cam` 就是这台战场相机 —— 否则下面改了 aspect 也不生效，"
+                        + "那条断言会**假绿**（两边算的是同一个数）");
+                    float savedAspect = cam.aspect;
+                    try
+                    {
+                        cam.aspect = 4f / 3f;                      // 最窄那一档（原版 SAR 的下限正是 4:3）
+                        var deck43 = LayoutSpace.ToWorld(0.90104f, 0.10648f);
+                        Check(BattleDriver.HitMyDeckPile(deck43),
+                              "★ **4:3 下牌堆中心照样算命中**（`HitMyDeckPile` 的 px 读回走 "
+                            + "`LayoutSpace.ToDesignPixel`，与画牌堆那条 `ToWorld` **互为逆**）"
+                            + " —— 换回「写死 108 + 960」⇒ 本条变红（那式子在 4:3 下偏约 192px，半个底板都够不着）");
+
+                        // 🔑🔑 **这一条才是那个缺陷的【真正的锁】**：建件（`FromPixel`）与读回
+                        //   （`ToDesignPixel`）必须是**一对逆**，而旧的读回口 `ToPixel`/`PxX`
+                        //   **只在 16:9 是它的逆**（4:3 差 `VisibleWidth/DesignWidth = 0.75` 倍）。
+                        //   ⚠️ 用 `ToDesignPixel` 而**不是** `ToPixel` —— 判据见 `LayoutSpace` 里
+                        //      「`ToPixel` 保留给『世界 px ↔ 世界 px』内部自洽的场合」那一段。
+                        var rt = LayoutSpace.ToDesignPixel(LayoutSpace.FromPixel(1234.5f, 678.25f));
+                        Check(Mathf.Abs(rt.x - 1234.5f) < 0.05f && Mathf.Abs(rt.y - 678.25f) < 0.05f,
+                              "★🔑 **4:3 下 `FromPixel` 与 `ToDesignPixel` 互为逆**（那个缺陷的要害）—— "
+                            + $"往返实得 ({rt.x:F2}, {rt.y:F2})，期望 (1234.50, 678.25)"
+                            + "；⛔ 把它换成 `ToPixel`（x 写死 108）⇒ 本条红（x 上差 0.75 倍）");
+
+                        // 🔴 **2026-10-15（`A2092`／`A2098`）：这里【还】钉一条「我们【没有】做原版那套
+                        //   按锚点自适应的」—— 免得下一个人以为自己已经做完了。**
+                        //   原版 `CanvasScaler(Expand)` 会让参考空间在窄屏**变高**（4:3 ⇒ 1920×1440）；
+                        //   我们**一律钉高**（画布 13.333×10，相对原版**小 1.333 倍**）⇒ 4:3 下画面整体偏大。
+                        //   这不是「还没发现」，是**已知且有意保留**：换掉它要连带重做「设计 px → 世界」的
+                        //   全局映射（我们那条等价于假设所有元素都是 stretch 锚点），属于 `A2098` 的活。
+                        //   ⚠️ **2026-10-15 试过当天就回滚了** —— 实据：那样一改，全局映射就不再是两个轴的逆
+                        //      （`FromPixel(1234.5,678.25)` 往返 y 变成 724.33）。原因写在 `LayoutSpace.VisibleHeight` 的 doc。
+                        Check(Mathf.Abs(LayoutSpace.VisibleHeight - LayoutSpace.DesignHeight) < 1e-4f,
+                              $"★ **可见高【恒等于设计高】**（实得 {LayoutSpace.VisibleHeight:F4}，期望 "
+                            + $"{LayoutSpace.DesignHeight:F4}）—— ⛔ 这是**已知的偏离**（原版窄屏会变高），"
+                            + "要修它得换 uGUI 锚点体系（`A2098`），**不是在这里调相机**");
+                    }
+                    finally { cam.aspect = savedAspect; }
+                    Check(Mathf.Abs(cam.aspect - LayoutSpace.DesignAspect) < 1e-5f,
+                          "（收尾）aspect 已还原成 16:9 —— 后面那些断言仍按原来的环境跑");
+                }
             }
 
             // 真拖一张上场（和上面那条一样的鼠标路径，不是直接调 SimulatePlay）
@@ -12556,17 +12658,73 @@ public static class BattleScene
                     Tooltip.Hide(); Tooltip.FinishFade();
                     Check(!Tooltip.Visible, "先是没显示的");
 
+                    // 🆕 2026-10-15（账 `A2089`）：**指针在空处时，一次 `FindIntersectingLink` 都不该跑。**
+                    //   判据 = 原版 `TextTooltipController.__Update`（`d:/2/tools/decomp_full/`）：
+                    //   它每帧只做**一次字节比较**（`+0x48` 只在 `OnPointerEnter` 置 1），
+                    //   指针压着那一个 TMP 时才调 `FindIntersectingLink`（**一次调用、一个 TMP**）。
+                    //   ⛔ **原版不是「每帧遍历所有触发器」** —— 而我们原来每帧对约 28 张卡各跑一次。
+                    {
+                        int nLink0 = TmpFont.LinkAtCalls;
+                        drv.TickTooltipAt(new Vector3(1000f, 1000f, 0f));      // 离所有卡十万八千里
+                        Check(TmpFont.LinkAtCalls == nLink0,
+                              "★ **指针在空处 ⇒ 一次 TMP link 命中测试都不跑**"
+                            + $"（`LinkAtCalls` 实得 {TmpFont.LinkAtCalls}，期望仍是 {nLink0}）"
+                            + " —— 等价于原版 `TextTooltipController` 那道一字节闸（`+0x48`）");
+                        // 🔴 **灭自证：这道门自己的【两头】必须都对**（卡上放行 / 空处挡掉）。
+                        //   ⚠️ **2026-10-15 修（第一版写错了 —— 就是它红的）**：原版这条断的是
+                        //   「指针在卡上 ⇒ `LinkAtCalls` 上涨」，而 `CardView.LinkAt` 在
+                        //   **这张卡没有关键词文字层**时会**提前 return**（`_keywords == null || 文本空`）
+                        //   ⇒ 根本不进 `TmpFont.LinkAt` ⇒ **计数不涨** ⇒ **断言的前提不成立**
+                        //   （实测 74 → 74）。⇒ 改成直接断门的两头：它才是 `A2089` 加的那个东西。
+                        //   两头**结构上不可能同时满足**：门写成恒假 ⇒ 第一条红；写成恒真（= 没加）⇒ 第二条红。
+                        var tipOnCard = cv.StatWorld(CardView.StatMelee);
+                        var tipFarAway = new Vector3(1000f, 1000f, 0f);
+                        Check(cv.ContainsNear(tipOnCard, BattleDriver.TipHitMargin),
+                              "★ **灭自证（`A2089`）**：卡上那一点**必须放行**"
+                            + " ⇒ 把 `ContainsNear` 那道门写成**恒假**（= 直接关掉 tooltip 的 trait 那一档）⇒ 本条红");
+                        Check(!cv.ContainsNear(tipFarAway, BattleDriver.TipHitMargin),
+                              "★ **灭自证（`A2089`）**：空处那一点**必须挡掉**"
+                            + " ⇒ 把门写成**恒真**（= 等于没加，每帧仍对全部卡跑 TMP 命中）⇒ 本条红");
+                    }
+
                     int n0 = Tooltip.ShowCount;
                     bool hit = drv.TickTooltipAt(cv.StatWorld(CardView.StatMelee));
                     Check(hit && Tooltip.Visible, "把指针放到**近战数值**上 → tooltip 立刻显示（enter 立刻显示，无延迟）");
                     Check(Tooltip.ShownBody == TipText.Melee, "显示的是近战那一条");
                     Check(Tooltip.ShowCount == n0 + 1, "……而且只来了一条");
+                    // 🔴🆕 2026-10-15（账 `A2088`）：**悬停期间不许每帧重建面板**。
+                    //   原版是 `OnPointerEnter` 建一次 / `OnPointerExit` 收一次（`Core/Tooltip.cs` 文件头第 5 行），
+                    //   我们这套是**每帧轮询**（`BattleDriver.TickTooltipAt`）⇒ 修之前 `Show` 无条件走
+                    //   `Layout → BuildBg`：**每帧** Destroy 旧九宫格 + `MenuDraw.Nine` 重建 + 全子树
+                    //   `GetComponentsInChildren` + 9 个 `new Material(Shader.Find("Sprites/Default"))`。
+                    //   用户 2026-10-15 报的「对战卡顿」里，这一处是最大的一笔。
+                    //   ⇒ 下面这几条把「内容没变就不重排版」钉住（第 3 条是它的灭自证，在换文案那一处）。
+                    {
+                        int nl = Tooltip.LayoutCount, ns = Tooltip.ShowCount;
+                        Vector2 sz0 = Tooltip.PanelSizePx;
+                        drv.TickTooltipAt(cv.StatWorld(CardView.StatMelee));      // 指针不动 ⇒ 又走一遍 `Show`
+                        Check(Tooltip.ShowCount == ns + 1,
+                              "（前提）同一处再 tick 一次 ⇒ `Show` 确实**又被调了一遍**"
+                            + "（否则下面那条断不出东西 —— 它断的是「调了、但没重建」）");
+                        Check(Tooltip.LayoutCount == nl,
+                              "★ **同一串文案不重排版**：`Show` 又调了一次，但九宫格【没重建】"
+                            + $"（`LayoutCount` 实得 {Tooltip.LayoutCount}，期望仍是 {nl}）");
+                        Check(Tooltip.PanelSizePx == sz0,
+                              "★ 面板尺寸也没变（跳过的只是重建，几何还是同一份）");
+                    }
                     Tooltip.FinishFade();
                     Debug.Log(P + "  [DBG] tooltip: " + Tooltip.DebugDump());
                     Shot(Camera.main, "29_悬停tooltip");
 
+                    int nlRanged = Tooltip.LayoutCount;
                     drv.TickTooltipAt(cv.StatWorld(CardView.StatRanged));
                     Check(Tooltip.ShownBody == TipText.Ranged, "挪到**远程数值**上 → 换成远程那条");
+                    Check(Tooltip.LayoutCount == nlRanged + 1,
+                          "★ **灭自证（`A2088`）**：换了文案 ⇒ **必须**重排版一次"
+                        + $"（`LayoutCount` 实得 {Tooltip.LayoutCount}，期望 {nlRanged + 1}）"
+                        + "—— 「把 `_laidBody` 那道门改成**恒真**（= 永远重排版，即修回原样）」"
+                        + " ⇒ **上面那条**变红；「把门改成**永不重排版**」 ⇒ **这条**变红"
+                        + " ⇒ 两条**结构上不可能同时满足**，改哪一头都躲不过去");
                     drv.TickTooltipAt(cv.StatWorld(CardView.StatHealth));
                     Check(Tooltip.ShownBody == TipText.Health, "挪到**生命数值**上 → 换成生命那条");
                     // 🔴 **2026-10-15（第三十二会话 · 诊断 `BT-3`）：费用那一步改用【手牌】视图探。**

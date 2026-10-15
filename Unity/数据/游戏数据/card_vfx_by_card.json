@@ -1,7 +1,7 @@
 {
  "schema": "card_vfx_by_card/v1",
  "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
- "generatedAt": "2026-10-15 00:28:58",
+ "generatedAt": "2026-10-15 18:50:58",
  "_sources": {
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
@@ -53,7 +53,7 @@
   "authoritativeEventMapping": {
    "customRangedAttackParticles": "attack_ranged（与 `CardScript.rangedAttackParticlesSO` 是同一件事的逐卡/阵营两个来源）",
    "customDeathParticles": "death（逐卡阵亡爆散）",
-   "remnantBodyPrefab": "death（阵亡后留在格上的残骸体）",
+   "remnantBodyPrefab": "⚠️ **【键是 `death`，但语义不是阵亡】—— 2026-10-15（账 `A2083`）反编译实证：原版它的触发时刻是【转化为残骸】（`BattleCardUI.CreateRemnantBody` ← `CardScript.TransformIntoRemnant`），**`CardScript.UnitDeath` 全程没碰它**（`customDeathParticles` 才是阵亡那一拍）。二者归一档的后果 = 42 张两者都有的卡谁进 `death` **是掷硬币** ⇒ 运行时那一份已把本字段**挡在外面**（见 `RT_SKIP_SOFIELDS`），本全量件里**保留**（带 `soField`，随时可查）。逐卡残骸体**今天没接**（走关键词）。",
    "summonAnimDelayed": "deploy（逐卡登场延迟特效）",
    "cardAbilities[].abilityLogic[].cardAnimations[]": "⚠️ **归到 `ability` 是【我们拍的】**（`VfxMap.Ability`＝部队卡在场上发动技能）。原版真正给的是 `CardAbility.trigger` / `AbilityLogic.chosenAbility` 两个枚举，**两个原样带在条目上**（`abilityTrigger` / `abilityTriggerName` / `chosenAbility` / `chosenAbilityName`）⇒ 要精确到事件自己判。",
    "activeAbility.activeAbilityLogic[].cardAnimations[]": "同上（`activeAbility` 不走 `CardAbility.trigger` 那套枚举）"
@@ -2059,6 +2059,16 @@
      "why": "名字里没有可判读的事件词"
     }
    ],
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
    "attack_ranged": [
     {
      "conf": "authoritative",
@@ -2374,6 +2384,16 @@
      "conf": "inferred-name",
      "src": "name-match",
      "why": "名字里没有可判读的事件词"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ],
    "attack_ranged": [
@@ -3254,6 +3274,14 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "PenitenceEffect",
+     "cardanim": "PenitenceTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Penitence` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "_assetRefs": [
@@ -4619,6 +4647,14 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ],
    "attack_ranged": [
@@ -4721,6 +4757,16 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
      "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -5015,6 +5061,16 @@
      "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ],
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ],
    "attack_ranged": [
     {
      "conf": "authoritative",
@@ -5292,6 +5348,16 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
      "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "StrikeEffect",
+     "cardanim": "StrikeTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Strike` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -5854,6 +5920,16 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
      "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ],
    "attack_ranged": [
@@ -7462,6 +7538,76 @@
      "assetType": "AudioClip",
      "assetBundle": "aeldarisaimhanncardassets_assets_all.bundle",
      "containerKey": "0ba4630694d27428dac0a719fd47e4c4",
+     "assetKind": "audio"
+    }
+   ]
+  },
+  "ASH3": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "91a2285b6c786aa4fbffefa0ce12ecbc",
+     "origCardId": "ASH3",
+     "joinKey": "id",
+     "assetName": "Atk_ExileGlaiveThrow",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "91a2285b6c786aa4fbffefa0ce12ecbc",
+     "cardanim": "Atk_ExileGlaiveThrow",
+     "prefab": "Atk_ExileGlaiveThrow Movement",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "5a5e80f171a924c4196bf3b9ca2d01b7",
+     "origCardId": "ASH3",
+     "joinKey": "id",
+     "assetName": "Craftworld_SaimHann_war_Medreyal Ghaelyn",
+     "assetType": "Texture2D",
+     "assetBundle": "aeldarisaimhanncardassets_assets_all.bundle",
+     "containerKey": "5a5e80f171a924c4196bf3b9ca2d01b7",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "e94ac5011351f46ed933ccdcc4bf4833",
+     "origCardId": "ASH3",
+     "joinKey": "id",
+     "assetName": "VO_SaimHann_Ghaelyn_attack",
+     "assetType": "AudioClip",
+     "assetBundle": "aeldarisaimhanncardassets_assets_all.bundle",
+     "containerKey": "e94ac5011351f46ed933ccdcc4bf4833",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "baad9f5ae050e467185bbcf32761e5fc",
+     "origCardId": "ASH3",
+     "joinKey": "id",
+     "assetName": "VO_SaimHann_Ghaelyn_death",
+     "assetType": "AudioClip",
+     "assetBundle": "aeldarisaimhanncardassets_assets_all.bundle",
+     "containerKey": "baad9f5ae050e467185bbcf32761e5fc",
      "assetKind": "audio"
     }
    ]
@@ -10332,6 +10478,85 @@
     }
    ]
   },
+  "BL67": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "7f1c0eaed0e15774ca9abea7aceead2f",
+     "origCardId": "BL67",
+     "joinKey": "id",
+     "assetName": "Atk_Plasma_Pistol_Red",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "7f1c0eaed0e15774ca9abea7aceead2f",
+     "cardanim": "Atk_Plasma_Pistol_Red",
+     "prefab": "Plasma_basic_red",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "fd574bc0fb27b8a40b4d0faacb205c4f",
+     "origCardId": "BL67",
+     "joinKey": "id",
+     "assetName": "CSM_BlackLegion_inf_Ghallaron's Champion",
+     "assetType": "Texture2D",
+     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+     "containerKey": "fd574bc0fb27b8a40b4d0faacb205c4f",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "130d4a9daf71eae47b4aa4e839e64fbf",
+     "origCardId": "BL67",
+     "joinKey": "id",
+     "assetName": "VO_BL_Ghallaron's Champion - Surrender to Ghallaron and your death will be quick",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+     "containerKey": "130d4a9daf71eae47b4aa4e839e64fbf",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "01f6117b8af71e547961242dedd8fb73",
+     "origCardId": "BL67",
+     "joinKey": "id",
+     "assetName": "CreateCard_Black Legion",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "chaosspacemarinesblacklegioncardanims_assets_all.bundle",
+     "containerKey": "01f6117b8af71e547961242dedd8fb73",
+     "cardanim": "CreateCard_Black Legion",
+     "prefab": "CreateCard BlackLegion",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 40,
+     "abilityTriggerName": "TurnEnd",
+     "chosenAbility": 100,
+     "chosenAbilityName": "createCardInHand",
+     "inLibrary": true
+    }
+   ]
+  },
   "BL66": {
    "trigger": [
     {
@@ -10560,6 +10785,46 @@
     }
    ]
   },
+  "BL21": {
+   "trigger": [
+    {
+     "prefab": "StrikeEffect",
+     "cardanim": "StrikeTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Strike` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "279450e00c68f4284ac6dfa814651225",
+     "origCardId": "BL21",
+     "joinKey": "id",
+     "assetName": "CSM_BlackLegion_inf_Lheorvine Ukris",
+     "assetType": "Texture2D",
+     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+     "containerKey": "279450e00c68f4284ac6dfa814651225",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "e62c3ecec4949466ab2662cbd6a78668",
+     "origCardId": "BL21",
+     "joinKey": "id",
+     "assetName": "VO_BL_Lheorvine Ukris - I'll destroy you",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+     "containerKey": "e62c3ecec4949466ab2662cbd6a78668",
+     "assetKind": "audio"
+    }
+   ]
+  },
   "BL15": {
    "trigger": [
     {
@@ -10639,6 +10904,63 @@
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
+    }
+   ]
+  },
+  "BL22": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "95733728cb86a184095bfb931f4f945d",
+     "origCardId": "BL22",
+     "joinKey": "id",
+     "assetName": "Atk_FlamethrowerAttack_1",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "95733728cb86a184095bfb931f4f945d",
+     "cardanim": "Atk_FlamethrowerAttack_1",
+     "prefab": "FlamethrowerSingleAttack_1",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "43adcffe111a44e9e8186cda2002dc40",
+     "origCardId": "BL22",
+     "joinKey": "id",
+     "assetName": "CSM_BlackLegion_inf_Master of Possession",
+     "assetType": "Texture2D",
+     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+     "containerKey": "43adcffe111a44e9e8186cda2002dc40",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "2a74a3ee37e6996479ed2463b9411000",
+     "origCardId": "BL22",
+     "joinKey": "id",
+     "assetName": "VO_BL_Master of Possession - Your body will serve as a vessel",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+     "containerKey": "2a74a3ee37e6996479ed2463b9411000",
+     "assetKind": "audio"
     }
    ]
   },
@@ -11421,6 +11743,129 @@
      "assetType": "AudioClip",
      "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
      "containerKey": "ff38565f74ead4663ad290d672a393f8",
+     "assetKind": "audio"
+    }
+   ]
+  },
+  "BL36": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "3b0e29e7c8e5f194fb346f1ffba417d6",
+     "origCardId": "BL36",
+     "joinKey": "id",
+     "assetName": "Atk_UnholySmite",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "3b0e29e7c8e5f194fb346f1ffba417d6",
+     "cardanim": "Atk_UnholySmite",
+     "prefab": "Psychic_Lightning_Red",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "594046434123e4101b1cebb962139f72",
+     "origCardId": "BL36",
+     "joinKey": "id",
+     "assetName": "CSM_BlackLegion_war_Sylar Hexcorn",
+     "assetType": "Texture2D",
+     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+     "containerKey": "594046434123e4101b1cebb962139f72",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "3a4d91b6a83324a179e10a7b98efd1bb",
+     "origCardId": "BL36",
+     "joinKey": "id",
+     "assetName": "VO_BlackLegion_Hexscorn_Attack",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+     "containerKey": "3a4d91b6a83324a179e10a7b98efd1bb",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "bceb8378742c2415f8c9da6c324618fc",
+     "origCardId": "BL36",
+     "joinKey": "id",
+     "assetName": "VO_BlackLegion_Hexscorn_Death",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+     "containerKey": "bceb8378742c2415f8c9da6c324618fc",
+     "assetKind": "audio"
+    }
+   ]
+  },
+  "BL65": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "25958a37c78abdf4f9141869a2e6b8d9",
+     "origCardId": "BL65",
+     "joinKey": "id",
+     "assetName": "CSM_BlackLegion_warlord_Ghallaron the Pious",
+     "assetType": "Texture2D",
+     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+     "containerKey": "25958a37c78abdf4f9141869a2e6b8d9",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "702cdf0ab4dad2c47a7994d017d72db1",
+     "origCardId": "BL65",
+     "joinKey": "id",
+     "assetName": "VO_BL_Ghallaron_attack",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+     "containerKey": "702cdf0ab4dad2c47a7994d017d72db1",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "93c20a815d8e2a14e82e16ff28809ba6",
+     "origCardId": "BL65",
+     "joinKey": "id",
+     "assetName": "VO_BL_Ghallaron_death",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+     "containerKey": "93c20a815d8e2a14e82e16ff28809ba6",
      "assetKind": "audio"
     }
    ]
@@ -13258,6 +13703,16 @@
      "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ],
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ],
    "attack_ranged": [
     {
      "conf": "authoritative",
@@ -14364,7 +14819,7 @@
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ]
   },
@@ -14844,6 +15299,85 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 0,
      "abilityTriggerName": "ThisCardPlayed",
+     "chosenAbility": 30,
+     "chosenAbilityName": "buffOthers",
+     "inLibrary": true
+    }
+   ]
+  },
+  "EC12": {
+   "trigger": [
+    {
+     "prefab": "EcstasyEffect",
+     "cardanim": "EcstasyTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Ecstasy 3` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "c721fe1a6172fe643ab0be84d9292630",
+     "origCardId": "EC12",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_1shot_EC",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "c721fe1a6172fe643ab0be84d9292630",
+     "cardanim": "Atk_BulletImpact_1shot_EC",
+     "prefab": "BulletImpact_1shot_random_EC",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "ee91a40feaf67964ab704da776fa5bfa",
+     "origCardId": "EC12",
+     "joinKey": "id",
+     "assetName": "CSM_EmperorsChildren_inf_Flawless Blade Champion",
+     "assetType": "Texture2D",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "ee",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "3a27b75a196ad4e408e0e64475d114bb",
+     "origCardId": "EC12",
+     "joinKey": "id",
+     "assetName": "VO_CSM_EC_Flawless Blade Champion (Kevin)",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "3a",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "6de1ad23980855f42b05cb4dabd4ca37",
+     "origCardId": "EC12",
+     "joinKey": "id",
+     "assetName": "Buff EC Pink",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
+     "containerKey": "6d",
+     "cardanim": "Buff EC Pink",
+     "prefab": "Buff EC Pink Twirl",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 120,
+     "abilityTriggerName": "Slay",
      "chosenAbility": 30,
      "chosenAbilityName": "buffOthers",
      "inLibrary": true
@@ -15961,6 +16495,185 @@
      "cardanim": "Buff_HideousMutation_EC",
      "prefab": "Buff_HideousMutation_EC",
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 715,
+     "abilityTriggerName": "Ecstasy",
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
+     "inLibrary": true
+    }
+   ]
+  },
+  "EC55": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "b95f5be64cda68944adfcfa363efaaf5",
+     "origCardId": "EC55",
+     "joinKey": "id",
+     "assetName": "Whip Attack EC Cut",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
+     "containerKey": "b9",
+     "cardanim": "Whip Attack EC Cut",
+     "prefab": "Whip Attack EC Lucius",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "cb36e4be3a3c344faae2e94bd99b4576",
+     "origCardId": "EC55",
+     "joinKey": "id",
+     "assetName": "CSM_EmperorsChildren_warlord_Lucius The Eternal",
+     "assetType": "Texture2D",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "cb3",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "220256eb551a73b488b0f356bde6e847",
+     "origCardId": "EC55",
+     "joinKey": "id",
+     "assetName": "VO_CSM_EC_Lucius_attack",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "22",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "2398ef1309d68b943a276bc1c928c941",
+     "origCardId": "EC55",
+     "joinKey": "id",
+     "assetName": "VO_CSM_EC_Lucius_death",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "23",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "32ae96be082b7224da8f4a885ce961b2",
+     "origCardId": "EC55",
+     "joinKey": "id",
+     "assetName": "Whip Attack EC Cut Warlord",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
+     "containerKey": "32",
+     "cardanim": "Whip Attack EC Cut Warlord",
+     "prefab": "Whip Attack EC Lucius",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 710,
+     "abilityTriggerName": "Stimulation",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    }
+   ]
+  },
+  "EC57": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    },
+    {
+     "prefab": "EcstasyEffect",
+     "cardanim": "EcstasyTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Ecstasy 15` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "b4b645e6eb7bef34c9621e98b8667337",
+     "origCardId": "EC57",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_2shot_EC Daemon",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "b4b645e6eb7bef34c9621e98b8667337",
+     "cardanim": "Atk_BulletImpact_2shot_EC Daemon",
+     "prefab": "BulletImpact_2shot_trail_EC Daemon",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "2ced70db5d5414dc2b28a5770e8c1d1f",
+     "origCardId": "EC57",
+     "joinKey": "id",
+     "assetName": "CSM_EmperorsChildren_warlord_Xarahan Daemon Prince",
+     "assetType": "Texture2D",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "2ce",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "6a6fb8c37ab200c469bcc799c5dbd57b",
+     "origCardId": "EC57",
+     "joinKey": "id",
+     "assetName": "VO_UM_Primaris Intercessor - For the Imperium",
+     "assetType": "AudioClip",
+     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
+     "containerKey": "6a6fb8c37ab200c469bcc799c5dbd57b",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "5c68754319cf13943b8fc6e53e32b04e",
+     "origCardId": "EC57",
+     "joinKey": "id",
+     "assetName": "Buff EC Pink Intense",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
+     "containerKey": "5c",
+     "cardanim": "Buff EC Pink Intense",
+     "prefab": "Buff EC Pink Twirl Intense",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
      "abilityTrigger": 715,
      "abilityTriggerName": "Ecstasy",
      "chosenAbility": 40,
@@ -20078,6 +20791,84 @@
     }
    ]
   },
+  "SAU19": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    },
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ],
+   "death": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customDeathParticles",
+     "soField": "customDeathParticles",
+     "guid": "ee2cef116e5f144beb6e866cd9e79e68",
+     "origCardId": "SAU19",
+     "joinKey": "id",
+     "assetName": "Necrons death explosion",
+     "assetType": "GameObject",
+     "assetBundle": "battleprefabs_vfxandmisc_assets_all.bundle",
+     "containerKey": "ee2cef116e5f144beb6e866cd9e79e68",
+     "prefab": "Necrons death explosion",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.remnantBodyPrefab",
+     "soField": "remnantBodyPrefab",
+     "guid": "5041a12423b67164abf8bb6aedf69097",
+     "origCardId": "SAU19",
+     "joinKey": "id",
+     "assetName": "RemnantBody3D Necrons",
+     "assetType": "GameObject",
+     "assetBundle": "battleprefabs_vfxandmisc_assets_all.bundle",
+     "containerKey": "5041a12423b67164abf8bb6aedf69097",
+     "prefab": "RemnantBody3D Necrons",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "9fb64b2af942db0498eaf52b7e3c2635",
+     "origCardId": "SAU19",
+     "joinKey": "id",
+     "assetName": "Necron_Sautekh_monster_Canoptek Reanimator",
+     "assetType": "Texture2D",
+     "assetBundle": "necronssautekhcardassets_assets_all.bundle",
+     "containerKey": "9fb64b2af942db0498eaf52b7e3c2635",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "8f12c0f17428c4a718662e1d0f3d3f33",
+     "origCardId": "SAU19",
+     "joinKey": "id",
+     "assetName": "VO_Sautekh_Canoptek Reanimator - Reanimate",
+     "assetType": "AudioClip",
+     "assetBundle": "necronssautekhcardassets_assets_all.bundle",
+     "containerKey": "8f12c0f17428c4a718662e1d0f3d3f33",
+     "assetKind": "audio"
+    }
+   ]
+  },
   "SAU73": {
    "ability": [
     {
@@ -20107,6 +20898,16 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
      "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "ArtificeEffect",
+     "cardanim": "ArtificeTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Artifice` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -20388,6 +21189,24 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
      "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "ArtificeEffect",
+     "cardanim": "ArtificeTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Artifice` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    },
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -20939,6 +21758,92 @@
     }
    ]
   },
+  "SAU66": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "aa9454607c97db54a86f22209966bbba",
+     "origCardId": "SAU66",
+     "joinKey": "id",
+     "assetName": "Atk_Gauss_Twinlinked",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "aa9454607c97db54a86f22209966bbba",
+     "cardanim": "Atk_Gauss_Twinlinked",
+     "prefab": "NecronGauss_Twinlinked",
+     "inLibrary": true
+    }
+   ],
+   "death": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customDeathParticles",
+     "soField": "customDeathParticles",
+     "guid": "ee2cef116e5f144beb6e866cd9e79e68",
+     "origCardId": "SAU66",
+     "joinKey": "id",
+     "assetName": "Necrons death explosion",
+     "assetType": "GameObject",
+     "assetBundle": "battleprefabs_vfxandmisc_assets_all.bundle",
+     "containerKey": "ee2cef116e5f144beb6e866cd9e79e68",
+     "prefab": "Necrons death explosion",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "ab3f30fbaf9de534289c302846573785",
+     "origCardId": "SAU66",
+     "joinKey": "id",
+     "assetName": "Necron_Sautekh_warlord_Ramatekh The Cruel",
+     "assetType": "Texture2D",
+     "assetBundle": "necronssautekhcardassets_assets_all.bundle",
+     "containerKey": "ab3f30fbaf9de534289c302846573785",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "199963c2137c3446f87c6de487d5ab13",
+     "origCardId": "SAU66",
+     "joinKey": "id",
+     "assetName": "VO_Sautekh_Ramatekh the Cruel_attack",
+     "assetType": "AudioClip",
+     "assetBundle": "necronssautekhcardassets_assets_all.bundle",
+     "containerKey": "199963c2137c3446f87c6de487d5ab13",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "2f28dfaac915e49aea4cf47bf5eddc1e",
+     "origCardId": "SAU66",
+     "joinKey": "id",
+     "assetName": "VO_Sautekh_Ramatekh the Cruel_death",
+     "assetType": "AudioClip",
+     "assetBundle": "necronssautekhcardassets_assets_all.bundle",
+     "containerKey": "2f28dfaac915e49aea4cf47bf5eddc1e",
+     "assetKind": "audio"
+    }
+   ]
+  },
   "GOF79": {
    "trigger": [
     {
@@ -21013,6 +21918,14 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "MobEffect",
+     "cardanim": "MobTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Mob` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -21211,6 +22124,14 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "BacklashEffect",
+     "cardanim": "BacklashTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Backlash` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -21904,6 +22825,14 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Trigger(3)",
      "why": "卡的关键词 `Mob` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    },
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "_assetRefs": [
@@ -22072,6 +23001,98 @@
      "abilityTriggerName": "Mob",
      "chosenAbility": 75,
      "chosenAbilityName": "summonBuffedUnit",
+     "inLibrary": true
+    }
+   ]
+  },
+  "GOF77": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "475b8c5cbfe632847b4444f71eda8b7d",
+     "origCardId": "GOF77",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_Morgrim",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "475b8c5cbfe632847b4444f71eda8b7d",
+     "cardanim": "Atk_BulletImpact_Morgrim",
+     "prefab": "BulletImpact_Morgrim",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "eee4da4155e19bb4e9ed23cc694d68c3",
+     "origCardId": "GOF77",
+     "joinKey": "id",
+     "assetName": "Ork_BeastSnagga_warlord_Beastboss Morgrim",
+     "assetType": "Texture2D",
+     "assetBundle": "orksgoffcardassets_assets_all.bundle",
+     "containerKey": "eee4da4155e19bb4e9ed23cc694d68c3",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "c3cef493648f8a24a8b0bbb4e45af6ac",
+     "origCardId": "GOF77",
+     "joinKey": "id",
+     "assetName": "VO_Ork_Beastboss Morgrim_attack",
+     "assetType": "AudioClip",
+     "assetBundle": "orksgoffcardassets_assets_all.bundle",
+     "containerKey": "c3cef493648f8a24a8b0bbb4e45af6ac",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "adb9333ddb0755147b04b53f237a13c5",
+     "origCardId": "GOF77",
+     "joinKey": "id",
+     "assetName": "VO_Ork_Beastboss Morgrim_death",
+     "assetType": "AudioClip",
+     "assetBundle": "orksgoffcardassets_assets_all.bundle",
+     "containerKey": "adb9333ddb0755147b04b53f237a13c5",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "7431ee589540a53498aa000ac03ab356",
+     "origCardId": "GOF77",
+     "joinKey": "id",
+     "assetName": "Buff_Ork_Snakebite_1_quick_Warlord",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "7431ee589540a53498aa000ac03ab356",
+     "cardanim": "Buff_Ork_Snakebite_1_quick_Warlord",
+     "prefab": "OrkBuff_Snakebitez_1_Quick",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 190,
+     "abilityTriggerName": "OtherUnitSummoned",
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
      "inLibrary": true
     }
    ]
@@ -22575,6 +23596,146 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 300,
      "abilityTriggerName": "Mob",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    }
+   ]
+  },
+  "GOF3": {
+   "trigger": [
+    {
+     "prefab": "BacklashEffect",
+     "cardanim": "BacklashTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Backlash` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "61a016dd72f0e8844a8cfa07b4880681",
+     "origCardId": "GOF3",
+     "joinKey": "id",
+     "assetName": "Atk_GrotGrenade",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "61a016dd72f0e8844a8cfa07b4880681",
+     "cardanim": "Atk_GrotGrenade",
+     "prefab": "Atk_GrotGrenade",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "3d195467edd47e845977c6577ef55055",
+     "origCardId": "GOF3",
+     "joinKey": "id",
+     "assetName": "Ork_Goff_inf_Bomb Squig",
+     "assetType": "Texture2D",
+     "assetBundle": "orksgoffcardassets_assets_all.bundle",
+     "containerKey": "3d195467edd47e845977c6577ef55055",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "4ac11e80ceb61e34687692243b4905a4",
+     "origCardId": "GOF3",
+     "joinKey": "id",
+     "assetName": "VO_Goff_Bomb Squig - MUNCH",
+     "assetType": "AudioClip",
+     "assetBundle": "orksgoffcardassets_assets_all.bundle",
+     "containerKey": "4ac11e80ceb61e34687692243b4905a4",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "5707d13c3d0da4eba9604feb80f67e21",
+     "origCardId": "GOF3",
+     "joinKey": "id",
+     "assetName": "Wait_1s",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "5707d13c3d0da4eba9604feb80f67e21",
+     "cardanim": "Wait_1s",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 80,
+     "abilityTriggerName": "ThisUnitDeath",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "prefab": null,
+     "unresolved": "CardAnim `Wait_1s` 没有可解的 `animInfo.animAdressable`（原版是纯计时 / 无 VFX 的占位动画，不是解错）",
+     "inLibrary": null
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "guid": "915f97d1151634b5b8efd79ea1f83700",
+     "origCardId": "GOF3",
+     "joinKey": "id",
+     "assetName": "Explosion_Wide_Target",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "915f97d1151634b5b8efd79ea1f83700",
+     "cardanim": "Explosion_Wide_Target",
+     "prefab": "Squig_Explosion",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 80,
+     "abilityTriggerName": "ThisUnitDeath",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "origCardId": "GOF3",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "cardanim": "UnstableExplosion_self",
+     "prefab": "UnstableEffect",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[1]",
+     "guid": "9cdcdbdee14b206439a48584db3ceea3",
+     "origCardId": "GOF3",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_target",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
+     "cardanim": "UnstableExplosion_target",
+     "prefab": "UnstableEffect_ExplosionExtra",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
@@ -23330,6 +24491,14 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "_assetRefs": [
@@ -24937,6 +26106,76 @@
     }
    ]
   },
+  "GOF27": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "d220f14a3b95bf546949bad2dbc2251b",
+     "origCardId": "GOF27",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_2shot_ork",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "d220f14a3b95bf546949bad2dbc2251b",
+     "cardanim": "Atk_BulletImpact_2shot_ork",
+     "prefab": "BulletImpact_2shot_trail_ork_NEW",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "164e4d1f240214b78ab8f3338c449ac7",
+     "origCardId": "GOF27",
+     "joinKey": "id",
+     "assetName": "Ork_Goff_war_Boss Zagstruk",
+     "assetType": "Texture2D",
+     "assetBundle": "orksgoffcardassets_assets_all.bundle",
+     "containerKey": "164e4d1f240214b78ab8f3338c449ac7",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "7752e7200fbb871448b2c9a23cb3f4c3",
+     "origCardId": "GOF27",
+     "joinKey": "id",
+     "assetName": "VO_Goff_Zagstruk_attack",
+     "assetType": "AudioClip",
+     "assetBundle": "orksgoffcardassets_assets_all.bundle",
+     "containerKey": "7752e7200fbb871448b2c9a23cb3f4c3",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "441a10e7838340a48b891f3fccb55b5c",
+     "origCardId": "GOF27",
+     "joinKey": "id",
+     "assetName": "VO_Goff_Zagstruk_death",
+     "assetType": "AudioClip",
+     "assetBundle": "orksgoffcardassets_assets_all.bundle",
+     "containerKey": "441a10e7838340a48b891f3fccb55b5c",
+     "assetKind": "audio"
+    }
+   ]
+  },
   "GOF75": {
    "trigger": [
     {
@@ -25637,6 +26876,16 @@
      "why": "卡的关键词 `Camouflage` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ],
+   "trigger": [
+    {
+     "prefab": "PenitenceEffect",
+     "cardanim": "PenitenceTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Penitence` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -25825,6 +27074,76 @@
      "assetBundle": "sororitascardassets_assets_all.bundle",
      "containerKey": "d8942a68c79236046af5f762e145e9c6",
      "assetKind": "audio"
+    }
+   ]
+  },
+  "SOR16": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    },
+    {
+     "prefab": "StrikeEffect",
+     "cardanim": "StrikeTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Strike` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "55aae2f1de57e47bd88b57972fc5d085",
+     "origCardId": "SOR16",
+     "joinKey": "id",
+     "assetName": "Sororitas_inf_Missionary",
+     "assetType": "Texture2D",
+     "assetBundle": "sororitascardassets_assets_all.bundle",
+     "containerKey": "55aae2f1de57e47bd88b57972fc5d085",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "eedea31874d14c14293efb01cef08e42",
+     "origCardId": "SOR16",
+     "joinKey": "id",
+     "assetName": "VO_ADS_Missionary - I herald your demise",
+     "assetType": "AudioClip",
+     "assetBundle": "sororitascardassets_assets_all.bundle",
+     "containerKey": "eedea31874d14c14293efb01cef08e42",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "765006f412a23bf4696533d6ca54fee9",
+     "origCardId": "SOR16",
+     "joinKey": "id",
+     "assetName": "Buff_Sororitas_quick_self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "sororitascardanims_assets_all.bundle",
+     "containerKey": "765006f412a23bf4696533d6ca54fee9",
+     "cardanim": "Buff_Sororitas_quick_self",
+     "prefab": "Buff_Sororitas_quick",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 580,
+     "abilityTriggerName": "Strike",
+     "chosenAbility": 60,
+     "chosenAbilityName": "buffMana",
+     "inLibrary": true
     }
    ]
   },
@@ -26149,6 +27468,68 @@
      "abilityTriggerName": "ThisCardPlayed",
      "chosenAbility": 60,
      "chosenAbilityName": "buffMana",
+     "inLibrary": true
+    }
+   ]
+  },
+  "SOR10": {
+   "trigger": [
+    {
+     "prefab": "PenitenceEffect",
+     "cardanim": "PenitenceTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Penitence` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "ebaeae6171f08452ead18afc535a8778",
+     "origCardId": "SOR10",
+     "joinKey": "id",
+     "assetName": "Sororitas_inf_Sisters Repentia",
+     "assetType": "Texture2D",
+     "assetBundle": "sororitascardassets_assets_all.bundle",
+     "containerKey": "ebaeae6171f08452ead18afc535a8778",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "e3a9e6a2ba87a449886ab19604040743",
+     "origCardId": "SOR10",
+     "joinKey": "id",
+     "assetName": "VO_ADS_Sister Repentia- Only in penance shall my soul be cleansed",
+     "assetType": "AudioClip",
+     "assetBundle": "sororitascardassets_assets_all.bundle",
+     "containerKey": "e3a9e6a2ba87a449886ab19604040743",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "230c929a27cf26b409d2a081125e0b33",
+     "origCardId": "SOR10",
+     "joinKey": "id",
+     "assetName": "PenitenceTraitTrigger",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "230c929a27cf26b409d2a081125e0b33",
+     "cardanim": "PenitenceTraitTrigger",
+     "prefab": "PenitenceEffect",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 130,
+     "abilityTriggerName": "Rage",
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
      "inLibrary": true
     }
    ]
@@ -26927,6 +28308,85 @@
     }
    ]
   },
+  "SOR27": {
+   "trigger": [
+    {
+     "prefab": "PenitenceEffect",
+     "cardanim": "PenitenceTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Penitence` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "ff35b219b0263f344a561bb08592f61f",
+     "origCardId": "SOR27",
+     "joinKey": "id",
+     "assetName": "Atk_FlamethrowerAttack_1_Sororitas",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "ff35b219b0263f344a561bb08592f61f",
+     "cardanim": "Atk_FlamethrowerAttack_1_Sororitas",
+     "prefab": "BulletImpact_FlamethrowerSororitas",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "bcc69c4d9ef3c42f89b057016207b06b",
+     "origCardId": "SOR27",
+     "joinKey": "id",
+     "assetName": "Sororitas_veh_Penitent Engine",
+     "assetType": "Texture2D",
+     "assetBundle": "sororitascardassets_assets_all.bundle",
+     "containerKey": "bcc69c4d9ef3c42f89b057016207b06b",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "62d1fe2d69fc84e3b8619ebd728379d2",
+     "origCardId": "SOR27",
+     "joinKey": "id",
+     "assetName": "VO_ADS_Penitent Engine - Tortured scream",
+     "assetType": "AudioClip",
+     "assetBundle": "sororitascardassets_assets_all.bundle",
+     "containerKey": "62d1fe2d69fc84e3b8619ebd728379d2",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "230c929a27cf26b409d2a081125e0b33",
+     "origCardId": "SOR27",
+     "joinKey": "id",
+     "assetName": "PenitenceTraitTrigger",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "230c929a27cf26b409d2a081125e0b33",
+     "cardanim": "PenitenceTraitTrigger",
+     "prefab": "PenitenceEffect",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 130,
+     "abilityTriggerName": "Rage",
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
+     "inLibrary": true
+    }
+   ]
+  },
   "SOR2": {
    "trigger": [
     {
@@ -27159,7 +28619,7 @@
     }
    ]
   },
-  "SW3": {
+  "SW9": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -27477,6 +28937,14 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "CompanionEffect",
+     "cardanim": "CompanionTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Companion 2` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ],
    "attack_ranged": [
@@ -27715,6 +29183,16 @@
      "why": "卡的关键词 `Shield` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ],
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
    "attack_ranged": [
     {
      "conf": "authoritative",
@@ -27904,6 +29382,14 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -28637,6 +30123,16 @@
      "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ],
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ],
    "attack_ranged": [
     {
      "conf": "authoritative",
@@ -28930,6 +30426,16 @@
      "why": "卡的关键词 `Camouflage` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ],
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -29136,6 +30642,16 @@
      "why": "卡的关键词 `Camouflage` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ],
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ],
    "attack_ranged": [
     {
      "conf": "authoritative",
@@ -29266,6 +30782,63 @@
      "chosenAbility": 30,
      "chosenAbilityName": "buffOthers",
      "inLibrary": true
+    }
+   ]
+  },
+  "TAU22": {
+   "trigger": [
+    {
+     "prefab": "CompanionEffect",
+     "cardanim": "CompanionTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Companion 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "2430980527700c647b59830c72cb05ae",
+     "origCardId": "TAU22",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_Tau_Sniper Pulse Rifle",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "tauempirecardanims_assets_all.bundle",
+     "containerKey": "2430980527700c647b59830c72cb05ae",
+     "cardanim": "Atk_BulletImpact_Tau_Sniper Pulse Rifle",
+     "prefab": "BulletImpact_Tau_Sniper Pulse Rifle",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "2398c0ef418e94a25a9fdaa004b5af59",
+     "origCardId": "TAU22",
+     "joinKey": "id",
+     "assetName": "Tau_Empire_inf_Strike Team",
+     "assetType": "Texture2D",
+     "assetBundle": "tauempirecardassets_assets_all.bundle",
+     "containerKey": "2398c0ef418e94a25a9fdaa004b5af59",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "42175dbdf6d955842a0513be02faeaad",
+     "origCardId": "TAU22",
+     "joinKey": "id",
+     "assetName": "VO_Tau_Empire_Strike Team - Our flame lights the way to the Greater Good",
+     "assetType": "AudioClip",
+     "assetBundle": "tauempirecardassets_assets_all.bundle",
+     "containerKey": "42175dbdf6d955842a0513be02faeaad",
+     "assetKind": "audio"
     }
    ]
   },
@@ -29566,6 +31139,14 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ],
    "attack_ranged": [
@@ -29809,6 +31390,16 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
      "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ],
    "attack_ranged": [
@@ -30073,6 +31664,84 @@
      "assetType": "AudioClip",
      "assetBundle": "tauempirecardassets_assets_all.bundle",
      "containerKey": "02d5d54ccaa414bb2afa03f5027e0902",
+     "assetKind": "audio"
+    }
+   ]
+  },
+  "TAU65": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    },
+    {
+     "prefab": "StrikeEffect",
+     "cardanim": "StrikeTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Strike` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "9a553b01b0f6f324e9293fe7801f4668",
+     "origCardId": "TAU65",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_Kroot_KrootPistol",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "tauempirecardanims_assets_all.bundle",
+     "containerKey": "9a553b01b0f6f324e9293fe7801f4668",
+     "cardanim": "Atk_BulletImpact_Kroot_KrootPistol",
+     "prefab": "BulletImpact_Kroot_KrootPistol",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "e5e510c8f465ef54db8664152bcd2b5a",
+     "origCardId": "TAU65",
+     "joinKey": "id",
+     "assetName": "Tau_Empire_warlord_War Shaper",
+     "assetType": "Texture2D",
+     "assetBundle": "tauempirecardassets_assets_all.bundle",
+     "containerKey": "e5e510c8f465ef54db8664152bcd2b5a",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "fb7eeaef2bb604119bcc38ba9e7a5ca3",
+     "origCardId": "TAU65",
+     "joinKey": "id",
+     "assetName": "VO_Tau_War Shaper_attack",
+     "assetType": "AudioClip",
+     "assetBundle": "tauempirecardassets_assets_all.bundle",
+     "containerKey": "fb7eeaef2bb604119bcc38ba9e7a5ca3",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "dac4fb51c12024305a899c834fd4ecc1",
+     "origCardId": "TAU65",
+     "joinKey": "id",
+     "assetName": "VO_Tau_War Shaper_death",
+     "assetType": "AudioClip",
+     "assetBundle": "tauempirecardassets_assets_all.bundle",
+     "containerKey": "dac4fb51c12024305a899c834fd4ecc1",
      "assetKind": "audio"
     }
    ]
@@ -30573,6 +32242,16 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
      "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "StrikeEffect",
+     "cardanim": "StrikeTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Strike` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -31364,6 +33043,63 @@
     }
    ]
   },
+  "TL28": {
+   "trigger": [
+    {
+     "prefab": "StrikeEffect",
+     "cardanim": "StrikeTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Strike` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "17ff12736c7974742883fc821f385135",
+     "origCardId": "TL28",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_Tyranid_Fleshborer",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "tyranidsleviathancardanims_assets_all.bundle",
+     "containerKey": "17ff12736c7974742883fc821f385135",
+     "cardanim": "Atk_BulletImpact_Tyranid_Fleshborer",
+     "prefab": "BulletImpact_Tyranid_Small",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "c3e50164bf43f4b78ad5bb7d00fa5861",
+     "origCardId": "TL28",
+     "joinKey": "id",
+     "assetName": "Tyranid_Leviathan_mon_Haruspex",
+     "assetType": "Texture2D",
+     "assetBundle": "tyranidsleviathancardassets_assets_all.bundle",
+     "containerKey": "c3e50164bf43f4b78ad5bb7d00fa5861",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "fd3074746788c76428347a8c9bc10edf",
+     "origCardId": "TL28",
+     "joinKey": "id",
+     "assetName": "VO_Tyranid_Leviathan_Haruspex - Discordant roar",
+     "assetType": "AudioClip",
+     "assetBundle": "tyranidsleviathancardassets_assets_all.bundle",
+     "containerKey": "fd3074746788c76428347a8c9bc10edf",
+     "assetKind": "audio"
+    }
+   ]
+  },
   "TL22": {
    "ability": [
     {
@@ -31594,6 +33330,16 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
      "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "StrikeEffect",
+     "cardanim": "StrikeTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Strike` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -32176,6 +33922,16 @@
      "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ],
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ],
    "attack_ranged": [
     {
      "conf": "authoritative",
@@ -32683,6 +34439,14 @@
   },
   "UM80": {
    "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
     {
      "prefab": "ArmourEffect",
      "cardanim": "ArmourTraitStart",
@@ -35742,6 +37506,59 @@
     }
    ]
   },
+  "UM47": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "acf10c2c7d2ee4644b5dae095c0769ce",
+     "origCardId": "UM47",
+     "joinKey": "id",
+     "assetName": "SM_UM_warlord_Uriel Ventris",
+     "assetType": "Texture2D",
+     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
+     "containerKey": "acf10c2c7d2ee4644b5dae095c0769ce",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "a18a157d905aafc4586c54f6788c02bb",
+     "origCardId": "UM47",
+     "joinKey": "id",
+     "assetName": "VO_Ultramarines_Ventris_attack",
+     "assetType": "AudioClip",
+     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
+     "containerKey": "a18a157d905aafc4586c54f6788c02bb",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "8c1b1f1cd699aa5448bdf20e1bda6f97",
+     "origCardId": "UM47",
+     "joinKey": "id",
+     "assetName": "VO_Ultramarines_Ventris_death",
+     "assetType": "AudioClip",
+     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
+     "containerKey": "8c1b1f1cd699aa5448bdf20e1bda6f97",
+     "assetKind": "audio"
+    }
+   ]
+  },
   "UM_Valius_Paxor": {
    "trigger": [
     {
@@ -35909,6 +37726,197 @@
      "abilityTriggerName": "Codex",
      "chosenAbility": 0,
      "chosenAbilityName": "drawCard",
+     "inLibrary": true
+    }
+   ]
+  },
+  "EC56": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "3439f089e50ab0d47a243610cf3e4c44",
+     "origCardId": "EC56",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_SonicWeapon 2 Pistol",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
+     "containerKey": "3",
+     "cardanim": "Atk_BulletImpact_SonicWeapon 2 Pistol",
+     "prefab": "BulletImpact_Sonic Weapon 2 Pistol",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "c6bb19dd848ad4c8fb2de98c9e5c96df",
+     "origCardId": "EC56",
+     "joinKey": "id",
+     "assetName": "CSM_EmperorsChildren_inf_Icon of Excess Infractor",
+     "assetType": "Texture2D",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "c6",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "5a6da3153cbdeeb4aaffda01d5bb1f8e",
+     "origCardId": "EC56",
+     "joinKey": "id",
+     "assetName": "VO_CSM_EC_Lord Kaphrael_gen7",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "5a",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "44a4f1431e651be4aba5d6c3a1e4dffd",
+     "origCardId": "EC56",
+     "joinKey": "id",
+     "assetName": "VO_CSM_EC_Lord Kaphrael_death",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "4",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "93755d3c9836a8140b2d55f02e40687b",
+     "origCardId": "EC56",
+     "joinKey": "id",
+     "assetName": "Buff EC Stimulate target",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
+     "containerKey": "93",
+     "cardanim": "Buff EC Stimulate target",
+     "prefab": "Buff EC Stimulate",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 710,
+     "abilityTriggerName": "Stimulation",
+     "chosenAbility": 30,
+     "chosenAbilityName": "buffOthers",
+     "inLibrary": true
+    }
+   ]
+  },
+  "EC22": {
+   "trigger": [
+    {
+     "prefab": "CrueltyEffect",
+     "cardanim": "CrueltyTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Cruelty` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "c721fe1a6172fe643ab0be84d9292630",
+     "origCardId": "EC22",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_1shot_EC",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "c721fe1a6172fe643ab0be84d9292630",
+     "cardanim": "Atk_BulletImpact_1shot_EC",
+     "prefab": "BulletImpact_1shot_random_EC",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "6ea7885c2914d4b53bed6901843535de",
+     "origCardId": "EC22",
+     "joinKey": "id",
+     "assetName": "CSM_EmperorsChildren_inf_Threnodic Choir Flawless Blade",
+     "assetType": "Texture2D",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "6ea",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "2eea72470b2644fbba0924769a23b17a",
+     "origCardId": "EC22",
+     "joinKey": "id",
+     "assetName": "VO_CSM_EC_Threnodic Choir Flawless Blade (Andrew Dennis)",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "2ee",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "6de1ad23980855f42b05cb4dabd4ca37",
+     "origCardId": "EC22",
+     "joinKey": "id",
+     "assetName": "Buff EC Pink",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
+     "containerKey": "6d",
+     "cardanim": "Buff EC Pink",
+     "prefab": "Buff EC Pink Twirl",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 720,
+     "abilityTriggerName": "Cruelty",
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "bd6894e537c2fea41a21712093cb1dc6",
+     "origCardId": "EC22",
+     "joinKey": "id",
+     "assetName": "EC Target Delayed",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
+     "containerKey": "bd",
+     "cardanim": "EC Target Delayed",
+     "prefab": "EC Target",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 710,
+     "abilityTriggerName": "Stimulation",
+     "chosenAbility": 238,
+     "chosenAbilityName": "scriptedSelfCardAttackDontCount",
      "inLibrary": true
     }
    ]
@@ -39290,66 +41298,6 @@
      "chosenAbility": 40,
      "chosenAbilityName": "buffSelf",
      "inLibrary": true
-    }
-   ]
-  },
-  "ASH3": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "91a2285b6c786aa4fbffefa0ce12ecbc",
-     "origCardId": "ASH3",
-     "joinKey": "id",
-     "assetName": "Atk_ExileGlaiveThrow",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "91a2285b6c786aa4fbffefa0ce12ecbc",
-     "cardanim": "Atk_ExileGlaiveThrow",
-     "prefab": "Atk_ExileGlaiveThrow Movement",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "5a5e80f171a924c4196bf3b9ca2d01b7",
-     "origCardId": "ASH3",
-     "joinKey": "id",
-     "assetName": "Craftworld_SaimHann_war_Medreyal Ghaelyn",
-     "assetType": "Texture2D",
-     "assetBundle": "aeldarisaimhanncardassets_assets_all.bundle",
-     "containerKey": "5a5e80f171a924c4196bf3b9ca2d01b7",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "e94ac5011351f46ed933ccdcc4bf4833",
-     "origCardId": "ASH3",
-     "joinKey": "id",
-     "assetName": "VO_SaimHann_Ghaelyn_attack",
-     "assetType": "AudioClip",
-     "assetBundle": "aeldarisaimhanncardassets_assets_all.bundle",
-     "containerKey": "e94ac5011351f46ed933ccdcc4bf4833",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "baad9f5ae050e467185bbcf32761e5fc",
-     "origCardId": "ASH3",
-     "joinKey": "id",
-     "assetName": "VO_SaimHann_Ghaelyn_death",
-     "assetType": "AudioClip",
-     "assetBundle": "aeldarisaimhanncardassets_assets_all.bundle",
-     "containerKey": "baad9f5ae050e467185bbcf32761e5fc",
-     "assetKind": "audio"
     }
    ]
   },
@@ -43274,75 +45222,6 @@
     }
    ]
   },
-  "BL67": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "7f1c0eaed0e15774ca9abea7aceead2f",
-     "origCardId": "BL67",
-     "joinKey": "id",
-     "assetName": "Atk_Plasma_Pistol_Red",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "7f1c0eaed0e15774ca9abea7aceead2f",
-     "cardanim": "Atk_Plasma_Pistol_Red",
-     "prefab": "Plasma_basic_red",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "fd574bc0fb27b8a40b4d0faacb205c4f",
-     "origCardId": "BL67",
-     "joinKey": "id",
-     "assetName": "CSM_BlackLegion_inf_Ghallaron's Champion",
-     "assetType": "Texture2D",
-     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
-     "containerKey": "fd574bc0fb27b8a40b4d0faacb205c4f",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "130d4a9daf71eae47b4aa4e839e64fbf",
-     "origCardId": "BL67",
-     "joinKey": "id",
-     "assetName": "VO_BL_Ghallaron's Champion - Surrender to Ghallaron and your death will be quick",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
-     "containerKey": "130d4a9daf71eae47b4aa4e839e64fbf",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "01f6117b8af71e547961242dedd8fb73",
-     "origCardId": "BL67",
-     "joinKey": "id",
-     "assetName": "CreateCard_Black Legion",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "chaosspacemarinesblacklegioncardanims_assets_all.bundle",
-     "containerKey": "01f6117b8af71e547961242dedd8fb73",
-     "cardanim": "CreateCard_Black Legion",
-     "prefab": "CreateCard BlackLegion",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 40,
-     "abilityTriggerName": "TurnEnd",
-     "chosenAbility": 100,
-     "chosenAbilityName": "createCardInHand",
-     "inLibrary": true
-    }
-   ]
-  },
   "BL63": {
    "attack_ranged": [
     {
@@ -43485,83 +45364,6 @@
      "assetType": "AudioClip",
      "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
      "containerKey": "7c0c1db29b80d69449d7c71557bd756a",
-     "assetKind": "audio"
-    }
-   ]
-  },
-  "BL21": {
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "279450e00c68f4284ac6dfa814651225",
-     "origCardId": "BL21",
-     "joinKey": "id",
-     "assetName": "CSM_BlackLegion_inf_Lheorvine Ukris",
-     "assetType": "Texture2D",
-     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
-     "containerKey": "279450e00c68f4284ac6dfa814651225",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "e62c3ecec4949466ab2662cbd6a78668",
-     "origCardId": "BL21",
-     "joinKey": "id",
-     "assetName": "VO_BL_Lheorvine Ukris - I'll destroy you",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
-     "containerKey": "e62c3ecec4949466ab2662cbd6a78668",
-     "assetKind": "audio"
-    }
-   ]
-  },
-  "BL22": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "95733728cb86a184095bfb931f4f945d",
-     "origCardId": "BL22",
-     "joinKey": "id",
-     "assetName": "Atk_FlamethrowerAttack_1",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "95733728cb86a184095bfb931f4f945d",
-     "cardanim": "Atk_FlamethrowerAttack_1",
-     "prefab": "FlamethrowerSingleAttack_1",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "43adcffe111a44e9e8186cda2002dc40",
-     "origCardId": "BL22",
-     "joinKey": "id",
-     "assetName": "CSM_BlackLegion_inf_Master of Possession",
-     "assetType": "Texture2D",
-     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
-     "containerKey": "43adcffe111a44e9e8186cda2002dc40",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "2a74a3ee37e6996479ed2463b9411000",
-     "origCardId": "BL22",
-     "joinKey": "id",
-     "assetName": "VO_BL_Master of Possession - Your body will serve as a vessel",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
-     "containerKey": "2a74a3ee37e6996479ed2463b9411000",
      "assetKind": "audio"
     }
    ]
@@ -44873,109 +46675,6 @@
      "assetType": "AudioClip",
      "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
      "containerKey": "225ac8d4bf3d1ae4d97a3b0c330e590b",
-     "assetKind": "audio"
-    }
-   ]
-  },
-  "BL36": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "3b0e29e7c8e5f194fb346f1ffba417d6",
-     "origCardId": "BL36",
-     "joinKey": "id",
-     "assetName": "Atk_UnholySmite",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "3b0e29e7c8e5f194fb346f1ffba417d6",
-     "cardanim": "Atk_UnholySmite",
-     "prefab": "Psychic_Lightning_Red",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "594046434123e4101b1cebb962139f72",
-     "origCardId": "BL36",
-     "joinKey": "id",
-     "assetName": "CSM_BlackLegion_war_Sylar Hexcorn",
-     "assetType": "Texture2D",
-     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
-     "containerKey": "594046434123e4101b1cebb962139f72",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "3a4d91b6a83324a179e10a7b98efd1bb",
-     "origCardId": "BL36",
-     "joinKey": "id",
-     "assetName": "VO_BlackLegion_Hexscorn_Attack",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
-     "containerKey": "3a4d91b6a83324a179e10a7b98efd1bb",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "bceb8378742c2415f8c9da6c324618fc",
-     "origCardId": "BL36",
-     "joinKey": "id",
-     "assetName": "VO_BlackLegion_Hexscorn_Death",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
-     "containerKey": "bceb8378742c2415f8c9da6c324618fc",
-     "assetKind": "audio"
-    }
-   ]
-  },
-  "BL65": {
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "25958a37c78abdf4f9141869a2e6b8d9",
-     "origCardId": "BL65",
-     "joinKey": "id",
-     "assetName": "CSM_BlackLegion_warlord_Ghallaron the Pious",
-     "assetType": "Texture2D",
-     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
-     "containerKey": "25958a37c78abdf4f9141869a2e6b8d9",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "702cdf0ab4dad2c47a7994d017d72db1",
-     "origCardId": "BL65",
-     "joinKey": "id",
-     "assetName": "VO_BL_Ghallaron_attack",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
-     "containerKey": "702cdf0ab4dad2c47a7994d017d72db1",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "93c20a815d8e2a14e82e16ff28809ba6",
-     "origCardId": "BL65",
-     "joinKey": "id",
-     "assetName": "VO_BL_Ghallaron_death",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
-     "containerKey": "93c20a815d8e2a14e82e16ff28809ba6",
      "assetKind": "audio"
     }
    ]
@@ -47225,75 +48924,6 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 710,
      "abilityTriggerName": "Stimulation",
-     "chosenAbility": 30,
-     "chosenAbilityName": "buffOthers",
-     "inLibrary": true
-    }
-   ]
-  },
-  "EC12": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "c721fe1a6172fe643ab0be84d9292630",
-     "origCardId": "EC12",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_1shot_EC",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "c721fe1a6172fe643ab0be84d9292630",
-     "cardanim": "Atk_BulletImpact_1shot_EC",
-     "prefab": "BulletImpact_1shot_random_EC",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "ee91a40feaf67964ab704da776fa5bfa",
-     "origCardId": "EC12",
-     "joinKey": "id",
-     "assetName": "CSM_EmperorsChildren_inf_Flawless Blade Champion",
-     "assetType": "Texture2D",
-     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "ee",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "3a27b75a196ad4e408e0e64475d114bb",
-     "origCardId": "EC12",
-     "joinKey": "id",
-     "assetName": "VO_CSM_EC_Flawless Blade Champion (Kevin)",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "3a",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "6de1ad23980855f42b05cb4dabd4ca37",
-     "origCardId": "EC12",
-     "joinKey": "id",
-     "assetName": "Buff EC Pink",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
-     "containerKey": "6d",
-     "cardanim": "Buff EC Pink",
-     "prefab": "Buff EC Pink Twirl",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 120,
-     "abilityTriggerName": "Slay",
      "chosenAbility": 30,
      "chosenAbilityName": "buffOthers",
      "inLibrary": true
@@ -49570,157 +51200,6 @@
      "abilityTriggerName": "ThisCardPlayed",
      "chosenAbility": 100,
      "chosenAbilityName": "createCardInHand",
-     "inLibrary": true
-    }
-   ]
-  },
-  "EC55": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "b95f5be64cda68944adfcfa363efaaf5",
-     "origCardId": "EC55",
-     "joinKey": "id",
-     "assetName": "Whip Attack EC Cut",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
-     "containerKey": "b9",
-     "cardanim": "Whip Attack EC Cut",
-     "prefab": "Whip Attack EC Lucius",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "cb36e4be3a3c344faae2e94bd99b4576",
-     "origCardId": "EC55",
-     "joinKey": "id",
-     "assetName": "CSM_EmperorsChildren_warlord_Lucius The Eternal",
-     "assetType": "Texture2D",
-     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "cb3",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "220256eb551a73b488b0f356bde6e847",
-     "origCardId": "EC55",
-     "joinKey": "id",
-     "assetName": "VO_CSM_EC_Lucius_attack",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "22",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "2398ef1309d68b943a276bc1c928c941",
-     "origCardId": "EC55",
-     "joinKey": "id",
-     "assetName": "VO_CSM_EC_Lucius_death",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "23",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "32ae96be082b7224da8f4a885ce961b2",
-     "origCardId": "EC55",
-     "joinKey": "id",
-     "assetName": "Whip Attack EC Cut Warlord",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
-     "containerKey": "32",
-     "cardanim": "Whip Attack EC Cut Warlord",
-     "prefab": "Whip Attack EC Lucius",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 710,
-     "abilityTriggerName": "Stimulation",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    }
-   ]
-  },
-  "EC57": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "b4b645e6eb7bef34c9621e98b8667337",
-     "origCardId": "EC57",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_2shot_EC Daemon",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "b4b645e6eb7bef34c9621e98b8667337",
-     "cardanim": "Atk_BulletImpact_2shot_EC Daemon",
-     "prefab": "BulletImpact_2shot_trail_EC Daemon",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "2ced70db5d5414dc2b28a5770e8c1d1f",
-     "origCardId": "EC57",
-     "joinKey": "id",
-     "assetName": "CSM_EmperorsChildren_warlord_Xarahan Daemon Prince",
-     "assetType": "Texture2D",
-     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "2ce",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "6a6fb8c37ab200c469bcc799c5dbd57b",
-     "origCardId": "EC57",
-     "joinKey": "id",
-     "assetName": "VO_UM_Primaris Intercessor - For the Imperium",
-     "assetType": "AudioClip",
-     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
-     "containerKey": "6a6fb8c37ab200c469bcc799c5dbd57b",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "5c68754319cf13943b8fc6e53e32b04e",
-     "origCardId": "EC57",
-     "joinKey": "id",
-     "assetName": "Buff EC Pink Intense",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
-     "containerKey": "5c",
-     "cardanim": "Buff EC Pink Intense",
-     "prefab": "Buff EC Pink Twirl Intense",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 715,
-     "abilityTriggerName": "Ecstasy",
-     "chosenAbility": 40,
-     "chosenAbilityName": "buffSelf",
      "inLibrary": true
     }
    ]
@@ -53361,66 +54840,6 @@
     }
    ]
   },
-  "SAU19": {
-   "death": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customDeathParticles",
-     "soField": "customDeathParticles",
-     "guid": "ee2cef116e5f144beb6e866cd9e79e68",
-     "origCardId": "SAU19",
-     "joinKey": "id",
-     "assetName": "Necrons death explosion",
-     "assetType": "GameObject",
-     "assetBundle": "battleprefabs_vfxandmisc_assets_all.bundle",
-     "containerKey": "ee2cef116e5f144beb6e866cd9e79e68",
-     "prefab": "Necrons death explosion",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.remnantBodyPrefab",
-     "soField": "remnantBodyPrefab",
-     "guid": "5041a12423b67164abf8bb6aedf69097",
-     "origCardId": "SAU19",
-     "joinKey": "id",
-     "assetName": "RemnantBody3D Necrons",
-     "assetType": "GameObject",
-     "assetBundle": "battleprefabs_vfxandmisc_assets_all.bundle",
-     "containerKey": "5041a12423b67164abf8bb6aedf69097",
-     "prefab": "RemnantBody3D Necrons",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "9fb64b2af942db0498eaf52b7e3c2635",
-     "origCardId": "SAU19",
-     "joinKey": "id",
-     "assetName": "Necron_Sautekh_monster_Canoptek Reanimator",
-     "assetType": "Texture2D",
-     "assetBundle": "necronssautekhcardassets_assets_all.bundle",
-     "containerKey": "9fb64b2af942db0498eaf52b7e3c2635",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "8f12c0f17428c4a718662e1d0f3d3f33",
-     "origCardId": "SAU19",
-     "joinKey": "id",
-     "assetName": "VO_Sautekh_Canoptek Reanimator - Reanimate",
-     "assetType": "AudioClip",
-     "assetBundle": "necronssautekhcardassets_assets_all.bundle",
-     "containerKey": "8f12c0f17428c4a718662e1d0f3d3f33",
-     "assetKind": "audio"
-    }
-   ]
-  },
   "SAU75": {
    "_assetRefs": [
     {
@@ -55200,82 +56619,6 @@
     }
    ]
   },
-  "SAU66": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "aa9454607c97db54a86f22209966bbba",
-     "origCardId": "SAU66",
-     "joinKey": "id",
-     "assetName": "Atk_Gauss_Twinlinked",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "aa9454607c97db54a86f22209966bbba",
-     "cardanim": "Atk_Gauss_Twinlinked",
-     "prefab": "NecronGauss_Twinlinked",
-     "inLibrary": true
-    }
-   ],
-   "death": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customDeathParticles",
-     "soField": "customDeathParticles",
-     "guid": "ee2cef116e5f144beb6e866cd9e79e68",
-     "origCardId": "SAU66",
-     "joinKey": "id",
-     "assetName": "Necrons death explosion",
-     "assetType": "GameObject",
-     "assetBundle": "battleprefabs_vfxandmisc_assets_all.bundle",
-     "containerKey": "ee2cef116e5f144beb6e866cd9e79e68",
-     "prefab": "Necrons death explosion",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "ab3f30fbaf9de534289c302846573785",
-     "origCardId": "SAU66",
-     "joinKey": "id",
-     "assetName": "Necron_Sautekh_warlord_Ramatekh The Cruel",
-     "assetType": "Texture2D",
-     "assetBundle": "necronssautekhcardassets_assets_all.bundle",
-     "containerKey": "ab3f30fbaf9de534289c302846573785",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "199963c2137c3446f87c6de487d5ab13",
-     "origCardId": "SAU66",
-     "joinKey": "id",
-     "assetName": "VO_Sautekh_Ramatekh the Cruel_attack",
-     "assetType": "AudioClip",
-     "assetBundle": "necronssautekhcardassets_assets_all.bundle",
-     "containerKey": "199963c2137c3446f87c6de487d5ab13",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "2f28dfaac915e49aea4cf47bf5eddc1e",
-     "origCardId": "SAU66",
-     "joinKey": "id",
-     "assetName": "VO_Sautekh_Ramatekh the Cruel_death",
-     "assetType": "AudioClip",
-     "assetBundle": "necronssautekhcardassets_assets_all.bundle",
-     "containerKey": "2f28dfaac915e49aea4cf47bf5eddc1e",
-     "assetKind": "audio"
-    }
-   ]
-  },
   "GOF28": {
    "attack_ranged": [
     {
@@ -56123,88 +57466,6 @@
     }
    ]
   },
-  "GOF77": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "475b8c5cbfe632847b4444f71eda8b7d",
-     "origCardId": "GOF77",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_Morgrim",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "475b8c5cbfe632847b4444f71eda8b7d",
-     "cardanim": "Atk_BulletImpact_Morgrim",
-     "prefab": "BulletImpact_Morgrim",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "eee4da4155e19bb4e9ed23cc694d68c3",
-     "origCardId": "GOF77",
-     "joinKey": "id",
-     "assetName": "Ork_BeastSnagga_warlord_Beastboss Morgrim",
-     "assetType": "Texture2D",
-     "assetBundle": "orksgoffcardassets_assets_all.bundle",
-     "containerKey": "eee4da4155e19bb4e9ed23cc694d68c3",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "c3cef493648f8a24a8b0bbb4e45af6ac",
-     "origCardId": "GOF77",
-     "joinKey": "id",
-     "assetName": "VO_Ork_Beastboss Morgrim_attack",
-     "assetType": "AudioClip",
-     "assetBundle": "orksgoffcardassets_assets_all.bundle",
-     "containerKey": "c3cef493648f8a24a8b0bbb4e45af6ac",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "adb9333ddb0755147b04b53f237a13c5",
-     "origCardId": "GOF77",
-     "joinKey": "id",
-     "assetName": "VO_Ork_Beastboss Morgrim_death",
-     "assetType": "AudioClip",
-     "assetBundle": "orksgoffcardassets_assets_all.bundle",
-     "containerKey": "adb9333ddb0755147b04b53f237a13c5",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "7431ee589540a53498aa000ac03ab356",
-     "origCardId": "GOF77",
-     "joinKey": "id",
-     "assetName": "Buff_Ork_Snakebite_1_quick_Warlord",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "7431ee589540a53498aa000ac03ab356",
-     "cardanim": "Buff_Ork_Snakebite_1_quick_Warlord",
-     "prefab": "OrkBuff_Snakebitez_1_Quick",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 190,
-     "abilityTriggerName": "OtherUnitSummoned",
-     "chosenAbility": 40,
-     "chosenAbilityName": "buffSelf",
-     "inLibrary": true
-    }
-   ]
-  },
   "GOF82": {
    "attack_ranged": [
     {
@@ -56525,136 +57786,6 @@
      "assetBundle": "orksgoffcardassets_assets_all.bundle",
      "containerKey": "d6a211f6e82b1dd448a73285e189c6de",
      "assetKind": "audio"
-    }
-   ]
-  },
-  "GOF3": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "61a016dd72f0e8844a8cfa07b4880681",
-     "origCardId": "GOF3",
-     "joinKey": "id",
-     "assetName": "Atk_GrotGrenade",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "61a016dd72f0e8844a8cfa07b4880681",
-     "cardanim": "Atk_GrotGrenade",
-     "prefab": "Atk_GrotGrenade",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "3d195467edd47e845977c6577ef55055",
-     "origCardId": "GOF3",
-     "joinKey": "id",
-     "assetName": "Ork_Goff_inf_Bomb Squig",
-     "assetType": "Texture2D",
-     "assetBundle": "orksgoffcardassets_assets_all.bundle",
-     "containerKey": "3d195467edd47e845977c6577ef55055",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "4ac11e80ceb61e34687692243b4905a4",
-     "origCardId": "GOF3",
-     "joinKey": "id",
-     "assetName": "VO_Goff_Bomb Squig - MUNCH",
-     "assetType": "AudioClip",
-     "assetBundle": "orksgoffcardassets_assets_all.bundle",
-     "containerKey": "4ac11e80ceb61e34687692243b4905a4",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "5707d13c3d0da4eba9604feb80f67e21",
-     "origCardId": "GOF3",
-     "joinKey": "id",
-     "assetName": "Wait_1s",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "5707d13c3d0da4eba9604feb80f67e21",
-     "cardanim": "Wait_1s",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 80,
-     "abilityTriggerName": "ThisUnitDeath",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "prefab": null,
-     "unresolved": "CardAnim `Wait_1s` 没有可解的 `animInfo.animAdressable`（原版是纯计时 / 无 VFX 的占位动画，不是解错）",
-     "inLibrary": null
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "guid": "915f97d1151634b5b8efd79ea1f83700",
-     "origCardId": "GOF3",
-     "joinKey": "id",
-     "assetName": "Explosion_Wide_Target",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "915f97d1151634b5b8efd79ea1f83700",
-     "cardanim": "Explosion_Wide_Target",
-     "prefab": "Squig_Explosion",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 80,
-     "abilityTriggerName": "ThisUnitDeath",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF3",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "cardanim": "UnstableExplosion_self",
-     "prefab": "UnstableEffect",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[1]",
-     "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF3",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_target",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
-     "cardanim": "UnstableExplosion_target",
-     "prefab": "UnstableEffect_ExplosionExtra",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
     }
    ]
   },
@@ -58379,66 +59510,6 @@
     }
    ]
   },
-  "GOF27": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "d220f14a3b95bf546949bad2dbc2251b",
-     "origCardId": "GOF27",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_2shot_ork",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "d220f14a3b95bf546949bad2dbc2251b",
-     "cardanim": "Atk_BulletImpact_2shot_ork",
-     "prefab": "BulletImpact_2shot_trail_ork_NEW",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "164e4d1f240214b78ab8f3338c449ac7",
-     "origCardId": "GOF27",
-     "joinKey": "id",
-     "assetName": "Ork_Goff_war_Boss Zagstruk",
-     "assetType": "Texture2D",
-     "assetBundle": "orksgoffcardassets_assets_all.bundle",
-     "containerKey": "164e4d1f240214b78ab8f3338c449ac7",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "7752e7200fbb871448b2c9a23cb3f4c3",
-     "origCardId": "GOF27",
-     "joinKey": "id",
-     "assetName": "VO_Goff_Zagstruk_attack",
-     "assetType": "AudioClip",
-     "assetBundle": "orksgoffcardassets_assets_all.bundle",
-     "containerKey": "7752e7200fbb871448b2c9a23cb3f4c3",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "441a10e7838340a48b891f3fccb55b5c",
-     "origCardId": "GOF27",
-     "joinKey": "id",
-     "assetName": "VO_Goff_Zagstruk_death",
-     "assetType": "AudioClip",
-     "assetBundle": "orksgoffcardassets_assets_all.bundle",
-     "containerKey": "441a10e7838340a48b891f3fccb55b5c",
-     "assetKind": "audio"
-    }
-   ]
-  },
   "GOF29": {
    "attack_ranged": [
     {
@@ -59292,58 +60363,6 @@
     }
    ]
   },
-  "SOR16": {
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "55aae2f1de57e47bd88b57972fc5d085",
-     "origCardId": "SOR16",
-     "joinKey": "id",
-     "assetName": "Sororitas_inf_Missionary",
-     "assetType": "Texture2D",
-     "assetBundle": "sororitascardassets_assets_all.bundle",
-     "containerKey": "55aae2f1de57e47bd88b57972fc5d085",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "eedea31874d14c14293efb01cef08e42",
-     "origCardId": "SOR16",
-     "joinKey": "id",
-     "assetName": "VO_ADS_Missionary - I herald your demise",
-     "assetType": "AudioClip",
-     "assetBundle": "sororitascardassets_assets_all.bundle",
-     "containerKey": "eedea31874d14c14293efb01cef08e42",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "765006f412a23bf4696533d6ca54fee9",
-     "origCardId": "SOR16",
-     "joinKey": "id",
-     "assetName": "Buff_Sororitas_quick_self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "sororitascardanims_assets_all.bundle",
-     "containerKey": "765006f412a23bf4696533d6ca54fee9",
-     "cardanim": "Buff_Sororitas_quick_self",
-     "prefab": "Buff_Sororitas_quick",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 580,
-     "abilityTriggerName": "Strike",
-     "chosenAbility": 60,
-     "chosenAbilityName": "buffMana",
-     "inLibrary": true
-    }
-   ]
-  },
   "SOR12": {
    "attack_ranged": [
     {
@@ -59766,58 +60785,6 @@
      "abilityTriggerName": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    }
-   ]
-  },
-  "SOR10": {
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "ebaeae6171f08452ead18afc535a8778",
-     "origCardId": "SOR10",
-     "joinKey": "id",
-     "assetName": "Sororitas_inf_Sisters Repentia",
-     "assetType": "Texture2D",
-     "assetBundle": "sororitascardassets_assets_all.bundle",
-     "containerKey": "ebaeae6171f08452ead18afc535a8778",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "e3a9e6a2ba87a449886ab19604040743",
-     "origCardId": "SOR10",
-     "joinKey": "id",
-     "assetName": "VO_ADS_Sister Repentia- Only in penance shall my soul be cleansed",
-     "assetType": "AudioClip",
-     "assetBundle": "sororitascardassets_assets_all.bundle",
-     "containerKey": "e3a9e6a2ba87a449886ab19604040743",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "230c929a27cf26b409d2a081125e0b33",
-     "origCardId": "SOR10",
-     "joinKey": "id",
-     "assetName": "PenitenceTraitTrigger",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "230c929a27cf26b409d2a081125e0b33",
-     "cardanim": "PenitenceTraitTrigger",
-     "prefab": "PenitenceEffect",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 130,
-     "abilityTriggerName": "Rage",
-     "chosenAbility": 40,
-     "chosenAbilityName": "buffSelf",
      "inLibrary": true
     }
    ]
@@ -61574,75 +62541,6 @@
     }
    ]
   },
-  "SOR27": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "ff35b219b0263f344a561bb08592f61f",
-     "origCardId": "SOR27",
-     "joinKey": "id",
-     "assetName": "Atk_FlamethrowerAttack_1_Sororitas",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "ff35b219b0263f344a561bb08592f61f",
-     "cardanim": "Atk_FlamethrowerAttack_1_Sororitas",
-     "prefab": "BulletImpact_FlamethrowerSororitas",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "bcc69c4d9ef3c42f89b057016207b06b",
-     "origCardId": "SOR27",
-     "joinKey": "id",
-     "assetName": "Sororitas_veh_Penitent Engine",
-     "assetType": "Texture2D",
-     "assetBundle": "sororitascardassets_assets_all.bundle",
-     "containerKey": "bcc69c4d9ef3c42f89b057016207b06b",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "62d1fe2d69fc84e3b8619ebd728379d2",
-     "origCardId": "SOR27",
-     "joinKey": "id",
-     "assetName": "VO_ADS_Penitent Engine - Tortured scream",
-     "assetType": "AudioClip",
-     "assetBundle": "sororitascardassets_assets_all.bundle",
-     "containerKey": "62d1fe2d69fc84e3b8619ebd728379d2",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "230c929a27cf26b409d2a081125e0b33",
-     "origCardId": "SOR27",
-     "joinKey": "id",
-     "assetName": "PenitenceTraitTrigger",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "230c929a27cf26b409d2a081125e0b33",
-     "cardanim": "PenitenceTraitTrigger",
-     "prefab": "PenitenceEffect",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 130,
-     "abilityTriggerName": "Rage",
-     "chosenAbility": 40,
-     "chosenAbilityName": "buffSelf",
-     "inLibrary": true
-    }
-   ]
-  },
   "SOR70": {
    "attack_ranged": [
     {
@@ -62207,53 +63105,6 @@
      "assetType": "AudioClip",
      "assetBundle": "tauempirecardassets_assets_all.bundle",
      "containerKey": "b8b24f490f11e4745a6dc2a06b665da5",
-     "assetKind": "audio"
-    }
-   ]
-  },
-  "TAU22": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "2430980527700c647b59830c72cb05ae",
-     "origCardId": "TAU22",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_Tau_Sniper Pulse Rifle",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "tauempirecardanims_assets_all.bundle",
-     "containerKey": "2430980527700c647b59830c72cb05ae",
-     "cardanim": "Atk_BulletImpact_Tau_Sniper Pulse Rifle",
-     "prefab": "BulletImpact_Tau_Sniper Pulse Rifle",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "2398c0ef418e94a25a9fdaa004b5af59",
-     "origCardId": "TAU22",
-     "joinKey": "id",
-     "assetName": "Tau_Empire_inf_Strike Team",
-     "assetType": "Texture2D",
-     "assetBundle": "tauempirecardassets_assets_all.bundle",
-     "containerKey": "2398c0ef418e94a25a9fdaa004b5af59",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "42175dbdf6d955842a0513be02faeaad",
-     "origCardId": "TAU22",
-     "joinKey": "id",
-     "assetName": "VO_Tau_Empire_Strike Team - Our flame lights the way to the Greater Good",
-     "assetType": "AudioClip",
-     "assetBundle": "tauempirecardassets_assets_all.bundle",
-     "containerKey": "42175dbdf6d955842a0513be02faeaad",
      "assetKind": "audio"
     }
    ]
@@ -63712,66 +64563,6 @@
     }
    ]
   },
-  "TAU65": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "9a553b01b0f6f324e9293fe7801f4668",
-     "origCardId": "TAU65",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_Kroot_KrootPistol",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "tauempirecardanims_assets_all.bundle",
-     "containerKey": "9a553b01b0f6f324e9293fe7801f4668",
-     "cardanim": "Atk_BulletImpact_Kroot_KrootPistol",
-     "prefab": "BulletImpact_Kroot_KrootPistol",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "e5e510c8f465ef54db8664152bcd2b5a",
-     "origCardId": "TAU65",
-     "joinKey": "id",
-     "assetName": "Tau_Empire_warlord_War Shaper",
-     "assetType": "Texture2D",
-     "assetBundle": "tauempirecardassets_assets_all.bundle",
-     "containerKey": "e5e510c8f465ef54db8664152bcd2b5a",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "fb7eeaef2bb604119bcc38ba9e7a5ca3",
-     "origCardId": "TAU65",
-     "joinKey": "id",
-     "assetName": "VO_Tau_War Shaper_attack",
-     "assetType": "AudioClip",
-     "assetBundle": "tauempirecardassets_assets_all.bundle",
-     "containerKey": "fb7eeaef2bb604119bcc38ba9e7a5ca3",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "dac4fb51c12024305a899c834fd4ecc1",
-     "origCardId": "TAU65",
-     "joinKey": "id",
-     "assetName": "VO_Tau_War Shaper_death",
-     "assetType": "AudioClip",
-     "assetBundle": "tauempirecardassets_assets_all.bundle",
-     "containerKey": "dac4fb51c12024305a899c834fd4ecc1",
-     "assetKind": "audio"
-    }
-   ]
-  },
   "TL38": {
    "attack_ranged": [
     {
@@ -64360,53 +65151,6 @@
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
-    }
-   ]
-  },
-  "TL28": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "17ff12736c7974742883fc821f385135",
-     "origCardId": "TL28",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_Tyranid_Fleshborer",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "tyranidsleviathancardanims_assets_all.bundle",
-     "containerKey": "17ff12736c7974742883fc821f385135",
-     "cardanim": "Atk_BulletImpact_Tyranid_Fleshborer",
-     "prefab": "BulletImpact_Tyranid_Small",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "c3e50164bf43f4b78ad5bb7d00fa5861",
-     "origCardId": "TL28",
-     "joinKey": "id",
-     "assetName": "Tyranid_Leviathan_mon_Haruspex",
-     "assetType": "Texture2D",
-     "assetBundle": "tyranidsleviathancardassets_assets_all.bundle",
-     "containerKey": "c3e50164bf43f4b78ad5bb7d00fa5861",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "fd3074746788c76428347a8c9bc10edf",
-     "origCardId": "TL28",
-     "joinKey": "id",
-     "assetName": "VO_Tyranid_Leviathan_Haruspex - Discordant roar",
-     "assetType": "AudioClip",
-     "assetBundle": "tyranidsleviathancardassets_assets_all.bundle",
-     "containerKey": "fd3074746788c76428347a8c9bc10edf",
-     "assetKind": "audio"
     }
    ]
   },
@@ -67512,49 +68256,6 @@
     }
    ]
   },
-  "UM47": {
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "acf10c2c7d2ee4644b5dae095c0769ce",
-     "origCardId": "UM47",
-     "joinKey": "id",
-     "assetName": "SM_UM_warlord_Uriel Ventris",
-     "assetType": "Texture2D",
-     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
-     "containerKey": "acf10c2c7d2ee4644b5dae095c0769ce",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "a18a157d905aafc4586c54f6788c02bb",
-     "origCardId": "UM47",
-     "joinKey": "id",
-     "assetName": "VO_Ultramarines_Ventris_attack",
-     "assetType": "AudioClip",
-     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
-     "containerKey": "a18a157d905aafc4586c54f6788c02bb",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "8c1b1f1cd699aa5448bdf20e1bda6f97",
-     "origCardId": "UM47",
-     "joinKey": "id",
-     "assetName": "VO_Ultramarines_Ventris_death",
-     "assetType": "AudioClip",
-     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
-     "containerKey": "8c1b1f1cd699aa5448bdf20e1bda6f97",
-     "assetKind": "audio"
-    }
-   ]
-  },
   "UM86": {
    "_assetRefs": [
     {
@@ -68003,177 +68704,6 @@
      "abilityTriggerName": "ThisCardPlayed",
      "chosenAbility": 60,
      "chosenAbilityName": "buffMana",
-     "inLibrary": true
-    }
-   ]
-  },
-  "EC56": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "3439f089e50ab0d47a243610cf3e4c44",
-     "origCardId": "EC56",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_SonicWeapon 2 Pistol",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
-     "containerKey": "3",
-     "cardanim": "Atk_BulletImpact_SonicWeapon 2 Pistol",
-     "prefab": "BulletImpact_Sonic Weapon 2 Pistol",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "c6bb19dd848ad4c8fb2de98c9e5c96df",
-     "origCardId": "EC56",
-     "joinKey": "id",
-     "assetName": "CSM_EmperorsChildren_inf_Icon of Excess Infractor",
-     "assetType": "Texture2D",
-     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "c6",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "5a6da3153cbdeeb4aaffda01d5bb1f8e",
-     "origCardId": "EC56",
-     "joinKey": "id",
-     "assetName": "VO_CSM_EC_Lord Kaphrael_gen7",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "5a",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "44a4f1431e651be4aba5d6c3a1e4dffd",
-     "origCardId": "EC56",
-     "joinKey": "id",
-     "assetName": "VO_CSM_EC_Lord Kaphrael_death",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "4",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "93755d3c9836a8140b2d55f02e40687b",
-     "origCardId": "EC56",
-     "joinKey": "id",
-     "assetName": "Buff EC Stimulate target",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
-     "containerKey": "93",
-     "cardanim": "Buff EC Stimulate target",
-     "prefab": "Buff EC Stimulate",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 710,
-     "abilityTriggerName": "Stimulation",
-     "chosenAbility": 30,
-     "chosenAbilityName": "buffOthers",
-     "inLibrary": true
-    }
-   ]
-  },
-  "EC22": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "c721fe1a6172fe643ab0be84d9292630",
-     "origCardId": "EC22",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_1shot_EC",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "c721fe1a6172fe643ab0be84d9292630",
-     "cardanim": "Atk_BulletImpact_1shot_EC",
-     "prefab": "BulletImpact_1shot_random_EC",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "6ea7885c2914d4b53bed6901843535de",
-     "origCardId": "EC22",
-     "joinKey": "id",
-     "assetName": "CSM_EmperorsChildren_inf_Threnodic Choir Flawless Blade",
-     "assetType": "Texture2D",
-     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "6ea",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "2eea72470b2644fbba0924769a23b17a",
-     "origCardId": "EC22",
-     "joinKey": "id",
-     "assetName": "VO_CSM_EC_Threnodic Choir Flawless Blade (Andrew Dennis)",
-     "assetType": "AudioClip",
-     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "2ee",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "6de1ad23980855f42b05cb4dabd4ca37",
-     "origCardId": "EC22",
-     "joinKey": "id",
-     "assetName": "Buff EC Pink",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
-     "containerKey": "6d",
-     "cardanim": "Buff EC Pink",
-     "prefab": "Buff EC Pink Twirl",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 720,
-     "abilityTriggerName": "Cruelty",
-     "chosenAbility": 40,
-     "chosenAbilityName": "buffSelf",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "bd6894e537c2fea41a21712093cb1dc6",
-     "origCardId": "EC22",
-     "joinKey": "id",
-     "assetName": "EC Target Delayed",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
-     "containerKey": "bd",
-     "cardanim": "EC Target Delayed",
-     "prefab": "EC Target",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 710,
-     "abilityTriggerName": "Stimulation",
-     "chosenAbility": 238,
-     "chosenAbilityName": "scriptedSelfCardAttackDontCount",
      "inLibrary": true
     }
    ]
@@ -68826,7 +69356,7 @@
    "_assetRefs": 1009,
    "ability": 828,
    "attack_ranged": 463,
-   "trigger": 357,
+   "trigger": 398,
    "death": 95,
    "_unclassified": 31,
    "play": 6,
@@ -68837,11 +69367,11 @@
   "entriesByConf": {
    "inferred-name": 59,
    "authoritative": 3498,
-   "inferred-keyword": 556
+   "inferred-keyword": 612
   },
   "cardsByConf": {
    "authoritative": 1009,
-   "inferred-keyword": 430,
+   "inferred-keyword": 455,
    "inferred-name": 42
   },
   "authoritativePerCardEntries": 3498,
@@ -69108,7 +69638,7 @@
     "SW37",
     "SW26",
     "SW20",
-    "SW3",
+    "SW9",
     "SW33",
     "SW21",
     "SW34",
@@ -69127,7 +69657,7 @@
     "SW66",
     "SW65",
     "SW68",
-    "SW2",
+    "SW4",
     "SW5",
     "SW61",
     "SW57",

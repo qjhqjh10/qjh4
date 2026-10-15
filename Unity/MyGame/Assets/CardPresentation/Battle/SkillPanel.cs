@@ -86,8 +86,11 @@ namespace CardPresentation
         static readonly Rect CostTextRect = new Rect(0.7763f, 0.2898f, 0.0975f, 0.2106f);
         static readonly Rect DescRect = new Rect(0.1009f, 0.5004f, 0.7140f, 0.3335f);
         static readonly Rect TargetsRect = new Rect(0.1580f, 0.0710f, 0.6865f, 0.1646f);
-        /// <summary>原版 `Lights` 那三层色片铺的范围（anchor x 0.0308–0.9630 / y 0–0.8468，y 从底部 → 折成从顶部）</summary>
-        static readonly Rect LightRect = new Rect(0.0308f, 0.1532f, 0.9322f, 0.8468f);
+        /// <summary>原版 `Lights` 那三层色片铺的范围。
+        /// 🔴 **2026-10-15（账 `A2106`）就地订正：原版三层是【全 stretch】。**
+        /// 原来写的是 `(0.0308, 0.1532, 0.9322, 0.8468)`（自 `anchor x 0.0308–0.9630 / y 0–0.8468`）
+        /// ⇒ 比原版**少铺 6.8% 宽 / 15.3% 高**。判据 → `C2_逐格对账_弹窗与结算转场.md`（引 `B2:74-76`）。</summary>
+        static readonly Rect LightRect = new Rect(0f, 0f, 1f, 1f);
 
         /// <summary>原版 `DescText` 的 `m_margin.x = 7.4727 px` —— 左对齐的起笔位置</summary>
         const float DescMarginPx = 7.4727f;
@@ -116,8 +119,12 @@ namespace CardPresentation
 
         /// <summary>面板底色。原版那块 Image 是**纯白无 sprite**（见文件头）—— **这块深色板是我们挑的**</summary>
         static readonly Color BgColor = new Color(0.05f, 0.06f, 0.09f, 0.86f);
-        static readonly Color NameColor = new Color(1.00f, 0.96f, 0.86f);
-        static readonly Color CostColor = new Color(1.00f, 0.94f, 0.72f);
+        /// <summary>🔴 **2026-10-15（账 `A2106`）就地订正：原版 Name / Cost 是【白】。**
+        /// 原来这里是暖色 `(1,0.96,0.86)` / `(1,0.94,0.72)` —— **未标注的偏移**（既不是照原版、也没写「我们挑的」）。
+        /// 判据 → `资料/普查产出_1015战斗/C2_逐格对账_弹窗与结算转场.md`（引 `B2:68,70`）。</summary>
+        static readonly Color NameColor = new Color(1f, 1f, 1f);
+        /// <inheritdoc cref="NameColor"/>
+        static readonly Color CostColor = new Color(1f, 1f, 1f);
         static readonly Color DescColor = new Color(0.90f, 0.92f, 0.96f);
         static readonly Color TargetsColor = new Color(0.96f, 0.90f, 0.60f);
 

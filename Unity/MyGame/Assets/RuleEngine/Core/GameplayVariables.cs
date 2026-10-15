@@ -113,7 +113,15 @@ namespace RuleEngine
         public int numberOfCopiesOtherRarities = ClassicCopiesOther;
         /// <summary>【规则书:53】传说卡同名上限。</summary>
         public int numberOfCopiesLegendary = ClassicCopiesLegendary;
-        /// <summary>【规则书】每边棋盘格数（= 9，两模式相同）。</summary>
+        /// <summary>【规则书】每边棋盘格数（= 9，两模式相同）。
+        /// <para>🔴🔴 **2026-10-15（账 `A2099`）：这个字段名与原版【同名不同义】—— 接原版 SO 前必须先看这一条。**
+        /// **我们的 `side` = 玩家那一侧**（我方 9 格 / 敌方 9 格）；
+        /// **原版 `GameplayVariablesData.slotsPerSide`（`+0x1C`）= 左/右【半场】各几格**
+        /// （序列化 4 · ctor 默认 3）**⇒ 指的不是同一件事**。
+        /// 判据 → `资料/普查产出_1015战斗/B4_战斗相机与棋盘几何.md` §二 与 `资料/战斗复刻_正本.md` §2·8/§2·11。
+        /// ⛔ **将来接原版 `GameplayVariablesData` 时逐字段对【语义】，别按名字对** ——
+        /// 按名字对会静默把「每侧 4 格」当成「每边 9 格」。⚠️ 那个 SO 目前**不在本地 91 个 bundle 里**，
+        /// 所以运行时权威值「查不到」（如实记，⛔ 没猜）。</para></summary>
         public int slotsPerSide = 9;
 
         // ---- 5~6：督军与卡组 ---------------------------------------------------

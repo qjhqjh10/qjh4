@@ -57,8 +57,31 @@ namespace CardPresentation
             cam.farClipPlane = 200f;
         }
 
+        /// <summary>可见**高**（世界单位）—— **恒等于 <see cref="DesignHeight"/>（10）**。
+        ///
+        /// <para>🔴🔴 **2026-10-15（账 `A2092` / `A2098`）：这里【试过】改成原版 `CanvasScaler(Expand)` 的
+        /// 规则，当天就【回滚】了 —— 记下原因，⛔ 别再来第三次。**
+        /// 改法本身没错（`Expand` ⇒ `scaleFactor = min(W/1920, H/1080)` ⇒ 窄屏钉宽、宽屏钉高，
+        /// 画布在窄屏会**变高**），**而且它确实把尺寸校准对了**（原版 4:3 参考空间 = 1920×1440，
+        /// 我们原来的 13.333×10 比它小 1.333 倍）。**但它在我们的架构里推不下去**：</para>
+        ///
+        /// <para>**根因**：我们全线用的是**一个全局映射** —— 「设计 1920×1080 **拉伸**铺满画布」
+        /// （`FromPixel` / `ToPixel` 那一对，等价于假设**所有元素都是 stretch 锚点**）。
+        /// 画布一旦变高（10 → 13.333），**x 的斜率仍是 108、y 的斜率却不再是 108**
+        /// ⇒ 同一个全局映射**不可能同时是两个轴的逆**。实测症状：`FromPixel(1234.5, 678.25)`
+        /// 往返回来 y 变成 **724.33**（x 逐位精确）⇒ `HitMyDeckPile` 在 4:3 下也当场变红。</para>
+        ///
+        /// <para>**原版为什么不靠这个**：它每个元素有自己的 `m_AnchorMin/Max` —— 锚在边上的跟边、
+        /// 锚在中心的留中心，**根本没有一个全局映射**。</para>
+        ///
+        /// <para>⇒ **正确的修法是 `A2098`**（把战斗 HUD 换成 uGUI 锚点体系 / `CanvasScaler` 那一套），
+        /// ⛔ **不是在这里调相机**。在那之前，这层保持「一律钉高」：4:3 下画面整体偏大 1.333 倍
+        /// **但自洽**（位置与尺寸一起放大，不漂移、不点不到）。</para></summary>
         public static float VisibleHeight { get { return DesignHeight; } }
 
+        /// <summary>可见**宽**（世界单位）= `DesignHeight × aspect`（16:9 下 = 17.7778 = <see cref="DesignWidth"/>）。
+        /// ⚠️ 见 <see cref="VisibleHeight"/> 的 doc：**不要**在这里改成「窄屏钉宽」——
+        /// 那要连带一套全局映射的重做，属于 `A2098` 的活。</summary>
         public static float VisibleWidth
         {
             get

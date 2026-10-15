@@ -52,6 +52,10 @@ namespace CardPresentation
         /// <summary>正在显示吗（**淡出期间也算显示**，和原版一致）。</summary>
         public static bool Visible { get { return _inst != null && _inst._target > 0f; } }
         public static int ShowCount { get; private set; }      // 自检用：来过几条
+        /// <summary>🆕 2026-10-15（账 `A2088`）：**真正重排版了几次**（= `Layout` 跑了几次 =
+        /// 九宫格重建了几次）。与 <see cref="ShowCount"/> 分开正是为了能断「每帧重建」那个缺陷：
+        /// 同一串文案连调 N 次 `Show` ⇒ `ShowCount` 涨 N、**本计数只涨 1**。</summary>
+        public static int LayoutCount { get; private set; }
         /// <summary>面板中心的世界坐标（自检用来验 pivot 表）。没显示时是 zero。</summary>
         public static Vector3 PanelCenter
         {
@@ -135,6 +139,20 @@ namespace CardPresentation
         float _alpha, _target;
         Vector3 _pos;                       // 世界坐标（已含 offset）
         float _w = MinW, _h = 60f;
+        /// <summary>🆕 2026-10-15（账 `A2088`）：**上一次真正排版用的是哪串文案**。
+        ///
+        /// 为什么要有它：原版 tooltip 是**事件驱动**的 —— `OnPointerEnter` **显示一次**、
+        /// `OnPointerExit` **隐藏一次**（文件头第 5 行那条），面板几何一辈子只建一遍。
+        /// 我们这套是**每帧轮询**（`BattleDriver.TickTooltipAt`）⇒ `Show` 会**连续每帧**被调，
+        /// 而当时的 `Show` **无条件**走 `Layout → BuildBg` ⇒ **悬停期间每帧销毁重建整块九宫格**
+        /// （9 个 `new GameObject` + 9 个 `new Material(Shader.Find(...))` + 一次全子树
+        /// `GetComponentsInChildren`）。用户 2026-10-15 报的「对战卡顿」里，这一处是最大的一笔。
+        ///
+        /// ⛔ **判据不是「省点开销」，是「回到原版那件事」**：内容变了才重建
+        /// （= 原版的 enter/exit 语义），内容没变只挪位置（`Pivot`，它本来就每次都跑）。
+        /// ⚠️ **`null` 初值**：第一次 `Show` 一定会排版（`Layout` 里那个 `ForceMeshUpdate`
+        /// 依赖「对象已激活」，见 `Show` 的注释）。</summary>
+        string _laidBody;
 
         static Tooltip Ensure()
         {
@@ -174,7 +192,18 @@ namespace CardPresentation
         }
 
         /// <summary>显示一条。`worldPos` 是**触发器自己的位置**（不是鼠标），`anchor` = 原版 `AnchorPositions`。
-        /// `anchor` 表：0/5 居中 · 10 左中 · 15 右中 · 17 上中 · 20 左上 · 25 右上 · 27 下中 · 30 左下 · 55 右下。</summary>
+        /// `anchor` 表：0/5 居中 · 10 左中 · 15 右中 · 17 上中 · 20 左上 · 25 右上 · 27 下中 · 30 左下 · 55 右下。
+        ///
+        /// 🔴 **2026-10-15（账 `A2088`）：文案没变就<b>不重排版</b>。**
+        /// 本方法是**每帧**被调的（`BattleDriver.TickTooltipAt`），而原版那条链是
+        /// **`OnPointerEnter` 显示一次 / `OnPointerExit` 隐藏一次**（文件头第 5 行）——
+        /// 面板几何**一辈子只建一遍**。原来这里无条件走 `Layout()` → `BuildBg()`
+        /// ⇒ **悬停期间每帧销毁重建整块九宫格**（`Destroy` + `MenuDraw.Nine` + 全子树
+        /// `GetComponentsInChildren` + 9 个 `new Material(Shader.Find("Sprites/Default"))`）。
+        /// ⇒ 这一道「同一串文案就跳过」正是把原版那个 enter/exit 语义**补回来**，
+        /// ⛔ 不是「为省开销随手加缓存」。判据 → `Tooltip.Layout` / `BuildBg` 两处的行号。
+        /// ⚠️ **`ShownBody` / `ShowCount` 照旧每次都更新**（它们的语义是「来过几条」，
+        ///    `BattleScene` 的自检拿它数调用次数）—— ⛔ 别一起跳过。</summary>
         public static void Show(string body, Vector3 worldPos, int anchor = 0, Vector3 offset = default(Vector3))
         {
             if (string.IsNullOrEmpty(body)) { Hide(); return; }
@@ -187,7 +216,12 @@ namespace CardPresentation
             //    `tmpW` 变成 4.29e9 ⇒ 面板 640px 宽、字一个都看不见）。
             //    所以：**先激活、再排版**。
             t.gameObject.SetActive(true);
-            t.Layout(body);
+            if (t._bgRoot == null                              // 底图没建起来（取不到图）⇒ 每次都重试，别把失败状态钉死
+                || !string.Equals(t._laidBody, body, System.StringComparison.Ordinal))
+            {
+                t.Layout(body);
+                t._laidBody = body;
+            }
             t.Pivot(anchor);
             t._target = 1f;
         }
@@ -253,6 +287,7 @@ namespace CardPresentation
         void Layout(string body)
         {
             if (_body == null) return;
+            LayoutCount++;
             // ⚠️ 我们的 `Label` **不自动换行**（TMP 只是一个 text 组件，宽度是算出来的）
             //    ⇒ 太长会顶到 `MaxW` 上限、字跑到面板外面去。这里按**字符数**手动折行
             //    （CJK 都是等宽的，按字宽算比按像素稳）。**这是我们的做法**，原版靠 UI 布局。

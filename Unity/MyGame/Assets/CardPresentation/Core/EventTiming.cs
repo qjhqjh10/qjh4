@@ -17,7 +17,8 @@
 //
 // 🆕 2026-10-14（`A1767`）：**「发动能力」这一格不再是常数** —— 它按**卡**取值，
 //   判据 = 该卡 `activeAbility` 各 CardAnim 的 `AnimInfo.GetAnimDuration()` 之和。
-//   表在 `Resources/ability_anim_durations.json`（56 张卡），入口 `Core/AbilityAnimDurations.cs`，
+//   表在 `Resources/ability_anim_durations.json`（🔴 **现读 62 张卡**；⚠️ 这里原写「56 张卡」已过期，
+//   账 `A2095`，⛔ 别手抄这个数），入口 `Core/AbilityAnimDurations.cs`，
 //   消费点 = 本文件的 `DurationOf(BattleEvent)`（⚠️ **只按 `EvtKind` 的那条重载给兜底**）。
 //   ⛔ 改这一格之前先读那两个文件的文件头（含「只覆盖 2022 快照」等三处如实标注）。
 using RuleEngine;

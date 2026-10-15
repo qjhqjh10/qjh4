@@ -106,7 +106,13 @@ namespace CardPresentation
         //    我们原来那个 53.92×8 = 431.36 **容器高度是对的**（所以看着没问题），但**行数与行高都错**。
         //    出处：`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4589.json`（`cemeteryActions` 10 个 pid）
         //    + 运行时 dump L134-163 + `素材/Warpforge原版/UI图集/图集/battleatlasui/Sprite/40k_battlelog_display_neutral.json`。
-        const int RowCount = 10;
+        /// <summary>可见行数 = **10**（原版十行铺满）。
+        /// 🔴🔴 **2026-10-15（账 `A2106`）改成 `public`** —— 原来它是私有的，而**灌数据那一边**
+        /// （`BattleDriver` 的 `RefreshLog`）**自己写死了一个 `8`** ⇒ **建 10 格只喂 8 条，第 9/10 格恒空**；
+        /// 更糟的是**自检只钉了 `RowTotal == 10`**（本文件 `:643`）⇒ **绿而错**
+        /// （「断言只验了『建起来』、没验『喂满』」—— 本工程反复踩的那一类）。
+        /// ⇒ 现在**判据只此一处**：灌数据那边引用本常量，⛔ 别在别处再写一个数。</summary>
+        public const int RowCount = 10;
         // 🔴 **2026-10-07（A113 追加）：行也不在面板中线上** —— 原来那句「面板中心 + 顶边框下留 8」**是我们挑的**，
         //   原版行容器自带完整 rect。逐字段重摆：
         //     `CemeteryActions`（`RectTransform_2935.json`，= `GameObject/CemeteryActions`，面板的直子）

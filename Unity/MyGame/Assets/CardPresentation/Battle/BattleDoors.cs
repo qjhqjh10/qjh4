@@ -159,6 +159,13 @@ namespace CardPresentation
         /// 缩放不复刻（我们的节点 `localScale` 恒 1）。</summary>
         const float DoorsBoxW = 1920.1199f, DoorsBoxH = 1118.9810f;
 
+        /// <summary>🔴 **2026-10-15（账 `A2105②`）**：原版 `BattleDoors` 自己的 `m_LocalScale`（实测 lossyScale
+        /// **1.06647**；序列化字段读出来是 **1.0665**，两者差 0.003%、可忽略）。
+        /// ⚠️ **我们原来【不复刻】它**（旧注释写着「我们的节点 `localScale` 恒 1」）—— 那是**判据就在父链上没照**，
+        /// 后果 = 整个结算转场小 6.65%（开门视频该 2048×1152、骷髅底板该 691.2×55.9）。
+        /// 判据 → `资料/普查产出_1015战斗/C2_逐格对账_弹窗与结算转场.md`。</summary>
+        const float DoorsScale = 1.06647f;
+
         public static BattleDoors Create(Transform parent)
         {
             // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`
@@ -167,6 +174,15 @@ namespace CardPresentation
             var go = new GameObject("BattleDoors", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             MenuDraw.SetPxSize(go.transform, DoorsBoxW, DoorsBoxH);
+            // 🔴🔴 **2026-10-15（账 `A2105②` · `C2` 查出）就地补上：原版这一颗的 `m_LocalScale = 1.0665`
+            //   （实测 lossyScale **1.06647**），**我们原来把它写成「不复刻」** —— 那不是「原版查不到」，
+            //   数值就在父链上（铁律 11 ⇒ 要做）。不乘的后果：**整个结算转场比原版小 6.65%** ——
+            //   开门视频 1920×1080（应 **2048×1152**）· 骷髅底板 648.1×52.4（应 **691.2×55.9**）。
+            //   ⚠️ 加在这一颗上、**不是**逐件改尺寸：原版就是「父件带缩放、子件照自己的 sizeDelta」，
+            //     子件（`video_player` 1920×1080 · `_screen` · 奖励面板）跟着一起放大才是对的。
+            //   ⚠️ 若将来把奖励面板挂到**别处**（不在此节点下），它要**自己**补同一个缩放 ——
+            //     `C2` 实测原版 `EndBattlePanel`/`SkullsHolder`/`AllRewardsHolder` 的 lossyScale 都是 1.06647。</summary>
+            go.transform.localScale = Vector3.one * DoorsScale;
             var d = go.AddComponent<BattleDoors>();
             d.Build();
             d.Hide();

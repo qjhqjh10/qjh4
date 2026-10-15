@@ -4271,6 +4271,26 @@ namespace CardPresentation
             return Mathf.Abs(l.x) <= Width * 0.5f && Mathf.Abs(l.y) <= Height * 0.5f;
         }
 
+        /// <summary>🆕 2026-10-15（账 `A2089`）：和 <see cref="Contains"/> 同一套算法，但**四周外扩 `margin`**
+        /// （同一局部单位）。用途 = 悬停那条链的**廉价前置门**：先问一句「指针在不在这一带」，
+        /// 不在就**别去跑那次 `TMP_TextUtilities.FindIntersectingLink`**。
+        ///
+        /// 为什么要有这道门 —— 判据是原版：`TextTooltipController.__Update` 每帧**只做一次字节比较**
+        /// （`+0x48` 只在 `OnPointerEnter` 置 1），指针压着那一个 TMP 时才调
+        /// `FindIntersectingLink(那一个 TMP, 鼠标, 相机)` ⇒ **一次调用、一个 TMP**；
+        /// ⛔ **原版不是每帧遍历所有触发器**（`d:/2/tools/decomp_full/TextTooltipController__Update.c`
+        /// 与 `__CheckForLinkCollision.c:29`）。我们是每帧轮询 ⇒ 只能靠这道门把范围缩回来。
+        ///
+        /// ⚠️ 用 `margin` 而不是精确 `Contains`，是因为原版靠 `OnPointerEnter` 触发、
+        /// 边界处比「精确矩形」宽松一点点 —— 留外扩免得贴边时反而不如原版灵敏。
+        /// ⚠️ `margin` 是**局部单位**（与 `Width`/`Height` 同一把尺），卡被缩放时它的世界大小会跟着变
+        ///   —— 这是有意的：本方法问的是「在这张卡的坐标系里近不近」。</summary>
+        public bool ContainsNear(Vector3 world, float margin)
+        {
+            var l = transform.InverseTransformPoint(world);
+            return Mathf.Abs(l.x) <= Width * 0.5f + margin && Mathf.Abs(l.y) <= Height * 0.5f + margin;
+        }
+
         // ==================================================================
         //  数值区的命中（给悬停 tooltip 用）
         // ==================================================================

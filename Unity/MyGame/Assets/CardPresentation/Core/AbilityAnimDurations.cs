@@ -23,7 +23,9 @@
 //    是**别的时机**播的 ⇒ 归 `EvtKind.Trigger` / `Play`，**不进这张表**（全量件里备查）。
 //
 // 数据：`工具/gen_ability_anim_durations.py` → `Resources/ability_anim_durations.json`
-//       （**56 张卡 / 89 条 CardAnim**，min 0.2 / 中位 1.0 / max 4.0；`--check` 幂等已验）。
+//       （🔴 **2026-10-15 现读 = 62 张卡 / 99 条 CardAnim**，min 0.2 / 中位 1.0 / max 4.0；`--check` 幂等已验。
+//        ⚠️ **这行原来写「56 张卡 / 89 条 CardAnim」—— 已过期**（账 `A2095`，铁律 5）。
+//        ⛔ 别再手抄这两个数：读 `Resources/ability_anim_durations.json` 的 `count`／全量件的 `_headline`）。
 //       全量件（含逐条 CardAnim、未覆盖名单、判据长文）= `数据/游戏数据/ability_anim_durations.json`。
 //
 // 🔴 **三处如实标注（铁律 3 / 11）**：

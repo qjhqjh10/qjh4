@@ -1211,7 +1211,34 @@ namespace CardPresentation
         /// 返回 false = 效果库里没有那件 ⇒ 调用方退回旧表现。**出声**，不静默。</summary>
         static bool SpawnDeathBody(CardView card)
         {
-            var p = WarpforgeVFX.WarpforgeEffectPlayer.Play(DeathBodyFx, null, card.transform.position, 1f);
+            // 🔴🔴 **2026-10-15（账 `A2083`）：原版这里是「二选一」，不是「叠加」。**
+            //   判据 = 反编译 `d:/2/tools/decomp_full/CardScript._UnitDeath_d__446__MoveNext.c` ——
+            //   整个函数**只有两处 `Instantiate`**：`:233` 逐卡 `customDeathParticles`、
+            //   `:262` 默认 `cardDestroyFX`（它的序列化引用就是 GameObject **`Card 3D Death Explosion`**），
+            //   两者**共享同一段后续处理**（`:266` set localScale · `:275-328` 换 `_CardImage`/`_MatCap`），
+            //   判别式在 **`:240`**：`Object.op_Equality(生成体, 0)` —— **逐卡那件取不到（或判空）才用默认件**。
+            //
+            //   ⚠️ 这里必须问 **`ResolvePerCard`**（只查逐卡那一档），⛔ **不是 `Resolve`**：
+            //      后者的兜底链会返回我们自己挑的替代品 `Explosion Fenrisian Monstrosities`，
+            //      而那件**已经在下面那条退回路里**了 ⇒ 算进来就是**原版没有的第二下**。
+            //   ⚠️ 逐卡的 66 张卡解出来**是同一件** `Necrons death explosion`
+            //      （判据 → 生成器 `gen_card_vfx_by_card.py` 的 `RT_SKIP_SOFIELDS` 那段）
+            //      ⇒ **别指望它是「一卡一件」**，也别因为「都一样」就以为这一跳没意义。
+            string perCard = VfxMap.ResolvePerCard(VfxMap.Death, card.Data.faction, card.Data.id);
+            string fx = string.IsNullOrEmpty(perCard) ? DeathBodyFx : perCard;
+            var p = WarpforgeVFX.WarpforgeEffectPlayer.Play(fx, null, card.transform.position, 1f);
+            if (p == null && !string.IsNullOrEmpty(perCard))
+            {
+                // 逐卡那件在库里没有 ⇒ **出声**，再退回默认件试一次。
+                // ⛔ 不静默吞掉、也不静默降级 —— 这两件事都违反了「不许静默失败」那条红线。
+                Debug.LogWarning($"[CardFeel] 逐卡阵亡粒子 `{perCard}`（卡 `{card.Data.id}` 的原版 "
+                               + "`customDeathParticles`）**在效果库里没有** ⇒ 退回默认件 "
+                               + $"`{DeathBodyFx}`（原版这一步正是「逐卡取不到就用默认件」，"
+                               + "见 `CardScript._UnitDeath_d__446__MoveNext.c:240`）。"
+                               + "补它：`python 工具/extract_missing_shaders.py --prefabs` → "
+                               + "`EffectExporter.RunListed` → `EffectLibraryBuilder.Run`");
+                p = WarpforgeVFX.WarpforgeEffectPlayer.Play(DeathBodyFx, null, card.transform.position, 1f);
+            }
             if (p == null)
             {
                 Debug.LogWarning($"[CardFeel] 效果库里没有 `{DeathBodyFx}` ⇒ 阵亡退回「淡出 + 上浮 + 缩」"

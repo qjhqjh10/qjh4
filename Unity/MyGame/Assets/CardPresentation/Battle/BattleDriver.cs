@@ -1406,8 +1406,12 @@ namespace CardPresentation
         const float MyEnergyX01 = 0.97180f, MyEnergyY01 = 0.48556f;
         /// <summary>敌方能量水晶 `EnemyMana`：x[1826.3,1900.8] y[249.8,327.4] —— **原来我们压根没画这一颗**</summary>
         const float FoeEnergyX01 = 0.97060f, FoeEnergyY01 = 0.73278f;
-        /// <summary>能量底板 `Energy Player`（图 `Card Frame Cost Icon`）：实绘 94.6 × 91.3 px</summary>
-        const float EnergyPlateH = 91.3f;
+        /// <summary>能量底板 `Energy Player`（图 `Card Frame Cost Icon`）—— 🔴 **2026-10-15（`A2102` R2）已停用**：
+        /// 原来两侧共用这一个高（**91.3 = 敌方那一份**），实测**原版两侧不同**
+        /// （**我 90.61×93.32 · 敌 94.61×91.32**）⇒ 建件处改成两侧各自的数 + `SetAspect`。
+        /// ⛔ **别再拿它当「两侧共用值」** —— 留着这行只是为了说明它为什么被拿掉
+        /// （判据 → `资料/普查产出_1015战斗/B5_逐格对账_HUD我们vs原版.md` 表一 R2）。</summary>
+        // const float EnergyPlateH = 91.3f;   // ← 已停用，见上面那条
         const float MyEnergyPlateX01 = 0.97352f, MyEnergyPlateY01 = 0.48569f;
         const float FoeEnergyPlateX01 = 0.97232f, FoeEnergyPlateY01 = 0.73292f;
         /// <summary>任务点 `QuestPointsHolder`（97.7²）：我方水晶**下方** x[1817.0,1914.7] y[595.4,693.1]、
@@ -6732,7 +6736,11 @@ namespace CardPresentation
             if (_logPanel == null || Ctx == null) return;
             _logEntries.Clear();
             var log = Ctx.ActionLog;
-            for (int i = log.Count - 1; i >= 0 && _logEntries.Count < 8; i--)
+            // 🔴🔴 **2026-10-15（账 `A2106`）就地订正：这里原来是写死的 `8`。**
+            //   面板建了 `BattleLogPanel.RowCount`（= **10**，原版十行铺满）格，而这一边只喂 8 条
+            //   ⇒ **第 9/10 格恒空**；⚠️ 而自检只钉了「建了几行」⇒ **绿而错**。
+            //   ⇒ 改成**引用面板那一份常量**（判据只留一处，⛔ 别在这里再写一个数）。
+            for (int i = log.Count - 1; i >= 0 && _logEntries.Count < BattleLogPanel.RowCount; i--)
             {
                 var e = log[i];
                 // 🔴 **2026-10-18（`A985⑥` 的 ③ 半）**：这一族**一律走 `LogTerm`**（= 先 `Loc.HasEntry`、
@@ -7711,13 +7719,28 @@ namespace CardPresentation
         /// <summary>
         /// **点在我方牌堆那一块里没有**（px @1920×1080）。牌堆中心 = `MyDeckX01/MyDeckY01` 那对归一化锚点，
         /// 边长 = `DeckPlatePx`（230）。判据只此一处 —— 窗口与 `Update` 都问它。
+        ///
+        /// 🔴🔴 **2026-10-15（账 `A2092`）：这里的读回从「写死 108 + 960」换成 <see cref="LayoutSpace.ToDesignPixel"/>。**
+        /// **为什么**：牌堆是**按归一化锚点画的**（`LayoutSpace.ToWorld(MyDeckX01, MyDeckY01)`），
+        /// 而读回原来走 `world.x × EndPanel.PxPerUnit + 960` —— 那个 x 斜率 **写死 108**
+        /// （= `1920 ÷ DesignWidth`），**只在 16:9 是画图那条式的逆**。
+        /// 别的宽高比下画出来的点在 px 上读回来**不是它自己**：
+        /// 4:3 差 `VisibleWidth/DesignWidth = 0.75` 倍、21:9 差 1.3125 倍
+        /// ⇒ 16:10 偏约 77px、**4:3 偏约 192px（半个底板都够不着，基本点不到牌堆）**。
+        /// `ToDesignPixel` 是**用实测 `VisibleWidth` 的那条逆**（2026-10-18 为 `A990②` 建的唯一一份），
+        /// 代进去正好还原成 `MyDeckX01 × 1920` —— 见下一行那个 `cx`，**两者现在是同一个点**。
+        /// ⚠️ **y 那一半逐位不变**（可见高恒 10 单位 = 1080px ⇒ `PxY` 与旧式完全相同），
+        /// 所以这条改动**只影响 x、且只在非 16:9 下生效**；16:9 下两者差 ≤ 2.5e-4 px。
+        /// 🔴 **用户 2026-10-15 的口径**：「原版……**不会被窗口宽高比影响**，因为可以在窗口模式下
+        /// 调整窗口大小游玩」⇒ 「换窗口就点不到」**本身就是与原版不符**，不是「先量一下用户宽高比」的小问题。
+        /// ⚠️ 更上游的架构账见 `A2098`（原版那层是 uGUI + `CanvasScaler`，**根本没有像素常量这一层**）。
         /// </summary>
         public static bool HitMyDeckPile(Vector3 world)
         {
-            float px = world.x * EndPanel.PxPerUnit + 960f;
-            float py = 540f - world.y * EndPanel.PxPerUnit;
+            // ⚠️ 标架 = **设计 px（1920×1080、左上原点、y 向下）**，与 `cx/cy` 那两个字面量同一套。
+            var p = LayoutSpace.ToDesignPixel(world);
             float cx = MyDeckX01 * 1920f, cy = (1f - MyDeckY01) * 1080f, h = DeckPlatePx * 0.5f;
-            return Mathf.Abs(px - cx) <= h && Mathf.Abs(py - cy) <= h;
+            return Mathf.Abs(p.x - cx) <= h && Mathf.Abs(p.y - cy) <= h;
         }
 
         /// <summary>
@@ -13077,10 +13100,31 @@ namespace CardPresentation
             //      + 运行时 dump `Energy And turn holder` 的 sizeDelta（本机重跑过，两者一致）。
             //    换算：x01 = 中心x/1920，y01 = 1 − 中心y(从上)/1080。
             // 大底板先铺（`HudImageZ` 让它比水晶远，压在水晶底下）
-            //   原版 `Energy And turn holder` 自己的 rect：pos(5.6,−2.6) 尺寸 302.1×480.8、
-            //   anchor(1,0.5) → 中心 x = 1920+5.6 = 1925.6（**右侧出血 156 px，原版就这样**）。
-            //   ⚠️ 用 `HudDecorZ`（比别的图更远）—— 不然它会压住能量水晶，见那个常量的注释
-            HudImageTex(root, CardArt.Ui("UI_Energy_Holder_big"), 1.00292f, 0.49759f,
+            //
+            // 🔴🔴 **2026-10-15（账 `A2100`）就地订正：这两个坐标原来【偏低 116 px】，已修。**
+            //   **原来写的是**「`Energy And turn holder` 自己的 rect：pos(5.6,−2.6) → 中心 x = 1920+5.6 = 1925.6」
+            //   —— 🔴 **那个 `(5.6,−2.6)` 根本不是 holder 的**，它是 holder 的**子件 `Background` 的
+            //   `m_AnchoredPosition`**（`RectTransform_3537.json`：`ap(5.6315,−2.561)` ·
+            //   `sizeDelta 302.08×480.816` · `anchorMin/Max (1,0.5)`）。当年把它当成「相对屏幕右中」用了
+            //   ⇒ **整条父链（holder 那一跳）被跳过**。
+            //
+            //   **正确的链**（`bundle_scenes_scenes_battlearena2` 逐节点现读）：
+            //     · `Energy And turn holder`（RT 3554）：`anchor (1,0.5)` · **`ap(−115.6, +116.5)`** ·
+            //       `sizeDelta 238.79×356.58` · `pivot (0.5,0.5)`
+            //     · 它的父 `RT 3158`：`ap(0,0)` · `sizeDelta 100×100` · **`pivot (1,0.5)`** ⇒ 纯锚点节点，
+            //       其**右中点 = 它自己的锚点**（= 画布右中）
+            //     · 那个 `Background`（RT 3537）：`anchor (1,0.5)` = **holder 的右中点** · `ap(5.6315,−2.561)`
+            //   ⇒ 底板中心 = 画布右中(1920,540) + holder 的 `ap` + holder 半宽 + 子件 `ap`
+            //              = **(1929.43, 426.06)**（屏幕 px、y 向下）
+            //   🔎 **独立交叉验证（两条都指向同一处）**：能量竖排三件套的 y 跨度是 **249.8–594.1**
+            //      （中位 **421.95**），底板高 480.8 ⇒ 中心落在 422 时**上下各留 68 px、完全对称** ✓；
+            //      而 x 上底板左沿 1778.4 也对得上 `Clock/TurnBtn` 的左沿 1782.9 ✓。
+            //   ⇒ `x01 = 1929.43/1920 = 1.00491` · `y01 = 1 − 426.06/1080 = 0.60550`。
+            //   ⚠️ 判据 → `资料/普查产出_1015战斗/B5_逐格对账_HUD我们vs原版.md` 表一 #1
+            //      （⚠️ 那份表里**原版侧与我方侧的 y 都被翻了一次**，所以它印的是 653.94 / 537.40 ——
+            //       **差值 116.5 是对的、方向也对，只是两侧的绝对值要各自 `1080 − x`**；
+            //       本节的两条独立验证已经把真实值钉在 **426** 上）。
+            HudImageTex(root, CardArt.Ui("UI_Energy_Holder_big"), 1.00491f, 0.60550f,
                         new Vector2(0.5f, 0.5f), 480.8f / 108f, "EnergyHolderBig", HudDecorZ);
             // ⚠️ **2026-09-29 更正**：上面那句注释里「`Energy And turn holder` 自己的 rect：尺寸 302.1×480.8」
             //    —— **302.1×480.8 是它子级 `Background` 的尺寸，不是 holder 的**（holder 真身 **238.79×356.58**，
@@ -13168,12 +13212,26 @@ namespace CardPresentation
             // 开局一律藏着 —— 具体的显隐每帧按值定（`RefreshHud`）
             SetFactionResourceVisible(false, false, false, false);
 
-            //   能量底板 `Card Frame Cost Icon`（原版 `Energy Player`，实绘 94.6×91.3）
-            //   —— 两块水晶底下各垫一块。图在 `Resources/Art/ui_deck/`（和卡面费用格同一张）。
+            //   能量底板 `Card Frame Cost Icon`（原版 `Energy Player`）—— 两块水晶底下各垫一块。
+            //   图在 `Resources/Art/ui_deck/`（和卡面费用格同一张）。
+            //
+            // 🔴🔴 **2026-10-15（账 `A2102` R2）就地订正：两侧【不再共用】一个高。**
+            //   **原来**两侧都传 `EnergyPlateH`（= **91.3**）—— 而 `B5` 逐格对账实测：
+            //   **原版两侧的 `Energy Player` 尺寸本来就不同** —— **我方 90.61×93.32 · 敌方 94.61×91.32**
+            //   （= 各自 `ManaHolder` 的 rect ＋ `sizeDelta 75.6×76.99`，双方 anchor 都是 (0,0)-(1,1)）
+            //   ⇒ 那个 `91.3` **正好是【敌方】那一份的高**，我方因此矮了 2.02 px。
+            //   ⚠️ 宽**不能靠贴图比例自动得**：本件用 `SetAspect(宽/高)` **显式钉死**宽高比
+            //   （`ImageQuad` 的 `WorldW = _worldH × _aspect`；贴图是 248/244 ⇒ 只给高会得到 94.85 宽，
+            //     而我方要的是 90.61）⇒ 两侧各钉一次。
+            //   判据 → `资料/普查产出_1015战斗/B5_逐格对账_HUD我们vs原版.md` 表一 **R2**
+            //   ⚠️ 同族的 **R3（中心偏 1.8~3.3 px）本会话【没做】** —— 那一行散文写「我 左 1.8 / 下 0.5」，
+            //     与原始 `ap(1.8,−0.5)` 的符号读起来相反（uGUI 是 x 右 / y 上）⇒ **先回 `B1` 核原始字段再改，⛔ 不猜**。
             _myEnergyPlate = HudImageTex(root, CardArt.DeckUi("Card_Frame_Cost_Icon"), MyEnergyPlateX01, MyEnergyPlateY01,
-                        new Vector2(0.5f, 0.5f), EnergyPlateH / 108f, "PlayerEnergyPlate", HudDecorZ + 0.1f);
+                        new Vector2(0.5f, 0.5f), 93.32f / 108f, "PlayerEnergyPlate", HudDecorZ + 0.1f);
+            if (_myEnergyPlate != null) _myEnergyPlate.SetAspect(90.61f / 93.32f);
             _foeEnergyPlate = HudImageTex(root, CardArt.DeckUi("Card_Frame_Cost_Icon"), FoeEnergyPlateX01, FoeEnergyPlateY01,
-                        new Vector2(0.5f, 0.5f), EnergyPlateH / 108f, "EnemyEnergyPlate", HudDecorZ + 0.1f);
+                        new Vector2(0.5f, 0.5f), 91.32f / 108f, "EnemyEnergyPlate", HudDecorZ + 0.1f);
+            if (_foeEnergyPlate != null) _foeEnergyPlate.SetAspect(94.61f / 91.32f);
 
             var gold = new Color(1f, 0.86f, 0.42f);
             // 我方水晶
@@ -14927,6 +14985,12 @@ namespace CardPresentation
         {
             if (Mathf.Approximately(_hudWidth, LayoutSpace.VisibleWidth)) return;
             _hudWidth = LayoutSpace.VisibleWidth;
+            // 🔴 **2026-10-15（账 `A2092`）：这里试过「换分辨率时把相机的高也跟着 `VisibleHeight` 改」——
+            //   随当天那次 `CanvasScaler(Expand)` 改动一起【回滚】了。**
+            //   原因见 `LayoutSpace.VisibleHeight` 的 doc：我们全线用的是**一个全局拉伸映射**
+            //   （等价于假设所有元素都是 stretch 锚点），画布一变高，**同一个映射不可能同时是两个轴的逆**
+            //   ⇒ 实测 `FromPixel(1234.5, 678.25)` 往返回来 y 变成 724.33。
+            //   ⇒ 正确的修法是 `A2098`（换 uGUI 锚点体系），⛔ 不是在这里补一行。
             for (int i = 0; i < _hudLabels.Count; i++)
                 if (_hudLabels[i] != null)
                     _hudLabels[i].transform.localPosition =
@@ -15328,6 +15392,11 @@ namespace CardPresentation
         // ⚠️ offset 原版是 UI 空间的 px，我们按 108 px/单位换算 —— 这一步是近似，如实标。
         const float TipPx = 108f;
 
+        /// <summary>🆕 2026-10-15（账 `A2089`）：悬停那条链的**廉价前置门外扩量**（世界单位，≈16 px）。
+        /// 见 <see cref="TickTraitTip"/> 里那道门与 `CardView.ContainsNear` 的 doc。
+        /// ⚠️ `public` 是给自检用的（它要直接断这道门的**两头**）—— ⛔ 生产别拿它当参数传。</summary>
+        public const float TipHitMargin = 0.15f;
+
         void TickTooltip()
         {
             var mouse = Mouse.current;
@@ -15385,6 +15454,17 @@ namespace CardPresentation
         bool TickTraitTip(CardView v, Vector3 wp)
         {
             if (v == null || !v.gameObject.activeSelf) return false;
+            // 🔴🔴 **2026-10-15（账 `A2089`）：廉价前置门 —— 指针不在这一带就别去跑 TMP link 命中。**
+            //   判据 = 原版 `TextTooltipController.__Update`（`d:/2/tools/decomp_full/`）：
+            //   它每帧**只做一次字节比较**（`if (*(char *)(p + 0x48) != 0) CheckForLinkCollision(p);`，
+            //   而 `+0x48` **只在 `OnPointerEnter` 置 1**），指针压着那一个 TMP 时才调
+            //   `TMP_TextUtilities.FindIntersectingLink(那一个 TMP, 鼠标, 相机)` —— **一次调用、一个 TMP**
+            //   （`TextTooltipController__CheckForLinkCollision.c:29`）。
+            //   ⛔ **原版不是「每帧遍历所有触发器」**；而 `TickTooltipAt` 每帧对约 28 张卡各跑一次
+            //   ⇒ 这一道门就是把范围缩回「指针下那一个」的等价物
+            //   （关键词那段文字**本来就在卡面之内**，所以「指针在不在卡附近」是它的必要前置条件）。
+            //   ⚠️ 这也**不是**性能微调：不做它的那版**违反了原版语义**（原版每帧只碰指针那一张）。
+            if (!v.ContainsNear(wp, TipHitMargin)) return false;
             string key = v.LinkAt(wp, cam);
             if (string.IsNullOrEmpty(key)) return false;
             string body = TipText.ByLink(key);

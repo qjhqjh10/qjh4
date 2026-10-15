@@ -165,6 +165,25 @@ SO_ASSET_FIELDS = [
 ]
 SO_ASSET_KIND = dict((f, k) for f, k, _ in SO_ASSET_FIELDS)
 
+# 🔴 2026-10-15（账 `A2083`）：**这些 SO 字段不进【运行时】那一份**。
+#
+# 起因：`remnantBodyPrefab` 原来和 `customDeathParticles` **共用 `death` 这一个键**，
+# 于是运行时只能二选一 —— 而这两件事在**原版是两个不同的触发时刻**：
+#   · `customDeathParticles` —— **阵亡那一刻**（`CardScript.UnitDeath`，反编译实证）
+#   · `remnantBodyPrefab`   —— **「转化为残骸」那一刻**（`BattleCardUI.CreateRemnantBody`，
+#     调用者 `CardScript.TransformIntoRemnant`），`UnitDeath` 全程没碰它
+# 实测（全量件）：`death` 档 137 条 = `customDeathParticles` 66 + `remnantBodyPrefab` 71，
+# 其中 **42 张卡两者都有** ⇒ 谁进 `death` 取决于折叠顺序，**是掷硬币**。
+# 而 66 条 `customDeathParticles` 解出来全是同一件 `Necrons death explosion` ——
+# 它才是原版「有逐卡覆盖就用它、否则才用默认 `Card 3D Death Explosion`」的那一半
+# （判别式 → `CardScript._UnitDeath_d__446__MoveNext.c:200/:233/:240/:262`）。
+#
+# ⇒ 运行时这一份**只留 `customDeathParticles`**；`remnantBodyPrefab` 仍在**全量件**里
+#   （带 `soField`，随时可查），消费口 = `CardFeel.SpawnDeathBody`。
+#   ⚠️ **逐卡残骸体今天没接**（我们走的是按关键词的 `RemnantBody3D Aeldari/Necrons`，
+#      `BattleDriver.cs:12215-12223`）—— 那是**另一笔账**，⛔ 别拿这条当「已经做了」。
+RT_SKIP_SOFIELDS = {"remnantBodyPrefab"}
+
 # 🆕 **2026-10-14（A1817）**：卡 SO 里那三个**语音**字段 → 我们的**事件名**。
 #   为什么要一张映射表而不是让消费者自己判 `soField`：运行时（`Core/VoiceLines.cs` 的精确档）
 #   拿到的必须是**我们的事件名**（它要按 `EvtKind.Deploy/Attack/Death` 查），
@@ -1222,7 +1241,12 @@ def main():
             "authoritativeEventMapping": {
                 "customRangedAttackParticles": "attack_ranged（与 `CardScript.rangedAttackParticlesSO` 是同一件事的逐卡/阵营两个来源）",
                 "customDeathParticles": "death（逐卡阵亡爆散）",
-                "remnantBodyPrefab": "death（阵亡后留在格上的残骸体）",
+                "remnantBodyPrefab": "⚠️ **【键是 `death`，但语义不是阵亡】—— 2026-10-15（账 `A2083`）"
+                    "反编译实证：原版它的触发时刻是【转化为残骸】（`BattleCardUI.CreateRemnantBody` ← "
+                    "`CardScript.TransformIntoRemnant`），**`CardScript.UnitDeath` 全程没碰它**"
+                    "（`customDeathParticles` 才是阵亡那一拍）。二者归一档的后果 = 42 张两者都有的卡"
+                    "谁进 `death` **是掷硬币** ⇒ 运行时那一份已把本字段**挡在外面**（见 `RT_SKIP_SOFIELDS`），"
+                    "本全量件里**保留**（带 `soField`，随时可查）。逐卡残骸体**今天没接**（走关键词）。",
                 "summonAnimDelayed": "deploy（逐卡登场延迟特效）",
                 "cardAbilities[].abilityLogic[].cardAnimations[]": "⚠️ **归到 `ability` 是【我们拍的】**"
                     "（`VfxMap.Ability`＝部队卡在场上发动技能）。原版真正给的是 `CardAbility.trigger` / "
@@ -1271,6 +1295,22 @@ def main():
     #   🔴 **形状是给 `JsonUtility` 用的**（它不支持字典）⇒ 一律**数组 + 短键**：
     #      `{"cards":[{"id":…, "events":[{"ev":…, "es":[{"n":prefab,"c":conf,"a":cardanim}]}]}]}`
     rt_cards, rt_entries, rt_noprefab = [], 0, 0
+    rt_skip_field = 0        # 🆕 `A2083`：因语义不同而**不进运行时**的条目数（见 `RT_SKIP_SOFIELDS`）
+    # 🆕 2026-10-15（账 `A2082`）：**逐卡这一档必须能按【卡名】查到** ——
+    #   `BattleEvent.CardId` 里装的是 **`CardDef.Name`（英文卡名）**、**不是 id**
+    #   （doc → `RuleEngine/Core/BattleEvent.cs:201`；发射点 → `RuleCore.cs:7421` 传 `u.Name`），
+    #   而本表的键一直是 **id** ⇒ 消费端 `VfxMap.Resolve(evt, faction, e.CardId)` 的**逐卡分支
+    #   恒不命中**（2026-10-15 实测两份：运行时表 1017 个键 **1017/1017 命中卡池 id、0/1017 命中卡名**）。
+    #   ⇒ 把 `name` / `faction` 一起写进运行时那份，由 `VfxMap` 在载入时建 name→id 索引。
+    #   ⚠️ **`faction` 是必需的、不是装饰**：全池有 **3 组重名** —— `Terminator`（EC25 / UM_Terminator）·
+    #      `Terminator Champion`（BL29 / EC26）· `Maulerfiend`（BL31 / EC30），**各跨两个阵营**
+    #      ⇒ 只有 `name + faction` 唯一。少了它就只能猜，而猜错 = 静默给错特效（红线）。
+    #   ⚠️ 卡池里那 103 个 32 位十六进制 id 也在 `cards_engine.json` 里，同一套查法。
+    card_meta = {}
+    for _c in cards:
+        _i = _c.get("id")
+        if _i:
+            card_meta[_i] = (_c.get("name") or "", _c.get("faction") or "")
     # 🆕 2026-10-14（A1817）：逐卡**精确语音**绑定（卡 SO 的 `summonAudio`/`attackAudio`/`deathAudio`）
     rt_audio, rt_audio_noname, rt_audio_cards = 0, 0, 0
     rt_audio_names = []          # 所有写出去的 clip 名（下面拿它跟 `Resources/Art/audio/vo/` 对账）
@@ -1286,6 +1326,10 @@ def main():
             es = []
             for _e in _lst:
                 if not isinstance(_e, dict):
+                    continue
+                # 🔴 `A2083`：语义与 `death` 不同的那一族**不进运行时**（理由见 `RT_SKIP_SOFIELDS` 那段）。
+                if (_e.get("soField") or "").split("[")[0] in RT_SKIP_SOFIELDS:
+                    rt_skip_field += 1
                     continue
                 nm = _e.get("prefab")
                 if not nm:
@@ -1326,6 +1370,14 @@ def main():
             #   `c.events == null ⇒ continue` —— 写 `[]` 会让它对这 10 张**只有语音**的卡
             #   建出**空字典**条目，`VfxMap.CardTableCards` 跟着从 979 变 989（无声的副作用）。
             _card_out = {"id": _cid}
+            # 🆕 `A2082`：卡名 + 阵营（消费端按卡名查这一档时要它；理由见上面 `card_meta` 那段）。
+            #   ⚠️ **查不到卡名就【不写这个键】** —— 消费端据此走「按名查不到 ⇒ 报出来」，
+            #      ⛔ 别写空串充数（空串会让 name 索引里多一条无意义的键）。
+            _nm, _fa = card_meta.get(_cid, ("", ""))
+            if _nm:
+                _card_out["nm"] = _nm
+                if _fa:
+                    _card_out["fa"] = _fa
             if evs_out:
                 _card_out["events"] = evs_out
             if audio_out:
@@ -1374,6 +1426,9 @@ def main():
         "cardCount": len(rt_cards),
         "entryCount": rt_entries,
         "noPrefabCount": rt_noprefab,
+        # 🆕 `A2083`：因**语义与同事件不同**而没进运行时的条目数（`remnantBodyPrefab` 那一族；
+        #   它们仍在全量件里、带 `soField`）—— ⛔ 不是「解析失败」，是**有意挡在外面**。
+        "skippedFieldCount": rt_skip_field,
         # 🆕 A1817：逐卡精确语音的计数（`audioCardCount` = 有语音绑定的卡数）
         "audioCount": rt_audio,
         "audioCardCount": rt_audio_cards,
@@ -1385,7 +1440,9 @@ def main():
         json.dump(rt, fh, ensure_ascii=False, separators=(",", ":"))
     print("[4/4] 写盘 %s（%.1f KB · %d 张卡 · %d 条 · 没解析出 prefab 的 %d 条**没进来**）"
           % (rel(OUT_RUNTIME), os.path.getsize(OUT_RUNTIME) / 1024.0,
-             len(rt_cards), rt_entries, rt_noprefab))
+             len(rt_cards), rt_entries, rt_noprefab)
+          + "；🆕 语义与同事件不同的 %d 条也**没进来**（`remnantBodyPrefab`，见 `RT_SKIP_SOFIELDS`）"
+          % rt_skip_field)
     print("   🆕 逐卡精确语音：%d 条 / %d 张卡（解不出名字的 %d 条**没进来**）"
           % (rt_audio, rt_audio_cards, rt_audio_noname)
           + ("" if _vo_missing is None else

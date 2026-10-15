@@ -235,12 +235,31 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>逐卡覆盖（键 = **卡 id**，与 `CardDef.Id` / `BattleEvent.CardId` 同一套；事件名同 <see cref="Resolve"/>）。
+        /// <summary>逐卡覆盖（键 = **卡 id**；事件名同 <see cref="Resolve"/>）。
         /// **2026-10-14 起它由 `Resources/card_vfx_by_card.json` 载入**（见 <see cref="EnsureLoaded"/>），
         /// ⛔ 不再是写死的空字典。
-        /// <para>值 = 该 (卡, 事件) 下**按 `confPriority` 取第一个命中**的那个 prefab 名。</para></summary>
+        /// <para>值 = 该 (卡, 事件) 下**按 `confPriority` 取第一个命中**的那个 prefab 名。</para>
+        /// <para>🔴 **2026-10-15 就地订正（铁律 5 · 账 `A2082`）**：这一行原来写着
+        /// 「键 = 卡 id，**与 `CardDef.Id` / `BattleEvent.CardId` 同一套**」—— **后半句是错的**，
+        /// 而且正是它掩盖了那个缺陷：`BattleEvent.CardId` 里装的是 **`CardDef.Name`（卡名）**，
+        /// 于是调用点传卡名来查这张 id 键的表 ⇒ **恒不命中**。
+        /// ⇒ 现在**这半句已作废**：查得到 id 走 id，查不到就按卡名换算（<see cref="ResolveCardIdOf"/>）。
+        /// ⛔ **别再把这句写回来** —— 铁律 5 记的就是这类「听着对、实际错」的注释。</para></summary>
         static readonly Dictionary<string, Dictionary<string, string>> ByCard =
             new Dictionary<string, Dictionary<string, string>>();
+
+        /// <summary>🆕 2026-10-15（账 `A2082`）：**卡名 → 卡 id**（一个名字可能落在多张卡上，
+        /// 全池 3 组重名 ⇒ 值是**列表**）。与 <see cref="ByCard"/> **同一次载入**建立。
+        /// 用途见 <see cref="ResolveCardIdOf"/>。</summary>
+        static readonly Dictionary<string, List<string>> _byName = new Dictionary<string, List<string>>();
+
+        /// <summary>卡 id → 阵营（重名时用它把名字钉到唯一那张卡上）。
+        /// ⚠️ 与 <see cref="ByCard"/> 是**同一次载入**的产物，⛔ 别当成两张可以各自刷新的表。</summary>
+        static readonly Dictionary<string, string> _factionOfId = new Dictionary<string, string>();
+
+        /// <summary>「名字重名、阵营也判不出唯一」的**出声去重**（每张卡只说一次，别每帧刷屏）。</summary>
+        static readonly HashSet<string> _warnedAmbiguous = new HashSet<string>();
+        const int AmbiguousWarnCap = 20;
 
         /// <summary>运行时那份逐卡表的 Resources 路径（**没有扩展名**）。
         /// 由 `工具/gen_card_vfx_by_card.py` 与 `数据/游戏数据/card_vfx_by_card.json` **同一次运行**产出。</summary>
@@ -251,11 +270,25 @@ namespace CardPresentation
         /// 退回 <see cref="ByFaction"/> / <see cref="ByEvent"/> 的老行为，**并已经出过声**）。</summary>
         public static int CardTableCards { get { EnsureLoaded(); return ByCard.Count; } }
         public static int CardTableEntries { get; private set; }
+        /// <summary>🆕 `A2082`：卡名索引里有几个名字（自检用 —— 它 = 0 就说明生产路径那一档查不动）。</summary>
+        public static int CardTableNames { get { EnsureLoaded(); return _byName.Count; } }
 
         // ---- 运行时那份 JSON 的形状（**数组，不是字典** —— `JsonUtility` 不支持字典）----
         [System.Serializable] public class RtEntry { public string n; public string c; public string a; }
         [System.Serializable] public class RtEvent { public string ev; public RtEntry[] es; }
-        [System.Serializable] public class RtCard { public string id; public RtEvent[] events; }
+        /// <summary>🆕 2026-10-15（账 `A2082`）补 `nm` / `fa`：**卡名 + 阵营**。
+        ///
+        /// 为什么必须带卡名：<see cref="Resolve"/> 的 `cardId` 参数在**生产路径上装的是卡名**
+        /// （`BattleEvent.CardId` 的 doc = 「卡名」·`RuleEngine/Core/BattleEvent.cs:201`；
+        /// 发射点 `RuleCore.UseAbility` 传的是 `u.Name`），而本表的主键是 **id**
+        /// ⇒ 在这之前**逐卡这一档恒不命中**（2026-10-15 实测：1017/1017 命中 id、0/1017 命中卡名）。
+        ///
+        /// ⚠️ **`fa`（阵营）不是装饰**：全池有 **3 组重名**（`Terminator` · `Terminator Champion` ·
+        /// `Maulerfiend`，各跨两个阵营）⇒ 只有 `卡名 + 阵营` 唯一。少了它就只能猜 —— 本件**不猜**，
+        /// 判不了时**出声并返回 null**（见 <see cref="ResolveCardIdOf"/>）。
+        ///
+        /// ⚠️ **两个键都可能缺**（原版那张卡查不到卡名时生成器不写）⇒ 取用时一律判 null。</summary>
+        [System.Serializable] public class RtCard { public string id; public string nm; public string fa; public RtEvent[] events; }
         [System.Serializable] public class RtFile
         {
             public string[] confPriority;      // 权威优先；不认识的一律排最后
@@ -272,13 +305,20 @@ namespace CardPresentation
         /// ⇒ 原版真值（卡 SO 的 `customRangedAttackParticles` / `customDeathParticles` /
         /// `cardAbilities[].abilityLogic[].cardAnimations[]` 解出来的 **3326 条**）**一条都没进游戏**。
         ///
-        /// **数据**：`Resources/card_vfx_by_card.json`（288.9 KB · **989 张卡** · 2323 条），
+        /// **数据**：`Resources/card_vfx_by_card.json`（现读 **355,451 B · `cardCount` 1017 ·
+        /// `entryCount` 2473 · `audioCount` 621 · `noPrefabCount` 22 · `generatedAt` 2026-10-15 18:27**），
         /// 与 `数据/游戏数据/card_vfx_by_card.json`（全量、给工具看）**由同一次运行产出** ⇒ 不会分叉。
         /// ⚠️ **2026-10-14 就地订正（铁律 5 · 账 `A1833`）**：这一行原来写「**240 KB · 979 张卡**」——
-        ///    那是**当天上午那一版**的读数（246,036 B），下午 `A1817`（逐卡音效）重跑生成器之后就变了。
-        ///    现读 = **295,821 B（288.9 KB）· `cardCount` 989 · `entryCount` 2323 · `audioCount` 586**
-        ///    （`generatedAt` 2026-10-14 12:24）。⛔ **别再把这两个数当成手写常量** ——
-        ///    要看真值就读文件头那几个字段（本行的数也会再变）。
+        ///    那是**当天上午那一版**的读数（246,036 B），下午 `A1817`（逐卡音效）重跑生成器之后就变了
+        ///    （一度是 295,821 B / 989 卡 / 2323 条 / `generatedAt` 2026-10-14 12:24）。
+        /// 🔴 **2026-10-15 再订正（账 `A2082` + `A2095`）**：上面的数又变了两轮 ——
+        ///    ① `02:08` 更新过 `资料/普查产出_第二十七会话/guid_map.tsv`，08:28 那一版还是按旧表算的；
+        ///       本会话重跑生成器后 `entryCount` **2417 → 2473（+56）**，**全部落在我们自己的
+        ///       `inferred-keyword` 推断档**（556 → 612），真值档 `authoritative` **1844 → 1844 一条没动**
+        ///       （判据 = 逐 (卡,事件) 行对比，见 `资料/待办判据_*` 里 `A2082` 一节）；
+        ///    ② 本会话给运行时那份**加了 `nm`（卡名）/ `fa`（阵营）两个键**（逐卡按名查要用，见 <see cref="RtCard"/>）。
+        /// ⛔ **别再把这几个数当成手写常量** —— 要看真值就读文件头那几个字段（本行的数**也会再变**）。
+        /// 🔑 **判幂等**：生成器连跑两次，除 `generatedAt` 外**逐字节一致**（本会话实测）。
         ///
         /// **取哪一条**：同一条 (卡, 事件) 可能有多个候选（原版真值 + 我们早先按名/按关键词推的），
         /// 按 JSON 自带的 `confPriority`（`authoritative` 最前）**取第一个命中的**。
@@ -322,7 +362,17 @@ namespace CardPresentation
 
             foreach (var c in dto.cards)
             {
-                if (c == null || string.IsNullOrEmpty(c.id) || c.events == null) continue;
+                if (c == null || string.IsNullOrEmpty(c.id)) continue;
+                // 🆕 `A2082`：**卡名索引先建** —— 不看 `events` 有没有（只有语音的卡也要能被名字查到，
+                //   否则「按名查得到、按 id 查不到」这种半通状态会再长出来）。
+                if (!string.IsNullOrEmpty(c.nm))
+                {
+                    List<string> lst;
+                    if (!_byName.TryGetValue(c.nm, out lst)) { lst = new List<string>(); _byName[c.nm] = lst; }
+                    if (!lst.Contains(c.id)) lst.Add(c.id);      // 同一个 id 别重复加
+                }
+                if (!string.IsNullOrEmpty(c.fa)) _factionOfId[c.id] = c.fa;
+                if (c.events == null) continue;
                 Dictionary<string, string> m;
                 if (!ByCard.TryGetValue(c.id, out m)) { m = new Dictionary<string, string>(); ByCard[c.id] = m; }
                 foreach (var ev in c.events)
@@ -340,10 +390,27 @@ namespace CardPresentation
                 }
             }
             Debug.Log($"[Vfx] 逐卡特效表已载入：{ByCard.Count} 张卡 / {CardTableEntries} 条"
-                    + $"（`Resources/{CardTableResourcePath}.json`，按 `confPriority` 取权威优先）");
+                    + $"（`Resources/{CardTableResourcePath}.json`，按 `confPriority` 取权威优先）"
+                    + $"；卡名索引 {_byName.Count} 个名字（🆕 `A2082`：生产路径传的是**卡名**，"
+                    + "没有这个索引逐卡那一档就恒不命中）");
         }
 
-        /// <summary>查一个事件该播什么。查不到返回 null（调用处会跳过）。</summary>
+        /// <summary>查一个事件该播什么。查不到返回 null（调用处会跳过）。
+        ///
+        /// <para>🔴 <b>2026-10-15（账 `A2082`）：`cardId` 这个参数<b>两把键都收</b> —— 卡 id <b>或</b> 卡名。</b>
+        /// 修的是这么一个缺陷：本表的主键一直是**卡 id**，而<b>生产路径上唯一那个调用点传的是卡名</b>
+        /// （`BattleDriver.PlaySignal` → `CardEffects.FireEvent(evt, pos, faction, e.CardId)`，
+        /// 而 `BattleEvent.CardId` 装的是 `CardDef.Name`）⇒ 在修之前**逐卡这一档恒不命中**，
+        /// 1,009 张卡 / 3,498 条真值**一条都没进过画面**，一律掉到按阵营/按事件的兜底。
+        /// （实测：运行时表 1017 个键 **1017/1017 命中卡池 `id`、0/1017 命中卡名**。）
+        ///
+        /// ⚠️ 为什么在**这里**收口、而不是在调用点把卡名换成 id：调用点有 3 处
+        /// （`BattleDriver.cs:11384/11386/11404`），换一处漏一处就是同一个 bug 再长一遍；
+        /// 而这件是**所有人都会经过的唯一一道门**。同族先例 = `AbilityAnimDurations.TryGet`
+        /// （它自 2026-10-13 起就是「先查 id、再查卡名」——两条路各写一套才是真隐患）。
+        ///
+        /// ⚠️ **重名不猜**：3 组重名（见 <see cref="RtCard"/> 的 doc）用 `faction` 钉到唯一那张卡；
+        /// 钉不出来 ⇒ **出声 + 返回 null**（宁可不播，也不给错特效）。</summary>
         public static string Resolve(string evt, string faction = null, string cardId = null)
         {
             if (string.IsNullOrEmpty(evt)) return null;
@@ -351,15 +418,10 @@ namespace CardPresentation
             Dictionary<string, string> m;
             // ⚠️ 逐卡那一档**要先载表**（2026-10-14 起它不再是空字典 —— 见 `EnsureLoaded` 的说明）。
             //    它排在最前面：**原版真值优先于我们按阵营/按事件的兜底**。
-            if (!string.IsNullOrEmpty(cardId))
-            {
-                EnsureLoaded();
-                if (ByCard.TryGetValue(cardId, out m))
-                {
-                    string s;
-                    if (m.TryGetValue(evt, out s)) return s;
-                }
-            }
+            //    （查询本身收口在 `TryResolvePerCard` —— 与 `ResolvePerCard` **共用一份实现**，
+            //      ⛔ 别在这儿再抄一遍那个「id 或卡名」的换算。）
+            string perCard;
+            if (TryResolvePerCard(evt, faction, cardId, out perCard)) return perCard;
             if (!string.IsNullOrEmpty(faction) && ByFaction.TryGetValue(faction, out m))
             {
                 string s;
@@ -367,6 +429,74 @@ namespace CardPresentation
             }
             string fallback;
             return ByEvent.TryGetValue(evt, out fallback) ? fallback : null;
+        }
+
+        /// <summary>🆕 2026-10-15（账 `A2083`）：**只查逐卡那一档**，⛔ 不回落到按阵营 / 按事件。
+        ///
+        /// 为什么单开一个口：<see cref="Resolve"/> 的兜底链会把 `death` 解析成 `ByEvent[death]`
+        /// （= 我们自己挑的替代品 `Explosion Fenrisian Monstrosities`），而**阵亡那一拍已经有原版真件**
+        /// （`CardFeel.DeathExplosion` 播的 `Card 3D Death Explosion`）⇒ 把兜底也算进来就是**原版没有的第二下**。
+        /// ⇒ 调用方真正要问的是「**这张卡自己**有没有逐卡覆盖」，没有就必须是 null。
+        /// ⚠️ 首个消费者 = `CardFeel.SpawnDeathBody`（原版 `CardScript.UnitDeath` 的「二选一」判别式）。
+        ///
+        /// 与 <see cref="Resolve"/> **共用同一套键解析**（id 或卡名 + 重名靠阵营钉，见 <see cref="ResolveCardIdOf"/>）。</summary>
+        public static string ResolvePerCard(string evt, string faction = null, string cardIdOrName = null)
+        {
+            string s;
+            return TryResolvePerCard(evt, faction, cardIdOrName, out s) ? s : null;
+        }
+
+        /// <summary><see cref="Resolve"/> 与 <see cref="ResolvePerCard"/> 共用的那一份逐卡查询。
+        /// 返回 true ⇔ 命中了**逐卡那一档**（`hit` 是该 (卡,事件) 下的 prefab 名）。</summary>
+        static bool TryResolvePerCard(string evt, string faction, string cardIdOrName, out string hit)
+        {
+            hit = null;
+            if (string.IsNullOrEmpty(evt) || string.IsNullOrEmpty(cardIdOrName)) return false;
+            EnsureLoaded();
+            Dictionary<string, string> m;
+            if (ByCard.TryGetValue(cardIdOrName, out m))
+            {
+                // 原样就查得到 ⇒ 它**就是 id** ⇒ ⛔ 别再按卡名换算一次
+                // （真出重名时反而会把正确的那张顶掉）。
+                return m.TryGetValue(evt, out hit);
+            }
+            // 传进来的多半是**卡名**（生产路径就是这样，见 `Resolve` 的 doc）⇒ 换算成 id 再查一次。
+            string id = ResolveCardIdOf(cardIdOrName, faction);
+            if (id != null && ByCard.TryGetValue(id, out m)) return m.TryGetValue(evt, out hit);
+            return false;
+        }
+
+        /// <summary>🆕 2026-10-15（账 `A2082`）：**把一个「卡名」钉到唯一那张卡的 id 上**。
+        ///
+        /// 三种结果，各自都出声或不吭声的理由写清楚：
+        ///   · 名字不在索引里 ⇒ 返回 null，**不出声** —— 这不是错，是「这张卡本来就没有逐卡条目」
+        ///     （新卡不在 2022 快照 / 原版这张卡没有动画字段），调用处掉兜底是**设计如此**。
+        ///   · 名字只对上一张卡 ⇒ 返回它（绝大多数情况）。
+        ///   · 名字对上多张（全池只有 3 组）⇒ 用 `faction` 钉；**钉不出唯一就出声 + 返回 null**。
+        ///     ⛔ **不拿「先到的那个」充数** —— 那是静默给错特效（红线）。
+        ///     ⚠️ 出声有上限（<see cref="AmbiguousWarnCap"/> 条，按卡名去重），别每帧刷屏。</summary>
+        static string ResolveCardIdOf(string keyOrName, string faction)
+        {
+            List<string> ids;
+            if (!_byName.TryGetValue(keyOrName, out ids) || ids == null || ids.Count == 0) return null;
+            if (ids.Count == 1) return ids[0];
+
+            string hit = null; int n = 0;
+            if (!string.IsNullOrEmpty(faction))
+            {
+                for (int i = 0; i < ids.Count; i++)
+                {
+                    string f;
+                    if (_factionOfId.TryGetValue(ids[i], out f) && f == faction) { hit = ids[i]; n++; }
+                }
+                if (n == 1) return hit;                 // 阵营钉住了唯一那张
+            }
+            if (_warnedAmbiguous.Count < AmbiguousWarnCap && _warnedAmbiguous.Add(keyOrName))
+                Debug.LogWarning($"[Vfx] 卡名 `{keyOrName}` 对应 **{ids.Count} 张卡**"
+                               + $"（{string.Join(" / ", ids.ToArray())}），而阵营 `{faction ?? "(没传)"}` "
+                               + "钉不出唯一那张 ⇒ **逐卡特效这一档不生效**（掉按阵营/按事件的兜底）。"
+                               + "⛔ 这里不猜 —— 猜错就是给错特效。判据 → `VfxMap.ResolveCardIdOf` 的 doc。");
+            return null;
         }
 
         /// <summary>自检用：把表里所有名字列一遍</summary>
