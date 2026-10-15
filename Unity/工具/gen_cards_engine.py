@@ -192,7 +192,7 @@ RARITY_UNLISTED = {
     "Cult Propaganda": "common",
 
     # 🆕 2026-09-15 PnP 对账：这两张宝石表里没有、引擎 `rarity` 是空串，卡面实测都是 **绿 = rare**
-    "Commissar Elan": "rare",          # Astra Militarum/1督军/Warpforge_01_Commissar-Denkler.png
+    "Commissar Denkler": "rare",        # Astra Militarum/1督军/Warpforge_01_Commissar-Denkler.png（🔴 2026-10-15 改名：官方 `Card_Name/AM3` = `Commissar Denkler`）
     "Medic Scion": "rare",             # Astra Militarum/3部队/…（卡面印 `Scion Medic`）
     # 🔴 2026-10-17（B20）：原来这里还有第三张 `1st Company Terminator` —— 已删，两个理由：
     #    ① 它的卡名撤回成 `2nd Company Terminator` ⇒ 这个键再也不会被查中（死键）；
@@ -424,9 +424,14 @@ STAT_FIXES = {
     #   · `Orks/3部队/Warpforge_31_Veteran-Stormboy.png`                   红7 / 紫4 / 绿框6
     #   · `Sorotitas/3部队/Warpforge_30_Simulacrum-Celestian.png`          红5 / 紫4 / 绿框6
     # ⚠️ **卡名别跟着 PnP 改**：这 4 张里 3 张（`Commissar Elan` / `Diviner` 那一类）
-    #   `card_ids.json` 的原版 ID 表用的就是我们现在这个名字（`AM1=Commissar Elan`），
+    #   🔴 **2026-10-15 就地订正（铁律 5）**：本行原写「`card_ids.json` 的原版 ID 表用的就是
+    #   这个名（`AM1=Commissar Elan`）」—— **已过期**：`card_ids.json` 2026-10-13 换真值后现读
+    #   **`AM3` → `Commissar Denkler`**；且官方 `Card_Name/AM3` = `Commissar Denkler`、
+    #   官方 `Warlord_Lore/AM3` 写的是「**Commissar Elan Denkler**」（Elan 是名、Denkler 是姓）
+    #   ⇒ **`Commissar Elan` 是原版美术/VO 资产名（只用名），不是卡名**。本会话已把卡名改成
+    #   `Commissar Denkler`，并同步了宝石表 / `OCR_ARMOR_FAMILY` / `STAT_FIXES` / `zh_cards.json`。
     #   PnP 印的是**当年重印的写法**。改名只认「三处证据一致」那一条，见下面。
-    "Commissar Elan":        {"ranged": 2},
+    "Commissar Denkler":     {"ranged": 2},
     "Acolyte Iconward":      {"ranged": 2},
     # 🔴 **2026-10-15 删除**：原来这里是 `"Simulacrum Imperialis": {"ranged": 4},` ——
     #    同样是一条**改名留下的死键**：源表里这张卡现在叫 `Simulacrum Celestian`，而
@@ -492,7 +497,7 @@ STAT_FIXES = {
 #    ⇒ 玩法：把三格**一起**比（集合相等）。这样任何一格变了都红 —— 包括
 #      「谁把某一行的 `ranged_attack` 填上 ⇒ 那一行从「命中」变成「不命中」」这种**最隐蔽**的改法。
 OCR_ARMOR_FAMILY = (
-    ("AstraMilitarum", "Commissar Elan",         True),
+    ("AstraMilitarum", "Commissar Denkler",      True),
     ("Genestealers",   "Acolyte Iconward",       True),
     ("Goff",           "Veteran Flyboy",         True),
     ("Sororitas",      "Simulacrum Celestian",   False),

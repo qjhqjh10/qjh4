@@ -14,7 +14,7 @@
       而是由 **`TutorialStage.playerDeck/aiDeck` 两个 PPtr 直引**（同文件；另见
       `资料/预组卡组_原版规格.md:522-523`）。⇒ 我们照原版把「池」与「教程直引」分成两份产物，
       结构上就不可能互相污染。
-   ② **硬约束**：预组页现在列出的那 66 副（103 副里 `complete` 的）**一个字符都不许动**。分开文件 ⇒
+   ② **硬约束**：预组页列出的那批（池 103 副里 `complete` 的 —— 🔴 **张数现读**，2026-10-15 = **87** 副；原注写 66 已过期）**一个字符都不许动**。分开文件 ⇒
       `prebuilt_decks.json` 的 diff 可以要求**逐字节为 0**（`git diff --numstat` 一看就知道；
       本脚本为此**连 `note`/`pool` 那两句都不改**，免得头两行抖一下就说不清了）。
 
@@ -27,7 +27,7 @@
     Unity/数据/游戏数据/decklists.json        236 副（预组池取 isPractice==1 的 103 副）
     Unity/数据/游戏数据/card_ids.json         原版卡 id -> 英文卡名
     Unity/数据/游戏数据/warlord_ids.json      督军 id -> 督军名
-    MyGame/Assets/RuleEngine/Resources/cards_engine.json   我们的卡池 1126 张
+    MyGame/Assets/RuleEngine/Resources/cards_engine.json   我们的卡池 1127 张（⛔ 现读为准）
     d:/2/新解包资源/…/bundle_prebuiltdecks_assets_all/MonoBehaviour/*_Deck0_Tutorial*.json  12 副教程牌 SO
 
 🔴 **2026-10-17 数据订正（写手 B16 · 改的是输入，不是本脚本）**：`decklists.json` 里 `UMTutorial`
@@ -257,7 +257,7 @@ def build_matcher(pool, mapping):
 
     def hero_match(hid, faction):
         """返回 (我们的 hero id or None, 说明)。
-        🔴 **先按 id 直查**（我们的卡池里 973/1126 张就是原版 id，督军同理），查不到再回落名字表 ——
+        🔴 **先按 id 直查**（我们的卡池里 973/1127 张就是原版 id，督军同理 —— ⛔ 张数现读），查不到再回落名字表 ——
            2026-09-25 实测：`warlord_ids.json` 那张自建名表**有错**
            （`TL74` 写成 `TL_Neurogaunt`，而卡池里 `TL74` 就是督军 `Terror of Vardenghast`），
            拿它当第一判据会把能用的牌误判成不能用。"""

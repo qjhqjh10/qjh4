@@ -1,0 +1,139 @@
+id	卡名	字段	我们	原版	判定
+ASH15	Howling Banshee	attack	3	4	DIFF
+ASH79	Orian Laratharjos	ranged	4	5	DIFF
+ASH20	Wraithguard	attack	3	2	DIFF
+e59ac9e46f4ea804784e954c3b820e77	Skyborne Deployment	cost	1	2	DIFF
+d3e99cb18b8cbba4081486f57f510f75	Witchfire	cost	0	1	DIFF
+ASH29	Wave Serpent	health	8	7	DIFF
+ASH76	Lhykhis	health	25	35	DIFF
+AM27	Nork Deddog	keywords	[('vanguard', 0)]	[('talent', 0), ('vanguard', 0)]	DIFF
+AM72	Vitus Gryf	keywords	[('flying', 0), ('strike', 0)]	[('flying', 0), ('slay', 0)]	DIFF
+AM3	Commissar Elan	health	30	35	DIFF
+BL71	Havoc Champion	health	7	8	DIFF
+61046837c330b48978b4af5201230b6e	Helspear Assault	keywords	[('ephemeral', 0), ('slay', 0)]	[('ephemeral', 0)]	DIFF
+453b0e8f88e094a17866a6979f389ef5	Infernal Gaze	cost	2	1	DIFF
+BL74	Spreading Corruption	cost	4	3	DIFF
+BL27	Venomcrawler	keywords	[]	[('armour', 1)]	DIFF
+DA19	Interrogator Chaplain	ranged	3	2	DIFF
+DA51	Covert Operation	cost	3	4	DIFF
+a84a5b49f0ca9144585058db6987c2a0	Master Interromancer	cost	1	3	DIFF
+DA55	Wages of Retribution	cost	3	4	DIFF
+EC33	Alluress	keywords	[]	[('rally', 0)]	DIFF
+EC9	Icon of Excess Infractor	keywords	[('ecstasy', 0)]	[('ecstasy', 2)]	DIFF
+EC21	Malgarash the Adamant	keywords	[]	[('ecstasy', 2), ('stimulation', 0)]	DIFF
+EC25	Terminator	keywords	[('ecstasy', 0)]	[('ecstasy', 2)]	DIFF
+EC19	Threnodic Choir Noise Marine	keywords	[]	[('ecstasy', 2)]	DIFF
+EC5	Tormentor	keywords	[('ecstasy', 0)]	[('ecstasy', 1)]	DIFF
+6ed51d59b9f8ea24ab0dc7ceaef7956c	Duelist's Hubris (Lucius' Talent)	cost	1	2	DIFF
+EC55	Lucius The Eternal	health	25	35	DIFF
+EC57	Xarahan Daemon Prince	health	30	40	DIFF
+GSC20	Aberrant	health	6	5	DIFF
+GSC32	Abominant	armour	1	0	DIFF
+GSC16	Acolyte Heavy	ranged	2	0	DIFF
+GSC9	Acolyte Hybrid	keywords	[]	[('ambush', 0)]	DIFF
+GSC15	Acolyte Specialist	attack	2	1	DIFF
+GSC28	Hulking Aberrant	armour	1	0	DIFF
+GSC23	Hybrid Metamorph	attack	4	3	DIFF
+GSC30	Metamorph Leader	attack	3	6	DIFF
+GSC30	Metamorph Leader	health	5	6	DIFF
+GSC30	Metamorph Leader	ranged	4	6	DIFF
+GSC11	Neophyte Heavy	health	4	3	DIFF
+7c666a04c1b9e8b4e9a96247e9fe115a	Cult Propaganda	rarity	common	0((0=?))	DIFF
+334a32d196d46ed4387bf3740cce069b	Improvised Barricade	rarity	common	0((0=?))	DIFF
+68909cf02f472734ea391665e0d28e15	Jammed Communications	rarity	common	0((0=?))	DIFF
+a7bb23355a30d344e9d2decf976d91e1	Poisoned Supplies	rarity	common	0((0=?))	DIFF
+GSC44	Subterranean Ambush	cost	4	5	DIFF
+GSC3	Acolyte Iconward	keywords	[]	[('talent', 0)]	DIFF
+SAU9	Ophydian Destroyer	keywords	[('destroyer', 0), ('regeneration', 2), ('remnant', 0)]	[('artifice', 0), ('destroyer', 0), ('regeneration', 2), ('remnant', 0)]	DIFF
+SAU7	Canoptek Wraith	keywords	[('remnant', 0)]	[('remnant', 0), ('unstoppable', 0)]	DIFF
+SAU70	Damaged Hexmark	health	4	5	DIFF
+SAU68	Lokhust Destroyer	keywords	[]	[('destroyer', 0), ('remnant', 0)]	DIFF
+SAU72	Lokhust Lord	keywords	[('destroyer', 0), ('regeneration', 2), ('remnant', 0)]	[('backlash', 0), ('destroyer', 0), ('regeneration', 2), ('remnant', 0)]	DIFF
+SAU11	Technomancer	keywords	[]	[('artifice', 0)]	DIFF
+SAU55	Immortal Pride	cost	7	6	DIFF
+SAU35	Imotekh the Stormlord	keywords	[]	[('talent', 0)]	DIFF
+SAU37	Orikan the Diviner	keywords	[]	[('talent', 0)]	DIFF
+GOF28	Ghazghkull Thraka	keywords	[]	[('talent', 0)]	DIFF
+GOF79	Beast Snagga Boy	keywords	[('rally', 0), ('stomp', 0), ('tide', 1)]	[('stomp', 0), ('tide', 1)]	DIFF
+GOF83	Grot on Bombsquig	attack	1	2	DIFF
+GOF88	Nob on Smasha Squig	attack	6	5	DIFF
+GOF99	Skrag Every Stash!	cost	3	1	DIFF
+GOF96	Snakebite Battlewagon	health	11	10	DIFF
+GOF76	Mozrog Skragbad	health	40	35	DIFF
+GOF82	Beast Snagga Nob	ranged	2	1	DIFF
+GOF85	Snakebite Nob	health	5	4	DIFF
+e3d67d86f73f7564eb0bf886ec848af6	Waaagh! Energy (Weirdboy Talent)	cost	0	2	DIFF
+GOF68	Big Choppa Nob	ranged	5	4	DIFF
+GOF59	Big Shoota Boy	attack	3	2	DIFF
+GOF62	Kommando	attack	8	7	DIFF
+GOF62	Kommando	health	7	6	DIFF
+GOF57	Ork Nob	keywords	[]	[('flank', 0)]	DIFF
+GOF18	PainBoy Sniklaw	attack	6	5	DIFF
+GOF18	PainBoy Sniklaw	keywords	[('rally', 0), ('talent', 0)]	[('talent', 0)]	DIFF
+GOF18	PainBoy Sniklaw	ranged	3	2	DIFF
+GOF66	Rokkit Boy	attack	3	2	DIFF
+GOF66	Rokkit Boy	ranged	5	4	DIFF
+GOF60	Tankbusta	attack	5	4	DIFF
+GOF60	Tankbusta	keywords	[('blast', 2)]	[('blast', 2), ('rally', 0)]	DIFF
+GOF60	Tankbusta	ranged	5	4	DIFF
+GOF20	Veteran Flyboy	attack	7	6	DIFF
+GOF37	Da Green Horde	cost	3	4	DIFF
+GOF73	Stomp Em	keywords	[('mob', 0)]	[]	DIFF
+GOF56	Deffkopta	keywords	[('flying', 0), ('tide', 2), ('unstable', 0)]	[('flying', 0), ('rally', 0), ('tide', 2), ('unstable', 0)]	DIFF
+GOF25	Gorkanaut	health	10	9	DIFF
+GOF63	Gunwagon	ranged	8	7	DIFF
+GOF70	Krumpaklaw	ranged	6	4	DIFF
+GOF61	Rukkatrukk Squigbuggy	armour	1	0	DIFF
+GOF61	Rukkatrukk Squigbuggy	keywords	[('strike', 0), ('unstable', 0)]	[('flank', 0), ('strike', 0), ('unstable', 0)]	DIFF
+GOF26	Stompa	keywords	[('concussive', 0), ('rally', 0), ('unstable', 0)]	[('concussive', 0), ('unstable', 0)]	DIFF
+GOF29	Grukk Face-Rippa	keywords	[]	[('talent', 0)]	DIFF
+SOR71	Adelaide the Serene	keywords	[('flank', 0), ('flying', 0), ('rally', 0), ('shield', 0)]	[('flying', 0), ('rally', 0), ('shield', 0)]	DIFF
+SOR6	Battle Sister Gunner	ranged	3	2	DIFF
+SOR30	Celestian Sacresant	keywords	[('pray', 0)]	[('pray', 0), ('vanguard', 0)]	DIFF
+SOR15	Celestian	attack	2	1	DIFF
+SOR22	Dominion Superior	ranged	6	5	DIFF
+SOR11	Dominion	ranged	4	3	DIFF
+SOR20	Hospitaller	ranged	3	2	DIFF
+SOR16	Missionary	health	5	4	DIFF
+SOR17	Sister Superior	health	5	4	DIFF
+e01f4d54e8a474d96b5a1167cc28eebf	Daemonbreaker	keywords	[]	[('ephemeral', 0)]	DIFF
+SOR57	Hallowed Martyrs	cost	5	4	DIFF
+SOR59	Sacred Altar	cost	1	0	DIFF
+SOR65	Celestian Sacresant Aveline	keywords	[('pray', 0)]	[('pray', 0), ('talent', 0)]	DIFF
+SOR1	Erika Luminas	keywords	[('pray', 0)]	[('pray', 0), ('talent', 0)]	DIFF
+SOR3	Morvenn Vahl	keywords	[('pray', 0)]	[('pray', 0), ('talent', 0)]	DIFF
+TAU27	Broadside Battlesuit	attack	4	3	DIFF
+TAU34	Coldstar Battlesuit	attack	6	5	DIFF
+TAU21	Stealth Battlesuit	health	5	4	DIFF
+TAU26	Stealth Shas’ui	keywords	[('companion', 2)]	[('companion', 2), ('stealth', 0)]	DIFF
+TAU6	Gun Drone	ranged	2	1	DIFF
+TAU7	Marker Drone	ranged	2	1	DIFF
+TAU10	Stealth Drone	health	1	2	DIFF
+TAU12	Darkstrider	attack	3	2	DIFF
+TAU18	Fire Warrior Marksman	health	5	4	DIFF
+TAU25	Firesight Marksman	ranged	5	4	DIFF
+TAU19	Honoured Ethereal	keywords	[('shield', 0)]	[('shield', 0), ('talent', 0)]	DIFF
+TAU9	Pathfinder	keywords	[('companion', 0), ('rally', 0)]	[('companion', 2), ('rally', 0)]	DIFF
+TAU22	Strike Team	ranged	6	5	DIFF
+TAU42	Experimental Drones	cost	4	5	DIFF
+TAU63	Tidewall Gunrig	cost	0	1	DIFF
+TAU30	Sky Ray Gunship	attack	4	3	DIFF
+TAU30	Sky Ray Gunship	ranged	9	8	DIFF
+TAU3	Commander O'Maisos	keywords	[('shield', 0), ('talent', 0)]	[('talent', 0)]	DIFF
+TL74	Terror of Vardenghast	keywords	[('slay', 0)]	[('slay', 0), ('talent', 0)]	DIFF
+TL66	Neurogaunt	cost	2	1	DIFF
+TL70	Norn Emissary	keywords	[('blast', 3)]	[('armour', 1), ('blast', 3)]	DIFF
+a58e05916eb5e994daa0349cbe237001	Synaptic Imperative	cost	2	1	DIFF
+TL35	SwarmLord	health	40	35	DIFF
+UM12	Antaro Chronus	keywords	[]	[('talent', 0)]	DIFF
+UM64	Angels of Death	keywords	[('codex', 0)]	[]	DIFF
+UM40	Avenging Zeal	cost	12	10	DIFF
+UM37	Death from Above	keywords	[('codex', 0)]	[]	DIFF
+9238c27730a0c424288d46ed0f4a742c	Master of the Fleet	cost	2	1	DIFF
+UM32	Tactical Insight	cost	0	1	DIFF
+UM85	Tactical Doctrine	keywords	[('codex', 0)]	[]	DIFF
+4a48457c24877f345be2e96f867c1e94	Dark Pact of Fate	cost	1	-1	DIFF
+9a2cadc64c80a6b42912441105bb1cee	Dark Pact of Blood	cost	1	-1	DIFF
+b8e81b2fe85cda747a68c4d6326b669c	Dark Pact of Excess	cost	1	-1	DIFF
+1dfc9bc738bfc4f4d93d48f165aee510	Dark Pact of Resilience	cost	1	-1	DIFF
+EC56	Lord Kaphrael	health	25	35	DIFF

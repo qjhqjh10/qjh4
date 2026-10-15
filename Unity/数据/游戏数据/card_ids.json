@@ -732,7 +732,7 @@
   "SW17": "Grey Hunter",
   "SW18": "Fyrri Askar",
   "SW19": "Grey Hunter Pack Leader",
-  "SW2": "High King of Fenris",
+  "SW2": "Njal Stormcaller",
   "SW20": "Thunderwolf Cavalry",
   "SW21": "Wolf Guard Headtaker",
   "SW22": "Wolf Priest",
@@ -743,7 +743,7 @@
   "SW27": "Wulfen",
   "SW28": "Wulfen Pack Leader",
   "SW29": "Arjac Rockfist",
-  "SW3": "Tyrnak and Fenrir",
+  "SW3": "Ragnar Blackmane",
   "SW30": "Blackmane Inceptor",
   "SW31": "Fenrisian Drop Pod",
   "SW32": "Frost Claw Wulfen",
@@ -754,7 +754,7 @@
   "SW37": "Terminator Rune Priest",
   "SW38": "Wolf Guard Terminator",
   "SW39": "Murderfang",
-  "SW4": "Njal Stormcaller",
+  "SW4": "High King of Fenris",
   "SW40": "Stormwolf",
   "SW41": "Vindicator",
   "SW42": "Bjorn the Fell Handed",
@@ -788,7 +788,7 @@
   "SW68": "Halls of Legend",
   "SW7": "Murderous Hurricane",
   "SW8": "Living Lightning",
-  "SW9": "Ragnar Blackmane",
+  "SW9": "Tyrnak and Fenrir",
   "TAU1": "Shadowsun",
   "TAU10": "Stealth Drone",
   "TAU11": "Crisis Battlesuit",
@@ -1311,5 +1311,5 @@
   "fd67b47572987b84cb2990ea1ecfe982": "Brood Prophet",
   "fdacb4e306ae79547883557cce46f557": "Saviour Protocols"
  },
- "note": "【2026-10-13 第二十六会话重建 —— 整表换成【原版真值】】判据 = 原版卡 SO 的 `uniqueId` → `cardName`，来源 = 本机旧 Windows 用户缓存里抢救出的 `allcards` 包 （原件与产物 → `d:/2/远端缓存_旧profile_1013/`，README 在那份目录里）。真值覆盖 935 条；旧表里真值没有的 116 条**原样保留**（多为快照之后的新卡，**未核**）；旧表里被真值**推翻**的 853 条**全部替换**。🔴 为什么要换：旧表是 2026-08-17 自建的，前提是「PnP 卡表编号 = 游戏卡 ID，偏移 0」——经原版真值比对**851/873 条不符**；端到端反证：原版牌组 `ASH_SK_2`「Hosts of the Dead」（幽灵军）在真值下解出 Wraithblade/Wraithguard/Vengeful Wraithblade/Spiritseer（**全是幽灵**），在旧表下解出 Shroud Runner/Dire Avenger/Howling Banshee（**全不是**）。⚠️ 年代限制：本批真值是 **Unity 2022.3.38f1 / 2025-07-30** 的快照（1,195 张 vs 当前卡池 1,126 张）⇒ 后来新增的卡（SpaceWolves/Ultramarines/DarkAngels 居多）**拿不到真值**，仍走旧 id 或自造 id。⚠️ 真值里 32 位 hex 形态的 `uniqueId`（约 260 条，效果/附魔类 SO）**未收进本表** —— `gen_cards_engine.pick_id` 只认「前缀+纯数字」，收了也用不上。🆕 **2026-10-14（第三十一会话 · P1 id 置换批 · 账 `A1800`/`A1782`）**：按已裁裁定（`资料/普查产出_第三十会话/卡表块_施工设计_1014.md` §七·②）**把真值里 259 条 32 位 GUID 形 `uniqueId` 收进本表**（值 = 真值 `cardName`）—— 判据：`CardTypeOptions` 分出来 259 条全是真卡（Tactic 232 · Minion 17 · Hero 10，259/259 有卡名），且 `decklists.json` 里实有 98 个 GUID 形态 id、其中 26 个与真值 `uniqueId` 重合 ⇒ GUID 是**游戏内卡 id 的合法形态**。本表因此从 1,058 行变成 1310 行（933 真值短 id + 259 真值 GUID + 116 旧表残留 + 2 个 `#HB_` 标记）。⚠️ **池内 id 的判定不再只靠本表** —— 另有一层真值索引 （`Unity/数据/游戏数据/card_id_truth_index.json`，生成器 `工具/gen_card_id_truth_index.py`），它管三类按卡名查不到的卡（**我们卡名 = 美术/VO 资产名** · **GUID 形 id** · **同名组里的附魔/教程副本**）；`gen_cards_engine.py` 先查索引、查不到才退回本表。⚠️ 本表仍是**预组牌/教程牌那座桥**（`decklists.json` 的 id → 卡名）。🔴 **上面那句「32 位 hex 形态的 `uniqueId` 未收进本表（`pick_id` 只认前缀+纯数字，收了也用不上）」已被本行取代**（铁律 5 就地订正）。🆕 2026-10-15（P1 收尾笔 · 账 `A1783`/`A1780` 的收尾）：**删掉 7 行已死的旧表残留**（`EC72`–`EC77` · `TL81`）—— 那 7 张卡 P1 那批已拿到真值 GUID（本表同名的 GUID 行仍在 ⇒ 桥没断），而 `decklists.json`（236 副逐 id 现核）与原版卡组 SO **零引用**；留着的唯一后果是 `pick_id()` 在真值索引失效时**静默退回**这 7 个已非池内 id 的旧值。⇒ 本表 1317 → **1310** 行 · 旧表残留 123 → **116**（上面两处数字已就地改）。🆕 2026-10-15（第三十一会话 · AN「真值表与 exact 列」）：**这两行【不改】** —— `GSC64` = `Rusted Vents` · `GSC49` = `Telephatic Domination`（含 GUID 行 `1a647ea39bbb0154b9673c5194e51a46`）**与该 GUID 的真值快照 `cardName` 逐字一致**；**错字在真值快照那一侧**（`d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json` 里就是 `Rusted Vents` 多一个 s、`Telephatic Domination` 缺 h），而 PnP 卡面与官方 `Card_Name/GSC64` = `Rusted Vent` / `Card_Name/GSC49` = `Telepathic Domination` 是另一拼写。⇒ 按本表语义（**照真值**）**保留原样**，⛔ 别按 PnP / 官方改本表。**全表复核**（同日逐行比）：键在快照里的 1,194 行中，值 ≠ 快照 `cardName` 的只有 `#HB_BL34` / `#HB_DA1` 两行（本表 `''` vs 快照 `null`，同义）⇒ **本表对真值快照 1,194/1,194 忠实**，无第三处。⚠️ **已知后果（不修）**：卡池里那两张的 `name` 已改向官方拼写 ⇒ 本表这条「名字 → id」的**退路**（`gen_cards_engine.load_ids()`）对这两张会落空；实际 id 由**真值索引**给出（`card_id_truth_index.json` 的 `by_official_en[rustedvent]=[GSC64]` · `by_official_en[telepathicdomination]=[GSC49]`）⇒ **id 仍是 `GSC64`/`GSC49`，不变**。"
+ "note": "【2026-10-13 第二十六会话重建 —— 整表换成【原版真值】】判据 = 原版卡 SO 的 `uniqueId` → `cardName`，来源 = 本机旧 Windows 用户缓存里抢救出的 `allcards` 包 （原件与产物 → `d:/2/远端缓存_旧profile_1013/`，README 在那份目录里）。真值覆盖 935 条；旧表里真值没有的 116 条**原样保留**（多为快照之后的新卡，**未核**）；旧表里被真值**推翻**的 853 条**全部替换**。🆕 **2026-10-15 本会话就地改（判据 = 原版卡组立绘 `deckAvatar`）**：**`SW2` = Njal Stormcaller · `SW3` = Ragnar Blackmane**（原版 `SW_SK_2` 的 `deckAvatar` 解出 `Avatar_SW_Njal Stormcaller`、`SW_SK_3` 解出 `Avatar_SW_Ragnar Blackmane`；PnP `Space Wolves/1督军/` 也只有 Logan/Njal/Ragnar 三位）。⇒ 与它们对调：`SW4` = High King of Fenris、`SW9` = Tyrnak and Fenrir —— ⚠️ **`SW4`/`SW9` 这两格是【腾位】，不是原版真值**（原版 SW4 出现在每副 Njal 卡组里、SW9 在多数 Logan 卡组里，本次腾位与那两条弱证据不冲突，但**未经判据确认**）。🔴 为什么要换：旧表是 2026-08-17 自建的，前提是「PnP 卡表编号 = 游戏卡 ID，偏移 0」——经原版真值比对**851/873 条不符**；端到端反证：原版牌组 `ASH_SK_2`「Hosts of the Dead」（幽灵军）在真值下解出 Wraithblade/Wraithguard/Vengeful Wraithblade/Spiritseer（**全是幽灵**），在旧表下解出 Shroud Runner/Dire Avenger/Howling Banshee（**全不是**）。⚠️ 年代限制：本批真值是 **Unity 2022.3.38f1 / 2025-07-30** 的快照（1,195 张 vs 当前卡池 1,126 张）⇒ 后来新增的卡（SpaceWolves/Ultramarines/DarkAngels 居多）**拿不到真值**，仍走旧 id 或自造 id。⚠️ 真值里 32 位 hex 形态的 `uniqueId`（约 260 条，效果/附魔类 SO）**未收进本表** —— `gen_cards_engine.pick_id` 只认「前缀+纯数字」，收了也用不上。🆕 **2026-10-14（第三十一会话 · P1 id 置换批 · 账 `A1800`/`A1782`）**：按已裁裁定（`资料/普查产出_第三十会话/卡表块_施工设计_1014.md` §七·②）**把真值里 259 条 32 位 GUID 形 `uniqueId` 收进本表**（值 = 真值 `cardName`）—— 判据：`CardTypeOptions` 分出来 259 条全是真卡（Tactic 232 · Minion 17 · Hero 10，259/259 有卡名），且 `decklists.json` 里实有 98 个 GUID 形态 id、其中 26 个与真值 `uniqueId` 重合 ⇒ GUID 是**游戏内卡 id 的合法形态**。本表因此从 1,058 行变成 1310 行（933 真值短 id + 259 真值 GUID + 116 旧表残留 + 2 个 `#HB_` 标记）。⚠️ **池内 id 的判定不再只靠本表** —— 另有一层真值索引 （`Unity/数据/游戏数据/card_id_truth_index.json`，生成器 `工具/gen_card_id_truth_index.py`），它管三类按卡名查不到的卡（**我们卡名 = 美术/VO 资产名** · **GUID 形 id** · **同名组里的附魔/教程副本**）；`gen_cards_engine.py` 先查索引、查不到才退回本表。⚠️ 本表仍是**预组牌/教程牌那座桥**（`decklists.json` 的 id → 卡名）。🔴 **上面那句「32 位 hex 形态的 `uniqueId` 未收进本表（`pick_id` 只认前缀+纯数字，收了也用不上）」已被本行取代**（铁律 5 就地订正）。🆕 2026-10-15（P1 收尾笔 · 账 `A1783`/`A1780` 的收尾）：**删掉 7 行已死的旧表残留**（`EC72`–`EC77` · `TL81`）—— 那 7 张卡 P1 那批已拿到真值 GUID（本表同名的 GUID 行仍在 ⇒ 桥没断），而 `decklists.json`（236 副逐 id 现核）与原版卡组 SO **零引用**；留着的唯一后果是 `pick_id()` 在真值索引失效时**静默退回**这 7 个已非池内 id 的旧值。⇒ 本表 1317 → **1310** 行 · 旧表残留 123 → **116**（上面两处数字已就地改）。🆕 2026-10-15（第三十一会话 · AN「真值表与 exact 列」）：**这两行【不改】** —— `GSC64` = `Rusted Vents` · `GSC49` = `Telephatic Domination`（含 GUID 行 `1a647ea39bbb0154b9673c5194e51a46`）**与该 GUID 的真值快照 `cardName` 逐字一致**；**错字在真值快照那一侧**（`d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json` 里就是 `Rusted Vents` 多一个 s、`Telephatic Domination` 缺 h），而 PnP 卡面与官方 `Card_Name/GSC64` = `Rusted Vent` / `Card_Name/GSC49` = `Telepathic Domination` 是另一拼写。⇒ 按本表语义（**照真值**）**保留原样**，⛔ 别按 PnP / 官方改本表。**全表复核**（同日逐行比）：键在快照里的 1,194 行中，值 ≠ 快照 `cardName` 的只有 `#HB_BL34` / `#HB_DA1` 两行（本表 `''` vs 快照 `null`，同义）⇒ **本表对真值快照 1,194/1,194 忠实**，无第三处。⚠️ **已知后果（不修）**：卡池里那两张的 `name` 已改向官方拼写 ⇒ 本表这条「名字 → id」的**退路**（`gen_cards_engine.load_ids()`）对这两张会落空；实际 id 由**真值索引**给出（`card_id_truth_index.json` 的 `by_official_en[rustedvent]=[GSC64]` · `by_official_en[telepathicdomination]=[GSC49]`）⇒ **id 仍是 `GSC64`/`GSC49`，不变**。"
 }

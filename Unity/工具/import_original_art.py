@@ -193,6 +193,11 @@ ART_NAME_ALIAS = {
 #   判据 → `Unity/资料/普查产出_第三十会话/卡表块_施工设计_1014.md` §一（P1）。
 #   22 个键按「旧 id → 同名同阵营的新 id」逐条换算；**值（贴图名）与注释一字未动**。
 ART_ID_ALIAS = {
+    # 🆕 **AM3（2026-10-15 第三十三会话）**：卡名从 `Commissar Elan` 改成官方 `Card_Name/AM3` 的
+    #   **`Commissar Denkler`**（判据 = 官方 `Card_Name/AM3` = `Commissar Denkler`；官方 `Warlord_Lore/AM3`
+    #   写「**Commissar Elan Denkler**」= Elan 是名、Denkler 是姓 ⇒ 旧名是**原版美术/VO 资产名**，不是卡名）。
+    #   而**原版美术资产名仍是旧写法** `AstraMilitarum_warlord_Commissar Elan` ⇒ 子串匹配会落空，按 id 钉住。
+    'AM3': 'AstraMilitarum_warlord_Commissar Elan',
     # ---- 黑军团：4 张黑暗契约 + 天赋，原版叫「Mark of Chaos_<神>」/「Warmaster」 ----
     '4a48457c24877f345be2e96f867c1e94': 'CSM_BlackLegion_strat_Mark of Chaos_Tzeench',      # Dark Pact of Fate
     '9a2cadc64c80a6b42912441105bb1cee': 'CSM_BlackLegion_strat_Mark of Chaos_Khorne',       # Dark Pact of Blood
