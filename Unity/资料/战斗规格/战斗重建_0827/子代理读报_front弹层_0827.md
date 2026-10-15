@@ -1,3 +1,10 @@
+> 🔴 **本文件是【Godot 时代的账】（2026-08 及更早）—— ⛔ 已作废，只作历史。**
+> 本项目早期用 **Godot 4.7.2** 做过一版复刻（`d:/warpforge/scripts/`，70 个 `.gd`），本文件是那一期的产物或其派生物。
+> **现在唯一权威 = 原版解包资源** `d:/2/新解包资源/assets_full/` + 反编译 `d:/2/tools/decomp_full/`。
+> ⚠️ 本文件里的 **y 向下坐标 / `unity_scene_to_godot.py` / gdshader / Z 反射 / `chain_rect` 的「Godot 绝对坐标」** 一律是历史管线遗留。
+> 🔴 **2026-10-15 用户口径**：「**我们直接使用解包资料，不要被 Godot 时代的账这些干扰**」。
+> ⚠️ 保留本文件**只是留痕**（当时怎么做的 / 为什么那么做），⛔ **别拿它当判据**。
+
 # 子代理读报 — FrontCanvas 弹层/展示层权威规格 (battlearena1)
 
 > 读取日期: 2026-08-27 | 读取范围: FrontCanvas 弹层/展示层 10 组根 (Card Display Window / Generic Multi Card Display Combat / BattleSettingsPanel / Tutorial / Alliance Panel / BattleDoors / LoadingMenu / DebugButtons / Tutorial highlight / Anim Anchors)

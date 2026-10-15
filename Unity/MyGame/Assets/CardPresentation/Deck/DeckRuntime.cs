@@ -6,7 +6,15 @@
 //
 // ============================ 版面权威（唯一出处） ============================
 // `D:/2/Warpforge_tools/data/ui_layout/_deck_editing_godot_rects.txt`
-//   —— `chain_rect.py` 算的 Godot 绝对坐标（1920×1080，y 向下），每行带 `RectTransform_<id>.json` 可复查。
+//   —— 绝对坐标表（1920×1080，y 向下），每行带 `RectTransform_<id>.json` 可复查。
+//   🔴 **2026-10-15 就地订正两处（铁律 5）**：
+//   ① **生成器写错了** —— 原文写「`chain_rect.py` 算的」，实测真生成器是
+//      **`unity_rect_to_godot.py`**（`:110` 打 `名 :: pos(…) size(…)`，与本表逐字相符；
+//      而 `chain_rect.py` 打的是 `父链: … / Godot: x[…]`，**两种格式不同**）。
+//   ② **它不是「Godot 时代的账」** —— 那个脚本读的是**原版 Unity 解包场景 JSON**
+//      （`GameObject/` `RectTransform/` `Transform/` `MonoBehaviour/`），**「Godot」只是坐标约定名**
+//      ⇒ **值可以照用**（⚠️ 唯一真坑见 `:488`：该表**逐级不乘节点 scale**）。
+//      用户 2026-10-15 口径：「我们直接使用解包资料，不要被 Godot 时代的账这些干扰」。
 // 节点树同一棵：`资料/说明书/04_界面UI/菜单全树.md` 的 `Deck Editing Menu` 段（:9249-9496），
 //   带每个元素的 sprite id；id → 名字是拿 `ui_extract/**/Sprite/*.json` 的 `pathid` 反查的。
 // 三路查证的正本：`资料/卡组编辑界面_查证_0920.md`（**动手前先读它**）。

@@ -21,6 +21,8 @@
 - 9 格:MinionSeparation(0.82/1.53)×严格投影 k(182.1/86.2)=**149.3/131.9px**;玩家行 z=-6.655(近/PlayerBoardArea 1319→MinionArea 1309 实锤);场卡=GetUnitSizeInPlay(2DCard×desiredScale 0.36/0.4/0.69/0.77)玩家 137×218/督军 152×243/敌 124×198/138×221,PnP face 0.75 等比
 - 手牌平扇:heightMod((n−1)/11)、幅度=curve×0.7×mod×卡高(4 张≈平/12 张深扇)、收紧=超限 spacing=max_w/n;rotation=atan(dx/330)×rotationMod×0.35(系数待核);显示时机=点卡(ShowDeckSize)
 - 攻击选择器=四钮同坐标 (590,541.7) 互斥+Highlight 176.2+ValueText fs89;Spell 钮 sprite=0 运行时(记录)
+  - 🔴 **2026-10-15 更正（铁律 5）**：上条「**四钮同坐标 (590,541.7) 互斥**」**不成立** —— **原版只有 3 个实例、且是【横排 + 扇开】**（不是叠在同一坐标）。
+    判据 → `Unity/资料/战斗复刻_正本.md` §七 #7（2026-10-15 结案）。⛔ 别照上面那条去叠放。
 - 待核项(记录在审查清单):GetUnitSizeInPlay base 常数/SLOT_Y/HAND_Y/rot 0.35/TMP autosize 缩字
 - **下一步**:Step 4 Front 弹层(CardDisplayWindow/设置面板/聊天/AboveShader/结算门)→Step 5 全链验证(rule_test+整屏截图)→F5 目视→落档
 - 诊断工具:d:/warpforge/tools_dev/shot_battle.gd(零写入,全链模拟点击截图)+dump 卡/槽位坐标

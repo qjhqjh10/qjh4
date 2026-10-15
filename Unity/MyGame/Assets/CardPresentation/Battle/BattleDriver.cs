@@ -854,8 +854,9 @@ namespace CardPresentation
         /// **必须留着** —— `Restart()` 要照原样再来一局，不记的话「按 R 重开」就变成自动凑的牌了
         /// （和 `_myFaction` 一个道理：那是「这一局才有」之外的状态，跨局要显式带过去）。</summary>
         PlayerDeck _myDeckSrc, _foeDeckSrc;
-        /// <summary>开局那句「本局用的是哪副牌 / 多少张没上场」。提示行空着时显示它（见 `SetHint`）。
-        /// 空串 = 没什么要交代的。**这是我们加的** —— 原版没有这一行（原版全卡种都能上场）。</summary>
+        /// <summary>开局那句「本局用的是哪副牌 / 多少张没上场」。**开局入队一次**（见 `SetHint`）。
+        /// 空串 = 没什么要交代的。**这是我们加的信息** —— 原版没有这一句
+        /// （它借的是**原版那条提示条** `AboveShader/TipText` 播出来的，见 `BuildHud` 的提示条那段）。</summary>
         string _deckNotice = "";
         /// <summary>`Begin` 收到的那个 `deckNote` **原样**（没包成句子）。只有一个用处：**自检**钉 A387
         /// （「回放局不许再借联机局那张标签」）—— 比 `_deckNotice` 那个**成品句子**强：
@@ -1003,7 +1004,48 @@ namespace CardPresentation
 
         readonly List<CardView> _handViews = new List<CardView>();
 
-        Label _turnLabel, _energyLabel, _endTurnLabel, _resultLabel, _hintLabel;
+        Label _turnLabel, _energyLabel, _endTurnLabel, _resultLabel;
+
+        // ==================================================================
+        //  提示条（原版 `BattleHud/Canvas/FrontCanvas/Safe area FrontCanvas/AboveShader/TipText`
+        //          ＋ 驱动它的 `BattleTipController`）—— 🆕 2026-10-15（`A2109` 第 1 条）
+        // ==================================================================
+        // 🔴 **本件替换掉的是我们自建的 `_hintLabel`**（那一条 2026-10-13 被拍板「常态化不画」，
+        //    理由是「**原版根本没有这一件**」）—— **那个理由 2026-10-15 查实是错的**：
+        //    当年是拿 `2D层_battlearena1全树.md` 判的，而**那一份正是截断版**（851/1224 个 GO，
+        //    **缺的 373 个刚好落在 HUD**），标题却写着「全树」。
+        //    原版**有**，判据全齐 ⇒ 用户 2026-10-15 拍板：**按原版建、并把自建那一条整个删掉**。
+        //    判据全文 → `资料/普查产出_1015战斗/D1_A2109八条真缺_逐条判据.md` §1。
+        Label _tipText;
+        ImageQuad _tipBg;
+        /// <summary>待播的提示（原版 `BattleTipController` 的队列）。</summary>
+        readonly List<string> _tipQueue = new List<string>();
+        /// <summary>当前这条还剩几秒（原版是 `WaitForSeconds(tipDuration)`，我们用显式计时 —— 批处理没有帧循环）。</summary>
+        float _tipLeft;
+        /// <summary>最近一次**露出来**的那条提示的渲染宽（世界单位）。⚠️ 缓存值 —— 见 `TickTipBanner` 里那句
+        /// 「趁激活时量」的理由（TMP 在未激活对象上量不出尺寸）。</summary>
+        float _tipW;
+
+        /// <summary>单条提示的时长（秒）—— 原版 `VarsGlobal.tipDuration = 1.7`
+        /// （`BattleTipController._DisplayTip_d__14__MoveNext.c` 的 `WaitForSeconds(GlobalVars+0x1C)`）。</summary>
+        const float TipDuration = 1.7f;
+        /// <summary>队列上限 —— 原版 `VarsGlobal.tipQueueSize = 3`；**满了丢【第二条】**（`RemoveAt(1)`，留最早那条）。</summary>
+        const int TipQueueMax = 3;
+
+        /// <summary>提示条的几何 / 配色（全部从 `bundle_scenes_scenes_battlearena2` 现读，13 场同构）：
+        /// `TipText` = `piv(0.5,0.5)` · `ap(1.0600586, 91.78)` · `size(2450.1299, 99.697)` ·
+        /// `Image` sprite `40k_bt_underbutton` · `col(0.368627, 0.894118, 0.587437, 0.596078)`；
+        /// 子 `Text` TMP = **fs60 · 白 (1,1,1,1) · 横中(v=2)竖中(512)** · `enableAutoSizing=1` · **min 4 / max 60**。
+        /// ⚠️ **原版运行时还会 `SetSpriteAlpha(tipsBackground, <常量>)`**（`DAT_1834b2bb8` / `DAT_1834b3180`），
+        ///    那两个常量的**值读不出**（不在 `stringliteral` 里，是 float）⇒ 我们**保留序列化那份 alpha 0.596078**，
+        ///    ⛔ **不拿推断值去顶**（铁律 3：查不到就写查不到）。</summary>
+        static readonly Color TipBgColor = new Color(0.368627f, 0.894118f, 0.587437f, 0.596078f);
+        const float TipWpx = 2450.1299f, TipHpx = 99.697f;
+        const float TipCxPx = 960f + 1.0600586f;      // 原版锚点 (0.5,0.5) ⇒ 960 + ap.x
+        const float TipCyPx = 540f - 91.78f;          // 原版 y 向上 ⇒ 屏幕 y 向下要取负
+        const float TipFsPx = 60f, TipFsMinPx = 4f;
+        const int TipScale = 3;                        // `Label.Create` 的档位（自适应框会把它夹进 [4,60] px）
+
         /// <summary>「等待提示」（原版 `WaitText`）—— 对手思考时那条。🆕 2026-09-17</summary>
         WaitBanner _waitBanner;
         // 阵营资源（信仰 / 灵魂石）—— 2026-09-13 第三十三轮。物件**照建**、靠 `SetActive` 切显隐
@@ -3232,7 +3274,7 @@ namespace CardPresentation
             //   `_TutorialStartSequence`）都是「真开打那一刻」，这里是它在我们这条路上的等价物
             //   （有换牌那段走 `BeginBattleAfterSetup`，见那边的同一条）。`Initialize()` 自己幂等。
             InitializeAutoZoom();
-            SetHint("");                   // 提示行空着时显示开局那句「本局用的是哪副牌」
+            SetHint(_deckNotice);          // 🔴 2026-10-15：开局那句改成**入队一次**（空串现在 = 撤下当前那条）
         }
 
         /// <summary>
@@ -4503,8 +4545,11 @@ namespace CardPresentation
             //   接法 = 面板回调 `OnCardSeen` → `OnMulliganCardSeen` → `OnCardTapped`（不放开 `interaction`），
             //   所以这里**不动** `interaction.enabled`。⛔ 别为了「点卡」把它整个设回 true
             //   （那会顺带放出拖牌/悬停，原版换牌期没有）。
-            // ⚠️ **这一句在换牌期根本不会显示**（`SetHint` 开头 `if (InMulligan) { _hintLabel.SetText(""); return; }`，
-            //   A1502① 的判据）⇒ 下面这句只是「换牌一结束那条路的兜底值」，**不是**给玩家看的换牌说明。
+            // ✅ **2026-10-15 就地更正（铁律 5）**：本行原来的注释说「这一句在换牌期根本不会显示
+            //   （`SetHint` 开头 `if (InMulligan) { _hintLabel.SetText(""); return; }`，A1502① 的判据）」——
+            //   **那道换牌期抑制已经随自建的 `HintLabel` 一起删掉了**（换成原版的提示条之后，
+            //   原版**没有**「换牌期不显示提示」这条规则）⇒ **这一句现在换牌期真的会显示出来**。
+            //   ⚠️ 判据：原版 `BattleTipController.ShowHeadsUpMessage` 里没有任何与 mulligan 相关的分支。
             //   🔴 口径（`A1663`）：**点牌上的「换」= 标记要换的牌；点牌本身 = 看牌**（原版
             //   `ClickMulliganSelected` / `OnTouchUpAsButton` 两条路）—— 别把「点卡也能标记」注释加回来。
             //   ✅ 2026-10-12（`A1669`）：**已收成走词条** —— 原来这里是**同值字面量**、`Core/Loc.cs` 里
@@ -9000,41 +9045,86 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 写提示行。**传空 = 回到「休息态」那句**（`_deckNotice`：本局用的是哪副牌 / 为什么退了）。
+        /// 播一条提示（原版 `BattleTipController.ShowHeadsUpMessage`）。**传空 = 什么也不做。**
         ///
-        /// 为什么要有这个中转：开局那句必须**一直在**，不然玩家一悬停一选目标就被抹掉了 ——
-        /// 而「你这副牌有 N 张没上场」正是要他看见的事（红线：不许静默失败）。
-        /// 所以把它做成提示行的**默认文字**，游戏过程中的临时提示盖在它上面、用完自动落回来。
+        /// 🔴 **2026-10-15（`A2109` 第 1 条 · 用户拍板）**：本方法原来叫「写提示行」、写的是**我们自建的
+        /// `HintLabel`**（钉在屏幕正中）；那一条已**整个删掉**，换成**原版的** `AboveShader/TipText`
+        /// （建在 `BuildHud`、由 `TickTipBanner` 推）。**方法名保留**（20+ 个调用点），**语义换成「入队」**。
         ///
-        /// ⚠️ **原版没有这一行**（原版全卡种都能上场，没什么要交代的）—— 这是我们加的。
-        /// 🔴🔴 **2026-10-13（`A1757` · 用户拍板）：这一行【常态化不画】**（`BuildHud` 里那一句
-        ///    `_hintLabel.gameObject.SetActive(false)` 就是它）。下面这一整段**语义仍然成立**
-        ///    ——「写进 label」照旧发生、`HintText` 照旧读得到，**只是不上屏**；
-        ///    所以本条 doc 里凡是说「玩家看得见」的地方都要**按「落进日志/只读口、不落屏幕」理解**。
-        ///    原委与判据 → `BuildHud` 那一句上方的注释块（含真机截图）。
-        /// ⚠️ 唯一要**真的清空**的地方是结算（那时要收干净，不然会从结算面板底下透出来），
-        ///    那里直接调 `_hintLabel.SetText("")`。
+        /// <para>原版四条行为（判据 → `资料/普查产出_1015战斗/D1_A2109八条真缺_逐条判据.md` §1）：
+        /// ① **同类去重 = 比队【尾】**（同文案直接 return，不重复亮）；
+        /// ② **队列上限 3**，满了 `RemoveAt(1)`（**丢第二条**，留最早那条）；
+        /// ③ **单条 1.7 s**（`VarsGlobal.tipDuration`），到点 `RemoveAt(0)`、接着播下一条；
+        /// ④ **队列空 ⇒ 关掉整条**（原版 `SetActive(tipsGameObject,false)`）。</para>
+        ///
+        /// <para>⚠️ **原版没有「休息态文字」这一档** ⇒ 空串**不再**是「落回某句话」。
+        ///    本工程有 4 个调用点（轻点手牌把「拖到目标上再松手」收回 / 选牌面板关掉后收干净 /
+        ///    攻击方式选择器展开时收干净 / 选完进攻卡）**要的是「把这一条撤下来」** ⇒
+        ///    空串现在的语义 = **清掉队列并立刻关**（= `ClearTips()`）。
+        ///    🔴 **这是【我们加的】、原版没有**（原版只有「入队」+「到点自动下一条」）——
+        ///    如实标在这里，⛔ 别写成「原版就是这样」。</para>
+        ///
+        /// <para>⚠️ **开局那句「本局用的是哪副牌」**（`_deckNotice`，也是我们自加的信息）
+        ///    改成**开局入队一次**（`BeginBattleAfterSetup` / 无换牌那条路）——
+        ///    借原版这条提示条播出来，**不再自己做一条常驻行**。</para>
         /// </summary>
         void SetHint(string s)
         {
-            if (_hintLabel == null) return;
-            // 🔴 **2026-10-19（A1502①）：换牌阶段这一行整行不画。**
-            //   这一行钉在**屏幕正中**（`_hintLabel` 建在 `(0.5, 0.507)`，见 `BuildHud`），
-            //   而**正中一直是两张督军卡**（我 / 敌各一张 —— 原版实拍 `资料/原版参照图/用户实拍_1017/`
-            //   `战斗截图参考.png` 里那两张也在正中）⇒ 实测 `_tmp_view/ui_1019/17_battle.png`：
-            //   这一行被督军卡**从中间盖掉一截**（左半「本局用你编的…」看得见，右半没了）。
-            //   ⚠️ **换牌阶段这一格本来就有原版自己的一句话** —— `MulliganText`（中心 `(967, 106.5)`，
-            //     我们照原版摆在屏幕顶端、写的是词条 `Battle/Mulligan/Instructions`）
-            //     ⇒ 这一格让给它最干净，也与原版「这一阶段只有顶端那一行」一致。
-            //   ⚠️ **只是「不画」，不是「丢了」**：`Ctx.MulliganOpen` 一落就恢复
-            //     （单机在 `OnMulliganDone` 末尾那次 `SetHint`；联机在 `:294` 那次）。
-            //   ⚠️ 同族先例：`_waitBanner` 也是按 `!InMulligan` 关的（`UpdateHud` 里那一句）。
-            //   ⚠️ **本件整个是「我们加的」**（本方法 doc 上一段就写着「原版没有这一行」）⇒ 位置也是我们挑的。
-            //      ⛔ **本笔没做的那一半**：换牌结束之后这一行**仍然**被督军卡盖着 —— 那是「这一行该摆哪儿」
-            //      的位置问题，而原版**没有这一件**、没有判据可照 ⇒ **不自己挑一个新位置**（铁律 3），
-            //      已如实记进 `资料/普查产出_第十七会话/C_换牌阶段版面.md`。
-            if (InMulligan) { _hintLabel.SetText(""); return; }
-            _hintLabel.SetText(string.IsNullOrEmpty(s) ? _deckNotice : s);
+            if (string.IsNullOrEmpty(s)) { ClearTips(); return; }                      // 「撤下来」（我们加的，见 doc）
+            if (_tipQueue.Count > 0 && _tipQueue[_tipQueue.Count - 1] == s) return;   // ① 去重：比队尾
+            if (_tipQueue.Count >= TipQueueMax) _tipQueue.RemoveAt(1);                // ② 满了丢【第二条】
+            _tipQueue.Add(s);
+            if (!TipVisible) TickTipBanner(0f);      // 原版：没在显示 ⇒ 立刻起播（在显示就等它 1.7s 到点）
+        }
+
+        /// <summary>提示条现在露着没有（原版 `tipsGameObject.activeSelf`）。</summary>
+        public bool TipVisible { get { return _tipBg != null && _tipBg.gameObject.activeSelf; } }
+
+        void SetTipVisible(bool on)
+        {
+            if (_tipBg != null) _tipBg.gameObject.SetActive(on);
+            if (_tipText != null) _tipText.gameObject.SetActive(on);
+        }
+
+        /// <summary>提示条的计时泵。📌 **挂在 `AdvanceTimeline` 上，⛔ 不是挂在 `Update` 里** ——
+        /// 批处理**没有帧循环**、`Update` 根本不跑，而自检是靠 `BattleScene.Step → AdvanceTimeline` 推的
+        /// （同 `TickIntroMonologue` / `TickPostBattleScript` 的理由，`AdvanceTimeline` 里那条注释写着）。
+        /// 原版这一步是协程 + `WaitForSeconds(tipDuration)`；我们改成显式计时。</summary>
+        void TickTipBanner(float dt)
+        {
+            if (_tipQueue.Count == 0)
+            {
+                if (TipVisible) SetTipVisible(false);        // ④ 队列空 ⇒ 关
+                return;
+            }
+            if (!TipVisible)                                 // 起播队首
+            {
+                SetTipVisible(true);
+                if (_tipText != null) _tipText.SetText(_tipQueue[0]);
+                _tipLeft = TipDuration;
+                // 🔴 **量一次宽度并缓存**（`HintWidth` 读它）：`Label.WorldW` 量的是 TMP 的
+                //    `textBounds`，而 **TMP 在对象没激活时量不出尺寸**（本工程老坑，见 CLAUDE.md §三）。
+                //    提示条 1.7 s 后就自动关了 ⇒ 断言若在之后才读，量到的是垃圾。
+                if (_tipText != null) _tipW = _tipText.WorldW;
+                return;
+            }
+            _tipLeft -= dt;
+            if (_tipLeft > 0f) return;
+            _tipQueue.RemoveAt(0);                           // ③ 到点，丢掉第一条
+            if (_tipQueue.Count == 0) { SetTipVisible(false); return; }
+            if (_tipText != null) _tipText.SetText(_tipQueue[0]);   // 接着播下一条
+            if (_tipText != null) _tipW = _tipText.WorldW;          // 同上：趁激活时量
+            _tipLeft = TipDuration;
+        }
+
+        /// <summary>把队列清干净、立刻关掉。**只有结算用** —— 原版那一步等价于
+        /// `CloseBattleDoors` 里的 `BattleHud.ToggleWithAnimation(false)`（整条 HUD 收掉，
+        /// 提示自然也不该再露）；我们没有「收整条 HUD」这个动作，所以在这一处显式收提示条。</summary>
+        void ClearTips()
+        {
+            _tipQueue.Clear();
+            _tipLeft = 0f;
+            SetTipVisible(false);
         }
 
         /// <summary>
@@ -9123,7 +9213,11 @@ namespace CardPresentation
                 kv.Value.SetHighlight(CardHighlightState.Normal);
                 kv.Value.SetTargetGem(TargetGem.None);    // 底光也要熄
             }
-            if (_hintLabel != null) SetHint("");          // 落回「休息态」那句（开局那副牌）
+            // 🔴 **2026-10-15**：原来这里调 `SetHint("")` 让它「落回休息态那句（开局那副牌）」。
+            //   换成原版提示条之后**没有休息态**了（空串现在的语义 = 「把这一条撤下来」，见 `SetHint` 的 doc）
+            //   —— 而在这个位置（清选择）**没有「哪一条该撤」这回事**：提示条本来就是到点自己下一条
+            //   ⇒ **这一句已删**（留在那儿只会被读成「清选择会打断提示」）。
+            //   ⚠️ 开局那句现在由**入队一次**承担（见 `BeginBattleAfterSetup` / 无换牌那条路）。
         }
 
         void EndPlayerTurn()
@@ -11212,6 +11306,10 @@ namespace CardPresentation
             // 🆕 2026-10-18（A939）：**战后脚本**（`onVictory` 那 13 条聊天/电台）也走这个泵 ——
             //  同 `TickIntroMonologue` 的理由：真机靠 `Update`、批处理靠 `BattleScene.Step` 显式推。
             TickPostBattleScript(dt);
+
+            // 🆕 2026-10-15（`A2109` 第 1 条）：**提示条**（原版 `BattleTipController` 那条队列）也走这个泵 ——
+            //   同上，真机靠 `Update`、批处理靠 `Step` 推；挂错地方就是个只在一种环境下活的实现。
+            TickTipBanner(dt);
 
             // 🆕 2026-09-18：**开局独白也走这个泵**。            // 🔴 **不能挂在 `Update` 里** —— 批处理**没有帧循环**，`Update` 根本不跑，
             //    而自检是靠 `BattleScene.Step → AdvanceTimeline` 推的（`Step` 的注释里写着这个坑）。
@@ -13434,22 +13532,31 @@ namespace CardPresentation
             }
 
             // 提示行放在**两行棋盘中间那条缝**里（玩家行上沿 0.483 / 对手行下沿 0.530）
-            _hintLabel = Hud(root, "", 0.5f, 0.507f, 3,
-                             new Color(0.75f, 0.78f, 0.85f), new Vector2(0.5f, 0.5f), "HintLabel");
-            // 🔴🔴 **2026-10-13（`A1757` · 用户当天拍板「常态隐藏」）：这一行【一个像素都不画】。**
-            //   原委（`项目任务.md` §29·c 那一格挂了三档候选、用户选了 ①）：
-            //   · **原版根本没有这一件** —— 原版全卡种都能上场、没有什么要交代的，所以**没有位置判据可照**
-            //     （铁律 3：查不到参数就不自己挑）；这一行的 doc 自己第一句就写着「原版没有这一行」。
-            //   · 我们把它钉在**屏幕正中 `(0.5, 0.507)`**，而正中**一直是两张督军卡** ⇒ 真机实测
-            //     `_tmp_view/wf_a1750/quiet_view.png` / `match_view.png`：它**淡淡地横在棋盘正中**、
-            //     并被中央那张卡**从中间截断**（左半看得见、右半没了）—— 每局都看得见，纯属噪声。
-            //   ⛔ **但「不画」≠「不出声」**（本工程红线「不许静默失败」）：`SetHint` **照旧把字写进 label**
-            //     （`HintText` 这个只读口一字未改 ⇒ `Editor/BattleScene.cs` 那 7 处读它的断言**全部照旧有效**），
-            //     只是**这一颗 GameObject 恒不激活** ⇒ 不渲染。
-            //   ⚠️ **实现为什么选「建出来但关掉」而不是「不建」**：① 不建 ⇒ `HintText` 返 `null`，
-            //     上面那批断言全红；② 关掉之后 `SetText` 落在**未激活**对象上 —— 那正是 `Label.RefreshBounds`
-            //     哨兵摆位那个坑（`A1751`）的触发条件，而 `A1751` 已经把守卫补上了 ⇒ 今天这条**无害**。
-            if (_hintLabel != null) _hintLabel.gameObject.SetActive(false);
+            // ---- 提示条（原版 `AboveShader/TipText`）----------------------------------------------
+            // 🔴 **2026-10-15 换件（`A2109` 第 1 条 + 用户当天拍板）**：这里原来是**我们自建的** `HintLabel`
+            //   （钉在屏幕正中 `(0.5,0.507)`），2026-10-13 被拍板「常态化不画」、理由写的是
+            //   「**原版根本没有这一件**」——**那个理由 2026-10-15 查实是错的**（当年拿 `2D层_battlearena1
+            //   全树.md` 判的，而那份正是**截断版**：851/1224、缺的 373 个 GO 刚好落在 HUD，标题却写「全树」）。
+            //   原版**有**这一件（`AboveShader/TipText` + 独立的 `BattleTipController`），判据全齐
+            //   ⇒ 按原版重建、**自建那一条整个删掉**。判据 → `资料/普查产出_1015战斗/D1_A2109八条真缺_逐条判据.md` §1。
+            // ⚠️ 几何是**照抄原版字段**的（常量在 `TipWpx` 那几个）：屏幕中心 = `(960+ap.x, 540−ap.y)`。
+            float tipX01 = TipCxPx / 1920f, tipY01 = 1f - TipCyPx / 1080f;
+            _tipBg = HudImage(root, "40k_bt_underbutton", tipX01, tipY01, new Vector2(0.5f, 0.5f),
+                              TipHpx / 108f, "TipText");
+            if (_tipBg != null)
+            {
+                _tipBg.SetAspect(TipWpx / TipHpx);        // 原版那颗 Image 是 `RTgt=0`（不按图的比例）⇒ 拉满这个矩形
+                _tipBg.SetTint(TipBgColor);
+            }
+            else
+            {
+                Debug.LogWarning("[Battle] 提示条底板 `40k_bt_underbutton` 取不到 ⇒ 提示条**只出字、不出底**"
+                               + "（照旧出声，不静默）—— 见 `BuildHud` 的提示条那一段");
+            }
+            // 字：**白 · fs60 · 横中竖中 · 自适应 [4,60] px**（判据 = `MonoBehaviour_4010.json` 现读）
+            _tipText = Hud(root, "", tipX01, tipY01, TipScale, Color.white, new Vector2(0.5f, 0.5f), "TipText_Text",
+                           TipWpx, TipHpx, TipFsMinPx, TipFsPx);
+            SetTipVisible(false);                          // 出厂关着（原版场景态 `m_IsActive=False`）
 
             _resultLabel = Hud(root, "", 0.5f, 0.5f, 7,
                                new Color(1f, 0.9f, 0.4f), new Vector2(0.5f, 0.5f), "ResultLabel");
@@ -15168,9 +15275,11 @@ namespace CardPresentation
                 string r = Ctx.Winner == 3 ? "DRAW" : (Ctx.Winner == _me + 1 ? "YOU WIN" : "YOU LOSE");
                 // 结算面板接管这块文字（面板自己有标题）—— 留着的话中心会和面板标题撞成两处
                 _resultLabel.SetText(_endPanel == null ? CardText.Phrase(r) : "");
-                // 结算：这里要**真的清空**（不走 `SetHint`）—— 落回「开局那句牌组说明」的话，
-                // 它会从结算面板底下透出来（提示行 z=3，结算面板盖在中间）
-                if (_hintLabel != null) _hintLabel.SetText("");
+                // 结算：这里要**真的清空**（不走 `SetHint` —— 它是「入队」，而这里要的是「收干净」）。
+                // 🔴 **2026-10-15**：换成 `ClearTips()`。原版那一步等价于 `CloseBattleDoors` 里的
+                //   `BattleHud.ToggleWithAnimation(false)`（整条 HUD 收掉，提示自然不再露）；
+                //   我们没有「收整条 HUD」这个动作 ⇒ 在这一处显式收提示条。
+                ClearTips();
                 // 🔴🔴 **2026-10-12：这一块的【闩】与【闸】都换掉了**（原来那一行是
                 //   `if (_endPanel != null && !_endPanel.Visible)`）：
                 //   · **A382（闩）**：原来整块（日常推进 / 对局记录 / 录像收尾 / 结算面板）**全挂在
@@ -15868,13 +15977,30 @@ namespace CardPresentation
         /// 拿成品句子比 = 同一份代码在不同录像上结论不同（**弱断言**）。
         /// `null` = 这一档明说「没有『卡组读不出来』这回事」（回放局就该是 null）。</summary>
         public string RawDeckNoteForTest { get { return _deckNote; } }
-        /// <summary>提示行现在写着什么。⚠️ 它平时等于 <see cref="DeckNotice"/>（休息态），
-        /// 悬停/选目标时会被临时提示盖住 —— 断言「玩家看得见那句」要挑对时机。</summary>
-        public string HintText { get { return _hintLabel != null ? _hintLabel.Text : null; } }
-        /// <summary>提示行这块字有多宽（世界单位，可见区宽 = `LayoutSpace.VisibleWidth`）。
+        /// <summary>提示条**现在露着的那句**（没露 = `null`）。
+        /// 🔴 **2026-10-15 语义已变**：原来是「提示行此刻写着什么」（平时恒 == `DeckNotice`）；
+        /// 换成原版提示条之后**没有休息态** ⇒ **不显示的档一律返 `null`**。
+        /// ⚠️ 断言要在**入队后的同一帧**读（`SetHint` 会立刻起播 ⇒ 同帧就可见）；
+        ///    跨过 `TipDuration`(1.7 s) 就会自动关掉、读回 `null`。</summary>
+        public string HintText { get { return TipVisible && _tipText != null ? _tipText.Text : null; } }
+        /// <summary>提示条那块字有多宽（世界单位，可见区宽 = `LayoutSpace.VisibleWidth`）。**读的是最近一次的缓存值**
+        /// ⇒ 断言在提示消失之后读也拿得到（见 `_tipW`）。
         /// ⚠️ `Label` 是 **NoWrap** 的，太长不会折行、只会横着长到屏幕外去 ——
         /// 而卡组名是玩家自己起的、长度不可控，所以要有条断言挡着。</summary>
-        public float HintWidth { get { return _hintLabel != null ? _hintLabel.WorldW : 0f; } }
+        public float HintWidth { get { return _tipW; } }
+
+        /// <summary>**自检用**：`s` 是不是「在提示条上」—— **正露着的** 或 **还在队列里** 都算 `true`。
+        /// 🔴 **为什么要这个口**：原版提示条是**队列 + 单条 1.7 s**，一条提示**不一定**在写下它的那一帧就上屏
+        /// （前面还有一条没播完就往后排）⇒ 断言若直接比 `HintText`（= 只有「正露着」才非 null）
+        /// 就会**看时序**，同一份代码在不同步进下结论不同（弱断言，铁律 12 那条「别写恒真的」的反面）。
+        /// ⚠️ 它**不是恒真**的：把对应的 `SetHint` 删掉 ⇒ 这句当场红。</summary>
+        public bool TipPending(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return false;
+            if (HintText == s) return true;
+            for (int i = 0; i < _tipQueue.Count; i++) if (_tipQueue[i] == s) return true;
+            return false;
+        }
         public IReadOnlyDictionary<int, CardView> MyUnits { get { return _myUnits; } }
         public IReadOnlyDictionary<int, CardView> FoeUnits { get { return _foeUnits; } }
 

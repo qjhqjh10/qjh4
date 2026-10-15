@@ -189,7 +189,7 @@ namespace CardPresentation
             _frozenWarned = false;
 
             // ⚠️ 用**带野值防护**的那个（见 `PointerWorldSafe` 的注释）——
-            //    `Release` 判的是卡的位置，而卡跟着指针走，所以野一帧就判错。
+            //    2026-10-15（`A2107`）起**落点判定与「推上线」守卫取的都是它** ⇒ 它野一帧，两处一起判错。
             Vector3 world = PointerWorldSafe();
 
             if (_dragging == null) UpdateHover(world);
@@ -280,8 +280,15 @@ namespace CardPresentation
             //   我们这道是自己加的，为的是「拖到战场上以后还按 x 重排 ⇒ 手牌会自己滑来滑去」。
             //   本件只做一件事：**把量取成原版那一处比较取的那个量**（指针）——
             //   ⛔ 不许删（删了改行为，且没有判据说原版没有这道守卫）· ⛔ 不许原样留着读卡的位置。
-            //   ⚠️ **阈值仍是我们的**：`HandLimitArea` 的 779 与我们 `BoardLayout.lineY`（我方 = 0.3444
-            //      = 708/1080）之间的换算**没验过**（树 dump 的坐标约定与 canvas 缩放都没核）⇒ 别顺手换阈值。
+            //   🔴 **2026-10-15 就地订正（铁律 5）**：下面这条「**没验过**」**已经验清了**（`A2104①`）——
+            //      原版 `HandLimitArea` 实况 dump = `pos(0,300)` · anchor=pivot=(0.5,**0**) · 根 Canvas 1080
+            //      ⇒ 它 = **底边上方 300 设计 px = 距顶 780 px**；而旧记的「779」是**距顶**读法
+            //      ⇒ **两处读数本来就是同一根线**。
+            //      ⚠️ **但我们那条比较线仍不对**：`BoardLayout.lineY`(我方) = 0.3444 = **372 px 距顶**
+            //      （= `battle.gd` 时代的旧校准，`ArenaSlots.cs:37` 自承「不是原版字段」）⇒ 与原版
+            //      **差 72 px**；而且 `lineY` **同时**是 2D 棋盘行心，原版实测行心是 **636 px**
+            //      ⇒ **正解是把两个用途拆开**（`A2104①` 已明令「⛔ 别直接改 0.3444」）。
+            //      ⇒ **仍不许顺手换阈值** —— 但理由从「没验过」变成「一个字段担两个用途，要先拆」。
             if (LayoutSpace.ToNormalized(world).y < board.lineY)
             {
                 var visible = VisibleCards();
@@ -305,9 +312,18 @@ namespace CardPresentation
             }
 
             // 落点是否合法 → 实时反映在卡的着色上
+            // 🔴 **2026-10-15（`A2107`）：判定量 = 【指针】，⛔ 不是被拖那张卡。**
+            //   原版：`MinionManager.GetClosestAvailableSlot(MinionManager*, TouchInputManager.TouchPosition)`
+            //     （`BattleManager__Update.c:428/588` ⇒ 第二实参就是 `FUN_180789a30` = `TouchInputManager.get_TouchPosition`，
+            //      B3 §一 用机器码证实过；`GetClosestAvailableSlot` 把每个槽 `WorldToScreenPoint` 后比**屏幕距离**）。
+            //   我们原来传 `t.position`（卡中心），而卡是**带平滑跟手**的（下面 `UpdateDrag` 那句 `Lerp`）
+            //   ⇒ 卡恒**滞后**于指针 ⇒ 指针已经停在格上、卡还在半路，判的是**旧落点**。
+            //   ⇒ 现在与「推上线」那道守卫（同文件、2026-10-18 已改）**同一口径 = 指针**（`world` = `PointerWorldSafe()`）。
+            //   ⚠️ 量纲不用换：`BoardLayout.TryResolveSlot` 收的就是**世界坐标**，3D 那条路它自己换屏幕点
+            //      （`BoardLayout.cs:450-455`）—— 产品里另一条同样取指针的路径也这么用（`BattleDriver.cs:3104`）。
             int boardSlot;
             BoardLayout which;
-            bool ok = ResolveDrop(t.position, _dragging, out boardSlot, out which);
+            bool ok = ResolveDrop(world, _dragging, out boardSlot, out which);
             _dragging.SetHighlight(ok ? CardHighlightState.ValidTarget : CardHighlightState.Selected);
 
             // 🆕 2026-10-01（§〇 第 14 条 (b)）：**落点指示** —— 只点亮**它会去的那一格**。
@@ -485,13 +501,16 @@ namespace CardPresentation
             BoardLayout which;
             // 🔴 松手时**先记下被拒的原因** —— 回弹不该是静默的：
             //    日志里要能直接看出是哪一道闸挡的（2026-09-17 加）。
-            var cp = card.transform.position;
+            var cp = card.transform.position;          // ⚠️ 只给日志用（看卡滞后了多少）
             DropRejectKind kind;
-            string reject = DropReject(cp, card, out slot, out which, out kind);
+            // 🔴 **2026-10-15（`A2107`）：判的是【指针】，⛔ 不再是卡的位置。**
+            //   上面 `cp` 那一行**只为日志留着** —— 判据见 `UpdateDrag` 里同一段（原版
+            //   `GetClosestAvailableSlot(TouchInputManager.TouchPosition)`，机器码判据在 `B3` §一）。
+            //   ⚠️ 这次改动的**来由就是那条日志**：2026-09-17 抓到「卡已经飞到 (-2.14,-3.35) 才判」，
+            //      当时判成「指针读野了」并给指针加了防护（`PointerWorldSafe`）—— 那只治了野值，
+            //      没治**结构性滞后**；两个量本来就不该混用。
+            string reject = DropReject(world, card, out slot, out which, out kind);
             bool ok = reject == null;
-            // ⚠️ **判的是卡的位置，不是指针的位置** —— 两者差一个 `_grabOffset`。
-            //    2026-09-17 查一个「拖到目标点上反而被判不合法」的古怪 bug 时加的探针：
-            //    要能一眼看出**卡是不是已经在半路了**（实测出现过卡飞到 (-2.14,-3.35) 才判的情形）。
             Debug.Log($"[CardPresentation] Release：指针世界 ({world.x:F2},{world.y:F2})"
                       + $" · 卡在 ({cp.x:F2},{cp.y:F2},{cp.z:F2})"
                       + $" · 抓取偏移 ({_grabOffset.x:F2},{_grabOffset.y:F2})"
@@ -651,12 +670,15 @@ namespace CardPresentation
         /// <summary>
         /// 指针的世界坐标 —— **带单帧野值防护**。
         ///
-        /// 🔴 为什么需要（2026-09-17 实测抓到）：`Release` 判落点用的是**卡的当前位置**，
+        /// 🔴 为什么需要（2026-09-17 实测抓到）：当时 `Release` 判落点用的是**卡的当前位置**，
         ///    而卡的位置每帧被 `UpdateDrag` 拉向「指针 + 抓取偏移」。
         ///    ⇒ **指针只要野一帧，卡就被拽飞**，紧接着 `Release` 按飞走的卡位置判「落点不合法」
         ///    ⇒ 明明拖到了格位上却回弹。实测抓到的一帧：指针世界坐标 **(-37.55, 15.43)**
         ///    —— 可见区才 17.78 × 10（反推屏幕坐标约 **-4127 px**），那一帧卡已经从
         ///    槽 0 飞到了 (-2.14, -3.35)，于是判非法。**看起来像「拖得不准」，其实是指针读坏了。**
+        /// 📌 **2026-10-15（`A2107`）起判据换成指针本身**（照原版）⇒ 这道防护现在是**直接**保命的那道
+        ///    （以前是「经卡间接」）。⚠️ 但那次换口径**不是推翻上面这条**：野值防护治的是**读数坏**，
+        ///    换指针治的是**两个量混用**，两件事都要。
         ///
         /// 阈值取「可见区 ±1.5 倍」：正常拖拽（含拖到画面边缘）远远到不了，到了就是读数不可信。
         /// 越界一律**丢掉这一帧、沿用上一帧**，并且**只报一次**（不刷屏）。

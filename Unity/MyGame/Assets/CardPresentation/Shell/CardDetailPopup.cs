@@ -21,7 +21,11 @@
 //   · `Card Display` **584,106 → 1336,974**（752×868）· 卡本体在 `Cards/CardUI (4)/2DCard` = **523.25×832.75**
 //   · `LowerSection` **300,921.34 → 1620,1058.34**
 //     ├ `FlavourTextBG` 300,900.84→1620,1078.84（原版 `spr=0`、运行时由 `FlavourTextSO` 喂 ⇒ **本地没有**）
-//     ├ `LoreText` 335,943.11→1585,1036.58 **fs35 hAlign=Right**
+//     ├ `LoreText` 335,943.11→1585,1036.58 **fs35 auto[10,35] hAlign=Center**
+//       ⚠️ **2026-10-15 就地订正（`A2111` 表三·4）**：本行原来写 `hAlign=Right` —— 与本文件
+//       `BuildLoreText` 里那条判据（`m_HorizontalAlignment = 2` = Center）**自相矛盾**。
+//       `Right` 是错的，两处摆放**都是 Center**。另外这一格的 fs35 是**菜单版专有**：
+//       战斗版那颗是 `fs32 auto[18,32]`（`CardWinBox.LorePxBattle`）—— 判据 → `Core/CardWinBox.cs`。
 //     ├ `Voice Over Button` 1650,945.51→1738.66,1034.17（88.655²，`40k_UI_bt_voicelines`）
 //     └ `Show Card Text` 181.34,945.51→270,1034.17（88.655²，`40k_UI_bt_eye`）
 //   · `Panel`（VLG align4）**1294,146.37 → 1744,903.35**，三块 **x=[1294,1744] 宽 450**、y **146.71 / 411.12 / 673.42**

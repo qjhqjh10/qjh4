@@ -325,16 +325,18 @@ namespace CardPresentation
         /// ```
         /// ⇒ 上限（画布 px）= `AffectedBy` **38.5**（= `CardWinBox.EffTitlePx`）·
         ///   两个 `Effect*` **32.6**（= `CardWinBox.EffTextPx`）· `LoreText` **32.0**
-        ///   —— ⚠️ **`LoreText` 是这一批唯一一处「上限 ≠ 我们原来传的标称」**：
+        ///   —— ⚠️ **`LoreText` 是这一批唯一一处「上限 ≠ 标称」**：
         ///   `CardWinBox.LorePx = 35` 是**菜单版** `Card Detail Popup` 那颗的值（那边 `auto[10~35]`），
-        ///   而**战斗这一份原版是 `auto[18~32]`** —— 两处摆放、两颗 TMP 的字段**真的不同**（铁律 5·c）。
+        ///   而**战斗这一份原版是 `auto[18~32]`** —— 两处摆放、两颗 TMP 的字段**真的不同**（铁律 5·c）
+        ///   ⇒ 战斗窗三格都用战斗版：标称 `CardWinBox.LorePxBattle`(32) · 下限 **18** · 上限 `LoreAutoMax`(32)
+        ///     （**2026-10-15 · `A2111` 表三·3/·4** 补齐后两格；之前只有上限是战斗版的）。
         /// <para>⚠️ **`m_fontSizeBase` 这一格【不传】是有判据的，不是没读到**：原版四颗的 base 都是 **36.0**
         /// —— 那正是 TMP 的**序列化默认值**（`TMP_Text.cs:473`，作者的 `fontSize` setter 在
         /// `m_enableAutoSizing=1` 时**不回写 base**）⇒ 运行期它进的是
         /// `m_fontSize = Mathf.Clamp(base, min, max)`（`TextMeshPro.cs:2149`），**四颗全被夹到 `max`**。
         /// 而本口 `basePx &lt;= 0` 的缺省语义 = 「base 取调用方那一档（`cur`）」——
-        /// 本窗这四颗的 `cur` 分别是 38.5 / 32.6 / 32.6 / 35，**前三颗恰好 = max**、
-        /// `LoreText` 那颗 35 > max 32 ⇒ 同样**被夹到 max** ⇒ **与「原版把 36 夹到 max」逐位同效**。
+        /// 本窗这四颗的 `cur` 分别是 38.5 / 32.6 / 32.6 / 32，**四颗全都 ≥ 各自的 max 或恰在 max 上**
+        /// （`LoreText` 那颗是 **32 = max**）⇒ **与「原版把 36 夹到 max」逐位同效**。
         /// （换算：若照字面传 `basePx = 36`，在**我们**这套 px 口径里 36 落在 `[19.3, 38.5]` **区间内部**，
         ///  那反而与「原版被夹到 max」**不同** —— 单位不同的两个数不能直接对填。）</para></summary>
         const float FxTitleAutoMax = 38.5f, FxTextAutoMax = 32.6f, LoreAutoMax = 32f;
@@ -675,7 +677,12 @@ namespace CardPresentation
             for (int i = 0; i < SlotCount; i++)
             {
                 var cd = cards[i];
-                var v = CardView.Create(_cards, cd, CardFan.SlotName(i));
+                // 🔴 **`CardUse.ZoomWindow`（`A2110` + `A2111`）**：放大窗那一族在原版**是另一种值** ——
+                //    `NameTextUnit` 字号 **16**（别处全 19）、阴影 alpha **0.8**（材质默认 0.604）。
+                //    扫 13 arena × 8 实例 = 104 个 `NameTextUnit`：`fs=16` 恰好 65 个 = 每场这 5 张
+                //    （判据 → `资料/普查产出_1015战斗/C1_逐格对账_卡面放大窗与卡面渲染.md` 表三·1/·2）。
+                //    ⛔ **别图省事去掉这个形参** —— 去掉就是把放大窗改回「大 18.75% + 影子偏淡」。
+                var v = CardView.Create(_cards, cd, CardFan.SlotName(i), use: CardUse.ZoomWindow);
                 if (v == null)
                 {
                     Debug.LogWarning("[展示窗] 第 " + i + " 格（" + cd.title + "）的 `CardView` 建不出来 —— 那一格没画，出声");
@@ -791,16 +798,17 @@ namespace CardPresentation
             string body = ShownBody ?? "";
             if (string.IsNullOrEmpty(body)) { _bg.gameObject.SetActive(false); return; }
             var r = new PxRect(CardWinBox.LoreL, CardWinBox.LoreT, CardWinBox.LoreR, CardWinBox.LoreB);
-            // 原版 `LoreText`：**fs35**（auto 10–35）· 限宽换行 · **居中** · 白
+            // 原版战斗版 `LoreText`：**fs32** · `auto[18,32]` · 基准 36 · 限宽换行 · **居中** · 白
             // 🔴 **2026-09-28：不是右对齐** —— `m_HorizontalAlignment = 2`（Center，位标志 Left=1/Center=2/Right=4），
             //    实拍也一致（正本 §十·5 第 4 条）。`MenuDraw.Text` 默认就是居中 ⇒ **不要** `AlignRight`。
-            // 🔴 **A406（2026-10-12）就地订正上一行那两个数**：上面那句 `fs35 auto 10–35` 是**菜单版**
+            // 🔴 **A406（2026-10-12）就地订正「fs35 auto 10–35」那两个数**：那是**菜单版**
             //   （`Card Detail Popup`）那颗的值；**战斗这一份**（`bundle_scenes_scenes_battlearena1` 的
             //   `GameObject/LoreText.json`，父链 = `LowerSection/FlavourTextBG`）原版是
-            //   **`字号=32.0 auto[18.0~32.0] 基准=36.0`** ⇒ 上限 **32**（见 `LoreAutoMax` 那段判据）。
-            //   ⚠️ 本件**只改上限**（`autoMaxPx`）：下限那一格我们仍传 `10f`、原版战斗版是 **18** ——
-            //      **min 不在 A333/A336 两条账里**（同 `MissionsTab` 那两处先例），**如实记着、没动**。
-            _lore = MenuDraw.Text(_bg, r, body, Color.white, "LoreText", CardWinBox.LorePx, QChrome, r.W, 10f,
+            //   **`字号=32.0 auto[18.0~32.0] 基准=36.0`**。
+            // 🔴 **2026-10-15（`A2111` 表三·3/·4）把剩下那两格也补齐**：之前只改到上限（`LoreAutoMax=32`），
+            //   **标称字号仍传菜单版的 `LorePx`(35)**、**下限仍传 `10f`**（原版战斗版是 **18**）。
+            //   现在三格都是战斗版的：标称 `LorePxBattle`(32) · 下限 **18** · 上限 `LoreAutoMax`(32)。
+            _lore = MenuDraw.Text(_bg, r, body, Color.white, "LoreText", CardWinBox.LorePxBattle, QChrome, r.W, 18f,
                                   LoreAutoMax);
             SetZ(_lore != null ? _lore.transform : null, ZContent);
             if (_lore == null)

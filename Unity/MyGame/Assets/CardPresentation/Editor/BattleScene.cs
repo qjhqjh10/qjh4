@@ -8015,15 +8015,19 @@ public static class BattleScene
                         for (int i = 0; i < 24; i++) { it.SimulateDrag(offBoard, 1f / 30f); Step(1f / 30f); }
                         it.SimulateRelease(offBoard);
                         Step(0.1f);
-                        Check(driver.HintText == wantMiss,
-                              $"★ 拖空松手 ⇒ 提示行是原版那句 `Battle/Tips/DragToTarget`"
+                        Check(driver.TipPending(wantMiss),
+                              $"★ 拖空松手 ⇒ 提示条上是原版那句 `Battle/Tips/DragToTarget`"
                             + $"（期望「{wantMiss}」，实得「{Short(driver.HintText, 30)}」）—— 原来只出语音、不出字");
-                        // 🧨 灭自证：把 `OnCardReturned` 的 `SetHint` 删掉 ⇒ 上面那条当场红
-                        //（提示行会停在 `DeckNotice` 上，而不是空串 —— `SetHint("")` 是「落回休息态」）。
-                        Check(driver.HintText != driver.DeckNotice,
-                              "★ …而且它**不是**休息态那句（否则「什么都没写」也会被蒙过去）");
-                        driver.NetSay("");           // 收干净（`NetSay` 就是 `SetHint` 的公开口）
-                        Check(driver.HintText == driver.DeckNotice, "…收干净后落回休息态那句");
+                        // 🧨 灭自证：把 `OnCardReturned` 的 `SetHint` 删掉 ⇒ 上面那条当场红。
+                        // 🔴 **2026-10-15 换件（`A2109` 第 1 条）**：本处原来还有两条断「它**不是**休息态那句」
+                        //   与「收干净后落回休息态那句」—— 自建的 `HintLabel` 删掉、换成**原版提示条**之后，
+                        //   **「休息态文字」这一档根本不存在了** ⇒ 那两条的前提消失，已删。
+                        //   换成下面这条**更难假的**：**队列播完自己关**（原版 `SetActive(tipsGameObject,false)`）。
+                        //   ⚠️ 推 6 s > 上限 3 条 × 1.7 s = 5.1 s，把队列走空。
+                        for (int i = 0; i < 60; i++) Step(0.1f);
+                        Check(!driver.TipVisible && driver.HintText == null,
+                              "★ …而且**队列播完自己关**（原版 `SetActive(tipsGameObject, false)`，队列空 = 灭）"
+                            + $" —— 实得 visible={driver.TipVisible}／「{driver.HintText ?? "(null)"}」");
                     }
 
                     // ---- ② 这个单位现在动不了 ⇒ 提示行出那句 ----
@@ -8036,12 +8040,11 @@ public static class BattleScene
                             eu.Exhausted = true;
                             bool opened = driver.SimulateOpenCommand(freeSlot);
                             Check(!opened, "★ 已行动过的单位 ⇒ 指令格**不开**（原版 `canAct == false` 那一支）");
-                            Check(driver.HintText == wantReady,
-                                  $"★ 那一档的提示行 = `Battle/Tips/UnitNotReady`"
+                            Check(driver.TipPending(wantReady),
+                                  $"★ 那一档的提示条上是 `Battle/Tips/UnitNotReady`"
                                 + $"（期望「{wantReady}」，实得「{Short(driver.HintText, 30)}」）"
                                 + " —— 原来走 `CardText.Phrase(\"THIS UNIT ALREADY ACTED\")`，那条**没有原版键**");
                             eu.Exhausted = exWas;
-                            driver.NetSay("");
                         }
                     }
                 }
@@ -8573,8 +8576,8 @@ public static class BattleScene
                 Check(none == null, "存档里一副卡组都没有 → PickSavedDeck 给 null（走自动凑）");
                 driver.BeginFromDeckLibrary();          // 按 Play 走的就是这一条
                 Step(0.3f);
-                Check(driver.DeckNotice == "" && driver.HintText == "",
-                      "自动凑的时候提示行是空的（默认行为不用跟玩家交代）");
+                Check(driver.DeckNotice == "" && driver.HintText == null,
+                      "自动凑的时候提示条上**什么都没有**（`DeckNotice` 空 ⇒ 不入队；默认行为不用跟玩家交代）");
 
                 // ② 合法卡组：**真的用上了**；战术卡 2026-09-12 起**能打了** ——
                 //    能解析干净的收下，解析不了的照样丢并在提示行说清张数
@@ -8653,8 +8656,8 @@ public static class BattleScene
                 //    这条断言把「文案」和「取舍」钉在一起，以后再改就不会漏。
                 Check(!driver.DeckNotice.Contains("防御卡"),
                       $"提示行**不再**说防御卡没上场（「{Short(driver.DeckNotice, 40)}」）");
-                Check(driver.HintText == driver.DeckNotice,
-                      "那句就写在提示行上 —— 开局就看得见，不用去翻日志");
+                Check(driver.TipPending(driver.DeckNotice),
+                      "那句进了提示条（正露着或在队列里）—— 开局就看得见，不用去翻日志");
                 Shot(cam, "12_玩家编的卡组");
 
                 // ③ 「按 R 重开」**不能把卡组弄丢**（原来 Restart 不带卡组，重开就变自动凑了）
@@ -13436,14 +13439,19 @@ public static class BattleScene
                     CheckHudBox("QPText_Foe", "…/EnemyMana/QuestPointsHolder/QPText",
                                 48.17f, 45.26f, 15.79f, 40.5f, 36f, 1);
 
-                    // ---- ⑤ 反向：这 5 颗 **必须没有框** ----
-                    //  判据 → `PH` §四：`TurnLabel` / `HintLabel` / `ResultLabel` **原版根本没有此件**
+                    // ---- ⑤ 反向：这 4 颗 **必须没有框** ----
+                    //  判据 → `PH` §四：`TurnLabel` / `ResultLabel` **原版根本没有此件**
                     //  （13 场 GO 名扫描 + 运行时 dump 双查）；`TurnClock` 的四格**原版读不到**
                     //  （`ClockManager` 的 34 个方法无一含 `set_text`）；`HandLabel` 的四格在**「缩放假」**里
                     //  （父链 `HandArea` 带 `m_LocalScale = 108`，照其余 16 颗那套口径会把字号**静默压到 3px**）。
                     //  ⇒ ⛔ 给它们补框 = **主动制造偏离**。它们走 `Hud()` 的新默认值（`boxWpx = 0`）。
                     //  🔑 这一组同时挡住「顺手给 `Hud` 那 6 个形参填上非零默认值」。
-                    var hudNoBox = new[] { "TurnLabel", "TurnClock", "HintLabel", "ResultLabel", "HandLabel" };
+                    //  🔴 **2026-10-15：本组原来是 5 颗，`HintLabel` 去掉了**（`A2109` 第 1 条）——
+                    //     自建的 `HintLabel` 已**整个删掉**、换成**原版的**提示条（节点名 `TipText` = 底板
+                    //     `ImageQuad` + `TipText_Text` = 那条 Label）。⚠️ **新的那条字有框**（照原版
+                    //     `fs60 · auto[4,60]` 走 `SetAutoFitBox`）⇒ **它不能进这一组**；
+                    //     「`Hud` 的框参数默认是 0」这件事**照样由剩下这 4 颗挡着**（强度不变）。
+                    var hudNoBox = new[] { "TurnLabel", "TurnClock", "ResultLabel", "HandLabel" };
                     //  ⑥ 对照 = **同一建造路径**下新建一条 Label 里 TMP 子节点的 `sizeDelta`
                     //    （= TMP 自己的 `TMP_Settings.defaultTextMeshProTextContainerSize`；
                     //      判据 = `TMP_Text.cs:5980`：`Awake` 会把出厂的 `(100,100)` 换成它）
@@ -13454,7 +13462,7 @@ public static class BattleScene
                     var hudProbeTmp = hudProbe != null ? hudProbe.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
                     Check(hudProbeTmp != null,
                           "（前提）无框对照探针建起来了（`Label.Create` 那条路）"
-                        + " —— 不成立时下面那 6 条（⑥ 一条 + 那 5 颗各一条）等于没验");
+                        + " —— 不成立时下面那 5 条（⑥ 一条 + 那 4 颗各一条）等于没验");
                     if (hudProbeTmp != null)
                     {
                         float defSd = hudProbeTmp.rectTransform.sizeDelta.x;
@@ -14154,34 +14162,33 @@ public static class BattleScene
                           $"★ A1502② ……敌方那一对同样（立绘 {azFo:F3} < 框 {bzFo:F3}）");
                 }
 
-                // ---- ⑤ 换牌阶段提示行**整行不画**；换牌一结束**必须又能写**（两半都断）----
-                //  实现 = `SetHint` 里新加的那一句 `if (InMulligan) { _hintLabel.SetText(""); return; }`。
-                //  `NetSay` 是 `SetHint` 唯一的公开口（走的是同一条路）⇒ 拿它当探针。
-                //  🔴 **两半都断**：只断「换牌时是空的」的话，「**永远空着**」也能过。
-                //  🧨 改坏法：删掉那一句 `if (InMulligan) …` ⇒ 前半红；把它写成无条件（或让它连
-                //     `InMulligan == false` 也挡）⇒ 后半红。
+                // ---- ⑤ 换牌阶段**提示条照样出**（原版没有「换牌期不显示提示」这条规则）----
+                //  🔴 **2026-10-15 换件（`A2109` 第 1 条）**：本处原来断的是一条**我们自己加的抑制**
+                //     （`SetHint` 开头 `if (InMulligan) { _hintLabel.SetText(""); return; }`，账 `A1502①`）——
+                //     它存在的理由是「自建提示行钉在屏幕正中、被两张督军卡盖住」。换成**原版的提示条**
+                //     （`AboveShader/TipText`：`ap.y = 91.78` 在屏幕中心**上方**、宽 2450）之后那条理由不再适用，
+                //     而且**原版没有任何与 mulligan 相关的分支**（`BattleTipController.ShowHeadsUpMessage`
+                //     与 `_DisplayTip_d__14__MoveNext` 逐句读过）⇒ **那道抑制整个删掉**。
+                //  🧨 改坏法：谁再把 `if (InMulligan) return;` 加回 `SetHint` ⇒ 这一条当场红。
                 {
                     drv.mulliganEnabled = true;
                     drv.offensivePhaseEnabled = false;      // ⛔ 不关的话换牌一完就停在「选进攻卡」那一步
                     drv.Begin("Ultramarines", "Goff", 20260920);
-                    Check(drv.InMulligan, "★ A1502①（前提）这一局进了换牌阶段 —— 不成立时下面四条等于没验");
+                    Check(drv.InMulligan, "★ A2109①（前提）这一局进了换牌阶段 —— 不成立时下面两条等于没验");
                     if (drv.InMulligan)
                     {
-                        drv.NetSay("__A1502①_probe__");
-                        Check(drv.HintText == "",
-                              "★ A1502① **换牌阶段提示行整行不画**（往那条路写 `__A1502①_probe__` 之后仍是"
-                            + $"「{drv.HintText ?? "(null)"}」）");
-                        Check(drv.SimulateMulliganToggle(0),
-                              "★ A1502①（前提）点第 1 张牌的「换」被面板收下（下面要它真的换出 1 张）");
-                        Check(drv.SimulateMulliganDone(), "★ A1502①（前提）点「完成换牌」");
-                        Check(!drv.InMulligan, "★ A1502① ……换牌阶段真的结束了（`Ctx.MulliganOpen` 落了）");
-                        string hintAfter = drv.HintText;      // 先记下来（下面那句探针会把它覆盖掉）
-                        drv.NetSay("__A1502①_after__");
-                        Check(drv.HintText == "__A1502①_after__",
-                              "★ A1502① ……**换牌结束之后同一条路又写得进去了**（那一句只挡换牌阶段）"
+                        drv.NetSay("__A2109①_probe__");
+                        Check(drv.TipPending("__A2109①_probe__"),
+                              "★ A2109① **换牌阶段提示条照样出**（原版 `BattleTipController` 里没有 mulligan 这一支）"
                             + $" —— 实得「{drv.HintText ?? "(null)"}」");
-                        Check(!string.IsNullOrEmpty(hintAfter),
-                              $"★ A1502① ……而且换牌一结束它**自己就不是空的**（结算时那一句是「{hintAfter ?? "(null)"}」）");
+                        Check(drv.SimulateMulliganToggle(0),
+                              "★ A2109①（前提）点第 1 张牌的「换」被面板收下（下面要它真的换出 1 张）");
+                        Check(drv.SimulateMulliganDone(), "★ A2109①（前提）点「完成换牌」");
+                        Check(!drv.InMulligan, "★ A2109① ……换牌阶段真的结束了（`Ctx.MulliganOpen` 落了）");
+                        drv.NetSay("__A2109①_after__");
+                        Check(drv.TipPending("__A2109①_after__"),
+                              "★ A2109① ……换牌结束之后同一条路**照旧**（前后两态一样，不再有那道闸）"
+                            + $" —— 实得「{drv.HintText ?? "(null)"}」");
                     }
                 }
 

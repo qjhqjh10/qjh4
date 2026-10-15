@@ -25,21 +25,38 @@ namespace CardPresentation
         public const float LowerL = 300f, LowerT = 921.34f, LowerR = 1620f, LowerB = 1058.34f;
         /// <summary>`LowerSection/FlavourTextBG` —— 文字底板（1320×178 · 运行期由 `FlavourTextSO` 喂图）。</summary>
         public const float LoreBgT = 900.84f, LoreBgB = 1078.84f;
-        /// <summary>`FlavourTextBG/LoreText` —— 1250×93.47 · **fs35**（auto 10–35）· **右对齐** · 白。</summary>
+        /// <summary>`FlavourTextBG/LoreText` —— 1250×93.47。
+        /// 🔴 **字号是【逐版不同】的两个值（铁律 5·c）** —— 这一格（`LorePx`）是**菜单版**
+        /// `Card Detail Popup` 那颗：**fs35** · `auto[10,35]` · 基准 36（判据 = 那颗的 MB 现读，
+        /// 见 `Shell/CardDetailPopup.BuildLoreText` 那段）。**战斗版是另一组** ⇒ 用 <see cref="LorePxBattle"/>。
+        /// ⚠️ **对齐两版都是 Center**（`m_HorizontalAlignment = 2`；位标志 Left=1/Center=2/Right=4）——
+        ///    本行原来写「右对齐」，**2026-10-15 就地订正**（`A2111` 表三·4；实拍同：正本 §十·5 第 4 条）。
+        /// 📌 本文件头那句「两处摆放用的是同一套绝对 px」**只对矩形成立**，字号/对齐/上下限这一族**逐版不同**。</summary>
         public const float LoreL = 335f, LoreT = 943.11f, LoreR = 1585f, LoreB = 1036.58f;
         public const float LorePx = 35f;
 
-        /// <summary>两个圆钮：88.655²（`40k_UI_bt_voicelines` / `40k_UI_bt_eye`）。</summary>
+        /// <summary>🔴 **战斗版** `LoreText` 的标称字号 = **32**（`auto[18,32]` · 基准 36）。
+        /// 出处 = `bundle_scenes_scenes_battlearena1/GameObject/LoreText.json`（父链 `LowerSection/FlavourTextBG`）。
+        /// ⚠️ **2026-10-15 修（`A2111` 表三·4）**：战斗窗原来拿菜单版的 `LorePx`(35) 当**标称值** ——
+        ///    靠 `autoMax = 32` 把实际字号兜住了，但标称值一直是菜单的（`MenuDraw.Text` 的第 6 参）。
+        /// ⚠️ 下限也逐版不同：战斗版 **18**、菜单版 **10**（战斗窗那处原来传 `10f`，同批一并订正）。</summary>
+        public const float LorePxBattle = 32f;
+
+        /// <summary>两个圆钮：88.655²（`40k_UI_bt_voicelines` / `40k_UI_bt_eye`）。
+        /// ⚠️ **眼睛钮（`Show Card Text`）只有【菜单版】有** —— 战斗版 13/13 arena 里
+        /// `showCardTextButton = PPtr(0)`（`A860` 已裁掉那颗节点）。`EyeCx` 因此**只给菜单版用**。</summary>
         public const float BtnS = 88.655f, BtnCy = 989.84f;
         /// <summary>`Voice Over Button` 中心 x（原版 pos(734.33,0.0002) 相对 LowerSection 中心）。</summary>
         public const float VoiceCx = 1694.33f;
-        /// <summary>`Show Card Text`（眼睛钮）中心 x。</summary>
+        /// <summary>`Show Card Text`（眼睛钮）中心 x —— **菜单版专有**（见 `BtnS` 那条）。</summary>
         public const float EyeCx = 225.67f;
 
         /// <summary>`Menu Dark Background` —— 压暗遮罩 4574.6×2572.36（两倍屏还多 = 铺满带余量）。</summary>
         public const float MaskL = -1327.3f, MaskT = -746.18f, MaskR = 3247.3f, MaskB = 1826.18f;
-        /// <summary>遮罩色 —— 原版 `color = (0,0,0,0.773)`。</summary>
-        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
+        /// <summary>遮罩色 —— 原版 **`color = (0,0,0,0.772549)`**（`MainMenuDarkBackground`）。
+        /// ⚠️ **2026-10-15（`A2111` 表三·5）**：原来写的是四舍五入过的 `0.773` ⇒ 差 0.000451（肉眼不可辨），
+        ///    按「原版值逐位」口径改成精确值。⚠️ 菜单侧那颗的实测值**没单独取过**（同一颗组件、同一族树）。</summary>
+        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.772549f);
 
         // ============================================================ 效果清单 `EffectList`（卡右侧那一竖列）
         //

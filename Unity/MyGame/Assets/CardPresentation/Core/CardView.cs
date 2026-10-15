@@ -172,6 +172,40 @@ namespace CardPresentation
         Hand = 2,
     }
 
+    /// <summary>
+    /// **这张卡建在【哪一棵树】里** —— 原版有几个卡面节点**逐树不同值**，与 <see cref="CardFace"/>
+    /// （按**状态**决定画哪几层）是**两条正交的轴**，别合并。
+    ///
+    /// 🔴 **为什么要有这一档（铁律 5·c 的落地）**：`NameTextUnit` 是**全卡面唯一的双值文字节点** ——
+    ///   扫 13 arena × 8 实例 = **104 个**：`fontSize = 16` **65 个**（= 每场 5 张，正是**放大窗**那一族）、
+    ///   `fontSize = 19` **39 个**（多卡窗 / debug 卡池 / 墓地 各 1）；手牌·场上的 `BattleCardUI` 预制体
+    ///   **也是 19**。⇒ **19 是绝大多数情况，只有【放大窗】那 5 张是 16**（我们原来窗内也按 19 画 ⇒ **大 18.75%**）。
+    ///   同族的阴影色也是三个值：材质默认 `0.604`（卡面）/ `0.53333336`（**卡背**，另一份材质）/
+    ///   **`InitializeCardForDisplay` 运行时显式设 `(0,0,0,0.8)`**（**放大窗**）。
+    ///
+    /// 出处 = `资料/普查产出_1015战斗/C1_逐格对账_卡面放大窗与卡面渲染.md` 表三·1 / 表三·2。
+    /// 🆕 **2026-10-15 现核**：C1 表三·2 留了一个前提「`DoColorChange` 写的若不是 `_ShadowColor` 则本条不成立」——
+    ///   已从反编译 + `GameAssembly.dll` + `global-metadata.dat` 解开：
+    ///   `Card2DController..ctor` 把 `Shader.PropertyToID(<字面量>)` 存进 `+0x80`/`+0x84`，
+    ///   两个字面量的 **il2cpp token** = `0xA0009B75` / `0xA0009A51` ⇒ `(token & 0x1FFFFFFF) >> 1`
+    ///   = **19898 / 19752** ⇒ 查 `global-metadata.dat` 的 stringLiteral 表 = **`_ShadowColor` / `_Outline`**。
+    ///   （`ChangeShadowColor` 走 `+0x80`、`ChangeHighlightColor` 走 `+0x84` ⇒ **阴影色确实是 `_ShadowColor`**，前提成立。）
+    ///   ⚠️ 解 token 的通用办法见 `资料/命令速查.md`「`Shader.PropertyToID` 的字面量怎么解」。
+    ///
+    /// ⚠️ **只覆盖【战斗 13 场】这一侧** —— 菜单侧那扇详情窗（`Shell/CardDetailPopup.cs`）**用的是哪一棵树、
+    ///   值是多少，还没核**（C1 的扫描范围是 `battlearena1/2/3` 那 13 份）。⇒ 那一扇**暂按 `Standard`**，
+    ///   另立账待核（铁律 11：先记着，查清再对齐）。
+    /// </summary>
+    public enum CardUse
+    {
+        /// <summary>**除战斗放大窗以外的一切**：手牌 · 场上 · 多卡展示窗 · 墓地日志 · 卡池 / 收藏 / 卡组编辑。
+        /// 原版 `fontSize = 19`、阴影 alpha = 材质默认 `0.604`。也是默认档。</summary>
+        Standard = 0,
+        /// <summary>**战斗放大窗**（`Card Display Window/Card Display/Cards`）。原版那 5 张
+        /// `fontSize = 16`，且 `InitializeCardForDisplay` 运行时显式把阴影设成 `(0,0,0,0.8)`。</summary>
+        ZoomWindow = 1,
+    }
+
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public class CardView : MonoBehaviour
     {
@@ -774,13 +808,18 @@ namespace CardPresentation
         /// 🔴 **2026-10-13（A435 辛 · A774）：这个形参是【显式覆盖】的口子**（生产代码今天一个都不传）。
         /// 「跟视口节点走」请用 <see cref="SetClipFromTree"/>（在 `SetPose` 之后调一次）——
         /// 传 `clip: null` **不等于**跟节点走（那是「不裁」，见 `SetClipFromTree` 的注释）。</param>
+        /// <param name="use">🆕 2026-10-15（`A2110`）：**可选**「建在哪棵树里」那一档（判据 / 两处被它改掉的
+        /// 值全在 <see cref="CardUse"/> 的注释里）。默认 `CardUse.Standard` ⇒ **既有 20 个调用点零影响**。
+        /// 🔴 **只有战斗放大窗要传 `CardUse.ZoomWindow`**（`Battle/CardDisplayWindow.cs` 那一处）。</param>
         public static CardView Create(Transform parent, CardData d, string name = null,
-                                      CardFace face = CardFace.Full, PxRect? clip = null)
+                                      CardFace face = CardFace.Full, PxRect? clip = null,
+                                      CardUse use = CardUse.Standard)
         {
             var go = new GameObject(name ?? d.title);
             go.transform.SetParent(parent, false);
             var v = go.AddComponent<CardView>();
             v._faceMode = face;
+            v._use = use;                     // ⚠️ 必须在 `Build` **之前** —— 卡名字号与阴影色都在 `Build` 里定
             v.Build(d);
             if (clip.HasValue) v.SetClip(clip);
             return v;
@@ -789,6 +828,11 @@ namespace CardPresentation
         /// <summary>这张卡的展示场景。</summary>
         public CardFace Face { get { return _faceMode; } }
         CardFace _faceMode = CardFace.Full;
+
+        /// <summary>这张卡建在**哪一棵树**里（原版逐树不同值的那几个节点跟它走）。判据见 <see cref="CardUse"/>。
+        /// 只由 `Create(..., use:)` 赋值 —— ⛔ 别做成属性在运行期改（字号/阴影都是**建层时**定的）。</summary>
+        public CardUse Use { get { return _use; } }
+        CardUse _use = CardUse.Standard;
 
         /// <summary>**这个展示场景印不印阵营行** —— 判据只有这一处：
         /// 建层那处（`BuildTextLayers` ③）与开关层那处（`SetFace`）都调它。
@@ -1954,7 +1998,12 @@ namespace CardPresentation
                 var sdfMat = SdfMaterial();
                 var sdfTex = CardArt.Sdf(d.faction, d.rarity, !d.isUnit);
                 if (sdfMat != null && sdfTex != null)
+                {
                     _shadowLayer = AddLayer("shadow", sdfTex, ShadowZ, sdfTex, ShadowMesh(), mat: sdfMat);
+                    // 🔴 **建完立刻按本档刷一次** —— 基材质上那份是「材质默认 0.604」，
+                    //    而放大窗那一档原版运行时显式设成 0.8（`A2111` 表三·2，判据见 `ShadowAlpha`）。
+                    ApplyShadowColor();
+                }
                 // ---- 场上：换**原版那张 3D 卡体**（`3DBody` → `Card 3D`）----
                 // 原版在 inPlay 类状态把整张 `2DCard` 关掉、换成 3D 体（`BattleCardUI.ChangeCardToMinion`），
                 // 立绘由 `SetCardImageTo3DBase` 灌进材质的 `_CardImage` —— 我们照做。
@@ -2290,7 +2339,9 @@ namespace CardPresentation
             //   ⇒ 复位 → `Fill`（按 `Middle` 摆）⇒ 再设真档位（整块字平移 `c_G`，**墨心落在目标点**）。
             //   ⚠️ 本句**不是**为了「清掉之前的效果」而写的漂亮话：删掉它上面那条断言就会红。
             if (_title != null) _title.verticalAlignment = VerticalAlignmentOptions.Middle;
-            _title = Fill(_title, "title", d.title, nameAt, nameW, TitleFontSize, InkName, false, nameH);
+            // 🔴 **字号用实例那份 `NameFontSize`（按 `CardUse` 分档），⛔ 不是静态的 `TitleFontSize`** ——
+            //    `A2110`：放大窗那 5 张原版是 `fs16`、其余全 19。判据全在 `CardUse` 的注释里。
+            _title = Fill(_title, "title", d.title, nameAt, nameW, NameFontSize, InkName, false, nameH);
             // 🔴 **2026-10-18（`A848` 那笔账的落点）**：**卡名那层的纵向对齐 = 原版的 `Midline`(4096)**。
             //   判据：原版卡预制体里那 6 个互斥变体（`NameTextUnit` / `…Unit Big` / `…Unit No description` /
             //   `…Unit No Description Big` / `NameTextTactic` / `NameTextTacticBig`）**全是 `m_VerticalAlignment
@@ -2581,10 +2632,32 @@ namespace CardPresentation
         //    所以 5.70% 是**上限**。我们这边没做自动缩放，只有 `FitToWidth` 的固定回缩。
         const float TitleEmOfCard = 0.0570f;
 
-        /// <summary>卡名的字号。汉字约占 1 em，所以「em 高度」直接喂给 `FontSizeForGlyphHeight`</summary>
+        /// <summary>🔴 **放大窗那一档的卡名字号** —— 同一条换算，只是 `m_fontSize` 是 **16** 不是 19：
+        /// `16 × 0.01 ÷ 3.3313 = 0.0480`（两位都取到小数点后 4 位时，`0.0480 ÷ 0.0570` **恰好** = `16 ÷ 19`）。
+        /// 出处 = `资料/普查产出_1015战斗/C1_逐格对账_卡面放大窗与卡面渲染.md` 表三·1
+        /// （`Card Display/Cards/CardUI (4)/…/NameTextUnit` 的 TMP：`m_fontSize=16` · `min=1` · `max=19`
+        /// · `enableAutoSizing=1`；扫 13 arena × 8 实例 = 104 个里 `fs=16` 恰好 65 个 = 每场那 5 张）。
+        /// ⚠️ 原版这 5 张也开着 `enableAutoSizing`（`m_fontSizeMax = 19`）⇒ **16 是起始值、不是硬顶**；
+        ///    我们只有 `FitToWidth` 的固定回缩，同构。</summary>
+        const float TitleEmOfCardZoom = 0.0480f;
+
+        /// <summary>卡名的字号。汉字约占 1 em，所以「em 高度」直接喂给 `FontSizeForGlyphHeight`。
+        /// ⚠️ **静态这一份 = 默认档（19）** —— 编辑器的探针（`TmpSetup` / `IconSizeProbe`）用它。
+        /// 卡面**实际用的是实例属性** <see cref="NameFontSize"/>（会按 <see cref="CardUse"/> 分档）。</summary>
         public static float TitleFontSize
         {
             get { return TmpFont.FontSizeForGlyphHeight(Height * TitleEmOfCard); }
+        }
+
+        /// <summary>🔴 **本卡实际用的卡名字号**（按 <see cref="CardUse"/> 分档）—— `BuildTextLayers` 用它。
+        /// ⛔ 别改回静态的 <see cref="TitleFontSize"/>：那会让放大窗又大 18.75%（`A2110` 就是这笔账）。</summary>
+        public float NameFontSize
+        {
+            get
+            {
+                return TmpFont.FontSizeForGlyphHeight(
+                    Height * (_use == CardUse.ZoomWindow ? TitleEmOfCardZoom : TitleEmOfCard));
+            }
         }
 
         /// <summary>
@@ -2738,6 +2811,24 @@ namespace CardPresentation
         const float ShadowY    = -0.0126f;     // 原版节点的 y
         const float ShadowZ    = 0.06f;        // 比立绘（0.03）还靠后 ⇒ 在所有层之下
         static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.604f);   // 原版材质 `_ShadowColor` 默认值
+
+        /// <summary>🔴 **本档的阴影 alpha** —— 原版这一项也**逐树不同值**（铁律 5·c）：
+        /// 材质默认 **0.604**（手牌 · 场上 · 多卡窗走它），而**放大窗**由
+        /// `CardDisplayWindow.InitializeCardForDisplay` 运行时**显式**设成 **(0,0,0,0.8)**
+        /// （`_DAT_1834b3310`，2026-10-15 现解；属性名我当天也解出来了 = `_ShadowColor` —— 全过程见 <see cref="CardUse"/> 注释）。
+        /// ⚠️ 第三个值 `0.53333336` 是**卡背**那份材质（`Card Backs SDF`），与这里无关，别混。</summary>
+        float ShadowAlpha { get { return _use == CardUse.ZoomWindow ? 0.8f : 0.604f; } }
+
+        /// <summary>把本档的阴影色（只乘整卡淡出 `_alpha`）刷进这一层的**实例材质**
+        /// （`AddLayer` 每层都 `new Material(...)` 克隆过 ⇒ 改它不会串到别的卡）。
+        /// 🔴 **判据只此一处** —— 建层那处与 `ApplyTint` 那处都调它（两处各写一遍 = 迟早不一致）。</summary>
+        void ApplyShadowColor()
+        {
+            if (_shadowLayer == null || _shadowLayer.sharedMaterial == null) return;
+            var sm = _shadowLayer.sharedMaterial;
+            if (sm.HasProperty("_ShadowColor"))
+                sm.SetColor("_ShadowColor", new Color(0f, 0f, 0f, ShadowAlpha * _alpha));
+        }
 
         static Material _sdfMat;
         static Mesh _shadowMesh;
@@ -3789,9 +3880,9 @@ namespace CardPresentation
             if (_shadowLayer != null && _shadowLayer.sharedMaterial != null)
             {
                 var sm = _shadowLayer.sharedMaterial;
-                if (sm.HasProperty("_ShadowColor"))
-                    sm.SetColor("_ShadowColor", new Color(ShadowColor.r, ShadowColor.g,
-                                                          ShadowColor.b, ShadowColor.a * _alpha));
+                // 🔴 **阴影色走 `ApplyShadowColor()`（按本档取 alpha）** —— 2026-10-15（`A2111`）之前这里
+                //    写死用材质默认那个 0.604，放大窗就比原版淡了 0.196（原版显式设 0.8）。
+                ApplyShadowColor();
                 // 描边（`_Outline`）同理要跟着淡 —— 但它可能是**正在补间**的（`SetOutline`），
                 // 那种时候别插手：补间的每一帧自己会乘 `_alpha`。
                 bool outlineBusy = _outlineTween != null && _outlineTween.IsActive();

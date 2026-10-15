@@ -854,8 +854,16 @@ namespace CardPresentation
             //   ② 我们那份词表 `数据/本地化/i18n/zh_CN.csv:6386` = `Invocation,~,祈唤`。
             //   ③ 本键**会真印到卡面上**（`Core/CardView.cs` 的 `TacticSubtypeShown` 白名单含 `Invocation`，
             //      共 3 张卡）⇒ 改它 = **玩家可见**。
-            //   ⛔ 别去改 `zh_CN.csv`（它是 `工具/sync_from_d2.py` 从 `d:/warpforge/data/i18n` 同步来的产物，
-            //      改了会被下次同步覆盖）—— 它**已经**是 `祈唤`，本条只是让 C# 侧跟上。
+            //   ⛔ 别去改 `zh_CN.csv` —— 它**不是**权威表（见下）。
+            //   🔴 **2026-10-15 就地订正（铁律 5）**：本行原文写「（它是 `工具/sync_from_d2.py` 从
+            //      `d:/warpforge/data/i18n` 同步来的产物，**改了会被下次同步覆盖**）」—— **两句都要改**：
+            //      ① **不会被覆盖**：`sync_from_d2.py` 的语义是「目标已存在同名 ⇒ 跳过」，
+            //         而且 d:/4 这份**确实已经被本地改过**（现读 384,408 B / 2026-10-15
+            //         vs `d:/warpforge/data/i18n/zh_CN.csv` 384,393 B / 2026-08-27，两边**已分叉**）；
+            //      ② **它本身降级了**：它是**我们自译的 Godot 时代表**，**权威 = 原版官方 zh-CN 表**
+            //         （`数据/游戏数据/官方本地化_en+zh-CN.json`）。用户 2026-10-15 口径：
+            //         「我们直接使用解包资料，不要被 Godot 时代的账这些干扰」。
+            //      ⇒ 引用它时按「**人工参考表**」看；要换官方值走 `A1762`/`A1763` 那批迁移。
             { "Card_Race/Invocation",          new Entry("祈祷",       "Invocation") },         // zh_CN.csv:6386（A879：原值「计策」与卡类别 `4计策/` 撞名）
             { "Card_Race/Overlord Power",      new Entry("霸主之力",   "Overlord Power") },     // zh_CN.csv:6384
             { "Card_Race/Rune",                new Entry("符文",       "Rune") },               // zh_CN.csv:6385

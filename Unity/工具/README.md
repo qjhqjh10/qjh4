@@ -28,7 +28,7 @@ $PY d:/2/Warpforge_tools/scripts/<脚本名>.py
 | 用途 | 脚本 |
 |---|---|
 | ★ 战场 → Unity（读场景 JSON，写 manifest + 拷模型贴图） | `gen_unity_arena_manifest.py`（依赖 `unity_scene_to_godot.py` + `gltf_export.py`） |
-| ★ RectTransform 链式换算 → 屏幕绝对坐标（权威） | `chain_rect.py` |
+| ★ RectTransform 链式换算 → 屏幕绝对坐标（🔴 **2026-10-15 更正：原文写「（**权威**）」—— 去掉「权威」，降级为历史口径**；⚠️ **不累计父链 `m_LocalScale`**，带缩放的节点会给未缩放值） | `chain_rect.py` |
 | 场景全树 / 按 GO 名 dump 子树 | `dump_scene_tree.py` / `dump_go_tree.py` |
 | 全局贴图索引 / 补齐场景贴图 | `build_texture_index.py` |
 | 从 Font JSON 还原 TTF | `restore_fonts.py` |
