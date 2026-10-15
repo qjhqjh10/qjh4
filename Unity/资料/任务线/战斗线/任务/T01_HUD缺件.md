@@ -29,7 +29,17 @@
 - **状态机**：`BattleSettingsWindow.OnMuteChatChanged(bool)`：`+0xD0(isOn)=v` · **`+0xD8(muteChatToggleOn).SetActive(v)`**（⚠️ 打的是**ON 那半张图**，不是整行）· `+0xE0(voiceLinesController).+0x40(chatMuted)=v`；`Open()` 里按 `chatMuted` 回填三处
 - **显隐**：场景初值 `True`；**全量反编译搜 `ChatToggle` 0 命中**、`BattleSettingsWindow` 的 25 个字段里没有它 ⇒ **没有任何赋值点单独开关它** ⇒ 可见性完全跟父面板
 - **出处**：`D1` §2（RT 现读 + 运行时 dump `arena2:1087-1092` + `BattleSettingsWindow__OnMuteChatChanged.c`）
-- ⚠️ **还差一条口径**：原版静音位在 `VoiceLinesController.chatMuted`，**我们没有那一位** ⇒ **先定「单机里静音存哪、对谁生效」**再动手。
+- 🔴 **2026-10-16 判据补齐（`T01b` 普查实读）—— 口径定了，但结论是「**能建，作用面为空**」**：
+  · `chatMuted`（`VoiceLinesController` `+0x40`）的读点**只有 3 个、全在该类内**；`CanChat` 的**唯一调用方** = `DisplayWarlordChatMessage`
+    （实据 = 它那行日志字面量 `"DisplayWarlordChatMessage failed because chatMuted"`）。
+  · ⇒ 它挡的是**一条链**：对手在 `ChatPopup` 选的那 6 句 → `PUNReceiveChatMessage`（`isPlayer=0`）→ 被拦
+    ⇒ **气泡 + 语音 + 「对手在聊天」提示三样一起没**。
+  · **不挡**（逐条有判据）：自己的发言 · 单位语音条（走 `CanUseVOs`）· 无线电提示（`ignoreUiState=1`，连 `CanChat` 都进不去）· 脚本 bot（三处全是 `ignoreUiState=1`）。
+  · **值只在本局内存**（`[SerializeField] bool @0x40`，场景序列化 0，`Initialize` 无条件写 0；`Open()` 回填读同一字段）—— **不是 PlayerPrefs、不是服务器**。
+  · 🔴 **我们该关掉哪几样 = 什么都不该关**：`CardPresentation/Net/*.cs`（8 个文件）里 `chat` **0 命中** ⇒ **我们没有对手聊天这条链**；
+    我们的 `_unitChat.Speak(1,…)` 只用于单位语音条 / 认输 / 开场白 —— **这三样原版都不受静音影响**。
+  ⇒ 动手方式：照几何建 + 三处状态机 + 一个 per-battle bool（开设置窗时回填），**并如实声明「点它没有可见效果」**；
+    ⛔ 别把 `_unitChat` 的敌方半绑上去（那会做出原版没有的行为）；将来做联机对手聊天时**必须**进这个开关。
 
 ### 2·2 `Canvas/Anim Anchors` 5 个锚点
 - **节点全路径**：`BattleHud/**Canvas**/Anim Anchors` —— ⚠️ **不在 `Safe area FrontCanvas` 下**，是 `FrontCanvas` 的**兄弟**
@@ -39,7 +49,19 @@
 - ⚠️ **5 个都【没有 Image】** ⇒ 是**几何参考点、不是可见元素**（`Cemetery` 的 x=−1763.1 是**飞行终点**，别当排版错误）
 - ⚠️ **运行时名字带前缀 `Anchor: `**（B2 记的是不带前缀的短名 ⇒ 按名查要连前缀）
 - **出处**：`D1` §4
-- ⚠️ **还差**：`anchorId → 锚点名` 的对应表（枚举 `BattleHud.UIAnchor` 的取值表**本地没有**）；以及「**我们的哪段演出要用它**」—— 原版那 4 个 id 走的是 `AbilityLogic` 的**技能/召唤起点**。
+- 🔴 **2026-10-16 判据补齐（`T01b` 普查实读）—— 原文两条都要订正**：
+  · 枚举**不叫 `BattleHud.UIAnchor`**（本地根本没有这个类型），真名 = **`PositionOption`**（`dump.cs:25161`），嵌套类叫 `UIAnimAnchors`；
+  · 表 = `BattleHud.uiAnimAnchors`（`battlearena2` GO 230 的 `MonoBehaviour_5150.json`；arena1 `MonoBehaviour_4934.json` 逐行同构），**7 行**：
+    `140 createCardPos → Anchor: CreateCard` · `7 cemetery → **CemeteryLogPanel**`（⚠️ **不是** `Anchor: Cemetery`）·
+    `6 boardCenterUI → Anchor: UI Center` · `12 friendlyMana → PlayerMana` · `13 enemyMana → EnemyMana` ·
+    `145 stratagemGeneralShowCase → Anchor: Stratagem ShowCase` · `11 nextToClock → Anchor: Next To Clock`。
+  · 🔴 **`Anchor: Cemetery` 原版也没人读**（扫 arena1+arena2 全包只命中它自己的 GO；反编译里没有任何按名字取锚的代码）
+    ⇒ **5 个锚里 4 个被读、1 个是死件** —— ⛔ 别把 5 个并列写。
+  · ⚠️ 「唯一调用方只传 4 个 id」也不全：`AbilityLogic.GetPos` 还把 **6/7/8/10/11** 送进 `GetUIAnchor`，
+    其中 **8/10 不在表里** ⇒ 原版每次 `LogError` 落回 BattleHud 中心。
+- 🔴 **结论：单独建这 5 个空 RT = 死件**（我们全仓**没有 `PositionOption` 解析器**，落点走 `SlotPosition` / `HudAnchor01`；
+  我们 `animinfo_lookup.json` 里那 418 条 `sp`/`ep` **就是** PositionOption，但没人消费；且实测我们这些 id **落在 5 个锚上的 = 0 个**）。
+  ⇒ **要与 `PositionOption` 解析器一起做**（7 行表数据现成），⛔ 别只建空件凑数。
 
 ### 2·3 `FrontCanvas/LoadingMenu`（进战斗的黑场）
 - **节点全路径**：`…/FrontCanvas/Safe area FrontCanvas/LoadingMenu`（父 = RT_3055，**不在 `AboveShader` 下**）→ 子 `Panel`
@@ -50,7 +72,21 @@
   ⇒ **`down=0`** = 补间到全黑、**结束后自己关掉**（**进战斗走这条**，触发点 = `BattleManager._StartBattleSequence`）；**`down=1`** = 补间到透明、保持 active
   · `Awake`：`if (StartFaded == 0) return;` 否则把它 `SetActive(true)` 且 A 设成 `DAT_1834b2bb8`（**该常量读不出**）
 - **出处**：`D1` §5
-- ⚠️ **还差**：`DOFade` 的**时长**（实参在寄存器里、`.c` 读不出）⇒ 只能用我们的节奏并**如实标 ➖ 我们挑的**。
+- 🔴 **2026-10-16 判据补齐（`T01b` 普查实读）+ 【已建】** —— 原文那两条**都要订正**：
+  · 参数名是 **`show`**（`dump.cs:109207 LoadingFade(bool show, Action callback)`），**不是 `down`**；
+  · `LoadingFade` 里：`SetActive(true)` → **立刻** α = `show ? 0 : 1` → `DOFade(show ? 1 : 0, 时长)`
+    （**目标与刚才那个值相反**）→ 回调 `if (show) return; else SetActive(false)`；
+  · ⇒ **进战斗（`show=false`）= 立刻全黑 → 补间到【透明】 → 自己关掉**。
+    ⚠️ 原文「补间到全黑、结束后自己关掉」**方向反了** —— 照那个做出来是**黑屏卡住**。
+  · **时长 = `1.25 s`**（实读：`LoadingFade` 里 `movss xmm2,[rip+…]` → 常量 `0x1834B2EC0`；不是寄存器里读不出）。
+  · `DAT_1834b2bb8` = **`1.0f`**（`Awake` 那一档的 α）· `DAT_1834b3180` = **`0.6f`**（**读到的**，不是推断）。
+  · 整段 = **进战斗先黑、1.25 秒亮起来**；触发点 = 原版 `BattleManager._StartBattleSequence`。
+- ✅ **我们已建**（`BattleDriver.BuildLoadingCover` + `TickLoadingFade`，走 `AdvanceTimeline` 那个泵）：
+  全屏 `CardArt.Solid()` 纯黑、**显式给渲染队列**（`BattleLogPanel.OverlayQ + 100` —— ⛔ 光给 z 不行，
+  铺满屏的 quad 四角比屏幕中央那些 HUD 件**离透视相机更远**，本工程在卡组编辑踩过这一条）。
+  ⚠️ **批处理/编辑器非播放态直接落到终态**（那里没有帧循环 ⇒ 淡出永不发生，留着会把整屏糊黑、
+  把 `BattleScene.Run` 读回的像素全变黑）—— ⛔ **不是「不建」**，建了才量得到几何。
+  断言 4 条（在 `BattleScene.cs`，**专钉方向**）：已收掉 / 起点 α=1 / 半程 α≈0.5 / 1.25 s 后 α=0 且关掉。
 
 ### 2·4 墓地日志「行内链接 ⇒ 悬停弹出整套卡」
 - ✅ **其实早已建**（`BattleLogPanel.Linkify()` 在写 `<b><link="…"><u>名</u></link></b>`，且 `ApplyEntries()` 真在用）

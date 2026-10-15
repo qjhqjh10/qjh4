@@ -1,0 +1,261 @@
+{
+ "version": 1,
+ "note": "原版**战斗**的「时机 → cue」表（`BattleManager.soundCollection` → `SoundAssetCollection`）。⚠️ `name` 那一列是**原版字段名**（C# 按字段名索引，如 `startTurn`），`srcCue` 才是 cue 资产名。clips 里随机挑一条；音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；文件名在 Resources/Art/audio/sfx/<clip 名>。全部走 MixerType.FX（反编译调用点第 4 实参恒为 0）。`gaps[]` = 原版这一格里就没有声音的那些字段（空引用 / 悬挂 GUID），⛔ 不是我们没做。",
+ "source": {
+  "so": "SoundAssetCollection（bundle_duplicateassetisolationso_assets_all，挂在 BattleManager.soundCollection +0x80）",
+  "cue_bundle": "soundcollection_assets_all.bundle",
+  "guid_resolver": "工具/_guid_resolve_probe.py（catalog_main.json）",
+  "script": "工具/import_battle_sfx.py"
+ },
+ "mixer": "FX",
+ "cues": [
+  {
+   "name": "drawCardFromDeck",
+   "clips": [
+    "CardDraw"
+   ],
+   "srcCue": "Draw Card",
+   "minPitch": 1.0,
+   "maxPitch": 0.897,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "minionHeal",
+   "clips": [
+    "UnitHeal"
+   ],
+   "srcCue": "UnitHeal",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "minionInitiatingAttack",
+   "clips": [
+    "SelectUnit"
+   ],
+   "srcCue": "minionInitiatingAttack",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "moveCardIntoBattle",
+   "clips": [
+    "CardMove"
+   ],
+   "srcCue": "Cardmove",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "playMinionFromHand",
+   "clips": [
+    "CardPlay"
+   ],
+   "srcCue": "Card Play Minion Or Spell",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "sneakAttack",
+   "clips": [
+    "battle_attack_soft"
+   ],
+   "srcCue": "Sneak Attack",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "unitDamage",
+   "clips": [
+    "UnitDamage"
+   ],
+   "srcCue": "UnitDamage",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "chatShow",
+   "clips": [
+    "Combat_Chats_Show"
+   ],
+   "srcCue": "Combat Chats Show",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "endTurnButton",
+   "clips": [
+    "EndTurn"
+   ],
+   "srcCue": "End Turn",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "endTurnButtonInactive",
+   "clips": [
+    "battle_endturn_error"
+   ],
+   "srcCue": "End Turn Inactive",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "timerExpired",
+   "clips": [
+    "battle_turn_end"
+   ],
+   "srcCue": "Battle Turn End",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "startTurn",
+   "clips": [
+    "StartTurn"
+   ],
+   "srcCue": "Start Trun",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "mulligan",
+   "clips": [
+    "Mulligan"
+   ],
+   "srcCue": "Mulligan",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "outOfActions",
+   "clips": [
+    "NoActionsLeft"
+   ],
+   "srcCue": "No Actions",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "defaultActiveAbility",
+   "clips": [
+    "CardDraw"
+   ],
+   "srcCue": "Draw Card",
+   "minPitch": 1.0,
+   "maxPitch": 0.897,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "toggle",
+   "clips": [
+    "UIButtonPress"
+   ],
+   "srcCue": "UI Press Button",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  }
+ ],
+ "gaps": [
+  {
+   "field": "abilityBoxClick",
+   "guid": "2eee736725bf3b64e93dbb212de0a8c4",
+   "why": "GUID 在本地任何 catalog / 任何束的容器键里都解析不出来（catalog_main.json 的 key_index=None；catalog.bin 裸搜 0；aa 全目录 1.6 GB 裸搜 0）⇒ 判为**原版这一格是悬挂引用**，本 build 也不响"
+  },
+  {
+   "field": "activateUnstunnable",
+   "guid": "4d4975d20ce35464ebc48673fab9d1df",
+   "why": "GUID 在本地任何 catalog / 任何束的容器键里都解析不出来（catalog_main.json 的 key_index=None；catalog.bin 裸搜 0；aa 全目录 1.6 GB 裸搜 0）⇒ 判为**原版这一格是悬挂引用**，本 build 也不响"
+  },
+  {
+   "field": "activateSurvivor",
+   "guid": "f5b94c43ec9a188449541c6f6057f649",
+   "why": "GUID 在本地任何 catalog / 任何束的容器键里都解析不出来（catalog_main.json 的 key_index=None；catalog.bin 裸搜 0；aa 全目录 1.6 GB 裸搜 0）⇒ 判为**原版这一格是悬挂引用**，本 build 也不响"
+  },
+  {
+   "field": "activateTerror",
+   "guid": "a35d6ec183aa3544382fb9e84d04e1e7",
+   "why": "GUID 在本地任何 catalog / 任何束的容器键里都解析不出来（catalog_main.json 的 key_index=None；catalog.bin 裸搜 0；aa 全目录 1.6 GB 裸搜 0）⇒ 判为**原版这一格是悬挂引用**，本 build 也不响"
+  },
+  {
+   "field": "activateSentinel",
+   "guid": "78cf42c06ac4a3b48b06fe0aea257077",
+   "why": "GUID 在本地任何 catalog / 任何束的容器键里都解析不出来（catalog_main.json 的 key_index=None；catalog.bin 裸搜 0；aa 全目录 1.6 GB 裸搜 0）⇒ 判为**原版这一格是悬挂引用**，本 build 也不响"
+  },
+  {
+   "field": "activateAutoAttack",
+   "guid": "b6b23aff221538248bd21daea027ba22",
+   "why": "GUID 在本地任何 catalog / 任何束的容器键里都解析不出来（catalog_main.json 的 key_index=None；catalog.bin 裸搜 0；aa 全目录 1.6 GB 裸搜 0）⇒ 判为**原版这一格是悬挂引用**，本 build 也不响"
+  },
+  {
+   "field": "abilityBoxEnter",
+   "why": "原版这一格的 AssetReference 是空的（亲读 shipped bundle）"
+  },
+  {
+   "field": "abilityBoxExit",
+   "why": "原版这一格的 AssetReference 是空的（亲读 shipped bundle）"
+  },
+  {
+   "field": "syphon",
+   "why": "原版这一格的 AssetReference 是空的（亲读 shipped bundle）"
+  },
+  {
+   "field": "activateBlast",
+   "why": "原版这一格的 AssetReference 是空的（亲读 shipped bundle）"
+  },
+  {
+   "field": "activateSacrifice",
+   "why": "原版这一格的 AssetReference 是空的（亲读 shipped bundle）"
+  },
+  {
+   "field": "dissolveCardInHand",
+   "why": "原版这一格的 AssetReference 是空的（亲读 shipped bundle）"
+  }
+ ]
+}

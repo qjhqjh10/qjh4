@@ -73,6 +73,12 @@ namespace RuleEngine
 
     public static partial class RuleCore
     {
+        /// <summary>🆕 2026-10-15（`T11b`）：**「教程关置了 `playerAlwaysWins`、但按原版不生效」只出声一次**。
+        /// 为什么要有它：原版那一步的守卫是 `IsCampaignLike`（`matchType 130/190`），**教程档永不触发**；
+        /// 我们照原版做了之后，教程 SO 上那个 flag 就成了**死数据** —— ⛔ 不许静默，
+        /// 否则下一个会话会以为「我们忘了做」（红线：不许静默失败）。只在日志里出一声，不影响胜负。</summary>
+        static bool _alwaysWinsNoticeSaid;
+
         // ---- 规则常量（对齐 rule_core.gd:44-49）----
         public const int BoardSize = BoardSpec.Size;
         public const int WarlordSlot = BoardSpec.WarlordSlot;
@@ -8652,11 +8658,29 @@ namespace RuleEngine
             //   ⚠️ 判据只有这一处：⛔ 别在 UI 那一层再挡一道（两处写同一条规则 = 迟早不一致）。
             //   原版同一支：`ClickExitBattle.c:59` 那个 `if (*(char *)(stage + 0xb9) == '\0')`
             //   —— 真 ⇒ 才走 `DeadHero(我, 2)`；假 ⇒ `LogWarning` + **不判负**（正是我们这一支）。
-            if (ctx.Tutorial != null && ctx.Tutorial.ResignBlocked)
+            //
+            //   🔴 **2026-10-15（`T11b` 普查 + 主对话回原文复核）**：
+            //   ① **原版守卫比我们宽**：`IsTutorialStageAvailable(bm) || IsCampaignStageAvailable(bm)`
+            //      = `{100,140} ∪ {130,190}`（`ClickExitBattle.c:50-54`）—— **含教程**（与 `playerAlwaysWins`
+            //      的写法**不同**，⛔ 两条别一起改）。我们落在其内 ⇒ **教程档等价**；
+            //      差的只是**战役档**（我们还没有战役关 ⇒ 今天遇不到，记在 `任务线/战斗线/任务/T11`）。
+            //   ② ⛔ **不要加「回合界」** —— 普查报告里曾写「原版还要求 `turnCounter > 0` 且
+            //      `turnCounter-1 < turnScriptedData.Count`」，**主对话回原文逐句核过、【不成立】**：
+            //      真正的守卫链只有三段（`BattleManager__ClickExitBattle.c:50-70` 与
+            //      `BattleManager__GetCurrentTutorialStage.c:19-57` 全文读过）——
+            //      「本局是教程/战役档」→「`GetCurrentTutorialStage()` 非空」→「`stage + 0xb9 != 0`」，
+            //      **没有**任何 `turnCounter` 比较。加那道界会让我们在**没有脚本的回合**里
+            //      **不再挡投降** —— 那是**偏离原版**（⛔ 别照那份报告改回来）。
+            var tut = ctx.Tutorial;
+            if (tut != null && tut.ResignBlocked)
             {
                 ctx.Log($"{ctx.Players[player].Name} 想投降 —— **这一关不允许投降**"
                       + $"（关卡 `preventPlayerResign`）⇒ 挡下，对局继续"
-                      + $"（原版理由码 `BattleResult.{reason}` = {(int)reason}，这一支**没有**走到 `DeadHero`）");
+                      + $"（原版理由码 `BattleResult.{reason}` = {(int)reason}，这一支**没有**走到 `DeadHero`）"
+                      // ⏳ **G-1 未做**：原版被挡之后还有一步 —— `stage + 0xc0`（`actionOnPlayerResign`）
+                      //   非空就 `AiScripted.ExecuteAction(...)` **改演那个动作**（`:71`）；
+                      //   6 关该字段**全非空**。我们只做了「挡下」、**没做「改演」**（账在 `任务/T11` 的 `G-1`）。
+                      + "｜⚠️ 原版被挡后还会**改演 `actionOnPlayerResign`**，这一半我们还没做（`T11` G-1）");
                 return ctx.Winner;                           // = 0（什么都没发生）
             }
             ctx.ForfeitedBy = player;
@@ -8716,19 +8740,51 @@ namespace RuleEngine
                 ctx.Log($"[BattleResult] {BattleResult.BattleVictory}({(int)BattleResult.BattleVictory})"
                       + $" seat={(d0 ? 0 : 1)}");
 
-            // 🆕 2026-10-17（B29）：**教程关的 `playerAlwaysWins`** —— 「战斗结束时**一律算玩家赢**」。
-            //   原版出处 = `BattleManager.GetWinnerAfterBattleEnd`（`:63-66`）：
+            // 🆕 2026-10-17（B29）：**战役关的 `playerAlwaysWins`** —— 「战斗结束时**一律算玩家赢**」。
+            //   原版出处 = `BattleManager.GetWinnerAfterBattleEnd`（`:49-68`，另一处 `DeadHero.c:270-285`）：
             //     `if (IsCampaignLike(bm)) { var st = GetCurrentTutorialStage(bm); if (st != null && st + 0xB8 != 0)
             //        { CustomDebug.LogWarning(…); uVar6 = 10; } }`   // 10 = 玩家胜
             //   位置**很关键**：它在**原来那套「谁死了谁输」算完之后**覆盖结果
             //   ⇒ ⛔ **不是「一开局就判玩家赢」**（那会把教程局当场结算掉）。
-            //   ⚠️ 6 关实测**全是 false** ⇒ 今天一次都不触发，**机制照做**（铁律 11）。
-            //   🔴 唯一读点 = 这里（`TutorialScript.PlayerAlwaysWins`）—— 别在别处再判一遍。
-            if ((d0 || d1) && ctx.Tutorial != null && ctx.Tutorial.PlayerAlwaysWins)
+            //
+            //   🔴🔴 **2026-10-15（`T11b` 普查 · 主对话裁定）就地订正 —— 这一步的守卫原来写错了，
+            //   而且错得很隐蔽：**
+            //     · 原版守卫 = **`IsCampaignLike(bm)`**，逐句 = `matchType == 130 || == 190`
+            //       （`BattleManager__IsCampaignLike.c:11-29`）⇒ **教程档（100/140）上永不触发**；
+            //     · 它「看着像教程机制」是因为下一句调的 `GetCurrentTutorialStage` **名字骗人** ——
+            //       那个方法在 `100/140` 上回 `currentTutorialStage`、在 **`130/190` 上回 `currentCampaignStage`**
+            //       （两处类型都叫 `TutorialStage`，`dump.cs:85898/85903`）⇒ 真正读的那一格**属于战役关**；
+            //     · 而我们的 `ctx.Tutorial` **只在 `GameMode.Tutorial(4)` ⇒ `matchType 100`** 上非 null
+            //       ⇒ **原来那一版实现在原版唯一不生效的那一档上**，两边触发集合**互不相交**。
+            //   ⇒ 照原版把守卫换成 `IsCampaignLike` 那一对 matchType。⚠️ **我们还没有战役关**
+            //     （`GameMode.Campaign` / `CutScene` 全工程只有枚举定义与 `MatchTypes.For`；
+            //      战役页 `CampaignTab` 是奖励页、不开战）⇒ 这一支**当前恒不触发**，
+            //     机制保留、将来接战役线时直接用（那时把这里的 stage 源换成**战役关**的 stage）。
+            //   🔴 **⛔ 不许静默**：教程关的 SO 上万一置了这个 flag，我们照原版**不生效** ——
+            //     那必须**说出来**（否则下一个人会以为「我们忘了做」），见下面那一支。
+            bool campaignLike = ctx.MatchType == MatchType.Campaign || ctx.MatchType == MatchType.Scene;
+            if ((d0 || d1) && campaignLike && ctx.Tutorial != null && ctx.Tutorial.PlayerAlwaysWins)
             {
                 ctx.Winner = 1;
-                ctx.Log("★ 教程关：本关 `playerAlwaysWins` ⇒ **判玩家胜**（原版 `GetWinnerAfterBattleEnd`）");
+                //   ⚠️ 触发时这句要改成「战役关」——今天这条走不到（`campaignLike` 恒 false），
+                //     所以这句文案留给将来：⛔ 别把 `Tutorial` 那一档的名字写进来。
+                ctx.Log("★ 战役关：本关 `playerAlwaysWins` ⇒ **判玩家胜**（原版 `GetWinnerAfterBattleEnd`）");
                 return ctx.Winner;
+            }
+            if ((d0 || d1) && !campaignLike && ctx.Tutorial != null && ctx.Tutorial.PlayerAlwaysWins)
+            {
+                // 走得到这里 = **教程关置了这个 flag**，而原版在教程档上**不读它**。
+                // ⇒ 照原版不生效，但**必须出声一次**（红线：不许静默失败）。
+                if (!_alwaysWinsNoticeSaid)
+                {
+                    _alwaysWinsNoticeSaid = true;
+                    ctx.Log("⚠️ 本关 `playerAlwaysWins = true`，但**按原版不生效**：原版这一步的守卫是"
+                          + " `IsCampaignLike`（`matchType == 130 || 190`，`BattleManager__IsCampaignLike.c:11-29`），"
+                          + "**教程档(100/140)永不触发**（它下一步调的 `GetCurrentTutorialStage` 名字骗人 ——"
+                          + " 130/190 上回的是 `currentCampaignStage`）⇒ 教程关置这个 flag 是**原版的死数据**。"
+                          + "⚠️ 我们当前**没有战役关**（`GameMode.Campaign/CutScene` 无开战入口）"
+                          + "⇒ 这一支现在恒不触发，机制已按原版保留");
+                }
             }
 
             if (d0 && d1)

@@ -1589,6 +1589,10 @@ namespace CardPresentation
         bool _hurrySaidThisTurn;
         /// <summary>玩家这个回合做了几个动作 —— 原版缩时判定要用（见 `reducedTurnSeconds`）</summary>
         int _actionsThisTurn;
+        /// <summary>🆕 2026-10-15（`T06`）：这个回合的「没行动可用了」那一条音效已经喊过了吗
+        /// （原版 `ClockManager` 的锁存格 `+0xb0`，由 `StartTimer` 复位）—— 由 `ResetClock()` 复位。
+        /// **每回合只播一次**（原版也是锁存 —— 那格在 `SetNoActionsUi` 里置 1）。</summary>
+        bool _noActionsUiShown;
         Label _clockLabel;
 
         /// <summary>把自己的手牌索引找出来（落点校验要用）</summary>
@@ -3930,6 +3934,11 @@ namespace CardPresentation
                 Debug.Log($"[Battle] `ChatButton` 冷却中（还剩 {_chatCooldown:F1}s）—— 原版也是按不动");
                 return true;
             }
+            // 🆕 2026-10-15（`T06` · 战斗音响）：**聊天气泡弹出**那一拍（原版 `ChatShow` cue）。
+            //   判据 = `BattleManager__VoiceLinesPopUpShowedUp.c:16` —— 那是 `VoiceLinesController`
+            //   的**弹出回调**（它开头先写 `+0x298 = 1`，再播 `SoundAssetCollection.ChatShow`）
+            //   ⇒ 与本处「气泡真的弹出来了」同义。⚠️ **全场只此一个入口**（`ChatPopupPanel.Show` 的唯一调用点）。
+            BattleSfx.Play(BattleSfx.ChatShow);
             _chatPopup.Show();
             return true;
         }
@@ -4500,6 +4509,13 @@ namespace CardPresentation
         void OpenMulligan()
         {
             if (_mulligan == null) return;
+
+            // 🆕 2026-10-15（`T06` · 战斗音响）：**换牌阶段开始**那一拍（原版 `Mulligan` cue）。
+            //   判据 = `BattleManager._MulliganCountdown_d__347__MoveNext.c:33`
+            //   （`SoundAssetCollection__get_Mulligan` → `SoundManager__Play2D(...,0)` = `MixerType.FX`）；
+            //   ⚠️ 它前面有一道 `if (matchData.matchType == 0x32) return;` —— **那一档原版直接不播**，
+            //      `0x32`(=50) 是哪个模式**没查清**（记在 `任务/T06` 的「还差什么」里）。
+            BattleSfx.Play(BattleSfx.Mulligan);
 
             // 对手换牌：**照原版 `AI.GetAiMulliganCards` 的规则**（2026-09-17 反编译解开 ——
             // 正本 `资料/AI_原版反编译_0917.md` §二）：`mulliganOption == whispersOfChaos(30)` 保留、
@@ -6401,6 +6417,36 @@ namespace CardPresentation
             return Vector3.zero;
         }
 
+        /// <summary>🆕 2026-10-15（`T13` · HUD「该藏的时候藏住了吗」）：这一批补摆件里，
+        /// 名字叫 <paramref name="name"/> 的那一件**现在可见吗**。⚠️ 找不到**返回 false**
+        /// （与「不可见」同值）⇒ 调用方要判「找不到」请配 <see cref="HudExtraWorldPos"/> 一起看。
+        /// 🔴 **为什么要有它**：本工程踩过「只断言『建起来了』⇒ 该藏的时候没藏照样全绿」
+        /// （筛选栏底板那次）—— 显隐是**行为**，不是几何。</summary>
+        public bool HudExtraVisible(string name)
+        {
+            for (int i = 0; i < _hudExtras.Count; i++)
+            {
+                var q = _hudExtras[i];
+                if (q != null && q.name == name) return q.gameObject.activeSelf;
+            }
+            return false;
+        }
+
+        /// <summary>🆕 2026-10-16（`A1302`）：这一批补摆件里 <paramref name="name"/> 那一件
+        /// **画出来的**尺寸（= 世界尺寸 × 108，单位 px；找不到返回 `Vector2.zero`）。
+        /// 🔴 **为什么要有它**：`HudExtraWorldPos` 只管**位置**，而 `A1302` 那条缺陷
+        /// （`PA=1` 该**内接**、我们原来按高摆 ⇒ 宽溢出）**只体现在尺寸上** ⇒ 位置断言一条都抓不到。
+        /// ⚠️ 找不到与「尺寸为 0」同值 ⇒ 判「找不到」请配 <see cref="HudExtraWorldPos"/> 一起看。</summary>
+        public Vector2 HudExtraDrawnPx(string name)
+        {
+            for (int i = 0; i < _hudExtras.Count; i++)
+            {
+                var q = _hudExtras[i];
+                if (q != null && q.name == name) return new Vector2(q.WorldW * 108f, q.WorldH * 108f);
+            }
+            return Vector2.zero;
+        }
+
         /// <summary>自检用：这一批补摆件里**取不到图**的（应当一个都没有 —— 缺图就是静默失败）</summary>
         public int HudExtrasMissingArt()
         {
@@ -8198,8 +8244,15 @@ namespace CardPresentation
             _clockLeft = TurnSecondsForThisMatch;
             _clockInCountdown = false;
             _hurrySaidThisTurn = false;             // 原版 `ClockManager.StartTimer`：`latch_0xb8 = 0`
+            _noActionsUiShown = false;              // 同上，`+0xb0` 那一格也在 `StartTimer` 里复位
             _actionsThisTurn = 0;
             _cardsPlayedThisTurn = 0;               // 新回合：三枚「已出牌数」灯灭掉（原版也只在出牌后亮）
+            // 🆕 2026-10-15（`T06` · 战斗音响）：**回合开始**那一拍（原版 `StartTurn` cue）。
+            //   判据 = `BattleManager._NextTurn_d__395__MoveNext.c:450` —— 它在**玩家分支**里、
+            //   **紧跟 `ClockManager.StartTimer` 之后**（同一支里 `:427` 就是那句 `StartTimer`）；
+            //   而本方法正是我们这一侧的 `StartTimer` 等价物（`_hurrySaidThisTurn` 那句注释即此）。
+            //   ⚠️ 闸 = `Ctx.Active == _me` ⇒ **AI 回合不喊**（原版那句本来就在玩家分支里）。
+            if (Ctx != null && !Ctx.IsOver && Ctx.Active == _me) BattleSfx.Play(BattleSfx.StartTurn);
             UpdateClockLabel();
         }
 
@@ -8239,6 +8292,10 @@ namespace CardPresentation
                     // 倒计时也走完 → **自动结束回合**，没有额外惩罚（原版 `EndTurnClick(timeOutFlag=true)`）
                     _clockLeft = 0f;
                     UpdateClockLabel();
+                    // 🆕 2026-10-15（`T06` · 战斗音响）：**回合计时归零**那一拍（原版 `TimerExpired` cue）。
+                    //   判据 = `ClockManager__EndCountdown.c:34` —— 它**先**播 `TimerExpired`、
+                    //   **再**调 `EndTurnClick(1)`（`:41`）⇒ 本条排在 `EndPlayerTurn()` 之前是对的顺序。
+                    BattleSfx.Play(BattleSfx.TimerExpired);
                     EndPlayerTurn();
                     return;
                 }
@@ -9226,7 +9283,21 @@ namespace CardPresentation
             //    （`ClockManager__EndTurnClick.c` 里那一次 `CheckIfPlayerActionPermittedInTutorial`）。
             //    放这儿 = 两个调用点（结束回合按钮 / `AutoEndTurnIfStuck` 那条自动收尾）**一次盖住**；
             //    后者在脚本没跑完时自己已经早退了（见那边），所以这一句真正拦的就是**玩家点的那一下**。
-            if (!TutorialPermits(TutAttemptEndTurn())) { RejectByTutorial("结束回合"); return; }
+            if (!TutorialPermits(TutAttemptEndTurn()))
+            {
+                // 🆕 2026-10-15（`T06` · 战斗音响）：**这一下被拒** ⇒ 原版那颗「不可点」的 cue。
+                //   判据 = `BattleManager__EndTurnClick.c:171`（`SoundAssetCollection__get_EndTurnButtonInactive`）
+                //   —— 它落在 `:50` 那条「可以结束」的 `if` **之外**、且前面紧跟着一条 `CustomDebug.LogWarning`
+                //   （正是「这次点击没走通」那一支）⇒ 与本处「教程门把这一下拦下来」同义。
+                BattleSfx.Play(BattleSfx.EndTurnButtonInactive);
+                RejectByTutorial("结束回合");
+                return;
+            }
+            // 🆕 2026-10-15（`T06` · 战斗音响）：**结束回合**那一拍（原版 `EndTurnButton` cue）。
+            //   判据 = `BattleManager__EndTurnClick.c:50` —— 它在那条「`0x245==0 && 0x244!=0`
+            //   且 `!WaitingForBlockingAction`」的 `if` 里、**做题之前**；⚠️ 它**不看** `param_2`（超时标志）
+            //   ⇒ 玩家点钮与倒计时归零（`EndCountdown` 那条）**都**会响 —— 本方法两条路共用，正好同义。
+            BattleSfx.Play(BattleSfx.EndTurnButton);
             ClearSelection();
             // 🆕 2026-09-26（N4）：联机局要把「我结束回合」发对面（对面收到后照样 `EndTurn` + `BeginTurn`）
             var endAct = new AiAction { Kind = AiActionKind.EndTurn };
@@ -9542,6 +9613,84 @@ namespace CardPresentation
         //  `hide*` 五条 + `TutorialSetup` 那条无条件藏（逐条见 R2 §4 表）
         // ------------------------------------------------------------------
 
+        // ============================================================================================
+        //  🆕 2026-10-16（`T01` · `A2109`）：**进战斗的黑场**（原版 `…/FrontCanvas/Safe area FrontCanvas/LoadingMenu`）
+        //
+        //  判据（`T01b` 普查实读，**推翻了 `D1` §5 的方向**）：
+        //    · 参数名是 **`show`**（`dump.cs:109207 LoadingFade(bool show, Action callback)`）—— ⛔ 不是 `down`；
+        //    · `LoadingFade` 里：`SetActive(true)` → **立刻** α = `show ? 0 : 1` →
+        //      `DOFade(show ? 1 : 0, 时长)`（**目标与刚才那个值相反**）→ 回调里 `if (show) return; else SetActive(false)`；
+        //    · ⇒ **进战斗（`show = false`）= 立刻全黑 → 补间到透明 → 自己关掉**。
+        //      ⚠️ 照 `D1` 原文（「补间到全黑、结束后自己关掉」）做出来会是**反的 —— 黑屏卡住**。
+        //    · `Awake`：`StartFaded != 0` ⇒ 立刻 `SetActive(true)` 且 α = **1.0**（`DAT_1834b2bb8` 实读 = `1.0f`）
+        //      ⇒ 整段 = **进战斗先黑、1.25 秒亮起来**。
+        //    · **时长 = 1.25 s**（实读：`LoadingFade` 里 `movss xmm2,[rip+…]` → 常量 `0x1834B2EC0` = `1.25f`；
+        //      同一批常量旁证自洽：`DAT_1834b2df0 = 4.0f` 正对 `CHAT_INTERACTABLE_COOLDOWN = 4`）。
+        //    · 触发点 = 原版 `BattleManager._StartBattleSequence` ⇒ 我们这一侧 = **建好 HUD 那一刻就开始淡出**。
+        //
+        //  ⚠️ **批处理/编辑器非播放态**：那里**没有帧循环** ⇒ 淡出永不发生 ⇒ 它会**永久糊住整个画面**
+        //    （`BattleScene.Run` 是要读回像素的）⇒ 那一档**直接落到终态**（透明 + 关），
+        //    ⛔ **不是「不建」** —— 建了才量得到几何（自检要断言它铺满屏幕）。
+        // ============================================================================================
+        /// <summary>原版 `LoadingFade` 的补间时长（实读常量 = **1.25 s**）。</summary>
+        const float LoadingFadeSeconds = 1.25f;
+        /// <summary>进战斗那块黑场（`CardArt.Solid()` 铺满屏 + 纯黑）。</summary>
+        ImageQuad _loadingCover;
+        /// <summary>淡出的进度（`< 0` = 没在淡出）。</summary>
+        float _loadingFadeT = -1f;
+        /// <summary>黑场当前不透明度（原版 `Awake` 那一档 = 1.0）。</summary>
+        float _loadingAlpha = 1f;
+        /// <summary>自检用：黑场还在不在、不透明度多少（`-1` = 没建 / 已经收掉）。</summary>
+        public float LoadingCoverAlpha
+        {
+            get { return (_loadingCover != null && _loadingCover.gameObject.activeSelf) ? _loadingAlpha : -1f; }
+        }
+        /// <summary>自检用：推进淡出（批处理没有帧循环，`AdvanceTimeline` 不会自己跑）。</summary>
+        public void TickLoadingFadeForTest(float dt) { TickLoadingFade(dt); }
+        /// <summary>自检用：把黑场**重新拉回「刚开始淡出」那一刻**（`α=1` + 激活），
+        /// 好让自检在批处理里也能验**方向**（原版是「全黑 → 透明 → 自己关」——
+        /// ⚠️ `D1` §5 原来写成「补间到全黑」，照那个做会**黑屏卡住**，所以这条断言专门钉方向）。</summary>
+        public void StartLoadingFadeForTest()
+        {
+            if (_loadingCover == null) return;
+            _loadingCover.gameObject.SetActive(true);
+            _loadingCover.SetTint(new Color(0f, 0f, 0f, 1f));
+            _loadingAlpha = 1f;
+            _loadingFadeT = 0f;
+        }
+
+        /// <summary>自检用：把「按住一张牌」那一格钉死（批处理里没有真指针 ⇒ 只能喂它）。</summary>
+        bool? _cardHoldForTest;        /// <summary>自检用（见 <see cref="CardHoldPeek"/>）：<c>true</c>/<c>false</c> 钉死，<c>null</c> = 还原成看真指针。</summary>
+        public void SetCardHoldForTest(bool? on) { _cardHoldForTest = on; }
+        /// <summary>自检用：重跑一遍「教程 `hide*` + **按住才亮**」那一格
+        /// （批处理里没有帧循环 ⇒ 改完 <see cref="SetCardHoldForTest"/> 得手动再刷一次）。</summary>
+        public void ApplyTutorialVisibilityForTest() { ApplyTutorialVisibility(); }
+
+        /// <summary>🔴 **2026-10-15（`T13` 普查 · 铁律 11）：「按住一张牌」那一格** ——
+        /// 原版**牌库张数与手牌张数只在按住某张牌时亮**（`CardScript__OnTouchDown.c` → `ShowDeckSize()`），
+        /// 松手收起（`BattleManager__Update.c:140-150`，`+0x598` 标志）。**我们原来常显**。
+        ///
+        /// <para>⚠️ **我们这条是等价物、不是原件**：原版按的是「某一张牌的碰撞体」，
+        /// 而**我们的输入链没有那个事件** ⇒ 近似成「**指针按着** 且（按在棋盘某格 或 按在某张手牌上）」：
+        /// · `_pressSlot >= 0` = 按下那一帧压在棋盘某格（原版 `CardCollider.OnPointerDown` 的同义物）；
+        /// · `interaction.IsDragging` —— 🔴 **它就是「手牌被按着」**（`CardInteraction.PickUp` 置、
+        ///   `Release` 清，中间不判移动；「轻点 vs 拖拽」是**松手那一刻**用 `_travel` 分的，
+        ///   见 `Release` 里那句 `tapped = _travel &lt; TapThreshold`）⇒ 覆盖「按着手牌不动」。</para>
+        ///
+        /// <para>⚠️ **本件仍未接的两条**（判据齐、留账）：原版那个闸还有
+        /// ① `duringBattleFlag` ② `UIstate != choosingResolutionCard(14)` 两条 —— 见 `T13` 那份总表。
+        /// 而**收起那一支还有半个条件是没反编译出来的**（`FUN_180617800`）⇒ 我们只做了「松手」这一半。</para></summary>
+        public bool CardHoldPeek
+        {
+            get
+            {
+                if (_cardHoldForTest.HasValue) return _cardHoldForTest.Value;
+                if (!PointerHeldRaw()) return false;
+                if (_pressSlot >= 0) return true;
+                return interaction != null && interaction.IsDragging;
+            }
+        }
+
         /// <summary>
         /// **教程关卡那五个 `hide*` 开关的落地**（R2 §4 逐条给了读数点与消费者）。
         /// ⚠️ 每帧算一遍是**故意的**：这些元素也被 `UpdateHud` 每帧写，藏/显必须跟着局走；
@@ -9550,7 +9699,7 @@ namespace CardPresentation
         /// | 开关 | 6 关值 | 读数点 | 我们这边的消费者 |
         /// |---|---|---|---|
         /// | `hideCemetery` | **全 0** | `BattleManager__CanShowCemetery.c:61`（`stage+0x29`）；🔴 **唯一的原版消费者 = 死类 `CemeteryLogManager.ClickCemeterySlider.c:75`**（该族在发行版里没有实例 —— `G9` 实证，见 `BattleLogPanel` 的 `Z2`/`Z3` 段）⇒ 这一档**没有原版活消费点**；我们照字段语义做了闸门（`CemeteryRowClickAllowed`），如实标 |
-        /// | `hideCardsLeftInDeck` | **全 1** | `BattleManager__CanDisplayDeckSize.c:43-46`（`stage+0x2a`）；**两个消费者** = `DeckManager__DisplayDeckSize.c:32-58` 与 `PlayerHand__ShowHandSize.c:29-48` | ✅ **两个都接**：牌库数（`_pileLabel`/`_foePileLabel` + 两块底板）**与**手牌数（`_handLabel` + `_handPlate`） |
+        /// | `hideCardsLeftInDeck` | **全 1** | `BattleManager__CanDisplayDeckSize.c:43-46`（`stage+0x2a`）；**两个消费者** = `DeckManager__DisplayDeckSize.c:32-58` 与 `PlayerHand__ShowHandSize.c:29-48` | ✅ **两个都接**：牌库数（`_pileLabel`/`_foePileLabel` + 两块底板）**与**手牌数（`_handLabel` + `_handPlate`）—— 🆕 **2026-10-15（`T13`）再加上「按住一张牌才亮」那一格**（见 `CardHoldPeek`；原来我们**常显**） |
         /// | `hideLargeCardDisplay` | **全 0** | `BattleManager__DisplayCard.c:44-50`（`stage+0x2b`；`!='\0' ⇒ return`） | 三个开窗口全过 `TutorialAllowsCardDisplay` |
         /// | `hideChat` | **全 1** | `BattleManager__TutorialSetup.c:52-60`（`stage+0x2c`；`chatButton.gameObject.SetActive(hideChat == 0)`） | ✅ `_chatBtn`（🔴 那是**打开语音弹窗那颗按钮**，**不是**聊天气泡面板） |
         /// | `bg` | 6 关全 `newBg_Tutorial` | ⛔ **载体查不到** | ⛔ 没做（R2 §4 表末：`assets_full` 全库 0 命中） |
@@ -9563,11 +9712,16 @@ namespace CardPresentation
             var st = Ctx != null && Ctx.Tutorial != null ? Ctx.Tutorial.Stage : null;
             bool tut = st != null;
 
-            // ---- ① `hideCardsLeftInDeck`（两个消费者一起）----
+            // ---- ① `hideCardsLeftInDeck`（两个消费者一起）＋ 🔴「按住一张牌才亮」----
+            //   🆕 2026-10-15（`T13` 普查查出 · 铁律 11）：原来这里是**常显**（只受教程关闸门管），
+            //   而原版是 `CanDisplayDeckSize() && 按住某张牌`（`CardScript.OnTouchDown` → `ShowDeckSize()`，
+            //   松手由 `BattleManager__Update.c:140-150` 收）⇒ 见 `CardHoldPeek` 的 doc
+            //   （⚠️ 我们那条是**等价物、不是原件**，且原版收起那一支还有半个条件没反编译出来）。
             bool hideSize = tut && st.hideCardsLeftInDeck;
-            SetVis(_pileLabel, !hideSize); SetVis(_foePileLabel, !hideSize);
-            SetVis(_myDeckSizePlate, !hideSize); SetVis(_foeDeckSizePlate, !hideSize);
-            SetVis(_handLabel, !hideSize); SetVis(_handPlate, !hideSize);
+            bool peek = !hideSize && CardHoldPeek;
+            SetVis(_pileLabel, peek); SetVis(_foePileLabel, peek);
+            SetVis(_myDeckSizePlate, peek); SetVis(_foeDeckSizePlate, peek);
+            SetVis(_handLabel, peek); SetVis(_handPlate, peek);
 
             // ---- ② `hideChat`（是**那颗按钮**，不是气泡面板）----
             SetVis(_chatBtn, !(tut && st.hideChat));
@@ -10364,6 +10518,18 @@ namespace CardPresentation
             //     没有「替他做」这一档）。脚本跑完了照常自动收（否则玩家真卡住时出不去）。
             var tut = Ctx.Tutorial;
             if (tut != null && tut.CurrentTurn != null && !tut.FinishedScriptedActionsInTurn) return;
+            // 🆕 2026-10-15（`T06` · 战斗音响）：**没行动可用了**那一拍（原版 `OutOfActions` cue）。
+            //   判据 = `BattleManager__FinishResolvingAction.c:135-149` —— 每条动作解析完之后那句：
+            //     `GetAvailableActions()` 的计数 **< 2**（= 只剩「结束回合」那一项）
+            //     ⇒ `ClockManager.SetNoActionsUi()` → 播 `OutOfActions`（`SetNoActionsUi.c:53`）。
+            //   ⚠️ **我们这条闸与它同义**：上面 `!SimpleAI.HasAnyAction` 正是「除 `EndTurn` 外一个动作都没有」
+            //      （`SimpleAI.HasAnyAction` 的实现就是遍历动作、跳过 `EndTurn`）。
+            //   ⚠️ 原版那一格是**锁存**的（`ClockManager+0xb0`，`StartTimer` 复位）⇒ 这里同样**每个回合只喊一次**。
+            if (!_noActionsUiShown)
+            {
+                _noActionsUiShown = true;
+                BattleSfx.Play(BattleSfx.OutOfActions);
+            }
             Debug.Log("[Battle] 没牌可出、没技能可放也没人能打 —— 自动结束回合");
             EndPlayerTurn();
         }
@@ -11157,6 +11323,53 @@ namespace CardPresentation
         /// <summary>自检用：最近一次 drain 里播放过的事件（不接特效也能断言「引擎说了什么」）</summary>
         public readonly List<BattleEvent> LastSignals = new List<BattleEvent>();
 
+        /// <summary>
+        /// 🆕 2026-10-16（`T06`）：**`unitDamage` 那条 cue** —— 它**要整批的视野**（见下），
+        /// 所以在 `PlaySignals` 里 drain 之后**算一次**，⛔ **不挂在 `PlayBattleSfx` 的逐事件 switch 上**。
+        ///
+        /// <para>判据（`D3` 表 B 逐条 + `T06b` 补查报告 `资料/普查产出_1015战斗判据/T06b_两条cue触发点.md`）：
+        /// 原版那一条在 `BattleManager._ResolveMultiDamage…` / `…AndDestroySelf…` 里，
+        /// 而 🔴 **它只在该批的【最后一个目标】那一下播**（`count-1 &lt;= index`，两处判据一致）
+        /// ⇒ 逐事件挂会**比原版多**。</para>
+        ///
+        /// <para>🔴 **「什么算这一次伤害」我们用的是【等价物、不是原件】**（如实记）：
+        /// 原版按「一次 `DealMultiDamage` 调用」分，我们的事件里**没有这一位** ⇒ 退一档：
+        /// · **一批** = 这一次 `DrainSignals` 的结果（= `PlaySignals` 的一次调用，见那里的注释）；
+        /// · **挨打** = `EvtKind.Hit` 且 `Amount &gt; 0`（负数是治疗，见 `BattleEvent.Hit`）；
+        /// · **⛔ 攻击命中不算** —— 原版 `_ResolveAttack:865` 走的是 `ResolveAttackDamage`，
+        ///   **不调** `DealMultiDamage`（攻击命中由 `BattleCardSounds.meleeAttackHit*` 那一族负责）；
+        ///   我们的形状 = **`EvtKind.Attack` 后面紧跟一条 `Hit`**（`RuleCore` 的发射点），据此跳过。
+        ///   ⚠️ 疲劳伤害**要算**（原版 `_ResolveFatigue` 也入队 `DealMultiDamage`，`T06b` 已核）。</para>
+        ///
+        /// <para>⚠️ **仍未定的一条**（`T06b` 明说没查清）：引擎侧**没有**「同一批」的正规判据 ——
+        /// `DrainSignals` 一次可能跨不止一条动作。⇒ 若将来引擎给事件补一个「同源动作 id」，
+        /// 本方法应当改成按那个 id 分组，而不是按 drain 分组。</para>
+        /// </summary>
+        /// <summary>同上（`T06` 的 `unitDamage`）。⚠️ `public` 是**给自检调**的 —— 批处理里没有帧循环，
+        /// 自检拿合成的一批事件直接调它，把「哪一条 hit 才轮到这条 cue」那层钉住。</summary>
+        public void PlayUnitDamageCue(List<BattleEvent> buf)
+        {
+            if (UnitDamageCueIndex(buf) >= 0) BattleSfx.Play(BattleSfx.UnitDamage);
+        }
+
+        /// <summary>🆕 2026-10-16（`T06`）：**纯函数** —— 这一批里「该由 `unitDamage` 那条 cue 负责的」
+        /// 是**哪一条** hit（下标；`-1` = 这一批不该播）。规则见 <see cref="PlayUnitDamageCue"/> 的 doc。
+        /// 🔴 **拆成纯函数是为了能断言**（合成一批事件就能验，不需要跑一局、也不需要 `BattleDriver` 实例）。</summary>
+        public static int UnitDamageCueIndex(List<BattleEvent> buf)
+        {
+            if (buf == null) return -1;
+            int last = -1;
+            for (int i = 0; i < buf.Count; i++)
+            {
+                var e = buf[i];
+                if (e == null || e.Kind != EvtKind.Hit || e.Amount <= 0) continue;
+                // 紧跟在一条攻击宣言后面的那一条 `Hit` = **攻击命中** ⇒ 不归这条 cue 管
+                if (i > 0 && buf[i - 1] != null && buf[i - 1].Kind == EvtKind.Attack) continue;
+                last = i;
+            }
+            return last;
+        }
+
         void PlaySignals()
         {
             if (Ctx == null || Ctx.Signals.Count == 0) return;
@@ -11171,6 +11384,9 @@ namespace CardPresentation
             //   全在 `NoteFatigueBanners` 的 doc 里。⚠️ 放在**排时间线之前**：原版那条提示也在
             //   「扣血之前」（`_ResolveFatigue` 里 `ShowError` → `WaitForSeconds(0.5)` → 才 `DealMultiDamage`）。
             NoteFatigueBanners(_signalBuf);
+
+            // 🆕 2026-10-16（`T06`）：**`unitDamage` cue** —— 它要「整批」的视野，所以在 drain 之后、排时间线之前算一次。
+            PlayUnitDamageCue(_signalBuf);
 
             // **不立刻全播** —— 按 `EventTiming` 排一条时间线，让动作一段段来。
             // 以前是同一帧把整串一起点着，看着就是「一坨特效」，读不出「谁先谁后」。
@@ -11290,6 +11506,9 @@ namespace CardPresentation
             if (_endPanel != null) _endPanel.Advance(dt);
             // 单位语音条的气泡停留时间也走这个泵（同一个理由）
             if (_unitChat != null) _unitChat.Advance(dt);
+            // 🆕 2026-10-16（`T01`）：**进战斗黑场的 1.25 s 淡出**也走这个泵 ——
+            //   原版是 DOTween 的 `DOFade`（帧驱动）；批处理没有帧循环 ⇒ 不推的话它**永远不褪**。
+            TickLoadingFade(dt);
 
             // 🆕 2026-09-29：准星的淡入淡出也走这个泵（原版在 `TargetReticleController.Update` 里，
             //   批处理没有帧循环 ⇒ 不推的话准星会卡在半透明上，截图与断言都不对）。
@@ -11366,6 +11585,74 @@ namespace CardPresentation
         }
 
         /// <summary>
+        /// <summary>
+        /// 🆕 2026-10-15（`T06` · 战斗音响）：**事件驱动**的那几条战斗音效 ——
+        /// 原版 `BattleManager.soundCollection` 那一族里**挂在卡动作上**的（另一半天挂在回合骨架上：
+        /// 回合开始 / 换牌 / 结束回合 / 计时归零，那几处直接调 `BattleSfx.Play`，不走事件）。
+        ///
+        /// ⚠️ 一律 `Play2D`（反编译调用点第 4 实参恒为 `0` = `MixerType.FX`）⇒ 不吃世界坐标。
+        /// 判据（逐条带调用点）→ `BattleSfx` 的文件头；cue 表 → `Resources/battle_sounds.json`
+        /// （键 = **原版字段名**，产出方 `工具/import_battle_sfx.py`）。
+        /// ⛔ **别在这里拼 clip 名** —— 字段名 → cue 资产 → clip 那条链全在表里（cue 名 ≠ clip 名）。
+        /// </summary>
+        public void PlayBattleSfx(BattleEvent e)
+        {
+            if (e == null || Ctx == null) return;
+            if (e.Player < 0 || e.Player > 1) return;
+
+            switch (e.Kind)
+            {
+                // 抽牌落手（原版 `CardScript__DrawCard.c:50`）。⚠️ 它的 `Slot` **恒为 -1**（不在场上）——
+                // 本族一律 2D 播放，所以不需要落点。
+                case EvtKind.Draw: BattleSfx.Play(BattleSfx.DrawCardFromDeck); break;
+
+                // 单位落到格位 = **卡从手牌飞进战场**那一拍。原版这一拍**响两条**（都在同一个函数里）：
+                //   · `moveCardIntoBattle` ← `CardScript__StartMovingFromHand.c:43`（手牌起飞的位移）
+                //   · `playMinionFromHand` ← `_ResolvePlayCardFromHand…:397`（`cardType == 0` 才响）
+                // ⚠️ 两条**一起挂在 `Deploy` 上**、⛔ **不挂 `Play`**：`Play` 对战术卡也会发（战术卡不离手），
+                //    挂它会多响一下；而 `Deploy` 的语义（`BattleEvent.Deploy` 的注释）正是「落到格位上」，
+                //    且**效果召唤来的单位也走它** —— 与原版 `_ResolveCardAutoSummoned…:104,122,187` 同形。
+                case EvtKind.Deploy:
+                    BattleSfx.Play(BattleSfx.MoveCardIntoBattle);
+                    BattleSfx.Play(BattleSfx.PlayMinionFromHand);
+                    break;
+
+                // 抬手（原版 `CardScript._PrepareAttack_d__353__MoveNext.c:83`）——
+                // `BattleEvent.Attack` 的语义就是「伤害之前发」，正好是抬手那一拍。
+                case EvtKind.Attack: BattleSfx.Play(BattleSfx.MinionInitiatingAttack); break;
+
+                // 治疗（原版 `CardScript._Heal_d__468__MoveNext.c:148`）。
+                // ⚠️ 原版紧接其后**无条件**再播一条 `Syphon`（`:154`）—— 而**本 build 那一格是空的**
+                //    （亲读 shipped bundle）⇒ 照原版 = **不播**，详见 `BattleSfx` 文件头那 12 条。
+                case EvtKind.Hit:
+                    if (e.Amount < 0) BattleSfx.Play(BattleSfx.MinionHeal);
+                    break;
+
+                // 主动技能：**只有这张卡没有专用演出时**才响「默认技能音」。
+                //   原版 `BattleManager._ResolveActiveAbilityAnim_d__478__MoveNext.c:19` —— 那支协程
+                //   本身就是**默认**那一档（它播完接的就是 `FinishResolvingAction`），它的兄弟
+                //   `PlayActiveAbilityAnim` 才是「按卡挑专用演出 / 退回默认」的那个岔口。
+                //   我们这边的对应判据 = **这张卡有没有逐卡覆盖**
+                //   （`VfxMap.ResolvePerCard` 的 doc 原话：「调用方真正要问的是『这张卡自己有没有逐卡覆盖』」）。
+                case EvtKind.Ability:
+                    if (string.IsNullOrEmpty(VfxMap.ResolvePerCard(
+                            VfxMap.Ability,
+                            e.Player == _me ? _myFaction : _foeFaction, e.CardId)))
+                        BattleSfx.Play(BattleSfx.DefaultActiveAbility);
+                    break;
+
+                // ⏳ **本批没接的**（都已在表里、判据也在，差的是**触发点**）：
+                //   · `unitDamage` —— 原版只在 `_ResolveMultiDamage…` / `…AndDestroySelf…` 里响，
+                //     那是**多目标那一路**，**不是**「所有挨打」⇒ 挂到 `EvtKind.Hit` 上会**比原版多**。
+                //     要接得先能区分「这一次伤害是不是多目标解析」——见 `任务/T06` 的「还差什么」。
+                //   · `sneakAttack` —— 原版在**目标**身上播（`CardScript__ReceiveSneakAttackAnim.c:33`），
+                //     由 `_ResolveAttack` 的**状态 10** 调（`:976` 那一支 = `ResolveRangedAttack` 之后）；
+                //     但「什么算 sneak attack」这一步 **没查清**（那个状态在 `if (melee) … else` 的 else 支里、
+                //     与「远程攻击」同支，可 `DefinedTrait.sneakAttack = 20` 又说它是偷袭）
+                //     ⇒ ⛔ **不猜**，见 `任务/T06` §四。
+            }
+        }
+
         /// 🆕 2026-09-29（Q 批第 6 条）：**残骸体那三条原版音效**（出现 / 收集 / 被打掉 × 两阵营）。
         /// ⚠️ `public` 是**给自检调**的（批处理里没有帧循环，`PlaySignal` 那条路要走事件泵）——
         ///    自检拿合成事件直接调它，把「哪条事件 → 哪条音效」这层钉住。
@@ -11431,6 +11718,7 @@ namespace CardPresentation
         {
             SpeakFor(e);          // 单位语音条（原版 `Unit Chat`）—— 和特效同一个事件流，不另开一条路
             PlayRemnantSfx(e);    // 🆕 2026-09-29：残骸体那三条原版音效（出现 / 收集 / 被打掉）
+            PlayBattleSfx(e);     // 🆕 2026-10-15（`T06`）：战斗「时机 → cue」那一族（原版 `SoundAssetCollection`）
 
             string evt;
             switch (e.Kind)
@@ -13671,8 +13959,19 @@ namespace CardPresentation
         /// —— 和 `战斗UI_原版对账表.md` / `子代理读报_*` 里的写法**逐字一致**。
         /// ⚠️ 代码里那套 `x01/y01` 是「中心点归一化 + y 从**下**」，两者换算只写在这一处
         ///    （以前手算 `84.2f / 1920f, 1f - 168f / 1080f` 这种，抄错一个数就要重对一遍）。
-        /// 图按**高度**摆放、宽度由贴图自身比例定（`ImageQuad` 就是这么做的）—— 原版这几件都是
-        /// `PreserveAspect=1`，行为一致。
+        ///
+        /// <para>🔴 **2026-10-16（`A1302`）就地订正 —— 本段原来写「图按【高度】摆放、宽度由贴图自身比例定……
+        /// 原版这几件都是 `PreserveAspect=1`，行为一致」：那句【不成立】。**
+        /// 原版 `PA=1` 走的是 `Image.GetDrawingDimensions` = **把图【内接】进那个 rect**
+        /// （两轴同系数 `min(w/texW, h/texH)`），**不是**「高度定死、宽度溢出」。
+        /// 后果：**框比例 ≠ 贴图比例**的那些**全偏** —— 对账时实读 `_offensiveBtn`
+        /// 我们实绘 **110.394×106.943** vs 原版 **109.008×105.601**（图比框宽 ⇒ 原版是**宽受限**）。
+        /// ⇒ 现在按 `min(h, w·texH/texW)` 取**画出来的高**（宽度由 `ImageQuad` 按贴图比例给，
+        ///   两轴同系数 ⇒ 等价于内接）。✅ **算术与对账那两个数逐位吻合**：`109.008 / (110.394/106.943) = 105.601`。
+        /// ⚠️ **只有「贴图比框宽」的那些会变**（其余两轴同系数 ⇒ 结果不变，例 `CenterCameraButton`
+        ///   方图进 64.44×61.85 ⇒ 本来就是高受限）；**位置不动**（锚是 (0.5,0.5)、按 rect 中心摆）。
+        /// ⚠️ **同族的 `HudImage` / `HudImageTex` 只收 `worldHeight`、拿不到框宽** ⇒ 那一半**还没接**
+        ///   （账仍在 `A1302`；要接得给它们加一个宽，调用点几十处）。</para>
         /// </summary>
         ImageQuad HudAbs(Transform root, string artName, float x, float y, float w, float h,
                          string name, float z = HudImageZ)
@@ -13680,15 +13979,59 @@ namespace CardPresentation
 
         /// <summary>同上，但**直接吃一张贴图**（不走 `CardArt.Ui`）—— 2026-10-19（A1502②）加，
         /// 给**装饰品头像**那一层用（那批图在 `Art/avatars/`，不在 `Art/ui/`）。
-        /// 换算与 `HudAbs` 是**同一个式子**（`x`/`w` 只用来算中心、`h` 定画面高）——⛔ 别各写一份。</summary>
+        /// 换算与 `HudAbs` 是**同一个式子**（`x`/`w` 只用来算中心、`w`/`h` 一起定内接后的画面高）
+        /// ——⛔ 别各写一份。</summary>
         ImageQuad HudAbsTex(Transform root, Texture2D tex, float x, float y, float w, float h,
                             string name, float z = HudImageZ)
         {
             float cx = (x + w * 0.5f) / 1920f;
             float cy = 1f - (y + h * 0.5f) / 1080f;
-            var q = HudImageTex(root, tex, cx, cy, new Vector2(0.5f, 0.5f), h / 108f, name, z);
+            // 🔴 `A1302`：原版 `PA=1` = **内接**（两轴同系数）⇒ 画出来的高 = min(框高, 框宽·贴图高/贴图宽)。
+            //    贴图取不到 / 尺寸非法 ⇒ 退回原来的「按高度摆」（至少不崩、也不静默改变行为）。
+            float drawnH = h;
+            if (tex != null && tex.width > 0 && tex.height > 0 && w > 0f)
+                drawnH = Mathf.Min(h, w * (float)tex.height / (float)tex.width);
+            var q = HudImageTex(root, tex, cx, cy, new Vector2(0.5f, 0.5f), drawnH / 108f, name, z);
             if (q != null) _hudExtras.Add(q);
             return q;
+        }
+
+        /// <summary>建那块进战斗的黑场（判据全文 → 本文件上面那一段 `LoadingFadeSeconds` 的头注）。</summary>
+        void BuildLoadingCover(Transform root)
+        {
+            // 铺满屏：`CardArt.Solid()` + 极大尺寸（照 `BattleLogPanel` 那条全屏压暗层的写法）。
+            // 🔴 **必须显式给渲染队列**（⛔ 不能只靠 z）：本工程踩过 —— 透明物体按**到相机的 3D 距离**排，
+            //   而这块 quad 铺满整屏 ⇒ 它的**四角**离透视相机**比**屏幕中央那些 HUD 件**更远**
+            //   ⇒ 光给 z 会让 HUD 画在它上面（卡组编辑那次就是同一条：侧栏底板被列表盖住）。
+            //   队列取 `BattleLogPanel.OverlayQ(4000) + 100` —— 比现有一切层都大。
+            _loadingCover = ImageQuad.Create(root, CardArt.Solid(), new Vector3(0f, 0f, -4.5f), 40f,
+                                             new Vector2(0.5f, 0.5f), "LoadingMenuPanel");
+            if (_loadingCover == null) return;
+            _loadingCover.SetTint(new Color(0f, 0f, 0f, 1f));
+            _loadingCover.SetRenderQueue(BattleLogPanel.OverlayQ + 100);
+            _loadingAlpha = 1f;
+            // 原版 `Awake`：`StartFaded = 1` ⇒ 立刻全黑（`DAT_1834b2bb8` 实读 = 1.0）。
+            // ⚠️ 批处理/编辑器非播放态**没有帧循环** ⇒ 淡出永不发生 ⇒ 直接落到**终态**
+            //    （透明 + 关），否则它会永久糊住画面、把 `BattleScene.Run` 读回的像素全变黑。
+            if (Application.isPlaying) _loadingFadeT = 0f;
+            else { _loadingFadeT = -1f; _loadingAlpha = 0f; _loadingCover.gameObject.SetActive(false); }
+        }
+
+        /// <summary>推黑场的淡出。走 `AdvanceTimeline` 那个泵（批处理没有帧循环 ⇒ 不推的话它永远不褪）。</summary>
+        void TickLoadingFade(float dt)
+        {
+            if (_loadingFadeT < 0f || _loadingCover == null) return;
+            _loadingFadeT += dt;
+            float p = LoadingFadeSeconds <= 0f ? 1f : Mathf.Clamp01(_loadingFadeT / LoadingFadeSeconds);
+            _loadingAlpha = 1f - p;                     // 全黑 → 透明（原版 `DOFade(0, 1.25)`）
+            _loadingCover.SetTint(new Color(0f, 0f, 0f, _loadingAlpha));
+            if (p >= 1f)
+            {
+                _loadingFadeT = -1f;
+                _loadingAlpha = 0f;
+                // 原版回调：`if (show) return; else SetActive(false)` ⇒ 进战斗这一档**自己关掉**。
+                _loadingCover.gameObject.SetActive(false);
+            }
         }
 
         // ============================================================ 头像立绘（A1502②）
@@ -14198,9 +14541,29 @@ namespace CardPresentation
             //    ⚠️ **但那个数值是 LiveOps（服务端下发）的，本地拿不到**（与 `overtimeTurn` 同一类）。
             //    ⇒ 现在照原版写成**字段 + 原判据**，默认 0（= 关，与实况 dump 拍到的 OFF 那张一致）；
             //      **数值本身仍是我们挑的**，判据不是。
-            string accumArt = manaAccumulation > 0 ? "40k_battle_energy_full" : "40k_battle_energy_empty";
-            HudAbs(root, accumArt, 1746.6571888152716f, 247.9047392226712f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Foe");
-            HudAbs(root, accumArt, 1748.5645137293218f, 515.5400514454191f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Me");
+            // 🔴🔴 **2026-10-15（`T13` HUD 显隐普查实核 · 铁律 5 就地订正）：这一件是【整组显隐】，
+            //   ⛔ 不是「换一张图」。** 本行原来写的是
+            //   `string accumArt = manaAccumulation > 0 ? "…_full" : "…_empty";` ＋ 无条件建两颗 quad ——
+            //   **只用了判据的一半**。
+            //   判据 = `BattleManager__SetupBoardPhase.c:179,194` →
+            //     `ManaTypeHolder__SetAccumulationMana.c:16,20`：**两个 GO 都 `SetActive(param_2)`**
+            //     （`manaAccumulationObj` = **整组** ＋ `manaAccumulationImageOn` = 那张 **ON** 图）。
+            //   实测后果：默认 `manaAccumulation = 0` ⇒ **原版整组不显示、我们却贴着一张
+            //   `40k_battle_energy_empty`** —— 一条「该藏没藏」，而且是我们自己那半句判据造出来的。
+            //   ⇒ 照原版：**`0 < manaAccumulation` 才 `SetActive`**（原版就是「照建、切显隐」，
+            //     ⛔ 不是「不建」）；建的时候组内 ON 图就是亮的，故用 `…_full`。
+            //   ⚠️ **仍未定**（⛔ 不猜，记在 `任务线/战斗线/任务/T13` 的「还差什么」）：
+            //     组内那颗 **OFF** 图（`40k_battle_energy_empty`）**什么时候亮** ——
+            //     `SetAccumulationMana` 只管 ON 那一颗，OFF 那颗的开关点本轮没查到；
+            //     它**不是**这个方法的 else 支（那支是「整组关」，连 OFF 都看不见）。
+            var accumFoe = HudAbs(root, "40k_battle_energy_full", 1746.6571888152716f, 247.9047392226712f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Foe");
+            var accumMe  = HudAbs(root, "40k_battle_energy_full", 1748.5645137293218f, 515.5400514454191f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Me");
+            if (accumFoe != null) accumFoe.gameObject.SetActive(manaAccumulation > 0);
+            if (accumMe  != null) accumMe.gameObject.SetActive(manaAccumulation > 0);
+
+            // 🆕 2026-10-16（`T01`）：**进战斗那块黑场**（原版 `LoadingMenu`）—— 放在这一批的**最后**建，
+            //   它是全屏覆盖层（渲染队列最大），与别的补摆件互不影响。判据 → `LoadingFadeSeconds` 的头注。
+            BuildLoadingCover(root);
 
             // ---- 加时标记 `OvertimeIndicator`：68.625×70.992，图 `40k_icon_overtime`（preserveAspect=1）----
             // 出处：`子代理读报_back右区_0827.md:171`（x[1718.9,1787.5] y[341.5,412.5]，

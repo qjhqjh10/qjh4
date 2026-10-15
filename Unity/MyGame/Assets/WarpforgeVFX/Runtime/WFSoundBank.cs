@@ -41,6 +41,13 @@ namespace WarpforgeVFX
     {
         /// <summary>表在 `Resources/` 下的路径（与 `voice_lines` 同一处）。</summary>
         public const string TablePath = "animfx_sounds";
+        /// <summary>🆕 2026-10-15（`T06` · 战斗音响）：**战斗那一族**的 cue 表。
+        /// 取值链 = `BattleManager.soundCollection`(`+0x80`) → `SoundAssetCollection` 的**字段** →
+        /// Addressables `AssetReference` → cue 资产（`AudioCue`）→ `clipList`。
+        /// 🔴 **它的 `name` 列是【原版字段名】**（`startTurn` / `endTurnButton` …），不是 cue 资产名 ——
+        /// C# 那边照原版 `soundCollection.startTurn` 那句按**字段名**索引。
+        /// 产出方 = `工具/import_battle_sfx.py`（两族的 cue 名实测**零交集**，故各自一张表、同一套解析）。</summary>
+        public const string BattleTablePath = "battle_sounds";
         /// <summary>clip 在 `Resources/` 下的前缀。</summary>
         public const string ClipRoot = "Art/audio/sfx/";
 
@@ -69,25 +76,42 @@ namespace WarpforgeVFX
             if (_byName != null) return;
             _byName = new Dictionary<string, WFSoundCue>();
 
-            var ta = Resources.Load<TextAsset>(TablePath);
-            if (ta == null)
+            // 🆕 2026-10-15（`T06`）：**两张表装进同一个字典**（一次查表 = 一条路，⛔ 不是两条）。
+            //   ① `animfx_sounds` —— 特效 / 起拖 / 奖励窗那些（`import_original_sfx.py`）
+            //   ② `battle_sounds`  —— 战斗「时机 → cue」28 条（`import_battle_sfx.py`，键 = **原版字段名**）
+            foreach (var path in new[] { TablePath, BattleTablePath })
             {
-                // 不许静默：表没了就等于**所有特效音效都不响**，而那看起来像「原版就没声音」。
-                Debug.LogWarning($"[WarpforgeVFX] 音效表 `Resources/{TablePath}.json` 不在 —— " +
-                                 "特效的所有 `sounds`/`exitSounds` 都不会播。" +
-                                 "跑 `工具/import_original_sfx.py` 生成它。");
-                return;
+                var ta = Resources.Load<TextAsset>(path);
+                if (ta == null)
+                {
+                    // 不许静默：表没了就等于**那一整族都不响**，而那看起来像「原版就没声音」。
+                    Debug.LogWarning($"[WarpforgeVFX] 音效表 `Resources/{path}.json` 不在 —— " +
+                                     (path == TablePath
+                                      ? "特效的所有 `sounds`/`exitSounds` 都不会播。跑 `工具/import_original_sfx.py` 生成它。"
+                                      : "战斗那 28 条「时机 → cue」一条都不会播（战斗会变默片）。跑 `工具/import_battle_sfx.py` 生成它。"));
+                    continue;
+                }
+                WFSoundTable tbl;
+                try { tbl = JsonUtility.FromJson<WFSoundTable>(ta.text); }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[WarpforgeVFX] 音效表 `{path}` 解析不了：{e.Message}");
+                    continue;
+                }
+                if (tbl == null || tbl.cues == null) continue;
+                foreach (var c in tbl.cues)
+                {
+                    if (c == null || string.IsNullOrEmpty(c.name)) continue;
+                    // 🔴 撞名**不许静默覆盖**（后装的会把先装的顶掉，而调用方按名字拿到的就是另一个 cue）
+                    if (_byName.ContainsKey(c.name))
+                    {
+                        Debug.LogWarning($"[WarpforgeVFX] cue 名 `{c.name}` 在两张音效表里都有 " +
+                                         $"（本张 = `{path}`）—— 保留先装的那一份，`{path}` 这一条被忽略。");
+                        continue;
+                    }
+                    _byName[c.name] = c;
+                }
             }
-            WFSoundTable tbl;
-            try { tbl = JsonUtility.FromJson<WFSoundTable>(ta.text); }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[WarpforgeVFX] 音效表解析不了：{e.Message}");
-                return;
-            }
-            if (tbl == null || tbl.cues == null) return;
-            foreach (var c in tbl.cues)
-                if (c != null && !string.IsNullOrEmpty(c.name)) _byName[c.name] = c;
         }
 
         public static bool HasCue(string name)

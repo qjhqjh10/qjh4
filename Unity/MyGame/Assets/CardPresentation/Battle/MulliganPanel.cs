@@ -478,10 +478,23 @@ namespace CardPresentation
             //   ⚠️ 文案：后手那句照原版英文兜底译；**先手那句只有词条名 `GoFirst`（英文原文没查到）⇒ 我们译的**。
             p._turnText = Label.Create(go.transform, "", At(TurnCx, TurnCy), 7,
                                        Color.white, new Vector2(0.5f, 0.5f), "MulliganTurnText");
-            // ⚠️ 出厂这一下只是给个尺寸，**真正的字号按语种在 `SetTurnText` 里再设一遍**
+            // ⚠️ 出厂这一下只是给个初始字号；**真正的字号按语种在 `SetTurnText` 里再设一遍**
             //    （那一行是**唯一**的口径：中文 `SetGlyphHeight` / 英文 `SetCapHeight(0.72em)`）。
-            //    原版那一颗是 `m_fontSize = 55`（em 的像素值）。
-            if (p._turnText != null) p._turnText.SetGlyphHeight(U(TurnPx));
+            // 🔴🔴 **2026-10-16（`A1104`）就地订正 —— 本行原来只写 `SetGlyphHeight(U(TurnPx))`（= 字号写死 55），
+            //   那句【不成立】：原版那一颗 TMP 是 `m_enableAutoSizing = 1`、`m_fontSizeMin/Max = 18/55`**
+            //   （`MonoBehaviour_3856.json`）—— 运行期**实测渲染 41.8**，因为**框高只有 54.168**
+            //   （55 px 的行高装不下 ⇒ 是**被框压下来的**，不是原版就写 55）。
+            //   我们写死 55 ⇒ **比原版实渲大 ≈32%**（同一棵树：提示行原版 53.7、我们 43.67，那一颗反过来）。
+            //   ✅ **判据（`A1104` 的结论）明确**：要复刻的是「**autoSizing + 那两个上下限**」，
+            //      ⛔ **不是把 41.8 抄进来** —— auto 的产物**随语种/字体资产变**，钉一个数只对一种情况成立
+            //      （这正是上一轮查出后**没顺手改**的正确理由）。
+            //   框 = 原版 `TurnText` 的绝对矩形 **1307.064 × 54.168**（= 本类 `TurnW`/`TurnH` 那两个常数；
+            //   判据 = `RectTransform_3403.json` 的 `sd (-36.936, -25.272)` + 父整屏 1920×1080，
+            //   **13 场逐字段相同 + 运行期 dump 逐位相同**；全文 → `资料/普查产出_第六会话/W_换牌那行rect_A1076.md`）。
+            //   ⚠️ 下面那句按语种的手工字号**保留**：它现在只提供 `fontSizeBase` 那个起点，
+            //      开了自适应之后最终大小由 TMP 在 `[18,55]` 里自己收敛（原版也是这么跑的）。
+            if (p._turnText != null)
+                p._turnText.SetAutoFitBox(U(TurnW), U(TurnH), 18f, 55f, TurnPx);
 
             // 完成按钮：底图 `40k_bt_underbutton`（原版 577.5×63.8）+ 圆形播放钮 `40k_UI_bt_play`
             p._bar = ImageQuad.Create(go.transform, CardArt.Ui("40k_bt_underbutton"), At(BarCx, BarCy),
@@ -766,6 +779,11 @@ namespace CardPresentation
         {
             if (i < 0 || i >= _cards.Count) return;
             if (_marked.Contains(i)) _marked.Remove(i); else _marked.Add(i);
+            // 🆕 2026-10-15（`T06` · 战斗音响）：**换牌选中/取消**那一拍（原版 `Toggle` cue）。
+            //   判据 = `BattleCardUI__SetAsMulliganSelected.c:99` —— 它在那条
+            //   `SoundAssetCollection__get_Toggle` → `SoundManager__Play2D(...,0)` 上，
+            //   **选中与取消都响**（那方法只做「写选定态」，不分方向）⇒ 本处放在分支之后、无条件播。
+            BattleSfx.Play(BattleSfx.Toggle);
             ApplyMarks();
         }
 

@@ -8198,7 +8198,33 @@ public static class BattleScene
                         Check(vA.RemnantLightColor.a < 0.01f,
                               $"…退回常规档 ⇒ **灭掉**（原版 `RegularColor` 的 alpha 就是 0；实得 {vA.RemnantLightColor.a:F3}）");
 
-                        // 🆕 2026-09-29（Q 批第 6 条）：**残骸体那三条原版音效**（出现 / 收集 / 被打掉）。
+                        // 🆕 2026-10-16（`T06` 战斗音响）：**`unitDamage` 那条 cue「哪一条 hit 才轮到它」**。
+                        //   判据（`T06b` 补查报告）= 原版它在 `_ResolveMultiDamage…` 里、**只在该批的
+                        //   【最后一个目标】那一下播**；而**普通攻击不走它**（攻击命中归 `BattleCardSounds`
+                        //   那一族）⇒ 逐事件挂会**比原版多**。
+                        //   ⚠️ 「同一批」在我们这边**没有正规判据**（原版按一次 `DealMultiDamage` 调用分）
+                        //      ⇒ 退一档用 drain 批次，并**跳过紧跟攻击宣言的那一条** hit（详见那个方法的 doc）。
+                        //   纯函数 ⇒ 合成一批事件就能验，不用跑一局、不用 `BattleDriver` 实例。
+                        {
+                            BattleEvent EH(int amt) { return new BattleEvent { Kind = EvtKind.Hit, Amount = amt, Player = 0, Slot = 4, CardId = "X" }; }
+                            BattleEvent EA() { return new BattleEvent { Kind = EvtKind.Attack, Player = 0, Slot = 4, CardId = "X" }; }
+                            Check(BattleDriver.UnitDamageCueIndex(new List<BattleEvent> { EH(3) }) == 0,
+                                  "★ `unitDamage`：**单目标伤害** ⇒ 就是它（下标 0）");
+                            Check(BattleDriver.UnitDamageCueIndex(new List<BattleEvent> { EA(), EH(3) }) == -1,
+                                  "★ **攻击命中不算**：`Attack` 后面紧跟的那条 `Hit` ⇒ **不播**这条 cue"
+                                + "（原版攻击走 `ResolveAttackDamage`、不调 `DealMultiDamage`）"
+                                + "｜🧨 把那句 `buf[i-1].Kind == EvtKind.Attack` 跳过删掉 ⇒ 本条红");
+                            Check(BattleDriver.UnitDamageCueIndex(new List<BattleEvent> { EH(3), EH(4), EH(5) }) == 2,
+                                  "★ **多目标**：三条挨打 ⇒ **只认【最后一条】**（原版 `count-1 <= index`）"
+                                + "｜🧨 改成「每条都播」⇒ 本条红");
+                            Check(BattleDriver.UnitDamageCueIndex(new List<BattleEvent> { EH(-4) }) == -1,
+                                  "★ **治疗不算**（`Hit` 里 `Amount < 0` = 治疗）⇒ 不播");
+                            Check(BattleDriver.UnitDamageCueIndex(new List<BattleEvent> { EA(), EH(9), EH(2) }) == 2,
+                                  "★ **判别式**：一条攻击命中 + 两条技能伤害 ⇒ 认**最后那条技能伤害**（下标 2），"
+                                + "而**不是**攻击那一条、也不是下标 1（⇒ 既不是「恒 0」也不是「恒取最后一条」）");
+                        }
+
+
                         //   判据 → `RemnantSfx` 文件头那张表（六条 cue ↔ 五条 clip）。
                         //   ① 表本身（含两条反直觉的：灵族「出现/收集」**共用一条 clip**；
                         //      死灵的 cue 名 `NecronsCardReanimate` **≠** clip 名 `CardReanimate`）
@@ -13287,6 +13313,54 @@ public static class BattleScene
                 AtExact("OffensiveButton",        54.50400161743164f, 500.32849979400635f);
                 AtExact("EnergyAccumulation_Foe", 1785.550192279f,   287.961250148f);
                 AtExact("EnergyAccumulation_Me",  1787.457517193f,   555.596562371f);
+                // 🔴 **2026-10-16（`A1302`）**：`HudAbs` 那一族**画出来的尺寸** —— 上面那两条只管**位置**，
+                //   而这条缺陷**只体现在尺寸上**（位置锚在 rect 中心、一点都不动）⇒ 原来一条断言都抓不到。
+                //   判据：原版 `PA=1` 走 `Image.GetDrawingDimensions` = **把图【内接】进那个 rect**
+                //   （两轴同系数 `min(w/texW, h/texH)`），**不是**「高度定死、宽度按贴图比例溢出」。
+                //   取两个实例做**双向**判别式（一【宽受限】、一【高受限】）——
+                //   ⚠️ 期望值是**原版字面量**换算出来的（⛔ 不读 `BuildHudExtras` 传进去的那几个数）。
+                {
+                    var dOff = drv.HudExtraDrawnPx("OffensiveButton");
+                    Check(Mathf.Abs(dOff.x - 109.008f) < 0.05f && Mathf.Abs(dOff.y - 105.601f) < 0.05f,
+                          $"★ A1302：进攻卡钮**画出来的** = 原版的 **109.008×105.601**（= 内接进 109.008×106.943，**宽受限**）"
+                        + $" —— 实得 {dOff.x:F3}×{dOff.y:F3}"
+                        + "｜🧨 改回「按高摆」（把传进来的 h=106.943 直接当画面高）⇒ 变成 110.394×106.943，本条红");
+                    var dCam = drv.HudExtraDrawnPx("CenterCameraButton");
+                    Check(Mathf.Abs(dCam.x - 61.846f) < 0.05f && Mathf.Abs(dCam.y - 61.846f) < 0.05f,
+                          $"★ A1302 **判别式**（另一侧）：相机复位钮是**方图进方框** ⇒ **高受限**、结果**不是「一律缩」**"
+                        + $"（原版 61.846²）—— 实得 {dCam.x:F3}×{dCam.y:F3}");
+                }
+                // 🔴 **2026-10-16（`T01` · 进战斗的黑场 `LoadingMenu`）**：
+                //   判据 = 实读的 `LoadingFade(bool show, …)` —— **进战斗那一档（`show=false`）
+                //   = 立刻全黑 → 补间到**透明** → **自己关掉****，时长 **1.25 s**（实读常量）。
+                //   ⚠️ `D1` §5 原来写成「补间到全黑、结束后自己关掉」= **方向反了** ——
+                //   照那个做出来是**黑屏卡住**，所以下面这几条**专钉方向**。
+                //   ⚠️ 批处理/编辑器非播放态**没有帧循环** ⇒ 建的时候直接落到终态（否则整屏永久糊黑、
+                //   把 `BattleScene.Run` 读回的像素全变黑）⇒ 先断「已经收掉」，再手动推一遍曲线。
+                Check(drv.LoadingCoverAlpha < 0f,
+                      "★ 批处理/编辑器非播放态：黑场**直接收掉**（那里没有帧循环 ⇒ 淡出永不发生，留着会把整屏糊黑）"
+                    + "｜🧨 改成「无条件留在场上」⇒ 本条红（而且`BattleScene` 后面读回的像素会全黑）");
+                drv.StartLoadingFadeForTest();
+                Check(Mathf.Abs(drv.LoadingCoverAlpha - 1f) < 1e-3f,
+                      "★ 淡出**起点 = 全黑**（α=1；原版 `Awake` 那个常量 `DAT_1834b2bb8` 实读 = 1.0）");
+                drv.TickLoadingFadeForTest(0.625f);
+                Check(drv.LoadingCoverAlpha > 0.4f && drv.LoadingCoverAlpha < 0.6f,
+                      $"★ 走到一半（0.625 s）⇒ α ≈ 0.5（**在往透明走**）—— 实得 {drv.LoadingCoverAlpha:F3}");
+                drv.TickLoadingFadeForTest(0.625f);
+                Check(drv.LoadingCoverAlpha < 0f,
+                      "★ 1.25 s 走完 ⇒ **α=0 且自己关掉**（原版回调 `if (show) return; else SetActive(false)`）"
+                    + "｜🧨 照 `D1` §5 那个方向改成「补间到全黑」⇒ 本条红");
+                // 🔴 **2026-10-15（`T13` 普查查出的真缺陷 · 就地订正后补这条断言）**：
+                //   这一件是**整组显隐**（不是「换一张图」）——判据 = `ManaTypeHolder__SetAccumulationMana`
+                //   里那两句 `SetActive(bool)`，由 `BattleManager__SetupBoardPhase.c:179,194` 传
+                //   `0 < GameplayVariablesData.manaAccumulation`。我们原来只按该值**换图**、不换显隐 ⇒
+                //   默认 `0` 时**原版整组看不见、我们却贴着一张图**。
+                //   ⚠️ 本条量的是**行为（显隐）**，⛔ 不是「建出来了」—— 上面那两条 `AtExact` 只管位置，
+                //     「该藏的时候没藏」正是它们抓不到的那一类（本工程踩过的形状）。
+                Check(!drv.HudExtraVisible("EnergyAccumulation_Me") && !drv.HudExtraVisible("EnergyAccumulation_Foe"),
+                      "🆕 T13：`manaAccumulation = 0`（默认值 / LiveOps 没开）⇒ 能量累积那一【整组】不显示"
+                    + "（原版 `ManaTypeHolder.SetAccumulationMana(false)`；"
+                    + "🧨 改回「无条件显示」或用 `HudAbs` 建完不等于显隐 ⇒ 本条红）");
                 AtExact("OvertimeIndicator",      1753.1948928833008f, 377.0f);
 
                 // 任务点：🔴 **只属于暗黑天使**（2026-09-13 更正 —— 原来无条件摆给全部 13 个阵营，
@@ -18438,27 +18512,41 @@ public static class BattleScene
                 Check(gate.Turn == 2, "`UpdateTurn(1)` ⇒ 回合数**变小不写**（原版那条 `if (当前 < param)`）");
 
                 // ------------------------------------------------------------
-                //  ⑤ `playerAlwaysWins`（6 关实测全 false ⇒ 只能合成一关来验机制）
-                //     ⛔ 关键是**位置**：它在「谁死了谁输」算完之后**覆盖结果**，不是「一开局就判玩家胜」。
+                //  ⑤ `playerAlwaysWins` —— 🔴 **2026-10-15 就地订正：教程关这一档【按原版不改胜负】**
+                //     ⛔ 关键是**守卫**：原版那两处（`GetWinnerAfterBattleEnd` / `DeadHero`）的守卫是
+                //        **`IsCampaignLike()`（`matchType == 130 || 190`）**，**教程档(100/140)永不触发**；
+                //        它「看着像教程机制」是因为下一步调的 `GetCurrentTutorialStage` **名字骗人** ——
+                //        130/190 上它回的是 `currentCampaignStage`（同型 `TutorialStage`）。
+                //        我们原来判 `ctx.Tutorial != null`（= 教程档）⇒ 两边触发集合**互不相交**。
+                //     ⇒ 本段现在测的是**订正后的行为**：教程关置这个 flag = **原版的死数据**，
+                //        但**必须出声一次**（红线：不许静默失败）。
                 // ------------------------------------------------------------
                 var emptyA = new List<CardDef>();
                 var emptyB = new List<CardDef>();
                 var pwOn = new TutorialScript(new TutorialStageData
                 { stage = 99, so = "<自检合成·playerAlwaysWins>", playerStarts = true, playerAlwaysWins = true });
                 var ctxPw = RuleCore.NewBattle(emptyA, emptyB, 7, tutorial: pwOn);
-                Check(ctxPw.Winner == 0, "（前提）刚开完的教程局**还没分胜负**（`playerAlwaysWins` 不会让对局当场结束）");
+                Check(ctxPw.Winner == 0, "（前提）刚开完的教程局**还没分胜负**（这个开关不会让对局当场结束）");
                 ctxPw.Players[0].Warlord.Health = 0;
                 RuleCore.CheckWinner(ctxPw);
-                Check(ctxPw.Winner == 1, "★ `playerAlwaysWins = true` ⇒ 玩家督军倒下时**判玩家胜**"
-                    + "（原版 `GetWinnerAfterBattleEnd`：算完之后 `stage + 0xB8` 真 ⇒ 直接给 10 = 玩家胜）");
+                Check(ctxPw.Winner == 2, "★ **订正后**：教程关把 `playerAlwaysWins` 置真 ⇒ **按原版【不生效】**"
+                    + "（原版守卫 = `IsCampaignLike`，即 `matchType 130/190`；教程档永不触发）"
+                    + "⇒ 玩家督军倒下就是**判 AI 胜**（`Winner = 2`）"
+                    + "｜🧨 改回「教程档也判玩家胜」⇒ 本条红");
+                Check(ctxPw.Events.Exists(e => e != null && e.Contains("按原版不生效")),
+                      "★ 而它**不是静默的**：日志里有一句 ⚠️ 说明「教程关置这个 flag 在原版是死数据」"
+                    + "｜🧨 把那支出声删掉 ⇒ 本条红（下一个会话会以为「我们忘了做」）");
 
                 var pwOff = new TutorialScript(new TutorialStageData
                 { stage = 98, so = "<自检合成·对照>", playerStarts = true, playerAlwaysWins = false });
                 var ctxPw2 = RuleCore.NewBattle(emptyA, emptyB, 7, tutorial: pwOff);
                 ctxPw2.Players[0].Warlord.Health = 0;
                 RuleCore.CheckWinner(ctxPw2);
-                Check(ctxPw2.Winner == 2, "★ **判别式**：同一个局面、那个开关关着 ⇒ **判 AI 胜**"
-                    + "（一胜一负 ⇒ 那条覆盖既不是「恒判玩家赢」也不是没生效）");
+                Check(ctxPw2.Winner == 2, "★ **判别式**：同一个局面、那个开关关着 ⇒ **同样判 AI 胜**"
+                    + "（⇒ 在本档它**确实不再影响胜负** —— 两条一致正是「订正后」的形状）");
+                Check(!ctxPw2.Events.Exists(e => e != null && e.Contains("按原版不生效")),
+                      "★ **判别式**：开关关着 ⇒ **没有**那句出声"
+                    + "（⇒ 那句既不是「恒有」也不是「恒无」，是被这个 flag 驱动的）");
 
                 // ------------------------------------------------------------
                 //  ⑤' `preventPlayerResign`（6 关全 false，机制照做）
@@ -19005,11 +19093,13 @@ public static class BattleScene
                         stage = 91, so = "<自检合成·hide* 反向>", playerStarts = true,
                         hideCardsLeftInDeck = false, hideChat = false, hideLargeCardDisplay = true,
                     });
+                    driver.SetCardHoldForTest(true);      // 🆕 T13：「按住一张牌才亮张数」那一格（批处理里没有真指针）
                     driver.Begin(myFaction: BattleDriver.DefaultFactionA, foeFaction: BattleDriver.DefaultFactionB,
                                  seed: 20261018, tutorial: synth);
                     Check(driver.DeckSizeVisibleForTest && driver.HandSizeVisibleForTest,
                           "★ **判别式**：同一个合成关卡把 `hideCardsLeftInDeck` 设成 `false` ⇒ **牌库数与手牌数都显出来**"
-                        + "（一藏一显 ⇒ 这一族断言既不可能是「恒藏」也不可能是「恒显」）");
+                        + "（一藏一显 ⇒ 这一族断言既不可能是「恒藏」也不可能是「恒显」）"
+                        + "｜⚠️ 前提是**按住了一张牌**（`SetCardHoldForTest(true)`）—— 原版这一件还要「按住」才亮，见下一条");
                     Check(driver.ChatButtonVisibleForTest, "★ **判别式**：`hideChat = false` ⇒ 聊天那颗按钮**显出来**");
                     Check(!driver.CemeteryButtonVisibleForTest,
                           "★ 而 `cemeteryButton` **仍然是藏的** —— 它那条是「教程局无条件藏」，与 `hideCemetery` **无关**"
@@ -19025,7 +19115,22 @@ public static class BattleScene
                         + "｜🧨 把 `ApplyTutorialVisibility` 写成「只在教程局跑」而不还原 ⇒ 本条红"
                         + "（普通对局会**永久少两颗钮**，而且不报错）");
                     Check(driver.DeckSizeVisibleForTest && driver.HandSizeVisibleForTest,
-                          "★ 非教程局的牌库数/手牌数**照旧显示**（同上：非教程=逐条还原）");
+                          "★ 非教程局 + **按住一张牌** ⇒ 牌库数/手牌数照旧显示（非教程=逐条还原）");
+                    // 🆕 **2026-10-15（`T13` 普查 · 「该藏的时候藏住了吗」那一类）**：
+                    //   **同一局、只翻「按住」这一个输入位** ⇒ 那一族必须跟着藏。
+                    //   原版判据 = `CardScript.OnTouchDown` 按下才 `ShowDeckSize()`、松手在
+                    //   `BattleManager__Update.c:140-150` 收起 ⇒ **常显是错的**（我们原来常显）。
+                    driver.SetCardHoldForTest(false);
+                    driver.ApplyTutorialVisibilityForTest();
+                    Check(!driver.DeckSizeVisibleForTest && !driver.HandSizeVisibleForTest,
+                          "★ **判别式**：松手（`SetCardHoldForTest(false)`）⇒ 牌库数/手牌数**都收起来**"
+                        + "｜🧨 改回「常显」（或把 `CardHoldPeek` 短路成 `true`）⇒ 本条红");
+                    driver.SetCardHoldForTest(true);
+                    driver.ApplyTutorialVisibilityForTest();
+                    Check(driver.DeckSizeVisibleForTest && driver.HandSizeVisibleForTest,
+                          "★ 再按回去 ⇒ **又亮**（一藏一显 ⇒ 这一条既不可能是「恒藏」也不可能是「恒显」）");
+                    driver.SetCardHoldForTest(null);        // 还原成看真指针，别影响后面的段
+                    driver.ApplyTutorialVisibilityForTest();
 
                     // ---- ⑤ 督军两拍（原版 `BattleManager.TutorialStartSequence`，**不是动作档**）----
                     driver.BeginTutorial(0);
