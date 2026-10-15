@@ -425,8 +425,31 @@ namespace CardPresentation
             int k = pos - 1;
             while (k >= 0 && (hay[k] == ' ' || hay[k] == '\t')) k--;
             if (k < 0) return true;
-            return hay[k] == '.' || hay[k] == '。' || hay[k] == '．' || hay[k] == ';' ||
-                   hay[k] == '；' || hay[k] == ',' || hay[k] == '，' || hay[k] == '\n' || hay[k] == '\r';
+            if (hay[k] == '.' || hay[k] == '。' || hay[k] == '．' || hay[k] == ';' ||
+                hay[k] == '；' || hay[k] == ',' || hay[k] == '，' || hay[k] == '\n' || hay[k] == '\r')
+                return true;
+            // 🔴 **2026-10-15（第三十二会话）补：`<br>` 收尾也算段首。**
+            //   为什么要有它：原版那代文本（官方 `Card_Description/*` 模板）用 `<br>` 断行，
+            //   于是「`天赋：凯恩之怒。`」这种**声明**前面那个字符是 `>`、不是句读符
+            //   ⇒ 上面那一行判不出来 ⇒ 那个词被当成「正文里没声明过」、
+            //   由 `KeywordSegment` **再补一遍** ⇒ 卡面**印两遍**。
+            //   实测 `ASH34 Avatar of Khaine`（`keywords:["Armour 2","Talent"]`、正文
+            //   `护甲 2。<br>②：获得爆裂 6 和伪装。<br>天赋：凯恩之怒。`）：我们印
+            //   `〔天赋〕天赋。 〔护甲〕护甲 2。…〔天赋〕天赋：凯恩之怒。`（`天赋` 两次），
+            //   而 PnP 成品卡 `Aeldari/3部队/Warpforge_42_Avatar-of-Khaine.png` 只印一遍。
+            //   PnP 是**内容**的尺子（铁律 7 / 铁律 10 第 3 条）⇒ 以卡面为准。
+            //   ⚠️ 方向上它只会让 `DeclaredInBody` **更容易**为真 ⇒ 只会**减**关键词段里那些项，不会新增。
+            return EndsWithLineBreak(hay, k);
+        }
+
+        /// <summary>`hay[..k]`（含下标 `k`）的结尾是不是一个 `<br>` / `<br/>` / `<br />` 标签。
+        /// <para>判据：往左找到最近的 `<`，中间那截只允许是 `br` 及其空白与斜杠。</para></summary>
+        static bool EndsWithLineBreak(string hay, int k)
+        {
+            int lt = hay.LastIndexOf('<', k);
+            if (lt < 0 || k - lt > 5) return false;      // `<br>`=3 · `<br/>`=4 · `<br />`=5
+            string inner = hay.Substring(lt + 1, k - lt - 1).Replace(" ", "").Replace("/", "");
+            return string.Equals(inner, "br", System.StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>成对引号里那段（**含**全角 `“”` —— 我们中文那半用的是全角）。

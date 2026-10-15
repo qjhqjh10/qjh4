@@ -1600,8 +1600,17 @@ public static partial class RuleEngineTest
                 var c = Place(ctx, 0, 5, prayer);
                 CheckCode(RuleCore.UseAlternative(ctx, 0, 5, "pray"), RuleCodes.OK, "5 号格执行 `Pray`");
                 CheckTrue(c.Prayed, "（前提）它进了「正在祈祷」");
+                // 🔴 **2026-10-15 夹具更正（本格原来红，是【夹具前提不成立】、不是引擎错）**：
+                //    夹具卡 `prayer` 的正文是 `Pray: Gain Shield` ⇒ 祈完它身上**带盾**，而
+                //    `RuleCore.ApplyDamage` 在「被挡下」那一支直接 `return 0`（`RuleCore.cs:5712-5742`，
+                //    判据见下面反例四）⇒ **这一下根本走不到清 `Prayed` 那句** ⇒ 本格与反例四
+                //    测的就成了同一件事（两条断言互相矛盾）。⇒ 显式摘掉盾，让这一下**真的打进血里**。
+                CheckTrue(c.Has(KeywordTable.Shield),
+                          "（前提）刚祈完它是**带盾**的 —— `Pray: Gain Shield` 给的（与下面反例四是同一件事）");
+                c.RemoveAll(KeywordTable.Shield);
                 RuleCore.ApplyDamage(ctx, c, 1, "自检");
-                CheckTrue(!c.Prayed, "★ 自己挨一次伤害 ⇒ `Prayed` 复位");
+                CheckTrue(!c.Prayed,
+                          "★ 自己挨一次伤害 ⇒ `Prayed` 复位（这一下**没有被盾挡下**，见上面那句摘盾）");
             }
 
             // 反例四：**被挡下的不算「挨到伤害」** —— 原版 `ResolveDamageDealt.c:31`
@@ -2200,7 +2209,7 @@ public static partial class RuleEngineTest
         //   （改回去 = 把生成器那一笔推翻，铁律 11）；**理由与逐张实据**就写在这里，别只留一个数。
         //   ✅ **逐张核过**（判据 = 那几张卡的 `desc` 里确实印着 `Penitence:` 那句正文）：
         //     `SOR8 Arco-Flagellant`　`Penitence: Deal 1 damage to all other units` ·
-        //     `SOR10 Sisters Repentia`　`… Penitence: Gain +2 [Attack]` ·
+        //     `SOR10 Sister Repentia`　`… Penitence: Gain +2 [Attack]` ·
         //     `SOR21 Death Cult Assassin`　`Penitence: Deal 2 damage to a random enemy` ·
         //     `SOR27 Penitent Engine`　`Penitence: Gain Flank and Blast 2`。
         {
@@ -2882,7 +2891,9 @@ public static partial class RuleEngineTest
         //    其中 4 张是删 tactic 行、1 张（`Rusted Vents`）是 **tactic → defence**（`GSC68`）。
         //    收录依据写在 `card_stats.json` 那 5 行的 `noise` / `noise_reason` 里。
         //    见 `资料/PnP卡图_逐张对账_0915.md` §六·3。**改这个数要同时改那里。**
-        Check(cov.Cards, 445, "战术卡张数");
+        // ⚠️ 2026-10-15：445 → **446** —— 新收 `Infestation Node`（`TL40` · `tactic` · 2 费），
+        //    收录依据仍在那张表里（`工具/gen_cards_engine.py:488` 的 `STATS_EXCEPTIONS`）。
+        Check(cov.Cards, 446, "战术卡张数");
         // 分类必须**不重不漏**：每一句都恰好落进一个桶（抓计数 bug）
         Check(cov.SegKeyword + cov.SegOk + cov.SegPartial + cov.SegUnknown, cov.SegTotal,
               "分句分类总数 = 分句总数（不重不漏）");
@@ -2968,7 +2979,7 @@ public static partial class RuleEngineTest
         CheckTrue(cov.Full >= 120, $"完全解析 {cov.Full}/448（门槛 120，逐步抬高）");
         // 🆕 2026-09-16：**战术卡这一档的「不认识的句子」归零了**。
         // 这条原来是**正向哨兵**（`SegUnknown > 0` = 「还没做完，如实报出来」）——
-        // 最后三句（`Cosmic Serpent` / `Spreading Corruption` 后半 / `Telephatic Domination`）
+        // 最后三句（`Cosmic Serpent` / `Spreading Corruption` 后半 / `Telepathic Domination`）
         // 接完之后它就是 0 了。现在按新事实改写成**回归哨兵**：
         // **只要它是不是 0，就说明新出现了一句不认识的**（而不是「还没做完」）。
         // ⚠️ 单位 / 督军 / 防御卡那三档在 `ReportUnitDescCoverage` 里各量各的，别混。
@@ -6035,12 +6046,21 @@ public static partial class RuleEngineTest
             //    而且要把「到底是没有，还是名字写岔了」分清楚 —— 2026-09-12 之前计划文档
             //    把下面这五种统统一句「原版数据里没有」带过，**其中三种是错的**。
             {
-                // ① 名字写岔了（数据是 OCR + 手抄来的）：报出来，但**不拿近似的顶替**
+                // ① 🔴 **2026-10-15 就地订正（铁律 5）**：这一格原来钉的是「`Sergeant Taaman` 按
+                //    **这个名字**查不到，但如实报出最接近的是 `Sergeant Naaman`」（= 实体卡名 vs
+                //    数据名的抄写差）。**那个抄写差已经不存在了** —— 第三十一会话按 PnP 成品卡图
+                //    把池里那张改对了（`d:/2/Warpforge部队卡片/Dark Angels/3部队/
+                //    Warpforge_11_Sergeant-Taaman.png` ⇒ 池现读 `DA6 Sergeant Taaman`）。
+                //    ⇒ 改成**反向断言**：按这个名字**查得到**、而且查到的就是池里那张。
+                //    ⚠️ 原来紧随其后的那句 `a.Why.Contains("Sergeant Naaman")` 是**级联**：
+                //    `CreatePool` 的 `Why` 只在池子**没算出来**时才有值（`Core/CreatePool.cs:49-50`），
+                //    `Ok == true` 时它**必然是 `null`** ⇒ 上面那版前提一失效就必然空引用（实测 `:6042`）。
                 //    走 `PoolOf`（真解析）而不是手写 payload —— 手写会把冠词带进去，见 `PoolOf` 的注释
                 var a = PoolOf(pool, "Create a Sergeant Taaman in your hand", "DarkAngels");
-                CheckTrue(!a.Ok, "`Sergeant Taaman` 按**这个名字**查不到");
-                CheckTrue(a.Why.Contains("Sergeant Naaman"),
-                          "……但如实报出最接近的是 `Sergeant Naaman`（实体卡名 vs 数据名的抄写差）");
+                CheckTrue(a.Ok, "`Sergeant Taaman` 按**这个名字**查得到（池里那张已按 PnP 卡名改对）");
+                CheckTrue(a.Cards.Count == 1 && a.Cards[0].Name == "Sergeant Taaman",
+                          "……而且查到的就是池里那张（**不拿近似的顶替**）"
+                        + "｜🧨 把池里那张改回 `Sergeant Naaman` ⇒ 上面那行与本行一起红");
 
                 // ①-b **差一个尾 `s` 的**（`Extermination Protocol` ↔ `Extermination Protocols`）——
                 //     🔴 **2026-09-16 改判**：这一条原来钉的是「只报近似的、**不拿它顶替**」，
@@ -6467,23 +6487,45 @@ public static partial class RuleEngineTest
             Check(preacher.TalentName, "Hymn of Battle",
                   "★ 裸名天赋之四：名字在 `keywords` 里，靠「本卡有 `Talent` 关键词」那道闸认出来");
 
-        // ⚠️ **反面**：带 `Talent` 关键词、正文却是普通句子 —— 不许被当成名字
+        // 🔴 **2026-10-15 就地订正（铁律 5）**：本处原来拿 `Psychophage` 当**反面**例子
+        //    （「带 `Talent` 关键词、正文却是普通句子 ⇒ 天赋名该是 `null`」）—— **它已不是反例**：
+        //    第三十会话 `70f4147` 给它的 `desc` 补上了 `Talent: ` 前缀（池现读
+        //    `Talent: Feeding Frenzy. Rally: Gain +2 [Attack], …`）⇒ `CardDef.cs:1677` 那句
+        //    `TalentName = ExtractTalent(Desc)` 抽出的 `Feeding Frenzy` **就是正确结果**。
+        //    ⇒ 这一格**反过来钉**（钉「`Talent:` 前缀那一支抽对了」）；反面另找一张真卡（下面那条）。
         var phage = CreatePool.FindByName(pool, "Psychophage");
         CheckTrue(phage != null, "卡池里有 `Psychophage`");
         if (phage != null)
-            CheckTrue(phage.TalentName == null,
-                      "★ 反例：`Psychophage` 的 `Talent` 后面**没有名字** —— "
-                      + "它那句 `Rally: Gain +2 Attack…` **没有被误当成天赋名**"
+            CheckTrue(phage.TalentName == "Feeding Frenzy",
+                      "★ `Psychophage` 的正文确实以 `Talent: <名>` 起头 ⇒ 前缀那一支抽出来了"
+                      + "｜🧨 把 `CardDef.ExtractTalent` 的 `Talent:` 识别拆掉 ⇒ 落到裸名那一支 ⇒ 本行红"
                       + $"（实得 {phage.TalentName ?? "null"}）");
+        // ⚠️ **反面**（改由这张真卡承担）：带 `Talent` 关键词、正文却是**普通句子** —— 不许被当成名字。
+        //    `GOF87 Zodgrod Wortsnagga` 现读 `keywords:["Mob","Talent"]`、
+        //    `desc = Deploy a Grot or a Snakebite Grot at random.` ⇒ 两条路都不该产出天赋名：
+        //      · `ExtractTalent` 在本卡 desc 里找不到 `Talent:`；
+        //      · 两段关键词 `Mob` / `Talent` 都被 `KeywordTable.Normalize` 认掉（`CardDef.cs:1712`
+        //        那道 `continue`）⇒ 不会被当成「关键词词形」的天赋名。
+        var zz = CreatePool.FindByName(pool, "Zodgrod Wortsnagga");
+        CheckTrue(zz != null, "卡池里有 `Zodgrod Wortsnagga`");
+        if (zz != null)
+            CheckTrue(zz.TalentName == null,
+                      "★ 反例：`Zodgrod Wortsnagga` 带 `Talent` 关键词、正文却是普通句子 ⇒ 天赋名是 `null`"
+                      + "（那句 `Deploy a Grot…` 与关键词词形 `Talent` 都不许被当成名字）"
+                      + $"（实得 {zz.TalentName ?? "null"}）"
+                      + "｜🧨 删掉 `CardDef.CollectTalent` 里 `KeywordTable.Normalize(item)` 那道 `continue` ⇒ 本行红");
 
         // ---- 开局上手：解析 + 开局真发到手 ----
         var logan = CreatePool.FindByName(pool, "Logan Grimnar");
         CheckTrue(logan != null && logan.StartWithInHand.Contains("Tyrnak and Fenrir"),
                   "★ `Logan Grimnar` → `StartWithInHand` 里有 `Tyrnak and Fenrir`");
-        var hexcorn = CreatePool.FindByName(pool, "Sylar Hexcorn");
-        CheckTrue(hexcorn != null && hexcorn.StartWithInHand.Contains("Abaddon's Chosen"),
-                  "★ `Sylar Hexcorn` → `Abaddon's Chosen`"
-                  + "（卡池里那张写作 `Abaddons Chosen`、**没有撇号** —— 靠 `CreatePool.Norm` 才配得上）");
+        // 🔴 2026-10-15 卡名纠正：原写 `Sylar Hexcorn`（**少一个 `s`**）—— 池现读 `BL36 Sylar Hexscorn`，
+        //    印在成品卡图上的也是它（`d:/2/Warpforge部队卡片/Chaos/1督军/Warpforge_5_Sylar-Hexscorn.png`）。
+        var hexscorn = CreatePool.FindByName(pool, "Sylar Hexscorn");
+        CheckTrue(hexscorn != null && hexscorn.StartWithInHand.Contains("Abaddon's Chosen"),
+                  "★ `Sylar Hexscorn` → `Abaddon's Chosen`"
+                  + "（卡池里那张写作 `Abaddons Chosen`、**没有撇号** —— 靠 `CreatePool.Norm` 才配得上）"
+                  + "｜🧨 卡名改回 `Sylar Hexcorn` ⇒ `FindByName` 精确匹配落空 ⇒ 本行红");
         {
             var tyrnak = CreatePool.FindByName(pool, "Tyrnak and Fenrir");
             CheckTrue(logan != null && tyrnak != null, "两张卡都在池子里");
@@ -8312,7 +8354,7 @@ public static partial class RuleEngineTest
 
         // ---- ④ 触发式正文里**没写主语**的 `gain`：落在**触发者自己**身上，不是全队 ----
         //   🔴 2026-09-13 A3 收窄的那条近似。卡面写 `Strike: Gain +2 Attack`
-        //      （`Sisters Repentia` 的 `Penitence:` 也是这个形状）说的是**这张卡自己**；
+        //      （`Sister Repentia` 的 `Penitence:` 也是这个形状）说的是**这张卡自己**；
         //      落成「己方全体」会**给全队各加一份**，而且看不出来 —— 没人会去数队友的数值。
         //   ⚠️ 反例（队友不动）才钉得住：只钉「触发者 +2」的话，「给全队都 +2」照样绿。
         {
@@ -8444,11 +8486,14 @@ public static partial class RuleEngineTest
             var drones = new List<CardDef>();
             foreach (var c in pool)
             {
-                if (c.Name == "Experimental Drone") tacticCard = c;
+                // 🔴 2026-10-15 卡名纠正：原写 `Experimental Drone`（**单数**）—— 池现读
+                //    `TAU42 Experimental Drones`（成品卡图 `Tau/4计策/Warpforge_64_Experimental-Drones.png`）。
+                if (c.Name == "Experimental Drones") tacticCard = c;
                 if (c.Faction == "TauEmpire" && c.Subtype == "Drone" && c.IsUnit) drones.Add(c);
             }
             CheckTrue(tacticCard != null && drones.Count > 0,
-                      $"卡池里有 `Experimental Drone` 和 TauEmpire 的 Drone（找到 {drones.Count} 张 Drone）");
+                      $"卡池里有 `Experimental Drones` 和 TauEmpire 的 Drone（找到 {drones.Count} 张 Drone）"
+                      + "｜🧨 卡名改回单数 ⇒ 卡池里就查不到它 ⇒ 本行红");
             if (tacticCard != null && drones.Count > 0)
             {
                 int registered = 0, fired = 0, granted = 0;
@@ -8489,7 +8534,7 @@ public static partial class RuleEngineTest
                         if (e.IndexOf("盯上", System.StringComparison.Ordinal) >= 0) granted++;
                     }
                 }
-                Debug.Log(P + $"   实战：4 局里 `Experimental Drone` 被登记 {registered} 次 · "
+                Debug.Log(P + $"   实战：4 局里 `Experimental Drones` 被登记 {registered} 次 · "
                           + $"部署触发段跑了 {fired} 次 · 筛中 Drone {granted} 次");
                 CheckTrue(registered > 0, "整局里**真的打出并登记了**这条常驻效果（AI 会打它）");
                 CheckTrue(fired > 0, "整局里**部署触发段真的跑过**（不是「登记了但从不消费」）");
@@ -11657,26 +11702,42 @@ public static partial class RuleEngineTest
             }
         }
 
-        // ---- ⑫ 🆕 2026-09-14：**督军卡没有费用六边形** ⇒ 那 5 张的费用必须是 0 ----
-        //  踩过：5 张 Saim-Hann 督军右上角的**阵营徽记**（深绿圆盘里的蛇形 / S 剑纹）
-        //  被 OCR 读成了数字 **5**。**主对话逐张开图复核 5/5**（证据在
-        //  `Unity/工具/gen_cards_engine.py` 的 `STAT_FIXES` 里，每条都带卡图路径）。
-        //  ⚠️ **影响面小但不是零**：`CreatePool` 会按 `Cost` 筛卡（`RuleEngine/Core/CreatePool.cs` 里那两处 `c.Cost` 筛选）。
-        //  ⚠️ **别把这条读成「督军费用已经全核过」** —— 另有 **9 张**督军 cost 非 0
-        //     （2×4 / 3×3 / 1×2），**一张都没开图核过**。要核就照这个法子：看右上角有没有蓝色费用六边形。
+        // ---- ⑫ 🆕 2026-09-14：**督军卡面没有费用六边形** ⇒ 但这【不是】数据取值的判据 ----
+        //  ⚪ 2026-09-14 立案时踩过：5 张 Saim-Hann 督军右上角的**阵营徽记**（深绿圆盘里的蛇形 /
+        //     S 剑纹）被 OCR 读成了数字 **5** —— 那一条（OCR 误读）**仍然成立**，`STAT_FIXES`
+        //     里那几条也仍然有效。
+        //  🔴 **2026-10-15 就地订正（铁律 5）**：本块原来由「卡面没有费用六边形」**推出**
+        //     「这 5 张的 `Cost` 必须是 0」，并把 5 张写死成 0、把「cost 非 0 的 ≤ 9 张」当闸 ——
+        //     **那个推论不成立**：判据正本 = `工具/gen_cards_engine.py:1663-1683`（`A1773`）＋
+        //     `项目任务.md` 里那次对抗性验证的裁决「**`2` 是真值**」。`manaCost` 是**序列化字段**、
+        //     整条继承链四个环节没有一个把它读成 0；原版只是**显示侧**在 `IsWarlordEquivalent` 时
+        //     把费用容器整块藏起来（`BasicCardUI__SetRawCardData.c:51,81,84` 的 `Toggle(costCtrl,false)`）
+        //     ⇒ **值写进去了、只是不显示** —— 与「卡面上不印那颗六边形」完全自洽。
+        //     ⇒ 现读：**5 张全是 `2`**；全池 56 张督军 = **47 张 `2`（有真值）+ 9 张 `0`（真值里没有这张）**。
+        //  ✅ 同一判据下面 §④ 那块也钉了一遍（两处都要按「有真值 = 2」读）。
         {
             foreach (var n in new[] { "Jain Zar", "Anvirr Keltoc", "Eliac Zephyrblade",
                                       "Medreyal Ghaelyn", "Lhykhis" })
             {
                 var c = CreatePool.FindByName(pool, n);
-                CheckTrue(c != null && c.Cost == 0,
-                          $"★ 督军 `{n}` 的费用是 **0**（卡片右上角是**阵营徽记**、根本没有费用六边形）");
+                CheckTrue(c != null && c.Cost == 2,
+                          $"★ 督军 `{n}` 的费用是 **2**（真值 `manaCost`；卡面上那颗六边形是**显示侧**藏掉的，"
+                          + "不是数据该写 0 —— 判据 = `gen_cards_engine.py:1663-1683` 的 `A1773`）"
+                          + $"｜🧨 把 `gen_cards_engine.py` 里 `hero` 那一支撤掉 ⇒ 退回 0 ⇒ 本行红（实得 {(c == null ? "找不到这张卡" : c.Cost.ToString())}）");
             }
-            int nonZero = 0;
-            foreach (var c in pool) if (c != null && c.Type == "hero" && c.Cost != 0) nonZero++;
-            CheckTrue(nonZero <= 9,
-                      $"★ 督军里 cost 非 0 的应 ≤ **9** 张（实得 {nonZero}）—— "
-                      + "那 9 张是**待核**的，别当成已核（数字降下来是好事，涨上去就是有人往督军身上写费用）");
+            int nonZero = 0, nTwo = 0, nOther = 0;
+            foreach (var c in pool)
+            {
+                if (c == null || c.Type != "hero") continue;
+                if (c.Cost == 0) continue;
+                nonZero++;
+                if (c.Cost == 2) nTwo++; else nOther++;
+            }
+            CheckTrue(nonZero == 47 && nTwo == 47 && nOther == 0,
+                      $"★ 督军里 cost 非 0 的应**正好 47 张**、且**全是 2**（实得 nonZero={nonZero} · "
+                      + $"=2 的 {nTwo} 张 · 别的取值 {nOther} 张）—— 那 47 张是**真值给的 2**"
+                      + "（`gen_cards_engine.py:1663-1683`）；原来那句「≤ 9 张」的闸在 `A1773` 落地那天就作废了"
+                      + "｜🧨 有人往督军身上写第三个取值、或把真值那一支撤掉 ⇒ 本行红");
         }
     }
 
@@ -13175,7 +13236,7 @@ public static partial class RuleEngineTest
                 // 反例 ①：**真没机制的句子不许被放行**（否则报表会把缺口藏起来）
                 CheckTrue(CardDef.HandledByOtherLayer(
                               null, "Take control of an enemy troop this turn and give it Fast") == null,
-                          "★ 反例：`Telephatic Domination` 那句**不算被接手**（它确实没机制）");
+                          "★ 反例：`Telepathic Domination` 那句**不算被接手**（它确实没机制）");
                 // 反例 ②：事件那一族**只对单位卡成立** —— 非单位卡的同形状句子是**手牌陷阱**
                 //   （走 `EffectText.SplitHandTrapWhen` 那条路），不能靠这一条蒙混过去
                 CheckTrue(CardDef.HandledByOtherLayer(
@@ -13292,7 +13353,8 @@ public static partial class RuleEngineTest
                 //   里那两条豁免** —— ① 手牌陷阱（`IsHandTrap`）直接算全过；② `HandledByOtherLayer`
                 //   把「别的层已经接手的句子」从「不认识」里剔掉。
                 //   ⇒ **同一张卡在两张报表里结论不同**：实测 `Genestealers` 那栏
-                //   「战术卡 34 · 完全解析 **33**」，而全局表头写 **445/445** —— 差的就是
+                //   「战术卡 34 · 完全解析 **33**」，而全局表头写 **445/445**（2026-10-15 现读 **446/446**，
+                //    战术卡张数 +1 见 `TestTacticTextCoverage`）—— 差的就是
                 //   `Poisoned Supplies` / `Cult Propaganda` 那几张**手牌陷阱战术卡**。
                 //   ⚠️ 这正是本工程记过的「**报表虚低**」：下一个人照着做会去重做已经做完的事
                 //      （同 `单位卡desc与光环_批次划分.md` §一⑤ 那个坑）。
@@ -15281,21 +15343,44 @@ public static partial class RuleEngineTest
             }
         }
 
-        // ---------- ④ 督军卡费用**全 0**（9 张 2026-09-16 逐张开 PnP 成品卡图核过）----------
+        // ---------- ④ 督军卡费用：**有真值的 = 2**、**真值里没有的保持 0** ----------
+        //  🔴 **2026-10-15 就地订正（铁律 5）**：本块原来写「督军卡**全部 0 费**（卡面是阵营徽记、
+        //     没有费用六边形；这 9 张逐张开图核过）」—— **两句都不成立**：
+        //   · 判据正本 = `工具/gen_cards_engine.py:1663-1683`（`A1773` 那一支）＋ `项目任务.md`
+        //     里那次对抗性验证的裁决「**`2` 是真值**」：`manaCost` 是**序列化字段**、整条继承链
+        //     （`RawCardScript` → `ObtainableItem` → `AddressablesBuildNumber`）没有一个环节把它读成 0；
+        //     原版只是**显示侧**在 `IsWarlordEquivalent` 时把费用容器整块藏起来
+        //     （`BasicCardUI__SetRawCardData.c:51,81,84`）⇒ **值写进去了、只是不显示**。
+        //   · ⇒ 现读：**47 张 = 2**（真值给的）· **9 张 = 0**（真值那份 2025-07-30 快照里
+        //     **没有这几张**，故保持原值 —— 它们**不是**「开图核过没费用」，而**恰恰是没有真值**那一档）。
+        //   ℹ️ 「卡面没有费用六边形」这件事**仍然成立**（PnP 亲读，出处见上面 §⑫ 那一块），
+        //     但它**不是数据取值的判据**（显示侧另有其门，账 `A2006`）。
         {
-            var bad = new List<string>();
+            var two = new List<string>();
+            var zero = new List<string>();
+            var other = new List<string>();
             int heroes = 0;
             foreach (var c in pool)
             {
                 if (c.Type != "hero") continue;
                 heroes++;
-                if (c.Cost != 0) bad.Add(c.Name + "=" + c.Cost);
+                if (c.Cost == 2) two.Add(c.Name);
+                else if (c.Cost == 0) zero.Add(c.Name);
+                else other.Add(c.Name + "=" + c.Cost);
             }
             CheckTrue(heroes >= 56, $"卡池里督军卡有 {heroes} 张（≥56）");
-            Check(bad.Count, 0,
-                  "★ 督军卡**全部 0 费**（卡面是阵营徽记、没有费用六边形；"
-                  + "这 9 张逐张开图核过，证据见 `gen_cards_engine.py` 的 `STAT_FIXES`）"
-                  + (bad.Count > 0 ? " —— 非 0 的：" + string.Join(" / ", bad) : ""));
+            Check(other.Count, 0,
+                  "督军费用只有 `2`（有真值）与 `0`（真值里没有这张）两种取值"
+                  + "｜🧨 有人往督军身上写第三个取值 ⇒ 本行红"
+                  + (other.Count > 0 ? " —— 别的取值：" + string.Join(" / ", other) : ""));
+            Check(two.Count, 47,
+                  "★ **有真值的督军 `cost == 2`**（判据 = `gen_cards_engine.py:1663-1683` 的 `A1773`"
+                  + " ＋ 对抗性验证裁决；⛔ 不是「卡面不印费用 ⇒ 数据就该是 0」）"
+                  + "｜🧨 把 `gen_cards_engine.py` 里那一支撤掉 ⇒ 这 47 张退回 0、本行红");
+            Check(zero.Count, 9,
+                  "★ **真值那份快照里没有的 9 张保持 0**（快照 = 2025-07-30，后来加的内容不在里面）："
+                  + " " + string.Join(" / ", zero)
+                  + "｜🧨 给它们凭空写个费用 ⇒ 本行红");
         }
 
         // ---------- ⑤ 「再触发一次」：Mob（真卡 `GOF_Big_Choppa_Nob`）----------
@@ -15426,10 +15511,15 @@ public static partial class RuleEngineTest
             }
         }
 
-        // ---------- ⑨ 「本回合抢过来」：真卡 `GSC_Telephatic_Domination` ----------
+        // ---------- ⑨ 「本回合抢过来」：真卡 `GSC49 Telepathic Domination` ----------
+        //  🔴 2026-10-15：卡名原写 `Telepathic Domination`（**少一个 `h`**）—— 池现读 =
+        //     `GSC49 Telepathic Domination`；印在成品卡图上的也是它
+        //     （`d:/2/Warpforge部队卡片/Genestealer Cult/4计策/Warpforge_64_Telepathic-Domination.png`，
+        //     铁律 7：PnP 文件名 = 印刷名）。`CreatePool.FindByName` 是**精确匹配**（不做这种少字母的容错）
+        //     ⇒ 下面这几处（含 `HandIdx` 的按名查）必须一起改。
         {
-            var td = CreatePool.FindByName(pool, "Telephatic Domination");
-            CheckTrue(td != null, "卡池里有 `Telephatic Domination`");
+            var td = CreatePool.FindByName(pool, "Telepathic Domination");
+            CheckTrue(td != null, "卡池里有 `Telepathic Domination`");
             if (td != null)
             {
                 var ctx = BattlePool(new[] { td }, new[] { Unit("EFoe", 1, 3, 5) }, pool,
@@ -15438,7 +15528,7 @@ public static partial class RuleEngineTest
                 ctx.Players[0].Energy = 12;
                 var foe = Place(ctx, 1, 5, Unit("EVictim2", 1, 3, 5), exhausted: true);
 
-                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Telephatic Domination"), 5),
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Telepathic Domination"), 5),
                           RuleCodes.OK, "打出真卡（抢对面 5 号格那个）");
                 CheckTrue(SlotOf(ctx, 0, "EVictim2") >= 0,
                           "★ 它**到了你的棋盘上**（归属 = 待在谁的 `Board[]` 里）");
@@ -15486,8 +15576,8 @@ public static partial class RuleEngineTest
         //     抢不过来 + 记 `unresolved`），**不是**归还处 —— 这一条就是钉它的。
         //  ⚠️ 归还那一半（原主满了还不还）**判据仍未追到**（见 `BattleContext.TempControl`），本波不动。
         {
-            var td2 = CreatePool.FindByName(pool, "Telephatic Domination");
-            CheckTrue(td2 != null, "（前提）卡池里还有 `Telephatic Domination`");
+            var td2 = CreatePool.FindByName(pool, "Telepathic Domination");
+            CheckTrue(td2 != null, "（前提）卡池里还有 `Telepathic Domination`");
             if (td2 != null)
             {
                 var ctx = BattlePool(new[] { td2 }, new[] { Unit("EFoe3", 1, 3, 5) }, pool,
@@ -15500,7 +15590,7 @@ public static partial class RuleEngineTest
                     if (BoardSpec.IsDeployable(s)) Place(ctx, 0, s, Unit("Fill" + s, 1, 1, 1));
                 CheckTrue(!ctx.Players[0].HasFreeSlot(), "（前提）抢的人**一个空位都没有了**");
 
-                RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Telephatic Domination"), 5);
+                RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Telepathic Domination"), 5);
                 CheckTrue(SlotOf(ctx, 1, "EVictim3") >= 0 && SlotOf(ctx, 0, "EVictim3") < 0,
                           "★ **它没被抢过去**（原版 `IsAvailableSlot` 假 ⇒ 整个转移不作数）" + LogTail(ctx));
                 CheckTrue(Joined(ctx).IndexOf("抢不过来", System.StringComparison.Ordinal) >= 0,
@@ -15514,7 +15604,7 @@ public static partial class RuleEngineTest
         //  （= 移动成功那一刻）、**不看任何关键词**：那个函数体把 `card+0x58`
         //  （= `summonSickness`）写成 **1**（`CardScript__ResetSummonSickness.c`）
         //  ⇒ **1 = 有召唤病 = 不能动**（`CardScript__OnTurnStart.c:85` 在回合开始写 0，解疲劳）。
-        //  ⚠️ 真卡**只有一张**（`GSC_Telephatic_Domination`）且自带 `and give it Fast`
+        //  ⚠️ 真卡**只有一张**（`GSC49`）且自带 `and give it Fast`
         //     ⇒ 差异在真卡上**演示不出来**，只能靠夹具直接调。两态：
         //      · **尾句里没有 `fast`** ⇒ 抢完**仍是疲劳**（改前：偷一个本来没疲劳的单位，它能当场再动）；
         //      · **尾句有 `and give it Fast`** ⇒ 同一刻又被清掉（真卡那条路，夹具也走一遍）。
@@ -15558,7 +15648,7 @@ public static partial class RuleEngineTest
                         + " **无条件** `ResetSummonSickness`）—— 改前这里是 `false`：它能当场再动");
             }
 
-            // 腿 2：**尾句有 `and give it Fast`** ⇒ 同一刻又被清掉（真卡 `Telephatic Domination` 那条路）
+            // 腿 2：**尾句有 `and give it Fast`** ⇒ 同一刻又被清掉（真卡 `Telepathic Domination` 那条路）
             {
                 var ctx = BattlePool(new[] { tFast }, new[] { Unit("EFoeF", 1, 3, 5) }, pool,
                                      warlordFaction: "Genestealers");
@@ -15586,7 +15676,7 @@ public static partial class RuleEngineTest
         //  🔴 **灭自证的做法**：把两态摆进**同一个上下文、同一刻**，两个被抢的单位**只差「带不带 `fast`」
         //     这一个词**（其余逐一相同）⇒ 「一律置真」与「一律置假」两种写法**都不可能**同时满足下面
         //     那对断言；而「只写 `Exhausted`、不写那一位」也过不了 `SummonSickness` 那两条。
-        //  ⚠️ 真卡只有一张（`GSC_Telephatic_Domination`）且自带 `and give it Fast` ⇒ 只能靠夹具分两态。
+        //  ⚠️ 真卡只有一张（`GSC49`）且自带 `and give it Fast` ⇒ 只能靠夹具分两态。
         {
             var t1 = Tactic("TStealA", 1, "Take control of an enemy troop this turn");
             var t2 = Tactic("TStealB", 1, "Take control of an enemy troop this turn");
@@ -18129,7 +18219,7 @@ public static partial class RuleEngineTest
         //  A3（2026-09-13）：`When` 短语剩下的 4 条
         // ==================================================================
         //   ① `this unit attacks an enemy with Hunt Mark`（`Long Fang`）
-        //   ② `this unit kills an enemy`（`Sisters Repentia`）
+        //   ② `this unit kills an enemy`（`Sister Repentia`）
         //   ③ `you create **or play** a secret`（`Ravenwing Ballistus Dreadnought`，见上面那条断言）
         //   ④ `you trigger a Spirit Stone ability`（`Bright Lance Vyper`）
         // 四条原本都落在「认不出的事件短语」那一栏（`_tmp_view/when_unparsed.md`）。
@@ -18187,9 +18277,13 @@ public static partial class RuleEngineTest
                   "★ 真卡的相邻锚点 = **事件宾语**（`TargetIfMeetsCriteria`）—— 落成 `Self` 就是"
                   + "打在长牙**自己那一排**上（静默错打）；落成 `AdjacentFailed` 则整句降级");
 
-            var sr = CardDatabase.Find(pool, "Sisters Repentia");
+            // 🔴 2026-10-15 卡名纠正：原写 `Sisters Repentia`（**复数**）—— 池现读是**单数**
+            //    `SOR10 Sister Repentia`（成品卡图 `Sorotitas/3部队/Warpforge_19_Sister-Repentia.png` 也是单数）。
+            //    `CardDatabase.Find`（`Data/CardDatabase.cs:364-367`）是**精确匹配** ⇒ 必须用池里那个名。
+            var sr = CardDatabase.Find(pool, "Sister Repentia");
             CheckTrue(sr != null && sr.WhenTriggers.Count == 1,
-                      "★ 真卡 `Sisters Repentia`：监听器注册上了（`When this unit kills an enemy, gain 1 ☀`）");
+                      "★ 真卡 `Sister Repentia`：监听器注册上了（`When this unit kills an enemy, gain 1 ☀`）"
+                      + "｜🧨 卡名改回复数 ⇒ 精确匹配落空 ⇒ 本行红");
 
             var rb = CardDatabase.Find(pool, "Ravenwing Ballistus Dreadnought");
             CheckTrue(rb != null && rb.WhenTriggers.Count == 2,
@@ -18305,7 +18399,7 @@ public static partial class RuleEngineTest
             Check(v.Health, 9, "监听者也没挨");
         }
 
-        // ---- ⑯ 端到端：`Sisters Repentia` 形状（**击杀**，不是「攻击」）----
+        // ---- ⑯ 端到端：`Sister Repentia` 形状（**击杀**，不是「攻击」）----
         {
             var repentia = new CardDef("FixtureRepentia", "FixtureRepentia", "unit",
                 "When this unit kills an enemy, gain 1 ☀",
@@ -18932,44 +19026,59 @@ public static partial class RuleEngineTest
         // ②·b 🆕 **规则② 的第二半：`Talent:` 前缀被数据管线剥掉的「裸写」那一段也要去掉**
         //      （2026-10-18 · `A1078`）
         //
-        // **为什么单独钉**：有 **3 张**卡的 `desc` 里**没有 `Talent:` 前缀**（卡面印的是
-        //   `[Talent 图标] Talent: <名>`，数据管线把图标和前缀一起去了 —— 照成品卡图核过，铁律 7）
-        //   ⇒ 只认前缀的规则② **挡不住**，那一段里的天赋名被当成了「正文点名」= **假命中**。
+        // **为什么单独钉**：卡片的 `desc` 若**裸写**那个天赋名（不带 `Talent:` 前缀），
+        //   只认前缀的规则② **挡不住**，那一段里的名字被当成了「正文点名」= **假命中**。
+        //   卡面印的是 `[Talent 图标] Talent: <名>` —— 图标与前缀是**数据管线**去的（照成品卡图核过，铁律 7）。
         // 判据（**转调两处现成的、不是这里新发明的**）：`CardDef.ExtractBareTalentName(seg)`
         //   **恰好等于**本卡的 `CardDef.TalentName` —— 与 `CardDef.HandledByOtherLayer` 里那条逐字同款，
         //   那一条（`IsKnownSegment` 认天赋段）2026-09-14 起就在跑。
         //
-        // 🔴 **量：英文档全池 `128 / 67` → `125 / 64`**（下面 ⑤ 那两条期望数已跟着改）——
-        //   **只掉这 3 处、其余一行都没动**。怎么数的：拿**真编译出来的引擎代码**
-        //   （`工具/typecheck.sh` 的 `WFCheck.dll`）跑 before/after 两份**逐张 dump**（1126 张 × 两趟），
-        //   `diff` 出来的差异**恰好 3 行**（`BL1→BL2` · `DA3→DA4` · `TAU1→TAU2`）。
-        //   ⚠️ 这三个数**不依赖被测代码**：它们就是数据里那 3 张卡的 `desc` 字面
-        //   （`CardDef.ExtractBareTalentName` 的注释与 `CardDef.HandledByOtherLayer` 里那条实测名单都是同一批 3 张），
-        //   而且这 3 个天赋名各**只有这一处**被提到（`grep` 现扫 `cards_engine.json`）⇒ `128−3` / `67−3`。
+        // 🔴 **量（2026-10-15 现读订正 · 铁律 5 —— 这条被改过两次口径，别只看历史那半）**：
+        //   · `A1078` 注释里记的是「**3 张**裸写 · 各 −3 · `128/67 → 125/64`」；
+        //   · 但**现读只剩 1 张**真卡在走这一支 —— 另两张已被第三十会话 `70f4147` 补上了
+        //     `Talent: ` 前缀，改由**规则②**（剥 `Talent:` 段）负责。现读三条字面（`grep` 现扫
+        //     `cards_engine.json` 即得，**不依赖被测代码**）：
+        //        `TAU2 Aun'Va` = `Talent: Ethereal Supreme` ·
+        //        `BL34 Abaddon the Despoiler` = `Talent: Chosen of the Four` ·
+        //        `DA1 Azrael` = `…put it at the top of your deck. Supreme Grand Master`（**仍裸写**）。
+        //     ⇒ 现在的数是 **`127 / 66`**（**各 −1**），下面 ⑤ 那两条期望值已按它改。
+        //   ⚠️ 这三个天赋名在**全池各只有这一处**被提到 ⇒ 少几处就换几处（`128−1` / `67−1`）。
+        //   📌 读数 = 第三十二会话那趟 `RuleEngineTest.Run` 的**实得值**（`_tmp_view/ruleengine.log`）
+        //     `66 / 127`，与算式 `68−1(S13)−1` / `129−1−1` 逐字吻合。
         {
-            // (1) `Aun'Va`（`TAU1`）：**整条 desc 就是**那个裸写天赋名
+            // (1) `Aun'Va`（`TAU2`）：整条 desc 就是那个天赋段（⚠️ 现读**带** `Talent: ` 前缀）
             CardDef av = null;
             foreach (var c in pool) if (c.Name == "Aun'Va") { av = c; break; }
             CheckTrue(av != null, "（前提）卡池里有 `Aun'Va`");
             if (av != null)
             {
-                CheckTrue(av.Desc == "Ethereal Supreme",
-                          "（前提·数据侧事实）`Aun'Va` 的 desc **整条就是** `Ethereal Supreme`（与实现无关）");
+                // 🔴 **2026-10-15 就地订正（铁律 5）**：本处原来写 `av.Desc == "Ethereal Supreme"`
+                //    （**不带前缀**）—— 第三十会话 `70f4147` 给 `desc` 补上了 `Talent: ` 前缀，
+                //    现读 = `Talent: Ethereal Supreme`。⇒ 这一格**不再走 ②·b**，改由**规则②**
+                //    （剥 `Talent:` 段）负责；②·b 那一半现读**只剩 `DA1 Azrael` 一张**真卡在走
+                //    （见下面 (2)，那里仍在钉它 —— 这一格**不是**它那半的覆盖）。
+                CheckTrue(av.Desc == "Talent: Ethereal Supreme",
+                          "（前提·数据侧事实）`Aun'Va` 的 desc 整条就是 `Talent: Ethereal Supreme`"
+                          + "（与实现无关；⚠️ 上一版这里写的是不带前缀的 `Ethereal Supreme`，已过期）");
                 string why;
                 var rel = CreatePool.MentionedCards(pool, av, av.Desc, out why, 8);
                 CheckTrue(rel.Count == 0 && why == null,
-                          $"★ 裸写天赋名**不算点名** —— `Aun'Va` 的相关卡该是**空的**"
-                          + $"（实得 {rel.Count} 张；why={why}）");
+                          $"★ 天赋段**不算点名** —— `Aun'Va` 的相关卡该是**空的**"
+                          + $"（实得 {rel.Count} 张；why={why}）"
+                          + "｜🧨 拆掉 `CreatePool` 里剥 `Talent:` 段那一支 ⇒ `Ethereal Supreme`"
+                          + "（池里真有这张卡）被当成正文点名 ⇒ 本行红");
             }
 
-            // (2) `Azrael`（`DA3`）：名字在**第二段**，第一段是正经效果正文
+            // (2) `Azrael`（`DA1` · ⚠️ 2026-10-15 订正：原写 `DA3`，现读 id 是 `DA1`）：
+            //     名字在**第二段**，第一段是正经效果正文 —— **②·b 现读只剩它这一张真卡**。
             CardDef az = null;
             foreach (var c in pool) if (c.Name == "Azrael") { az = c; break; }
             CheckTrue(az != null, "（前提）卡池里有 `Azrael`");
             if (az != null)
             {
                 CheckTrue(az.Desc.IndexOf("Supreme Grand Master", System.StringComparison.Ordinal) >= 0,
-                          "（前提·数据侧事实）`Azrael` 的 desc 里裸写着 `Supreme Grand Master`（与实现无关）");
+                          "（前提·数据侧事实）`Azrael` 的 desc 里裸写着 `Supreme Grand Master`（与实现无关）"
+                          + "｜🧨 给它补上 `Talent: ` 前缀 ⇒ 本行红（那意味着 ②·b 这一路没有真卡在走了）");
                 string why;
                 var rel = CreatePool.MentionedCards(pool, az, az.Desc, out why, 8);
                 bool hitD4 = false;
@@ -18979,7 +19088,9 @@ public static partial class RuleEngineTest
                           + "（⚠️ 只挖那一段，上面的效果正文一个词都不动）");
             }
 
-            // (3) `Abaddon the Despoiler`（`BL1`）：名字是从 `keywords` 里抽的（desc 与那一项一字不差）
+            // (3) `Abaddon the Despoiler`（`BL34` · ⚠️ 2026-10-15 订正：原写 `BL1`，现读 id 是 `BL34`）：
+            //     ⚠️ 它的 desc 现读已带前缀（`Talent: Chosen of the Four`）⇒ `TalentName` 由**前缀**那支抽到
+            //     （原注释写的是「从 `keywords` 那项抽的」，那是补前缀**之前**的口径）。
             CardDef ab = null;
             foreach (var c in pool) if (c.Name == "Abaddon the Despoiler") { ab = c; break; }
             CheckTrue(ab != null, "（前提）卡池里有 `Abaddon the Despoiler`");
@@ -18987,7 +19098,8 @@ public static partial class RuleEngineTest
             {
                 CheckTrue(ab.TalentName == "Chosen of the Four",
                           $"（前提）`Abaddon the Despoiler` 的天赋名抽出来了：`{ab.TalentName}`；"
-                          + "⚠️ 它是从 `keywords` 那项抽的，**不是**从 desc");
+                          + "🔴 2026-10-15 订正：它走的是 **desc 的 `Talent: ` 前缀**那一支"
+                          + "（`70f4147` 补的前缀），**不是** `keywords` 那支（那是补前缀之前的口径）");
                 string why;
                 var rel = CreatePool.MentionedCards(pool, ab, ab.Desc, out why, 8);
                 CheckTrue(rel.Count == 0 && why == null,
@@ -19138,24 +19250,27 @@ public static partial class RuleEngineTest
             //    ⇒ 少 1 处 mention、少 1 张被点名的卡。**实据**：全池提到 `Catechism of Death` 的**只有 `UM84` 这一处**
             //    （`grep` 现扫：`cards` 里含该名的 1 条，就是它自己那张的 `Talent:` 段）⇒ **−1 / −1 精确对上**。
             //
-            // 🔴🔴 **2026-10-18 第二次就地订正（`A1078`，同一句话现在写两遍了 —— 别只改一处）：**
-            //    `67 → 64` · `128 → 125`，**各 −3**。成因：给**规则②补上了「裸写天赋名」那半段**
-            //    （见上面 ②·b）。全池正好 **3 张**卡是这么写的，各贡献 1 处假命中：
-            //      `Azrael`→`Supreme Grand Master` · `Aun'Va`→`Ethereal Supreme` ·
-            //      `Abaddon the Despoiler`→`Chosen of the Four`
-            //    （这三个天赋名在**全池各只被提到这一处** —— `grep` 现扫 `cards_engine.json` 得 1 条/个，
-            //     而且被点到的那 3 张卡**只被这 1 处**点到 ⇒ mention 与 distinct **同时**各 −3，
-            //     算式与数据字面都成立、**不依赖被测代码**）。
-            //    **实据**：真编译的引擎代码 before/after 两份逐张 dump 的 `diff` **恰好 3 行**（见 ②·b 的注释）。
+            // 🔴🔴 **2026-10-15 就地订正（铁律 5 · 同一句话在本文件写了两遍 —— 两处都要改）：**
+            //    本处原来写「`67 → 64` · `128 → 125`，**各 −3**；全池正好 **3 张**卡是这么写的」——
+            //    **现读只剩 1 张**（`DA1 Azrael`）。另两张 `TAU2 Aun'Va` / `BL34 Abaddon the Despoiler`
+            //    已被第三十会话 `70f4147` 补上 `Talent: ` 前缀 ⇒ 由**规则②**（剥 `Talent:` 段）负责，
+            //    不再走 ②·b。⇒ 从 `68 / 129` 起算的账变成：
+            //      `68 − 1(S13) − 1(②·b 实到 1 张) = **66**` · `129 − 1 − 1 = **127**`。
+            //    **实据**：第三十二会话那趟 `RuleEngineTest.Run` 的**实得值就是 66 / 127**
+            //      （`_tmp_view/ruleengine.log`）—— 算式与实得**逐字吻合**，与上面 ②·b 记的 `127 / 66` 同一对数。
+            //    ⚠️ 原来那句「被点到的那 3 张卡只被这 1 处点到 ⇒ 各 −3」现读**只对 `Azrael` 那一张成立**。
             //    ⚠️ `Chosen of the Four` 那一张**在中文档下仍然命中**（`Abaddon` 的 `descZh` 写的是
             //      `四神宠儿`、**没有** `天赋：` 前缀）⇒ 中文档那个数**没动**（下端 ⑤·b 钉着）。
-            Check(distinct.Count, 64, "★ 被点到的**卡**数（我们实测；⚠️ 2026-10-18 起 68→67→64，"
-                                    + "后一次 −3 的成因 = `A1078` 补上规则②的「裸写天赋名」半段，见上）");
-            // ④ 总处数：我们实测 **129**（→128→**125**），正本记的是 **126** —— 差得**不是同一把尺子**
-            //    （正本那次是临时脚本扫的，方法没留下）；被点到的「卡」数完全一致、
+            Check(distinct.Count, 66, "★ 被点到的**卡**数（我们实测；⚠️ 2026-10-15 起 `64` → **`66`**，"
+                                    + "成因 = ②·b 的「裸写天赋名」半段现读**只剩 `DA1 Azrael` 一张**"
+                                    + "（`70f4147` 给另两张补了 `Talent: ` 前缀、改由规则②负责），见上）"
+                                    + "｜🧨 把 `CreatePool.StripTalentSegments` 的**裸写那一半**停掉 ⇒ 回到 68 ⇒ 本行与本块另一行一起红");
+            // ④ 总处数：我们实测 **127**（`129 − 1(S13) − 1(②·b 实到 1 张)`），正本记的是 **126** ——
+            //    差得**不是同一把尺子**（正本那次是临时脚本扫的，方法没留下）；被点到的「卡」数完全一致、
             //    逐张吻合且对不上的那几个的差**都拆得开** ⇒ 钉**我们实测**的这个数。
-            Check(mentions, 125, "★ 全池「被点名的卡」**总处数**（我们实测；⚠️ 2026-10-18 起 129→128→125，"
-                               + "最后一次 −3 见上；正本 §9·3 记的是 126）");
+            Check(mentions, 127, "★ 全池「被点名的卡」**总处数**（我们实测；⚠️ 2026-10-15 起 `125` → **`127`**，"
+                               + "成因见上；正本 §9·3 记的是 126）"
+                               + "｜🧨 同上一行那个 🧨 ⇒ 本条一起红");
         }
 
         // ⑤·b 🆕 **中文档那一趟** —— `WRelated` 第六会话遗留的 6 条断言（2026-10-18 补齐）
@@ -19423,30 +19538,84 @@ public static partial class RuleEngineTest
             Check(n, 3, "★ 主卡本身就是契约 ⇒ 列出**另外三张**（主卡 1 + 相关 3 = 4 格）");
         }
 
-        // ④ **去重**：卡面写全名的那种（`Khorne Berzerker` → `Dark Pact of Blood`）—— ① 与 ③ 会撞上
-        //    同一张 ⇒ 合起来仍是 **4 张**，不许出现两张 `Dark Pact of Blood`。
-        CardDef kb = null;
-        foreach (var c in pool) if (c.Id == "BL7") kb = c;
-        if (kb != null)
+        // ④ **去重**：卡面写全名的那种（`Chosen of Slaanesh` → `Dark Pact of Excess`）——
+        //    ①（点名）+ ③（那一族）会撞上同一张 ⇒ 合起来仍是 **4 张**，不许出现两张 `Dark Pact of Excess`。
+        //    🔴 **2026-10-15 就地订正（铁律 5）**：这一格原来拿 **`BL7 Khorne Berzerker`** 当主卡 ——
+        //       而现读 **`BL7` 在真值表里有键**（`related_cards.json` 的
+        //       `{"id":"BL7","related":["9a2cadc64c80a6b42912441105bb1cee"]}` = 池里那张 `Dark Pact of Blood`）
+        //       ⇒ `RelatedCards.Find` 的 **⓪ 真值优先**那一支**整支返回**（`Core/RelatedCards.cs:67-77`）、
+        //       下面三支**一支都不跑** ⇒ 实得 **1 张**，这一格**测的已经不是去重**了。
+        //       ⚠️ 拿真卡测不了的原因（现读核过）：**所有**在正文里写全名契约的真卡
+        //       （`BL7`/`BL21`/`BL10`/`BL6`/`BL8`）在真值表里**都有键** ⇒ 那一支永远被短路。
+        //    ⇒ 换一张**同样在池里、但真值表里没有键**的真卡：`EC36 Chosen of Slaanesh`
+        //       （`Give a Dark Pact of Excess to a friendly troop`；现读同族还有 `EC9`/`EC20`/`EC41`/
+        //       `EC38`/`EC60`/`2621d428…` 六张 —— 都是后加的帝皇之子那批，快照里没有）。
+        //       ⛔ **不能用夹具 `CardDef` 顶**：夹具 `FromOriginalPool == false` ⇒
+        //       `BattleDriver.FaceTextFull` 会**早退**成 `DescribeKeywords(c)`（不是卡面正文）
+        //       ⇒ ① 那一支根本喂不进正文、去重也就测不到了（判据 `BattleDriver.cs:12720`）。
         {
-            var rel = CardPresentation.RelatedCards.Find(kb, 8);
-            int n = 0; var seen = new List<string>();
-            foreach (var r in rel)
-                if (r.Subtype == "Dark Pact") { n++; if (!seen.Contains(r.Id)) seen.Add(r.Id); }
-            Check(n, 4, "★ 写全名的那张 ⇒ ①（点名）+ ③（那一族）去重后仍是 **4 张**");
-            Check(seen.Count, 4, "★ 上面那 4 张**互不重复**（去重真的生效）");
+            CardDef kb = null;
+            foreach (var c in pool) if (c.Id == "EC36") kb = c;
+            CheckTrue(kb != null, "卡池里有 `EC36 Chosen of Slaanesh`（去重那一格的主卡）");
+            CheckTrue(kb != null && RelatedCardData.Get(kb.Id) == null,
+                      "（前提）这张真卡在**真值表里没有键** ⇒ ⓪ 那一支不会把它短路"
+                      + "｜🧨 哪天给它补上真值 ⇒ 下面两条会被短路成 1 张 ⇒ 本行先红");
+            // ⚠️ **只钉「不短路」还不够** —— 还要钉「**去重真的有东西可去**」：③ 那四张里
+            //    至少有一张的名字**出现在本卡正文里**（⇒ ① 与 ③ 撞的是同一张）。
+            //    这一条对**两种语档都成立**（判据是 `Desc` 与契约名两个数据字面，不经文本管线）。
+            bool collide = false;
+            if (kb != null)
+                foreach (var r in CreatePool.DarkPactContracts(pool, kb))
+                    if ((kb.Desc ?? "").IndexOf(r.Name, StringComparison.OrdinalIgnoreCase) >= 0)
+                        collide = true;
+            CheckTrue(collide,
+                      "（前提）契约名**真的出现在本卡正文里** ⇒ ①（点名）与 ③（那一族）会撞上同一张"
+                      + "｜🧨 换一张正文不写全名契约的卡 ⇒ ① 空手而归、下面两条退化成「只测 ③」⇒ 本行先红");
+            if (kb != null)
+            {
+                var rel = CardPresentation.RelatedCards.Find(kb, 8);
+                int n = 0; var seen = new List<string>();
+                foreach (var r in rel)
+                    if (r.Subtype == "Dark Pact") { n++; if (!seen.Contains(r.Id)) seen.Add(r.Id); }
+                Check(n, 4, "★ 写全名的那张 ⇒ ①（点名）+ ③（那一族）去重后仍是 **4 张**"
+                          + "｜🧨 把 `RelatedCards.AddUnique` 换成 `list.Add` ⇒ ① 与 ③ 各给一次"
+                          + " `Dark Pact of Excess` ⇒ 实得 5 ⇒ 红");
+                Check(seen.Count, 4, "★ 上面那 4 张**互不重复**（去重真的生效）"
+                                  + "｜🧨 同上 ⇒ 本行实得 5 ⇒ 红");
+            }
         }
 
         // ⑤ **交叉核对：中英两种写法命中同一批卡** —— 英文 `Dark Pact`（卡面原文，判据就是它）
-        //    vs 中文 `黑暗契约`（我们自己的译文）。两边只要不等，`MentionsDarkPact` 就有一边是错的。
+        //    vs 中文那一侧**印的是同一个图标**。两边只要不等，`MentionsDarkPact` 就有一边是错的。
+        //    🔴 **2026-10-15 就地订正（铁律 5）**：中文那半原来只认 `黑暗契约` 四个字，而
+        //       `descZh` 换代（`A1763` 起换成**官方记号模板**）之后，同一个图标现读写成**记号**
+        //       ⇒ 那四个字在 37 张里只剩 8 张还带（`grep` 现扫），**字面判据已经作废**（不是漏译）。
+        //    ⇒ 中文判据改成「**契约那一族的记号**」，两种写法都认：
+        //       · `[[markOfChaos]]` —— 官方**驼峰 token**（例 `BL3 Chaos Legionary` =
+        //         `在接收到 [[markOfChaos]] 后，…`）；
+        //       · `((Gain_a_mark_of_chaos))` —— 官方**未译占位符**里的**下划线**写法
+        //         （例 `BL4 Chaos Sergeant` = `[[rally]]：((Gain_a_mark_of_chaos))`）。
+        //      实现 = 把下划线抹掉后按 `markof` + 邪神名认；五个 token 名 = `card_icon_plan.json`
+        //      里那枚图标（`Dark Pact` ≡ `黑暗契约` ≡ sprite `markOfChaos`）的五张切片，
+        //      而「五张 `markOf*` 切片**渲染上完全一样**」已由 `A1476` 核过。
+        //    ⚠️ **不是「数不对就说它对」**：两边仍各自独立扫全池、仍要求两个差集都是 0
+        //      （改完实测 = `en` 41 / `zh` 41 · 两个差集都 0）。
         var en = new List<string>(); var zh = new List<string>(); var api = new List<string>();
+        string[] dpMarks = { "markofchaos", "markofkhorne", "markoftzeentch",
+                             "markofnurgle", "markofslaanesh" };
         foreach (var c in pool)
         {
             bool e = (c.Name ?? "").IndexOf("Dark Pact", StringComparison.OrdinalIgnoreCase) >= 0
                   || (c.Desc ?? "").IndexOf("Dark Pact", StringComparison.OrdinalIgnoreCase) >= 0
                   || (c.TalentName ?? "").IndexOf("Dark Pact", StringComparison.OrdinalIgnoreCase) >= 0;
-            bool z = (c.NameZh ?? "").IndexOf("黑暗契约", StringComparison.Ordinal) >= 0
-                  || (c.DescZh ?? "").IndexOf("黑暗契约", StringComparison.Ordinal) >= 0;
+            string zhTxt = ((c.NameZh ?? "") + "\n" + (c.DescZh ?? ""));
+            bool z = zhTxt.IndexOf("黑暗契约", StringComparison.Ordinal) >= 0;
+            if (!z)
+            {
+                string flat = zhTxt.Replace("_", "");
+                foreach (string mk in dpMarks)
+                    if (flat.IndexOf(mk, StringComparison.OrdinalIgnoreCase) >= 0) { z = true; break; }
+            }
             if (e) en.Add(c.Id);
             if (z) zh.Add(c.Id);
             if (CreatePool.MentionsDarkPact(c)) api.Add(c.Id);
@@ -19455,8 +19624,11 @@ public static partial class RuleEngineTest
         var onlyEn = new List<string>(); var onlyZh = new List<string>();
         foreach (var id in en) if (!zh.Contains(id)) onlyEn.Add(id);
         foreach (var id in zh) if (!en.Contains(id)) onlyZh.Add(id);
-        Check(onlyEn.Count, 0, "★ 只有英文提到、中文没提的卡 = 0（列出来：" + string.Join(",", onlyEn) + "）");
-        Check(onlyZh.Count, 0, "★ 只有中文提到、英文没提的卡 = 0（列出来：" + string.Join(",", onlyZh) + "）");
+        Check(onlyEn.Count, 0, "★ 只有英文提到、中文没提的卡 = 0（列出来：" + string.Join(",", onlyEn) + "）"
+                             + "｜🧨 把 `dpMarks` 那一族删掉（只留 `黑暗契约` 字面）⇒ 中文只命中 12 张"
+                             + " ⇒ 本行实得 29 ⇒ 红");
+        Check(onlyZh.Count, 0, "★ 只有中文提到、英文没提的卡 = 0（列出来：" + string.Join(",", onlyZh) + "）"
+                             + "｜🧨 反过来只留记号族、删掉 `黑暗契约` 那半 ⇒ 本行红");
 
         // ⑥ **反例**：一张全篇没提契约的卡 ⇒ 一张契约都不许列进来（判据别放得太宽）
         CardDef rg = null;
@@ -19614,9 +19786,11 @@ public static partial class RuleEngineTest
                 var ids = TalentCardData.Get(c.Id);
                 if (ids != null && ids.Length > 1) multi++;
             }
-            Check(multi, 1, "（现读）我们池子里 `unitsToSummon` 多于一条的**正好 1 张**（`BL23`）"
-                          + "—— 另外两张（`BL36` 与它的教程版）本卡自己落不进我们卡池，"
-                          + "名单在 `数据/游戏数据/talent_cards.json`");
+            Check(multi, 2, "（现读）我们池子里 `unitsToSummon` 多于一条的**正好 2 张**（`BL23` · `BL36`）"
+                          + "—— `BL36`（`Sylar Hexscorn`）自 2026-10-15 真值 id 落位起**已在池内**；"
+                          + "名单在 `数据/游戏数据/talent_cards.json`（现读 `entries` 89 条、`talents`"
+                          + "多于一条的正好这两条）"
+                          + "｜🧨 把 `TalentCardData.Get` 换成「只留第一条」⇒ 本行实得 0 ⇒ 红");
         }
 
         // ============================================================
@@ -20089,7 +20263,9 @@ public static partial class RuleEngineTest
         // ================================================================
         //  🆕 2026-09-27：天赋的**第三种形式** —— 名字是个**池子**（`A random <阵营> <子类型>`）
         //  判据 → `资料/阶段二_卡片详情窗_原版规格.md` **§9·2 第三种形式**。
-        //  🔴 修之前：`BL36 Sorcerer` / `BL5 Sylar Hexcorn` 的 `Talent: A random Black Legion Psychic Power`
+        //  🔴 修之前：`BL23 Sorcerer` / `BL36 Sylar Hexscorn` 的 `Talent: A random Black Legion Psychic Power`
+        //     （⚠️ 2026-10-15 订正：原来这两个 id 写反了 —— 现读 `Sorcerer` = `BL23`、
+        //      `Sylar Hexscorn` = `BL36`；名字原写 `Hexcorn`，少一个 `s`）
         //     被拿去当**卡名**查 ⇒ 查不到 ⇒ **只打日志、什么都不生成** ⇒ 这两个督军的天赋**从来没生效过**。
         //     （它一度被定性成「正则误抓」—— **那个定性是错的**，2026-09-26 已订正。）
         // ================================================================

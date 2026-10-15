@@ -2149,7 +2149,14 @@ KEYWORD_SCAN = re.compile(
 #    ⚠️ **下界改成 1 不会误伤**：`([一-龥]{1,8})` 是**贪婪**的，长的先试（`团结一致：` 仍先试
 #    `团结一致`、词表里没有 ⇒ 不命中）；而 `zh_en.get(raw)` 那道闸只放行词表里的词，
 #    词表里**只有 `团` 一个字是单字**。实测：改完 `--write` 只多出下面那几条，其余一字未动。
-KEYWORD_SCAN_ZH = re.compile(r"(?:^|[。；,，]\s*)([一-龥]{1,8})(?:\s*(\d+))?\s*(?:([：。])|(?=$))")
+# 🔴 **2026-10-15（第三十二会话）：前导分隔符要收 `<br>` 系列。**
+#   判据：官方那代文本用 `<br>` 断行（实测 `ASH34.descZh = '护甲 2。<br>②：…<br>天赋：凯恩之怒。'`、
+#   `UM23.descZh = '护甲 1。先锋。<br>典籍：治疗 3。'`）—— 旧正则只认 `。；,，` ⇒
+#   `天赋` / `典籍` 两次声明**一次都抽不出来** ⇒ 中文卡面那两枚图标**压根没画**
+#   （`IconSetup.Verify` 的 ①a `ZhGaps` 报 `ASH34|talent` / `UM23|codex` —— 实测是**真缺口**。
+#   同池对照：真换行那几处（`GOF76` / `SW24`）抽得出，只有 `<br>` 那几处抽不出）。
+#   出处 = `资料/普查产出_第三十二会话/D3_IconSetup五条红.md` §一·4。
+KEYWORD_SCAN_ZH = re.compile(r"(?:^|<br\s*/?>\s*|[。；,，]\s*)([一-龥]{1,8})(?:\s*(\d+))?\s*(?:([：。])|(?=$))")
 
 
 # 🔴 **2026-10-11（`A1476`）**：上面两条正则的收尾符改成「**照旧要 `:`/`.`/`：`/`。`，
@@ -2722,23 +2729,47 @@ A1703_MUST_PAINT = [
 ]
 
 
+# ── 🆕 2026-10-15：**官方记号那一代**（`[[…]]` / `((…))` / `$$…$$`）⇒ 本计划表**管不着那些字段** ──
+# 判据 = `MyGame/Assets/CardPresentation/Core/CardIcons.cs:227`
+#   `if (HasOfficialMarks(text)) return RewriteMarks(text, field == DescZhField);`
+#   + 同文件 `:448-453` 的 `HasOfficialMarks` 判的就是 `[[` / `((` / `$$` 这三个前缀。
+# ⇒ 带官方记号时 `CardIcons.Rewrite` **在 `HasOfficialMarks` 那一句就分流走了**、**根本不查本表**。
+#   由此两条口径：
+#   ① **生产侧整字段跳过**。不跳的后果（改前实测）：`TOK` 在 `[[waystone]]` 的**位置 0 匹配不上**
+#      （下一个字符是 `[`、被字符类排除）、**位置 1 匹配成功** ⇒ 读出的 token 是 `waystone` ——
+#      全池 **558 张卡的 `descZh`** 都是这一代写法，`没认出来: 952` 处里**绝大多数**是这么来的。
+#   ② **自检侧**：凡是「**拿本表去数某字段画了几枚**」的判据，对这类字段一律是**载体不适用**
+#      （不是期望值写错）⇒ **那一行/那一半跳过**。⛔ 不许去改期望数字、更不许换成别的卡。
+# ⚠️ **`desc` 侧今天 0 张带记号**（实测：558 张带官方记号的卡**全在 `descZh`**）⇒ 本跳只影响中文那半。
+def has_official_marks(text):
+    """`CardIcons.HasOfficialMarks` 的 python 对家（`Core/CardIcons.cs:448-453`）。"""
+    return ("[[" in text) or ("((" in text) or ("$$" in text)
+
+
 def _a1703_lock_check(tokens, texts):
     """位置锁：`tokens = {卡: {字段: [token,…]}}`、`texts = {卡: {字段: 原文}}`。
 
     返回差异清单（`[]` = 全过）。**纯函数**（灭自证那一半要拿**合成表**跑它）。
     ⚠️ **先判「载体还在不在」**：卡被改名 / 那个字段被清空时，锁会**静默失效**
     （「不许出现」那一类尤其明显 —— 字段空了什么都不会出现）⇒ 载体不在 = 红，不是绿。
+    🆕 2026-10-15：**再判「载体适不适用」** —— 字段带**官方记号**时，这一份字段由
+    `CardIcons.RewriteMarks` 画、**本计划表根本不被查**（见 `has_official_marks` 那段）
+    ⇒ 这条锁对该字段**不适用**，**整行跳过**（⛔ 不是「红」「绿」两种，是第三种「不适用」）。
     """
     diffs = []
     for c_, f_, t_, why in A1703_POSITION_LOCK:
         if not (texts.get(c_, {}).get(f_)):
             diffs.append(f"锁的载体不在：{c_} 没有字段 {f_} 的原文（卡被改名 / 字段被清空？）")
             continue
+        if has_official_marks(texts.get(c_, {}).get(f_)):
+            continue
         if t_ in tokens.get(c_, {}).get(f_, []):
             diffs.append(f"🔴 {c_} [{f_}] 画了裸词 {t_!r} —— 卡面那一处**没印徽记**：{why}")
     for c_, f_, t_, why in A1703_MUST_PAINT:
         if not (texts.get(c_, {}).get(f_)):
             diffs.append(f"必须画的锁载体不在：{c_} 没有字段 {f_} 的原文")
+            continue
+        if has_official_marks(texts.get(c_, {}).get(f_)):
             continue
         if t_ not in tokens.get(c_, {}).get(f_, []):
             diffs.append(f"🔴 {c_} [{f_}] 少了裸词 {t_!r} —— 卡面那一处**印着徽记**：{why}")
@@ -2799,6 +2830,12 @@ def main():
         by_field = {}
         for field in ("desc", "descZh"):
             text = c.get(field) or ""
+            # ── 🆕 2026-10-15：**官方记号那一代 ⇒ 整字段跳过**（判据见 `has_official_marks` 上面那一段）──
+            #   `CardIcons.cs:227` 在 `HasOfficialMarks` 就分流到 `RewriteMarks`、**不查本表**；
+            #   不跳的话 `TOK` 会把 `[[waystone]]` 读成 token `waystone`（位置 1 匹配）⇒ 整族炸。
+            if has_official_marks(text):
+                stat["跳过的字段（官方记号）"] += 1
+                continue
             toks = list(TOK.finditer(text))
             syms = [ch for ch in text if ch in SYMBOLS]
             # 句首「关键词 + :/.」——`desc` 是 OCR 的、这些图标没被记下来，按名字补（见 KEYWORD_PREFIX）
@@ -3095,14 +3132,25 @@ def main():
     face_bad = []
     print("")
     print(f"=== 卡面枚数自检（`A1624`/`A1622`，{len(FACE_ICON_COUNT)} 行）===")
+    _face_na = []
     for _c, _f, _want, _why in FACE_ICON_COUNT:
         _txt = _texts.get(_c, {}).get(_f, "")
+        # 🆕 2026-10-15：本字段带**官方记号** ⇒ 它由 `CardIcons.RewriteMarks` 画、**本表不被查**
+        #   ⇒ 这一行是**载体不适用**（第三种状态，⛔ 不是「改期望值」、更不是换张卡）。
+        if has_official_marks(_txt):
+            _face_na.append((_c, _f))
+            print(f"  ⚪ {_c} [{_f}] **跳过**（本字段带官方记号 ⇒ 载体不适用，"
+                  f"见 `CardIcons.cs:227`）—— 期望值 {_want} 枚是给 `RewriteMarks` 那一支的")
+            continue
         _got = plan.get(_c, {}).get(_f, {})
         _n = sum(_txt.count(_t) for _t in _got)
         _ok = (_n == _want)
         if not _ok:
             face_bad.append((_c, _f, _want, _n))
         print(f"  {'✅' if _ok else '🔴'} {_c} [{_f}] 画 {_n} 枚 / 应画 {_want} 枚 —— {_why}")
+    if _face_na:
+        print(f"  ⚪ 另有 {len(_face_na)} 行**载体不适用**（字段带官方记号）："
+              f"{'、'.join(f'{_c}[{_f}]' for _c, _f in _face_na)}")
 
     # ── 🆕 2026-10-12（`A1605`）：**信仰前缀写法统一**的两道自检（见 `LEGACY_FAITH_PREFIX` 那段）────
     #  ① **旧写法必须清零** —— 判据是「数字 + 那串方括号」这个**前缀形状**，全池扫 `desc`/`descZh`。
@@ -3246,7 +3294,7 @@ def main():
     else:
         print("  ✅ 0 处（按词 token 与别的同族记号没有共处一个字段）")
 
-    _dp_bad, _dp_ctrl_missed = [], []
+    _dp_bad, _dp_ctrl_missed, _dp_na = [], [], []
     _dp_stripped = {c_: {f_: {t: sp for t, sp in items.items() if t not in DARKPACT_TOKENS}
                          for f_, items in fs_.items()}
                     for c_, fs_ in plan.items()}
@@ -3254,20 +3302,38 @@ def main():
     print(f"=== `Dark Pact` 一族卡面枚数自检（`A1623`，{len(DARKPACT_FACE_COUNT)} 行 · "
           f"期望值来自成品卡图逐张亲读 + 转录表双写）===")
     for _c, _we, _wz, _png in DARKPACT_FACE_COUNT:
-        _ge = darkpact_marks(plan.get(_c, {}).get("desc", {}), _texts.get(_c, {}).get("desc", ""))
-        _gz = darkpact_marks(plan.get(_c, {}).get("descZh", {}), _texts.get(_c, {}).get("descZh", ""))
-        _ok = (_ge == _we and _gz == _wz)
+        _et = _texts.get(_c, {}).get("desc", "")
+        _zt = _texts.get(_c, {}).get("descZh", "")
+        # 🆕 2026-10-15：**官方记号那一代 ⇒ 那一半「载体不适用」**（该字段由 `CardIcons.RewriteMarks`
+        #   画、本计划表根本不被查 ⇒ 拿本表去数它**恒为 0**，与卡面印几枚无关）。判据同 `has_official_marks`。
+        #   ⚠️ **按字段判、不按行判** ⇒ `desc` 那一半照样被核（今天 37 行的 `desc` 侧全干净、29 行
+        #   的 `descZh` 是这一代写法 ⇒ 这 29 行改前恒红、与「改坏没改坏」无关）。
+        _e_na = has_official_marks(_et)
+        _z_na = has_official_marks(_zt)
+        if _z_na:
+            _dp_na.append(_c)
+        _ge = darkpact_marks(plan.get(_c, {}).get("desc", {}), _et)
+        _gz = darkpact_marks(plan.get(_c, {}).get("descZh", {}), _zt)
+        _ok = ((_e_na or _ge == _we) and (_z_na or _gz == _wz))
         if not _ok:
             _dp_bad.append((_c, _we, _ge, _wz, _gz))
         # 灭自证：同一份真数据**抽掉 `Dark Pact` 那几条记号** ⇒ 这一行必须**变红**
-        _se = darkpact_marks(_dp_stripped.get(_c, {}).get("desc", {}), _texts.get(_c, {}).get("desc", ""))
-        _sz = darkpact_marks(_dp_stripped.get(_c, {}).get("descZh", {}), _texts.get(_c, {}).get("descZh", ""))
-        if _se == _we and _sz == _wz:
+        #   （载体不适用的那一半不参与 —— 它本来就不由本表画）
+        _se = darkpact_marks(_dp_stripped.get(_c, {}).get("desc", {}), _et)
+        _sz = darkpact_marks(_dp_stripped.get(_c, {}).get("descZh", {}), _zt)
+        if (_e_na or _se == _we) and (_z_na or _sz == _wz):
             _dp_ctrl_missed.append(_c)
         print(f"  {'✅' if _ok else '🔴'} {_c:24s} 画 {_ge}/{_gz} 枚 / 应画 {_we}/{_wz} 枚"
-              f"（`desc`/`descZh`） —— 卡图 `{_png}`")
-    print(f"  ★ 灭自证：把那几条记号**抽掉**之后再数 —— 应当**每一行都变红**："
-          f"{len(DARKPACT_FACE_COUNT) - len(_dp_ctrl_missed)}/{len(DARKPACT_FACE_COUNT)} 行变红"
+              f"（`desc`/`descZh`） —— 卡图 `{_png}`"
+              + ("　⚪ `descZh` 载体不适用（官方记号）" if _z_na else ""))
+    _dp_ctrl_rows = [r[0] for r in DARKPACT_FACE_COUNT
+                     if not (has_official_marks(_texts.get(r[0], {}).get("desc", ""))
+                             and has_official_marks(_texts.get(r[0], {}).get("descZh", "")))]
+    if _dp_na:
+        print(f"  ⚪ 其中 {len(_dp_na)} 行的 `descZh` **载体不适用**（带官方记号、由 `RewriteMarks` 画）"
+              f"⇒ 这几行只核 `desc` 那一半")
+    print(f"  ★ 灭自证：把那几条记号**抽掉**之后再数 —— 应当**每一行（载体适用的那一半）都变红**："
+          f"{len(_dp_ctrl_rows) - len(_dp_ctrl_missed)}/{len(_dp_ctrl_rows)} 行变红"
           + ("（✅ 无漏）" if not _dp_ctrl_missed else f"；🔴 **漏掉** {_dp_ctrl_missed}"))
 
     # ── 🆕 2026-10-13（`A1703`）：**逐词图标表（三分）+ 位置锁** 两道自检 ─────────────────────
@@ -3332,6 +3398,10 @@ def main():
     _a1703_tokens = {_c: {_f: list(_g.keys()) for _f, _g in _fs.items()}
                      for _c, _fs in plan.items()}
     _a1703_lock_bad = _a1703_lock_check(_a1703_tokens, _texts)
+    # 🆕 2026-10-15：**载体不适用**的那几行（字段带官方记号 ⇒ 本计划表不被查）—— 与 `_a1703_lock_check`
+    #   里那条 `continue` 用**同一个** `has_official_marks`，这里只是为了把它**打出来**（⛔ 不是第二份判据）。
+    _a1703_lock_na = [(c_, f_) for c_, f_, *_ in (A1703_POSITION_LOCK + A1703_MUST_PAINT)
+                      if has_official_marks(_texts.get(c_, {}).get(f_, ""))]
     _a1703_lock_mut = {_c: {_f: list(_t) for _f, _t in _fs.items()}
                        for _c, _fs in _a1703_tokens.items()}
     _a1703_lock_c, _a1703_lock_f, _a1703_lock_t, _ = A1703_POSITION_LOCK[0]
@@ -3342,12 +3412,16 @@ def main():
     print("")
     print(f"=== `A1703` 位置锁（{len(A1703_POSITION_LOCK)} 不许画 + "
           f"{len(A1703_MUST_PAINT)} 必须画；判据 = 成品卡图亲读）===")
+    if _a1703_lock_na:
+        print(f"  ⚪ 另有 {len(_a1703_lock_na)} 行**载体不适用**（字段带官方记号 ⇒ 由 "
+              f"`CardIcons.RewriteMarks` 画、本表不被查）："
+              f"{'、'.join(f'{_c}[{_f}]' for _c, _f in _a1703_lock_na)}")
     if _a1703_lock_bad:
         for _d in _a1703_lock_bad:
             print(f"  {_d}")
     else:
         print(f"  ✅ 逐行核过：该**不画**的那 {len(A1703_POSITION_LOCK)} 处一个裸 token 都没有、"
-              f"该**画**的那 {len(A1703_MUST_PAINT)} 处都在")
+              f"该**画**的那 {len(A1703_MUST_PAINT)} 处都在（载体不适用的那几行不计）")
     print(f"  ★ 灭自证：{len(_a1703_ctrl_missed)} 条控制臂没变红"
           + ("（✅ 五条控制臂全部变红、判据有判别力）" if not _a1703_ctrl_missed
              else "：🔴 " + "；".join(_a1703_ctrl_missed)))

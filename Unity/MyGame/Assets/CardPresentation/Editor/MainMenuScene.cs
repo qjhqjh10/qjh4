@@ -1061,16 +1061,41 @@ public static class MainMenuScene
         // ★ 2026-10-14（A1814）：顶栏 4 颗钮的命中区 = **原版那件自己的矩形 + `Graphic.m_RaycastPadding`**
         // 判据 = `GraphicRaycaster.cs:327`（射线认 rectTransform + raycastPadding；`m_PreserveAspect` 只改网格）。
         // 期望值一律由**原版字面量现算**（⛔ 不读 `TopBar` 的 `*Box/*Pad`；我们那两个常量取整到 0.1 ⇒ 差 ≤0.04px）。
+        // 🔴 **2026-10-15 就地补一句（`MM-1..7` 诊断）**：下面量的**只有 3 颗**（齿轮 / 信封 / 挑战）——
+        //    第 4 颗是反馈那张，它原版**整颗不激活**、`TopBar` 照原版**不接线** ⇒ **量不到、也不该量**
+        //    （见本节末尾 `★ A1814③` 那条反方向的面断言）。⛔ 别再按「4 颗都能量」去补一棵期望值树。
         {
             var plA = PointerLayer.Instance;
             var qGear = FindChild(FindChild(bar, "SettingsBtn"), "Image");
-            var qInbox = FindChild(FindChild(FindChild(bar, "TopBarButtons"), "InboxBtn"), "40K_notification");
+            // 🔴 **2026-10-15（铁律 5 就地订正 · `MM-1..7`，诊断 = `资料/普查产出_第三十二会话/D2_18条红诊断.md` §`MM-1`）**：
+            //    这里原来取的是 `"40K_notification"` —— **那是【图名】，不是节点名**。
+            //    判据 = `Shell/TopBar.cs:653-658` 的签名 `Rect(Transform parent, string art, PxRect box, string name, …)`：
+            //      **第 2 个实参 = 图名（sprite）**、**第 4 个才是节点名**；
+            //    而 `TopBar.cs:204` 传的是 `Rect(inbox, "40K_notification", InboxBox, "Image", …)`
+            //      ⇒ 那颗 quad 的节点叫 **`Image`**，**全树没有 `40K_notification` 这个节点**（那是贴图名）。
+            //    ⇒ 原写法恒取到 `null` ⇒ `bI = Btn(null) = null` ⇒ 前置 + 下面 4 条信封探针全红。
+            //    ⛔ **不许改 `Shell/TopBar.cs`**（运行时共用件、它自己没红）—— 改的是**探针取节点的方式**。
+            //    取法 = `InboxBtn/Image`，与齿轮那颗 `SettingsBtn/Image`（`:1066`）**同形**。
+            // 🧨 **改坏法**：这一行改回 `"40K_notification"` ⇒ `bI` 恒 `null` ⇒ **前置 + 那 4 条信封探针一起红**。
+            var qInbox = FindChild(FindChild(FindChild(bar, "TopBarButtons"), "InboxBtn"), "Image");
             var qChal = FindChild(FindChild(bar, "TopBarButtons"), "Challenge button");
             var qFb = FindChild(FindChild(bar, "TopBarButtons"), "Feedback Button");
             WindowButton Btn(Transform t) => t != null ? t.GetComponentInChildren<WindowButton>(true) : null;
             var bG = Btn(qGear); var bI = Btn(qInbox); var bC = Btn(qChal); var bF = Btn(qFb);
-            CheckTrue(plA != null && bG != null && bI != null && bC != null && bF != null,
-                      "★ A1814 前置：指针层在、那 4 颗钮都在（否则下面几条等于没查）");
+            // 🔴 **2026-10-15（`MM-1..7` 诊断 §`MM-1` 判据②）**：前置里原来还有 `bF != null` ——
+            //    **那是要我们编一个原版没有的动作**。判据（照抄 `Shell/TopBar.cs:230-234`）：
+            //    反馈那颗原版的 `Button` / `EverguildButton` 上挂着一条**持久调用**
+            //    （`MonoBehaviour_2530.json` 的 `m_PersistentCalls` = `BattleManager.ClickSettings`、`m_Target` 是 **null**），
+            //    而它**整颗不激活** ⇒ **永远不派发** ⇒ `TopBar` 照原版**不给它 `Wire(...)`**
+            //    （同排另三颗在 `TopBar.cs:252-259` 都接了线，只有它没有）⇒ `bF` **恒 `null` 是对的**。
+            //    ⇒ 前置只留**真接了线的那 3 颗**；反馈那颗改成下面 `A1814③` 那条**反方向**的面断言。
+            // ⚠️ `Geom(bI, …)` 那一行在 `if (bG != null)` 里 ⇒ 前置红时它照样跑、照样红：这是有意的
+            //    （前置只负责点名「这几条等于没查」，不替它们兜）。
+            CheckTrue(plA != null && bG != null && bI != null && bC != null,
+                      "★ A1814 前置：指针层在、**接了线的那 3 颗**（齿轮 / 信封 / 挑战）都在（否则下面几条等于没查）"
+                    + " —— 实得 " + (plA == null ? "指针层不在" : $"齿轮 {(bG != null)} / 信封 {(bI != null)} / 挑战 {(bC != null)}")
+                    + "。⚠️ **反馈那颗不在前置里**：原版它整颗不激活、`TopBar` 照原版不给它接线 ⇒ 它恒 `null` 是对的"
+                    + "（见下面 `★ A1814③` 那一条）");
             void Geom(WindowButton b, string what, float cx, float cy, float hx, float hy)
             {
                 Vector2 c, h; ImageQuad dq;
@@ -1088,7 +1113,20 @@ public static class MainMenuScene
                 Geom(bC, "挑战 47.464² + pad(-4.14,-10.10,-5.22,-10.40) ⇒ **56.82×67.96** · 心(514.36,35.33)", 514.36f, 35.33f, 28.42f, 33.98f);
                 qChal.gameObject.SetActive(false);
                 qFb.gameObject.SetActive(true);
-                Geom(bF, "反馈 50² + pad(-4.35,-17.90,-5.18,-18.30) ⇒ **59.53×86.20** · 心(590.86,35.30)", 590.86f, 35.30f, 29.76f, 43.10f);
+                // 🔴 **2026-10-15（`MM-3` 诊断 §`MM-1` 判据②）**：这一格原来量的是 `bF` 的几何 ——
+                //    而 `bF` **恒 `null`**（`TopBar` 不给它接线，见上面前置那一段），`HitBoxForTest(null,…)`
+                //    只会给 `(0,0)/(0,0)` ⇒ 这条**永远红**，且它逼着我们「给一个原版不激活的钮也编个动作」。
+                //    原版那一格**恒不激活** ⇒ 命中区**不可达** ⇒ 量几何没有意义；有意义的只有「登记了没有」。
+                //    ⇒ 翻成**反方向**的面断言：**建了、但确实没接线**。判据 = `TopBar.cs:230-234` 那四条 + `:252-259`。
+                // 🧨 **改坏法**：在 `TopBar.cs` 给 `feedback` 补一句 `Wire(...)` ⇒ **这一条红**
+                //    （= 我们替原版编了一个它没有的动作）。
+                CheckTrue(qFb != null, "（前提）反馈那颗 `Feedback Button` 建了"
+                    + "（判据 = `TopBar.cs:239-241`；原版 `m_IsActive = false` 但仍建节点）");
+                CheckTrue(qFb != null && bF == null,
+                          "★ A1814③：反馈那颗**建了、但没接线**（原版整颗不激活 ⇒ 那条持久调用永不派发 ⇒ 我们照原版不编动作）"
+                        + " —— 实得 " + (qFb == null ? "<节点不在>"
+                                            : bF == null ? "没有 `WindowButton`（对）"
+                                            : "`" + bF.name + "` 上挂了 `WindowButton`（= 替原版编了动作）"));
                 qFb.gameObject.SetActive(false);
                 // ②③ 两态 + 灭自证（走**真命中路** `ButtonAt`；判据 = 这一点上到底是谁）
                 var probes = new (float X, float Y, WindowButton B, bool Want, string Why)[]
@@ -3525,11 +3563,24 @@ public static class MainMenuScene
                                   "**画不出卡背的一副都没有** —— 实得 " +
                                   (noArtAtAll.Count == 0 ? "（一副都不缺）" : string.Join("、", noArtAtAll.ToArray())));
                             var subs = new List<string>();
-                            for (int i = 0; i < tab.Count; i++) if (tab[i].cardbackFrom == "substitute") subs.Add(tab[i].deckId);
+                            // 🔴 **2026-10-15（铁律 5 就地订正 · `MM-8`，诊断 §`MM-8`）**：遍历源原来写的是 `tab`
+                            //    （= `PrebuiltDecks.Tab`）—— 那**只含 `complete`**（`PrebuiltDecks.cs:152-171`
+                            //    里那句 `if (!d.complete) continue;` = 原版 `!HasHiddenCards` 的位置）。
+                            //    而**替身表是【生成侧】的性质、记在全部 103 副上**，与「预组页列不列这一副」无关
+                            //    ⇒ 拿 `Tab` 当遍历源，会把「某一副因为拼不齐而掉出列表」**误报成「替身表少了一副」**。
+                            //    现读实据：`Resources/prebuilt_decks.json` 里 `OrksDeck2` 的 `complete = false`
+                            //    （`missing = ["GOF20 x2 (miss-known)"]` · `problems = ["size:28/30"]`）
+                            //    ⇒ 它不在 `Tab` 里，但**在 `All` 里、且 `cardbackFrom == "substitute"` 照旧**。
+                            // ⛔ **不是**「把期望值从 4 副改成 3 副」—— 那会把「少一副」当成正常、从此看不见替身表漂移。
+                            // 🧨 **改坏法**：把这里换回 `tab` ⇒ **这一条红**（实得只剩 3 副：`ASH_SK_2` / `SpaceWolvesDeck5` / `SW_SK_3`）。
+                            var allSub = PrebuiltDecks.All;
+                            for (int i = 0; i < allSub.Count; i++)
+                                if (allSub[i] != null && allSub[i].cardbackFrom == "substitute") subs.Add(allSub[i].deckId);
                             subs.Sort();
                             // ⚠️ 这一串**必须逐字对**（多一副少一副都说明替身表被动过）—— 4 副：
                             //    前两副是 09-26 用户拍板选的；后两副是「遭遇那批列出来」之后露出来的
                             //    （`ASH_SK_2` 的 `Warlord_Anvirr` 本地连相近的都没有 ⇒ 同阵营督军主题顶上）。
+                            //    ⚠️ 遍历源 = `PrebuiltDecks.All`（103 副），**不是 `Tab`**（见上面那段更正注）。
                             CheckTrue(string.Join(",", subs.ToArray()) == "ASH_SK_2,OrksDeck2,SpaceWolvesDeck5,SW_SK_3",
                                       "用**同阵营替身**的正好是那 4 副（`OrksDeck2`→Goff 督军主题 · `SpaceWolvesDeck5`→太空野狼「凶暴」·"
                                     + " `SW_SK_3`→凶暴 · `ASH_SK_2`→灵族另一张督军主题）—— 实得 " +
@@ -5397,7 +5448,20 @@ public static class MainMenuScene
                         var texOnT = CardArt.MenuUi(AchievementsMenu.ArtTabOn);
                         var texOffT = CardArt.MenuUi(AchievementsMenu.ArtTab);
                         CheckTrue(texOnT != null && texOffT != null, "页签底两张图在工程里（复用设置窗那两张）");
-                        var names4 = new[] { "Battle", "Collection", "Victories", "Account" };
+                        // 🔴 **2026-10-15（铁律 5 就地订正 · `MM-9..12`，诊断 §`MM-9..MM-12`）**：
+                        //    这四个期望值原来写的是**枚举名**（= `ProfileData.TypeName` 的**回落值**）。
+                        //    `A1803`（`Shell/ProfileData.cs:106-123`）已把 `TypeName` 改成
+                        //    **先取官方词条**：`return Loc.BulkOr("Achievements/Types/" + name, name);`
+                        //    ⇒ 现在**真取得到**中文，返回值不再是枚举名。
+                        //    🔴 **判据 = 官方本地化表现读**（`Unity/数据/游戏数据/官方本地化_en+zh-CN.json` 的
+                        //    `/terms/Achievements/Types/*`）：`Battle→["Battle","战斗"]` · `Collection→["Collection","收藏"]` ·
+                        //    `Victories→["Victories","胜利"]` · `Account→["Account","账户"]`（另有 `Secret` 一条，未用）。
+                        //    ⛔ **不是「我们挑的」** —— 改前那句「译文在远端查不到」**已作废**
+                        //    （官方 zh-CN 表 2026-10-14 已到手，见 `ProfileData.cs:109-110` 那条更正）。
+                        // 🧨 **改坏法**：① 把这四个改回英文枚举名 ⇒ **这 4 条全红**（`TypeName` 现在返回中文）；
+                        //    ② 把 `ProfileData.cs:122` 那句 `BulkOr` 换回 `return name;` ⇒ **这 4 条全红**。
+                        var names4 = new[] { "战斗", "收藏", "胜利", "账户" };
+                        var keys4 = new[] { "Battle", "Collection", "Victories", "Account" };
                         for (int i = 0; i < 4; i++)
                         {
                             float top = 230.64f + 120f * i;
@@ -5405,8 +5469,9 @@ public static class MainMenuScene
                             CheckAtWorld(tg, 351.04f, 635.15f, top, top + 100f,
                                          $"分类键 {i}（284.11×100、步进 120 —— 宽被布局组强制成父宽，**不是 prefab 自己那 333.301**）");
                             CheckText(TextOf(FindChild(tg, "Tab Toggle Title")), names4[i],
-                                      $"分类 {i} 文案 = `{names4[i]}`（⚠️ **我们挑的**：原版是 I2 词条 `Achievements/Types/<名>`，译文在远端查不到；"
-                                      + "预制体里那 4 个 `'Secret'` 是占位）");
+                                      $"分类 {i} 文案 = `{names4[i]}`（**官方词条** `Achievements/Types/{keys4[i]}` 的 zh-CN 现读值 —— "
+                                      + "判据 = `数据/游戏数据/官方本地化_en+zh-CN.json` 的 `/terms/Achievements/Types/*`；"
+                                      + "⚠️ 预制体里那 4 个 `'Secret'` 是占位，别用）");
                             var bgq = FindChild(tg, "button_bg");
                             var q = bgq != null ? bgq.GetComponent<ImageQuad>() : null;
                             bool on = i == 0;      // 出厂选中 `Battle`（ctor 写死 `filter = 1`）

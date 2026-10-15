@@ -242,7 +242,7 @@ Check(uns, 0,  "★ 全池 `Has(unstoppable)` = 0 张（`SAU7` 走的是卡面�
 本判据标了 **3 张** = `ASH48` / `SAU58` / `TAU51`，**与逐字比的结果一致、0 假阳**
 （`SOR31` 不在那 102 张里 —— 它的官方值带记号）。⇒ 判据在**有已知答案的那一档**上**准**。
 
-**判据② 的 52 条按「多出几个词」分档**：1 词 × 13 · 2 词 × 12 · **≥3 词 × 27**。
+**判据② 的 52 条按「多出几个词」分档**：1 词 × 13 · 2 词 × 12（**= 25**，见 §3·3）· **≥3 词 × 27**。
 （1 词那一档多是**术语/图标假阳**：例 `SAU43 +and` · `GOF84 +ork`；2 词那一档两种都有。）
 
 **已知的两类假阳**（写在这里，免得下个会话把它们当缺陷）：
@@ -277,7 +277,7 @@ Check(uns, 0,  "★ 全池 `Has(unstoppable)` = 0 张（`SAU7` 走的是卡面�
 | `SOR30 Celestian Sacresant` | +5 | | |
 | `UM40 Avenging Zeal` | +5 | | |
 
-另 **21 条**是 1–2 词档（`SOR31`【+2 `dies or`】· `SOR4 +gain health` · `SOR60 +gain` · `TAU65 +strike heals` ·
+另 **25 条**是 1–2 词档（🔴 **2026-10-15 就地订正（铁律 5）：原写「另 21 条」** —— **三条读数各自的来历**：**25** = 上面分档表的 **1 词 × 13 + 2 词 × 12**（与判据②总数 **52 = 27 + 25** 自洽、也与本笔标题的「48 条新候选 = 52 − 4 张已知」自洽）· **24** = 下面括号里**实列**的卡数 ⇒ **清单少列 1 条**（本件记录里**认不出少的是哪条**）· **21** = 旧读数、**现读复现不出**）（`SOR31`【+2 `dies or`】· `SOR4 +gain health` · `SOR60 +gain` · `TAU65 +strike heals` ·
 `TL69 +an whenever` · `UM57 +this turn` · `UM73 +troop×2` · `SOR24 +all units` · `SOR25 +a and` · `SOR39 +has pray` ·
 `ASH34 +and camouflage` · `64a657f… +and stomp` · `AM72 +strike` · `AM76 +armour` · `ASH35 +gains` · `GOF61 +armour` ·
 `GOF84 +ork` · `SAU43 +and` · `SOR71 +and` · `TL75 +gain` · `UM22 +other` · `UM_Terminator +oath` · `af98d42… +an` ·

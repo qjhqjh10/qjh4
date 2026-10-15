@@ -9582,8 +9582,23 @@ public static class BattleScene
                           + "（造出来的牌画面也建了视图）");
                 });
 
-            // ② 免费部署：`Skyborne Deployment`（赛姆汉 1 费）→ `Deploy two Storm Guardian`
-            DriveTacticAndCheck(driver, it, cam, poolC, "Skyborne Deployment", pBoard, eBoard, "15_部署_两个风暴守卫",
+            // ② 免费部署：`Inescapable Retribution`（策略卡）→ `Deploy two Tomb Blade`
+            // 🔴 **2026-10-15（第三十二会话 · 诊断 `BT-1`；原卡 = `Skyborne Deployment`）**：
+            //    原卡在池里 `inventoryOptions=10` / `showInCollectionOptions=0` ⇒ `DeckRules.CannotAddToDeck`
+            //    判真 ⇒ `BattleDriver.ResolveDeck` **先摘掉它**（会话日志三段 `[Battle]` 实锤：摘一张
+            //    `e59ac9e4…（原版判据 MenuDeck/Error/EffectOnlyCard）` → 整副 **29 张** ⇒ `TooFewCards`
+            //    → **静默退回「按卡池自动凑」的一副**）⇒ 那张战术**根本不在牌里** ⇒ 8 个种子试到死也拿不到。
+            //    同族的 ① 通过 ⇒ 差别只在这张卡（不是种子、不是解析）。
+            //    ⇒ 换成**真能进卡组**的同形卡。
+            //    🔴 **2026-10-15 第二轮就地订正（铁律 5）**：第一次换的是 `Spyder Nest`（= `Deploy 2 Canoptek Scarab`）
+            //    —— 而 `Canoptek Scarab` **自带 `Artifice: Deploy a Canoptek Scarab`** ⇒ 部署完 2 个之后
+            //    **又触发两次自部署** ⇒ 实测场上多 **4** 个（不是 2）。实测读数：
+            //      `BT    ✗ 部署：场上多了 2 个圣甲虫（原本占 1 格，现在 5 格）`
+            //    ⇒ 改用 `Inescapable Retribution`：`tactic` · **`inventoryOptions=0` / `showInCollectionOptions=5` ⇒ 过 `CannotAddToDeck`**
+            //      · `desc = 'Deploy two Tomb Blade'`（**与原来那句同形的素句**）· 被部署的 `Tomb Blade` 关键词 = `Remnant/Flying/Flank`
+            //      （**没有自触发**）⇒ 下面三条断言的判别力**一条不少**。
+            //    判据 → `工具/ruleprobe/基线/out_baseline.txt:521`（`SAU76`）。
+            DriveTacticAndCheck(driver, it, cam, poolC, "Inescapable Retribution", pBoard, eBoard, "15_部署_两个墓刃战机",
                 Check, (c, before) =>
                 {
                     int now = 0, occupied = 0;
@@ -9591,9 +9606,9 @@ public static class BattleScene
                     {
                         var u = c.Players[0].Board[s];
                         if (u != null) occupied++;
-                        if (u != null && u.Name == "Storm Guardian") now++;
+                        if (u != null && u.Name == "Tomb Blade") now++;
                     }
-                    Check(now == 2, $"部署：场上多了 2 个风暴守卫（原本占 {before.OnBoard} 格，现在 {occupied} 格）");
+                    Check(now == 2, $"部署：场上多了 2 个墓刃战机（原本占 {before.OnBoard} 格，现在 {occupied} 格）");
                     Check(occupied == before.OnBoard + 2, "……而且真的占了 2 个新格位");
                     Check(driver.HandCount == c.Players[0].Hand.Count,
                           $"画面手牌 {driver.HandCount} == 引擎手牌 {c.Players[0].Hand.Count}");
@@ -11272,12 +11287,24 @@ public static class BattleScene
                 Check(exHit > 0 && (exHit - exMissClip) * 2 > exHit,
                       $"★ 精确绑定里音频真在工程里的占多数（{exHit - exMissClip}/{exHit} 条；缺的 {exMissClip} 条"
                     + $"逐条在上面 `[VoiceLines]` 的警告里：{string.Join(" · ", exMissNames.ToArray())}）");
-                // 🔴 **灭自证**：这两条只有在「精确档真的按 SO 取值」时才成立 ——
-                //    若有人把精确档改回「照抄后缀兜底」，两条**同时变 0**。
+                // 🔴 **灭自证**：这一条只有在「精确档真的按 SO 取值」时才成立 ——
+                //    若有人把精确档改回「照抄后缀兜底」，`exDiff` **当场变 0**。
+                //    🧨 改坏法：把精确档改回「照抄后缀兜底」⇒ `exDiff` 变 0 ⇒ 上面那条红。
                 Check(exDiff > 0, $"★ **灭自证①**：至少一条精确绑定 ≠ 后缀兜底给的那条（实得 {exDiff} 条）："
                                 + string.Join(" · ", exDiffSample.ToArray()));
-                Check(exOnly > 0, $"★ **灭自证②**：至少一张卡**只有**精确绑定、后缀兜底给不出（实得 {exOnly} 条 —— "
-                                + "这类卡在我们自己的台词表里根本没有，接精确档之前**一句都不说**）");
+                // 🔴 **2026-10-15（第三十二会话 · 诊断 `BT-2`）就地改口（铁律 5）**：
+                //    这里原来是**第二条** —— `Check(exOnly > 0, "★ 灭自证②：至少一张卡**只有**精确绑定、
+                //    后缀兜底给不出")`。而「兜底**结构上给不出**」那一族今天 = **0 条**：
+                //    `Resources/voice_lines.json` 与 `Resources/card_vfx_by_card.json` 都在 **`ee784b5`**
+                //    （第三十一会话「数据换真值」）重生成过，`git log -- <两个文件>` 现查；
+                //    日志 `精确档口径` 那行实得 `621 条命中 · 5 条与兜底不同 · 0 条兜底给不出`，
+                //    诊断方按同一算式复算两代数据（`ee784b5^` ⇒ 1 条 · `ee784b5` 起 ⇒ 0 条）与日志逐位吻合。
+                //    ⇒ **那一族今天没有见证者了** ⇒ `exOnly > 0` 已从「在查东西」变成「恒红」。
+                //    ⇒ 按诊断给的**第一方案**办：`exOnly` **不再当断言**、只作**读数**报出
+                //    （下一行那句 `精确档口径` —— 它一直都在报这个数，本笔把它改成唯一的出口）。
+                //    **判别力没全丢**：灭自证那一角由 **①（`exDiff > 0`，今天 5 条）** 独担，
+                //    而① 盯的正是「精确档有没有真的按 SO 取值」，与本条原本要防的是**同一个改法**。
+                //    ⛔ 别把 `Check(exOnly > 0, …)` 写回来（今天恒红），也⛔ 别把它写成恒真。
                 Debug.Log(P + $"   精确档口径：{exHit} 条命中 · {exDiff} 条与兜底不同 · {exOnly} 条兜底给不出 · "
                             + $"{exMissClip} 条音频没导进工程");
             }
@@ -12542,8 +12569,26 @@ public static class BattleScene
                     Check(Tooltip.ShownBody == TipText.Ranged, "挪到**远程数值**上 → 换成远程那条");
                     drv.TickTooltipAt(cv.StatWorld(CardView.StatHealth));
                     Check(Tooltip.ShownBody == TipText.Health, "挪到**生命数值**上 → 换成生命那条");
-                    drv.TickTooltipAt(cv.StatWorld(CardView.StatCost));
-                    Check(Tooltip.ShownBody == TipText.Cost, "挪到**费用**上 → 换成费用那条");
+                    // 🔴 **2026-10-15（第三十二会话 · 诊断 `BT-3`）：费用那一步改用【手牌】视图探。**
+                    //    判据 = `Core/CardView.cs:4299-4306`：
+                    //      `if (!board && ShowsCost(Data) && HitAt(l, CostAt)) return StatCost;`
+                    //    —— **场上那套（`CardFace.Board`）本来就不画费用**，出生/换形态两个入口同口径
+                    //      （`Core/CardView.cs:901 Show(_costBg, !board && ShowsCost(Data));`，照原版）。
+                    //    而上面那条夹具取的 `cv` 是 `drv.BoardViewAt(s, true)` = **场上**卡
+                    //    ⇒ `StatAt` 的费用那一支**恒不返回 `StatCost`** ⇒ 原断言**恒红**（不是 tooltip 坏了）。
+                    //    ⇒ 换 `drv.HandViewAt(0)`（手牌卡面本来就印费用）。`TickTooltipAt` 先扫 `_handViews`
+                    //      再扫场上（`BattleDriver.cs:15346-15353`）⇒ 这条路与鼠标那条**同一个函数**。
+                    //    ⛔ 别为了让它绿把 `!board` 那道门去掉 —— 那是照原版的（账 `A2006` 顺手发现）。
+                    var cvCost = drv.HandViewAt(0);
+                    Check(cvCost != null,
+                          $"（前提）手牌里有一张卡可以探费用（{(cvCost != null ? cvCost.name : "没有")}）"
+                        + " —— 费用只在**手牌形态**上印（`!board && ShowsCost`）");
+                    if (cvCost != null)
+                    {
+                        drv.TickTooltipAt(cvCost.StatWorld(CardView.StatCost));
+                        Check(Tooltip.ShownBody == TipText.Cost,
+                              "挪到**费用**上 → 换成费用那条（探的是**手牌**视图 —— 场上那套照原版不印费用）");
+                    }
 
                     // 🔴 原版**护甲容器没有 tooltip**（`子代理读报_2dcard_0827.md:95`）⇒ 我们也不给
                     Tooltip.Hide(); Tooltip.FinishFade();
@@ -19504,6 +19549,16 @@ public static class BattleScene
                     if (drv964.CardDisplay != null && drv964.CardDisplay.Visible) drv964.CardDisplay.Hide();
                 }
 
+                /// <summary>本局 `Ctx.ActionLog` 里有没有**非 `Draw`** 的记录 ——
+                /// `RefreshBattleLog` 只给这一类产出行（`case EvtKind.Draw:` ⇒ `skipRow = true`）。
+                /// `BT-4` 那一步靠它驱动回合，见那里的注释。</summary>
+                bool HasNonDrawEvt964(BattleContext c964)
+                {
+                    if (c964 == null) return false;
+                    foreach (var e964 in c964.ActionLog) if (e964.Kind != EvtKind.Draw) return true;
+                    return false;
+                }
+
                 // ================================================================
                 //  一、`E4` —— **藏起来还响应** · 5 档 × 两态（战斗侧独有；外壳侧是 `E1`，两者别合并）
                 // ================================================================
@@ -19693,6 +19748,25 @@ public static class BattleScene
 
                 // ---- row 3：战斗日志面板的每一行 ----
                 {
+                    // 🔴 **夹具（2026-10-15 第三十二会话 · 诊断 `BT-4`）：本行的「行」只来自
+                    //    `Ctx.ActionLog` 里【非 `Draw`】的条目** —— `RefreshBattleLog` 的
+                    //    `case EvtKind.Draw:` 是 `skipRow = true`（主对话 2026-10-18 裁定：原版**只在抽到
+                    //    【已布设的陷阱】时才记**，普通抽牌照原版**一次都不该印**；`skipRow` 那个口径是
+                    //    `ee784b5` 才引进的，而这条断言加在它之前 ⇒ 红的时机与那条口径改动吻合）。
+                    //    本局从 `Begin` 到这儿**一个动作都没做过** ⇒ `ActionLog` 全是回合开始那一抽的
+                    //    `Draw` ⇒ 面板 `FilledRows == 0` ⇒ 下面那条 `rowsN964 > 0` **恒红**
+                    //    （不是面板坏了、也不是 `RowAt` 坏了）。
+                    //    ⇒ 先**真打完若干回合**（我方 `SimulateEndTurn` → `SimulateAiTurn` 让 AI 部署/攻击
+                    //      —— 与 `DriveTacticAndCheck` 同一个驱动形状），**试到 `ActionLog` 里出现
+                    //      一条非 `Draw` 的记录为止**（上限 6 回合；⛔ 不写死「走几个回合」，那会随
+                    //      种子/牌序漂）。驱动之后仍是**我方回合**（`SimulateAiTurn` 收尾会 `EndTurnAndAdvance`）。
+                    //    ⚠️ 判据是**引擎的 `ActionLog`**，⛔ 不是往面板里手塞一行 —— 那才是恒真的假绿。
+                    for (int t964 = 0; t964 < 6 && !HasNonDrawEvt964(drv964.Ctx); t964++)
+                    {
+                        drv964.SimulateEndTurn();
+                        drv964.SimulateAiTurn();
+                        Step(0.3f);
+                    }
                     var log964 = drv964.BattleLog;
                     if (log964 != null && !log964.Visible) drv964.ShowBattleLog();
                     log964 = drv964.BattleLog;
@@ -23150,6 +23224,27 @@ public static class BattleScene
             driver.Begin(seed: 20260930 + attempt, myDeck: deck);
             Step(0.3f);
             ctx = driver.Ctx;
+            if (attempt == 0)
+            {
+                // 🔴 **前置（2026-10-15 第三十二会话 · 诊断 `BT-1`）：这副牌**真的被采用了吗**。**
+                //    `BattleDriver.ResolveDeck` 会先把「按原版不能进卡组」的牌**逐张摘掉**再校验，
+                //    摘完不够 30 张就是 `TooFewCards` ⇒ **静默换成「按卡池自动凑」的一副**
+                //    （三段 `[Battle]` 出声：摘牌 → 不合法 → 退回自动凑）。
+                //    ⚠️ 那个降级**在执行本函数时一声不响**：没有这个前置的话，症状只是
+                //    「8 个种子全都拿不到」⇒ 最后那条 `check(ready, …)` 报出一句**指向错方向的**话
+                //    （原来那张 `Skyborne Deployment` 就是这么躺着的，见 ② 的注释）。
+                //    ⇒ 把「牌还是我自己凑的那副」钉成一条前提：判据 = **牌库 ∪ 手牌里找得到那张战术**。
+                bool ours = false;
+                foreach (var h in ctx.Players[0].Deck)
+                    if (h != null && h.Card != null && h.Card.Name == tacticName) { ours = true; break; }
+                if (!ours)
+                    foreach (var h in ctx.Players[0].Hand)
+                        if (h != null && h.Card != null && h.Card.Name == tacticName) { ours = true; break; }
+                check(ours, $"这副牌**真的用上了**（牌库 {ctx.Players[0].Deck.Count} 张 · 手牌 "
+                          + $"{ctx.Players[0].Hand.Count} 张里找得到「{tacticName}」）"
+                          + " —— 找不到 = `ResolveDeck` 把它静默换成了自动凑的一副，"
+                          + "下面那句「试了 8 个种子」就完全不成立");
+            }
             for (int round = 0; round < 14 && !ctx.IsOver; round++)
             {
                 idx = HandIdxByName(ctx, tacticName);

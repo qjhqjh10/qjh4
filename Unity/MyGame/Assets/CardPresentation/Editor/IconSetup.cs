@@ -347,12 +347,20 @@ public static class IconSetup
         //        `<link=remnant><link=remnant><sprite name="remnant"></link>残骸。</link>`
         //        单看「枚数 1 + 词还在」**判不出来**（两层同 id ⇒ 那两条照样成立）
         //        ⇒ 必须数 `<link=remnant>` 的出现次数，那才是**两态可分辨**的那一条。
-        string ly = CardPresentation.CardIcons.Rewrite("SAU23", "descZh", "残骸。装甲 2。");
+        // 🔴 **2026-10-15（第三十二会话）就地改夹具（铁律 5）**：原夹具用 `SAU23|descZh` + 手写串
+        //   `残骸。装甲 2。` —— **过时**：`SAU23` 现读 `descZh = '[[remnant]]。[[armour]] 2。[[vanguard]]'`
+        //   （**带官方记号**），而 `gen_icon_plan.py` 对带记号的字段**整字段跳过** —— 那批文本运行时走
+        //   `RewriteMarks`、**根本不查本表**（见本函数开头 `HasOfficialMarks` 那一支）⇒ 计划表里
+        //   `SAU23` 只剩 `desc` ⇒ `Rewrite` 原样返回 ⇒ 四个子句全不成立。
+        //   换成**走计划表那一代**的卡：`SAU41|descZh = '复生一个友方残骸。'`
+        //   （计划表现读 `descZh:[('残骸','remnant')]`，token 是**裸词**、不带方括号）。
+        //   ⚠️ 判据里的 `残骸。` 跟着放宽成 `残骸`（token 本身不带句号）。
+        string ly = CardPresentation.CardIcons.Rewrite("SAU41", "descZh", "复生一个友方残骸。");
         Check(CountOf(ly, "<sprite name=\"remnant\">") == 1
               && CountOf(ly, "<link=remnant>") == 1
               && ly.IndexOf("<sprite name=\"remnant\">", System.StringComparison.Ordinal)
-                 < ly.IndexOf("残骸。", System.StringComparison.Ordinal)
-              && CardPresentation.CardIcons.StripTags(ly).Contains("残骸。"),
+                 < ly.IndexOf("残骸", System.StringComparison.Ordinal)
+              && CardPresentation.CardIcons.StripTags(ly).Contains("残骸"),
               "②e 裸关键词：图标插在**词前面**、**词留着**、`<link>` **只包一层**：" + ly, ref bad);
 
         // ②f 方括号记号是**换掉**（那是 OCR 占位，卡面上本来就没印那个词）
@@ -376,7 +384,13 @@ public static class IconSetup
               && sun.IndexOf('☀') < 0
               && CardPresentation.CardIcons.StripTags(sun).Contains("：部署一个额外的战斗修女"),
               "②f2 符号 token（`☀`）被**吃掉**、不留在文字里：" + sun, ref bad);
-        string circ = CardPresentation.CardIcons.Rewrite("ASH80", "descZh", "①：给一个友方部队");
+        // 🔴 **2026-10-15（第三十二会话）就地改夹具（铁律 5）**：原夹具用 `ASH80|descZh` —— 同 ②e，
+        //   它现读带官方记号（`[[waystone]]。…((Spirit_x,1)) …`）⇒ 计划表里没有 `descZh` 字段。
+        //   换成 `ASH83|descZh = '①：给予你的所有部队 +1 [攻击]、+1 [远程]和 +1 生命'`
+        //   （计划表现读 `descZh:[('[攻击]','Melee'),('[远程]','Ranged'),('①','SpiritStone_1')]`，
+        //    该字段**不带记号**、走计划表那一路）。
+        string circ = CardPresentation.CardIcons.Rewrite("ASH83", "descZh",
+                     "①：给予你的所有部队 +1 [攻击]、+1 [远程]和 +1 生命");
         Check(circ.IndexOf("①", System.StringComparison.Ordinal) < 0 &&
               circ.Contains("<sprite name=\"SpiritStone_1\">"),
               "②f2 圈码 token（`①`）同样被吃掉：" + circ, ref bad);
@@ -396,15 +410,25 @@ public static class IconSetup
 
         // ②g **幂等** —— 同一份文字会被换两遍（`SetData` 会把同一份 `CardData` 再喂给卡面一次）。
         //     不幂等的话第二遍会在**已经带图标的词**上再插一个图标（实测踩过）。
-        string g1 = CardPresentation.CardIcons.Rewrite("GOF101", "descZh",
-                     "给予一个友方单位[践踏]。如果其已经拥有[践踏]，改为本回合给予其 +2[攻击]。");
-        string g2 = CardPresentation.CardIcons.Rewrite("GOF101", "descZh", g1);
-        // ⚠️ 这张卡的原文用的是**方括号**写法（`[践踏]`）⇒ 卡面上本来就**没有**「践踏」这个词，
-        //    换完只剩图标才是对的（别指望这里能查到「践踏」）。
+        // 🔴 **2026-10-15（第三十二会话）就地改夹具（铁律 5）**：原夹具喂的是手写中文串
+        //   `给予一个友方单位[践踏]。…`，而 `GOF101` 现读 `descZh` 带官方记号
+        //   （`给一个友方单位[[stomp]]。…((Melee_attack_icon_x,+2))`）⇒ 计划表里没有那个字段。
+        //   换成**该卡 `desc` 那一半**（现读 = 下面这一串；计划表现读
+        //   `desc:[('[Stomp]','stomp'),('[Stomp]','stomp'),('[Attack]','Melee')]`
+        //   ⇒ 与下面「stomp ×2 + Melee ×1」的判据逐字对得上）。
+        string g1 = CardPresentation.CardIcons.Rewrite("GOF101", "desc",
+                     "Give [Stomp] Stomp to a friendly unit. If it already has [Stomp] Stomp, "
+                     + "give it +2 [Attack] this turn instead");
+        string g2 = CardPresentation.CardIcons.Rewrite("GOF101", "desc", g1);
+        // ⚠️ 这张卡的原文用的是**方括号**写法（`[Stomp]`）⇒ 卡面上本来就**没有** `Stomp` 这个词，
+        //    换完只剩图标才是对的（别指望这里能查到 `Stomp`）。
         Check(g1 == g2 && CountOf(g1, "<sprite name=\"stomp\">") == 2
                        && CountOf(g1, "<sprite name=\"Melee\">") == 1,
               "②g 换两遍和一遍结果相同（幂等）：" + g2, ref bad);
-        Check(ly == CardPresentation.CardIcons.Rewrite("SAU23", "descZh", ly),
+        // ⚠️ 跟着 ②e 换了卡 —— 原来 ②e 的 `ly` **根本没被换过**（那条恒真 = 空转），本条也就没在测。
+        //    换过之后 `ly` 里含 `<link=remnant><nobr><sprite …>残骸</nobr></link>`，
+        //    **这一条才真的在测幂等**（判据 = `CardIcons.cs` 那句 `if (s.IndexOf(bare) >= 0) continue;`）。
+        Check(ly == CardPresentation.CardIcons.Rewrite("SAU41", "descZh", ly),
               "②h 裸关键词那条也幂等", ref bad);
 
         // ②i / ②j 🔴 **Oath 徽记 = 「徽记 + 词」**（2026-10-18，`资料/普查产出_1018/V-OATH_Oath徽记与记号.md` 候选 A）。
@@ -534,7 +558,11 @@ public static class IconSetup
                       "★ ④a **英文卡面画的每一枚徽记、中文卡面也画**（全池 " + nCards + " 张；" +
                       "方向 = `desc` 的 sprite 集合 ⊆ `descZh` 的）：**新缺口 " + fresh.Count + " 条**" +
                       (fresh.Count == 0 ? "" : " → " + string.Join(" / ", fresh.ToArray())) +
-                      "；**已知缺口 " + gaps.Count + " 条**（`KnownZhGaps`，逐条带出处；那张表" +
+                      // 🔴 2026-10-15（第三十二会话）就地订正：原来这里把 `gaps.Count`（**总缺口数**）
+                      //   写成了「**已知缺口**」，而基线表 `KnownZhGaps` 现读是**空的**（①c = 0/0）
+                      //   ⇒ 日志读起来像「N 条已被基线收编」。现按三个数分开打。
+                      "；**总缺口 " + gaps.Count + " 条 / 其中基线 " + (gaps.Count - fresh.Count) +
+                      " 条 / 新缺口 " + fresh.Count + " 条**（基线表 = `KnownZhGaps`，逐条带出处；那张表" +
                       "**不是「不用修」** —— 铁律 11 说全都要做、只有先后之分，它只把「已查出的」" +
                       "和「今天新冒出来的」分开）" +
                       "。改坏法：删掉任意一张卡 `descZh` 里那一枚（或让中文那个词扫不到）⇒ 新缺口 +1 ⇒ 红。",
@@ -542,9 +570,20 @@ public static class IconSetup
                 if (gaps.Count > 0)
                     Log("④a 已知缺口清单（**要人判**，别拿它当基线）：" + string.Join(" / ", gaps.ToArray()));
 
-                // ④b 【灭自证】把 `A1360` 5 张 + `A1400` 14 张**改回去** ⇒ ④a 必须认出来
+                // ④b 【灭自证】：把「**今天两边都画着**」的每一枚**从 `descZh` 侧抽掉** ⇒ ④a 必须**全部**认出来。
+                //   🔴 **2026-10-15（第三十二会话）改：控制集从【手写 19 条】改成【从现计划表推导】** ——
+                //   原来那 19 条（`A1360` 5 + `A1400` 14）的注释自陈「这 19 条今天**都在**真计划表的 `descZh` 里」，
+                //   而 2026-10-15 起 `gen_icon_plan.py` 对**带官方记号**的字段**整字段跳过** ⇒ 现读只剩 **5 条**在表里
+                //   ⇒ 抽掉那 5 条之外**等于没抽** ⇒ 这条灭自证**退化成空转**（改动前同池就已经是 5/19）。
+                //   ✅ **判据形式没变**：仍是「抽掉 ⇒ ④a 每一条都得认出来」＋「抽掉的条数 == 控制集长度」（**前提检查**）。
+                //   出处 = `资料/普查产出_第三十二会话/D3_IconSetup五条红.md` §一·5。
                 var broke = LoadPlanDoc();
-                int removed = 0;
+                var control = RevertControlFor(broke);
+                var controlSet = new HashSet<string>(control);
+                // ⚠️ **按【去重后的 (卡,sprite) 对】计数**，不是按抽掉的条目数 —— 同一张卡可能
+                //   `descZh` 里**重复**同一枚 sprite（现读抽掉 831 条、去重后正好 815 对）
+                //   ⇒ 拿条目数去比控制集长度会**假红**。
+                var removedPairs = new HashSet<string>();
                 if (broke != null && broke.cards != null)
                     foreach (var c in broke.cards)
                         foreach (var f in c.fields)
@@ -553,21 +592,23 @@ public static class IconSetup
                             var keep = new List<PlanItem>();
                             foreach (var it in f.items)
                             {
-                                if (System.Array.IndexOf(RevertControl, c.id + "|" + it.sprite) >= 0)
-                                { removed++; continue; }
+                                if (it != null && controlSet.Contains(c.id + "|" + it.sprite))
+                                { removedPairs.Add(c.id + "|" + it.sprite); continue; }
                                 keep.Add(it);
                             }
                             f.items = keep.ToArray();
                         }
                 var ctrl = broke == null ? new List<string>() : ZhGaps(broke);
                 var missed = new List<string>();
-                foreach (var pair in RevertControl) if (ctrl.IndexOf(pair) < 0) missed.Add(pair);
-                Check(removed == RevertControl.Length && missed.Count == 0,
-                      "★ ④b【灭自证】把 `A1360` 那 5 张 + `A1400` 那 14 张**改回去**（抽掉 " + removed +
-                      " 条 `descZh` 条目）⇒ ④a 必须认出来：" +
-                      (RevertControl.Length - missed.Count) + "/" + RevertControl.Length + " 条被抓到" +
-                      (missed.Count == 0 ? "" : "；**漏掉** " + string.Join(" / ", missed.ToArray())) +
-                      "。这条是「结构上不可能同时满足」的口径：谓词恒绿 ⇒ 这里必红。", ref bad);
+                foreach (var pair in control) if (ctrl.IndexOf(pair) < 0) missed.Add(pair);
+                string missTxt = missed.Count == 0 ? "" : ("；**漏掉** " + string.Join(" / ", missed.GetRange(0, System.Math.Min(8, missed.Count)).ToArray()));
+                int removed = removedPairs.Count;
+                Check(control.Count > 0 && removed == control.Count && missed.Count == 0,
+                      "★ ④b【灭自证】把「今天两边都画着」的每一枚从 `descZh` 侧抽掉（控制集 " + control.Count +
+                      " 条（去重后）· 实际抽掉 " + removed + " 条）⇒ ④a 必须认出来：" +
+                      (control.Count - missed.Count) + "/" + control.Count + " 条被抓到" + missTxt +
+                      "。这条是「结构上不可能同时满足」的口径：谓词恒绿 ⇒ 这里必红。" +
+                      "⚠️ 控制集为空（或抽不动）**也算红** —— 那是「这一格今天没在测任何东西」的前提检查。", ref bad);
             }
 
             // ═══ ④c `KnownZhGaps`「**只许变短**」的机械保证（`A1423`）═══════════
@@ -978,14 +1019,27 @@ public static class IconSetup
             if (c == null || c.fields == null) continue;
             var en = new HashSet<string>();
             var zh = new HashSet<string>();
+            bool sawZhField = false;   // 🆕 2026-10-15：`descZh` 那半边在计划表里**有没有字段**
             foreach (var f in c.fields)
             {
                 if (f == null || f.items == null) continue;
                 HashSet<string> set = f.name == "desc" ? en : (f.name == "descZh" ? zh : null);
                 if (set == null) continue;
+                if (f.name == "descZh") sawZhField = true;
                 foreach (var it in f.items)
                     if (it != null && !string.IsNullOrEmpty(it.sprite)) set.Add(it.sprite);
             }
+            // 🔴 **2026-10-15（第三十二会话）：`descZh` 那半边【整字段缺席】= 「载体不适用」⇒ 本条跳过。**
+            //   为什么：2026-10-15 起 `工具/gen_icon_plan.py` 对**带官方记号**（`[[…]]`/`((…))`/`$$…$$`）的字段
+            //   **整字段跳过** —— 那批文本运行时走 `CardIcons.Rewrite` 的 `HasOfficialMarks` 分流、
+            //   **根本不查这张计划表**（判据 = `Core/CardIcons.cs:227` / `:448-453`），图标由 `RewriteMarks` 自己画。
+            //   旧判据把「计划表里没有」当成「中文没画」⇒ 现池会报 **769 条假缺口**
+            //   （改动前同池 752 条 —— 两条都是假阳）。
+            //   ⚠️ **与 `gen_icon_plan.py` 那 4 处自检面同一条口径**（「不是改期望值，是载体不适用」），
+            //   出处 = `资料/普查产出_第三十二会话/R5_gen_icon_plan.md`。
+            //   ⚠️ `descZh` 本来就空的那种卡也走这一支 —— 那也是对的：`FaceTextFull` 那时回落印 `desc`，
+            //   英文那几枚图标照样画得出来（不构成缺口）。
+            if (!sawZhField) continue;
             var miss = new List<string>();
             foreach (var s in en) if (!zh.Contains(s)) miss.Add(s);
             miss.Sort(System.StringComparer.Ordinal);
@@ -1122,22 +1176,43 @@ public static class IconSetup
     }
 
     /// <summary>
-    /// ④b「**改回去**」合成表：`"卡id|sprite"` —— 把这两笔落地的中文徽记**从计划表里抽掉**，
-    /// ④a 的谓词**必须**报出来。出处：
-    ///   · `A1360`（`资料/普查产出_第十四会话/W_A1360中文段首词.md` §一）= `UM74 誓言 3：` / `GOF8 集结：` /
-    ///     `GOF21 群体：` / `DA16 议程：` / `EC35 激励：` 这 5 条（都是**段首**关键词）；
-    ///   · `A1400`（同目录 `W_图标族8词.md` §四 1）= `Invulnerable` 那 **14 张**（**句中**裸词）。
-    /// ⚠️ 与真表的关系：这 19 条今天**都在**真计划表的 `descZh` 里（两笔都落地了）；
-    ///   ④b 抽掉的是**副本**，⛔ 不碰盘上那份 json。
+    /// ④b 的**控制集（推导式）**：`"卡id|sprite"` —— 对每一张卡取「`desc` 的 sprite 集合 ∩ `descZh` 的 sprite 集合」
+    /// 里的每一枚。那些正是「**今天英文与中文两边都画着**」的徽记；把它们从 `descZh` 侧抽掉，④a 必须逐条认出来。
+    ///
+    /// <para>🔴 **2026-10-15（第三十二会话）从【手写 19 条】改成【推导】**。原表出处是
+    ///   `A1360`（`资料/普查产出_第十四会话/W_A1360中文段首词.md` §一，5 条段首关键词）＋
+    ///   `A1400`（同目录 `W_图标族8词.md` §四 1，`Invulnerable` 那 14 张）—— 它当时自陈「这 19 条今天都在真计划表的 `descZh` 里」。
+    ///   ⚠️ 2026-10-15 起 `gen_icon_plan.py` 对**带官方记号**（`[[…]]`/`((…))`/`$$…$$`）的字段**整字段跳过**
+    ///   （那批文本运行时走 `CardIcons.RewriteMarks`、**不查本表**）⇒ `descZh` 换代之后一大批卡落进那一支
+    ///   ⇒ 手写那 19 条现读**只剩 5 条**在表里 ⇒ 抽掉那 5 条之外**等于没抽** ⇒ 这条灭自证**退化成空转**。
+    ///   （⚠️ 改动前同池就已经是 5/19，**不是**那次改动引入的。）</para>
+    ///
+    /// <para>✅ **判据形式没变**：仍是「抽掉 ⇒ ④a 必须每一条都认出来」＋「实际抽掉的条数 == 控制集长度」（前提检查）。
+    ///   改成推导之后，控制集永远与「**今天真画着的那一批**」同步 —— 数据换代不会再让它空转。
+    ///   出处 = `资料/普查产出_第三十二会话/D3_IconSetup五条红.md` §一·5。</para>
     /// </summary>
-    static readonly string[] RevertControl =
+    static List<string> RevertControlFor(PlanDoc doc)
     {
-        "UM74|oath", "GOF8|rally", "GOF21|mob", "DA16|agenda", "EC35|stimulation",
-        "ASH21|invulnerable", "AM36|invulnerable", "BL60|invulnerable", "DA_Rites_of_Penance|invulnerable",
-        "DA82|invulnerable", "GSC58|invulnerable", "GSC47|invulnerable", "SOR38|invulnerable",
-        "SW29|invulnerable", "SW18|invulnerable", "TL61|invulnerable", "UM88|invulnerable",
-        "UM52|invulnerable", "UM96|invulnerable",
-    };
+        var list = new List<string>();
+        if (doc == null || doc.cards == null) return list;
+        foreach (var c in doc.cards)
+        {
+            if (c == null || c.fields == null) continue;
+            var en = new HashSet<string>();
+            var zh = new HashSet<string>();
+            foreach (var f in c.fields)
+            {
+                if (f == null || f.items == null) continue;
+                HashSet<string> set = f.name == "desc" ? en : (f.name == "descZh" ? zh : null);
+                if (set == null) continue;
+                foreach (var it in f.items)
+                    if (it != null && !string.IsNullOrEmpty(it.sprite)) set.Add(it.sprite);
+            }
+            foreach (var sp in en) if (zh.Contains(sp)) list.Add(c.id + "|" + sp);
+        }
+        list.Sort(System.StringComparer.Ordinal);
+        return list;
+    }
 
     /// <summary>归一化：只留字母数字、全小写（和 `Badges.Key` 同口径）。`Hunt Mark` → `huntmark`</summary>
     static string NormKey(string s)

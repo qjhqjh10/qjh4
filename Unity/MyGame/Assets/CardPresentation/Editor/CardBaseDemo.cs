@@ -1612,6 +1612,23 @@ public static class CardBaseDemo
                                       true, "爆破 2") == "",
               "⑦ 同上，`blast` 的别名 `爆破`（5 张卡 `AM13/AM28/AM34/AM37/AM54` 的翻车点）");
 
+        // ---- ⑨ 🆕 2026-10-15（第三十二会话）：声明行紧跟 `<br>` 也要判成「已声明」 ----
+        //   来由：官方那代文本用 `<br>` 断行，而 `IsDeclarationAt` 的「段首」那一支
+        //   只看**紧邻字符**是不是句读符 ⇒ `<br>` 的 `>` 判不出来 ⇒ 词被再补一遍。
+        //   实测：`ASH34 Avatar of Khaine` 卡面多印一个 `天赋。`（PnP 成品卡只印一遍）。
+        var kwTalent = new System.Collections.Generic.Dictionary<string, int> { { "talent", 0 } };
+        Check(CardText.KeywordSegment(kwTalent, true, "护甲 2。<br>天赋：凯恩之怒。") == "",
+              "⑨ 正文里 `天赋：凯恩之怒。` 紧跟 `<br>` ⇒ 关键词段**不再补** `天赋。`"
+            + " —— 🧨 把 `IsDeclarationAt` 的「段首」那支改回**只看句读符** ⇒ 本条红"
+            + "（实测 `ASH34 Avatar of Khaine` 卡面会多印一个 `天赋。`，而 PnP 只印一遍）");
+        Check(CardText.KeywordSegment(kwTalent, true, "护甲 2。\n天赋：凯恩之怒。") == "",
+              "⑨ **判别式**：`<br>` 与真换行 `\\n` 必须**同效**"
+            + " —— 只给 `<br>` 开小灶、或只认 `\\n`，两条必红其一");
+        Check(CardText.KeywordSegment(kwTalent, true, "护甲 2。凯恩之怒。") != "",
+              "⑨ **判别式（反向）**：正文里**没有**这个词的声明"
+            + "（`凯恩之怒` 是效果的宾语、不是声明）⇒ 该补的还得补"
+            + " —— 🧨 把 `DeclaredInBody` 改成恒真（例如「出现过就算」）⇒ 本条红");
+
         // ---- ⑧ **另立键、不复用近邻**（铁律 6：复用会让「改一处文案另一处跟着变」）----
         Check(Loc.ZhOf("Battle/Phrase/Melee") == "近战" && Loc.ZhOf("Battle/Phrase/Ranged") == "远程",
               "⑧ 打法名那两条**另立键**（`Battle/Phrase/{Melee,Ranged}`）");

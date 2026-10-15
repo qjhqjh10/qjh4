@@ -68,9 +68,9 @@ ZH_NAME_ALIAS = {
     # 🆕 2026-09-18：这两张的**旧键是美术文件名尾段、不是卡名**（见 `STAT_FIXES` 里那段）——
     "Imotekh the Stormlord":  "stormlord",             # 伊摩泰克·风暴领主
     "Orikan the Diviner":     "Diviner",               # 占卜师
-    # 🆕 2026-09-18：这两张的**旧键是美术文件名尾段、不是卡名**（见 `STAT_FIXES` 里那段）——
-    "Imotekh the Stormlord":  "stormlord",             # 伊摩泰克·风暴领主
-    "Orikan the Diviner":     "Diviner",               # 占卜师
+    # 🔴 2026-10-15：这一块原来**逐字重复了两遍**（同键同值：后写的赢、前一份静默失效）
+    #    ⇒ 删掉重复的那一份，**行为零变化**（两条的值本来就相同）。
+    #    与 `cardface_fixes.json` 的 `Fenrisian Drop Pod` 同族（同键两值 ⇒ 后者覆盖前者）。
 }
 
 # ⚠️ 这一类**不能靠别名**：卡名里的**数字变了**（`2nd` → `1st`），
@@ -159,6 +159,20 @@ RARITY_BY_FACTION = {
     # 🔴 **2026-10-17**：键从 `"Bladeguard Veteran"` 改成 `"Bladeguard Lieutenant"` —— 卡名撤回了原版名，
     #    这条特判**必须跟着改**（查表用的是**改名后**的 `name`），否则这张会掉进 `still_missing`（稀有度空串）。
     ("Ultramarines", "Bladeguard Lieutenant"): "common",
+
+    # ---- 🔴 2026-10-15（`G3`）`SOR24` 撤改名 ⇒ 宝石表按 PnP 写法建的键又查不着了 ----
+    # 卡名从 `Simulacrum Celestian` **撤回成 `Simulacrum Imperialis`**（用户 2026-10-15 拍板；
+    # 佐证 = 原版卡 SO 快照 `SOR24` 的 `cardName` 就是 `Simulacrum Imperialis`，
+    # 美术/语音/卡组资产名也全是它），而宝石表
+    # `资料/卡牌数据表/卡牌宝石稀有度_0824.md:698` 那一行是 **`Simulacrum Celestian | 紫 | epic`**
+    # —— 那张表是**按 PnP 卡面写法建的键** ⇒ 按现名查**落空** ⇒ `rarity` 静默掉成空串。
+    # 值取自宝石表那一行（`:698`），另有**独立**佐证：原版卡 SO 快照 `cardRarity = 3`
+    # （映射 `1..5 = common/rare/epic/legendary/special`，实算见 `build()` 末尾稀有度守卫那段）。
+    # ⚠️ 与上面 `Land Rider` / `Morkai Eliminator` / `2nd Company Terminator` 那三条（B20）**完全同形**：
+    #   卡名回美术资产名、宝石表按 PnP 写法建键 ⇒ 只能按 (阵营, 现名) 特判。
+    # ⚠️ **别再把它放进 `RARITY_UNLISTED`** —— 那张表的语义是「宝石表里**没有**这张卡」，
+    #   而这张宝石表里有（见上面 `RARITY_UNLISTED` 里 2026-10-15 那段）。
+    ("Sororitas", "Simulacrum Imperialis"): "epic",
 }
 
 # 三份 0824 表**没收录**的 9 张（`Dark Angels/6秘密` 5 张 + `Genestealer Cult/6破坏卡` 4 张，
@@ -201,7 +215,25 @@ RARITY_UNLISTED = {
     "Special Dose (Zodgrod Wortsnagga Talent)": "legendary", # Orks/2天赋/Warpforge_12B_Speshul-Dose.png（金；卡面拼 `Speshul`）
     "Veteran Flyboy": "epic",                              # Orks/3部队/Warpforge_31_Veteran-Stormboy.png（紫；卡面印 `Veteran Stormboy`）
     "Waaagh! Energy (Weirdboy Talent)": "epic",            # Orks/2天赋/Warpforge_17B_Waaagh-Energy.png（紫）
-    "Simulacrum Imperialis": "epic",                       # Sorotitas/3部队/Warpforge_30_Simulacrum-Celestian.png（紫；卡面印 `Simulacrum Celestian`）
+    # 🔴 **2026-10-15 删除**：原来这里还有第 12 张 `"Simulacrum Imperialis": "epic"` ——
+    #    它是**改名留下的死键**，两个理由与上面 `1st Company Terminator` 那条**完全同形**：
+    #    ① 源表里这张卡现在叫 `Simulacrum Celestian`（`数据/游戏数据/card_stats.json`）
+    #       ⇒ 这个键**再也不会被查中**（查表用的是改名后的 `name`）；
+    #    ② 这张卡**宝石表里有**（`资料/卡牌数据表/卡牌宝石稀有度_0824.md:698`
+    #       `Simulacrum Celestian | 紫 | epic`）⇒ 本来就不该在「表外卡」这张表里
+    #       （`RARITY_UNLISTED` 只在宝石表查不到时才用）。
+    #    ⚠️ `Sororitas` 另有一张 `Simulacrum Bearer`（宝石表 `:686`，浅蓝 common，池里 `SOR13`）
+    #       —— **那是另一张卡**，别混。
+    #    ⚠️ **删掉它今天不改变任何输出**（池里这张的 rarity 本来就是宝石表给的 `epic`）。
+    #    ⛔ **本笔不把键改成现名** —— 那要用户/调度台裁（见 `STAT_FIXES` 里同日的说明）。
+    # 🔴 **2026-10-15（`G3`）就地补记**：上面「源表里这张卡现在叫 `Simulacrum Celestian`」一句
+    #    **当天就被推翻** —— 卡名已按用户裁定**撤回成 `Simulacrum Imperialis`**（并行证据 = 原版卡 SO
+    #    快照 `SOR24` 的 `cardName` 本来就是它）。⇒ **删掉这条键仍然是对的**（理由②不变：宝石表里有
+    #    这张卡，它不该待在这张「表外卡」的表里），**判据的落点是 `RARITY_BY_FACTION`**
+    #    （见那张表末尾 2026-10-15 那条）。
+    #    ⚠️ 同一天，`card_stats.json:22388` 那一格也从临时的 `"epic"` **改回了 `null`** ——
+    #    本仓口径是「`card_stats.json` = OCR 原始源表，**修正一律落在生成器这一侧**」
+    #    （`gen_cardface_fixes.py:35` 的措辞 + `STAT_FIXES` 其余 29 条键都保持源表原值不动）。
 }
 
 # 数值修正 —— **OCR 读错/漏读**的卡。每条都对着卡面核过，出处写在后面。
@@ -396,7 +428,16 @@ STAT_FIXES = {
     #   PnP 印的是**当年重印的写法**。改名只认「三处证据一致」那一条，见下面。
     "Commissar Elan":        {"ranged": 2},
     "Acolyte Iconward":      {"ranged": 2},
-    "Simulacrum Imperialis": {"ranged": 4},
+    # 🔴 **2026-10-15 删除**：原来这里是 `"Simulacrum Imperialis": {"ranged": 4},` ——
+    #    同样是一条**改名留下的死键**：源表里这张卡现在叫 `Simulacrum Celestian`，而
+    #    `STAT_FIXES` 的键查的是**改名前的名字**（`build()` 里 `STAT_FIXES.get(name_before_rename)`）
+    #    ⇒ 这一条再也不会生效。
+    #    ⚠️ **删掉它今天不改变任何输出**：`ranged_attack` 已经是 **4** —— 那次数值修正是被**直接写进
+    #       源表**的（`数据/游戏数据/card_stats.json` 的 `Simulacrum Celestian` 行 `null → 4`），
+    #       与 `STAT_FIXES` 其余 **29** 条「源表保持原值、修正留在表里」**不是同一种形态**。
+    #       两条路今天产物相同（池里 `ranged` 都是 4）⇒ **该走哪条要裁**；
+    #       ⛔ 本笔只删死键，**不动源表、也不把键改成现名**。
+    #    ⇒ 文件末尾新加的**孤立键守卫**（`orphan_stat_fix`）就是为让下一次改名**当场看得见**。
     # ✅ **不改名**（2026-09-16 查清并结案）。原来差点按上面那条「三处证据一致」的规矩改成
     #    `Veteran Stormboy` —— 那三处（PnP 文件名 / `ocrName` / `card_ids.json`）**全是从 PnP 派生的**，
     #    不是三个独立来源。**独立于 PnP 的游戏侧证据指向 `Veteran Flyboy`**：
@@ -418,6 +459,59 @@ STAT_FIXES = {
     #    ✅ **2026-10-17（B20）已对那 4 张照这个法子各查了一遍，结论是四条全撤** —— 见上面
     #    「2026-10-17【撤销】」那一段，别再把它们当「已按 PnP 改掉、没查过游戏侧」的例子。
     "Veteran Flyboy":        {"ranged": 4},
+}
+
+# 🔴 **`card_stats.json` 的 `armor` 一族 —— 显式期望**（`A2043`，2026-10-15 加）
+#
+# 要守的不变式 = 「源表里 `armor` 列**有值**的那些行」**正好是下面这 6 张**（**(阵营, 卡名)** 比，
+# ⛔ **顺序无关**）。守卫实现在 `build()` 里（搜 `ocr_armor_family` / `armor_family_bad`），
+# 🔴 **进 `_bad`** ⇒ 不符就 rc=1、**一个字节都不写**。
+#
+# 为什么这一族非守不可：`armor` 列 **1207/1213 是 null、只有这 6 行有值**，而这 6 个值
+# **全部是错的** —— 它们是**卡面紫圈（远程）**的值被 OCR 读进了 `armor`
+# （6/6 逐张开 PnP 核过，见 `资料/普查产出_第三十二会话/R8_card_stats审计.md` §一）。
+#   其中 `2nd Company Terminator` 与 `Bladeguard Lieutenant` 卡面**真有银盾、真值应为 1**
+#   （本笔 ⛔ 不改源表 ⇒ 那两条留在源表里，见下面「不改源表」那条）。
+# `gen_cards_engine.py` 把「`ranged_attack=null` 且 `armor≠null`」**当这一族的判据在用**
+# （见上面 `STAT_FIXES` 里「紫圈（远程）被 OCR 读成了 `armor`」那一段），`STAT_FIXES` 再逐张**按卡名**
+# 把 `ranged` 补回去。
+# 🔴 **谁哪天把源表「顺手修对了」（把这几行的 `armor` 清成 null）⇒ 这一族就圈不出这几张 ⇒
+#    那条家族判据**静默失效**，症状 = 这几张的 `ranged` 重新变 **0**、**打不到人**，
+#    而卡表里「看起来就像这张卡本来就是这个数」⇒ 必须**在这一刻红**。**
+# ⚠️ **用户 2026-10-15 拍板：⛔ 不改源表** —— 改了会拆掉上面那条判据不变式；且
+#    `工具/gen_cardface_fixes.py:35` 把这份文件叫「OCR 原始源表」，`STAT_FIXES` 其余 29 条键
+#    也**全都保持源表原值不动**（那条被改掉的是**另一种形态**，见 `STAT_FIXES` 里 2026-10-15 那条）。
+# ⚠️ 每项 = **`(阵营, 卡名, 家族判据命中?)`**。第三格 = 那行在源表里是不是
+#    `ranged_attack is None 且 armor is not None` —— 即「**这一张是不是靠家族判据圈出来的**」。
+#    🔴 **现读 6 行里只有 5 行命中**（逐行实测，见下），**不是 bug**：
+#      · 5 行**命中**（`ranged_attack = null`）⇒ `STAT_FIXES` 按卡名逐张把 `ranged` 补回去；
+#      · `Simulacrum Celestian` **不命中** —— 那一行的源表 `ranged_attack` **早就被直接写成 4** 了
+#        （`null → 4`，是**当年直接改源表**那一次，`STAT_FIXES` 里那条同名的键 2026-10-15 已删、
+#        日志留在 `STAT_FIXES` 那段 2026-10-15 的注释里）。⇒ 它的 `armor=4` 是**唯一一个
+#        「家族判据自己圈不出来」的错值行**，**这正是这条守卫非立不可的直接证据**。
+#    ⇒ 玩法：把三格**一起**比（集合相等）。这样任何一格变了都红 —— 包括
+#      「谁把某一行的 `ranged_attack` 填上 ⇒ 那一行从「命中」变成「不命中」」这种**最隐蔽**的改法。
+OCR_ARMOR_FAMILY = (
+    ("AstraMilitarum", "Commissar Elan",         True),
+    ("Genestealers",   "Acolyte Iconward",       True),
+    ("Goff",           "Veteran Flyboy",         True),
+    ("Sororitas",      "Simulacrum Celestian",   False),
+    ("Ultramarines",   "2nd Company Terminator", True),
+    ("Ultramarines",   "Bladeguard Lieutenant",  True),
+)
+# ⚠️ **卡名别名 —— 只吸收「名字」这一种变化**：源表里 `Sororitas` 那一行的卡名**可能正被另一个
+#    写手改**（`Simulacrum Celestian` ⇄ `Simulacrum Imperialis`；2026-10-15 现读是**前者**）
+#    ⇒ 两个名字**都算命中**，免得**假红**把一次合法改名拦下来、把生成器卡死。
+#    🔴 **2026-10-15 本笔收尾前实测：这个改名真的发生了** —— 开工时源表是 `Simulacrum Celestian`，
+#      当天（本笔写完守卫之后）被改成 `Simulacrum Imperialis`（`ocrName` 仍是旧名）⇒
+#      池里那张卡的名字跟着变（`SOR24`）。**若没有这条别名，守卫会当场假红、把那次改名卡死。**
+#      ⚠️ **但那次改名顺手带出一个真缺陷**（不属本笔、已报调度台）：这份卡的 `rarity` 从 `epic`
+#      掉成 `''` —— 宝石表 `资料/卡牌数据表/卡牌宝石稀有度_0824.md:698` 的键是**旧名**
+#      `Simulacrum Celestian`，改名后**按名字 join 落空**。⚠️ **宝石表那一层没有孤立键守卫**
+#      （本文件只给 `cardface_fixes` / `STAT_FIXES` 立了），所以它**静默**掉了。
+#    ⛔ 成员增删 / `armor` 列被改 / 别的行改名 —— **照旧红**（那些才是这条守卫要挡的）。
+OCR_ARMOR_FAMILY_ALIAS = {
+    ("Sororitas", "Simulacrum Imperialis"): ("Sororitas", "Simulacrum Celestian"),
 }
 
 # `hasStats=false`（OCR 没读到数值）里**确证是真卡**的少数几张 —— 补上费用后照常收。
@@ -1345,13 +1439,18 @@ def load_official_desc():
     全部也在 `Card_Name` 里）⇒ 取值的钥匙一律先用 `official_name()` 解出来的**官方键**，
     再拿它查这张表（`build()` 里那一段）。
 
-    🔴 **值不成立的那 181 条必须挑出来**（与 `load_official_cardname` 的 `AM24 = "u"` 同一条纪律）：
-    官方表里有一批**被截断的**条目 —— 现读全表 1098 条里 **181** 条的值**就是单个字符**：
-    `(` **91** 条 · `[` **89** 条 · `N`/`o` **1** 条（`5c4d9e78…`）。EN 列与 zh-CN 列**同时**是这样
-    （181 条**两边都** ≤ 4 字符，没有「只有一边坏」的）⇒ ⛔ 照搬会把卡面印成一个 `(`。
-    判据写成「去空白后**短于 3 个字符**」：实测**恰好**命中这 181 条、一条不多一条不少
-    ⇒ **可用 = 1098 − 181 = 917**，与 `资料/普查产出_第三十一会话/C_远端判据重判.md` §〇
-    写死的「`Card_Description/*` **1098 键 / 917 非空**」**逐字吻合**（那 181 条就是它说的「空」）。
+    🔴 **那 181 条必须挑出来**（与 `load_official_cardname` 的 `AM24 = "u"` 同一条纪律）。
+    ⚠️ **2026-10-15（第三十二会话）就地订正（铁律 5）**：本段原来写的是
+    「官方表里有一批**被截断的**条目 —— 现读全表 1098 条里 **181** 条的值**就是单个字符**：
+    `(` 91 条 · `[` 89 条 · `N`/`o` 1 条」—— 🔴 **那是读错了**：真因 = 原表里 **en == zh**
+    的条目被压成了**单个字符串**（出处 = `工具/_loc_official/w4_lib.py:30`），而旧代码对字符串取 `v[1]`
+    = **第二个字符** ⇒ `'[[flank]]'` 取出 `'['`、`'((…))'` 取出 `'('` ⇒ 那 181 条**好值**被误判成「被截断」。
+    **数据本身是好的、不短**（多数 8–80 字符）。**行为不变**（单值 = 没有中文列可换
+    ⇒ 仍保持我们自译），但**理由与文案已改对**。
+    判据仍然是「**值不是 `[en, zh]` 两元素表**（或 zh 去空白后短于 3 字符）就丢」：
+    实测**恰好**命中这 181 条、一条不多一条不少 ⇒ **可用 = 1098 − 181 = 917**，
+    与 `资料/普查产出_第三十一会话/C_远端判据重判.md` §〇 写死的「`Card_Description/*`
+    **1098 键 / 917 非空**」**逐字吻合**（那 181 条就是它说的「空」）。
 
     ⚠️ **不拿「值里没有汉字」当判据**：官方正文是**模板层**，有一大批值整条只有记号
     （例 `ASH6` = `[[waystone]]。[[stealth]]。[[sniper]]`，393 条无汉字）—— 那是**正常值**。
@@ -1360,35 +1459,70 @@ def load_official_desc():
         print(f"⚠️ 找不到官方中文表 {OFFICIAL_LOC_SRC} —— `descZh` 将只有 `zh_cards.json` 那一份自译")
         return {}, [], None
     terms = json.load(open(OFFICIAL_LOC_SRC, encoding="utf-8")).get("terms") or {}
-    by_id, bad = {}, []
+    # 🔴 **2026-10-15（第三十二会话）就地修：同一张卡有「两代」键，「`_new` 那代必须赢」。**
+    #   官方表里对同一张卡可以有 `Card_Description/<id>` 与 `Card_Description/<id>_new` **两条**
+    #   （现读 16 对）。实测 **`_new` 那代才与 PnP 成品卡图印的一致** —— 逐张开图核过：
+    #     · `TL66 Neurogaunt`  卡面印 `Tide 2`（新代），而旧代是 `Tide 4`
+    #       （`d:/2/Warpforge部队卡片/Tyranid/3部队/Warpforge_4_Neurogaunt.png`）
+    #     · `TL44 Hardened Biology` 卡面印 `+1 Health`（新代），而旧代是 `+2`
+    #       （`Tyranid/4计策/Warpforge_55_Hardened-Biology.png`）
+    #   PnP = 内容的尺子（铁律 7 / 铁律 10 第 3 条）⇒ **`_new` 赢**。
+    #   ⚠️ 改前那 16 条 `_new` 被当成**独立的键**（`SOR30_new`）存进 `by_id`，
+    #   而卡 id 是 `SOR30` ⇒ **一条都查不到** ⇒ 那 16 张全部退回旧代。
+    #   实测代价：`TL66` / `TL44` / `UM68` / `UM72` 四张的**数值是错的**（见上）。
+    #   ℹ️ 不在人工层（`cardface_fixes.descZh`）里的那几张才会被本修改到 ——
+    #   人工层仍然**最后生效**（层序不变），例 `Celestian Sacresant` 人工值本来就是 `_new` 语义。
+    #
+    # ⚠️ **同日订正（铁律 5）**：下面原来写着「官方表里有一批**被截断的**条目 —— 现读全表 1098 条里
+    #   **181** 条的值**就是单个字符**：`(` 91 条 · `[` 89 条 · `N`/`o` 1 条」**—— 那是读错了**：
+    #   真因 = 原表里 **en == zh** 的条目压成了**单个字符串**（出处 = `工具/_loc_official/w4_lib.py:30`），
+    #   而旧代码对字符串取 `v[1]` = **第二个字符** ⇒ `'[[flank]]'` 取出 `'['`、`'((…))'` 取出 `'('`
+    #   ⇒ 那 181 条**好值**被误判成「被截断」。**行为不变**（单值 = 没有中文可换，
+    #   仍保持我们自译），但**报告文案与推理得改对**。（当日另有该日志落盘。）
+    by_id, bad, superseded = {}, [], []
     for k, v in terms.items():
         if not k.startswith("Card_Description/"):
             continue
         _id = k[len("Card_Description/"):]
+        _isnew = _id.endswith("_new")
+        if _isnew:
+            _id = _id[:-4]
+        if isinstance(v, str):
+            # en == zh 的单值（现读 181 条）⇒ **没有中文可换**，保持我们自译
+            bad.append((_id, v, "单值(en==zh)"))
+            continue
+        en = (v[0] if len(v) > 0 else "") or ""
         zh = ((v[1] if len(v) > 1 else "") or "").strip()
         if len(zh) < 3:
-            bad.append((_id, (v[0] if len(v) > 0 else "") or "", zh))
+            bad.append((_id, en, zh))
             continue
-        by_id[_id] = zh
+        if _isnew:
+            superseded.append((_id, by_id.get(_id), zh))
+            by_id[_id] = zh            # 🔴 `_new` **覆盖**旧代
+        elif _id not in by_id:          # 不让旧代盖掉已写入的新代（`terms` 的序不保证）
+            by_id[_id] = zh
     stats = {"terms": sum(1 for k in terms if k.startswith("Card_Description/")),
-             "ok": len(by_id), "bad": len(bad),
+             "ok": len(by_id), "bad": len(bad), "superseded": len(superseded),
              "guid": sum(1 for k in by_id if re.fullmatch(r"[0-9a-f]{32}", k))}
     print(f"官方中文效果 `Card_Description/*` {stats['terms']} 条（可用 {stats['ok']} · GUID 键 {stats['guid']} ·"
-          f" 值不成立丢弃 {stats['bad']}）")
-    _bc = {}
-    for _id, _en, _zh in bad:
-        _k = "(" if _zh == "(" else ("[" if _zh == "[" else "其它")
-        _bc[_k] = _bc.get(_k, 0) + 1
+          f" 值不成立丢弃 {stats['bad']} · `_new` 新代生效 {stats['superseded']}）")
+    if superseded:
+        print(f"            ✅ `_new` 新代**覆盖旧代** {len(superseded)} 张："
+              + " · ".join(_i for _i, _o, _n in superseded))
     if bad:
-        print(f"            ⚠️ 官方值**被截断**、整条丢弃 {len(bad)} 条（"
+        _bc = {}
+        for _t in bad:
+            _zh = _t[2]
+            _k = _zh if _zh in ("(", "[", "单值(en==zh)") else "其它"
+            _bc[_k] = _bc.get(_k, 0) + 1
+        print(f"            ⚠️ 整条丢弃 {len(bad)} 条（"
               + " · ".join(f"{k!r}×{n}" for k, n in sorted(_bc.items())) + "）"
-              " —— 这些卡保持我们自译（⛔ 照搬会把卡面印成一个 `(`）")
-        for _id, _en, _zh in bad[:6]:
-            print(f"            · `Card_Description/{_id}` = ({_en!r}, {_zh!r})")
+              " —— 单值那一档是**原表里 en == zh**（没有中文可换），这些卡保持我们自译")
+        for _t in bad[:6]:
+            print(f"            · `Card_Description/{_t[0]}` = ({_t[1]!r}, {_t[2]!r})")
         if len(bad) > 6:
             print(f"            … 其余 {len(bad) - 6} 条同理")
     return by_id, bad, stats
-
 
 def norm_int(v):
     """None/非数字 → 0。原始数据里 null 很常见（59 张卡无数值）"""
@@ -1430,7 +1564,7 @@ def build():
     off_desc_by_id, off_desc_bad, off_desc_stats = load_official_desc()
     off_desc_hit = []     # (卡id, 英文名, 换前, 换后, 命中路) —— 真换掉的
     off_desc_same = []    # 官方值 == 我们自译（不必动）
-    off_desc_miss = []    # 两级都查不到（含「官方值被截断」那 181 条）→ 保持自译，**要出声**
+    off_desc_miss = []    # 两级都查不到（含「原表里 en == zh」那 181 条）→ 保持自译，**要出声**
     # 🔴 `descZh` 三个写手的**顺序断言**的违例（人工值必须最终生效）——
     #    非空 ⇒ 当场炸、一个字节都不写（与 `_bad` 同一条口径）。
     desc_zh_order_violations = []
@@ -1444,6 +1578,8 @@ def build():
     # ⚠️ 两张表：裸卡名 / 带阵营 —— **同名卡必须用后者**，见 `load_cardface_fixes` 的注释
     face_fixed = []                         # 被修正过的卡（跑完打出来给人看）
     used_face_fix = set()                   # 修正表里**真匹配到卡**的键 —— 抓「改名后失配」，见 `build()` 末尾
+    used_stat_fix = set()                   # `STAT_FIXES` 里**真匹配到卡**的键（键是**改名前的卡名**）
+                                            # —— 抓「改名后静默失配」，见 `build()` 末尾那条守卫
     # 🆕 2026-10-12（`A1620`）：**同一张卡的「裸卡名」键与「阵营/卡名」键，对同一列给出了不同的值**
     #    —— 合并时阵营键赢、裸键那一份**被静默丢掉**。见下面 `_ff_bare` / `_ff_fac` 那一支的长注释。
     key_conflicts = []
@@ -1478,6 +1614,10 @@ def build():
     _seen_ids = set()                       # 生成的 id 必须两两不同（下面有断言）
     _seen_names = set()   # (阵营, 归一化卡名) —— 判重只在这个粒度上做
     filled, still_missing = [], []
+    # 🔴 **稀有度守卫的记账口**（`A2044`，2026-10-15 `G3`）—— 「最终落成空串」的卡逐张登记
+    #    `(阵营, 卡名, ocrName)`，跑完在 `build()` 末尾由那两条谓词消费（见 `rarity_guard_bad` 那段）。
+    #    ⚠️ 记账口只能在这儿：`cards` 里的条目**不保留 `ocrName`**，出了这个循环就查不回来了。
+    _rarity_empty = []
     stat_fixed = []       # 数值被 `STAT_FIXES` 纠正过的卡（见那张表）
     for c in raw:
         ctype = norm_str(c.get("type"))
@@ -1550,6 +1690,7 @@ def build():
         elif rarity not in RARITIES:
             # 宝石表里也没有这张（卡名对不上）—— 原值本身也不合法，才算缺失
             still_missing.append(name)
+            _rarity_empty.append((norm_str(c.get("faction")), name, norm_str(c.get("ocrName"))))
             rarity = ""
         cost = norm_int(c.get("cost"))
         attack = norm_int(c.get("attack"))
@@ -1561,6 +1702,7 @@ def build():
         fix = STAT_FIXES.get(name_before_rename)
         if fix:
             stat_fixed.append((name, dict(fix)))
+            used_stat_fix.add(name_before_rename)   # ← 孤立键守卫的记账口，见 `build()` 末尾
             if "cost" in fix: cost = fix["cost"]
             if "attack" in fix: attack = fix["attack"]
             if "health" in fix: health = fix["health"]
@@ -1889,7 +2031,117 @@ def build():
     for _fac, _m in face_fixes_by_fac.items():
         for _k in _m:
             if ("fac", _fac, _k) not in used_face_fix: orphan_face_fix.append(f"{_fac}/{_k}")
+    # 🔴 **`STAT_FIXES` 的孤立键**（2026-10-15 加）—— 与上面 `orphan_face_fix` **同一个形状、
+    #    同一套口径**（2026-09-18 那条注释已经说清了共因）。为什么必须有：`STAT_FIXES` 也是
+    #    **按卡名做键**、而且查的是**改名前的名字**（上面 `STAT_FIXES.get(name_before_rename)`）
+    #    ⇒ 卡名一改，旧键**静默失配**：那条数值修正再也不生效、**没有任何提示**，
+    #    在卡表里「看起来就像这张卡本来就是这个数」—— 正是本项目「不许静默失败」要治的东西。
+    #    🔴 **实测代价**（2026-10-15 现核、当天删除）：`"Simulacrum Imperialis": {"ranged": 4}`
+    #    就是这么失效的（源表已改叫 `Simulacrum Celestian`）。
+    #    ⚠️ 记账口 = 上面 `used_stat_fix.add(name_before_rename)`（**有命中的每张卡各记一次**）。
+    orphan_stat_fix = [k for k in STAT_FIXES if k not in used_stat_fix]
 
+    # 🔴 **`card_stats.json` 的 `armor` 一族守卫**（`A2043`，2026-10-15 加）——
+    #    **形状照抄上面两条孤立键守卫**（`orphan_face_fix` / `orphan_stat_fix`：跑完打出来、逐条列名），
+    #    🔴 **但口径不同：这一条进 `_bad`**（那两条只出声、不改退出码，见它们各自那段注释）。
+    #    为什么必须挡住落盘：这一族一旦失效是**静默的数值错** —— 那几张卡的 `ranged` 会重新变 0、
+    #    **打不到人**，而卡表里「看起来就像这张卡本来就是这个数」（`STAT_FIXES` 键失配时正是这个症状）。
+    #    ⚠️ 判据 = 「源表里 `armor` **有值**的行」逐行算出的 **(阵营, 卡名, 家族判据命中?)** 三元组，
+    #      与 `OCR_ARMOR_FAMILY` **比集合相等**（**顺序无关**）；读法与主循环一致
+    #      （`norm_str` + 卡名空白归一，见上面 `name = re.sub(...)`）。
+    #    ⚠️ 匹配口径：**按 (阵营, 卡名)**；`OCR_ARMOR_FAMILY_ALIAS` 里那一对名字视为同一张卡。
+    #      ⛔ 不按卡 id / 不按行号 —— 源表行号会随别的写手改动漂移（`R8` 报的那 6 个行号就是这么来的）。
+    _armor_got = {}          # (阵营, 卡名) -> 「家族判据命中?」= 该行 `ranged_attack is None`
+    for _c in raw:
+        if _c.get("armor") is not None:
+            _nm = re.sub(r"\s+", " ", norm_str(_c.get("name"))).strip()
+            _key = OCR_ARMOR_FAMILY_ALIAS.get((norm_str(_c.get("faction")), _nm),
+                                              (norm_str(_c.get("faction")), _nm))
+            _armor_got[_key] = _c.get("ranged_attack") is None
+    _armor_expect = {OCR_ARMOR_FAMILY_ALIAS.get((_f, _n), (_f, _n)): _p
+                     for (_f, _n, _p) in OCR_ARMOR_FAMILY}
+    # ⚠️ **先按 (阵营, 卡名) 配对、再比第三格** —— ⛔ 别拿三元组直接做集合差：
+    #    那样一张卡的「判据位变了」会**同时**报成一条「少了」+ 一条「多了」，同一个东西报两遍。
+    armor_family_bad = []
+    for _k in sorted(set(_armor_expect) - set(_armor_got)):
+        armor_family_bad.append(f"少了 {_k[0]}/{_k[1]} —— 源表这一行的 `armor` 已经不再有值？"
+                                "⇒ 家族判据失效，这张卡的 `ranged` 会被**静默算成 0**")
+    for _k in sorted(set(_armor_got) - set(_armor_expect)):
+        armor_family_bad.append(f"多了 {_k[0]}/{_k[1]} —— 源表这一行 `armor` 又有值了，"
+                                "这族长出了新成员，要重核 `R8` 那份清单")
+    for _k in sorted(set(_armor_expect) & set(_armor_got)):
+        if _armor_expect[_k] == _armor_got[_k]:
+            continue
+        if _armor_expect[_k]:
+            armor_family_bad.append(
+                f"{_k[0]}/{_k[1]} —— 期望源表 `ranged_attack` 是 **null**（这一张是**靠家族判据**"
+                "`ranged_attack=null 且 armor≠null` 圈出来的），实际**不是 null** ⇒"
+                " 这一行**掉出**了家族判据，`STAT_FIXES` 那条按卡名的修正会**静默失效**、"
+                "这张卡的 `ranged` 会被算成它在 `ranged_attack` 里写的值")
+        else:
+            armor_family_bad.append(
+                f"{_k[0]}/{_k[1]} —— 期望源表 `ranged_attack` **不是** null（这一张本来是"
+                "「家族判据圈不出来、值直接写在源表里」那一张），实际是 null ⇒"
+                " 它**变成**家族判据的成员了，要重核 `R8` 那份清单")
+
+    # 🔴 **稀有度这一层的守卫**（`A2044`，2026-10-15 `G3`）——
+    #    **形状照抄上面三条**（`orphan_face_fix` / `orphan_stat_fix` / `armor_family_bad`：逐条列名打印），
+    #    🔴 **口径同 `armor_family_bad`：进 `_bad`**（不符 ⇒ rc=1、**一个字节都不写**）。
+    #    **为什么要它**：稀有度是**两级按【卡名】join** 出来的（宝石表 + `RARITY_UNLISTED` /
+    #    `RARITY_BY_FACTION` 两张补表），而卡名**会被改名**（`STAT_FIXES` 的 `name`、上游撤改名）
+    #    ⇒ 名字一对不上，这张卡的 `rarity` 就**静默掉成空串**：卡框取不到 tier、卡组编辑的筛选
+    #    与行底色一起挂 —— 而跑完的报告里**只有一行不带卡名的 ⚠️**（`still_missing` 那行）。
+    #    🔴 **实测事故（本守卫要复现的那一次）**：`SOR24` 的卡名从 `Simulacrum Celestian` 撤回成
+    #    `Simulacrum Imperialis` ⇒ 宝石表那一行（`:698`）按 **PnP 卡面写法**建键 ⇒ 查不着
+    #    ⇒ 池里 `rarity` 变 `""`，**全流程没有任何东西出声**（当天是靠人眼看出来的）。
+    #    一条谓词盖不住两个方向，所以这里是**两条**：
+    #
+    #    ① **症状层 —— 「空串但别名还能查到」**：`rarity` 落成空串的卡，只要宝石表**还能按它的
+    #       `ocrName` 查到**，就说明「这张卡确实该有稀有度、只是主键失配」。
+    #       ⚠️ **为什么用 `ocrName` 而不是 `name`**：`name` 正是主循环刚查过的那一条，
+    #          拿它再查一次是**同义反复、恒为假**（查得到就根本不会是空串）—— 那就成了自证。
+    #          `ocrName` 是**独立**的另一个键（源表里「PnP 卡面印的字的 OCR 记录」），
+    #          改名的场景下它**往往还指着旧写法**（`SOR24` 就是：`ocrName` 至今是 `Simulacrum Celestian`）。
+    #       ⛔ **漏什么**：连 `ocrName` 也对不上的改名 —— 那多半是「宝石表里本来就没这张卡」，
+    #          不该报（本谓词**只报「查得到却没查到」**，不报「查不到」）。
+    #
+    #    ② **权威层 —— 与游戏侧真值 `cardRarity` 逐张比**：`TRUTH_CARDS_SRC` 那份**原版卡 SO 快照**
+    #       （`allcards` 包）自带 `cardRarity` —— 那是**游戏自己的枚举**，比宝石表（**人眼看印刷品**
+    #       记下来的色名）高一级（铁律 10 第 3 条：PnP 是印刷品；宝石表也只是它的读数）。
+    #       ⚠️ 枚举映射 `1..5` 是**现算的、不是猜的**：拿这份快照与本卡池按 `uniqueId` join
+    #          （1009 张），混淆矩阵**每个稀有度只对应一个取值、0 例外**
+    #          （`common=1` · `rare=2` · `epic=3` · `legendary=4` · `special=5`）；本守卫落地时
+    #          **全池 0 处不一致**（所以它不是「补漏」，是**防回归**）。
+    #       ⚠️ `cardRarity` 是 `0` / 缺字段 ⇒ **视为「无值」**（快照里那 4 张 GSC「破坏卡」就是 `0`；
+    #          它们的稀有度本来就只有卡面一条判据）⇒ 跳过、并打出跳过条数，⛔ **不拿 0 顶**
+    #          （同 `truth_int` 的 `-1` 口径）。
+    #       ⛔ **漏什么**：快照里没有的卡（自造 id 那 118 张）。
+    #    ⇒ 两条合起来才盖住「改名 ⇒ 拿到**空**的稀有度」（①）与「改名 ⇒ 拿到**错**的稀有度」（②）。
+    _RARITY_TRUTH = {1: "common", 2: "rare", 3: "epic", 4: "legendary", 5: "special"}
+    rarity_guard_bad = []
+    for _rf, _rn, _roc in _rarity_empty:
+        if not _roc:
+            continue
+        _rg, _rh = rarity_lookup(_roc)
+        if _rg:
+            rarity_guard_bad.append(
+                f"{_rf}/{_rn} —— `rarity` 落成了**空串**，但宝石表**按这张卡的 `ocrName`"
+                f"（`{_roc}`）能查到 `{_rg}`［{_rh}］** ⇒ 卡名一改、这一层就**静默丢了**")
+    _rarity_truth_n, _rarity_truth_skip_n = 0, 0
+    for _rc in cards:
+        _rtr = truth_cards.get(_rc.get("id"))
+        if _rtr is None:
+            continue
+        _rtv = _rtr.get("cardRarity")
+        _rex = _RARITY_TRUTH.get(_rtv) if isinstance(_rtv, int) else None
+        if _rex is None:
+            _rarity_truth_skip_n += 1
+            continue
+        _rarity_truth_n += 1
+        if _rex != _rc.get("rarity"):
+            rarity_guard_bad.append(
+                f"{_rc['id']}/{_rc['name']} —— 与**游戏侧真值**不一致：卡池是 `{_rc.get('rarity')}`、"
+                f"原版卡 SO 快照是 `{_rex}`（`cardRarity={_rtv}`）⇒ 这一张的档位挂着")
     return {
         "version": 9,          # v6: 每张卡带稳定 id（原版 id 优先，对不上的自造 —— 见 IDS_SRC 那段）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
@@ -1904,7 +2156,7 @@ def build():
                   "中文名以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
                   "（2025-07-30 远端包快照；官方表里没有的卡才用 数据/卡牌翻译/zh_cards.json 那份自译），"
                   "中文效果 2026-10-15（P3 相 `A1763`）起**同样以该表的 `Card_Description/*` 为准**"
-                  "（键空间与 `Card_Name/*` 同源；官方表里没有、或官方值被截断的那批才用 zh_cards.json 的自译）"
+                  "（键空间与 `Card_Name/*` 同源；官方表里没有、或原表里 en == zh的那批才用 zh_cards.json 的自译）"
                   "—— 🔴 口径：**只换 `descZh`、`desc` 不动**（`资料/任务_卡组卡牌战斗.md` 的 `A1763` 那一行）；"
                   "subtype/keywords 另按 数据/游戏数据/cardface_fixes.json 修正；"
                   "id 另取 数据/游戏数据/card_ids.json，对不上的自造；"
@@ -1922,7 +2174,7 @@ def build():
                 "改数据请改 card_stats.json / 数据/游戏数据/官方本地化_en+zh-CN.json / "
                 "数据/卡牌翻译/zh_cards.json / 数据/游戏数据/cardface_fixes.json 后重跑。"
                 "nameZh 与 descZh 都优先取原版官方中文表（`Card_Name/*` / `Card_Description/*`；"
-                "查不到、或官方值被截断的才回 数据/卡牌翻译/zh_cards.json 那份自译，见 source）；"
+                "查不到、或原表里 en == zh的才回 数据/卡牌翻译/zh_cards.json 那份自译，见 source）；"
                 "🔴 `descZh` 一列有 3 个写手，权威序（低→高）= zh_cards.json（自译）→ 官方 `Card_Description/*` → "
                 "`cardface_fixes.json` 的 `descZh`（逐张 PnP 核过的人工值，**最高**）；"
                 "⚠️ 官方正文是 **I2 模板层**（带 `[[枚举名]]` / `((Key,arg))` / `$$卡id$$` 记号）——"
@@ -1959,7 +2211,7 @@ def build():
         "count": len(cards),
         "cards": cards,
     }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, id_truth, \
-       orphan_face_fix, \
+       orphan_face_fix, orphan_stat_fix, armor_family_bad, \
        key_conflicts, (def_report, _gs_n, _gs_hero, _gs_missing_fac), \
        (off_hit, off_same, off_miss, off_conflict, off_bad, off_stats), \
        (off_desc_hit, off_desc_same, off_desc_miss, off_desc_bad, off_desc_stats,
@@ -1968,7 +2220,8 @@ def build():
        (init_unknown, raw_init), \
        (truth_hit, kw_truth_filled, kw_truth_skipped, kw_truth_wiped,
         armour_src_pnp, armour_src_truth, hero_cost_from_truth, hero_cost_kept,
-        discarded_hasstats, truth_cards, truth_by_name, kw_order_violations)
+        discarded_hasstats, truth_cards, truth_by_name, kw_order_violations), \
+       (rarity_guard_bad, _rarity_truth_n, _rarity_truth_skip_n)
 
 
 def fix_own_armour(entry):
@@ -2022,8 +2275,9 @@ def main():
     args = ap.parse_args()
 
     (doc, skipped, total, filled, still_missing, stat_fixed, face_fixed,
-     id_orig, id_made, id_truth, orphan_face_fix, key_conflicts, goes_second, off, off_desc,
-     inv, init, truth) = build()
+     id_orig, id_made, id_truth, orphan_face_fix, orphan_stat_fix, armor_family_bad, key_conflicts,
+     goes_second, off, off_desc,
+     inv, init, truth, rarity_guard) = build()
     def_report, _gs_n, _gs_hero, _gs_missing_fac = goes_second
     off_hit, off_same, off_miss, off_conflict, off_bad, off_stats = off
     (off_desc_hit, off_desc_same, off_desc_miss, off_desc_bad, off_desc_stats,
@@ -2033,6 +2287,7 @@ def main():
     (truth_hit, kw_truth_filled, kw_truth_skipped, kw_truth_wiped, armour_src_pnp, armour_src_truth,
      hero_cost_from_truth, hero_cost_kept, discarded_hasstats, truth_rows, truth_by_name,
      kw_order_violations) = truth
+    rarity_guard_bad, _rarity_truth_n, _rarity_truth_skip_n = rarity_guard
 
     by_type = {}
     for c in doc["cards"]:
@@ -2069,10 +2324,28 @@ def main():
         print(f"            · {nm}: " + "、".join(f"{k}={v}" for k, v in fx.items()))
 
     # 卡面逐张核对（2026-09-13）—— 字段 / 关键词两列，依据是 1118 张卡图的独立抄录
+    # 🔴 **2026-10-15（`A2034`）：本行的【文案】改过，`n_sub` / `n_kw` 两个表达式一个字都没动。**
+    #    为什么要改：这两列的**读数口径本来就不一样**，而原句把两列一起写成「源：卡图逐张抄录」，
+    #    会把 `关键词` 那一列读成「转录改了几处」——
+    #      · `字段`（= `subtype`）= 第 ③ 层（`cardface_fixes`）**盖掉 ② OCR** 的处数。
+    #        ⚠️ `subtype` 那一列第 ① 层（真值 `CardTraits`）**不参与**（`merge_truth_traits` 只动
+    #        `keywords`）⇒ 这一列**就是**「转录改了几处」，口径没变。
+    #      · `关键词` = 第 ③ 层与「**① 真值铺底之后的** ② OCR」**不一致的卡数** ——
+    #        `build()` 里 `entry["keywords"]` 在进第 ③ 层之前**已经是** `_kw_filled`
+    #        （见那处的 `"keywords": _kw_filled`，以及上面那段 `A1776` 权威序注释）⇒
+    #        「第 ① 层只补空补进去的那些 trait」**也会被算成一处修正**
+    #        ⇒ 它 **≠「转录改了几处」**，会随第 ① 层覆盖率一起变大。
+    #        （2026-10-15 现读：第 ① 层命中 124 张 / 追加 139 个 trait ⇒ 本列 221 处。）
+    #    **语义本身没变**（还是「权威序第 ③ 层换掉了整列」）—— 变的只是这行字**不许再被读成转录数**。
+    #    出处：`资料/普查产出_第三十一会话/X_卡牌P2.md:259-261`（§六·7）· `A2034`。
     n_sub = sum(1 for x in face_fixed if x[1] == "subtype")
     n_kw  = sum(1 for x in face_fixed if x[1] == "keywords")
-    print(f"\n卡面核对修正 字段 {n_sub} 处 · 关键词 {n_kw} 处"
-          f"（源：卡图逐张抄录 —— 见 `CARD_FACE_FIXES_SRC`）")
+    print(f"\n卡面核对修正 字段 {n_sub} 处（= 第③层盖掉②OCR 的处数）"
+          f" · 关键词 {n_kw} 处")
+    print("            ⚠️ 两列**读数口径不同**：`字段` = 转录改了几处；"
+          "`关键词` = 第③层与「**① 真值铺底后的**② OCR」**不一致的卡数** ——"
+          " ⛔ **不等于「转录改了几处」**（第①层只补空补进去的也算在里面）"
+          "。源：卡图逐张抄录 —— 见 `CARD_FACE_FIXES_SRC`")
     for nm, col, old, new in face_fixed[:6]:
         print(f"            · {nm} [{col}]: {old or '(空)'} → {new}")
     if len(face_fixed) > 6:
@@ -2087,6 +2360,59 @@ def main():
               "修正表的键必须写成**改名后**的卡名（`load_cardface_fixes` 按 `name` 查）。")
     else:
         print("\n卡面修正表：所有键都匹配上了 ✅")
+
+    # 🔴 **`STAT_FIXES` 的孤立键**（2026-10-15 加）—— 与上面那条「卡面修正表里有 N 个键
+    #    **没匹配到任何卡**」**同一个形状、同一套口径**（那条管 `cardface_fixes`，这条管本表）。
+    #    为什么必须有：`STAT_FIXES` 也是**按卡名做键**的，且查的是**改名前的名字**
+    #    （`build()` 里 `STAT_FIXES.get(name_before_rename)`）⇒ 卡名一改，旧键**静默失配**：
+    #    那条数值修正再也不会生效、**零提示**，在卡表里「看起来就像这张卡本来就是这个数」。
+    #    🔴 **实测代价**（2026-10-15 现核、当天已删）：`"Simulacrum Imperialis": {"ranged": 4}` —
+    #    源表已改叫 `Simulacrum Celestian` ⇒ 这条修正一次都没生效过。
+    #    ⚠️ **口径与 `orphan_face_fix` 一致：只出声、不进 `_bad`**（那条也不改退出码）——
+    #       ⛔ 所以它**不会**让生成器拒绝落盘；要「红到不落盘」得把 `orphan_stat_fix` 加进 `_bad`，
+    #       那是改行为、**不由本笔裁**。
+    if orphan_stat_fix:
+        print(f"\n🔴 数值修正表里有 {len(orphan_stat_fix)} 个键**没匹配到任何卡**：")
+        for _k in orphan_stat_fix:
+            print(f"            · {_k}")
+        print("            ⇒ 这几条修正**这次一条都没生效**（卡还在的话，数值退回源表的 OCR 值）。"
+              "多半是卡改名了 —— `STAT_FIXES` 的键必须写成**改名前的卡名**"
+              "（`build()` 里 `STAT_FIXES.get(name_before_rename)`）。")
+    else:
+        print(f"\n数值修正表：所有 {len(STAT_FIXES)} 个键都匹配上了 ✅")
+
+    # 🔴 **`armor` 一族守卫**（`A2043`，见 `build()` 里那段）—— 与上面两条「孤立键」**同一族**
+    #    （都是「表里写着的东西，卡表/源表里其实没生效」），🔴 **但这一条进 `_bad`：
+    #    不符就 rc=1、一个字节都不写**（理由见 `OCR_ARMOR_FAMILY` 那段：失效是静默的数值错）。
+    if armor_family_bad:
+        print(f"\n🔴 `card_stats.json` 的 `armor` 一族有 {len(armor_family_bad)} 处**不符预期**"
+              f"（期望正好是 `OCR_ARMOR_FAMILY` 那 {len(OCR_ARMOR_FAMILY)} 张）：")
+        for _k in armor_family_bad:
+            print(f"            · {_k}")
+        print("            ⇒ `armor` 列**只有这几行**有值，而且那些值**全是被 OCR 读错的紫圈值**。"
+              "「`ranged_attack=null` 且 `armor≠null`」是 `STAT_FIXES` 那几条的锚点判据 ——"
+              "它一失效，那几张卡的 `ranged` 会**静默变 0**。见 `OCR_ARMOR_FAMILY` 那段注释。")
+    else:
+        print(f"\n`armor` 一族：源表里 `armor` 有值的 {len(OCR_ARMOR_FAMILY)} 行与预期一致 ✅")
+
+    # 🔴 **稀有度守卫**（`A2044`，见 `build()` 末尾那两条谓词）—— **两条、都进 `_bad`**：
+    #    ① 「`rarity` 空串、但别名还能在宝石表查到」= 改名导致的**静默丢失**（`SOR24` 那次就是这个）；
+    #    ② 「与游戏侧真值 `cardRarity` 不一致」= 拿到的是**错**的档位（改名后落回源表那个旧值）。
+    #    ⚠️ 这一条**必须红到不落盘** —— 它治的正是「变了、却没有任何东西出声」（`SOR24` 那天）。
+    if rarity_guard_bad:
+        print(f"\n🔴 稀有度这一层有 {len(rarity_guard_bad)} 处**对不上**：")
+        for _k in rarity_guard_bad:
+            print(f"            · {_k}")
+        print("            ⇒ 稀有度是**按卡名 join** 出来的（宝石表 + `RARITY_UNLISTED` /"
+              " `RARITY_BY_FACTION`），卡名一改就**静默失配**。")
+        print("            ⇒ 修法（①）：在 `RARITY_BY_FACTION` 里补一条 **(阵营, 现名) → 值** 的特判，"
+              "值照抄宝石表那一行 —— 写法见那张表末尾 2026-10-15 那条（`SOR24` 就是这么修的）。")
+        print("            ⇒ 修法（②）：两边**必有一边过时**，别猜 —— 先核原版卡 SO 快照那一行，"
+              "再决定改卡池还是记一条例外。")
+    else:
+        print(f"\n稀有度这一层：①别名漏 **0** 张 ✅ · ②与游戏侧真值一致 ✅"
+              f"（比过 {_rarity_truth_n} 张；另有 {_rarity_truth_skip_n} 张快照 `cardRarity` 是 `0`/缺字段，"
+              "按「无值」跳过 —— 见 `build()` 里那段）")
 
     # 🔴 **同卡两键值不一致**（`A1620`，2026-10-12）—— 与上面那条「孤立键」同一族：都是
     #    「**表里写着的修正，卡表里其实没生效**」。区别只在失效方式：
@@ -2179,17 +2505,17 @@ def main():
         print("\n官方中文名   ⚠️ 没读到官方表 ⇒ 卡名仍是我们自译（见 `OFFICIAL_LOC_SRC`）")
 
     # 🆕 2026-10-15（P3 相 · `A1763` 数据层）：**官方中文效果文字**逐档如实报（与上面那一段同形）。
-    #    ⛔ 不许把「官方表里没有这张卡 / 官方值被截断」写成「换过了」—— 那 122 + 181 张仍是我们自译，
+    #    ⛔ 不许把「官方表里没有这张卡 / 原表里 en == zh」写成「换过了」—— 那 122 + 181 张仍是我们自译，
     #    **要看得见**（铁律：不许静默失败）。
     if off_desc_stats:
         _dh = off_desc_hit
         print(f"\n官方中文效果 `Card_Description/*` {off_desc_stats['terms']} 条"
-              f"（可用 {off_desc_stats['ok']} · 值被截断丢弃 {off_desc_stats['bad']} · GUID 键 {off_desc_stats['guid']}）"
+              f"（可用 {off_desc_stats['ok']} · 不可用丢弃 {off_desc_stats['bad']} · `_new` 新代生效 {off_desc_stats.get('superseded', 0)} · GUID 键 {off_desc_stats['guid']}）"
               f" → 命中 {len(off_desc_hit) + len(off_desc_same)}/{doc['count']} 张"
               f"（直查我们的 id {sum(1 for x in _dh if x[-1] == 'id')}"
               f" · 走官方名键 {sum(1 for x in _dh if x[-1] == '官方名键')}）")
         print(f"            与自译**逐字相同**（不必动）{len(off_desc_same)} 张 · "
-              f"**换掉** {len(off_desc_hit)} 张 · 官方表里查不到 / 值被截断 ⇒ **保持自译** {len(off_desc_miss)} 张")
+              f"**换掉** {len(off_desc_hit)} 张 · 官方表里查不到 / 原表里 en == zh ⇒ **保持自译** {len(off_desc_miss)} 张")
         for cid, nm, old, new, how in off_desc_hit[:8]:
             print(f"            · {cid:<26} {nm:<30} 「{old or '(空)'}」→「{new}」  [{how}]")
         if len(off_desc_hit) > 8:
@@ -2199,7 +2525,7 @@ def main():
             for cid, nm, z in off_desc_miss:
                 m = re.match(r"^([A-Za-z]+?)(?:_|[0-9]|$)", cid)
                 _mf2[m.group(1) if m else cid] = _mf2.get(m.group(1) if m else cid, 0) + 1
-            print(f"  ⚠️ 这 {len(off_desc_miss)} 张的 `descZh` 仍是**我们自译**（官方快照比现池旧 / 值被截断）：")
+            print(f"  ⚠️ 这 {len(off_desc_miss)} 张的 `descZh` 仍是**我们自译**（官方快照比现池旧 / 原表里 en == zh）：")
             print("            " + " · ".join(f"{k} {v}" for k, v in sorted(_mf2.items(), key=lambda x: -x[1])))
             for cid, nm, z in off_desc_miss[:6]:
                 print(f"            · {cid:<26} {nm:<30} 自译「{z or '(空)'}」")
@@ -2427,7 +2753,8 @@ def main():
     # 🔴 **退出码先算、再决定落不落盘**（与 `工具/gen_icon_plan.py` 的 `A1626` 同一条口径）——
     #    「非 0」必须等于「没写文件」。`bare_ambiguous` 是**数据侧的错**，不是提示：
     #    这时写出去的卡表里有一张卡带着**别人那张卡的效果**，宁可让它保持旧值、由人来判。
-    _bad = bool(bare_ambiguous) or bool(kw_order_violations) or bool(desc_zh_order_violations)
+    _bad = bool(bare_ambiguous) or bool(kw_order_violations) or bool(desc_zh_order_violations) \
+        or bool(armor_family_bad) or bool(rarity_guard_bad)
 
     if args.check:
         if os.path.exists(DST):
@@ -2448,6 +2775,11 @@ def main():
         if desc_zh_order_violations:
             _why.append(f"「`descZh` 层序断言 {len(desc_zh_order_violations)} 处违例"
                         "（人工值被官方层盖掉）」")
+        if armor_family_bad:
+            _why.append(f"「`card_stats.json` 的 `armor` 一族 {len(armor_family_bad)} 处不符预期」")
+        if rarity_guard_bad:
+            _why.append(f"「稀有度这一层 {len(rarity_guard_bad)} 处对不上"
+                        "（别名能查到却落成空串 / 与游戏侧真值不一致）」")
         print(f"\n🔴 退出码 1、**一个字节都不写**（{' ＋ '.join(_why)} 没解决之前"
               "不落盘 —— 见 `A1626` 那条口径）")
         return 1

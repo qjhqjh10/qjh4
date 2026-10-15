@@ -2680,17 +2680,36 @@ public static class DeckScene
                 //       ⇒ 父链必定活着，不需要退到 `activeInHierarchy`。
                 //        （本文件 `FilterTitleLabel` 走的是自己的 `FindDeep` = `GetComponentsInChildren(true)`
                 //          ⇒ 关掉的 `flt_title_*` 仍取得到，`tOff != null` 这半个条件是成立的。）
-                //    ⚠️ 探针**只能用 `CostBuckets[0]`（`$cost:1`）**：滚动位 0 时第 2 排（档 5~8）**整块在带口外**
-                //       ⇒ 那些格子本来就 `SetActive(false)`（`ClipCellToBand`），拿它们断这条是假绿。
+                //    ⚠️ 探针**只能用 `CostBuckets[0]`（`$cost:1`）**，而且要**先把它滚进带口**
+                //       （见下面 `UiScrollFilters(-1e6f)` + `UiScrollFilters(220f)` 那道算式）：
+                //       滚动位 0 时 **Cost 整行**（两排 8 档）都在带口 `[156, 1080.1]` **之下**
+                //       （`$cost:1` 的绝对 y = `FltY 156 + CostTop 1009.02 + CostContentTop 65` = **1230.02**）
+                //       ⇒ 那些格子本来就 `SetActive(false)`（`ClipCellToBand`），拿它们断这条是**假红**。
+                //       🔴 **2026-10-15 就地订正（铁律 5）**：原来写「滚动位 0 时第 2 排（档 5~8）整块在带口外」
+                //          —— 实测是**整行**都在带口外（同文件 `:2962` 那条早就这么写了，两处曾互相打架）。
                 {
                     string wlK = _rt.State.Deck.WarlordId;
                     bool wasOpen = _rt.FiltersOpen;
                     CheckTrue(!string.IsNullOrEmpty(wlK),
                               "（前提）此刻卡组**有督军**（下面两态都建立在「有督军」这个基线上）");
                     if (!wasOpen) _rt.UiToggleFilters();
+                    // 🔴 **探针的滚动位（2026-10-15 · 诊断 `DK-1`/`DK-2`；`-1e6` 那句原来直接停在 0）**：
+                    //    `UiScrollFilters(dy)` 是**增量**，所以先 `-1e6f` 归 0、再 `+220f` 到 220。
+                    //    这个 220 是**算出来的**（期望值全是原版字面量，⛔ 不是试出来的）：
+                    //      · `$cost:1` 滚到 0 时绝对 y = `FltY 156 + CostTop 1009.02 + CostContentTop 65`
+                    //        = **1230.02**，格 65 高 ⇒ `[1230.02, 1295.02]`；减 220 ⇒ `[1010.02, 1075.02]`
+                    //        —— **整格落进带口 [156, 1080.1]**（下沿还剩 5.08px）；
+                    //      · `$fac:<第一阵营>`（Army 首格）滚到 0 时绝对 y =
+                    //        `156 + RowArmy 179.02 + ArmyContentTop 50` = **385.02** ⇒ `[385.02, 485.02]`；
+                    //        减 220 ⇒ `[165.02, 265.02]`，**也在带口内**（② 那条反向控制要拿它当对照）。
+                    //    ⛔ **别改成「滚到底」（`1e6f` ⇒ `464.92`）**：那样 Army 首格变成 `[-79.9, 20.1]`
+                    //        = 整块被推出带口 ⇒ `SetActive(false)` ⇒ ② 那条「Army 那一族照旧活着」**假红**。
+                    //    ⚠️ 这两个数都依赖 `Factions()` = **13**（Army 行 550 高；见 `ContentHFor` 那段）；
+                    //       阵营数一变，这儿要跟着重算。
                     _rt.UiScrollFilters(-1e6f);
+                    _rt.UiScrollFilters(220f);
                     CheckTrue(_rt.FiltersOpen, "（前提）筛选栏打开（关着时 `_fltCells` 是空的，读不到格子）");
-                    string ck = "$cost:" + FilterPanelModel.CostBuckets[0].Lo;      // `$cost:1` —— 带口内那一排
+                    string ck = "$cost:" + FilterPanelModel.CostBuckets[0].Lo;      // `$cost:1` —— 由上面那一步推进带口
                     // ---- ① 有督军 ⇒ 显示（基线与「探针确实在带口内」一并钉住）----
                     var qOn = _rt.UiFilterCellQuad(ck);
                     var tOn = FilterTitleLabel("Energy Cost");
@@ -2722,6 +2741,10 @@ public static class DeckScene
                     CheckTrue(qBack != null && qBack.gameObject.activeSelf,
                               "★ N14 ③：督军放回去 ⇒ 费用那一行**显示回来**");
                     Check(_rt.State.Deck.WarlordId, wlK, "（把督军原样放回 —— 后面的断言仍按原状态跑）");
+                    // 🔴 **滚动位一并还原**（2026-10-15 · 诊断 `DK-1`/`DK-2`）：本段为了把 `$cost:1`
+                    //    推进带口滚到了 220，而**下面那些节都在滚动位 0 上读抽屉**（`:2962` 那条更直接
+                    //    写着「滚到顶时」）⇒ 不还回去就会把红挪到别人身上（本节的收尾纪律同上一条）。
+                    _rt.UiScrollFilters(-1e6f);
                     if (!wasOpen) _rt.UiToggleFilters();     // 收回去：本节不许改后面用例的初态
                 }
             }

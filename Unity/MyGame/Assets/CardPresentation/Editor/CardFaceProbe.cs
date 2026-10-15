@@ -97,7 +97,20 @@ public static class CardFaceProbe
         //    原版卡面确实有这种卡 —— 现扫全池 1126 张只有 `GOF12 Hornhelmz Boy` 是这样
         //    （`desc`/`descZh` 双空、`keywords:["Tide 2"]`）。PnP 成品卡 `Orks/3部队/Warpforge_12_Hornhelmz-Boy.png`
         //    的效果区**只有 `Tide 2` + 图标** ⇒ 这张就是「关键词段有没有画出来」的尺子（与 `Howling Banshee` 同一类）。
-        "Hornhelmz Boy",         // `GOF12` —— 修前卡面效果区**整片空白**；修后应画出 `Tide 2`
+        "Hornhelmz Boy",         // `GOF12`
+        // ── 🆕 2026-10-15（第三十二会话 · 铁律 10 第 6 条）：**官方记号那一代进卡面后的第一批并排比** ──
+        //    来由：`Z_卡牌P3` 把 656 张官方 `descZh` 真灌进了池、`AC` 拆了记号闸 ⇒
+        //    `[[…]]` / `((…))` / `$$…$$` **第一次真进卡面**，而整链**至今没有端到端证据**
+        //    （`RewriteMarks` 四支只在 python 里演算过，没在真数据上出过画面）。这几张就是尺子：
+        //      · `TAU65` 用了 `((Heal_1))` —— **现池 0 处置信度**那个宏，最该看的一张
+        //      · `SOR30` / `SOR4` / `GOF61` 各走一支（`Heal_x_to_a_friendly_unit` / `Faith_cost_x` / `$$GUID$$`）
+        //      · `ASH34` 是**两处 `<br>`** 的那张（顺带判那条挂起的成见：`<br>` 会不会被原样印出来）
+        //    ⚠️ PnP 成品卡图在 `d:/2/Warpforge部队卡片/<阵营>/…`（900×1200）—— 只当**内容**的尺子。
+        "War Shaper",            // `TAU65` —— `[[strike]]：((Heal_1))。[[talent]]：$$b3735ef3…$$`
+        "Celestian Sacresant",   // `SOR30` —— `[[vanguard]]。[[armour]] 1。[[pray]]：((Heal_x_to_a_friendly_unit,3))`
+        "Sister Novitiate",      // `SOR4`  —— `((Faith_cost_x,3)) 获得 +1 生命值。[[pray]]：((Deploy_x,$$SOR4$$))`
+        "Avatar of Khaine",      // `ASH34` —— `护甲 2。<br>②：…<br>天赋：…`（两处 `<br>`）
+        "Rukkatrukk Squigbuggy", // `GOF61` —— `[[armour]] 1。[[unstable]]。[[strike]]：((Deploy_x,$$GOF3$$))` —— 修前卡面效果区**整片空白**；修后应画出 `Tide 2`
     };
 
     // ==================================================================
@@ -436,6 +449,29 @@ public static class CardFaceProbe
         Debug.Log($"[cardface-chk] === 合计：{_pass} 通过 / {_fail} 失败 ===");
     }
 
+    /// <summary>把一张贴图编成 PNG。**原件不可读时**（立绘一律如此，见 <see cref="ArtBaker"/> 的 `isFrame` 那行）
+    /// 走一次 `Graphics.Blit` 拷进可读副本，并 `LogWarning` 说明「这份是副本、色值仅供参考」。
+    /// <para>为什么要它：原来直接 `EncodeToPNG()` ⇒ **抛异常打断整个探针**，症状是「只有前 8 张有图」。</para></summary>
+    static byte[] EncodePng(Texture2D tex)
+    {
+        if (tex.isReadable) return tex.EncodeToPNG();
+        var rt = RenderTexture.GetTemporary(tex.width, tex.height, 0,
+                    RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default);
+        var prev = RenderTexture.active;
+        Graphics.Blit(tex, rt);
+        RenderTexture.active = rt;
+        var copy = new Texture2D(tex.width, tex.height, TextureFormat.RGBA32, false, false);
+        copy.ReadPixels(new Rect(0f, 0f, tex.width, tex.height), 0, 0);
+        copy.Apply();
+        RenderTexture.active = prev;
+        RenderTexture.ReleaseTemporary(rt);
+        byte[] bytes = copy.EncodeToPNG();
+        Object.DestroyImmediate(copy);
+        Debug.LogWarning($"[cardface] 贴图 `{tex.name}` **不可读**（立绘默认不开 Read/Write）"
+                       + "⇒ `_tex.png` 是 `Graphics.Blit` 的**副本**，色值仅供参考，⛔ 别拿它逐像素断原件");
+        return bytes;
+    }
+
     public static void Run()
     {
         CheckLayers();      // 🆕 2026-10-12：跑探针顺带把层级三项的断言跑掉（本入口不在 12 条自检里）
@@ -455,8 +491,15 @@ public static class CardFaceProbe
                 var tex = CardArt.Portrait(BattleDriver.ArtKey(def));   // ⚠️ 立绘按 id 取名（自造的 26 张按卡名）
                 if (tex != null)
                 {
-                    File.WriteAllBytes(Path.Combine(OutDir, SafeName(name) + "_tex.png"), tex.EncodeToPNG());
-                    Debug.Log($"[cardface] 贴图 {name}: {tex.width}×{tex.height} format={tex.format} mip={tex.mipmapCount}");
+                    // 🔴 **2026-10-15（第三十二会话）就地修**：原来直接 `tex.EncodeToPNG()`。
+                    //   而立绘**一律不可读** —— `ArtBaker.ApplyImportSettings:155` 是 `ti.isReadable = isFrame`，
+                    //   只给**卡框**开。于是这句对**任何一张立绘**都抛 `ArgumentException: Texture ... is not readable`，
+                    //   **把整个探针打断在第 8 张**（实测：本会话那 5 张新加的卡一张都没渲出来）。
+                    //   ⇒ 不可读时走一次 `Graphics.Blit` 拷进可读副本；⚠️ 那一步**过一遍渲染管线、色值可能与原件有差**，
+                    //   所以**出声写清**（⛔ 不许静默把副本当原件用 —— 那是本工程的「不许静默失败」红线）。
+                    File.WriteAllBytes(Path.Combine(OutDir, SafeName(name) + "_tex.png"), EncodePng(tex));
+                    Debug.Log($"[cardface] 贴图 {name}: {tex.width}×{tex.height} format={tex.format} "
+                            + $"mip={tex.mipmapCount} 可读={tex.isReadable}");
                 }
             }
             var root = new GameObject("probe_" + name);
