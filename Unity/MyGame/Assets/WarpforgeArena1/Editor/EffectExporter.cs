@@ -748,6 +748,15 @@ public static class EffectExporter
         //   `--prefabs` 重跑过、UnityPy 回读确认在包里）。
         //   判据 → `资料/普查产出_1012/H3_领取粒子与Blink公共件.md`。
         "RewardAppearParticle",
+        // 🆕 **2026-10-16（`A2080`）**：暗黑天使 **`DA48`** 那张卡的 `ability` 档在
+        //   `Resources/card_vfx_by_card.json` 里指的就是这一件（**生成器自己标了 `"inLibrary": false`**，
+        //   `conf = authoritative`）⇒ `VfxMap.Resolve(Ability, DarkAngels, DA48)` 命中它、
+        //   `WarpforgeEffectPlayer` 打「效果库里没有」（= 那一拍**没有画面**）。
+        //   原版本地有这件（`bundle_battleprefabs_vfxandmisc_assets_all/GameObject/` 里）；
+        //   它被 `Run()` 的「效果根」过滤器挡掉的理由**与 `Environmental Condition Particles Orbital`（`A211`）同款**
+        //   （子树里 0 个 `ParticleSystemRenderer`）—— 那条先例的注释见上面。
+        //   判据 → `资料/普查产出_1016战斗/A2080_特效库缺名普查.md` §二。
+        "Teleport Trigger Board Effect Only",
     };
 
     /// <summary>

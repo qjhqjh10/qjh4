@@ -488,6 +488,8 @@ for (ps in particleSystemsShapeAngle) {                      // [SerializeField]
   `WFModuleScaleByTarget.MinionLines`（一个 `out` 委托），在 `BattleDriver` 里用
   `playerBoard` / `enemyBoard` 两个**现成引用**接上（`CLAUDE.md` 三：**有引用就用引用**）。
   实测两行中心线相距 `0.5685 − 0.3444 = 0.2241` 归一化 × `LayoutSpace.DesignHeight`(10) = **2.241 世界单位**
+  🔴 **2026-10-16 订正（铁律 5）**：这两个数已换成 **0.6063 / 0.4110** ⇒ 间距 = `0.1953 × 10` = **1.953 世界单位**
+  （判据 → `任务线/战斗线/任务/T02_棋盘几何与落点行.md` §〇）。
   （⚠️ 原来后半句「与原版屏上那 **242 px** 是同一个距离」**2026-09-20 已作废** —— 战场已是真 3D）。
   ⚠️ 原版那 **2.5 的 scale**、以及其余 5 个碰撞体（要接 `Collisions` 才需要）**仍未建**。
 - **其余 5 个**（要接 `Collisions` 才需要）：按「到玩家兵线的**格距**」换算

@@ -63,6 +63,23 @@ namespace CardPresentation
         /// <summary>那一行的文字（原版 `Label`，TMP `m_text = "Auto zoom"`）。</summary>
         Label _azLabel;
 
+        // ---- 🆕 2026-10-16（`T01`）：`ChatToggle`「静音对手」那一行（原版 `Volume Sliders/ChatToggle`）----
+        /// <summary>OFF 那半的底图（原版 `Background`，图 `40K_toggle_off`）—— ⚠️ **原版这半恒 active**
+        /// （`SetActive` 只打 ON 那半，见 `RefreshMuteChat` 那段注释）。</summary>
+        ImageQuad _muteOffBg;
+        /// <summary>ON 那半的底图（原版 `Background On`，图 `40K_toggle_on`）—— 原版就是**整块盖上去**的
+        /// （两块同 rect、ON 那块不透明 ⇒ 盖住 OFF 那半的底图 + 勾 + `OFF` 字）。</summary>
+        ImageQuad _muteOnBg;
+        ImageQuad _muteOffChk, _muteOnChk;
+        /// <summary>左边那句说明（原版 `Label`，TMP `"Mute opponent"`，词条 `MuteLabelTermKey`）。</summary>
+        Label _muteLabel;
+        /// <summary>`OFF` / `ON` 两颗字（原版 `OffText` / `OnText`，各自挂在**自己那半的勾**下面）。</summary>
+        Label _muteOffText, _muteOnText;
+        /// <summary>开关当前是不是 ON（原版 `BattleSettingsWindow` 上那颗 `EverguildToggle.isOn`）。
+        /// 🔴 **本局内存**（原版 `VoiceLinesController.chatMuted` 是 `[SerializeField]` 的一个 bool、
+        /// `Initialize` 无条件写 0）—— **不是 `PlayerPrefs`、不是服务器**。</summary>
+        bool _muteChatOn;
+
         // ---- 🆕 2026-10-17：「Language Selector」那一行（原版 `LanguageSelector.languagesDropdown`）----
         /// <summary>下拉框底图（原版 `LanguagesDropdown` 那颗 `Image`，图 `40K_dropdown_field_closed`）。</summary>
         ImageQuad _langField;
@@ -307,6 +324,63 @@ namespace CardPresentation
         ///     本文件下面那段 2026-10-18 的订正 ⇒ 「只当键 + 兜底记着」是**过期描述**，
         ///     `AutoZoomLabelEn` 今天只在**英文档**（或键掉了时）兜底。</summary>
         public const string AutoZoomTermKey = "Settings/Graphics/AutoZoom";
+
+        // ---- 🆕 2026-10-16（`T01` · **`ChatToggle`「静音对手」**，原版 `BattleSettingsPanel/Volume Sliders/ChatToggle`）----
+        // 为什么补它：原版战斗内这扇窗里就有它（`T01` 的账），我们一直**没建**（`A2109`）。
+        // 🔴 **下面全是【面板内】坐标**（原点 = 面板中心、**y 向上**、px；与 `Az*` / `Lang*` 同一口径）。
+        //    出处 = 2026-10-16 亲读 `bundle_scenes_scenes_battlearena2`（⚠️ **不是 arena1** —— 那份的
+        //    2D 全树是截断版、缺的正好在 HUD，见本线 `准则与做法.md` §六·1）：
+        //      · 本行 `RectTransform_3142.json`：锚 `(0,1)`、piv `(0.5,0.5)`、`ap(350.675,−454.87)`、
+        //        `sd(701.35, 54.90)`；父 `Volume Sliders`（`RT_3516`：面板内 `(−1.998, −19.891)`、701.35×441.398）
+        //        ⇒ 本行中心 = 面板内 **(−1.998, −254.062)**、701.35 × 54.90。
+        //        ⚠️ **本文件 `:622` 那句「原版 `ChatToggle`（−174.94）」是旧的错值**（来路没查清；
+        //        `−254.06` 才是现读 —— 用 `工具/_probe_node_rect.py bundle_scenes_scenes_battlearena2 ChatToggle
+        //        BattleSettingsPanel` 复核过：它沿 `m_Father` 逐跳算到面板中心）。
+        //      · 子件（逐条 = `menu_rect.py … "ChatToggle" --depth 3` 的矩形之差，**相对本行中心**）：
+        //        `Background`（图 `40K_toggle_off`）框心 **(+190.00, 0)**、180.76×56.80；
+        //        `Background/Checkmark`（图 `Volume_button`）=(+157.14, −0.82)、57.93×46.22；
+        //        `…/OffText` `'OFF'` =(+211.32, −1.32)、49.47×49.21；
+        //        `Background On`（图 `40K_toggle_on`）**与 `Background` 同框同尺寸**；
+        //        `Background On/Checkmark` =(+224.10, −0.82)、57.93×46.22；`…/OnText` `'ON'` =(+171.02, −1.32)、48.92×49.21；
+        //        `Label 'Mute opponent'` =(−73.48, 0)、346.20×53.00。
+        //        🔴 那两块拼起来**严丝合缝**：标签右沿 `−75.478+346.20/2 = 97.622` = 开关框左沿 `188.002−90.38`。
+        const float MuteCxPx = -1.998f, MuteCyPx = -254.062f;
+        const float MuteWPx  = 701.35f, MuteHPx = 54.90f;
+        const float MuteBgOffCxPx = 190.00f, MuteBgCxPx = 190.00f;   // 两半的底图**同框**（原版两个 GO 同 rect）
+        const float MuteBgWPx = 180.76f, MuteBgHPx = 56.80f;
+        const float MuteChkOffCxPx = 157.14f, MuteChkOnCxPx = 224.10f;
+        const float MuteChkCyPx = -0.82f, MuteChkWPx = 57.93f, MuteChkHPx = 46.22f;
+        const float MuteTxtOffCxPx = 211.32f, MuteTxtOnCxPx = 171.02f, MuteTxtCyPx = -1.32f;
+        const float MuteTxtOffWPx = 49.47f, MuteTxtOnWPx = 48.92f, MuteTxtHPx = 49.21f;
+        const float MuteLabelLeftPx = -248.578f, MuteLabelCyPx = -254.062f;
+        const float MuteLabelWPx = 346.20f, MuteLabelHPx = 53.00f;
+        /// <summary>`'Mute opponent'` 那颗 TMP 的 `m_fontSize` = 42 · `autoSizing = 1` · `[18, 42]` · `base 36`
+        /// （`…/MonoBehaviour_4200.json` 逐字段实读）· 对齐 `Left/Middle` · 折行 = 1 · 白。</summary>
+        const float MuteFontPx = 42f, MuteAutoMin = 18f, MuteAutoBase = 36f;
+        /// <summary>`'ON'` / `'OFF'` 那两颗：`m_fontSize = 30` · `autoSizing = 1` · `[1, 30]` ·
+        /// 对齐 `Center/Middle`（`MonoBehaviour_4156` / `_3939` 实读）。⚠️ 原版 `m_fontSizeBase` 也是 36
+        /// （三颗同一份 prefab 模板），但**上限只有 30** ⇒ 实绘 ≤ 30。</summary>
+        const float MuteOnOffFontPx = 30f;
+        /// <summary>这三颗的**原版词条键**（各自的 `Localize.mTerm` 原文，逐颗现读）：
+        /// `Label`=`…/MonoBehaviour_5295.json` · `OnText`=`…_5163` · `OffText`=`…_5396`。
+        /// ⚠️ 两列值都是**官方值**（`官方本地化_en+zh-CN.json` 逐字命中），见 `Core/Loc.cs` 那三条登记。</summary>
+        public const string MuteLabelTermKey = "MainMenu/Settings/ButtonLabel/MuteChatLabel";
+        public const string MuteOnTermKey    = "MainMenu/Settings/ButtonLabel/MuteChat_On";
+        public const string MuteOffTermKey   = "MainMenu/Settings/ButtonLabel/MuteChat_Off";
+        /// <summary>这一行的**命中区**（面板内 px，y 向上；每项 = 中心 x · 中心 y · 宽 · 高）。
+        /// = 原版那一行里**两个可被射线命中**的矩形（同一套口径 = `AzHitPx` 那条）：① 开关那半（`Image`,
+        /// `m_RaycastTarget = 1`）② `'Mute opponent'` 那颗 TMP（`m_RaycastTarget = 1`）——
+        /// 原版 `EverguildToggle`/`Toggle` 挂在**行根**上，uGUI 的 `ExecuteEvents.ExecuteHierarchy`
+        /// 会从被点中的 GO 往上冒泡到它 ⇒ **点这两块都算点那颗开关**。
+        /// 🔴 **两块严丝合缝、没有缝**（同上那两行数）⇒ 等价于整行，但**照原版按两块写**
+        /// （将来若查出原版某一块 `m_RaycastTarget=0`，改一处即可）。
+        /// ⚠️ **`m_RaycastPadding` 没查**（原版 `Toggle`/TMP 那两格是几 —— 没读）。
+        ///    本工程的口径是「可点区 = 可射线件的**并集** + 各自 padding」（`CLAUDE.md` 那条）——
+        ///    这里**先用并集**（= 与 `HitAutoZoom` 同一条口径），⛔ 不许凭印象给它外扩几像素。</summary>
+        static readonly float[][] MuteHitPx = {
+            new[] { MuteCxPx + MuteBgCxPx, MuteCyPx, MuteBgWPx, MuteBgHPx },
+            new[] { MuteCxPx + (-73.48f), MuteLabelCyPx, MuteLabelWPx, MuteLabelHPx },
+        };
 
         // ---- 🆕 2026-10-17：「Language Selector」那一行（原版 `BattleSettingsPanel/Language Selector`，
         //      组件 `LanguageSelector`，字段 `languagesDropdown`）----
@@ -619,8 +693,15 @@ namespace CardPresentation
             float diffH = resignTex != null ? 249f * resignTex.height / resignTex.width : 100f;
             // ⚠️ **2026-09-19 从 y=+120 挪到 y=−220**：原来那格正好压在**音乐滑块**（y=120.07）上。
             //    原版没有这一行（那个旋钮在 `AIBotsConfig` 里、玩家改不了），所以**让位的是我们**。
-            //    −220 落在原版 `ChatToggle`（−174.94，我们没做）与投降钮（−310.5）之间，不撞任何原版元素。
-            float diffY = U(-220f);
+            // 🔴 **2026-10-16（`T01`）再挪一次：−220 → −155。** 原来那句「−220 落在原版 `ChatToggle`
+            //    （−174.94）与投降钮（−310.5）之间，不撞任何原版元素」**两处都不成立**：
+            //    ① 原版 `ChatToggle` 的中心现读 = **−254.062**（不是 −174.94，那是旧错值）；
+            //    ② 本行框高 ≈ 54.5 ⇒ y=−220 那一档占 **−247.3…−192.7**，与 `ChatToggle` 的
+            //       **−281.5…−226.6** **重叠** ⇒ 我们有义务让开（本行是我们加的，原版没有它）。
+            //    新档 **−155**：它在**第三根滑块标签框底边**（−55.13 − 55/2 = **−82.63**）与
+            //    `ChatToggle` 顶边（**−226.6**）之间那段空带里居中（空带中心 = −154.6）。
+            //    ⚠️ 这一行**仍然是我们加的**，⛔ 别拿它当原版件去对账。
+            float diffY = U(-155f);
             _diffLabel = Label.Create(transform, "AI Difficulty", new Vector3(-U(190f), diffY, Z - 0.02f),
                                       4, new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f), "settings_diff_label");
             _diffBtn = ImageQuad.Create(transform, resignTex,
@@ -681,6 +762,11 @@ namespace CardPresentation
             _azLabel = Label.Create(transform, azText, new Vector3(U(AzLabelLeftPx), U(AzLabelCyPx), Z - 0.02f),
                                     4, Color.white, new Vector2(0f, 0.5f), "settings_autozoom_label");
             ApplyLangFont(_azLabel, azText, AzFontPx);
+
+            // ---- 🆕 2026-10-16（`T01`）：`ChatToggle`「静音对手」那一行 ----
+            // 位置 = `Volume Sliders` 下面那一行（原版父链就是这么挂的：`BattleSettingsPanel/
+            // Volume Sliders/ChatToggle`），几何/字段判据全在上面那组 `Mute*` 常量的注释里。
+            BuildMuteChatRow(Z);
 
             // ---- 三根音量滑块（原版 `BattleSettingsWindow` 的 music / soundFX / voiceOver）----
             // 每一根都按「标签在上、滑块在下」；数值一路走到 `AudioMixer.SetFloat("Volume"+组名, dB)`
@@ -856,6 +942,25 @@ namespace CardPresentation
                 string az = Loc.T(AutoZoomTermKey);
                 _azLabel.SetText(az);
                 ApplyLangFont(_azLabel, az, AzFontPx);
+            }
+            // 🆕 2026-10-16（T01）：静音那一行的三颗字（说明 + ON/OFF）同一条口径 —— 在同一扇窗里换语言时当场重设。
+            if (_muteLabel != null)
+            {
+                string ml = Loc.T(MuteLabelTermKey);
+                _muteLabel.SetText(ml);
+                ApplyLangFont(_muteLabel, ml, MuteFontPx);
+            }
+            if (_muteOffText != null)
+            {
+                string ot = Loc.T(MuteOffTermKey);
+                _muteOffText.SetText(ot);
+                ApplyLangFont(_muteOffText, ot, MuteOnOffFontPx);
+            }
+            if (_muteOnText != null)
+            {
+                string nt = Loc.T(MuteOnTermKey);
+                _muteOnText.SetText(nt);
+                ApplyLangFont(_muteOnText, nt, MuteOnOffFontPx);
             }
         }
 
@@ -1155,6 +1260,157 @@ namespace CardPresentation
             return true;
         }
 
+        // ==================================================================
+        //  🆕 2026-10-16（`T01`）：`ChatToggle`「静音对手」那一行
+        // ==================================================================
+
+        /// <summary>建那一行（几何 / 图 / 三颗字 / 词条 —— 判据全在上面那组 `Mute*` 常量）。
+        ///
+        /// <para>🔴 **为什么两半的底图都要建**（而不是「一张图 + 换 sprite」）：原版就是**两个 GO**
+        /// （`Background` / `Background On`，同 rect、同尺寸），`OnMuteChatChanged` 只对 **ON 那半**
+        /// 做 `SetActive(v)`；OFF 那半**恒 active**。ON 那块不透明、正好整块盖住 OFF 那半的
+        /// 底图 + 勾 + `OFF` 字（两块同 rect ⇒ 这就是原版「选中态」的做法）。
+        /// ⛔ 别改成「一张图换 sprite」：那会丢掉原版两个 GO 的可见性语义（自检也量不到）。</para>
+        ///
+        /// <para>⚠️ **颜色 = 白**，⛔ 别照 `offColor` 那格把它染灰：那颗 `EverguildToggle` 的
+        /// `colorTintOnValueChange = 0` ⇒ 那条 on/off 染色的路**原版恒不走**（`EverguildToggle.RefreshVisuals`
+        /// 里那段被 `+0x158` 那道闸挡着）—— 序列化里那个 `offColor (0.75,0.75,0.75,1)` 是**死值**。
+        /// （这正是本线 `准则与做法.md` §三·3「一个值 ≠ 全部情况」那一类：字段有值 ≠ 它会生效。）</para></summary>
+        void BuildMuteChatRow(float z)
+        {
+            var offTex = CardArt.Ui("40K_toggle_off");
+            var onTex  = CardArt.Ui("40K_toggle_on");
+            var chkTex = CardArt.Ui("Volume_button");
+
+            // 两块底图（原版 `Image` + `preserveAspect = 1` ⇒ 按框内接；图 301×120、框 180.76×56.80）
+            float bgH = offTex != null
+                      ? ImageQuad.FitHeight(U(MuteBgWPx), U(MuteBgHPx), offTex.width / (float)offTex.height)
+                      : U(MuteBgHPx);
+            _muteOffBg = ImageQuad.Create(transform, offTex,
+                                          new Vector3(U(MuteCxPx + MuteBgOffCxPx), U(MuteCyPx), z - 0.05f),
+                                          bgH, new Vector2(0.5f, 0.5f), "settings_mute_bg_off");
+            float bgHOn = onTex != null
+                        ? ImageQuad.FitHeight(U(MuteBgWPx), U(MuteBgHPx), onTex.width / (float)onTex.height)
+                        : U(MuteBgHPx);
+            _muteOnBg = ImageQuad.Create(transform, onTex,
+                                         new Vector3(U(MuteCxPx + MuteBgCxPx), U(MuteCyPx), z - 0.06f),
+                                         bgHOn, new Vector2(0.5f, 0.5f), "settings_mute_bg_on");
+
+            // 两颗勾（原版 `Checkmark`，图 `Volume_button` 110×110 方图 + `preserveAspect` ⇒ 取短边内接）
+            float chkH = chkTex != null
+                       ? ImageQuad.FitHeight(U(MuteChkWPx), U(MuteChkHPx), chkTex.width / (float)chkTex.height)
+                       : U(MuteChkHPx);
+            _muteOffChk = ImageQuad.Create(transform, chkTex,
+                                           new Vector3(U(MuteCxPx + MuteChkOffCxPx), U(MuteCyPx + MuteChkCyPx), z - 0.051f),
+                                           chkH, new Vector2(0.5f, 0.5f), "settings_mute_check_off");
+            _muteOnChk = ImageQuad.Create(transform, chkTex,
+                                          new Vector3(U(MuteCxPx + MuteChkOnCxPx), U(MuteCyPx + MuteChkCyPx), z - 0.061f),
+                                          chkH, new Vector2(0.5f, 0.5f), "settings_mute_check_on");
+
+            // 两颗字：原版 `OffText` / `OnText`（fs30、auto[1,30]、base 36、居中、词条见上面那两条键）
+            string offTxt = Loc.T(MuteOffTermKey), onTxt = Loc.T(MuteOnTermKey);
+            _muteOffText = Label.Create(transform, offTxt,
+                                        new Vector3(U(MuteCxPx + MuteTxtOffCxPx), U(MuteCyPx + MuteTxtCyPx), z - 0.052f),
+                                        4, Color.white, new Vector2(0.5f, 0.5f), "settings_mute_text_off");
+            ApplyLangFont(_muteOffText, offTxt, MuteOnOffFontPx);
+            if (_muteOffText != null)
+                _muteOffText.SetAutoFitBox(U(MuteTxtOffWPx), U(MuteTxtHPx), 1f, MuteOnOffFontPx, MuteAutoBase);
+            _muteOnText = Label.Create(transform, onTxt,
+                                       new Vector3(U(MuteCxPx + MuteTxtOnCxPx), U(MuteCyPx + MuteTxtCyPx), z - 0.062f),
+                                       4, Color.white, new Vector2(0.5f, 0.5f), "settings_mute_text_on");
+            ApplyLangFont(_muteOnText, onTxt, MuteOnOffFontPx);
+            if (_muteOnText != null)
+                _muteOnText.SetAutoFitBox(U(MuteTxtOnWPx), U(MuteTxtHPx), 1f, MuteOnOffFontPx, MuteAutoBase);
+
+            // 左边那句：原版 `Label`（TMP `"Mute opponent"`、fs42、auto[18,42]、base 36、Left/**Middle**、白）
+            string lab = Loc.T(MuteLabelTermKey);
+            _muteLabel = Label.Create(transform, lab,
+                                      new Vector3(U(MuteLabelLeftPx), U(MuteLabelCyPx), z - 0.05f),
+                                      4, Color.white, new Vector2(0f, 0.5f), "settings_mute_label");
+            // 字号按语种选（`ApplyLangFont` → `Label.SetScriptHeight` → `Loc.HasCjk` 那条唯一判据），
+            // ⚠️ 顺序照 `SliderLabel`：**先**定字体高度、**再** `SetAutoFitBox`（后者会重排 mesh）。
+            ApplyLangFont(_muteLabel, lab, MuteFontPx);
+            // ⚠️ 这一处**同时命中**本文件 `LabelAutoBase` 那段登记的量纲隐患（`Cap` 路下
+            //    `SetAutoFitBox` 的 `maxPx` 会比 `cur` 大 ≈1.14 倍）—— ✅ **本轮登记、不补偿**
+            //    （判据与理由在那段注释里，⛔ 别在这儿乘系数）。
+            if (_muteLabel != null)
+                _muteLabel.SetAutoFitBox(U(MuteLabelWPx), U(MuteLabelHPx), MuteAutoMin, MuteFontPx, MuteAutoBase);
+
+            RefreshMuteChat();
+        }
+
+        /// <summary>按当前状态刷**可见性**（原版 `BattleSettingsWindow.OnMuteChatChanged` 中间那一句
+        /// `muteChatToggleOn.SetActive(v)`，以及 `Open()` 里的回填）。
+        /// ⚠️ **ON 那半只看 `_muteChatOn`、OFF 那半恒显示**（原版就是这两个 GO 的默认状态）。</summary>
+        void RefreshMuteChat()
+        {
+            bool on = Visible && _muteChatOn;
+            if (_muteOnBg != null) _muteOnBg.gameObject.SetActive(on);
+            if (_muteOnChk != null) _muteOnChk.gameObject.SetActive(on);
+            if (_muteOnText != null) _muteOnText.gameObject.SetActive(on);
+        }
+
+        /// <summary>这一下点在「静音对手」那一行上吗。判据 = 上面 `MuteHitPx` 那两块**原版矩形**，
+        /// ⛔ 不是「整行框」。真实输入与自检走的是**同一条**判定（自检拿 `MuteChatWorldPos()` 喂进来）。</summary>
+        public bool HitMuteChat(Vector3 world)
+        {
+            if (!Visible) return false;
+            var l = transform.InverseTransformPoint(world);      // 面板局部（= px/108、y 向上）
+            foreach (var r in MuteHitPx)
+                if (Mathf.Abs(l.x - U(r[0])) <= U(r[2]) * 0.5f && Mathf.Abs(l.y - U(r[1])) <= U(r[3]) * 0.5f)
+                    return true;
+            return false;
+        }
+
+        /// <summary>点那颗开关（原版 `BattleSettingsWindow.OnMuteChatChanged` 整支的等价物）：
+        /// ① 翻 `isOn` ② **只 `SetActive` ON 那半** ③ 写「对手聊天静音」那一位。
+        ///
+        /// <para>🔴 **如实声明：我们这边点了没有可见效果**（除了开关自己的滑块动一下）。判据（2026-10-16 实核）：
+        /// 它那一位挡的是**一条链** —— 对手在 `ChatPopup` 选的那 6 句 → `PUNReceiveChatMessage`（`isPlayer=0`）
+        /// → 被拦 ⇒ **气泡 + 语音 + 「对手在聊天」提示三样一起没**；而 `CardPresentation/Net/*.cs`（8 个文件）
+        /// 里 `chat` **0 命中** ⇒ **我们没有那条链**。⛔ 别把敌方单位语音条绑上来（原版不受它影响 ——
+        /// 三条判据见 `资料/普查产出_1015战斗判据/T01b_三处判据缺口.md`）。将来做联机对手聊天时**必须**进这个开关。</para></summary>
+        public void ToggleMuteChatFromPanel()
+        {
+            if (!Visible) return;
+            SetMuteChat(!_muteChatOn);
+        }
+
+        /// <summary>把开关设成 `v`（原版 `Open()` 用 `chatMuted` 回填那一条）。</summary>
+        public void SetMuteChat(bool v)
+        {
+            _muteChatOn = v;
+            RefreshMuteChat();
+            Debug.Log($"[Battle] 「静音对手」→ {(v ? "ON" : "OFF")}（原版 `BattleSettingsWindow.OnMuteChatChanged`："
+                    + "`isOn = v` + `muteChatToggleOn.SetActive(v)` + `voiceLinesController.chatMuted = v`）。"
+                    + "⚠️ **我们这边没有可见效果** —— 那条链（对手聊天）我们还没做，见 `ToggleMuteChatFromPanel` 的 doc。");
+        }
+
+        /// <summary>自检用：开关当前状态（原版那颗 `Toggle.isOn`）。</summary>
+        public bool MuteChatOn { get { return _muteChatOn; } }
+        /// <summary>自检用：**ON 那半**（原版 `muteChatToggleOn` 那个 GO）现在画不画。
+        /// 🔴 这是「面板可见 + 开关为真」两个条件的合取 —— 报 `false` **不一定**是没开。</summary>
+        public bool MuteChatOnHalfVisible { get { return _muteOnBg != null && _muteOnBg.gameObject.activeSelf; } }
+        /// <summary>自检用：OFF 那半（原版 `Background`）现在画不画（面板可见时**恒真**）。</summary>
+        public bool MuteChatOffHalfVisible { get { return _muteOffBg != null && _muteOffBg.gameObject.activeSelf; } }
+        /// <summary>自检照着它点 —— 走 `HitMuteChat` **同一条**判定，⛔ 不是自己另算一个坐标。</summary>
+        public Vector3 MuteChatWorldPos()
+        {
+            return _muteOffBg != null ? _muteOffBg.transform.position : Vector3.zero;
+        }
+        /// <summary>自检量版面用：这一行的矩形（**相对面板中心**，px、y 向上）。
+        /// ⚠️ 量的是 **ON 那半的底图**（两块同 rect ⇒ 等价），走 `InverseTransformPoint`（同 `LangRowRectPx`）。</summary>
+        public bool MuteChatRectPx(out float cx, out float cy, out float w, out float h)
+        {
+            cx = cy = w = h = 0f;
+            var b = _muteOnBg != null ? _muteOnBg : _muteOffBg;
+            if (b == null) return false;
+            var local = transform.InverseTransformPoint(b.transform.position);
+            cx = local.x * 108f; cy = local.y * 108f;
+            w = b.WorldW * 108f; h = b.WorldH * 108f;
+            return true;
+        }
+
         /// <summary>滑块标签：左对齐（锚点 `(0, 0.5)` = **文字块的左缘 + 行盒心**落在给定坐标上）。
         /// 🔴 **2026-10-16（A712 阶段 2）：节点从「块底」挪到「原版那一颗的框心」，锚点 `(0,0)` → `(0,0.5)`。**
         ///    理由 = `Label.SetVAlign` 那条模型的**前提是「节点位 = 原版那一颗的**框心**」**（见它的 doc 与
@@ -1423,14 +1679,23 @@ namespace CardPresentation
             foreach (var l in new[] { _title, _resignText, _skipText, _diffLabel, _diffValue,
                                       _musicLabel, _fxLabel, _voiceLabel, _azLabel,
                                       // 🆕 2026-10-17：语言那一行的两颗字（框里的语言名 + 左边的标签）
-                                      _langCap, _langSelText })
+                                      _langCap, _langSelText,
+                                      // 🆕 2026-10-16（T01）：静音那一行的三颗字。⚠️ 那两颗
+                                      // ON/OFF 字**挂在各自那半的勾下面**（原版父链如此），但在这里
+                                      // 先随面板开关走 —— ON 那半的**额外**闸在 `RefreshMuteChat()`（本方法末尾调）。
+                                      _muteLabel, _muteOffText, _muteOnText })
                 if (l != null) l.gameObject.SetActive(on);
             if (_azBox != null) _azBox.gameObject.SetActive(on);
+            // 🆕 2026-10-16（T01）：静音那一行的三张图（OFF 那半恒显示、ON 那半看开关 —— 见 `RefreshMuteChat`）
+            if (_muteOffBg != null) _muteOffBg.gameObject.SetActive(on);
+            if (_muteOffChk != null) _muteOffChk.gameObject.SetActive(on);
             // 🆕 2026-10-17：语言那一行那两张图
             if (_langField != null) _langField.gameObject.SetActive(on);
             if (_langArrow != null) _langArrow.gameObject.SetActive(on);
             // 勾那一层**不跟着面板开关走**：它还要看 `AutoZoom.Enabled`（见 `RefreshAutoZoomCheck`）
             RefreshAutoZoomCheck();
+            // 🆕 2026-10-16（T01）：静音那一行 ON 那半同理 —— 它还要看**开关本身**（`_muteChatOn`）。
+            RefreshMuteChat();
             // 🆕 三根音量滑块。⚠️ `WfSlider` **不是** `MonoBehaviour`，没有 `.gameObject` ——
             //    要它自己的 `SetVisible`（第一次写漏了会在这里编译不过）。
             foreach (var s in Sliders) if (s != null) s.SetVisible(on);

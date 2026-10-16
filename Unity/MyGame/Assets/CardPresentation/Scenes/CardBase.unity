@@ -23135,7 +23135,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05223c23a81593c4ea665ddd3b56c0ac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CardPresentation.BoardLayout
-  lineY: 0.3444
+  lineY: 0.411
   spacing: 0.0778
   mirror: 0
   snapTolerance: 0.036

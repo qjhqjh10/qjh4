@@ -62,6 +62,21 @@
 - 🔴 **结论：单独建这 5 个空 RT = 死件**（我们全仓**没有 `PositionOption` 解析器**，落点走 `SlotPosition` / `HudAnchor01`；
   我们 `animinfo_lookup.json` 里那 418 条 `sp`/`ep` **就是** PositionOption，但没人消费；且实测我们这些 id **落在 5 个锚上的 = 0 个**）。
   ⇒ **要与 `PositionOption` 解析器一起做**（7 行表数据现成），⛔ 别只建空件凑数。
+- 🔴🔴 **2026-10-16（本会话实测）—— 这一件【改判给 `T05`】**（不是不做，是**归属挪了**）：
+  · **量出来的事实**：我们全仓的 `数据/游戏数据/animinfo_lookup.json` 那 **418 条** `AnimInfo` 里
+    `startPosOption`/`endPosOption` 的实际取值分布是 ——
+    **`sp`**：`0(self)` 266 · `2(abilityTarget)` 84 · `3(friendlyHero)` 32 · `5(boardCenter)` 11 ·
+    `50(friendlyDeck)` 7 · `4(enemyHero)` 6 · `19(enemyHand)` 4 · **`12(friendlyMana)` 3** · `14` 2 · **`13(enemyMana)` 1** · `15` 1 · `18` 1；
+    **`ep`**：`2` 237 · `0` 116 · `3` 28 · `5` 11 · `4` 7 · `50` 7 · `19` 4 · `12` 3 · `14` 2 · `13` 1 · `15` 1 · `18` 1。
+  · ⇒ **`Anim Anchors` 那 5 个锚点（id `6`/`7`/`11`/`140`/`145`）在我们的数据里出现 `0` 次**；
+    连整张 7 行表里被用到的也只有 **12/13 两个**（而它们指的是 `PlayerMana` / `EnemyMana` 两个 **HUD 节点**，
+    不是那 5 个空锚）。⇒ **今天把它们建出来，消费者仍然只有「没有任何东西」**。
+  · ⇒ **解析器的真正消费者在【动画播放那一刻】**：`self` / `abilityTarget` 这两档要**当时的卡与目标**做参数
+    （`ep=2` 那 237 条就是「飞到目标身上」），而 `friendlyHero` / `boardCenter` / `nextFriendlyMinionSpot` /
+    `friendlyHand` / `friendlyDeck` 要**棋盘与手牌的世界坐标口**（我们都有：`BoardWorld` / `HandRow01` / 牌堆那两块底板）。
+    **那正是 `T05`（逐卡演出与特效接线）的活** —— 在 `T01` 里建 = 造一件**今天没人用的基础设施**。
+  · ✅ **裁定**：**解析器 + 5 个锚点整体挪进 `T05`**（判据、7 行表、id 分布全部随行带走）；
+    `T01` 这一条**只留指针**，⛔ 别在两边各留一份（铁律 6）。
 
 ### 2·3 `FrontCanvas/LoadingMenu`（进战斗的黑场）
 - **节点全路径**：`…/FrontCanvas/Safe area FrontCanvas/LoadingMenu`（父 = RT_3055，**不在 `AboveShader` 下**）→ 子 `Panel`
@@ -146,8 +161,83 @@
 
 ## 七、还差什么 / 判不准的
 
-1. **`ChatToggle` 单机语义**（静音存哪、对谁生效）—— 判据在原版 `VoiceLinesController.chatMuted`，**我们没那一位**。
-2. **`Anim Anchors` 的 `anchorId → 名字` 表** —— 枚举取值本地没有。
-3. **`LoadingMenu` 的 `DOFade` 时长** —— 寄存器传参、读不出。
-4. **两档 alpha 常量** `DAT_1834b2bb8` / `DAT_1834b3180` —— 读不出（提示条那件已改用序列化值，见 `T01` 归档记录）。
-5. **`Alliance Panel` 两处评级的运行期尺寸**（子件序列化 0×0）—— 要真机 dump 一次。
+> 🔴 **2026-10-16 就地清理（铁律 6）：本节原来 5 条里有 4 条已经查清了，留着只会误导下一个会话** ——
+> ①「`ChatToggle` 单机语义」②「`Anim Anchors` 的 `anchorId → 名字` 表」③「`LoadingMenu` 的 `DOFade` 时长」
+> ④「两档 alpha 常量读不出」**全部已在 §2·1 / §2·2 / §2·3 的 🔴 2026-10-16 段里结案**
+> （时长 = 1.25 s、两个常量 = 1.0f / 0.6f、枚举真名 = `PositionOption`、`ChatToggle` 口径 = 能建但作用面为空）。
+> ⛔ 别按这一节去重查。
+
+1. **`Alliance Panel` 两处评级的运行期尺寸**（子件序列化 0×0）—— 要真机 dump 一次。**未做**。
+2. 🔴 **`A1547` —— 2026-10-16 查清：原账那句「我们一个字没实现」【不成立】（已就地订正）**，但**换出了两条新账**（见下）。
+   · **查清了什么**：`BattleHud + 0x78`（`dump.cs:27213`）= **`offensiveCardTurnCardsHolder`**（`GameObject`，
+     `+0x80` = `offensiveCardTurnCardsObjs` 三颗）；实读 `battlearena2` 的 `MonoBehaviour_5150.json`：
+     holder 指向 GO **`CardsPlayedInTurnHolder`**，三颗子件 = **`CardsPlayedInTurn1/2/3`**
+     （每个 **20×20**、间距 **9**、底对齐；holder 105.06×28.18）。
+   · **可见性判据**（`BattleHud__SetOffensiveButtonVisible.c` 亲读）：
+     `SetActive(+0x78, HasPlayedThirdCardInTurn(cardScript))` —— 而
+     **`HasPlayedThirdCardInTurn` = 「这张卡带 `AbilityTrigger.PlayedThirdCardInTurn`(=15)」**
+     （`dump.cs:20241` 的 `public const AbilityTrigger PlayedThirdCardInTurn = 15;` + 方法体里那句
+     `if (*(int *)(lVar3 + 0x10) == 0xf) return 1;`）—— ⛔ **不是「玩家这回合打过三张牌」**（名字骗人）。
+   · ✅ **我们这边早就建了**：`_playedPips[3]`（`40k_general_bt_yellow`、20×20、间距 9、
+     `PlayedPipX0/Y0` 那对常量 = 原版那三颗的绝对位置，逐位吻合）+ 出几张亮几枚（`_cardsPlayedThisTurn`）。
+     ⇒ 🔴 **原账「缺件」= 过期记录**（铁律 5）。
+   · ✅ **换出来的两条「新账」—— 2026-10-16 当天又查了一步，两条都落到【铁律 11 例外②：判据在远端】**
+     （**不是「不做」，是「本地拿不到判据」**，⛔ 别当成我们漏做）：
+     · **触发时机查清了**：`RawCardScript__OnCardPlayedWithTarget.c:105-112`（亲读）——
+       `if (BattleManager.CardsPlayedInTurn(bm) == 3) TriggerAbilities(this, 0xf, …)`
+       ⇒ **打完本回合第 3 张牌时，在【刚打出的那张牌】上触发 `PlayedThirdCardInTurn` 能力**。
+       同一支还无条件触发 `0x14`(=20)、有目标时触发 `10` —— 那两条是另外的账，**不在本件**。
+     · 🔴 **判据为什么是空的**：这个能力**长在进攻卡的卡定义上**，而**进攻卡的卡引用在远端 CCD**
+       （本仓早就记着 `cardName 0/39 解不出`，见 `Core/OffensiveCards.cs` 文件头）；
+       现读 `数据/游戏数据/offensive_cards.json`：`trigger` / `ability` / `ThirdCard` **全部 0 命中**
+       ⇒ **本地既没有「哪张进攻卡带这个 trigger」、也没有它的效果正文** ⇒ 归 `§29·d 等远端`。
+     · ⚠️ 因此那条 HUD 闸（「选定进攻卡带 trigger 15 时才显示 holder」）**今天做不到** ——
+       它要的正是上面那格数据。⛔ **别用「出过牌就显示」顶上并声称是原版口径**：我们现在那条
+       （`i < _cardsPlayedThisTurn`）是**等价物**，已在代码注释里如实标着。
+3. **`A1239`（`HandLabel` 补框 & 接四格）** —— **前置卡在「单位桥」**：那颗在**缩放假**里
+   （父链 `HandArea` 是纯 `Transform`、`m_LocalScale = 108`、自身 `0.925926` ⇒ 1 局域单位 = 100 px），
+   而 `Label.SetAutoFitBox` 的 px 口径是**我们这一侧**的 ⇒ 照其余 16 颗那样传原文会**把字号静默压到 3 px**；
+   两条候选读法互相打架（详见判据原文）。⇒ **要做**（铁律 11），**前置 = 把那条单位桥查实**。**未做**。
+4. **`A1302` 同族**：逐调用点审计**已做完**（见 §八），审计出的 4 条**已修**；审计里另标了两处
+   「**没核**」的边界：① 牌堆卡背那两张（`:13893/13895`）只核到「初值被 `FitDeckPile` 覆写」，
+   两段式的**终值**没逐张复核 ② **位置类**偏差（`Energy Accumulation` 横向 −80.2/−81.3、
+   `ManaHolder` 的 `ap(1.8,−0.5)`）**本件一个字没核** ⇒ 那是别的账（`A2102` 那一族）。
+
+---
+
+## 八、✅ 2026-10-16（第四轮）本轮做完的（**核销记录**）
+
+### 8·1 `ChatToggle`「静音对手」—— **已建**
+
+`SettingsPanel.BuildMuteChatRow` + `RefreshMuteChat` / `SetMuteChat` / `ToggleMuteChatFromPanel` / `HitMuteChat`
+（接线在 `BattleDriver.SettingsClickAt`，与 Resign / Difficulty / AutoZoom / Close 同一条「抬起」链）。
+判据（几何逐值、状态机三处、词条三条）见 §2·1 那两段 2026-10-16 的注释。
+**如实声明**：点了**没有可见效果**（它挡的是对手聊天那条链，我们还没有）。
+⚠️ 连带把**我们自己加的**「对手难度」那一行从 `y=−220` 挪到 **−155**（原档与 `ChatToggle` **重叠**，
+而旧注释里「原版 `ChatToggle` 在 −174.94」是个**错值**，真值 −254.062 —— 判据见 §2·2 与 `T06` §七·1·3）。
+
+### 8·2 `A1302` 同族（`HudImage` / `HudImageTex`）—— **逐调用点审计做完 + 查出的真缺陷已修**
+
+审计报告 → `资料/普查产出_1016战斗/A1302_同族逐点审计.md`（41 处调用点、37 处受审，
+逐条给出「贴图 px / 原版框 / 内接后应为 / 结论」，**没有一条判不出**）。
+🔴 **查出 4 条真缺陷，4 条全部已修**：
+
+| # | 件 | 原版真值 | 我们原来 | 改成 |
+|---|---|---|---|---|
+| 1 | `_myStoneGem` / `_foeStoneGem`（灵族灵魂石那颗宝石） | 框 **51.028×63.015**（PA=0） | 把框**宽** 51 当高传 ⇒ 实绘 41.31×51.0，**高宽各小 19%** | `+StoneGemW/H` 两个常量：传高 `63.015` + `SetAspect(51.028/63.015)` |
+| 2 | `_myDeckSizePlate` / `_foeDeckSizePlate`（牌堆张数底板） | 我 **238.5×59.11** · 敌 **210×52.05**（PA=0 拉伸） | 按贴图比例画 ⇒ **窄 2.2%**（233.2 / 205.4） | `+MyDeckSizeW/FoeDeckSizeW`：各 `SetAspect` 钉回框比例 |
+| 3 | 能量水晶四颗（`_energyGem` / `_energyGemEmpty` / 敌方两颗） | `Energy Player Accumulation ON\|OFF`：**77.786×80.113**（PA=0） | 传 `0.72f`（= **框宽** 77.76）⇒ **矮 2.35 px（2.9%）** | `+EnergyCrystalW/H`：传高 `80.113` + `SetAspect` |
+| 4 | `_cemeteryBtn`（战斗日志钮） | 框 64.48×**64.17**（贴图 119×119 方形 + PA=1 ⇒ 按高内接） | 传 64.5（框**宽**那档）⇒ 大 0.33 px | 传 `64.17f / 108f` |
+
+🔴 **审计顺手发现两条「依据名写错」（结论本来就对）—— 已就地订正**（铁律 5）：
+· 提示条那处写「原版那颗 Image 是 `RTgt=0`（不按图的比例）」—— **`RTgt` 是 `m_RaycastTarget`**，
+  真正决定「不按图比例、拉满矩形」的是 **`m_PreserveAspect = 0`**；
+· 墓志钮那段末句「（119×119 → 实绘 **0.54×**）」**读不通**（0.54 不是 119 的任何相关比值）⇒ 删掉、写明实绘 = 64.17。
+
+✅ **审计同时核过、值本来就对、⛔ 别动的那些**（防下一轮误报）：名牌 101.04（内接）· 骷髅 54.14 ·
+能量大底板 480.8 · 任务点 97.7/接片 23.9 · 信仰 149.3 / 灵魂石座 116.6 · 能量底板 93.32/91.32 ·
+手牌底板 65.7 · END TURN 80.4 · 牌堆底板 218.63/190.11 · 回合灯 23.4 · 已出牌 20 · 牌背（两段式）·
+提示条（PA0 拉伸已显式还原）· 设置 63.87 · 六枚光点。
+
+⚠️ **本件没跑断言**（按现行口径）：`BattleScene.Run` 里那条「34 个粒子的材质没贴图」之外，
+与这几件相关的断言**下一轮跑时现看**。

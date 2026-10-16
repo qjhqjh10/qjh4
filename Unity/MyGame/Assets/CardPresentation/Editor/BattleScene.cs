@@ -103,11 +103,18 @@ public static class BattleScene
     // ---- 版面（归一化，y 从底部算）----
     //
     // **全部来自原版实测**，不是拍的。原版 1920×1080 下量到的（出处：
-    // `d:/warpforge/scripts/battle.gd` 的场卡尺寸体系 + `资料/对战排版_原版数值与改造方案.md`）：
-    //     玩家行中心 y = 708 px  →  1 - 708/1080 = 0.3444
-    //     敌方行中心 y = 466 px  →  1 - 466/1080 = 0.5685
+    // 场卡尺寸体系 → `资料/3DBody_原版场上卡体规格.md` §四之五；尺寸那几条另见
+    // `资料/对战排版_原版数值与改造方案.md`）：
+    //     玩家行中心 y = 636 px  →  1 - 636/1080 = 0.4111 ≈ **0.4110**（现值）
+    //     敌方行中心 y = 425 px  →  1 - 425/1080 = 0.6065 ≈ **0.6063**（现值）
     //     场卡 137.2 × 218.4 px，相邻中心距 149.3 px（= MinionSeparation 0.82 × 182.14）
     //     手牌卡 165 × 263 px，中心行 y≈950（= 玩家槽底 + 卡半高 + 9 px 隙）
+    // 🔴🔴 **2026-10-16（`T02` / `A2104①`）就地订正 —— 本段原来那两行写的是**
+    //     「玩家行中心 y = 708 px → 0.3444 / 敌方行中心 y = 466 px → 0.5685」，
+    //     而**紧挨着的出处**却写着 `d:/warpforge/scripts/battle.gd` —— **两句打架、且以旧的那个为准了**：
+    //     `708 / 466` 是 **`battle.gd:694-695` 的旧校准**，`battle.gd` 是**我们自己的上一版 Godot 复刻**
+    //     （`CLAUDE.md` 铁律 2：只作旁证），**不是原版字段**。两者差 **72 px / 41 px**。
+    //     ⇒ 现在上面那两行是真的原版实测值（接上原版取景算法之后量的）。
     //
     // 换算：这套布局「可见高恒 10 世界单位」，1080p 下 **108 px / 世界单位**，
     //       所以 px → 归一化 = px/1920（横）、px/1080（纵）；
@@ -118,8 +125,17 @@ public static class BattleScene
     //     现在卡本体改成原版的 2.0927×3.3313，两个尺寸都**精确对上**了
     //     （场卡 137.2×218.4、手牌 165.0×262.7，见 `Run()` 里的断言），补丁就该撤：
     //     按原版数值，手牌上沿正好贴住玩家行下沿（差 1.4 px）—— **原版就是这么贴着的**。
-    const float EnemyLineY = 0.5685f;                                   // 原版 466/1080
-    const float PlayerLineY = 0.3444f;                                  // 原版 708/1080
+    // 🔴🔴 **2026-10-16（`T02` / `A2104①`）：这两个值换了 —— 原来那对是 `battle.gd` 时代的旧校准。**
+    //    旧 `EnemyLineY = 0.5685f`（466/1080）/ `PlayerLineY = 0.3444f`（708/1080）：那两个数
+    //    **不是原版字段**，是**我们自己的上一版 Godot 复刻**（`battle.gd:694-695`）里的校准，
+    //    比原版**低 72 px / 41 px**（本线 `准则与做法.md` §二 第一条：⛔ 别拿 Godot 时代的账当判据）。
+    //    现读真值（`资料/3DBody_原版场上卡体规格.md` §四之五，接上原版取景算法后的实测）：
+    //      · 我方行卡心 **636 px（距顶）** ⇒ 归一化（从下算）**0.4110**
+    //      · 敌方行卡心 **425 px** ⇒ **0.6063**
+    //    ⚠️ 这一对值**烘进场景**（`Scenes/Battle.unity`）⇒ 改完必须重跑 `BuildAndSaveScene`。
+    //    ⚠️ **手牌 y 守卫那条线不在这里** —— 它已拆去 `BoardLayout.HandLimitY`（原版 `HandLimitArea` 的 300/1080）。
+    const float EnemyLineY = 0.6063f;                                   // 原版实测行心 425 px 距顶
+    const float PlayerLineY = 0.4110f;                                  // 原版实测行心 636 px 距顶
     // 🔴 判据**只此一处**（在 `BoardLayout`）：这里原来各写了一份同样的算式，
     //    而 `BoardLayout` 的**默认值**写着另一个数（0.876，错的）—— 两份并存迟早不一致，已经出过事。
     const float BoardSpacing = BoardLayout.OriginalSlotPitchPx / 1920f;   // 149.3/1920 = 0.0778
@@ -3485,7 +3501,9 @@ public static class BattleScene
                           $"…然后再拖回最右 ⇒ 插槽 {it.InsertIndex}（应 {others}，与本节上一条同一个值）");
                 }
 
-                // 🆕 2026-10-18（A896 · 调度台裁定一）：**上面那道 y 守卫 `if (…y < board.lineY)` 也读【指针】。**
+                // 🆕 2026-10-18（A896 · 调度台裁定一）：**上面那道 y 守卫也读【指针】**。
+                //   🔴 2026-10-16（`T02`）：那条比较线已从 `board.lineY` 拆成 `BoardLayout.HandLimitY`
+                //   （原版 `HandLimitArea` 的 300/1080）—— 下面这几条判据跟着换（⛔ 别写回 `lineY`）。
                 //   判据（`d:/2/tools/decomp_full/BattleManager__Update.c` 亲读）：那道判别式是**两道量**在比 ——
                 //   `playerHandPosLimitObj`（`+0x180`，场景节点 `HandLimitArea`）的 `transform.position`
                 //   与 `mouseCanvasPos`（`+0x434`，**y 在 `+0x438`**）：`:192-195` / `:249` / `:291` 三处一律
@@ -3495,7 +3513,7 @@ public static class BattleScene
                 //   🔴 **必须喂 `dt = 0`**：卡的 y 带 `Lerp` 平滑、滞后于指针 —— 真帧下它一会儿就追上去，
                 //      「读指针」与「读卡」两条路**会趋同**、差异被掩盖（与上面 B12 同一手法）。
                 {
-                    var handPt = LayoutSpace.ToWorld(0.10f, HandBaselineY);   // 手牌带：y 在棋盘线**以下**
+                    var handPt = LayoutSpace.ToWorld(0.10f, HandBaselineY);   // 手牌带：y 在**手牌限位线**以下
                     var boardPt = LayoutSpace.ToWorld(0.10f, 0.50f);          // 棋盘带：同一个 x、只把 y 抬到线**以上**
 
                     Check(others > 0,
@@ -3504,8 +3522,8 @@ public static class BattleScene
 
                     it.SimulateDrag(handPt, 0f);                              // 先摆回「守卫成立」的那一侧
                     Check(it.InsertIndex == 0,
-                          $"（前提）指针在**手牌带**（y {LayoutSpace.ToNormalized(handPt).y:F3} < 棋盘线 "
-                        + $"{pBoard.lineY:F3}）⇒ 让位照跑、插槽 {it.InsertIndex}（应 0）。"
+                          $"（前提）指针在**手牌带**（y {LayoutSpace.ToNormalized(handPt).y:F3} < 手牌限位线 "
+                        + $"{BoardLayout.HandLimitY:F3} = 原版 `HandLimitArea` 的 300/1080）⇒ 让位照跑、插槽 {it.InsertIndex}（应 0）。"
                         + " 🧨 改坏法：把守卫删掉、或写成恒 false ⇒ 红（前者下面那条会红、后者这条当场红）");
 
                     it.SimulateDrag(farRight, 0f);                            // 挪回最右（dt = 0 ⇒ 卡仍然不动）
@@ -3521,15 +3539,16 @@ public static class BattleScene
                         + $"{Vector3.Distance(view.transform.position, cardPos2):E2}）"
                         + " —— 🧨 改坏法：把 `CardInteraction.UpdateDrag` 那句 `1f − Mathf.Exp(−20f * dt)`"
                         + " 改成与 `dt` 无关的常数 ⇒ 红（下面那条判别式也就失效了）");
-                    Check(cardY01 < pBoard.lineY && ptY01 > pBoard.lineY,
-                          $"（前提）两个候选量**真的分处棋盘线两侧**（卡 y {cardY01:F3} < 线 {pBoard.lineY:F3}"
+                    Check(cardY01 < BoardLayout.HandLimitY && ptY01 > BoardLayout.HandLimitY,
+                          $"（前提）两个候选量**真的分处【手牌限位线】两侧**（卡 y {cardY01:F3} < 线 {BoardLayout.HandLimitY:F3}"
                         + $" < 指针 y {ptY01:F3}）—— 分不开的话下面那条对「传成卡的位置」无感"
-                        + "（🧨 改坏法：把 `pBoard.lineY` 换成落在手牌带里的值 ⇒ 红）");
+                        + "（🧨 改坏法：把比较线换成落在手牌带**里面**的值 ⇒ 红；"
+                        + "换成 `lineY`（棋盘行线 0.411）**这条仍绿** —— 两条线本来就不是同一根，见 `BoardLayout.HandLimitY`）");
                     Check(it.InsertIndex == others,
-                          $"★ 那道 y 守卫问的是**指针**、不是被拖那张卡（带平滑）的位置：指针抬到棋盘线以上 ⇒"
+                          $"★ 那道 y 守卫问的是**指针**、不是被拖那张卡（带平滑）的位置：指针抬到限位线以上 ⇒"
                         + $" 让位不该再跑，插槽仍是 {it.InsertIndex}（应 {others}）。"
                         + " 🧨 改坏法：把 `Hand/CardInteraction.UpdateDrag` 里那句 "
-                        + "`if (LayoutSpace.ToNormalized(world).y < board.lineY)` 换回 `…(t.position)…` ⇒ 红"
+                        + "`if (LayoutSpace.ToNormalized(world).y < BoardLayout.HandLimitY)` 换回 `…(t.position)…` ⇒ 红"
                         + $"（卡此刻还停在手牌带 y {cardY01:F3}、守卫照样成立，而指针 x 在 0.10 ⇒ 插槽会被刷成 0）");
 
                     it.SimulateDrag(handPt, 0f);                              // ★ 反向：抬上去之后再放回来
@@ -8224,6 +8243,160 @@ public static class BattleScene
                                 + "而**不是**攻击那一条、也不是下标 1（⇒ 既不是「恒 0」也不是「恒取最后一条」）");
                         }
 
+                        // 🆕 2026-10-16（`T06` B 组）：**近战攻击命中**那条 cue（原版 `BattleCardSounds.meleeAttackHit*`）。
+                        //   判据（`普查产出_1016战斗/T06c_B组九条触发点.md`）= 原版在**近战攻击动画的命中回调**里播，
+                        //   远程那一路不走它；且**只对近战**（`Attack.Ranged == false`）。
+                        //   纯函数 ⇒ 合成一批事件就能验（同 `unitDamage` 那条的做法）。
+                        {
+                            BattleEvent EH2(int amt, bool ranged, EvtKind kind)
+                            {
+                                return new BattleEvent { Kind = kind, Amount = amt, Ranged = ranged, Player = 0, Slot = 4, CardId = "X" };
+                            }
+                            var meleeAtk = EH2(0, false, EvtKind.Attack);
+                            var rangeAtk = EH2(0, true, EvtKind.Attack);
+                            Check(BattleDriver.MeleeHitCueCount(new List<BattleEvent> { meleeAtk, EH2(3, false, EvtKind.Hit) }) == 1,
+                                  "★ `meleeAttackHit*`：**近战**攻击命中 ⇒ 播一次"
+                                + "｜🧨 改成「所有 Hit 都播」⇒ 下面两条红");
+                            Check(BattleDriver.MeleeHitCueCount(new List<BattleEvent> { rangeAtk, EH2(3, true, EvtKind.Hit) }) == 0,
+                                  "★ **远程攻击命中不播它**（原版远程那一路走 `rangedAttackParticlesSO` 那一族）"
+                                + "｜🧨 去掉 `if (buf[i-1].Ranged) continue;` ⇒ 本条红");
+                            Check(BattleDriver.MeleeHitCueCount(new List<BattleEvent> { meleeAtk, EH2(-4, false, EvtKind.Hit) }) == 0,
+                                  "★ **治疗不算**（`Hit` 且 `Amount < 0`）⇒ 不播");
+                            Check(BattleDriver.MeleeHitCueCount(new List<BattleEvent> { EH2(3, false, EvtKind.Hit) }) == 0,
+                                  "★ **前面不是攻击的那条 Hit 不算**（那是技能伤害，归 `unitDamage`）——"
+                                + "两条 cue 的分工就在这一格上");
+                            Check(BattleDriver.MeleeHitCueCount(new List<BattleEvent>
+                                  { meleeAtk, EH2(0, false, EvtKind.Hit), EH2(2, false, EvtKind.Hit) }) == 1,
+                                  "★ **判别式**：一次近战攻击命中（`Amount = 0` = 护盾挡下，**也算**：原版播的是"
+                                + "动画命中回调、与掉不掉血无关）+ 一条技能伤害 ⇒ 只算**攻击那一条**（1 次）");
+
+                            // 换打法那三条 cue 的**档位映射**（原版 `CardScript__ChangeAttackType.c:14-53` 逐支实读）
+                            Check(BattleSfx.ChangeAttackTypeField(UnitState.AttackTypeMelee) == BattleSfx.ChangeToMeleeAttackCUE
+                               && BattleSfx.ChangeAttackTypeField(UnitState.AttackTypeRanged) == BattleSfx.ChangeToRangeAttackCUE
+                               && BattleSfx.ChangeAttackTypeField(UnitState.AttackTypeActive) == BattleSfx.ChangeToActiveAbilityCUE,
+                                  "★ 换打法：`1 Melee → changeToMeleeAttackCUE` · `2 Ranged → changeToRangeAttackCUE` ·"
+                                + " `4 Active → changeToActiveAbilityCUE`（三档逐条对反编译）");
+                            Check(BattleSfx.ChangeAttackTypeField(0) == null && BattleSfx.ChangeAttackTypeField(3) == null,
+                                  "★ 而 `0 None` **原版不播**、`3 Spell` **原版直接 `return`** ⇒ 两条都回 `null`"
+                                + "｜🧨 给它们各找一个 clip 顶上 ⇒ 本条红（那是我们发明的音）");
+                        }
+
+                        // 🆕 2026-10-16（`T06` B 组）：**cue 表里真有这些键**（表 = `Resources/battle_sounds.json`，
+                        //   产出方 `工具/import_battle_sfx.py`）。⚠️ 只断**表**不断 clip —— `Resources/Art/` 是
+                        //   gitignore 的，新克隆里没有音频文件（那一条由 `WFSoundBank` 自己出声报）。
+                        {
+                            var want = new[] { BattleSfx.InvokeCUE, BattleSfx.InvokeCUELegendary,
+                                               BattleSfx.MinionDeathCUE, BattleSfx.MeleeAttackHitSmall,
+                                               BattleSfx.BackToHand, BattleSfx.LandOnGround,
+                                               BattleSfx.CreateCardInHand, BattleSfx.ChangeToMeleeAttackCUE,
+                                               BattleSfx.ChangeToRangeAttackCUE };
+                            int miss = 0; string missList = "";
+                            foreach (var w in want)
+                                if (!WarpforgeVFX.WFSoundBank.HasCue(w)) { miss++; missList += " " + w; }
+                            Check(miss == 0,
+                                  $"★ B 组 9 条 cue（键 = **原版字段名**）全在表里 —— 缺 {miss} 条{missList}"
+                                + "｜🧨 没跑 `工具/import_battle_sfx.py` / 表没进仓库 ⇒ 本条红");
+                            Check(!WarpforgeVFX.WFSoundBank.HasCue(BattleSfx.ChangeToActiveAbilityCUE),
+                                  "★ `changeToActiveAbilityCUE` **故意不在表里**：原版那一格是空 PPtr"
+                                + "（`m_FileID:0, m_PathID:0`，调用点却在）⇒ 铁律 11 例外①，⛔ 别给它找一条 clip 顶上");
+                        }
+
+                        // 🆕 2026-10-16（`T02`）：**棋盘行线 / 手牌限位线【拆开了】且值 = 原版实测**
+                        //   （`A2104①` 明令「先拆用途、别直接改 0.3444」）。
+                        Check(Mathf.Abs(BoardLayout.HandLimitY - 300f / 1080f) < 1e-6f,
+                              $"★ 手牌 y 守卫那条线 = 原版 `HandLimitArea` 的 **300 设计 px 距底** = 300/1080 = "
+                            + $"{300f / 1080f:F6}（实得 {BoardLayout.HandLimitY:F6}）"
+                            + "｜🧨 换回 `board.lineY` ⇒ 本条红（两条线本来就不是同一根）");
+                        Check(Mathf.Abs(driver.playerBoard.lineY - 0.4110f) < 1e-4f
+                           && Mathf.Abs(driver.enemyBoard.lineY - 0.6063f) < 1e-4f,
+                              $"★ 棋盘两行线 = **原版实测行心**（我 636 px ⇒ 0.4110 · 敌 425 px ⇒ 0.6063）——"
+                            + $"实得 {driver.playerBoard.lineY:F4} / {driver.enemyBoard.lineY:F4}"
+                            + "｜🧨 抄回 `battle.gd` 的 708/466 ⇒ 本条红（`CLAUDE.md` 铁律 2：那是我们自己的旧 Godot 版）");
+                        Check(Mathf.Abs(driver.playerBoard.lineY - BoardLayout.HandLimitY) > 0.1f,
+                              "★ 两条线**确实不同**（0.4110 vs 0.2778）—— 这条是「拆开了」这个动作的**形状断言**："
+                            + "哪天有人把两者又并回一个常量 ⇒ 本条红");
+
+                        // 🆕 2026-10-16（`T06` · 战斗 BGM）：**判据全是原版字面量**（`T06d` 报告逐条带出处）。
+                        //   ① 血线 → 档位（纯函数，不用跑一局）；② 表本身；③ 真的起得来三条轨。
+                        {
+                            Check(BattleMusic.LevelFor(25f, 18f, 10f) == BattleMusic.LevelLow
+                               && BattleMusic.LevelFor(18f, 18f, 10f) == BattleMusic.LevelMedium
+                               && BattleMusic.LevelFor(10f, 18f, 10f) == BattleMusic.LevelHigh
+                               && BattleMusic.LevelFor(9f, 18f, 10f) == BattleMusic.LevelHigh,
+                                  "★ BGM 档位 = 原版那条血线判据（`h > midHealthChange(18)` → Low ·"
+                                + " `10 < h <= 18` → Medium · `h <= 10` → High）——**边界取闭区间那一侧**"
+                                + "（18 是 Medium、10 是 High）｜🧨 把 `>` 写成 `>=` ⇒ 本条红");
+                            float lo = Mathf.Min(25f, 8f);
+                            Check(BattleMusic.LevelFor(lo, 18f, 10f) == BattleMusic.LevelHigh,
+                                  "★ …而且判据吃的是 **min(双方督军生命)**：一只 25 血、另一只 8 血 ⇒ **必须 High**"
+                                + "（原版 `h = min(GetHero(true).currentHealth, GetHero(false).currentHealth)`）"
+                                + "｜🧨 改成取我方/取平均 ⇒ 本条红");
+
+                            var ta = Resources.Load<TextAsset>(BattleMusic.TablePath);
+                            Check(ta != null, $"★ BGM 表 `Resources/{BattleMusic.TablePath}.json` 在仓库里"
+                                            + "（产出方 `工具/import_battle_bgm.py`）"
+                                            + "｜🧨 表没进仓库 ⇒ 本条红，且**战斗整局没有 BGM**");
+                            int nRows = 0, nMulti = 0, nThreshOk = 0; string arenaKeys = "";
+                            if (ta != null)
+                            {
+                                var doc = JsonUtility.FromJson<BattleMusic.Table>(ta.text);
+                                foreach (var r in doc.arenas)
+                                {
+                                    if (r == null) continue;
+                                    nRows++;
+                                    if (r.useMultipleTracks != 0) nMulti++;
+                                    if (Mathf.Abs(r.midHealthChange - 18f) < 0.01f
+                                     && Mathf.Abs(r.highHealthChange - 10f) < 0.01f) nThreshOk++;
+                                    if (arenaKeys.Length < 80) arenaKeys += " " + r.arena;
+                                }
+                            }
+                            Check(nRows == 13, $"★ 表里 **13 场**战场各一行（实得 {nRows}）—— 原版就是 13 个战场包");
+                            Check(nThreshOk == nRows && nRows > 0,
+                                  $"★ 13 场的阈值**一律 18/10**（实得合规 {nThreshOk}/{nRows}）——"
+                                + "判据 = 13 场序列化值；⚠️ C# 里 `midHealthChange` 的**初值 20 不是落地值**"
+                                + "｜🧨 照初值写 20 ⇒ 本条红");
+                            Check(nMulti == 7 && nRows > 0,
+                                  $"★ `useMultipleTracks = 1` 的正好 **7 场**（实得 {nMulti}）——"
+                                + "⚠️ **它不等于「场上有三首曲子」**（astra 是 1 但只有一首；tau/genestealers/sororitas 是 0）"
+                                + "｜🧨 按「三首 ogg ⇔ 多轨」反推 ⇒ 本条红");
+                            Check(!string.IsNullOrEmpty(arenaKeys), $"（表里的场名，前几个：{arenaKeys}）");
+                        }
+                        {
+                            var bm = BattleMusic.Create();
+                            bm.Init("battlearena1");
+                            Check(bm.Config != null && bm.Config.useMultipleTracks != 0
+                               && bm.ClipName(BattleMusic.LevelLow) != null
+                               && bm.ClipName(BattleMusic.LevelMedium) != null
+                               && bm.ClipName(BattleMusic.LevelHigh) != null,
+                                  "★ `battlearena1` 三条轨都挂上了 clip（原版这一场是三轨）——"
+                                + $"实得 L='{bm.ClipName(BattleMusic.LevelLow)}' M='{bm.ClipName(BattleMusic.LevelMedium)}'"
+                                + $" H='{bm.ClipName(BattleMusic.LevelHigh)}'"
+                                + "｜🧨 clip 没拷进 `Resources/Art/audio/bgm/` ⇒ 本条红（那是 gitignore 的，要跑导入器）");
+                            bm.BeginBattle();
+                            Check(bm.CurrentLevel == BattleMusic.LevelSilent || bm.CurrentLevel == BattleMusic.LevelLow,
+                                  "★ `BeginBattle()` 之后**还没到 Low**（原版：进场先**瞬时静音**、3 s 才淡入）——"
+                                + $"实得 CurrentLevel={bm.CurrentLevel}");
+                            bm.Tick(3.1f, 25f);                       // 推过那 3 秒淡入
+                            Check(bm.CurrentLevel == BattleMusic.LevelLow && bm.TargetVolume(BattleMusic.LevelLow) > 0.99f
+                               && bm.TargetVolume(BattleMusic.LevelMedium) < 0.01f,
+                                  $"★ 3 s 之后落在 **Low**（判据：进场 3 s 淡入 Low）——实得 {bm.CurrentLevel}"
+                                + "｜🧨 把淡入时长写成 0（直接硬起）或写成 5 ⇒ 本条红（时长常数是原版实读值）");
+                            bm.Tick(5.1f, 8f);                        // 过掉查档节流 + 5 s 淡变
+                            Check(bm.CurrentLevel == BattleMusic.LevelHigh,
+                                  $"★ 一只督军掉到 8 血 ⇒ **5 s 内切到 High**（实得 {bm.CurrentLevel}）——"
+                                + "查档节流 = 5 s、淡变 = 5 s（两条都是原版实读常数）");
+                            bm.FinishMatch();
+                            Check(bm.Ended && bm.TargetVolume(BattleMusic.LevelLow) > 0.99f,
+                                  "★ `FinishMatch()` ⇒ **回 Low 的 5 s 淡变**（原版 `BattleFinished` 那一拍）"
+                                + "｜🧨 写成「静音」⇒ 本条红（静音是 `FadeOut()` 的活、那是开门那一拍）");
+                            bm.FadeOut();
+                            Check(bm.TargetVolume(BattleMusic.LevelLow) < 0.01f
+                               && bm.TargetVolume(BattleMusic.LevelMedium) < 0.01f
+                               && bm.TargetVolume(BattleMusic.LevelHigh) < 0.01f,
+                                  "★ `FadeOut()` ⇒ 三条轨**全部归零**（原版 `EndBattleDoors.SetupDoor` 那一拍、2 s）");
+                            Object.DestroyImmediate(bm.gameObject);
+                        }
+
 
                         //   判据 → `RemnantSfx` 文件头那张表（六条 cue ↔ 五条 clip）。
                         //   ① 表本身（含两条反直觉的：灵族「出现/收集」**共用一条 clip**；
@@ -10057,6 +10230,66 @@ public static class BattleScene
                     AutoZoom.RestoreForTest(azWasOn424, azWasChosen424);
                     if (azComp != null) azComp.ForceRefresh();
                     sp.Hide(); sp.Show();
+                }
+
+                // ---- 14b3b. 🆕 **2026-10-16（`T01`）**：`ChatToggle`「静音对手」那一行 ----
+                // 判据（全部**实读 `bundle_scenes_scenes_battlearena2`**，面板内 px、y 向上；见 `SettingsPanel` 那组 `Mute*` 常量）：
+                //   · 本行 `RectTransform_3142`：锚 (0,1)、`ap(350.675,−454.87)`、`sd(701.35,54.90)`；
+                //     父 `Volume Sliders`（面板内 (−1.998,−19.891)、701.35×441.398）⇒ 行心 **(−1.998, −254.062)**
+                //   · 两个半边的底图**同 rect**：+190.0（面板内 x 188.002）、180.76×56.80，图 301×120 ⇒ **高受限内接**
+                //   · `Background` 出厂 active、`Background On` 出厂 **inactive**
+                // 🧨 改坏法：① 行心写回旧注释那个 −174.94 ⇒ 第 2 条红；② 底图按框拉满（不内接）⇒ 第 3 条红；
+                //   ③ `SettingsClickAt` 里不接这一行 ⇒ 第 6 条红（翻不动）；④ 把 ON 那半当常显 ⇒ 第 4/5 条红。
+                {
+                    float mcx, mcy, mw, mh;
+                    Check(sp.MuteChatRectPx(out mcx, out mcy, out mw, out mh),
+                          "★ `ChatToggle`：那一行**建起来了**（量得到矩形）—— 它原来是 `T01` 的缺件");
+                    var mWant = sp.transform.position + new Vector3(188.002f / 108f, -254.062f / 108f, 0f);
+                    var mOff = sp.MuteChatWorldPos() - mWant;
+                    Check(Mathf.Abs(mOff.x) < 2e-3f && Mathf.Abs(mOff.y) < 2e-3f,
+                          $"★ `ChatToggle` 那颗开关落在**原版现读的位置**上 —— 实得偏 ({mOff.x:F4},{mOff.y:F4}) 世界单位"
+                        + "（期望：行心 (−1.998,−254.062) + 底图偏移 (+190,0) = (188.002,−254.062) 面板 px）"
+                        + "｜🧨 写回旧注释里那个「−174.94」⇒ 本条红（那是错值，见 `任务/T06` §七·1·3）");
+                    // 底图内接（图 301×120、框 180.76×56.80 ⇒ 高受限 ⇒ 实画 142.5×56.80）
+                    Check(mw <= 180.76f + 0.05f && mh <= 56.80f + 0.05f
+                       && Mathf.Abs(mh - 56.80f) < 0.05f,
+                          $"★ `ChatToggle` 底图**内接**进原版那格 180.76×56.80（图 301×120 ⇒ 高受限）—— "
+                        + $"实画 {mw:F2}×{mh:F2}（px）｜🧨 按框拉满（宽 180.76）⇒ 本条红");
+                    // 出厂两态 —— `SetMuteChat(false)` 是**唯一**确定态的入口（面板的 `_muteChatOn` 是内存态）
+                    sp.SetMuteChat(false);
+                    Check(!sp.MuteChatOn && sp.MuteChatOffHalfVisible && !sp.MuteChatOnHalfVisible,
+                          "★ 出厂态：**OFF 那半画着、ON 那半不画**（原版 `Background On` 出厂 `m_IsActive = 0`，"
+                        + "`OnMuteChatChanged` 才 `SetActive(v)`）");
+                    // 命中区 = 原版那两个矩形（底图 + 左边那句说明），两块**严丝合缝**
+                    Check(sp.HitMuteChat(sp.MuteChatWorldPos()),
+                          "★ 开关那半的命中判定打得中（原版那颗 `Image` 的 `m_RaycastTarget = 1`）");
+                    Vector3 mLabelPt = sp.transform.position + new Vector3(-75.478f / 108f, -254.062f / 108f, 0f);
+                    Check(sp.HitMuteChat(mLabelPt),
+                          "★ ……而**左边那句 `Mute opponent`** 也打得中（TMP 同样 `m_RaycastTarget = 1`；"
+                        + "uGUI 会从它往上冒泡到行根那颗 `Toggle`）");
+                    // 点一下（走**真路**：`BattleDriver.SettingsClickAt`，与 Resign/Difficulty/AutoZoom 同一条抬起链）
+                    bool hitM = drv.SettingsClickAt(sp.MuteChatWorldPos());
+                    Check(hitM && sp.MuteChatOn && sp.MuteChatOnHalfVisible,
+                          $"★ 点那颗开关 ⇒ 状态翻到 ON，**ON 那半亮起来**（指针被接住 {hitM}；"
+                        + $"实得 on={sp.MuteChatOn} 半亮={sp.MuteChatOnHalfVisible}）"
+                        + "｜🧨 `SettingsClickAt` 里不接 `HitMuteChat` ⇒ 本条红");
+                    drv.SettingsClickAt(sp.MuteChatWorldPos());
+                    Check(!sp.MuteChatOn && !sp.MuteChatOnHalfVisible,
+                          "★ 再点一下 ⇒ 回 OFF、ON 那半灭（两态真的翻得动）");
+                    // ⚠️ **如实记一条测不到的**：原版这个开关只挡「对手 `ChatPopup` 那 6 句」那条链，
+                    //    而**我们还没有那条链** ⇒ 「点了有没有可见效果」这一层**本自检断不出来**，
+                    //    只能靠代码审查 / 真 Play（`SettingsPanel.ToggleMuteChatFromPanel` 的 doc 里写着）。
+                    // 面板可见性那一层：ON 那半要**两个条件同时真**（开关为真 **且** 面板可见）
+                    sp.SetMuteChat(true);
+                    Check(sp.MuteChatOnHalfVisible, "（前提）开关开 + 面板可见 ⇒ ON 那半画着");
+                    sp.Hide();
+                    Check(!sp.MuteChatOnHalfVisible,
+                          "★ 面板关着时 ON 那半**不画**（`RefreshMuteChat` 把 `Visible` 也算进去）"
+                        + "｜🧨 只按 `_muteChatOn` 判 ⇒ 关面板后那两块还亮着 ⇒ 本条红");
+                    sp.Show();
+                    Check(sp.MuteChatOnHalfVisible && sp.MuteChatOn,
+                          "★ 再开面板 ⇒ ON 那半**回来**（开关值本身没丢 —— 它是本局内存态，原版同）");
+                    sp.SetMuteChat(false);
                 }
 
                 // ---- 14b4. 🆕 2026-10-17：**语言那一行**（原版 `BattleSettingsPanel/Language Selector`）----

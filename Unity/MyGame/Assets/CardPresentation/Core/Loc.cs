@@ -999,6 +999,14 @@ namespace CardPresentation
             { "Battle/Settings/ResignButton",      new Entry("放弃",     "Resign") },        // TMP 原文；中文 = `zh_CN.csv:454`（精确命中）
             //   `Battle/Settings/SkipTutorial`：`…battlearena1/MonoBehaviour_4307.json`，TMP 原文 `Skip tutorial`
             { "Battle/Settings/SkipTutorial",      new Entry("跳过教程", "Skip tutorial") }, // TMP 原文（小写 t）；中文 = `zh_CN.csv:162`（那条英文串是 `Skip Tutorial`，大小写不同 ⇒ **近邻**）
+            // 🆕 2026-10-16（`T01` · 静音对手那颗开关 `ChatToggle`）：三颗各一条，**键 = 原版 `Localize.mTerm` 原文**。
+            //   出处 = `…battlearena2/MonoBehaviour/{5295,5163,5396}.json`（各自挂在 `ChatToggle` 的
+            //   `Label` / `Background On/Checkmark/OnText` / `Background/Checkmark/OffText` 三颗的 GameObject 上）。
+            //   🔴 **两列都是官方值**（2026-10-14 解开的那张表里逐字命中）：`官方本地化_en+zh-CN.json`
+            //   ⇒ `MuteChatLabel=["Mute opponent","静音对手"]` · `MuteChat_On=["ON","开"]` · `MuteChat_Off=["OFF","关"]`。
+            { "MainMenu/Settings/ButtonLabel/MuteChatLabel", new Entry("静音对手", "Mute opponent") },
+            { "MainMenu/Settings/ButtonLabel/MuteChat_On",   new Entry("开",       "ON") },
+            { "MainMenu/Settings/ButtonLabel/MuteChat_Off",  new Entry("关",       "OFF") },
             //   `Battle/Tips/Continue`：`…menus/MonoBehaviour_-1010790197081052438.json`，TMP 原文 `Continue`
             { "Battle/Tips/Continue",              new Entry("继续",     "Continue") },     // TMP 原文；中文 = `zh_CN.csv:84`（精确命中）
             // 🆕 2026-10-18（第三会话 · `A985⑦`）：**抽牌被弃的提示**（手牌满 ⇒ 抽到那张直接进弃牌堆）。

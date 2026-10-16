@@ -1158,6 +1158,9 @@ namespace CardPresentation
         int _leaveCount;
         /// <summary>设置面板（原版 `BattleSettingsPanel`）—— **投降按钮就在里面**</summary>
         SettingsPanel _settingsPanel;
+        /// <summary>🆕 2026-10-16（`T06`）：**战斗 BGM**（原版 `BattleMusicManager` + 三条强度分轨）。
+        /// 判据与「我们这一侧是等价物」那段 → `Battle/BattleMusic.cs` 的文件头。</summary>
+        BattleMusic _music;
         /// <summary>右上角那颗设置按钮（原版 `SettingsBtn`，x[1808.0,1871.9] y[9.2,73.1]）</summary>
         ImageQuad _settingsBtn;
         // 🆕 2026-09-18：`ChatPopup`（原版 `VoiceLinesPopupSelector`）——
@@ -1390,6 +1393,13 @@ namespace CardPresentation
         /// 宽度 = 父宽×0.95 + 20（我 238.5 / 敌 210），**原版 `sizeDelta.y` 是 0** —— 高度由
         /// `AspectRatioFitter`(WidthControlsHeight) 算出来，只看 sizeDelta 会以为它是 0 高。</summary>
         const float MyDeckSizePx = 59.11f, FoeDeckSizePx = 52.05f;
+        /// <summary>🔴 **2026-10-16（`A1302` 同族审计）新加 —— 张数底板的【框宽】**（我 238.5 / 敌 210）。
+        /// 上面那条 doc 里本来就写着「宽度 = 父宽×0.95 + 20（我 238.5 / 敌 210）」，但**调用点只用高**：
+        /// 贴图 `40K_display` 442×112（比例 **3.9464**）≠ 框比例 **4.0346** ⇒ 按贴图画出来**窄 2.2%**
+        /// （我实绘 233.2 vs 原版 238.5 = 窄 5.3 px；敌 205.4 vs 210 = 窄 4.6 px）。
+        /// 原版那两格 `m_PreserveAspect = 0`（**拉伸**，`MonoBehaviour_{5111,4701}.json` 现读）
+        /// ⇒ 要**显式**把宽给回去（`SetAspect`），同 `_myEnergyPlate` 那个正确样板。</summary>
+        const float MyDeckSizeW = 238.5f, FoeDeckSizeW = 210f;
         /// <summary>张数底板中心离牌堆中心多远（px）：我 230/2 + 50 = 165、敌 200/2 + 60 = 160。
         /// 出处同上（原版 `anchoredPosition.y` = 50 / 60）。</summary>
         const float DeckSizeDyMine = 165f, DeckSizeDyFoe = 160f;
@@ -1448,6 +1458,13 @@ namespace CardPresentation
         const float MyEnergyX01 = 0.97180f, MyEnergyY01 = 0.48556f;
         /// <summary>敌方能量水晶 `EnemyMana`：x[1826.3,1900.8] y[249.8,327.4] —— **原来我们压根没画这一颗**</summary>
         const float FoeEnergyX01 = 0.97060f, FoeEnergyY01 = 0.73278f;
+        /// <summary>🔴 **2026-10-16（`A1302` 同族审计）新加 —— 能量水晶那四颗的【框】**。
+        /// 原版那两格是 `Energy Player Accumulation ON|OFF`：`m_SizeDelta = (−22.214, −19.887)`
+        /// + 父 `Energy Accumulation` 100×100（stretch 锚）⇒ **77.786 × 80.113**、`m_PreserveAspect = 0`（拉伸）。
+        /// 出处 = `bundle_scenes_scenes_battlearena2/RectTransform/RectTransform_{3619,2912,3346,3132}.json`
+        /// ＋ `MonoBehaviour_{5378,5308,…}.json`（PA 现读）。
+        /// ⚠️ 我们原来传的 `0.72f`（世界单位）= **77.76 px**，量的是**框宽** ⇒ 矮 2.35 px（2.9%）。</summary>
+        const float EnergyCrystalW = 77.786f, EnergyCrystalH = 80.113f;
         /// <summary>能量底板 `Energy Player`（图 `Card Frame Cost Icon`）—— 🔴 **2026-10-15（`A2102` R2）已停用**：
         /// 原来两侧共用这一个高（**91.3 = 敌方那一份**），实测**原版两侧不同**
         /// （**我 90.61×93.32 · 敌 94.61×91.32**）⇒ 建件处改成两侧各自的数 + `SetAspect`。
@@ -1484,7 +1501,14 @@ namespace CardPresentation
         //    （`ManaTypeHolder.Toggle` → `SetActive`，任务点只给暗黑天使），位置重合是对的。
         const float FaithW = 117.9f, FaithH = 149.3f;      // sprite `40k_Battle_Display_Faith`
         const float StoneW = 112.1f, StoneH = 116.6f;      // sprite `UI_Energy_Eldar`
-        const float StoneGem = 51.0f;                      // 子物体 `SpiritStone`：sprite `UI_Gem_Eldar`
+        /// <summary>🔴 **2026-10-16（`A1302` 同族审计）就地订正**：原来这里只有一个 `StoneGem = 51.0f`，
+        /// 注释写着「子物体 `SpiritStone`」—— **那个 51 是框【宽】、被当成高传下去了**，
+        /// 于是那颗宝石实绘 **41.31×51.0**，比原版 **51.028×63.015 高宽各小 19%**。
+        /// 出处 = `bundle_scenes_scenes_battlearena2/RectTransform/RectTransform_{3475,3289}.json`
+        /// （`…/SpiritStoneHolder/SpiritStone` 的 `m_SizeDelta`）+ `MonoBehaviour_{5378,5308}.json`（`PA = 0`）。
+        /// ⇒ 现在**宽高分开写**，调用点传**高**、再用 `SetAspect` 把宽**显式**给回去
+        /// （PA=0 = 拉伸填满这个框；虽然贴图比例与框比例到 5 位有效数字重合，但⛔ 别靠巧合）。</summary>
+        const float StoneGemW = 51.028f, StoneGemH = 63.015f;
         const float MyFaithX01 = 0.97177f, MyFaithY01 = 0.39704f;
         const float FoeFaithX01 = 0.97177f, FoeFaithY01 = 0.82167f;
         const float MyStoneX01 = 0.97401f, MyStoneY01 = 0.40343f;
@@ -3242,6 +3266,16 @@ namespace CardPresentation
                     //   （`WFModulePostProcess` 52 实例）。⚠️ 只能挂在这儿：`Volume` 在战场 prefab 上，
                     //   `Begin` 开头那时还没实例化。
                     if (ok) AttachPostFx(loader.Current);
+
+                    // 🆕 2026-10-16（`T06` · 战斗 BGM）：**这一场的曲子由【这一场战场】决定** ⇒ 在这里起
+                    //   （判据 ①：曲子烘在场景里、不是全局歌单；key 与上面那个 `ResolveArenaKey` 同源）。
+                    //   ⚠️ 放在「换牌那条 `return`」之前 —— 那也是一条正常开局路径（BGM 得照样起）。
+                    //   ⚠️ 同一份 driver 可能连开好几局（重开 / 录像）⇒ **先把上一局那个根收掉**，
+                    //      否则会留一串 `BattleMusic` 节点在场景里各自播着上局的曲子。
+                    if (_music != null) { DestroyImmediate(_music.gameObject); _music = null; }
+                    _music = BattleMusic.Create();
+                    _music.Init(key);
+                    _music.BeginBattle();
                 }
             }
 
@@ -3354,6 +3388,11 @@ namespace CardPresentation
             //   `FindObjectOfType<CombatAutoZoom>().ResetCameraZoomUIAction()`），那条链在
             //   `SettingsPanel.ToggleAutoZoomFromPanel` 里，判据只此一处。
             if (_settingsPanel.HitAutoZoom(w)) { _settingsPanel.ToggleAutoZoomFromPanel(); return true; }
+            // 🆕 2026-10-16（`T01`）：**「静音对手」那颗开关** —— 同一条「抬起」链（原版 `EverguildToggle`
+            //   继承 `Toggle`/`Selectable` ⇒ `IPointerClickHandler`，与上面三颗同形）。
+            //   ⚠️ 它的语义那一半在面板里（`SettingsPanel.ToggleMuteChatFromPanel`）—— 面板自己**没有**
+            //   对手聊天那条链，所以点下去**没有可见效果**（如实声明写在那个方法的 doc 里，⛔ 不是漏接）。
+            if (_settingsPanel.HitMuteChat(w)) { _settingsPanel.ToggleMuteChatFromPanel(); return true; }
             if (_settingsPanel.HitClose(w)) { _settingsPanel.Hide(); return true; }
             return true;      // 点面板别处：吃掉（不穿透到棋盘），但不做事
         }
@@ -4513,9 +4552,17 @@ namespace CardPresentation
             // 🆕 2026-10-15（`T06` · 战斗音响）：**换牌阶段开始**那一拍（原版 `Mulligan` cue）。
             //   判据 = `BattleManager._MulliganCountdown_d__347__MoveNext.c:33`
             //   （`SoundAssetCollection__get_Mulligan` → `SoundManager__Play2D(...,0)` = `MixerType.FX`）；
-            //   ⚠️ 它前面有一道 `if (matchData.matchType == 0x32) return;` —— **那一档原版直接不播**，
-            //      `0x32`(=50) 是哪个模式**没查清**（记在 `任务/T06` 的「还差什么」里）。
-            BattleSfx.Play(BattleSfx.Mulligan);
+            //   ⚠️ 它前面有一道 `if (matchData.matchType == 0x32) return;` —— **那一档原版直接不播**。
+            //   🔴 **2026-10-16 查清（原来这里写着「`0x32` 是哪个模式没查清」）**：
+            //     `0x32`(=50) = **`MatchType.PracticeOffline`（离线练习）** ——
+            //     判据 = ① 枚举原值 `d:/2/tools/il2cpp_out/dump.cs:27376`（`PracticeOffline = 50`）
+            //            ② 派发表 `MatchData__GetMatchType.c`：`case 6: return 0x32;`（我们那张 14 项表
+            //               `BattleContext.MatchTypes.For` 的第 6 项 `GameMode.OfflinePractice` 正是它，
+            //               第 12 项 `OwnDeckTraining` 同值）。
+            //   ⇒ 照原版：**只有离线练习那一档不播**（其余档照播）。
+            //   ⚠️ 同一条闸在原版还管着「整段跳过换牌倒计时」（`MulliganPanel` 文件头已记），两处判据同源。
+            if (Ctx.MatchType != RuleEngine.MatchType.PracticeOffline)
+                BattleSfx.Play(BattleSfx.Mulligan);
 
             // 对手换牌：**照原版 `AI.GetAiMulliganCards` 的规则**（2026-09-17 反编译解开 ——
             // 正本 `资料/AI_原版反编译_0917.md` §二）：`mulliganOption == whispersOfChaos(30)` 保留、
@@ -8694,6 +8741,23 @@ namespace CardPresentation
             _command = kind;
             if (selector != null) selector.Hide();
 
+            // 🆕 2026-10-16（`T06` B 组）：**换打法那一下的声音**（原版 `CardScript.ChangeAttackType`
+            //   里的三条 cue）—— 玩家这一下就是原版 `UnitOnBoardAttackTypeSelector__AttackButtonClick.c:104`
+            //   （那一处传 `playSound = 1`）。映射 `1 Melee → changeToMeleeAttackCUE` ·
+            //   `2 Ranged → changeToRangeAttackCUE` · `4 Active → changeToActiveAbilityCUE`（**值在表里，
+            //   但原版那一格是空 PPtr ⇒ 今天不响**，见 `BattleSfx.ChangeAttackTypeField`）；
+            //   **`3 Spell` 原版直接 `return` 不播**。判据 → `资料/普查产出_1016战斗/T06c_B组九条触发点.md`。
+            //   ⏳ **另 4 个调用点在引擎侧**（`AI__ExecuteAction.c:222,233` · `AiScripted__ExecuteAction.c:1251` ·
+            //   `BattleManager__ParseEnemyAction.c:115` · `_ResolveForceAttack_…:61`）⇒ 那半边由
+            //   `NoteAttackTypeSound` 在「攻击 / 技能」事件上补（按 `(座位,格号)` 比上一次报过的档，
+            //   实现原版「**类型真的变了才响**」那道闸）。⚠️ **两边走的是同一个口** ⇒ 不会重复响。
+            {
+                int type = kind == AttackKind.Ranged ? UnitState.AttackTypeRanged
+                         : kind == AttackKind.Ability ? UnitState.AttackTypeActive
+                         : UnitState.AttackTypeMelee;
+                NoteAttackTypeSound(_me, _selectedSlot, type);
+            }
+
             // 🔴 🆕 2026-10-18（审查 K4/R6）：**教程里「玩家选了这一档打法」就是脚本等的「换打法」那一步。**
             //   放在闸门之后、`CommandTargetSide()` 之前 —— 那一步做完指针就往下走，
             //   所以**「不换打法就直接打」不可能发生**（要打必须先选打法，而选打法就把这一步做了）。
@@ -11388,6 +11452,9 @@ namespace CardPresentation
             // 🆕 2026-10-16（`T06`）：**`unitDamage` cue** —— 它要「整批」的视野，所以在 drain 之后、排时间线之前算一次。
             PlayUnitDamageCue(_signalBuf);
 
+            // 🆕 2026-10-16（`T06` B 组）：**近战命中**那一条同一条理由（要「前一条是不是近战攻击」的批内视野）。
+            PlayMeleeHitCues(_signalBuf);
+
             // **不立刻全播** —— 按 `EventTiming` 排一条时间线，让动作一段段来。
             // 以前是同一帧把整串一起点着，看着就是「一坨特效」，读不出「谁先谁后」。
             // 🆕 2026-10-14（`A1865`）：**同一段里的多条抽卡各算自己那一格**。
@@ -11510,6 +11577,11 @@ namespace CardPresentation
             //   原版是 DOTween 的 `DOFade`（帧驱动）；批处理没有帧循环 ⇒ 不推的话它**永远不褪**。
             TickLoadingFade(dt);
 
+            // 🆕 2026-10-16（`T06` · 战斗 BGM）：**三条强度分轨的查档与淡变**也走这个泵
+            //   （原版在 `BattleMusicManager.Update` 里跑；批处理没有帧循环 ⇒ 不推它 BGM 永远停在开场那一档）。
+            //   ⚠️ 判据 = `min(双方督军【当前生命】)`，**每帧**传进去（查档节流在 `BattleMusic.Tick` 里）。
+            if (_music != null) _music.Tick(dt, BattleMusic.HeroMinHealth(Ctx));
+
             // 🆕 2026-09-29：准星的淡入淡出也走这个泵（原版在 `TargetReticleController.Update` 里，
             //   批处理没有帧循环 ⇒ 不推的话准星会卡在半透明上，截图与断言都不对）。
             if (reticle != null) reticle.TickFade(dt);
@@ -11600,11 +11672,26 @@ namespace CardPresentation
             if (e == null || Ctx == null) return;
             if (e.Player < 0 || e.Player > 1) return;
 
+            // 🆕 2026-10-16（`T06` B 组）：「上一次报过的打法档」是**按(座位,格号)记**的 ⇒
+            //   格位上**换了单位**（进场 / 阵亡 / 回手）就必须清，否则新单位会被旧单位那一档压住、**不响**。
+            if (e.Kind == EvtKind.Deploy || e.Kind == EvtKind.Death || e.Kind == EvtKind.Return)
+                _attackTypeSoundAt.Remove(e.Player * 16 + e.Slot);
+
             switch (e.Kind)
             {
                 // 抽牌落手（原版 `CardScript__DrawCard.c:50`）。⚠️ 它的 `Slot` **恒为 -1**（不在场上）——
                 // 本族一律 2D 播放，所以不需要落点。
-                case EvtKind.Draw: BattleSfx.Play(BattleSfx.DrawCardFromDeck); break;
+                // 🆕 2026-10-16（`T06` B 组）：**这一拍原版还响第二条** —— `createCardInHand`
+                //    （原版 `CardScript._CreateCardInGame_d__250__MoveNext.c:44-50,78-81`：卡**出现在手牌**那一拍，
+                //     先设 `inHandJustCreated(12)` + 贴手牌层，跑完 `DOMove/DORotate/DOScale` 才播）。
+                //   ⚠️ **一条未定**（`T06c` §三·2 明说没查清）：它与上面那条是不是**同一拍响两声**
+                //     （`_ResolveDrawCard:150` 调 `CreateCardInGame`，而 `CardScript__DrawCard.c:48-50` 另播
+                //     collection 那条）—— **两条不是互斥关系**（报告的结论），照「两条都在抽牌这条路上」接。
+                //     ⛔ 别为了「听起来不重复」擅自删一条。
+                case EvtKind.Draw:
+                    BattleSfx.Play(BattleSfx.DrawCardFromDeck);
+                    BattleSfx.Play(BattleSfx.CreateCardInHand);
+                    break;
 
                 // 单位落到格位 = **卡从手牌飞进战场**那一拍。原版这一拍**响两条**（都在同一个函数里）：
                 //   · `moveCardIntoBattle` ← `CardScript__StartMovingFromHand.c:43`（手牌起飞的位移）
@@ -11615,17 +11702,54 @@ namespace CardPresentation
                 case EvtKind.Deploy:
                     BattleSfx.Play(BattleSfx.MoveCardIntoBattle);
                     BattleSfx.Play(BattleSfx.PlayMinionFromHand);
+                    // 🆕 2026-10-16（`T06` B 组）：**这一拍原版还响两条**（同一个「卡飞进战场」动作里
+                    //  前后紧挨着的两个子时刻，我们只有一个 `Deploy` 事件 ⇒ 一起挂在这儿，
+                    //   同上面那两条的做法）：
+                    //   · `invokeCUE` / `invokeCUELegendary` —— **卡转成随从**那一拍
+                    //     （原版 `CardScript.CardToMinionAnim` / `…Teleport` → `GetInvokeCue` → `Play2D`，
+                    //      `CardScript__CardToMinionAnim.c:13,20-30`）**2D**；
+                    //   · `landOnGround` —— **单位落到格位**那一拍（原版 `CardScript.LandOnGround()`
+                    //     ← `<MinionPlayedIntoField>` / `<HeroLandIntoField>`，`CardScript__LandOnGround.c:26-41`），
+                    //     🔴 走 **`Play3D`、在那一格的位置上**（同处还播 `shakeWhenLand` 相机震动 —— 震动那半
+                    //     不在本件范围）。
+                    BattleSfx.Play(InvokeCueFieldFor(e));
+                    PlayBattleSfx3D(BattleSfx.LandOnGround, e.Player, e.Slot);
                     break;
 
                 // 抬手（原版 `CardScript._PrepareAttack_d__353__MoveNext.c:83`）——
                 // `BattleEvent.Attack` 的语义就是「伤害之前发」，正好是抬手那一拍。
-                case EvtKind.Attack: BattleSfx.Play(BattleSfx.MinionInitiatingAttack); break;
+                // 🆕 2026-10-16（`T06` B 组）：**顺带把「换打法」那一下补齐** —— 原版 AI 那 4 个调用点
+                //   在引擎侧、我们没有那条事件 ⇒ 在这里按 `(座位,格号)` 比上一次报过的档（`NoteAttackTypeSound`）。
+                case EvtKind.Attack:
+                    BattleSfx.Play(BattleSfx.MinionInitiatingAttack);
+                    NoteAttackTypeSound(e.Player, e.Slot,
+                                        e.Ranged ? UnitState.AttackTypeRanged : UnitState.AttackTypeMelee);
+                    break;
 
                 // 治疗（原版 `CardScript._Heal_d__468__MoveNext.c:148`）。
                 // ⚠️ 原版紧接其后**无条件**再播一条 `Syphon`（`:154`）—— 而**本 build 那一格是空的**
                 //    （亲读 shipped bundle）⇒ 照原版 = **不播**，详见 `BattleSfx` 文件头那 12 条。
                 case EvtKind.Hit:
                     if (e.Amount < 0) BattleSfx.Play(BattleSfx.MinionHeal);
+                    break;
+                    // ⚠️ **挨打那一下的 `meleeAttackHit*` 不在这里** —— 它要「紧跟前一条是不是攻击、是近战还是远程」
+                    //    那个**批内视野** ⇒ 由 `PlayMeleeHitCues(_signalBuf)` 在 `PlaySignals` 里成批算
+                    //    （拆成纯函数 `MeleeHitCueCount` 便于断言），同 `unitDamage` 那条的做法。
+
+                // 🆕 2026-10-16（`T06` B 组）：**单位死亡**那一拍（原版 `CardScript.<UnitDeath>d__446`
+                //   → `Play3D`，`…_UnitDeath_d__446__MoveNext.c:359-369`）—— **在单位那一格的位置上播**。
+                //   ⚠️ 原版那道闸是 `+0x228 == 5`（卡状态那一格）；**残骸体算不算那一档没查清**
+                //   ⇒ 一律照播（`RemnantSfx` 那一族是**另外六条** cue，两者在原版本来就各播各的，⛔ 别互相顶掉）。
+                case EvtKind.Death:
+                    PlayBattleSfx3D(BattleSfx.MinionDeathCUE, e.Player, e.Slot);
+                    break;
+
+                // 🆕 2026-10-16（`T06` B 组）：**场上单位变回手牌卡**那一拍
+                //   （原版 `CardScript.<TransformUnitInPlayToCard>d__256__MoveNext.c:52,73,76-79`，**2D**）。
+                //   ⚠️ `EvtKind.Return` 的语义含「回牌库」（原版**同一条动画**、`PlayBackToHandAnimation`）
+                //   ⇒ 两条路都照播（判据在 `BattleEvent.Return` 的 doc 里）。
+                case EvtKind.Return:
+                    BattleSfx.Play(BattleSfx.BackToHand);
                     break;
 
                 // 主动技能：**只有这张卡没有专用演出时**才响「默认技能音」。
@@ -11639,18 +11763,118 @@ namespace CardPresentation
                             VfxMap.Ability,
                             e.Player == _me ? _myFaction : _foeFaction, e.CardId)))
                         BattleSfx.Play(BattleSfx.DefaultActiveAbility);
+                    // 🆕 2026-10-16（`T06` B 组）：技能那一档同样要报「换打法」（`4 Active`）。
+                    NoteAttackTypeSound(e.Player, e.Slot, UnitState.AttackTypeActive);
                     break;
 
-                // ⏳ **本批没接的**（都已在表里、判据也在，差的是**触发点**）：
-                //   · `unitDamage` —— 原版只在 `_ResolveMultiDamage…` / `…AndDestroySelf…` 里响，
-                //     那是**多目标那一路**，**不是**「所有挨打」⇒ 挂到 `EvtKind.Hit` 上会**比原版多**。
-                //     要接得先能区分「这一次伤害是不是多目标解析」——见 `任务/T06` 的「还差什么」。
-                //   · `sneakAttack` —— 原版在**目标**身上播（`CardScript__ReceiveSneakAttackAnim.c:33`），
-                //     由 `_ResolveAttack` 的**状态 10** 调（`:976` 那一支 = `ResolveRangedAttack` 之后）；
-                //     但「什么算 sneak attack」这一步 **没查清**（那个状态在 `if (melee) … else` 的 else 支里、
-                //     与「远程攻击」同支，可 `DefinedTrait.sneakAttack = 20` 又说它是偷袭）
-                //     ⇒ ⛔ **不猜**，见 `任务/T06` §四。
+                // ✅ **2026-10-16 收口**：原来挂在这儿的两条「本批没接的」都已落地 ——
+                //   · `unitDamage` → `PlayUnitDamageCue`（批内算，见那一段）；
+                //   · `sneakAttack` → 判为「**我们卡池里没有触发物**」（原版 1195 张卡 SO 与我们 1127 张，
+                //     两边都 0 张带 `DefinedTrait.sneakAttack`）⇒ 铁律 11 例外① **不接**，判据在 `任务/T06`。
+                // ⏳ **B 组仍未接的一条**：`changeToActiveAbilityCUE` —— **原版这一格是空 PPtr**
+                //   （调用点存在、`CardScript__ChangeAttackType.c:53`）⇒ 铁律 11 例外①，我们照原版不响。
             }
+        }
+
+        /// <summary>🆕 2026-10-16（`T06` B 组）：**`invokeCUE` 还是 `invokeCUELegendary`**。
+        /// 判据 = 原版 `CardScript.GetInvokeCue(cardRarity)`（`BattleCardSounds.cs` 的签名桩 + `T06c` 报告）：
+        /// **传说（rarity == 4）走 legendary**；🔴 另外**带 `ambush` 的单位也走 legendary** ——
+        /// 原版 `CardToMinionAnim` 里把 rarity **强制成** 4（同一条判据还被 `LandOnGround` 用来选落地位移）。
+        /// ⚠️ 我们卡池当前**没有一张带 `ambush`**（`cards_engine.json` 现读 0 张）⇒ 那半支今天不可达，
+        /// 但**机制照写**（铁律 11：不是「没有触发物」就不写代码，是「写好了等数据」）。
+        /// 取不到卡 ⇒ 出声 + 退回普通那条（⛔ 不静默）。</summary>
+        string InvokeCueFieldFor(BattleEvent e)
+        {
+            var unit = (Ctx != null && e.Player >= 0 && e.Player < 2 && BoardSpec.IsValid(e.Slot))
+                     ? Ctx.Players[e.Player].Board[e.Slot] : null;
+            var card = unit != null ? unit.Card : null;
+            if (card == null)
+            {
+                Debug.LogWarning($"[Battle] `invoke` 那条音效取不到卡（`Deploy` 事件：p{e.Player} 格 {e.Slot}）"
+                               + " ⇒ 退回**普通**那条 `invokeCUE`（原版按稀有度挑，挑不了就出声、不猜）。");
+                return BattleSfx.InvokeCUE;
+            }
+            return (card.Rarity == "legendary" || card.Has(KeywordTable.Ambush))
+                 ? BattleSfx.InvokeCUELegendary : BattleSfx.InvokeCUE;
+        }
+
+        /// <summary>🆕 2026-10-16（`T06` B 组）：**3D 那一档**的战斗音效（原版 `SoundManager.Play3D`）。
+        /// 取不到落点 ⇒ **退成 2D**（同 `RemnantSfx` 那条口径），⛔ **别拿 `Vector3.zero` 当落点**
+        /// （那会把声音钉在屏幕正中，是原版没有的位置）。</summary>
+        void PlayBattleSfx3D(string field, int side, int slot)
+        {
+            var w = BoardWorld(side, slot);
+            if (w.HasValue) BattleSfx.Play(field, w.Value);
+            else BattleSfx.Play(field);
+        }
+
+        /// <summary>🆕 2026-10-16（`T06` B 组）：**「换打法」那一下的声音** —— 原版 `CardScript.ChangeAttackType` 里那三条 cue。
+        ///
+        /// <para>原版**五个** `playSound = 1` 的调用点：玩家点钮（`UnitOnBoardAttackTypeSelector__AttackButtonClick.c:104`）·
+        /// `AI__ExecuteAction.c:222,233` · `AiScripted__ExecuteAction.c:1251` · `BattleManager__ParseEnemyAction.c:115` ·
+        /// `_ResolveForceAttack_d__504__MoveNext.c:61` —— **只有一个在表现层**，另四个在引擎侧。
+        /// 我们这边**没有**「打法变了」这条引擎事件 ⇒ 退一档：**在「攻击 / 技能」事件上按 `(座位,格号)` 比上一次报过的档**，
+        /// 不同才响 —— 这正是原版那道闸（`ChangeAttackType` 开头 `if (*(int *)(param_1 + 0x120) != iVar5)`）。</para>
+        ///
+        /// <para>🔴 **等价物、不是原件**（如实记）：原版是「**写类型那一刻**响」（AI 在动作里先 `ChangeAttackType` 再打），
+        /// 我们是「**那个单位下一次动作时**响」—— 对 AI 来说两者相差一个动作内的极短间隔，听感同拍。
+        /// ⚠️ 玩家那一下走 `CommitCommand`（点钮即响，与原版同形）⇒ 这里**不会重复响**（调用时就把记忆更新了）。
+        /// ⚠️ 记忆键带座位与格号，**换代要清**（`Deploy` / `Death` / `Return` 那三支），否则新单位会被旧值压住。</para></summary>
+        public void NoteAttackTypeSound(int side, int slot, int type)
+        {
+            if (side < 0 || side > 1 || !BoardSpec.IsValid(slot)) return;
+            if (type == 0) return;                                  // 0 None 原版不播；3 Spell 原版直接 return（映射回 null）
+            int key = side * 16 + slot;
+            int was;
+            bool known = _attackTypeSoundAt.TryGetValue(key, out was);
+            _attackTypeSoundAt[key] = type;
+            if (known && was == type) return;                       // **没变就不响**（原版那道闸）
+            var f = BattleSfx.ChangeAttackTypeField(type);
+            if (f != null) BattleSfx.Play(f);
+        }
+
+        /// <summary>「上一次报过的打法档」，键 = `座位 * 16 + 格号`（见 <see cref="NoteAttackTypeSound"/>）。</summary>
+        readonly Dictionary<int, int> _attackTypeSoundAt = new Dictionary<int, int>();
+
+        /// <summary>🆕 2026-10-16（`T06` B 组）：**近战攻击命中**那一条（原版 `BattleCardSounds.meleeAttackHit*`）。
+        /// 要**批内视野** ⇒ 在 `PlaySignals` 里 drain 之后成批算（同 `unitDamage` 那条的做法）。
+        /// 判据与边界 → <see cref="MeleeHitCueCount"/> 的 doc。</summary>
+        public void PlayMeleeHitCues(List<BattleEvent> buf)
+        {
+            int n = MeleeHitCueCount(buf);
+            for (int i = 0; i < n; i++) BattleSfx.Play(BattleSfx.MeleeAttackHitSmall);
+        }
+
+        /// <summary>🆕 2026-10-16（`T06` B 组）：**纯函数** —— 这一批里有**几次**该由
+        /// `meleeAttackHit*` 负责的近战命中（`0` = 这一批不播）。拆成纯函数是为了**能断言**。
+        ///
+        /// <para>判据（`资料/普查产出_1016战斗/T06c_B组九条触发点.md`）：原版在**近战攻击动画的命中回调**里播
+        /// （`CardScript__ResolveAttackAnimationEffects.c:30-50,64` ← `<AttackMeleeAnim>b__1.c:16`），
+        /// 而那一整块**裹在 `meleeHitCameraShakePreset != 0` 里**（我们那一份该字段有值）。</para>
+        ///
+        /// <list type="bullet">
+        /// <item>**只有近战** —— 原版远程那一路不走它（走 `rangedAttackParticlesSO` 那一族）
+        ///   ⇒ 判据 = 紧邻的那条 `Attack` 的 `Ranged == false`。</item>
+        /// <item>**档位不区分** —— `small/medium/big` 在原版**指向同一个 pathID**（`-3640304923993188049`），
+        ///   档位（`SupportMethods.GetUnitSize`）只影响**震动与粒子** ⇒ 一律喊 `MeleeAttackHitSmall`（听感逐位等价）。</item>
+        /// <item>**`Amount == 0` 也算**（护盾挡下）—— 原版播的是**动画命中回调**，与掉不掉血无关；
+        ///   `Amount &lt; 0` 是治疗（`BattleEvent.Hit`）⇒ 排除。</item>
+        /// <item>⚠️ **等价物、不是原件**：「哪一条 `Hit` 算攻击命中」我们判的是「**紧跟在一条 `Attack` 后面**」
+        ///   —— 与 `UnitDamageCueIndex` **同一条判据**（原版那一位在 `_ResolveAttack` 里、事件里没有）。</item>
+        /// </list></summary>
+        public static int MeleeHitCueCount(List<BattleEvent> buf)
+        {
+            if (buf == null) return 0;
+            int n = 0;
+            for (int i = 0; i < buf.Count; i++)
+            {
+                var e = buf[i];
+                if (e == null || e.Kind != EvtKind.Hit || e.Amount < 0) continue;
+                if (i == 0 || buf[i - 1] == null || buf[i - 1].Kind != EvtKind.Attack) continue;
+                if (buf[i - 1].Ranged) continue;              // 远程：原版不走这一族
+                n++;
+            }
+            return n;
         }
 
         /// 🆕 2026-09-29（Q 批第 6 条）：**残骸体那三条原版音效**（出现 / 收集 / 被打掉 × 两阵营）。
@@ -13581,11 +13805,14 @@ namespace CardPresentation
                         new Vector2(0.5f, 0.5f), StoneH / 108f, "PlayerSpiritStoneHolder", HudDecorZ + 0.05f);
             _foeStoneIcon = HudImageTex(root, CardArt.Ui("UI_Energy_Eldar"), FoeStoneX01, FoeStoneY01,
                         new Vector2(0.5f, 0.5f), StoneH / 108f, "EnemySpiritStoneHolder", HudDecorZ + 0.05f);
-            // 石头那颗宝石（原版 `SpiritStone`，51×63，挂在 holder 中心偏 (−2.8, −2.8)）
+            // 石头那颗宝石（原版 `SpiritStone`，框 **51.028×63.015**、挂 `PA=0`（拉伸）——
+            // 🔴 2026-10-16（`A1302` 同族审计）：原来把框【宽】51.0 当高传了 ⇒ 高宽各小 19%，已修）
             _myStoneGem = HudImageTex(root, CardArt.Ui("UI_Gem_Eldar"), MyStoneX01, MyStoneY01,
-                        new Vector2(0.5f, 0.5f), StoneGem / 108f, "PlayerSpiritStone", HudDecorZ + 0.04f);
+                        new Vector2(0.5f, 0.5f), Px(StoneGemH), "PlayerSpiritStone", HudDecorZ + 0.04f);
+            if (_myStoneGem != null) _myStoneGem.SetAspect(StoneGemW / StoneGemH);
             _foeStoneGem = HudImageTex(root, CardArt.Ui("UI_Gem_Eldar"), FoeStoneX01, FoeStoneY01,
-                        new Vector2(0.5f, 0.5f), StoneGem / 108f, "EnemySpiritStone", HudDecorZ + 0.04f);
+                        new Vector2(0.5f, 0.5f), Px(StoneGemH), "EnemySpiritStone", HudDecorZ + 0.04f);
+            if (_foeStoneGem != null) _foeStoneGem.SetAspect(StoneGemW / StoneGemH);
             // ⚠️ 文字位置按 **holder 中心** 摆：dump 里 `SpiritStoneText` 是**拉伸锚点**
             //    （anchorMin/Max (0.075,0)-(0.934,0.855)、sizeDelta (−43.6,−36.7)），中心≈holder 中心。
             // 框/四格 ← 原版 `…/{Player,Enemy}Mana/SpiritStoneHolder/SpiritStoneText`（见上面那四颗的注释）
@@ -13621,10 +13848,21 @@ namespace CardPresentation
 
             var gold = new Color(1f, 0.86f, 0.42f);
             // 我方水晶
+            // 🔴 **2026-10-16（`A1302` 同族审计）就地订正**：原来两对水晶传的都是 **`0.72f`**，
+            //    而 `0.72 × 108 = 77.76` 量的是原版那格的**框【宽】**（`Energy Player Accumulation ON|OFF`
+            //    的 `m_SizeDelta` = `−22.214 × −19.887` + 父 `Energy Accumulation` 100×100 ⇒
+            //    **77.786 × 80.113**、`m_PreserveAspect = 0`（拉伸））
+            //    ⇒ 我们实绘 77.76×77.76，**矮 2.35 px（2.9%）**。现在传**高**、并把宽显式钉回去。
+            //    ⚠️ 「能量 Accumulation 那一整组」的**显隐**不在这里（`RefreshHud` 按 `SetAccumulationMana`
+            //    那一族走，见 `T13`）；这里只修几何。⚠️ 那四颗水晶**留着**（它们不是 `Card Frame Cost Icon`
+            //    那块底板的重复件：底板 = `_myEnergyPlate`/`_foeEnergyPlate`，水晶 = ON/OFF 两态 —— `T13`
+            //    那次「整组显隐」查的就是这一族 ⇒ 两件都是真的）。
             _energyGem = HudImage(root, "40k_battle_energy_full", MyEnergyX01, MyEnergyY01,
-                                  new Vector2(0.5f, 0.5f), 0.72f, "EnergyGem");
+                                  new Vector2(0.5f, 0.5f), EnergyCrystalH / 108f, "EnergyGem");
+            if (_energyGem != null) _energyGem.SetAspect(EnergyCrystalW / EnergyCrystalH);
             _energyGemEmpty = HudImage(root, "40k_battle_energy_empty", MyEnergyX01, MyEnergyY01,
-                                       new Vector2(0.5f, 0.5f), 0.72f, "EnergyGemEmpty");
+                                       new Vector2(0.5f, 0.5f), EnergyCrystalH / 108f, "EnergyGemEmpty");
+            if (_energyGemEmpty != null) _energyGemEmpty.SetAspect(EnergyCrystalW / EnergyCrystalH);
             // 数字压在宝石上（原版 `ManaText` 就框在 `Energy Player` 上，不是并排）
             // 🔴 **2026-10-10（A1213①）**：框/四格 ← 原版 `…/{Player,Enemy}Mana/ManaHolder/ManaText`
             //    （`RectTransform_2994`(我) · `_2780`(敌)；框 **73.90×82.48** vs **77.34×80.95** ——
@@ -13639,9 +13877,11 @@ namespace CardPresentation
             // 敌方水晶：原版有（`EnemyMana`，也带 `ManaText`），**我们原来一颗都没画** ——
             // 于是玩家看不到对手还剩多少能量，只能靠猜。
             _foeEnergyGem = HudImage(root, "40k_battle_energy_full", FoeEnergyX01, FoeEnergyY01,
-                                     new Vector2(0.5f, 0.5f), 0.72f, "FoeEnergyGem");
+                                     new Vector2(0.5f, 0.5f), EnergyCrystalH / 108f, "FoeEnergyGem");
+            if (_foeEnergyGem != null) _foeEnergyGem.SetAspect(EnergyCrystalW / EnergyCrystalH);
             _foeEnergyGemEmpty = HudImage(root, "40k_battle_energy_empty", FoeEnergyX01, FoeEnergyY01,
-                                          new Vector2(0.5f, 0.5f), 0.72f, "FoeEnergyGemEmpty");
+                                          new Vector2(0.5f, 0.5f), EnergyCrystalH / 108f, "FoeEnergyGemEmpty");
+            if (_foeEnergyGemEmpty != null) _foeEnergyGemEmpty.SetAspect(EnergyCrystalW / EnergyCrystalH);
             _foeEnergyLabel = Hud(root, "", FoeEnergyX01, FoeEnergyY01, 4, gold,
                                   new Vector2(0.5f, 0.5f), "FoeEnergyLabel",
                                   77.34f, 80.95f, 8f, 40f, 36f);
@@ -13785,8 +14025,18 @@ namespace CardPresentation
                                         new Vector2(0.5f, 0.5f), Px(MyDeckSizePx), "MyDeckSizePlate");
             _foeDeckSizePlate = HudImage(root, "40K_display", foeSizeX, foeSizeY,
                                          new Vector2(0.5f, 0.5f), Px(FoeDeckSizePx), "FoeDeckSizePlate");
-            if (_myDeckSizePlate != null) _myDeckSizePlate.SetTint(sizeTint);
-            if (_foeDeckSizePlate != null) _foeDeckSizePlate.SetTint(sizeTint);
+            if (_myDeckSizePlate != null)
+            {
+                _myDeckSizePlate.SetTint(sizeTint);
+                // 🔴 2026-10-16（A1302 同族审计）：原版那格 PA=0（拉伸填满 238.5×59.11）——
+                //    按贴图比例画会窄 2.2%，这里把框比例显式给回去。
+                _myDeckSizePlate.SetAspect(MyDeckSizeW / MyDeckSizePx);
+            }
+            if (_foeDeckSizePlate != null)
+            {
+                _foeDeckSizePlate.SetTint(sizeTint);
+                _foeDeckSizePlate.SetAspect(FoeDeckSizeW / FoeDeckSizePx);
+            }
 
             // 🔴 **2026-10-10（A1213①）**：框/四格 ← 原版 `RightArea/{Player,Enemy}Deck/Player Deck Size
             //    Container/Player Deck Size Tex`（`RectTransform_2604`(我) · `_3406`(敌)）。
@@ -13833,7 +14083,11 @@ namespace CardPresentation
                               TipHpx / 108f, "TipText");
             if (_tipBg != null)
             {
-                _tipBg.SetAspect(TipWpx / TipHpx);        // 原版那颗 Image 是 `RTgt=0`（不按图的比例）⇒ 拉满这个矩形
+                // 🔴 **2026-10-16（`A1302` 同族审计）就地订正字段名（值本来就是对的）**：
+                //    原来这里写「原版那颗 Image 是 `RTgt=0`（不按图的比例）」—— **依据名写错了**：
+                //    `RTgt` 是 `m_RaycastTarget`（那颗**确实是 0**，但那是「吃不吃射线」，与比例无关），
+                //    真正决定「不按图比例、拉满矩形」的是 **`m_PreserveAspect = 0`**（现读 `MonoBehaviour_5352`）。
+                _tipBg.SetAspect(TipWpx / TipHpx);        // 原版那颗 Image 的 `m_PreserveAspect = 0`（拉伸）⇒ 拉满这个矩形
                 _tipBg.SetTint(TipBgColor);
             }
             else
@@ -13878,10 +14132,14 @@ namespace CardPresentation
 
             // ---- 敌方名牌上的「墓地/战斗日志」按钮 + 面板（2026-09-13）----
             // 原版 `EnemyInfo/ShowCemeteryBtn`：64.48×64.17 px、绝对 x[52.0,116.4] y[135.9,200.1]
-            // → 中心 (84.2, 168)；图 `40k_UI_bt_battlelog`（119×119 → 实绘 0.54×）。
+            // → 中心 (84.2, 168)；图 `40k_UI_bt_battlelog`（119×119 **方形** + `m_PreserveAspect = 1`
+            // ⇒ 内接 = **按高受限**：min(64.48, 64.17) = **64.17**）。
             // 出处：`资料/战斗规格/战斗重建_0827/子代理读报_back左区_0827.md:79`（rect）与 `:193`（图）。
+            // 🔴 **2026-10-16（`A1302` 同族审计）**：原来传 **64.5**（= 框**宽**那一档）⇒ 大 0.33 px（+0.5%），
+            //    已改成框**高** 64.17。⚠️ 同一段旧注释末尾那句「（119×119 → 实绘 **0.54×**）」**读不通**
+            //    （0.54 不是 119 的任何相关比值）—— 一并删掉，实绘就是 **64.17**（= 框高）。
             _cemeteryBtn = HudImage(root, "40k_UI_bt_battlelog", 84.2f / 1920f, 1f - 168f / 1080f,
-                                    new Vector2(0.5f, 0.5f), 64.5f / 108f, "ShowCemeteryBtn");
+                                    new Vector2(0.5f, 0.5f), 64.17f / 108f, "ShowCemeteryBtn");
             _logPanel = BattleLogPanel.Create(root);
 
             // 结算面板：原版 `EndBattlePanel`。它自己管显示/隐藏，平时是关着的。
@@ -15688,12 +15946,21 @@ namespace CardPresentation
                             //   （= 原版 `BattleScoreManager.GetSkullCount()`，与 HUD 那个 `x N` 同源、同一格字段）。
                             //   最低生命照旧传进去 —— 它现在**只**喂面板副标题那行字（原版那行字我们没查到出处，
                             //   是我们自加的说明，见 `EndPanel.Show` 的 `<param>`）。
+                            // 🆕 2026-10-16（`T06` · 战斗 BGM）：**结算这两拍**
+                            //   （原版 `BattleFinished` → `FinishMatch()` **回 Low、5 s**；
+                            //    `_CloseBattleDoors` → `EndBattleDoors.SetupDoor` → `FadeOut()` **2 s 静音**）。
+                            //   ⚠️ 原版这两拍之间隔着「玩家点继续进开门视频」；我们的 `_endPanel.Show`
+                            //   把「结算面板 + 开门」放在同一处（见它自己那段注释）⇒ 两拍在这里**紧挨着**，
+                            //   听感上 = 直接 2 s 淡出（如实记；⛔ 不是把 `FinishMatch` 漏了）。
+                            if (_music != null) _music.FinishMatch();
                             _endPanel.Show(Ctx.Winner, _me, _foeSkullCount, Ctx.Turn, Ctx.ForfeitedBy,
                                            _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp,
                                            // 🆕 2026-10-18（A940 收尾）：教程那两个「跳过正常结算演出」的开关
                                            // （`TutorialStage +0x60/+0x70`；判据与那条「读数点本地拿不到」的缺口
                                            //  写在 `EndPanel.Show` 的 `<param name="skipSequence">` 上）
                                            skipSequence: TutorialSkipsNormalEnd());
+                            // 🆕 2026-10-16（`T06`）：开门那一拍 = **2 s 淡到静音**（见上面那两行的注释）
+                            if (_music != null) _music.FadeOut();
                             // 🔴 **2026-10-14（A660）：结算门动画期间**冻住输入层**** ——
                             //   原版 `BattleManager._CloseBattleDoors` 协程逐句
                             //   （`d:/2/tools/decomp_full/BattleManager._CloseBattleDoors_d__393__MoveNext.c`）：

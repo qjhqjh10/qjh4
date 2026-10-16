@@ -284,12 +284,12 @@ namespace CardPresentation
             //      原版 `HandLimitArea` 实况 dump = `pos(0,300)` · anchor=pivot=(0.5,**0**) · 根 Canvas 1080
             //      ⇒ 它 = **底边上方 300 设计 px = 距顶 780 px**；而旧记的「779」是**距顶**读法
             //      ⇒ **两处读数本来就是同一根线**。
-            //      ⚠️ **但我们那条比较线仍不对**：`BoardLayout.lineY`(我方) = 0.3444 = **372 px 距顶**
-            //      （= `battle.gd` 时代的旧校准，`ArenaSlots.cs:37` 自承「不是原版字段」）⇒ 与原版
-            //      **差 72 px**；而且 `lineY` **同时**是 2D 棋盘行心，原版实测行心是 **636 px**
-            //      ⇒ **正解是把两个用途拆开**（`A2104①` 已明令「⛔ 别直接改 0.3444」）。
-            //      ⇒ **仍不许顺手换阈值** —— 但理由从「没验过」变成「一个字段担两个用途，要先拆」。
-            if (LayoutSpace.ToNormalized(world).y < board.lineY)
+            //      ⚠️ **2026-10-16（`T02` / `A2104①`）已按明令拆开** —— 这条比较**不再借 `board.lineY`**，
+            //      改用 `BoardLayout.HandLimitY`（= 原版 `HandLimitArea` 的 `300/1080`）：
+            //      两个用途以前**一个字段担着**（棋盘行心 vs 手牌限位线），而它们是**两根不同的线**
+            //      （棋盘行心原版实测 636 px、手牌这条 780 px 距顶 ⇒ 差 144 px）。
+            //      ⛔ 别改回 `board.lineY`：那会让「指针在不在手牌带」跟着棋盘行的校准一起漂。
+            if (LayoutSpace.ToNormalized(world).y < BoardLayout.HandLimitY)
             {
                 var visible = VisibleCards();
                 // 🔴 **2026-10-17（B12）：喂进去的是【指针位置】，不是被拖那张卡的位置。**
@@ -484,7 +484,8 @@ namespace CardPresentation
             string why = DropReject(pos, card, out s, out w);
             var n = LayoutSpace.ToNormalized(pos);
             string head = $"卡在 ({pos.x:F2},{pos.y:F2},{pos.z:F2}) 归一化 ({n.x:F3},{n.y:F3})"
-                        + $" 棋盘线 lineY={(board != null ? board.lineY.ToString("F3") : "无")}";
+                        + $" 棋盘线 lineY={(board != null ? board.lineY.ToString("F3") : "无")}"
+                        + $" 手牌限位线 HandLimitY={BoardLayout.HandLimitY:F3}";
             if (why == null)
                 return $"{head} ⇒ ✅ 合法：{(w == foeBoard ? "敌方半场" : "我方半场")} 槽 {s}";
             return $"{head} ⇒ ❌ {why}";

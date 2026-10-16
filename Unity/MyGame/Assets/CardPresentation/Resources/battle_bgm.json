@@ -1,0 +1,466 @@
+{
+ "version": 1,
+ "note": "**战斗 BGM**：原版**不是**一张全局歌单 —— 曲子烘在**每个战场场景**里，三个子 GO（`Music Low/Medium/High Intensity`）各带一个 `AudioSource`；`useMultipleTracks == 0` ⇒ 那个战场**不切档**（单曲）。🔴 clip 名取自 `AudioSource.m_Resource`（原版 `m_audioClip` 恒 0）。三档阈值 = `min(双方督军当前生命)`：`> midHealthChange` → low · `<= midHealthChange` 且 `> highHealthChange` → medium · `<= highHealthChange` → high。文件名在 `Resources/Art/audio/bgm/<clip 名>.ogg`（`Resources/Art/` 是 .gitignore 的）。",
+ "source": {
+  "where": "每个战场的 `scenes_scenes_<arena>.bundle` 里（`Battle Music Controller` → 3 个 AudioSource）",
+  "report": "资料/普查产出_1016战斗/T06d_战斗BGM判据.md",
+  "script": "工具/import_battle_bgm.py"
+ },
+ "arenas": [
+  {
+   "arena": "battlearena1",
+   "musicManagerPid": 5188,
+   "useMultipleTracks": 1,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1597,
+     "resourcePathId": 31,
+     "clip": "Warpforge Ultramarines Combat Low",
+     "how": "按 CAB `CAB-8adfc300739b4da5111d4bd3eae80365.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1599,
+     "resourcePathId": 32,
+     "clip": "Warpforge Ultramarines Combat High",
+     "how": "按 CAB `CAB-8adfc300739b4da5111d4bd3eae80365.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1601,
+     "resourcePathId": 30,
+     "clip": "Warpforge Ultramarines Combat Medium",
+     "how": "按 CAB `CAB-8adfc300739b4da5111d4bd3eae80365.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-8adfc300739b4da5111d4bd3eae80365.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge Ultramarines Combat Low",
+   "medium": "Warpforge Ultramarines Combat Medium",
+   "high": "Warpforge Ultramarines Combat High"
+  },
+  {
+   "arena": "battlearena2",
+   "musicManagerPid": 5405,
+   "useMultipleTracks": 1,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1764,
+     "resourcePathId": 40,
+     "clip": "Warpforge Orks Combat Low",
+     "how": "按 CAB `CAB-a5741cd1d9cfa42275c94e631a043bdb.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1766,
+     "resourcePathId": 41,
+     "clip": "Warpforge Orks Combat High",
+     "how": "按 CAB `CAB-a5741cd1d9cfa42275c94e631a043bdb.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1768,
+     "resourcePathId": 39,
+     "clip": "Warpforge Orks Combat Medium",
+     "how": "按 CAB `CAB-a5741cd1d9cfa42275c94e631a043bdb.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-a5741cd1d9cfa42275c94e631a043bdb.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge Orks Combat Low",
+   "medium": "Warpforge Orks Combat Medium",
+   "high": "Warpforge Orks Combat High"
+  },
+  {
+   "arena": "battlearena3",
+   "musicManagerPid": 5310,
+   "useMultipleTracks": 1,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1693,
+     "resourcePathId": 17,
+     "clip": "Warpforge Necrons Combat Low",
+     "how": "按 CAB `CAB-5a65e4d1d096d115d33556b335439b24.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1695,
+     "resourcePathId": 16,
+     "clip": "Warpforge Necrons Combat High",
+     "how": "按 CAB `CAB-5a65e4d1d096d115d33556b335439b24.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1697,
+     "resourcePathId": 15,
+     "clip": "Warpforge Necrons Combat Medium",
+     "how": "按 CAB `CAB-5a65e4d1d096d115d33556b335439b24.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-5a65e4d1d096d115d33556b335439b24.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge Necrons Combat Low",
+   "medium": "Warpforge Necrons Combat Medium",
+   "high": "Warpforge Necrons Combat High"
+  },
+  {
+   "arena": "battlearenaaeldari",
+   "musicManagerPid": 5163,
+   "useMultipleTracks": 1,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1586,
+     "resourcePathId": 16,
+     "clip": "Warpforge Aeldari Combat Low",
+     "how": "按 CAB `CAB-3e77f00d313ccd50289a31c3dd1ca738.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1588,
+     "resourcePathId": 15,
+     "clip": "Warpforge Aeldari Combat High",
+     "how": "按 CAB `CAB-3e77f00d313ccd50289a31c3dd1ca738.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1590,
+     "resourcePathId": 17,
+     "clip": "Warpforge Aeldari Combat Medium",
+     "how": "按 CAB `CAB-3e77f00d313ccd50289a31c3dd1ca738.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-3e77f00d313ccd50289a31c3dd1ca738.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge Aeldari Combat Low",
+   "medium": "Warpforge Aeldari Combat Medium",
+   "high": "Warpforge Aeldari Combat High"
+  },
+  {
+   "arena": "battlearenaastramilitarum",
+   "musicManagerPid": 5364,
+   "useMultipleTracks": 1,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1778,
+     "resourcePathId": 27,
+     "clip": "Warpforge_Astra_Militarum",
+     "how": "按 CAB `CAB-6ed17e44621e2b58304adfebcbd9bd0f.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1780,
+     "resourcePathId": 27,
+     "clip": "Warpforge_Astra_Militarum",
+     "how": "按 CAB `CAB-6ed17e44621e2b58304adfebcbd9bd0f.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1782,
+     "resourcePathId": 27,
+     "clip": "Warpforge_Astra_Militarum",
+     "how": "按 CAB `CAB-6ed17e44621e2b58304adfebcbd9bd0f.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-6ed17e44621e2b58304adfebcbd9bd0f.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge_Astra_Militarum",
+   "medium": "Warpforge_Astra_Militarum",
+   "high": "Warpforge_Astra_Militarum"
+  },
+  {
+   "arena": "battlearenablacklegion",
+   "musicManagerPid": 5262,
+   "useMultipleTracks": 1,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1668,
+     "resourcePathId": 24,
+     "clip": "Warpforge Black Legion Combat Low",
+     "how": "按 CAB `CAB-aac6b8f6d2ec62a38090b2aac1201f7c.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1670,
+     "resourcePathId": 25,
+     "clip": "Warpforge Black Legion Combat High",
+     "how": "按 CAB `CAB-aac6b8f6d2ec62a38090b2aac1201f7c.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1672,
+     "resourcePathId": 26,
+     "clip": "Warpforge Black Legion Combat Medium",
+     "how": "按 CAB `CAB-aac6b8f6d2ec62a38090b2aac1201f7c.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-aac6b8f6d2ec62a38090b2aac1201f7c.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge Black Legion Combat Low",
+   "medium": "Warpforge Black Legion Combat Medium",
+   "high": "Warpforge Black Legion Combat High"
+  },
+  {
+   "arena": "battlearenadarkangels",
+   "musicManagerPid": 5228,
+   "useMultipleTracks": 0,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1654,
+     "resourcePathId": 28,
+     "clip": "Warpforge_Dark_angel_Theme",
+     "how": "按 CAB `CAB-8bfe6c0676e8518f05bfa0909cc48d28.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1656,
+     "resourcePathId": 28,
+     "clip": "Warpforge_Dark_angel_Theme",
+     "how": "按 CAB `CAB-8bfe6c0676e8518f05bfa0909cc48d28.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1658,
+     "resourcePathId": 28,
+     "clip": "Warpforge_Dark_angel_Theme",
+     "how": "按 CAB `CAB-8bfe6c0676e8518f05bfa0909cc48d28.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-8bfe6c0676e8518f05bfa0909cc48d28.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge_Dark_angel_Theme",
+   "medium": "Warpforge_Dark_angel_Theme",
+   "high": "Warpforge_Dark_angel_Theme"
+  },
+  {
+   "arena": "battlearenaemperorschildren",
+   "musicManagerPid": 5224,
+   "useMultipleTracks": 0,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1701,
+     "resourcePathId": 31,
+     "clip": "Warpforge_Emperors_Children_Theme",
+     "how": "按 CAB `CAB-2f09397c0a41bddd06ad07da99c08334.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1703,
+     "resourcePathId": 31,
+     "clip": "Warpforge_Emperors_Children_Theme",
+     "how": "按 CAB `CAB-2f09397c0a41bddd06ad07da99c08334.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1705,
+     "resourcePathId": 31,
+     "clip": "Warpforge_Emperors_Children_Theme",
+     "how": "按 CAB `CAB-2f09397c0a41bddd06ad07da99c08334.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-2f09397c0a41bddd06ad07da99c08334.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge_Emperors_Children_Theme",
+   "medium": "Warpforge_Emperors_Children_Theme",
+   "high": "Warpforge_Emperors_Children_Theme"
+  },
+  {
+   "arena": "battlearenagenestealers",
+   "musicManagerPid": 5194,
+   "useMultipleTracks": 0,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1619,
+     "resourcePathId": 34,
+     "clip": "Warpforge Genestaler Cults Combat Medium",
+     "how": "按 CAB `CAB-dfc5d1957f6f8ec53aad732ef391cf25.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1621,
+     "resourcePathId": 34,
+     "clip": "Warpforge Genestaler Cults Combat Medium",
+     "how": "按 CAB `CAB-dfc5d1957f6f8ec53aad732ef391cf25.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1623,
+     "resourcePathId": 34,
+     "clip": "Warpforge Genestaler Cults Combat Medium",
+     "how": "按 CAB `CAB-dfc5d1957f6f8ec53aad732ef391cf25.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-dfc5d1957f6f8ec53aad732ef391cf25.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge Genestaler Cults Combat Medium",
+   "medium": "Warpforge Genestaler Cults Combat Medium",
+   "high": "Warpforge Genestaler Cults Combat Medium"
+  },
+  {
+   "arena": "battlearenaleviathan",
+   "musicManagerPid": 5354,
+   "useMultipleTracks": 1,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1742,
+     "resourcePathId": 14,
+     "clip": "Warpforge Tyranid Combat Low",
+     "how": "按 CAB `CAB-0c7eecc48def3f37f0b0d9457454f6d5.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1744,
+     "resourcePathId": 15,
+     "clip": "Warpforge Tyranid Combat High",
+     "how": "按 CAB `CAB-0c7eecc48def3f37f0b0d9457454f6d5.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1746,
+     "resourcePathId": 13,
+     "clip": "Warpforge Tyranid Combat Medium",
+     "how": "按 CAB `CAB-0c7eecc48def3f37f0b0d9457454f6d5.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-0c7eecc48def3f37f0b0d9457454f6d5.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge Tyranid Combat Low",
+   "medium": "Warpforge Tyranid Combat Medium",
+   "high": "Warpforge Tyranid Combat High"
+  },
+  {
+   "arena": "battlearenasororitas",
+   "musicManagerPid": 5401,
+   "useMultipleTracks": 0,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1793,
+     "resourcePathId": 17,
+     "clip": "Warpforge Sororitas Combat Medium",
+     "how": "按 CAB `CAB-8c234bade431fd079113d2047f1656e9.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1795,
+     "resourcePathId": 17,
+     "clip": "Warpforge Sororitas Combat Medium",
+     "how": "按 CAB `CAB-8c234bade431fd079113d2047f1656e9.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1797,
+     "resourcePathId": 17,
+     "clip": "Warpforge Sororitas Combat Medium",
+     "how": "按 CAB `CAB-8c234bade431fd079113d2047f1656e9.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-8c234bade431fd079113d2047f1656e9.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge Sororitas Combat Medium",
+   "medium": "Warpforge Sororitas Combat Medium",
+   "high": "Warpforge Sororitas Combat Medium"
+  },
+  {
+   "arena": "battlearenaspacewolves",
+   "musicManagerPid": 5196,
+   "useMultipleTracks": 0,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1631,
+     "resourcePathId": 21,
+     "clip": "Warpforge_Space_wolves_Theme",
+     "how": "按 CAB `CAB-b8d10d00737dde137b0c63edae9e99bf.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1633,
+     "resourcePathId": 21,
+     "clip": "Warpforge_Space_wolves_Theme",
+     "how": "按 CAB `CAB-b8d10d00737dde137b0c63edae9e99bf.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1635,
+     "resourcePathId": 21,
+     "clip": "Warpforge_Space_wolves_Theme",
+     "how": "按 CAB `CAB-b8d10d00737dde137b0c63edae9e99bf.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-b8d10d00737dde137b0c63edae9e99bf.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge_Space_wolves_Theme",
+   "medium": "Warpforge_Space_wolves_Theme",
+   "high": "Warpforge_Space_wolves_Theme"
+  },
+  {
+   "arena": "battlearenatauviorla",
+   "musicManagerPid": 5793,
+   "useMultipleTracks": 0,
+   "midHealthChange": 18,
+   "highHealthChange": 10,
+   "timeToChange": 5.0,
+   "timeToCheck": 5.0,
+   "tracks": {
+    "Music Low Intensity": {
+     "audioSourcePid": 1929,
+     "resourcePathId": 28,
+     "clip": "Warpforge Tau Empire Combat Medium",
+     "how": "按 CAB `CAB-b969b7b62606b9967269239ffc6f3494.sharedAssets` 精确解"
+    },
+    "Music High Intensity": {
+     "audioSourcePid": 1931,
+     "resourcePathId": 28,
+     "clip": "Warpforge Tau Empire Combat Medium",
+     "how": "按 CAB `CAB-b969b7b62606b9967269239ffc6f3494.sharedAssets` 精确解"
+    },
+    "Music Medium Intensity": {
+     "audioSourcePid": 1933,
+     "resourcePathId": 28,
+     "clip": "Warpforge Tau Empire Combat Medium",
+     "how": "按 CAB `CAB-b969b7b62606b9967269239ffc6f3494.sharedAssets` 精确解"
+    }
+   },
+   "resolvedBy": [
+    "按 CAB `CAB-b969b7b62606b9967269239ffc6f3494.sharedAssets` 精确解"
+   ],
+   "low": "Warpforge Tau Empire Combat Medium",
+   "medium": "Warpforge Tau Empire Combat Medium",
+   "high": "Warpforge Tau Empire Combat Medium"
+  }
+ ]
+}

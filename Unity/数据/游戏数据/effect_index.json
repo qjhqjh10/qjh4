@@ -1,8 +1,8 @@
 {
- "generated": "2026-10-06 14:15",
+ "generated": "2026-10-16 07:22",
  "prefabDir": "Assets/WarpforgeVFX/Prefabs",
- "count": 963,
- "withController": 895,
+ "count": 964,
+ "withController": 896,
  "source": "animfx_components.json + 特效还原台账.tsv + Prefabs/ 目录",
  "effects": [
   {
@@ -11782,6 +11782,19 @@
    "verdict": "对得上",
    "confidence": "中",
    "ratio": 1.03
+  },
+  {
+   "name": "Teleport Trigger Board Effect Only",
+   "prefab": "Assets/WarpforgeVFX/Prefabs/Teleport Trigger Board Effect Only.prefab",
+   "hasController": true,
+   "destroyTime": 3.0,
+   "exitDestroyTime": 3.0,
+   "preventDestroy": false,
+   "modules": "AnimFXModulePostProcess,AnimFXModuleScreenShake",
+   "controllers": 1,
+   "verdict": "",
+   "confidence": "",
+   "ratio": -1.0
   },
   {
    "name": "Teleport Trigger Effect Quick",

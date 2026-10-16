@@ -31,7 +31,18 @@
   ② **表**：`MyGame/Assets/CardPresentation/Resources/battle_sounds.json`
      —— 进仓库；形状与 `animfx_sounds.json` 逐字段相同（`WFSoundBank` 用同一个解析器读它），
      但 **`name` 那一列是「字段名」（如 `startTurn`），不是 cue 资产名** —— 见下面「键用哪个」。
-     表尾另有 `gaps[]`：**原版这一格里就没有声音的那 12 条** + 为什么（⛔ 不许静默地少 12 条）。
+     表尾另有 `gaps[]`：**原版这一格里就没有声音的那些**（⛔ 不许静默地少几条）。
+
+🆕 **2026-10-16（B 组 = 卡 prefab 那一块）** —— 同一张表、同一套 cue 解析，多收一族的**字段**：
+  · 挂在 `CardScript.battleCardSounds`（9 条）+ `CardScript` 自己那 3 条 `changeTo*CUE`。
+  · 🔴 **它不是「逐卡序列化」**（`T06` 原来那句是错的，已就地订正）：全 `assets_full` 里带
+    `invokeCUELegendary` 的 MonoBehaviour **只有 1 份** =
+    `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MonoBehaviour_1744609728290659264.json`；
+    且 `meleeAttackHitSmall/Medium/Big` **三条指向同一个 pathID** ⇒ 原版这三档本来就是同一条音。
+  · 🔴 **这一族存的是普通 PPtr（`m_FileID` + `m_PathID`），没有 `m_AssetGUID`**
+    ⇒ ⛔ 走不了 A 组那条 catalog 链，只能按**束的 externals** 解（`m_FileID = 9` →
+    `CAB-62d1945b7005c115fb946f0d264a205b`，其 pathID 在 `soundcollection_assets_all` 束里解成 cue）。
+  · 表里靠 `group` 列区分两组（`collection` / `card`）；`WFSoundBank` 只认 `name`/`clips`/音量/音高 ⇒ **多一列无副作用**。
 
 🔴 **键用哪个（本表与 AnimFX 表唯一的形状差异）**：
    C# 那边要能一句 `soundCollection.startTurn` 那样**按原版字段名**索引 ⇒ 本表 `name` = **字段名**。
@@ -58,6 +69,8 @@ import UnityPy
 BUNDLE_DIR = "d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64"
 SAC_BUNDLE = os.path.join(BUNDLE_DIR, "duplicateassetisolationso_assets_all.bundle")
 CUE_BUNDLE = os.path.join(BUNDLE_DIR, "soundcollection_assets_all.bundle")
+# 🆕 2026-10-16（B 组）：卡 prefab 那一族 cue 挂在这束的 `CardScript` 上（**唯一一份**，见文件头「B 组」）。
+PREFAB_BUNDLE = os.path.join(BUNDLE_DIR, "battleprefabs_vfxandmisc_assets_all.bundle")
 UNPACK = "d:/2/新解包资源/assets_full"
 SAC_JSON = os.path.join(UNPACK,
                         "bundle_duplicateassetisolationso_assets_all/MonoBehaviour/SoundAssetCollection.json")
@@ -65,6 +78,12 @@ CLIP_SRC = os.path.join(UNPACK, "bundle_soundcollection_assets_all/AudioClip")
 PROBE = "d:/4/Unity/工具/_guid_resolve_probe.py"
 DST_AUDIO = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/audio/sfx"
 DST_JSON = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/battle_sounds.json"
+
+# ---- B 组：卡 prefab（`CardScript`）上的 cue 字段。⛔ 字段名逐字照抄原版（含原版自己的拼写）----
+CARD_CUE_FIELDS = ["invokeCUE", "invokeCUELegendary", "minionDeathCUE",
+                   "meleeAttackHitSmall", "meleeAttackHitMedium", "meleeAttackHitBig",
+                   "backToHand", "landOnGround", "createCardInHand"]
+CARD_TOP_FIELDS = ["changeToMeleeAttackCUE", "changeToRangeAttackCUE", "changeToActiveAbilityCUE"]
 
 
 def load_probe():
@@ -105,7 +124,11 @@ def read_sac():
 
 
 def read_cues(path):
-    """→ {cue 资产名: {clips, minPitch, maxPitch, minVolume, maxVolume, timeToPlayAgain}}。"""
+    """→ (cues, id_to_name)：
+      · `cues` = {cue 资产名: {clips, minPitch, maxPitch, minVolume, maxVolume, timeToPlayAgain}}
+      · `id_to_name` = {path_id: cue 资产名}（**只收 cue 包装**，即带 `clipList` 的那些）
+        —— B 组那边是 **PPtr（fileID/pathID）**，要靠这张表把 pathID 换回名字。
+    """
     env = UnityPy.load(path)
     name_of = {}
     for obj in env.objects:
@@ -115,14 +138,16 @@ def read_cues(path):
             nm = None
         name_of[obj.path_id] = (obj.type.name, nm)
 
-    cues = {}
+    cues, id_to_name = {}, {}
     for obj in env.objects:
         if obj.type.name != "MonoBehaviour":
             continue
         d = obj.read_typetree()
         if "clipList" not in d:
             continue
-        cues.setdefault(d.get("m_Name"), {
+        nm = d.get("m_Name")
+        id_to_name[obj.path_id] = nm
+        cues.setdefault(nm, {
             "clips": [name_of.get(c.get("m_PathID"), (None, None))[1] for c in d["clipList"]],
             "minPitch": d.get("minPitch", 1.0),
             "maxPitch": d.get("maxPitch", 1.0),
@@ -130,7 +155,60 @@ def read_cues(path):
             "maxVolume": d.get("maxVolume", 1.0),
             "timeToPlayAgain": d.get("timeToPlayAgain", 0.0),
         })
-    return cues
+    return cues, id_to_name
+
+
+def _ext_name(sf, file_id):
+    """PPtr 的 `m_FileID`（1 基）→ 所在束的 CAB 名。**`FileIdentifier` 是对象不是 dict** ⇒ 两种形状都认。"""
+    if not file_id or file_id < 1 or file_id > len(sf.externals):
+        return ""
+    e = sf.externals[file_id - 1]
+    if isinstance(e, dict):
+        return e.get("name") or ""
+    return getattr(e, "name", "") or ""
+
+
+def read_card_cues():
+    """B 组：**卡 prefab 上 `CardScript` 的那一块 cue**。→ [(字段名, pathID, 所在 CAB 名)]
+
+    判据（2026-10-16 实核）：
+      · 全 `assets_full` 里带 `invokeCUELegendary` 的 MonoBehaviour **只有 1 份** ——
+        `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MonoBehaviour_1744609728290659264.json`
+        ⇒ 🔴 **这一族【不是逐卡序列化】**（`CardScript` 只有一个字段，
+        `mine` 出来的小/中/大三档还指向**同一个 pathID**）。
+      · 这块存的是**普通 PPtr**（`m_FileID` + `m_PathID`），**没有 `m_AssetGUID`**
+        ⇒ ⛔ **走不了** A 组那条 `_guid_resolve_probe` 的链，只能按**束的 externals** 解。
+      · 实测 11 条 PPtr（第 12 条 `changeToActiveAbilityCUE` 是空引用）**全部** `m_FileID = 9`
+        → `CAB-62d1945b7005c115fb946f0d264a205b`，其 pathID 在 `soundcollection_assets_all.bundle`
+        里逐条解成「语义对得上字段名的 cue」（`invokeCUE` → `Invoke CUE`、`minionDeathCUE` → `Minion Death CUE` …）。
+    """
+    env = UnityPy.load(PREFAB_BUNDLE)
+    hit = None
+    for obj in env.objects:
+        if obj.type.name != "MonoBehaviour":
+            continue
+        try:
+            d = obj.read_typetree()
+        except Exception:                                       # noqa: BLE001
+            continue
+        if "battleCardSounds" in d:
+            hit = (obj, d)
+            break
+    if hit is None:
+        raise SystemExit(f"❌ {PREFAB_BUNDLE} 里没有带 `battleCardSounds` 的 MonoBehaviour")
+    obj, d = hit
+    sf = obj.assets_file
+    print(f"B 组：卡 prefab cue 块在 path_id={obj.path_id}（束 {sf.name}）")
+
+    out = []
+    block = d.get("battleCardSounds") or {}
+    for k in CARD_CUE_FIELDS:
+        v = block.get(k) or {}
+        out.append((k, v.get("m_PathID") or 0, _ext_name(sf, v.get("m_FileID") or 0)))
+    for k in CARD_TOP_FIELDS:
+        v = d.get(k) or {}
+        out.append((k, v.get("m_PathID") or 0, _ext_name(sf, v.get("m_FileID") or 0)))
+    return out
 
 
 def main():
@@ -144,7 +222,7 @@ def main():
     fields = read_sac()
     print(f"`SoundAssetCollection` 字段 = {len(fields)} 个")
 
-    cues = read_cues(CUE_BUNDLE)
+    cues, cue_ids = read_cues(CUE_BUNDLE)
     print(f"`soundcollection_assets_all` 束内 cue 包装 = {len(cues)} 个")
 
     files = {}
@@ -182,13 +260,43 @@ def main():
                          "why": "cue 在、但它的 clip 在解包目录里一个都对不上"})
             continue
         table.append({
-            "name": field, "clips": got, "srcCue": cue,
+            "name": field, "group": "collection", "clips": got, "srcCue": cue,
             "minPitch": round(c["minPitch"], 4), "maxPitch": round(c["maxPitch"], 4),
             "minVolume": round(c["minVolume"], 4), "maxVolume": round(c["maxVolume"], 4),
             "timeToPlayAgain": round(c["timeToPlayAgain"], 4),
         })
 
-    print(f"\n接得上 = {len(table)}/{len(fields)}；原版这格里就没有声音的 = {len(gaps)}")
+    # ---- B 组（卡 prefab `CardScript` 那一块）：PPtr → cue 名（⛔ 不走 GUID 那条链）----
+    print()
+    for field, pid, cab in read_card_cues():
+        if not pid:
+            gaps.append({"field": field, "group": "card",
+                         "why": "原版这一格的 PPtr 是空的（`m_PathID = 0`）⇒ 原版这格本来就没声音"})
+            continue
+        cue = cue_ids.get(pid)
+        if cue is None:
+            gaps.append({"field": field, "group": "card", "pathID": pid, "cab": cab,
+                         "why": f"pathID={pid}（束 {cab}）在 `soundcollection_assets_all` 的 cue 包装里找不到"})
+            continue
+        c = cues.get(cue)
+        clips = sorted({(x or "").strip() for x in c["clips"] if (x or "").strip()})
+        got = [cl for cl in clips if cl in files]
+        if not got:
+            gaps.append({"field": field, "group": "card", "pathID": pid, "cab": cab, "srcCue": cue,
+                         "clips": clips, "why": "cue 在、但它的 clip 在解包目录里一个都对不上"})
+            continue
+        table.append({
+            "name": field, "group": "card", "clips": got, "srcCue": cue,
+            "minPitch": round(c["minPitch"], 4), "maxPitch": round(c["maxPitch"], 4),
+            "minVolume": round(c["minVolume"], 4), "maxVolume": round(c["maxVolume"], 4),
+            "timeToPlayAgain": round(c["timeToPlayAgain"], 4),
+        })
+
+    n_coll = sum(1 for t in table if t["group"] == "collection")
+    n_card = sum(1 for t in table if t["group"] == "card")
+    print(f"\n接得上 = {len(table)} 条（A 组 collection {n_coll}/{len(fields)} · "
+          f"B 组 card {n_card}/{len(CARD_CUE_FIELDS) + len(CARD_TOP_FIELDS)}）；"
+          f"原版这格里就没有声音的 = {len(gaps)}")
     for g in gaps:
         print(f"  ⊘ {g['field']:<24} {g['why'][:60]}")
 
@@ -212,18 +320,23 @@ def main():
 
     out = {
         "version": 1,
-        "note": "原版**战斗**的「时机 → cue」表（`BattleManager.soundCollection` → `SoundAssetCollection`）。"
-                "⚠️ `name` 那一列是**原版字段名**（C# 按字段名索引，如 `startTurn`），"
+        "note": "原版**战斗**的「时机 → cue」表。**两组**：① `group=collection` = "
+                "`BattleManager.soundCollection`(`+0x80`) → `SoundAssetCollection` 的 28 个字段；"
+                "② `group=card` = **卡 prefab 上 `CardScript`** 那一块（9 条 + `changeTo*` 2 条；"
+                "🔴 **不是逐卡序列化** —— 全资产里只有一份，小/中/大三档还指向同一条音）。"
+                "⚠️ `name` 那一列**两组都是原版字段名**（C# 按字段名索引，如 `startTurn` / `invokeCUE`），"
                 "`srcCue` 才是 cue 资产名。clips 里随机挑一条；"
                 "音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；"
                 "文件名在 Resources/Art/audio/sfx/<clip 名>。"
                 "全部走 MixerType.FX（反编译调用点第 4 实参恒为 0）。"
-                "`gaps[]` = 原版这一格里就没有声音的那些字段（空引用 / 悬挂 GUID），⛔ 不是我们没做。",
+                "`gaps[]` = 原版这一格里就没有声音的那些字段（空引用 / 悬挂 GUID / 空 PPtr），⛔ 不是我们没做。",
         "source": {
             "so": "SoundAssetCollection（bundle_duplicateassetisolationso_assets_all，"
                   "挂在 BattleManager.soundCollection +0x80）",
+            "card_block": "CardScript.battleCardSounds（bundle_battleprefabs_vfxandmisc_assets_all，"
+                          "**全资产唯一一份**；字段是普通 PPtr ⇒ 按束 externals 解到 soundcollection 的 cue）",
             "cue_bundle": "soundcollection_assets_all.bundle",
-            "guid_resolver": "工具/_guid_resolve_probe.py（catalog_main.json）",
+            "guid_resolver": "工具/_guid_resolve_probe.py（catalog_main.json；**只 A 组用**）",
             "script": "工具/import_battle_sfx.py",
         },
         "mixer": "FX",

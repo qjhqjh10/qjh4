@@ -1191,7 +1191,13 @@ namespace CardPresentation
                 // 它原来挂在 `BattleDriver.PlaySignal` 的 `EvtKind.Death` 那一格上，2026-10-01 那件真件
                 // 进来了、从那里摘掉（否则两件同时播 = 原版没有的第二下），挪到这条退回路里。
                 // （`SpawnDeathBody` 已经在上面**出过声**了。）
-                WarpforgeVFX.WarpforgeEffectPlayer.Play(VfxMap.Death, card.transform);
+                // 🔴 **2026-10-16（`A2080` 普查顺手查出的真缺陷）就地修**：这里原来写的是
+                //    `Play(VfxMap.Death, …)` —— 而 **`VfxMap.Death` 是【事件名】常量（`"death"`）**，
+                //    ⛔ **不是 prefab 名** ⇒ 那一跳**恒不命中**、每次都打一行
+                //    「效果库里没有 'death'」（实机日志实测 13 条）。
+                //    ⇒ 按注释里写的本意改成走**兜底链**（`Resolve` → 我们自己挑的替代品
+                //    `Explosion Fenrisian Monstrosities`，见下面 `SpawnDeathBody` 那段注释）。
+                WarpforgeVFX.WarpforgeEffectPlayer.Play(VfxMap.Resolve(VfxMap.Death), card.transform);
                 return Dissolve(card, delay, onDone, isWarlord);      // 旧表现：淡出 + 上浮 + 缩
             }
 

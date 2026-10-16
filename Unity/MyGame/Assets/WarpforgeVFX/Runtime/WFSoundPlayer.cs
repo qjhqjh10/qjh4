@@ -90,14 +90,17 @@ namespace WarpforgeVFX
             src.PlayOneShot(clip, volume);
         }
 
-        /// <summary>按 cue 播一条（随机挑 clip、随机音高/音量，照原版的区间）。</summary>
-        public static void Play(WFSoundCue cue, Vector3 worldPos, bool is2d)
+        /// <summary>按 cue 播一条（随机挑 clip、随机音高/音量，照原版的区间）。
+        /// **返回真的播出去的那条 clip**（没播 = null）—— 调用方要记「刚才响的是哪条」时**必须用这个返回值**：
+        /// 再自己 `PickClip(cue, null)` 一次**会拿到另一条**（那个重载 `rng == null` 恒取第一条）
+        /// ⇒ 记下来的名字当场就是假的（`T06` 2026-10-16 实测过，见 `BattleSfx.PlayCore`）。</summary>
+        public static AudioClip Play(WFSoundCue cue, Vector3 worldPos, bool is2d)
         {
             Played++;
-            if (!Enabled || cue == null) return;
+            if (!Enabled || cue == null) return null;
 
             var clip = WFSoundBank.PickClip(cue, Rng);
-            if (clip == null) return;                       // 已经警告过，这里不再刷屏
+            if (clip == null) return null;                  // 已经警告过，这里不再刷屏
 
             float pitch = Mathf.Lerp(cue.minPitch, cue.maxPitch, (float)Rng.NextDouble());
             float vol = Mathf.Lerp(cue.minVolume, cue.maxVolume, (float)Rng.NextDouble());
@@ -110,6 +113,7 @@ namespace WarpforgeVFX
             // ⚠️ `PlayOneShot` 而不是 `Play`：同一帧里同一个 cue 可能播两次（`loops` 多的条目），
             //    而且池子轮转会**把上一条掐掉**。音高/音量是**发起那一刻**取值的，各条互不影响。
             src.PlayOneShot(clip, vol);
+            return clip;
         }
 
         /// <summary>自检用：把计数清零（池子留着）。</summary>

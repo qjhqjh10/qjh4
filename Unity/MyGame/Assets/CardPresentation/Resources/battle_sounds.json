@@ -1,16 +1,18 @@
 {
  "version": 1,
- "note": "原版**战斗**的「时机 → cue」表（`BattleManager.soundCollection` → `SoundAssetCollection`）。⚠️ `name` 那一列是**原版字段名**（C# 按字段名索引，如 `startTurn`），`srcCue` 才是 cue 资产名。clips 里随机挑一条；音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；文件名在 Resources/Art/audio/sfx/<clip 名>。全部走 MixerType.FX（反编译调用点第 4 实参恒为 0）。`gaps[]` = 原版这一格里就没有声音的那些字段（空引用 / 悬挂 GUID），⛔ 不是我们没做。",
+ "note": "原版**战斗**的「时机 → cue」表。**两组**：① `group=collection` = `BattleManager.soundCollection`(`+0x80`) → `SoundAssetCollection` 的 28 个字段；② `group=card` = **卡 prefab 上 `CardScript`** 那一块（9 条 + `changeTo*` 2 条；🔴 **不是逐卡序列化** —— 全资产里只有一份，小/中/大三档还指向同一条音）。⚠️ `name` 那一列**两组都是原版字段名**（C# 按字段名索引，如 `startTurn` / `invokeCUE`），`srcCue` 才是 cue 资产名。clips 里随机挑一条；音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；文件名在 Resources/Art/audio/sfx/<clip 名>。全部走 MixerType.FX（反编译调用点第 4 实参恒为 0）。`gaps[]` = 原版这一格里就没有声音的那些字段（空引用 / 悬挂 GUID / 空 PPtr），⛔ 不是我们没做。",
  "source": {
   "so": "SoundAssetCollection（bundle_duplicateassetisolationso_assets_all，挂在 BattleManager.soundCollection +0x80）",
+  "card_block": "CardScript.battleCardSounds（bundle_battleprefabs_vfxandmisc_assets_all，**全资产唯一一份**；字段是普通 PPtr ⇒ 按束 externals 解到 soundcollection 的 cue）",
   "cue_bundle": "soundcollection_assets_all.bundle",
-  "guid_resolver": "工具/_guid_resolve_probe.py（catalog_main.json）",
+  "guid_resolver": "工具/_guid_resolve_probe.py（catalog_main.json；**只 A 组用**）",
   "script": "工具/import_battle_sfx.py"
  },
  "mixer": "FX",
  "cues": [
   {
    "name": "drawCardFromDeck",
+   "group": "collection",
    "clips": [
     "CardDraw"
    ],
@@ -23,6 +25,7 @@
   },
   {
    "name": "minionHeal",
+   "group": "collection",
    "clips": [
     "UnitHeal"
    ],
@@ -35,6 +38,7 @@
   },
   {
    "name": "minionInitiatingAttack",
+   "group": "collection",
    "clips": [
     "SelectUnit"
    ],
@@ -47,6 +51,7 @@
   },
   {
    "name": "moveCardIntoBattle",
+   "group": "collection",
    "clips": [
     "CardMove"
    ],
@@ -59,6 +64,7 @@
   },
   {
    "name": "playMinionFromHand",
+   "group": "collection",
    "clips": [
     "CardPlay"
    ],
@@ -71,6 +77,7 @@
   },
   {
    "name": "sneakAttack",
+   "group": "collection",
    "clips": [
     "battle_attack_soft"
    ],
@@ -83,6 +90,7 @@
   },
   {
    "name": "unitDamage",
+   "group": "collection",
    "clips": [
     "UnitDamage"
    ],
@@ -95,6 +103,7 @@
   },
   {
    "name": "chatShow",
+   "group": "collection",
    "clips": [
     "Combat_Chats_Show"
    ],
@@ -107,6 +116,7 @@
   },
   {
    "name": "endTurnButton",
+   "group": "collection",
    "clips": [
     "EndTurn"
    ],
@@ -119,6 +129,7 @@
   },
   {
    "name": "endTurnButtonInactive",
+   "group": "collection",
    "clips": [
     "battle_endturn_error"
    ],
@@ -131,6 +142,7 @@
   },
   {
    "name": "timerExpired",
+   "group": "collection",
    "clips": [
     "battle_turn_end"
    ],
@@ -143,6 +155,7 @@
   },
   {
    "name": "startTurn",
+   "group": "collection",
    "clips": [
     "StartTurn"
    ],
@@ -155,6 +168,7 @@
   },
   {
    "name": "mulligan",
+   "group": "collection",
    "clips": [
     "Mulligan"
    ],
@@ -167,6 +181,7 @@
   },
   {
    "name": "outOfActions",
+   "group": "collection",
    "clips": [
     "NoActionsLeft"
    ],
@@ -179,6 +194,7 @@
   },
   {
    "name": "defaultActiveAbility",
+   "group": "collection",
    "clips": [
     "CardDraw"
    ],
@@ -191,10 +207,163 @@
   },
   {
    "name": "toggle",
+   "group": "collection",
    "clips": [
     "UIButtonPress"
    ],
    "srcCue": "UI Press Button",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "invokeCUE",
+   "group": "card",
+   "clips": [
+    "Invoke Minion 3"
+   ],
+   "srcCue": "Invoke CUE",
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "invokeCUELegendary",
+   "group": "card",
+   "clips": [
+    "Invoke Minion Legendary"
+   ],
+   "srcCue": "Invoke Legendary CUE",
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "minionDeathCUE",
+   "group": "card",
+   "clips": [
+    "Minion Death",
+    "Minion Death 2"
+   ],
+   "srcCue": "Minion Death CUE",
+   "minPitch": 0.8,
+   "maxPitch": 1.24,
+   "minVolume": 0.3,
+   "maxVolume": 0.3,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "meleeAttackHitSmall",
+   "group": "card",
+   "clips": [
+    "MeleeAttack_1",
+    "MeleeAttack_2",
+    "MeleeAttack_3"
+   ],
+   "srcCue": "Melee Atack Hit",
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "meleeAttackHitMedium",
+   "group": "card",
+   "clips": [
+    "MeleeAttack_1",
+    "MeleeAttack_2",
+    "MeleeAttack_3"
+   ],
+   "srcCue": "Melee Atack Hit",
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "meleeAttackHitBig",
+   "group": "card",
+   "clips": [
+    "MeleeAttack_1",
+    "MeleeAttack_2",
+    "MeleeAttack_3"
+   ],
+   "srcCue": "Melee Atack Hit",
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "backToHand",
+   "group": "card",
+   "clips": [
+    "ReturnToHand2"
+   ],
+   "srcCue": "ReturnToHand2",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "landOnGround",
+   "group": "card",
+   "clips": [
+    "MinionStompGround"
+   ],
+   "srcCue": "Land On Ground",
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "createCardInHand",
+   "group": "card",
+   "clips": [
+    "CardMove_1",
+    "CardMove_2",
+    "CardMove_3"
+   ],
+   "srcCue": "Create Card In Hand",
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "changeToMeleeAttackCUE",
+   "group": "card",
+   "clips": [
+    "ChangeToMeleeAttack"
+   ],
+   "srcCue": "Change to Melee Attack CUE",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "changeToRangeAttackCUE",
+   "group": "card",
+   "clips": [
+    "ChangeToRangeAttack"
+   ],
+   "srcCue": "Change to Range Attack CUE",
    "minPitch": 1.0,
    "maxPitch": 1.0,
    "minVolume": 1.0,
@@ -256,6 +425,11 @@
   {
    "field": "dissolveCardInHand",
    "why": "原版这一格的 AssetReference 是空的（亲读 shipped bundle）"
+  },
+  {
+   "field": "changeToActiveAbilityCUE",
+   "group": "card",
+   "why": "原版这一格的 PPtr 是空的（`m_PathID = 0`）⇒ 原版这格本来就没声音"
   }
  ]
 }
