@@ -461,7 +461,7 @@ namespace RuleEngine
 
         /// <summary>🆕 2026-09-16 **「它本回合内死了，就把这条效果转给另一个」**的监听。
         ///
-        /// 卡面只有一张：`BL77 Spreading Corruption` 的
+        /// 卡面只有一张：`BL74 Spreading Corruption` 的
         /// `Give Vulnerable 4 to an enemy troop. If it dies this turn, apply this effect to
         /// another random enemy troop`（中文「给予一个敌方部队脆弱 4。若其本回合死亡，
         /// 将此效果施加于另一个随机敌方部队」）。
@@ -859,7 +859,7 @@ namespace RuleEngine
         /// <summary>
         /// 🆕 **2026-09-16：发生这件事的「那张卡」**（不是单位）—— 给 `create a copy of **it**` 用。
         ///
-        /// 出处：`Neurotyrant`（`TL82` · Leviathan）卡面
+        /// 出处：`Neurotyrant`（`TL69` · Leviathan）卡面
         ///   `Whenever you play a non-Ephemeral Stratagem, create an Ephemeral copy of **it** in your hand`
         ///   —— 那个 `it` 指的是**刚打出的那张战术卡**（一张 `CardDef`），
         ///   **不是**场上的单位。而 `LastTarget` 装的是 `UnitState`、`LastChosenCard` 是选牌那条路的

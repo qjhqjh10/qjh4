@@ -1,0 +1,85 @@
+--- sample bare-ish ---
+Chat_Messages/ASH4	So comes the hour of bloodshed.	血战的时刻到了。
+Chat_Messages/ASH5	The Craftworld will never surrender.	方舟世界永远不会投降。
+Chat_Messages/ASH6	Hold still...	别动...
+Chat_Messages/ASH7	We will protect the Craftworld!	我们将保护方舟世界！
+Chat_Messages/ASH8	Light dims, yet our hope is ever kindled.	光线暗淡，但我们的希望永远燃烧。
+Chat_Messages/ASH9	I bring a swift demise.	我带来迅速的死亡。
+Chat_Messages/ASH10	Surround them! Strangle them like the Serpent!	包围他们！像蛇一样勒死他们！
+Chat_Messages/ASH11	The shadows are always vigilant.	阴影总是警惕。
+Chat_Messages/ASH12	When the wind cries, retribution has arrived.	当风哭泣，报复已经到来。
+Chat_Messages/ASH13	Strike and fade.	攻击然后消失。
+Chat_Messages/ASH14	I have returned, so the Craftworld may never fall.	我已经回来，所以方舟世界永远不会倒下。
+Chat_Messages/ASH16	I am the bloodied blade of Khaine.	我是凯恩的血腥之刃。
+Chat_Messages/ASH17	Spirits heed my words, and rise.	灵魂听我的话，然后崛起。
+Chat_Messages/ASH18	I am always swift.	我总是迅速的。
+Chat_Messages/ASH19	The skeins of fate tell of nothing but death.	命运的线索只预示着死亡。
+Chat_Messages/ASH20	No more pain, no more death.	再无痛苦，再无死亡。
+Chat_Messages/ASH21	We are the raging winds!	我们是狂怒的风！
+Chat_Messages/ASH22	Burn in Khaine's fury!	在凯恩的愤怒中燃烧！
+Chat_Messages/ASH23	You tread an accursed path.	你走的是被诅咒的道路。
+Chat_Messages/ASH24	I am Khaine's wrath!	我是凯恩的愤怒！
+Chat_Messages/ASH25	Follow the wind, bring forth Khaine's fire!	顺风而行，带来凯恩的火焰！
+Chat_Messages/ASH26	May the Sting of Grief commence!	愿悲痛之刺开始！
+Chat_Messages/ASH27	Let our enemies feel the rushing wind of death.	让我们的敌人感受到死亡的疾风。
+Chat_Messages/ASH28	Rise warden, the Craftworld needs you once more.	起来，守卫者，方舟世界再次需要你。
+Chat_Messages/ASH29	Forward! Crush the interlopers!	向前！粉碎入侵者！
+Chat_Messages/ASH30	We are the spear of Khaine!	我们是凯恩的矛！
+Chat_Messages/ASH31	Death rains from the skies!	死亡从天空降下！
+Chat_Messages/ASH32	The spirits guide me.	灵魂指引我。
+Chat_Messages/ASH33	When my vengeance comes, it will be swift.	当我的复仇星来临，它将是迅速的。
+Chat_Messages/ASH34	Death Wakes, War Calls!	死亡觉醒，战争呼唤！
+Chat_Messages/ASH35	Enough blood has flowed. The fight must end.	已经流了足够的血。战斗必须结束。
+Chat_Messages/BL1	*bestial snarling*	*野兽般的咆哮*
+Chat_Messages/BL2	Death to the False Emperor!	伪帝去死吧！
+Chat_Messages/BL3	I serve the Dark Gods.	我侍奉黑暗诸神。
+Chat_Messages/BL4	Cruelty is strength.	残忍就是力量。
+Chat_Messages/BL5	Your skull is already mine.	你的头颅已经是我的了。
+Chat_Messages/BL6	*swirling dust*	*旋转的尘土*
+Chat_Messages/BL7	Blood for the Blood God!	为血神献血！
+Chat_Messages/BL8	Such sweet cacophony!	如此甜美的喧嚣！
+Chat_Messages/BL9	I live in your nightmares.	我活在你的噩梦中。
+
+--- sample other ---
+Chat_Messages/ASH1-vsKarandras	Death, darkness and "She Who Thirsts".	死亡，黑暗和"饥渴女士"。
+Chat_Messages/ASH1-vsMinka	Your foul breed will pay for the tragedy of Hyperia.	你们这种邪恶的种族将为海佩里亚的悲剧付出代价。
+Chat_Messages/ASH1-vsTBC1	Your deeds will accomplish nothing but songs of lament.	你的行为只会带来挽歌。
+Chat_Messages/ASH1-vsTBC2	I have glimpsed the portents, and they bring only pain.	我已经瞥见了预兆，它们只带来痛苦。
+Chat_Messages/ASH1-vsTBC3	I speak of the ruin that is to come.	我在说的是即将来临的毁灭。
+Chat_Messages/ASH1-vsTBC4	When my vengeance comes, it will be swift.	当我的复仇来临时，它将是迅速的。
+Chat_Messages/ASH2-vsElan	You have angered the spirits, mon’keigh.	你已经激怒了精灵，野蛮人。
+Chat_Messages/ASH2-vsGrimmar	I underestimated you once. Time has come to clean that stain.	我曾经低估过你。现在是清洗那个污点的时候了。
+Chat_Messages/ASH2-vsSW	Forward! No wolf shall outlive this battle!	向前！没有狼会在这场战斗后存活！
+Chat_Messages/ASH2-vsTBC1	I am always swift.	我总是迅速的。
+Chat_Messages/ASH2-vsTBC2	Ride now, Wild Host. Ride forth to glory and vengeance!	现在骑行，野性主人。骑向荣耀和复仇！
+Chat_Messages/ASH3-vsElan	Your short-lived kind are a scourge on this galaxy.	你们这种短命的种族是这个银河系的天灾。
+Chat_Messages/ASH3-vsGrimmar	I am retribution for your acts against the Craftworld, mon'keigh.	我是对你们对方舟世界的行为的报复，蒙奇。
+Chat_Messages/ASH3-vsTBC2	You face the Aeldari Aspects and will not endure.	你面对的是艾达灵族的方面，你无法忍受。
+Chat_Messages/ASH3-vsTBC3	When the time comes, you will falter.	当时机来临，你会犹豫。
+Chat_Messages/ASH3-vsTBC4	If you seek to anger me, you have failed.	如果你试图激怒我，你已经失败了。
+Chat_Messages/ASH3-vsUrsula	These were never your worlds, mon'keigh.	这些世界从来不是你的，蒙奇。
+Chat_Messages/ASH15_OUT	*Piercing shriek*	*尖锐的尖叫*
+Chat_Messages/BL36-TBC	The Dark Gods give me power!	黑暗诸神赋予我力量！
+Chat_Messages/77a7253295da8234f8c04de2ad5e2d59	Ready for fightin', boss!	准备战斗，老大！
+Chat_Messages/UM21_OLD	You're not ready to take on a foe like me.	你还没准备好面对像我这样的敌人。
+Chat_Messages/UM47-extra	My blood sings with righteousness.	我的血液因正义而歌唱。
+Chat_Messages/GOF75-vsOMaisos	Let'z see if yer speshul suits can handle a good krumpin'!	看看你的特殊服装能否承受一次好的砸击！
+Chat_Messages/GOF75-Backup4	None of yer shooty bitz'll get past me armour.	你的射击部件都无法穿透我的盔甲。
+Chat_Messages/TAU1-Backup	Any decision can be the stone that starts the avalanche.	任何决定都可能是引发雪崩的石头。
+Chat_Messages/vs Varro Tigurius	Such hypocrisy makes the Gods laugh.	这样的伪善使神们笑了。
+Chat_Messages/vs Ghazghkull Thraka	Your gods are pitiful things compared to the true powers of the galaxy.	你们的神与银河真正的力量相比，只是可怜的小东西。
+Chat_Messages/vs Anvirr Keltoc	You were so close to salvation...	你离救赎如此之近...
+Chat_Messages/Backup (vs Aeldari)	The Dark Prince sends his regards...	黑暗王子送上他的问候...
+Chat_Messages/Backup	I answer only to the Warmaster and the Gods.	我只对战帅和神负责。
+Chat_Messages/SOR3-Backup1	I will bring your end.	我将带来你的终结。
+Chat_Messages/SOR3-Backup2	The weak and the faithless find no deliverance.	弱者和无信者找不到解放星。
+Chat_Messages/SOR2-Backup3	Our faith strengthens our resolve.	我们的信仰增强了我们的决心。
+Chat_Messages/SOR2-Backup4	I will not submit to the heretic.	我不会向异端者屈服。
+Chat_Messages/SOR1-TBC-Backup1	His immortal benevolence will protect us all.	他的不朽者仁慈将保护我们所有人。
+Chat_Messages/SOR1-TBC-Backup2	I cannot let this sacred ground be defiled!	我不能让这块神圣的土地被亵渎！
+Chat_Messages/SOR1-TBC-Backup3	Heresy exists in many forms.	异端存在于许多形式中。
+Chat_Messages/vs Marine	The False Angels were never meant to protect us!	虚假的天使从未打算保护我们！
+Chat_Messages/vs Astra Militarum	You could have been free, and yet you chose to tighten your chains.	你本可以获得自由，但你却选择了加紧你的枷锁。
+Chat_Messages/Backup 1	They will pay dearly for this!	他们会为此付出沉重的代价！
+
+--- all keys where no -Chat and looks like card id, full list count by prefix ---

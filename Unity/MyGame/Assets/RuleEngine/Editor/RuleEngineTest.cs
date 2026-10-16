@@ -9280,7 +9280,7 @@ public static partial class RuleEngineTest
 
         // ---- ⑤ 尺子自己抓出来的另外两张：`target is a <兵种>` ----
         //    `Vex Machinator`（`BL48`）：`Deal 5 damage to an enemy. If target is a Vehicle, destroy it`
-        //    `Armoury of Excess`（`EC62`）：`… If target is a friendly troop, … If target is an enemy, …`
+        //    `Armoury of Excess`（`EC60`）：`… If target is a friendly troop, … If target is an enemy, …`
         //    这三句原来**一个字都归一不出来**（`ConditionKind` 是空的）⇒ 判不了、同样静默 ——
         //    它们**不是**这次普查一开始就点名的，是**这把尺子自己抓出来的**（说明尺子有用）。
         {
@@ -9301,7 +9301,7 @@ public static partial class RuleEngineTest
     /// 见那份报告第 1 节 —— 官方中文本地从来不存在），但能抓「**翻译时读懂了、解析器没读懂**」
     /// 这一类 —— 它跟英文原文**互相独立**。这次一把尺子抓到 2 条真错（另有 12 条假阳性）。
     ///
-    /// **① `Shrineworld`（`SOR62`）—— 数据侧**：
+    /// **① `Shrineworld`（`SOR49`）—— 数据侧**：
     ///   卡面（成品图逐字核过 `d:/2/Warpforge部队卡片/Sorotitas/4计策/Warpforge_62_Shrineworld.png`）印
     ///   `Draw 3 cards. For each Troop drawn, gain 1 ☀`；而 `数据/游戏数据/cardface_fixes.json`
     ///   的 `desc` 列**把段首写成了 `Destroy an enemy unit.`** —— 那一列的用途只是「补回被 OCR
@@ -9323,7 +9323,7 @@ public static partial class RuleEngineTest
         // ---- ① `Shrineworld`：不许再解出 `destroy` ----
         {
             var sw = FindCard(pool, "Shrineworld");
-            CheckTrue(sw != null, "卡池里找得到 `Shrineworld`（`SOR62`）");
+            CheckTrue(sw != null, "卡池里找得到 `Shrineworld`（`SOR49`）");
             if (sw != null)
             {
                 bool destroys = false;
@@ -10090,9 +10090,9 @@ public static partial class RuleEngineTest
     ///       **但它确实在跑**（`AM15 Master of Ordnance` 那一批）。
     ///       ⚠️ **不加这道闸会把这一族整整 19 条误报成「无消费点」**（探针实测：本档最容易误报的一处）；
     ///    3. `CardDef.CostWhens` 的 `Body` —— **降费触发器**（`Lower cost by N every time …`，
-    ///       `TL83 Norn Emissary`）：`_costWhens` **不经过 `WillRunOps`**（那个方法只收
+    ///       `TL70 Norn Emissary`）：`_costWhens` **不经过 `WillRunOps`**（那个方法只收
     ///       `WhenTriggers`/`TriggerTexts`/`SpiritOps`/`OathOps`/`FaithOps`/`AttackedOps`/`AuraSpecs` 七个来源）
-    ///       ⇒ 同样会「无头 + 解得开 + 腿 A = 0」，**而 `FireCostWhen` 在吃它**。⚠️ 不加会误报 `TL83`。
+    ///       ⇒ 同样会「无头 + 解得开 + 腿 A = 0」，**而 `FireCostWhen` 在吃它**。⚠️ 不加会误报 `TL70`。
     ///
     /// 三道闸都没认领 ⇒ <see cref="WRHeadNone"/>：**这句卡面正文【没有任何一层会执行】**（不是「查不到」，
     ///   是「全仓唯一读 `u.Card.Desc` 的地方只有 `ResolveAtTurn`，而它只收回合起止从句」）。</summary>
@@ -11180,7 +11180,7 @@ public static partial class RuleEngineTest
     /// · **`Phobos Lieutenant`** —— `Create a random Ultramarines **card** in hand`：`card` 是**通称**、
     ///   不是兵种词 ⇒ `MatchKindWord` 认不出 ⇒ 落到「具名查」报「不是卡名也不是兵种词」。
     ///   修法：剥尾部 ` card(s)` + 「只剩阵营词 ⇒ 取该阵营全部卡」（判据照抄 `FilterChoose` 那一支）。
-    /// · **`Neurotyrant`（`TL82`）** —— `create an **Ephemeral** copy of **it**`：`ephemeral` 前缀与
+    /// · **`Neurotyrant`（`TL69`）** —— `create an **Ephemeral** copy of **it**`：`ephemeral` 前缀与
     ///   那个 `it` 两样都挡着。修法：`CreatePoolResult.MarkEphemeral` + `BattleContext.EventCard`
     ///   （我们上一版复刻 `rule_core.gd:722/:825-827`，旁证）。
     /// · **`Inner Circle Companion`（`DA21`）** —— `Gain Vanguard and **2 Quest Points**`：
@@ -15263,7 +15263,7 @@ public static partial class RuleEngineTest
     /// （见 `阵营推进_清单与交接.md` 里那条跨轮教训）。这里逐条量**棋盘状态真的变了**。
     ///
     /// 覆盖：① 残骸广播（`SAU61`）② 宇宙巨蛇触发灵魂石能力且**不付石**（`ASH52`）
-    /// ③ 诺恩使节的 `every time` 降费（`TL83`，数据侧）④ 督军费用全 0（9 张开图核过的收账）。
+    /// ③ 诺恩使节的 `every time` 降费（`TL70`，数据侧）④ 督军费用全 0（9 张开图核过的收账）。
     /// </summary>
     static void TestBatch0916()
     {
@@ -15324,7 +15324,7 @@ public static partial class RuleEngineTest
             }
         }
 
-        // ---------- ③ `TL83 Norn Emissary`：`every time …` 也能收成事件型降费 ----------
+        // ---------- ③ `TL70 Norn Emissary`：`every time …` 也能收成事件型降费 ----------
         {
             var norn = CreatePool.FindByName(pool, "Norn Emissary");
             CheckTrue(norn != null, "卡池里有 `Norn Emissary`");
@@ -15437,7 +15437,7 @@ public static partial class RuleEngineTest
             }
         }
 
-        // ---------- ⑦ 「本回合内死了就转给另一个」：真卡 `BL77 Spreading Corruption` ----------
+        // ---------- ⑦ 「本回合内死了就转给另一个」：真卡 `BL74 Spreading Corruption` ----------
         {
             var sc = CreatePool.FindByName(pool, "Spreading Corruption");
             var killFoe = Tactic("T_KillFoe", 0, "Deal 99 damage to an enemy troop");

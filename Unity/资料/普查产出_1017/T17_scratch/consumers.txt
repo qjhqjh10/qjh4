@@ -1,0 +1,48 @@
+### Battle/Tips/ : total=38 wired=14 unwired=24
+  WIRED: Continue DamageFatigue DragToTarget EnergyCost GoFirst HandFull HealthPoints MeleeAttack NoTargetAvailable NotEnoughMana NotEnoughRoom NotYourTurn RangeAttack UnitNotReady
+  UNWIRED: AttackBlock AttackBlockFlying AttackBlockStealth AttackGiantKiller CantAttackDestroyer CantAttackFlank CantAttackWithZeroMeleeAttack CantAttackWithZeroRangedAttack CantLoseRank FatigueDamage GoSecond HighELOOpponent InvalidTarget MuteEnemyChat NoActions NoCards PendingBerzerk PleaseWait TutorialAttackDesc TutorialAttackTitle TutorialCostDesc TutorialCostTitle TutorialHealthDesc TutorialHealthTitle
+
+### Battle/Effect/ : total=28 wired=4 unwired=24
+  WIRED: ChangeArmourOneTurn ChangeHealthOneTurn ChangeMeleeAttackOneTurn ChangeRangedAttackOneTurn
+  UNWIRED: ChangeAbilityCost ChangeAllStats ChangeAllStatsOneTurn ChangeArmour ChangeBothAttacks ChangeBothAttacksOneTurn ChangeCost ChangeHealth ChangeMeleeAndHealth ChangeMeleeAttack ChangeRangedAndHealth ChangeRangedAttack GetTrait GetTraitOneTurn Khorne Nurgle RemoveTrait SetCost SetHealth SetMeleeAttack SetRangeAttack Slaanesh SwapStats Tzeentch
+
+### Battle/Cemetery/ : total=20 wired=4 unwired=16
+  WIRED: ActionExitAmbush ActionOpponentDraws ActionSecretOrder ActionYouDraw
+  UNWIRED: ActionAbility ActionAttack ActionAttackMelee ActionAttackRanged ActionDisplayEnemyCardInHand ActionDisplayYourCardInHand ActionEnemyCollectsSpiritStone ActionOpponentPlays ActionOpponentPlaysAmbush ActionTargetedAbility ActionTargetedOpponentPlay ActionTargetedYouPlay ActionYouCollectSpiritStone ActionYouPlay ActionYouPlayAmbush AmbushedTroop
+
+### Battle/HUD/ : total=16 wired=8 unwired=8
+  WIRED: AffectedBy CardsInHand CardsLeft CreatedBy EndTurn EnemyTurn TargetsAvailable YourTurn
+  UNWIRED: BannerNoGuild Defeat LostConnectionMsg MatchAlreadyFinished PleaseWaitConnection Replay ShowingCards WaitOpponentConnectionMsg
+
+### Battle/Chat/ : total=6 wired=6 unwired=0
+  WIRED: Greetings Oops Sorry Taunt Threat WellPlayed
+  UNWIRED: 
+
+### Battle/Mulligan/ : total=7 wired=6 unwired=1
+  WIRED: ButtonDone Instructions Replace Undo WaitEnemy secondTurn
+  UNWIRED: extraWarlord
+
+### Battle/BattleEnd/ : total=16 wired=3 unwired=13
+  WIRED: Defeat Draw Victory
+  UNWIRED: CantLoseRating DamageDone ForfeitFoe ForfeitMe Location Rounds RoundsMinFoeHealth RoundsOnly TapToContinue TapToContinueMobile Time Title TroopsDead
+
+### Battle/AlliancePanel/ : total=4 wired=4 unwired=0
+  WIRED: AllianceLabel NotInAnAlliance PlayerLabel TitleLabel
+  UNWIRED: 
+
+### Battle/ChooseCard/ : total=6 wired=1 unwired=5
+  WIRED: Instructions
+  UNWIRED: Defensive Instructions-52ecd898b5a42c941afdc891e82d963f Instructions-defensive Instructions-offensive Offensive
+
+### Battle/Prebattle/ : total=5 wired=1 unwired=4
+  WIRED: SelectButton
+  UNWIRED: CasualString RandomAIString RandomPlayerString RankedSearchString
+
+### Battle/Settings/ : total=6 wired=2 unwired=4
+  WIRED: ResignButton SkipTutorial
+  UNWIRED: AiDifficulty Exit LoginButton Title
+
+### Battle/MatchType/ : total=5 wired=0 unwired=5
+  WIRED: 
+  UNWIRED: ClosedDeck Draft Practice Ranked Unranked
+

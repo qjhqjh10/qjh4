@@ -2559,7 +2559,7 @@ namespace RuleEngine
                 // ⚠️ 选牌那个**按一张卡一个窗口清空**（`ResolveOps` 入口），所以不会有陈旧值。
                 var t = ctx.LastTarget;
                 // 🆕 **2026-09-16：事件的「那张卡」优先** —— `Whenever you play a … Stratagem,
-                //    create an Ephemeral copy of **it**`（`Neurotyrant`，`TL82`）。
+                //    create an Ephemeral copy of **it**`（`Neurotyrant`，`TL69`）。
                 //    那个 `it` 是**刚打出的那张战术卡**（`CardDef`），不是场上单位
                 //    ⇒ `LastTarget`（`UnitState`）够不着它。见 `BattleContext.EventCard`。
                 if (ctx.EventCard != null)
@@ -4324,7 +4324,7 @@ namespace RuleEngine
         ///    卡池实测（`cards_engine.json` 全文正则）：「既 `draw` 又用 `them`」的一共 **3 张** ——
         ///    `TAU54 Dynamic Offensive`（`Draw 2 troops from your deck. If they are Battlesuits,
         ///    give them Flank`）· `GOF50 Tide of Muscle`（`Draw two troops and give them +1`）·
-        ///    `AM63 Siege Warfare`（`Draw two Vehicles from your deck and **deploy** them` ——
+        ///    `AM58 Siege Warfare`（`Draw two Vehicles from your deck and **deploy** them` ——
         ///    那一句是 `deploy`，不走本段）。前两张的 `them` 指的都是**刚抽上手的那几张**，
         ///    而**没有任何一张**是「先抽牌、再拿 `them` 指场上的单位」⇒ 兜底不会误伤。
         ///    🆕 **2026-10-18 补另外 2 张**：单数 `it` 的 `GOF_Da_Red_Waaagh`
@@ -6805,7 +6805,7 @@ namespace RuleEngine
             {
                 if (t == null || !t.IsAlive) continue;
                 // 🆕 2026-09-16 「**它本回合内死了，就把这条效果转给另一个**」
-                // （`BL77 Spreading Corruption`：`If it dies this turn, apply this effect to
+                // （`BL74 Spreading Corruption`：`If it dies this turn, apply this effect to
                 // another random enemy troop`）—— 解析层把「转给谁」挂在**这条 op** 上
                 // （`EffectOp.DeathWatchTarget`），这里按**实际打中的那个单位**登记监听。
                 // ⚠️ 记的是 `t` 这个对象（不是卡名）—— 同名两张分得开。
@@ -7472,7 +7472,7 @@ namespace RuleEngine
                 case "controlcount":
                 {
                     // `If you control <短语>` —— 卡面实测（2026-09-16 全池普查，7 处）：
-                    //   · `a Vehicle`（`AM77` / `DA49` / `GOF10`）
+                    //   · `a Vehicle`（`AM76` / `DA49` / `GOF10`）
                     //   · `a Beast`（`GOF78` / `GOF_Dok_s_Toolz_Painboss_talent`）
                     //   · `a Spanner or Mekboy Gazmek`（`GOF17` —— 兵种词**或卡名**）
                     //   · `3 or more troops`（`SW52`）

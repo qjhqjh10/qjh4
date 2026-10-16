@@ -1,0 +1,1715 @@
+==== Battle/Tips/ : 38 ====
+Battle/Tips/AttackBlock	You must attack the Vanguard unit	你必须攻击先锋单位
+Battle/Tips/AttackBlockFlying	You can't attack a flying unit with Melee	你不能用近战攻击飞行单位
+Battle/Tips/AttackBlockStealth	You can't target a Stealth unit	你不能针对隐身单位
+Battle/Tips/AttackGiantKiller	You must attack the Warlord or a Front Line unit	你必须攻击战将或前线单位
+Battle/Tips/CantAttackDestroyer	This troop must attack the unit it can destroy	这个军队必须攻击它能摧毁的单位
+Battle/Tips/CantAttackFlank	Not a valid target for a Flank attack	不是侧翼攻击的有效目标
+Battle/Tips/CantAttackWithZeroMeleeAttack	This unit cannot attack in Melee mode	这个单位不能进行近战攻击
+Battle/Tips/CantAttackWithZeroRangedAttack	This unit cannot attack in Ranged mode	这个单位不能进行远程攻击
+Battle/Tips/CantLoseRank	Can't lose rating in current division	在当前级别无法失去评级
+Battle/Tips/Continue	Continue	继续
+Battle/Tips/DamageFatigue	Your deck is empty. You take {0} damage from fatigue.	你的卡组已空。你因疲劳受到{0}点伤害。
+Battle/Tips/DragToTarget	Drag to a valid target	拖动到有效目标
+Battle/Tips/EnergyCost	Energy Cost	能量花费
+Battle/Tips/FatigueDamage	damage	伤害
+Battle/Tips/GoFirst	You go first	你先行
+Battle/Tips/GoSecond	Enemy goes first	敌人先行
+Battle/Tips/HandFull	Hand is full	手牌已满
+Battle/Tips/HealthPoints	Health Points	生命点数
+Battle/Tips/HighELOOpponent	The opponent's name isn't shown above 3000 rating.	对手的名字在3000评级以上不会显示。
+Battle/Tips/InvalidTarget	Not a valid target	无效的目标
+Battle/Tips/MeleeAttack	Melee Attack	近战攻击
+Battle/Tips/MuteEnemyChat	You can mute enemy chat in settings	你可以在设置中静音敌人聊天
+Battle/Tips/NoActions	Let the battle begin.	让战斗开始。
+Battle/Tips/NoCards	No cards!	没有牌！
+Battle/Tips/NoTargetAvailable	No valid target available	没有有效的目标
+Battle/Tips/NotEnoughMana	Not enough Energy	能量不足
+Battle/Tips/NotEnoughRoom	No room on the battlefield	战场上没有空位
+Battle/Tips/NotYourTurn	It is not your turn	现在不是你的回合
+Battle/Tips/PendingBerzerk	Berzerk units must attack	狂战士单位必须攻击
+Battle/Tips/PleaseWait	Please wait!	请等待！
+Battle/Tips/RangeAttack	Ranged Attack	远程攻击
+Battle/Tips/TutorialAttackDesc	Damage dealt to enemy unit in combat	在战斗中对敌方单位造成伤害
+Battle/Tips/TutorialAttackTitle	Attack	攻击
+Battle/Tips/TutorialCostDesc	Mana points spent to play this card	花费法力点数来出这张牌
+Battle/Tips/TutorialCostTitle	Mana Cost	法力花费
+Battle/Tips/TutorialHealthDesc	Unit dies if health reaches 0	单位如果生命值降至0则死亡
+Battle/Tips/TutorialHealthTitle	Health	生命值
+Battle/Tips/UnitNotReady	Unit isn't ready	单位未准备好
+
+==== Battle/Cemetery/ : 20 ====
+Battle/Cemetery/ActionAbility	{0} uses Ability	{0} 使用技能
+Battle/Cemetery/ActionAttack	{0} attacks {1}	{0} 攻击 {1}
+Battle/Cemetery/ActionAttackMelee	{0} does a Melee attack against {1}	{0} 对 {1} 进行近战攻击
+Battle/Cemetery/ActionAttackRanged	{0} does a Ranged attack against {1}	{0} 对 {1} 进行远程攻击
+Battle/Cemetery/ActionDisplayEnemyCardInHand	You reveal {0} in enemy hand	你展示了敌人手中的 {0}
+Battle/Cemetery/ActionDisplayYourCardInHand	Opponent reveals {0} in your hand	对手展示了你手中的 {0}
+Battle/Cemetery/ActionEnemyCollectsSpiritStone	Opponent collects Spirit Stone	对手收集灵魂石
+Battle/Cemetery/ActionExitAmbush	{0} exits from Ambush	{0} 从伏击中出现
+Battle/Cemetery/ActionOpponentDraws	Opponent draws {0}	对手抽取 {0}
+Battle/Cemetery/ActionOpponentPlays	Opponent plays {0}	对手出牌 {0}
+Battle/Cemetery/ActionOpponentPlaysAmbush	Opponent plays a troop with Ambush	对手打出一支具有伏击的军队
+Battle/Cemetery/ActionSecretOrder	{0} executes {1}	{0} 执行 {1}
+Battle/Cemetery/ActionTargetedAbility	{0} uses Ability on {1}	{0} 对 {1} 使用技能
+Battle/Cemetery/ActionTargetedOpponentPlay	Opponent plays {0} on {1}	对手对 {1} 出牌 {0}
+Battle/Cemetery/ActionTargetedYouPlay	You play {0} on {1}	你对 {1} 出牌 {0}
+Battle/Cemetery/ActionYouCollectSpiritStone	You collect Spirit Stone	你收集灵魂石
+Battle/Cemetery/ActionYouDraw	You draw {0}	你抽取 {0}
+Battle/Cemetery/ActionYouPlay	You play {0}	你出牌 {0}
+Battle/Cemetery/ActionYouPlayAmbush	You play a troop with Ambush	你打出一支具有伏击的军队
+Battle/Cemetery/AmbushedTroop	troop with Ambush	具有伏击的军队
+
+==== Battle/Chat/ : 6 ====
+Battle/Chat/Greetings	Greetings	问候
+Battle/Chat/Oops	Oops	哎呀
+Battle/Chat/Sorry	Sorry	抱歉
+Battle/Chat/Taunt	Taunt	嘲讽
+Battle/Chat/Threat	Threat	威胁
+Battle/Chat/WellPlayed	Well played	打得好
+
+==== Chat_Messages/ : 1548 ====
+Chat_Messages/77a7253295da8234f8c04de2ad5e2d59	Ready for fightin', boss!	准备战斗，老大！
+Chat_Messages/AM1-Chat0	Arise, warriors of the Imperium! For the Emperor!	起来，帝国的战士们！为了帝皇！
+Chat_Messages/AM1-Chat0-BL34	I defy you, Despoiler!	我挑战你，毁灭者！
+Chat_Messages/AM1-Chat0-BL36	We stand steadfast against the darkness.	我们坚定不移地对抗黑暗。
+Chat_Messages/AM1-Chat0-GOF28	Your brutish hordes will fall to the discipline of the Astra Militarum!	你那野蛮的部落将败在星界军的纪律之下！
+Chat_Messages/AM1-Chat0-GSC1	Fiend, your insidious rebellion shall be purged today!	恶魔，你的阴险叛乱今天将被清除！
+Chat_Messages/AM1-Chat0-SAU35	Your lifeless tyranny shall be shattered by the Emperor's light!	你那无生命的暴政将被帝皇的光明粉碎！
+Chat_Messages/AM1-Chat0-TL34	Xenos abomination, your kind shall never defile Holy Terra.	异形的怪物，你们这种生物永远不会玷污神圣泰拉。
+Chat_Messages/AM1-Chat0-TL35	Monstrosity! I shall send you back to the void from whence you came.	怪物！我将把你送回你来的虚空。
+Chat_Messages/AM1-Chat1	Onward! Fight so the dawn may rise anew!	向前！为了新的黎明而战！
+Chat_Messages/AM1-Chat10	Honor and courage light our way.	荣誉和勇气照亮我们的道路。
+Chat_Messages/AM1-Chat11	Fear Sol's Righteous Gaze.	畏惧太阳的正义凝视。
+Chat_Messages/AM1-Chat12	Emperor give me strength.	帝皇赐予我力量。
+Chat_Messages/AM1-Chat13	The toll is steep, yet every sacrifice paves the path to victory.	代价沉重，但每一次牺牲都为胜利铺平了道路。
+Chat_Messages/AM1-Chat14	Today, we etch our names in the stars.	今天，我们将我们的名字刻在星星上。
+Chat_Messages/AM1-Chat2	Decisiveness is a weapon. Let us act swiftly.	果断就是一种武器。让我们迅速行动。
+Chat_Messages/AM1-Chat3	That is beyond our power.	那超出了我们的能力。
+Chat_Messages/AM1-Chat4	Fall back! Dawn shall rise brightest after the darkest night.	后退！黎明将在最黑暗的夜晚后最亮。
+Chat_Messages/AM1-Chat5	Ours is the moment! March forward!	我们的时刻到了！向前进！
+Chat_Messages/AM1-Chat6	Tremble before the might of the Astra Militarum!	在星界军的威力面前颤抖吧！
+Chat_Messages/AM1-Chat7	Hm, even the Collegiate Astrolex failed to foresee this.	嗯，即使是天文学院也未能预见到这一点。
+Chat_Messages/AM1-Chat8	Forward, Konstantin! Let nothing slow us down!	向前，康斯坦丁！不让任何事情拖我们后腿！
+Chat_Messages/AM1-Chat9	We are the hammer of the Emperor.	我们是帝皇之锤。
+Chat_Messages/AM10	Cadia stands!	卡迪亚站立！
+Chat_Messages/AM11	For Cadia, we hold the line here!	为了卡迪亚，我们在这里守住阵线！
+Chat_Messages/AM12	Flamers to the front!	火焰喷射器到前线!
+Chat_Messages/AM13	Yes, sir!	是的，长官！
+Chat_Messages/AM14	Heavy weapon teams, awaiting target!	重武器队，等待目标!
+Chat_Messages/AM15	For Cadia!	为了卡迪亚！
+Chat_Messages/AM16	Scout patrol to command. I have eyes on the enemy.	侦查巡逻向指挥官报告 我已看到敌人。
+Chat_Messages/AM17	Do your duty, or die by my hand.	履行你的职责，或者死在我手中。
+Chat_Messages/AM18	Let's make the cannons sing. Fire!	让我们的大炮唱起来。开火！
+Chat_Messages/AM19	Ride them down!	骑下他们！
+Chat_Messages/AM2-Chat0	With fury in our hearts, we will never falter!	怀着愤怒的心，我们永不动摇！
+Chat_Messages/AM2-Chat0-AM1	For Cadia!	为了卡迪亚！
+Chat_Messages/AM2-Chat0-AM3	Know your place, Commissar!	知道你的位置，政委！
+Chat_Messages/AM2-Chat0-Abaddon	You may be the Arch-Fiend, but I am Retribution!	你可能是恶魔，但我是惩罚！
+Chat_Messages/AM2-Chat0-Leviathan	Don’t allow these beasts a foothold.	不要让这些野兽立足。
+Chat_Messages/AM2-Chat0-Ultramarines	You should be focusing on the real enemy!	你应该专注于真正的敌人！
+Chat_Messages/AM2-Chat1	While we stand, Cadia stands!	只要我们站立，卡迪亚就存在！
+Chat_Messages/AM2-Chat10	Cadia is no more, but we still stand!	卡迪亚已不再，但我们仍然站立！
+Chat_Messages/AM2-Chat11	The Astra Militarum will never break.	星界军永不崩溃。
+Chat_Messages/AM2-Chat12	Let me teach you a lesson about strategy.	让我教你一些关于战略的课程。
+Chat_Messages/AM2-Chat13	Only a coward hides at the back of the lines.	只有懦夫才会躲在战线的后方。
+Chat_Messages/AM2-Chat14	Face forward and never look back!	面向前方，永不回头！
+Chat_Messages/AM2-Chat2	Stop wasting time!	别浪费时间！
+Chat_Messages/AM2-Chat3	I can’t do that.	我做不到。
+Chat_Messages/AM2-Chat4	Fall back and regroup!	后退并重新整队！
+Chat_Messages/AM2-Chat5	I have seen you and judged you – face my wrath!	我已经看透你并判断你 - 面对我的愤怒！
+Chat_Messages/AM2-Chat6	The Hammer of the Emperor shall be your doom!	帝皇之锤将是你的末日！
+Chat_Messages/AM2-Chat7	Tactics win battles but faith wins wars.	战术赢得战斗，但信仰赢得战争。
+Chat_Messages/AM2-Chat8	I will carry on my father’s legacy.	我将继续我父亲的遗志。
+Chat_Messages/AM2-Chat9	We will defend the Imperium to our dying breath.	我们将用最后一口气来捍卫帝国。
+Chat_Messages/AM21	Blessed is the Omnissiah's work.	欧姆尼塞亚的工作是神圣的。
+Chat_Messages/AM22	I channel the Emperor’s fury!	我引导帝皇的愤怒！
+Chat_Messages/AM23	Target sighted. Let there be fire!	目标已锁定 让火焰燃烧！
+Chat_Messages/AM24	Get behind me!	跟在我后面！
+Chat_Messages/AM25	Nothing will stop our advance.	没有什么能阻止我们的进军。
+Chat_Messages/AM26	Armored transport, moving in!	装甲运输车，正在移动！
+Chat_Messages/AM27	Behind me sir, Nork's got dis!	长官，站我后面，Nork来搞定这个！
+Chat_Messages/AM28	Prepare for immediate deployment!	准备立即部署!
+Chat_Messages/AM29	Blast them out of the skies!	把他们从天空中炸出来！
+Chat_Messages/AM3-Chat0	We march forward, for the Imperium!	我们向前进，为了帝国！
+Chat_Messages/AM3-Chat0-AM1	For the Emperor!	为了帝皇！
+Chat_Messages/AM3-Chat0-AM2	My place is to ensure the discipline of your troops.	我的职责是确保你的军队纪律严明。
+Chat_Messages/AM3-Chat0-AM66	The price of cowardice is death.	懦弱的代价就是死亡。
+Chat_Messages/AM3-Chat0-BL35	Stand and fight me!	站起来和我战斗！
+Chat_Messages/AM3-Chat0-GOF28	Yarrick was an inspiration to us all.	亚瑞克对我们所有人都是一种鼓舞。
+Chat_Messages/AM3-Chat0-Minka	Do not make me shoot you for cowardice.	不要让我因为你的懦弱而射击你。
+Chat_Messages/AM3-Chat1	If you flee, you will die.	如果你逃跑，你会死。
+Chat_Messages/AM3-Chat10	We will be victorious this day!	我们今天将会胜利！
+Chat_Messages/AM3-Chat11	Retreat is not an option. We fight until the last man.	退路不是选项。我们战斗到最后一个人。
+Chat_Messages/AM3-Chat12	Victory through courage or through fear, whatever is needed.	通过勇气或恐惧取得胜利，无论需要什么。
+Chat_Messages/AM3-Chat13	You cannot defeat the might of Astra Militarum.	你无法击败星界军的威力。
+Chat_Messages/AM3-Chat14	Discipline is the lifeblood of the Guard. Without it, we are nothing.	纪律是警卫的生命线。没有它，我们就什么都不是。
+Chat_Messages/AM3-Chat2	This is no time for indecision.	现在不是犹豫不决的时候。
+Chat_Messages/AM3-Chat3	Such action is not allowed.	这样的行动是不允许的。
+Chat_Messages/AM3-Chat4	An orderly retreat has been authorised.	已经授权进行有序的撤退。
+Chat_Messages/AM3-Chat5	Another battlefield, another victory to claim.	又一个战场，又一个胜利等待我们去夺取。
+Chat_Messages/AM3-Chat6	I will strike you down as an example for all!	我会击败你，作为对所有人的警示！
+Chat_Messages/AM3-Chat7	You fight well – better than I expected.	你战斗得很好 - 比我预期的要好。
+Chat_Messages/AM3-Chat8	I will never back down from the likes of you.	我永远不会向你这样的人退缩。
+Chat_Messages/AM3-Chat9	I do my duty without hesitation.	我毫不犹豫地履行我的职责。
+Chat_Messages/AM30	Missiles primed and ready!	导弹已准备就绪！
+Chat_Messages/AM31	Stand fast, not one step back!	坚守阵地，一步也不让!
+Chat_Messages/AM32	The battlefield trembles under our treads.	战场在我们的脚步下颤抖。
+Chat_Messages/AM33	The earth shakes to the sound of our guns.	大地在我们的炮声下震动。
+Chat_Messages/AM34	Prepare for rapid insertion!	准备快速插入！
+Chat_Messages/AM35	A single shell is all it takes.	一颗炮弹就足够了。
+Chat_Messages/AM36	Duty demands sacrifice.	职责要求牺牲。
+Chat_Messages/AM37	We are the Emperor's fire and fury!	我们是帝皇的火焰和愤怒！
+Chat_Messages/AM38	All weapons, open fire!	所有武器，开火！
+Chat_Messages/AM4	Armed and ready!	武装并准备就绪！
+Chat_Messages/AM5	Reporting for duty!	报告职责！
+Chat_Messages/AM59	I see beyond sight.	我看到了超越视线的东西。
+Chat_Messages/AM6	One shot should do it.	一枪就能解决。
+Chat_Messages/AM66-Chat0	Soldiers, may your deeds honour the Imperium!	士兵们，让你们的行为荣耀帝国！
+Chat_Messages/AM66-Chat0-AM1	This exercise is a privilege, and we will prove worthy.	这次训练是一种特权，我们会证明自己配得上。
+Chat_Messages/AM66-Chat0-AM2	This exercise is a privilege, and we will prove worthy.	这次训练是一种特权，我们会证明自己配得上。
+Chat_Messages/AM66-Chat0-AM3	A soldier who conquers fear is worth an army.	能够征服恐惧的士兵，胜过一支军队。
+Chat_Messages/AM66-Chat0-Goff	End this stubborn filth now!	立即结束这股顽固的污秽！
+Chat_Messages/AM66-Chat0-TauEmpire	I have seen the reports from Volkus, xenos. Your fate is sealed.	我已看到来自沃库斯的报告，异形。你的命运已经封印。
+Chat_Messages/AM66-Chat0-Ultramarines	This exercise is a privilege, and we will prove worthy.	这次训练是一种特权，我们会证明自己配得上。
+Chat_Messages/AM66-Chat1	We only get one shot at this.	我们只有一次机会。
+Chat_Messages/AM66-Chat10	The Schola Progenium has honed us into weapons.	教導院已将我们磨练成武器。
+Chat_Messages/AM66-Chat10-old	Remember your training soldiers! Discipline begets triumph.	记住你的训练士兵们！纪律带来胜利。
+Chat_Messages/AM66-Chat11	Stay sharp! There is a limit to what Medi-kits can do.	保持警惕！医疗包的能力有限。
+Chat_Messages/AM66-Chat12	A sharp enemy can only be vanquished with a sharp blade.	只有锋利的刀剑才能击败狡猾的敌人。
+Chat_Messages/AM66-Chat13	I do not deal in chances, victory is the only aim.	我不玩运气，只有胜利是唯一的目标。
+Chat_Messages/AM66-Chat14	We are the Imperium's blade, lethal and unwavering.	我们是帝国的刀剑，致命且坚定。
+Chat_Messages/AM66-Chat2	Hesitation brings only failure.	犹豫只会带来失败。
+Chat_Messages/AM66-Chat3	This action is not authorised.	此行动未经授权。
+Chat_Messages/AM66-Chat4	The objective is compromised. Regroup!	目标已被破坏。重新集结！
+Chat_Messages/AM66-Chat5	Target acquired. Ready to move in!	目标已锁定。准备行动！
+Chat_Messages/AM66-Chat6	A clean shot is the only mercy you will receive.	干净利落的一击，是你唯一会得到的怜悯。
+Chat_Messages/AM66-Chat7	The foe is more resilient than anticipated.	敌人比预期更坚韧。
+Chat_Messages/AM66-Chat8	Even death can bring glory.	即使是死亡也能带来荣耀。
+Chat_Messages/AM66-Chat9	Target eliminated. The mission continues.	目标已消除。布道所继续。
+Chat_Messages/AM67	*Scanning for hostiles*	*扫描敌对目标*
+Chat_Messages/AM68	Contact confirmed. Engaging.	确认接触。开始交战。
+Chat_Messages/AM69	No mercy. Bring them down!	绝不手软。打倒他们！
+Chat_Messages/AM7	New orders in from command.	来自指挥官的新命令。
+Chat_Messages/AM70	On your feet! If you can breathe, you can fight.	站起来！如果你能呼吸，你就能战斗。
+Chat_Messages/AM71	Descending into position!	降落到指定位置！
+Chat_Messages/AM72	Fight to the last breath!	直到最后一口气也要战斗！
+Chat_Messages/AM73	Reserves are ready for deployment.	预备队已准备好部署。
+Chat_Messages/AM8	Just a flesh-wound, I'll have you back on your feet.	只是皮外伤，我会让你重新站起来。
+Chat_Messages/AM9	Hotshot rifles primed. Kill-shots authorised.	热射步枪已准备就绪 杀伤射击已授权。
+Chat_Messages/ASH1-Chat0	The hour of blood and clashing blades has come.	血与刀剑交击的时刻已经来临。
+Chat_Messages/ASH1-Chat0-ASH2	Retribution will come, but we must first assure our survival.	报复将会来临，但我们必须首先确保我们的生存。
+Chat_Messages/ASH1-Chat0-BL36	Your very presence corrupts that which lies beyond the veil.	你的存在污染了帷幕之外的一切。
+Chat_Messages/ASH1-Chat0-SAU37	You think you can divine the truth, but you see only lies.	你以为你可以洞察真相，但你只看到谎言。
+Chat_Messages/ASH1-Chat0-UM48	Your kind still has many crimes to answer for.	你们这种人还有很多罪行要回答。
+Chat_Messages/ASH1-Chat1	I am tested time and time again and yet I prevail.	我一次又一次地接受考验，然而我始终能够胜出。
+Chat_Messages/ASH1-Chat10	Each one of your vile deeds begets a dire consequence.	你们每一次恶行都会带来严重的后果。
+Chat_Messages/ASH1-Chat11	There is always a way. I always find it.	总有一条路。我总能找到。
+Chat_Messages/ASH1-Chat12	Never engage in a battle if you have not seen the outcome	如果你没有看到结果，就不要参与战斗。
+Chat_Messages/ASH1-Chat13	I know what it is to lose everything, and I shall not falter.	我知道失去一切是什么感觉，我不会动摇。
+Chat_Messages/ASH1-Chat14	You walk a path that leads to your own ruin.	你走的路将导致你自己的毁灭。
+Chat_Messages/ASH1-Chat2	Time is our enemy.	时间是我们的敌人。
+Chat_Messages/ASH1-Chat3	I cannot do that.	我不能做到。
+Chat_Messages/ASH1-Chat4	Come warriors, our salvation lies not here.	来吧，战士们，我们的救赎并不在这里。
+Chat_Messages/ASH1-Chat5	The strands of fate have guided me to this place.	命运的丝线引导我来到这个地方。
+Chat_Messages/ASH1-Chat6	Your doom is close, I have foreseen it.	你的末日即将来临，我已经预见到了。
+Chat_Messages/ASH1-Chat7	I did not anticipate your success.	我没有预料到你的成功。
+Chat_Messages/ASH1-Chat8	Although stained red, I must walk this path.	尽管染红了，我必须走这条道路。
+Chat_Messages/ASH1-Chat9	I could not be broken before, and I will not be broken now.	我以前不能被打败，现在也不会。
+Chat_Messages/ASH1-vsKarandras	Death, darkness and "She Who Thirsts".	死亡，黑暗和"饥渴女士"。
+Chat_Messages/ASH1-vsMinka	Your foul breed will pay for the tragedy of Hyperia.	你们这种邪恶的种族将为海佩里亚的悲剧付出代价。
+Chat_Messages/ASH1-vsTBC1	Your deeds will accomplish nothing but songs of lament.	你的行为只会带来挽歌。
+Chat_Messages/ASH1-vsTBC2	I have glimpsed the portents, and they bring only pain.	我已经瞥见了预兆，它们只带来痛苦。
+Chat_Messages/ASH1-vsTBC3	I speak of the ruin that is to come.	我在说的是即将来临的毁灭。
+Chat_Messages/ASH1-vsTBC4	When my vengeance comes, it will be swift.	当我的复仇来临时，它将是迅速的。
+Chat_Messages/ASH10	Surround them! Strangle them like the Serpent!	包围他们！像蛇一样勒死他们！
+Chat_Messages/ASH11	The shadows are always vigilant.	阴影总是警惕。
+Chat_Messages/ASH12	When the wind cries, retribution has arrived.	当风哭泣，报复已经到来。
+Chat_Messages/ASH13	Strike and fade.	攻击然后消失。
+Chat_Messages/ASH14	I have returned, so the Craftworld may never fall.	我已经回来，所以方舟世界永远不会倒下。
+Chat_Messages/ASH15_OUT	*Piercing shriek*	*尖锐的尖叫*
+Chat_Messages/ASH16	I am the bloodied blade of Khaine.	我是凯恩的血腥之刃。
+Chat_Messages/ASH17	Spirits heed my words, and rise.	灵魂听我的话，然后崛起。
+Chat_Messages/ASH18	I am always swift.	我总是迅速的。
+Chat_Messages/ASH19	The skeins of fate tell of nothing but death.	命运的线索只预示着死亡。
+Chat_Messages/ASH2-Chat0	We bring death from above, as Khaine's spear did before!	我们从上方带来死亡，就像凯恩的矛在之前做的那样！
+Chat_Messages/ASH2-Chat0-ASH1	How can you join those who stabbed us in the back?	你怎么能加入那些背叛我们的人？
+Chat_Messages/ASH2-Chat0-ASH3	Let's see how your spear fights for our craftworld.	让我们看看你的矛如何为我们的方舟世界战斗。
+Chat_Messages/ASH2-Chat0-GOF27	Wild Riders, purge the green vermin from the skies!	野性骑士，清除天空中的绿色害虫！
+Chat_Messages/ASH2-Chat0-GOF75	We bring death from above, as Khaine's spear did before!	我们从上方带来死亡，就像凯恩的矛在之前做的那样！
+Chat_Messages/ASH2-Chat0-OUT	I am the master of the skies.	我是天空的主人。
+Chat_Messages/ASH2-Chat1	I will achieve victory at all costs.	我将不惜一切代价取得胜利。
+Chat_Messages/ASH2-Chat10	Try to keep up with me.	试着跟上我。
+Chat_Messages/ASH2-Chat13	I fight to reclaim what is ours.	我为夺回我们的东西而战。
+Chat_Messages/ASH2-Chat14	Delay brings only ruin, we must strike!	拖延只会带来毁灭，我们必须攻击！
+Chat_Messages/ASH2-Chat2	It's now or never!	现在是生死攸关的时刻！
+Chat_Messages/ASH2-Chat3	I cannot do this.	我不能做这个。
+Chat_Messages/ASH2-Chat4	I must leave now, but this is not the end.	我必须现在离开，但这不是结束。
+Chat_Messages/ASH2-Chat5	Let the dance of death begin!	让死亡之舞开始！
+Chat_Messages/ASH2-Chat6	I promise a quick end to your struggles!	我保证会快速结束你的挣扎！
+Chat_Messages/ASH2-Chat7	This battle is more interesting than I thought.	这场战斗比我想象的更有趣。
+Chat_Messages/ASH2-Chat8	I am as the wind.	我如风。
+Chat_Messages/ASH2-Chat8-OUT	Strike and fade, Wild Riders! Just like the serpent.	攻击后消失，野性骑士！就像蛇一样。
+Chat_Messages/ASH2-Chat9	How can you hope to fight against what you can't hit?	你怎么能希望对抗你打不到的东西？
+Chat_Messages/ASH2-vsElan	You have angered the spirits, mon’keigh.	你已经激怒了精灵，野蛮人。
+Chat_Messages/ASH2-vsGrimmar	I underestimated you once. Time has come to clean that stain.	我曾经低估过你。现在是清洗那个污点的时候了。
+Chat_Messages/ASH2-vsSW	Forward! No wolf shall outlive this battle!	向前！没有狼会在这场战斗后存活！
+Chat_Messages/ASH2-vsTBC1	I am always swift.	我总是迅速的。
+Chat_Messages/ASH2-vsTBC2	Ride now, Wild Host. Ride forth to glory and vengeance!	现在骑行，野性主人。骑向荣耀和复仇！
+Chat_Messages/ASH20	No more pain, no more death.	再无痛苦，再无死亡。
+Chat_Messages/ASH21	We are the raging winds!	我们是狂怒的风！
+Chat_Messages/ASH22	Burn in Khaine's fury!	在凯恩的愤怒中燃烧！
+Chat_Messages/ASH23	You tread an accursed path.	你走的是被诅咒的道路。
+Chat_Messages/ASH24	I am Khaine's wrath!	我是凯恩的愤怒！
+Chat_Messages/ASH25	Follow the wind, bring forth Khaine's fire!	顺风而行，带来凯恩的火焰！
+Chat_Messages/ASH26	May the Sting of Grief commence!	愿悲痛之刺开始！
+Chat_Messages/ASH27	Let our enemies feel the rushing wind of death.	让我们的敌人感受到死亡的疾风。
+Chat_Messages/ASH28	Rise warden, the Craftworld needs you once more.	起来，守卫者，方舟世界再次需要你。
+Chat_Messages/ASH29	Forward! Crush the interlopers!	向前！粉碎入侵者！
+Chat_Messages/ASH3-Chat0	Cleanse this place! We must protect the Craftworld!	让我们净化这个地方！我们必须保护方舟世界！
+Chat_Messages/ASH3-Chat0-ASH2	I will hold nothing back.	我不会留任何余地。
+Chat_Messages/ASH3-Chat0-BL35	You will never know peace, abomination.	你这个怪物，永远不会知道和平。
+Chat_Messages/ASH3-Chat0-SAU35	If you seek to anger me, you have failed.	如果你试图激怒我，你已经失败了。
+Chat_Messages/ASH3-Chat0-TL34	These soulless abominations will devour all.	这些无魂的怪物会吞噬一切。
+Chat_Messages/ASH3-Chat1	Travelling the webway brings many surprises.	穿越网道总会带来许多惊喜。
+Chat_Messages/ASH3-Chat10	You are interlopers, and you will be repelled.	你们是入侵者，你们将被击退。
+Chat_Messages/ASH3-Chat11	You will never catch up with me.	你永远赶不上我。
+Chat_Messages/ASH3-Chat12	A swift assault is the best approach.	迅速的攻击是最好的方法。
+Chat_Messages/ASH3-Chat13	The Farseers guide my hand this day.	先知们在今天引导我的手。
+Chat_Messages/ASH3-Chat14	When the Craftworlds unite, we will prevail.	当方舟世界联合时，我们将会胜利。
+Chat_Messages/ASH3-Chat2	We must hurry.	我们必须赶快。
+Chat_Messages/ASH3-Chat3	This cannot be done.	这是无法完成的。
+Chat_Messages/ASH3-Chat4	The Skeins of Fate are treacherous this day.	命运的纠结今日狡猾无比。
+Chat_Messages/ASH3-Chat5	Ready to face the might of the Saim-Hann.	准备面对萨姆-罕的威力。
+Chat_Messages/ASH3-Chat6	Silent and unseen, I will bring your life to its end.	沉默且看不见的，我将使你的生命走向终结。
+Chat_Messages/ASH3-Chat7	You have presented an unforseen challenge.	你带来了一个未预见的挑战。
+Chat_Messages/ASH3-Chat8	I will not let this sanctuary be corrupted.	我不会让这个圣所被污染。
+Chat_Messages/ASH3-Chat9	My life has been spent preparing for this.	我一生都在为此做准备。
+Chat_Messages/ASH3-vsElan	Your short-lived kind are a scourge on this galaxy.	你们这种短命的种族是这个银河系的天灾。
+Chat_Messages/ASH3-vsGrimmar	I am retribution for your acts against the Craftworld, mon'keigh.	我是对你们对方舟世界的行为的报复，蒙奇。
+Chat_Messages/ASH3-vsTBC2	You face the Aeldari Aspects and will not endure.	你面对的是艾达灵族的方面，你无法忍受。
+Chat_Messages/ASH3-vsTBC3	When the time comes, you will falter.	当时机来临，你会犹豫。
+Chat_Messages/ASH3-vsTBC4	If you seek to anger me, you have failed.	如果你试图激怒我，你已经失败了。
+Chat_Messages/ASH3-vsUrsula	These were never your worlds, mon'keigh.	这些世界从来不是你的，蒙奇。
+Chat_Messages/ASH30	We are the spear of Khaine!	我们是凯恩的矛！
+Chat_Messages/ASH31	Death rains from the skies!	死亡从天空降下！
+Chat_Messages/ASH32	The spirits guide me.	灵魂指引我。
+Chat_Messages/ASH33	When my vengeance comes, it will be swift.	当我的复仇星来临，它将是迅速的。
+Chat_Messages/ASH34	Death Wakes, War Calls!	死亡觉醒，战争呼唤！
+Chat_Messages/ASH35	Enough blood has flowed. The fight must end.	已经流了足够的血。战斗必须结束。
+Chat_Messages/ASH4	So comes the hour of bloodshed.	血战的时刻到了。
+Chat_Messages/ASH5	The Craftworld will never surrender.	方舟世界永远不会投降。
+Chat_Messages/ASH6	Hold still...	别动...
+Chat_Messages/ASH61	*Low humming*	*低沉的嗡嗡声*
+Chat_Messages/ASH62	When light fades, we must stand as one for the Craftworld.	当光明消退，我们必须为方舟世界站在一起。
+Chat_Messages/ASH63	Let slip of mercy, quell those who defiled the Craftworld!	放下怜悯，消灭那些玷污方舟世界的人！
+Chat_Messages/ASH65	Strike like the spear of Khaine!	如凯恩之矛般攻击！
+Chat_Messages/ASH66	One perfect strike.	一击必杀。
+Chat_Messages/ASH67	We strike with lethal precision.	我们以致命的精准攻击。
+Chat_Messages/ASH68	A silent death descends upon our foes.	寂静死亡降临我们的敌人。
+Chat_Messages/ASH69	The wail of Khaine will be your doom!	凯恩的哀嚎将是你的末日！
+Chat_Messages/ASH7	We will protect the Craftworld!	我们将保护方舟世界！
+Chat_Messages/ASH70	From the skies, death rains upon you!	从天空中，死亡如雨般降临你！
+Chat_Messages/ASH74-Chat0	You face the Storm of Silence.	你正面临寂灭之风暴。
+Chat_Messages/ASH74-Chat0-AM2	These were never your worlds.	这些世界从未属于你。
+Chat_Messages/ASH74-Chat0-BL35	Might? You are but a whisper, soon to be silenced.	力量？你只是一阵微风，即将被寂灭。
+Chat_Messages/ASH74-Chat0-Leviathan	These creatures pose a threat to all life in the galaxy.	这些生物对银河系中的所有生命构成威胁。
+Chat_Messages/ASH74-Chat0-SAU35	Let me show you the true essence of the storm.	让我向你展示风暴的真实本质。
+Chat_Messages/ASH74-Chat1	Hear my warcry and know that it means death!	听我的战吼，知道它意味着死亡！
+Chat_Messages/ASH74-Chat10	I deliver no mercy other than the peace of death.	我只给予死亡的平静，没有任何怜悯。
+Chat_Messages/ASH74-Chat11	I will defend what is ours.	我将捍卫我们的所有。
+Chat_Messages/ASH74-Chat12	Your fate was sealed the moment you crossed my path.	你的命运在你穿越我的道路的那一刻就已经封印。
+Chat_Messages/ASH74-Chat13	I am a Phoenix Lord, I pass wherever my Path takes me	我是凤凰领主，我走我之道。
+Chat_Messages/ASH74-Chat14	You will soon be nothing but a stain on my blades.	你很快就会成为我刀剑上的一道痕迹。
+Chat_Messages/ASH74-Chat2	Inaction leads to ruin!	无为只会导致毁灭！
+Chat_Messages/ASH74-Chat3	I cannot do that!	我不能做那个！
+Chat_Messages/ASH74-Chat4	The winds are unfavourable, but the storm will gather again.	风向不利，但风暴将再次聚集。
+Chat_Messages/ASH74-Chat5	My blades are ready for you.	我的刀剑已经准备好对你。
+Chat_Messages/ASH74-Chat6	I bring only death and leave only corpses.	我只带来死亡，只留下尸体。
+Chat_Messages/ASH74-Chat7	It is rare that I meet a worthy foe.	我很少遇到值得一战的敌人。
+Chat_Messages/ASH74-Chat8	*Howl*	*嚎叫*
+Chat_Messages/ASH74-Chat9	I have faced death many times, and still I stand to deliver it.	我已经多次面对死亡，但我仍然站立，为其送行。
+Chat_Messages/ASH75	When battle calls, we must all don the mask.	当战斗召唤，我们都必须戴上面具。
+Chat_Messages/ASH76-Chat0	The Webway stirs, the whisper must be heard again.	网道骚动，低语必须再次被听见。
+Chat_Messages/ASH76-Chat0-Drukari	You are a constant reminder of the path we must shun.	你是我们必须避开之道的不断提醒。
+Chat_Messages/ASH76-Chat0-EmperorsChildren	The errors of the past must be cleansed.	过去的错误必须被清除。
+Chat_Messages/ASH76-Chat0-Leviathan	Every step a new horror to vanquish.	每一步都有新的惧妖要消灭。
+Chat_Messages/ASH76-Chat0-SaimHann	Traversing the webway comes with many dangers. You must be prepared.	穿越网道充满了许多危险。你必须做好准备。
+Chat_Messages/ASH76-Chat0-Sautekh	Your time has passed, your silence must begin.	你的时间已经过去，你的寂灭必须开始。
+Chat_Messages/ASH76-Chat0-UM46	Have they not need of you elsewhere?	他们难道不需要你在别处吗？
+Chat_Messages/ASH76-Chat1	For too long have I been silenced.	我被寂灭的时间太久了。
+Chat_Messages/ASH76-Chat10	Vhattarkan demands your silence.	瓦塔坎要求你的寂灭。
+Chat_Messages/ASH76-Chat11	When you turn to see me, I will already be gone.	当你转身看我时，我已经消失。
+Chat_Messages/ASH76-Chat12	I am the blade that severs the skeins!	我是切断命运之线的刀刃！
+Chat_Messages/ASH76-Chat13	No good leader would send lives to end in vain.	好的领导者不会让生命徒然结束。
+Chat_Messages/ASH76-Chat14	Hubris only speeds the downfall of the arrogant.	傲慢只会加速傲慢者的倒下。
+Chat_Messages/ASH76-Chat2	The skeins tighten. It is now or never.	命运之线紧绷。现在或永不。
+Chat_Messages/ASH76-Chat3	This is not my path.	这不是我的之道。
+Chat_Messages/ASH76-Chat4	I return to the Webway. Fate shall spin a new strand.	我返回网道。命运将会编织新的线索。
+Chat_Messages/ASH76-Chat5	For the good of the Asuryani, I will end this swiftly.	为了阿苏瑞安的利益，我会迅速结束这一切。
+Chat_Messages/ASH76-Chat6	The blink of an eye is enough to weave your end.	眨眼之间足以编织你的终结。
+Chat_Messages/ASH76-Chat7	A brave effort, but I have faced worse in the Webway.	勇敢的努力，但我在网道上面对过更糟的。
+Chat_Messages/ASH76-Chat8	Do not think your ambitions are unnoticed.	不要以为你的野心没有被注意到。
+Chat_Messages/ASH76-Chat9	A mere whisper can twist the strands of fate.	仅仅一句低语就能扭曲命运的线索。
+Chat_Messages/ASH77	Death lies in waiting.	死亡在等待。
+Chat_Messages/ASH78	None escapes the spider's bite.	无人能逃脱蜘蛛的咬噬。
+Chat_Messages/ASH79	Your end is woven in monofilament.	你的终结已被单丝编织。
+Chat_Messages/ASH8	Light dims, yet our hope is ever kindled.	光线暗淡，但我们的希望永远燃烧。
+Chat_Messages/ASH80	Every strike weaves a future worthy of our sacrifice.	每一次攻击都编织出我们牺牲值得的未来。
+Chat_Messages/ASH81	Ride now! The knife-pledge shall be honoured!	现在骑行！刀誓将得到尊重！
+Chat_Messages/ASH82	The winds will howl with the Craftworld's vengeance.	风将怒吼着方舟世界的复仇。
+Chat_Messages/ASH83	Hesitation leads only to failure. We must strike!	犹豫只会导致失败，我们必须攻击！
+Chat_Messages/ASH9	I bring a swift demise.	我带来迅速的死亡。
+Chat_Messages/BL1	*bestial snarling*	*野兽般的咆哮*
+Chat_Messages/BL10	Let your hate fester.	让你的仇恨滋生。
+Chat_Messages/BL11	My hate drives me.	我的仇恨驱使我。
+Chat_Messages/BL12	Embrace the power of Chaos!	拥抱混沌的力量！
+Chat_Messages/BL13	Follow me to victory.	跟我一起走向胜利。
+Chat_Messages/BL14	Your armour cannot save you.	你的盔甲不能保护你。
+Chat_Messages/BL15	Your head will be my trophy.	你的头将成为我的奖杯。
+Chat_Messages/BL16	I will see your blood flow!	我会看到你的血流淌！
+Chat_Messages/BL17	I strike from the warp.	我从亚空间中攻击。
+Chat_Messages/BL18	Wither and die.	枯萎并死去。
+Chat_Messages/BL19	I am unstoppable.	我是不可阻挡的。
+Chat_Messages/BL2	Death to the False Emperor!	伪帝去死吧！
+Chat_Messages/BL20	My obsession cannot be sated.	我的迷恋不能被满足。
+Chat_Messages/BL21	I will destroy you.	我会摧毁你。
+Chat_Messages/BL22	Your body will serve as a vessel.	你的身体将成为一个容器。
+Chat_Messages/BL23	I have foreseen the Warmaster's victory,	我已预见到战帅的胜利
+Chat_Messages/BL24	This crusade cannot be stopped.	这场远征不能被阻止。
+Chat_Messages/BL25	Dark Gods, bestow your gift upon me!	黑暗诸神，赐予我你的礼物！
+Chat_Messages/BL26	Flesh and bone are weak.	肉体和骨骼都是脆弱的。
+Chat_Messages/BL27	*hiss snarl clank*	*嘶嘶咆哮铿锵*
+Chat_Messages/BL28	My agony drives me!	我的痛苦驱使我！
+Chat_Messages/BL29	You are an unworthy foe.	你是一个不配的敌人。
+Chat_Messages/BL3	I serve the Dark Gods.	我侍奉黑暗诸神。
+Chat_Messages/BL30	I will take what is mine.	我会拿回属于我的。
+Chat_Messages/BL31	*growl* *roar*	*咆哮* *吼叫*
+Chat_Messages/BL32	The False Emperor must die.	假帝皇必须死
+Chat_Messages/BL33	Come spirits of the machines, I will remake you.	来吧，机器的灵魂，我会重塑你。
+Chat_Messages/BL34-Chat0	From the Eye of Terror, we shall bring no mercy.	从恐惧之眼，我们将不带任何怜悯。
+Chat_Messages/BL34-Chat0-AM1	It is by my hand that the Imperium will become ashes.	正是我手中的力量将帝国化为灰烬。
+Chat_Messages/BL34-Chat0-BL36	Good. Your sorcery will be a potent weapon.	好。你的巫术将是一种强大的武器。
+Chat_Messages/BL34-Chat0-GOF29	Your worthless kind is nothing more than a distraction.	你们这些无价值的种族不过是个干扰罢了。
+Chat_Messages/BL34-Chat0-GOF75	Savour your pathetic hope while you have any left.	尽情享受你那可怜的希望吧，只要你还有的话。
+Chat_Messages/BL34-Chat0-SAU37	Persistence always brings victory.	坚持总会带来胜利。
+Chat_Messages/BL34-Chat1	It is by my hand that the Imperium will become ashes.	正是我手中的力量将帝国化为灰烬。
+Chat_Messages/BL34-Chat10	Savour your pathetic hope while you have any left.	尽情享受你那可怜的希望吧，只要你还有的话。
+Chat_Messages/BL34-Chat11	I wield my father’s weapon – he shall never be reborn.	我挥舞着我父亲的武器 - 他永远不会重生。
+Chat_Messages/BL34-Chat12	I am the Arch-fiend, the Despoiler of Worlds.	我是大恶魔，世界的破坏者。
+Chat_Messages/BL34-Chat13	My Black Legion will reclaim what is ours!	我的黑色军团将夺回属于我们的一切！
+Chat_Messages/BL34-Chat14	We will destroy the servants of the False Emperor.	我们将摧毁假帝皇的仆人。
+Chat_Messages/BL34-Chat2	It is time to act!	是时候行动了！
+Chat_Messages/BL34-Chat3	That is impossible!	那是不可能的！
+Chat_Messages/BL34-Chat4	I learn from my losses, so that next time I will prevail.	我从失败中学习，以便下次我能胜出。
+Chat_Messages/BL34-Chat5	Fight me if you must, but you will soon taste defeat.	如果你必须与我战斗，你很快就会尝到失败的滋味。
+Chat_Messages/BL34-Chat6	You will soon know pain like no other!	你很快就会体验到前所未有的痛苦！
+Chat_Messages/BL34-Chat7	You proved to be stronger than I anticipated.	你比我预期的要强大。
+Chat_Messages/BL34-Chat8	We were made to conquer the galaxy.	我们生来就是为了征服银河。
+Chat_Messages/BL34-Chat9	From shame and shadow recast; in black and gold reborn.	从耻辱和阴影中重塑；在黑色和金色中重生。
+Chat_Messages/BL35-Chat0	Prepare for the coming of damnation!	准备迎接即将来临的诅咒！
+Chat_Messages/BL35-Chat0-AM3	You are wasted in the service of the False Emperor.	你在假帝皇的服务中浪费了自己。
+Chat_Messages/BL35-Chat0-ASH3	You do not yet know the meaning of fear!	你还不知道恐惧的真正含义！
+Chat_Messages/BL35-Chat0-GOF27	I will drive my Helspear through your unworthy corpse.	我将把我的地狱之矛刺入你不值一提的尸体。
+Chat_Messages/BL35-Chat0-SAU37	Everything must die in the end.	最后，一切都必须死去。
+Chat_Messages/BL35-Chat0-UM47	You are nothing before the might of the Black Legion!	在黑色军团的威力面前，你什么都不是！
+Chat_Messages/BL35-Chat1	Many voices speak of the coming of the Warmaster.	许多声音都在谈论战帅的到来。
+Chat_Messages/BL35-Chat10	You have no place in this galaxy.	你在这个银河中没有立足之地。
+Chat_Messages/BL35-Chat11	Chaos is the only way.	混沌是唯一的道路。
+Chat_Messages/BL35-Chat12	Our success has been foretold throughout the aeons.	我们的成功已经被预言了数千年。
+Chat_Messages/BL35-Chat13	You are nothing before the might of the Black Legion!	在黑色军团的威力面前，你什么都不是！
+Chat_Messages/BL35-Chat14	You do not yet know the meaning of fear!	你还不知道恐惧的真正含义！
+Chat_Messages/BL35-Chat2	We cannot wait any longer.	我们不能再等待了。
+Chat_Messages/BL35-Chat3	I cannot do that.	我不能做到那一点。
+Chat_Messages/BL35-Chat4	This was all part of the Warmaster’s great plan.	这都是战帅伟大计划的一部分。
+Chat_Messages/BL35-Chat5	I am the Herald of the Apocalypse, and you will listen.	我是启示录的传令者，你们将会听从。
+Chat_Messages/BL35-Chat6	You will be crushed by the coming storm.	你将被即将来临的风暴压垮。
+Chat_Messages/BL35-Chat7	You are strong – perhaps you will prevail after all.	你很强大 - 也许你最终会胜出。
+Chat_Messages/BL35-Chat8	The time of the Black Crusade is now!	黑色远征的时代就在现在！
+Chat_Messages/BL35-Chat9	The Gods have a plan – and the Despoiler will enact it.	诸神有一个计划 - 破坏者将执行它。
+Chat_Messages/BL36-Chat0	The warp flows through me and it will be your doom!	亚空间的力量流经我，它将是你的末日！
+Chat_Messages/BL36-Chat0-AM1	You are just a plaything of the Gods.	你只是诸神的玩物。
+Chat_Messages/BL36-Chat0-ASH1	Shouldn't your kind all be dead by now?	你们这种生物现在不都应该死了吗？
+Chat_Messages/BL36-Chat0-BL34	I am ever your servant, Lord!	我永远是你的仆人，主人！
+Chat_Messages/BL36-Chat0-UM48	Why hold back? Unleash your true potential!	为什么要退缩？释放你的真正潜力！
+Chat_Messages/BL36-Chat1	I am the enlightened one!	我是开明的人！
+Chat_Messages/BL36-Chat10	I command powers beyond what you could possibly fathom.	我指挥的力量超出了你可能探寻的范围。
+Chat_Messages/BL36-Chat11	There is always a method to insanity.	疯狂总有其方法。
+Chat_Messages/BL36-Chat12	You are just a plaything of the Gods.	你只是诸神的玩物。
+Chat_Messages/BL36-Chat13	I will follow Abaddon to the end of everything!	我会跟随阿巴顿到一切的尽头！
+Chat_Messages/BL36-Chat14	Embrace Chaos before it’s too late!	在太晚之前，拥抱混沌！
+Chat_Messages/BL36-Chat2	Nothing lasts forever.	没有什么是永恒的。
+Chat_Messages/BL36-Chat3	I cannot do that.	我不能做到那一点。
+Chat_Messages/BL36-Chat4	Savour the little time you have earned.	享受你赚到的一点点时间。
+Chat_Messages/BL36-Chat5	Come with me - I will open your eyes to the warp.	跟我来 - 我会让你看到亚空间。
+Chat_Messages/BL36-Chat6	I will destroy you with the power of the warp!	我将用亚空间的力量摧毁你！
+Chat_Messages/BL36-Chat7	An impressive feat, given your obvious weakness.	考虑到你明显的弱点，这是一项令人印象深刻的壮举。
+Chat_Messages/BL36-Chat8	The warp tells me everything!	亚空间告诉我一切！
+Chat_Messages/BL36-Chat9	We will conquer this galaxy!	我们将征服这个银河！
+Chat_Messages/BL36-TBC	The Dark Gods give me power!	黑暗诸神赋予我力量！
+Chat_Messages/BL4	Cruelty is strength.	残忍就是力量。
+Chat_Messages/BL5	Your skull is already mine.	你的头颅已经是我的了。
+Chat_Messages/BL6	*swirling dust*	*旋转的尘土*
+Chat_Messages/BL62	The Dark Powers demand sacrifice!	黑暗力量要求牺牲！
+Chat_Messages/BL63	Be rent unto flesh and ruin!	被撕裂的肉体和废墟！
+Chat_Messages/BL65-Chat0	We are returned.	我们已经回来了。
+Chat_Messages/BL65-Chat0-GSC1	Bow before the Dark Gods or face retribution!	向黑暗诸神鞠躬，否则面临报应！
+Chat_Messages/BL65-Chat0-UM65	I will cast down the false idols of the Imperium!	我将推翻帝国的虚假偶像！
+Chat_Messages/BL65-Chat1	New disciples are always welcome.	新的门徒总是受欢迎的。
+Chat_Messages/BL65-Chat10	Have you lost your thirst for power?	你是否失去了对力量的渴望？
+Chat_Messages/BL65-Chat11	The Dark Gods demand your life!	黑暗诸神要求你的生命！
+Chat_Messages/BL65-Chat12	I will have vengeance!	我将复仇星！
+Chat_Messages/BL65-Chat13	I will cast down the false idols of the Imperium!	我将推翻帝国的虚假偶像！
+Chat_Messages/BL65-Chat14	You lack ambition!	你缺乏野心！
+Chat_Messages/BL65-Chat2	We must hasten! 	我们必须赶快！
+Chat_Messages/BL65-Chat3	It cannot be done.	这是无法完成的。
+Chat_Messages/BL65-Chat4	I will rise again from this defeat, and claim my vengeance.	我将从这次失败中再次崛起，实现我的复仇星。
+Chat_Messages/BL65-Chat5	I am the harbinger of oblivion.	我是遗忘的先驱。
+Chat_Messages/BL65-Chat6	Bow before the Dark Gods or face retribution!	向黑暗诸神鞠躬，否则面临报应！
+Chat_Messages/BL65-Chat7	You could be a great follower.	你可以成为一名伟大的追随者。
+Chat_Messages/BL65-Chat8	By the Warmaster's command, your fate has been sealed!	按照战帅的指挥官，你的命运已经封印！
+Chat_Messages/BL65-Chat9	It is not zealotry, but undeniable truth.	这不是狂热，而是无可否认的真理。
+Chat_Messages/BL66	Praise Ghallaron beloved in the eyes of the gods.	赞美在众神眼中深受宠爱的加拉隆。
+Chat_Messages/BL67	Surrender to Ghallaron and your death will be quick.	向加拉隆投降，你的死亡将会迅速。
+Chat_Messages/BL68	For the glory of the Dark Gods!	为了黑暗诸神的荣耀！
+Chat_Messages/BL69	I will leave nothing but ash.	我将只留下灰烬。
+Chat_Messages/BL7	Blood for the Blood God!	为血神献血！
+Chat_Messages/BL70	Embrace the fires of oblivion!	拥抱遗忘的火焰！
+Chat_Messages/BL71	We bring annihilation.	我们带来了毁灭。
+Chat_Messages/BL72	Aaaargh! Kill, KILL!	啊啊啊！杀，杀！
+Chat_Messages/BL8	Such sweet cacophony!	如此甜美的喧嚣！
+Chat_Messages/BL9	I live in your nightmares.	我活在你的噩梦中。
+Chat_Messages/Backup	I answer only to the Warmaster and the Gods.	我只对战帅和神负责。
+Chat_Messages/Backup (vs Aeldari)	The Dark Prince sends his regards...	黑暗王子送上他的问候...
+Chat_Messages/Backup 1	They will pay dearly for this!	他们会为此付出沉重的代价！
+Chat_Messages/Backup 2	In His name I will fight.	我将以他的名义战斗。
+Chat_Messages/Backup 3	Do you not understand? We cannot be stopped.	你不明白吗？我们无法被阻止。
+Chat_Messages/Backup1	So much despair to relish in!	有那么多的绝望可以品味！
+Chat_Messages/Backup2	May the splendour of the Pleasured One’s bounty still thy heart with ecstasy.	愿快乐之神的恩赐使你的心充满狂喜。
+Chat_Messages/Backup3	What do you have for me on the cusp of this most glorious battle?	在这场最辉煌的战斗的边缘，你为我准备了什么？
+Chat_Messages/Backup4	You will be cleansed, and the Heavens will deliver our reward!	你将被净化，天堂将赐予我们奖励！
+Chat_Messages/Backup5	Our liberation has begun. Your efforts are meaningless!	我们的解放已经开始。你的努力毫无意义！
+Chat_Messages/Backup6	Only the Star Children can bring true salvation!	只有星辰之子能带来真正的救赎！
+Chat_Messages/DA1-Chat0	At once, Dark Angels! Redden your blades!	立即行动，黑暗天使！让你的刀剑染红！
+Chat_Messages/DA1-Chat0-Abaddon	You will meet your abhorrent father's fate.	你会遭遇你那可恶的父亲的命运。
+Chat_Messages/DA1-Chat0-DA2	This is your last chance to stop this foolery, brother.	这是你最后一次停止这种愚蠢行为的机会，兄弟。
+Chat_Messages/DA1-Chat0-DA3 (Asmodai)	Has mistrust taken over your wits, old friend?	不信任是否已经控制了你的智慧，老朋友？
+Chat_Messages/DA1-Chat0-Imotekh / Haarken	For all you speak about fear, I see no courage in you.	尽管你说的都是恐惧，我在你身上看不到勇气。
+Chat_Messages/DA1-Chat0-Tau / Aeldari	I will not suffer your existence one moment longer.	我不会再容忍你存在一刻。
+Chat_Messages/DA1-Chat0-WE	Where you see strength, I see madness. It will not aid you.	你看到的是力量，我看到的是疯狂。这对你没有帮助。
+Chat_Messages/DA1-Chat1	Eye and weapon to the enemy!	将眼睛和武器对准敌人！
+Chat_Messages/DA1-Chat10	Loyalty is its own reward.	忠诚本身就是奖赏。
+Chat_Messages/DA1-Chat11	Stay sharp! I will tolerate no laxity.	保持警惕！我不会容忍任何懈怠。
+Chat_Messages/DA1-Chat12	To the abyss with your lies!	你的谎言去地狱吧！
+Chat_Messages/DA1-Chat13	None shall stay our judgement.	无人能阻挡我们的审判。
+Chat_Messages/DA1-Chat14	We have come. We are death.	我们已经来了。我们是死亡。
+Chat_Messages/DA1-Chat2	Ours is the moment! Do not let up!	这是我们的时刻！不要放松！
+Chat_Messages/DA1-Chat3	This is not allowed.	这是不允许的。
+Chat_Messages/DA1-Chat4	Target priority assessment. Others await our retribution.	目标优先评估。其他人等待我们的报复。
+Chat_Messages/DA1-Chat5	Draw your blade, you might yet find absolution in battle.	拔出你的剑，你可能在战斗中找到赎罪。
+Chat_Messages/DA1-Chat6	I do not take your life lightly, but in service to my duty.	我不轻易取你的生命，但在执行我的职责。
+Chat_Messages/DA1-Chat7	Your temerity only makes you court with disaster.	你的鲁莽只会让你与灾难为伍。
+Chat_Messages/DA1-Chat8	Fight, sons of The Lion! Fight!	战斗，狮子的儿子们！战斗！
+Chat_Messages/DA1-Chat9	Speak your last words before the blade falls.	在刀落下之前说出你的遗言。
+Chat_Messages/DA10	We ride for the Lion!	我们为狮子而骑！
+Chat_Messages/DA11	The Lion watches us all. Fight with honor!	狮子在注视着我们所有人。带着荣誉战斗！
+Chat_Messages/DA12	Our loyalty is unwavering.	我们的忠诚坚定不移。
+Chat_Messages/DA13	Caliban's rage echoes through me!	卡利班的愤怒在我心中回响！
+Chat_Messages/DA14	Only death follows in our wake!	我们的行动只带来死亡！
+Chat_Messages/DA15	The chase is over. Now, the blade falls.	追逐结束了。现在，刀锋落下。
+Chat_Messages/DA16	To me, Dark Angels! Victory is at hand!	来吧，黑暗天使们！胜利就在眼前！
+Chat_Messages/DA17	Come forth and be slaughtered	前来接受屠杀吧
+Chat_Messages/DA18	*Heavy blade swing*	*重剑挥舞声*
+Chat_Messages/DA19	Your life is forfeit, but your soul could still find deliverance.	你的生命将被剥夺，但你的灵魂仍有可能找到解放。
+Chat_Messages/DA2-Chat0	For the Lion! For the Emperor!	为了狮子！为了帝皇！
+Chat_Messages/DA2-Chat0-DA1	Not until I know the whole truth.	除非我知道全部的真相。
+Chat_Messages/DA2-Chat0-DA3	You will not leave this planet until the fight is done, Asmodai.	阿斯莫德，你不会离开这个星球，直到战斗结束。
+Chat_Messages/DA2-Chat1	Onward to the objective. Kill everything we encounter.	向目标前进。杀掉我们遇到的一切。
+Chat_Messages/DA2-Chat10	Where we stand, none shall pass.	我们站立的地方，无人能过。
+Chat_Messages/DA2-Chat11	Fervour must be tempered with wisdom.	热情必须与智慧相辅相成。
+Chat_Messages/DA2-Chat12	You falter beneath the strain of battle.	你在战斗的压力下动摇。
+Chat_Messages/DA2-Chat13	With me, brothers! For the Lion!	跟我来，兄弟们！为了狮子！
+Chat_Messages/DA2-Chat14	It is too dangerous to let you live.	让你活着太危险了。
+Chat_Messages/DA2-Chat2	No time to waste!	没有时间浪费！
+Chat_Messages/DA2-Chat3	I cannot do that.	我不能做到。
+Chat_Messages/DA2-Chat4	So be it.	那就这样吧。
+Chat_Messages/DA2-Chat5	Finally. A foe that might test me.	终于。一个可能考验我的敌人。
+Chat_Messages/DA2-Chat6	Come, meet your end by the bite of my steel!	来吧，让我的钢铁咬破你的生命！
+Chat_Messages/DA2-Chat7	It is not often I misjudge a foe's prowess.	我很少误判敌人的实力。
+Chat_Messages/DA2-Chat8	Hold the line! Let fury be the steel in your spine!	守住阵线！让愤怒成为你脊梁的钢铁！
+Chat_Messages/DA2-Chat9	The Lion guards us.	狮子保护我们。
+Chat_Messages/DA20	I will stand sentinel for the Chapter’s honor.	我将为战团的荣誉站岗。
+Chat_Messages/DA21	No one can outrun our retribution.	没有人能逃脱我们的报复。
+Chat_Messages/DA22	The Chapter's engines will not falter under my watch.	在我看守下，战团的引擎不会熄火。
+Chat_Messages/DA23	Through sacrifice, we find redemption.	通过牺牲，我们找到救赎。
+Chat_Messages/DA24	We shall fulfill our duty, no matter the cost.	我们将履行我们的职责，无论代价如何。
+Chat_Messages/DA25	The hunt never ends. Duty compels us forward.	狩猎永不结束。职责驱使我们前进。
+Chat_Messages/DA26	The banner of Caliban shall never falter.	卡利班的旗帜永不倒下。
+Chat_Messages/DA27	We are the hunters! We are the Dark Angels!	我们是猎人！我们是黑暗天使！
+Chat_Messages/DA28	The fate of the chapter lies in our every action. Do not falter!	战团的命运取决于我们的每一个行动。不要犹豫！
+Chat_Messages/DA29	Caliban’s legacy shall not fade.	卡利班的遗产不会消失。
+Chat_Messages/DA3-Chat0	Nothing can compare to the judgement of the Emperor.	没有什么能比得上帝皇的审判。
+Chat_Messages/DA3-Chat0-DA1 (Azrael)	You are not asking the right questions.	你没有问对问题。
+Chat_Messages/DA3-Chat0-DA2	There is no greater priority than the Hunt, Master of the Deathwing.	没有比狩猎更重要的事情，死翼的主人。
+Chat_Messages/DA3-Chat0-Orks / Tyranids	Purge this filth swiftly! Our hunt calls us elsewhere.	迅速清除这些污秽！我们的狩猎在别处召唤我们。
+Chat_Messages/DA3-Chat0-tbc1	We are bringers of death! We are Dark Angels!	我们是死亡的使者！我们是黑暗天使！
+Chat_Messages/DA3-Chat0-tbc2	Empty words, muttered by an empty soul.	空洞的话语，空洞的灵魂。
+Chat_Messages/DA3-Chat1	There is little to discuss, so long as the Fallen remain at large.	只要堕天使还在逍遥法外，我们就没有什么好谈的。
+Chat_Messages/DA3-Chat10	With fury, brothers! Ours is the rightous outrage!	怒火中烧，兄弟们！我们有正义的愤怒！
+Chat_Messages/DA3-Chat11	Repent, for your life is at its end.	忏悔，因为你的生命即将结束。
+Chat_Messages/DA3-Chat12	The Chapter is the only thing that matters.	战团是唯一重要的事情。
+Chat_Messages/DA3-Chat13	Let me excise that which weighs down your soul.	让我割除那些压抑你灵魂的东西。
+Chat_Messages/DA3-Chat14	There is no salvation without suffering.	没有苦难就没有救赎。
+Chat_Messages/DA3-Chat2	Time is of the essence.	时间就是生命。
+Chat_Messages/DA3-Chat3	This compromises the Sanctity of the Hunt.	这威胁到了狩猎的圣洁。
+Chat_Messages/DA3-Chat4	Fall back! This information must reach Lord Azrael.	后退！这个信息必须传达给阿兹瑞尔领主。
+Chat_Messages/DA3-Chat5	Our paths now cross.	我们的道路现在交叉了。
+Chat_Messages/DA3-Chat6	The past will be cleansed with the blood of traitors.	过去将以叛徒的血来洗净。
+Chat_Messages/DA3-Chat7	Your defiance is noted.	你的反抗已被记录。
+Chat_Messages/DA3-Chat8	Repent, and I will make your death swift.	忏悔，我会让你的死亡迅速。
+Chat_Messages/DA3-Chat9	I have judged, and found you wanting.	我已经审判，发现你不足。
+Chat_Messages/DA30	No mercy! Engage and eliminate!	无情！接触并消灭！
+Chat_Messages/DA31	I alone judge the weak from the strong, the truth from falsehood.	我独自判断弱者和强者，真理和虚伪。
+Chat_Messages/DA32	Duty alone will wash away our shame.	只有职责才能洗净我们的耻辱。
+Chat_Messages/DA33	From on high, a judgement will come!	审判将从高处降临！
+Chat_Messages/DA34	My quest for vengeance is eternal.	我对复仇的追求是永恒的。
+Chat_Messages/DA35	None shall escape the Chapter's talons.	没有人能逃脱战团的利爪星。
+Chat_Messages/DA36	If it is death you crave, I shall gift it to you!	如果你渴望死亡，我将赠予你！
+Chat_Messages/DA37	We must be eternally vigilant for our own flaws.	我们必须永远警惕我们自己的缺点。
+Chat_Messages/DA38	Heavy weapons primed. Open fire!	重型武器准备就绪。开火！
+Chat_Messages/DA4	For the Lion and the Emperor!	为了狮子和帝皇！
+Chat_Messages/DA5	The Lion's sons endure. I will see to it.	狮子的儿子们会坚持下去。我会确保这一点。
+Chat_Messages/DA6	None shall escape the wrath of Caliban!	没有人能逃脱卡利班的愤怒！
+Chat_Messages/DA7	The hunt begins. No one escapes the Ravenwing!	狩猎开始了。没有人能逃脱鸦翼！
+Chat_Messages/DA8	Your pleas for mercy will go unheard.	你们的求饶将无人理会。
+Chat_Messages/DA9	There shall be no sanctuary.	将没有任何避难所。
+Chat_Messages/EC1	Break under the Prince's sweetest cacophonies!	在王子最甜美的嘈杂声中崩溃！
+Chat_Messages/EC10	Every cut a verse. Every wound a chorus.	每一刀都是一首诗。每一个伤口都是合唱。
+Chat_Messages/EC11	Such delightful agony.	如此美妙的痛苦。
+Chat_Messages/EC12	Let the flesh of our enemies sing!	让我们的敌人的肉体歌唱！
+Chat_Messages/EC13	Every strike is a gift from the Prince of Pleasure!	每一次攻击都是快乐王子的礼物！
+Chat_Messages/EC14	Scream for me!	为我尖叫！
+Chat_Messages/EC15	So many little playthings... what delicious horrors awaits them.	这么多小玩意...等待他们的是何等美妙的惧妖。
+Chat_Messages/EC16	I am the clamour of apocalypse!	我是世界末日的喧嚣！
+Chat_Messages/EC17	Ecstasy is such sweet reward.	狂喜是如此甜蜜的奖赏。
+Chat_Messages/EC18	Let us compose a lavish requiem!	让我们谱写一首奢华的安魂曲！
+Chat_Messages/EC19	HIGHER! LOUDER!	更高！更大声！
+Chat_Messages/EC2	I will create the perfect melody!	我将创造完美的旋律！
+Chat_Messages/EC20	The Dark Prince will have you!	黑暗王子会要了你！
+Chat_Messages/EC21	Come on. Amuse me.	来吧。逗我开心。
+Chat_Messages/EC22	Oh, the notes I will pluck from your broken form...	哦，我将从你破碎的形态中拨出的音符...
+Chat_Messages/EC23	The youngest God must be appeased!	最年轻的神必须得到安抚！
+Chat_Messages/EC24	*Revelling screech*	*欢愉的尖叫*
+Chat_Messages/EC25	You will make a worthy offering to the Dark Prince!	你将成为黑暗王子的有价值的奉献！
+Chat_Messages/EC26	Such delightful agony.	如此美妙的痛苦。
+Chat_Messages/EC27	MOOOOOORE!	更多！
+Chat_Messages/EC28	Drown them in the sounds of their screams!	让他们在自己的尖叫声中淹没！
+Chat_Messages/EC29	*roaring bellow*	*咆哮的吼声*
+Chat_Messages/EC3	A dirge for your final breath.	你最后一口气的挽歌。
+Chat_Messages/EC30	*roaring bellow*	*咆哮的吼声*
+Chat_Messages/EC31	More will join in the Prince's revelries.	更多的人将加入王子的狂欢。
+Chat_Messages/EC32	You are mine!	你是我的！
+Chat_Messages/EC33	Come closer...	过来点...
+Chat_Messages/EC34	*high-pitch screech*	*高音尖叫*
+Chat_Messages/EC35	*high-pitch screech*	*高音尖叫*
+Chat_Messages/EC4	A melody to shake the stars!	一首震撼星辰的旋律！
+Chat_Messages/EC5	None escapes the call of excess.	没有人能逃脱过度的召唤。
+Chat_Messages/EC55-Chat0	If it is death you crave, who am I to deny it?	如果你渴望死亡，我又怎能拒绝呢？
+Chat_Messages/EC55-Chat1	How delightfully decadent.	多么令人愉快的堕落。
+Chat_Messages/EC55-Chat10	Every cut sings such sweet sorrow!	每一次切割都唱出如此甜蜜的悲伤！
+Chat_Messages/EC55-Chat11	Oh, you are just begging for deliverance!	哦，你真是渴望解放星！
+Chat_Messages/EC55-Chat12	There was a time you would have impressed me.	曾经有一段时间，你会让我印象深刻。
+Chat_Messages/EC55-Chat13	Flawless!	完美无瑕！
+Chat_Messages/EC55-Chat14	This spilling of blood is sublime!	这种流血是如此的崇高！
+Chat_Messages/EC55-Chat2	Why delay this pleasure?	为何要延迟这份快乐？
+Chat_Messages/EC55-Chat3	I do not think so.	我不这么认为。
+Chat_Messages/EC55-Chat4	Oh how proud you must feel.	你一定觉得自己多么的骄傲。
+Chat_Messages/EC55-Chat5	Do not bore me.	不要让我感到无聊。
+Chat_Messages/EC55-Chat6	Your screams will make a fine melody.	你的尖叫将成为美妙的旋律。
+Chat_Messages/EC55-Chat7	It has been some time since I have broken a sweat.	我已经很久没有出一身汗了。
+Chat_Messages/EC55-Chat8	Agony! Eccstasy! More!	痛苦！狂喜！还要更多！
+Chat_Messages/EC55-Chat9	I could slay you without even sullying my father's blade.	我甚至不需要玷污我父亲的剑就能杀你。
+Chat_Messages/EC56-Chat0	The Path to Glory is paved with such blissful pain.	荣耀之道铺满了如此甜美的痛苦。
+Chat_Messages/EC56-Chat1	Each scar and scream brings me closer to perfection!	每一个疤痕和尖叫都让我更接近完美！
+Chat_Messages/EC56-Chat10	Do not blink, or you will miss true beauty.	不要眨眼，否则你会错过真正的美。
+Chat_Messages/EC56-Chat11	Your screams are delightful. I may let you live a bit more.	你的尖叫声很愉快。我可能会让你多活一会儿。
+Chat_Messages/EC56-Chat12	More come, seeking their sweet, final release.	更多的人来了，寻求他们甜蜜的，最后的解脱。
+Chat_Messages/EC56-Chat13	This dance is growing interesting.	这场舞蹈变得越来越有趣。
+Chat_Messages/EC56-Chat14	Do not dare die yet! I crave for more!	不要敢死！我渴望更多！
+Chat_Messages/EC56-Chat2	Come on! Faster!	来吧！快点！
+Chat_Messages/EC56-Chat3	This does not please me.	这并未让我感到愉快。
+Chat_Messages/EC56-Chat4	The deepest pleasure is found in the most grievous wounds.	最深的快乐在最痛苦的伤口中找到。
+Chat_Messages/EC56-Chat5	You only get one chance to impress me.	你只有一次机会给我留下深刻印象。
+Chat_Messages/EC56-Chat6	Pain can become pleasure. You will know both.	痛苦可以变成快乐。你会体验到两者。
+Chat_Messages/EC56-Chat7	Finally, a worthy opponent rises from mediocrity!	终于，一个值得对手从平庸中崛起！
+Chat_Messages/EC56-Chat8	I hope your blade is sharper than your sense.	我希望你的刀比你的理智更锋利。
+Chat_Messages/EC56-Chat9	That was... exquisite.	那是...精致。
+Chat_Messages/EC57-Chat0	Bear witness to my opus of torment!	见证我折磨之道的杰作！
+Chat_Messages/EC57-Chat1	It will be... breathtaking.	这将会...令人窒息。
+Chat_Messages/EC57-Chat10	Oh, the screams I will wrench out of your throat.	哦，我将从你的喉咙里扭出的尖叫。
+Chat_Messages/EC57-Chat11	A magnificent task is in our hands.	一项宏伟的任务在我们手中。
+Chat_Messages/EC57-Chat12	Are you feeling overwhelmed?	你感到不知所措了吗？
+Chat_Messages/EC57-Chat13	Bask in your empty hopes while you can.	趁你还可以，沉浸在你空洞的希望中。
+Chat_Messages/EC57-Chat14	Every cry is a note in my symphony!	每一个哭声都是我交响乐的音符！
+Chat_Messages/EC57-Chat2	Hesitation dulls the blade of pleasure.	犹豫会让快乐之刃变得迟钝。
+Chat_Messages/EC57-Chat3	No.	不。
+Chat_Messages/EC57-Chat4	I will savour this sweet pain for centuries.	我将品味这甜蜜的痛苦几个世纪。
+Chat_Messages/EC57-Chat5	Ah... Yet another vapid foe is foisted upon me.	啊...又一个空洞的敌人被强加给我。
+Chat_Messages/EC57-Chat6	I feel you shiver. Is it fear... or anticipation?	我感觉你在颤抖。是恐惧...还是期待？
+Chat_Messages/EC57-Chat7	You might yet deliver an amusing time.	你可能还能带来一些有趣的时光。
+Chat_Messages/EC57-Chat8	All this grief! I must have more!	所有这些悲痛！我必须要更多！
+Chat_Messages/EC57-Chat9	I shall relish the sight of your pathetic remains.	我将享受看你可怜的遗骸的乐趣。
+Chat_Messages/EC6	Your last moment will be my masterpiece.	你的最后一刻将是我的杰作。
+Chat_Messages/EC7	This shall quench the thirst... for a moment.	这将解渴...暂时。
+Chat_Messages/EC8	I cannot wait to hear your pleas.	我迫不及待要听你的哀求。
+Chat_Messages/EC9	Give yourself over to pleasure absolute!	完全沉溺于快乐吧！
+Chat_Messages/GOF1	Yes boss, yes boss!	是的老大，是的老大！
+Chat_Messages/GOF10	I'm drivin'. No, I'M drivin'!	我来开。不，我来开！
+Chat_Messages/GOF11	I'll mount yer skull to my stick!	我会把你的头骨挂在我的棍子上！
+Chat_Messages/GOF12	Still not workin'? Den I hitz it 'arder!	还不工作？那我就更用力打！
+Chat_Messages/GOF13	Shootin' an' lootin', in dat order.	先开枪，后抢劫，就这顺序。
+Chat_Messages/GOF14	Watch that stupid gob of yours.	看着你那愚蠢的嘴。
+Chat_Messages/GOF15	You’z likes it hot?	你喜欢热吗？
+Chat_Messages/GOF16	Get over ‘ere and face me klaw!	过来面对我的爪子！
+Chat_Messages/GOF17	Which button makes this fing go?	哪个按钮可以让这东西动起来？
+Chat_Messages/GOF18	This'll hurt you more than it hurts me.	这会比伤害我更伤害你。
+Chat_Messages/GOF19	Make Gork proud, boyz!	让格克感到骄傲，小子们！
+Chat_Messages/GOF2	Ready for fightin', boss!	准备战斗，老大！
+Chat_Messages/GOF20	Are you ready to go boom?	你准备好爆炸了吗？
+Chat_Messages/GOF21	Orks are da best at scrappin'.	欧克蛮人是最擅长打架的。
+Chat_Messages/GOF22	I'z stuck inside dis ting, an' dat makes me MAD!	我被困在这东西里，这让我很生气！
+Chat_Messages/GOF23	You can't beat me, git!	你打不过我，笨蛋！
+Chat_Messages/GOF24	This is gonna be a bumpy ride!	这将是一个颠簸的旅程！
+Chat_Messages/GOF25	No git can stops da fist of Gork!	没有笨蛋能阻挡格克的拳头！
+Chat_Messages/GOF26	*STOMP* *STOMP*	*踩踏* *踩踏*
+Chat_Messages/GOF27-Chat0	Deff from above! 	来自上方的死亡！
+Chat_Messages/GOF27-Chat0-ASH2	Not clever dat, mate. You'z made me angry!	那不聪明，伙计。你让我生气了！
+Chat_Messages/GOF27-Chat0-BL35	Fight all ya want. I'll krump you either way, git.	你想怎么打就怎么打。反正我都会把你打趴下，笨蛋。
+Chat_Messages/GOF27-Chat0-GSC3	Nuffin' stops da orks!	没有什么能阻止欧克蛮人！
+Chat_Messages/GOF27-Chat1	Land wiff yer boots first, boyz!	小子们，先用你的靴子着陆！
+Chat_Messages/GOF27-Chat10	Nuffin' stops da orks!	没有什么能阻止欧克蛮人！
+Chat_Messages/GOF27-Chat11	Drop on'em like bommz, boyz!	像炸弹一样砸下去，小子们！
+Chat_Messages/GOF27-Chat12	Good shootin', now's time for some choppin'.	射击得好，现在是砍砍的时候了。
+Chat_Messages/GOF27-Chat13	Not clever dat, mate. You'z made me angry!	那不聪明，伙计。你让我生气了！
+Chat_Messages/GOF27-Chat14	Too many badd'unz alive. That's easy ta fix!	坏蛋还活着太多。这很容易解决！
+Chat_Messages/GOF27-Chat2	Hmm. Being morky's proper tuff.	嗯。做狡猾真的很难。
+Chat_Messages/GOF27-Chat3	Argh. Can't do.	啊。做不到。
+Chat_Messages/GOF27-Chat4	We'll be backs for more!	我们会回来要更多的！
+Chat_Messages/GOF27-Chat5	Get over 'ere so I's can klaw ya!	过来这里让我用爪子抓你！
+Chat_Messages/GOF27-Chat6	Yer skull's goin' right on my pointy stik!	你的头骨将直接挂在我的尖棍上！
+Chat_Messages/GOF27-Chat7	Ha! Very orky, dat was.	哈！那真是很像兽人。
+Chat_Messages/GOF27-Chat8	If we'z win, we win. If we'z die fighting, that don't count.	如果我们赢了，那就是赢。如果我们死在战斗中，那不算数。
+Chat_Messages/GOF27-Chat9	Who's da boss? Haha!	谁是老大？哈哈！
+Chat_Messages/GOF28-Chat0	I'm da hand of Gork and Mork!	我是格克和摩克的手！
+Chat_Messages/GOF28-Chat0-AM1	We'z gonna stomp da 'ooniverse flat!	我们要把宇宙踩扁！
+Chat_Messages/GOF28-Chat0-AM3	You'se reminds me of someone.	你让我想起了某人。
+Chat_Messages/GOF28-Chat0-GOF75	I'z more kunnin' than a grot an' more killy than a dread!	我比地精更狡猾，比死亡无畏机甲更杀人！
+Chat_Messages/GOF28-Chat0-SAU35	We'z the Orks, an' we was made ta fight an' win!	我们是欧克蛮人，我们是为了战斗和胜利而生的！
+Chat_Messages/GOF28-Chat0-TAU2	Get closer. I'z hungry.	靠近点。我饿了。
+Chat_Messages/GOF28-Chat0-UM46	I've been cut, crushed an' stomped. An' I'm still kickin'!	我被割伤，被压碎，被踩踏。我还在踢！
+Chat_Messages/GOF28-Chat1	We'z gonna stomp da 'ooniverse flat!	我们要把宇宙踩扁！
+Chat_Messages/GOF28-Chat10	Orks need ta fight like they need meat ta eat.	欧克蛮人需要战斗，就像他们需要吃肉一样。
+Chat_Messages/GOF28-Chat11	We'z the Orks, an' we was made ta fight an' win!	我们是欧克蛮人，我们是为了战斗和胜利而生的！
+Chat_Messages/GOF28-Chat12	Whole worlds burn in my boot prints.	整个世界在我的脚印中燃烧。
+Chat_Messages/GOF28-Chat13	Count yerself lucky you still 'ave teef.	你还有牙齿，你应该感到幸运。
+Chat_Messages/GOF28-Chat14	Wave da Lucky Stikk, Makari. WAAAAAAAGH!	挥舞幸运棍，玛卡里。Waaagh！
+Chat_Messages/GOF28-Chat2	So much ta punch, so little time!	打的东西太多，时间太少！
+Chat_Messages/GOF28-Chat3	Can't do dat.	做不到那个。
+Chat_Messages/GOF28-Chat4	I'z go away for a bit, need to get more boyz.	我要离开一会儿，需要找更多的小子。
+Chat_Messages/GOF28-Chat5	I'm Ghazghkull, and I bring great slaughter!	我是碎骨者，我带来了大屠杀！
+Chat_Messages/GOF28-Chat6	Get closer. I'z hungry.	靠近点。我饿了。
+Chat_Messages/GOF28-Chat7	Good enemies iz 'ard to find.	好的敌人很难找。
+Chat_Messages/GOF28-Chat8	I'z more kunnin' than a grot an' more killy than a dread!	我比地精更狡猾，比死亡无畏机甲更杀人！
+Chat_Messages/GOF28-Chat9	I will turn da stars green!	我会把星星变成绿色！
+Chat_Messages/GOF29-Chat0	Let's get som action, boyz!	让我们开始行动，小子们！
+Chat_Messages/GOF29-Chat0-BL34	Crush them spikey lads, boyz!	压碎那些尖刺小子，小子们！
+Chat_Messages/GOF29-Chat0-SAU36	We gots bot boyz here! Time for some good scrappin'	我们这儿有机器小子！是时候好好打一场了
+Chat_Messages/GOF29-Chat0-TAU2	You'z fink you're better? Come an'ave a go then!	你以为你更厉害？那就来试试吧！
+Chat_Messages/GOF29-Chat0-TL34	Bug boyz are back on the menu, lads!	虫子小子又回到菜单上了，伙计们！
+Chat_Messages/GOF29-Chat0-UM47	Take them blue helmets boyz, they bring good orky luck!	拿下那些蓝头盔的小子，他们会带来好运！
+Chat_Messages/GOF29-Chat1	I'm ready for a scrap!	我已经准备好打架了！
+Chat_Messages/GOF29-Chat10	Me's too tuff for deff.	我太硬了，死神都不敢靠近。
+Chat_Messages/GOF29-Chat11	There's some fightin' to do!	有些战斗要打了！
+Chat_Messages/GOF29-Chat12	Ere we go, 'ere we go, 'ere we go!	冲啊，冲啊，冲啊！
+Chat_Messages/GOF29-Chat13	Want guns! Want tanks! Want stompas!	想要枪！想要坦克！想要践踏巨机！
+Chat_Messages/GOF29-Chat14	WAAAAAAAAAAAAAAAAAGH!	Waaagh！
+Chat_Messages/GOF29-Chat2	I am bored. Where's da fightin'?!	我感到无聊。打架在哪里？！
+Chat_Messages/GOF29-Chat3	Can't do dat.	我做不到。
+Chat_Messages/GOF29-Chat4	Dont wanna kill ya just yet, lets scrap again anuva day!	我不想现在就杀了你，让我们在另一天再打一场！
+Chat_Messages/GOF29-Chat5	You betta be ready!	你最好做好准备！
+Chat_Messages/GOF29-Chat6	Let's see how smart you are without yer head!	没有你的头，我们会看看你有多聪明！
+Chat_Messages/GOF29-Chat7	You got a lot of orky know-wots.	你有很多兽人的知识。
+Chat_Messages/GOF29-Chat8	Don't you forget who's in charge!	别忘了谁是老大！
+Chat_Messages/GOF29-Chat9	You'z fink you're better? Come an'ave a go then!	你以为你更厉害？那就来试试吧！
+Chat_Messages/GOF3	*MUNCH*	*咀嚼声*
+Chat_Messages/GOF4	Stop movin'! I'z want ta hit yer'eds!	别动！我想打你的头！
+Chat_Messages/GOF5	Out of da trukk, ready ta chop!	从蛮人卡车里出来，准备砍杀！
+Chat_Messages/GOF55	'Oo wantz ta taste me choppa first?!	谁想先尝尝我的砍刀？！
+Chat_Messages/GOF56	There's no hidin' from me rokkits!	我的火箭不会让你有藏身之处！
+Chat_Messages/GOF57	Orkz is made fer two fings only, fightin' and winnin'!	欧克蛮人只有两个用途，打架和赢！
+Chat_Messages/GOF58	Fasta, boyz! We'z got lots of gits ta krump!	快点，小子们！我们有很多小鬼要击败！
+Chat_Messages/GOF59	More! More dakka!	更多！更多达卡！
+Chat_Messages/GOF6	Once I'z get goin', there ain't no stoppin'!	一旦我开始，就无法停止！
+Chat_Messages/GOF60	Saved me boomiest rokkit, just fer you!	我为你保留了最响的火箭！
+Chat_Messages/GOF61	Go, lil' chompa! Do yer fing!	去吧，小砍刀！做你的事情！
+Chat_Messages/GOF62	Shut yer gobs, time ta get all sneaky-like.	闭嘴，是时候悄悄行动了。
+Chat_Messages/GOF63	Big dakka's da bestest dakka.	大达卡是最好的达卡。
+Chat_Messages/GOF65	No time for finkin', only time for krumpin'!	没时间想，只有时间砸！
+Chat_Messages/GOF66	Da only fing betta than dakka, are boomy rokkits!	比达卡更好的唯一东西，就是爆炸火箭！
+Chat_Messages/GOF67	Yer face is callin' fer a good klawin'!	你的脸正呼唤一次好的抓挠！
+Chat_Messages/GOF68	I'z gonna rip da world in ’arf!	我要把世界撕成两半！
+Chat_Messages/GOF69	Ere comes da show-stoppa!	老大来了！
+Chat_Messages/GOF7	Don't fink you'z can outrunz me!	别以为你能跑得过我！
+Chat_Messages/GOF70	I'z chop ya like yer dead meat!	我会像你是死肉一样砍你！
+Chat_Messages/GOF75--Chat0-Swarlord	I'z squish ya flat!	我会把你压扁！
+Chat_Messages/GOF75-Backup4	None of yer shooty bitz'll get past me armour.	你的射击部件都无法穿透我的盔甲。
+Chat_Messages/GOF75-Chat0	Let's stomp 'em good, ladz!	让我们好好踩他们，小子们！
+Chat_Messages/GOF75-Chat0-ASH2	Oi, non o' dem tricks. Yooz stay still so I'z can krump ya!	嘿，别耍花招。你就老实待着让我砸你！
+Chat_Messages/GOF75-Chat0-BL34	You Spikey Boyz want a proppa scrap? Come on den!	你们这些尖刺小子想要一场真正的打斗？来吧！
+Chat_Messages/GOF75-Chat0-GOF28	Let's see if yooz iz as 'ard as they say ya are...	看看你们是否像他们说的那么硬...
+Chat_Messages/GOF75-Chat0-Necron	Look ladz, we'z got plenty to scrap 'ere!	看，小子们，我们有很多可以打的东西！
+Chat_Messages/GOF75-Chat0-SOR1	Wot's life without a good scrap?!	没有一场好打斗，生活还有什么意义？
+Chat_Messages/GOF75-Chat1	There'z only room for one boss 'ere!	这里只有一个老大的位置！
+Chat_Messages/GOF75-Chat10	Bossin' around is a strong ork'z job.	指挥是强大的欧克蛮人的工作。
+Chat_Messages/GOF75-Chat11	Wot's life without a good scrap?!	没有一场好打斗，生活还有什么意义？
+Chat_Messages/GOF75-Chat12	Oi, git! No mukkin' about!	嘿，笨蛋！别瞎搞！
+Chat_Messages/GOF75-Chat13	We woz born ta fight. An’ win!	我们生来就是为了战斗。并且赢！
+Chat_Messages/GOF75-Chat14	Da bigger da Waaagh! da better!	Waaagh越大越好！
+Chat_Messages/GOF75-Chat2	We'z need ta fight!	我们得打架！
+Chat_Messages/GOF75-Chat3	No can do, boss.	不能做，老大。
+Chat_Messages/GOF75-Chat4	Orks iz never beaten!	欧克蛮人永不败！
+Chat_Messages/GOF75-Chat5	You'z look like some decent practice.	你看起来像是个不错的练习对象
+Chat_Messages/GOF75-Chat6	Me choppa iz hungry for yer 'ead!	我的砍刀渴望你的头！
+Chat_Messages/GOF75-Chat7	I'z sees yer kunnin' AND brutal.	我看到你狡猾又残忍
+Chat_Messages/GOF75-Chat8	Stomp'em gits! Then chop'em! Then stomp'em again!	踩他们，那些傻瓜！然后砍他们！然后再踩他们！
+Chat_Messages/GOF75-Chat9	Orks ain't afraid of nuffin'.	欧克蛮人不怕任何事！
+Chat_Messages/GOF75-vsOMaisos	Let'z see if yer speshul suits can handle a good krumpin'!	看看你的特殊服装能否承受一次好的砸击！
+Chat_Messages/GOF76-Chat0	Me prey's close... I can smell it!	我感觉到猎物近了...我能闻到它的味道！
+Chat_Messages/GOF76-Chat0-BlackLegion	Big Chompa'll eat yooz whole, spikes n' all!	大嘴会把你整个吞下去，连刺都不放过！
+Chat_Messages/GOF76-Chat0-GOF77	Only meat gettin’ chopped ‘ere is yers if ya don’t quit flappin' yer gob.	如果你不闭嘴，这里唯一被砍的肉就是你的。
+Chat_Messages/GOF76-Chat0-TL34	Bet dat one'll put up a gud fight!	我打赌那个会打得很好！
+Chat_Messages/GOF76-Chat0-TL35	Da bigger dey are... Da 'arder we chomp!	他们越大...我们咬得越狠！
+Chat_Messages/GOF76-Chat0-Ultramarines	Oi, Big Chompa! Yer gut's getting lucky.	嘿，大嘴！你的运气来了。
+Chat_Messages/GOF76-Chat1	Dat onez got sum mighty teef... for now.	那个家伙有一口大牙...暂时的。
+Chat_Messages/GOF76-Chat10	Dat'z gonna make sum gud trophy.	那会是个好战利品。
+Chat_Messages/GOF76-Chat11	WAAAGH!	Waaagh！
+Chat_Messages/GOF76-Chat12	Wot? I wuzn't listenin'.	啥？我没听见。
+Chat_Messages/GOF76-Chat13	We'z gunna swallow ya whole!	我们要把你整个吞下去！
+Chat_Messages/GOF76-Chat14	We ain’t ‘ere ta muck about—do yer fing!	我们不是来混日子的——做你的事！
+Chat_Messages/GOF76-Chat2	Just stomp sum git!	就踩扁那个家伙！
+Chat_Messages/GOF76-Chat3	No can do.	不能做。
+Chat_Messages/GOF76-Chat4	Me squigs are betta company.	我的跳跳比较好相处。
+Chat_Messages/GOF76-Chat5	Yer just in da way of me prey.	你只是挡在我和猎物之间。
+Chat_Messages/GOF76-Chat6	Big Chompa's gutses are rumbling.	大嘴的肚子在咕噜咕噜叫。
+Chat_Messages/GOF76-Chat7	Not too bad for a git!	对一个家伙来说，不算太糟！
+Chat_Messages/GOF76-Chat8	Me Gutrippa's getting thirsty!	我的开膛手渴了！
+Chat_Messages/GOF76-Chat9	Me'z tuffer dan a rok squig!	我比岩石跳跳还要强壮！
+Chat_Messages/GOF77-Chat0	If I can’t find a good hunt, I’z makin’ one!	如果我找不到好的猎物，我就自己创造一个！
+Chat_Messages/GOF77-Chat0-AstraMilitarum	Da humies always think dey smart. And then dey get krumped!	人类总是认为他们很聪明。然后他们就被打败了！
+Chat_Messages/GOF77-Chat0-DarkAngels	You fink wearin' green makes ya tough? I'z show you wot's wot!	你以为穿绿色就能让你强壮？我会让你知道是怎么回事！
+Chat_Messages/GOF77-Chat0-GOF76	We could get a proppa feast outta that squig.	我们可以从那个跳跳那里得到一顿大餐。
+Chat_Messages/GOF77-Chat0-Leviathan	More bugses? Even grots won't eat dat!	更多的虫子？连地精都不会吃那个！
+Chat_Messages/GOF77-Chat0-TAU1	Speshul suits?! We'll give 'em a good krumpin anyway!	特殊的装备？我们会给他们一顿好打的！
+Chat_Messages/GOF77-Chat1	Time ta bag me a big un!	是时候捕获一个大家伙了！
+Chat_Messages/GOF77-Chat10	Next one betta put up a good scrap.	下一个最好能打得好一些。
+Chat_Messages/GOF77-Chat11	Ya fight like a teefless squig	你打得像个没牙的跳跳。
+Chat_Messages/GOF77-Chat12	Hold yer trap, or I'll klaw it off!	闭嘴，否则我会把它砍掉！
+Chat_Messages/GOF77-Chat13	Old still! I'z tryin' ta chop ya!	别动！我要砍你！
+Chat_Messages/GOF77-Chat14	Where's me squigosaur? WHY'S I WALKIN'?!	我的跳跳龙在哪？我为什么要走路？！
+Chat_Messages/GOF77-Chat2	No more finkin', there's choppin' to do!	不再思考，该砍的时候到了！
+Chat_Messages/GOF77-Chat3	Ain't 'appening.	不可能。
+Chat_Messages/GOF77-Chat4	Dis one's too much for us!	这个对我们来说太过分了！
+Chat_Messages/GOF77-Chat5	Hope ya got sum meat on ya!	希望你身上有些肉！
+Chat_Messages/GOF77-Chat6	Yer dead meat, git.	你是死肉，家伙。
+Chat_Messages/GOF77-Chat7	Dis one's propa killy, boyz!	这个真的很厉害，小子们！
+Chat_Messages/GOF77-Chat8	Me squig's got ya git in 'eez eye.	我的跳跳眼里有你，家伙。
+Chat_Messages/GOF77-Chat9	Ha! Dey'z gonna be trampled!	哈！他们会被踩扁的！
+Chat_Messages/GOF78	C'mon you lot! Da boss needs us!	快点，你们这帮人！老大需要我们！
+Chat_Messages/GOF79	I'z gonna rip you ta bits!	我要把你撕成碎片！
+Chat_Messages/GOF8	Charge 'em, boyz, jus' like der Horned Bull!	小子们，像狂牛一样冲锋！
+Chat_Messages/GOF80	Here boss, I'z going back for more!	老大，我要回去再来一次！
+Chat_Messages/GOF81	Diz is gonna hurt!	这会很痛的！
+Chat_Messages/GOF82	Where's da biggest trophy?!	最大的战利品在哪里？！
+Chat_Messages/GOF83	Da boss always gots da best ideas!	老大总是有最好的主意！
+Chat_Messages/GOF84	If ya ain't bitin', ya ain't worth keepin'!	如果你不咬人，你就不值得留下！
+Chat_Messages/GOF85	No zoggin' tricks, just proper choppin'!	没有狡猾的把戏，只有适当的砍杀！
+Chat_Messages/GOF86	*Bestial roar*	*野兽般的吼叫*
+Chat_Messages/GOF87	Me grots’ll show ya gitz how ta fight!	我的地精会教你们这些傻瓜怎么战斗！
+Chat_Messages/GOF88	Fasta! 'Dis one's gonna get messy.	快点！这个会变得很混乱。
+Chat_Messages/GOF89	Me squig's noggin's 'arder dan yours!	我的跳跳的脑袋比你的还硬！
+Chat_Messages/GOF9	Orky dakka is dead killy.	兽人的达卡真的很致命。
+Chat_Messages/GOF90	Da Waaagh's in me bones! Come an 'ave a taste!	Waaagh在我骨头里！过来尝尝看！
+Chat_Messages/GOF91	Da hunt is on! Waaagh!	狩猎开始了！Waaagh！
+Chat_Messages/GOF92	Me skull's a-buzzin'. You'z gettin' da zzap!	我的头骨在嗡嗡作响。你要被电击了！
+Chat_Messages/GOF93	Load up da boyz, we'z got huntin' ta do!	装载小子们，我们要去狩猎！
+Chat_Messages/GOF94	Shut yer gob, or I'z smack you with yer own bits!	闭嘴，否则我会用你自己的碎片打你！
+Chat_Messages/GOF95	Da wurrboy guids us ta do da best huntin!	战争小子引导我们进行最好的狩猎！
+Chat_Messages/GOF96	Da biggest wheels get da biggest kills!	最大的轮子得到最大的杀戮！
+Chat_Messages/GOF97	*Mighty bellow*	*强大的吼声*
+Chat_Messages/GSC1-Chat0	Accept our gift of liberation, or face the wrath of the Star Children.	接受我们解放的礼物，否则就面对星辰之子的愤怒。
+Chat_Messages/GSC1-Chat0-AM1	Denying the Star Children's mercy breeds but disaster.	拒绝星辰之子的怜悯只会带来灾难。
+Chat_Messages/GSC1-Chat0-BL65	We answer to naught but the Star Children, deceiver!	我们只听命于星辰之子，欺骗者！
+Chat_Messages/GSC1-Chat0-Leviathan	Denying the Star Children's mercy breeds but disaster.	拒绝星辰之子的怜悯只会带来灾难。
+Chat_Messages/GSC1-Chat1	We are the mercy of the void!	我们是虚空的怜悯！
+Chat_Messages/GSC1-Chat10	All together! In unity the cult reigns supreme!	全体一起！在团结中，教派至高无上！
+Chat_Messages/GSC1-Chat11	Those reluctant to lift the veil deserve no mercy.	那些不愿揭开面纱的人不值得怜悯。
+Chat_Messages/GSC1-Chat12	Do you really know who you can trust?	你真的知道你能信任谁吗？
+Chat_Messages/GSC1-Chat13	This is not a fight you can win. Not like that.	这不是你能赢的战斗。不是那样的。
+Chat_Messages/GSC1-Chat14	You should taste your words before spitting such foolery.	你应该在说出这些愚蠢的话之前先尝尝它们的味道。
+Chat_Messages/GSC1-Chat2	Make haste, ascension will not wait for you.	快点，升华不会等你。
+Chat_Messages/GSC1-Chat3	That will not work.	那行不通。
+Chat_Messages/GSC1-Chat4	We return to the shadows, yet soon we'll finish what we started.	我们回到阴影中，但很快我们会完成我们开始的事情。
+Chat_Messages/GSC1-Chat5	Children of the Grizzlepit, bring death to the oppressor!	灰坑之子们，给压迫者带来死亡！
+Chat_Messages/GSC1-Chat6	We will grant you swift release from your captivity!	我们会迅速释放你们的囚禁！
+Chat_Messages/GSC1-Chat7	I see your shackles do not hinder your prowess.	我看到你的镣铐并没有阻碍你的实力。
+Chat_Messages/GSC1-Chat8	You are blind to the true threat you face.	你对你面临的真正威胁视而不见。
+Chat_Messages/GSC1-Chat9	The more of us you strike down, the stronger our resolve.	你击倒我们的人越多，我们的决心就越强。
+Chat_Messages/GSC10	The Grizzlepit and I have created such wonders, to fuel our ascension!	我和Grizzlepit创造了如此奇迹，为我们的升华提供燃料！
+Chat_Messages/GSC11	Deliverance, or blood!	解放，或鲜血！
+Chat_Messages/GSC12	For each one of us that falls, a hundred more will rise.	我们每倒下一个，就会有一百个崛起。
+Chat_Messages/GSC13	None can deny the Star Children's deliverance.	没有人能否认星辰之子的解放。
+Chat_Messages/GSC14	To me, children of the Grizzlepit!	到我这里来，格里兹尔坑的孩子们！
+Chat_Messages/GSC15	Your doom already walks among you.	你的厄运已经在你们中间行走。
+Chat_Messages/GSC16	For the Great Patriarch!	为了伟大的虫群族长！
+Chat_Messages/GSC17	Your fate is sealed.	你的命运已定。
+Chat_Messages/GSC18	So comes the moment of deliverance!	解放的时刻到了！
+Chat_Messages/GSC19	*Wild growl*	*狂野的咆哮*
+Chat_Messages/GSC2-Chat0	Only those blessed by the Star Children will know real freedom!	只有被星辰之子祝福的人才能知道真正的自由！
+Chat_Messages/GSC2-Chat0-GSC3	Only those blessed by the Star Children will know real freedom!	只有被星辰之子祝福的人才能知道真正的自由！
+Chat_Messages/GSC2-Chat0-Leviathan	Make haste! Our divine masters are upon us.	快点！我们的神圣主人降临了。
+Chat_Messages/GSC2-Chat0-SOR2	You pray to a deceitful god, a fabrication to keep you under their control!	你祈祷的是一个欺骗的神，一个用来控制你的虚构神！
+Chat_Messages/GSC2-Chat1	Cleanse this world, and the Heavens shall deliver their reward!	净化这个世界，天堂将赐予他们的奖励！
+Chat_Messages/GSC2-Chat10	We are without number.	我们无穷无尽。
+Chat_Messages/GSC2-Chat11	Answer the call of the Void!	回应虚空的召唤！
+Chat_Messages/GSC2-Chat12	All must be remade in our true masters' image.	一切都必须按照我们真正的主人的形象重塑。
+Chat_Messages/GSC2-Chat13	Our faith is unshakable.	我们的信仰不可动摇。
+Chat_Messages/GSC2-Chat14	The Star Children beckon, but you will not witness their glory!	星辰之子在召唤，但你不会见证他们的荣耀！
+Chat_Messages/GSC2-Chat2	Make haste! Our divine masters are upon us.	快点！我们的神圣主人降临了。
+Chat_Messages/GSC2-Chat3	The Star Children forbid it.	星辰之子禁止这样做。
+Chat_Messages/GSC2-Chat4	I fall, yet hundreds will take my place.	我倒下了，但数百人会取代我。
+Chat_Messages/GSC2-Chat5	Join us, and the void gods will free you from your shackles!	加入我们，虚空之神会解放你的枷锁！
+Chat_Messages/GSC2-Chat6	Join our cause, or perish for your ignorance.	加入我们的事业，否则因你的无知而灭亡。
+Chat_Messages/GSC2-Chat7	Such unfettered force, wasted in a false errand.	如此无拘无束的力量，浪费在虚假的任务上。
+Chat_Messages/GSC2-Chat8	Is there no limit to your arrogance?!	你的傲慢没有极限吗？！
+Chat_Messages/GSC2-Chat9	Break your bonds and go forth, my children!	打破你的束缚，前进吧，我的孩子们！
+Chat_Messages/GSC20	Crush!	粉碎！
+Chat_Messages/GSC21	Heed the call of the stars!	听从星辰的召唤！
+Chat_Messages/GSC22	The brood is ever watchful.	巢穴永远警觉。
+Chat_Messages/GSC23	*Primal snarl*	*原始的咆哮*
+Chat_Messages/GSC24	Kindred, at the ready. The plan moves forward.	亲族，准备好。计划前进。
+Chat_Messages/GSC25	A single, perfect shot to herald our ascension.	一个完美的射击，宣告我们的升华。
+Chat_Messages/GSC26	They are close.	他们很近了。
+Chat_Messages/GSC27	Forward! Let's earn our divine reward!	前进！让我们赢得神圣的奖励！
+Chat_Messages/GSC28	*Furious snarl*	*愤怒的咆哮*
+Chat_Messages/GSC29	*Feral growl*	*野兽般的低吼*
+Chat_Messages/GSC3-Chat0	Rise, my kin! Answer the banner's call!	起来吧，我的亲族！响应旗帜的召唤！
+Chat_Messages/GSC3-Chat0-GOF27	Your horde is beyond salvation, and thus must be expunged.	你的部落已经无可救药，必须被消灭。
+Chat_Messages/GSC3-Chat0-GSC2	Is the flock ready? The Star Children beckon.	羊群准备好了吗？星辰之子在召唤。
+Chat_Messages/GSC3-Chat0-Leviathan	Praise the Star Children! May their benevolence guide us!	赞美星辰之子！愿他们的仁慈指引我们！
+Chat_Messages/GSC3-Chat0-SAU36	I pity you. Those without souls cannot receive the gift of the star children.	我怜悯你。没有灵魂的人无法接受星辰之子的礼物。
+Chat_Messages/GSC3-Chat1	The time has come to emerge from the shadows!	时机已到，从阴影中现身吧！
+Chat_Messages/GSC3-Chat10	We are the hand in the shadows.	我们是阴影中的手。
+Chat_Messages/GSC3-Chat11	Ours is the heart that beats in the abyss.	我们是深渊中跳动的心脏。
+Chat_Messages/GSC3-Chat12	Rally to the banner! Charge, children of the Grizzlepit!	集结到旗帜下！冲锋吧，Grizzlepit的孩子们！
+Chat_Messages/GSC3-Chat13	Can you hear the sounds below?	你能听到下面的声音吗？
+Chat_Messages/GSC3-Chat14	Ours is a symbol of truth and freedom. It cannot be denied!	我们的象征是真理和自由。它不可否认！
+Chat_Messages/GSC3-Chat2	Quickly! The Star Children beckon.	快！星辰之子在召唤。
+Chat_Messages/GSC3-Chat3	That serves no purpose.	那毫无意义。
+Chat_Messages/GSC3-Chat4	No! Not the banner!	不！不是旗帜！
+Chat_Messages/GSC3-Chat5	Behold our true might, as we cast off our chains.	看我们的真正力量，我们将挣脱枷锁。
+Chat_Messages/GSC3-Chat6	I hear them in my dreams, they speak of your end.	我在梦中听见他们，他们在述说你的终结。
+Chat_Messages/GSC3-Chat7	This resistance is just delaying the inevitable.	这种抵抗只是延缓了不可避免的结局。
+Chat_Messages/GSC3-Chat8	Our deliverance is nigh.	我们的解放星近在咫尺。
+Chat_Messages/GSC3-Chat9	Now comes the moment to emerge from the shadows!	现在是从阴影中现身的时刻！
+Chat_Messages/GSC30	Witness our ascension.	见证我们的升华。
+Chat_Messages/GSC31	I will topple the walls of the oppressor.	我将推翻压迫者的墙壁。
+Chat_Messages/GSC32	*Savage bellow*	*野蛮的咆哮*
+Chat_Messages/GSC33	We are in position!	我们就位了！
+Chat_Messages/GSC34	With me! My Brothers and Sisters, liberation is at hand!	跟我来！我的兄弟姐妹们，解放在即！
+Chat_Messages/GSC35	We will overwhelm all who stand against our ascension!	我们将压倒所有反对我们升华的人！
+Chat_Messages/GSC36	We will break the chains of the oppressor.	我们将打破压迫者的枷锁
+Chat_Messages/GSC37	*Primal growl*	*原始的咆哮*
+Chat_Messages/GSC38	The Star Children call for fire!	星辰之子呼唤火焰！
+Chat_Messages/GSC4	*Menacing hiss*	*威胁的嘶嘶声*
+Chat_Messages/GSC5	*Ticking sounds*	*滴答声*
+Chat_Messages/GSC6	The day of ascension approaches!	升华之日临近了！
+Chat_Messages/GSC66-Chat0	From the wastelands of Damnathor, we rise to claim our freedom!	从Damnathor的荒野中，我们崛起，争取我们的自由！
+Chat_Messages/GSC66-Chat0-AM2	Ride now, brethren, and overrun those who once shackled us!	现在骑行吧，兄弟们，冲垮那些曾经束缚我们的人！
+Chat_Messages/GSC66-Chat0-AM3	You are but another tyrant, and we have risen to overthrow you.	你只是另一个暴君，我们已经崛起来推翻你。
+Chat_Messages/GSC66-Chat0-Leviathan	Ride forth, brethren! The Star Children watch over us!	骑行吧，兄弟们！星辰之子在看着我们！
+Chat_Messages/GSC66-Chat0-UM46	We no longer cower before False Angels. Our Ascension beckons!	我们不再在假天使面前畏缩。我们的升天在召唤！
+Chat_Messages/GSC66-Chat0-UM65	We are the heralds of true faith, False Angel!	我们是真信仰的传播者，假天使！
+Chat_Messages/GSC66-Chat1	We will never be caged again!	我们再也不会被关在笼子里！
+Chat_Messages/GSC66-Chat10	The barren lands taught us patience. The time to strike will come.	荒芜的土地教会了我们耐心。攻击的时机将会到来。
+Chat_Messages/GSC66-Chat11	We know your strength, yet you know nothing about us.	我们知道你的力量，但你对我们一无所知。
+Chat_Messages/GSC66-Chat12	Our Ascension is near! We will taste freedom at last.	我们的升天就在眼前！我们终将尝到自由的滋味。
+Chat_Messages/GSC66-Chat13	With our shackles unbound, no enemy can outrun us!	我们的枷锁已经解开，没有敌人能逃过我们的追击！
+Chat_Messages/GSC66-Chat14	We ride under the gaze of the Star Children, unstoppable and free.	我们在星辰之子的注视下骑行，无人能挡，自由如风。
+Chat_Messages/GSC66-Chat2	Speed is our weapon. Let us move.	速度是我们的武器。让我们行动起来。
+Chat_Messages/GSC66-Chat3	That is beyond my reach.	那超出了我的能力范围。
+Chat_Messages/GSC66-Chat4	We withdraw, but our uprising isn't over.	我们撤退，但我们的起义并未结束。
+Chat_Messages/GSC66-Chat5	The downtrodden ride free today, our chains shattered!	今天，被压迫者骑着自由的马，我们的锁链已经破碎！
+Chat_Messages/GSC66-Chat6	I clear the path for ascension!	我为升天清理道路！
+Chat_Messages/GSC66-Chat7	You fight well, but our uprising is now unstoppable.	你战斗得很好，但我们的起义现在已经无法阻挡。
+Chat_Messages/GSC66-Chat8	No target is beyond my sights.	没有目标能逃出我的视线。
+Chat_Messages/GSC66-Chat9	We have risen from prisoners to predators, no one can deny us now!	我们从囚犯变成了掠食者战车，现在没有人能否认我们！
+Chat_Messages/GSC67	You see nought but what we want you to see!	你只能看到我们想让你看到的！
+Chat_Messages/GSC68	The trap is set. Our moment draws near.	陷阱已设。我们的时刻临近。
+Chat_Messages/GSC69	There is nothing you can do to stop our ascension!	你无法阻止我们的崛起！
+Chat_Messages/GSC7	We bring you the Star Children's blessing.	我们带来了星辰之子的祝福。
+Chat_Messages/GSC70	Each blast casts down the unbeliever!	每次爆炸都会击倒不信者！
+Chat_Messages/GSC71	Be ready for anything, and prepare to strike.	做好应对任何事情的准备，并准备攻击。
+Chat_Messages/GSC72	Crush them under our wheels!	用我们的车轮压碎他们！
+Chat_Messages/GSC73	Forward! We rise from the dust this day!	向前！我们今天从尘土中崛起！
+Chat_Messages/GSC8	Give praise to the Master below!	赞美下面的主人！
+Chat_Messages/GSC9	Our bodies are blessed.	我们的身体被祝福了
+Chat_Messages/Match: AM	You die too quickly, there's no time to savour it.	你死得太快，我都没时间去品味。
+Chat_Messages/Match: Abaddon	An imperfect Legion is doomed to falter. Just like your father did.	不完美的军团注定会动摇。就像你的父亲一样。
+Chat_Messages/Match: Chaos / EC	Brothers! Welcome to the feast! Which among you will be the first course?	兄弟们！欢迎来到宴会！你们中的谁会是第一道菜？
+Chat_Messages/Match: DA	I have not killed any little robed angels in some time. Let us fix that.	我已经有一段时间没有杀过小袍子天使了。让我们来解决这个问题。
+Chat_Messages/Match: EC	So, ambition has chosen its day at last.	所以，野心终于选择了它的日子。
+Chat_Messages/Match: Fabius	I did not cut my way out from the Eye only to listen to your folly, Fabius.	我并不是为了听你的愚蠢言论，法比乌斯，才从眼中切出一条路的。
+Chat_Messages/Match: Fulgrim	I always wondered if the Phoenician could fall by his own blade.	我一直在想菲尼西安人是否会被他自己的剑击败。
+Chat_Messages/Match: UM	My lower deck grows hollow. Some of you are bound to be fine entertainment.	我的下层卡组变得空虚。你们中的一些人肯定会是好的娱乐。
+Chat_Messages/Match: WE	Did your pack abandon you, little mongrel?	你的群体抛弃你了吗，小杂种？
+Chat_Messages/SAU1	*Skitter skitter*	*嗖嗖嗖*
+Chat_Messages/SAU10	By the laws of the Necrontyr, you will be judged.	按照惧亡者的法律，你将被审判。
+Chat_Messages/SAU11	Activating reanimation protocol.	激活重生规程。
+Chat_Messages/SAU12	Converging on enemy position.	正在靠近敌人位置。
+Chat_Messages/SAU13	*Hiss click tap*	*嘶嘶 点击 敲击*
+Chat_Messages/SAU14	I must protect.	我必须保护。
+Chat_Messages/SAU15	Target acquired.	目标已获取。
+Chat_Messages/SAU16	*Whoosh*	*嗖*
+Chat_Messages/SAU17	What is it you most fear?	你最害怕的是什么？
+Chat_Messages/SAU18	Purging initated.	开始清除。
+Chat_Messages/SAU19	Reanimate.	重生。
+Chat_Messages/SAU2	*Whirr whirr*	*嗡嗡嗡*
+Chat_Messages/SAU20	Time is fleeting… until I say otherwise.	时间是短暂的……直到我说否则。
+Chat_Messages/SAU21	*Whoosh*	*嗖*
+Chat_Messages/SAU22	Moving into optimal firing position.	移动到最佳射击位置。
+Chat_Messages/SAU23	I am eternal. I am death.	我是永恒的。我是死亡。
+Chat_Messages/SAU24	Your doom is inevitable.	你的末日是不可避免的。
+Chat_Messages/SAU25	Multiple targets on sight.	视线内有多个目标。
+Chat_Messages/SAU26	Your presence must be eradicated.	你的存在必须被根除。
+Chat_Messages/SAU27	*Chitter chitter*	*吱吱吱*
+Chat_Messages/SAU28	Our ranks are endless.	我们的队伍是无尽的。
+Chat_Messages/SAU29	Dare you face my undying legions?	你敢面对我的不朽军团吗？
+Chat_Messages/SAU3	Fleeeessssshhhhh….	肉体……
+Chat_Messages/SAU30	Locking onto target.	锁定目标。
+Chat_Messages/SAU31	Detecting intruder. Powering doomsday blaster.	检测到入侵者。启动末日爆破枪。
+Chat_Messages/SAU32	Eradicating all enemies.	消灭所有敌人。
+Chat_Messages/SAU33	It is my duty to defend the Nemesor.	我有责任保护复仇之王。
+Chat_Messages/SAU34	*Rumble*	*隆隆声*
+Chat_Messages/SAU35-Chat0	I will reshape this galaxy into a place of order and unity.	我将重塑这个星系，使其成为秩序和统一的地方。
+Chat_Messages/SAU35-Chat0-AM1	Under my reign, the kingdoms of old shall live again.	在我统治下，旧时的王国将再次复苏。
+Chat_Messages/SAU35-Chat0-ASH3	I bear the hand of your farseer – do you care to take it back?	我带着你的先知之手，你想要回收吗？
+Chat_Messages/SAU35-Chat0-GOF28	Your forsaken kind seek only to disrupt the logic of the galaxy.	你被遗弃的种族只想破坏宇宙的逻辑。
+Chat_Messages/SAU35-Chat0-SAU37	Did you foresee my victory, Diviner?	你预见到我的胜利了吗，占卜者？
+Chat_Messages/SAU35-Chat0-TL35	My necrodermis cannot be devoured.	我的死灵皮肤不能被吞噬。
+Chat_Messages/SAU35-Chat0-UM46	Ten thousand years you have ruled with nothing to show for it.	你已经统治了一万年，但却一无所获。
+Chat_Messages/SAU35-Chat1	Under my reign, the kingdoms of old shall live again.	在我统治下，旧时的王国将再次复苏。
+Chat_Messages/SAU35-Chat10	Behold the storm-blackened skies.	看那风暴黑化的天空。
+Chat_Messages/SAU35-Chat11	You can’t stop that which has been set in motion.	你无法阻止已经启动的事物。
+Chat_Messages/SAU35-Chat12	Your life is a brief flicker to that of an immortal.	你的生命对于不朽者来说只是短暂的闪烁。
+Chat_Messages/SAU35-Chat13	The galaxy will only know peace when I am its ruler.	只有我成为其统治者，银河系才会知道和平。
+Chat_Messages/SAU35-Chat14	Time is short for you… but not for me.	对你来说，时间很短……但对我来说不是。
+Chat_Messages/SAU35-Chat2	The stars will not wait.	星辰不会等待。
+Chat_Messages/SAU35-Chat3	I cannot do that!	我不能做那个！
+Chat_Messages/SAU35-Chat4	This setback is merely an obstacle to be overcome.	这个挫折只是需要克服的障碍。
+Chat_Messages/SAU35-Chat5	You will whisper my name with fear and respect.	你会带着恐惧和尊重低声呼唤我的名字。
+Chat_Messages/SAU35-Chat6	I will show you the futility of your actions.	我会让你看到你行动的徒劳。
+Chat_Messages/SAU35-Chat7	You proved yourself to be a worthy foe.	你证明了自己是一个值得对手。
+Chat_Messages/SAU35-Chat8	For order, unity and obedience.	为了秩序，统一和服从。
+Chat_Messages/SAU35-Chat9	In time, I will rule every star.	随着时间的推移，我将统治每一颗星星。
+Chat_Messages/SAU36-Chat0	Ready my legions – a glorious victory will be mine.	准备我的军团 - 辉煌的胜利将属于我。
+Chat_Messages/SAU36-Chat0-GOF29	Roaring like savages does not bring victory, only crushing defeat.	像野人一样咆哮并不能带来胜利，只会带来压倒性的失败。
+Chat_Messages/SAU36-Chat0-GSC3	Ready my legions – a glorious victory will be mine.	准备我的军团 - 辉煌的胜利将属于我。
+Chat_Messages/SAU36-Chat0-TL36	A foe that evolves its strategy is the most satisfying to defeat.	能改变战略的敌人，打败他最有满足感。
+Chat_Messages/SAU36-Chat0-UM47	An over-reliance on brute force and weaponry will be your downfall.	过度依赖蛮力和武器将是你的垮台。
+Chat_Messages/SAU36-Chat1	No tricks or illusions will ever fool me.	没有任何技巧或幻觉能够欺骗我。
+Chat_Messages/SAU36-Chat10	Only an immortal mind can see infinite possibilities.	只有不朽的心灵才能看到无限的可能性。
+Chat_Messages/SAU36-Chat11	Your actions are lacking in logic and focus.	你的行动缺乏逻辑和焦点。
+Chat_Messages/SAU36-Chat12	In a tangled web of outcomes, I will find the way.	在纷繁复杂的结果中，我将找到出路。
+Chat_Messages/SAU36-Chat13	It is a source of consternation that none can match me.	没有人能匹敌我，这让我感到困扰。
+Chat_Messages/SAU36-Chat14	I am eternal; victory shall be mine.	我是永恒的；胜利将属于我。
+Chat_Messages/SAU36-Chat2	Our time runs short.	我们的时间不多了。
+Chat_Messages/SAU36-Chat3	I cannot do that.	我不能做那个。
+Chat_Messages/SAU36-Chat4	My legions will be reborn, and your defeat is inevitable.	我的军团将重生，你的失败是不可避免的。
+Chat_Messages/SAU36-Chat5	I would introduce myself, but you are not worthy of it.	我本可以自我介绍，但你不配。
+Chat_Messages/SAU36-Chat6	An inferior opponent can be crushed without a moment’s thought.	一个劣质的对手可以在一瞬间被粉碎。
+Chat_Messages/SAU36-Chat7	It is rare that I encounter one who can defeat me.	我很少遇到能击败我的人。
+Chat_Messages/SAU36-Chat8	A moment’s reflection begets my victory.	片刻的反思使我取得胜利。
+Chat_Messages/SAU36-Chat9	My mind has forged strategies since time immemorial.	我的思维自古以来就已经铸造了战略。
+Chat_Messages/SAU37-Chat0	Time is my weapon – your pitiful mortality will be your ruin.	时间是我的武器 - 你可怜的凡人性将是你的毁灭。
+Chat_Messages/SAU37-Chat0-ASH1	Long-lived degenerates – your time is long gone.	长寿的堕落者 - 你的时代早已过去。
+Chat_Messages/SAU37-Chat0-BL34	Only a fool uses the same strategy over and over again.	只有傻瓜会一遍又一遍地使用同样的策略。
+Chat_Messages/SAU37-Chat0-BL35	In time you will rot, but I will still be here.	随着时间的推移，你会腐烂，但我仍然会在这里。
+Chat_Messages/SAU37-Chat0-SAU35	You'll find that the stars are aligned with me!	你会发现星辰与我同在！
+Chat_Messages/SAU37-Chat1	In time you will rot, but I will still be here.	随着时间的推移，你会腐烂，但我仍然会在这里。
+Chat_Messages/SAU37-Chat10	A tiny adjustment to my calculations can have sweeping results.	对我的计算进行微小的调整可以产生广泛的结果。
+Chat_Messages/SAU37-Chat11	When the stars are right, I will embrace my true destiny.	当星星正确时，我将拥抱我的真正命运。
+Chat_Messages/SAU37-Chat12	Meticulous planning is all that is needed to prevail.	精心的计划就是取胜的一切。
+Chat_Messages/SAU37-Chat13	Do you call that a strategy?	你把那个叫做策略吗？
+Chat_Messages/SAU37-Chat14	Embrace the futility of your actions if you must.	如果必须的话，接受你行动的徒劳。
+Chat_Messages/SAU37-Chat2	I have time but not patience.	我有时间但没有耐心。
+Chat_Messages/SAU37-Chat3	This cannot be done.	这不能做。
+Chat_Messages/SAU37-Chat4	Clearly, I need to go back in time and make adjustments.	显然，我需要回到过去做些调整。
+Chat_Messages/SAU37-Chat5	My name has been written throughout the aeons.	我的名字已经写在了永恒之中。
+Chat_Messages/SAU37-Chat6	Do what you will - you will soon be forgotten.	随你怎么做 - 你很快就会被遗忘。
+Chat_Messages/SAU37-Chat7	You defied my predictions, and I must respect that.	你违背了我的预测，我必须尊重这一点。
+Chat_Messages/SAU37-Chat8	Your tiny mind is no match for mine.	你微小的思维无法与我的相匹敌。
+Chat_Messages/SAU37-Chat9	I have foreseen the future… and you wouldn’t like it.	我已经预见了未来……你不会喜欢的。
+Chat_Messages/SAU4	Fire…	火……
+Chat_Messages/SAU5	Obey.	服从。
+Chat_Messages/SAU6	I… remember…	我……记得……
+Chat_Messages/SAU65	The Sautekh Dynasty is eternal.	索泰克王朝是永恒的。
+Chat_Messages/SAU66-Chat0	There is no escape, no refuge! Only death awaits!	没有逃脱，没有避难所！只有死亡在等待！
+Chat_Messages/SAU66-Chat0-ASH1	Your ancient race shall wither like others before it.	你的旗手种族将像之前的其他种族一样枯萎。
+Chat_Messages/SAU66-Chat0-GOF29	Come forth, brute, and meet your ruin.	来吧，蛮兽，迎接你的毁灭。
+Chat_Messages/SAU66-Chat0-SAU35	Peace? The galaxy shall drown in carnage before your empty dreams are realized.	和平？银河系将在你的空洞梦想实现之前淹没在屠杀中。
+Chat_Messages/SAU66-Chat0-SAU37	Your visions cannot save you from my wrath.	你的预见无法使你免于我的愤怒。
+Chat_Messages/SAU66-Chat0-Sautekh	The scent of betrayal fuels my unending hatred.	背叛的气息激发了我无尽的仇恨。
+Chat_Messages/SAU66-Chat0-TAU2	I serve no ideal but the inevitability of death.	我只服从死亡的必然性，而不是任何理想。
+Chat_Messages/SAU66-Chat1	The stars themselves shall tremble before me.	星辰本身将在我面前颤抖。
+Chat_Messages/SAU66-Chat10	Gaze into the abyss, and welcome its cold embrace.	凝视深渊，欢迎它的冷抱。
+Chat_Messages/SAU66-Chat11	Death is the only constant in this forsaken galaxy.	死亡是这个被遗弃的银河系中唯一的常数。
+Chat_Messages/SAU66-Chat12	All life shall end beneath my blade.	所有的生命都将在我的刀下结束。
+Chat_Messages/SAU66-Chat13	The grasp of oblivion will always find you.	遗忘的掌握总会找到你。
+Chat_Messages/SAU66-Chat14	All who defy me will be expunged by my hand!	所有反抗我的人都将被我手中的力量消灭！
+Chat_Messages/SAU66-Chat2	We must hasten.	我们必须赶快。
+Chat_Messages/SAU66-Chat3	That is not possible.	这是不可能的。
+Chat_Messages/SAU66-Chat4	This is a minor setback. It will not save you from annihilation.	这只是一个小小的挫折。它无法使你免于被消灭。
+Chat_Messages/SAU66-Chat5	I am Ramatekh. Prepare to meet your doom.	我是拉玛特克。准备迎接你的末日。
+Chat_Messages/SAU66-Chat6	I will correct the error of your existence!	我将纠正你存在的错误！
+Chat_Messages/SAU66-Chat7	Clever trickery, yet your fate remains unchanged.	聪明的诡计，然而你的命运仍未改变。
+Chat_Messages/SAU66-Chat8	I will brook no defiance! 	我不会容忍任何反抗！
+Chat_Messages/SAU66-Chat9	You will soon be freed from your aimless existence.	你将很快从你无目标的存在中解脱出来。
+Chat_Messages/SAU67	*anti-gravitation hum*	*反重力嗡鸣*
+Chat_Messages/SAU68	All life must be expunged.	所有生命必须被根除
+Chat_Messages/SAU69	We hunger.	我们饥饿
+Chat_Messages/SAU7	*Rustle*	*沙沙声*
+Chat_Messages/SAU70	Loc-loc-locating target for a-annihilation.	正在定-定-定位目标进行全面毁灭。
+Chat_Messages/SAU71	None can stand against us.	无人能抵挡我们
+Chat_Messages/SAU72	By my will! Render them down to atoms!	凭我之意！将他们粉碎成原子！
+Chat_Messages/SAU73	Obliteration protocols activated.	启动毁灭协议。
+Chat_Messages/SAU8	Disintegrate…	分解……
+Chat_Messages/SAU9	I sense... life.	我感觉到了……生命。
+Chat_Messages/SOR1-Chat0	You are defiling sacred ground, and will now face His judgement.	你在亵渎神圣的土地，现在将面对他的审判。
+Chat_Messages/SOR1-Chat0-ASH3	By my blade, your kind will be purged from this system.	凭我的剑，你们这种人将被从这个系统中清除。
+Chat_Messages/SOR1-Chat0-BL36	I have nothing to give you but hatred and death, tainted one!	污秽者，我只能给你仇恨和死亡！
+Chat_Messages/SOR1-Chat0-GOF75	You are but an abomination to be cleansed from His domain.	你只是需要从他的领地中清除的畸形怪物。
+Chat_Messages/SOR1-Chat0-SAU37	Abomination! This time, know when you are slain!	畸形怪物！这次，你会知道自己何时被杀！
+Chat_Messages/SOR1-Chat0-SOR3	Abbess Sanctorum, I am honoured by your presence.	至圣总院长，我感到您的到来是我的荣幸。
+Chat_Messages/SOR1-Chat0-TBC-DRU1	Forward, sisters! Rid Martyr's Rest of these wretches!	前进，姐妹们！清除烈士之息中的这些恶棍！
+Chat_Messages/SOR1-Chat0-TBC-DRU2	You taint Saint Jheraldine's resting with your presence.	你的存在玷污了圣杰拉丁的安息之地。
+Chat_Messages/SOR1-Chat1	No mercy for the unrepentant!	对不悔改者，毫无怜悯！
+Chat_Messages/SOR1-Chat10	Clear the enemy! Strike fierce as Saint Katherine!	清除敌人！像圣凯瑟琳一样猛烈攻击！
+Chat_Messages/SOR1-Chat11	He has spoken, and I must fulfil His decree.	他已经发话，我必须履行他的旨意。
+Chat_Messages/SOR1-Chat12	Suffering is my prayer. Faith is my armour.	苦难是我的祈祷。信仰是我的盔甲。
+Chat_Messages/SOR1-Chat13	We must not falter.	我们不能动摇。
+Chat_Messages/SOR1-Chat14	My actions are but a mere extension of His will.	我的行动只是他意志的延伸。
+Chat_Messages/SOR1-Chat2	Complacency leads to heresy.	自满导致异端。
+Chat_Messages/SOR1-Chat3	He would not allow this.	他不会允许这样。
+Chat_Messages/SOR1-Chat4	The blood of martyrs is the seed of the Imperium.	烈士之息是帝国的种子。
+Chat_Messages/SOR1-Chat5	May the Emperor judge the purity of our souls.	愿帝皇评判我们灵魂的纯洁。
+Chat_Messages/SOR1-Chat6	Your existence is a sin that must be purged.	你的存在是一种必须被清除的罪过。
+Chat_Messages/SOR1-Chat7	You fight well, for a Heretic!	你战斗得很好，对于一个异端者来说！
+Chat_Messages/SOR1-Chat8	The Emperor's will be done.	帝皇的意志将得以实现。
+Chat_Messages/SOR1-Chat9	Under the light of righteousness, darkness will find no mercy.	在正义的光下，黑暗将找不到怜悯。
+Chat_Messages/SOR1-TBC-Backup1	His immortal benevolence will protect us all.	他的不朽者仁慈将保护我们所有人。
+Chat_Messages/SOR1-TBC-Backup2	I cannot let this sacred ground be defiled!	我不能让这块神圣的土地被亵渎！
+Chat_Messages/SOR1-TBC-Backup3	Heresy exists in many forms.	异端存在于许多形式中。
+Chat_Messages/SOR10	Only in penance shall my soul be cleansed.	只有在忏悔中，我的灵魂才能得到净化。
+Chat_Messages/SOR11	By my flame you will be purged.	你将被我的火焰净化。
+Chat_Messages/SOR12	May His hand guide my aim in the coming battle.	愿他的手引导我在即将到来的战斗中瞄准。
+Chat_Messages/SOR13	Let the light of the God-Emperor guide our righteous fury.	让神皇的光明引导我们的正义之怒。
+Chat_Messages/SOR14	Strike fierce and true! For the Emperor!	猛烈而准确地攻击！为了帝皇！
+Chat_Messages/SOR15	I have seen worse. I have vanquished worse.	我见过更糟的，我战胜过更糟的。
+Chat_Messages/SOR16	I herald your demise.	我预示你的末日。
+Chat_Messages/SOR17	Bolters ready, Sisters. No mercy for the faithless.	爆矢枪准备好了，姐妹们。对无信仰者，毫无怜悯。
+Chat_Messages/SOR18	My voice echoes the Emperor's will.	我的声音回响着帝皇的意志。
+Chat_Messages/SOR19	Our fire will rain from the skies.	我们的火焰将从天空降下。
+Chat_Messages/SOR2-Backup3	Our faith strengthens our resolve.	我们的信仰增强了我们的决心。
+Chat_Messages/SOR2-Backup4	I will not submit to the heretic.	我不会向异端者屈服。
+Chat_Messages/SOR2-Chat0	With holy fire, you shall be cleansed.	以神圣的火焰，你将被净化。
+Chat_Messages/SOR2-Chat0-ASH2	Your kind should have learned its place by now.	你们这种人应该已经知道自己的位置了。
+Chat_Messages/SOR2-Chat0-BL34	Repent, heretic, for your end draws near!	忏悔吧，异端者，因为你的末日临近！
+Chat_Messages/SOR2-Chat0-GSC2	Those who oppose Him shall face fiery retribution.	反对他的人将面临火焰的报复。
+Chat_Messages/SOR2-Chat0-SOR3	I will fail you not, Abbess Sanctorum.	至圣总院长，我不会让你失望。
+Chat_Messages/SOR2-Chat0-TBC-AM	Does your faith remain firm? Or do you seek penance?	你的信仰还坚定吗？还是你在寻求忏悔？
+Chat_Messages/SOR2-Chat0-TBC-BL	Those who wronged Him shall pay in blood!	那些冒犯他的人将用血来偿还！
+Chat_Messages/SOR2-Chat1	I shall pass His trials with no reluctance.	我将毫不犹豫地通过他的试炼。
+Chat_Messages/SOR2-Chat10	No sacrifice is too great in the Emperor's name.	以帝皇的名义，没有任何牺牲是过大的。
+Chat_Messages/SOR2-Chat11	Sisters, falter not, for His light guides us through darkness!	姐妹们，不要动摇，因为他的光引导我们穿越黑暗！
+Chat_Messages/SOR2-Chat12	Fear death not, Sisters, for our souls are one with His fire!	不要怕死，姐妹们，因为我们的灵魂与他的火焰合为一体！
+Chat_Messages/SOR2-Chat13	Those who oppose Him shall face fiery retribution.	反对他的人将面临火焰的报复。
+Chat_Messages/SOR2-Chat14	Under the light of the Emperor all darkness shall be banished.	在帝皇的光下，所有的黑暗都将被驱逐。
+Chat_Messages/SOR2-Chat2	We have no time to hesitate.	我们没有时间犹豫。
+Chat_Messages/SOR2-Chat3	I cannot do that.	我不能做到。
+Chat_Messages/SOR2-Chat4	We might retreat, but our faith remains unbroken.	我们可能会撤退，但我们的信仰依然坚定。
+Chat_Messages/SOR2-Chat5	My faith is unyielding, and so are my Sisters.	我的信仰坚定不移，我的姐妹们也是如此。
+Chat_Messages/SOR2-Chat6	You and your cursed kind shall be scoured from existence.	你和你那被诅咒的种族将被从存在中抹去。
+Chat_Messages/SOR2-Chat7	You may lack faith, but your strength is notable.	你可能缺乏信仰，但你的力量值得注意。
+Chat_Messages/SOR2-Chat8	We are His sword. We are His wrath.	我们是他的剑。我们是他的愤怒。
+Chat_Messages/SOR2-Chat9	In the Emperor's name, we will purge the faithless!	以帝皇的名义，我们将清除无信者！
+Chat_Messages/SOR20	No Sister will be left behind.	没有一个姐妹会被留下。
+Chat_Messages/SOR21	I will offer your blood to the holy Emperor.	我将把你的血献给神圣的帝皇。
+Chat_Messages/SOR22	Death will be a mercy for the faithless ones.	对于无信仰者来说，死亡将是一种怜悯。
+Chat_Messages/SOR23	We bring righteousness where it is needed most.	我们在最需要的地方带来正义。
+Chat_Messages/SOR24	Bow before His divine authority.	在他的神圣权威面前鞠躬。
+Chat_Messages/SOR25	Listen to my voice and the saintly deeds of the fallen.	听我的声音，听堕天使的圣洁事迹。
+Chat_Messages/SOR26	My soul is consecrated to this relic.	我的灵魂奉献给这个圣物。
+Chat_Messages/SOR27	*Tortured scream*	*折磨的尖叫*
+Chat_Messages/SOR28	With wings of faith we soar to glory.	凭着信仰之翅，我们飞翔至荣耀。
+Chat_Messages/SOR29	I am the Daemonifuge the thrice-born the bane of daemons.	我是恶魔驱逐者，三生者，恶魔的灾祸。
+Chat_Messages/SOR3-Backup1	I will bring your end.	我将带来你的终结。
+Chat_Messages/SOR3-Backup2	The weak and the faithless find no deliverance.	弱者和无信者找不到解放星。
+Chat_Messages/SOR3-Chat0	In the Emperor's name, I will end you.	以帝皇的名义，我将终结你。
+Chat_Messages/SOR3-Chat0-BL35	Your heresy ends now, pawn of the Despoiler.	你的异端现在结束了，堕落者的棋子。
+Chat_Messages/SOR3-Chat0-GOF29	To know the alien, is to hate the alien.	了解异族，就是憎恨异族。
+Chat_Messages/SOR3-Chat0-SAU37	How does it feel to forsee your own death?	预知自己的死亡是什么感觉？
+Chat_Messages/SOR3-Chat0-SOR1	May His light guide our way, Sister.	愿他的光引导我们的道路，姐妹们。
+Chat_Messages/SOR3-Chat0-SOR2	Let us see if you are worthy of the duty bestowed upon you.	让我们看看你是否配得上赋予你的职责。
+Chat_Messages/SOR3-Chat0-TAU1	Yours is a faithless race, worthy only of extermination.	你们是一个没有信仰的种族，只配被消灭。
+Chat_Messages/SOR3-Chat0-TBC-AM	If your faith crumbles, so shall you.	如果你的信仰崩溃，你也将崩溃。
+Chat_Messages/SOR3-Chat1	I will not fall for this treachery.	我不会为这种背叛而倒下。
+Chat_Messages/SOR3-Chat10	Defy us, and be ready to feel the Emperor's wrath.	挑战我们，准备感受帝皇的愤怒。
+Chat_Messages/SOR3-Chat11	Under His light, all shadows will wither.	在他的光下，所有的阴影都将凋谢。
+Chat_Messages/SOR3-Chat12	Any display of weakness shall be punished.	任何表现出的弱点都将受到惩罚。
+Chat_Messages/SOR3-Chat13	Faith is my shield, and His will, my blade.	信仰是我的盾牌，他的意志是我的剑。
+Chat_Messages/SOR3-Chat14	There shall be no mercy for the unworthy.	对不配者，不会有任何的怜悯。
+Chat_Messages/SOR3-Chat2	It is time to act.	是时候行动了。
+Chat_Messages/SOR3-Chat3	I cannot do that.	我不能做到。
+Chat_Messages/SOR3-Chat4	This does not end here.	这并未结束。
+Chat_Messages/SOR3-Chat5	The Emperor is with me in this battle.	帝皇在这场战斗中与我同在。
+Chat_Messages/SOR3-Chat6	I will not suffer you to live.	我不会让你活下去。
+Chat_Messages/SOR3-Chat7	Foul witchcraft has lent you strength!	邪恶的巫术赋予了你力量！
+Chat_Messages/SOR3-Chat8	A single deed is worth countless words.	一次行动胜过无数言语
+Chat_Messages/SOR3-Chat9	Through bloody example I will lead us to victory.	通过血腥的例子，我将带领我们走向胜利。
+Chat_Messages/SOR30	Purge this place of the unclean and the damned.	清除此地的不洁之物和被诅咒者。
+Chat_Messages/SOR31	Do not dare to fail in your duties.	不敢在你的职责中失败。
+Chat_Messages/SOR32	In battle He offers us redemption.	在战斗中，他为我们提供救赎。
+Chat_Messages/SOR33	Believe in the Emperor of Mankind and you shall walk in His light.	相信人类的帝皇，你将在他的光明中行走。
+Chat_Messages/SOR34	I am the light to your darkness.	我是你黑暗中的光明。
+Chat_Messages/SOR35	Purge the impure with the Emperor's flame.	以帝皇的火焰净化不纯之物。
+Chat_Messages/SOR36	I bring the requiem to your annihilation.	我为你的毁灭带来安魂曲。
+Chat_Messages/SOR37	Martyred Matriarch grant us thy protection.	殉道的修女长，赐予我们你的保护。
+Chat_Messages/SOR38	We bring judgment upon the heretic.	我们对异端者进行审判。
+Chat_Messages/SOR4	I will prove my worth and serve Him with my life.	我将证明我的价值，并以我的生命为他服务。
+Chat_Messages/SOR5	With unwavering faith.	以坚定不移的信仰。
+Chat_Messages/SOR6	Purge the unclean.	清除不洁之物。
+Chat_Messages/SOR65-Chat0	The God-Emperor is with me.	神皇与我同在。
+Chat_Messages/SOR65-Chat0-BL36	I will take you down, Sorcerer!	我会击败你，巫师！
+Chat_Messages/SOR65-Chat0-SOR3	Under His fire, the wicked will be judged.	在他的火焰下，邪恶者将被审判。
+Chat_Messages/SOR65-Chat1	God-Emperor, grant us your holy wrath!	神皇，赐予我们你的神圣愤怒！
+Chat_Messages/SOR65-Chat10	Only the faithless despair, only the righteous shall endure.	只有无信仰者会绝望，只有正义者才能坚持。
+Chat_Messages/SOR65-Chat11	God-Emperor, be with us now.	神皇，现在与我们同在。
+Chat_Messages/SOR65-Chat12	Prepare your soul for judgement!	准备你的灵魂接受审判！
+Chat_Messages/SOR65-Chat13	Saint Arabella watch over us this battle!	圣女阿拉贝拉在这场战斗中保佑我们！
+Chat_Messages/SOR65-Chat14	There will be no forgiveness for you.	你将得不到任何宽恕。
+Chat_Messages/SOR65-Chat2	Time is in short supply.	时间供应短缺。
+Chat_Messages/SOR65-Chat3	That is not an option.	那不是一个选项。
+Chat_Messages/SOR65-Chat4	The God-Emperor is with us. Until the very end.	神皇与我们同在。直到最后一刻。
+Chat_Messages/SOR65-Chat5	I have come to deliver you the God-Emperor’s judgement!	我来向你传达神皇的审判！
+Chat_Messages/SOR65-Chat6	I will cast you into the pyre where you belong!	我会把你投入你应在的火葬堆！
+Chat_Messages/SOR65-Chat7	A moment’s lapse in concentration. Nothing more.	片刻的注意力不集中，仅此而已。
+Chat_Messages/SOR65-Chat8	Let this be a just punishment for your sins.	让这成为你罪行的公正惩罚。
+Chat_Messages/SOR65-Chat9	No mercy! No quarter, for they shall give us none!	无情！不留余地，因为他们也不会留给我们！
+Chat_Messages/SOR66	*Heavy humming*	*重低音嗡嗡声*
+Chat_Messages/SOR67	No armor will save you from our holy wrath.	没有任何护甲能抵挡我们的神圣愤怒。
+Chat_Messages/SOR68	Let the Emperor's judgment sear their flesh!	让帝皇的审判烧灼他们的肉体！
+Chat_Messages/SOR69	Our blades will rain from the skies.	我们的剑将从天空中降下。
+Chat_Messages/SOR7	No heretic shall pass.	异端者不得通过。
+Chat_Messages/SOR70	We march for the Emperor!	我们为帝皇而行！
+Chat_Messages/SOR71	All that you are and all you have done revolts me.	你的一切和你所做的一切都让我感到反感。
+Chat_Messages/SOR72	You will be punished.	你会受到惩罚。
+Chat_Messages/SOR8	*Frenzied screams*	*狂热尖叫*
+Chat_Messages/SOR9	The holy radiance of the Emperor burns within me.	帝皇的神圣光辉在我内心燃烧。
+Chat_Messages/TAU1-Backup	Any decision can be the stone that starts the avalanche.	任何决定都可能是引发雪崩的石头。
+Chat_Messages/TAU1-Chat0	You will soon learn of the fire caste's true strength.	你很快就会了解火氏的真正力量。
+Chat_Messages/TAU1-Chat0-GOF29	Such a predictable approach will not succeed, brutish beast.	这样可预见的方法不会成功，野蛮的野兽。
+Chat_Messages/TAU1-Chat0-IA	Crude, hateful, prone to fight... You are not so different from an ork.	粗鲁，仇恨，喜欢战斗...你和欧克蛮人没有什么不同。
+Chat_Messages/TAU1-Chat0-TAU2	You honour us with your presence, Ethereal Supreme.	至高以太，你的出现给我们带来荣誉。
+Chat_Messages/TAU1-Chat0-TAU3	I will be taking operational command now, Shas'o.	现在，我将接管作战指挥，沙斯'o。
+Chat_Messages/TAU1-Chat0-TBC_TAU	Kindred, the T’au’va is in your debt.	族人们，钛帝国’瓦对你们的感激之情无以言表。
+Chat_Messages/TAU1-Chat0-UM46	Your kind's mindless massacre must be stopped.	你们这种种族的无脑屠杀必须停止。
+Chat_Messages/TAU1-Chat1	Fight with fire and courage and nothing can stand against us.	以火和勇气战斗，没有什么能对抗我们。
+Chat_Messages/TAU1-Chat10	I have my own path to follow.	我有我自己的道路要走。
+Chat_Messages/TAU1-Chat11	I have been through stranger times than this.	我经历过比这更奇怪的时代。
+Chat_Messages/TAU1-Chat12	Those with superior reach can dictate the flow of battle.	拥有优越的触及能力的人可以控制战斗的流程。
+Chat_Messages/TAU1-Chat13	We follow the path of Kauyon, make ready the ambush.	我们遵循空育之道，准备伏击。
+Chat_Messages/TAU1-Chat14	I am Shas’O Shaserra, called Shadowsun.	我是沙斯'O沙瑟拉，被称为影阳。
+Chat_Messages/TAU1-Chat2	We must not falter in our actions!	我们的行动中不能有丝毫犹豫！
+Chat_Messages/TAU1-Chat3	An impossibility.	这是不可能的。
+Chat_Messages/TAU1-Chat4	A non-viable approach. Converge at the established point.	这种方法不可行。在指定的地点汇合。
+Chat_Messages/TAU1-Chat5	The fire caste will not tend to this challenge kindly.	火氏不会善待这个挑战。
+Chat_Messages/TAU1-Chat6	An example must be made of you.	你必须成为一个例子。
+Chat_Messages/TAU1-Chat7	Indiscriminate rage must be answered with crisp precision.	无差别的愤怒必须以精确的回应。
+Chat_Messages/TAU1-Chat8	No deed is unworthy. No sacrifice is in vain.	没有行为是不值得的。没有牺牲是徒劳的。
+Chat_Messages/TAU1-Chat9	I take no pride in bloodshed, necessary as it is.	我对流血没有自豪感，尽管这是必要的。
+Chat_Messages/TAU10	Activating stealth field.	激活隐身场。
+Chat_Messages/TAU11	We will deliver the killing blow.	我们将给予致命一击。
+Chat_Messages/TAU12	Study the enemy's vulnerabilities, and exploit them.	研究敌人的弱点，并利用它们。
+Chat_Messages/TAU13	Calculating enemy trajectory.	计算敌人轨迹。
+Chat_Messages/TAU14	The Greater Good brooks no obstacle.	上上善道不容任何障碍。
+Chat_Messages/TAU15	Target identified.	目标已识别。
+Chat_Messages/TAU16	*Vespid wings buzz*	*胡蜂翅膀嗡嗡声*
+Chat_Messages/TAU17	To fight for the Greater Good is our duty, and our privilege.	为上上善道战斗是我们的职责，也是我们的特权。
+Chat_Messages/TAU18	Precision and efficiency.	精确和效率。
+Chat_Messages/TAU19	With courage and discipline, we shall stand victorious.	凭借勇气和纪律，我们将会胜利立足。
+Chat_Messages/TAU2-Chat0	You will embrace the T'au'va, or be destroyed.	你将拥抱钛帝国的道，或者被毁灭。
+Chat_Messages/TAU2-Chat0-BL36	The Rift's shadows will never extinguish our flame.	裂缝的阴影永远不会熄灭我们的火焰。
+Chat_Messages/TAU2-Chat0-GOF28	We will not bring ourselves down to your barbaric level of warfare.	我们不会降低自己到你们野蛮的战争水平。
+Chat_Messages/TAU2-Chat0-GOF29	Old foes, and largely predictable.	老对手，大多数都是可预测的。
+Chat_Messages/TAU2-Chat0-IA	It is not too late. Abandon your oppressive Imperium. Join us.	还不太晚。放弃你的压迫性帝国。加入我们。
+Chat_Messages/TAU2-Chat0-SOR	Your unenlightened Imperium blinds your race, and denies you the wisdom of the T’au’va.	你未开化的帝国使你的种族失明，剥夺了你们理解钛帝国道的智慧。
+Chat_Messages/TAU2-Chat0-TAU1	You are a sight to behold, Commander Shadowsun.	你是一道美丽的风景，影阳指挥官。
+Chat_Messages/TAU2-Chat0-TAU3	Let none doubt that the T'au Empire will bring unity to all.	让所有人都不怀疑，钛帝国将给所有人带来团结。
+Chat_Messages/TAU2-Chat0-TAU65	Your kind clearly has impulse-control issues that must be tempered.	你们这种人显然有冲动控制问题，必须被调整。
+Chat_Messages/TAU2-Chat0-TBC_IA	Your arrogance chains you to a cycle of grief and pain.	你的傲慢将你锁在悲痛和痛苦的循环中。
+Chat_Messages/TAU2-Chat0-TL34	I fear your species has no place within the embrace of the Greater Good.	我担心你的种族在上上善道的怀抱中没有位置。
+Chat_Messages/TAU2-Chat1	May we have no cause for conflict.	但愿我们没有冲突的理由。
+Chat_Messages/TAU2-Chat10	I cannot allow your foolish resistance to imperil us all.	我不能允许你的愚蠢抵抗危害我们所有人。
+Chat_Messages/TAU2-Chat11	The Empire's strides of expansion must not be deterred.	帝国的扩张步伐不能被阻挡。
+Chat_Messages/TAU2-Chat12	Let none doubt that now is our time.	让所有人都不怀疑，现在是我们的时候。
+Chat_Messages/TAU2-Chat13	For the Greater Good. That is all that matters.	为了上上善道。这是唯一重要的。
+Chat_Messages/TAU2-Chat14	Our conquest is inevitable, our ascension a matter of time.	我们的征服是不可避免的，我们的提升只是时间问题。
+Chat_Messages/TAU2-Chat2	This is no time for introspection.	现在不是自省的时候。
+Chat_Messages/TAU2-Chat3	This is unheard of.	这是闻所未闻的。
+Chat_Messages/TAU2-Chat4	All is lost here, yet let none who are wise deny our destiny.	这里一切都已失去，但让所有明智的人都不否认我们的命运。
+Chat_Messages/TAU2-Chat5	It saddens me that we must take arms against you.	我感到悲伤，我们必须对你们武装起来。
+Chat_Messages/TAU2-Chat6	Your demise is now inevitable.	你的灭亡现在已经不可避免。
+Chat_Messages/TAU2-Chat7	A wise decision. Perhaps there was some basis to your bluster.	明智的决定。也许你的吹嘘有些依据。
+Chat_Messages/TAU2-Chat8	Surrender now to the Greater Good.	现在向上上善道投降。
+Chat_Messages/TAU2-Chat9	Your eyes are veiled in shadow. Soon that veil will be lifted.	你的眼睛被阴影遮蔽。很快那个面纱就会被揭开。
+Chat_Messages/TAU20	Surveilling engagement area.	监视交战区域。
+Chat_Messages/TAU21	Stealth field active. Ready to engage.	隐身场活跃。准备交战。
+Chat_Messages/TAU22	Our flame lights the way to the Greater Good.	我们的火焰照亮通往上上善道的道路。
+Chat_Messages/TAU23	All that we do is for the Greater Good.	我们所做的一切都是为了上上善道。
+Chat_Messages/TAU24	Strike at the heart of the enemy.	直击敌人的心脏。
+Chat_Messages/TAU25	I guide the Fire Caste's fury	我引导火氏的怒火。
+Chat_Messages/TAU26	Stealth team in position. Awaiting orders.	隐身队伍就位。等待命令。
+Chat_Messages/TAU27	Broadside deployed. Ready to deliver the Mont'ka!	重装部署。准备发动蒙特卡！
+Chat_Messages/TAU28	Launch protocols initiated.	启动协议已启动。
+Chat_Messages/TAU29	We fight for the Greater Good! And we will triumph!	我们为上上善道而战！我们将胜利！
+Chat_Messages/TAU3-Chat0	Talks have failed. We have no choice but to fight.	谈判失败了。我们别无选择，只能战斗。
+Chat_Messages/TAU3-Chat0-ASH1	Your race had a chance to craft a better universe, and you squandered it.	你们这个种族有机会创造一个更好的宇宙，但你们却浪费了。
+Chat_Messages/TAU3-Chat0-GOF27	Only annihilitation befits your barbaric species.	只有彻底的毁灭才适合你们这种野蛮的种族。
+Chat_Messages/TAU3-Chat0-GOF75	Only annihilitation befits your barbaric species.	只有彻底的毁灭才适合你们这种野蛮的种族。
+Chat_Messages/TAU3-Chat0-TAU1	Supreme Commander, your presence here is unexpected.	最高指挥官，你在这里的出现是出乎意料的。
+Chat_Messages/TAU3-Chat0-TAU2	It shall be so, honoured one.	应如此，尊敬的人。
+Chat_Messages/TAU3-Chat0-TBC_SM	I pity your ignorance, yet I must stop your muderous ways.	我对你的无知感到可怜，但我必须阻止你的杀戮方式。
+Chat_Messages/TAU3-Chat0-TL35	Clearly your kind does not respond to reason.	显然，你们这种人无法接受理性。
+Chat_Messages/TAU3-Chat1	We must walk the path to the Greater Good, no matter the cost.	我们必须走向上上善道，无论代价如何。
+Chat_Messages/TAU3-Chat10	We need extreme solutions. There is no other path.	我们需要极端的解决方案。没有其他之道。
+Chat_Messages/TAU3-Chat11	All will be brought to the Greater Good.	所有人都将被带向上上善道。
+Chat_Messages/TAU3-Chat12	All cadres primed for Mont'ka!	所有组都准备好蒙特卡了！
+Chat_Messages/TAU3-Chat13	Any student of Kauyon knows the value of patience.	任何空育的学生都知道耐心的价值。
+Chat_Messages/TAU3-Chat14	This is the surest path to victory.	这是通向胜利的最稳妥之道。
+Chat_Messages/TAU3-Chat2	Time is short, we must act!	时间紧迫，我们必须行动！
+Chat_Messages/TAU3-Chat3	That cannot be allowed.	那是不允许的。
+Chat_Messages/TAU3-Chat4	Duty can leave deep scars.	职责可能会留下深深的疤痕。
+Chat_Messages/TAU3-Chat5	I greet you. May our encounter be for the Greater Good.	我向你问好。愿我们的相遇为了上上善道。
+Chat_Messages/TAU3-Chat6	Such transgression cannot go unpunished.	这样的侵犯不能不受惩罚。
+Chat_Messages/TAU3-Chat7	Our unity of purpose will see us through this trial.	我们的目标一致将帮助我们度过这次试炼。
+Chat_Messages/TAU3-Chat8	Your weakness is already exposed.	你的弱点已经暴露。
+Chat_Messages/TAU3-Chat9	Our war serves a Greater Good. Not vengeance, or spite.	我们的战争服务于上上善道。不是复仇，也不是恶意。
+Chat_Messages/TAU30	Target locked. Deploying seeker missiles.	目标锁定。部署寻找者导弹。
+Chat_Messages/TAU31	The time of diplomacy is over. Now comes the time of fire.	外交的时代已经结束。现在是火的时代。
+Chat_Messages/TAU32	The prosecution of any war courts the perils of barbarism.	任何战争的起诉都会引发野蛮的危险。
+Chat_Messages/TAU33	The Air Caste bring fire from the skies.	风氏从天空带来火焰。
+Chat_Messages/TAU34	Bright burns the light of the T’au Empire.	塔乌帝国的光明燃烧得很亮。
+Chat_Messages/TAU35	No foe can withstand the precise application of superior firepower.	没有敌人能抵挡精确应用的优越火力。
+Chat_Messages/TAU36	I am here to end this conflict.	我在这里结束这场冲突。
+Chat_Messages/TAU37	To secure the expansion, we must conquer the skies.	为了确保扩张，我们必须征服天空。
+Chat_Messages/TAU38	Resistance will be met with unyielding fire.	抵抗将遭到不屈的火力。
+Chat_Messages/TAU4	Projecting energy field.	投射能量场。
+Chat_Messages/TAU5	Fire on my signal.	在我信号上开火。
+Chat_Messages/TAU6	Weapon systems: charged.	武器系统：充能。
+Chat_Messages/TAU65-Chat0	The hunt begins. Today we feast!	狩猎开始了。今天我们要大快朵颐！
+Chat_Messages/TAU65-Chat0-Sautekh	An inauspicious prey. You are strong, yet lack flesh to feast on.	不吉利的猎物。你很强，但缺少可以享用的肉。
+Chat_Messages/TAU65-Chat0-TAU2	Wise as you are, some things the ethereal caste can never understand.	尽管你很聪明，有些事情以太氏族永远无法理解。
+Chat_Messages/TAU65-Chat1	My blade is sharp. Let's get started.	我的刀锋利无比。让我们开始吧。
+Chat_Messages/TAU65-Chat10	No prey is too great to deter us.	没有猎物能让我们退缩。
+Chat_Messages/TAU65-Chat11	Simpler to go for the head, is it not?	直接砍头，不是更简单吗？
+Chat_Messages/TAU65-Chat12	The hunt grows ever harder, but we adapt.	狩猎越来越难，但我们会适应。
+Chat_Messages/TAU65-Chat13	A new quarry stepped into my hunting grounds.	一个新的猎物进入了我的狩猎场。
+Chat_Messages/TAU65-Chat14	We relish the hunt.	我们享受狩猎。
+Chat_Messages/TAU65-Chat2	Let's move. The hunt awaits!	行动吧。狩猎在等待！
+Chat_Messages/TAU65-Chat3	That is beyond my reach.	那超出了我的能力范围。
+Chat_Messages/TAU65-Chat4	My kin has learned to avoid futile endeavours.	我的亲族已经学会避免徒劳的努力。
+Chat_Messages/TAU65-Chat5	Let us begin the ritual of predator and prey.	让我们开始掠食者与猎物的仪式。
+Chat_Messages/TAU65-Chat6	I have your scent. You cannot escape.	我闻到了你的气味。你逃不掉的。
+Chat_Messages/TAU65-Chat7	You are capable! This is a worthy hunt.	你很有本事！这是一场值得的狩猎。
+Chat_Messages/TAU65-Chat8	We hunt. We feed. And we prosper.	我们狩猎。我们进食。我们繁荣。
+Chat_Messages/TAU65-Chat9	With every hunt, our strength grows.	每次狩猎，我们的力量都会增长。
+Chat_Messages/TAU66	We heed the call of the hunt.	我们响应狩猎的召唤。
+Chat_Messages/TAU67	Voracious growl.	贪婪的咆哮。
+Chat_Messages/TAU68	Sharpen your knives. Tonight we feast.	磨快你的刀。今晚我们盛宴。
+Chat_Messages/TAU69	No prey can hide from us.	没有猎物能躲过我们。
+Chat_Messages/TAU7	Gathering targeting information.	收集目标信息。
+Chat_Messages/TAU70	A hunter's senses must be sharp as a butcher's knife.	猎手的感官必须像屠夫的刀一样锋利。
+Chat_Messages/TAU71	Show me your strength. I will make it mine.	展示你的力量。我会将其据为己有。
+Chat_Messages/TAU72	The hunt does not wait for the hunter.	狩猎不会等待猎手防空导弹车
+Chat_Messages/TAU8	Targeting matrix calculated.	目标矩阵计算完毕。
+Chat_Messages/TAU9	Optimal target marked for elimination.	最佳目标标记为消除。
+Chat_Messages/TL1	*Discordant chirrup*	*不和谐的唧唧声*
+Chat_Messages/TL10	*Pack call*	*群体召唤*
+Chat_Messages/TL11	*Twirling tendrils*	*旋转的触须*
+Chat_Messages/TL12	*Challenging roar*	*挑衅的吼叫*
+Chat_Messages/TL13	*Rising talons menacingly*	*威胁地举起利爪星*
+Chat_Messages/TL14	*Reverberating thrum*	*回声的震动*
+Chat_Messages/TL15	*Threatening roar*	*威胁的吼叫*
+Chat_Messages/TL16	*Gut-wrenching scream*	*撕心裂肺的尖叫*
+Chat_Messages/TL17	*Lurking in the shadows*	*潜伏在阴影中*
+Chat_Messages/TL18	*Psychic humming*	*精神的嗡嗡声*
+Chat_Messages/TL19	*Rallying scream*	*鼓舞的尖叫*
+Chat_Messages/TL2	*Savage growl*	*野蛮的咆哮*
+Chat_Messages/TL20	*Primal roar*	*原始的吼叫*
+Chat_Messages/TL21	*Savage scream*	*野蛮的尖叫*
+Chat_Messages/TL22	*Intense screech*	*强烈的尖叫*
+Chat_Messages/TL23	*Viscous gurgle* 	*粘稠的咕噜声*
+Chat_Messages/TL24	*Ferocious scream*	*猛烈的尖叫*
+Chat_Messages/TL25	*Commanding roar*	*命令性的吼叫*
+Chat_Messages/TL26	*Malignant bellow*	*恶性的吼叫*
+Chat_Messages/TL27	*Thunderous stomp*	*雷鸣般的脚步声*
+Chat_Messages/TL28	*Discordant roar*	*不和谐的吼叫*
+Chat_Messages/TL29	*Deafening scream*	*震耳欲聋的尖叫*
+Chat_Messages/TL3	*Noxious humming*	*恶臭的嗡嗡声*
+Chat_Messages/TL30	*Fiery bellow*	*火热的吼叫*
+Chat_Messages/TL34-Chat0	*Primal roar*	*原始的吼叫*
+Chat_Messages/TL34-Chat0-ASH3	*Nightmarish screech*	*噩梦般的尖叫*
+Chat_Messages/TL34-Chat0-GOF29	*Rising talons menacingly*	*威胁地举起利爪星*
+Chat_Messages/TL34-Chat0-TAU2	*Primal roar*	*原始的吼叫*
+Chat_Messages/TL34-Chat1	*Rubbing front talons*	*摩擦前利爪星*
+Chat_Messages/TL34-Chat10	*Chitinous clicking*	*甲壳的咔嚓声*
+Chat_Messages/TL34-Chat11	*Mandibular chittering*	*下颚的唧唧声*
+Chat_Messages/TL34-Chat12	*Heavy skittering*	*沉重的脚步声*
+Chat_Messages/TL34-Chat13	*Protective talon thrashing*	*保护性的利爪星挥舞*
+Chat_Messages/TL34-Chat14	*Nightmarish screech*	*噩梦般的尖叫*
+Chat_Messages/TL34-Chat2	*Agitated twitching*	*烦躁的抽搐*
+Chat_Messages/TL34-Chat3	*Frustrated growl*	*挫败的咆哮*
+Chat_Messages/TL34-Chat4	*Agonizing lurching*	*痛苦的痉挛*
+Chat_Messages/TL34-Chat5	*Brooding stare*	*沉思的凝视*
+Chat_Messages/TL34-Chat6	*Rising talons menacingly*	*威胁地举起利爪星*
+Chat_Messages/TL34-Chat7	*Instinctive flinch*	*本能的退缩*
+Chat_Messages/TL34-Chat8	*Soul-scratching screak*	*灵魂刮痕的尖叫*
+Chat_Messages/TL34-Chat9	*Overwhelming charge*	*压倒性的冲锋*
+Chat_Messages/TL35-Chat0	*Intimidating roar*	*威吓性的吼叫*
+Chat_Messages/TL35-Chat0-SAU35	*Hungry tongue twirling*	*饥饿的舌头扭动*
+Chat_Messages/TL35-Chat0-UM46	*Intimidating roar*	*威吓性的吼叫*
+Chat_Messages/TL35-Chat1	*Defiant stance*	*挑衅的姿态*
+Chat_Messages/TL35-Chat10	*Sudden leap forward*	*突然的跃进*
+Chat_Messages/TL35-Chat11	*Hungry tongue twirling*	*饥饿的舌头扭动*
+Chat_Messages/TL35-Chat12	*Raucous cackling*	*粗鲁的笑声*
+Chat_Messages/TL35-Chat13	*Ferocious charge*	*猛烈的冲锋*
+Chat_Messages/TL35-Chat14	*Commanding roar*	*命令性的吼叫*
+Chat_Messages/TL35-Chat2	*Restless snarl*	*不安的咆哮*
+Chat_Messages/TL35-Chat3	*Frustrated growl*	*挫败的咆哮*
+Chat_Messages/TL35-Chat4	*Agonizing screech*	*痛苦的尖叫*
+Chat_Messages/TL35-Chat5	*Menacing stare*	*威胁的凝视*
+Chat_Messages/TL35-Chat6	*Thunderous bellow*	*雷鸣般的吼叫*
+Chat_Messages/TL35-Chat7	*Cautious step back*	*谨慎的后退*
+Chat_Messages/TL35-Chat8	*Savage rumbling*	*野蛮的隆隆声*
+Chat_Messages/TL35-Chat9	*Calculating gaze*	*计算的凝视*
+Chat_Messages/TL36-Chat0	*Otherwordly snarl*	*异界的咆哮*
+Chat_Messages/TL36-Chat0-SAU36	*Discordant roar*	*不和谐的吼叫*
+Chat_Messages/TL36-Chat1	*Challenging stare*	*挑衅的凝视*
+Chat_Messages/TL36-Chat10	*Psychic humming*	*精神的嗡嗡声*
+Chat_Messages/TL36-Chat11	*Eerie growl*	*诡异的咆哮*
+Chat_Messages/TL36-Chat12	*Ethereal bellowing*	*以太的吼叫*
+Chat_Messages/TL36-Chat13	*Pulsating energy waves*	*脉动的能量波*
+Chat_Messages/TL36-Chat14	*Discordant roar*	*不和谐的吼叫*
+Chat_Messages/TL36-Chat2	*Impatient rumbling*	*不耐烦的隆隆声*
+Chat_Messages/TL36-Chat3	*Frustrated growl*	*挫败的咆哮*
+Chat_Messages/TL36-Chat4	*Painful wail*	*痛苦的哀嚎*
+Chat_Messages/TL36-Chat5	*Piercing stare*	*锐利的凝视*
+Chat_Messages/TL36-Chat6	*Gathering psychic energy*	*聚集的精神能量*
+Chat_Messages/TL36-Chat7	*Wary recoil*	*警惕的后退*
+Chat_Messages/TL36-Chat8	*Unswerving advance*	*坚定的前进*
+Chat_Messages/TL36-Chat9	*Cognizant glare*	*认知的凝视*
+Chat_Messages/TL37	*Low humming*	*低沉的嗡嗡声*
+Chat_Messages/TL38	*Heavy stomp*	*沉重的脚步声*
+Chat_Messages/TL4	*Hungry snarl*	*饥饿的咆哮*
+Chat_Messages/TL5	*Intimidating growl*	*威胁的咆哮*
+Chat_Messages/TL6	*Low rumbling*	*低沉的隆隆声*
+Chat_Messages/TL60	*Low growl*	*低沉的咆哮*
+Chat_Messages/TL61	*Enraged screech*	*愤怒的尖叫*
+Chat_Messages/TL62	*Piercing roar*	*穿透的吼叫*
+Chat_Messages/TL65	*Synaptic pulse*	*神经脉冲*
+Chat_Messages/TL66	*Rallying roar*	*集结的咆哮*
+Chat_Messages/TL67	*Bestial snarl*	*野兽的咆哮*
+Chat_Messages/TL68	*Mind-piercing screech*	*心灵穿透的尖叫*
+Chat_Messages/TL69	*Primal outcry*	*原始的呼喊*
+Chat_Messages/TL7	*Harsh scream*	*刺耳的尖叫*
+Chat_Messages/TL70	*Threatening howl*	*威胁的嚎叫*
+Chat_Messages/TL74-Chat0	*Furious roar*	*狂怒的吼声*
+Chat_Messages/TL74-Chat1	*Primal response*	*原始的反应*
+Chat_Messages/TL74-Chat10	*Bestial charge*	*野兽的冲锋*
+Chat_Messages/TL74-Chat11	*Savage brood call*	*野蛮的巢穴召唤*
+Chat_Messages/TL74-Chat12	*Sizing its prey*	*瞄准猎物*
+Chat_Messages/TL74-Chat13	*Ferocious strike*	*凶猛的攻击*
+Chat_Messages/TL74-Chat14	*Menacing flyby*	*恐吓的飞掠*
+Chat_Messages/TL74-Chat2	*Impatient snarl*	*不耐烦的咆哮*
+Chat_Messages/TL74-Chat3	*Frustrated growl*	*沮丧的咆哮*
+Chat_Messages/TL74-Chat4	*Frustrated scream*	*沮丧的尖叫*
+Chat_Messages/TL74-Chat5	*Rallying call*	*集结的呼唤*
+Chat_Messages/TL74-Chat6	*Roiling shriek*	*滚动的尖叫*
+Chat_Messages/TL74-Chat7	*Angered bellow*	*愤怒的吼叫*
+Chat_Messages/TL74-Chat8	*Taunting snarl*	*嘲讽的咆哮*
+Chat_Messages/TL74-Chat9	*Defiant cry*	*挑衅的呼喊*
+Chat_Messages/TL75	*Furious wail*	*狂怒的哀嚎*
+Chat_Messages/TL8	*Wild talon swinging*	*狂野的利爪星挥舞*
+Chat_Messages/TL9	*Brooding grumble*	*沉思的咕哝*
+Chat_Messages/UM1	Taking cover. Enemies in range.	寻找掩体。敌人在射程内。
+Chat_Messages/UM10	The bigger they are the harder they fall.	他们越大，摔得越重。
+Chat_Messages/UM11	Temper your speed with faith and flame.	以信仰和火焰来调整你的速度。
+Chat_Messages/UM12	Make the engines roar. Its time to scour this battlefield	让引擎咆哮。是时候清理这个战场了
+Chat_Messages/UM13	Trust in the Emperor at the hour of battle.	在战斗的时刻，信任帝皇。
+Chat_Messages/UM14	For courage and honour.	为了勇气和荣誉。
+Chat_Messages/UM15	The Emperor's work must be safeguarded.	必须保护帝皇的事业。
+Chat_Messages/UM16	Death won't take me without a fight.	死亡不能轻易带走我。
+Chat_Messages/UM17	There's no hiding from Ultramar's wrath.	无法躲避奥特拉玛的愤怒。
+Chat_Messages/UM18	For the Chapter and Lord Guilliman!	为了战团和基利曼领主！
+Chat_Messages/UM19	No foe can stand in our wake.	没有敌人能在我们的破坏中站立。
+Chat_Messages/UM2	Hold positions, we strike soon.	保持阵地，我们即将攻击。
+Chat_Messages/UM20	Strike at their weakness to prevail.	攻击他们的弱点以取得胜利。
+Chat_Messages/UM21	*Readying heavy sword*	*准备重剑*
+Chat_Messages/UM21_OLD	You're not ready to take on a foe like me.	你还没准备好面对像我这样的敌人。
+Chat_Messages/UM22	Ready your jump packs - we strike now!	准备你的跳跃背包 - 我们现在攻击！
+Chat_Messages/UM23	Draw your blade for the Primarch!	为基因原体拔剑！
+Chat_Messages/UM24	Form up and advance.	整装待发，前进。
+Chat_Messages/UM25	We march for Macragge!	我们为马库拉格前进！
+Chat_Messages/UM26	Knowledge is my blade; wisdom, my bullet.	知识是我的剑；智慧，我的子弹。
+Chat_Messages/UM27	My armour is infused with the Emperor's will.	我的盔甲充满了帝皇的意志。
+Chat_Messages/UM28	Even in death I still serve.	即使在死亡中，我仍然服役。
+Chat_Messages/UM29	Let none stay our wrath.	不让任何人阻挡我们的愤怒。
+Chat_Messages/UM3	We are the sons of Guilliman.	我们是基利曼的儿子。
+Chat_Messages/UM30	Let the roar of our cannons herald their doom.	让我们的大炮的轰鸣预示他们的末日。
+Chat_Messages/UM4	The Emperor guides us to victory.	帝皇引导我们走向胜利。
+Chat_Messages/UM46-Chat0	Warriors of Ultramar! Courage and Honour!	极限战士们！勇气和荣誉！
+Chat_Messages/UM46-Chat0-ASH1	Have you lost your taste for battle?	你是否已经对战斗失去了兴趣？
+Chat_Messages/UM46-Chat0-GOF28	Today we triumph over the Greenskins once more, brothers!	今天，我们再次在兄弟们面前战胜了绿皮兽人！
+Chat_Messages/UM46-Chat0-SAU35	Warriors of Ultramar! Courage and Honour!	极限战士们！勇气和荣誉！
+Chat_Messages/UM46-Chat0-TL35	Right here and now, the fate of Humanity is in our hands!	就在这里，就在现在，人类的命运掌握在我们手中！
+Chat_Messages/UM46-Chat0-UM47	The fourth company is in your hands, Brother-Captain Ventris.	第四連隊在在你的手中，连长文特瑞斯兄弟。
+Chat_Messages/UM46-Chat0-UM48	Tell me, Varro. What do you see?	告诉我，瓦罗。你看到了什么？
+Chat_Messages/UM46-Chat1	For Ultramar!	为了奥特拉玛！
+Chat_Messages/UM46-Chat10	Have you lost your taste for battle?	你是否已经对战斗失去了兴趣？
+Chat_Messages/UM46-Chat11	It is not a question of honour, but of duty.	这不是关于荣誉的问题，而是职责的问题。
+Chat_Messages/UM46-Chat12	When an Ultramarine bleeds so does the Chapter.	当一个极限战士流血时，战团也会受伤。
+Chat_Messages/UM46-Chat13	Regret is the most worthless emotion.	遗憾是最无价值的情绪。
+Chat_Messages/UM46-Chat14	I look unkindly upon unnecessary heroics.	我对无谓的英勇行为并不看好。
+Chat_Messages/UM46-Chat2	Battle calls for us!	战斗呼唤我们！
+Chat_Messages/UM46-Chat3	I can't do that.	我做不到。
+Chat_Messages/UM46-Chat4	May our sacrifice be worthy of the Emperor.	愿我们的牺牲配得上帝皇。
+Chat_Messages/UM46-Chat5	Throne be with us this battle.	愿王座在这场战斗中与我们同在。
+Chat_Messages/UM46-Chat6	Nothing shall stay our wrath.	没有什么能阻挡我们的愤怒。
+Chat_Messages/UM46-Chat7	Formidable, but no match for the Emperor's finest.	强大，但无法匹敌帝皇的精英。
+Chat_Messages/UM46-Chat8	Let us cleanse this place, brothers.	让我们净化这个地方，兄弟们。
+Chat_Messages/UM46-Chat9	Battles like this are what I was made for.	像这样的战斗就是我存在的原因。
+Chat_Messages/UM47-Chat0	Swords of Calth, with me!	卡尔斯之剑，跟我来！
+Chat_Messages/UM47-Chat0-BL35	Take down those traitorous dogs!	干掉那些叛徒狗杂种！
+Chat_Messages/UM47-Chat0-GOF29	I will tear you down and destroy you in His name.	我将以他的名义击败你，毁灭你。
+Chat_Messages/UM47-Chat0-SAU36	Swords of Calth, with me!	卡尔斯之剑，跟我来！
+Chat_Messages/UM47-Chat0-UM46	We stand ready to fight, Lord Calgar.	我们准备好战斗了，卡尔加主宰。
+Chat_Messages/UM47-Chat0-UM48	We will not fail, we are Ultramarines.	我们不会失败，我们是极限战士。
+Chat_Messages/UM47-Chat0-UM65	You can't always guide your actions through cold logic.	你不能总是通过冷酷的逻辑来指导你的行动。
+Chat_Messages/UM47-Chat1	Ready for arrowhead formation!	准备箭头阵型！
+Chat_Messages/UM47-Chat10	Every shot counts.	每一枪都很重要。
+Chat_Messages/UM47-Chat11	I am not in the habit of praying for good outcomes.	我不习惯为好结果祈祷。
+Chat_Messages/UM47-Chat12	I acted on instinct.	我是凭本能行事的。
+Chat_Messages/UM47-Chat13	You are what you do. It's all about actions.	你是你所做的。一切都关乎行动。
+Chat_Messages/UM47-Chat14	This is beyond anything I've learned.	这超出了我所学的任何东西。
+Chat_Messages/UM47-Chat2	We need to move. Now!	我们需要立刻行动。
+Chat_Messages/UM47-Chat3	I can't do that.	我做不到。
+Chat_Messages/UM47-Chat4	This place is no longer safe. Fall back!	这个地方不再安全。后退！
+Chat_Messages/UM47-Chat5	We have a great battle on our hands.	我们有一场大战在手中。
+Chat_Messages/UM47-Chat6	I will tear you down and destroy you in His name.	我将以他的名义击败你，毁灭你。
+Chat_Messages/UM47-Chat7	Closer than I would have liked.	比我想象的更近。
+Chat_Messages/UM47-Chat8	We will not fail, we are Ultramarines.	我们不会失败，我们是极限战士。
+Chat_Messages/UM47-Chat9	You can't always guide your actions through cold logic.	你不能总是通过冷酷的逻辑来指导你的行动。
+Chat_Messages/UM47-extra	My blood sings with righteousness.	我的血液因正义而歌唱。
+Chat_Messages/UM48-Chat0	What is yet to come is for us to decide.	即将发生的事情由我们来决定。
+Chat_Messages/UM48-Chat0-BL36	Ultramarines! Stand with weapons ready!	极限战士！准备好武器！
+Chat_Messages/UM48-Chat0-UM46	I wish you hadn't asked, my friend.	我希望你没有问，我的朋友。
+Chat_Messages/UM48-Chat0-UM47	The fate of the Ultramarines is bonded to you, Captain Ventris.	极限战士的命运与你紧密相连，连长Ventris。
+Chat_Messages/UM48-Chat1	May Ultramar stand in the times to be.	愿奥特拉玛在未来的时代中屹立不倒。
+Chat_Messages/UM48-Chat10	I can see through your plan.	我能看穿你的计划。
+Chat_Messages/UM48-Chat11	The clever combatant imposes his will on the enemy.	聪明的战士将他的意志强加给敌人。
+Chat_Messages/UM48-Chat12	There is no honour in foolishness.	愚蠢中没有荣誉。
+Chat_Messages/UM48-Chat13	Never falter, there is hope yet.	永不动摇，还有希望。
+Chat_Messages/UM48-Chat14	Ultramarines! Stand with weapons ready!	极限战士！准备好武器！
+Chat_Messages/UM48-Chat2	Each path must be chosen with care.	每条道路都必须谨慎选择。
+Chat_Messages/UM48-Chat3	I can't do that.	我做不到。
+Chat_Messages/UM48-Chat4	The future is not set, hope always glimmers.	未来并非既定，希望总是闪烁。
+Chat_Messages/UM48-Chat5	I foresaw this encounter.	我预见到了这次遭遇。
+Chat_Messages/UM48-Chat6	Run, or accept your fate.	逃跑，或接受你的命运。
+Chat_Messages/UM48-Chat7	Oh, you're cunning, but I'm wise to you.	哦，你很狡猾，但我看穿了你。
+Chat_Messages/UM48-Chat8	You don't understand the complexities of the subtle arts.	你不懂微妙的艺术的复杂性。
+Chat_Messages/UM48-Chat9	Taking risks is sometimes a necessity.	有时候冒险是必要的。
+Chat_Messages/UM5	They'll be dead before they see me coming.	他们会在看到我来临之前就死去。
+Chat_Messages/UM55	Shot by shot, we will purge the Galaxy.	一发一发，我们将净化银河。
+Chat_Messages/UM56	For the Emperor and the Primarch!	为了帝皇和基因原体！
+Chat_Messages/UM57	We will carve a path through enemy lines!	我们将在敌人的阵线中开辟一条道路！
+Chat_Messages/UM58	Enemy located. Leave no trace of them!	发现敌人。不留下他们的任何痕迹！
+Chat_Messages/UM59	Target located, flying into position.	目标定位，飞行到位。
+Chat_Messages/UM6	For the Imperium!	为了帝国。
+Chat_Messages/UM65-Chat0	Forward, brothers! Today we deliver the Emperor’s wrath!	前进，兄弟们！今天我们要传达帝皇的愤怒！
+Chat_Messages/UM65-Chat0-BL65	Your accursed existance will come to an end. I will make sure of it.	你被诅咒的存在将会终结。我会确保这一点。
+Chat_Messages/UM65-Chat0-TL74	Rejoice! For today we cleanse the skies of these foul creatures.	欢呼吧！今天我们要净化天空，驱逐这些邪恶的生物。
+Chat_Messages/UM65-Chat0-UM47	You failed to heed the Codex once, how soon will history repeat itself?	你曾经没有遵守圣典，历史会多快重演呢？
+Chat_Messages/UM65-Chat1	Let the enemy quake beneath our treads!	让敌人在我们的履带下颤抖吧！
+Chat_Messages/UM65-Chat10	We ride with courage and honour!	我们带着勇气和荣誉前行！
+Chat_Messages/UM65-Chat11	You are defeated.	你被打败了。
+Chat_Messages/UM65-Chat12	I am His judgement! The Crozius, His sentence!	我是他的审判！权杖是他的判决！
+Chat_Messages/UM65-Chat13	Let your zeal fuel you! For Guilliman!	让你的热忱燃烧吧！为了基利曼！
+Chat_Messages/UM65-Chat14	The Emperor's wrath is swift and unrelenting.	帝皇的愤怒迅速而无情。
+Chat_Messages/UM65-Chat2	We must move faster!	我们必须加快速度！
+Chat_Messages/UM65-Chat3	The Codex forbids this.	圣典禁止这样做。
+Chat_Messages/UM65-Chat4	A reckoning shall come.	清算即将到来。
+Chat_Messages/UM65-Chat5	So comes the time of righteous purging.	正义的清洗时刻到了。
+Chat_Messages/UM65-Chat6	No one outruns the Emperor's judgement!	没有人能逃脱帝皇的审判！
+Chat_Messages/UM65-Chat7	Set aside your arrogance, it will but hasten your downfall.	放下你的傲慢，这只会加速你的灭亡。
+Chat_Messages/UM65-Chat8	May His light guide us to victory!	愿他的光辉引导我们走向胜利！
+Chat_Messages/UM65-Chat9	Faster! Let your zeal drive you forward!	更快！让你的热忱驱使你前进！
+Chat_Messages/UM66	Aim true and strike them down!	瞄准并击倒他们！
+Chat_Messages/UM67	With all due haste.	尽快行动。
+Chat_Messages/UM68	I await your instruction.	我在等待你的指示。
+Chat_Messages/UM69	None shall stand in our way.	没有人能阻挡我们。
+Chat_Messages/UM7	We must push back the tide.	我们必须抵挡住这潮汐。
+Chat_Messages/UM70	There is nowhere we fear to tread.	没有我们害怕踏足的地方。
+Chat_Messages/UM71	Target acquired. Leave no trace of them!	目标锁定。不要留下他们的任何痕迹！
+Chat_Messages/UM72	Predator in position. Let there be fire!	掠食者战车就位。让火焰燃起吧！
+Chat_Messages/UM76-Chat0	We are the Emperor’s chosen.	我们是帝皇的神选者。
+Chat_Messages/UM76-Chat0-BlackLegion	Bury these accursed heretics!	埋葬这些被诅咒的异端者！
+Chat_Messages/UM76-Chat0-Goff	Xenos filth!	异形的污秽！
+Chat_Messages/UM76-Chat0-Leviathan	Tyranids! Give no quarter!	泰伦虫族！绝不留情！
+Chat_Messages/UM76-Chat0-SaimHann	Leave no xenos standing!	不留一个异形活着！
+Chat_Messages/UM76-Chat1	The galaxy will always find new ways to test you.	银河系总会找到新的方式来考验你。
+Chat_Messages/UM76-Chat10	The Codex is a guide, not a commandment.	圣典是一本指南，不是一条戒律。
+Chat_Messages/UM76-Chat11	We march for Macragge.	我们为马库拉格而行。
+Chat_Messages/UM76-Chat12	For Ultramar!	为奥特拉玛！
+Chat_Messages/UM76-Chat13	I will not falter while I still draw breath!	只要我还能呼吸，我就不会动摇！
+Chat_Messages/UM76-Chat14	Come face the wrath of Ultramar!	来面对奥特拉玛的愤怒！
+Chat_Messages/UM76-Chat2	No time to rest.	无暇休息。
+Chat_Messages/UM76-Chat3	Cannot yet oblige.	现在还不能答应。
+Chat_Messages/UM76-Chat4	Death is the luxury of mortals.	死亡是凡人的奢侈。
+Chat_Messages/UM76-Chat5	Courage and Honour.	勇气与荣誉。
+Chat_Messages/UM76-Chat6	Face the Emperor's wrath!	面对帝皇的愤怒！
+Chat_Messages/UM76-Chat7	They are not rid of me yet.	他们还没能摆脱我。
+Chat_Messages/UM76-Chat8	Emperor give me strength.	帝皇赐予我力量。
+Chat_Messages/UM76-Chat9	Victory belongs to whomever will go farthest to achieve it.	胜利属于愿意付出最大努力去实现的人。
+Chat_Messages/UM77	I will make them suffer now.	我现在要让他们受苦。
+Chat_Messages/UM78	Stand firm, sons of Ultramar!	坚守阵地，奥特拉玛的儿子们！
+Chat_Messages/UM79	We bring the fires of retribution. Burn them down!	我们带来了惩罚之火。烧掉他们！
+Chat_Messages/UM8	Target acquired. Your fate is sealed.	目标锁定。你的命运已经封存。
+Chat_Messages/UM80	Your defiance will end under Ultramar's steel.	你的反抗将在奥特拉玛的钢铁下结束。
+Chat_Messages/UM81	None will escape under my watch.	在我看守下，无人能逃脱。
+Chat_Messages/UM82	Take them down!	把他们击倒！
+Chat_Messages/UM83	Lead me to the slaughter!	引领我赴战！
+Chat_Messages/UM9	One strike is all I need.	我只需要一击。
+Chat_Messages/ec0d25faeb266ea4eaec41ae72b8d8ad-Chat4	This place is no longer safe. Fall back!	这个地方不再安全。后退！
+Chat_Messages/vs Aeldari	Such pride and arrogance will only hasten your downfall.	这样的骄傲和傲慢只会加速你的灭亡。
+Chat_Messages/vs Anvirr Keltoc	You were so close to salvation...	你离救赎如此之近...
+Chat_Messages/vs Astra Militarum	You could have been free, and yet you chose to tighten your chains.	你本可以获得自由，但你却选择了加紧你的枷锁。
+Chat_Messages/vs Ghazghkull Thraka	Your gods are pitiful things compared to the true powers of the galaxy.	你们的神与银河真正的力量相比，只是可怜的小东西。
+Chat_Messages/vs Marine	The False Angels were never meant to protect us!	虚假的天使从未打算保护我们！
+Chat_Messages/vs Space Marine	We have razed walls way thicker than that armor of yours.	我们已经摧毁了比你那盔甲厚得多的墙壁。
+Chat_Messages/vs Varro Tigurius	Such hypocrisy makes the Gods laugh.	这样的伪善使神们笑了。
+
+==== Battle/Effect/ : 28 ====
+Battle/Effect/ChangeAbilityCost	{[0]} cost of ability	{[0]} 技能费用
+Battle/Effect/ChangeAllStats	Get {0} Melee Attack, {1} Ranged Attack and {2} Health	获得 {0} 近战攻击，{1} 远程攻击和 {2} 生命值
+Battle/Effect/ChangeAllStatsOneTurn	Get {0} Melee Attack, {1} Ranged Attack and {2} Health one turn	获得 {0} 近战攻击，{1} 远程攻击和 {2} 生命值一回合
+Battle/Effect/ChangeArmour	Get {0} <sprite name=Atlas_trait_icon_armour> Armour	获得 {0} <sprite name=Atlas_trait_icon_armour> 盔甲
+Battle/Effect/ChangeArmourOneTurn	Get {0} <sprite name=Atlas_trait_icon_armour> Armour one turn	获得 {0} <sprite name=Atlas_trait_icon_armour> 盔甲一回合
+Battle/Effect/ChangeBothAttacks	Get {0} Melee Attack and {1} Ranged Attack	获得 {0} 近战攻击和 {1} 远程攻击
+Battle/Effect/ChangeBothAttacksOneTurn	Get {0} Melee Attack and {1} Ranged Attack one turn	获得 {0} 近战攻击和 {1} 远程攻击一回合
+Battle/Effect/ChangeCost	{0} Cost	{0} 费用
+Battle/Effect/ChangeHealth	Get {0} Health	获得 {0} 生命值
+Battle/Effect/ChangeHealthOneTurn	Get {0} Health one turn	获得 {0} 生命值一回合
+Battle/Effect/ChangeMeleeAndHealth	Get {0} Melee Attack and {1} Health	获得 {0} 近战攻击和 {1} 生命值
+Battle/Effect/ChangeMeleeAttack	Get {0} Melee Attack	获得 {0} 近战攻击
+Battle/Effect/ChangeMeleeAttackOneTurn	Get {0} Melee Attack one turn	获得 {0} 近战攻击一回合
+Battle/Effect/ChangeRangedAndHealth	Get {0} Ranged Attack and {1} Health	获得 {0} 远程攻击和 {1} 生命值
+Battle/Effect/ChangeRangedAttack	Get {0} Ranged Attack	获得 {0} 远程攻击
+Battle/Effect/ChangeRangedAttackOneTurn	Get {0} Ranged Attack one turn	获得 {0} 远程攻击一回合
+Battle/Effect/GetTrait	Get {0}	获得 {0}
+Battle/Effect/GetTraitOneTurn	Get {0} one turn	获得 {0} 一回合
+Battle/Effect/Khorne	Give +2 Melee Attack and [[vanguard]]	赋予+2近战攻击和[[先锋]]
+Battle/Effect/Nurgle	Give +1 Health and [[regeneration]] 1	赋予+1生命值和[[再生]] 1
+Battle/Effect/RemoveTrait	Remove	移除
+Battle/Effect/SetCost	Set Cost to {[0]}	将费用设为 {[0]}
+Battle/Effect/SetHealth	Set Health to {[0]}	将生命值设为 {[0]}
+Battle/Effect/SetMeleeAttack	Set Melee Attack to {[0]}	将近战攻击设为 {[0]}
+Battle/Effect/SetRangeAttack	Set Range Attack to {[0]}	将远程攻击设为 {[0]}
+Battle/Effect/Slaanesh	Give +2 Melee Attack and +2 Ranged Attack	赋予+2近战攻击和+2远程攻击
+Battle/Effect/SwapStats	Swap attack & health	交换攻击力和生命值
+Battle/Effect/Tzeentch	Give +2 Health and [[camouflage]]	赋予+2生命值和[[伪装]]
+
+==== Battle/HUD/ : 16 ====
+Battle/HUD/AffectedBy	Affected by:	受到影响：
+Battle/HUD/BannerNoGuild	No lodge	无公会
+Battle/HUD/CardsInHand	Cards in hand	手牌
+Battle/HUD/CardsLeft	Cards left	剩余牌
+Battle/HUD/CreatedBy	Created by {0}	由 {0} 创建
+Battle/HUD/Defeat	Defeat	失败
+Battle/HUD/EndTurn	End Turn	结束回合
+Battle/HUD/EnemyTurn	Enemy turn	敌方回合
+Battle/HUD/LostConnectionMsg	You've lost connection to the server. Trying to reconnect	你已与服务器断开连接。正在尝试重新连接
+Battle/HUD/MatchAlreadyFinished	Unable to reconnect. The match has already finished.	无法重新连接。比赛已经结束。
+Battle/HUD/PleaseWaitConnection	Please wait	请等待
+Battle/HUD/Replay	Replay	重播
+Battle/HUD/ShowingCards	Cards	张牌
+Battle/HUD/TargetsAvailable	{0} available	{0} 可用
+Battle/HUD/WaitOpponentConnectionMsg	Waiting for your opponent to reconnect	等待你的对手重新连接
+Battle/HUD/YourTurn	Your turn	你的回合
+
+==== Battle/Mulligan/ : 7 ====
+Battle/Mulligan/ButtonDone	Continue	继续
+Battle/Mulligan/Instructions	Choose cards to replace in first hand	选择要在首轮替换的牌
+Battle/Mulligan/Replace	Replace	替换
+Battle/Mulligan/Undo	Undo	撤销
+Battle/Mulligan/WaitEnemy	Waiting for enemy	等待敌人
+Battle/Mulligan/extraWarlord	Warlord ability	战将技能
+Battle/Mulligan/secondTurn	You go second	你是第二个行动
+
+==== Battle/BattleEnd/ : 11 ====
+Battle/BattleEnd/CantLoseRating	Can't lose rating in this division	在此级别无法失去评级
+Battle/BattleEnd/DamageDone	Damage dealt	造成伤害
+Battle/BattleEnd/Defeat	Defeat	失败
+Battle/BattleEnd/Draw	Draw	领带
+Battle/BattleEnd/Location	Location	位置
+Battle/BattleEnd/TapToContinue	Tap to continue	点击以继续
+Battle/BattleEnd/TapToContinueMobile	Tap to continue	点击以继续
+Battle/BattleEnd/Time	Duration	持续时间
+Battle/BattleEnd/Title	Battle Report	战斗报告
+Battle/BattleEnd/TroopsDead	Enemy casualties	敌方伤亡
+Battle/BattleEnd/Victory	Victory	胜利
+
+==== Battle/AlliancePanel/ : 4 ====
+Battle/AlliancePanel/AllianceLabel	Alliance:	联盟：
+Battle/AlliancePanel/NotInAnAlliance	This player is still not part of an Alliance	该玩家仍未加入联盟
+Battle/AlliancePanel/PlayerLabel	Name:	名称：
+Battle/AlliancePanel/TitleLabel	Title:	标题：
+
+==== Battle/ChooseCard/ : 4 ====
+Battle/ChooseCard/Instructions	Choose one card	选择一张牌
+Battle/ChooseCard/Instructions-52ecd898b5a42c941afdc891e82d963f	Choose which Warlord to become	选择成为哪个战将
+Battle/ChooseCard/Instructions-defensive	Choose defensive card	选择防御张牌
+Battle/ChooseCard/Instructions-offensive	Choose offensive card	选择进攻张牌
+
+==== Battle/Prebattle/ : 5 ====
+Battle/Prebattle/CasualString	Loading...	加载中...
+Battle/Prebattle/RandomAIString	Random AI	随机AI
+Battle/Prebattle/RandomPlayerString	Random Player	随机玩家
+Battle/Prebattle/RankedSearchString	Searching	搜索中
+Battle/Prebattle/SelectButton	Select	选择
+
+==== Battle/Settings/ : 4 ====
+Battle/Settings/Exit	Exit	退出
+Battle/Settings/LoginButton	Log In	登录
+Battle/Settings/ResignButton	Resign	放弃
+Battle/Settings/SkipTutorial	Skip tutorial	跳过教程
+

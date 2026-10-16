@@ -1,0 +1,5 @@
+Battle/BattleStartError
+  ours EN: There is already a game in progress. Please reload game before continuing.\nIf the problem persists, please contact support@everguild.com
+  off  EN: There is already a game in progress. Please reload game before continuing.
+If the problem persists, please contact support@everguild.com
+total Battle/ EN mismatches vs official: 1 (of 196 Battle entries parsed)

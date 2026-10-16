@@ -16,8 +16,26 @@ public static class WarpforgeSetup
     /// <summary>
     /// 工程**自建**的 shader（不是用来替代原版某个 shader 的，所以 `WarpforgeShaderMap` 里没有）。
     /// ⚠️ 改名要同步代码里的常量（这里这条在 `BattleDoors.ShaderName`）。
+    ///
+    /// 🔴 **判据 = 「这份名单必须覆盖【所有被 `Shader.Find("CardPresentation/…")` 找到的自建 shader】」**
+    ///   —— 打包之后 `Shader.Find` 只能找到「被材质引用」或「列进 Always Included」的，
+    ///   而**这几个自建 shader 全仓没有任何 `.mat` 引用**（`grep -rl … --include=*.mat` = 空）
+    ///   ⇒ 不登记就是**打包后 `Shader.Find` 返回 null ⇒ 那条路静默降级（画不出来 / 洋红）**。
+    /// ⚠️ **2026-10-16 补：原来只登记了 `Video Split Alpha` 一张**（`T14` 只读代理查出）。
+    ///   逐处现核那四条 `Shader.Find("CardPresentation/…")` 调用点：
+    ///   · `Core/CardView.cs:2815` `ArtOpaque`（立绘底层）· `:3816` `Card3D` · `:3880` `TraitDisabled`；
+    ///   · `Editor/VideoProbe.cs:251` `Video Split Alpha`（编辑器侧、本来就登记了）。
+    ///   ⇒ **后三张原来没登记** —— 编辑器里一切正常（`Shader.Find` 能扫全工程），**只有打包后才会现形**。
+    /// ⛔ **`FrameCutout` 有意不加**：它的消费者（`CardView.FrameCutoutMaterial()` / `_frameCutMat`）
+    ///   **2026-10-10 已删**（`CardView.cs:5576-5578`），`.shader` 文件本身还留着 ⇒ **无调用点、不是缺口**。
     /// </summary>
-    static readonly string[] OwnShaders = { "CardPresentation/Video Split Alpha" };
+    static readonly string[] OwnShaders =
+    {
+        "CardPresentation/Video Split Alpha",
+        "CardPresentation/ArtOpaque",
+        "CardPresentation/Card3D",
+        "CardPresentation/TraitDisabled",
+    };
 
     /// <summary>**引擎自带、但原版材质会「按名字」找的** shader 所在目录 —— 整目录扫。
     ///

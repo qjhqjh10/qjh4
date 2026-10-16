@@ -324,7 +324,7 @@ public static partial class RuleEngineTest
 
         // ---- ③ 真卡对照：真池里那几张降费卡**逐张不受影响** ----
         //   全池 `desc` 含 `Lower cost by` 的 5 张（现读，`cards_engine.json`）：
-        //     `AM60` / `AM61` / `TAU66` / `TL83` / `UM_Avenging_Zeal`。
+        //     `AM60` / `AM61` / `TAU66` / `TL70` / `UM40`。
         //   ✅ **2026-10-13（第二十五会话 · `A1689`）`UM_Avenging_Zeal` 已经注册上了** —— 它原来
         //      **不在**下面这张名单里，它那句
         //      `Lower cost by 1 when a friendly Troop or Stratagem trigger [Codex icon] Codex`
@@ -335,7 +335,7 @@ public static partial class RuleEngineTest
         //      🔴 **原来这里写「它落在 ⑤ 无消费点栏里」【不成立】**（2026-10-13 现核）：⑤ 那道闸
         //      **只对 `unit`/`hero` 做**，而它是 `tactic` ⇒ 它**从来没进过**那一栏（铁律 5 就地订正）。
         //   ⚠️ 下面 4 张**量过**（同一把尺子）：把它们的**原句**塞进卡池副本当夹具跑 `willrun`
-        //      ⇒ 「降费触发器」那一栏 **1 条 → 4 条**（1 = `TL83`，＋ 这 3 句）。
+        //      ⇒ 「降费触发器」那一栏 **1 条 → 4 条**（1 = `TL70`，＋ 这 3 句）。
         //      `UM_Avenging_Zeal` 现在**一并列进来**（改前它会让 `CostWhens.Count >= 1` 直接红）。
         {
             var pool = CardDatabase.Load();
@@ -344,7 +344,7 @@ public static partial class RuleEngineTest
                 "Mechanised Infantry",      // AM60
                 "Vengeance for Cadia",      // AM61
                 "Burgeoning Empire",        // TAU66
-                "Norn Emissary",            // TL83（全池唯一落「降费触发器」栏的那张）
+                "Norn Emissary",            // TL70（全池唯一落「降费触发器」栏的那张）
                 "Avenging Zeal",            // UM_Avenging_Zeal（`A1689` 修好之后才进得来 —— 见上面那段）
             };
             foreach (var name in expect)

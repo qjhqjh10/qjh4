@@ -1,0 +1,43 @@
+### Battle/Tips/ : official=38 ours=38 missing=0 extra=0
+  MISSING: 
+
+### Battle/Effect/ : official=28 ours=28 missing=0 extra=0
+  MISSING: 
+
+### Battle/Cemetery/ : official=20 ours=20 missing=0 extra=0
+  MISSING: 
+
+### Battle/HUD/ : official=16 ours=16 missing=0 extra=0
+  MISSING: 
+
+### Battle/Chat/ : official=6 ours=6 missing=0 extra=0
+  MISSING: 
+
+### Battle/Mulligan/ : official=7 ours=7 missing=0 extra=0
+  MISSING: 
+
+### Battle/BattleEnd/ : official=11 ours=16 missing=0 extra=5
+  MISSING: 
+  EXTRA: ForfeitFoe ForfeitMe Rounds RoundsMinFoeHealth RoundsOnly
+
+### Battle/AlliancePanel/ : official=4 ours=4 missing=0 extra=0
+  MISSING: 
+
+### Battle/ChooseCard/ : official=4 ours=6 missing=0 extra=2
+  MISSING: 
+  EXTRA: Defensive Offensive
+
+### Battle/Prebattle/ : official=5 ours=5 missing=0 extra=0
+  MISSING: 
+
+### Battle/Settings/ : official=4 ours=6 missing=0 extra=2
+  MISSING: 
+  EXTRA: AiDifficulty Title
+
+### Battle/ChooseCard : official=4 ours=6 missing=0 extra=2
+  MISSING: 
+  EXTRA: /Defensive /Offensive
+
+### Battle/MatchType : official=5 ours=5 missing=0 extra=0
+  MISSING: 
+

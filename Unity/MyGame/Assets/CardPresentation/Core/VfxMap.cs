@@ -222,18 +222,28 @@ namespace CardPresentation
         public static string SummonCircleOf(string faction)
         {
             if (string.IsNullOrEmpty(faction)) return null;
-            switch (faction)
-            {
-                case "Ember": return "Sororitas Summon Basic";       // 我们挑的
-                case "Tide":  return "Tau_SummonCircle";             // 我们挑的
-                // ⚠️ **键要用【我们的阵营名】**（= `CardDef.Faction`，13 个：SaimHann / TauEmpire / …；
-                //    2026-09-30 核过与 `Resources/OffensiveCards.json` 的 `army` **逐字相同**）。
-                //    写 "Aeldari"/"Tau" 那种**原版文件夹名**会**静默不播**（`switch` 落 default）。
-                case "SaimHann": return "BlueSummonCircle";          // 原版 `AeldariSummon`（判据齐）
-                case "TauEmpire": return "Tau_SummonCircle";         // 原版 `Tau_Summon`（判据齐）
-                default: return null;                                // 远端包 —— 留白
-            }
+            string v;
+            return SummonCircleByFaction.TryGetValue(faction, out v) ? v : null;
         }
+
+        /// <summary>**阵营 → 召唤法阵名**（判据只此一处 —— <see cref="SummonCircleOf"/> 与
+        /// <see cref="AllNames"/> 共用同一份）。
+        /// ⚠️ **键要用【我们的阵营名】**（= `CardDef.Faction`，13 个：SaimHann / TauEmpire / …；
+        ///    2026-09-30 核过与 `Resources/OffensiveCards.json` 的 `army` **逐字相同**）。
+        ///    写 "Aeldari"/"Tau" 那种**原版文件夹名**会**静默不播**（查不到 ⇒ 回 null）。
+        /// 🔴 **2026-10-16（`A2080` 顺手查出的自检覆盖洞）**：原来这是一个 `switch`、而
+        ///    `AllNames()` **枚举不到它** ⇒ BattleScene 那条「VfxMap 里的名字在库里都找得到」
+        ///    的断言**覆盖不到这三个名字**。改成一张表，两个消费点共用 ——
+        ///    以后往里加阵营，`AllNames()` 自动跟着覆盖（⛔ 别再写回 `switch`）。</summary>
+        static readonly Dictionary<string, string> SummonCircleByFaction =
+            new Dictionary<string, string>
+        {
+            { "Ember",     "Sororitas Summon Basic" },   // 我们挑的（原版这个起始阵营没有对应物）
+            { "Tide",      "Tau_SummonCircle" },         // 我们挑的
+            { "SaimHann",  "BlueSummonCircle" },         // 原版 `AeldariSummon`（判据齐）
+            { "TauEmpire", "Tau_SummonCircle" },         // 原版 `Tau_Summon`（判据齐）
+            // 其余阵营的召唤动画**在远端包** ⇒ 不配、`SummonCircleOf` 回 null（不放，如实留白，不硬凑一个）。
+        };
 
         /// <summary>逐卡覆盖（键 = **卡 id**；事件名同 <see cref="Resolve"/>）。
         /// **2026-10-14 起它由 `Resources/card_vfx_by_card.json` 载入**（见 <see cref="EnsureLoaded"/>），
@@ -305,8 +315,11 @@ namespace CardPresentation
         /// ⇒ 原版真值（卡 SO 的 `customRangedAttackParticles` / `customDeathParticles` /
         /// `cardAbilities[].abilityLogic[].cardAnimations[]` 解出来的 **3326 条**）**一条都没进游戏**。
         ///
-        /// **数据**：`Resources/card_vfx_by_card.json`（现读 **355,451 B · `cardCount` 1017 ·
-        /// `entryCount` 2473 · `audioCount` 621 · `noPrefabCount` 22 · `generatedAt` 2026-10-15 18:27**），
+        /// **数据**：`Resources/card_vfx_by_card.json`（**2026-10-16 现读**：**350,789 B · `cardCount` 1017 ·
+        /// `entryCount` **2402** · `audioCount` 621 · `noPrefabCount` 22 · `generatedAt` 2026-10-15 18:50:58**），
+        /// 🔴 **2026-10-16 就地订正（铁律 5）**：本行原来写「355,451 B · `entryCount` **2473** · `generatedAt` 18:27」——
+        ///   那是**同一天更早那一版**的读数（生成器不幂等，`guid_map.tsv` 更新过就会变）。
+        ///   ⇒ **这一行里的数一律现读**（`json.load(...)["entryCount"]`），⛔ 别把哪个具体数写死在这儿当判据。
         /// 与 `数据/游戏数据/card_vfx_by_card.json`（全量、给工具看）**由同一次运行产出** ⇒ 不会分叉。
         /// ⚠️ **2026-10-14 就地订正（铁律 5 · 账 `A1833`）**：这一行原来写「**240 KB · 979 张卡**」——
         ///    那是**当天上午那一版**的读数（246,036 B），下午 `A1817`（逐卡音效）重跑生成器之后就变了
@@ -499,11 +512,20 @@ namespace CardPresentation
             return null;
         }
 
-        /// <summary>自检用：把表里所有名字列一遍</summary>
+        /// <summary>自检用：把表里**所有**名字列一遍（BattleScene 那条「名字在库里都找得到」断言吃它）。
+        /// 🔴 **2026-10-16（`A2080` 顺手查出的覆盖洞）修两处**：
+        ///   ① **补 `EnsureLoaded()`** —— 原来这里**不触发载表**，而逐卡那一档（`ByCard`）是
+        ///      2026-10-14 起才**懒载入**的 ⇒ 那条断言跑在第一次 `Resolve` **之前**时，
+        ///      `ByCard` 还是空的、**逐卡那一档整块没被查** —— 暗黑天使 `DA48` 那条
+        ///      「值在表里、库里没有」就是这么**静默**挂着的（判据 → `任务/T05` §2·1 ②）。
+        ///   ② **补 <see cref="SummonCircleByFaction"/>** —— 它原来是 `switch`、枚举不到，
+        ///      三个召唤法阵名同样没进过那条断言。`ResolvePerCard` 那一档也已经由 `ByCard` 覆盖。</summary>
         public static IEnumerable<string> AllNames()
         {
+            EnsureLoaded();                                   // ① 见上面 doc：不载表 ⇒ 逐卡那一档整块漏查
             foreach (var kv in ByEvent) yield return kv.Value;
             foreach (var f in ByFaction) foreach (var kv in f.Value) yield return kv.Value;
+            foreach (var kv in SummonCircleByFaction) yield return kv.Value;   // ② 召唤法阵
             foreach (var c in ByCard) foreach (var kv in c.Value) yield return kv.Value;
         }
 

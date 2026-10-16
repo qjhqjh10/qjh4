@@ -2491,7 +2491,7 @@ namespace RuleEngine
 
             // ---- ② `… Lower cost by N when <事件>`（句尾）----
             //    🆕 2026-09-16：`every time` 与 `when` **同义**，一起收 —— 卡面只有一种写法用它：
-            //       `TL83 Norn Emissary` 的 `Lower cost by 2 every time a friendly unit triggers Synapse`
+            //       `TL70 Norn Emissary` 的 `Lower cost by 2 every time a friendly unit triggers Synapse`
             //       （中文「每当一个友方单位触发突触时，费用降低 2」）。原来只认 `when` ⇒
             //       这句**整条收不进来**，而它是**单位卡**、不走 `IsFullyParsed` 那三道闸
             //       ⇒ 既不拒打也不报错，是**静默不生效**型（自检里挂在「单位卡 ① 栏」）。
@@ -2504,7 +2504,7 @@ namespace RuleEngine
             //       （`CostWhens.Count` = 0）、卡面还不打 `*` —— 正是上面那句注释点名的老坑。
             //       ⇒ 现在两半都先走**同一个剥离口**（`EffectText.PeelInstead`），实测 `Count` 0 → 1。
             //       ⚠️ 对**不带 `instead`** 的写法**行为逐字不变**（真池 5 张全走这条：
-            //          `AM60` / `AM61` / `TAU66` / `TL83` / `UM_Avenging_Zeal`）。
+            //          `AM60` / `AM61` / `TAU66` / `TL70` / `UM40`）。
             //       ⚠️ 入口顺带**剥方括号**（`TryCostWhen` 内做）—— 对下游**行为不变**：
             //          `WhenEvents.Clean` 本来就剥 `[` `]`（`UM_Avenging_Zeal` 的 `[Codex icon]`）。
             //       ⚠️ `instead` 的**结算语义【判据空缺】**（全池 0 张卡、原版无该字段/字面）

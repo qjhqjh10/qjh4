@@ -59,7 +59,7 @@ namespace RuleEngine
         /// <summary>
         /// 🆕 **2026-09-16：造出来的那张卡要打上 `Ephemeral` 标记。**
         ///
-        /// 出处：`Neurotyrant`（`TL82` · Leviathan）卡面
+        /// 出处：`Neurotyrant`（`TL69` · Leviathan）卡面
         ///   `Whenever you play a non-Ephemeral Stratagem, create an **Ephemeral** copy of it in your hand`
         ///   —— `ephemeral` 不是名字的一部分，是**复制品的标记**。
         /// 我们上一版复刻：`rule_core.gd:722` `var ephemeral := b.contains("ephemeral copy")`（⚠️ **旁证**）·

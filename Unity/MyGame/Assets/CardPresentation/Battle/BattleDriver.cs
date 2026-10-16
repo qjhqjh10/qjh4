@@ -871,7 +871,7 @@ namespace CardPresentation
         /// <summary>墓地/战斗日志面板（原版 `CemeteryLogPanel`）。入口是敌方名牌上那颗按钮</summary>
         BattleLogPanel _logPanel;
         /// <summary>敌方名牌上的「看日志」按钮（原版 `ShowCemeteryBtn`，图 `40k_UI_bt_battlelog`）</summary>
-        ImageQuad _cemeteryBtn;
+        HudPiece _cemeteryBtn;
         /// <summary>日志面板的内容缓存（刷新时重建，新的在前）</summary>
         readonly List<BattleLogPanel.Entry> _logEntries = new List<BattleLogPanel.Entry>();
 
@@ -1017,7 +1017,7 @@ namespace CardPresentation
         //    原版**有**，判据全齐 ⇒ 用户 2026-10-15 拍板：**按原版建、并把自建那一条整个删掉**。
         //    判据全文 → `资料/普查产出_1015战斗/D1_A2109八条真缺_逐条判据.md` §1。
         Label _tipText;
-        ImageQuad _tipBg;
+        HudPiece _tipBg;
         /// <summary>待播的提示（原版 `BattleTipController` 的队列）。</summary>
         readonly List<string> _tipQueue = new List<string>();
         /// <summary>当前这条还剩几秒（原版是 `WaitForSeconds(tipDuration)`，我们用显式计时 —— 批处理没有帧循环）。</summary>
@@ -1050,7 +1050,7 @@ namespace CardPresentation
         WaitBanner _waitBanner;
         // 阵营资源（信仰 / 灵魂石）—— 2026-09-13 第三十三轮。物件**照建**、靠 `SetActive` 切显隐
         // （照原版 `ManaTypeHolder.Toggle` 的做法；判据见 `ShowsSpiritStone` / `ShowsFaith` / `ShowsQuestPoints`）
-        ImageQuad _myFaithIcon, _foeFaithIcon, _myStoneIcon, _foeStoneIcon, _myStoneGem, _foeStoneGem;
+        HudPiece _myFaithIcon, _foeFaithIcon, _myStoneIcon, _foeStoneIcon, _myStoneGem, _foeStoneGem;
         Label _myFaithText, _foeFaithText, _myStoneText, _foeStoneText;
         /// <summary>任务点数字（原版 `QPText`，'0/3'）。
         /// 🔴 **2026-09-16 更正**：这里原来写「**引擎没有任务点机制** → 恒为 0/3」—— **两半都要修**：
@@ -1068,7 +1068,7 @@ namespace CardPresentation
         /// ⚠️ 仍然悬着的一小件：「上限 **3** 从哪来」还没在卡面/规则书上坐实（数字是活的，但那个 3 是写死的）。</summary>
         Label _qpTextMe, _qpTextFoe;
         /// <summary>加时标记（原版 `OvertimeIndicator`）。**默认关着**，进加时后由引擎的 `ctx.IsOvertime` 点亮</summary>
-        ImageQuad _overtime;
+        HudPiece _overtime;
         // 🆕 2026-09-20：加时全屏 splash（原版 `OvertimeUi.overtimeSplashCanvasGroup` / `OvertimeSplashText`）
         GameObject _overtimeSplashRoot;
         ImageQuad _overtimeSplashBg, _overtimeSplashBand, _overtimeSplashIcon;
@@ -1162,18 +1162,18 @@ namespace CardPresentation
         /// 判据与「我们这一侧是等价物」那段 → `Battle/BattleMusic.cs` 的文件头。</summary>
         BattleMusic _music;
         /// <summary>右上角那颗设置按钮（原版 `SettingsBtn`，x[1808.0,1871.9] y[9.2,73.1]）</summary>
-        ImageQuad _settingsBtn;
+        HudPiece _settingsBtn;
         // 🆕 2026-09-18：`ChatPopup`（原版 `VoiceLinesPopupSelector`）——
         //   ⚠️ `ChatButton` 那个对象上**挂了两个组件**：`Button`(MB 5291) 的 `onClick → BattleManager.ClickChat`
         //      **和** `PlayerStateToggle`(MB 4089) 的 `selectedBool='EnableWarlordVOs'`。
         //      我们**只接开面板那条**（有 `m_OnClick` 实据）；语音开关那条**待实况确认**，见
         //      `资料/语音线_原版规格与ASR管道.md` §1.7。
-        ImageQuad _chatBtn;
+        HudPiece _chatBtn;
 
         /// <summary>🆕 2026-09-29（§25）：HUD 那颗**进攻卡（环境）**钮。
         /// 显隐判据 = 原版 `!isEmptyOffensiveCard`（选定那张卡 ≠ 本阵营空卡）；点它**只弹展示窗**、
         /// 不换环境（判据 → `资料/加时与冲突模式_原版规格.md` 的进攻卡那一节）。</summary>
-        ImageQuad _offensiveBtn;
+        HudPiece _offensiveBtn;
 
         /// <summary>🆕 **2026-10-12（A423）**：HUD 那颗**重置自动镜头**钮（原版 `BattleHud.resetCameraZoomButton` `+0xa8`，
         /// 节点 `CenterCameraButton`）。判据全文 → <see cref="ToggleCameraResetButton"/>。
@@ -1181,14 +1181,14 @@ namespace CardPresentation
         /// 缺的是**行为**：驱动里没有引用、点了没反应、也没有显隐（原来一直亮着）。
         /// `Battle/CombatAutoZoom.cs` / `Battle/CombatCameraZoom.cs` 文件头里
         /// 「全仓 `ResetCamera` 0 命中 ⇒ 我们 HUD 没有那颗钮」说的是**后半**（链不在），不是「图不在」。</para></summary>
-        ImageQuad _cameraResetBtn;
+        HudPiece _cameraResetBtn;
 
         /// <summary>🆕 **2026-10-18（A985③）**：敌方名牌上那颗「对手档案 / 联盟面板」钮
         /// —— 原版 `BattleHud.alliancePanelOpenButton`，节点就是 `LeftArea/EnemyInfo` **本身**
         /// （不是另起一颗图标）。rect / 命中区 / 「它没有贴图」的逐条判据 → `BuildHudExtras` 里建它那一段。
         /// <para>⚠️ 它是**全透明**的占位 quad（原版那颗 `m_TargetGraphic` 是 `NonDrawingGraphic`，
         /// 一个像素都不画）⇒ ⛔ 别拿「看不见」当「建错了」。</para></summary>
-        ImageQuad _allianceBtn;
+        HudPiece _allianceBtn;
         /// <summary>🆕 **2026-10-18（A985③）**：原版 `FrontCanvas/Alliance Panel`（组件 `BattleAlliancePanel`）
         /// 那扇**对手档案**窗。⚠️ **它是「面板」不是「窗」**（原版根组件是普通 `MonoBehaviour`、
         /// **不是 `GameWindow`**）⇒ 不注册进 `WindowsManager`。建成后**默认关着**（照原版 `Awake`）。</summary>
@@ -1275,23 +1275,23 @@ namespace CardPresentation
         Label _pileLabel, _foePileLabel;
 
         // 原版 UI 图（`Resources/Art/ui/`，没有就是 null —— 退回纯文字 HUD）
-        ImageQuad _endTurnBg, _myPlate, _enemyPlate;
+        HudPiece _endTurnBg, _myPlate, _enemyPlate;
         /// <summary>「能量积攒」那一组的 ON 图（原版 `ManaHolder/Energy Accumulation/Energy Player
         /// Accumulation ON`，横向偏移 −80.2 我 / −81.3 敌）。**球心那对满/空已删、只剩这一组**（`A2102` R4）。</summary>
-        ImageQuad _energyAccumMe, _energyAccumFoe;
-        ImageQuad _myEnergyPlate, _foeEnergyPlate;        // 水晶底下那块底板 `Card Frame Cost Icon`
-        ImageQuad _myQuestIcon, _foeQuestIcon;            // 任务点纹章（**只有暗黑天使显示**，见 ShowsQuestPoints）
-        ImageQuad _myQuestJoin, _foeQuestJoin;            // 任务点连到水晶上的小接片
-        ImageQuad _myPile, _foePile;
+        HudPiece _energyAccumMe, _energyAccumFoe;
+        HudPiece _myEnergyPlate, _foeEnergyPlate;        // 水晶底下那块底板 `Card Frame Cost Icon`
+        HudPiece _myQuestIcon, _foeQuestIcon;            // 任务点纹章（**只有暗黑天使显示**，见 ShowsQuestPoints）
+        HudPiece _myQuestJoin, _foeQuestJoin;            // 任务点连到水晶上的小接片
+        HudPiece _myPile, _foePile;
         /// <summary>🆕 2026-09-26：牌堆卡背底下那层 **SDF**（原版 `Cardback Shadow SDF`）。
         /// 逐值 → <see cref="DeckSdfPx"/>；取不到掩码时为 null（那层不画，牌堆本体照旧）。</summary>
-        ImageQuad _myDeckSdf, _foeDeckSdf;
-        ImageQuad _myDeckPlate, _foeDeckPlate, _myDeckLight, _foeDeckLight;
-        ImageQuad _myDeckSizePlate, _foeDeckSizePlate;    // 牌库张数底板 `40K_display`
-        ImageQuad[] _playedPips;                          // 本回合已出牌数：最多三枚 `40k_general_bt_yellow`
-        ImageQuad _skullIcon;                             // 我方名牌上的里程碑骷髅
+        HudPiece _myDeckSdf, _foeDeckSdf;
+        HudPiece _myDeckPlate, _foeDeckPlate, _myDeckLight, _foeDeckLight;
+        HudPiece _myDeckSizePlate, _foeDeckSizePlate;    // 牌库张数底板 `40K_display`
+        HudPiece[] _playedPips;                          // 本回合已出牌数：最多三枚 `40k_general_bt_yellow`
+        HudPiece _skullIcon;                             // 我方名牌上的里程碑骷髅
         Label _skullScore;                                // 骷髅旁边那个 `x N`
-        ImageQuad _handPlate;                             // 手牌数底板 `40K_display`
+        HudPiece _handPlate;                             // 手牌数底板 `40K_display`
         /// <summary>本回合**我**打出了几张牌（原版 `CardsPlayedInTurn1..3`）。回合开始清零。</summary>
         int _cardsPlayedThisTurn;
 
@@ -2224,6 +2224,109 @@ namespace CardPresentation
             };
         }
 
+        // ==================================================================
+        //  🆕 2026-10-16（T05 ①）原版 `BattleManager.GetAnimTransform` 的解析口
+        // ==================================================================
+        //  为什么挂在驱动上：那 10 档锚点（督军卡 / 手牌容器 / 牌堆 / 棋盘中心 / 下一空位）
+        //  **只有驱动知道在哪** —— 与 `HookUnitTweenResolvers` 同一条理由。
+        //  逐档判据 → `Battle/AnimAnchors.cs` 文件头（含 2026-10-16 对 T05 §2·6③ 那句
+        //  「18/19 极性相反」的**就地订正**：那两段其实是自洽的）。
+        void HookAnimAnchors()
+        {
+            // 3/4 档 + 兜底那一档：某座位的**督军卡**的锚点。
+            //   原版走 `CardScript.GetEffectAnchor()`（按卡状态二选一）；督军恒在场上 ⇒ 场上档。
+            AnimAnchors.HeroAnchorOf = seat =>
+            {
+                var v = ViewAt(seat, RuleEngine.BoardSpec.WarlordSlot);
+                return v != null ? v.EffectAnchor(true) : null;
+            };
+
+            // 18/19 档：某座位的**手牌容器**（⚠️ 原版这两档只取容器自己的 transform，
+            //   **不**走 `GetEffectAnchor`）。
+            //   ⚠️ 取法与 `HandRow01` 同一处口径（`_me` 用 `interaction.hand`、对手用 `foeHand`）——
+            //      改一处就是「两处写同一条规则」。
+            AnimAnchors.HandAnchorOf = seat =>
+            {
+                var hl = HandOf(seat);
+                return hl != null ? hl.transform : null;
+            };
+
+            // 50/55 档：某座位的**牌堆**（= 那摞卡背，`BuildHud` 里 `FitDeckPile` 摆的那两件）。
+            AnimAnchors.DeckAnchorOf = seat =>
+            {
+                var q = seat == _me ? _myPile : _foePile;
+                return q != null ? q.transform : null;
+            };
+
+            // 5 档：棋盘中心那颗**裸 Transform**（原版 `+0x1d0`）。
+            AnimAnchors.BoardCenterOf = EnsureBoardCenterAnchor;
+
+            // 14 档：下一空位。⚠️ 原版这一档钉死用**本地玩家**的 `MinionManager`（`+0xe0`），
+            //   所以 `Ctx` 传进来的就是 `mySeat`（见 `AnimAnchors` 文件头那两处「真的不对称」）。
+            AnimAnchors.NextMinionSpotOf = EnsureNextMinionSpotAnchor;
+        }
+
+        /// <summary>某座位的**手牌容器**。判据只此一处（`HandRow01` 也走它）——
+        /// `_me` 那侧取 `interaction.hand`、对手那侧取 <see cref="foeHand"/>。</summary>
+        internal HandLayout HandOf(int seat)
+        {
+            return seat == _me ? (interaction != null ? interaction.hand : null) : foeHand;
+        }
+
+        // ---- 5 档：棋盘中心 ----
+        //  原版 `BattleManager.battleCenterAnchor`（私有字段 `+0x1d0`）——
+        //  🔴 **判据（现核，不再是猜的）**：`bundle_scenes_scenes_battlearena2/MonoBehaviour/MonoBehaviour_4569.json`
+        //     里 `"battleCenterAnchor": {"m_FileID": 0, "m_PathID": 1490}`；而 `GameObject/Board Center.json`
+        //     的组件表就是 `m_PathID 1490` ⇒ **它是一个名字就叫 `Board Center` 的场景节点**。
+        //     父链（同一份 bundle 现读）：`Board Center` → `BattleBoardElements`(localPos **100,0,0**) → `BattlePrefab`(0,0,0)；
+        //     `Board Center` 自身 `localPos = (0, 0, **-2.810800)**`、`localScale = 1`。
+        //  ⇒ **换算到我们这套坐标**：本仓 `ArenaSlots` 用的就是同一套单位、只把整体 x 平移了 −100
+        //     （判据 → `任务/T05` §2·4 那条；`ArenaSlots.Position` 返回的 x 没有那 100）⇒ 我们要放的是 **(0, 0, -2.8108)**。
+        //  ✅ **旁证（独立一条）**：我方行 `PlayerZ = -6.655`、敌方行 `EnemyZ = +1.043`，中点 = **-2.806**
+        //     —— 与 -2.8108 差 0.005 世界单位（≈0.5 px）⇒ 那颗节点**确实在棋盘中间**，认对了。
+        //  ⚠️ 我们**没有**这颗节点（`Scenes/Battle.unity` 里 `grep "Board Center"` = 0）
+        //     ⇒ 在运行时建一颗（与 `CardView.EffectAnchorBoard` 同一种做法：缺的节点就地补）。
+        Transform _animBoardCenter;
+        Transform EnsureBoardCenterAnchor()
+        {
+            if (_animBoardCenter == null)
+            {
+                var go = new GameObject("Board Center");
+                go.transform.position = new Vector3(0f, 0f, BoardCenterZ);
+                _animBoardCenter = go.transform;
+            }
+            return _animBoardCenter;
+        }
+
+        /// <summary>棋盘中心的 z（原版 `Board Center` 节点的本地 z，见上面那一整段判据）。</summary>
+        public const float BoardCenterZ = -2.8108f;
+
+        // ---- 14 档：下一空位 ----
+        //  ⚠️ **这一格是「我们改的」，判据照抄不了**（如实标，铁律 3）：
+        //    · 原版是 `MinionManager.GetNextSlotPos(mouseClickPos, 1)` —— **以鼠标点击点为基准**取下一格；
+        //      而动画播出的那一刻**没有点击点**（那是「这张卡被召唤出来」的演出）⇒ 原版那条路子我们复刻不了。
+        //    · 我们改用**引擎自己那条「下一个空位」规则**（`SimpleAI.FirstFreeSlot`）——
+        //      它是「这一局 AI/玩家下一张牌会落到哪」的**同一个口**，语义上与「下一个空位」一致。
+        //  ⚠️ **另一处「我们改的」**：原版每次调用都 **new 一个 GameObject 再 `Destroy`** 掉；
+        //     我们**复用同一颗**（`_animNextSpot`）只挪位置 —— 批处理下没有帧循环、`Object.Destroy` 不生效
+        //     （本线 `准则与做法.md` §六·6），每次新建会漏一堆空对象。
+        Transform _animNextSpot;
+        Transform EnsureNextMinionSpotAnchor(int seat)
+        {
+            if (_animNextSpot == null)
+            {
+                var go = new GameObject("Next Minion Spot");
+                _animNextSpot = go.transform;
+            }
+            bool foe = seat != _me;
+            int slot = (Ctx != null && Ctx.Players != null && seat >= 0 && seat < Ctx.Players.Length)
+                     ? RuleEngine.SimpleAI.FirstFreeSlot(Ctx.Players[seat])
+                     : RuleEngine.BoardSpec.WarlordSlot + 1;
+            if (slot < 0) slot = RuleEngine.BoardSpec.WarlordSlot + 1;
+            _animNextSpot.position = ArenaSlots.RootPosition(slot, foe, ArenaSlots.CardScale(foe));
+            return _animNextSpot;
+        }
+
         /// <summary>
         /// **按 Play 时的开局**：读卡组编辑器里当前选中的那套 → 开一局。
         ///
@@ -2884,6 +2987,11 @@ namespace CardPresentation
             // 🆕 **2026-10-13（A515）**：这两个补间解析口也**每次 `Begin` 都要重挂** ——
             //   原来挂在 `BuildHud()` 里、被 `_hudBuilt` 闩住 ⇒ 二次 `Begin` 只接回 17/19 条静态钩子。
             HookUnitTweenResolvers();
+
+            // 🆕 **2026-10-16（T05 ①）**：原版 `GetAnimTransform`（`PositionOption` 那 10 档）的解析口
+            //   —— 同一条理由：只有驱动知道「某座位的督军卡 / 手牌容器 / 牌堆 / 棋盘中心」在哪。
+            //   ⚠️ 与 `HookUnitTweenResolvers` 一样是**幂等覆盖**，每次 `Begin` 都要重挂。
+            HookAnimAnchors();
 
             // 🆕 **2026-10-18（A985⑦）**：`Battle/Tips/HandFull` 那三张「见过没有」的表**每局清一次**
             //    （不清的话上一局见过的实例会让这一局「首次判据」恒假 —— 静默）。
@@ -3648,8 +3756,12 @@ namespace CardPresentation
         {
             if (_cameraResetBtn == null || !_cameraResetBtn.gameObject.activeSelf) return false;
             var l = _cameraResetBtn.transform.InverseTransformPoint(w);   // 世界 → 本件局部（`ImageQuad` 的原点在中心，见 `Contains`）
-            return Mathf.Abs(l.x) <= Px(CameraResetHitPxW) * 0.5f
-                && Mathf.Abs(l.y) <= Px(CameraResetHitPxH) * 0.5f;
+            // 🔴 **2026-10-16（`T09` 翻件）**：`Px(px)` 给的是**世界单位**，而两个模式的**局部单位不同** ——
+            //   旧 quad = 世界单位（×1）；uGUI = **设计 px**（×108）。⇒ 阈值要按模式换算，
+            //   ⛔ 否则这颗钮在翻件后「看着在钮上、点不动」（**静默**）。
+            float k = _cameraResetBtn.IsUgui ? 108f : 1f;
+            return Mathf.Abs(l.x) <= Px(CameraResetHitPxW) * 0.5f * k
+                && Mathf.Abs(l.y) <= Px(CameraResetHitPxH) * 0.5f * k;
         }
 
         /// <summary>那颗钮的点击入口（真实输入那一侧）。原版 = uGUI `Button.onClick` → `BattleHud.DoResetCameraZoom()`。
@@ -3759,12 +3871,16 @@ namespace CardPresentation
         /// ⚠️ 坐标系要跳一下：`PxRect` 是**左上原点、y 向下**，而 quad 的局部 y 向上。</para>
         /// <para>⚠️ **本函数不含 `activeSelf` 守卫** —— 那是各调用点自己的语义
         /// （`HandleSettings` 那一颗**故意**不判，A964 的 `E4` 白名单台账正盯着它），⛔ 别在这里一刀切。</para></summary>
-        static bool HitPaddedRect(ImageQuad q, Vector3 world, float rectWpx, float rectHpx,
+        static bool HitPaddedRect(HudPiece q, Vector3 world, float rectWpx, float rectHpx,
                                   float padL, float padB, float padR, float padT)
         {
             if (q == null) return false;
             var l = q.transform.InverseTransformPoint(world);   // 世界 → 本件局部（原点在中心，同 `ImageQuad.Contains`）
-            float ppu = 1f / Px(1f);                           // = 108：取 `Px` 的倒数 ⇒ 不写第二份 108
+            // 🔴 **2026-10-16（`T09` 翻件）就地订正**：`ppu` 原来恒取 `1/Px(1f)` = **108**
+            //   （「1 世界单位 = 108 设计 px」）—— 那只对**旧 quad** 成立：quad 的局部单位是**世界单位**。
+            //   **uGUI 那一侧的局部单位已经是【设计 px】**（`sizeDelta` 直接就是 px、画布缩放为 1）
+            //   ⇒ 再乘 108 会让命中框**大 108 倍**（而画面完全正常 ⇒ **静默**）。
+            float ppu = q.IsUgui ? 1f : 1f / Px(1f);           // 旧 quad：世界单位 → px；uGUI：本来就是 px
             float lx = l.x * ppu, ly = -l.y * ppu;             // 本件局部 px（**左上原点、y 向下**，与 `PxRect` 同帧）
             var hit = MenuDraw.PaddedHitRect(
                 new PxRect(-rectWpx * 0.5f, -rectHpx * 0.5f, rectWpx * 0.5f, rectHpx * 0.5f),
@@ -6492,7 +6608,7 @@ namespace CardPresentation
             {
                 var q = _hudExtras[i];
                 if (q == null || q.name != name) continue;
-                var n = LayoutSpace.ToNormalized(q.transform.localPosition);
+                var n = q.Anchor01();
                 return new Vector2(n.x * 1920f, (1f - n.y) * 1080f);
             }
             return new Vector2(-1f, -1f);
@@ -6562,7 +6678,7 @@ namespace CardPresentation
             {
                 var q = _hudExtras[i];
                 if (q == null || q.name != name) continue;
-                return HudImageZ - q.transform.localPosition.z;
+                return HudImageZ - q.OrderZ;
             }
             return 0f;
         }
@@ -6589,7 +6705,7 @@ namespace CardPresentation
             ApplyTitle(_titleFoe, _titleBgFoe, _titleFoeText);
         }
 
-        static void ApplyTitle(Label l, ImageQuad bg, string text)
+        static void ApplyTitle(Label l, HudPiece bg, string text)
         {
             bool show = !string.IsNullOrEmpty(text);
             // ⚠️ **先激活、再写字**：TMP 在**非激活**对象上量不出尺寸（`CLAUDE.md` §三 那条坑：
@@ -9874,6 +9990,9 @@ namespace CardPresentation
         }
         bool _tutVisReported;
         static void SetVis(Component c, bool on) { if (c != null && c.gameObject.activeSelf != on) c.gameObject.SetActive(on); }
+        /// <summary>🆕 `T09`（2026-10-16）：`HudPiece` 那一支 —— 它**不是 `Component`**，走不了上面那个重载。
+        /// ⛔ 别把 `HudPiece` 改成 `Component` 来省这一对（那会把它绑回 Unity 的对象体系、失去「要么 quad 要么 uGUI」的语义）。</summary>
+        static void SetVis(HudPiece p, bool on) { if (p != null && p.gameObject.activeSelf != on) p.gameObject.SetActive(on); }
 
         /// <summary>`hideLargeCardDisplay`（原版 `BattleManager__DisplayCard.c:44-50`：`!='\0' ⇒ return`）
         /// —— 教程局里**大卡展示窗不开**。三个开窗口（`ShowUnitCardWindow` / `ToggleUnitCard` / 手牌那张）
@@ -10521,6 +10640,8 @@ namespace CardPresentation
 
         // ---- 自检读口（`hide*` 那一族的**盘上事实**：藏住了没有）----
         static bool Vis(Component c) { return c != null && c.gameObject.activeSelf; }
+        /// <summary>🆕 `T09`：`HudPiece` 那一支（同 <see cref="SetVis(HudPiece,bool)"/> 的理由）。</summary>
+        static bool Vis(HudPiece p) { return p != null && p.gameObject.activeSelf; }
         /// <summary>牌库数那一族（**两个消费者里的第一个**）：两边的牌库数文字 + 两块底板。</summary>
         public bool DeckSizeVisibleForTest
         { get { return Vis(_pileLabel) && Vis(_foePileLabel) && Vis(_myDeckSizePlate) && Vis(_foeDeckSizePlate); } }
@@ -12286,7 +12407,7 @@ namespace CardPresentation
         /// 不会算出越界格 —— 但那时落点只是近似，**如实记着**。</summary>
         Vector2 HandRow01(bool mine, int drawFromEnd = -1)
         {
-            var hl = mine ? (interaction != null ? interaction.hand : null) : foeHand;
+            var hl = HandOf(mine ? _me : 1 - _me);
             int side = mine ? _me : 1 - _me;
             int count = 0;
             if (Ctx != null && Ctx.Players != null && side >= 0 && side < Ctx.Players.Length
@@ -13024,8 +13145,13 @@ namespace CardPresentation
         /// 这一格该盖哪一具残骸体（不是残骸 ⇒ `null`）。
         /// **判据是卡上的关键词，不是阵营** —— `Waystone.` → 灵族那具（漂浮的灵魂石）、
         /// `Remnant.` → 死灵那具（碎裂的卡）。
-        /// 全卡池里 `Waystone.` 只出现在 SaimHann（24 张）、`Remnant.` 只出现在 Sautekh（36 张）
-        /// （2026-09-25 实测）⇒ 与「查 `CardArmy`」等价，但**写关键词更抗以后加卡**。
+        /// 全卡池里 `Waystone` 只出现在 SaimHann（**25** 张）、`Remnant`/`Remnant.` 只出现在 Sautekh（**27** 张）
+        /// ⇒ 与「查 `CardArmy`」等价，但**写关键词更抗以后加卡**。
+        /// 🔴 **2026-10-16 就地订正（铁律 5）**：本行原来写「`Waystone.` SaimHann **24** 张 / `Remnant.` Sautekh **36** 张
+        ///   （2026-09-25 实测）」—— **两个数都过期了**：现读 `RuleEngine/Resources/cards_engine.json`
+        ///   （`count 1127`）逐卡数 `keywords` 得 **25 / 27**。
+        ///   ⚠️ **卡池里存的关键词【不带】那个尾点**（是 `Waystone` / `Remnant`，只有 1 张写成 `Remnant.`）
+        ///   ⇒ 拿带点的串去匹配会**一张都命中不到**（本仓踩过同型：那 1 张 `Remnant.` 是特例）。
         /// 出处（原版那两具叫什么、长什么样）→ `资料/查证_useWaystone_语义.md` §五 的资产表。
         /// </summary>
         static string RemnantPrefabOf(UnitState u)
@@ -13938,7 +14064,7 @@ namespace CardPresentation
             //    真尺寸 70.68×71.32 得由父框 × 锚区比推）。**我们画的仍是那张 `UI_Energy_Holder_big` 底图本身**，
             //    所以数值没受影响 —— 改的只是注释（`资料/战斗UI_原版对账表.md:37` 也有同一处误标）。
             // 🆕 2026-09-29：那 6 枚小光点（同一父节点下的 `Lights`）—— 见 `BuildEnergyLights`。
-            BuildEnergyLights(root);
+            BuildEnergyLights();
             //   任务点（`QuestPointsHolder` 97.7×97.7）：**我方在水晶下方、敌方在水晶上方**，
             //   接片 `UI_Quest_Points_Joint` 夹在水晶和任务点中间。
             //   ⚠️ 2026-09-12 更正：原来两个图标的位置用的是接片的偏移，都摆到了水晶**内侧**。
@@ -14185,8 +14311,8 @@ namespace CardPresentation
                                         Px(ImageQuad.FitHeight(FoeDeckPlatePx, FoeDeckPlatePx, deckBgAspect)),
                                         "FoeDeckPlate");
             // 底板再往后一点，别把卡背盖住（`HudImageTex` 已经把图放到文字后面了）
-            if (_myDeckPlate != null) _myDeckPlate.transform.localPosition += new Vector3(0f, 0f, 0.02f);
-            if (_foeDeckPlate != null) _foeDeckPlate.transform.localPosition += new Vector3(0f, 0f, 0.02f);
+            if (_myDeckPlate != null) _myDeckPlate.NudgeZ(0.02f);
+            if (_foeDeckPlate != null) _foeDeckPlate.NudgeZ(0.02f);
 
             // 🆕 2026-09-26：牌堆卡背**底下那层 SDF**（原版 `Cardback Shadow SDF`）——
             //   比卡背大一圈（292×381 vs 217×314），露在外面那圈就是牌堆的「厚度/投影」。
@@ -14220,9 +14346,9 @@ namespace CardPresentation
 
             // 回合灯：底板右下角（位置在 `PlaceDeckLights` 里统一摆 —— 换分辨率要重贴）
             _myDeckLight = HudImageTex(root, CardArt.Ui("40k_DeckHolder_light_green"), MyDeckX01, MyDeckY01,
-                                       new Vector2(0.5f, 0.5f), Px(DeckLightPx), "MyDeckLight");
+                                       new Vector2(0.5f, 0.5f), Px(DeckLightPx), "MyDeckLight", HudImageZ - 0.01f);
             _foeDeckLight = HudImageTex(root, CardArt.Ui("40k_DeckHolder_light_green"), FoeDeckX01, FoeDeckY01,
-                                        new Vector2(0.5f, 0.5f), Px(DeckLightPx), "FoeDeckLight");
+                                        new Vector2(0.5f, 0.5f), Px(DeckLightPx), "FoeDeckLight", HudImageZ - 0.01f);
             PlaceDeckLights();
 
             // ---- 张数底板 + 张数：原版 `Player Deck Size Container`（图 `40K_display`）----
@@ -14271,7 +14397,7 @@ namespace CardPresentation
             // holder 贴在屏幕**左缘中点**（`LeftArea` 锚 (0,0.5)，pos (0,−28.178)）。
             // ⚠️ 原版**没出牌时整块是关着的**（dump 里 holder 与三枚 `activeSelf=False`），我们也照做：
             //    出第 N 张牌就点亮第 N 枚，最多三枚（只有三个节点，第四张不显示 —— 原版也是这样）。
-            _playedPips = new ImageQuad[3];
+            _playedPips = new HudPiece[3];
             for (int i = 0; i < 3; i++)
             {
                 float cx = PlayedPipX0Px + i * (PlayedPipPx + PlayedPipGapPx) + PlayedPipPx * 0.5f;
@@ -14393,16 +14519,16 @@ namespace CardPresentation
         // ==================================================================
 
         /// <summary>这批补摆件（自检按它核对「摆了几件 / 用的哪张图 / 在哪」）</summary>
-        readonly List<ImageQuad> _hudExtras = new List<ImageQuad>();
+        readonly List<HudPiece> _hudExtras = new List<HudPiece>();
         public int HudExtraCount { get { return _hudExtras.Count; } }
 
         // ---- 玩家信息块那两层：头衔底条 + 称号文字（2026-09-24）----
         // 显隐**同一个判据**（原版 `PlayerProfileUIController.SetProfileTitle`），见 `SetTitle`。
-        ImageQuad _titleBgMe, _titleBgFoe;
+        HudPiece _titleBgMe, _titleBgFoe;
 
         // ---- 名牌上的**头像立绘**那一层（原版 `Avatar Item Small/Image Container/Image`）
         //      —— 2026-10-19（A1502②）补。判据与几何换算全文 → 下面 `HudAvatarW` 那一段。
-        ImageQuad _hudAvatarMe, _hudAvatarFoe;
+        HudPiece _hudAvatarMe, _hudAvatarFoe;
         /// <summary>**已经画上去的是哪一张**（只在它变了的时候才换贴图 —— 每帧比几个 int，别造事件机制，
         /// 手法与 `Shell/TopBar.RefreshTopAvatarIfChanged` 同一条）。</summary>
         int _hudAvatarMeIdx = int.MinValue, _hudAvatarFoeIdx = int.MinValue, _hudAvatarSeed = int.MinValue;
@@ -14417,7 +14543,7 @@ namespace CardPresentation
             {
                 var q = _hudExtras[i];
                 if (q == null) continue;
-                var n = LayoutSpace.ToNormalized(q.transform.localPosition);
+                var n = q.Anchor01();
                 sb.Append($"     {q.name,-22} {(q.Texture != null ? q.Texture.name : "<无图>"),-32}"
                         + $" 中心 ({(n.x * 1920f):F1}, {((1f - n.y) * 1080f):F1})px\n");
             }
@@ -14443,7 +14569,7 @@ namespace CardPresentation
         /// ⚠️ **同族的 `HudImage` / `HudImageTex` 只收 `worldHeight`、拿不到框宽** ⇒ 那一半**还没接**
         ///   （账仍在 `A1302`；要接得给它们加一个宽，调用点几十处）。</para>
         /// </summary>
-        ImageQuad HudAbs(Transform root, string artName, float x, float y, float w, float h,
+        HudPiece HudAbs(Transform root, string artName, float x, float y, float w, float h,
                          string name, float z = HudImageZ)
             => HudAbsTex(root, CardArt.Ui(artName), x, y, w, h, name, z);
 
@@ -14451,7 +14577,7 @@ namespace CardPresentation
         /// 给**装饰品头像**那一层用（那批图在 `Art/avatars/`，不在 `Art/ui/`）。
         /// 换算与 `HudAbs` 是**同一个式子**（`x`/`w` 只用来算中心、`w`/`h` 一起定内接后的画面高）
         /// ——⛔ 别各写一份。</summary>
-        ImageQuad HudAbsTex(Transform root, Texture2D tex, float x, float y, float w, float h,
+        HudPiece HudAbsTex(Transform root, Texture2D tex, float x, float y, float w, float h,
                             string name, float z = HudImageZ)
         {
             float cx = (x + w * 0.5f) / 1920f;
@@ -15271,7 +15397,7 @@ namespace CardPresentation
             q.SetAspect(AspectFillerW / AspectFillerH);          // 原版是 `m_Type = 0`(Simple) + 没有图 ⇒ 按矩形拉伸
             q.SetTint(new Color(0f, 0f, 0f, 1f));                // `m_Color = (0,0,0,1)`
             q.SetRenderQueue(queue);
-            q.transform.localPosition += new Vector3(0f, 0f, z);
+            q.transform.localPosition += new Vector3(0f, 0f, z);   // ⚠️ 这一件**没迁**（不在那一族里）⇒ 仍走旧口
             return q;
         }
 
@@ -15418,19 +15544,13 @@ namespace CardPresentation
         /// </summary>
         void PlaceDeckLights()
         {
-            float z = HudImageZ - 0.01f;          // 比卡背再靠前一点，别被压住
-            if (_myDeckLight != null)
-            {
-                var p = LayoutSpace.ToWorld(MyDeckX01, MyDeckY01)
-                      + new Vector3(Px(MyLightDxPx), Px(MyLightDyPx), 0f);
-                _myDeckLight.transform.localPosition = new Vector3(p.x, p.y, z);
-            }
-            if (_foeDeckLight != null)
-            {
-                var p = LayoutSpace.ToWorld(FoeDeckX01, FoeDeckY01)
-                      + new Vector3(Px(FoeLightDxPx), Px(FoeLightDyPx), 0f);
-                _foeDeckLight.transform.localPosition = new Vector3(p.x, p.y, z);
-            }
+            // ⚠️ **2026-10-16（`T09` 翻件）**：原来这里是「自己算绝对位置再写 `transform.localPosition`」——
+            //   uGUI 那一侧**那是个错的口**（单位是设计 px、相对的是画布，不是世界）⇒ 改走
+            //   `HudPiece.NudgeWorld`（两种模式各用各的口，判据在 `Battle/HudPiece.cs`）。
+            //   ⚠️ 原来这里还顺带定了 z（`HudImageZ - 0.01`）⇒ 那一档改成**建的时候给**
+            //     （uGUI 下 z 没有意义、兄弟序才有，见 `HudCanvas.Add`）。
+            if (_myDeckLight != null) _myDeckLight.NudgeWorld(Px(MyLightDxPx), Px(MyLightDyPx));
+            if (_foeDeckLight != null) _foeDeckLight.NudgeWorld(Px(FoeLightDxPx), Px(FoeLightDyPx));
         }
 
         /// <summary>把手牌数底板摆到**手牌标签的后面**（原版就是「文字居中压在板上」的关系）。
@@ -15441,13 +15561,14 @@ namespace CardPresentation
         {
             if (_handPlate == null || _handLabel == null) return;
             var p = _handLabel.transform.localPosition;      // 标签锚在**左下角**（anchor 0,0）
-            var c = LayoutSpace.ToNormalized(new Vector3(p.x + _handLabel.WorldW * 0.5f,
-                                                         p.y + _handLabel.WorldH * 0.5f, 0f));
+            float k = _handLabel.transform.localScale.x;     // 🔴 `T09`：字乘了 `HudTextScale` ⇒ 宽度也得跟上
+            var c = LayoutSpace.ToNormalized(new Vector3(p.x + _handLabel.WorldW * k * 0.5f,
+                                                         p.y + _handLabel.WorldH * k * 0.5f, 0f));
             _handPlate.SetAnchorPosition(c.x, c.y);
         }
 
         /// <summary>牌堆的回合灯。原版是**两张图**（绿/红），不是同一张染色 —— 换贴图而不是换 `_Color`</summary>
-        void SetDeckLight(ImageQuad q, bool lit)
+        void SetDeckLight(HudPiece q, bool lit)
         {
             if (q == null) return;
             var tex = CardArt.Ui(lit ? "40k_DeckHolder_light_green" : "40k_DeckHolder_light_red");
@@ -15466,11 +15587,11 @@ namespace CardPresentation
         public float DeckCardWorldH { get { return _myPile != null ? _myPile.WorldH : 0f; } }
 
         /// <summary>🆕 2026-09-26：牌堆那层 **SDF**（自检用）。取不到掩码时为 null。</summary>
-        public ImageQuad MyDeckSdfQuad { get { return _myDeckSdf; } }
+        public HudPiece MyDeckSdfQuad { get { return _myDeckSdf; } }
         /// <summary>见 <see cref="MyDeckSdfQuad"/>。敌方那侧。</summary>
-        public ImageQuad FoeDeckSdfQuad { get { return _foeDeckSdf; } }
+        public HudPiece FoeDeckSdfQuad { get { return _foeDeckSdf; } }
         /// <summary>我方牌堆卡背那块（自检比「SDF 比卡背大多少 / 谁在前」用）。</summary>
-        public ImageQuad MyPileQuad { get { return _myPile; } }
+        public HudPiece MyPileQuad { get { return _myPile; } }
         /// <summary>我这边的回合灯现在是哪张图</summary>
         public string MyDeckLightTex
         {
@@ -15485,7 +15606,7 @@ namespace CardPresentation
         /// —— 2026-09-13 之前我们摆的是 (1805.6, 1051)（漏了 `anchoredPosition`，偏低 66 px）</summary>
         public Vector2 MyDeckLightPos01
         {
-            get { return _myDeckLight != null ? LayoutSpace.ToNormalized(_myDeckLight.transform.localPosition) : Vector2.zero; }
+            get { return _myDeckLight != null ? _myDeckLight.Anchor01() : Vector2.zero; }
         }
 
         // ---- 自检用：牌库张数底板 / 本回合已出牌数 / 里程碑（这几个的毛病截图看不出来：
@@ -15529,14 +15650,14 @@ namespace CardPresentation
         /// <summary>里程碑骷髅的中心（归一化；原版 (193.4, 956.6) 从上 → 0.10073 / 0.11426）</summary>
         public Vector2 SkullIconPos01
         {
-            get { return _skullIcon != null ? LayoutSpace.ToNormalized(_skullIcon.transform.localPosition) : Vector2.zero; }
+            get { return _skullIcon != null ? _skullIcon.Anchor01() : Vector2.zero; }
         }
         /// <summary>里程碑分数那行字（`x N`）</summary>
         public string SkullScoreText { get { return _skullScore != null ? _skullScore.Text : null; } }
         /// <summary>骷髅那张图的 z。**必须比 HUD 图的默认 z（`HudImageZ` = 0.3）更近** ——
         /// 它跟名牌几乎重叠，同 z 就会被名牌整个盖住（2026-09-13 第一版就是这样：`x0` 在、骷髅没了，
         /// 截图放大才看出来）。**断言钉住它**，别让人改回去。</summary>
-        public float SkullIconZ { get { return _skullIcon != null ? _skullIcon.transform.localPosition.z : 999f; } }
+        public float SkullIconZ { get { return _skullIcon != null ? _skullIcon.OrderZ : 999f; } }
         /// <summary>手牌数底板用的图（也应 `40K_display`）</summary>
         public string HandPlateTex
         {
@@ -15547,7 +15668,7 @@ namespace CardPresentation
         /// <summary>手牌数底板的中心（归一化）—— 自检拿它验「整块板在屏幕内」</summary>
         public Vector2 HandPlatePos01
         {
-            get { return _handPlate != null ? LayoutSpace.ToNormalized(_handPlate.transform.localPosition) : Vector2.zero; }
+            get { return _handPlate != null ? _handPlate.Anchor01() : Vector2.zero; }
         }
         /// <summary>自检用：两块名牌的**左缘中点**（归一化）。
         /// 🔴 **2026-10-19（A1512）订正**：这里原来写「原版是 −0.005938 / −0.005833（两边都贴着屏幕左缘、
@@ -15558,7 +15679,7 @@ namespace CardPresentation
         /// （2026-09-13 之前用的又是另一份实例的坐标，偏右 44 / 168 px —— 那条历史仍然成立。）</summary>
         public Vector2 MyPlatePos01
         {
-            get { return _myPlate != null ? LayoutSpace.ToNormalized(_myPlate.transform.localPosition) : Vector2.zero; }
+            get { return _myPlate != null ? _myPlate.Anchor01() : Vector2.zero; }
         }
         public Vector2 EnemyPlatePos01
         {
@@ -15678,19 +15799,57 @@ namespace CardPresentation
             return c == null ? new Vector2(-1f, -1f) : LayoutSpace.ToNormalized(c.transform.localPosition);
         }
 
+        /// <summary>🆕 `T09`（2026-10-16）：`HudPiece` 那一支 —— 读的是**它贴着的归一化锚点**
+        /// （⛔ 不是 `transform.localPosition`：uGUI 那一侧单位是设计 px、相对的是 canvas）。</summary>
+        static Vector2 PosOf(HudPiece p)
+        {
+            return p == null ? new Vector2(-1f, -1f) : p.Anchor01();
+        }
+
         // HUD 的每个字都是**世界空间**的一块 quad，位置在建立时算好就固定了 ——
         // 而 `LayoutSpace.VisibleWidth` 跟着宽高比走，所以切分辨率时必须重算，
         // 不然 4:3 建、16:9 拍的时候文字会整片偏到左边（批处理自检里踩过）。
         readonly List<Label> _hudLabels = new List<Label>();
         readonly List<Vector2> _hudSpots = new List<Vector2>();
-        readonly List<ImageQuad> _hudImages = new List<ImageQuad>();
+        readonly List<HudPiece> _hudImages = new List<HudPiece>();
         readonly List<Vector2> _hudImageSpots = new List<Vector2>();
-        /// <summary>能量座上那 6 枚常亮小光点（原版 `Energy And turn holder/Lights`）—— 自检要量它们的矩形。</summary>
-        readonly List<ImageQuad> _energyLights = new List<ImageQuad>();
+        /// <summary>能量座上那 6 枚常亮小光点（原版 `Energy And turn holder/Lights`）—— 自检要量它们的矩形。
+        /// 🔴 **2026-10-16（`T09` 第一片）：它们已经是 uGUI 件**（`Battle/HudCanvas.cs`），不再是 `ImageQuad`
+        /// ⇒ 这里存的是 `RectTransform`，自检走下面那对 `EnergyLight*Px` 读口（**判据 = 设计 px**）。</summary>
+        readonly List<RectTransform> _energyLights = new List<RectTransform>();
         float _hudWidth = -1f;
 
-        /// <summary>那 6 枚光点（自检用；判据 = 原版那 6 个 RT 的绝对矩形）。</summary>
-        public IReadOnlyList<ImageQuad> EnergyLights { get { return _energyLights; } }
+        /// <summary>那 6 枚光点的**枚数**（自检用）。🔴 迁移后**判据从「世界坐标」改成「设计 px」** ——
+        /// 见 <see cref="EnergyLightCenterPx"/>。</summary>
+        public int EnergyLightCount { get { return _energyLights.Count; } }
+
+        /// <summary>第 `i` 枚光点的**中心**（**设计 px**，左上原点、y 向下）—— 自检用。
+        /// ⚠️ 这与原版那 6 个 RT 的绝对屏幕矩形**同一套量纲**（原版那 6 行值直接可比）。
+        /// 越界 / 没建 ⇒ `(-1,-1)`（⛔ 不返回 `(0,0)` —— 那会被当成「合法地落在左上角」）。</summary>
+        public Vector2 EnergyLightCenterPx(int i)
+        {
+            if (i < 0 || i >= _energyLights.Count) return new Vector2(-1f, -1f);
+            return HudCanvas.CenterPx(_energyLights[i]);
+        }
+
+        /// <summary>第 `i` 枚光点的**尺寸**（**设计 px**）—— 自检用。越界 / 没建 ⇒ `(-1,-1)`。</summary>
+        public Vector2 EnergyLightSizePx(int i)
+        {
+            if (i < 0 || i >= _energyLights.Count) return new Vector2(-1f, -1f);
+            return HudCanvas.SizePx(_energyLights[i]);
+        }
+
+        /// <summary>自检口：uGUI 层建起来了没有（`T09` 第 2 步「层立住了」就靠它）。</summary>
+        public bool HudCanvasReady { get { return HudCanvas.RootRect != null; } }
+
+        /// <summary>🆕 `T09`：第 `i` 个 HUD 标签的 `localScale.x` —— 就是
+        /// <see cref="LayoutSpace.HudTextScale"/> 那个过渡量的**落地点**（自检要盯「真的乘上了」）。
+        /// 越界 / 没建 ⇒ **`-1`**（⛔ 不返回 0 或 1 —— 那两个都像「合法值」）。</summary>
+        public float HudLabelScaleForTest(int i)
+        {
+            return (i >= 0 && i < _hudLabels.Count && _hudLabels[i] != null)
+                 ? _hudLabels[i].transform.localScale.x : -1f;
+        }
 
         /// <summary>手牌数那一格的原版词条键（**只此一份**）。判据 → `UpdateHud` 里那段注释 + `Core/Loc.cs`。</summary>
         public const string HandCountTerm = "Battle/HUD/CardsInHand";
@@ -15775,6 +15934,11 @@ namespace CardPresentation
                   int wrapMode = 1)
         {
             var l = Label.Create(root, text, LayoutSpace.ToWorld(x01, y01), scale, c, anchor, name);
+            // 🔴 **2026-10-16（`T09`）**：HUD 上这一族字**要跟着画布一起缩放** —— 不然非 16:9 下
+            //   「已经迁到画布上的图」（跟 `CanvasScaler` 缩）与「还没迁的字」（不缩）会**不一致**
+            //   （普查点名的「只换半边比不换更坏」）。系数与逐值推导 → `LayoutSpace.HudTextScale`
+            //   （**16:9 ⇒ 1，逐位不变**）。⚠️ `ReanchorHud` 换分辨率时会**重算**它。
+            if (l != null) l.transform.localScale = Vector3.one * LayoutSpace.HudTextScale;
             if (l != null && boxWpx > 0f && boxHpx > 0f && autoMaxPx > 0f)
             {
                 // 框 + 四格。⚠️ `SetAutoFitBox` 只在**已激活**的对象上量得出尺寸（CLAUDE.md §三那条坑）——
@@ -15789,9 +15953,11 @@ namespace CardPresentation
             return l;
         }
 
-        /// <summary>HUD 上的一张图。**没有那张图就返回 null**（删掉美术目录也能跑）</summary>
-        ImageQuad HudImage(Transform root, string artName, float x01, float y01,
-                           Vector2 anchor, float worldHeight, string name)
+        /// <summary>HUD 上的一张图。**没有那张图就返回 null**（删掉美术目录也能跑）
+        /// 🔴 **2026-10-16（`T09`）：返回类型 `ImageQuad` → `HudPiece`**（适配层，见 `Battle/HudPiece.cs`）。
+        /// **本步只换类型、仍建旧 quad**（零行为改动）⇒ 那一族的 140 处用法**一行不用改**。</summary>
+        HudPiece HudImage(Transform root, string artName, float x01, float y01,
+                          Vector2 anchor, float worldHeight, string name)
             => HudImageTex(root, CardArt.Ui(artName), x01, y01, anchor, worldHeight, name);
 
         /// <summary>HUD 图统一往后放这么多（相机看 +Z，z 越大越远）—— 文字在 z=0，图在后面</summary>
@@ -15826,7 +15992,7 @@ namespace CardPresentation
         /// <para>🔴 **幂等**：每次先 `SetAnchorPosition(x01,y01)`（= 回到基准，⛔ **不要在现位置上累加** ——
         /// `ReanchorHud` 每切一次分辨率就会调一次本函数，累加会一次偏一点、静默）。
         /// 取不到卡背图 / 该图没登记 ⇒ `Fit` 返回 false ⇒ **不改几何**（缺图 `CardArt.CardBack` 那边已出声）。</para></summary>
-        void FitDeckPile(ImageQuad q, Texture2D tex, float x01, float y01)
+        void FitDeckPile(HudPiece q, Texture2D tex, float x01, float y01)
         {
             if (q == null) return;
             float w, h, dx, dyUp;
@@ -15837,7 +16003,7 @@ namespace CardPresentation
             q.SetWorldHeight(Px(h));                            // ② 画心高（= 节点高 × texRectH/1020）
             q.SetAspect(w / h);                                 // ③ 比例（等比 —— 两轴系数相等）
             // ④ 偏移：画心**不居中**（按 `padding` 偏）。`SetAnchorPosition` 给的 y 向上 ⇒ `dyUp` 直接加。
-            q.transform.localPosition += new Vector3(Px(dx), Px(dyUp), 0f);
+            q.NudgeWorld(Px(dx), Px(dyUp));
         }
 
         /// <summary>🆕 2026-09-26：牌堆那层 **SDF**（原版 `Cardback Shadow SDF`）。
@@ -15845,7 +16011,7 @@ namespace CardPresentation
         ///    而这一层要的是**原版 SDF shader**（`Everguild/FX/Card Highlight And Shadow`，
         ///    见 `CardView.CardbackSdfMaterialBase`）。所以建完要换成自己的材质。
         /// 取不到掩码（该阵营没有默认卡背 / 图没导）或取不到 shader ⇒ 返回 **null**（那层不画，牌堆本体照旧）。</summary>
-        ImageQuad MakeDeckSdf(Transform root, string faction, float x01, float y01, string name)
+        HudPiece MakeDeckSdf(Transform root, string faction, float x01, float y01, string name)
         {
             var tex = CardArt.CardBackSdf(faction);
             if (tex == null) return null;
@@ -15865,20 +16031,34 @@ namespace CardPresentation
             return q;
         }
 
-        ImageQuad HudImageTex(Transform root, Texture2D tex, float x01, float y01,
-                              Vector2 anchor, float worldHeight, string name, float z = HudImageZ)
+        HudPiece HudImageTex(Transform root, Texture2D tex, float x01, float y01,
+                             Vector2 anchor, float worldHeight, string name, float z = HudImageZ)
         {
-            var q = ImageQuad.Create(root, tex, LayoutSpace.ToWorld(x01, y01),
-                                     worldHeight, anchor, name);
-            if (q != null)
+            if (tex == null) return null;
+            // 🔴 **2026-10-16（`T09` 第 3+4 步）：这一族已经【翻到 uGUI】了** —— 建在 `HudCanvas` 那层上。
+            //   口径与逐值推导 → `Battle/HudCanvas.cs` 文件头 ＋ `任务/T09` §五·补③/④/⑥。
+            //   ⚠️ `root`（HUD 根）**不再用**：uGUI 那一侧挂在**画布**下
+            //     （⛔ 不能挂 `hudRoot` —— 那是**反向补震**用的，挂了会被补偿两次）。
+            var parent = HudCanvas.Ensure(cam);
+            if (parent == null)
             {
-                // ⚠️ 往后放一点（相机看 +Z，z 越大越远）：HUD 文字在 z=0，
-                //    同 z 的话谁压谁看渲染顺序，实测按钮底图会把文字盖住（踩过）
-                q.transform.localPosition += new Vector3(0f, 0f, z);
-                _hudImages.Add(q);
+                // ⛔ **不许静默退回旧 quad 那条路** —— 那会出现「一半在画布、一半在世界」的半迁移态，
+                //    而它在本仓是**看不见的**（16:9 下两种都「看着对」）。出声、这一件不建。
+                Debug.LogError("[Battle] uGUI 层建不起来（`cam` 为空？）⇒ `" + name + "` 这一件**不建**"
+                             + "（⛔ 不退回世界空间 quad —— 半迁移态比不迁移更坏）");
+                return null;
+            }
+            // `worldHeight` 是**世界单位** ⇒ 设计 px = ×108（判据 → `HudCanvas` 文件头那条推导）。
+            // 宽由**贴图比例**给（= `ImageQuad.Create` 的语义，见 T09 §五·补④ 第一行）。
+            float hPx = worldHeight * 108f;
+            float wPx = hPx * tex.width / Mathf.Max(1f, tex.height);
+            var p = HudCanvas.MakeAnchored(parent, tex, name, x01, y01, anchor, hPx, wPx, z, Color.white);
+            if (p != null)
+            {
+                _hudImages.Add(p);
                 _hudImageSpots.Add(new Vector2(x01, y01));
             }
-            return q;
+            return p;
         }
 
         /// <summary>🆕 2026-09-29：**能量座上那 6 枚小光点**（原版 `Right Anchor/Energy And turn holder/Lights`）。
@@ -15897,7 +16077,14 @@ namespace CardPresentation
         /// ⚠️ 图在 `Resources/Art/ui_menu/`（**不在**战斗那批 `ui/`）⇒ 走 `CardArt.MenuUi` 那三档兜底。
         /// ⚠️ 原版这些 Image 是 `m_Type=0` **PA=0** ⇒ **拉满各自那个小矩形**（不按 123×123 的比例）。
         /// 判据全文 → `资料/待办判据_战场与战斗视图.md` §8b。</summary>
-        void BuildEnergyLights(Transform root)
+        /// 🔴🆕 **2026-10-16（`T09` 第 2/3 步的第一片）：这一族已【迁到 uGUI】** ——
+        ///   建在 `HudCanvas.Ensure(cam)` 那个根 Canvas 下（`ScreenSpaceCamera` + `CanvasScaler(1920×1080/Expand)`）。
+        ///   为什么先迁它：① **只有 1 处断言碰它**（`BattleScene.cs` 那一段）② 纯装饰、**没有可点件**
+        ///   （⇒ 不牵动第 4 步的输入迁移）③ 它整族在同一个 z 上、**可以整族同批走**。
+        ///   口径与逐值推导（含「一个 canvas 单位 = 一个设计 px」那条）→ `资料/任务线/战斗线/任务/T09_整层换uGUI.md` §五·补③。
+        ///   ⚠️ 旧路（世界空间 quad）已删 —— ⛔ **别两边各留一份**（那正是「只改半边」）。
+        /// </summary>
+        void BuildEnergyLights()
         {
             var tex = CardArt.MenuUi("Glow_UI_W40K");
             if (tex == null)
@@ -15906,24 +16093,24 @@ namespace CardPresentation
                                + "⇒ 能量座上那 6 枚光点**不建**（不摆白方块）—— 见 `BuildEnergyLights`");
                 return;
             }
-            AddEnergyLight(root, tex, "Glow Green Eye", 1839.19f, 370.51f, 19.32f, 18.78f, new Color(0.736f, 1f, 0f, 1f));
-            AddEnergyLight(root, tex, "Glow Green 2",   1803.22f, 346.63f, 12.77f, 12.65f, new Color(0.592f, 1f, 0f, 1f));
-            AddEnergyLight(root, tex, "Glow Orange 1",  1829.97f, 346.82f, 10.00f,  9.30f, new Color(1f, 0.767f, 0f, 1f));
-            AddEnergyLight(root, tex, "Glow Orange 2",  1840.15f, 353.45f,  8.73f,  8.17f, new Color(1f, 0.767f, 0f, 1f));
-            AddEnergyLight(root, tex, "Glow Orange 3",  1832.02f, 361.72f,  8.24f,  6.55f, new Color(1f, 0.767f, 0f, 1f));
-            AddEnergyLight(root, tex, "Glow Orange 4",  1855.89f, 359.85f, 10.10f,  8.83f, new Color(1f, 0.767f, 0f, 1f));
+            AddEnergyLight(tex, "Glow Green Eye", 1839.19f, 370.51f, 19.32f, 18.78f, new Color(0.736f, 1f, 0f, 1f));
+            AddEnergyLight(tex, "Glow Green 2",   1803.22f, 346.63f, 12.77f, 12.65f, new Color(0.592f, 1f, 0f, 1f));
+            AddEnergyLight(tex, "Glow Orange 1",  1829.97f, 346.82f, 10.00f,  9.30f, new Color(1f, 0.767f, 0f, 1f));
+            AddEnergyLight(tex, "Glow Orange 2",  1840.15f, 353.45f,  8.73f,  8.17f, new Color(1f, 0.767f, 0f, 1f));
+            AddEnergyLight(tex, "Glow Orange 3",  1832.02f, 361.72f,  8.24f,  6.55f, new Color(1f, 0.767f, 0f, 1f));
+            AddEnergyLight(tex, "Glow Orange 4",  1855.89f, 359.85f, 10.10f,  8.83f, new Color(1f, 0.767f, 0f, 1f));
         }
 
-        /// <summary>一枚光点：`x/y` = **左上角**（px，y 向下），`w/h` = 尺寸（px）。</summary>
-        void AddEnergyLight(Transform root, Texture2D tex, string name,
-                            float x, float y, float w, float h, Color c)
+        /// <summary>一枚光点：`x/y` = **左上角**（px，y 向下），`w/h` = 尺寸（px）。
+        /// ✅ **迁到 uGUI**：这些 px 直接进 `RectTransform`（锚点 + `sizeDelta`）——
+        /// 因为「一个 canvas 单位 = 一个设计 px」（见 `HudCanvas` 文件头那条推导）。</summary>
+        void AddEnergyLight(Texture2D tex, string name, float x, float y, float w, float h, Color c)
         {
-            float cx = x + w * 0.5f, cy = y + h * 0.5f;
-            var q = HudImageTex(root, tex, cx / 1920f, 1f - cy / 1080f, new Vector2(0.5f, 0.5f), h / 108f, name);
-            if (q == null) return;
-            q.SetAspect(w / h);        // 原版 PA=0 ⇒ 拉满那个矩形
-            q.SetTint(c);              // 原版逐枚的 `Image.color`（同一张图靠颜色区分）
-            _energyLights.Add(q);
+            var parent = HudCanvas.Ensure(cam);
+            // 原版逐枚的 `Image.color`（同一张图靠颜色区分）· `PA=0` ⇒ 拉满那个矩形（`MakeImage` 里定死）
+            var rt = HudCanvas.MakeImage(parent, tex, name, x, y, w, h, c);
+            if (rt == null) return;
+            _energyLights.Add(rt);
         }
 
         void ReanchorHud()
@@ -15938,8 +16125,12 @@ namespace CardPresentation
             //   ⇒ 正确的修法是 `A2098`（换 uGUI 锚点体系），⛔ 不是在这里补一行。
             for (int i = 0; i < _hudLabels.Count; i++)
                 if (_hudLabels[i] != null)
-                    _hudLabels[i].transform.localPosition =
-                        LayoutSpace.ToWorld(_hudSpots[i].x, _hudSpots[i].y);
+                {
+                    var t = _hudLabels[i].transform;
+                    t.localPosition = LayoutSpace.ToWorld(_hudSpots[i].x, _hudSpots[i].y);
+                    // 🔴 `T09`：这个系数**跟分辨率走** ⇒ 换分辨率时必须重算（⛔ 别只在建的时候设一次）
+                    t.localScale = Vector3.one * LayoutSpace.HudTextScale;
+                }
             for (int i = 0; i < _hudImages.Count; i++)
                 if (_hudImages[i] != null)
                     _hudImages[i].SetAnchorPosition(_hudImageSpots[i].x, _hudImageSpots[i].y);
@@ -16427,7 +16618,7 @@ namespace CardPresentation
             return true;
         }
 
-        bool HitTip(ImageQuad q, Vector3 wp, string text)
+        bool HitTip(HudPiece q, Vector3 wp, string text)
         {
             if (q == null || !q.gameObject.activeSelf || !q.Contains(wp)) return false;
             Tooltip.Show(text, q.transform.position);
@@ -16678,7 +16869,7 @@ namespace CardPresentation
         /// ⛔ 别顺手给它补守卫（那会改行为，断言里也没有这一条）。</para></summary>
         public Vector3 HudButtonWorldPosForTest(string which)
         {
-            ImageQuad q = null;
+            HudPiece q = null;
             switch (which)
             {
                 case "settings":    q = _settingsBtn;    break;
@@ -16693,7 +16884,7 @@ namespace CardPresentation
         /// <summary>自检用：那颗钮现在显示着吗（`activeSelf`）。键表同 <see cref="HudButtonWorldPosForTest"/>。</summary>
         public bool HudButtonActiveForTest(string which)
         {
-            ImageQuad q = null;
+            HudPiece q = null;
             switch (which)
             {
                 case "settings":    q = _settingsBtn;    break;
@@ -16712,7 +16903,7 @@ namespace CardPresentation
         /// 未知键 / 那一位是 null ⇒ **什么都不做**（返回 false），⛔ 不静默造一颗钮出来。</summary>
         public bool SetHudButtonActiveForTest(string which, bool on)
         {
-            ImageQuad q = null;
+            HudPiece q = null;
             switch (which)
             {
                 case "settings":    q = _settingsBtn;    break;

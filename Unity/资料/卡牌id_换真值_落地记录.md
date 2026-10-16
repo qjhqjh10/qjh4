@@ -81,7 +81,16 @@ python -I -X utf8 -c "import json,os;D=r'd:/4/Unity/MyGame/Assets/CardPresentati
    `导出/督军后手防御卡_goSecondCardInHand_已解析.json`（判据 = 同包内 PPtr 按 `m_PathID` 解，55/55 无失败）。
 3. **trait 词典**：每张卡的 `CardTraits` 带 `name` + **`_trait` 数字** + `_traitValue`（650 张非空），
    可直接判「原版给这张卡挂了什么 trait」（`A1748` 那 20 张卡能用它补 `keywords`）。
-4. **卡 → 立绘 / 语音 / 特效 的 GUID**：`cardImageReference` 1,171 · `summonAudio` 537 · `attackAudio` 59 ·
+4. **卡 → 立绘 / 语音 / 特效 的引用**：`cardImageReference` 1,171 · `summonAudio` 537 · `attackAudio` 59 ·
    `deathAudio` 61 · `customRangedAttackParticles` 484 · `customDeathParticles` 72 · `remnantBodyPrefab` 73 ·
-   `whileInPlayAnim` 28。⚠️ **全是 AssetGUID ⇒ 要解析 Addressables 目录的 blob 才能落到资源上**（本会话没做）。
-5. ⚠️ **没解开的那一只**：`localization`（I2 词条表，9.4 MB，疑似加密）—— 解开能一次清掉一整族账。
+   `whileInPlayAnim` 28。
+   🔴 **2026-10-16 就地订正（铁律 5 · 判据 → `普查产出_1016战斗判据/T05c_提取层三笔判据.md`）**：
+   本行原来写「⚠️ **全是 AssetGUID** ⇒ 要解析 Addressables 目录的 blob 才能落到资源上」—— **不全对**：
+   · `remnantBodyPrefab` = `AssetReferenceTyped<GameObject>`（`RawCardScript` **`+0xE0`**）⇒ **确实是引用**；
+   · 🔴 **`whileInPlayAnim` 是 `bool`**（`RawCardScript` **`+0x288`**，`dump.cs:23338`）——**根本不是 GUID**，
+     它不需要解析任何 blob（1,192/1,195 张有、**28 张为真**）。
+   ⇒ 「落到资源上要解 Addressables」这句**只对真引用型的字段成立**；⛔ 别拿它挡 `whileInPlayAnim`。
+5. ~~⚠️ **没解开的那一只**：`localization`（I2 词条表，9.4 MB，疑似加密）~~ ✅ **2026-10-14 已解开**
+   （`I2Languages` 的 `temp` 是**逐字节重复密钥 XOR**、不是压缩）⇒ 已落成
+   `数据/游戏数据/官方本地化_en+zh-CN.json`（9,440/9,447 条非空）。判据 →
+   `普查产出_第二十七会话/I2词条表_解码路径.md`。

@@ -1,0 +1,167 @@
+[ZH] Armies/DarkAngels
+  ours: 暗黑天使
+  off : 黑暗天使
+[ZH] Armies/EmperorsChildren
+  ours: 帝皇之子
+  off : 帝皇的孩子们
+[ZH] Armies/Genestealers
+  ours: 基因窃取者教派
+  off : 基因窃取者教团
+[ZH] Armies/Sororitas
+  ours: 战斗修女
+  off : 修女会
+[EN] Battle/BattleStartError
+  ours: There is already a game in progress. Please reload game before continuing.\nIf the problem persists, please contact support@everguild.com
+  off : There is already a game in progress. Please reload game before continuing.
+If the problem persists, please contact support@everguild.com
+[ZH] Card_Race/Battlesuit
+  ours: 战甲
+  off : 战斗服
+[ZH] Card_Race/Secret
+  ours: 隐秘
+  off : 秘密
+[ZH] Card_Trait/armour
+  ours: 护甲
+  off : 盔甲
+[ZH] Card_Trait/artifice
+  ours: 巧技
+  off : 工匠
+[ZH] Card_Trait/backlash
+  ours: 反噬
+  off : 反击
+[ZH] Card_Trait/blast
+  ours: 爆裂
+  off : 爆炸
+[ZH] Card_Trait/blind
+  ours: 失明
+  off : 失明的
+[ZH] Card_Trait/codex
+  ours: 典籍
+  off : 圣典
+[ZH] Card_Trait/companion
+  ours: 伴生
+  off : 伙伴
+[ZH] Card_Trait/ephemeral
+  ours: 临时
+  off : 短暂的
+[ZH] Card_Trait/fast
+  ours: 迅捷
+  off : 快速
+[ZH] Card_Trait/invulnerable
+  ours: 无敌
+  off : 无懈可击
+[ZH] Card_Trait/longrange
+  ours: 远射
+  off : 远程
+[ZH] Card_Trait/markerlight
+  ours: 标记光
+  off : 标记灯
+[ZH] Card_Trait/mob
+  ours: 群体
+  off : 暴群
+[ZH] Card_Trait/remnant
+  ours: 残骸
+  off : 残余
+[ZH] Card_Trait/shield
+  ours: 护盾
+  off : 盾牌
+[ZH] Card_Trait/slay
+  ours: 斩杀
+  off : 消灭
+[ZH] Card_Trait/sniper
+  ours: 狙击
+  off : 狙击手
+[ZH] Card_Trait/stealth
+  ours: 潜行
+  off : 隐身
+[ZH] Card_Trait/stimulation
+  ours: 激励
+  off : 刺激
+[ZH] Card_Trait/strike
+  ours: 猛击
+  off : 攻击
+[ZH] Card_Trait/synapse
+  ours: 突触
+  off : 突触节点
+[ZH] Card_Trait/talent
+  ours: 天赋
+  off : 才能
+[ZH] Card_Trait/tide
+  ours: 潮涌
+  off : 潮汐
+[ZH] Card_Trait/vulnerable
+  ours: 脆弱
+  off : 易受伤害
+[ZH] Card_Trait/waystone
+  ours: 路标石
+  off : 灵魂石
+[EN] MainMenu/Settings/LanguageName/Czech
+  ours: Čeština
+  off : Č
+[ZH] MainMenu/Settings/LanguageName/Czech
+  ours: Čeština
+  off : e
+[EN] MainMenu/Settings/LanguageName/English
+  ours: English
+  off : E
+[ZH] MainMenu/Settings/LanguageName/English
+  ours: English
+  off : n
+[EN] MainMenu/Settings/LanguageName/French
+  ours: Français
+  off : F
+[ZH] MainMenu/Settings/LanguageName/French
+  ours: Français
+  off : r
+[EN] MainMenu/Settings/LanguageName/German
+  ours: Deutsch
+  off : D
+[ZH] MainMenu/Settings/LanguageName/German
+  ours: Deutsch
+  off : e
+[EN] MainMenu/Settings/LanguageName/Italian
+  ours: Italiano
+  off : I
+[ZH] MainMenu/Settings/LanguageName/Italian
+  ours: Italiano
+  off : t
+[EN] MainMenu/Settings/LanguageName/Japanese
+  ours: 日本語
+  off : 日
+[ZH] MainMenu/Settings/LanguageName/Japanese
+  ours: 日本語
+  off : 本
+[EN] MainMenu/Settings/LanguageName/Korean
+  ours: 한국어
+  off : 한
+[ZH] MainMenu/Settings/LanguageName/Korean
+  ours: 한국어
+  off : 국
+[EN] MainMenu/Settings/LanguageName/Polish
+  ours: Polski
+  off : P
+[ZH] MainMenu/Settings/LanguageName/Polish
+  ours: Polski
+  off : o
+[EN] MainMenu/Settings/LanguageName/Russian
+  ours: Русский
+  off : Р
+[ZH] MainMenu/Settings/LanguageName/Russian
+  ours: Русский
+  off : у
+[EN] MainMenu/Settings/LanguageName/Spanish
+  ours: Español
+  off : E
+[ZH] MainMenu/Settings/LanguageName/Spanish
+  ours: Español
+  off : s
+[EN] MenuDeck/CantImportDeck
+  ours: This deck can't be imported.
+  off : Can't import deck. You don't have enough {0} cards.
+[ZH] MenuDeck/CantImportDeck
+  ours: 这副卡组导不进来。
+  off : 无法导入卡组。你没有足够的{0}张牌。
+[ZH] MenuDeck/HUD/DeckDescription/Minions
+  ours: 部队
+  off : 军队
+Loc entries with an official key: 379 ; EN mismatches=12 ; ZH mismatches=43

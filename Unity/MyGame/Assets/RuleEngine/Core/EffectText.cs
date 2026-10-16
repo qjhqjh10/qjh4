@@ -103,7 +103,7 @@ namespace RuleEngine
 
         /// <summary>🆕 2026-09-16 **「它本回合内死了，就把这条效果转给谁」**
         /// （卡面 `If it dies this turn, apply this effect to another random enemy troop`，
-        /// `BL77 Spreading Corruption`，全池唯一一句）。
+        /// `BL74 Spreading Corruption`，全池唯一一句）。
         ///
         /// 解析层把那个新目标挂到**前一条 op** 上（`TryApplyOnDeath`），结算层在
         /// `DoGive` 打中目标时按它登记 `BattleContext.DeathWatch`，死亡那一刻
@@ -1279,7 +1279,7 @@ namespace RuleEngine
             }
 
             // 🆕 2026-09-16 **「它本回合内死了，就把这条效果转给另一个」的跨句回填**
-            //   （`BL77 Spreading Corruption`）—— 卡面把这两半印成**两句**：
+            //   （`BL74 Spreading Corruption`）—— 卡面把这两半印成**两句**：
             //   `Give Vulnerable 4 to an enemy troop.` + `If it dies this turn, apply this effect
             //   to another random enemy troop`。逐句解析时**后一句看不到前一句** ⇒ 在这里补。
             //   ⚠️ 判据收得很紧：只认「**上一句恰好一条 op**」且那条是 `give` 带载荷
@@ -2499,7 +2499,7 @@ namespace RuleEngine
             if (TryForEach(low, src, r, out low)) return r;
 
             // ---- 0) 条件句 `If <条件>, <效果>`（`:2635` / `:2652`）----
-            // 🆕 2026-09-16 **先试「死了转给另一个」那一条**（`BL77 Spreading Corruption`）——
+            // 🆕 2026-09-16 **先试「死了转给另一个」那一条**（`BL74 Spreading Corruption`）——
             //   它长得像条件句（`If it dies this turn, …`），但语义**不是条件**：
             //   条件在施放当刻判（那时它还活着）⇒ 走 `TryIf` 会变成「永远不成立」，
             //   后半句**静默不发生**。必须在 `TryIf` **之前**拦下来。
@@ -6192,7 +6192,7 @@ namespace RuleEngine
 
         /// <summary>
         /// 🆕 2026-09-16 **跨句回填「它本回合内死了就转给另一个」**
-        /// （`BL77 Spreading Corruption` 的第二句）。
+        /// （`BL74 Spreading Corruption` 的第二句）。
         ///
         /// `prevSegOps` = **上一句**解析出来的 op；命中就把它挂到上一条 op 的
         /// <see cref="EffectOp.DeathWatchTarget"/> 上，返回 true（这一句就算「认了」）。
@@ -6219,7 +6219,7 @@ namespace RuleEngine
         }
 
         /// <summary>🆕 2026-09-16 组 1 = 新目标：`If it dies this turn, apply this effect to another random enemy troop`
-        /// （`BL77 Spreading Corruption`，全池唯一一句）。</summary>
+        /// （`BL74 Spreading Corruption`，全池唯一一句）。</summary>
         static readonly Regex ReApplyOnDeath = new Regex(
             @"^if it dies this turn,?\s*apply this effect to (.+?)\s*$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -7029,7 +7029,7 @@ namespace RuleEngine
         ///      点名的老坑「**解析器认了、卡面不生效**」。现在只有本函数一份判据。
         ///
         /// **收两种写法**：`when <事件>` 与 `every time <事件>`（2026-09-16 起同义；
-        /// 用例 `TL83 Norn Emissary` 的 `Lower cost by 2 every time a friendly unit triggers Synapse`）。
+        /// 用例 `TL70 Norn Emissary` 的 `Lower cost by 2 every time a friendly unit triggers Synapse`）。
         ///
         /// 🆕 **`… when &lt;事件&gt; instead` 也收**（`A1446` 的本体）：改前注册层把 `instead`
         ///    当成事件短语的末尾词，而 `WhenEvents.ParsePredicate` 是**串尾匹配**

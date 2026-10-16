@@ -1,0 +1,49 @@
+CARD AM12
+  voice_lines: ['Flamers to the front']
+  official EN: Flamers to the front!
+  official ZH: 火焰喷射器到前线!
+CARD AM14
+  voice_lines: ['Heavy weapon teams, awaiting target']
+  official EN: Heavy weapon teams, awaiting target!
+  official ZH: 重武器队，等待目标!
+CARD AM16
+  voice_lines: ['Scout patrol to command I have eyes on the enemy']
+  official EN: Scout patrol to command. I have eyes on the enemy.
+  official ZH: 侦查巡逻向指挥官报告 我已看到敌人。
+CARD AM17
+  voice_lines: ['Do your duty, or die by my hand']
+  official EN: Do your duty, or die by my hand.
+  official ZH: 履行你的职责，或者死在我手中。
+CARD AM18
+  voice_lines: ["Let's make the cannons sing Fire!"]
+  official EN: Let's make the cannons sing. Fire!
+  official ZH: 让我们的大炮唱起来。开火！
+CARD AM21
+  voice_lines: ["Blessed is the Omnissiah's work"]
+  official EN: Blessed is the Omnissiah's work.
+  official ZH: 欧姆尼塞亚的工作是神圣的。
+CARD AM23
+  voice_lines: ['Target sighted Let there be fire!']
+  official EN: Target sighted. Let there be fire!
+  official ZH: 目标已锁定 让火焰燃烧！
+CARD AM25
+  voice_lines: ['Nothing will stop our advance']
+  official EN: Nothing will stop our advance.
+  official ZH: 没有什么能阻止我们的进军。
+CARD AM27
+  voice_lines: ["Behind me, Sir Nork's got dis!"]
+  official EN: Behind me sir, Nork's got dis!
+  official ZH: 长官，站我后面，Nork来搞定这个！
+CARD AM28
+  voice_lines: ['Prepare for immediate deployment']
+  official EN: Prepare for immediate deployment!
+  official ZH: 准备立即部署!
+CARD AM31
+  voice_lines: ['Stand fast, not one step back']
+  official EN: Stand fast, not one step back!
+  official ZH: 坚守阵地，一步也不让!
+CARD AM32
+  voice_lines: ['The battlefield trembles under our treads']
+  official EN: The battlefield trembles under our treads.
+  official ZH: 战场在我们的脚步下颤抖。
+cards w/ text: match=45 diff=390 no-official-key=54

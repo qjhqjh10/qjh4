@@ -6349,7 +6349,7 @@ namespace RuleEngine
                     //      · `BattleManagerSupport__BroadcastUnitSwarm.c` → 场上所有卡 + 两手牌各
                     //        `CardScript__TriggeredSwarm` → `RawCardScript.OnTrigger(0x26c /* = 620 =
                     //        `AbilityTrigger.TriggeredSwarm` */)` ⇒ 与我们的 `triggers:swarm` 同一条
-                    //        （`TL79 Termagant Brood` / `TL22 Tyranid Prime` 卡面写的就是
+                    //        （`TL75 Termagant Brood` / `TL22 Tyranid Prime` 卡面写的就是
                     //        `When a friendly unit triggers Swarm, …`，靠的正是它）；
                     //      · `CardScript__TriggerOtherCardCodex.c` → `OnTrigger(0x28a /* = 650 =
                     //        `TriggeredCodex` */)` —— 注意：**「别的卡」用的仍是 `Triggered<X>` 那个 id**；
@@ -6646,7 +6646,7 @@ namespace RuleEngine
             //    `WhenEvents.Matches` 里拿它和监听者的阵营比。给错就等于整档反着触发。
             BroadcastWhen(ctx, WhenEventKind.Die, p, u.Card, u);
 
-            // 🆕 2026-09-16 「它本回合内死了就把这条效果转给另一个」（`BL77 Spreading Corruption`）——
+            // 🆕 2026-09-16 「它本回合内死了就把这条效果转给另一个」（`BL74 Spreading Corruption`）——
             //    登记在 `EffectResolver.DoGive`，这里消费。**排在死亡广播之后**：
             //    「它死了」这件事先让监听器们看见，转移是紧接着的**追加**效果（我们挑的先后）。
             FlushDeathWatches(ctx, u, p);
@@ -7295,7 +7295,7 @@ namespace RuleEngine
 
         /// <summary>
         /// **「它本回合内死了，就把这条效果转给另一个」** —— 死亡那一刻的追加结算
-        /// （🆕 2026-09-16，`BL77 Spreading Corruption`）。
+        /// （🆕 2026-09-16，`BL74 Spreading Corruption`）。
         ///
         /// 语义与出处全写在 `BattleContext.DeathWatch` 的注释里；这里只说两条判断：
         ///   · **只转一次、不递归**：命中就**先从表里摘掉再结算** ⇒ 转过去的那个再死也不传染。

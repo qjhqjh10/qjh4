@@ -1827,13 +1827,49 @@ public static class BattleScene
                       $"★ 我方**球心**在 x01 {myE.x:F5} / y01 {myE.y:F5} = 容器(0.97180/0.48556) + `ManaHolder.ap`(1.8,−0.5) px"
                     + "（`A2102` R3；🧨 改回容器常量 ⇒ 当场红）");
 
-                // ④ 🆕 2026-09-29：**能量座上那 6 枚常亮小光点**（原版 `Energy And turn holder/Lights`）。
-                //    判据 = 原版那 6 个 RT 的**绝对屏幕矩形**（13 个战场包逐场核过、完全同构）——
-                //    逐枚比中心与尺寸，**不是**拿我们自己的常量自证。
-                var lights = drv.EnergyLights;
-                Check(lights != null && lights.Count == 6,
-                      $"能量座上有 **6 枚**光点（原版是 6 枚不是 5 枚；实得 {(lights == null ? 0 : lights.Count)}）");
-                if (lights != null && lights.Count == 6)
+                // ④ 🆕 2026-09-29 · 🔴 **2026-10-16 改口径（`T09` 第一片：这一族已迁到 uGUI）**：
+                //    能量座上那 6 枚常亮小光点（原版 `Energy And turn holder/Lights`）。
+                //    判据 = 原版那 6 个 RT 的**绝对屏幕矩形**（13 个战场包逐场核过、完全同构）。
+                //    ⚠️ **迁移后读的是【设计 px】**（`HudCanvas.CenterPx/SizePx`）—— 与原版那 6 行值
+                //       **同一套量纲**；旧写法走 `LayoutSpace.PxX/PxY`，那是**旧尺、只在 16:9 成立**。
+                //    🔴 **另外补一条「层本身对不对」**（这一条才是本片真正的自证）：
+                //       迁过去的件自己的断言只能证明「常量进得去」（同义反复的风险）；
+                //       层对不对要看它那几个字段 == 原版那张 6 行表（判据 → `战斗复刻_正本.md` §2·1）。
+                Check(drv.HudCanvasReady, "T09：uGUI 层（`BattleHud Canvas`）建起来了");
+                {
+                    var cu = drv.cam;
+                    Check(HudCanvas.RenderModeValue == 1,
+                          $"★ uGUI 层 `renderMode = 1`（ScreenSpaceCamera）；实得 {HudCanvas.RenderModeValue}");
+                    Check(cu != null && HudCanvas.WorldCamera == cu,
+                          "★ uGUI 层的 `worldCamera` = HUD 那台相机（挂错相机 ⇒ 整层缩放/位置全错）");
+                    Check(Mathf.Abs(HudCanvas.PlaneDistanceValue - 20.3f) < 1e-4f,
+                          $"★ uGUI 层 `planeDistance = 20.3`（⇒ z=0.3 = `HudImageZ`；整族都在画布上之后不再需要那 0.001 的错位）；实得 {HudCanvas.PlaneDistanceValue:F4}");
+                    Check(HudCanvas.SortingOrderValue == 0,
+                          $"★ uGUI 层 `sortingOrder = 0`（⛔ 我们**不靠它**插队 —— 靠 `planeDistance`）；实得 {HudCanvas.SortingOrderValue}");
+                    Check(HudCanvas.ReferenceResolutionValue == new Vector2(1920f, 1080f)
+                          && HudCanvas.ScreenMatchModeValue == 1
+                          && Mathf.Abs(HudCanvas.ReferencePixelsPerUnitValue - 100f) < 1e-4f,
+                          $"★ uGUI 层 `CanvasScaler` = 1920×1080 / **Expand**(1) / refPPU 100；实得 "
+                        + $"{HudCanvas.ReferenceResolutionValue.x}×{HudCanvas.ReferenceResolutionValue.y} / "
+                        + $"{HudCanvas.ScreenMatchModeValue} / {HudCanvas.ReferencePixelsPerUnitValue}");
+                    Check(HudCanvas.HasGraphicRaycaster, "★ uGUI 层有 `GraphicRaycaster`（第 4 步迁按钮时要用）");
+                    // 🔴 `T09`：HUD 的**字**要与画布**同一次分辨率变化里缩放一致**（`LayoutSpace.HudTextScale`）。
+                    //    判据 = 那条公式 `R = min(W/1920, H/1080) × 1080 / 屏高`；本批断言跑在 **16:9** ⇒ **必须 = 1**。
+                    Check(Mathf.Abs(LayoutSpace.HudTextScale - 1f) < 1e-4f,
+                          $"★ 16:9 下 HUD 字号系数 = 1（⇒ 逐位不变）；实得 {LayoutSpace.HudTextScale:F5}");
+                    {
+                        float hl = drv.HudLabelScaleForTest(0);
+                        Check(hl > 0f && Mathf.Abs(hl - LayoutSpace.HudTextScale) < 1e-4f,
+                              $"★ HUD 的标签**真的**乘上了那个系数（实得 {hl:F5}，期望 {LayoutSpace.HudTextScale:F5}）");
+                    }
+                    Check(HudCanvas.RootLayer == 0,
+                          $"★ uGUI 层在 **Default 层**（它归 HUD 正交相机画）；实得层 {HudCanvas.RootLayer}");
+                }
+
+                int nLights = drv.EnergyLightCount;
+                Check(nLights == 6,
+                      $"能量座上有 **6 枚**光点（原版是 6 枚不是 5 枚；实得 {nLights}）");
+                if (nLights == 6)
                 {
                     float[] ex = { 1839.19f, 1803.22f, 1829.97f, 1840.15f, 1832.02f, 1855.89f };
                     float[] ey = { 370.51f, 346.63f, 346.82f, 353.45f, 361.72f, 359.85f };
@@ -1842,17 +1878,17 @@ public static class BattleScene
                     int bad = 0; string worst = "";
                     for (int i = 0; i < 6; i++)
                     {
-                        var wp = lights[i].transform.position;
-                        float cx = LayoutSpace.PxX(wp.x), cy = LayoutSpace.PxY(wp.y);
-                        float w = LayoutSpace.PxX(lights[i].WorldW) - LayoutSpace.PxX(0f);
-                        float h = LayoutSpace.PxX(lights[i].WorldH) - LayoutSpace.PxX(0f);
+                        var c = drv.EnergyLightCenterPx(i);
+                        var s = drv.EnergyLightSizePx(i);
                         float wx = ex[i] + ew[i] * 0.5f, wy = ey[i] + eh[i] * 0.5f;
-                        if (Mathf.Abs(cx - wx) > 1.5f || Mathf.Abs(cy - wy) > 1.5f
-                            || Mathf.Abs(w - ew[i]) > 1f || Mathf.Abs(h - eh[i]) > 1f)
+                        // ⚠️ 容差收到 **0.5 px**（uGUI 下是**精确**的：锚点 = (x+w/2)/1920、`sizeDelta` = (w,h)）
+                        //    —— 留 0.5 只是给浮点。⛔ 别放宽回旧那 1.5/1.0。
+                        if (Mathf.Abs(c.x - wx) > 0.5f || Mathf.Abs(c.y - wy) > 0.5f
+                            || Mathf.Abs(s.x - ew[i]) > 0.5f || Mathf.Abs(s.y - eh[i]) > 0.5f)
                         {
                             bad++;
-                            worst = $"#{i + 1} 中心({cx:F1},{cy:F1}) 期望({wx:F1},{wy:F1})"
-                                  + $" 尺寸 {w:F1}×{h:F1} 期望 {ew[i]}×{eh[i]}";
+                            worst = $"#{i + 1} 中心({c.x:F1},{c.y:F1}) 期望({wx:F1},{wy:F1})"
+                                  + $" 尺寸 {s.x:F1}×{s.y:F1} 期望 {ew[i]}×{eh[i]}";
                         }
                     }
                     Check(bad == 0, $"…而且**逐枚落在原版那个矩形里**（{6 - bad}/6 对得上）；{worst}");
@@ -1926,9 +1962,9 @@ public static class BattleScene
                         + tblNote);
                     Check(dsdf.Texture.name.EndsWith("_sdf"),
                           $"★ SDF 贴的是**这张牌堆卡背自己的掩码**（`{dsdf.Texture.name}`）");
-                    var mr = dsdf.GetComponent<MeshRenderer>();
-                    Check(mr != null && mr.sharedMaterial != null && mr.sharedMaterial.shader != null
-                          && mr.sharedMaterial.shader.name == "Everguild/FX/Card Highlight And Shadow",
+                    var mr = dsdf.Material;
+                    Check(mr != null && mr.shader != null
+                          && mr.shader.name == "Everguild/FX/Card Highlight And Shadow",
                           "★ SDF 层用**原版 shader** `Everguild/FX/Card Highlight And Shadow`"
                         + "（不是 `Sprites/Default` —— 那会把灰掩码当图直接画出来）");
                     // 层次：这块 HUD 用 z 排（相机看 +Z、z 越大越远）⇒ SDF 必须**更远**才在卡背底下

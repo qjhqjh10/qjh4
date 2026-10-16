@@ -1,0 +1,113 @@
+UNWIRED	Battle/Tips/AttackBlock	(none)
+UNWIRED	Battle/Tips/AttackBlockFlying	(none)
+UNWIRED	Battle/Tips/AttackBlockStealth	(none)
+UNWIRED	Battle/Tips/AttackGiantKiller	(none)
+UNWIRED	Battle/Tips/CantAttackDestroyer	(none)
+UNWIRED	Battle/Tips/CantAttackFlank	(none)
+UNWIRED	Battle/Tips/CantAttackWithZeroMeleeAttack	(none)
+UNWIRED	Battle/Tips/CantAttackWithZeroRangedAttack	(none)
+UNWIRED	Battle/Tips/CantLoseRank	(none)
+WIRED	Battle/Tips/Continue	TutorialOverlay.cs x1; BattleScene.cs x1
+const-only	Battle/Tips/DamageFatigue	BattleDriver.cs x1
+WIRED	Battle/Tips/DragToTarget	BattleDriver.cs x1; BattleScene.cs x1
+WIRED	Battle/Tips/EnergyCost	BattleDriver.cs x1; FilterPanelModel.cs x1; BattleScene.cs x1; CollectionScene.cs x4; DeckScene.cs x5
+UNWIRED	Battle/Tips/FatigueDamage	(none)
+WIRED	Battle/Tips/GoFirst	MulliganPanel.cs x1; BattleScene.cs x1
+UNWIRED	Battle/Tips/GoSecond	(none)
+const-only	Battle/Tips/HandFull	BattleDriver.cs x1
+WIRED	Battle/Tips/HealthPoints	BattleDriver.cs x1; BattleScene.cs x1
+UNWIRED	Battle/Tips/HighELOOpponent	(none)
+UNWIRED	Battle/Tips/InvalidTarget	(none)
+WIRED	Battle/Tips/MeleeAttack	BattleDriver.cs x1; BattleScene.cs x1; CardBaseDemo.cs x1
+UNWIRED	Battle/Tips/MuteEnemyChat	(none)
+UNWIRED	Battle/Tips/NoActions	(none)
+UNWIRED	Battle/Tips/NoCards	(none)
+WIRED	Battle/Tips/NoTargetAvailable	RuleCodes.cs x1; RuleEngineTest.cs x1
+WIRED	Battle/Tips/NotEnoughMana	BattleScene.cs x1; RuleCodes.cs x1; RuleEngineTest.cs x1
+WIRED	Battle/Tips/NotEnoughRoom	RuleCodes.cs x1; RuleEngineTest.cs x1
+WIRED	Battle/Tips/NotYourTurn	RuleCodes.cs x1; RuleEngineTest.cs x1
+UNWIRED	Battle/Tips/PendingBerzerk	(none)
+UNWIRED	Battle/Tips/PleaseWait	(none)
+WIRED	Battle/Tips/RangeAttack	BattleDriver.cs x1; BattleScene.cs x1
+UNWIRED	Battle/Tips/TutorialAttackDesc	(none)
+UNWIRED	Battle/Tips/TutorialAttackTitle	(none)
+UNWIRED	Battle/Tips/TutorialCostDesc	(none)
+UNWIRED	Battle/Tips/TutorialCostTitle	(none)
+UNWIRED	Battle/Tips/TutorialHealthDesc	(none)
+UNWIRED	Battle/Tips/TutorialHealthTitle	(none)
+WIRED	Battle/Tips/UnitNotReady	BattleDriver.cs x1; CardText.cs x1; BattleScene.cs x1
+
+UNWIRED	Battle/Effect/ChangeAbilityCost	(none)
+UNWIRED	Battle/Effect/ChangeAllStats	(none)
+UNWIRED	Battle/Effect/ChangeAllStatsOneTurn	(none)
+UNWIRED	Battle/Effect/ChangeArmour	(none)
+WIRED	Battle/Effect/ChangeArmourOneTurn	CardDisplayWindow.cs x1; BattleScene.cs x1
+UNWIRED	Battle/Effect/ChangeBothAttacks	(none)
+UNWIRED	Battle/Effect/ChangeBothAttacksOneTurn	(none)
+UNWIRED	Battle/Effect/ChangeCost	(none)
+UNWIRED	Battle/Effect/ChangeHealth	(none)
+WIRED	Battle/Effect/ChangeHealthOneTurn	CardDisplayWindow.cs x1; BattleScene.cs x1
+UNWIRED	Battle/Effect/ChangeMeleeAndHealth	(none)
+UNWIRED	Battle/Effect/ChangeMeleeAttack	(none)
+WIRED	Battle/Effect/ChangeMeleeAttackOneTurn	CardDisplayWindow.cs x1; BattleScene.cs x2
+UNWIRED	Battle/Effect/ChangeRangedAndHealth	(none)
+UNWIRED	Battle/Effect/ChangeRangedAttack	(none)
+WIRED	Battle/Effect/ChangeRangedAttackOneTurn	CardDisplayWindow.cs x1; BattleScene.cs x1
+UNWIRED	Battle/Effect/GetTrait	(none)
+UNWIRED	Battle/Effect/GetTraitOneTurn	(none)
+UNWIRED	Battle/Effect/Khorne	(none)
+UNWIRED	Battle/Effect/Nurgle	(none)
+UNWIRED	Battle/Effect/RemoveTrait	(none)
+UNWIRED	Battle/Effect/SetCost	(none)
+UNWIRED	Battle/Effect/SetHealth	(none)
+UNWIRED	Battle/Effect/SetMeleeAttack	(none)
+UNWIRED	Battle/Effect/SetRangeAttack	(none)
+UNWIRED	Battle/Effect/Slaanesh	(none)
+UNWIRED	Battle/Effect/SwapStats	(none)
+UNWIRED	Battle/Effect/Tzeentch	(none)
+
+UNWIRED	Battle/Cemetery/ActionAbility	(none)
+UNWIRED	Battle/Cemetery/ActionAttack	(none)
+UNWIRED	Battle/Cemetery/ActionAttackMelee	(none)
+UNWIRED	Battle/Cemetery/ActionAttackRanged	(none)
+UNWIRED	Battle/Cemetery/ActionDisplayEnemyCardInHand	(none)
+UNWIRED	Battle/Cemetery/ActionDisplayYourCardInHand	(none)
+UNWIRED	Battle/Cemetery/ActionEnemyCollectsSpiritStone	(none)
+const-only	Battle/Cemetery/ActionExitAmbush	BattleDriver.cs x1
+const-only	Battle/Cemetery/ActionOpponentDraws	BattleDriver.cs x1
+UNWIRED	Battle/Cemetery/ActionOpponentPlays	(none)
+UNWIRED	Battle/Cemetery/ActionOpponentPlaysAmbush	(none)
+const-only	Battle/Cemetery/ActionSecretOrder	BattleDriver.cs x1
+UNWIRED	Battle/Cemetery/ActionTargetedAbility	(none)
+UNWIRED	Battle/Cemetery/ActionTargetedOpponentPlay	(none)
+UNWIRED	Battle/Cemetery/ActionTargetedYouPlay	(none)
+UNWIRED	Battle/Cemetery/ActionYouCollectSpiritStone	(none)
+const-only	Battle/Cemetery/ActionYouDraw	BattleDriver.cs x1
+UNWIRED	Battle/Cemetery/ActionYouPlay	(none)
+UNWIRED	Battle/Cemetery/ActionYouPlayAmbush	(none)
+UNWIRED	Battle/Cemetery/AmbushedTroop	(none)
+
+WIRED	Battle/HUD/AffectedBy	CardDisplayWindow.cs x1; BattleScene.cs x1
+UNWIRED	Battle/HUD/BannerNoGuild	(none)
+WIRED	Battle/HUD/CardsInHand	BattleDriver.cs x1; BattleScene.cs x1
+WIRED	Battle/HUD/CardsLeft	BattleDriver.cs x1; BattleScene.cs x1
+WIRED	Battle/HUD/CreatedBy	BattleDriver.cs x1; CardView.cs x3; CardBaseDemo.cs x1; BattleContext.cs x1
+UNWIRED	Battle/HUD/Defeat	(none)
+WIRED	Battle/HUD/EndTurn	CardText.cs x1; BattleScene.cs x1
+WIRED	Battle/HUD/EnemyTurn	CardText.cs x1; BattleScene.cs x1
+UNWIRED	Battle/HUD/LostConnectionMsg	(none)
+UNWIRED	Battle/HUD/MatchAlreadyFinished	(none)
+UNWIRED	Battle/HUD/PleaseWaitConnection	(none)
+UNWIRED	Battle/HUD/Replay	(none)
+UNWIRED	Battle/HUD/ShowingCards	(none)
+WIRED	Battle/HUD/TargetsAvailable	CardText.cs x2; BattleScene.cs x3
+UNWIRED	Battle/HUD/WaitOpponentConnectionMsg	(none)
+WIRED	Battle/HUD/YourTurn	CardText.cs x1; BattleScene.cs x1
+
+const-only	Battle/Chat/Greetings	ChatPopupPanel.cs x1
+const-only	Battle/Chat/Oops	ChatPopupPanel.cs x1
+const-only	Battle/Chat/Sorry	ChatPopupPanel.cs x1
+const-only	Battle/Chat/Taunt	ChatPopupPanel.cs x1
+const-only	Battle/Chat/Threat	ChatPopupPanel.cs x1
+const-only	Battle/Chat/WellPlayed	ChatPopupPanel.cs x1
+
