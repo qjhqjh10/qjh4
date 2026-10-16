@@ -138,13 +138,15 @@
 | 朝向 | 卡根 world rotation = identity ⇒ 卡面朝 **−Z**，正对 `BoardCamera`（它在 z=−13.572 朝 +Z 看） | 同上 |
 | 地面高度 | `Floor plane` 在 y ≈ 0.10 | `[A1]Transform/… Floor plane` |
 
-**手牌 → 棋盘：是「飞过去」的两段补间 + 落地，不是直接出现**：
+**手牌 → 棋盘：是「飞过去」的三段（飞 → 悬停 → 垂直落）+ 落地，不是直接出现**：
 
 | 段 | 做什么 | 时长 |
 |---|---|---|
 | ① | `PlayMinionFromHand`：取 `MinionManager` 世界位置 → `CamerasConversionHelper.ConvertPositionAndScaleUIToBoard` 把手牌 UI 位换算进棋盘空间 → `SetParent(MinionManager)` | `MinionManager__PlayMinionFromHand.c:14-22` · `CardScript__SetCardPosAndScaleToBoard.c:22-46` |
 | ② | `DOLocalMove` 飞到**槽位 + up × `minionConversionHeight`**（玩家 **1.0** / 敌 **2.1**），同时 `DOLocalRotate` 归零 | **0.30 s**（`minionToConversionPointTime`）—— `MinionManager__MoveMinionToConversionPoint.c:90-96` |
-| ③ | 落到 y=0（`UpdateMinionInPlayPosition(slot, timeToLand, tween:true)`）→ `LandOnGround`（扬尘粒子 + 相机抖动 + 落地音） | **0.2 s**（`timeToLand`）· 落地前 **0.05 s**（`timeBeforeLand`）—— `CardScript._MinionPlayedIntoField_d__314__MoveNext.c:135-151,186-205` |
+| ③ | **悬停**（那 0.05 s 在**下落开始之前**，不是「落地前」） | **0.05 s**（`timeBeforeLand`）—— 卡预制体字段，消费点 `CardScript._MinionPlayedIntoField_d__314__MoveNext.c` state 1/2/3 |
+| ④ | **垂直落下** 到 y=0（`UpdateMinionInPlayPosition(slot, timeToLand, tween:true)`）→ **落定那一刻** `LandOnGround`（扬尘粒子 + 相机抖动 + 落地音） | **0.2 s**（`timeToLand`）—— 同上 `:135-151,186-205` |
+| ⚠️ | 🔴 **2026-10-16 就地订正（铁律 5）**：本表原来把 `timeBeforeLand` 那 0.05 s 写成「**落地前** 0.05 s 起播落地反馈」，**与反编译实读相反** —— 它是**下落开始之前**的悬停，而 `LandOnGround` 在**落定**那一刻（不在下落途中）。判据 → `资料/普查产出_1016战斗/W3_出牌三段与落地反馈.md` §一 #1 / §二 | |
 | ⚠️ | `Card Hand To Board` clip 实长 **0.9167 s**（55 帧 @60fps）、唯一事件在 **t=0.55 s**；它在 0.167 s 打开 `Board Elements`（3D 体）、0.70 s 关掉 `2DCard`。**它没有位移/旋转主曲线** ⇒ **别拿它当位移曲线**，只当 2D→3D 交接与特效时间轴 | `AnimationClip_-3614292623624764332.json` · `CardScript__GetHandToBoardAnimEventTime.c:17-29` |
 
 ✅ **`Cache Stealth` 定案**（原来在本文与差距清单里都列为「存疑项」）：它是**场景里的素材预热缓存** ——

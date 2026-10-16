@@ -544,7 +544,14 @@ namespace CardPresentation
                 //    「拖拽落点 == 补间终点」变成**结构上成立**。⛔ 别在这里再算一次投影。
                 //    🧨 **改坏法**：换回 `which.SlotPosition(land)` ⇒ 3D 下终点与真落位差 **0.73 世界单位**
                 //    （≈79 px）⇒ `Editor/BattleScene.cs` 那条「卡到格位那一刻**真的被检测到**」当场红。
-                var tw = DeploySequence.Play(card, which.DropTargetWorld(land),
+                // 🆕 2026-10-16：补上原版「手牌→棋盘」三段里的**前两段**
+                //   （先飞到**槽位正上方** → 再**垂直落下**），第三段（落地的扬尘/震镜头）在
+                //   `BattleDriver` 那一侧（跟着 `Deploy` 引擎事件走）。
+                //   逐值出处、时长与「为什么 `onDone` 现在挂在整条序列的末尾（0.55s 处）」
+                //   → `Board/DeploySequence.cs` 文件头。
+                var tw = DeploySequence.Play(card,
+                                             which.DropTargetWorldAtHeight(land, which.MinionConversionHeight),
+                                             which.DropTargetWorld(land),
                                              which.placedScale * LayoutSpace.Scale,
                                              () => { if (OnDeployed != null) OnDeployed(card, slot); });
                 tw.SetUpdate(CardTween.Mode);

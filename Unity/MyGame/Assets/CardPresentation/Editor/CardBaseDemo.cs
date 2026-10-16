@@ -148,7 +148,10 @@ public static class CardBaseDemo
         Shot(cam, 1920, 1080, "03_拖拽中");
 
         it.SimulateRelease(slotPos);
-        Step(1.0f);   // 落位动画 0.92s 快走完、特效也进入亮的那一段（0.35s 时它才 4 个粒子）
+        Step(1.0f);   // 落位动画走完、特效也进入亮的那一段（0.35s 时它才 4 个粒子）
+                      // ⚠️ **2026-10-16 订正（铁律 5）**：这里原来写「落位动画 **0.92s** 快走完」——
+                      //   那个 0.92 是**认错了来源**：它是 `Card Hand To Board`（2D→3D **交接** clip）的长度，
+                      //   **不是**位移时长。位移 = `Board/DeploySequence.cs`，**2026-10-16 起是原版三段：飞 0.3 + 悬停 0.05 + 垂直落 0.2 = 0.55 s**。
         Shot(cam, 1920, 1080, "04a_落位特效");
         {
             int psN = 0, alive = 0; float maxR = 0f;

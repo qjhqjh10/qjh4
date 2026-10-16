@@ -514,6 +514,12 @@ namespace CardPresentation
             P("ShakeBandPeak", ShakeBandPeak, Src.Field, "`Warpforge 6D Shake`(Cinemachine `NoiseSettings`) 的 `PositionNoise[*].Y.Amplitude` 三条带之和 = 0.059+0.040+0.050；拿去归一化，让 `ShakeWorldAmplitude` 表示**峰值**"),
             P("ShakeWorldAmplitude", ShakeWorldAmplitude, Src.Derived, "**只在「尺寸 0/1」这一档** = `ShakeWorldAmplitudeFor(0)` 的近似：0.149(带峰) × 0.5657(`amplitude × |direction|`) × 0.7071(velocity 的竖直分量) = 0.0596 原版世界单位 → 按 73.1 px/单位 → 4.36 px @1080p → ÷108 = 0.0403。🔴 **2026-10-14 起运行时应走 `ShakeWorldAmplitudeFor(size)`**（2/4/8 三档），本常量只是 `BattleDriver` 那两个调用点还没换过来的兜底。⚠️ **两处软连接**（Cinemachine impulse 公式未从二进制验；y→屏幕竖直是我们的换算）见常量注释"),
 
+            // ---- 🆕 2026-10-16 落地那一下：preset 真件 `Shake Land on ground` ----
+            //   （消费点 `CardScript__LandOnGround.c:26-29`；见 `ShakeCameraForLand`）
+            P("ShakeLandPresetAmplitude", ShakeLandPresetAmplitude, Src.Field, "preset 真件 `Shake Land on ground` 的 `preset.amplitude = 2.0`（`bundle_tweenandshakes_assets_all/MonoBehaviour/Shake Land on ground.json`）—— ⚠️ 与挨打那件**同值**，但卡预制体 `shakeWhenLand` 的三个 `overwrite*` 全是 0 ⇒ **不会被尺寸档覆盖**（`GetModifiedPreset` 原样用 preset）"),
+            P("ShakeLandPresetDirMag", ShakeLandPresetDirMag, Src.Field, "同一件真件的 `preset.direction = (0,−1,0)` 的模长 = 1.0（挨打那件 `Shake Hit Small` 是 (0,0.2,0.2) ⇒ 0.28284，这就是两者幅度差 3.5 倍的来源）"),
+            P("ShakeLandVerticalFrac", ShakeLandVerticalFrac, Src.Derived, "`|normalize((0,−1,0)).y|` = 1.0；与 `ShakeVerticalFrac` **同一条我们的换算**（3D→2D：世界 y 走屏幕竖直、z 在屏幕上不动）。⚠️ **符号**（原版 −1 = 朝下）沿用本工程既有口径取「相机向上抬」—— 静态判不出来，如实记在常量注释里"),
+
             // ---- 蓄力 / 出手：卡预制体 ----
             P("ChargeTime", ChargeTime, Src.Field, "卡预制体 `timeToChargeAttack`"),
             P("ChargeAngleDeg", ChargeAngleDeg, Src.Field, "卡预制体 `chargeAttackAngle`"),
@@ -563,6 +569,16 @@ namespace CardPresentation
             P("DissolveTime", DissolveTime, Src.Derived, "`HandToBoardDissolveEnd − HandToBoardLand`（⚠️ **只留给「将来要做出战侧溶解」** —— 阵亡侧 2026-09-18 起改用下面那两个原版字段）"),
             P("DeathDissolveMinion", DeathDissolveMinion, Src.Field, "`VarsGlobal.deathTimeMinionDuration` = 0.2（另有两个同值字段 `minionDeathTime` / `timeToDissolveCard`）"),
             P("DeathDissolveWarlord", DeathDissolveWarlord, Src.Field, "`VarsGlobal.deathTimeWarlordDuration` = 0.5（督军那档；出处 `资料/VarsGlobal_原版数值.md`）"),
+            P("DeathHoldBeforeFx", DeathHoldBeforeFx, Src.Field,
+              "阵亡第①拍末尾的等待 = `UnitDeath` state 0 的 `WaitForSeconds(gVars + 0x34)` = `deathTimeWarlordDuration` **0.5**"
+              + "（`CardScript._UnitDeath_d__446__MoveNext.c:120-122`，**不分档**）"),
+            P("DeathFxHold", DeathFxHold, Src.Field,
+              "爆散体生成之后那一拍 = `WaitForSeconds(gVars + 0x8c)` = `minionDeathTime` **0.2**"
+              + "（`CardScript._UnitDeath_d__446__MoveNext.c:377-379`）"),
+            P("CemeteryCardX", CemeteryCardX, Src.Field, "`VarsGlobal.cardInCemeteryPos`（0x98，Vector2）的 x = −8.14（`CardScript__SetAsCemetery.c:35-41`，**瞬移**）"),
+            P("CemeteryCardY", CemeteryCardY, Src.Field, "同上的 y = −0.2"),
+            P("CemeteryCardScale", CemeteryCardScale, Src.Field, "`VarsGlobal.cardInCemeteryScale` = 0.65（`CardScript__SetAsCemetery.c:66-78`，**绝对**缩放不是乘）"),
+            P("CemeteryGrowTime", CemeteryGrowTime, Src.Field, "`VarsGlobal.growInCemeteryTime` = 0.3（`CardScript__SetAsCemetery.c:75-77`，`SetEase(9)` = OutCubic）⚠️ 那条补间在原版被紧跟着的 `SetActive(false)` 盖掉、画面上看不见"),
 
             // ---- 数值过渡：InBattleDamageCounter Variation 1 ----
             P("PopIn", PopIn, Src.Field, "clip 里 `DamageText.m_fontColor.a` 的关键帧"),
@@ -580,6 +596,12 @@ namespace CardPresentation
             P("DealDuration", DealDuration, Src.Field, "`VarsGlobal.timeToDrawPlayerCard = 0.3`（抽**我方**牌用时）。出处 `资料/VarsGlobal_原版数值.md` §一 —— 🔴 2026-09-17 由 `Derived`（借 0.55）升级为 `Field`"),
             P("DealDurationFoe", DealDurationFoe, Src.Field, "`VarsGlobal.timeToDrawEnemyCard = 0.15`（抽**敌方**牌用时）—— 2026-09-17 加到「敌方手牌」那条线上，之前那一整件没建（见 `资料/敌方手牌_原版规格.md`）"),
             P("ReassembleTime", ReassembleTime, Src.Derived, "**让位 / 补位**的位移时长 = `MinionManager__ReassembleMinions.c:47` 那句 `globalVars+0xa0 ÷ 1.5`：`minionReassembleTime(0.15) ÷ DAT_1834b3090(1.5)` = **0.1 s**。⚠️ 缓动是**我们推的**（原版那句 `DOLocalMove` 没 `SetEase` ⇒ 走 DOTween 默认）。正本 → `资料/棋盘连续模型_实现与判据.md` §3.4"),
+            P("TurnCardAroundDeg", TurnCardAroundDeg, Src.Field,
+              "抽牌翻面的**单段**角度 90° —— `.rdata 0x1834b2e04` 用 `工具/read_literal.py` 实读 90.0"
+              + "（`CardScript__TurnCardAround.c:30-32`；同址也是 `AttackTurnDeg` / `DeathShakeRandomness` 的出处）"),
+            P("TurnCardAroundFrac", TurnCardAroundFrac, Src.Field,
+              "翻面每段占整次抽牌时长的 0.25 —— `.rdata 0x1834b2e7c` 实读 0.25"
+              + "（`CardScript__TurnCardAround.c:32` + `CardScript__FinishCardDrawRotation.c:23`）"),
         };
 
         /// <summary>没登记进 `Catalog` 的公开常量（自检拿它当断言：**漏一个就红**）</summary>
@@ -812,7 +834,8 @@ namespace CardPresentation
         /// （没接锚点的场合 = 出厂常量 `ShakeSeedBaseDefault`，与改动前逐字相同）。
         /// 传具体值 = 逐帧可复算（自检用）。</param>
         public static Tween ShakeCamera(Camera cam, Transform hudRoot, float worldAmp, float delay = 0f,
-                                        Camera extraCam = null, int phaseSeed = -1)
+                                        Camera extraCam = null, int phaseSeed = -1,
+                                        float verticalSign = 1f)
         {
             if (cam == null) return null;
 
@@ -833,7 +856,15 @@ namespace CardPresentation
             //    战场与卡牌的位移方向一致；像素幅度由各自投影决定（透视那侧略有视差，这是对的）。
             var extraTr = extraCam != null ? extraCam.transform : null;
             Vector3 extraHome = extraTr != null ? extraTr.position : Vector3.zero;
-            Vector3 dir = Vector3.up;
+            // 🔴 **2026-10-16（余账 (e)）：方向符号照原版 preset 的 `direction`。**
+            //   · **挨打**（`Shake Hit Small`）= `direction (0, **+0.2**, 0.2)` ⇒ 竖直分量**向上** ⇒
+            //     沿用本工程既有口径（`verticalSign = +1`，**默认值 = 行为不变**）。
+            //   · **落地**（`Shake Land on ground`）= `direction (0, **−1**, 0)` ⇒ **朝下** ⇒
+            //     `ShakeCameraForLand` 传 `−1`。⚠️ 原来那两处都取「相机向上抬」，理由是「y 的符号
+            //     静态判不出来」（2026-09-14）—— **那条理由现在不成立了**：preset 真件里有 `direction`。
+            //   ⚠️ 幅度不受影响：`|direction|` 早就在 `ShakePresetDirMag` / `ShakeLandPresetDirMag` 里算过，
+            //     这里只定**符号**。
+            Vector3 dir = Vector3.up * (verticalSign < 0f ? -1f : 1f);
 
             // 🆕 2026-10-14（`A1767` / #10）：**每次震的起播时刻不同**（原版 `m_Randomize = 1`，
             //   见 `ShakeWorldAmplitude` 的注释）。⚠️ 种子必须**可复现** —— 一律 `System.Random`
@@ -894,6 +925,57 @@ namespace CardPresentation
         {
             int size = ShakeUnitSizeOf(attackerMeleeAttack);
             return ShakeCamera(cam, hudRoot, ShakeWorldAmplitudeFor(size), delay, extraCam, phaseSeed);
+        }
+
+        // ---- 🆕 2026-10-16 落地那一下（原版 `CardScript.LandOnGround`）----
+        //   判据：卡预制体 `MonoBehaviour_1744609728290659264.json` 的 `shakeWhenLand`
+        //   （`OverwriteCameraShakePreset`，三个 `overwrite*` **全是 0**）→ presetSO → 真件
+        //   `Shake Land on ground`（`bundle_tweenandshakes_assets_all/MonoBehaviour/Shake Land on ground.json`）。
+        //   消费点：`CardScript__LandOnGround.c:26-29`（`OverwriteCameraShakePreset__Play`）。
+
+        /// <summary>落地那件 preset 真件 `Shake Land on ground` 的 `preset.amplitude` = 2.0
+        /// （与 `Shake Hit Small` 同值）。⚠️ 它**不会**被尺寸档覆盖 —— 卡预制体上那三个
+        /// `overwriteAmplitude/Frequency/SustainTime` 全是 0 ⇒ `GetModifiedPreset()` 原样用 preset。</summary>
+        public const float ShakeLandPresetAmplitude = 2.0f;
+
+        /// <summary>同一件真件的 `preset.direction = (0, −1, 0)` 的**模长** = 1.0
+        /// （挨打那件是 (0, 0.2, 0.2) ⇒ 0.28284，这也是两者幅度差 3.5 倍的来源）。</summary>
+        public const float ShakeLandPresetDirMag = 1.0f;
+
+        /// <summary>同一件真件 `normalize((0,−1,0)).y` 的绝对值 = 1.0
+        /// （挨打那件是 `ShakeVerticalFrac` = 0.70711）。⚠️ 这一位「世界 y → 屏幕竖直」仍是**我们的换算**
+        /// （见 `ShakeWorldAmplitude` 的注释）。
+        /// 🔴 **2026-10-16 订正**：原文接着写「符号取向上是沿用本工程既有口径」—— **那是错的、已改**：
+        /// 原版 `direction` 的 y = **−1 = 朝下**，`ShakeCameraForLand` 现在传 `verticalSign: -1` 照它
+        /// （原来取「相机向上抬」的理由是「符号静态判不出来」，而 preset 真件里**有** `direction`）。</summary>
+        public const float ShakeLandVerticalFrac = 1.0f;
+
+        /// <summary>🆕 2026-10-16：**落地震镜头的世界单位峰值幅度**（我们这套坐标）。
+        /// 算式与 <see cref="ShakeWorldAmplitudeFor"/> **逐项同形**（同一个 `ShakeBandPeak`、
+        /// 同一个 `ShakeOriginalPxPerUnit ÷ OurPxPerUnit`），只换 preset 那一组：
+        ///   `2.0(amplitude) × 1.0(|direction|) × 0.149(三条带同相峰值) × 1.0(屏幕竖直分量)`
+        ///   = **0.298 原版世界单位** ⇒ × 73.1 px/单位 = **21.8 px** @1080p ⇒ ÷ 108 = **0.2017**。
+        /// ⚠️ 它比挨打那一下（`ShakeWorldAmplitudeFor(0)` = 0.0403）**大 5 倍** —— 不是笔误：
+        ///   挨打的 |direction| 只有 0.28284、竖直分量 0.7071，落地这件两个都是 1.0。
+        /// ⚠️ 与 `ShakeWorldAmplitudeFor` 一样，两处软连接（Cinemachine 公式 / y→屏幕竖直）照旧成立。</summary>
+        public static float ShakeWorldAmplitudeForLand()
+        {
+            float ampGain = ShakeLandPresetAmplitude * ShakeLandPresetDirMag;    // = 2.0
+            float origUnits = ampGain * ShakeBandPeak * ShakeLandVerticalFrac;   // = 0.298
+            return origUnits * (ShakeOriginalPxPerUnit / OurPxPerUnit);          // = 0.2017
+        }
+
+        /// <summary>🆕 2026-10-16 **落地那一下的震镜头** —— 原版 `CardScript.LandOnGround` 里那个
+        /// `OverwriteCameraShakePreset.Play()`（preset = `Shake Land on ground`）。
+        /// 做法与「为什么是相机 + HUD 根同向平移」→ <see cref="ShakeCamera"/> 的注释（同一套，不另起一处）。
+        /// ⚠️ 与 <see cref="ShakeCameraForHit"/> 的区别：**没有尺寸档**（原版那个组件不覆盖任何参数）。</summary>
+        public static Tween ShakeCameraForLand(Camera cam, Transform hudRoot, float delay = 0f,
+                                              Camera extraCam = null, int phaseSeed = -1)
+        {
+            // ⚠️ **`verticalSign: -1`** —— 原版这件 preset 的 `direction = (0, −1, 0)`（**朝下**），
+            //   与挨打那件 `(0, +0.2, 0.2)`（朝上）**符号相反**。判据与「原来为什么取向上」→ `ShakeCamera`。
+            return ShakeCamera(cam, hudRoot, ShakeWorldAmplitudeForLand(), delay, extraCam, phaseSeed,
+                               verticalSign: -1f);
         }
 
         /// <summary>🆕 **震屏噪声的起播时刻基线**（原版 `m_Randomize = 1` 那一位）。
@@ -1147,15 +1229,21 @@ namespace CardPresentation
         // ==================================================================
         // 判据（2026-09-29 逐句读过；🔴 原文那条「阵亡 = 材质溶解 `_DissolveAmount`」**已作废** ——
         // 那是把**回手 / 出战**那条链的机制安到了阵亡头上）：
-        //   ① 场上那张卡的 3D 体**直接关掉**：`battleCardUI.body3D(+0x158).SetActive(false)`
-        //      （`CardScript._UnitDeath_d__446__MoveNext.c:330-333`）
-        //   ② 在卡位**另生成**死亡爆散体：`Instantiate(cardDestroyFX(+0x1D8), 卡位置, 3D体旋转)`（`:194-347`），
-        //      那件自带 Animator（controller `Card 3D WH40K Explosion`：1 layer / 1 state / 0 参数）播一条
-        //      **0.8167 s** 的 clip `Card Explosion`；材质 `Card 3d WH40K Explosion` **从卡上借贴图**、
-        //      外加 `_ExplosionTextureOffsetModifier = Random.value`（所以每次爆散纹理偏移都不同）
-        //   ③ 卡自己抖一下：`DOShakePosition(时长 = 小兵 `deathTimeMinionDuration` 0.2 / 督军 0.5,
+        //   ① 卡自己抖一下：`DOShakePosition(时长 = 小兵 `deathTimeMinionDuration` 0.2 / 督军 0.5,
         //      强度 **(0.3, 0.05, 0)**, vibrato **10**, randomness **90**, fadeOut **true**)`（`:100-116`）
-        //   ④ 之后 `WaitForSeconds(0.5)` → `WaitForSeconds(0.2)` → `GoToCemetery()`（另有两条音效）
+        //      —— ⚠️ **这是【第①拍】**（state 0），**这时那张卡的 3D 体还开着**
+        //   ② `WaitForSeconds(0.5)`（state 0 尾巴，`:120-122`）**之后**才：
+        //      场上那张卡的 3D 体**关掉**（`battleCardUI.body3D(+0x158).SetActive(false)`，`:330-333`）
+        //      + 在卡位**另生成**死亡爆散体：`Instantiate(cardDestroyFX(+0x1D8), 卡位置, 3D体旋转)`
+        //      （`:194-347`），那件自带 Animator（controller `Card 3D WH40K Explosion`：1 layer / 1 state /
+        //      0 参数）播一条 **0.8167 s** 的 clip `Card Explosion`；材质 `Card 3d WH40K Explosion`
+        //      **从卡上借贴图**、外加 `_ExplosionTextureOffsetModifier = Random.value`（所以每次爆散纹理偏移都不同）
+        //   ③ 再 `WaitForSeconds(0.2)`（`:374-379`）→ ④ `GoToCemetery()`（`:152`）（另有两条音效）
+        // 🔴 **2026-10-16 订正**：上面 ①② 的**顺序原来写反了** —— 原文把「关 3D 体 + 生成爆散体」摆在
+        //    第①位、抖动摆在第③位，实据是**抖动在前、0.5 s 之后才生成爆散体**（`UnitDeath` 是 state 机，
+        //    第一处 `Instantiate` 在 `:233`、而它属于 **state 1**）。⇒ 我们原来的实现是「死的瞬间就爆散、
+        //    0.2 s 后卡没了」，原版是「先抖、先站 0.5 s，再爆散，0.7 s 才走」。
+        //    错因：只按 `.c` 里的**行号顺序**读，没看那段属于哪个 state（`param_1 + 0x10` 那个游标）。
         // ✅ **2026-10-01：「非 addressable 拿不到」那条缺口已经补上**（正本 → `项目任务.md` §〇 第 13 条）——
         //    它**不是 addressable**（被卡预制体字段引用）⇒ `AssetBundle.GetAllAssetNames()`（983 条）与
         //    `LoadAllAssets<GameObject>()`（965 个）**两条枚举路都不含它**（2026-09-29 实测），
@@ -1177,63 +1265,166 @@ namespace CardPresentation
         public const float DeathShakeVibrato = 10f;
         public const float DeathShakeRandomness = 90f;
 
+        // ------------------------------------------------------------------
+        //  🆕 2026-10-16：**阵亡之后那三拍**（原版 `CardScript.UnitDeath` 的 ④ 那一段）
+        // ------------------------------------------------------------------
+        //  原版时间轴（`CardScript._UnitDeath_d__446__MoveNext.c`，行号现核；**state 机**）：
+        //    ① state 0（:80-127）：`SetCardStateInCemetery` → 死亡音效 → `DOShakePosition`
+        //       → `WaitForSeconds（gVars + 0x34）` → state 1
+        //    ② state 1 前半（:200-333）：**这时才**生成爆散体 + `body3D.SetActive(false)` + 播 3D 音
+        //    ③ state 1 后半（:374-379）：`StopAnimsInPlay` → `WaitForSeconds（gVars + 0x8c）` → state 2
+        //    ④ state 2（:152）：`GoToCemetery()`
+        //  ⇒ **爆散体不是「死的瞬间」放的，是 0.5 s 之后**（我们原来是 t=0 放，
+        //     所以「先留一拍」这一半从来没出现过 —— 见 `W_卡牌飞行族普查.md` §一 #8）。
+
+        /// <summary>第①拍到第②拍之间的等待 = `WaitForSeconds(gVars + **0x34**)` = **0.5 s**
+        /// （`CardScript._UnitDeath_d__446__MoveNext.c:117-122`；`+0x34` = `VarsGlobal.deathTimeWarlordDuration`，
+        /// 字段名从 `il2cpp_out/dump.cs` 的 `VarsGlobal` 块按偏移实读）。
+        /// 🔴 **这一句不分档**：它在 `if (cardType == 10)` 那个分支的**外面**（`:100-109` 才是分档 —— 那是
+        /// **抖动**时长：督军 0.5 / 小兵 0.2，见 `DeathDissolve`）⇒ 小兵抖完 0.2 s 之后**还要多站 0.3 s**
+        /// 才轮到爆散体。⛔ 别因为「小兵 0.2」就把这里也改成分档 —— 那是把上一拍的值抄到了下一拍。</summary>
+        public const float DeathHoldBeforeFx = 0.5f;
+
+        /// <summary>第②拍到第④拍之间的等待 = `WaitForSeconds(gVars + **0x8c**)` = `VarsGlobal.minionDeathTime`
+        /// **0.2 s**（`CardScript._UnitDeath_d__446__MoveNext.c:374-379`）。
+        /// ⇒ 阵亡视图从「引擎说它死了」到被收掉一共 **0.9 s（小兵）/ 1.2 s（督军）**。</summary>
+        public const float DeathFxHold = 0.2f;
+
+        /// <summary>墓地卡位的**世界**坐标 = `VarsGlobal.cardInCemeteryPos`（偏移 0x98，**Vector2**）
+        /// 实读 **(−8.14, −0.2)** —— `CardScript__SetAsCemetery.c:35-41` 把它原样 `set_position` 上去。
+        /// ⚠️ **软连接**：它算「我们这套 HUD 世界系」（可见高 10 单位，`LayoutSpace.DesignHeight`）里
+        ///    —— 原版那台 HUD 相机的 `orthographicSize` 本地没读到（`cardInCemeteryPos` 与卡位同系
+        ///    这一条是**推定**，依据是同一句 `set_position` 吃的是 `CardScript.transform`）。
+        ///    按 16:9 半宽 8.889 算，−8.14 落在**左边缘内侧约 81 设计 px**、y 基本居中。</summary>
+        public const float CemeteryCardX = -8.14f;
+        public const float CemeteryCardY = -0.2f;
+        /// <summary>墓地里那张卡的缩放 = `VarsGlobal.cardInCemeteryScale` 实读 **0.65**
+        /// （`CardScript__SetAsCemetery.c:66-78`）。⭐ 注意它是**绝对**缩放（`Vector3.one × 0.65`），
+        /// 不是「在原缩放上乘 0.65」—— 原版那句是 `DOScale(one × 系数, …)`。</summary>
+        public const float CemeteryCardScale = 0.65f;
+        /// <summary>进墓地那一下的缩放用时 = `VarsGlobal.growInCemeteryTime` 实读 **0.3 s**，
+        /// `SetEase(9)` = DOTween **`OutCubic`**（`CardScript__SetAsCemetery.c:75-77`；
+        /// 「9 = OutCubic」的判据：同族 `SetEase(0xc)` 在 `CardScript._AttackMeleeAnim…:266-267`
+        /// 就是我们 `CardFeel.cs` 段4 写的 `Ease.OutQuart` ⇒ 两个值互相印证）。</summary>
+        public const float CemeteryGrowTime = 0.3f;
+
+        /// <summary>阵亡视图的总寿命（秒）—— 从「引擎说它死了」到被收掉。
+        /// = 抖动（`DeathDissolve(isWarlord)`）+ <see cref="DeathHoldBeforeFx"/> + <see cref="DeathFxHold"/>。
+        /// **判据只此一处**（自检要按它推时间轴，别各写一份）。</summary>
+        public static float DeathTotal(bool isWarlord)
+        {
+            return DeathDissolve(isWarlord) + DeathHoldBeforeFx + DeathFxHold;
+        }
+
         /// <summary>
-        /// **阵亡**：关掉 3D 体 → 在卡位生成死亡爆散体 → 卡抖一下。
+        /// **阵亡**：卡原地抖 → **0.5 s 后**在卡位生成死亡爆散体（并把 3D 体关掉）→ 再 0.2 s 后
+        /// `GoToCemetery` 把它挪到墓地卡位。
+        ///
+        /// 时间轴 / 每段的判据见上面那一段头注（原版是四拍协程，我们这里是一串 `Sequence`）。
         /// 取不到那件爆散体时**退回** <see cref="Dissolve"/>（旧表现）并出声。
+        /// ⚠️ 收掉视图仍是**调用方**那件事（原版是 `CemeteryManager.AddCardToCemetery` 尾巴上的
+        /// `SetActive(false)`，我们这边是 `onDone` → `Kill`）。
         /// </summary>
         public static Tween DeathExplosion(CardView card, float delay = 0f, System.Action onDone = null,
                                            bool isWarlord = false)
         {
             if (card == null) return null;
-            if (!SpawnDeathBody(card))
+
+            // 🔴 2026-10-16：**先把「这一张该用哪件爆散体」定下来**，再排时间轴 ——
+            //   原版那句话在第②拍（0.5 s 之后）才执行，而我们得**事先**决定走真件还是退回路
+            //   （退回路是不一样的一条 `Dissolve` 时间轴）。挑件的判据全在 `PickDeathFx` 里。
+            string perCard;
+            string fx = PickDeathFx(card, out perCard);
+            if (fx == null)
             {
                 // 取不到那件真爆散体 ⇒ 用**当初的替代品**顶上（`Explosion Fenrisian Monstrosities`）——
                 // 它原来挂在 `BattleDriver.PlaySignal` 的 `EvtKind.Death` 那一格上，2026-10-01 那件真件
                 // 进来了、从那里摘掉（否则两件同时播 = 原版没有的第二下），挪到这条退回路里。
-                // （`SpawnDeathBody` 已经在上面**出过声**了。）
+                // （`PickDeathFx` 已经在上面**出过声**了。）
                 // 🔴 **2026-10-16（`A2080` 普查顺手查出的真缺陷）就地修**：这里原来写的是
                 //    `Play(VfxMap.Death, …)` —— 而 **`VfxMap.Death` 是【事件名】常量（`"death"`）**，
                 //    ⛔ **不是 prefab 名** ⇒ 那一跳**恒不命中**、每次都打一行
                 //    「效果库里没有 'death'」（实机日志实测 13 条）。
                 //    ⇒ 按注释里写的本意改成走**兜底链**（`Resolve` → 我们自己挑的替代品
-                //    `Explosion Fenrisian Monstrosities`，见下面 `SpawnDeathBody` 那段注释）。
+                //    `Explosion Fenrisian Monstrosities`，见 `PickDeathFx` 的 doc）。
                 WarpforgeVFX.WarpforgeEffectPlayer.Play(VfxMap.Resolve(VfxMap.Death), card.transform);
                 return Dissolve(card, delay, onDone, isWarlord);      // 旧表现：淡出 + 上浮 + 缩
             }
 
-            float dur = DeathDissolve(isWarlord);
             var tr = card.transform;
-            card.SetBody3DVisible(false);                             // ①
             var seq = DOTween.Sequence();
-            // ③ 抖动（卡本身还在原地 —— 原版关的是「3D 体」，卡根那个 Transform 留着给它抖）
-            seq.Append(tr.DOShakePosition(dur, new Vector3(DeathShakeX, DeathShakeY, 0f),
+            // ① 抖（原版 state 0）—— ⚠️ **这时 3D 体还开着**（原版到第②拍才 `SetActive(false)`）
+            seq.Append(tr.DOShakePosition(DeathDissolve(isWarlord), new Vector3(DeathShakeX, DeathShakeY, 0f),
                                           (int)DeathShakeVibrato, DeathShakeRandomness, false, true));
+            // ② 留一拍：`WaitForSeconds(deathTimeWarlordDuration)` → 这一帧才生成爆散体、关 3D 体
+            seq.AppendInterval(DeathHoldBeforeFx);
+            seq.AppendCallback(() =>
+            {
+                card.SetBody3DVisible(false);
+                if (!SpawnDeathBody(card, perCard, fx))
+                    Debug.LogWarning($"[CardFeel] `{fx}` 这一刻放不出来（`WarpforgeEffectPlayer.Play` 返回空）"
+                                   + " ⇒ 这一张阵亡**没有爆散体**（原版 `UnitDeath` state 1 会 `Instantiate` 它）");
+            });
+            // ③ 再等 `minionDeathTime`（原版还有一句 `StopAnimsInPlay`，我们这套卡没有 Animation）
+            seq.AppendInterval(DeathFxHold);
+            // ④ `GoToCemetery`（原版紧接着还有一句 `SetActive(false)`，那是调用方的 `onDone`）
+            seq.AppendCallback(() => GoToCemetery(card));
+
             var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
             if (onDone != null) t.OnComplete(() => onDone());
             return t;
         }
 
-        /// <summary>在卡位生成死亡爆散体（原版 `Instantiate(cardDestroyFX, 卡位置, 3D体旋转)`）。
-        /// 返回 false = 效果库里没有那件 ⇒ 调用方退回旧表现。**出声**，不静默。</summary>
-        static bool SpawnDeathBody(CardView card)
+        /// <summary>
+        /// **进墓地**（原版 `CardScript.GoToCemetery` → `BattleManager.AddToCemetery` →
+        /// `CemeteryManager.AddCardToCemetery` → `CardScript.SetAsCemetery`）。
+        ///
+        /// 原版那三步（`CardScript__GoToCemetery.c` / `BattleManager__AddToCemetery.c` /
+        /// `CemeteryManager__AddCardToCemetery.c` / `CardScript__SetAsCemetery.c`，全部亲读）：
+        ///   ① `RawCardScript.IsUnit` ⇒ `ResetToValuesInHand(true)`（内部复位：手牌那一档的位姿/数值）
+        ///   ② 没有 `trait 5` ⇒ `CemeteryManager`：**挂到它名下**（换父）→ `SetAsCemetery(列表长度)`
+        ///      → `gameObject.SetActive(false)`（**同一帧，紧挨着**）
+        ///   ③ `SetAsCemetery(order)`：`transform.position = cardInCemeteryPos`（**瞬移，不是补间**）
+        ///      → `SetSortingLayer/Order(order)` → `SetObjectVisibility(cardState=6)`
+        ///      → `collider2D.SetColliderNotInHand(6)` → `DOScale(one × cardInCemeteryScale, growInCemeteryTime)`
+        ///
+        /// 🔴 **两件必须如实说、别美化**：
+        ///   ① 位移是**瞬移**（`set_position`），**没有「飞进墓地」那一段补间**；
+        ///   ② 那条 0.3 s 的缩放补间**在原版里被紧跟着的 `SetActive(false)` 盖掉** ⇒ 画面上看不见，
+        ///      所以**可见的只有「留一拍 + 到点收掉」**。我们照抄它（`DOScale` 照发，随后 `onDone` 收掉），
+        ///      ⛔ 不假装它可见、也不自己发明一条飞行动画（那会变成原版没有的画面）。
+        ///   ③ `order`（排序层里的序号 = 墓地列表长度）我们**没有**墓地列表 ⇒ 这两条不接，见报告。
+        /// </summary>
+        public static void GoToCemetery(CardView card)
         {
-            // 🔴🔴 **2026-10-15（账 `A2083`）：原版这里是「二选一」，不是「叠加」。**
-            //   判据 = 反编译 `d:/2/tools/decomp_full/CardScript._UnitDeath_d__446__MoveNext.c` ——
-            //   整个函数**只有两处 `Instantiate`**：`:233` 逐卡 `customDeathParticles`、
-            //   `:262` 默认 `cardDestroyFX`（它的序列化引用就是 GameObject **`Card 3D Death Explosion`**），
-            //   两者**共享同一段后续处理**（`:266` set localScale · `:275-328` 换 `_CardImage`/`_MatCap`），
-            //   判别式在 **`:240`**：`Object.op_Equality(生成体, 0)` —— **逐卡那件取不到（或判空）才用默认件**。
-            //
-            //   ⚠️ 这里必须问 **`ResolvePerCard`**（只查逐卡那一档），⛔ **不是 `Resolve`**：
-            //      后者的兜底链会返回我们自己挑的替代品 `Explosion Fenrisian Monstrosities`，
-            //      而那件**已经在下面那条退回路里**了 ⇒ 算进来就是**原版没有的第二下**。
-            //   ⚠️ 逐卡的 66 张卡解出来**是同一件** `Necrons death explosion`
-            //      （判据 → 生成器 `gen_card_vfx_by_card.py` 的 `RT_SKIP_SOFIELDS` 那段）
-            //      ⇒ **别指望它是「一卡一件」**，也别因为「都一样」就以为这一跳没意义。
-            string perCard = VfxMap.ResolvePerCard(VfxMap.Death, card.Data.faction, card.Data.id);
-            string fx = string.IsNullOrEmpty(perCard) ? DeathBodyFx : perCard;
-            var p = WarpforgeVFX.WarpforgeEffectPlayer.Play(fx, null, card.transform.position, 1f);
-            if (p == null && !string.IsNullOrEmpty(perCard))
+            if (card == null) return;
+            var tr = card.transform;
+            // z 也照原版写 0（`SetAsCemetery` 那个 Vector3 的第三格是显式的 `0.0`；我们的分层走渲染队列、
+            // 不看 z，见 `CLAUDE.md` 那条「分层要用渲染队列」）。
+            tr.position = new Vector3(CemeteryCardX, CemeteryCardY, 0f);
+            // 原版那条补间（被同一帧的 `SetActive(false)` 盖掉）；我们照发 —— 紧跟的 `Kill` 会把它带走
+            // （`CardTween.Use` 的 `SetLink` 保证卡一销毁这条补间就停，不会留 DOTween 的安全模式告警）。
+            CardTween.Use(tr.DOScale(Vector3.one * CemeteryCardScale, CemeteryGrowTime), Ease.OutCubic, tr);
+        }
+
+        /// <summary>挑出这一张该用哪件爆散体（**出声**，不静默）。
+        /// 返回 null = 库里一件都没有 ⇒ 调用方走退回路。
+        ///
+        /// 🔴🔴 规则 = 原版 `_UnitDeath…:200-347` 的「**二选一**」，不是「叠加」——
+        ///   整个函数**只有两处 `Instantiate`**：`:233` 逐卡 `customDeathParticles`、
+        ///   `:262` 默认 `cardDestroyFX`（它的序列化引用就是 GameObject **`Card 3D Death Explosion`**），
+        ///   两者**共享同一段后续处理**（`:266` set localScale · `:275-328` 换 `_CardImage`/`_MatCap`），
+        ///   判别式在 **`:240`**：`Object.op_Equality(生成体, 0)` —— **逐卡那件取不到（或判空）才用默认件**。
+        ///   ⚠️ 这里必须问 **`ResolvePerCard`**（只查逐卡那一档），⛔ **不是 `Resolve`**：
+        ///      后者的兜底链会返回我们自己挑的替代品 `Explosion Fenrisian Monstrosities`，
+        ///      而那件**已经在退回路里**了 ⇒ 算进来就是**原版没有的第二下**。
+        ///   ⚠️ 逐卡的 66 张卡解出来**是同一件** `Necrons death explosion`
+        ///      （判据 → 生成器 `gen_card_vfx_by_card.py` 的 `RT_SKIP_SOFIELDS` 那段）
+        ///      ⇒ **别指望它是「一卡一件」**，也别因为「都一样」就以为这一跳没意义。</summary>
+        static string PickDeathFx(CardView card, out string perCard)
+        {
+            perCard = VfxMap.ResolvePerCard(VfxMap.Death, card.Data.faction, card.Data.id);
+            if (!string.IsNullOrEmpty(perCard) && !FxInLibrary(perCard))
             {
                 // 逐卡那件在库里没有 ⇒ **出声**，再退回默认件试一次。
                 // ⛔ 不静默吞掉、也不静默降级 —— 这两件事都违反了「不许静默失败」那条红线。
@@ -1243,17 +1434,36 @@ namespace CardPresentation
                                + "见 `CardScript._UnitDeath_d__446__MoveNext.c:240`）。"
                                + "补它：`python 工具/extract_missing_shaders.py --prefabs` → "
                                + "`EffectExporter.RunListed` → `EffectLibraryBuilder.Run`");
+                perCard = null;
+            }
+            string fx = string.IsNullOrEmpty(perCard) ? DeathBodyFx : perCard;
+            if (FxInLibrary(fx)) return fx;
+            Debug.LogWarning($"[CardFeel] 效果库里没有 `{DeathBodyFx}` ⇒ 阵亡退回「淡出 + 上浮 + 缩」"
+                           + "（原版是「关掉 3D 卡体 + 在卡位生成那个爆散体」）。补它两步（本机已跑过）："
+                           + "`python 工具/extract_missing_shaders.py --prefabs` → `EffectExporter.RunListed`"
+                           + " → `EffectLibraryBuilder.Run`；判据 → `资料/已知的坑.md` 的"
+                           + "「`GetAllAssetNames()` 只吐容器里的资产」那条");
+            return null;
+        }
+
+        /// <summary>效果库里有这一件吗（自检里判同一件事用的也是这一对）。</summary>
+        static bool FxInLibrary(string name)
+        {
+            var lib = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
+            if (lib == null || string.IsNullOrEmpty(name)) return false;
+            WarpforgeVFX.WFEffectEntry e;
+            return lib.TryGet(name, out e);
+        }
+
+        /// <summary>在卡位生成死亡爆散体（原版 `Instantiate(cardDestroyFX, 卡位置, 3D体旋转)`）。
+        /// `perCard` / `fx` 由 <see cref="PickDeathFx"/> 定好；返回 false = 这一刻放不出来（调用方出声）。</summary>
+        static bool SpawnDeathBody(CardView card, string perCard, string fx)
+        {
+            var p = WarpforgeVFX.WarpforgeEffectPlayer.Play(fx, null, card.transform.position, 1f);
+            // 逐卡那件**在库里**、但这一刻放不出来 ⇒ 照老写法退回默认件再试一次（原版 `:240` 那个判别式）。
+            if (p == null && !string.IsNullOrEmpty(perCard))
                 p = WarpforgeVFX.WarpforgeEffectPlayer.Play(DeathBodyFx, null, card.transform.position, 1f);
-            }
-            if (p == null)
-            {
-                Debug.LogWarning($"[CardFeel] 效果库里没有 `{DeathBodyFx}` ⇒ 阵亡退回「淡出 + 上浮 + 缩」"
-                               + "（原版是「关掉 3D 卡体 + 在卡位生成那个爆散体」）。补它两步（本机已跑过）："
-                               + "`python 工具/extract_missing_shaders.py --prefabs` → `EffectExporter.RunListed`"
-                               + " → `EffectLibraryBuilder.Run`；判据 → `资料/已知的坑.md` 的"
-                               + "「`GetAllAssetNames()` 只吐容器里的资产」那条");
-                return false;
-            }
+            if (p == null) return false;
             // 原版从卡上借贴图：`_CardImage = rawCard.cardSprite.texture` · `_MatCap = GetCardMatCapByCardTier(tier)`，
             // 再给爆散纹理一个**随机偏移**（`_ExplosionTextureOffsetModifier = Random.value`）。
             var art = card.BodyArtTexture;
@@ -1378,6 +1588,69 @@ namespace CardPresentation
         public static float DealSeconds(bool mine) { return mine ? DealDuration : DealDurationFoe; }
 
         // ==================================================================
+        //  抽牌那一下的「翻面」（原版 `CardScript.TurnCardAround` + `FinishCardDrawRotation`）
+        // ==================================================================
+        //  判据（`d:/2/tools/decomp_full/`，**引方法体前首行函数名逐一核过**）：
+        //   · `CardScript__DrawCard.c:52-59` —— **只有抽「自己的」牌才翻**：
+        //       `if (!isPlayer) SetObjectVisibility(卡, cardState)` / `else TurnCardAround(this, 时长)`
+        //     （`+0x40` = `EntityScript.<isPlayer>k__BackingField`，`il2cpp_out/dump.cs:21973` 实读）
+        //   · `CardScript__DrawCard.c:65-75` —— **翻面那一支【不】再转到底**：那条
+        //       `DORotate(Vector3.zero, 时长)` 只在不翻面（敌方）那一支里（⚠️ 它**没写 `SetEase`**
+        //       ⇒ 吃 DOTween 的全局默认缓动，我们这边照 `OutCubic` 写了 —— 见报告 §A-4 的顺手发现）
+        //       ⇒ 我方的旋转归 `TurnCardAround` 管、敌方那条我们没做（`DealInQuad` 只有位移/缩放/淡入）。
+        //   · `CardScript__TurnCardAround.c:29-37` ——
+        //       `DORotate(transform, (0, DAT_1834b2e04, 0), 时长 × DAT_1834b2e7c, RotateMode.Fast)`
+        //       + `SetEase(1)`（DOTween `Ease.Linear`）+ `SetDelay(param3)`
+        //       + `OnComplete → FinishCardDrawRotation(this, 时长)`（`__c__DisplayClass246_0…b__0.c:6`）
+        //   · `CardScript__FinishCardDrawRotation.c:13-24` —— 同一个倍率、同一个 `Ease(1)`，
+        //       终点 = `Vector3.zero`（判据：`DAT_1842da2a8` = `UnityEngine.Vector3` 的 Il2CppClass，
+        //       `+0xb8` 静态块 `+0x0` 就是 `zero` —— 字段表 `zero 0x0 / one 0xC / up 0x18 …`）
+        //   ⇒ **两段各 90°、连起来 180°**：背面 → 侧立（90°）→ 正面（0°）。
+        //     🔴 那个 `.rdata` 常量**实读是 90，不是 180**（`工具/read_literal.py`：`0x1834b2e04` = 90.0f；
+        //        同地址在本文件里已经是 `AttackTurnDeg` / `DeathShakeRandomness` 的出处，三处互相印证）。
+        //        「翻 180°」是**两段之和**，⛔ 别把单段写成 180（写成 180 就一下转过去、回不来，
+        //        而且与同址常量 90 自相矛盾）。⚠️ `资料/敌方手牌_原版规格.md:90` 的「按语义应是 180°」
+        //        是**猜的**（同一行自承「字面值没读出来」）；`资料/普查产出_1016战斗/W_卡牌飞行族普查.md:27`
+        //        照抄了这个猜测 —— **以实读的 90 为准**（铁律 5）。
+        //   ⚠️ 我们这套卡是【正交平面上的两维片】，不是三维卡体：绕 Y 转 90° = 卡**侧立成一条线**
+        //      （在原版那里就是「看不见的那一帧」）⇒ 视觉上就是「翻出去再翻回来」。
+        //   🔴 **「前半段显示卡背」这一半【没做】，也不该在本件里做**：原版靠 90° 那一帧
+        //      `SetObjectVisibility(卡, 手牌态)` 把**在牌堆里的那套子件**换成手牌那套（= 卡背换卡面），
+        //      而我们的 `CardView` **没有卡背层**（`Core/CardView.cs` 全文 grep 不到 flip/faceDown，
+        //      `ShowCardBack` 只给敌方手牌那个 `ImageQuad` 用）⇒ 要做得先在 `CardView` 加一层，
+        //      那不在本件白名单里（`Core/CardView.cs` 不可碰）。
+
+        /// <summary>抽牌翻转的**单段**角度 = **90°** —— `.rdata 0x1834b2e04` 用 `工具/read_literal.py`
+        /// 实读 **90.0**（同一地址也是 `AttackTurnDeg` / `DeathShakeRandomness` 的出处）。
+        /// ⚠️ **两段加起来才是 180°**，别拿这个常量当「总共转多少」。</summary>
+        public const float TurnCardAroundDeg = 90f;
+        /// <summary>翻转**每段**占整次抽牌时长的比例 = **0.25** —— `.rdata 0x1834b2e7c` 实读 **0.25**
+        /// （`CardScript__TurnCardAround.c:32` 与 `CardScript__FinishCardDrawRotation.c:23` 两处同源）。
+        /// ⇒ 两段共占抽牌时长的**一半**（我方 0.3 s ⇒ 每段 0.075 s）。</summary>
+        public const float TurnCardAroundFrac = 0.25f;
+
+        /// <summary>抽牌时那一记「翻面」= 两段各 <see cref="TurnCardAroundDeg"/> 度、
+        /// 每段 `drawSeconds × TurnCardAroundFrac`，**线性**缓动（原版 `SetEase(1)`，两段都是）。
+        /// 落点角 `restRotZ` 取自手牌那一档（原版终点是 `Vector3.zero`，我们的手牌有 z 倾角）。
+        /// ⚠️ 必须经 `CardTween.Use`（批处理要 `UpdateType.Manual`、`SetLink` 防卡销毁后补间还在跑）；
+        /// 叶子补间**自己也显式 `SetUpdate`** —— 嵌套序列的 `UpdateType` 在批处理的 Manual 档下
+        /// 不靠继承（`Tween.SetUpdate` 不会往下传），这里是「两个模型下都对」的写法。</summary>
+        public static Tween TurnCardAround(Transform tr, float restRotZ, float drawSeconds)
+        {
+            float half = drawSeconds * TurnCardAroundFrac;
+            var seq = DOTween.Sequence();
+            seq.Append(Flip(tr, new Vector3(0f, TurnCardAroundDeg, restRotZ), half));
+            seq.Append(Flip(tr, new Vector3(0f, 0f, restRotZ), half));
+            return CardTween.Use(seq, Ease.Linear, tr);
+        }
+
+        /// <summary>翻转的单段叶子补间（`RotateMode.Fast` —— 原版 `DORotate` 第 4 参传的是 0）。</summary>
+        static Tween Flip(Transform tr, Vector3 to, float duration)
+        {
+            return tr.DORotate(to, duration, RotateMode.Fast).SetEase(Ease.Linear).SetUpdate(CardTween.Mode);
+        }
+
+        // ==================================================================
         //  「让位 / 补位」那一下的位移（2026-10-01 加）
         // ==================================================================
         //
@@ -1424,7 +1697,8 @@ namespace CardPresentation
         ///   （226 设计 px，而手牌档应是 165）且不倾斜。
         /// </summary>
         public static Tween DealInPose(CardView card, Vector3 from, Vector3 to,
-                                       float rotZ, float scale, float delay = 0f)
+                                       float rotZ, float scale, float delay = 0f,
+                                       Texture2D back = null)
         {
             if (card == null) return null;
             var tr = card.transform;
@@ -1434,12 +1708,28 @@ namespace CardPresentation
 
             var seq = DOTween.Sequence();
             seq.Append(tr.DOMove(to, DealDuration).SetEase(Ease.OutCubic));
-            seq.Join(tr.DORotate(new Vector3(0f, 0f, rotZ), DealDuration).SetEase(Ease.OutCubic));
+            // 🔴 **2026-10-16：这一条从「一路 OutCubic 转到底」换成原版那记翻面**
+            //    （`CardScript.TurnCardAround` + `FinishCardDrawRotation`，判据与出处全在
+            //     `TurnCardAround` 上面那一段头注里，这里不抄第二份）。
+            //    ⚠️ 只换**我方**这条（`DealInPose` = 抽自己的牌）；敌方那条走 `DealInQuad`，
+            //       原版对敌方**不翻**（`DrawCard.c:52-59` 判的 `isPlayer`）⇒ 那条不动。
+            seq.Join(TurnCardAround(tr, rotZ, DealDuration));
             seq.Join(tr.DOScale(Vector3.one * scale, DealDuration).SetEase(Ease.OutCubic));
             seq.Join(DOTween.To(() => 0f, a => card.SetAlpha(a), 1f, DealDuration * 0.5f));
+            // 🆕 2026-10-16：**翻面的前半段看的是卡背**（判据 → `CardView.SetBackVisible` 那段头注）。
+            //   两段各占 `DealDuration × TurnCardAroundFrac`（0.25）⇒ 「侧立那一刻」在
+            //   `DealDuration × 0.25` 处，**卡宽正好收到 0** ⇒ 在那一刻换回卡面**看不见**。
+            //   ⚠️ 用 `InsertCallback` 而不是在方法体里直接调 —— 直接调会在 `delay` 那一段就亮着卡背。
+            if (back != null)
+            {
+                seq.InsertCallback(0f, () => { if (card != null) card.SetBackVisible(true, back); });
+                seq.InsertCallback(DealDuration * TurnCardAroundFrac,
+                                   () => { if (card != null) card.SetBackVisible(false, null); });
+            }
             var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
             // ⚠️ **被打断时要把 alpha 补回 1**（同 `DealIn`：`Place` 会 `DOKill()` 这张卡身上的补间）
-            t.OnKill(() => { if (card != null) card.SetAlpha(1f); });
+            //    🆕 卡背也要收掉 —— 死在翻面半路的话，它会**一直盖着卡面**（静默）。
+            t.OnKill(() => { if (card != null) { card.SetAlpha(1f); card.SetBackVisible(false, null); } });
             return t;
         }
 
@@ -1469,7 +1759,13 @@ namespace CardPresentation
         /// <summary>发牌入场 —— **敌方手牌那一版**：那张卡是 `ImageQuad` 画的**卡背**，
         /// 不是 `CardView`（原版敌方走 `CardScript.ShowCardBack(!isPlayer)`，见 `资料/敌方手牌_原版规格.md` §四）。
         /// 形状与 `DealIn` 同源，时长取 `DealSeconds(mine: false)` = **0.15**。
-        /// ⚠️ 原版抽牌那一瞬还会 `TurnCardAround`（绕 Y 翻 180°）；我们是 2D，**没做那一下翻转**。</summary>
+        /// 🔴 **2026-10-16 订正**（原来写「原版抽牌那一瞬还会 `TurnCardAround`；我们没做那一下翻转」）：
+        ///   **原版这一档【不翻】** —— `CardScript__DrawCard.c:52-59` 判的是 `EntityScript.isPlayer`，
+        ///   `TurnCardAround` 只在 **`isPlayer == true`** 那一支；敌方那一支走 `SetObjectVisibility`，
+        ///   而且它那条 `DORotate(Vector3.zero, 时长)`（`:65-75`）是**我方不走的**。
+        ///   ⇒ **没做的那一半只在【我方】（`DealInPose`），已经补上了**（见 `TurnCardAround`）；
+        ///     本方法（敌方）**判据上就不该有翻转**，保持不动。
+        ///   ⚠️ `资料/敌方手牌_原版规格.md:109` 把这一支写成「**仅 isPlayer==0 才翻面**」—— **读反了**（铁律 5）。</summary>
         public static Tween DealInQuad(ImageQuad q, Vector3 from, float delay = 0f)
         {
             if (q == null) return null;
@@ -1514,9 +1810,33 @@ namespace CardPresentation
         // · ~~`attackPositionYOffset 0.5`（攻击位移的 Y 偏移）~~ ✅ **2026-09-29 已接上**
         //   （`MeleeEndPos` 的那个 `dy`；⚠️ 我们的等价量恒 0 —— 卡根就是卡中心）
         // · ~~`playerAttackMargin 1.7` / `enemyAttackMargin 1.0`~~ ✅ **2026-09-29 已接上**（`MeleeEndPos`）
-        // · `timeToLand 0.2` / `timeBeforeLand 0.05` —— ✅ **这一条已经接上了**：见 `DeploySequence`
-        //   （不过那边用的是 `MinionManager.minionToConversionPointTime = 0.3`，
-        //     `timeToLand` 是「落地那一下」的时长，等有落地特效时再用）
+        // · ~~`timeToLand 0.2` / `timeBeforeLand 0.05`~~ ✅ **2026-10-16 已接上**（`DeploySequence.LandTime` /
+        //   `DeploySequence.HoldTime`）。**订正痕迹**：本行原来写着「✅ 这一条已经接上了」而实据是**零消费**
+        //   （同一个括号里又自承「等有落地特效时再用」，两说打架）—— 那次订正成「未接」，今天真的接上了。
+        //   判据 → `资料/普查产出_1016战斗/W_卡牌飞行族普查.md` §一 #1/#1b · `资料/3DBody_原版场上卡体规格.md` §四。
+        //   ⚠️ **两处与那份规格文档的说法不同（反编译实读，以反编译为准）**：
+        //     ① 「落地前 0.05 s 起播落地反馈」**不成立** —— `timeBeforeLand` 那一段在
+        //        `_MinionPlayedIntoField_d__314` 的 **state 1**（= 下落**开始之前**），而 `LandOnGround`
+        //        在 **state 3**（= `WaitForSeconds(timeToLand)` **之后**）⇒ 落地反馈在**落定那一刻**，
+        //        不是提前 0.05 s。极性判据：飞行路传的 `param4 = 1` 走 state 3、Teleport 路传 0 走 state 0
+        //        （`_ResolvePlayCardFromHand_d__447…:659-661,892-894`）。
+        //     ② 原版在 state 0 还有一段 `WaitForSeconds(timeToScaleIntoMoving = 0.1)`（`VarsGlobal` 字段，
+        //        `资料/VarsGlobal_原版数值.md:43`）—— **我们没做**：它覆盖的是「卡片换成 3D 体」那一拍
+        //        （state 1 `SetUnitInPlayLayer`），而我们的整套交接（`BattleDriver.DoPlay`）挂在序列**末尾**，
+        //        照抄会得到一段**什么都不发生的死等**。如实记，别当已复刻。
+        // · ~~`minionConversionHeight`（**我方 1.0 / 敌 2.1**，竞技场单位）~~ ✅ **2026-10-16 已接上** —— 判据落在
+        //   `BoardLayout.PlayerMinionConversionHeight` / `EnemyMinionConversionHeight`（+`MinionConversionHeight`），
+        //   消费点 = `BoardLayout.DropTargetWorldAtHeight` ← `Hand/CardInteraction.Release`。
+        //   它同时**取代了**原来那两句**我们挑的**抬升常量（`LiftHeight 0.35` / `LiftFraction 0.35`，已删）。
+        // · ~~`shakeWhenLand`（落地震镜头）~~ ✅ **2026-10-16 已接上** —— `ShakeCameraForLand`（同 `_MinionPlayedIntoField`）。
+        //   ⚠️ 它和落地**音**（`BattleDriver.PlayBattleSfx3D(BattleSfx.LandOnGround, …)`）、落地**扬尘**
+        //   （`BattleDriver` 的 `LandDustFieldFor`）现在是**三件**，都跟着同一条 `EvtKind.Deploy` 引擎事件走。
+        // · `landOnGroundParticles` / `…Legendary`（落地扬尘的两件 prefab）+ `landOnGroundParticlesLocalOffset (0,0.015,0)`
+        //   —— ✅ **2026-10-16 已接**（`BattleDriver.LandDustFieldFor`）。⚠️ **一处没做到、如实记**：原版
+        //   把它们 `SetParent(MinionManager)` 之后 `localScale = Vector3.one × desiredScale`（0.36/0.69，
+        //   `CardScript__LandOnGround.c:87-106`），而我们的 `CardEffects.Fire` 钩子**没有 scale 参数**
+        //   （`WarpforgeVFX/Runtime/WarpforgeEffectHook.cs` 硬编码 `1f`，那个文件不在本件白名单）⇒ 现在按
+        //   prefab 自带尺度播，**多半比原版大**（原版是 0.36 倍）。
         // · `cardMovementSpeed 10.8` —— 卡的移动速度。⚠️ **用途查不到**：调用点没被反编译，
         //   拿它算「手牌飞多久」（距离÷速度）会得到 0.12s 这种明显不对的数 —— **别当它是时间基准**
         // · ~~`meleeHitCameraShakePreset`（amplitude 2.0）—— 挨打震镜头；要做得先决定

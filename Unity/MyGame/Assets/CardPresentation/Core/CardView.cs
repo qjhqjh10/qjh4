@@ -794,6 +794,54 @@ namespace CardPresentation
         /// 还没建（`Build` 之前）时退回根节点。</summary>
         internal Transform FaceRoot { get { return _tiltRoot != null ? _tiltRoot : transform; } }
 
+        // ==================================================================
+        //  🆕 2026-10-16 **卡上特效的锚点**（原版 `CardScript.GetEffectAnchor()`）
+        // ==================================================================
+        //  判据（`d:/2/tools/decomp_full/CardScript__GetEffectAnchor.c`，**全篇 18 行、逐句亲读**）——
+        //  🔴 **它不是一个锚点，是【按卡的状态二选一】：**
+        //   · **手牌档**（`CardStateOptions ∈ {0,1,4,8,9,10,12,16}`，判据 = `CardScript+0x228`）
+        //     = `BattleCardUI+0x30` 那个组件的 transform；`+0x30` 现读 `il2cpp_out/dump.cs` =
+        //     **`BasicCardUI.card2DController`** ⇒ **就是 `2DCard` 那一级** = 本类的 `FaceRoot`。
+        //   · **场上档（其余状态）** = `BattleCardUI+0x1A0` = **`public Transform effectsAnchor`**。
+        //     那颗节点的真身 = **`2DCard/Front/EffectAnchor`**（`localPosition (0,0,0)`、**带 `SortingGroup`**；
+        //     判据 = 现读卡 prefab 那个包里**两颗同名** `EffectAnchor`：只有它带 `SortingGroup`，
+        //     另一颗带 `MonoBehaviour` 且 `y = 1.34` ⇒ 不是它）。
+        //     ⇒ 它的位置 = **`Front` 的原点** = `2DCard` 再抬 `Front` 的 `apos y = +0.08`
+        //       （父链注见本文件上面 `2DCard → Front → Textbackgrounds/Card Info` 那一段）。
+        //  ⛔ **别把两个合成一个** —— 手牌档锚在 `2DCard`（含整张卡面），场上档锚在 `Front`（抬了 0.08 卡单位）。
+        //  ⚠️ 谁在用它：`BattleManager.GetAnimTransform` 的 `self`/`cardTarget`/`abilityTarget` 三档
+        //     （判据 → `任务线/战斗线/任务/T05` §2·6 那张逐档表）。
+
+        Transform _fxAnchorBoard;
+        /// <summary>**手牌档**的卡上特效锚点（原版 = `card2DController.transform` = `2DCard` 那一级）＝ `FaceRoot`。</summary>
+        public Transform EffectAnchorHand { get { return FaceRoot; } }
+        /// <summary>**场上档**的卡上特效锚点（原版 `effectsAnchor` = `2DCard/Front/EffectAnchor`，
+        /// `localPosition (0,0,0)` ⇒ 位置就是 `Front` 的原点）。懒建、建好留着。
+        /// ⚠️ 它是 `FaceRoot` 的子节点 ⇒ 跟着卡面倾摆走（原版也在 `Front` 底下）。</summary>
+        public Transform EffectAnchorBoard
+        {
+            get
+            {
+                if (_fxAnchorBoard == null)
+                {
+                    var go = new GameObject("EffectAnchor");
+                    go.transform.SetParent(FaceRoot, false);
+                    // `Front` 的 `apos y = +0.08`（**卡单位**，见本文件那条 `2DCard → Front → …` 父链注）
+                    go.transform.localPosition = new Vector3(0f, 0.08f, 0f);
+                    _fxAnchorBoard = go.transform;
+                }
+                return _fxAnchorBoard;
+            }
+        }
+
+        /// <summary>按**卡的状态**取那一个特效锚点（原版 `GetEffectAnchor` 的两支）。
+        /// `onBoard = true` ⇒ 场上档（`effectsAnchor`）；否则手牌档（`2DCard`）。
+        /// ⛔ 别在调用点自己判「该用哪个」—— **判据只此一处**。</summary>
+        public Transform EffectAnchor(bool onBoard)
+        {
+            return onBoard ? EffectAnchorBoard : EffectAnchorHand;
+        }
+
         /// <summary>整卡倾摆组件（原版 `AutoCardRotation`；场上形态下**关掉**，见 `SetFace`）—— 自检用。</summary>
         public AutoCardRotation Tilt { get { return _tilt; } }
 
@@ -3444,6 +3492,66 @@ namespace CardPresentation
         /// <summary>绿光那棵树（懒建、建好留着）。**不进 `_layers`** —— 颜色是它自己说了算。</summary>
         GameObject _canAct;
 
+        // ==================================================================
+        //  🆕 2026-10-16 **卡背那一层**（抽我方牌翻面的前半段看的就是它）
+        // ==================================================================
+        //  判据：原版 `CardScript.TurnCardAround` 绕 Y 转 180°（**两段各 90°**，`.rdata 0x1834b2e04`
+        //  实读 90.0、每段占抽牌时长 0.25），**只在我方那一支**（`CardScript__DrawCard.c:52-59` 判 `isPlayer`）
+        //  ⇒ 前 90° 看到的是**卡背**、后 90° 才是卡面。
+        //  我们是 2D，「绕 Y 侧立」在屏幕上就是**宽度收到 0** ⇒ 等价物 = **前半段盖一张卡背，
+        //  在两段之间的「侧立」那一刻换回卡面**（那一刻宽度为 0，换面看不见）。
+        //  ⚠️ 尺寸取**卡身** `Width × Height` —— 原版卡背是同一条网格上的另一面、与卡面同尺寸；
+        //     **别拿牌堆那个 `Cardback` 节点的框**（它比卡身宽 3.88%、矮 5.85%，那是牌堆自己的）。
+
+        /// <summary>卡背那一层（懒建、建好留着）。**不进 `_layers`** —— 那是「整卡着色」名单
+        /// （高亮/置灰/淡出都会遍历它），而卡背是「翻过去看到的那一面」，颜色由它自己说了算；
+        /// 但它**要跟 alpha**（否则抽牌淡入时卡背长亮、与卡面不同步），那一档补在 `ApplyTint` 末尾。
+        /// 同族样板 = `_remnantBody` / `_canAct`。</summary>
+        GameObject _backLayer;
+        MeshRenderer _backMr;
+
+        /// <summary>卡背层现在亮着没有（自检用）。</summary>
+        public bool BackVisible { get { return _backLayer != null && _backLayer.activeSelf; } }
+        /// <summary>卡背层的渲染队列（自检用；`-1` = 还没建）。</summary>
+        public int BackQueue { get { return (_backMr != null && _backMr.sharedMaterial != null) ? _backMr.sharedMaterial.renderQueue : -1; } }
+
+        /// <summary>卡背那一层的 z —— **必须比所有卡面层更靠近相机**（相机在 −Z ⇒ 更负 = 更前）。
+        /// 现有卡面层最前的是 `BoardInfoZ = −0.150`（见上面那一串 z 常量）。</summary>
+        public const float CardBackZ = -0.20f;
+
+        /// <summary>把**卡背**亮/灭。`back == null` 且要亮 ⇒ **出声并什么都不做**
+        /// （⛔ 不静默造一个白块）。调用点只有一处：`CardFeel.DealInPose`（翻面的前半段）。</summary>
+        public void SetBackVisible(bool on, Texture2D back)
+        {
+            if (!on)
+            {
+                if (_backLayer != null && _backLayer.activeSelf) _backLayer.SetActive(false);
+                return;
+            }
+            if (back == null)
+            {
+                Debug.LogWarning("[CardView] 要显示卡背但没给贴图 ⇒ 不显示（⛔ 不静默造一个白块）");
+                return;
+            }
+            if (_backLayer == null)
+            {
+                _backLayer = new GameObject("cardBack");
+                // ⚠️ 挂**卡根**（不是 `FaceRoot`）：卡背是这张卡的另一面，不该跟着卡面的倾摆走。
+                _backLayer.transform.SetParent(transform, false);
+                _backLayer.transform.localPosition = new Vector3(0f, 0f, CardBackZ);
+                _backLayer.AddComponent<MeshFilter>().sharedMesh = CenteredQuad("cardBack", Width, Height, back);
+                _backMr = _backLayer.AddComponent<MeshRenderer>();
+                _backMr.sharedMaterial = new Material(BaseMaterial());
+                _backMr.sharedMaterial.mainTexture = back;
+                _backMr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                _backMr.receiveShadows = false;
+                StampQueue(_backMr);
+                _backLayer.SetActive(false);
+            }
+            _backMr.sharedMaterial.mainTexture = back;
+            _backLayer.SetActive(true);
+        }
+
         /// <summary>绿光亮着没有（自检用）。</summary>
         public bool CanActVisible { get { return _canAct != null && _canAct.activeSelf; } }
 
@@ -3857,6 +3965,12 @@ namespace CardPresentation
             //    见 `SetArtAlpha`）。放在整卡循环之后覆盖，理由同下面 `_textBg` 那两段。
             if (_art != null && _art.sharedMaterial != null && _art.sharedMaterial.HasProperty("_Color"))
                 _art.sharedMaterial.color = new Color(_tint.r, _tint.g, _tint.b, _tint.a * _alpha * _artAlpha);
+
+            // 🆕 2026-10-16：**卡背那一层【只跟 alpha】、不跟状态色**（整卡着色是给卡面用的）。
+            //    它不在 `_layers` 里 ⇒ 上面那个 foreach 刷不到它 ⇒ 在这里单独补一档；
+            //    不补的话，抽牌淡入那半秒卡背会**长亮着**（卡面从透明淡进来、卡背却已经是实的）。
+            if (_backMr != null && _backMr.sharedMaterial != null && _backMr.sharedMaterial.HasProperty("_Color"))
+                _backMr.sharedMaterial.color = new Color(1f, 1f, 1f, _alpha);
 
             // 🔴🔴 **文字底板不参与整卡着色**（2026-09-19 修，用户报的「白底挡住插图」就是它）。
             //    `_textBg` 也是 `_layers` 里的一员，所以上面那个 foreach 会把它**当成普通图层刷成

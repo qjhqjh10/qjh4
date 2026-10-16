@@ -24,8 +24,25 @@ namespace WarpforgeVFX
                     return;
                 }
                 var fx = WarpforgeEffectPlayer.Play(name, parent, pos, 1f, -1f);
-                if (fx == null) Debug.Log($"[WarpforgeVFX] 特效没播出来：{name} @ {pos}");
+                if (fx == null) { Debug.Log($"[WarpforgeVFX] 特效没播出来：{name} @ {pos}"); return; }
+
+                // 🆕 2026-10-16：**实例跟随父节点的层**（`parent != null` 时才管）。
+                //   为什么需要：原版那些「挂在卡 / 棋盘上的特效」（落地扬尘、逐卡演出…）是由**透视战场相机**画的
+                //   —— 它们跟卡活在同一层（`ArenaLayer`）。而 **Unity 的层不继承**：
+                //   `Instantiate(prefab, parent)` 保的是 **prefab 自己的层**（我们那批是 0）⇒
+                //   不补这一步，挂在卡上的特效会停在层 0、被 HUD 的正交相机画 ⇒ **位置和大小的量纲全错**。
+                //   ⚠️ `parent = null` 的**根特效**不走这一步 —— 它们由谁画是另一笔账（`A367`），
+                //     那一路的位置判据是「投到 HUD 平面」（见 `BoardLayout.DropTargetWorld`）。
+                if (parent != null) SetLayerRec(fx.gameObject, parent.gameObject.layer);
             };
+        }
+
+        /// <summary>把这个实例整棵子树设到某一层（层**不会**从父节点继承，必须自己走一遍）。</summary>
+        static void SetLayerRec(GameObject go, int layer)
+        {
+            go.layer = layer;
+            var t = go.transform;
+            for (int i = 0; i < t.childCount; i++) SetLayerRec(t.GetChild(i).gameObject, layer);
         }
     }
 }

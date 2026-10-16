@@ -99,6 +99,8 @@ namespace CardPresentation
         public readonly CardView[] SlotViews = new CardView[CardFan.Slots];
         readonly CardDef[] _slotDefs = new CardDef[CardFan.Slots];
         bool _swapping;
+        /// <summary>开窗那一拍还在播没有 —— 我们这套的 `displayAnimation.isPlaying`（闸③，见 `SwapToFront`）。</summary>
+        bool _opening;
 
         /// <summary>正在展示的那张卡（`CardData` 是 struct，不能拿 null 当「没有」⇒ 单独一个 bool）</summary>
         CardData _shown;
@@ -148,6 +150,9 @@ namespace CardPresentation
         public CardDef FrontDef { get { return _slotDefs[0]; } }
         /// <summary>换位动画在播没有（= 原版那个 `swappingCards` 闸）。</summary>
         public bool IsSwapping { get { return _swapping; } }
+        /// <summary>开窗那一拍（`CardFan.OpenTime`，原版 legacy clip `Card Display Open`）还在播没有
+        /// —— 我们这套的 `displayAnimation.isPlaying`（原版 `ChangeCardPosition` 的**闸③**）。</summary>
+        public bool IsOpening { get { return _opening; } }
         /// <summary>位姿槽 `i` 上的卡（越界返回 null）。</summary>
         public CardView SlotView(int i) { return (i >= 0 && i < CardFan.Slots) ? SlotViews[i] : null; }
         /// <summary>位姿槽 `i` 上那张卡的卡表项（越界返回 null）。</summary>
@@ -637,6 +642,7 @@ namespace CardPresentation
             _hasShown = false;
             LastVoiceFile = null;
             _swapping = false;
+            _opening = false;            // 关窗 = 那 5 条补间随之死掉（`SetLink`），闸③ 也一并清
             SlotCount = 0;
             for (int i = 0; i < CardFan.Slots; i++) { SlotViews[i] = null; _slotDefs[i] = null; }
             if (_cards != null) MenuDraw.ClearChildren(_cards);
@@ -689,7 +695,13 @@ namespace CardPresentation
                     continue;
                 }
                 v.gameObject.SetActive(true);
-                v.SetPose(SlotLocal(i), CardFan.Rot(i), CardFan.Hpx(i) / (CardView.Height * 108f));
+                // 🔴 **在这里摆的是 `Card Display Open` 那条 clip 的 t=0**（5 个槽一律 `(0,60)` / 0° / scale 210），
+                //    **不是终态** —— 终态由下面的 `PlayOpenAnimation` 在 `CardFan.OpenTime`(0.3167s) 里补过去
+                //    （原版那颗 `Animation.m_PlayAutomatically = true`：窗口一亮就播）。
+                //    ⛔ **别改回「直接摆终态」**：`Editor/BattleScene.cs` 那一段「开窗起点 / 半程」会红
+                //    （那两条就是这条动画的**灭自证** —— 只断终态的话「摆终态」也满足）。
+                v.SetPose(OpenStartLocal(i), CardFan.OpenStartRot,
+                          CardFan.OpenStartHpx / (CardView.Height * 108f));
                 v.SetData(cd);
                 v.SetFace(CardFace.Full);
                 v.SetHighlight(CardHighlightState.Normal);   // 展示窗里的卡不吃「可出牌/不可出牌」那套状态色
@@ -697,6 +709,7 @@ namespace CardPresentation
                 SlotViews[i] = v; _slotDefs[i] = defs[i];
             }
             CardFan.ApplyQueues(SlotViews, SlotCount, CardFan.QCardBase);
+            PlayOpenAnimation();          // 开窗那一拍（原版窗根那颗 `Animation`，见 `CardFan` 里那一块判据）
             Debug.Log($"[展示窗] 卡片那一叠：**{SlotCount} 格**（1 主卡 + {Mathf.Max(0, SlotCount - 1)} 相关卡）"
                     + " —— 位姿：槽 0–4 照原版 clip `Card Display Open`，槽 5–8 是**我们外推的**（`CardFan` 文件头）");
         }
@@ -711,14 +724,95 @@ namespace CardPresentation
             return new Vector3(l.x, l.y, ZContent - i * ZSlotStep);
         }
 
+        /// <summary>第 `i` 格的**开窗起点**（局部坐标）—— 原版 clip `Card Display Open` 的 t=0：
+        /// 5 个槽**一律**在屏心偏上 `(960,480)`、卡体 scale 210。
+        /// ⚠️ 原版那 10 条位移曲线只动 `m_AnchoredPosition.x/y`、**不动 z** ⇒ 起点**沿用该格终态的 z**
+        /// （`SlotLocal` 那个 `ZContent − i×ZSlotStep` 阶梯 —— 它只是兜底，真正排序看渲染队列）。</summary>
+        Vector3 OpenStartLocal(int i)
+        {
+            var l = MenuDraw.Local(_cards,
+                                   CardFan.OpenStartCx - CardFan.OpenStartWpx * 0.5f,
+                                   CardFan.OpenStartCy - CardFan.OpenStartHpx * 0.5f,
+                                   CardFan.OpenStartCx + CardFan.OpenStartWpx * 0.5f,
+                                   CardFan.OpenStartCy + CardFan.OpenStartHpx * 0.5f);
+            return new Vector3(l.x, l.y, SlotLocal(i).z);
+        }
+
+        /// <summary>开窗那一拍：把 5 个槽从**起点**（原版 clip t=0：`(0,60)` · 0° · scale 210）
+        /// 补间到**扇形终态**（`CardFan` 的 `_x/_y/_rot/_scl`），时长 `CardFan.OpenTime`。
+        ///
+        /// <para>🔴 **判据逐值来自那条 legacy clip 的原文**（出处与逐值 → `Core/CardFan.cs` 的
+        /// 「开窗那一拍」那一块）。**缓动不能交给 DOTween 的枚举** —— 原版是**平滑步 `t²(3−2t)`**，
+        /// 而 `Ease.InOutQuad`/`InOutSine` 都不是它 ⇒ 一律 `Ease.Linear` 建 tween、
+        /// 在 setter 里走 `CardFan.OpenEase`。</para>
+        ///
+        /// <para>🔴 **为什么是代码补间、不是那颗 `Animation` 组件**：原版窗根挂着 legacy clip
+        /// `m_PlayAutomatically = true`；而本工程 **legacy `AnimationClip` 从 bundle 搬进工程会变空壳**
+        /// （`资料/已知的坑.md`「bundle 资产搬进工程的两条死路」）⇒ 只能把曲线**读出来写等价补间**。
+        /// ⚠️ **批处理下没有帧循环** ⇒ 一律经 `CardTween`（`UpdateType.Manual` 时由 `CardTween.Advance` 推进）。
+        /// ⚠️ 原版**只有开窗、没有关窗动画**（`CardDisplayWindow__Close.c` 里没有第二条 clip）—— ⛔ 别自己补。</para>
+        ///
+        /// <para>⚠️ **每帧走 `SetPose`、不裸用 `DOLocalMove`/`DOScale`**：`CardView` 的缩放要经 `ApplyScale`
+        /// （高亮那层在 `_baseScale` 上乘系数）⇒ 直接写 `transform.localScale` 会让 `_baseScale`
+        /// **永远停在起点值**上（之后任何一次 `SetPose`/高亮刷新都会把卡弹回 210 那一档）。</para>
+        ///
+        /// <para>⚠️ **闭包**：`v` 与那几个起终点都声明在循环体内（每次迭代一个新变量），
+        /// 循环变量 `i` **不进 lambda** —— 否则 5 条 tween 会全用最后一格的值（经典踩法）。</para></summary>
+        void PlayOpenAnimation()
+        {
+            _opening = false;
+            DG.Tweening.Tween last = null;
+            float denom = CardView.Height * 108f;
+            for (int i = 0; i < SlotCount && i < CardFan.Slots; i++)
+            {
+                var v = SlotViews[i];
+                if (v == null) continue;                     // 建不出来那一格（`BuildFan` 已经出声告警过）
+                Vector3 startPos = OpenStartLocal(i), endPos = SlotLocal(i);
+                float startRot = CardFan.OpenStartRot, endRot = CardFan.Rot(i);
+                float startScale = CardFan.OpenStartHpx / denom, endScale = CardFan.Hpx(i) / denom;
+                // 起步先把起点写上（同 `CardFan.TweenTint` 那条：不写就会从『当前位姿』起步，连开两次会跳）
+                v.SetPose(startPos, startRot, startScale);
+                float e = 0f;
+                var tw = DG.Tweening.DOTween.To(() => e, x =>
+                {
+                    e = x;
+                    float k = CardFan.OpenEase(x);           // 🔴 原版那条曲线在这儿
+                    v.SetPose(Vector3.Lerp(startPos, endPos, k),
+                              Mathf.Lerp(startRot, endRot, k),
+                              Mathf.Lerp(startScale, endScale, k));
+                }, 1f, CardFan.OpenTime);
+                last = CardTween.Use(tw, DG.Tweening.Ease.Linear, v);
+                _opening = true;
+            }
+            // 闸门（= 原版 `displayAnimation.isPlaying`）：**最后一条播完**才算开窗动画结束。
+            if (last != null) last.OnComplete(() => { _opening = false; });
+            Debug.Log($"[展示窗] 开窗动画：{SlotCount} 格从 (0,60)/0°/scale210 补到扇形终态，"
+                    + $"{CardFan.OpenTime:F4}s = 原版 clip `Card Display Open`（60fps · 19 帧 · 平滑步）");
+        }
+
         /// <summary>点第 `idx` 格 ⇒ **和前台那张两两换位**（原版 `CardDisplayWindow.ChangeCardPosition`）。
         /// **三个闸**（任一中就整个 return，什么都不做）：① 上一次没播完（`swappingCards`）·
-        /// ② 点的是前台自己 · ③ 有 `Animation` 在播（⚠️ **本工程不适用** —— 原版摆位那条 legacy clip
-        /// 我们没有，我们按 `CardFan` 的常量直接摆；这一点是**如实说明的偏离**）。
-        /// 收尾照原版 `CardSwapFinished`：开闸 · 换前台指针 · **重设 lore / 语音 / 眼睛钮** ·
+        /// ② 点的是前台自己 · ③ **开窗动画还在播**。
+        /// 🔴 **2026-10-16 就地订正（铁律 5）**：闸③ 这条注释原来写「**本工程不适用** —— 原版摆位那条
+        /// legacy clip 我们没有」—— **前半句现在不成立了**：开窗动画已按 clip 原文补上
+        /// （`PlayOpenAnimation` / `CardFan.OpenTime`），所以闸③ **照原版接**。
+        /// 判据（`CardDisplayWindow__ChangeCardPosition.c:53-57`，亲读）：
+        /// ```c
+        /// if (*(longlong *)(param_1 + 0xb8) != 0) {            // +0xB8 = displayAnimation
+        ///   if (UnityEngine_Animation__get_isPlaying(*(longlong *)(param_1 + 0xb8),0) != '\0') return;
+        /// ```
+        /// ⚠️ 这条闸**不是可有可无**：开窗补间与换位补间写的是**同一个 transform**，
+        /// 开着时不挡 ⇒ 两条 tween 互相覆盖、卡会停在**谁也没算过的位姿**上（静默）。
+        /// 收尾照原版 `CardSwapFinished`：开闸 · 换前台指针 · **重设 lore / 语音钮** ·
         /// **换色补间**（去前台变白、让位的压暗到 `cardInBackGroundColorTint`）。</summary>
         public void SwapToFront(int idx)
         {
+            if (_opening)
+            {
+                Debug.Log($"[展示窗] 换位被挡：开窗动画还在播（原版闸③ `displayAnimation.isPlaying`，"
+                        + $"还有 {CardFan.OpenTime:F4}s 那条没走完）");
+                return;
+            }
             if (_swapping)
             {
                 Debug.Log("[展示窗] 换位被挡：上一次还没播完（原版闸① `swappingCards`）");

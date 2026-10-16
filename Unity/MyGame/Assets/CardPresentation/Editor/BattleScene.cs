@@ -1789,11 +1789,20 @@ public static class BattleScene
             else
             {
                 // ① 敌方水晶：原版 `EnemyMana` 是有的，我们原来一颗都没画
+                // 🔴 2026-10-16（`A2102` R4）：这张图**现在读的是「能量积攒」那一件**
+                //   （`EnergyAccumulation_Foe`）—— 球心那对满/空水晶**已删**（原版球心只有
+                //   `Card Frame Cost Icon`；那两张图只在 −80 px 的 `Energy Accumulation` 上）。
                 Check(drv.FoeEnergyGemTex.StartsWith("40k_battle_energy_"),
-                      $"敌方能量水晶用的是原版两张图（现在 `{drv.FoeEnergyGemTex}`）");
+                      $"敌方能量那两张原版图**只剩积攒那一组**（现在 `{drv.FoeEnergyGemTex}`）—— 球心那对已删（`A2102` R4）");
+                // 🔴 2026-10-16（`A2102` R3）：**球心 = 容器中心 + `ManaHolder.ap`**（原版 我 (1.8,−0.5) /
+                //   敌 (3.284,0.15)，uGUI x 右 / y 上；`B1:109,127` + `工具/_probe_node_rect.py` 现核）。
+                //   ⇒ 期望值 = 上面那两个容器常量 **± ap**，⛔ 不是容器常量本身。
+                //   🧨 **改坏法**：把建件处的 `*EnergyOrbX01/Y01` 换回 `*EnergyX01/Y01` ⇒ 这里差 1.8 px 当场红。
                 var fp = drv.FoeEnergyPos01;
-                Check(Mathf.Abs(fp.x - 0.97060f) < 0.002f && Mathf.Abs(fp.y - 0.73278f) < 0.002f,
-                      $"敌方水晶在 x01 {fp.x:F5} / y01 {fp.y:F5}（原版权威表 0.97060 / 0.73278）");
+                Check(Mathf.Abs(fp.x - (0.97060f + 3.284f / 1920f)) < 1e-5f
+                      && Mathf.Abs(fp.y - (0.73278f + 0.15f / 1080f)) < 1e-5f,
+                      $"★ 敌方**球心**在 x01 {fp.x:F5} / y01 {fp.y:F5} = 容器(0.97060/0.73278) + `ManaHolder.ap`(3.284,0.15) px"
+                    + "（`A2102` R3；原来直接用容器中心 ⇒ 偏 3.28 px）");
                 Check(drv.FoeEnergyText != null && drv.FoeEnergyText.Contains("/"),
                       $"敌方能量数字读得出来（`{drv.FoeEnergyText}`）");
 
@@ -1811,6 +1820,12 @@ public static class BattleScene
                       $"敌方任务点在 x01 {qp.x:F5} / y01 {qp.y:F5}（原版 0.97133 / 0.81569）");
                 Check(mp.y < myE.y && qp.y > fp.y,
                       $"任务点在水晶**外侧**（我 {mp.y:F3} < 水晶 {myE.y:F3}；敌 {qp.y:F3} > {fp.y:F3}）");
+                // 🔴 2026-10-16（`A2102` R3）：我方球心同理（容器 = 权威表 x[1827.8,1903.9] y[517.1,594.1]
+                //   ⇒ x01 0.97180 / y01 0.48556）**+ `ManaHolder.ap`(1.8, −0.5) px**。
+                Check(Mathf.Abs(myE.x - (0.97180f + 1.8f / 1920f)) < 1e-5f
+                      && Mathf.Abs(myE.y - (0.48556f - 0.5f / 1080f)) < 1e-5f,
+                      $"★ 我方**球心**在 x01 {myE.x:F5} / y01 {myE.y:F5} = 容器(0.97180/0.48556) + `ManaHolder.ap`(1.8,−0.5) px"
+                    + "（`A2102` R3；🧨 改回容器常量 ⇒ 当场红）");
 
                 // ④ 🆕 2026-09-29：**能量座上那 6 枚常亮小光点**（原版 `Energy And turn holder/Lights`）。
                 //    判据 = 原版那 6 个 RT 的**绝对屏幕矩形**（13 个战场包逐场核过、完全同构）——
@@ -3601,6 +3616,45 @@ public static class BattleScene
                     Check(mq > 3000,
                           $"★ 落点指示的**渲染队列 {mq} > 卡的 3000**（原版材质的 `m_CustomRenderQueue`）"
                         + " —— 同队列时它会被拖拽中的卡整块盖住（实拍抓过）");
+                    // 🔴🆕 **2026-10-16 新增两条（卡牌飞行族普查 §二 G）** —— 底片的位置**必须**是
+                    //   「**那一格卡心投到 HUD 平面的点**」。原来那条路把 `boardCam.WorldToScreenPoint` 的
+                    //   **实际像素、左下原点**喂给收「**设计像素 1920×1080、左上原点**」的 `LayoutSpace.FromPixel`
+                    //   ⇒ **两个轴都错**（x 只在 1920 宽下重合、**y 是镜像，任何分辨率都错**）。
+                    //   ⚠️ 它在画面上**看不出来**（真亮的那格被 `AttachDropSlotTo` 借到那张卡底下、其余 α=0），
+                    //   所以只能靠这里钉住 —— ⛔ **跳过被借走的那一格**（它的 `localPosition` 是相对那张卡的）。
+                    if (pBoard.use3D && pBoard.boardCam != null)
+                    {
+                        int probeSlot = (freeSlot == 0) ? 1 : 0;
+                        var pr = pBoard.SlotMarkerRenderer(probeSlot);
+                        var want = pBoard.transform.TransformPoint(pBoard.DropTargetWorld(probeSlot));
+                        var got = pr != null ? pr.transform.position : Vector3.positiveInfinity;
+                        Check(pr != null
+                              && Mathf.Abs(got.x - want.x) < 1e-3f && Mathf.Abs(got.y - want.y) < 1e-3f,
+                              $"★ 底片 {probeSlot} 的位置 = **那一格卡心投到 HUD 平面的点**"
+                            + $"（偏 ({got.x - want.x:F4}, {got.y - want.y:F4})）"
+                            + " —— 原来那条换算把「实际像素」当「设计像素」用、y 还反了");
+                        // ★ **灭自证**：两个候选靶**真的分得开** —— 没有这一条，上面那条对
+                        //   「有人把换算改回 `SlotPosition` / `FromPixel`」**无感**（与 `A337` 的 `sep3D` 同型）。
+                        var lineP = pBoard.SlotPosition(probeSlot);
+                        Check(pr != null && Mathf.Abs(got.y - lineP.y) > 0.05f,
+                              $"★ 底片**不在 2D 行线**上（与 `SlotPosition` 的 y 差 {Mathf.Abs(got.y - lineP.y):F3} 世界单位）"
+                            + " —— 3D 下卡画在别处，底片得跟着卡");
+                        // ★🆕 **督军位的投影要用 `HeroScale`**（`2026-10-16 · 普查 §二 H`）：真落位
+                        //   `BattleDriver.PoseFor` 取的是 `u.IsWarlord ? HeroScale : CardScale`
+                        //   （我方 0.40 / 敌 0.77 vs 别的格 0.36 / 0.69）⇒ 原来恒用 `CardScale` 时，
+                        //   督军位那个投影点偏 **~9.6 px（我方）/ 9.1 px（敌方）**、只在 y。
+                        Check(Mathf.Abs(pBoard.ProjectionScale(BoardLayout.WarlordSlot)
+                                        - ArenaSlots.HeroScale(pBoard.mirror)) < 1e-6f,
+                              $"★ 督军位投影走 **`HeroScale` {ArenaSlots.HeroScale(pBoard.mirror):F2}**"
+                            + "（= 真落位 `PoseFor` 那一档）");
+                        Check(Mathf.Abs(pBoard.ProjectionScale(0)
+                                        - ArenaSlots.CardScale(pBoard.mirror)) < 1e-6f,
+                              $"★ 别的格仍走 `CardScale` {ArenaSlots.CardScale(pBoard.mirror):F2}");
+                        // ★ **灭自证**：两档**不相等** —— 没有它，上面第一条对「改回恒 `CardScale`」无感。
+                        Check(Mathf.Abs(ArenaSlots.HeroScale(pBoard.mirror)
+                                        - ArenaSlots.CardScale(pBoard.mirror)) > 0.03f,
+                              "★ 两档 scale 确实不同（我方 0.40/0.36 · 敌方 0.77/0.69）—— 所以「用哪一档」是可分辨的");
+                    }
                     if (mr != null)
                         Debug.Log(P + $"   [落点指示] 父={mr.transform.parent?.name} · 层={mr.gameObject.layer}"
                                     + $" · localPos={mr.transform.localPosition} · localScale={mr.transform.localScale}"
@@ -3634,7 +3688,11 @@ public static class BattleScene
                 //    （`Hand/CardInteraction.cs` 的 `Release` 里那句 = `which.DropTargetWorld(land)`，理由与改坏法见那里）⇒
                 //    本检测器跟着**换成同一个口**（铁律 6：判据只此一处，⛔ 别在这里再算一次投影）。
                 //    ✅ 仍然**只比 x/y**（照抄本文件 `:6880` / `:6955` 已有的正确写法：z 是层次 ——
-                //    补间中段那句 `lift = tr.position + (0, 0.35, −0.2)` 会把 z 拉到 −0.8，末段才收回来）。
+                //    补间终点 `DropTargetWorld` 的 z 是 `LayoutSpace.ScreenToWorld` 强制出来的 0，
+                //    而卡一交接就被摆到 `ArenaSlots.RootPosition`（z = −6.655）⇒ 交接前后 z 差 6.655）。
+                //    ⚠️ 2026-10-16 就地订正：这里原来举的例子是「补间中段那句
+                //    `lift = tr.position + (0, 0.35, −0.2)` 会把 z 拉到 −0.8」——
+                //    那句**中段抬升已经删掉**了（现在是原版那三段：飞到槽位正上方 → 悬停 0.05 → 垂直落下 0.2）。
                 //    ⚠️ `land == freeSlot` 由本用例的前提保证（这一步棋盘上还没有单位 ⇒
                 //    `LandingSlot` 不推人）；真跑出岔子时下面那条新断言会**当场红**（不静默）。
                 var arrivePos = pBoard.DropTargetWorld(freeSlot);
@@ -3653,6 +3711,32 @@ public static class BattleScene
                     Check(sep3D == 0f,
                           $"★ 非 3D 档 `DropTargetWorld` **逐位等于** `SlotPosition`（差 {sep3D:F6}）——"
                         + " 2D 那条路一个像素都不许动（`BoardLayout.cs:416` 的兜底就是 `return SlotPosition(slot)`）");
+                // 🆕 2026-10-16：**第二段的终点**（= 「这一格的卡抬高 `minionConversionHeight` 之后
+                //    画在哪」，`BoardLayout.DropTargetWorldAtHeight`）也在这里配两条 —— 它是本件新加的口，
+                //    而补间要的正是「**竖直**落下」这条性质。
+                //    ⚠️ **只断结构、不断绝对量**：投影的 y 差**随宽高比走**（批处理是 4:3 建场），
+                //    而「x 相同」与「y 更大」两条与宽高比无关。
+                {
+                    float hUp = pBoard.MinionConversionHeight;      // 我方 = 1.0（`MonoBehaviour_4372.json`）
+                    var abovePos = pBoard.DropTargetWorldAtHeight(freeSlot, hUp);
+                    float sepUp = new Vector2(abovePos.x - arrivePos.x, abovePos.y - arrivePos.y).magnitude;
+                    if (pBoard.use3D && pBoard.boardCam != null)
+                    {
+                        Check(Mathf.Abs(abovePos.x - arrivePos.x) < 1e-4f,
+                              $"★ 「槽位正上方」与落点**x 逐位相同**（差 {Mathf.Abs(abovePos.x - arrivePos.x):E2}）"
+                            + " ⇒ 第二段在屏幕上是一条**竖线**（原版是 `DOLocalMove` 到 `槽位 + up × minionConversionHeight`）");
+                        Check(abovePos.y - arrivePos.y > 0.01f,
+                              $"★ 「槽位正上方」确实**比落点高**（高 {abovePos.y - arrivePos.y:F3} 世界单位，"
+                            + $"按 `minionConversionHeight` {hUp:F1} 竞技场单位投出来；差 {sepUp:F3}）"
+                            + " —— 高度传 0 或漏乘时这条当场红");
+                    }
+                    else
+                    {
+                        Check(sepUp == 0f,
+                              $"★ 非 3D 档 `DropTargetWorldAtHeight` **逐位等于** `DropTargetWorld`（差 {sepUp:F6}）"
+                            + " —— 2D 平面里没有「战场高度」这个概念 ⇒ 第二段退化成一记直飞");
+                    }
+                }
                 // 🔴 **采样步长从 1/30 收到 1/60**（`landSteps` 的换算跟着改成 /60f，`landSec` 语义**不变**）：
                 //    落位补间末段是 `OutCubic`（`DeploySequence.cs:62`）—— 它**在到达前一帧就已经收敛到
                 //    0.02 以内**，而 30Hz 采样下「收敛的那一刻」**贴着补间完成的那一帧**，晚一步就会看见
@@ -3703,17 +3787,22 @@ public static class BattleScene
                         + "实测 0.47~0.74）—— 🧨 改坏法：终点与检测器**一起**改回 `SlotPosition` ⇒ 这里当场红");
                 }
                 Debug.Log(P + $"   落位：卡到格位用了 {atSlotStep / 60f:F2}s，引擎那一格填上用了 {landSec:F2}s"
-                            + $"（60Hz 采样 · 原版 `minionToConversionPointTime` = {DeploySequence.MoveTime:F2}s，"
+                            + $"（60Hz 采样 · 原版三段共 {DeploySequence.TotalTime:F2}s = 飞 {DeploySequence.MoveTime:F2}"
+                            + $" + 悬停 {DeploySequence.HoldTime:F2} + 落下 {DeploySequence.LandTime:F2}，"
                             + "差值 = DOTween 起步那一帧 + Step 粒度）");
 
                 Check(ctx.Players[0].Board[freeSlot] != null,
                       $"拖到槽 {freeSlot} 后引擎里那一格有单位了（{ctx.Players[0].Board[freeSlot]?.Name}）");
-                // 落位时长要**跟着原版字段走**：`MinionManager.minionToConversionPointTime = 0.3`
-                // ⚠️ 2026-09-13 之前这里是 **0.92s** —— 那是把 `Card Hand To Board`（「2D 卡→3D 身体」的
+                // 🆕 2026-10-16：**引擎那一格现在是「落地之后」才填上的**（原版如此：
+                //    `_ResolvePlayCardFromHand` 要先 yield 完整条 `_MinionPlayedIntoField` 才
+                //    `ResolveCardPlayed`）⇒ 余量要按**三段之和**给，别再按 `minionToConversionPointTime`。
+                // ⚠️ 2026-09-13 之前这里曾是 **0.92s** —— 那是把 `Card Hand To Board`（「2D 卡→3D 身体」的
                 //    交接动画）的长度当成了「手牌飞到场位」的时长，认错了来源。
-                Check(landSec <= DeploySequence.MoveTime + 0.25f,
-                      $"落位 {landSec:F2}s 完成（原版 `minionToConversionPointTime` = {DeploySequence.MoveTime:F2}s；"
-                      + $"卡实际在第 {atSlotStep} 帧（60Hz）到位，余量是 DOTween 起步帧 + Step 粒度）");
+                Check(landSec <= DeploySequence.TotalTime + 0.25f,
+                      $"落位 {landSec:F2}s 完成（原版三段共 {DeploySequence.TotalTime:F2}s"
+                      + $" = 飞 {DeploySequence.MoveTime:F2} + 悬停 {DeploySequence.HoldTime:F2}"
+                      + $" + 落下 {DeploySequence.LandTime:F2}；卡实际在第 {atSlotStep} 帧（60Hz）到位，"
+                      + "余量是 DOTween 起步帧 + Step 粒度）");
                 Check(ctx.Players[0].Board[freeSlot] != null && ctx.Players[0].Board[freeSlot].Name == cardName,
                       $"上去的正是拖的那张「{cardName}」");
                 Check(ctx.Players[0].Hand.Count == handBefore - 1,
@@ -4160,6 +4249,19 @@ public static class BattleScene
                 + "（原版 TMP 原文 = `Waiting for enemy`）");
             Check(Loc.HasEntry(WaitBanner.WaitTerm),
                   $"★（坑表 #18）`Loc` 表里**真有**这个键：`{WaitBanner.WaitTerm}` —— 原版有 ≠ 我们表里有");
+            // 🆕 2026-10-16（`A2102⑤` / `B5` 表一 R6）：**这颗文字自己有框与字号**，我们原来一个都没接
+            //   （落 `Label` 默认档 —— 同族里唯一没接框的一件）。判据 = 框 **1270×70** 画布 px +
+            //   那颗 TMP 的字段（`m_enableAutoSizing=1` · `fs 55.3` · `min 18` · `max 55.3` · **`base 36`**），
+            //   主对话现读 → `bundle_scenes_scenes_battlearena2/MonoBehaviour/MonoBehaviour_4090.json`。
+            //   🔴 **断「渲染尺寸 ≤ 框」、不断「字号 = 55.3」** —— 字号对而溢出时自检照样全绿（`AutoFitBox` 教训）。
+            {
+                float bw = LayoutSpace.Px(WaitBanner.WaitTextBoxW), bh = LayoutSpace.Px(WaitBanner.WaitTextBoxH);
+                Check(wait.TextWorldW > 0f && wait.TextWorldW <= bw + 1e-4f
+                      && wait.TextWorldH > 0f && wait.TextWorldH <= bh + 1e-4f,
+                      $"★ 等待提示的**渲染尺寸 {wait.TextWorldW:F4} × {wait.TextWorldH:F4} ≤ 框 {bw:F4} × {bh:F4}**"
+                    + "（原版框 1270×70 画布 px）｜🧨 改坏法：删掉 `WaitBanner.Build` 里那句 `SetAutoFitBox` "
+                    + "⇒ 落 `Label` 默认档、不再受这个框约束（原版这颗是**有框有字号**的）");
+            }
 
             // ---- 🆕 2026-10-18（第十三轮 · G2b）：回合行 + `END TURN` 钮**走原版词条** ----
             // 这一节办的是**「两处写同一条规则 = 迟早不一致」**那条工程红线：`END TURN` / `YOUR TURN` /
@@ -5469,11 +5571,24 @@ public static class BattleScene
             {
                 var sel = driver.selector;
                 var selUnit = driver.BoardViewAt(retAtk);
+                // 🔴 **2026-10-16 这条断言原来是【同义反复】（账 → `资料/普查产出_1016战斗/W_卡牌飞行族普查.md` §二 F）**：
+                //   它比的是 `sel.AnchorWorld` 与 `selUnit.transform.position` —— 而**实现当时喂的正是**
+                //   `selUnit.transform.position` ⇒ **两边同一个量、差值恒 0**，一直是绿的、其实什么都没测
+                //   （与 `A304`/`A337` 那一族「断言靶对齐到错的那一半」同型）。
+                //   真判据 = 原版那句 `set_position(Get2DWorldPosFromBoardPos(单位))` —— 选择器是 **HUD 层的件**
+                //   （Default 层 ⇒ HUD 正交相机画），该喂的是**卡心的投影**，不是竞技场坐标。
+                var selWant = driver.playerBoard.DropTargetWorld(retAtk);
                 Check(sel != null && selUnit != null
-                      && Vector3.Distance(sel.AnchorWorld, selUnit.transform.position) < 0.01f,
-                      "★ 整条挂在**被拖的那个单位身上**（原版展开时 `set_position(Get2DWorldPosFromBoardPos(单位))`；"
-                    + $"实测偏差 {(sel != null && selUnit != null ? Vector3.Distance(sel.AnchorWorld, selUnit.transform.position) : -1f):F4}）"
-                    + " —— 原来固定在屏幕中心");
+                      && Vector3.Distance(sel.AnchorWorld, selWant) < 0.01f,
+                      "★ 整条挂在**那格卡心的投影点**上（原版 `set_position(Get2DWorldPosFromBoardPos(单位))`；"
+                    + $"实测偏差 {(sel != null ? Vector3.Distance(sel.AnchorWorld, selWant) : -1f):F4}）"
+                    + " —— 原来喂的是**竞技场坐标**（`transform.position`），而这条由 HUD 相机画 ⇒ 3D 下整条偏出去");
+                // ★ **灭自证**：钉住「竞技场坐标」与「投影点」在 3D 下**真的分得开** —— 没有这一条，
+                //   上面那条对「有人把实现改回 `transform.position`」无感（与 `A337` 的 `sep3D`、`A359` 同型）。
+                Check(Vector3.Distance(selWant, selUnit.transform.position) > 0.5f,
+                      $"★ 两个候选靶在 3D 下确实可分（`DropTargetWorld` 与卡自己的 `transform.position` 差 "
+                    + $"{Vector3.Distance(selWant, selUnit.transform.position):F3} 世界单位）"
+                    + " —— 没有这一条，上面那条就分不出「喂了哪一个」");
                 var bg = sel.BgSizePx;
                 Check(Mathf.Abs(bg.x - 514.8f) < 0.5f && Mathf.Abs(bg.y - 125.4f) < 0.5f,
                       $"★ 底板 = 原版那条尺寸 **514.8 × 125.4**（实测 {bg.x:F1} × {bg.y:F1}；原来是个 125.4² 的方块）");
@@ -6020,8 +6135,30 @@ public static class BattleScene
 
             ctx.Players[1].Board[deadSlot] = null;
             ctx.Signals.Add(new BattleEvent { Kind = EvtKind.Death, Player = 1, Slot = deadSlot });
+            // 🆕 2026-10-16：下面这两条「几件爆散体还在跑」的读数要**按差值**判 —— 直接判「有没有」
+            //   会把前面几节留下来的同类实体算进来（那会让「死的那一帧不该有」这条**假绿**）。
+            System.Func<int> deathFxCount = () =>
+            {
+                int n = 0;
+                foreach (var ep in WarpforgeVFX.WarpforgeEffectPlayer.ActivePlayers)
+                    if (ep != null && ep.EffectName == CardFeel.DeathBodyFx) n++;
+                return n;
+            };
+            int deathFx0 = deathFxCount();
             driver.RefreshAll();
             Check(driver.DyingCount == 1, "★ 阵亡那个视图进「正在消散」那一档（没被当场销毁）");
+            // ★ **灭自证**（2026-10-16）：死的那一帧**不该**已经有爆散体 —— 原版是「先抖、先站
+            //   `deathTimeWarlordDuration` 0.5 s，**再**关 3D 体 + `Instantiate` 爆散体」
+            //   （`CardScript._UnitDeath_d__446__MoveNext.c:233` 那处 `Instantiate` 属于 **state 1**）。
+            //   🧨 改坏法：把生成挪回 t=0（本轮之前就是那样）⇒ 这一条当场红。
+            if (bodyInLib)
+                Check(deathFxCount() == deathFx0,
+                      "★ 死的那一帧**还没有**爆散体（原版这一拍只是抖）"
+                    + $"（此刻 {deathFxCount()} 件 / 死之前 {deathFx0} 件）");
+            // 推过第①拍（`WaitForSeconds(gVars + 0x34)`）
+            Step(CardFeel.DeathHoldBeforeFx + 0.02f);
+            Check(driver.DyingCount == 1,
+                  $"★ 抖完 + 站 {CardFeel.DeathHoldBeforeFx:F1}s 之后它**还在**（原版这一拍才轮到爆散体与进墓地）");
             if (dv != null && bodyInLib)
                 Check(!dv.Body3DVisible,
                       "★ **场上卡的 3D 体被关掉**（原版 `body3D.SetActive(false)`）—— 阵亡不是把这张卡溶掉，"
@@ -6097,8 +6234,12 @@ public static class BattleScene
                     UnityEngine.Object.DestroyImmediate(ainst);
                 }
             }
-            Step(0.8f);
-            Check(driver.DyingCount == 0, "…演完（小兵 0.2 s / 督军 0.5 s）视图销毁");
+            // 🆕 2026-10-16：推的量改成**按总时长算**（原来写死 0.8 s，那是「只抖一下」那个时代的数）——
+            //   总时长 = 抖（`DeathDissolve`）+ `DeathHoldBeforeFx` 0.5 + `DeathFxHold` 0.2 = **0.9 s（小兵）**。
+            Step(CardFeel.DeathTotal(false) + 0.2f);
+            Check(driver.DyingCount == 0,
+                  $"…演完（抖 {CardFeel.DeathDissolve(false):F1}s + 站 {CardFeel.DeathHoldBeforeFx:F1}s"
+                + $" + {CardFeel.DeathFxHold:F1}s = {CardFeel.DeathTotal(false):F1}s）视图销毁");
 
             // 🆕 2026-10-01：**连续棋盘上的阵亡** —— 补位上来的那张**绝不能**被当成「这一格空了」销毁。
             //   棋盘改成连续无洞之后（`RuleEngine/Core/BoardSlots.cs`），打死**贴督军那格**会让
@@ -6131,11 +6272,12 @@ public static class BattleScene
                 Check(driver.DyingCount == 1 || driver.FadingCount == 1,
                       "★ 被打死那张**进「等演出 / 正在消散」那一档** —— "
                     + $"它的格号被补位的人顶掉了，照样找得到它（消散 {driver.DyingCount} / 待演 {driver.FadingCount}）");
-                Step(0.05f);      // ⚠️ 别推太久：小兵消散只要 0.2 s，推过头就看不到它在消散档里了
+                Step(0.05f);      // ⚠️ 别推太久：阵亡那一串要 0.9 s（小兵），推过头就看不到它在消散档里了
                 Check(driver.DyingCount == 1, "★ （阵亡事件轮到播）它在「正在消散」那一档里");
                 Check(driver.FoeUnits.ContainsKey(5) && driver.FoeUnits[5] == stayView,
                       "…补位那张**仍然活着**（没被当成它溶掉）");
-                Step(0.8f);
+                // 🆕 2026-10-16：0.8 s → 按总时长推（`DeathTotal` = 抖 + 站 0.5 + 0.2 = 0.9 s 小兵）
+                Step(CardFeel.DeathTotal(false) + 0.1f);
                 Check(driver.DyingCount == 0, "…演完销毁（补位那一张不受影响）");
             }
 
@@ -7546,6 +7688,13 @@ public static class BattleScene
                     Step(0.05f);
                     it.SimulateRelease(view.transform.position);      // 原地松开 = 轻点
                     Step(0.1f);
+                    // 🔴 **开窗那一拍是补间**（原版 legacy clip `Card Display Open`，`CardFan.OpenTime` = 0.3167s）
+                    //    —— 批处理里没有帧循环（`CardTween.Mode = Manual`）⇒ 这里**必须手动推到头**，
+                    //    否则下面断的全是**起点**（5 个槽还叠在屏心、scale 210），
+                    //    连 `Shot(cam, "11_卡牌展示窗")` 也会拍到一叠没展开的卡。
+                    //    ⚠️ 用 `CardTween.Advance`（**只泵补间、不推对局时钟**）而不是 `Step` ——
+                    //       这一段不需要动 `BattleDriver.AdvanceTimeline`；关窗那一次推它也是空转。
+                    CardTween.Advance(CardFan.OpenTime + 0.05f);
                 }
 
                 Tap();
@@ -7588,6 +7737,59 @@ public static class BattleScene
                                  + " —— 前后靠队列、不靠 z（`CardView` 每层写死 3000，多格叠加会错乱）");
                 }
                 Shot(cam, "11_卡牌展示窗");
+
+                // ---- 🆕 W5：**开窗那一拍**（原版窗根那颗 `Animation` + legacy clip `Card Display Open`）----
+                // 判据 = clip 原文**逐值**读出（全部落在 `Core/CardFan.cs` 的「开窗那一拍」那一块）：
+                //   · 时长 **0.3166667 s**（20 个关键帧 = 19 帧 @60fps，最后那个 key 的 `time`）
+                //   · 起点（t=0）**5 个槽一律相同**：`m_AnchoredPosition (0,60)` · euler z **0°** · `m_LocalScale` **210**
+                //   · 缓动 = **平滑步 `t²(3−2t)`**（位移/缩放那 15 条是「2 键 + 两端切线 0」；旋转 5 条逐键偏差 ≤1e-6°）
+                //   · 终点（t=0.3167）= `CardFan._x/_y/_rot/_scl`（上面那一段已经逐条断过一遍）
+                // 🔴 **这一段的「灭自证」**：把实现改回「开窗**直接摆终态**」⇒ 第 1 组（起点）与「半程」那两条**必红**。
+                //    只断终态是断不出动画的 —— 「摆终态」同样满足终态那几条。
+                {
+                    var dOpen = cdw.Card.Data;
+                    var defOpen = cdw.FrontDef;
+                    cdw.Show(dOpen, defOpen);        // 重建 ⇒ 重新播一次开窗动画（**还没推进任何补间**）
+                    Check(cdw.IsOpening,
+                          "★ 开窗那一拍**在播**（原版 `Animation.m_PlayAutomatically = true` / 0.3167s 那条 clip）");
+                    for (int i = 0; i < cdw.SlotCount && i < CardFan.Slots; i++)
+                    {
+                        var sv = cdw.SlotView(i);
+                        if (sv == null) continue;
+                        var cp = LayoutSpace.ToPixel(sv.transform.position);
+                        float hp = CardView.Height * sv.transform.localScale.y * 108f;
+                        Check(Mathf.Abs(cp.x - CardFan.OpenStartCx) < 2.5f
+                              && Mathf.Abs(cp.y - CardFan.OpenStartCy) < 2.5f,
+                              $"★ 开窗起点 槽 {i} 卡心 = ({cp.x:F1},{cp.y:F1})（原版 clip t=0 `m_AnchoredPosition (0,60)`"
+                            + " ⇒ 屏心 (960,480)：**5 个槽全叠在中间、还没展开**）");
+                        Check(Mathf.Abs(hp - CardFan.OpenStartHpx) < 1f,
+                              $"★ 开窗起点 槽 {i} 卡体高 = {hp:F1} px"
+                            + "（原版 clip t=0 `m_LocalScale = 210` ⇒ 3.3313×210 = 699.573）");
+                        Check(Mathf.Abs(Mathf.DeltaAngle(0f, sv.transform.eulerAngles.z)) < 0.05f,
+                              $"★ 开窗起点 槽 {i} 转角 = {sv.transform.eulerAngles.z:F3}°"
+                            + "（原版 clip t=0 是单位四元数 ⇒ 0°）");
+                    }
+                    // 半程：**平滑步(0.5) = 0.5** ⇒ 位姿必须是「起点与终点的**中点**」
+                    // （「摆终态」的实现这一刻已经是终态 ⇒ 这两条当场红）
+                    CardTween.Advance(CardFan.OpenTime * 0.5f);
+                    float midH = CardView.Height * cdw.SlotView(0).transform.localScale.y * 108f;
+                    Check(Mathf.Abs(midH - (CardFan.OpenStartHpx + CardFan.FrontHpx) * 0.5f) < 1.5f,
+                          $"★ 开窗**半程** 槽 0 卡体高 = {midH:F1} px = (699.573 + 832.825)/2 —— "
+                        + "原版那条曲线在 t=0.5 时正好走一半（平滑步 0.5）；**这一条就是灭自证**");
+                    if (cdw.SlotCount >= 2)
+                    {
+                        float midRot = cdw.SlotView(1).transform.eulerAngles.z;
+                        Check(Mathf.Abs(midRot - CardFan.Rot(1) * 0.5f) < 0.02f,
+                              $"★ 开窗**半程** 槽 1 转角 = {midRot:F3}° = 2.510/2（同一进度；转角也是补出来的，不是摆上去的）");
+                    }
+                    Check(cdw.IsOpening, "…半程时还没播完（闸③ 仍关着）");
+                    CardTween.Advance(CardFan.OpenTime * 0.5f + 0.05f);
+                    Check(!cdw.IsOpening,
+                          "★ 0.3167s 之后开窗动画收尾（原版那条 clip 播完、`m_WrapMode = Clamp` 停在终态帧）");
+                    float endH = CardView.Height * cdw.SlotView(0).transform.localScale.y * 108f;
+                    Check(Mathf.Abs(endH - CardFan.FrontHpx) < 1f,
+                          $"★ 终点 = 扇形终态：槽 0 卡体高 {endH:F1} px（原版 832.825 = 槽 scale 250）");
+                }
 
                 // ---- 🆕 A156：点击区（原版 `CardUI/2DCard/UI Collider`）的**双轴比例 + 偏置** ----
                 // 🔴 判据 = 解包原件字段（2026-10-07 现读 · 第一权威）：
@@ -7746,6 +7948,7 @@ public static class BattleScene
                     if (moa != null)
                     {
                         cdw.Show(BattleDriver.ToCardData(moa, moa.Faction), moa);
+                        CardTween.Advance(CardFan.OpenTime + 0.05f);   // 开窗那一拍推到头（下面断的是终态）
                         Check(cdw.SlotCount >= 2, $"`Master of Arcana` ⇒ 那一叠 **{cdw.SlotCount} 格**（主卡 + 相关卡）");
                         var s1 = cdw.SlotView(1);
                         var c1 = LayoutSpace.ToPixel(s1.transform.position);
@@ -7774,6 +7977,7 @@ public static class BattleScene
                         // ⚠️ `Show` 会**重建**卡格 ⇒ 上面抓的 `s1` 变成**已销毁对象**
                         //    （实测：这里踩过一次 `MissingReferenceException`）⇒ 重开后**必须重新取一次**。
                         cdw.Show(BattleDriver.ToCardData(moa, moa.Faction), moa);
+                        CardTween.Advance(CardFan.OpenTime + 0.05f);   // 同上：开窗那一拍推到头
                         s1 = cdw.SlotView(1);
                         Shot(cam, "11e_展示窗_相关卡");
                         // 换位（原版 `ChangeCardPosition` + `CardSwapFinished`）
@@ -12084,9 +12288,14 @@ public static class BattleScene
                 if (probe == null) Debug.Log(P + "   （建不出探针卡，跳过序列长度检查）");
                 else
                 {
-                    float dDeploy = Dur(DeploySequence.Play(probe, Vector3.zero, 1f));
-                    Check(Mathf.Abs(dDeploy - DeploySequence.MoveTime) < 1e-3f,
-                          $"落位序列真实长度 {dDeploy:F3}s == 原版 `minionToConversionPointTime` {DeploySequence.MoveTime:F2}s");
+                    // 🆕 2026-10-16：现在是**三段**（飞 + 悬停 + 落下）⇒ 这条断的是**三段之和**；
+                    //    两个落点都给 `Vector3.zero`（三段照样都在：`AppendInterval` 与第二记 `DOMove` 不因距离为 0 而消失）。
+                    float dDeploy = Dur(DeploySequence.Play(probe, Vector3.zero, Vector3.zero, 1f));
+                    Check(Mathf.Abs(dDeploy - DeploySequence.TotalTime) < 1e-3f,
+                          $"落位序列真实长度 {dDeploy:F3}s == 三段之和 {DeploySequence.TotalTime:F2}s"
+                        + $"（`minionToConversionPointTime` {DeploySequence.MoveTime:F2}"
+                        + $" + `timeBeforeLand` {DeploySequence.HoldTime:F2}"
+                        + $" + `timeToLand` {DeploySequence.LandTime:F2}）");
                     // 🔴 2026-09-18 改口径：阵亡消散**照原版分档**（小兵 0.2 / 督军 0.5），
                     //    不再是「从出战 clip 对称借来的 0.5333」（那条老断言把错口径钉死了 —— 见下）
                     float dDissolve = Dur(CardFeel.Dissolve(probe));
@@ -12098,6 +12307,96 @@ public static class BattleScene
                     float dDeal = Dur(CardFeel.DealIn(probe, Vector3.zero));
                     Check(Mathf.Abs(dDeal - CardFeel.DealDuration) < 1e-3f,
                           $"发牌序列 {dDeal:F3}s == {CardFeel.DealDuration:F2}s");
+                    // 🆕 2026-10-16 (A)：**抽牌的翻面**（原版 `CardScript.TurnCardAround`）——
+                    //   常量两半先钉死（`.rdata 0x1834b2e04` = 90°、`0x1834b2e7c` = 0.25），
+                    //   再拿**真转角**验一次（⛔ 别只断常量：把 `TurnCardAround` 从 `DealInPose` 里摘掉
+                    //   常量照样是那两行）。用 `Tween.Goto` **只定位这一条**，不惊动全局补间。
+                    Check(Mathf.Abs(CardFeel.TurnCardAroundDeg - 90f) < 1e-4f
+                          && Mathf.Abs(CardFeel.TurnCardAroundFrac - 0.25f) < 1e-4f,
+                          "★ 抽牌翻面：单段 `TurnCardAroundDeg` = 90°、`TurnCardAroundFrac` = 0.25"
+                        + "（原版 `.rdata 0x1834b2e04` / `0x1834b2e7c` 实读；**两段合起来才是 180°**）");
+                    var flip = CardView.Create(driver.transform, probeData, "ProbeFlip");
+                    if (flip != null)
+                    {
+                        flip.SetPose(Vector3.zero, 0f, 1f);
+                        var q0 = flip.transform.rotation;
+                        var qtw = CardFeel.TurnCardAround(flip.transform, 0f, CardFeel.DealDuration);
+                        float flipHalf = CardFeel.DealDuration * CardFeel.TurnCardAroundFrac;
+                        DG.Tweening.TweenExtensions.Goto(qtw, flipHalf, true);
+                        float flipped = Quaternion.Angle(q0, flip.transform.rotation);
+                        Check(flipped > 60f,
+                              $"★ 抽牌翻面第一段末（{flipHalf:F3}s）卡已**转到侧立**（离起始 {flipped:F1}°，每段 90°）"
+                            + "｜🧨 改坏法：`DealInPose` 不做翻转（本轮之前那样）⇒ 这里恒 ≈0°");
+                        DG.Tweening.TweenExtensions.Goto(qtw, flipHalf * 2f, true);
+                        float back = Quaternion.Angle(q0, flip.transform.rotation);
+                        Check(back < 2f,
+                              $"★ ……第二段又把它转回落点角（离起始 {back:F2}°）—— 两段是【一去一回】，"
+                            + "不是一路转到 180°");
+                        DG.Tweening.TweenExtensions.Kill(qtw, false);
+                        // 🆕 2026-10-16 (A′)：**翻面的前半段看的是【卡背】**（原版转 Y 的前 90° 看的是背面）。
+                        //   我们是 2D ⇒ 等价物 = 前半段盖一张卡背、在**侧立那一刻**换回卡面
+                        //   （那一刻卡宽收到 0，换面看不见）。判据 → `CardView.SetBackVisible` 段头。
+                        var backTex = CardArt.CardBack(BattleDriver.DefaultFactionA);
+                        Check(backTex != null, "（前提）卡背贴图取得到（`CardArt.CardBack`）");
+                        // ★ **灭自证**：卡背层的 z 必须**比所有卡面层更靠近相机**，否则它会被卡面盖住，
+                        //   而 `BackVisible` **照样是 true**（这正是「画了看不见」那一族）。
+                        Check(CardView.CardBackZ < CardView.BoardInfoZ,
+                              $"★ 卡背层 z {CardView.CardBackZ:F2} 比**最前的那张卡面层**（`BoardInfoZ` = {CardView.BoardInfoZ:F2}）更靠近相机"
+                            + "｜🧨 改坏法：z 取 0 或正数 ⇒ 卡背被卡面盖住（静默）");
+                        flip.SetBackVisible(true, backTex);
+                        Check(flip.BackVisible && flip.BackQueue == CardView.QCard,
+                              $"★ 卡背层建得起来、队列 = 卡的 {CardView.QCard}（实测 {flip.BackQueue}）");
+                        var backGo = flip.transform.Find("cardBack");
+                        Check(backGo != null
+                              && Mathf.Abs(backGo.localScale.x - 1f) < 1e-3f
+                              && Mathf.Abs(backGo.localPosition.z - CardView.CardBackZ) < 1e-4f,
+                              "★ …它挂在**卡根**下、z = `CardBackZ`（不跟卡面的倾摆走）");
+                        if (backGo != null)
+                        {
+                            var bmf = backGo.GetComponent<MeshFilter>();
+                            Check(bmf != null && bmf.sharedMesh != null
+                                  && Mathf.Abs(bmf.sharedMesh.bounds.size.x - CardView.Width) < 0.02f
+                                  && Mathf.Abs(bmf.sharedMesh.bounds.size.y - CardView.Height) < 0.02f,
+                                  $"★ 尺寸取**卡身** {CardView.Width:F3} × {CardView.Height:F3}"
+                                + $"（实测 {bmf?.sharedMesh?.bounds.size.x:F3} × {bmf?.sharedMesh?.bounds.size.y:F3}）"
+                                + " —— ⛔ 不是牌堆那个 `Cardback` 节点的框（它宽 3.88%、矮 5.85%）");
+                        }
+                        flip.SetBackVisible(false, null);
+                        Check(!flip.BackVisible, "★ 平时收得掉（这个层**只该在抽牌前半段亮**）");
+                        // **走一遍真序列**：前半段亮、侧立之后灭。
+                        var dq = CardFeel.DealInPose(flip, Vector3.zero, Vector3.zero, 0f, 1f, back: backTex);
+                        if (dq != null)
+                        {
+                            float sideT = CardFeel.DealDuration * CardFeel.TurnCardAroundFrac;
+                            DG.Tweening.TweenExtensions.Goto(dq, sideT * 0.5f, true);
+                            Check(flip.BackVisible, $"★ 翻面前半段（{sideT * 0.5f:F3}s）卡背**亮着**");
+                            DG.Tweening.TweenExtensions.Goto(dq, sideT + 0.01f, true);
+                            Check(!flip.BackVisible,
+                                  $"★ 侧立之后（{sideT + 0.01f:F3}s）卡背**收掉了**（那一刻卡宽为 0 ⇒ 换面看不见）"
+                                + "｜🧨 改坏法：删掉 `DealInPose` 里那两个 `InsertCallback` ⇒ 卡背一直盖着卡面");
+                            DG.Tweening.TweenExtensions.Kill(dq, false);
+                        }
+                        flip.SetBackVisible(false, null);
+                        if (Application.isPlaying) Object.Destroy(flip.gameObject);
+                        else Object.DestroyImmediate(flip.gameObject);
+                    }
+                    // 🆕 2026-10-16 (B)：**阵亡整条链的总时长**（抖 + 站 0.5 + 0.2，小兵 0.9 / 督军 1.2）——
+                    //   只读时长、**不推进** ⇒ 那两记回调（生成爆散体 / 进墓地）不会跑，探针卡干干净净。
+                    //   ⚠️ 效果库里没有那件爆散体时走的是 `Dissolve` 退回路（另一条时间轴）⇒ 那一档不判。
+                    bool deathFxLib = WarpforgeVFX.WarpforgeEffectLibrary.Available
+                                   && WarpforgeVFX.WarpforgeEffectLibrary.Instance.TryGet(CardFeel.DeathBodyFx, out _);
+                    if (deathFxLib)
+                    {
+                        float dDeath = Dur(CardFeel.DeathExplosion(probe));
+                        Check(Mathf.Abs(dDeath - CardFeel.DeathTotal(false)) < 1e-3f,
+                              $"阵亡序列（小兵）{dDeath:F3}s == `DeathTotal` {CardFeel.DeathTotal(false):F2}s"
+                            + $"（抖 {CardFeel.DeathDissolve(false):F1} + 站 {CardFeel.DeathHoldBeforeFx:F1} + "
+                            + $"{CardFeel.DeathFxHold:F1}）");
+                        float dDeathW = Dur(CardFeel.DeathExplosion(probe, 0f, null, true));
+                        Check(Mathf.Abs(dDeathW - CardFeel.DeathTotal(true)) < 1e-3f,
+                              $"阵亡序列（督军）{dDeathW:F3}s == `DeathTotal(true)` {CardFeel.DeathTotal(true):F2}s"
+                            + "（**分档**只在「抖」那一段）");
+                    }
                     float dLunge = Dur(CardFeel.Lunge(probe.transform, Vector3.right));
                     Check(Mathf.Abs(dLunge - CardFeel.AttackPunchDuration) < 1e-3f,
                           $"前冲序列 {dLunge:F3}s == {CardFeel.AttackPunchDuration:F2}s（`Recoil Normal Tween`）");
@@ -12202,6 +12501,19 @@ public static class BattleScene
                   && Mathf.Abs(CardFeel.DeathDissolve(true) - 0.5f) < 1e-4f,
                   "★ 阵亡消散**分档**：小兵 0.2s（`deathTimeMinionDuration`）/ 督军 0.5s（`deathTimeWarlordDuration`）"
                   + " —— 改之前两边都是 0.5333（从出战 clip 对称借来的，不是原版值）");
+            // 🆕 2026-10-16 (B)：阵亡链上**再补三拍**之后的那四个数（判据 → `CardFeel.DeathHoldBeforeFx` 那一族）
+            Check(Mathf.Abs(CardFeel.DeathHoldBeforeFx - 0.5f) < 1e-4f
+                  && Mathf.Abs(CardFeel.DeathFxHold - 0.2f) < 1e-4f
+                  && Mathf.Abs(CardFeel.DeathTotal(false) - 0.9f) < 1e-4f
+                  && Mathf.Abs(CardFeel.DeathTotal(true) - 1.2f) < 1e-4f,
+                  "★ 阵亡链总时长：抖 + `DeathHoldBeforeFx` 0.5（`WaitForSeconds(gVars+0x34)`）"
+                  + " + `DeathFxHold` 0.2（`minionDeathTime`，`gVars+0x8c`）= **小兵 0.9s / 督军 1.2s**");
+            Check(Mathf.Abs(CardFeel.CemeteryCardX - (-8.14f)) < 1e-4f
+                  && Mathf.Abs(CardFeel.CemeteryCardY - (-0.2f)) < 1e-4f
+                  && Mathf.Abs(CardFeel.CemeteryCardScale - 0.65f) < 1e-4f
+                  && Mathf.Abs(CardFeel.CemeteryGrowTime - 0.3f) < 1e-4f,
+                  "★ 墓地卡位三个数：`cardInCemeteryPos` (−8.14, −0.2) · `cardInCemeteryScale` 0.65 · "
+                  + "`growInCemeteryTime` 0.3（`CardScript__SetAsCemetery.c`）");
             Check(Mathf.Abs(CardFeel.PopHoldUntil - 1.6667f) < 1e-3f && Mathf.Abs(CardFeel.PopOut - 1.8333f) < 1e-3f
                   && Mathf.Abs(CardFeel.PopIn - 0.1167f) < 1e-3f,
                   "飘字 0.117s 进 / 停到 1.667s / 1.833s 消失（`InBattleDamageCounter Variation 1`）");
@@ -12442,17 +12754,31 @@ public static class BattleScene
                     bool deathBodyInLib = WarpforgeVFX.WarpforgeEffectLibrary.Available
                         && WarpforgeVFX.WarpforgeEffectLibrary.Instance.TryGet(CardFeel.DeathBodyFx, out _);
                     if (deathBodyInLib)
+                    {
+                        // 🆕 2026-10-16：**这一刻（+0.02s）还没轮到爆散体** —— 原版那一处 `Instantiate`
+                        //   属于 state 1（= `WaitForSeconds(deathTimeWarlordDuration 0.5)` 之后）⇒ 先推过第①拍。
+                        Step(CardFeel.DeathHoldBeforeFx + 0.02f);
                         Check(dying != null && !dying.Body3DVisible,
-                              "……而且它是**原版那种阵亡**（3D 体已关、卡还在原地抖），不是「啪」一下没了"
+                              "……而且 0.5 s 之后它是**原版那种阵亡**（这一刻才关 3D 体、卡还在原地抖），不是「啪」一下没了"
                             + (dying == null ? "（视图没进消散表）" : ""));
+                        // ★ **灭自证**：推到 `deathAt + 0.52` 这个点上它**还在** —— 本轮之前那条链
+                        //   只有「抖一下」（小兵 0.2 s）⇒ 这个点上 `DyingCount` 已经是 0 ⇒ 过不去。
+                        Check(drv.DyingCount == 1,
+                              $"★ （灭自证）推过第①拍（+{CardFeel.DeathHoldBeforeFx:F1}s）之后它**还在**"
+                            + "｜🧨 改坏法：把「关 3D 体 + 生成爆散体」挪回 t=0（那时整条链只有 0.2 s）⇒ 红");
+                    }
                     else
                         Check(dying != null && dying.Alpha < 1f,
                               $"……而且它**正在变淡**（效果库里没有那件爆散体 ⇒ 走的是退回分支；"
                             + $"alpha {(dying == null ? -1f : dying.Alpha):F2}）");
                     Shot(cam, "22_阵亡消散");
 
-                    while (drv.DyingCount > 0 && drv.Clock < At(deathAt + 0.02f) + CardFeel.DissolveTime + 0.2f) Step(1f / 30f);
-                    Check(drv.DyingCount == 0, "……推完 0.53s → 消散结束、视图销毁");
+                    // 🆕 2026-10-16：上界从「`DissolveTime`(0.5333) + 0.2」改成**按 `DeathTotal` 算**
+                    //   （= 抖 + 站 0.5 + 0.2 = 0.9 s 小兵）—— 原来那个上界是「只抖一下」那个时代的数。
+                    while (drv.DyingCount > 0 && drv.Clock < At(deathAt + 0.02f) + CardFeel.DeathTotal(false) + 0.2f) Step(1f / 30f);
+                    Check(drv.DyingCount == 0,
+                          $"……推完 {CardFeel.DeathTotal(false):F1}s（抖 + 站 {CardFeel.DeathHoldBeforeFx:F1}s + "
+                        + $"{CardFeel.DeathFxHold:F1}s）→ 走完 `GoToCemetery`、视图销毁");
                 }
 
                 // ---- ⑥ 手牌重排 ----
@@ -12749,6 +13075,37 @@ public static class BattleScene
                           && Mathf.Abs((hudRootT.localPosition - hudHome).y
                                        - (cam.transform.position - camHome).y) < 1e-5f,
                           "……HUD 根与相机**同向等量**平移 ⇒ 屏幕上 HUD 不动、只有战场在晃");
+
+                    // 🆕 2026-10-16（余账 (e)）：**落地那一记震的【方向符号】朝下** —— 原版 preset
+                    //   `Shake Land on ground` 的 `direction = (0, **−1**, 0)`，而挨打那件 `Shake Hit Small`
+                    //   是 `(0, **+0.2**, 0.2)` ⇒ **两件符号相反**。原来两处都取「相机向上抬」
+                    //   （理由 = 「y 的符号静态判不出来」，2026-09-14）—— **那条理由现在不成立**：preset 真件里有 `direction`。
+                    //   ⚠️ 噪声在 t=0 的值**可正可负**（起播时刻是随机的）⇒ ⛔ 别直接断 `dy > 0`，
+                    //      要拿**同一个种子下的 `n0`** 去比，否则这条会随种子飘。
+                    {
+                        float n0 = CardFeel.ShakeNoise01(0f, CardFeel.LastShakePhase);
+                        Check(Mathf.Abs(n0) > 0.05f,
+                              $"（前提）该种子下 t=0 的噪声不接近 0（|n0| = {Mathf.Abs(n0):F3}）⇒ 下面两条符号断言不是空转");
+                        SettleShake();
+                        Vector3 home2 = cam.transform.position;
+                        var landShake = CardFeel.ShakeCameraForLand(cam, hudRootT, 0f, null, 4242);
+                        float landDy = (cam.transform.position - home2).y;
+                        Check(Mathf.Abs(landDy + CardFeel.ShakeWorldAmplitudeForLand() * n0) < 1e-4f,
+                              $"★ 落地震镜头**朝下**：Δy = {landDy:F4} = **−**幅度({CardFeel.ShakeWorldAmplitudeForLand():F4}) × 噪声({n0:F3})"
+                            + "（原版 `Shake Land on ground` 的 `direction = (0,−1,0)`）"
+                            + "｜🧨 改坏法：`ShakeCameraForLand` 不传 `verticalSign: -1` ⇒ 这里变正号");
+                        DG.Tweening.TweenExtensions.Kill(landShake, false);
+                        SettleShake();
+                        Vector3 home3 = cam.transform.position;
+                        var hitShake = CardFeel.ShakeCamera(cam, hudRootT, CardFeel.ShakeWorldAmplitude, 0f, null, 4242);
+                        float hitDy = (cam.transform.position - home3).y;
+                        Check(Mathf.Abs(hitDy - CardFeel.ShakeWorldAmplitude * n0) < 1e-4f
+                              && landDy * hitDy < 0f,
+                              $"★ …而挨打那件仍然**朝上**（Δy = {hitDy:F4} = **+**幅度 × 噪声）"
+                            + " ⇒ **两件的符号确实相反**（灭自证：没有这一条，「两处都取向上」也能各自自洽）");
+                        DG.Tweening.TweenExtensions.Kill(hitShake, false);
+                        SettleShake();
+                    }
 
                     // 🔴 **2026-10-14（`A1767` / #10）就地改掉的那一条**：旧断言拿「t=0.18 那条带落到谷底」
                     //   验证「它是抖不是单调衰减」—— 那是**正弦近似**的性质（三条带 t=0 同相）。
@@ -15073,6 +15430,22 @@ public static class BattleScene
                       "★（坑表 #18）换牌面板用到的 **6 条键**在 `Loc` 表里全查得到"
                     + $"（`{MulliganPanel.PromptTerm}` / `{MulliganPanel.ReplaceTerm}` / `{MulliganPanel.UndoTerm}`"
                     + $" / `{MulliganPanel.DoneTerm}` / `{MulliganPanel.TurnFirstTerm}` / `{MulliganPanel.TurnSecondTerm}`）");
+                // 🔴🆕 **2026-10-16（`A2102④` · `A1104` 同族）：换牌面板这几颗字【各自都有框与字号】。**
+                //   判据 = 主对话现读原版那两颗 TMP 的字段（提示行：框 1307.064×69.44 / auto 18~65 / base 36；
+                //   钮上「继续」：框 368.929×62.242 / auto 18~45 / base 36）。
+                //   🔴 **断「渲染尺寸 ≤ 框」、不断字号** —— 字号对而溢出时自检照样全绿（`AutoFitBox` 教训）。
+                //   🧨 **改坏法**：把 `MulliganPanel` 里那两句 `SetAutoFitBox` 删掉 ⇒ 落回「按框高 × 0.55/0.45 猜」
+                //     那一档，**不再受这个框约束**（原来提示行实渲 43.67、原版 53.7）。
+                if (mp.PromptLabel != null)
+                    Check(mp.PromptLabel.WorldW <= LayoutSpace.Px(1307.064f) + 1e-4f
+                          && mp.PromptLabel.WorldH <= LayoutSpace.Px(69.44f) + 1e-4f,
+                          $"★ 提示行渲染尺寸 {mp.PromptLabel.WorldW:F4} × {mp.PromptLabel.WorldH:F4}"
+                        + $" ≤ 原版框 {LayoutSpace.Px(1307.064f):F4} × {LayoutSpace.Px(69.44f):F4}（auto 18~65 · base 36）");
+                if (mp.DoneLabelView != null)
+                    Check(mp.DoneLabelView.WorldW <= LayoutSpace.Px(368.929f) + 1e-4f
+                          && mp.DoneLabelView.WorldH <= LayoutSpace.Px(62.242f) + 1e-4f,
+                          $"★ 「继续」那颗渲染尺寸 {mp.DoneLabelView.WorldW:F4} × {mp.DoneLabelView.WorldH:F4}"
+                        + $" ≤ 原版框 {LayoutSpace.Px(368.929f):F4} × {LayoutSpace.Px(62.242f):F4}（auto 18~45 · base 36）");
                 // 🆕 2026-09-26：**「你先手 / 你后手」那一行**（原版 `MulliganText/TurnText`）。
                 //   🔴 **它是原版唯一一处「先手/后手」的表现** —— 原版没有硬币资产/动画/音效（判据 → §2.8）。
                 Check(mp.TurnText == (drv.Ctx.FirstSeat == 0 ? MulliganPanel.TurnFirst : MulliganPanel.TurnSecond),
@@ -19334,6 +19707,17 @@ public static class BattleScene
                         + "（一藏一显 ⇒ 这一族断言既不可能是「恒藏」也不可能是「恒显」）"
                         + "｜⚠️ 前提是**按住了一张牌**（`SetCardHoldForTest(true)`）—— 原版这一件还要「按住」才亮，见下一条");
                     Check(driver.ChatButtonVisibleForTest, "★ **判别式**：`hideChat = false` ⇒ 聊天那颗按钮**显出来**");
+                    // 🆕 2026-10-16（`A1239`）：手牌数那颗字**自己有框与三档**（判据含那条「单位桥」→
+                    //   `BattleDriver.HandLabelBoxW` 的 doc：那颗活在缩放假里、**1 局域单位 = 100 px**）。
+                    //   🔴 断「**渲染尺寸 ≤ 框**」、不断字号 —— 字号对而溢出时自检照样全绿（`AutoFitBox` 教训）。
+                    //   ⚠️ 必须在这一格**显出来之后**量（TMP 在对象没激活时量不出尺寸 —— 本仓已知的坑）。
+                    //   🧨 **改坏法**：把 `BuildHud` 里那句 `SetAutoFitBox` 删掉 ⇒ 落 `Label` 默认档、不再受框约束。
+                    Check(driver.HandLabelWorldW > 0f
+                          && driver.HandLabelWorldW <= LayoutSpace.Px(234f) + 1e-4f
+                          && driver.HandLabelWorldH <= LayoutSpace.Px(64f) + 1e-4f,
+                          $"★ 手牌数那颗渲染尺寸 {driver.HandLabelWorldW:F4} × {driver.HandLabelWorldH:F4}"
+                        + $" ≤ 原版框 {LayoutSpace.Px(234f):F4} × {LayoutSpace.Px(64f):F4}"
+                        + "（原版 `CardsInHandText`：框 2.34×0.64 局域 × **100** px、auto 0.5~3.0 局域 = **50~300 px**）");
                     Check(!driver.CemeteryButtonVisibleForTest,
                           "★ 而 `cemeteryButton` **仍然是藏的** —— 它那条是「教程局无条件藏」，与 `hideCemetery` **无关**"
                         + "（这一对正好把两条判据分开）");

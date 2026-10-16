@@ -96,7 +96,7 @@ namespace CardPresentation
             // 🔴 **2026-10-18（W6）**：字号跟着**这一串**的语种走 —— 倒计时那几秒写的是**数字**
             //    （拉丁 ⇒ `SetCapHeight(0.72em)`），而默认那串在中文档是汉字（⇒ `SetGlyphHeight(1em)`）。
             //    写死一种的话，另一档不是小 28% 就是大 39%（本工程记过的那条：`Loc.HasCjk` 是唯一一份判据）。
-            SetScriptFont(_doneText, s, DoneH * 0.45f);
+            SetScriptFont(_doneText, s, DoneFsBase);
         }
 
         /// <summary>自检用：那颗钮上现在写的是什么。
@@ -112,6 +112,8 @@ namespace CardPresentation
 
         /// <summary>提示行那个 label（**自检要量它的颜色** —— 判据 = 原版 `m_fontColor32 = 4294967295` 纯白）。</summary>
         public Label PromptLabel { get { return _prompt; } }
+        /// <summary>🆕 2026-10-16（`A2102④`）：钮上那颗 label（自检量**渲染尺寸 ≤ 框**用）。</summary>
+        public Label DoneLabelView { get { return _doneText; } }
 
         /// <summary>按「这一局谁先手」设那一行。<paramref name="playerGoesSecond"/> = 我方是后手。
         /// 判据 → `资料/加时与冲突模式_原版规格.md` §2.8（原版 `MulliganManager.ActivateMulligan` 的二选一）。</summary>
@@ -227,6 +229,35 @@ namespace CardPresentation
 
         // ---- 原版绝对坐标（1920×1080，y 从**上**）----
         const float PromptCx = 967f, PromptCy = 106.5f, PromptW = 1344f, PromptH = 79.4f;
+
+        /// <summary>🔴 **2026-10-16（`A2102④` · `A1104` 同族）：提示行那颗 TMP【自己有框与字号】。**
+        /// 判据 = **主对话现读**：`MulliganText` 容器的 `m_Children`（`RectTransform_2828.json`，
+        /// `bundle_scenes_scenes_battlearena1`）→ 子件 **`Text`（RT 3442）**，`m_SizeDelta = (−36.936, −10.0)`
+        /// + 父框 1344×79.44 ⇒ **框 1307.064 × 69.44**；它身上那颗 TMP 逐字段：
+        /// `m_text = "Choose cards to replace in first hand"` · `m_fontSize = 65` · `m_fontSizeMin = 18` ·
+        /// `m_fontSizeMax = 65` · **`m_fontSizeBase = 36`** · `m_enableAutoSizing = 1`。
+        /// ⚠️ 宽 **1307.064** 与 `TurnText` 那颗**同值**（同一份 `m_SizeDelta.x` —— 同一个容器，不是巧合）。
+        /// ✅ 这**回答了**本类 §`TurnCx` 那条 doc 里留的问题（「按 auto 逼高、还是钉运行期值」）——
+        ///   **与 `TurnText` 那次同一口径：按 auto 逼高**，⛔ **不抄运行期实渲值 53.7**。
+        ///   原文还写「提示行反过来（我们 43.67 · 原版 53.7）」—— 那正是**我们没开自适应**的结果，
+        ///   本轮按判据开了。</summary>
+        const float PromptBoxW = 1307.064f, PromptBoxH = 69.44f;
+        /// <summary>提示行那颗 TMP 的自适应三档（画布 px）：`min 18` · `max 65` · **`base 36`**。
+        /// ⚠️ `base` **不是** max（这一颗原版写的就是 36）—— ⛔ 别照 `TurnText` 那次把 base 写成 max。</summary>
+        const float PromptFsMin = 18f, PromptFsMax = 65f, PromptFsBase = 36f;
+
+        /// <summary>🔴 **2026-10-16（`A2102④` 的另一半）：「继续」那颗钮上的字【自己有框与字号】。**
+        /// 判据 = **主对话现读** `bundle_scenes_scenes_battlearena1`：`MulliganContinueButton` 的子件
+        /// **`Text`**（RT `m_SizeDelta = (368.929, 62.242)` —— 它是**锚定档**、不是拉伸子件 ⇒
+        /// **框就是这两个数本身**，⛔ 别再去加父框）；它身上那颗 TMP：
+        /// `m_text = "Continue"` · `m_fontSize = 45` · `m_fontSizeMin = 18` · `m_fontSizeMax = 45` ·
+        /// `m_fontSizeBase = 36` · `m_enableAutoSizing = 1`。
+        /// ⚠️ 本类 `TurnCx` 那条 doc 里写的「钮上「继续」**45.0**」= 这颗的 **`m_fontSize`（= max）**，
+        ///   **不是运行期实渲值** —— 两回事，别再混。
+        /// ⚠️ 钮上那串字**会被换成倒计时秒数**（原版行为）⇒ 框与三档**只在建件时设一次**，
+        ///   换字走 `SetDoneText` 的按语种那一句（见它）。</summary>
+        const float DoneBoxW = 368.929f, DoneBoxH = 62.242f;
+        const float DoneFsMin = 18f, DoneFsMax = 45f, DoneFsBase = 36f;
         /// <summary>🆕 2026-09-26：**「你先手 / 你后手」那一行**（原版节点 `MulliganText/TurnText`）。
         /// 🔴 **2026-09-29 取到真 rect、已照它改**：原版 `TurnText` = **左上 (312.50, 129.42) · 1307.06×54.17
         /// · 中心 (966.03, 156.50)**。出处：`bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_3403.json`
@@ -466,7 +497,14 @@ namespace CardPresentation
             Color promptColor = new Color(0.9960785f, 0.5960785f, 0.1176471f, 1f);   // = 原版 `Pragati-Regular Orange` 的 `_FaceColor`
             p._prompt = Label.Create(go.transform, promptText, At(PromptCx, PromptCy), 8,
                                      promptColor, new Vector2(0.5f, 0.5f), "MulliganPrompt");
-            SetScriptFont(p._prompt, promptText, PromptH * 0.55f);
+            // 🔴 **2026-10-16（`A2102④`）：与 `TurnText` 那颗**同一口径** —— 开原版那条自适应。**
+            //   原来这里只调 `SetScriptFont(…, PromptH * 0.55f)`（**那个 0.55 是我们挑的**）
+            //   ⇒ 实渲 43.67，而原版**实渲 53.7**（小 19%）。
+            //   ⚠️ 按语种选字体那句**保留**（`SetScriptFont`）—— 它现在只提供 `fontSizeBase` 那个起点；
+            //      最终大小由 TMP 在 `[18, 65]` 里自己收敛（原版也是这么跑的，见 `PromptBoxW` 那条判据）。
+            SetScriptFont(p._prompt, promptText, PromptFsBase);
+            if (p._prompt != null)
+                p._prompt.SetAutoFitBox(U(PromptBoxW), U(PromptBoxH), PromptFsMin, PromptFsMax, PromptFsBase);
 
             // 🆕 2026-09-26：**开局谁先手那一行** —— 判据（唯一）→ `资料/加时与冲突模式_原版规格.md` §2.8：
             //   原版在 `MulliganManager.ActivateMulligan` 里把这一行的词条**按先手/后手二选一**
@@ -513,6 +551,12 @@ namespace CardPresentation
             p._doneText = Label.Create(go.transform, DoneLabel, At(DoneCx, DoneCy), 6,
                                        new Color(1f, 0.92f, 0.75f), new Vector2(0.5f, 0.5f), "MulliganDoneText");
             p.SetDoneText(DoneLabel);
+            // 🔴 **2026-10-16（`A2102④`）：与上面那两颗**同一口径** —— 按原版开自适应。**
+            //   框与三档 → `DoneBoxW/H` / `DoneFsMin/Max/Base` 那条 doc（判据 = 现读那颗 TMP 的字段）。
+            //   ⚠️ **放在 `SetDoneText` 之后**：那一句会按语种重设字号（它只提供起点），
+            //     框一旦设上，最终大小由 TMP 在 `[18,45]` 里自己收敛。
+            if (p._doneText != null)
+                p._doneText.SetAutoFitBox(U(DoneBoxW), U(DoneBoxH), DoneFsMin, DoneFsMax, DoneFsBase);
 
             // 眼睛（原版 `HideMulliganButton`，图 `40k_ui_bt_eye`）—— 暂时收起卡片上的按钮
             p._eye = ImageQuad.Create(go.transform, CardArt.Ui("40k_UI_bt_eye"), At(EyeCx, EyeCy),

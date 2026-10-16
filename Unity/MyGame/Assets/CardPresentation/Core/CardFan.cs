@@ -48,6 +48,54 @@ namespace CardPresentation
         /// `dump.cs` 里字段名与偏移逐一核过）。</summary>
         public const float SwapTime = 0.25f;
 
+        // ============================================================ 开窗那一拍（原版 `Card Display Open`）
+        //
+        // 🔴 **2026-10-16（本会话）：逐值从那条 legacy clip 的原文读出**（⛔ 不是我们挑的）。
+        //   出处同文件头那一份：`bundle_duplicateassetisolation_assets_all/AnimationClip/`
+        //   `AnimationClip_1560242982351263260.json`（`m_Name = "Card Display Open"` · `m_Legacy = true` ·
+        //   `m_SampleRate = 60` · `m_WrapMode = 1`(Clamp) · `m_Events` 空 · `m_MuscleClipSize = 0`）：
+        //   · **20 条曲线** = `m_RotationCurves` 5 + `m_ScaleCurves` 5 + `m_FloatCurves` 10（两条位移/槽），
+        //     `path` 正好命中那 5 个槽（`Card Display/Cards/CardUI` 与 `CardUI (1..4)`）；
+        //   · 每条都从 **t = 0** 到 **t = 0.3166666626930237**（20 个关键帧 = 19 帧 @60fps）；
+        //   · **起点（t=0）5 个槽一模一样**：`m_AnchoredPosition = (0, 60)` · 四元数 = 单位（euler z 0°）
+        //     · `m_LocalScale = 210`；
+        //   · **缓动 = 平滑步 `t²(3−2t)`**：那 10 条位移 + 5 条缩放是「2 键 + 两端 `inSlope/outSlope` 全 0」
+        //     的赫米特 ⇒ **正好退化成平滑步**；5 条旋转是 60fps 采样出来的 20 键，
+        //     本会话逐键复算：**与平滑步的偏差 ≤ 1e-6 度**（且 4 条槽的归一化进度逐键相同，spread ≤ 2e-7）
+        //     ⇒ 20 条曲线**同一条缓动**。
+        //
+        // 挂载面（照原版实读）：窗根 `Card Display Window` 上那颗 `Animation`
+        //   （`bundle_scenes_scenes_battlearena1/Animation/Animation_1608.json`）：
+        //   `m_Animations` **只有 1 条**（就是这条 clip）· `m_PlayAutomatically = true` · `m_WrapMode = 0`(Once)
+        //   ⇒ **窗口一亮就播、播完停在终态**；`CardDisplayWindow__Close.c` 里**没有**第二条 clip
+        //   ⇒ **原版只有开窗动画、没有关窗动画**（⛔ 别自己补一条关窗的）。
+        // ⚠️ 本工程**不建**那颗 `Animation` 组件：legacy `AnimationClip` 从 bundle 搬进工程会变空壳
+        //   （`资料/已知的坑.md`「bundle 资产搬进工程的两条死路」）⇒ 等价物是**代码补间**
+        //   （`Battle/CardDisplayWindow.PlayOpenAnimation`），曲线数值就用下面这几个常量。
+
+        /// <summary>开窗补间时长 = clip 最后一个关键帧的 `time`：**0.3166667 s**（60fps · 19 帧）。</summary>
+        public const float OpenTime = 0.3166667f;
+        /// <summary>开窗起点缩放 —— clip 里 5 条 `m_ScaleCurves` 在 t=0 一律 `m_LocalScale = 210`。
+        /// ⚠️ 量纲：这是**原版 localScale**；落到我们这套要按「卡体 px ÷ (`CardView.Height`×108)」换算
+        /// （见 <see cref="OpenStartHpx"/>）。</summary>
+        public const float OpenStartScale = 210f;
+        /// <summary>开窗起点 `m_AnchoredPosition`（10 条位移曲线在 t=0 一律 `(0, 60)`）。</summary>
+        public const float OpenStartAnchoredX = 0f, OpenStartAnchoredY = 60f;
+        /// <summary>开窗起点那一拍**卡心**的屏幕 px —— `Cards` 的屏心是 (960,540)、原版 y 向上 ⇒ 取负。</summary>
+        public const float OpenStartCx = 960f + OpenStartAnchoredX;
+        public const float OpenStartCy = 540f - OpenStartAnchoredY;
+        /// <summary>开窗起点那一拍**卡体**的宽/高（px）= 卡单位 `2.0927×3.3313` × `OpenStartScale`。</summary>
+        public const float OpenStartWpx = 2.0927f * OpenStartScale;      // 439.467
+        public const float OpenStartHpx = 3.3313f * OpenStartScale;      // 699.573
+        /// <summary>开窗起点那一拍的倾角 = **0°**（5 条旋转曲线的 t=0 都是单位四元数）。</summary>
+        public const float OpenStartRot = 0f;
+
+        /// <summary>开窗那条缓动曲线：**平滑步 `t²(3−2t)`**（出处见上面那一块）。
+        /// <para>🔴 **它不是 DOTween 的 `Ease.InOutQuad`**（那个是 `t&lt;0.5 ? 2t² : 1−2(1−t)²`，形状不同）
+        /// ⇒ 调用方一律 `Ease.Linear` 建 tween、**在这一个函数里自己做这条曲线**
+        /// （⛔ 别改成 `SetEase(Ease.InOutQuad)` 或 `InOutSine` —— 那都不是原版这条）。</para></summary>
+        public static float OpenEase(float t) { t = Mathf.Clamp01(t); return t * t * (3f - 2f * t); }
+
         /// <summary>槽名：**前台那张不带后缀**，其余 `CardUI (1..8)`（照原版命名）。</summary>
         public static string SlotName(int i) { return i == 0 ? "CardUI" : "CardUI (" + i + ")"; }
 

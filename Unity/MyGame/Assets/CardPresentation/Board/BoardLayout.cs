@@ -178,7 +178,13 @@ namespace CardPresentation
         // 底片由这里创建而不是场景里摆 —— 它得跟着 LayoutSpace 的分辨率缩放走，
         // 而且拖拽时要整体变色，放在一处最省事。
         readonly List<Renderer> _markers = new List<Renderer>();
-        Transform _band;
+        // 🔴 **2026-10-16（`A2104②`）：`_band`（自加的「槽带」）【已删除】。**
+        //   三条一起判它该走：① **原版没有这件** —— 格位分界来自 **3D 地板本身**（本文件 `:187` 自己记的，
+        //   出处 `资料/战场还原度_差距清单_0917.md` §一「我们挑的」第 2 条）；② 它的 `BandColor`
+        //   本来就是 **(0,0,0,0)**（注释写着「同样不画」）⇒ **一个像素都没画过**；
+        //   ③ 本仓既有口径「**⛔ 别建死件**」（`任务/T04` §四 第 5 条同一条）。
+        //   ⇒ 一个「原版没有 + 永不可见」的象限，留着只会每次换分辨率白算一遍位置（而且它算的还是
+        //     **2D 行线** —— `A2104②` 记的「两处还没走投影」里就是它）。⛔ 别建回来。
 
         // 有战场背景图之后，底片要**很轻**：原版平时不画格子，只在拖拽时亮起来提示落点。
         // 所以 idle 只是一层「淡阴影」（让两行棋盘看得出是两块区域），拖拽时才明显。
@@ -210,7 +216,6 @@ namespace CardPresentation
         /// 没有可照抄的观感）—— 判据与两条弯路 → `资料/已知的坑.md` 那条「断言验得到亮没亮、
         /// 验不到看不看得见」。</summary>
         public const int MarkerQ = 3100;
-        static readonly Color BandColor  = new Color(0f, 0f, 0f, 0f);                // 槽带：同样不画
 
         public void EnsureMarkers()
         {
@@ -235,15 +240,8 @@ namespace CardPresentation
             root.transform.SetParent(transform, false);
             var baseMat = new Material(Shader.Find("Sprites/Default"));
 
-            // 「槽带」：整行 9 格背后一条深色底 —— 没有它的话两行卡会漂在背景上，
-            // 看不出「这两行是棋盘」。原版是 3D 地板自带分界，2D 得自己画一条。
-            var band = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            band.name = "Band";
-            band.transform.SetParent(root.transform, false);
-            var br = band.GetComponent<MeshRenderer>();
-            br.sharedMaterial = new Material(baseMat) { color = BandColor };
-            UnityEngine.Object.DestroyImmediate(band.GetComponent<Collider>());
-            _band = band.transform;
+            // 🔴 **2026-10-16：这里原来还建一条「槽带」(`Band`)—— 已删**（理由见 `_markers` 上面那一段：
+            //   原版没有 + α 恒 0 + 别建死件）。
 
             for (int i = 0; i < SlotCount; i++)
             {
@@ -277,20 +275,28 @@ namespace CardPresentation
             {
                 var r = _markers[i];
                 if (r == null) continue;
-                // 🔴 **2026-10-01：3D 时位置要按「战场相机投屏 → HUD 平面」算，不能用 `DropTargetWorld`。**
-                //   `DropTargetWorld` 走的是 `LayoutSpace.ScreenToWorld`（**相机反投影**），而这两层是
-                //   **HUD 相机**画的（默认层）⇒ 拿战场相机的反投影去摆 HUD 上的东西，实测**偏左 600 px**
-                //   （A/B 实拍 `2d_落点指示_单独亮.png`：它出现在 hover 弹窗右边那条，而不是落点上）。
-                //   正确做法 = **`LayoutSpace.FromPixel`**（`ToPixel` 的逆，HUD 平面那把尺子）：
-                //   先把格子的卡心用**战场相机**投到屏幕，再按 HUD 的映射换算回 HUD 平面。
-                //   ⚠️ **不能改 `DropTargetWorld` 本身** —— 它是拖拽的落点判据（自检夹具也用）。
+                // 🔴🔴 **2026-10-16 就地订正（铁律 5）—— 这里原来那段 2026-10-01 的注释【错因记错了】，别照它改回去。**
+                //   · **原来写的是**：「`DropTargetWorld` 走 `ScreenToWorld`（相机反投影）⇒ 实测**偏左 600 px** ⇒
+                //     正确做法 = `FromPixel`（HUD 平面那把尺子）」。**那两条都不成立**：
+                //   · **600 px 的真根因是【层】** —— 当年底片被挂到了 `ArenaLayer`（于是由**透视**战场相机画），
+                //     那一处后来修好了，**功被记到了「换算」头上**。
+                //   · `LayoutSpace.ScreenToWorld` 用的是 `LayoutSpace.Cam` = **HUD 那台正交相机**
+                //     （战斗建场时 `LayoutSpace.Apply(cam)` 传的就是它）⇒「拿战场相机的反投影摆 HUD 上的东西」这个前提**不成立**。
+                //   · 而 `FromPixel(msp.x, msp.y)` **两个轴都错**：`FromPixel` 收的是**设计像素 1920×1080、左上原点**
+                //     （`Core/LayoutSpace.cs:188-189`），`Camera.WorldToScreenPoint` 给的是**实际像素、左下原点**
+                //     ⇒ x 只在 1920 宽下重合、**y 是镜像（任何分辨率都错）**。
+                //   ⇒ **正解 = `LayoutSpace.ScreenToWorld`**，也就是 `DropTargetWorld` 那一支（同一个口，别再抄第二份）。
+                //   ⚠️ 它在今天的画面上**看不出来**：真亮的那格走 `AttachDropSlotTo` 挂到卡上、其余 alpha=0
+                //     ⇒ 所以没人发现；改它**同批配了断言**（`Editor/BattleScene.cs` 的「底片位置」两条）。
+                //   判据全文 → `资料/普查产出_1016战斗/W2_PlaceMarkers与督军位判据.md`
                 Vector3 markerPos = DropTargetWorld(i);
                 if (use3D && boardCam != null)
                 {
                     var msp = boardCam.WorldToScreenPoint(
                         ArenaSlots.CardCenter(i, mirror, ArenaSlots.CardScale(mirror)));
                     if (msp.z > 0f)
-                        markerPos = transform.InverseTransformPoint(LayoutSpace.FromPixel(msp.x, msp.y));
+                        markerPos = transform.InverseTransformPoint(
+                            LayoutSpace.ScreenToWorld(new Vector2(msp.x, msp.y)));
                 }
                 r.transform.localPosition = markerPos + new Vector3(0f, 0f, 0.05f);
                 // 🔴 **2026-09-20：真 3D 时底片的位置与尺寸都要按「投影」来。**
@@ -319,14 +325,7 @@ namespace CardPresentation
                 }
             }
 
-            if (_band != null)
-            {
-                float w = Mathf.Abs(SlotPosition(SlotCount - 1).x - SlotPosition(0).x)
-                        + CardView.Width * s * 1.12f;
-                float h = CardView.Height * s * 1.12f;
-                _band.localPosition = LayoutSpace.ToWorld(0.5f, lineY) + new Vector3(0f, 0f, 0.06f);
-                _band.localScale = new Vector3(w, h, 1f);
-            }
+            // 🔴 **2026-10-16：这里原来还给「槽带」重算位置/尺寸 —— 那件已删**（见 `_markers` 上面那一段）。
         }
 
         /// <summary>**落点指示**：点亮「它会落的那一格」（`slot &lt; 0` = 全灭），
@@ -507,8 +506,77 @@ namespace CardPresentation
         {
             if (use3D && boardCam != null)
             {
-                float sc = ArenaSlots.CardScale(mirror);
+                float sc = ProjectionScale(slot);
                 var sp = boardCam.WorldToScreenPoint(ArenaSlots.CardCenter(slot, mirror, sc));
+                if (sp.z > 0f)
+                    return transform.InverseTransformPoint(LayoutSpace.ScreenToWorld(new Vector2(sp.x, sp.y)));
+            }
+            return SlotPosition(slot);
+        }
+
+        /// <summary>本口投「`slot` 这一格的卡心」时用的缩放 —— **督军位是 `HeroScale`，别的格是 `CardScale`**。
+        ///
+        /// <para>🔴 **2026-10-16（卡牌飞行族普查 §二 H）**：原来这里恒用 `CardScale`（我方 0.36 / 敌 0.69），
+        /// 而**真落位**走的是 `BattleDriver.PoseFor` 的
+        /// `u.IsWarlord ? ArenaSlots.HeroScale(foe) : ArenaSlots.CardScale(foe)`（我方 0.40 / 敌 0.77）
+        /// ⇒ **督军位那个投影点偏 ~9.6 px（我方）/ 9.1 px（敌方），且只在 y**。
+        /// `A359` 之后伤害飘字的基准也走这个口 ⇒ 影响面比原来大。</para>
+        /// <para>⛔ **逆运算 `ArenaSlots.TryResolveSlot` 不用跟着动**：它的判据是 x（与 scale 无关），
+        /// 差那 0.05/0.11 世界单位也远小于它的容差。单开这个只读口是**给断言用**的
+        /// （没有它，「督军位走的是哪个 scale」这件事在自检里无法区分）。</para></summary>
+        public float ProjectionScale(int slot)
+        {
+            return slot == ArenaSlots.WarlordSlot ? ArenaSlots.HeroScale(mirror)
+                                                  : ArenaSlots.CardScale(mirror);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-16：「手牌 → 棋盘」那三段里的**第二段要用的口**
+        //     （原版 `MinionManager.MoveMinionToConversionPoint` 那条 tween 的**终点**）
+        //  ⚠️ 本节是**纯新增** —— 上面 `DropTargetWorld` 一个字节都没动（它的返回值是拖拽落点
+        //     /底片/飘字/根特效的判据，不许变）。
+        // ==================================================================
+
+        /// <summary>原版 `MinionManager.minionConversionHeight`（**我方**）= **1.0**。
+        /// 出处：`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4372.json`
+        /// （`MinionArea` local z = −6.655 那一份 = 玩家侧；敌方那份是 `_4373.json`，z = +1.043）。
+        /// ⚠️ **量纲 = 竞技场单位**（`MinionArea` 及其父链 scale 全是 1），
+        /// ⛔ **不是** HUD 平面的 108 px/单位那一套 —— 别拿它去乘像素。
+        /// ⚠️ 它们本该和 `ArenaSlots` 里那一批 MinionManager 字段放在一起；本件白名单不含
+        /// `Board/ArenaSlots.cs` ⇒ 先落在这里，**判据仍然只此一处**（`MinionConversionHeight`）。</summary>
+        public const float PlayerMinionConversionHeight = 1.0f;
+        /// <summary>原版 `minionConversionHeight`（**敌方**）= **2.1**（出处同 `PlayerMinionConversionHeight`，
+        /// 换成 `MonoBehaviour_4373.json`）。敌行更远、卡更大 ⇒ 抬得更高，两个数各自都对。</summary>
+        public const float EnemyMinionConversionHeight = 2.1f;
+
+        /// <summary>本场棋盘的 `minionConversionHeight`（按镜像位取我方/敌方那一份）。</summary>
+        public float MinionConversionHeight
+        {
+            get { return mirror ? EnemyMinionConversionHeight : PlayerMinionConversionHeight; }
+        }
+
+        /// <summary>**「这一格的卡抬高 `upWorld` 之后」画在屏幕上的哪一点**（返回**本物体局部坐标**，
+        /// 与 `DropTargetWorld` 同一个约定）。
+        ///
+        /// 为什么要它：原版「手牌→棋盘」是**两段移动** —— 先飞到 `槽位 + up × minionConversionHeight`，
+        /// 再**垂直落**到槽位（判据 `MinionManager__MoveMinionToConversionPoint.c:41-96` ·
+        /// `CardScript._MinionPlayedIntoField_d__314__MoveNext.c`）。第二段的终点就是 `DropTargetWorld`，
+        /// 第一段的终点 = 「同一个点，只是抬高 `upWorld`」⇒ 这里就是它。
+        /// ⚠️ `upWorld` 是**竞技场单位**（见 `MinionConversionHeight`），不是 HUD 单位。
+        /// ⛔ 判据只此一处 —— 别在调用点自己写一次 `WorldToScreenPoint`。
+        ///
+        /// ⚠️ **非 3D（2D 兜底布局）时逐位退回 `SlotPosition(slot)`**：2D 平面里没有「战场高度」
+        /// 这个概念（卡本来就摆在那条行线上），于是 `above == land`、第二段退化成一记直飞 ——
+        /// 与 `DropTargetWorld` 的兜底同一个口径（那里的 `return SlotPosition(slot)` 就是这么定的）。</summary>
+        public Vector3 DropTargetWorldAtHeight(int slot, float upWorld)
+        {
+            if (use3D && boardCam != null)
+            {
+                float sc = ArenaSlots.CardScale(mirror);
+                // `upWorld` 加在**卡心**上 = 「整张卡原地抬高 upWorld」——
+                // 卡是直立站着的（`ArenaSlots` 文件头：世界旋转恒 identity），所以世界 up 就是它的长轴。
+                var world = ArenaSlots.CardCenter(slot, mirror, sc) + Vector3.up * upWorld;
+                var sp = boardCam.WorldToScreenPoint(world);
                 if (sp.z > 0f)
                     return transform.InverseTransformPoint(LayoutSpace.ScreenToWorld(new Vector2(sp.x, sp.y)));
             }

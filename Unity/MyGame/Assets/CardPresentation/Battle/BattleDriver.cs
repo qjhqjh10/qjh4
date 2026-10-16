@@ -1275,8 +1275,10 @@ namespace CardPresentation
         Label _pileLabel, _foePileLabel;
 
         // 原版 UI 图（`Resources/Art/ui/`，没有就是 null —— 退回纯文字 HUD）
-        ImageQuad _endTurnBg, _energyGem, _energyGemEmpty, _myPlate, _enemyPlate;
-        ImageQuad _foeEnergyGem, _foeEnergyGemEmpty;      // 敌方那颗能量水晶（原来**根本没画**）
+        ImageQuad _endTurnBg, _myPlate, _enemyPlate;
+        /// <summary>「能量积攒」那一组的 ON 图（原版 `ManaHolder/Energy Accumulation/Energy Player
+        /// Accumulation ON`，横向偏移 −80.2 我 / −81.3 敌）。**球心那对满/空已删、只剩这一组**（`A2102` R4）。</summary>
+        ImageQuad _energyAccumMe, _energyAccumFoe;
         ImageQuad _myEnergyPlate, _foeEnergyPlate;        // 水晶底下那块底板 `Card Frame Cost Icon`
         ImageQuad _myQuestIcon, _foeQuestIcon;            // 任务点纹章（**只有暗黑天使显示**，见 ShowsQuestPoints）
         ImageQuad _myQuestJoin, _foeQuestJoin;            // 任务点连到水晶上的小接片
@@ -1444,6 +1446,21 @@ namespace CardPresentation
         ///    而且它的祖先链是纯 Transform、**算不出绝对位置** → 位置是**我们挑的**（贴在既有手牌标签上）。</summary>
         const float HandPlatePx = 65.7f;
 
+        /// <summary>🔴🆕 **2026-10-16（`A1239`）：手牌数那颗标签（原版 `HandArea/CardsInHandText`）
+        /// 的【框与三档】—— 全都已经 ×100 换到我们这一侧的 px 口径**（本账的前置就是这条「单位桥」）。
+        /// <para>**桥的判据**（主对话现读 `bundle_scenes_scenes_battlearena1` 的 `CardsInHandText`，
+        /// 两个实例逐字段相同）：那颗 RT 的 `m_SizeDelta = (2.34, 0.64)`、`m_LocalScale = 0.925926`，
+        /// 而**父链 `HandArea` 是纯 `Transform`、`m_LocalScale = 108`**
+        /// ⇒ **1 局域单位 = 108 × 0.925926 = 100 px**。
+        /// TMP 逐字段：`m_text = "Cards left: XX"` · `m_fontSize = 3.0` · `m_fontSizeBase = 36` ·
+        /// `m_fontSizeMin = 0.5` · `m_fontSizeMax = 3.0` · `m_enableAutoSizing = 1` · 居中。</para>
+        /// <para>⇒ **框与三档一律 ×100**。⚠️ 传原文（不乘）会得到 3 px 的字 —— 账里记的那条担心**成立**。
+        /// ⚠️ `base`：原版写 36，在它自己的量纲里**已经超出上限 3.0** ⇒ TMP 会把它夹到 max，
+        /// 所以我们按**夹过之后的 300** 传（等价），⛔ 别写成 3600。</para></summary>
+        const float HandLabelBoxW = 234f, HandLabelBoxH = 64f;      // = 2.34 / 0.64 局域 × 100
+        const float HandLabelFsMin = 50f, HandLabelFsMax = 300f;    // = 0.5 / 3.0 局域 × 100
+        const float HandLabelFsBase = 300f;                          // 原版 base 36 超上限 ⇒ 夹到 max
+
         /// <summary>END TURN 按钮的中心（归一化）。**判据只有这一份** —— 建按钮、建文字、
         /// 以及换分辨率重贴，三处都读它。
         /// ⚠️ 踩过（2026-09-12）：建的时候改到右侧了，但换分辨率重贴那段**把旧坐标又写了一遍**，
@@ -1458,6 +1475,34 @@ namespace CardPresentation
         const float MyEnergyX01 = 0.97180f, MyEnergyY01 = 0.48556f;
         /// <summary>敌方能量水晶 `EnemyMana`：x[1826.3,1900.8] y[249.8,327.4] —— **原来我们压根没画这一颗**</summary>
         const float FoeEnergyX01 = 0.97060f, FoeEnergyY01 = 0.73278f;
+
+        // 🔴 **2026-10-16（`A2102` R3）：能量球/底板/数字**不是**摆在 `{Player,Enemy}Mana` 容器的中心** ——
+        //   原版的它们都挂在 `ManaHolder` 底下，而 **`ManaHolder` 自己带一个 `m_AnchoredPosition`**。
+        //   原版字段（`B1_HUD左右区_层参数表.md:109,127`）：**我方 `(1.8, −0.5)` · 敌方 `(3.284, 0.15)`**。
+        //   ⚠️ **符号口径**：uGUI 是 x 右 / y **上** ⇒ `−0.5` = **往下**。主对话用
+        //     `工具/_probe_node_rect.py bundle_scenes_scenes_battlearena2 ManaHolder PlayerMana`
+        //     **现核过**：它直接打出「`ManaHolder` 中心相对 `PlayerMana` 中心 = (1.800, −0.500)（y 向上）」
+        //     ⇒ 与 `B5` 表一 R3 的散文「我 左 1.8 / 下 0.5」一致（散文没错，是原始字段的写法容易读反）。
+        //   ⇒ 上面那两个 `*EnergyX01/Y01` 是**容器**的位置，**下面这两个派生量才是球心**（⛔ 别直接用容器那两个）。
+        const float MyManaHolderApx = 1.8f, MyManaHolderApy = -0.5f;
+        const float FoeManaHolderApx = 3.284f, FoeManaHolderApy = 0.15f;
+        /// <summary>我方能量**球心** = 容器中心 + `ManaHolder.ap`（px ÷ 1920/1080 折成归一化）。</summary>
+        static readonly float MyEnergyOrbX01 = MyEnergyX01 + MyManaHolderApx / 1920f;
+        static readonly float MyEnergyOrbY01 = MyEnergyY01 + MyManaHolderApy / 1080f;
+        /// <summary>敌方能量**球心**（同上）。</summary>
+        static readonly float FoeEnergyOrbX01 = FoeEnergyX01 + FoeManaHolderApx / 1920f;
+        static readonly float FoeEnergyOrbY01 = FoeEnergyY01 + FoeManaHolderApy / 1080f;
+
+        /// <summary>🔴 **2026-10-16（`A2102` R3 的同一条）：数字自己还有一次偏移。**
+        /// 原版 `ManaHolder/ManaText` 的 `m_AnchoredPosition = (−1.5, 0.594)` —— **两侧同值**
+        /// （`B1_HUD左右区_层参数表.md:116`(敌 `RT 2973`) 与 `:134`(我 `RT 3187`) 逐字段相同，连
+        /// `aMin/aMax/sizeDelta` 都一样 ⇒ 同一份模板，⛔ 不是「两个不同实例」）。
+        /// ⇒ 数字中心 = **球心 + 这两个数**（同样 x 右 / y 上）。</summary>
+        const float ManaTextApx = -1.5f, ManaTextApy = 0.594f;
+        static readonly float MyEnergyLabelX01 = MyEnergyOrbX01 + ManaTextApx / 1920f;
+        static readonly float MyEnergyLabelY01 = MyEnergyOrbY01 + ManaTextApy / 1080f;
+        static readonly float FoeEnergyLabelX01 = FoeEnergyOrbX01 + ManaTextApx / 1920f;
+        static readonly float FoeEnergyLabelY01 = FoeEnergyOrbY01 + ManaTextApy / 1080f;
         /// <summary>🔴 **2026-10-16（`A1302` 同族审计）新加 —— 能量水晶那四颗的【框】**。
         /// 原版那两格是 `Energy Player Accumulation ON|OFF`：`m_SizeDelta = (−22.214, −19.887)`
         /// + 父 `Energy Accumulation` 100×100（stretch 锚）⇒ **77.786 × 80.113**、`m_PreserveAspect = 0`（拉伸）。
@@ -1473,6 +1518,12 @@ namespace CardPresentation
         // const float EnergyPlateH = 91.3f;   // ← 已停用，见上面那条
         const float MyEnergyPlateX01 = 0.97352f, MyEnergyPlateY01 = 0.48569f;
         const float FoeEnergyPlateX01 = 0.97232f, FoeEnergyPlateY01 = 0.73292f;
+        // 🔴 **2026-10-16（`A2102` R3）：上面这四个常量【已停用】。**
+        //   它们原来是「各量各的」底板位置；而原版那三件（底板 / 满空水晶 / 数字）**全是 `ManaHolder`
+        //   的子件、彼此同心**（`B1:110` 现读）⇒ 位置**只该有一个判据** = 容器中心 + `ManaHolder.ap`
+        //   （= 下面的 `MyEnergyOrbX01/Y01` / `FoeEnergyOrbX01/Y01`）。
+        //   实测两者差 **1.5 px（我）/ 0.7 px（敌）** —— 那不是「另一种情况」，是重复量了一次。
+        //   ⛔ 别再拿这四个当第二份判据（铁律 6）。
         /// <summary>任务点 `QuestPointsHolder`（97.7²）：我方水晶**下方** x[1817.0,1914.7] y[595.4,693.1]、
         /// 敌方水晶**上方** x[1816.1,1913.8] y[150.2,247.9]。
         /// ⚠️ 2026-09-12 更正：原来写的是 0.52019 / 0.69907 —— 那是把 `BackgroundJoin`（接片）
@@ -8665,8 +8716,17 @@ namespace CardPresentation
                               // 🆕 2026-09-29：**整条挂到被拖的那个单位身上**（原版展开时
                               //   `set_position(Get2DWorldPosFromBoardPos(被拖单位.position))`）。
                               //   取不到视图就退回屏幕中心（`Show` 里 `atWorld = null` 那条）。
-                              BoardViewAt(slot) != null ? BoardViewAt(slot).transform.position
-                                                        : (Vector3?)null,
+                              //
+                              // 🔴 **2026-10-16 补上那一步换算（账 → `资料/普查产出_1016战斗/W_卡牌飞行族普查.md` §二 F）**：
+                              //   **上面那句话 2026-09-29 就抄回来了，但换算一直没做** —— 这里原来喂的是
+                              //   `BoardViewAt(slot).transform.position`，那是**竞技场世界坐标**（我方槽 0 x = −3.37，
+                              //   182.14 px/单位），而 `AttackSelector` 把它当 **HUD 平面局部坐标**直接用
+                              //   （`RefreshLayout` 拿它算 `localPosition`；选择器节点在 **Default 层** ⇒ 由 **HUD 正交相机**画，
+                              //   108 px/单位）⇒ 3D 下整条选择器挂不到卡上（读码逐值推算偏 ≈267 px，⛔ **没实跑**）。
+                              //   **判据只此一处** = `BoardLayout.DropTargetWorld`（`:506-516`：3D 时 = 卡心的投影，
+                              //   非 3D 时**逐位等于** `SlotPosition`）—— 与 `A337`/`A359`/`A367` 同一个口，别在这儿另算投影。
+                              BoardViewAt(slot) != null ? (Vector3?)playerBoard.DropTargetWorld(slot)
+                                                        : null,
                               // 🆕 2026-09-29：那圈黄圈挂**这个单位上一次用的打法**（原版 `unit.attackType`；
                               //   0 = 还没打过 ⇒ 不亮）。判据 → `AttackSelector.RefreshPicked`。
                               u.LastAttackType);
@@ -9635,8 +9695,11 @@ namespace CardPresentation
                     size = _endTurnBg != null ? new Vector2(_endTurnBg.WorldW, _endTurnBg.WorldH) : size;
                     return true;
                 case TutAnchor.PlayerMana:
-                    if (_energyGem == null) return false;
-                    center = _energyGem.transform.position; size = new Vector2(_energyGem.WorldW, _energyGem.WorldH); return true;
+                    // 🔴 2026-10-16（`A2102` R4）：原来锚在 `_energyGem` 上，而那一对**已删**
+                    //   （原版球心没有它）⇒ 改锚**球心那块底板** `_myEnergyPlate`（= 原版 `Energy Player`）。
+                    if (_myEnergyPlate == null) return false;
+                    center = _myEnergyPlate.transform.position;
+                    size = new Vector2(_myEnergyPlate.WorldW, _myEnergyPlate.WorldH); return true;
                 case TutAnchor.ChatButton:
                     if (_chatBtn == null) return false;
                     // 原版 `x -= 0.7` / `y += 0.5`（两个常量都在 `GameAssembly.dll` 常量池里实读过）
@@ -10404,7 +10467,7 @@ namespace CardPresentation
         {
             var w = _myUnits.ContainsKey(BoardSpec.WarlordSlot) ? _myUnits[BoardSpec.WarlordSlot] : null;
             var p = w != null ? w.transform.position : Vector3.zero;
-            var e = _energyGem != null ? _energyGem.transform.position : Vector3.zero;
+            var e = _myEnergyPlate != null ? _myEnergyPlate.transform.position : Vector3.zero;
             return new[] { p + new Vector3(-1.0f, 0.5f, 0f), p + new Vector3(1.0f, 0.5f, 0f),
                            p + new Vector3(0f, -0.9f, 0f), e };
         }
@@ -10463,6 +10526,10 @@ namespace CardPresentation
         { get { return Vis(_pileLabel) && Vis(_foePileLabel) && Vis(_myDeckSizePlate) && Vis(_foeDeckSizePlate); } }
         /// <summary>**第二个消费者**：手牌数（文字 + 底板）。⚠️ 审查点名「别只做牌库那一半」。</summary>
         public bool HandSizeVisibleForTest { get { return Vis(_handLabel) && Vis(_handPlate); } }
+        /// <summary>🆕 2026-10-16（`A1239`）：手牌数那颗字的**渲染宽/高**（世界单位；没建 → −1）。
+        /// 🔴 断「**渲染尺寸 ≤ 框**」而不是断字号 —— 字号对而溢出自检照样全绿（`AutoFitBox` 那条教训）。</summary>
+        public float HandLabelWorldW { get { return _handLabel != null ? _handLabel.WorldW : -1f; } }
+        public float HandLabelWorldH { get { return _handLabel != null ? _handLabel.WorldH : -1f; } }
         /// <summary>`hideChat` 的对象 = **那颗聊天按钮**（不是气泡面板）。</summary>
         public bool ChatButtonVisibleForTest { get { return Vis(_chatBtn); } }
         /// <summary>`TutorialSetup.c:~64` 无条件藏的那一颗（与 `hideCemetery` 无关）。</summary>
@@ -11798,6 +11865,58 @@ namespace CardPresentation
                  ? BattleSfx.InvokeCUELegendary : BattleSfx.InvokeCUE;
         }
 
+        // ==================================================================
+        //  🆕 2026-10-16 落地**扬尘**（原版 `CardScript.LandOnGround` 的第二件东西）
+        // ==================================================================
+        //  判据（`CardScript__LandOnGround.c` 亲读）：
+        //    · `:42-51` —— 选哪一件：`!HasCurrentTrait(0x4b0 /*ambush*/)` **且** `cardRarity == 4`
+        //      ⇒ 取 `+0x160` = `landOnGroundParticlesLegendary`；否则取 `+0x158` = `landOnGroundParticles`。
+        //    · `:52-76` —— 在**卡的世界位置 + `landOnGroundParticlesLocalOffset`**（**竞技场世界单位**）、
+        //      按 **prefab 自己的旋转** `Instantiate`（⚠️ 2026-10-16 订正：原写「按卡的旋转」——
+        //      现读 `CardScript__LandOnGround.c` 给 `Instantiate` 的第 3 个实参是
+        //      `get_rotation(prefab.transform)`，**不是卡的**；我们的播放器本来就不动旋转 ⇒ 天然一致）。
+        //    · `:87-106` —— `SetParent(MinionManager)` 之后 `localScale = Vector3.one × desiredScale`。
+        //  两件 prefab **本地都有**、而且已经进过效果库：`Invoke Minion Hits Ground` / `… Legendary`
+        //  （`Assets/WarpforgeVFX/Prefabs/`；`数据/游戏数据/effect_index.json` 两件都是「对得上 / 高置信」）。
+        //  ⚠️ **名字是照语义对上的、不是从 PPtr 解出来的**：卡预制体里那两枚引用是 PPtr
+        //  （`m_PathID 2197305140038358634` / `3011442562301428173`），这份解包的 PathID 是重编号过的、
+        //  按它反查不到对象；而「同名族 + Legendary 尾缀」与 `Invoke Minion Card Fade Default`（登场淡入那件）
+        //  同形，且两件的语义（"hits ground"）与 `landOnGroundParticles` 逐字对得上 —— 如实标在这里。
+
+        /// <summary>普通档的落地扬尘（原版卡预制体 `landOnGroundParticles`）。</summary>
+        public const string LandDustMinion = "Invoke Minion Hits Ground";
+        /// <summary>传说档的落地扬尘（原版卡预制体 `landOnGroundParticlesLegendary`；
+        /// 判据 = `cardRarity == 4` **且不带 ambush**）。</summary>
+        public const string LandDustLegendary = "Invoke Minion Hits Ground Legendary";
+        /// <summary>扬尘相对卡位的偏移 Y —— 原版卡预制体 `landOnGroundParticlesLocalOffset = (0, 0.015, 0)`，
+        /// **量纲 = 竞技场世界单位**。
+        /// <para>🔴 **2026-10-16：这一条的量纲已经处理掉了** —— 扬尘现在**挂到那张卡的视图上**（见调用处），
+        /// 所以 `localPosition` 活在**父节点（卡）的空间**里 ⇒ 传进去的是 `0.015 / 卡的缩放`，
+        /// 落地的**世界**偏移才**逐值等于原版那 0.015**（原来直接当 HUD 单位加，≈1.6 px、且整件活在错的空间里）。</para></summary>
+        public const float LandDustOffsetY = 0.015f;
+
+        /// <summary>🆕 2026-10-16 这一拍该撒哪件扬尘（判据见上面那一段）。
+        /// <para>⚠️ **与上面 `InvokeCueFieldFor` 的规则【故意不同】**：原版那两处自己就不一样 ——
+        /// `CardToMinionAnim` 把带 ambush 的卡的 rarity **强制成 4**（所以那条 CUE 走 legendary），
+        /// 而 `LandOnGround` 是**先看 ambush trait、带了就直接用普通档**。
+        /// ⇒ **别把两条规则合并成一处**（那样必然改错一边）。我们卡池当前 0 张带 ambush
+        /// （`cards_engine.json` 现读），两套规则今天**结论相同**，但机制照写。</para>
+        /// <para>取不到卡 ⇒ 出声 + 退回**普通档**（不猜传说档：普通档是原版 `rarity != 4` 的默认那一支）。</para></summary>
+        string LandDustFieldFor(BattleEvent e)
+        {
+            var unit = (Ctx != null && e.Player >= 0 && e.Player < 2 && BoardSpec.IsValid(e.Slot))
+                     ? Ctx.Players[e.Player].Board[e.Slot] : null;
+            var card = unit != null ? unit.Card : null;
+            if (card == null)
+            {
+                Debug.LogWarning($"[Battle] 落地扬尘取不到卡（`Deploy` 事件：p{e.Player} 格 {e.Slot}）"
+                               + " ⇒ 退回**普通**那件（原版按稀有度挑，挑不了就出声、不猜传说档）。");
+                return LandDustMinion;
+            }
+            return (card.Rarity == "legendary" && !card.Has(KeywordTable.Ambush))
+                 ? LandDustLegendary : LandDustMinion;
+        }
+
         /// <summary>🆕 2026-10-16（`T06` B 组）：**3D 那一档**的战斗音效（原版 `SoundManager.Play3D`）。
         /// 取不到落点 ⇒ **退成 2D**（同 `RemnantSfx` 那条口径），⛔ **别拿 `Vector3.zero` 当落点**
         /// （那会把声音钉在屏幕正中，是原版没有的位置）。</summary>
@@ -12034,7 +12153,17 @@ namespace CardPresentation
             // 但格位坐标只跟棋盘几何有关 —— 直接问 layout，不依赖视图
             _animfxLastEvent = e;
             _animfxCtx = BuildCardContext(e);              // AnimFX 模块要用「为哪两张卡播的」
-            CardEffects.FireEvent(evt, layout.SlotPosition(slot), faction, e.CardId);
+            // 🔴 **2026-10-16（`A367` 的改法落地 · 与 `A337`/`A359` 同一族、同一口）**：
+            //   原来喂 `layout.SlotPosition(slot)` —— 那是**2D 兜底布局的行线点**（屏上 708 px），
+            //   而 3D 下卡真正画在 **631~657 px（逐格不同）** ⇒ 根特效比卡偏 **51~72 px**。
+            //   **为什么根特效要看「卡画在哪」**：`parent = null` 的根特效**拿不到第 8 层**
+            //   （`WarpforgeVFX/Runtime/*.cs` 里 `.layer` 零命中；`CardView.SetLayerRec` 只递归卡自己）
+            //   ⇒ 它由 **HUD 正交相机**画（战场相机 `cullingMask = 1<<8`、HUD 相机摘掉第 8 层）
+            //   ⇒ 喂**竞技场世界坐标**会偏 ≈267 px、喂 **2D 行线**偏 51~72 px、
+            //   **只有 `DropTargetWorld`（这一格卡心的投影）落在卡上**。
+            //   ⛔ 判据只此一处（`BoardLayout.DropTargetWorld:506-516`）：非 3D 时它**逐位等于** `SlotPosition`。
+            //   普查（含「消费方归哪台相机」的判别式）→ `资料/普查产出_1016战斗/W_卡牌飞行族普查.md` §二/§三。
+            CardEffects.FireEvent(evt, layout.DropTargetWorld(slot), faction, e.CardId);
 
             // 🆕 2026-09-29：**登场其实是两件叠加** —— 共享 `CardPrefab.normalSummon`（那张卡淡入，
             //   就是上面的 `VfxMap.Deploy`）**加上**按阵营/逐卡的**召唤法阵**
@@ -12045,7 +12174,41 @@ namespace CardPresentation
             if (e.Kind == EvtKind.Deploy)
             {
                 string sc = VfxMap.SummonCircleOf(faction);
-                if (sc != null) CardEffects.Fire(sc, layout.SlotPosition(slot));
+                if (sc != null) CardEffects.Fire(sc, layout.DropTargetWorld(slot));   // 同上：根特效归 HUD 相机 ⇒ 必须喂「卡心的投影」
+
+                // 🆕 2026-10-16：登场其实是**三件** —— 上面那两件（卡的淡入 + 阵营召唤法阵）
+                //   之外，原版**落定那一拍**还在卡位上撒一件（`CardScript.LandOnGround` 的
+                //   `landOnGroundParticles` / `…Legendary`）。位置 = 卡位 + `landOnGroundParticlesLocalOffset`。
+                //   🔥 落点仍走 `DropTargetWorld`（同一族、同一口）：根特效拿不到第 8 层
+                //   ⇒ 由 HUD 正交相机画 ⇒ 喂竞技场坐标会偏 ≈267 px、喂 2D 行线偏 51~72 px。
+                //   判据与「我们没做到的那一档（原版把它缩到 desiredScale 0.36）」→ `LandDustFieldFor`。
+                // 🔴 **2026-10-16（余账 (a)(b)）：扬尘照原版【挂到那张卡上】，不再喂 HUD 投影点。**
+                //   原版（`CardScript__LandOnGround.c:52-106` 现读）= 在**卡的世界位置 + offset**、按 prefab 自己的
+                //   旋转 `Instantiate` → 挂到 `MinionManager` → **`localScale = one × desiredScale`（0.36 / 0.69）**
+                //   ⇒ 它活在**竞技场空间、由透视相机画**，尺度就是**卡自己的尺度**。
+                //   我们原来喂 `DropTargetWorld(slot)`（HUD 平面的投影点）+ 不动 scale ⇒ **位置与大小都偏离原版**。
+                //   **现在的做法 = 挂到那张卡的视图上**：视图本来就在竞技场层、尺度就是 `desiredScale`、
+                //   旋转是 identity ⇒ **空间 / 层 / 旋转 / 尺度四样一次对上，一处换算都不用写**。
+                //   ⚠️ 层：钩子现在会让特效实例**继承父节点的层**（Unity 的层不继承，见 `WarpforgeEffectHook`）——
+                //     没有那一条，挂上去的扬尘会停在层 0 被 HUD 正交相机画成乱飘。
+                //   ⚠️ `LandDustOffsetY` 是**竞技场世界单位**，而 `localPosition` 活在**卡的空间**里
+                //     ⇒ 除以卡的缩放，落地的世界偏移才逐值等于原版那 0.015。
+                //   ⚠️ **仍差一点点（已记账）**：原版那个 `localScale = one × desiredScale` 是**赋值**，
+                //     我们的播放器是**乘**（`WarpforgeEffectPlayer.cs:202`）⇒ 传说那件自带 0.9913 的根缩放时大 **0.9%**。
+                var dustHost = BoardViewAt(slot, owner == _me);
+                if (dustHost != null)
+                {
+                    float hostScale = Mathf.Max(1e-4f, dustHost.transform.localScale.y);
+                    CardEffects.Fire(LandDustFieldFor(e),
+                                     Vector3.up * (LandDustOffsetY / hostScale),
+                                     dustHost.transform);
+                }
+                else
+                {
+                    // 取不到视图（正常不该发生）⇒ **出声**，退回 HUD 投影点那一路，⛔ 不静默什么都不撒。
+                    Debug.LogWarning($"[BattleDriver] 落地扬尘取不到卡视图（slot {slot}）⇒ 退回 HUD 投影点播放");
+                    CardEffects.Fire(LandDustFieldFor(e), layout.DropTargetWorld(slot) + Vector3.up * LandDustOffsetY);
+                }
             }
             _animfxCtx = default;
         }
@@ -12176,7 +12339,27 @@ namespace CardPresentation
                 // 🆕 2026-09-29：「这个词条刚触发」⇒ 卡上**那一位徽标脉冲一下**
                 // （原版 `CardScript.ActivateTriggerTraitAnim` → `BattleCardUI.HighlightTraitIcon(traitId)`）。
                 case EvtKind.Trigger: PlayTraitPulse(e); break;
+                // 🆕 2026-10-16：**落地那一下的震镜头**（原版 `CardScript.LandOnGround`
+                //   里和扬尘/落地音同一时刻的那件）。⚠️ 它只在 `animateFeel` 开着时跑 ——
+                //   与 `PlayHitFeel` 那条挨打震动**同一个口径**（批处理自检要当场精确坐标）。
+                case EvtKind.Deploy: PlayDeployFeel(e); break;
             }
+        }
+
+        /// <summary>🆕 2026-10-16 **落定那一拍的手感** —— 原版 `CardScript.LandOnGround`
+        /// （`CardScript__LandOnGround.c:26-41`）里**三件同时**：震镜头 + 落地音 + 扬尘。
+        /// 我们这边音与扬尘跟着 `EvtKind.Deploy` 走（见 `PlaySignal` 的 Deploy 分支），
+        /// 「震镜头」按本文件的既有分工落在这里（**手感补间只有 `PlayFeel` 这一个出口**）。
+        /// <para>时序对齐：原版这三点是在 `WaitForSeconds(timeToLand)` **之后**才起
+        /// （`CardScript._MinionPlayedIntoField_d__314__MoveNext.c` 的 state 3）——
+        /// 我们的 `EvtKind.Deploy` 现在也正好发在**序列末尾**那一拍
+        /// （`DeploySequence.Play` 的 `onDone` → `OnCardDeployed` → `DoPlay`），**两者同拍**。</para>
+        /// <para>判据与幅度（preset 真件 `Shake Land on ground`）→ `CardFeel.ShakeCameraForLand`。</para>
+        /// <para>⚠️ **AI 出的牌也走这里**：那条路没有飞行/落下补间（视图直接出现在格位上），
+        /// 所以这一下会跟「卡出现」同拍 —— 事件语义没变，是 AI 那条路本来就没有位移演出。</para></summary>
+        void PlayDeployFeel(BattleEvent e)
+        {
+            CardFeel.ShakeCameraForLand(cam, hudRoot, 0f, boardCam);
         }
 
         /// <summary>刚触发的那个词条 ⇒ 找到它那一位徽标、脉冲一次。
@@ -12435,6 +12618,9 @@ namespace CardPresentation
             // 督军格的阵亡**慢一倍多**（原版 `deathTimeWarlordDuration 0.5` vs 小兵 0.2，见 `CardFeel.DeathDissolve`）
             // 🆕 2026-09-29：表现**照原版重做**了 —— 不是溶解，是「关掉 3D 体 + 在卡位生成死亡爆散体 + 抖一下」
             //   （判据与被卡住的那一环 → `CardFeel.DeathExplosion`）。
+            // 🆕 2026-10-16：**那一串的四拍顺序照原版补齐了**（抖 → 站 0.5 s → 这时才爆散 + 关 3D 体 →
+            //   再 0.2 s → `GoToCemetery`）⇒ 这个视图从这一刻起要活 **`CardFeel.DeathTotal(warlord)`**
+            //   （小兵 0.9 s / 督军 1.2 s），**不再是 0.2/0.5**。判据 → `CardFeel.DeathExplosion` 的 doc。
             bool warlord = e.Slot == BoardSpec.WarlordSlot;
             var tw = CardFeel.DeathExplosion(v, 0f, () => { _dying.Remove(v); Kill(v.gameObject); }, warlord);
             if (tw == null) { _dying.Remove(v); Kill(v.gameObject); }   // 没补间（例如 DOTween 不可用）就直接销毁
@@ -13046,13 +13232,17 @@ namespace CardPresentation
                 // 🔴 换牌期落点 = **换牌区那一行**，而且是**世界**位（`DealInPose` 走 `DOMove`）。
                 if (MulliganRowPose(v, out p, out sc))
                 {
-                    CardFeel.DealInPose(v, deck, p, 0f, sc);
+                    CardFeel.DealInPose(v, deck, p, 0f, sc, back: CardArt.CardBack(_myFaction));
                 }
                 else if (hl != null && hl.TryLastPose(v, out p, out ang, out sc))
                 {
                     // ⛔ 不能退回 `CardFeel.DealIn`：它把 rot 收 0、scale 收 1，牌会停在**原尺寸**
                     //   （226 设计 px，手牌档应是 165 —— 实拍 `_tmp_view/ui_1019/17_battle.png` 量得）。
-                    CardFeel.DealInPose(v, deck, p, ang, sc);
+                    // 🆕 2026-10-16：`back:` = **翻面前半段那颗卡背**（判据 → `CardView.SetBackVisible`）。
+                    //   贴图走**与牌堆/敌方手牌同一个口** —— `CardArt.CardBack(_myFaction)`
+                    //   （`CardBackSprite` 就是拿它 `Sprite.Create` 出来的，同一张图；
+                    //     卡背层要的是 `Texture2D` ⇒ 直接取源头那一支，判据仍只此一处，⛔ 别另挑一张）。
+                    CardFeel.DealInPose(v, deck, p, ang, sc, back: CardArt.CardBack(_myFaction));
                 }
                 else
                 {
@@ -13076,7 +13266,13 @@ namespace CardPresentation
         //
         //  原版那排牌**显示的是卡背**（`PlayerHand__SetupCardInHand.c:45` → `ShowCardBack(!isPlayer)`），
         //  所以我们这边用 `ImageQuad` 画卡背、**不建 `CardView`**（省掉立绘/卡框/文字那一整套）。
-        //  ⚠️ 原版抽牌那一瞬还会绕 Y 翻 180°（`TurnCardAround`）；我们是 2D，**没做那一下**。
+        //  🔴 **2026-10-16 订正**（原文：「原版抽牌那一瞬还会绕 Y 翻 180°（`TurnCardAround`）；
+        //     我们是 2D，**没做那一下**」—— **两半都不准**）：
+        //     ① 原版**敌方这一档【不翻】**：`CardScript__DrawCard.c:52-59` 判的是 `EntityScript.isPlayer`，
+        //        `TurnCardAround` 只在 `isPlayer == true`（抽自己的牌）那一支；
+        //     ② 我方那一下**已经补上了** —— `CardFeel.TurnCardAround`（两段各 90°、各占抽牌时长 0.25，
+        //        判据与出处全在那个方法上面的头注里）。
+        //     判据正本 → `资料/普查产出_1016战斗/W4_抽牌翻转与进墓地.md` §A。
         // ==================================================================
 
         /// <summary>敌方手牌区（原版 MB 4053 那一份）。由 `BattleScene` 建好接上；没有就不建敌方手牌</summary>
@@ -13839,10 +14035,16 @@ namespace CardPresentation
             //   判据 → `资料/普查产出_1015战斗/B5_逐格对账_HUD我们vs原版.md` 表一 **R2**
             //   ⚠️ 同族的 **R3（中心偏 1.8~3.3 px）本会话【没做】** —— 那一行散文写「我 左 1.8 / 下 0.5」，
             //     与原始 `ap(1.8,−0.5)` 的符号读起来相反（uGUI 是 x 右 / y 上）⇒ **先回 `B1` 核原始字段再改，⛔ 不猜**。
-            _myEnergyPlate = HudImageTex(root, CardArt.DeckUi("Card_Frame_Cost_Icon"), MyEnergyPlateX01, MyEnergyPlateY01,
+            // 🔴 **2026-10-16（`A2102` R3）：底板改用【球心】那两个派生量** —— 原版这三件（底板/满空水晶/
+            //   数字）**全是 `ManaHolder` 的子件、彼此同心**（`B1:110` 现读：`Energy Player` 的
+            //   anchor 是 (0,0)-(1,1) 拉伸、自己的 `ap = (−0.000226, 0)` ⇒ 与 holder 同心）
+            //   ⇒ 位置**只有一个判据** = 容器中心 + `ManaHolder.ap`。
+            //   ⚠️ 原来那两个 `{My,Foe}EnergyPlateX01/Y01` 是**各量各的**，与我方球心差 1.5 px / 0.6 px
+            //   —— 已停用（留痕在常量声明处）。⛔ 别再拿它们当第二份判据。
+            _myEnergyPlate = HudImageTex(root, CardArt.DeckUi("Card_Frame_Cost_Icon"), MyEnergyOrbX01, MyEnergyOrbY01,
                         new Vector2(0.5f, 0.5f), 93.32f / 108f, "PlayerEnergyPlate", HudDecorZ + 0.1f);
             if (_myEnergyPlate != null) _myEnergyPlate.SetAspect(90.61f / 93.32f);
-            _foeEnergyPlate = HudImageTex(root, CardArt.DeckUi("Card_Frame_Cost_Icon"), FoeEnergyPlateX01, FoeEnergyPlateY01,
+            _foeEnergyPlate = HudImageTex(root, CardArt.DeckUi("Card_Frame_Cost_Icon"), FoeEnergyOrbX01, FoeEnergyOrbY01,
                         new Vector2(0.5f, 0.5f), 91.32f / 108f, "EnemyEnergyPlate", HudDecorZ + 0.1f);
             if (_foeEnergyPlate != null) _foeEnergyPlate.SetAspect(94.61f / 91.32f);
 
@@ -13857,12 +14059,17 @@ namespace CardPresentation
             //    那一族走，见 `T13`）；这里只修几何。⚠️ 那四颗水晶**留着**（它们不是 `Card Frame Cost Icon`
             //    那块底板的重复件：底板 = `_myEnergyPlate`/`_foeEnergyPlate`，水晶 = ON/OFF 两态 —— `T13`
             //    那次「整组显隐」查的就是这一族 ⇒ 两件都是真的）。
-            _energyGem = HudImage(root, "40k_battle_energy_full", MyEnergyX01, MyEnergyY01,
-                                  new Vector2(0.5f, 0.5f), EnergyCrystalH / 108f, "EnergyGem");
-            if (_energyGem != null) _energyGem.SetAspect(EnergyCrystalW / EnergyCrystalH);
-            _energyGemEmpty = HudImage(root, "40k_battle_energy_empty", MyEnergyX01, MyEnergyY01,
-                                       new Vector2(0.5f, 0.5f), EnergyCrystalH / 108f, "EnergyGemEmpty");
-            if (_energyGemEmpty != null) _energyGemEmpty.SetAspect(EnergyCrystalW / EnergyCrystalH);
+            // 🔴🔴 **2026-10-16（`A2102` R4）：球心那一对 `40k_battle_energy_full/empty`【已删除】——
+            //   原版**球心处没有这个件**。**判据**：`B5` 表一 R4 + `B1:110/112/114` 现读 ——
+            //   `40k_battle_energy_full/empty` 在原版**只**出现在
+            //   `ManaHolder/Energy Accumulation/Energy Player Accumulation ON|OFF`
+            //   （`ap = (−80.2 我 / −81.3 敌, +0.5)`、解算 77.79×80.11），而**球心**那件是
+            //   `Energy Player`（贴图 `Card Frame Cost Icon`）= 我们的 `_myEnergyPlate` ✓（已有）。
+            //   ⇒ 我们原来把「满/空」在**球心**又画了一处 ⇒ 同一件事画了两遍（重影）。
+            //   ✅ 正确的那一对**早就有**：`EnergyAccumulation_Me/_Foe`（按原版位置 −80 px 建，见下面那一批）。
+            //   ⚠️ 原先靠这一对撑着的 5 处消费者**已改接**（见 `TutAnchor.PlayerMana` /
+            //     `TutorialAnnotationAnchors` / `MyEnergyPos01` / `RefreshHud` 的显隐 / 自检那条贴图断言）。
+            //   ⛔ 别再把它建回来。
             // 数字压在宝石上（原版 `ManaText` 就框在 `Energy Player` 上，不是并排）
             // 🔴 **2026-10-10（A1213①）**：框/四格 ← 原版 `…/{Player,Enemy}Mana/ManaHolder/ManaText`
             //    （`RectTransform_2994`(我) · `_2780`(敌)；框 **73.90×82.48** vs **77.34×80.95** ——
@@ -13872,17 +14079,14 @@ namespace CardPresentation
             //    ⚠️ 这颗文案是 `10/10`（5 字），框只有 74~77 px 宽 ⇒ **折行档 = 原版 `1`**（会折行）
             //    —— 原版就开着折行、且 `m_fontSizeMax = 40`（我 39.15 是**缩过**的收敛值，说明原版那颗框略紧），
             //    我们这一侧字体行盒更高（`Noto` 1.437 em vs 原版 `Pragati` 0.947 em）⇒ 收敛值会与原版不同。
-            _energyLabel = Hud(root, "", MyEnergyX01, MyEnergyY01, 4, gold, new Vector2(0.5f, 0.5f), "EnergyLabel",
+            _energyLabel = Hud(root, "", MyEnergyLabelX01, MyEnergyLabelY01, 4, gold, new Vector2(0.5f, 0.5f), "EnergyLabel",
                                73.90f, 82.48f, 8f, 40f, 36f);
             // 敌方水晶：原版有（`EnemyMana`，也带 `ManaText`），**我们原来一颗都没画** ——
             // 于是玩家看不到对手还剩多少能量，只能靠猜。
-            _foeEnergyGem = HudImage(root, "40k_battle_energy_full", FoeEnergyX01, FoeEnergyY01,
-                                     new Vector2(0.5f, 0.5f), EnergyCrystalH / 108f, "FoeEnergyGem");
-            if (_foeEnergyGem != null) _foeEnergyGem.SetAspect(EnergyCrystalW / EnergyCrystalH);
-            _foeEnergyGemEmpty = HudImage(root, "40k_battle_energy_empty", FoeEnergyX01, FoeEnergyY01,
-                                          new Vector2(0.5f, 0.5f), EnergyCrystalH / 108f, "FoeEnergyGemEmpty");
-            if (_foeEnergyGemEmpty != null) _foeEnergyGemEmpty.SetAspect(EnergyCrystalW / EnergyCrystalH);
-            _foeEnergyLabel = Hud(root, "", FoeEnergyX01, FoeEnergyY01, 4, gold,
+            // 🔴 **2026-10-16（`A2102` R4）**：敌方球心那一对也**已删除**，理由与上面我方那一对**完全同一条**
+            //   （原版球心是 `Card Frame Cost Icon` = `_foeEnergyPlate`；满/空那一对在 −81.3 px 的
+            //    `EnergyAccumulation` 上）。⛔ 别建回来。
+            _foeEnergyLabel = Hud(root, "", FoeEnergyLabelX01, FoeEnergyLabelY01, 4, gold,
                                   new Vector2(0.5f, 0.5f), "FoeEnergyLabel",
                                   77.34f, 80.95f, 8f, 40f, 36f);
             // ⚠️ x01 从 0.017 挪到 0.075：手牌数底板有 **259 px 宽**，还摆在屏幕左缘的话整块板会有一半在屏幕外
@@ -13903,6 +14107,14 @@ namespace CardPresentation
             //    `资料/普查产出_第十一会话/PH_A1213Hud补框.md` §4（那一节还记了「框若按 234×64 px 算」的旁证）。
             //    ⚠️ **只补框不补四格是没意义的** —— 框的唯一目的就是给自适应用（见 `Hud` 的 doc）。
             _handLabel = Hud(root, "", 0.075f, 0.158f, 3, dim, new Vector2(0f, 0f), "HandLabel");
+            // 🔴🆕 **2026-10-16（`A1239`）：补框 + 接四格**（原来这颗**没有框也没有字号**，
+            //   落 `Label` 默认档 —— 同族里最后一颗没接的）。
+            //   框与三档的**判据（含那条单位桥）×100 怎么来的** → `HandLabelBoxW` 那条 doc，⛔ 不在这里抄第二份。
+            //   ⚠️ 位置那半**不动**：原版那颗在 dump 里 `activeInHierarchy=False`、祖先链又是纯 `Transform`
+            //     （算不出绝对坐标）⇒ 位置**是我们挑的**（跟着手牌标签走，见 `PlaceHandPlate`）。
+            if (_handLabel != null)
+                _handLabel.SetAutoFitBox(LayoutSpace.Px(HandLabelBoxW), LayoutSpace.Px(HandLabelBoxH),
+                                         HandLabelFsMin, HandLabelFsMax, HandLabelFsBase);
             // 手牌数底板：原版 `CardsInHandText/Bg (1)`（图**也是** `40K_display`，α 0.6941177）。
             // 实绘 259.3×65.7 px（缩放链 108×0.925926×0.009 —— 见常量注释）。
             // ⚠️ **位置是我们挑的**：原版那个节点在 dump 里 `activeInHierarchy=False`（没验到实况），
@@ -14814,10 +15026,10 @@ namespace CardPresentation
             //     组内那颗 **OFF** 图（`40k_battle_energy_empty`）**什么时候亮** ——
             //     `SetAccumulationMana` 只管 ON 那一颗，OFF 那颗的开关点本轮没查到；
             //     它**不是**这个方法的 else 支（那支是「整组关」，连 OFF 都看不见）。
-            var accumFoe = HudAbs(root, "40k_battle_energy_full", 1746.6571888152716f, 247.9047392226712f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Foe");
-            var accumMe  = HudAbs(root, "40k_battle_energy_full", 1748.5645137293218f, 515.5400514454191f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Me");
-            if (accumFoe != null) accumFoe.gameObject.SetActive(manaAccumulation > 0);
-            if (accumMe  != null) accumMe.gameObject.SetActive(manaAccumulation > 0);
+            _energyAccumFoe = HudAbs(root, "40k_battle_energy_full", 1746.6571888152716f, 247.9047392226712f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Foe");
+            _energyAccumMe  = HudAbs(root, "40k_battle_energy_full", 1748.5645137293218f, 515.5400514454191f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Me");
+            if (_energyAccumFoe != null) _energyAccumFoe.gameObject.SetActive(manaAccumulation > 0);
+            if (_energyAccumMe  != null) _energyAccumMe.gameObject.SetActive(manaAccumulation > 0);
 
             // 🆕 2026-10-16（`T01`）：**进战斗那块黑场**（原版 `LoadingMenu`）—— 放在这一批的**最后**建，
             //   它是全屏覆盖层（渲染队列最大），与别的补摆件互不影响。判据 → `LoadingFadeSeconds` 的头注。
@@ -15382,9 +15594,12 @@ namespace CardPresentation
 
         // ---- 自检用：右侧能量区那几件（**截图看不出「贴图对不对/谁上谁下」**）----
         /// <summary>敌方能量水晶现在用的贴图（`40k_battle_energy_full` / `_empty`）</summary>
+        /// <summary>敌方「能量积攒」那组的贴图名（自检用）。
+        /// 🔴 2026-10-16（`A2102` R4）：原来读的是**球心**那对满/空水晶（**已删** —— 原版球心没有它）
+        /// ⇒ 改读**原版那一件**：`Energy Accumulation/Energy Player Accumulation ON`。</summary>
         public string FoeEnergyGemTex
         {
-            get { return (_foeEnergyGem != null && _foeEnergyGem.Texture != null) ? _foeEnergyGem.Texture.name : "<无>"; }
+            get { return (_energyAccumFoe != null && _energyAccumFoe.Texture != null) ? _energyAccumFoe.Texture.name : "<无>"; }
         }
         /// <summary>自检读：回合时钟那行字（`1:00`；进了倒计时那段是纯秒数）</summary>
         public string ClockText { get { return _clockLabel != null ? _clockLabel.Text : null; } }
@@ -15444,9 +15659,11 @@ namespace CardPresentation
         {
             get { return (_foeEnergyPlate != null && _foeEnergyPlate.Texture != null) ? _foeEnergyPlate.Texture.name : "<无>"; }
         }
-        /// <summary>水晶在屏幕上的归一化位置（x01 / y01，y 从**下**算）</summary>
-        public Vector2 MyEnergyPos01 { get { return PosOf(_energyGem); } }
-        public Vector2 FoeEnergyPos01 { get { return PosOf(_foeEnergyGem); } }
+        /// <summary>能量球**球心**在屏幕上的归一化位置（x01 / y01，y 从**下**算）。
+        /// 🔴 2026-10-16（`A2102` R4）：原来读的是球心那对满/空水晶（**已删**，原版球心没有它）
+        /// ⇒ 改读**球心那块底板**（= 原版 `Energy Player`）。位置口径 = 容器中心 + `ManaHolder.ap`（R3）。</summary>
+        public Vector2 MyEnergyPos01 { get { return PosOf(_myEnergyPlate); } }
+        public Vector2 FoeEnergyPos01 { get { return PosOf(_foeEnergyPlate); } }
         /// <summary>任务点那两张图的归一化位置 —— 我方应在水晶**下方**、敌方在**上方**</summary>
         public Vector2 QuestIconPos(bool mine)
         {
@@ -15842,14 +16059,11 @@ namespace CardPresentation
             _pileLabel.SetText(CountText(DeckCountTerm, me.Deck.Count));
             _foePileLabel.SetText(CountText(DeckCountTerm, foe.Deck.Count));
 
-            // 能量宝石：有能量亮、没能量灭（原版两张图）
-            bool hasEnergy = me.Energy > 0 && Ctx.Active == _me && !Ctx.IsOver;
-            if (_energyGem != null) _energyGem.gameObject.SetActive(hasEnergy);
-            if (_energyGemEmpty != null) _energyGemEmpty.gameObject.SetActive(!hasEnergy);
-            // 敌方那颗同理（判据同一份，只是主语换成对手）
-            bool foeHasEnergy = foe.Energy > 0 && Ctx.Active != _me && !Ctx.IsOver;
-            if (_foeEnergyGem != null) _foeEnergyGem.gameObject.SetActive(foeHasEnergy);
-            if (_foeEnergyGemEmpty != null) _foeEnergyGemEmpty.gameObject.SetActive(!foeHasEnergy);
+            // 🔴 2026-10-16（`A2102` R4）：**球心那对「满/空」水晶已删**（原版球心只有 `Card Frame Cost Icon`
+            //   = 我们的 `_energyPlate`）⇒ 原来这段「有能量亮 / 没能量灭」**整段取消**（它就是给那两件用的）。
+            //   ⚠️ 「能量积攒」那一组（`EnergyAccumulation_Me/_Foe`，原版位置 −80 px）**另有闸**
+            //     —— `ManaTypeHolder.SetAccumulationMana` 那一路（见 `manaAccumulation` 那一段与 `T13`）。
+            //   ⛔ **别在这里给它补一个「有能量就亮」的闸** —— 原版那条判据不是这个。
             if (_foeEnergyLabel != null) _foeEnergyLabel.SetText($"{foe.Energy}/{foe.MaxEnergy}");
 
             // ---- 阵营资源：**按阵营**显示（判据只一处：`ShowsSpiritStone` / `ShowsFaith`）----

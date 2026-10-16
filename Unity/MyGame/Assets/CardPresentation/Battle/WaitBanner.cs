@@ -280,11 +280,39 @@ namespace CardPresentation
             _text = Label.Create(transform, Loc.T(WaitTerm),
                                  new Vector3(cx, cy, Z - 0.01f), 4,
                                  new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f), "wait_text");
+            // 🔴 **2026-10-16（`A2102⑤` / R6）：这颗文字【自己有框与字号】，我们原来一个都没接。**
+            //   判据（`B5` 表一 R6 + 主对话现读那颗 TMP 的字段 `MonoBehaviour_4090.json`）：
+            //   框 **1270 × 70**（画布 px）· `m_enableAutoSizing = 1` · `m_fontSize = 55.3` ·
+            //   `m_fontSizeMin = 18` · `m_fontSizeMax = 55.3` · **`m_fontSizeBase = 36`**。
+            //   ⚠️ `basePx` 这个形参就是 TMP 的 **`m_fontSizeBase`**（见 `SetAutoFitBox` 里那句
+            //     「起点就是 base」）⇒ 填原版的 **36**，⛔ 别照 `A1104` 那次「base 取 max」的写法抄过来
+            //     （那一次原版的 base 本来就是那个值）。
+            //   ⚠️ 它原来落 `Label` 默认档 ⇒ 这条提示的字**多大与框多宽都没判据**（同族唯一没接框的一件）。
+            _text.SetAutoFitBox(LayoutSpace.Px(WaitTextBoxW), LayoutSpace.Px(WaitTextBoxH),
+                                WaitTextFsMin, WaitTextFsMax, WaitTextFsBase);
         }
 
         /// <summary>提示条走的那条原版词条。🔴 **只此一份**（`Build()` 与自检都取它）。
         /// 键名 = 原版那颗 `Localize.mTerm` 的原文，出处见文件头那条订正。</summary>
         public const string WaitTerm = "Battle/Mulligan/WaitEnemy";
+
+        // 🔴 **2026-10-16（`A2102⑤` / R6）：那颗文字自己的框与字号** —— 出处 = `B5` 表一 R6（框 1270×70）
+        //   + 主对话现读的 TMP 字段（`bundle_scenes_scenes_battlearena2/MonoBehaviour/MonoBehaviour_4090.json`，
+        //   它是按 `m_text = "Waiting for enemy"` 找到的唯一一份）。**判据只此一份**（`Build()` 与断言都取它）。
+        public const float WaitTextBoxW = 1270f, WaitTextBoxH = 70f;
+        /// <summary>`m_fontSizeMin` = **18**（画布 px，与 `A1104` 那族同一个下限值 —— 原版就是这么填的）。</summary>
+        public const float WaitTextFsMin = 18f;
+        /// <summary>`m_fontSizeMax` = **55.3**（= `m_fontSize`，自适应开着时的上限）。</summary>
+        public const float WaitTextFsMax = 55.3f;
+        /// <summary>`m_fontSizeBase` = **36**（TMP 自适应的**起点**）—— ⚠️ 它**不是** 55.3，
+        /// ⛔ 别把它写成 max（`SetAutoFitBox` 的第 5 个形参就是这一格）。</summary>
+        public const float WaitTextFsBase = 36f;
+
+        /// <summary>自检用：那颗文字的**渲染宽度/高度**（世界单位）；没建 → −1。
+        /// 🔴 断「**渲染尺寸 ≤ 框**」而不是「字号 = 某个数」 —— 字号对而溢出自检照样全绿
+        /// （`AutoFitBox` 那条教训，见 `资料/已知的坑.md`）。</summary>
+        public float TextWorldW { get { return _text != null ? _text.WorldW : -1f; } }
+        public float TextWorldH { get { return _text != null ? _text.WorldH : -1f; } }
 
         /// <summary>开 / 关。**重复调用同一个值不会重复设置**（`UpdateHud` 每帧都会调它）。</summary>
         public void SetVisible(bool on)
