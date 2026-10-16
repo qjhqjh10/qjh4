@@ -4468,15 +4468,63 @@ namespace CardPresentation
             return q;
         }
 
-        /// <summary>世界坐标在不在这张卡上。**用卡自己的局部坐标判** —— 扇形里每张卡都带旋转，
-        /// 拿屏幕空间的包围盒判会错。</summary>
-        public bool Contains(Vector3 world)
+        // ==================================================================
+        //  可点矩形（原版 `CardUI/2DCard/UI Collider`）—— 2026-10-16（`T09` 卡体批 ①）
+        // ==================================================================
+        // 🔴 **判据只此一份** = `Core/CardFan.cs:131-165`（`HitRatioX` / `HitRatioY` / `HitCyDropPx`），
+        //    本文件**只转发**（⛔ 别在这儿再写一份比例：两处写同一条规则 = 迟早不一致）。
+        //    原版那颗 `UI Collider` 是 `2DCard` 的**子件**：拉伸锚 `(0,0)-(1,1)` · `m_SizeDelta(−0.2,−0.44)`
+        //    · `m_AnchoredPosition(0,−0.02)` · `m_RaycastTarget=1` · `m_RaycastPadding=(0,0,0,0)`
+        //    ⇒ 可点矩形 = 卡身 `2.0927×3.3313` 各边内缩 ⇒ **1.8927 × 2.8913 卡单位**、中心比卡心**低 0.02**。
+        //    出处：卡 prefab 原件 `bundle_battleprefabs_vfxandmisc_assets_all/`（卡 prefab 在那个包、
+        //    **不在战斗场景包里** —— `S7_卡体终点形态_报告.md` §一·B 现读）；逐字段对照 → `CardFan.cs` 那段。
+        //    卡体批整条判据 → `资料/普查产出_1016战斗判据/T03_命中与可点区域判据.md` §四 第 1 步。
+        // 🔴 **标架 = 内层 `2DCard`（`_tiltRoot`）**，⛔ 不是卡根 —— 可点件挂在 `2DCard` 底下，而
+        //    `AutoCardRotation`（10/10/10）也挂在 `2DCard` 上 ⇒ **可点区跟着卡面的倾摆一起转**、
+        //    与「画到哪」同标架（`A2093`）。⇒ 也顺手解掉 `CardFan.cs:151`「碰撞与卡自己的转角无关」
+        //    与 `A2093` 的**互斥**记录（那条互斥记录 → `资料/任务线/战斗线/准则与做法.md` §六 坑 13）。
+
+        /// <summary>可点矩形的**半宽**（卡局部单位）= `Width × CardFan.HitRatioX ÷ 2` = **0.94635**。</summary>
+        public const float HitHalfW = Width * CardFan.HitRatioX * 0.5f;
+        /// <summary>可点矩形的**半高**（卡局部单位）= `Height × CardFan.HitRatioY ÷ 2` = **1.44565**。</summary>
+        public const float HitHalfH = Height * CardFan.HitRatioY * 0.5f;
+        /// <summary>可点矩形**中心**相对卡心的局部 y 偏移（卡局部单位；负 = 向下）= **−0.02**
+        /// （= 原版 `m_AnchoredPosition.y`）。算式：`CardFan.HitCyDropPx`（5 px @ 前台 scale 250）
+        /// ÷ 前台「每卡单位多少 px」（`CardFan.FrontHpx / Height` = 250）。</summary>
+        public const float HitCenterDy = -(CardFan.HitCyDropPx * Height / CardFan.FrontHpx);
+
+        bool _hitFrameWarned;
+
+        /// <summary>可点矩形所在的那一级节点 = 内层 `2DCard`（`_tiltRoot`，`Build` 里建；
+        /// `AutoCardRotation` 挂在它身上 ⇒ 它转 = 倾摆）。
+        /// ⚠️ 取不到就退回卡根并**出声一次**（⛔ 不静默：「退回卡根」= 不跟倾摆 = 判据之外的状态）。</summary>
+        Transform HitFrame()
         {
-            var l = transform.InverseTransformPoint(world);
-            return Mathf.Abs(l.x) <= Width * 0.5f && Mathf.Abs(l.y) <= Height * 0.5f;
+            if (_tiltRoot != null) return _tiltRoot;
+            if (!_hitFrameWarned)
+            {
+                _hitFrameWarned = true;
+                Debug.LogWarning("[CardPresentation] " + name + "：内层 `2DCard`（`_tiltRoot`）还没建 ⇒ "
+                               + "命中判定退回**卡根**（= 不跟倾摆，与原版 `UI Collider` 挂在 `2DCard` 上不符）；"
+                               + "唯一成因 = `Build()` 没跑过（正常路径 `Create` 就建）");
+            }
+            return transform;
         }
 
-        /// <summary>🆕 2026-10-15（账 `A2089`）：和 <see cref="Contains"/> 同一套算法，但**四周外扩 `margin`**
+        /// <summary>世界坐标在不在这张卡上。
+        /// 🔴 **2026-10-16（`T09` 卡体批 ①）起判据换成原版那颗 `UI Collider`**：标架 = 内层
+        /// `2DCard`（⇒ **跟卡面的倾摆一起转**），矩形 = `|x| ≤ HitHalfW` 且 `|y − HitCenterDy| ≤ HitHalfH`
+        /// = **1.8927 × 2.8913 卡单位**、中心比卡心低 **0.02**（比例/偏置的判据只在 `CardFan`）。
+        /// <para>改前 = **整卡矩形**（`±Width/2 × ±Height/2`）**挂在卡根**。</para>
+        /// <para>⚠️ **两个标架都已经跟上了扇形角**（它由 `SetPose` 写在**卡根**上，`_tiltRoot` 是它的子件）
+        /// —— 换标架真正补上的是**倾摆**：`AutoCardRotation` 只写 `_tiltRoot` 的 `localRotation`。</para></summary>
+        public bool Contains(Vector3 world)
+        {
+            var l = HitFrame().InverseTransformPoint(world);
+            return Mathf.Abs(l.x) <= HitHalfW && Mathf.Abs(l.y - HitCenterDy) <= HitHalfH;
+        }
+
+        /// <summary>和 <see cref="Contains"/> 同一套算法（**同一标架、同一矩形**），但**四周外扩 `margin`**
         /// （同一局部单位）。用途 = 悬停那条链的**廉价前置门**：先问一句「指针在不在这一带」，
         /// 不在就**别去跑那次 `TMP_TextUtilities.FindIntersectingLink`**。
         ///
@@ -4489,11 +4537,17 @@ namespace CardPresentation
         /// ⚠️ 用 `margin` 而不是精确 `Contains`，是因为原版靠 `OnPointerEnter` 触发、
         /// 边界处比「精确矩形」宽松一点点 —— 留外扩免得贴边时反而不如原版灵敏。
         /// ⚠️ `margin` 是**局部单位**（与 `Width`/`Height` 同一把尺），卡被缩放时它的世界大小会跟着变
-        ///   —— 这是有意的：本方法问的是「在这张卡的坐标系里近不近」。</summary>
+        ///   —— 这是有意的：本方法问的是「在这张卡的坐标系里近不近」。
+        /// 🔴 **2026-10-16（`T09` 卡体批 ①）：底矩形跟着 `Contains` 一起换**（原来是整卡矩形、挂卡根）。
+        ///   复算过一遍：唯一的消费者 `BattleDriver.TickTraitTip` 传 `margin = 0.15`，而底矩形每边只缩
+        ///   **0.1（左右）/ 0.24（上）/ 0.2（下）**卡单位 ⇒ 带 `margin` 的那一圈**横向仍盖满整卡宽**、
+        ///   纵向盖住卡身高度的 **0.03…0.985**，而关键词那段文字在卡面中段 ⇒ **这道门的松紧没有变**
+        ///   （只是标架从卡根换成跟着倾摆的 `2DCard`，与文字实际所在的层对上了）。</summary>
         public bool ContainsNear(Vector3 world, float margin)
         {
-            var l = transform.InverseTransformPoint(world);
-            return Mathf.Abs(l.x) <= Width * 0.5f + margin && Mathf.Abs(l.y) <= Height * 0.5f + margin;
+            var l = HitFrame().InverseTransformPoint(world);
+            return Mathf.Abs(l.x) <= HitHalfW + margin
+                && Mathf.Abs(l.y - HitCenterDy) <= HitHalfH + margin;
         }
 
         // ==================================================================

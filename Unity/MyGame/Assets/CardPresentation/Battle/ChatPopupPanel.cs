@@ -34,6 +34,44 @@
 //     ⇒ 现在走 `LabelFor(i)` = **官方词条优先**，`ButtonLabels` 那份英文枚举名**降为兜底**（缺键才用、且出声）。
 //     ⚠️ 仍然成立的一条：原版**序列化下来的兜底文本 6 个钮全是 `Greetings`**（6 个 TMP 逐一确认）——
 //       那是 prefab 的静态默认值，运行时被 I2 覆盖。
+// ═════════════════════════════════════════════════════════════════════════════
+//  🔴 **2026-10-16（`T09` 批 3 · `OverHand` 组）：7 张图 + 6 颗钮的字整批从【世界空间 quad】迁到【uGUI 子画布】**
+//  · **子画布** = `SubCanvasName`（= 原版 GO 名 + `" Canvas"`）+ `HudCanvas.SortingLayer.OverHand` + order `0`
+//    —— 判据 = `资料/普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一 我这一行：
+//    `ChatPopup` @ `…/FrontCanvas/Safe area FrontCanvas/Unit Chat`，`(rm 继承 FrontCanvas(1),
+//    ovr 继承 true, OverHand, 0, 兄弟序 **4/7** —— 7 是在 `Unit Chat` 内部数的)`，出处 `RT_2881` · `MB_4429`。
+//  · 🔴 **层级差异（如实记，⛔ 本批没改）**：原版 `ChatPopup` 是 **`Unit Chat` 的子件**；我们这边
+//    `ChatPopupPanel` 与 `UnitChatPanel` 是**兄弟**（`BattleDriver` 两处都挂 HUD 根）。
+//    按 `T09` §五·补⑩ 二 的裁定：**本次只按「谁的 canvas 装谁」迁，⛔ 不倒嵌套**（先例 = `BattleDoors`
+//    在我们这边挂在 `EndPanel` 里面、原版反过来）。⇒ 收口时 `SubCanvasRank` 里
+//    `"Unit Chat Canvas"` 排在 `"ChatPopup Canvas"` **之前**（= 原版「子件画在父件之上」那一条）✓。
+//  · ✅ **锚点已照原版补正（2026-10-16 · `T09` 批 3 补正 `A12`）**：本节点（`ChatPopup`）现在按原版那对的
+//    `m_AnchorMin/Max` = **`(0,0)`（贴画布左下角）** + `pivot (0,0.5)` + `ap (0, 479.815)` + `sd 815.044 × 475.470`
+//    （逐值现读 `battlearena2/RectTransform/RectTransform_2881.json`；`ap.y` 那一格原版是 `479.81005859375`，
+//    我们取 `1080 − 面板中心 y = 479.815` ⇒ **16:9 下与改之前逐位相同**，差 0.005 px 见报告 §④）。
+//    ⚠️ 改本件之前是「**中心锚** + 矩形尺寸」⇒ 非 16:9 下原版**贴着屏幕左下角**、我们贴着**画布中心**
+//    （4:3 下面板上下沿差 **180 画布 px** = 135 屏 px；21:9 下左边沿差 **320 画布 px**）。现已两端一致。
+//    ⇒ **子件现在按【本节点矩形的中心】给 px**（原版子件就是那么锚的：`CloseChatPopup` 的 `ap (2.45, 41.66)`、
+//    `ChatButtons` 的 `ap (371, 206)` 都是相对面板中心），⛔ 不再是「相对画布中心」——
+//    两者在 16:9 下同值（面板本来就在屏心），非 16:9 下**只有当子件跟着面板走才是对的**。
+//  · 🔴 **世界 z 那 6 个常量【已按原版层序重排】**（既有缺陷，2026-10-16 补正 `A12` 一并修）——
+//    判据与「改后谁压谁」对照表 → `ZClose` 那条 doc / 报告 §④。
+//  · ✅ **几何自核（2026-10-16 现读 `battlearena2`，不是转抄报告）**：原版树是
+//    `ChatPopup(2881) → CloseChatPopup(3500, ap 2.45/41.66, sd 4055.34×2114.44)` +
+//    `ChatButtons(3363, anchor(0,0), ap 371/206, sd 722.66×403.13)`，而 `ChatButtons` 里那颗
+//    `White Square` 底色是 `RT 2860`（中心锚、`ap (28.816, 5.615)`、`sd 557.314×301.346`）——
+//    与本件 `Bg` 那条（557.31×301.35）**逐位对得上**（我按 `ChatButtons` 的 `ap` 倒推得 28.815/5.61）✓。
+//    ⚠️ **那一级（`ChatButtons`/`Buttons` 容器）我们不建**：它的作用只是「排布」+「给子件当锚」，
+//    而我们直接按排完的绝对 px 摆 ⇒ 等价（`ChatButton` 行本身是 `anchor (0,1)` + `piv (.5,.5)`
+//    + `ap.x 278.655` + `ap.y −24 − 49.48k` + `sd 603.6×48`，逐行现读；见 `Button0` 那条）。
+//  · 🔴 **本面板有可点件**，两条与第 4 步（输入）有关的、**现在还没做**的：
+//    ① **`raycastTarget`**：原版这 6 颗钮的每一层（透明命中条 `MB 4947` · 可见底图 `MB 5202`）与
+//       `CloseChatPopup`（`MB 4409`）都是 **`m_RaycastTarget = 1`**；而 `HudCanvas.MakeImageInParent`
+//       出厂**写死 `false`** ⇒ 第 4 步要一起翻（`T09` §八·11 同族）。
+//    ② 命中判定**本轮仍是手搓**（`Hit`）—— uGUI 档把世界点经**本节点**的 `InverseTransformPoint`
+//       折成设计 px 再比绝对矩形（与 `MulliganPanel.PxOf` 同一套；⛔ 不是 `LayoutSpace.ToPixel` 那一族
+//       —— 那是**世界帧**的逆，非 16:9 下与画布帧差 1.333 倍 ⇒ 「看得见的地方点不到」）。
+// ═════════════════════════════════════════════════════════════════════════════
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -112,16 +150,81 @@ namespace CardPresentation
 
         public const int ButtonCount = 6;
 
+        // ── 🆕 2026-10-16（`T09` 批 3 · `OverHand` 组）：本面板的【渲染空间】--------------------------
+        /// <summary>🔴 本面板那块 **uGUI 子画布**的名字（= 原版宿主 GO 名 + `" Canvas"`）。
+        /// 判据 = `T09c` §一 我这一行（`ChatPopup` @ `…/Safe area FrontCanvas/Unit Chat`，`OverHand` / order 0）。
+        /// ⛔ **只此一份** —— 调用方建它也要取这里。</summary>
+        public const string SubCanvasName = "ChatPopup Canvas";
+        /// <summary>本面板那块子画布的**排序层**（判据同 <see cref="SubCanvasName"/>）。</summary>
+        public const int SortingLayerId = HudCanvas.SortingLayer.OverHand;
+        /// <summary>本面板那块子画布的 `sortingOrder`（判据同 <see cref="SubCanvasName"/>）。</summary>
+        public const int SortingOrder = 0;
+
+        /// <summary>🔴 **本件活在哪个空间**：`false` = **世界空间 quad**（出厂档，与加本档之前**逐位相同**）·
+        /// `true` = **uGUI 画布**。由 `Create(..., uguiHost)` 按「调用方有没有给宿主」定。</summary>
+        bool _ugui;
+        /// <summary>uGUI 档在不在（诊断 / 断言 / 自检用）。</summary>
+        public bool IsUgui { get { return _ugui; } }
+
+        /// <summary>本节点自己（画布那一级的换算基准 = `PxOf` 用的那个帧）。两种模式都是 `RectTransform`。</summary>
+        RectTransform _frame { get { return (RectTransform)transform; } }
+
+        /// <summary>**世界档专用**：本面板各层的**世界 z**（相机看 +Z ⇒ **z 越小越靠前**、z 大的画在底下
+        /// —— 判据 → `SkillPanel.ZPanel` / `CardDisplayWindow:778` / `ErrorMessageBanner` 那三处注释，
+        /// 与 `HudCanvas.Add` 的映射口径同向）。
+        /// <para>🔴🔴 **2026-10-16（补正 `A12`）：这一份原来是【与原版反的】—— 已按原版层序重排。**
+        /// **原样**是 `close 0.02 < 色块 0.04 < 框 0.05 < 钮 0.06/0.07` ⇒ 在「z 小 = 靠前」的口径下
+        /// **色块（不透明深绿 `BgColor.a = 1`）压在六颗钮之上**（`Bg` 矩形 121.16..678.47 × 475.64..776.99
+        /// 与六颗钮 77.2..680.8 × 481.9..777.3 几乎完全重叠；逐颗按到相机 (0,0,−20) 的欧氏距离算，
+        /// 只有钮 0 的底图以 0.01 的余量侥幸在前 ⇒「六颗钮（多半还有它们的字）被那一整块深绿盖住」。
+        /// 那是**既有缺陷**、不是本批引入的 —— `T09` 铁律 11「与原版不符的全部要做」⇒ 主对话裁定**一并修**。）</para>
+        /// <para>**判据 = 原版 prefab 的子件序**（`battlearena2` 现读）= `ChatPopup` 的孩子
+        /// `[0] CloseChatPopup`(最底) · `[1] ChatButtons` → `ChatButtons` 的孩子
+        /// `[0] White Square`色块 · `[1] 四个框` · `[2] Buttons` → 每颗 `ChatButton` 行
+        /// `[0] bg · [1] Text · [2] icon` ⇒ **从底到顶**是「关闭区 → 色块 → 框 → 钮(bg→字→图标)」。</para>
+        /// <para>🔑 **改后谁压谁**（从前到后 = 从 z 小到 z 大 = 从画在上到下）：
+        /// `钮图标(0.02) → 钮文字(0.03) → 钮底图(0.04) → 框(0.05) → 色块(0.06) → 关闭区(0.07)`。
+        /// ⇒ 六颗钮**压在**色块与四个框之上 ✓（原版的层序）；`_close` 那一片全屏透明件仍在**最底下**
+        /// （它 `alpha = 0`，本来就只是「吃按下那一下」，视觉上不参与）✓。
+        /// ⚠️ **z 的【那一段区间】**（0.02…0.07）没变（只把 6 个值按层序重新分配，并把原来那对
+        /// `ZBtnText == ZBtnIcon` 的**并列**拆成 0.03/0.02 —— 原版图标压在字之上）⇒
+        /// 「本面板相对别的 HUD 件（`HudImageZ` 0.3 / `UnitChatPanel.Z` 0.25 那一档）整体在**前面**」
+        /// 这条**一个字没动**（`grep` 现核：战斗 HUD 里没有别的件落在 0.02…0.07 这一段）。</para>
+        /// <para>uGUI 档**不用**这一份（兄弟序另有一套键）—— 见下面 <see cref="UZClose"/>。</para></summary>
+        const float ZClose = 0.07f, ZPanelBg = 0.06f, ZFrame = 0.05f,
+                    ZBtnBg = 0.04f, ZBtnText = 0.03f, ZBtnIcon = 0.02f;
+
+        /// <summary>🔴 **uGUI 档的兄弟序键** —— 判据 = **原版 prefab 的子件序**（上面 <see cref="ZClose"/>
+        /// 那条 doc 的 ①；`battlearena2` 现读，逐级抄下来）：
+        /// <code>
+        /// ChatPopup      : [0] CloseChatPopup · [1] ChatButtons
+        /// ChatButtons    : [0] BG            · [1] BGFrame     · [2] Buttons
+        /// (BGFrame)      : [0] BGFrame Top   · [1] Bottom      · [2] Right · [3] Left
+        /// (Buttons)      : [0..5] ChatButton …
+        /// ChatButton 行  : [0] bg            · [1] Text (TMP)  · [2] button(图标)
+        /// </code>
+        /// **不是**上面那一份世界 z。
+        /// <para>`HudCanvas.Add` 是「z **大的**排**前面** = 画在**底下**」⇒ 这里按**从底到顶**
+        /// 给**递减**的键 ⇒ 逐件与原版对得上（⚠️ 同一个 `ChatButton` 行里 `Text` 在 `button` **之前**、
+        /// 即**图标压在字之上** —— 那是原版如此；两者不重叠，实际看不出，但**别顺手改成"字在上"**）。</para>
+        /// <para>⚠️ 为什么**另立一套键**而不是直接沿用世界档那一份：世界 z 是**浮点世界坐标**、键是
+        /// **兄弟序整数**，两者单位与方向都不同（世界档 `z` 大 = 远 = 先画；`Add` 的键大 = 先画）。
+        /// 🔴 **2026-10-16（补正 `A12`）**：世界那一份**已按同一套层序重排**（见 <see cref="ZClose"/>）
+        /// ⇒ 两档现在**同向**（这是本该如此；原来世界档那一份与原版是反的、只在画布上纠正过）。</para></summary>
+        const float UZClose = 6f, UZPanelBg = 5f, UZFrame = 4f,
+                    UZBtnBg = 3f, UZBtnText = 2f, UZBtnIcon = 1f;
+
         class Btn
         {
-            public ImageQuad bg, icon;
+            /// <summary>🔴 **2026-10-16（`T09` 批 3）：类型 `ImageQuad` → `HudPiece`**（世界 quad 或 uGUI 件，二选一）。</summary>
+            public HudPiece bg, icon;
             public Label text;
             public Rect rect;                 // 绝对矩形（每次 RefreshLayout 重算）
         }
 
         readonly List<Btn> _btns = new List<Btn>();
-        ImageQuad _bg, _frameTop, _frameBottom, _frameLeft, _frameRight;
-        ImageQuad _close;                     // 全屏关闭区（等效 `NonDrawingGraphic`）
+        HudPiece _bg, _frameTop, _frameBottom, _frameLeft, _frameRight;
+        HudPiece _close;                      // 全屏关闭区（等效 `NonDrawingGraphic`）
         bool _built;
 
         float _alpha;
@@ -161,18 +264,73 @@ namespace CardPresentation
             return (i >= 0 && i < _btns.Count && _btns[i].text != null) ? _btns[i].text.Text : "(无)";
         }
 
+        /// <summary>🔴 **自检用（`EW3` · 灭自证口）**：第 i 颗钮**文字真正的不透明度** —— 读的是**挂在它上面的
+        /// `Label.color.a`**（那个值最终就是 `TMP` 的 `_tmp.color.a`），⛔ **不是**重算一遍 `_alpha`
+        /// （那等于拿实现证明实现）。
+        /// <para>期望：面板淡入淡出中它必须**与 `Alpha` 同步**（`Show()` 后 0 → 1 · `HideImmediate()` 后 = 0）；
+        /// 改坏了（漏掉 `SetAlpha` 里那一句）⇒ 它会**恒等于 1** 而 `Alpha` 照常变 —— 两条一比就露。</para>
+        /// <para>越界 / 那件没建出来（TMP 字体缺失）⇒ `-1`（⛔ 不返 1：那与「真的满不透明」分不开）。</para></summary>
+        public float TextAlphaAt(int i)
+        {
+            return (i >= 0 && i < _btns.Count && _btns[i].text != null) ? _btns[i].text.color.a : -1f;
+        }
+
         public static ChatPopupPanel Create(Transform parent)
         {
+            return Create(parent, null);          // 不传宿主 ⇒ **世界档**（与加本档之前逐位相同）
+        }
+
+        /// <summary>🔴 **2026-10-16（`T09` 批 3）**：`uguiHost` = **本面板那块子画布的 `RectTransform`**
+        /// （由调用方建/取：`HudCanvas.EnsureSubCanvas(null, <see cref="SubCanvasName"/>,
+        /// <see cref="SortingLayerId"/>, <see cref="SortingOrder"/>)`）。
+        /// <para>`null` ⇒ **世界档**（= 改本件之前的行为，逐位相同）；非 null ⇒ **uGUI 档**。</para>
+        /// <para>⛔ **宿主不在任何 `Canvas` 下时出声并且【不建】** —— 半迁移态比不迁移更坏：一张 `Image`
+        /// 挂在没有 `Canvas` 的父链下**一个像素都不画**，而调用点会以为建成功了。</para></summary>
+        public static ChatPopupPanel Create(Transform parent, Transform uguiHost)
+        {
+            bool ugui = uguiHost != null;
+            if (ugui && uguiHost.GetComponentInParent<Canvas>() == null)
+            {
+                Debug.LogError("[Battle] `ChatPopupPanel.Create` 的 `uguiHost` 不在任何 `Canvas` 下"
+                             + " ⇒ **本面板不建**（⛔ 不退回世界空间 quad —— 半迁移态在 16:9 下看不出来）");
+                return null;
+            }
             // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
             //    判据 = 原版同名件 `ChatPopup` 实读：`RectTransform` · `anchor (0,0) 重合` ·
-            //    `pivot (0,0.5)` · **`m_SizeDelta = (815.044, 475.470)`**（`bundle_scenes_scenes_battlearena1`，
-            //    2026-10-11 现读）⇒ 就是上面那个 `Panel` 的宽高（**同一份数**，⛔ 别另立一个）。
-            //    ⚠️ 原版锚在左下、我们按「重合锚点 + 矩形尺寸」表达同一个矩形（锚点不复刻，见 `MenuDraw.SetPxSize`）。
-            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「`ChatPopup` 的 rect = 815.04×475.47」红。
+            //    `pivot (0,0.5)` · **`m_SizeDelta = (815.044, 475.470)`**（`bundle_scenes_scenes_battlearena2`，
+            //    2026-10-16 现读；旧记写成 `battlearena1`，两包同名件逐值相同）⇒ 就是上面那个 `Panel`
+            //    的宽高（**同一份数**，⛔ 别另立一个）。
+            //    🔴 **2026-10-16（补正 `A12`）：锚点现在【也】照原版写了**（原来只写了尺寸、锚点用中心锚）——
+            //    `anchor (0,0)` + `pivot (0,0.5)` + `ap = HudCanvas.SetAnchorPx(…)` 算出来的 `(0, 479.815)`。
+            //    改坏法：删掉下面那几行 ⇒ `Editor/BattleScene.cs` §A218「`ChatPopup` 的 rect = 815.04×475.47」红
+            //    （那条断的是 `sizeDelta`，锚点改了不影响它）；
+            //    锚点改回中心锚 ⇒ 非 16:9 下整块面板与子件一起偏右/偏上（4:3 偏 180 画布 px）。
             var go = new GameObject("ChatPopup", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            MenuDraw.SetPxSize(go.transform, Panel.width, Panel.height);
+            // 🔴 **2026-10-16（`T09` 批 3）**：世界档挂 `parent`、uGUI 档挂**宿主子画布**（⛔ 不是 `hudRoot`
+            //    —— 那是反向补震用的，挂它下面会被补偿两次；同 `ErrorMessageBanner.Create` 那条）。
+            go.transform.SetParent(ugui ? uguiHost : parent, false);
+            // 尺寸/锚点：**同一份数、两种单位 + 两种锚点** ——
+            // 世界档 `MenuDraw.SetPxSize`（体内 `÷108`、中心锚；⚠️ 世界档那棵树里**子件的坐标是绝对的**
+            //   `localPosition`（见 `Put` 的世界那一支），所以**本节点的锚点与位置不参与排布** ⇒ 保持原样不动，
+            //   免得把子件一起搬走）；uGUI 档**按原版那对锚点写**（`sizeDelta` 直接吃 px）。
+            // ⛔ 别在 uGUI 档沿用 `MenuDraw.SetPxSize`（1/108、不报错）。
+            if (ugui)
+            {
+                var prt = (RectTransform)go.transform;
+                // 🔴 **2026-10-16（`G5` 收口波 · 消重）**：**点锚 + `anchoredPosition` 走共用口**
+                //   （原来这里是「手写点锚那两行」+ 一个私有常量 `PanelApPx`，式子与共用口**逐位相同**）。
+                //   算得 `ap = (0, 479.815)`（原版 `RT 2881` 是 `(0, 479.81005859375)` —— 差 0.0049 px，
+                //   成因见下面 `PanelOriginPx` 那段）。
+                //   ⚠️ 它**只碰** `anchorMin/Max` 与 `anchoredPosition` ⇒ 下一行 `pivot`、再下一行 `sizeDelta`
+                //   照旧各写各的；三者是 `RectTransform` 的**独立字段**（谁先谁后不改终值，
+                //   ⛔ 别误以为「改了锚点会反推 `anchoredPosition`」—— Unity 的锚点 setter 不重算它）。
+                HudCanvas.SetAnchorPx(prt, PanelAnchorX, PanelAnchorY, PanelOriginPx.x, PanelOriginPx.y);
+                prt.pivot = new Vector2(PanelPivotX, PanelPivotY);                         // 原版 `(0,0.5)`
+                prt.sizeDelta = new Vector2(Panel.width, Panel.height);                    // 原版 `815.044 × 475.470`
+            }
+            else MenuDraw.SetPxSize(go.transform, Panel.width, Panel.height);
             var p = go.AddComponent<ChatPopupPanel>();
+            p._ugui = ugui;                        // ⚠️ 必须在 `Build()` **之前**赋值（`Build` 里按它算单位）
             p.Build();
             return p;
         }
@@ -188,23 +346,36 @@ namespace CardPresentation
             //   ⚠️ 我们**不接 Unity 的射线**（本工程的点击一律是「自己算 `Contains(世界坐标)`」，
             //      `ImageQuad` 上根本没有 `raycastTarget` 这个口子）⇒ 这里只要一张**全透明的图**占位，
             //      命中由下面的 `SetPointer` 按同一套矩形判 —— 等效原版那个 `NonDrawingGraphic`。
-            _close = ImageQuad.Create(transform, Solid(), Vector3.zero, 1f,
-                                      new Vector2(0.5f, 0.5f), "CloseChatPopup");
-            if (_close != null) _close.SetTint(new Color(1f, 1f, 1f, 0f));   // 只看不画
+            // 🔴 **2026-10-16（`T09` 批 3）**：uGUI 档 = **一张中心锚的 `Image`**（尺寸由 `Put` 每次刷）
+            //    —— `HudCanvas.MakeImageInParent` 的 `z` 形参就是**画布上那个兄弟序键**（`UZClose` = 本面板最大的键
+            //    ⇒ 排最前 = 画在最底下 ✓，判据 = 原版 `ChatPopup` 的子件序 `[0] CloseChatPopup`）。
+            _close = _ugui
+                   ? HudCanvas.MakeImageInParent(transform, Solid(), "CloseChatPopup",
+                                                 0f, 0f, 1f, 1f, UZClose, Color.white)
+                   : HudPiece.Of(ImageQuad.Create(transform, Solid(), Vector3.zero, 1f,
+                                                  new Vector2(0.5f, 0.5f), "CloseChatPopup"));
+            if (_close != null) _close.SetTint(new Color(1f, 1f, 1f, 0f));   // 只看不画（两档同一条：uGUI 档改的是 `Image.color`）
 
-            _frameTop = Make("BGFrame_Top", "40k_UnitChat_Background_Top");
-            _frameBottom = Make("BGFrame_Bottom", "40k_UnitChat_Background_Bottom");
-            _frameLeft = Make("BGFrame_Left", "40k_UnitChat_Background_Left");
-            _frameRight = Make("BGFrame_Right", "40k_UnitChat_Background_Right");
-            _bg = Make("BGFrame_BG", "White_Square");
+            _frameTop = Make("BGFrame_Top", "40k_UnitChat_Background_Top", UZFrame);
+            _frameBottom = Make("BGFrame_Bottom", "40k_UnitChat_Background_Bottom", UZFrame);
+            _frameLeft = Make("BGFrame_Left", "40k_UnitChat_Background_Left", UZFrame);
+            _frameRight = Make("BGFrame_Right", "40k_UnitChat_Background_Right", UZFrame);
+            _bg = Make("BGFrame_BG", "White_Square", UZPanelBg);
             if (_bg != null) _bg.SetTint(BgColor);
 
             for (int i = 0; i < ButtonCount; i++)
             {
                 var b = new Btn();
-                b.bg = Make("ChatButton" + (i + 1) + "_bg", "40k_voicelines_bt_R");
-                b.icon = Make("ChatButton" + (i + 1) + "_icon", "40k_voicelines_bt_L");
-                b.text = Label.Create(transform, LabelFor(i), Vector3.zero, 1, Color.white,
+                b.bg = Make("ChatButton" + (i + 1) + "_bg", "40k_voicelines_bt_R", UZBtnBg);
+                b.icon = Make("ChatButton" + (i + 1) + "_icon", "40k_voicelines_bt_L", UZBtnIcon);
+                // 🔴 **2026-10-16（`T09` 批 3）**：`Label.Create`（世界空间）→ **`HudCanvas.MakeText`（画布）**。
+                //   ⚠️ **位置是【设计 px】**（`0,0` = 面板中心；真正的位由 `Put` 在 `RefreshLayout` 里给）。
+                //   ⚠️ `MakeText` 拿不到 TMP 字体时**返回 `null`**（出声、⛔ 不退化成点阵）⇒ `_btns[i].text`
+                //     可能是 null（下游都有空判：`TextAt` / `Put` / `SetAlpha` 里那几处）。
+                b.text = _ugui
+                       ? HudCanvas.MakeText(transform, LabelFor(i), 0f, 0f, 1, Color.white,
+                                            new Vector2(0f, 0.5f), UZBtnText, "ChatButton" + (i + 1) + "_Text")
+                       : Label.Create(transform, LabelFor(i), Vector3.zero, 1, Color.white,
                                       new Vector2(0f, 0.5f), "ChatButton" + (i + 1) + "_Text");
                 _btns.Add(b);
             }
@@ -213,11 +384,21 @@ namespace CardPresentation
             RefreshLayout();
         }
 
-        ImageQuad Make(string name, string art)
+        /// <summary>建一片图（位置/尺寸由 <see cref="Put"/> 给；这里只定名字、贴图与**画布上的兄弟序键**）。
+        /// 🔴 **2026-10-16（`T09` 批 3）双模式**：uGUI 档 = `HudCanvas.MakeImageInParent`（**中心锚**、设计 px，
+        /// 最后那个 `uguiZ` 是**兄弟序键**）；否则与改本件之前**逐字相同**（世界档的 z 到这里**不写** ——
+        /// 它由 `Put` 落到 `localPosition.z`，那一份在 `RefreshLayout` 里）。
+        /// <para>⚠️ **拿不到图 ⇒ 两档都返回 `null`**（`ImageQuad.Create` 与 `MakeImageInParent` 各自空判）
+        /// —— 与改本件之前**同一个行为**（⛔ 没顺手加日志，免得世界档多出噪声）。</para>
+        /// <para>⚠️ uGUI 档的出厂尺寸是 `1×1`（`Put` 每次刷都会重写），**在世界档是 `0.1` 世界单位** ——
+        /// 两档那个「出厂值」都只为「先建出来、随后立刻被 `Put` 覆写」而存在（`RefreshLayout` 紧跟着跑）。</para></summary>
+        HudPiece Make(string name, string art, float uguiZ)
         {
-            var q = ImageQuad.Create(transform, CardArt.Ui(art), Vector3.zero, 0.1f,
-                                     new Vector2(0.5f, 0.5f), name);
-            return q;
+            var tex = CardArt.Ui(art);
+            if (_ugui)
+                return HudCanvas.MakeImageInParent(transform, tex, name, 0f, 0f, 1f, 1f, uguiZ, Color.white);
+            return HudPiece.Of(ImageQuad.Create(transform, tex, Vector3.zero, 0.1f,
+                                                new Vector2(0.5f, 0.5f), name));
         }
 
         /// <summary>1×1 纯色图（关闭区用）。</summary>
@@ -240,19 +421,104 @@ namespace CardPresentation
         //     （HUD 那几个 Label 踩过一模一样的坑，见 `SkillPanel.RefreshLayout` 的注释）。
         // ==================================================================
 
-        const float RefW = 1920f, RefH = 1080f;
+        // 🔴 **2026-10-16（`G5` 收口波 · 消重）**：这一行原来是 `const float RefW = 1920f, RefH = 1080f;`
+        //   —— `RefW` **已删**（现核：只剩那个已删掉的 `PanelApPx` 算式用它了 ⇒ 帧尺寸要取
+        //   `HudCanvas.ReferenceResolution.x`）。`RefH` **留着**：它是**世界档尺寸尺**的分母
+        //   （`VisibleHeight / RefH`，`Place` / 钮文字 / `Hit` 三处都用）—— 那一把尺是「整条世界路径」
+        //   的口径、**不属于本次消重范围**（如实记在报告 §⑤），⛔ 别把它顺手并进共用口
+        //   （两件事：一个是「画布锚点的帧」，一个是「世界档尺寸的换算尺」）。
+        const float RefH = 1080f;
 
-        /// <summary>绝对 px 矩形（左上原点）→ 世界坐标的中心点 + 世界高度。</summary>
+        // ── 🔴 本节点的锚点（判据 = 原版 `battlearena2/RectTransform/RectTransform_2881.json`）──────────
+        /// <summary>本节点（`ChatPopup`）的**点锚** —— 原版 `m_AnchorMin == m_AnchorMax == (0,0)`
+        /// = **贴画布左下角**（⛔ 别改成 `(0.5,0.5)`：那会把面板钉在**画布中心**，
+        /// 非 16:9 下与「贴左下角」差半个多出来的画布 —— 4:3 下上下沿差 180 画布 px）。
+        /// ⚠️ **子件【不】用这个锚**：原版子件锚在**本节点矩形的中心**
+        /// （`CloseChatPopup` 的 `ap (2.45, 41.66)`、`ChatButtons` 的 `ap (371, 206)` 都是相对面板中心量的）
+        /// ⇒ 我们的子件一律 `anchor (0.5,0.5)` + **相对面板中心**的 px（`ApInPanel`）。</summary>
+        const float PanelAnchorX = 0f, PanelAnchorY = 0f;
+        /// <summary>本节点的枢轴 —— 原版 `m_Pivot = (0, 0.5)` = 矩形**左边中点**（⛔ 不是中心：
+        /// 「枢轴在哪」决定**本节点局部坐标的原点**在哪 —— `PxOf` / `ButtonWorldPos` 靠它）。</summary>
+        const float PanelPivotX = 0f, PanelPivotY = 0.5f;
+
+        /// <summary>本节点**枢轴**在 1920×1080 帧里的位置（左上原点、y 向下）——
+        /// `(Panel.x + pivotX·W, Panel.y + (1 − pivotY)·H)` = **`(0, 600.185)`**。
+        /// 它同时是**本节点局部坐标的原点**（`InverseTransformPoint` / `TransformPoint` 的那个帧）。</summary>
+        static readonly Vector2 PanelOriginPx = new Vector2(Panel.x + PanelPivotX * Panel.width,
+                                                            Panel.y + (1f - PanelPivotY) * Panel.height);
+        /// <summary>本节点**矩形中心**在 1920×1080 帧里的位置（左上原点、y 向下）——
+        /// **子件的锚点基准**（原版子件的 `ap` 就是相对它量的）。</summary>
+        static readonly Vector2 PanelCenterPx = new Vector2(Panel.x + Panel.width * 0.5f,
+                                                            Panel.y + Panel.height * 0.5f);
+        // 🔴 **2026-10-16（`G5` 收口波 · 消重）：本文件原来有个私有常量 `PanelApPx` —— 【已删】。**
+        //   它是 `static readonly Vector2 PanelApPx = new Vector2(PanelOriginPx.x − PanelAnchorX*RefW,
+        //   RefH*(1f − PanelAnchorY) − PanelOriginPx.y);`（式子与 `UnitChatPanel.ApPx` 逐字相同、
+        //   也 = 共享段 `HudCanvas.AnchorApPx`），**已整条收进共用口** —— 现在只有 `Create` 那一处用，
+        //   就地写成 `HudCanvas.SetAnchorPx(prt, PanelAnchorX, PanelAnchorY, PanelOriginPx.x, PanelOriginPx.y)`。
+        //   逐值不变（`Panel` / `PanelOriginPx` / `PanelAnchor*` 一个都没动）⇒ 仍算出 **`(0, 479.815)`**
+        //   （原版 `RT 2881` 是 `(0, 479.81005859375)` —— 差 **0.0049 px**：
+        //   我们取「与本件改之前**逐位相同**」那一支（硬要求），差值的成因与三档算式见报告 §④）。
+        //   ⛔ **别在本文件再写一遍那个算式**（本仓红线：两处写同一条规则 = 迟早不一致）。
+
+        /// <summary>一个件的**枢轴点**（绝对设计 px、左上原点 y 向下）→ 相对**本节点矩形中心**的
+        /// `anchoredPosition`（设计 px、y **向上**）。
+        /// 🔑 **子件锚在【面板矩形的中心】**（= 原版子件的锚法），而**面板矩形尺寸是固定的**（`sd` 不随屏变）
+        /// ⇒ 这是**刚性平移**、任何宽高比下都与「跟面板走」逐位同义。
+        /// ⛔ 别再写成「相对画布中心」（那正是改本件之前那一套：面板一离开屏心，子件就跟它分家）。</summary>
+        static Vector2 ApInPanel(Rect r)
+        {
+            float cx = r.x + r.width * 0.5f, cy = r.y + r.height * 0.5f;
+            return new Vector2(cx - PanelCenterPx.x, PanelCenterPx.y - cy);
+        }
+
+        /// <summary>绝对 px 矩形（左上原点）→ **世界档**的枢轴世界坐标 + 世界高度。
+        /// 🔴 **2026-10-16（补正 `A12`）位置那一半**：按**本节点的点锚**（= 贴画布左下角）摆 ——
+        /// `世界位置 = ToWorld(ax, ay) + ap × s`，`ap` = 该矩形中心相对那个角的偏移、
+        /// `s = LayoutSpace.Px(LayoutSpace.Scale)`（推导与「为什么乘 `Scale`」→ `UnitChatPanel.Move` 的 doc）。
+        /// **16:9 下与改之前逐位相同**（`Scale = 1`）。
+        /// ⚠️ **尺寸那一半（`worldH`）没动**：世界档的尺是 `VisibleHeight/RefH`（整条世界路径共用、
+        /// 也是 `T09` 要淘汰的那一档）—— 改它等于动整条世界路径，超出本件（锚点）范围，如实记在报告 §⑤。</summary>
         static void Place(Rect r, out Vector3 pos, out float worldH)
         {
-            pos = LayoutSpace.ToWorld((r.x + r.width * 0.5f) / RefW,
-                                      1f - (r.y + r.height * 0.5f) / RefH);
+            // 🔴 **2026-10-16（`G5` 收口波 · 消重）**：这里原来**又内联了一遍**那个算式
+            //   （`new Vector2(r.x + r.width*0.5f − PanelAnchorX*RefW, RefH*(1f − PanelAnchorY) − (r.y + r.height*0.5f))`）
+            //   —— 现在与 `Create` 那一处**同一个共用口**（`r` 的中心点即「枢轴点」那个输入量）。
+            float cx = r.x + r.width * 0.5f, cy = r.y + r.height * 0.5f;
+            var ap = HudCanvas.AnchorApPx(cx, cy, PanelAnchorX, PanelAnchorY);
+            var o = LayoutSpace.ToWorld(PanelAnchorX, PanelAnchorY);
+            float s = LayoutSpace.Px(LayoutSpace.Scale);
+            pos = new Vector3(o.x + ap.x * s, o.y + ap.y * s, 0f);
             worldH = r.height * (LayoutSpace.VisibleHeight / RefH);
         }
 
-        static void Put(ImageQuad q, Rect r, float z)
+        /// <summary>把一个件摆到**绝对设计 px 矩形** `r`（左上原点、1920×1080 那一套）上，层深度 `z`。
+        /// 🔴 **2026-10-16（`T09` 批 3）双模式**：
+        /// <list type="bullet">
+        /// <item>uGUI 档 = `anchor (0.5,0.5)`（**本节点矩形的中心**）+ `anchoredPosition = ApInPanel(r)`
+        /// （**相对面板中心**的设计 px、y 向上）+ `sizeDelta` **直接吃 px**；</item>
+        /// <item>世界档 = `Place(…)`（按**本节点的点锚**摆）+ `VisibleHeight/RefH` 的尺寸。</item>
+        /// </list>
+        /// <para>⚠️ **两档的「非等比」是同一件事**：世界档靠 `SetWorldHeight + SetAspect`（原版 `m_PreserveAspect=0`），
+        /// uGUI 档靠 `preserveAspect=false` 的 `Image` + 直接给 `(w,h)` ⇒ **画出来的矩形逐位相同**
+        /// （少一次乘除 ⇒ `rect` 就是原版那个矩形）。⛔ 别改成「按贴图比例」。</para>
+        /// <para>🔴 **2026-10-16（补正 `A12`）**：uGUI 档原来写的是 `localPosition = PosPx(…)`（**相对画布中心**）
+        /// —— 那只在「本节点恰好位于画布中心」时成立（= 改本件之前那个中心锚）。锚点改成原版的
+        /// `(0,0)`（贴左下角）之后，**局部坐标的原点变成枢轴（矩形左边中点）**，
+        /// `localPosition` 与「相对面板中心的偏移」**不再同值** ⇒ 必须写 `anchoredPosition`
+        /// （锚点恒是 `(0.5,0.5)` = 面板矩形中心 ⇒ `anchoredPosition` 就是「相对面板中心的 px」）。</para>
+        /// <para>⛔ uGUI 档**不写 `localPosition.z`** —— 画布上写 z 会把件**推离画布平面**（层深度由建件口的 `z`
+        /// → 兄弟序承担）。</para></summary>
+        void Put(HudPiece q, Rect r, float z)
         {
             if (q == null) return;
+            if (_ugui)
+            {
+                var rt = q.Rect;
+                if (rt == null) return;
+                rt.anchoredPosition = ApInPanel(r);
+                rt.sizeDelta = new Vector2(r.width, r.height);
+                return;
+            }
             Vector3 p; float h;
             Place(r, out p, out h);
             q.transform.localPosition = new Vector3(p.x, p.y, z);
@@ -268,13 +534,13 @@ namespace CardPresentation
 
             // 关闭区：原版 4055.34 × 2114.44，相对面板中心 (2.45, 41.66) —— 盖满屏幕还多出去一截
             Put(_close, new Rect(Panel.x + 2.45f - 4055.34f / 2f, Panel.y + 41.66f - 2114.44f / 2f,
-                                 4055.34f, 2114.44f), 0.02f);
+                                 4055.34f, 2114.44f), ZClose);
 
-            Put(_bg, Bg, 0.04f);
-            Put(_frameLeft, FrameLeft, 0.05f);
-            Put(_frameRight, FrameRight, 0.05f);
-            Put(_frameTop, FrameTop, 0.05f);
-            Put(_frameBottom, FrameBottom, 0.05f);
+            Put(_bg, Bg, ZPanelBg);
+            Put(_frameLeft, FrameLeft, ZFrame);
+            Put(_frameRight, FrameRight, ZFrame);
+            Put(_frameTop, FrameTop, ZFrame);
+            Put(_frameBottom, FrameBottom, ZFrame);
 
             for (int i = 0; i < _btns.Count; i++)
             {
@@ -282,14 +548,30 @@ namespace CardPresentation
                 // 🔴 位置按**布局组排完之后**算（`Button0.y + i × 49.48`），**不是**序列化的 (0,0)
                 var r = new Rect(Button0.x, Button0.y + i * ButtonPitch, Button0.width, Button0.height);
                 b.rect = r;
-                Put(b.bg, new Rect(r.x + BtnBg.x, r.y + BtnBg.y, BtnBg.width, BtnBg.height), 0.06f);
-                Put(b.icon, new Rect(r.x + BtnIcon.x, r.y + BtnIcon.y, BtnIcon.width, BtnIcon.height), 0.07f);
+                Put(b.bg, new Rect(r.x + BtnBg.x, r.y + BtnBg.y, BtnBg.width, BtnBg.height), ZBtnBg);
+                Put(b.icon, new Rect(r.x + BtnIcon.x, r.y + BtnIcon.y, BtnIcon.width, BtnIcon.height), ZBtnIcon);
                 if (b.text != null)
                 {
                     var tr = new Rect(r.x + BtnText.x, r.y + BtnText.y, BtnText.width, BtnText.height);
-                    Place(tr, out p, out h);
-                    b.text.transform.localPosition = new Vector3(p.x, p.y, 0.07f);
-                    b.text.SetGlyphHeight(30f * (LayoutSpace.VisibleHeight / RefH));  // 原版 fs30
+                    // 🔴 **2026-10-16（`T09` 批 3）**：字那一档也一样分模式 —— uGUI 档写 `anchoredPosition`
+                    //   （**相对面板中心**的设计 px；`Label` 的 `RectTransform` 锚点是 `Label.CreateCore`
+                    //   定死的 `(0.5,0.5)`）、字号就是 **30 设计 px**（`SetGlyphHeight` 的参数是「本档单位」）；
+                    //   世界档走 `Place`（按点锚摆）。
+                    //   ⛔ 漏了它 ⇒ 画布上那 6 颗钮的字只有 **0.278 px**（30 × 10/1080）、**一个字都不报**。
+                    //   🔴 **补正 `A12`**：uGUI 档原来写的是 `localPosition = PosPx(…)`（**相对画布中心**）——
+                    //   本节点锚点改成原版的（贴左下角）之后那个写法会**与面板分家**，见 `Put` 那条。
+                    if (_ugui)
+                    {
+                        var rt = (RectTransform)b.text.transform;
+                        rt.anchoredPosition = ApInPanel(tr);
+                        b.text.SetGlyphHeight(30f);                                            // 原版 fs30（设计 px）
+                    }
+                    else
+                    {
+                        Place(tr, out p, out h);
+                        b.text.transform.localPosition = new Vector3(p.x, p.y, ZBtnText);
+                        b.text.SetGlyphHeight(30f * (LayoutSpace.VisibleHeight / RefH));       // 原版 fs30
+                    }
                 }
             }
             SetAlpha(_alpha);
@@ -342,17 +624,55 @@ namespace CardPresentation
             _alpha = Mathf.Clamp01(a);
             SetAlphaOn(_bg); SetAlphaOn(_frameTop); SetAlphaOn(_frameBottom);
             SetAlphaOn(_frameLeft); SetAlphaOn(_frameRight);
-            for (int i = 0; i < _btns.Count; i++) { SetAlphaOn(_btns[i].bg); SetAlphaOn(_btns[i].icon); }
+            for (int i = 0; i < _btns.Count; i++)
+            {
+                SetAlphaOn(_btns[i].bg); SetAlphaOn(_btns[i].icon);
+                // 🔴 **2026-10-16（`EW3` · 既有缺陷补，铁律 11）**：**钮文字也是本组的一件** ——
+                //   漏掉它 ⇒ 淡入时字先满不透明、淡出时字最后消失（见下面 `SetAlphaOn(Label)` 那条判据）。
+                SetAlphaOn(_btns[i].text);
+            }
         }
 
-        void SetAlphaOn(ImageQuad q)
+        void SetAlphaOn(HudPiece q)
         {
             if (q == null) return;
             var c = q.Tint;
             // `White Square` 那块有**自己的颜色**，别把底色冲掉
             if (q == _bg) c = BgColor;
             c.a = (q == _bg ? BgColor.a : 1f) * _alpha;
-            q.SetTint(c);
+            q.SetTint(c);      // 两档同一个口：世界档 = `ImageQuad.color` · uGUI 档 = `Image.color`
+        }
+
+        /// <summary>🔴 **2026-10-16（`EW3` · 既有缺陷补，铁律 11）**：**6 颗钮的文字也参与淡入淡出。**
+        /// 与上面那个 `HudPiece` 的重载同理，只是**文字那一路的口**是 `Label.SetColor`（不是 `HudPiece.SetTint`）。
+        ///
+        /// <para><b>为什么该淡（原版实读，不是照直觉补的）</b>：原版 `VoiceLinesPopupSelector.Show/Hide`
+        /// 的淡入淡出是 `DOFade(this.group, …, timeToOpen/timeToClose)` —— `this.group` = 本组件序列化的
+        /// **`CanvasGroup`**（`battlearena2/MonoBehaviour/MonoBehaviour_4429.json` 的 `group` PPtr =
+        /// `CanvasGroup_3770`），而那个 `CanvasGroup` 挂在 **`ChatPopup` 根节点自己**身上
+        /// （`CanvasGroup_3770.m_GameObject.m_PathID = 1015` = 托管 `MB_4429`/`RT_2881` 的那个 GO，
+        /// 即 `GameObject/ChatPopup.json`，`m_Name = "ChatPopup"`）。`CanvasGroup.alpha` 乘的是**整棵子树
+        /// 每一个 `Graphic`**，而 `m_IgnoreParentGroups = false`（`CanvasGroup_3770.json`）⇒ 组内**没有**
+        /// 哪一层能豁免。6 个字节点 `Text (TMP)`（`RT 3753 / 3742 / 3074 / 3050 / 2821 / 3046`，各挂
+        /// `m_Color (1,1,1,1)` 的 TMP 组件）正是那棵树的后代（我逐级走 `RT 2881 → ChatButtons(3363) →
+        /// Buttons(3644) → 6 × ChatButton → Text (TMP)` 现读出来的）⇒ **原版这 6 行字是跟着淡的**。</para>
+        ///
+        /// <para><b>两档都对</b>：`Label.SetColor` 就是两档同一个口 —— `TMP` 后端（世界档与 uGUI 档**都**走它，
+        /// uGUI 档拿不到 TMP 字体时 `Create` 直接返回 null、不会退化成点阵，见 `Label.CreateCore`）
+        /// 写的是 `_tmp.color`；点阵后端（只有世界档可能走到）把颜色重烘进贴图。
+        /// ⇒ **世界档（宿主 `null`）与画布档（子画布）逐条同义**，⛔ 没有「只在其中一档生效」的问题。</para>
+        ///
+        /// <para>⚠️ **基色只取 `a`**：钮文字的基色是建的时候给的 `Color.white`（`Build` 里那两处工厂的
+        /// `Color.white` 实参）⇒ 基透明恒为 `1`，与上面 `q == _bg` 那个特例同理、**不做第三次特判**。
+        /// 每次**用 `_alpha` 重写 `a`**（不是「在当前值上乘」）⇒ 反复调**不会ratchet**。</para>
+        /// <para>⚠️ `text == null`（TMP 字体缺失那一档）⇒ 直接返回；**那不是静默失败** —— 建它的地方
+        /// （`HudCanvas.MakeText` / `Label.CreateCore`）已经出过声了。</para></summary>
+        void SetAlphaOn(Label t)
+        {
+            if (t == null) return;
+            var c = t.color;          // 基色（⛔ 别在这里写死白色 —— 只借它的 RGB）
+            c.a = _alpha;
+            t.SetColor(c);            // 两档同一个口：`TMP` 后端写 `_tmp.color` · 点阵后端重烘
         }
 
         /// <summary>推进淡入淡出。**必须由 `BattleDriver.AdvanceTimeline` 调** ——
@@ -395,12 +715,106 @@ namespace CardPresentation
             return -1;
         }
 
-        static bool Hit(Rect r, Vector3 world)
+        /// <summary>世界坐标落在**绝对设计 px 矩形** `r` 里吗。🔴 **命中判据只此一处**
+        /// （`Contains` / `ButtonAt` 都走它）。
+        /// <para>🔴 **2026-10-16（`T09` 批 3）双模式**：uGUI 档先把世界点折成**本面板的设计 px**（`PxOf`，
+        /// 见它那条 doc —— ⛔ 不是 `LayoutSpace.ToPixel` 那一族），再比绝对矩形；世界档**逐字不变**
+        /// （`Place` 那条换算 + `VisibleHeight/RefH`）。</para></summary>
+        bool Hit(Rect r, Vector3 world)
         {
+            if (_ugui)
+            {
+                var q = PxOf(world);
+                if (float.IsNaN(q.x)) return false;      // 面板没建出来 ⇒ 不认（⛔ 不拿 (0,0) 当命中）
+                return q.x >= r.x && q.x <= r.x + r.width
+                    && q.y >= r.y && q.y <= r.y + r.height;
+            }
             Vector3 p; float h;
             Place(r, out p, out h);
             float w = r.width * (LayoutSpace.VisibleHeight / RefH);
             return Mathf.Abs(world.x - p.x) <= w * 0.5f && Mathf.Abs(world.y - p.y) <= h * 0.5f;
+        }
+
+        /// <summary>🔴 **自检用（补正 `A12` 的【灭自证】口）**：本节点**实际锚在哪个角**
+        /// （读的是 `RectTransform.anchorMin`，⛔ 不是我们的 `PanelAnchor*` 常量）。
+        /// <para>期望值取**原版 prefab 的 `m_AnchorMin/Max`**（判据侧）：`(0, 0)`（贴画布左下角）。
+        /// ⚠️ 反面那条：断言要**同时断「不是 `(0.5,0.5)`」** —— 否则「改回中心锚」这一档改坏了也不红。</para>
+        /// <para>世界档（没有「锚点」这回事 —— 子件坐标是绝对的 `localPosition`）⇒ `(-1, -1)`
+        /// （⛔ 不返 `(0,0)`：那与真正的 `anchor (0,0)` 分不开，会让「世界档也答 (0,0)」这条假绿）。</para></summary>
+        public Vector2 PanelAnchorOf
+        {
+            get
+            {
+                if (!_ugui || _frame == null) return new Vector2(-1f, -1f);
+                return _frame.anchorMin;      // `Create` 把 `anchorMin`/`anchorMax` 写成同一个点锚 ⇒ 读一个就够
+            }
+        }
+
+        /// <summary>🔴 **世界坐标 → 本面板的【设计 px】（左上原点、y 向下）** —— uGUI 档命中判定与自检的帧。
+        /// <para>走**本节点**的 `InverseTransformPoint`（单位 = 设计 px）⇒ 与「件真正画在哪」是同一个变换
+        /// ⇒ **任何宽高比下都咬合**；16:9 下与世界档那套逐位同值（差 float 舍入）。</para>
+        /// <para>🔴 **2026-10-16（补正 `A12`）**：本节点局部坐标的**原点 = 枢轴**（原版 `pivot (0,0.5)`
+        /// = 矩形**左边中点**）⇒ 折回 1920 帧要加 `PanelOriginPx`（= `(0, 600.185)`），
+        /// ⛔ **不再是** `(960, 540)`（那是「本节点在画布中心」那个旧前提）。</para>
+        /// <para>⛔ **别用 `LayoutSpace.ToPixel` / `PxX`**：那是**世界帧**的逆（分层靠 z 那一套），
+        /// 而画布在非 16:9 下**两轴系数不同**（`T09` §七·8）⇒ 量出来是假数、「看得见的地方点不到」。</para>
+        /// <para>世界档（或没建出来）⇒ `(NaN, NaN)`：世界档的命中走 `Hit` 里那一条老路，这条口对它无意义。</para></summary>
+        public Vector2 PxOf(Vector3 world)
+        {
+            if (!_ugui || _frame == null) return new Vector2(float.NaN, float.NaN);
+            var l = _frame.InverseTransformPoint(world);        // 面板局部（= 设计 px、y 向上、原点 = 枢轴）
+            return new Vector2(PanelOriginPx.x + l.x, PanelOriginPx.y - l.y);
+        }
+
+        /// <summary>🔴 **自检用（`T09` 批 3）**：第 i 颗钮**真正画在哪**（世界坐标）。
+        /// <para>🔑 **断言必须用它、⛔ 别再用 `LayoutSpace.ToWorld(ButtonRect(i)…)` 自己换算** ——
+        /// 那个算的是**世界帧**的设计 px，而本面板在 uGUI 档活在**画布帧**上，非 16:9（含批处理那张
+        /// `640×480`）下两者差得出来 ⇒ 自检会「拿另一帧的点去点」而**看着像面板错位**
+        /// （先例 = `MulliganPanel.BarWorldPos/DoneWorldPos/EyeWorldPos` 那三个口）。</para>
+        /// <para>⚠️ **它由 `rect` 算、不读 `bg` 那颗图**（那件可能因为贴图缺失而没建出来，而本口要的是
+        /// 「原版那个矩形在哪」）。
+        /// 🔴 **2026-10-16（补正 `A12`）**：uGUI 档那句原来是 `_frame.TransformPoint(PosPx(中心))`
+        /// （= 假设本节点在画布中心）；现在换成**同一个 `PxOf` 的逆**（`面板局部 ← 设计 px`），
+        /// 两档的式子由此**成对**（世界档 `Place`、画布档 `TransformPoint(局部)` ∨ `PxOf`）。</para>
+        /// <para>面板没建出来 / 钮越界 / 矩形没排过 ⇒ `Vector3.zero`。</para></summary>
+        public Vector3 ButtonWorldPos(int i)
+        {
+            if (i < 0 || i >= _btns.Count) return Vector3.zero;
+            var r = _btns[i].rect;
+            if (r.width <= 0f || r.height <= 0f) return Vector3.zero;      // `RefreshLayout` 还没跑过
+            if (_ugui)
+            {
+                if (_frame == null) return Vector3.zero;
+                float cx = r.x + r.width * 0.5f, cy = r.y + r.height * 0.5f;
+                return _frame.TransformPoint(new Vector3(cx - PanelOriginPx.x, PanelOriginPx.y - cy, 0f));
+            }
+            Vector3 p; float h;
+            Place(r, out p, out h);           // 世界档：与本节点点锚 + `Scale` 同一式
+            return p;
+        }
+
+        /// <summary>🔴 **自检用（`T09` 批 3 的【灭自证】）**：本面板的图与字**是不是都建在 uGUI 画布上**
+        /// （而不是有条漏网、退回世界空间 quad）。
+        /// <para>它防的是本件最坏的那一档：一半在画布、一半在世界 —— 16:9 下逐位相同、全绿，
+        /// 只有别的宽高比才露（`T09` §五·补⑦）。⛔ 别用「`HudPiece != null`」替它（那个两边都真）。</para>
+        /// <para>任一件没建出来（贴图/字体缺失）⇒ 也返 `false`，如实回答「不成立」。</para></summary>
+        public bool OnCanvas
+        {
+            get
+            {
+                if (!IsUguiOnCanvas(_close) || !IsUguiOnCanvas(_bg) || !IsUguiOnCanvas(_frameTop)
+                    || !IsUguiOnCanvas(_frameBottom) || !IsUguiOnCanvas(_frameLeft) || !IsUguiOnCanvas(_frameRight))
+                    return false;
+                for (int i = 0; i < _btns.Count; i++)
+                    if (!IsUguiOnCanvas(_btns[i].bg) || !IsUguiOnCanvas(_btns[i].icon)
+                        || _btns[i].text == null || !_btns[i].text.IsUgui)
+                        return false;
+                return true;
+            }
+        }
+        static bool IsUguiOnCanvas(HudPiece q)
+        {
+            return q != null && q.IsUgui && q.Rect != null && q.Rect.GetComponentInParent<Canvas>() != null;
         }
 
         /// <summary>

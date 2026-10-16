@@ -20,6 +20,8 @@
 
 🔴 判据只有一份：匹配规则**原样**搬自 `工具/check_prebuilt_decks.py` 的 `match()` / `hero_check()`
    —— 那边是「核对报告」，这边是「生产产物」。**改规则必须两边一起改**（或者以后让本脚本 import 它）。
+   · 🔴 **2026-10-16（A13）两边同批补了 `t0` = 「按 id 直查」**（`match()` 与 `hero_match()`/`hero_check()`
+     共用同一档口径）：补的是**匹配机制**、**卡名一个字没动**（用户 2026-10-16 拍板）。
 🔴 **本脚本不重排、不补牌、不改任何原版数据** —— 只做「原版 id → 我们的 id」的解析。
    两路都**逐张按 `cardIds` 的原始顺序**解析、**绝不重排** —— 教程牌的牌序是教学脚本赖以成立的东西。
 
@@ -188,8 +190,51 @@ def norm(s):
     return s.rstrip("s") if len(s) > 4 else s
 
 
+MISSING_RE = re.compile(r"^(\S+) x(\d+) \(([^()]+)\)\s*$")
+
+
+def missing_parts(s):
+    """产物 `missing` 里那一串 `<原版 id> x<张数> (<档位>)` ⇒ `(id, 张数, 档位)`。
+    ⚠️ 产物里的 `missing` 是**格式化后的字符串**，不是 dict ⇒ 要取档位/张数一律走这里，⛔ 别自己切字符串。"""
+    m = MISSING_RE.match(s)
+    assert m, "产物 missing 串的格式变了：%r" % s
+    return m.group(1), int(m.group(2)), m.group(3)
+
+
+def warlord_name_of_table(v):
+    """`warlord_ids.json` 的值是 `阵营前缀_Warlord_督军名`（也有 `Presale_` 写法）⇒ 剥掉前缀只剩督军名。
+    ⚠️ 与 `check_prebuilt_decks.py` 的 `hero_check()` 里那段必须**逐字一致**（同一个剥法两处写会不一致）。"""
+    short = re.sub(r"^[A-Za-z]{2,3}_(Warlord_|Presale_)?", "", v)
+    return re.sub(r"^Presale_", "", short)
+
+
+def id_direct(by_id, cid, want_type=None):
+    """🔴 **按原版卡号在我们卡池里直查** —— 匹配的**第一档（t0）**，比任何名字比对都硬。
+
+    🔴 **`match()` 与 `hero_match()` 共用这一处**（本文件内的规矩：两处写同一条 = 迟早不一致）。
+    🔴 **核对脚本 `check_prebuilt_decks.py` 的 `match()` / `hero_check()` 同批同改**（`build_matcher`
+       的抬头写着「改规则必须两边一起改」）—— 别只改这一边。
+
+    `want_type` 给了就要求那张卡的 `type` 与它一致（督军那一档传 `"hero"`）；不一致 ⇒ **不算命中**
+      —— 交给调用方回落名字表，并**如实出声**（见 `hero_match` 的 `"id指向非督军(%s)"`）。
+
+    ⚠️ **不按阵营过滤**：原版卡号是全局唯一的，我们池里的 `id` 也互不相同。**2026-10-16 实测**
+       （`cards_engine.json` sha1 `869935d8…`）：236 副共 5157 处卡引用里 **id 直查命中 5085 处（98.6%）**、
+       **命中处与卡组阵营不符 0 处**、**指向督军 0 处** ⇒ 加不加阵营闸，结果都一样，何必多一道会静默丢牌的闸。
+    """
+    c = by_id.get(cid)
+    if c is None:
+        return None
+    if want_type is not None and c["type"] != want_type:
+        return None
+    return c
+
+
 def build_matcher(pool, mapping):
-    """把 `check_prebuilt_decks.py` 的 `match()` 原样搬过来，只是返回值多带一个「我们的卡 id」。"""
+    """把 `check_prebuilt_decks.py` 的 `match()` 原样搬过来，只是返回值多带一个「我们的卡 id」。
+
+    🔴 **2026-10-16（A13）两边同批补了 `t0` = id 直查** —— 补的是**匹配机制**，卡名一个字没动
+       （用户 2026-10-16 拍板：判卡名只认卡图资产名，见 `资料/已知的坑.md` §10）。"""
     exact = set()
     by_norm = defaultdict(dict)
     name_any = defaultdict(set)
@@ -208,11 +253,24 @@ def build_matcher(pool, mapping):
     cache = {}
 
     def match(cid, faction):
-        """返回 (tier, 我们的卡 id or None)。与核对脚本同档位、同顺序。"""
+        """返回 (tier, 我们的卡 id or None)。与核对脚本同档位、同顺序。
+
+        🔴 **`t0` = id 直查**（2026-10-16 补）：原版卡号在我池里直查命中 —— **插在名字比对之前**。
+           补它之前这里**只按名字找卡**，于是「池里同 id 的卡明明在、只是卡名写法不同」的卡号
+           （2026-10-16 实测 5 个：`GOF20` / `EC30` / `SAU4` / `SAU6` / `SAU8`）
+           **全部**落进 `miss-known`，把本来完整的预组牌判成缺牌（生成物里 10 副、核对报告里 37 副）。
+        ⚠️ **`t0` 不改两个 miss 标记的原意**：`miss-unknown` 仍是「卡号在 `card_ids.json` 里查不到」、
+           `miss-known` 仍是「卡号查得到名字、但名字与各弱档都对不上池里的卡」——
+           `t0` 只是**多了一道更硬的档**，两类 miss **照样各自如实报出**（⛔ 不许把错藏起来）。
+        """
         key = (cid, faction)
         if key in cache:
             return cache[key]
         nm = mapping.get(cid)
+        c = id_direct(by_id, cid)
+        if c is not None:
+            cache[key] = ("t0", c["id"])
+            return cache[key]
         res = ("miss-unknown", None)
         if nm is not None:
             res = ("miss-known", None)
@@ -260,16 +318,30 @@ def build_matcher(pool, mapping):
         🔴 **先按 id 直查**（我们的卡池里 973/1127 张就是原版 id，督军同理 —— ⛔ 张数现读），查不到再回落名字表 ——
            2026-09-25 实测：`warlord_ids.json` 那张自建名表**有错**
            （`TL74` 写成 `TL_Neurogaunt`，而卡池里 `TL74` 就是督军 `Terror of Vardenghast`），
-           拿它当第一判据会把能用的牌误判成不能用。"""
+           拿它当第一判据会把能用的牌误判成不能用。
+           🔴 **2026-10-16（A13）这一档改成共用 `id_direct()`** —— 与 `match()` 的 `t0` 同一处代码
+           （原来这里是手写的一遍，`match()` 补 id 直查时若照抄就成了两份）。
+           ⚠️ `warlord_ids.json` 与池里**对不上的不止 TL74**：现读 53 个「非 GUID 且两处都有」的 heroId 里
+           有一批名字明显不同（`SW3` 表写 `SW_Fenrir`、池里是 `Ragnar Blackmane`；`SOR1` 表写 `SOR_Arco Flagellant`、
+           池里是 `Erika Luminas`；`ASH76` 表写 `ASH_Jain Zar`、池里是 `Lhykhis` …）
+           ⇒ 名字表只能当**第二判据**，别倒过来。"""
+        hit = id_direct(by_id, hid, want_type="hero")
+        if hit is not None:
+            # 🔴 id 命中也**照样出声**：`warlord_ids.json` 那个名字若与池里这张对不上，就写进 note
+            #    —— ⛔ 不许让「按 id 凑上了」把数据缺陷盖掉（`SW3` 表写 `SW_Fenrir`、
+            #    池里是 `Ragnar Blackmane` 就属于这种；A 类那 4 副的账要能继续看见）。
+            v = (warlord or {}).get(hid)
+            if v is None:
+                return hit["id"], "id命中(不在 warlord_ids.json)"
+            s, hn = norm(warlord_name_of_table(v)), norm(hit["name"])
+            if s and (s == hn or s in hn or hn in s):
+                return hit["id"], "id命中"
+            return hit["id"], "id命中(名字表作 %s)" % v
         c = by_id.get(hid)
-        if c is not None and c["type"] == "hero":
-            return c["id"], "id命中"
         v = (warlord or {}).get(hid)
         if v is None:
             return None, "查不到"
-        short = re.sub(r"^[A-Za-z]{2,3}_(Warlord_|Presale_)?", "", v)
-        short = re.sub(r"^Presale_", "", short)
-        s = norm(short)
+        s = norm(warlord_name_of_table(v))
         table = hero_ids.get(faction, {})
         if s in table:
             return table[s], "名字命中"
@@ -346,6 +418,13 @@ def resolve_cards(d, ctx):
                 missing.append({"origId": cid, "name": ctx["mapping"].get(cid), "count": 0, "tier": tier})
             missing[-1]["count"] += 1
         else:
+            # 🔴 **t0 不按阵营过滤**（判据见 `id_direct`），但「卡号命中的那张卡不在本副阵营里」是
+            #    **卡表缺陷**、不是匹配不上 —— 照样**出声**（写进 `ctx["warn"]`，`main()` 末尾打印并计数）。
+            #    2026-10-16 实测：236 副 5157 处里 0 处。⛔ 别让它静默进产物。
+            if tier == "t0" and ctx["by_id"][our]["faction"] != fac:
+                ctx.setdefault("warn", []).append(
+                    "%s：卡号 %s 按 id 命中 %s（%s），但本副阵营是 %s"
+                    % (d["deckId"], cid, our, ctx["by_id"][our]["faction"], fac))
             our_ids.append(our)
     return our_ids, missing
 
@@ -508,8 +587,13 @@ def build_tutorial(ctx, decks):
                     % (stage, role, so_name, want_hero, got or "（没解出）", e["heroId"] or "（空）",
                        e["heroNote"]))
             if not e["complete"]:
+                # 缺的**张数（按档位）**：`miss-unknown` = 卡号连 `card_ids.json` 都没有；
+                # `miss-known` = 有名字、但池里对不上任何一张（两类的原意**没变**，t0 只是多了一道更硬的档）
+                tiers = Counter()
+                for m in e["missing"]:
+                    tiers[missing_parts(m)[2]] += missing_parts(m)[1]
                 bad.append((stage, role, so_name, len(e["cardIds"]),
-                            len([s for s in e["missing"]])))
+                            ", ".join("%s:%d张" % kv for kv in sorted(tiers.items()))))
         stages.append(row)
 
 
@@ -531,10 +615,14 @@ def build_tutorial(ctx, decks):
              "`TutorialStage.playerDeck/aiDeck` 直引。",
         roleSource="关卡 SO 的 `playerDeck`/`aiDeck` 两个 PPtr 解出来的（判据与 pid 抄在 "
                    "gen_prebuilt_decks.py 的 TUT_ROLE 注释里）—— **不是按名字猜的**。",
-        incomplete="⚠️ `complete=false` 的副**不是本脚本的锅**：那 12 副引用了一批**原版 id 表里没有的卡号**"
-                   "（`UM6/UM8/UM15/UM19/UM20/UM21/UM25/UM26/UM33/UM36/UM38…` 这类「连续编号里的洞」"
-                   "与 32 位 GUID 卡）。本地**没有任何 id→名的表**能补（`资料/原版预组牌_核对.md` 已查证）"
-                   "⇒ 如实标 `missing`，**不补牌、不猜名**。",
+        incomplete="⚠️ `complete=false` 的副**不是本脚本的锅**：它们引用了一批**教程专用的 32 位 GUID 卡号**"
+                   "（本地 `card_ids.json` 里**多半有名字、且带 `(tutorial)` 后缀**，但**池里没有这个卡号**；"
+                   "个别连名字都没有）⇒ 如实标 `missing`，**不补牌、不猜名**。"
+                   "🔴 **2026-10-16（A13）就地更正**：这里原来举的是 `UM6/UM8/UM15/UM19/UM20/UM21/UM25/UM26/"
+                   "UM33/UM36/UM38…` 那批「**连续编号里的洞**」——**那句不成立**：现读这些 UM 号**池里全都有**"
+                   "（`UM6` = Primaris Intercessor、`UM26` = Epistolary Librarian …，见 `cards_engine.json`），"
+                   "它们从来不是教程缺卡的原因（错因大概是抄了 `资料/原版预组牌_核对.md` 里另一批副的结论）。"
+                   "现读仍缺的只有 GUID 卡，逐条见各副的 `missing` 字段。",
         heroMismatch="⚠️ 逐关对账：SO 资产名 `{Army}_Deck0_Tutorial{N}_{督军}` 的**尾段**与本副解出的督军卡名"
                      "对不上 —— 这是**数据缺陷**（在 `card_ids.json` / `decklists.json` 那一层），"
                      "本脚本**只对账、不改**（不替它挑一个「看着像」的督军）。空数组 = 12 副全对得上。",
@@ -621,9 +709,9 @@ def main():
     print("tutorial stages=%d decks=%d complete=%d"
           % (tut_doc["stageCount"], len(tut_used),
              sum(1 for s in tut_doc["stages"] for r in ("player", "ai") if s[r]["complete"])))
-    for (stage, role, so, n, nmiss) in tut_bad:
-        print("   stage%d %-6s %-42s 卡 %2d 张 / 缺 %d 段（原版 id 表里没有，见产物 note）"
-              % (stage, role, so, n, nmiss))
+    for (stage, role, so, n, tiers) in tut_bad:
+        print("   stage%d %-6s %-42s 卡 %2d 张 / 缺 [%s]（见产物 missing）"
+              % (stage, role, so, n, tiers))
     print("tutorial heroMismatch = %d（>0 就是数据缺陷，见产物 knownIssues）" % len(tut_hero))
     for s in tut_hero:
         print("   " + s.encode("ascii", "backslashreplace").decode("ascii"))
@@ -638,6 +726,18 @@ def main():
         if x["problems"]:
             why.append(";".join(x["problems"][:2]))
         print("   %-24s gm=%-3s diff=%-3s %s" % (x["deckId"], x["gameMode"], x["difficulty"], " / ".join(why)))
+    # 🔴 「卡号命中了、但那张卡不在本副阵营」= 卡表缺陷 ⇒ **出声**（产物里没有这一格，只在控制台）
+    warn = ctx.get("warn", [])
+    print("cross-faction id hits = %d（>0 = 卡表缺陷，逐条见下）" % len(warn))
+    for s in warn:
+        print("   " + s.encode("ascii", "backslashreplace").decode("ascii"))
+    # 缺卡**张数**（按档位）：`miss-known` = 表里有名字但对不上池里任何一张；`miss-unknown` = 卡号不在 id 表里。
+    # ⚠️ 产物里 `missing` 是**格式化后的字符串** ⇒ 档位与张数都要走 `missing_parts()`，别再当 dict/切字符串。
+    tiers = Counter()
+    for x in out_decks:
+        for m in x["missing"]:
+            tiers[missing_parts(m)[2]] += missing_parts(m)[1]
+    print("missing cards by tier = " + (", ".join("%s:%d" % kv for kv in sorted(tiers.items())) or "（无）"))
 
 
 if __name__ == "__main__":

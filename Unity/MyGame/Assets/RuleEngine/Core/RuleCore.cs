@@ -4890,10 +4890,34 @@ namespace RuleEngine
         /// </summary>
         public static int VulnerableDamagePart(UnitState u)
         {
-            if (u == null) return 0;
-            if (!u.Has("vulnerable")) return 0;
-            int v = u.KwValue("vulnerable");
+            int v = VulnerableRaw(u);
             return v > 0 ? Math.Max(1, v - u.Armor) : 0;
+        }
+
+        /// <summary>
+        /// **易伤那个值的【原值】**（原版 `EntityScript.get_CurrentVulnerable(card)`）—— 纯函数、只读。
+        ///
+        /// 🔴 **为什么要把它单独拉出来（2026-10-16 · 账 `T01` §六·7）**：原版那条易伤**第二发**
+        ///   走的是 `CardScript._ReceiveDamage_d__381__MoveNext.c:226` 造出来的那条 `DamageInfo`
+        ///   —— `DamageInfo___ctor(…, uVar11 /* = `EntityScript__get_CurrentVulnerable` */, …)`
+        ///   ⇒ **`damageValue` 是【原值】，一点护甲都没减**。它接着再走一遍管线
+        ///   （`:252-254 DealMultiDamage`），而**减甲那一段只长在「堡垒/生命」那一支里**
+        ///   （`:64` 那道 `HasCurrentTrait(0xe6 /*dropPod*/) == '\0'` 之后才是 `:75-94` 的 `Max(1, dmg − armour)`）
+        ///   ——————————————————————
+        ///   · **空投舱血池那一支**（`:159-181`）：`+0xcc ← +0xcc − damageValue` —— **不减护甲**；
+        ///   · **堡垒那一支**（`:128-131`）：`RemoveBastionDamage(card, damageInfo.damageValue)` —— **不减护甲**；
+        ///   ⇒ 只有落到**「护甲 → 血」**那一档（`:62-63` 条件不成立时的 `:75-94`）才减甲，
+        ///     那才是 <see cref="VulnerableDamagePart"/>。
+        ///   ⛔ **别把两者合并** —— 合并了「**易伤 ＋ 带空投舱/堡垒**」那两档就会少减/多减一次护甲
+        ///   （正是账里那句「三重组合里偏小」）。
+        ///   ⚠️ 今天**这两档都不可达**（全池 0 张卡带 `dropPod` / `bastion`）⇒ 行为差异 = 0；铁律 11：照原版做。
+        /// </summary>
+        public static int VulnerableRaw(UnitState u)
+        {
+            if (u == null) return 0;
+            if (!u.Has("vulnerable")) return 0;      // 与 <see cref="VulnerableDamagePart"/> 同一处判据
+            int v = u.KwValue("vulnerable");
+            return v > 0 ? v : 0;                    // 原版 `:189` 那道闸就是 `0 < CurrentVulnerable`
         }
 
         /// <summary>
@@ -5889,15 +5913,29 @@ namespace RuleEngine
                 //      `DealMultiDamage`**、有它自己的那一次 `BroadcastUnitDamaged`；我们把它**折进同一次调用**
                 //      ——「池子还在」那一档连血都不动 ⇒ **事件上没有差异**；「池已碎」那一档才真掉血，
                 //      交给下面那条共用尾巴发 `EmitHit`（仍是**一条**事件，原版是两条）。
+                // 🔴 **2026-10-16（账 `T01` §六·7）：第二发要分【两个值】用，⛔ 别只留一个。**
+                //   原版第二发那条 `DamageInfo`（`…MoveNext.c:226`）的 `damageValue` 是
+                //   **`CurrentVulnerable` 原值**，它进管线之后：
+                //     · **空投舱血池那一支**（`:159-181`，`+0xcc ← +0xcc − damageValue`）与
+                //       **堡垒那一支**（`:128-131 RemoveBastionDamage(card, damageInfo.damageValue)`）
+                //       **都不减护甲**（减甲那一段 `:75-94` 只长在「护甲 → 血」那一支里）；
+                //     · 只有落到**「护甲 → 血」**那一档才套 `Max(1, V − 护甲)`（`:78`）。
+                //   ⇒ `podVulnRaw` 喂池子/堡垒，`podVuln` 才是**落到血上**的那个数。
+                //   **改前**（本笔之前）：两个地方都喂 `VulnerableDamagePart`（= 已减甲）
+                //   ⇒ 「**易伤 ＋ 带空投舱 / 带堡垒**」这两档**偏小**（账里点的就是堡垒那一格）。
+                //   ⚠️ **可达性 = 0**（全池 0 张卡带 `dropPod` / `bastion`）⇒ 行为差异 = 0；铁律 11：照原版做。
+                int podVulnRaw = VulnerableRaw(u);
                 int podVuln = VulnerableDamagePart(u);
-                if (podVuln > 0 && dmg > 0 && !u.IsRemnant && u.Health > 0)
+                if (podVulnRaw > 0 && dmg > 0 && !u.IsRemnant && u.Health > 0)
                 {
                     if (after >= 1)
                     {
-                        int after2 = after - podVuln;
+                        // ⚠️ 池子扣的是**原值**（`…MoveNext.c:170-181`：`+0xcc ← +0xcc − damageValue`，
+                        //    那一段在减甲**之前**、且空投舱这一支**整段不减护甲**）。
+                        int after2 = after - podVulnRaw;
                         u.RemoveAll(KeywordTable.DropPod);
                         if (after2 > 0) u.AddKeyword(KeywordTable.DropPod, after2);
-                        ctx.Log($"{u.Name} 的 Drop Pod **也吃掉易伤那一发** {podVuln} 点"
+                        ctx.Log($"{u.Name} 的 Drop Pod **也吃掉易伤那一发** {podVulnRaw} 点"
                               + $"（血池 {after} → {System.Math.Max(0, after2)}"
                               + (after2 < 1 ? "，池空 ⇒ 移除；原版 `CheckIfDead.c:94` `RemoveDropPod`" : "")
                               + "，生命仍不动）");
@@ -5907,9 +5945,15 @@ namespace RuleEngine
                     // 池已碎 ⇒ 第二发走普通路（这时 `dropPod` 已经不在身上了）⇒ **落到下面堡垒/血那一段**。
                     // ⚠️ 下面堡垒那一段读的是 `hit`（不是形参 `dmg`）—— 这里的赋值就是它唯一的改写点
                     //   （🆕 `A2010` 起：`actual` 也在这里一起换，见下）。
-                    ctx.Log($"{u.Name} 的 Drop Pod 已被这一发打空 ⇒ **易伤那一发** {podVuln} 点"
+                    ctx.Log($"{u.Name} 的 Drop Pod 已被这一发打空 ⇒ **易伤那一发** {podVulnRaw} 点"
                           + "走普通路（原版：第二发自己再走一遍管线，此时 `dropPod` 已摘）");
-                    hit = podVuln;
+                    // 🔴 **2026-10-16（账 `T01` §六·7）：喂给堡垒的是【原值】`podVulnRaw`，⛔ 不是 `podVuln`。**
+                    //   判据 = `…MoveNext.c:128-131` `RemoveBastionDamage(card, damageInfo.damageValue)`
+                    //   而 `:226` 上那个 `damageValue` 就是 `CurrentVulnerable` 原值；堡垒那一支
+                    //   **整段不套护甲**（减甲 `:75-94` 在**另一支**里，闸是 `:62-63`）
+                    //   ⇒ 拿已减甲的值喂它 = 这一档**偏小**（账 §六·7 原话「三重组合里偏小」）。
+                    //   ⚠️ 同一条判据覆盖上面池子那一格（都是「原值进管线、护甲只在最后一档才减」）。
+                    hit = podVulnRaw;
                     // ⚠️ 第二发**不再生第三发**：原版 `:197 IsVulnerableDamage(damageType)`
                     //    （= `(type − 7) < 2`，第二发的类型就是 7/8）把「易伤伤害自己再判一次易伤」挡掉
                     //    ⇒ 下面堡垒那一段不许再算一份易伤（那个标志就是它）。
@@ -6088,7 +6132,52 @@ namespace RuleEngine
             // ⚠️ 2026-09-13：这里用的还是 **`u.IsAlive`（扣血之后、离场之前）** —— 和规则书 `:196`
             //    「受到伤害**但未死亡**」的字面一致。**不**因为它现在延后离场就放宽成「只要掉血就触发」：
             //    那样「被这一下打死」的也会触发 Penitence，是**多算了**。
-            if (dealt > 0 && u.IsAlive) FireTriggerOnBoard(ctx, u, KeywordTable.Penitence);
+            if (dealt > 0 && u.IsAlive)
+            {
+                FireTriggerOnBoard(ctx, u, KeywordTable.Penitence);
+
+                // 🆕 **2026-10-16（账 `A2014` · 机制那一半 · 本批落地）**：
+                //   **双重忏悔（`doubleRage` / `DefinedTrait.doubleRage = 300`）⇒ 上面那一次触发【再发生一次】。**
+                //
+                // 🔴 **判据 = 原版反编译逐行现读**（`decomp_full/CardScript__ResolveDamageDealt.c`，本批又亲读一遍）：
+                //     · `:87` `op_Equality(param_2, param_1)` —— 闸 = 「**受伤那张卡就是自己**」；
+                //     · `:90-96` 那一段 = `HasDefaultTrait(raw, 0x118 /*rage=280*/)` ∨
+                //       `HasCurrentTrait(param_2, 0x118)` ∨ `HasEnchantment(param_2, 0x82)`，
+                //       三者皆假 ⇒ **连第一次都不发**（= 我们这一支的 `dealt > 0 && u.IsAlive`
+                //       外面那层「有正文才触发」由 `FireTriggerAt` 的 `ops == null && spec == null` 兜着）；
+                //     · `:98` 第一次 `RawCardScript__OnTrigger(raw, 0x82, …)`（`0x82 = AbilityTrigger.Rage = 130`）；
+                //     · `:101` **`cVar2 = EntityScript__HasCurrentTrait(param_1, 300);`**
+                //       —— `300` 就是本 trait（**十进制**，与账上写的一致）；读的是
+                //       `HasCurrentTrait` = **运行时当前** trait（含被授予的那一份）
+                //       ⇒ 对应我们这一侧的 **`u.Has(...)`**（⛔ 不是 `u.Card.Has(...)` 那种「印刷的那一份」，
+                //       别与 `Hurt` 里狂喜那条「读印刷 trait」的写法弄混）；
+                //     · `:104` **第二次逐字相同的 `OnTrigger(0x82, …)`**（四个实参完全相同；
+                //       两次之间**没有任何**额外判断 —— 不看第一次成没成、不看血、不看谁)。
+                //     ⇒ 本行的形状 = **朴素地再调一次**（原版就是这个形状）。
+                //
+                // 🔴 **形状已由主对话裁定（2026-10-16）＝ (a) 朴素的第二次调用**，
+                //   ⛔ **不要**改用 (b) 那套 `UnitState.ExtraTriggers` +
+                //   `RuleCore.TakeExtraTrigger` / `FireExtraTriggers`（`RuleCore.cs:6849/:6866`，
+                //   虫群合并 `Mob` 那条走的就是它）—— 那套「额度 + 重入守卫（`ctx.ExtraTriggerDepth`）」
+                //   是**我们自己发明**的语义，借过来会把我们的语义混进一条**原版没有守卫**的路径。
+                //   （这条裁定就是账里那句「落 (a) 时把 (b) 那条写进注释」要求留的痕迹。）
+                //
+                // ⚠️ **与第一次共用同一层 `if`（`dealt > 0 && u.IsAlive`）是有意的**：
+                //   原版那两次调用在**同一个** `if` 块里、闸只求值一次（`:87` 与 `:90-96` 都在它上面）
+                //   ⇒ ⛔ **别在第二次之前重判 `u.IsAlive` / `dealt`**（原版第二发**不重判**）。
+                //   `FireTriggerOnBoard` 自己会 `FindUnit` —— 单位若已不在场上它返回 false
+                //   （原版 `OnTrigger` 在卡已离场时同样什么都不做）。
+                //
+                // ⚠️ **递归/链深保护天然共用**：两次都走 `FireTriggerAt` 那个唯一出口，
+                //   链深上限 `BattleContext.MaxEffectChain` / `ctx.EffectChain` 两条都在它里面
+                //   ⇒ 第二次触发不可能绕过它们（⛔ 别在这儿再写一份深度判断）。
+                //
+                // ⚠️ **可达性：全池今天 0 张卡带它**（`cards_engine.json` 现读 1127 张，
+                //   大小写不敏感扫 `doubleRage` ⇒ 0 命中；`CardDef.DoubleRage` 的 doc 有完整现核）
+                //   ⇒ 本行**不改动任何现有对局的读数**（铁律 11：照原版做）。
+                if (u.Has(KeywordTable.DoubleRage))
+                    FireTriggerOnBoard(ctx, u, KeywordTable.Penitence);
+            }
 
             // ---- 狂喜 X（Ecstasy X）—— ✅ **2026-09-14 做掉**（用户点名要求）----
             // 规则书 `:182`「本单位生命降至 X 或以下未死亡时触发效果」。

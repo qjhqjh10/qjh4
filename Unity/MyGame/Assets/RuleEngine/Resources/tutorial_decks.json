@@ -3,7 +3,7 @@
  "note": "由 工具/gen_prebuilt_decks.py 生成，**别手改**。匹配规则与 工具/check_prebuilt_decks.py 同源。🔴 卡池或 id 表变了 ⇒ 必须重跑生成器。",
  "pool": "教程 6 关 × (玩家/敌方) = 12 副（原版 SO `*_Deck0_Tutorial{1..6}_*`，deckId 含 Tutorial）。🔴 **与 `prebuilt_decks.json` 的那一池（isPractice==1 的 103 副）是两份产物** —— 原版自己也分两条路：`PrebuiltDeckCollection.AddDeck` 对含 `Tutorial` 的名字直接 return（`decomp_full/PrebuiltDeckCollection__AddDeck.c:21-25`），教程那 12 副由 `TutorialStage.playerDeck/aiDeck` 直引。",
  "roleSource": "关卡 SO 的 `playerDeck`/`aiDeck` 两个 PPtr 解出来的（判据与 pid 抄在 gen_prebuilt_decks.py 的 TUT_ROLE 注释里）—— **不是按名字猜的**。",
- "incomplete": "⚠️ `complete=false` 的副**不是本脚本的锅**：那 12 副引用了一批**原版 id 表里没有的卡号**（`UM6/UM8/UM15/UM19/UM20/UM21/UM25/UM26/UM33/UM36/UM38…` 这类「连续编号里的洞」与 32 位 GUID 卡）。本地**没有任何 id→名的表**能补（`资料/原版预组牌_核对.md` 已查证）⇒ 如实标 `missing`，**不补牌、不猜名**。",
+ "incomplete": "⚠️ `complete=false` 的副**不是本脚本的锅**：它们引用了一批**教程专用的 32 位 GUID 卡号**（本地 `card_ids.json` 里**多半有名字、且带 `(tutorial)` 后缀**，但**池里没有这个卡号**；个别连名字都没有）⇒ 如实标 `missing`，**不补牌、不猜名**。🔴 **2026-10-16（A13）就地更正**：这里原来举的是 `UM6/UM8/UM15/UM19/UM20/UM21/UM25/UM26/UM33/UM36/UM38…` 那批「**连续编号里的洞**」——**那句不成立**：现读这些 UM 号**池里全都有**（`UM6` = Primaris Intercessor、`UM26` = Epistolary Librarian …，见 `cards_engine.json`），它们从来不是教程缺卡的原因（错因大概是抄了 `资料/原版预组牌_核对.md` 里另一批副的结论）。现读仍缺的只有 GUID 卡，逐条见各副的 `missing` 字段。",
  "heroMismatch": "⚠️ 逐关对账：SO 资产名 `{Army}_Deck0_Tutorial{N}_{督军}` 的**尾段**与本副解出的督军卡名对不上 —— 这是**数据缺陷**（在 `card_ids.json` / `decklists.json` 那一层），本脚本**只对账、不改**（不替它挑一个「看着像」的督军）。空数组 = 12 副全对得上。",
  "knownIssues": [],
  "stageCount": 6,
@@ -317,7 +317,11 @@
      "SAU41",
      "SAU53",
      "SAU31",
+     "SAU8",
      "SAU5",
+     "SAU6",
+     "SAU6",
+     "SAU8",
      "SAU12",
      "SAU16",
      "SAU18",
@@ -331,11 +335,7 @@
     ],
     "complete": false,
     "missing": [
-     "847acecf682cb0748bc4445b52125cb4 x1 (miss-known)",
-     "SAU8 x1 (miss-known)",
-     "847acecf682cb0748bc4445b52125cb4 x1 (miss-known)",
-     "SAU6 x2 (miss-known)",
-     "SAU8 x1 (miss-known)"
+     "847acecf682cb0748bc4445b52125cb4 x2 (miss-known)"
     ],
     "problems": [],
     "overLegendary": [
@@ -540,6 +540,7 @@
      "SAU11",
      "SAU20",
      "SAU16",
+     "SAU4",
      "SAU26",
      "SAU26",
      "SAU16",
@@ -548,6 +549,8 @@
      "SAU11",
      "SAU40",
      "SAU14",
+     "SAU8",
+     "SAU8",
      "SAU9",
      "SAU9",
      "SAU22",
@@ -556,11 +559,8 @@
      "SAU5",
      "SAU32"
     ],
-    "complete": false,
-    "missing": [
-     "SAU4 x1 (miss-known)",
-     "SAU8 x2 (miss-known)"
-    ],
+    "complete": true,
+    "missing": [],
     "problems": [],
     "overLegendary": [
      "SAU9 x2 (Ophydian Destroyer)"

@@ -192,8 +192,11 @@ namespace CardPresentation
         /// （原版全场景就一个、在根上）⇒ 非 16:9 下整块面板才跟着缩放。⛔ 挂在 `hudRoot` 下**拿不到缩放**
         /// （`scaleFactor` 恒 1）⇒ 今天那个「4:3 下整体偏大 1.333 倍」的毛病**原样留着**，而且
         /// **16:9 下逐位相同、看不出来**（口径 → `T09` §五·补⑨ 一·2）。</para>
-        /// <para>⛔ **幂等**：`HudCanvas.EnsureSubCanvas` 每调一次就**新建**一个同名对象 ⇒ 这里**先按名字找**
-        /// （`EndPanel` 与 `BattleDoors` 两边都会调它，不幂等就会建出两块画布、内容分家）。</para>
+        /// <para>🔴 **2026-10-16（修波 `FD` · 账 `F10`）就地订正（铁律 5）**：本段原来写的是
+        /// **「⛔ 幂等：`HudCanvas.EnsureSubCanvas` 每调一次就新建一个同名对象 ⇒ 这里先按名字找」** ——
+        /// **那句【已过期】**：`EnsureSubCanvas` 早已改成**按名字幂等**（复用路径还会把层/order 对齐到本次传的
+        /// 值 + 重排次，见它的 doc）。⇒ 下面 `PairCanvas` 里那个「先查再建」的包装**已删**，直接调它即可
+        /// （原来那句理由「`EndPanel` 与 `BattleDoors` 两边都会调它」**由 `EnsureSubCanvas` 自己保证**）。</para>
         /// <para>拿不到根画布（`LayoutSpace.Cam` 为空）⇒ 出声并返回 `null`，由调用点决定**不建那一件**
         /// （⛔ 绝不退回世界空间 quad —— 半迁移态比不迁移更坏，且 16:9 下看不出来）。</para></summary>
         public static RectTransform PairCanvas()
@@ -205,8 +208,13 @@ namespace CardPresentation
                                "⇒ 结算面板与开门**这一对都建不出来**");
                 return null;
             }
-            var found = HudCanvas.SubCanvas(CanvasName);
-            if (found != null) return (RectTransform)found.transform;
+            // 🔴 **2026-10-16（修波 `FD` · 账 `F10`）**：这里原来是三行包装
+            //   `var found = HudCanvas.SubCanvas(CanvasName); if (found != null) return …;`
+            //   ＋ `return HudCanvas.EnsureSubCanvas(…)`（配套那句「`EnsureSubCanvas` 每调一次就新建」）——
+            //   **已删**：它现在自己就按名字幂等（复用路径还会对齐层/order + 重排次）。
+            // ⚠️ 上面那两条**保留**：① `Ensure(LayoutSpace.Cam)` 是 `W8`/`W43` 那族
+            //   「`EnsureSubCanvas` 之前先 `Ensure`」的必需项；② 根为空的 guard 给出的是**本对专用**的
+            //   错误文案（`EnsureSubCanvas` 自己那句更通用）。
             return HudCanvas.EnsureSubCanvas(null, CanvasName, HudCanvas.SortingLayer.PopUps, 0);
         }
 
@@ -313,8 +321,14 @@ namespace CardPresentation
             var sgo = new GameObject("video_screen", typeof(RectTransform));
             sgo.transform.SetParent(transform, false);
             _screenRt = (RectTransform)sgo.transform;
-            _screenRt.anchorMin = _screenRt.anchorMax = _screenRt.pivot = new Vector2(0.5f, 0.5f);
-            _screenRt.anchoredPosition = new Vector2(cxPx - 960f, 540f - cyPx);   // = (−6, +64)
+            // 🔴 **2026-10-16（修波 `FD` · `G5` 报的）：原来这里内联了这个式子的【中心锚特化形】**
+            //   `new Vector2(cxPx − 960f, 540f − cyPx)`（`0.5 × 1920` 与 `1080 × 0.5` 都**精确可表示**
+            //   ⇒ 与 `HudCanvas.AnchorApPx(…, 0.5, 0.5)` **逐位等价**，本波已复算，见报告 §④）。
+            //   ⇒ 改走那个口（铁律：两处写同一条规则 = 迟早不一致）。
+            // ⚠️ `HudCanvas.SetAnchorPx` **只管锚点与位置、⛔ 不碰 `pivot`**（见它的 doc）⇒ 枢轴仍在这里
+            //   显式写；`anchorMin/anchorMax` 由它一并设成 `(0.5, 0.5)`，与改写前同一对值。
+            _screenRt.pivot = new Vector2(0.5f, 0.5f);
+            HudCanvas.SetAnchorPx(_screenRt, 0.5f, 0.5f, cxPx, cyPx);   // = (−6, +64)
             _screenRt.sizeDelta = new Vector2(ScreenWidthPx, ScreenHeightPx);
             _screen = sgo.AddComponent<RawImage>();
             _screen.texture = _rt;

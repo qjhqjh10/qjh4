@@ -41,15 +41,24 @@
 //     （`Az*` / `Mute*` / `Lang*` / `Lst*` / `Skip*` / `Resign*`）**原样**搬进去。
 //   · **面板帧 = `_panel`**（画布下那个 743.2×758.6 px 的节点，中心 = 设计中心 (960,540)）；
 //     命中判定凡是要「面板内 px」的，一律在**它**的局部空间里算（⛔ 不是 `transform` —— 见下）。
-//   · 🔴 **例外（如实记，⛔ 没迁）**：三根 `WfSlider`（`Battle/WfSlider.cs`）**仍在世界空间** ——
-//     那一整族（几何 / 命中 / 九宫格）内部全按「世界单位 = px ÷ 108」写死，要迁它得先给
-//     `WfSlider` 加一个 uGUI 档，而它**不在本件白名单**（已写进报告，交调度台裁）。
-//     ⇒ 它们仍挂在**世界空间那层壳**（本组件自己的宿主 `transform`）上，⛔ **没有**挂进画布 ——
-//     世界空间 quad 挂在画布下 = **半迁移态**（位置对不上 + 层级不受控，见 `Label` 文件头那条铁律）。
-//     ⚠️ **两条已知代价**（都随 `WfSlider` 迁完自动消失）：
-//       ① 子画布在 `PopUps` 层 ⇒ **面板底会盖住那三根滑块**（它们仍画在 `Default` 层）；
-//       ② 它们仍跟着 `HudRoot` 的震屏走，而本面板其余件（已在画布上）不再跟。
+//   · 🔴 **例外（如实记）**：三根 `WfSlider`（`Battle/WfSlider.cs`）**2026-10-16 批 2 时还在世界空间**
+//     —— 那一整族（几何 / 命中 / 九宫格）内部全按「世界单位 = px ÷ 108」写死，要迁它得先给它加一个
+//     uGUI 档，而它**不在本件白名单**（当时已写进报告，交调度台裁）。
+//     ⇒ 它们当时仍挂在**世界空间那层壳**（本组件自己的宿主 `transform`）上，⛔ **没有**挂进画布。
+//     ⚠️ **两条代价**（当时如实记的；**2026-10-16 块 6 迁完之后两条都消失**，见下面那段）：
+//       ① 子画布在 `PopUps` 层 ⇒ **面板底会盖住那三根滑块**（它们当时仍画在 `Default` 层）；
+//       ② 它们当时仍跟着 `HudRoot` 的震屏走，而本面板其余件（已在画布上）不再跟。
 //     报告 → `资料/普查产出_1016并行/T09批2_SettingsPanel.md`。
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// 🔴🔴 **2026-10-16（`T09` 块 6 · 第二件）就地改：上面那条「例外」【已不存在】—— 三根已迁到画布。**
+//   `WfSlider.Create` 加了双模式（`uguiHost:` 形参；宿主为 `null` ⇒ **世界档、逐位不变**），本面板的
+//   `Build()` 传 `uguiHost: _panel` ⇒ 三根与面板其余件**同挂那块 `PopUps`/0 的子画布**
+//   （⛔ 不新增排序层、不进 `SubCanvasRank` —— 它们是**面板内部件**，判据 → `Battle/WfSlider.cs` 文件头）。
+//   ⇒ **本组件自己的宿主 `transform` 现在成了一个【不装任何件】的壳**（只剩那个 `sizeDelta`）。
+//   ⚠️ **那个壳【必须留着】**：`Editor/BattleScene.cs` §A218 的「设置面板**世界壳** = 743.2×758.6」
+//      那条断言读的就是它（同节另一条读本件的 `PanelRect`）⇒ **删了会把那条断言带红**。
+//   🔴 **仍与原版不同的一处（如实记，⛔ 不是漏了）**：这层「世界壳」是**我们自己的**（原版没有中间这一级），
+//      它与 `T09` §五·补⑩ 二 那条「我们的嵌套结构未必等于原版」是同一族 —— **本笔不动它**。
 // ═══════════════════════════════════════════════════════════════════════════════════════
 using System;
 using System.Collections.Generic;      // 🆕 2026-10-18（A921）：语言下拉那 12 行（`List<LangRow>`）
@@ -249,8 +258,11 @@ namespace CardPresentation
         /// 🔴 走 `MenuDraw.Nine` 的地方**必须显式传**这个数 —— 那个助手会写队列，
         /// 不传就等于在战斗现场顺手换了一次排序（2026-10-04 · A50③ 收口时补的）。
         /// 🔴🔴 **2026-10-16（`T09` 批 2）**：本面板整层迁到 uGUI 子画布之后，**这个数在本件里只剩一个
-        /// 调用点**（三根 `WfSlider` 的 `queue:` 形参 —— 它们**还在世界空间**，照旧吃队列）。
-        /// 面板自己的图/字**全部不问队列**了（层级归画布的兄弟序，见 `Img` 的 doc）。</summary>
+        /// 调用点**（三根 `WfSlider` 的 `queue:` 形参）。
+        /// 面板自己的图/字**全部不问队列**了（层级归画布的兄弟序，见 `Img` 的 doc）。
+        /// <para>🔴 **2026-10-16（`T09` 块 6）**：那三根迁到画布之后，`queue` 在本件里**不再是「渲染队列」**
+        /// —— 画布上没有队列这回事，它变成 `WfSlider` 内部**三层兄弟序的基准**（取负 ⇒ 轨道在最下、手柄在最上）。
+        /// **值不动**（仍是 3000），只是含义随档变 —— 见 `Battle/WfSlider.cs` 文件头那条「三层先后」。</para></summary>
         const int QPanel = 3000;
 
         // ---- 投降钮：**原版真值**（`资料/普查产出_0918/第18行_UI三小条_规格.md` §①）----
@@ -624,7 +636,9 @@ namespace CardPresentation
         /// <summary>世界坐标是不是落在**某个件自己的矩形**里（`RectTransform` 的中心锚 + 居中枢轴）。
         /// <para>🔴 **2026-10-16（`T09` 批 2）**：本体**一个字没改** —— 它本来就是纯几何，
         /// 只要求「`w/h` 与 `InverseTransformPoint` 出来的是**同一把尺**」。在本面板里那把尺 = **px**：
-        /// 世界空间那档（`WfSlider` 等）传 `U(px)` = 世界单位、uGUI 那档传 px，各自自洽。</para></summary>
+        /// 世界空间那档传 `U(px)` = 世界单位、uGUI 那档传 px，各自自洽。
+        /// ⚠️ **2026-10-16（`T09` 块 6）**：本面板**已经没有世界空间那档了**（三根 `WfSlider` 也迁上了画布）
+        /// ⇒ 现在所有调用点都走 px 那一支（`WfSlider` 自己那三条交互口不走这里，见它的 `Contains`）。</para></summary>
         static bool RectContains(Transform root, Vector3 world, float w, float h)
         {
             if (root == null) return false;
@@ -655,15 +669,19 @@ namespace CardPresentation
         const float PanelZ = -0.45f;
 
         /// <summary>🔴 **2026-10-16（`T09` 批 2）**：本面板那块 **uGUI 子画布**的名字
-        /// （= 原版宿主名 + ` Canvas`，见 `T09` §五·补⑩ 第 1 步）。⛔ **只此一份** ——
-        /// `EnsureSubCanvas` 不会去重，所以 `Create` 里先按名字找一次（自检/探针会把面板建好几遍）。
+        /// （= 原版宿主名 + ` Canvas`，见 `T09` §五·补⑩ 第 1 步）。⛔ **只此一份**。
+        /// 🔴 **2026-10-16（修波 `FD` · 账 `F10`）就地订正（铁律 5）**：本行原来接着写
+        /// **「`EnsureSubCanvas` 不会去重，所以 `Create` 里先按名字找一次（自检/探针会把面板建好几遍）」** ——
+        /// **那句【已过期】**：它早已改成**按名字幂等**（复用路径还会对齐层/order + 重排次）⇒
+        /// `Create` 里那个「先查再建」的包装**已删**、直接调它；自检/探针把面板建好几遍也**不会再建出
+        /// 第二块同名画布**（这正是当初写那个包装要防的事，现在由 `EnsureSubCanvas` 自己保证）。
         /// 判据 = `T09c` §一 那一行：`BattleSettingsPanel` @ `…/Safe area FrontCanvas`，`PopUps` / order **0**。</summary>
         const string SubCanvasName = "BattleSettingsPanel Canvas";
 
         /// <summary>**面板帧** = 画布下那个 743.2×758.6 px 的节点（`BattleSettingsPanel`）——
         /// **「面板内 px」的原点就是它的中心**（y 向上），与本文件那几组 `Az*` / `Mute*` / `Lang*` 常量同口径。
         /// 🔴 命中判定凡是要「面板内 px」的，一律用**它**的局部空间（⛔ 不是 `transform` ——
-        /// 那是**世界空间那层壳**，只装还没迁的三根 `WfSlider`，单位是**世界单位**）。</summary>
+        /// 那是**世界空间那层壳**，2026-10-16 块 6 之后**一个件都不装**，见文件头那段）。</summary>
         RectTransform _panel;
 
         /// <summary>本面板那块 **uGUI 子画布**的 `RectTransform`（`PopUps` / order 0）——
@@ -673,8 +691,8 @@ namespace CardPresentation
         RectTransform CvRt { get { return _cvRt; } }
 
         /// <summary>自检用：本面板那层 **uGUI 帧**（画布下那个 743.2×758.6 px 的节点）。
-        /// 🔴 给它的理由：`transform`（= 世界空间那层壳）**不再是**面板内容的父节点
-        /// （三根 `WfSlider` 还没迁，见文件头）⇒ 自检要量面板帧得走这个口。</summary>
+        /// 🔴 给它的理由：`transform`（= 世界空间那层壳）**不是**面板内容的父节点
+        /// ⇒ 自检要**量面板帧**、以及**跨档找面板内的件**（含三根 `WfSlider` 的子件）都要走这个口。</summary>
         public RectTransform PanelRect { get { return _panel; } }
 
         public static SettingsPanel Create(Transform parent, Action onResign, Action onCycleDifficulty)
@@ -685,9 +703,12 @@ namespace CardPresentation
             //    **`m_SizeDelta = (743.202, 758.6345)`** · `ap (0, −29.317)` —— 与本文件头那句
             //    「面板本体 743.2 × 758.6（`BattleSettingsPanel` 自己的 rect）」同源（取整那一份）。
             //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「设置面板根 = 743.2×758.6」红。
-            // 🔴 **2026-10-16（`T09` 批 2）**：这一层现在**只装还没迁的三根 `WfSlider`**（文件头那条「例外」）
+            // 🔴 **2026-10-16（`T09` 批 2）**：这一层在本批时**只装还没迁的三根 `WfSlider`**（文件头那条「例外」）
             //    ⇒ 它仍留在**世界空间**、`MenuDraw.SetPxSize`（世界单位）**原样不动**（`A218` 那条读的就是它）。
             //    面板自己的图/字**全部建在 `_panel`**（画布下那个同尺寸节点）上。
+            // 🔴 **2026-10-16（`T09` 块 6）就地改**：那三根**也迁到 `_panel` 上了** ⇒ 这一层**一个件都不装**
+            //    （空壳）。**`MenuDraw.SetPxSize` 那一行【原样留着】** —— `A218` 的「世界壳 = 743.2×758.6」
+            //    读的就是它，⛔ 删了整个节点会把那条断言带红。⚠️ 别顺手「清理」这个壳（那是另一笔账）。
             var go = new GameObject("SettingsPanel", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             MenuDraw.SetPxSize(go.transform, PanelW, PanelH);
@@ -698,10 +719,10 @@ namespace CardPresentation
             // ---- 子画布：`PopUps` / order 0（判据 → `T09c` §一 `SettingsPanel` 那一行）----------------
             // 🔴 **子 Canvas 一个 `CanvasScaler` 都不许加**（原版全场景只有一个、在根上 ⇒ 加了会二次缩放）。
             HudCanvas.Ensure(LayoutSpace.Cam);          // 幂等（`HudImageTex` 那一族会先建；这里兜底）
-            var cv = HudCanvas.SubCanvas(SubCanvasName);
-            var cvRt = cv != null ? (RectTransform)cv.transform
-                                  : HudCanvas.EnsureSubCanvas(null, SubCanvasName,
-                                                              HudCanvas.SortingLayer.PopUps, 0);
+            // 🔴 **2026-10-16（修波 `FD` · 账 `F10`）**：这里原来的「先 `SubCanvas` 查、没有再建」两行包装
+            //   **已删**（配套那句「`EnsureSubCanvas` 不会去重」已过期 —— 它现在按名字幂等）。
+            var cvRt = HudCanvas.EnsureSubCanvas(null, SubCanvasName,
+                                                 HudCanvas.SortingLayer.PopUps, 0);
             if (cvRt == null)
             {
                 // ⛔ **不许静默退回世界空间 quad** —— 半迁移态（一半跟画布、一半跟世界）在 16:9 下看不出来
@@ -971,27 +992,45 @@ namespace CardPresentation
             //   两条独立核（本机 uGUI `DefaultControls.CreateSlider` 四个字段互相自洽 · 原版运行时 dump 里
             //   FPS 那行的滑区左沿与滑块左沿同为 266）都在 `Battle/WfSlider.cs` 的文件头里。
             //   ⇒ 手柄中心 = 轨道左 **+12** + 值 × 551.08（这就是原版），⛔ 别在这儿加 5。
-            // 🔴🔴 **2026-10-16（`T09` 批 2）：这三根【没迁】—— 见文件头那条「例外」（如实记，⛔ 不是漏了）。**
+            // 🔴🔴 **2026-10-16（`T09` 批 2）：这三根当时【没迁】—— 见文件头那条「例外」。**
             //   它们仍挂在**世界空间那层壳**（本组件的宿主 `transform`）上 ⇒ 位置必须走
             //   **世界单位**（`LayoutSpace.Px(px)` = `px ÷ 108`），⛔ **不能用 `U(px)`** ——
             //   那个现在是 px（面板帧那一档的换算），喂进去这三根会**偏 108 倍**（静默）。
             //   `WfSlider` 内部（`_w = trackPx/108`、`Contains`/`SetFromPointer` 的局部单位、
             //   `MenuDraw.Nine` 的九宫格）**全是世界单位** ⇒ 要迁它得先给 `WfSlider` 加 uGUI 档。
+            // ══════════════════════════════════════════════════════════════════════════════════
+            // 🔴🔴 **2026-10-16（`T09` 块 6 · 第二件）就地改：这三根【已迁到画布】—— 上面那段「没迁」已过期。**
+            //   `WfSlider` 那一侧加了**双模式**（`Create(..., uguiHost:)`，宿主为空 = 世界档、逐位不变），
+            //   这里传 `uguiHost: _panel`（= **本面板的画布帧**，见它的 doc）⇒ 三根现在是 uGUI 件。
+            //   ⛔ **不新增排序层、不进 `HudCanvas.SubCanvasRank`** —— 它们是**面板内部件**，
+            //      跟着面板那块 `PopUps`/0 的子画布走（落点判据 → `Battle/WfSlider.cs` 文件头那条「落点」）。
+            //   · **位置改交 px**：`center` 的 x/y 在**画布档 = 设计 px**（世界档才是世界单位）⇒
+            //     与 `SliderCx / SliderCy`（**面板内 px、y 向上、原点 = 面板中心**，见那两条常量的注释）
+            //     **同一个数**，⛔ **不要再套 `LayoutSpace.Px(...)`**（套了会偏 108 倍、**而画面不报错**）。
+            //     坐标系对得上：`_panel` 是**中心锚 + 中心枢轴**、`localPosition = (0,0)`（= 设计中心）
+            //     ⇒ 它的局部原点就是面板中心 —— 与 `SliderLabel` 喂 `U(LabelLeftX)` 那一套**同一把尺**。
+            //   · `center.z` 在画布档**不进 `localPosition`**，只当兄弟序档（z 大 = 画在底下）——
+            //     沿用 `Z − 0.01`：面板底 `_bg` 是 `Z`(−0.45) ⇒ −0.46 比它小 ⇒ 三根画在面板**底之上** ✓。
+            //   · `queue: QPanel` / `handlePx` / `handleOffset` / `capScale: 1f` **四样都不动**：
+            //     画布档把 `queue` 当兄弟序基准（取负）、另外三样本来就是设计 px 口径。
             _musicSlider = WfSlider.Create(transform, "music",
-                                           new Vector3(LayoutSpace.Px(SliderCx), LayoutSpace.Px(SliderCy[0]), Z - 0.01f),
+                                           new Vector3(SliderCx, SliderCy[0], Z - 0.01f),
                                            WarpforgeAudio.Music, WarpforgeAudio.SetMusic,
                                            queue: QPanel, handlePx: 34.406f,
-                                           handleOffset: WfSlider.HandleOffsetPx, capScale: 1f);
+                                           handleOffset: WfSlider.HandleOffsetPx, capScale: 1f,
+                                           uguiHost: _panel);
             _fxSlider = WfSlider.Create(transform, "fx",
-                                        new Vector3(LayoutSpace.Px(SliderCx), LayoutSpace.Px(SliderCy[1]), Z - 0.01f),
+                                        new Vector3(SliderCx, SliderCy[1], Z - 0.01f),
                                         WarpforgeAudio.SoundFx, WarpforgeAudio.SetSoundFx,
                                         queue: QPanel, handlePx: 34.406f,
-                                        handleOffset: WfSlider.HandleOffsetPx, capScale: 1f);
+                                        handleOffset: WfSlider.HandleOffsetPx, capScale: 1f,
+                                        uguiHost: _panel);
             _voiceSlider = WfSlider.Create(transform, "voice",
-                                           new Vector3(LayoutSpace.Px(SliderCx), LayoutSpace.Px(SliderCy[2]), Z - 0.01f),
+                                           new Vector3(SliderCx, SliderCy[2], Z - 0.01f),
                                            WarpforgeAudio.VoiceOver, WarpforgeAudio.SetVoiceOver,
                                            queue: QPanel, handlePx: 34.406f,
-                                           handleOffset: WfSlider.HandleOffsetPx, capScale: 1f);
+                                           handleOffset: WfSlider.HandleOffsetPx, capScale: 1f,
+                                           uguiHost: _panel);
 
             _musicLabel = SliderLabel(SliderNameTerms[0], 0, Z);
             _fxLabel    = SliderLabel(SliderNameTerms[1], 1, Z);
@@ -1661,8 +1700,10 @@ namespace CardPresentation
         Label SliderLabel(string term, int i, float z)
         {
             string text = Loc.T(term);                                  // 原版词条（见 `SliderNameTerms`）
-            // 🔴 **2026-10-16（`T09` 批 2）**：这两颗标签**在画布上**（⇒ uGUI 档、单位 = px）——
-            //    它们与那三根滑块是**两族**：滑块留在世界空间（文件头那条「例外」），标签跟着面板帧走。
+            // 🔴 **2026-10-16（`T09` 批 2）**：这两颗标签**在画布上**（⇒ uGUI 档、单位 = px）。
+            //    ⚠️ **2026-10-16（`T09` 块 6）**：这里原来接着写「它们与那三根滑块是**两族**：滑块留在世界空间」
+            //    —— **那句已过期**：三根滑块现在**同挂 `_panel`**（`uguiHost: _panel`）⇒ 标签与滑块
+            //    **同一把尺（px）、同一个父节点**（先后由 `HudCanvas.Add` 的 z 定）。
             var l = HudCanvas.MakeText(_panel, text, U(LabelLeftX), U(LabelBoxCy[i]),
                                        4, Color.white, new Vector2(0f, 0.5f), z - 0.01f,
                                        "settings_slider_label_" + i);

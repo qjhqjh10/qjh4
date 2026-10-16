@@ -13,14 +13,29 @@
 //     原版资产不进仓库；重跑那个脚本就能再生）。
 //
 // ⚠️ **能查到的与查不到的**（`资料/战斗UI_原版对账表.md` §三·〇 :127）：
-//   · 查得到：**原版有哪些语音、哪条属于哪张卡**（**卡 SO 是权威**；现读 **637 张卡** ——
-//     ~~595 张卡 / 1787 条~~ 是 2026-10-14 归属订正**之前**的读数，⛔ 别再用，现读数见 W7 报告）；
-//   · 查不到：**原版在什么时机播哪一条**。文件名后缀给出了候选集合
-//     （`greet / attack / death / concede / hurry / intro / mirror / threat / wp / gen1-7 / vs<对手>`），
-//     但没有任何代码或数据说「哪个事件对应哪个后缀」。
-//   ⇒ 下面 <see cref="PickForDeploy"/> 等**事件→后缀的对应是我们定的**（按字面意思），
-//     **不是原版规格**。普通单位卡原版只有**一条**出场台词（`ev = "line"`），
-//     所有事件复用那一条（`语音索引.md` §三：原版就是这么设计的）。
+//   · 查得到：**原版有哪些语音、哪条属于哪张卡**（**卡 SO 是权威**；现读 **640 张卡** ——
+//     ~~595 张卡 / 1787 条~~ 是 2026-10-14 归属订正**之前**的读数，⛔ 别再用）；
+//   · 查得到：**原版在什么时机播哪一条**。
+//     🔴 **2026-10-16 就地订正（铁律 5 · 账 `A1768`）**：这里原来写
+//     「**查不到：原版在什么时机播哪一条**……下面 `ForDeploy` 等**事件→后缀的对应是我们定的**
+//     （按字面意思），**不是原版规格**」—— **不成立**：原版**15 个字段逐卡绑定了这件事**，
+//     而且每个字段的消费点都在反编译里找得到（下表）。当时的错因 = 只看了文件名后缀、
+//     没去读卡 SO 的字段与它的消费点。
+//
+// | 我们的事件 | 原版字段 | 消费点（`d:/2/tools/decomp_full/`） |
+// |---|---|---|
+// | `deploy` | `summonAudio`（`dump.cs:23270` @`0xB8`） | `VoiceLinesController__DisplaySummonMessage.c:31` → `RawCardScript__GetSummonSound` |
+// | `attack` | `attackAudio`（`:23271` @`0xC0`） | `CardScript._AttackMeleeAnim_d__357__MoveNext.c:76` → `GetAttackSound` → `BattleManager__PlaySoundClip` |
+// | `death`  | `deathAudio`（`:23272` @`0xC8`） | `CardScript._UnitDeath_d__446__MoveNext.c:82` → `GetDeathSound` → `PlaySoundClip` |
+// | `intro` `mirror` `hurry` `cantdo` `concede` `greet` `threat` `wp` `gen1` `gen2` `gen3` `default` |
+// | 12 个 `*ChatSound`（`dump.cs:23300-23315`） | `RawCardScript__GetChatSound.c` 的 `switch`（枚举号 → 偏移） |
+//
+//   ⇒ **三条硬结论**（都写进了下面那些 `ForXxx` 的注释里）：
+//   ① **战斗那三族没有回落** —— 三个消费点都是 `if (sound != null) 播`，取不到就**什么也不播**；
+//   ② **聊天那一族有唯一一个回落 = `defaultChatSound`**（`GetChatSound` 末尾那一跳），
+//      ⛔ **不是**我们以前写的 `line`；
+//   ③ **`line` 这个我们自己造的名字退场**，改叫 `deploy`（= `summonAudio` 在生成侧的译名；
+//      判据：`summonAudio` 指到的 clip 实测 **448/536** 就是「`VO_<阵营>_<卡名> - <台词>`」那种命名）。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -266,17 +281,36 @@ namespace CardPresentation
         }
 
         // ==================================================================
-        //  事件 → 后缀（**这一段是我们定的**，原版没查到时机的对应关系）
+        //  事件 → 后缀顺序 —— 🔴 **2026-10-16 起是原版真值，不再是我们按字面意思定的**
+        //  （账 `A1768`；字段 ↔ 消费点的对照表见文件头）
         // ==================================================================
 
-        /// <summary>部署（`EvtKind.Deploy`）：先找 `greet`，再 `intro`，最后退回那张卡的出场台词。</summary>
-        public static readonly string[] ForDeploy = { "greet", "intro", "line" };
-        /// <summary>攻击宣言（`EvtKind.Attack`）：`attack` → 出场台词。</summary>
-        public static readonly string[] ForAttack = { "attack", "line" };
-        /// <summary>阵亡（`EvtKind.Death`）：`death` → 出场台词。</summary>
-        public static readonly string[] ForDeath = { "death", "line" };
-        /// <summary>投降：`concede`（只有督军那一族有）。</summary>
-        public static readonly string[] ForConcede = { "concede", "line" };
+        /// <summary>部署（`EvtKind.Deploy`）→ 原版卡 SO 的 **`summonAudio`**。
+        ///
+        /// 🔴 **原版没有回落**：`VoiceLinesController__DisplaySummonMessage.c:31` 拿
+        /// `RawCardScript__GetSummonSound()`，取不到就**整条消息都不发**（气泡 + 语音一起没有）。
+        /// ⛔ **以前这里是 `{ greet, intro, line }` —— 错两处**：
+        ///  · `greet` / `intro` 是**聊天族**（`greetChatSound` / `introChatSound`），
+        ///    原版**从来不在部署时念它们**；
+        ///  · 于是**督军**（它们**没有** `summonAudio` —— 实测 59 位督军该字段全空）一上场就念
+        ///    问候语，而原版督军登场**不响**。
+        /// 判据落点：`资料/普查产出_第二十八会话/战斗事件层_现核.md` §A1817（记了 9 张同时有
+        /// `greet`+`line` 的卡被 `greet` 抢先）。</summary>
+        public static readonly string[] ForDeploy = { "deploy" };
+        /// <summary>攻击宣言（`EvtKind.Attack`）→ 原版卡 SO 的 **`attackAudio`**。
+        /// 消费点 = `CardScript._AttackMeleeAnim_d__357__MoveNext.c:76-83`（**只有近战那一支**），
+        /// 取不到**不播**、也**不回落**出场台词。
+        /// ⇒ 只有 59 张卡有这个字段（≈ 督军那一族），**普通单位挨打攻击时不说话是原版行为**。</summary>
+        public static readonly string[] ForAttack = { "attack" };
+        /// <summary>阵亡（`EvtKind.Death`）→ 原版卡 SO 的 **`deathAudio`**。
+        /// 消费点 = `CardScript._UnitDeath_d__446__MoveNext.c:82-97`，同样**没有回落**。
+        /// ⚠️ `deathAudio` 是**语音**（`VO_*`）；原版的**阵亡音效**（`minionDeathCUE` 那一族 SFX）
+        /// 是**另一件活**，⛔ 别混。</summary>
+        public static readonly string[] ForDeath = { "death" };
+        /// <summary>投降 → 原版卡 SO 的 **`concedeChatSound`**，取不到落 **`defaultChatSound`**
+        /// （`RawCardScript__GetChatSound.c` 的 `case 4` → `+0x1A0`；末尾那一跳 → `+0x188`）。
+        /// ⛔ 原来回落到 `line`（出场台词）**不是原版行为**。</summary>
+        public static readonly string[] ForConcede = { "concede", "default" };
 
         // ==================================================================
         //  🔴 2026-09-18 新增三组 —— **这一批不再是「我们定的」，是原版实据**
@@ -285,20 +319,29 @@ namespace CardPresentation
 
         /// <summary>**开局独白**（原版 `ChatMessage.Intro` = 枚举 0；`RawCardScript.introChatSound`）。
         /// 原版：战斗开始、双方督军各说一次，**严格先手→后手串行**、各自等语音播完；教程/战役局**不播**。
-        /// ⚠️ 只有督军有 `intro`（全池 54 条）⇒ 普通单位这里返回 false 是**对的**。</summary>
-        public static readonly string[] ForIntro = { "intro" };
+        /// ⚠️ 只有督军有 `intro`（全池 57 条）⇒ 普通单位这里返回 false 是**对的**。
+        /// 🔴 **2026-10-16（`A1768`）补上第二跳 `default`**：`RawCardScript__GetChatSound.c`
+        /// 取不到词条时落 `defaultChatSound`（`+0x188`）—— 那一族**现在进表了**
+        /// （`voice_lines.json` 的 `ev="default"`，实测 49 条，与 `attackAudio` **同 GUID**）。
+        /// ⛔ 不再落 `line`（出场台词），那不是原版行为。</summary>
+        public static readonly string[] ForIntro = { "intro", "default" };
 
         /// <summary>**同督军对局的开场白**（原版 `ChatMessage.MirrorMatch` = 枚举 1）。
-        /// 原版在 `AreSameWarlords()` 为真时用它**替换** intro；没有则回落普通 intro —— 所以顺序是 mirror → intro。</summary>
-        public static readonly string[] ForMirror = { "mirror", "intro" };
+        /// 原版：`ChatManager__GetChatSoundAsset(0, isPlayer)` 里
+        /// `AreSameWarlords() &amp;&amp; !isPlayer` ⇒ 改取 `GetChatSound(1)`（= `mirrorChatSound`）。
+        /// 🔴 **2026-10-16（`A1768`）就地订正**：这里原来是 `{ mirror, intro }` —— **第二跳错了**。
+        /// `GetChatSound` 自己的回落是 **`defaultChatSound`**，⛔ 不是 `intro`
+        /// （`intro` 只是**上位**那条 `ChatMessage.Intro` 链的最后一跳，由 `ForVersus` / `ForIntro` 负责）。</summary>
+        public static readonly string[] ForMirror = { "mirror", "default" };
 
         /// <summary>**玩家做了非法操作**（原版 `ChatMessage.ICantDoThat` = 枚举 3）。
         /// 原版链路：`BattleTipController.NotifyCantDoAction` → `DisplayLocalChatMessage(vlc, 3, skipCanChat=1)`，
         /// 由 `BattleManager` 里 **14 个「操作被拒」点**调用（打不出牌 / 技能用不了 / 用不了路标石 /
         /// 目标不合法 / 回合没走完就点结束 …）。闸门：**正在播语音时不打断**。
-        /// ⚠️ **只有 `cantdo` 一条、没有回落** —— 原版取不到词条时落回 `defaultChatSound`（0x188，我们数据里没有），
-        ///    回落成 `line` 会播「出场台词」，**那不是原版行为**。</summary>
-        public static readonly string[] ForCantDo = { "cantdo" };
+        /// 🔴 **2026-10-16（`A1768`）**：第二跳 `default` 是**原版自己的**（`GetChatSound(3)` →
+        /// `iCantDoThatChatSound` @`0x1B0`，取不到落 `defaultChatSound` @`0x188`）；以前这里写成
+        /// 「只有 `cantdo` 一条」是因为**那时 `default` 那一族没进表**，现在进表了。</summary>
+        public static readonly string[] ForCantDo = { "cantdo", "default" };
 
         /// <summary>**本回合时间不多了**（原版 `ChatMessage.Bored` = 枚举 2，词条名是 `hurry`）。
         /// 🔴 反编译一手链（`资料/全量反编译_入口与用法.md` 的查法）：
@@ -310,14 +353,23 @@ namespace CardPresentation
         /// · 前置闸门（同函数 `:26-29`）：`IsPlayerTurn &amp;&amp; clockRunning`；`:32-34`：`UIstate==8` 时 return。
         /// · 播哪条：`DisplayHurryUpChatMessage` → `DisplayLocalChatMessage(vlc, 2, 0)` → `CanChat`
         ///   （**要过聊天闸门**、正在播时不打断）→ `GetHero(isPlayer: true)` ⇒ **说话人是我方督军**。
-        /// ⚠️ **只有 `hurry` 一条、没有回落** —— 理由同 `ForCantDo`：原版取不到词条时落
-        ///    `defaultChatSound`，回落成 `line` 会播「出场台词」，那不是原版行为。</summary>
-        public static readonly string[] ForHurry = { "hurry" };
+        /// 🔴 **2026-10-16（`A1768`）**：`GetChatSound(2)` → `hurryChatSound` @`0x1A8`（原名
+        /// `boredChatSound`），取不到落 `defaultChatSound` —— 第二跳**就是原版行为**，理由同 `ForCantDo`。</summary>
+        public static readonly string[] ForHurry = { "hurry", "default" };
 
         /// <summary>**`ChatPopup` 那 6 个钮**（原版 `ChatMessage` 枚举 **5…10**）。
         /// 原版是**写死起点 5、然后按按钮下标 +1**（`VoiceLinesPopupSelector__SetupChatOptions.c:54,112`
         /// 与 `__RefreshChatLines.c:71` **两处独立证实**）—— **不是随机抽 6 条**。
-        /// ⇒ 下标 0…5 依次对应：`Greet` / `Threat` / `WellPlayed` / `Taunt` / `Sorry` / `Oops`。</summary>
+        /// ⇒ 下标 0…5 依次对应：`Greet` / `Threat` / `WellPlayed` / `Taunt` / `Sorry` / `Oops`。
+        /// ⚠️ **原版这 6 个也各有 `defaultChatSound` 那一跳**，但本表是**单值数组**（一个钮一条）
+        /// ⇒ 第二跳**放不进这张表**，只能留在**消费点**。
+        /// 🔴 **2026-10-16（修波 `FD` · 账 `G1-3`）就地订正（铁律 5）**：本行原来接着写
+        /// **「消费点 `BattleDriver.cs` 用的是 `ForChatButton[idx]` 单元素 ⇒ 这里放不下；要补得先改那个
+        /// 消费点」** —— **后半句【已过期】**：那个消费点**收口波（`G1`）已经改了**（现读
+        /// `BattleDriver.cs:4202` = `TryPick(w.Card.Id, new[] { VoiceLines.ForChatButton[idx], "default" }, …)`）
+        /// ⇒ **第二跳今天已经生效**，本表**保持单值不变**（`"default"` 那个字面量在消费点这一处）。
+        /// 📌 更干净的收法（`A8` 建议、**未做**）：给本类加一个「返回该钮整条链」的口，那时消费点改回引用它，
+        /// ⛔ 别在第三处再写一遍 `"default"`。</summary>
         public static readonly string[] ForChatButton =
             { "greet", "threat", "wp", "gen1", "gen2", "gen3" };
 
@@ -398,8 +450,12 @@ namespace CardPresentation
                         if (!list.Contains(t)) list.Add(t);
             }
 
-            // ③ 最后回落普通 `intro` —— **这就是原版回落链的最后一跳**，不是「我们兜底」
+            // ③ 再回落普通 `intro`（= 原版 `ChatManager__GetChatSoundAsset` 里
+            //    「customIntro → customIntroByArmy → `GetChatSound(0)`」那一跳），
+            //    最后是 `GetChatSound` **自己内部**的那一跳 = `defaultChatSound`
+            //    （🔴 2026-10-16 · `A1768`：原版 `RawCardScript__GetChatSound.c` 取不到词条时落 `+0x188`）。
             if (!list.Contains("intro")) list.Add("intro");
+            if (!list.Contains("default")) list.Add("default");
             return list.ToArray();
         }
 
@@ -453,11 +509,14 @@ namespace CardPresentation
         /// <summary>
         /// **放大窗那个语音按钮**（原版 `voiceOverButton`）用：这张卡**随便哪一条**都行 ——
         /// 它是「听一下这张卡的声音」，不属于任何一个战斗事件。
-        /// 顺序按「出场 → 攻击 → 阵亡 → 投降 → 拒绝」，取第一条有的。
+        /// 顺序按「出场 → 问候 → 独白 → 攻击 → 阵亡 → 投降 → 拒绝 → 兜底」，取第一条有的。
         /// ⚠️ 原来这里直接借用 `ForDeploy`（`greet`/`intro`/`line`），实测**会挂空**：
         ///    有的卡只有 `attack` / `death`（没有 greet/intro/line）⇒ 自检里那条断言变红。
+        /// 🔴 **2026-10-16（`A1768`）**：`line` 改名 `deploy`（见文件头），本表跟着换；
+        ///    末尾补 `default`（原版 `defaultChatSound`，实测那一族**不是** `attack` 专有）。
         /// </summary>
-        public static readonly string[] ForVoiceOver = { "greet", "intro", "line", "attack", "death", "concede", "cant" };
+        public static readonly string[] ForVoiceOver =
+            { "deploy", "greet", "intro", "attack", "death", "concede", "cantdo", "default" };
 
         /// <summary>
         /// 按**优先级顺序**挑一条：第一个命中的后缀赢。返回 false = 这张卡一条语音都没有。

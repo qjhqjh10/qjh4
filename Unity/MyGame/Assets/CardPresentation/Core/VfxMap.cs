@@ -55,7 +55,10 @@ namespace CardPresentation
         /// 🔴 **它走「按阵营」那一档，⛔ 不在 `ByEvent` 里** —— 本地**只有 2 个阵营**有这件
         /// （`UM_CardDraw` / `SAU_CardDraw`，都在效果库里 ✓），其余 11 个阵营**留白**
         /// （`Resolve` 回 null ⇒ 不播）。⚠️ **同 `SummonCircleOf` 的先例**：宁可留白，⛔ 不硬凑一件。
-        /// ⇒ 「不带阵营」的默认口径解析出来是 null 是**预期的**，不是「这个事件没配」
+        /// 🔴 **2026-10-16（账 `A1731`）：留白不再静默** —— `Resolve` 走到底（= 这个事件只能按阵营配、
+        /// 而这个阵营没配）时会 `Debug.LogWarning` 一次（每种 (事件, 阵营) 只说一次，见 `WarnNoFactionVariant`）；
+        /// `Draw` 是本表里**唯一**会走到那个出口的事件。
+        /// ⇒ 「不带阵营」的默认口径解析出来是 null 是**预期的**，**而且不出声**（没传阵营 = 探测口径，不是播放）
         /// （见 <see cref="ResolvesForSomeFaction"/>）。</summary>
         public const string Draw = "draw";
 
@@ -185,11 +188,17 @@ namespace CardPresentation
         };
 
         /// <summary>阵营覆盖：**远程攻击**与**抽卡**按阵营换。
-        /// ⚠️ **登场那条不在这里** —— 原版登场是「卡的淡入（`VfxMap.Deploy`）+ 阵营召唤法阵」**两件叠加**，
+        /// ⚠️ **登场那条不在这里** —— 登场在我们这边是「卡的淡入（`VfxMap.Deploy`）+ 召唤法阵」**两件叠加**，
         /// 而 `Resolve` 一次只回一个名字 ⇒ 法阵改由 `BattleDriver.PlaySignal` 的 deploy 分支**单独补一发**
         /// （判据 → <see cref="SummonCircleOf"/>）。
-        /// ⚠️ **没配到的阵营一律留白**（回 null ⇒ 不播），**两条都是**：`Draw` 只有 UM / SAU 两件
-        /// （见 <see cref="Draw"/> 的 doc）、`AttackRanged` 只有原版那 4 个阵营有专属粒子。</summary>
+        /// ⚠️ **`SummonCircleOf` 那一层本身存疑**（现读的引用证据是**逐卡**的，不是按阵营 —— 见它的 doc
+        /// 那段订正；要不要留这一层是**另一条账**，⛔ 别拿这里的 4 个名字当「原版就是这样」）。
+        /// ⚠️ **没配到的阵营一律留白**（回 null ⇒ 不播）—— **两条按阵营的表都是**：`Draw` 只有 UM / SAU 两件
+        /// （见 <see cref="Draw"/> 的 doc）、`SummonCircleByFaction` 只有 4 个候选。🔴 **2026-10-16（账 `A1731`）：
+        /// 留白不再静默** —— `Resolve` 走到底 / `SummonCircleOf` 回 null 之前都会 `Debug.LogWarning`
+        /// 一次（每种 (事件, 阵营) 只说一次，见 `WarnNoFactionVariant`）。
+        /// ⚠️ `AttackRanged` **不属于这一档**：它在 `ByEvent` 里有一件通用替代品 ⇒ 没配专属粒子的阵营走它，
+        /// 不构成留白（`Resolve` 只在「`ByEvent` 里根本没有这个事件」时才出声）。</summary>
         static readonly Dictionary<string, Dictionary<string, string>> ByFaction =
             new Dictionary<string, Dictionary<string, string>>
         {
@@ -217,13 +226,39 @@ namespace CardPresentation
         /// 判据 → `数据/游戏数据/card_vfx_by_card.json` 的 `generic.deploySummonCandidates`
         /// （`AeldariSummon` → `BlueSummonCircle` · `Tau_Summon` / `Tau_Kroot_Summon` → `Tau_SummonCircle` ·
         /// `RelentlessMarchSummon` → `GreenSummonCircle`）。
-        /// ⚠️ **Ember / Tide 那两条是我们挑的**（这两个起始阵营在原版里没有对应物）；
-        /// 其余阵营的召唤动画**在远端包** ⇒ 返回 null（**不放，如实留白**，不硬凑一个）。</summary>
+        /// ⚠️ **Ember / Tide 那两条是我们挑的**（这两个起始阵营在原版里没有对应物）。
+        /// 🔴 **没配到的阵营：出声 + 留白**（账 `A1731`；⛔ 不硬凑一件，见下面那段订正）。
+        ///
+        /// 🔴 **2026-10-16 就地订正（铁律 5 · 账 `A1731`）**：本行原来写「其余阵营的召唤动画**在远端包** ⇒ 返回 null」——
+        ///    **这句没有判据**（它是从「本地只有 4 个候选」推的）。现读证据：
+        ///      · 本机**没有**任何「CardAnim → 阵营」的字段 —— `assets_full` 里 `*ByArmy*` 的 MonoBehaviour
+        ///        只有 `RangedAttackParticlesByArmy` / `CardFramesByArmy` **两条**（没有 summon 那一支）；
+        ///        `decomp_full` 按 `SummonCircle` / `summonParticles` / `SummonAnim` 搜 **0 命中**。
+        ///        生成器自己也写着「『哪个 CardAnim 属哪个阵营』**没有本地字段**（靠名字前缀）= 推断」
+        ///        （`工具/gen_card_vfx_by_card.py:534`）。
+        ///      · 本地**唯一**的引用证据是**逐卡**的：卡 SO 的
+        ///        `cardAbilities[].abilityLogic[].cardAnimations[]`（`资料/普查产出_第二十七会话/guid_map.tsv`）——
+        ///        `AeldariSummon` ← `ASH52 Hosts of the Dead` / `ASH17 Spiritseer` / `Path of Command` / `Path of the Warrior`；
+        ///        `Tau_Summon` ← `TAU56 Valued Sacrifice` / `TAU64 Tidewall Droneport` / `Homing Beacon`；
+        ///        `SororitasSummon_Basic` ← `SOR34 Celestian Superior`；`Guard Summon` ← `AM73 Taurox Prime` / `AM34 Valkyrie` /
+        ///        `AM76 Armoured Lightning` / `AM72 Vitus Gryf`；`RelentlessMarchSummon` ← `SAU46 Spyder Nest` / `SAU71 Immortals Phalanx` / …
+        ///      ⇒ **本机的这 4 个候选是「某些卡的技能动画」，不是「阵营的登场法阵」**；
+        ///        上面 SaimHann / TauEmpire 那两行是**按名字前缀**绑的（= 推断档，⛔ 别当成 `conf: exact`）。
+        ///      ⚠️ **本机查不到「原版登场到底按不按阵营播法阵」** —— 按现读的字段，登场这一拍**有判据**的是
+        ///        「卡自己的 `summonAnimDelayed`（逐卡，`conf: authoritative`）+ 共享的 `normalSummon` 淡入」。
+        ///        **这一层（`SummonCircleOf` 要不要留、`ByFaction` 那两行算不算）是另一条账**（不是本件），
+        ///        ⛔ 别拿这里的 4 个名字当「原版就是这样」。</summary>
         public static string SummonCircleOf(string faction)
         {
             if (string.IsNullOrEmpty(faction)) return null;
             string v;
-            return SummonCircleByFaction.TryGetValue(faction, out v) ? v : null;
+            if (SummonCircleByFaction.TryGetValue(faction, out v)) return v;
+            // 🔴 2026-10-16（账 `A1731`）：**没配到就出声** —— 原来这里静默 `return null`，
+            //    「原版这一档我们没有」与「表里漏抄了」在日志里分不出来（本仓红线：不许静默失败）。
+            WarnNoFactionVariant("阵营召唤法阵（deploy）", faction,
+                $"本地只有 {SummonCircleByFaction.Count} 个候选（`SummonCircleByFaction` 那张表）；"
+                + "⛔ 别按名字前缀给这个阵营凑一件（本机没有『CardAnim → 阵营』的字段，见本方法 doc 里那段订正）。");
+            return null;
         }
 
         /// <summary>**阵营 → 召唤法阵名**（判据只此一处 —— <see cref="SummonCircleOf"/> 与
@@ -240,9 +275,11 @@ namespace CardPresentation
         {
             { "Ember",     "Sororitas Summon Basic" },   // 我们挑的（原版这个起始阵营没有对应物）
             { "Tide",      "Tau_SummonCircle" },         // 我们挑的
-            { "SaimHann",  "BlueSummonCircle" },         // 原版 `AeldariSummon`（判据齐）
-            { "TauEmpire", "Tau_SummonCircle" },         // 原版 `Tau_Summon`（判据齐）
-            // 其余阵营的召唤动画**在远端包** ⇒ 不配、`SummonCircleOf` 回 null（不放，如实留白，不硬凑一个）。
+            { "SaimHann",  "BlueSummonCircle" },         // ⚠️ 名字前缀推断（`AeldariSummon`）—— 不是原版字段，见 `SummonCircleOf` doc 那段订正
+            { "TauEmpire", "Tau_SummonCircle" },         // ⚠️ 同上（`Tau_Summon` / `Tau_Kroot_Summon`）
+            // 其余阵营 ⇒ 不配：`SummonCircleOf` 回 null **并出声**（账 `A1731`；⛔ 不硬凑一件）。
+            // ⚠️ 原来这里写「其余阵营的召唤动画**在远端包**」—— **那句没有判据**，2026-10-16 已按实据订正
+            //    （见 `SummonCircleOf` 的 doc：本机的这 4 个候选其实是**某些卡的技能动画**）。
         };
 
         /// <summary>逐卡覆盖（键 = **卡 id**；事件名同 <see cref="Resolve"/>）。
@@ -270,6 +307,40 @@ namespace CardPresentation
         /// <summary>「名字重名、阵营也判不出唯一」的**出声去重**（每张卡只说一次，别每帧刷屏）。</summary>
         static readonly HashSet<string> _warnedAmbiguous = new HashSet<string>();
         const int AmbiguousWarnCap = 20;
+
+        // ============================ 🔴 2026-10-16（账 `A1731`）：**按阵营配的东西，这个阵营没有 ⇒ 出声** ============================
+        //
+        // **背景（本仓红线：不许静默失败）**：`ByFaction`（远程攻击 / 抽卡）与 `SummonCircleByFaction`
+        // （阵营召唤法阵）都是**按阵营配**的表 —— 没配到的阵营解析出来是 `null`，而
+        // `CardEffects.Fire(null, …)` 的第 1 行就是 `if (string.IsNullOrEmpty(effectName)) return;`
+        // （那一行是给「通用兜底也没配」用的）⇒ 玩家看到「这一拍什么都没发生」，
+        // 而日志里**一个字都没有**，「原版这一档我们没有」与「表里漏抄了」分不出来。
+        // ⇒ 本类的两个**按阵营**的出口在回 `null` 之前一律出声（每次会话每种 (东西, 阵营) 只说一次）。
+        //
+        // ⚠️ **只在「播放口径」出声**：`Resolve(evt)` 不带阵营（= 探测口径，见 `Unmapped`）、以及
+        //    `ResolvesForSomeFaction` / `Describe` 这两个**枚举探针**（它们问的是「哪一档配过」，
+        //    不是「现在播什么」）⇒ 都不出声（探针期间 `_probeDepth > 0`，见那两处的 `try/finally`）。
+        // ⚠️ **不硬凑一件替代品** —— 出声只说明「这里留白」，替代品是**判据**问题，不在这条账里。
+        static readonly HashSet<string> _warnedNoFaction = new HashSet<string>();
+        const int NoFactionWarnCap = 32;
+        static int _probeDepth;
+
+        /// <summary>自检用：账 `A1731` 那条「留白要出声」已经报过几种 (东西, 阵营)。
+        /// 同族先例 = `DeckRuntime.UiCardbackArtWarnCount`（同样是「去重之后的警告计数」）。
+        /// ⚠️ 只增不减（没有 reset）—— 自检要断的是「报了没有」，不是「报了几次」。</summary>
+        public static int NoFactionVariantWarns { get { return _warnedNoFaction.Count; } }
+
+        /// <summary>某件**按阵营**配的东西，这个阵营没有候选 ⇒ 出声（⛔ 不静默留白，也不硬凑一件替代品）。
+        /// `what` = 那件东西的名字（事件名 / `阵营召唤法阵（deploy）`），同时做去重键与日志里的主语。</summary>
+        static void WarnNoFactionVariant(string what, string faction, string detail)
+        {
+            if (string.IsNullOrEmpty(what) || string.IsNullOrEmpty(faction)) return;
+            if (_probeDepth > 0) return;                                    // 枚举探针不掺进播放日志
+            if (_warnedNoFaction.Count >= NoFactionWarnCap) return;         // 上限（别刷屏）
+            if (!_warnedNoFaction.Add(what + "|" + faction)) return;        // 每种 (东西, 阵营) 只说一次
+            Debug.LogWarning($"[Vfx] `{what}` 在阵营 `{faction}` 上**没有候选** ⇒ 这一拍**留白**"
+                           + "（⛔ 不拿别的阵营的顶上、也不硬凑一件）。" + detail);
+        }
 
         /// <summary>运行时那份逐卡表的 Resources 路径（**没有扩展名**）。
         /// 由 `工具/gen_card_vfx_by_card.py` 与 `数据/游戏数据/card_vfx_by_card.json` **同一次运行**产出。</summary>
@@ -441,7 +512,16 @@ namespace CardPresentation
                 if (m.TryGetValue(evt, out s)) return s;
             }
             string fallback;
-            return ByEvent.TryGetValue(evt, out fallback) ? fallback : null;
+            if (ByEvent.TryGetValue(evt, out fallback)) return fallback;
+            // 🔴 2026-10-16（账 `A1731`）：**走到这里 = 这个事件只能按阵营配**（`ByEvent` 里没有它 ——
+            //    现读只有 `Draw` 是这种），而这个阵营没有那一条 ⇒ **出声**再回 null。
+            //    原来这里是静默 `return null`：玩家看到「抽卡这一拍什么都没发生」，日志里却一个字都没有
+            //    （本仓红线：不许静默失败）。
+            //    ⚠️ `faction` 为空（`Unmapped()` 那种探测口径，`Draw` 不带阵营本来就该是 null）由
+            //       `WarnNoFactionVariant` 自己挡掉；枚举探针由 `_probeDepth` 挡。
+            WarnNoFactionVariant(evt, faction,
+                "这一件**只按阵营配**（`ByEvent` 里没有它）⇒ 没配到的阵营一律留白，配过的见 `ByFaction` 那张表。");
+            return null;
         }
 
         /// <summary>🆕 2026-10-15（账 `A2083`）：**只查逐卡那一档**，⛔ 不回落到按阵营 / 按事件。
@@ -561,8 +641,15 @@ namespace CardPresentation
         public static bool ResolvesForSomeFaction(string evt)
         {
             if (string.IsNullOrEmpty(evt)) return false;
-            foreach (var f in ByFaction.Keys)
-                if (Resolve(evt, f) != null) return true;
+            // 🆕 2026-10-16（账 `A1731`）：这是**枚举探针**（问「哪一档配过」），不是播放 ⇒ 不出声。
+            //    不挡的话它每次都会替 `Goff` / `BlackLegion` 报一句「抽卡没配」——真话，但不是「现在播什么」。
+            _probeDepth++;
+            try
+            {
+                foreach (var f in ByFaction.Keys)
+                    if (Resolve(evt, f) != null) return true;
+            }
+            finally { _probeDepth--; }
             return false;
         }
 
@@ -577,7 +664,14 @@ namespace CardPresentation
         public static string Describe(string faction = null)
         {
             var parts = new List<string>();
-            foreach (var e in Events) parts.Add($"{e}={Resolve(e, faction) ?? "—"}");
+            // 🆕 2026-10-16（账 `A1731`）：这是「把表打出来看」的口、**不是播放** ⇒ 走探针口径不出声
+            //    （否则自检日志里会混进一串「某阵营没配」——那是工具在想看表，不是这一拍真要播）。
+            _probeDepth++;
+            try
+            {
+                foreach (var e in Events) parts.Add($"{e}={Resolve(e, faction) ?? "—"}");
+            }
+            finally { _probeDepth--; }
             return (faction != null ? $"[{faction}] " : "") + string.Join("  ", parts.ToArray());
         }
     }

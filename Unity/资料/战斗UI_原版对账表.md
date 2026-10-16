@@ -111,6 +111,21 @@
 | **回放条** | `ReplayButtons` 4 枚 79.80×48.57（`40K_replay_bt_*`；容器 293.60×57.41 @ x[410.2,703.8] y[37.3,94.7]；`Play`/`Pause` **同座标互斥**） | ✅ **做完** → `Battle/ReplayBar.cs`。**坐标悬案已复核：坑 38 对、坑 35 错**（`ReplayButtons` 与 `LeftArea` 是**兄弟**，不在 LeftArea 里；`[-550,1117]` 是树生成器对 stretch 父节点的换算缺陷）—— 已就地更正。<br>🔴 **2026-09-27 三处订正**（判据 → `资料/普查产出_0927/回放_界面真值.md`）：<br>① **显隐原来一直是错的** —— 原版 `ReplayHud.Setup()` = `objHolder.SetActive(matchType == 0xA0)`，**只有回放局才出现**；我们**普通对局里也一直摆着** ⇒ 已照原版改成 `Setup(false)`（**开关做在 `Holder` 那一层**，本轮补上）。<br>② ~~「四个钮接什么是我们挑的」~~ —— 原版语义**已查到**：`ClickRestartReplay`/`ClickPlayReplay`/`ClickPauseReplay`/`ClickNextStepReplay`（**回放的播放控制**）。我们那套**本局时间控制**（重开/暂停/继续/单步）**功能没删**，但**从这 4 枚钮上摘下来、挪到键盘**（`Space` / `.`；`R` 另有一处）—— 界面照原版、功能不丢。<br>③ ~~「图标的排法也是我们挑的（在播亮 Pause）」~~ —— **不是我们挑的**：原版 `ReplayHud.Initialize()` 跑完就是**关 `Play`、开 `Pause`**；场景里存的那份（`Play=T/Pause=F`）是**进战场前**的样子 ⇒ **场景序列化 ≠ 运行期**，照场景建就错。 |
 | **单位语音条** | `PlayerChatDisplay` 648.77×236.50 我 x[12.6,661.4] y[643.5,880.0] · `EnemyChatDisplay` 同尺寸 y[173.5,410.0]；`Background` = `40k_voicelines_radio`(766×280) · `wave` = `…wave equalizer`(708×96) · `ChatText` TMP **fs33 白** | ✅ **做完** → `Battle/UnitChatPanel.cs` + `Core/VoiceLines.cs`；音频 **1844 条 / 606 张卡**进了工程（**工程首次有音频**；2026-09-18 从 1787 补全，见 §三之〇 的更正）。细节见下面「语音条三件事」。⚠️ **两处是我们挑的**：① 事件→台词后缀的对应；② 督军那种没有文本的**退回显示卡名** |
 
+> 🔴 **2026-10-16 订正（铁律 5）—— 上表「单位语音条」那一行里「⚠️ 两处是我们挑的」的【① 事件→台词后缀的对应】已被推翻。**
+> · **原文（保留在上面，一字未删）**：「⚠️ **两处是我们挑的**：① 事件→台词后缀的对应；② 督军那种没有文本的**退回显示卡名**」。
+> · **推翻它的判据**：**事件名（我们表里的 `ev`）原版全有** —— 旧文件头那句「**查不到：原版在什么时机播哪一条**……
+>   事件→后缀的对应是我们定的」（原文在 `Core/VoiceLines.cs`，2026-10-16 已就地订正）**不成立**：
+>   原版 `RawCardScript.GetChatSound` 的 `switch` 把**枚举号 → 字段偏移**逐个钉死
+>   （`0→0x190 intro · 1→0x198 mirror · 2→0x1A8 hurry · 3→0x1B0 iCantDoThat · 4→0x1A0 concede · 5→0x1B8 greet ·
+>   6→0x1C0 threat · 7→0x1D0 wellPlayed · 8→0x1C8 gen1 · 9→0x1D8 gen2 · 10→0x1E0 gen3`，取不到落 `+0x188 defaultChatSound`）；
+>   三个战斗字段的**消费点也全找到了**（`summonAudio` ← `VoiceLinesController__DisplaySummonMessage.c:31` ·
+>   `attackAudio` ← `CardScript._AttackMeleeAnim_d__357__MoveNext.c:76` · `deathAudio` ← `CardScript._UnitDeath_d__446__MoveNext.c:82`）。
+> · **后果**：**`line` 这个名字退场 → `deploy`**；语音归属改走**卡 SO 字段**（权威占比 `33.9% → 62.6%`）⇒ **① 从「我们挑的」销账**；
+>   **② 仍然成立**（「督军那种没有文本的退回显示卡名」是我们的处置）。
+> · ⚠️ **行号现核**：本条在台账里被引作「**§三·〇 `:127`**」—— **`:127` 是「回放条」那条的判据指引行**
+>   （指去 `资料/索引与盘点/解包资源使用地图.md` 坑 38），**本句的实际落点是 `:112`**（上表「单位语音条」那一行）。
+> · 判据 → `资料/普查产出_1016并行/语音线A1768_报告.md` ③·2 / ④·1。
+
 **🔴 「点开牌堆看张数」为什么「别做」（三条实据，别再翻）**：
 1. **「看张数」早做完了** —— `BattleDriver` 的张数底板 + 文字有断言守着。
 2. **牌背常显是对的** —— `UI_Deck_Background` 那张图是「卡形深色框」，牌背 217×314 **比框还高**；原版 `DisplayDeckSize` 里就有「一并把牌背打开」的分支。之前读到的「`Cardback Container` 默认关」是**预制体静态值**（那几份 dump 的路径根都是 `BattlePrefab/BattlePrefab/…`）⇒ **不是运行时结论**。

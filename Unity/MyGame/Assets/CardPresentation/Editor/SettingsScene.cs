@@ -3243,6 +3243,20 @@ public static class SettingsScene
             var sl = win.AudioSliders;
             CheckTrue(sl != null && sl.Length == 3 && sl[0] != null && sl[1] != null && sl[2] != null,
                       "三根滑块都建出来了（Music / Sound Effects / Voice-overs）");
+            // 🔴🔴 **2026-10-17（`EW13` · `T09` 块 6 收口的【反面那一半】）：壳侧这三根必须留在世界档。**
+            //   判据 = `WfSlider` 的双模式**只由 `uguiHost` 那个形参定**
+            //   （`WfSlider.Create` 里 `s._ugui = uguiHost != null` —— 判据只此一处、⛔ 没有全局开关），
+            //   而本处那三根 `WfSlider.Create(rowN, …)` **不传**它 ⇒ 世界档。
+            //   ⚠️ 那是本波的**忠实做法**、不是漏迁：壳侧窗口系统**还没 uGUI 化**（`T09` §八·2 那条路 A
+            //   是另一笔大账），强行挂画布会得到**半迁移态** —— 而它在**16:9 下「看着对」**
+            //   （`T09` §五·补⑦：两种做法在 16:9 逐位相同）⇒ 只有这条抓得住。
+            //   🔑 它是战斗侧那 7 条（`Editor/BattleScene.cs` 的 `T09` 块 6 那一组）的**配对反面**：
+            //      谁把模式形参做成全局开关、或给壳侧也补上 `uguiHost` ⇒ **本条红**（而那 7 条照绿）。
+            //   🧨 改坏法：给 `Shell/SettingsWindow.cs` 那三处补 `uguiHost:` ⇒ 本条红。
+            for (int i = 0; i < 3; i++)
+                CheckTrue(sl != null && sl[i] != null && !sl[i].OnCanvas,
+                          $"★ `T09` 块 6（反面）：壳侧第 {i + 1} 根滑块**留在世界档**（`OnCanvas == false`）"
+                        + " —— 与战斗侧那三根（`OnCanvas == true`）**配对**才挡得住「把模式形参做成全局开关」");
             // 🆕 A125②：行名数组**提上来一份**（原来只在「行顶」那一段里有）—— 轨道高那一段
             //    也要按行名去 `FindChild` 拿**那一根滑块**的 `Fill` 层（见下面那两条断言）。
             // 🔴 **2026-10-20（`A1202`）**：`Sound Effects` / `Voice-overs` → **`FX` / `Voiceovers`**

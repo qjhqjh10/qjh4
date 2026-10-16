@@ -1022,7 +1022,8 @@ namespace CardPresentation
         readonly List<string> _tipQueue = new List<string>();
         /// <summary>当前这条还剩几秒（原版是 `WaitForSeconds(tipDuration)`，我们用显式计时 —— 批处理没有帧循环）。</summary>
         float _tipLeft;
-        /// <summary>最近一次**露出来**的那条提示的渲染宽（世界单位）。⚠️ 缓存值 —— 见 `TickTipBanner` 里那句
+        /// <summary>最近一次**露出来**的那条提示的渲染宽（**设计 px** —— 🔴 2026-10-16 `T09` 字族迁 uGUI
+        /// 之前是**世界单位**，见 `HintWidth` 的 doc）。⚠️ 缓存值 —— 见 `TickTipBanner` 里那句
         /// 「趁激活时量」的理由（TMP 在未激活对象上量不出尺寸）。</summary>
         float _tipW;
 
@@ -3810,13 +3811,17 @@ namespace CardPresentation
         {
             get { return _cameraResetBtn != null ? _cameraResetBtn.transform.position : Vector3.zero; }
         }
-        /// <summary>自检用：那颗钮**画出来**的尺寸（px）= `ImageQuad` 的 `WorldW/WorldH × 108`
-        /// （原版 PA=1 ⇒ 期望 61.846×61.846，**内接**进那个 64.443×61.846 的 rect）。</summary>
+        /// <summary>自检用：那颗钮**画出来**的尺寸（**真设计 px** = 1920×1080 那一套）= <see cref="HudPiece.SizePx"/>
+        /// （原版 PA=1 ⇒ 期望 61.846×61.846，**内接**进那个 64.443×61.846 的 rect）。
+        /// 🔴 **2026-10-16（`EW11` · 与 `HudExtraDrawnPx` 同病根）就地订正**：本口原来读
+        /// `new Vector2(WorldW, WorldH) * 108f` —— 这一件**已迁 uGUI**（建它那一处走 `HudAbs`）
+        /// ⇒ 非 16:9 下**只有真设计 px 的 0.75 倍**（批处理 640×480 下 = **46.385** 而不是 61.846）
+        /// ⇒ 消费它的 `Editor/BattleScene.cs:18576`（`A423`）**按机制必红**。
+        /// ✅ 改走 <see cref="HudPiece.SizePx"/>（uGUI 支读 `sizeDelta` = 真 px；世界档那支原样
+        /// `WorldW/H × 108`，**两档各读各的**，判据见它自己的 doc）。</summary>
         public Vector2 CameraResetButtonDrawnPx
         {
-            get { return _cameraResetBtn != null
-                       ? new Vector2(_cameraResetBtn.WorldW, _cameraResetBtn.WorldH) * 108f
-                       : Vector2.zero; }
+            get { return _cameraResetBtn != null ? _cameraResetBtn.SizePx : Vector2.zero; }
         }
         /// <summary>自检用：那张图的贴图名（判「就是 `40k_UI_bt_center_camera`」）。</summary>
         public string CameraResetButtonArt
@@ -4083,13 +4088,20 @@ namespace CardPresentation
         {
             get { return _allianceBtn != null ? _allianceBtn.transform.position : Vector3.zero; }
         }
-        /// <summary>自检用：那张占位 quad **画出来**的尺寸（px）—— 应**恒等于命中矩形**
-        /// （原版没有贴图 ⇒ 没有「画出来的 ≠ 命中基准」那件事，见 `AllianceButtonHit`）。</summary>
+        /// <summary>自检用：那张占位 quad **画出来**的尺寸（**真设计 px** = 1920×1080 那一套）
+        /// —— 应**恒等于命中矩形**（原版没有贴图 ⇒ 没有「画出来的 ≠ 命中基准」那件事，
+        /// 见 `AllianceButtonHit`）。
+        /// 🔴 **2026-10-16（`EW11` · 与 `HudExtraDrawnPx` 同病根）就地订正**：本口原来读
+        /// `new Vector2(WorldW, WorldH) * 108f` —— 这一件**已迁 uGUI**（挂它那一处走 `HudImageTex`）
+        /// ⇒ 非 16:9 下**只有真设计 px 的 0.75 倍**（批处理 640×480 下 = **232.55×70.09**，
+        /// 而命中矩形是 **310.07×93.45**）⇒ 消费它的 `Editor/BattleScene.cs:22268`（`A985③`）
+        /// **按机制必红**。
+        /// ✅ 改走 <see cref="HudPiece.SizePx"/>（uGUI 支读 `sizeDelta` —— 建它那两步
+        /// `HudImageTex(…, Px(alHit.H), …)` + `SetAspect(alHit.W / alHit.H)` 写进去的就是
+        /// **(W, H)** ⇒ 与命中矩形**逐位同值**）。</summary>
         public Vector2 AllianceButtonDrawnPx
         {
-            get { return _allianceBtn != null
-                       ? new Vector2(_allianceBtn.WorldW, _allianceBtn.WorldH) * 108f
-                       : Vector2.zero; }
+            get { return _allianceBtn != null ? _allianceBtn.SizePx : Vector2.zero; }
         }
         /// <summary>自检用：那张占位图的染色（应 **α = 0**）。
         /// 🧨 改坏法：把 `SetTint(…, 0f)` 去掉或写成不透明 ⇒ 敌方名牌上多出一块白板。</summary>
@@ -4185,7 +4197,21 @@ namespace CardPresentation
 
             string file, text, ev;
             // 随机源传 null —— 与别处同规矩：**不消耗 `Ctx.Rng`**
-            if (!VoiceLines.TryPick(w.Card.Id, new[] { VoiceLines.ForChatButton[idx] }, null,
+            // 🔴 **2026-10-16（收口波 · 台账 `W36` · 账 `A1768`）：这里补上原版那一跳【`defaultChatSound`】。**
+            //   判据 = `d:/2/tools/decomp_full/RawCardScript__GetChatSound.c`（本波现读）：`switch(param_2)`
+            //   的 `case 0..10` 各取一个字段，**取不到时落 `*(param_1 + 0x188)` = `defaultChatSound`** ——
+            //   那一段（`:94-98`）在 `if (lVar4 != 0)` **之内**、`case` 标签**之外** ⇒ **11 个枚举值共用同一条回落**
+            //   （⇒ 与 `VoiceLines.ForCantDo` / `ForHurry` / `ForConcede` / `ForIntro` / `ForMirror`
+            //     那五张表**逐字同形**，它们早就写成 `{ "<主>", "default" }` 两级）。
+            //   本件用的是枚举 **5…10**（`ChatPopup` 那 6 个钮 ——
+            //   `VoiceLinesPopupSelector__SetupChatOptions.c:54,112` 写死起点 5 再按按钮下标 +1，两处独立证实）
+            //   ⇒ **这 6 个本来也各有那一跳**，原来我们只取了第一跳 ⇒ 卡上没配到那一档时**整条不出声**。
+            //   ⚠️ `VoiceLines.ForChatButton` 是**单值数组**（一个钮一条，`VoiceLines.cs:367`）⇒ 第二跳
+            //     **放不进那张表**，只能在**消费点**补（`ForChatButton` 的 doc 与 `A1768` 报告 §③·2
+            //     写的就是这个接法：⛔ 不是「改 `TryPick` 的语义」——`TryPick` 本来就是「按顺序、第一个命中赢」）。
+            //   📌 **接线清单**：更干净的做法是给 `VoiceLines` 加一个「返回该钮整条链」的口（`A8` 的建议），
+            //     那时本行改回 `VoiceLines.<那个口>(idx)`；⛔ 别在第三处再写一遍这个 `"default"` 字面量。
+            if (!VoiceLines.TryPick(w.Card.Id, new[] { VoiceLines.ForChatButton[idx], "default" }, null,
                                     out file, out text, out ev))
                 return false;
             var clip = VoiceLines.Clip(file);
@@ -4211,8 +4237,23 @@ namespace CardPresentation
         //
         //  形状与数值全在 `UnitChatPanel.cs` 头里；数据在 `Core/VoiceLines.cs` + `voice_lines.json`
         //  （由 `工具/import_original_audio.py` 从原版解包资源生成）。
-        //  🔴 **事件 → 台词后缀的对应是我们定的**：原版只留下了「有哪些台词」，
-        //     没留下「什么时机播哪一条」（`资料/战斗UI_原版对账表.md` §三·〇 :127）。
+        //  🔴 **2026-10-16 就地订正（铁律 5 · 账 `A1768` · 收口波 `G1`）**：下面这两行原来是
+        //     「🔴 **事件 → 台词后缀的对应是我们定的**：原版只留下了「有哪些台词」，
+        //       没留下「什么时机播哪一条」（`资料/战斗UI_原版对账表.md` §三·〇 :127）」——
+        //     **两半都不成立**（原文一字未删，留在本条更正痕里）：
+        //     · **①「后缀对应是我们定的」已被推翻**：原版 `RawCardScript.GetChatSound` 的 `switch`
+        //       把**枚举号 → 字段偏移**逐个钉死（`0→0x190 intro · 1→0x198 mirror · 2→0x1A8 hurry ·
+        //       3→0x1B0 iCantDoThat · 4→0x1A0 concede · 5→0x1B8 greet · 6→0x1C0 threat ·
+        //       7→0x1D0 wellPlayed · 8→0x1C8 gen1 · 9→0x1D8 gen2 · 10→0x1E0 gen3`，
+        //       取不到落 `+0x188 defaultChatSound`），三个战斗字段的消费点也全找到了
+        //       ⇒ **后缀是原版真值**（判据 → `普查产出_1016并行/语音线A1768_报告.md` ③·2 / ④·1）。
+        //     · **② 那个行号也是错的**：这句话的**实际落点是 `资料/战斗UI_原版对账表.md:112`**
+        //       （上表「单位语音条」那一行）；**`:127` 是「回放条」那条的判据指引行**
+        //       （指去 `资料/索引与盘点/解包资源使用地图.md` 坑 38）。该文件 `:114-128` 已有对应更正块。
+        //     ⇒ 这一族里**仍然成立**的只有「督军那种没有文本的**退回显示卡名**是我们挑的」那一条。
+        //     ⚠️ **别再把这句写回来** —— 铁律 5 记的就是这类「听着对、实际错」的注释。
+        //        ⚠️ 顺带记：**同一句在别的文件里还有副本**（`Battle/UnitChatPanel.cs:29`，同样引 `:127`）
+        //        —— 那份不在本波白名单里，已记进报告 §③ 由主对话另派。
         // ==================================================================
 
         UnitChatPanel _unitChat;
@@ -6649,16 +6690,25 @@ namespace CardPresentation
         }
 
         /// <summary>🆕 2026-10-16（`A1302`）：这一批补摆件里 <paramref name="name"/> 那一件
-        /// **画出来的**尺寸（= 世界尺寸 × 108，单位 px；找不到返回 `Vector2.zero`）。
+        /// **画出来的**尺寸（**真设计 px** = 1920×1080 那一套；找不到返回 `Vector2.zero`）。
         /// 🔴 **为什么要有它**：`HudExtraWorldPos` 只管**位置**，而 `A1302` 那条缺陷
         /// （`PA=1` 该**内接**、我们原来按高摆 ⇒ 宽溢出）**只体现在尺寸上** ⇒ 位置断言一条都抓不到。
+        /// 🔴🔴 **2026-10-16（`EW11` · 「已迁件被按世界尺读回」同病根第三处）就地订正**：
+        ///   本口原来实现是 `(q.WorldW * 108f, q.WorldH * 108f)` —— 这一族**已迁 uGUI** 之后，
+        ///   它在非 16:9 下**只给真设计 px 的 0.75 倍**（判据 = `HudPiece` 文件头 +
+        ///   `HudPiece.SetWorldHeight` 的 doc：「`q.WorldH * 108f` 在窄屏是**设计 px 的 0.75 倍**」；
+        ///   而**批处理实测就是 640×480**，自证句在 `Core/LayoutSpace.cs:174`）
+        ///   ⇒ `A1302` 那两条断言（`Editor/BattleScene.cs:14419` / `:14425`，期望原版**设计 px**
+        ///   109.008×105.601 / 61.846²）**按机制必红**（0.75× ⇒ 81.756 / 46.385）。
+        ///   ✅ 现在改走 <see cref="HudPiece.SizePx"/> —— **两档各读各的**：quad 支 `WorldW/H × 108`
+        ///   （**原值不变**，世界档的件读出来还是老数）· uGUI 支 `sizeDelta`（= 真设计 px）。
         /// ⚠️ 找不到与「尺寸为 0」同值 ⇒ 判「找不到」请配 <see cref="HudExtraWorldPos"/> 一起看。</summary>
         public Vector2 HudExtraDrawnPx(string name)
         {
             for (int i = 0; i < _hudExtras.Count; i++)
             {
                 var q = _hudExtras[i];
-                if (q != null && q.name == name) return new Vector2(q.WorldW * 108f, q.WorldH * 108f);
+                if (q != null && q.name == name) return q.SizePx;
             }
             return Vector2.zero;
         }
@@ -10653,8 +10703,11 @@ namespace CardPresentation
         { get { return Vis(_pileLabel) && Vis(_foePileLabel) && Vis(_myDeckSizePlate) && Vis(_foeDeckSizePlate); } }
         /// <summary>**第二个消费者**：手牌数（文字 + 底板）。⚠️ 审查点名「别只做牌库那一半」。</summary>
         public bool HandSizeVisibleForTest { get { return Vis(_handLabel) && Vis(_handPlate); } }
-        /// <summary>🆕 2026-10-16（`A1239`）：手牌数那颗字的**渲染宽/高**（世界单位；没建 → −1）。
-        /// 🔴 断「**渲染尺寸 ≤ 框**」而不是断字号 —— 字号对而溢出自检照样全绿（`AutoFitBox` 那条教训）。</summary>
+        /// <summary>🆕 2026-10-16（`A1239`）：手牌数那颗字的**渲染宽/高**（没建 → −1）。
+        /// 🔴 断「**渲染尺寸 ≤ 框**」而不是断字号 —— 字号对而溢出自检照样全绿（`AutoFitBox` 那条教训）。
+        /// <para>🔴 **2026-10-16（`T09` 字族迁 uGUI）：单位 =【设计 px】**（迁之前是世界单位）。
+        /// 框（`HandLabelBoxW/H` = 234/64 **本来就是 px**）⇒ 断言直接比 234/64（原来比的是 `LayoutSpace.Px(234f)`）。
+        /// ⚠️ 别拿它去比 `HudPiece.WorldH`（那个走 `GetWorldCorners`，**是世界单位**）—— 两把尺。</para></summary>
         public float HandLabelWorldW { get { return _handLabel != null ? _handLabel.WorldW : -1f; } }
         public float HandLabelWorldH { get { return _handLabel != null ? _handLabel.WorldH : -1f; } }
         /// <summary>`hideChat` 的对象 = **那颗聊天按钮**（不是气泡面板）。</summary>
@@ -12297,7 +12350,21 @@ namespace CardPresentation
             //   （原版 `AeldariSummon` → `BlueSummonCircle` · `Tau_Summon` → `Tau_SummonCircle` …；
             //    判据 → `数据/游戏数据/card_vfx_by_card.json` 的 `generic.deploySummonCandidates`）。
             //   我们那条 `VfxMap.Resolve` 一次只回一个名字 ⇒ 法阵在这里**单独补一发**。
-            //   ⚠️ 本地只有那 4 个候选，其余阵营的召唤动画**在远端包** ⇒ `SummonCircleOf` 回 null，不放（留白）。
+            //   🔴 **2026-10-16 就地订正（铁律 5 · 台账 `W26` · 账 `A1731`）**：本行原来写
+            //      「本地只有那 4 个候选，其余阵营的召唤动画**在远端包**」—— **后半句没有判据**
+            //      （它是从「本地只有 4 个候选」推出来的）。`VfxMap.SummonCircleOf` 那一侧**同一句话**
+            //      已先订正（`Core/VfxMap.cs` 的 `SummonCircleOf` doc + `SummonCircleByFaction` 那段），
+            //      本条是**同一句错话的第二份**，一起改。现读证据（`A1731` 逐条查过）：
+            //        · 本机**没有**任何「CardAnim → 阵营」的字段 —— `assets_full` 的 `*ByArmy*` 只有
+            //          `RangedAttackParticlesByArmy` / `CardFramesByArmy` **两条**（无 summon 支）；
+            //          `decomp_full` 按 `SummonCircle` / `summonParticles` / `SummonAnim` 搜 **0 命中**。
+            //        · 本地**唯一**的引用证据是**逐卡**的（卡 SO 的 `cardAbilities[].abilityLogic[].cardAnimations[]`）
+            //          ⇒ 那 4 个候选其实是「**某些卡的技能动画**」，不是「阵营的登场法阵」；
+            //          `SummonCircleByFaction` 里 `SaimHann`/`TauEmpire` 那两行是**按名字前缀**绑的（= 推断档）。
+            //        ⚠️ **这只说明「本机查不到判据」，⛔ 不等于「原版没有」** —— 「这一层要不要留、
+            //          键要不要按阵营」是**另一条账**（`W28`：判据未定，下一步找
+            //          `MinionManager` / `CardScript` 登场那一拍到底读谁）。
+            //   ⇒ 现在的行为不变：`SummonCircleOf` 没配到 ⇒ 回 null（**并在 `VfxMap` 里出声**），这一拍留白。
             if (e.Kind == EvtKind.Deploy)
             {
                 string sc = VfxMap.SummonCircleOf(faction);
@@ -13914,7 +13981,20 @@ namespace CardPresentation
 
             // ---- 等待提示（原版 `WaitText`）----
             // 位置/尺寸照原版字段（锚 (0.5,1) + (7,−175.1)、1344×79.4），理由与两处「我们挑的」见 `WaitBanner.cs` 文件头。
-            _waitBanner = WaitBanner.Create(root);
+            // 🔴 **2026-10-16（第四十二会话 · `T09` 块 6）：登记 uGUI 宿主（本件是那一波唯一有画面可验的）。**
+            //   原版 `WaitText` @ `BackCanvas/Safe area BackCanvas`（**`Default` 层 / order 0 / 兄弟序 6/7 —— 最后一格**、
+            //   `overrideSorting = false`）⇒ 忠实做法 = **直接挂根画布 + `HudCanvas.Add(rt, z)`**，
+            //   ⛔ **不建 `Default` 子画布**（那会落进一个本仓无先例、且 Unity 内部键判不了的并列；
+            //   裁定 → `资料/普查产出_1016并行/S6S9_卡体与残件_施工方案.md` §2·1 / §3·2）。
+            //   ⚠️ 本件**不进 `SubCanvasRank`**（它没有自己的子画布）⇒ ⛔ 别改用 `EnsureRankedSubCanvas`。
+            //   ⚠️ `HudCanvas.Ensure(cam)` 幂等（同 `Hud()` / `EnsureRankedSubCanvas` 那一族的前置）。
+            //   ⚠️ 拿不到根画布（`cam` 为空？）⇒ 传 `null` ⇒ 本件**留在世界档**（本件的双模式契约就是
+            //     「宿主为 null ⇒ 与改之前逐位相同」）—— 但那要**出声**，⛔ 不许静默半迁移。
+            var waitHost = HudCanvas.Ensure(cam);            // 幂等
+            _waitBanner = WaitBanner.Create(root, waitHost);
+            if (waitHost == null)
+                Debug.LogError("[Battle] uGUI 层建不起来（`cam` 为空？）⇒ 等待提示（原版 `WaitText`）"
+                             + "**留在世界空间档**（非 16:9 下它的位置与「压暗盖住名牌一族」都不对，见 `T09` 块 6）");
 
             // 🔴 **2026-09-27：回放控制条的显隐改对了** —— 原版 `ReplayHud.Setup()` 只做一件事：
             //    `objHolder.SetActive(BattleManager.matchType == 0xA0)`（`0xA0 = 160 = MatchType.Replay`）。
@@ -14245,7 +14325,10 @@ namespace CardPresentation
             //   ⚠️ 位置那半**不动**：原版那颗在 dump 里 `activeInHierarchy=False`、祖先链又是纯 `Transform`
             //     （算不出绝对坐标）⇒ 位置**是我们挑的**（跟着手牌标签走，见 `PlaceHandPlate`）。
             if (_handLabel != null)
-                _handLabel.SetAutoFitBox(LayoutSpace.Px(HandLabelBoxW), LayoutSpace.Px(HandLabelBoxH),
+                // 🔴 **2026-10-16（`T09` 字族迁 uGUI）**：`SetAutoFitBox` 收的是**设计 px** ⇒
+                //    这两个常量（`234f`/`64f`，**本来就是 px**，见上面那条 doc 的「一律 ×100」）
+                //    **原样喂**；原来的 `LayoutSpace.Px(...)`（÷108）**已去**（喂进去字会小 108 倍、不报错）。
+                _handLabel.SetAutoFitBox(HandLabelBoxW, HandLabelBoxH,
                                          HandLabelFsMin, HandLabelFsMax, HandLabelFsBase);
             // 手牌数底板：原版 `CardsInHandText/Bg (1)`（图**也是** `40K_display`，α 0.6941177）。
             // 实绘 259.3×65.7 px（缩放链 108×0.925926×0.009 —— 见常量注释）。
@@ -14427,6 +14510,19 @@ namespace CardPresentation
             //   **`OverHand` 层 / order 0 / 兄弟序 8/14**（判据 → `普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一）。
             //   ⚠️ 下面 `HudImage`/`Hud` 的 `parent` 从 `root`（HUD 根）改成**这块画布** —— 它们内部走 `HudCanvas` ✓
             //      「一个画布单位 = 一个设计 px」⇒ 传进来的 `x01/y01` 与 `worldH` 的**口径不用改**（同一套）。
+            //   🔴 **2026-10-16（`T09` §五 第 5 步 · 字族迁 uGUI）就地订正（铁律 5）：上面那半句当时【不成立】** ——
+            //      `HudImage`/`Hud` 当时都**没**看 `aboveRoot`（`HudImageTex` 只 `Ensure(cam)` = 建**根画布**、
+            //      `Hud` 走的是**世界空间** `Label.Create`）⇒ 提示条的底板在根画布、字在世界空间
+            //      （**字小 108 倍**、几乎看不见）。本批两处都改成「`root` 是画布就用它」⇒ 现在**三件同容器**
+            //      （底板 `HudImageZ`(0.3) → 字 `HudLabelZ`(0) → 加时 splash 根(0)），兄弟序与
+            //      原版「`TipText` 在前、`OvertimeSplashText` 在后」一致 ✓。
+            // 🔴 **2026-10-16（台账 `W8`/`W43` · 收口波 `G1`）就地补这一句 `Ensure`。**
+            //   原来这一行**直接** `EnsureSubCanvas`，靠 `BuildEnergyLights()`（本文件 `:14073`）→
+            //   `AddEnergyLight` → `HudCanvas.Ensure(cam)` 把根 canvas 兜出来；而 `BuildEnergyLights`
+            //   在 **`Glow_UI_W40K` 贴图取不到时会提前 `return`**（见那个方法开头）⇒ 那一档根 canvas
+            //   **根本不存在** ⇒ 这里 `EnsureSubCanvas` 回 null（只留一条 error，提示条/splash 静默落回
+            //   HUD 根）= **半迁移态**。`Ensure` 幂等、无副作用 ⇒ 补上后不再依赖别人的建序。
+            HudCanvas.Ensure(LayoutSpace.Cam);             // 幂等（同 `BuildLoadingCover` / `BuildErrorBanner` 那两处）
             var aboveCv = HudCanvas.EnsureSubCanvas(null, "AboveShader Canvas",
                                                     HudCanvas.SortingLayer.OverHand, 0);
             if (aboveCv == null)
@@ -14453,6 +14549,28 @@ namespace CardPresentation
             _tipText = Hud(aboveRoot, "", tipX01, tipY01, TipScale, Color.white, new Vector2(0.5f, 0.5f), "TipText_Text",
                            TipWpx, TipHpx, TipFsMinPx, TipFsPx);
             SetTipVisible(false);                          // 出厂关着（原版场景态 `m_IsActive=False`）
+
+            // ---- 🔴 2026-10-16（`T09` 批 3 收口 · 台账 `W7`/`W55`）：**技能卡面板登记宿主** ----------
+            //   原版 `ActiveSkillDesc` @ `FrontCanvas/Safe area FrontCanvas`，**`OverHand` 层 / order 0 /
+            //   兄弟序 1/14**（判据 → `普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一）。
+            //   🔴 **登记之前这扇面板 100% 跑世界档**（`grep -n "UseHost"` 此前只有下面 `Tooltip` 那一处）
+            //     ⇒ `SkillPanel` 的锚点补正（`A10`：面板那一级照原版 `RT_3104` 五元组现算）**看不见**。
+            //   ⚠️ **必须由「建 UI 的那一方」登记**：`SkillPanel` 是**场景挂的组件**
+            //     （`AddComponent<SkillPanel>()`，没有 `Create`）⇒ 只有这里知道根 canvas 建好了没。
+            //   ⚠️ **可以在 `Build()` 之后再调**（`Editor/BattleScene.cs:409` 那次 `Build()` 排在本方法之前，
+            //     当时还没登记 ⇒ 建的是世界档；这里登记时它**拆旧建新**一次）。
+            //     🔴 主对话裁定【保留现状、别动那个顺序】（台账 `W12`）—— 代价 = 世界档先建一次、
+            //     登记时再重建一次（多一条 `HudCanvas.Group` 僵尸 z 账），如实记、**不改 `BattleScene.cs`**。
+            //   ⚠️ **画布名/层/order 一律取面板自己的公开常量**（⛔ 别在这里另写一份字面量）。
+            if (skillPanel != null)
+            {
+                HudCanvas.Ensure(LayoutSpace.Cam);         // 幂等（同上一条，`EnsureSubCanvas` 的前置）
+                var skillCv = EnsureRankedSubCanvas(SkillPanel.SubCanvasName,
+                                                    HudCanvas.SortingLayer.OverHand, 0);
+                if (skillCv != null) skillPanel.UseHost(skillCv);
+                else Debug.LogError("[Battle] 技能面板的 `OverHand` 子画布没建起来 ⇒ 这扇面板**留在世界空间档**"
+                                  + "（层级与 4:3 下的面板矩形都会不对，见 T09 §五·补③）");
+            }
 
             _resultLabel = Hud(root, "", 0.5f, 0.5f, 7,
                                new Color(1f, 0.9f, 0.4f), new Vector2(0.5f, 0.5f), "ResultLabel");
@@ -14482,7 +14600,30 @@ namespace CardPresentation
 
             // 单位语音条（原版 `Unit Chat`：我方的在左下、敌方的在左上）——
             // 形状/数值/「哪些是我们挑的」都在 `UnitChatPanel.cs` 文件头。
-            _unitChat = UnitChatPanel.Create(root);
+            // 🔴 **2026-10-16（`T09` 批 3 收口 · 台账 `W42`/`W43`）：登记宿主。**
+            //   原版 `Unit Chat` @ `FrontCanvas/Safe area FrontCanvas`，**`OverHand` 层 / order 0 /
+            //   兄弟序 2/14**（判据 → `T09c` §一）。⚠️ 那句 `Ensure` 是**必需**的：原来这段之前
+            //   没有任何 `Ensure`（详见上面提示条那一段的 `W8`/`W43` 说明）。
+            //   ⚠️ 画布名/层/order 取本面板自己的公开常量（⛔ 别另写一份）。
+            //   🔴 **拿不到画布时不退回世界档**（铁律：半迁移态在 16:9 下看不出来）——口径与
+            //     `MulliganPanel.Create` / `CardDisplayWindow.Create` / `MultiCardDisplay.Create`
+            //     三处**逐字同一条**（那三处是「`DestroyImmediate` + 出声 + 本件不建」，本件还没 `new` 出节点
+            //     ⇒ 少一步销毁，其余相同）。⚠️ 代价如实记：**三颗气泡整件缺席**（不是「画错位置」）。
+            HudCanvas.Ensure(LayoutSpace.Cam);             // 幂等
+            var unitChatCv = EnsureRankedSubCanvas(UnitChatPanel.SubCanvasName,
+                                                   UnitChatPanel.SortingLayerId, UnitChatPanel.SortingOrder);
+            if (unitChatCv == null)
+            {
+                Debug.LogError("[Battle] 单位语音条的 `OverHand` 子画布没建起来（根 canvas 没立？）"
+                             + " ⇒ **本面板这次不建**（⛔ 不退回世界空间 quad —— 半迁移态在 16:9 下看不出来）");
+            }
+            else
+            {
+                _unitChat = UnitChatPanel.Create(root, unitChatCv);
+                if (_unitChat == null)
+                    Debug.LogError("[Battle] 单位语音条**建不出来**（`Unit Chat` 子画布不在 `Canvas` 下？）"
+                                 + "⇒ 三颗气泡整件缺席（⛔ 面板自己不退回世界空间 quad，见那边的 doc）");
+            }
 
             // ---- 敌方名牌上的「墓地/战斗日志」按钮 + 面板（2026-09-13）----
             // 原版 `EnemyInfo/ShowCemeteryBtn`：64.48×64.17 px、绝对 x[52.0,116.4] y[135.9,200.1]
@@ -14521,6 +14662,91 @@ namespace CardPresentation
             BuildAspectRatioFillers(root);
             BuildErrorBanner(root);
             BuildScreenAspectRatioController();
+
+            // ---- 🔴 2026-10-16（`T09` 批 3 收口 · 台账 `W30`）：**攻击方式选择器登记宿主** -------
+            //   原版那个节点**身上带 `Canvas` 组件**（`CV_2759`：`rm 2`(ScreenSpaceCamera) ·
+            //   `overrideSorting false` · `Default`/order 0 · `PlaneDistance 100.0`），原版**子件序 0/14**
+            //   ——即 `Safe area FrontCanvas` 里**最先画的那一块**（判据 → `T09c` §一 + `T09` §八·3 的就地订正）。
+            //   ⇒ 我们给它**另起一块 `OverHand`/order 0 的子画布**（主对话裁定【读法 B】）：
+            //     「兄弟序只管同一块画布【之内】的先后，跨画布先后只由 `HudCanvas.SubCanvasRank` 定」
+            //     ⇒ 并进 `Mulligan Canvas` 会让它被 `ActiveSkillDesc`(1/14) / `Unit Chat`(2/14) **一起盖住**，
+            //        与原版子件序 0/14 **恰好相反**。
+            //   ⚠️ **如实记一处差异**：我们这块子画布的 `overrideSorting = true`，而原版那个节点是
+            //      `false`（`EnsureSubCanvas` 恒设 `true`，见它的实现）—— **复刻的是渲染次序、不是那个开关**。
+            //   🔴 **画布名 = 取 `AttackSelector.SubCanvasName`**（⛔ **不在本文件另写一份字面量**）。
+            //      🔑 **2026-10-16 就地订正（铁律 5 · 收口波 `G1`）：本条原来写的是【另一套】，已改，留痕** ——
+            //      · 原来写「**画布名 = 从 `HudCanvas.SubCanvasRank` 里【整串照抄】**（下面的字面量）」：
+            //        `FC` 本波已在 `AttackSelector.cs:400` 补上
+            //        `public const string SubCanvasName = "Drag Attack Selector Canvas";`
+            //        （与 `SkillPanel:291` / `UnitChatPanel:116` / `ChatPopupPanel:157` /
+            //        `AlliancePanelWindow:132` **同形**）⇒ **本行改成引用那个常量**，
+            //        「子画布名**两处各写一遍**」这条**从此消灭**（唯一来源 = `AttackSelector`；
+            //        `HudCanvas.SubCanvasRank` 那张表按 `G3` 的口径**仍用字面量** —— 两边的一致性
+            //        现在由下面的 `EnsureRankedSubCanvas` **运行时核**：`HudCanvas.IsRanked(name)`）。
+            //      · 原来还写「📌 **接线清单**：更彻底的做法是给 `AttackSelector` 补一个 `SubCanvasName`
+            //        常量…那时本行改成引用它」⇒ **那句说的「将来」就是现在**，已按它办（`G1-1` 结清）。
+            //      · 原来还写「⛔ `AttackSelector.cs` 不在本波白名单里 ⇒ 没动它（它 `:391-393` 那句
+            //        「我们**不许**给它起一块自己的画布」是裁定之前写的、已过期，留给主对话）」⇒
+            //        **那两件事都由 `FC` 办掉了**（常量 + doc 都已就位）⇒ **本报告（`G1`）确实没动那个文件，
+            //        而它现在【不需要】再动**。
+            //      ℹ️ **仍然成立的一句**：名字对不上时 `ApplySubCanvasRank` 的 `RootRect.Find(name)`
+            //        永远 null、**静默不排次序**（不报错、不警告）—— 那正是 `EnsureRankedSubCanvas` 存在的理由。
+            //   ⚠️ 那句 `Ensure` 同 `W8`/`W43`（幂等；本件是**场景挂的组件**、没有 `Create`，
+            //      档位必须在它第一次 `Build()` 之前由我们登记 —— 晚了会「拆世界档的件再按画布档重建」）。
+            if (selector != null)
+            {
+                HudCanvas.Ensure(LayoutSpace.Cam);         // 幂等
+                // ⛔ 这个名字的**唯一来源** = `AttackSelector.SubCanvasName`（`AttackSelector.cs:400`）；
+                //    它的值必须**逐字**等于 `HudCanvas.SubCanvasRank` 里那条（`HudCanvas.cs:548`，`// 0/14`）
+                var selectorCv = EnsureRankedSubCanvas(AttackSelector.SubCanvasName,
+                                                       HudCanvas.SortingLayer.OverHand, 0);
+                if (selectorCv != null) selector.UseHost(selectorCv);
+                else Debug.LogError("[Battle] 攻击方式选择器的 `OverHand` 子画布没建起来 ⇒ 它**留在世界空间档**"
+                                  + "（非 16:9 下会与已迁到画布的同族面板分家；`UseHost(null)` 自己也出声）");
+            }
+            else
+            {
+                // 不静默：本件是场景挂的 ⇒ 存档/建场漏接时这里会缺席（三颗钮点不出来）
+                Debug.LogError("[Battle] `BuildHud` 时 `selector` 是空的 ⇒ 攻击方式选择器**整件缺席**（登记不了宿主）");
+            }
+        }
+
+        /// <summary>🔴 **2026-10-16（`T09` 批 3 收口 · 收口波 `G1`）**：建/取一块**受
+        /// `HudCanvas.SubCanvasRank` 排次**的子画布，并**当场验两条**：① 这个名字**在排次表里** ·
+        /// ② 建出来的**就是这个名字**。任一条不成立 ⇒ `Debug.LogWarning`（⛔ 不静默 ——
+        /// 静默的后果是**画布照样在、只是永远排在末尾**，16:9 下看不出来）。
+        /// <para>🔑 **为什么要有它**：`SubCanvasRank` 是一条**按名字**找的链（`ApplySubCanvasRank` 里
+        /// `RootRect.Find(name)`）—— 名字对不上时它**不报错、不警告、只是静默不排次序**
+        /// （`HudCanvas.cs` 那段表尾注释写的自查法就是这个）。而这条名字在**两个文件里各写一遍**
+        /// （本文件那几个登记点 + `HudCanvas.SubCanvasRank` 表里那条）⇒ 这两条运行时检查就是
+        /// 「两处是不是同一个串」的证据（自检不会在每次跑的时候人肉核一遍）。</para>
+        /// <para>✅ **2026-10-16（修波 `FD` · 账 `G1-5`）：真检查已经接上了。**
+        /// 本方法**刚写出来时**只验得了②（`EnsureSubCanvas` 建出来的名字 = 传进去的串），
+        /// 而那条是**恒真**的 —— 它证得了「建出来了」，证不了「它在表里」；当时那半句 doc 写的是
+        /// 「想把它变成真检查，得让 `HudCanvas` 开一个 `public static bool IsRanked(string name)`
+        /// （📌 已记进接线清单）」，**那条现在已落地**（`HudCanvas.cs:581`，签名逐字相同）
+        /// ⇒ 上面那句已改成过去时，**两处字符串的一致性现在由代码自动核**，不再只靠人工逐字节比。
+        /// ⚠️ 本波仍**人工核过一遍**那 5 条（口径 = 必须逐字等于表里那条；报告 §④ 有逐条表）。</para>
+        /// <para>⚠️ **一处如实记**：`IsRanked` 为假**不等于「登记错了」** —— 表里本来就没有的子画布
+        /// （`LoadingMenu` / `TooltipManager` 都在 `Blocking` 层，**本就不该进表**，见 `IsRanked` 的 doc）
+        /// 也会报一条。本方法今天只被那 **5 个「都在表里」的登记点**调用
+        /// （`grep -n "EnsureRankedSubCanvas(" BattleDriver.cs` ⇒ 5 个调用点）⇒ 这条 warning
+        /// **一旦出现就是真问题**；将来拿本口去建「不需排次」的画布时，要么别用本口、要么把这条降级。</para></summary>
+        static RectTransform EnsureRankedSubCanvas(string name, int sortingLayerId, int sortingOrder)
+        {
+            // ① 名字在不在「排次表」里（`HudCanvas.IsRanked` = 那张 private 表的只读口）
+            if (!HudCanvas.IsRanked(name))
+                Debug.LogWarning($"[Battle] 子画布名字 `{name}` **不在 `HudCanvas.SubCanvasRank` 表里** ⇒ "
+                               + "它照样建得出来，但 `ApplySubCanvasRank` 的 `RootRect.Find(name)` 永远 `null`、"
+                               + "**静默不排次序**（16:9 下看不出来）。要么把名字改成表里那条，要么把它加进表。");
+            var rt = HudCanvas.EnsureSubCanvas(null, name, sortingLayerId, sortingOrder);
+            if (rt == null) return null;
+            // ② 建出来的就是这个名字（防「建成功了、但名字被换掉」那一档）
+            if (HudCanvas.SubCanvas(name) == null)
+                Debug.LogWarning($"[Battle] 子画布 `{name}` 刚建出来却读不回来 ⇒ 它的名字与 "
+                               + "`HudCanvas.SubCanvasRank` 里那条**对不上**（后果 = `RootRect.Find(name)` "
+                               + "永远 null、该画布**静默不排次序**；见本方法的 doc）");
+            return rt;
         }
 
         // ==================================================================
@@ -14845,8 +15071,11 @@ namespace CardPresentation
             _titleFoe = Hud(root, "", 217.92701f / 1920f, 1f - 102.402645f / 1080f, 3, titleOrange,
                             new Vector2(0.5f, 0.5f), "TitleText_Foe",
                             187.40f, 36.84f, 2f, 35f, 36f, 0);
-            if (_titleMe != null) _titleMe.SetGlyphHeight(TitleFontPx / 108f);
-            if (_titleFoe != null) _titleFoe.SetGlyphHeight(TitleFontPx / 108f);
+            // 🔴 **2026-10-16（`T09` 字族迁 uGUI）**：`TitleFontPx`(30.55) **本来就是原版的画布 px**
+            //    ⇒ uGUI 档可以**原样喂** `SetGlyphHeight`（口径 = 本标签所在空间的单位 = 设计 px）。
+            //    原来那句 `/ 108f` 是**世界档**的换算（`SetGlyphHeight` 收世界单位）—— **已去**。
+            if (_titleMe != null) _titleMe.SetGlyphHeight(TitleFontPx);
+            if (_titleFoe != null) _titleFoe.SetGlyphHeight(TitleFontPx);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版两侧 `EnemyTitle` 的 **`V Midline`**
             //   —— 判据 = 上面 `:8364-8365` 逐字写着「H 居中 · **V Midline** · `m_fontColor` = (1.0, 0.6306, 0.4198)」，
             //   直读 `MonoBehaviour_3797.json`（我）/`MonoBehaviour_3887.json`（敌）。`Midline` 不吃框高。
@@ -15081,11 +15310,58 @@ namespace CardPresentation
             }
             // 那扇窗本体（原版 `FrontCanvas/Alliance Panel`，组件 `BattleAlliancePanel`）。
             //   ⚠️ **它不是 `GameWindow`** ⇒ 不注册进 `WindowsManager`；出厂就关着（照原版 `Awake`）。
-            _alliancePanel = AlliancePanelWindow.Create(root);
+            // 🔴 **2026-10-16（`T09` 批 3 收口 · 台账 `W50`/`W43`）：登记宿主。**
+            //   原版 `Alliance Panel` @ `…/Safe area FrontCanvas`，**`OverHand` 层 / order 0 /
+            //   兄弟序 13/14**（判据 → `T09c` §一）。那句 `Ensure` 同 `W8`/`W43`（原来没有）。
+            //   ⚠️ **画布名/层/order 取本类自己的公开常量**（⛔ 别在这里另写一份）。
+            //   ⚠️ **`cv == null` 时必须由调用点自己拦** —— 直接 `Create(root)` / `Create(root, null)`
+            //     会**静默**走世界档（本件 `uguiHost == null` 就是世界档，它不报错）。
+            //   🔴 **口径 = 出声 + 本扇窗不建（⛔ 不退回世界空间 quad）** —— 与
+            //     `MulliganPanel.Create` / `CardDisplayWindow.Create` / `MultiCardDisplay.Create`
+            //     三处**逐字同一条**（那三处是「`DestroyImmediate(shell)` + 出声 + 本窗不建」，
+            //     本件还没 `new` 出节点 ⇒ 少一步销毁，其余相同）。
+            //     ⚠️ 代价如实记：`_alliancePanel` 留 `null` ⇒ 本扇窗**整件缺席**；点敌方名牌那一下
+            //     `HandleAlliancePanel`（本文件 `:4062`）本来就有「没建起来 ⇒ 出声」的分支，不会静默。
+            HudCanvas.Ensure(LayoutSpace.Cam);             // 幂等
+            var allianceCv = EnsureRankedSubCanvas(AlliancePanelWindow.SubCanvasName,
+                                                   HudCanvas.SortingLayer.OverHand, 0);
+            if (allianceCv == null)
+            {
+                Debug.LogError("[Battle] `Alliance Panel` 的 `OverHand` 子画布没建起来（根 canvas 没立？）"
+                             + " ⇒ **本扇窗这次不建**（⛔ 不退回世界空间 quad —— 半迁移态在 16:9 下看不出来）");
+            }
+            else
+            {
+                _alliancePanel = AlliancePanelWindow.Create(root, uguiHost: allianceCv);
+                if (_alliancePanel == null)
+                    Debug.LogError("[Battle] `Alliance Panel` 的画布档**建不出来**（宿主不在任何 `Canvas` 下？）"
+                                 + "⇒ 本扇窗**整件缺席**（面板自己不退回世界空间 quad，见 `AlliancePanelWindow.Create`）");
+            }
 
             // `ChatPopup` 面板本身（原版在 `FrontCanvas/Safe area/Unit Chat` 下，默认 `m_IsActive = false`）
             //   版面与逐节点坐标见 `资料/语音线_原版规格与ASR管道.md` §1.7.1；实现见 `Battle/ChatPopupPanel.cs`
-            _chatPopup = ChatPopupPanel.Create(root);
+            // 🔴 **2026-10-16（`T09` 批 3 收口 · 台账 `W42`/`W43`）：登记宿主。**
+            //   原版 `ChatPopup` 是 `Unit Chat` 的**子级**（画在它之上；兄弟序 4/7，组内），我们落成
+            //   一块**独立子画布**、层/order 取本面板自己的公开常量（⛔ 别在这里另写一份）。
+            //   那句 `Ensure` 同 `W8`/`W43`（原来这段之前没有任何 `Ensure`）。
+            //   🔴 **`cv == null` 时出声 + 本面板不建（⛔ 不退回世界空间 quad）** —— 与 `Unit Chat`
+            //     那一段、以及 `MulliganPanel` / `CardDisplayWindow` / `MultiCardDisplay` 三处**同一条**。
+            //     ⚠️ 代价如实记：**6 个钮与那个聊天入口整件缺席**。
+            HudCanvas.Ensure(LayoutSpace.Cam);             // 幂等
+            var chatPopupCv = EnsureRankedSubCanvas(ChatPopupPanel.SubCanvasName,
+                                                    ChatPopupPanel.SortingLayerId, ChatPopupPanel.SortingOrder);
+            if (chatPopupCv == null)
+            {
+                Debug.LogError("[Battle] 聊天弹窗的 `OverHand` 子画布没建起来（根 canvas 没立？）"
+                             + " ⇒ **本面板这次不建**（⛔ 不退回世界空间 quad —— 半迁移态在 16:9 下看不出来）");
+            }
+            else
+            {
+                _chatPopup = ChatPopupPanel.Create(root, chatPopupCv);
+                if (_chatPopup == null)
+                    Debug.LogError("[Battle] 聊天弹窗**建不出来**（`ChatPopup` 子画布不在 `Canvas` 下？）"
+                                 + "⇒ 6 个钮与那个入口整件缺席（⛔ 面板自己不退回世界空间 quad，见那边的 doc）");
+            }
 
             // ---- 任务点数字 `QPText '0/3'`：fs 40.5、**Bold**、白、H 居中 / V Capline ----
             // 出处：`子代理读报_back右区_0827.md:133`（敌 x[1840.9,1889.1] y[176.1,221.3]）
@@ -15190,6 +15466,10 @@ namespace CardPresentation
             //   🔴 **必须在这里登记、且早于任何 `Show`** —— `Tooltip` 的档位在它 `Ensure()` 那一刻定死
             //     （本件是**静态单例**、战斗与卡组编辑共用；宿主被销毁后会自动退回世界档，见那边的 doc）。
             //   ⚠️ **卡组编辑那边不登记** ⇒ 它**自动留在世界空间档**（那个场景的 UI 不在战斗画布上）。
+            // 🔴 **2026-10-16（台账 `W43` · 收口波 `G1`）**：原来这一行**直接** `EnsureSubCanvas`
+            //     —— 它靠 `BuildHud()` 里 `BuildEnergyLights()` 那条链把根 canvas 兜出来，而那条链
+            //     在 `Glow_UI_W40K` 缺失时会提前 `return` ⇒ 这里会**静默拿不到画布**。补 `Ensure`（幂等）。
+            HudCanvas.Ensure(LayoutSpace.Cam);             // 幂等
             var tipCv = HudCanvas.EnsureSubCanvas(null, "TooltipManager Canvas",
                                                   HudCanvas.SortingLayer.Blocking, 0);
             if (tipCv != null) Tooltip.UseHost(tipCv);
@@ -15237,6 +15517,11 @@ namespace CardPresentation
             const float zBg = -0.50f, zBand = -0.51f, zText = -0.52f, zIcon = -0.53f;
 
             // ⚠️ `root` 参数**本件不再用**（先例 = `BuildLoadingCover(root)`）—— 它挂 `AboveShader` 子画布下。
+            // 🔴 **2026-10-16（台账 `W43` · 收口波 `G1`）**：原来这一行**直接** `EnsureSubCanvas`，
+            //    靠 `BuildEnergyLights()` 那条链兜根 canvas，而那条链会因 Glow 贴图缺失提前 `return`
+            //    ⇒ 本件会**静默拿不到画布**。补 `Ensure`（幂等）。
+            //    ⚠️ 注意它取的是**与提示条同一块** `AboveShader Canvas`（`EnsureSubCanvas` 按名字幂等 ⇒ 复用）。
+            HudCanvas.Ensure(LayoutSpace.Cam);             // 幂等
             var splashCv = HudCanvas.EnsureSubCanvas(null, "AboveShader Canvas",
                                                      HudCanvas.SortingLayer.OverHand, 0);
             if (splashCv == null) { Debug.LogError("[Battle] 加时 splash 的 `AboveShader` 子画布没建起来"); return; }
@@ -15622,11 +15907,22 @@ namespace CardPresentation
         void PlaceHandPlate()
         {
             if (_handPlate == null || _handLabel == null) return;
-            var p = _handLabel.transform.localPosition;      // 标签锚在**左下角**（anchor 0,0）
-            float k = _handLabel.transform.localScale.x;     // 🔴 `T09`：字乘了 `HudTextScale` ⇒ 宽度也得跟上
-            var c = LayoutSpace.ToNormalized(new Vector3(p.x + _handLabel.WorldW * k * 0.5f,
-                                                         p.y + _handLabel.WorldH * k * 0.5f, 0f));
-            _handPlate.SetAnchorPosition(c.x, c.y);
+            // 🔴 **2026-10-16（`T09` §五 第 5 步 · 字族迁 uGUI）**：这块板与那颗字现在**同父同锚**
+            //   （都在画布下、都是 `anchorMin == anchorMax`、枢轴都居中）⇒ 「板心 = 字块中心」这件事
+            //   **直接用 `anchoredPosition` 表达**就够了：同锚 ⇒ 一个 `(+半字宽, +半字高)` 的偏移
+            //   就把板心挪到字心（**px、y 向上**；`Label.WorldW/H` 在 uGUI 档**就是设计 px**）。
+            //   ⛔ 别写 `transform.localPosition` / 别自己乘 108：板与字必须**同一把尺**。
+            //
+            // 🔴 **旧那一版（世界空间）已删，留痕**：它读 `_handLabel.transform.localPosition`
+            //   （世界单位）+ `WorldW/H`（世界单位）再 `LayoutSpace.ToNormalized` 反算锚点，
+            //   并额外乘一个 `k = localScale.x` —— 那是给**过渡系数 `HudTextScale`** 的补偿
+            //   （原注释：「字乘了 `HudTextScale` ⇒ 宽度也得跟上」，否则板与字错位 25%）。
+            //   字不再乘那个系数（改由画布统一缩）⇒ **`k` 那一项同时退场**（本行就是它的墓碑）。
+            var lrt = (RectTransform)_handLabel.transform;
+            if (lrt == null || _handPlate.Rect == null) return;
+            _handPlate.Rect.anchorMin = _handPlate.Rect.anchorMax = lrt.anchorMin;
+            _handPlate.Rect.anchoredPosition =
+                new Vector2(_handLabel.WorldW * 0.5f, _handLabel.WorldH * 0.5f);
         }
 
         /// <summary>牌堆的回合灯。原版是**两张图**（绿/红），不是同一张染色 —— 换贴图而不是换 `_Color`</summary>
@@ -15683,7 +15979,10 @@ namespace CardPresentation
         public float FoeDeckSizePlateWorldH { get { return _foeDeckSizePlate != null ? _foeDeckSizePlate.WorldH : 0f; } }
         /// <summary>张数底板那张图的透明度（原版 0.6941177 —— 画成 1 就是一块实心白板）</summary>
         public float DeckSizePlateAlpha { get { return _myDeckSizePlate != null ? _myDeckSizePlate.Tint.a : 0f; } }
-        /// <summary>张数文字的世界宽度 —— 要比底板窄才塞得下（原版文字是 TMP 自动缩字号塞进去的）</summary>
+        /// <summary>张数文字的世界宽度 —— 要比底板窄才塞得下（原版文字是 TMP 自动缩字号塞进去的）
+        /// <para>🔴 **2026-10-16（`T09` 字族迁 uGUI）：单位 =【设计 px】**（迁之前是世界单位）。
+        /// ⚠️ 用它的断言要成对换尺：`MyDeckSizePlateWorldH` 走 `HudPiece.WorldH`（`GetWorldCorners`）
+        /// **仍是世界单位** ⇒ 直接相乘比大小会**混两把尺**（详见 `EW4` 报告 ③ 那条接线）。</para></summary>
         public float PileLabelWorldW { get { return _pileLabel != null ? _pileLabel.WorldW : 0f; } }
         /// <summary>本回合我已经出了几张牌</summary>
         public int CardsPlayedThisTurn { get { return _cardsPlayedThisTurn; } }
@@ -15762,7 +16061,10 @@ namespace CardPresentation
         {
             var l = mine ? _myText : _enemyText;
             if (l == null) return new Vector2(-1f, -1f);
-            var n = LayoutSpace.ToNormalized(l.transform.localPosition);
+            // 🔴 **2026-10-16（`T09` 字族迁 uGUI）**：位置**不再读 `localPosition`** ——
+            //    那在 uGUI 档是**画布单位**（且原点在画布中心），喂给 `ToNormalized`（世界尺）**量纲就错了**。
+            //    这一族字现在建在**归一化锚点**上（`Hud()` 里那句）⇒ **锚点本身就是它在屏幕上的位置**。
+            var n = ((RectTransform)l.transform).anchorMin;
             return new Vector2(n.x * 1920f, (1f - n.y) * 1080f);
         }
         /// <summary>自检用：里程碑骷髅的**下沿**（归一化 y，从下往上算）</summary>
@@ -15772,7 +16074,9 @@ namespace CardPresentation
         /// （原版：骷髅下沿 983.7(从上) vs 文字中心 999.45 → 骷髅整个在文字中心线以上 15.8 px）</summary>
         public float MyPlateTextCenterY01
         {
-            get { return _myText != null ? LayoutSpace.ToNormalized(_myText.transform.localPosition).y : 0f; }
+            // 🔴 **2026-10-16（`T09` 字族迁 uGUI）**：读**锚点**（见 `PlateTextPosPx` 那条）——
+            //    16:9 下与旧写法（`ToNormalized(localPosition)`）**逐位相同**（锚点就是那个位置）。
+            get { return _myText != null ? ((RectTransform)_myText.transform).anchorMin.y : 0f; }
         }
 
         // ---- 自检用：右侧能量区那几件（**截图看不出「贴图对不对/谁上谁下」**）----
@@ -15868,11 +16172,12 @@ namespace CardPresentation
             return p == null ? new Vector2(-1f, -1f) : p.Anchor01();
         }
 
-        // HUD 的每个字都是**世界空间**的一块 quad，位置在建立时算好就固定了 ——
-        // 而 `LayoutSpace.VisibleWidth` 跟着宽高比走，所以切分辨率时必须重算，
-        // 不然 4:3 建、16:9 拍的时候文字会整片偏到左边（批处理自检里踩过）。
+        // 🔴 **2026-10-16（`T09` §五 第 5 步 · HUD【字】族整族迁 uGUI）：上面那两行注释【已过期】。**
+        //    这一族字**不再挂世界空间**：`Hud()` 把它们建在**画布**下、位置 = **归一化锚点** ⇒
+        //    锚点**自己跟分辨率**（切分辨率**不需要**重贴）⇒ `_hudSpots`（那份「重贴用」的坐标备份）
+        //    **已随 `ReanchorHud` 里那一轮一起删掉**。⛔ 别照上面那两行再把重贴加回来。
+        //    ⚠️ `_hudLabels` **留着**：`HudLabelScaleForTest`（自检读口）与 `HudLabelAnchorForTest` 用它。
         readonly List<Label> _hudLabels = new List<Label>();
-        readonly List<Vector2> _hudSpots = new List<Vector2>();
         readonly List<HudPiece> _hudImages = new List<HudPiece>();
         readonly List<Vector2> _hudImageSpots = new List<Vector2>();
         /// <summary>能量座上那 6 枚常亮小光点（原版 `Energy And turn holder/Lights`）—— 自检要量它们的矩形。
@@ -15904,13 +16209,47 @@ namespace CardPresentation
         /// <summary>自检口：uGUI 层建起来了没有（`T09` 第 2 步「层立住了」就靠它）。</summary>
         public bool HudCanvasReady { get { return HudCanvas.RootRect != null; } }
 
-        /// <summary>🆕 `T09`：第 `i` 个 HUD 标签的 `localScale.x` —— 就是
-        /// <see cref="LayoutSpace.HudTextScale"/> 那个过渡量的**落地点**（自检要盯「真的乘上了」）。
+        /// <summary>🆕 `T09`：第 `i` 个 HUD 标签的 `localScale.x`。
+        /// <para>🔴 **2026-10-16（`T09` §五 第 5 步 · 字族迁 uGUI）后就恒为 1** —— 这一族字不再乘
+        /// `LayoutSpace.HudTextScale`（改由画布 `CanvasScaler` 统一缩放）⇒ **这个口的原意没了**。
+        /// ⚠️ 它**留着只为编得过**（`Editor/BattleScene.cs:1908` 还在调它，那个文件不在本件白名单 ——
+        /// 该断言要换成 `HudLabelOnCanvasForTest` / `HudLabelAnchorForTest`，见 `EW4` 报告 ③）。
+        /// ⛔ 别拿它当「迁移有没有生效」的判据（它恒 1）。</para>
         /// 越界 / 没建 ⇒ **`-1`**（⛔ 不返回 0 或 1 —— 那两个都像「合法值」）。</summary>
         public float HudLabelScaleForTest(int i)
         {
             return (i >= 0 && i < _hudLabels.Count && _hudLabels[i] != null)
                  ? _hudLabels[i].transform.localScale.x : -1f;
+        }
+
+        /// <summary>🔴 **2026-10-16（`T09` §五 第 5 步 · 字族迁 uGUI）新增**：HUD 那一族字的**颗数**
+        /// （= `Hud()` 的建字次数，现读 **21**）—— 自检用它**逐颗**跑
+        /// `HudLabelOnCanvasForTest` / `HudLabelAnchorForTest`（⛔ 别只抽查第 0 颗：漏迁的那几颗
+        /// 在 16:9 下**看不出来**，只有逐颗查父链才抓得到）。</summary>
+        public int HudLabelCount { get { return _hudLabels.Count; } }
+
+        /// <summary>🔴 **2026-10-16（`T09` §五 第 5 步 · 字族迁 uGUI）新增**：第 `i` 颗 HUD 标签的
+        /// **归一化锚点**（x 从左 / y 从下，`[0,1]`）—— 迁到画布档之后**位置只由它决定**
+        /// （`Hud()` 里 `anchorMin == anchorMax == (x01, y01)` + `anchoredPosition = 0`）。
+        /// 越界 / 没建 ⇒ **`(-1,-1)`**（⛔ 不返回 `(0,0)` —— 那会被当成「合法地落在左下角」）。</summary>
+        public Vector2 HudLabelAnchorForTest(int i)
+        {
+            if (i < 0 || i >= _hudLabels.Count || _hudLabels[i] == null) return new Vector2(-1f, -1f);
+            var rt = _hudLabels[i].transform as RectTransform;
+            return rt != null ? rt.anchorMin : new Vector2(-1f, -1f);
+        }
+
+        /// <summary>🔴 **2026-10-16（`T09` §五 第 5 步 · 字族迁 uGUI）新增**：第 `i` 颗 HUD 标签
+        /// **是不是真的在画布上**（父件 = 根画布 `HudCanvas.RootRect`，或根画布下的一个子画布）。
+        /// <para>**用途 = 灭自证**：只断「锚点常量进得去」不能证明它不在世界空间（
+        /// `hudRoot` 是裸 `Transform`，挂它下面的字**也有** `anchorMin`）—— 这一条断的是**父链**，
+        /// 而「留在 `hudRoot` 下」正是半迁移态（16:9 下**看不出**）。越界 / 没建 ⇒ `false`。</para></summary>
+        public bool HudLabelOnCanvasForTest(int i)
+        {
+            if (i < 0 || i >= _hudLabels.Count || _hudLabels[i] == null) return false;
+            var p = _hudLabels[i].transform.parent;
+            if (p == null || HudCanvas.RootRect == null) return false;
+            return p == HudCanvas.RootRect || p.parent == HudCanvas.RootRect;
         }
 
         /// <summary>手牌数那一格的原版词条键（**只此一份**）。判据 → `UpdateHud` 里那段注释 + `Core/Loc.cs`。</summary>
@@ -15982,9 +16321,20 @@ namespace CardPresentation
         /// 带 `m_LocalScale = 108`），照同一套口径会静默把字号压到 3 px；而换算要的单位桥本仓没有、
         /// 两条候选读法互相打架 ⇒ 按红线「不许自己发明口径」**只报不动**。
         /// 判据全文在那个调用点的注释 + `资料/普查产出_第十一会话/PH_A1213Hud补框.md` §4。</para>
+        ///
+        /// <para>🔴🔴 **2026-10-16（`T09` §五 第 5 步）：本方法【整族迁到 uGUI 画布】—— 单位与父件都变了。**
+        /// · **父件 = 画布**（传进来的 `root` 若是画布就用它，否则根画布 `HudCanvas.Ensure(cam)`）；
+        ///   ⛔ **不再挂 `hudRoot`**（那是裸 `Transform`、又是**反向补震**用的 —— 挂它下面「字」与已迁的「图」会分家）。
+        /// · 🔴 **`boxWpx`/`boxHpx`/`auto*Px` 一律是【设计 px】、原样喂**（⛔ 不走 `Px()` —— 那是 ÷108，
+        ///   喂进 uGUI 档**字会小到看不见、且不报错**，见 `T09` §五·补⑨ 四）。
+        /// · **位置 = 归一化锚点 `(x01, y01)`**（与 HUD 图族 `HudImageTex` → `HudCanvas.MakeAnchored` /
+        ///   `HudPiece.SetAnchorPosition` **同一套口径**）⇒ 非 16:9 下「图」与「字」**同一把尺**，
+        ///   而且锚点自己跟分辨率 ⇒ **换分辨率不用重贴**（`ReanchorHud` 里那一轮已删）。
+        /// · 原过渡量 `LayoutSpace.HudTextScale`（乘 `localScale`）在本文件**再无消费者** —— 见 `Hud()` 的实现注释。</para>
         /// </summary>
-        /// <param name="boxWpx">原版那颗 TMP 的**框宽**（画布 px；`0` = 不给框、行为与加这些参数之前逐位相同）。</param>
-        /// <param name="boxHpx">原版那颗 TMP 的**框高**（画布 px；同上）。</param>
+        ///
+        /// <param name="boxWpx">原版那颗 TMP 的**框宽**（**设计 px**；`0` = 不给框、行为与加这些参数之前逐位相同）。</param>
+        /// <param name="boxHpx">原版那颗 TMP 的**框高**（**设计 px**；同上）。</param>
         /// <param name="autoMinPx">原版 `m_fontSizeMin` **原文**。</param>
         /// <param name="autoMaxPx">原版 `m_fontSizeMax` **原文**。</param>
         /// <param name="autoBasePx">原版 `m_fontSizeBase` **原文**（自适应二分的起点）。</param>
@@ -15995,23 +16345,35 @@ namespace CardPresentation
                   float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
                   int wrapMode = 1)
         {
-            var l = Label.Create(root, text, LayoutSpace.ToWorld(x01, y01), scale, c, anchor, name);
-            // 🔴 **2026-10-16（`T09`）**：HUD 上这一族字**要跟着画布一起缩放** —— 不然非 16:9 下
-            //   「已经迁到画布上的图」（跟 `CanvasScaler` 缩）与「还没迁的字」（不缩）会**不一致**
-            //   （普查点名的「只换半边比不换更坏」）。系数与逐值推导 → `LayoutSpace.HudTextScale`
-            //   （**16:9 ⇒ 1，逐位不变**）。⚠️ `ReanchorHud` 换分辨率时会**重算**它。
-            if (l != null) l.transform.localScale = Vector3.one * LayoutSpace.HudTextScale;
-            if (l != null && boxWpx > 0f && boxHpx > 0f && autoMaxPx > 0f)
+            // 🔴 **2026-10-16（`T09` §五 第 5 步 · HUD 字族整族迁 uGUI）** —— 口径见本方法 doc 末段，这里只列落点：
+            //   ① 父件 = 画布：传进来的是**画布**（子画布，如 `AboveShader Canvas`）就用它；
+            //      否则（`hudRoot` = 裸 `Transform`）挂**根画布** —— ⛔ 字不再挂 `hudRoot`。
+            //   ② `Label.CreateUgui`（uGUI 档）+ **归一化锚点**：与图族同一套 ⇒ 非 16:9 下图/字同尺。
+            //   ③ `SetAutoFitBox` 收的是**设计 px**（⛔ 不再 `Px(...)`）。
+            var cv = root as RectTransform;
+            if (cv == null) cv = HudCanvas.Ensure(cam);      // 幂等；`cam` 与 `HudImageTex` 同一个
+            if (cv == null)
+            {
+                // ⛔ **不许静默退回世界档**（那会出现「一半在画布、一半在世界」的半迁移态，而它 16:9 下看不见）
+                Debug.LogError("[Battle] uGUI 层建不起来（`cam` 为空？）⇒ HUD 的 `" + name + "` 这颗字**不建**");
+                return null;
+            }
+            var l = Label.CreateUgui(cv, text, Vector3.zero, scale, c, anchor, name);
+            if (l == null) return null;                      // 拿不到 TMP 字体：`CreateUgui` 已出声（⛔ 不退化点阵）
+            var rt = (RectTransform)l.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(x01, y01);
+            rt.anchoredPosition = Vector2.zero;              // 枢轴居中 + 零尺寸 ⇒ 节点原点正落在锚点上
+            HudCanvas.Add(rt, HudLabelZ);                    // 字压在 HUD 图之上（见 `HudLabelZ` 的 doc）
+            if (boxWpx > 0f && boxHpx > 0f && autoMaxPx > 0f)
             {
                 // 框 + 四格。⚠️ `SetAutoFitBox` 只在**已激活**的对象上量得出尺寸（CLAUDE.md §三那条坑）——
-                //    HUD 这一族建的时候是活的（`HudRoot` 就在 `transform` 下），所以这里安全。
-                l.SetAutoFitBox(Px(boxWpx), Px(boxHpx), autoMinPx, autoMaxPx, autoBasePx);
+                //    HUD 这一族建的时候是活的（画布就在场景里），所以这里安全。
+                l.SetAutoFitBox(boxWpx, boxHpx, autoMinPx, autoMaxPx, autoBasePx);
                 // ⛔ 上面那一句顺带把折行开成 `Normal`(1) ⇒ 原版是 `0` 的必须还原（见本方法 doc 末尾那条）。
                 //    值没变时 `SetWrappingMode` 自己早退（不白重排一次），所以无条件调是安全的。
                 l.SetWrappingMode(wrapMode);
             }
             _hudLabels.Add(l);
-            _hudSpots.Add(new Vector2(x01, y01));
             return l;
         }
 
@@ -16025,6 +16387,16 @@ namespace CardPresentation
         /// <summary>HUD 图统一往后放这么多（相机看 +Z，z 越大越远）—— 文字在 z=0，图在后面</summary>
         const float HudImageZ = 0.3f;
 
+        /// <summary>🔴 **2026-10-16（`T09` §五 第 5 步 · 字族迁 uGUI）**：HUD 的字在**它所在那个画布容器里**的
+        /// 兄弟序档（`HudCanvas.Add` 的那个 `z`）。
+        /// <para>**值 = 旧那套的世界 z（0）** —— 语义同向：`HudCanvas.Add` 按 **z 降序**排兄弟序
+        /// （z 大 = 排前面 = **画在底下**），而世界那套 z 大 = 离相机远 = **也在底下**
+        /// ⇒ **比图的那几档小 ⇒ 画在图之上**（旧那套：字在 z=0、图在 `HudImageZ`(0.3)）✓。</para>
+        /// <para>⚠️ 本档必须**比同容器里最小的图档还小**（今天最小的是 `HudImageZ - 0.05` = 0.25）；
+        /// 而**同一容器**里的加时 splash 根（`BuildOvertimeSplash` 那句 `Add(rt, 0f)`）与它**同值**
+        /// ⇒ 那两者的先后**由创建顺序定**（splash 建在提示条之后 ⇒ 压在提示条之上，正是那边注释的意图）。</para></summary>
+        const float HudLabelZ = 0f;
+
         /// <summary>**装饰性**底板再往后一层。⚠️ HUD 图原本全在同一个 z，而它们是同一个透明队列、
         /// 距离也一样 —— 谁压谁由渲染顺序决定，**不确定**。右侧能量区那张大底板
         /// （`UI_Energy_Holder_big`，一张几乎铺满那一片的金属板）就是这么把能量水晶压住的
@@ -16036,7 +16408,10 @@ namespace CardPresentation
         /// 它只是 `SetGlyphHeight` 的**标称**（原版字段原文），**不是**那一格**渲染出来的**字号 ——
         /// 那一颗开着自适应，真正写进 TMP 的是 `cur × 原版字段 / nomPx`（本仓 `nomPx = 27.60px`），
         /// 再由 `Clamp(base, min, max)` 定，**并且 `m_characterCount == 0` 时根本不缩**（单机那一格恒空）。
-        /// ⚠️ 别拿它去喂 `Label.SetFontSize`（那会大 2.7 倍）—— 走 `SetGlyphHeight(px/108)`。</summary>
+        /// ⚠️ 别拿它去喂 `Label.SetFontSize`（那会大 2.7 倍）—— 走 `SetGlyphHeight(...)`。
+        /// 🔴 **2026-10-16（`T09` 字族迁 uGUI）**：那个口收的数是**本标签所在空间的单位** ——
+        ///    迁之前是**世界单位**（所以调用点写 `TitleFontPx / 108f`）· 迁之后是**设计 px**
+        ///    ⇒ 调用点改成 **`SetGlyphHeight(TitleFontPx)`**（本常量本身就是原版画布 px）。</summary>
         public const float TitleFontPx = 30.55f;
 
         /// <summary>🆕 **2026-10-19（B2）**：牌堆那张卡背 = 原版 **两段式**的忠实还原。
@@ -16099,9 +16474,18 @@ namespace CardPresentation
             if (tex == null) return null;
             // 🔴 **2026-10-16（`T09` 第 3+4 步）：这一族已经【翻到 uGUI】了** —— 建在 `HudCanvas` 那层上。
             //   口径与逐值推导 → `Battle/HudCanvas.cs` 文件头 ＋ `任务/T09` §五·补③/④/⑥。
-            //   ⚠️ `root`（HUD 根）**不再用**：uGUI 那一侧挂在**画布**下
-            //     （⛔ 不能挂 `hudRoot` —— 那是**反向补震**用的，挂了会被补偿两次）。
-            var parent = HudCanvas.Ensure(cam);
+            //   ⚠️ `root` **只可能是两种**：① 裸 `Transform`（= `hudRoot`，绝大多数调用点）⇒ 建**根画布**下
+            //     （⛔ 不能挂 `hudRoot` —— 那是**反向补震**用的，挂了会被补偿两次）
+            //     ② `RectTransform`（= 一块**子画布**，今天只有提示条那一处传 `aboveRoot`）⇒ **就挂它**。
+            // 🔴🔴 **2026-10-16（`T09` §五 第 5 步 · 字族迁 uGUI 同批修）：`root` 是【画布】时要用它。**
+            //   病灶（本批现核）：提示条那一处传的是 **`aboveRoot`**（= `AboveShader` 子画布，
+            //   调用点 `:14486` 的注释白纸黑字写着「`HudImage` 的 `parent` 从 `root` 改成**这块画布**」），
+            //   而本函数**从来只 `Ensure(cam)`** ⇒ 那块底板其实建在**根画布**上、**没进 `AboveShader` 子画布**
+            //   ⇒ 「图」在根画布（`Default` 层）·「字」在 `AboveShader`（`OverHand` 层）**分处两个排序组**
+            //   —— 面板一开（`PopUps`/`OverHand` 的其它子画布）底板就会被盖住、字却还在上面。
+            //   ✅ 现在：`root` 是 `RectTransform`（= 那块子画布）就用它；否则（`hudRoot`）才建根画布。
+            var parent = root as RectTransform;
+            if (parent == null) parent = HudCanvas.Ensure(cam);
             if (parent == null)
             {
                 // ⛔ **不许静默退回旧 quad 那条路** —— 那会出现「一半在画布、一半在世界」的半迁移态，
@@ -16185,14 +16569,16 @@ namespace CardPresentation
             //   （等价于假设所有元素都是 stretch 锚点），画布一变高，**同一个映射不可能同时是两个轴的逆**
             //   ⇒ 实测 `FromPixel(1234.5, 678.25)` 往返回来 y 变成 724.33。
             //   ⇒ 正确的修法是 `A2098`（换 uGUI 锚点体系），⛔ 不是在这里补一行。
-            for (int i = 0; i < _hudLabels.Count; i++)
-                if (_hudLabels[i] != null)
-                {
-                    var t = _hudLabels[i].transform;
-                    t.localPosition = LayoutSpace.ToWorld(_hudSpots[i].x, _hudSpots[i].y);
-                    // 🔴 `T09`：这个系数**跟分辨率走** ⇒ 换分辨率时必须重算（⛔ 别只在建的时候设一次）
-                    t.localScale = Vector3.one * LayoutSpace.HudTextScale;
-                }
+            //
+            // 🔴 **2026-10-16（`T09` §五 第 5 步 · 字族迁 uGUI）：原来这里还有【HUD 标签那一整轮】重贴
+            //    （`t.localPosition = LayoutSpace.ToWorld(spot)` + `t.localScale = HudTextScale`）—— 已删。**
+            //    理由（两条，缺一不可）：
+            //     ① 那 21 颗字现在挂在**画布**下、位置 = **归一化锚点**（`Hud()` 里那句
+            //        `anchorMin = anchorMax = (x01, y01)`）⇒ **锚点自己跟分辨率**，换分辨率**不需要**重贴；
+            //     ② 那个过渡系数**整条退场**：字由画布统一缩放（`CanvasScaler`），不再手乘
+            //        ⇒ `LayoutSpace.HudTextScale` 在本文件**再无消费者**
+            //        （⚠️ 它本体在 `Core/LayoutSpace.cs` —— **那不在本件白名单** ⇒ 待删，见 `EW4` 报告 ③）。
+            //    ⛔ 别把那一轮加回来（加回来 = 与 `Hud()` 里写的锚点**打架**：会把字按世界坐标摆到画布原点附近）。
             for (int i = 0; i < _hudImages.Count; i++)
                 if (_hudImages[i] != null)
                     _hudImages[i].SetAnchorPosition(_hudImageSpots[i].x, _hudImageSpots[i].y);
@@ -17080,10 +17466,14 @@ namespace CardPresentation
         /// ⚠️ 断言要在**入队后的同一帧**读（`SetHint` 会立刻起播 ⇒ 同帧就可见）；
         ///    跨过 `TipDuration`(1.7 s) 就会自动关掉、读回 `null`。</summary>
         public string HintText { get { return TipVisible && _tipText != null ? _tipText.Text : null; } }
-        /// <summary>提示条那块字有多宽（世界单位，可见区宽 = `LayoutSpace.VisibleWidth`）。**读的是最近一次的缓存值**
+        /// <summary>提示条那块字有多宽。**读的是最近一次的缓存值**
         /// ⇒ 断言在提示消失之后读也拿得到（见 `_tipW`）。
         /// ⚠️ `Label` 是 **NoWrap** 的，太长不会折行、只会横着长到屏幕外去 ——
-        /// 而卡组名是玩家自己起的、长度不可控，所以要有条断言挡着。</summary>
+        /// 而卡组名是玩家自己起的、长度不可控，所以要有条断言挡着。
+        /// <para>🔴 **2026-10-16（`T09` 字族迁 uGUI）：单位从「世界单位」变成「设计 px」**（+画布宽 = 1920）。
+        /// 迁之前：世界单位、可见区宽 = `LayoutSpace.VisibleWidth`（16:9 = 17.78）；迁之后：**设计 px**。
+        /// ⇒ 用它的断言要跟着换成 px 口径（断言在 `Editor/BattleScene.cs`，**那不在本件白名单** ——
+        /// 逐条接线 → `资料/普查产出_1016并行/EW4_HUD字族迁uGUI_报告.md` ③）。</para></summary>
         public float HintWidth { get { return _tipW; } }
 
         /// <summary>**自检用**：`s` 是不是「在提示条上」—— **正露着的** 或 **还在队列里** 都算 `true`。

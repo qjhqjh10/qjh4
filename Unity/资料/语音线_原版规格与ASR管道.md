@@ -9,7 +9,7 @@
 ## 〇、一句话现状
 
 **1844 条原版单位语音已进工程**（606 张卡；`Assets/CardPresentation/Resources/Art/audio/vo/`，gitignore）。
-**已接的触发 7 族**：`Deploy`(`greet/intro/line`) · `Attack` · `Death` · `Concede` ·
+**已接的触发 7 族**：`Deploy`（🔴 **2026-10-16 订正：事件名 = `deploy`**，判据 = 原版字段 `summonAudio`；**旧写法 `Deploy`(`greet/intro/line`) 里的 `line` 退场** —— 那是**我们自己造的名字**，见 §1.1 / §1.3 的订正） · `Attack` · `Death` · `Concede` ·
 **`CantDo`**（非法操作，14 个拒绝点）· **开局独白 `intro`/`mirror`/`vs*`**（严格先手→后手串行）·
 **`ChatPopup` 那 6 个钮**（`Battle/ChatPopupPanel.cs`，2026-09-18 做完，见 §1.7）。
 **没接的**：**没有 —— 2026-09-21 `hurry` 接完，8 族全通**（见 §1.2 与 `VoiceLines.ForHurry`）。
@@ -41,6 +41,15 @@
 
 **出处**：`dump.cs:23298-23315`（字段+偏移）· `decomp_full/RawCardScript__GetAvailableSounds.c` · `dump.cs:23189-23207`（枚举）
 
+> 🔴 **2026-10-16 订正（铁律 5）**：上表第 **7** 行 **`wp` = `wellPlayedChatSound` 已【坐实】** ——
+> 原版 `RawCardScript.GetChatSound` 的 `switch` 里 **`case 7` → 字段偏移 `0x1D0`**（`dump.cs:23311`），与上表那一格逐字吻合。
+> ⇒ **旧记录里「`wp` 语义未证实」的说法一律作废**（残留两处：`资料/全量反编译复核_靠推断的清单.md:90` ·
+> `资料/普查产出_0913/语音索引.md:79` —— 那两份不在本次白名单内，已进报告 §③ 接线清单）。
+> 同批把 **11 个 chat 字段 + `defaultChatSound`** 的「枚举号 → 字段偏移」全对上了
+> （`case 0 → 0x190` … `case 10 → 0x1E0`；取不到落 `+0x188 defaultChatSound`）⇒ **「原版在什么时机播哪一条」不是查不到**。
+> 判据 → `d:/2/tools/decomp_full/RawCardScript__GetChatSound.c` · `dump.cs:23300-23315`。
+> 📌 出处再补一条：**`decomp_full/RawCardScript__GetChatSound.c`（`switch` 枚举号 → 字段偏移，把 12 个 chat 字段逐个钉死）**。
+
 ### 1.2 🔴 各族触发时机（2026-09-18 全量反编译定案）
 
 | 族 | 条数 | 触发时机 | 置信度 |
@@ -63,6 +72,15 @@ BattleTipController.NotifyCantDoAction
    → DisplayWarlordRegularChatMessage(vlc, 3, true)
    → GetChatMessage(3) + GetChatSoundAsset(3) → 素材字段 0x1B0（空则回落 defaultChatSound 0x188）
 ```
+
+> 🔴 **2026-10-16 订正（铁律 5）**：上面那句「（空则回落 `defaultChatSound` 0x188）」**已由数据坐实，不再是「查不到」**。
+> · **旧状态 = 我们这边没有这一族的数据**：`Resources/voice_lines.json` 里 `ev="default"` **0 条**（等于原版这一族**根本没进我们的表**）。
+> · **现状态**：语音线回真值后**进了 49 条 `ev="default"`**（判据 = `decomp_full/RawCardScript__GetChatSound.c` 末尾那一跳
+>   `*(script + 0x188)` + `dump.cs:23300`）；`VoiceLines` 的 `ForIntro` / `ForMirror` / `ForConcede` / `ForCantDo` / `ForHurry` /
+>   `ForVersus` 链尾都补了这一跳（⚠️ `ForMirror` 的回落是 `defaultChatSound`、**⛔ 不是 `intro`** —— `intro` 只是**上位**那条 Intro 链的最后一跳）。
+> · ⚠️ **仍未证死的一条（⛔ 不猜）**：「字段**本身为空**」那一支是「落 `default`」还是「抛异常」—— **两种读法都说得通**，
+>   **要真机才能定**（挑一张缺 `hurryChatSound` 的督军，现读 2 张）；**我们按「落 default」做**（= 本节既有的口径）。
+> · 判据全文 → `资料/普查产出_1016并行/语音线A1768_报告.md` ④·1 / ⑤·1。
 
 **闸门**：只在 `IsAnyVoiceLinePlaying() == false` 时插播（**不打断正在说的**）；
 `skipCanChat = 1` ⇒ **聊天按钮禁用时、甚至非战斗中也会播**。

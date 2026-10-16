@@ -20,19 +20,24 @@
     Unity/数据/游戏数据/decklists.json        236 副（deckId/name/heroId/faction/cardIds/gameMode）
     Unity/数据/游戏数据/prebuilt_decks_full.json  同 236 副（用来交叉核对 cardIds 一致）
     Unity/数据/游戏数据/card_ids.json         卡ID->卡名（**条数一律按实际读到的算、别写死**；
-                                              2026-10-16 实测 996 —— 原来这里写 796 是旧口径，已改；按阵营连续编号，NULL=缺口）
+                                              2026-10-16 实测 1310（前一版写 996）—— 原来这里写 796 是旧口径，已改；按阵营连续编号，NULL=缺口）
     Unity/数据/游戏数据/warlord_ids.json      督军ID->督军名（57 条）
     MyGame/Assets/RuleEngine/Resources/cards_engine.json  我们的卡池（**张数一律按实际读到的算、别写死**；
-                                              2026-10-16 实测 1126 —— 原来这里写死 1130 是旧口径，已改）
+                                              2026-10-16 实测 1127（前一版写 1126）—— 原来这里写死 1130 是旧口径，已改）
 
 口径（出处 Unity/资料/规则书/Warpforge_Offline_Rulebook_1_5-3_中文翻译.md）：
     :43/:49  经典模式 = 1 督军 + 1 防御卡 + 30 张阵营卡；普通/稀有/史诗 <=2、传说 <=1
     :55/:60  遭遇模式(Skirmish) = 1 督军 + 1 防御卡 + 12 张；传说 <=4
     decklists.json 里 gameMode==13 的就是遭遇模式（共 106 副），故「30 张够不够」要分模式判。
 
-匹配按 (阵营, 卡名) 四级 —— 只按名字会张冠李戴（卡池里有 5 组跨阵营重名）：
+匹配**先按 id 直查**，查不到才按 (阵营, 卡名) 五级 —— 只按名字会张冠李戴（卡池里有 5 组跨阵营重名）：
+    🔴 t0 **id 直查**（原版卡号直接命中我们池里的同 id 卡）—— 2026-10-16（A13）补，与
+       `工具/gen_prebuilt_decks.py` 的 `match()` / `hero_match()` **同批同改**（两边规则必须一致）。
+       补它之前「池里同 id 的卡明明在、只是卡名写法不同」的卡号会全部判缺（`GOF20`/`EC30`/`SAU4`/`SAU6`/`SAU8`）。
     t1 同名同阵营 · t2 归一化后同名（去撇号/连字符/括号/尾数字/大小写）· t3 跨阵营兜底
     t4 同阵营近似名（difflib>=0.88，只算「疑似同一物」，不算硬命中）
+    ⚠️ `t0` **不改两个 miss 标记的原意**：`miss-unknown` 仍是「卡号在 `card_ids.json` 里查不到」、
+       `miss-known` 仍是「卡号查得到名字、但名字与各弱档都对不上池里的卡」——`t0` 只是插在名字比对之前。
 """
 import difflib
 import json
@@ -81,6 +86,13 @@ def norm(s):
     return s.rstrip("s") if len(s) > 4 else s # Sisters/Sister、Protocols/Protocol
 
 
+def warlord_name_of_table(v):
+    """`warlord_ids.json` 的值是 `阵营前缀_Warlord_督军名`（也有 `Presale_` 写法）⇒ 剥掉前缀只剩督军名。
+    ⚠️ 与 `gen_prebuilt_decks.py` 里同名的那份必须**逐字一致**。"""
+    short = re.sub(r"^[A-Za-z]{2,3}_(Warlord_|Presale_)?", "", v)
+    return re.sub(r"^Presale_", "", short)
+
+
 def main():
     decks = load(os.path.join(D, "decklists.json"))["decklists"]
     # prebuilt_decks_full.json 与 decklists.json 是同一批 236 副，但**卡序不同**（一个是 MonoBehaviour 原序、
@@ -108,14 +120,22 @@ def main():
     rarity = {}
     for c in pool:
         rarity[(c["faction"], c["name"])] = c["rarity"]
+    by_id = {c["id"]: c for c in pool}   # 🔴 t0 档：原版卡号 -> 池里那张卡（与生产脚本同一条口径）
     claimed = set(mapping.values())   # 已被某个 id 认领的卡名（t4/t5 弱档靠它排除「误配到另一张卡」）
 
     def match(cid, faction, cache):
-        """返回 (tier, 卡池里的键 or None)。tier: t1/t2/t3/t4/miss-unknown/miss-known。"""
+        """返回 (tier, 卡池里的键 or None, 表里的卡名)。tier: t0/t1/t2/t3/t4/t5/miss-unknown/miss-known。"""
         key = (cid, faction)
         if key in cache:
             return cache[key]
         nm = mapping.get(cid)
+        # 🔴 t0：先按原版卡号直查（与 gen_prebuilt_decks.py 的 match() 同批同改，2026-10-16 A13）。
+        #    它只加档位、不动 miss 的判定顺序 —— 查不到才落到下面的名字阶梯。
+        c = by_id.get(cid)
+        if c is not None:
+            res = ("t0", (c["faction"], c["name"]), nm)
+            cache[key] = res
+            return res
         res = ("miss-unknown", None, nm)
         if nm is not None:
             res = ("miss-known", None, nm)
@@ -160,11 +180,26 @@ def main():
         return res
 
     def hero_check(hid, faction):
+        # 🔴 2026-10-16（A13）：与 `gen_prebuilt_decks.py` 的 `hero_match()` **对齐成同一条口径** ——
+        #    **先按 id 直查**，查不到才回落 `warlord_ids.json` 名字表。那张自建名表与池里**对不上的一批**
+        #    （`SW3` 表写 `SW_Fenrir`、池里是 `Ragnar Blackmane`；`SOR1` 表写 `SOR_Arco Flagellant`、
+        #    池里是 `Erika Luminas` …，且 `TL74` 早就记过 `TL_Neurogaunt`）⇒ 拿它当第一判据是**倒着的**。
+        #    ⚠️ 实测这条**不改任何计数**（现读：没有「按 id 命中池里督军、却不在 warlord_ids.json 里」的
+        #       heroId —— 那 6 个不在表里的都是池里也没有的 32 位 GUID），只把 `hero` 那一列的**说明**改准。
+        c = by_id.get(hid)
+        if c is not None and c["type"] == "hero":
+            # 🔴 id 命中也照样把「名字表怎么说」印出来 —— ⛔ 别让「按 id 凑上了」把数据缺陷盖掉。
+            v = warlords.get(hid)
+            if v is None:
+                return "查得到", "id命中(不在 warlord_ids.json)"
+            s, hn = norm(warlord_name_of_table(v)), norm(c["name"])
+            if s and (s == hn or s in hn or hn in s):
+                return "查得到", "id命中"
+            return "查得到", "id命中(名字表作 %s)" % v
         v = warlords.get(hid)
         if v is None:
             return "查不到", ""
-        short = re.sub(r"^[A-Za-z]{2,3}_(Warlord_|Presale_)?", "", v)
-        short = re.sub(r"^Presale_", "", short)
+        short = warlord_name_of_table(v)
         if short in hero_names.get(faction, set()):
             return "查得到", "命中"
         s = norm(short)
@@ -202,7 +237,10 @@ def main():
                 n_miss_occ += k
                 (miss_unknown if tier == "miss-unknown" else miss_known)[fac].add(cid)
                 (all_unknown if tier == "miss-unknown" else all_known).add(cid)
-            if tier in ("t2", "t3", "t4", "t5") and key:
+            if key and (tier in ("t2", "t3", "t4", "t5")
+                        # t0 里**只有需要人看一眼**的才列：卡名写法不同，或**那张卡不在本副阵营**
+                        # （后者 = 卡表缺陷；id 直查不按阵营过滤，见 gen_prebuilt_decks.py 的 id_direct）
+                        or (tier == "t0" and (norm(nm or "") != norm(key[1]) or key[0] != fac))):
                 suspect[fac].add((cid, nm, key[0], key[1], tier))
         bad = []
         for key, k in card_count.items():
@@ -218,6 +256,7 @@ def main():
         size_ok = n == need
         rows.append(dict(faction=fac, deckId=did, name=d["name"], mode=mode, heroId=d["heroId"],
                          hero=h_ok, hero_note=h_note, n=n, need=need, hit=n_hit,
+                         t0=tier_n["t0"],
                          t1=tier_n["t1"], t2=tier_n["t2"], t3=tier_n["t3"], t4=tier_n["t4"], t5=tier_n["t5"],
                          miss=len(miss), miss_occ=n_miss_occ, miss_ids=";".join(sorted(set(miss))),
                          size_ok="OK" if size_ok else f"不符({n}/{need})",
@@ -240,7 +279,7 @@ def main():
     # ---- 原始 TSV ----------------------------------------------------------
     os.makedirs(os.path.dirname(OUT_TSV), exist_ok=True)
     cols = ["faction", "deckId", "name", "mode", "heroId", "hero", "hero_note", "n", "need",
-            "hit", "t1", "t2", "t3", "t4", "t5", "miss", "miss_occ", "miss_ids", "size_ok",
+            "hit", "t0", "t1", "t2", "t3", "t4", "t5", "miss", "miss_occ", "miss_ids", "size_ok",
             "limit_ok", "over2", "full", "ab_same"]
     with open(OUT_TSV, "w", encoding="utf-8", newline="\n") as f:
         f.write("\t".join(cols) + "\n")
@@ -273,9 +312,13 @@ def main():
     A("  `decklists.json` 里 `gameMode==13` 的 106 副就是遭遇模式 —— **「30 张够不够」要分模式判**，别一律按 30。")
     A("- 同名上限：经典 普通/稀有/史诗 ≤2、**传说 ≤1**；遭遇另加 **传说 ≤4**（:49/:60）。")
     A("- 卡组里那一张防御卡**不在 `cardIds` 里**（210/236 副的 cardIds 一张防御卡都没有），规则书 :43 的 32 张 = 督军 + 防御 + 30。")
-    A("- 匹配按 **(阵营, 卡名)** 五级（只按名字会张冠李戴：卡池里有 5 组跨阵营重名）：t1 同名同阵营 / "
+    A("- 匹配**先按 id 直查（t0）**，查不到才按 **(阵营, 卡名)** 五级（只按名字会张冠李戴：卡池里有 5 组跨阵营重名）："
+      "t0 原版卡号直接命中池里同 id 的卡（2026-10-16 `A13` 补，与 `工具/gen_prebuilt_decks.py` 同批同改）/ "
+      "t1 同名同阵营 / "
       "t2 去掉撇号·连字符·括号·尾部「 2」后同名 / t3 跨阵营兜底（原版牌组允许客串）/ "
       "t5 同阵营子串或同词集（Dogmata↔Sister Dogmata）/ t4 同阵营近似名（difflib≥0.88，最弱）。")
+    A("- ⚠️ `t0` **不改两个 miss 标记的原意**：`miss-unknown` = 卡号在 `card_ids.json` 里查不到、"
+      "`miss-known` = 查得到名字但名字与各弱档都对不上池里的卡 —— `t0` 只是插在名字比对之前。")
     A("- t4/t5 另有硬门槛：**池中那个名字不能被别的 id 认领**，否则就是误配到另一张卡"
       "（`BL2 Chosen of the Four` 差点接成 `BL26 Chosen`、`UM83 1st Company Terminator` 接成 `Terminator`）。")
     A("")
@@ -295,7 +338,8 @@ def main():
     A(f"| 同名上限·按规则书（经典传说≤1/遭遇传说≤4） | {len(rows)-tot['limit_bad']}/{len(rows)} 过关（**{tot['limit_bad']} 副超限**，见下节） |")
     A(f"| 同名上限·按预组牌事实（任何卡 ≤2） | {len(rows)-tot['over2']}/{len(rows)} 过关（{tot['over2']} 副超限） |")
     A(f"| **卡池能完整拼出（不丢一张）** | **{tot['full']}/{len(rows)}** |")
-    A(f"| ↳ 只用 t1（严格同名同阵营） | {len([r for r in rows if r['full']=='可拼' and r['t2']+r['t3']+r['t4']+r['t5']==0])} |")
+    A(f"| ↳ 只用 t1（严格同名同阵营） | {len([r for r in rows if r['full']=='可拼' and r['t0']+r['t2']+r['t3']+r['t4']+r['t5']==0])} |")
+    A(f"| ↳ 用到 t0 id 直查（原版卡号命中我们池里的同 id 卡） | {len([r for r in rows if r['full']=='可拼' and r['t0']])} |")
     A(f"| ↳ 用到 t2 写法归一（撇号/连字符/括号/尾数字） | {len([r for r in rows if r['full']=='可拼' and r['t2']])} |")
     A(f"| ↳ 用到 t3 跨阵营客串 | {len([r for r in rows if r['full']=='可拼' and r['t3']])} |")
     A(f"| ↳ 用到 t5 子串/同词集（已排除被别的 id 认领的名字） | {len([r for r in rows if r['full']=='可拼' and r['t5']])} |")
@@ -383,22 +427,24 @@ def main():
         A("无。")
     A("")
     A("## 疑似「同一物的两种写法」（**别当缺口**）")
-    A("卡池里有这张卡，只是两边的**卡名写法 / 归属阵营**不同，靠 t2·t3·t5·t4 兜底接上的。"
-      "括号里是接上的档位；标 `[阵营]` 的是**我们把它归在别的阵营**（原版卡组允许跨阵营客串）。")
+    A("卡池里有这张卡，只是两边的**卡名写法 / 归属阵营**不同，靠 t0·t2·t3·t5·t4 接上的。"
+      "括号里是接上的档位（`t0` = 按卡号直查命中、只是名字写法不同）；"
+      "标 `[阵营]` 的是**我们把它归在别的阵营**（原版卡组允许跨阵营客串）。")
     A("")
     A("| 阵营 | 疑似项数 | id 卡表名 → 池中名（档位） |")
     A("|---|---|---|")
     for fac in sorted(suspect, key=lambda k: -len(suspect[k])):
         items = sorted(suspect[fac])
         pairs = "；".join(
-            f"`{cid}` {nm} → " + (f"[{FACTION_ZH.get(pf, pf)}] " if pf != fac else "") + f"{pn} ({t})"
+            f"`{cid}` {nm or '（card_ids.json 里没有这个号）'} → "
+            + (f"[{FACTION_ZH.get(pf, pf)}] " if pf != fac else "") + f"{pn} ({t})"
             for cid, nm, pf, pn, t in items)
         A(f"| {FACTION_ZH.get(fac, fac)} | {len(items)} | {pairs} |")
     A("")
     A("## 出处")
     A("- 规则（规模/同名上限）：`资料/规则书/Warpforge_Offline_Rulebook_1_5-3_中文翻译.md:43,49,55,60`；真值来自 "
       "`数据/游戏数据/decklists.json` 的 236 条与 `warlord_ids.json` 的 57 条。")
-    A("- 逐副明细（含每副的 t1~t5 分布、缺的 id、规模与上限判定）：`_tmp_view/prebuilt_decks_check.tsv`。")
+    A("- 逐副明细（含每副的 t0~t5 分布、缺的 id、规模与上限判定）：`_tmp_view/prebuilt_decks_check.tsv`。")
     if len(L) > 150:
         print(f"WARN: 报告 {len(L)} 行，超 150 上限")
     # 🔴 2026-10-18（A874）：这里原来有一段「覆盖写前的提醒」—— 它检查 `OUT_MD` 里有没有
@@ -411,6 +457,7 @@ def main():
     # ---- 控制台摘要（别打 emoji，Windows 控制台 GBK） -----------------------
     print(f"decks={len(rows)} full={tot['full']} size_ok={tot['size_ok']} limit_bad={tot['limit_bad']}")
     print(f"hero_ids={len(warlords)}/{len({r['heroId'] for r in rows})} "
+          f"t0_occurrences={sum(r['t0'] for r in rows)} "
           f"missing_unknown={sum(len(v) for v in miss_unknown.values())} "
           f"missing_known={sum(len(v) for v in miss_known.values())} "
           f"suspect={sum(len(v) for v in suspect.values())}")

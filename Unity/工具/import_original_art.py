@@ -21,7 +21,10 @@
 
 数据来源（2026-09-12 起**统一走新解包**）：
   · 卡框/卡背  `d:/2/新解包资源/assets_full/bundle_<包名>/Texture2D/`
-  · 立绘       同上，按**卡名**在包里找；再按同名的 `Sprite/*.json` 里的 `textureRect` **裁成 sprite**
+  · 立绘       🔴 **2026-10-16（`A2068`）起先走【真值链】**：卡 SO 的 `cardImageReference`（GUID）
+               → 资产原名 → `bundle_<包>/Texture2D/<名>.png`；**卡名那一支降为兜底**
+               （快照 2025-07-30 之后的 118 张 SW/UM/DA 真值链里没有，只能按名找）。
+               无论哪一路命中，都按同名的 `Sprite/*.json` 里的 `textureRect` **裁成 sprite**
                —— 原版画的就是这块（纹理 1024²、sprite 670.5×1024），不裁的话四周是空白/别的东西
   · 卡背       仍然是 `d:/4/Unity/素材/Warpforge原版/卡背/`（那批是切好的，新解包里没有）
 
@@ -274,6 +277,78 @@ ART_ID_ALIAS = {
     #   （原版印的是持锤的老妇人），两张贴图逐处比对见 `资料/PnP卡图_逐张对账_0915.md` §六 B。
     'AM2':   'AstraMilitarum_warlord_Ursula Creed',
 }
+
+
+# ============================================================================
+#  🔴 真值链：卡 → 立绘（2026-10-16 · 卡牌线 `T01` · 账 `A2068`）
+# ============================================================================
+# **为什么单开这一层**：本文件原来**只有一条路** —— 拿我们的**卡名**在 assets_full 里找同名图
+#   （归一化子串 + 相似度兜底）。而卡名是**我们自己的**（一部分还是 Godot 期的美术/VO 资产名），
+#   原版改过名的那些必然落空，只能靠 `ART_ID_ALIAS` 一条条手钉。
+# **真值链长这样**（判据 → `资料/普查产出_第三十三会话/R1_远端包数据使用现状.md` §4·I）：
+#   卡 SO 的 `RawCardScript.cardImageReference`（`AssetReference`，存 GUID）
+#     → `guid_map.tsv` 解出**资产原名** → `bundle_<包>/Texture2D/<名>.png`
+#   `card_vfx_by_card.json` 的 `byCard[<id>]._assetRefs` 里**已经解好了**（`assetKind == "art"`）——
+#   本文件**只读它、不重解**（同一份产物 `import_original_audio.py` 也在读）。
+# ⚠️ **它只覆盖 1,009 张** —— 我们池里 `id` 落在真值快照（`cards_1195_2022时代.json`）里的那些。
+#   快照 2025-07-30 之后新增的 **118 张**（SW 68 / UM 38 / DA 12）真值链里没有 ⇒ 照旧按卡名找。
+CARD_VFX_SRC = 'd:/4/Unity/数据/游戏数据/card_vfx_by_card.json'
+
+
+def load_truth_art():
+    """卡 id → 原版立绘贴图路径（**真值链**，见上面那段）。返回 `(truth, rejected)`。
+
+    来源 = `CARD_VFX_SRC` 的 `byCard[<id>]._assetRefs` 里 `assetKind == "art"` 的那一条
+      （它带 `assetName`（资产原名）+ `assetBundle`（哪个包）+ `guid`）。
+
+    `truth`    = `{卡 id: png 路径}`；`rejected` = `[(卡 id, assetName, 原因)]`。
+    ⛔ **`rejected` 由调用方打出来**（不许静默 —— 本工程红线）。
+
+    🔴 **两道闸（都是实测必要，不是防御性编程）**：
+      ① **`Cardframe` 不当立绘** —— 卡 `4eec3b13d157dae48b14ed412169e692`（`Skorflense`，
+         帝王之子战斗药剂）的 `cardImageReference` 在真值快照里**就指向一张卡框**
+         （`40k_Cardframes_stratagem_Emperor Children_tier4`）—— 那是**快照侧自己的脏值**
+         （`guid_map.tsv:3807/3808` 逐字如此：`Texture2D` 与 `Sprite` 两行同名）。
+         挡掉它 ⇒ 退回卡名那一路（现读命中 `CSM_EmperorsChildren_strat_Elixir_Skorflense`）。
+      ② **盘上没有这张图就不收** —— 收了 `write_portrait()` 会打不开文件（且是**静默少图**）。
+    ⚠️ `assetName` 要 **`.strip()`** —— 快照里 `BL34` 那条带一个**尾空格**
+       （`'CSM_BlackLegion_war_Abaddon the Despoiler '`），不 strip 就找不到文件。
+    ⚠️ 产物不在 / 读不开 ⇒ 返回空表并**出声**（退回卡名那一路 —— 那是 `A2068` 之前的行为，
+       ⛔ 不是「没有立绘」，别把空表当结论）。
+    """
+    import json
+    if not os.path.exists(CARD_VFX_SRC):
+        print(f'⚠️ 找不到真值链产物 {CARD_VFX_SRC} —— 立绘这一跳**退回按卡名找**（`A2068` 之前的行为）')
+        return {}, []
+    try:
+        with open(CARD_VFX_SRC, encoding='utf-8') as f:
+            by_card = json.load(f).get('byCard') or {}
+    except Exception as e:
+        print(f'⚠️ 真值链产物读不开（{e}）—— 立绘这一跳**退回按卡名找**')
+        return {}, []
+    truth, rejected = {}, []
+    for cid, rec in by_card.items():
+        for e in (rec.get('_assetRefs') or []):
+            if e.get('assetKind') != 'art':
+                continue
+            nm = (e.get('assetName') or '').strip()
+            bun = (e.get('assetBundle') or '').strip()
+            if bun.endswith('.bundle'):
+                bun = bun[:-len('.bundle')]
+            if not nm or not bun:
+                rejected.append((cid, nm, '缺 assetName / assetBundle'))
+                continue
+            if 'cardframe' in nm.lower():
+                rejected.append((cid, nm, '真值指向的是卡框（快照侧脏值，闸①）'))
+                continue
+            png = os.path.join(UNPACK, 'bundle_' + bun, 'Texture2D', nm + '.png')
+            if not os.path.exists(png):
+                rejected.append((cid, nm, '盘上没有这张图（闸②）'))
+                continue
+            truth[cid] = png
+    print(f'真值链（卡 SO 的 cardImageReference）：{len(truth)} 张可用 · {len(rejected)} 张退回卡名'
+          f'（源 {CARD_VFX_SRC}）')
+    return truth, rejected
 
 
 def slug(name: str) -> str:
@@ -1164,9 +1239,15 @@ def write_portrait(src, dst):
 def portrait_jobs():
     """原版 13 阵营的卡牌插图 → `art_<卡名>.png`（`CardArt.Portrait()` 按这个取）。
 
-    来源：**新解包** `D:/2/新解包资源/assets_full/bundle_<阵营>cardassets_assets_all/Texture2D/`，
-    文件名形如 `SM_UM_inf_Heavy Intercessor.png` —— 前缀是「系列_阵营_类型_」，**卡名在后面**，
-    所以**按卡名反查最稳**：把卡名归一化（只留小写字母数字）后在文件名里找子串，取最长命中。
+    来源：**新解包** `D:/2/新解包资源/assets_full/bundle_<阵营>cardassets_assets_all/Texture2D/`。
+    🔴 **2026-10-16（`A2068`）：四级优先序**（改之前只有 ① ② 两级，见 `load_truth_art()`）：
+      **⓪ `ART_ID_ALIAS`**（按 id 手钉）→ **⓪·5 真值链**（卡 SO 的 `cardImageReference`）
+      → **① 卡名归一化子串** → **② 相似度兜底**。
+    · ⓪ 必须排在 ⓪·5 **之前**：表里 `EC56`/`EC60` 两条是**开 PnP 成品图亲核过**、且**故意与真值快照相反**
+      （真值那两条是**别的卡的图**，`A1770`）—— 真值链排前面会把这两张改回去（画面变错）。
+    · ① 仍是快照之后那 **118 张**（SW/UM/DA）的**唯一**路子。
+      `SM_UM_inf_Heavy Intercessor.png` —— 前缀是「系列_阵营_类型_」、**卡名在后面**，所以按名反查最稳：
+      把卡名归一化（只留小写字母数字）后在文件名里找子串，取最长命中。
 
     ⚠️ 有 20 来张卡面文件名的拼写和卡表对不上（`predator anihilator` 少个 n、
     `Scion-Medic` 词序反、`Hellsfire` vs `Hellfire`），所以再加一层 `difflib` 相似度 ≥ 0.86 兜底。
@@ -1197,6 +1278,11 @@ def portrait_jobs():
     import json, re, glob, difflib
     with open(cards_json, encoding='utf-8') as f:
         cards = json.load(f)['cards']
+
+    # 🔴 **2026-10-16（`A2068`）：真值链**（卡 SO 的 `cardImageReference`）—— 见 `load_truth_art()`。
+    #   ⚠️ 它是对**全池**算一次的、不随阵营变（`byCard` 的键就是卡 id）。
+    truth_art, truth_rejected = load_truth_art()
+    _truth_used = set()
 
     def norm(s):
         return re.sub(r'[^a-z0-9]', '', (s or '').lower())
@@ -1285,6 +1371,25 @@ def portrait_jobs():
             else:
                 unmatched.append(f'{fac}/{card["name"]}（点名表写的 {tex}.png 不存在）')
 
+        # ⓪·5 🔴 **2026-10-16（`A2068`）：真值链**（卡 SO 的 `cardImageReference`）。
+        #    排在 `ART_ID_ALIAS` **之后**、卡名匹配**之前**（理由见 `portrait_jobs` 的 docstring：
+        #    `EC56`/`EC60` 那两条是亲核过、故意与真值相反的）。
+        #    🔬 **本次改动的实测口径**（2026-10-16 同机复算）：真值链 **1,009 张可用 / 0 张盘上缺图**，
+        #       与「卡名一路」的结论**逐张比过 —— 1,006 张完全相同**；剩下 3 张全是**真值侧自己的脏值**
+        #       （`EC56`/`EC60` 已由 ⓪ 挡住 · `Skorflense` 由闸① 挡住）⇒ **对画面 0 变化**。
+        #       换来的东西：这 1,009 张的立绘**从此追得到原版一个具体对象**（不再靠卡名猜）。
+        #    ⚠️ `taken.add(p)` —— 真值点名过的图不给 ①/② 再认领（与 ⓪ 不同：⓪ 故意不占，见那段注释）。
+        #       实测加不加这条，`jobs/unmatched/no_rect` 三个读数都不变；加它是为了**将来**（新增卡时）
+        #       不让名字相近的新卡抢走真值点名过的图。
+        for card in ordered:
+            if card['id'] in picked:
+                continue
+            p = truth_art.get(card['id'])
+            if p:
+                picked[card['id']] = p
+                _truth_used.add(card['id'])
+                taken.add(p)
+
         # ① **精确子串**：**全部卡先跑完这一轮**，跑完才进 ② 兜底。
         #    🔴 2026-09-15 修：原来是「一张卡先跑①再跑②」，于是**模糊兜底会抢先认领**别人能精确命中的图 ——
         #    `Hellfire Torch`（卡池里的重复行）名字更长、先跑，精确匹配落空后用相似度 0.96 认领了
@@ -1356,7 +1461,10 @@ def portrait_jobs():
                 no_rect.append(os.path.basename(hit))
             jobs.append((hit, f'art_{slug(card["id"])}.png'))
 
-    print(f'插图：配上 {len(jobs)} 张，配不上 {len(unmatched)} 张，缺 sprite rect {len(no_rect)} 张')
+    print(f'插图：配上 {len(jobs)} 张，配不上 {len(unmatched)} 张，缺 sprite rect {len(no_rect)} 张'
+          f'（其中**真值链** {len(_truth_used)} 张 · 卡名一路 {len(jobs) - len(_truth_used)} 张）')
+    for _r in truth_rejected:
+        print(f'   真值链用不了（退回卡名）: {_r[0]} / {_r[1]} —— {_r[2]}')
     for m in unmatched:
         print('   配不上:', m)
     for m in no_rect[:6]:

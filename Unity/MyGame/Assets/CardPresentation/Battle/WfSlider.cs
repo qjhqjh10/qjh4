@@ -89,8 +89,50 @@
 //    ⇒ **手柄中心 = 轨道左 + 12 + 值 × 滑区宽**；滑区宽 = 轨道宽 − 10 **设计 px**（⛔ 不是画布 px，见
 //      `SlideRightInsetPx`）。⛔ 别再往那个 12 上补 5：补了手柄就比原版偏右 5 设计 px（设置窗屏上
 //      4.5 画布 px），而且会和 `Contains` 的命中区、两个宿主 + 两条自检的期望值一起失配。
+//
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// 🔴 **2026-10-16（`T09` 块 6 · 第二件）：本件加【双模式】—— `Create(..., uguiHost)`。**
+//   起因：`Battle/SettingsPanel.cs` 那一整扇 2026-10-16 已迁到 `PopUps`/0 的子画布上，而**这三根滑块
+//   留在世界空间** ⇒ 当时正处**半迁移态**（子画布在 `PopUps` 层 ⇒ 面板底盖住那三根；它们仍跟 `HudRoot` 震屏）。
+//   判据与落点 → `资料/普查产出_1016并行/S6S9_卡体与残件_施工方案.md` §2·2 与 §3·2（`WfSlider` 那一行）。
+//
+//   · **落点：它是【面板内部件】、不是子画布** ⇒ **不新增排序层、⛔ 不进 `HudCanvas.SubCanvasRank`**，
+//     挂**它所属面板的画布容器**（战斗侧 = `SettingsPanel._panel`，那个 743.2×758.6 px 的面板帧）。
+//   · **双模式**：`uguiHost == null`（出厂）⇒ **世界档 —— 与加本档之前逐位相同**
+//     （`Shell/SettingsWindow.cs` 那三根走的就是它）；**非空 ⇒ 画布档**。
+//     先例 = `ErrorMessageBanner.Create(..., uguiHost)` · `WaitBanner.Create(parent, uguiHost)` ·
+//     `Tooltip.UseHost`（本会话块 6 那两件）。
+//     ⚠️ **⛔ 不许做成全局开关** —— 本件被 `Battle/SettingsPanel.cs`（3 处）与
+//     `Shell/SettingsWindow.cs`（3 处，搜 `WfSlider.Create`）**共用**，全局开关会把壳侧那三根一起翻掉。
+//
+//   · 🔴 **单位（本件的全部模式差异就在这一个 `u` 上）**：
+//       世界档：局部单位 = **世界单位**（`U = 108f` px / 世界单位）⇒ `_w = trackW / U` …
+//       画布档：局部单位 = **设计 px**（canvas 单位就是设计 px，推导 → `Battle/HudCanvas.cs` 文件头）
+//               ⇒ `u = 1` ⇒ `_w = trackW` …
+//     四个字段（`_w/_h` · `_handleH` · `_handleOffsetU` · `_slideInsetU`）与命中口那个 `ppu` 各取一次 `u`；
+//     **`Contains` / `SetFromPointer` / `Layout` 的算式一个字都没改**（三个 doc 里各加了「换算在哪」那一句）。
+//     🔑 为什么这样够：`RectTransform.InverseTransformPoint(world)` 交出来的**就是本件的局部单位**
+//     （画布那条锚点链上 `localScale` 恒 1，唯一那个根缩放已经折进单位里）⇒ 画布档下它**就是设计 px**、
+//     且**任何宽高比下都成立**（`CanvasScaler` 已经把全局缩放做了：4:3 下 `scaleFactor 0.75`
+//     ⇒ 1 世界单位 = **144** 画布单位，而轨道仍是 561.08 **设计 px**）。
+//     ⇒ 「设计 px 进来、设计 px 出去」——**不是**在算式里乘系数（那会踩 `T09` §七·8 那条「两轴系数不同」的坑）。
+//
+//   · **三层先后**：世界档靠 `renderQueue`（`queue` / `+1` / `+2`）；画布档**只能靠兄弟序**
+//     ⇒ `HudCanvas.Add(rt, −queue / −queue−1 / −queue−2)` —— **取负**（`queue` 大 = 画在上面，
+//     而 `Group.Add` 的 z 大 = **画在底下**；判据 → `T09` §五·补⑩ 那条「照搬值会把熄灯层画到最上面」的订正）。
+//
+//   · **自检读口**（原有四个 `TrackWorldH` / `FillWorldW` / `FillWorldLeftX` / `FillCapWorldW`，
+//     外加本档新加的 `TrackSizePx` / `FillSizePx` / `HandleSizePx` / `Node`+`FillNode`+`HandleNode` /
+//     `OnCanvas` / 三层 `*OrderZ`）：**原那四个口的「世界单位」契约保持不变**（画布档读 `sizeDelta`
+//     （真 px）之后**除以 `U`** 交出去）⇒ 调用点那句 `× 108f` **两种模式同一个算式**（⛔ 别在调用点分档）。
+//     🔴 **画布档一律读 `sizeDelta`** —— ⛔ 别读世界尺寸再折：`T09` §七·8（画布→世界的两轴系数不同、还随屏变）。
+//   ⚠️ **一处如实标的权宜**：`HudCanvas.MakeSlicedPiece` 的 `pixelsPerUnitMultiplier` 恒 1，而本件两张条图的
+//     端帽 = `m_Border ÷ ppuMul`（2）⇒ 建完自己把那一个字段补上（`ApplyPpuMul`；先例 =
+//     `WaitBanner.BuildCanvas` 给 `Image (Tiled)` 补 `ppuMul`）—— 同一条「`HudCanvas` 缺这个口」的账。
+// ═══════════════════════════════════════════════════════════════════════════════════════
 using System;
 using UnityEngine;
+using UnityEngine.UI;     // 🆕 画布档要 `Image`（`ppuMul` / `sprite` 那两个读口）；世界档一个字都不用
 
 namespace CardPresentation
 {
@@ -219,7 +261,20 @@ namespace CardPresentation
         /// <summary>填条走不走「锚点式」（`A1359` 起正常为 `true`）。`false` = 那三块子 quad 没按名字找到
         /// ⇒ 退回旧的整体横向缩放（`Create` 里已经出声，⛔ 不是静默失败）。</summary>
         bool _fillAnchorMode;
-        ImageQuad _handle;
+        /// <summary>手柄那一层。🔴 **2026-10-16（`T09` 块 6）**：类型从 `ImageQuad` 换成 **`HudPiece`**
+        /// （那层适配件，两档共用同一个字段）—— 世界档 = `HudPiece.Of(ImageQuad.Create(…))`、
+        /// 画布档 = `HudCanvas.MakeImageInParent(…)` 的返回值。用法（`.transform` / `.Texture`）一字未改。
+        /// ⚠️ **`SetRenderQueue` 只对世界档那把 quad 有意义**（画布档的先后归兄弟序）⇒ 那边走 `.Quad` 判空。</summary>
+        HudPiece _handle;
+        /// <summary>🔴 **2026-10-16（`T09` 块 6）：画布档（uGUI）开关** —— `uguiHost != null` ⇒ `true`。
+        /// ⚠️ **必须在 `Layout()` 之前定**（它按本档选填条那一支的摆法）。</summary>
+        bool _ugui;
+        /// <summary>两张条图在**画布档**下的那颗 `Image`（九宫格 = 一张 `Image (Sliced)`）——
+        /// 世界档恒 `null`（那边是九块 quad、没有 `Image`）。给读口量 `sizeDelta` 与 `ppuMul` 用。</summary>
+        Image _bgImg, _fillImg;
+        /// <summary>两层自己的**局部 z**：世界档 = 建件时那两行字面量（−0.001 / −0.002，**只有世界档有意义**）、
+        /// 画布档 = **0**（画布上的 z 会把件推离画布平面 ⇒ `SettingsPanel` 那条「⛔ 别再写进 `localPosition.z`」）。</summary>
+        float _fillZ, _handleZ;
         float _w, _h;
         /// <summary>手柄边长 / 手柄自己的 `m_AnchoredPosition.x`（**世界单位**，= 传进来的画布 px ÷ 108）。
         /// 🔴 逐实例的（A169 起由调用方给）⇒ 不能再当常量用（`Contains` 的命中区、`Layout` 的起点都要它）。</summary>
@@ -285,9 +340,19 @@ namespace CardPresentation
         /// ⚠️ **名字**：A169 起叫 `capScale`（那时它只管端帽）；波 8 起它还管滑区让位 ⇒ 名字偏窄。
         /// 正名（`pxScale` 之类）要**同时**改 `Battle/SettingsPanel.cs` 与 `Shell/SettingsWindow.cs`
         /// 两个调用点 ⇒ 本轮**没改**（改了会让那个文件的编译悬在别人手里），照实标在这儿。</param>
+        /// <param name="uguiHost">🔴 **2026-10-16（`T09` 块 6）：双模式的开关。**
+        /// **非空 ⇒ 画布档**（三层都建成 uGUI 件、挂 `uguiHost` 下、坐标/尺寸 = **设计 px**）；
+        /// **`null`（出厂）⇒ 世界档 —— 与加本档之前逐位相同**（先例 = `ErrorMessageBanner.Create(..., uguiHost)` ·
+        /// `WaitBanner.Create(parent, uguiHost)` · `Tooltip.UseHost`；本件被壳侧共用 ⇒ ⛔ 不许做成全局开关）。
+        /// <para>宿主 = **本件所属面板的画布容器**（战斗侧传 `SettingsPanel._panel`，那个 743.2×758.6 px 的面板帧）
+        /// —— **本件不建自己的子画布、也不进 `HudCanvas.SubCanvasRank`**（判据 → 文件头那条「落点」）。</para>
+        /// <para>⚠️ 这一档下 `center` 的 **x/y 是【设计 px】**（世界档是**世界单位**）、
+        /// 而它的 **z 不进 `localPosition`** —— 只当 `HudCanvas.Add` 的**兄弟序档**（语义同旧：z 大 = 画在底下）。
+        /// ⛔ 传了 `uguiHost` 却还按世界单位给 x/y ⇒ 三根会挤到面板中心那一小撮（偏 108 倍，**而画面不报错**）。</para></param>
         public static WfSlider Create(Transform parent, string name, Vector3 center, float value,
                                       Action<float> onChanged, int queue, float handlePx, float handleOffset,
-                                      float capScale, float trackW = TrackW, float trackH = TrackH)
+                                      float capScale, float trackW = TrackW, float trackH = TrackH,
+                                      Transform uguiHost = null)
         {
             // 🔴 **不许静默失败**（A169）：三样入参任一样拿不到 / 越界，都当场出声 ——
             //    画出来会是「看不见」或「压不住底板」，而屏幕上只会显示成一根怪滑块。
@@ -306,29 +371,54 @@ namespace CardPresentation
             s.SliderName = name;
             s.OnChanged = onChanged;
             s.Value = value;
+            // 🔴 **2026-10-16（`T09` 块 6）**：档位在这一行定死，**下面所有单位都由它派生**（见文件头那条 `u`）。
+            s._ugui = uguiHost != null;
+            float u = s._ugui ? 1f : U;                // 局部单位/px：世界档 = 108、画布档 = 1（局部单位**就是**设计 px）
+            if (s._ugui && capScale != 1f)
+                // ⚠️ 画布档的 `capScale` 语义不成立（那一档的「设计 px → 画布 px」恒 = 1，全局缩放归 `CanvasScaler`）
+                //    ⇒ 出声，别让「端帽/让位各差一点」静默过去。战斗侧那条路传的就是 1f。
+                Debug.LogWarning($"[WfSlider] `{name}` 在**画布档**下拿了 capScale = {capScale}（应当传 1）"
+                    + " —— 端帽与滑区右端让位会按它缩一遍（画布档的全局缩放由 `CanvasScaler` 负责）");
 
-            s._w = trackW / U; s._h = trackH / U;
-            s._handleH = handlePx / U;
+            s._w = trackW / u; s._h = trackH / u;
+            s._handleH = handlePx / u;
             s._handlePx = handlePx;                    // A1301①：手柄那颗的原版 `rect` 高 = 实画边长（见字段的 doc）
-            s._handleOffsetU = handleOffset / U;
+            s._handleOffsetU = handleOffset / u;
             // 滑区右端的让位 = 原版那条 `m_SizeDelta.x = −10`（**设计 px**）× 本实例的设计→画布倍数。
             // 🔴 复用一个已有形参（`capScale`）而不是新开一个：两者本来就是**同一个倍数**
             //    （战斗 1、设置窗 0.9），多传一个只是多一处能写错的地方；
             //    ⛔ 也**不许**从 `trackH` / `handlePx` 反推（那几个数两边不同源，铁律 5·c）。
-            s._slideInsetU = SlideRightInsetPx * capScale / U;
+            s._slideInsetU = SlideRightInsetPx * capScale / u;
+            // 两层自己的局部 z：世界档 = 原字面量；画布档 = 0（画布上的 z 会把件推离画布平面）。
+            s._fillZ = s._ugui ? 0f : -0.001f;
+            s._handleZ = s._ugui ? 0f : -0.002f;
 
             s._root = new GameObject("slider_" + name, typeof(RectTransform));
-            s._root.transform.SetParent(parent, false);
-            // 🔴 **2026-10-11（A218）**：滑块根也是 `RectTransform` + 写 `sizeDelta` ——
-            //    判据 = **原版那一颗 `Slider` 节点自己的矩形**：战斗那三根实读 **561.08 × 12.00**
-            //    （`bundle_scenes_scenes_battlearena1`：`BattleSettingsPanel/Volume Sliders/{Music,FX,Voiceover}
-            //     Container` 的 `m_SizeDelta=(0,100)` + 滑块锚 y `0.33→0.45` ⇒ `(0.45−0.33)×100 = 12`；
-            //    宽 561.08 见本文件头那一段），设置窗那几根由调用方按同一份口径给 `trackW/trackH`。
-            //    ⚠️ **尺寸取形参**（`trackW/trackH` 就是本实例的轨道 px）—— 与本件 `_w/_h` 那两行**同一个数**
-            //    （`s._w = trackW / U`）。改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218
-            //    「滑块根 = 轨道矩形」红（设置窗那半边在 `Editor/SettingsScene.cs` 同一节核）。
-            MenuDraw.SetPxSize(s._root.transform, trackW, trackH);
-            s._root.transform.localPosition = center;
+            if (s._ugui)
+            {
+                // ---- 🔴 2026-10-16（`T09` 块 6）：**画布档**的根 ----
+                //  挂**宿主容器**（战斗侧 = `SettingsPanel._panel`）、`sizeDelta` 吃**真 px**（`HudCanvas.SetPxSize`，
+                //  ⛔ 别用 `MenuDraw.SetPxSize` —— 那个内部是 ÷108，会把这一件缩成 1/108**而不报错**）。
+                //  `center.z` **不进 `localPosition`**（画布上的 z 会把件推离画布平面）—— 它只当兄弟序档。
+                s._root.transform.SetParent(uguiHost, false);
+                HudCanvas.SetPxSize((RectTransform)s._root.transform, trackW, trackH);
+                s._root.transform.localPosition = new Vector3(center.x, center.y, 0f);
+                HudCanvas.Add((RectTransform)s._root.transform, center.z);
+            }
+            else
+            {
+                s._root.transform.SetParent(parent, false);
+                // 🔴 **2026-10-11（A218）**：滑块根也是 `RectTransform` + 写 `sizeDelta` ——
+                //    判据 = **原版那一颗 `Slider` 节点自己的矩形**：战斗那三根实读 **561.08 × 12.00**
+                //    （`bundle_scenes_scenes_battlearena1`：`BattleSettingsPanel/Volume Sliders/{Music,FX,Voiceover}
+                //     Container` 的 `m_SizeDelta=(0,100)` + 滑块锚 y `0.33→0.45` ⇒ `(0.45−0.33)×100 = 12`；
+                //    宽 561.08 见本文件头那一段），设置窗那几根由调用方按同一份口径给 `trackW/trackH`。
+                //    ⚠️ **尺寸取形参**（`trackW/trackH` 就是本实例的轨道 px）—— 与本件 `_w/_h` 那两行**同一个数**
+                //    （`s._w = trackW / U`）。改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218
+                //    「滑块根 = 轨道矩形」红（设置窗那半边在 `Editor/SettingsScene.cs` 同一节核）。
+                MenuDraw.SetPxSize(s._root.transform, trackW, trackH);
+                s._root.transform.localPosition = center;
+            }
 
             var bgTex = CardArt.Ui("Volume_bar_inactive");
             var fillTex = CardArt.Ui("Volume_bar_active");
@@ -339,6 +429,67 @@ namespace CardPresentation
                 Debug.LogWarning($"[WfSlider] 音量滑块的图缺了："
                     + $"bar_inactive={(bgTex != null)} bar_active={(fillTex != null)} button={(handleTex != null)}"
                     + "（跑 `工具/` 那套取图脚本把三张图放进 Resources/Art/ui/）");
+            }
+            else if (s._ugui)
+            {
+                // ═══════════════════════════════════════════════════════════════════════════════════
+                // 🔴 **2026-10-16（`T09` 块 6）：画布档三层** —— 三张 uGUI 件（两张 `Image (Sliced)` + 一张方 `Image`）。
+                //   判据 → 文件头那段。四样别改：
+                //   ① **两层条图 = `Image (Sliced)`**（原版那三根 `… Slider` 的子件本来就是 `Image`，`Background`
+                //      / `Fill` 在 uGUI `Slider` 的默认 prefab 里就是 Sliced）—— uGUI 里「九宫格」就是这一件事；
+                //   ② **端帽 = `m_Border ÷ (pixelsPerUnit × ppuMul)`**：`184 ÷ 2 = 92` / `30 ÷ 2 = 15` 画布 px
+                //      —— 与**世界档**那两处 `borderOutPx`（`BarBorderPx / PpuMul * capScale`，画布档 capScale = 1）
+                //      **同一个数**。`HudCanvas.MakeSlicedPiece` 的 `ppuMul` 恒 1 ⇒ 建完把那一个字段补上
+                //      （`ApplyPpuMul`；⚠️ 那是「`HudCanvas` 缺这个口」的**临时权宜**，先例 =
+                //       `WaitBanner.BuildCanvas` 给 `Image (Tiled)` 补 `ppuMul`）。
+                //      ⛔ **别改成「把 border 预 ÷ ppuMul」** —— 那种写法端帽**画出来**的宽对、但**切到的贴图列错**
+                //      （92 vs 184 那一列），肉眼看是「端帽的花纹不对」。
+                //   ③ **三层先后只能靠兄弟序**（画布上同队列、同平面）⇒ `HudCanvas.Add(rt, …)` 的 z **取负**：
+                //      轨道 `−queue`（最大 z = 画在**最底下**）→ 填条 `−queue−1` → 手柄 `−queue−2`（画在最上面）。
+                //      判据 = `queue` 大 = 画在上面，而 `Group.Add` 的 z 大 = 画在底下（`T09` §五·补⑩ 那条订正）。
+                //   ④ **填条的宽由 `Layout` 那一支给**（`LayoutFillCanvas`：改矩形宽 = 原版 `UpdateVisuals` 的
+                //      `anchorMax.x = value` 的等效物）—— 这里只建**满宽**，随后 `s.Layout()` 会摆第一次。
+                // ═══════════════════════════════════════════════════════════════════════════════════
+                var bgPiece = HudCanvas.MakeSlicedPiece(s._root.transform, bgTex, "slider_bg",
+                                                        trackW, trackH,
+                                                        new Vector4(BarBorderPx, 0f, BarBorderPx, 0f), Color.white);
+                if (bgPiece == null)
+                {
+                    // 不许静默失败：轨道建不出来 = 一根什么都没有的滑块，而调用点会以为建成功了
+                    Debug.LogWarning($"[WfSlider] `{name}` 的**轨道**在画布档下没建起来（`Volume_bar_inactive` 没取到？）");
+                }
+                else
+                {
+                    ApplyPpuMul(bgPiece, PpuMul);
+                    bgPiece.Rect.localPosition = new Vector3(0f, 0f, 0f);
+                    HudCanvas.Add(bgPiece.Rect, -queue);
+                    s._bgRoot = bgPiece.gameObject;          // 自检量轨道几何用（`TrackWorldH`）
+                    s._bgImg = bgPiece.Rect.GetComponent<Image>();
+                }
+                var fillPiece = HudCanvas.MakeSlicedPiece(s._root.transform, fillTex, "slider_fill",
+                                                          trackW, trackH,
+                                                          new Vector4(FillBorderPx, 0f, FillBorderPx, 0f), Color.white);
+                if (fillPiece == null)
+                {
+                    // ⛔ 不许静默：填条建不出来 = 拖动时**没有任何可见反馈**（值其实一直在变），而画面上只像「少了那条」
+                    Debug.LogWarning($"[WfSlider] `{name}` 的**填条**在画布档下没建起来（`Volume_bar_active` 没取到？）");
+                }
+                else
+                {
+                    ApplyPpuMul(fillPiece, PpuMul);
+                    fillPiece.Rect.localPosition = new Vector3(0f, 0f, s._fillZ);
+                    HudCanvas.Add(fillPiece.Rect, -queue - 1f);
+                    s._fillRoot = fillPiece.gameObject;
+                    s._fillImg = fillPiece.Rect.GetComponent<Image>();
+                }
+                // 手柄 = 一张**方** `Image`（`HudCanvas.MakeImageInParent` = 中心锚 + 中心枢轴 + `PA = 0` 拉满）。
+                //  ⚠️ 世界档那支是 `ImageQuad.Create`（**按高定、宽由贴图比例来**）；这里给的是 `(handlePx, handlePx)`
+                //     的**正方** —— 与那张 110×110 方图 + `preserveAspect` 取短边的**实画结果**同一个形（见 `HandlePx`）。
+                //  x/y 先给 0：真正的落点由紧随的 `s.Layout()` 给（与本档填条同一处口径）。
+                s._handle = HudCanvas.MakeImageInParent(s._root.transform, handleTex, "slider_handle",
+                                                        0f, 0f, s._handlePx, s._handlePx, -queue - 2f, Color.white);
+                if (s._handle == null)
+                    Debug.LogWarning($"[WfSlider] `{name}` 的**手柄**在画布档下没建起来（`Volume_button` 没取到？）");
             }
             else
             {
@@ -380,7 +531,7 @@ namespace CardPresentation
                                             new Vector4(FillBorderPx, 0f, FillBorderPx, 0f), fillTex.width, fillTex.height,
                                             queue + 1, name: "slider_fill",
                                             borderOutPx: new Vector4(fillCap, 0f, fillCap, 0f));
-                if (s._fillRoot != null) s._fillRoot.transform.localPosition = new Vector3(0f, 0f, -0.001f);
+                if (s._fillRoot != null) s._fillRoot.transform.localPosition = new Vector3(0f, 0f, s._fillZ);
                 // 三块子 quad 按 `ImageQuad.CreateNineSlice` 的命名取回（`{name}_{i}{j}`，列 0/1/2 × 行**只能**是 1
                 //   —— 上下 `border` 都是 0 ⇒ 行 0 / 2 的高为 0、创建时就被 `continue` 跳过）。
                 //   🔴 取不到 = 九宫格的结构变了（命名或 border 被改）⇒ **出声并退回旧路**
@@ -403,30 +554,44 @@ namespace CardPresentation
                     }
                 }
                 // ③ Handle：正方形，边长 = 调用方给的**实画边长**（A169 起不是常量）
-                s._handle = ImageQuad.Create(s._root.transform, handleTex, new Vector3(0f, 0f, -0.002f),
-                                             s._handleH, new Vector2(0.5f, 0.5f), "slider_handle");
-                // `ImageQuad.Create` 自己不设队列（= 材质默认档 3000）⇒ 三层里最高的那一档显式写上
-                if (s._handle != null) s._handle.SetRenderQueue(queue + 2);
+                //  🔴 **2026-10-16（`T09` 块 6）**：只多套一层 `HudPiece.Of(...)` —— 字段类型从 `ImageQuad`
+                //     改成 `HudPiece` 了（两档共用），**建出来的东西与三个参数一字未改**；
+                //     `HudPiece.Of(null)` 也回 `null` ⇒ 空值语义与改之前相同。
+                s._handle = HudPiece.Of(ImageQuad.Create(s._root.transform, handleTex,
+                                             new Vector3(0f, 0f, s._handleZ),
+                                             s._handleH, new Vector2(0.5f, 0.5f), "slider_handle"));
+                // `ImageQuad.Create` 自己不设队列（= 材质默认档 3000）⇒ 三层里最高的那一档显式写上。
+                // ⚠️ **只对世界档**（画布档的手柄是 `Image`、先后由 `HudCanvas.Add` 的兄弟序定 ⇒ 没有队列可设）。
+                if (s._handle != null && s._handle.Quad != null) s._handle.Quad.SetRenderQueue(queue + 2);
             }
             s.Layout();
             return s;
         }
 
-        /// <summary>按当前 `Value` 摆 Fill 与 Handle。</summary>
+        /// <summary>按当前 `Value` 摆 Fill 与 Handle。
+        /// <para>🔴 **2026-10-16（`T09` 块 6）：这一条「交互口」的【算式一个字没改】—— 加的是【分派与换算】。**
+        /// 两处的单位已经在本件内部换好了（世界档 `_w/_h/_handleOffsetU/_slideInsetU` = **世界单位**、
+        /// 画布档 = **设计 px**，见 <see cref="Create"/> 里那个 `u`），而 `localPosition` / `sizeDelta`
+        /// 在**两种模式下都是「本件局部单位」**（画布档下它就是设计 px）⇒ 同一个算式两边都对。
+        /// **分派** = 只多一支：填条画布档走 <see cref="LayoutFillCanvas"/>（一张 `Image (Sliced)` 改矩形宽）
+        /// vs 世界档走 <see cref="LayoutFill"/>（三块子 quad 改位置+`localScale`）—— 两者**语义同一**
+        /// （= 原版 `UpdateVisuals` 的 `anchorMax.x = value`），⛔ 不是两条并存的口径。</para></summary>
         void Layout()
         {
             float t = Mathf.InverseLerp(Min, Max, Mathf.Clamp(Value, Min, Max));
             if (_fillRoot != null)
             {
-                if (_fillAnchorMode) LayoutFill(t);
+                if (_ugui) LayoutFillCanvas(t);
+                else if (_fillAnchorMode) LayoutFill(t);
                 else
                 {
                     // 🔴 **旧路（`A1359` 之前）**：整体横向缩放九宫格的根 —— 端帽会跟着值一起缩。
                     //    只有「那三块子 quad 没按名字找到」时才走到这儿（那一刻 `Create` 已经出声、不静默）；
                     //    留着它只为「结构变了也不会画出一根坏滑块」，⛔ 不是两条并存的口径。
+                    //    ⚠️ 画布档**不走这里**（那边没有「根缩放」那回事，见上面那条分派）。
                     float w0 = Mathf.Max(0.0001f, t * _w);
                     _fillRoot.transform.localScale = new Vector3(w0 / _w, 1f, 1f);
-                    _fillRoot.transform.localPosition = new Vector3(-_w * 0.5f + w0 * 0.5f, 0f, -0.001f);
+                    _fillRoot.transform.localPosition = new Vector3(-_w * 0.5f + w0 * 0.5f, 0f, _fillZ);
                 }
             }
             if (_handle != null)
@@ -437,9 +602,31 @@ namespace CardPresentation
                 // ⚠️ 值 0 时手柄左缘只离轨道左端 0.8 画布 px（看着就是"贴着左端"）、值 1 时中心探出
                 //    轨道右端 **2** 画布 px —— 原版就是这样，别「顺手」夹回来（夹了手柄就与原版对不上；
                 //    `Contains` 那边已让出手柄探出去的那一块）。
+                // 🔴 **2026-10-16（`T09` 块 6）**：z 从字面量 `-0.002f` 改成字段 `_handleZ`
+                //    （世界档那个字面量原样、画布档 = 0 —— 画布上的 z 会把件推离画布平面）。**算式本体未改**。
                 float x = -_w * 0.5f + _handleOffsetU + t * (_w - _slideInsetU);
-                _handle.transform.localPosition = new Vector3(x, 0f, -0.002f);
+                _handle.transform.localPosition = new Vector3(x, 0f, _handleZ);
             }
+        }
+
+        /// <summary>🔴 **2026-10-16（`T09` 块 6）：填条的【画布档】摆法。**
+        /// <para>与 <see cref="LayoutFill"/> **语义同一、实现不同**：画布档下就是原版那件事本身 ——
+        /// 一张 `Image (Sliced)` **改矩形宽**（左沿不动、右沿随值走 = `Slider.UpdateVisuals` 把 `Fill` 的
+        /// `anchorMax` 写成 `(value, 1)`），端帽由切片**固定像素** ⇒ 恒宽、中段拉伸。
+        /// 世界档那份「三块子 quad 改位置 + `localScale`」是它的**等效做法**（理由见那个函数）。</para>
+        /// <para>⚠️ 原版那颗 `Fill` 的锚是 `anchorMin (0,0)` / `anchorMax (value,1)`；本件走的是
+        /// `HudCanvas.MakeSlicedPiece` 的**中心锚**（那个口只建中心锚）⇒ 这里把「矩形」显式算出来
+        /// （中心 = `轨道左 + 总宽/2`、`sizeDelta.x = 总宽`）—— **结果矩形与原版逐位相同**，
+        /// 差的是「用锚点表达」还是「用 anchoredPosition 表达」（同一块矩形）。</para>
+        /// <para>⚠️ 退化（`total < 两端端帽之和`）**不用在这里管** —— uGUI `Image.GetAdjustedBorders`
+        /// 自己会按 `rect.width ÷ (bL+bR)` 把两端缩掉（世界档那份才要手写这一条，见 `LayoutFill`）。</para></summary>
+        void LayoutFillCanvas(float t)
+        {
+            if (_fillRoot == null) return;
+            float total = Mathf.Max(0f, t * _w);          // 本值下填条的总宽（画布档 = 设计 px）
+            var rt = (RectTransform)_fillRoot.transform;
+            rt.sizeDelta = new Vector2(total, _h);
+            rt.localPosition = new Vector3(-_w * 0.5f + total * 0.5f, 0f, _fillZ);
         }
 
         /// <summary>🔴 **2026-10-10（`A1359`）**：填条按 `t`（0..1）摆位 —— **照原版 uGUI 的【锚点】语义**，
@@ -463,12 +650,8 @@ namespace CardPresentation
         void LayoutFill(float t)
         {
             float total = Mathf.Max(0f, t * _w);          // 本值下填条的**总宽**（世界单位）
-            float cap = _fillCapU, capS = 1f;
-            if (cap * 2f > total)                          // 同 `Image.GetAdjustedBorders`（只有横轴有角块）
-            {
-                cap = total * 0.5f;
-                capS = _fillCapU > 1e-9f ? cap / _fillCapU : 0f;
-            }
+            float cap = CapOf(_fillCapU, total);           // 同 `Image.GetAdjustedBorders`（只有横轴有角块）
+            float capS = cap == _fillCapU ? 1f : (_fillCapU > 1e-9f ? cap / _fillCapU : 0f);
             float mid = Mathf.Max(0f, total - cap * 2f);
             float midS = mid / _fillMidU;                  // `_fillMidU` 已保证 > 0（见 `Create`）
             float left = -_w * 0.5f;                       // 左沿恒不动（原版 `Fill` 锚在左边的锚点上）
@@ -497,6 +680,38 @@ namespace CardPresentation
             if (root == null) return null;
             var t = root.transform.Find(childName);
             return t != null ? t.GetComponent<ImageQuad>() : null;
+        }
+
+        /// <summary>🔴 **2026-10-16（`T09` 块 6）：填条端帽那一格的退化规则 —— 全仓只此一份。**
+        /// 判据 = uGUI `Image.GetAdjustedBorders`：**总宽不足两端端帽之和**时，两端各缩成 `总宽/2`
+        /// （两只一起，所以是 `total * 0.5f` 而不是各缩一半）。
+        /// <para>两个用户（**同一条规则、两种量纲**）：<see cref="LayoutFill"/>（世界档，单位 = 世界单位）
+        /// 与 <see cref="FillCapWorldW"/> 的画布档那一支（读口，单位 = 设计 px ⇒ 调用点自己再除以 `U`）；
+        /// **画布档的渲染不用它** —— 那边是 uGUI `Image (Sliced)` 自己按这条规则画（`LayoutFillCanvas` 的 doc）。</para></summary>
+        static float CapOf(float nominalCap, float total)
+        {
+            return nominalCap * 2f > total ? total * 0.5f : nominalCap;
+        }
+
+        /// <summary>🔴 **2026-10-16（`T09` 块 6）：把画布档两张条图的 `m_PixelsPerUnitMultiplier` 补上。**
+        /// <para>`HudCanvas.MakeSlicedPiece` 建出来的 `Image` 这个字段恒 = **1**，而原版那两张图的端帽是
+        /// `m_Border ÷ (pixelsPerUnit × ppuMul)` = `184 ÷ 2 = **92**` / `30 ÷ 2 = **15**` 画布 px
+        /// ⇒ 不补就**画成两倍宽**（中段短一半，世界档 `A169` 当年修的就是同一条）。</para>
+        /// <para>⚠️ 这是「`HudCanvas` 缺一个 `ppuMul` 形参」的**临时权宜**（先例 = `WaitBanner.BuildCanvas`
+        /// 给 `Image (Tiled)` 补 `ppuMul`，同一族的账已记在 `T09` §七·14）—— 收集齐之后收编进那个口。</para>
+        /// <para>⛔ **别改成「把 border 预 ÷ ppuMul 再建」**：那种写法端帽**画出来**的宽对、但**切到的贴图列错**
+        /// （92 vs 184 那一列）⇒ 肉眼看是「端帽的花纹不对」，而且它只在 uGUI 那一档出现。</para></summary>
+        static void ApplyPpuMul(HudPiece p, float ppuMul)
+        {
+            if (p == null || p.Rect == null) return;
+            var im = p.Rect.GetComponent<Image>();
+            if (im == null)
+            {
+                Debug.LogError($"[WfSlider] 画布档的九宫格件 `{p.name}` 上取不到 `Image` ⇒ "
+                             + $"端帽按 1 倍画（原版 = `m_Border ÷ {ppuMul}`）—— 出声，不静默");
+                return;
+            }
+            im.pixelsPerUnitMultiplier = ppuMul;
         }
 
         /// <summary>🔴 **命中判据：轨道 ∪ 手柄**，写成**一块矩形**（**近似** —— 见下面那条）。
@@ -550,6 +765,10 @@ namespace CardPresentation
         public bool Contains(Vector3 world)
         {
             if (_root == null) return false;
+            // 🔴 **2026-10-16（`T09` 块 6）**：这一句是**两种模式共用的**，而且**它自己不需要分档** ——
+            //    `InverseTransformPoint` 交出来的是**本件的局部单位**：世界档 = 世界单位、画布档 = 设计 px
+            //    ⇒ 与 `_w/_h`（在 `Create` 里按同一把尺折好）**同域**。本函数的**唯一**模式差异在
+            //    <see cref="HitHandlePadded"/> 那个 `ppu`（世界档 108 / 画布档 1）。
             var l = _root.transform.InverseTransformPoint(world);
             // ① 轨道那一块 = 本实例的 `_w × _h`（原版 `Background` 561.08×12 —— 调用方给的
             //    `trackW/trackH` 就是它，见 `Create`）。两颗（`Background` / `Fill`）的
@@ -560,16 +779,21 @@ namespace CardPresentation
             return HitHandlePadded(l.x, l.y, handleCx);
         }
 
-        /// <summary>🆕 **2026-10-19（A1301①）**：本件局部点（`l.x/l.y`，**世界单位**）是不是落在
+        /// <summary>🆕 **2026-10-19（A1301①）**：本件局部点（`l.x/l.y`，**本件的局部单位**）是不是落在
         /// **手柄那颗 `Image` 的原版命中框**里（`m_SizeDelta` 46.811 × `_handlePx`，四边按 `HandlePadPx` 外扩）。
         /// <para>🔴 算式**只此一份** —— 转发 `MenuDraw.PaddedHitRect`（它自己再转发 `PaddedRect`；
         /// **符号口径与退化守卫都在那一边**）。⛔ 本件一个字都不写 `±pad`（`CLAUDE.md` §三）。
         /// 函数名是 `Hit…Padded`、和 `BattleDriver.HitPaddedRect` 同一个形状（那一颗是先例）。</para>
-        /// <para>⚠️ 坐标系要跳一下：本件局部 **y 向上**，而 `PxRect` 是**左上原点、y 向下**。</para></summary>
+        /// <para>⚠️ 坐标系要跳一下：本件局部 **y 向上**，而 `PxRect` 是**左上原点、y 向下**。</para>
+        /// <para>🔴 **2026-10-16（`T09` 块 6）：`ppu` 按模式换**（本函数是三条交互口里**唯一**需要换算式的一处）——
+        /// 世界档 = `U`(108)「px / 世界单位」、**画布档 = 1**（那一档的局部单位**就是** px，见文件头那条 `u`）。
+        /// 判据/先例 = `BattleDriver.HitPaddedRect` 的 `q.IsUgui ? 1f : 1f / Px(1f)` 与
+        /// `CameraResetButtonHit` 的按模式阈值换乘（同一批翻件时踩出来的：**不换就是命中框大 108 倍、
+        /// 而画面完全正常**）。⚠️ 上面那句「同批三处只有本件符号反了」的更正仍然成立、与本次无关。</para></summary>
         bool HitHandlePadded(float lx, float ly, float handleCx)
         {
             if (_handle == null) return false;
-            float ppu = U;                            // = 108（px / 世界单位）：本件唯一那个换算
+            float ppu = _ugui ? 1f : U;               // 画布档：局部单位 = px ⇒ ppu = 1；世界档 = 108（px / 世界单位）
             // 🔴 **2026-10-11 就地订正（`A1301①` · 铁律 5）**：本行原写 `1f / U` —— 而 `U = 108f` 本来就是
             //   **px / 世界单位**（`:173`）⇒ `1f / U` 得 **0.00926**、**比正确值小 108² 倍**。
             //   后果：`px = lx * ppu` 把**点**缩小 108 倍、而 `PxRect` 那两半是**照 px 宽写死的**
@@ -605,7 +829,10 @@ namespace CardPresentation
         /// ⇒ **值的 0 在滑区左沿**（= 轨道左端 —— 左端不让位）、**1 在滑区右沿**（= 轨道右端 − 10 设计 px）、
         /// **分母 = 滑区宽**（战斗 551.08；设置窗 674.195 × 0.9 = **606.7755** 画布 px）。
         /// ⚠️ A169 起这里写的是「轨道宽 − `TravelRightPx`(**画布** px)」⇒ 设置窗那条路少了 1 画布 px；
-        /// 波 8 改成 `_slideInsetU`（逐实例）后两边都对。⛔ 别改回「拿整根轨道当分母」，也⛔ 别把起点挪成 +5。</summary>
+        /// 波 8 改成 `_slideInsetU`（逐实例）后两边都对。⛔ 别改回「拿整根轨道当分母」，也⛔ 别把起点挪成 +5。
+        /// <para>🔴 **2026-10-16（`T09` 块 6）：算式一个字没改、也不需要改** —— 它只用 `l`（本件局部坐标，
+        /// 与 `_w`/`_slideInsetU` **同域**：世界档 = 世界单位、画布档 = 设计 px）。换算全在 `Create` 那个 `u` 上，
+        /// 判据与 `Contains` 同一份（那两条 doc 都写了「换算在哪」）。</para></summary>
         public bool SetFromPointer(Vector3 world)
         {
             if (_root == null) return false;
@@ -631,11 +858,19 @@ namespace CardPresentation
         public void SetVisible(bool on) { if (_root != null) _root.SetActive(on); }
 
         // ---- 自检用 ----
-        /// <summary>三张图都取到了没有（缺图 = 玩家什么都看不见）。</summary>
+        /// <summary>三张图都取到了没有（缺图 = 玩家什么都看不见）。
+        /// <para>🔴 **2026-10-16（`T09` 块 6）**：画布档走一条**等价**的分支（那边没有「子节点数」这回事，
+        /// 判据换成「那张 `Image` 上有 `sprite`」）。
+        /// ⚠️ **如实记一处既有缺口（两档都有）**：本口**只查了填条与手柄**，
+        /// **没有查轨道那一张**（`_bgRoot`）—— 世界档那句 `childCount > 0` 数的是**填条**的子块。
+        /// ⇒ 断言文案写的「三张图」实际上只覆盖两张（报告里已记，⛔ 别照它当「三张都查过了」）。</para></summary>
         public bool HasArt
         {
             get
             {
+                if (_ugui)
+                    return _fillImg != null && _fillImg.sprite != null
+                        && _handle != null && _handle.Texture != null;
                 bool bg = _fillRoot != null && _fillRoot.transform.childCount > 0;
                 return bg && _handle != null && _handle.Texture != null;
             }
@@ -643,11 +878,19 @@ namespace CardPresentation
         /// <summary>轨道**渲出来的世界高**（自检用）。🔴 量的是**几何**，不是把 `trackH` 参数念一遍 ——
         /// 取 Background 那几块 quad 的**并集高**（九宫格上下 border 都是 0 ⇒ 三块同高）。
         /// 「常量改了、`TrackRectPx` 忘了跟着 `trackH` 走」那种改法，这里会**当场露出来**。
-        /// ⚠️ 单位是**世界单位**（×108 = 画布 px）；⛔ **不含手柄**（手柄比轨道高，混进来就量错）。</summary>
+        /// ⚠️ 单位是**世界单位**（×108 = 画布 px）；⛔ **不含手柄**（手柄比轨道高，混进来就量错）。
+        /// <para>🔴 **2026-10-16（`T09` 块 6）**：画布档读**那张 `Image (Sliced)` 的 `sizeDelta.y`（真 px）
+        /// ÷ `U`** —— 交出去的仍是**世界单位**（本口的契约不变 ⇒ 调用点那句 `× 108f` 两档同一个算式）。
+        /// ⛔ **别改成「读世界尺寸再折」**：`T09` §七·8（画布→世界的两轴系数不同、还随屏变）。</para></summary>
         public float TrackWorldH
         {
             get
             {
+                if (_ugui)
+                {
+                    var b = _bgImg;
+                    return b != null ? b.rectTransform.sizeDelta.y / U : 0f;
+                }
                 if (_bgRoot == null) return 0f;
                 var qs = _bgRoot.GetComponentsInChildren<ImageQuad>(true);
                 float h = 0f;
@@ -678,6 +921,21 @@ namespace CardPresentation
         {
             leftX = rightX = 0f;
             if (_fillRoot == null) return false;
+            if (_ugui)
+            {
+                // 🔴 **2026-10-16（`T09` 块 6）：画布档那一支** —— 填条是**一张** `Image (Sliced)`
+                //    ⇒ 它画出来的矩形就是 `sizeDelta` + `localPosition`（中心锚、中心枢轴，父件 = 滑块根
+                //    ⇒ `localPosition.x` **就是**「相对轨道中心 px」）。
+                //    ⚠️ **除以 `U` 是为了保住本口原有的「世界单位」契约**（不是「拿世界尺寸折回」——
+                //    这里读的就是 `sizeDelta` 那份**真 px**，见 `TrackWorldH` 的 doc）。
+                var im = _fillImg;
+                if (im == null) return false;
+                var rt2 = im.rectTransform;
+                float hw2 = rt2.sizeDelta.x * Mathf.Abs(rt2.localScale.x) * 0.5f;
+                float cx2 = rt2.localPosition.x;
+                leftX = (cx2 - hw2) / U; rightX = (cx2 + hw2) / U;
+                return true;
+            }
             // 根那一级（`A1359` 之后恒 = 恒等变换 —— 留着它，是为了「谁又把它缩回去」也量得出来）
             float rs = _fillRoot.transform.localScale.x;
             float rp = _fillRoot.transform.localPosition.x;
@@ -701,7 +959,9 @@ namespace CardPresentation
         /// 🔴 **期望值要写原版算式 `值 × 轨道宽`**（⛔ 不是引用本件别的常量）。
         /// ⚠️ **这一条单独分不出「改锚点」与「整体横向缩放」** —— 两种做法下整条填条的宽都 = 值 × 轨道宽
         /// （旧路是靠「根缩放 × 整宽」凑出来的，与锚点式同值）⇒ **判别式是 `FillCapWorldW`**
-        /// （端帽**恒宽** vs **跟着值缩**），那一条才分得开（判据见 `LayoutFill`）。</summary>
+        /// （端帽**恒宽** vs **跟着值缩**），那一条才分得开（判据见 `LayoutFill`）。
+        /// <para>🔴 **2026-10-16（`T09` 块 6）**：画布档下 = 那张 `Image (Sliced)` 的 `sizeDelta.x ÷ U`
+        /// （仍是**世界单位**契约；见 `FillSpanW` 那一支）。</para></summary>
         public float FillWorldW
         {
             get { float a, b; return FillSpanW(out a, out b) ? b - a : 0f; }
@@ -711,7 +971,9 @@ namespace CardPresentation
         /// ⇒ 它**恒 = `−轨道宽/2`**（值怎么变都不动）。
         /// ⚠️ **这一条本身【不是】`A1359` 的判别式** —— 旧的整体缩放路**也**给同一个值（它是靠把根
         /// 右移 `w/2` 补回来的，算式上恒等，别拿它当「锚点式已经生效」的证据）；它挡的是
-        /// 「谁把填条左沿挪走了」这一类改法（左沿一走 ⇒ 填条与轨道左端脱开）。</summary>
+        /// 「谁把填条左沿挪走了」这一类改法（左沿一走 ⇒ 填条与轨道左端脱开）。
+        /// <para>🔴 **2026-10-16（`T09` 块 6）**：画布档下 = `localPosition.x − sizeDelta.x/2`，再 ÷ `U`
+        /// （同一个**世界单位**契约、同一个物理量：相对轨道中心的左沿）。</para></summary>
         public float FillWorldLeftX
         {
             get { float a, b; return FillSpanW(out a, out b) ? a : 0f; }
@@ -724,14 +986,124 @@ namespace CardPresentation
         /// 漏了它这条就恒等于建件宽、什么也验不出来。
         /// ⚠️ 端帽被压缩的那一档（**总宽不足两端端帽之和**，即值小到 **1/18 以下**）**本来就该跟着缩**
         /// （同 uGUI `Image.GetAdjustedBorders`）⇒ 拿它断「恒宽」要在**值够大**的那几格断。
-        /// 量不到（三块子 quad 没按名字取到）⇒ 返回 `0`。</summary>
+        /// 量不到（三块子 quad 没按名字取到）⇒ 返回 `0`。
+        /// <para>🔴 **2026-10-16（`T09` 块 6）：画布档那一支** —— 端帽的**画出来**宽度由切片定
+        /// （`Image` 拿 `m_Border ÷ (pixelsPerUnit × ppuMul)` = `30 ÷ 2` = **15 画布 px**、
+        /// uGUI 不给量它的 API）⇒ 这里**把同一条规则再算一遍**：`CapOf`（`Image.GetAdjustedBorders`
+        /// 那格的**唯一一份**实现，`LayoutFill` 用的也是它）÷ `U`（仍是**世界单位**契约）。</para></summary>
         public float FillCapWorldW
         {
             get
             {
+                if (_ugui)
+                {
+                    var im = _fillImg;
+                    if (im == null) return 0f;
+                    float total = im.rectTransform.sizeDelta.x * Mathf.Abs(im.rectTransform.localScale.x);
+                    return CapOf(FillBorderPx / PpuMul, total) / U;
+                }
                 if (_fillL == null || _fillRoot == null) return 0f;
                 return _fillL.WorldW * Mathf.Abs(_fillL.transform.localScale.x)
                      * Mathf.Abs(_fillRoot.transform.localScale.x);
+            }
+        }
+
+        // ── 🔴 2026-10-16（`T09` 块 6）：**画布档的自检读口** ───────────────────────────────
+        //  ⚠️ **一律读真 px**（`sizeDelta` / `HudCanvas.SizePx`）—— ⛔ 别拿世界尺寸 ×108 折回来
+        //     （画布从「设计 px」到「世界单位」的两轴系数**不同**、还随屏变，`T09` §七·8）。
+        //  ⚠️ 上面那几个「世界单位」口径的读口（`TrackWorldH` / `FillWorldW` / `FillWorldLeftX` /
+        //     `FillCapWorldW`）**在画布档下仍然交世界单位**（内部除以 `U`）⇒ 调用点那句 `× 108f`
+        //     **两档同一个算式**。下面这几个口则是**两档都交 px**（新断言用它们更直接）。
+
+        /// <summary>这一件是不是**画布档**（判据只此一处；世界档 = `false`）。</summary>
+        public bool OnCanvas { get { return _ugui; } }
+
+        /// <summary>滑块**根**那一级（原版那颗 `Slider` 节点）。两档都有 ⇒ 自检**跨档找子件**都从它出发
+        /// （⛔ 别再用 `sp.transform.Find("slider_…")` —— 画布档下它挂在**面板帧**上、不在世界壳下）。</summary>
+        public Transform Node { get { return _root != null ? _root.transform : null; } }
+        /// <summary>`slider_fill` 那一级（世界档 = 九宫格的根、画布档 = 那张 `Image (Sliced)`）。</summary>
+        public Transform FillNode { get { return _fillRoot != null ? _fillRoot.transform : null; } }
+        /// <summary>`slider_handle` 那一级（两档同名）。</summary>
+        public Transform HandleNode { get { return _handle != null ? _handle.transform : null; } }
+
+        /// <summary>轨道**画出来**的矩形（**px**）。世界档 = 量 `slider_bg` 那几块 quad 的并集
+        /// （宽取本件的 `_w`、高取 `TrackWorldH`）；画布档 = 那张 `Image (Sliced)` 的 `sizeDelta`。
+        /// 判据 = 原版那三根 **561.08 × 12.00**（战斗）。</summary>
+        public Vector2 TrackSizePx
+        {
+            get
+            {
+                if (_ugui) { var b = _bgImg; return b != null ? HudCanvas.SizePx(b.rectTransform) : Vector2.zero; }
+                return new Vector2(_w * U, TrackWorldH * U);
+            }
+        }
+
+        /// <summary>填条**画出来**的矩形（**px**）。世界档 = `(FillWorldW, 填条那层的并集高) × U`；
+        /// 画布档 = 那张 `Image (Sliced)` 的 `sizeDelta`（= `值 × 轨道宽` × 轨道高）。
+        /// 判据 = 「与 `Background` 同高」（原版 `Fill` 与 `Background` 同父同高 —— 见 `A130`）。</summary>
+        public Vector2 FillSizePx
+        {
+            get
+            {
+                if (_ugui)
+                {
+                    var im = _fillImg;
+                    return im != null ? HudCanvas.SizePx(im.rectTransform) : Vector2.zero;
+                }
+                float h = 0f;
+                if (_fillRoot != null)
+                    foreach (var q in _fillRoot.GetComponentsInChildren<ImageQuad>(true))
+                        if (q != null) h = Mathf.Max(h, q.WorldH);
+                return new Vector2(FillWorldW * U, h * U);
+            }
+        }
+
+        /// <summary>手柄**画出来**的矩形（**px**）—— 原版那九根 = **34.406 × 34.406**
+        /// （110×110 方图 + `preserveAspect` 取短边；判据 → `HandlePx`）。
+        /// ⚠️ 它与 `HandleHitPx`（= **原版命中框** 96.811×84.406）**是两个不同的框**，⛔ 别互相顶替。</summary>
+        public Vector2 HandleSizePx
+        {
+            get
+            {
+                if (_handle == null) return Vector2.zero;
+                var rt = _handle.Rect;
+                if (rt != null) return HudCanvas.SizePx(rt);       // 画布档：`sizeDelta` = (handlePx, handlePx)
+                return new Vector2(_handle.WorldW * U, _handle.WorldH * U);
+            }
+        }
+
+        /// <summary>三层各自的**兄弟序档**（`HudCanvas.OrderZOf`；认不出 ⇒ `NaN`）—— 自检用。
+        /// 🔴 **只对画布档有判别力**（世界档的先后归 `renderQueue`、这里恒 `NaN`）。
+        /// 判据 = 「`queue` 大 = 画在上面」⇒ 兄弟序 z **取负** ⇒ 不变量是
+        /// **`BgOrderZ > FillOrderZ > HandleOrderZ`**（`Add` 的 z 大 ⇒ 画在底下 ⇒ 轨道压在底下、手柄在最上面）。
+        /// 🧨 灭自证：三层里任意两个的 z 写反（例如三处都写 `-queue`）⇒ 这一组红；
+        /// 「只断其中一层等于某个数」的写法**抓不住**这种反。
+        /// <para>⚠️ **世界档直接返回 `NaN`、不去问 `HudCanvas`**（那些件根本没登记过）——
+        /// 免得那三个只读口在**不需要画布的场景**（外壳侧）里白白建出一堆空的 z 账条目。</para></summary>
+        public float BgOrderZ
+        {
+            get
+            {
+                if (!_ugui || _bgRoot == null) return float.NaN;
+                return HudCanvas.OrderZOf((RectTransform)_bgRoot.transform);
+            }
+        }
+        /// <summary>见 <see cref="BgOrderZ"/>。</summary>
+        public float FillOrderZ
+        {
+            get
+            {
+                if (!_ugui || _fillRoot == null) return float.NaN;
+                return HudCanvas.OrderZOf((RectTransform)_fillRoot.transform);
+            }
+        }
+        /// <summary>见 <see cref="BgOrderZ"/>。</summary>
+        public float HandleOrderZ
+        {
+            get
+            {
+                var rt = _ugui && _handle != null ? _handle.Rect : null;
+                return rt != null ? HudCanvas.OrderZOf(rt) : float.NaN;
             }
         }
 

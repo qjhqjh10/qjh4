@@ -23,6 +23,18 @@
 //   · `Contains(world)` —— 同样用 `GetWorldCorners()` 得到的**世界四边形**判内点。
 //     这样它与旧 quad 那条路**量的是同一件事**（画出来的那个矩形），且非 16:9 下也成立。
 //   · `Texture` —— uGUI 那一侧取 `Image.sprite.texture`。
+//   · 🆕 `SizePx`（**2026-10-16 `EW11` 补**）—— **真设计 px**（1920×1080 那一套）：
+//     quad 支 = `WorldW/H × 108` · uGUI 支 = **转调 `HudCanvas.SizePx(Rect)`**（= `sizeDelta`）。
+//     🔴 **凡「读『画出来多大』」一律走它** —— `WorldW/H` 是**世界单位**，拿它 `× 108` 在非 16:9 下
+//     只有真设计 px 的 **0.75 倍**（批处理实测 640×480；判据见 `WorldW` 那两段 + `SetWorldHeight` 的 doc，
+//     先例 = `HudCanvas.SizePx` / `BattleLogPanel.FrameSizePx`）。详见它自己的 doc（含**点锚**那条边界）。
+//
+// 🔴🔴 **写回口（`NudgeWorld` / `SetWorldHeight`）那两个 `108` —— 2026-10-16（`EW2`）现核后的口径，⛔ 别按
+//   「硬编码的世界→画布系数」把它换成实测系数**（批处理下 x 108 / y 144，见 `T09` §七·8）：
+//   **它俩不是「世界单位 → 画布单位」的换算，是 `LayoutSpace.Px()` 的【逆】** —— 现存三个调用点
+//   （`BattleDriver.cs:15850/15851/16304`）**都先套了 `Px()`**，`× 108` 只是把那个 ÷108 还原成**设计 px**。
+//   换成 144 ⇒ 每一处偏移/尺寸乘成 **1.333 倍**（回合灯会离开牌堆底板、卡背高会超原版 `m_SizeDelta` 33%）。
+//   完整判据与「真要动就必须成对动」的清单 → 那两个口的 doc。
 // ─────────────────────────────────────────────────────────────────────────────
 
 using UnityEngine;
@@ -101,6 +113,48 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>这个件画出来的尺寸（**真设计 px**，即 **1920×1080** 那一套）—— ⛔ **不是世界单位**。
+        ///
+        /// <para>🔴 **2026-10-16（`A1302` · `EW11`）为什么要有它**：<see cref="WorldW"/> /
+        /// <see cref="WorldH"/>（本类，**世界单位**）与 `Label.WorldW/WorldH`（**px**）**同名不同量纲**
+        /// —— 本会话那个「**0.75 倍**」的总源头就是「**拿世界尺寸去折 px**」。对**已迁 uGUI** 的件，
+        /// `WorldH × 108f` 在非 16:9 下**只有真设计 px 的 0.75 倍**（交到画布上的 `sizeDelta` 会被
+        /// `CanvasScaler` 的 `scaleFactor` 缩一道）；判据 → `WorldW` 那两段 doc +
+        /// <see cref="SetWorldHeight"/> 的 doc + `T09` §七·8（**批处理实测就是 640×480**，
+        /// `Core/LayoutSpace.cs:174` 有自证句）。
+        /// ⇒ **凡「自检要读『画出来多大』」一律走本口**（口径同 `HudCanvas.SizePx` /
+        /// `BattleLogPanel.FrameSizePx` / `MultiCardDisplay.ContinueBarDrawnPx` —— 全仓已经三条先例）。</para>
+        ///
+        /// <para>两种模式**各读各的**（⛔ 别用一个去凑另一个）：
+        /// · quad 支 ⇒ `WorldW/H × 108` —— 那一族的 quad 就是按 `LayoutSpace.Px()`（÷108）的尺建的，
+        ///   所以 `× 108` 是它的逆，**原值逐个位不变**；`108` 是**设计常数**
+        ///   （= `LayoutSpace.DesignPxH / DesignHeight`），⛔ **不是**随屏变的实测系数。
+        /// · uGUI 支 ⇒ **转调 `HudCanvas.SizePx(Rect)`**（= `sizeDelta`）—— ⛔ **不在这里另写一份**：
+        ///   `HudCanvas` 文件头那条推导（**一个 canvas 单位 = 一个设计 px**，`MakeAnchored` / `MakeImage`
+        ///   就是把设计 px 原样写进 `sizeDelta` 的）**判据只留那一处**，也是本会话其余三条先例
+        ///   （`BattleLogPanel.FrameSizePx` / `MultiCardDisplay.ContinueBarDrawnPx` / `HudCanvas.SizePx`）的口。</para>
+        ///
+        /// <para>⚠️ **一个现核过的边界（2026-10-16 `EW11`）——「今天安全、别照抄」**：
+        /// uGUI 支读的是 `sizeDelta`，那个量**只在点锚（`anchorMin == anchorMax`）下等于绝对尺寸**；
+        /// 拉伸锚（`anchorMin != anchorMax`）时它是「相对父矩形」的增量，`FillParent` 那一路
+        /// 还会把它写成 **(0, 0)**。现核：本仓**确实有四个**把 `HudPiece` 拉成拉伸锚的调用点 ——
+        /// `BattleLogPanel.cs:652`（`_shade`）· `EndPanel.cs:218`（`_dim`）·
+        /// `MulliganPanel.cs:634`（`p._shade`）· `SettingsPanel.cs:768`（`_shade`）
+        /// ⇒ **那四件调本口会读到 (0,0)**。
+        /// ✅ **今天不踩**：本口此刻只有三个消费者，拿的全是**点锚件**
+        /// （`BattleDriver.HudExtraDrawnPx` / `CameraResetButtonDrawnPx` / `AllianceButtonDrawnPx`，
+        /// 底层都是 `HudAbs` → `HudImageTex` → `HudCanvas.MakeAnchored`，点锚）。
+        /// ⛔ **将来要拿拉伸锚的件调本口**：先把锚点设回去，或改读 `Rect.rect.size`（那才是拉伸后的真尺寸）
+        /// —— **别直接 `q.SizePx`**（会静默给 0）。</para></summary>
+        public Vector2 SizePx
+        {
+            get
+            {
+                if (_quad != null) return new Vector2(_quad.WorldW, _quad.WorldH) * 108f;
+                return HudCanvas.SizePx(_rt);
+            }
+        }
+
         /// <summary>当前染色（自检用）。</summary>
         public Color Tint { get { return _quad != null ? _quad.Tint : (_img != null ? _img.color : Color.white); } }
 
@@ -147,7 +201,35 @@ namespace CardPresentation
 
         /// <summary>平移这个件（**世界单位**的增量）。两种模式各用各的口：
         /// quad ⇒ `transform.localPosition`；uGUI ⇒ `anchoredPosition`（+y 向上，与世界 +y 同向）。
-        /// ⚠️ 别在调用点自己写 `transform.localPosition` —— uGUI 那一侧的单位与原点都不是那一套。</summary>
+        /// ⚠️ 别在调用点自己写 `transform.localPosition` —— uGUI 那一侧的单位与原点都不是那一套。
+        ///
+        /// <para>🔴🔴 **单位契约（2026-10-16 · `EW2` 现核 —— 读了再改）**：传进来的数**一律是
+        /// 「设计 px ÷ 108」**（= `LayoutSpace.Px(px)` 的像 —— `BattleDriver.cs:1377`
+        /// `static float Px(float px) { return px / 108f; }`）；三个现存调用点
+        /// （`BattleDriver.cs:15850/15851` 回合灯 · `:16304` 牌堆卡背）**都先套了 `Px()`**，
+        /// 所以 uGUI 支这里 `× 108` 是它的**逆**：两个分支交出的是**同一个量**（原版那个**设计 px**）——
+        /// quad 支的 `localPosition` = 设计 px/108 **世界单位**，uGUI 支的 `anchoredPosition` = **设计 px ·
+        /// 画布单位**。这与「原版 HUD 是画布件、位置/尺寸都印在 `m_SizeDelta`/`anchoredPosition` 里」逐位一致
+        /// （口径 → `T09` §五·补⑧ 那张表：已迁族「位置 = 锚点 · 尺寸 = **设计 px**」）。</para>
+        ///
+        /// <para>⚠️ **为什么⛔ 不能换成「按轴实测的画布单位/世界单位」**（批处理下 x 108 / y 144，
+        /// 判据 → `T09` §七·8）：那会把**每一处**偏移乘成 **1.333 倍**。实测量：回合灯的
+        /// `MyLightDxPx = 83.46` 是从**原版 rect** 推出来的设计 px（`BattleDriver.cs:1363-1376`），
+        /// 按 144 折会落到 **111.28 px** ⇒ 灯离开牌堆底板 33%；而它必须与牌堆底板（同一族、同一把尺）
+        /// 严丝合缝。同一批代理在 `T09` §七·8 记的结论正是「**画面其实是对的**」——
+        /// 偏 0.75 的是**拿世界尺寸去折 px 的【读回】**（`q.WorldH × 108f`），⛔ 不是这里。</para>
+        ///
+        /// <para>🔴 **真要动本口，必须【成对】动**（半迁移比不迁更坏）：① `HudImageTex` 的
+        /// `hPx = worldHeight * 108f`（`BattleDriver.cs`，同一个 `Px()` 契约）② 上面那三个调用点
+        /// ③ 本口两个分支的语义。荐的路子是把口改成**显式 px**（`NudgePx(dxPx, dyPx)`：quad 支自己 `Px()`、
+        /// uGUI 支原样吃 px），`108` 就只剩 `LayoutSpace` 一处 —— ⛔ 但那是**白名单外**的活，
+        /// 本件只记判据、**不擅自长新口**（本件是迁移脚手架，见文件头）。</para>
+        ///
+        /// <para>✅ **16:9 逐位不变**：`scaleFactor == 屏高/1080`（宽高比 ≥ 16:9）时两支画出来**逐位相同**
+        /// （那时实测系数也正好是 108，`LayoutSpace.HudTextScale == 1`）；只有比 16:9 **窄**的档
+        /// （批处理 640×480 就是）才相差 `1/HudTextScale`（uGUI 支 = quad 支 × 0.75）——
+        /// 那是**原版画布件在窄屏本来就按 `scaleFactor` 缩**这件事（`LayoutSpace.HudTextScale` 的 doc
+        /// 把这条推导写全了），⛔ 两边谁都不该去凑另一个。</para></summary>
         public void NudgeWorld(float dxWorld, float dyWorld)
         {
             if (_quad != null)
@@ -155,7 +237,14 @@ namespace CardPresentation
                 _quad.transform.localPosition += new Vector3(dxWorld, dyWorld, 0f);
                 return;
             }
-            if (_rt != null) _rt.anchoredPosition += new Vector2(dxWorld * 108f, dyWorld * 108f);
+            // ⚠️ 这个系数 = `LayoutSpace.Px()` 的逆（设计 px / 世界单位，两轴同值 108）——
+            //    ⛔ **不是**「世界单位 → 画布单位」的实测系数（那个随屏变、两轴还可能不同）。
+            //    判据与「换成实测系数会把件放大 1.333 倍」的实测例 → 上面那段 doc。
+            if (_rt != null)
+            {
+                float k = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
+                _rt.anchoredPosition += new Vector2(dxWorld * k, dyWorld * k);
+            }
         }
 
         /// <summary>这个件贴着的**归一化锚点**（x 从左、y 从**下**算）—— 自检读回用。
@@ -169,12 +258,25 @@ namespace CardPresentation
 
         /// <summary>设**画心高**（世界单位），**保持当前宽高比**（⛔ 不动比例 —— 调用点接着会自己调
         /// `SetAspect` 把宽定下来，见 `FitDeckPile` 那三步）。判据同 <see cref="SetAspect"/>：
-        /// 设计 px = 世界单位 × 108。</summary>
+        /// 设计 px = 世界单位 × 108。
+        ///
+        /// <para>🔴 **单位契约与那个 `108` 的来路 = 与 <see cref="NudgeWorld"/> 同一条**（那段 doc 有完整判据，
+        /// ⛔ 别只看这一处）**：传进来的数**一律是「设计 px ÷ 108」**（`BattleDriver.cs:1377` 的 `Px()` 的像），
+        /// uGUI 支乘回去得到的就是**原版设计 px** —— 也就是 `sizeDelta` 该有的数
+        /// （`FitDeckPile` 的 `SetWorldHeight(Px(h))` 里那个 `h` 正是原版卡背节点高，见 `BattleDriver.cs:16301`）。
+        /// ⛔ **换成实测系数（批处理 y 轴 144）⇒ 卡背高变成原版 `m_SizeDelta` 的 1.333 倍**，
+        /// 而且会与同一族的牌堆底板（`HudImageTex` 用同一把 108 尺建的）错开。</para>
+        ///
+        /// <para>⚠️ **世界档那一条不受影响**：`_quad != null` 时原样转发 `ImageQuad.SetWorldHeight`（世界单位），
+        /// 那一支的量纲本来就对；只有 uGUI 支在「世界单位」这个名字下走的其实是**设计 px** 那把尺。</para>
+        ///
+        /// <para>✅ **16:9 逐位不变** · **读回要读 `sizeDelta`**（`HudCanvas.SizePx`）：`q.WorldH * 108f` 在窄屏是
+        /// 设计 px 的 0.75 倍（`T09` §七·8），⛔ 别拿它当「这个口写错了」的证据。</para></summary>
         public void SetWorldHeight(float worldH)
         {
             if (_quad != null) { _quad.SetWorldHeight(worldH); return; }
             if (_rt == null || worldH <= 0f) return;
-            float h = worldH * 108f;
+            float h = worldH * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);   // = `LayoutSpace.Px()` 的逆（见 doc）
             float a = _rt.sizeDelta.y > 0f ? _rt.sizeDelta.x / _rt.sizeDelta.y : 1f;
             _rt.sizeDelta = new Vector2(h * a, h);
         }

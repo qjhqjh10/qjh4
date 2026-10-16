@@ -215,10 +215,12 @@ namespace CardPresentation
             // ---- 子画布：`OverHand` / order 0（判据 = 文件头那一行，⛔ 别自己编）--------------------
             // 🔴 **子 Canvas 一个 `CanvasScaler` 都不许加**（原版全场景只有一个、在根上 ⇒ 加了会二次缩放）。
             HudCanvas.Ensure(LayoutSpace.Cam);          // 幂等（`HudAbs` 那一族会先建；这里兜底）
-            var cv = HudCanvas.SubCanvas(SubCanvasName);
-            var cvRt = cv != null ? (RectTransform)cv.transform
-                                  : HudCanvas.EnsureSubCanvas(null, SubCanvasName,
-                                                              HudCanvas.SortingLayer.OverHand, 0);
+            // 🔴 **2026-10-16（修波 `FD` · 账 `F10`）就地订正（铁律 5）**：这里原来还写着
+            //   「先 `SubCanvas(SubCanvasName)` 按名字找一次、找不到再 `EnsureSubCanvas`」，
+            //   理由（写在别处）是「`EnsureSubCanvas` 不会去重」—— **那句已过期**：它早已改成**按名字幂等**
+            //   （复用路径还会对齐层/order + 重排次）⇒ 那个包装**已删**，直接调它。
+            var cvRt = HudCanvas.EnsureSubCanvas(null, SubCanvasName,
+                                                 HudCanvas.SortingLayer.OverHand, 0);
             if (cvRt == null)
             {
                 Debug.LogError("[选卡面板] `OverHand` 子画布建不起来（根 canvas 没有？）"

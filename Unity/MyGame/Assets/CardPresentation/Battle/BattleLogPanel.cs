@@ -740,17 +740,23 @@ namespace CardPresentation
             SelectedRow = -1;      // 🆕 Z2：出厂「还没点过任何一行」（别让它默认成 0 = 看着像点过第 1 行）
         }
 
-        /// <summary>取 / 建本扇的**子画布**（**幂等**：先按名字找、没有才建）。
+        /// <summary>取 / 建本扇的**子画布**（**幂等** —— 现在由 `HudCanvas.EnsureSubCanvas` **自己**保证）。
         /// 🔴 为什么要幂等：`BattleLogPanel.Create` 在 `BattleScene.Run` 里**会被调两次**
         /// （一次是生产侧 `BattleDriver.BuildHud`，另一次是 `Editor/BattleScene.cs` 的 §A218 探针），
         /// 而子画布是挂在**根 canvas** 下的 ⇒ 不幂等就会留**两块同名子画布**（同层同 order、内容各一份）。
-        /// ⚠️ 同批 `EndPanel`/`BattleDoors` 那一位写手用的是**同一个做法**（`BattleDoors.PairCanvas()`）。
+        /// 🔴 **2026-10-16（修波 `FD` · 账 `F10`）就地订正（铁律 5）**：本方法原来**自己**包了一层
+        /// 「`SubCanvas` 查一次、没有才建」（配套那句读法「`EnsureSubCanvas` 不会去重」）—— **【已过期】**：
+        /// 它早已改成**按名字幂等**（复用路径还会把层/order 对齐到本次传的值 + 重排次）⇒
+        /// 那两行**已删**、改成直调它（⚠️ 本处**原本就没有** `Ensure` 也没有自己的 guard —— 那两条在
+        /// 调用点 `:635`/`:637` 那边，**一个字没动**）。
+        /// ⚠️ 本方法原来那句「同批 `EndPanel`/`BattleDoors` 那一位写手用的是**同一个做法**」**一并过期** ——
+        /// 那一处的包装本波**同样删了**（`BattleDoors.PairCanvas`）⇒ 两处现在都是直调。
+        /// 📌 **本方法保留**（它不再包一层）：它是本扇「**名字 + 层 + order**」三元组的**唯一落点**，
+        /// 调用点 `:636` 照旧引用它。⚠️ 这一处正是 `R1` §②-10 与台账 `F10` **都漏掉的第 5 处**。
         /// ⚠️ 复用到的画布里可能还留着上一次建的那份件（它们那棵 `_root` 是 `SetActive(false)` 的）——
         /// 对本扇没有影响（各挂各的 `_root`），但**别**把 `SubCanvas` 当「只有我一个用户」用。</summary>
         static RectTransform ReuseOrMakeCanvas()
         {
-            var found = HudCanvas.SubCanvas(CanvasName);
-            if (found != null) return (RectTransform)found.transform;
             return HudCanvas.EnsureSubCanvas(null, CanvasName, HudCanvas.SortingLayer.PopUps, LogSortingOrder);
         }
 

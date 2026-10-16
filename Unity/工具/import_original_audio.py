@@ -62,6 +62,35 @@
      `voice` 是**空数组**）。⇒ **本脚本不修它**（`d:/2/` 不在本仓的写范围），
      只把它从「唯一来源」降为「兜底」，并在它和卡 SO 冲突时**以卡 SO 为准**。
 
+🔴🔴 **2026-10-16（账 `A1768`）新增两块 —— 目的是把「猜」换成原版真值**：
+
+**归属①·B = 卡 SO 的 12 个 `*ChatSound`**（原版字段 → clip → 卡）。
+   · 为什么单开一级：`gen_card_vfx_by_card.py` 的 `SO_ASSET_FIELDS` 只收
+     `summonAudio`/`attackAudio`/`deathAudio` **三个** ⇒ 这 12 个**既不在
+     `card_vfx_by_card.json`、也不在 `guid_map.tsv`** 里，只在 SO 本体
+     （`cards_1195_2022时代.json`：`defaultChatSound` 59 / `introChatSound` 59 /
+     `mirrorChatSound` 59 / `concedeChatSound` 59 / `hurryChatSound` 57 /
+     `iCantDoThatChatSound` 58 / `greetChatSound` 59 / `threatChatSound` 59 /
+     `wellPlayedChatSound` 59 / `generic1..3ChatSound` 59/59/59，卡数口径）。
+   · GUID → 资产名：**并集**取 `card_vfx_by_card.json` 的 `_assetRefs`（带 `guid`+`assetName`）
+     与 `数据/索引/anim_address_map.json` 的 `guid_to_asset`（10,325 条）—— 实测只剩
+     1–2 个 GUID 两边都没有（EC55 `Lucius the Eternal` / EC56 `Lord Kaphrael` 整套，
+     以及 `BL47` 的 summon、`GOF2` 的 death），**逐条打在运行输出里**，⛔ 不静默。
+   · SO `uniqueId` → 我们卡 id：走 `card_vfx_by_card.json` 的 `_assetRefs[].origCardId`
+     （实测 1,009 对，且**逐条 `origCardId == byCard 的键`**）。
+   · ⛔ **3 个战斗字段的「字段名 → 事件名」表不在这里重写** —— 那是
+     `gen_card_vfx_by_card.py:195` `AUDIO_SO_FIELD_EVENT` 的正本，本脚本 `import` 它。
+
+**事件名回真值**（`ev` 那一路）：以前 `ev` 一律由**文件名后缀**推（`parse_name`）。
+   现在多一道**校正**：任何一条 clip，只要它在**卡 SO 全池（1,195 张，不分我们卡表）**里
+   被**恰好一个**原版字段引用过，就按那个字段定 `ev`，并带上 `so` = 原版字段名。
+   · 校正表按 **clip** 建（不是按卡）⇒ `card_index` / 孤儿那两级沾的错事件名也一起被纠正。
+   · 一个 clip 被**多个**字段引用（如 `attackAudio` 与 `defaultChatSound` 实测**同 GUID**，
+     59 张卡全同）⇒ **认不出来就不动它**，保留文件名推的那个（宁可认不出，不可认错）。
+   · ⇒ 因此 `line` 这个**我们自己造的名字退场**，改叫原版的 `summonAudio` 的译名 `deploy`
+     （译名同 `AUDIO_SO_FIELD_EVENT`，**只此一处**）。判据：出场台词那一族
+     `VO_<阵营>_<卡名> - <台词>.ogg` 实测 **448/536 条**就是 `summonAudio` 的落点。
+
 用法：
     PYTHONIOENCODING=utf-8 python 工具/import_original_audio.py --check   # 只报告，不写盘
     PYTHONIOENCODING=utf-8 python 工具/import_original_audio.py           # 拷音频 + 写映射
@@ -84,16 +113,48 @@ CARDS_ENGINE = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
 # ⚠️ 取**全量那份**（`数据/` 下），不是 `Resources/` 下那份运行时的投影 ——
 #    全量的带 `assetKind`/`assetName`/`soField`，且不进包体。
 CARD_SO_VFX = "d:/4/Unity/数据/游戏数据/card_vfx_by_card.json"
+# 🔴 **归属①·B（权威）**：卡 SO 的 12 个 `*ChatSound` —— 只在 SO **本体**里（见文件头）。
+CARD_SO_TRUTH = "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json"
+# GUID → 资产名 的第二来源（第一来源 = `card_vfx_by_card.json` 的 `_assetRefs`，两处**取并集**）
+ANIM_ADDRESS_MAP = "d:/4/Unity/数据/索引/anim_address_map.json"
 DST_AUDIO = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/audio/vo"
 DST_JSON = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/voice_lines.json"
 
-# 认得出的事件后缀（**小写**比较）。⚠️ `wp` 的语义未证实（只在文件名里出现），
-# 但**照原样收进来**不解释 —— 不认识的照样进表，事件名就叫它自己。
+# 认得出的事件后缀（**小写**比较）。⚠️ `wp` 的语义曾经「未证实」——
+# 🔴 **2026-10-16（`A1768`）已坐实**：`RawCardScript__GetChatSound.c` 的 `switch` 里
+#    `case 7 → *(RawCardScript + 0x1D0)`，而 `dump.cs:23311` 写着 `wellPlayedChatSound; // 0x1D0`
+#    ⇒ **`wp` = `wellPlayedChatSound`（原版 `ChatMessage.WellPlayed` = 枚举 7）**。
+#    同一条 switch 把另外 10 个也钉死了（下表）。
 KNOWN_EVENTS = {
     "greet", "attack", "death", "concede", "hurry", "intro", "mirror", "threat",
     "wp", "tbc", "cantdo", "cant", "backup",
 }
 _EVENT_RE = re.compile(r"^(gen[1-9]|backup\d+|vs.*)$")
+
+# 🔴 **卡 SO 的 12 个 `*ChatSound` → 我们的事件名**（与 `VoiceLines.cs` 那一族逐字一致）。
+#    判据（**两条独立证据，都现核过**）：
+#      ① `RawCardScript__GetChatSound.c` 的 `switch(chatMsgIndex)` 给出**枚举号 → 字段偏移**：
+#         0→0x190 intro · 1→0x198 mirror · 2→0x1A8 hurry · 3→0x1B0 iCantDoThat ·
+#         4→0x1A0 concede · 5→0x1B8 greet · 6→0x1C0 threat · 7→0x1D0 wellPlayed ·
+#         8→0x1C8 generic1 · 9→0x1D8 generic2 · 10→0x1E0 generic3；
+#         `default:` 那支取不到时落回 `+0x188` = `defaultChatSound`。
+#      ② `dump.cs:23300-23315` 的**字段名 ↔ 偏移**逐行对得上上面那组偏移。
+#      ③ 枚举名 = `dump.cs:23189-23207`（`ChatMessage`），与 `资料/语音线_原版规格与ASR管道.md` §1.1 同表。
+#    ⛔ `generic4..7` 在字段表里**不存在**（类在 0x1E0 结束）⇒ 不认，别把它当第 13–16 个字段。
+CHAT_SO_FIELD_EVENT = {
+    "introChatSound":       "intro",
+    "mirrorChatSound":      "mirror",
+    "hurryChatSound":       "hurry",       # 原枚举名 `Bored`，字段改名前叫 `boredChatSound`
+    "iCantDoThatChatSound": "cantdo",
+    "concedeChatSound":     "concede",
+    "greetChatSound":       "greet",
+    "threatChatSound":      "threat",
+    "wellPlayedChatSound":  "wp",          # ← `wp` 的语义就在这一行（见上）
+    "generic1ChatSound":    "gen1",        # 原 `tauntChatSound`
+    "generic2ChatSound":    "gen2",        # 原 `sorryChatSound`
+    "generic3ChatSound":    "gen3",        # 原 `oopsChatSound`
+    "defaultChatSound":     "default",     # 原版聊天的**兜底**（`GetChatSound` 取不到词条时落它）
+}
 
 
 def norm_event(suffix):
@@ -107,17 +168,26 @@ def norm_event(suffix):
 
 
 def parse_name(base):
-    """文件名 → (事件, 台词原文)。`<...> - <台词> (配音演员)` 这种是**出场台词**（普通单位就这一条）。"""
+    """文件名 → (事件, 台词原文)。`<...> - <台词> (配音演员)` 这种是**出场台词**（普通单位就这一条）。
+
+    🔴 **2026-10-16（`A1768`）：`line` 这个名字退场，改叫 `deploy`。**
+    理由：`line` 是**我们自己**造的词，而原版这一族有字段名 —— `RawCardScript.summonAudio`
+    （`dump.cs:23270`，偏移 `0xB8`），译名 `deploy`（`gen_card_vfx_by_card.AUDIO_SO_FIELD_EVENT`）。
+    实测佐证：`summonAudio` 指到的 clip 里 **448/536** 正是这种「` - <台词>`」命名；
+    消费点 = `VoiceLinesController__DisplaySummonMessage.c:31` → `RawCardScript__GetSummonSound`
+    ⇒ 「登场那句话」与「出场台词」**是同一件事**（这一条 2026-10-14 还写着「无判据」）。
+    ⚠️ 没有 SO 佐证的那些（自造卡 / 2025-07 之后的新卡）**按同一命名规律归入**，
+       这条是**推断**：`so` 字段为空即表示「没佐证」。"""
     stem = os.path.splitext(base)[0]
     if " - " in stem:
         text = stem.split(" - ", 1)[1].strip()
         # 去掉结尾的配音演员名（`(Vivienne)` 这种）
         text = re.sub(r"\s*\([^)]*\)\s*$", "", text).strip()
-        return "line", text
+        return "deploy", text
     # 没有 " - " 的：看尾段是不是事件
     tail = stem.rsplit("_", 1)[-1] if "_" in stem else ""
     ev = norm_event(tail)
-    return (ev, "") if ev else ("line", "")
+    return (ev, "") if ev else ("deploy", "")
 
 
 def load_audio_index():
@@ -238,6 +308,149 @@ def load_card_so_audio():
     return out, problems
 
 
+# ======================================================================
+#  🆕 2026-10-16 · 账 `A1768`：归属①·B（12 个 `*ChatSound`）+ 事件名回真值
+# ======================================================================
+
+def _load_vfx_json():
+    """读一次全量那份 `card_vfx_by_card.json`（两处要用，读一次省 40 MB 的重复解析）。"""
+    return json.load(io.open(CARD_SO_VFX, encoding="utf-8"))["byCard"]
+
+
+def load_guid_name_index(by_card):
+    """`{guid 小写: 资产名}` —— **两个现成产物的并集**，本脚本**不自己解 GUID**。
+
+      · `card_vfx_by_card.json` 的 `_assetRefs[*]`（带 `guid` + `assetName`）——
+        这一路覆盖 `guid_map.tsv` 解出来的那批（实测比下面那份多 109 个）
+      · `数据/索引/anim_address_map.json` 的 `guid_to_asset`（10,325 条）
+
+    两路都解不出 = 真的没有（实测只剩 EC55/EC56 整套 + 2 条），调用方**逐条出声**。"""
+    idx = {}
+    for _cid, v in (by_card or {}).items():
+        for r in (v or {}).get("_assetRefs", []):
+            g = (r.get("guid") or "").lower()
+            n = r.get("assetName")
+            if g and n:
+                idx.setdefault(g, n)
+    try:
+        am = json.load(io.open(ANIM_ADDRESS_MAP, encoding="utf-8"))["guid_to_asset"]
+        for g, a in am.items():
+            n = (a or {}).get("name")
+            if n:
+                idx.setdefault(g.lower(), n)
+    except Exception as e:                                  # noqa: BLE001
+        print(f"⚠️ 读不到 `{ANIM_ADDRESS_MAP}`（{e}）—— 那 12 个 chat 音会多一批解不出")
+    return idx
+
+
+def load_card_so_audio_truth(by_card, audio_stems):
+    """🔴 **归属①·B + 事件名真值表**。
+
+    返回 `(own, truth, own_field, stats, problems)`：
+      · `own`   —— `{clip stem: [我们卡 id, ...]}`，**只收 12 个 chat 字段 + 能 join 上我们卡表的卡**（归属①·B）
+      · `truth` —— `{clip stem: {原版字段名: 我们的事件名}}`，**全池**（1,195 张，不分我们卡表）
+                   —— 它给「事件名回真值」用（见文件头）
+      · `own_field` —— `{(我们卡 id, clip stem): 原版字段名}`，**15 个字段全收** —— 它给
+                   `apply_event_truth` 判「这条真的是这张卡自己的字段吗」（⛔ 别拿别张卡的字段当它的）
+      · `stats` —— 逐字段的引用数 / 已解 / 未解，⛔ 不静默吞异常
+      · `problems` —— 该出声的异常
+
+    ⛔ **3 个战斗字段的字段名 → 事件名**从 `gen_card_vfx_by_card.AUDIO_SO_FIELD_EVENT` **import**
+    （那是正本，见文件头）。"""
+    problems, stats = [], {}
+    own, truth, own_field = {}, {}, {}
+
+    # ---- 事件名表：3 个战斗字段（import 正本）+ 12 个 chat 字段（本文件）----
+    combat = {}
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import gen_card_vfx_by_card as _gv
+        combat = dict(getattr(_gv, "AUDIO_SO_FIELD_EVENT", {}) or {})
+    except Exception as e:                                  # noqa: BLE001
+        problems.append(f"🔴 `import gen_card_vfx_by_card` 失败（{e}）⇒ **三个战斗字段的"
+                        "「字段名 → 事件名」取不到**，那三条只能继续按文件名后缀推（会出声）")
+    if not combat:
+        problems.append("🔴 `gen_card_vfx_by_card.AUDIO_SO_FIELD_EVENT` 是空的 ⇒ "
+                        "同上：`deploy`/`attack`/`death` 三条不进真值表")
+    field_ev = dict(combat)
+    field_ev.update(CHAT_SO_FIELD_EVENT)
+
+    # ---- SO `uniqueId` → 我们卡 id（实测 1,009 对；`origCardId` **逐条等于** byCard 的键）----
+    uid2our = {}
+    for cid, v in (by_card or {}).items():
+        for r in (v or {}).get("_assetRefs", []):
+            o = r.get("origCardId")
+            if o:
+                uid2our.setdefault(o, cid)
+
+    try:
+        so_cards = json.load(io.open(CARD_SO_TRUTH, encoding="utf-8"))
+    except Exception as e:                                  # noqa: BLE001
+        problems.append(f"🔴 读不到卡 SO 本体 `{CARD_SO_TRUTH}`（{e}）"
+                        "⇒ **归属①·B 整级失效**（12 个 chat 音只剩按名猜）")
+        return own, truth, own_field, stats, problems
+
+    g2n = load_guid_name_index(by_card)
+    for c in so_cards:
+        uid = (c or {}).get("uniqueId")
+        our = uid2our.get(uid)
+        for f, ev in field_ev.items():
+            g = ((c or {}).get(f) or {}).get("m_AssetGUID") or ""
+            if not g:
+                continue
+            st = stats.setdefault(f, {"ref": 0, "ok": 0, "noguid": 0, "ev": ev})
+            st["ref"] += 1
+            name = g2n.get(g.lower())
+            if not name or name not in audio_stems:
+                st["noguid"] += 1
+                continue
+            st["ok"] += 1
+            truth.setdefault(name, {}).setdefault(f, ev)
+            if our:
+                own_field.setdefault((our, name), f)
+            # ⚠️ `own` **只收 12 个 chat 字段** —— 3 个战斗字段那一批已经被归属① 认走了
+            #    （`card_vfx_by_card.json`），在这儿再收一遍会**同一条 clip 记两次**。
+            if our and f in CHAT_SO_FIELD_EVENT:
+                if our not in own.setdefault(name, []):
+                    own[name].append(our)
+    return own, truth, own_field, stats, problems
+
+
+def apply_event_truth(lines, truth, own_field):
+    """🔴 **事件名回真值**：`ev` 不再一律由文件名后缀推。
+
+    判据 = **卡 SO 全池**里这个 clip 被哪些原版字段引用过：
+      · 恰好 1 个字段 ⇒ 按它定 `ev`
+      · 0 个 / ≥2 个     ⇒ **不动**（认不出来就保留文件名推的那个 —— 宁可认不出，不可认错）
+
+    🔴 **`so` 只在「这条真的是这张卡自己的字段」时才写** —— `truth` 是 **clip 级**的，
+       而 `so` 是 **卡级**的声称。实测踩到过：`VO_Ultramarines_Ventris_gen4.ogg` 是
+       **另一个条目**（uid 是裸 GUID 的 `Uriel Ventris (tutorial)`）的 `generic2ChatSound`，
+       若照 clip 级往 `UM47` 头上写 `so=generic2ChatSound` 就是**张冠李戴**（复核代理会当场抓到）。
+
+    返回 `(ev 改了几条, so 写了几条, 多字段共用没敢动几条)`。"""
+    fixed = wrapped = amb = 0
+    for cid, rows in lines.items():
+        for r in rows:
+            if r.get("so"):
+                continue                      # 归属①·B 建的，本来就是真值
+            stem = os.path.splitext(r["file"])[0]
+            t = truth.get(stem)
+            if not t:
+                continue
+            if len(t) > 1:
+                amb += 1
+                continue
+            f, ev = next(iter(t.items()))
+            if r["ev"] != ev:
+                fixed += 1
+            r["ev"] = ev
+            if own_field.get((cid, stem)) == f:
+                r["so"] = f
+                wrapped += 1
+    return fixed, wrapped, amb
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只报告，不写盘")
@@ -303,6 +516,55 @@ def main():
         used_files.add(base)
         so_taken += 1
 
+    # ---- ①·B 卡 SO 的 12 个 `*ChatSound`（🔴 **权威**；2026-10-16 · 账 A1768 新增）----
+    # 这一级**没进** `card_vfx_by_card.json`（那份只收 3 个战斗字段）⇒ 只能回 SO 本体读。
+    # 冲突顺序不变：**卡 SO 说了算**；②/③ 认过的文件名一律让给它。
+    by_card = _load_vfx_json()
+    # ⚠️ 传**去扩展名的 stem 集合**：卡 SO 给的是 AudioClip **名**（不带扩展名）。
+    chat_map, clip_truth, clip_own_field, chat_stats, chat_problems = load_card_so_audio_truth(
+        by_card, set(by_stem))
+    for p in chat_problems:
+        print(p)
+    so_chat_taken = so_chat_ambig = so_chat_nocard = so_chat_dupstem = 0
+    for stem in sorted(chat_map):
+        bases = by_stem.get(stem, [])
+        if not bases:
+            continue                       # 上游产物脏了才算异常，逐条在下面 chat_stats 里报
+        if len(bases) > 1:
+            so_chat_dupstem += 1
+            print(f"⚠️ 音频源里 stem 撞车、跳过：{stem} → {bases}")
+            continue
+        owners = chat_map[stem]
+        if len(owners) != 1:               # 两张卡引用同一条 clip ⇒ 不认（宁可认不出）
+            so_chat_ambig += 1
+            continue
+        eng = byid.get(owners[0])
+        if eng is None:
+            so_chat_nocard += 1
+            continue
+        cid = eng["id"]
+        base = bases[0]
+        # 🔴 **这一条的 `ev` 直接来自原版字段名**（⛔ 不是文件名后缀）——
+        #    `so` = 那个字段名，留痕给自检 / 对账用（`VoiceLines.cs` 的 DTO 不声明它，会被忽略）。
+        #    ⚠️ `own` 只由 chat 字段建；但一个 clip 可能被**两个 chat 字段**引用
+        #       （实测 `introChatSound`+`mirrorChatSound` 这类 3 处）⇒ 那时**判不了就别塞**，
+        #       留给 ②/③ 按文件名后缀定（宁可认不出，不可认错）。
+        #    ⚠️ `attackAudio` 与 `defaultChatSound` **实测同 GUID**（59 张卡全同）⇒ 这里拿到的是
+        #       chat 那一个（`defaultChatSound`），于是同一个 clip 在表里**出现两次**
+        #       （一次 `attack`、一次 `default`）—— **这是原版事实**（两个字段真的都指它），不是重复导入。
+        chat_fields = [k for k in clip_truth[stem] if k in CHAT_SO_FIELD_EVENT]
+        if len(chat_fields) != 1:            # 判不了就别塞（宁可认不出）
+            so_chat_ambig += 1
+            continue
+        f = chat_fields[0]
+        ev = CHAT_SO_FIELD_EVENT[f]
+        card_meta[cid] = (eng["name"], eng["faction"])
+        lines.setdefault(cid, []).append({"ev": ev, "file": base,
+                                          "text": parse_name(base)[1], "src": "cardSO", "so": f})
+        so_files.add(base)
+        used_files.add(base)
+        so_chat_taken += 1
+
     # ---- ② 按 card_index 的归属建表（**兜底**；① 认走的文件名一律跳过）----
     overridden = []
     for c in index_cards:
@@ -320,9 +582,9 @@ def main():
         for v in c["voice"]:
             base = os.path.basename(v.replace("\\", "/"))
             if base in so_files:
-                # 🔴 **归属① 说了算**：index 把这条记在**别的卡**名下（实测 34 处），
-                #    或记对了（同卡）—— 两种都跳过：① 已经把它挂到正确的卡上了。
-                so_owner = so_map.get(os.path.splitext(base)[0])
+                # 🔴 **归属① / ①·B 说了算**：index 把这条记在**别的卡**名下（实测 34 处），
+                #    或记对了（同卡）—— 两种都跳过：上面那两级已经把它挂到正确的卡上了。
+                so_owner = so_map.get(os.path.splitext(base)[0]) or chat_map.get(os.path.splitext(base)[0])
                 if so_owner and so_owner[0] != cid:
                     overridden.append((base, cid, so_owner[0]))
                 continue
@@ -350,6 +612,12 @@ def main():
         lines.setdefault(cid, []).append({"ev": ev, "file": base, "text": text, "src": "orphan"})
         used_files.add(base)
 
+    # ---- ③·B 🔴 **事件名回真值**（2026-10-16 · 账 A1768）----
+    # 归属定下来之后统一校正一轮：`ev` 以前一律由文件名后缀推，现在只要那个 clip 在
+    # **卡 SO 全池**里被**恰好一个**原版字段引用过，就按那个字段定（并写 `so` = 字段名）。
+    # ⚠️ 必须放在 ④/⑤ 之前 —— 写盘的是校正后的表。
+    ev_fixed, ev_so, ev_ambig = apply_event_truth(lines, clip_truth, clip_own_field)
+
     # ---- ④ 拷贝音频 ----
     copied = skipped = 0
     if not args.check:
@@ -368,16 +636,21 @@ def main():
     # ⚠️ `lines[].src` 只有**不是兜底②**时才写（`"cardSO"` / `"orphan"`）——
     #    与 2026-09-18 起 `orphan` 那条同一规矩；`VoiceLines.cs` 的 DTO 不声明它，`JsonUtility` 会忽略。
     out = {
-        "version": 1,
+        "version": 2,
         "note": "原版单位语音表。id = 我们卡表的 id（cards_engine.json）；"
-                "file = Resources/Art/audio/vo/<名>（无扩展名时按文件名去掉扩展名）；"
-                "ev 见 语音索引.md §四（`wp` 语义未证实）。"
-                "归属三级：卡 SO（权威，lines[].src=cardSO）→ card_index.json（兜底，无 src）→ "
-                "按文件名猜（src=orphan）。",
+                "file = Resources/Art/audio/vo/<名>；"
+                "ev = 事件名（**按原版字段名定**，见 lines[].so）；`wp` = 原版 `wellPlayedChatSound`。"
+                "归属三级：卡 SO（权威，lines[].src=cardSO —— 含 summon/attack/death 三个战斗字段"
+                "与 12 个 *ChatSound）→ card_index.json（兜底，无 src）→ 按文件名猜（src=orphan）。"
+                "`lines[].so` = 该条音频在卡 SO 上的**原版字段名**（没佐证的条目不写）；"
+                "`lines[].text` 只作气泡文字用。",
         "source": {
             "audio": "d:/2/新解包资源/assets_full/bundle_*cardassets*_assets_all/AudioClip/",
             "owner": "① 卡 SO 的 summonAudio/attackAudio/deathAudio（经 "
-                     "d:/4/Unity/数据/游戏数据/card_vfx_by_card.json 的 byCard[*]._assetRefs）**权威**；"
+                     "d:/4/Unity/数据/游戏数据/card_vfx_by_card.json 的 byCard[*]._assetRefs）"
+                     "**+ 12 个 *ChatSound**（经 SO 本体 "
+                     "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json，GUID → 资产名走 "
+                     "card_vfx_by_card.json._assetRefs ∪ 数据/索引/anim_address_map.json 的 guid_to_asset）**权威**；"
                      "② d:/4/Unity/数据/索引/card_index.json 的 cards[].voice **兜底**",
             "script": "工具/import_original_audio.py",
         },
@@ -406,12 +679,23 @@ def main():
           f"**同 stem 两个扩展名** {so_dupstem} 条 · **音频源里没有** {len(missing_so)} 条")
     for s in missing_so:                  # 应该恒空；非空 = 上游产物脏了，逐条复核
         print(f"    ❌ 卡 SO 引用但音频源里没有：{s}")
-    print(f"card_index（归属② · 兜底）：被归属① **改判** {len(overridden)} 条"
+    print(f"card_index（归属② · 兜底）：被归属①/①·B **改判** {len(overridden)} 条"
           f"（index 记在别的卡名下 → 卡 SO 说了算）")
     for base, wrong, right in overridden[:12]:
         print(f"    · {base}：index={wrong} → cardSO={right}")
     if len(overridden) > 12:
         print(f"    …（共 {len(overridden)} 条，全表见 voice_lines.json 的 src=cardSO 行）")
+    print("=" * 78)
+    print("🆕 卡 SO 的 15 个音频字段（归属① / ①·B · 权威）：逐字段引用 / 已解 / 未解")
+    for f in sorted(chat_stats, key=lambda k: -chat_stats[k]["ref"]):
+        st = chat_stats[f]
+        print(f"    {f:<24} 事件 `{st['ev']:<8}` 引用 {st['ref']:>3} · "
+              f"已解 {st['ok']:>3} · **GUID 或音频源里没有** {st['noguid']}")
+    print(f"  并进我们卡表 {so_chat_taken} 条 · **两张卡共用、不认** {so_chat_ambig} 条 · "
+          f"**卡不在我们卡表** {so_chat_nocard} 条 · **同 stem 两个扩展名** {so_chat_dupstem} 条")
+    print(f"🔴 事件名回真值（`ev` 不再一律按文件名后缀推）：改正 {ev_fixed} 条 · "
+          f"另标上 `so`（**真的是这张卡自己的字段**）{ev_so} 条 · "
+          f"**一个 clip 被多个字段引用、没敢动** {ev_ambig} 条")
     print("=" * 78)
     print(f"卡片：有语音 {len(lines)} 张 · 台词 {total_lines} 条"
           f"（其中 归属① {n_so} 条 · 归属③按名字猜 {n_orph} 条）")

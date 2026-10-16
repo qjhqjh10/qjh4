@@ -640,7 +640,35 @@ namespace CardPresentation
         /// 矩形判据只此一份 → `CardFan.HitW/HitH/HitCy`。
         /// **前台那格也要**：它的回调在闸②直接 return，作用是「吃掉这一下」，
         /// 否则会落到 `BackgroundHit` 上**把窗关掉**；<b>与卡面有没有画出来无关</b>（A157）—— 见调用点的注释。
-        /// 🔴 z 阶梯：`PointerLayer.HitButton` 同队列时**取 z 小的那个** ⇒ 越靠前台 z 越小。</summary>
+        /// 🔴 z 阶梯：`PointerLayer.HitButton` 同队列时**取 z 小的那个** ⇒ 越靠前台 z 越小。
+        ///
+        /// <para>🔴 **2026-10-17（`T09` 卡体批派生件 `EW12` 现核）：本窗这一格有一处【已知偏离】——
+        /// 命中区**不跟卡的扇形角转**。本件**修不了**（修点不在白名单）；真修点见下面 ③。**</para>
+        /// <para>**① 本窗这一叠卡是【转】的**（⚠️ 别以为壳侧不转）：`BuildCardStack` 把 `CardFan.Rot(i)`
+        /// （`0° / 2.510° / 5.890° / 12.750° / … / 32.4°`）交给了 `CardView.SetPose`；
+        /// 而原版那颗 `UI Collider` 是 `2DCard` 的**子件**、**随卡一起转**
+        /// （判据 → `资料/普查产出_1016并行/S7_卡体终点形态_报告.md` §一·B）。
+        /// ⇒ 槽 1–8 上这个轴对齐框与**画出来的卡**对不上：θ = 32.4°（槽 8）时两块命中区的
+        /// **最大距离（Hausdorff）= 0.6273 卡单位**（槽 8 自己那档 **86.4 px**、按前台档 156.8 px）·
+        /// **对称差 = 命中区面积的 38.2%**（两边各 19.1%）；槽 1（2.510°）= **0.0624 卡单位**
+        /// ≈ **14.5 px** / 4.6%；槽 0（0°）**差 0**。
+        /// 🔴 **复算订正（本件现算）**：`EW9` 报告 §③③ 那式 `(w/2)·sinθ + (h/2)(cosθ−1)` 用的是
+        /// **卡身**尺寸、且**只是【纵向】**那一半；按**命中矩形** `1.8927×2.8913` 复算纵向 0.2820 ·
+        /// 横向 0.6273（**更大**）⇒ 按大的记。</para>
+        /// <para>**② 为什么本文件里改不出来**：判命中的**不在本文件** —— `Shell/PointerLayer.cs` 的
+        /// `CollectHits`（那两句 `Mathf.Abs(px − c.x) > half.x`）与它唯一的实现 `HitBoxPx`
+        /// （`center` = `ToDesignPixel(q.transform.position)` · `half` = `q.WorldW/WorldH × lossyScale`）
+        /// **是一套【轴对齐】模型、不读任何旋转** —— 连它自己那套「命中区 ≠ 画出来那块」的登记表
+        /// （`RegisterHitRect` / `ApplyHitRectOverride`）也只是按比例换 `center`/`half`，**仍然轴对齐**。
+        /// ⇒ 把 `hit.localRotation` 拧成 `CardFan.Rot(i)` 对 `HitBoxPx` 那两个读数**逐位不变 = 零效果**
+        /// （子 quad 建在 `Vector3.zero`、`WorldW/H` 与 `lossyScale` 都不含旋转）⇒ 那样写只是**假装修了**。</para>
+        /// <para>**③ 真修点（已进接线清单）**：给 `PointerLayer` 加一条**有向矩形**路径 ——
+        /// 原版 `Graphic.Raycast` 本来就是 `RectTransformUtility.RectangleContainsScreenPoint(...)`，
+        /// 它把屏幕点**逆变换进该 `RectTransform` 的局部空间** ⇒ **天然含旋转**。
+        /// 那一步做完，本窗只需把 `hit.localRotation` 设成 `CardFan.Rot(i)`（与卡的扇形角**同一个数**）；
+        /// ⚠️ 届时还差原版 `ap(0,−0.02)` 那 5px 的**方向**：现在这句把下移加在**屏幕 y** 上
+        /// （`CardFan.HitCy` = 卡心 + 5px），原版加在**卡的局部系**上
+        /// ⇒ 旋转档下中心偏 `5·sinθ`（θ = 32.4° 时 **≤2.68 px**）。</para></summary>
         void BuildCardHit(Transform node, int i)
         {
             float hy = CardFan.HitCy(i);                       // 点击区中心**比卡心低**（原版 `ap.y = −0.02`）

@@ -114,9 +114,13 @@
 //          （离卡体下缘 **4.4 px**）· 提示行 y = 1064 · 语音钮 x ∈ [1650.0, 1738.7]。
 //        ⇒ **没有一处需要「谁压谁」的裁决** ✓（`EffectList` 在原版里本来就排在 `Cards` 之后 ⇒ 即使将来
 //          卡体变大压过来，也是「画布在上」才对）。
-//   · **命中那一路（`HitSlot`/`HitVoice`/`ContainsPointer`）一个字没改**：它们比的是
-//     `LayoutSpace.ToPixel(世界点)` 与**设计 px** 常量 —— 与「那件建在哪一层」无关
-//     （⚠️ 非 16:9 下画布会缩放、而世界那份不缩 ⇒ 两者分家，那是 `T09` 第 4/5 步的账）。
+//   · **命中那一路（`HitSlot`/`HitVoice`/`ContainsPointer`）当时一个字没改**：它们比的是
+//     `LayoutSpace.ToPixel(世界点)` 与**设计 px** 常量 —— 与「那件建在哪一层」无关。
+//     🔴 **2026-10-17（`T09` 卡体批派生件 `EW12`）起 `HitSlot` 改了**：它现在**转发**
+//     `CardView.Contains`（标架 = 卡自己 ⇒ 命中区**跟着卡的扇形角与倾摆转**；⛔ 别再退回轴对齐框）。
+//     `HitVoice` / `HitBtn`（语音那颗钮）**仍按 px 判** —— 它比的是**不转的**那颗钮，本来就该按 px。
+//     ⚠️ 那一族（含 `HitSlot` 的降级支）另有 `A990②` 的账：拿 `ToPixel` 读回来的 px 去比**字面设计 px**
+//     只在 16:9 对；非 16:9 下画布会缩放、而世界那份不缩 ⇒ 两者分家（`T09` 第 4/5 步的账）。
 // ═══════════════════════════════════════════════════════════════════════════════════════
 using System.Collections.Generic;
 using DG.Tweening;          // `OnComplete` 是它的扩展方法（换位收尾那一步）
@@ -801,25 +805,74 @@ namespace CardPresentation
             if (_voiceBtn != null) _voiceBtn.gameObject.SetActive(on);
         }
 
-        // ============================================================ 命中（战斗侧不走 PointerLayer，按 px 判）
+        // ============================================================ 命中（战斗侧不走 PointerLayer）
 
         /// <summary>点在**哪一格**上（−1 = 没点到任何卡）。**前台优先**：
         /// 前面的卡盖住后面的，所以从槽 0 往后找、先命中的就是它。
-        /// 命中区 = 原版点击接收器 `CardUI/2DCard/UI Collider`：**两轴比例不同 + 中心比卡心低 5px**
-        /// （`m_SizeDelta(-0.2,-0.44)` · `m_AnchoredPosition.y = −0.02`）⇒ **判据只此一份 → `CardFan`**
-        /// （`HitW` / `HitH` / `HitCy`；⛔ 别再退回「一个比例双轴同用 + 居中」—— 那是 A156 修掉的偏离）。</summary>
+        ///
+        /// <para>🔴 **2026-10-17（`T09` 卡体批派生件 `EW12`）：判据【转发】到卡体自己那一份** ——
+        /// <see cref="CardView.Contains"/>（标架 = 内层 `2DCard`、矩形 = 原版那颗 `UI Collider` 的
+        /// `1.8927×2.8913` 卡单位、中心比卡心低 `0.02`；比例/偏置的**唯一一份数**在 `Core/CardFan.cs`）。
+        /// ⛔ **别再退回「拿设计 px 比一个轴对齐矩形」** —— 那个框**不跟卡转**，而原版那颗
+        /// `UI Collider` 是 `2DCard` 的**子件**、随卡一起转（判据 →
+        /// `资料/普查产出_1016并行/S7_卡体终点形态_报告.md` §一·B ＋ `CardView.cs` 的「可点矩形」那一节）。
+        /// 旧写法漏掉两样：
+        /// ① **扇形角**（槽 1–8 = `CardFan._rot` 的 `2.510°…32.4°`）⇒ 轴对齐框与画出来的卡**对不上**：
+        ///    最坏处 = θ 32.4°（槽 8）时**两块命中区的最大距离（Hausdorff）= 0.6273 卡单位**
+        ///    （槽 8 自己那档 **86.4 px**、按前台档 156.8 px ≈ 卡身高度的 **18.8%**）·
+        ///    **两块命中区的对称差 = 命中区面积的 38.2%**（两边各 19.1%）；槽 1（2.510°）
+        ///    是 0.0624 卡单位 ≈ **14.5 px** / 4.6% —— 各档都随 θ 单调涨（逐档表 → `EW12` 报告 §④）。
+        ///    🔴 **复算订正（本件现算）**：`EW9` 报告 §③③ 引的 `(w/2)·sinθ + (h/2)(cosθ−1) = 0.3014`
+        ///    ① 用的是**卡身** `2.0927×3.3313`，而这里比的是**命中矩形** `1.8927×2.8913`；
+        ///    ② 而且**只是【纵向】**那一半（横向 = `(h/2)·sinθ + (w/2)(cosθ−1)` **更大**）。
+        ///    按命中矩形的两个分量复算：纵向 **0.2820** · 横向 **0.6273**（= Hausdorff）⇒ 按大的记；
+        /// ② **倾摆**（`AutoCardRotation` 的 ±10°，只写在 `_tiltRoot` 上）。
+        /// 转发之后两样一起对上 —— 扇形角写在**卡根**、倾摆写在 `_tiltRoot`，后者是前者的子件。
+        /// ⚠️ 连带把**开窗那一拍**也对上了：`PlayOpenAnimation` 补的是**卡自己的 `transform`**
+        /// ⇒ 命中区跟着卡走（旧写法钉在扇形终态的位置上）。</para>
+        ///
+        /// <para>⚠️ **卡面没建出来那一格**（`SlotViews[i] == null`；`BuildFan` 已经报过一次）走
+        /// <see cref="HitSlotNoView"/>：照旧拿 `CardFan` 的矩形判、并**出声一次**。
+        /// 口径同壳侧 `CardDetailPopup.BuildCardHit` 的 `A157` ——「这一格**点不点得到**」与
+        /// 「这一格的卡面**画不画得出来**」是两件事（否则一次渲染失败 = 点卡片变成关窗）。</para></summary>
         public int HitSlot(Vector3 world)
         {
             if (!Visible) return -1;
-            var px = LayoutSpace.ToPixel(world);
             for (int i = 0; i < SlotCount && i < CardFan.Slots; i++)
             {
-                float hw = CardFan.HitW(i) * 0.5f;
-                float hh = CardFan.HitH(i) * 0.5f;
-                float dx = px.x - CardFan.Cx(i), dy = px.y - CardFan.HitCy(i);
-                if (Mathf.Abs(dx) <= hw && Mathf.Abs(dy) <= hh) return i;
+                var v = SlotViews[i];
+                if (v != null)
+                {
+                    // 🔴 判据只此一份 = `CardView.Contains`（它转发 `Core/CardFan.cs` 的比例/偏置）
+                    if (v.Contains(world)) return i;
+                    continue;
+                }
+                if (!_hitNoViewSaid)
+                {
+                    _hitNoViewSaid = true;
+                    Debug.LogWarning("[展示窗] 第 " + i + " 格的 `CardView` 没建出来（`BuildFan` 已经报过一次）⇒ "
+                                   + "这一格的命中退回**轴对齐**的 `CardFan` 矩形（**不跟卡的转角/倾摆转**）"
+                                   + "—— 「点不点得到」与「画不画得出来」是两件事（A157），所以这一下照旧吃掉");
+                }
+                if (HitSlotNoView(i, world)) return i;
             }
             return -1;
+        }
+
+        bool _hitNoViewSaid;
+
+        /// <summary><see cref="HitSlot"/> 的**降级支**：那一格的 `CardView` 没建出来时，拿 `CardFan` 的
+        /// 点击区矩形（判据只此一份 → `HitW`/`HitH`/`HitCy`）在**设计 px** 里判。
+        /// 🔴 **它不跟卡的转角/倾摆转** —— 只走「卡没建出来」这条降级路（正常路径见 `HitSlot`）。
+        /// ⚠️ 换算用 `LayoutSpace.ToDesignPixel`（⛔ **不是 `ToPixel`**）：这里比的是 `CardFan.Cx`/`HitCy`
+        ///    这些**字面设计 px**，而只有 `ToDesignPixel` 才是 `MenuDraw.Local` / `FromPixel`（建件那条路）
+        ///    的逆 —— `ToPixel` 的 x 写死 108，非 16:9 下差 `VisibleWidth / DesignWidth` 倍
+        ///    （判据 → `LayoutSpace.ToPixel` 那一段：凡「**读回来的 px 要去比一个【字面设计 px】**」一律用它）。</summary>
+        bool HitSlotNoView(int i, Vector3 world)
+        {
+            var px = LayoutSpace.ToDesignPixel(world);
+            float hw = CardFan.HitW(i) * 0.5f, hh = CardFan.HitH(i) * 0.5f;
+            return Mathf.Abs(px.x - CardFan.Cx(i)) <= hw && Mathf.Abs(px.y - CardFan.HitCy(i)) <= hh;
         }
 
         /// <summary>指针还停在**窗的地界**里吗（关窗那条「指针移开」用的守卫）。

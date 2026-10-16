@@ -208,6 +208,10 @@ namespace CardPresentation
         }
 
         // ── 🆕 2026-10-16：**面板族迁移的四个换算助手**（`T09` §五·补⑩ 那张配方表的口子）────────
+        //  ⚠️ **2026-10-16（`G3`）补注**：本段现在实际有 **6 个**口 —— 除了那「四个」（`FillParent` /
+        //     `SetPxSize` / `PosPx` / `QuadFromTopPx`）之外，收口波又补进了 **`AnchorApPx` / `SetAnchorPx`**
+        //     这对（「点锚 + 该角偏移」的共用式，见它们的 doc）。⛔ **抬头那个「四个」是 `T09` §五·补⑩
+        //     那张配方表的口径、不是口数** —— 要改它得跟 `T09` 同批（本文件⛔不单独改那个数字）。
         //  🔴 **为什么必须另立**：面板那一族今天全走 `MenuDraw.SetPxSize` / `LayoutSpace.Px`，
         //     而那两处写的都是**世界单位**（`SetPxSize` 内部就是 `LayoutSpace.Px(w)` = **÷108**）——
         //     ⛔ uGUI 档的 `sizeDelta` 要的是**真 px**（canvas 单位就是设计 px）。
@@ -242,6 +246,57 @@ namespace CardPresentation
         {
             return new Vector3(xPx - ReferenceResolution.x * 0.5f,
                                ReferenceResolution.y * 0.5f - yPxFromTop, 0f);
+        }
+
+        /// <summary>🔴 **2026-10-16：一个件的【枢轴点】→ 它相对【点锚】`(ax, ay)` 那个角的
+        /// `anchoredPosition`**（设计 px、**y 向上**）。
+        /// <para>式子：`ap = (xPx − ax·1920, 1080·(1 − ay) − yPxFromTop)`
+        /// —— 即「目标点 **减** 锚点那一点」（两轴都是减法）。</para>
+        /// <para>🔑 **推导**：点锚 `(ax, ay)` 指的是**父矩形**（= 画布）的那个角，在 1920×1080 帧里
+        /// 正好落在设计 px `(ax·1920, (1−ay)·1080)` ⇒ 「枢轴点落在 `(xPx, yPxFromTop)`」⇔ 上式。
+        /// **与 `pivot` 无关** —— 式子只管「枢轴点摆在哪」，所以图（中心枢轴）与字（`Label` 的枢轴）
+        /// **共用同一个 `(xPx, yPxFromTop, ax, ay)`**（同 `UnitChatPanel.Move` 那条 doc）。</para>
+        /// <para>⛔ **别拿 `PosPx` 顶它**：那个是「相对**父件中心**」的局部坐标（且只在父件枢轴居中时才等于
+        /// `anchoredPosition`）；锚点一旦不是父件中心，两者**不再同值**（`T09` §八·补 陷阱 1）。</para></summary>
+        public static Vector2 AnchorApPx(float xPx, float yPxFromTop, float ax, float ay)
+        {
+            return new Vector2(xPx - ax * ReferenceResolution.x,
+                               ReferenceResolution.y * (1f - ay) - yPxFromTop);
+        }
+
+        /// <summary>🔴 **2026-10-16：把一件摆成「点锚 `(ax, ay)` + 枢轴点落在设计 px `(xPx, yPxFromTop)`」**
+        /// （左上原点、y 向下）—— 就是 <see cref="AnchorApPx"/> 的落盘那一半。
+        /// <para>⛔ **必须写 `anchoredPosition`、不许写 `localPosition`**：`localPosition` 的原点是**父件枢轴**，
+        /// 锚点不是父件中心时两者**不再同值**（`T09` §八·补 陷阱 1；先例 = `Alliance Panel` 那扇偏
+        /// `(301.566, −154.528)` px，**16:9 下也错**）。✅ 本口写的是 `anchorMin = anchorMax = (ax, ay)`
+        /// ⇒ `anchoredPosition` 本身就是「相对那个角」的 px，**与父 pivot 无关**。</para>
+        /// <para>⚠️ 它**只管位置与锚点**，⛔ 不碰 `pivot` / `sizeDelta`（本件的枢轴由建件口定，
+        /// 尺寸另走 `SetPxSize`）。</para>
+        /// <para>🔑 **为什么补齐这一个口**（🔴 **2026-10-16 修波 `FD` 就地订正：整段改成过去时 + 留痕**）：
+        /// **本口建立时**，同一式子在两个文件里各写了一遍 —— `UnitChatPanel.ApPx`（静态函数）与
+        /// `ChatPopupPanel.PanelApPx`（编译期常量）＋ 同文件 `Place` 里**又内联了一遍**
+        /// （`new Vector2(r.x + r.width*0.5f − PanelAnchorX*RefW, …)`）。⇒ **当时先收编到这里**
+        /// （铁律：两处写同一条规则 = 迟早不一致）。
+        /// ✅ **现状（2026-10-16 `G5` 收工后本波现核，`grep ApPx/PanelAnchorX/RefW/RefH` 全仓对过）**：
+        /// 上面那**三个副本已全部删掉**（`UnitChatPanel.ApPx` 与 `ChatPopupPanel.PanelApPx` 都留了「【已删】」
+        /// 的更正痕，调用点已改走 `AnchorApPx`/`SetAnchorPx`）⇒ **这个算式现在全仓只有一处** = 本口算 +
+        /// <see cref="SetAnchorPx"/> 落盘。</para>
+        /// <para>🔴 **下面那段「应当改用本口的」是【建立时的待办】—— 已办结**（`UnitChatPanel` /
+        /// `ChatPopupPanel` 两扇都换过来了）；把它留在这里只为保留当时的口径与 `AlliancePanelWindow`
+        /// 那半句「**不属于机械替换**」的甄别，⛔ **别照它再去做一次**。</para>
+        /// <para>🔴 **应当改用本口的**：`UnitChatPanel` · `ChatPopupPanel` 两扇 —— 它们是**同形算式**，
+        /// 换过来是**逐位等价的机械替换**（两处 `RefW/RefH` 都 = 1920/1080 = 本类的
+        /// <see cref="ReferenceResolution"/>，已现核）。
+        /// ⚠️ **`AlliancePanelWindow` 不属于「机械替换」那一档**（现核）：它的根锚是**字面常量**
+        /// （`RootAnchorMin/Max` · `RootAnchoredPos`，逐值照抄原版 `RT_3052`），**没有**再写一遍这个算式；
+        /// 它那个 `RootCenterLocal = (0.5 − pivot) × sizeDelta` 是**另一件事**（「枢轴 ≠ 中心」的补偿，
+        /// ⛔ **不在本口范围内**）。要不要把它的字面常量改写成算式表达 = **另裁**（不改也正确）。</para>
+        /// <para>⛔ **本波【不】去改上面这些文件**（那是跨文件的机械替换，另开一件；见 `G3` 报告 ③）。</para></summary>
+        public static void SetAnchorPx(RectTransform rt, float ax, float ay, float xPx, float yPxFromTop)
+        {
+            if (rt == null) return;
+            rt.anchorMin = rt.anchorMax = new Vector2(ax, ay);
+            rt.anchoredPosition = AnchorApPx(xPx, yPxFromTop, ax, ay);
         }
 
         /// <summary>🔴 **`ImageQuad.Create(parent, tex, pos, worldHeight, anchor, name)` 的 uGUI 版**
@@ -283,8 +338,20 @@ namespace CardPresentation
             return rt != null ? HudPiece.Of(rt, rt.GetComponent<Image>()) : null;
         }
 
-        /// <summary>从 `RectTransform` 反读 **中心的设计 px**（左上原点、y 向下）—— 自检用。
-        /// 判据：锚点是归一化的 ⇒ 乘回 1920 / 1080（**这是与 `MakeImage` 成对的逆**，别各写一份）。</summary>
+        /// <summary>从 `RectTransform` 反读 **枢轴（`pivot`）那一点**的设计 px（左上原点、y 向下）—— 自检用。
+        /// 判据：锚点是归一化的 ⇒ 乘回 1920 / 1080（**这是与 `MakeImage` 成对的逆**，别各写一份）。
+        /// <para>🔴 **2026-10-16 就地订正（铁律 5）：本行原来写「**中心的设计 px**」—— 那句只在
+        /// 【本件 `pivot == (0.5,0.5)` 时】成立**。实现是 `ax*1920 + ap.x` / `(1−ay)*1080 − ap.y`，
+        /// 而 `anchoredPosition` 摆的是**枢轴** ⇒ **读出来的是【枢轴那一点】**，不是矩形中心（⛔ 别按名字推）。</para>
+        /// <para>⚠️ **对非居中 `pivot` 的节点会读成枢轴坐标** —— 先例（`A14` 现核）：`AlliancePanelWindow`
+        /// 的根（原版 `RT_3052`：`aMin == aMax == (0,1)` · `pivot(0.13, 0.825)` ·
+        /// `ap(-1.0444, −25.2717)` · `sd(815.044, 475.470)`）读成 **`(-1.04, +25.27)`**，
+        /// 而它**真正的矩形中心是 `(300.52, 179.80)`** ⇒ 偏 `(+301.6, +154.5)` px。
+        /// 出处：`资料/普查产出_1016并行/T09_AlliancePanel_锚点补正_报告.md`（`A14`）＋
+        /// `资料/任务线/战斗线/任务/T09_整层换uGUI.md` §八·补 **陷阱 2**。</para>
+        /// <para>🔑 **要矩形中心**：在这个返回值上再补 `(0.5 − pivot) × sizeDelta` 那一项
+        /// （x 加、y 减 —— 本函数是 y 向下）即可；**先例 = `AlliancePanelWindow.RootCenterLocal`**
+        /// （那一项 = `(+301.566, −154.528)`）。⚠️ 也**别拿它去量非居中 pivot 的节点**。</para></summary>
         public static Vector2 CenterPx(RectTransform rt)
         {
             if (rt == null) return Vector2.zero;
@@ -416,6 +483,10 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-16 就地订正（铁律 5）：本口原来是【不幂等】的** —— 每次调用都会 `new` 一块，
         /// 于是「建/取」这种用法会**建出两块同名子画布**（批 2 三个写手各自撞了一次，
         /// 各自在外层写了一个幂等包装：`PairCanvas` / `ReuseOrMakeCanvas` / …）。
+        /// ⚠️ **2026-10-16（修波 `FD`）**：上面点名的那几个包装**本波已全删**（`PairCanvas` /
+        /// `BattleLogPanel.ReuseOrMakeCanvas` / `CardChoicePanel.Build` / `SettingsPanel.Create` 四处，
+        /// 直接调本口）⇒ 如今 `PairCanvas` / `ReuseOrMakeCanvas` **只剩方法名**、体内就是一句本口
+        /// （⛔ 别照它们再包一层；也别再把它们当「现役包装」的例子读）。
         /// ⇒ **现在改成【按名字幂等】**：根 canvas 下已有同名子画布 ⇒ 直接返回它，并把层/order 对齐到本次传的值。
         /// ⛔ 调用点**不要再自己包一层**（那是同一个规矩的第二份写法）。</para></summary>
         public static RectTransform EnsureSubCanvas(Transform parent, string name,
@@ -460,13 +531,24 @@ namespace CardPresentation
         /// ⇒ **门 / 结算压在设置窗之上**（`T09b` §A·3 那个 `m_Children` 表）。</para>
         /// <para>**② `OverHand` 层（全是 order 0）**：判据 = **原版 `Safe area FrontCanvas` 的 14 个子件序**
         /// （`T09b` §A·3；原文抄在 `T09` §八 开头）⇒ 这里按**升序**列 = 先画在下。
-        /// 已迁的那几格对号：`Mulligan`(3) · `Generic Multi Card Display Combat`(4) · `ChooseCardMenu`(5) ·
-        /// `Card Display Window`(6) · `AboveShader`(8)。⚠️ `SkillPanel`(1) / `Unit Chat`(2) **还没迁**，
-        /// 迁了要**插到前面**。</para>
+        /// 已迁的九格对号（**下面那张表里逐行写着序号**）：`Drag Attack Selector`(0) · `ActiveSkillDesc`(1) ·
+        /// `Unit Chat`(2) ＋ 它的子件 `ChatPopup` · `Mulligan`(3) · `Generic Multi Card Display Combat`(4) ·
+        /// `ChooseCardMenu`(5) · `Card Display Window`(6) · `AboveShader`(8) · `Alliance Panel`(13)。</para>
+        /// <para>🔴 **2026-10-16 就地订正（铁律 5）**：本行原来写「⚠️ `SkillPanel`(1) / `Unit Chat`(2) **还没迁**，
+        /// 迁了要**插到前面**」—— **已过期**：那两扇连同 `Drag Attack Selector`(0) 与 `Alliance Panel`(13)
+        /// 本会话都已迁完，且**都已按序落进下面那张表**。⛔ 别再照那句去插一次。
+        /// ⚠️ **还没迁的四格 = `DebugButtons`(7) / `PopupAnchor`(9) / `Tutorial`(11) / `LoadingMenu`(12)**
+        /// —— 将来迁它们时**必须插在 `"Alliance Panel Canvas"` 【前面】**（它们的原版子件序都 < 13；
+        /// 这一条同样写在下面那张表的尾部注释里）。</para>
         /// <para>⚠️ 三块 `PopUps`/order 0 的画布正是靠这一格分先后的 —— 不排的话**建得早的就在下面**，
         /// 而建序**不是**判据（今天它甚至是偶然的）。</para>
         /// <para>⛔ **跨层的先后不靠这个表**（层不同 ⇒ 层说了算）⇒ 两张表并成一条链是安全的，
-        /// 只要**同一组内部**的相对次序对。</para></summary>
+        /// 只要**同一组内部**的相对次序对。</para>
+        /// <para>🔴 **2026-10-16（修波 `FD` · 账 `W74`）补一句 —— 跨层先后由 `(排序层, order)` 决定；
+        /// 本表的前后只代表【同层之内】的先后。**
+        /// ⚠️ 数组**前 4 项是 `PopUps` 层**（`order −1/0/0/1`），把整段排在数组最前**只是为了拿到最小的兄弟序**，
+        /// ⛔ **别读成「它们画得最下面」**；同理下面数组尾注那句「**表尾 = 画得最上面**」**只在同层之内成立**
+        /// （`Alliance Panel Canvas` 是 `OverHand` 这**一组**里的最后一名，整组还在 `PopUps` **之下**）。</para></summary>
         static readonly string[] SubCanvasRank =
         {
             // ── PopUps（order −1 → 0 → 1；同为 0 的两块按原版子件序）──
@@ -475,12 +557,43 @@ namespace CardPresentation
             "BattleDoors Canvas",               // PopUps /  0（原版 BattleDoors(4) 在后）
             "UI Error Message Controller Canvas",// PopUps / 1
             // ── OverHand（全 order 0，按原版 14 子件序升序）──
-            "Mulligan Canvas",                  // 3/14
+            //  ⚠️ **逐行的序号 = 原版 `Safe area FrontCanvas` 的 `m_Children` 下标**，完整 14 格是：
+            //     `[0] Drag Attack Selector · [1] ActiveSkillDesc · [2] Unit Chat · [3] Mulligan ·
+            //      [4] Generic Multi Card Display Combat · [5] ChooseCardMenu · [6] Card Display Window ·
+            //      [7] DebugButtons · [8] AboveShader · [9] PopupAnchor · [10] BattleSettingsPanel ·
+            //      [11] Tutorial · [12] LoadingMenu · [13] Alliance Panel`
+            "Drag Attack Selector Canvas",       // 0/14（裁定「另起一块、⛔ 不并进 Mulligan」→ `T09` §八·3）
+            "ActiveSkillDesc Canvas",            // 1/14
+            "Unit Chat Canvas",                  // 2/14
+            "ChatPopup Canvas",                  // 4/7（**在 `Unit Chat` 内部** ⇒ 按「子件画在父件之上」紧跟其后）
+            "Mulligan Canvas",                   // 3/14
             "Generic Multi Card Display Combat Canvas",  // 4/14
-            "ChooseCardMenu Canvas",            // 5/14
-            "Card Display Window Canvas",       // 6/14
-            "AboveShader Canvas",               // 8/14
+            "ChooseCardMenu Canvas",             // 5/14
+            "Card Display Window Canvas",        // 6/14
+            "AboveShader Canvas",                // 8/14
+            "Alliance Panel Canvas",             // 13/14
+            // 🔴 **将来迁 `[7] DebugButtons` / `[9] PopupAnchor` / `[11] Tutorial` / `[12] LoadingMenu` 时，
+            //    一律插在上一行 `"Alliance Panel Canvas"` 【前面】**（它们的原版子件序都 < 13）。
+            //    ⛔ 别顺手加在表尾 —— 表尾 = 画得**最上面**的一格。
+            //  ⚠️ 重名/漏项的自查：本表每一项都必须是**某扇面板 `SubCanvasName` 的字面量**（现核清单 →
+            //     `grep -rn "SubCanvasName = " Battle/ Shell/`）；对不上的项 `RootRect.Find` 永远 null、
+            //     **静默不排**（这正是本表最容易被写坏的方式）。
         };
+
+        /// <summary>🔴 **2026-10-16（修波 `FD` · 账 `G1-5`）：只读判据口 —— 这个子画布名字在不在
+        /// `SubCanvasRank` 表里。**
+        /// <para>**用途 = 给「登记后读回自检」用**：`BattleDriver.EnsureRankedSubCanvas` 建/取完子画布之后
+        /// 要确认「这条名字确实在排次表里」，而那张表是 `private static readonly`、那边**读不到** ⇒
+        /// 在此之前**两处字符串（调用点传的串 vs 表里的串）的一致性全靠人工核**。名字对不上的后果是
+        /// `RootRect.Find` 永远 `null`、**静默不排次序**（不报错、不警告）——
+        /// 正是上面 doc 末段说的「本表最容易被写坏的方式」。</para>
+        /// <para>⛔ 本口**只读、不改表**（表的内容与顺序以 `G3` 补全、`R1` 审过的那一份为准）。
+        /// ⚠️ 表里**没有**的子画布**不等于「建错了」** —— `LoadingMenu` / `TooltipManager` 都在 `Blocking` 层、
+        /// **本就不该进这张表**（见上面 doc）。</para></summary>
+        public static bool IsRanked(string name)
+        {
+            return !string.IsNullOrEmpty(name) && System.Array.IndexOf(SubCanvasRank, name) >= 0;
+        }
 
         /// <summary>把 `SubCanvasRank` 里**已经建出来**的那几块按表排到末尾（⛔ 只动它们、只定它们彼此的先后）。</summary>
         static void ApplySubCanvasRank()

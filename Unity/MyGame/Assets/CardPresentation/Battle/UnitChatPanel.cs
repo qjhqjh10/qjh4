@@ -26,10 +26,62 @@
 //    **那些是内置 Standard shader 的残留值、当前 shader 根本不读**（`CLAUDE.md` 那条「原版材质带残留」的坑）。
 //    ⇒ **我们这里画的是静态图**：自写一个等化器等于自己发明（逻辑无法照抄）。这是**如实标注的差异**。
 //
-// 🔴 **查不到的（所以是我们挑的）**：原版**什么时机播哪一条**没有任何代码或数据（对账表 §三·〇 :127）。
-//    后缀集合是文件名给的，**「事件 → 后缀」的对应是我们定的**（见 `VoiceLines.ForDeploy` 那一族）。
+// 🔴🔴 **2026-10-16（修波 `FD` · 账 `G1-4`）就地订正（铁律 5）**：本段原来那句「**查不到的（所以是我们挑的）**」
+//    下面两句**今天都不成立**（这是同一句错话的**第 5 份**，也是**最后一份**没有更正痕的）：
+//    · ❌ 原句「原版**什么时机播哪一条**没有任何代码或数据（对账表 §三·〇 :127）」——
+//      ① **判据有**（「查不到」已被推翻）：`RawCardScript__GetChatSound.c` 的 `switch(param_2)` 把
+//         **枚举号 → 字段偏移**钉死了（`2→hurryChatSound` @`0x1A8` · `3→iCantDoThat` @`0x1B0` ·
+//         `5…10→greet/threat/wellPlayed/gen1/gen2/gen3` …，取不到落 `defaultChatSound` @`0x188`），
+//         调用点**两处独立证实**（`VoiceLinesPopupSelector__SetupChatOptions.c:54,112` / `__RefreshChatLines.c:71`）；
+//      ② **行号也错**：真落点是 `资料/战斗UI_原版对账表.md:**112**`
+//         （`§三·〇 :127` 是**「回放条」**那条的判据指引行）—— `G4`/`G1` 各自现核过、逐字一致。
+//         全过程 → `资料/语音线_原版规格与ASR管道.md` · `语音线A1768_报告.md`。
+//    · ❌ 原句「**「事件 → 后缀」的对应是我们定的**（见 `VoiceLines.ForDeploy`）」—— **不成立**：
+//      文件名只给**后缀集合**，「**哪个事件取哪一条**」是**原版真值**（见上 ①），不是我们定的。
+//    ✅ **仍然成立的那一半（是真话，别一起删）** = **下面紧接着那两行「文本层」**：
+//      原版**文件名只给后缀集合、给不了台词文本** ⇒ 「显示文件名里的台词 / 只剩事件后缀时显示卡名」
+//      **是【我们挑的】**（如实标着，不是判据）。原文保留在下面。
 //    文本层：普通单位那条台词原文**就在文件名里**（`VO_…_<卡名> - <台词> (配音演员).ogg`），
 //    我们把它显示出来；督军那种只有事件后缀的（`…_attack.ogg`）**没有文本可用** ⇒ 退而显示**卡名**（我们的选择）。
+// ═════════════════════════════════════════════════════════════════════════════
+//  🔴 **2026-10-16（`T09` 批 3 · `OverHand` 组）：三颗气泡的图与字整批从【世界空间 quad】迁到【uGUI 子画布】**
+//  · **子画布** = `SubCanvasName`（= 原版 GO 名 + `" Canvas"`）+ `HudCanvas.SortingLayer.OverHand`
+//    + order `0` —— 层/order **照原版那一行**：`资料/普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一
+//    我这一行 = `Unit Chat` @ `BattleHud/Canvas/FrontCanvas/Safe area FrontCanvas`，
+//    `(rm 继承 FrontCanvas(1), ovr 继承 true, OverHand, 0, 兄弟序 **2/14**)`，出处 `RT_3280`（`battlearena2`）。
+//  · **画布上那一级** = 本节点自己（原版 `Unit Chat` 的 RT **逐字段**：`anchor (0,0)-(1,1)` · `pivot (.5,.5)` ·
+//    `sd (0,0)` ⇒ **铺满父件**）⇒ uGUI 档用 `HudCanvas.FillParent`（⛔ **不是** `MenuDraw.SetPxSize(1920,1080)`
+//    —— 那个体内是 `LayoutSpace.Px` = **÷108**，会把整块缩成 1/108，而画面只是「小得看不见」、不报错）。
+//  · 🔴 **双模式**（与 `ErrorMessageBanner.Create(..., uguiHost)` / `Tooltip.UseHost(host)` 同一套口径）：
+//    `Create(Transform, Transform)` 的 `uguiHost == null` ⇒ **世界档**（与改本件之前**逐位相同**：
+//    位置走 `LayoutSpace.ToWorld`、尺寸 ÷108、字走 `Label.Create`）；传了宿主（= 由调用方
+//    `HudCanvas.EnsureSubCanvas(null, SubCanvasName, OverHand, 0)` 建/取的那块子画布）⇒ 才走画布。
+//    ⛔ **不许两边都建**（半迁移态在 16:9 下看不出来、别的宽高比下两者分家 —— `T09` §五·补⑦）。
+//  · 🔑 **单位**：画布那一侧「1 单位 = 1 设计 px」（`HudCanvas` 文件头那条推导）⇒ 面板内坐标 =
+//    **绝对设计 px、左上原点 y 向下**（`Move` 收的那两个数）；尺寸**直接吃 px**。
+//    ⛔ 世界单位喂进建件口会**小 108 倍、且不报错**。
+//  · ✅ **锚点已照原版逐颗补正（2026-10-16 · `T09` 批 3 补正 `A12`）**：三颗气泡（+ 面板内四个子件）
+//    现在**锚在画布的那个角/边上**，与原版 `m_AnchorMin/Max` 一致 —— 见 `Slot` 的注释（逐值判据）。
+//    🔴 **原版的锚点真值**（2026-10-16 现读 `battlearena2`，`RectTransform/RectTransform_{3231,3375,3439}.json`）：
+//    `PlayerChatDisplay` `aMin=aMax (0,0)` + `pivot (0,0)` + `ap (12.61328125, 200)` ·
+//    `EnemyChatDisplay` `aMin=aMax (0,1)` + `pivot (0,0)` + `ap (12.61328125, −410)` ·
+//    `RadioChat` `aMin=aMax (1,1)` + `pivot (1,1)` + `ap (−25, −126)`（三颗 `sd = 648.774 × 236.505`）。
+//    ⇒ 原版是「**贴着各自那个屏幕角、按固定 px 内缩**」；**父件一拉伸（4:3 / 21:9）它就跟着那个角走**。
+//    ⚠️ 改本件之前是「绝对设计 px + **中心锚**」（= 贴着**画布中心**偏移）⇒ 4:3 下三颗气泡上下沿各差
+//    **180 画布 px**（135 屏 px）、21:9 下 x 一律差 **320 画布 px**（16:9 逐位相同）。
+//    ✅ 现在按 `Slot.ax/ay` 逐颗锚上（`Move` 是**唯一**的摆位处）；⚠️ **世界档一并改**（它那套也是错的：
+//    位置按「设计帧拉伸」摆，同样偏 180/320 画布 px）—— 两档现在都按「锚点 + 该角偏移」摆，
+//    **16:9 下与改之前逐位相同**（算式见本报告 §④）。
+//  · ⚠️ **仍然如实记着的差异（原版 vs 我们）**：面板内**子件**（`Mask`/`Background`/`wave`/`ChatText`）
+//    在原版里是**气泡的子件**、锚在**气泡**上（`Mask`/`wave` 是气泡中心锚 `ap (−219.895, 5.1)` / `(111.11, 49.6)`、
+//    `Background` 是气泡左下角锚 `ap (324.387, 118.252)`、`ChatText` 是双轴拉伸 `aMin (0.29062,0.258234)`
+//    `aMax (0.97362,0.603646)`）；我们这边它们是**气泡的兄弟**（都挂在面板节点下）。
+//    ⇒ 本件用的等效写法是「**锚在【气泡那一颗的角】上、偏移 = 气泡内偏移**」—— 因为**气泡不会改变尺寸**
+//    （`sd` 固定），两者的矩形**逐位相同**（推导见 `HudCanvas.AnchorApPx` 的 doc）。⛔ 没顺手把嵌套倒过来
+//    （`T09` §五·补⑩ 二那条裁定：「只按谁的 canvas 装谁迁、⛔ 不倒嵌套」）。
+//  · 🔴 **本面板【没有】可点件**（全仓 `UnitChatPanel` 上没有 `Contains` / `Hit` / `*Hit`）⇒ 不牵动
+//    `T09` 第 4 步（输入），也**没有 `raycastTarget` 要翻**（对照：`ChatPopupPanel` 那 6 颗钮有）。
+// ═════════════════════════════════════════════════════════════════════════════
 using UnityEngine;
 
 namespace CardPresentation
@@ -37,7 +89,10 @@ namespace CardPresentation
     public class UnitChatPanel : MonoBehaviour
     {
         // ---- 原版实测（1920×1080，y 从上算）----
-        const float RefW = 1920f, RefH = 1080f;
+        // 🔴 **2026-10-16（`G5` 收口波 · 消重）**：这里原来有一对 `const float RefW = 1920f, RefH = 1080f;`
+        //   —— **已删**（现核：全文件只有那个私有的 `ApPx` 用它们，而 `ApPx` 已改走共用口）。
+        //   要用帧尺寸一律取 `HudCanvas.ReferenceResolution`（同一对 `(1920, 1080)`）
+        //   —— ⛔ 别在本文件再写一遍那个字面量（本仓铁律：同一个数只留一处）。
         const float BubbleW = 648.77f, BubbleH = 236.50f;
         const float PortraitW = 144.46f, PortraitH = 157.46f, PortraitCx = 104.5f, PortraitCy = 113.15f;
         const float WaveW = 387.95f, WaveH = 62.60f, WaveCx = 435.5f, WaveCy = 68.65f;
@@ -70,9 +125,33 @@ namespace CardPresentation
         const float ZWave = Z - 0.01f;
         const float ZText = Z - 0.02f;
 
+        // ── 🆕 2026-10-16（`T09` 批 3 · `OverHand` 组）：本面板的【渲染空间】--------------------------
+        /// <summary>🔴 本面板那块 **uGUI 子画布**的名字（= 原版宿主 GO 名 + `" Canvas"`，见 `T09` §五·补⑩ 第 1 步）。
+        /// 判据 = `T09c` §一 我这一行（`Unit Chat` @ `…/Safe area FrontCanvas`，`OverHand` / order 0 / 兄弟序 2/14）。
+        /// ⛔ **只此一份** —— 调用方建它（`HudCanvas.EnsureSubCanvas(null, SubCanvasName, OverHand, 0)`）也要取这里。</summary>
+        public const string SubCanvasName = "Unit Chat Canvas";
+        /// <summary>本面板那块子画布的**排序层**（判据同 <see cref="SubCanvasName"/>）。</summary>
+        public const int SortingLayerId = HudCanvas.SortingLayer.OverHand;
+        /// <summary>本面板那块子画布的 `sortingOrder`（判据同 <see cref="SubCanvasName"/>）。</summary>
+        public const int SortingOrder = 0;
+
+        /// <summary>🔴 **本件的图与字现在活在哪个空间**：`false` = **世界空间 quad**（出厂档，与加本档之前
+        /// **逐位相同**）· `true` = **uGUI 画布**。由 <see cref="Create(Transform, Transform)"/> 按
+        /// 「调用方有没有给宿主」定，⛔ 出厂**默认世界档**（`BattleDriver` 那一处不传 ⇒ 行为一个字不变）。</summary>
+        bool _ugui;
+        /// <summary>uGUI 档在不在（诊断 / 断言 / 自检用）。</summary>
+        public bool IsUgui { get { return _ugui; } }
+
+        /// <summary>px → **本档的单位**（世界档 = 世界单位 ÷108 · uGUI 档 = 设计 px ×1）。
+        /// ⛔ 只给「按 px 给字号/框」的口用（`Label.SetGlyphHeight` / `SetAutoFitBox` 那两个包装）。
+        /// 尺寸口**别**经过它 —— 世界档那几条 `hPx / 108f` 的式子**原样留着**（逐位不变）。</summary>
+        float U(float px) { return _ugui ? px : px / 108f; }
+
         class Bubble
         {
-            public ImageQuad bg, portrait, wave;
+            /// <summary>🔴 **2026-10-16（`T09` 批 3）：类型 `ImageQuad` → `HudPiece`** —— 这一族现在是
+            /// 「世界空间 quad **或** uGUI `RectTransform+Image`」二选一（见 `HudPiece` 文件头那条铁律）。</summary>
+            public HudPiece bg, portrait, wave;
             public Label text;
             public AudioSource audio;
             public float left;
@@ -106,13 +185,23 @@ namespace CardPresentation
         /// ⚠️ 三颗的子件（`Mask`/`Background`/`wave`/`ChatText`）在原版里 `anchoredPosition` **逐字相同**
         ///    （`324.4,118.3` / `111.1,49.6` / `-219.9,5.1` / `-2.5,-5.0`），而 uGUI 的 `anchor (0,0)`
         ///    指的是**父矩形左下角**（与父的 pivot 无关）⇒ 三颗**共用同一套相对常量**，只是整体平移。
-        ///    ⇒ `MakeBubble` 收一个 `left/top` 就够了，别为哪一颗另立一套。</summary>
-        struct Slot { public float left, top; }
-        static readonly Slot SlotPlayer = new Slot { left = 12.61f, top = 643.50f };
-        static readonly Slot SlotEnemy  = new Slot { left = 12.61f, top = 173.50f };
+        ///    ⇒ `MakeBubble` 收一个 `left/top` 就够了，别为哪一颗另立一套。
+        /// <para>🔴 **2026-10-16（`T09` 批 3 补正 `A12`）：`ax/ay` = 原版那一颗的【点锚】**
+        /// （`m_AnchorMin == m_AnchorMax`，逐值现读 `battlearena2/RectTransform/RectTransform_{3231,3375,3439}.json`）：
+        /// 点锚只管「尺寸固定」，**位置由「锚在父件的哪个角/边」定** —— 锚在角上则父件一拉伸它就跟着那个角走
+        /// （原版真值 → 文件头那段）。⛔ **别一律用「中心锚 + 固定 px」**（那等价于锚在画布中心，
+        /// 4:3 下三颗上下沿各差 180 画布 px、21:9 下 x 差 320 画布 px）。
+        /// ⚠️ 原版三颗的 `pivot` 分别是 `(0,0)` / `(0,0)` / `(1,1)`（= 各自那个角）；
+        /// 我们这边四个子件**都按自己的枢轴点摆**（`HudCanvas.AnchorApPx` 与 pivot 无关），**枢轴取建件口那个**
+        /// （图 = 中心、字 = `Label` 固定中心）⇒ 同一份 `(left, top, ax, ay)` 两档通用。</para></summary>
+        struct Slot { public float left, top, ax, ay; }
+        static readonly Slot SlotPlayer = new Slot { left = 12.61f, top = 643.50f, ax = 0f, ay = 0f };
+        static readonly Slot SlotEnemy  = new Slot { left = 12.61f, top = 173.50f, ax = 0f, ay = 1f };
         /// <summary>🆕 `RadioChat`：右上角贴屏（出处 = `RadioChat` 那一行的运行时 dump，见 `_radio` 的注释）。
-        /// `left = (1920 − 25) − 648.8 = 1246.2`、`top = 126`。</summary>
-        static readonly Slot SlotRadio  = new Slot { left = 1246.2f, top = 126.0f };
+        /// `left = (1920 − 25) − 648.8 = 1246.2`、`top = 126`；**锚点在右上角 `(1,1)`**（原版 `pivot` 也是 `(1,1)`）。
+        /// ⚠️ 运行时 dump 给的是**左上角坐标**（`-25.0,-126.0` 那一栏是 `m_AnchoredPosition`，
+        /// 逐位与 `RectTransform_3439.json` 的 `(−25, −126)` 一致 ⇒ 同一份判据）。</summary>
+        static readonly Slot SlotRadio  = new Slot { left = 1246.2f, top = 126.0f, ax = 1f, ay = 1f };
 
         public bool Ready { get { return _player != null && _player.bg != null; } }
         /// <summary>自检用：现在亮着的是哪一侧（`-1` = 都没显示；`2` = `RadioChat`）。
@@ -181,17 +270,119 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>🔴 **2026-10-16（`T09` 批 3）：`BubbleWorldSize` 的【本档单位】版 —— 自检该用它。**
+        /// <para>uGUI 档读 `sizeDelta`（= **设计 px**，与建件那一侧同一把尺）；世界档 = `WorldW/H × 108`
+        /// （**与旧那条逐位相同**）。</para>
+        /// <para>⛔ **别再用 `BubbleWorldSize × 108f` 去比字面 px** —— uGUI 档下画布从「设计 px」到「世界单位」
+        /// 的系数**随屏变、而且两轴还能不同**（批处理实测 x 1/108 · y 1/144 ⇒ `×108` 读出的是假数，
+        /// 而**画面其实是对的**；`T09` §七·8）。</para></summary>
+        public Vector2 BubbleSizePxOf(int side)
+        {
+            var b = BubbleFor(side);
+            if (b == null || b.bg == null) return Vector2.zero;
+            if (_ugui) return HudCanvas.SizePx(b.bg.Rect);
+            return new Vector2(b.bg.WorldW * 108f, b.bg.WorldH * 108f);
+        }
+
+        /// <summary>🔴 **2026-10-16（`T09` 批 3）：某一颗气泡的【中心】读回成「本档的设计 px」（左上原点、y 向下）。**
+        /// <para>uGUI 档走 `HudCanvas.CenterPx`（锚点 + `anchoredPosition` 那一份的逆 ——
+        /// **它读的是【枢轴点】的位置**；本件的底图枢轴就是中心 ⇒ 读回的就是中心 ✓）；</para>
+        /// <para>世界档走 `LayoutSpace.ToDesignPixel`（`FromPixel` 的**真逆**，见它那条 doc）。</para>
+        /// <para>⚠️ 两档读的都是**真正摆在哪**，不是我们的常量 —— 断言的期望值取**原版 prefab 的矩形**（判据侧）。</para>
+        /// <para>🔴 **2026-10-16（补正 `A12`）两档读回去的【帧】不同，非 16:9 下会分家**（**这是既有的差异、
+        /// 本件没改**，如实记下免得下次当成回归）：uGUI 档的 `HudCanvas.CenterPx` 是**纯锚点逆**、
+        /// 拿参考分辨率 `1920×1080` 算 ⇒ **与分辨率无关**（4:3 下也报 16:9 那一对数）；
+        /// 世界档的 `ToDesignPixel` 用**实测** `VisibleWidth` ⇒ 报的是**真实落点**。
+        /// 两档的**期望值来源（原版 prefab 那一对数）是一样的** ⇒ 断言按 uGUI 档那套写即可
+        /// （见 `T09_UnitChat_报告.md` §③·3）；要在世界档上量「真落点」得走
+        /// `BubbleCenterWorld` / 自己按 `LayoutSpace` 换算。</para>
+        /// <para>那颗没建出来（或没建出底图）⇒ `(NaN, NaN)`（⛔ 不返 `(0,0)`：那与「真的在屏心」分不开）。</para></summary>
+        public Vector2 BubbleCenterPx(int side)
+        {
+            var b = BubbleFor(side);
+            if (b == null || b.bg == null) return new Vector2(float.NaN, float.NaN);
+            if (_ugui) return HudCanvas.CenterPx(b.bg.Rect);
+            return LayoutSpace.ToDesignPixel(b.bg.transform.position);
+        }
+
+        /// <summary>🔴 **自检用（`T09` 批 3 补正 `A12` 的【灭自证】口）**：某一颗气泡**实际锚在哪个角**
+        /// （读的是那件底图的 `RectTransform.anchorMin`，⛔ 不是我们的 `Slot` 常量）。
+        /// <para>期望值取**原版 prefab 的 `m_AnchorMin/Max`**（判据侧）：`0 → (0,0)` · `1 → (0,1)` · `2 → (1,1)`
+        /// （出处 → `Slot` 的注释）。⚠️ 反面那条：**断言必须同时断「不是 `(0.5,0.5)`」**
+        /// —— 否则「把锚点改回中心锚」这一档改坏了也不红（灭自证要求）。</para>
+        /// <para>世界档（没有 `RectTransform` 锚点这回事）/ 那颗没建出来 ⇒ `(-1, -1)`（⛔ 不返 `(0,0)`：
+        /// 那与真正的 `anchor (0,0)` 分不开，会让「世界档也答 (0,0)」这条假绿）。</para>
+        /// <para>⚠️ 世界档的「锚」体现在 `localPosition` 上（`Move` 的世界那一支），当前**没有**读回口 ——
+        /// 要断世界档的角锚得另开口（本轮没加，如实记在报告 §⑤）。</para></summary>
+        public Vector2 BubbleAnchorOf(int side)
+        {
+            var b = BubbleFor(side);
+            if (b == null || b.bg == null || !_ugui) return new Vector2(-1f, -1f);
+            var rt = b.bg.Rect;
+            if (rt == null) return new Vector2(-1f, -1f);
+            return rt.anchorMin;       // `Move` 把 `anchorMin`/`anchorMax` 写成同一个点锚 ⇒ 读一个就够
+        }
+
+        /// <summary>🔴 **自检用（`T09` 批 3 的【灭自证】）**：三颗气泡的**图与字是不是都建在 uGUI 画布上**
+        /// （而不是有条漏网、退回世界空间 quad）。
+        /// <para>它防的是本件**最坏的那一档**：一半在画布、一半在世界 —— 16:9 下逐位相同、全绿，
+        /// 只有别的宽高比才露（`T09` §五·补⑦）。⛔ 别用「`HudPiece != null`」替它（那个两边都真）。</para>
+        /// <para>任一件没建出来（贴图/字体缺失）⇒ 也返 `false`，如实回答「不成立」。</para></summary>
+        public bool OnCanvas
+        {
+            get { return OnCanvasOf(_player) && OnCanvasOf(_enemy) && OnCanvasOf(_radio); }
+        }
+        static bool OnCanvasOf(Bubble b)
+        {
+            if (b == null) return false;
+            return IsUguiOnCanvas(b.bg) && IsUguiOnCanvas(b.portrait) && IsUguiOnCanvas(b.wave)
+                && b.text != null && b.text.IsUgui;
+        }
+        static bool IsUguiOnCanvas(HudPiece q)
+        {
+            return q != null && q.IsUgui && q.Rect != null && q.Rect.GetComponentInParent<Canvas>() != null;
+        }
+
         public static UnitChatPanel Create(Transform parent)
         {
+            return Create(parent, null);          // 不传宿主 ⇒ **世界档**（与加本档之前逐位相同）
+        }
+
+        /// <summary>🔴 **2026-10-16（`T09` 批 3）**：`uguiHost` = **本面板那块子画布的 `RectTransform`**
+        /// （由调用方建/取：`HudCanvas.EnsureSubCanvas(null, <see cref="SubCanvasName"/>,
+        /// <see cref="SortingLayerId"/>, <see cref="SortingOrder"/>)`）。
+        /// <para>`null` ⇒ **世界档**（= 改本件之前的行为，逐位相同）；非 null ⇒ **uGUI 档**。</para>
+        /// <para>⛔ **宿主不是画布（或其祖先里有 Canvas）时出声并且【不建】** —— 半迁移态比不迁移更坏：
+        /// 一张 `Image` 挂在没有 `Canvas` 的父链下**一个像素都不画**，而调用点会以为建成功了。</para></summary>
+        public static UnitChatPanel Create(Transform parent, Transform uguiHost)
+        {
+            bool ugui = uguiHost != null;
+            if (ugui && uguiHost.GetComponentInParent<Canvas>() == null)
+            {
+                Debug.LogError("[Battle] `UnitChatPanel.Create` 的 `uguiHost` 不在任何 `Canvas` 下"
+                             + " ⇒ **本面板不建**（⛔ 不退回世界空间 quad —— 半迁移态在 16:9 下看不出来）");
+                return null;
+            }
             // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
             //    判据 = 原版同名件 `Unit Chat` 实读：`RectTransform` · `anchor (0,0)-(1,1)` ·
             //    `sizeDelta (0,0)` ⇒ **绝对矩形 (0,0)-(1920,1080)**（`bundle_scenes_scenes_battlearena1`，
             //    2026-10-11 现读；它挂 `UnitsVoiceLinesPanel`）⇒ 整屏矩形（两个气泡按绝对 px 摆在屏内）。
             //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「单位语音条根 = 整屏矩形」红。
+            // 🔴 **2026-10-16（`T09` 批 3）**：上面那条**是【世界档】的**（`MenuDraw.SetPxSize` 体内 `÷108`）；
+            //    uGUI 档走 **`HudCanvas.FillParent`**（同一组锚点、但单位 = 设计 px）。
             var go = new GameObject("UnitChatPanel", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
+            if (ugui)
+            {
+                go.transform.SetParent(uguiHost, false);
+                HudCanvas.FillParent((RectTransform)go.transform);
+            }
+            else
+            {
+                go.transform.SetParent(parent, false);
+                MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
+            }
             var p = go.AddComponent<UnitChatPanel>();
+            p._ugui = ugui;                        // ⚠️ 必须在 `Build()` **之前**赋值（`Build` 里按它算单位）
             p.Build();
             return p;
         }
@@ -218,19 +409,39 @@ namespace CardPresentation
                 Debug.LogWarning($"[UnitChat] 语音条图没取到（radio={radio != null} wave={waveTex != null}）"
                                + " —— 跑 `工具/sync_battle_ui_art.py` 同步");
 
-            b.bg = Quad(b.left + BubbleW * 0.5f, topPx + BubbleH * 0.5f, radio, BubbleH, "chat_bg_" + name, ZBg);
+            b.bg = Quad(at, b.left + BubbleW * 0.5f, topPx + BubbleH * 0.5f, radio, BubbleH, "chat_bg_" + name, ZBg);
             // 卡图先拿一张**占位**建起来（原版是运行时 `set` sprite）—— 说话时再 `SetTexture` 换成那张卡的立绘
-            b.portrait = Quad(b.left + PortraitCx, topPx + PortraitCy, CardArt.Solid(), PortraitH,
+            b.portrait = Quad(at, b.left + PortraitCx, topPx + PortraitCy, CardArt.Solid(), PortraitH,
                               "chat_card_" + name, ZPortrait);
-            b.wave = Quad(b.left + WaveCx, topPx + WaveCy, waveTex, WaveH, "chat_wave_" + name, ZWave);
+            b.wave = Quad(at, b.left + WaveCx, topPx + WaveCy, waveTex, WaveH, "chat_wave_" + name, ZWave);
             if (b.wave != null) b.wave.SetTint(WaveTint);
 
             // 文本区原版是 anchor(0.29062,0.25823)-(0.97362,0.60365) 的**拉伸矩形**、
             // 对齐 `H=1(左) V=512(中)` ⇒ 我们按**左对齐**摆（轴心 x=0），y 取那条的中线。
-            var t = Label.Create(transform, "", Spot(b.left + TextLeft, topPx + TextCy, ZText), 4, TextColor,
+            // 🔴 **2026-10-16（`T09` 批 3）**：`Label.Create`（世界空间）→ **`HudCanvas.MakeText`（画布）**。
+            //   ⚠️ **单位是【设计 px】**：喂世界单位会**小 108 倍**、而画面只是「小得看不见」、不报错
+            //     （`T09` §五·补⑨ 四）。`z` 那个形参就是旧那句「世界档设 `localPosition.z`」里那个 z 的落点
+            //     （画布上 z **只用来排兄弟序**，写进 `localPosition` 会把件推离画布平面）。
+            //   ⚠️ `MakeText` 拿不到 TMP 字体时**返回 `null`**（`Label.CreateUgui` 出声、⛔ 不退化成点阵）
+            //     ⇒ 下面保留 `!= null` 空判。
+            //   🔴 **2026-10-16（补正 `A12`）**：两档都先建在 `(0,0)`、再由 `Move` 按**本颗气泡的锚点**摆
+            //     —— 摆位（含锚点）**只此一处**（⛔ 别在这里再写一遍坐标）。
+            Label t;
+            if (_ugui)
+            {
+                t = HudCanvas.MakeText(transform, "", 0f, 0f, 4, TextColor, new Vector2(0f, 0.5f),
+                                       ZText, "chat_text_" + name);
+            }
+            else
+            {
+                t = Label.Create(transform, "", Vector3.zero, 4, TextColor,
                                  new Vector2(0f, 0.5f), "chat_text_" + name);
+            }
+            Move(t, b.left + TextLeft, topPx + TextCy, ZText, at.ax, at.ay);
             // 原版是 TMP `fontSize 33`（**em 口径**）—— 见 `Speak` 里那段更正说明（别按大写折）。
-            if (t != null) t.SetGlyphHeight(OrigFontPx / 108f);
+            // 🔴 **2026-10-16（`T09` 批 3）**：走 `U()`（世界档 = `33/108` 世界单位、uGUI 档 = **33 设计 px**）。
+            //   ⛔ 漏了它 ⇒ 画布上的字号只有 **0.3 px**、**一个字都不报**。
+            if (t != null) t.SetGlyphHeight(U(OrigFontPx));
             b.text = t;
 
             b.audio = gameObject.AddComponent<AudioSource>();
@@ -242,18 +453,99 @@ namespace CardPresentation
             return b;
         }
 
-        ImageQuad Quad(float xPx, float yPxTop, Texture tex, float hPx, string goName, float z)
+        /// <summary>一片图：位置 = 面板内**设计 px**（左上原点、y 向下）＝ 该件的**枢轴点**、
+        /// `hPx` = 画出来的**高**、**宽由贴图比例来**（= 旧 `ImageQuad.Create(…, worldH, …)` 的语义；
+        /// 要盖比例的建完自己调 `SetAspect` —— 本件那三片就是这么干的）。
+        /// <para>🔴 **2026-10-16（`T09` 批 3）双模式**：`_ugui` ⇒ `HudCanvas.MakeImageInParent`；否则与改本件之前
+        /// 同样的建法（`ImageQuad.Create` + `÷108`）。**位置两档都交给 `Move`**（⛔ 不在这里写坐标 ——
+        /// 摆位分支只此一处）。</para>
+        /// <para>🔑 **为什么用 `MakeImageInParent` 而不是 `QuadFromTopPx`/`MakeImage`**：后两个是**归一化锚**
+        /// （`x/1920`、`1 − y/1080`）—— **只有当 `parent` 本身是整屏矩形**时才等于「相对父中心」；
+        /// 而本节点是 `FillParent`，`Expand` 档下（4:3 / 21:9）它比 1920×1080 高/宽 ⇒ 套那两个会把件
+        /// **静默摆到别处**（`T09` §五·补⑩ §七·10；同批 `MulliganPanel.Img` 先例）。
+        /// ⚠️ 建件口那个 `(0,0)` 是**占位**（`Move` 紧接着覆盖 `anchoredPosition`）。</para></summary>
+        HudPiece Quad(Slot at, float xPx, float yPxTop, Texture2D tex, float hPx, string goName, float z)
         {
             if (tex == null) return null;
-            var q = ImageQuad.Create(transform, tex, Spot(xPx, yPxTop, z), hPx / 108f,
-                                     new Vector2(0.5f, 0.5f), goName);
+            HudPiece q;
+            if (_ugui)
+            {
+                float wPx = hPx * ((float)tex.width / Mathf.Max(1, tex.height));
+                q = HudCanvas.MakeImageInParent(transform, tex, goName, 0f, 0f, wPx, hPx, z, Color.white);
+            }
+            else
+            {
+                q = HudPiece.Of(ImageQuad.Create(transform, tex, Vector3.zero, hPx / 108f,
+                                                 new Vector2(0.5f, 0.5f), goName));
+            }
+            Move(q, xPx, yPxTop, z, at.ax, at.ay);
             return q;
         }
 
-        static Vector3 Spot(float xPx, float yPxTop, float z = Z)
+        // 🔴 **2026-10-16（`G5` 收口波 · 消重）：本文件原来有个私有的 `static Vector2 ApPx(…)` —— 【已删】。**
+        //   它的式子 `ap = (xPx − ax·1920, 1080·(1 − ay) − yPxTop)` **整条收进了共用口**
+        //   `HudCanvas.AnchorApPx`（落盘那一半 = `HudCanvas.SetAnchorPx`，两处调用点已改走它）。
+        //   ⛔ **别在本文件再写一遍这个算式**（本仓红线：两处写同一条规则 = 迟早不一致）。
+        //   下面这条推导原样留着 —— 它解释的是**为什么**该这么算，不是第二份实现：
+        //   · 锚点 `(ax, ay)` 指的是**父矩形**（= 画布）的那个角，在 1920×1080 帧里正好落在设计 px
+        //     `(ax·1920, (1−ay)·1080)` ⇒「枢轴点落在设计 px `(xPx, yPxTop)`」⇔ `ap = 目标点 − 锚点` ✓（两轴都是减法）。
+        //   · **与 pivot 无关** —— 式子只管「枢轴点摆在哪」，所以图（中心枢轴）与字（`Label` 的枢轴）
+        //     **共用同一个 `(xPx, yPxTop, ax, ay)`**，两档两枢轴都通用。
+        //   · 🔴 **为什么外层子件能挂在【气泡那一颗的角】上**：原版这四个子件是**气泡的子件**
+        //     （锚在气泡上：中心锚 / 气泡左下角锚 / 双轴拉伸），而**气泡自己的矩形尺寸是固定的**
+        //     （`sd` 不随拉伸变）⇒「锚在气泡上的固定偏移」==「锚在气泡那个角上的固定偏移」**逐位同义**。
+        //     ⛔ 反过来说：**若原版那一级是【拉伸】的（尺寸会变），这条就不成立**（那要真嵌套或按比例算）。
+        //   · ⚠️ `1080·(1 − ay)` 那一项：`ay = 1`（锚在顶边）⇒ 偏移自**上沿**算；`ay = 0` ⇒ 自**下沿**算。
+
+        /// <summary>把一个**图**件摆到面板内**绝对设计 px**（左上原点、y 向下）＝ 该件的**枢轴点**。
+        /// 🔴 **摆位（含锚点）的分支只此一处** —— ⛔ 别在 `Place`/`Quad` 里各写一遍
+        /// （本仓红线：两处写同一条规则 = 迟早不一致）。
+        /// <para>**uGUI 档**：走共用口 `HudCanvas.SetAnchorPx(rt, ax, ay, xPx, yPxTop)`
+        /// （= 点锚 + `anchoredPosition = HudCanvas.AnchorApPx(…)`）
+        /// （⛔ 不写 `localPosition`：锚点一旦不是父件中心，两者就**不再同值**；⛔ 也不写 `localPosition.z`
+        /// —— 画布上写 z 会把件**推离画布平面**，层深度由建件口那个 `z` → 兄弟序承担）。</para>
+        /// <para>**世界档**：`LayoutSpace.ToWorld(ax, ay)`（= 那个角在**可见区**里的世界坐标）
+        /// `+ HudCanvas.AnchorApPx(…) × s`，`s = LayoutSpace.Px(LayoutSpace.Scale)` —— **这就是「贴着那个角、按固定 px 内缩」**
+        /// 在世界空间里的写法（`Scale` = 窄屏系数，16:9 ⇒ 1 ⇒ 与改本件之前**逐位相同**）。
+        /// 🔴 为什么乘 `Scale` 而不是写死 `1/108`：原版那一套的 px 是**画布 px**，画布 px→屏 px 的系数
+        /// 是 `CanvasScaler` 的 `scaleFactor = min(W/1920, H/1080)`；而世界这边 `LayoutSpace.Scale`
+        /// **恒等于它**（逐值推导 → `资料/普查产出_1016并行/T09_UnitChat_锚点与层序补正_报告.md` §④·三）——
+        /// 不乘的话，4:3 下偏移会比原版**大 1.333 倍**（而 16:9 下看不出）。
+        /// ⚠️ 世界档**尺寸**仍是老的 `÷108` 尺（`hPx/108`）—— 那是**整条世界路径**的尺
+        /// （T09 要淘汰的那一档），**超出本件（锚点）范围**，如实记在报告 §⑤。</para></summary>
+        void Move(HudPiece q, float xPx, float yPxTop, float z, float ax, float ay)
         {
-            var v = LayoutSpace.ToWorld(xPx / RefW, 1f - yPxTop / RefH);
-            return new Vector3(v.x, v.y, z);
+            if (q == null) return;
+            if (_ugui)
+            {
+                // 🔴 2026-10-16（`G5` 收口波 · 消重）：这一支改用共用口 —— 它体内就是
+                //    「`anchorMin = anchorMax = (ax, ay)` + `anchoredPosition = AnchorApPx(…)`」，
+                //    与本处原来那三句**逐位等价**（`q.Rect == null` 的空判它自带一个）。
+                HudCanvas.SetAnchorPx(q.Rect, ax, ay, xPx, yPxTop);
+                return;
+            }
+            var ap = HudCanvas.AnchorApPx(xPx, yPxTop, ax, ay);
+            var o = LayoutSpace.ToWorld(ax, ay);
+            float s = LayoutSpace.Px(LayoutSpace.Scale);
+            q.transform.localPosition = new Vector3(o.x + ap.x * s, o.y + ap.y * s, z);
+        }
+
+        /// <summary>同上，给**字**那一档（`Label` 不是 `HudPiece`）—— 算式同走共用口
+        /// `HudCanvas.AnchorApPx` / `SetAnchorPx`。⚠️ `Label` **没有 `Rect` 口**（2026-10-16 现核：
+        /// `Label.cs` 里没有 `public RectTransform …` 这样的成员）⇒ 画布档自己 cast
+        /// （`(RectTransform)t.transform`；`HudCanvas.MakeText` → `Label.CreateUgui` 建的本来就是 `RectTransform`）。</summary>
+        void Move(Label t, float xPx, float yPxTop, float z, float ax, float ay)
+        {
+            if (t == null) return;
+            if (_ugui)
+            {
+                HudCanvas.SetAnchorPx((RectTransform)t.transform, ax, ay, xPx, yPxTop);
+                return;
+            }
+            var ap = HudCanvas.AnchorApPx(xPx, yPxTop, ax, ay);
+            var o = LayoutSpace.ToWorld(ax, ay);
+            float s = LayoutSpace.Px(LayoutSpace.Scale);
+            t.transform.localPosition = new Vector3(o.x + ap.x * s, o.y + ap.y * s, z);
         }
 
         /// <summary>分辨率变了要重算（`BattleDriver.ReanchorHud` 里调）。</summary>
@@ -268,23 +560,13 @@ namespace CardPresentation
         {
             if (b == null) return;
             float left = at.left, topPx = at.top;
-            if (b.bg != null)
-            {
-                var p = Spot(left + bubbleW * 0.5f, topPx + BubbleH * 0.5f, ZBg);
-                b.bg.transform.localPosition = p;
-                b.bg.SetAspect(BubbleW / BubbleH);          // 原版 `m_Type=0` 纯拉伸
-            }
-            if (b.portrait != null)
-            {
-                b.portrait.transform.localPosition = Spot(left + PortraitCx, topPx + PortraitCy, ZPortrait);
-                b.portrait.SetAspect(pw / ph);
-            }
-            if (b.wave != null)
-            {
-                b.wave.transform.localPosition = Spot(left + WaveCx, topPx + WaveCy, ZWave);
-                b.wave.SetAspect(WaveW / WaveH);            // 图是 708×96 ⇒ 这里就是原版那次非等比拉伸
-            }
-            if (b.text != null) b.text.transform.localPosition = Spot(left + TextLeft, topPx + TextCy, ZText);
+            Move(b.bg, left + bubbleW * 0.5f, topPx + BubbleH * 0.5f, ZBg, at.ax, at.ay);
+            if (b.bg != null) b.bg.SetAspect(BubbleW / BubbleH);        // 原版 `m_Type=0` 纯拉伸
+            Move(b.portrait, left + PortraitCx, topPx + PortraitCy, ZPortrait, at.ax, at.ay);
+            if (b.portrait != null) b.portrait.SetAspect(pw / ph);
+            Move(b.wave, left + WaveCx, topPx + WaveCy, ZWave, at.ax, at.ay);
+            if (b.wave != null) b.wave.SetAspect(WaveW / WaveH);        // 图是 708×96 ⇒ 这里就是原版那次非等比拉伸
+            Move(b.text, left + TextLeft, topPx + TextCy, ZText, at.ax, at.ay);
         }
 
         /// <summary>
@@ -330,7 +612,9 @@ namespace CardPresentation
                 //    按大写折等于把 em 当成 0.72 em 用；② 我们字体实测 `Wcap/Wglyph = 0.0779/0.0948 = **0.822**`，
                 //    0.72 这个常数本来就不对。两处叠起来 ⇒ 我们最大只到 **28.9 px**，比原版小 12%。
                 //    现在中英**一律按 em** 给（`SetGlyphHeight(px/108)` 就是「em = px」）。
-                b.text.SetGlyphHeight(OrigFontPx / 108f);
+                // 🔴 **2026-10-16（`T09` 批 3）**：那一句改成 `U(…)` —— 世界档仍是 `33/108`（逐位不变），
+                //    uGUI 档是 **33 设计 px**（画布单位就是设计 px）。
+                b.text.SetGlyphHeight(U(OrigFontPx));
                 // 逐行左对齐（原版 `m_HorizontalAlignment = 1`）—— 折行后短行靠左，不是居中
                 b.text.SetAlignLeft();
                 // 🔴 **台词不许溢出**：限宽折行 + 字号自适应，逐值照原版那个框（见 `TextW/TextH` 的出处）。
@@ -341,7 +625,12 @@ namespace CardPresentation
                 //    = `m_fontSize 33` · `auto[10~33]` · **`m_fontSizeBase 36.0`**（40 颗里 **39 颗是 36.0**、
                 //    1 颗是 12.0 —— 逐站表 §二·3 #33）。⚠️ 36 **≠ 标称 33** ⇒ 必须显式传
                 //    （缺省 = 标称 33，那是旧行为）。
-                b.text.SetAutoFitBox(TextW / 108f, TextH / 108f, TextMinPx, OrigFontPx, 36f);
+                // 🔴 **2026-10-16（`T09` 批 3）**：**框（前两个实参）走 `U()`**（世界档 = `÷108`、逐位不变；
+                //    uGUI 档 = **设计 px** —— `SetAutoFitBox` 内部拿它写 TMP 的 `sizeDelta`，喂世界单位会让框
+                //    变成 1/108、字号收敛到一个荒谬的小值，**不报错**）。
+                //    ⚠️ **`minPx`/`maxPx`/`basePx` 那三个【不换】** —— 它们本来就是**像素**口径
+                //    （`SetAutoFitBox` 的 doc 与 `MulliganPanel.PromptFs*` 先例逐字相同）。
+                b.text.SetAutoFitBox(U(TextW), U(TextH), TextMinPx, OrigFontPx, 36f);
             }
 
             // ⚠️ 用 `clip=` + `Play()` 而不是 `PlayOneShot` —— 后者的声音**停不掉**

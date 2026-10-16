@@ -441,9 +441,26 @@ public static class BattleScene
         //     那一份注释表 —— 读它 = 自证（拿实现证明实现）。
         // ==================================================================
 
-        /// <summary>「px → 世界单位」的那个换算（`1080 / 10 = 108`；与 `BattleDriver` 那句私有的
-        /// `Px(px) = px / 108f` 是**同一个数**，判据 = `LayoutSpace.DesignPxH / DesignHeight`）。</summary>
-        const float HudPxPerWorld = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
+        /// <summary>读一件**已迁 uGUI** 的 HUD 件画出来的**真设计 px**（= `RectTransform.sizeDelta`）。
+        /// <para>🔴 **判据只此一处**：`HudCanvas.SizePx` / `HudPiece.SizePx`（「凡读『画出来多大』一律走它」，
+        /// 全仓已有四条先例 —— `BattleLogPanel.FrameSizePx` / `MultiCardDisplay.ContinueBarDrawnPx` /
+        /// `UnitChatPanel.BubbleSizePxOf` / `HudPiece.SizePx`）。</para>
+        /// <para>⛔ **别用 `HudPiece.WorldH × 108f` 反推**：对**已迁件**那个在非 16:9 下只有真设计 px 的
+        /// **0.75 倍**（画布单位到世界单位的两轴系数随屏变；批处理恒 **640×480** ⇒ 那些断言按机制必红）。
+        /// 判据 → `HudPiece.SizePx` / `HudPiece.WorldW` 那两段 doc + `Core/LayoutSpace.cs:174` 的自证句。</para>
+        /// <para>⛔ **也别拿它去量【拉伸锚】的件**：`sizeDelta` 只在点锚（`anchorMin == anchorMax`）下等于
+        /// 绝对尺寸；本仓那**四个**把它拉成拉伸锚的调用点见 `HudPiece.SizePx` 的 doc（`FillParent` 那一路
+        /// 会把 `sizeDelta` 写成 `(0,0)`）。**今天本助手只量点锚件**（`HudImageTex` 建的那一族）。</para>
+        /// <para>⚠️ 按**节点名**在**根画布**下取（同族先例 = 本文件的 `CheckHudBox` / `Quad()` 那一族）：
+        /// 那些件都是 `HudImageTex` 建的、`root` 是**裸 `Transform` 的 `hudRoot`** ⇒ 父件恒为根画布的直接子件。
+        /// ⚠️ `HudCanvas.RootRect` 是**进程级静态**的根画布 ⇒ `Find` 取的是**第一个**同名件 ——
+        /// 本宿主只建一个 `BattleDriver` ⇒ 安全（多驱动的宿主⛔ 别照抄，见 `EW8` 报告 ⑥·3）。</para>
+        /// <para>取不到 ⇒ 返回 **`(-1,-1)`**（断言**当场红**、并打出 `-1.00`，⛔ 不静默给 0）。</para></summary>
+        Vector2 HudPxOf(string name)
+        {
+            var rt = HudCanvas.RootRect != null ? HudCanvas.RootRect.Find(name) as RectTransform : null;
+            return rt != null ? HudCanvas.SizePx(rt) : new Vector2(-1f, -1f);
+        }
 
         /// <summary>文字块按 `anchor` 插值出来的那个点，相对**节点原点**的偏移（世界单位）。
         /// 结构与 `Label.RefreshBounds()` 的末句恒等 ⇒ 两个分量都该 ≈ **0**
@@ -460,17 +477,27 @@ public static class BattleScene
         }
 
         /// <summary>HUD 一颗字的 **框 + 四格 + 折行档 + 摆位 + 收敛关系**（`A1213①` 的接线那一半）。
-        /// `bw/bh` = 原版那颗 `RectTransform` 解算到 1920×1080 的**屏幕矩形**；
+        /// `bw/bh` = 原版那颗 `RectTransform` 解算到 1920×1080 的**屏幕矩形**（= **设计 px**）；
         /// `mn/mx/bs/wrap` = 原版那颗 TMP 的四个字段**原文**。
         /// 🔴 **不拿收敛值（`FontPxNow`）当字面量** —— 开了自适应之后它是「当前文本 + 当前框」的函数
-        /// （空文本时 `TextMeshPro.cs:2149` 还会把它夹到上限）⇒ 只能断**关系**（落在窗口里）。</summary>
+        /// （空文本时 `TextMeshPro.cs:2149` 还会把它夹到上限）⇒ 只能断**关系**（落在窗口里）。
+        ///
+        /// <para>🔴🔴 **2026-10-16（`EW8` · `T09` 批 3 连带）：查找口 `hudRoot.Find` → 根画布。**
+        /// 字族已整族迁到 uGUI 画布 ⇒ 旧读法对这 16 颗**恒 `null`**：16 个调用点**全部前提红**，
+        /// 而且每颗后面那 **9 条被 `if (lb == null || tmp == null) return;` 静默跳过**（= **144 条不跑**）。
+        /// 机制（`EW6` 现核）：`Hud()` 现在把字建在画布上（`BattleDriver.Hud()`：`cv = root as RectTransform`，
+        /// 传进来的 `root` 是**裸 `Transform` 的 `hudRoot`** ⇒ `cv = HudCanvas.Ensure(cam)`），
+        /// 而根画布在 `HudCanvas.Ensure()` 里是 `new GameObject("BattleHud Canvas")`、**没有任何 `SetParent`**
+        /// ⇒ **它是根对象**（`HudCanvas.cs` 文件头第 2 条明文「⛔ 根 canvas 不能挂在 HUD 根下」——
+        /// 那是反向补震用的）⇒ `hudRoot.Find` 找不到（`Transform.Find` **不递归**）。
+        /// 旧路能中只是因为 `Label.Create` 当年直接挂 `hudRoot`。</para>
+        /// <para>⚠️ 只找**根画布的直接子件** —— 本助手的 16 颗都在那一层；
+        /// 提示条那颗（`TipText_Text`）挂在 `AboveShader` 子画布下，**本来就不在名单里**。</para></summary>
         void CheckHudBox(string name, string origNode, float bw, float bh,
                          float mn, float mx, float bs, int wrap)
         {
-            // ⚠️ 本助手声明在 `Run()` 的**顶层块**里，而 `drv` 是各处**各自** `FindObjectOfType` 出来的
-            //    （它不在顶层块的词法作用域内）⇒ 这里自己取一份（与调用点那一句同路，拿到的是同一件）。
-            var hd = Object.FindObjectOfType<BattleDriver>();
-            var t = hd != null && hd.hudRoot != null ? hd.hudRoot.Find(name) : null;
+            // 🔴 2026-10-16（`EW8`）：查找口从 `hudRoot` 换成**根画布**（判据见上面那段 doc）。
+            var t = HudCanvas.RootRect != null ? HudCanvas.RootRect.Find(name) : null;
             var lb = t != null ? t.GetComponent<Label>() : null;
             var tmp = t != null ? t.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
             // 🔴 前提**当场红**（⛔ 不许静默跳过 —— 红线：断言不许有能整段静默不跑的写法）
@@ -481,26 +508,43 @@ public static class BattleScene
 
             // ① 框真的写进去了（写在 TMP 子节点的 `sizeDelta` 上）。⚠️ 容差 1e-4：**别精确比浮点**
             //    改坏法：把 `Hud` 的 `boxWpx/boxHpx` 传成 `0`（或漏掉那 6 个实参）⇒ 这两条立刻红
+            // 🔴 **2026-10-16（`EW8`）：两边的尺都换成【设计 px】。**
+            //    · 右边 `bw/bh` 本来就是**原版 px 字面量**；
+            //    · 左边 `sizeDelta` 在**画布档的单位就是设计 px**（`HudCanvas`：「一个 canvas 单位 = 一个设计 px」，
+            //      而 `Hud()` 把 `boxWpx/boxHpx` **原样**喂给 `SetAutoFitBox` / `SetWrapWidth`）。
+            //    改前左边套了 `LayoutSpace.Px()`（÷108）⇒ **恒差 108 倍**（右边 290.94 vs 左边 2.69）。
+            //    ⚠️ ⛔ 别把 `sd.x` 再乘一个「px → 世界单位」的系数折回去 —— 那是**世界档**的尺，画布档用不上。
             var sd = tmp.rectTransform.sizeDelta;
-            Check(Mathf.Abs(sd.x - LayoutSpace.Px(bw)) <= 1e-4f,
-                  $"{name} 框宽 {bw}px = 原版 `{origNode}` 的屏幕宽（实得 {sd.x * HudPxPerWorld:F2}px）");
-            Check(Mathf.Abs(sd.y - LayoutSpace.Px(bh)) <= 1e-4f,
-                  $"{name} 框高 {bh}px = 原版 `{origNode}` 的屏幕高（实得 {sd.y * HudPxPerWorld:F2}px）");
+            Check(Mathf.Abs(sd.x - bw) <= 1e-4f,
+                  $"{name} 框宽 {bw}px = 原版 `{origNode}` 的屏幕宽（实得 {sd.x:F2}px）");
+            Check(Mathf.Abs(sd.y - bh) <= 1e-4f,
+                  $"{name} 框高 {bh}px = 原版 `{origNode}` 的屏幕高（实得 {sd.y:F2}px）");
 
             // ② 四格真的接上了
             Check(lb.AutoSizing, $"{name} 自适应开着（原版那一颗是 `m_enableAutoSizing = 1`）");
             //    ⚠️ 容差 0.05px 那一档 = 「TMP 自适应按 1/20 取整」；下面三个数**不受框/收敛影响**
             //    （`SetAutoFitBox` 写的是 `cur × 原版字段 / nomPx` ⇒ px 口径下恒等于原版字段原文）。
-            Check(Mathf.Abs(Label.FontSizeToPx(lb.FontSizeMin) - mn) <= 0.05f,
-                  $"{name} 自适应**下界** = 原版 `m_fontSizeMin` {mn}px（实得 {Label.FontSizeToPx(lb.FontSizeMin):F2}px）");
-            Check(Mathf.Abs(Label.FontSizeToPx(lb.FontSizeMax) - mx) <= 0.05f,
-                  $"{name} 自适应**上界** = 原版 `m_fontSizeMax` {mx}px（实得 {Label.FontSizeToPx(lb.FontSizeMax):F2}px）");
+            // 🔴 **2026-10-16（`EW8`）：口径从那两个**静态**口换成**实例**口 `lb.FontSizeToPxNow`。**
+            //    · 静态 `Label.FontSizeToPx(...)` 走的是 **`TmpFont.WorldGlyphPerFontSize × 108`**（≈ ×10.24/em）
+            //      —— 那条比值是**拿 3D 的 `TextMeshPro` 量的**；
+            //    · 画布档（`TMP_UGUI`）的同名比值是 `× PxPerUnit(1) × UguiFontScale(10)`（≈ ×0.948/em）
+            //      ⇒ **两档差 `108/10 = 10.8` 倍**（`Label.FontSizeToPxNow` 的 doc 写的「恒差 108 倍」
+            //      是量级说法，精确值 10.8）。用静态口比 ⇒ `min=2` 读成 21.6 ⇒ **恒红**。
+            //    · ✅ 实例口与写它的那一路**同源**：`SetAutoFitBox` 里 `nomPx = NominalPx()`
+            //      = `FontSizeToPxNow(cur, ActualFace)`，而写进去的是 `fontSizeMin = cur × minPx/nomPx`
+            //      ⇒ `FontSizeToPxNow(fontSizeMin, ActualFace)` **恒等于 `minPx`**（逐位，不是约等于）。
+            //    ⚠️ **字体面必须传 `lb.ActualFace`**（与 `NominalPx()` 用的那一面同一个）——
+            //       传错面会把 `EmPerFontSize(face)` 换掉、上面那条恒等式就不成立了。
+            Check(Mathf.Abs(lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace) - mn) <= 0.05f,
+                  $"{name} 自适应**下界** = 原版 `m_fontSizeMin` {mn}px（实得 {lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace):F2}px）");
+            Check(Mathf.Abs(lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace) - mx) <= 0.05f,
+                  $"{name} 自适应**上界** = 原版 `m_fontSizeMax` {mx}px（实得 {lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace):F2}px）");
             //    ⚠️ `base` 这一格**有鉴别力**（A536 那个洞）：`m_fontSizeBase` 是 `protected`、只能反射读，
             //    而 `Label` 在 `basePx == nomPx` 时会**早退**（字段停在 TMP 的序列化默认 36）
             //    —— 本件这几颗传的 basePx 与各自标称（27.6 / 36.8 …）**都不相等** ⇒ 落在「写得进去」那一格。
             //    **改坏法**：把 `Hud` 的第 5 个实参（`autoBasePx`）传成 `0` ⇒ base 变成调用方那一档 ⇒ 红
-            Check(Mathf.Abs(Label.FontSizeToPx(lb.FontSizeBase) - bs) <= 0.05f,
-                  $"{name} 二分**起点** = 原版 `m_fontSizeBase` {bs}px（实得 {Label.FontSizeToPx(lb.FontSizeBase):F2}px）");
+            Check(Mathf.Abs(lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace) - bs) <= 0.05f,
+                  $"{name} 二分**起点** = 原版 `m_fontSizeBase` {bs}px（实得 {lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace):F2}px）");
 
             // ③ 折行档 = 原版 `m_TextWrappingMode` **原文**。
             //    ⚠️ `SetAutoFitBox` 内部**无条件把折行开成 `Normal`(1)**（它调 `SetWrapWidth`，而那个写死
@@ -827,6 +871,52 @@ public static class BattleScene
             Check(VfxMap.ResolvesForSomeFaction(VfxMap.Draw) && VfxMap.ResolvesForSomeFaction(VfxMap.AmbushExit),
                   "★ 两条都**至少有一个阵营**配得上（`ResolvesForSomeFaction` —— `Events[]` 那条自检靠它判"
                 + "「按阵营配」不是「没配」）");
+
+            // ---- ⑤ 🔴 2026-10-16（收口 · 台账 `W27` · 账 `A1731`）：**按阵营配的东西没配到 ⇒ 必须出声** ----
+            //  背景：`SummonCircleOf` 原来在没配到的阵营上**静默 `return null`**，而
+            //  `CardEffects.Fire(null, …)` 第 1 行就是 `if (string.IsNullOrEmpty(effectName)) return;`
+            //  ⇒ 玩家看到「这一拍什么都没发生」、日志里**一个字都没有** ⇒「原版这一档我们没有」与「表里漏抄了」分不开。
+            //  判据 = `Core/VfxMap.cs` 的 `WarnNoFactionVariant`（`Debug.LogWarning`；去重键 = `what|faction`；上限 32）
+            //       ＋ 原版字段侧：本机只有 `SummonCircleByFaction` 那 **4 个键**、13 个真阵营里只配到 2 个（SaimHann/TauEmpire）
+            //         ⇒ 其余必须留白**并出声**（`Core/VfxMap.cs` 那张表 + `A1731` 报告 §④·9）。
+            //  现成范式 = `Editor/DeckScene.cs:7123` 的 `Application.logMessageReceived` sink · 本文件 `:22125 WarnD`。
+            //  🧨 改坏法：把 `SummonCircleOf` 里那句 `WarnNoFactionVariant(...)` 删掉（回到静默 `return null`）
+            //     ⇒ `heard` 假、计数器不动 ⇒ 本条红。
+            //  ⚠️ 只断**播放口径**那一条 —— 探测口径（`Resolve(evt)` 不带阵营 / `ResolvesForSomeFaction` / `Describe`）
+            //     设计上**不出声**（`_probeDepth`）⇒ 上面 `:824` 那条 `Check(Resolve(Draw) == null)` 照旧绿，⛔ 不是坏了。
+            {
+                // 🔑 **用【合成阵营名】**（绝不可能是真阵营、也绝不在 `SummonCircleByFaction` 里）：
+                //   `_warnedNoFaction` 是**按 (东西, 阵营) 去重**的（`WarnNoFactionVariant` 第三句
+                //   `if (!_warnedNoFaction.Add(what + "|" + faction)) return;`）⇒
+                //   拿一个**真阵营**名（如 `Goff`）会因为那一对**在这一轮里早就报过**而拿到「没新增」的**假红**。
+                //   合成名**必然是新的一对** ⇒ 本条的读数**确定**。
+                const string SynthFaction931 = "__A1731_no_such_faction__";
+                int nBefore931 = VfxMap.NoFactionVariantWarns;
+                bool heard931 = false;
+                Application.LogCallback h931 = (string m, string st, LogType ty) =>
+                {
+                    if (ty == LogType.Warning && m != null && m.Contains("阵营召唤法阵")) heard931 = true;
+                };
+                string scSynth931 = null;
+                Application.logMessageReceived += h931;
+                try { scSynth931 = VfxMap.SummonCircleOf(SynthFaction931); }
+                finally { Application.logMessageReceived -= h931; }
+                Check(scSynth931 == null,
+                      $"★ 没配过的阵营（合成 `{SynthFaction931}`）⇒ **留白**（`SummonCircleOf` 回 null，"
+                    + $"实得「{scSynth931}」—— ⛔ 不拿别的阵营的顶上、也不硬凑一件）");
+                Check(heard931 && VfxMap.NoFactionVariantWarns > nBefore931,
+                      "★ **留白不再静默**：`SummonCircleOf(<没配过的阵营>)` 真出了一条含「阵营召唤法阵」的 Warning"
+                    + $"（抓到 = {heard931}；计数器 {nBefore931} → {VfxMap.NoFactionVariantWarns}，"
+                    + "口 = `VfxMap.NoFactionVariantWarns`，只增不减）"
+                    + " —— 本仓红线：不许静默失败（原来这里是干净的 `return null`，日志里一个字都没有）"
+                    + "；🧨 改坏法：把 `SummonCircleOf` 里那句 `WarnNoFactionVariant(...)` 删掉 ⇒ 本条红");
+                // 真阵营那一半（`Goff` = Orks）：**只断「留白」**。
+                // 🔴 ⛔ **不要**在这里再断一次「这次有没有出声」—— 同一次会话里
+                //   「(阵营召唤法阵（deploy）, Goff)」那一对**可能早就报过**（去重）⇒ 会是**假红**。
+                Check(VfxMap.SummonCircleOf("Goff") == null,
+                      "★ 真阵营（Goff）没配过 ⇒ 同样留白（`SummonCircleOf` 回 null）"
+                    + " —— 判据 = `SummonCircleByFaction` 只有 Ember/Tide/SaimHann/TauEmpire 四个键");
+            }
 
             // ---- ② `Slot = -1` 那道闸：`Draw` 必须在「HUD 锚点」那一族 ----
             //   `PlaySignal` 里 `if (slot < 0) return;` 排在 HUD 那一族**之后** ⇒
@@ -1854,14 +1944,78 @@ public static class BattleScene
                         + $"{HudCanvas.ReferenceResolutionValue.x}×{HudCanvas.ReferenceResolutionValue.y} / "
                         + $"{HudCanvas.ScreenMatchModeValue} / {HudCanvas.ReferencePixelsPerUnitValue}");
                     Check(HudCanvas.HasGraphicRaycaster, "★ uGUI 层有 `GraphicRaycaster`（第 4 步迁按钮时要用）");
-                    // 🔴 `T09`：HUD 的**字**要与画布**同一次分辨率变化里缩放一致**（`LayoutSpace.HudTextScale`）。
-                    //    判据 = 那条公式 `R = min(W/1920, H/1080) × 1080 / 屏高`；本批断言跑在 **16:9** ⇒ **必须 = 1**。
-                    Check(Mathf.Abs(LayoutSpace.HudTextScale - 1f) < 1e-4f,
-                          $"★ 16:9 下 HUD 字号系数 = 1（⇒ 逐位不变）；实得 {LayoutSpace.HudTextScale:F5}");
+                    // 🔴🔴 **2026-10-16（`T09` §五 第 5 步 · 字族整族迁 uGUI）—— 这一格【换了口径】**。
+                    //   旧那两条（断 `LayoutSpace.HudTextScale == 1` · 断标签**真的**乘上了它）**已删**：
+                    //    · 前者在**批处理（640×480 = 4:3）**下**本来就是红的** —— 它读的是 `Screen`
+                    //      （那条注释写的「本批跑在 16:9」把 `cam.aspect` 当成了 `Screen`），实得 **0.75**；
+                    //    · 后者迁后**结构上不可能成立**（字不再乘任何系数 ⇒ `HudLabelScaleForTest` 恒 1）。
+                    //   新口径 = **位置只由【归一化锚点】决定**：`Hud()` 里 `anchorMin == anchorMax == (x01,y01)`
+                    //   + `anchoredPosition == 0`（枢轴正落在锚点上），与**图族**同一套（判据 → `EW4` 报告 ④·b）。
+                    // 🔑 **期望值一律写【原版字面量】**（本表是**另建的一份**，⛔ 不读 `BattleDriver` 里那几条同义
+                    //   常量 —— 读它 = 自证：改常量时两边一起变、判据恒真，本会话已抓过 3 处这种）。
+                    //   每行的算式 = `BuildHud` 调用点的**实参原文**（那些实参本身 = 原版 prefab 的绝对屏幕
+                    //   rect 折成归一化；逐条判据 + 绝对矩形写在 `BattleDriver.BuildHud` 各段注释里）。
+                    //   顺序 = `_hudLabels` 的**建字顺序**（= `BattleDriver` 里 `= Hud(` 的出现顺序）。
+                    // 🧨 **改坏法（两条，结构上不可能同时满足）**：
+                    //   ① 把 `Hud()` 改回世界档 `Label.Create`（父件回 `hudRoot`）⇒ 那 21 条 `OnCanvas` 全红；
+                    //   ② 只把某一颗的 `x01/y01` 改错 ⇒ 那一颗的锚点红（其余 20 颗照绿）。
+                    //   ⛔ 别把这两条并成「迁没迁」的弱断言：`hudRoot` 是**裸 `Transform`**，
+                    //      挂它下面的字**也**有 `anchorMin` ⇒ 只看锚点分不出世界档 / 画布档。
                     {
-                        float hl = drv.HudLabelScaleForTest(0);
-                        Check(hl > 0f && Mathf.Abs(hl - LayoutSpace.HudTextScale) < 1e-4f,
-                              $"★ HUD 的标签**真的**乘上了那个系数（实得 {hl:F5}，期望 {LayoutSpace.HudTextScale:F5}）");
+                        Check(drv.HudLabelCount == 21,
+                              $"★ HUD 那一族字有 **21 颗**（16 颗带框 + 4 颗只有 `scale` + 提示条那颗；"
+                            + $"实得 {drv.HudLabelCount}）—— 少一颗 = 有一处 `Hud(...)` 没建出来"
+                            + "（旧断言只抽查第 0 颗 ⇒ 漏迁的那几颗在 16:9 下**看不出来**）");
+                        // 🔴 灭自证（前提）：根画布**不在** `hudRoot` 下 ⇒「字在画布上」与「字在 `hudRoot` 下」
+                        //   是**两件不同的事**；否则下面那 21 条 `OnCanvas` 会**恒真**、白断。
+                        //   判据 → `Battle/HudCanvas.cs` 文件头第 2 条（根 canvas 必须建成**根对象**）。
+                        Check(drv.hudRoot != null && HudCanvas.RootRect != null
+                              && drv.hudRoot != HudCanvas.RootRect.transform
+                              && HudCanvas.RootRect.parent != drv.hudRoot,
+                              "★（前提）根画布**不在** `hudRoot` 下（它是根对象）—— 这条是下面 21 条"
+                            + "「字在画布上」的**鉴别力前提**：两者同一个父件时那 21 条恒真");
+                        // 21 颗的**期望锚点**（x01 从左 · y01 从下 · `[0,1]`）—— 逐颗对应上面那个建字顺序。
+                        // ⚠️ 容差 1e-6（归一化单位 ⇒ 0.0019 px）：float 的**结合序**差异也在这一档内，
+                        //    而真判据（谁在哪一格）差得远大于它（最小的一对 = `EndTurnButton` / `TurnClock` 的 0.021）。
+                        var hudName = new string[] {
+                            "TurnLabel", "EnemyPlateText", "PlayerPlateText", "MatchSkullsScore",
+                            "PlayerFaithText", "EnemyFaithText", "PlayerSpiritStoneText", "EnemySpiritStoneText",
+                            "EnergyLabel", "FoeEnergyLabel", "HandLabel", "EndTurnButton", "TurnClock",
+                            "MyPileLabel", "FoePileLabel", "TipText_Text", "ResultLabel",
+                            "TitleText_Me", "TitleText_Foe", "QPText_Me", "QPText_Foe" };
+                        var hudWantX = new float[] {
+                            0.5f, 228.17147f / 1920f, 225.74343f / 1920f, 0.11740f,
+                            0.97177f, 0.97177f, 0.97401f, 0.97323f,
+                            0.97180f + 1.8f / 1920f + (-1.5f) / 1920f,
+                            0.97060f + 3.284f / 1920f + (-1.5f) / 1920f,
+                            0.075f, 0.96263f, 0.96263f,
+                            0.90104f + (-20.75f) / 1920f, 0.90104f + (-5f) / 1920f,
+                            (960f + 1.0600586f) / 1920f,
+                            0.5f, 217.62721f / 1920f, 217.92701f / 1920f,
+                            1865.8381719470285f / 1920f, 1864.9734582742763f / 1920f };
+                        var hudWantY = new float[] {
+                            0.810f, 1f - 66.88264f / 1080f, 1f - 1002.47582f / 1080f, 0.11134f,
+                            0.39704f, 0.82167f, 0.40343f, 0.81500f,
+                            0.48556f + (-0.5f) / 1080f + 0.594f / 1080f,
+                            0.73278f + 0.15f / 1080f + 0.594f / 1080f,
+                            0.158f, 0.57819f, 0.57819f + 0.021f,
+                            0.10648f + 165f / 1080f, 0.90741f - 160f / 1080f,
+                            1f - (540f - 91.78f) / 1080f,
+                            0.5f, 1f - 1038.15523f / 1080f, 1f - 102.402645f / 1080f,
+                            1f - 643.9898812899978f / 1080f, 1f - 198.7184759276015f / 1080f };
+                        for (int i = 0; i < hudName.Length; i++)
+                        {
+                            var a = drv.HudLabelAnchorForTest(i);
+                            float wx = hudWantX[i], wy = hudWantY[i];
+                            Check(drv.HudLabelOnCanvasForTest(i),
+                                  $"★ `{hudName[i]}`（第 {i} 颗）**真的在画布上**（父件 = 根画布 / 它下面的子画布）"
+                                + " —— 迁之前这一族挂在那根**裸 `Transform`** 的 `hudRoot` 下，而那条路**也有**"
+                                + " `anchorMin` ⇒ 只有**父链**这一条能分出「世界档 / 画布档」");
+                            Check(Mathf.Abs(a.x - wx) < 1e-6f && Mathf.Abs(a.y - wy) < 1e-6f,
+                                  $"★ `{hudName[i]}`（第 {i} 颗）归一化锚点 = ({a.x:F6}, {a.y:F6})，期望 "
+                                + $"({wx:F6}, {wy:F6}) = 原版 ({wx * 1920f:F2}, {(1f - wy) * 1080f:F2}) px（y 向下）"
+                                + " —— 期望值是**另抄一份的原版字面量**（⛔ 不是从 `BattleDriver` 的常量读的）");
+                        }
                     }
                     Check(HudCanvas.RootLayer == 0,
                           $"★ uGUI 层在 **Default 层**（它归 HUD 正交相机画）；实得层 {HudCanvas.RootLayer}");
@@ -1972,29 +2126,60 @@ public static class BattleScene
                     Check(dsdf.transform.localPosition.z > pile.transform.localPosition.z,
                           $"★ SDF 在卡背**底下**（z {dsdf.transform.localPosition.z:F3} > 卡背 {pile.transform.localPosition.z:F3}）");
                 }
-                Check(Mathf.Abs(drv.MyDeckSizePlateWorldH - 59.11f / 108f) < 0.002f,
-                      $"我方张数底板高 {drv.MyDeckSizePlateWorldH:F4}（原版 59.11 px = 0.5473，"
-                    + "是 `AspectRatioFitter` 4.0346 按父宽 238.5 算出来的，不是 sizeDelta）");
-                Check(Mathf.Abs(drv.FoeDeckSizePlateWorldH - 52.05f / 108f) < 0.002f,
-                      $"敌方张数底板高 {drv.FoeDeckSizePlateWorldH:F4}（原版 52.05 px = 0.4819，敌方小一号）");
+                // 🔴🔴 **2026-10-17（`EW13` · `EW11` 接线 · 铁律 5）就地改掉【消费端】—— 这一处改前【必红】。**
+                //   病灶**不在口上**：`MyDeckSizePlateWorldH` 名字里就写着 `World`、交付的**就是世界单位**
+                //   （`HudPiece.WorldH` = `GetWorldCorners()` 量的），口**没撒谎** ⇒ ⛔ 别去改它。
+                //   错在这一行：右边写的是**设计 px ÷ 108**（旧尺、只在 16:9 成立），而这一族
+                //   （`HudImage` → `HudImageTex` → `HudCanvas.MakeAnchored`）**`T09` 批 3 起就在画布上**了
+                //   ⇒ 它的世界高按 640×480 是「设计 px ÷ 144」⇒ 左边只有右边 **0.75 倍** ⇒ **红**。
+                //   ✅ 改读**真设计 px**：`HudCanvas.RootRect.Find("MyDeckSizePlate")` → `HudCanvas.SizePx`
+                //   （= `sizeDelta`；`HudImage` 把那对 px **原样**写进去，判据 → `HudCanvas.MakeAnchored`）。
+                //   期望值 **59.11 / 52.05 一个字没改** —— 它们本来就是原版设计 px（`BattleDriver.MyDeckSizePx`
+                //   / `FoeDeckSizePx` = 原版那颗 `AspectRatioFitter` 4.0346 × 父宽算出来的实绘高）。
+                //   容差：原来是「0.002 世界单位」（≈0.216 px），现在换成 px 口径的 **0.25 px**
+                //   （`sizeDelta` 是**精确**写进去的，0.25 只给浮点）。
+                //   🧨 改坏法：`SetAspect` 被删（框比例变回贴图比例 ⇒ 2.2% 窄）⇒ ⛔ 这两条**只管高**、
+                //      那条在下面「牌堆底板」那对宽×高里抓；把 `MyDeckSizePx` 改掉 ⇒ 本条红。
+                var mySizeSz = HudPxOf("MyDeckSizePlate");
+                var foeSizeSz = HudPxOf("FoeDeckSizePlate");
+                Check(Mathf.Abs(mySizeSz.y - 59.11f) < 0.25f,
+                      $"我方张数底板高 {mySizeSz.y:F2} **px**（原版 59.11 px，"
+                    + "是 `AspectRatioFitter` 4.0346 按父宽 238.5 算出来的实绘高，不是裸 `sizeDelta`）");
+                Check(Mathf.Abs(foeSizeSz.y - 52.05f) < 0.25f,
+                      $"敌方张数底板高 {foeSizeSz.y:F2} **px**（原版 52.05 px，敌方小一号）");
                 Check(Mathf.Abs(drv.DeckSizePlateAlpha - 0.6941177f) < 0.01f,
                       $"张数底板是**半透明**的（α {drv.DeckSizePlateAlpha:F4}，原版 m_Color.a = 0.6941）");
-                Check(drv.PileLabelWorldW > 0.01f && drv.PileLabelWorldW < drv.MyDeckSizePlateWorldH * (442f / 112f) - 0.05f,
-                      $"张数文字宽 {drv.PileLabelWorldW:F3} < 底板宽 "
-                    + $"{drv.MyDeckSizePlateWorldH * (442f / 112f):F3}（原版文字是 TMP 自动缩字号塞进去的）");
+                // 🔴 **2026-10-16（`T09` 字族迁 uGUI · `EW6` 接线）—— 这一条原来【混两把尺】（必红）**：
+                //    `PileLabelWorldW` 现在是 **设计 px**（判据 → 它自己的 doc），而
+                //    `MyDeckSizePlateWorldH` 走 `HudPiece.WorldH`（`GetWorldCorners`）**仍是世界单位**
+                //    ⇒ 右边即使用旧那个 3.946 倍（442/112）也只有 **2.16**、左边是几十~几百 px。
+                //    ✅ 换成**同尺**：右项 = **原版那块底板自己的宽 238.5 px**
+                //    （= `MyDeckSizeW`，原版那格 `m_PreserveAspect = 0` **拉伸填满** 238.5×59.11；
+                //     这里写**字面量**、⛔ 不读那条常量 —— 读它 = 自证）。
+                //    下限沿用原来那条「真的量到东西了」的门槛（旧写 0.01 世界单位 ≈ **1 px**）：
+                //    文字没量到时 `WorldW` 会被 `RefreshBounds` 夹到 `1e-4` ⇒ 落在门槛下面。
+                //    🧨 改坏法：把框/字号改到装不下（文字撑出底板）⇒ 右边那条红。
+                Check(drv.PileLabelWorldW > 1f && drv.PileLabelWorldW < 238.5f - 0.5f,
+                      $"张数文字宽 {drv.PileLabelWorldW:F2} **px** < 底板宽 **238.5 px**"
+                    + "（原版文字是 TMP 自动缩字号塞进去的；⛔ 别拿 `MyDeckSizePlateWorldH` 比 —— 那是**世界单位**）");
 
                 // 🔴 **2026-09-27（PA 普查 §三 第 1 条）：牌堆底板是 `preserveAspect` —— 我们原来只给「高」。**
                 //   原版 `RightArea/PlayerDeck/DeckAndEnergyImage`：PA=1 · 框 230×229.85（方）·
                 //   图 `UI_Deck_Background` 364×346（横）⇒ **按宽定** ⇒ 实绘 **230×218.63**；
                 //   我们原来按高给 230 ⇒ 实绘 241.96×230（**宽出框 11.96px、高出 11.4px = +5.2%**）。
-                Check(Mathf.Abs(drv.DeckPlateWorldW * 108f - 230f) < 1.5f
-                   && Mathf.Abs(drv.DeckPlateWorldH * 108f - 218.63f) < 1.5f,
+                // 🔴 **2026-10-17（`EW13` · `EW11` 接线）：同上一处 —— 改的是【消费端】。**
+                //   左边原来是 `DeckPlateWorldW/H × 108f`（世界单位折 px，对已迁件只有 0.75 倍 ⇒ 必红），
+                //   现在读**真设计 px**（`sizeDelta`）。期望值 **230×218.63 / 200×190.11 一个字没改**
+                //   （原版 `DeckAndEnergyImage` 方框 230×229.85 + 图 364×346 的 PA 内接结果）。
+                //   ⚠️ 这两条是 `SetAspect`（框比例）唯一的判别式 ⇒ ⛔ 别删。
+                var myDeckSz = HudPxOf("MyDeckPlate");
+                var foeDeckSz = HudPxOf("FoeDeckPlate");
+                Check(Mathf.Abs(myDeckSz.x - 230f) < 1.5f && Mathf.Abs(myDeckSz.y - 218.63f) < 1.5f,
                       $"★ 我方牌堆底板 = 原版 **230×218.63**（PA=1 内接，图比框宽 ⇒ 按宽定）—— 实测 "
-                    + $"{drv.DeckPlateWorldW * 108f:F2}×{drv.DeckPlateWorldH * 108f:F2}");
-                Check(Mathf.Abs(drv.FoeDeckPlateWorldW * 108f - 200f) < 1.5f
-                   && Mathf.Abs(drv.FoeDeckPlateWorldH * 108f - 190.11f) < 1.5f,
+                    + $"{myDeckSz.x:F2}×{myDeckSz.y:F2} px");
+                Check(Mathf.Abs(foeDeckSz.x - 200f) < 1.5f && Mathf.Abs(foeDeckSz.y - 190.11f) < 1.5f,
                       $"★ 敌方牌堆底板 = 原版 **200×190.11**（同一条判据，敌方小一号）—— 实测 "
-                    + $"{drv.FoeDeckPlateWorldW * 108f:F2}×{drv.FoeDeckPlateWorldH * 108f:F2}");
+                    + $"{foeDeckSz.x:F2}×{foeDeckSz.y:F2} px");
 
                 // ② 手牌数底板（原版 `CardsInHandText/Bg (1)`，图**也是** `40K_display`）
                 Check(drv.HandPlateTex == "40K_display",
@@ -3383,10 +3568,17 @@ public static class BattleScene
                     Check(Mathf.Abs(gotPx - wantPx) < 0.05f,
                           $"★ A1512 {what} = **原版 {wantPx} px**（{src}）—— 实测 {gotPx:F4} px");
                 }
-                AbsPx("我方名牌实绘高", drv.MyPlateWorldH * 108f, 101.04f, "menu_dump：`NameBackground` 126.3 × 父链 0.8");
-                AbsPx("敌方名牌实绘高", drv.EnemyPlateWorldH * 108f, 101.04f, "同上");
-                AbsPx("我方名牌实绘宽", drv.MyPlateWorldW * 108f, 305.8882f, "101.04 × 442/146（PA 高受限）");
-                AbsPx("敌方名牌实绘宽", drv.EnemyPlateWorldW * 108f, 305.8882f, "同上");
+                // 🔴 **2026-10-17（`EW13` · `EW11` 接线）：这四条原来也是 `WorldX × 108f`（已迁件 ⇒ 0.75 倍 ⇒ 必红）。**
+                //   改读**真设计 px**（`HudCanvas.SizePx` = `sizeDelta`）。期望值 **101.04 / 305.8882 一个字没改**
+                //   → 同名节点：`PlayerPlate` / `EnemyPlate`（`BattleDriver.HudImage(root, "UI_Player_Frame", …)`）。
+                //   ⚠️ 宽那一对**不是同义反复**：`HudImageTex` 的 `wPx = hPx × 贴图宽/贴图高`
+                //   ⇒ 它同时钉住「`UI_Player_Frame` 是 442×146、且按**高**受限」这条判据。
+                var myPlatePx = HudPxOf("PlayerPlate");
+                var foePlatePx = HudPxOf("EnemyPlate");
+                AbsPx("我方名牌实绘高", myPlatePx.y, 101.04f, "menu_dump：`NameBackground` 348.56×101.04（已乘父链 0.8）");
+                AbsPx("敌方名牌实绘高", foePlatePx.y, 101.04f, "同上");
+                AbsPx("我方名牌实绘宽", myPlatePx.x, 305.8882f, "101.04 × 442/146（PA 高受限）");
+                AbsPx("敌方名牌实绘宽", foePlatePx.x, 305.8882f, "同上");
                 AbsPx("我方名牌文字中心 x", drv.PlateTextPosPx(true).x, 225.74343f, "`PlayerNameText` 框心（已乘 0.8）");
                 AbsPx("我方名牌文字中心 y", drv.PlateTextPosPx(true).y, 1002.47582f, "同上");
                 AbsPx("敌方名牌文字中心 x", drv.PlateTextPosPx(false).x, 228.17147f, "`EnemyNameText` 框心 239.0996 − margin 偏移 10.928");
@@ -4296,11 +4488,21 @@ public static class BattleScene
             //   主对话现读 → `bundle_scenes_scenes_battlearena2/MonoBehaviour/MonoBehaviour_4090.json`。
             //   🔴 **断「渲染尺寸 ≤ 框」、不断「字号 = 55.3」** —— 字号对而溢出时自检照样全绿（`AutoFitBox` 教训）。
             {
-                float bw = LayoutSpace.Px(WaitBanner.WaitTextBoxW), bh = LayoutSpace.Px(WaitBanner.WaitTextBoxH);
+                // 🔴 **2026-10-16（`EW8` · `T09` 块 6 连带）：本件已迁画布档（`EW7`）—— 量纲跟着换。**
+                //    `Label.WorldW/H` 在**画布档**读的是 `TMP.textBounds`，**单位就是画布 px**
+                //    （口径 → `T09` §七·8 末段）⇒ 期望该是**原版框 1270×70 的【画布 px 字面量】**，
+                //    ⛔ 不是 `LayoutSpace.Px(...)`（那会得 11.76 / 0.648 ⇒ **必红**）。
+                //    ⚠️ 世界档那一支（`CreateWithArt` 的探针 + §4.5b/§A218）读回仍是**世界单位** ⇒ 照旧 `Px()`。
+                //    ⛔ 期望值写成**字面量**（原版那两个数），**不读** `WaitBanner.WaitTextBoxW/H` —— 那两个常量
+                //       正是 `Build()` 喂给 `SetAutoFitBox` 的实参（读它 = 拿实现证明实现）。
+                bool waitUgui = wait.OnCanvas;
+                float bw = waitUgui ? 1270f : LayoutSpace.Px(1270f);
+                float bh = waitUgui ? 70f : LayoutSpace.Px(70f);
                 Check(wait.TextWorldW > 0f && wait.TextWorldW <= bw + 1e-4f
                       && wait.TextWorldH > 0f && wait.TextWorldH <= bh + 1e-4f,
                       $"★ 等待提示的**渲染尺寸 {wait.TextWorldW:F4} × {wait.TextWorldH:F4} ≤ 框 {bw:F4} × {bh:F4}**"
-                    + "（原版框 1270×70 画布 px）｜🧨 改坏法：删掉 `WaitBanner.Build` 里那句 `SetAutoFitBox` "
+                    + $"（原版框 **1270×70 画布 px**；本档 = {(waitUgui ? "画布档 ⇒ 读回也是画布 px" : "世界档 ⇒ 读回是世界单位")}）"
+                    + "｜🧨 改坏法：删掉 `WaitBanner.Build` 里那句 `SetAutoFitBox` "
                     + "⇒ 落 `Label` 默认档、不再受这个框约束（原版这颗是**有框有字号**的）");
             }
 
@@ -4356,15 +4558,43 @@ public static class BattleScene
             }
             // ⚠️ 尺寸断言的是 **`Generic Popup Background` 的 1323×90**（真正画出来的那个子节点），
             //    不是父容器 `WaitText` 的 1344×79.4 —— 2026-09-17 照场景 JSON 更正。
-            Check(Mathf.Abs(wait.BarWorldW - 1323f / 108f) < 0.01f,
-                  $"★ 提示条宽 = 原版 `Generic Popup Background` 1323 px ÷ 108 = {1323f / 108f:F3} 世界单位（实得 {wait.BarWorldW:F3}）");
-            Check(Mathf.Abs(wait.BarWorldH - 90f / 108f) < 0.01f,
-                  $"★ 提示条高 = 原版 90 px ÷ 108 = {90f / 108f:F3} 世界单位（实得 {wait.BarWorldH:F3}）");
+            // 🔴 **2026-10-16（`EW8` · `T09` 块 6）**：下面两条原来读 `BarWorldW/H`，而那两个口的实现是
+            //    `U(PopupW)` —— **读的是本件自己的常量**（`PopupW/H` 正是 `Build()` 喂进去的实参）
+            //    ⇒ 在世界档下这条**恒真 / 同义反复**（改坏尺寸它照样绿），画布档下量纲还不对。
+            //    ⇒ 画布档改读**真读回** `FrameSizePx`（= 框那一层的 `sizeDelta`、设计 px），期望写字面量。
+            if (wait.OnCanvas)
+            {
+                var fs = wait.FrameSizePx;
+                Check(Mathf.Abs(fs.x - 1323f) < 0.01f && Mathf.Abs(fs.y - 90f) < 0.01f,
+                      $"★ 提示条框（原版 `Generic Popup Background`）= **1323 × 90 画布 px**"
+                    + $"（`sizeDelta` 真读回）—— 实得 {fs.x:F3} × {fs.y:F3}"
+                    + "｜🧨 改坏法：把 `MakeSlicedPiece` 那两个尺寸实参写错 ⇒ 红（旧写法恒真、抓不到）");
+            }
+            else
+            {
+                Check(Mathf.Abs(wait.BarWorldW - 1323f / 108f) < 0.01f,
+                      $"★ 提示条宽 = 原版 `Generic Popup Background` 1323 px ÷ 108 = {1323f / 108f:F3} 世界单位（实得 {wait.BarWorldW:F3}）");
+                Check(Mathf.Abs(wait.BarWorldH - 90f / 108f) < 0.01f,
+                      $"★ 提示条高 = 原版 90 px ÷ 108 = {90f / 108f:F3} 世界单位（实得 {wait.BarWorldH:F3}）");
+            }
             // ⚠️ **不能断言「= 9 块」**：原版这张 `40k_popup` 的上下边框各 **160 px**，而提示条只有 **90 px** 高
             //    ⇒ 中间那一行被挤没（顶/底边框按比例压扁）—— **这正是 Unity `Sliced` 的退化行为**，
             //    原版自己也是这么画的。所以判据是「角块都在（≥6）」。
-            Check(wait.BarFramePieces >= 6,
-                  $"★ 底板九宫格建了 {wait.BarFramePieces} 块（`40k_popup` 是 `Sliced`；提示条比它的上下边框还矮 ⇒ 6 是正常的退化）");
+            // 🔴 **2026-10-16（`EW8` · `T09` 块 6）**：画布档的框是**一张 `Image (Sliced)`**（不是九块 quad）
+            //    ⇒ `BarFramePieces` 在画布档**恒 0** ⇒ 旧写法必红。分档：画布档断**那一层真是 `Sliced`**
+            //    （尺寸那半条已由上面那条 `FrameSizePx` 断掉，⛔ 不重复断同一个量）。
+            if (wait.OnCanvas)
+            {
+                Check(wait.FrameIsSliced,
+                      $"★ 底板那一层是 **`Image.Type.Sliced`**（原版 `Generic Popup Background` 的 `m_Type = 1`）"
+                    + $" —— 实得 {wait.FrameIsSliced}（尺寸见上面那条 `FrameSizePx`；九块 quad 那一档只对世界档有判别力）"
+                    + "｜🧨 改坏法：把建件口从 `MakeSlicedPiece` 换成普通拉伸件 ⇒ 角块被揉开、边框糊掉 ⇒ 红");
+            }
+            else
+            {
+                Check(wait.BarFramePieces >= 6,
+                      $"★ 底板九宫格建了 {wait.BarFramePieces} 块（`40k_popup` 是 `Sliced`；提示条比它的上下边框还矮 ⇒ 6 是正常的退化）");
+            }
             // 🔴 **2026-10-04（A50④）把这条断死**：原来是 `>= 1`，而 `BarFillPieces` 当时数的是
             //    `_fillRoot.childCount`（= `MenuDraw.Tiled` 返回的那个根节点，**恒 1**）⇒ 那条断言**恒真**，
             //    改坏块数一条都不会红。现在两边都修了：读数数真块、断言断**原版那个数**。
@@ -4378,11 +4608,84 @@ public static class BattleScene
             //      `MissionRerollPopup` · `ProfileTab` · `DuelPopupWindow`；`WaitBanner` 是全工程唯一的例外。）
             //    ⚠️ 42 是**算出来的**，不是量的：`ImageQuad.CreateTiled` 按 `PixelsPerUnit = 108` 折世界尺寸
             //    （与本件 `U()` 同一换算）⇒ 12.25 ÷ 0.5926 = 20.67 → 21 列，和上面那条整除式同源。
-            Check(wait.BarFillPieces == 42,
-                  $"★ 填充层平铺了 **42** 块（原版 `Tiled`：节距 128÷ppuMul 2 = **64** ⇒ 1323÷64 → 21 列 × 90÷64 → 2 行；"
-                + $"实得 {wait.BarFillPieces} —— ⚠️ 这条以前是 `>= 1`，等于没查）");
+            // 🔴 **2026-10-16（`EW8` · `T09` 块 6）**：画布档的填充是**一张 `Image (Tiled)`**（不是 42 块 quad）
+            //    ⇒ `BarFillPieces` 在画布档**恒 0** ⇒ 旧写法必红。分档：画布档断**真读回**的三件事 ——
+            //    `Tiled` + 尺寸 1323×90 + **`pixelsPerUnitMultiplier = 2`**（后者才是「格宽 64」的判据）。
+            if (wait.OnCanvas)
+            {
+                var fls = wait.FillSizePx;
+                Check(wait.FillIsTiled
+                   && Mathf.Abs(fls.x - 1323f) < 0.01f && Mathf.Abs(fls.y - 90f) < 0.01f
+                   && Mathf.Abs(wait.FillPpuMulValue - 2f) < 1e-4f,
+                      $"★ 填充层 = **一张 `Image (Tiled)`** 且 `pixelsPerUnitMultiplier = 2`（原版 `m_Type = 2` ·"
+                    + " `m_PixelsPerUnitMultiplier 2.0` ⇒ 格宽 = 128 ÷ 2 = **64 画布 px**，21 列 × 2 行 与「42 块 quad」等价）"
+                    + $" —— 实得 Tiled={wait.FillIsTiled} · ppuMul={wait.FillPpuMulValue:F3} · {fls.x:F3}×{fls.y:F3}"
+                    + "｜🧨 改坏法：删掉那句写 `pixelsPerUnitMultiplier` 的 ⇒ 格宽翻倍（64→128）⇒ 红");
+            }
+            else
+            {
+                Check(wait.BarFillPieces == 42,
+                      $"★ 填充层平铺了 **42** 块（原版 `Tiled`：节距 128÷ppuMul 2 = **64** ⇒ 1323÷64 → 21 列 × 90÷64 → 2 行；"
+                    + $"实得 {wait.BarFillPieces} —— ⚠️ 这条以前是 `>= 1`，等于没查）");
+            }
             Check(Mathf.Abs(wait.ShadeTint.a - 0.6118f) < 0.001f,
                   $"★ 整屏压暗的 α = 原版 0.6118（实得 {wait.ShadeTint.a:F4}）");
+
+            // ══════════════════════════════════════════════════════════════════════════════════
+            //  🔴🆕 **2026-10-16（`EW8` · `T09` 块 6 的**画布档判别式**）** —— 上面那几条是按**世界档口径**
+            //     写的，画布档下要么量纲错、要么恒真（逐条注释已就地写明）⇒ 这里补**画布档真正有判别力**
+            //     的一组。⛔ 期望值一律**原版字面量**（出处 → `EW7_WaitBanner迁画布_报告.md` ④·3）；
+            //     ⛔ 不读 `WaitBanner.RootW/ShadeW/PopupW` 那些常量（那是**被测实参** = 自证）。
+            // ══════════════════════════════════════════════════════════════════════════════════
+            {
+                // ① 接线没被漏掉：生产实例**真的登记了画布宿主**（`BuildHud` 传的 `HudCanvas.RootRect`）。
+                //    🧨 把 `BuildHud` 里那个实参删掉 ⇒ 静默走世界档 ⇒ 红。
+                Check(wait.OnCanvas,
+                      "★（前提）`WaitBanner` 生产实例**走的是画布档**（宿主 = `HudCanvas.RootRect`）"
+                    + " —— 不成立时下面 ②~⑥ 等于没验（`EW7`：非 16:9 下位置与「压暗盖住名牌一族」"
+                    + "正是本件要修的那件事；世界档下的那几条断言另在上面分档跑）");
+                if (wait.OnCanvas)
+                {
+                    // ② 条心 = 原版 `anchor (0.5,1)` + `ap (7.0, −175.1)` ⇒ **(967, 175.1)**（左上原点、y 向下）。
+                    //    🧨 把 `PlaceAtBarCenter` 换成裸 `localPosition` ⇒ 偏到父件枢轴 ⇒ 红。
+                    var bcW = wait.BarCenterPx;
+                    Check(Mathf.Abs(bcW.x - 967f) < 0.01f && Mathf.Abs(bcW.y - 175.1f) < 0.01f,
+                          $"★ `WaitText` 条心 = **原版 (967, 175.1) 画布 px**（`anchor (0.5,1)` + `ap (7.0, −175.1)`）"
+                        + $" —— 实得 ({bcW.x:F3}, {bcW.y:F3})"
+                        + "｜🧨 落点改用 `localPosition`（父件枢轴 ≠ 父件中心）⇒ 红（先例 = `Alliance Panel` 偏 301.6/154.5 px）");
+
+                    // ③ 根节点（原版 `WaitText`）的 `sizeDelta` = 原版 **1344 × 79.44 px**。
+                    //    🧨 删掉 `HudCanvas.SetPxSize` ⇒ 落 0×0 ⇒ 红；⚠️ ⛔ 别照世界档写 `Px(1344)`（= 12.44）。
+                    var rsW = wait.RootSizePx;
+                    Check(Mathf.Abs(rsW.x - 1344f) < 0.01f && Mathf.Abs(rsW.y - 79.44f) < 0.01f,
+                          $"★ `WaitText` 根节点 = **原版 1344 × 79.44 px**（`m_SizeDelta`；⚠️ 与子件 "
+                        + "`Generic Popup Background` 的 1323×90 **不是**同一个数、⛔ 别互相顶替）"
+                        + $" —— 实得 ({rsW.x:F3}, {rsW.y:F3})");
+
+                    // ④ 压暗层 = 原版 `Dark Shade` **3963.5 × 3366 px**、而且**无贴图**（原版 `m_Sprite = null`）。
+                    //    后半条是**灭自证**那一类：只断尺寸的话，给它塞一张图也照样绿。
+                    var ssW = wait.ShadeSizePx;
+                    Check(Mathf.Abs(ssW.x - 3963.5f) < 0.05f && Mathf.Abs(ssW.y - 3366f) < 0.05f
+                          && !wait.ShadeHasSprite,
+                          $"★ 压暗层 = **原版 3963.5 × 3366 px** 且 **无贴图**（原版 `Dark Shade` 是无图纯色 · α 0.6118）"
+                        + $" —— 实得 ({ssW.x:F2}, {ssW.y:F2})，有贴图 = {wait.ShadeHasSprite}");
+
+                    // ⑤ 层级：本件必须**盖得住名牌一族** —— 图族在 `HudImageZ` 0.235~0.6、**字族在 `HudLabelZ = 0`**
+                    //    （`HudCanvas.Add` 的 z 大 ⇒ 画在**底下** ⇒ 要盖住就得比它俩都小）。
+                    //    ⇒ 判据是 **`RootOrderZ < 0`**；只断 `< HudCanvas.DefaultZ(0.3)` 不够（那盖不住字族）。
+                    Check(wait.RootOrderZ < HudCanvas.DefaultZ && wait.RootOrderZ < 0f,
+                          $"★ 整条提示排在**名牌一族之前**（`RootOrderZ = {wait.RootOrderZ:F3} < 0`；"
+                        + $"`DefaultZ` = {HudCanvas.DefaultZ}（图族那一档）· 字族 `HudLabelZ` = 0）"
+                        + "｜🧨 把 `Add` 那一档写回默认（0.3）⇒ 压暗层盖不住名牌与字 ⇒ 红");
+
+                    // ⑥ **一条不变量的三段**（`Add` 的 z 大 ⇒ 画在底下）：压暗在最下、框在中间、字在最上。
+                    //    🧨 三层里任意两个的 z 写反 ⇒ 红；而「只断某一层 = 某个数」的写法**抓不住**这种反
+                    //       （那种写法是恒真式的自证 —— 本工程已抓过多次）。
+                    Check(wait.ShadeOrderZ > wait.PopupOrderZ && wait.PopupOrderZ > wait.TextOrderZ,
+                          $"★ 三层 z 序（z 大 = 画在底下）：压暗 {wait.ShadeOrderZ:F3} > 框 {wait.PopupOrderZ:F3}"
+                        + $" > 字 {wait.TextOrderZ:F3} —— 反了就是「字被框盖住」或「压暗盖住框」");
+                }
+            }
             Shot(cam, "02b_等待提示");
         }
 
@@ -7101,6 +7404,117 @@ public static class BattleScene
                     sp.SetPointer(sp.transform.position, false);
                     Check(sp.CurrentLight == SkillPanel.Light.Available, "松开 → 回到黄绿");
                     Shot(cam, "06c_技能卡面板");
+
+                    // ================================================================
+                    // 🔴 2026-10-16（收口 · 台账 **`W11` + `W58`**）：技能面板迁 uGUI 之后的
+                    //   **子画布结构断言（`W11`）** + **面板锚点补正断言（`W58`）**。
+                    //   位置：**必须在 `Begin()` 之后**（`:410` 之后）才断得到画布档 —— 放在 `:409` 那一带断到的是世界档。
+                    //   🧨 改坏法（逐条）：`HudCanvas.EnsureSubCanvas` 那三行赋值删掉 ⇒ `W11②③④` 红；
+                    //      给子画布加 `CanvasScaler` ⇒ `W11⑤` 红；把件建回世界空间 ⇒ `W11⑥` 红。
+                    //   🔑 **判据（期望值取【判据侧】，⛔ 不读我们自己的常量）**：
+                    //      · 层 / order / 兄弟序 = `T09c` §一 那一行（原版 `ActiveSkillDesc` 子件序 **1/14**、
+                    //        `OverHand` / order **0**；兄弟序落 `HudCanvas.SubCanvasRank`，本件只管层与 order）；
+                    //      · 面板五元组 = 原版 `RectTransform_3104.json` 逐字段现读
+                    //        （`aMin (0.665576696395874, 0)` · `aMax (0.965788722038269, 0.3040129840373993)` ·
+                    //         `sd (−0.0003662100061774254, −3.509999990463257)`；父 = `RT_3055` 满屏）。
+                    // ==================================================================
+                    // `W11①` 档位判据自洽（两档都跑）
+                    // ⚠️ **如实说**：本面板这两个口**按构造同源**（`UguiMode ⇒ _cv != null`、
+                    //    `CanvasRect ⇒ _cv`）⇒ 这一条是**回归哨兵**、判别力弱；
+                    //    真正把「半迁移态」区分开的是下面的 `W11⑥`（`OnCanvas` 逐件查）与 ②–⑤。
+                    Check(sp.UguiMode == (sp.CanvasRect != null),
+                          $"★ T09/A2-①：档位判据自洽（`UguiMode`({sp.UguiMode}) ⇔ `CanvasRect != null`({sp.CanvasRect != null})）");
+                    // ⚠️ **前提（本组 ②–⑥ 与 `W58` ②③ 的门）**：要跑画布档，得有人把宿主登记进来 ——
+                    //    判据 = `BattleDriver.BuildHud()` 里那句 `skillPanel.UseHost(...)`（收口台账 **`W7`**）。
+                    //    没接线 ⇒ **本条红**（一条红的根因就一句话；⛔ 不是「静默假绿」）。
+                    Check(sp.UguiMode,
+                          "★（前提）技能面板已登记 uGUI 宿主 ⇒ 跑画布档"
+                        + "（判据 = `BattleDriver.BuildHud` 那句 `skillPanel.UseHost(HudCanvas.EnsureSubCanvas(…))`；"
+                        + "没接线 ⇒ 本件 100% 跑世界档、下面那几条整体跳过）");
+                    if (sp.UguiMode)
+                    {
+                        var spCv = sp.CanvasRect.GetComponent<Canvas>();
+                        Check(spCv != null && spCv.overrideSorting,
+                              "★ T09/A2-②：技能面板子画布 `overrideSorting = true`"
+                            + $"（实得 {spCv?.overrideSorting}；原版子 canvas 都另立排序组）");
+                        Check(spCv != null && spCv.sortingLayerID == HudCanvas.SortingLayer.OverHand,
+                              $"★ T09/A2-③：`{SkillPanel.SubCanvasName}` 的排序层 = `OverHand`"
+                            + $"（判据 = `T09c` §一；实得 {spCv?.sortingLayerID}）");
+                        Check(spCv != null && spCv.sortingOrder == 0,
+                              $"★ T09/A2-④：`{SkillPanel.SubCanvasName}` 的 order = 0"
+                            + $"（原版 `ActiveSkillDesc` 那一行；实得 {spCv?.sortingOrder}）");
+                        Check(spCv != null && spCv.GetComponent<CanvasScaler>() == null,
+                              "★ T09/A2-⑤：子画布**不带** `CanvasScaler`（原版全场景只有一个、在根上；带了 = 二次缩放）");
+                        // 🔑 **灭自证**：面板那几件**全在 uGUI 画布父链下**。
+                        //   它防的是最坏那一档：**一半在画布、一半还在世界** —— 16:9 下逐位相同、全绿，
+                        //   只有别的宽高比才露（`T09` §五·补⑦）。⛔ 别用 `UguiMode` 替它 ——
+                        //   那个只看**宿主登记了没**，不看**件建在哪**（两边同源 = 同义反复）。
+                        Check(sp.OnCanvas,
+                              "★ T09/A2-⑥（灭自证）：技能面板那些图与字**都在 uGUI 子画布上**"
+                            + "｜🧨 半迁移态（一半画布一半世界）在 16:9 下逐位相同、全绿，只有非 16:9 才露");
+
+                        // ---- `W58`（`A10` 锚点补正）：面板那一级**跟着画布走**，不是写死 16:9 的 px ----
+                        // ① 判据侧期望值：**原版锚点五元组**（`RT_3104`）现算 —— ⛔ 不取 `PanelCvSize` 反推
+                        //    （那是拿实现证明实现）。判别力来自「期望值里那 6 个数是**从原版 JSON 抄来的**」：
+                        //    谁把 `CvAnchorMin/Max` 写错一位，本条的「判据」那一列当场就变。
+                        float cwA2 = sp.CanvasPxSize.x, chA2 = sp.CanvasPxSize.y;
+                        float expWA2 = (0.965788722038269f - 0.665576696395874f) * cwA2 + (-0.0003662100061774254f);
+                        float expHA2 = (0.3040129840373993f - 0.0f)             * chA2 + (-3.509999990463257f);
+                        float expCxA2 = -cwA2 * 0.5f + (0.665576696395874f
+                                        + (0.965788722038269f - 0.665576696395874f) * 0.5f) * cwA2 + (-606.110107421875f);
+                        float expCyA2 = -chA2 * 0.5f + (0.0f
+                                        + (0.3040129840373993f - 0.0f) * 0.5f) * chA2 + 55.0008544921875f;
+                        var cvSzA2 = sp.PanelCvSize;
+                        var cvCtrA2 = sp.PanelCvCenter;
+                        Check(Mathf.Abs(cvSzA2.x - expWA2) < 0.5f && Mathf.Abs(cvSzA2.y - expHA2) < 0.5f,
+                              $"★ T09/W58①：面板矩形 = 原版 `RT_3104` 锚点算出来的那一格"
+                            + $"（我们 {cvSzA2.x:F2}×{cvSzA2.y:F2} px / 判据 {expWA2:F2}×{expHA2:F2} px · 画布 {cwA2:F0}×{chA2:F0}）"
+                            + "｜🧨 改坏法：把 `PanelCvRect` 换回那对写死的 `PanelPxW/H`（576.41×324.82）⇒ 画布高 ≠ 1080 时红");
+                        Check(Mathf.Abs(cvCtrA2.x - expCxA2) < 0.5f && Mathf.Abs(cvCtrA2.y - expCyA2) < 0.5f,
+                              $"★ T09/W58①b：面板中心 = **锚参考点 + `anchoredPosition`**（原版 `ap (−606.11, 55.00)`）"
+                            + $"（我们 {cvCtrA2.x:F2},{cvCtrA2.y:F2} / 判据 {expCxA2:F2},{expCyA2:F2} px）"
+                            + "；⛔ 别拿 `PanelCenterCvPx` 那对旧常量当期望（那是被测实现自己写的）");
+                        // ② 判别式（**灭自证**）：把「按原版锚点现算」与「固定 px」分开 —— 画布高 ≠ 1080 时两者**必不相等**。
+                        //    · 批处理里 `Screen 640×480` + `CanvasScaler` 的 `Expand` 档 ⇒ 画布 **1920×1440**……
+                        //      ⚠️ 也可能量不到（`rect` 退化时 `CanvasPx` 退参考分辨率 1920×1080 **并出声一次**）
+                        //      ⇒ 这一条**按画布高分支**：两种都成立、都不假红（判别力只在画布高 ≠ 1080 时才在）。
+                        //    🧨 改坏法：把 `PanelCvRect` 换回写死 `PanelPxW/H`（324.82）⇒ 画布高 ≠ 1080 那一档红；
+                        //      把 `CanvasPx` 换成写死 1080 ⇒ 同上红。
+                        //    🔴 **2026-10-16 就地订正（修波 `FA` · 改 `R1` §②-4）：分支条件换【独立读数】。**
+                        //      原来分支读的是 `chA2`（= `sp.CanvasPxSize` ⇒ `CanvasPx` ⇒ `_cv.rect`）——
+                        //      **那就是被测实现自己那个口** ⇒ 上面那句「把 `CanvasPx` 换成写死 1080 ⇒ 同上红」
+                        //      **不成立**：分支跟着它一起退 1080、期望值那两支也一起走 16:9 ⇒ **恰好绿**
+                        //      （`R1` §②-4 的实测）。
+                        //      现在取**根画布** `HudCanvas.RootRect.rect.height`（判据侧；`SkillPanel.CanvasPx`
+                        //      自己的 doc 就写着「期望值要取原版锚点 + `HudCanvas.RootRect.rect`」）——
+                        //      子画布四边贴合根 ⇒ 真有排版时两者相等，但它是**另一个对象**、⛔ 不走被测件那个口
+                        //      ⇒ 写死 1080 那一档**当场红**。
+                        //    ⚠️ **两种解释下都不假红**（`R1` §③·1「批处理下 `rect` 到底有没有值」未定论）：
+                        //      **两边都量得到（≥1）**时才走判别支；`rect` 退化（0×0）⇒ 退回 16:9 支 ——
+                        //      与 `SkillPanel.CanvasPx` 自己的退档口径**同一条**，⛔ 不拿 0 去逼「非 16:9」
+                        //      （那会把「量不到」说成缺陷 = 假红）。
+                        //      「根量不到、子画布量得到」那种组合结构上不可能：子画布的 rect 由父推出来。
+                        float indHA2  = (HudCanvas.RootRect != null) ? HudCanvas.RootRect.rect.height : 0f; // 判据侧
+                        float selfHA2 = (sp.CanvasRect != null) ? sp.CanvasRect.rect.height : 0f;           // 被测件那块（**原始**读数，非 `CanvasPxSize`）
+                        bool bothMeasuredA2 = indHA2 >= 1f && selfHA2 >= 1f;
+                        bool cv16x9A2 = !bothMeasuredA2 || Mathf.Abs(indHA2 - 1080f) < 1f;
+                        Check(cv16x9A2 ? Mathf.Abs(cvSzA2.y - 324.82f) < 0.5f
+                                       : Mathf.Abs(cvSzA2.y - 324.82f) > 10f,
+                              $"★ T09/W58②（**判别式**）：面板高**跟着画布高走**，不是写死 16:9 的那对常量"
+                            + $"（画布高 **判据侧** {indHA2:F0} / 被测件 {selfHA2:F0} / 实现报 {chA2:F0}"
+                            + $" ⇒ 面板高 {cvSzA2.y:F2} px；"
+                            + (cv16x9A2 ? "两边量得到时按 16:9 断（量不到 ⇒ 不判别，⛔ 不假红）"
+                                        : "非 16:9 ⇒ **必须不等于** 324.82")
+                            + "）");
+                        // ③ 命中框必须**咬合实绘**（原来靠「两边都写死 1920×1080」白拿 —— 现在要真的咬合）
+                        Check(sp.Contains(sp.LightWorldPos),
+                              "★ T09/W58③：色片中心仍落在命中框里（画布档：框已随面板重算）");
+                    }
+                    // `W11⑦` 灭自证·**反面**：世界档下 `OnCanvas` 必须为假 —— 防「把 `OnCanvas` 写成恒真」
+                    //   （那会让上面 `W11⑥` 失去判别力）。这一条**两档都跑**。
+                    Check(sp.UguiMode || !sp.OnCanvas,
+                          "★ T09/A2-⑦（灭自证·反面）：**世界档下 `OnCanvas` 必须为假**"
+                        + $"（实得 UguiMode={sp.UguiMode} / OnCanvas={sp.OnCanvas}）");
                 }
 
                 // 第三步：点目标 → 结算
@@ -7265,10 +7679,17 @@ public static class BattleScene
             // 🔴 **2026-09-27（PA 普查）**：原版 `EndBattlePanel/AllRewardsHolder/SkullsHolder` 是 **PA=0**（Simple）
             //   ⇒ `40k_main_bt_nametag`（109×41）**拉满 648.1×52.4**；`ImageQuad` 默认按贴图比例定宽
             //   ⇒ 补 `SetAspect` 之前我们只画出 **139.3 宽（窄 508.8px、只剩 21%）**。
-            Check(Mathf.Abs(end.SkullPlateWorldW * 108f - 648.1f) < 2f
-               && Mathf.Abs(end.SkullPlateWorldH * 108f - 52.4f) < 1.5f,
+            // 🔴 **2026-10-17（`EW13` · `EW11` 接线）：这条原来也是 `WorldX × 108f`（`EndPanel` 批 2 已迁画布
+            //   ⇒ 0.75 倍 ⇒ 必红）。改读**真设计 px**：`EndPanel.SkullRow`（= `content/SkullsHolder`）
+            //   下面那颗 `skull_plate` 的 `sizeDelta` —— `ImageInParent` 把 `(648.1, 52.4)` **原样**写进去。
+            //   ⚠️ 用 `SkullRow.Find` 而不是根画布 `Find`：它是**二级**子件（`_root/content/SkullsHolder/`），
+            //   `HudCanvas.RootRect.Find` 不递归 ⇒ 找不到。
+            //   期望值 **648.1×52.4 一个字没改**（原版 `SkullsHolder` 的 `m_SizeDelta`，PA=0 拉满）。
+            var skullPlateRt = end.SkullRow != null ? end.SkullRow.Find("skull_plate") as RectTransform : null;
+            var skullPlatePx = skullPlateRt != null ? HudCanvas.SizePx(skullPlateRt) : new Vector2(-1f, -1f);
+            Check(Mathf.Abs(skullPlatePx.x - 648.1f) < 2f && Mathf.Abs(skullPlatePx.y - 52.4f) < 1.5f,
                   $"★ 骷髅底条渲染 = 原版 **648.1×52.4**（PA=0 拉满）—— 实测 "
-                + $"{end.SkullPlateWorldW * 108f:F1}×{end.SkullPlateWorldH * 108f:F1}");
+                + $"{skullPlatePx.x:F1}×{skullPlatePx.y:F1} px");
             // 骷髅判据只有一处（`DeckRules.SkullsFor`）；这里**独立算一遍对账** ——
             // 终局血量是「降到过的最低生命」的上界，所以面板那个数只会 ≥ 它
             int foeNow = Mathf.Max(0, ctx.Players[1 - driver.MyIndex].Warlord.Health);
@@ -7886,6 +8307,61 @@ public static class BattleScene
                     Check(cdw.HitSlot(EndPanel.Pos(960f, 480f, 0f)) == 0,
                           "★ 卡心 ⇒ 照旧判给前台那张（别改成一个永远 −1 的实现）");
                 }
+
+                // ══════════════════════════════════════════════════════════════════════════════════
+                // 🔴🆕 **2026-10-17（`EW13` · `EW12` 接线）：命中区**跟卡转**（本件的【唯一】判别式）。**
+                // 背景：`EW12` 把 `CardDisplayWindow.HitSlot` 从「自己算一块轴对齐框」改成**转发**
+                //   `SlotViews[i].Contains(world)`（= `EW9` 那套**内层 `2DCard`** 标架）
+                //   ⇒ 命中区现在**跟着卡的扇形角一起转**（`SetPose` 把扇形角写在**卡根**上，
+                //     而 `_tiltRoot` 是它的子件 ⇒ 两个标架都跟着转）。
+                // ⚠️ 上面那一组四条边（`A156`）**断不出这件事** —— 它们量的是**槽 0**，而槽 0 的
+                //   `CardFan.Rot(0) = 0`、批处理下倾摆也停在 identity ⇒ 新旧两块命中区**逐位重合**
+                //   （`EW12` 报告 ③·④(a) 复算四条边差 <0.001 px，容差 0.5f）⇒ 那一组照旧绿、**不是**判别式。
+                //   ⇒ 必须**人为拧一下**：借 `EW9` §③①(c) 那招，把**槽 1 的卡根**拧到 30°
+                //   （⚠️ 30° 是**鉴别用**的构造，不是原版值 —— 原版上限 32.4°），再取**画出来的那张卡**
+                //   的两个**对角**点问 `HitSlot` 判给谁。
+                // ⚠️ 批处理**没有帧循环** ⇒ 拧了不会被 `AutoCardRotation` 盖掉（它只在 `Update` 里写，
+                //   而且写的是 `_tiltRoot`）；断完**立刻复原**（⛔ 不复原会污染下面「换位」那一段）。
+                // 🧨 改坏法：把 `HitSlot` 退回「自算的轴对齐矩形」⇒ 这两个点落在它框外 ⇒ 本条红。
+                //   📌 逐值（`EW12` 复算）：两点落到设计 px ≈ (861.5, 89.9) / (816.6, 891.6)；
+                //   槽 0 的框是 x∈[723.4,1196.6] ∧ y∈[123.6,846.4] ⇒ 两点都**刚好在框外**（纵向差 >30px）、
+                //   其余槽更靠左上更小 ⇒ 也不覆盖 ⇒ 新实现恒 `== 1`、旧实现恒 `== −1`。
+                // ══════════════════════════════════════════════════════════════════════════════════
+                {
+                    var v1 = cdw.SlotCount >= 2 ? cdw.SlotView(1) : null;
+                    var f1 = v1 != null ? v1.FaceLayerRoot : null;   // = 内层 `2DCard`（`CardView.HitFrame()` 用的就是它）
+                    Check(v1 != null && f1 != null,
+                          "（前提）槽 1 的卡面建出来了（`FaceLayerRoot` = 内层 `2DCard`）—— 不在 = 下面这条等于没验");
+                    if (v1 != null && f1 != null)
+                    {
+                        var oldRot = v1.transform.localRotation;
+                        v1.transform.localRotation = Quaternion.Euler(0f, 0f, 30f);
+                        // 两个**对角**点（`++` 与 `−−`）：±30° 只会把这一对上下换位、不影响结论。
+                        // ⚠️ 必须走**卡的子件** `f1`（`Contains` 的标架就是它），⛔ 不是卡根。
+                        Vector3 C(float kx, float ky) => f1.TransformPoint(
+                            new Vector3(kx * CardView.HitHalfW, CardView.HitCenterDy + ky * CardView.HitHalfH, 0f));
+                        int hA = cdw.HitSlot(C(+0.995f, +0.995f));
+                        int hB = cdw.HitSlot(C(-0.995f, -0.995f));
+                        Check(hA == 1 && hB == 1,
+                              $"★ 命中区**跟卡转**：槽 1 的卡根拧到 30° 之后，它**画出来的那张卡**的两个对角点"
+                            + $"仍然判给槽 1（实得 {hA} / {hB}）—— 改前（自算的轴对齐框）这两点落在框外 ⇒ 必红");
+                        v1.transform.localRotation = oldRot;             // ⛔ 一定要复原
+                        Check(v1.transform.localRotation == oldRot,
+                              "（本组收尾）槽 1 的卡根转角已复原（⛔ 不复原会污染下面「换位」那一段）");
+                    }
+                }
+                // 🔴 **数锚（防「转发」被改回自算）** —— 与 `EW9` §③①(c) 是同一条腿：
+                //   这三个常量就是命中矩形的**全部几何**（半宽 / 半高 / 中心下移），而它们**只**由 `CardFan`
+                //   的比例与偏置推出来（唯一一份判据 → `Core/CardView.cs` 那三个 `const`）。
+                //   期望值写**字面量**（原版 `m_SizeDelta(-0.2,−0.44)` + `m_AnchoredPosition(0,−0.02)`
+                //   折出来的卡单位）⇒ ⛔ 不是从 `CardView` 读回去（那就是同义反复）。
+                //   🧨 改坏法：谁把 `CardFan.HitRatioX/Y` 或 `HitCyDropPx` 改掉（命中矩形跟着变）⇒ 这三条红。
+                Check(Mathf.Abs(CardView.HitHalfW - 0.94635f) < 1e-4f,
+                      $"★ 命中矩形**半宽** = {CardView.HitHalfW:F5} 卡单位（原版 1.8927 ÷ 2 = **0.94635**）");
+                Check(Mathf.Abs(CardView.HitHalfH - 1.44565f) < 1e-4f,
+                      $"★ 命中矩形**半高** = {CardView.HitHalfH:F5} 卡单位（原版 2.8913 ÷ 2 = **1.44565**）");
+                Check(Mathf.Abs(CardView.HitCenterDy + 0.02f) < 1e-5f,
+                      $"★ 命中矩形**中心下移** = {CardView.HitCenterDy:F5} 卡单位（原版 `m_AnchoredPosition.y` = **−0.02**）");
 
                 // ---- 换位（原版 `ChangeCardPosition` + `CardSwapFinished`）----
                 if (cdw.SlotCount >= 2)
@@ -9190,8 +9666,12 @@ public static class BattleScene
                       + $"（「{Short(driver.DeckNotice, 44)}」）");
                 Check(driver.DeckNotice.Contains("…") && !driver.DeckNotice.Contains(longName),
                       "超长卡组名被截断了（没整段塞进提示行）");
-                Check(driver.HintWidth > 0f && driver.HintWidth < LayoutSpace.VisibleWidth * 0.9f,
-                      $"那句没铺出屏幕（宽 {driver.HintWidth:F2} / 可见 {LayoutSpace.VisibleWidth:F2} 世界单位）");
+                // 🔴 **2026-10-16（`T09` 字族迁 uGUI · `EW6` 接线）：`HintWidth` 的量纲从【世界单位】变成了
+                //    【设计 px】**（可见区宽 = 画布宽 **1920**）—— 判据 → `BattleDriver.HintWidth` 的 doc。
+                //    ⛔ 右边**必须**跟着换 px：旧那 17.78 世界单位 = `1920 × 0.9` 的**同一个门槛**，只是换把尺；
+                //    不换的话左边是几百 px、右边只有 16.0 ⇒ **这条当场红**（别看它「看着更松」）。
+                Check(driver.HintWidth > 0f && driver.HintWidth < 1920f * 0.9f,
+                      $"那句没铺出屏幕（宽 {driver.HintWidth:F2} / 画布宽 1920 **设计 px**，门槛 1728 = 屏宽的 90%）");
 
                 // ⑥ 玩家自己选的就是 Goff → 对手让开，别开局先打一场内战
                 //   （要先显式把对手字段压成 Goff，不然验不到「撞上了」这个分支）
@@ -10903,6 +11383,90 @@ public static class BattleScene
                     for (int i = 0; i < sp.SliderCount; i++)
                         Check(sp.SliderAt(i) != null && sp.SliderAt(i).HasArt,
                               $"第 {i + 1} 根滑块的三张图都取到了（轨道 / 填充 / 手柄）");
+                    // ══════════════════════════════════════════════════════════════════════════════════
+                    // 🔴🔴 **2026-10-17（`EW13` · `T09` 块 6 收口）：三根滑块【已迁 uGUI】—— 本组 7 条是本件的新证。**
+                    //  判据 = 这三根**从世界壳搬到了面板帧** `sp.PanelRect` 上
+                    //  （`SettingsPanel` 那三处 `WfSlider.Create(…, uguiHost: _panel)`）⇒「一半在世界、
+                    //  一半在画布」那个**半迁移态**消失了（它在本仓是**看不见的**：16:9 下两种都「看着对」）。
+                    //  ⛔ 判别式一律走**结构 / 档位 / 字段**（`OnCanvas` · 父件 · `childCount` · 兄弟序 ·
+                    //     `Image` 那两个字段）—— **不许**写成 `SliderAt(i) != null`：两档都真 = **同义反复**，
+                    //     那样即使把 `uguiHost` 删掉也照样绿。
+                    //  期望值一律写**原版字面量**（561.08 · 12.00 · 34.406 · `m_PixelsPerUnitMultiplier` 2），
+                    //     ⛔ 不引用 `WfSlider.*` 的常量 —— 那是**被测实参** ⇒ 自证（常量改了这条也不红）。
+                    //  🧨 改坏法（逐条）：删掉 `uguiHost: _panel` 那个实参 ⇒ ①②③④⑦ 全红；
+                    //     三层兄弟序的 z 写反（例如三处都写 `-queue`）⇒ ⑤ 红；`ApplyPpuMul` 被删
+                    //     （`ppuMul` 回默认 1 ⇒ 端帽变 184/30）⇒ ⑥ 红；`HudCanvas.SetPxSize` 被换成
+                    //     `MenuDraw.SetPxSize`（内部 ÷108）⇒ ⑧ 红。
+                    //  ⚠️ 「按节点名取子件」这个量法本仓既有先例（`Editor/CollectionScene.cs` 量 `Unlock`）；
+                    //     `settings_bg` 与三根滑块根**同父**（`_panel`）⇒ 两者的 `OrderZOf` **同一份 z 账**、可比。
+                    // ══════════════════════════════════════════════════════════════════════════════════
+                    Check(sp.PanelRect != null, "（前提）面板帧 `PanelRect` 在（下面那几条拿它当落点判据）");
+                    // ③ 世界壳**已经空了**：三根滑块全搬走 ⇒ 这是「一件都没留下」的**正面证据**（🧨 反面：谁把某一根留在壳里 ⇒ 红）
+                    Check(sp.transform.childCount == 0,
+                          $"★ `T09` 块 6：设置面板的**世界壳已经空了**（`childCount = {sp.transform.childCount}`）"
+                        + " —— 三根滑块都搬到了画布上，⛔ 别再把任何件挂回那层壳");
+                    for (int i = 0; i < sp.SliderCount; i++)
+                    {
+                        var sq = sp.SliderAt(i);
+                        if (sq == null || sq.Node == null)
+                        {
+                            Check(false, $"（前提）第 {i + 1} 根滑块的根节点在 —— 不在 = 下面几条等于没验");
+                            continue;
+                        }
+                        // ① 档位：`OnCanvas` 是「迁没迁」的**唯一**判据（⛔ 别用 `Node != null` 替 —— 两档都真）
+                        Check(sq.OnCanvas,
+                              $"★ `T09` 块 6：第 {i + 1} 根滑块**在画布上**（`uguiHost` 那个实参真的传下去了）");
+                        // ② 落点的**结构判别式**：根挂在**面板帧**下（挂错容器 / 还留在世界壳下 ⇒ 当场红）
+                        Check(sq.Node.parent == sp.PanelRect,
+                              $"★ `T09` 块 6：第 {i + 1} 根滑块的根挂在**面板帧**（`PanelRect`）下，实得父件「"
+                            + $"{(sq.Node.parent != null ? sq.Node.parent.name : "<无>")}」"
+                            + " —— 原版那三根 `… Slider` 就是 `BattleSettingsPanel` 的子件");
+                        // ④ 面板底**不再盖住**滑块（本件修的就是这一件）：`Add` 的 z 大 = 画在**底下**
+                        //    ⇒ 滑块根那一档必须【小于】`_bg` 那一档。⛔ 这条不是 `_bg` 的「有个读口」——
+                        //    是按**节点名**取它（同族先例见上面那段注释）。
+                        var bgNode = sp.PanelRect.Find("settings_bg") as RectTransform;
+                        float bgZ = bgNode != null ? HudCanvas.OrderZOf(bgNode) : float.NaN;
+                        float slZ = HudCanvas.OrderZOf(sq.Node as RectTransform);
+                        Check(!float.IsNaN(bgZ) && !float.IsNaN(slZ) && bgZ > slZ,
+                              $"★ `T09` 块 6：第 {i + 1} 根滑块**画在面板底之上**（滑块根 z {slZ:F3} < "
+                            + $"面板底 `settings_bg` z {bgZ:F3}）—— `Add` 的 z 大 = 画在底下；"
+                            + "改坏法：把 `SettingsPanel` 那句 `Z − 0.01` 写成 `Z + 0.01` ⇒ 面板底重新盖住滑块 ⇒ 红");
+                        // ⑤ 三层**兄弟序不变量**：`Add` 的 z 大 = 画在**底下** ⇒ 不变量 = bg > fill > handle
+                        //    （轨道在最下、手柄在最上）。⚠️ 三层各自那个**数值**是「我们挑的」（原版那三层的
+                        //    先后靠 uGUI 的父子序，本仓没有它的判据）⇒ 这条只保证**相对次序**（手柄压在条之上）。
+                        float bz = sq.BgOrderZ, fz = sq.FillOrderZ, hz = sq.HandleOrderZ;
+                        Check(!float.IsNaN(bz) && !float.IsNaN(fz) && !float.IsNaN(hz)
+                           && bz > fz && fz > hz,
+                              $"★ `T09` 块 6：第 {i + 1} 根滑块三层**兄弟序** = bg {bz:F2} > fill {fz:F2} > "
+                            + $"handle {hz:F2}（`Add` 的 z 大 = 画在底下 ⇒ 轨道压在底下、手柄在最上面）"
+                            + " 🧨 三层写同一个 z（最容易的写坏法）⇒ 红；「只断其中一层等于某个数」抓不住这种反");
+                        // ⑥ 两张条图 = `Image (Sliced)` + `m_PixelsPerUnitMultiplier = 2`
+                        //    —— 端帽画成 92 / 15 画布 px 的**两个前提**（少任一个 ⇒ 端帽宽一倍、中段短一半）。
+                        var bgN = sq.Node.Find("slider_bg");
+                        var flN = sq.Node.Find("slider_fill");
+                        var bgImg = bgN != null ? bgN.GetComponent<Image>() : null;
+                        var flImg = flN != null ? flN.GetComponent<Image>() : null;
+                        Check(bgImg != null && flImg != null
+                           && bgImg.type == Image.Type.Sliced && flImg.type == Image.Type.Sliced
+                           && Mathf.Abs(bgImg.pixelsPerUnitMultiplier - 2f) < 1e-4f
+                           && Mathf.Abs(flImg.pixelsPerUnitMultiplier - 2f) < 1e-4f,
+                              $"★ `T09` 块 6：第 {i + 1} 根滑块两张条图都是 `Image (Sliced)` 且 "
+                            + "`m_PixelsPerUnitMultiplier = 2`（原版 `…_4032`(bg) / `…_4228`(fill) 字段实读）"
+                            + $" —— 实得 type {((bgImg != null) ? bgImg.type.ToString() : "<无>")} / "
+                            + $"{((flImg != null) ? flImg.type.ToString() : "<无>")} · ppuMul "
+                            + $"{((bgImg != null) ? bgImg.pixelsPerUnitMultiplier : -1f):F2} / "
+                            + $"{((flImg != null) ? flImg.pixelsPerUnitMultiplier : -1f):F2}"
+                            + "（端帽 = `m_Border ÷ ppuMul` ⇒ 184/2 = 92 · 30/2 = 15 画布 px）");
+                        // ⑦⑧ 画出来的矩形 = 原版那三根（轨道 **561.08 × 12.00** · 手柄 **34.406²**）
+                        var tsz = sq.TrackSizePx;
+                        var hsz = sq.HandleSizePx;
+                        Check(Mathf.Abs(tsz.x - 561.08f) < 0.1f && Mathf.Abs(tsz.y - 12f) < 0.1f,
+                              $"★ `T09` 块 6：第 {i + 1} 根滑块**轨道画出来** = {tsz.x:F2}×{tsz.y:F2} px"
+                            + "（原版 **561.08 × 12.00** = 容器 `m_SizeDelta (0,100)` × 锚高 (0.45−0.33)）");
+                        Check(Mathf.Abs(hsz.x - 34.406f) < 0.1f && Mathf.Abs(hsz.y - 34.406f) < 0.1f,
+                              $"★ `T09` 块 6：第 {i + 1} 根滑块**手柄画出来** = {hsz.x:F3}×{hsz.y:F3} px"
+                            + "（原版 **34.406²** = 滑区高 12 + 序列化框高 22.406）");
+                    }
 
                     // ---- 🆕 A96（2026-10-05）：轨道高 = **原版解析高 12.00** ----
                     // 判据（解包实读）：`bundle_scenes_scenes_battlearena1` / `BattleSettingsPanel/Volume Sliders/
@@ -10941,22 +11505,25 @@ public static class BattleScene
                         //   用名字取（与 A125② 在外壳侧的做法一致）」—— **两个前提都已经不成立**：
                         //   `A1359` / `A1351`② 起 `WfSlider` **有**对外读口了（`FillWorldW` /
                         //   `FillWorldLeftX` / `FillCapWorldW`）。
-                        //   ⚠️ **但本条仍然按层名取节点**，理由换了：这里量的是 `Fill` 层的**并集高**
-                        //   （`ImageQuad.WorldH`），而新加的那三个读口**全是横向量**（宽 / 左沿 / 端帽宽）、
-                        //   一条都不报高 ⇒ 顶替不了这一条。⛔ 也别反过来把「对 `slider_fill` 子树取并集」
-                        //   当**宽度**用 —— `A1359` 起填条的缩放打在**三块子 quad** 上，子件的 `WorldW`
-                        //   是**建件时的整宽**、不含它自己的缩放（见 `WfSlider.FillSpanW` 的 doc），
-                        //   要宽就走 `FillWorldW`。
-                        //   改层名会让这条红 —— 那算**可接受的契约**（层名同样是实现的一部分），照实出声、不静默。
-                        // 量法照 Background 那条：取该层九宫格子 quad 的**并集高**（`ImageQuad.WorldH`），
-                        //   ⛔ 不是把参数念一遍；期望值写**字面量 `12f`**（原版解析高 = 0.12 × 容器高 100，
-                        //   父链无缩放 ⇒ 屏幕上就是 12.00），⛔ 别引用 `WfSlider.TrackH`（那样常量错了也不红）。
-                        Transform fillN = null;
-                        if (sq != null)
-                        {
-                            var sroot = sp.transform.Find("slider_" + sq.SliderName);
-                            if (sroot != null) fillN = sroot.Find("slider_fill");
-                        }
+                        //   🔴🔴 **2026-10-17（`EW13` · `T09` 块 6 收口 · 铁律 5）就地订正**：本段原文写
+                        //   「⚠️ **但本条仍然按层名取节点**，理由换了：这里量的是 `Fill` 层的**并集高**
+                        //   （`ImageQuad.WorldH`），而新加的那三个读口**全是横向量**、一条都不报高
+                        //   ⇒ 顶替不了这一条」—— **那个理由已经过期**：`T09` 块 6 给 `WfSlider` 补了
+                        //   **`FillSizePx`**（`Vector2`，两档都交**真设计 px**）⇒ 本条改读它。
+                        //   🔴 **而且旧写法现在是【必红】的**（两条独立成因）：
+                        //   ① **查找口** `sp.transform.Find("slider_" + sq.SliderName)` → `sq.FillNode`：
+                        //      三根滑块迁画布后（`SettingsPanel` 传了 `uguiHost: _panel`）它们的根挂在
+                        //      **面板帧**上、**不在**世界壳 `sp.transform` 下 ⇒ 旧写法**恒 `null`**
+                        //      ⇒ 那条前提**每根都红**、下面两条**一条都不跑**。
+                        //   ② **量口**：画布档的填条是**一张 `Image (Sliced)`**（`WfSlider.Create` 的画布支）、
+                        //      **没有** quad 子件 ⇒ 那个并集**恒 0** ⇒ 红。
+                        //   · `FillSizePx` 的两档口径：世界档 =（对那三块 quad 取**并集高**）× 108
+                        //     —— **与改前逐位同值**；画布档 = 那张 `Image` 的 `sizeDelta.y`（真设计 px）。
+                        //   · ⛔ **别用 `WorldH × 108f` 反推已迁件** —— 它在非 16:9 下只有真设计 px 的
+                        //     **0.75 倍**（批处理恒 640×480；判据 → `HudPiece.SizePx` / `HudCanvas.SizePx`）。
+                        // 期望值写**字面量 `12f`**（原版解析高 = 0.12 × 容器高 100，父链无缩放 ⇒ 屏幕上就是 12.00），
+                        //   ⛔ 别引用 `WfSlider.TrackH`（那样常量错了也不红）。
+                        Transform fillN = sq != null ? sq.FillNode : null;
                         if (fillN == null)
                         {
                             // ⛔ 不是 `if` 没有 `else`：找不到就当场红，并说明下面两条等于没验
@@ -10965,15 +11532,12 @@ public static class BattleScene
                         }
                         else
                         {
-                            float fh = 0f;
-                            var fqs = fillN.GetComponentsInChildren<ImageQuad>(true);
-                            for (int k = 0; k < fqs.Length; k++)
-                                if (fqs[k] != null) fh = Mathf.Max(fh, fqs[k].WorldH);
-                            Check(Mathf.Abs(fh * 108f - 12f) <= 0.3f,
-                                  $"★ 第 {i + 1} 根滑块的 **`Fill` 层高** = {fh * 108f:F2}px（原版 **12.00**"
+                            float fh = sq.FillSizePx.y;      // 真设计 px（世界档 = 并集高×108 · 画布档 = sizeDelta.y）
+                            Check(Mathf.Abs(fh - 12f) <= 0.3f,
+                                  $"★ 第 {i + 1} 根滑块的 **`Fill` 层高** = {fh:F2}px（原版 **12.00**"
                                 + "，与 `Background` 同源 ⇒ 两层必须同高）");
-                            Check(Mathf.Abs(fh * 108f - thpx) <= 0.05f,
-                                  $"★ 第 {i + 1} 根滑块**两层同高**（`Fill` {fh * 108f:F3}px vs `Background` "
+                            Check(Mathf.Abs(fh - thpx) <= 0.05f,
+                                  $"★ 第 {i + 1} 根滑块**两层同高**（`Fill` {fh:F3}px vs `Background` "
                                 + $"{thpx:F3}px，容差 0.05）—— 只改其中一层这条就红");
                         }
                     }
@@ -11023,10 +11587,18 @@ public static class BattleScene
                         // 1 画布 px 的世界向量：**轨道的世界宽 ÷ 原版轨道宽 561.08**（自校准，别 `*108f` 硬折）
                         Vector3 perPx = (s0.RightWorld - s0.LeftWorld) / 561.08f;
                         Vector3 upPx = Vector3.up * perPx.magnitude;   // 1 画布 px 的纵向长度（同一套换算）
-                        // 手柄自己那一层（⛔ `transform.Find` 只找直接子件 ⇒ 名字写全 `slider_<名>/slider_handle`）
-                        var hNode = sp.transform.Find("slider_" + s0.SliderName + "/slider_handle");
-                        var hQuad = hNode != null ? hNode.GetComponent<ImageQuad>() : null;
-                        Check(hQuad != null,
+                        // 手柄自己那一层（⛔ `transform.Find` 只找直接子件 ⇒ 名字得写全 `slider_<名>/slider_handle`）
+                        // 🔴 **2026-10-17（`EW13` · `T09` 块 6 收口）：查找口 + 量口【都换】—— 旧写法必红。**
+                        //   · 查找口 `sp.transform.Find(…)` → **`s0.HandleNode`**：三根滑块迁画布后挂在
+                        //     **面板帧**上、不在世界壳下 ⇒ 旧写法恒 `null`。
+                        //   · 量口 `hNode.GetComponent<ImageQuad>()` → **`s0.HandleSizePx`**：画布档的手柄是
+                        //     **一张 `Image`**、**没有** `ImageQuad` 组件 ⇒ `hQuad` 恒 `null`。
+                        //     ⚠️ 前提换成 **`hPx.x > 1f`**（`HandleSizePx` 取不到时返回 `Vector2.zero`）——
+                        //     ⛔ **不能**只拿 `hNode != null` 当前提：手柄真丢了的话下面 (c) 那条会退化成
+                        //     「中心 +1 px 必中」⇒ **恒真**（那正是要拦的静默）。
+                        var hNode = s0.HandleNode;
+                        var hPx = s0.HandleSizePx;
+                        Check(hNode != null && hPx.x > 1f,
                               "（前提）音乐滑块的手柄那一层找得到（`slider_handle`）—— 找不到 = 下面几条等于没验");
                         // 🔴 **2026-10-19（A1301①）**：原版那颗手柄的**命中框**半宽/半高（**画布 px**，字面量当场算）
                         //   = `m_SizeDelta` 宽 **46.811** / **运行期**框高 = 滑区高 **12** + **22.406** = **34.406**
@@ -11063,8 +11635,11 @@ public static class BattleScene
                         //     老口径（`_handle.Contains`，量的是画出来那个 34.406 的正方）在那一点**必不中**
                         //     ⇒ 谁把口径改回「量实绘」，(c) 当场红。⚠️ 值 = 1 时手柄中心在轨道右端外 2 px，
                         //     所以这一点也**在轨道之外** ⇒ 它只可能由手柄那一块认下来。
-                        Check(hQuad != null
-                           && s0.Contains(hc + perPx.normalized * (hQuad.WorldW * 0.5f + perPx.magnitude)),
+                        // 量口 → `hPx.x`（真设计 px）：**画出来的**手柄半宽 = `hPx.x × perPx.magnitude × 0.5f`
+                        // （`perPx` 是「1 画布 px 的世界向量」⇒ 乘出来就是世界长度，与旧的 `hQuad.WorldW * 0.5f`
+                        //  **同一个物理量**，只是换成 px 口径那一支；⛔ 别丢掉 `× perPx.magnitude` 与那个 `0.5f`）。
+                        Check(hPx.x > 1f
+                           && s0.Contains(hc + perPx.normalized * (hPx.x * perPx.magnitude * 0.5f + perPx.magnitude)),
                               "★ A1301①（**判别式**）：**画出来的**手柄右缘外 1 画布 px ⇒ **必中**"
                             + "（原版命中框宽 46.811 > 画出来那个正方 ⇒ 「量实绘」的老口径在这点必不中）");
                         // (d) 🔴 **判别式（灭自证）**：轨道中段、离手柄很远的地方**上下各 10 画布 px** ⇒ 打不中。
@@ -11178,20 +11753,24 @@ public static class BattleScene
                     for (int i = 0; i < sp.SliderCount; i++)
                     {
                         var sq = sp.SliderAt(i);
-                        var hn = sq != null ? sp.transform.Find("slider_" + sq.SliderName + "/slider_handle") : null;
-                        var hq = hn != null ? hn.GetComponent<ImageQuad>() : null;
-                        if (hq == null)
+                        // 🔴 **2026-10-17（`EW13` · `T09` 块 6 收口）：查找口 + 量口都换**（同上面的 A1301①）——
+                        //   旧写法 `sp.transform.Find(…)` + `GetComponent<ImageQuad>()` 在画布档下**恒 `null`**
+                        //   （滑块根挂在**面板帧**上、手柄是**一张 `Image`**）⇒ 这三条全红。
+                        //   量口 → **`sq.HandleSizePx`**（两档都交**真设计 px**：世界档 = `WorldW/H × 108`、
+                        //   画布档 = `sizeDelta`）。⛔ 别用 `WorldH × 108f` 反推已迁件（非 16:9 只有 0.75 倍）。
+                        var hs = sq != null ? sq.HandleSizePx : Vector2.zero;
+                        if (sq == null || sq.HandleNode == null || hs.x <= 1f)
                         {
                             Check(false, $"（A197）第 {i + 1} 根滑块的 `slider_handle` 找得到"
                                        + " —— 不在 = 下面两条等于没验");
                             continue;
                         }
-                        Check(Mathf.Abs(hq.WorldW * 108f - 34.406f) <= 0.3f,
-                              $"★（A197）第 {i + 1} 根滑块手柄的**实画宽** = {hq.WorldW * 108f:F3}px"
+                        Check(Mathf.Abs(hs.x - 34.406f) <= 0.3f,
+                              $"★（A197）第 {i + 1} 根滑块手柄的**实画宽** = {hs.x:F3}px"
                             + "（原版 = 滑区高 12 + 序列化框高 22.406 = **34.406**；"
                             + "改坏法：退回 `WfSlider.HandlePx` 那个序列化值 ⇒ 22.406 ⇒ 红）");
-                        Check(Mathf.Abs(hq.WorldH * 108f - 34.406f) <= 0.3f,
-                              $"★（A197）第 {i + 1} 根滑块手柄的**实画高** = {hq.WorldH * 108f:F3}px"
+                        Check(Mathf.Abs(hs.y - 34.406f) <= 0.3f,
+                              $"★（A197）第 {i + 1} 根滑块手柄的**实画高** = {hs.y:F3}px"
                             + "（110×110 方图 + `preserveAspect` ⇒ 宽高相等）");
                     }
                 }
@@ -11937,9 +12516,14 @@ public static class BattleScene
                 //    ⇒ **那一族今天没有见证者了** ⇒ `exOnly > 0` 已从「在查东西」变成「恒红」。
                 //    ⇒ 按诊断给的**第一方案**办：`exOnly` **不再当断言**、只作**读数**报出
                 //    （下一行那句 `精确档口径` —— 它一直都在报这个数，本笔把它改成唯一的出口）。
-                //    **判别力没全丢**：灭自证那一角由 **①（`exDiff > 0`，今天 5 条）** 独担，
+                //    **判别力没全丢**：灭自证那一角由 **①（`exDiff > 0`，今天 1 条）** 独担，
                 //    而① 盯的正是「精确档有没有真的按 SO 取值」，与本条原本要防的是**同一个改法**。
                 //    ⛔ 别把 `Check(exOnly > 0, …)` 写回来（今天恒红），也⛔ 别把它写成恒真。
+                //    🔴 **2026-10-16 就地订正（修波 `FA` · 铁律 5）：上面那句原文写「今天 5 条」——**
+                //      **现读应为 1 条**（改前 5 条）。出处：本轮台账 `_收口台账_第四十二会话.md:175`
+                //      （`W35` 那一行：「那条「灭自证①」`exDiff > 0` 现在实得 1 条（改前 5 条）」）
+                //      ＋ `语音线A1768_报告.md:96` 同一说法。⇒ 只改这个**数字**，`Check(exDiff > 0, …)`
+                //      本身按台账「⛔ 别改」**一个字节没动**（G2 也是这么办的，见 `G2` 报告 §⑤·4）。
                 Debug.Log(P + $"   精确档口径：{exHit} 条命中 · {exDiff} 条与兜底不同 · {exOnly} 条兜底给不出 · "
                             + $"{exMissClip} 条音频没导进工程");
             }
@@ -11948,17 +12532,28 @@ public static class BattleScene
             {
                 drv.Begin("Ultramarines", "Goff", 20260918);
                 Check(chat.HasArt, "气泡的图都取到了（`40k_voicelines_radio` / 波形图 / 卡图位）");
-                var want = LayoutSpace.ToWorld((12.61f + 648.77f / 2f) / 1920f,
-                                               1f - (643.50f + 236.50f / 2f) / 1080f);
                 SettleShake();          // 见 `SettleShake` 的说明：别让没跑完的震动把 HUD 留在偏移位上
-                var got = chat.BubbleCenterWorld(0);
-                float d = new Vector2(got.x - want.x, got.y - want.y).magnitude;   // 只比 x/y（z 是层次）
-                Check(d < 0.001f, $"★ 我方气泡落在原版矩形上（偏差 {d:F4} 世界单位）");
-                var sz = chat.BubbleWorldSize;
-                Check(Mathf.Abs(sz.x * 108f - 648.77f) < 0.6f && Mathf.Abs(sz.y * 108f - 236.50f) < 0.6f,
-                      $"★ 气泡 648.77×236.50 px（实得 {sz.x * 108f:F2}×{sz.y * 108f:F2}）");
-                var enemy = chat.BubbleCenterWorld(1);
-                Check(enemy.y > chat.BubbleCenterWorld(0).y, "敌方的气泡在上、我方的在下（原版如此）");
+                // 🔴 **2026-10-16（`T09` 批 3 收口 · 台账 `W45`）：这两条改走【本档单位】的口** ——
+                //   旧写法 `LayoutSpace.ToWorld((x+648.77/2)/1920, 1−(y+236.5/2)/1080)` 是**世界帧**的期望值，
+                //   而画布档活在**画布帧**（批处理下两轴系数不同 x 1/108 · y 1/144 ⇒ y 差 1.333 倍 ⇒ 假红）。
+                //   期望值仍取**原版 prefab 侧**：`RT_3231` 的 `ap (12.61328125, 200)` + `sd (648.774, 236.505)`
+                //   ⇒ 中心 = `(12.61328125 + 648.77404785/2, 1080 − 200 − 236.50468445/2)` ≈ `(337.0003, 761.7524)`。
+                //   ⛔ 别拿 `UnitChatPanel.Slot` / `BubbleW` 当期望（那是**被测实现自己的常量** = 自证）。
+                var got = chat.BubbleCenterPx(0);
+                float d = new Vector2(got.x - 337.0003f, got.y - 761.7524f).magnitude;
+                Check(d < 0.05f, $"★ 我方气泡落在原版矩形上（偏差 {d:F4} 设计 px；实得 {got.x:F4},{got.y:F4}）");
+                var sz = chat.BubbleSizePxOf(0);
+                Check(Mathf.Abs(sz.x - 648.77f) < 0.6f && Mathf.Abs(sz.y - 236.50f) < 0.6f,
+                      $"★ 气泡 648.77×236.50 px（实得 {sz.x:F2}×{sz.y:F2}）");
+                var enemy = chat.BubbleCenterPx(1);
+                Check(enemy.y < chat.BubbleCenterPx(0).y, "敌方的气泡在上、我方的在下（原版如此）");
+                // 🔴 **2026-10-16（收口 · 台账 `W45`）**：`OnCanvas` 的**反面**那一半（正面在 §A218 那一段，
+                //   那里是**显式传了宿主**建的探针实例）。
+                //   为什么必须有反面那条：`OnCanvas` 若被写成**恒真**，正面那条就**失去判别力** ⇒ 两半配对才钉得住。
+                //   本句在世界档/画布档**都成立**（`chat.IsUgui == false ⇒ 必须 !OnCanvas`）。
+                Check(chat.IsUgui || !chat.OnCanvas,
+                      "★ `T09`（灭自证·反面）：**世界档下 `UnitChatPanel.OnCanvas` 必须为假**"
+                    + $"（实得 IsUgui={chat.IsUgui} / OnCanvas={chat.OnCanvas}）");
 
                 // 打一张**有语音、又付得起**的牌 → 气泡应当跟着引擎事件自己冒出来
                 var hand = drv.Ctx.Players[drv.MyIndex].Hand;
@@ -12039,7 +12634,13 @@ public static class BattleScene
                         Check(lb != null, "★ 拿得到台词那块文字本体（量渲染真值要用它）");
                         if (lb != null)
                         {
-                            float wPx = lb.WorldW * 108f, hPx = lb.WorldH * 108f;
+                            // 🔴 **2026-10-16（`T09` 批 3 收口 · 台账 `W45`）：乘子按档取。**
+                            //   `Label.WorldW/H` 在 **uGUI 档本来就是【画布 px】**（它读 TMP 的 `textBounds`，
+                            //   而画布档的单位就是设计 px，见 `Label.PxPerUnit = _ugui ? 1 : PxPerWorld`）
+                            //   ⇒ 再乘 108 会把宽度放大 108 倍（世界档则必须乘，否则小 108 倍）。
+                            //   ⛔ 别写死 `108f`：那正是「16:9 恰好约掉、非 16:9 松 25%」那一档。
+                            float k = chat.IsUgui ? 1f : 108f;
+                            float wPx = lb.WorldW * k, hPx = lb.WorldH * k;
                             Check(lb.Wrapping, "★ 台词是**折行**模式（原版 `m_TextWrappingMode = 1`）");
                             Check(lb.LineCount >= 2,
                                   $"★ 最长那句**真折了行**（实得 {lb.LineCount} 行；只有 1 行说明又变回 `NoWrap` 了）");
@@ -12058,11 +12659,17 @@ public static class BattleScene
                 // 原版：玩家做**非法操作**时督军说一句「我不能这么做」；闸门 = **正在播语音时不插播**。
                 // 14 个触发点与逐条判据见 `资料/语音线_原版规格与ASR管道.md` §1.3。
                 {
-                    // ① 表本身：`ForCantDo` 必须**只有 `cantdo` 一条**。
-                    //    原版取不到词条时落回 `defaultChatSound`（我们没有那个字段）；
+                    // ① 表本身：`ForCantDo` = `cantdo` → `default`。
+                    //    原版取不到词条时落回 `defaultChatSound`
+                    //    （判据 = `decomp_full/RawCardScript__GetChatSound.c` 末尾那一跳 + `dump.cs:23300`）。
+                    //    🔴 **2026-10-16（收口 · 台账 `W34`）就此改口（铁律 5）**：本行原文写
+                    //      「原版取不到词条时落回 `defaultChatSound`（**我们没有那个字段**）」——
+                    //      **「没有那个字段」已不成立**：`A1768` 之后 `voice_lines.json` 里真有 `ev="default"`
+                    //      那一族（现读 49 条，改前**根本没进表**）⇒ 期望从「只有一条」改成「两条」。
                     //    回落成 `line` 会播「出场台词」，**那不是原版行为** ⇒ 这条断言把它钉住。
-                    Check(VoiceLines.ForCantDo.Length == 1 && VoiceLines.ForCantDo[0] == "cantdo",
-                          "★ `ForCantDo` 只有 `cantdo` 一条（**不回落 `line`**）");
+                    Check(VoiceLines.ForCantDo.Length == 2 && VoiceLines.ForCantDo[0] == "cantdo"
+                          && VoiceLines.ForCantDo[1] == "default",
+                          "★ `ForCantDo` = `cantdo` → `default`（原版落 `defaultChatSound`；**不回落 `line`**）");
 
                     // ② 「拖回手牌」不算非法操作 —— **纯函数判据**，不受音频时序影响。
                     //    这是本节最要紧的一条：分不清这两者的话，玩家每次**取消拖拽**都会被训一句。
@@ -12100,9 +12707,10 @@ public static class BattleScene
                 // 时触发**一次**（`latch_0xb8`），由 `StartTimer.c:28` 每回合复位；说话人**固定是我方督军**
                 // （`DisplayWarlordRegularChatMessage(idx, isPlayer:true)`）。逐条见 `VoiceLines.ForHurry` 的注释。
                 {
-                    // ① 表本身：只有 `hurry` 一条、**不回落 `line`**（同 `cantdo` 的理由）
-                    Check(VoiceLines.ForHurry.Length == 1 && VoiceLines.ForHurry[0] == "hurry",
-                          "★ `ForHurry` 只有 `hurry` 一条（**不回落 `line`**，同 `cantdo`）");
+                    // ① 表本身：`hurry` → `default`、**不回落 `line`**（同 `cantdo` 的理由；改法见台账 `W34`）
+                    Check(VoiceLines.ForHurry.Length == 2 && VoiceLines.ForHurry[0] == "hurry"
+                          && VoiceLines.ForHurry[1] == "default",
+                          "★ `ForHurry` = `hurry` → `default`（原版落 `defaultChatSound`；**不回落 `line`**，同 `cantdo`）");
 
                     // ② 我方督军取得到台词与音频
                     var wH = drv.Ctx.Players[drv.MyIndex].Warlord;
@@ -12160,25 +12768,30 @@ public static class BattleScene
                           badTok.Count == 0 ? "★ `vs` 表的 token 拼法合法（`vs` 开头、全小写）"
                                             : $"**拼法不对**：{string.Join(" / ", badTok)}");
 
-                    // ③ 顺序 = 原版回落链：**先对手督军 → 再对手阵营 → 最后普通 `intro`**
+                    // ③ 顺序 = 原版回落链：**先对手督军 → 再对手阵营 → 最后普通 `intro` → `default`**
+                    //    🔴 **2026-10-16（收口 · 台账 `W34`）**：链尾**多了一跳 `default`** ——
+                    //    那是 `GetChatSound(0)` **自己**那一跳（取不到落 `defaultChatSound`），
+                    //    `intro` 只是**上位**那条 Intro 链的末跳 ⇒ 期望从「末位是 `intro`」改成「末二是 `intro`、末位是 `default`」。
                     var v1 = VoiceLines.ForVersus("Marneus Calgar", "Ultramarines");
-                    Check(v1.Length >= 2 && v1[0] == "vs~marneuscalgar" && v1[v1.Length - 1] == "intro",
-                          $"★ `ForVersus` 顺序对：先人名 → … → 最后 `intro`"
-                          + $"（实得 [0]=`{v1[0]}` / 末=`{v1[v1.Length - 1]}`）");
+                    Check(v1.Length >= 3 && v1[0] == "vs~marneuscalgar"
+                          && v1[v1.Length - 2] == "intro" && v1[v1.Length - 1] == "default",
+                          $"★ `ForVersus` 顺序对：先人名 → … → 末二 `intro` → 末 `default`"
+                          + $"（实得 [0]=`{v1[0]}` / 末二=`{v1[v1.Length - 2]}` / 末=`{v1[v1.Length - 1]}`）");
                     // ④ **多对一的父军团词要展开到每个子阵营** —— 这是「集合模型」的核心
                     Check(System.Array.IndexOf(v1, "vssm") >= 0 && System.Array.IndexOf(v1, "vsum") >= 0,
                           "★ 父军团词展开到每个子阵营（Ultramarines 同时拿到 `vsum` **和** `vssm`）");
                     var vSW = VoiceLines.ForVersus(null, "SpaceWolves");
                     Check(System.Array.IndexOf(vSW, "vssm") >= 0 && System.Array.IndexOf(vSW, "vsum") < 0,
                           "★ 同一个 `vssm` 也挂在 SpaceWolves 下、但 **`vsum` 不在**（子阵营各拿各的）");
-                    // ⑤ **不猜**：表里没配阵营级词的阵营只回落 `intro`
+                    // ⑤ **不猜**：表里没配阵营级词的阵营只回落 `intro`（再落原版 `defaultChatSound`）
                     var v2 = VoiceLines.ForVersus(null, "Genestealers");
-                    Check(v2.Length == 1 && v2[0] == "intro",
-                          "★ 表里没配阵营级词的阵营（Genestealers）只回落 `intro` —— **宁可认不出**");
+                    Check(v2.Length == 2 && v2[0] == "intro" && v2[1] == "default",
+                          "★ 表里没配阵营级词的阵营（Genestealers）只回落 `intro` → `default` —— **宁可认不出**");
 
                     // ⑥ 端到端：真拿卡池里的卡试一遍「对泰伦说什么」
                     // 🔴 **这条断言我写错过两次，两次都是「判据没指向要证的事」**：
-                    //    · 第一版只数了「`TryPick` 返回 true 的卡」—— 而 `ForVersus` **末尾永远带 `intro`**
+                    //    · 第一版只数了「`TryPick` 返回 true 的卡」—— 而 `ForVersus` **末尾永远带 `intro`/`default`**
+                    //      （🔴 2026-10-16 收口：链尾现在还多一跳 `default`，见 `W34`）
                     //      ⇒ 哪怕 `vs` 表整张失效也照样绿（**假绿**）。
                     //    · 第二版改成 `vf.StartsWith("vs")` —— 可 `out clipName` 给的是**文件名**
                     //      （`VO_AM_Ursula Creed_vsTyranids.ogg`）**不是 ev** ⇒ 恒假（**假红**）。
@@ -12197,17 +12810,19 @@ public static class BattleScene
                     }
                     Check(vsReal > 0,
                           $"★ **真的**有卡拿到 `vs*` 行（不是回落 `intro`）：{vsReal} 张；例：`{vsHit}`"
-                          + $"（另有 {vsOnlyIntro} 张只回落到 `intro` —— 那些是**泰伦没给它们录 vs 行**的）");
+                          + $"（另有 {vsOnlyIntro} 张只回落到 `intro`/`default` —— 那些是**泰伦没给它们录 vs 行**的）");
                 }
                 // ---- 🆕 2026-09-18：开局独白（原版 `ShowHeroesIntroMessage`）----
                 // 规格见 `资料/语音线_原版规格与ASR管道.md` §1.5：**严格先手→后手串行**、
                 // 各自等语音播完、无额外秒数。判据落在「**后手在先手播完之前不开口**」。
                 {
-                    Check(VoiceLines.ForIntro.Length == 1 && VoiceLines.ForIntro[0] == "intro",
-                          "★ `ForIntro` 只有 `intro`（普通单位没这一族，拿不到是**对的**）");
+                    Check(VoiceLines.ForIntro.Length == 2 && VoiceLines.ForIntro[0] == "intro"
+                          && VoiceLines.ForIntro[1] == "default",
+                          "★ `ForIntro` = `intro` → `default`（普通单位没这一族，拿不到是**对的**）");
                     Check(VoiceLines.ForMirror.Length == 2 && VoiceLines.ForMirror[0] == "mirror"
-                          && VoiceLines.ForMirror[1] == "intro",
-                          "★ `ForMirror` = `mirror` → 回落 `intro`（同督军对局用它替换 intro）");
+                          && VoiceLines.ForMirror[1] == "default",
+                          "★ `ForMirror` = `mirror` → 回落 `default`（`GetChatSound` **内部**那一跳就是 `defaultChatSound`，"
+                        + "⛔ 不是 `intro` —— `intro` 只是**上位**那条 Intro 链的末跳；同督军对局用它替换 intro）");
 
                     // 🔴 **先把上一节还挂着的气泡放完**（气泡有**最短 2 秒**）。
                     //    不排空的话，下面的 1 秒预算会整段花在「等上一条说完」上，
@@ -12253,6 +12868,10 @@ public static class BattleScene
                     Check(pop != null && pop.Ready, "ChatPopup 建起来了（7 张图都取到了）");
                     if (pop != null)
                     {
+                        // 🔴 **2026-10-16（收口 · 台账 `W45`）**：`OnCanvas` 的**反面**那一半（正面在 §A218 那一段）。
+                        Check(pop.IsUgui || !pop.OnCanvas,
+                              "★ `T09`（灭自证·反面）：**世界档下 `ChatPopupPanel.OnCanvas` 必须为假**"
+                            + $"（实得 IsUgui={pop.IsUgui} / OnCanvas={pop.OnCanvas}）");
                         Check(!pop.Visible, "默认是**关**的（原版 `m_IsActive = false`）");
 
                         // ① 版面：第 1 个与第 6 个钮的绝对矩形（原版 §1.7.1）
@@ -12295,12 +12914,25 @@ public static class BattleScene
                         int spoke = 0; var evs = new System.Text.StringBuilder();
                         for (int i = 0; i < 6; i++)
                         {
-                            var r = pop.ButtonRect(i);
-                            var w = LayoutSpace.ToWorld((r.x + r.width * 0.5f) / 1920f,
-                                                        1f - (r.y + r.height * 0.5f) / 1080f);
-                            if (pdrv.ChatClickAt(w)) { spoke++; evs.Append(VoiceLines.ForChatButton[i]).Append(' '); }
+                            // 🔴 **2026-10-16（收口 · 台账 `W45`）**：改走 `ChatPopupPanel.ButtonWorldPos(i)` ——
+                            //   `LayoutSpace.ToWorld((x)/1920, …)` 是**世界帧**的换算，画布档下与面板真正摆的地方
+                            //   差 1.333 倍（y）；`ButtonWorldPos` 两档都从**面板自己的 `rect`** 算（判据只此一处）。
+                            // 🔴 **2026-10-16（修波 `FA` · 改 `G1-7`）：`evs` 里那串 token 是【钮 → 主 token】，
+                            //   ⛔ 不是「实际播的那个 ev」。** `BattleDriver.SpeakChat`（台账 `W36`）现在走
+                            //   `TryPick(id, new[] { ForChatButton[idx], "default" }, …)` —— 卡上没配到那一档时
+                            //   **实际 ev = `"default"`**，而这里仍印主 token ⇒ 原措辞「实得 6/6：greet threat …」
+                            //   会被读成「播的就是这 6 个 ev」（`G1` 报告 §③ `G1-7` 点名的就是这一处）。
+                            //   ⇒ 印上**钮号**、并把这句话的**含义**写死（它只作「哪几颗收下了」的标识）。
+                            //   📌 **接线清单（更精确、本波没做）**：要印真 ev 得拿 `TryPick` 的 `out ev`，
+                            //     而那要先知道「是哪个督军在说」—— 现在**没有**从外面读「上一次真播的 ev」的口
+                            //     （`UnitChatPanel.Speak` 收的是合成事件名 `"Chat"+idx`，不是 ev）
+                            //     ⇒ 补一个只读口才做得到，⛔ 不在断言里重写一遍 `TryPick` 那条链（= 第二份写法）。
+                            if (pdrv.ChatClickAt(pop.ButtonWorldPos(i))) { spoke++; evs.Append($"#{i + 1}={VoiceLines.ForChatButton[i]}").Append(' '); }
                         }
-                        Check(spoke == 6, $"★ 6 个钮都收下了点击（实得 {spoke}/6：{evs}）");
+                        Check(spoke == 6, $"★ 6 个钮都收下了点击（实得 {spoke}/6）—— 逐钮主 token：{evs}"
+                                        + "（⚠️ 印的是**钮 → `VoiceLines.ForChatButton` 那个主 token**，"
+                                        + "**不是**实际播的 ev：卡上没配到那一档时 `SpeakChat` 会落 `\"default\"` 第二跳"
+                                        + "（台账 `W36`）⇒ 这串只作「哪几颗收下了」的标识，⛔ 别拿它当 ev 读数）");
                         Check(pop.LastClicked == 5, $"★ 最后点的是第 6 个钮（实得 {pop.LastClicked}）");
 
                         // ③ 冷却 = 原版 4 秒
@@ -13983,8 +14615,15 @@ public static class BattleScene
                 //   （两轴同系数 `min(w/texW, h/texH)`），**不是**「高度定死、宽度按贴图比例溢出」。
                 //   取两个实例做**双向**判别式（一【宽受限】、一【高受限】）——
                 //   ⚠️ 期望值是**原版字面量**换算出来的（⛔ 不读 `BuildHudExtras` 传进去的那几个数）。
+                //   🔴🔴 **2026-10-16（`EW11` · 量纲收口，同病根第三处）**：这一族**已迁 uGUI** ⇒
+                //   量「画出来多大」必须走**真设计 px** —— `HudExtraDrawnPx` 现在内部走 `HudPiece.SizePx`
+                //   （uGUI 支读 `sizeDelta`）。**原来**那个实现是 `WorldW/H × 108f`，在非 16:9 下
+                //   **只有真设计 px 的 0.75 倍**（批处理实测 **640×480**，`Core/LayoutSpace.cs:174` 自证句）
+                //   ⇒ 这两条**原来按机制必红**（实得会是 81.756×79.201 / 46.385²）。
+                //   ⛔ **世界档的件不受影响**（quad 支照旧 `WorldW/H × 108`，读数逐个位不变）。
                 {
                     var dOff = drv.HudExtraDrawnPx("OffensiveButton");
+                    // ⚠️ 下面那个 0.05 的容差**同时就是量纲哨兵**：按 0.75 倍读出来偏 27.25 px ⇒ 必红。
                     Check(Mathf.Abs(dOff.x - 109.008f) < 0.05f && Mathf.Abs(dOff.y - 105.601f) < 0.05f,
                           $"★ A1302：进攻卡钮**画出来的** = 原版的 **109.008×105.601**（= 内接进 109.008×106.943，**宽受限**）"
                         + $" —— 实得 {dOff.x:F3}×{dOff.y:F3}"
@@ -13993,6 +14632,23 @@ public static class BattleScene
                     Check(Mathf.Abs(dCam.x - 61.846f) < 0.05f && Mathf.Abs(dCam.y - 61.846f) < 0.05f,
                           $"★ A1302 **判别式**（另一侧）：相机复位钮是**方图进方框** ⇒ **高受限**、结果**不是「一律缩」**"
                         + $"（原版 61.846²）—— 实得 {dCam.x:F3}×{dCam.y:F3}");
+                    // 🔴 **灭自证**（2026-10-16 `EW11`）：上面那两条读的是 `BattleDriver` 的自检口，
+                    //    这两条**绕过它**、直接从画布上的 `RectTransform` 再量一遍 —— 两条**独立读法**
+                    //    必须给同一个数。⇒ ⛔ 「把自检口与画面一起改回 0.75 倍那把尺」不会全绿。
+                    //    ⚠️ 这两件都是**根画布的直接子件**（`HudAbs` → `HudImageTex`：`root` 是裸
+                    //    `Transform` 的 `hudRoot` ⇒ 落在 `HudCanvas.Ensure(cam)` 那个根画布下）。
+                    var rtOff = HudCanvas.RootRect != null ? HudCanvas.RootRect.Find("OffensiveButton") as RectTransform : null;
+                    var rtCam = HudCanvas.RootRect != null ? HudCanvas.RootRect.Find("CenterCameraButton") as RectTransform : null;
+                    var sxOff = HudCanvas.SizePx(rtOff);      // uGUI 支：`sizeDelta` 就是**真设计 px**
+                    var sxCam = HudCanvas.SizePx(rtCam);
+                    Check(rtOff != null && Mathf.Abs(sxOff.x - dOff.x) < 1e-3f && Mathf.Abs(sxOff.y - dOff.y) < 1e-3f,
+                          $"★ A1302（**灭自证**）：同一个件用**两条独立读法**量出来的尺寸必须一致 —— "
+                        + $"`HudExtraDrawnPx`（= `HudPiece.SizePx`）={dOff.x:F3}×{dOff.y:F3} vs "
+                        + $"画布上那条 `RectTransform.sizeDelta`={sxOff.x:F3}×{sxOff.y:F3}"
+                        + "｜🧨 把自检口改回「世界尺寸 × 108」⇒ 两条读数差 0.75 倍 ⇒ 本条红");
+                    Check(rtCam != null && Mathf.Abs(sxCam.x - dCam.x) < 1e-3f && Mathf.Abs(sxCam.y - dCam.y) < 1e-3f,
+                          $"★ A1302（**灭自证** · 另一侧）：同上 —— 自检口 {dCam.x:F3}×{dCam.y:F3} vs "
+                        + $"画布 {sxCam.x:F3}×{sxCam.y:F3}");
                 }
                 // 🔴 **2026-10-16（`T01` · 进战斗的黑场 `LoadingMenu`）**：
                 //   判据 = 实读的 `LoadingFade(bool show, …)` —— **进战斗那一档（`show=false`）
@@ -14261,7 +14917,10 @@ public static class BattleScene
                             + " = TMP 出厂的死值，⛔ 不作断言，见上注）");
                         foreach (var n in hudNoBox)
                         {
-                            var t0 = drv.hudRoot != null ? drv.hudRoot.Find(n) : null;
+                            // 🔴 **2026-10-16（`EW8`）：查找口 `drv.hudRoot.Find` → **根画布**（与 `CheckHudBox` 同一条口径）。
+                            //    这 4 颗也走 `Hud()` ⇒ 挂在根画布下、**不在 `hudRoot` 下**（根画布是根对象，见
+                            //    `CheckHudBox` 的 doc）⇒ 旧读法 4 条前提**恒红** + 4 条静默跳过。
+                            var t0 = HudCanvas.RootRect != null ? HudCanvas.RootRect.Find(n) : null;
                             var lb0 = t0 != null ? t0.GetComponent<Label>() : null;
                             var tm0 = t0 != null ? t0.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
                             Check(lb0 != null && tm0 != null,
@@ -14807,25 +15466,45 @@ public static class BattleScene
             if (drv == null) Check(false, "找不到 BattleDriver");
             else
             {
-                // 读法：这两个 quad 挂在 `hudRoot` 的**直接子件**上（`HudAbsTex` → `HudImageTex`
-                // → `ImageQuad.Create(root, …)`）⇒ `Transform.Find`（不递归）正好够用。
-                ImageQuad Quad(string nm)
+                // 🔴🔴 **2026-10-16（`EW8` · `T09` 批 3 连带）：这四件已【迁到 uGUI 画布】，旧读法两条叠加、恒 `null`。**
+                //   它们走 `HudAbs`/`HudAbsTex` → `HudImageTex` → `HudCanvas.MakeAnchored`：
+                //   ① `HudImageTex` 对**裸 `Transform`** 的 `root`（= `hudRoot`）一律 `Ensure(cam)` ⇒ 建在**根画布**直下，
+                //      而根画布**是根对象**（`HudCanvas.Ensure` 里 `new GameObject(…)` 没有 `SetParent`；
+                //      文件头第 2 条明文「⛔ 根 canvas 不能挂在 HUD 根下」—— 那是反向补震用的）
+                //      ⇒ `drv.hudRoot.Find(nm)`（`Transform.Find` **不递归**）找不到；
+                //   ② 那份件是 `RectTransform + Image`（`HudPiece` 的新路），**GO 上根本没有 `ImageQuad` 组件**
+                //      ⇒ `GetComponent<ImageQuad>()` 也恒 `null`。
+                //   ⇒ 本节原来**整组 12 条恒红**（不是「可能红」）：`IsDrawn` 报「节点或 `ImageQuad` 不在」、
+                //      `QH` 恒 `0`/`-1`、`QZ` 恒 `NaN`（NaN 比较恒假）、`kMe/kFo` 恒 `0`。
+                //   ✅ 判据侧换把尺（与上面字族那半边**同一条口径**）：**在根画布上按名找 `RectTransform`**，
+                //      尺寸读 **`sizeDelta`（设计 px）**、层序读 **`HudCanvas.OrderZOf`（z 档）**。
+                //   ⛔ **别用 `HudPiece.WorldH * 108f` 反推 px** —— 那个在非 16:9 下只是设计 px 的 0.75 倍
+                //      （`T09` §七·8；`HudPiece.SetWorldHeight` 的 doc 有完整判据），
+                //      而本节的期望值**全是原版设计 px 字面量**（88.7274449 / 99.1251923 / 158.6003077）。
+                //   ⚠️ 半径：这四件都是**根画布的直接子件**（`root` 传的是 `hudRoot`）⇒ 不递归正好够用。
+                RectTransform Rt(string nm)
                 {
-                    var t = drv.hudRoot != null ? drv.hudRoot.Find(nm) : null;
-                    return t != null ? t.GetComponent<ImageQuad>() : null;
+                    return HudCanvas.RootRect != null ? HudCanvas.RootRect.Find(nm) as RectTransform : null;
                 }
                 // 「这一层真的画出来了」—— **三样一起断**；返回 null = 没问题，否则是「为什么没画」。
                 string IsDrawn(string nm)
                 {
-                    var q = Quad(nm);
-                    if (q == null) return "节点或 `ImageQuad` 不在";
-                    if (!q.gameObject.activeSelf || !q.gameObject.activeInHierarchy) return "`active` 是关的";
-                    if (q.Texture == null) return "`Texture == null`（有壳没图 —— 正是那条恒绿断言的病）";
-                    if (!(q.WorldH > 0.5f) || !(q.WorldW > 0.5f)) return $"尺寸退化（{q.WorldW:F3}×{q.WorldH:F3}）";
+                    var rt = Rt(nm);
+                    if (rt == null) return "节点不在（`HudCanvas.RootRect` 下按名找不到）";
+                    if (!rt.gameObject.activeSelf || !rt.gameObject.activeInHierarchy) return "`active` 是关的";
+                    var iv = rt.GetComponent<Image>();
+                    if (iv == null || iv.sprite == null || iv.sprite.texture == null)
+                        return "`Image`/`sprite`/`texture` 缺一（有壳没图 —— 正是那条恒绿断言的病）";
+                    var sz = HudCanvas.SizePx(rt);
+                    if (!(sz.x > 0.5f) || !(sz.y > 0.5f)) return $"尺寸退化（{sz.x:F3}×{sz.y:F3} 设计 px）";
                     return null;
                 }
-                float QZ(string nm) { var q = Quad(nm); return q != null ? q.transform.localPosition.z : float.NaN; }
-                float QH(string nm) { var q = Quad(nm); return q != null ? q.WorldH : 0f; }
+                // 这个件占的 **z 档**。⚠️ uGUI 下「谁压谁」由**兄弟序**定、⛔ 不是 Unity 的 `localPosition.z`
+                //   （那份件在画布上，`localPosition.z` 恒 0）⇒ 走 `HudPiece.OrderZ` 的那条读法。
+                float QZ(string nm) { var rt = Rt(nm); return rt != null ? HudCanvas.OrderZOf(rt) : float.NaN; }
+                // 这个件画出来的**高（设计 px）** —— 读 `sizeDelta.y`（= `HudCanvas.MakeAnchored` 写进去的那个数，
+                //   ⛔ 不是 `WorldH`；两把尺的关系见上面那段）。
+                float QHpx(string nm) { var rt = Rt(nm); return rt != null ? HudCanvas.SizePx(rt).y : 0f; }
 
                 // 🔴 摆回基线：本节每一格**开始前都先回到这一态**（上一格的残留会漏到下一格）。
                 bool savedMullAv = drv.mulliganEnabled;
@@ -14841,11 +15520,15 @@ public static class BattleScene
                 foreach (string nm in new[] { "AvatarImage_Me", "AvatarImage_Foe" })
                 {
                     string bad = IsDrawn(nm);
-                    var q = Quad(nm);
-                    string desc = q == null ? "（节点不在）"
-                                : $"图「{(q.Texture != null ? q.Texture.name : "<无图>")}」· "
-                                + $"{q.WorldW:F3}×{q.WorldH:F3} 世界单位 · z {q.transform.localPosition.z:F3} · "
-                                + $"activeSelf={q.gameObject.activeSelf}/inHierarchy={q.gameObject.activeInHierarchy}";
+                    var rt = Rt(nm);
+                    var iv = rt != null ? rt.GetComponent<Image>() : null;
+                    var sz = rt != null ? HudCanvas.SizePx(rt) : Vector2.zero;
+                    string tex = (iv != null && iv.sprite != null && iv.sprite.texture != null)
+                               ? iv.sprite.texture.name : "<无图>";
+                    string desc = rt == null ? "（节点不在）"
+                                : $"图「{tex}」· "
+                                + $"{sz.x:F3}×{sz.y:F3} 设计 px · z 档 {HudCanvas.OrderZOf(rt):F3} · "
+                                + $"activeSelf={rt.gameObject.activeSelf}/inHierarchy={rt.gameObject.activeInHierarchy}";
                     Check(bad == null,
                           $"★ A1502② `{nm}` **真的画出来了**：{desc}"
                         + (bad != null ? $" —— **{bad}**" : ""));
@@ -14863,11 +15546,11 @@ public static class BattleScene
                 foreach (var pr in new[] { new[] { "AvatarImage_Me", "AvatarItemSmall_Me" },
                                            new[] { "AvatarImage_Foe", "AvatarItemSmall_Foe" } })
                 {
-                    float ah = QH(pr[0]), bh = QH(pr[1]);
+                    float ah = QHpx(pr[0]), bh = QHpx(pr[1]);              // 设计 px（见 `QHpx`）
                     Check(bh > 1e-3f && Mathf.Abs(ah / bh - 1.6f) < 1e-3f,
                           $"★ A1502② `{pr[0]}` 实绘高 = `{pr[1]}` 的 **1.6 倍**（原版 `m_LocalScale 2.0` ×"
                         + $" 容器高 99.1251923 = 198.2503846，再 × 父链 0.8 = 158.6003077；除以 `Border` 的"
-                        + $" 99.1251923 ⇒ 1.6）—— 实测 {ah:F4} / {bh:F4} = {(bh > 1e-3f ? ah / bh : 0f):F5}");
+                        + $" 99.1251923 ⇒ 1.6）—— 实测 {ah:F4} / {bh:F4} 设计 px = {(bh > 1e-3f ? ah / bh : 0f):F5}");
                 }
                 // 🔴 **2026-10-19（A1512）：这两对的【绝对尺寸】**（出处 = `menu_dump` 的 `视觉框` 列）
                 //    · `Avatar Item Small/Image Container/Border`（自己 `m_LocalScale 1.25`）：
@@ -14879,8 +15562,9 @@ public static class BattleScene
                 foreach (var (nm, wPx, hPx) in new[] { ("AvatarItemSmall_Me",  88.7274449f, 99.1251923f),
                                                        ("AvatarItemSmall_Foe", 88.7274449f, 99.1251923f) })
                 {
-                    var q = Quad(nm);
-                    float gw = q != null ? q.WorldW * 108f : -1f, gh = q != null ? q.WorldH * 108f : -1f;
+                    var rt = Rt(nm);
+                    var sz = rt != null ? HudCanvas.SizePx(rt) : new Vector2(-1f, -1f);
+                    float gw = sz.x, gh = sz.y;                        // 设计 px（`sizeDelta`，见上面那段）
                     Check(Mathf.Abs(gw - wPx) < 0.05f && Mathf.Abs(gh - hPx) < 0.05f,
                           $"★ A1512 `{nm}` 实绘 = **原版 {wPx}×{hPx} px**（`menu_dump` 视觉框，父链 0.8 已含）"
                         + $" —— 实测 {gw:F4}×{gh:F4} px（改前是未乘 0.8 的那一版）");
@@ -14892,8 +15576,8 @@ public static class BattleScene
                 //    `HudAvatarSize`（= `HudPlateScale` 唯一的使用点）**整个落在「高」上** ⇒ 钉高就够挡「改回 1f」。
                 foreach (string nm in new[] { "AvatarImage_Me", "AvatarImage_Foe" })
                 {
-                    var q = Quad(nm);
-                    float gh = q != null ? q.WorldH * 108f : -1f;
+                    var rt = Rt(nm);
+                    float gh = rt != null ? HudCanvas.SizePx(rt).y : -1f;   // 设计 px（见 `QHpx`）
                     Check(Mathf.Abs(gh - 158.6003077f) < 0.05f,
                           $"★ A1512 `{nm}` 实绘**高** = **原版 158.6003077 px**（布局框 124.512×79.30016 × 自己 2.0"
                         + $" × 父链 0.8，见 `menu_dump` 的 `视觉框=×2 → 249.02×158.60`）—— 实测 {gh:F4} px"
@@ -14912,7 +15596,11 @@ public static class BattleScene
                 //  🧨 改坏法：把那两个 `x/y` 写成 `Border` 那两个（= 立绘与框完全重合）⇒ 偏移变 (0, 0) ⇒ 红。
                 const float SpecBorderHpx = 99.1251923339398f;
                 {
-                    float kMe = QH("AvatarItemSmall_Me") / (SpecBorderHpx / 108f);
+                    // 🔴 2026-10-16（`EW8`）：分子从「世界高」换成 **设计 px**（`sizeDelta.y`）⇒ 分母那个
+                    //    `/ 108f`（世界单位↔设计 px 的桥，`QH` 那一路才需要）**同步去掉** ⇒ `k` 仍是
+                    //    「我们那面框 ÷ 原版框架」、两条并存时仍应 ≈ **1.0000**（改前 = 88.7/99.1 = 0.895、
+                    //    再叠旧读法恒 0 ⇒ 必红）。
+                    float kMe = QHpx("AvatarItemSmall_Me") / SpecBorderHpx;
                     Vector2 pa = drv.HudExtraPosPx("AvatarImage_Me"), pb = drv.HudExtraPosPx("AvatarItemSmall_Me");
                     float tolMe = 0.05f * kMe;
                     Check(kMe > 0f
@@ -14923,7 +15611,7 @@ public static class BattleScene
                         + $" —— 实得 (Δx, Δy) = ({pa.x - pb.x:F4}, {pa.y - pb.y:F4})（坐标 y 从上 ⇒ 上移是负）"
                         + $"；期望 ({0.8f * kMe:F4}, {-11.6900153867151f * kMe:F4})，容差 {tolMe:F4} px");
 
-                    float kFo = QH("AvatarItemSmall_Foe") / (SpecBorderHpx / 108f);
+                    float kFo = QHpx("AvatarItemSmall_Foe") / SpecBorderHpx;      // 同 `kMe`：两边都是设计 px
                     Vector2 fa = drv.HudExtraPosPx("AvatarImage_Foe"), fb = drv.HudExtraPosPx("AvatarItemSmall_Foe");
                     float tolFo = 0.05f * kFo;
                     Check(kFo > 0f && Mathf.Abs(fa.x - fb.x) < tolFo
@@ -16534,7 +17222,9 @@ public static class BattleScene
                 "原版 `SkullsHolder` 的 `m_SizeDelta (648.1, 52.38)`（末位 0.02px 取本文件一直在用的 52.4）");
             // 🔴 **2026-10-16（`T09` 批 3）**：这两扇已迁到 `OverHand` 子画布、且是 **stretch** ⇒ 矩形 = **画布矩形**
             //   （`Expand` 档下可能比 1920×1080 大）⇒ 期望值改用上面那对 `a218CvW/H`。
-            //   ⚠️ `UnitChatPanel` 还没迁（原版子件序 2/14，仍在世界空间）⇒ 它那一条**照旧**，⛔ 别一起改。
+            //   ⚠️ ✅ **2026-10-16 就地订正（铁律 5 · 收口台账 `W45`）**：本行原文写「`UnitChatPanel` **还没迁**
+            //      ⇒ 它那一条照旧」—— **已过期**：`A1`/`A12` 已把它迁完（宿主 `"Unit Chat Canvas"`、
+            //      `OverHand`/order 0、原版子件序 **2/14**），下面那一条因此**一起换成画布矩形口径**。
             box(MulliganPanel.Create(a218root.transform).transform, "换牌面板根 `MulliganPanel`",
                 a218CvW, a218CvH, "原版 `Mulligan`（stretch ⇒ **铺满父画布**）");
             var a218Cdw = CardDisplayWindow.Create(a218root.transform);
@@ -16548,8 +17238,15 @@ public static class BattleScene
             Check(a218Cdw != null && a218Cdw.transform.GetComponentsInChildren<ImageQuad>(true).Length == 0,
                   "★ `T09` 批 3（**机械证明**）：卡牌展示窗里**一件世界空间 `ImageQuad` 都不剩**"
                 + "｜🧨 漏迁一件 ⇒ 本条红");
-            box(UnitChatPanel.Create(a218root.transform).transform, "单位语音条根", 1920f, 1080f,
-                "原版 `Unit Chat`（stretch ⇒ 整屏）");
+            // 🔴 **2026-10-16（`T09` 批 3 补正 · 台账 `W45`）**：这扇探针**改成传宿主** ——
+            //   ① `UnitChatPanel` 的画布档只有「有人把子画布喂进来」才成立（`Create(parent, uguiHost)`）；
+            //   ② 期望值换 **画布矩形**（`Unit Chat` 原版是 `stretch` ⇒ 铺满父画布，`Expand` 档下比 1080 高）；
+            //   ⚠️ `HudCanvas.EnsureSubCanvas` **按名字幂等**（先例 `Mulligan Canvas`）⇒ 这里「建/取」同一块。
+            var a218UcCv = HudCanvas.EnsureSubCanvas(null, UnitChatPanel.SubCanvasName,
+                                                    UnitChatPanel.SortingLayerId, UnitChatPanel.SortingOrder);
+            var a218Uc = UnitChatPanel.Create(a218root.transform, a218UcCv);
+            box(a218Uc != null ? a218Uc.transform : null, "单位语音条根", a218CvW, a218CvH,
+                "原版 `Unit Chat`（stretch ⇒ **铺满父画布**）");
             var a218Choose = ChoosePanel.Create(a218root.transform);
             box(a218Choose.transform, "选牌面板**世界壳**", 1920f, 1080f,
                 "原版 `ChooseCardMenu`（stretch ⇒ 整屏）；⚠️ 该节点已降级成世界壳（压暗层仍世界空间）");
@@ -16578,16 +17275,55 @@ public static class BattleScene
             box(a218Mcd.PanelRect, "多卡窗**本体**（画布上）", a218CvW, 818f,
                 "原版 `Generic Multi Card Display Combat`（横向 stretch + `sd.y 818.04`）");
             // 🔴 **2026-10-16（`T09` 批 2）**：这扇迁到画布后**分成了两个节点** ——
-            //   原先那个根降级成「**世界壳**」（只装那 3 根还没迁的 `WfSlider`），
+            //   原先那个根降级成「**世界壳**」；
+            //   🔴 **2026-10-17（`EW13` · `T09` 块 6）就地订正（铁律 5）**：本行原文写「只装那 3 根
+            //   还没迁的 `WfSlider`」—— **已过期**：那三根在本批**也迁到 `_panel` 上了**
+            //   ⇒ 这个壳现在**一个件都不装**（只剩 `sizeDelta` 给 `A218` 读，⛔ 别顺手删它）。
             //   面板本体（原版那颗 `BattleSettingsPanel`）现在在**画布上**的新节点里。
             //   ⇒ 原来只有一条，量的是世界壳；现在**两条都要**（壳那条的数字照旧、本体那条才是原版判据）。
             var a218Set = SettingsPanel.Create(a218root.transform, null, null);
-            box(a218Set.transform, "对局内设置面板**世界壳**（只装 3 根滑块）", 743.2f, 758.6f,
+            box(a218Set.transform, "对局内设置面板**世界壳**（**已空**，只留 `sizeDelta`）", 743.2f, 758.6f,
                 "⚠️ 本节点已降级成世界壳 —— 它的矩形仍照原版写；原版的**面板本体**在下面那条");
             box(a218Set.PanelRect, "对局内设置面板**本体**（画布上）", 743.202f, 758.6345f,
                 "原版 `BattleSettingsPanel` 的 `m_SizeDelta (743.202, 758.6345)`");
-            box(ChatPopupPanel.Create(a218root.transform).transform, "聊天弹幕根 `ChatPopup`", 815.04f, 475.47f,
+            // 🔴 **2026-10-16（收口 · 台账 `W45`）**：同样**改成传宿主**（`"ChatPopup Canvas"`）——
+            //   期望值 **`815.04 × 475.47` 不用改**：画布档那对数是写进 `sizeDelta` 的真 px，
+            //   而 `box()` 认得出画布子件、会自动走「直接比 `rect`」那一支（两档同值 ⇒ 这一条是干净的判别式）。
+            var a218PopCv = HudCanvas.EnsureSubCanvas(null, ChatPopupPanel.SubCanvasName,
+                                                     ChatPopupPanel.SortingLayerId, ChatPopupPanel.SortingOrder);
+            var a218Pop = ChatPopupPanel.Create(a218root.transform, a218PopCv);
+            box(a218Pop != null ? a218Pop.transform : null, "聊天弹幕根 `ChatPopup`", 815.04f, 475.47f,
                 "原版 `ChatPopup` 的 `m_SizeDelta (815.044, 475.470)`");
+            // 🔴 **2026-10-16（收口 · 台账 `W45` + `W11` 同一族）：子画布结构 + `OnCanvas` 灭自证。**
+            //   判据（期望值一律取【判据侧】，⛔ 不读 `HudCanvas.SubCanvas(name)` 自己的值 ⇒ 那是拿实现证明实现）：
+            //     · 层 = `OverHand` / order = 0 / `overrideSorting = true` —— 出处 `T09c` §一 那两行
+            //       （原版 `Unit Chat` 子件序 **2/14** · `ChatPopup` **4/7**，两块都落 `OverHand`/0）；
+            //     · **子画布不许带 `CanvasScaler`**：原版**全场景只有一个**、在根上（`T09` §五·补⑨ 一）⇒ 带了会**二次缩放**。
+            //   🧨 改坏法：把 `HudCanvas.EnsureSubCanvas` 里那三行赋值删掉 ⇒ 层/order 那一对红；
+            //      给子画布 `AddComponent<CanvasScaler>()` ⇒ 第四条红。
+            System.Action<string, string> subCv = (name, who) =>
+            {
+                var cv = HudCanvas.SubCanvas(name);
+                Check(cv != null && cv.overrideSorting,
+                      $"★ `T09`/{who}：子画布 `{name}` 的 `overrideSorting = true`（原版子 canvas 都另立排序组）");
+                Check(cv != null && cv.sortingLayerID == HudCanvas.SortingLayer.OverHand,
+                      $"★ `T09`/{who}：`{name}` 的排序层 = `OverHand`（判据 = `T09c` §一；实得 {cv?.sortingLayerID}）");
+                Check(cv != null && cv.sortingOrder == 0,
+                      $"★ `T09`/{who}：`{name}` 的 order = 0（原版那一行；实得 {cv?.sortingOrder}）");
+                Check(cv != null && cv.GetComponent<CanvasScaler>() == null,
+                      $"★ `T09`/{who}：`{name}` **不带** `CanvasScaler`（原版全场景只有一个、在根上；带了 = 二次缩放）");
+            };
+            subCv(UnitChatPanel.SubCanvasName, "Unit Chat");
+            subCv(ChatPopupPanel.SubCanvasName, "ChatPopup");
+            // 🔑 **`OnCanvas` 灭自证（正面那一半）**：图与字**全在 uGUI 画布父链下**。
+            //   它防的是本批最坏的那一档：**一半件在画布、一半还在世界** —— 16:9 下逐位相同、全绿，
+            //   只有别的宽高比才露（`T09` §五·补⑦）。⛔ 别用「`HudPiece != null`」替它（那个两档都真 = 同义反复）；
+            //   ⛔ 也别用「`IsUgui`」替它（那个只看**宿主登记了没**，不看**件建在哪**）。
+            //   （反面那一半 —— 「世界档下 `OnCanvas` 必须为假」—— 写在上面世界档那两节里，两半配对才挡得住「写成恒真」。）
+            Check(a218Uc != null && a218Uc.OnCanvas,
+                  "★ `T09`（灭自证）`UnitChatPanel` 三颗气泡的图与字**都在 uGUI 画布上**｜🧨 漏迁一件 ⇒ 红");
+            Check(a218Pop != null && a218Pop.OnCanvas,
+                  "★ `T09`（灭自证）`ChatPopupPanel` 7 张图 + 6 颗钮的字**都在 uGUI 画布上**｜🧨 漏迁一件 ⇒ 红");
             var a218Replay = ReplayBar.Create(a218root.transform);
             box(a218Replay.transform, "回放条根", 293.6f, 57.41f,
                 "原版 `ReplayButtons` 的 `m_SizeDelta (293.6, 57.406)`");
@@ -19915,11 +20651,16 @@ public static class BattleScene
                     //   🔴 断「**渲染尺寸 ≤ 框**」、不断字号 —— 字号对而溢出时自检照样全绿（`AutoFitBox` 教训）。
                     //   ⚠️ 必须在这一格**显出来之后**量（TMP 在对象没激活时量不出尺寸 —— 本仓已知的坑）。
                     //   🧨 **改坏法**：把 `BuildHud` 里那句 `SetAutoFitBox` 删掉 ⇒ 落 `Label` 默认档、不再受框约束。
+                    //   🔴 **2026-10-16（`T09` 字族迁 uGUI · `EW6` 接线）—— 两把尺改成【同尺 = 设计 px】**：
+                    //     `HandLabelWorldW/H` 现在是 **设计 px**（判据 → `BattleDriver.HandLabelWorldW` 的 doc），
+                    //     而框那两个数 `HandLabelBoxW/H` = **234 / 64**（原版 2.34/0.64 局域 × **100** 那条单位桥，
+                    //     判据 → `HandLabelBoxW` 的 doc）⇒ 右项**原样写字面量**、⛔ 不再 `LayoutSpace.Px(...)`
+                    //     （那个 ÷108 是**世界档**的换算；混进去右边只剩 2.17 ⇒ 恒红）。
                     Check(driver.HandLabelWorldW > 0f
-                          && driver.HandLabelWorldW <= LayoutSpace.Px(234f) + 1e-4f
-                          && driver.HandLabelWorldH <= LayoutSpace.Px(64f) + 1e-4f,
-                          $"★ 手牌数那颗渲染尺寸 {driver.HandLabelWorldW:F4} × {driver.HandLabelWorldH:F4}"
-                        + $" ≤ 原版框 {LayoutSpace.Px(234f):F4} × {LayoutSpace.Px(64f):F4}"
+                          && driver.HandLabelWorldW <= 234f + 1e-4f
+                          && driver.HandLabelWorldH <= 64f + 1e-4f,
+                          $"★ 手牌数那颗渲染尺寸 {driver.HandLabelWorldW:F4} × {driver.HandLabelWorldH:F4} **设计 px**"
+                        + " ≤ 原版框 234 × 64 **px**"
                         + "（原版 `CardsInHandText`：框 2.34×0.64 局域 × **100** px、auto 0.5~3.0 局域 = **50~300 px**）");
                     Check(!driver.CemeteryButtonVisibleForTest,
                           "★ 而 `cemeteryButton` **仍然是藏的** —— 它那条是「教程局无条件藏」，与 `hideCemetery` **无关**"
@@ -20584,6 +21325,95 @@ public static class BattleScene
                 drv964.Begin("Ultramarines", "Goff", 20260915);
                 if (drv964.InMulligan) drv964.SimulateMulliganDone();
 
+                // ================================================================
+                // 🔴 2026-10-16（修波 `FA` · 补 `R1` §②-7 点名的**零覆盖**缺口）：**子画布之间的兄弟序**。
+                //   `HudCanvas.ApplySubCanvasRank()` 是「同层同 `sortingOrder` 的那几块子画布谁压谁」的
+                //   **唯一实现**，而它按**名字**找（`RootRect.Find(name)`）—— 名字写坏 ⇒ **静默不排**
+                //   （不报错、不警告，`HudCanvas.cs` 表尾那段自查注释写的就是这个）⇒ 这一格此前
+                //   **没有任何机械证明**（`R1` §项 1 末 + §②-7）。放在这里是因为：① 上面那句 `Begin`
+                //   刚跑过 `BuildHud()`（五扇面板的子画布都在里面建）⇒ 排次刚被重排过一次；
+                //   ② 本段**不带面板可见性那种闸**（换个位置就成了「面板不开 ⇒ 这组断言静默消失」）。
+                //   🔑 **读的是场景里真实的** `GetSiblingIndex()` —— ⛔ 不是把那张字符串数组按顺序念一遍
+                //     （那是「数组按顺序写着」的同义反复，`R1` §②-7 要的「灭自证」就在这一点上）。
+                //   🔑 判据（期望值来源）= **原版 `Safe area FrontCanvas` 的 `m_Children` 下标** ——
+                //     `bundle_scenes_scenes_battlearena2/RectTransform/RectTransform_3055.json` 的 `m_Children`
+                //     （**本波自己现读**：14 个 pathID 逐格解成 GO 名），全序为
+                //       [0] Drag Attack Selector · [1] ActiveSkillDesc · [2] Unit Chat · [3] Mulligan ·
+                //       [4] Generic Multi Card Display Combat · [5] ChooseCardMenu · [6] Card Display Window ·
+                //       [7] DebugButtons · [8] AboveShader · [9] PopupAnchor · [10] BattleSettingsPanel ·
+                //       [11] Tutorial · [12] LoadingMenu · [13] Alliance Panel
+                //     ⛔ **不抄 `HudCanvas.SubCanvasRank`**（那是被测实现那一侧，抄它 = 拿实现证明实现）。
+                //     · `ChatPopup` **不在那 14 格里**：它是 `Unit Chat` 的**子件**（原版 `RT_3280.m_Children`
+                //       的 4/7）⇒ 复刻口径 = 「子件画在父件之上」⇒ 排在 `Unit Chat` **之后**、`Mulligan`(3) **之前**。
+                //   🧨 两条改坏法（都会红，不是「理论上」）：
+                //     ① 删掉 `ApplySubCanvasRank()` 里那句 `t.SetSiblingIndex(idx)` ⇒ 兄弟序退回**建序**
+                //        （= `BuildHud` 的调用序：技能面板 → 单聊 → 选择器 → 联盟 → 聊天弹窗）
+                //        ⇒ 第 1 对 `Drag Attack Selector Canvas` vs `ActiveSkillDesc Canvas` 当场反了；
+                //     ② 把 `SubCanvasRank` 里任一项的名字写错一个字符 ⇒ 那一项拿不到最小位次 ⇒ 它前后那一对红。
+                //   ⚠️ **只断「已建出来的那些」之间的相对次序**（原版那 14 格今天只迁了一部分；缺席的格子
+                //     既不断它自己的位次、也不当红的理由 —— 逐格比会拿「还没迁」当缺陷 = **假红**）。
+                // ================================================================
+                {
+                    var hudRtA2 = HudCanvas.RootRect;
+                    Check(hudRtA2 != null,
+                          "★ T09b/次序：（前提）HUD 根画布在（`HudCanvas.Ensure` 跑过 ⇒ 子画布有地方挂）");
+                    if (hudRtA2 != null)
+                    {
+                        // 按**原版子件序**升序列好（数组顺序本身就是期望值；判据见上，⛔ 不是抄 `SubCanvasRank`）
+                        // ⚠️ 名字一律取**面板自己的公开常量**（⛔ 别在这里再写一遍字面量 —— 那正是「同一条规则
+                        //    两处拼写」）；`AttackSelector` / `MultiCardDisplay` 那几个还没开常量 ⇒ 现写字面量
+                        //    （📌 接线清单：`AttackSelector.SubCanvasName` 见 `G1-1`）。
+                        var cvRankA2 = new string[]
+                        {
+                            "Drag Attack Selector Canvas",                    // 原版 0/14
+                            SkillPanel.SubCanvasName,                         // 原版 1/14
+                            UnitChatPanel.SubCanvasName,                      // 原版 2/14
+                            ChatPopupPanel.SubCanvasName,                     // `Unit Chat` 的子件（原版 4/7）⇒ 紧跟其父之后
+                            "Mulligan Canvas",                                // 原版 3/14
+                            "Generic Multi Card Display Combat Canvas",       // 原版 4/14
+                            "ChooseCardMenu Canvas",                          // 原版 5/14
+                            "Card Display Window Canvas",                     // 原版 6/14
+                            "AboveShader Canvas",                             // 原版 8/14
+                            AlliancePanelWindow.SubCanvasName,                // 原版 13/14（**这一组里最后一名**）
+                        };
+                        // 真实位次：根画布下的**直接子件**（子画布都这么挂 —— `EnsureSubCanvas` 的
+                        //   `SetParent(RootRect)`），取「带 `Canvas` 组件」的那些 = 子画布本尊
+                        var siA2 = new Dictionary<string, int>();
+                        for (int iA2 = 0; iA2 < hudRtA2.childCount; iA2++)
+                        {
+                            var kidA2 = hudRtA2.GetChild(iA2);
+                            if (kidA2.GetComponent<Canvas>() != null) siA2[kidA2.name] = iA2;
+                        }
+                        var seenA2 = new System.Text.StringBuilder();
+                        int nRankA2 = 0, badA2 = 0, offTableA2 = 0, prevSiA2 = int.MinValue;
+                        foreach (var nmA2 in cvRankA2)                       // 已按原版子件序升序
+                        {
+                            if (!siA2.TryGetValue(nmA2, out int siCurA2)) continue;
+                            nRankA2++;
+                            // 名字与 `SubCanvasRank` 里那条对不上 ⇒ 它**永远不参与排次**（静默失效）
+                            if (!HudCanvas.IsRanked(nmA2)) offTableA2++;
+                            if (siCurA2 <= prevSiA2) badA2++;
+                            if (seenA2.Length > 0) seenA2.Append(" < ");
+                            seenA2.Append(nmA2).Append('#').Append(siCurA2);
+                            prevSiA2 = siCurA2;
+                        }
+                        Check(nRankA2 >= 5,
+                              $"★ T09b/次序：（前提）本批迁的 5 块子画布都在根画布下（实得 {nRankA2} 块）"
+                            + $"：{seenA2}｜🧨 少一块 = 那扇面板没登记宿主（`BattleDriver.BuildHud` 那几句 `UseHost`）");
+                        Check(offTableA2 == 0,
+                              "★ T09b/次序（**灭自证·名字**）：上面那几块的名字**都在** `HudCanvas.SubCanvasRank` 表里"
+                            + "（⛔ 对不上的项 `RootRect.Find` 永远 `null`、**静默不排次序** —— 表自己写着这是它"
+                            + $"最容易坏的方式；实得**不在表里**的 {offTableA2} 块）");
+                        Check(nRankA2 >= 2 && badA2 == 0,
+                              "★ T09b 次序：子画布按**原版 `Safe area FrontCanvas` 的 14 子件序**排"
+                            + "（读的是**真实的** `GetSiblingIndex()`，⛔ 不是那张字符串数组）"
+                            + "\n        实得（兄弟序升序）：" + seenA2
+                            + $"\n        反序/并列 {badA2} 处"
+                            + "｜🧨 删掉 `ApplySubCanvasRank` 那句 `SetSiblingIndex` ⇒ 退回建序 ⇒ 红"
+                            + "；表里任一项的名字写错一个字符 ⇒ 它前后那一对红");
+                    }
+                }
+
                 // 收尾要放回去的三样（指针钉子 / 进攻卡选择 —— 本段都写过）
                 bool?   heldWas964  = BattleDriver.PointerHeldForTest;
                 Vector3? worldWas964 = BattleDriver.PointerWorldForTest;
@@ -20900,8 +21730,10 @@ public static class BattleScene
                             var rc964 = pop964.ButtonRect(i964);
                             if (rc964.width <= 0f || rc964.height <= 0f) continue;
                             popN964++;
-                            var wp964 = LayoutSpace.ToWorld((rc964.x + rc964.width * 0.5f) / 1920f,
-                                                            1f - (rc964.y + rc964.height * 0.5f) / 1080f);
+                            // 🔴 **2026-10-16（收口 · 台账 `W45`）**：改走 `ChatPopupPanel.ButtonWorldPos(i964)` ——
+                            //   旧写法 `LayoutSpace.ToWorld(rc964…)` 是**世界帧**的换算，与画布档面板真正摆的地方分家
+                            //   （y 差 1.333 倍）。`rc964` 仍用来数「几颗」（宽高 > 0 才算建出来了）。
+                            var wp964 = pop964.ButtonWorldPos(i964);
                             if (pop964.ButtonAt(wp964) != i964) popBad964++;
                         }
                         hits964.Add($"E2\tChatPopup {popN964} 颗\tChatPopupPanel.ButtonAt\t钮矩形中心\t"
@@ -20928,15 +21760,19 @@ public static class BattleScene
                     Check(sel964 != null, "★ A964/模型③：（前提）攻击选择器在");
                     if (sel964 != null && drv964.Ctx != null)
                     {
-                        // 🔴 先断前提（侦察 §6·10）：`AttackSelector.UpdatePointer` 拿
-                        //    `_icons[i].transform.localPosition` 与**喂进来的那个点**相减，而真实输入喂的是
-                        //    `BattleDriver.WorldPointer()`（**世界**坐标）⇒ 只有**根在世界原点**时才成立。
-                        //    （`ButtonWorld(k)` 回的也是 `localPosition` ⇒ 下面那条往返**不依赖**这条前提 ——
-                        //     它只是把「真鼠标那一路」的前提**显式钉住**，⛔ 别以为往返绿了就等于真鼠标也绿。）
+                        // 🔴 先断前提（侦察 §6·10 的**改后版本** · 收口台账 `W32`）：
+                        //    `AttackSelector.UpdatePointer` 与 `ButtonWorld(k)` **现在都读世界点 `transform.position`**
+                        //    （`T09` 批 3 迁 uGUI 时一起改的：判据 = 世界点比世界点，两档同义），而真实输入喂进来的
+                        //    `BattleDriver.WorldPointer()` 本来就是**世界**坐标 ⇒ 这条前提的**理由变了、判据还在**。
+                        //    🔴 **2026-10-16 就地订正（铁律 5）**：本行原文写「`UpdatePointer` 拿
+                        //      `_icons[i].transform.localPosition` 与喂进来的点相减」「`ButtonWorld(k)` 回的也是
+                        //      `localPosition`」—— **两处都已过期**（现在两边都是世界点）。
+                        //    `Check(sel964.transform.position == Vector3.zero, …)` **保留**：它现在守的是
+                        //    「选择器根没被谁搬走」这一件（往返本身是构造性的 ⇒ 根偏了它看不出来）。
                         Check(sel964.transform.position == Vector3.zero,
                               $"★ A964/模型③：（前提）选择器根在**世界原点**（实得 {sel964.transform.position}）"
-                            + " —— `UpdatePointer` 是拿局部坐标与喂进来的点相减的，根一偏真鼠标那一路就**静默错**"
-                            + "（往返那条看不出来：两边都是 `localPosition`）");
+                            + " —— 选择器与真实输入都按**世界点**判（`UpdatePointer` / `WorldPointer()`），"
+                            + "根一偏整条命中就错位，而往返那条看不出来（两边同源）");
                         int side964 = drv964.MySideForTest;
                         int probe964 = FreeSlot(drv964.Ctx, side964);
                         Check(probe964 >= 0, "★ A964/模型③：（前提）我方棋盘上有一个空格能摆探针单位");
@@ -20965,14 +21801,102 @@ public static class BattleScene
                                       + $"{(m3Bad964 == 0 ? "中心全中·外侧全不中" : m3Bad964 + " 条不达标")}\t圆判据（无矩形，故只断中心必中）");
                             Check(m3N964 > 0 && m3Bad964 == 0,
                                   $"★ A964/模型③：攻击三选一（{m3N964} 格）—— **视觉中心必中 + 远处必不中**"
-                                + "（判据 = 原版「悬停即选中」那个**圆**；`ButtonWorld` 回的是 `localPosition`，"
-                                + "`UpdatePointer` 也算 `localPosition` ⇒ 往返本身是构造性的，本行钉的是"
+                                + "（判据 = 原版「悬停即选中」那个**圆**；`ButtonWorld` 回**世界点**、"
+                                + "`UpdatePointer` 也收**世界点** ⇒ 往返本身是构造性的，本行钉的是"
                                 + "「格子映射 + 图标活着 + 那个圆**有界**」三件）"
                                 + "｜🧨 改坏法：把 `UpdatePointer` 的圆判据写成「恒命中」/ 半径取成 ≥10 世界单位 ⇒ 红"
                                 + "；⚠️ 它**挡不住**「半径取 0」（中心那一击照样中）—— 裁定只要弱判据，⛔ 不硬套矩形");
                             drv964.SimulateDeselect();
                             drv964.Ctx.Players[side964].Board[probe964] = null;
                             drv964.RefreshAll();
+                        }
+
+                        // ---- 🔴 2026-10-16（收口 · 台账 `W32`）：攻击选择器迁 uGUI 之后的 **6 条结构断言** ----
+                        //   ⚠️ **前提**：`BattleDriver.BuildHud()` 收尾那句 `selector.UseHost(...)`（台账 `W30`）——
+                        //     没接线时本件**跑世界档**（与迁移前逐位相同），下面 ① 仍成立、②–⑤ **整体跳过**
+                        //     （⛔ 不假绿、也不刷一片假红：`if (sel964.UguiMode)` 那道闸就是这条）。
+                        //   期望值一律取【判据侧】，⛔ 不读 `AttackSelector.BarW/BarH`（那是被测实现自己的常量 = 自证）：
+                        //     · 层/order/兄弟序 = `T09c` §一（`OverHand` / 0 / 原版 `Safe area FrontCanvas`
+                        //       的 `m_Children[0]` ⇒ 兄弟序 **0/14**）；
+                        //     · 帧矩形 = 原版 `RectTransform_3166` 的 `m_SizeDelta (621.7249755859375, 122.24700164794922)`。
+                        //   ① 档位判据自洽（两档都跑）
+                        //   🔴 **2026-10-16（修波 `FA` · 现核 `R1` §②-5）：本条【不是】同义反复 —— 只加这一句说明。**
+                        //     `R1` §②-5 把本行与技能面板那一条（`:7168`）并成「两个口同源 ⇒ 恒真」，并引
+                        //     `AttackSelector.cs:403/406` 为证 —— **引错了**：本件那两个口**不同源**
+                        //     （`AttackSelector.cs:403` = `UguiMode ⇒ _frame != null`、
+                        //      `:406` = `CanvasRect ⇒ _frame != null ? _host : null`）⇒ 它能抓到
+                        //     「帧建到画布上了、但宿主登记丢了」（`_host == null` ⇒ 本行红）。
+                        //     ⇒ 按「**不同源 ⇒ 留着**」办（同 `G2` 报告 §④ `W32`①那一行的说法）。
+                        //     ⚠️ 真正同源那条在技能面板（`SkillPanel.cs:294/297` 都回 `_cv`）—— 那里
+                        //       `G2` 已**如实标注成「回归哨兵」**、且同处有 `W11⑥`（逐件查）当真判别力 ⇒ 也留。
+                        Check(sel964.UguiMode == (sel964.CanvasRect != null),
+                              $"★ T09/A3 ①：档位判据自洽（`UguiMode`({sel964.UguiMode}) ⇔ `CanvasRect != null`"
+                            + $"({sel964.CanvasRect != null})）"
+                            + "｜两**不同源**：`UguiMode` 只看帧在不在、`CanvasRect` 还要宿主没丢 ⇒ 抓得到「帧在画布上但 `_host` 没了」");
+                        if (sel964.UguiMode)
+                        {
+                            var sc964 = sel964.CanvasRect.GetComponent<Canvas>();
+                            // ② 宿主画布：`overrideSorting` + 层 + order
+                            Check(sc964 != null && sc964.overrideSorting
+                                  && sc964.sortingLayerID == HudCanvas.SortingLayer.OverHand
+                                  && sc964.sortingOrder == 0,
+                                  "★ T09/A3 ②：宿主画布 = `overrideSorting` / `OverHand` / order 0"
+                                + $"（实得 {sc964?.overrideSorting} / {sc964?.sortingLayerID} / {sc964?.sortingOrder}）"
+                                + " —— 判据 = `T09c` §一 那一行（原版那节点身上就有 `Canvas`，只是 `overrideSorting=false`）");
+                            // ③ 【最低兄弟序】—— 原版 `m_Children[0]`，这是它的机械证明
+                            Check(sel964.FrameRect != null && sel964.FrameRect.GetSiblingIndex() == 0,
+                                  $"★ T09/A3 ③：帧在宿主容器里排**最前**（= 画在最底下；原版兄弟序 **0/14**）"
+                                + $"（实得 siblingIndex {(sel964.FrameRect != null ? sel964.FrameRect.GetSiblingIndex() : -1)}）");
+                            var fs964 = HudCanvas.SizePx(sel964.FrameRect);
+                            // ④ 帧 rect 照原版 `RT_3166` 的 `m_SizeDelta`
+                            //   —— 🔴 **2026-10-16 就地订正（修波 `FA` · 改 `R1` §②-6）**：期望值原来写的是
+                            //      **我们的常量** `621.7 / 122.2`（容差 0.5 把 0.025 / 0.047 的差糊过去了，
+                            //      = 期望值取自实现自己）⇒ 换成**原版精确值**
+                            //      `621.7249755859375 / 122.24700164794922`、容差收到 **0.1**。
+                            //   判据 = `bundle_scenes_scenes_battlearena2/RectTransform/RectTransform_3166.json`
+                            //     的 `m_SizeDelta`（本波现读，逐位如上）—— ⛔ 不取 `AttackSelector.BarW/BarH`
+                            //     （那是被测实现自己的常量）。
+                            //   ⚠️ **本条今天仍绿**（如实记）：实现用的是 621.7 / 122.2，与原版差 0.025 / 0.047
+                            //     ⇒ **收窄容差并没有把它变成假红**，这一笔改的是「期望值取自谁」。
+                            Check(Mathf.Abs(fs964.x - 621.7249755859375f) < 0.1f
+                               && Mathf.Abs(fs964.y - 122.24700164794922f) < 0.1f,
+                                  $"★ T09/A3 ④：帧 `rect` 照原版 `RT_3166` 的 `m_SizeDelta`"
+                                + $"（原版 621.7249755859375×122.24700164794922 px、容差 0.1；实得 {fs964.x:F3}×{fs964.y:F3}）"
+                                + "｜🧨 改坏法：帧尺寸常量改一位 / 把 `SetPxSize` 那条换成世界单位（÷108）⇒ 红");
+                            // ⑤ 【灭自证】画布档下帧里**一件世界空间 `ImageQuad` 都不该剩**（写法照 §A218 那条）
+                            Check(sel964.FrameRect != null
+                                  && sel964.FrameRect.GetComponentsInChildren<ImageQuad>(true).Length == 0,
+                                  "★ T09/A3 ⑤（**机械证明**）：画布档下帧里**一件世界空间 `ImageQuad` 都不剩**"
+                                + "｜🧨 漏迁一件 ⇒ 本条红");
+                            // ⑥ 【锚点投影】把 `InverseTransformPoint` 那一跳钉住
+                            //    ⛔ 别拿 `AnchorLocal` 反算回来比 —— 那是同义反复（判据要指向**真摆在哪**）。
+                            Check(sel964.FrameRect != null
+                                  && Mathf.Abs(sel964.FrameRect.position.x - sel964.AnchorWorld.x) < 1e-3f
+                                  && Mathf.Abs(sel964.FrameRect.position.y - sel964.AnchorWorld.y) < 1e-3f,
+                                  "★ T09/A3 ⑥：帧落在锚点的**正投影**上（x/y 与 `AnchorWorld` 同值；z 是画布平面）"
+                                + $"（实得 {sel964.FrameRect?.position.x:F6},{sel964.FrameRect?.position.y:F6}"
+                                + $" vs {sel964.AnchorWorld.x:F6},{sel964.AnchorWorld.y:F6}）"
+                                + "｜🧨 改坏法：`AnchorLocal()` 不走 `_frame.parent.InverseTransformPoint` ⇒ 红");
+                            // ⑦ 【双模式往返】另起一个探针实例（⛔ 别动战斗里的那一个）：
+                            //    「不登记 ⇒ 世界档」+「登记一块既有画布 ⇒ 画布档」两个方向。
+                            //    ⚠️ **只在宿主真的存在时跑**（否则 `UseHost(null)` 是不合法的用法、
+                            //       而自造一块新子画布会往战斗 HUD 里留一个不在 `SubCanvasRank` 里的节点）；
+                            //    ⚠️ **只断档位开关**，不断件数（缺图那一档会把件数断成假红）。
+                            var pgo964 = new GameObject("A3Probe");
+                            var probA3964 = pgo964.AddComponent<AttackSelector>();
+                            // ⚠️ **显式 `Build()` 一次**：编辑模式下 `AddComponent` **未必**跑 `Awake`
+                            //   （`Awake() { Build(); }` 是唯一的建件入口），而 `UseHost` 只在 `_built` 为真时才重建
+                            //   ⇒ 少了这一句会拿到 `cHalf == false` 的**假红**。`Build()` 自带 `_built` 闩 ⇒ 幂等。
+                            probA3964.Build();
+                            bool wHalf964 = !probA3964.UguiMode && probA3964.CanvasRect == null;
+                            probA3964.UseHost(sel964.CanvasRect);
+                            bool cHalf964 = probA3964.UguiMode && probA3964.CanvasRect != null;
+                            Check(wHalf964 && cHalf964,
+                                  "★ T09/A3 ⑦（双模式往返）：**不登记 ⇒ 世界档**（与改之前逐位相同）·"
+                                + " **登记 ⇒ 画布档**（实得 " + wHalf964 + " / " + cHalf964 + "）");
+                            if (probA3964.FrameRect != null)
+                                UnityEngine.Object.DestroyImmediate(probA3964.FrameRect.gameObject);  // ⚠️ 帧是画布上的节点、不随父销毁
+                            UnityEngine.Object.DestroyImmediate(pgo964);
                         }
                     }
                 }
@@ -21282,7 +22206,12 @@ public static class BattleScene
                             hits964.Add($"E2⑥\t技能面板 Lights 色片\tSkillPanel.Contains\t实绘 {sd964.x:F3}×{sd964.y:F3} 世界单位"
                                       + $"（底板另 {sbg964.x:F3}×{sbg964.y:F3} · 命中框 {sbox964.x:F3}×{sbox964.y:F3}）"
                                       + $"\t内侧中={inS964} · 外侧不中={outS964} · 底板中心中={bgIn964}"
-                                      + "\t实绘读法 = `WorldW/H × lossyScale`（`PlaceQuad` 是横向拉伸，只读 `WorldW` 会量小）");
+                                      // 🔴 **2026-10-16 就地订正（铁律 5 · 收口台账 `W57`/`W13`）**：本行原文只写
+                                      //   「实绘读法 = `WorldW/H × lossyScale`」—— 那只对**世界档**成立。
+                                      //   **画布档**读的是 `sizeDelta × lossyScale`（见 `SkillPanel.DrawnWorldSize`
+                                      //   的 doc）。两档**契约恒为世界单位**（跨件比较用），所以别拿它去比 px。
+                                      + "\t实绘读法 = 世界单位：世界档 `WorldW/H × lossyScale`，画布档 `sizeDelta × lossyScale`"
+                                      + "（契约恒为世界单位 ⇒ 别拿去比 px；`PlaceQuad` 是横向拉伸，只读 `WorldW` 会量小）");
                             Check(inS964,
                                   "★ A964/E2⑥：技能面板 —— **画得最大那层（`Lights`）的中心 + 实绘矩形内的 0.45 半宽/半高点都在命中框里**"
                                 + $"（色片实绘 {sd964.x:F3}×{sd964.y:F3} 世界单位，命中框 {sbox964.x:F3}×{sbox964.y:F3}）"
@@ -21481,6 +22410,61 @@ public static class BattleScene
                 else
                 {
 
+                    // ---- 〇、🔴 2026-10-16（收口 · 台账 `W52`/`W50`）：迁 uGUI 之后的**结构断言** ----
+                    //  ⚠️ **前提**：`BattleDriver` 那句 `AlliancePanelWindow.Create(root, "Alliance Panel", cv)`
+                    //     （台账 `W50`）—— 没接线 ⇒ 本扇**跑世界档**（`MenuDraw.*` + `renderQueue` 那一套、
+                    //     与迁移前逐位相同），此时 `panel985.OnCanvas` **本来就该为假**。
+                    //  ⛔ 所以下面两条写成**两态都成立**的形式（⛔ 不是 `|| true` 那种恒真）：
+                    //     · 画布档 ⇒ 子画布结构对 **且** 那 7 颗字**全在**画布父链下；
+                    //     · 世界档 ⇒ 子画布那条**整体跳过**、那 7 颗字**一件都不在**画布父链下。
+                    //  判据（判据侧，⛔ 不读被测实现自己的常量）：`T09c` §一 → `Alliance Panel` 落
+                    //     `OverHand` / order **0**（原版子件序 **13/14**）；子画布**不带 `CanvasScaler`**
+                    //     （原版全场景只有一个、在根上 —— 带了会二次缩放）。
+                    if (panel985.OnCanvas)
+                    {
+                        var apCv = HudCanvas.SubCanvas(AlliancePanelWindow.SubCanvasName);
+                        Check(apCv != null && apCv.overrideSorting
+                              && apCv.sortingLayerID == HudCanvas.SortingLayer.OverHand
+                              && apCv.sortingOrder == 0,
+                              $"★ T09/A9：`{AlliancePanelWindow.SubCanvasName}` = `overrideSorting` / `OverHand` / order 0"
+                            + $"（实得 {apCv?.overrideSorting} / {apCv?.sortingLayerID} / {apCv?.sortingOrder}）");
+                        Check(apCv != null && apCv.GetComponent<CanvasScaler>() == null,
+                              $"★ T09/A9：`{AlliancePanelWindow.SubCanvasName}` **不带** `CanvasScaler`"
+                            + "（原版全场景只有一个、在根上；带了 = 二次缩放）");
+                    }
+                    //  🔑 **灭自证（逐件独立复核，⛔ 不复用 `AlliancePanelWindow.OnCanvas` 那一个口）**：
+                    //    直接拿每颗字的 `GetComponentInParent<Canvas>()` 与「面板整体在不在画布上」对一遍 ——
+                    //    半迁移态（一半画布一半世界）在 16:9 下**逐位相同、全绿**，只有别的宽高比才露。
+                    {
+                        var apRoot = panel985.Root;
+                        var ap7 = new[] { "NameHolder/PlayerLabel", "NameHolder/Name Text",
+                                          "TitleHolder/TitleLabel", "TitleHolder/Title Text",
+                                          "Alliance/Alliance Label", "Alliance/Alliance Name",
+                                          "NotInaAllianceText" };
+                        if (apRoot == null)
+                        {
+                            Check(false, "★ T09/A9（前提）联盟窗的 `Root` 取得到（路径断言要靠它逐颗找字）");
+                        }
+                        else
+                        {
+                            int apN = 0, apOnCv = 0, apBad = 0;
+                            foreach (var apP in ap7)
+                            {
+                                var apTr = apRoot.Find(apP);
+                                if (apTr == null) continue;              // 缺一颗由上面 A1192 那条 `found==7` 报
+                                apN++;
+                                bool apIsCv = apTr.GetComponentInParent<Canvas>() != null;
+                                if (apIsCv) apOnCv++;
+                                if (apIsCv != panel985.OnCanvas) apBad++;
+                            }
+                            Check(apN == 7 && apBad == 0,
+                                  $"★ T09/A9（**灭自证**）：那 7 颗字的渲染空间与面板整体**一致**"
+                                + $"（实得 {apN}/7 找得到 · 落在画布父链下的 {apOnCv} 件 · 不一致 {apBad} 件；"
+                                + $"面板 `OnCanvas` = {panel985.OnCanvas}）"
+                                + " —— 画布档必须**全在**画布上、世界档必须**一件都不在**（⛔ 两态都断，防半迁移态）");
+                        }
+                    }
+
                     // ---- 一、几何：命中矩形（原版值）· 画出来的 == 命中矩形 · α=0 · 边界 ----
                     var hit985 = BattleDriver.AllianceButtonHitRectPx;
                     Check(Mathf.Abs(hit985.x1 - 25.22f) < 0.02f && Mathf.Abs(hit985.x2 - 335.29f) < 0.02f
@@ -21541,15 +22525,23 @@ public static class BattleScene
                     bool notIn985 = panel985.NotInAllianceNode != null && panel985.NotInAllianceNode.gameObject.activeSelf;
                     bool grp985   = panel985.AllianceGroupNode  != null && panel985.AllianceGroupNode.gameObject.activeSelf;
                     bool ttl985   = panel985.TitleHolderNode    != null && panel985.TitleHolderNode.gameObject.activeSelf;
-                    float left985 = MenuDraw.PosInDesignSpace(panel985.NameLabel.transform).x
-                                  - panel985.NameLabel.WorldW * 0.5f;      // 名字块**左缘**（设计空间）
+                    // 🔴 **2026-10-16（收口 · 台账 `W52`）：这一条**按档取** ——
+                    //   · **世界档**：节点是**中心锚**（`MenuDraw.Text` 摆的是整块的中心）⇒ 左缘 = 中心 − 半宽；
+                    //   · **画布档**：`Txt` 给的锚是 `(0, 0.5)`，而 `RefreshBounds` 让**字形块左缘恒贴节点 x**
+                    //     （`-anchor.x*W − b.min.x`，`anchor.x = 0`）⇒ **节点 x 就是左缘**，
+                    //     ⛔ 再减半个 `WorldW` 会凭空左移（而且画布档的 `WorldW` `IsUgui` 时是**画布 px**、
+                    //     我们当年那一跳 `×108` 也不该有）。判据 → `T09_AlliancePanel_锚点补正_报告.md` §③。
+                    //   `PxX` 是线性的（`w×108 + 960`）⇒ 世界档那一路与改之前**逐位同值**。
+                    float nodePx985 = LayoutSpace.PxX(MenuDraw.PosInDesignSpace(panel985.NameLabel.transform).x);
+                    float left985 = nodePx985 - (panel985.OnCanvas ? 0f : panel985.NameLabel.WorldW * 54f);
                     Check(notIn985 && !grp985 && !ttl985 && panel985.NameLabel.Text == "测试名",
                           "★ A985③：`Open(n,\"\",\"\")` ⇒ 无联盟那行**开** · `Alliance` 组**关** · `Title:` 组**关**"
                         + $" · 名字 = 传进去的那一串（实得 无联盟={notIn985}/联盟组={grp985}/称号组={ttl985}/"
                         + $"名字=\"{panel985.NameLabel.Text}\"）—— 原版三条 `SetActive` 判的就是「称号 / 联盟名空不空」"
                         + "（`BattleAlliancePanel__Open.c`）⇒ 这**正是单机 bot 那一档的原版形态**（⛔ 不许给 bot 编联盟名）");
-                    Check(Mathf.Abs(LayoutSpace.PxX(left985) - 276.220f) < 0.75f,
-                          $"★ A985③（**灭自证**）：名字块**左缘**落在 276.220px 上（实得 {LayoutSpace.PxX(left985):F3}）"
+                    Check(Mathf.Abs(left985 - 276.220f) < 0.75f,
+                          $"★ A985③（**灭自证**）：名字块**左缘**落在 276.220px 上（实得 {left985:F3}；"
+                        + $"锚点档 = {panel985.OnCanvas}）"
                         + " —— 断的是**落点**、⛔ 不是「`AlignLeft` 被调过」；判据 = `GameObject/Name Text.json` 的"
                         + " `RectTransform_2779`（ap (235.724,−0.051) · size (348.760,51) · localScale 0.8）"
                         + " + `NameHolder`（= `PlayerInfo` 那个 VLG 的第 0 格）+ 父链 ⇒ **原版值 276.220**（不是我们的常量）"
@@ -21600,9 +22592,21 @@ public static class BattleScene
                             if (lb == null) return float.NaN;
                             var t = lb.GetComponentInChildren<TMPro.TextMeshPro>(true);
                             if (t == null) return float.NaN;
-                            float sc = Mathf.Abs(t.transform.lossyScale.x);          // TMP 局部单位 → 世界
-                            if (!(sc > 1e-6f)) return float.NaN;
-                            float w = Mathf.Abs(t.textBounds.size.x) * sc * pxPerWorld1192;
+                            // 🔴 **2026-10-16（收口 · 台账 `W52`）：按档取尺。**
+                            //   `textBounds.size.x` 的单位**就是 `Label` 的【本档单位】**
+                            //   （世界档 = 世界单位 · uGUI 档 = **画布 px**，见 `Label.RefreshBounds` 的 `_tmpW`）。
+                            //   · 世界档：再 ×`|lossyScale|`（局部→世界）× `pxPerWorld`（世界→设计 px）；
+                            //   · **画布档：那一跳恒等于 1**（16:9 下**恰好约掉** ⇒ 旧写法看不出来；
+                            //     **非 16:9 下会松 25%** —— 正是本条要修的那一档）。
+                            //   🧨 改坏法：改回「两档一律 ×`sc`×`pxPerWorld`」⇒ 非 16:9 下量小 ⇒ 「渲出宽 ≤ 框宽」
+                            //     那几条**假绿**（框宽是设计 px、量出来的却是缩过的数）。
+                            float w = Mathf.Abs(t.textBounds.size.x);
+                            if (!lb.IsUgui)
+                            {
+                                float sc = Mathf.Abs(t.transform.lossyScale.x);      // TMP 局部单位 → 世界
+                                if (!(sc > 1e-6f)) return float.NaN;
+                                w *= sc * pxPerWorld1192;
+                            }
                             return (w > 0.5f && w < 100000f) ? w : float.NaN;         // 上界挡哨兵（4.6e11 那种）
                         }
 
