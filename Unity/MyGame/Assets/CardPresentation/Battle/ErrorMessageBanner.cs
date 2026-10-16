@@ -324,11 +324,31 @@ namespace CardPresentation
         public const int QBar = Q, QText = Q + 1;
 
         /// <summary>内层子件的 z（相机看 +Z ⇒ **z 越小越靠前**）：底条 0、文字 −0.01。
-        /// ⚠️ 分层**主要**靠上面的渲染队列，z 只是同队列内的次序（同 `BattleDriver.HudImageZ` 的注释）。</summary>
+        /// ⚠️ 分层**主要**靠上面的渲染队列，z 只是同队列内的次序（同 `BattleDriver.HudImageZ` 的注释）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：uGUI 档里这两个值**改成兄弟序的 z**（语义同向：大的也在后）✓。</summary>
         const float ZBar = 0f, ZText = -0.01f;
 
-        /// <summary>px → 世界单位（= `1/108`；判据 = `LayoutSpace.Px`）。</summary>
-        static float U(float px) { return LayoutSpace.Px(px); }
+        /// <summary>px → **本档的单位**（世界档 = 世界单位 ÷108 · uGUI 档 = 设计 px ×1）。</summary>
+        float U(float px) { return _ugui ? px : LayoutSpace.Px(px); }
+
+        /// <summary>设计 px（**左上原点、y 向下**）→ **本档的局部坐标**。
+        /// 世界档 = `LayoutSpace.FromPixel`（原样）· uGUI 档 = `HudCanvas.PosPx`（中心原点、**y 向上**）。</summary>
+        Vector3 PxPos(float cx, float cyFromTop)
+        {
+            return _ugui ? HudCanvas.PosPx(cx, cyFromTop) : LayoutSpace.FromPixel(cx, cyFromTop);
+        }
+
+        /// <summary>🔴 **2026-10-16（`T09` 批 2）：这一颗活在哪个空间。**
+        /// <para>`false`（出厂档）= **世界空间** —— **外壳那一档**（`Shell/MessageToast` 握着它、走 `MenuPreset`；
+        /// `DeckInfoPopup` 也提它）⇒ 与加本档之前**逐位相同**。</para>
+        /// <para>`true` = **uGUI 画布** —— 战斗侧（原版 `UI Error Message Controller` 是 **`PopUps` 层 / order 1**）。</para>
+        /// <para>⚠️ 本件是**静态跨场景共用件**（同 `Core/Tooltip.cs` 那条）⇒ **档位由【调用方给的宿主】决定**，
+        /// 外壳侧不给宿主 ⇒ 自动留世界档。⛔ 不许两边都建（同 `HudPiece` / `Label` 那条铁律）。</para></summary>
+        bool _ugui;
+        /// <summary>uGUI 档在不在（诊断 / 断言 / 自检用）。</summary>
+        public bool IsUgui { get { return _ugui; } }
+        /// <summary>世界档的 px↔世界单位换算（= 108）。uGUI 档**不用**它（那边 1 单位 = 1 设计 px）。</summary>
+        const float PxPerUnit = 108f;
 
         // ==================================================================
         //  池与条目
@@ -339,7 +359,9 @@ namespace CardPresentation
         {
             public Transform root;              // `Error Mensage_Ref(Clone)`（缩放 + 淡出都作用在它身上）
             public GameObject barRoot;          // `Background` 九宫格根（每次按文字尺寸重建）
-            public List<ImageQuad> barParts;    // 九宫格那几块（染色/读回用）
+            /// <summary>底条那几块。🔴 **2026-10-16（`T09` 批 2）**：类型从 `ImageQuad` 改成 `HudPiece`
+            /// —— 世界档 = 九块 quad · uGUI 档 = **一张 `Image (Sliced)`**（`ApplyVisual` 只用 `SetTint`，两档都有）。</summary>
+            public List<HudPiece> barParts;
             public Label text;                  // `ErrorMesage Text`
             public float t;                     // 本条的存活时间（秒）
             public bool active;                 // 这一条正在演吗
@@ -405,14 +427,23 @@ namespace CardPresentation
         /// 外壳侧（`Shell/MessageToast`，= 原版**主菜单**里那颗的同族）传 <see cref="MenuPreset"/>。</para>
         /// <para>⛔ **档里没有的东西都按「两档相同」处理**（根 `sd` / 容器四件 / item 的存档 `ap` /
         /// padding / 池容量 / 四段时长）—— 那几项是两场景**逐位相同**的实读值（文件头 ⑪ 那张表）。</para></summary>
-        public static ErrorMessageBanner Create(Transform parent, LayoutPreset preset)
+        public static ErrorMessageBanner Create(Transform parent, LayoutPreset preset, Transform uguiHost = null)
         {
+            // 🔴 **2026-10-16（`T09` 批 2）：`uguiHost` 非空 ⇒ uGUI 档**（战斗侧传 `PopUps`/1 的子画布）。
+            //    外壳侧（`Shell/MessageToast`）**不传** ⇒ 留世界档、与加本档之前**逐位相同**。
+            bool ugui = uguiHost != null;
             var go = new GameObject("UI Error Message Controller (MUST BE ENABLED)", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            MenuDraw.SetPxSize(go.transform, RootW, RootH);
-            // 根的位置 = 它的**矩形中心**（anchor (0.5,1) + ap (0,−档.RootTopPx) ⇒ 中心 (960, 档上缘 + RootH/2)）
-            go.transform.localPosition = LayoutSpace.FromPixel(RootCx, preset.RootTopPx + RootH * 0.5f);
+            // ⚠️ uGUI 档挂**宿主子画布**，⛔ **不挂 `hudRoot`**（那是反向补震用的，挂它下面会补偿两次）
+            go.transform.SetParent(ugui ? uguiHost : parent, false);
+            var rt = (RectTransform)go.transform;
             var b = go.AddComponent<ErrorMessageBanner>();
+            b._ugui = ugui;                       // ⚠️ 必须在 `Build()` **之前**赋值（`Build` 里按它算单位）
+            if (ugui) HudCanvas.SetPxSize(rt, RootW, RootH);            // ⛔ 别用 `MenuDraw.SetPxSize`（那个 ÷108）
+            else MenuDraw.SetPxSize(go.transform, RootW, RootH);
+            // 根的位置 = 它的**矩形中心**（原版 anchor (0.5,1) + ap (0,−档.RootTopPx) ⇒ 中心 (960, 档上缘 + RootH/2)）
+            go.transform.localPosition = ugui
+                ? HudCanvas.PosPx(RootCx, preset.RootTopPx + RootH * 0.5f)
+                : LayoutSpace.FromPixel(RootCx, preset.RootTopPx + RootH * 0.5f);
             b._preset = preset;
             b.Build();
             return b;
@@ -427,9 +458,10 @@ namespace CardPresentation
             container.transform.SetParent(transform, false);
             // 容器：stretch 横 + 高 266.29 ⇒ 矩形 x[−0.35,1920.35] y[档上缘+70.35, 档上缘+336.64]、
             // 中心 (960, 档上缘 + 203.67)；战斗档 = y[283.945,550.235] 中心 (960, 417.09)（文件头 ③⑪）
-            MenuDraw.SetPxSize(container.transform, ContW, ContH);
+            if (_ugui) HudCanvas.SetPxSize((RectTransform)container.transform, ContW, ContH);
+            else MenuDraw.SetPxSize(container.transform, ContW, ContH);
             container.transform.localPosition =
-                LayoutSpace.FromPixel(ContLeftX + ContW * 0.5f, _preset.RootTopPx + ContTopFromRootTop + ContH * 0.5f)
+                PxPos(ContLeftX + ContW * 0.5f, _preset.RootTopPx + ContTopFromRootTop + ContH * 0.5f)
                 - transform.localPosition;
             _container = container.transform;
 
@@ -448,8 +480,13 @@ namespace CardPresentation
             // 🔴 这一组 `ap` **两档逐位相同**（战斗 `RT 2823` = 菜单 `RT 1208`）⇒ 用常量、不随档变
             //    （文件头 ⑪ 那张表；⛔ 别拿它跟「条心」混 —— 条心是亮起来时布局算的，另一回事）。
             tmplItem.root.localPosition =
-                _container.InverseTransformPoint(
-                    LayoutSpace.FromPixel(ContLeftX + ItemApX, _preset.RootTopPx + ContTopFromRootTop - ItemApY));
+                _ugui
+                // uGUI 档：容器在画布里的**绝对**偏移 = 根的 + 容器自己的（两级都以画布中心为原点）
+                ? PxPos(ContLeftX + ItemApX, _preset.RootTopPx + ContTopFromRootTop - ItemApY)
+                  - new Vector3(transform.localPosition.x + container.transform.localPosition.x,
+                                transform.localPosition.y + container.transform.localPosition.y, 0f)
+                : _container.InverseTransformPoint(
+                    PxPos(ContLeftX + ItemApX, _preset.RootTopPx + ContTopFromRootTop - ItemApY));
             tmplItem.root.gameObject.SetActive(false);
 
             // ② 5 个克隆（原版 `Instantiate(ref, parent)` 跑五次）
@@ -474,24 +511,47 @@ namespace CardPresentation
             var tex = CardArt.Ui(BarArt);
             if (tex != null)
             {
-                t.barRoot = ImageQuad.CreateNineSlice(t.root, tex, BarBorder, tex.width, tex.height,
-                                                      new Vector3(0f, 0f, ZBar), U(_preset.RefBarWPx), U(_preset.RefBarHPx), "Background");
-                if (t.barRoot != null)
+                if (_ugui)
                 {
-                    t.barParts = new List<ImageQuad>(t.barRoot.GetComponentsInChildren<ImageQuad>(true));
-                    for (int i = 0; i < t.barParts.Count; i++)
+                    // 🔴 uGUI 档 = **一张 `Image (Sliced)`**（原版 `Background` 就是 `Image.Type = Sliced`）
+                    var piece = HudCanvas.MakeSlicedPiece(t.root, tex, "Background",
+                                                          _preset.RefBarWPx, _preset.RefBarHPx, BarBorder, BarTint);
+                    if (piece != null)
                     {
-                        t.barParts[i].SetTint(BarTint);
-                        t.barParts[i].SetRenderQueue(QBar);
+                        t.barRoot = piece.gameObject;
+                        t.barParts = new List<HudPiece> { piece };
                     }
                 }
+                else
+                {
+                    t.barRoot = ImageQuad.CreateNineSlice(t.root, tex, BarBorder, tex.width, tex.height,
+                                                          new Vector3(0f, 0f, ZBar), U(_preset.RefBarWPx), U(_preset.RefBarHPx), "Background");
+                    if (t.barRoot != null)
+                    {
+                        t.barParts = new List<HudPiece>();
+                        foreach (var q in t.barRoot.GetComponentsInChildren<ImageQuad>(true))
+                        {
+                            q.SetTint(BarTint);
+                            q.SetRenderQueue(QBar);
+                            t.barParts.Add(HudPiece.Of(q));
+                        }
+                    }
+                }
+                if (t.barRoot == null) Debug.LogWarning($"[ErrorMessageBanner] 找不到 `{BarArt}` ⇒ 模板那颗 `Background` 没建");
             }
             else Debug.LogWarning($"[ErrorMessageBanner] 找不到 `{BarArt}` ⇒ 模板那颗 `Background` 没建");
 
-            t.text = Label.Create(t.root, "ERROR MESSAGE CONTENT",
+            t.text = _ugui
+                   ? HudCanvas.MakeText(t.root, "ERROR MESSAGE CONTENT", 0f, -(PadT - PadB) * 0.5f, 1,
+                                        new Color(0.801886796951294f, 0f, 0f, 1f), new Vector2(0.5f, 0.5f), ZText, "ErrorMesage Text")
+                   : Label.Create(t.root, "ERROR MESSAGE CONTENT",
                                   new Vector3(0f, U(-(PadT - PadB) * 0.5f), ZText), 1,
                                   new Color(0.801886796951294f, 0f, 0f, 1f), new Vector2(0.5f, 0.5f), "ErrorMesage Text");
-            if (t.text != null) { t.text.SetScriptHeight("ERROR MESSAGE CONTENT", _preset.FontPx, 108f); t.text.SetRenderQueue(QText); }
+            if (t.text != null)
+            {
+                t.text.SetScriptHeight("ERROR MESSAGE CONTENT", _preset.FontPx, _ugui ? 1f : 108f);
+                t.text.SetRenderQueue(QText);       // uGUI 档是有注释的空操作（层级归画布管）
+            }
         }
 
         /// <summary>建一个 item 节点（只有 `RectTransform`，尺寸写**本档**的 `sd`：战斗 `1439.16 × 80.00`
@@ -502,7 +562,8 @@ namespace CardPresentation
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
-            MenuDraw.SetPxSize(go.transform, _preset.ItemWPx, _preset.ItemHPx);
+            if (_ugui) HudCanvas.SetPxSize((RectTransform)go.transform, _preset.ItemWPx, _preset.ItemHPx);
+            else MenuDraw.SetPxSize(go.transform, _preset.ItemWPx, _preset.ItemHPx);
             return go.transform;
         }
 
@@ -569,20 +630,25 @@ namespace CardPresentation
             // ---- 文字：换文案 + 按语种定字号（`SetScriptHeight` 是全工程唯一那份语种判据） ----
             if (it.text == null)
             {
-                it.text = Label.Create(it.root, text, new Vector3(0f, 0f, ZText), 1,
+                it.text = _ugui
+                        ? HudCanvas.MakeText(it.root, text, 0f, 0f, 1, color,
+                                             new Vector2(0.5f, 0.5f), ZText, "ErrorMesage Text")
+                        : Label.Create(it.root, text, new Vector3(0f, 0f, ZText), 1,
                                        color, new Vector2(0.5f, 0.5f), "ErrorMesage Text");
-                if (it.text != null) it.text.SetRenderQueue(QText);
+                if (it.text != null) it.text.SetRenderQueue(QText);   // uGUI 档是**有注释的空操作**
             }
             else it.text.SetText(text);
             if (it.text != null)
             {
-                it.text.SetScriptHeight(text, _preset.FontPx, 108f);      // 战斗 60 / 菜单 36（文件头 ⑪）
+                it.text.SetScriptHeight(text, _preset.FontPx, _ugui ? 1f : 108f);   // 战斗 60 / 菜单 36（文件头 ⑪）
                 it.text.SetColor(color);
             }
 
             // ---- 底条：按【文字实测】重建（等价物 A：原版是 ContentSizeFitter 的 Hug） ----
-            float textWpx = it.text != null ? it.text.WorldW * 108f : 0f;
-            float textHpx = it.text != null ? it.text.WorldH * 108f : 0f;
+            // 🔴 uGUI 档的 `WorldW/H` **已经是设计 px**（见 `Label` 文件头那条「两档单位差 108 倍」）⇒ 因子取 1
+            float unitPx = _ugui ? 1f : 108f;
+            float textWpx = it.text != null ? it.text.WorldW * unitPx : 0f;
+            float textHpx = it.text != null ? it.text.WorldH * unitPx : 0f;
             // 🔴 防守（**不许静默**）：TMP 在「没量出来」时会回一个天文数字（`Label` 的 doc 记着实测
             //    `tmpW = 4.29e9`）—— 直接拿它建底条会画出一条几万 px 宽的灰带。不合理就退回**本档参考串那一档**
             //    （`RefBarWPx − 240` / `RefBarHPx − 4`）并出声。
@@ -601,7 +667,10 @@ namespace CardPresentation
             // 文字在底条里**居中**、但内层 padding 是 (T4, B0) 不对称 ⇒ 中心下沉 (4−0)/2 = 2 px
             // （判据：原版 `ErrorMesage Text` 的绝对中心比 `Background` 低 2.0 px，见文件头 ③）
             if (it.text != null)
-                it.text.transform.localPosition = new Vector3(0f, U(-(PadT - PadB) * 0.5f), ZText);
+                // 🔴 uGUI 档：**不写 z**（层级归画布的兄弟序管，`MakeText` 已经登记过）—— 写 z 会把它推离画布平面
+                it.text.transform.localPosition = _ugui
+                    ? new Vector3(0f, -(PadT - PadB) * 0.5f, 0f)
+                    : new Vector3(0f, U(-(PadT - PadB) * 0.5f), ZText);
 
             RelayoutActive();
             ApplyVisual(it, color);
@@ -625,15 +694,26 @@ namespace CardPresentation
                                + "只有文字（不许静默：原版这一层是可见的）");
                 return;
             }
+            if (_ugui)
+            {
+                // 🔴 uGUI 档 = **一张 `Image (Sliced)`**（原版 `Background` 就是 `Image.Type = Sliced`）
+                //    ⚠️ 尺寸**直接吃 px**（⛔ 别走 `U()` —— 那个世界档要 ÷108）
+                var piece = HudCanvas.MakeSlicedPiece(it.root, tex, "Background", wPx, hPx, BarBorder, BarTint);
+                if (piece == null) return;
+                it.barRoot = piece.gameObject;
+                it.barParts = new List<HudPiece> { piece };
+                return;
+            }
             it.barRoot = ImageQuad.CreateNineSlice(it.root, tex, BarBorder,
                                                    tex.width, tex.height,
                                                    new Vector3(0f, 0f, ZBar), U(wPx), U(hPx), "Background");
             if (it.barRoot == null) return;
-            it.barParts = new List<ImageQuad>(it.barRoot.GetComponentsInChildren<ImageQuad>(true));
-            for (int i = 0; i < it.barParts.Count; i++)
+            it.barParts = new List<HudPiece>();
+            foreach (var q in it.barRoot.GetComponentsInChildren<ImageQuad>(true))
             {
-                it.barParts[i].SetTint(BarTint);
-                it.barParts[i].SetRenderQueue(QBar);
+                q.SetTint(BarTint);
+                q.SetRenderQueue(QBar);
+                it.barParts.Add(HudPiece.Of(q));
             }
         }
 
@@ -661,8 +741,12 @@ namespace CardPresentation
                 float pos = (ContH - itemH * n) + itemH * j;
                 float centerY = contTopY + pos + itemH * 0.5f;      // 自上而下的 px
                 // 子节点的 localPosition 是相对**容器**的（容器自己也有偏移，⛔ 别当成相对根）
-                it.root.localPosition =
-                    _container.InverseTransformPoint(LayoutSpace.FromPixel(ContLeftX + ContW * 0.5f, centerY));
+                it.root.localPosition = _ugui
+                    // uGUI 档：容器在画布里的**绝对**偏移 = 根的 + 容器自己的；再减掉它 ⇒ 得相对容器的局部坐标
+                    ? PxPos(ContLeftX + ContW * 0.5f, centerY)
+                      - new Vector3(transform.localPosition.x + _container.localPosition.x,
+                                    transform.localPosition.y + _container.localPosition.y, 0f)
+                    : _container.InverseTransformPoint(PxPos(ContLeftX + ContW * 0.5f, centerY));
                 j++;
             }
         }
@@ -768,8 +852,11 @@ namespace CardPresentation
             return BarSizeOfParts(_items[i].barParts);
         }
 
-        /// <summary>九宫格子块的并集包围盒（px）。</summary>
-        static Vector2 BarSizeOfParts(List<ImageQuad> parts)
+        /// <summary>九宫格子块的并集包围盒（px）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：参数类型 `ImageQuad` → **`HudPiece`** —— 世界档照旧（九块），
+        /// uGUI 档只有**一块**（一张 `Image (Sliced)`）而 `HudPiece.WorldW/H` 两档都返回**世界单位**
+        /// （uGUI 侧走 `GetWorldCorners`）⇒ 本函数**算式一个字不用改** ✓。</summary>
+        static Vector2 BarSizeOfParts(List<HudPiece> parts)
         {
             if (parts == null || parts.Count == 0) return new Vector2(-1f, -1f);
             float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue;
@@ -791,6 +878,15 @@ namespace CardPresentation
         public Vector2 ItemCenterPxOf(int i)
         {
             if (i < 0 || i >= _items.Count || _items[i].root == null) return new Vector2(-9999f, -9999f);
+            // 🔴 **2026-10-16（`T09` 批 2）**：两档各取各的 ——
+            //   世界档：`ToPixel(世界坐标)`（不受父链偏移影响）；
+            //   uGUI 档：把「画布局部」逐级加起来（item ← container ← root）再折成「左上原点 y 向下」的 px。
+            if (_ugui)
+            {
+                var l = _items[i].root.localPosition + _container.localPosition + transform.localPosition;
+                return new Vector2(l.x + HudCanvas.ReferenceResolution.x * 0.5f,
+                                   HudCanvas.ReferenceResolution.y * 0.5f - l.y);
+            }
             return LayoutSpace.ToPixel(_items[i].root.position);     // 世界坐标 ⇒ 不受父链偏移影响
         }
         /// <summary>第 i 条的底条/文字是不是**被关着的时候也留着**（自检要能分辨「藏了」与「根本没建」）。</summary>

@@ -91,6 +91,29 @@ ZH_NAME_OVERRIDE = {
 # 引擎认识的稀有度取值（`special` = 橙红宝石，防御/药剂/特殊卡）
 RARITIES = ("common", "rare", "epic", "legendary", "special")
 
+# 🔴🔴 **原版卡 SO 快照的 `cardRarity` 枚举 → 我们的写法**（账 `A2062`，2026-10-16）
+#
+# 这是**稀有度那一列的【第 1 层】**（权威序见 `build()` 主循环里 `TRUTH_RARITY` 那一段）：
+#   · 值域 `1..5`，**映射是现算的、不是猜的** —— 拿 `TRUTH_CARDS_SRC` 那份快照与本卡池按
+#     `uniqueId` join（1009 张）做混淆矩阵，**每个稀有度只对应一个取值、0 例外**
+#     （`common=1 · rare=2 · epic=3 · legendary=4 · special=5`；判据与矩阵 →
+#      `资料/普查产出_第三十二会话/G3_rarity层与守卫.md` §二）。
+#   · `0` / 缺字段 = **「无值」哨兵**，**不是** `common` —— ⛔ **不拿 0 顶**
+#     （快照里 4 张 GSC「破坏卡」就是 `0`：`Improvised Barricade` / `Poisoned Supplies` /
+#      `Jammed Communications` / `Cult Propaganda`；它们的稀有度**只有卡面宝石一条判据**）。
+#
+# **为什么把它当第 1 层**（`A2062` 的判据）：
+#   ① 它是**游戏自己的枚举**，比宝石表（**人眼看印刷品记下来的色名**）高一级
+#      （`CLAUDE.md` 铁律 10 第 3 条：PnP 是印刷品）；
+#   ② 实测**全池 0 处不一致**（现读 1005/1005）⇒ **换成它当第 1 层，一个值都不会变**；
+#   ③ 它能**从根上消掉**「PnP 写法 vs 我们的卡名」这一整类 join ——
+#      `RARITY_BY_FACTION` 那 23 条特判、`RARITY_UNLISTED` 那 21 条、B20 那 4 条、`SOR24` 那次
+#      **全属这一类**（宝石表是按**卡面写法**建的键，我们池里有一批卡用的是**美术/资产名**）。
+#   ⚠️ **快照比现池旧**（2025-07-30；SW 68 / 新 UM 38 / 新 DA 12 根本不在里面）⇒
+#      真值够不到的那 **122 张照旧走** ②宝石表 → ③`RARITY_BY_FACTION` → ④`RARITY_UNLISTED`。
+TRUTH_RARITY = {1: "common", 2: "rare", 3: "epic", 4: "legendary", 5: "special"}
+
+
 # 宝石表里**同名不同卡**的行 —— 查表若只按卡名建键，两行会互相覆盖（**后写的赢**）。
 # 2026-09-12 实测：1118 行里有 5 个卡名重复，其中 **3 个两行的稀有度不同**，不特判就会取错。
 # 归位依据两条（都记在这里，免得下个会话重新挖）：
@@ -175,8 +198,18 @@ RARITY_BY_FACTION = {
     ("Sororitas", "Simulacrum Imperialis"): "epic",
 }
 
-# 三份 0824 表**没收录**的 9 张（`Dark Angels/6秘密` 5 张 + `Genestealer Cult/6破坏卡` 4 张，
-# 都是手机翻拍 IMG_*.jpg，没进那套 OCR 流水线）→ 宝石表里查不到，只能另立一表。
+# 「宝石表里查不到」的卡 → 稀有度。**语义**：这张卡**在宝石表里没有对应行**，
+# 所以只能由本表给值（与 `RARITY_BY_FACTION` 的区别：那张表是「宝石表**有**、只是键对不上」）。
+#
+# 🔴 **2026-10-16（账 `A2064` ①）就地订正（铁律 5）**：本段原来写
+#     「三份 0824 表**没收录**的 **9 张**（`Dark Angels/6秘密` 5 + `Genestealer Cult/6破坏卡` 4，
+#      都是手机翻拍 IMG_*.jpg，没进那套 OCR 流水线）」—— **那句读起来像现状、其实早就偏窄**：
+#     下面这张表**现读 21 条**（最初那批 9 × `Dark Angels/6秘密` 5 + `Genestealer Cult/6破坏卡` 4
+#     ＋ 🆕2026-09-15 那两批共 12 条，其中 `Simulacrum Imperialis` 那条 2026-10-15 已删）
+#     —— 后两批**各自带了「🆕 …批」的段落说明**（见下面各段）。
+#     ⇒ **别再按「9 张」读它**；条数**现数**（2026-10-16 现数 = **21**）。
+# ⚠️ **本表只在【宝石表 + 真值 `cardRarity` 都够不到】时才被查**（`A2062` 起真值是第 1 层：
+#    下面这 21 条里凡原版卡 SO 快照里有的，今天已经由第 1 层给值 —— 本表是**兜底**）。
 # **2026-09-12 逐张对着卡面宝石核过**（拼图看底部那颗菱形宝石）：
 RARITY_UNLISTED = {
     # Dark Angels 秘密卡：宝石**橙红** = special。图 `Dark Angels/6秘密/IMG_3695..3699.jpg`
@@ -1623,6 +1656,15 @@ def build():
     #    `(阵营, 卡名, ocrName)`，跑完在 `build()` 末尾由那两条谓词消费（见 `rarity_guard_bad` 那段）。
     #    ⚠️ 记账口只能在这儿：`cards` 里的条目**不保留 `ocrName`**，出了这个循环就查不回来了。
     _rarity_empty = []
+    # 🔴 **`A2062`（2026-10-16）：稀有度那一列的【来源台账】**—— 第 1 层是**真值 `cardRarity`**
+    #    （见模块级 `TRUTH_RARITY` 那段），够不到的卡才走宝石表 / 两张补表。
+    #    这四个口子只为**看得见**：跑完逐条打出来（`main()` 的稀有度段）。
+    rarity_truth_filled = []    # (id, 卡名, 换前, 换后) —— 真值**改掉**了宝石表/源表的值（现读 0 处）
+    rarity_src_truth = []       # (id, 卡名) —— 值来自第 1 层（真值 `cardRarity`）
+    rarity_src_table = []       # (id, 卡名, 命中表) —— 值来自宝石表 / `RARITY_BY_FACTION` / `RARITY_UNLISTED`
+    rarity_src_source = []      # 🔴 (id, 卡名, 值) —— **既没真值、也没表命中 ⇒ 直接吃了源表原值**
+                                #    （`card_stats.json` 的 `rarity` 列）—— **只出声、不进 `_bad`**，
+                                #    但它是「这一列还有多少是 OCR 说了算」的读数，⛔ 别静默（见 `main()`）
     stat_fixed = []       # 数值被 `STAT_FIXES` 纠正过的卡（见那张表）
     for c in raw:
         ctype = norm_str(c.get("type"))
@@ -1692,11 +1734,19 @@ def build():
             if got != rarity:
                 filled.append((name, rarity, got, how))
             rarity = got
+            _rar_from = ("table", how)
         elif rarity not in RARITIES:
             # 宝石表里也没有这张（卡名对不上）—— 原值本身也不合法，才算缺失
             still_missing.append(name)
             _rarity_empty.append((norm_str(c.get("faction")), name, norm_str(c.get("ocrName"))))
             rarity = ""
+            _rar_from = ("empty", None)
+        else:
+            # 🔴 **原值「看起来合法」、于是被原样放行** —— 这就是 `A2062` 说的那个口子：
+            #    源表 `card_stats.json` 的 `rarity` 列有 239 空 + 102 个 `defence`（类型串进来了）
+            #    + **140 个把非传说写成 `legendary`**；而「看起来合法」的那几个（现读 13 张）
+            #    **过去是【一个声音都没有】地进了卡表**。⇒ 记下来、跑完打出来（`main()` 里那一段）。
+            _rar_from = ("source", None)
         cost = norm_int(c.get("cost"))
         attack = norm_int(c.get("attack"))
         health = norm_int(c.get("health"))
@@ -1744,6 +1794,38 @@ def build():
         trow = truth_cards.get(cid)
         if trow is not None:
             truth_hit += 1
+
+        # ---- 🔴🔴 `A2062`（2026-10-16）：稀有度那一列的【第 1 层】= 真值 `cardRarity` -------------
+        # **权威序（从高到低，本处收口）**：
+        #   ① **真值 `cardRarity`**（`TRUTH_CARDS_SRC` 那份原版卡 SO 快照，**游戏自己的枚举**）—— 本处；
+        #   ② 宝石表 `资料/卡牌数据表/卡牌宝石稀有度_0824.md`（`rarity_lookup`，**人眼看印刷品记的色名**）—— 上面那一支；
+        #   ③ `RARITY_BY_FACTION`（`(阵营, 卡名)` 强制覆盖）—— 上面那一支；
+        #   ④ `RARITY_UNLISTED`（宝石表里**没有**这张卡）—— 上面那一支；
+        #   ⑤ `card_stats.json` 的 `rarity` 原值（**OCR 读出来的**）—— 上面那个 `else` 支（**要出声**）。
+        # ⚠️ **为什么放在 `trow` 之后**（不是跟上面那一支并排）：真值行是按 **`cid`** 取的，而 `cid`
+        #    是**稳定 id** 那一层算出来的 —— 它在稀有度那一支**之后**。⇒ 本块**改的是局部变量 `rarity`**，
+        #    `entry` 要到下面才拼（见 `entry = {…}`），**顺序上是安全的**。
+        # ⚠️ **它是「值都不会变」的那一档**（现读 1005/1005 与卡池一致，`rarity_truth_filled` 现读 0 处）——
+        #    本笔买的是**根**：宝石表是按**PnP 卡面写法**建的键，我们池里那批「用美术/资产名」的卡
+        #    （`Land Rider` / `Morkai Eliminator` / `2nd Company Terminator` / `Bladeguard Lieutenant` /
+        #     `Simulacrum Imperialis` …）**按现名必然落空**，只能靠 ③ 逐条特判 —— 那一整类账
+        #    （`A2061` / `A2064` / B20 四条 / `SOR24`）**从根上消掉**。
+        # ⚠️ **真值够不到的那 122 张**（快照 2025-07-30 之后新增：SW 68 / UM 38 / DA 12 等）
+        #    **照旧走 ②③④** —— 它们的值**一个字都不动**（`rarity_src_table` 就是那批的读数）。
+        _rtv = trow.get("cardRarity") if trow is not None else None
+        _rtru = TRUTH_RARITY.get(_rtv) if isinstance(_rtv, int) and not isinstance(_rtv, bool) else None
+        if _rtru is not None:
+            if _rtru != rarity:
+                rarity_truth_filled.append((cid, name, rarity, _rtru))
+            rarity = _rtru
+            rarity_src_truth.append((cid, name))
+        else:
+            # 真值**没有**这张卡 / `cardRarity` 是 `0`（哨兵）⇒ 上面那条链说了算，**逐张登记来源**
+            if _rar_from[0] == "table":
+                rarity_src_table.append((cid, name, _rar_from[1]))
+            elif _rar_from[0] == "source":
+                rarity_src_source.append((cid, name, rarity))
+            # "empty" 那一档已经记进 `_rarity_empty` 了（守卫 ① 消费它）
 
         # ---- 🆕 `A1773`：督军 `cost` —— **PnP 不印，所以照真值**（已裁④ + 已裁⑥）--------------
         # 🔬 **PnP 在这一点上是空的、不是矛盾的**：2026-10-15 亲开 `Anvirr Keltoc` 的成品图
@@ -2122,9 +2204,21 @@ def build():
     #          （同 `truth_int` 的 `-1` 口径）。
     #       ⛔ **漏什么**：快照里没有的卡（自造 id 那 118 张）。
     #    ⇒ 两条合起来才盖住「改名 ⇒ 拿到**空**的稀有度」（①）与「改名 ⇒ 拿到**错**的稀有度」（②）。
-    _RARITY_TRUTH = {1: "common", 2: "rare", 3: "epic", 4: "legendary", 5: "special"}
+    #    🔴 **2026-10-16（账 `A2062`）就地订正（铁律 5）—— ② 的性质变了，必须写清楚**：
+    #      ② 从本笔起**不再是一条独立判据**（第 1 层就是它比的那个来源 ⇒ 拿实现证实现，**自证**）。
+    #      它现在的身份 = **层序哨兵（fuse）**：**只要第 1 层还在，它恒真**；谁把第 1 层删掉、
+    #      或把它挪到别的层下面，这 1005 张**立刻红**（`G3` 三次注入演示抓的就是这个）。
+    #      ⇒ 真丢掉的独立判据由 **①（空串）** 与 **③（第 1 层改了值没 —— 见 `rarity_truth_filled`，
+    #        那条进 `_bad`）** 承担；⛔ 别删它、也别把它当「今天全绿所以没用」——它管的正是
+    #        「明天有人动这一层的**次序**」（把 `RARITY_BY_FACTION` 挪到第 1 层上面 ⇒ 立刻红）。
     rarity_guard_bad = []
+    # ① 只在**最终真的落成空串**的卡上判 ——
+    #    ⚠️ `_rarity_empty` 是**主循环那一刻**记的（第 1 层还没跑），而第 1 层可能把那几张救回来
+    #    ⇒ 不按最终值过滤的话，① 会对「已经被真值填好了」的卡**误报**（假红）。
+    _final_empty = {(c["faction"], c["name"]) for c in cards if not c.get("rarity")}
     for _rf, _rn, _roc in _rarity_empty:
+        if (_rf, _rn) not in _final_empty:
+            continue
         if not _roc:
             continue
         _rg, _rh = rarity_lookup(_roc)
@@ -2138,7 +2232,7 @@ def build():
         if _rtr is None:
             continue
         _rtv = _rtr.get("cardRarity")
-        _rex = _RARITY_TRUTH.get(_rtv) if isinstance(_rtv, int) else None
+        _rex = TRUTH_RARITY.get(_rtv) if isinstance(_rtv, int) and not isinstance(_rtv, bool) else None
         if _rex is None:
             _rarity_truth_skip_n += 1
             continue
@@ -2147,6 +2241,28 @@ def build():
             rarity_guard_bad.append(
                 f"{_rc['id']}/{_rc['name']} —— 与**游戏侧真值**不一致：卡池是 `{_rc.get('rarity')}`、"
                 f"原版卡 SO 快照是 `{_rex}`（`cardRarity={_rtv}`）⇒ 这一张的档位挂着")
+
+    # 🔴 **`A2064` ②（2026-10-16）：`RARITY_UNLISTED` / `RARITY_BY_FACTION` 的【孤立键】守卫** ——
+    #    **形状照抄 `orphan_face_fix` / `orphan_stat_fix`**（逐条列名打印），
+    #    🔴 **口径也照抄那两条：只出声、⛔ 不进 `_bad`**（`G3` 当天把这一条留给调度台裁；
+    #    本笔裁定 = **做**，理由三条：① 它与 `cardface_fixes` / `STAT_FIXES` 是**同一族的病**
+    #    （表按卡名做键、卡名一改就静默变死键）；② 两张表的键现读 **21 / 23 条全部命中池内卡**
+    #    ⇒ **今天必绿**；③ 它抓的是「键变成死键**且**那张卡本来有别的判据兜住」这一种 ——
+    #    正是 `SOR24` 撤改名那次的形状（`_rarity_empty` + ③ 两条都没抓到它）。
+    #    ⚠️ **它不查「宝石表那 68 个池外键」**（`G3` 裁过不加那条）—— 那是「PnP 写法 vs 我们的名」，
+    #      本来就会有一批对不上，加它得配一张会烂的白名单。本条只看**我们自己两张补表**的键。
+    _pool_keys = {(c["faction"], c["name"]) for c in cards}
+    _pool_names = {c["name"] for c in cards}
+    orphan_rarity_key = []
+    for _k in RARITY_UNLISTED:
+        if _k not in _pool_names:
+            orphan_rarity_key.append(
+                f"`RARITY_UNLISTED` 的键 `{_k}` —— 卡池里**没有任何卡**叫这个名字（改名了？还是删卡了？）")
+    for (_rf2, _rn2) in RARITY_BY_FACTION:
+        if (_rf2, _rn2) not in _pool_keys:
+            orphan_rarity_key.append(
+                f"`RARITY_BY_FACTION` 的键 `{_rf2}/{_rn2}` —— 卡池里**没有这张卡**（阵营或卡名对不上了）")
+
     return {
         "version": 9,          # v6: 每张卡带稳定 id（原版 id 优先，对不上的自造 —— 见 IDS_SRC 那段）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
@@ -2226,7 +2342,9 @@ def build():
        (truth_hit, kw_truth_filled, kw_truth_skipped, kw_truth_wiped,
         armour_src_pnp, armour_src_truth, hero_cost_from_truth, hero_cost_kept,
         discarded_hasstats, truth_cards, truth_by_name, kw_order_violations), \
-       (rarity_guard_bad, _rarity_truth_n, _rarity_truth_skip_n)
+       (rarity_guard_bad, _rarity_truth_n, _rarity_truth_skip_n,
+        rarity_truth_filled, rarity_src_truth, rarity_src_table, rarity_src_source,
+        orphan_rarity_key)
 
 
 def fix_own_armour(entry):
@@ -2292,7 +2410,9 @@ def main():
     (truth_hit, kw_truth_filled, kw_truth_skipped, kw_truth_wiped, armour_src_pnp, armour_src_truth,
      hero_cost_from_truth, hero_cost_kept, discarded_hasstats, truth_rows, truth_by_name,
      kw_order_violations) = truth
-    rarity_guard_bad, _rarity_truth_n, _rarity_truth_skip_n = rarity_guard
+    rarity_guard_bad, _rarity_truth_n, _rarity_truth_skip_n = rarity_guard[:3]
+    (rarity_truth_filled, rarity_src_truth, rarity_src_table, rarity_src_source,
+     orphan_rarity_key) = rarity_guard[3:]
 
     by_type = {}
     for c in doc["cards"]:
@@ -2400,24 +2520,54 @@ def main():
     else:
         print(f"\n`armor` 一族：源表里 `armor` 有值的 {len(OCR_ARMOR_FAMILY)} 行与预期一致 ✅")
 
-    # 🔴 **稀有度守卫**（`A2044`，见 `build()` 末尾那两条谓词）—— **两条、都进 `_bad`**：
+    # 🔴 **稀有度守卫**（`A2044` / `A2062`，见 `build()` 末尾那三条谓词）—— **①②进 `_bad`**：
     #    ① 「`rarity` 空串、但别名还能在宝石表查到」= 改名导致的**静默丢失**（`SOR24` 那次就是这个）；
-    #    ② 「与游戏侧真值 `cardRarity` 不一致」= 拿到的是**错**的档位（改名后落回源表那个旧值）。
-    #    ⚠️ 这一条**必须红到不落盘** —— 它治的正是「变了、却没有任何东西出声」（`SOR24` 那天）。
+    #    ② 「与游戏侧真值 `cardRarity` 不一致」= 拿到的是**错**的档位 —— ⚠️ **`A2062` 起它是层序哨兵**。
+    #    ⚠️ 这两条**必须红到不落盘** —— 它们治的正是「变了、却没有任何东西出声」（`SOR24` 那天）。
+    #    🔴 **`A2062` 新增的「这一列的值从哪来」读数**（**只出声、不进 `_bad`**）——
+    #    第 1 层（真值 `cardRarity`）落地之后，**残余**只有「表命中」与「吃源表原值」两种。
+    print(f"\n稀有度来源   ①真值 `cardRarity`（第 1 层）**{len(rarity_src_truth)}** 张"
+          f" · ②宝石表/两张补表 **{len(rarity_src_table)}** 张"
+          f" · ③**吃 `card_stats.json` 原值** **{len(rarity_src_source)}** 张"
+          f"（另有 {_rarity_truth_skip_n} 张快照 `cardRarity` 是 `0`/缺字段 ⇒ 按「无值」跳过）")
+    if rarity_truth_filled:
+        print(f"            ⚠️ 第 1 层**改掉了** {len(rarity_truth_filled)} 张的值（预期 0 —— "
+              "`A2062` 实测 1005/1005 一致）：")
+        for _cid, _nm, _old, _new in rarity_truth_filled[:10]:
+            print(f"            · {_cid}/{_nm}：`{_old or '(空)'}` → `{_new}`")
+    if rarity_src_source:
+        print(f"            ⚠️ 这 {len(rarity_src_source)} 张**既没真值、也没表命中** ⇒ 稀有度直接吃了"
+              " `card_stats.json` 的 `rarity` 列（**OCR 读出来的**）：")
+        for _cid, _nm, _v in rarity_src_source:
+            print(f"            · {_cid}/{_nm} = `{_v}`")
+        print("            ⇒ 要判「这张该是什么档」，得**开 PnP 成品卡图看底部那颗菱形宝石**"
+              "（铁律 7）—— 别拿源表那个值当判据。")
     if rarity_guard_bad:
         print(f"\n🔴 稀有度这一层有 {len(rarity_guard_bad)} 处**对不上**：")
         for _k in rarity_guard_bad:
             print(f"            · {_k}")
-        print("            ⇒ 稀有度是**按卡名 join** 出来的（宝石表 + `RARITY_UNLISTED` /"
+        print("            ⇒ ①：稀有度是**按卡名 join** 出来的（宝石表 + `RARITY_UNLISTED` /"
               " `RARITY_BY_FACTION`），卡名一改就**静默失配**。")
         print("            ⇒ 修法（①）：在 `RARITY_BY_FACTION` 里补一条 **(阵营, 现名) → 值** 的特判，"
               "值照抄宝石表那一行 —— 写法见那张表末尾 2026-10-15 那条（`SOR24` 就是这么修的）。")
         print("            ⇒ 修法（②）：两边**必有一边过时**，别猜 —— 先核原版卡 SO 快照那一行，"
-              "再决定改卡池还是记一条例外。")
+              "再决定改卡池还是记一条例外。"
+              "⚠️ **`A2062` 起第 1 层就是真值** ⇒ ② 报红只可能是「层序被动了」（见 `build()` 那段）。")
     else:
         print(f"\n稀有度这一层：①别名漏 **0** 张 ✅ · ②与游戏侧真值一致 ✅"
               f"（比过 {_rarity_truth_n} 张；另有 {_rarity_truth_skip_n} 张快照 `cardRarity` 是 `0`/缺字段，"
               "按「无值」跳过 —— 见 `build()` 里那段）")
+    # 🔴 **`A2064` ② 的孤立键守卫**（只出声、不进 `_bad`，口径同 `orphan_face_fix` / `orphan_stat_fix`）
+    if orphan_rarity_key:
+        print(f"\n🔴 稀有度的两张补表里有 {len(orphan_rarity_key)} 个键**没匹配到任何卡**：")
+        for _k in orphan_rarity_key:
+            print(f"            · {_k}")
+        print("            ⇒ 与 `cardface_fixes` / `STAT_FIXES` 的孤立键**同一族的病**（表按卡名做键、"
+              "卡名一改就变死键）。修法：把键改成**卡池里的现名**（值照抄原值），或删掉这条。")
+    else:
+        print(f"            ✅ 两张补表的孤立键：0 个"
+              f"（`RARITY_UNLISTED` {len(RARITY_UNLISTED)} 键 · `RARITY_BY_FACTION` {len(RARITY_BY_FACTION)} 键，"
+              "**全部命中池内卡**）")
 
     # 🔴 **同卡两键值不一致**（`A1620`，2026-10-12）—— 与上面那条「孤立键」同一族：都是
     #    「**表里写着的修正，卡表里其实没生效**」。区别只在失效方式：
@@ -2758,8 +2908,16 @@ def main():
     # 🔴 **退出码先算、再决定落不落盘**（与 `工具/gen_icon_plan.py` 的 `A1626` 同一条口径）——
     #    「非 0」必须等于「没写文件」。`bare_ambiguous` 是**数据侧的错**，不是提示：
     #    这时写出去的卡表里有一张卡带着**别人那张卡的效果**，宁可让它保持旧值、由人来判。
+    # 🔴 **`A2062`（2026-10-16）：加 `rarity_truth_filled` —— 这一条是【灭自证】的那半。**
+    #    为什么必须有它：第 1 层（真值 `cardRarity`）落地之后，**下面的守卫 ② 与它是同一个来源**
+    #    （拿真值比真值 ⇒ **恒真、自证**，`build()` 那段已就地写明）。⇒ 「第 1 层的值对不对」
+    #    **再也没有别的东西看着**。本条的判据**与 ② 结构性不同**：它比的是
+    #    「**第 1 层的输出** vs **宝石表 + 两张补表那条链的输出**」（两个**互相独立**的来源），
+    #    实测基线 = **0 处**（`A2062` 的「一个值都不会变」）。
+    #    ⇒ 一旦不为 0：要么**真值映射表被改错**、要么**快照换了**（两边必有一个过时）——
+    #      两种都**要人看**，所以进 `_bad`（⛔ 别静默写出去）；核完照下面那句说明处置。
     _bad = bool(bare_ambiguous) or bool(kw_order_violations) or bool(desc_zh_order_violations) \
-        or bool(armor_family_bad) or bool(rarity_guard_bad)
+        or bool(armor_family_bad) or bool(rarity_guard_bad) or bool(rarity_truth_filled)
 
     if args.check:
         if os.path.exists(DST):
@@ -2785,6 +2943,10 @@ def main():
         if rarity_guard_bad:
             _why.append(f"「稀有度这一层 {len(rarity_guard_bad)} 处对不上"
                         "（别名能查到却落成空串 / 与游戏侧真值不一致）」")
+        if rarity_truth_filled:
+            _why.append(f"「稀有度第 1 层（真值 `cardRarity`）改掉了 {len(rarity_truth_filled)} 张的值"
+                        "（基线 0 —— 见 `_bad` 那段：要么真值映射表被改错、要么快照换了，"
+                        "两边必有一个过时，核完再决定改哪边）」")
         print(f"\n🔴 退出码 1、**一个字节都不写**（{' ＋ '.join(_why)} 没解决之前"
               "不落盘 —— 见 `A1626` 那条口径）")
         return 1

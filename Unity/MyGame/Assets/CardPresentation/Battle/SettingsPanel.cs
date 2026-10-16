@@ -24,6 +24,33 @@
 //    ✅ **2026-09-19 已照真值改完代码**：九宫格 `40K_button`（Sliced，border 234/46）+ 绿染 (0.3686,0.8941,0.5874,1)
 //      + 白字 fs38。完整规格与出处见 `资料/普查产出_0918/第18行_UI三小条_规格.md` §①。
 // ⚠️ 三根音量滑块：见 §②（原版写 `AudioMixer.SetFloat("Volume"+MixerType 枚举名)`）。
+//
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// 🔴 **2026-10-16（`T09` 批 2 · `PopUps` 组）：本面板已从【世界空间 quad】迁到【uGUI 子画布】**
+//   判据与 8 步配方 → `资料/任务线/战斗线/任务/T09_整层换uGUI.md` §五·补⑨/⑩；
+//   宿主映射 → `资料/普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一（`SettingsPanel` 那一行）。
+//   · **子画布** = `HudCanvas.EnsureSubCanvas(null, "BattleSettingsPanel Canvas",
+//     HudCanvas.SortingLayer.PopUps, 0)`。原版宿主 = `BattleSettingsPanel` @
+//     `BattleHud/Canvas/FrontCanvas/Safe area FrontCanvas`，**`PopUps` 层 / order 0 / 兄弟序 10/14**
+//     （`CV_2763` · `RT_3535` · T09b §A·2#8）。
+//   · **单位**：uGUI 档 **1 单位 = 1 设计 px**（见 `HudCanvas` 文件头那条推导）⇒ 本文件那个
+//     `U(px)` 现在**恒等于 `px`**（⛔ 不再是 `px/108`）；`SetAutoFitBox` / `SetVAlign` /
+//     `SetScriptHeight` 收的也都是 px（最后一处传 `pxPerUnit = 1`）。
+//   · **坐标**：图/字一律**中心锚 + 面板中心为原点**（y 向上）—— 与 `Label.CreateUgui` /
+//     `HudCanvas.MakeSlicedPiece` 同一个口径 ⇒ 本文件那几组「面板内 px」常量
+//     （`Az*` / `Mute*` / `Lang*` / `Lst*` / `Skip*` / `Resign*`）**原样**搬进去。
+//   · **面板帧 = `_panel`**（画布下那个 743.2×758.6 px 的节点，中心 = 设计中心 (960,540)）；
+//     命中判定凡是要「面板内 px」的，一律在**它**的局部空间里算（⛔ 不是 `transform` —— 见下）。
+//   · 🔴 **例外（如实记，⛔ 没迁）**：三根 `WfSlider`（`Battle/WfSlider.cs`）**仍在世界空间** ——
+//     那一整族（几何 / 命中 / 九宫格）内部全按「世界单位 = px ÷ 108」写死，要迁它得先给
+//     `WfSlider` 加一个 uGUI 档，而它**不在本件白名单**（已写进报告，交调度台裁）。
+//     ⇒ 它们仍挂在**世界空间那层壳**（本组件自己的宿主 `transform`）上，⛔ **没有**挂进画布 ——
+//     世界空间 quad 挂在画布下 = **半迁移态**（位置对不上 + 层级不受控，见 `Label` 文件头那条铁律）。
+//     ⚠️ **两条已知代价**（都随 `WfSlider` 迁完自动消失）：
+//       ① 子画布在 `PopUps` 层 ⇒ **面板底会盖住那三根滑块**（它们仍画在 `Default` 层）；
+//       ② 它们仍跟着 `HudRoot` 的震屏走，而本面板其余件（已在画布上）不再跟。
+//     报告 → `资料/普查产出_1016并行/T09批2_SettingsPanel.md`。
+// ═══════════════════════════════════════════════════════════════════════════════════════
 using System;
 using System.Collections.Generic;      // 🆕 2026-10-18（A921）：语言下拉那 12 行（`List<LangRow>`）
 using UnityEngine;
@@ -40,37 +67,43 @@ namespace CardPresentation
         /// <summary>点「对手难度」时回调（驱动层换下一档，再用 <see cref="SetDifficulty"/> 回写文字）</summary>
         public Action OnCycleDifficulty;
 
-        ImageQuad _bg, _close, _shade;
+        // 🔴 **2026-10-16（`T09` 批 2）**：这一族从 `ImageQuad`（世界空间 quad）换成 `HudPiece`
+        //   —— 现在**全是 uGUI 件**（`RectTransform + Image`，建在子画布上）。
+        //   `HudPiece` 的适配面（`SetTint` / `SetTexture` / `SetAspect` / `Contains` / `WorldW/H` /
+        //   `transform` / `gameObject`）把下游用法挡在类型后面，见 `Battle/HudPiece.cs` 文件头。
+        HudPiece _bg, _close, _shade;
         Label _title, _resignText, _closeText;
-        ImageQuad _closeIcon;
-        ImageQuad _diffBtn;
+        HudPiece _closeIcon;
+        HudPiece _diffBtn;
         Label _diffLabel, _diffValue;
-        /// <summary>投降钮的根节点。⚠️ **不是 `ImageQuad`** —— 原版底图 `40K_button` 是
-        /// `Image.Type = Sliced`（border 234,46,234,46），要九宫格；单个 quad 拉不出那个形。</summary>
-        GameObject _resignBtn;
+        /// <summary>投降钮的根。⚠️ **不是 `ImageQuad`** —— 原版底图 `40K_button` 是
+        /// `Image.Type = Sliced`（border 234,46,234,46），要九宫格；单个 quad 拉不出那个形。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：现在是 **一张 `Image (Sliced)`**（`HudCanvas.MakeSlicedPiece`
+        /// —— uGUI 里九宫格就是这一件事，比九块 quad 更贴原版）。</summary>
+        HudPiece _resignBtn;
         Texture _resignTex;
-        /// <summary>🆕 2026-10-18（A991）「跳过教程」钮的根节点。⚠️ 同 `_resignBtn`：**不是 `ImageQuad`**
-        /// （底图 `40K_button` 是九宫格）。</summary>
-        GameObject _skipBtn;
+        /// <summary>🆕 2026-10-18（A991）「跳过教程」钮的根。⚠️ 同 `_resignBtn`：**不是 `ImageQuad`**
+        /// （底图 `40K_button` 是九宫格）⇒ uGUI 一张 `Image (Sliced)`。</summary>
+        HudPiece _skipBtn;
         /// <summary>那颗钮上的字（原版 `Button Text`，fs38，白，居中）。</summary>
         Label _skipText;
 
         // ---- 🆕 2026-10-12（A424）：「Auto Zoom」那一行（原版 `Auto Zoom Toggle`）----
         /// <summary>勾选框底图（原版 `Toggle.targetGraphic`，图 `40K_dropdown_bg`）。</summary>
-        ImageQuad _azBox;
+        HudPiece _azBox;
         /// <summary>勾（原版 `Toggle.graphic`，图 `40K_settings_icon_checkmark`）。</summary>
-        ImageQuad _azCheck;
+        HudPiece _azCheck;
         /// <summary>那一行的文字（原版 `Label`，TMP `m_text = "Auto zoom"`）。</summary>
         Label _azLabel;
 
         // ---- 🆕 2026-10-16（`T01`）：`ChatToggle`「静音对手」那一行（原版 `Volume Sliders/ChatToggle`）----
         /// <summary>OFF 那半的底图（原版 `Background`，图 `40K_toggle_off`）—— ⚠️ **原版这半恒 active**
         /// （`SetActive` 只打 ON 那半，见 `RefreshMuteChat` 那段注释）。</summary>
-        ImageQuad _muteOffBg;
+        HudPiece _muteOffBg;
         /// <summary>ON 那半的底图（原版 `Background On`，图 `40K_toggle_on`）—— 原版就是**整块盖上去**的
         /// （两块同 rect、ON 那块不透明 ⇒ 盖住 OFF 那半的底图 + 勾 + `OFF` 字）。</summary>
-        ImageQuad _muteOnBg;
-        ImageQuad _muteOffChk, _muteOnChk;
+        HudPiece _muteOnBg;
+        HudPiece _muteOffChk, _muteOnChk;
         /// <summary>左边那句说明（原版 `Label`，TMP `"Mute opponent"`，词条 `MuteLabelTermKey`）。</summary>
         Label _muteLabel;
         /// <summary>`OFF` / `ON` 两颗字（原版 `OffText` / `OnText`，各自挂在**自己那半的勾**下面）。</summary>
@@ -82,9 +115,9 @@ namespace CardPresentation
 
         // ---- 🆕 2026-10-17：「Language Selector」那一行（原版 `LanguageSelector.languagesDropdown`）----
         /// <summary>下拉框底图（原版 `LanguagesDropdown` 那颗 `Image`，图 `40K_dropdown_field_closed`）。</summary>
-        ImageQuad _langField;
+        HudPiece _langField;
         /// <summary>框右端那个箭头（原版 `Arrow`）。</summary>
-        ImageQuad _langArrow;
+        HudPiece _langArrow;
         /// <summary>框里那行**当前语言名**（原版 `LanguagesDropdown > Label`）。</summary>
         Label _langCap;
         /// <summary>左边那颗标签（原版 `SelectLanguageText`，`'Select Language'`）。</summary>
@@ -104,7 +137,7 @@ namespace CardPresentation
         Transform _langList;
         /// <summary>列表里 12 行那三件 + 行号。</summary>
         readonly List<LangRow> _langRows = new List<LangRow>();
-        struct LangRow { public ImageQuad Bg, Chk; public Label Lb; public int Idx; }
+        struct LangRow { public HudPiece Bg, Chk; public Label Lb; public int Idx; }
         /// <summary>按下那一刻记下「这一下按在哪」：`-1` = 不在行上。抬起来还落在同一行才算点它
         /// （uGUI `IPointerClickHandler` 的语义，与 `LangPointerFrame` 原有那条同形）。</summary>
         int _langRowArmed = -1;
@@ -214,7 +247,10 @@ namespace CardPresentation
         /// <summary>本面板的**渲染队列**。这一族件原来一次都没显式设过队列 = `Sprites/Default` 的默认档
         /// （**3000**，同 `WaitBanner.BattleQChrome` / `CardDisplayWindow.QChrome`）。
         /// 🔴 走 `MenuDraw.Nine` 的地方**必须显式传**这个数 —— 那个助手会写队列，
-        /// 不传就等于在战斗现场顺手换了一次排序（2026-10-04 · A50③ 收口时补的）。</summary>
+        /// 不传就等于在战斗现场顺手换了一次排序（2026-10-04 · A50③ 收口时补的）。
+        /// 🔴🔴 **2026-10-16（`T09` 批 2）**：本面板整层迁到 uGUI 子画布之后，**这个数在本件里只剩一个
+        /// 调用点**（三根 `WfSlider` 的 `queue:` 形参 —— 它们**还在世界空间**，照旧吃队列）。
+        /// 面板自己的图/字**全部不问队列**了（层级归画布的兄弟序，见 `Img` 的 doc）。</summary>
         const int QPanel = 3000;
 
         // ---- 投降钮：**原版真值**（`资料/普查产出_0918/第18行_UI三小条_规格.md` §①）----
@@ -477,11 +513,24 @@ namespace CardPresentation
         /// （uGUI `Image.GenerateSlicedSprite` 的 `multipliedPixelsPerUnit`）；本面板**父链无缩放**
         /// ⇒ 不再乘任何根缩放（主菜单那扇要 ×0.9，见它的 `LstPanelBorderOut`）。</summary>
         const string LstPanelArt = "40k_dropdown_bg";
+        /// <summary>原版那张贴图的**贴图 px 尺寸**。🔴 **2026-10-16（`T09` 批 2）起本件不再用它**
+        /// （旧那套是 `MenuDraw.Nine` 切 uv 要；uGUI 的 `Sprite` 自己带尺寸）—— 留着当**原版值**的记录。</summary>
         const float LstPanelTexW = 119f, LstPanelTexH = 102f;
         const float LstPanelPpuMul = 1.09f;
+        /// <summary>原版 `Sprite.m_Border`（贴图 px）。🔴 **2026-10-16（`T09` 批 2）起本件不直接传它** ——
+        /// `HudCanvas.MakeSlicedPiece` 的 `pixelsPerUnitMultiplier` 恒 1 ⇒ 传 `LstPanelBorderOut`
+        /// （= 除以 1.09）才能画出与旧那套**同值**的端帽（21.1 / 18.35）。留它当**原版值**的记录。</summary>
         static readonly Vector4 LstPanelBorder = new Vector4(23f, 20f, 23f, 20f);
+        /// <summary>真正传给 `MakeSlicedPiece` 的那个 border（= `m_Border ÷ ppuMul`，见 `LstPanelBorder` 那条）。</summary>
         static readonly Vector4 LstPanelBorderOut =
             new Vector4(23f / LstPanelPpuMul, 20f / LstPanelPpuMul, 23f / LstPanelPpuMul, 20f / LstPanelPpuMul);
+        /// <summary>语言那一行**那颗框**在面板里的 z 档（= `PanelZ − 0.01`，与 `BuildLanguageRow` 传进去的一致）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：`ShowLangList` / `HideLangList` 要把这颗框在**最前**与**本档**之间
+        /// 来回挪（理由见 `ShowLangList` 那段）⇒ 这个数必须**只有一份**（⛔ 别在两处各写 `− 0.01f`）。</summary>
+        const float LangFieldZ = PanelZ - 0.01f;
+        /// <summary>列表开着时，那把框挪到的 z 档 —— **比本面板任何一个件都靠前**
+        /// （本件各件的 z ∈ [`PanelZ − 0.06`, `PanelZ + 0.02`] = [−0.51, −0.43] ⇒ 取 −0.60 留余量）。</summary>
+        const float LangListFrontZ = -0.60f;
         /// <summary>行底图 —— 原版 `Item Background` 那颗 `Image.m_Sprite`：**与主菜单那扇同一个 PathID
         /// `5175970378912652380`**（= 同一张 `40K_dropdown_item`，只有 `m_Color` 两扇不同）。
         /// `Toggle.m_SpriteState` 另给三档：`_hover` / `_press` / `_selected`（同一族四个切片）。
@@ -492,50 +541,90 @@ namespace CardPresentation
         /// 本地 `Resources/` 里没有导入 ⇒ 用**本扇自己那颗** `40K_settings_icon_checkmark`（Auto Zoom 那行的勾就是它）
         /// —— **这是我们的选择**，与 `Shell/SettingsWindow` 同一条口径。</summary>
         const string LstChkArt = "40K_settings_icon_checkmark";
-        /// <summary>列表这一族的**渲染队列** —— 本工程没有 UGUI `Canvas` 排序层（原版 `Template` 上那颗
-        /// `Canvas.overrideSorting` + `DropdownList.OnEnable` 把 `sortingLayerName` 顶到 `"PopUps"`），
-        /// 等价物 = 渲染队列（`CLAUDE.md` §三：分层要用队列、别靠 z）。
+        /// <summary>列表这一族的**渲染队列**（旧那套的口径）—— 本工程当时没有 uGUI 排序层
+        /// （原版 `Template` 上那颗 `Canvas.overrideSorting` + `DropdownList.OnEnable` 把
+        /// `sortingLayerName` 顶到 `"PopUps"`），等价物 = 渲染队列（`CLAUDE.md` §三：分层要用队列、别靠 z）。
         /// 序：本面板其余件（队列默认档 **3000**）&lt; 列表底 **3141** &lt; 行底 **3142** &lt; 行里的字/勾 **3143**。
         /// ⚠️ 主菜单那扇还有一档 `QBlocker 3140`（那颗铺满全屏的透明 `Blocker`）；本扇的「点空白收起」是
-        /// **几何判定**（见 `HitLangBlank`）⇒ **不建那颗透明块**，但**序照留**（列表仍从 3141 起）。</summary>
+        /// **几何判定**（见 `HitLangBlank`）⇒ **不建那颗透明块**，但**序照留**（列表仍从 3141 起）。
+        /// 🔴🔴 **2026-10-16（`T09` 批 2）：这三个数在本件里【已经是死值】** —— 本面板整层迁到
+        /// **`PopUps` 子画布**之后，谁压谁由**兄弟序**（`HudCanvas.Add` 的 z）+ 子画布的层决定，
+        /// **不再看渲染队列**（`ImageQuad.SetRenderQueue` / `Label.SetRenderQueue` 在画布上都是空操作）。
+        /// ⚠️ 现在它们**只剩两个用处**：① 喂 `Img(..., q, ...)` 那个「有注释的空操作」形参（留个来历）；
+        /// ② 让下面 `QLangList` 那条注释的**序**可读。⛔ 别按它们去推层级 —— 真判据是创建顺序（见 `Img`）。</summary>
         const int QLangList = 3141, QLangItem = 3142, QLangText = 3143;
 
-        static float U(float px) { return px / 108f; }
+        /// <summary>面板内 **px** → 本件局部坐标的**本地单位**。
+        /// <para>🔴 **2026-10-16（`T09` 批 2）**：本面板整层迁到 uGUI 子画布之后，
+        /// **1 局部单位 = 1 设计 px**（推导 → `HudCanvas` 文件头）⇒ 这个函数**恒等于 `px`**。
+        /// 保留它（而不是把上百处调用点改写成裸数）是为了让每一处都看得出**这些数就是 px** ——
+        /// ⛔ 别把它写回 `px / 108f`：那是**世界档**的换算，写回去整扇面板会缩成 **1/108**、
+        /// 而画面只是「小得看不见」、**一个字都不报**（`T09` §五·补⑩ 那道硬关卡一）。</summary>
+        static float U(float px) { return px; }
 
-        /// <summary>建一个**纯分组节点**（只有 `RectTransform`、不画东西）。坐标 = **面板内 px（y 向上）相对父件**。</summary>
+        /// <summary>建一个**纯分组节点**（只有 `RectTransform`、不画东西）。
+        /// `cx/cy` = **面板内 px、y 向上**（相对父件的中心）；`z` = 旧那套的层深度 ⇒ 本函数据它
+        /// **登记兄弟序**（`HudCanvas.Add`：z 大的排在前面 = 画在**底下**，与旧那套同向）。</summary>
         static Transform Node(Transform parent, string name, float cx, float cy, float z)
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = new Vector3(U(cx), U(cy), z);
-            return go.transform;
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);    // 中心锚 + 居中 pivot
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = Vector2.zero;
+            rt.localPosition = new Vector3(U(cx), U(cy), 0f);         // z ⛔ 不进 localPosition（画布上的 z 无意义）
+            HudCanvas.Add(rt, z);
+            return rt;
         }
 
-        /// <summary>建一块图（`ImageQuad`，锚点恒 (0.5,0.5)）：`w`×`h` 是**面板内 px**；`tint` 传 `null` = 不染。
-        /// 🔴 `SetAspect(w/h)` —— 原版那几颗都是 `Simple`（**拉伸**，只有 `Arrow` 是 `preserveAspect`）⇒ 按框给比值。</summary>
-        static ImageQuad Img(Transform parent, string name, Texture tex, float cx, float cy,
-                              float w, float h, float z, int q, Color? tint)
+        /// <summary>建一块图（uGUI `Image`，锚点/枢轴恒在中心）：`w`×`h` 是**面板内 px**；
+        /// `tint` 传 `null` = 不染。
+        /// <para>🔴 `SetAspect(w/h)` —— 原版那几颗都是 `Simple`（**拉伸**，只有 `Arrow` 是 `preserveAspect`）
+        /// ⇒ 按框给比值（uGUI 档的 `HudPiece.SetAspect` 就是把 `sizeDelta.x` 定成 `h × 比值`，
+        /// 与旧 quad 那一侧逐字同义）。</para>
+        /// <para>⚠️ `q`（旧那套的渲染队列）在 uGUI 档是**有注释的空操作** —— 层级归画布的兄弟序
+        /// （同 `Label.SetRenderQueue` 的先例，⛔ 不是「悄悄没做」）。</para>
+        /// <para>⚠️ 贴图取不到 ⇒ 出声、返回 `null`（⛔ 不静默建一块白图 / 也不退回世界空间 quad）。</para></summary>
+        static HudPiece Img(Transform parent, string name, Texture2D tex, float cx, float cy,
+                            float w, float h, float z, int q, Color? tint)
         {
-            var quad = ImageQuad.Create(parent, tex, new Vector3(U(cx), U(cy), z), U(h),
-                                        new Vector2(0.5f, 0.5f), name);
-            if (quad != null)
+            if (parent == null || tex == null)
             {
-                quad.SetAspect(w / h);
-                if (tint.HasValue) quad.SetTint(tint.Value);
-                quad.SetRenderQueue(q);
+                Debug.LogWarning($"[Settings] 设置面板那张 `{name}` 的**贴图取不到** ⇒ 这一件不建"
+                               + "（跑 `工具/` 那套取图脚本把图放进 `Resources/Art/`；⛔ 不摆白块）");
+                return null;
             }
-            return quad;
+            // 一张 `Image (Sliced)`、border 传 0 ⇒ 与 `Simple` 拉伸**像素等价**（原版这几颗就是 `Simple`）；
+            // 走这个口是为了：① 锚点/枢轴恒在中心（= 本面板的面板帧口径）② 不必给本文件加 `using UnityEngine.UI`。
+            var piece = HudCanvas.MakeSlicedPiece(parent, tex, name, w, h, Vector4.zero, tint ?? Color.white);
+            if (piece == null) return null;
+            var rt = piece.Rect;
+            rt.localPosition = new Vector3(U(cx), U(cy), 0f);
+            HudCanvas.Add(rt, z);
+            return piece;
         }
 
-        /// <summary>把九宫格根节点下所有块染成同一个色（根节点自己没有 `ImageQuad` 组件）。</summary>
-        static void TintAll(GameObject root, Color c)
+        /// <summary>同上面那个 `Img`，但**只给高**：宽 = `h × 贴图比例`
+        /// （= `ImageQuad.Create(parent, tex, pos, worldH, anchor, name)` 的语义 ——
+        /// 见 `T09` §五·补④ 第一行「**按【高】定、宽由贴图比例来**」）。
+        /// `q` 取 0（uGUI 档不看队列）。</summary>
+        static HudPiece Img(Transform parent, string name, Texture2D tex, float cx, float cy, float h, float z)
         {
-            if (root == null) return;
-            foreach (var q in root.GetComponentsInChildren<ImageQuad>(true)) q.SetTint(c);
+            if (tex == null)
+            {
+                Debug.LogWarning($"[Settings] 设置面板那张 `{name}` 的**贴图取不到** ⇒ 这一件不建"
+                               + "（跑 `工具/` 那套取图脚本把图放进 `Resources/Art/`）");
+                return null;
+            }
+            float w = h * tex.width / Mathf.Max(1f, tex.height);
+            return Img(parent, name, tex, cx, cy, w, h, z, 0, null);
         }
 
-        /// <summary>世界坐标是不是落在九宫格根节点的矩形里（它没有 `ImageQuad.Contains`，命中测试自己算）。
-        /// 锚点固定 0.5,0.5（`CreateNineSlice` 就是这么摆的）。</summary>
+        /// <summary>世界坐标是不是落在**某个件自己的矩形**里（`RectTransform` 的中心锚 + 居中枢轴）。
+        /// <para>🔴 **2026-10-16（`T09` 批 2）**：本体**一个字没改** —— 它本来就是纯几何，
+        /// 只要求「`w/h` 与 `InverseTransformPoint` 出来的是**同一把尺**」。在本面板里那把尺 = **px**：
+        /// 世界空间那档（`WfSlider` 等）传 `U(px)` = 世界单位、uGUI 那档传 px，各自自洽。</para></summary>
         static bool RectContains(Transform root, Vector3 world, float w, float h)
         {
             if (root == null) return false;
@@ -559,6 +648,35 @@ namespace CardPresentation
             return t;
         }
 
+        /// <summary>本面板各层的**层深度**（旧那套是世界 z：**大的在后**、先画）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：uGUI 档里它**只用来登记兄弟序**（`HudCanvas.Add`，
+        /// 语义同向）—— ⛔ 别再写进 `localPosition.z`（画布上的 z 无意义；写了会把件推离画布平面）。
+        /// ⚠️ 它**只由本件自己决定**（本件各层的**原版 z 关系没有判据** —— `A276` 那条口径就是这么定的）。</summary>
+        const float PanelZ = -0.45f;
+
+        /// <summary>🔴 **2026-10-16（`T09` 批 2）**：本面板那块 **uGUI 子画布**的名字
+        /// （= 原版宿主名 + ` Canvas`，见 `T09` §五·补⑩ 第 1 步）。⛔ **只此一份** ——
+        /// `EnsureSubCanvas` 不会去重，所以 `Create` 里先按名字找一次（自检/探针会把面板建好几遍）。
+        /// 判据 = `T09c` §一 那一行：`BattleSettingsPanel` @ `…/Safe area FrontCanvas`，`PopUps` / order **0**。</summary>
+        const string SubCanvasName = "BattleSettingsPanel Canvas";
+
+        /// <summary>**面板帧** = 画布下那个 743.2×758.6 px 的节点（`BattleSettingsPanel`）——
+        /// **「面板内 px」的原点就是它的中心**（y 向上），与本文件那几组 `Az*` / `Mute*` / `Lang*` 常量同口径。
+        /// 🔴 命中判定凡是要「面板内 px」的，一律用**它**的局部空间（⛔ 不是 `transform` ——
+        /// 那是**世界空间那层壳**，只装还没迁的三根 `WfSlider`，单位是**世界单位**）。</summary>
+        RectTransform _panel;
+
+        /// <summary>本面板那块 **uGUI 子画布**的 `RectTransform`（`PopUps` / order 0）——
+        /// 面板帧 `_panel` 与整屏压暗 `_shade` 都挂在它下面（两者是兄弟，先后由 `HudCanvas.Add` 的 z 定）。</summary>
+        RectTransform _cvRt;
+        /// <summary>子画布的 `RectTransform`（`_cvRt` 的只读别名；建不出来时 `null`）。</summary>
+        RectTransform CvRt { get { return _cvRt; } }
+
+        /// <summary>自检用：本面板那层 **uGUI 帧**（画布下那个 743.2×758.6 px 的节点）。
+        /// 🔴 给它的理由：`transform`（= 世界空间那层壳）**不再是**面板内容的父节点
+        /// （三根 `WfSlider` 还没迁，见文件头）⇒ 自检要量面板帧得走这个口。</summary>
+        public RectTransform PanelRect { get { return _panel; } }
+
         public static SettingsPanel Create(Transform parent, Action onResign, Action onCycleDifficulty)
         {
             // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
@@ -567,12 +685,41 @@ namespace CardPresentation
             //    **`m_SizeDelta = (743.202, 758.6345)`** · `ap (0, −29.317)` —— 与本文件头那句
             //    「面板本体 743.2 × 758.6（`BattleSettingsPanel` 自己的 rect）」同源（取整那一份）。
             //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「设置面板根 = 743.2×758.6」红。
+            // 🔴 **2026-10-16（`T09` 批 2）**：这一层现在**只装还没迁的三根 `WfSlider`**（文件头那条「例外」）
+            //    ⇒ 它仍留在**世界空间**、`MenuDraw.SetPxSize`（世界单位）**原样不动**（`A218` 那条读的就是它）。
+            //    面板自己的图/字**全部建在 `_panel`**（画布下那个同尺寸节点）上。
             var go = new GameObject("SettingsPanel", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             MenuDraw.SetPxSize(go.transform, PanelW, PanelH);
             var p = go.AddComponent<SettingsPanel>();
             p.OnResign = onResign;
             p.OnCycleDifficulty = onCycleDifficulty;
+
+            // ---- 子画布：`PopUps` / order 0（判据 → `T09c` §一 `SettingsPanel` 那一行）----------------
+            // 🔴 **子 Canvas 一个 `CanvasScaler` 都不许加**（原版全场景只有一个、在根上 ⇒ 加了会二次缩放）。
+            HudCanvas.Ensure(LayoutSpace.Cam);          // 幂等（`HudImageTex` 那一族会先建；这里兜底）
+            var cv = HudCanvas.SubCanvas(SubCanvasName);
+            var cvRt = cv != null ? (RectTransform)cv.transform
+                                  : HudCanvas.EnsureSubCanvas(null, SubCanvasName,
+                                                              HudCanvas.SortingLayer.PopUps, 0);
+            if (cvRt == null)
+            {
+                // ⛔ **不许静默退回世界空间 quad** —— 半迁移态（一半跟画布、一半跟世界）在 16:9 下看不出来
+                //    （同 `HudCanvas.Ensure` / `Label.CreateUgui` 那两条红线）。
+                UnityEngine.Object.DestroyImmediate(go);
+                Debug.LogError("[Settings] `PopUps` 子画布建不起来（根 canvas 没有？）⇒ **本面板不建**");
+                return null;
+            }
+            // 面板帧：中心锚 + 743.2×758.6 px，摆在**设计中心 (960,540)** ⇒ 局部原点 = 面板中心。
+            var pgo = new GameObject("BattleSettingsPanel", typeof(RectTransform));
+            pgo.transform.SetParent(cvRt, false);
+            p._cvRt = cvRt;
+            p._panel = (RectTransform)pgo.transform;
+            HudCanvas.SetPxSize(p._panel, PanelW, PanelH);     // ⛔ 别用 `MenuDraw.SetPxSize`（那个 ÷108）
+            p._panel.localPosition = HudCanvas.PosPx(HudCanvas.ReferenceResolution.x * 0.5f,
+                                                     HudCanvas.ReferenceResolution.y * 0.5f);
+            // 面板帧自己也要进兄弟序的账（整屏压暗 `_shade` 与它是兄弟 ⇒ 谁先画由 z 定，见 `Build`）。
+            HudCanvas.Add(p._panel, PanelZ);
             p.Build();
             p.Hide();
             return p;
@@ -581,21 +728,38 @@ namespace CardPresentation
         void Build()
         {
             // ---- 底板：原版是 `Mask`+`Background fill`（图 `40k_popup_texture`）----
-            // z 都要**比棋盘/HUD 靠前**（面板盖住它们）：-0.45 比结算面板(−0.50)靠后、比任何卡靠前
-            const float Z = -0.45f;
-            // 挡在背后的整屏压暗 —— 原版 `BattleSettingsPanel` 里就有一个 `Dark Shade`（3963.5×2693）
-            _shade = ImageQuad.Create(transform, SolidTex(LayoutSpace.VisibleWidth / LayoutSpace.DesignHeight),
-                                      new Vector3(0f, 0f, Z + 0.02f),
-                                      LayoutSpace.DesignHeight * 1.05f, new Vector2(0.5f, 0.5f), "settings_shade");
-            if (_shade != null) _shade.SetTint(new Color(0f, 0f, 0f, 0.62f));
+            // z 都要**比棋盘/HUD 靠前**（面板盖住它们）：`PanelZ`(−0.45) 比结算面板(−0.50)靠后、比任何卡靠前。
+            // 🔴 **2026-10-16（`T09` 批 2）**：uGUI 档里 z **不再进 `localPosition`** —— 它只用来
+            //    **登记兄弟序**（`HudCanvas.Add`；z 大的排在前面 = 画在底下，与旧那套同向）。
+            const float Z = PanelZ;
+            // 挡在背后的整屏压暗 —— 原版 `BattleSettingsPanel` 里就有一个 `Dark Shade`（3963.5×2693）。
+            // 🔴 **2026-10-16（`T09` 批 2）**：整屏覆盖层改成**铺满子画布**（`FillParent`）——
+            //    ⛔ **别写死 `1920×1080`**：`Expand` 档下屏比画布宽时（21:9 等）画布 rect 比 1920 宽，
+            //    写死的矩形**盖不满两边**（`HudCanvas.FillParent` 的 doc）。
+            //    · 父 = **子画布**（⛔ 不是 `_panel` —— 那个只有 743×758，铺满它盖不住整屏）；
+            //    · 贴图比例**无意义**（会被拉满）⇒ `SolidTex(1f)`；旧那套按可见宽高比开贴图是为了
+            //      那条「超大 quad + 队列 4100」的土办法，它随本批整族退场。
+            //    · z = `Z + 0.02`（比面板底更靠后）⇒ 兄弟序排在 `_panel` 之前 = 先画 = 压在底下 ✓。
+            _shade = HudCanvas.MakeImagePiece(CvRt, SolidTex(1f), "settings_shade", 0f, 0f, 1f, 1f,
+                                              new Color(0f, 0f, 0f, 0.62f));
+            if (_shade != null)
+            {
+                HudCanvas.FillParent(_shade.Rect);
+                // ⚠️ `MakeImagePiece` 内部**已经**登记过一次（`MakeImage` 的默认 z）⇒ 这里要挪档就得走
+                //    `Reorder`（它会先摘掉再插）—— 用 `Add` 会在那一组的账里留下**两条**同一个件的记录。
+                HudCanvas.Reorder(_shade.Rect, Z + 0.02f);
+            }
+            else Debug.LogWarning("[Settings] 整屏压暗（`settings_shade`）没建起来");
 
             // 面板底：原版是 `Mask` + `Background fill`（图 `40k_popup_texture`，128×128 的九宫格填充）。
             // ⚠️ **不能直接用那张图**（试过）：它是**半透明填充**，拉大到 743×758 之后板子几乎全透、
             //    棋盘从面板里透出来；而且我们没有九宫格，拉大边缘也糊。
             //    所以这里用**自建实底**（深色 + 不透明）+ 上面那层压暗 —— 标记成「我们的做法」。
-            _bg = ImageQuad.Create(transform, SolidTex(PanelW / PanelH), new Vector3(0f, 0f, Z),
-                                   U(PanelH), new Vector2(0.5f, 0.5f), "settings_bg");
-            if (_bg != null) _bg.SetTint(new Color(0.13f, 0.13f, 0.16f, 0.98f));
+            // 🔴 **2026-10-16（`T09` 批 2）就地改一处（铁律 5）**：旧那套是「按 8×8 的纯白贴图比例铺」
+            //    ⇒ `SolidTex(PanelW/PanelH)` 取整成 **8×8**（比例 1）⇒ 实画是 **758.6×758.6**、
+            //    比面板**宽 15.4 px**。uGUI 档能精确给 ⇒ 现在按面板 rect 给 **743.2×758.6** ✓。
+            _bg = Img(_panel, "settings_bg", SolidTex(PanelW / PanelH), 0f, 0f, PanelW, PanelH, Z, 0,
+                      new Color(0.13f, 0.13f, 0.16f, 0.98f));
 
             // 🔴 2026-09-19 用户口径：面板上这些**先用英文**（之后做彻底的完全翻译）。
             // ⚠️ 原版这个面板**有没有标题查不到**（规格文档 §① 里没记标题这一项）⇒ `Settings` 是**我们起的**。
@@ -605,16 +769,21 @@ namespace CardPresentation
             //    **93 条代码字面量**（`d:/2/tools/il2cpp_out/stringliteral.json`）里也**没有**标题键
             //    （`Battle/Settings/` 那一族只有 `Exit` / `ResignButton` / `SkipTutorial` 三条）。
             //    ⇒ **原版确实没有这一格**（铁律 11 例外①）⇒ 保留英文/中文自拟，⛔ 别去替它编一条原版键。
-            _title = Label.Create(transform, "Settings", new Vector3(0f, U(PanelH * 0.5f) - U(70f), Z - 0.01f),
-                                  4, new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f), "settings_title");
+            _title = HudCanvas.MakeText(_panel, "Settings", 0f, U(PanelH * 0.5f) - U(70f),
+                                        4, new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f),
+                                        Z - 0.01f, "settings_title");
 
             // ---- 关闭钮：75×75，圆底 + 叉（原版 `Generic Close Button`）----
+            // 🔴 **2026-10-16（`T09` 批 2）**：两张图都改走 `Img`（uGUI `Image`、中心锚、px）；
+            //    ⚠️ 圆底那颗仍然**不按原版那格 75×75 的内接规则** —— 它按**贴图比例**铺（`Img` 的「只给高」
+            //    那一档 = `ImageQuad.Create` 的原语义）；叉那颗按 `ClosePx × 0.42` 的高、宽由贴图比例来
+            //    （`A1301②` 记着「实绘 ≠ 框」，所以命中框一律用**原版框**那两个字面量，⛔ 不拿它当基准）。
             float cx = U(PanelW * 0.5f) - U(ClosePx * 0.6f);
             float cy = U(PanelH * 0.5f) - U(ClosePx * 0.6f);
-            _close = ImageQuad.Create(transform, CardArt.Ui("UI_Button_Round_background"),
-                                      new Vector3(cx, cy, Z - 0.01f), U(ClosePx), new Vector2(0.5f, 0.5f), "settings_close");
-            _closeIcon = ImageQuad.Create(transform, CardArt.Ui("40k_bt_close"),
-                                          new Vector3(cx, cy, Z - 0.02f), U(ClosePx * 0.42f), new Vector2(0.5f, 0.5f), "settings_close_icon");
+            _close = Img(_panel, "settings_close", CardArt.Ui("UI_Button_Round_background"),
+                         cx, cy, U(ClosePx), Z - 0.01f);
+            _closeIcon = Img(_panel, "settings_close_icon", CardArt.Ui("40k_bt_close"),
+                             cx, cy, U(ClosePx * 0.42f), Z - 0.02f);
 
             // ---- 投降：原版 `Resign`，面板左下角 ----
             // 🔴 **2026-09-19 照原版真值重做** —— 原来这里是 (0,−U(120)) / 宽 249 / 橙字，
@@ -622,8 +791,9 @@ namespace CardPresentation
             //    见文件头那段的更正与 `资料/普查产出_0918/第18行_UI三小条_规格.md` §①）。
             var resignTex = CardArt.Ui("40K_button");
             _resignTex = resignTex;
-            float resignTexW = resignTex != null ? resignTex.width : 489f;
-            float resignTexH = resignTex != null ? resignTex.height : 107f;
+            // 🔴 **2026-10-16（`T09` 批 2）**：原来这两行 `resignTexW/H` 只喂 `MenuDraw.Nine` 的
+            //    `texW/texH`（切 uv 用）—— uGUI 那一侧由 `Sprite` 自己带尺寸 ⇒ **删掉**（`diffH` 那条
+            //    算式本来就直接读 `resignTex`，有自己的 null 兜底）。
             // 🔴 **2026-10-04（A50③）：投降钮收口到公共件 `MenuDraw.Nine`** —— 原来直调
             //    `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，拿不到 `clip`）。两处**逐项等价**，别改：
             //    ① **矩形 = 投降钮的画布 px 矩形** —— 本面板挂在战斗 HUD 根下、`localPosition = 0`
@@ -640,22 +810,32 @@ namespace CardPresentation
             //       （`Z` 这个常量本身是我们挑的）；改前那种写法（`Z − 0.01 − transform.position.z`）
             //       今天逐位相同（`transform.position.z ≡ 0`），它只是「把世界 z 落到 Z − 0.01」的另一套口径。
             //       改坏法：写回带 `- transform.position.z` 的那版 ⇒ `Editor/BattleScene.cs` 的 A276 探针断言红。
-            _resignBtn = MenuDraw.Nine(transform, resignTex,
-                                       new PxRect(LayoutSpace.DesignPxW * 0.5f + ResignCxPx - ResignWPx * 0.5f,
-                                                  LayoutSpace.DesignPxH * 0.5f - ResignCyPx - ResignHPx * 0.5f,
-                                                  LayoutSpace.DesignPxW * 0.5f + ResignCxPx + ResignWPx * 0.5f,
-                                                  LayoutSpace.DesignPxH * 0.5f - ResignCyPx + ResignHPx * 0.5f),
-                                       new Vector4(ResignBorderL, ResignBorderB, ResignBorderR, ResignBorderT),
-                                       resignTexW, resignTexH, QPanel, name: "settings_resign");
+            // 🔴 **2026-10-16（`T09` 批 2）**：整段换成 **uGUI 一张 `Image (Sliced)`**
+            //    （`HudCanvas.MakeSlicedPiece` —— 原版那颗 `40K_button` 本来就是 `Image.Type = Sliced`，
+            //     border 234/46 就是我们传的那个 `border`；`MakeSlicedPiece` 的 `ppuMul = 1` ⇒ **画出来的
+            //     端帽 = 原版那对 border**，与旧那套 `MenuDraw.Nine` 不传 `borderOutPx` 时**逐值相同**）。
+            //    · 矩形 = `ResignWPx × ResignHPx`（300×90）**px**、落位 = `(ResignCxPx, ResignCyPx)` px
+            //      （相对**面板中心**）⇒ 与旧那套「按面板中心算出来的画布矩形」**逐值等价**；
+            //    · `QPanel`(3000) 这个形参**不再需要**（画布上的层级归兄弟序，见 `Img` 的 doc）；
+            //    · 染色 = 同一个 `ResignTint`（原来走 `TintAll` 逐块染，现在**一张**图直接给）。
+            //    · `A276` 那条「裸局部 z」口径：uGUI 档没有局部 z ⇒ 那条断言**要改**
+            //      （见报告；本件 `ResignLocalZ` 现在报的是**登记的兄弟序 z**）。
+            _resignBtn = HudCanvas.MakeSlicedPiece(_panel, resignTex, "settings_resign",
+                                                  ResignWPx, ResignHPx,
+                                                  new Vector4(ResignBorderL, ResignBorderB, ResignBorderR, ResignBorderT),
+                                                  ResignTint);
             if (_resignBtn != null)
-                _resignBtn.transform.localPosition =
-                    new Vector3(U(ResignCxPx), U(ResignCyPx), Z - 0.01f);
-            TintAll(_resignBtn, ResignTint);
+            {
+                _resignBtn.Rect.localPosition = new Vector3(U(ResignCxPx), U(ResignCyPx), 0f);
+                HudCanvas.Add(_resignBtn.Rect, Z - 0.01f);
+            }
+            else Debug.LogWarning("[Settings] 投降钮（`settings_resign`）没建起来"
+                                + "（`40K_button` 取不到？⇒ 本节 `HasArt` 会先红）");
             // 文字：原版 `Resign`（本地化 key `Battle/Settings/ResignButton`）。
             // 🔴 **2026-09-19 用户口径：先用英文**（原版就是英文；中文**查不到** —— 客户端没有 I2 语言表），
             //    之后再做彻底的完全翻译。字号 fs38 按**拉丁大写高度**定（见 `SliderLabel` 那条注释）。
-            _resignText = Label.Create(transform, Loc.T(ResignTerm), new Vector3(U(ResignCxPx), U(ResignCyPx), Z - 0.02f),
-                                       4, Color.white, new Vector2(0.5f, 0.5f), "settings_resign_text");
+            _resignText = HudCanvas.MakeText(_panel, Loc.T(ResignTerm), U(ResignCxPx), U(ResignCyPx),
+                                             4, Color.white, new Vector2(0.5f, 0.5f), Z - 0.02f, "settings_resign_text");
             ApplyLangFont(_resignText, Loc.T(ResignTerm), ResignFontPx);
 
             // ---- 🆕 2026-10-18（A991）：**「跳过教程」**（原版 `SkipTutorial Button`）----
@@ -666,21 +846,21 @@ namespace CardPresentation
             //    `WindowsManager.CloseWindow(<设置窗>)` **然后** `BattleManager.ClickSkip(bm, 0)`
             //    ⇒ 「**先关设置窗、再跳过**」—— 那一半在驱动层（`BattleDriver.SettingsClickAt`），
             //    本件只负责**把这颗钮摆出来 + 给命中区**（同 `HitResign` 的分工）。
-            _skipBtn = MenuDraw.Nine(transform, resignTex,
-                                     new PxRect(LayoutSpace.DesignPxW * 0.5f + SkipCxPx - SkipWPx * 0.5f,
-                                                LayoutSpace.DesignPxH * 0.5f - SkipCyPx - SkipHPx * 0.5f,
-                                                LayoutSpace.DesignPxW * 0.5f + SkipCxPx + SkipWPx * 0.5f,
-                                                LayoutSpace.DesignPxH * 0.5f - SkipCyPx + SkipHPx * 0.5f),
-                                     new Vector4(ResignBorderL, ResignBorderB, ResignBorderR, ResignBorderT),
-                                     resignTexW, resignTexH, QPanel, name: "settings_skip_tutorial");
-            // ⚠️ 落位与 z 的口径**与 `_resignBtn` 那两行逐字相同**（本面板子件一律 `U(px)`、裸局部 z）
-            //    —— 理由与「`MenuDraw.Nine` 走画布映射」那条注释都在上面，⛔ 别只改一处。
+            // 🔴 **2026-10-16（`T09` 批 2）**：与 `_resignBtn` **逐字同一条处置**（uGUI 一张 `Image (Sliced)`、
+            //    300×90 px、落位 `(+171.7, −310.5)` px、同一个绿染、兄弟序 z = `Z − 0.01`）。
+            _skipBtn = HudCanvas.MakeSlicedPiece(_panel, resignTex, "settings_skip_tutorial",
+                                                SkipWPx, SkipHPx,
+                                                new Vector4(ResignBorderL, ResignBorderB, ResignBorderR, ResignBorderT),
+                                                ResignTint);
             if (_skipBtn != null)
-                _skipBtn.transform.localPosition = new Vector3(U(SkipCxPx), U(SkipCyPx), Z - 0.01f);
-            TintAll(_skipBtn, ResignTint);
+            {
+                _skipBtn.Rect.localPosition = new Vector3(U(SkipCxPx), U(SkipCyPx), 0f);
+                HudCanvas.Add(_skipBtn.Rect, Z - 0.01f);
+            }
+            else Debug.LogWarning("[Settings] 「跳过教程」那颗钮（`settings_skip_tutorial`）没建起来");
             // 文字：原版 `Button Text` 的 TMP 原文就是 `Skip tutorial`（`mTerm` 见 `SkipTutorialTerm`）。
-            _skipText = Label.Create(transform, Loc.T(SkipTutorialTerm), new Vector3(U(SkipCxPx), U(SkipCyPx), Z - 0.02f),
-                                     4, Color.white, new Vector2(0.5f, 0.5f), "settings_skip_tutorial_text");
+            _skipText = HudCanvas.MakeText(_panel, Loc.T(SkipTutorialTerm), U(SkipCxPx), U(SkipCyPx),
+                                           4, Color.white, new Vector2(0.5f, 0.5f), Z - 0.02f, "settings_skip_tutorial_text");
             ApplyLangFont(_skipText, Loc.T(SkipTutorialTerm), ResignFontPx);
 
             // ---- 对手难度（🆕 2026-09-17）----
@@ -702,12 +882,13 @@ namespace CardPresentation
             //    `ChatToggle` 顶边（**−226.6**）之间那段空带里居中（空带中心 = −154.6）。
             //    ⚠️ 这一行**仍然是我们加的**，⛔ 别拿它当原版件去对账。
             float diffY = U(-155f);
-            _diffLabel = Label.Create(transform, "AI Difficulty", new Vector3(-U(190f), diffY, Z - 0.02f),
-                                      4, new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f), "settings_diff_label");
-            _diffBtn = ImageQuad.Create(transform, resignTex,
-                                        new Vector3(U(70f), diffY, Z - 0.01f), U(diffH), new Vector2(0.5f, 0.5f), "settings_diff_btn");
-            _diffValue = Label.Create(transform, "", new Vector3(U(70f), diffY, Z - 0.02f),
-                                      4, new Color(1f, 0.86f, 0.55f), new Vector2(0.5f, 0.5f), "settings_diff_value");
+            _diffLabel = HudCanvas.MakeText(_panel, "AI Difficulty", -U(190f), diffY,
+                                            4, new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f),
+                                            Z - 0.02f, "settings_diff_label");
+            _diffBtn = Img(_panel, "settings_diff_btn", resignTex, U(70f), diffY, U(diffH), Z - 0.01f);
+            _diffValue = HudCanvas.MakeText(_panel, "", U(70f), diffY,
+                                            4, new Color(1f, 0.86f, 0.55f), new Vector2(0.5f, 0.5f),
+                                            Z - 0.02f, "settings_diff_value");
 
             // ---- 🆕 2026-10-12（A424）：`Auto Zoom` 那一行（原版 `Auto Zoom Toggle`）----
             // 为什么要有它：原版**战斗内这一扇**设置窗（`BattleSettingsWindow`）本来就有这一行，
@@ -728,9 +909,9 @@ namespace CardPresentation
             float azBoxH = azBoxTex != null
                          ? ImageQuad.FitHeight(U(AzBoxWPx), U(AzBoxHPx), azBoxTex.width / (float)azBoxTex.height)
                          : U(AzBoxHPx);
-            _azBox = ImageQuad.Create(transform, azBoxTex,
-                                      new Vector3(U(AzBoxCxPx), U(AzBoxCyPx), Z - 0.01f),
-                                      azBoxH, new Vector2(0.5f, 0.5f), "settings_autozoom_box");
+            // 🔴 **2026-10-16（`T09` 批 2）**：改走 `Img`（uGUI，中心锚、px）—— `FitHeight` 那条**内接**算式
+            //    **一个字没改**（它给的就是「按贴图比例内接之后的高」，px；width 由 `Img` 按贴图比例补）。
+            _azBox = Img(_panel, "settings_autozoom_box", azBoxTex, U(AzBoxCxPx), U(AzBoxCyPx), azBoxH, Z - 0.01f);
             // ⚠️ 那个绿是 `Selectable` 的 `m_NormalColor`（ColorTint 常态档），**不是** Image 自己的 `m_Color`
             //    （那个是白）。`EverguildToggle.colorTintOnValueChange = 0` ⇒ 开关翻动**不**改色。
             if (_azBox != null) _azBox.SetTint(AzBoxTint);
@@ -739,9 +920,7 @@ namespace CardPresentation
             float azChkH = azChkTex != null
                          ? ImageQuad.FitHeight(U(AzBoxWPx), U(AzBoxHPx), azChkTex.width / (float)azChkTex.height)
                          : U(AzBoxHPx);
-            _azCheck = ImageQuad.Create(transform, azChkTex,
-                                        new Vector3(U(AzBoxCxPx), U(AzBoxCyPx), Z - 0.02f),
-                                        azChkH, new Vector2(0.5f, 0.5f), "settings_autozoom_check");
+            _azCheck = Img(_panel, "settings_autozoom_check", azChkTex, U(AzBoxCxPx), U(AzBoxCyPx), azChkH, Z - 0.02f);
 
             // 文字：原版 TMP 印的就是英文 `"Auto zoom"`（**小写 z**，逐字符照抄）；I2 词条 = `Settings/Graphics/AutoZoom`
             //   （客户端**没有**本地 I2 词条表 ⇒ 正式译文拿不到）。
@@ -759,8 +938,8 @@ namespace CardPresentation
             //   （`0.72 / 108`），⇒ 英文档连尺寸都不变。
             // ⛔ 换语言时要跟着刷 ⇒ 同一条也进了 `RefreshTexts()`（本面板**自己**就能换语言）。
             string azText = Loc.T(AutoZoomTermKey);
-            _azLabel = Label.Create(transform, azText, new Vector3(U(AzLabelLeftPx), U(AzLabelCyPx), Z - 0.02f),
-                                    4, Color.white, new Vector2(0f, 0.5f), "settings_autozoom_label");
+            _azLabel = HudCanvas.MakeText(_panel, azText, U(AzLabelLeftPx), U(AzLabelCyPx),
+                                          4, Color.white, new Vector2(0f, 0.5f), Z - 0.02f, "settings_autozoom_label");
             ApplyLangFont(_azLabel, azText, AzFontPx);
 
             // ---- 🆕 2026-10-16（`T01`）：`ChatToggle`「静音对手」那一行 ----
@@ -792,15 +971,24 @@ namespace CardPresentation
             //   两条独立核（本机 uGUI `DefaultControls.CreateSlider` 四个字段互相自洽 · 原版运行时 dump 里
             //   FPS 那行的滑区左沿与滑块左沿同为 266）都在 `Battle/WfSlider.cs` 的文件头里。
             //   ⇒ 手柄中心 = 轨道左 **+12** + 值 × 551.08（这就是原版），⛔ 别在这儿加 5。
-            _musicSlider = WfSlider.Create(transform, "music", new Vector3(U(SliderCx), U(SliderCy[0]), Z - 0.01f),
+            // 🔴🔴 **2026-10-16（`T09` 批 2）：这三根【没迁】—— 见文件头那条「例外」（如实记，⛔ 不是漏了）。**
+            //   它们仍挂在**世界空间那层壳**（本组件的宿主 `transform`）上 ⇒ 位置必须走
+            //   **世界单位**（`LayoutSpace.Px(px)` = `px ÷ 108`），⛔ **不能用 `U(px)`** ——
+            //   那个现在是 px（面板帧那一档的换算），喂进去这三根会**偏 108 倍**（静默）。
+            //   `WfSlider` 内部（`_w = trackPx/108`、`Contains`/`SetFromPointer` 的局部单位、
+            //   `MenuDraw.Nine` 的九宫格）**全是世界单位** ⇒ 要迁它得先给 `WfSlider` 加 uGUI 档。
+            _musicSlider = WfSlider.Create(transform, "music",
+                                           new Vector3(LayoutSpace.Px(SliderCx), LayoutSpace.Px(SliderCy[0]), Z - 0.01f),
                                            WarpforgeAudio.Music, WarpforgeAudio.SetMusic,
                                            queue: QPanel, handlePx: 34.406f,
                                            handleOffset: WfSlider.HandleOffsetPx, capScale: 1f);
-            _fxSlider = WfSlider.Create(transform, "fx", new Vector3(U(SliderCx), U(SliderCy[1]), Z - 0.01f),
+            _fxSlider = WfSlider.Create(transform, "fx",
+                                        new Vector3(LayoutSpace.Px(SliderCx), LayoutSpace.Px(SliderCy[1]), Z - 0.01f),
                                         WarpforgeAudio.SoundFx, WarpforgeAudio.SetSoundFx,
                                         queue: QPanel, handlePx: 34.406f,
                                         handleOffset: WfSlider.HandleOffsetPx, capScale: 1f);
-            _voiceSlider = WfSlider.Create(transform, "voice", new Vector3(U(SliderCx), U(SliderCy[2]), Z - 0.01f),
+            _voiceSlider = WfSlider.Create(transform, "voice",
+                                           new Vector3(LayoutSpace.Px(SliderCx), LayoutSpace.Px(SliderCy[2]), Z - 0.01f),
                                            WarpforgeAudio.VoiceOver, WarpforgeAudio.SetVoiceOver,
                                            queue: QPanel, handlePx: 34.406f,
                                            handleOffset: WfSlider.HandleOffsetPx, capScale: 1f);
@@ -817,8 +1005,9 @@ namespace CardPresentation
         /// 下拉框（底图 + 当前语言名 + 箭头）+ 左边的 `Select Language` 标签。
         /// 几何/染色/字号**逐值见本文件那组 `Lang*` 常量**（面板内 px、y 向上）；这一段只讲落地三件：
         /// <list type="number">
-        /// <item>三张图都是 `ImageQuad`（底图带绿染、箭头 `preserveAspect` 内接）——
-        ///   本面板的 `Z` 一族是**裸局部 z**（同 `_azBox`/`_azCheck`）⇒ 底图 `Z − 0.01`、字/箭头 `Z − 0.02`；</item>
+        /// <item>三张图都是 uGUI `Image`（底图带绿染、箭头 `preserveAspect` 内接；🔴 **2026-10-16（`T09` 批 2）
+        ///   起改走 `Img`**）—— 本面板的 `Z` 一族是**登记兄弟序**的 z（同 `_azBox`/`_azCheck`）
+        ///   ⇒ 底图 `Z − 0.01`、字/箭头 `Z − 0.02`；</item>
         /// <item>文字只有两颗：框里的**当前语言名**（fs18，走 `Loc.LanguageName`）与左边那颗标签
         ///   （fs42，走 `Loc.T(词条)`）—— **字号按语种选**（`ApplyLangFont`）；</item>
         /// <item>命中区 = **下拉框那一块**（原版 `TMP_Dropdown` 挂在 `LanguagesDropdown` 上；左边那颗标签
@@ -839,19 +1028,16 @@ namespace CardPresentation
             float cy = (LangRowTopPx + LangRowBotPx) * 0.5f;
             float w = LangFieldX2Px - LangFieldX1Px, h = LangRowTopPx - LangRowBotPx;
 
-            _langField = ImageQuad.Create(transform, CardArt.MenuUi(LangFieldArt),
-                                          new Vector3(U(cx), U(cy), z - 0.01f), U(h),
-                                          new Vector2(0.5f, 0.5f), "settings_lang_field");
-            if (_langField != null)
-            {
-                _langField.SetAspect(w / h);              // 原版那颗 `Image` 是 `Simple`（拉伸）⇒ 按框给比值
-                _langField.SetTint(LangFieldTint);
-            }
+            // 🔴 **2026-10-16（`T09` 批 2）**：底下这四件（框 / 框里的语言名 / 箭头 / 左边那颗标签）
+            //    全部改走 uGUI 口（`Img` / `HudCanvas.MakeText`）—— 坐标/尺寸/染色**逐值不动**（px）。
+            _langField = Img(_panel, "settings_lang_field", CardArt.MenuUi(LangFieldArt), U(cx), U(cy),
+                             w, h, LangFieldZ, QPanel, LangFieldTint);   // 原版那颗 `Image` 是 `Simple`（拉伸）⇒ 按框给 (w,h)
 
             // 框内那行当前语言名（原版 `LanguagesDropdown > Label`）—— 左中锚，x = 框左 + 10
-            _langCap = Label.Create(transform, Loc.LanguageName(Loc.Current),
-                                    new Vector3(U(LangFieldX1Px + LangCapInsetPx), U(LangRowTopPx - LangCapTopPx - LangCapHPx * 0.5f), z - 0.02f),
-                                    4, LangCapColor, new Vector2(0f, 0.5f), "settings_lang_caption");
+            _langCap = HudCanvas.MakeText(_panel, Loc.LanguageName(Loc.Current),
+                                          U(LangFieldX1Px + LangCapInsetPx),
+                                          U(LangRowTopPx - LangCapTopPx - LangCapHPx * 0.5f),
+                                          4, LangCapColor, new Vector2(0f, 0.5f), z - 0.02f, "settings_lang_caption");
             ApplyLangFont(_langCap, Loc.LanguageName(Loc.Current), LangCapFontPx);
 
             // 右端那个箭头（原版 `Arrow`：20×20 + `preserveAspect` ⇒ 取短边内接）
@@ -860,16 +1046,14 @@ namespace CardPresentation
             float arrowH = arrowTex != null
                          ? ImageQuad.FitHeight(U(LangArrowPx), U(LangArrowPx), arrowTex.width / (float)arrowTex.height)
                          : U(LangArrowPx);
-            _langArrow = ImageQuad.Create(transform, arrowTex,
-                                          new Vector3(U(LangFieldX1Px + LangArrowOffXPx + LangArrowPx * 0.5f),
-                                                      U(LangRowTopPx - LangArrowOffYPx - LangArrowPx * 0.5f), z - 0.02f),
-                                          arrowH, new Vector2(0.5f, 0.5f), "settings_lang_arrow");
+            _langArrow = Img(_panel, "settings_lang_arrow", arrowTex,
+                             U(LangFieldX1Px + LangArrowOffXPx + LangArrowPx * 0.5f),
+                             U(LangRowTopPx - LangArrowOffYPx - LangArrowPx * 0.5f), arrowH, z - 0.02f);
             if (_langArrow != null) _langArrow.SetTint(LangArrowTint);
 
             // 左边那颗标签（原版 `SelectLanguageText`，fs42 / Left/Middle / 白；框 335×57.53 ⇒ 框中 y = 316.95）
-            _langSelText = Label.Create(transform, Loc.T(LangLabelTermKey),
-                                        new Vector3(U(LangRowX1Px), U(LangSelCyPx), z - 0.02f),
-                                        4, Color.white, new Vector2(0f, 0.5f), "settings_lang_label");
+            _langSelText = HudCanvas.MakeText(_panel, Loc.T(LangLabelTermKey), U(LangRowX1Px), U(LangSelCyPx),
+                                              4, Color.white, new Vector2(0f, 0.5f), z - 0.02f, "settings_lang_label");
             ApplyLangFont(_langSelText, Loc.T(LangLabelTermKey), LangSelFontPx);
 
             // 🆕 2026-10-18（A921）：`Template` 子树 —— 挂在**那颗框**下面（原版 `Template` 的父就是
@@ -877,7 +1061,9 @@ namespace CardPresentation
             //   给的就是它）⇒ 列表里所有坐标都是**相对框**的 px（y 向上）。
             // ⚠️ z 比本面板其余件再靠前一档（`Z − 0.03`）：列表内部那一族的排序走**渲染队列**（见 `QLangList`），
             //   这一档只是让「列表 vs 面板其余件」在 z 上也自洽（⛔ 别靠 z 代替队列）。
-            BuildLangTemplate(_langField != null ? _langField.transform : transform, z - 0.03f);
+            // 🔴 **2026-10-16（`T09` 批 2）**：兜底父件从 `transform`（**世界空间那层壳**）改成 `_panel`
+            //   —— 画布上的件**绝不能**挂到世界空间节点下（那样 `RectTransform` 链断掉、锚点也没有父矩形）。
+            BuildLangTemplate(_langField != null ? _langField.transform : _panel, z - 0.03f);
         }
 
         /// <summary>按**这段文本的语种**定字号：汉字 ≈ **1 em**、拉丁大写 ≈ **0.72 em**
@@ -888,9 +1074,12 @@ namespace CardPresentation
         static void ApplyLangFont(Label l, string text, float px)
         {
             // 🔴 **2026-10-18（W6）收口**：语种→字号的判据**只留一份**（`Label.SetScriptHeight`，
-            //    它内部接的是 `Loc.HasCjk` 那条唯一判据）。这里只是把本件的 px→世界单位换算（`U()` = /108）传进去。
+            //    它内部接的是 `Loc.HasCjk` 那条唯一判据）。这里只是把本件的 px→本档单位换算传进去。
+            // 🔴 **2026-10-16（`T09` 批 2）就地改一个数（铁律 5）**：`pxPerUnit` 从 **108 → 1** ——
+            //    uGUI 档的「1 局部单位 = 1 px」（`Label.IsUgui` 那条判据），传 108 的话字号会**小 108 倍**
+            //    （而画面只是「小得看不见」、不报错）。⛔ **这条只对本件成立**：世界档的调用点照旧传 108。
             if (l == null) return;
-            l.SetScriptHeight(text, px, 108f);
+            l.SetScriptHeight(text, px, 1f);
         }
 
         /// <summary>把本面板**跟着语言走**的那两行字重设一遍（框里的语言名 + 左边那颗标签）。
@@ -1014,13 +1203,23 @@ namespace CardPresentation
             float vpCx = (l + vpR) * 0.5f, vpCy = (top + bot) * 0.5f;                    // Viewport / Content 的框心（x、y）
 
             // 底板（原版 `Template` 自己那颗 `Image`：`40k_dropdown_bg` **Sliced** + ppuMul 1.09 + 绿染）
-            _langListBg = MenuDraw.Nine(list, CardArt.MenuUi(LstPanelArt),
-                                        new PxRect(0f, 0f, w, LstHPx), LstPanelBorder, LstPanelTexW, LstPanelTexH,
-                                        QLangList, LstPanelTint, true, "list_bg", LstPanelBorderOut);
-            // ⚠️ `MenuDraw.Nine` 按**画布 px** 算落位（`MenuDraw.Local`），本面板的子件一律 `U(px)` 口径
-            //    ⇒ 摆位**显式覆盖**（同 `_resignBtn` 那条注释里的做法；`Nine` 的 z 恒 0 ⇒ 也要补）。
+            // 🔴 **2026-10-16（`T09` 批 2）**：`MenuDraw.Nine`（九块世界空间 quad）→ **一张 `Image (Sliced)`**
+            //    （`HudCanvas.MakeSlicedPiece`，原版本来就是这一件事）。
+            //    ⚠️ **border 传 `LstPanelBorderOut`（= `m_Border ÷ ppuMul 1.09`）而不是原版那个 `m_Border`** ——
+            //    因为 `MakeSlicedPiece` 的 `pixelsPerUnitMultiplier` 恒 1（它的 doc 写着「原版那颗这个字段
+            //    主对话没读到 ⇒ 不猜」）⇒ 要**画出来的端帽**与旧那套（用的就是 `borderOutPx`）**同值 21.1/18.35**，
+            //    就得把那个 1.09 预先折进 border。代价 = **切 uv 的那三刀落在 21.1 贴图 px 处**（原版是 23），
+            //    差别 ≤2 贴图 px、且只在底板那条边上 —— 如实记着（要逐位对齐得让 `MakeSlicedPiece` 收 ppuMul，
+            //    那是 `HudCanvas` 的事、不在本件白名单）。
+            _langListBg = HudCanvas.MakeSlicedPiece(list, CardArt.MenuUi(LstPanelArt), "list_bg",
+                                                    w, LstHPx, LstPanelBorderOut, LstPanelTint);
             if (_langListBg != null)
-                _langListBg.transform.localPosition = new Vector3(0f, U(vpCy), z);
+            {
+                _langListBg.Rect.localPosition = new Vector3(0f, U(vpCy), 0f);
+                HudCanvas.Add(_langListBg.Rect, z);
+            }
+            else Debug.LogWarning("[Settings] 语言下拉的底板（`list_bg`）没建起来"
+                                + "（`40k_dropdown_bg` 取不到？）");
 
             // `Viewport`（原版 `Mask` + `Image(UIMask, m_ShowMaskGraphic = 0)` ⇒ **不画**、只当裁切框）
             var vp = Node(list, "Viewport", vpCx, vpCy, z);
@@ -1064,10 +1263,11 @@ namespace CardPresentation
             // 字（原版 `Item Label`：行内边距 左 20 / 右 10 / 上 2 / 下 1 · `Left/Middle` · 灰 0.783）
             float bl = l + LstLblPadL, bt = t - LstLblPadT, bb = b + LstLblPadB;   // 右内边距 = `r − LstLblPadR`（只影响框宽，字是左中锚）
             string txt = real ? Loc.LanguageName(Loc.Languages[i]) : "Option A";
-            var lb = Label.Create(item, txt, new Vector3(U(bl - rowCx), U((bt + bb) * 0.5f - rowCy), z),
-                                  4, LstLblColor, new Vector2(0f, 0.5f), "Item Label");
-            // 🔴 **队列必须显式给**：行底图在 `QLangItem`(3142)，而 `Label` 默认留在材质默认档（3000）
-            //   ⇒ 不给的话**行底图会把字盖住**（本面板其余几颗字靠 z 分层、那些件同队列，这一族不同）。
+            var lb = HudCanvas.MakeText(item, txt, U(bl - rowCx), U((bt + bb) * 0.5f - rowCy),
+                                        4, LstLblColor, new Vector2(0f, 0.5f), z, "Item Label");
+            // 🔴 **队列（旧那套）**：行底图在 `QLangItem`(3142)、字在 `QLangText`(3143) —— uGUI 档这一句
+            //   **是有注释的空操作**（层级归画布的兄弟序：三件都按同一个 z 登记 ⇒ 创建顺序 = 底图 → 勾 → 字 ✓，
+            //   见 `Img`/`Node`/`MakeText` 里那次 `HudCanvas.Add`）。
             if (lb != null) lb.SetRenderQueue(QLangText);
             // ⚠️ 原版那颗 TMP 开了 autosize（18~40），本工程 `Label` 没有这一档 ⇒ 按 `fs 30` 定字号、
             //    **按语种选**（汉字 ≈ 1 em / 拉丁大写 ≈ 0.72 em，同 `ApplyLangFont` 那条判据）。
@@ -1100,6 +1300,18 @@ namespace CardPresentation
                                                  _langRowsZ, Loc.Languages.Length);
             }
             _langList.gameObject.SetActive(true);
+            // 🔴 **2026-10-16（`T09` 批 2）**：把**那颗框**（连同列表子树）挪到面板子件的**最前面** ——
+            //    这是旧那套 `QLangList/QLangItem/QLangText`（3141/3142/3143）三档队列的**等价物**：
+            //    那三档的全部作用就是「把整棵列表压在面板其余件之上」（见 `QLangList` 的 doc）。
+            //    迁到画布后队列没了、先后**只由兄弟序**定，而列表挂在**那颗框下面**（`Show()` 的父链 +
+            //    自检那条 `LangListNode.parent == LangFieldNode` 都要求如此）⇒ 光靠创建顺序，
+            //    列表会被**排在框后面的件**盖住 —— 实测几何：列表底边伸到面板 y = −249.3，
+            //    而静音行占 y ∈ [−281.5, −226.6] ⇒ **重叠 22.7 px**（不给这一句就是「被静音行压掉一条」）。
+            //    ⚠️ 那颗框本身跟着挪到最前**无害**：它与任何同层件都不重叠（y ≈ 317、x ∈ [47.3, 297.3]）。
+            //    ⚠️ **与原版的差别（如实记）**：原版那颗 `Dropdown List` 是**自己的 canvas**
+            //       （`Canvas.overrideSorting` + `sortingLayerName = "PopUps"`）—— 要逐位对齐得给它建一层
+            //       子画布；本件**先用兄弟序顶**（判据与两条可选修法都写在报告里）。
+            HudCanvas.Reorder(_langField.Rect, LangListFrontZ);
             RefreshLangRows();
             _langHoverRow = -1;
             Debug.Log($"[Settings] 语言下拉**点开**（{_langRows.Count} 行 —— 原版 `TMP_Dropdown.Show()`："
@@ -1112,6 +1324,9 @@ namespace CardPresentation
         {
             bool was = LangListOpen;
             if (_langList != null) _langList.gameObject.SetActive(false);
+            // 🔴 **2026-10-16（`T09` 批 2）**：把那颗框挪回**它本来的那一档**（开列表时挪到了最前，
+            //    见 `ShowLangList` 那段）。幂等 —— 没开过列表时也挪回原位（值本来就相同）。
+            if (_langField != null) HudCanvas.Reorder(_langField.Rect, LangFieldZ);
             _langRowArmed = -1; _langBlankArmed = false; _langHoverRow = -1;
             if (was) Debug.Log("[Settings] 语言下拉**收起**（原版 `Hide()` → `AlphaFadeList(0.15, 0)` → "
                              + "`DelayedDestroyDropdownList(0.15)` → `DestroyBlocker`；本件不做淡出）");
@@ -1148,19 +1363,29 @@ namespace CardPresentation
                     row.Lb.SetText(t);
                     ApplyLangFont(row.Lb, t, LstLblFontPx);
                 }
-                if (row.Bg != null) row.Bg.SetTexture(CardArt.MenuUi(LstItemArt), true);
+                // 🔴 **2026-10-16（`T09` 批 2）**：`HudPiece.SetTexture` 只有**一个**形参 ——
+                //   旧那套的 `keepAspect: true`（「比例由行框定，别让新图的自身比例覆盖它」）在 uGUI 那一侧
+                //   **天然成立**（换 `Sprite` 不动 `sizeDelta`）⇒ 那个实参退场。
+                if (row.Bg != null) row.Bg.SetTexture(CardArt.MenuUi(LstItemArt));
             }
             _langHoverRow = -1;
         }
 
-        /// <summary>指针落在**第几行**上（`-1` = 不在任何一行上）。判据 = 那一行的底图先个 quad 的**渲染矩形**
-        /// （原版那一行整块都可点：`Toggle.targetGraphic` = `Item Background` 铺满整行）。</summary>
+        /// <summary>指针落在**第几行**上（`-1` = 不在任何一行上）。判据 = 那一行的底图那块**矩形**
+        /// （原版那一行整块都可点：`Toggle.targetGraphic` = `Item Background` 铺满整行）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：`Bg.Contains`（走 `GetWorldCorners`）→ **`RectContains`**
+        /// （同 `HitResign`/`HitLanguage` 那一套写法）；几何仍是那颗行底图自己的矩形 ⇒ 判定结果不变。</summary>
         public bool HitLangRow(Vector3 world, out int idx)
         {
             idx = -1;
             if (!Visible || !LangListOpen) return false;
             for (int i = 0; i < _langRows.Count; i++)
-                if (_langRows[i].Bg != null && _langRows[i].Bg.Contains(world)) { idx = _langRows[i].Idx; return true; }
+            {
+                var bg = _langRows[i].Bg;
+                if (bg == null) continue;
+                var s = HudCanvas.SizePx(bg.Rect);
+                if (RectContains(bg.transform, world, s.x, s.y)) { idx = _langRows[i].Idx; return true; }
+            }
             return false;
         }
 
@@ -1203,7 +1428,7 @@ namespace CardPresentation
         /// <summary>悬停那一档（原版 `Item` 那颗 `Toggle` 的 `m_Transition = 2`(SpriteSwap) 的
         /// `m_SpriteState.m_HighlightedSprite` = `40K_dropdown_item_hover`）。
         /// ⚠️ **按下那一档没落**：`40K_dropdown_item_press` 本地 `Resources/` 里没有（见 `LstItemArt` 那条）。
-        /// 只在**换行**时才动贴图（`SetTexture(..., keepAspect: true)` —— 比例由行框定，别让新图的自身比例覆盖它）。</summary>
+        /// 只在**换行**时才动贴图（`HudPiece.SetTexture` 在 uGUI 档**不动 `sizeDelta`** ⇒ 比例仍由行框定 ✓）。</summary>
         void RefreshLangHover(Vector3 world)
         {
             if (!LangListOpen) { _langHoverRow = -1; return; }
@@ -1216,13 +1441,16 @@ namespace CardPresentation
                 var row = _langRows[k];
                 if (row.Bg == null) continue;
                 bool hot = row.Idx == i;
-                row.Bg.SetTexture(CardArt.MenuUi(hot ? LstItemHiArt : LstItemArt), true);
+                row.Bg.SetTexture(CardArt.MenuUi(hot ? LstItemHiArt : LstItemArt));
             }
         }
         int _langHoverRow = -1;
-        /// <summary>列表底板的九宫格根节点（自检量「建出来了没有」；⛔ 只读）。</summary>
-        GameObject _langListBg;
-        /// <summary>克隆体那一族的 z（与原型同一层 —— 排序靠**渲染队列**，见 `QLangList`；z 只是跟着面板走）。</summary>
+        /// <summary>列表底板的九宫格根（自检量「建出来了没有」；⛔ 只读）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：类型从 `GameObject` 换成 `HudPiece` —— 现在是一张
+        /// `Image (Sliced)`（`HudCanvas.MakeSlicedPiece`），自检口 `LangListBgNode` 仍返回 `GameObject`。</summary>
+        HudPiece _langListBg;
+        /// <summary>克隆体那一族的 z（与原型同一层；🔴 **2026-10-16（`T09` 批 2）**：uGUI 档的先后由
+        /// **登记的兄弟序**定（`HudCanvas.Add` 的 z，见 `QLangList` 那条注释），这个 z 只是跟着面板走）。</summary>
         float _langRowsZ;
 
         // ---- 自检口（⛔ 只读，不给生产用）----
@@ -1233,11 +1461,14 @@ namespace CardPresentation
         /// <summary>列表的父（= 那颗语言框）—— 自检核「列表挂在哪儿」用。</summary>
         public Transform LangFieldNode { get { return _langField != null ? _langField.transform : null; } }
         /// <summary>列表底板的九宫格根（自检量它的实画矩形）。</summary>
-        public GameObject LangListBgNode { get { return _langListBg; } }
+        public GameObject LangListBgNode { get { return _langListBg != null ? _langListBg.gameObject : null; } }
         public int LangRowCount { get { return _langRows.Count; } }
-        public ImageQuad LangRowBg(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Bg : null; }
+        /// <summary>🔴 **2026-10-16（`T09` 批 2）**：返回类型 `ImageQuad` → **`HudPiece`**
+        /// （这一族现在是 uGUI 件）。自检那侧用的是 `var` + `.transform.position` / `.WorldW` ⇒ **零改动**
+        /// （`HudPiece` 那两个口都有，且 `WorldW` 两种模式的语义一致 —— 见 `HudPiece` 文件头）。</summary>
+        public HudPiece LangRowBg(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Bg : null; }
         public Label LangRowLabel(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Lb : null; }
-        public ImageQuad LangRowCheck(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Chk : null; }
+        public HudPiece LangRowCheck(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Chk : null; }
         /// <summary>第 `i` 行**底图**的世界中心（自检照着它点 —— 走与真实输入**同一条**判定）。
         /// 🔴 为什么给这个口：行节点名是**运行时按语言拼的**（换一次语言就变）⇒ `transform.Find(名字)` 不可靠。</summary>
         public Vector3 LangRowWorldPos(int i)
@@ -1254,9 +1485,14 @@ namespace CardPresentation
             cx = cy = w = h = 0f;
             var bg = LangRowBg(i);
             if (bg == null || _langField == null) return false;
+            // 🔴 **2026-10-16（`T09` 批 2）**：两个因子都改了，但**返回值仍是 px**（自检那几条期望值不动）：
+            //   ① `InverseTransformPoint` 出来的**已经是 px**（uGUI 档的局部单位 = 设计 px）⇒ 那个 `× 108` 退场；
+            //   ② 尺寸改走 `HudCanvas.SizePx`（= `sizeDelta`，**成对的那个逆**）而不是 `WorldW`
+            //      —— 后者是**世界尺寸**（非 16:9 下 ×108 已经不是 px）。
             var local = _langField.transform.InverseTransformPoint(bg.transform.position);
-            cx = local.x * 108f; cy = local.y * 108f;
-            w = bg.WorldW * 108f; h = bg.WorldH * 108f;
+            cx = local.x; cy = local.y;
+            var s = HudCanvas.SizePx(bg.Rect);
+            w = s.x; h = s.y;
             return true;
         }
 
@@ -1283,50 +1519,50 @@ namespace CardPresentation
             var chkTex = CardArt.Ui("Volume_button");
 
             // 两块底图（原版 `Image` + `preserveAspect = 1` ⇒ 按框内接；图 301×120、框 180.76×56.80）
+            // 🔴 **2026-10-16（`T09` 批 2）**：这一行四张图 + 三颗字全部改走 uGUI 口（`Img` / `MakeText`）
+            //    —— `FitHeight` 那两条**内接**算式、坐标、尺寸、z **逐值不动**（px）。
             float bgH = offTex != null
                       ? ImageQuad.FitHeight(U(MuteBgWPx), U(MuteBgHPx), offTex.width / (float)offTex.height)
                       : U(MuteBgHPx);
-            _muteOffBg = ImageQuad.Create(transform, offTex,
-                                          new Vector3(U(MuteCxPx + MuteBgOffCxPx), U(MuteCyPx), z - 0.05f),
-                                          bgH, new Vector2(0.5f, 0.5f), "settings_mute_bg_off");
+            _muteOffBg = Img(_panel, "settings_mute_bg_off", offTex,
+                             U(MuteCxPx + MuteBgOffCxPx), U(MuteCyPx), bgH, z - 0.05f);
             float bgHOn = onTex != null
                         ? ImageQuad.FitHeight(U(MuteBgWPx), U(MuteBgHPx), onTex.width / (float)onTex.height)
                         : U(MuteBgHPx);
-            _muteOnBg = ImageQuad.Create(transform, onTex,
-                                         new Vector3(U(MuteCxPx + MuteBgCxPx), U(MuteCyPx), z - 0.06f),
-                                         bgHOn, new Vector2(0.5f, 0.5f), "settings_mute_bg_on");
+            _muteOnBg = Img(_panel, "settings_mute_bg_on", onTex,
+                            U(MuteCxPx + MuteBgCxPx), U(MuteCyPx), bgHOn, z - 0.06f);
 
             // 两颗勾（原版 `Checkmark`，图 `Volume_button` 110×110 方图 + `preserveAspect` ⇒ 取短边内接）
             float chkH = chkTex != null
                        ? ImageQuad.FitHeight(U(MuteChkWPx), U(MuteChkHPx), chkTex.width / (float)chkTex.height)
                        : U(MuteChkHPx);
-            _muteOffChk = ImageQuad.Create(transform, chkTex,
-                                           new Vector3(U(MuteCxPx + MuteChkOffCxPx), U(MuteCyPx + MuteChkCyPx), z - 0.051f),
-                                           chkH, new Vector2(0.5f, 0.5f), "settings_mute_check_off");
-            _muteOnChk = ImageQuad.Create(transform, chkTex,
-                                          new Vector3(U(MuteCxPx + MuteChkOnCxPx), U(MuteCyPx + MuteChkCyPx), z - 0.061f),
-                                          chkH, new Vector2(0.5f, 0.5f), "settings_mute_check_on");
+            _muteOffChk = Img(_panel, "settings_mute_check_off", chkTex,
+                              U(MuteCxPx + MuteChkOffCxPx), U(MuteCyPx + MuteChkCyPx), chkH, z - 0.051f);
+            _muteOnChk = Img(_panel, "settings_mute_check_on", chkTex,
+                             U(MuteCxPx + MuteChkOnCxPx), U(MuteCyPx + MuteChkCyPx), chkH, z - 0.061f);
 
             // 两颗字：原版 `OffText` / `OnText`（fs30、auto[1,30]、base 36、居中、词条见上面那两条键）
             string offTxt = Loc.T(MuteOffTermKey), onTxt = Loc.T(MuteOnTermKey);
-            _muteOffText = Label.Create(transform, offTxt,
-                                        new Vector3(U(MuteCxPx + MuteTxtOffCxPx), U(MuteCyPx + MuteTxtCyPx), z - 0.052f),
-                                        4, Color.white, new Vector2(0.5f, 0.5f), "settings_mute_text_off");
+            _muteOffText = HudCanvas.MakeText(_panel, offTxt,
+                                              U(MuteCxPx + MuteTxtOffCxPx), U(MuteCyPx + MuteTxtCyPx),
+                                              4, Color.white, new Vector2(0.5f, 0.5f), z - 0.052f,
+                                              "settings_mute_text_off");
             ApplyLangFont(_muteOffText, offTxt, MuteOnOffFontPx);
             if (_muteOffText != null)
                 _muteOffText.SetAutoFitBox(U(MuteTxtOffWPx), U(MuteTxtHPx), 1f, MuteOnOffFontPx, MuteAutoBase);
-            _muteOnText = Label.Create(transform, onTxt,
-                                       new Vector3(U(MuteCxPx + MuteTxtOnCxPx), U(MuteCyPx + MuteTxtCyPx), z - 0.062f),
-                                       4, Color.white, new Vector2(0.5f, 0.5f), "settings_mute_text_on");
+            _muteOnText = HudCanvas.MakeText(_panel, onTxt,
+                                             U(MuteCxPx + MuteTxtOnCxPx), U(MuteCyPx + MuteTxtCyPx),
+                                             4, Color.white, new Vector2(0.5f, 0.5f), z - 0.062f,
+                                             "settings_mute_text_on");
             ApplyLangFont(_muteOnText, onTxt, MuteOnOffFontPx);
             if (_muteOnText != null)
                 _muteOnText.SetAutoFitBox(U(MuteTxtOnWPx), U(MuteTxtHPx), 1f, MuteOnOffFontPx, MuteAutoBase);
 
             // 左边那句：原版 `Label`（TMP `"Mute opponent"`、fs42、auto[18,42]、base 36、Left/**Middle**、白）
             string lab = Loc.T(MuteLabelTermKey);
-            _muteLabel = Label.Create(transform, lab,
-                                      new Vector3(U(MuteLabelLeftPx), U(MuteLabelCyPx), z - 0.05f),
-                                      4, Color.white, new Vector2(0f, 0.5f), "settings_mute_label");
+            _muteLabel = HudCanvas.MakeText(_panel, lab, U(MuteLabelLeftPx), U(MuteLabelCyPx),
+                                            4, Color.white, new Vector2(0f, 0.5f), z - 0.05f,
+                                            "settings_mute_label");
             // 字号按语种选（`ApplyLangFont` → `Label.SetScriptHeight` → `Loc.HasCjk` 那条唯一判据），
             // ⚠️ 顺序照 `SliderLabel`：**先**定字体高度、**再** `SetAutoFitBox`（后者会重排 mesh）。
             ApplyLangFont(_muteLabel, lab, MuteFontPx);
@@ -1351,11 +1587,13 @@ namespace CardPresentation
         }
 
         /// <summary>这一下点在「静音对手」那一行上吗。判据 = 上面 `MuteHitPx` 那两块**原版矩形**，
-        /// ⛔ 不是「整行框」。真实输入与自检走的是**同一条**判定（自检拿 `MuteChatWorldPos()` 喂进来）。</summary>
+        /// ⛔ 不是「整行框」。真实输入与自检走的是**同一条**判定（自检拿 `MuteChatWorldPos()` 喂进来）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：`transform`（世界空间那层壳）→ **`_panel`**（面板帧）——
+        /// 只有面板帧的局部单位是 **px**，而那组 `MuteHitPx` 常量就是面板内 px。到命中的那条判定**没变**。</summary>
         public bool HitMuteChat(Vector3 world)
         {
-            if (!Visible) return false;
-            var l = transform.InverseTransformPoint(world);      // 面板局部（= px/108、y 向上）
+            if (!Visible || _panel == null) return false;
+            var l = _panel.InverseTransformPoint(world);         // 面板局部（= px、y 向上）
             foreach (var r in MuteHitPx)
                 if (Mathf.Abs(l.x - U(r[0])) <= U(r[2]) * 0.5f && Mathf.Abs(l.y - U(r[1])) <= U(r[3]) * 0.5f)
                     return true;
@@ -1399,15 +1637,18 @@ namespace CardPresentation
             return _muteOffBg != null ? _muteOffBg.transform.position : Vector3.zero;
         }
         /// <summary>自检量版面用：这一行的矩形（**相对面板中心**，px、y 向上）。
-        /// ⚠️ 量的是 **ON 那半的底图**（两块同 rect ⇒ 等价），走 `InverseTransformPoint`（同 `LangRowRectPx`）。</summary>
+        /// ⚠️ 量的是 **ON 那半的底图**（两块同 rect ⇒ 等价），走 `InverseTransformPoint`（同 `LangRowRectPx`）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：两个因子都改了、**返回值仍是 px**（自检那几条期望值不动）：
+        /// ① 参考帧 `transform` → **`_panel`**（只有它是 px）；② 尺寸走 `HudCanvas.SizePx`（成对的那个逆）。</summary>
         public bool MuteChatRectPx(out float cx, out float cy, out float w, out float h)
         {
             cx = cy = w = h = 0f;
             var b = _muteOnBg != null ? _muteOnBg : _muteOffBg;
-            if (b == null) return false;
-            var local = transform.InverseTransformPoint(b.transform.position);
-            cx = local.x * 108f; cy = local.y * 108f;
-            w = b.WorldW * 108f; h = b.WorldH * 108f;
+            if (b == null || _panel == null) return false;
+            var local = _panel.InverseTransformPoint(b.transform.position);
+            cx = local.x; cy = local.y;
+            var s = HudCanvas.SizePx(b.Rect);
+            w = s.x; h = s.y;
             return true;
         }
 
@@ -1420,8 +1661,11 @@ namespace CardPresentation
         Label SliderLabel(string term, int i, float z)
         {
             string text = Loc.T(term);                                  // 原版词条（见 `SliderNameTerms`）
-            var l = Label.Create(transform, text, new Vector3(U(LabelLeftX), U(LabelBoxCy[i]), z - 0.01f),
-                                 4, Color.white, new Vector2(0f, 0.5f), "settings_slider_label_" + i);
+            // 🔴 **2026-10-16（`T09` 批 2）**：这两颗标签**在画布上**（⇒ uGUI 档、单位 = px）——
+            //    它们与那三根滑块是**两族**：滑块留在世界空间（文件头那条「例外」），标签跟着面板帧走。
+            var l = HudCanvas.MakeText(_panel, text, U(LabelLeftX), U(LabelBoxCy[i]),
+                                       4, Color.white, new Vector2(0f, 0.5f), z - 0.01f,
+                                       "settings_slider_label_" + i);
             // 🔴 **字号按语种选**（唯一一份实现 = `ApplyLangFont`）：fs42 是 TMP 的 font size，
             //    拉丁大写只占约 **0.72 em**、汉字约占 **1 em** —— 写死一种就会让另一档差 28%/39%。
             //    （这两条标签自 2026-10-18 起**跟着语言变**，所以这里不能再写死 `SetCapHeight(0.72em)`。）
@@ -1589,11 +1833,12 @@ namespace CardPresentation
         }
 
         /// <summary>这一下点在「Auto Zoom」那一行上吗。判据 = 上面那两块**原版矩形**（见 <see cref="AzHitPx"/>），
-        /// ⛔ 不是「行框整个」。真实输入与自检走的是同一条判定（自检拿 `AutoZoomRowWorldPos` 喂进来）。</summary>
+        /// ⛔ 不是「行框整个」。真实输入与自检走的是同一条判定（自检拿 `AutoZoomRowWorldPos` 喂进来）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：参考帧 `transform` → **`_panel`**（只有它是 px，见 `HitMuteChat` 那条）。</summary>
         public bool HitAutoZoom(Vector3 world)
         {
-            if (!Visible) return false;
-            var l = transform.InverseTransformPoint(world);      // 面板局部（= px/108、y 向上）
+            if (!Visible || _panel == null) return false;
+            var l = _panel.InverseTransformPoint(world);         // 面板局部（= px、y 向上）
             foreach (var r in AzHitPx)
                 if (Mathf.Abs(l.x - U(r[0])) <= U(r[2]) * 0.5f && Mathf.Abs(l.y - U(r[1])) <= U(r[3]) * 0.5f)
                     return true;
@@ -1606,12 +1851,16 @@ namespace CardPresentation
 
         /// <summary>这一下点在**语言下拉框**上吗（原版那颗 `TMP_Dropdown` 挂在 `LanguagesDropdown` 上，
         /// 左边那颗 `SelectLanguageText` 点下去什么也不发生 ⇒ 只认框那一块）。
-        /// ⚠️ 判定与命中区**同一份几何**（`_langField.Contains` = 那颗 quad 的渲染矩形）——
-        /// 与 `HitDifficulty` / `HitResign` 同一套写法（⛔ 别在这儿另写一份手算矩形）。</summary>
+        /// ⚠️ 判定与命中区**同一份几何**（那颗框自己的矩形）——
+        /// 与 `HitDifficulty` / `HitResign` 同一套写法（`RectContains`，⛔ 别在这儿另写一份手算矩形）。</summary>
         public bool HitLanguage(Vector3 world)
         {
-            if (!Visible) return false;
-            return _langField != null && _langField.Contains(world);
+            if (!Visible || _langField == null) return false;
+            // 🔴 **2026-10-16（`T09` 批 2）**：`_langField.Contains`（走 `GetWorldCorners`）→ **`RectContains`**
+            //    —— 与 `HitResign`/`HitDifficulty` **同一套写法**（那条注释要求的正是这一条），
+            //    几何仍是那颗框自己的矩形（= 原版那颗 `Image` 的 250×59.4）⇒ 判定结果不变。
+            var s = HudCanvas.SizePx(_langField.Rect);
+            return RectContains(_langField.transform, world, s.x, s.y);
         }
 
         /// <summary>语言那一行的**按下 / 抬起**边沿 —— 返回「这一帧这一次抬起算不算点到了它」。
@@ -1674,8 +1923,8 @@ namespace CardPresentation
         {
             foreach (var go in new[] { _shade, _bg, _close, _closeIcon, _diffBtn })
                 if (go != null) go.gameObject.SetActive(on);
-            if (_resignBtn != null) _resignBtn.SetActive(on);   // 九宫格根节点（不是 ImageQuad）
-            if (_skipBtn != null) _skipBtn.SetActive(on);       // 🆕 A991：同上（那颗也是九宫格）
+            if (_resignBtn != null) _resignBtn.gameObject.SetActive(on);   // 一张 `Image (Sliced)`（不是 `ImageQuad`）
+            if (_skipBtn != null) _skipBtn.gameObject.SetActive(on);       // 🆕 A991：同上（那颗也是九宫格 ⇒ uGUI 一张）
             foreach (var l in new[] { _title, _resignText, _skipText, _diffLabel, _diffValue,
                                       _musicLabel, _fxLabel, _voiceLabel, _azLabel,
                                       // 🆕 2026-10-17：语言那一行的两颗字（框里的语言名 + 左边的标签）
@@ -1709,10 +1958,16 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>指针是不是落在面板上（开着的时候**吃掉**点击，别穿到棋盘）</summary>
+        /// <summary>指针是不是落在面板上（开着的时候**吃掉**点击，别穿到棋盘）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：`HudPiece.Contains`（走 `GetWorldCorners`）→ **`RectContains`**
+        /// （本件自己的局部坐标系 + 尺寸）—— 与 `HitResign`/`HitLangRow` **同一套写法**，
+        /// 而且不依赖「画布有没有被引擎摆过」（批处理下 `GetWorldCorners` 的可用性没验过）。
+        /// 几何上两者**同一块矩形**（`_bg` 就是 743.2×758.6、中心锚）。</summary>
         public bool Contains(Vector3 world)
         {
-            return _bg != null && _bg.Contains(world);
+            if (_bg == null) return false;
+            var s = HudCanvas.SizePx(_bg.Rect);
+            return RectContains(_bg.transform, world, s.x, s.y);
         }
 
         /// <summary>这一下点在「投降」上吗</summary>
@@ -1740,8 +1995,10 @@ namespace CardPresentation
         /// 量的是**画出来那个 31.5 的正方** ⇒ 原版那一圈**全丢**）。</para></summary>
         public bool HitClose(Vector3 world)
         {
-            if (!Visible) return false;
-            if (_close != null && _close.Contains(world)) return true;
+            if (!Visible || _close == null) return false;
+            // 🔴 **2026-10-16（`T09` 批 2）**：`_close.Contains` → `RectContains`（同 `Contains` 那条口径）。
+            var s = HudCanvas.SizePx(_close.Rect);
+            if (RectContains(_close.transform, world, s.x, s.y)) return true;
             return CloseIconHit(world);
         }
 
@@ -1754,7 +2011,9 @@ namespace CardPresentation
         {
             if (_closeIcon == null) return false;
             var l = _closeIcon.transform.InverseTransformPoint(world);
-            float ppu = 1f / U(1f);                   // = 108：取本件唯一那个换算的倒数 ⇒ 不写第二份换算
+            // 🔴 **2026-10-16（`T09` 批 2）**：`U(1f)` 现在是 **1**（面板帧的单位 = px）⇒ 这一句
+            //    **自己就跟着档走**（旧世界档 `U(1f)` = 1/108 ⇒ ppu = 108）。⛔ 别把它写死成 108。
+            float ppu = 1f / U(1f);                   // = 1：取本件唯一那个换算的倒数 ⇒ 不写第二份换算
             var hit = MenuDraw.PaddedHitRect(
                 new PxRect(-CloseIconRectW * 0.5f, -CloseIconRectH * 0.5f,
                             CloseIconRectW * 0.5f,  CloseIconRectH * 0.5f),
@@ -1775,10 +2034,13 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>这一下点在「对手难度」上吗</summary>
+        /// <summary>这一下点在「对手难度」上吗
+        /// （🔴 **2026-10-16（`T09` 批 2）**：`Contains` → `RectContains`，同 `HitClose` 那条口径）。</summary>
         public bool HitDifficulty(Vector3 world)
         {
-            return Visible && _diffBtn != null && _diffBtn.Contains(world);
+            if (!Visible || _diffBtn == null) return false;
+            var s = HudCanvas.SizePx(_diffBtn.Rect);
+            return RectContains(_diffBtn.transform, world, s.x, s.y);
         }
 
         /// <summary>点面板的空白处 —— 吃掉，但不做事（原版有 `Dark Shade` 挡住背后）</summary>
@@ -1799,12 +2061,14 @@ namespace CardPresentation
         /// 字/图标是压在它上面的、中心同一个）。</summary>
         public Vector3 CloseWorldPos { get { return _close != null ? _close.transform.position : Vector3.zero; } }
 
-        /// <summary>关闭钮**实绘**的世界宽 × 高（px 版 = 再 × 108）。
-        /// 判据 = 那颗 `ImageQuad` 的 `WorldW/WorldH`（= 贴图比例 × 建时给的 `U(ClosePx)`），
-        /// ⛔ 不是「按 75×75 那个框反推」—— 两者不一致就是 `E2` 要报的东西。</summary>
+        /// <summary>关闭钮**实绘**的宽 × 高（**设计 px**）。
+        /// 判据 = 那颗 `Image` 的 `sizeDelta`（= 贴图比例 × 建时给的高 `U(ClosePx)`），
+        /// ⛔ 不是「按 75×75 那个框反推」—— 两者不一致就是 `E2` 要报的东西。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：改读 **px**（`HudCanvas.SizePx` = `sizeDelta` 的成对逆）
+        /// —— 旧那套读 `WorldW/H`（**世界单位**，自检再 ×108）⇒ **自检那几条要跟着去掉 `× 108f`**。</summary>
         public Vector2 CloseDrawnSize
         {
-            get { return _close != null ? new Vector2(_close.WorldW, _close.WorldH) : Vector2.zero; }
+            get { return _close != null ? HudCanvas.SizePx(_close.Rect) : Vector2.zero; }
         }
 
         // ---- 🆕 2026-10-18（A991）「跳过教程」钮的自检口（⛔ 只读，不给生产用）----
@@ -1812,7 +2076,7 @@ namespace CardPresentation
         public bool SkipTutorialBuilt { get { return _skipBtn != null && _skipText != null; } }
         /// <summary>那颗钮**现在画不画**（跟着面板开关走 —— 原版那颗在 `BattleSettingsPanel` 里、
         /// 面板在场景里是 `(inactive)`，运行期由设置按钮打开）。</summary>
-        public bool SkipTutorialShown { get { return _skipBtn != null && _skipBtn.activeSelf; } }
+        public bool SkipTutorialShown { get { return _skipBtn != null && _skipBtn.gameObject.activeSelf; } }
         /// <summary>那颗钮（九宫格根）的**世界坐标** —— 自检照着它点（走与真实输入同一条判定）。</summary>
         public Vector3 SkipTutorialWorldPos { get { return _skipBtn != null ? _skipBtn.transform.position : Vector3.zero; } }
         /// <summary>那颗字上写的是什么（原版 TMP 原文 `Skip tutorial`）。</summary>
@@ -1821,10 +2085,17 @@ namespace CardPresentation
         public string DifficultyText { get { return _diffValue != null ? _diffValue.Text : null; } }
         /// <summary>难度按钮的世界坐标（自检照着它点）</summary>
         public Vector3 DifficultyWorldPos { get { return _diffBtn != null ? _diffBtn.transform.position : Vector3.zero; } }
-        /// <summary>自检用（**A276**）：投降钮写进去的**局部 z**（没建出来 ⇒ `NaN`）。
-        /// 判据 = 它**只由本件的 `Z` 决定**，不许随本面板的世界 z 变 —— 同父的 `_close`/`_resignText`
-        /// 都是裸局部 z ⇒ 同一父节点下只该有一套口径（判据全文 → `资料/普查产出_1010/V4b_三件口径.md` §Q2）。</summary>
-        public float ResignLocalZ { get { return _resignBtn != null ? _resignBtn.transform.localPosition.z : float.NaN; } }
+        /// <summary>自检用（**A276**）：投降钮那一层占的 **z 档**（没建出来 ⇒ `NaN`）。
+        /// <para>判据 = 它**只由本件的 `PanelZ` 那一套决定**，不许随本面板的世界 z 变。</para>
+        /// <para>🔴 **2026-10-16（`T09` 批 2）语义换了（铁律 5，如实记）**：uGUI 档里**根本没有局部 z**
+        /// （画布上的件靠兄弟序/排序层）⇒ 原来那句 `transform.localPosition.z` 恒 `0`、**断言会变成恒真**
+        /// （两颗面板都比 0 ⇒ 永远绿）。现在报的是**登记的兄弟序 z**（`HudCanvas.OrderZOf`）——
+        /// 它才是「同一父节点下只该有一套 z 口径」这条判据在 uGUI 档的**对应物**（口径全文 →
+        /// `资料/普查产出_1010/V4b_三件口径.md` §Q2）。⚠️ **自检那条断言要同批改**（见报告）。</para></summary>
+        public float ResignLocalZ
+        {
+            get { return _resignBtn != null ? HudCanvas.OrderZOf(_resignBtn.Rect) : float.NaN; }
+        }
         public bool HasArt
         {
             get
@@ -1851,15 +2122,16 @@ namespace CardPresentation
         public Vector3 AutoZoomBoxWorldPos { get { return _azBox != null ? _azBox.transform.position : Vector3.zero; } }
         /// <summary>文字那格的世界坐标（= 原版 `Label` 的**左中**）—— 自检照它点。</summary>
         public Vector3 AutoZoomLabelWorldPos { get { return _azLabel != null ? _azLabel.transform.position : Vector3.zero; } }
-        /// <summary>勾选框**实画的**世界宽 × 世界高（判据 = uGUI `preserveAspect` 内接，见 `ImageQuad.FitHeight`）。</summary>
+        /// <summary>勾选框**实画的**宽 × 高（**设计 px**；判据 = uGUI `preserveAspect` 内接，见 `ImageQuad.FitHeight`）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：改读 **px**（`HudCanvas.SizePx`）⇒ **自检那两条要跟着去掉 `× 108f`**。</summary>
         public Vector2 AutoZoomBoxDrawnSize
         {
-            get { return _azBox != null ? new Vector2(_azBox.WorldW, _azBox.WorldH) : Vector2.zero; }
+            get { return _azBox != null ? HudCanvas.SizePx(_azBox.Rect) : Vector2.zero; }
         }
-        /// <summary>勾**实画的**世界宽 × 世界高。</summary>
+        /// <summary>勾**实画的**宽 × 高（**设计 px**，同上）。</summary>
         public Vector2 AutoZoomCheckDrawnSize
         {
-            get { return _azCheck != null ? new Vector2(_azCheck.WorldW, _azCheck.WorldH) : Vector2.zero; }
+            get { return _azCheck != null ? HudCanvas.SizePx(_azCheck.Rect) : Vector2.zero; }
         }
         /// <summary>勾选框那个绿（自检钉「染对色了没有」；⛔ 值本身来自原版 `m_Colors.m_NormalColor`）。</summary>
         public Color AutoZoomBoxTint { get { return AzBoxTint; } }
@@ -1875,12 +2147,18 @@ namespace CardPresentation
         public string LanguageLabelText { get { return _langSelText != null ? _langSelText.Text : null; } }
         /// <summary>下拉框那颗 quad 的世界坐标（自检照着它点 —— 走与真实输入同一条判定）。</summary>
         public Vector3 LanguageFieldWorldPos { get { return _langField != null ? _langField.transform.position : Vector3.zero; } }
-        /// <summary>框**实画的**世界宽 × 世界高（原版那颗是 `Simple`（拉伸）⇒ 应逐值等于 250×59.4 px ÷ 108）。</summary>
+        /// <summary>框**实画的**宽 × 高（**设计 px**；原版那颗是 `Simple`（拉伸）⇒ 应逐值等于 250×59.4）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：改读 px ⇒ **自检那条要跟着去掉 `× 108f`**。</summary>
         public Vector2 LanguageFieldDrawnSize
-        { get { return _langField != null ? new Vector2(_langField.WorldW, _langField.WorldH) : Vector2.zero; } }
-        /// <summary>箭头**实画的**世界宽 × 世界高（`preserveAspect`：46×19 内接进 20×20 ⇒ 高 20×19/46）。</summary>
+        {
+            get { return _langField != null ? HudCanvas.SizePx(_langField.Rect) : Vector2.zero; }
+        }
+        /// <summary>箭头**实画的**宽 × 高（**设计 px**；`preserveAspect`：46×19 内接进 20×20 ⇒ 高 20×19/46）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：改读 px ⇒ **自检那条要跟着去掉 `× 108f`**。</summary>
         public Vector2 LanguageArrowDrawnSize
-        { get { return _langArrow != null ? new Vector2(_langArrow.WorldW, _langArrow.WorldH) : Vector2.zero; } }
+        {
+            get { return _langArrow != null ? HudCanvas.SizePx(_langArrow.Rect) : Vector2.zero; }
+        }
         /// <summary>箭头那颗 quad 的世界坐标（自检量它有没有落进框右端那一格）。</summary>
         public Vector3 LanguageArrowWorldPos { get { return _langArrow != null ? _langArrow.transform.position : Vector3.zero; } }
         /// <summary>左边那颗标签的世界坐标（= 原版 `SelectLanguageText` 框的**左中**）。</summary>

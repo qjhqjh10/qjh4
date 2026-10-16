@@ -17,6 +17,35 @@
 //   · 反编译 `BattleHud__DisplayMultiCardView.c`：`UIMultiCardDisplay.Initialize(cards, header)`
 //     + `WindowsManager.OpenWindow(...)`；调用点在 `BattleManager__ResolveAction.c`（带一个**本地化过的标题**）。
 //
+// 🔴 **2026-10-16（`T09` 批 3 · `OverHand` 组）：本扇已迁到 uGUI 子画布** ——
+//    配方与全部口径 → `资料/任务线/战斗线/任务/T09_整层换uGUI.md` **§五·补⑨ / §五·补⑩**；
+//    映射那一行 → `资料/普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一（`MultiCardDisplay` 那一行）。
+//   · **子画布** = `HudCanvas.EnsureSubCanvas(null, "Generic Multi Card Display Combat Canvas",
+//     HudCanvas.SortingLayer.OverHand, 0)` —— 层/order **照原版那一行**（原版这一件**自身没有 `Canvas` 组件**，
+//     它随 `Safe area FrontCanvas` 的 `FrontCanvas`(rm2/ovr… / **`OverHand`**/order 0) 渲染 ⇒
+//     我们给它一块**同层同序、`overrideSorting`** 的子画布，继承根 canvas 的 `CanvasScaler`）。
+//   · 🔴 **本扇因此分成两个节点**（同 `SettingsPanel` 那件「**世界壳 + 画布本体**」的形状）：
+//       ① **世界壳** = `MultiCardDisplay`（`Create` 建的那个节点，**仍是**「世界空间 1920×818」）——
+//          装**卡片**：`CardView` 是**世界物件**（`T09` §五·补⑧ 明写「手牌与场上卡」还没迁，
+//          第 6 步走 `Physics2D` 那条），它的局部单位是**世界单位**、`SetPose` 收的也是世界坐标
+//          ⇒ 一搬上画布（局部单位变**设计 px**）那张卡就会**贴着画布中心摆**（差 108 倍、**不报错**；
+//          同 `BattleLogPanel` 留下那个「悬停卡」父节点的理由，逐字同一条）。
+//          它**不是死件**：`Editor/BattleScene.cs` §A218 量「多卡展示窗根 = 1920×818」量的就是它。
+//       ② **画布本体** = `Generic Multi Card Display Combat`（挂在子画布下、**1920×818.04 设计 px**、
+//          摆在设计中心 (960,540)）—— 装这一整组「图与字」：**标题 / 继续条 / 圆钮 / 「继续」两个字 /
+//          底部提示行**。
+//   · 🔴🔴 **本文件里唯一【有意留在世界空间】的图 = `mcd_mask`（整屏压暗）** —— ⛔ 别顺手把它迁上去，
+//     三条理由（同批 `CardChoicePanel` 那层 `ChoiceShade` 是**同一条**，两处注释互相指）：
+//       ① **它必须画在卡片【后面】**：原版那张 `Menu Dark Background`（4574.6×2572.4 · α0.7725）就是
+//          「卡片底下的暗底」。挪到卡片前面 ⇒ 卡被压到 **23% 亮度**、这个窗的用途就没了。
+//       ② **卡片是 `MeshRenderer`（`CardView`），不归画布管** —— 它落在 `Default` 排序层、order 0
+//          （`CardView` 全族 `renderQueue 3000`）；而我们的子画布是 **`OverHand`**（更高）
+//          ⇒ **画布上的任何件都画在它【上面】**（判据 → `T09` §五·补⑤ ⑤：「给了 `sortingOrder`
+//          ⇒ 那一扇**盖住所有还没迁的件**」）。
+//       ③ ⇒ **在卡片迁上画布之前，「必须画在卡片后面」的整屏件一个都不能上画布。**
+//     ⚠️ 这是**临时边界**（随第 6 步「手牌 / 场上卡」那批一起消失），已写进 T09 批 3 的报告。
+//     ⚠️ **`_mask` 的字段类型保持 `ImageQuad`**（有意：它**没迁**，类型上就不该装成 `HudPiece`）。
+//
 // 🔴 **我们挑的（解包里查不到 / 我们没那套设施，如实标着，别当成原版行为）**：
 //   ① **卡与卡的间距 24 px** —— 解包里查不到（原版 `Content` 的宽由 `ContentSizeFitter` 运行时算，
 //      静态表里是塌缩值 −1917.7）。
@@ -28,6 +57,7 @@
 //      —— 2026-09-28 订正，判据 → `资料/阶段二_卡片详情窗_原版规格.md` §十·4。
 //   ③ **滚动**：原版是 uGUI `ScrollRect` + `RectMask2D` 裁剪；我们这套 HUD 是**世界空间四边形**、
 //      没有 uGUI 遮罩 ⇒ 卡放不下时**先把卡等比缩到装得下**（缩到 45% 仍装不下才让它溢出去）。
+//      ⚠️ 迁到画布之后**仍没做**（卡片那一支还是世界空间）——「继续不缩、改成横向滚动」是**另开一件**的活。
 //   ④ **「继续」文字右对齐**：我们这块 `Label` 只有居中 ⇒ 用「中心点右移」近似。
 //   ⑤ **入口**：原版从 `BattleManager.ResolveAction` 里调（环境卡 / 战绩卡组），我们没有那两个流程
 //      ⇒ 接到**点我方牌堆**（摊开牌库）—— **入口是我们挑的**。
@@ -61,8 +91,12 @@ namespace CardPresentation
         /// ⇒ `27.4 / 7 ≈ 3.9` ⇒ 最近整数档 = **4**（3 档 → 21 px，小 23%；5 档 → 35 px，大 28%）。
         /// 真正的字号**一律走 `Label.SetScriptHeight(text, px, pxPerUnit)`** —— 那是「按语种二选一」的
         /// **唯一一份**口径（汉字 `SetGlyphHeight(≈1em)` / 拉丁 `SetCapHeight(≈0.72em)`，`Battle/Label.cs:266`）；
-        /// 兄弟件同一个形状：`Battle/MulliganPanel.cs:238` · `Battle/CardChoicePanel.cs:156`。
-        /// ⚠️ 原来这两处把 **38 当 scale 传**（= 原版的 12.7 倍），实测症状 = 画面右下角两个巨大白字。</summary>
+        /// 兄弟件同一个形状：`Battle/MulliganPanel.cs:238` · `Battle/CardChoicePanel.cs:423`
+        /// （⚠️ 2026-10-16 现读：后者的行号随本批改动挪过 —— 原来这里是 `:156`）。
+        /// ⚠️ 原来这两处把 **38 当 scale 传**（= 原版的 12.7 倍），实测症状 = 画面右下角两个巨大白字。
+        /// 🔴 **2026-10-16（`T09` 批 3）**：`pxPerUnit` 那一格**两档不同** —— 世界档传 `EndPanel.PxPerUnit`(108)、
+        /// **uGUI 档必须传 `1`**（canvas 单位**就是**设计 px，`Label.PxPerUnit` 的 doc 逐字如是）
+        /// 传 108 ⇒ 字**小 108 倍**、而**一个字都不报**。</summary>
         const int ChromeFontScale = 4;
         /// <summary>Continue 条：`x[1322.7,1900.2] y[945.2,1009]`</summary>
         const float BarCx = 1611.45f, BarCy = 977.1f, BarW = 577.5f, BarH = 63.84f;
@@ -78,12 +112,16 @@ namespace CardPresentation
         /// <summary>圆钮：`x[1723.2,1803.7] y[937.3,1016.9]`（**纵向凸出横条**）。
         /// `CircleD` = 原版 rect 的**宽**（也是 `HitContinue` 认的那一份，口径未改）；
         /// `CircleH` = 它的**高** —— 原版那一格**不是正方**（80.47 × 79.64）。
-        /// ⚠️ `ImageQuad.Create` 只吃**高**（宽 = 高 × 显示比例），所以画的时候喂的是 `CircleH`
-        /// + `SetAspect(CircleD / CircleH)` —— 兄弟件 `CardChoicePanel.cs:71` 的 `PlayH = 79.64` 也是这个高
-        /// （它们没补 `SetAspect`，因为 `40k_UI_bt_play` 是 128×128、补不补差 1%）。</summary>
+        /// ⚠️ 旧那套 `ImageQuad.Create` 只吃**高**（宽 = 高 × 显示比例）⇒ 那时得喂 `CircleH` + `SetAspect`；
+        /// 迁到 uGUI 之后走 `HudCanvas.MakeImageInParent(…, w, h, …)`，**宽高各给一个数** ⇒ 直接喂这一对，
+        /// ⛔ 不再需要 `SetAspect`（`MakeImageInParent` 恒 `preserveAspect = false` = 原版 `PA=0` 拉满）。</summary>
         const float CircleCx = 1763.45f, CircleCy = 977.1f, CircleD = 80.47f, CircleH = 79.64f;
         /// <summary>Continue 的绿色（原版 Button `colors.normal`）</summary>
         static readonly Color BarColor = new Color(0.369f, 0.894f, 0.587f);
+        /// <summary>本扇**子画布**的名字（= 原版宿主 GO 名 + ` Canvas`，同批 5 扇同一个命名法）。</summary>
+        const string SubCanvasName = "Generic Multi Card Display Combat Canvas";
+        /// <summary>本扇**画布本体**那个节点的名字（**逐字 = 原版宿主 GO 名**）。</summary>
+        const string PanelNodeName = "Generic Multi Card Display Combat";
 
         /// <summary>卡片高度（px）。
         ///
@@ -107,9 +145,13 @@ namespace CardPresentation
         const float MinShrink = 0.45f;
 
         const float ZMask = -2.2f, ZContent = -2.3f;   // 比放大窗（−2.0/−2.1）还靠前一点
+        /// <summary>画布本体那个节点在**子画布**里的 z 档（它是子画布的**独子** ⇒ 只用于登记兄弟序）。</summary>
+        const float ZBody = ZContent;
 
-        Transform _root;
-        ImageQuad _mask, _bar, _circle;
+        Transform _root;          // 世界壳：卡片 + 整屏压暗（见文件头那张「两个节点」的说明）
+        Transform _panel;         // 画布本体：标题 / 继续条 / 圆钮 / 两个字 / 提示
+        ImageQuad _mask;          // 🔴 有意**留在世界空间**（必须压在卡片后面，见文件头那三条）
+        HudPiece _bar, _circle;
         Label _header, _barText, _hint;
         readonly List<CardView> _cards = new List<CardView>();
 
@@ -128,6 +170,14 @@ namespace CardPresentation
         /// <summary>卡片中心 y（px；自检用）</summary>
         public float CardCypx { get; private set; }
 
+        /// <summary>🆕 **2026-10-16（`T09` 批 3）**：本扇**画布本体**那个节点的 rect（自检用）。
+        /// 判据 = **原版那一对锚点逐字复刻**：`Generic Multi Card Display Combat` 的
+        /// `anchor (0,0.5)-(1,0.5)`（横向 stretch）+ `sizeDelta (0, **818.04**)`
+        /// ⇒ 我们写 `sizeDelta (0, BandBottomPx − BandTopPx = **818**)`、横向由 stretch 拿父宽
+        /// ⇒ `rect = (**画布宽** × 818)`（16:9 下画布宽就是 1920）。
+        /// ⚠️ 拿不到（子画布没立起来 ⇒ 本窗整个没建）时返回 `null`。</summary>
+        public RectTransform PanelRect { get { return _panel as RectTransform; } }
+
         public static MultiCardDisplay Create(Transform parent)
         {
             // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
@@ -139,10 +189,48 @@ namespace CardPresentation
             //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「多卡展示窗根 = 1920×818.04」红。
             //    ⚠️ 高度取本文件那对上下缘（`BandBottomPx − BandTopPx` = 818，原版精确值 818.04 ——
             //       那 0.04px 的取整在本文件全部几何里已经这样用了，⛔ 别在这儿另立一个数）。
+            // 🔴🔴 **2026-10-16（`T09` 批 3）：这个节点【有意不迁】—— 它是「世界壳」**（只装卡片与整屏压暗，
+            //    两者都**必须留在世界空间**，理由三条写在文件头）。⇒ `MenuDraw.SetPxSize` 那对**世界单位**
+            //    写法**照旧**（⛔ 别换成 `HudCanvas.SetPxSize` —— 那会把 818 解释成 818 **设计 px**＝世界单位的
+            //    1/108，卡片那一支的 `Pos()` 是按**世界单位**算的，换了两边就对不上）。
             var go = new GameObject("MultiCardDisplay", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, BandBottomPx - BandTopPx);
             var w = go.AddComponent<MultiCardDisplay>();
+
+            // ---- 子画布：`OverHand` / order 0（判据 = 文件头那一行，⛔ 别自己编）------------------------
+            // 🔴 **子 Canvas 一个 `CanvasScaler` 都不许加**（原版全场景只有一个、在根上 ⇒ 加了会二次缩放）。
+            HudCanvas.Ensure(LayoutSpace.Cam);      // 幂等（`HudAbs` 那一族会先建；这里兜底）
+            var cv = HudCanvas.SubCanvas(SubCanvasName);
+            var cvRt = cv != null ? (RectTransform)cv.transform
+                                  : HudCanvas.EnsureSubCanvas(null, SubCanvasName,
+                                                              HudCanvas.SortingLayer.OverHand, 0);
+            if (cvRt == null)
+            {
+                // ⛔ **不许静默退回世界空间 quad** —— 半迁移态（一半跟画布、一半跟世界）在 16:9 下看不出来
+                //    （同 `HudCanvas.Ensure` / `Label.CreateUgui` 那两条红线）。
+                UnityEngine.Object.DestroyImmediate(go);
+                Debug.LogError("[多卡展示窗] `OverHand` 子画布建不起来（根 canvas 没有？）⇒ **本窗不建**");
+                return null;
+            }
+            // 画布本体：🔴 **逐字照原版那对锚点**（`T09c` §一 那一行 / 本文件头引的逐字段表）——
+            //   `anchor (0,0.5)-(1,0.5)`（**横向 stretch**、竖直居中）+ `sizeDelta (0, **818.04**)`
+            //   ⇒ 我们写 `anchorMin(0,0.5)/anchorMax(1,0.5)` + `sizeDelta (0, BandBottomPx−BandTopPx)`。
+            //   ⛔ **别退回「重合锚 + 写死 1920×818」**（那是**世界壳**那两个节点的写法、它在 21:9 下会窄 640 px）；
+            //      也别用 `FillParent` —— 那会把高变成**画布高**（4:3 下 1440）而不是原版那个 818.04。
+            // ✅ 这样锚点/枢轴与父链**与原版逐字一致**，而本节点的中心仍然 = 画布中心 = 屏心
+            //    ⇒ `HudCanvas.PosPx(x, y从顶)` 交出来的那一对数**照旧**是本节点的局部位移（子件全是中心锚）。
+            var pgo = new GameObject(PanelNodeName, typeof(RectTransform));
+            pgo.transform.SetParent(cvRt, false);
+            var prt = (RectTransform)pgo.transform;
+            prt.anchorMin = new Vector2(0f, 0.5f);
+            prt.anchorMax = new Vector2(1f, 0.5f);
+            prt.pivot = new Vector2(0.5f, 0.5f);
+            prt.anchoredPosition = Vector2.zero;
+            prt.sizeDelta = new Vector2(0f, BandBottomPx - BandTopPx);
+            w._panel = prt;
+            HudCanvas.Add(prt, ZBody);                 // 登记兄弟序（子画布下只有它一个）
+
             w.Build();
             w.Hide();
             return w;
@@ -150,8 +238,14 @@ namespace CardPresentation
 
         void Build()
         {
-            _root = transform;
+            _root = transform;                 // 世界壳（卡片 + 整屏压暗）
+            // ⛔ 这里**不设**「`_panel` 为空就退回 `_root`」那种兜底 —— 画布件挂在世界节点下**根本不渲染**
+            //    （`CanvasRenderer` 没有祖先 `Canvas`）⇒ 那是个「看不见、也不报错」的假兜底。
+            //    `_panel` 由 `Create` 保证非空（建不起来时本窗整个不建、已出声）。
 
+            // 整屏压暗：🔴 **有意留在世界空间**（见文件头那三条 —— 它必须画在卡片**后面**，
+            // 而卡片是 `MeshRenderer`、不归画布管 ⇒ 迁到 `OverHand` 画布上会把卡压到 23% 亮度）。
+            // 原版那张是 4574.6×2572.4（两倍屏还多）⇒ 我们按「可见高 ×1.2」开，两个轴都盖满。
             _mask = ImageQuad.Create(_root, CardDisplayWindow.SolidTexFor(LayoutSpace.VisibleWidth / LayoutSpace.DesignHeight),
                                      Vector3.zero, LayoutSpace.DesignHeight * 1.2f,
                                      new Vector2(0.5f, 0.5f), "mcd_mask");
@@ -160,13 +254,25 @@ namespace CardPresentation
                 _mask.transform.localPosition = new Vector3(0f, 0f, ZMask);
                 _mask.SetTint(new Color(0f, 0f, 0f, MaskAlpha));
             }
+            else Debug.LogError("[多卡展示窗] 整屏压暗（`mcd_mask`）没建起来");
+
+            // ---- 以下五件 = 「画布本体」那一组（图与字，全部在设计 px 上）----
+            // 🔴 **2026-10-16（`T09` 批 3）的换口**：`Label.Create(...) + Pos(px,py,z)` → `HudCanvas.MakeText(...)`
+            //    （**设计 px**、**相对父件中心**、y 向上）；`ImageQuad.Create(...)` → `HudCanvas.MakeImageInParent(...)`
+            //    （**相对父件中心**、y 从顶向下、**宽高各给一个数**）。⛔ **不能**用 `QuadFromTopPx` /
+            //    `MakeImage` —— 那两个的 `x/y` 是**屏幕绝对 px**（锚点 = `x/1920`、`1−y/1080`），
+            //    **只在 `parent` 本身是整屏矩形时才等于「相对父中心」**；本节点是 1920×**818** 的横带
+            //    ⇒ 用那两个会**静默摆到别处**（`HudCanvas.MakeImageInParent` 的 doc 逐字写着这条）。
 
             // 标题：锚在窗口带**顶边**（原版 `anchor(0.5,1) pivot(0.5,1)`）
             // 第 4 参是**整数 scale 档**（⛔ 不是原版那个 fs 38 —— 那个走 `SetScriptHeight`，见常量处的注释）。
             // 出厂这一下只是给个尺寸：标题文字是 `Show()` 里才定的（语种跟着标题走）⇒ 字号在那边再设一遍。
-            _header = Label.Create(_root, "", Pos(960f, BandTopPx + HeaderH * 0.5f, ZContent),
-                                   ChromeFontScale, Color.white, new Vector2(0.5f, 0.5f), "mcd_header");
-            if (_header != null) _header.SetScriptHeight("", ChromeFontPx, EndPanel.PxPerUnit);
+            // ⚠️ `SetScriptHeight` 的 `pxPerUnit` 在 uGUI 档 = **1**（canvas 单位就是设计 px）——
+            //    传 `EndPanel.PxPerUnit`(108) 会让字**小 108 倍**而**不报错**。
+            var tp = HudCanvas.PosPx(960f, BandTopPx + HeaderH * 0.5f);
+            _header = HudCanvas.MakeText(_panel, "", tp.x, tp.y, ChromeFontScale, Color.white,
+                                         new Vector2(0.5f, 0.5f), ZContent, "mcd_header");
+            if (_header != null) _header.SetScriptHeight("", ChromeFontPx, 1f);
 
             // Continue：**贴图用原版那两张**（`40k_bt_underbutton` / `40k_UI_bt_play`），
             // 图不在工程里时退回纯色（颜色仍是原版那个绿 —— 不静默、也不假装）
@@ -175,7 +281,9 @@ namespace CardPresentation
             //  ① **量纲**：`ImageQuad.Create` 第 4 参是**世界高度**，原来喂的是 px 原值
             //     （`BarH` / `CircleD`）⇒ 实绘 = 原版 rect 的 **108 倍**（条 40,285 × 6,894 px，
             //      整屏被 `40k_bt_underbutton` 铺满 —— 实据 `d:/4/_tmp_view/battle/11b_多张展示窗.png`）。
-            //     改用 `U(...)`（见本文件 `U` 的定义与那三条兄弟件出处）。
+            //     改用那个世界档的 `U(...)` —— 🔴 **2026-10-16（`T09` 批 3）之后这个助手【已从本文件删掉】**
+            //     （本件只剩 `_mask` 一件在世界空间、而它不开 px）：现在这两颗**直接给设计 px**
+            //     （见下面那两句 `MakeImageInParent` 的注释），⛔ 别再除 108。
             //  ② **显示比例**：`ImageQuad` 默认按**贴图比例**定宽（`ImageQuad.cs:124` `_aspect = tex.w/tex.h`），
             //     而原版这两格都是 `m_PreserveAspect = 0` + `m_Type = 0(Simple)` ⇒ **拉满 rect**。
             //     判据 = **2026-10-18 现读** `bundle_scenes_scenes_battlearena1`：
@@ -185,18 +293,25 @@ namespace CardPresentation
             //     贴图实际尺寸：`40k_bt_underbutton` = **485×83**（比例 5.8434，≠ 9.046）
             //       ⇒ 不补 `SetAspect` 只画出 **372.9 × 63.84**（**窄 204.6 px**）；
             //       `40k_UI_bt_play` = **128×128**（正方，≠ 1.0104）⇒ 差 1%（0.83 px），照旧补上。
-            //     兄弟件同一条：`Battle/CardChoicePanel.cs:161` · `Battle/MulliganPanel.cs:265`
-            //       （两句都是 `if (… != null) ….SetAspect(BarW / BarH);`）。
+            //     兄弟件同一条：`Battle/CardChoicePanel.cs` 的 `MakeImg`（**已经在画布上了** ⇒ 它给的也是
+            //       宽高各一个数，见那里的注释）· `Battle/MulliganPanel.cs:265`（**还没迁** ⇒ 仍是
+            //       `if (… != null) ….SetAspect(BarW / BarH);` 那句世界档写法）。
+            // 🔴 **2026-10-16（`T09` 批 3）**：uGUI 档改走 `MakeImageInParent(…, wPx, hPx, …)` —— **宽高各给一个数**、
+            //    `preserveAspect` 恒 `false` ⇒ **原版那对 `m_SizeDelta` 直接落进 `sizeDelta`**，
+            //    `SetAspect` 那一步**不再需要**（原来那两句算出来就是同一对数：条 577.5×63.84、圆钮 80.47×79.64）。
             var barTex = CardArt.Ui("40k_bt_underbutton");
-            _bar = ImageQuad.Create(_root, barTex != null ? barTex : CardDisplayWindow.SolidTexFor(BarW / BarH),
-                                    Pos(BarCx, BarCy, ZContent), U(BarH), new Vector2(0.5f, 0.5f), "mcd_bar");
-            if (_bar != null) _bar.SetAspect(BarW / BarH);
+            _bar = HudCanvas.MakeImageInParent(_panel,
+                                               barTex != null ? barTex : CardDisplayWindow.SolidTexFor(BarW / BarH),
+                                               "mcd_bar", BarCx - 960f, BarCy - 540f, BarW, BarH, ZContent, Color.white);
+            if (_bar == null) Debug.LogError("[多卡展示窗] 「继续」那条横条没建起来（贴图与纯色兜底都取不到？）");
             if (_bar != null && barTex == null) _bar.SetTint(BarColor);
 
             var circleTex = CardArt.Ui("40k_UI_bt_play");
-            _circle = ImageQuad.Create(_root, circleTex != null ? circleTex : CardDisplayWindow.SolidTexFor(1f),
-                                       Pos(CircleCx, CircleCy, ZContent), U(CircleH), new Vector2(0.5f, 0.5f), "mcd_circle");
-            if (_circle != null) _circle.SetAspect(CircleD / CircleH);
+            _circle = HudCanvas.MakeImageInParent(_panel,
+                                                  circleTex != null ? circleTex : CardDisplayWindow.SolidTexFor(1f),
+                                                  "mcd_circle", CircleCx - 960f, CircleCy - 540f,
+                                                  CircleD, CircleH, ZContent, Color.white);
+            if (_circle == null) Debug.LogError("[多卡展示窗] 「继续」那颗圆钮没建起来");
 
             // 文字**右对齐**在条内右侧（原版 `H=4(Right)`）—— 我们这块 `Label` 只有居中
             // ⇒ 用「中心点右移」近似（**我们挑的**，见文件头 ④）
@@ -204,17 +319,20 @@ namespace CardPresentation
             //    （原版 `Generic Multi Card Display Combat < BattleContinueButton < Text` 挂的就是它，
             //     TMP 原文 `Continue`）—— 原来写死的是中文 `"继续"`（与换牌面板那条是**同一条**词条）。
             string continueText = Loc.T(MulliganPanel.DoneTerm);
-            _barText = Label.Create(_root, continueText, Pos(BarCx + BarW * 0.5f - 60f, BarCy, ZContent), ChromeFontScale,
-                                    Color.white, new Vector2(0.5f, 0.5f), "mcd_continue");
-            if (_barText != null) _barText.SetScriptHeight(continueText, ChromeFontPx, EndPanel.PxPerUnit);
+            var bp = HudCanvas.PosPx(BarCx + BarW * 0.5f - 60f, BarCy);
+            _barText = HudCanvas.MakeText(_panel, continueText, bp.x, bp.y, ChromeFontScale,
+                                          Color.white, new Vector2(0.5f, 0.5f), ZContent, "mcd_continue");
+            if (_barText != null) _barText.SetScriptHeight(continueText, ChromeFontPx, 1f);
 
             // ⚠️ **这行提示是我们自加的**：原版 `Generic Multi Card Display Combat` 下只有
             //    `Header Text`（TMP = `Header Text`、**无 `Localize`**）· `BattleContinueButton` ·
             //    `CardUI Reference` · `Viewport` ⇒ **原版这一格零词条**（铁律 11 例外①）。
             //    它里面那个「继续」是**夹在中文句子里**的 ⇒ 英文档下这行会露中文 ——
             //    **这是已知缺口**（没有原版键可接，要修得先自拟一条两条语言都编的键），已记进交件报告。
-            _hint = Label.Create(_root, "点「继续」或再点一下牌堆关闭", Pos(960f, BandBottomPx + 34f, ZContent),
-                                 2, new Color(0.7f, 0.7f, 0.75f), new Vector2(0.5f, 0.5f), "mcd_hint");
+            var hntp = HudCanvas.PosPx(960f, BandBottomPx + 34f);
+            _hint = HudCanvas.MakeText(_panel, "点「继续」或再点一下牌堆关闭", hntp.x, hntp.y, 2,
+                                       new Color(0.7f, 0.7f, 0.75f), new Vector2(0.5f, 0.5f), ZContent, "mcd_hint");
+            if (_hint == null) Debug.LogWarning("[多卡展示窗] 底部提示行没建起来（`MakeText` 返回 null —— 拿不到 TMP 字体？）");
 
             SetChrome(false);
         }
@@ -257,7 +375,14 @@ namespace CardPresentation
             float scale = baseScale;
 
             float totalPx = cards.Count * cardWpx + (cards.Count - 1) * gapPx;
-            float availPx = LayoutSpace.VisibleWidth - SideMarginPx * 2f;
+            // 🔴🔴 **2026-10-16（`T09` 批 3 · 写手 C 现核、主对话裁定并就地修）：这里原来是【量纲错】。**
+            //   原式 `LayoutSpace.VisibleWidth - SideMarginPx * 2f` 拿**世界单位**（16:9 下 17.78）去减 **px**（120）
+            //   ⇒ `availPx = −102.2` ⇒ **永远判「装不下」**、`k` 永远被 `Max` 夹到 `MinShrink`
+            //   ⇒ **无论几张卡都缩到 45%**（卡高 520.3 → 234 px），与张数无关。
+            //   ✅ 正解 = 用**同一量纲的屏宽**：`LayoutSpace.DesignPxW`（1920 px）。
+            //   ⚠️ 这条与迁 uGUI **无关**（老代码就有），是写手 C 顺手查出来的 ⇒ 按铁律 11「与原版不符的全部要做」。
+            //   ⚠️ **它盖住了真实行为**：`:8151` 那条断言的第三支 `UsedScale > 0` **恒真** ⇒ 旧的绿不是判据。
+            float availPx = LayoutSpace.DesignPxW - SideMarginPx * 2f;
             if (totalPx > availPx && cards.Count > 1)
             {
                 // 装不下 ⇒ **等比缩**（原版这里是横向滚动，见文件头 ③）
@@ -277,6 +402,12 @@ namespace CardPresentation
             FirstCardXpx = x0;
             for (int i = 0; i < cards.Count; i++)
             {
+                // 🔴 **2026-10-16（`T09` 批 3）**：这一段**一个字没改** —— 卡是**世界物件**（`CardView` 是
+                //    `MeshRenderer` 那一族），它的父节点是**世界壳** `_root`、`SetPose` 收的是**世界坐标**
+                //    ⇒ 仍走 `Pos(px, py, z)`（= `EndPanel.Pos`，**世界单位**）。⛔ 别顺手把它换成 `PosPx`：
+                //    那是**画布**口径（设计 px），卡会贴到画布中心去（差 108 倍、**不报错**）。
+                //    ⚠️ 代价如实记：卡片不跟 `CanvasScaler` 缩放 ⇒ **非 16:9 下与画布那一组图/字会分家**
+                //    （这条随第 6 步「手牌/场上卡迁过去」一起消失）。
                 var v = CardView.Create(_root, cards[i], "mcd_card" + i);
                 if (v == null) continue;
                 v.SetPose(Pos(x0 + i * (cardWpx + gapPx), cy, ZContent), 0f, scale);
@@ -295,7 +426,8 @@ namespace CardPresentation
                 // 🔴 字号要在**文字定下来之后**设：`SetScriptHeight` 按 `Loc.HasCjk(text)` 二选一
                 //    （汉字 `SetGlyphHeight(≈1em)` / 拉丁 `SetCapHeight(≈0.72em)`）—— 标题是本地化串，
                 //    语种得看这一串本身。与 `MulliganPanel.SetTurnText` 同一个形状。
-                _header.SetScriptHeight(HeaderShown, ChromeFontPx, EndPanel.PxPerUnit);
+                //    ⚠️ uGUI 档 `pxPerUnit` = **1**（见建件处那条）。
+                _header.SetScriptHeight(HeaderShown, ChromeFontPx, 1f);
             }
         }
 
@@ -316,7 +448,7 @@ namespace CardPresentation
         /// 577.50 × 63.84，`m_RaycastTarget = 1`），它自己的 `m_RaycastPadding = (0,-40,0,-40)`
         /// （**负 = 外扩**）⇒ **上下各外扩 40**、横向不变；`Text`（TMP）与 `CircleButton`
         /// （`40k_UI_bt_play`）的 `m_RaycastTarget` **都是 0** ⇒ **它们一颗都不吃射线**
-        /// （`CircleButton` 上那颗 `EverguildButtonStateFollower` 只跟随状态、**不是** `Button`，
+        /// （`CircleButton` 上那颗 `EveguildButtonStateFollower` 只跟随状态、**不是** `Button`，
         /// 它 `m_Transition=2` 换的也是**圆钮自己那张图**，与点击无关）。
         /// ⇒ 原版可点区 = **条矩形横向原样、纵向 ±40**。
         /// ⚠️ **2026-10-18 更正（铁律 5）**：本函数原来写
@@ -324,19 +456,40 @@ namespace CardPresentation
         /// ⇒ **两处都不对**。错因 = 只见「圆钮 `RT=0`、条 `RT=1`」就**推定「圆钮凸出去的那半圈要算进来」**，
         /// **既没读条自己的 `m_RaycastPadding`、也没核圆钮往哪边凸** —— 原版与我们都把圆钮画在条的
         /// **内部右端**（圆钮 x[1723.2,1803.7] ⊂ 条 x[1322.7,1900.2]，只有**纵向**凸出 ~8 px，
-        /// 而那 8 px 已被 ±40 的外扩整个盖住）。</para>
+        /// 而那 8 px 已被 ±40 的外扩整个盖住）。
+        /// <para>🔴🔴 **2026-10-16（`T09` 批 3）：世界点 → 设计 px 的那一步换了算法。**
+        /// 原来写的是 `px = world.x × 108 + 960`（两个轴都按 `108 px/世界单位`）—— 那只在
+        /// **条自己也是世界空间 quad** 时成立。条现在在**画布**上，而「世界单位 ↔ 画布单位」的两个轴
+        /// **系数可以不同**（`CanvasScaler(Expand)` 在「屏 4:3、相机 `aspect` 被钉成 16:9」那种档里
+        /// ⇒ x 轴 `1/108`、y 轴 `1/144`；判据 → `T09` **§七·8**）⇒ 老式子读出来会**偏 0.75 倍**
+        /// （而画面是对的）。
+        /// ✅ 正解 = **用条自己的局部系反算**（`RectTransform.InverseTransformPoint`，单位 = 设计 px、
+        /// 原点 = 条中心、y 向上）—— 与 `SettingsPanel.RectContains` **同一条口径**（⛔ 别在这儿另写一份）。
+        /// 取不到条（贴图与兜底都缺失）时才退回老那个「按 108 折」的算式（保持今天的行为）。</para>
         /// <para>⚠️ **顺手现读（不是本函数的口径问题）**：生产路径 `BattleDriver.TickMultiCards`
         /// **不调本函数** —— 那一支按「多卡窗开着时**松手即关**」处理（原版对应的是整屏
         /// `Menu Dark Background` 上的 `BackgroundCloseButton`）⇒ 本函数今天**只有自检在用**
         /// （`Editor/BattleScene.cs` 的 `A964/E2④`）。留给将来「按条/圆钮判」那天照这里算。</para></summary>
         public bool HitContinue(Vector3 world)
         {
-            float px = world.x * EndPanel.PxPerUnit + 960f;
-            float py = 540f - world.y * EndPanel.PxPerUnit;
             // 条那颗 `Image` 的矩形（px，左上原点）→ 按它自己的 `m_RaycastPadding` 外扩（共用那一份算式）
             var hit = MenuDraw.PaddedRect(
                 new PxRect(BarCx - BarW * 0.5f, BarCy - BarH * 0.5f, BarCx + BarW * 0.5f, BarCy + BarH * 0.5f),
                 ContinuePad);
+            float px, py;
+            if (_bar != null && _bar.IsUgui && _bar.Rect != null)
+            {
+                // 局部系（单位 = 设计 px、原点 = 条中心）→ 屏幕设计 px（左上原点）
+                var l = _bar.Rect.InverseTransformPoint(world);
+                px = BarCx + l.x;
+                py = BarCy - l.y;
+            }
+            else
+            {
+                // ⛔ 兜底：只有「条不在画布上」时才对（老口径，一字未改）
+                px = world.x * EndPanel.PxPerUnit + 960f;
+                py = 540f - world.y * EndPanel.PxPerUnit;
+            }
             return px >= hit.x1 && px <= hit.x2 && py >= hit.y1 && py <= hit.y2;
         }
 
@@ -356,12 +509,17 @@ namespace CardPresentation
             get { return _bar != null ? _bar.transform.position : Vector3.zero; }
         }
 
-        /// <summary>「继续」横条**实绘**的 px 尺寸（判据 = `ImageQuad.WorldW/WorldH × 108`）。</summary>
+        /// <summary>「继续」横条**实绘**的 px 尺寸。🔴 **2026-10-16（`T09` 批 3）换了量法** ——
+        /// 原来量的是「`ImageQuad.WorldW/H` × 108」（**世界尺寸**），那条路在画布件上**会偏 0.75 倍**：
+        /// 画布把 `屏/scaleFactor` 个画布单位摊到 `VisibleWidth × DesignHeight` 个世界单位上，
+        /// **两个轴的系数可以不同**（判据 → `T09` §七·8，实测 `FrameWorldH × 108` 读出 47.88 而真值 63.84）。
+        /// ✅ 现在读 **`HudCanvas.SizePx`（= `RectTransform.sizeDelta`，单位就是设计 px）** —— 不含任何
+        /// 分辨率换算、逐位等于原版 `m_SizeDelta`（条 **577.50 × 63.84**）。
+        /// ⚠️ 断言那一侧：`Editor/BattleScene.cs` `E2④` 原来把这两个数当「画出来的 px」用（配
+        /// `PxPerUnit964` 折成世界偏移），换口径后它们**更精确了**，那两条的取值不用改。</summary>
         public Vector2 ContinueBarDrawnPx
         {
-            get { return _bar != null
-                       ? new Vector2(_bar.WorldW, _bar.WorldH) * EndPanel.PxPerUnit
-                       : Vector2.zero; }
+            get { return _bar != null && _bar.Rect != null ? HudCanvas.SizePx(_bar.Rect) : Vector2.zero; }
         }
 
         /// <summary>圆钮的**实绘**世界中心。</summary>
@@ -370,12 +528,10 @@ namespace CardPresentation
             get { return _circle != null ? _circle.transform.position : Vector3.zero; }
         }
 
-        /// <summary>圆钮**实绘**的 px 尺寸。</summary>
+        /// <summary>圆钮**实绘**的 px 尺寸（读数口径同 <see cref="ContinueBarDrawnPx"/>；原版 **80.47 × 79.64**）。</summary>
         public Vector2 ContinueCircleDrawnPx
         {
-            get { return _circle != null
-                       ? new Vector2(_circle.WorldW, _circle.WorldH) * EndPanel.PxPerUnit
-                       : Vector2.zero; }
+            get { return _circle != null && _circle.Rect != null ? HudCanvas.SizePx(_circle.Rect) : Vector2.zero; }
         }
 
         /// <summary>点在我方牌堆那一块没有（**入口是我们挑的**，见文件头 ⑤）。</summary>
@@ -384,19 +540,19 @@ namespace CardPresentation
             return BattleDriver.HitMyDeckPile(world);
         }
 
+        /// <summary>px（**左上原点**）→ **世界坐标** —— 只给**卡片那一支**用（它们在世界壳上）。
+        /// 🔴 **2026-10-16（`T09` 批 3）**：画布那一组（标题/条/圆钮/字/提示）**不再走它**，
+        /// 走 `HudCanvas.PosPx`（设计 px、相对画布本体的中心）；本函数**保留**给卡片
+        /// （`CardView.SetPose` 收世界坐标）。</summary>
         static Vector3 Pos(float px, float py, float z) { return EndPanel.Pos(px, py, z); }
 
-        /// <summary>px → **世界单位**。
-        /// <para>🔴 **2026-10-18：这一句就是本件缺的那一步** —— `ImageQuad.Create` 的第 4 参是
-        /// **世界高度**（`Battle/ImageQuad.cs:110` 的 doc 逐字：「`worldHeight` 是**屏幕上的高度**（世界单位）」），
-        /// 而本现场 **1 px = 1/108 世界单位**（`Battle/EndPanel.cs:40`
-        /// `PxPerUnit = 1080f / LayoutSpace.DesignHeight`，`DesignHeight = 10`；同一份换算也写在
-        /// `Core/LayoutSpace.cs:148`：「1 px = 1/108 世界单位」）。
-        /// ⇒ 把 px 原值直接喂进那个形参 = 画出来 **108 倍**大（曾经把整屏铺满）。</para>
-        /// <para>兄弟件逐字同一条（**照它们写的**）：`Battle/MulliganPanel.cs:194` `U(px) = px / 108` ·
-        /// `Battle/CardChoicePanel.cs:102` `U(px) = px * LayoutSpace.DesignHeight / 1080f`（同一个 108）·
-        /// `Battle/EndPanel.cs:55`（私有）`U(px) = px / PxPerUnit`。</para></summary>
-        static float U(float px) { return px / EndPanel.PxPerUnit; }
+        // ---- 🔴 **2026-10-16（`T09` 批 3）：本文件那个私有 `U(px) = px / 108` 助手【已删】** ----
+        //  它当年存在的唯一理由是「`ImageQuad.Create` 的第 4 参要**世界高度**」——
+        //  而本件里**只剩 `_mask` 还在世界空间**，它的高给的是 `LayoutSpace.DesignHeight * 1.2f`
+        //  （本来就是世界单位，不经 px）；**其余五件全在画布上、尺寸一律直接给设计 px**。
+        //  ⇒ 留着它就是留一个「喂进去会缩成 1/108、且**不报错**」的口（`T09` §五·补⑩ 那道硬关卡一）。
+        //  ⚠️ 兄弟件的同款助手仍各自留着（`Battle/CardChoicePanel.cs` 的 `U` · `Battle/MulliganPanel.cs`
+        //     的 `U` · `Battle/EndPanel.cs` 那个私有的）—— 它们各自还有世界档的调用点，**别一起删**。
 
         static void Kill(GameObject o)
         {

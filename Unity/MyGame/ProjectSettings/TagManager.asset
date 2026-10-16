@@ -41,6 +41,30 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
+  - name: Background
+    uniqueID: 1954195551
+    locked: 0
+  - name: Elements
+    uniqueID: 229362899
+    locked: 0
+  - name: OverElements
+    uniqueID: 952166135
+    locked: 0
+  - name: Hand
+    uniqueID: 2099470215
+    locked: 0
+  - name: HandMoving
+    uniqueID: 887547619
+    locked: 0
+  - name: OverHand
+    uniqueID: 2007638115
+    locked: 0
+  - name: PopUps
+    uniqueID: 1054366423
+    locked: 0
+  - name: Blocking
+    uniqueID: 2286135553
+    locked: 0
   m_RenderingLayers:
   - Default
   - Light Layer 1

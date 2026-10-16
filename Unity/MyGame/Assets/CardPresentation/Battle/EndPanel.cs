@@ -29,6 +29,24 @@
 //    上面 dump 里那两行尺寸**保留当参照**（将来真要做，照它摆就行），代码里不再生成。
 //    （历史留痕：那段「奖杯图一度静默不画」的更正随奖励行一起去掉了；原版那张
 //      `40k_UI_icon_ranked_Skirmish` 仍在 `Resources/Art/ui_deck/` 里，将来要做直接取。）
+//
+// 🔴🔴 **2026-10-16（`T09` 整层换 uGUI · 第 2 批 `PopUps` 组）：本件 + `BattleDoors.cs` 已从
+//     【世界空间 quad】迁到【uGUI 子画布】。** 口径与配方 → `资料/任务线/战斗线/任务/T09_整层换uGUI.md` §五·补⑩。
+//   · **宿主** = 与 `BattleDoors` **共用**的那块子画布（`BattleDoors.PairCanvas()`）= 原版 `BattleDoors/Canvas`
+//     （**`PopUps` 层 / order 0**；判据 → `资料/普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一）。
+//     原版 `EndBattlePanel` 就挂在它下面 —— 本件的根节点照此挂上去。
+//   · ⚠️ **一处已知差异、本次有意不翻**：原版是 `EndBattlePanel` 挂在 `BattleDoors/Canvas` **下**；
+//     我们反过来（`BattleDoors` 挂在 `EndPanel` 下，见 `Build()` 最后那句）。**如实记着**，⛔ 别顺手倒过来（那是另一笔账）。
+//   · 🔴 **单位换了**：旧那一套是**世界单位**（`MenuDraw.SetPxSize` / `LayoutSpace.Px` 内部都是 **÷108**）；
+//     uGUI 档的 `sizeDelta` / 字 / 位置要的是**真 px**（canvas 单位就是设计 px）。
+//     ⇒ 一律走 `HudCanvas` 那几个助手（`SetPxSize` / `FillParent` / `PosPx` / `MakeText` / `MakeImagePiece`）。
+//     ⛔ 沿用 `MenuDraw.SetPxSize` 会把整块面板缩成 **1/108**，**而画面只是「小得看不见」、不报错**。
+//   · 🔴 **z 的含义换了、但值照搬**：旧那套 z 是世界 z（**大的在后**）、`HudCanvas.Add` 的 z 是**兄弟序**
+//     （**大的也在后**）⇒ 三层 `ZDim(-0.50) / ZVideo(-0.55) / ZContent(-0.60)` 一个没动（见 `BattleDoors` 头部）。
+//   · **退场的**：`MenuDraw.SetPxSize` · `ImageQuad.Create` · `Label.Create` · `EndPanel.SolidTex`（那张临时纯色图）
+//     · 私有助手 `Content(px,py)` / `U(px)`（uGUI 档直接给 px）。
+//     ⚠️ **保留**：`Pos(px,py,z)` 与 `PxPerUnit` —— `CardDisplayWindow` / `MultiCardDisplay` / 自检**还在用**它们
+//       （那些件**没迁**，改它们不是本批的活）。
 using UnityEngine;
 using RuleEngine;
 
@@ -39,20 +57,17 @@ namespace CardPresentation
         /// <summary>原版界面按 1920×1080 设计；这套布局可见高 10 单位 → 108 px/单位</summary>
         public const float PxPerUnit = 1080f / LayoutSpace.DesignHeight;
 
-        /// <summary>像素坐标（左上原点）→ 世界坐标。z 越小越靠近相机。
-        /// ⚠️ 加上开门视频之后面板分了**三层**，三个 z 的含义见 `BattleDoors`。</summary>
+        /// <summary>像素坐标（左上原点）→ **世界坐标**（屏心为原点、÷108）。z 越小越靠近相机。
+        /// ⚠️ 加上开门视频之后面板分了**三层**，三个 z 的含义见 `BattleDoors`。
+        /// <para>🔴 **2026-10-16（`T09` 批 2）：本件自己【不再用】它**（迁到 uGUI 之后位置一律走
+        /// `HudCanvas.PosPx`，单位 = 设计 px）；但 `Battle/CardDisplayWindow.cs` · `Battle/MultiCardDisplay.cs`
+        /// 与自检**还在用**（那些件**没迁**）⇒ **保留**，⛔ 别顺手删。</para>
+        /// <para>🔑 两种空间的换算式（写在这里免得下一个人再推一遍）：`Pos(px,py,z).x × 108 = px − 960`、
+        /// `.y × 108 = 540 − py` —— 而 uGUI 档的锚点也在父中心、单位就是 px ⇒ **同一对数**。</para></summary>
         public static Vector3 Pos(float px, float py, float z)
         {
             return new Vector3((px - 960f) / PxPerUnit, (540f - py) / PxPerUnit, z);
         }
-
-        /// <summary>内容层（标题 / 副标题 / 骷髅）—— 盖在开门视频**上面**那一层。</summary>
-        static Vector3 Content(float px, float py)
-        {
-            return Pos(px, py, BattleDoors.ZContent);
-        }
-
-        static float U(float px) { return px / PxPerUnit; }
 
         /// <summary>面板是不是正显示着（自检用）。</summary>
         public bool Visible { get; private set; }
@@ -62,12 +77,17 @@ namespace CardPresentation
 
         /// <summary>三个骷髅的 quad（**index 0 = 最左**）。给自检用 ——
         /// 用户 2026-09-26 问「是不是从左到右依次点亮」，而当时**全仓没有一条断言管顺序**（只验总数）。
-        /// 🔴 点亮 = `Tint.a`：亮的 `1`、没亮的 `0.18`（见下面 `Show` 里那段）。</summary>
-        public ImageQuad[] SkullQuads { get { return _skulls; } }
+        /// 🔴 点亮 = `activeSelf`（**不是 alpha** —— 原版未点亮的是 `SetActive(false)`，见 `Show` 里那段）。
+        /// <para>🔴 **2026-10-16（`T09` 批 2）类型 `ImageQuad[]` → `HudPiece[]`**：这一族现在是 uGUI 件。
+        /// 两个读它的人（`Editor/BattleScene.cs` 与 `Editor/EndPanelProbe.cs`）只用 `.transform` /
+        /// `.gameObject` ⇒ **它们一个字都不用改**（`HudPiece` 把这两个口转发给底下真正的对象）。</para></summary>
+        public HudPiece[] SkullQuads { get { return _skulls; } }
 
         /// <summary>骷髅行那块底板的**渲染尺寸**（世界单位）—— 自检用它钉住「原版 PA=0 拉满 648.1×52.4」那条。
         /// 🔴 2026-09-27：`ImageQuad` 默认**按贴图比例定宽**，而 `40k_main_bt_nametag` 只有 109×41
-        ///   ⇒ 补 `SetAspect` 之前我们只画出 **139.3** 宽（**窄 508.8px、只剩 21%**）。</summary>
+        ///   ⇒ 补 `SetAspect` 之前我们只画出 **139.3** 宽（**窄 508.8px、只剩 21%**）。
+        /// 🔴 2026-10-16：uGUI 档这一对读的是 `RectTransform.GetWorldCorners()`（`HudPiece` 里那两支）
+        ///   ⇒ **仍然是世界单位**、与旧 quad 量的是同一件事，⛔ 别在这里乘 108。</summary>
         public float SkullPlateWorldW { get { return _skullPlate != null ? _skullPlate.WorldW : 0f; } }
         public float SkullPlateWorldH { get { return _skullPlate != null ? _skullPlate.WorldH : 0f; } }
 
@@ -133,24 +153,37 @@ namespace CardPresentation
 
         Transform _root, _content;
         BattleDoors _doors;
-        ImageQuad _dim;
+        /// <summary>🔴 **2026-10-16（`T09` 批 2）：类型 `ImageQuad` → `HudPiece`** —— 这一族现在是
+        /// **uGUI 件**（`Image` / `RawImage` 那一侧），`HudPiece` 是它的适配层（`WorldW/WorldH` 两种模式
+        /// 都返回**世界单位** ⇒ 自检读回那两条一个字不用改）。
+        /// ⛔ **一个件只许在一边**（要么旧 quad、要么 uGUI）—— 本批**全部在 uGUI 这边**。</summary>
+        HudPiece _dim;
         Label _title, _sub;
-        readonly ImageQuad[] _skulls = new ImageQuad[DeckRules.SkullThresholds.Length];
-        ImageQuad _skullPlate;
+        readonly HudPiece[] _skulls = new HudPiece[DeckRules.SkullThresholds.Length];
+        HudPiece _skullPlate;
         /// <summary>骷髅那一行的**容器**（原版 `SkullsHolder`）—— 三个骷髅是它的子节点，
         /// 整行的显隐靠它一个开关（原版 `skullHolderObj.SetActive(0 &lt; skullsObtained)`）。</summary>
         Transform _skullRow;
 
         public static EndPanel Create(Transform parent)
         {
-            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
-            //    判据 = 原版 `EndBattlePanel` 实读：`RectTransform` · `anchor (0,0)-(1,1)` ·
-            //    `sizeDelta (0,0)` ⇒ **绝对矩形 (0,0)-(1920,1080)**（`bundle_scenes_scenes_battlearena1`，
-            //    2026-10-11 现读；父链 `BattleHud/Canvas/BattleDoors/Canvas/EndBattlePanel`）⇒ 整屏矩形。
-            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「结算面板根 = 整屏矩形」红。
+            // 🔴 **2026-10-16（`T09` 批 2）**：根节点由「写 `sizeDelta` 的世界空间矩形」改成
+            //    **挂在子画布上的 `RectTransform` + `FillParent`**。
+            //    · **判据没变**：原版 `EndBattlePanel` 实读 = `RectTransform` · `anchor (0,0)-(1,1)` ·
+            //      `sizeDelta (0,0)` ⇒ **绝对矩形 (0,0)-(1920,1080)**（`bundle_scenes_scenes_battlearena1`，
+            //      2026-10-11 现读；父链 `BattleHud/Canvas/BattleDoors/Canvas/EndBattlePanel`）。
+            //      ⇒ `FillParent`（锚点 0..1 + `sizeDelta 0`）**正是**那一对值（比原来写死 1920×1080 更贴判据：
+            //      `Expand` 档下屏比画布宽时（21:9）画布 rect 比 1920 宽，写死的矩形会盖不满两边）。
+            //    · ⛔ **`parent` 参数本件不再用**（先例 = `BattleDriver.BuildLoadingCover`）：面板**必须**挂在
+            //      画布根 canvas 下才拿得到 `CanvasScaler`；⛔ **不挂 `hudRoot`** —— 那是**反向补震**用的，
+            //      挂它下面会被补偿两次（口径 → `T09` §五·补⑨ 一·2）。
+            //    · 改坏法：把 `FillParent` 换回 `MenuDraw.SetPxSize` ⇒ 整块面板缩成 **1/108**（画面「小得看不见」、
+            //      **不报错**）；⛔ 这是本批的**头号静默坑**（`T09` §五·补⑩ 一）。
+            var cv = BattleDoors.PairCanvas();
+            if (cv == null) return null;      // `PairCanvas` 已出声；⛔ 不退回世界空间 quad（半迁移态更坏）
             var go = new GameObject("EndPanel", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
+            go.transform.SetParent(cv, false);
+            HudCanvas.FillParent((RectTransform)go.transform);
             var p = go.AddComponent<EndPanel>();
             p.Build();
             p.Hide();
@@ -164,31 +197,42 @@ namespace CardPresentation
             // 压暗背景：dump 里 `Background` 是一张 **3840×2160（两倍屏）的整屏图** ——
             // 也就是说原版的结算界面**把战场整块盖住**。我们没有那张图，用**重压暗**替代
             // （**这是替代，不是原版**）。压暗不够重的话，棋盘上的卡会从面板内容里透出来。
-            // ⚠️ `ImageQuad` 的宽度是**从贴图宽高比推出来**的，不是给两个尺寸。
-            //    第一版用 4×4 的方图 → 压暗是个 12×12 的方块，屏幕左右两边没盖住（截图才发现）。
-            //    所以贴图得按「当前可见区」的宽高比造。
-            // ⚠️ **压暗必须比卡靠前**（z 越小越前）。原来建在 z=0 —— 和场上卡同层、
+            // ⚠️ **压暗必须比卡靠前**（旧那套：z 越小越前）。原来建在 z=0 —— 和场上卡同层、
             //    而**手牌在 z 0~0.24（比它还远）**，于是手牌整排**没被压暗、从面板底下亮着**透出来
             //    （2026-09-12 看结算截图发现的；注释里早就担心「卡会透出来」，但 z 给错了）。
             //    `BattleDoors.ZDim` = −0.50：比开门视频(−0.55)和内容(−0.60)**都靠后**，
             //    但比任何一张卡都靠前。
-            _dim = ImageQuad.Create(_root, SolidTex(LayoutSpace.VisibleWidth / LayoutSpace.DesignHeight),
-                                    new Vector3(0f, 0f, BattleDoors.ZDim),
-                                    LayoutSpace.DesignHeight * 1.05f, new Vector2(0.5f, 0.5f), "dim");
-            if (_dim != null) _dim.SetTint(new Color(0f, 0f, 0f, 0.97f));
+            // 🔴 **2026-10-16（`T09` 批 2）改法**：uGUI 档就是**一张铺满的 `Image`**
+            //    （`CardArt.Solid()` 那张 1×1 白图 + 黑 tint ⇒ 均匀压暗）。
+            //    · **旧那套「按可见区宽高比现造一张纯色贴图」（`SolidTex`）退场** —— 那是为了绕过
+            //      `ImageQuad` 的宽**只能由贴图比例推**；uGUI 的 `sizeDelta` 是显式写的
+            //      （同一个做法见 `BattleDriver.BuildLoadingCover` 的 `LoadingMenuPanel`）。
+            //    · **铺满用 `FillParent`**（⛔ 别写死 1920×1080，见 `Create` 那段）。
+            //    · z 值一个没动 —— `MakeImagePiece` 先按默认 z（`HudCanvas.DefaultZ`）登记兄弟序，
+            //      这里 `Reorder` 挪到压暗层（新那套 z = **兄弟序键**、大的画在底下，见 `BattleDoors` 头部）。
+            _dim = HudCanvas.MakeImagePiece(_root, CardArt.Solid(), "dim", 0f, 0f,
+                                            LayoutSpace.DesignPxW, LayoutSpace.DesignPxH,
+                                            new Color(0f, 0f, 0f, 0.97f));
+            if (_dim != null)
+            {
+                HudCanvas.FillParent(_dim.Rect);
+                HudCanvas.Reorder(_dim.Rect, BattleDoors.ZDim);
+            }
+            else Debug.LogError("[EndPanel] 压暗层没建出来（`CardArt.Solid()` 取不到）⇒ 结算界面后面会透出棋盘");
 
             // 内容层：标题 / 副标题 / 骷髅都挂这下面。
             // 开门视频在播的时候**整层藏起来**（原版那段视频自己就带 VICTORY/DEFEAT/DRAW 字样，
             // 见抽帧 `资料/战斗规格/战斗重建_0827/video_check_0828/frames/Victory_1_8.png`）——
             // 不藏的话我们的标题会叠在视频的字上，同一个词出现两遍。
             // 🔴 **2026-10-11（A218）**：`content` 是**我们自己的**中间层（原版 `EndBattlePanel` 下直接是
-            //    `Video Image` / `AllRewardsHolder`，没有这一级）⇒ 矩形取它真正占的那块 = **屏矩形**
-            //    （标题/副标题/骷髅行都按整屏 px 摆，见下面 `Content(...)`）。
-            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「结算内容层 = 屏矩形」红。
+            //    `Video Image` / `AllRewardsHolder`，没有这一级）⇒ 矩形取它真正占的那块 = **屏矩形**。
+            // 🔴 **2026-10-16（`T09` 批 2）**：`FillParent`（同根节点那条判据）；`Add(…, ZContent)` 把它压到
+            //    开门视频**上面**那一层（`ZContent = −0.60` < `ZVideo = −0.55` ⇒ 兄弟序排在后面 = 画在上面）。
             var contentGo = new GameObject("content", typeof(RectTransform));
             contentGo.transform.SetParent(_root, false);
-            MenuDraw.SetPxSize(contentGo.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
+            HudCanvas.FillParent((RectTransform)contentGo.transform);
             _content = contentGo.transform;
+            HudCanvas.Add((RectTransform)_content, BattleDoors.ZContent);
 
             // 结果：原版这块的文字是运行时填的，dump 里 `EndBattlePanel` 子树下没有结果文字节点
             //（只有 Video Image / AllRewardsHolder 那几块）→ **字号是我们挑的**。
@@ -213,9 +257,20 @@ namespace CardPresentation
             //    `资料/战斗规格/战斗重建_0827/video_check_0828/frames/Victory_1_8.png`），
             //    留在上方会正好糊在徽章上。
             //    所以标题/副标题/骷髅统一挪到 **y ≥ 730**，贴着原版那个锚点带。
-            _title = Label.Create(_content, "", Content(960f, 260f), 6, Color.white, new Vector2(0.5f, 0.5f), "end_title");
-            _sub = Label.Create(_content, "", Content(960f, 730f), 2, new Color(0.8f, 0.8f, 0.85f),
-                                new Vector2(0.5f, 0.5f), "end_sub");
+            //
+            // 🔴 **2026-10-16（`T09` 批 2）**：`Label.Create(...)` + `Content(px,py)` → **`HudCanvas.MakeText(...)`**。
+            //    · **单位 = 设计 px**（⛔ 不是世界单位 —— 喂错**小到看不见、不报错**，见 `T09` §五·补⑨ 四）；
+            //      `MakeText` 的 px/py 是**相对 `parent` 中心、y 向上**（与 `RectTransform` 同口径）。
+            //    · 逐值换算：`Content(960, 260)` = 世界 `(0, +2.5926)` = **屏心上方 280 px** ⇒ `(0, +280)`；
+            //      `Content(960, 730)` = `(0, −190)`。
+            //    · **字号档一个没动**（`Label` 那三处「带单位的常数」内部按模式取 · uGUI 档 = 7 px/档）
+            //      ⇒ 6 档在两种空间下**画出来一样大**（16:9 下逐位相同）。
+            //    ⚠️ `MakeText` 拿不到 TMP 字体时**返回 null**（`Label.CreateUgui` 出声、⛔ 不退化成点阵）
+            //      ⇒ 下面 `Show()` 里那几句都加了空判（原来 `Label.Create` 恒非 null，没这个必要）。
+            _title = HudCanvas.MakeText(_content, "", 0f, 280f, 6, Color.white,
+                                        new Vector2(0.5f, 0.5f), BattleDoors.ZContent, "end_title");
+            _sub = HudCanvas.MakeText(_content, "", 0f, -190f, 2, new Color(0.8f, 0.8f, 0.85f),
+                                      new Vector2(0.5f, 0.5f), BattleDoors.ZContent, "end_sub");
 
             // 骷髅行：底板 648.1×52.4，三个 64.3×71.2 的骷髅（尺寸是原版 dump 的）
             // ⚠️ 纵向位置按 `AllRewardsHolder` 的锚点 (0,-260) 排（见上面那段）
@@ -227,26 +282,42 @@ namespace CardPresentation
             //    `SkullsHolder` 实读（`bundle_scenes_scenes_battlearena1`，2026-10-11 现读）：
             //    `anchor (0,0) 重合 · pivot (0.5,0.5) · m_SizeDelta = (**648.1000, 52.3800**)`
             //    （与上面那段 dump 记的「648.1×52.4」同源；末位差异 0.02px 取本文件一直在用的 52.4，
-            //     因为它跟 `U(52.4f)` / `SetAspect(648.1f/52.4f)` 是**同一个数**，⛔ 别在别处再立一个）。
-            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「`SkullsHolder` 的 rect」红。
+            //     因为它跟着显示尺寸走，⛔ 别在别处再立一个）。
+            //    🔴 **2026-10-16（`T09` 批 2）**：改走 `HudCanvas.SetPxSize`（**真 px**，⛔ 不是 `MenuDraw` 那个 ÷108 的）
+            //    + `PosPx` 定位置（`Content(960, 790)` ⇒ 屏心上方 250 px ⇒ `anchoredPosition = (0, −250)`）；
+            //    `Add(…, ZContent)` 让它跟内容层同层。
             _skullRow = new GameObject("SkullsHolder", typeof(RectTransform)).transform;
             _skullRow.SetParent(_content, false);
-            MenuDraw.SetPxSize(_skullRow, 648.1f, 52.4f);
-            _skullPlate = ImageQuad.Create(_skullRow, CardArt.Ui("40k_main_bt_nametag"), Content(960f, 790f),
-                                           U(52.4f), new Vector2(0.5f, 0.5f), "skull_plate");
+            {
+                var rowRt = (RectTransform)_skullRow;
+                HudCanvas.SetPxSize(rowRt, 648.1f, 52.4f);
+                rowRt.anchoredPosition = HudCanvas.PosPx(960f, 790f);
+                HudCanvas.Add(rowRt, BattleDoors.ZContent);
+            }
             // 🔴 **2026-09-27 修（PA 普查抓的）**：原版那块底板 `m_PreserveAspect = 0`（`m_Type=0` Simple）
-            //    ⇒ **拉满 648.1×52.4**；而 `ImageQuad` 默认「按贴图比例定宽」——
-            //    贴图 `40k_main_bt_nametag` 是 **109×41**（2.6585）⇒ 我们只画出 **139.3×52.4**，
+            //    ⇒ **拉满 648.1×52.4**；而「按贴图比例定宽」那一套（旧 `ImageQuad`）用的是贴图
+            //    `40k_main_bt_nametag` = **109×41**（2.6585）⇒ 只画出 **139.3×52.4**，
             //    **窄了 508.8 px（只剩 21%）**。原版是「一条横贯的长底板」，我们是一小截。
             //    实据：`battlearena1` 的 `EndBattlePanel/AllRewardsHolder/SkullsHolder`
             //    （RT 2616 / GO 391 / Image MB 4938，直读 `m_PreserveAspect=0`、`m_Type=0`）。
-            if (_skullPlate != null) _skullPlate.SetAspect(648.1f / 52.4f);
+            //    🔴 **2026-10-16（`T09` 批 2）**：那一对「先按贴图比例建、再 `SetAspect(648.1/52.4)` 盖掉」
+            //    在 uGUI 档里**折成一个显式的 `sizeDelta`**（`ImageInParent` 的 w/h 参）—— 最终矩形
+            //    **逐位不变**（648.1×52.4 = `52.4 × 648.1/52.4`）。
+            _skullPlate = ImageInParent(_skullRow, CardArt.Ui("40k_main_bt_nametag"), "skull_plate",
+                                        0f, 0f, 648.1f, 52.4f, BattleDoors.ZContent);
+            var skullTex = CardArt.Ui("40k_battle_Win_Skull");
+            // 旧那套是「给**高** 71.2 px、宽由贴图比例来」（`ImageQuad.Create` 的第 4 参是 worldHeight）——
+            // uGUI 的 `Image.preserveAspect = false`（原版 `PA=0`）会**拉满**给它的矩形 ⇒
+            // ⛔ 这里必须**自己**把宽按贴图比例算出来，否则画出来的是个被拉扁的方块。
+            float skullW = 71.2f * ((skullTex != null && skullTex.height > 0)
+                                    ? skullTex.width / (float)skullTex.height : 1f);
             float step = 64.3f + 12f;
             for (int i = 0; i < _skulls.Length; i++)
             {
-                float x = 960f + (i - (_skulls.Length - 1) * 0.5f) * step;
-                _skulls[i] = ImageQuad.Create(_skullRow, CardArt.Ui("40k_battle_Win_Skull"), Content(x, 790f),
-                                              U(71.2f), new Vector2(0.5f, 0.5f), "skull_" + i);
+                // `Content(960 + (i−1)·step, 790)` ⇒ 相对骷髅行中心（它自己就在 960 上）的 x 偏移 = 同一个数。
+                float dx = (i - (_skulls.Length - 1) * 0.5f) * step;
+                _skulls[i] = ImageInParent(_skullRow, skullTex, "skull_" + i,
+                                           dx, 0f, skullW, 71.2f, BattleDoors.ZContent);
             }
 
             // 奖励行（原版 `RewardsHolder` 495.2×49.0 + `HolderRating` 187×45 / Trophy 60.1×60 / RatingText）
@@ -267,7 +338,15 @@ namespace CardPresentation
             //       那里写明「这是我们自己的键」。
 
             // 开门视频（原版 `EndBattleDoors`）。资产不在时它自己退回「没视频」。
+            // 🔴 **2026-10-16（`T09` 批 2）**：`BattleDoors` 这一层挂在哪**没变**（还是 `_root` 下）——
+            //    它自己保证「父件已在画布上就照旧挂下面」（见 `BattleDoors.Create`）。
+            //    ⚠️ **父子关系与原版相反**（原版 `EndBattlePanel` 在 `BattleDoors/Canvas` **下**）——
+            //    已知差异、**本次不翻**（文件头那条）。
+            //    这里补一句 **z 记账**：它是 `_root` 的第三个子件，必须落在
+            //    压暗(−0.50) 之后、内容(−0.60) 之前 ⇒ 兄弟序 [dim, doors, content] ⇒ 画出来
+            //    **压暗在底、视频居中、内容在最上**（旧那套靠世界 z 排序，值一个没动）。
             _doors = BattleDoors.Create(_root);
+            if (_doors != null) HudCanvas.Add((RectTransform)_doors.transform, BattleDoors.ZVideo);
         }
 
         /// <summary>显示结算。
@@ -316,7 +395,9 @@ namespace CardPresentation
             //    字形网格没重建，标题/副标题/评分全是空白（截图才发现）
             SetVisible(true);
 
-            _title.SetText(ResultText);          // = `Loc.T(Battle/BattleEnd/*)`，中文档印中文
+            // 🔴 **2026-10-16（`T09` 批 2）**：两条都加了**空判** —— `HudCanvas.MakeText`（= `Label.CreateUgui`）
+            //    在拿不到 TMP 字体时**返回 null**（出声，⛔ 不退化成点阵），而原来 `Label.Create` 恒非 null。
+            if (_title != null) _title.SetText(ResultText);   // = `Loc.T(Battle/BattleEnd/*)`，中文档印中文
             // ⚠️ 副标题那行**是我们自加的**（原版 `EndBattlePanel` 子树里没有它）。
             //    🔴 **2026-10-18（第十二轮 · W6）补判据**：原版**有**三块战报统计的键 ——
             //    `Battle/BattleEnd/DamageDone` · `Battle/BattleEnd/Tactics` · `Battle/BattleEnd/TroopsDead`
@@ -339,11 +420,12 @@ namespace CardPresentation
             //      （按铁律 11 记 **要做**，判据已抄在本段；**先做哪一步** → 先找到/进真 Play 看到那件 prefab）。
             //    ⚠️ 同族的 `EndBattlePanel` 子树（13 个战场场景里都有）里**没有**这三个格
             //      （它只有 `Background` / `Video Image` / `AllRewardsHolder`）⇒ ⛔ 别在结算面板上硬加。
-            _sub.SetText(forfeitedBy >= 0
-                         ? $"{rounds} 回合   " + (forfeitedBy == myIndex ? "我方投降" : "对方投降")
-                         : (minFoeWarlordHealth >= 0
-                            ? $"{rounds} 回合   敌方战将最低生命 {minFoeWarlordHealth}"
-                            : $"{rounds} 回合"));      // 没传最低生命（-1）就只说回合数，**不编一个数出来**
+            if (_sub != null)
+                _sub.SetText(forfeitedBy >= 0
+                             ? $"{rounds} 回合   " + (forfeitedBy == myIndex ? "我方投降" : "对方投降")
+                             : (minFoeWarlordHealth >= 0
+                                ? $"{rounds} 回合   敌方战将最低生命 {minFoeWarlordHealth}"
+                                : $"{rounds} 回合"));  // 没传最低生命（-1）就只说回合数，**不编一个数出来**
 
             // 🔴 **未点亮的骷髅 = 【根本不显示】**，而且 **0 个的时候整行（连底板）都藏起来** ——
             //    原版 `EndBattleDoors__ShowRewards.c:55` `skullHolderObj.SetActive(0 < skullsObtained)`
@@ -456,22 +538,28 @@ namespace CardPresentation
             gameObject.SetActive(true);
         }
 
-        /// <summary>铺满用的纯白贴图（`ImageQuad` 要一张图才肯建）。宽高比按传入的来，
-        /// 因为图的宽度是从**贴图宽高比**推的 —— 见 `Build()` 里的注释。</summary>
-        static Texture2D _solid;
-        static float _solidAspect;
-        static Texture2D SolidTex(float aspect)
+        /// <summary>🔴 **2026-10-16（`T09` 批 2）：在 `parent` 里按【相对父中心的设计 px】建一枚 uGUI 图**
+        /// （中心锚 + 中心枢轴；`dx/dy` **y 向上**，`w/h` = 真 px）。
+        /// <para>🔑 **为什么不能直接用 `HudCanvas.MakeImage` / `QuadFromTopPx`**：那两个把 `x/y` 当成
+        /// **屏幕绝对 px**（锚点写 `x/1920`、`1 − y/1080`）—— 只有当 `parent` **恰好是一整屏矩形**时，
+        /// 「屏幕绝对」才等于「相对父中心」。本面板里 `SkullsHolder`（648.1×52.4）就**不是**整屏
+        /// ⇒ 走那一支会把骷髅摆到别处（**静默**，而且 16:9 下也错）。
+        /// ⛔ **不自己写建图那一套**：底下的 `Sprite` / `Image` / 登记兄弟序全部转发给
+        /// `HudCanvas.MakeImagePiece`，这里**只重写锚点/枢轴/位置/尺寸这四个字段**。</para>
+        /// <para>⚠️ `parent` 不是整屏矩形 ⇒ 那四个字段必须**显式**写死（不能沿用 `MakeImage` 按
+        /// 1920×1080 算出来的锚点）。</para></summary>
+        static HudPiece ImageInParent(Transform parent, Texture2D tex, string name,
+                                      float dxPx, float dyPx, float wPx, float hPx, float z)
         {
-            if (_solid != null && Mathf.Abs(_solidAspect - aspect) < 0.01f) return _solid;
-            int h = 32;
-            int w = Mathf.Max(4, Mathf.RoundToInt(h * aspect));
-            _solid = new Texture2D(w, h, TextureFormat.RGBA32, false);
-            var px = new Color[w * h];
-            for (int i = 0; i < px.Length; i++) px[i] = Color.white;
-            _solid.SetPixels(px);
-            _solid.Apply();
-            _solidAspect = aspect;
-            return _solid;
+            if (tex == null) return null;         // 与旧 `ImageQuad.Create` 同一条：贴图取不到就不建（它出声）
+            var p = HudCanvas.MakeImagePiece(parent, tex, name, 0f, 0f, wPx, hPx, Color.white);
+            if (p == null || p.Rect == null) return p;
+            var rt = p.Rect;
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(dxPx, dyPx);
+            rt.sizeDelta = new Vector2(wPx, hPx);
+            HudCanvas.Reorder(rt, z);             // `MakeImagePiece` 先按默认 z 登记，这里挪到本层
+            return p;
         }
     }
 }

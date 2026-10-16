@@ -36,9 +36,21 @@
 //   · **卡上那颗 `Select` 按钮的纵向偏移**：原版 prefab `CardChooseCardButtonFrame` 是运行时实例化的，
 //     静态 dump 里没有它；**但 prefab 本体在解包里**，实测按钮在卡中心下方 **≈323 px**
 //     （`资料/选牌_数据与规格.md` §丙·三末；⚠️ 更正：原来指 `选牌与选效果面板_原版数值.md`，2026-10-10 已并入）。
-//     ✅ **已经照原版改了**（`CardChoicePanel.cs:249` 用 `U(323f)`）—— 原来这里写「用的是卡高×0.30
-//     ≈183 px，是我们排的」，**那句已过期**（2026-09-17 复核）。
+//     ✅ **已经照原版改了**（`CardChoicePanel.cs:407` 现在是 `Lo.CardRowCy + 323f`）——
+//     原来这里写「用的是卡高×0.30 ≈183 px，是我们排的」，**那句已过期**（2026-09-17 复核）。
+//     🔴 **2026-10-16 现读**：本批迁 uGUI 之后那一格走**设计 px**（`Lo.CardRowCy + 323`），
+//     原来这个行号指的是 `U(323f)` 那一版**世界单位**写法。
 //   · **压暗层**、**眼睛是开关还是按住**：见共享壳文件头的说明。
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// 🔴 **2026-10-16（`T09` 批 3 · `OverHand` 组）：本扇已迁到 uGUI 子画布**
+//   · 原版宿主 = **`ChooseCardMenu`** @ `BattleHud/Canvas/FrontCanvas/Safe area FrontCanvas`，
+//     **`OverHand` / order 0 / 兄弟序 5/14**（判据 → `资料/普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一）。
+//   · **本文件只管那个「世界壳」节点**（`Create` 建、装候选卡与压暗层）；**图与字那一整组**
+//     （标题 / 底条 / 圆钮 / 确认字 / 眼睛 / 每张卡下那颗钮与它的字）现在建在**画布本体**上 ——
+//     代码在基类 `Battle/CardChoicePanel.cs` 的 `Build()`，**理由与代价逐条写在那个文件头**（⛔ 别只读这一处）。
+//   · 自检读 **`PanelRect`**（画布本体：`FillParent` **铺满画布** = 原版那对 `anchor (0,0)-(1,1)` +
+//     `sizeDelta (0,0)`）与 `transform`（世界壳，1920×1080 世界单位）两个口。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -94,6 +106,16 @@ namespace CardPresentation
             //    `sizeDelta (0,0)` ⇒ **绝对矩形 (0,0)-(1920,1080)**（`bundle_scenes_scenes_battlearena1`，
             //    2026-10-11 现读）—— 与本文件头那句「根 `ChooseCardMenu` 铺满全屏」同源。
             //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「选牌面板根 = 整屏矩形」红。
+            // 🔴🔴 **2026-10-16（`T09` 批 3 · `OverHand` 组）：这个节点【有意不迁】—— 它是「世界壳」。**
+            //    它装两样东西：① **候选卡**（`BattleDriver` 把 `CardView` 建在 `_choosePanel.transform` 下，
+            //    见 `BattleDriver.cs:5032/5076/6370/6392/6434`）② **那层整屏压暗**（`ChoiceShade`）。
+            //    两者**都必须留在世界空间**（卡是 `MeshRenderer`、不归画布管；压暗必须画在卡**后面**）
+            //    ⇒ 详细理由三条写在 `Battle/CardChoicePanel.cs` 文件头（⛔ 别只读这一处）。
+            //    ⇒ 本行这对**世界单位**写法**照旧**（⛔ 别换成 `HudCanvas.SetPxSize` —— 那会把 1920×1080
+            //    解释成**设计 px**＝世界单位的 1/108，而卡那一支的 `At()`/`Pos()` 是按**世界单位**算的）。
+            //    ✅ **面板的「图与字」那一整组在画布上** —— 它现在是 `CardChoicePanel.Build` 里建的
+            //    **另一个节点**（`ChooseCardMenu`，挂在 `OverHand` 子画布下、`FillParent` **铺满画布**）；
+            //    自检那一侧读 `PanelRect`（判据 → `Battle/CardChoicePanel.cs` 的 `PanelRect`）。
             var go = new GameObject("ChoosePanel", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);

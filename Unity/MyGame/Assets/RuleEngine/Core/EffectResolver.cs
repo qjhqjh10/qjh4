@@ -6964,7 +6964,53 @@ namespace RuleEngine
                         u.MaxHealth = System.Math.Max(1, u.MaxHealth + val);
                         break;
                     // 负甲 clamp 0（原版 `:3320`：防「负甲反而加伤」）
-                    case "armour": u.Armor = System.Math.Max(0, u.Armor + val); break;
+                    //
+                    // 🔴 **2026-10-16（账 `A2015`）：护甲要【两种表示一起动】。**
+                    //   改前这一行**只写 `u.Armor`、不同步 `_keywords["armour"]`** ——
+                    //   `+2 Armour` 之后 `KwValue`/`Has("armour")` 仍是 0（同一件事两种表示脱节）。
+                    //   判据 = `CardDef` 构造函数头部那段（`Core/CardDef.cs:269-271`，**本笔现读**）：
+                    //     「**全仓的护甲读点 = `_keywords[KeywordTable.Armour]` 这一格**（`KwValue` /
+                    //      `Has` / `UnitState.Armor`（`UnitState.cs:594` 构造里那句
+                    //      `Armor = KwValue(KeywordTable.Armour)`），全部走它）……
+                    //      **结算一律读 `KwValue`/`Has`**」
+                    //   ⇒ 只写字段那一半 = 让「读数收成一处」那条口径落空。
+                    //   ⚠️ **原版是「同一件事两种表示」**：trait 那一条（= 我们 `_keywords`）
+                    //     与 `+0xb8` 那个 ObscuredInt（= 我们 `u.Armor`）授甲时**一起动**
+                    //     （`CardScript._ReceiveDamage_d__381__MoveNext.c:64-98` 结算读的是 `+0xb8`，
+                    //      而 `CardScript__AddEffect` 的授甲是按 trait 走）。
+                    //   ⚠️ **同步只此一份**：`UnitState.SyncKeywordState` 里那句
+                    //     `if (keyword == Armour) Armor += value;`（`Core/UnitState.cs:827`），
+                    //     由 `AddKeyword` 调；`RemoveKeyword` 那一半只动关键词、**不动 `Armor`**
+                    //     （`Core/UnitState.cs:831-837`）⇒ 下面减那一支要把字段那一半自己补上。
+                    //   ⚠️ **负甲 clamp 0 照旧**（原版 `:3320`）：`delta` 取的是**夹过之后**的增量
+                    //     ⇒ `Armor` 已经是 0 时再来一个负值 ⇒ `delta == 0` ⇒ 两处都不动。
+                    //   ⚠️ **今天不是活缺陷**：全仓只有 `t.Armor > 0` 在读它（本文件
+                    //     `targethasarmour` 那一格，**现读 `EffectResolver.cs:7514`** ——
+                    //     账上写的是 `:7469`，那是本笔改动**之前**的读数；改动都在它上面 ⇒ 往下漂了）⇒ 「给甲」这条路
+                    //     改前改后**行为差异 = 0**；改的是「两处表示会不会脱节」。
+                    //   🔴 **同族的另一个写点（本笔没动，不在白名单）**：`UnitState.ApplyGrant`
+                    //     的 `case "armour"`（`Core/UnitState.cs:941`）**一模一样地只写 `Armor`**
+                    //     —— 见报告「顺手发现」（黑暗契约授甲那条路）。
+                    case "armour":
+                    {
+                        int before = u.Armor;
+                        int after = System.Math.Max(0, before + val);   // 原版 `:3320` 负甲夹 0
+                        int delta = after - before;                     // 夹过之后的实际增量
+                        if (delta > 0)
+                        {
+                            // 加：走 `AddKeyword` ⇒ `SyncKeywordState` 把 `Armor` **一起**加上 `delta`
+                            // （⛔ 这里**别**再自己写一遍 `u.Armor`，会加两次）。
+                            u.AddKeyword(KeywordTable.Armour, delta);
+                        }
+                        else if (delta < 0)
+                        {
+                            // 减：先摘/减关键词（降到 ≤0 时 `RemoveAll` 连带把 `Armor` 清 0），
+                            // 再补字段那一半（`RemoveKeyword` 不动 `Armor`）。
+                            u.RemoveKeyword(KeywordTable.Armour, -delta);
+                            u.Armor = System.Math.Max(0, u.Armor + delta);
+                        }
+                        break;
+                    }
                     case "energy":
                         ctx.Players[owner].Energy += val;
                         break;

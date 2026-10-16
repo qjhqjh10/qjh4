@@ -23,9 +23,13 @@
 //
 // 【建层时的三条硬约束】（判据 → `资料/普查产出_1016战斗判据/T09b_uGUI拦路判据.md`）
 //   1. 🔴 **`CanvasScaler` 只挂在【根】Canvas 上**，子 Canvas 一个都不加（原版逐场现读：全场景只一个）。
-//   2. ⛔ **不能挂在 HUD 根下**（`Canvas` 会接管自己的 `RectTransform`、`ScreenSpaceCamera` 档还会把它
+//   2. ⛔ **根 canvas 不能挂在 HUD 根下**（`Canvas` 会接管自己的 `RectTransform`、`ScreenSpaceCamera` 档还会把它
 //      摆到 `planeDistance` 处 ⇒ 整棵 HUD 被搬走）；又因为 `hudRoot` 是**反向补震**用的，挂它下面会补偿两次
-//      ⇒ **建成【根对象】**。
+//      ⇒ **根 canvas 建成【根对象】**。
+//      🔴 **2026-10-16 补**：**面板族不建自己的根 canvas**，而是**嵌在根 canvas 下的子 canvas**
+//      （`EnsureSubCanvas`）—— 子 canvas **继承根 canvas 的缩放**，又靠 `overrideSorting` 另立排序组；
+//      这正是原版的做法（原版**全场景只有一个 `CanvasScaler`**，在根上）。
+//      ⛔ 子 canvas **一个 `CanvasScaler` 都不许加**（加了会二次缩放）。口径 → `T09` §五·补⑨ 一。
 //   3. ⏸ **`EventSystem` 这一轮不建**：① 判据没收（T09b 没查它的字段，按铁律 2 **不猜**）
 //      ② 现在没有可交互件 ⇒ 建了是死件。**等第 4 步（迁按钮族）与第一个可点件同批建。**
 //      ✅ `GraphicRaycaster` 随 Canvas 一起建（它是 Canvas 的组件、不占独立对象）。
@@ -41,10 +45,10 @@ namespace CardPresentation
     public static class HudCanvas
     {
         /// <summary>`planeDistance` —— 决定这个 canvas 落在 HUD 的**哪一层 z** 上。
-        /// 相机在 `z = −20`、看 +Z ⇒ `z = planeDistance − 20`。
-        /// 现值 **20.299** ⇒ z = **0.299**：比 `HudImageZ`(0.3) **略靠前一点点**
-        /// （⇒ 已迁过去的件排在还没迁的那批**前面**，同 z 平局不会发生）。
-        /// ⚠️ 迁**整个 `HudImageZ` 族**之后，这个「0.001 的错位」可以去掉、直接取 20.3。</summary>
+        /// 相机在 `z = −20`、看 +Z ⇒ `z = planeDistance − 20` = **`HudImageZ`(0.3)**。
+        /// 🔴 **2026-10-16 订正**：本行原来写「现值 **20.299** ⇒ 比 `HudImageZ` 略靠前」，
+        /// **已过期** —— 图族**整族**迁上 canvas 之后，那个「0.001 的临时错位」就**没有意义了**，
+        /// 已改回 **20.3**（判据 → `T09` §五·补⑦ 开头）。⛔ 别再按 20.299 推。</summary>
         public const float PlaneDistance = 20.3f;
 
         /// <summary>参考分辨率（原版 `CanvasScaler` 那两个字段）。</summary>
@@ -142,6 +146,143 @@ namespace CardPresentation
             return rt;
         }
 
+        /// <summary>🔴 **2026-10-16：建一块 uGUI 图，位置/尺寸【相对父节点的中心】**（px、**y 向上**）。
+        /// <para>⛔ **与 `MakeImage`/`QuadFromTopPx` 的区别**：那两个把 `x/y` 当**屏幕绝对 px**
+        /// （锚点 = `x/1920`、`1 − y/1080`）—— **只有当 `parent` 本身是整屏矩形时**它才等于「相对父中心」。
+        /// 面板里的**子矩形容器**（`SkullsHolder` 之类）**不是**整屏 ⇒ 套那套会**静默摆到别处**。</para>
+        /// <para>🔑 **为什么补齐这一个口**：批 2 有**两个写手各自撞了一次**、各造了一个权宜
+        /// （`SettingsPanel` 用 `MakeSlicedPiece + border=0` 顶、`EndPanel` 自造 `ImageInParent`）——
+        /// 那正是「同一条规矩的第二份写法」。⇒ 收编到这里，⛔ **别再长出第三份**。</para>
+        /// <para>`xPx/yPxFromTop` = 中心点（**相对父中心**、左上原点 y 向下）；`wPx/hPx` = 尺寸；
+        /// `z` = 兄弟序的层深度（见 <see cref="Add"/>）。</para></summary>
+        public static HudPiece MakeImageInParent(Transform parent, Texture2D tex, string name,
+                                                 float xPx, float yPxFromTop, float wPx, float hPx,
+                                                 float z, Color color)
+        {
+            if (parent == null || tex == null) return null;
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);   // 中心锚 + 中心枢轴
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(xPx, -yPxFromTop);     // ⚠️ 入参 y **向下** ⇒ 取负
+            rt.sizeDelta = new Vector2(wPx, hPx);
+
+            var img = go.AddComponent<Image>();
+            img.sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height),
+                                       new Vector2(0.5f, 0.5f), 100f);
+            img.color = color;
+            img.preserveAspect = false;      // 原版 `m_PreserveAspect = 0` ⇒ 拉满
+            img.raycastTarget = false;
+            Add(rt, z);
+            return HudPiece.Of(rt, img);
+        }
+
+        /// <summary>🔴 **2026-10-16：建一块【九宫格】uGUI 图** ——
+        /// `ImageQuad` 那套九宫格（`MenuDraw.Nine`，九个 quad）在 uGUI 里的对应物就是**一张
+        /// `Image` + `Type.Sliced`**（原版 tooltip 面板本来就是 `Image (Sliced)`）。
+        /// <para>**锚点/枢轴全在中心**（`anchorMin = anchorMax = pivot = (0.5,0.5)`）⇒
+        /// 调用点之后写 `localPosition` 就是「相对父中心的 px 偏移」，与 `Label.CreateUgui` 同口径。</para>
+        /// <para>⚠️ **`pixelsPerUnitMultiplier` 取默认 1** —— 原版那颗 `Image` 这个字段的值**主对话没读到**
+        /// （⛔ 不猜，如实记）。它决定角块画多大（角块 = `m_Border ÷ ppuMul`）；真要逐位对齐得回去现读。</para></summary>
+        public static HudPiece MakeSlicedPiece(Transform parent, Texture2D tex, string name,
+                                               float wPx, float hPx, Vector4 border, Color color)
+        {
+            if (parent == null || tex == null) return null;
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);   // 见 doc：中心锚 + 中心枢轴
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(wPx, hPx);
+
+            var sp = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height),
+                                   new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
+            var img = go.AddComponent<Image>();
+            img.sprite = sp;
+            img.type = Image.Type.Sliced;       // 九宫格（原版就这么干的）
+            img.color = color;
+            img.raycastTarget = false;
+            return HudPiece.Of(rt, img);
+        }
+
+        // ── 🆕 2026-10-16：**面板族迁移的四个换算助手**（`T09` §五·补⑩ 那张配方表的口子）────────
+        //  🔴 **为什么必须另立**：面板那一族今天全走 `MenuDraw.SetPxSize` / `LayoutSpace.Px`，
+        //     而那两处写的都是**世界单位**（`SetPxSize` 内部就是 `LayoutSpace.Px(w)` = **÷108**）——
+        //     ⛔ uGUI 档的 `sizeDelta` 要的是**真 px**（canvas 单位就是设计 px）。
+        //     直接沿用会把整块面板缩成 1/108（**而画面只是「小得看不见」，不报错**）。
+
+        /// <summary>让一个节点**铺满它的父节点**（中心为原点、单位 = 设计 px）。全屏覆盖层用它 ——
+        /// ⛔ 别写死 `sizeDelta = 1920×1080`：`Expand` 档下**屏比画布宽**时（21:9 等）
+        /// 画布 rect 比 1920 宽 ⇒ 写死的矩形**盖不满两边**。</summary>
+        public static void FillParent(RectTransform rt)
+        {
+            if (rt == null) return;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = Vector2.zero;
+        }
+
+        /// <summary>🔴 **`MenuDraw.SetPxSize` 的 uGUI 版**：中心锚 + **`sizeDelta` 直接吃设计 px**
+        /// （⛔ 不走 `LayoutSpace.Px` —— 那个是 ÷108）。</summary>
+        public static void SetPxSize(RectTransform rt, float wPx, float hPx)
+        {
+            if (rt == null) return;
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(wPx, hPx);
+        }
+
+        /// <summary>🔴 **「左上原点、y 向下」的设计 px → canvas 局部坐标**（中心原点、**y 向上**）。
+        /// 就是面板族那些 `Pos(px, py, z)` / `Content(px, py)` 在 uGUI 档的对应物
+        /// （`EndPanel.Pos` 的式子 ×108 即此）。</summary>
+        public static Vector3 PosPx(float xPx, float yPxFromTop)
+        {
+            return new Vector3(xPx - ReferenceResolution.x * 0.5f,
+                               ReferenceResolution.y * 0.5f - yPxFromTop, 0f);
+        }
+
+        /// <summary>🔴 **`ImageQuad.Create(parent, tex, pos, worldHeight, anchor, name)` 的 uGUI 版**
+        /// （**按【高】定、宽由贴图比例来** —— ⛔ 别当成正方、也别当成 `(w,h)` 照抄）。
+        /// <para>`xPx/yPxFromTop` = 中心点（**左上原点、y 向下**的设计 px）；`hPx` = 高低（设计 px）；
+        /// `z` = 旧那套的层深度（本函数登记它的兄弟序，见 <see cref="Add"/>）。</para>
+        /// <para>⚠️ 要**盖掉贴图比例**的（原版 `PA=0` 拉满那种）建完自己调 `HudPiece.SetAspect`。</para></summary>
+        public static HudPiece QuadFromTopPx(Transform parent, Texture2D tex, string name,
+                                             float xPx, float yPxFromTop, float hPx, float z, Color color)
+        {
+            if (parent == null || tex == null) return null;
+            float wPx = hPx * ((float)tex.width / Mathf.Max(1, tex.height));
+            return MakeAnchored(parent, tex, name,
+                                xPx / ReferenceResolution.x, 1f - yPxFromTop / ReferenceResolution.y,
+                                new Vector2(0.5f, 0.5f), hPx, wPx, z, color);
+        }
+
+        /// <summary>🔴 **2026-10-16：按名字找一块子画布**（自检 / 诊断用）。找不到 ⇒ `null`。
+        /// ⚠️ 只找**根 canvas 的直接子件**（我们建的子画布都是那样挂的）。</summary>
+        public static Canvas SubCanvas(string name)
+        {
+            if (RootRect == null || string.IsNullOrEmpty(name)) return null;
+            for (int i = 0; i < RootRect.childCount; i++)
+            {
+                var t = RootRect.GetChild(i);
+                if (t != null && t.name == name) return t.GetComponent<Canvas>();
+            }
+            return null;
+        }
+
+        /// <summary>🔴 **2026-10-16：`MakeImage` 的 `HudPiece` 版** —— 给「字段类型已经是 `HudPiece`、
+        /// 但这一件要建成 uGUI」的调用点用（先例 = `BattleDriver._loadingCover`）。
+        /// 🔑 **为什么要有它**：调用点就不必 `using UnityEngine.UI` 去拿 `Image` 类型
+        /// （`BattleDriver.cs` 没引那个命名空间，为一件图加一条 `using` 不划算）。</summary>
+        public static HudPiece MakeImagePiece(Transform parent, Texture2D tex, string name,
+                                              float x, float y, float w, float h, Color color)
+        {
+            var rt = MakeImage(parent, tex, name, x, y, w, h, color);
+            return rt != null ? HudPiece.Of(rt, rt.GetComponent<Image>()) : null;
+        }
+
         /// <summary>从 `RectTransform` 反读 **中心的设计 px**（左上原点、y 向下）—— 自检用。
         /// 判据：锚点是归一化的 ⇒ 乘回 1920 / 1080（**这是与 `MakeImage` 成对的逆**，别各写一份）。</summary>
         public static Vector2 CenterPx(RectTransform rt)
@@ -166,18 +307,209 @@ namespace CardPresentation
         //  ⇒ 把「按 z **降序**」映射成兄弟序，两种模型就**逐件对得上**。
         //  ⛔ **别只用「创建顺序」** —— 那一族里有 `HudImageZ - 0.02` / `- 0.065` 这种件，
         //    它们彼此之间是有明确先后的（谁压谁），创建顺序不保证复现它。
-        static readonly List<float> _zs = new List<float>();
-        static readonly List<RectTransform> _kids = new List<RectTransform>();
+        //
+        // 🔴 **2026-10-16 改：z 账从【一份全局静态表】改成【按容器分组】** ——
+        //    `T09` 面板族要**每扇面板一块子 Canvas**（口径 → `T09` §五·补⑨ 一），
+        //    一份全局表会让**第二块画布**的兄弟序按**第一块**的子件数去算 ⇒ **静默错位**。
+        //    🔑 **键 = 子件的【父节点】**（不是 canvas）：兄弟序本来就只在同一个父节点内部有意义，
+        //    这样嵌多深都对；而**今天**所有件都是 HUD canvas 的直接子件 ⇒ 与改之前**逐位相同**。
 
-        /// <summary>把一个子件按 **z 降序**插进兄弟序里（z 大的排前面 = 画在底下）。</summary>
+        /// <summary>一个**容器**（= 某个父节点）内部「z → 兄弟序」的账。</summary>
+        public sealed class Group
+        {
+            /// <summary>这一组管的容器（所有登记过的件都是它的**直接子件**）。</summary>
+            public readonly Transform Root;
+            readonly List<float> _zs = new List<float>();
+            readonly List<RectTransform> _kids = new List<RectTransform>();
+
+            public Group(Transform root) { Root = root; }
+
+            /// <summary>把一个子件按 **z 降序**插进兄弟序里（z 大的排前面 = 画在底下）。</summary>
+            public void Add(RectTransform rt, float z)
+            {
+                if (rt == null) return;
+                int i = 0;
+                while (i < _zs.Count && _zs[i] >= z) i++;
+                rt.SetSiblingIndex(i);
+                _zs.Insert(i, z);
+                _kids.Insert(i, rt);
+            }
+
+            /// <summary>把一个**已经建好的件**挪到另一个 z 档（= 旧那套的 `localPosition.z += dz`）。</summary>
+            public void Reorder(RectTransform rt, float newZ)
+            {
+                if (rt == null) return;
+                int i = _kids.IndexOf(rt);
+                if (i >= 0) { _kids.RemoveAt(i); _zs.RemoveAt(i); }
+                Add(rt, newZ);
+            }
+
+            /// <summary>这个件在本容器里占的 **z 档**。认不出 ⇒ `NaN`（⛔ 不是 0）。</summary>
+            public float OrderZOf(RectTransform rt)
+            {
+                if (rt == null) return float.NaN;
+                int i = _kids.IndexOf(rt);
+                return i >= 0 ? _zs[i] : float.NaN;
+            }
+        }
+
+        static readonly Dictionary<Transform, Group> _groups = new Dictionary<Transform, Group>();
+
+        /// <summary>某个件所属容器的 z 账（容器 = 它的**父节点**；没有父就返回 `null`）。</summary>
+        public static Group GroupOf(RectTransform rt)
+        {
+            var p = rt != null ? rt.parent : null;
+            if (p == null) return null;
+            Group g;
+            if (!_groups.TryGetValue(p, out g)) { g = new Group(p); _groups[p] = g; }
+            return g;
+        }
+
+        /// <summary>把一个子件按 **z 降序**插进它容器的兄弟序里（z 大的排前面 = 画在底下）。</summary>
         public static void Add(RectTransform rt, float z)
         {
-            if (rt == null) return;
-            int i = 0;
-            while (i < _zs.Count && _zs[i] >= z) i++;
-            rt.SetSiblingIndex(i);
-            _zs.Insert(i, z);
-            _kids.Insert(i, rt);
+            var g = GroupOf(rt);
+            if (g != null) g.Add(rt, z);
+        }
+
+        /// <summary>把一个**已经建好的件**挪到另一个 z 档（见 <see cref="Group.Reorder"/>）。</summary>
+        public static void Reorder(RectTransform rt, float newZ)
+        {
+            var g = GroupOf(rt);
+            if (g != null) g.Reorder(rt, newZ);
+        }
+
+        /// <summary>这个件在当前容器里占的 **z 档**（认不出 ⇒ `NaN`）。</summary>
+        public static float OrderZOf(RectTransform rt)
+        {
+            var g = GroupOf(rt);
+            return g != null ? g.OrderZOf(rt) : float.NaN;
+        }
+
+        // ── 排序层（**判据 = 原版 `Globalgamemanagers/TagManager/TagManager_3.json`**）─────────
+        //  ⚠️ 我们的 `ProjectSettings/TagManager.asset` 已按同名同 ID 建出这 9 层（2026-10-16）。
+        //  🔴 **`Blocking` 那一个在 `int` 里是负数**：序列化里读出来是 `2286135553`（无符号），
+        //     而 `Canvas.sortingLayerID` 是 **`int`** ⇒ 必须写 `-2008831743`
+        //     （= `2286135553 − 2^32`）。⛔ 写正数会被截成另一个层（**静默跑到别的层上去**）。
+        //  层从下到上：`Default < Background < Elements < OverElements < Hand < HandMoving < OverHand < PopUps < Blocking`。
+        public static class SortingLayer
+        {
+            public const int Default = 0;
+            public const int Background = 1954195551;
+            public const int Elements = 229362899;
+            public const int OverElements = 952166135;
+            public const int Hand = 2099470215;
+            public const int HandMoving = 887547619;
+            public const int OverHand = 2007638115;
+            public const int PopUps = 1054366423;
+            public const int Blocking = -2008831743;   // = 无符号 2286135553（见上）
+        }
+
+        /// <summary>🔴 **2026-10-16（`T09` 面板族）：给一扇面板建它自己的【子 Canvas】**。
+        /// <para>照原版：面板**不是**独立的根 canvas，而是**嵌在根 canvas 下的子 canvas**
+        /// + **`overrideSorting = true`** + 自己的 `(排序层, order)` —— 这样它**继承根 canvas 的缩放**
+        /// （原版**全场景只有一个 `CanvasScaler`**，在根上），又**脱离父层另立排序组**。</para>
+        /// <para>⛔ **子 Canvas 一个 `CanvasScaler` 都不许加**（加了会二次缩放）。</para>
+        /// <para>返回它的 `RectTransform`（**铺满父 canvas**、中心为原点、单位 = 设计 px）——
+        /// 面板内部件的坐标就照它算。⚠️ 见 `T09` §五·补⑨ 一：**层与深度要一致地设**。</para>
+        /// <para>拿不到根 canvas（`Root == null`）时**出声**并返回 `null`（调用点应跳过这一件）。</para>
+        /// <para>🔴 **2026-10-16 就地订正（铁律 5）：本口原来是【不幂等】的** —— 每次调用都会 `new` 一块，
+        /// 于是「建/取」这种用法会**建出两块同名子画布**（批 2 三个写手各自撞了一次，
+        /// 各自在外层写了一个幂等包装：`PairCanvas` / `ReuseOrMakeCanvas` / …）。
+        /// ⇒ **现在改成【按名字幂等】**：根 canvas 下已有同名子画布 ⇒ 直接返回它，并把层/order 对齐到本次传的值。
+        /// ⛔ 调用点**不要再自己包一层**（那是同一个规矩的第二份写法）。</para></summary>
+        public static RectTransform EnsureSubCanvas(Transform parent, string name,
+                                                    int sortingLayerId, int sortingOrder)
+        {
+            if (RootRect == null)
+            {
+                Debug.LogError("[HudCanvas] 子 Canvas 要挂在根 canvas 下，但根 canvas 还没建（先调 Ensure(cam)）");
+                return null;
+            }
+            // 🔴 **按名字幂等**（见 doc）：根 canvas 下已有同名子画布 ⇒ 复用它、对齐层/order 后返回
+            var existing = SubCanvas(name);
+            if (existing != null)
+            {
+                if (existing.overrideSorting != true) existing.overrideSorting = true;
+                if (existing.sortingLayerID != sortingLayerId) existing.sortingLayerID = sortingLayerId;
+                if (existing.sortingOrder != sortingOrder) existing.sortingOrder = sortingOrder;
+                ApplySubCanvasRank();
+                return (RectTransform)existing.transform;
+            }
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent != null ? parent : RootRect, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = Vector2.zero;               // 铺满父 canvas
+            rt.anchorMax = Vector2.one;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = Vector2.zero;               // 四边贴合父 rect ⇒ 坐标原点 = 父的中心
+
+            var cv = go.AddComponent<Canvas>();        // ⛔ 别再加 CanvasScaler（原版全场景只有一个）
+            cv.overrideSorting = true;
+            cv.sortingLayerID = sortingLayerId;
+            cv.sortingOrder = sortingOrder;
+            go.AddComponent<GraphicRaycaster>();       // 原版这 4 件宿主都带 GR（判据 → T09b §A·2）
+            ApplySubCanvasRank();
+            return rt;
+        }
+
+        /// <summary>🔴 **2026-10-16：同层同 `sortingOrder` 的子画布，先后【只由兄弟序定】**（`T09b` §五·4）
+        /// ⇒ 这几块必须按这个先后排（从**先画 / 在下**到**后画 / 在上**）。
+        /// <para>**① `PopUps` 层**：判据 = **原版根 `Canvas` 的子件序**里 `FrontCanvas`(**3**) 在 `BattleDoors`(**4**) **之前**
+        /// ⇒ **门 / 结算压在设置窗之上**（`T09b` §A·3 那个 `m_Children` 表）。</para>
+        /// <para>**② `OverHand` 层（全是 order 0）**：判据 = **原版 `Safe area FrontCanvas` 的 14 个子件序**
+        /// （`T09b` §A·3；原文抄在 `T09` §八 开头）⇒ 这里按**升序**列 = 先画在下。
+        /// 已迁的那几格对号：`Mulligan`(3) · `Generic Multi Card Display Combat`(4) · `ChooseCardMenu`(5) ·
+        /// `Card Display Window`(6) · `AboveShader`(8)。⚠️ `SkillPanel`(1) / `Unit Chat`(2) **还没迁**，
+        /// 迁了要**插到前面**。</para>
+        /// <para>⚠️ 三块 `PopUps`/order 0 的画布正是靠这一格分先后的 —— 不排的话**建得早的就在下面**，
+        /// 而建序**不是**判据（今天它甚至是偶然的）。</para>
+        /// <para>⛔ **跨层的先后不靠这个表**（层不同 ⇒ 层说了算）⇒ 两张表并成一条链是安全的，
+        /// 只要**同一组内部**的相对次序对。</para></summary>
+        static readonly string[] SubCanvasRank =
+        {
+            // ── PopUps（order −1 → 0 → 1；同为 0 的两块按原版子件序）──
+            "CemeteryLogPanel Canvas",          // PopUps / −1
+            "BattleSettingsPanel Canvas",       // PopUps /  0（原版 FrontCanvas(3) 在前）
+            "BattleDoors Canvas",               // PopUps /  0（原版 BattleDoors(4) 在后）
+            "UI Error Message Controller Canvas",// PopUps / 1
+            // ── OverHand（全 order 0，按原版 14 子件序升序）──
+            "Mulligan Canvas",                  // 3/14
+            "Generic Multi Card Display Combat Canvas",  // 4/14
+            "ChooseCardMenu Canvas",            // 5/14
+            "Card Display Window Canvas",       // 6/14
+            "AboveShader Canvas",               // 8/14
+        };
+
+        /// <summary>把 `SubCanvasRank` 里**已经建出来**的那几块按表排到末尾（⛔ 只动它们、只定它们彼此的先后）。</summary>
+        static void ApplySubCanvasRank()
+        {
+            if (RootRect == null) return;
+            int idx = RootRect.childCount;
+            for (int i = SubCanvasRank.Length - 1; i >= 0; i--)
+            {
+                var t = RootRect.Find(SubCanvasRank[i]);
+                if (t == null) continue;
+                if (--idx < 0) break;
+                t.SetSiblingIndex(idx);
+            }
+        }
+
+        /// <summary>🔴 **2026-10-16：建一块 uGUI 【字】** —— 面板族迁过来时走它。
+        /// <para>`px/py` = **设计 px**、**相对 `parent` 的中心**（**y 向上**，与 `RectTransform` 同口径）；
+        /// `z` = 那一族里的层深度（本函数登记它的兄弟序，见 <see cref="Add"/>）。</para>
+        /// <para>⚠️ **别把世界坐标直接喂进来** —— 世界 → 设计 px 要 × `LayoutSpace.DesignPxH/DesignHeight`(108)。
+        /// ⛔ 两档差 108 倍、**喂错不报错**（口径 → `T09` §五·补⑨ 四）。</para>
+        /// <para>⛔ 不要用 `Label.Create`（那是**世界空间**档）—— 见 `Label` 文件头那条「只许二选一」。</para></summary>
+        public static Label MakeText(Transform parent, string text, float px, float py, int scale,
+                                     Color color, Vector2 anchor, float z, string name = null)
+        {
+            if (parent == null) return null;
+            var l = Label.CreateUgui(parent, text, new Vector3(px, py, 0f), scale, color, anchor, name);
+            if (l == null) return null;                 // 拿不到字体资产：`CreateUgui` 已出声
+            Add((RectTransform)l.transform, z);
+            return l;
         }
 
         /// <summary>造一件**贴着某个归一化锚点**的 uGUI 图 ——
@@ -206,24 +538,6 @@ namespace CardPresentation
             img.raycastTarget = false;       // 这一族是装饰；可点件走第 4 步
             Add(rt, z);
             return HudPiece.Of(rt, img);
-        }
-
-        /// <summary>把一个**已经建好的件**挪到另一个 z 档（= 旧那套的 `localPosition.z += dz`）。
-        /// 🔑 uGUI 下 z 没有意义、它改的是**兄弟序** ⇒ 这里摘掉再按新 z 插回去（见 <see cref="Add"/>）。</summary>
-        public static void Reorder(RectTransform rt, float newZ)
-        {
-            if (rt == null) return;
-            int i = _kids.IndexOf(rt);
-            if (i >= 0) { _kids.RemoveAt(i); _zs.RemoveAt(i); }
-            Add(rt, newZ);
-        }
-
-        /// <summary>这个件在当前画布里占的 **z 档**（= 旧那套的 z）。认不出 ⇒ `NaN`（⛔ 不是 0）。</summary>
-        public static float OrderZOf(RectTransform rt)
-        {
-            if (rt == null) return float.NaN;
-            int i = _kids.IndexOf(rt);
-            return i >= 0 ? _zs[i] : float.NaN;
         }
 
         /// <summary>旧 quad 那一套里「HUD 图统一用的那个 z」（= `BattleDriver.HudImageZ`）。

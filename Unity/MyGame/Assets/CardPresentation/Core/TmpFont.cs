@@ -300,7 +300,7 @@ namespace CardPresentation
         /// </summary>
         public enum TextOutline { None, Name, Body }
 
-        public static void ApplyOutline(TextMeshPro t, TextOutline kind)
+        public static void ApplyOutline(TMP_Text t, TextOutline kind)
         {
             if (t == null || kind == TextOutline.None) return;
             var mat = t.fontMaterial;                       // ⚠️ 实例材质，别碰共享的
@@ -368,6 +368,37 @@ namespace CardPresentation
             return t;
         }
 
+        /// <summary>🔴 **2026-10-16（`T09` 面板族）：造一个【uGUI】的字**（`TextMeshProUGUI`，挂在画布下）。
+        /// <para>与 <see cref="NewText"/> 的**唯一区别**是组件类型与节点自带 `RectTransform` ——
+        /// 字体/精灵资产/不换行那些**逐句照抄**（⛔ 别在这里另立一套默认值，两份迟早不一致）。</para>
+        /// <para>⚠️ **单位不同**：世界档的 `fontSize` 是**世界单位**，这一档是**设计 px**
+        /// （canvas 单位就是设计 px，判据 → `T09` §五·补③ 一）—— 同一个数在两档里的**视觉大小差 108 倍**。</para>
+        /// <para>⚠️ **`raycastTarget` 出厂给 `false`**（照 `HudCanvas.MakeImage` 那条「装饰件默认不吃射线」）。
+        /// 要让这块字**自己**收点击的，调用点显式打开 —— ⛔ 否则它会**静默吃掉**底下的射线。</para>
+        /// <para>⚠️ 拿不到字体资产时返回 `null`（调用方要判）—— **没有点阵兜底路**
+        /// （点阵走 `MeshRenderer`，挂在画布下不归画布管）。</para></summary>
+        public static TextMeshProUGUI NewTextUgui(Transform parent, string name, string text, float fontSize,
+                                                  Color color, Face face)
+        {
+            var fa = face == Face.Cjk ? Font : FaceAsset(face);
+            if (fa == null) return null;
+
+            // 节点自带 `RectTransform`：普通 `Transform` 挂在画布下会把 RT 链断掉
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+
+            var t = go.AddComponent<TextMeshProUGUI>();
+            t.font = fa;
+            t.fontSize = fontSize;
+            t.color = color;
+            t.alignment = TextAlignmentOptions.Center;
+            if (CardIcons.SpriteAsset != null) t.spriteAsset = CardIcons.SpriteAsset;
+            t.textWrappingMode = TextWrappingModes.NoWrap;
+            t.text = text ?? "";
+            t.raycastTarget = false;      // 见 doc：装饰件默认不吃射线（要收点击的调用点显式打开）
+            return t;
+        }
+
         /// <summary>
         /// 🆕 2026-09-21：世界坐标落在哪个 `&lt;link=…>` 上；没命中返回 null。
         ///
@@ -412,7 +443,7 @@ namespace CardPresentation
         /// 本函数留给**直接持有 `TextMeshPro` 的调用方**：`Core/CardView.cs` 那两处
         /// （后面紧跟 `ForceMeshUpdate()`，`FitsBox` 就靠这一次生成量版面）—— 那条路**一字未改**。</para>
         /// </summary>
-        public static void SetWrapWidth(TextMeshPro t, float width)
+        public static void SetWrapWidth(TMP_Text t, float width)
         {
             SetWrapWidthRect(t, width);
             GenerateLayout(t);
@@ -432,7 +463,7 @@ namespace CardPresentation
         /// `SetWrapping(false)` 还原自己那一档）—— 把模式也记成待办、等激活时再回写，
         /// 会把那些 `0` **静默改回 `1`**（`MainMenuRuntime` 的 `SetWrapWidth(...); SetWrapping(false);`
         /// 就是这种成对写法）。</para></summary>
-        public static void SetWrapWidthRect(TextMeshPro t, float width)
+        public static void SetWrapWidthRect(TMP_Text t, float width)
         {
             if (t == null) return;
             t.textWrappingMode = TextWrappingModes.Normal;
@@ -453,7 +484,7 @@ namespace CardPresentation
         /// （真 Play 有帧循环；批处理里那几帧靠 `Shoot` 的 `cam.Render()`）。
         /// 想让**未激活**的 TMP 也把网格推上去是**做不到**的（`m_mesh` 不存在），⛔ 别改成
         /// `ForceMeshUpdate(true)` 指望它替你把画面也做出来。</para></summary>
-        public static void GenerateLayout(TextMeshPro t)
+        public static void GenerateLayout(TMP_Text t)
         {
             if (t == null) return;
             t.GetTextInfo(t.text);

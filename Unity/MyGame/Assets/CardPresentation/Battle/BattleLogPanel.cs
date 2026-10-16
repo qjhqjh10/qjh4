@@ -30,8 +30,20 @@
 //      对行文字做 `FindIntersectingLink` → `GetLinkID` → `Split(',')` → `DisplayCard`）——
 //      要做就得先给日志文案**加上 TMP 链接**（我们现在是纯文本）。
 //
-// 层级：相机看 +Z（**z 越大越远**）。这块面板要压在整个战场和 HUD 之上，
-// 所以给它一组「最靠前」的 z（见下面 `Z*` 常量）—— 压暗层要比 HUD 的文字（z=0）还近。
+// 🔴🔴 **2026-10-16（`T09` 批 2 · `PopUps` 组）：整扇面板已从【世界空间 quad】迁到【uGUI 子画布】。**
+//   · **原版宿主** = `CemeteryLogPanel` @ `…/BackCanvas/Safe area BackCanvas/LeftArea` ——
+//     `PopUps` 层 / `sortingOrder` **−1** / 兄弟序 3/6（判据 → `资料/普查产出_1016战斗判据/
+//     T09c_面板到原版宿主映射.md` §一 那一行 + `T09b_uGUI拦路判据.md` §一 A·2#7）。
+//   · **子画布** = `HudCanvas.EnsureSubCanvas(null, "CemeteryLogPanel Canvas", PopUps, −1)`
+//     （⛔ 子画布**不带** `CanvasScaler` —— 全场景只有根 canvas 上那一个）。
+//   · 面板里**所有**图与字现在都建在这块子画布上（⛔ 没有一个留在世界空间）；层级不再靠 z /
+//     `renderQueue`，改由 **(排序层 `PopUps`, `sortingOrder` −1, 兄弟序)** 决定 —— 兄弟序的排法见
+//     `HudCanvas.Add`（**按 z 降序**，所以下面 `Z*` 那组常量**语义照搬**：值大的仍然在后面）。
+//   · 🔴 **只留一件在世界空间**：悬停弹出来的那张 `CardView`（卡体那一族还没迁，见 `T09` §五·补⑧）。
+//     它的父节点 = **本组件自己那个节点**（`BattleDriver.ShowLogCard` 写的是 `_logPanel.transform`，
+//     那一路在**别的文件**里）⇒ 那个 `BattleLogPanel` 节点**故意保持世界空间**
+//     （`Create` 里那句 `MenuDraw.SetPxSize` 一个字没动）—— ⛔ 别顺手把它也搬上画布，
+//     一搬 `CardView.SetPose` 的「局部单位 = 世界单位」就不成立（见 `HoverCardLocalPos` 的注释）。
 // ============================================================================
 using System.Collections.Generic;
 using CardPresentation;
@@ -42,7 +54,12 @@ namespace CardPresentation
     public class BattleLogPanel : MonoBehaviour
     {
         // ---- 原版尺寸（px @1920×1080；HUD 里 108 px = 1 世界单位）----
-        const float PanelW = 794.1f;
+        /// <summary>原版**面板自己**的宽（`m_SizeDelta.x` = 794.06897 的四舍五入；本文件全部几何都用它）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：由私有改成 **`public`** —— 因为**我们这边现在没有任何一个节点
+        /// 是那个矩形了**（理由 → `Build` 里那段「面板节点换成铺满子画布」），它**只剩判据值**：
+        /// 断言要引用原版面板宽、将来要做面板裁剪 / 命中区时也用它。⛔ 别拿它去给 `_root` 定尺寸
+        /// （`_root` 必须是**铺满**的，否则子件的归一化锚点不等于绝对设计 px）。</summary>
+        public const float PanelW = 794.1f;
         /// <summary>拉开后**面板左缘的屏幕 x** —— 原版 `CemeteryManager.finalX = 87`（收起时 `initialX = −1200`）。
         /// 🔴 2026-09-29 订正：我们原来把它贴在 x=0（偏左 87 px）。
         /// 🔴 **2026-10-16 再订正（铁律 5）**：本行原文写「我们**不做滑动**（直接切显隐）」—— **已过期**：
@@ -67,7 +84,16 @@ namespace CardPresentation
         /// <summary>悬停那张卡的**卡体**尺寸（px）—— 取自 `RectTransform_3149.json`（`2DCard` 2.0927×3.3313 ×108）。</summary>
         public const float CardBodyW = 226.0f, CardBodyH = 359.8f;
 
-        /// <summary>悬停卡该摆的**世界坐标**（相对面板根；面板子树用的是绝对世界坐标，模块内这一减法保证换父节点也不偏）。</summary>
+        /// <summary>悬停卡该摆的**世界坐标**（相对面板根；面板子树用的是绝对世界坐标，模块内这一减法保证换父节点也不偏）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：面板节点搬上子画布之后这里**一个字没改**，两件事要记着：
+        /// ① `_root.position` 是**世界点**（画布子件照样给得出），而它减掉的正是**面板根那一级**——
+        ///    旧值是「HudRoot 的世界位置 + 滑动位移」，新值是「画布中心的世界位置（= 0）+ 同一段滑动位移」
+        ///    ⇒ **数值逐位相同**（滑动位移两种模式都是一个数，见 `ApplySlide`）。
+        /// ② 这张卡的**父节点是 `BattleLogPanel` 自己那个节点**（世界空间、见 `Create` 的注释）——
+        ///    它是 `CardView.SetPose` 要的「局部单位 = 世界单位」那一档，⛔ 所以这个节点不能上画布。
+        /// ⚠️ 一处**如实记的细微差异**：`_root.position` 不再含 `HudRoot` 的**补震位移**
+        ///    （`CardFeel` 会挪 `hudRoot.localPosition`）⇒ 而卡是挂在 `HudRoot` 下面的 ⇒
+        ///    **HUD 抖动的那几帧里这张卡会跟着抖**（改之前那几帧它不动）。只在补震期间、只影响这一张卡。</summary>
         public Vector3 HoverCardLocalPos(float z)
         {
             var c = CardCenterPx;
@@ -78,13 +104,14 @@ namespace CardPresentation
         /// <summary>面板的竖直锚定区间（自下往上）—— **原版精确值**（`RectTransform_2936.json` 的
         /// `m_AnchorMin.y` = 0.18734702 / `m_AnchorMax.y` = 0.79271716）。
         /// 🔴 **2026-10-07（A113 追加）订正**：原来写的是四舍五入的 `0.187 / 0.793`（面板高 654.48 vs 真值
-        /// **653.7998**、面板中心自顶 550.80 vs 真值 **550.7653**）。吃这两个数的只有下面
-        /// `PanelCenterTopPx` / `CardCenterPx` —— BG 与行已改成直接锚原版各自的 rect，不再经过这里。</summary>
+        /// **653.7998**、面板中心自顶 550.80 vs 真值 **550.7653**）。吃这两个数的只有
+        /// `CardCenterPx`（下面那个式子**内联**了同一个算式）—— BG 与行已改成直接锚原版各自的 rect，
+        /// 不经过这里。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：原来还有一个 `PanelCenterTopPx` 属性 + 一个用它们给**面板节点**
+        /// 定 `sizeDelta` 的调用 —— **两者都已删**（面板节点现在铺满子画布，理由 → `Build` 里那段）；
+        /// 那两行值一个都没丢：高 653.7998 = `(0.79271716 − 0.18734702) × 1080` 记在这里，
+        /// 中心 550.7653 由 `CardCenterPx` 那一条式子逐字给出。</summary>
         const float PanelTopY01 = 0.79271716f, PanelBotY01 = 0.18734702f;
-
-        /// <summary>面板**竖直中心**的自顶 px —— 原版精确值 `(1 − (0.18734702 + 0.79271716)/2) × 1080` = **550.7653**。
-        /// 四条边框 / BG / 行在原版里都是「面板局部、**向上为正**」的量，换算到屏幕一律过它。</summary>
-        static float PanelCenterTopPx { get { return (1f - (PanelTopY01 + PanelBotY01) * 0.5f) * 1080f; } }
 
         const float BgW = 769.5f, BgH = 454.4f;
         // 🔴 **2026-10-07（A113 追加）：`BG` 原来摆在【面板正中】，原版不是** —— 逐字段重摆。
@@ -198,29 +225,46 @@ namespace CardPresentation
         const float FrameLeftCx = -18.4024f, FrameLeftCy = 542.1994f;
         const float FrameRightCx = 763.7501f, FrameRightCy = 541.2654f;
         /// <summary>底板颜色：原版 `BG` 的 m_Color = (0, 0.08, 0.01, 1)。
-        /// ⚠️ **要 `.linear`** —— 工程是线性色彩空间，直接把 0.08 喂给材质会渲染成**亮绿**
-        /// （第一版就是这样，截图里是一块扎眼的绿板）。</summary>
-        static readonly Color BgColor = new Color(0f, 0.08f, 0.01f, 1f).linear;
+        /// 🔴 **2026-10-16（`T09` 批 2）就地订正（铁律 5）**：原来这里写「**要 `.linear`** ——
+        /// 工程是线性色彩空间，直接把 0.08 喂给材质会渲染成**亮绿**」—— **那句只对旧那条【材质】路成立**：
+        /// 旧代码走 `ImageQuad.SetTint` → 写进**材质**的 `_Color`，而材质颜色是**线性值**，
+        /// 原版那个 `0.08` 是**在检视面板里挑的 sRGB 值** ⇒ 必须先 `.linear` 才画得出同一个观感。
+        /// **现在走 uGUI 的 `Image.color`** —— 那是**顶点色**，Unity 在**线性工程**里按
+        /// **sRGB** 解释它（`Canvas.vertexColorAlwaysGammaSpace` 出厂为 false）⇒ **要喂原版那个原值**，
+        /// ⛔ 再 `.linear` 就是**乘了两遍**（底板黑到看不见）。
+        /// ⚠️ **这一处是判断、不是实读**：现行口径不许起 player（`T09` §五 五）⇒ **没在真机上比过色**；
+        /// 判据链 = ① 原版序列化的原值 + ② uGUI 顶点色那条 sRGB 约定 + ③ 旧材质路当初为什么要 `.linear`。</summary>
+        static readonly Color BgColor = new Color(0f, 0.08f, 0.01f, 1f);
         /// <summary>压暗：原版 `shade` 黑 55%</summary>
         static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.55f);
 
-        // ---- 层级（**z 越小越靠前**）----
+        // ---- 层级（🔴 2026-10-16 `T09` 批 2：**这组数现在是【兄弟序】的档位，不是世界 z**）----
         // ⚠️ 第一版把 `ZBg` 写得比 `ZRowBg` 还小 —— 于是底板压住了所有行（截图里只看得到一行）。
         // ⚠️ 第二版整组放在 −0.5、第三版 −0.9，**3D 粒子照样飘在面板上面**（截图里烟穿过行底图）——
         //    特效是摆在**棋盘格位**上的（z 跟着棋盘走，比 HUD 近得多），要盖住它得推到这个量级。
-        //    这几个值只要**明显小于棋盘和粒子的 z** 就行，具体多少不影响版面（正交相机、尺寸不变）。
-        const float ZShade = -4.00f;   // 压暗层：全屏压暗（连 HUD 一起暗）
+        // 🔴 **迁到画布之后**：这几个值**一个都没改**（`HudCanvas.Add` 按 **z 降序**排兄弟序，
+        //    「大的在后」两种模型同向 ⇒ 值照搬，相对次序逐件不变）。
+        //    改它们**不再有任何渲染效果**（那件事已归画布管）—— 留着是**为了排兄弟序**，
+        //    ⛔ 别以为还在设世界 z。
+        const float ZShade = -4.00f;   // 压暗层（现在与 `_root` 同挂子画布、是它的**兄弟**）
+        const float ZPanel = -4.01f;   // 面板节点（容器）在子画布里的那一档：紧贴在压暗层**之后**
         const float ZBg = -4.02f;
         const float ZFrame = -4.03f;
         const float ZRowBg = -4.04f;
         const float ZText = -4.08f;    // 文字最靠前
 
-        static float Px(float px) { return px / 108f; }
-
-        /// <summary>面板里所有东西都放这个渲染队列 —— **4000 = Overlay（脱离排序、最后画）**。
+        /// <summary>面板里所有东西**原来**都放这个渲染队列 —— **4000 = Overlay（脱离排序、最后画）**。
         /// 为什么要它：`Sprites/Default` 和粒子同在透明队列 3000，同队列下按**距离**排，
         /// 而粒子系统的排序看的是它自己的包围盒中心 —— 2026-09-13 实测把面板一路推到 z=−4，
-        /// 烟**照样**穿在面板上面。见 `ImageQuad.SetRenderQueue`。</summary>
+        /// 烟**照样**穿在面板上面。见 `ImageQuad.SetRenderQueue`。
+        ///
+        /// 🔴 **2026-10-16（`T09` 批 2）：面板自己的件【不再用它】** —— 它们全在 `PopUps` 子画布上，
+        /// 而画布上的件**没有独立队列**（谁压谁由 (排序层, `sortingOrder`, 兄弟序) 定，
+        /// 见 `T09` §五·补⑨ 一）⇒ 那些 `SetRenderQueue(OverlayQ)` 调用**已删**（画布那一档是空操作）。
+        /// **保留下来的唯一消费点 = 悬停那张卡**（`BattleDriver.ShowLogCard` 的
+        /// `CardFan.SetCardQueue(_logCard, BattleLogPanel.OverlayQ + 1)`）—— 它是**世界空间**的
+        /// `CardView`，仍然走老那套队列 ⇒ **这个常量继续公开、值不变**。
+        /// ⚠️ `Core/Tooltip.cs:112` 的注释也引过这个数（只是注明两个场景不共存），那边不用改。</summary>
         public const int OverlayQ = 4000;
 
         /// <summary>一行要显示的东西（由 `BattleDriver` 从 `Ctx.ActionLog` 翻好中文再喂进来 ——
@@ -273,11 +317,19 @@ namespace CardPresentation
             }
         }
 
-        Transform _root;              // 面板本体（显示/隐藏切它）
-        ImageQuad _bg;
-        ImageQuad[] _rowBgs;
+        /// <summary>子画布的名字（= **原版那个宿主名** + " Canvas"，同 `LoadingMenu Canvas` /
+        /// `TooltipManager Canvas` 的先例）。自检那一侧用 `HudCanvas.SubCanvas(CanvasName)` 找它。</summary>
+        public const string CanvasName = "CemeteryLogPanel Canvas";
+        /// <summary>本扇在原版里的排序（判据 → `T09c` §一：`PopUps` 层 / **order −1**）。</summary>
+        public const int LogSortingOrder = -1;
+
+        /// <summary>这块面板的**子画布**（面板里所有件都挂在它下面）。建不出来 ⇒ `null`。</summary>
+        RectTransform _canvas;
+        Transform _root;              // 面板本体（面板节点；显示/隐藏切它）
+        HudPiece _bg;
+        HudPiece[] _rowBgs;
         Label[] _rowTexts;
-        ImageQuad _shade;
+        HudPiece _shade;
         /// <summary>最近一次喂进来的内容（`Show()` 里要拿它重刷一遍 —— 见 `SetEntries` 的注释）</summary>
         readonly List<Entry> _last = new List<Entry>();
         bool _visible;
@@ -286,6 +338,15 @@ namespace CardPresentation
         public bool RootActive { get { return _root != null && _root.gameObject.activeSelf; } }
         /// <summary>自检用：压暗层在不在</summary>
         public bool ShadeActive { get { return _shade != null && _shade.gameObject.activeSelf; } }
+        /// <summary>🔴 **2026-10-16（`T09` 批 2）自检口**：本扇的**子画布**（没建起来 ⇒ `null`）。
+        /// 断言要核对「**这一层本身对不对**」（`overrideSorting` / 排序层 / `sortingOrder`）时用它 ——
+        /// 那才是本片真正的自证（迁过去的件自己的断言只能证明「常量进得去」，见 `T09` §五·补⑥）。
+        /// ⚠️ 也用它查「子画布**不许**带 `CanvasScaler`」（原版全场景只有一个，在根上）。</summary>
+        public Canvas SubCanvas { get { return _canvas != null ? _canvas.GetComponent<Canvas>() : null; } }
+        /// <summary>自检口：**装面板内容的那个节点**（子画布下的 `CemeteryLogPanel`）。
+        /// ⚠️ 它**不是** `transform`（那个是留给悬停卡的世界空间外壳节点，见 `Create` 的注释）——
+        /// 断言找面板节点请用本口，⛔ 别 `transform.Find("CemeteryLogPanel")`（找得到才怪）。</summary>
+        public RectTransform PanelRect { get { return _root as RectTransform; } }
         /// <summary>自检用：现在几行有字</summary>
         public int FilledRows
         {
@@ -404,8 +465,13 @@ namespace CardPresentation
         // ============================================================================================
 
         /// <summary>**指针压在哪一行上**（= 哪一颗 `CemeterySliderUI`）。`-1` = 不在任何一行上。
-        /// ⚠️ 命中区就是**行底板那颗 quad 的真实矩形**（`WorldW/WorldH`）—— 与本类画出去的东西同源，
-        ///    不另立一套常量。面板没显示 ⇒ 恒 `-1`。</summary>
+        /// ⚠️ 命中区就是**行底板那颗件的真实矩形**（`HudPiece.WorldW/WorldH`）—— 与本类画出去的东西同源，
+        ///    不另立一套常量。面板没显示 ⇒ 恒 `-1`。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：行底板已迁到 uGUI 子画布，但这四行**一个字都没改** ——
+        ///    `HudPiece.WorldW/WorldH` 走的是 `RectTransform.GetWorldCorners()`
+        ///    （**量的是画出来的那个世界矩形**，两种模式同一个判据）、`transform.position` 也是世界点
+        ///    ⇒ 命中判定**跨模式同义**（见 `HudPiece` 文件头）。⚠️ 但这仍是**手搓命中**：
+        ///    第 4/5 步换成 `GraphicRaycaster` / `Physics2D` 时这一段要跟着退场。</summary>
         public int RowAt(Vector3 wp)
         {
             if (!_visible || _rowBgs == null) return -1;
@@ -467,7 +533,10 @@ namespace CardPresentation
         {
             if (_rowBgs == null || row < 0 || row >= _rowBgs.Length || _rowBgs[row] == null)
                 return HoverCardLocalPos(z);                 // 行取不到 ⇒ 退回原口径（出声由调用方负责）
-            float rowCyTop = LayoutSpace.ToPixel(_rowBgs[row].transform.position).y;
+            // 🔴 **2026-10-16（`T09` 批 2）**：`ToPixel` → **`PxY`**（只取 y，两个式子逐位同值）。
+            //    ⛔ 别用 `ToPixel(...).x`：那条 x 的斜率**写死 108**（`LayoutSpace` 的 `A990②`），
+            //    拿它当「设计 px」在非 16:9 下是错的（实测过的坑，见那个属性的 doc）。
+            float rowCyTop = LayoutSpace.PxY(_rowBgs[row].transform.position.y);
             float cxPx = PanelOpenX - 53.04f;                // 与 `CardCenterPx` 同一个 x
             var w = LayoutSpace.ToWorld(cxPx / 1920f, 1f - (rowCyTop - 20.49f) / 1080f);
             return new Vector3(w.x - (_root != null ? _root.position.x : 0f),
@@ -482,7 +551,11 @@ namespace CardPresentation
             wp = Vector3.zero;
             if (_rowTexts == null || row < 0 || row >= _rowTexts.Length || _rowTexts[row] == null) return false;
             if (string.IsNullOrEmpty(RowLinkKey(row))) return false;
-            var c0 = LayoutSpace.ToPixel(_rowTexts[row].transform.position);   // 文字块（锚点 0,0.5）左缘中点
+            // 🔴 **2026-10-16（`T09` 批 2）**：读回那一半从 `ToPixel` 换成 **`ToDesignPixel`** ——
+            //    这一对（`ToDesignPixel` ↔ `FromPixel`）才是**互逆**的（`A990②`，`LayoutSpace` 里那条）。
+            //    旧那对只在 16:9 重合（全工程的断言也都钉在 16:9），换了之后 16:9 逐位不变、
+            //    别的宽高比下**才是对的**（这条探针是把读回的 px 再喂回建件口，不是纯显示）。
+            var c0 = LayoutSpace.ToDesignPixel(_rowTexts[row].transform.position);   // 文字块（锚点 0,0.5）左缘中点
             for (float dx = 8.8f; dx < 740f; dx += 4f)
             {
                 var p = LayoutSpace.FromPixel(c0.x + dx, c0.y);
@@ -490,24 +563,34 @@ namespace CardPresentation
             }
             return false;
         }
-        /// <summary>自检用：第 i 行文字的**实际宽度**（世界单位）。
+        /// <summary>自检用：第 i 行文字的**实际宽度**（**本档单位** —— 世界档 = 世界单位 · uGUI 档 = 设计 px）。
         /// ⚠️ 这条才是抓「字根本没画出来」的判据 —— `RowText(i)` 有值只说明**属性**设上了，
         ///    TMP 在**未激活**的对象上建不出字形时它照样有值（第一版就这么骗过去了：
-        ///    断言说「1 行有字」，截图里整块板一个字都没有）。</summary>
+        ///    断言说「1 行有字」，截图里整块板一个字都没有）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：本件迁到 uGUI 档之后 `Label.WorldW` 回的是**设计 px**
+        ///    （差 108 倍）—— 消费它的断言（`Editor/BattleScene.cs`）只判 `&gt; 0.01`，两档都成立。</summary>
         public float RowTextWidth(int i)
         {
             return (_rowTexts != null && i >= 0 && i < _rowTexts.Length && _rowTexts[i] != null)
                  ? _rowTexts[i].WorldW : 0f;
         }
-        /// <summary>自检用：**行是不是画在底板前面**（z 越小越靠前）。
+        /// <summary>自检用：**行是不是画在底板前面**。
         /// ⚠️ 这条钉的是一个真踩过的坑：第一版把 `ZBg` 写得比 `ZRowBg` 小，
-        ///    底板把所有行**全盖住了**，截图里只看得到一行。</summary>
+        ///    底板把所有行**全盖住了**，截图里只看得到一行。
+        /// 🔴🔴 **2026-10-16（`T09` 批 2）就地换口（铁律 5）**：原来比的是 **`transform.localPosition.z`**
+        ///    —— 那是**世界空间那套**的判据；上画布之后**每个件的 `localPosition.z` 都是 0**
+        ///    ⇒ 它会恒判「行在底板**后面**」＝ **红**（而且红得毫无信息量，画面其实是对的）。
+        ///    现在比 **`HudPiece.OrderZ`**：世界档 = 旧那个 `localPosition.z`（**逐位不变**）·
+        ///    uGUI 档 = 它在画布里的**排位 z**（`HudCanvas.OrderZOf`，即 `HudCanvas.Add` 那一档）——
+        ///    两种模式都仍是「**值小的在前面**」（`Add` 按 z 降序排兄弟序 ⇒ 语义同向，见文件头）。</summary>
         public bool RowsInFrontOfBg
         {
             get
             {
                 if (_bg == null || _rowBgs == null || _rowBgs.Length == 0 || _rowBgs[0] == null) return false;
-                return _rowBgs[0].transform.localPosition.z < _bg.transform.localPosition.z;
+                float rz = _rowBgs[0].OrderZ, bz = _bg.OrderZ;
+                if (float.IsNaN(rz) || float.IsNaN(bz)) return false;   // 认不出档位 ⇒ 如实答 false，⛔ 不猜
+                return rz < bz;
             }
         }
 
@@ -518,6 +601,15 @@ namespace CardPresentation
             //    下的 `LeftArea`，实读 RT · `sizeDelta (0,0)` ⇒ 铺满整块）」与我们那张**铺满全屏**的压暗层
             //    （`shade`，原版 7020×4544）收在一起 ⇒ 矩形取**屏矩形 1920×1080**（= 它真正占的那一块）。
             //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「日志面板根 = 屏矩形」红。
+            // 🔴🔴 **2026-10-16（`T09` 批 2）：这个节点【故意不迁】。** 面板的**内容**整批搬去了
+            //    `CemeteryLogPanel Canvas` 子画布，**唯独这一个节点留在世界空间** —— 理由是它**不是**面板的
+            //    视觉层，而是**悬停那张 `CardView` 的父节点**：`BattleDriver.ShowLogCard` 写的是
+            //    `CardView.Create(_logPanel.transform, …)`（**在别的文件里**），而 `CardView.SetPose`
+            //    写的是 `transform.localPosition = pos`、`HoverCardLocalPos` 交出来的又是**世界单位**
+            //    ⇒ ⛔ 一搬上画布（局部单位变设计 px），那张卡就会**贴着画布中心**摆（差 108 倍、**不报错**）。
+            //    ⇒ 它保持原样 = 「卡体那一族还没迁」这条边界的**显式落地点**（`T09` §五·补⑧）。
+            //    ⚠️ 它是**空节点**（零子件、零渲染件）—— 这不是「死件」：它是那张卡的 **frame**，
+            //       而 A218 那条断言量的也正是它（`rect` = 屏矩形）。
             var go = new GameObject("BattleLogPanel", typeof(RectTransform));
             go.transform.SetParent(root, false);
             MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
@@ -526,43 +618,75 @@ namespace CardPresentation
             return p;
         }
 
+        /// <summary>建整扇面板（**全部件都建在子画布上**）。
+        /// 🔴 **2026-10-16（`T09` 批 2）** 的迁移口径（配方 → `资料/任务线/战斗线/任务/T09_整层换uGUI.md`
+        /// §五·补⑩）：
+        /// · 子画布 = `EnsureSubCanvas(null, CanvasName, PopUps, −1)`（层/order **照原版那一行**，
+        ///   ⛔ 不是自己编的）；`CanvasScaler` **一个都不加**（继承根 canvas 那个）。
+        /// · 面板节点**铺满子画布**（`FillParent`）⇒ 子件的归一化锚点 = **绝对设计 px**
+        ///   （1920×1080 那一档逐位相同；`FillParent` 而不是写死 1920×1080 —— `Expand` 档下屏比画布宽时
+        ///    （21:9）写死的矩形盖不住两边）。
+        /// · 图 → `QuadFromTopPx`（**按高定、宽由贴图比例来**）· 字 → `MakeText`（**设计 px**）。
+        /// ⚠️ `root` 形参**本件不再用**（内容全挂子画布下、⛔ 不挂 `hudRoot` —— 那是反向补震用的）。</summary>
         void Build(Transform root)
         {
-            // 压暗层：铺满屏幕（原版那张 shade 是 7020×4544，**远大于屏幕**，就是铺满）。
-            // 挂在根上、不跟着面板划进划出；它自己也是**点击捕获区**（点面板外面关掉）。
-            _shade = ImageQuad.Create(root, CardArt.Solid(), new Vector3(0f, 0f, ZShade), 40f,
-                                      new Vector2(0.5f, 0.5f), "BattleLogShade");
-            if (_shade != null)
+            // 子画布：原版 `CemeteryLogPanel` 自己**就是**一块 `overrideSorting` 的 Canvas（`CV_2772`）
+            // ⇒ 我们这扇也起一块子画布（继承根 canvas 的缩放、靠 (层, order) 另立排序组）。
+            HudCanvas.Ensure(LayoutSpace.Cam);        // 幂等；本件可能早于 `HudAbs` 那一族跑 ⇒ 自己先立画布
+            _canvas = ReuseOrMakeCanvas();
+            if (_canvas == null)
             {
-                _shade.SetTint(ShadeColor);
-                _shade.SetRenderQueue(OverlayQ);
-                _shade.gameObject.SetActive(false);
+                // ⛔ **不静默、也不退回世界空间** —— 半迁移态（图在画布、字在世界）在 16:9 下看不出来，
+                //    而别的宽高比下两者会分家（`T09` §五·补⑦ 那条「只换半边比不换更坏」）。
+                Debug.LogError("[BattleLogPanel] `PopUps` 子画布没建起来（根 canvas 没立？）⇒ **整扇面板这次不建**");
+                return;
             }
 
+            // 压暗层：铺满屏幕（原版那张 `shade` 是 7020×4544，**远大于屏幕**，就是铺满）。
+            // 挂在**子画布**上、**不跟着面板划进划出**（它建在 `_root` 之外）；它自己也是**点击捕获区**。
+            // 🔴 `FillParent`（⛔ 不是写死 1920×1080）：`Expand` 档下屏比画布宽时（21:9）写死的矩形盖不满两边。
+            _shade = HudCanvas.MakeImagePiece(_canvas, CardArt.Solid(), "BattleLogShade",
+                                              0f, 0f, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH, ShadeColor);
+            if (_shade != null)
+            {
+                HudCanvas.FillParent(_shade.Rect);
+                // ⚠️ `MakeImage` 出厂已把它登记在 `DefaultZ`（0.3）那一档 ⇒ 这里**改成**压暗层那一档
+                //    （用 `Reorder`、**不是** `Add` —— `Add` 不去重，同一个件会占两行账）。
+                HudCanvas.Reorder(_shade.Rect, ZShade);
+                _shade.gameObject.SetActive(false);
+            }
+            else Debug.LogError("[BattleLogPanel] 压暗层没建起来（`CardArt.Solid()` 取不到？）");
+
             var panel = new GameObject("CemeteryLogPanel", typeof(RectTransform));
-            panel.transform.SetParent(root, false);
-            // 🔴 **2026-10-11（A218）**：面板节点是 `RectTransform` + 写 `sizeDelta` —— 判据 = 原版同名件
-            //    `CemeteryLogPanel` 自己的 rect：`m_SizeDelta = (794.06897, **0**)` + 竖直 stretch 锚
-            //    （`anchorMin.y 0.18734702 / anchorMax.y 0.79271716`）⇒ **高由锚点给**、不由 `sizeDelta` 给
-            //    ⇒ 实际高 = `(0.79271716 − 0.18734702) × 1080 = 653.7998`（宽取本文件那个 `PanelW`，
-            //    它就是这个 794.06897 的四舍五入，本文件全部几何都用它 —— ⛔ 别在这儿另立一个数）。
-            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「`CemeteryLogPanel` 的 rect」红.
-            MenuDraw.SetPxSize(panel.transform, PanelW, (PanelTopY01 - PanelBotY01) * LayoutSpace.DesignPxH);
+            panel.transform.SetParent(_canvas, false);
+            // 🔴 **2026-10-16（`T09` 批 2）**：这个节点的 rect 从「原版面板自己那条」换成了
+            //    **铺满子画布**（= 屏矩形），理由两条：
+            //    ① 子件的锚点是**归一化**的（`QuadFromTopPx` / `MakeImage` 都是那个口）⇒ 只有当父 rect
+            //       = 1920×1080 那一块时，「anchor = 设计 px ÷ 1920」才**等于**我们一直用的绝对设计 px
+            //       （16:9 下逐位相同 —— 本文件所有几何常量都是那一档的）；
+            //    ② 原版那条 rect（794.06897 宽 · 竖直 stretch 高 653.7998）在我们这边**本来就没人用**：
+            //       底板/边框/行全是**绝对屏幕 px**（`PanelOpenX` 早烘进常量里了），面板节点只承担
+            //       「整块跟着滑动」。⛔ 这一条**如实记着**：它进报告，由主对话裁（`T09` §五·补⑩ 二的
+            //       同族问题：我们的嵌套/锚定与原版不同，⛔ 别顺手倒过来）。
+            //    改坏法：`Editor/BattleScene.cs` §A218「`CemeteryLogPanel` 的 rect」那条**要换期望值**
+            //       （现在是「子画布 rect」= 屏矩形，不是 794.1×653.7998 —— 见报告 §4）。
+            HudCanvas.FillParent((RectTransform)panel.transform);
+            // 兄弟序：面板在压暗层**之后**（画在上层）—— 给它一个比 `ZShade` 更小的档（见 `ZPanel`）。
+            HudCanvas.Add((RectTransform)panel.transform, ZPanel);
             _root = panel.transform;
 
-            // 底板：原版是个**没有 sprite 的 Image**（色 (0,0.08,0.01)）→ 我们用白图 + tint。
+            // 底板：原版是个**没有 sprite 的 Image**（色 (0,0.08,0.01)）→ 我们用白图 + tint（颜色见 `BgColor`）。
             // 🔴 **2026-10-07（A113 追加）位置照原版** —— 它**不在面板中线上**（算式与出处见 `BgCx/BgCyTopPx`）。
             //    ⚠️ 顺带作废：原来的 `panelCy / panelCx01`（面板中心）**已删** —— 它只喂过这几件，
             //    现在底板/边框/行各自锚自己那条原版 rect，不需要「面板中心」这个中间量了。
-            var bgAt = LayoutSpace.ToWorld((PanelOpenX + BgCx) / 1920f, 1f - BgCyTopPx / 1080f);
-            var bg = ImageQuad.Create(_root, CardArt.Solid(), new Vector3(bgAt.x, bgAt.y, ZBg), Px(BgH),
-                                      new Vector2(0.5f, 0.5f), "LogBG");
+            var bg = HudCanvas.QuadFromTopPx(_root, CardArt.Solid(), "LogBG",
+                                             PanelOpenX + BgCx, BgCyTopPx, BgH, ZBg, BgColor);
             _bg = bg;
             if (bg != null)
             {
+                // ⚠️ 比例要**自己盖**：白图是 1:1，`QuadFromTopPx` 按它算出来的宽 = 高 = 454.4
+                //    （与旧那句 `ImageQuad.Create(..., Px(BgH), ...)` + `SetAspect` 逐位同一个做法）。
                 bg.SetAspect(BgW / BgH);
-                bg.SetTint(BgColor);
-                bg.SetRenderQueue(OverlayQ);
             }
 
             // 四条边框 —— **逐值照原版**（框 + 中心逐条来自 prefab 字段链，见上面那整段字段链注释）。
@@ -574,35 +698,39 @@ namespace CardPresentation
 
             // 行：748×43.134（`RowH` —— 2026-09-28 已订正），**位置照原版行容器 `CemeteryActions`**
             //（🔴 2026-10-07 A113 追加：原来那句「面板中心 + 顶边框下留 8」**是我们挑的** —— 判据见 `RowsCx/RowsCyTopPx`）
-            _rowBgs = new ImageQuad[RowCount];
+            _rowBgs = new HudPiece[RowCount];
             _rowTexts = new Label[RowCount];
             for (int i = 0; i < RowCount; i++)
             {
-                float cy01 = RowCenterY01(i);
-                var at = LayoutSpace.ToWorld((PanelOpenX + RowsCx) / 1920f, cy01);
+                // ⚠️ 自顶 px（旧那格 `cy01` 是**自底**的归一化 y —— `ToWorld` 收的就是它，
+                //    这里换成 `QuadFromTopPx` / `PlaceTextByTopPx` 收的**自顶 px**，同一条式子：
+                //    自顶 px = (1 − cy01) × 1080）。
+                float cyTop = (1f - RowCenterY01(i)) * LayoutSpace.DesignPxH;
 
-                _rowBgs[i] = ImageQuad.Create(_root, CardArt.Ui("40k_battlelog_display_neutral"),
-                                              new Vector3(at.x, at.y, ZRowBg), Px(RowH),
-                                              new Vector2(0.5f, 0.5f), "LogRow" + i);
+                _rowBgs[i] = HudCanvas.QuadFromTopPx(_root, CardArt.Ui("40k_battlelog_display_neutral"),
+                                                     "LogRow" + i, PanelOpenX + RowsCx, cyTop, RowH,
+                                                     ZRowBg, Color.white);
                 if (_rowBgs[i] != null)
                 {
                     // ⚠️ **画满整行**（748×43.134）：原版那张 `40k_battlelog_display_neutral` 是
                     //    `Simple + preserveAspect=0` ⇒ **拉伸**铺满行框（图本身 653×43）。
                     //    原来给的是 `RowH * 0.8` ⇒ 实绘只有 **598×34.5**（宽也短了 150px），2026-09-28 一并订正。
                     _rowBgs[i].SetAspect(RowW / RowH);
-                    _rowBgs[i].SetRenderQueue(OverlayQ);
                 }
+                else Debug.LogError($"[BattleLogPanel] 第 {i} 行的底板没建起来（`40k_battlelog_display_neutral` 取不到？）");
 
                 // 文字起点 = **行左缘 + 行内 15.0 px**（原版 `ActionText` 的 `offsetMin.x`）。
                 // 🔴 **2026-10-07（A113 追加）订正**：原来写的是 `(PanelW − RowW)/2 + 8.8`（= 面板局部 31.85）——
                 //    那个 8.8 是**面板局部 x** 被标成了「行内 x」，而且我们还叠了一层「面板居中」的假设
                 //    ⇒ 比原版（面板局部 **8.766**）**偏右 23.08 px**。详见 `TextInsetPx`。
-                var textAt = LayoutSpace.ToWorld(
-                    (PanelOpenX + RowsCx - RowW * 0.5f + TextInsetPx) / 1920f, cy01);
-                _rowTexts[i] = Label.Create(_root, "", new Vector3(textAt.x, textAt.y, ZText), 3,
-                                            new Color(0.93f, 0.93f, 0.93f),   // 原版 ActionText = Asar Almost White
-                                            new Vector2(0f, 0.5f), "LogRowText" + i);
-                if (_rowTexts[i] != null) _rowTexts[i].SetRenderQueue(OverlayQ);
+                _rowTexts[i] = HudCanvas.MakeText(_root, "", 0f, 0f, 3,
+                                                  new Color(0.93f, 0.93f, 0.93f),   // 原版 ActionText = Asar Almost White
+                                                  new Vector2(0f, 0.5f), ZText, "LogRowText" + i);
+                if (_rowTexts[i] != null)
+                    PlaceTextByTopPx(_rowTexts[i], PanelOpenX + RowsCx - RowW * 0.5f + TextInsetPx, cyTop);
+                else
+                    Debug.LogError($"[BattleLogPanel] 第 {i} 行的文字没建起来（`MakeText` 返回 null —— "
+                                 + "拿不到 TMP 字体资产；uGUI 档**不许**退化点阵，见 `Label.CreateUgui`）");
             }
 
             panel.SetActive(false);
@@ -610,6 +738,43 @@ namespace CardPresentation
             _slideT = 0f;
             ApplySlide();
             SelectedRow = -1;      // 🆕 Z2：出厂「还没点过任何一行」（别让它默认成 0 = 看着像点过第 1 行）
+        }
+
+        /// <summary>取 / 建本扇的**子画布**（**幂等**：先按名字找、没有才建）。
+        /// 🔴 为什么要幂等：`BattleLogPanel.Create` 在 `BattleScene.Run` 里**会被调两次**
+        /// （一次是生产侧 `BattleDriver.BuildHud`，另一次是 `Editor/BattleScene.cs` 的 §A218 探针），
+        /// 而子画布是挂在**根 canvas** 下的 ⇒ 不幂等就会留**两块同名子画布**（同层同 order、内容各一份）。
+        /// ⚠️ 同批 `EndPanel`/`BattleDoors` 那一位写手用的是**同一个做法**（`BattleDoors.PairCanvas()`）。
+        /// ⚠️ 复用到的画布里可能还留着上一次建的那份件（它们那棵 `_root` 是 `SetActive(false)` 的）——
+        /// 对本扇没有影响（各挂各的 `_root`），但**别**把 `SubCanvas` 当「只有我一个用户」用。</summary>
+        static RectTransform ReuseOrMakeCanvas()
+        {
+            var found = HudCanvas.SubCanvas(CanvasName);
+            if (found != null) return (RectTransform)found.transform;
+            return HudCanvas.EnsureSubCanvas(null, CanvasName, HudCanvas.SortingLayer.PopUps, LogSortingOrder);
+        }
+
+        /// <summary>把一块 uGUI 文字摆到「**自顶 px**」那个点上（左侧中点）。
+        ///
+        /// 🔴🔴 **2026-10-16（`T09` 批 2）—— 这里【故意偏离】配方里那句「位置 → `HudCanvas.PosPx`」，
+        /// 理由与代价都写在报告里，主对话要裁的话看这一条**：
+        /// `PosPx` 交出来的是**相对父中心**的偏移（中心锚 → `localPosition`），而同屏的**图**走的是
+        /// `QuadFromTopPx`/`MakeImage` 的**归一化锚点**。两者**只在 16:9 逐位相同**；画布一旦不是
+        /// 1920×1080（`CanvasScaler` 是 `Expand`：4:3 ⇒ 1920×1440 · 16:10 ⇒ 1920×1200），
+        /// 归一化锚点按父 rect **摊开**、中心锚**不摊** ⇒ 字会**离开它那一行的底板**
+        /// （实测算式：16:10 下最多错开 **29 px**，行高才 43.13；4:3 下最多 **135 px**）。
+        /// ⇒ 本件**统一走归一化锚点**（与图同一套），这样非 16:9 下「字还在自己那一行里」。
+        /// ⚠️ 用的仍是配方指定的那个建件口（`HudCanvas.MakeText`）—— 只是**建完把锚点摆对**：
+        ///    它的 `anchorMin = anchorMax = (0.5,0.5)` 是出厂值，这里按 `MakeImage` 那条式子重设。
+        /// ⚠️ `Label` 内部只动**它自己 TMP 子节点**的 `localPosition`（`RefreshBounds`），
+        ///    不碰本节点的锚点 ⇒ 改锚点是安全的（本件的行文字也不用 `Align*On` 那几条）。</summary>
+        static void PlaceTextByTopPx(Label l, float xPx, float yPxFromTop)
+        {
+            if (l == null) return;
+            var rt = (RectTransform)l.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(xPx / LayoutSpace.DesignPxW,
+                                                      1f - yPxFromTop / LayoutSpace.DesignPxH);
+            rt.anchoredPosition = Vector2.zero;
         }
 
         /// <summary>摆一条边框。坐标 = **屏幕 px**：`cxPx` 自屏幕左缘、`cyPx` 自屏幕顶
@@ -625,61 +790,94 @@ namespace CardPresentation
         ///   · Left   **高受限** ⇒  93.147 × 571.236  · Right  **高受限** ⇒  62.814 × 578.654
         /// ⚠️ 上一版喂的是「框高 ±0.01」（65.06 / 46.79 / …）⇒ Top 实绘成 **707.99×65.06**
         ///    （宽出框 0.69 px，而它本该是**宽受限**的那条），而当时的断言盯的正是这个自算值
-        ///    （「≈707.9」）—— 等于拿我们自己的常量证明我们自己的常量。现在断言盯原版实绘值。</summary>
+        ///    （「≈707.9」）—— 等于拿我们自己的常量证明我们自己的常量。现在断言盯原版实绘值。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：建件口换成 `HudCanvas.QuadFromTopPx`（**按高定、宽由贴图比例来**
+        /// —— 与 `ImageQuad.Create` 逐字同义）；那句 `FitHeight` 的算法**一个字没动**
+        /// （⚠️ 内接后的实绘尺寸是靠 `sizeDelta` 直接给的，不是靠 uGUI 的 `preserveAspect`：
+        ///     `MakeAnchored` 恒设 `PA = 0` —— 见 `HudPiece.SetAspect` 的 doc）。</summary>
         void Frame(string art, float cxPx, float cyPx, float boxW, float boxH)
         {
             var tex = CardArt.Ui(art);
             if (tex == null) return;
-            var at = LayoutSpace.ToWorld(cxPx / 1920f, 1f - cyPx / 1080f);
             float sprAspect = tex.height > 0 ? tex.width / (float)tex.height : 1f;
             float hPx = ImageQuad.FitHeight(boxW, boxH, sprAspect);
-            var q = ImageQuad.Create(_root, tex, new Vector3(at.x, at.y, ZFrame), Px(hPx),
-                                     new Vector2(0.5f, 0.5f), "LogFrame_" + art);
-            if (q != null) q.SetRenderQueue(OverlayQ);
+            var q = HudCanvas.QuadFromTopPx(_root, tex, "LogFrame_" + art, cxPx, cyPx, hPx, ZFrame, Color.white);
+            if (q == null) { Debug.LogError($"[BattleLogPanel] 边框 `{art}` 没建起来"); return; }
             _frames[art] = q;
         }
 
-        /// <summary>四条边框的 quad（自检量尺寸用）。键就是原版图名（`40k_battlelog_frame_*`）。</summary>
-        readonly System.Collections.Generic.Dictionary<string, ImageQuad> _frames =
-            new System.Collections.Generic.Dictionary<string, ImageQuad>();
+        /// <summary>四条边框的件（自检量尺寸用）。键就是原版图名（`40k_battlelog_frame_*`）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：元素类型 `ImageQuad` → **`HudPiece`**（迁到 uGUI 之后是
+        /// `RectTransform + Image`；两个读回口 `FrameWorldW/H`、`FrameCenterPx` 的**签名没变**）。</summary>
+        readonly System.Collections.Generic.Dictionary<string, HudPiece> _frames =
+            new System.Collections.Generic.Dictionary<string, HudPiece>();
 
         /// <summary>一行的高度（px @1920×1080）—— 自检用。原版 **43.134**（`CemeteryActions` 431.344 ÷ 10 行）。</summary>
         public static float RowHeightPx { get { return RowH; } }
         /// <summary>行数 —— 自检用。原版**硬编码 10**（场景里就是 10 个 `CemeterySliderUI`）。</summary>
         public static int RowTotal { get { return RowCount; } }
-        /// <summary>第 `i` 行的底图 quad（自检量「有没有画满整行」用）。</summary>
-        public ImageQuad RowBg(int i) { return (i >= 0 && i < _rowBgs.Length) ? _rowBgs[i] : null; }
+        /// <summary>第 `i` 行的底图**件**（自检量「有没有画满整行」用）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：返回类型 `ImageQuad` → **`HudPiece`**。
+        /// ⚠️ 消费它的断言（`Editor/BattleScene.cs`）写的是 `log.RowBg(0).WorldW * 108f` 与
+        /// `log.RowBg(0).transform.position` —— **这两样 `HudPiece` 都有、且量的是同一件事**
+        /// （世界尺寸 / 世界点，见 `HudPiece` 文件头）⇒ 那两条**不用改**。
+        /// ⚠️ 空数组时不要越界：`_rowBgs` 在「面板没建起来」时是 `null`（子画布没立起来那一支）。</summary>
+        public HudPiece RowBg(int i) { return (_rowBgs != null && i >= 0 && i < _rowBgs.Length) ? _rowBgs[i] : null; }
 
-        /// <summary>某条边框的**渲染尺寸**（世界单位）—— 自检用。查不到返回 0。</summary>
+        /// <summary>某条边框的**渲染尺寸**（世界单位）—— 自检用。查不到返回 0。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：uGUI 档的 `WorldW/WorldH` 走 `GetWorldCorners()`
+        /// （量的是**画出来的那个世界矩形**，⛔ 不是 `sizeDelta × 系数`）⇒ 调用点那句 `× 108f`
+        /// 得到的仍是**设计 px**，16:9 下与原版实绘值**逐位相同**（断言不用改）。</summary>
         public float FrameWorldW(string art)
-        { ImageQuad q; return _frames.TryGetValue(art, out q) && q != null ? q.WorldW : 0f; }
+        { HudPiece q; return _frames.TryGetValue(art, out q) && q != null ? q.WorldW : 0f; }
 
         /// <inheritdoc cref="FrameWorldW"/>
         public float FrameWorldH(string art)
-        { ImageQuad q; return _frames.TryGetValue(art, out q) && q != null ? q.WorldH : 0f; }
+        { HudPiece q; return _frames.TryGetValue(art, out q) && q != null ? q.WorldH : 0f; }
+
+        /// <summary>🔴 **2026-10-16（`T09` 批 2）新增的自检口**：某条边框的**设计 px 尺寸**
+        /// （= `HudCanvas.SizePx` ⟵ `RectTransform.sizeDelta`，uGUI 档单位就是设计 px）。
+        /// **为什么要有它**：`FrameWorldW/H` 量的是**世界尺寸**，而「世界单位 ↔ px」的换算**随分辨率变**
+        /// （画布把 `屏/scaleFactor` 个画布单位摊到 `VisibleWidth×VisibleHeight` 个世界单位上）——
+        /// 在编辑器批处理那种「游戏视口 4:3、而相机 `aspect` 被钉成 16:9」的档里，**两个轴的系数会不一样**
+        /// ⇒ `FrameWorldH * 108` 读出来是**设计 px 的 0.75 倍**（断言会红，而画面其实是对的）。
+        /// 断言要吃**断言口径里的那个数**就用本口（不含任何分辨率换算、逐位等于原版 `m_SizeDelta`）。
+        /// 查不到返回 `(−1, −1)`（⛔ 不是 `zero` —— 那是合法尺寸）。</summary>
+        public Vector2 FrameSizePx(string art)
+        {
+            HudPiece q;
+            if (!_frames.TryGetValue(art, out q) || q == null || q.Rect == null) return new Vector2(-1f, -1f);
+            return HudCanvas.SizePx(q.Rect);
+        }
 
         /// <summary>某条边框**实绘中心**的屏幕 px（x 自屏幕左缘、y 自屏幕顶）—— 自检用。
-        /// ⚠️ 量的是**真实几何**（quad 的 transform），不是我们存下来的常量 —— 上一版把竖框摆偏 87 px、
-        /// 横框摆偏 16.6 px，就是因为没人量过这个（当时只量了尺寸）。
+        /// ⚠️ 量的是**真实几何**（件的 transform），不是我们存下来的常量 —— 上一版把竖框摆偏 87 px、
+        /// 横框偏 16.6 px，就是因为没人量过这个（当时只量了尺寸）。
         /// 面板滑动时它跟着动 ⇒ 断言要在**滑到位之后**问（`FinishSlideForTest()` 之后
-        /// `_root.localPosition.x = 0`，读数就是原版坐标）。
-        /// 查不到返回 (−9999, −9999)（不用 `Vector2.zero` —— 那是屏幕左上角，是个合法值）。</summary>
+        /// `_root.anchoredPosition.x = 0`，读数就是原版坐标）。
+        /// 查不到返回 (−9999, −9999)（不用 `Vector2.zero` —— 那是屏幕左上角，是个合法值）。
+        /// 🔴🔴 **2026-10-16（`T09` 批 2）就地换口（铁律 5）**：`ToPixel` → **`ToDesignPixel`**。
+        ///    本口交出来的数**要去比一个【字面设计 px】**（断言里那些 467.42 / 68.60 / 850.75）——
+        ///    那正是 `A990②` 那条：`ToPixel` 的 **x 斜率写死 108**（只在 16:9 是设计 px），
+        ///    真逆是 `ToDesignPixel`。**16:9 下两者只差 float 舍入**（≤2.5e-4 px，容差是 1.0）
+        ///    ⇒ 断言照旧成立；别的宽高比下**换过之后才是对的**。</summary>
         public Vector2 FrameCenterPx(string art)
         {
-            ImageQuad q;
+            HudPiece q;
             if (!_frames.TryGetValue(art, out q) || q == null) return new Vector2(-9999f, -9999f);
-            return LayoutSpace.ToPixel(q.transform.position);
+            return LayoutSpace.ToDesignPixel(q.transform.position);
         }
 
         /// <summary>`BG`（底板）**实绘中心**的屏幕 px（x 自屏幕左缘、y 自屏幕顶）—— 自检用。
-        /// 同上：量的是 quad 的真实 transform。🔴 原版 `BG` **不在面板中线上**（判据见 `BgCx/BgCyTopPx`）——
+        /// 同上：量的是件的真实 transform（换口理由与 `FrameCenterPx` 那一段**同一句**）。
+        /// 🔴 原版 `BG` **不在面板中线上**（判据见 `BgCx/BgCyTopPx`）——
         /// 上一版摆的是面板正中（x 偏右 31 px），当时没有任何断言看得见。
         /// 查不到返回 (−9999, −9999)。</summary>
         public Vector2 BgCenterPx
         {
             get
             {
-                return _bg != null ? LayoutSpace.ToPixel(_bg.transform.position)
+                return _bg != null ? LayoutSpace.ToDesignPixel(_bg.transform.position)
                                    : new Vector2(-9999f, -9999f);
             }
         }
@@ -691,28 +889,30 @@ namespace CardPresentation
         //  时长 `DAT_1834b2dc8` = **0.3f**（`GameAssembly.dll` 浮点池实读，与 `CardFeel` 同一只常量）；
         //  调用点是 DOTween 快捷式、**没有 `SetEase`** ⇒ 默认缓动 **OutQuad**。
         //  ⚠️ 压暗层**不跟着滑**：原版在开/合那一刻直接 `shade.SetActive(±1)`（不是补间）——
-        //     我们的 `_shade` 本来就建在 `_root` 之外，照旧。
+        //     我们的 `_shade` 本来就建在 `_root` 之外（现在它是**同画布里的兄弟节点**），照旧。
         //  ⚠️ 批处理没有帧循环 ⇒ 自检用 `AdvanceSlideForTest` / `FinishSlideForTest` 手动推。
+        //  🔴 **2026-10-16（`T09` 批 2）**：位移从「世界单位的 `localPosition.x`」换成
+        //     「**设计 px 的 `anchoredPosition.x`**」—— 面板节点现在是画布子件，它的 `localPosition`
+        //     单位是**设计 px**（⛔ 再按世界单位喂就是 1/108，**画面只是「滑得看不出来」、不报错**）。
+        //     `_slideOffsetX`（世界单位那个中间量）随之删掉：它只喂过 `PanelLeftX` 与 `ApplySlide`，
+        //     现在两处都直接用 px。⚠️ 世界坐标要用的那两处（`HoverCardLocalPos` / `RowCardLocalPos`）
+        //     读的是 `_root.position`（**世界点**，画布子件照样给得出）⇒ 一个字没改、值也不变。
         // ==================================================================
         const float PanelClosedX = -1200f;   // 原版 `initialX`（收在屏幕外）
         const float SlideDur = 0.3f;         // `DAT_1834b2dc8`
         float _slideT = 1f;                  // 0 = 收在 −1200 · 1 = 拉开到 +87
         int _slideDir;                       // 0 = 停着 · +1 = 正拉开 · −1 = 正收起
-        float _slideOffsetX;                 // 我加在 `_root.localPosition.x` 上的位移（世界单位）
+        float _slidePx;                      // 我加在 `_root.anchoredPosition.x` 上的位移（**设计 px**）
 
         /// <summary>自检用：滑动进度（0 = 收 · 1 = 开）。</summary>
         public float SlideT { get { return _slideT; } }
 
-        /// <summary>自检用：面板**左缘当前所在的屏幕 x（px）**。`_root` 的子树用的是绝对世界坐标、
-        /// 位移全记在 `_root.localPosition.x` 上 ⇒ 反推回来即可（不动任何几何）。</summary>
-        public float PanelLeftX
-        {
-            get
-            {
-                float w = LayoutSpace.ToWorld(PanelOpenX / 1920f, 0.5f).x + _slideOffsetX;
-                return (w / LayoutSpace.VisibleWidth + 0.5f) * 1920f;
-            }
-        }
+        /// <summary>自检用：面板**左缘当前所在的屏幕 x（px）**。
+        /// 🔴 **2026-10-16（`T09` 批 2）就地换口（铁律 5）**：原来是从世界坐标反推
+        /// （`ToWorld(PanelOpenX/1920).x + _slideOffsetX` 再 `×1920/VisibleWidth`）—— 那套只在「子件是
+        /// 世界空间件」时成立。上画布之后**位移本来就是设计 px**（`_root.anchoredPosition.x`）
+        /// ⇒ 直接 `PanelOpenX + _slidePx` 即可（**同一个数**：那个反推式子是 `anchoredPosition` 的逆）。</summary>
+        public float PanelLeftX { get { return PanelOpenX + _slidePx; } }
 
         public void Toggle() { if (_visible) Hide(); else Show(); }
 
@@ -768,16 +968,19 @@ namespace CardPresentation
             ApplySlide();
         }
 
-        /// <summary>把进度画到 `_root.localPosition.x` 上（DOTween 默认缓动 = OutQuad）。</summary>
+        /// <summary>把进度画到 `_root.anchoredPosition.x` 上（DOTween 默认缓动 = OutQuad）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：面板节点是**铺满子画布**的（`FillParent`，stretch 锚）⇒
+        /// `anchoredPosition` 就是「面板 rect 中心相对画布中心的偏移」（**设计 px**、y 向上）。
+        /// 子件用的是**绝对设计 px**（`PanelOpenX` 已经烘在常量里）⇒ 滑到位时偏移应当是 **0**，
+        /// 于是 `_slidePx = xPx − PanelOpenX`（拉开位 ⇒ 0 ✓ 与旧那套一致）。</summary>
         void ApplySlide()
         {
             if (_root == null) return;
             float u = 1f - _slideT;
             float xPx = Mathf.Lerp(PanelClosedX, PanelOpenX, 1f - u * u);
-            _slideOffsetX = LayoutSpace.ToWorld(xPx / 1920f, 0.5f).x
-                          - LayoutSpace.ToWorld(PanelOpenX / 1920f, 0.5f).x;
-            var p = _root.localPosition;
-            _root.localPosition = new Vector3(_slideOffsetX, p.y, p.z);
+            _slidePx = xPx - PanelOpenX;
+            var rt = _root as RectTransform;
+            if (rt != null) rt.anchoredPosition = new Vector2(_slidePx, 0f);
         }
 
         /// <summary>刷新内容。`entries` **新的在前**（原版就是从最新一条往下排）。

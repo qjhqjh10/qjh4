@@ -67,6 +67,33 @@
 //  · **对手换牌**：原版单机局会调 `AI.GetAiMulliganCards(hand)`（`BattleManager__ClickMulliganDone.c` 单机分支，
 //    存 `matchData+0x88`），但 **`AI` 类的方法体一个都没被反编译**（71 个类里没有它）⇒ **规则无从照抄**。
 //    我们让 AI 一张不换 = **有据的偏离**（见 `BattleDriver.OpenMulligan` 的注释）。
+// ═════════════════════════════════════════════════════════════════════════════
+//  🔴 **2026-10-16（`T09` 批 3 · `OverHand` 组）：图/字整批从【世界空间 quad】迁到【uGUI 子画布】**
+//  · **子画布** = `HudCanvas.EnsureSubCanvas(null, SubCanvasName, OverHand, 0)` —— 层/order **照原版那一行**
+//    （`资料/普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一：我这一颗 = `Mulligan`
+//     @ `BattleHud/Canvas/FrontCanvas/Safe area FrontCanvas`，**`OverHand` / order 0 / 兄弟序 3/14**）。
+//  · **画布上那个整屏帧** = `Mulligan`（`HudCanvas.FillParent`，= 原版那个 `anchor (0,0)-(1,1)` + `sd (0,0)`）：
+//    本面板**所有图与字**的父节点就是它。**它的中心 = 屏心、局部单位 = 设计 px**
+//    ⇒ 面板内坐标 = `HudCanvas.PosPx(cx, cy)`（原版那套「左上原点、y 向下」的设计 px，原样可搬）。
+//  · **退场的口**（逐项 → `T09` §五·补④ 那张映射表）：
+//      `ImageQuad.Create(...)` → **`HudCanvas.MakeImageInParent(...)`**（⚠️ 中心锚，**不是** `MakeImage`
+//        那套归一化锚 —— 面板帧在非 16:9 下比 1920×1080 高，归一化锚会把件**静默摆到别处**）；
+//      `Label.Create(...)` → **`HudCanvas.MakeText(...)`**（**设计 px**）；
+//      面板帧的 `MenuDraw.SetPxSize(1920,1080)` → **`HudCanvas.FillParent`**（⛔ `SetPxSize` 内部 ÷108）；
+//      `localPosition += (0,0,Z)` → 建件口那个 `z` 形参（画布上 z **只用来排兄弟序**，写进 `localPosition`
+//        会把件推离画布平面）；
+//      读回 `transform.position` + `LayoutSpace.PxX/PxY` → **`_frame.InverseTransformPoint`**（见 `PxOf`）。
+//  · 🔴 **有意【不迁】的两样**（⛔ 不是漏迁）：
+//    ① **世界空间那层壳**（`transform`，即 `MulliganPanel` 自己那个 `RectTransform`）—— 它是
+//       **「换牌区那一行」的换算基准**（`RowLocalAt` / `RowWorldPosAt` / `RowLocalPos`）：那几张起手牌
+//       **还留在世界空间**（`T09` 第 5 步才走原版 `Physics2D` 那条），而 `BattleDriver` 正是拿这几个口
+//       给卡定位的（`:13315` `RowWorldPos`）⇒ 保它 ⇒ **卡的世界位逐位不变**（16:9 / 非 16:9 都是）。
+//       它就是「卡体那一族还没迁」这条边界的显式落地点（同 `BattleLogPanel` 那个根节点）。
+//    ② **卡体本身**（`CardView`）—— 同上，属于第 5 步。
+//  · ⚠️ **如实记着的中间态**（本次**没做**、也不该在这里做）：非 16:9 下「画布上的钮」与「世界空间的卡」
+//    本来就是**两个帧**（`T09` 正文那条「4:3 下整体偏大 1.333 倍」）⇒ 那颗「替换」钮会与卡错开一点
+//    （4:3 下最多 ≈90 px；算式在报告 §6）。**卡一迁（第 5 步）这一档自然消失** —— 属"只换半边"的已知代价。
+// ═════════════════════════════════════════════════════════════════════════════
 using System;
 using System.Collections.Generic;
 using DG.Tweening;
@@ -172,12 +199,17 @@ namespace CardPresentation
         }
 
         /// <summary>按**这段文本的语种**定字号 —— 转发到 `Label.SetScriptHeight`（那条判据的**唯一一份**实现，
-        /// 内部接的是 `Loc.HasCjk`）；本件只负责 px→世界单位那一跳（`U()` = /108）。
-        /// 同族的另一处调用点见 `Battle/SettingsPanel.ApplyLangFont`（它现在也是转发）。</summary>
+        /// 内部接的是 `Loc.HasCjk`）；本件只负责「px → 本档局部单位」那一跳。
+        /// 同族的另一处调用点见 `Battle/SettingsPanel.ApplyLangFont`（它现在也是转发）。
+        /// <para>🔴 **2026-10-16（`T09` 批 3）就地改一个数（铁律 5）**：`pxPerUnit` 从 **108 → 1** ——
+        /// 本面板的字**已经全部在画布上**（`Label.CreateUgui` 那一路，局部单位 = 设计 px，
+        /// `Label.PxPerUnit` = 1）⇒ 再传 108 会让字号**小 108 倍**（而画面只是「小得看不见」、**一个字都不报**）。
+        /// 先例 = `SettingsPanel.ApplyLangFont`（批 2 同一处理）。
+        /// ⛔ **这条只对本件成立**：世界档的调用点照旧传 108（本仓 89 个 `Label.Create` 调用点一个没动）。</para></summary>
         internal static void SetScriptFont(Label l, string text, float px)
         {
             if (l == null) return;
-            l.SetScriptHeight(text, px, 108f);
+            l.SetScriptHeight(text, px, 1f);
         }
 
         /// <summary>先手 / 后手那两句 = **原版词条**（各一条，⛔ 别合并）。
@@ -208,15 +240,18 @@ namespace CardPresentation
         /// ⛔ 原来这里那条「点卡也能标记」是**我们自己加的**，已删 —— 别再加回来。</summary>
         public Action<CardView> OnCardSeen;
 
-        ImageQuad _shade;
-        ImageQuad _bar, _play, _eye;      // Continue 的底 / 圆形播放钮 / 眼睛
+        /// <summary>🔴 **2026-10-16（`T09` 批 3）：类型 `ImageQuad` → `HudPiece`** —— 这一族现在是
+        /// **uGUI 件**（`RectTransform + Image`）。⛔ **一个件只许在一边**（要么旧 quad、要么 uGUI）——
+        /// 本批**全部在 uGUI 这边**（`HudPiece` 文件头那条铁律）。</summary>
+        HudPiece _shade;
+        HudPiece _bar, _play, _eye;      // Continue 的底 / 圆形播放钮 / 眼睛
         Label _prompt, _doneText;
         /// <summary>🆕 2026-09-26：「你先手 / 你后手」那一行（原版 `MulliganText/TurnText`）。</summary>
         Label _turnText;
         /// <summary>🔴 **2026-10-13（`A1751`）**：那一行该显示哪一档（`true` = 我方后手）。
         /// 由 `SetTurnText` 记下、`SetVisible(true)` 再写一遍 —— 见 `ApplyTurnText` 的注释。</summary>
         bool _turnSecond;
-        readonly List<ImageQuad> _cardBtns = new List<ImageQuad>();
+        readonly List<HudPiece> _cardBtns = new List<HudPiece>();
         readonly List<Label> _cardTexts = new List<Label>();
         readonly List<CardView> _cards = new List<CardView>();
         /// <summary>🔴 **2026-10-13**：那几张牌**搬进换牌区之前**的位姿（`Open` 时存、`ClearCardButtons` 还）。
@@ -226,6 +261,23 @@ namespace CardPresentation
         readonly List<Vector3> _savedPos = new List<Vector3>();
         readonly List<Vector3> _savedScale = new List<Vector3>();
         readonly List<int> _marked = new List<int>();
+
+        // ── 🆕 2026-10-16（`T09` 批 3）：画布那一侧的两个节点 ──────────────────────────────────
+        /// <summary>本面板那块 **uGUI 子画布**的 `RectTransform`（`OverHand` / order 0；建不出来 ⇒ `null`，
+        /// 那一档 `Create` 直接**不建面板**）。</summary>
+        RectTransform _cv;
+        /// <summary>🔴 **本面板所有图与字的父节点** = 画布上那个**整屏帧** `Mulligan`（`FillParent`）。
+        /// <para>**它的中心 = 屏心、局部单位 = 设计 px（y 向上）** ⇒ 面板内设计 px 坐标走
+        /// <see cref="HudCanvas.PosPx"/>；命中判定/读回走它的 `InverseTransformPoint`（见 <see cref="PxOf"/>）。</para>
+        /// <para>⛔ **与 `transform`（世界空间那层壳）不是一回事**：壳的单位是**世界单位**、只装换牌区那一行的
+        /// 世界位换算（见文件头那条「有意不迁」）。面板内的件**一律挂 `_frame`**。</para></summary>
+        RectTransform _frame;
+        /// <summary>自检用：本面板那块**子画布**的 `RectTransform`（查它的层/order/`overrideSorting` 用）。</summary>
+        public RectTransform CanvasRect { get { return _cv; } }
+        /// <summary>🔴 **自检用（`T09` 批 3）**：画布上那层**面板帧**（`Mulligan`）。
+        /// 自检要量「件的世界位 vs 原版 rect」、或要「1 设计 px 的世界向量」时用它
+        /// （⛔ 不是 `transform` —— 那是世界空间那层壳，非 16:9 下两个帧差 1.333 倍）。</summary>
+        public RectTransform FrameRect { get { return _frame; } }
 
         // ---- 原版绝对坐标（1920×1080，y 从**上**）----
         const float PromptCx = 967f, PromptCy = 106.5f, PromptW = 1344f, PromptH = 79.4f;
@@ -311,11 +363,86 @@ namespace CardPresentation
         const float DoneCx = 1525.05f, DoneCy = 981.05f, DoneW = 368.9f, DoneH = 62.2f;
         const float EyeCx = 184.45f, EyeCy = 908.5f, EyeH = 79.6f;
 
+        /// <summary>面板内**设计 px** → **世界单位**（= **世界空间那一套帧**的口径，恒 ÷108）。
+        /// 🔴 **2026-10-16（`T09` 批 3）：本件只剩【换牌区那一行】在用**（`RowLocalAt` —— 那几张卡还留在
+        /// 世界空间，见文件头那两条「有意不迁」）。**画布那一侧的件一律直接用 `px`**
+        /// （`_frame` 的局部单位**就是**设计 px，见 `HudCanvas` 文件头那条推导）——
+        /// ⛔ **别再拿 `U()` 去喂画布上的建件口**：那会小 108 倍，**而画面只是「小得看不见」、一个字都不报**。</summary>
         static float U(float px) { return px / 108f; }
+
+        /// <summary>设计 px（左上原点、y 向下）→ **世界坐标**（**世界空间那一套帧**）。
+        /// 🔴 **2026-10-16（`T09` 批 3）：本件只剩 `RowLocalAt` 与自检的探测器在用**（理由同 `U()`）。
+        /// 画布上的件**不在这一帧里** —— 它们的坐标走 <see cref="HudCanvas.PosPx"/>。⛔ 别混。</summary>
         static Vector3 At(float cx, float cy) { return LayoutSpace.ToWorld(cx / 1920f, 1f - cy / 1080f); }
 
-        /// <summary>补间/自检用：面板的 z。和日志面板一样推到 −0.9 一带 ——
-        /// 场上的粒子在 −0.5 那层会飘到面板上面（那个坑记在 `BattleLogPanel` 的注释里）</summary>
+        // ────────────────────────────────────────────────────────────────────
+        //  🆕 2026-10-16（`T09` 批 3）：画布那一侧的口（**判据各只此一份**）
+        // ────────────────────────────────────────────────────────────────────
+
+        /// <summary>🔴 本面板那块 **uGUI 子画布**的名字（= 原版宿主名 + `" Canvas"`，见 `T09` §五·补⑩ 第 1 步）。
+        /// 判据 = `T09c` §一 我这一行：`Mulligan` @ `…/FrontCanvas/Safe area FrontCanvas`，
+        /// **`OverHand` / order 0**。⛔ **只此一份**（建它、自检找它都取这里）。</summary>
+        public const string SubCanvasName = "Mulligan Canvas";
+
+        /// <summary>换牌区第 i 张（共 n 张）**相对行中心的横向偏移**（**设计 px**）。
+        /// <para>🔑 **只此一份** —— 世界那条（<see cref="RowLocalAt"/>，给卡用）把它过一遍 `U()`；
+        /// 画布那条（钮那一侧）直接用。⛔ **别在两处各推一遍**（本仓红线：两处写同一条规则 = 迟早不一致）。</para></summary>
+        static float RowDX(int i, int n) { return RowSpacingPx * (i - (n - 1) * 0.5f); }
+
+        /// <summary>面板内**设计 px** → 画布帧 `_frame` 的**局部坐标**（中心原点、**y 向上**）。
+        /// = <see cref="HudCanvas.PosPx"/>（`_frame` 是 `FillParent` ⇒ 中心 = 屏心，两者逐位同值）。
+        /// ⚠️ 给**字**（`MakeText` 收 y 向上）与 `localPosition` 用；给**图**那一族用 <see cref="Img"/>
+        /// （`MakeImageInParent` 那两个形参的口径是「相对父中心、**y 向下**」—— 见它自己的 doc）。</summary>
+        static Vector3 Px(float cx, float cy) { return HudCanvas.PosPx(cx, cy); }
+
+        /// <summary>建一块图：位置 = 面板内**设计 px**（左上原点、y 向下，= 原版 prefab 那一套），
+        /// `hPx` = 画出来的**高**、**宽由贴图比例来**（= 旧 `ImageQuad.Create(…, worldH, …)` 的语义；
+        /// 要盖掉比例的建完自己调 `SetAspect` —— 原版 `PA=0` 那几颗就是这么干的）。
+        /// <para>🔑 **走 `MakeImageInParent`（中心锚）而不是 `MakeImage`/`QuadFromTopPx`（归一化锚）**：
+        /// 后两个把 `x/y` 当**屏幕绝对 px**，只在父 rect 恰好是 1920×1080 时才等于「相对父中心」——
+        /// 而本帧在非 16:9 下比它高（`CanvasScaler(Expand)`）⇒ 套错了会**静默摆到别处**（`T09` §七·10）。</para>
+        /// <para>⚠️ 贴图取不到 ⇒ 返回 `null`（⛔ 不静默建一块白图）。</para></summary>
+        static HudPiece Img(Transform parent, Texture2D tex, string name, float cx, float cy, float hPx, float z)
+        {
+            if (tex == null) return null;
+            float w = hPx * tex.width / Mathf.Max(1f, tex.height);
+            var l = Px(cx, cy);
+            return HudCanvas.MakeImageInParent(parent, tex, name, l.x, -l.y, w, hPx, z, Color.white);
+        }
+
+        /// <summary>把面板内**设计 px**（左上原点、y 向下）换算成**这一件真正画在哪**（世界坐标）。
+        /// <para>🔴 **判据只此一份** —— 命中判定、`*WorldPos` 那一族、自检的探测器全走它。
+        /// ⛔ **不是 `At()`**：`At()` 交的是**世界空间那一帧**的坐标，而画布上的件**不在那一帧里**
+        /// （非 16:9 下两帧差 1.333 倍 ⇒ 用错了就是「看得见的地方点不到」）。</para>
+        /// <para>没建出来（`_frame == null`）⇒ `Vector3.zero`（同 `CardBtnWorldPos` 那一档的口径）。</para></summary>
+        Vector3 WorldOf(float cx, float cy)
+        {
+            if (_frame == null) return Vector3.zero;
+            return _frame.TransformPoint(Px(cx, cy));
+        }
+
+        /// <summary>🔴 **`WorldOf` 的逆**：世界坐标 → 面板内**设计 px**（左上原点、y 向下）。
+        /// 命中判定（<see cref="HitDone"/>）与自检「量一个件的世界位 vs 原版 rect」那条都用它。
+        /// <para>⚠️ **别用 `LayoutSpace.PxX/PxY`** 读画布上的件 —— 那两个是**世界空间那一帧**的逆
+        /// （y 恒 108px/单位），而画布在非 16:9 下**两轴系数不同**（`T09` §七·8）⇒ 量出来是假数。</para>
+        /// <para>没建出来 ⇒ `(NaN, NaN)`（⛔ 不返 `(0,0)`：那与「真的在屏心」分不开，
+        /// 同 `CardButtonLocalZ` 返 `NaN` 那条口径）。</para></summary>
+        public Vector2 PxOf(Vector3 world)
+        {
+            if (_frame == null) return new Vector2(float.NaN, float.NaN);
+            var l = _frame.InverseTransformPoint(world);       // 面板局部（= 设计 px、y 向上）
+            return new Vector2(HudCanvas.ReferenceResolution.x * 0.5f + l.x,
+                               HudCanvas.ReferenceResolution.y * 0.5f - l.y);
+        }
+
+        /// <summary>本面板各层的**层深度**（旧那套是**世界 z**：**大的在后**、先画）。
+        /// 和日志面板一样推到 **−0.9** 一带（`−0.5` 那层场上的粒子会飘到面板上面 —— 那个坑记在
+        /// `BattleLogPanel` 的注释里）。
+        /// <para>🔴 **2026-10-16（`T09` 批 3）**：本面板的件**已经在画布上** ⇒ 这个数现在**只用来登记
+        /// 兄弟序**（`HudCanvas.Add`，语义**同向**：z 大的排前面 = 画在底下；同 z 按建件先后）
+        /// —— ⛔ **别再把它写进 `localPosition.z`**（画布上写 z 会把件推离画布平面）。
+        /// ⚠️ 它还留着**另一个用处**：`RowWorldPosAt` 给**卡**的局部位里那一份 `Z`
+        /// （卡还在世界空间，那一份是**真的世界 z**）—— 两处共用这一个常量是**有意的**（同一层）。</para></summary>
         const float Z = -0.9f;
 
 
@@ -373,28 +500,30 @@ namespace CardPresentation
 
         /// <summary>换牌区那一行里**第 i 张（共 n 张）**的**世界位**。
         ///
-        /// 🔴 **2026-10-13（实机才暴露的一条）**：`At()` 给的是**本面板子件用的局部位**
-        ///    （本文件所有子件的口径），而**卡不在本面板的父链下**（它们在 `HandArea` 里）
-        ///    ⇒ 两者**不是一回事**（批处理里恰好相等 ⇒ 自检全绿；实机里差一个缩放 ⇒ 牌摆歪）。
-        ///    所以这里**必须**经 `transform.TransformPoint` 换成真世界位。
+        /// 🔴 **2026-10-13（实机才暴露的一条）**：`At()` 给的是**世界空间那一套帧**的坐标
+        ///    （本面板那层**壳** `transform` 就在那一帧上），而**卡不在本面板的父链下**
+        ///    （它们在 `HandArea` 里）⇒ 两者**不是一回事**（批处理里恰好相等 ⇒ 自检全绿；
+        ///    实机里差一个缩放 ⇒ 牌摆歪）。所以这里**必须**经 `transform.TransformPoint` 换成真世界位。
+        /// 🔴🔴 **2026-10-16（`T09` 批 3）**：本面板的**钮/压暗/字已经搬到画布上**（那是另一个帧），
+        ///    **但这一条一个字都没改** —— 它算的是**卡**的位置，而**卡还留在世界空间**（第 5 步才迁）
+        ///    ⇒ 卡的世界位**逐位不变**（任何宽高比下都是）。见文件头那两条「有意不迁」。
         /// ⚠️ 喂 `transform.position` / `DOMove`（世界）的用它；喂 `CardView.SetPose`（局部）的用
         ///    <see cref="RowLocalPos"/>。⛔ 判据（行心/卡宽/间距）仍只在这一处算。</summary>
         public Vector3 RowWorldPosAt(int i, int n)
         {
-            // ⚠️ 局部位里**连 `Z`（这一层的深度）一起**给上 —— 面板子件都是 `At(...) + (0,0,Z)` 的口径，
-            //    少了它卡会落在**压暗层后面**（`_shade` 就在 `Z` 上）。
+            // ⚠️ 局部位里**连 `Z`（这一层的深度）一起**给上 —— 卡是按「本面板局部位」喂进来的，
+            //    少了它卡会落在这个面板的深处（`Z` 是我们给这一层定的那个常量）。
             return transform.TransformPoint(RowLocalAt(i, n) + new Vector3(0f, 0f, Z));
         }
 
-        /// <summary>换牌区那一行第 i 张（共 n 张）在**本面板局部位**里的位置（**不含**深度 `Z`）。
-        /// 🔴 **判据只此一处**：卡走 <see cref="RowWorldPosAt"/>（世界）、钮直接用它（面板子件就是局部位）
-        /// —— 两边各算一遍间距，迟早不一致（本仓红线）。</summary>
+        /// <summary>换牌区那一行第 i 张（共 n 张）在**本面板壳的局部位**里的位置（**不含**深度 `Z`）。
+        /// 🔴 **判据只此一处**：卡走 <see cref="RowWorldPosAt"/>（世界）而**钮走 <see cref="RowDX"/>
+        /// 那条设计 px 的路**（`BuildCardButtons`）—— **间距与行心的常量只此一份**，
+        /// 两个帧各自做一次换算（⛔ 别在两处各推一遍，本仓红线）。</summary>
         public Vector3 RowLocalAt(int i, int n)
         {
-            float spacing = U(RowSpacingPx);
-            float total = spacing * (n - 1);
             var c = At(RowCx, RowCy);
-            return new Vector3(c.x - total * 0.5f + spacing * i, c.y, c.z);
+            return new Vector3(c.x + U(RowDX(i, n)), c.y, c.z);
         }
 
         /// <summary>这张牌在换牌区那一行里的**世界位**；**它不在这一批里** ⇒ 返回 `Vector3.zero`。
@@ -454,20 +583,58 @@ namespace CardPresentation
             //    `sizeDelta (0,0)` ⇒ **绝对矩形 (0,0)-(1920,1080)**（`bundle_scenes_scenes_battlearena1`，
             //    2026-10-11 现读）⇒ 整屏矩形（与文件头那段 dump「`Mulligan`（整屏，FrontCanvas 下）」一致）。
             //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「换牌面板根 = 整屏矩形」红。
+            // 🔴🔴 **2026-10-16（`T09` 批 3）：这个节点【故意留着世界空间那一套】，它是「换牌区那一行」的
+            //    换算基准**（见文件头那两条「有意不迁」）—— 本面板的**图与字一个都不挂它**，
+            //    它们全挂在下面那块子画布的 `Mulligan` 帧上。⇒ `MenuDraw.SetPxSize` 这一句**原样不动**
+            //    （`A218` 那条断言的期望值也就一个字不用改）。
             var go = new GameObject("MulliganPanel", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             MenuDraw.SetPxSize(go.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
             var p = go.AddComponent<MulliganPanel>();
 
+            // ---- 🆕 `T09` 批 3：本面板那块 uGUI 子画布（`OverHand` / order 0）--------------------------
+            // 层/order **照原版那一行**（`T09c` §一）；⛔ **子画布一个 `CanvasScaler` 都不加**
+            // （原版全场景只有一个、在根上 ⇒ 加了会二次缩放）。
+            // 🔑 `EnsureSubCanvas` **按名字幂等**（可以当「建/取」用）⇒ ⛔ **别在外面再包一层**
+            //    （`生产侧 + A218 探针` 都会调 `Create`，包两层就是同一个规矩的第二份写法）。
+            HudCanvas.Ensure(LayoutSpace.Cam);          // 幂等（HUD 图族会先建；这里兜底）
+            var cvRt = HudCanvas.EnsureSubCanvas(null, SubCanvasName,
+                                                 HudCanvas.SortingLayer.OverHand, 0);
+            if (cvRt == null)
+            {
+                // ⛔ **不许静默退回世界空间 quad** —— 半迁移态（一半跟画布、一半跟世界）在 **16:9 下看不出来**，
+                //    别的宽高比下两者会分家（`T09` §五·补⑦ 那条「只换半边比不换更坏」）。
+                UnityEngine.Object.DestroyImmediate(go);
+                Debug.LogError("[Battle] 换牌面板的 `OverHand` 子画布没建起来（根 canvas 没立？）"
+                             + " ⇒ **本面板这次不建**（⛔ 不退回世界空间 quad）");
+                return null;
+            }
+            p._cv = cvRt;
+            // 画布上的**整屏帧** = 原版 `Mulligan`（`anchor (0,0)-(1,1)` + `sd (0,0)` ⇒ 铺满父件）
+            //   ⇒ `FillParent`（⛔ 不是写死 1920×1080：`Expand` 档下屏比画布高时它更大，见 `T09` §五·补⑩）。
+            //   **它的中心 = 屏心** ⇒ 面板内坐标 = `HudCanvas.PosPx(cx, cy)`（本文件所有几何常量都是
+            //   1920×1080 那一档的设计 px、左上原点、y 向下 ⇒ 原样可搬）。
+            var fgo = new GameObject("Mulligan", typeof(RectTransform));
+            fgo.transform.SetParent(cvRt, false);
+            p._frame = (RectTransform)fgo.transform;
+            HudCanvas.FillParent(p._frame);
+            HudCanvas.Add(p._frame, Z);                 // 兄弟序那本账（画布上 z 只用来排先后）
+            var frame = p._frame;                       // 面板内所有件的父节点（⛔ 不是 `go.transform`）
+
             // 压暗（**我们挑的**，原版只查到有个 Shade，颜色/透明度没查到）
-            p._shade = ImageQuad.Create(go.transform, CardArt.Solid(), At(960f, 540f), U(1200f),
-                                        new Vector2(0.5f, 0.5f), "MulliganShade");
+            // 🔴 **2026-10-16（`T09` 批 3）**：世界空间 quad → 画布上一张**铺满的 `Image`**。
+            //   `FillParent`（⛔ 不是写死 1920×1080 —— 同 `Mulligan` 帧那条）；`MakeImagePiece` 出厂把它
+            //   登记在默认档（`HudCanvas.DefaultZ`）⇒ 用 **`Reorder`** 挪到本面板这一档
+            //   （⛔ 别用 `Add`：它不去重，同一个件会占两行账）。
+            p._shade = HudCanvas.MakeImagePiece(frame, CardArt.Solid(), "MulliganShade",
+                                                0f, 0f, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH,
+                                                new Color(0f, 0f, 0f, 0.55f));
             if (p._shade != null)
             {
-                p._shade.SetAspect(1920f / 1080f);
-                p._shade.SetTint(new Color(0f, 0f, 0f, 0.55f));
-                p._shade.transform.localPosition += new Vector3(0f, 0f, Z);
+                HudCanvas.FillParent(p._shade.Rect);
+                HudCanvas.Reorder(p._shade.Rect, Z);
             }
+            else Debug.LogError("[Battle] 换牌面板的压暗层没建起来（`CardArt.Solid()` 取不到？）");
 
             // 提示行（原版 `MulliganText` 那块 1344×79.4，中心 (967,106.5)）
             // 🔴 **2026-10-18（第十二轮 · W6）**：文案改成**原版词条** `Battle/Mulligan/Instructions`
@@ -495,16 +662,26 @@ namespace CardPresentation
             //   ② `Battle/Label.cs` 的 `SetColor`/`TmpFont` 那一路：我们自己的字体材质 `_FaceColor` 是白
             //   ⇒ 这里直接给顶点色就能画出原版那个橙。
             Color promptColor = new Color(0.9960785f, 0.5960785f, 0.1176471f, 1f);   // = 原版 `Pragati-Regular Orange` 的 `_FaceColor`
-            p._prompt = Label.Create(go.transform, promptText, At(PromptCx, PromptCy), 8,
-                                     promptColor, new Vector2(0.5f, 0.5f), "MulliganPrompt");
+            // 🔴 **2026-10-16（`T09` 批 3）**：`Label.Create`（世界空间）→ **`HudCanvas.MakeText`（画布）**。
+            //   ⚠️ **单位是【设计 px】**（`At()` → `Px()`）：喂世界单位会**小 108 倍**、
+            //      **而画面只是「小得看不见」、不报错**（`T09` §五·补⑨ 四）。`z` 那个形参就是旧那句
+            //      `localPosition += (0,0,Z−0.05)` 的落点（画布上 z 只用来排兄弟序）。
+            //   ⚠️ `MakeText` 拿不到 TMP 字体时**返回 null**（`Label.CreateUgui` 出声、⛔ 不退化成点阵）
+            //      ⇒ 下面几处都保留 `!= null` 空判（原来 `Label.Create` 恒非 null，没这个必要）。
+            var promptPos = Px(PromptCx, PromptCy);
+            p._prompt = HudCanvas.MakeText(frame, promptText, promptPos.x, promptPos.y, 8,
+                                           promptColor, new Vector2(0.5f, 0.5f), Z - 0.05f, "MulliganPrompt");
             // 🔴 **2026-10-16（`A2102④`）：与 `TurnText` 那颗**同一口径** —— 开原版那条自适应。**
             //   原来这里只调 `SetScriptFont(…, PromptH * 0.55f)`（**那个 0.55 是我们挑的**）
             //   ⇒ 实渲 43.67，而原版**实渲 53.7**（小 19%）。
             //   ⚠️ 按语种选字体那句**保留**（`SetScriptFont`）—— 它现在只提供 `fontSizeBase` 那个起点；
             //      最终大小由 TMP 在 `[18, 65]` 里自己收敛（原版也是这么跑的，见 `PromptBoxW` 那条判据）。
             SetScriptFont(p._prompt, promptText, PromptFsBase);
+            //   🔴 **2026-10-16（`T09` 批 3）**：框那两个参数**去掉 `U()`** —— uGUI 档的框就是**设计 px**
+            //     （`Label.SetAutoFitBox` 内部拿它写 TMP 的 `sizeDelta`、并用 `NominalPx()`（按档取）折算字号
+            //      ⇒ 喂世界单位会让框变成 1/108、字号收敛到一个荒谬的小值，**不报错**）。
             if (p._prompt != null)
-                p._prompt.SetAutoFitBox(U(PromptBoxW), U(PromptBoxH), PromptFsMin, PromptFsMax, PromptFsBase);
+                p._prompt.SetAutoFitBox(PromptBoxW, PromptBoxH, PromptFsMin, PromptFsMax, PromptFsBase);
 
             // 🆕 2026-09-26：**开局谁先手那一行** —— 判据（唯一）→ `资料/加时与冲突模式_原版规格.md` §2.8：
             //   原版在 `MulliganManager.ActivateMulligan` 里把这一行的词条**按先手/后手二选一**
@@ -513,9 +690,11 @@ namespace CardPresentation
             //   🔴 **它是原版唯一一处「先手/后手」的表现** —— 原版**没有硬币资产 / 动画 / 音效**
             //   （2026-09-26 全量查过：`coin`/`toss`/`dice` 在 91 个 bundle 的资产名与 MonoBehaviour 内容里
             //    都只命中商城的 "Add coins"）⇒ 我们的「投硬币」**只该在这一行上露出来**。
-            //   ⚠️ 文案：后手那句照原版英文兜底译；**先手那句只有词条名 `GoFirst`（英文原文没查到）⇒ 我们译的**。
-            p._turnText = Label.Create(go.transform, "", At(TurnCx, TurnCy), 7,
-                                       Color.white, new Vector2(0.5f, 0.5f), "MulliganTurnText");
+            // ⚠️ 文案：后手那句照原版英文兜底译；**先手那句只有词条名 `GoFirst`（英文原文没查到）⇒ 我们译的**。
+            // 🔴 **2026-10-16（`T09` 批 3）**：同提示行那一处 —— `Label.Create` → `HudCanvas.MakeText`（**设计 px**）。
+            var turnPos = Px(TurnCx, TurnCy);
+            p._turnText = HudCanvas.MakeText(frame, "", turnPos.x, turnPos.y, 7,
+                                             Color.white, new Vector2(0.5f, 0.5f), Z - 0.05f, "MulliganTurnText");
             // ⚠️ 出厂这一下只是给个初始字号；**真正的字号按语种在 `SetTurnText` 里再设一遍**
             //    （那一行是**唯一**的口径：中文 `SetGlyphHeight` / 英文 `SetCapHeight(0.72em)`）。
             // 🔴🔴 **2026-10-16（`A1104`）就地订正 —— 本行原来只写 `SetGlyphHeight(U(TurnPx))`（= 字号写死 55），
@@ -532,11 +711,12 @@ namespace CardPresentation
             //   ⚠️ 下面那句按语种的手工字号**保留**：它现在只提供 `fontSizeBase` 那个起点，
             //      开了自适应之后最终大小由 TMP 在 `[18,55]` 里自己收敛（原版也是这么跑的）。
             if (p._turnText != null)
-                p._turnText.SetAutoFitBox(U(TurnW), U(TurnH), 18f, 55f, TurnPx);
+                p._turnText.SetAutoFitBox(TurnW, TurnH, 18f, 55f, TurnPx);   // 🔴 框 = **设计 px**（去掉 `U()`，同 `_prompt`）
 
             // 完成按钮：底图 `40k_bt_underbutton`（原版 577.5×63.8）+ 圆形播放钮 `40k_UI_bt_play`
-            p._bar = ImageQuad.Create(go.transform, CardArt.Ui("40k_bt_underbutton"), At(BarCx, BarCy),
-                                      U(BarH), new Vector2(0.5f, 0.5f), "MulliganContinueBar");
+            // 🔴 **2026-10-16（`T09` 批 3）**：三颗都换成画布上的 `HudPiece`（`Img` = 面板内**设计 px**、
+            //   按**高**定、宽由贴图比例来 —— 与旧 `ImageQuad.Create` 逐字同义）。
+            p._bar = Img(frame, CardArt.Ui("40k_bt_underbutton"), "MulliganContinueBar", BarCx, BarCy, BarH, Z);
             // 🔴 **2026-09-27 修（PA 普查抓的）**：原版这条底 `m_PreserveAspect = 0`、`m_Type=0`（Simple）
             //    ⇒ **拉满 577.5×63.84**；`ImageQuad` 默认按贴图比例定宽，而 `40k_bt_underbutton` 是
             //    **485×83**（5.8434）⇒ 我们只画出 **372.8×63.84**、**窄 204.7 px**。
@@ -545,28 +725,27 @@ namespace CardPresentation
             //    ⚠️ 同图同尺寸的 `CardChoicePanel` 早就有这一行（`_bar.SetAspect(BarW / BarH)`）——
             //    这一处是漏了，不是设计。
             if (p._bar != null) p._bar.SetAspect(BarW / BarH);
-            p._play = ImageQuad.Create(go.transform, CardArt.Ui("40k_UI_bt_play"), At(PlayCx, PlayCy),
-                                       U(PlayH), new Vector2(0.5f, 0.5f), "MulliganContinueCircle");
+            p._play = Img(frame, CardArt.Ui("40k_UI_bt_play"), "MulliganContinueCircle", PlayCx, PlayCy, PlayH, Z);
             // ⚠️ 字号在 `SetDoneText` 里按**当前这一串**的语种设（原版那颗钮上会短暂变成倒计时秒数）。
-            p._doneText = Label.Create(go.transform, DoneLabel, At(DoneCx, DoneCy), 6,
-                                       new Color(1f, 0.92f, 0.75f), new Vector2(0.5f, 0.5f), "MulliganDoneText");
+            var donePos = Px(DoneCx, DoneCy);
+            p._doneText = HudCanvas.MakeText(frame, DoneLabel, donePos.x, donePos.y, 6,
+                                             new Color(1f, 0.92f, 0.75f), new Vector2(0.5f, 0.5f),
+                                             Z - 0.05f, "MulliganDoneText");
             p.SetDoneText(DoneLabel);
             // 🔴 **2026-10-16（`A2102④`）：与上面那两颗**同一口径** —— 按原版开自适应。**
             //   框与三档 → `DoneBoxW/H` / `DoneFsMin/Max/Base` 那条 doc（判据 = 现读那颗 TMP 的字段）。
             //   ⚠️ **放在 `SetDoneText` 之后**：那一句会按语种重设字号（它只提供起点），
             //     框一旦设上，最终大小由 TMP 在 `[18,45]` 里自己收敛。
             if (p._doneText != null)
-                p._doneText.SetAutoFitBox(U(DoneBoxW), U(DoneBoxH), DoneFsMin, DoneFsMax, DoneFsBase);
+                p._doneText.SetAutoFitBox(DoneBoxW, DoneBoxH, DoneFsMin, DoneFsMax, DoneFsBase);   // 🔴 框 = 设计 px
 
             // 眼睛（原版 `HideMulliganButton`，图 `40k_ui_bt_eye`）—— 暂时收起卡片上的按钮
-            p._eye = ImageQuad.Create(go.transform, CardArt.Ui("40k_UI_bt_eye"), At(EyeCx, EyeCy),
-                                      U(EyeH), new Vector2(0.5f, 0.5f), "MulliganHideButton");
+            p._eye = Img(frame, CardArt.Ui("40k_UI_bt_eye"), "MulliganHideButton", EyeCx, EyeCy, EyeH, Z);
 
-            foreach (var q in new[] { p._bar, p._play, p._eye })
-                if (q != null) q.transform.localPosition += new Vector3(0f, 0f, Z);
-            if (p._prompt != null) p._prompt.transform.localPosition += new Vector3(0f, 0f, Z - 0.05f);
-            if (p._doneText != null) p._doneText.transform.localPosition += new Vector3(0f, 0f, Z - 0.05f);
-            if (p._turnText != null) p._turnText.transform.localPosition += new Vector3(0f, 0f, Z - 0.05f);
+            // ⚠️ **2026-10-16（`T09` 批 3）：原来这里那五句 `localPosition += (0,0,Z/Z−0.05)` 全删了** ——
+            //    画布上写 `localPosition.z` 会把件**推离画布平面**（z 在那里只用来排兄弟序）⇒
+            //    那个层深度现在由上面每处的建件口 `z` 形参承担（`HudCanvas.Add` 按 z 降序排兄弟序，
+            //    语义与旧那套**同向**：z 大的在前、画在底下；同 z 按建件先后 ⇒ 两颗字压在自己的底图上 ✓）。
 
             p.SetVisible(false);
             return p;
@@ -651,7 +830,6 @@ namespace CardPresentation
             float halfCardPx = CardView.Height * cardScale * 108f * 0.5f; // 卡的世界半高（设计 px）
             for (int i = 0; i < n; i++)
             {
-                var c = _cards[i];
                 // ⚠️ x/y 拿**卡的世界坐标当局部坐标**（「面板与棋盘同在世界空间」的老口径，今天等价）；
                 // 🔴 **A276（2026-10-11）：z 改成裸局部 `Z`** —— 原来写的是
                 //    `c.transform.position + (0, −h, Z − c.transform.position.z)`，那个 `− c…z` 项
@@ -668,11 +846,17 @@ namespace CardPresentation
                 //    钮的**局部**坐标用，注释写着「面板与棋盘同在世界空间，今天等价」——**实机里不等**
                 //    （卡在 `HandArea` 那条父链下，两者差一个缩放）⇒ 钮会整体偏离那一行。
                 //    批处理里恰好相等 ⇒ 自检结构上测不出来。
-                var lp = RowLocalAt(i, n);
-                var pos = new Vector3(lp.x, lp.y - U(halfCardPx + BtnBelowCardPx), Z);
+                // 🔴🔴 **2026-10-16（`T09` 批 3）：钮整族搬到画布上 ⇒ x/y 改成【面板内设计 px】。**
+                //    判据只此一处：横向偏移 = `RowDX(i,n)`（**与卡那条同一份常量**），纵向 = 行心
+                //    `RowCy` 往下 `halfCardPx + BtnBelowCardPx`；
+                //    ⛔ **别再用 `RowLocalAt`/`U()`**（那是**世界空间那一帧**的数 —— 但卡还在那一帧里，
+                //    所以卡那边的 `RowWorldPosAt` **一个字没动**，见文件头那两条「有意不迁」）。
+                //    ⚠️ 非 16:9 下「画布上的钮」与「世界空间的卡」本来就会错开一点（两个帧），
+                //    那是已知代价、由第 5 步（迁卡）消掉，见文件头。
+                float bx = RowCx + RowDX(i, n);                 // 设计 px（画布帧）
+                float by = RowCy + halfCardPx + BtnBelowCardPx; // 设计 px，行心往下
 
-                var q = ImageQuad.Create(transform, CardArt.Ui("UI_Button_Mulligan"), pos, U(btnH),
-                                         new Vector2(0.5f, 0.5f), "MulliganBtn_" + i);
+                var q = Img(_frame, CardArt.Ui("UI_Button_Mulligan"), "MulliganBtn_" + i, bx, by, btnH, Z);
                 // 🔴 **2026-10-12（`A1663`）**：这句原来是「没图就只靠『点卡』那条路，不静默失败」——
                 //    **那个兜底已经不成立**（点卡那条路是**我们加的**、原版没有它，已删）⇒ 改成**出声**。
                 //    ⛔ 不许退回「点卡也能标记」：那会把原版「点卡 = 看牌」整段盖掉（就是本次要修的偏离）。
@@ -696,14 +880,13 @@ namespace CardPresentation
                 // 🔴 **2026-10-18（第十三轮 · G2b）**：**同一颗钮有两档字** —— 被标记的牌印
                 //    `Battle/Mulligan/Undo`（判据见 `UndoTerm` 的 doc）。原来我们**只有一档**，
                 //    标记之后那张牌上还写着「换」（= 原版那一刻印的是 Undo）。
+                // 🔴 **2026-10-16（`T09` 批 3）**：`Label.Create` → `HudCanvas.MakeText`（**设计 px**、
+                //    `z` 形参承担旧那句 `localPosition += (0,0,Z−0.05)`；画布上写 `localPosition.z` 会推离平面）。
                 string btnText = CardBtnWord(_marked.Contains(i));
-                var t = Label.Create(transform, btnText, pos, 5, new Color(1f, 0.9f, 0.7f),
-                                     new Vector2(0.5f, 0.5f), "MulliganBtnText_" + i);
+                var t = HudCanvas.MakeText(_frame, btnText, bx, by, 5, new Color(1f, 0.9f, 0.7f),
+                                           new Vector2(0.5f, 0.5f), Z - 0.05f, "MulliganBtnText_" + i);
                 if (t != null)
-                {
                     SetScriptFont(t, btnText, 28f);           // 语种定字号（英文档不再大 39%）
-                    t.transform.localPosition += new Vector3(0f, 0f, Z - 0.05f);
-                }
                 _cardTexts.Add(t);
             }
         }
@@ -775,11 +958,16 @@ namespace CardPresentation
         /// **都在框内**（x 1322.7–1900.2 · y 908.33–1052.17）⇒ **并集就是这一块**，不必再单独判它们
         /// （三颗子件的 `m_RaycastTarget` 都是 1 ⇒ 点它们照样冒泡到那颗钮）。</para>
         /// <para>🔴 算式**只此一份** —— 转发 `MenuDraw.PaddedHitRect`。⛔ 本件一个字都不写 `±pad`。
-        /// ⚠️ 世界 → 设计 px 走 `LayoutSpace.ToDesignPixel`（= `At()` 的**真逆**；⛔ 不是 `PxX`，
-        /// 那个 x 写死 108、非 16:9 下与 `At` 不互逆）。</para></summary>
+        /// 🔴🔴 **2026-10-16（`T09` 批 3）就地换口（铁律 5）：世界 → 设计 px 走 `PxOf`（画布帧），
+        /// 不再是 `LayoutSpace.ToDesignPixel`（世界帧）。** 那两颗钮（`_bar` / 文字）**已经搬到画布上**，
+        /// 而画布在非 16:9 下**两轴系数不同**（`T09` §七·8）⇒ 拿世界帧的逆去量画布上的件 = 量错
+        /// （4:3 / 批处理下 y 差 1.333 倍 ⇒ **看得见的地方点不到**）。
+        /// `PxOf` 是 `_frame.InverseTransformPoint`，与「件真正画在哪」同一个变换 ⇒ **任何宽高比下都咬合**；
+        /// 16:9 下它与 `ToDesignPixel` 逐位同值（差 float 舍入）。</para></summary>
         public bool HitDone(Vector3 world)
         {
-            var p = LayoutSpace.ToDesignPixel(world);     // 设计 px、左上原点（与下面那个框同帧）
+            var p = PxOf(world);                          // 面板内设计 px、左上原点（与下面那个框同帧）
+            if (float.IsNaN(p.x)) return false;           // 面板没建出来 ⇒ 不认（⛔ 不拿 (0,0) 当命中）
             var hit = MenuDraw.PaddedHitRect(
                 new PxRect(BarCx - BarW * 0.5f, BarCy - BarH * 0.5f,
                            BarCx + BarW * 0.5f, BarCy + BarH * 0.5f),
@@ -790,8 +978,11 @@ namespace CardPresentation
         /// <summary>🆕 **2026-10-19（A1301③）自检用**：「完成换牌」那颗钮的**世界坐标**
         /// （= 原版那颗 `Button` 的**框中心** —— 与 `_bar` 画在哪无关，没取到图也照样给得出）。
         /// ⚠️ 同族的 `DoneWorldPos` 是那颗 **`Text` 子件**的中心（1525.05, 981.05），**两者不是同一个点**
-        /// （`DoneWorldPos` 是驱动层喂点击用的、在框内 ⇒ 两条路都对，⛔ 别互相顶替）。</summary>
-        public Vector3 BarWorldPos { get { return At(BarCx, BarCy) + new Vector3(0f, 0f, Z); } }
+        /// （`DoneWorldPos` 是驱动层喂点击用的、在框内 ⇒ 两条路都对，⛔ 别互相顶替）。
+        /// 🔴 **2026-10-16（`T09` 批 3）**：三个 `*WorldPos` 与 `HitDone` 现在**同一个帧**（画布帧，见 `PxOf`）
+        /// —— 它们必须同帧，否则「驱动层拿这个点去点 / 自检拿这个点当中心去探四条边」（`BattleScene` §A1301③）
+        /// 两条路都会**离框**。</summary>
+        public Vector3 BarWorldPos { get { return WorldOf(BarCx, BarCy); } }
 
         /// <summary>🆕 **2026-10-19（A1301③）自检用**：那颗钮的**原版命中框**尺寸（**设计 px**）
         /// = 577.5 × 63.84 四边按 `DonePad*` 外扩 ⇒ **577.5 × 143.84**（算式 = 唯一一份 `PaddedRect`）。</summary>
@@ -805,9 +996,15 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>指针在「眼睛」上吗（画布上那颗 `HudPiece` 的**世界四边形**判定 ⇒ 任何宽高比下都对）。</summary>
         public bool HitEye(Vector3 world) { return _eye != null && _eye.Contains(world); }
-        public Vector3 DoneWorldPos { get { return At(DoneCx, DoneCy) + new Vector3(0f, 0f, Z); } }
-        public Vector3 EyeWorldPos { get { return At(EyeCx, EyeCy) + new Vector3(0f, 0f, Z); } }
+        /// <summary>「完成换牌」那颗**文字**（`Text` 子件）的中心 —— **驱动层喂点击用的**（`BattleDriver`
+        /// 的 `SimulateMulliganDone` 与倒计时自动完成都点它）。
+        /// 🔴 **2026-10-16（`T09` 批 3）**：画布帧（`WorldOf`）—— 见 `BarWorldPos` 那段（三个必须同帧）。</summary>
+        public Vector3 DoneWorldPos { get { return WorldOf(DoneCx, DoneCy); } }
+        /// <summary>「眼睛」那颗钮的中心 —— **驱动层喂点击用的**（`BattleDriver.SimulateMulliganEye`）。
+        /// ⚠️ 它必须交**件真正画在哪**（`HitEye` 走 `Contains` 世界四边形）⇒ 画布帧，见 `WorldOf`。</summary>
+        public Vector3 EyeWorldPos { get { return WorldOf(EyeCx, EyeCy); } }
         public Vector3 CardBtnWorldPos(int i)
         {
             return (i >= 0 && i < _cardBtns.Count && _cardBtns[i] != null) ? _cardBtns[i].transform.position
@@ -911,19 +1108,25 @@ namespace CardPresentation
         // ==================================================================
 
         public int CardButtonCount { get { return _cardBtns.Count; } }
-        /// <summary>自检用（**A276**）：第 i 张牌那个「换」按钮写进去的**局部 z**（没有 ⇒ `NaN`）。
-        /// 判据 = 它只由本面板的 `Z` 决定，**不许跟卡的世界 z 走**（同父的 `_shade`/`_prompt` 都是裸局部 z）。</summary>
+        /// <summary>自检用（**A276**）：第 i 张牌那个「换」按钮那一层的 **z 档**（没有 ⇒ `NaN`）。
+        /// 判据 = 它只由本面板的 `Z`（建件口那个形参）决定，**不许跟卡的世界 z 走**。
+        /// 🔴 **2026-10-16（`T09` 批 3）就地改一个读法（铁律 5）**：原来是 `transform.localPosition.z`
+        /// —— 画布上那个 `z` **恒 0**（写它只会把件推离平面）⇒ 再读它这条断言**恒绿、没判别力**。
+        /// 现在读 **`HudPiece.OrderZ`**（= 它在兄弟序那本账上的 z 档，与「谁压谁」一一对应）
+        /// ⇒ 与旧那套**同一件事**、判别力也回来了（卡的世界 z 挪 0.4 也不该动它）。</summary>
         public float CardButtonLocalZ(int i)
         {
             if (i < 0 || i >= _cardBtns.Count || _cardBtns[i] == null) return float.NaN;
-            return _cardBtns[i].transform.localPosition.z;
+            return _cardBtns[i].OrderZ;
         }
         /// <summary>提示行现在写着什么（自检用）。
         /// 🔴 **A245：这一行没建出来时返回 `null`**（原来返 `"&lt;无>"`）—— `"&lt;无>"` 是**非空串**，
         ///    而 `Editor/BattleScene.cs` 那条断的是 `!string.IsNullOrEmpty(...)` ⇒ 两态（建了 / 没建）
         ///    **分不开**、那条断言等于没查。返 `null` 之后两种状态才判得出来。
-        /// ⚠️ 今天**不可达**（`Label.Create` 恒不返回 null ⇒ 这条是**潜在**缺口、不是现患）；
-        ///    改的是「让断言有判别力」，不是修一个正在发生的错。
+        /// 🔴 **2026-10-16（`T09` 批 3）就地订正（铁律 5）**：原来这里写「⚠️ 今天**不可达**
+        ///    （`Label.Create` 恒不返回 null ⇒ 这条是**潜在**缺口）」—— **已经成立、可达了**：
+        ///    本面板的字现在走 `HudCanvas.MakeText`（= `Label.CreateUgui`），**拿不到 TMP 字体时它返 `null`**
+        ///    （`Label.cs:176-179` 出声 + 销毁节点）⇒ 这一档是真状态，下面那几条断言**有判别力**。
         /// ⚠️ 同族的 `TurnText` / `DoneText` 一起改成 `null`（它们的断言是 `==` 字面量，
         ///    两态本来就分得开，改只是为了**同族一个口径**）；`Describe()` 那边自己补占位符。</summary>
         public string PromptText { get { return _prompt != null ? _prompt.Text : null; } }
@@ -932,9 +1135,42 @@ namespace CardPresentation
         /// <summary>底条的**渲染尺寸**（世界单位）—— 自检用它钉住「原版 PA=0 拉满 577.5×63.84」那条。
         /// 🔴 2026-09-27：`ImageQuad` 默认**按贴图比例定宽**（`_aspect = tex.w/tex.h`），
         ///   而这条底原版是 `PA=0` 硬拉伸 ⇒ 补 `SetAspect` 之前我们只画出 **372.8** 宽（窄 204.7px）。
-        ///   量的是渲染尺寸，不是「框」—— 框一直都是对的，错的是往里画多大。</summary>
+        ///   量的是渲染尺寸，不是「框」—— 框一直都是对的，错的是往里画多大。
+        /// 🔴🔴 **2026-10-16（`T09` 批 3）：这两个口【别再用 ×108 折回 px】。** `HudPiece.WorldW/H` 走
+        ///   `GetWorldCorners()` ⇒ 交的是**世界单位**，而画布件从「设计 px」到世界单位的系数
+        ///   **随屏变、而且两轴还能不同**（`T09` §七·8 实测：批处理下 x 1/108、y **1/144** ⇒
+        ///   `BarWorldH * 108` 读出 **47.9** 而真值 **63.84** —— **画面其实是对的**）。
+        ///   ⇒ 自检要 px 就用下面那个 **`BarSizePx`**（读 `sizeDelta`，与建件那一侧同口径）。</summary>
         public float BarWorldW { get { return _bar != null ? _bar.WorldW : 0f; } }
         public float BarWorldH { get { return _bar != null ? _bar.WorldH : 0f; } }
+        /// <summary>🆕 **2026-10-16（`T09` 批 3）自检用**：底条画出来的**设计 px**（= `sizeDelta`）。
+        /// 判据同 `BarWorldW/H`（原版 PA=0 拉满 577.5×63.84），只是量在**与建件同一把尺**上
+        /// —— ⛔ 别再用 `BarWorldW * 108f`（见上面那条，非 16:9/批处理下会得到假数）。</summary>
+        public Vector2 BarSizePx
+        {
+            get { return _bar != null ? HudCanvas.SizePx(_bar.Rect) : Vector2.zero; }
+        }
+        /// <summary>🔴 **2026-10-16（`T09` 批 3）自检用（**灭自证**）**：本面板的图与字**是不是都建在
+        /// uGUI 子画布上**（而不是有条漏网、退回世界空间 quad）。
+        /// <para>判据 = 那几件**每一件都 `HudPiece.IsUgui`** 且**都挂在 `_frame`（画布帧）的父链下**。
+        /// 语义上它防的是本件**最坏的那一档**：一半在画布、一半在世界 —— 16:9 下逐位相同、全绿，
+        /// 只有别的宽高比才露（`T09` §五·补⑦）。⛔ 别用「`HudPiece != null`」替它（那个两边都真）。
+        /// ⚠️ 任一件没建出来（贴图/字体缺失）⇒ 也返 `false`，如实回答「不成立」。</para></summary>
+        public bool OnCanvas
+        {
+            get
+            {
+                if (_frame == null || _frame.GetComponentInParent<Canvas>() == null) return false;
+                return IsUgui(_shade) && IsUgui(_bar) && IsUgui(_play) && IsUgui(_eye)
+                    && IsUgui(_prompt) && IsUgui(_doneText) && IsUgui(_turnText);
+            }
+        }
+        static bool IsUgui(HudPiece q)
+        {
+            return q != null && q.IsUgui && q.Rect != null
+                && q.Rect.GetComponentInParent<Canvas>() != null;
+        }
+        static bool IsUgui(Label l) { return l != null && l.IsUgui; }
         public bool PlayHasArt { get { return _play != null && _play.Texture != null; } }
         public bool EyeHasArt { get { return _eye != null && _eye.Texture != null; } }
 

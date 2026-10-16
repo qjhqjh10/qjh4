@@ -352,22 +352,368 @@
 是 ⇒ 归这一族的下一批；不是 ⇒ 各自有各自的批次（面板族要连它内部的字一起、卡体走 `Physics2D` 那条）。
 
 
-世界空间那套 `Label` 的尺寸**是按【整数档】量化的**（`Battle/Label.cs:998`
-`scale = Mathf.Max(1, Mathf.RoundToInt(approx / CapHeightWorldOfScale))`）⇒
-**它表示不出 0.75 这种分数缩放**（乘上去会被 `RoundToInt` 抹掉，只剩 ±33% 的档）。
-⇒ **非 16:9 只能靠【把标签族也迁到 uGUI】才能修**（uGUI TMP 的 `fontSize` 是浮点）。
-
-**下一批（标签族）要动的量**：`Hud()` 是**唯一**的 HUD 建字口（`Label.Create` 在 `BattleDriver` 里只有两处，
-另一处是加时横幅那件）· 但 HUD 标签的**尺寸口有 4 处**：
-`Hud()` 里的 `SetAutoFitBox(Px(boxWpx), …)` · `_handLabel.SetAutoFitBox` · `_titleMe/_titleFoe.SetGlyphHeight` ·
-`_overtimeSplashText.SetScriptHeight(…, 108f)`。
-🔑 **`SetScriptHeight(text, px, pxPerUnit)` 那个 `pxPerUnit` 是个现成的缝**（「1 世界单位 = 多少 px」）。
-⚠️ **别用 `LayoutSpace` 的全局映射去修**（那是 2026-10-15 试过并**当天回滚**的路，
-且现在图已不在那条映射上 —— 改了只会更乱）。
+> 🔴 **2026-10-16 订正（铁律 5）**：本文件原来在 §五·补⑧ 之后还留着一段**没删干净的旧草稿**，
+> 它写「非 16:9 **只能靠**把标签族也迁到 uGUI 才能修（uGUI TMP 的 `fontSize` 是浮点）」——
+> **与它上面 §五·补⑦ 自己的订正矛盾**（那里已判「乘 `localScale` 这条路**走得通**」，并已落地
+> `LayoutSpace.HudTextScale`）。**错因**：那半句只对「拿它去乘**尺寸参数**」成立，而正解是**乘 `localScale`**。
+> 那段里**唯一有价值的两条**（HUD 标签的**尺寸口有 4 处**、`SetScriptHeight` 的 `pxPerUnit` 是个现成的缝）
+> 已搬进 **§五·补⑨ · 四**。⇒ 原文已删，⛔ **别按它办事**。
 
 ---
 
-## 六、还差什么 / 判不准的（⛔ 不猜；**完整 7 条 → 普查 §五**）
+## 五·补⑨ 🔴 **面板族的口径 + 「面板内部的字」怎么迁（2026-10-16 · 主对话定）**
+
+> **判据来源**：`普查产出_1016战斗判据/T09b_uGUI拦路判据.md` **§一**（9 个 sorting layer 全表 ·
+> 8 个带 `GraphicRaycaster` 的宿主逐条 · 各 `Safe area FrontCanvas`/`LeftArea` 的子件序 ·
+> 另 11 个无 GR 的 Canvas）＋ 主对话现读 `MyGame/ProjectSettings/TagManager.asset` 与 `Battle/Label.cs`。
+> ⛔ **本节的数值一律去 `T09b` §一 取**（铁律 6：别在这儿抄第二份）。
+
+### 一、🔴 原版的层级模型与我们的落地模型（**这才是「面板族能不能一族一族迁」的判据**）
+
+**原版的事实**（`T09b` §一）：全场景**只有 1 个 `CanvasScaler`**（在**根** `Canvas` 上）·
+压制关系靠 **(排序层, `sortingOrder`, 兄弟序)** 三件套 · 9 层从下到上是
+`Default < Background < Elements < OverElements < Hand < HandMoving < OverHand < PopUps < Blocking` ·
+**面板全在 `PopUps`**（战报 −1 / 设置 0 / 门 0 / 弹窗锚点 1 / 错误条 1）· **tooltip 与 LoadingMenu 在 `Blocking`**。
+
+🔴 **我们现在的现状（2026-10-16 现读）**：`ProjectSettings/TagManager.asset` 里**只有 `Default` 一个排序层**；
+全工程**没有任何一个 `.unity` 带 `CanvasScaler`**。⇒ **要照原版分层，得先把那 9 层建出来。**
+
+**定的模型（三条）：**
+
+1. **建 9 个同名排序层进 `ProjectSettings/TagManager.asset`**（逐位对齐；纯新增、零行为改动）。
+2. 🔴 **每个迁过去的族 = 【嵌在 HUD 根 canvas 下的一个子 `Canvas`】**（⛔ **不是各自一个根 Canvas**），
+   按原版的 `(排序层, order)` 设 + **`overrideSorting = true`**。
+   > 🔴 **2026-10-16 当天订正（这一格我先前写错过，留痕）**：原来写的是「建成根对象、`overrideSorting` 无意义」——
+   > **两半都错**：① **根 Canvas 没有 `CanvasScaler` 就不跟宽高比缩放**（`scaleFactor` 恒 1）⇒
+   > 那样迁过去**根本没解决本件要解决的问题**；而原版**全场景只有一个 `CanvasScaler`**（在根上）
+   > ⇒ 我们**不许给每个面板各配一个**。② 正解 = **子 Canvas** —— 它**继承父 canvas 的缩放**、
+   > 又靠 `overrideSorting` **脱离父层另立排序组**（`T09b` §A·2 记的原版 4 件就是这么干的）。
+   > **错因**：只想着「别挂在 `hudRoot` 下」（那条是防**反向补震**，见 §五·补③ 三·2），
+   > 于是把「不挂 hudRoot」推成了「建成根对象」，**漏了 CanvasScaler 与嵌套这两件事**。
+   > ✅ **仍然成立的两条**：⛔ 别挂在 `hudRoot` 下（那是反向补震用的）·
+   > 嵌套 canvas 的 `renderMode` **不参与**（`T09b` §A·4 末那条）⇒ 只设 `overrideSorting` + 层 + order。
+   ⚠️ **子 Canvas 的 `RectTransform` 自己摆位**（嵌套 canvas 不被 Canvas 组件接管）——
+   面板要**整块跟着父 canvas 的坐标系走** ⇒ 锚点/尺寸按设计 px 给，与图族同一套（见 §五·补④）。
+3. 🔴 **层序与深度【同时】设、且让两者一致**（层越高 ⇒ `planeDistance` 越小 = 离相机越近）。
+   **理由（这条是本节的承重结论）**：我们**还留着大量世界空间 quad**（非 canvas 渲染器，
+   它们隐式落在 `Default` 层/0 序），而「排序层 vs `renderQueue` 谁先比」这条 **我们没有实机验过**
+   （现行口径不许起 player）。**两个机制都指向同一个次序 ⇒ 引擎按哪条判都是同一个结果**，风险归零。
+   ⛔ 所以**不许只设层、把 `planeDistance` 随便给**。
+   ⚠️ 子 Canvas 靠在**父 canvas 平面的哪个 z** 由它自己的 `RectTransform.localPosition.z` 决定
+   （子 canvas 没有 `planeDistance` 这个字段）—— 这一条**主对话还没读原版的对应值**，
+   ⛔ **别猜**：动手前先去 `T09b` §A·3 的兄弟序 + 各宿主 RT 现读，把「面板在父 canvas 平面内的 z」定死。
+
+### 二、面板 → 原版宿主 映射表
+
+🔴 **完整 21 行**（我们的每个面板 → 原版 GO / 宿主 / `(rm, overrideSorting, 排序层, order, 兄弟序)` / 逐件出处）
+→ **`资料/普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一**。
+⛔ **本文件不抄第二份**（铁律 6）—— 这里只留**主对话的三条裁定**（判据全文在那份 §三）：
+
+| 裁定 | 结论 |
+|---|---|
+| **`WaitBanner` 的宿主** | → **`WaitText`**（`BackCanvas < Safe area BackCanvas`，`Default`/0，兄弟序 **6/7**）。🔴 **不是 `AboveShader`** —— 本文件早先那张表里写的 `WaitBanner → AboveShader` **是错的**（错因：照节点名「AboveShader」望文生义当成「提示条」，**没读那个节点的子件表**）。实读：`AboveShader` 的子件是 **`TipText` + `OvertimeSplashText`**，与 `WaitBanner.cs` 文件头的子件表对不上；而 `WaitText` 的**对得上**。 |
+| **`AboveShader` 归谁** | 归我们的 **`TipText` + `OvertimeSplashText`** 那一族（`OverHand`/0，兄弟序 **8/14**）—— 与 `MulliganPanel` 等 `Safe area FrontCanvas` 直子**同一个排序组**，先后由兄弟序定。 |
+| **`PopupAnchor`**（原版 `PopUps`/order 1 的**空 Canvas**，唯一组件 `WindowHolder`） | ⏸ **本轮不建**（我们战斗侧零引用；同名机制在 `Shell/WindowHolder.cs`+`WindowsManager.cs` 已有）—— 按本仓「⛔ 别建死件」口径。⚠️ **这不是「不做」**（铁律 11）：等**战斗侧的弹窗宿主**真需要独立锚点时再建。 |
+
+⚠️ 另有一条**要就地订正的过期文件头**（铁律 5）：`Battle/CardChoicePanel.cs:1-16` 写着
+「`ChoosePanel` **与** `MulliganPanel` 都从这个类派生」，而实读 `grep -rn ": CardChoicePanel"` 只命中
+**`ChoosePanel.cs:48` 一处**（`MulliganPanel.cs:77` 是 `: MonoBehaviour`）⇒ 它现在**只是 `ChoosePanel` 的基类**。
+
+### 三、⛔ **面板族【不能】先于「面板内部的字」单独迁**（本件的硬前提）
+
+面板里**全是字**（`MulliganPanel` 5 个 `Label.Create` · `SettingsPanel` 13 个 · `EndPanel` 2 个 ·
+`CardChoicePanel` 3 个 · `CardDisplayWindow` 1 个 · `BattleLogPanel` 1 个 ……）。
+**图搬进 canvas、字留在世界空间 = 非 16:9 下两者分家**（=`§五·补⑦` 那条「只换半边比不换更坏」的同一个坑）。
+⇒ 🔴 **先给 `Label` 加 uGUI 后端，再迁第一个面板。**
+
+### 四、🔴 「面板内部的字」= **给 `Label` 加 uGUI 后端**（**不做适配层**，理由在下面）
+
+**设计（主对话 2026-10-16 现读 `Battle/Label.cs` + `Core/TmpFont.cs` 之后定的）：**
+
+- **为什么不做 `HudPiece` 那种适配层**：`Label.Create` 全工程 **89 个调用点**（生产侧 40+，
+  面板占 30+），而 `Label` 的公开面比 `ImageQuad` 大得多（`SetAutoFitBox` / `SetGlyphHeight` /
+  `SetScriptHeight` / `SetAlignLeft` / `SetVAlign` / `SetWrapWidth` / `WorldW/H` / `Contains` /
+  `LinkAt` / `RenderQueue` …）⇒ 适配层要把这些**全部镜像一遍**，**两套实现迟早分叉**。
+- 🔑 **而 `Label` 已经为「加后端」准备好了**：它本来就是**双后端**（`BuildTmp()` / `BuildDot()`，
+  见 `Label.cs:1051` 与 `Label.cs:111` 的派发），`_tmp` 上**用到的 17 个成员全部是 `TMP_Text` 基类上的**
+  （`fontSize` / `fontMaterial` / `textWrappingMode` / `textInfo` / `font` / `rectTransform` /
+  `ForceMeshUpdate` / `enableAutoSizing` / `fontSizeMin/Max` / `fontSharedMaterial` /
+  `characterSpacing` / `textBounds` / `text` / `color` / `alignment` / `isActiveAndEnabled`）
+  ⇒ 把字段类型从 `TextMeshPro` 提到 **`TMP_Text`** 即可让 `TextMeshProUGUI` 复用**全部**逻辑。
+- 🔑 **单位也是现成的**：`Label` 里**已经有一处** `PxPerWorld`（`Label.cs:1412` =
+  `LayoutSpace.DesignPxH / DesignHeight` = **108**）⇒ 世界那一档 **1 单位 = 1 世界单位**；
+  uGUI 那一档 **1 单位 = 1 设计 px**（canvas 单位就是设计 px，见 `§五·补③ 一`）⇒
+  **`PxPerWorld` 取 1** 即可，**其余算式一个字不用改**。
+- **要改的只有三处【带单位的常数】**（⛔ 漏一处就是静默错，且 16:9 下看不出来）：
+  ① `PxPerWorld`（`Label.cs:1412`，static → 按模式取 108 / 1）
+  ② `CapHeightWorldOfScale`（`Label.cs:207` = `7f/100f` 世界单位/档 → uGUI 档是 **7 px/档**）
+  ③ `UsableBounds` 的**量纲上限**（`Label.cs:1089` 的 `w/h <= 100f` = 「100 世界单位」→
+     uGUI 档是 **100 × 108 = 10800 px**）—— 🔴 **不换这个，uGUI 下任何正常宽度的标签都会被判成「没量到」
+     而停在框心**（`A1751` 那条哨兵守卫会把它吃掉、**不出声**）。
+- **调用点的数也要跟着换**：uGUI 档里**一律传设计 px**（去掉 `Px(...)`）。
+  🔴 **这一步会静默错**：传了世界单位（= px ÷ 108）⇒ 字小到看不见、**而没有任何报错**。
+  ⇒ **每个迁过去的调用点都要在报告/注释里写明「这些数是 px」**，并配一条断言。
+- **`SetRenderQueue` 在 uGUI 档里不动**（canvas 由所在 Canvas 的排序/兄弟序决定）—— 照 `HudPiece` 的先例
+  **写成有注释的空操作**，并靠 `Label.IsUgui` 让审计查得到（⛔ 不是「悄悄没做」）。
+- **点阵兜底（`BuildDot`）在 uGUI 档里不成立**（它是 `MeshRenderer`，挂在 canvas 下不归 canvas 管）
+  ⇒ **拿不到 TMP 字体时出声、不静默退化成点阵**（本工程红线：不许静默失败）。
+- ⚠️ **`SetScriptHeight(text, px, pxPerUnit)` 那个 `pxPerUnit` 是个现成的缝**（「1 单位 = 多少 px」）——
+  它是 HUD 侧 `_overtimeSplashText` 唯一在用的一处，**留着不动**（那件有意不迁，见 `§五·补⑦`）。
+- ⚠️ **`HudTextScale`（`§五·补⑦` 那条过渡系数）是【临时物】**：HUD 标签族一旦迁到 uGUI 档，
+  **它就该退场**（uGUI 的字由 canvas 统一缩放，不再需要手乘）。⛔ **别让它和 uGUI 档长期并存**。
+
+### 四·补 🔴🔴 **2026-10-16：面板族【不能一扇一扇迁】—— 面板必须【按排序组整批迁】**（主对话现读推出来的）
+
+**起因**：原计划第 3 步是「拿一个最小的面板（`UnitChatPanel`，1 图 2 字、且**根已经是
+1920×1080 的设计 px `RectTransform`**）走通全链当样板」。**读完之后判【不能这么做】**，三条：
+
+1. 🔴 **一块 canvas 是【一个整体渲染组】** ⇒ 它的件**不能**与外面的世界空间 quad **逐件**插队
+   （`overrideSorting` 的子 canvas 更是一整个排序组）—— 整组在**一个时刻**画完。
+   而面板现在**全靠 z + `renderQueue`（3000~4100）**与彼此、与 HUD、与卡**逐件**插队。
+2. ⇒ **只迁一扇面板**的结果 = 那一扇要么**盖住所有还没迁的件**（给了 `sortingOrder`），
+   要么**被所有 `renderQueue > 3000` 的件盖住**（不给 `sortingOrder`）—— **两种都不是原版的次序**。
+   ⚠️ 这**不是**「16:9 下看不出来」那一类：它**任何宽高比下都错**，只是**很难一眼看出**。
+3. 🔑 **正确切法 = 按【排序组】整批迁**（一个组迁完，组内先后由 `(层, order, 兄弟序)` 定）：
+   - **`PopUps` 组**（设置 / 战报 / 门 / 结算 / 错误条）：它们**本来就该盖在所有 2D 之上**
+     ⇒ **整批迁是安全的**（迁完不会盖错谁）。⚠️ 组内 order 有**三个 0 并列**，原版靠**兄弟序**分先后
+     ⇒ 我们也要把这三块子 canvas 的**兄弟序**排对（`T09c` §一 逐行给了原版的兄弟序）。
+   - 🔴 **2026-10-16 收窄（原先这条说得太绝对，铁律 5）**：**不是「必须一次整组迁完」** ——
+     只要按 **【组内 order 从高到低】** 迁，**每一步都是安全的**：
+     已迁的那几块在 `PopUps` 层 ⇒ **一定压在还没迁的 `Default` 层 quad 之上**，
+     而它们本来就该在那些件之上（组内更高的 order）✓。
+     ⇒ **安全顺序 = 错误条(1) → 设置/门/结算(0) → 战报(−1)**；⛔ **反着来就不安全**
+     （先把 `−1` 的战报迁上去 ⇒ 它会盖住本该压在它上面的设置窗）。
+   - **`OverHand` 组**（HUD 主层：`Mulligan` / `Card Display Window` / `Multi Card Display` /
+     `Unit Chat` / `ChooseCardMenu` / `ActiveSkillDesc` / `Alliance Panel` / `AboveShader` /
+     `AttackSelector`(这个在 `Default`)）—— 这一组**与 HUD 自己同层** ⇒ 要和
+     **§五·补⑦⑧ 那两批（HUD 图 / HUD 字）一起收口**，⛔ 不能单独动。
+   - **`Blocking`**（tooltip + 加载黑场）：同理，独立、且在最顶。
+   ⇒ **第 3/4 步合并成「按组收口」**，⛔ **别再按「哪一扇最小」挑**。
+
+⚠️ **本条的代价（如实记）**：原本想先用一扇小面板**试出坐标系换算的坑**，现在试不了了 ——
+⇒ **那一族的第一批必须【先挑一个组里最简单的一整组】做**（`PopUps` 组里
+`EndPanel`（3 图 3 字、无命中）或 `ErrorMessageBanner` 最像），**做完立刻在组内比次序**。
+
+### 五、本批执行顺序（**一件件来，⛔ 不并行改同一族**）
+
+1. ✅ **`ProjectSettings/TagManager.asset` 补 9 个排序层**（纯新增；2026-10-16 已落地，+24 行）
+2. ✅ **`Label` 加 uGUI 后端**（**新能力、零行为改动**：现有 89 个调用点一个都不动，默认仍是世界档）
+   ＋ `TmpFont.NewTextUgui` ＋ `HudCanvas` 的 `MakeText`/`MakeImagePiece`/`MakeSlicedPiece`/`EnsureSubCanvas`/
+   `SubCanvas`/`SortingLayer`/多容器 z 账（2026-10-16 已落地，typecheck 0 错）
+3. ✅ **`Blocking` 组**（2026-10-16 已落地，typecheck 0 错）—— **加载黑场**（`Blocking`/1000，从「世界空间
+   全屏 quad + 队列 4100」翻成**子画布上一张全屏 `Image`**）· **`Tooltip`**（改**双模式**：宿主由**建 UI 的那一方**
+   登记，`UseHost(host)`；战斗侧登记 `Blocking`/0 的子画布，**卡组编辑那边不登记 ⇒ 自动留在世界档**）。
+   ⚠️ **两处顺带**：① `Tooltip.PanelCenter` 的语义**按档变**（世界档 = 世界单位 · uGUI 档 = 设计 px）
+   ⇒ 新增 `PanelCenterWorld` 给跨档比较用，`BattleScene` 那条位置断言已改用它 ② 新增 4 条断言
+   （两块子画布的 `overrideSorting`/层/order · 子画布**不带 `CanvasScaler`** · 排序层 ID 次序的**灭自证**）
+   ⚠️ **一处如实标的差异**：uGUI 档的九宫格底图是**一张 `Image (Sliced)`**（原版就是这样），
+   但**原版那颗 `Image` 的 `m_PixelsPerUnitMultiplier` 主对话没读到** ⇒ 暂用默认 1，记账待查。
+4. ✅ **`PopUps` 组**（设置 / 战报 / 门 / 结算 / 错误条）—— **2026-10-16 五扇的代码都落地了**（`typecheck` 0 错）。
+   🔴 **2026-10-16：`ErrorMessageBanner` 已翻完**
+   （order **1**，组内最高 ⇒ **安全顺序的第一件**；它是**跨场景共用件** ⇒ 走**双模式**：`Create(..., uguiHost)`，
+   战斗侧传 `PopUps`/1 子画布、**外壳侧（`Shell/MessageToast`）不传 ⇒ 自动留世界档**，与改之前逐位相同。
+   九宫格底条在 uGUI 档 = **一张 `Image (Sliced)`**。配 3 条新断言：子画布的 `overrideSorting`/层/order ·
+   不带 `CanvasScaler` · **`IsUgui` 灭自证**）
+   ✅ **其余 4 扇同日也翻完**（三个写手代理按**文件所有权**切块并行，`EndPanel`+`BattleDoors` 因互相嵌套算**一个单位**）：
+   `SettingsPanel`（`PopUps`/0）· `BattleLogPanel`（`PopUps`/**−1**）· `EndPanel`+`BattleDoors`（`PopUps`/0）。
+   🔴 **主对话在同步点补的两格**：① 同层同 order 的三块子画布**显式定兄弟序**
+   （`HudCanvas.SubCanvasRank` = 设置窗在**前**、门/结算在**后** ⇒ **门/结算压在设置窗之上**，判据 = 原版根 canvas
+   子件序里 `FrontCanvas`(3) 在 `BattleDoors`(4) **之前**）② `BattleScene.cs` 那批断言按三份清单统一改完
+   （`* 108f` 那一族去掉 · `box()` 助手加了**画布分支** · 结算层序判据从「世界 z」换成「排序组」·
+   战报四条边框改读 `FrameSizePx` · A276 那条**如实标成恒真、记账**）。
+   ⚠️ **仍未做（都记账，见 §七）**：`SettingsPanel` 那 **3 根 `WfSlider` 还在世界空间**（面板分成「世界壳 +
+   画布本体」两层，本轮真机看那 3 根**一定不对**）· `EndPanel`/`BattleDoors` 父子颠倒的下游（小 6.65% 只修一半）·
+   语言下拉列表逐位要**它自己的子画布**（本轮先用兄弟序顶）· 原版 `CemeteryLogPanel` 自己那级 794.07×653.80 **无节点承载**。
+5. ⏭ **`OverHand` 组收口** —— 与 **HUD 图族 + HUD 字族**（`§五·补⑦⑧`）**一起做**
+   （`OverHand` 就是原版的 HUD 主层；⛔ 单独动面板会与 HUD 抢次序）· 同批**退掉 `HudTextScale`**
+6. ⏭ **之后**：手牌/场上卡（走 `Physics2D` 那条）· 拆 `ReanchorHud` + 4 注册表 ·
+   `LayoutSpace` 读回口**成对归零**
+7. 🔴 **8 步走完之后那次统一验收**（三档宽高比截图并排 + `wf_click.py` 真点）**照 `§五` 那两条来**，
+   ⛔ **不能只跑断言就收口**。
+
+---
+
+## 五·补⑩ 🔴 **迁一扇面板的【配方】**（2026-10-16 主对话摸出来的 —— 批 2 照它做，⛔ 别各写各的）
+
+> **为什么要有这一节**：读第一扇（`EndPanel`）时撞到**两处跨全批的硬关卡**，不先解决就会**每扇都踩一遍**。
+
+### 一、🔴 关卡 1：`MenuDraw.SetPxSize` 写的是**世界单位**，uGUI 档不能用
+
+`MenuDraw.SetPxSize(t, wPx, hPx)` 体内是 **`rt.sizeDelta = new Vector2(LayoutSpace.Px(wPx), LayoutSpace.Px(hPx))`**
+—— 而 `LayoutSpace.Px` **就是 ÷108**（`Shell/MenuDraw.cs` 现读）。
+⇒ 今天面板族那些 `SetPxSize(root, 1920, 1080)` 实际写进去的是 **20×10 世界单位**（只在 16:9 下「碰巧」等于整屏）。
+🔴 **uGUI 档的 `sizeDelta` 要的是【真 px】**（canvas 单位就是设计 px）⇒ 沿用 `SetPxSize` 会把整扇面板缩成 **1/108**，
+**而画面只是「小得看不见」、不报错**。
+✅ **处置**：`HudCanvas` 已加 **4 个换算助手**（2026-10-16，typecheck 0 错），批 2 一律改走它们：
+
+| 旧口（世界单位） | 新的 uGUI 口 | 备注 |
+|---|---|---|
+| `MenuDraw.SetPxSize(rt, w, h)` | **`HudCanvas.SetPxSize(rt, w, h)`** | 中心锚 + `sizeDelta` 直接吃 px |
+| 整屏覆盖层写死 `1920×1080` | **`HudCanvas.FillParent(rt)`** | ⛔ 别写死 —— `Expand` 档下**屏比画布宽**时（21:9）会盖不满两边 |
+| `Pos(px, py, z)` / `Content(px, py)` | **`HudCanvas.PosPx(px, py)`** | 「左上原点 y 向下」→ canvas 局部（中心原点、**y 向上**）；式子 = 旧那个 ×108 |
+| `ImageQuad.Create(p, tex, pos, worldH, anchor, name)` | **`HudCanvas.QuadFromTopPx(p, tex, name, xPx, yPxTop, hPx, z, color)`** | **按【高】定、宽由贴图比例来**；要盖比例的自己调 `SetAspect` |
+
+⚠️ **`U(px) = px/108f` 那种局部助手**：uGUI 档直接**用 px**（`hPx`），⛔ 别再除 108。
+⚠️ **z 那个形参**：旧那套是世界 z（**大的在后**），`HudCanvas.Add` 的 z 是**兄弟序**（**大的也在后**）⇒ **语义同向，值照搬**。
+
+### 二、🔴 关卡 2：我们这边的**嵌套结构与原版不同**
+
+**实例（读 `EndPanel` 时发现）**：`EndPanel.Build()` 最后一句是 **`_doors = BattleDoors.Create(_root);`**
+—— 也就是**我们这边 `BattleDoors` 挂在 `EndPanel` 里面**；而原版是 **`EndBattlePanel` 挂在 `BattleDoors/Canvas` 下**
+（父链 `BattleHud/Canvas/BattleDoors/Canvas/EndBattlePanel`，判据 → `T09c` §一）。
+⇒ **迁之前先对一次父链**：我们这边谁挂在谁下面，**未必等于原版**。
+⛔ **别顺手把嵌套倒过来**（那是另一笔账）—— **本次只按「谁的 canvas 装谁」迁，并把差异如实记着**。
+
+### 五、批 2（`PopUps` 组）的**逐件分类**（2026-10-16 主对话现核，⛔ 别按印象办事）
+
+| 面板 | 原版宿主（层/order） | **跨场景吗** | 备注 |
+|---|---|---|---|
+| **`ErrorMessageBanner`** | `PopUps` / **1** | 🔴 **是** —— `Shell/MessageToast.cs` 握着它（`_banner.Preset == MenuPreset`）· `DeckInfoPopup` 也提它 | ⇒ **要双模式**（同 `Tooltip` 那套：**宿主由各场景自己给**，外壳侧不给 ⇒ 留世界档）。⚠️ 只有它是 `PopUps`/**1**（组内最高）⇒ **它是安全顺序的第一件** |
+| `SettingsPanel` | `PopUps` / 0 | ❌ 否（`Shell/SettingsWindow.cs` 只是**注释**提到） | |
+| `BattleDoors` | `PopUps` / 0 | ❌ 否（`Shell/ShellRuntime.cs` 只是注释） | ⚠️ 它在我们这边**挂在 `EndPanel` 里面**（见 §五·补⑩ 二） |
+| `EndPanel` | `PopUps` / 0（原版挂在 `BattleDoors/Canvas` 下） | ❌ 否 | ⚠️ 同上 |
+| `BattleLogPanel` | `PopUps` / **−1** | ❌ 否（`Core/Tooltip.cs` 只是注释里引它的 `OverlayQ` 常量） | ⇒ **安全顺序的最后一件** |
+
+🔑 **判据来源**：`grep -rn "<类>.Create\|<类>.Show\|new <类>\|: <类>" --include=*.cs Shell/ Deck/ Core/`
+—— **只有 `ErrorMessageBanner` 有真调用点**，其余四扇全是**注释/常量引用**。
+
+### 六、配方（每扇面板照这 8 步）
+
+1. **建/复用它的子画布**：`HudCanvas.EnsureSubCanvas(null, "<原版宿主名> Canvas", 层, order)`
+   —— 层/order **去 `T09c` §一 那一行取**（⛔ 别自己编）。
+2. **根节点**挂进子画布：`FillParent`（⛔ 不是 `MenuDraw.SetPxSize(root, 1920, 1080)`）。
+3. **图**：`ImageQuad.Create(...)` → `HudCanvas.QuadFromTopPx(...)`（返回 `HudPiece`，字段类型跟着改）。
+4. **字**：`Label.Create(...)` → **`HudCanvas.MakeText(...)`**（**设计 px**；⛔ 世界单位喂进去**小到看不见**）。
+5. **位置**：`Pos/Content(x,y,z)` → **`HudCanvas.PosPx(x,y)`**（z 另传给建件口）。
+6. **同批**：把迁走的件从 `ReanchorHud` 与那 4 个注册表里**摘掉**（⛔ 否则「一半跟画布走、一半跟世界走」）。
+7. **同批改断言**：`Editor/BattleScene.cs` 里碰这扇面板的那几条 —— 读过 `sizeDelta`（世界单位）的期望值要换成 **px**。
+8. **跑 `bash 工具/typecheck.sh`**（秒级）—— ⛔ 不跑 `*.Run`、不起 player（现行口径）。
+
+### 四、⛔ 一批做完之前别插队
+
+`PopUps` 这 5 件（设置 / 战报 / 门 / 结算 / 错误条）**必须同批过完**（见 §四·补 第 1 条）——
+组内 order 有**三个 0 并列**，靠**兄弟序**分先后；只迁一半 ⇒ 剩下的世界空间 quad 与新画布**次序无定义**。
+
+---
+
+### 七、🆕 **本批挖出的新账**（2026-10-16 · 写手 C 做 `EndPanel`+`BattleDoors` 时查出）
+
+1. 🔴 **`EndPanel`/`BattleDoors` 的父子【与原版是反的】，而且**它有一处下游未修** ——
+   原版：`BattleHud/Canvas → BattleDoors → Canvas(PopUps/0) → EndBattlePanel`；
+   我们（迁完后）：`BattleHud Canvas → BattleDoors Canvas → EndPanel → BattleDoors`（**后两跳反了**）。
+   ⚠️ **下游（如实记）**：原版 `EndBattlePanel` 的 `lossyScale = 1.06647` 是**因为它在带缩放的 `BattleDoors` 下面**；
+   我们在缩放**上面** ⇒ 「整块结算界面小 6.65%」**只修了一半**（视频那一支带 1.06647 ✓、骷髅/标题那一支没有）。
+   ⇒ **要修得先翻嵌套、或逐件补缩放** —— **新账，本批白名单外**。
+2. 🔴 **同层同 order 的 `PopUps/0` 子画布，先后由【兄弟序】定；我们这块很可能与原版相反** ——
+   原版根 canvas 的子件序是 `[3] FrontCanvas` 在 `[4] BattleDoors` **之前**（= 设置窗在门之前）；
+   而我们那块画布**建得很早** ⇒ 很可能排在前面 ⇒ **`PopUps` 组收口时必须显式定序**（⛔ 不是本批能定的）。
+3. 🔴 **`HudCanvas` 缺「相对父中心」的建图口** —— `MakeImage`/`QuadFromTopPx` 把 `x/y` 当**屏幕绝对 px**
+   （锚点 = `x/1920`、`1−y/1080`）；**只有 `parent` 本身就是整屏矩形时**它才等于「相对父中心」。
+   面板里的**子矩形容器**（`SkullsHolder` 之类）**不是**整屏 ⇒ 直接套会把件摆到别处、**而且静默**。
+   写手 C 在 `EndPanel` 里自造了一个 `ImageInParent`（**临时**）⇒ 🔴 **主对话要在同步点收编进 `HudCanvas`**，
+   ⛔ **别让它长出第二份**（铁律：两处写同一条规则 = 迟早不一致）。
+4. ⚠️ **`HudCanvas.Group` 不回收已销毁的子件** —— `BattleDoors.Stop()` 每局 `DestroyImmediate(_screen)`，
+   那个容器的 Group 里会留**僵尸条目**（今天无害，多局/换分辨率会积累）⇒ 缺一个 `PruneDestroyed`。
+5. ⚠️ **`HudPiece` 包不住 `RawImage`** —— 任何 **RenderTexture 驱动**的件（开门视频那层）只能走 `RawImage`
+   （`Image` 要 `Sprite`，而 `Sprite.Create` 只吃 `Texture2D` ⇒ **API 上不成立**）。
+   ✅ 顺带一条**更忠原版**的收获：原版那一件本来就是 **`RawImage`**。
+6. ⚠️ `EndPanel.Create` 的 `parent` 形参**成了死参**（先例 = `BuildLoadingCover(root)`）⇒ **改注释即可，⛔ 别改签名**。
+7. ⚠️ `Battle/SettingsPanel.cs:547` 的注释还引 `EndPanel.SolidTex`（本批已删）⇒ 顺手订正（**别人的文件**，等同步点）。
+8. 🔴🔴 **【系统性口径】`Canvas` 的「单位 ↔ 世界单位」两轴系数【不同】，而且随屏变** —— 写手 B 在 `BattleLogScene`
+   上实测出来的：**批处理下 `Screen = 640×480`（4:3）而 `cam.aspect` 被钉死 16:9**
+   ⇒ `CanvasScaler(Expand)` 的 `scaleFactor = min(640/1920, 480/1080) = 0.3333`
+   ⇒ **画布 rect = 1920×1440 画布单位**，铺在 17.78×10 世界上
+   ⇒ **x 轴 1 单位 = 1/108 世界单位 · y 轴 1 单位 = 1/144** ⇒ **两轴不同**！
+   ⇒ 🔴 **一切「拿画布件的世界尺寸 ÷ 1/108 折回 px」的读回都会偏 0.75 倍**（实测：`FrameWorldH*108`
+   读出 48.75 / 35.10 / 428.43 / 434.0，而真值 64.995 / 46.80 / 571.24 / 578.67 — **画面其实是对的**）。
+   ✅ **正解 = 读回一律读 `sizeDelta`**（`HudCanvas.SizePx` / 写手 B 新加的 `log.FrameSizePx(art)`），
+   ⛔ **别走「世界尺寸 ×108」那条路**。
+   ⚠️ **本条不止影响面板族** —— **批 1 的 HUD 图族、以及任何「拿 `HudPiece.WorldH` 去比字面 px」的断言同病**
+   （`HudPiece.WorldW/H` 走 `GetWorldCorners` ⇒ **返回世界单位**，两轴系数还不一样）。
+   ⚠️ 注意区分：**`Label.WorldW/H` 是另一回事** —— 它读 `TMP.textBounds`，在 uGUI 档里**就是画布单位（px）** ✓
+   （所以 `ErrorMessageBanner` 里 `WorldW * 1f` 那条是**对的**）。
+9. 🔴 **`SettingsPanel` 里 3 根 `WfSlider` 仍在世界空间**（写手 A 报，`WfSlider.cs` 不在它的白名单）——
+   面板根因此**分成两层**：「世界壳（装滑块）+ 画布面板帧（装其余）」。**两条代价**（随 `WfSlider` 迁完消失）：
+   ① 子画布在 `PopUps` ⇒ **面板底会盖住那 3 根滑块** ② 它们仍跟 `HudRoot` 震屏走、面板其余件不跟。
+   ⇒ **新账**：`WfSlider` 要加一口「按模式取单位」（`Create` 的 5 处 ÷108 + `ppu` + 两层底图 `MenuDraw.Nine` +
+   手柄 `ImageQuad.Create` + `LayoutFill/FillSpanW` 那族 + `TrackWorldH` 等读口）。
+   ⚠️ **它还被 `Shell/SettingsWindow` 三根 + FPS 那根共用** ⇒ ⛔ **不能全局开关**，要**模式形参**。
+   ⚠️ **本轮真机看那 3 根一定不对 —— 别当新缺陷**。
+10. 🔴 **`HudCanvas` 缺「普通图片 + 中心锚」的口**（写手 A + C 各自撞了一次）——
+   `MakeImage`/`QuadFromTopPx` 是**归一化锚**（只在 16:9 下等价于「相对父中心」），`MakeSlicedPiece` 才是中心锚。
+   两人各用了一个权宜（A 用 `MakeSlicedPiece + border=0`、C 自造 `ImageInParent`）⇒
+   **主对话要在同步点补这一个口并收回两处权宜**（⛔ 别长出第三份）。
+11. ⚠️ **`HudCanvas.Group.Add` 不去重** ⇒ 同一个件 `Add` 两次会留两条记录、索引此后算偏。
+   `MakeImage*`/`MakeAnchored`/`MakeText` **自己就登记一次** ⇒ 调用点**想挪档必须走 `Reorder`**（A 的 `_shade` 就是这么写的）。
+12. ⚠️ **画布上的节点【不随 `parent` 销毁**（与 `BattleHud Canvas` 同一条既有口径）⇒
+   A218/A276 两个探针**每跑一次泄漏 2 个隐藏面板节点**（生产侧也会留节点）⇒ 探针要补 `DestroyImmediate(p.gameObject)`。
+13. ⚠️ **`PopUps`/order 0 的【三块画布】谁在先，只由兄弟序定**（设置 / 门 / 结算）——
+   `EnsureSubCanvas` **不收兄弟序参数** ⇒ 这一格归主对话在同步点定（见 §七·2 那条，原版是设置窗在门**之前**）。
+14. ⚠️ `MakeSlicedPiece` 的 `ppuMul` 恒 1 ⇒ 要复刻原版那个 1.09 只能把 border 预 ÷1.09（画出来对、切 uv 差 ≤2 贴图 px）；
+   要逐位得让它收一个 `ppuMul`。
+15. ⚠️ **原版 `BattleSettingsPanel` 的 `ap = (0, −29.317)`**（面板中心比屏幕中心低 29.3 px）——
+   **改前改后都没做**（旧账）⇒ 记着，⛔ 别当已复刻。
+16. ⚠️ **原版语言下拉列表是它自己的 canvas**（`overrideSorting` + `PopUps`）⇒ 逐位做法是给它**建一层子画布**
+   （`EnsureSubCanvas` 支持传父件）；A 本件先用**兄弟序**顶（`Reorder`），已注释 + 已报告。
+
+---
+
+### 八、批 3（`OverHand` 组）的账（2026-10-16）
+
+> **原版这一组的子件序（`Safe area FrontCanvas` 的 `m_Children`，`T09b` §A·3）**：
+> `[0] Drag Attack Selector · [1] ActiveSkillDesc · [2] Unit Chat · [3] Mulligan · [4] Generic Multi Card Display Combat ·
+> [5] ChooseCardMenu · [6] Card Display Window · [7] DebugButtons · [8] AboveShader · [9] PopupAnchor ·
+> [10] BattleSettingsPanel · [11] Tutorial · [12] LoadingMenu · [13] Alliance Panel`
+> 🔑 **同组同 order ⇒ 先后【只由兄弟序定】** ⇒ 迁移要按**从高到低**（13 → 1），⛔ 反着来时
+> 先迁的会**压住本该在它上面的**。
+
+1. ✅ **已落地**：`AboveShader`（**8**，提示条 + 加时 splash）· `Mulligan`（**3**）· 另有三扇在飞（6 / 5 / 4）。
+2. 🔴 **`Alliance Panel`（13）【不是顺手一格】—— 它是壳侧的窗**：`Shell/AlliancePanelWindow.cs`
+   整套走**壳的窗口系统**（`MenuDraw` 系列助手 + 显式渲染队列阶梯 `QShade…QText`），
+   ⛔ **不能**把它挂到战斗子画布下（世界空间 quad 挂画布下 = 本仓明令禁止的半迁移态）。
+   ⇒ **要么让壳侧窗口系统也支持 uGUI、要么给战斗侧单独重建一份** —— **属跨线（界面线）的大活**，
+   **新账**。⚠️ **中间态影响很窄且已知**：它会短暂地被已经迁到 `OverHand` 画布的那几扇压住。
+3. ⚠️ **`AttackSelector`（原版子件序 0、且在 `Default` 层、`overrideSorting = false`）** ——
+   它不是「自己的画布」，而是**随父画布按兄弟序渲染**（`T09b` §A·2#5）⇒ 迁它时应当把它放进
+   **该组的那块画布**里、并给它**最低的兄弟序**，⛔ 不是另起一块画布。
+4. ⚠️ **`Drag Attack Selector` 有命中**（拖拽起手）⇒ 按 §五·补④，带命中的件要么走 `HudPiece.Contains`
+   （`GetWorldCorners`，两档都对），要么等输入那一步。
+5. 🔴🔴 **裁定（2026-10-16 主对话）：整屏压暗层【留世界】还是【上画布】—— 看它必须画在谁的哪一侧。**
+   批 3 里同一个选择题**两个写手给出了相反的答案**，我核完判 **两边都对**，规则是：
+   > **「必须画在某个【世界空间件】下面的整屏件 ⇒ 留世界；必须画在它【上面】的 ⇒ 上画布」**
+   - `CardDisplayWindow.Menu Dark Background`：必须画在**放大的那张卡【下面】**，而那张卡**还是世界件**
+     （`CardView` 属第 5 步、本批没迁）⇒ **留世界** ✓（上去反而会**盖住卡**，本窗打开即废）。
+     ✅ 同批先例 = `MultiCardDisplay.mcd_mask`（同一原版组件、同一 alpha，文件头早写着这条）。
+   - `MulliganPanel` 的压暗：必须**盖住手牌**（世界件、`Default` 层）⇒ **上画布** ✓
+     （`OverHand` 画布压在 `Default` 之上）—— ⚠️ **这一条依赖「排序层优先于 depth」那条承重假设**（§五·补⑨ 一·3）。
+   ⚠️ **两条都成立的前提是同一个**：卡体还在 `Default` 层。⇒ **卡体那一批（第 6 步）做完之后，这两件要回头复核**
+   （那时「必须画在卡下面」的件可以整体上画布、用兄弟序表达）。
+6. 🔴 **`HudCanvas.Group` 不回收僵尸条目的代价在 `CardDisplayWindow` 最重**（写手 A 逐值算过）：
+   `RefreshLore` **每次开窗** `ClearChildren(_bg)` + 重建 2 件 ⇒ **每次 +2 条僵尸账**
+   （今天无害：`SetSiblingIndex` 夹取后仍是创建顺序）。⇒ `PruneDestroyed` 这条（§七·4）**优先级上升**。
+7. ✅ **好消息（写手 A 逐值算过）**：卡体那一叠的外接盒（含转角）x ∈ [698.4, 1221.6] · y ∈ [63.6, 896.4]，
+   而画布上的件离它最近的也有 **4.4 px**（风味条）/ **136.5 px**（效果清单）⇒ **零重叠**
+   ⇒ 「画布压在卡体之上」这条差异**在本窗一个像素都看不见**。
+8. ⚠️ 另：`EffectList` 我们挂**窗根**、原版挂 `Card Display` 下（**迁移前就如此**，本批只换单位没动层级）
+   ⇒ 收口时若改层级要连带重算 `FxC`。**新账**。
+9. ✅🔴 **写手 C 的第二扇（`MultiCardDisplay`）与 A【独立得出同一条规则】**：它同样把那层整屏压暗
+   （`mcd_mask` / `ChoiceShade`）**留在世界空间**，理由与 A 一字不差（卡体是 `Default` 层的 `MeshRenderer`、
+   **不归画布管** ⇒ 上画布会盖住卡）。**两条独立结论互相印证了 §八·5 那条裁定** ✓。
+10. 🔴🔴 **【已修】`MultiCardDisplay` 的 `availPx` 量纲错**（写手 C 顺手查出、主对话当场修 + 换断言）：
+   原式 `LayoutSpace.VisibleWidth − SideMarginPx * 2f` = **世界单位 17.78 − px 120 = −102.2**
+   ⇒ **恒判「装不下」、永远缩到 `MinShrink` 45%**（卡高 520.3 → 234 px），**与张数无关**。
+   ✅ 改成 `LayoutSpace.DesignPxW − SideMarginPx * 2f`（1920 px，同量纲）；
+   ✅ **同时把盖住它的那条断言换掉** —— `BattleScene.cs` 原来那条第三支 `mcd.UsedScale > 0f` **恒真**
+   （scale 永远 > 0）⇒ **整条没有判别力**，正是它让这个缺陷活了很久。现在换成**真不变量**
+   「一排宽 ≤ 可用宽」，并写明改坏法。
+   ⚠️ **这条与迁 uGUI 无关**（老代码就有）—— 按**铁律 11**（与原版不符的全部要做）修掉。
+11. ⚠️ **两扇那几颗钮现在是 `raycastTarget = false`，原版是 1** ⇒ **第 4 步（输入）要一起翻**。**新账**。
+12. ⚠️ **`40k_UI_bt_play` 原版 rect 80.47×79.64，而 `CardChoicePanel` 仍画 79.64 正方**（窄 0.83 px，既有偏离；
+    `MultiCardDisplay` 本批已逐位给 80.47）⇒ **要做**（铁律 11）。**新账**。
+13. ⚠️ `CardChoicePanel` 的 `_cardBtns` 与 `_cards` 在某张贴图缺失时会**静默错位**（潜在，今天不触发）⇒ **新账**。
+14. ⚠️ A218 探针每次多泄漏 **4 个**画布节点（§七·12 老账的延伸）。
+
+### 六、还差什么 / 判不准的（⛔ 不猜；**完整 7 条 → 普查 §五**）
 
 1. ~~🔴 **「谁压谁」判不了**：原版 8 个 `GraphicRaycaster` 的 `sortingOrder` 没读到~~
    ✅ **2026-10-16 已查全**（`T09b_…md` §一）：8 个组件的字段**完全一致**，谁压谁由所在 `Canvas` 定；

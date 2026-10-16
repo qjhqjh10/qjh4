@@ -3376,6 +3376,51 @@ namespace RuleEngine
         /// 出处：规则书 `:196`。</summary>
         public const string Penitence = "penitence";
         /// <summary>
+        /// **双重忏悔**（`DefinedTrait.doubleRage = 300` —— `il2cpp_out/dump.cs:45749`）——
+        /// 原版语义 = **本单位那一次「受到伤害」的触发【再发生一次】**。
+        ///
+        /// 🔴 **判据（原版反编译逐行现读，2026-10-16）** = `decomp_full/CardScript__ResolveDamageDealt.c`：
+        ///   · `:87` `UnityEngine.Object__op_Equality(param_2, param_1)` —— `param_1` = `this`、
+        ///     `param_2` = 形参 `damagedCard`（签名见 `Assembly-CSharp/CardScript.cs:2514`）
+        ///     ⇒ **「受伤那张卡就是自己」**（与 `isPraying` 那条用的是同一道闸，见 `RuleCore.Hurt` 里
+        ///     `A1155②` 那一段）；
+        ///   · `:98` `RawCardScript__OnTrigger(raw, 0x82, …)` —— 发**触发 `0x82`
+        ///     = `AbilityTrigger.Rage = 130`**（`dump.cs:20259`）；它对应的 trait 是
+        ///     `0x118 = 280 = DefinedTrait.rage`（`dump.cs:45748`）⇒ **就是我们这份表里的
+        ///     <see cref="Penitence"/>**（`rage` ⇄ `penitence` 的归并判据见本表 `Prefixes` 里
+        ///     `new[] { "rage", Penitence }` 那一整段）；
+        ///   · `:101` `EntityScript__HasCurrentTrait(param_1, 300)` —— **读的就是本 trait**
+        ///     （`HasCurrentTrait` = **运行时当前** trait、含被授予的那一份 ⇒ 与我们
+        ///     `UnitState.Has` 同一档，⛔ 不是 `CardDef.Has` 那种「印刷的那一份」）；
+        ///   · `:104` **再发一次逐字相同的 `OnTrigger(0x82, …)`**（四个实参完全相同）
+        ///     ⇒ 结论 = 「**那一次「受到伤害」触发发生两次**」。
+        ///
+        /// 🔴 **它没有卡面字、也没有官方本地化键**（与 `RuleCore.Unstoppable` 同一档）：
+        ///   官方本地化表 9,441 条里 **`Card_Trait/doubleRage` 不存在**
+        ///   （2026-10-16 现扫：**含 `double` 的键 0 条**，含 `rage` 的只有 `Card_Trait/rage`
+        ///   = `Penitence` 那一条）⇒ **不能归并到任何现有词**，单独一个常量。
+        ///
+        /// ⚠️ **登记 ≠ 有机制（本笔只做「认得出」这一层）**：`Prefixes` 里那一条保证它
+        ///   不被 `Normalize` 返回 null 而**静默丢弃**（本项目红线），但**我们没有
+        ///   「把那次触发发两次」的实现** ⇒ 它**不进 <see cref="Implemented"/>**
+        ///   ⇒ 带它的卡会**如实**被报成未实现关键词、卡面打 `*`（与 `talent` / `ferocity` / `quest`
+        ///   那三个词同一处置，见本表里那三行）——**这才是对的**，
+        ///   ⛔ **别为了「看起来做完了」把它塞进 `Implemented`**（那一栏的判据 = 「那个时机真的有代码在读它」）。
+        ///   🔴 **机制那一半【没做】、判据与两种候选形状 → 见报告
+        ///   `资料/普查产出_1016并行/引擎线T01_报告.md` 的「顺手发现」**（本笔没写代码，
+        ///   因为「怎么发第二次」这个形状**没有任何判据**：原版是硬编码第二次调用，
+        ///   而我们引擎里另有一条 `UnitState.ExtraTriggers` / `RuleCore.FireExtraTriggers`
+        ///   的「再触发一次」原语 —— 两者选哪个要主对话裁，⛔ 别自己发明）。
+        /// ⚠️ **全池今天 0 张卡带它**（`cards_engine.json` 现读 1127 张，整条记录文本按
+        ///   大小写不敏感扫 `doubleRage` ⇒ **0 命中**）⇒ 加这一条**不改动任何现有解析结果**。
+        /// ⚠️ **前缀撞车已现核**（`Normalize` = `StartsWith` + **先到先得**，见它的实现）：
+        ///   既有条目里以 `d` 开头的只有 `dodge` / `dark pact` / `destroyer` / `droppod` / `duty` ——
+        ///   `"doublerage".StartsWith("dodge") == false`（`d-o-u` vs `d-o-d`）、`"droppod"` 在第二个字母
+        ///   就分开（`d-o` vs `d-r`）、`duty` 同（`d-u` vs `d-o`）；**反向**也不成立
+        ///   （既有条目里**没有任何**以 `double` 开头的）⇒ 加它不抢先、也不被抢先。
+        /// </summary>
+        public const string DoubleRage = "doublerage";
+        /// <summary>
         /// **群体**（兽人 Goff 一族，2026-09-13 第三十四轮）：**本单位执行近战攻击后**触发。
         ///
         /// 规则书 `:193`「友方部队执行近战攻击后触发效果」。实测卡面全是 `Mob: &lt;效果&gt;` 挂在
@@ -4296,6 +4341,20 @@ namespace RuleEngine
             //    ⚠️ **全池今天 0 张卡在 `keywords` 里带它**（`SAU7` 走的是上面那个卡面句）
             //      ⇒ 加这一条**不改动任何现有解析结果**（实测见下）。
             new[] { "unstoppable", RuleCore.Unstoppable },
+            // 🆕 2026-10-16（账 `A2014`）：**`doubleRage`（`DefinedTrait.doubleRage = 300`，
+            //    `dump.cs:45749`）** —— 与本表上面那三个词**同族的保险**（详见 `AB_接线批.md` §六·4：
+            //    那批只点了 `rage`/`frenzied`/`unstoppable` 三个词，本词**留给了本笔**）。
+            //    原版读点 = `decomp_full/CardScript__ResolveDamageDealt.c:101`
+            //    （`HasCurrentTrait(param_1, 300)` —— **十进制 `300`** 写的），
+            //    语义 = 「受伤触发（`OnTrigger(0x82)` = `AbilityTrigger.Rage = 130`）**再发一次**」
+            //    （`:104` 那第二个 `OnTrigger`，四个实参逐字相同）——
+            //    完整判据、为什么是**独立常量**、以及「机制那一半没做」的处置 → 见
+            //    <see cref="DoubleRage"/> 的 doc。
+            //    ⚠️ **全池今天 0 张卡带它** ⇒ **加这一条不改动任何现有解析结果**。
+            //    ⚠️ **前缀撞车已现核**（`Normalize` = `StartsWith` + **先到先得**）：`doublerage`
+            //      与既有 `dodge`/`droppod`/`duty`/`destroyer`/`dark pact` **互不抢先**（见
+            //      <see cref="DoubleRage"/> 的 doc 那一段）。
+            new[] { "doublerage", DoubleRage },
             // ⚠️ **前缀撞车已现核**（`Normalize` = `StartsWith` + **先到先得**）：
             //   · 以 `r` 开头的既有条目 `rally` / `regeneration` / `remnant` / `regiment` 与 `rage`
             //     在**第二个字母**就分开（`r-a-g` vs `r-a-l` / `r-e…`）；

@@ -30,6 +30,7 @@
 //     · 显示区还是原版的 **1920×1080**（dump 里 `Video Image` 的尺寸），所以宽高比要盖过。
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Video;
 
 namespace CardPresentation
@@ -83,12 +84,19 @@ namespace CardPresentation
 
         const string ShaderName = "CardPresentation/Video Split Alpha";
 
-        // ---- 分层：面板里三层的 z（相机在 z=-20 朝 +z 看，**z 越小越近**）----
-        //   压暗层 **z = 0**（`EndPanel.Build` 里建 dim 时给的就是 `Vector3.zero`，别去动它）
-        //   → 视频 **-0.55**（盖在压暗上）
-        //   → 文字与骷髅 **-0.60**（再盖在视频上）
-        // ⚠️ 原来文字/骷髅和压暗是**同一个 z（0）**、靠渲染顺序压；加上视频之后必须显式拉开，
-        //    否则视频会盖住文字。踩过一次：视频层一度和压暗同层，整块面板都看不见。
+        // ---- 分层：面板里三层的 z ----
+        //   🔴 **2026-10-16（`T09` 批 2）：这一对（结算面板 + 开门）已迁到 uGUI 子画布上**
+        //     ⇒ 下面这三个 z 的**含义变了、值一个没动**：
+        //       · **旧（世界空间 quad）**：世界 z，**z 越小越靠近相机**（画在越前面）；
+        //       · **新（uGUI）**：`HudCanvas.Add` 的**兄弟序键**，**z 大的排前面 = 画在底下**。
+        //     ⇒ **语义同向（大的都在后）、值直接照抄**（口径 → `T09` §五·补⑩ 三）。
+        //   三层：压暗 **-0.50**（`ZDim`，最靠后 = 画在最底下）
+        //     → 视频 **-0.55**（`ZVideo`，盖在压暗上）→ 文字与骷髅 **-0.60**（`ZContent`，再盖在视频上）。
+        // ⚠️ **踩过的坑（仍然成立）**：文字/骷髅原来和压暗**同一个 z（0）**、靠渲染顺序压；加上视频之后
+        //    必须**显式拉开**，否则视频会盖住文字（视频层一度和压暗同层 ⇒ 整块面板都看不见）。
+        //    uGUI 档同理：三层各占一个不同的 z，兄弟序才是确定的。
+        // ⚠️ 原来这里写「压暗层 **z = 0**（`EndPanel.Build` 里建 dim 时给的就是 `Vector3.zero`，别去动它）」
+        //    —— **那句已过期**（`EndPanel` 的 dim 早已改到 `ZDim = -0.50`）⇒ 就地订正（铁律 5）。
         /// <summary>整屏压暗那一层。**比视频和内容都靠后**，但必须比任何一张卡靠前 ——
         /// 给 0 的话手牌（z 0~0.24）会从面板底下亮着透出来。</summary>
         public const float ZDim = -0.50f;
@@ -97,7 +105,13 @@ namespace CardPresentation
 
         VideoPlayer _player;
         RenderTexture _rt;
-        ImageQuad _screen;
+        /// <summary>显示层。🔴 **2026-10-16（`T09` 批 2）起是 uGUI 的 `RawImage`**（不再是世界空间 quad）——
+        /// 两条判据：① **原版那一件本身就是 `RawImage`**（见文件头「它为什么是播视频」那段）；
+        /// ② **`Image` 这条路 API 上根本走不通**：`Image` 要的是 `Sprite`，而 `Sprite.Create` 只吃
+        /// **`Texture2D`** —— 我们的图源是 `RenderTexture`（⛔ 不是「没试」，是不能）。
+        /// ⚠️ 节点挂在 `BattleDoors` 那一级下 ⇒ 跟着 `localScale 1.06647`（`A2105②`：画出来 2048×1152）。</summary>
+        RectTransform _screenRt;
+        RawImage _screen;
         Material _mat;
         /// <summary>开门音效那个 `AudioSource`（🆕 2026-09-27）。</summary>
         AudioSource _sfx;
@@ -166,14 +180,53 @@ namespace CardPresentation
         /// 判据 → `资料/普查产出_1015战斗/C2_逐格对账_弹窗与结算转场.md`。</summary>
         const float DoorsScale = 1.06647f;
 
+        /// <summary>🔴 **2026-10-16（`T09` 批 2）：这一对（结算面板 + 开门）【共用】的那块子画布的名字** ——
+        /// 原版宿主 = `BattleDoors/Canvas`（GO `Canvas_1091`；判据 → `T09c` §一）。
+        /// ⚠️ 名字**不叫** `Canvas`（那是原版 GO 自己的名字，落在我们这边太容易撞）—— 取原版的**路径名**。</summary>
+        public const string CanvasName = "BattleDoors Canvas";
+
+        /// <summary>🔴 **2026-10-16（`T09` 批 2）：拿这一对共用的子画布**（没有就建）。
+        /// <para>**原版宿主** = `BattleDoors/Canvas`：**`PopUps` 层 / `sortingOrder 0`**、
+        /// `overrideSorting = true`、父链 `BattleHud/Canvas/BattleDoors`（判据 → `T09c` §一 那两行）。</para>
+        /// <para>🔑 **为什么必须是【子】画布、且必须挂在根 canvas 下**：子画布**继承根 canvas 的 `CanvasScaler`**
+        /// （原版全场景就一个、在根上）⇒ 非 16:9 下整块面板才跟着缩放。⛔ 挂在 `hudRoot` 下**拿不到缩放**
+        /// （`scaleFactor` 恒 1）⇒ 今天那个「4:3 下整体偏大 1.333 倍」的毛病**原样留着**，而且
+        /// **16:9 下逐位相同、看不出来**（口径 → `T09` §五·补⑨ 一·2）。</para>
+        /// <para>⛔ **幂等**：`HudCanvas.EnsureSubCanvas` 每调一次就**新建**一个同名对象 ⇒ 这里**先按名字找**
+        /// （`EndPanel` 与 `BattleDoors` 两边都会调它，不幂等就会建出两块画布、内容分家）。</para>
+        /// <para>拿不到根画布（`LayoutSpace.Cam` 为空）⇒ 出声并返回 `null`，由调用点决定**不建那一件**
+        /// （⛔ 绝不退回世界空间 quad —— 半迁移态比不迁移更坏，且 16:9 下看不出来）。</para></summary>
+        public static RectTransform PairCanvas()
+        {
+            HudCanvas.Ensure(LayoutSpace.Cam);        // 幂等（根 canvas 要 `LayoutSpace.Apply` 之后才立得起来）
+            if (HudCanvas.RootRect == null)
+            {
+                Debug.LogError("[BattleDoors] 根 canvas 没建起来（`LayoutSpace.Cam` 为空？）" +
+                               "⇒ 结算面板与开门**这一对都建不出来**");
+                return null;
+            }
+            var found = HudCanvas.SubCanvas(CanvasName);
+            if (found != null) return (RectTransform)found.transform;
+            return HudCanvas.EnsureSubCanvas(null, CanvasName, HudCanvas.SortingLayer.PopUps, 0);
+        }
+
         public static BattleDoors Create(Transform parent)
         {
-            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`
-            //    （= 原版 `BattleDoors` 自己的 rect，见 `DoorsBoxW/H` 的注释）。
-            //    改坏法：删掉 `SetPxSize` 那句 ⇒ `Editor/BattleScene.cs` §A218「`BattleDoors` 的 rect = 原版矩形」红。
+            // 🔴 **2026-10-16（`T09` 批 2 · `PopUps` 组）：本件已迁到 uGUI。**
+            //    · **宿主**：父件**已经在画布上**（生产路 = `EndPanel.Build` 传进来的 `EndPanel` 根）⇒
+            //      **照旧挂在它下面**；否则（独立建，例如探针）⇒ 挂到这一对共用的子画布下。
+            //      🔴 **我们与原版唯一一处已知的父子颠倒**：原版 `EndBattlePanel` 是 `BattleDoors/Canvas`
+            //      **的子件**、我们反过来（`BattleDoors` 是 `EndPanel` 的子件）—— **本次有意不翻**（另一笔账），
+            //      如实记在 `EndPanel` 文件头那一段。
+            //    · 根矩形 = **原版 `BattleDoors` 自己的 `m_SizeDelta`**（见 `DoorsBoxW/H` 的注释）—— 判据没变，
+            //      变的只是**单位**：`HudCanvas.SetPxSize` 写**真 px**（⛔ `MenuDraw.SetPxSize` 是 ÷108）。
+            //    · 改坏法：删掉 `SetPxSize` 那句 ⇒ `Editor/BattleScene.cs` §A218「`BattleDoors` 的 rect = 原版矩形」红。
+            var host = parent != null && parent.GetComponentInParent<Canvas>() != null
+                     ? parent : (Transform)PairCanvas();
+            if (host == null) return null;       // `PairCanvas` 已出声（⛔ 不退回世界空间 quad）
             var go = new GameObject("BattleDoors", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            MenuDraw.SetPxSize(go.transform, DoorsBoxW, DoorsBoxH);
+            go.transform.SetParent(host, false);
+            HudCanvas.SetPxSize((RectTransform)go.transform, DoorsBoxW, DoorsBoxH);
             // 🔴🔴 **2026-10-15（账 `A2105②` · `C2` 查出）就地补上：原版这一颗的 `m_LocalScale = 1.0665`
             //   （实测 lossyScale **1.06647**），**我们原来把它写成「不复刻」** —— 那不是「原版查不到」，
             //   数值就在父链上（铁律 11 ⇒ 要做）。不乘的后果：**整个结算转场比原版小 6.65%** ——
@@ -199,7 +252,7 @@ namespace CardPresentation
             //    原版是同一颗节点。改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218 那条红。
             var go = new GameObject("video_player", typeof(RectTransform));
             go.transform.SetParent(transform, false);
-            MenuDraw.SetPxSize(go.transform, ScreenWidthPx, ScreenHeightPx);
+            HudCanvas.SetPxSize((RectTransform)go.transform, ScreenWidthPx, ScreenHeightPx);
             _player = go.AddComponent<VideoPlayer>();
             _player.playOnAwake = false;
             _player.isLooping = false;
@@ -246,13 +299,28 @@ namespace CardPresentation
             _player.clip = clip;
             _player.targetTexture = _rt;
 
-            _screen = ImageQuad.Create(transform, _rt,
-                                       EndPanel.Pos(ScreenWidthPx * 0.5f - 6f, 540f - 64f, ZVideo),
-                                       ScreenHeightPx / EndPanel.PxPerUnit,
-                                       new Vector2(0.5f, 0.5f), "video_screen");
-            // RT 是左右拼的 3840×1080，显示区是 1920×1080 —— 宽高比必须盖掉，
-            // 否则 `ImageQuad` 会按 RT 的 3.56 比例把画面拉成两倍宽。
-            if (_screen != null) _screen.SetAspect(ScreenWidthPx / ScreenHeightPx);
+            // 🔴 **2026-10-16（`T09` 批 2）**：显示层从「世界空间 quad」改成 uGUI 的 **`RawImage`**
+            //    （为什么不是 `Image` → 见 `_screen` 的 doc）。
+            //    位置/尺寸**逐值照旧**：旧那行 `ImageQuad.Create(transform, _rt, EndPanel.Pos(1920/2−6, 540−64, …), 1080/108, …)`
+            //    = 「中心相对**父中心** (−6, +64) px ＋ `sizeDelta (1920, 1080)` px」——
+            //    `EndPanel.Pos` 的式子就是 `(px−960)/108, (540−py)/108`，而 uGUI 的锚点也在父中心、单位就是 px
+            //    ⇒ **同一对数**（推导 → `T09` §五·补⑩ 三 那张换算表）。
+            //    ⚠️ 旧那句 `SetAspect(1920/1080)` **不需要了**：旧 quad 是「按 **RT** 的比例（3840/1080）定宽」才要盖掉，
+            //       uGUI 的 `sizeDelta` 本来就是**显式写死**的 1920×1080。父件那一级 `localScale 1.06647`
+            //       ⇒ 画出来仍是**原版的 2048×1152**（`A2105②`）。
+            const float cxPx = ScreenWidthPx * 0.5f - 6f;    // 954（dump：`Video Image` @ x = −6）
+            const float cyPx = 540f - 64f;                   // 476（dump：@ y = +64）
+            var sgo = new GameObject("video_screen", typeof(RectTransform));
+            sgo.transform.SetParent(transform, false);
+            _screenRt = (RectTransform)sgo.transform;
+            _screenRt.anchorMin = _screenRt.anchorMax = _screenRt.pivot = new Vector2(0.5f, 0.5f);
+            _screenRt.anchoredPosition = new Vector2(cxPx - 960f, 540f - cyPx);   // = (−6, +64)
+            _screenRt.sizeDelta = new Vector2(ScreenWidthPx, ScreenHeightPx);
+            _screen = sgo.AddComponent<RawImage>();
+            _screen.texture = _rt;
+            _screen.color = Color.white;
+            _screen.raycastTarget = false;           // 装饰件不吃射线（第 4 步的可点件才吃）
+            HudCanvas.Add(_screenRt, ZVideo);        // 兄弟序按 z 排（见文件头「分层」那段）
 
             var sh = Shader.Find(ShaderName);
             if (sh == null)
@@ -263,7 +331,7 @@ namespace CardPresentation
             else
             {
                 _mat = new Material(sh);
-                if (_screen != null) _screen.SetMaterial(_mat);
+                if (_screen != null) _screen.material = _mat;   // uGUI 侧 = `Image.material` 的对应物（`RawImage` 同）
             }
 
             HasVideo = true;
@@ -329,7 +397,7 @@ namespace CardPresentation
                 _player.clip = null;
                 _player.gameObject.SetActive(false);
             }
-            if (_screen != null) { DestroyImmediate(_screen.gameObject); _screen = null; }
+            if (_screen != null) { DestroyImmediate(_screen.gameObject); _screen = null; _screenRt = null; }
             if (_rt != null) { _rt.Release(); DestroyImmediate(_rt); _rt = null; }
             if (_mat != null) { DestroyImmediate(_mat); _mat = null; }
             HasVideo = false;
@@ -388,14 +456,23 @@ namespace CardPresentation
             get { return _screen != null && _screen.gameObject.activeSelf; }
         }
 
-        /// <summary>显示区尺寸（自检用）：世界宽 × 世界高。</summary>
+        /// <summary>显示区尺寸（自检用）：世界宽 × 世界高。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：uGUI 档用 `GetWorldCorners()` **直接量世界尺寸**
+        /// （⛔ 不是 `sizeDelta × 某个系数` —— 那个换算**随分辨率变**，写死系数就是重犯「两套尺」那个错；
+        /// 同 `HudPiece.WorldW` 文件头那段）。量出来的仍**是世界单位** ⇒ 读者一个字不用改。</summary>
         public Vector2 ScreenWorldSize
         {
-            get { return _screen == null ? Vector2.zero : new Vector2(_screen.WorldW, _screen.WorldH); }
+            get
+            {
+                if (_screenRt == null) return Vector2.zero;
+                var c = new Vector3[4];
+                _screenRt.GetWorldCorners(c);
+                return new Vector2(Mathf.Abs(c[3].x - c[0].x), Mathf.Abs(c[1].y - c[0].y));
+            }
         }
 
         /// <summary>视频层的贴图（自检用，读像素）。</summary>
-        public Texture ScreenTexture { get { return _screen == null ? null : _screen.Texture; } }
+        public Texture ScreenTexture { get { return _screen == null ? null : _screen.texture; } }
 
         /// <summary>解码器已经解到第几帧（自检用）。**-1 = 一帧都没出**。
         /// ⚠️ 它和 `Playing` 是两回事：`Playing` 是**我们的时序**（按片长算），

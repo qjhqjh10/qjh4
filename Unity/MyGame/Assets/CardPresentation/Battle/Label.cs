@@ -1,9 +1,19 @@
-// Label.cs — 世界空间文字（HUD 用）
+// Label.cs — HUD 文字
 //
 // **两条后端**：
-//   · **TMP**（`TextMeshPro` 世界空间组件）—— 拿得到中文字体资产时走这条，中文才画得出来。
+//   · **TMP**（`TextMeshPro` 世界空间组件 / 🔴 **或 `TextMeshProUGUI`，见下**）—— 拿得到中文字体资产时走这条，中文才画得出来。
 //   · **自写 5×7 点阵 ASCII**（`TextCanvas` 画进贴图再贴 quad）—— 字体资产不在时的兜底。
 //     和 `CardArt.Available` 一个路子：删掉字体资源游戏照样跑，只是没中文。
+//
+// 🔴 **2026-10-16（`T09` 面板族）：`Label` 现在有【两个空间】，只许二选一（`_ugui` 那条字段）：**
+//   · **世界档**（出厂、`Label.Create`）—— 单位 = **世界单位**，`PxPerWorld` = 108，节点是普通 `Transform`。
+//   · **uGUI 档**（`Label.CreateUgui`）—— 单位 = **设计 px**，`PxPerUnit` = 1，节点自带 `RectTransform`，
+//     挂在 `HudCanvas` 那类画布下；**缩放/宽高比由 `CanvasScaler` 统一负责**（这正是换 uGUI 的目的）。
+//   ⛔ **绝不许两边都建**（同 `HudPiece` 那条铁律）：世界空间 TMP 挂在画布下**不归画布管**
+//     （走 `MeshRenderer`、不参与 canvas 排序）⇒ 半迁移态：位置对不上 + 层级不受控，而 **16:9 下看不出来**。
+//   🔴 **两档的【数】差 108 倍**：把世界单位喂进 uGUI 档 = 字小到看不见、**不报错**。
+//     ⇒ 本文件**带单位的常数只有三处**（`PxPerUnit` · `CapPxOfScale` · `UsableBounds` 的量纲上限），
+//     **迁档时三处必须一起换**。口径与出处 → `资料/任务线/战斗线/任务/T09_整层换uGUI.md` §五·补⑨ 四。
 //
 // ⚠️ 两条后端的 `WorldW` / `WorldH` 语义**必须一致**：都是「整块文字占的世界尺寸」，
 //    摆位和 `Contains`（END TURN 的命中测试）全靠它。TMP 那条量的是 `textBounds`
@@ -43,8 +53,27 @@ namespace CardPresentation
         int _texW = 1, _texH = 1;
 
         // ---- TMP 后端 ----
-        TextMeshPro _tmp;
+        /// <summary>🔴 **2026-10-16（`T09` 面板族）：类型是 `TMP_Text` 基类、不是 `TextMeshPro`** ——
+        /// 这样同一个 `Label` 能装**世界空间**的 `TextMeshPro` 与 **uGUI** 的 `TextMeshProUGUI` 两种。
+        /// 本文件用到的 17 个成员（`fontSize` / `fontMaterial` / `textWrappingMode` / `textInfo` / `font` /
+        /// `rectTransform` / `ForceMeshUpdate` / `enableAutoSizing` / `fontSizeMin`·`Max` /
+        /// `fontSharedMaterial` / `characterSpacing` / `textBounds` / `text` / `color` / `alignment` /
+        /// `isActiveAndEnabled`）**全部在基类上** ⇒ 换后端时这 1700 行**一个字都不用分叉**。</summary>
+        TMP_Text _tmp;
         float _tmpW = 1e-4f, _tmpH = 1e-4f;
+
+        /// <summary>🔴 **2026-10-16（`T09` 面板族）：这个标签活在【哪个空间】。**
+        /// <para>`false`（出厂档）= **世界空间** —— 单位是**世界单位**，`PxPerWorld` = 108。
+        /// `true` = **uGUI 画布** —— 单位是**设计 px**（canvas 单位就是设计 px，见 `T09` §五·补③ 一），
+        /// `PxPerWorld` = 1；缩放/宽高比由所在 `Canvas` 的 `CanvasScaler` 统一负责。</para>
+        /// <para>⚠️ **两档的【数】不能混**：把世界单位（= px ÷ 108）喂进 uGUI 档 ⇒
+        /// 字小到看不见、**而没有任何报错**。⇒ 迁调用点时**必须同批把数换成设计 px**。</para>
+        /// <para>🔴 **只许二选一、⛔ 不许两边都建**（同 `HudPiece` 那条铁律）：世界空间 TMP 挂在 canvas 下
+        /// **不归 canvas 管**（它走 `MeshRenderer`、不参与 canvas 排序）⇒ 会变成「位置对不上 + 层级不受控」的半迁移态。</para></summary>
+        bool _ugui;
+
+        /// <summary>本标签是不是 uGUI 后端（见 <see cref="_ugui"/>）。诊断/断言/审计用。</summary>
+        public bool IsUgui { get { return _ugui; } }
 
         /// <summary>🔴 **2026-10-11（A266）**：`SetWrapWidth` 欠下的「生成版面」待办（`&lt; 0` = 没有）。
         /// 值 = 那一次传进来的折行宽（**只为诊断/断言可读**；兑现时用的是 `sizeDelta` 里那份 —— 见
@@ -98,17 +127,59 @@ namespace CardPresentation
         public static Label Create(Transform parent, string text, Vector3 pos, int scale,
                                    Color color, Vector2 anchor, string name = null)
         {
-            var go = new GameObject(name ?? ("label_" + text));
+            return CreateCore(parent, text, pos, scale, color, anchor, name, ugui: false);
+        }
+
+        /// <summary>🔴 **2026-10-16（`T09` 面板族）：建一个【uGUI】标签** —— 父级必须是画布下的 `RectTransform`。
+        /// <para>⚠️ **`pos` 与后续所有尺寸都是【设计 px】**（**不是**世界单位！）—— 两档的数差了 108 倍，
+        /// 喂错**不报错、只是小到看不见**。出处与口径 → `T09` §五·补⑨ 四。</para>
+        /// <para>⛔ **拿不到 TMP 字体时【不退化】成点阵**：点阵后端是 `MeshRenderer`，挂在画布下不归画布管
+        /// （见 `_ugui` 的 doc）⇒ 出声并返回 `null`，由调用点决定不建那一件（本工程红线：不许静默失败）。</para></summary>
+        public static Label CreateUgui(Transform parent, string text, Vector3 posPx, int scale,
+                                       Color color, Vector2 anchor, string name = null)
+        {
+            return CreateCore(parent, text, posPx, scale, color, anchor, name, ugui: true);
+        }
+
+        /// <summary>两条工厂的公共部分（**建标签只此一处**，⛔ 别在别处再写一份建法）。</summary>
+        static Label CreateCore(Transform parent, string text, Vector3 pos, int scale,
+                                Color color, Vector2 anchor, string name, bool ugui)
+        {
+            // uGUI 档：节点**自带 `RectTransform`** —— 普通 `Transform` 挂在画布下会把 RectTransform 链断掉
+            string goName = name ?? ("label_" + text);
+            var go = ugui ? new GameObject(goName, typeof(RectTransform)) : new GameObject(goName);
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = pos;
+            if (ugui)
+            {
+                // 🔴 **显式定死**锚点/枢轴/尺寸 —— ⛔ 别靠 `RectTransform` 的出厂值（那是引擎默认，
+                //    不是我们核过的判据）。取「锚在父的中心 + 枢轴居中 + 零尺寸」⇒
+                //    `localPosition` **就是**相对父中心的偏移（设计 px、**y 向上**），与 `HudCanvas` 同口径。
+                var rt = (RectTransform)go.transform;
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = Vector2.zero;
+            }
+            go.transform.localPosition = pos;   // 锚点恒在中心 ⇒ `localPosition` 与 `anchoredPosition` 同值
 
             var l = go.AddComponent<Label>();
+            l._ugui = ugui;
             l.scale = Mathf.Max(1, scale);
             l.color = color;
             l.anchor = anchor;
 
             if (TmpFont.Available) l.BuildTmp();
-            if (l._tmp == null) l.BuildDot();        // 字体资产不在 / TMP 没建起来 → 退回点阵
+            if (l._tmp == null)
+            {
+                if (ugui)
+                {
+                    // ⛔ 不许静默退化成点阵（见 `CreateUgui` 的 doc）
+                    Debug.LogError("[Label] uGUI 档拿不到 TMP 字体资产 ⇒ 这一件**建不出来**" +
+                                   "（点阵后端走 `MeshRenderer`、挂在画布下不归画布管，不能当替身）");
+                    Object.DestroyImmediate(go);
+                    return null;
+                }
+                l.BuildDot();        // 世界档：字体资产不在 / TMP 没建起来 → 退回点阵
+            }
 
             l.SetText(text);
             return l;
@@ -118,11 +189,15 @@ namespace CardPresentation
 
         /// <summary>当前渲染队列（**自检 / 诊断用**，2026-09-28 加：分层断言需要读回来）。
         /// ⚠️ 点阵侧读的是**实例材质** `_mr.material` —— `SetRenderQueue` 走的就是它；
-        /// 读 `sharedMaterial` 会拿到**改之前**的值（那份是共享的、我们没动）。</summary>
+        /// 读 `sharedMaterial` 会拿到**改之前**的值（那份是共享的、我们没动）。
+        /// 🔴 **2026-10-16（`T09`）：uGUI 档恒返回 `-1`** —— `CanvasRenderer` **没有**独立的渲染队列，
+        /// 层级由所在 `Canvas` 的 (排序层, `sortingOrder`, 兄弟序) 决定（见 `T09` §五·补⑨ 一）。
+        /// ⛔ 返回 `-1` 是**故意的**：让「以为设过队列」的读法当场看得出不对，而不是悄悄给个假数。</summary>
         public int RenderQueue
         {
             get
             {
+                if (_ugui) return -1;
                 if (_tmp != null && _tmp.fontMaterial != null) return _tmp.fontMaterial.renderQueue;
                 if (_mr != null && _mr.material != null) return _mr.material.renderQueue;
                 return -1;
@@ -131,9 +206,14 @@ namespace CardPresentation
 
         /// <summary>改**渲染队列**（见 `ImageQuad.SetRenderQueue` 的注释）。
         /// 面板上的文字要跟着面板一起压住一切时用它 —— `fontMaterial` 会**实例化**一份，
-        /// 所以改这个不会波及别处的文字。</summary>
+        /// 所以改这个不会波及别处的文字。
+        /// 🔴 **2026-10-16（`T09`）：uGUI 档是【有注释的空操作】** —— 画布上的文字没有独立队列，
+        /// 谁压谁由所在 `Canvas` 的 (排序层, `sortingOrder`, 兄弟序) 决定 ⇒ 迁到 uGUI 的那一族，
+        /// 调这个**不再有效果**，要改层级得改它所在 canvas 的排序（或兄弟序）。
+        /// ⚠️ 同 `HudPiece` 的先例：**不是「悄悄没做」** —— 读 <see cref="IsUgui"/> 能查出来。</summary>
         public void SetRenderQueue(int q)
         {
+            if (_ugui) return;
             if (_tmp != null)
             {
                 // 🔴 **必须先实例化一份**（2026-09-27 实测补的）——
@@ -206,21 +286,33 @@ namespace CardPresentation
         /// <summary>点阵那条的字号：7×scale 像素高的大写，换算成世界单位再问 TMP 要字号</summary>
         const float CapHeightWorldOfScale = 7f / PixelsPerUnit;   // 每个 scale 档 = 0.07 世界单位
 
-        /// <summary>非整数档的大写高度（世界单位）。> 0 时**盖过** `scale` —— 面板那种
+        /// <summary>🔴 **2026-10-16（`T09` 面板族）：一个 `scale` 档 = 7 px（大写高）** —— 两个空间共用这个数。
+        /// <para>世界档：7 px ÷ `PixelsPerUnit`(100) = **0.07 世界单位**（= 上面那条旧常量，逐位不变）。
+        /// uGUI 档：**就是 7**（canvas 单位 = 设计 px，见 `T09` §五·补③ 一）。</para>
+        /// <para>⚠️ **这是本文件三处「带单位的常数」之一**（另两处 = `PxPerWorld` 与 `UsableBounds` 的量纲上限）——
+        /// 迁 uGUI 时**三处要一起换**，漏一处就是静默错、且 **16:9 下看不出来**（口径 → `T09` §五·补⑨ 四）。</para></summary>
+        const float CapPxOfScale = 7f;
+
+        /// <summary>本标签所在空间里「一个 `scale` 档」有多长（世界档 = 0.07 世界单位 · uGUI 档 = 7 px）。
+        /// ⛔ 别直接用 `CapHeightWorldOfScale`（那是世界档专属的）。</summary>
+        float CapUnitOfScale { get { return _ugui ? CapPxOfScale : CapPxOfScale / PixelsPerUnit; } }
+
+        /// <summary>非整数档的大写高度（**本标签所在空间的单位**）。> 0 时**盖过** `scale` —— 面板那种
         /// 字号是从原版的 px 值换来的，不是整数档。点阵后端只能就近取整。</summary>
         float _capHeight;
 
-        /// <summary>非整数档的**汉字**高度（世界单位）。优先级最高。
+        /// <summary>非整数档的**汉字**高度（本标签所在空间的单位）。优先级最高。
         /// 中文文案按它定档（一个汉字 ≈ 1 em，而拉丁大写只有 0.72 em —— 差很多，别混用）</summary>
         float _glyphHeight;
 
-        float CapWorld { get { return _capHeight > 0f ? _capHeight : CapHeightWorldOfScale * Mathf.Max(1, scale); } }
+        float CapWorld { get { return _capHeight > 0f ? _capHeight : CapUnitOfScale * Mathf.Max(1, scale); } }
 
-        /// <summary>现在的大写高度（世界单位）。面板要按版面宽度回缩字号时读它 ——
-        /// 字号正比于大写高度，所以「缩多少比例」能直接作用回去</summary>
+        /// <summary>现在的大写高度（**本标签所在空间的单位**：世界档 = 世界单位 · uGUI 档 = 设计 px）。面板要按版面宽度回缩字号时读它 ——
+        /// 字号正比于大写高度，所以「缩多少比例」能直接作用回去。
+        /// ⚠️ 两种模式的**数不同**（差 `PxPerWorld` 倍）⇒ 跨模式比较前先看 <see cref="IsUgui"/>。</summary>
         public float CapHeightWorld { get { return CapWorld; } }
 
-        /// <summary>现在的**汉字**高度（世界单位）。`SetGlyphHeight` 定过就是它；
+        /// <summary>现在的**汉字**高度（**本标签所在空间的单位**，见 <see cref="CapHeightWorld"/>）。`SetGlyphHeight` 定过就是它；
         /// 只按大写定过的（HUD）就用**实测的两个比例**换算，别写死 0.72</summary>
         public float GlyphHeightWorld
         {
@@ -675,10 +767,26 @@ namespace CardPresentation
             return fontSize * TmpFont.EmPerFontSize(face) * PxPerWorld;
         }
 
+        /// <summary>🔴 **2026-10-16（`T09`）：按【本标签所在空间】折算的 px 口径** ——
+        /// 世界档与 `FontSizeToPx` **逐位相同**；uGUI 档是 `fontSize × 比例 × 1`（TMP_UGUI 的 `fontSize`
+        /// 本身就以 canvas 单位 = 设计 px 计）。
+        /// ⚠️ **自检要注意**：`Editor/BattleScene.cs` 那一族原来比的是静态那条（世界档口径）——
+        /// 被比的那颗标签一旦迁到 uGUI 档，**必须改用本口**，否则会「用世界尺量 px 值」而**恒差 108 倍**。</summary>
+        public float FontSizeToPxNow(float fontSize, TmpFont.Face face)
+        {
+            return fontSize * TmpFont.EmPerFontSize(face) * PxPerUnit;
+        }
+
+        /// <summary>同 <see cref="FontSizeToPxNow(float, TmpFont.Face)"/>（`Face.Cjk` 那一档）。</summary>
+        public float FontSizeToPxNow(float fontSize)
+        {
+            return FontSizeToPxNow(fontSize, TmpFont.Face.Cjk);
+        }
+
         /// <summary>当前**实际生效**的字号换算成「像素」口径（= `fontSize × WorldGlyphPerFontSize × 108`）。
         /// **自检拿它跟原版的 `m_fontSize` 比**（原版那也是画布像素）。
         /// ⚠️ 别用 `CapHeightWorld` / `GlyphHeightWorld` 去量 —— 那两个是**回读传入值**的伪测量（见 `已知的坑.md`）。</summary>
-        public float FontPxNow { get { return _tmp != null ? FontSizeToPx(_tmp.fontSize, ActualFace) : 0f; } }
+        public float FontPxNow { get { return _tmp != null ? FontSizeToPxNow(_tmp.fontSize, ActualFace) : 0f; } }
 
         // ============================================================================================
         // 🆕 **2026-10-14（第二十九会话 · 账 `A1024` ③）—— 这一个 Label 用哪一面字体。**
@@ -982,8 +1090,9 @@ namespace CardPresentation
         /// （`_iconBoost` 恒 1 —— `CardIcons.FontScaleFor` 就是 `return 1f`，两版逐位相同。）</para></summary>
         float NominalPx()
         {
-            // ⚠️ 走 `FontSizeToPx`（**唯一那份 px 口径**）—— 别自己再乘一次 108，那等于把口径写成两份
-            return FontSizeToPx(TmpFontSize(), ActualFace);
+            // ⚠️ 走 `FontSizeToPxNow`（**唯一那份 px 口径、且按本标签所在空间**）——
+            //    别自己再乘一次 108，那等于把口径写成两份（`T09` uGUI 档那一半也会跟着错）
+            return FontSizeToPxNow(TmpFontSize(), ActualFace);
         }
 
         void SetSizes(float capWorld, float glyphWorld)
@@ -994,8 +1103,9 @@ namespace CardPresentation
             _glyphHeight = glyphWorld;
 
             // 点阵后端只有整数档：拿「这一档大约多高」换算，别让它退化成 1 档
+            // ⚠️ 用 `CapUnitOfScale`（按模式取 0.07 世界单位 / 7 px）—— ⛔ 别用世界档那条常量
             float approx = glyphWorld > 0f ? glyphWorld : capWorld;
-            scale = Mathf.Max(1, Mathf.RoundToInt(approx / CapHeightWorldOfScale));
+            scale = Mathf.Max(1, Mathf.RoundToInt(approx / CapUnitOfScale));
 
             if (_tmp != null)
             {
@@ -1042,7 +1152,9 @@ namespace CardPresentation
                  + " vOffset=" + _vOffset.ToString("R");
         }
 
-        /// <summary>`scale` 档对应的 TMP 字号。自检报数用 —— 实例走 <see cref="TmpFontSize"/></summary>
+        /// <summary>`scale` 档对应的 TMP 字号。自检报数用 —— 实例走 <see cref="TmpFontSize"/>。
+        /// ⚠️ **只对【世界档】成立**（它用的是 `CapHeightWorldOfScale`）—— uGUI 档的字号要按
+        /// `CapPxOfScale`(7 px) 算，别拿这条去量 uGUI 的标签。</summary>
         public static float FontSizeFor(int scale)
         {
             return TmpFont.FontSizeForCapHeight(CapHeightWorldOfScale * Mathf.Max(1, scale));
@@ -1052,7 +1164,9 @@ namespace CardPresentation
         {
             // 点阵那套的 MeshFilter / MeshRenderer **一个都不要挂** —— 两套同时画就是重影
             var f = ActualFace;
-            _tmp = TmpFont.NewText(transform, "text", "", TmpFontSize(), color, f);
+            _tmp = _ugui
+                 ? TmpFont.NewTextUgui(transform, "text", "", TmpFontSize(), color, f)
+                 : TmpFont.NewText(transform, "text", "", TmpFontSize(), color, f);
             if (_tmp != null) _tmp.textWrappingMode = TextWrappingModes.NoWrap;
         }
 
@@ -1079,14 +1193,19 @@ namespace CardPresentation
         /// <summary>🔴 **2026-10-13（`A1751`）**：`textBounds` 这一趟是不是**真测量**
         /// （不是哨兵 `4.29e9`、不是未激活的半成品、不是 `NaN`）。
         /// 判据与 <see cref="HasMeasuredWidth"/> **同一套**：有限、且 ≤ **画布尺度**
-        /// （100 世界单位 = 10800px，而整块画布只有 1920px 宽 ⇒ 比画布宽五倍多的都不是测量值）。
-        /// ⚠️ 只看数值、**不看 `_text`** —— `SetSizes` 会先把 `_text` 置 null 再回调进来。</summary>
-        static bool UsableBounds(Vector3 size)
+        /// （**100 个「本标签的单位」** = 世界档 100 世界单位 = 10800px，而整块画布只有 1920px 宽
+        /// ⇒ 比画布宽五倍多的都不是测量值）。
+        /// ⚠️ 只看数值、**不看 `_text`** —— `SetSizes` 会先把 `_text` 置 null 再回调进来。
+        /// 🔴 **2026-10-16（`T09`）：上限按模式取**（`100 × PxPerUnit`）—— uGUI 档的单位是**设计 px**，
+        /// 上限 100 会把**任何正常宽度的标签**都判成「没量到」⇒ 它停在框心、**而且不出声**
+        /// （`RefreshBounds` 那一支是静默 return）。⇒ **这是本文件三处带单位的常数之一，必须一起换。**</summary>
+        bool UsableBounds(Vector3 size)
         {
             float w = Mathf.Abs(size.x), h = Mathf.Abs(size.y);
             if (float.IsNaN(w) || float.IsInfinity(w)) return false;
             if (float.IsNaN(h) || float.IsInfinity(h)) return false;
-            return w <= 100f && h <= 100f;
+            float lim = 100f * PxPerUnit;      // 世界档 100 世界单位 · uGUI 档 10800 设计 px
+            return w <= lim && h <= lim;
         }
 
         public void RefreshBounds()
@@ -1408,8 +1527,15 @@ namespace CardPresentation
         static readonly OrigMetrics Asar = new OrigMetrics { p = 94f, a = 80f, c = 61f, d = -35f };
 
         /// <summary>画布 px ÷ 世界单位（= `LayoutSpace.DesignPxH / DesignHeight` = 108）。
-        /// 与 <see cref="FontSizeToPx"/> 那条口径**同源**（这里只把它写成一处，别在两处各写一遍算式）。</summary>
+        /// 与 <see cref="FontSizeToPx"/> 那条口径**同源**（这里只把它写成一处，别在两处各写一遍算式）。
+        /// ⚠️ **这是【世界档】的**；uGUI 档要用 <see cref="PxPerUnit"/>（= 1）。</summary>
         static float PxPerWorld { get { return LayoutSpace.DesignPxH / LayoutSpace.DesignHeight; } }
+
+        /// <summary>🔴 **2026-10-16（`T09`）：本标签所在空间里「1 单位 = 多少画布 px」** ——
+        /// **本文件三处带单位的常数之一**（另两处 = `CapPxOfScale` / `UsableBounds` 的量纲上限）。
+        /// <para>世界档 = `PxPerWorld`（108）· uGUI 档 = **1**（canvas 单位**就是**设计 px，见 `T09` §五·补③ 一）。</para>
+        /// <para>⚠️ 换档时**三处要一起换**；漏一处就是静默错、且 **16:9 下看不出来**。</para></summary>
+        float PxPerUnit { get { return _ugui ? 1f : PxPerWorld; } }
 
         VAlign _vTier = VAlign.Middle;      // 出厂 = `Middle`（原版 64~67% 的件是它；本阶段全工程都用这一档）
         OrigFace _vFace = OrigFace.Pragati; // 默认取**主力**那一份（`WA712` §2·4：Pragati 是主力）
@@ -1652,8 +1778,8 @@ namespace CardPresentation
         {
             var m = _vFace == OrigFace.Asar ? Asar : Pragati;
             float boxHpx = 0f;
-            if (_vBoxH > 0f) boxHpx = _vBoxH * PxPerWorld;
-            else if (_boxHFromAutoFit > 0f) boxHpx = _boxHFromAutoFit * PxPerWorld;
+            if (_vBoxH > 0f) boxHpx = _vBoxH * PxPerUnit;
+            else if (_boxHFromAutoFit > 0f) boxHpx = _boxHFromAutoFit * PxPerUnit;
             VAlign tier = _vTier;
             if ((tier == VAlign.Bottom || tier == VAlign.Top) && !(boxHpx > 0f))
             {
@@ -1663,7 +1789,7 @@ namespace CardPresentation
                                "退回 `Middle` 那一档（框高拿不到 ⇒ Bottom/Top 的目标位置算不出来）");
                 tier = VAlign.Middle;
             }
-            return OrigInkCenterPx(tier, m, FontPxNow, boxHpx) / PxPerWorld - OurInkCenterWorld()
+            return OrigInkCenterPx(tier, m, FontPxNow, boxHpx) / PxPerUnit - OurInkCenterWorld()
                    - VOffsetBlockWorld();
         }
 

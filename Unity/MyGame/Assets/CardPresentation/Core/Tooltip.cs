@@ -134,11 +134,42 @@ namespace CardPresentation
         static readonly Vector4 BgBorder = new Vector4(12f, 2f, 12f, 12f);   // m_Border = (12,2,12,12)
 
         GameObject _bgRoot;
-        readonly List<ImageQuad> _bgParts = new List<ImageQuad>();
+        /// <summary>底图的件。世界档 = 九块 quad；uGUI 档 = **一张 `Image (Sliced)`**
+        /// （🔴 2026-10-16 · `T09` 批 1：类型从 `ImageQuad` 改成 `HudPiece` —— `ApplyAlpha` 只用 `SetTint`，两档都有）。</summary>
+        readonly List<HudPiece> _bgParts = new List<HudPiece>();
         Label _body;
         float _alpha, _target;
         Vector3 _pos;                       // 世界坐标（已含 offset）
         float _w = MinW, _h = 60f;
+
+        /// <summary>🔴 **2026-10-16（`T09` 批 1）：本场景 tooltip 的宿主画布**（由**建 UI 的那一方**登记一次）。
+        /// <para>`null`（出厂档）= **世界空间**（旧行为）—— **卡组编辑那边就是这一档**（它的 UI 不在战斗画布上）。
+        /// 非 null = **uGUI 档**：件建在该画布下、坐标 = **设计 px**（原版 `TooltipManager` 是 `Blocking` 层，
+        /// 判据 → `普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一）。</para>
+        /// <para>🔑 **跨场景安全**：场景卸载把那份 GameObject 销毁后，Unity 的 `==` 会把它当 `null`
+        /// ⇒ **自动退回世界档**，⛔ 不需要谁去清（本件是**静态单例**、战斗与卡组编辑共用）。</para></summary>
+        static RectTransform _host;
+        /// <summary>登记本场景的 tooltip 宿主（**建 UI 时调一次**，必须早于任何 `Show`）。传 `null` = 明确要世界空间档。</summary>
+        public static void UseHost(RectTransform host) { _host = host; }
+        /// <summary>当前是不是 uGUI 档（诊断 / 断言 / 自检用）。</summary>
+        public static bool UguiMode { get { return _host != null; } }
+        /// <summary>面板中心的**世界坐标**（⛔ 不管哪一档都返回**世界单位**）—— 自检与别的场景读它。
+        /// <para>⚠️ **与 `PanelCenter` 的区别**：那个返回的是**本档的局部坐标**
+        /// （世界档 = 世界单位 · uGUI 档 = **设计 px**）⇒ 拿它直接跟一个世界点比会**差 108 倍**。
+        /// 本属性就是为「跨档比较」准备的（🔴 2026-10-16 · `T09` 批 1 加）。</para></summary>
+        public static Vector3 PanelCenterWorld
+        {
+            get
+            {
+                if (_inst == null || _inst._bgRoot == null) return Vector3.zero;
+                Vector3 l = _inst._bgRoot.transform.localPosition;
+                return UguiMode ? new Vector3(l.x / PxPerUnit, l.y / PxPerUnit, 0f) : l;
+            }
+        }
+        /// <summary>本档里「1 个单位 = 多少 px」：世界档 = 108（`PxPerUnit`）· uGUI 档 = **1**（canvas 单位就是设计 px）。</summary>
+        static float UnitPx { get { return UguiMode ? 1f : PxPerUnit; } }
+        /// <summary>正文大写高（**本档的单位**）：世界档 = 世界单位 · uGUI 档 = 设计 px。</summary>
+        static float BodyCap { get { return UguiMode ? BodyCapWorld * PxPerUnit : BodyCapWorld; } }
         /// <summary>🆕 2026-10-15（账 `A2088`）：**上一次真正排版用的是哪串文案**。
         ///
         /// 为什么要有它：原版 tooltip 是**事件驱动**的 —— `OnPointerEnter` **显示一次**、
@@ -157,18 +188,36 @@ namespace CardPresentation
         static Tooltip Ensure()
         {
             if (_inst != null) return _inst;
-            var go = new GameObject("TooltipLayer");
+            // uGUI 档：根节点**自带 `RectTransform`**、挂在宿主画布下、锚在画布中心
+            //   （⛔ 别让它的 `localPosition` 有值 —— 子件的 px 偏移全是「相对本根的中心」算的）
+            var go = UguiMode ? new GameObject("TooltipLayer", typeof(RectTransform))
+                              : new GameObject("TooltipLayer");
             _inst = go.AddComponent<Tooltip>();
+            if (UguiMode)
+            {
+                var rt = (RectTransform)go.transform;
+                rt.SetParent(_host, false);
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = Vector2.zero;
+                rt.anchoredPosition = Vector2.zero;
+            }
             _inst.Build();
             return _inst;
         }
 
         void Build()
         {
-            _body = Label.Create(transform, "", Vector3.zero, 2, new Color(1f, 1f, 1f, 0f),
+            // 🔴 **两档各建各的**（⛔ 不许两边都建 —— 同 `HudPiece` / `Label` 那条铁律）：
+            //   世界档 = `Label.Create`（世界单位）· uGUI 档 = `Label.CreateUgui`（**设计 px**）。
+            //   ⚠️ 字号也要跟着换档：`BodyCap` 那条属性已经把 108 那一步算进去了。
+            _body = UguiMode
+                  ? Label.CreateUgui(transform, "", Vector3.zero, 2, new Color(1f, 1f, 1f, 0f),
+                                     new Vector2(0.5f, 0.5f), "tip_body")
+                  : Label.Create(transform, "", Vector3.zero, 2, new Color(1f, 1f, 1f, 0f),
                                  new Vector2(0.5f, 0.5f), "tip_body");
-            _body?.SetRenderQueue(QTipText);
-            _body?.SetCapHeight(BodyCapWorld);
+            _body?.SetRenderQueue(QTipText);   // uGUI 档是**有注释的空操作**（层级归画布管）
+            _body?.SetCapHeight(BodyCap);
             gameObject.SetActive(false);
         }
 
@@ -278,8 +327,14 @@ namespace CardPresentation
                     p = new Vector2(0.5f, 0.5f); break;
             }
             // 锚点 = pivot 那个点落在 `_pos` 上 ⇒ 面板中心 = pos + (0.5 − pivot) × 尺寸
-            float cx = _pos.x + (0.5f - p.x) * _w / PxPerUnit;
-            float cy = _pos.y + (0.5f - p.y) * _h / PxPerUnit;
+            // 🔴 **2026-10-16（`T09`）：两档的基准不同** ——
+            //   世界档：基准 = `_pos`（世界），尺寸换算 ÷108；uGUI 档：基准 = `_pos × 108`（设计 px），尺寸 ÷1。
+            //   ⇒ 两档写出来的 `localPosition` 各自落在**自己那套坐标系**里（子件锚点都在中心，见 `Ensure`/`BuildBg`）。
+            float u = UnitPx;
+            float bx = UguiMode ? _pos.x * PxPerUnit : _pos.x;
+            float by = UguiMode ? _pos.y * PxPerUnit : _pos.y;
+            float cx = bx + (0.5f - p.x) * _w / u;
+            float cy = by + (0.5f - p.y) * _h / u;
             if (_bgRoot != null) _bgRoot.transform.localPosition = new Vector3(cx, cy, 0f);
             if (_body != null) _body.transform.localPosition = new Vector3(cx, cy, 0f);
         }
@@ -293,7 +348,8 @@ namespace CardPresentation
             //    （CJK 都是等宽的，按字宽算比按像素稳）。**这是我们的做法**，原版靠 UI 布局。
             string wrapped = Wrap(body, MaxCharsPerLine);
             _body.SetText(wrapped);
-            float bw = _body.WorldW * PxPerUnit;
+            // ⚠️ `WorldW` 是「本档的单位」（世界档 = 世界单位 · uGUI 档 = 设计 px）⇒ 用 `UnitPx` 折
+            float bw = _body.WorldW * UnitPx;
             _w = Mathf.Clamp(bw + PadX * 2f, MinW, MaxW);
             int lines = Mathf.Max(1, wrapped.Split('\n').Length);
             _h = lines * LineH + PadY * 2f;
@@ -352,6 +408,20 @@ namespace CardPresentation
             _bgParts.Clear();
             var tex = CardArt.DeckUi(BgSprite);
             if (tex == null) { Debug.LogWarning($"[Tooltip] 面板底图 `{BgSprite}` 取不到，只显示文字"); return; }
+            // 🔴🔴 **2026-10-16（`T09` 批 1）：uGUI 档 = 一张 `Image (Sliced)`** ——
+            //   原版那颗面板本来就是 `Image (Sliced)`（九宫格靠 `m_Border` + `m_PixelsPerUnitMultiplier`），
+            //   所以 uGUI 档**比九块 quad 更贴原版**，而且层级/缩放全归画布管。
+            //   ⚠️ 锚点/枢轴全在中心（`MakeSlicedPiece` 里设的）⇒ 紧跟的 `Pivot()` 写 `localPosition` 才对得上。
+            if (UguiMode)
+            {
+                var piece = HudCanvas.MakeSlicedPiece(transform, tex, "tip_bg", _w, _h, BgBorder,
+                                                      new Color(0f, 0f, 0f, 0.9f));
+                if (piece == null) { Debug.LogWarning("[Tooltip] uGUI 档的九宫格底图没建起来"); return; }
+                _bgRoot = piece.gameObject;
+                _bgParts.Add(piece);
+                ApplyAlpha(_alpha);
+                return;
+            }
             // 🔴 **2026-10-04（A50③）：收口到公共件 `MenuDraw.Nine`** —— 原来直调
             //    `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，拿不到 `clip`）。三样与旧代码**逐项等价**：
             //    ① **尺寸** = `_w × _h`（px）—— 助手内部按 `LayoutSpace.Px` 折世界尺寸，
@@ -369,7 +439,7 @@ namespace CardPresentation
             foreach (var q in _bgRoot.GetComponentsInChildren<ImageQuad>())
             {
                 q.SetRenderQueue(QTip);        // 同一个数（助手已设过一遍，这里保留只为收集 `_bgParts`）
-                _bgParts.Add(q);
+                _bgParts.Add(HudPiece.Of(q));  // ⚠️ 2026-10-16：`_bgParts` 现在是 `List<HudPiece>`
             }
             ApplyAlpha(_alpha);
         }

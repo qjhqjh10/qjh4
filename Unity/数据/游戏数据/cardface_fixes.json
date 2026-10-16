@@ -475,12 +475,20 @@
   "Obscure Ritual": [],
   "Rites of Penance": [],
   "Smothering Decree": [],
-  "Acolyte Hybrid": [],
+  "Acolyte Hybrid": [
+   "Ambush: Gain +2 [Attack] and +2 [Ranged]"
+  ],
   "Enhanced Musculature": [],
   "Enhanced Resilience": [],
-  "Acolyte Iconward": [],
-  "Imotekh the Stormlord": [],
-  "Ghazghkull Thraka": [],
+  "Acolyte Iconward": [
+   "Talent: Nexus of Devotion"
+  ],
+  "Imotekh the Stormlord": [
+   "Talent: Lord of the Storm"
+  ],
+  "Ghazghkull Thraka": [
+   "Talent: Greatest Warboss"
+  ],
   "Preacher": [
    "Talent: Hymn of Battle"
   ],
@@ -577,8 +585,7 @@
   "Fate Inescapable": [],
   "Bringer of decay": [],
   "Helspear Assault": [
-   "Ephemeral",
-   "Slay"
+   "Ephemeral"
   ],
   "Helbrute": [
    "Armour 2"
@@ -608,20 +615,26 @@
    "Agenda"
   ],
   "Icon of Excess Infractor": [
-   "Ecstasy"
+   "Ecstasy 2: Give a Dark Pact of Excess to all friendly troops"
   ],
   "Slaanesh's Spawn": [
    "Cruelty"
   ],
-  "Threnodic Choir Noise Marine": [],
+  "Threnodic Choir Noise Marine": [
+   "Ecstasy 2: Gain Blood Thirst and Heal 1"
+  ],
   "Infractor Obsessionist": [
    "Rally",
    "Stimulation"
   ],
   "Chosen of Slaanesh": [],
   "Internal Rivalry": [],
-  "Alluress": [],
-  "Grukk Face-Rippa": [],
+  "Alluress": [
+   "Rally: Give -2 [Attack] and -2 [Ranged] to an enemy troop"
+  ],
+  "Grukk Face-Rippa": [
+   "Talent: Da Red Waaagh"
+  ],
   "Trukk Boy": [
    "Rally"
   ],
@@ -669,9 +682,13 @@
   "Canoptek Wraith": [
    "Remnant"
   ],
-  "Technomancer": [],
+  "Technomancer": [
+   "Artifice: Reanimate a random friendly Remnant"
+  ],
   "Protection Protocol": [],
-  "Orikan the Diviner": [],
+  "Orikan the Diviner": [
+   "Talent: Master Chronomancer"
+  ],
   "Imagifier": [
    "Pray"
   ],
@@ -708,7 +725,8 @@
   "Proper Hunt": [],
   "Birth of a Saga": [],
   "Honoured Ethereal": [
-   "Shield"
+   "Shield",
+   "Talent: Serene Unifier"
   ],
   "Homing Beacon": [
    "Ephemeral"
@@ -780,7 +798,7 @@
   "_2026-10-12_误抽清洗被旧阵营键静默覆盖": "2026-10-12（写手 C3 · `A1611`）。🔴 **`_2026-09-21_普通关键词误抽` 那一批清洗有 3 个词【一个字都没生效】，根因是键的优先级 —— 不是判据有问题。**① 该批（2026-09-21，六路子代理逐张开 PnP 成品卡图核过）把结果写进**裸卡名**键（`工具/_apply_kw_misextract.py` 的 `key = c['name'] if 唯一 else 阵营/卡名`）；② 而 `Chapter Champion` / `Thermal Weaponry` 这两张卡在本文件里**另有一条 2026-09-15 的`阵营/卡名` 键**（`d8d7def` 那一轮加的「同名卡」写法）带着**清洗前**的值；③ `gen_cards_engine.py` 合并时是 `_ff = dict(bare); _ff.update(fac)` ⇒ **阵营键赢** ⇒ 裸键上那份清洗被静默盖掉（脚本自己照样打印「命中」，卡表里一个字没变）。**干跑实测（2026-10-12 现读）**：`_apply_kw_misextract.py` 报 114 条请求，其中 **111 条「该卡 keywords 里没有这个词（可能已被别批清掉）」= 真已落上**；**剩下 3 条恰好就是这两张卡的**（`UM78|vanguard` · `AM54|armour` · `AM54|blast`）。⇒ **本笔把这 3 个词按那份清洗做掉**，两列（`keywords` / `_manual_keywords`）**一起写成同一个值**，让两个键**不再打架**：`Ultramarines/Chapter Champion` = `['Armour 1','Codex']` · `AstraMilitarum/Thermal Weaponry` = `[]`（与它们各自的裸卡名键**逐字相同**）。**本笔另亲读 PnP 成品图复核（铁律 7）**：`d:/2/Warpforge部队卡片/Ultramarines/3部队/Warpforge_14_Chapter-Champion.png` = `〔盾〕Armour 1. 〔星〕Codex: Gain +2 〔拳〕. ``〔兜帽〕Oath 2: Gain 〔盾〕Armour 1 and 〔骷髅〕Vanguard`（`Vanguard` 在**句中**）；`Astra Militarum/4计策/Warpforge_54_Thermal-Weaponry.png` = `Give 〔爆炸〕Blast 3 to a friendly troop. If it is a Vehicle, give it 〔盾〕Armour 1 as well`（**整卡没有声明行**）。两处与 `资料/卡表核对_卡图提取/_还原效果文字.md:1040` / `:168` 的**双写转录**逐字吻合。⚠️ **副作用（有意为之、方向正确）**：`RuleCore` 的 `UnitState.Has(...)` 真的读这一列 （`vanguard` 强制敌方只能打它）⇒ 原来 `Chapter Champion` **开局自带 Vanguard**，而卡面是 `Oath 2:` 触发才给 ⇒ 改后与卡面一致。⚠️ **同一批还有个没做完的**：`A1611` 的另一半是**渲染侧**（`SOR72` 的段首多出 `Flank.`/`Shield.`）—— 那两个词是本文件 `_2026-09-21_普通关键词误抽` 里**特意保留**的真关键词，动它在 `CardPresentation/Core/CardText.cs`（不在本笔白名单），已如实交回。",
   "EmperorsChildren/Terminator": [
    "Armour 1",
-   "Ecstasy"
+   "Ecstasy 2: Gain +2 [Attack]"
   ],
   "BlackLegion/Maulerfiend": [
    "Armour 1",
@@ -812,7 +830,8 @@
    "Pray"
   ],
   "Celestian Sacresant Aveline": [
-   "Pray"
+   "Pray: Give +1 [attack] and +1 [ranged] to a friendly troop",
+   "Talent: Daemonbreaker"
   ],
   "Celestian Superior": [
    "Pray"
@@ -825,7 +844,8 @@
    "Pray"
   ],
   "Erika Luminas": [
-   "Pray"
+   "Pray: Give +1 Health to a friendly unit",
+   "Talent: Fury of the Righteous"
   ],
   "Hospitaller": [
    "Pray"
@@ -836,7 +856,8 @@
    "Pray"
   ],
   "Morvenn Vahl": [
-   "Pray"
+   "Pray: Deal 1 damage",
+   "Talent: Righteous Repugnance"
   ],
   "Ravenwing Speeder": [
    "Flying",
@@ -854,7 +875,48 @@
   "_2026-10-14_A1748_替代行动词补录": "`A1748`（2026-10-14 第二十七会话）：18 张卡缺**替代行动词**（`Pray` / `Duty` / `Agenda`），这里按**原版真值**补上。判据两层：① 原版卡 SO 的 `CardTraits` —— 这 18 张**每一张都确实挂着**那个 trait（`pray`=1185 / `duty`=1220 / `agenda`=1235，逐张表 → `资料/普查产出_第二十七会话/A1748_原版trait真值.md` §2）；② 卡面逐张看图抄的 `资料/卡表核对_卡图提取/` 里同一张卡面印的就是 `Pray: …` / `Duty: …`。为什么非补不可：引擎里有 **5 个读点按 `u.Has(Duty)` 这类【关键词】判**（`DoReloadDuty` 筛装填目标 · `RecomputeAttackTypeAfterActiveAbility` · `HasDeployExemption` · `ForceAttackTypeOnDeploy` · 场上 trait 徽标）—— 原版那几处读的是 **trait**（`CardTraitCollection__GetTraitsFromAbilitiesRawCard` 把 ability 触发器映射成 trait），⛔ **不是正文**，所以⛔ 别把那 5 处改成 `HasFx`，要补的是**数据**。值 = 现行关键词表**原样保留**再追加那一个词（`_manual_keywords` 的规矩：写全，不是增量）。⚠️ 还有 2 张（`Blackmane Reiver` / `Fenrisian Drop Pod`）要 `ferocity`，但**本机没有判据**（2025-07 快照里 `ferocity` 出现 0 次、这两张卡整张都不在快照里）⇒ **本次不猜、不补**。",
   "Aun'Va": [
    "Talent: Ethereal Supreme"
-  ]
+  ],
+  "Nork Deddog": [
+   "Vanguard",
+   "Armour 1",
+   "Talent: Renowned Bodyguard"
+  ],
+  "Ophydian Destroyer": [
+   "Remnant",
+   "Destroyer",
+   "Regeneration 2",
+   "Artifice: Gain Stealth"
+  ],
+  "Lokhust Lord": [
+   "Remnant",
+   "Destroyer",
+   "Regeneration 2",
+   "Backlash: Create a Resurrection Orb in your hand"
+  ],
+  "Tankbusta": [
+   "Blast 2",
+   "Rally: Deal 4 damage to a random enemy Vehicle"
+  ],
+  "Malgarash the Adamant": [
+   "Armour 1",
+   "Ecstasy 2: Heal 2",
+   "Stimulation: Gain +1 [Ranged]"
+  ],
+  "Tormentor": [
+   "Ecstasy 1: Deal 3 damage to a random enemy"
+  ],
+  "Deffkopta": [
+   "Unstable",
+   "Flying",
+   "Tide 2",
+   "Rally: Other friendly Deffkopta deal 2 damage to a random enemy"
+  ],
+  "Adelaide the Serene": [
+   "Flying",
+   "Rally: If you have less than 6 ☀, gain 1 ☀ for each enemy unit"
+  ],
+  "Stomp Em": [],
+  "_2026-10-16_T02_关键词回卡面核": "2026-10-16（卡牌线 `T02` / 账 `A2073`）：**把「卡面印的关键词行」写回 `keywords` / `_manual_keywords`**。判据一律 = **逐张开 PnP 成品卡图亲读**（`d:/2/Warpforge部队卡片/<阵营>/<1督军..5防御卡>/*.png`，铁律 7）。25 张：漏 `Talent` 5（`Imotekh` / `Orikan` / `Acolyte Iconward` / `Ghazghkull` / `Nork Deddog`）· 漏 `Ambush`/`Artifice`/`Backlash`/`Rally`/`Flank` 各若干 · `Ecstasy N` 的**数值**（`EC5`=1 · `EC9`/`EC19`/`EC21`/`EC25`=2）· 等。⚠️ **这些改动【不改变卡面渲染结果】** —— `CardText.KeywordSegment` 的第一条闸就是「`body`（= `desc`）里已经**声明**过的词不补」（`CardPresentation/Core/CardText.cs:248` 的 `DeclaredInBody`），而这一批的 `desc` **本来就写着** `Talent: X` / `Rally: …` 那些行。⇒ 本笔修的是**卡表与卡面逐格一致**（进引擎的那份 `keywords` 字典），不是画面。⚠️ **两处刻意保持现状**（真值快照与 PnP 冲突，PnP 赢）：`GOF26 Stompa` 的 `Rally`（卡面明印 `Rally: Stun a random enemy`，快照没有）· `AM72 Vitus Gryf` 的 `Strike`（卡面印 `Strike:`，快照写 `slay`）；另 `GOF61 Rukkatrukk` 的 `Flank`、`SAU7 Canoptek Wraith` 的 `Unstoppable` **不补**（卡面没印）。详见 `资料/普查产出_1016并行/卡牌线T02_报告.md` §2·A2073。"
  },
  "descZh": {
   "Armoured Support": "在这场比赛的剩余时间里，给你投入战场的载具 [[armour]] 1。",
@@ -1274,7 +1336,8 @@
   ],
   "Nork Deddog": [
    "Vanguard",
-   "Armour 1"
+   "Armour 1",
+   "Talent: Renowned Bodyguard"
   ],
   "Leman Russ Vanquisher": [
    "Armour 1",
@@ -1334,13 +1397,15 @@
   ],
   "EmperorsChildren/Terminator": [
    "Armour 1",
-   "Ecstasy"
+   "Ecstasy 2: Gain +2 [Attack]"
   ],
   "Veteran Noise Marine": [
    "Blast 3"
   ],
   "Malgarash the Adamant": [
-   "Armour 1"
+   "Armour 1",
+   "Ecstasy 2: Heal 2",
+   "Stimulation: Gain +1 [Ranged]"
   ],
   "Chaos Land Raider": [
    "Cruelty",
@@ -1374,12 +1439,14 @@
   "Lokhust Lord": [
    "Remnant",
    "Destroyer",
-   "Regeneration 2"
+   "Regeneration 2",
+   "Backlash: Create a Resurrection Orb in your hand"
   ],
   "Ophydian Destroyer": [
    "Remnant",
    "Destroyer",
-   "Regeneration 2"
+   "Regeneration 2",
+   "Artifice: Gain Stealth"
   ],
   "Canoptek Spyder": [
    "Regeneration 1",
@@ -1409,7 +1476,8 @@
   "Deffkopta": [
    "Unstable",
    "Flying",
-   "Tide 2"
+   "Tide 2",
+   "Rally: Other friendly Deffkopta deal 2 damage to a random enemy"
   ],
   "Boomdakka Snazzwagon": [
    "Unstable",
@@ -1426,7 +1494,8 @@
    "Strike"
   ],
   "Tankbusta": [
-   "Blast 2"
+   "Blast 2",
+   "Rally: Deal 4 damage to a random enemy Vehicle"
   ],
   "Gorkanaut": [
    "Blast 5",
@@ -1612,12 +1681,20 @@
   "Obscure Ritual": [],
   "Rites of Penance": [],
   "Smothering Decree": [],
-  "Acolyte Hybrid": [],
+  "Acolyte Hybrid": [
+   "Ambush: Gain +2 [Attack] and +2 [Ranged]"
+  ],
   "Enhanced Musculature": [],
   "Enhanced Resilience": [],
-  "Acolyte Iconward": [],
-  "Imotekh the Stormlord": [],
-  "Ghazghkull Thraka": [],
+  "Acolyte Iconward": [
+   "Talent: Nexus of Devotion"
+  ],
+  "Imotekh the Stormlord": [
+   "Talent: Lord of the Storm"
+  ],
+  "Ghazghkull Thraka": [
+   "Talent: Greatest Warboss"
+  ],
   "Preacher": [
    "Talent: Hymn of Battle"
   ],
@@ -1702,8 +1779,7 @@
   "Fate Inescapable": [],
   "Bringer of decay": [],
   "Helspear Assault": [
-   "Ephemeral",
-   "Slay"
+   "Ephemeral"
   ],
   "Unhallowed Gifts": [
    "Ephemeral"
@@ -1722,20 +1798,26 @@
    "Agenda"
   ],
   "Icon of Excess Infractor": [
-   "Ecstasy"
+   "Ecstasy 2: Give a Dark Pact of Excess to all friendly troops"
   ],
   "Slaanesh's Spawn": [
    "Cruelty"
   ],
-  "Threnodic Choir Noise Marine": [],
+  "Threnodic Choir Noise Marine": [
+   "Ecstasy 2: Gain Blood Thirst and Heal 1"
+  ],
   "Infractor Obsessionist": [
    "Rally",
    "Stimulation"
   ],
   "Chosen of Slaanesh": [],
   "Internal Rivalry": [],
-  "Alluress": [],
-  "Grukk Face-Rippa": [],
+  "Alluress": [
+   "Rally: Give -2 [Attack] and -2 [Ranged] to an enemy troop"
+  ],
+  "Grukk Face-Rippa": [
+   "Talent: Da Red Waaagh"
+  ],
   "Trukk Boy": [
    "Rally"
   ],
@@ -1774,9 +1856,13 @@
   "Canoptek Wraith": [
    "Remnant"
   ],
-  "Technomancer": [],
+  "Technomancer": [
+   "Artifice: Reanimate a random friendly Remnant"
+  ],
   "Protection Protocol": [],
-  "Orikan the Diviner": [],
+  "Orikan the Diviner": [
+   "Talent: Master Chronomancer"
+  ],
   "Imagifier": [
    "Pray"
   ],
@@ -1809,7 +1895,8 @@
   "Proper Hunt": [],
   "Birth of a Saga": [],
   "Honoured Ethereal": [
-   "Shield"
+   "Shield",
+   "Talent: Serene Unifier"
   ],
   "Homing Beacon": [
    "Ephemeral"
@@ -1893,7 +1980,8 @@
    "Pray"
   ],
   "Celestian Sacresant Aveline": [
-   "Pray"
+   "Pray: Give +1 [attack] and +1 [ranged] to a friendly troop",
+   "Talent: Daemonbreaker"
   ],
   "Celestian Superior": [
    "Pray"
@@ -1906,13 +1994,15 @@
    "Pray"
   ],
   "Erika Luminas": [
-   "Pray"
+   "Pray: Give +1 Health to a friendly unit",
+   "Talent: Fury of the Righteous"
   ],
   "Hospitaller": [
    "Pray"
   ],
   "Morvenn Vahl": [
-   "Pray"
+   "Pray: Deal 1 damage",
+   "Talent: Righteous Repugnance"
   ],
   "Ravenwing Speeder": [
    "Flying",
@@ -1929,7 +2019,15 @@
   ],
   "Aun'Va": [
    "Talent: Ethereal Supreme"
-  ]
+  ],
+  "Tormentor": [
+   "Ecstasy 1: Deal 3 damage to a random enemy"
+  ],
+  "Adelaide the Serene": [
+   "Flying",
+   "Rally: If you have less than 6 ☀, gain 1 ☀ for each enemy unit"
+  ],
+  "Stomp Em": []
  },
  "_2026-10-12_A1633_A1634_同名卡裸键与任务点": "2026-10-12（第二十一会话 · 写手 `N2` · `A1633` ＋ `A1634` ＋ `A1622` 的 `SOR72②`；判据一律 = **逐张开 PnP 成品卡图亲读**，铁律 7）。\n① 🔴 **`A1633`：三条裸卡名键是「另一个阵营那张卡」的值，已改成带阵营的键（裸键删掉）。**\n   `cardface_fixes.json` 的键有**两种**：裸卡名（`gen_cards_engine.py` 的 `load_cardface_fixes` 按**卡名**查 ⇒ **给所有同名卡用**）与 `阵营/卡名`（只给那一张）。全池**同名跨阵营只有 3 组**（`Terminator` EC22/UM82 · `Terminator Champion` BL44/EC33 · `Maulerfiend` BL46/EC39），而这三组**三条裸键都有**，值一律是**源表里第一条同名卡**（`card_stats.json` 的顺序先到先得）的：\n   · `desc['Terminator']` = `Armour 1. Ecstasy 2: Gain +2 [Attack]` = **EC22** 的 → 改成 `EmperorsChildren/Terminator`；\n   · `keywords['Terminator']` = `['Armour 1','Ecstasy']` = **EC22** 的 → 同上；\n   · `keywords['Maulerfiend']` = `['Armour 1','Strike']` = **BL46** 的 → 改成 `BlackLegion/Maulerfiend`；\n   · `keywords['Terminator Champion']` = `['Armour 1']` = **BL44** 的 → 改成 `BlackLegion/Terminator Champion`。\n   ⇒ 今天 UM82 / EC39 靠各自的阵营键救下了，EC22 / BL46 靠裸键**碰巧对**；但**任何第三个阵营出现同名卡 ⇒ 会静默套上别人那张的效果**（这正是本项目「不许静默失败」那条）。\n   🔴 **顺手补上的第四条（同一根因、EC33 是真受害者）**：`EC33` 原来**没有**阵营键 ⇒ 它拿到的是 `keywords['Terminator Champion']` = **BL44 的 `['Armour 1']`**，**少了卡面印着的 `Cruelty`**（`card_stats.json` 该条原文是 `['Armour','Cruelty']`）。⇒ 显式写 `EmperorsChildren/Terminator Champion` = `['Armour 1','Cruelty']`。⚠️ **`Cruelty` 不能只从 `keywords` 里删了事**：它若整条不在，`fix_own_armour` 只按 `armour` 子串判、会把 `Armour 1` 留在**无数字**的形态（`Armour`）⇒ 护甲归 0（真丢玩法）。\n   🔑 **卡图亲证（铁律 7，六张 900×1200 逐张读过）**：`Chaos/3部队/Warpforge_44_Terminator-Champion.png` = `Armour 1`（**无 Cruelty**，7/7·盾1·血8·Infantry）；`Emperor_s Children/3部队/Warpforge_33_Terminator-Champion.png` = `Armour 1. 〔残忍〕Cruelty: Deal 1 damage to another random friendly unit and gain +1〔粉拳〕 and +1〔紫枪〕`（6/6·盾1·血6）；`Chaos/3部队/Warpforge_46_Maulerfiend.png` = `Armour 1. 〔猛击〕Strike: Deal 1 damage to all enemies for each Dark Pact…`；`Emperor_s Children/3部队/Warpforge_39_Maulerfiend.png` = `〔狂喜〕Ecstasy 5: Double this troop's 〔拳〕and〔枪〕`（**没有 Armour 1 那句**）；`Emperor_s Children/3部队/Warpforge_22_Terminator.png` = `Armour 1. 〔狂喜〕Ecstasy 2: Gain +2〔粉拳〕`；`Ultramarines/3部队/Warpforge_18_Terminator.png` = `〔誓约〕Oath 1: Gain 〔盾〕Armour 1`。六张与改后的值逐条吻合。\n   🔑 **防回归**：`工具/gen_cards_engine.py` 新增判据 —— **裸卡名键的卡名必须在全池唯一**，否则报 🔴 且退出码非 0（同 `orphan_face_fix` / `key_conflicts` 那一族）。⚠️ **仍欠一笔（不在本笔白名单）**：`工具/gen_cardface_fixes.py` 的 `keywords`/`subtype` 两列是**按裸卡名算出来的** ⇒ 它重跑一次会把三条裸键**写回来**（本笔的值在 `_manual_keywords` 里有一份，所以**卡表产物仍是对的**，但那条新判据会当场变红 = 这正是它该有的行为）。\n② 🔴 **`A1634`：任务点徽记被 OCR 读成 `energy`，两处**（同 `DA37` 那一族的**第 2、3 例**）。\n   指纹 = 「`gain N …`」处写的是**另一种资源**，而卡面那一枚是**任务点徽记**。\n   · `DA48 Grim Resolve`：旧 `Deal 2 damage. If the target dies, gain 1 energy.` → 改 `gain 1 Quest Point`（`Dark Angels/4计策/Warpforge_48_Grim-Resolve.png` 亲读：`gain 〔徽〕`；**卡面上没有 `Energy` 这个词**）。\n   · `DA08 Chaplain Gabutheron`：旧 `… Agenda: Heal 4 to a friendly unit and gain +1 Energy.` → 改 `gain 1 Quest Point`（`Dark Angels/3部队/Warpforge_08_Chaplain-Gabutheron.png` 亲读）。\n   · `DA22 Interrogator Chaplain`：旧 `When an enemy dies, gain [1]` → 改 `gain 1 Quest Point`。\n     🔴 **`[1]` 是那枚徽记被转写成了【裸方括号数字】**（`_合并总表.md:292` = `gain 【图标:圆内有数字1】`）。\n   · `DA75 Master Zacharial`：旧 `… Draw a card. Gain [1]. Talent: Refuse to Yield` → 改 `Gain 1 Quest Point.`（`_合并总表.md:263` 同形）。中文侧 `数据/卡牌翻译/zh_cards.json` **本来就是「获得 1 点任务」**（可反证）。\n   🔑 **引擎读数（离线探针 `工具/ruleprobe.sh`，旁证）**：四张的旧写法都解析成\n     **`verb=gain amount=0 payload=[…energy]`**（`Grim Resolve`）或 **`verb=gainenergy amount=0 payload=[1 energy]`**（`[1]` 那两张）—— ⚠️ **`amount=0` ⇒ 这张卡的效果【什么都不给】**，而且 `unparsed=`/`partial=` 都是空的（**完全静默**，卡面也不打 `*`）。改后四张一律 `verb=gainquest amount=1 target=(玩家任务点)`。\n   🔑 **判据链（三条，独立）**：**(a) 模板匹配** —— 用 `资料/关键词图标/icons/questPoints1.png`（暗绿盘 + 白 `1` + **尖刺金属环**）与各卡效果区做归一化互相关，`Grim Resolve` / `Chaplain Gabutheron` 上那一枚与 `DA60 Wages of Retribution` / `DA07 Intercessor` / `DA09 Ravenwing Bikes`（**我们卡表写的就是 Quest Point**）上的**同形**；**(b) 真 Energy 印的是【词】不是徽记** —— `Dark Angels/5防御卡/Warpforge_66_Plasma-Generator.png` 亲读 = `Gain 1 Energy`（纯文字，`_合并总表.md` 那一行**没有任何图标标记**），`Obscure Ritual` / `Tactical Insight` / `High Command` 同形；**(c) 阵营内一致性** —— 黑暗天使 `Agenda:` / 「Gain 1」一族的其余各张（`Asmodai` / `Ravenwing Bikes` / `Master Lazarus` / `Darkshroud` / `Watcher in the Dark` / `Ravenwing Speeder` / `Black Knight` / `Martial Superiority` / `Hunt the Fallen`）**一律给任务点**，`Grim Resolve`（战术）与 `Chaplain Gabutheron`（`Agenda:`）是**各自那一族里唯一的 `Energy` 例外**；且 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs` 里有 `quest = 750` / `questCompleted = 755`、**没有任何 energy 系 trait**。\n   ⚠️ **同批没改的两处（判为正常，如实留痕）**：`Wages of Retribution` 与 `Techmarine` 的 `card_stats.json` 原文也写 `[Energy]`，但**本文件 `desc` 列早就改成 `Quest Point` 了**（2026-09-15 那批，见 `资料/PnP卡图_逐张对账_0915.md` §C 把这条记成「**翻译错、英文对**」）⇒ 它们**已收口**，本笔不动。\n③ `SOR72 Adelaide the Serene` 的 `descZh`：段中「若你的信仰少于 **6 点**」→「少于 **6 ☀**」（`Sorotitas/3部队/Warpforge_08_Adelaide-the-Serene.png` 卡面同处是 `6〔金太阳〕`）—— 与 `A1622` 的「段首多印 `Flank.`/`Shield.`」是**两笔**（那一笔在渲染侧、已交回，见 `Core/CardText.cs` 里那条残差注释）。"
 }

@@ -1070,8 +1070,10 @@ namespace CardPresentation
         /// <summary>加时标记（原版 `OvertimeIndicator`）。**默认关着**，进加时后由引擎的 `ctx.IsOvertime` 点亮</summary>
         HudPiece _overtime;
         // 🆕 2026-09-20：加时全屏 splash（原版 `OvertimeUi.overtimeSplashCanvasGroup` / `OvertimeSplashText`）
+        // 🔴 **2026-10-16（`T09` 批 3 · `OverHand` 组）**：这一组已从**世界空间 quad** 翻到
+        //    `AboveShader`（`OverHand`/0，原版子件序 8/14）子画布上 ⇒ 件类型跟着换 `HudPiece`。
         GameObject _overtimeSplashRoot;
-        ImageQuad _overtimeSplashBg, _overtimeSplashBand, _overtimeSplashIcon;
+        HudPiece _overtimeSplashBg, _overtimeSplashBand, _overtimeSplashIcon;
         Label _overtimeSplashText;
         /// <summary>加时 splash 那颗字的**原版词条键**（`Label.Create` 与字号那一跳都取它）。
         /// 判据（`Localize.mTerm` + TMP 原文 `OVERTIME!`）→ `Core/Loc.cs` 那一块，⛔ 别在这儿抄第二份。</summary>
@@ -6859,9 +6861,10 @@ namespace CardPresentation
         {
             get { return _overtimeSplashText != null ? _overtimeSplashText.color.a : -1f; }
         }
-        /// <summary>自检用：splash 上那行字**渲染出来多大**（世界单位）。
+        /// <summary>自检用：splash 上那行字**渲染出来多大**（🔴 **2026-10-16（`T09` 批 3）起 = 设计 px** ——
+        /// 那一组已上 uGUI 画布，而 `Label.WorldW/H` 在 uGUI 档读的是 `TMP.textBounds`，**单位就是 px**）。
         /// 盯的是「字号没算错」—— 踩过：把原版的 `m_fontSize = 80` 当成本工程的单位用，
-        /// 结果一个字母占了大半屏（≈335 px）。屏宽 = 17.78 世界单位。</summary>
+        /// 结果一个字母占了大半屏（≈335 px）。⇒ 合理的量级 = **几十 ~ 几百 px**（屏宽 1920 px）。</summary>
         public Vector2 OvertimeSplashTextSize
         {
             get { return _overtimeSplashText != null
@@ -9877,8 +9880,11 @@ namespace CardPresentation
         // ============================================================================================
         /// <summary>原版 `LoadingFade` 的补间时长（实读常量 = **1.25 s**）。</summary>
         const float LoadingFadeSeconds = 1.25f;
-        /// <summary>进战斗那块黑场（`CardArt.Solid()` 铺满屏 + 纯黑）。</summary>
-        ImageQuad _loadingCover;
+        /// <summary>进战斗那块黑场（`CardArt.Solid()` 铺满屏 + 纯黑）。
+        /// 🔴 **2026-10-16（`T09` 批 1）：类型从 `ImageQuad` 改成 `HudPiece`** —— 它现在是
+        /// **`Blocking` 层子画布上的一张全屏 `Image`**（原版 `LoadingMenu`），不再是世界空间 quad。
+        /// 迁移后只用到的两个口（`gameObject` / `SetTint`）在 `HudPiece` 上**都有** ⇒ 调用点零改动。</summary>
+        HudPiece _loadingCover;
         /// <summary>淡出的进度（`< 0` = 没在淡出）。</summary>
         float _loadingFadeT = -1f;
         /// <summary>黑场当前不透明度（原版 `Awake` 那一档 = 1.0）。</summary>
@@ -14416,8 +14422,18 @@ namespace CardPresentation
             //   原版**有**这一件（`AboveShader/TipText` + 独立的 `BattleTipController`），判据全齐
             //   ⇒ 按原版重建、**自建那一条整个删掉**。判据 → `资料/普查产出_1015战斗/D1_A2109八条真缺_逐条判据.md` §1。
             // ⚠️ 几何是**照抄原版字段**的（常量在 `TipWpx` 那几个）：屏幕中心 = `(960+ap.x, 540−ap.y)`。
+            // 🔴🔴 **2026-10-16（`T09` 批 3 · `OverHand` 组）：提示条 + 加时 splash 已挪到【自己的子画布】上。**
+            //   原版宿主 = **`AboveShader`** @ `FrontCanvas/Safe area FrontCanvas`，
+            //   **`OverHand` 层 / order 0 / 兄弟序 8/14**（判据 → `普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一）。
+            //   ⚠️ 下面 `HudImage`/`Hud` 的 `parent` 从 `root`（HUD 根）改成**这块画布** —— 它们内部走 `HudCanvas` ✓
+            //      「一个画布单位 = 一个设计 px」⇒ 传进来的 `x01/y01` 与 `worldH` 的**口径不用改**（同一套）。
+            var aboveCv = HudCanvas.EnsureSubCanvas(null, "AboveShader Canvas",
+                                                    HudCanvas.SortingLayer.OverHand, 0);
+            if (aboveCv == null)
+                Debug.LogError("[Battle] `AboveShader` 子画布没建起来 ⇒ 提示条/加时 splash **退回 HUD 根**（层级会不对）");
+            Transform aboveRoot = aboveCv != null ? (Transform)aboveCv : root;
             float tipX01 = TipCxPx / 1920f, tipY01 = 1f - TipCyPx / 1080f;
-            _tipBg = HudImage(root, "40k_bt_underbutton", tipX01, tipY01, new Vector2(0.5f, 0.5f),
+            _tipBg = HudImage(aboveRoot, "40k_bt_underbutton", tipX01, tipY01, new Vector2(0.5f, 0.5f),
                               TipHpx / 108f, "TipText");
             if (_tipBg != null)
             {
@@ -14434,7 +14450,7 @@ namespace CardPresentation
                                + "（照旧出声，不静默）—— 见 `BuildHud` 的提示条那一段");
             }
             // 字：**白 · fs60 · 横中竖中 · 自适应 [4,60] px**（判据 = `MonoBehaviour_4010.json` 现读）
-            _tipText = Hud(root, "", tipX01, tipY01, TipScale, Color.white, new Vector2(0.5f, 0.5f), "TipText_Text",
+            _tipText = Hud(aboveRoot, "", tipX01, tipY01, TipScale, Color.white, new Vector2(0.5f, 0.5f), "TipText_Text",
                            TipWpx, TipHpx, TipFsMinPx, TipFsPx);
             SetTipVisible(false);                          // 出厂关着（原版场景态 `m_IsActive=False`）
 
@@ -14595,16 +14611,24 @@ namespace CardPresentation
         /// <summary>建那块进战斗的黑场（判据全文 → 本文件上面那一段 `LoadingFadeSeconds` 的头注）。</summary>
         void BuildLoadingCover(Transform root)
         {
-            // 铺满屏：`CardArt.Solid()` + 极大尺寸（照 `BattleLogPanel` 那条全屏压暗层的写法）。
-            // 🔴 **必须显式给渲染队列**（⛔ 不能只靠 z）：本工程踩过 —— 透明物体按**到相机的 3D 距离**排，
-            //   而这块 quad 铺满整屏 ⇒ 它的**四角**离透视相机**比**屏幕中央那些 HUD 件**更远**
-            //   ⇒ 光给 z 会让 HUD 画在它上面（卡组编辑那次就是同一条：侧栏底板被列表盖住）。
-            //   队列取 `BattleLogPanel.OverlayQ(4000) + 100` —— 比现有一切层都大。
-            _loadingCover = ImageQuad.Create(root, CardArt.Solid(), new Vector3(0f, 0f, -4.5f), 40f,
-                                             new Vector2(0.5f, 0.5f), "LoadingMenuPanel");
-            if (_loadingCover == null) return;
-            _loadingCover.SetTint(new Color(0f, 0f, 0f, 1f));
-            _loadingCover.SetRenderQueue(BattleLogPanel.OverlayQ + 100);
+            // 🔴🔴 **2026-10-16（`T09` 批 1 · `Blocking` 组）：这块黑场已从【世界空间 quad】**翻到
+            //    **uGUI 的 `Blocking` 子画布**上。判据与口径 → `任务/T09_整层换uGUI.md` §五·补⑨。
+            //    · **原版对应物** = `LoadingMenu` @ `Safe area FrontCanvas`，**`Blocking` 层 / order 1000**
+            //      （判据 → `普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一）。
+            //    · 所以现在**不需要**那条「极大尺寸 + 队列 4100」的土办法了 —— 全屏矩形（1920×1080 px）
+            //      + `Blocking` 层 = **天然压住一切**（层优先级高于 `renderQueue`，见 `T09` §五·补⑨ 一）。
+            //    ⛔ **原来那段「必须显式给渲染队列，否则四角离相机更远」的推理仍然成立**（那是世界空间
+            //       quad 的排序规律），只是**这一件已经不在那条路上了** —— 别的世界空间件照样要守它。
+            //    ⚠️ `root` 参数**本件不再用**（黑场挂在画布根下、⛔ 不挂 `hudRoot` —— 那是反向补震用的）。
+            HudCanvas.Ensure(LayoutSpace.Cam);          // 幂等；本件比 `HudAbs` 那一族**先**跑，得自己先立画布
+            var cv = HudCanvas.EnsureSubCanvas(null, "LoadingMenu Canvas",
+                                               HudCanvas.SortingLayer.Blocking, 1000);
+            if (cv == null) { Debug.LogError("[BattleDriver] 加载黑场的 `Blocking` 子画布没建起来"); return; }
+            var held = HudCanvas.MakeImagePiece(cv, CardArt.Solid(), "LoadingMenuPanel",
+                                                0f, 0f, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH,
+                                                new Color(0f, 0f, 0f, 1f));
+            if (held == null) { Debug.LogError("[BattleDriver] 加载黑场的图没建起来（`CardArt.Solid()` 取不到）"); return; }
+            _loadingCover = held;
             _loadingAlpha = 1f;
             // 原版 `Awake`：`StartFaded = 1` ⇒ 立刻全黑（`DAT_1834b2bb8` 实读 = 1.0）。
             // ⚠️ 批处理/编辑器非播放态**没有帧循环** ⇒ 淡出永不发生 ⇒ 直接落到**终态**
@@ -15161,6 +15185,16 @@ namespace CardPresentation
             //   它是全屏覆盖层（渲染队列最大），与别的补摆件互不影响。判据 → `LoadingFadeSeconds` 的头注。
             BuildLoadingCover(root);
 
+            // 🆕 2026-10-16（`T09` 批 1 · **`Blocking` 组**）：**tooltip 的宿主画布**。
+            //   原版 `TooltipManager` 是 `Blocking` 层 / order 0 的一整块 Canvas（判据 → `T09c` §一）。
+            //   🔴 **必须在这里登记、且早于任何 `Show`** —— `Tooltip` 的档位在它 `Ensure()` 那一刻定死
+            //     （本件是**静态单例**、战斗与卡组编辑共用；宿主被销毁后会自动退回世界档，见那边的 doc）。
+            //   ⚠️ **卡组编辑那边不登记** ⇒ 它**自动留在世界空间档**（那个场景的 UI 不在战斗画布上）。
+            var tipCv = HudCanvas.EnsureSubCanvas(null, "TooltipManager Canvas",
+                                                  HudCanvas.SortingLayer.Blocking, 0);
+            if (tipCv != null) Tooltip.UseHost(tipCv);
+            else Debug.LogError("[BattleDriver] tooltip 的 `Blocking` 子画布没建起来 ⇒ 它这次留在世界空间档");
+
             // ---- 加时标记 `OvertimeIndicator`：68.625×70.992，图 `40k_icon_overtime`（preserveAspect=1）----
             // 出处：`子代理读报_back右区_0827.md:171`（x[1718.9,1787.5] y[341.5,412.5]，
             //       174×180 → 0.394×）。它在能量 holder 内、时钟左边。
@@ -15198,29 +15232,35 @@ namespace CardPresentation
         /// 而 `Text` 的 rect 宽度在 dump 里是 0（TMP 自适应）⇒ 真实语义只能按「**图标贴在文字左边**」实现。</summary>
         void BuildOvertimeSplash(Transform root)
         {
-            // 相机看 +Z（z 越大越远）；HUD 文字在 z=0、图 0.3、装饰 0.6 ⇒ splash 要**最靠前**，取负
+            // 🔴 **2026-10-16（`T09` 批 3）**：下面的 `z*` 常量在世界那一套里是**世界 z**（越大越远），
+            //   在 uGUI 档里改成**兄弟序的 z**（**越大也越后画** ⇒ 语义同向、值照搬 ✓，见 `HudCanvas.Add`）。
             const float zBg = -0.50f, zBand = -0.51f, zText = -0.52f, zIcon = -0.53f;
 
+            // ⚠️ `root` 参数**本件不再用**（先例 = `BuildLoadingCover(root)`）—— 它挂 `AboveShader` 子画布下。
+            var splashCv = HudCanvas.EnsureSubCanvas(null, "AboveShader Canvas",
+                                                     HudCanvas.SortingLayer.OverHand, 0);
+            if (splashCv == null) { Debug.LogError("[Battle] 加时 splash 的 `AboveShader` 子画布没建起来"); return; }
+
             _overtimeSplashRoot = new GameObject("OvertimeSplashText", typeof(RectTransform));
-            _overtimeSplashRoot.transform.SetParent(root, false);
+            _overtimeSplashRoot.transform.SetParent(splashCv, false);
+            var rt = _overtimeSplashRoot.transform;
+            // 原版这一件是 `anchor (0,0)-(1,1)` + `sizeDelta (0,0)` ⇒ **铺满父件** ⇒ uGUI 档走 `FillParent`
+            //   （⛔ 别写死 1920×1080：`Expand` 档下屏比画布高时它更大，见 `T09` §五·补⑩ §七·8）
+            HudCanvas.FillParent((RectTransform)rt);
+            // 它这一组**压在提示条之上**：原版 `AboveShader` 的子件序是 `TipText`(前) → `OvertimeSplashText`(后)
+            //   ⇒ 兄弟序的 z 取得比提示条那一档**更小**（更小 = 更后画 = 在上面）
+            HudCanvas.Add((RectTransform)rt, 0f);
             // 🔴 **2026-10-11（A218）**：这一件写 `sizeDelta` —— 判据 = 原版同名件 `OvertimeSplashText` 实读：
             //    `RectTransform` · `anchor (0,0)-(1,1)` · `sizeDelta (0,0)`（`bundle_scenes_scenes_battlearena1`，
             //    2026-10-11 现读）⇒ **绝对矩形 (0,0)-(1920,1080)**（stretch 拿父 = 全屏）。
             //    它下面那三层的绝对尺寸才由各自的 `stretch + sizeDelta` 算（见下面 ① / ② 那两行），
             //    ⛔ 别把 `bgW/bgH`（2096.6×1779.9）当成这一层 —— 那是**子件** `Background` 的实际尺寸。
-            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「`OvertimeSplashText` = 整屏矩形」红。
-            MenuDraw.SetPxSize(_overtimeSplashRoot.transform, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
-            var rt = _overtimeSplashRoot.transform;
+            //    改坏法：删掉 `FillParent` ⇒ `Editor/BattleScene.cs` §A218「`OvertimeSplashText` = 整屏矩形」红。
 
             // ① 全屏黑罩：stretch + sizeDelta(716.6, 699.9) ⇒ 实际 (1920+716.6) × (1080+699.9)
             float bgW = 1920f + 716.6f, bgH = 1080f + 699.9f;
-            _overtimeSplashBg = ImageQuad.Create(rt, Texture2D.whiteTexture, new Vector3(0f, 0f, zBg),
-                                                 bgH / 108f, new Vector2(0.5f, 0.5f), "Background");
-            if (_overtimeSplashBg != null)
-            {
-                _overtimeSplashBg.SetAspect(bgW / bgH);
-                _overtimeSplashBg.SetTint(new Color(0f, 0f, 0f, 0.533f));
-            }
+            _overtimeSplashBg = HudCanvas.MakeImageInParent(rt, Texture2D.whiteTexture, "Background",
+                                                            0f, 0f, bgW, bgH, zBg, new Color(0f, 0f, 0f, 0.533f));
 
             // ② 中间那条横带：stretch + sizeDelta(2.0, -981.0) ⇒ 实际 1922 × 99
             //    ⚠️ 原图只有 5×198（竖条）且 **没有 9-slice 边框**（`m_Border=(0,0,0,0)`，
@@ -15229,16 +15269,16 @@ namespace CardPresentation
             float bandW = 1920f + 2f, bandH = 1080f - 981f;
             var bandTex = CardArt.Ui("40k_dsplay_overtime");
             if (bandTex == null) Debug.LogWarning("[Battle] 🔴 找不到 `40k_dsplay_overtime` —— 加时 splash 的横带画不出来");
-            _overtimeSplashBand = ImageQuad.Create(rt, bandTex, new Vector3(0f, 0f, zBand),
-                                                   bandH / 108f, new Vector2(0.5f, 0.5f), "Text Container");
-            if (_overtimeSplashBand != null) _overtimeSplashBand.SetAspect(bandW / bandH);
+            // ⚠️ 原图 5×198 且无 9-slice 边框 ⇒ 原版也是拉开画的；`MakeImageInParent` 的 `preserveAspect=false` 正是这一档
+            _overtimeSplashBand = HudCanvas.MakeImageInParent(rt, bandTex, "Text Container",
+                                                              0f, 0f, bandW, bandH, zBand, Color.white);
 
             // ③ `OVERTIME!`（白、fontSize 80、居中）
             // 🔴 **2026-10-18（第十二轮 · W6）**：文案走**原版词条** `Battle/Overtime/Title`
             //    （判据：`bundle_scenes_scenes_battlearena1/MonoBehaviour_4745.json` 的 `Localize.mTerm`
             //     + 同族 TMP 逐字 `OVERTIME!`；13 个 arena 每场 1 颗）—— 原来这里是写死的英文 `"OVERTIME!"`。
-            _overtimeSplashText = Label.Create(rt, Loc.T(OvertimeTerm), new Vector3(0f, 0f, zText), 1,
-                                               Color.white, new Vector2(0.5f, 0.5f), "Text");
+            _overtimeSplashText = HudCanvas.MakeText(rt, Loc.T(OvertimeTerm), 0f, 0f, 1,
+                                                     Color.white, new Vector2(0.5f, 0.5f), zText, "Text");
             if (_overtimeSplashText != null)
             {
                 // 🔴 **不能照抄原版那个 `m_fontSize = 80`** —— 那是**原版自己画布**的单位。
@@ -15249,15 +15289,16 @@ namespace CardPresentation
                 //    ⚠️ **2026-10-18（W6）**：语种要跟着走 —— 中文档那格是「加时赛！」（2026-10-14 官方 zh-CN 表；原「加时！」），按**汉字**（1 em）量，
                 //    写死 0.72 em 会小 28% ⇒ 转发到 `Label.SetScriptHeight`（唯一那份语种判据）。
                 const float origFontSize = 80f;         // `MonoBehaviour_3973.json` 的 m_fontSize
-                _overtimeSplashText.SetScriptHeight(Loc.T(OvertimeTerm), origFontSize, 108f);
+                // 🔴 **2026-10-16（`T09` 批 3）**：这一组已上 uGUI 画布 ⇒ `pxPerUnit` 传 **1**（原 108）
+                _overtimeSplashText.SetScriptHeight(Loc.T(OvertimeTerm), origFontSize, 1f);
             }
 
             // ④ 字左边那枚图标 181.3×187.3（贴到文字的左侧、再往左 15 px）
             //    ⚠️ 位置靠 `LayoutHudLabels` 之后按文字实际宽度重算 —— 见 `PlaceOvertimeIcon`
-            _overtimeSplashIcon = ImageQuad.Create(rt, CardArt.Ui("40k_icon_overtime"),
-                                                   new Vector3(0f, 0f, zIcon), 187.3f / 108f,
-                                                   new Vector2(1f, 0.5f), "Image");
-            if (_overtimeSplashIcon != null) _overtimeSplashIcon.SetAspect(181.3f / 187.3f);
+            // ⚠️ 原版那一件 `pivot = (1,0.5)`（贴**右缘**）；uGUI 档走**中心锚** ⇒
+            //    位置交给 `PlaceOvertimeIcon` 按「右缘目标 − 半个图标宽」算（见那个函数的注释）
+            _overtimeSplashIcon = HudCanvas.MakeImageInParent(rt, CardArt.Ui("40k_icon_overtime"), "Image",
+                                                              0f, 0f, 181.3f, 187.3f, zIcon, Color.white);
 
             _overtimeSplashRoot.SetActive(false);
         }
@@ -15268,9 +15309,14 @@ namespace CardPresentation
         void PlaceOvertimeIcon()
         {
             if (_overtimeSplashIcon == null || _overtimeSplashText == null) return;
-            float halfW = _overtimeSplashText.WorldW * 0.5f;
-            var p = _overtimeSplashIcon.transform.localPosition;
-            _overtimeSplashIcon.transform.localPosition = new Vector3(-halfW - 15f / 108f, 0f, p.z);
+            // 🔴 **2026-10-16（`T09` 批 3）：这一组已上 uGUI 画布** ⇒
+            //   ① `Label.WorldW` 在 uGUI 档**就是设计 px**（读 `TMP.textBounds`）⇒ 下面的 `15f` 不必再 ÷108；
+            //   ② 图标是**中心锚**（原版 `pivot = (1,0.5)` 贴右缘）⇒ 中心的 x = **右缘目标 − 半个图标宽**。
+            var rtI = _overtimeSplashIcon.Rect;
+            if (rtI == null) return;
+            float halfTextW = _overtimeSplashText.WorldW * 0.5f;
+            rtI.anchoredPosition = new Vector2(-halfTextW - 15f - rtI.sizeDelta.x * 0.5f,
+                                               rtI.anchoredPosition.y);
         }
 
         /// <summary>进加时那一下：**`OvertimeIndicator` 与全屏 splash 一起亮、一起灭**。
@@ -15432,7 +15478,23 @@ namespace CardPresentation
         /// 留着但**生产路径不调**）。</para></summary>
         void BuildErrorBanner(Transform root)
         {
-            _errorBanner = ErrorMessageBanner.Create(root);
+            // 🔴🔴 **2026-10-16（`T09` 批 2 · `PopUps` 组）：这一颗已翻到 uGUI 子画布。**
+            //   原版宿主 = **`UI Error Message Controller (MUST BE ENABLED)`**，
+            //   **`PopUps` 层 / order 1**（组内最高；判据 → `普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一）。
+            //   ⚠️ **档位必须在 `Create` 之前定**（它按 `uguiHost != null` 选档）——
+            //      **外壳侧（`Shell/MessageToast`）不传宿主 ⇒ 自动留在世界空间档**，与改之前逐位相同。
+            HudCanvas.Ensure(LayoutSpace.Cam);            // 幂等（本件可能比 HUD 图族先跑）
+            var errCv = HudCanvas.EnsureSubCanvas(null, "UI Error Message Controller Canvas",
+                                                  HudCanvas.SortingLayer.PopUps, 1);
+            if (errCv == null)
+            {
+                // 不许静默失败：退回世界档 ⇒ 它会**盖不住**别的 PopUps 面板（如实出声）
+                Debug.LogError("[BattleDriver] 错误横幅的 `PopUps` 子画布没建起来 ⇒ 这一颗**退回了世界空间档**"
+                             + "（层级会不对，见 T09 §五·补⑨）");
+                _errorBanner = ErrorMessageBanner.Create(root);
+                return;
+            }
+            _errorBanner = ErrorMessageBanner.Create(root, ErrorMessageBanner.BattlePreset, errCv);
         }
 
         // ==================================================================
