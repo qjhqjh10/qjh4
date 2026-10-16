@@ -88,11 +88,30 @@
 //     **世界档逐字节未动**（判据 → `资料/普查产出_1016并行/T09_AlliancePanel_锚点补正_报告.md` §③/§④）。
 //   · ⚠️ **⛔ 没顺手做的四件老缺口**（与迁 uGUI 无关，见下面「已知缺口」①②③④）：头像立绘 / 两处评级 /
 //     徽章 `Frame`·`Badge` / 出场 `DOFade`+`DOScale`（三常量没读）。
+//     🔴🔴 **2026-10-17（`S11` 现核，铁律 5）就地订正 —— 下面 ①③④ 三条的【理由】都不成立，只有 ② 成立**：
+//     ① 头像**资源全在**（`bundle_cosmeticavatarsimages_assets_all` 的 `Avatar_*`，**本仓 `Resources/Art/avatars/` 已导入 944 文件**），
+//        而且**我们 HUD 早就在画同一套**（`AvatarImage_Me/Foe`：我方 = `ProfileData.AvatarArt`、对手 = 按本局种子从本地清单挑）
+//        ⇒ `m_Sprite = 0` **只是出厂态**（`AvatarDisplay__ChangeAvatar.c:53-70` 有图就开、取不到还回落 `DefaultAvatarItem`）
+//        ⇒ **能做**；唯一近似 = bot 的**允许清单** `AIBotsConfig` 在 LiveOps 远端。
+//     ③ 徽章**图和 SO 两层都在本地**（22 张 `Alliance_Trophies_<阵营>` + **Frame 四档 `TIER1..4`** + `cosmeticsso` 的 16 个 `*_Badge.json`）；
+//        真原因是 **`Open` 里 `!IsNullOrEmpty(allianceName)` 才做那一支**（`BattleAlliancePanel__Open.c:93-108`）
+//        ⇒ **走不到 `Draw`**，⛔ **不是「原版出厂态没有」**。⚠️ 我们连那份 `*_Badge` 都还没接（零代码引用）。
+//     ④ **三个 DOTween 常量已读出**：`0x1834b2bb8 = 1.0`（目标 alpha）· `0x1834b31d4 = 0.35`（共用时长）·
+//        `0x1834b2e84 = 0.75`（起始缩放系数）⇒ **能做，属「欠做」**。
+//     ✅ **只有 ② 两处评级仍归「等远端」**（`eloRating@0x38` / `allianceRating@0x7C` 来自服务端 profile、图标来自 LiveOps）。
+//     判据全文 → `资料/普查产出_1016并行/S11_四件缺口与PlayedThirdCard_报告.md`。
 //
 // ============================ 🆕 相对原版的**已知缺口**（如实记，⛔ 不静默）============================
 //  ① **头像立绘不画**：`Avatar Item Small/Image Container/Image` 的 `m_Sprite` 是 `0`（运行期由
 //     `AvatarDisplay.Initialize` 灌）⇒ **原版出厂态本来就不画**（同本仓名牌那两处的口径）；
 //     我们单机的 bot 也没有头像数据源 ⇒ 这一格保持原版出厂态（**只摆框**）。
+//     🔴 **2026-10-17 就地订正（铁律 5）—— 上面三句【全不成立】**（`S11` 现核）：
+//     · 「原版出厂态本来就不画」**错**：`AvatarDisplay__ChangeAvatar.c:53-70` = `sprite = CosmeticItem.get_Image(item)`
+//       然后 **`set_enabled(img, sprite != null)`（有图就开）**，且 `Initialize` 的实参取不到时**回落 `get_DefaultAvatarItem()`**
+//       ⇒ **原版永远有图**；`m_Sprite = 0` 只是**序列化出厂态**。
+//     · 「我们单机的 bot 也没有头像数据源」**错**：HUD 里 `AvatarImage_Foe` **早就在画**（按本局种子从 `ProfileData.Avatars` 确定性挑）。
+//     · ⇒ **本格【可做】**：把 HUD 那套搬进来即可。唯一真实差异 = 原版 bot 的**允许清单** `AIBotsConfig.GetRandomAvatar`
+//       在 **LiveOps 远端** ⇒ 我们「从本地清单挑」是**已如实标注的近似**。
 //  ② **两处评级不建**：`Player Rating Display` / `Alliance Rating Display` 里的 `Main Icon` /
 //     `Individual rating value` 序列化都是 **0×0**，尺寸由 `RatingDisplay` 脚本运行时算
 //     （两个节点身上各挂一个 `HorizontalLayoutGroup`、`m_ChildControlWidth/Height = 1`
@@ -100,9 +119,25 @@
 //     ⇒ 不建那两格（要补：先有一个真评级数据源 + 一次运行期读数）。
 //  ③ **徽章 `Frame` / `Badge` 不建**：两张 `m_Sprite` 也是 `0`（`AllianceBadgeDrawer.Draw(id)` 运行期灌）
 //     ⇒ 同样是「出厂态就没有」；且我们单机恒走「无联盟」那一支，那两格根本不显。
+//     🔴 **2026-10-17 就地订正（铁律 5）—— 前半句错、后半句对**（`S11` 现核）：
+//     · 「出厂态就没有」**错**：**图和 SO 两层都在本地** ——
+//       `bundle_alliancesbadgesimages_assets_all/Sprite|Texture2D/` 的 **22 张 `Alliance_Trophies_<阵营>`**
+//       ＋ **Frame 四档 `Alliance_Trophies_TIER1..TIER4`**（`AllianceBadgeDrawer__SetTierFrame` → `LoadTierFrame`，索引 `Max(0, tier-1)`）
+//       ＋ `bundle_cosmeticsso_assets_all/MonoBehaviour/` 的 **16 个 `*_Badge.json`**；
+//       **`Badge`** 走 `GroupBadge.featuredTrophy@0x10 → AllianceTrophyData.reward@0x58 → AllianceBadge.badgeImage@0x38`（`AllianceBadgeDrawer__Draw.c:24-30`，null 回落 `DefaultTrophy`）。
+//     · 🔴 **真原因是「走不到那一支」**：`BattleAlliancePanel__Open.c:93-108` 是 **`bVar9 = !IsNullOrEmpty(allianceName)`** 才做联盟那一块
+//       ⇒ 我们传 `Open(name, "", "")` ⇒ **`allianceGO` 关、`Draw` 压根不执行** ⇒ ⛔ **不是「原版没有」**。
+//     · ⚠️ 而且**我们连那份 `*_Badge` 都没接**（`grep Alliance_Trophies` 在 `d:/4` 只命中两份盘点文档、零代码/零生成器引用）。
+//     · ⚠️ **真要建 ③ 还缺一样**：`guid_map.tsv` **不覆盖徽章 SO**（`AM_Forge_Badge.badgeImage` 的 GUID 在那表里 0 命中）⇒ 要另找一份「徽章 GUID → sprite」映射。
 //  ④ **出场动画（`DOFade` + `DOScale`）没做**：原版 `Open` 末尾是 `CanvasGroup.alpha = 0` → `DOFade`
 //     + 「先缩到 `×DAT_1834b2e84` 再 `DOScale` 弹回」。本件**直接显/隐**（本仓其它窗同此）；
 //     ⚠️ 三个 DOTween 常量（目标 alpha / 时长 / 缩放系数）**没读**（要在 `GameAssembly.dll` 里取值）。
+//     🔴 **2026-10-17 就地订正（铁律 5）—— 最后那句【已过期】：三个常量【已读出】**（`S11` 现核，`BattleAlliancePanel__Open.c:99-125`）：
+//     `0x1834b2bb8` = **1.0**（`DOFade` 目标 alpha；4B float —— 判据 = 形参类型 `float`）
+//     · `0x1834b31d4` = **0.35**（`DOFade` 与 `DOScale` **共用的时长**，秒）
+//     · `0x1834b2e84` = **0.75**（**起始缩放系数**）。
+//     ⇒ **本件属「欠做」（能做、只是没做）**，⛔ 别再写成「判据拿不到」。
+//     （读法：`python -I -X utf8 工具/read_literal.py "D:/2/unity_run_ref/GameAssembly.dll" <地址>`；⚠️ 要 `PYTHONIOENCODING=utf-8`。）
 //  ⑤ ~~**HUD 上那颗钮我们还没有**（见文件末「入口」一节）~~ ⇒ ✅ **2026-10-18（A985③）已接**：
 //     `Battle/BattleDriver.cs` 的 `BuildHudExtras` 里建了那颗钮，点击入口 = `HandleAlliancePanel`。
 //     🔴 **那颗钮【没有贴图】** —— 原版它的 `m_TargetGraphic` 类是 `NonDrawingGraphic`
