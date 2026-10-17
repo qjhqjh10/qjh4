@@ -324,7 +324,7 @@ namespace CardPresentation
                 //    `m_fontSize` 六个键是 35/35/**33.65**/35/**32.75**/35 —— 后两个是**编辑器里 autosize 缩过的**
                 //    ⇒ 我们把**那个值当基准**、`max` 仍给 35，让 TMP 自己缩（与原版同一套设置）。
                 var labRect = new PxRect(LabL, t.LabT, LabR, t.LabB);
-                var lbl = MenuDraw.Text(b, labRect, t.Label, Color.white, "Tab Toggle Title", t.FontPx, QText);
+                var lbl = MenuDraw.Text(b, labRect, t.Label, Color.white, "Tab Toggle Title", t.FontPx, QText, face: TmpFont.Face.LatinCardBody);
                 // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `Tab Toggle Title` 的 `m_fontSizeBase` **原文**。
                 //    **六颗页签全同 = `35.0`**（原版实读：`/Player Profile Window/Menu Area/Tab Buttons/*/Label/Tab Toggle Title`
                 //    `m_fontSize 35/35/33.65/35/32.75/35` · `auto[10~35]` · **base 六颗都是 35.0** —— 逐站表 §二·3 #21），

@@ -216,6 +216,8 @@ namespace CardPresentation
                                      new Vector2(0.5f, 0.5f), "tip_body")
                   : Label.Create(transform, "", Vector3.zero, 2, new Color(1f, 1f, 1f, 0f),
                                  new Vector2(0.5f, 0.5f), "tip_body");
+            // 🆕 **2026-10-17（`A1024③`）**：原版 `BasicToolTip/…/Text (TMP)` = **Pragati**（全变体一律）
+            _body?.SetFace(TmpFont.Face.LatinCardBody);
             _body?.SetRenderQueue(QTipText);   // uGUI 档是**有注释的空操作**（层级归画布管）
             _body?.SetCapHeight(BodyCap);
             gameObject.SetActive(false);
@@ -628,6 +630,98 @@ namespace CardPresentation
             return t.src;
         }
 
+        // ==================================================================
+        //  🆕 2026-10-17（`N42`）：非中英语档的关键词正文 ⇒ 官方 `CardTraitDescription/<官方枚举名>`
+        // ==================================================================
+        //
+        // **为什么需要一张映射**：`trait_tips.json` 的键是**我们的规范键**（`armour`/`rally`/`bloodthirst`…），
+        // 官方词条表的键是 **`DefinedTrait` 枚举名**（`armour`/`rally`/`bloodThirst`…）—— 大多数同名，
+        // 但有一批改过名（`frenzied` 显示为 Destroyer · `rage` 显示为 Penitence · `concussive` 我们叫 concussion…）。
+        //
+        // 🔴 **映射是【从本地数据推的】，⛔ 不是手写猜的** —— 三条规则逐条可复核（`trait_tips.json` 的
+        //    `en`/`zh` 列 vs 官方 `Card_Trait/<枚举名>` 的 en/zh 列，两边都是本地数据）：
+        //      ① **直取**：`CardTraitDescription/<规范键>` 存在 ⇒ 枚举名 = 规范键；
+        //      ② **归一化同名**：枚举名去掉非字母数字、转小写后 == 规范键（**唯一命中**才算）；
+        //      ③ **显示名相同**：`Card_Trait/<枚举名>` 的英文（其次中文）与 `trait_tips` 同列**逐字相同**
+        //         （两边都归一化，**唯一命中**才算）—— `destroyer→frenzied`、`penitence→rage` 走这条。
+        //    **推不出的一律不猜**（现读 62 条里 9 条：`ability`/`concussion`/`darkpact`/`ferocity`/
+        //    `huntmark`/`oath`/`pack`/`quest`/`sentry`）⇒ 非中英语档仍印 `bodyEn` + **出声一次**。
+        static Dictionary<string, string> _officialTraitName;
+        static readonly HashSet<string> _warnedTraitMap = new HashSet<string>();
+
+        /// <summary>规范化：只留字母数字、转小写（与 `CardIcons.Norm` 同口径，但**只在本文件用于比名**）。</summary>
+        static string NormName(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var sb = new System.Text.StringBuilder(s.Length);
+            foreach (char c in s) if (char.IsLetterOrDigit(c)) sb.Append(char.ToLowerInvariant(c));
+            return sb.ToString();
+        }
+
+        static void LoadOfficialTraitMap()
+        {
+            if (_officialTraitName != null) return;
+            _officialTraitName = new Dictionary<string, string>();
+            LoadTips();
+            var descNames = new List<string>();
+            foreach (var k in Loc.Lang13Keys("CardTraitDescription/"))
+                descNames.Add(k.Substring("CardTraitDescription/".Length));
+            if (descNames.Count == 0) return;          // 官方表没载入 ⇒ 全部走英文兜底（⛔ 不猜）
+            var descSet = new HashSet<string>(descNames, System.StringComparer.Ordinal);
+            foreach (var row in _tips.Values)
+            {
+                string canon = row.key;
+                if (string.IsNullOrEmpty(canon)) continue;
+                if (descSet.Contains(canon)) { _officialTraitName[canon] = canon; continue; }
+                string n = NormName(canon);
+                string hit = UniqueName(descNames, o => NormName(o) == n);
+                if (hit == null) hit = UniqueName(descNames, o => SameTraitWord(o, row));
+                // 🆕 **2026-10-17（`N44`）**：最后一级兜底 = **`Badges.Alias` 那张「规范键 → 官方枚举名」**。
+                //   理由：有一批词我们家用的是**规则书拼法**、官方枚举是另一个名（`concussion` → `concussive`、
+                //   `darkpact` → `markOfChaos`、`destroyer` → `frenzied`、`penitence` → `rage`），
+                //   前三级（精确 / 归一化 / 同词）都匹配不到 ⇒ 非中英档会回退英文。
+                //   ⛔ **不新开别名表** —— 那张 `Alias` 已经是唯一一份（`Badges.cs`，逐条有理由）。
+                if (hit == null)
+                {
+                    string official = Badges.OfficialTraitName(canon);
+                    if (!string.IsNullOrEmpty(official) && descSet.Contains(official)) hit = official;
+                }
+                if (hit != null) _officialTraitName[canon] = hit;
+            }
+        }
+
+        /// <summary>唯一命中才算（多个候选 = 判不准 ⇒ 返回 null，⛔ 不猜）。</summary>
+        static string UniqueName(List<string> names, System.Predicate<string> pred)
+        {
+            string hit = null;
+            foreach (var o in names)
+                if (pred(o))
+                {
+                    if (hit != null) return null;
+                    hit = o;
+                }
+            return hit;
+        }
+
+        /// <summary>`Card_Trait/&lt;枚举名&gt;` 的英文（其次中文）与这一行的同列是不是**同一个词**（归一化后）。</summary>
+        static bool SameTraitWord(string officialName, TraitTipRow row)
+        {
+            if (row == null) return false;
+            string en = NormName(Loc.Lang13Of("Card_Trait/" + officialName, "en"));
+            if (en.Length > 0 && en == NormName(row.en)) return true;
+            string zh = NormName(Loc.Lang13Of("Card_Trait/" + officialName, "zh"));
+            return zh.Length > 0 && zh == NormName(row.zh);
+        }
+
+        /// <summary>自检用：这个规范键推出来的官方枚举名（推不出 ⇒ null；⛔ 不改任何状态）。</summary>
+        public static string OfficialTraitNameForTest(string key)
+        {
+            LoadOfficialTraitMap();
+            string k = key == null ? null : Badges.KeyOf(key.Trim().ToLowerInvariant());
+            string v;
+            return (!string.IsNullOrEmpty(k) && _officialTraitName.TryGetValue(k, out v)) ? v : null;
+        }
+
         /// <summary>
         /// 🆕 2026-09-21：**`&lt;link>` 的统一入口** —— 先看那几个**资源/数值**键，其余一律当关键词。
         ///
@@ -737,7 +831,21 @@ namespace CardPresentation
             //     `sentry`）⇒ 只有中文那一列，**英文档下会印中文** ⇒ **出声**说明（⛔ 不静默、⛔ 也不许
             //     自己译一句冒充官方）。判据 → `资料/普查产出_第二十八会话/W4_官方文案族.md`。
             bool useZh = Loc.Effective == AvailableLanguages.Chinese;
-            string body = useZh ? t.bodyZh : t.bodyEn;
+            string body = null;
+            // 🆕 2026-10-17（`N42`）：**非中英语档 ⇒ 官方 `CardTraitDescription/<官方枚举名>` 的当前那一列**
+            //   （枚举名从本地数据推，规则见 `LoadOfficialTraitMap`；推不出的**保持英文 + 出声一次**，⛔ 不猜）。
+            if (!useZh && Loc.Effective != AvailableLanguages.English)
+            {
+                LoadOfficialTraitMap();
+                string official;
+                if (_officialTraitName.TryGetValue(canon, out official) && !string.IsNullOrEmpty(official))
+                    body = Loc.Lang13Current("CardTraitDescription/" + official);   // 缺列时它自己会出声一次
+                else if (_warnedTraitMap.Add(canon))
+                    Debug.Log("[TipText] `" + canon + "` **推不出官方枚举名**（规则见 `LoadOfficialTraitMap`："
+                              + "直取 / 归一化同名 / 显示名相同，三条都不唯一命中）⇒ `" + Loc.Current
+                              + "` 档的正文**回退英文**（`trait_tips.json` 的 `bodyEn`）。⛔ 不用猜的映射。");
+            }
+            if (string.IsNullOrEmpty(body)) body = useZh ? t.bodyZh : t.bodyEn;
             if (string.IsNullOrEmpty(body))
             {
                 body = useZh ? t.bodyEn : t.bodyZh;          // 另一列兜底（别让正文整段没了）

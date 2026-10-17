@@ -401,9 +401,9 @@ namespace CardPresentation
 
             // ---- 5) `Title` / 6) `Description`（都是 `EverguildTextMeshPro`，hAlign = Center）----
             _title = MenuDraw.TextBox(_window, TitleR, TxtTitle, Color.white, "Title",
-                                      TitleFont, TitleMin, QTitle, TitleMax, TitleBase);
+                                      TitleFont, TitleMin, QTitle, TitleMax, TitleBase, face: TmpFont.Face.LatinCardBody);
             _desc = MenuDraw.TextBox(_window, DescR, TxtDesc, Color.white, "Description",
-                                     DescFont, DescMin, QDesc, DescMax, DescBase);
+                                     DescFont, DescMin, QDesc, DescMax, DescBase, face: TmpFont.Face.LatinCardBody);
 
             // ---- 7) `Timer`（`TimerDisplay` + HLG）> `Icon` + `Timer Text` ----
             _timer = MenuDraw.Node(_window, "Timer", TimerR);
@@ -413,7 +413,7 @@ namespace CardPresentation
             // ⚠️ 这一格的**框宽就是 0**（见 `TimerTextR` 那条）⇒ 用 `Text`（不设折行） + `AlignLeft`，
             //    否则 `SetWrapWidth(0)` 会把字压没。
             _timerText = MenuDraw.Text(_timer, TimerTextR, TxtTimer, Color.white, "Timer Text",
-                                       TimerFont, QTimerText);
+                                       TimerFont, QTimerText, face: TmpFont.Face.LatinCardBody);
             if (_timerText != null) MenuDraw.AlignLeft(_timerText, TimerTextR);
 
             // ---- 8) `Bonus points`（红横幅）> `Bonus points text` ----
@@ -421,7 +421,7 @@ namespace CardPresentation
             var bannerTex = Tex(ArtBanner, "`Bonus points` 的红横幅");
             if (bannerTex != null) MenuDraw.Rect(bonus, bannerTex, BonusR, "Image", QBonus, BonusTint);
             _bonus = MenuDraw.TextBox(bonus, BonusR, TxtBonus, Color.white, "Bonus points text",
-                                      BonusFont, BonusMin, QBonusText, BonusMax, BonusBase);
+                                      BonusFont, BonusMin, QBonusText, BonusMax, BonusBase, face: TmpFont.Face.LatinCardBody);
 
             // ---- 9) `Scroll View` → `Viewport` → `Content` ----
             //   ⚠️ `Scroll View` 上那颗 `NonDrawingGraphic`（**不是 `Image`**）与 `Viewport` 上**没有 Image**
@@ -444,7 +444,7 @@ namespace CardPresentation
             //   （铁律 5 就地订正，原文见 git）：调度台按 A754 那条同族先例裁定「**算 A435 站点 ⇒ 要做**」。
             _content = MenuDraw.Node(vp, "Content", ContentRect(0));
             // 横向滚动（原版 `m_Horizontal 1 / m_Vertical 0`）⇒ `LeftAligned`。
-            _scroll = MenuScroll.LeftAligned(ScrollR, 0f);
+            _scroll = MenuScroll.LeftAligned(ScrollR, 0f, 100f);   // 原版 `Ranked Boost Reward Event Window/window/Scroll View` = 100（D_N29）
             // 🔴 **A465（W-A435己）那一行，本件补上**：构建循环（`RebuildCards` 里
             //   `if (_scroll != null && !_scroll.Intersects(on)) continue;`）从今天起读**同一颗节点**的状态。
             //   ⚠️ `_content` / `_scroll` / 这颗 `Viewport` **都是每次 `Build()` 新建**的 ⇒ 与节点同频，
@@ -455,8 +455,8 @@ namespace CardPresentation
             _scroll.Owner = gameObject;
             _scroll.OnChanged = RebuildCards;
             PointerLayer.RegisterScroll(_scroll);
-            // ⚠️ 原版 `m_ScrollSensitivity = 100`（逐处实读）—— 我们走公共件那一份系数
-            //    （`MenuScroll.NotchK = 0.4`）⇒ 手感**不是同一个数**，如实记（报告 §九②）。
+            // ✅ 2026-10-17（N29）：滚轮灵敏度 = 原版 `m_ScrollSensitivity = 100`（逐处实读），
+            //    已按**每实例一份**传进 `MenuScroll`（构造那一行的 `100f`）—— 不再是全壳 0.4 那个自选手感。
 
             Apply();
         }
@@ -581,7 +581,7 @@ namespace CardPresentation
             //   早在裁）⇒ 更贴原版。⚠️ 返回值有守卫（下一句 `if (tx != null) MenuDraw.AlignLeft(...)`）。
             //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #3。
             var tx = MenuDraw.TextBox(tb, txR, armyName, Color.white, "Army Text",
-                                      CardNameFont, CardNameMin, QCardName, CardNameMax, CardNameBase);
+                                      CardNameFont, CardNameMin, QCardName, CardNameMax, CardNameBase, face: TmpFont.Face.LatinUi);
             if (tx != null) MenuDraw.AlignLeft(tx, txR);
             var bdR = CardChild(card, nBadge);
             var badgeTex = Tex(ArtCardBadge, "`Feature Badge`");

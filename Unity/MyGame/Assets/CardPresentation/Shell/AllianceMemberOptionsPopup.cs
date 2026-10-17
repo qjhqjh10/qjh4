@@ -363,7 +363,7 @@ namespace CardPresentation
             // ---- 4) `Name`（成员名；原版 `playerName.SetText(Member.Name)`）----
             var nameR = NameRect(R);
             _name = MenuDraw.TextBox(root, nameR, _view.Name ?? "", Color.white, "Name",
-                                     NameFont, NameFontMin, QName, NameFontMax, NameFontBase);
+                                     NameFont, NameFontMin, QName, NameFontMax, NameFontBase, face: TmpFont.Face.LatinCardBody);
 
             // ---- 5) `Buttons`：**八颗写死的子件**（不是模板 —— 这一扇没有 `Template`）----
             _buttons = MenuDraw.Node(root, "Buttons", ButtonsRect(R));
@@ -386,7 +386,7 @@ namespace CardPresentation
                 // 🔴 **2026-10-18（第十一轮）**：文案那一个实参从 `bt.Label`（= prefab 出厂原文，**含西语占位串**）
                 //   换成 `BtnLabel(bt)`（有词条走词条、没有就原样）—— ⛔ 节点名 `bt.Node` 与字体/色/矩形都没动。
                 var tx = MenuDraw.TextBox(bn, BtnTextRect(br), BtnLabel(bt), Color.white, "Button Text",
-                                          bt.Font, BtnTextFontMin, QBtnText, BtnTextFontMax, BtnTextFontBase);
+                                          bt.Font, BtnTextFontMin, QBtnText, BtnTextFontMax, BtnTextFontBase, face: TmpFont.Face.LatinCardBody);
                 int idx = i;
                 // ⚠️ 换图那一跳**不在 `Hit` 里传 `target`** —— 九宫格被切成 9 张小 quad，只换中心那格
                 //    = 边框不跟着亮（`WindowButton.BindNine` 的注释就是为这件事写的）⇒ 命中区先建、

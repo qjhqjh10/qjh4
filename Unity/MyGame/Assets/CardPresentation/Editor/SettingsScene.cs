@@ -1343,6 +1343,121 @@ public static class SettingsScene
                 CheckTrue(Loc.Current == origLang, $"收尾：语言放回自检前那一档（{origLang}；⛔ 自检不许改玩家的真设置）");
             }
 
+            // ---------------- 🆕 2026-10-17（`N42`）：卡名 / 卡面正文 / 关键词 tooltip 的 13 语言 ----------------
+            // 验收口径（任务书 `N42`）：① **非中英语言**下卡名与卡面正文出**对应语言**；② 中/英两档**逐字节不变**；
+            // ③ 缺键 / 缺列 ⇒ 回退英文 + **出声一次**（⛔ 不静默、⛔ 不印键名）。
+            // ⚠️ 期望值分两路：**字面量**（日语/韩语那几条，灭自证）+ `Loc.Lang13Of(键, 语言码)`（逐档、数据侧独立路）。
+            Section("13 语言：卡名 / 卡面正文 / 关键词 tooltip（`N42`）");
+            {
+                var origLang13 = Loc.Current;
+                bool persist0 = Loc.PersistOverride;
+                Loc.PersistOverride = true;                 // 不写盘（同上一节 ②③⑤）
+
+                RuleEngine.CardDef card = null;
+                foreach (var cd in RuleEngine.CardDatabase.Load())
+                    if (cd != null && cd.Id == "ASH55") { card = cd; break; }
+                CheckTrue(card != null && card.FromOriginalPool,
+                          "（前提）卡池里有**原版卡** `ASH55 Aspect Shrine`（13 语言表里 13 列齐全、正文不带 `[[`/`((`/`$$` 记号）");
+
+                if (card != null)
+                {
+                    // ① 口径：中/英档下新口恒 null（中英仍以手写 `Table` 为权威 ⇒ 下面 ② 才可能「逐字节不变」）
+                    Loc.SetLanguage(AvailableLanguages.Chinese);
+                    CheckTrue(Loc.Lang13Current("Card_Name/ASH55") == null,
+                              "（口径）中文档 `Loc.Lang13Current` 恒 **null**（中英仍以手写表为权威）");
+                    Loc.SetLanguage(AvailableLanguages.English);
+                    CheckTrue(Loc.Lang13Current("Card_Name/ASH55") == null,
+                              "（口径）英文档 `Loc.Lang13Current` 恒 **null**");
+
+                    // ② 中/英两档**逐字节不变**（期望值 = 改前那两条来源：`NameZh`/`DescZh` · `Name`/`Desc`）
+                    Loc.SetLanguage(AvailableLanguages.Chinese);
+                    CheckTrue(CardText.Zh, "（前提）中文字体资产可用且语档 = 中文 ⇒ 下面两条中文断言才有对象");
+                    Check(CardText.Name(card), card.NameZh, "中文档卡名 = `CardDef.NameZh`（改前那条来源，逐字节不变）");
+                    CheckTrue(CardText.Zh && BattleDriver.FaceTextFull(card).body.Contains(card.DescZh),
+                              "中文档卡面正文含 `CardDef.DescZh`（改前那条来源，逐字节不变）");
+                    Loc.SetLanguage(AvailableLanguages.English);
+                    Check(CardText.Name(card), card.Name, "英文档卡名 = `CardDef.Name`（改前那条来源，逐字节不变）");
+                    CheckTrue(BattleDriver.FaceTextFull(card).body.Contains(card.Desc),
+                              "英文档卡面正文含 `CardDef.Desc`（改前那条来源，逐字节不变）");
+
+                    // ③ 其余 **10** 种语言：卡名与正文**各取自己那一列**（期望值走 `Lang13Of(键, 语言码)`）
+                    int langsChecked = 0, nameHit = 0, bodyHit = 0;
+                    foreach (var L in Loc.Languages)
+                    {
+                        if (L == AvailableLanguages.Chinese || L == AvailableLanguages.English) continue;
+                        string code =
+                            L == AvailableLanguages.Spanish ? "es" :
+                            L == AvailableLanguages.Russian ? "ru" :
+                            L == AvailableLanguages.French ? "fr" :
+                            L == AvailableLanguages.German ? "de" :
+                            L == AvailableLanguages.Portuguese ? "pt" :
+                            L == AvailableLanguages.Italian ? "it" :
+                            L == AvailableLanguages.Korean ? "ko" :
+                            L == AvailableLanguages.Japanese ? "ja" :
+                            L == AvailableLanguages.Polish ? "pl" :
+                            L == AvailableLanguages.Czech ? "cs" : null;
+                        string wantName = code == null ? null : Loc.Lang13Of("Card_Name/ASH55", code);
+                        string wantBody = code == null ? null : Loc.Lang13Of("Card_Description/ASH55", code);
+                        CheckTrue(!string.IsNullOrEmpty(wantName) && !string.IsNullOrEmpty(wantBody),
+                                  $"（前提）官方 13 语言表里 `ASH55` 的 `{code}` 列（卡名 + 正文）都在");
+                        if (string.IsNullOrEmpty(wantName) || string.IsNullOrEmpty(wantBody)) continue;
+                        Loc.SetLanguage(L);
+                        langsChecked++;
+                        string gotName = CardText.Name(card);
+                        if (gotName == wantName) nameHit++;
+                        else Check(gotName, wantName, $"{L} 档卡名 = 官方 `Card_Name/ASH55` 的 `{code}` 列");
+                        string gotBody = BattleDriver.FaceTextFull(card).body ?? "";
+                        if (gotBody.Contains(wantBody)) bodyHit++;
+                        else CheckTrue(false, $"{L} 档卡面正文含官方 `Card_Description/ASH55` 的 `{code}` 列（实得「{gotBody}」）");
+                    }
+                    CheckTrue(langsChecked == 10 && nameHit == 10 && bodyHit == 10,
+                              $"其余 **10** 种语言的卡名与正文**逐档**都取到官方那一列（卡名 {nameHit}/10 · 正文 {bodyHit}/10）");
+
+                    // ④ 字面量抽查（灭自证：期望值**不从被测实现里读**）
+                    Loc.SetLanguage(AvailableLanguages.Japanese);
+                    Check(CardText.Name(card), "アスペクト・シュライン",
+                          "★（灭自证 · 字面量）日语档卡名 = 官方 `Card_Name/ASH55` 的日语列（⛔ 不是回退英文）");
+                    CheckTrue(BattleDriver.FaceTextFull(card).body.Contains("2つの魂縛石を獲得"),
+                              "★（灭自证 · 字面量）日语档卡面正文含官方 `Card_Description/ASH55` 的日语原文");
+
+                    // ⑤ 关键词段（`CardText.KeywordSegment`）：非中英档用**当前语言**的词
+                    var rally = new[] { new KeyValuePair<string, int>("rally", 0) };
+                    CheckTrue(CardText.KeywordSegment(rally, false, "", null).Contains("ラリー"),
+                              "日语档关键词段 = 日语名（官方 `Card_Trait/rally` = ラリー）");
+                    Loc.SetLanguage(AvailableLanguages.Korean);
+                    CheckTrue(CardText.KeywordSegment(rally, false, "", null).Contains("집결"),
+                              "韩语档关键词段 = 韩语名（官方 `Card_Trait/rally` = 집결）");
+                    Loc.SetLanguage(AvailableLanguages.English);
+                    CheckTrue(CardText.KeywordSegment(rally, false, "", null).Contains("Rally"),
+                              "英文档关键词段**一个字不变**（仍是 `Rally`）");
+                    Loc.SetLanguage(AvailableLanguages.Chinese);
+                    CheckTrue(!CardText.Zh || CardText.KeywordSegment(rally, true, "", null).Contains("集结"),
+                              "中文档关键词段**一个字不变**（仍是 `集结`）");
+
+                    // ⑥ 关键词 tooltip 正文（`TipText.Trait`）：非中英档走官方 `CardTraitDescription/<官方枚举名>`
+                    Loc.SetLanguage(AvailableLanguages.Japanese);
+                    string tipJa = TipText.Trait("rally");
+                    CheckTrue(tipJa != null && tipJa.Contains("ラリー"), "日语档关键词 tooltip 标题 = ラリー");
+                    CheckTrue(tipJa != null && tipJa.Contains("このユニットが手札から出されたときに効果を発動する"),
+                              "★（灭自证 · 字面量）日语档 tooltip 正文 = 官方 `CardTraitDescription/rally` 的日语列");
+                    Loc.SetLanguage(AvailableLanguages.English);
+                    string tipEn = TipText.Trait("rally");
+                    CheckTrue(tipEn != null && tipEn.Contains("Trigger an effect when this unit is played from hand"),
+                              "英文档 tooltip 正文**一个字不变**（`trait_tips.json` 的 `bodyEn`）");
+
+                    // ⑦ 规范键 → 官方枚举名的映射（**从本地数据推**，⛔ 不手写猜；推不出的如实空着）
+                    Check(TipText.OfficialTraitNameForTest("rally"), "rally", "（映射）`rally` → `rally`（直取那条规则）");
+                    Check(TipText.OfficialTraitNameForTest("destroyer"), "frenzied",
+                          "（映射）`destroyer` → `frenzied`（按 `Card_Trait` 的英文名逐字相同推出，⛔ 不是手写猜的）");
+                    CheckTrue(TipText.OfficialTraitNameForTest("darkpact") == null,
+                              "（已知缺口 · 如实记）`darkpact` 推不出官方枚举名 ⇒ 非中英档 tooltip 正文回退英文（⛔ 不猜映射）");
+                }
+
+                Loc.PersistOverride = persist0;
+                Loc.RestoreForTest(origLang13);
+                CheckTrue(Loc.Current == origLang13, $"收尾：语言放回本段进来时那一档（{origLang13}）");
+            }
+
             // ---------------- 🆕 2026-10-17：General 页（`Shell/SettingsWindow.cs`）----------------
             // 逐值判据 = `Shell/SettingsWindow.cs` 那组 `Gen*` 常量（每条都有自己的反算算式）。
             // ⚠️ 原版 `GeneralTab` 那三颗开关点下去在我们这边**只存值**（消费者在服务器/匹配那侧）⇒
@@ -1805,6 +1920,11 @@ public static class SettingsScene
                 if (gsc != null)
                 {
                     CheckTrue(gsc.Vertical, "纵向滚动区（原版 `m_Vertical 1`；给成横的 ⇒ 红）");
+                    // 🆕 2026-10-17（N29）：原版 `Graphics Tab/Content/Scroll View` 的 `m_ScrollSensitivity = 1.0`
+                    //   （判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`）
+                    //   —— ⛔ 别断 `DefaultNotchPx`（那个 48 是「没现读」的兜底，断它 = 自证）。
+                    CheckNear(gsc.NotchPx, 1f, 0.001f,
+                              "灵敏度 = 原版 `m_ScrollSensitivity` 的 **1.0** px/格（D_N29）");
                     CheckTrue(gsc.Elastic,
                               "档位 = **Elastic**（原版 `m_MovementType 1`；`MenuScroll.Elastic` 默认 `false` = Clamped ⇒ 少写那一句就红）");
                     // 🔴 四个数 = 原版设计值 × 0.9：563.52→**603.17** · 432.50→**443.25** · 1526.89→**1470.20** · 954.00→**912.60**

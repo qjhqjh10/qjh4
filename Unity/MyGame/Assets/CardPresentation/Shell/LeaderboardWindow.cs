@@ -382,7 +382,7 @@ namespace CardPresentation
             MenuDraw.Absorb(transform, "AbsorbHit", PanelR, QPanel, QHit);
             // 🆕 **2026-10-12（A336③）**：`'TOP PLAYERS'` 那一族（4 颗弹窗 + 1 颗嵌入版共 5 份）实读
             //    = `fs 55.0 · auto[18~55] · base **36.0**` · 折行 0 ⇒ 上限 = 标称（A333 本来就对），base 36。
-            MenuDraw.Text(panel, TitleR, "TOP PLAYERS", Color.white, "Title", 55f, QText, TitleR.W, 18f, 55f, 36f);
+            MenuDraw.Text(panel, TitleR, "TOP PLAYERS", Color.white, "Title", 55f, QText, TitleR.W, 18f, 55f, 36f, face: TmpFont.Face.LatinUi);
             MenuDraw.Rect(panel, Art(ArtLine), TopBarR, "TopBar", QContent, null, false);
 
             // `Content`（VLG：`Army Selector` + `Scroll View` 两块）
@@ -395,7 +395,7 @@ namespace CardPresentation
             //    ⇒ 与迁移前的 `_rowCtx.Clip = _scroll.Viewport`（同一矩形）逐位同值。
             var vpVc = ViewportClip.Hang(sv, "Viewport", ScrollR, Vector4.zero, Vector2Int.zero);
             var vp = vpVc.transform;
-            _scroll = MenuScroll.TopAligned(ScrollR, 0f);
+            _scroll = MenuScroll.TopAligned(ScrollR, 0f, 50f);   // 原版 `Ranked…Leaderboard…/Content/Scroll View` = 50（D_N29）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`RebuildRows` 里
             //   `if (_scroll != null && !_scroll.Intersects(rr)) continue;`）从今天起读**同一颗节点**的状态
             //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗 `Viewport`。
@@ -458,7 +458,7 @@ namespace CardPresentation
             //    ⇒ 我们取「左对齐 + 可横向滚动 182.66」，**这一条是我们挑的**（记在 §三第29条 A3）。
             if (_armyScroll == null)
             {
-                _armyScroll = MenuScroll.LeftAligned(ArmySelR, contentW);
+                _armyScroll = MenuScroll.LeftAligned(ArmySelR, contentW, 1f);   // 原版 `…/Content/Army Selector` = 1.0（D_N29）
                 // 🔴 **2026-10-13（A435 阶段 2 · 庚 · W-A435庚 / A768①）就地订正（铁律 5）**：这里原来留着 W-A435己
                 //   的一段「**这处没接、只报不改**」的说明（当时那颗 `Viewport` 上还没有 `ViewportClip`）
                 //   —— **那段已经不成立**：组件已由上面那句 `ViewportClip.Hang` 挂上。保留下来的判断只有一条：
@@ -607,7 +607,7 @@ namespace CardPresentation
             var content = Node(transform, "Content", EmbListR);
             Nine(transform, ArtPanel, EmbPanelR, PanelBorder, "Generic Window Red Background Big", QBg);
             MenuDraw.Text(transform, EmbTitleR, "TOP PLAYERS", Color.white, "Title", 55f, QText, EmbTitleR.W, 18f,
-                          55f, 36f);   // 🆕 A336③：同上面那颗（`fs 55 auto[18~55] base 36`）
+                          55f, 36f, face: TmpFont.Face.LatinUi);   // 🆕 A336③：同上面那颗（`fs 55 auto[18~55] base 36`）
             MenuDraw.Rect(transform, Art(ArtLine), EmbTopBarR, "TopBar", QContent, null, false);
             BuildSeasonPieces(true);
 
@@ -617,7 +617,7 @@ namespace CardPresentation
             //    `ViewportClip` 正是这套机制的意义所在（原版 `Collection Menu Variant` 一扇窗实读 6 个）。
             var vpVc = ViewportClip.Hang(sv, "Viewport", EmbListR, Vector4.zero, Vector2Int.zero);
             var vp = vpVc.transform;
-            _scroll = MenuScroll.TopAligned(EmbListR, 0f);
+            _scroll = MenuScroll.TopAligned(EmbListR, 0f, 50f);   // 原版 `Ranked Leaderboard Display/Content/Scroll View` = 50（D_N29）
             _scroll.ClipNode = vpVc;      // 🔴 A465（W-A435己）：构建循环那一路读同一颗节点 —— 同 `BuildPopup` 那条
             // 同为 **Elastic**（原版 `mode=1`）—— 判据：`menu_dump.py … "Ranked Leaderboard Display"` 实读
             // `Scroll View` = `h=0 v=1 mode=1`。嵌入版与三扇弹窗**只差高度**，滚动档位相同。
@@ -730,7 +730,7 @@ namespace CardPresentation
             var seasonBg = Nine(btn, ArtSeasonBtn, btnR, SeasonBtnBorder, "Image", QBg);
             // 🆕 **2026-10-12（A336③）**：`…/Generic Simplified UI Button_updated/Button Text` 实读
             //    = `fs 36.0 · auto[10~36] · base **12.0**` · 折行 0（上限 = 标称 ⇒ A333 本来就对）。
-            MenuDraw.Text(btn, txR, "Last season", Color.white, "Button Text", 36f, QText, txR.W, 10f, 36f, 12f);
+            MenuDraw.Text(btn, txR, "Last season", Color.white, "Button Text", 36f, QText, txR.W, 10f, 36f, 12f, face: TmpFont.Face.LatinCardBody);
             // 🆕 A17：原版这一颗是 SpriteSwap（普查 §块 5 第 2 行）；底图是**九宫格** ⇒ 九张一起换
             var seasonHit = MenuDraw.Hit(btn, "Hit", btnR, QHit, OnSeasonButton,
                                          clickCue: WindowSounds.PositiveCue);
@@ -743,7 +743,7 @@ namespace CardPresentation
             //    = `fs 40.0 · auto[18~40] · base **50.0**` · 折行 0 —— ⚠️ base **50 比标称 40 还大**，
             //    且**与同窗那颗 `Button Text`（12）完全不同** ⇒ 逐个读（铁律 5·c）。
             var lb = MenuDraw.Text(st, textR, "Last season", Color.white, "Last Season Text", 40f, QText,
-                                   textR.W, 18f, 40f, 50f);
+                                   textR.W, 18f, 40f, 50f, face: TmpFont.Face.LatinCardBody);
             if (lb != null) MenuDraw.AlignRight(lb, textR);
             st.gameObject.SetActive(false);     // 原版 `ChangeSeasonRankingView(true)` 把它关掉
         }

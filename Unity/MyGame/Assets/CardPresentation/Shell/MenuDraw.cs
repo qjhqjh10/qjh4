@@ -1848,7 +1848,8 @@ namespace CardPresentation
         public static Label Text(Transform parent, PxRect r, string text, Color color, string name,
                                  float fontPx, int q, float wrapPx = 0f, float autoMinPx = 0f,
                                  float autoMaxPx = 0f, float autoBasePx = 0f,
-                                 PxRect? clip = null, Vector2 clipSoftness = default(Vector2))
+                                 PxRect? clip = null, Vector2 clipSoftness = default(Vector2),
+                                 TmpFont.Face face = TmpFont.Face.Cjk)
         {
             var _st = ViewportClip.Resolve(parent, clip, clipSoftness, default(Vector4));
             // 🔴 **2026-10-14（A798）：整块在框外 ⇒ 连节点一起不建**（同 `Rect` / `Nine` / `Tiled` / `Hit`
@@ -1861,7 +1862,7 @@ namespace CardPresentation
             //    （`PaddedClip(null, ·)` 首句早退，见 `ViewportClip.ClipState.RenderClip`）。
             //    ⚠️ 位置必须在 `TextCore` **之前**：建完再返回 `null` = 那个节点留在树里没人管（漏节点）。
             if (!Visible(r, _st.RenderClip)) return null;
-            var lb = TextCore(parent, r, text, color, name, fontPx, q, wrapPx, autoMinPx, autoMaxPx, autoBasePx);
+            var lb = TextCore(parent, r, text, color, name, fontPx, q, wrapPx, autoMinPx, autoMaxPx, autoBasePx, face);
             if (lb == null) return null;
             // 🔴 A781：最后一步才裁。交给 `ClipText` 的是**调用方原样那一份 `clip`**
             //    （⛔ **不是** `_st.RenderClip` 那份解析后的快照）—— 同 `MenuWindowBase.Text` / A484：
@@ -1880,12 +1881,18 @@ namespace CardPresentation
         /// 它免掉的是那一刀**本身**（白做一次 + 被重排冲掉），不只是计数。
         /// ⚠️ 形参表 = `Text` 原来那十个（含 `wrapPx`），**行为逐字等于拆出来之前那一版** ——⛔ 别在这里加裁切。</summary>
         static Label TextCore(Transform parent, PxRect r, string text, Color color, string name,
-                              float fontPx, int q, float wrapPx, float autoMinPx, float autoMaxPx, float autoBasePx)
+                              float fontPx, int q, float wrapPx, float autoMinPx, float autoMaxPx, float autoBasePx,
+                              TmpFont.Face face = TmpFont.Face.Cjk)
         {
             var lb = Label.Create(parent, text, Local(parent, r.x1, r.y1, r.x2, r.y2), 5, color,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
             lb.SetRenderQueue(q);
+            // 🔴 **2026-10-17（A1024③ 第 0 批）：可选字体面 —— 默认 `Cjk` ⇒ 旧调用点零行为变化。**
+            //    ⚠️ **次序不能反**：`SetFace` 必须在 `SetGlyphHeight` **之前** —— 字号是按
+            //    `ActualFace` 的 em 换算的（`Label.TmpFontSize` 读 `ActualFace`），反了会按 CJK 的
+            //    行盒算出一个偏小的字号（静默、不报错）。判据 → `Battle/Label.cs` 的 `SetFace` / `TmpFontSize`。
+            if (face != TmpFont.Face.Cjk) lb.SetFace(face);
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
             if (wrapPx > 0f)
             {
@@ -1915,7 +1922,8 @@ namespace CardPresentation
         public static Label TextBox(Transform parent, PxRect r, string text, Color color, string name,
                                     float fontPx, float autoMinPx = 0f, int q = QText,
                                     float autoMaxPx = 0f, float autoBasePx = 0f,
-                                    PxRect? clip = null, Vector2 clipSoftness = default(Vector2))
+                                    PxRect? clip = null, Vector2 clipSoftness = default(Vector2),
+                                    TmpFont.Face face = TmpFont.Face.Cjk)
         {
             var _st = ViewportClip.Resolve(parent, clip, clipSoftness, default(Vector4));
             // 🔴 **2026-10-14（A798）：与 `Text` 逐字同一条闸**（判据 / 为什么用 `Visible` 而不是 `ClipRect` /
@@ -1926,7 +1934,7 @@ namespace CardPresentation
             // ⚠️ A781：内层走 `TextCore`（**不裁**）—— 裁切必须落在下面 `SetWrapWidth` / `SetAutoFitBox`
             //    **之后**（那两步会重排 mesh、把上一刀抹掉）。⛔ 别改回 `Text(...)`：那会先裁一刀、
             //    被重排冲掉、再裁第二刀（白做 + 两个诊断计数虚高）。
-            var lb = TextCore(parent, r, text, color, name, fontPx, q, 0f, 0f, 0f, 0f);
+            var lb = TextCore(parent, r, text, color, name, fontPx, q, 0f, 0f, 0f, 0f, face);
             if (lb == null) return null;
             lb.SetWrapWidth(LayoutSpace.Px(r.W));
             if (autoMinPx > 0f && fontPx > autoMinPx)

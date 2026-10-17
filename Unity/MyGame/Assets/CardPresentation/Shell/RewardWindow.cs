@@ -1104,7 +1104,8 @@ namespace CardPresentation
             //    （H45 §四·2 报的；A510 落地）。⛔ 别删这句 —— 删了 `Editor/RewardsScene.cs` 的 A510 那两条断言红。
             //    ⚠️ 顺序：必须在 `new MenuScroll(…)` **之前**（撤的是**上一轮**那一份；新手这一份随后才登记）。
             PointerLayer.UnregisterOwnedBy(gameObject);
-            _scroll = new MenuScroll(ScrollView, ScrollView.CX - MinContentW * 0.5f, ScrollView.CX + MinContentW * 0.5f)
+            _scroll = new MenuScroll(ScrollView, ScrollView.CX - MinContentW * 0.5f, ScrollView.CX + MinContentW * 0.5f,
+                                     1f)   // 原版 `Reward Window/Content/Scroll View` 的 `m_ScrollSensitivity = 1.0`（D_N29）
             { Elastic = true, Inertia = true, Owner = gameObject };
             _scroll.OnChanged = BuildItems;                 // 滚动 ⇒ 内容按新偏移重建（同锻造/战役轨道那条规矩）
             PointerLayer.RegisterScroll(_scroll);           // ⚠️ 本窗**能滚**（内容比视口宽时；`AdjustBounds` 已管住两头）
@@ -1133,7 +1134,10 @@ namespace CardPresentation
             //   `wrapPx` 改成**框宽**（`ButtonText.W`）。
             //   ⚠️ `autoMaxPx` / `autoBasePx` 走**命名实参**：`align` 那颗 `int` 排在 `autoMaxPx` 前面，
             //   位置实参一错会**静默**绑错（`Shell/WindowsManager.cs` 的 `Text` 形参注释写着这条）。
-            var collectLb = Text(btn, ButtonText, TxtCollect, Color.white, "Button Text",
+            // 🆕 **2026-10-17（界面线 `T07` · `A1753` #11）**：原版 `Collect Button ▸ Button Text` 挂
+            //   `Pragati-Regular Off White Cold`，`_FaceColor = (0.912, 0.981, 0.961)`、顶点白。
+            //   判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·2 #11。
+            var collectLb = Text(btn, ButtonText, TxtCollect, new Color(0.912f, 0.981f, 0.961f, 1f), "Button Text",
                  CollectFont, QCollectText, wrapPx: ButtonText.W, autoMinPx: CollectAutoMin,
                  autoMaxPx: CollectAutoMax, autoBasePx: CollectAutoBase);
             // 🔴 原版这一颗 `折行 = 0` ⇒ 把 `SetAutoFitBox` 顺带打开的 `Normal(1)` 还原回去。

@@ -292,7 +292,8 @@ namespace CardPresentation
         /// ⇒ 现在这些标签的裁切**第一次真生效**（画面差 = 只有「本当被视口裁掉」的那些字）。</para></summary>
         public Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
                           Color color, string name, float fontPx = 0f,
-                          float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
+                          float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
+                          TmpFont.Face face = TmpFont.Face.Cjk)
         {
             // **裁切**：① 「**整块**在视口外 ⇒ 不建」—— 收口到 `MenuDraw.Visible`（🔴 **2026-10-10 订正（A184）**：
             //   原写「A25④ 那四处内联的唯一实现」，那四处内联早已收口 ⇒ **现在它是全壳唯一一份求交**）；
@@ -320,6 +321,9 @@ namespace CardPresentation
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
             lb.SetRenderQueue(QText);
+            // 🔴 **2026-10-17（A1024③ 第 0 批）：可选字体面** —— 默认 `Cjk` ⇒ 旧调用点零行为变化。
+            //    ⚠️ 必须在 `SetGlyphHeight` **之前**（字号按 `ActualFace` 的 em 换算，理由 → `MenuDraw.TextCore`）。
+            if (face != TmpFont.Face.Cjk) lb.SetFace(face);
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
             // 🆕 **2026-10-09（A1173）：autosize 两步** —— 逐字照 `MenuDraw.TextCore`（`Shell/MenuDraw.cs`，
             //    其注释里写着为什么只有那三个条件同时成立才真调 `SetAutoFitBox`；⛔ 别在这儿再写第二份判据）。
@@ -345,7 +349,8 @@ namespace CardPresentation
         /// 每日任务行那句 `Deal 500 damage to enemy units`（35px）直接**冲出卡外**，**61 条断言一条都没报**。
         /// ⚠️ `SetAutoFitBox` 内部按**比例**算 min/max（单位同 `fontSize`，不是世界单位 —— 直接填 px/108 会把字号压到 0.3px）。</summary>
         public Label TextBox(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                             float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
+                             float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
+                             TmpFont.Face face = TmpFont.Face.Cjk)
         {
             // 🔴 **2026-09-24**：实现挪到 `MenuDraw.TextBox`（活动窗那几扇也要用），这里**转调**；
             //    只有本层有 `Clip`，所以那道「整块在视口外就不建」的判断留在这儿。
@@ -360,7 +365,7 @@ namespace CardPresentation
             var _st = ViewportClip.Resolve(parent, RenderClip, ClipSoftness, default(Vector4));
             if (!MenuDraw.Visible(r, _st.RenderClip)) return null;    // 🔴 `RenderClip`（含 padding），同 `Text`
             var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, QText,
-                                      autoMaxPx, autoBasePx);
+                                      autoMaxPx, autoBasePx, face: face);
             // 🔴 两处必须同一份 `_st`（见 `Text` 那一段最后一条）；形参传**原样那一份**（理由同上）。
             if (lb != null && _st.RenderClip.HasValue) MenuDraw.ClipText(lb, RenderClip, ClipSoftness);
             return lb;

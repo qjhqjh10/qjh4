@@ -265,6 +265,7 @@ public static partial class RuleEngineTest
 
         Section("攻击");
         Step(TestMeleeTrade);
+        Step(TestMissionCounters);   // 🆕 2026-10-17（界面线 `N32`）：三条日常任务的真口径计数
         Step(TestArmorMinimumOne);
         Step(TestShieldBlocks);
         Step(TestRangedEatsCounter);
@@ -5298,6 +5299,47 @@ public static partial class RuleEngineTest
                 Check(byName["T_SFBeast"].HandEffects.Count, 1, "……而同兵种那张身上是 1 条");
             }
         }
+    }
+
+    /// <summary>🆕 **2026-10-17（界面线 `N32`）**：三条每日任务卡要的**真口径**计数。
+    /// 判据 = 用户实拍文案：① `Deal 45 damage to enemy warlords`（只算督军）·
+    /// ② `Attack with units 15 times`（成功宣告的攻击）· ③ `Attack with ranged units 15 times`。
+    /// 改动落点 = `RuleCore.ApplyDamage`（督军那一格）+ `RuleCore.DeclareAttack`（过完三道闸之后）。
+    /// 🧨 灭自证：近战那一记**必须**让 `RangedAttacksDeclared` 一动不动；打小兵**必须**不让
+    /// `DamageToEnemyWarlord` 动 —— 两者一起改回旧写法就红。</summary>
+    static void TestMissionCounters()
+    {
+        var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+        ToP1Turn(ctx, 1);
+        Place(ctx, 0, 3, Unit("M", 1, 2, 10));
+        Place(ctx, 0, 5, Ranged("R", 1, 0, 10, 3));
+        Place(ctx, 1, 3, Unit("T", 1, 0, 30));
+        Place(ctx, 1, 5, Unit("T2", 1, 0, 30));
+
+        int a0 = ctx.AttacksDeclared[0], r0 = ctx.RangedAttacksDeclared[0];
+        Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "近战攻击（计数夹具）");
+        Check(ctx.AttacksDeclared[0], a0 + 1, $"成功宣告的近战攻击 +1（{a0} → {ctx.AttacksDeclared[0]}）");
+        Check(ctx.RangedAttacksDeclared[0], r0, "近战**不**记进远程攻击（`RangedAttacksDeclared` 不动）");
+
+        int a1 = ctx.AttacksDeclared[0], r1 = ctx.RangedAttacksDeclared[0];
+        Check(RuleCore.DeclareAttack(ctx, 0, 5, 1, 5, ranged: true), RuleCodes.OK, "远程攻击（计数夹具）");
+        Check(ctx.AttacksDeclared[0], a1 + 1, "远程也算一次攻击");
+        Check(ctx.RangedAttacksDeclared[0], r1 + 1, $"远程攻击单独 +1（{r1} → {ctx.RangedAttacksDeclared[0]}）");
+
+        // 被闸挡下的那一记**不算**：同一张单位再打一次（已疲劳）⇒ 计数不动
+        int a2 = ctx.AttacksDeclared[0];
+        Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.ErrExhausted, "疲劳单位再打被拒");
+        Check(ctx.AttacksDeclared[0], a2, "**被拒的攻击不计数**（早退在计数之前）");
+
+        // 督军伤害只记 warlord 那一格；打小兵不动它
+        int w0 = ctx.DamageToEnemyWarlord[0];
+        RuleCore.ApplyDamage(ctx, ctx.Players[1].Warlord, 4, "自检");
+        Check(ctx.DamageToEnemyWarlord[0], w0 + 4,
+              $"打敌方**督军** ⇒ `DamageToEnemyWarlord[0]` +4（{w0} → {ctx.DamageToEnemyWarlord[0]}）");
+        int w1 = ctx.DamageToEnemyWarlord[0];
+        RuleCore.ApplyDamage(ctx, Board(ctx, 1, 3), 3, "自检");
+        Check(ctx.DamageToEnemyWarlord[0], w1,
+              "打敌方**小兵** ⇒ 督军那一格**不动**（`enemy warlords` 的字面意思）");
     }
 
     /// <summary>

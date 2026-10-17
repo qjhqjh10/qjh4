@@ -734,7 +734,7 @@ namespace CardPresentation
             //   （`m_text` 是那张卡的风味文本、`fs 35.0 · auto[10.0~35.0] · base 36.0 · 折行 1`；
             //   正本 §一 记的 `LoreText … fs35 hAlign=Right` 与 `fs` 这一格吻合 ⇒ 同一颗）。
             var r = new PxRect(LoreL, LoreT, LoreR, LoreB);
-            MenuDraw.Text(bg, r, _loreText, Color.white, "LoreText", LorePx, QCdText, LoreR - LoreL, 10f, LorePx, 36f);
+            MenuDraw.Text(bg, r, _loreText, Color.white, "LoreText", LorePx, QCdText, LoreR - LoreL, 10f, LorePx, 36f, face: TmpFont.Face.LatinUi);
         }
 
         /// <summary>点第 `idx` 格 ⇒ **和前台那张两两换位**（原版 `CardDisplayWindow.ChangeCardPosition`，
@@ -850,7 +850,7 @@ namespace CardPresentation
             //    图 410×124）—— 原版标 `type=Sliced` 但**没有 border 就等于拉伸** ⇒ 我们直接走 `Rect`。
             //    （走 `Nine` 会吐一串「border 比图还大，退回单块」的警告，而结果一样。）
             var craftBg = MenuDraw.Rect(p, CardArt.MenuUi("UI_Button_Mulligan"), b, "Craft Bg", QCdRow);
-            MenuDraw.Text(p, new PxRect(b.x1, b.y1, b.x1 + 122.88f, b.y2), "1", Color.white, "Craft Text", 40f, QCdText);
+            MenuDraw.Text(p, new PxRect(b.x1, b.y1, b.x1 + 122.88f, b.y2), "1", Color.white, "Craft Text", 40f, QCdText, face: TmpFont.Face.LatinCardBody);
             // 图标原版 `scl=1.5`、落在 1506.88..1654
             // 🔴 **2026-09-27 修：这里原来画的是 `40k_main_collection_icon`（卡池/收藏图标）—— 取错图了。**
             //    原版那颗叫 **`WC icon`**（万能卡图标），`menu_dump` 实读：
@@ -899,7 +899,7 @@ namespace CardPresentation
             MenuDraw.Text(p, new PxRect(1307.5f, 315.5f, 1726f, 378.79f),
                           "This will consume a wildcard  Not implemented in this build*",
                           Color.white, "Craft Explanation", 40f, QCdText,
-                          1726f - 1307.5f, 10f, 40f, 36f);
+                          1726f - 1307.5f, 10f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.Rect(p, CardArt.MenuUi("40K_generic_bt_info"), new PxRect(1740.65f, 161.91f, 1782f, 203.26f),
                           "Craft Info Icon", QCdRow, null, true);
             // 🆕 **2026-10-12（A1699）命中区归真**：原来这一句是 `Hit(p, "CraftHit", b, DoCraft, QCdHit)`
@@ -931,7 +931,7 @@ namespace CardPresentation
             //   ⚠️ 折行 0 ⇒ `SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**开成 `Normal`
             //   ⇒ 紧跟一句 `SetWrapping(false)` 还原自己那一档。
             var upNeed = MenuDraw.Text(p, new PxRect(b.x1, b.y1, 1443.83f, b.y2), need.ToString(), Color.white,
-                                       "Upgrade Need", 40f, QCdText, 1443.83f - b.x1, 10f, 40f, 12f);
+                                       "Upgrade Need", 40f, QCdText, 1443.83f - b.x1, 10f, 40f, 12f, face: TmpFont.Face.LatinCardBody);
             if (upNeed != null) upNeed.SetWrapping(false);          // 原版折行=0（A205：关这一下顺带推版面）
             MenuDraw.Rect(p, CardArt.MenuUi("40k_general_icon_card_amount"), new PxRect(1450f, b.y1 + 8f, 1490f, b.y2 - 8f),
                           "Upgrade Card Icon", QCdRow, null, true);
@@ -939,7 +939,7 @@ namespace CardPresentation
             // `auto[10~40] · base 12 · 折行 0`（见上面那一段的判据）。
             var upCost = MenuDraw.Text(p, new PxRect(1499.72f, b.y1, 1570f, b.y2),
                           CardProgress.NeedGold[Mathf.Min(CardProgress.Level(Card.Id) + 1, CardProgress.MaxLevel)].ToString(),
-                          Color.white, "Upgrade Cost", 40f, QCdText, 1570f - 1499.72f, 10f, 40f, 12f);
+                          Color.white, "Upgrade Cost", 40f, QCdText, 1570f - 1499.72f, 10f, 40f, 12f, face: TmpFont.Face.LatinCardBody);
             if (upCost != null) upCost.SetWrapping(false);          // 原版折行=0
             MenuDraw.Rect(p, CardArt.MenuUi("40k_topmarquee_currency_gold"), new PxRect(1578f, b.y1 + 8f, 1643f, b.y2 - 8f),
                           "Upgrade Gold Icon", QCdRow, null, true);
@@ -947,7 +947,7 @@ namespace CardPresentation
             // `auto[10~40] · **base 36** · 折行 0`（base 与上面两颗不同，⛔ 别一刀切）。
             var upExpl = MenuDraw.Text(p, new PxRect(1309f, 594.53f, 1729f, 659.33f),
                           "Will get: +" + CardProgress.Points[Mathf.Min(CardProgress.Level(Card.Id) + 1, CardProgress.MaxLevel)],
-                          Color.white, "Upgrade Explanation", 40f, QCdText, 1729f - 1309f, 10f, 40f, 36f);
+                          Color.white, "Upgrade Explanation", 40f, QCdText, 1729f - 1309f, 10f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             if (upExpl != null) upExpl.SetWrapping(false);          // 原版折行=0
             MenuDraw.Rect(p, CardArt.MenuUi("40K_generic_bt_info"), new PxRect(1740.65f, 426.42f, 1782f, 467.77f),
                           "Upgrade Info Icon", QCdRow, null, true);
@@ -1021,7 +1021,7 @@ namespace CardPresentation
             //   （`m_text = 'Maximum card tier reached'` · `fs 40.0 · auto[25.0~40.0] · base 36.0 · 折行 1`
             //   —— 全库唯一一颗，与我们的文案逐字相同 ⇒ 就是它）。
             MenuDraw.Text(w, new PxRect(1314f, 430.62f, 1724f, 644.92f), "Maximum card tier reached",
-                          Color.white, "No Upgrade Title", 40f, QCdText, 410f, 25f, 40f, 36f);
+                          Color.white, "No Upgrade Title", 40f, QCdText, 410f, 25f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-12（第二笔）现读：本版它【恒不露】，而且这是【几何上的必然】**，不是漏做。
             //
             //   判据（本笔亲读）—— 原版这两件**互斥**，靠的是同一个布尔的两面：
@@ -1171,7 +1171,7 @@ namespace CardPresentation
                            : AltStyleIndex == 0 ? "Original art  (0/" + styles.Count + ")"
                            : CollectionWindow.StyleLabel(styles[AltStyleIndex - 1].Style)
                              + "  (" + AltStyleIndex + "/" + styles.Count + ")";
-                MenuDraw.Text(p, new PxRect(1307.5f, 762f, 1726f, 800f), cur, Color.white, "Current Style", 28f, QCdText);
+                MenuDraw.Text(p, new PxRect(1307.5f, 762f, 1726f, 800f), cur, Color.white, "Current Style", 28f, QCdText, face: TmpFont.Face.LatinCardBody);
             }
             // 🔴 **异画绑死在那张卡上**（`AlternateArtCard.GetIdForClonedCard` 对原卡 id 做一次 `String.Replace`）
             //    ⇒ 这张卡没有异画就是没有，不给别的督军换。本地只有 7 张督军异画。
@@ -1208,7 +1208,7 @@ namespace CardPresentation
             //   ⚠️ 我们这一格的框 `328.71 × 73.38` 与原版那颗钮**逐位相同** ⇒ 就是它。
             //   ⚠️ 本窗刻度 = 原版刻度 ⇒ 四格照抄；⚠️ 折行 0 ⇒ 紧跟一句 `SetWrapping(false)`。
             var buyLb = MenuDraw.Text(buyRoot, new PxRect(bx, by, bx + bw, by + bh), has ? "Alternate art" : "No alternate art",
-                          Color.white, "Buy Original Card", 32f, QCdText, bw, 12f, 54f, 39f);
+                          Color.white, "Buy Original Card", 32f, QCdText, bw, 12f, 54f, 39f, face: TmpFont.Face.LatinCardBody);
             if (buyLb != null) buyLb.SetWrapping(false);            // 原版折行=0
             // 🔴 **2026-10-17（账 `A1704`）显隐照原版**：`AlternateArtPanel__SetStyle.c` 的末段是
             //    `UnityEngine.GameObject.SetActive(*(param_1 + 0x38) /* lockIcon */, !HasItem(当前那张))`
@@ -1391,7 +1391,7 @@ namespace CardPresentation
                 //   （`Label.SetVAlign(档, 框高)`，`AlignBottomOn` 只是当时设想的名字）落进了 `Battle/Label.cs`
                 //   ⇒ 本处现在**真落**（见下面那句调用；框高 = `Single Counter` 170×50 的 50）。
                 var lbSg = MenuDraw.Text(box, rBox, "x" + inDeck, Color.white, "Counter",
-                              CcSgPx, QCdText, CcSgWrapX, CcSgMin, CcSgMax, CcSgBase);
+                              CcSgPx, QCdText, CcSgWrapX, CcSgMin, CcSgMax, CcSgBase, face: TmpFont.Face.LatinCardBody);
                 // 成对写法同上（传 `wrapPx` 顺带把折行模式开成 `Normal(1)`，而原版这颗 `m_TextWrappingMode = 0`）。
                 if (lbSg != null) lbSg.SetWrapping(false);
                 // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版这颗 `Single Counter/Counter` 的
@@ -1402,7 +1402,7 @@ namespace CardPresentation
                 return;
             }
             var lbC = MenuDraw.Text(box, rC, "x" + inDeck, Color.white, "Counter",
-                          CcX1Px, QCdText, CcWrapX1, 25f, 0f, CcBaseX1);
+                          CcX1Px, QCdText, CcWrapX1, 25f, 0f, CcBaseX1, face: TmpFont.Face.LatinCardBody);
             if (lbC != null)
             {
                 lbC.SetWrapping(false);
@@ -1413,11 +1413,11 @@ namespace CardPresentation
                 //    免得把那一大段整块缩进一级、把 A574/A575 的 diff 冲掉）。
                 var rSl = new PxRect(CcSlL, CcY1, CcSlR, CcY2);
                 var lbSl = MenuDraw.Text(box, rSl, "/ ", Color.white, "Slash", CcSlPx, QCdText,
-                              CcWrapSl, 25f, 0f, CcBaseSl);
+                              CcWrapSl, 25f, 0f, CcBaseSl, face: TmpFont.Face.LatinCardBody);
                 if (lbSl != null) lbSl.SetWrapping(false);   // 原版 `align = 2 (Center)` = 出厂档 ⇒ 不调 `Align*`
                 var rX2 = new PxRect(CcX2L, CcX2T, CcX2R, CcX2B);
                 var lbX2 = MenuDraw.Text(box, rX2, spares.ToString(), Color.white,
-                              "Duplicates text", CcX1Px, QCdText, CcWrapX2, 18f, 0f, CcBaseX2);
+                              "Duplicates text", CcX1Px, QCdText, CcWrapX2, 18f, 0f, CcBaseX2, face: TmpFont.Face.LatinCardBody);
                 if (lbX2 != null)
                 {
                     lbX2.SetWrapping(false);
@@ -1455,7 +1455,7 @@ namespace CardPresentation
                               //   **四颗逐值相同**：`m_fontSize 32.6` · `auto[10~38]` · `base 45` · 折行 1 · 框 41×44
                               //   （出处 → `R5_包装层菜单族.md` §2 #1 · `R6` §2·F #38）。
                               DeckRuntime.WcCountWrapPx, DeckRuntime.WcCountAutoMinPx,
-                              DeckRuntime.WcCountAutoMaxPx, DeckRuntime.WcCountAutoBasePx);
+                              DeckRuntime.WcCountAutoMaxPx, DeckRuntime.WcCountAutoBasePx, face: TmpFont.Face.LatinCardBody);
             }
             var fac = DeckRuntime.FactionIcon(Card.Faction);
             if (!string.IsNullOrEmpty(fac))
@@ -1662,7 +1662,7 @@ namespace CardPresentation
             //     `'Upgrade this card\nto level {'` → `MonoBehaviour_1883.json` = `fs 41.4 · auto[10~42] · base 36.0`
             //     （另一份 `MonoBehaviour_1776.json` 是 `fs 31.7 · auto[10~42] · base 36.0` = **异画面板那一颗**）
             MenuDraw.Text(p, new PxRect(x1, y1, x2, y2), text, Color.white, nodeName, px, QCdText, x2 - x1, 10f,
-                          42f, 36f);
+                          42f, 36f, face: TmpFont.Face.LatinCardBody);
         }
 
         Transform Hit(Transform parent, string name, PxRect r, System.Action onClick, int q = QCdHit,

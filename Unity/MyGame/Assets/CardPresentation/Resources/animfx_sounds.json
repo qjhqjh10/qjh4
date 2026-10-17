@@ -1081,6 +1081,17 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Draft Mode Progress Jingle",
+   "clips": [
+    "Draft Mode GainSkull"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "Draw",
    "clips": [
     "MatchDraw"

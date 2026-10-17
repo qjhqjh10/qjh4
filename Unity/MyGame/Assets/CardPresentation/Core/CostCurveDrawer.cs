@@ -83,8 +83,10 @@ namespace CardPresentation
 
                 // 费用数字（绿）
                 float ncx = cx + CostDx * scale;
+                // 🆕 **2026-10-17（`A1024③`）**：原版 `…/Card Cost` = **Pragati**（`R_A1024_字体按用途普查.md` §Core/CostCurveDrawer）
                 MenuDraw.Text(node, new PxRect(ncx - 23f * scale, y1, ncx + 23f * scale, y2),
-                              i.ToString(), CostColor, "Card Cost", RowFontPx * scale, qText);
+                              i.ToString(), CostColor, "Card Cost", RowFontPx * scale, qText,
+                              face: TmpFont.Face.LatinCardBody);
 
                 // 滑块：底 + 填充（九宫格）
                 float sx1 = cx - SliderW * scale * 0.5f, sx2 = cx + SliderW * scale * 0.5f;
@@ -106,8 +108,10 @@ namespace CardPresentation
 
                 // 张数（白）
                 float ccx = cx + CountDx * scale;
+                // 🆕 **2026-10-17（`A1024③`）**：原版 `…/Cards in deck` = **Pragati**（同上）
                 MenuDraw.Text(node, new PxRect(ccx - 23f * scale, y1, ccx + 23f * scale, y2),
-                              n.ToString(), Color.white, "Cards in deck", RowFontPx * scale, qText);
+                              n.ToString(), Color.white, "Cards in deck", RowFontPx * scale, qText,
+                              face: TmpFont.Face.LatinCardBody);
             }
         }
 

@@ -66,6 +66,19 @@ namespace CardPresentation
         public const string SendMessageCue = "UI Send Message";      // clip: UI Send Message
         public const string Purchase2Cue = "UI Purchase 2";          // clip: UI Purchase 2
 
+        /// <summary>🆕 **2026-10-17（界面线 T26 / 音效线 S02）**：`Choose Army Deck FTUE Window`
+        /// （`FTUESelectDeckWindow`）的 **`openSound`** —— 根 MB `MonoBehaviour_-3133570412519170200.json`
+        /// 实读 `openSound = PPtr(fileID 6, pid -1332049501696130703)`，那个 cue 的资产名就是这一串
+        /// （`素材/Warpforge原版/音频/音效库/MonoBehaviour/Draft Mode Progress Jingle_-1332049501696130703.json`；
+        /// `clipList = [Draft Mode GainSkull]` · `timeToPlayAgain = 0.1`）。
+        /// <para>🔴 **组 = FX（不是 Jingles）** —— 判据 = 原版 `GameWindow.TryOpen` 的指令流（VA `0x180836120`）：
+        /// `mov r8, [rbx+0x28]`（GameWindow 的 `openSound`）→ `xor r9d, r9d` → `call 0x1806FA6F0`，
+        /// 而 `0x1806FA6F0` = `SoundManager.Play2D(AudioCue, MixerType)`（`d:/2/tools/il2cpp_out/dump.cs:17901`）
+        /// ⇒ `MixerType = 0 = FX`（`MixerType.cs`）。⚠️ `工具/import_original_sfx.py:112` 那句「（Jingles 组）」
+        /// 与指令流不符 —— 以指令流为准（同 `Shell/GameWindow.cs:488` 那条既有口径）。</para>
+        /// <para>播放口 = <see cref="PlayFx"/>（`WFSoundPlayer` 挂 FX 组）；`FTUESelectDeckWindow.Open()` 里喊它。</para></summary>
+        public const string FtueOpenCue = "Draft Mode Progress Jingle";
+
         /// <summary>`contentByRarities[]` 的 5 档 → cue（原版分组：`0/1 → Rarity 1` · `2` · `3` · `4/5 → Rarity 4`）。
         /// 🔴 与 `BoosterPackOpenWindow.CardFxFor` 那张**粒子**表同分组、不同资产，⛔ 别合并成一张。</summary>
         public static readonly string[] BoosterRarityCues =

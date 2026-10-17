@@ -1042,12 +1042,12 @@ public static class RewardsScene
         }
         // 🆕 **2026-10-08（波 C3 · A212 主表 #31 验收）：左栏键文案的【渲染】断言**（四窗这一族原来一条都没有）。
         //   判据 = 原版四窗左栏键文案的 `m_TextWrappingMode` **一律 `0`（`NoWrap`）**—— 逐窗现读的四窗表
-        //   只写一处：`Shell/MenuWindowBase.cs` 的 `BuildTabButton`（此处不抄第二份，铁律 6）。
+        //   只写一处：`Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton`（此处不抄第二份，铁律 6）。
         //   ⛔ **为什么必须量渲染、不能只比字号**：`SetAutoFitBox` 只把 `fontSizeMin/Max` 交出去，
         //   **装不装得下由 TMP 算** ⇒ 字号对而字冲出去，自检照样全绿（`AutoFitBox` 那条教训，2026-09-22 踩过）。
         //   框宽 **155** = 原版 `Tab Buttons/*/Label` 的 `sz=(155,37.86)`
         //   （⛔ 不读 `BuildTabButton` 的 `labW` —— 那也是被测实现里的数，读了就是自证）。
-        //   **改坏法**：删掉 `MenuWindowBase.BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒
+        //   **改坏法**：删掉 `MainMenuSubmenuWindow.BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒
         //   ① `折行=` 那条立刻红（0 → 1）；② 带空格的 `BOOSTER PACKS`（第 4 键）会折成两行 ⇒ 「就一行」那条也红。
         {
             int tabN = 0;
@@ -1086,7 +1086,7 @@ public static class RewardsScene
                 //    `TmpFont.NewText(transform, …)`）—— 取 `Label` 的写法（上面那句 `GetComponentInChildren<Label>()`）
                 //    **一字未动**。⛔ 别改成 `TmpRenderedRect(k, …)`：那会捞 `k` 子树里**第一颗 TMP（含 inactive）**，
                 //    与「只找激活」的 `Label` **未必是同一颗** ⇒ 会把「节点不在（红）」与「量到了别一颗（绿）」混成一档。
-                // **改坏法（只咬旧口）**：在 `Shell/MenuWindowBase.cs` 的 `BuildTabButton` 里那句 `SetWrapping(false)` 那句
+                // **改坏法（只咬旧口）**：在 `Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton` 里那句 `SetWrapping(false)` 那句
                 //    `if (txt != null) txt.SetWrapping(false);` **之后**插一句 `if (txt != null) txt.SetCharSpacing(5f);`
                 //    ——（那句话是本函数刷**最后一次**缓存的地方：`SetWrapping` → 模式真的变了 → `ForceRelayout`
                 //    → `RefreshBounds()`，`Battle/Label.cs` 的 `SetWrapping` → `ForceRelayout` → `RefreshBounds` 那一路）⇒ 网格重排了、**缓存不动** ⇒ 两个口读到的数
@@ -1863,17 +1863,77 @@ public static class RewardsScene
             }
             if (a12Row0 != null)
             {
-                // 🔴 `progress` **框宽这一格不在这里断**（如实登记，⛔ 不硬凑）：我们那棵
-                //   `Mission Milestones Progress Bar` 用的是**作者态 prefab 的锚**（`aMax.x = 0.316` + `sd.x −77.3111`），
-                //   在页内实际行宽（`Daily Missions` 609.50 设计 px）下解出 **115.29 设计 px ≈ 132.58 画布**；
-                //   而 `RM_原版TMP框尺寸.md` 表 B #60 记的是 **347.94 × 47.41**（页内实例那颗的 `sd = 302.552`）。
-                //   ⇒ 这是一处**新发现的框差**（`A1226` 表 B 当时把 #60 记成「未现算」），**不在本批 6 站里**、
-                //   ⛔ 本批不改几何；已写进报告「顺手发现」，等调度台立账。四格 + 折行照断（那两样判据是硬的）。
+                // 🔴 `progress` **框宽这一格不在这里断**（如实登记，⛔ 不硬凑）。
+                //   🆕 **2026-10-17（`N43` 裁定，判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §五）**：
+                //   **「作者态锚」= 默认态 = 页内实例的真实值 —— 两套是同一套**，`Shell/MissionsTab.cs` 那五个数
+                //   就是原版唯一那一套（5 份 prefab 实例逐字段相同）。
+                //   ⚠️ 旧账里的 `347.94 × 47.41`（`RM_原版TMP框尺寸.md` 表 B #60）**是接错节点** —— 它是
+                //   `Daily Login Bonus Container ▸ background ▸ progress ▸ Mission Milestones Progress Bar`
+                //   （**登录卡**那颗，`sd = 302.552 × 61.5376`）；本节点的原版框 = **261.84 × 46.84 画布**
+                //   （设计 227.69 × 40.73，父行宽 965.19 的 1 卡态）。
+                //   我们画 **2 卡**（父行宽 609.50 设计）⇒ 同一算式解出 **115.29 设计 / 132.58 画布**
+                //   （`0.316 × 609.50 − 77.3111`）—— **规则不变、只差父行宽**，属服务端卡数差异（产品口径），
+                //   ⛔ 不是几何缺陷、本批不改几何。四格 + 折行照断（那两样判据是硬的）。
                 CheckA1212(a12Row0, "progress", "Mission Milestones Progress Bar ▸ progress",
                            11.5f, 46f, 41.4f, 0);
                 // ① 每日行奖励格：原版**唯一有真框**的那一档（`aMax.y = 0.337` + `sd.y 0.6025`）。
                 CheckA1212(a12Row0, "count 0", "Rewards ▸ Reward Display Mission Vertical Variant ▸ count",
                            23f, 46f, 41.4f, 0, boxW: 145.28f, boxH: 58.83f);
+            }
+            // ==================================================================
+            // ★ **A1272（2026-10-17）**：`count` 的水平对齐 / 两格主轴落点。
+            //   判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §三（逐字段亲读）。
+            //   ⛔ 期望值全部是**原版字段算出来的字面量**（⛔ 不读 `MissionsTab` 的实参 = 自证）。
+            // ==================================================================
+            {
+                // ① **每日行（竖向变体）`count` = `m_HorizontalAlignment 2 (Center)`** ——
+                //    框 = `Rewards` 那格整宽（设计 **126.334**）⇒ 字块中心 = 格中心 = 行左沿 + **63.167** 设计。
+                //    改坏法：把 `Shell/MissionsTab.cs` 里那句 `if (sideIconW > 0f) AlignL(...)` 改回无条件
+                //    `AlignL` ⇒ 字块贴到格左沿、中心只剩「字宽 ÷ 2」（≈ 8 设计 px）⇒ 这条红。
+                var rowBg = a12Row0 != null ? FindChild(a12Row0, "Background") : null;
+                var rowCnt = a12Row0 != null ? FindChild(a12Row0, "count 0") : null;
+                float bx1, by1, bx2, by2;
+                if (rowBg != null && rowCnt != null && RectOf(rowBg, out bx1, out by1, out bx2, out by2))
+                {
+                    var ctr = rowCnt != null ? rowCnt.GetComponentInChildren<Label>() : null;
+                    if (ctr != null)
+                        CheckNear(PxOf(ctr.transform.position.x) - bx1, 63.167f * 1.15f, 2f,
+                                  "★ A1272 每日行 `count 0` **水平居中**（原版 `m_HorizontalAlignment = 2 (Center)`）："
+                                + "字块中心 − 行左沿 = 126.334/2 设计 × 1.15 = **72.64** px"
+                                + "（⛔ 无条件 `AlignL` ⇒ 只剩半个字宽 ≈ 9.6 px ⇒ 红）");
+                    else CheckTrue(false, "（前提）A1272 每日行 `count 0` 有 `Label`（量不到居中）");
+                }
+                else CheckTrue(false, "（前提）A1272 每日行 `Background` / `count 0` 量不到矩形（居中那条没查成）");
+                // ② **登录卡两格的主轴落点**（原版 HLG ≠ 同一个对齐：
+                //    第 0 格 `MiddleRight` + `padL −20` · 第 1 格 `MiddleLeft` + `padL 10`；两格各 162.5 设计宽、
+                //    图标 55、间距 5 / 4）。用**图标中心**比（图标 `keepAspect` 会缩图，中心不动）：
+                //    · 第 0 格图标心 − 卡左沿 = (9.7999 + 52.21 + 27.5) = **89.51** 设计
+                //      （9.7999 = 卡宽 347.64/2 − footer 偏移 1.5201 − 325/2）；
+                //    · 第 1 格图标心 − 第 0 格图标心 = (162.5 + 10 + 27.5) − (52.21 + 27.5) = **120.29** 设计。
+                //    改坏法：两格都传缺省 `sideAlignT 0` / 不给 `sidePadL` ⇒ 两值变成 37.30 / 162.50 ⇒ 都红。
+                var cardBg = a12Login != null ? FindChild(a12Login, "Daily Login Bonus Container") : null;
+                var ic0 = a12Login != null ? FindChild(a12Login, "Reward 0") : null;
+                var ic1 = a12Login != null ? FindChild(a12Login, "Reward 1") : null;
+                float ax1, ay1, ax2, ay2, ix1, iy1, ix2, iy2;
+                if (cardBg != null && ic0 != null && ic1 != null
+                    && RectOf(cardBg, out ax1, out ay1, out ax2, out ay2)
+                    && RectOf(ic0, out ix1, out iy1, out ix2, out iy2))
+                {
+                    float ic0Cx = (ix1 + ix2) * 0.5f;
+                    CheckNear(ic0Cx - ax1, 89.51f * 1.15f, 3f,
+                              "★ A1272 登录卡第 0 格（`MiddleRight` + `m_Padding.m_Left −20`）：图标心 − 卡左沿 "
+                            + "= **89.51** 设计 × 1.15 = **102.94** px（缺 `padL`/对齐 ⇒ 只剩 37.30 设计 ≈ 42.9 px ⇒ 红）");
+                    float jx1, jy1, jx2, jy2;
+                    if (RectOf(ic1, out jx1, out jy1, out jx2, out jy2))
+                    {
+                        float ic1Cx = (jx1 + jx2) * 0.5f;
+                        CheckNear(ic1Cx - ic0Cx, 120.29f * 1.15f, 3f,
+                                  "★ A1272 登录卡两格的块间距 = **120.29** 设计 × 1.15 = **138.33** px"
+                                + "（= 格宽 162.5 + `padL 10` − 第 0 格落点 52.21；两格同一档 ⇒ 185.875 px ⇒ 红）");
+                    }
+                    else CheckTrue(false, "（前提）A1272 登录卡 `Reward 1` 量不到矩形（两格间距那条没查成）");
+                }
+                else CheckTrue(false, "（前提）A1272 登录卡 `Daily Login Bonus Container` / `Reward 0` 量不到矩形");
             }
             // 还原登录态并按新节点重收 `rows`（本节后面还会用 `rows[0]`）。
             if (a12Comp != null && !a12WasClaimed)
@@ -2115,6 +2175,9 @@ public static class RewardsScene
                           "★ …数量 = **300**（`_daily[0].RewardText` 的出厂字面量 · A2070③ 照实拍）");
                     Check(rcA64 != null ? rcA64.OnCollect : null, (System.Action<CampaignData.RewardSpec[]>)null,
                           "…`onCollect` = **null**（原版 `Collect` 那一支传的就是 null ⇒ `Collect Button` 不建）");
+                    // 🆕 2026-10-17（N29）：原版 `Reward Window/Content/Scroll View` = **1.0**
+                    CheckNear(rwA64.Scroll != null ? rwA64.Scroll.NotchPx : -1f, 1f, 0.001f,
+                              "领奖窗：灵敏度 = 原版 `m_ScrollSensitivity` 的 **1.0** px/格（D_N29）");
                 }
                 Check(RewardWindowFixture.DismissRewardWindows(), rwA64 != null ? 1 : 0,
                       "★ …而且**关得掉**（关窗后壳从 `Background` 回 `Open` —— 后面每一颗钮才点得到）");
@@ -3334,6 +3397,15 @@ public static class RewardsScene
                 //    去量屏幕位置**（那是偏移 0 时的值，本轮断言被自检自己抓出来过）。改成量这三件事：
                 var ftArmy = forge.GetComponent<ForgeTab>();
                 CheckTrue(ftArmy != null && ftArmy.ArmyScroll != null, "阵营条的滚动区建了（`MenuScroll`）");
+                // 🆕 2026-10-17（N29）：滚轮灵敏度 = 原版 prefab 逐台实读的 `m_ScrollSensitivity`
+                //   （判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`）。⛔ 别断 `DefaultNotchPx`（自证）。
+                if (ftArmy != null)
+                {
+                    CheckNear(ftArmy.ArmyScroll != null ? ftArmy.ArmyScroll.NotchPx : -1f, 1f, 0.001f,
+                              "锻造页·阵营条：灵敏度 = 原版 `Forge Army Selector` 的 **1.0** px/格");
+                    CheckNear(ftArmy.TrackScroll != null ? ftArmy.TrackScroll.NotchPx : -1f, 1f, 0.001f,
+                              "锻造页·奖励轨道：灵敏度 = 原版 `Rewards Scroll View` 的 **1.0** px/格");
+                }
                 CheckTrue(n >= 8, $"`Army Content` 下建了 **{n} 条**（≈ 视口里放得下的那些；越界的不建）");
                 var selNow = FindChild(fArmy, "ForgeArmyItem_1");
                 // ⚠️ **靠边的阵营对不到正中心**：`FocusOn` 会被滚动极值夹住（第 1/2 个最多只能到 −265.16），
@@ -5111,6 +5183,14 @@ public static class RewardsScene
                           "`Army Content` 的中心 x = **选择条中心 1333.13**（745.92..1920.34）");
                 var ctab = camp.GetComponent<CampaignTab>();
                 CheckTrue(ctab != null && ctab.ArmyScroll != null, "战役页阵营条的滚动区建了（与锻造页共用 `MenuScroll`）");
+                // 🆕 2026-10-17（N29）：原版 `Campaign Army Selector` / `Campaign Track` 都是 **1.0**
+                if (ctab != null)
+                {
+                    CheckNear(ctab.ArmyScroll != null ? ctab.ArmyScroll.NotchPx : -1f, 1f, 0.001f,
+                              "战役页·阵营条：灵敏度 = 原版 `Campaign Army Selector` 的 **1.0** px/格（D_N29）");
+                    CheckNear(ctab.TrackScroll != null ? ctab.TrackScroll.NotchPx : -1f, 1f, 0.001f,
+                              "战役页·轨迹：灵敏度 = 原版 `Campaign Track` 的 **1.0** px/格（D_N29）");
+                }
                 if (ctab != null && ctab.ArmyScroll != null)
                 {
                     var cs = ctab.ArmyScroll;
@@ -7445,6 +7525,87 @@ public static class RewardsScene
         Check(ds.type, WindowType.Fullscreen, "`type` = 0 Fullscreen（实证）");
         Check(ds.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup（实证）");
         Check(ds.closeOnEsc, false, "`closeOnESC` = **0**（实测；⚠️ 与每日奖励窗的 1 相反）");
+
+        // ---------------- 🆕 2026-10-17（A1024③ 第 1/2 批）：R0 站点的换面抽查 ----------------
+        // 判据 = `资料/普查产出_1017/UI/R_A1024_字体按用途普查.md` §2·2 那几行（原版 `m_fontAsset` 逐颗实读）。
+        // 抽查口径：**R0（定字号 / 不折行 / 不自适应）** 的 5 个站点 —— 换面只换字形、版面不变。
+        // ⛔ **期望值写原版字体资产名**（`Asar-Regular SDF` / `Pragati-Regular SDF`），
+        //    ⛔ 不读 `TmpFont.FaceResource` 那张加载表（那是被测实现 = 自证）。
+        // **改坏法**：把对应站点那一行的 `face:` 实参删掉 ⇒ 该条立刻红（退回 `NotoSerifCJK-Regular SDF`）。
+        Section("★ A1024③ 第 1/2 批：R0 站点换面抽查（原版 Asar / Pragati）");
+        {
+            string FontName(Transform n)
+            {
+                var l = n != null ? n.GetComponentInChildren<Label>(true) : null;
+                var t = l != null ? l.GetComponentInChildren<TMPro.TextMeshPro>(true) : null;
+                return t != null && t.font != null ? t.font.name : "(null)";
+            }
+            var cases = new[]
+            {
+                new { Node = FindPath(ds.transform, "Streak Successful/Current Streak"),
+                      Want = "Asar-Regular SDF",   What = "Daily Streak `Current Streak`（拉丁原文 `Current streak:`）" },
+                new { Node = FindPath(ds.transform, "Streak Successful/Current Streak/Current Streak Value"),
+                      Want = "Asar-Regular SDF",   What = "Daily Streak `Current Streak Value`" },
+                new { Node = FindPath(ds.transform, "Streak Successful/Info"),
+                      Want = "Pragati-Regular SDF", What = "Daily Streak `Info`" },
+                new { Node = FindPath(ds.transform, "Streak Successful/Timer/Timer Text"),
+                      Want = "Pragati-Regular SDF", What = "Daily Streak `Timer Text`" },
+                new { Node = dr.entries.Count > 0 ? FindPath(dr.entries[0], "Day Title") : null,
+                      Want = "Pragati-Regular SDF", What = "Daily Reward `Day Title`" },
+            };
+            for (int i = 0; i < cases.Length; i++)
+            {
+                var c = cases[i];
+                CheckTrue(c.Node != null, $"（前提）{c.What}：节点找得到（找不到 ⇒ 本条等于没查）");
+                if (c.Node == null) continue;
+                Check(FontName(c.Node), c.Want, $"★ {c.What}：TMP 指向 **{c.Want}**（原版 `m_fontAsset`）");
+                var lb = c.Node.GetComponentInChildren<Label>(true);
+                CheckTrue(lb != null, $"（前提）{c.What}：`Label` 拿得到");
+                if (lb != null)
+                    Check(lb.ActualFace,
+                          c.Want == "Asar-Regular SDF" ? TmpFont.Face.LatinUi : TmpFont.Face.LatinCardBody,
+                          $"★ …`Label.ActualFace` = 对应那一面（{c.Want}；纯拉丁文本，不触发汉字闸）");
+            }
+        }
+
+        // ---------------- 🆕 2026-10-17（A1024③ 第 3/4 批）：R1/R2 站点换面抽查 ----------------
+        // 判据 = `资料/普查产出_1017/UI/R_A1024_字体按用途普查.md` §2·2（原版 `m_fontAsset` 逐颗实读）。
+        // 本批只换面、⛔ 不动框/字号/对齐/折行 ⇒ 这里只核「TMP 指向哪份 SDF + Label 记的是哪一面」。
+        // ⚠️ 这几站都**开了自适应**（R2）：换到 Pragati 后行盒 1.437→0.947 em ⇒ 最终字号会变大，**是预期**；
+        //    本块**不断**字号（那要另立账逐窗口量，见普查表 §三 批 4 的验收口径）。
+        // **改坏法**：把对应站点那一行的 `face:` 实参删掉 ⇒ 该条立刻红（退回 `NotoSerifCJK-Regular SDF`）。
+        Section("★ A1024③ 第 3/4 批：R1/R2 站点换面抽查（原版 Asar / Pragati）");
+        {
+            string FontName2(Transform n)
+            {
+                var l = n != null ? n.GetComponentInChildren<Label>(true) : null;
+                var t = l != null ? l.GetComponentInChildren<TMPro.TextMeshPro>(true) : null;
+                return t != null && t.font != null ? t.font.name : "(null)";
+            }
+            var cases2 = new[]
+            {
+                new { Node = FindPath(dr.transform, "Header Header/Title"),
+                      Want = "Pragati-Regular SDF", What = "Daily Reward `Header Header/Title`（R2）" },
+                new { Node = FindPath(dr.transform, "Header Header/Sub-Title"),
+                      Want = "Pragati-Regular SDF", What = "Daily Reward `Header Header/Sub-Title`（R2）" },
+                new { Node = FindPath(dr.transform, "Tracks Side Bar/Premium Track/Price Display Button 2 Variant/Price"),
+                      Want = "Pragati-Regular SDF", What = "Daily Reward `Premium Track/…/Price`（R2）" },
+                new { Node = FindPath(ds.transform, "Streak Failed/Button Text"),
+                      Want = "Pragati-Regular SDF", What = "Daily Streak `Streak Failed/Button Text`（R2）" },
+            };
+            for (int i = 0; i < cases2.Length; i++)
+            {
+                var c = cases2[i];
+                CheckTrue(c.Node != null, $"（前提）{c.What}：节点找得到（找不到 ⇒ 本条等于没查）");
+                if (c.Node == null) continue;
+                Check(FontName2(c.Node), c.Want, $"★ {c.What}：TMP 指向 **{c.Want}**（原版 `m_fontAsset`）");
+                var lb = c.Node.GetComponentInChildren<Label>(true);
+                CheckTrue(lb != null, $"（前提）{c.What}：`Label` 拿得到");
+                if (lb != null)
+                    Check(lb.ActualFace, TmpFont.Face.LatinCardBody,
+                          $"★ …`Label.ActualFace` = `LatinCardBody`（{c.Want}；纯拉丁文本，不触发汉字闸）");
+            }
+        }
         // ==================================================== ★ **A1126（A2 档）** · 2026-10-09
         // 断签面板那颗 `Reset Streak` 的 `Button Text` **原来没传 autosize 实参**（= 固定 55px），
         //   而原版那颗 TMP **`m_enableAutoSizing = 1`** ⇒ 现按原版四格接线（改动在 `Shell/DailyStreakPopup.cs`）。
@@ -7813,6 +7974,9 @@ public static class RewardsScene
 
             // ---- 滚动范围（原版 `ContentSizeFitter` 跑完的内容宽 2899.61 − 视口 1920 = 979.61）----
             CheckTrue(ds.TrackScroll != null, "滚动区建出来了（`MenuScroll`）");
+            // 🆕 2026-10-17（N29）：原版 `Daily Streak Popup/…/Rewards Scroll View` = **1.0**
+            CheckNear(ds.TrackScroll != null ? ds.TrackScroll.NotchPx : -1f, 1f, 0.001f,
+                      "连登奖励轨：灵敏度 = 原版 `m_ScrollSensitivity` 的 **1.0** px/格（D_N29）");
             CheckNear(ds.TrackScroll != null ? ds.TrackScroll.MaxOffset : -9999f, 979.61f, 0.5f,
                       "可滚右极值 = **979.61px**（原版内容宽 2899.61 − 视口 1920）");
             CheckNear(ds.TrackScroll != null ? ds.TrackScroll.Offset : -9999f, 0f, 0.01f,
@@ -9729,6 +9893,9 @@ public static class RewardsScene
             CheckTrue(FindPath(inbox.transform, "Content/Message List/Viewport/Content") != null,
                       "`Content` 挂在 **`Viewport` 之下**（原版父链 = Message List/Viewport/Content）");
             CheckTrue(inbox.ListScroll != null, "滚动区建出来了（`MenuScroll`；原版那颗 `ScrollRect` 是**活的** h=0 v=1）");
+            // 🆕 2026-10-17（N29）：原版 `Inbox Menu/Content/Message List` = **1.0**
+            CheckNear(inbox.ListScroll != null ? inbox.ListScroll.NotchPx : -1f, 1f, 0.001f,
+                      "收件箱·消息列表：灵敏度 = 原版 `m_ScrollSensitivity` 的 **1.0** px/格（D_N29）");
             // 🔴 2026-10-09（A269）：期望值 **0** 的判据 = UGUI `ScrollRect.AdjustBounds`
             //    （本地真源码 `MyGame/Library/PackageCache/com.unity.ugui@…/Runtime/UGUI/UI/Core/ScrollRect.cs:1332-1352`）：
             //    *"Scrolling is **only** possible when content is **larger** than view"* ⇒ 内容比视口小时

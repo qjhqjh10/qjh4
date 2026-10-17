@@ -106,7 +106,16 @@ EXTRA_CUES = ["Reward open item by item", "CardStartDrag",
               # 与 `ButtonClick` 的 `UI Select Toggle` **不是同一个资产**。
               "ButtonClick Positive", "ButtonClick Negative", "Select Toggle",
               "SelectAvatar", "Purchase Click", "MenuStartGame",
-              "UI Send Message", "UI Purchase 2"]
+              "UI Send Message", "UI Purchase 2",
+              # —— 壳侧（2026-10-17 · `T26` / 音效线 `S02`）——
+              # `Choose Army Deck FTUE Window` 的 `openSound` = PPtr pid `-1332049501696130703`
+              # ⇒ cue 名 = `Draft Mode Progress Jingle`。
+              # 🔴 **2026-10-17 订正（`T26` 写手现核反编译）**：它走 **FX 组（MixerType 0）**，不是 Jingles ——
+              #   调用点 `GameWindow.TryOpen`（VA `0x180836120`）：`SoundManager.Play2D(AudioCue, MixerType)` 的
+              #   第 2 实参 `r9d = 0`；`AudioCue` 资产本身**没有混音组字段**（组只由调用点给）。
+              # 判据 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-3133570412519170200.json`
+              # 的 `openSound` 字段 + 素材库文件名 `Draft Mode Progress Jingle_-1332049501696130703.json`。
+              "Draft Mode Progress Jingle"]
 
 # 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**
 #   `AnimFXModuleCollisions` 的 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent`
@@ -289,6 +298,13 @@ CODE_ONLY_KNOWN = {
                      "`.ogg/.wav` 原样拷过去，**覆盖掉那条重制过的**",
     "Add card to deck": "**clip** 名（cue `Reward open item by item` 的 clip，已在表里）· "
                         "与某个 cue 包装**同名** ⇒ 是误报",
+    # 🆕 **2026-10-17（音效线 `S03` 复核 · 跨线顺手）**：战斗侧两条 —— **另有产出方，别并到这里**
+    "UnitDamage": "**战斗 cue**（`BattleSfx.UnitDamage` = 原版 `SoundAssetCollection.unitDamage`）· "
+                  "产出方 = `工具/import_battle_sfx.py` → `Resources/battle_sounds.json`"
+                  "（cue 资产 `bundle_soundcollection_assets_all/MonoBehaviour/UnitDamage.json`，clipList 1 条）",
+    "Mulligan": "**战斗 cue**（`BattleSfx.Mulligan` = 原版 `SoundAssetCollection.mulligan`）· "
+                "产出方 = `工具/import_battle_sfx.py` → `Resources/battle_sounds.json`"
+                "（cue 资产 `bundle_soundcollection_assets_all/MonoBehaviour/Mulligan.json`）",
     "Aeldari To Waystone": "残骸 cue（预制体上的序列化 `AudioCue` 字段，不在 `animfx_modules.json` 里）"
                            "· 产出方 = `工具/import_remnant_sfx.py`",
     "Aeldari Waystone Destruction": "同上（残骸线）",

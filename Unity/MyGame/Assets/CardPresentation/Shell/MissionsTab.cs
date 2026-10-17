@@ -169,6 +169,38 @@ namespace CardPresentation
         //         `maxAmount ≤ 已有数量` 时返回 `false`）。
         //
         //    🔴 **如果将来我们改画几张卡，这几个数（以及 `Editor/RewardsScene.cs` 里同一次布局的期望值）要一起改。**
+        //
+        //    ============================================================ 🆕 **2026-10-17（`A1273` 收口）**
+        //    🔴 **「行宽」到底是多少 —— 两种卡数各一个数，且都能【静态】定死**（不用等实机）：
+        //      ① **量纲**：上表全部是**设计 px**。本仓 `LayoutSpace` = 「可见高度恒 10 世界单位、1080 px = 10 单位」
+        //         ⇒ 我们的设计 px **恒等于 1920×1080 下的画布 px**。
+        //      ② 原版 `CanvasScaler`（`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2577.json`
+        //         —— `Game UI` 上那一颗）四格现读：`m_UiScaleMode 1`(ScaleWithScreenSize) ·
+        //         `m_ReferenceResolution 1920×1080` · `m_ScreenMatchMode **1 (Expand)**` · `m_MatchWidthOrHeight 0`(此档不生效)
+        //         ⇒ **`scale = min(W/1920, H/1080)`、画布 px = 屏幕 px ÷ scale**（判据全文 →
+        //         `资料/普查产出_1017/UI/D_A1281_画布比例.md`）。⚠️ 我们这一侧与它**同构**（高度是基准、宽随宽高比展开）
+        //         ⇒ 两边只需乘同一个 `scale`，**不需要改任何几何常量**。
+        //      ③ **两种卡数下的行宽**（`Daily Missions` 子树在画布上的**视觉**宽 = 布局宽 × `localScale 1.15`）：
+        //
+        //          卡数 n  DM 布局 x1   **行宽（设计/画布 px）**   视觉宽（×1.15）   2560×1440 屏 px（scale 1.3333）  3440×1440
+        //          ─────────────────────────────────────────────────────────────────────────────────────────────
+        //          **1**   409.0357     **965.186**                 1109.96          1479.95                    1479.95
+        //          **2**   818.074      **609.500** ← 默认档        700.925          934.57                     934.57
+        //
+        //          （1280×720 ⇒ `scale 0.6667`：1 张 = 739.98 · 2 张 = 467.28。⛔ 别拿「图像 px ≈ 画布 px」当默认前提。）
+        //      ④ 🔴 **哪一半随服务端变、哪一半不随**：
+        //         · **不随**：`n → (x1, 行宽)` 这条映射 —— 它是**纯 prefab HLG 算术**（`SM_min = 347.64n + 11.01(n−1)` 起，
+        //           见上表算式），`n = 1/2/3` 三档互相自洽、n=4 是「放不下」那一档。上面四档全部**静态可复算**。
+        //         · **随**：**实机到底挂几张卡** —— `Special Missions` 挂 `ContainerHolder(maxAmount = 4)`，
+        //           而 `ContainerHolder.Clear()` = 销毁全部子件 + 逐条 `TryAdd` 重新实例化 ⇒ **张数由服务端任务数据定**。
+        //           ⚠️ **判据缺**（不是没查）：搜过 `decomp_full/MissionsTab__CreateMissions.c` ·
+        //           `__InstantiateNormalMissions.c` · `__OnOpen.c`（方法体是大量 `FUN_` + `ContainerHolder__TryAdd`，
+        //           没有可读的 `SetActive` / 登录卡闸）；`MissionsTab` 24 个方法全列出、**没有 `LoginBonus` 闸**。
+        //           `DailyData.CanCollectLogin()`（`Shell/DailyData.cs:1165`）能让「当天已领 ⇒ 不建登录卡」，
+        //           但「**原版领过之后是否隐藏登录卡**」反编译查不到 ⇒ **那是推断，本页不拿它当闸门**。
+        //           ⇒ 落地的口径：**我们的默认档 = 2 张**（登录卡 + 骷髅卡，就是 `Build()` 里那两次 `Build*Card`），
+        //             对应 `DM_Sz.x = 609.500`。⛔ 别因为实机截图多半只有骷髅卡（= n=1 的 965.186）就改宽度常量 ——
+        //             两帧是**两张不同的布局解**，不是同一个数算错了。
         //    ⚠️ **「1 张」那一行是【作者态】，不是运行时真值**：`Special Missions` 挂 `ContainerHolder(maxAmount = 4)`，
         //      而 `ContainerHolder.Clear()` = `SupportMethods.DestroyAllChildren` + 逐条 `TryAdd` 重新实例化
         //      （反编译 `ContainerHolder__Clear.c:19` / `TryAdd<object>.c:28-32`）⇒ **实机挂几张卡由服务端任务数据决定**；
@@ -178,9 +210,32 @@ namespace CardPresentation
         //      ⚠️ 那是**算式预测**，不是实机观测：实机到底挂几张由服务端任务数据定，本地判不了）。
         //      🔴 **2026-10-06 更正（铁律 5）**：这一句原来写「3~4 张那种实机态**本地算不了**」——
         //      算得了（`n` 代进同一条算式即可，本件已落进上表），**算不了的只是「实机挂几张」**。
+
+        // 🔴 **n=1 / 2 两档的常量**（`n=1` 只作对照、生产不读；`n=2` 喂给下面的 `DM_Pos` / `DM_Sz`
+        //    ⇒ **同一条数只有一份来源**）。
+        /// <summary>1 张卡（prefab 作者态：`Daily Login Container` 出厂 `m_IsActive = 0`）时的
+        /// `Daily Missions` 布局位与**行宽**（设计 px）。⚠️ 生产不读它 —— 只给对照 / 将来接服务端卡数用。</summary>
+        public const float DM_X_1Card = 409.0357f, DM_RowW_1Card = 965.186f;
+        /// <summary>2 张卡（登录卡 + 骷髅卡 = **我们的默认档**）时的 `Daily Missions` 布局位与**行宽**（设计 px）。
+        /// 🔴 下面的 `DM_Pos` / `DM_Sz` 直接由这两个常量拼出来（⛔ 别再手抄一份数字）。</summary>
+        public const float DM_X_2Cards = 818.074f, DM_RowW_2Cards = 609.500f;
         // `Special Missions`  N(2, 0,1, 0,1, 0,1, 0,0, 706.29,556.223)   scl 1.15   ← x 是**布局位**（见上）
         static readonly Vector2 SM_A0 = UguiRect.A01, SM_A1 = UguiRect.A01, SM_P = UguiRect.P01,
                                 SM_Pos = Vector2.zero, SM_Sz = new Vector2(706.29f, 556.223f);
+        /// <summary>🆕 **2026-10-17（界面线 `T07` · `A1753`）**：两条**屏上颜色**的字面量（原版材质 `_FaceColor`）。
+        /// <para>口径（判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·0/§4·1）：原版 TMP 的字**屏上颜色 =
+        /// `m_fontColor32`（顶点色）× 材质 `_FaceColor`（乘法）**；下面这几颗的顶点色都是**白** ⇒ 屏上 = 材质本色。</para>
+        /// <list type="bullet">
+        /// <item><b>`Asar-Regular Mission cream w outline`</b> = **(1, 0.931, 0.703)** —— `Mission Header ▸ name` /
+        ///   `Refill Counter` / 卡头 `name`（本页 4 颗）。</item>
+        /// <item><b>`Pragati-Regular Off White Cold`</b> = **(0.912, 0.981, 0.961)** —— `Generic UI Button ▸ Button Text`
+        ///   （本页 `Collect`，4 个宿主共用）。</item>
+        /// </list>
+        /// ⚠️ **别拿 PnP 成品卡图或实拍当判据**（铁律 10 第 3 条：PnP 是印刷品）：这里是**数字版材质**的原值。</summary>
+        static readonly Color MissionCreamInk = new Color(1f, 0.931f, 0.703f, 1f);
+        /// <inheritdoc cref="MissionCreamInk"/>
+        static readonly Color OffWhiteColdInk = new Color(0.912f, 0.981f, 0.961f, 1f);
+
         const float SM_Scale = 1.15f;
         // `Daily Login Container`  N(3, 0,1, 0,1, 0.5,0.5, 167,-282.5, 334,565)
         static readonly Vector2 DL_A0 = UguiRect.A01, DL_A1 = UguiRect.A01, DL_P = UguiRect.P50c,
@@ -189,7 +244,7 @@ namespace CardPresentation
         // 🔴 **这一改连带到每日任务那三行**：`Daily Missions Holder` 是 `a=(0,0)-(1,0.5) sz.x=0.0001` 的
         //    **拉伸子件** ⇒ 宽度跟着父件走（`Editor/RewardsScene.cs` 的 `RowRectHolderX1/X2` 已同步 1190.44/1799.94）。
         static readonly Vector2 DM_A0 = UguiRect.A01, DM_A1 = UguiRect.A01, DM_P = UguiRect.P01,
-                                DM_Pos = new Vector2(818.074f, 0f), DM_Sz = new Vector2(609.50f, 555.87f);
+                                DM_Pos = new Vector2(DM_X_2Cards, 0f), DM_Sz = new Vector2(DM_RowW_2Cards, 555.87f);
         // ⚠️ 原版这个节点的 `localScale`（`资料/日常_原版规格.md:194` 实读：`p=(0,1) scl=(1.15,1.15)`）。
         // 🔴 **A124（2026-10-06）：它缩的是【整棵子树】** —— 与 `Special Missions` 走**同一条路**
         //    （`_s` / `_so` / `R()` / `NodeD` / `FS()`，⛔ 没有第二套）。**此前的注释写「声明了却一次没用过」
@@ -359,10 +414,11 @@ namespace CardPresentation
         /// ⛔ **别把它写成 `wrapPx = 0 表示不折行`**：那种写法一旦缺省就是「全部调用点都不折行」= 静默改整页。
         /// ⚠️ 还原必须排在 `FitWindow` **之后**（`SetAutoFitBox` 内部还会再 `SetWrapWidth` 一次）。</para></summary>
         Label Txt(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                  float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f, bool wrapOff = false)
+                  float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f, bool wrapOff = false,
+                  TmpFont.Face face = TmpFont.Face.Cjk)
         {
             var f = R(r);
-            var lb = _win.TextBox(parent, f, text, color, name, FS(fontPx), FS(autoMinPx));
+            var lb = _win.TextBox(parent, f, text, color, name, FS(fontPx), FS(autoMinPx), face: face);
             // 🔴 **2026-10-12（A333 + A336③）**：`autoMaxPx`（原版 `m_fontSizeMax`）与
             //    `autoBasePx`（原版 `m_fontSizeBase`）都是**设计空间原值**，由 `FitWindow` 过 `FS()`。
             //    `autoMaxPx <= 0` 时**代标称字号**（= A143 之前那一档的语义，逐位不变）；
@@ -372,8 +428,11 @@ namespace CardPresentation
             // 🆕 **A1205**：原版 `折行 = 0` 的站还原成一档（见上面 `wrapOff` 那一段）。
             //    ⚠️ 今天 `RewardsWindow` 整棵树**没有 `ViewportClip`**、本窗也没设 `Clip`
             //    ⇒ `MenuWindowBase.TextBox` 末句那句 `ClipText` **本来就不执行**，所以这一句排在它之后
-            //    不会把裁切抹掉；**将来若给本页挂视口裁切，要改成「先还原、再裁」**（同
-            //    `Shell/SettingsWindow.cs:4748` 的次序）。
+            //    不会把裁切抹掉。
+            //    🔴 **2026-10-17（`A1234` 结案）就地订正**：原文写「将来若给本页挂视口裁切，要改成『先还原、再裁』」
+            //    —— **不必了**：`Label.SetWrapping → SetWrappingMode → ForceRelayout → RefreshBounds`
+            //    的**末句**就是 `ReclipNow()`（`Battle/Label.cs:1325`，A225-②/2026-10-08 起）⇒
+            //    **任何重排都会当场重新裁一刀**，顺序不再是承重条件。保留这句只为说明「今天无裁切」。
             if (lb != null && wrapOff) lb.SetWrapping(false);
             return lb;
         }
@@ -436,7 +495,8 @@ namespace CardPresentation
         /// ⇒ 某一站若 `autoMinPx &gt;= fontPx`，自适应**会被静默挡在门外**（那是**值**的问题、不是闸的问题：
         /// 同 `A1208` 的口径 —— 先查实那一站是不是标称抄错）。今天 `:854 counter text` 就是这一档。</para></summary>
         Label Txt1(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
+                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
+                   TmpFont.Face face = TmpFont.Face.Cjk)
         {
             var f = R(r);
             // 折行开关（`wrapPx`）与自适应开关（`autoMinPx`）在这里拆开 —— 见上面那两段说明。
@@ -444,7 +504,7 @@ namespace CardPresentation
             // ⇒ **与旧写法逐位相同**（旧写法的第 10 个实参就是 `FS(fontPx)`、第 11 个是它自己 `wrapPx` 的缺省 0）。
             float fitW = wrapPx > 0f ? wrapPx : (autoMinPx > 0f ? r.W : 0f);
             var lb = _win.Text(parent, text, f.x1, f.x2, f.y1, f.y2, 4, color, name, FS(fontPx),
-                               FS(fitW), FS(autoMinPx), FS(autoMaxPx), FS(autoBasePx));
+                               FS(fitW), FS(autoMinPx), FS(autoMaxPx), FS(autoBasePx), face);
             // 🔴 **2026-10-17（`A1212` 块 5 #61 / `A1208` 的「挡上探」那一档）：`fontPx == autoMinPx` 时
             //   `MenuWindowBase.Text` 的三道闸（`wrapPx > 0 ∧ autoMinPx > 0 ∧ **fontPx > autoMinPx**`）
             //   会**静默**把自适应挡在门外 —— 而原版那一颗（骷髅卡 `background/body/counter`，MB 亲读）
@@ -632,6 +692,17 @@ namespace CardPresentation
                                 index.ToString(), 20f, 40f, 36f);
 
             // `Mission Milestones Progress Bar`  N(1, 0,0.5, 0.316,0.5, .5,.5, 98.02,-29.026, -77.3111,51.8301)
+            // 🔴 **2026-10-17（`N43` 裁定，判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §五）**：
+            //   **「作者态锚」= 默认态 = 页内实例的真实值 —— 两套本来就是同一套**，本行这五个数
+            //   （`aMin(0,0.5)` / `aMax(0.316,0.5)` / `sd(−77.3111, 51.8301)` / `pos(98.02, −29.026)`）
+            //   就是原版**唯一**那一套（5 份 prefab 实例逐字段相同；反编译 26,282 个方法里
+            //   `Mission*` / `MissionsTab*` / `MissionMilestones*` 一条 `set_sizeDelta` 都没有）。
+            //   ⚠️ 旧账里那个「宽差 ≈2.6×」是**拿两颗不同节点配了对**：`302.552 × 61.5376`（居中锚）
+            //   属于 **`Daily Login Bonus Container ▸ background ▸ progress ▸ Mission Milestones Progress Bar`**
+            //   （登录卡自己的进度条），不是本节点。⛔ **别再拿 347.94（登录卡的数）去判我们的 132.58。**
+            //   本节点框 = `0.316 × 父行宽 − 77.3111`：父行宽 965.19（原版快照的 1 卡态）⇒ 227.69 设计 /
+            //   261.84 画布；我们画 2 卡、父行宽 609.50 ⇒ 115.29 设计 / 132.58 画布 —— **规则不变、只差父宽**。
+            //   ⇒ 几何不改（铁律 11 例外①：差值由产品口径「挂几张卡」解释，属服务端数据、本地判不了）。
             var mmpb = UguiRect.Child(row, new Vector2(0f, 0.5f), new Vector2(0.316f, 0.5f), UguiRect.P50c,
                                       new Vector2(98.02f, -29.026f), new Vector2(-77.3111f, 51.8301f));
             // 🔴 里面**两件都吃 `displayRule = 1 (WhenActive)`**（`MissionProgressBarDisplay` / `MissionCounterDisplay`，
@@ -854,7 +925,12 @@ namespace CardPresentation
                 //    判据全文与残差 → `BuildRewardCell` 函数体里那一段。
                 BuildRewardCell(parent, new PxRect(rw.x1 + rw.W * 0.5f * i, rw.y1, rw.x1 + rw.W * 0.5f * (i + 1), rw.y2),
                                 DailyData.LoginRewardArt(i), DailyData.LoginRewardCount(i).ToString(), i.ToString(),
-                                10f, 40f, 36f, sideIconW: 55f, sideGap: i == 0 ? 5f : 4f);
+                                10f, 40f, 36f, sideIconW: 55f, sideGap: i == 0 ? 5f : 4f,
+                                // 🆕 **2026-10-17（界面线 `T07` · `A1272`）**：两格原版的 HLG 对齐/内缩**不同**：
+                                //   第 0 格 `m_ChildAlignment = 5 (MiddleRight)` + `m_Padding.m_Left = −20` ·
+                                //   第 1 格 `3 (MiddleLeft)` + `10`（`MB 7266792112342177535` / `MB -3940592343783237889`）。
+                                //   ⚠️ A1271 起两格都按缺省 `AlignT 0` 摆 ⇒ 第 0 格右对齐那一半没接上。
+                                sideAlignT: i == 0 ? 1f : 0f, sidePadL: i == 0 ? -20f : 10f);
 
             // `footer.Generic UI Button`  N(3, …, 3.1692,-24.0231, 255.992,74.6201)  `40K_button` 色 (1,0.47,0.10,1)
             var btn = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
@@ -1148,7 +1224,7 @@ namespace CardPresentation
             //    header ▸ name` = `auto[10~36] · base 46 · **折行 0**`）⇒ `wrapOff: true`
             //    （`TextBox` 默认折行、原版这一颗是 `NoWrap`）。
             var wkNameLb = Txt(parent, wkNameR, "Weekly Challenge", Color.white, "name", 36f, 10f, 36f, 46f,
-                               wrapOff: true);
+                               wrapOff: true, face: TmpFont.Face.LatinUi);
             AlignL(wkNameLb, wkNameR);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版周常 `name`（`'Weekly Challenge'`）
             //   = `Left/**Capline**`（判据 = 上面 :896-899 引的 `H37` §四·1 那张逐颗 dump，与同族另 3 颗同档）。
@@ -1278,8 +1354,10 @@ namespace CardPresentation
             //    （`'Daily Missions'` / `'Daily Skulls'`）是 `auto[20~36]` / `auto[20~30]` —— **两档的 min 都是 20**
             //    （判据 = `资料/普查产出_1012/F1_字号线.md` §4·3；A143 只对齐了卡头那两处、**漏了这一处**）。
             //    ⚠️ 只动 min：`max` 走 `Txt` 的 `autoMaxPx = 0` ⇒ 代标称 36（= 原版 max）· `base` 46 已对。
-            var hdrNameLb = Txt(parent, nm, isSkulls ? "Daily Skulls" : "Daily Missions", Color.white,
-                       "name (Mission Header)", 36f, 20f, 0f, 46f);   // 🆕 A336③：base 46（见下条注释）
+            // 🆕 **2026-10-17（`A1753` #1）**：原版 `Mission Header ▸ name` 挂 `Asar-Regular Mission cream w outline`
+            //   （`_FaceColor = (1, 0.931, 0.703)`、顶点白）⇒ 屏上就是奶油色，**不是白**。
+            var hdrNameLb = Txt(parent, nm, isSkulls ? "Daily Skulls" : "Daily Missions", MissionCreamInk,
+                       "name (Mission Header)", 36f, 20f, 0f, 46f, face: TmpFont.Face.LatinUi);   // 🆕 A336③：base 46（见下条注释）
             AlignL(hdrNameLb, nm);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— `name (Mission Header)` = `Left/**Capline**`
             //   （同一张 `H37` dump；与三张卡的 `name` 同族同档）。
@@ -1295,7 +1373,9 @@ namespace CardPresentation
             // 🔴 **A405（2026-10-13）**：`autoMinPx` **12 → 10**。原版 `'0 Disponible'` 那一颗是
             //    **`auto[10~36]`**（判据 = `资料/普查产出_1012/F1_字号线.md` §4·3）。
             //    ⚠️ 那一族里 `name` 是 20、这一颗是 10 —— **同一个页头两颗 min 不同**（铁律 5·c），别取一个顶两个。
-            var rcT = Txt(parent, rc, DailyData.RefillText(), Color.white, "Refill Counter", 36f, 10f, 0f, 46f);
+            // 🆕 **2026-10-17（`A1753` #2）**：原版 `Mission Header ▸ Refill Counter`（`'0 Disponible'`）与上面那颗
+            //    `name` **同一份材质** `Asar-Regular Mission cream w outline` ⇒ (1, 0.931, 0.703)。
+            var rcT = Txt(parent, rc, DailyData.RefillText(), MissionCreamInk, "Refill Counter", 36f, 10f, 0f, 46f);
             // 🔴 **右对齐要用【缩放后】的框右边缘**（`R(rc).x2`）—— 这里原来直写 `rc.x2`（设计空间）
             //    ⇒ 每日任务那块右边缘一旦被 `localScale` 放大（A124），这段字会**比它的框短一截**、贴不到右边
             //    （静默：位置上仍在屏内、也不与左边的 `name` 相撞 ⇒ 现有断言一条都抓不到）。
@@ -1367,7 +1447,10 @@ namespace CardPresentation
             //      我们传的是 `30`（取自**独立预制体** `Daily Login Bonus Container`）。
             //      ⚠️ 同族还有一批（`count` / `Button Text` / `Timer` / `counter`）也是「照独立预制体 vs 照页内」的
             //      来源分叉 ⇒ **判据要调度台裁定**，本件只动了「两处来源一致」的那些，详见报告 §七。
-            var cardNameLb = Txt(parent, nm, title, Color.white, what + " name", fontPx, 20f, 0f, 46f);   // 🆕 A336③：base 46
+            // 🆕 **2026-10-17（`A1753` #3）**：三张卡的卡头 `name` 与 `Mission Header ▸ name` **同族同材质**
+            //   （`Asar-Regular Mission cream w outline`）⇒ (1, 0.931, 0.703)。
+            var cardNameLb = Txt(parent, nm, title, MissionCreamInk, what + " name", fontPx, 20f, 0f, 46f,
+                                 face: TmpFont.Face.LatinUi);   // 🆕 A336③：base 46 · 2026-10-17 A1024③：原版三颗 `name` 同族全 Asar
             AlignL(cardNameLb, nm);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 三张卡的 `name` 与 `Mission Header` 那 1 颗
             //   **同为 `Left/Capline`**（判据 = 上面 :899 那句「同族另 3 颗 `name` 全是 `Left`/`Capline`」+ `H37` §四·1）。
@@ -1729,10 +1812,15 @@ namespace CardPresentation
         /// `alignmentOnAxis`（`.5` = `MiddleCenter`、`0` = 左、`1` = 右）。骷髅卡那一格是
         /// **`MiddleCenter`**（`m_ChildAlignment = 4`）⇒ 传 `0.5f`；⛔ 缺省 `0` ⇒ 既有调用点逐位不变。
         /// 判据/残差全文同样在函数体里。</para>
+        /// <para>🆕 **2026-10-17（界面线 `T07` · `A1272`）多了第 12 个形参 `sidePadL`**（缺省 `0`）—— 原版那三格
+        /// 父 HLG 的 `m_Padding.m_Left`（**设计空间原值**）：登录卡第 0 格 **−20** · 第 1 格 **+10** · 骷髅卡 **0**。
+        /// 主轴起点 = `padL + (innerSize − totalPref) × alignmentOnAxis`（`innerSize = 格宽 − padL`，`padR = 0`）。
+        /// ⛔ 缺省 `0` ⇒ 每日行（竖向变体）与骷髅卡逐位不变。判据 → 函数体里 `off` 那一段。</para>
         /// ⇒ ⛔ **别把两档合成一个**：把每日行改成横向（或反过来）都会「看着像对的」地画错一整列。</para></summary>
         void BuildRewardCell(Transform parent, PxRect r, string art, string countText, string key,
                              float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                             float sideIconW = 0f, float sideGap = 0f, float sideAlignT = 0f)
+                             float sideIconW = 0f, float sideGap = 0f, float sideAlignT = 0f,
+                             float sidePadL = 0f)
         {
             PxRect dh, c;
             if (sideIconW > 0f)
@@ -1784,7 +1872,14 @@ namespace CardPresentation
                 //    ✅ **2026-10-17（A1289）这条残差已收口**：数字那一截的宽现在由 `PreferredWidthPx` 在建树期
                 //    量出来，`off` 按 `(图标 + 间距 + numW)` 重算 ⇒ 整块回到原版的居中位（不再是「偏右 numW/2」）。
                 //    见本函数末尾那一段（量不到时它自己出声 + 原地不动）。
-                float off = (r.W - (sideIconW + sideGap)) * sideAlignT;
+                // 🆕 **2026-10-17（界面线 `T07` · `A1272`）**：加第 12 个形参 `sidePadL` —— 原版那三格宿主各自的
+                //   父 HLG `m_Padding.m_Left`（**设计空间原值**）：登录卡第 0 格 **−20** · 第 1 格 **+10** ·
+                //   骷髅卡 **0**。uGUI 的主轴起点 = `padL + (innerSize − totalPref) × alignmentOnAxis`，其中
+                //   `innerSize = 格宽 − padL − padR`（`padR` 三处都是 0）⇒ 这里补的正是那个被漏掉的 `padL` 项。
+                //   ⚠️ 只有 `sideIconW > 0`（横向变体）那三格用得上；每日行（竖向）不吃它。
+                //   判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §三（`MB 7266792112342177535` /
+                //   `MB -3940592343783237889` 逐字段亲读）。
+                float off = sidePadL + (r.W - sidePadL - (sideIconW + sideGap)) * sideAlignT;
                 dh = new PxRect(r.x1 + off, r.y1, r.x1 + off + sideIconW, r.y2);
                 c = new PxRect(dh.x2 + sideGap, r.y1, r.x2, r.y2);
             }
@@ -1814,24 +1909,29 @@ namespace CardPresentation
             //    由**调用点**传；`折行 = 0` 是这三档**共同**的那一格 ⇒ 这里恒 `wrapOff: true`。
             var cLb = Txt(parent, c, countText, Color.white, "count " + key, 40f, autoMinPx, autoMaxPx, autoBasePx,
                 wrapOff: true);
-            // 🔴 **2026-10-10（A1271）：显式左对齐** —— 原版三处宿主的 `count` 那颗 TMP
-            //    `m_HorizontalAlignment` **都是 `1 (Left)`**（实读：骷髅卡 MB `1175879379365507769` ·
-            //    每日行与登录卡同族同档）。而我们的 `Label` 是「**行盒锚在框心**」那一套
-            //    （`Label.Create(..., anchor = (0.5,0.5))`，`RefreshBounds` 把块摆到框心），
-            //    这里给 `count` 的框又是「图标右边 → 格子右边」那一整条 ⇒ **不显式左对齐，字会浮在那条
-            //    宽框的中间**（离图标约 `(框宽 − 字宽)/2`，静默：位置类断言此前一条都抓不到它）。
-            //    ⛔ 三处宿主**同一个偏差**，因此在这里统一按其原版档改（不是「只修骷髅卡」那一半）。
-            AlignL(cLb, c);
+            // 🔴 **2026-10-10（A1271）→ 2026-10-17（`A1272`）就地订正（铁律 5）：两档宿主的水平对齐【不一样】。**
+            //   · **横向变体**（登录卡 / 骷髅卡，`sideIconW > 0`）：原版 `count` 的 `m_HorizontalAlignment = 1 (Left)`
+            //     （实读：骷髅卡 MB `1175879379365507769` · 登录卡 MB `1234353403895984825` 同档）⇒ 显式左对齐。
+            //     我们的 `Label` 是「行盒锚在框心」那一套（`Label.Create(..., anchor = (0.5,0.5))`），
+            //     不显式左对齐字会浮在框中间（静默）。
+            //   · **每日行（竖向变体）**：原版那颗 `count` 的 `m_HorizontalAlignment = 2 (Center)`
+            //     （`RectTransform_-6252697894048714055.json` 同族的 MB 实读；A1271 当时把「三处都 Left」
+            //      当成一份判据 —— **那是错的**，铁律 5·c）⇒ 这一档**不能** `AlignL`，保持我们默认的居中。
+            if (sideIconW > 0f) AlignL(cLb, c);
 
-            // 🔴🆕 **2026-10-17（A1289）：整块按原版的 `preferredWidth` 重摆（原来把数字那一截当 0 宽）。**
-            //   原版那一格的 HLG（`m_ChildAlignment = 4 MiddleCenter`）里，主轴上的块宽
-            //   = 图标 `55` + 间距 + **数字自己的 `preferredWidth`**（`count` 挂 CSF `h:PreferredSize`）；
-            //   我们原来只按 `图标 + 间距` 居中 ⇒ **整块比原版偏右「数字宽 ÷ 2」**（实拍约 12 设计 px）。
-            //   ⇒ 顺序照账里那条：**先建标签 → 量 → 用 `numW` 重算 `off` → 重摆图标与字**。
+            // 🔴🆕 **2026-10-17（A1289 + `A1272`）：整块按原版的 `preferredWidth` 重摆，并把 `count` 的【自框宽】也改成它。**
+            //   原版那一格的 HLG 里主轴上的块宽 = 图标 `55` + 间距 + **数字自己的 `preferredWidth`**
+            //   （`count` 挂 CSF `h:PreferredSize`）；我们原来只按 `图标 + 间距` 居中 ⇒ **整块比原版偏右「数字宽 ÷ 2」**。
+            //   `A1272` 再补两格（判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §三）：
+            //     ① 主轴起点要带 `padL`（第 12 个形参 `sidePadL`，见上面 `off` 那一段）；
+            //     ② **`count` 的自框宽 = `numW`**（原版框宽就是 CSF 撑出来的 `preferredWidth`，
+            //        我们原来拿「图标右 → 格右」那一整条，比原版宽）。
+            //   ⇒ 顺序：**先建标签（临时宽框）→ 量 `numW` → 重摆图标 → 重设字框宽 → 再左对齐**。
             //   ⚠️ `PreferredWidthPx` 量不到（0，它自己已出声）⇒ **原地不动**（保留上面那一档），⛔ 不猜。
-            //   ⚠️ 只动**横向落点**：`count` 的框仍是「图标右边 → 格子右边」那一整条（`AlignL` 只吃左沿），
-            //     框宽 / 自适应窗口一个字都没改 ⇒ 不存在「量出来的宽反过来改了字号」的回路。
-            if (sideIconW > 0f && sideAlignT > 0f && cLb != null)
+            //   ⚠️ 量纲：`numW` 是**设计空间**（`PreferredWidthPx` 的画布 px 已 ÷ `_s`），与 `r` / `dh` / `c` 同帧。
+            //   ⚠️ 设完宽再量化会「缩字」的那条回路：`numW` **就是**当前字号下的 preferredWidth ⇒ 框刚好够，
+            //      自适应不会缩；且顺序是「先量后设框」（反过来才出回路）。
+            if (sideIconW > 0f && cLb != null)
             {
                 // ⚠️ **量纲**：`PreferredWidthPx` 返回**画布 px**，而本函数里的 `r` / `dh` / `c` 一律是
                 //    **设计空间 px**（未缩放；`R()` 只在建对象那一刻乘 `_s`）⇒ 必须 **÷ `_s`** 才是同一帧。
@@ -1840,14 +1940,20 @@ namespace CardPresentation
                 float numW = _s > 1e-6f ? numWCanvas / _s : numWCanvas;
                 if (numW > 0f)
                 {
-                    float off2 = (r.W - (sideIconW + sideGap + numW)) * sideAlignT;
+                    float off2 = sidePadL + (r.W - sidePadL - (sideIconW + sideGap + numW)) * sideAlignT;
                     var dh2 = new PxRect(r.x1 + off2, r.y1, r.x1 + off2 + sideIconW, r.y2);
-                    var c2 = new PxRect(dh2.x2 + sideGap, r.y1, r.x2, r.y2);
+                    // 🔴 `A1272③`：`count` 的**自框宽 = `numW`**（原版那条 CSF `h:PreferredSize` 的结果）。
+                    var c2 = new PxRect(dh2.x2 + sideGap, r.y1, dh2.x2 + sideGap + numW, r.y2);
                     if (artQ != null)
                     {
                         var f2 = R(dh2);
                         artQ.transform.localPosition = MenuDraw.Local(parent, f2.x1, f2.y1, f2.x2, f2.y2);
                     }
+                    // 重设字框宽：`SetWrapWidth` 会把折行模式无条件开成 `Normal` ⇒ 立刻按原版（折行 0）还原。
+                    // ⚠️ 这两句都会重排 mesh，所以**必须排在最后那次 `AlignL` 之前**（否则对齐被抹掉）。
+                    var f2c = R(c2);
+                    cLb.SetWrapWidth(LayoutSpace.Px(f2c.W));
+                    cLb.SetWrapping(false);
                     AlignL(cLb, c2);
                 }
             }
@@ -1920,7 +2026,10 @@ namespace CardPresentation
             //    ⚠️ 只有**上下界在两处来源上一致**的调用点才填了值（见 `资料/普查产出_1006/A143_SM字号断言.md` §七）。
             var t = UguiRect.Child(r, UguiRect.A00, UguiRect.A11, UguiRect.P50c, Vector2.zero,
                                    new Vector2(-14f, 0f));
-            Txt(parent, t, label, Color.white, name + " Text", fontPx, autoMinPx, autoMaxPx, autoBasePx);
+            // 🆕 **2026-10-17（`A1753` #4）**：原版 `Generic UI Button ▸ Button Text` 挂
+            //   `Pragati-Regular Off White Cold`（`_FaceColor = (0.912, 0.981, 0.961)`、顶点白）
+            //   ⇒ 四个宿主（每日行 / 登录卡 / 骷髅卡 / 周常）的 `Collect` 都吃这一档。
+            Txt(parent, t, label, OffWhiteColdInk, name + " Text", fontPx, autoMinPx, autoMaxPx, autoBasePx);
         }
 
         /// <summary>🔴🔴 **本方法当前【零调用点】**（2026-10-10 · A1271 改判之后）—— **用之前先读这段**。

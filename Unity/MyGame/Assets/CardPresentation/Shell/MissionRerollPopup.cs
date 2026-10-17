@@ -332,7 +332,7 @@ namespace CardPresentation
             // 🆕 **2026-10-12（A336③）**：base = **36.0** —— 判据 = `ReRollPopup Variant/Window/MessageText`
             //    `fs 40.0 · auto[4.0~40.0] · base 36.0 · 折行 1`（本窗口 4 颗 TMP 逐颗实读；上限 40 = 标称 ⇒ A333 本来就对）。
             var msg = MenuDraw.TextBox(WindowNode, MsgR, TxtMessage, Color.white, "MessageText", 40f, 4f, QText,
-                                       40f, 36f);
+                                       40f, 36f, face: TmpFont.Face.LatinCardBody);
             if (msg == null) Debug.LogWarning("[MissionReroll] `MessageText` 没建出来（红线：不许静默失败）");
             else MsgNode = msg.transform;
 
@@ -369,7 +369,7 @@ namespace CardPresentation
             //（两张图名都是**实读 prefab 的 `m_SpriteState`**，不是我们按 `_hover` 规律猜的 —— 恰好同值）
             MenuDraw.Hit(n, "Hit", r, QHit, onClick, q, ArtButton, clickCue: clickCue);
 
-            var lb = MenuDraw.Text(n, tx, label, Color.white, "Button Text", 38f, QBtnText);
+            var lb = MenuDraw.Text(n, tx, label, Color.white, "Button Text", 38f, QBtnText, face: TmpFont.Face.LatinCardBody);
             if (lb != null)
             {
                 if (rightAlign) MenuDraw.AlignRight(lb, tx);
@@ -411,7 +411,7 @@ namespace CardPresentation
             //         且它**全库没有任何写入点**（`PriceDisplayButton__*.c` 里只有 `set_Interactable`
             //         读它做 `blinkEffect.enabled = value`）。
             //    ⇒ **A426 普查的那 36 个实例之外【没有第 37 处】**；本行不再挂着这条待办。
-            var pl = MenuDraw.Text(PriceCellNode, PriceTextR, PricePlaceholder, Color.white, "text", 40f, QPrice);
+            var pl = MenuDraw.Text(PriceCellNode, PriceTextR, PricePlaceholder, Color.white, "text", 40f, QPrice, face: TmpFont.Face.LatinCardBody);
             if (pl == null) Debug.LogWarning("[MissionReroll] 价钱那格的字没建出来（红线：不许静默失败）");
             else { PriceTextNode = pl.transform; MenuDraw.AlignLeft(pl, PriceTextR); }
         }

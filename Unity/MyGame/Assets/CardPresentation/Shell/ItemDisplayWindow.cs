@@ -281,11 +281,11 @@ namespace CardPresentation
             //   （折行 + 自适应）：最长的那几个官方名（如 `Grit and Determination`）会**折成两行并把字号缩到框内**，
             //   而原版是**单行缩字号** —— 两者都落在 314×50 的框里，差别只在那一档长名的排版。
             _title = MenuDraw.TextBox(_panel, titleR, _ctx.Title ?? "", Color.white, "Title",
-                                      TitleFont, TitleFontMin, QPanelText, TitleFontMax, TitleFontBase);
+                                      TitleFont, TitleFontMin, QPanelText, TitleFontMax, TitleFontBase, face: TmpFont.Face.LatinUi);
             _desc = MenuDraw.TextBox(_panel, descR, _ctx.Description ?? "", Color.white, "Description",
-                                     DescFont, DescFontMin, QPanelText, DescFontMax, DescFontBase);
+                                     DescFont, DescFontMin, QPanelText, DescFontMax, DescFontBase, face: TmpFont.Face.LatinCardBody);
             _type = MenuDraw.TextBox(_panel, typeR, _ctx.Type ?? "", Color.white, "Type",
-                                     TypeFont, TypeFontMin, QPanelText, TypeFontMax, TypeFontBase);
+                                     TypeFont, TypeFontMin, QPanelText, TypeFontMax, TypeFontBase, face: TmpFont.Face.LatinCardBody);
 
             // 面板底那颗 `Image` 的 `m_RaycastTarget = 1`、父链上没有点击处理器 ⇒ 原版点面板**什么都不发生**
             MenuDraw.Absorb(_panel, "AbsorbHit", panelR, QShade, QHit);
@@ -314,7 +314,7 @@ namespace CardPresentation
 
             var loreR = LoreRect(s);
             _lore = MenuDraw.TextBox(_flavourBg, loreR, _ctx.Lore ?? "", Color.white, "LoreText",
-                                     LoreFont, LoreFontMin, QLoreText, LoreFontMax, LoreFontBase);
+                                     LoreFont, LoreFontMin, QLoreText, LoreFontMax, LoreFontBase, face: TmpFont.Face.LatinUi);
             MenuDraw.Absorb(_flavourBg, "AbsorbHit", fbR, QShade, QHit);
             // 照 `ItemDisplayWindow__Open.c` ③：**没有 lore ⇒ 整块不亮**（⛔ 不拿 Description 顶）。
             bool loreOn = !string.IsNullOrWhiteSpace(_ctx.Lore);

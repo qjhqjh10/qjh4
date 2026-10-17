@@ -324,13 +324,13 @@ namespace CardPresentation
         {
             // `TitleText`：fs **34** · 基准 **47.73** · auto[**20**~**34**] · 折行 1 · 白
             TitleLabel = MenuDraw.Text(texts, g.Title, ResolveTerm(TitleTerm, "TitleText"), Color.white,
-                                       "TitleText", 34f, QText, g.Title.W, 20f, 34f, 47.73f);
+                                       "TitleText", 34f, QText, g.Title.W, 20f, 34f, 47.73f, face: TmpFont.Face.LatinUi);
             // 纵向：Base 系 = **Bottom**(1024) · Liveop = **Capline**(8192)；横向都是 Center（不调 `Align*`）
             MenuDraw.SetVAlign(TitleLabel, g.TitleVAlign, g.Title);
 
             // `DescriptionText`：fs **28** · 基准 **22.5** · auto[**18**~**28**] · 折行 1 · 白
             DescriptionLabel = MenuDraw.TextBox(texts, g.Desc, ResolveTerm(DescriptionTerm, "DescriptionText"),
-                                                Color.white, "DescriptionText", 28f, 18f, QText, 28f, 22.5f);
+                                                Color.white, "DescriptionText", 28f, 18f, QText, 28f, 22.5f, face: TmpFont.Face.LatinCardBody);
             // 横向：Liveop = **Left**(1)，其余 = Center(2)（`Label` 出厂就是居中 ⇒ Center 这一档不调）
             if (g.DescLeft) MenuDraw.AlignLeft(DescriptionLabel, g.Desc);
             // 纵向：六个变体都是 **Middle**(512) = `Label` 出厂档 ⇒ 不调
@@ -338,7 +338,7 @@ namespace CardPresentation
             // `Tap To continue`：fs **30** · 基准 **60** · auto[**18**~**30**] · 折行 1 · 色 (0.627,0.616,0.631)
             // 词条 = `Demo/Welcome/TapToContinue`（官方表 en `Click to continue` / zh `点击以继续`）。
             TapLabel = MenuDraw.TextBox(texts, g.Tap, Loc.T("Demo/Welcome/TapToContinue"), TapColor,
-                                        "Tap To continue", 30f, 18f, QText, 30f, 60f);
+                                        "Tap To continue", 30f, 18f, QText, 30f, 60f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(TapLabel, Label.VAlign.Capline, g.Tap);
 
             // `BlinkGraphic`（原版挂在这颗 TMP 上；`blinkSpeed 1.0` / `colorVariation 0.5` = 出厂值，

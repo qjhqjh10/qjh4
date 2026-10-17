@@ -1504,62 +1504,9 @@ namespace CardPresentation
             return t;
         }
 
-        /// <summary>
-        /// 数值飘字（伤害/治疗）。时间轴照原版 `InBattleDamageCounter Variation 1`。
-        /// ⚠️ 原版那条是**挂在卡上的 `CardDamageCounterController`**（字段 `damageCounterParent` /
-        /// `damageText`(TMP) / `myAnimation`(Animation)，见类桩），这里按同一时间轴自己搭一个。
-        /// </summary>
-        public static Label PopNumber(Transform parent, Vector3 worldPos, int amount, bool heal)
-        {
-            string txt = (heal ? "+" : "-") + Mathf.Abs(amount);
-            // 🔴 **2026-09-17 照原版改回**：原版 `DamageText` 的 TMP `m_fontColor` = **纯白 (1,1,1)**、
-            //    `HealText` **也是纯白**（`08_预制体特效/战斗预制体/MonoBehaviour_5890981294211439552` /
-            //    `MonoBehaviour_-7677963611639080000`，2026-09-17 亲读）。我们原来按「受伤红 / 治疗绿」
-            //    上色 —— **那是我们挑的**，不是原版的做法。
-            // ⚠️ **字号仍是我们挑的**：原版 5.5 + autoSize(0.35~5.5)，单位与我们的 `Label` 不同，搬不过来。
-            var lbl = Label.Create(parent, txt, worldPos, 16, Color.white,
-                                   new Vector2(0.5f, 0.5f), "Pop_" + txt);
-            lbl.SetCapHeight(0.30f);
-            lbl.SetColor(new Color(lbl.color.r, lbl.color.g, lbl.color.b, 0f));
-
-            var tr = lbl.transform;
-            tr.localScale = Vector3.one * PopScaleFrom;
-
-            var seq = DOTween.Sequence();
-            seq.Append(DOTween.To(() => 0f, a => SetLabelAlpha(lbl, a), 1f, PopIn).SetEase(Ease.Linear));
-            // ⚠️ 用 `Insert(0f, …)` 而不是 `Join` —— `Join` 会接在**当前游标**（0.1167）后面，
-            //    这一条 0.2s 的缩放就会拖到 0.3167，把后面整条时间轴往后推 0.12s。
-            //    时间轴要**严格照 clip**：0.2 缩完 → 停到 1.6667 → 1.8333 消失。
-            seq.Insert(0f, tr.DOScale(Vector3.one, PopScaleIn).SetEase(Ease.OutQuad));
-            seq.AppendInterval(PopHoldUntil - PopScaleIn);
-            seq.Append(DOTween.To(() => 1f, a => SetLabelAlpha(lbl, a), 0f, PopOut - PopHoldUntil)
-                          .SetEase(Ease.Linear));
-            seq.OnComplete(() => KillLabel(lbl));
-            LastPopTween = CardTween.Use(seq, Ease.Linear, tr);
-            return lbl;
-        }
-
-        /// <summary>
-        /// ⚠️ **批处理下 `Object.Destroy` 不生效**（它要等下一帧，而批处理没有帧循环）——
-        /// 和 `BattleDriver.Kill` 是同一条规矩。
-        /// </summary>
-        static void KillLabel(Label l)
-        {
-            if (l == null) return;
-            if (Application.isPlaying) Object.Destroy(l.gameObject);
-            else Object.DestroyImmediate(l.gameObject);
-        }
-
-        static void SetLabelAlpha(Label l, float a)
-        {
-            if (l == null) return;
-            var c = l.color;
-            l.SetColor(new Color(c.r, c.g, c.b, a));
-        }
-
-        /// <summary>最近一次飘字的补间。**自检要拿它核对总时长** —— DOTween 的 `Join` 接的是
-        /// 「当前游标」而不是序列开头，写错就会把整条时间轴悄悄拖长（见 `PopNumber` 里的注释）。</summary>
-        public static Tween LastPopTween;
+        /// <summary>🆕 **2026-10-17（`A1213②`）**：原 `CardFeel.PopNumber` / `LastPopTween` **已删**（全仓 0 消费者）。
+        /// 真实现 = `Battle/PopNumber.cs` 的 `PopDamage` / `PopHeal` 两条路径（判据 = 原版两颗 TMP 组件，
+        /// 有效字号比 12.1:1）。⛔ 别在这里补回来 —— 两处写同一条规则 = 迟早不一致。</summary>
 
         /// <summary>发牌入场：从 `from`（牌堆）飞到手里的位置。
         /// 出处：`CardScript.DrawCard` —— 它用 `DOScale + DORotate + DOMove` 三条补间把牌抽进来

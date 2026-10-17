@@ -1313,15 +1313,15 @@ public static class ShopScene
         }
         // 🆕 **2026-10-08（波 C3 · A212 主表 #31 验收）：左栏键文案的【渲染】断言**（四窗这一族原来一条都没有）。
         //   判据 = 原版四窗左栏键文案的 `m_TextWrappingMode` **一律 `0`（`NoWrap`）**—— 逐窗现读的四窗表
-        //   只写一处：`Shell/MenuWindowBase.cs` 的 `BuildTabButton`（此处不抄第二份，铁律 6）。
+        //   只写一处：`Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton`（此处不抄第二份，铁律 6）。
         //   ⚠️ 本窗原版**只序列化了一只母版**（`Shop Icon > Label > TabButtonLabel`，`'Pacotes'`，`折行=0`）——
         //   三个页键由 `ShopWindow.CreateStoreTab` 在运行期克隆母版 ⇒ 同样吃这个 0；我们四个键都走
-        //   `MenuWindowBase.BuildTabButton` ⇒ 一起断（含第 4 键那只母版）。
+        //   `MainMenuSubmenuWindow.BuildTabButton` ⇒ 一起断（含第 4 键那只母版）。
         //   ⛔ **为什么必须量渲染、不能只比字号**：`SetAutoFitBox` 只把 `fontSizeMin/Max` 交出去，
         //   **装不装得下由 TMP 算** ⇒ 字号对而字冲出去，自检照样全绿（`AutoFitBox` 那条教训，2026-09-22 踩过）。
         //   框宽 **155** = 原版 `Tab Buttons/*/Label` 的 `sz=(155,37.86)`
         //   （⛔ 不读 `BuildTabButton` 的 `labW` —— 那也是被测实现里的数，读了就是自证）。
-        //   **改坏法**：删掉 `MenuWindowBase.BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒
+        //   **改坏法**：删掉 `MainMenuSubmenuWindow.BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒
         //   ① `折行=` 那条立刻红（0 → 1）；② 第 4 键的 `BOOSTER PACKS` 带空格 ⇒ 折成两行 ⇒ 「就一行」那条也红。
         {
             int tabN = 0;
@@ -1355,7 +1355,7 @@ public static class ShopScene
                 //    ⚠️ 第 4 键（母版 `ShopTabButton_3`）是**关着**的 —— `Label` 那一半照样取得到
                 //    （实测 `_tmp_view/shop.log`：「第 4 键的文案 `Label` 取得到 ✓」），本助手取 TMP 时**带 `true`**，
                 //    所以这一档也量得到。
-                // **改坏法（只咬旧口）**：在 `Shell/MenuWindowBase.cs` 的 `BuildTabButton` 里那句 `SetWrapping(false)` 那句
+                // **改坏法（只咬旧口）**：在 `Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton` 里那句 `SetWrapping(false)` 那句
                 //    `if (txt != null) txt.SetWrapping(false);` **之后**插一句 `if (txt != null) txt.SetCharSpacing(5f);`
                 //    ——（那句话是四窗左栏键刷**最后一次**缓存的地方：`SetWrapping` → 模式真的变了 → `ForceRelayout`
                 //    → `RefreshBounds()`，`Battle/Label.cs` 的 `SetWrapping` → `ForceRelayout` → `RefreshBounds` 那一路）⇒ 网格重排了、**缓存不动** ⇒ 两个口读到的数
@@ -1555,6 +1555,10 @@ public static class ShopScene
                 if (gs != null)
                 {
                     CheckTrue(gs.Vertical, "是**纵向**滚动（原版 `m_Vertical = 1` / `m_Horizontal = 0`）");
+                    // 🆕 2026-10-17（N29）：滚轮灵敏度 = 原版那台 `ScrollRect` 的 `m_ScrollSensitivity`
+                    //   （判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`；⛔ 别断 `DefaultNotchPx` = 自证）。
+                    CheckNear(gs.NotchPx, 1f, 0.001f,
+                              $"页 {p}：灵敏度 = 原版 `Packs Scroll View` 的 **1.0** px/格（D_N29）");
                     // 🔴 2026-10-05（A28）：原版 `m_MovementType = 1` = UGUI **Elastic**（真值 `0 Unrestricted / 1 Elastic /
                     //   2 Clamped`，本地 UGUI 源码亲读）。这条**原来断言的是 `!gs.Elastic`（= Clamped）** ——
                     //   把「实现还是默认档」这个缺口**钉死了**（同族教训：断言要盯**原版参数**，不是盯我们自己的常量）。
@@ -1598,13 +1602,14 @@ public static class ShopScene
                     // 回顶必须精确回到 0（`SetOffset` 是**绝对**设值 —— 2026-09-23 那条重入教训）
                     gs.SetOffset(0f);
                     CheckNear(gs.Offset, 0f, 0.01f, "回顶后偏移精确 = 0");
-                    // 滚轮一格 = 48px（照卡组编辑那条已验过的路：`dy * 0.4f`，新输入系统一格 ±120）
+                    // 滚轮一格 = **1px**（原版 `m_ScrollSensitivity = 1.0` —— 新输入系统一格 ±120，
+                    // `MenuScroll` 按 `NotchPx / 120` 换算；判据 → `D_N29`）。
                     // 🔴 2026-10-05（A28）：档位改成 **Elastic** 之后**滚轮不再被夹**（照 UGUI `OnScroll`：**Clamped 才夹回**）
-                    //    ⇒ 一格真的走 48px、越出可滚范围（本页只有 4.62px 可滚），随后由 `Tick` 的 `SmoothDamp`
+                    //    ⇒ 本页只有 4.62px 可滚，**喂 6 格（6px）**才越得出去，随后由 `Tick` 的 `SmoothDamp`
                     //    回弹到上界（`smoothTime = m_Elasticity`；回弹那一支同 `RewardsScene` 的写法）。
-                    //    **真红法**：去掉 `_gridScroll.Elastic = true;` ⇒ 第一条立刻红（量到的是被夹回的 4.62、不是 48）。
-                    gs.Wheel(-120f);
-                    CheckNear(gs.Offset, 48f, 0.5f, "往下滚一格 ⇒ 偏移 +48px（Elastic ⇒ **不被夹**，允许越界）");
+                    //    **真红法**：去掉 `_gridScroll.Elastic = true;` ⇒ 第一条立刻红（量到的是被夹回的 4.62、不是 6）。
+                    gs.Wheel(-6f * MenuScroll.ScrollUnitsPerNotch);
+                    CheckNear(gs.Offset, 6f, 0.5f, "往下滚 6 格 ⇒ 偏移 +6px（1px/格；Elastic ⇒ **不被夹**，允许越界）");
                     CheckTrue(gs.OutOfRange,
                               $"…此刻**确实越出了**可滚范围（{gs.Offset:F2} > 上界 {gs.MaxOffset:F2} —— Clamped 到不了这个态）");
                     for (int i = 0; i < 400; i++) gs.Tick(1f / 60f);          // 松手/停滚 ⇒ 回弹

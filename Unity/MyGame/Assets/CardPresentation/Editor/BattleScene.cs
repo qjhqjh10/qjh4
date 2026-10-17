@@ -434,11 +434,11 @@ public static class BattleScene
         /// （`SkillPanel.TextForTest` / `SettingsPanel.SliderLabelForTest`），⛔ 不按节点名在共用子画布里找 ——
         /// 那里同名件会有多份（面板建过好几遍时），按名找会拿到别人的那一颗。</summary>
         void CheckA1212Label(Label lb, string what, string origNode,
-                             float mn, float mx, float bs, int wrap)
+                             float mn, float mx, float bs, int wrap, string id = "A1212")
         {
-            Check(lb != null, $"（前提）`A1212` {what}（原版 `{origNode}`）拿到引用");
+            Check(lb != null, $"（前提）`{id}` {what}（原版 `{origNode}`）拿到引用");
             if (lb == null) return;
-            string tag = $"★ A1212 {what}（原版 `{origNode}`）";
+            string tag = $"★ {id} {what}（原版 `{origNode}`）";
             Check(lb.AutoSizing, $"{tag}：**`m_enableAutoSizing = 1`**（自适应开着）");
             // 实例口（`FontSizeToPxNow` + `ActualFace`）与写进去的那一路同源；静态口在画布档 / 拉丁面下不同源。
             float gMin = lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace);
@@ -2072,6 +2072,36 @@ public static class BattleScene
                                   $"★ `{hudName[i]}`（第 {i} 颗）归一化锚点 = ({a.x:F6}, {a.y:F6})，期望 "
                                 + $"({wx:F6}, {wy:F6}) = 原版 ({wx * 1920f:F2}, {(1f - wy) * 1080f:F2}) px（y 向下）"
                                 + " —— 期望值是**另抄一份的原版字面量**（⛔ 不是从 `BattleDriver` 的常量读的）");
+                        }
+                        // 🆕 **2026-10-17（`A1024`③ · 批 7）**：**按用途选字体**的抽查 —— 期望值写**原版资产名**
+                        //    （判据 → `资料/普查产出_1017/UI/R_A1024_字体按用途普查.md` §2·4 逐颗表）。
+                        //    ⚠️ 读的是 TMP 组件上的**真 `font.name`**（`HudLabelFontAssetNameForTest`），
+                        //    ⛔ 不是我们自己写的常量（`Label.Face` 只用来断「有没有给这颗点名」）。
+                        //    本族是 **Asar / Pragati 混着的**（⛔ 别一刀切）：`EndTurnButton` = Asar、`EnergyLabel` = Pragati。
+                        //    🔴 **汉字闸**（`Label.ActualFace`）：文本含汉字 ⇒ 强制回 CJK（那三份拉丁资产没有汉字字形）。
+                        //      所以 Asar 那颗要**按当前文本语种**分两档断；Pragati 那颗的文本是 `10/10`（纯 ASCII）⇒ 恒可断。
+                        {
+                            int iAsar = System.Array.IndexOf(hudName, "EndTurnButton");
+                            int iPrag = System.Array.IndexOf(hudName, "EnergyLabel");
+                            Check(iAsar >= 0 && iPrag >= 0,
+                                  "（前提）抽查那两颗在 HUD 名字表里（`EndTurnButton` / `EnergyLabel`）");
+                            if (iAsar >= 0)
+                            {
+                                Check(drv.HudLabelAssignedFaceForTest(iAsar) == TmpFont.Face.LatinUi,
+                                      "★ HUD `EndTurnButton` 被点名 = **LatinUi**（原版 `Clock/TurnBtn/TurnText` 的 `m_fontAsset` = Asar），"
+                                    + $"实得 `{drv.HudLabelAssignedFaceForTest(iAsar)}` —— 🧨 整族一刀切成 Pragati ⇒ 红");
+                                string at = drv.HudLabelTextForTest(iAsar);
+                                string want = Loc.HasCjk(at) ? "NotoSerifCJK-Regular SDF" : "Asar-Regular SDF";
+                                Check(drv.HudLabelFontAssetNameForTest(iAsar) == want,
+                                      $"★ HUD `EndTurnButton` 的实际字体 = `{want}`（文本「{at}」"
+                                    + $"{(Loc.HasCjk(at) ? "含汉字 ⇒ 汉字闸回 CJK" : "纯拉丁 ⇒ 走 Asar")}），"
+                                    + $"实得 `{drv.HudLabelFontAssetNameForTest(iAsar)}`");
+                            }
+                            if (iPrag >= 0)
+                                Check(drv.HudLabelFontAssetNameForTest(iPrag) == "Pragati-Regular SDF",
+                                      "★ HUD `EnergyLabel` 的字体 = **Pragati-Regular SDF**（原版 `ManaHolder/ManaText` 的 `m_fontAsset`），"
+                                    + $"实得 `{drv.HudLabelFontAssetNameForTest(iPrag)}`（文本「{drv.HudLabelTextForTest(iPrag)}」）"
+                                    + " —— 🧨 整族一刀切成 Asar ⇒ 红");
                         }
                     }
                     Check(HudCanvas.RootLayer == 0,
@@ -4944,6 +4974,50 @@ public static class BattleScene
                 Object.DestroyImmediate(capProbe.gameObject);
             }
 
+            // ---- 4.6c 🆕 2026-10-17（A1235）：`Label.SetScriptHeight` 的**中/英字号比** ----
+            // 判据 = 两条 `Set*` 路必须落到**同一个 px**（`px` = 原版那一颗 TMP 的 `m_fontSize`）：
+            //   汉字 → `SetGlyphHeight(px / pxPerUnit)`；拉丁 → `SetCapHeight(px × 大写高/汉字墨高 / pxPerUnit)`。
+            // 🔴 旧写法把那个比值**写死 0.72**（那是 `capLine/pointSize` 的 **em 口径**），而
+            //   `TmpFont.MeasureGlyph` 量的两个量都含 **SDF padding**（`ShaderUtilities.GetPadding` 末句
+            //   `return uniformPadding + 1.25f`；Noto 的材质 `_FaceDilate/_OutlineWidth` 全 0 ⇒ 恒 1.25）
+            //   ⇒ 实测比 = **0.8217**（TTF 实读：`'M'` 729 / `'国'` 898 单位。推导 → `Battle/Label.CapOverGlyph`）。
+            // ⛔ 期望值 **0.8217 / 42 都是字面量**（从 TTF + 材质算 / 原版字段读），**不是**从被测实现里取的。
+            {
+                var zhProbe = Label.Create(driver.transform, "中文", new Vector3(0f, 99f, 0f), 4,
+                                           Color.white, new Vector2(0.5f, 0.5f), "ScriptZhProbe");
+                var enProbe = Label.Create(driver.transform, "ABC", new Vector3(0f, 99f, 0f), 4,
+                                           Color.white, new Vector2(0.5f, 0.5f), "ScriptEnProbe");
+                bool sOk = zhProbe != null && enProbe != null && zhProbe.CanRenderChinese && enProbe.CanRenderChinese;
+                Check(sOk, "（前提）两条 `SetScriptHeight` 探针都走 **TMP** 后端 —— 点阵后端没有这条换算，"
+                         + "下面两条等于没验（A195 同一条形状：前提断言 + `if`，⛔ 不许写成没有 `else` 的 `if`）");
+                if (sOk)
+                {
+                    const float px = 42f;              // 原版滑块标签那一档 `m_fontSize`（`SettingsPanel.LabelFontPx`）
+                    zhProbe.SetScriptHeight("中文", px, 108f);
+                    enProbe.SetScriptHeight("ABC", px, 108f);
+                    float zhPx = zhProbe.FontPxNow, enPx = enProbe.FontPxNow;
+                    Check(Mathf.Abs(zhPx - px) < 0.05f && Mathf.Abs(enPx - px) < 0.05f
+                          && Mathf.Abs(zhPx - enPx) < 0.05f,
+                          $"★ `SetScriptHeight` 的中/英两条路落到**同一个 px**（期望 = 原版 `m_fontSize` {px}px；"
+                        + $"实得 中 {zhPx:F2} / 英 {enPx:F2}px）"
+                        + "｜🧨 把 `Label.SetScriptHeight` 里的 `CapOverGlyph` 改回写死 `0.72f` ⇒ 英文档量成 ≈36.8px ⇒ 本条红");
+
+                    float ratio = TmpFont.WorldCapPerFontSize / TmpFont.WorldGlyphPerFontSize;
+                    Check(Mathf.Abs(ratio - 0.8217f) < 0.005f,
+                          "★ 「拉丁大写高 ÷ 汉字墨高」的**实测比** = 0.8217"
+                        + "（TTF `'M'` 729 / `'国'` 898 单位 + SDF padding 1.25；现读 "
+                        + $"{TmpFont.WorldCapPerFontSize:F4} / {TmpFont.WorldGlyphPerFontSize:F4} = {ratio:F4}）");
+                    // 🔴 **灭自证**：0.72 与实测比必须**分得开** —— 谁把「em 口径」那个数当成
+                    //    「两条 Set* 路的换算」写回去，上面第一条立刻红；这一条钉的是**判据本身**的数值，
+                    //    防止哪天有人把 `WorldCapPerFontSize` 也一起改成 0.0683 来「配平」。
+                    Check(Mathf.Abs(ratio - 0.72f) > 0.02f,
+                          $"★ **灭自证**：实测比**不是** 0.72（em 口径）—— 两者差 {Mathf.Abs(ratio - 0.72f):F4}"
+                        + "（0.72 = `capLine 36 / pointSize 50`，**不含 SDF padding**；⛔ 别拿它配平 `WorldCapPerFontSize`）");
+                }
+                if (zhProbe != null) Object.DestroyImmediate(zhProbe.gameObject);
+                if (enProbe != null) Object.DestroyImmediate(enProbe.gameObject);
+            }
+
             // ---- 4.6b 🆕 2026-10-06（A80①）：`SetAutoFitBox` 的 **fontSize 时序**（A57③）----
             // 🔴 **为什么单开一条**：上面两条读的是 `FontSizeMin/Max`，而那两个数是**我们自己写进去的**
             //    （`cur × (maxPx|minPx)/nomPx`，`Battle/Label.cs` 的 `SetAutoFitBox`）—— 把 A57③ 的时序改坏
@@ -7507,6 +7581,42 @@ public static class BattleScene
                           $"有合法目标 → 铺黄绿那层（原版 `LightAvailable`，{sp.CurrentLight}）");
                     Debug.Log(P + "   " + sp.Describe());
 
+                    // ══ 🆕 **2026-10-17（`A1024`③ 批 2–4）：技能面板四颗字的面** ══
+                    //    判据 = 原版 TMP 的 `m_fontAsset`（现读 `battle1_tmp.tsv`；普查表 §二附录
+                    //    「战斗技能说明」那一行写明的**唯一判据**）：
+                    //      `ActiveSkillDesc/AbilityContainer/NameText`   = **Asar**   （fs42.35）
+                    //      `ActiveSkillDesc/AbilityContainer/CostPanel/CostText` = **Asar**（fs52.4）
+                    //      `ActiveSkillDesc/AbilityContainer/DescText`   = **Asar**   （fs37.35）
+                    //      `ActiveSkillDesc/TargetsAvailableText`        = **Pragati**（fs56.45）
+                    //    🔴 普查表那一行**只列了 `DescText` 一颗 Asar**（NameText / CostText 写漏）——
+                    //    本批按原版数据落，差异记在 `资料/普查产出_1017/UI/W_A1024_战斗三窗.md`。
+                    //    ⚠️ 两条一起断：`Label.Face` = 「我们有没有给这颗点名」，TMP 的 `font.name` = 「真接上了哪份 SDF」；
+                    //    文本含汉字时后者回 CJK（汉字闸 —— 那三份拉丁资产没有汉字字形）。
+                    {
+                        string[] skName = { "NameText", "CostText", "DescText", "TargetsAvailableText" };
+                        TmpFont.Face[] skFace = { TmpFont.Face.LatinUi, TmpFont.Face.LatinUi,
+                                                  TmpFont.Face.LatinUi, TmpFont.Face.LatinCardBody };
+                        string[] skAsset = { "Asar-Regular SDF", "Asar-Regular SDF",
+                                             "Asar-Regular SDF", "Pragati-Regular SDF" };
+                        for (int si = 0; si < 4; si++)
+                        {
+                            var kl = sp.TextForTest(si);
+                            var kt = kl != null ? kl.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+                            string kGot = kt != null && kt.font != null ? kt.font.name : null;
+                            string kTxt = kl != null ? kl.Text : null;
+                            bool kCjk = kTxt != null && Loc.HasCjk(kTxt);
+                            string kWant = kCjk ? "NotoSerifCJK-Regular SDF" : skAsset[si];
+                            Check(kl != null && kl.Face == skFace[si],
+                                  $"★ A1024③/批2–4：技能面板 `{skName[si]}` 被点名 = **{skFace[si]}**"
+                                + $"（原版 `ActiveSkillDesc/AbilityContainer/{skName[si]}` 的 `m_fontAsset` = {skAsset[si]}），"
+                                + $"实得 `{(kl != null ? kl.Face : TmpFont.Face.Cjk)}`"
+                                + " —— 🧨 只按普查表那一行做（只换 DescText）⇒ 本组红");
+                            Check(kGot == kWant,
+                                  $"★ A1024③/批2–4：技能面板 `{skName[si]}` 的实际字体 = `{kWant}`"
+                                + $"（文本「{Short(kTxt, 18)}」{(kCjk ? "含汉字 ⇒ 汉字闸回 CJK" : "纯拉丁")}），实得 `{kGot}`");
+                        }
+                    }
+
                     // 指针按在面板上 → 铺蓝那层（原版 `LightPressed`）
                     sp.SetPointer(sp.transform.position, true);
                     Check(sp.CurrentLight == SkillPanel.Light.Pressed,
@@ -8310,6 +8420,43 @@ public static class BattleScene
                 }
                 Shot(cam, "11_卡牌展示窗");
 
+                // ══ 🆕 **2026-10-17（`A1024`③ 批 2–4）：展示窗五颗字的面** ══
+                //    判据 = 原版 TMP 的 `m_fontAsset`（现读 `battle1_tmp.tsv`；普查表写明的**唯一判据**）：
+                //      · `EffectList/AffectedBy`                         = **Pragati**（fs0.4）
+                //      · `EffectList/Elements/EffectElement*/EnchanterText`/`EffectText` = **Pragati**（8/8，fs0.3）
+                //      · `LowerSection/FlavourTextBG/LoreText`           = **Asar**（fs32）
+                //      · `cdw_hint` = **我们自加的**（原版子树没有这一行）⇒ **保持 Cjk**（⛔ 不猜）
+                //    🔴 普查表 §二附录那一行**把 Asar 名单写漏了 `LoreText`** —— 本批按原版数据落，
+                //    差异记在 `资料/普查产出_1017/UI/W_A1024_战斗三窗.md`（菜单版同颗 `LoreText` 也是 Asar，互相印证）。
+                //    ⚠️ `LoreText` 只在「这张卡有风味文本」时才建 ⇒ 没建就跳过（与 `Loc.Lore` 的口径一致）。
+                {
+                    string[] cdwName = { "AffectedBy", "EnchanterText[0]", "EffectText[0]", "LoreText", "cdw_hint" };
+                    TmpFont.Face[] cdwFace = { TmpFont.Face.LatinCardBody, TmpFont.Face.LatinCardBody,
+                                               TmpFont.Face.LatinCardBody, TmpFont.Face.LatinUi, TmpFont.Face.Cjk };
+                    string[] cdwAsset = { "Pragati-Regular SDF", "Pragati-Regular SDF",
+                                          "Pragati-Regular SDF", "Asar-Regular SDF", "NotoSerifCJK-Regular SDF" };
+                    for (int ci = 0; ci < cdwName.Length; ci++)
+                    {
+                        var cl = cdw.TextForTest(ci);
+                        if (ci == 3 && cl == null) continue;      // LoreText：无风味文本 ⇒ 整块不建
+                        Check(cl != null && cl.Face == cdwFace[ci],
+                              $"★ A1024③/批2–4：展示窗 `{cdwName[ci]}` 被点名 = **{cdwFace[ci]}**"
+                            + $"（原版节点 `{cdwName[ci]}` 的 `m_fontAsset` = {cdwAsset[ci]}），"
+                            + $"实得 `{(cl != null ? cl.Face : TmpFont.Face.Cjk)}`"
+                            + (ci == 4 ? " —— 这一行是**我们自加**的，原版没有 ⇒ 必须保持 Cjk" : ""));
+                        if (cl == null) continue;
+                        var ct = cl.GetComponentInChildren<TMPro.TMP_Text>(true);
+                        string cGot = ct != null && ct.font != null ? ct.font.name : null;
+                        string cTxt = cl.Text;
+                        bool cCjk = cTxt != null && Loc.HasCjk(cTxt);
+                        string cWant = cCjk ? "NotoSerifCJK-Regular SDF" : cdwAsset[ci];
+                        Check(cGot == cWant,
+                              $"★ A1024③/批2–4：展示窗 `{cdwName[ci]}` 的实际字体 = `{cWant}`"
+                            + $"（文本「{Short(cTxt, 18)}」{(cCjk ? "含汉字 ⇒ 汉字闸回 CJK" : "纯拉丁")}），实得 `{cGot}`"
+                            + (ci == 3 ? " —— 🧨 按普查表那一行（Asar 名单漏了这颗）当成 Pragati ⇒ 本条红" : ""));
+                    }
+                }
+
                 // ---- 🆕 W5：**开窗那一拍**（原版窗根那颗 `Animation` + legacy clip `Card Display Open`）----
                 // 判据 = clip 原文**逐值**读出（全部落在 `Core/CardFan.cs` 的「开窗那一拍」那一块）：
                 //   · 时长 **0.3166667 s**（20 个关键帧 = 19 帧 @60fps，最后那个 key 的 `time`）
@@ -8526,6 +8673,30 @@ public static class BattleScene
                             Object.DestroyImmediate(hitProbe.gameObject);
                         }
                     }
+                }
+
+                // ══ 🆕 **2026-10-17（`A1024`③ · 批 6）：卡面按层换面的抽查** ══
+                //    判据 → `资料/普查产出_1017/UI/R_A1024_字体按用途普查.md` §2·5 卡面那一行：
+                //      · `NameTextUnit*` / `NameTextTactic*` = **Asar**（卡名层）
+                //      · `DescTextUnit*` 等正文/数值层 = **Pragati**（正文层）
+                //    ⚠️ 读的是 TMP 组件上的**真 `font.name`**（`TitleText` / `KeywordsText` 是 `CardView` 的公开只读口），
+                //    ⛔ 不是 `TmpFont.Face` 那个枚举 —— 断「真的接上了那份资产」，不是断我们自己写的常量。
+                {
+                    var fd = CardData.Simple("FaceFontProbe", 3, 3, 4);
+                    fd.keywords = "Armour 2";            // 非空 ⇒ 正文层才建得出来
+                    var fc = CardView.Create(driver.transform, fd, "FaceFontProbe", CardFace.Full);
+                    Check(fc != null && fc.TitleText != null && fc.TitleText.font != null
+                       && fc.KeywordsText != null && fc.KeywordsText.font != null,
+                          "（前提）卡面探针的**卡名层 / 正文层**都建出来了（换面断言要读它们的 TMP 字体资产）");
+                    if (fc != null && fc.TitleText != null && fc.TitleText.font != null)
+                        Check(fc.TitleText.font.name == "Asar-Regular SDF",
+                              "★ 卡面**卡名层**的字体 = **Asar-Regular SDF**（原版 `NameTextUnit`/`NameTextTactic` 的 `m_fontAsset`），"
+                            + $"实得 `{fc.TitleText.font.name}` —— 🧨 整卡一刀切成 Pragati ⇒ 红");
+                    if (fc != null && fc.KeywordsText != null && fc.KeywordsText.font != null)
+                        Check(fc.KeywordsText.font.name == "Pragati-Regular SDF",
+                              "★ 卡面**正文层**的字体 = **Pragati-Regular SDF**（原版 `DescTextUnit*` 的 `m_fontAsset`），"
+                            + $"实得 `{fc.KeywordsText.font.name}` —— 🧨 整卡一刀切成 Asar ⇒ 红");
+                    if (fc != null) Object.DestroyImmediate(fc.gameObject);
                 }
 
                 // ---- 换位（原版 `ChangeCardPosition` + `CardSwapFinished`）----
@@ -11046,6 +11217,21 @@ public static class BattleScene
                 CheckA1212Label(sp.SliderLabelForTest(0), "`Music`", "…/Sliders/Music", 10f, 42f, 36f, 1);
                 CheckA1212Label(sp.SliderLabelForTest(1), "`Sound Effects`", "…/Sliders/Sound Effects", 10f, 42f, 36f, 1);
                 CheckA1212Label(sp.SliderLabelForTest(2), "`Voice-overs`", "…/Sliders/Voice-overs", 10f, 42f, 36f, 1);
+                // 🆕 **2026-10-17（`A1213③`）**：本面板另外 **4 组**四格（判据 = `menu_dump.py
+                //   bundle_scenes_scenes_battlearena1 "BattleSettingsPanel" --depth 5` 现读；
+                //   报告 `R_界面线剩余条目现核.md` §二·8 那张表）。四颗**全部** `auto=1`：
+                //   · Auto Zoom Toggle/Label     42 / base 36 / [29, 42] / 折行 1
+                //   · Resign Button/Button Text  38 / base 12 / [12, 38] / 折行 0
+                //   · SkipTutorial Button/…      同上（逐字段同形）
+                //   · LanguagesDropdown/Label    18 / base 14 / [18, 40] / 折行 0
+                CheckA1212Label(sp.AutoZoomLabelForTest, "`Auto zoom`", "…/Auto Zoom Toggle/Label",
+                                29f, 42f, 36f, 1, "A1213③");
+                CheckA1212Label(sp.ResignLabelForTest, "`Resign`", "…/Resign Button/Button Text",
+                                12f, 38f, 12f, 0, "A1213③");
+                CheckA1212Label(sp.SkipTutorialLabelForTest, "`Skip tutorial`", "…/SkipTutorial Button/Button Text",
+                                12f, 38f, 12f, 0, "A1213③");
+                CheckA1212Label(sp.LanguageCaptionForTest, "语言名", "…/LanguagesDropdown/Label",
+                                18f, 40f, 14f, 0, "A1213③");
 
                 // ---- 对手难度（🆕 2026-09-17：原版没有这个入口，旋钮在 `AIBotsConfig` 里）----
                 // 取值照原版 `DeckDifficultyLevel`（SuperEasy=0 / Easy=5 / Normal=10 / Hard=15）。
@@ -13357,10 +13543,64 @@ public static class BattleScene
                     Check(Mathf.Abs(dCharge - CardFeel.ChargeTime) < 1e-3f,
                           $"蓄力序列 {dCharge:F3}s == {CardFeel.ChargeTime:F2}s（卡预制体 `timeToChargeAttack`）");
                     // 飘字那条：时间轴必须**严格照 clip**（0.117 进 / 0.2 缩完 / 停到 1.667 / 1.833 消失）
-                    CardFeel.PopNumber(driver.transform, Vector3.zero, 1, false);
-                    float dPop = Dur(CardFeel.LastPopTween);
+                    // 🔴 **2026-10-17（`A1213②`）**：伤害 / 治疗已拆成两条路径（`Battle/PopNumber.cs`）。
+                    var popDmg = PopNumber.PopDamage(driver.transform, Vector3.zero, 1);
+                    var twDmg = PopNumber.LastPopTween;      // ⚠️ 先存下 —— 建治疗那件会把它覆盖掉
+                    float dPop = Dur(twDmg);
                     Check(Mathf.Abs(dPop - CardFeel.PopOut) < 1e-3f,
                           $"飘字序列 {dPop:F3}s == {CardFeel.PopOut:F3}s（`InBattleDamageCounter Variation 1`）");
+
+                    // ===== `A1213②` 两档拆分（判据 = 原版两颗 TMP 组件，见 `Battle/PopNumber.cs` 文件头） =====
+                    // ① 字面量：Damage `5.5 / 0.35 / 5.5 / 36 · auto 1 · RT 1.54`；Heal `0.7 / 0.35 / 1.4 / 36 · auto 0 · RT 1.0`
+                    Check(Mathf.Abs(PopNumber.DamageFontSize - 5.5f) < 1e-4f
+                          && Mathf.Abs(PopNumber.DamageFontSizeMin - 0.35f) < 1e-4f
+                          && Mathf.Abs(PopNumber.DamageFontSizeMax - 5.5f) < 1e-4f
+                          && Mathf.Abs(PopNumber.DamageFontSizeBase - 36f) < 1e-4f
+                          && Mathf.Abs(PopNumber.DamageLocalScale - 1.54f) < 1e-4f
+                          && PopNumber.DamageAutoSizing
+                          && Mathf.Abs(PopNumber.HealFontSize - 0.7f) < 1e-4f
+                          && Mathf.Abs(PopNumber.HealFontSizeMax - 1.4f) < 1e-4f
+                          && !PopNumber.HealAutoSizing,
+                          "★ 飘字两档四格 = 原版字面量（Damage 5.5/0.35/5.5/36 · auto 1 · 自己的 RT 1.54；"
+                        + "Heal 0.7/1.4 · auto 0）");
+
+                    var popHeal = PopNumber.PopHeal(driver.transform, Vector3.zero, 1);
+                    var twHeal = PopNumber.LastPopTween;
+                    if (popDmg != null && popHeal != null)
+                    {
+                        // ② 灭自证：**实绘**字号比 = 原版 `(5.5 × 1.54) : 0.7` = 12.1。
+                        //    🧨 改坏法：两档并回同一套参数（旧实现那样，一个 `SetCapHeight` 走两档）
+                        //    ⇒ 两个 `FontPxNow` 相等、这里恒 1.00 ⇒ 当场红。
+                        //    （判据里刻意写**原版字面量** `5.5f * 1.54f / 0.7f`，⛔ 不用我们自己的常量当靶。）
+                        float rDmg = popDmg.FontPxNow, rHeal = popHeal.FontPxNow;
+                        float ratio = rHeal > 0f ? rDmg / rHeal : 0f;
+                        Check(Mathf.Abs(ratio - (5.5f * 1.54f) / 0.7f) < 0.05f,
+                              $"★ 伤害 : 治疗 的实绘字号比 = {ratio:F2} : 1 == 原版 (5.5×1.54) : 0.7 = 12.10"
+                            + $"（实测 {rDmg:F2}px / {rHeal:F2}px）"
+                            + "｜🧨 改坏法：两档并回同一套参数 ⇒ 这里恒 1.00");
+                        // ③ 自适应档：原版 Damage `auto=1`、Heal `auto=0`
+                        Check(popDmg.AutoSizing && !popHeal.AutoSizing,
+                              $"★ 自适应档照原版：伤害 auto=1（实测 {popDmg.AutoSizing}）· "
+                            + $"治疗 auto=0（实测 {popHeal.AutoSizing}）"
+                            + "｜🧨 改坏法：两档共用一条 ⇒ 治疗也被打开自适应");
+                        // ④ 折行：原版两颗都是 0（`SetAutoFitBox` 内部会顺带开成 1 ⇒ 必须还原）
+                        Check(popDmg.WrappingMode == 0 && popHeal.WrappingMode == 0,
+                              $"★ 折行照原版 = 0（实测 {popDmg.WrappingMode} / {popHeal.WrappingMode}）");
+                        // ⑤ 自适应四格的**比值**（我们这边是 fontSize 单位，绝对值随标称字号走）：
+                        //    min/max = 0.35/5.5 · base/max = 36/5.5。
+                        float dMin = popDmg.FontSizeMin, dMax = popDmg.FontSizeMax, dBase = popDmg.FontSizeBase;
+                        Check(dMax > 0f
+                              && Mathf.Abs(dMin / dMax - 0.35f / 5.5f) < 1e-3f
+                              && Mathf.Abs(dBase / dMax - 36f / 5.5f) < 1e-3f,
+                              $"★ 伤害档自适应四格的比值照原版：min/max = {dMin / Mathf.Max(dMax, 1e-6f):F4}"
+                            + $"（原版 0.35/5.5）· base/max = {dBase / Mathf.Max(dMax, 1e-6f):F3}（原版 36/5.5）"
+                            + $" ⇒ 实测 min {dMin:F3} / max {dMax:F3} / base {dBase:F3}");
+                    }
+                    else Check(false, "（前提）两档飘字都建得起来");
+                    DG.Tweening.TweenExtensions.Kill(twDmg, false);
+                    DG.Tweening.TweenExtensions.Kill(twHeal, false);
+                    if (popDmg != null) { if (Application.isPlaying) Object.Destroy(popDmg.gameObject); else Object.DestroyImmediate(popDmg.gameObject); }
+                    if (popHeal != null) { if (Application.isPlaying) Object.Destroy(popHeal.gameObject); else Object.DestroyImmediate(popHeal.gameObject); }
 
                     if (Application.isPlaying) Object.Destroy(probe.gameObject);
                     else Object.DestroyImmediate(probe.gameObject);
@@ -20943,6 +21183,82 @@ public static class BattleScene
                     driver.BeginTutorial(0);
                     Check(driver.TutorialView != null,
                           "★ 教程表现层挂出来了（`TutorialOverlay` 建在 `HudRoot` 下 —— 原版那棵树在 `battlearena1` 的 `Tutorial` 根）");
+                    // ---- ①·b 🆕 2026-10-17（`N49①`）：四颗教学标注的**细黑描边** ----
+                    // 判据 = 原版材质 `bundle_fonts_assets_all/Material/Material_751232751962157263.json`
+                    //   「`Asar-Regular Light Grey w outline thin`」：`_OutlineWidth 0.10` · `_FaceDilate 0.10` ·
+                    //   `_OutlineSoftness 0` · `_OutlineColor (0,0,0,1)`；落点 `Battle/TutorialOverlay.ApplyThinOutline`。
+                    if (driver.TutorialView != null)
+                    {
+                        int outlined = 0;
+                        bool sharedDirty = false;
+                        for (int ai = 0; ai < 4; ai++)
+                        {
+                            var al = driver.TutorialView.AnnoLabel(ai);
+                            var at = al != null ? al.GetComponent<TMPro.TMP_Text>() : null;
+                            var am = at != null ? at.fontMaterial : null;
+                            if (am == null) continue;
+                            bool okW = Mathf.Abs(am.GetFloat(TMPro.ShaderUtilities.ID_OutlineWidth) - 0.10f) < 1e-4f;
+                            bool okD = Mathf.Abs(am.GetFloat(TMPro.ShaderUtilities.ID_FaceDilate) - 0.10f) < 1e-4f;
+                            bool okS = Mathf.Abs(am.GetFloat(TMPro.ShaderUtilities.ID_OutlineSoftness)) < 1e-4f;
+                            var oc = am.GetColor(TMPro.ShaderUtilities.ID_OutlineColor);
+                            bool okC = oc.r < 1e-3f && oc.g < 1e-3f && oc.b < 1e-3f;
+                            if (okW && okD && okS && okC) outlined++;
+                            var sm = at.fontSharedMaterial;
+                            if (sm != null && Mathf.Abs(sm.GetFloat(TMPro.ShaderUtilities.ID_OutlineWidth) - 0.10f) < 1e-4f)
+                                sharedDirty = true;
+                        }
+                        Check(outlined == 4,
+                              $"★ 四颗教学标注都上了原版那圈**细黑描边**（`_OutlineWidth 0.10` / `_FaceDilate 0.10` / "
+                            + $"`_OutlineSoftness 0` / 黑；四颗里对得上的 = {outlined}）"
+                            + "｜🧨 删掉 `TutorialOverlay.Build` 里那句 `ApplyThinOutline(_annoLabels[i])` ⇒ 本条红");
+                        // 🔴 **灭自证（不许碰共享材质）**：原版值必须只落在**实例材质**上 —— 谁把
+                        //    `fontMaterial` 换成 `fontSharedMaterial`，字体资产那份就会被永久写脏（`Resources/` 里
+                        //    那份 `.asset` 是 git 跟踪的）⇒ 这一条抓的是「共享材质的 `_OutlineWidth` 仍是 0」。
+                        Check(!sharedDirty,
+                              "★ **灭自证（实例材质）**：字体资产那份**共享材质**的 `_OutlineWidth` 没被改成 0.10"
+                            + "（原版 `NotoSerifCJK-Regular SDF Material` 的 `_OutlineWidth = 0`）"
+                            + "｜🧨 把 `ApplyThinOutline` 里的 `t.fontMaterial` 改成 `t.fontSharedMaterial` ⇒ 本条红");
+
+                        // ══ 🆕 **2026-10-17（`A1024`③ 批 2–4）：教程覆盖层八颗字的面** ══
+                        //    判据 = 原版 TMP 的 `m_fontAsset`（现读 `battle1_tmp.tsv`；普查表 §二附录
+                        //    「战斗教程覆盖」那一行写明的**唯一判据**）：
+                        //      `TutorialTip/Generic Popup Background/TipText` = **Pragati**（fs36）
+                        //      `TutorialTip/ContinueText`                    = **Asar**（fs4.5）
+                        //      `InitTutorialTip/TipText` · `TipText (1)`     = **Asar**（fs5.2，两颗）
+                        //      `TutorialObjs/{Melee,Ranged,Health,Energy}Text` = **Asar**（fs30，四颗）
+                        //    ⚠️ 标注四颗的材质判据（`Asar-Regular Light Grey w outline thin`，见上面 `N49①`）
+                        //    与这一行**互相印证**；⛔ 别按「提示条都是 Pragati」一刀切（`ContinueText` 是 Asar 例外）。
+                        {
+                            var tv = driver.TutorialView;
+                            string[] tvName = { "TipText", "ContinueText", "InitTipText", "InitTipText (1)",
+                                                "MeleeText", "RangedText", "HealthText", "EnergyText" };
+                            TmpFont.Face[] tvFace = { TmpFont.Face.LatinCardBody, TmpFont.Face.LatinUi,
+                                                      TmpFont.Face.LatinUi, TmpFont.Face.LatinUi,
+                                                      TmpFont.Face.LatinUi, TmpFont.Face.LatinUi,
+                                                      TmpFont.Face.LatinUi, TmpFont.Face.LatinUi };
+                            string[] tvAsset = { "Pragati-Regular SDF", "Asar-Regular SDF",
+                                                 "Asar-Regular SDF", "Asar-Regular SDF",
+                                                 "Asar-Regular SDF", "Asar-Regular SDF",
+                                                 "Asar-Regular SDF", "Asar-Regular SDF" };
+                            for (int ti = 0; ti < 8; ti++)
+                            {
+                                var tl = ti < 2 ? tv.TipLabel(ti) : (ti < 4 ? tv.InitLabel(ti - 2) : tv.AnnoLabel(ti - 4));
+                                var tt = tl != null ? tl.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+                                string tGot = tt != null && tt.font != null ? tt.font.name : null;
+                                string tTxt = tl != null ? tl.Text : null;
+                                bool tCjk = tTxt != null && Loc.HasCjk(tTxt);
+                                string tWant = tCjk ? "NotoSerifCJK-Regular SDF" : tvAsset[ti];
+                                Check(tl != null && tl.Face == tvFace[ti],
+                                      $"★ A1024③/批2–4：教程覆盖 `{tvName[ti]}` 被点名 = **{tvFace[ti]}**"
+                                    + $"（原版同节点 `m_fontAsset` = {tvAsset[ti]}），"
+                                    + $"实得 `{(tl != null ? tl.Face : TmpFont.Face.Cjk)}`"
+                                    + (ti == 0 ? " —— 🧨 把提示条整族当成 Asar ⇒ 本条红" : ""));
+                                Check(tGot == tWant,
+                                      $"★ A1024③/批2–4：教程覆盖 `{tvName[ti]}` 的实际字体 = `{tWant}`"
+                                    + $"（文本「{Short(tTxt, 18)}」{(tCjk ? "含汉字 ⇒ 汉字闸回 CJK" : "纯拉丁")}），实得 `{tGot}`");
+                            }
+                        }
+                    }
                     // 🔴 **2026-10-18（A991）**：这一句原来断的是 `TutorialView.SkipVisible` —— 那时那颗钮
                     //   建在 `TutorialOverlay` 那棵 **HUD 子树**上（**落点错**）。原版那颗钮的父链是
                     //   `SkipTutorial Button → Bottom buttons → **BattleSettingsPanel**`（13/13 场景同构、
@@ -24350,6 +24666,29 @@ public static class BattleScene
         var tail = new int[2] { pass, fail };
         CheckSavedScene(tail);
         pass = tail[0]; fail = tail[1];
+        // ============================================================ 🆕 **2026-10-17（`A1227`）**
+        //   现核：全仓写 `_tmp.alignment` 只有 `Label.SetAlignLeft` 一处；`SetWrapWidth` 只写
+        //   `textWrappingMode` + `sizeDelta`（`TmpFont.SetWrapWidthRect`）—— 但旧账说「未激活时会把
+        //   alignment 改成 Left」（可能来自 TMP 内部 `GenerateTextMesh`）。这条做一次**极小复现**：
+        //   未激活父链 → 建 Center 标签 → `SetWrapWidth` → 激活 → 读 `alignment`。
+        //   复现不出 ⇒ 按「已被 `A266` 顺带消掉」结案（见 `资料/普查产出_1017/UI/R_界面线剩余条目现核.md`）。
+        Debug.Log(P + "--- A1227：`SetWrapWidth` 在未激活父链上会不会改 `alignment` ---");
+        {
+            var probeHost = new GameObject("A1227Probe");
+            probeHost.SetActive(false);
+            var probeLb = Label.Create(probeHost.transform, "probe", Vector3.zero, 5, Color.white,
+                                       new Vector2(0.5f, 0.5f), "probe");
+            int alignBefore = probeLb != null ? probeLb.AlignmentForTest : -2;
+            if (probeLb != null) probeLb.SetWrapWidth(2f);
+            probeHost.SetActive(true);
+            int alignAfter = probeLb != null ? probeLb.AlignmentForTest : -2;
+            Debug.Log($"[A1227] 未激活父链下 `SetWrapWidth`：activation 前 alignment = {alignBefore} · 后 = {alignAfter}");
+            Check(alignAfter == alignBefore,
+                  "★ A1227：`SetWrapWidth`（未激活时调）**没有**改 `alignment` —— 改回 Left 就红"
+                + "｜复现不出 ⇒ 本条按「已被 A266 顺带消掉」结案");
+            Object.DestroyImmediate(probeHost);
+        }
+
         Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);

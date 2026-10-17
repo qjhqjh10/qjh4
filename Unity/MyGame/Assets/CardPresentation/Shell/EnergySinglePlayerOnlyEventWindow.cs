@@ -397,10 +397,10 @@ namespace CardPresentation
             //   框 **594.81 × 54.68**（与本文件 `RTileR` 逐位同值）。
             //   ⚠️ 原版**折行 = 1** ⇒ 传 `wrapPx` 与它同档，⛔ 不要补 `SetWrapping(false)`。
             MenuDraw.Text(rp, RTileR, "Progression", Color.white, "Reward Tile", 45.87f, QText,
-                          RTileR.W, 18f, 45.87f, 36f);
+                          RTileR.W, 18f, 45.87f, 36f, face: TmpFont.Face.LatinCardBody);
             // `Reward Help`：**出厂 act = F** ⇒ 建出来、**关着**（同族先例：`Banned card in deck`）
             var help = MenuDraw.TextBox(rp, RHelpR, "Win battles to progress in the event and unlock rewards.",
-                                        Color.white, "Reward Help", 38f, 18f, QText, 38f, 36f);
+                                        Color.white, "Reward Help", 38f, 18f, QText, 38f, 36f, face: TmpFont.Face.LatinCardBody);
             if (help != null) help.transform.gameObject.SetActive(false);
             BuildPlayerVictories(rp);
             // `PLayer Victories`（原版这个名字里 `P` 是大写 —— 照抄，⛔ 别顺手改成 `Player`）
@@ -433,9 +433,12 @@ namespace CardPresentation
             _collect = MenuDraw.Node(bar, "Generic Simplified UI Button", CollectR);
             var cb = MenuDraw.Rect(_collect, Art(ArtMulligan), CollectR, "Bg", QArt1, null, true);
             _collectBg = cb != null ? cb.transform : null;
-            var ct = MenuDraw.Text(_collect, CollectTxR, "Collect", Color.white, "Button Text",
+            // 🆕 **2026-10-17（界面线 `T07` · `A1753` #12）**：原版 `Collect Button ▸ Button Text` 挂
+            //   `Pragati-Regular Off White Cold`，`_FaceColor = (0.912, 0.981, 0.961)`、顶点白。
+            //   判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·2 #12（同族另一站 `SkirmishEventWindow` 由别的写手改）。
+            var ct = MenuDraw.Text(_collect, CollectTxR, "Collect", new Color(0.912f, 0.981f, 0.961f, 1f), "Button Text",
                                    55f * SBarFontScale, QText, CollectTxR.W,
-                                   10f * SBarFontScale, 55f * SBarFontScale, 12f * SBarFontScale);
+                                   10f * SBarFontScale, 55f * SBarFontScale, 12f * SBarFontScale, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-19（A1190）**：这一颗原来**没传 autosize 实参** ⇒ 固定 55px。
             //   判据 = 逐颗现读原版那一颗（`工具/menu_dump.py bundle_menus_assets_all
             //   "EnergySinglePlayerOnlyEventWindow" --depth 10 --md`）：
@@ -542,7 +545,7 @@ namespace CardPresentation
                 //   ⚠️ 折行 1 ⇒ ⛔ 不补 `SetWrapping(false)`。
                 var sc = MenuDraw.Text(row, sr, "1256", Color.white, "Score",
                                        48f * ScoreFontScale, QText, sr.W,
-                                       18f * ScoreFontScale, 48f * ScoreFontScale, 36f * ScoreFontScale);
+                                       18f * ScoreFontScale, 48f * ScoreFontScale, 36f * ScoreFontScale, face: TmpFont.Face.LatinCardBody);
                 // 🔴 **2026-10-19（A1197）**：四格字号 **全部 × `ScoreFontScale`（1.1478264）** ——
                 //   这颗的祖先链是 `Scoring Bar Event Score Info`(1.32) ← `Skull`(**0.86956543**) ← `Score`，
                 //   而原版 prefab 里的 48/18/48/36 是**未缩放**的值 ⇒ 原版屏上字号 = 48 × 1.1478264 = **55.096**。
@@ -584,7 +587,7 @@ namespace CardPresentation
             //   `254.112 vs 176.98` = 我们**宽 44%** ⇒ 开自适应**不会缩字号**；两边的残差只在
             //   「运行期文案变长」那一档（原版**撑框**、我们**缩字**），见 `Open()` 里那句出声。
             var vt = MenuDraw.Text(pv, vtR, "Victories: ", Color.white, "Vicotries title", 53.5f, QText,
-                                   vtR.W, 18f, 53.5f, 36f);
+                                   vtR.W, 18f, 53.5f, 36f, face: TmpFont.Face.LatinCardBody);
             // 🔴 **A1178**：量 preferred width ⇒ 把框收成它（= 原版 CSF 那一档）。
             //   ⚠️ `SetAutoFitBox` 会**再跑一次自适应**（原版 CSF 撑完框也要重排一次，语义同）；
             //   它的 `SetWrapWidth` 顺手把折行模式开成 `Normal` —— 本颗原版就是 **折行 1** ⇒ 不用还原。
@@ -600,7 +603,7 @@ namespace CardPresentation
             //   运行期框宽 = 文字的 preferred width）。
             //   ⚠️ 原版**折行 = 1** ⇒ 传 `wrapPx` 与它同档，⛔ 不要补 `SetWrapping(false)`。
             var tt = MenuDraw.Text(pv, ttR, "751", Color.white, "Total Victories", 77f, QText,
-                                   ttR.W, 18f, 77f, 36f);
+                                   ttR.W, 18f, 77f, 36f, face: TmpFont.Face.LatinCardBody);
             float ttW = PreferredWidthPx(tt, "Total Victories");
 
             // 🔴🆕 **2026-10-17（A1245 + A1246）：整行按原版那条 `HorizontalLayoutGroup` 重排。**
@@ -712,7 +715,7 @@ namespace CardPresentation
             //   ⇒ 按本窗既有口径**照 prefab 原文**，⛔ 不猜译文。下面 `TimerDisplay.Attach` 用同一格。
             const string TimerPrefix = "Termina en: ";
             var tx = MenuDraw.Text(tm, txR, TimerPrefix + "23d 5h", Color.white, "Timer", 38f, QText,
-                                   txR.W, 10f, 38f, 38f);
+                                   txR.W, 10f, 38f, 38f, face: TmpFont.Face.LatinCardBody);
             if (tx != null) tx.SetWrapping(false);
             // 🔴 **A1178**：量 preferred width ⇒ 把框收成它（= 原版 CSF 那一档）。
             float txW = PreferredWidthPx(tx, "Timer");
@@ -767,13 +770,13 @@ namespace CardPresentation
                                   + "<color=#E27E1B>Skirmish</color> or <color=#E27E1B>Draft</color> "
                                   + "matches as one of the participating factions to advance the reward track.";
             var a = MenuDraw.TextBox(ins, InsScoreR, TxtScore, Color.white, "Scoring Instructions",
-                                     41.1f, 18f, QText, 50f, 36f);
+                                     41.1f, 18f, QText, 50f, 36f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(a, InsScoreR);
             // `Energy Instructions`：`{0}` **照 prefab 原文**（判据见文件头那一段）
             const string TxtEnergy = "Energy is consumed when you begin a match with one of the participating "
                                    + "factions. You recover 1 Energy every {0} minutes.";
             var b = MenuDraw.TextBox(ins, InsEnergyR, TxtEnergy, Color.white, "Energy Instructions",
-                                     44.35f, 18f, QText, 72f, 50f);
+                                     44.35f, 18f, QText, 72f, 50f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(b, InsEnergyR);
             // `Scoring Icon`：原版 `m_Sprite` 出厂就是 **null**（运行时由 `scoringIcon` 字段灌）
             MenuDraw.Node(ins, "Scoring Icon", InsIconScR);
@@ -800,7 +803,7 @@ namespace CardPresentation
             //   上限照实传 **45.87**（同 `label.SetAutoFitBox` 那条「上限不能取 `_tmp.fontSize`」的血证）。
             //   ⚠️ 折行 1 ⇒ ⛔ 不补 `SetWrapping(false)`。
             var ft = MenuDraw.Text(asp, FacTitleR, "Factions", Color.white, "Factions Title", 44.65f, QText,
-                                   FacTitleR.W, 18f, 45.87f, 36f);
+                                   FacTitleR.W, 18f, 45.87f, 36f, face: TmpFont.Face.LatinUi);
             MenuDraw.AlignLeft(ft, FacTitleR);
             // `Army Selector`（原版 `ScrollRect` + `CustomRaycaster` + `ShowEventArmiesPanel`）
             var sel = MenuDraw.Node(asp, "Army Selector", ArmySelR);
@@ -817,7 +820,7 @@ namespace CardPresentation
                     + " 原版 `ShowEventArmiesPanel` 按**活动阵营表**逐阵营 `Instantiate`，本地没有那份表。");
             var fi = MenuDraw.TextBox(asp, FactionInsR,
                                       "Play with any of these factions to take part in the event.",
-                                      Color.white, "Faction instructions", 42.95f, 18f, QText, 72f, 36f);
+                                      Color.white, "Faction instructions", 42.95f, 18f, QText, 72f, 36f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(fi, FactionInsR);
         }
 

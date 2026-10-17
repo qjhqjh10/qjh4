@@ -269,8 +269,10 @@ namespace CardPresentation
             //      ⇒ 下面 `Show()` 里那几句都加了空判（原来 `Label.Create` 恒非 null，没这个必要）。
             _title = HudCanvas.MakeText(_content, "", 0f, 280f, 6, Color.white,
                                         new Vector2(0.5f, 0.5f), BattleDoors.ZContent, "end_title");
+            // A1024③ 判不出（原版 `EndBattlePanel` 子树无 result 标题字）⇒ 保持 `Face.Cjk`，⛔ 不猜
             _sub = HudCanvas.MakeText(_content, "", 0f, -190f, 2, new Color(0.8f, 0.8f, 0.85f),
                                       new Vector2(0.5f, 0.5f), BattleDoors.ZContent, "end_sub");
+            // A1024③ 判不出（同上）⇒ 保持 `Face.Cjk`
 
             // 骷髅行：底板 648.1×52.4，三个 64.3×71.2 的骷髅（尺寸是原版 dump 的）
             // ⚠️ 纵向位置按 `AllRewardsHolder` 的锚点 (0,-260) 排（见上面那段）

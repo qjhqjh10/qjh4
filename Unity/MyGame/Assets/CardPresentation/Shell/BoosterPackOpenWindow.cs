@@ -502,7 +502,7 @@ namespace CardPresentation
 
             // ⑤ `Tap to discover`（原版**开窗是关着的**）
             DiscoverNode = MenuDraw.Node(transform, "Tap to discover", HintR);
-            var dl = MenuDraw.Text(DiscoverNode, HintR, DiscoverText, HintColor, "Text", HintPx, QHint);
+            var dl = MenuDraw.Text(DiscoverNode, HintR, DiscoverText, HintColor, "Text", HintPx, QHint, face: TmpFont.Face.LatinCardBody);
             if (dl != null) MenuDraw.AlignRight(dl, HintR);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版 `m_VerticalAlignment = 8192 (Capline)`
             //   （判据 = 文件头那两条读数；横向 `m_HorizontalAlignment = 4 (Right)` 已经在上一句里）。
@@ -511,7 +511,7 @@ namespace CardPresentation
 
             // ⑥ `Tap to close`（+ 子 `Collider` 盖满整屏）—— 同样先关着
             CloseNode = MenuDraw.Node(transform, "Tap to close", HintR);
-            var cl = MenuDraw.Text(CloseNode, HintR, CloseText, HintColor, "Text", HintPx, QHint);
+            var cl = MenuDraw.Text(CloseNode, HintR, CloseText, HintColor, "Text", HintPx, QHint, face: TmpFont.Face.LatinCardBody);
             if (cl != null) MenuDraw.AlignRight(cl, HintR);
             // 🆕 **2026-10-16（A712 阶段 2）**：同上（两条同档 `Capline`）。⚠️ `BindBlink(cl)` 排在后面 ——
             //   `SetVAlign` 会 `RefreshBounds()` 重排一次（**不改颜色**），`BlinkGraphic.Restart()` 读的是出厂色
@@ -650,7 +650,7 @@ namespace CardPresentation
             float btw = 1.1515f * CardK, bth = 0.2143f * CardK;
             var btR = new PxRect(bcx - btw * 0.5f, bcy - bth * 0.5f, bcx + btw * 0.5f, bcy + bth * 0.5f);
             var bt = MenuDraw.Text(badge, btR, NewBadgeText, new Color(1f, 0.78f, 0f, 1f), "Text",
-                                   27.7f * 0.01f * CardK, q0 + 3);
+                                   27.7f * 0.01f * CardK, q0 + 3, face: TmpFont.Face.LatinCardBody);
             if (bt != null) MenuDraw.AlignLeft(bt, btR);          // 原版 `m_HorizontalAlignment = 1 (Left)`
             NewBadges[i] = badge.gameObject;
             badge.gameObject.SetActive(false);   // `SetRawCardData` 一进来就关（见文件头那张表）
@@ -663,7 +663,7 @@ namespace CardPresentation
                                   cx + banSide * 0.5f, cy + banSide * 0.5f);
             var ban = MenuDraw.Node(content, "Ban Icon", banR);
             MenuDraw.Rect(ban, Art("40k_Cross_icon_cross_big_Banned_card"), banR, "Image", q0 + 3);
-            var bt2 = MenuDraw.Text(ban, banR, BannedText, Color.white, "Banned Text", 0.25f * CardK, q0 + 3);
+            var bt2 = MenuDraw.Text(ban, banR, BannedText, Color.white, "Banned Text", 0.25f * CardK, q0 + 3, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版这一颗的 `m_fontSizeBase` **原文**。
             //    判据（原版实读）：`/Booster Pack Open Window/…/Ban Icon/Banned Text`
             //    `m_fontSize 0.25` · `auto[0.25~72]` · **`m_fontSizeBase 36.0`**（逐站表 §二·3 #12；

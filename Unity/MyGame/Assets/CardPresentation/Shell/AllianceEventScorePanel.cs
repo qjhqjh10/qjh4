@@ -112,7 +112,7 @@ namespace CardPresentation
             //   ① `Alliance Name`（TMP fs 40.85 · 基准 36 · auto[18~72] · Center/Midline · **折行=0**）
             var nmR = Off(NameR, x1, y1);
             var nm = MenuDraw.Text(_inAlliance, nmR, PlaceholderName, Color.white, "Alliance Name",
-                                   40.85f, QText);
+                                   40.85f, QText, face: TmpFont.Face.LatinUi);
             // 折行=0 ⇒ 不走 `TextBox` 那条（`SetWrapWidth`）；自适应用的框仍然要给（原版 `m_enableAutoSizing`）。
             if (nm != null) nm.SetAutoFitBox(LayoutSpace.Px(nmR.W), LayoutSpace.Px(nmR.H), 18f, 72f, 36f);
             _name = nm != null ? nm.transform : null;
@@ -130,7 +130,7 @@ namespace CardPresentation
             //   （`Ranked Division Info/RankedEventWindow[*]` 的 `LeaderboardButton`）· **本面板**（这一颗 +
             //   下面那颗 `Leaderboard Button`）· 头像页（`Profile Tab > Ranking > Current Rank/Highest Rank`）。
             //   英文列 = TMP 原文 `Leaderboard`；中文列 = `zh_CN.csv:119`「排行榜」。
-            MenuDraw.Text(_viewLb, vtx, Loc.T("MainMenu/RankedWindow/Leaderboard"), Color.white, "Button Text", 40f, QText);
+            MenuDraw.Text(_viewLb, vtx, Loc.T("MainMenu/RankedWindow/Leaderboard"), Color.white, "Button Text", 40f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.Hit(_viewLb, "ButtonHit", vr, QHit, OnLeaderboardClick, vbg, ArtMulligan,
                          ArtMulligan + "_hover", ArtMulligan + "_Pressed",
                          clickCue: WindowSounds.PositiveCue);
@@ -151,7 +151,7 @@ namespace CardPresentation
             //   （⚠️ 那条的英文串是 `Join an Alliance for extra Rewards`，与我们这串**不同** ⇒ 属最近邻、不是精确命中）。
             //   ⛔ 节点名 `"Join Alliance text"` 与那串字号/基准实参没动。
             var jt = MenuDraw.TextBox(_noAlliance, jtR, Loc.T("SocialMenu/Alliances/JointToEarnRewards"),
-                                      Color.white, "Join Alliance text", 41.4f, 18f, QText, 41.4f, 36f);
+                                      Color.white, "Join Alliance text", 41.4f, 18f, QText, 41.4f, 36f, face: TmpFont.Face.LatinCardBody);
             if (jt != null) { /* hAlign = Center/Middle ⇒ 不调 Align* */ }
             var jbR = Off(JoinBtnR, x1, y1);
             _joinBtn = MenuDraw.Node(_noAlliance, "Join Alliances Button", jbR);
@@ -165,7 +165,7 @@ namespace CardPresentation
             //   英文列 = 那颗 TMP 的 `m_text` 原文 `Search`；中文列 = 「搜索」(`zh_CN.csv:10`)。
             //   ⛔ 节点名 `"Button Text"` 不动（`Editor/MainMenuScene.cs` 的 §A103 那一节按名找它）。
             MenuDraw.Text(_joinBtn, Off(JoinBtnTxR, x1, y1), Loc.T("MenuDeck/HUD/SearchFilter"),
-                          Color.white, "Button Text", 36f, QText);
+                          Color.white, "Button Text", 36f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.Hit(_joinBtn, "ButtonHit", jbR, QHit, OnJoinAllianceClick, jbg, ArtMulligan,
                          ArtMulligan + "_hover", ArtMulligan + "_Pressed",
                          clickCue: WindowSounds.PositiveCue);
@@ -176,7 +176,7 @@ namespace CardPresentation
             //   见上面 `View Leaderboard Button` 那颗的注释）。本颗的父链实测 =
             //   `Button Text < Leaderboard Button < No Alliance < Alliance Event Score Panel < …` ⇒ 与我们的逐节同名。
             MenuDraw.Text(_noLb, Off(NoLbTxR, x1, y1), Loc.T("MainMenu/RankedWindow/Leaderboard"),
-                          Color.white, "Button Text", 36f, QText);
+                          Color.white, "Button Text", 36f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.Hit(_noLb, "ButtonHit", lbR, QHit, OnLeaderboardClick, lbg, ArtMulligan,
                          ArtMulligan + "_hover", ArtMulligan + "_Pressed",
                          clickCue: WindowSounds.PositiveCue);
@@ -236,6 +236,9 @@ namespace CardPresentation
         {
             Debug.Log("[Alliance] `Join Alliances Button` 点了 ⇒ **如实提示「暂无服务器」**"
                     + "（原版 `JoinAllianceButtonClick()` 打开找联盟那一页；本地没有 group service）。");
+            // ⚠️ **这句是【我们自拟】的**（2026-10-17 `N37②` 现读官方 13 语言表：`Alliances are not
+            //   available offline.` **0 命中**）。原版**没有离线分支**（联盟/联盟榜全在远端 group service、
+            //   服务器一直在线）⇒ 没有对应词条可接，⛔ 别硬套官方键。
             Offline("Alliances are not available offline.");
         }
 
@@ -244,9 +247,14 @@ namespace CardPresentation
             Debug.Log("[Alliance] `Leaderboard Button` 点了 ⇒ **如实提示「暂无服务器」**"
                     + "（原版 `LeaderboardButtonClick()` 按 `leaderboardToOpen` 开 `leaderboardPopup`；"
                     + "本地没有联盟榜数据）。");
+            // ⚠️ **这句是【我们自拟】的**（2026-10-17 `N37②` 现读官方 13 语言表：
+            //   `The alliance leaderboard is not available offline.` **0 命中**）；原版无离线分支
+            //   ⇒ 无对应词条可接，⛔ 别硬套官方键（与上面 `Join Alliances` 那条同族）。
             Offline("The alliance leaderboard is not available offline.");
         }
 
+        /// <summary>那条离线提示 —— ⚠️ 文案是**我们自拟**的（原版服务器一直在线、没有离线分支；
+        /// 官方 13 语言表对这两句 0 命中）⇒ 无对应词条可接（2026-10-17 `N37②`）。</summary>
         static void Offline(string msg)
         {
             if (WindowsManager.Instance != null)

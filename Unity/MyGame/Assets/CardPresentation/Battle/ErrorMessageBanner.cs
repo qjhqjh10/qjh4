@@ -549,12 +549,16 @@ namespace CardPresentation
 
             t.text = _ugui
                    ? HudCanvas.MakeText(t.root, "ERROR MESSAGE CONTENT", 0f, -(PadT - PadB) * 0.5f, 1,
-                                        new Color(0.801886796951294f, 0f, 0f, 1f), new Vector2(0.5f, 0.5f), ZText, "ErrorMesage Text")
+                                        new Color(0.801886796951294f, 0f, 0f, 1f), new Vector2(0.5f, 0.5f), ZText, "ErrorMesage Text", face: TmpFont.Face.LatinCardBody)
                    : Label.Create(t.root, "ERROR MESSAGE CONTENT",
                                   new Vector3(0f, U(-(PadT - PadB) * 0.5f), ZText), 1,
                                   new Color(0.801886796951294f, 0f, 0f, 1f), new Vector2(0.5f, 0.5f), "ErrorMesage Text");
             if (t.text != null)
             {
+                // 🔴 2026-10-17（A1024③ 第 2 批）：原版 `ErrorMesage Text` = Pragati（两档都过这里；
+                //    uGUI 档已在 `MakeText` 换过 ⇒ 同面早退）。必须在 `SetScriptHeight` 之前 ——
+                //    定字号按 `ActualFace` 的 em 换算（判据 → `Label.TmpFontSize`）。
+                t.text.SetFace(TmpFont.Face.LatinCardBody);
                 t.text.SetScriptHeight("ERROR MESSAGE CONTENT", _preset.FontPx, _ugui ? 1f : 108f);
                 t.text.SetRenderQueue(QText);       // uGUI 档是有注释的空操作（层级归画布管）
             }
@@ -638,10 +642,12 @@ namespace CardPresentation
             {
                 it.text = _ugui
                         ? HudCanvas.MakeText(it.root, text, 0f, 0f, 1, color,
-                                             new Vector2(0.5f, 0.5f), ZText, "ErrorMesage Text")
+                                             new Vector2(0.5f, 0.5f), ZText, "ErrorMesage Text", face: TmpFont.Face.LatinCardBody)
                         : Label.Create(it.root, text, new Vector3(0f, 0f, ZText), 1,
                                        color, new Vector2(0.5f, 0.5f), "ErrorMesage Text");
                 if (it.text != null) it.text.SetRenderQueue(QText);   // uGUI 档是**有注释的空操作**
+                // 🔴 2026-10-17（A1024③ 第 2 批）：原版 `ErrorMesage Text` = Pragati（两档都过这里）。
+                if (it.text != null) it.text.SetFace(TmpFont.Face.LatinCardBody);
             }
             else it.text.SetText(text);
             if (it.text != null)

@@ -61,9 +61,10 @@ namespace CardPresentation
         /// ⛔ **别在这里再补一个「转调专用」的重载来绕开必填** —— 那是把唯一的口子藏起来。</summary>
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                              int qOff, float autoMinPx, bool wrap, bool alignLeft,
-                             float autoMaxPx = 0f, float autoBasePx = 0f)
+                             float autoMaxPx = 0f, float autoBasePx = 0f,
+                             TmpFont.Face face = TmpFont.Face.Cjk)   // 🆕 2026-10-17（A1024③）：可选的字体面
         { return Page.Text(parent, r, text, color, name, fontPx, QOff + qOff, autoMinPx, wrap, alignLeft,
-                           autoMaxPx, autoBasePx); }
+                           autoMaxPx, autoBasePx, face); }
 
         public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                              ImageQuad target = null, string art = null,

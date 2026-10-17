@@ -53,6 +53,9 @@ namespace CardPresentation
         /// 判据与对齐对象 → `Setup` 里那段注释。</summary>
         MenuScroll _scroll;
 
+        /// <summary>「本页滚动没有原版判据」只出声一次（每页各一份、多次重建不刷屏）。</summary>
+        static bool _warnedNoSensitivity;
+
         /// <summary>自检用：批处理里没有滚轮事件 ⇒ 直调 `MenuScroll.Wheel/SetOffset`（**和真滚同一条路**）。</summary>
         public MenuScroll RowsScroll { get { return _scroll; } }
 
@@ -95,7 +98,7 @@ namespace CardPresentation
             //   ⇒ **能落到 `MenuScroll` 上的只有下面这几条**：纵向 · 上对齐 · pad(25,25,5,5) ·
             //     spacing 10 · itemSize 60。**OSA 那套弹性/惯性/灵敏度是另一个机制**（它自己的 `_Effects` +
             //     `_PullElasticity` + 自绘滚动），而全壳的滚动只有一份实现（CLAUDE.md §三）⇒ 手感仍走
-            //     `MenuScroll` 的 Clamped + 全壳滚轮系数（`NotchK`）。
+            //     `MenuScroll` 的 Clamped + **本页自己的**滚轮灵敏度（见下面「原版判据查不到」那一段）。
             //     ⚠️ **如实标**：这不是「照原版抄了全部参数」，是「机制不同，取能对上的那几项」。
             //   ⚠️ `_Gravity = 3` 对应哪一档**没查到**（OSA 的 `Gravity` 枚举本地没解出来，普查 §E 已记）——
             //     它不影响上面那几项（纵向 + 上对齐）。
@@ -105,7 +108,18 @@ namespace CardPresentation
             //     —— 那条**潜伏缺陷已经修掉**（`ApplySoftEdges` 的 `uv0` 改成显式入参，A52/F1，
             //     断言见 `Editor/ShellScene.cs` ⑤·c）。⛔ 别再照旧注释把这条接线推回去。
             PointerLayer.UnregisterOwnedBy(_root != null ? _root.gameObject : gameObject);   // 重开一次窗 ⇒ 旧的那份是死条目
-            _scroll = MenuScroll.TopAligned(_rect, 0f);   // 内容高在 `Rebuild` 里按条数写（原版 OSA 那份 `_Content` 的高）
+            // ⚠️ **原版判据查不到（N29）**：`ChatContentView` 是 **OSA 虚拟列表**（不是 UGUI `ScrollRect`）
+            //    —— 全包 142 个 `m_ScrollSensitivity` 里**没有聊天气泡列表**那一条
+            //    （唯一命中 = `ChatPanel/Holder/Chat/Enter Text/InputField` 的 **1.0**，那是**输入框**）。
+            //    ⇒ 保留旧值 48 px/格（`MenuScroll.DefaultNotchPx`）并**出声**，⛔ 不是「原版就是这样」。
+            _scroll = MenuScroll.TopAligned(_rect, 0f, MenuScroll.DefaultNotchPx);   // 内容高在 `Rebuild` 里按条数写
+            if (!_warnedNoSensitivity)
+            {
+                _warnedNoSensitivity = true;
+                Debug.LogWarning("[ChatTab] 原版聊天列表是 OSA 虚拟列表、没有 `m_ScrollSensitivity` 判据"
+                                 + "（搜过 `bundle_menus_assets_all` 全部 ScrollRect + `ChatPanel` 子树）"
+                                 + "⇒ 滚轮保留旧值 48 px/格（`MenuScroll.DefaultNotchPx`），不是原版参数。");
+            }
             _scroll.Owner = _root.gameObject;             // 这一页不显示时指针层跳过它（切页走 `SetActive`）
             _scroll.OnChanged = Rebuild;                  // 🔴 滚轮只改 `Offset`、**画是调用方的事**：不接 = 滚了什么都不动
             // ⚠️ 走 `SocialPage.RegisterScroll` 那一份（**会出声**）——`PointerLayer.RegisterScroll` 在

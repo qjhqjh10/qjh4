@@ -79,9 +79,11 @@
 //    ⚠️ **两条中文没换、要另办**：
 //       ✅ **② `MainMenu/PurchasePremium/Description` —— 2026-10-14（`A1803`）【已换】**（它确实是拼接形态，
 //          但拼接只是**写法**：把官方那三段照写进去即可，见那条自己的注释）。本行原来写着「要单独处理」—— 已办。
-//       🔴 **① `MenuDeck/CantImportDeck` —— 仍未换（本轮也没换）**：官方文案带 `{0}` 而我们的调用点
-//          **不传参**，照抄会把 `{0}` 字面留在界面上 ⇒ 要换得**同时改调用点**（`Shell/DeckInfoPopup.cs:1432`，
-//          ⛔ **不在 `A1803` 那批写手的白名单里**）⇒ 已记进 `资料/普查产出_第二十八会话/W4_官方文案族.md`。
+//       ✅ **① `MenuDeck/CantImportDeck` —— 2026-10-17（界面线 `A1852`）【已换】**：两列换成官方原文（带 `{0}`），
+//          调用点同批改成 `string.Format(Loc.T(键), CardText.Faction(wl.Faction))`（`Shell/DeckInfoPopup.cs`）。
+//          `{0}` = **督军阵营名**，判据 = `decomp_full/DeckInfoPopup__EditDeck.c`。
+//          ⚠️ 原文写「**仍未换（本轮也没换）**……官方文案带 `{0}` 而我们的调用点**不传参**」——
+//          那句**已过期**（当时调用点不在白名单）；留痕（铁律 5），⛔ 别再照它当日志。
 
 //
 // ============================ 🔴 文案：12 项下拉 · 13 语言数据 ============================
@@ -544,11 +546,12 @@ namespace CardPresentation
             //   （`MonoBehaviour_8528767437303251090.json`）—— **那条见下面它自己的条目**；
             //   同窗那颗 `Error msg` **一颗 `Localize` 都没有**（原版本来就没有词条 ⇒ **永远不接**，
             //   属于「判据是空的」那一档，⛔ 别替它编一条）。
-            //   🔴 **2026-10-17（A891）三处消费点全接上了**：
-            //   · `PasteDeck` / `EnterText` 在 **`Deck/DeckRuntime.cs`** 的导入窗（`imp_title` + `imp_input` 的
-            //     **建 / 刷新两个入口**）；
+            //   🔴 **2026-10-17（A891）消费点全接上了**：
             //   · `PasteDeck` / `EnterText` / `Confirm` 在 **`Shell/ImportDeckPopup.cs`** 的导入窗
             //     （`TitleTerm` / `PlaceholderTerm` / `ConfirmTerm`，各自那颗常量上写着判据）。
+            //   · ⚠️ **2026-10-17 就地订正（铁律 5）**：原文还列了 `Deck/DeckRuntime.cs` 的导入窗
+            //     （`imp_title` / `imp_input`）—— 那棵树是**只给自检用的重复实现**，当天已整段删除（`T23`）
+            //     ⇒ 现在**只剩 `ImportDeckPopup.cs` 一处消费**。
             //   ⚠️ 唯一**仍然没接**的是那颗 `Error msg`：原版**根本没给它词条**（引擎按根脚本的三个 term 字段
             //     写进去的）⇒ 我们那行错误走自己的文案（`CollectionData.ImportDeck`），**这不缺东西、别去接**。
             { "MenuDeck/HUD/EnterText",                       new Entry("输入文本...", "Enter text...") },
@@ -563,7 +566,9 @@ namespace CardPresentation
             // 🔴 **2026-10-17（`A1951`）就地订正**：原写「中文那一列不是实拍（原版中文在远端 I2 表）⇒ 取
             //   `zh_CN.csv:143`」—— 官方表 2026-10-14 已在本机，
             //   `MenuDeck/Share/PasteDeck` = `Paste your deck` / `粘贴您的卡组`，**与本行两列逐字相同**。
-            // 消费侧 = `Deck/DeckRuntime.cs` 的 `imp_title`（那行注释里写着判据）。
+            // 消费侧 = `Shell/ImportDeckPopup.cs` 的 `TitleTerm`。
+            //   ⚠️ **2026-10-17 就地订正（`T23`）**：原文写「消费侧 = `DeckRuntime` 的 `imp_title`」——
+            //     那棵树是只给自检用的重复实现、当天已删，现只剩壳侧这一处。
             { "MenuDeck/Share/PasteDeck",                     new Entry("粘贴您的卡组", "Paste your deck") },
 
             // ------------- 🆕 **2026-10-19（`A1050`）：分享成功那条 toast 的词条** -------------
@@ -2005,7 +2010,13 @@ namespace CardPresentation
                                                                   "This deck has no Warlord yet — go pick one in the deck editor and come back.") },
             // 调度台当场拍板补的一条（P3 §⑤·D 首条：两个附件源都漏了）—— `PracticeModePopup` 的 `SelectedArmyName()` 兜底，**会画上屏**。
             { "MenuDeck/HUD/NoArmySelected",           new Entry("（未选阵营）", "(no faction selected)") },
-            { "MenuDeck/CantImportDeck",               new Entry("这副卡组导不进来。", "This deck can't be imported.") },
+            // 🔴 **2026-10-17（界面线 `A1852`）两列换成官方原文（带 `{0}`）** —— 判据 =
+            //   `Resources/official_loc_13lang.json` 现读（键 `MenuDeck/CantImportDeck`）；
+            //   `{0}` 的语义 = **这副卡组督军的阵营名**
+            //   （`decomp_full/DeckInfoPopup__EditDeck.c`：`string.Format(GetTranslation("MenuDeck/CantImportDeck"),
+            //   GameStaticData.CardArmyToString(deck.Warlord.Army))`）。
+            //   ⚠️ 唯一拼装点 = `Shell/DeckInfoPopup.cs` 的 `CantImportDeckMessage`（⛔ 别在别处再拼一遍）。
+            { "MenuDeck/CantImportDeck",               new Entry("无法导入卡组。你没有足够的{0}张牌。", "Can't import deck. You don't have enough {0} cards.") },
             { "MenuDeck/Error/CantStartNoWarlord",     new Entry("这套卡组还没有选战将，开不了局。",
                                                                   "This deck has no Warlord chosen yet, so the battle cannot start.") },
 
@@ -2716,6 +2727,12 @@ namespace CardPresentation
             //     ← `Shell/DuelPopupWindow.cs` 的 `MessageText`（⚠️ 官方串**不带 HTML**）。
             { "MainMenu/Register/PleaseChooseName",        new Entry("选择你的玩家名字", "Choose your player name") },
             { "Demo/AvatarMenu/SelectAvatar",              new Entry("选择你的头像", "Select your avatar") },
+            // 🆕 **2026-10-17（`N37①`）**：`Select Avatar Button/Button Text` 的官方键（值 = `Select` / `选择`）。
+            //   ⚠️ **原版 prefab 里那颗 TMP 没有 `Localize`/`mTerm`**（三处 `m_text = "Selecionar"` 的节点上只有
+            //   TMP + `EverguildTextMeshPro` + `EverguildButtonMaterialModifier`）⇒ **「原版用的是这条键」是推断**，
+            //   不是 prefab 证据。补进来是为了让 `Shell/AvatarTab.cs` 的本地兜底自动切回 `Loc.T`
+            //   （它在那里先判 `Loc.HasEntry`，没有就走本地两列 + `Lang13Current`）。
+            { "Demo/AvatarMenu/SelectAvatarButton",        new Entry("选择", "Select") },
             { "MainMenu/Chat/ChallengeConfirmation",       new Entry("你想挑战{0:0}吗？", "Do you want to challenge {0:0}?") },
             { "MenuShop/referral/counter",              new Entry("你已收集了{0}个推荐奖励！", "You have collected {0} referral rewards!") },
             { "MenuShop/referral/counterMaximum",       new Entry("您已收集到最多的推荐奖励。", "You have collected the maximum number of referral rewards.") },
@@ -2857,6 +2874,44 @@ namespace CardPresentation
 
         /// <summary>自检用：清空「非中英语言回退英文」的去重表（同 <see cref="ResetMissingWarnedForTest"/>）。</summary>
         public static void ResetLangFallbackWarnedForTest() { _warnedLangFallback.Clear(); }
+
+        /// <summary>🆕 2026-10-17（`N42`）：按**当前语档**取官方 13 语言表里的那一列。
+        /// <para>**中文 / 英文档恒返回 `null`** —— 那两档以手写 `Table` 为权威（见文件头），
+        /// 调用方拿到 `null` 就继续走自己那条老路（英文列 / 兜底），**行为逐字节不变**。</para>
+        /// <para>其余 10 种语言：命中就返回**那一列**；**缺键 / 那一列是空 ⇒ 返回 `null` + 出声一次/键**
+        /// （⛔ 不静默、⛔ 不返回键名 —— 回退英文由调用方做，各自有自己的兜底）。</para>
+        /// <para>🔴 **这是「按当前语档取 13 语言列」的唯一一口**（工程红线：两处写同一条规则 = 迟早不一致）——
+        /// `CardText.Term/TermOr/Name/Keyword` 与 `CardIcons.OfficialTerm` 都走它，
+        /// ⛔ 别在别处再写一遍 `Lang13Column` + `Current` 的组合。</para></summary>
+        public static string Lang13Current(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            var cur = Current;
+            if (cur == AvailableLanguages.Chinese || cur == AvailableLanguages.English) return null;
+            string v = Lang13Text(key, cur);
+            if (!string.IsNullOrEmpty(v)) return v;
+            // 缺键 / 缺列 ⇒ 回退英文（由调用方做）+ 出声一次（去重表与 `T()` 共用 ⇒ 一条键总共只响一次）
+            if (_warnedLangFallback.Add(key))
+                Debug.LogWarning($"[Loc] `{cur}` 里没有 `{key}` 的文案（官方 13 语言表缺这条键、或那一列是空）"
+                               + " ⇒ **回退英文**（⛔ 不印键名、⛔ 不静默；同一条键只出声这一次）。");
+            return null;
+        }
+
+        /// <summary>🆕 2026-10-17（`N42`）：官方 13 语言表里以 <paramref name="prefix"/> 开头的键
+        /// （**按序数排序**，结果是确定的）。
+        /// <para>用途**只有一处**：`Core/Tooltip.cs` 派生「官方枚举名 ↔ 我们的规范键」的映射
+        /// （关键词 tooltip 的正文要按官方枚举名取 `CardTraitDescription/*`）。
+        /// ⚠️ 这是**读数据**的口，⛔ 不参与任何显示取值 —— 显示一律走 <see cref="Lang13Current"/> / <see cref="T"/>。</para></summary>
+        public static string[] Lang13Keys(string prefix)
+        {
+            LoadLang13();
+            var list = new List<string>();
+            if (_lang13Idx == null) return list.ToArray();
+            foreach (var k in _lang13Idx.Keys)
+                if (k.StartsWith(prefix, System.StringComparison.Ordinal)) list.Add(k);
+            list.Sort(System.StringComparer.Ordinal);
+            return list.ToArray();
+        }
 
         // ============================================================ 🆕 **2026-10-14（第二十八会话 · `A1803`）：数据面词条（bulk）**
         //

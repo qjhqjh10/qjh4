@@ -1,0 +1,48 @@
+# MonoScript 类名索引：5175 条
+# sprite 索引：真包 3316 条 + 切片缓存补齐 ⇒ 共 3316 条
+# sprite 尺寸/九宫格索引：3200 条
+# WhereToGetCardsPopup  绝对矩形（1920×1080 · 左上原点 · y 向下）
+# 出处 d:/2/新解包资源/assets_full\bundle_menus_assets_all
+# ⚠️ 「组件（类名）」那一列**不截断**（长类名会把右边的列推走、按 ` | ` 找字段）；
+#    最后一列「参数」上限 **200 字符**，被砍时会印 `……[+N]`（N = 被砍掉的字符数）。
+# 行内标记：`⚠️某某` = 布局组那一档（`unk` = **排了**但量算不准 · `grid?`/`axis?`/`cust?`/`sp?` = **本工具没排**、那些子节点还是模板位 —— 表尾有逐条清单）· `⚙…` = 该件挂了自适配组件（`ILayoutSelfController`：CSF/ARF/**CSFMinMax**/**RSL**/**USF**）· `↻rot=` = 自带 z 旋转（矩形是**未旋转帧**）· `↻xy(x)` = **只绕 x/y 转**（本工具不重算）· `⇲ls=` = **父链上有缩放**，矩形已按它换算 · `ANC✗` = 自己 active 但**祖先 inactive**（原版不画它）· `⛔GRP-off` = 这个**布局组自己**不在 `activeInHierarchy` 里（原版此刻不跑它，本表按「激活之后」算）· `⛔MULTI-COMP(n组件·k禁用)` = 这一行挂了 **n 个组件**、其中 **k 个 `m_Enabled=0`** ⇒ 后四格是**按组件并排拼的**，那条 `m_Enabled=0` **只属于被禁的那一个组件**（表里带类名）
+# 🔴 读数口径（A145）：① 「宽×高」「绝对矩形」= **布局框**（设计值）；画出来的是 **布局框 × 这一件自己的 `m_LocalScale`** ⇒ 表里那一格 `×1.2 → 视觉 …`（缩放 1 的行 = `—`）。
+#    ② 「锚点 / anchoredPosition / sizeDelta」三列，对**被布局组管的节点**是**本工具按 uGUI 算法算出的【布局后】值、不是 prefab 字段** （原地写回点 `apply_layout_to_children():1878-1929` · `apply_self_fitters():1348/1508-1515` · `_set_size_axis():1272`）⇒ **拿这三列的数去 prefab JSON 里纯数值搜索搜不到**；要 prefab 原值用 `--no-layout` 或 `工具/menu_rect.py`。
+#    ③ 🔴 **一个节点挂多个组件时，后四格是「按组件并排拼起来」的**（sp/tint/文字/其它四格各是一次 `join`）⇒ **看不出哪一格属于哪个组件**。凡出现 `⛔MULTI-COMP(…)` 的行都属此列：此时 `m_Enabled=0` 那条**只说明「有一个组件被禁」**、且**已经带上类名**（`（`Outline` 组件被禁）`），⛔ **别把它记到别的组件头上**（A499 追加）。
+深  名字                                          x1      y1      x2      y2       宽       高  act  组件（类名）                        参数
+0  WhereToGetCardsPopup                       0.0     0.0  1920.0  1080.0 1920.00 1080.00       WhereToGetCardsWindow          字段: backgroundCloseButton,closeButton,closeOnESC,closeSound,extraScaleSmallScreen,layoutGroupContentFixer,openSound,sectionReference,sectionsAnchor,title,type,updateNavPanel,useDefaultCloseSoundIfNull……[+17]
+1    Menu Dark Background                 -1290.3  -746.2  3284.3  1826.2 4574.60 2572.36       Image,BackgroundCloseButton,BackgroundOverDrawController <无图> | Simple (0,0,0,0.773) | 字段: onClick,window ; 字段: image
+1    Generic Window Red Background Big      204.7    16.3  1715.3  1006.9 1510.64  990.61       Image                          UI_Deck_Information_Back 1100×701 九宫42,363,655,81 | Sliced (1,1,1,1)
+1    Title                                  283.0    37.0  1637.0   146.5 1354.10  109.57       EverguildTextMeshPro           'Where to get Beast Snaggas cards' 字号=72.0 基准=36.0 auto[18.0~72.0] 对齐=Center/Capline 折行=1 色=(1,1,1,1) | 字段: checkPaddingRequired,fontPreset,m_ActiveFontFeatures,m_EmojiFallbackSupport,m_HorizontalAlig……[+389]
+1    TopBar                                 283.0   141.6  1637.0   147.6 1354.10    6.00       Image                          40k_main_line 171×6 九宫80,0,80,0 | Sliced (1,1,1,1)
+1    Scroll View                            304.5   159.3  1581.5   963.0 1276.94  803.72       Image,ScrollRect              ⛔MULTI-COMP(2组件·1禁用)  Background 32×32 九宫10,10,10,10 ppu=200 | Sliced (1,1,1,0.392) **m_Enabled=0**（`Image` 组件被禁） | h=0 v=1 mode=1 inertia=1 elasticity=0.10000000149011612 decel=0.13500000536441803
+2      Viewport                             304.5   159.3  1581.5   963.0 1276.94  803.72       Image,RectMask2D               UIMask 32×32 九宫10,10,10,10 ppu=200 | Sliced (1,1,1,0) | 字段: m_Padding,m_Softness
+3        Content                            248.9   159.3  1637.0   209.3 1388.10   50.00       VerticalLayoutGroup,ContentSizeFitter,LayoutGroupContentFixer⚙CSF v:MinSize=50  spacing=50.0 align=4 pad=0,0,0,50 ctrlW=0 ctrlH=0 expandW=1 expandH=0 scaleW=0 scaleH=0 ; 字段: m_HorizontalFit,m_VerticalFit ; 字段: fixOnEnable,layouts
+4          Section For Reference            317.8   159.3  1568.2   218.8 1250.49   59.50       ContentSizeFitter,VerticalLayoutGroup,WhereToGetCardsSection⚙CSF v:MinSize=59.496  字段: m_HorizontalFit,m_VerticalFit ; spacing=0.0 align=0 pad=0,0,2,5 ctrlW=1 ctrlH=0 expandW=1 expandH=0 scaleW=0 scaleH=0 ; 字段: cardDrawerReference,contentAnchor,counter,title,toggle
+5            Header                         317.8   161.3  1568.2   213.8 1250.49   52.50                                      
+5            Content                        317.8   213.8  1568.2   213.8 1250.49    0.00       EverguildGridLayoutGroup,ContentSizeFitter⚠️grid? ⚙CSF v:MinSize？  **【GridLayoutGroup】** cellSize=206.667×290.4 spacing={'x': 25.0, 'y': 35.0} pad=0,0,40,0 corner/axis=0/0 align=0 constraint=0(2) ; 字段: m_HorizontalFit,m_VerticalFit
+1    Generic Close Button Orange           1656.8     9.2  1731.2    84.8   74.39   75.61       Image,EverguildButton,EverguildButtonMaterialModifier UI_Button_Round_background 237×237 否 | Simple (1,1,1,1) preserveAspect | trans=2 target=-3124699483731303119 interactable=1 | HL=40k_general_bt_yellow_hover P=40k_general_bt_yellow_pressed ; 字段: 
+2      Background                          1665.0    17.2  1721.8    75.3   56.86   58.13       Image,EverguildButtonMaterialModifier 40k_general_bt_yellow 71×71 否 | Simple (1,1,1,1) preserveAspect | 字段: 
+2      Icon                                1665.0    17.2  1721.8    75.3   56.86   58.13       Image,EverguildButtonMaterialModifier 40k_general_bt_yellow_close 71×71 否 | Simple (1,1,1,1) preserveAspect | 字段: 
+
+🔴 **本表不全：`--depth 5` 把子树截断了** —— 还有 **40** 个节点没印（那儿最深到第 **11** 层）⇒ 要看全用 `--depth 11`（**没印 ≠ 不存在**）：
+                Background
+                Title
+                Counter
+                Toggle
+                Card Drawer
+
+⚙ **3 处挂了自适配组件（`ContentSizeFitter`/`AspectRatioFitter`）** —— 表里的尺寸是**回写之后**的值（逐行标了 `⚙`）：
+          Content  CSF v:MinSize=50  ⇒ 1388.10×50.00
+            Section For Reference  CSF v:MinSize=59.496  ⇒ 1250.49×59.50
+              Content  CSF v:MinSize？  ⇒ 1250.49×0.00
+
+🔴 **1 处挂了自适配组件、但目标值算不出**（要 Unity 的字体度量或图集尺寸，或它自己就是布局组）—— **这些件的尺寸仍然是模板值，别照抄**：
+              Content  CSF v:MinSize？
+
+⚠️ 布局组（子节点位置**由布局算**，上面已是**布局跑之后**的值）：
+          Content → VerticalLayoutGroup [ok]
+            Section For Reference → VerticalLayoutGroup [ok]
+
+🔴 **下面这些布局组本工具【没排】**（1 个）—— 它们那些子节点的坐标**仍是模板位**（prefab 里存的 `m_AnchoredPosition`/`m_SizeDelta`），⛔ **别照抄**：
+              Content → EverguildGridLayoutGroup [grid?]：网格系（Grid 算法与 HOVLG 不同，本工具不套）

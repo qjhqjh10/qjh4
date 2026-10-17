@@ -531,10 +531,10 @@ namespace CardPresentation
             //   ⚠️ 本窗刻度 = 原版刻度（下面 `No Deck Text` 那处传的就是原版原值 `18/45/36`，"原文"逐字）
             //   ⇒ 四格照抄、**不做比例换算**。
             _txtDeckName = MenuDraw.Text(col, new PxRect(DnL, DnT, DnR, DnB), d.Name, Color.white,
-                                         "Deck Name", 62.85f, QText, DnR - DnL, 18f, 72f, 36f);
+                                         "Deck Name", 62.85f, QText, DnR - DnL, 18f, 72f, 36f, face: TmpFont.Face.LatinUi);
             _txtDeckWarlord = MenuDraw.Text(col, new PxRect(DwL, DwT, DwR, DwB),
                                             wl != null ? wl.Name : "", Color.white, "Deck Warlord", 44.65f, QText,
-                                            DwR - DwL, 18f, 72f, 36f);
+                                            DwR - DwL, 18f, 72f, 36f, face: TmpFont.Face.LatinUi);
 
             // `No Deck Text`（+ `Create deck` 那颗钮）—— **只有在没有督军时才显示**（原版 `NoDeckText` 那一族）
             var none = MenuDraw.Node(col, "No Deck", new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB));
@@ -542,7 +542,7 @@ namespace CardPresentation
             //   ⚠️ 它是「整句」—— 别拿 `MenuDeck/Error/NoWarlord`（短键「还没有选战将」）替，那会**丢信息**（`A1034`）。
             var ndt = MenuDraw.Text(none, new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB),
                                     Loc.T("MenuDeck/HUD/NoWarlordText"), Color.white,
-                                    "No Deck Text", 45f, QText);
+                                    "No Deck Text", 45f, QText, face: TmpFont.Face.LatinUi);
             // ⚠️ 我们这句话比原版长（24 字 × fs45 ≈ 1080px）⇒ **会溢出 685.65 的框** ⇒ 自己缩着放进去
             //    （原版那句带 `auto 18-45`，我们照它的区间自缩）——**这一条是我们挑的**
             // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `No Deck Text` 的 `m_fontSizeBase` **原文**。
@@ -577,7 +577,7 @@ namespace CardPresentation
             //   ⛔ 节点名 `"Button Text"` 不动（`FindChild(钮,"Button Text")` 靠它）。
             MenuDraw.Text(cbtn, new PxRect(CreateTxL, CreateTxT, CreateTxR, CreateTxB),
                           Loc.T("MainMenu/Ranked/GoToCreateDeck"),
-                          Color.white, "Button Text", 55f, QText);      // 原版 hAlign = Center ⇒ 不调 Align*
+                          Color.white, "Button Text", 55f, QText, face: TmpFont.Face.LatinCardBody);      // 原版 hAlign = Center ⇒ 不调 Align*
             // 🆕 A17：原版 `Ranked Deck Selection>No Deck Text>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 4 第 16 行）
             MenuDraw.Hit(none, "CreateDeckHit", new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB), QHit,
                          CreateDeckInMode, cbtnBg, ArtMulligan);
@@ -599,6 +599,7 @@ namespace CardPresentation
             //   （⚠️ 上限 63.4 与上面两颗的 72 **不同**，⛔ 别一刀切）。
             _txtDeckCount = MenuDraw.Text(cnt, new PxRect(CntL, CntT, CntR, CntB), DeckCountText(), Color.white,
                                           "Text", 60.5f, QText, CntR - CntL, 18f, 63.4f, 36f);
+            // A1024③ 判不出（原版那一格没有字，我们自加卡组张数）⇒ 保持 `Face.Cjk`
             MenuDraw.AlignLeft(_txtDeckCount, new PxRect(CntL, CntT, CntR, CntB));
         }
         Label _txtDeckCount;
@@ -637,7 +638,7 @@ namespace CardPresentation
                                        new PxRect(ArmSelL, ArmSelT, ArmSelR, ArmSelB));
             // 原版 hAlign = **Center** ⇒ 不调 `Align*`
             MenuDraw.Text(holder, new PxRect(FacTitleL, FacTitleT, FacTitleR, FacTitleB), "Factions",
-                          Color.white, "Factions Title", 45.87f, QText);
+                          Color.white, "Factions Title", 45.87f, QText, face: TmpFont.Face.LatinCardBody);
 
             // 层级照原版：`Army Selector`(ScrollRect) -> `Viewport`(RectMask2D) -> `Army Content`(GridLayoutGroup)
             // 原来把 `Army Selector` 这个**名字**安在普通 Transform 上、格子直接挂它 —— 名字错位（找茬抓到）
@@ -672,7 +673,7 @@ namespace CardPresentation
             //    `Viewport` 节点上（`ViewportClip`）。下表里的 `view` 全部换成 `null` ⇒ `MenuDraw.Rect/Nine/Hit`
             //    沿父链解析到那一颗。🔴 **`MenuScroll` 那份 `Viewport` 是【另一条路】**（滚动区的矩形，
             //    不是裁切载体）—— 两者今天同值，但⛔ 别把滚动区当成裁切状态的来源。
-            _armyScroll = MenuScroll.TopAligned(new PxRect(ArmViewL, ArmViewT, ArmViewR, ArmViewB), contentH);
+            _armyScroll = MenuScroll.TopAligned(new PxRect(ArmViewL, ArmViewT, ArmViewR, ArmViewB), contentH, 1f);   // 原版 `Ranked Army Selector/Army Selector` = 1.0（D_N29）
             _armyScroll.Owner = gameObject;
             _armyContent = MenuDraw.Node(vp, "Army Content",
                                          new PxRect(ArmViewL, ArmViewT, ArmViewR, ArmViewT + contentH));
@@ -914,7 +915,7 @@ namespace CardPresentation
             //   `mTerm = Demo/ToBattle`（en `Battle` · zh `战斗`；键与中文出处 → `Core/Loc.cs:471`）。
             //   原来写死的 `"Battle!"` 是 prefab 出厂占位串，⛔ 别按它保留英文。
             MenuDraw.Text(btn, new PxRect(BattleTxL, BattleTxT, BattleTxR, BattleTxB), Loc.T("Demo/ToBattle"),
-                          Color.white, "Button Text", 74.25f, QText);
+                          Color.white, "Button Text", 74.25f, QText, face: TmpFont.Face.LatinCardBody);
 
             var icons = MenuDraw.Node(btn, "ButtonIcons", new PxRect(BIconsL, BIconsT, BIconsR, BIconsB));
             float cy = (BIconsT + BIconsB) * 0.5f;

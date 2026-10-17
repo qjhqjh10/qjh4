@@ -267,8 +267,13 @@ namespace CardPresentation
 
             // 标题（原版 `ChooseText` / `MulliganText`：`sd=1344×79.44`、`a=(.5,1)`、`ap=(7,-106.5)`）
             var tp = HudCanvas.PosPx(lo.TitleCx, lo.TitleCy);
-            _title = HudCanvas.MakeText(_panel, _titleText, tp.x, tp.y, 8, new Color(1f, 0.94f, 0.82f),
-                                        new Vector2(0.5f, 0.5f), Z - 0.05f, "ChoiceTitle");
+            // 🆕 **2026-10-17（界面线 `T07` · `A1753` #15）**：原版 `ChooseText`（`Choose one card`）挂
+            //   `Pragati-Regular Orange`，`_FaceColor = (0.996, 0.596, 0.118)`、顶点白 ⇒ 屏上是**橙**。
+            //   改前传 (1, 0.94, 0.82)（G/B 都偏高 ⇒ 橙变米黄）。判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·2 #15。
+            //   ⚠️ **落点口径**：普查报告把它记成 `Battle/ChoosePanel.cs:270` —— 真正的建件点在**本文件**
+            //   （`ChoosePanel : CardChoicePanel`，标题由基类 `Build()` 建；`ChoosePanel.cs` 只放数值）。
+            _title = HudCanvas.MakeText(_panel, _titleText, tp.x, tp.y, 8, new Color(0.996f, 0.596f, 0.118f),
+                                        new Vector2(0.5f, 0.5f), Z - 0.05f, "ChoiceTitle", face: TmpFont.Face.LatinCardBody);
             // 中文用汉字高度，不是大写高度。⚠️ uGUI 档的单位**就是设计 px** ⇒ 直接喂 `TitlePx`
             // （旧那套要 `U(...)` 折成世界单位；⛔ 别在这儿再除 108 —— 字会小 108 倍、不报错）。
             if (_title != null) _title.SetGlyphHeight(lo.TitlePx);
@@ -285,7 +290,7 @@ namespace CardPresentation
             var cp = HudCanvas.PosPx(lo.ConfirmCx, lo.ConfirmCy);
             _confirm = HudCanvas.MakeText(_panel, _confirmText, cp.x, cp.y, 6,
                                           new Color(1f, 0.92f, 0.75f), new Vector2(0.5f, 0.5f),
-                                          Z - 0.05f, "ChoiceConfirmText");
+                                          Z - 0.05f, "ChoiceConfirmText", face: TmpFont.Face.LatinCardBody);
             if (_confirm != null) _confirm.SetGlyphHeight(33.7f);    // ⚠️ 实况 fs=33.7（不是 §三 那个 45）
 
             // 眼睛：收起卡片上的按钮（原版 `onClick → ToogleChooseMenuVisibility`）
@@ -413,7 +418,7 @@ namespace CardPresentation
 
                 var t = HudCanvas.MakeText(_panel, Lo.CardBtnText, cxPx - 960f, btnCyPx - 540f, 5,
                                            new Color(1f, 0.9f, 0.7f), new Vector2(0.5f, 0.5f),
-                                           Z - 0.02f + (Z - 0.05f), "ChoiceCardBtnText_" + i);
+                                           Z - 0.02f + (Z - 0.05f), "ChoiceCardBtnText_" + i, face: TmpFont.Face.LatinCardBody);
                 if (t != null)
                 {
                     // 🔴 **2026-10-18（W6）**：语种定字号 —— 这一格现在走**原版词条**

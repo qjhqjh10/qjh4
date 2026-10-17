@@ -199,13 +199,13 @@ namespace CardPresentation
             _title = MenuDraw.Text(_texts, TutorialMessagePopup.TitleR, title, Color.white, "TitleText",
                                    TutorialMessagePopup.TitleFont, QText, TutorialMessagePopup.TitleR.W,
                                    TutorialMessagePopup.TitleFontMin, TutorialMessagePopup.TitleFontMax,
-                                   TutorialMessagePopup.TitleFontBase);
+                                   TutorialMessagePopup.TitleFontBase, face: TmpFont.Face.LatinUi);
             MenuDraw.SetVAlign(_title, Label.VAlign.Bottom, TutorialMessagePopup.TitleR);
 
             // `DescriptionText`：fs 28 · 基准 22.5 · auto[18~28] · 折行 1 · 白 · Center/Middle(512)
             _desc = MenuDraw.TextBox(_texts, TutorialMessagePopup.DescR, desc, Color.white, "DescriptionText",
                                      TutorialMessagePopup.DescFont, TutorialMessagePopup.DescFontMin, QText,
-                                     TutorialMessagePopup.DescFontMax, TutorialMessagePopup.DescFontBase);
+                                     TutorialMessagePopup.DescFontMax, TutorialMessagePopup.DescFontBase, face: TmpFont.Face.LatinCardBody);
 
             // `Tap To continue`：fs 30 · 基准 60 · auto[18~30] · 折行 1 · 色 (0.627,0.616,0.631) · Center/**Capline**(8192)
             var tapText = Loc.HasEntry(TutorialMessagePopup.TapTerm)
@@ -214,7 +214,7 @@ namespace CardPresentation
             _tap = MenuDraw.TextBox(_texts, TutorialMessagePopup.TapR, tapText,
                                     TutorialMessagePopup.TapColor, "Tap To continue",
                                     TutorialMessagePopup.TapFont, TutorialMessagePopup.TapFontMin, QText,
-                                    TutorialMessagePopup.TapFontMax, TutorialMessagePopup.TapFontBase);
+                                    TutorialMessagePopup.TapFontMax, TutorialMessagePopup.TapFontBase, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(_tap, Label.VAlign.Capline, TutorialMessagePopup.TapR);
 
             // `BlinkGraphic`（原版挂在这颗 TMP 上；`blinkSpeed 1.0` / `colorVariation 0.5` = 出厂值）

@@ -989,6 +989,56 @@ public static class ShellScene
         Check((int)WindowsPlacement.Canvas, 5, "WindowsPlacement.Canvas 的值照原版 = 5");
         Check((int)WindowsPlacement.Popup, 15, "WindowsPlacement.Popup 的值照原版 = 15");
 
+        // ---------------- ①·b 🆕 2026-10-17（界面线 T16）：离屏烘焙件的**出厂态** ----------------
+        //
+        // 判据（现核 → `资料/普查产出_1017/UI/D_T16_UIBakeScreen判据.md`）：
+        //   原版 `UIBakeScreen`（`d:/2/tools/decomp_full/UIBakeScreen__*.c`）+ 场景节点
+        //   `Game UI ▸ Main Canvas ▸ Background Render Texture Holder`（RT 1118 / MB 1976 / RawImage 1977）
+        //   + 材质 `UI Blur`（`Material_3.json` / `Shader_339`：真属性只有 `_MainTex` / `_Sigma 2.25` / `_steps 10`）。
+        // 🔴 **这一段必须紧跟在 `Build()` 之后**（`Run` 里后面有几处 `baseMenu` 探针会把烘焙点亮 ⇒
+        //    「出厂不显示」只有在这里才断得真）。
+        // 🔴 期望值全是**原版字面量**（0.25 / 24 / 2.25 / 10 / `m_RaycastTarget 0`）；渲染队列那条写的是
+        //    **梯子约束**（2890 < q < 2900 —— 两侧都是别的件现用的号），⛔ 不是拿我们自己的常量自证。
+        Section("T16：离屏烘焙 + UI Blur —— 出厂态（不显示 / 无 RT / 不登记命中 / 材质属性照原版）");
+        {
+            var bake0 = shell.Bake;
+            CheckTrue(bake0 != null, "壳里建了 `Background Render Texture Holder`（原版节点名）");
+            CheckTrue(bake0 != null && bake0.image != null,
+                      "它下面有那块整屏图（我们 = `ImageQuad`，原版 = uGUI `RawImage`）");
+            if (bake0 != null && bake0.image != null)
+            {
+                var img = bake0.image;
+                CheckNear(img.WorldH, LayoutSpace.DesignHeight, 0.0001f,
+                          "整屏图的可见高 = 10 世界单位（= 设计高 1080px ⇒ 「整屏」）");
+                CheckTrue(!bake0.Showing, "出厂**不显示**（原版 `Start`: `image.enabled = false`）");
+                Check(bake0.RT, null,
+                      "出厂**还没有 RT**（原版 `CreateRT` 只在第一次 `Toggle(true)` / 分辨率变化时跑）");
+                CheckTrue(bake0.GetComponentsInChildren<WindowButton>(true).Length == 0,
+                          "**不登记命中区**（原版 `RawImage.m_RaycastTarget = 0`）—— 子树里没有 `WindowButton`");
+
+                var mr = img.GetComponent<MeshRenderer>();
+                int q = mr != null && mr.sharedMaterial != null ? mr.sharedMaterial.renderQueue : -1;
+                CheckTrue(q > 2890 && q < 2900,
+                          $"整屏快照的渲染队列 = {q}（必须 2890 < q < 2900："
+                        + "高过压暗层 `FadeQueue`、低过全部窗 —— 否则要么盖住窗、要么被背景盖住）");
+
+                var mat = bake0.blitBlurMaterial;
+                CheckTrue(mat != null, "模糊材质建出来了（原版 `blitBlurMaterial` = `UI Blur`）");
+                if (mat != null)
+                {
+                    Check(mat.shader != null ? mat.shader.name : "(null)", "CardPresentation/UIBlur",
+                          "shader = 自建等价实现 `CardPresentation/UIBlur`（原版 `Shader_339`；等价、未逐条核字节码）");
+                    CheckNear(mat.GetFloat("_Sigma"), 2.25f, 0.0001f, "`_Sigma = 2.25`（原版 `Material_3.json` 实读）");
+                    CheckNear(mat.GetFloat("_steps"), 10f, 0.0001f, "`_steps = 10`（同上）");
+                    CheckTrue(!mat.HasProperty("_BlurRadius") && !mat.HasProperty("_GridSize")
+                           && !mat.HasProperty("_Iterations") && !mat.HasProperty("_xBlur")
+                           && !mat.HasProperty("_yBlur") && !mat.HasProperty("_Spread"),
+                              "原版材质里那些**旧 shader 残留死值**（`_BlurRadius`/`_GridSize`/`_Iterations`/"
+                            + "`_xBlur`/`_yBlur`/`_Spread`）**一个都没接**（接了就是把死值当参数）");
+                }
+            }
+        }
+
         // ---------------- ② 压暗层四边
         //
         // ⚠️ **一条边在我们这儿是两块**（`… outer` / `… inner`，见 `ShellRuntime.FadeEdge` 的注释）⇒
@@ -1836,7 +1886,73 @@ public static class ShellScene
             Object.DestroyImmediate(txtGo);
         }
 
-        // ---------------- ⑤·d-3 🆕 2026-10-12（A386）：**「摆完再补那一刀」那条路**的牙口
+        // ---------------- 🆕 2026-10-17（A1024③ 第 0 批）：字体面漏斗的口径 ----------------
+        //
+        // 判据 = `资料/普查产出_1017/UI/R_A1024_字体按用途普查.md` §三「第 0 批」：
+        //   给 `MenuDraw.Text` / `TextBox`（经 `TextCore`）/ `GameWindow.Text` / `MainMenuSubmenuWindow.Text|TextBox`
+        //   / `HudCanvas.MakeText` 加**可选** `face` 形参，**默认 `Cjk`** ⇒ 旧调用点零行为变化。
+        // 本节守三件事（⛔ 不读 `TmpFont.FaceResource` 那张表 = 不自证 —— 期望值写**原版资产名**）：
+        //   ① 不传 `face` ⇒ 仍是 `NotoSerifCJK-Regular SDF`（旧调用点逐位不变）；
+        //   ② 传了 `face` ⇒ TMP 真的指向原版那一份（`Asar-Regular SDF` / `Pragati-Regular SDF`）；
+        //   ③ **汉字闸**：指派了拉丁面、文本里有汉字 ⇒ 实际生效回 CJK（`Label.ActualFace`，不许画方框）。
+        // **改坏法**：把 `MenuDraw.TextCore` 里那句 `if (face != TmpFont.Face.Cjk) lb.SetFace(face);` 删掉 ⇒ ② 立刻红；
+        //   把 `Label.ActualFace` 的汉字闸去掉 ⇒ ③ 立刻红（且 ① 仍绿 ⇒ 三条分得开）。
+        Section("A1024③ 第 0 批：字体面漏斗（默认 Cjk 不变 · 显式 face 生效 · 汉字闸）");
+        {
+            var faceGo = new GameObject("FaceFunnelProbe");
+            var faceR = new PxRect(0f, 0f, 400f, 60f);
+            string FontName(Label l)
+            {
+                var t = l != null ? l.GetComponentInChildren<TMPro.TextMeshPro>() : null;
+                return t != null && t.font != null ? t.font.name : "(null)";
+            }
+
+            // ① `MenuDraw.Text` 默认档：仍是 CJK 那一份（旧调用点零行为变化）
+            var def = MenuDraw.Text(faceGo.transform, faceR, "Default", Color.white, "FaceDefault", 30f, 3000);
+            CheckTrue(def != null, "① 默认档探针建出来了");
+            if (def != null)
+            {
+                Check(FontName(def), "NotoSerifCJK-Regular SDF",
+                      "★ ① `MenuDraw.Text` **不传 `face`** ⇒ 仍是 CJK 那一份（旧调用点逐位不变）");
+                Check(def.Face, TmpFont.Face.Cjk, "① …`Label.Face` 也是 Cjk（默认值没被偷偷改）");
+            }
+
+            // ② 显式 `face` ⇒ TMP 真的换到原版那一份
+            var ui = MenuDraw.Text(faceGo.transform, faceR, "Latin", Color.white, "FaceUi", 30f, 3000,
+                                   face: TmpFont.Face.LatinUi);
+            CheckTrue(ui != null, "② 显式 `LatinUi` 探针建出来了");
+            if (ui != null)
+                Check(FontName(ui), "Asar-Regular SDF",
+                      "★ ② `MenuDraw.Text(..., face: LatinUi)` ⇒ TMP 指向**原版 `Asar-Regular SDF`**");
+
+            var body = MenuDraw.TextBox(faceGo.transform, faceR, "Body", Color.white, "FaceBody", 30f,
+                                        face: TmpFont.Face.LatinCardBody);
+            CheckTrue(body != null, "② `TextBox` 探针建出来了");
+            if (body != null)
+                Check(FontName(body), "Pragati-Regular SDF",
+                      "★ ② `MenuDraw.TextBox(..., face: LatinCardBody)` ⇒ TMP 指向**原版 `Pragati-Regular SDF`**");
+
+            // ① 的另一半：`TextBox` 默认档也没被换掉
+            var defBox = MenuDraw.TextBox(faceGo.transform, faceR, "Default body", Color.white, "FaceBodyDefault", 30f);
+            CheckTrue(defBox != null, "① `TextBox` 默认档探针建出来了");
+            if (defBox != null)
+                Check(FontName(defBox), "NotoSerifCJK-Regular SDF",
+                      "★ ① `MenuDraw.TextBox` **不传 `face`** ⇒ 仍是 CJK 那一份");
+
+            // ③ 汉字闸：指派拉丁面 + 文本含汉字 ⇒ 实际生效回 CJK（那三份拉丁资产没有汉字字形）
+            var cjk = MenuDraw.Text(faceGo.transform, faceR, "汉字", Color.white, "FaceCjkGate", 30f, 3000,
+                                    face: TmpFont.Face.LatinUi);
+            CheckTrue(cjk != null, "③ 汉字闸探针建出来了");
+            if (cjk != null)
+            {
+                Check(cjk.Face, TmpFont.Face.LatinUi, "③ 指派值仍是 LatinUi（闸在 `ActualFace`，不是改指派）");
+                Check(cjk.ActualFace, TmpFont.Face.Cjk,
+                      "★ ③ 文本含汉字 ⇒ **实际生效回 CJK**（否则会画一排方框、而且静默）");
+                Check(FontName(cjk), "NotoSerifCJK-Regular SDF", "③ …TMP 真的挂回 CJK 那一份");
+            }
+
+            Object.DestroyImmediate(faceGo);
+        }
         //
         // 🔴 **缺口**（`资料/普查产出_1012/S4_外壳共用件_开账现核.md` §二·2「顺手发现」）：`MenuDraw.TextReclipAfterPlace`
         //    （A225-② 加的计数器，`Shell/MenuDraw.cs` 的 `TextReclipAfterPlace` 声明、`ClippedTextGuard.Reclip()` 自增）
@@ -6842,6 +6958,106 @@ public static class ShellScene
                       "（收尾）A1139：`DisposeForTest()` 之后 `Instance` 归 null（下一节不会被这一颗污染）");
         }
 
+        // ============================================================ 🆕 2026-10-17（`N20`/`N21`/`N23`）Toast 控制器
+        // 判据：`资料/普查产出_1017/UI/R_界面线剩余条目现核.md` §二·4/5 + §N21 —— **下面三条期望值全是
+        // 原版字面量 / 原版树形**，⛔ 不从 `ToastNotifications` 自己的常量算式里取。
+        Section("🆕 N20/N21/N23：Toast 控制器 —— 队列低于加载黑场 / 两颗死模板已删 / 根高按文案现量 / 完成态显隐");
+        {
+            ToastNotifications.DisposeForTest();
+            var tn = ToastNotifications.Build(root);
+            CheckTrue(tn != null && tn.Built,
+                      "（前提）Toast 控制器建出来了（`Safe area Only Horizontal ▸ Toast Notification Controller ▸ Holder`）");
+            if (tn != null)
+            {
+                // ---- ① `N21①`：队列**低于加载黑场** ----
+                // 原版 = 排序层 PopUps(7) + order 900 vs `LoadingMenu` 的 Blocking(8) + order 0
+                // （`globalgamemanagers/TagManager/TagManager_3.json`；排序层**先于** order 比较）⇒ 黑场在上。
+                // 我们 = 显式队列：加载黑场那一族的**最底层**是 `LoadingController.QDark = 4080`、
+                // 降级遮罩 `BlockingOverlay` = 4071 ⇒ toast 必须落在 **4071 < q < 4080**。
+                CheckTrue(ToastNotifications.QShade > 4071
+                          && ToastNotifications.QShade < LoadingController.QDark
+                          && ToastNotifications.QShade < LoadingMenu.QPanel,
+                          $"★ N21①：toast 队列 = {ToastNotifications.QShade} —— 落在 **4071 < q < "
+                        + $"{LoadingController.QDark}**（降级遮罩 `BlockingOverlay` 之上、加载黑场最底层之下）"
+                        + "｜🧨 改回 5000（压在黑场之上）⇒ 本条红（原版是 Blocking 层盖住 PopUps 层）");
+
+                // ---- ② `N21②③`：两颗死模板**不在** `Templates` 下 ----
+                int dead = 0, tplKids = tn.Templates != null ? tn.Templates.childCount : -1;
+                if (tn.Templates != null)
+                    foreach (Transform c in tn.Templates)
+                        if (c.name == "Collector Level Tooltip" || c.name == "Resource Counter Item") dead++;
+                Check(dead, 0, $"★ N21②③：`Templates` 下**没有**那两颗死模板（现读 {dead} 颗；"
+                             + $"`Templates` 子件共 {tplKids} —— 应为 **4**：四个 toast 模板）");
+
+                // ---- ③ `N23`：根高按文案现量（同一文案两长度 ⇒ 根高不同；模板常量不再当选） ----
+                float pxOfWorld = 1f / LayoutSpace.Px(1f);      // 世界单位 → 设计 px（= ×108）
+                string shortT = "Hi";
+                string longT = "Congratulations on a very long achievement line that has to wrap onto more than one line of the toast body";
+                ToastNotifications.Show(ToastNotifications.ToastNotificationType.Achievement, shortT);
+                ToastNotifications.Show(ToastNotifications.ToastNotificationType.Achievement, longT);
+                int n = tn.Holder != null ? tn.Holder.childCount : 0;
+                Check(n, 2, $"（前提）两条 toast 都进 `Holder` 了（现读 {n}）");
+                if (n >= 2)
+                {
+                    var a0 = (RectTransform)tn.Holder.GetChild(0);
+                    var a1 = (RectTransform)tn.Holder.GetChild(1);
+                    float h0 = a0.sizeDelta.y * pxOfWorld, h1 = a1.sizeDelta.y * pxOfWorld;
+                    CheckTrue(h1 > h0 + 1f,
+                              $"★ N23：**长文案的根高 > 短文案**（短 {h0:F2}px → 长 {h1:F2}px）"
+                            + "｜🧨 改回常量 `108.8638`（两条都同高）⇒ 本条红");
+                    // 单行那条的根高 = `padT(12) + iconH(89.8638) + 文本首选高 + padB(7)`（原版三字段，字面量）
+                    var t0 = a0.Find("Text");
+                    var lb0 = t0 != null ? t0.GetComponent<Label>() : null;
+                    float textH0 = lb0 != null ? lb0.WorldH * pxOfWorld : -1f;
+                    CheckTrue(lb0 != null && textH0 > 0f
+                              && Mathf.Abs(h0 - (12f + 89.8638f + textH0 + 7f)) < 0.05f,
+                              $"★ N23：单行根高 = `12 + 89.8638 + 文本首选高 + 7`（现读 根 {h0:F2} / 文本 {textH0:F2}px）"
+                            + "｜🧨 把 `ToastRootHeight` 里的任一 padding 或 icon 高改掉 ⇒ 本条红");
+                }
+
+                // ---- ④ `N20②`：完成态 ⇒ 三件 info display 全关（`displayRule = 1`） ----
+                var cHalf = new ToastNotifications.Context("Deal 500 damage to enemy units",
+                                                           ToastNotifications.ToastNotificationType.MissionProgress);
+                cHalf.ShowProgress = true; cHalf.Progress01 = 0.5f;
+                cHalf.ProgressText = "5/10"; cHalf.RewardText = "300";
+                cHalf.RewardArt = "40K_genearl_icon_Campaign_points_big";
+                ToastNotifications.ShowNotification(cHalf);
+                var cDone = cHalf; cDone.Progress01 = 1f;
+                ToastNotifications.ShowNotification(cDone);
+                int m = tn.Holder != null ? tn.Holder.childCount : 0;
+                Check(m, 4, $"（前提）两条 mission toast 也进 `Holder` 了（现读 {m}）");
+                if (m >= 4)
+                {
+                    var half = tn.Holder.GetChild(m - 2);
+                    var done = tn.Holder.GetChild(m - 1);
+                    var halfBar = half.Find("Mission Milestones Progress Bar");
+                    var doneBar = done.Find("Mission Milestones Progress Bar");
+                    var halfPB = halfBar != null ? halfBar.Find("Progress Bar") : null;
+                    var donePB = doneBar != null ? doneBar.Find("Progress Bar") : null;
+                    var halfPg = halfBar != null ? halfBar.Find("progress") : null;
+                    var donePg = doneBar != null ? doneBar.Find("progress") : null;
+                    var doneRw = done.Find("Rewards");
+                    CheckTrue(halfPB != null && halfPB.gameObject.activeSelf
+                              && halfPg != null && halfPg.gameObject.activeSelf
+                              && doneRw != null && doneRw.gameObject.activeSelf,
+                              "★ N20②（未完成档）：`Progress Bar` / `progress` / `Rewards` **都在画**"
+                            + "（原版 `displayRule = 1` = 未完成才显示）");
+                    CheckTrue(donePB != null && !donePB.gameObject.activeSelf
+                              && donePg != null && !donePg.gameObject.activeSelf
+                              && doneRw != null && !doneRw.gameObject.activeSelf,
+                              "★★ N20②（完成档）：三件**全关**（判据 = `MB {499,500,501}.json` 的 `displayRule = 1`）"
+                            + "｜🧨 删掉 `Fill` 里那个 `complete` 判据 ⇒ 本条红");
+                    var donePgLb = donePg != null ? donePg.GetComponent<Label>() : null;
+                    Check(donePgLb != null ? donePgLb.Text : null, Loc.T("Missions/Completed"),
+                          "★ N20②：完成档的计数文案 = 词条 `Missions/Completed`（原版 `completedMessage`，"
+                        + "`MB 499` 实读；⛔ 不是 `5/10`）");
+                }
+            }
+            ToastNotifications.DisposeForTest();
+            CheckTrue(ToastNotifications.Instance == null,
+                      "（收尾）`DisposeForTest()` 之后 `Instance` 归 null（下一节不会被这一颗污染）");
+        }
+
         Debug.Log(P + shell.Dump());
         // ============================================================ 🆕 2026-10-09（`A1025`）本批键全 `Loc.HasEntry` + 两语档取真文案
         // 判据（坑表 #18）：**「原版有词条」≠「我们表里有键」** —— 键不在 ⇒ `Loc.T` 返回**键名本身**、界面上就印键名。
@@ -7547,6 +7763,131 @@ public static class ShellScene
             }
             shell.Windows.CloseAllWindows();
             if (a12Rw2 != null) Object.DestroyImmediate(a12Rw2.gameObject);
+        }
+
+        // ---------------- 🆕 2026-10-17（界面线 T16）：离屏烘焙 + UI Blur ----------------
+        //
+        // 判据与出厂态 → **本文件 ①·b 那一节**（同一份判据，⛔ 不在这里抄第二份）。
+        // 本节只管**运行时状态机**（`Toggle` / `CreateRT` / `ResolutionChanged`）：
+        // 🔴 灭自证：`Showing` 每一态都与**相反态**成对（归零关 / Toggle 开 / Toggle 关 / 压背景开 / 回前台关）。
+        Section("T16：`Toggle` / `CreateRT` / 分辨率变化（0.25 倍 · depth 24 · 两趟）");
+        {
+            var bake = shell.Bake;
+            CheckTrue(bake != null && bake.image != null,
+                      "（前提）模糊快照件在场（出厂态已在 ①·b 断过）");
+            if (bake != null && bake.image != null)
+            {
+                // ⚠️ 前面的 `baseMenu` 探针（A1709 那一节）会点亮烘焙 ⇒ 这里先归零，下面每一态都从「关」开始。
+                bake.Toggle(false);
+                CheckTrue(!bake.Showing, "（归零）`Toggle(false)` 之后不显示");
+
+                // ---- ① `Toggle(true)`：建 RT（ceil(屏 × 0.25) · depth 24）+ 显示 ----
+                bake.Toggle(true);
+                CheckTrue(bake.RT != null, "`Toggle(true)` 之后 RT 在位（没有就现建 —— 原版 `if (rt == null) CreateRT()`）");
+                if (bake.RT != null)
+                {
+                    Check(bake.RT.width, Mathf.CeilToInt(Screen.width * 0.25f),
+                          "RT 宽 = ceil(屏宽 × **0.25**（原版 `RENDER_TEXTURE_MULTIPLIER`）)");
+                    Check(bake.RT.height, Mathf.CeilToInt(Screen.height * 0.25f),
+                          "RT 高 = ceil(屏高 × 0.25)");
+                    Check(bake.RT.depth, 24, "RT 深度 = **24**（原版 `new RenderTexture(w, h, 0x18, 0)`）");
+                }
+                CheckTrue(bake.Showing, "`Toggle(true)` 之后整屏快照**显示**（= 主菜单不在前台）");
+
+                // ---- ② `Toggle(false)`：关 ----
+                bake.Toggle(false);
+                CheckTrue(!bake.Showing, "`Toggle(false)` 之后关掉（= 回前台）");
+
+                // ---- ③ 分辨率变化（原版 `ResolutionChanged`）：不显示才重建 ----
+                var rt0 = bake.RT;
+                bake.ResolutionChanged();
+                CheckTrue(bake.RT != null && !object.ReferenceEquals(bake.RT, rt0),
+                          "`ResolutionChanged()` 在**不显示**时重建 RT（原版 `image.enabled == false ⇒ CreateRT`）");
+                bake.Toggle(true);
+                var rt1 = bake.RT;
+                bake.ResolutionChanged();
+                CheckTrue(object.ReferenceEquals(bake.RT, rt1),
+                          "**显示中** `ResolutionChanged()` 不动 RT（原版那一支直接 return）");
+                bake.Toggle(false);
+            }
+        }
+
+        // ---------------- 🆕 2026-10-17（界面线 T16）：开关时机（`MainMenuWindow` 那四跳）----------------
+        //
+        // 原版逐句（`d:/2/tools/decomp_full/MainMenuWindow__*.c`）：
+        //   `ToBackground()` = `if (state == Background) return;` → **`Toggle(true)`** → `base.ToBackground()` → `SetActive(false)`
+        //   `ToFocus()`      = `SetActive(true)` → … → **`Toggle(false)`**
+        //   `Hide()`         = **`Toggle(true)`** → `base.Hide()`
+        //   `Close()`        = **`Toggle(true)`** → `base.Close()`
+        // 这四跳在本仓落在 `GameWindow` 的共同基类里，闸门 = 「是不是 `WindowsManager.BaseMenu`」
+        // （原版只有 `MainMenuWindow` 带 `screenBaker`）。
+        Section("T16：开关时机（压背景 / 隐藏 / 关闭 ⇒ 先烘再藏；回前台 ⇒ 关）");
+        {
+            var bake = shell.Bake;
+            CheckTrue(bake != null && bake.image != null, "（前提）模糊快照件在场（上一节已建）");
+            if (bake != null && bake.image != null)
+            {
+                shell.Windows.CloseAllWindows();
+                var prevBase = shell.Windows.BaseMenu;
+
+                // 探针 = 一颗**真的**常驻主菜单（原版字段：type 0 / placement 0 / closeOnESC 0 —— 照 `MB1927` 实读）
+                var mmGo = new GameObject("T16 MainMenu Probe");
+                var mm = mmGo.AddComponent<MainMenuWindow>();
+                mm.type = WindowType.Fullscreen;
+                mm.placement = WindowsPlacement.None;
+                mm.closeOnEsc = false;
+                WindowsManager.AttachToAnchor(mm);
+                shell.Windows.SetBaseMenu(mm);
+                shell.Windows.OpenWindow(mm);
+                CheckTrue(mm.CurrentState == WindowState.Open && mm.gameObject.activeSelf,
+                          "（前提）探针常驻主菜单开起来了（= `WindowsManager.baseMenu`）");
+                CheckTrue(!bake.Showing, "回前台 ⇒ 烘焙**关**（`TryOpen` 的 `Closed` 支 = 原版 `ToFocus`）");
+
+                // ---- ① 弹窗把主菜单压到背景（`OpenWindow` 的弹窗支 → `ToBackground`）----
+                shell.Windows.ShowPopUp("T16 探针弹窗", "确定");
+                Check(mm.CurrentState, WindowState.Background,
+                      "① 弹窗开 ⇒ 主菜单被压到 `Background`（原版 `ToBackground`）");
+                CheckTrue(!mm.gameObject.activeSelf, "① …主菜单整棵藏掉（`MainMenuWindow.ToBackground` 末句）");
+                CheckTrue(bake.Showing, "① …**先烘再藏**：模糊快照显示（= 上一帧主菜单的糊底）");
+                CheckTrue(bake.BakeCount > 0, "① …而且**真的烘过一趟**（`BakeCount > 0`；只翻状态不渲染 ⇒ 这条红）");
+                ClickPopUpButton(shell.Windows.popUpWindow, "Generic UI Button");
+                CheckTrue(mm.gameObject.activeSelf && mm.CurrentState == WindowState.Open,
+                          "① 关掉弹窗 ⇒ 主菜单回前台（`Background` 支）");
+                CheckTrue(!bake.Showing, "① …回前台 ⇒ 烘关闭掉（原版 `ToFocus`: `SetActive(true)` → `Toggle(false)`）");
+
+                // ---- ② 全屏窗走 `HideAllWindows()` → `Hide()` ----
+                var fsGo = new GameObject("T16 Fullscreen Probe");
+                var fs = fsGo.AddComponent<GameWindow>();
+                fs.type = WindowType.Fullscreen;
+                fs.placement = WindowsPlacement.Canvas;
+                WindowsManager.AttachToAnchor(fs);
+                shell.Windows.OpenWindow(fs);
+                Check(fs.CurrentState, WindowState.Open, "② 全屏窗开着");
+                CheckTrue(!mm.gameObject.activeSelf && mm.CurrentState == WindowState.Closed,
+                          "② 主菜单被 `HideAllWindows()` 藏成 `Closed`（原版 `Hide()` 的第一句就是 `Toggle(true)`）");
+                CheckTrue(bake.Showing, "② …隐藏也留一张模糊底");
+                fs.Close();
+                CheckTrue(mm.gameObject.activeSelf && mm.CurrentState == WindowState.Open,
+                          "② 关掉全屏窗 ⇒ 主菜单被开回来（`Closed` 支重建内容）");
+                CheckTrue(!bake.Showing, "② …回前台 ⇒ 烘关闭掉");
+
+                // ---- ③ 闸门：**只有常驻主菜单**才烘（原版只有 `MainMenuWindow` 带 `screenBaker`）----
+                fs.ToBackground();      // 它是普通窗、不是 `baseMenu`
+                CheckTrue(!bake.Showing,
+                          "③ 别的窗 `ToBackground()` **不碰**快照（闸门 = `WindowsManager.BaseMenu`）");
+
+                // ---- ④ 主菜单自己 `Close()`（原版 `MainMenuWindow.Close` 也是 `Toggle(true)` → base）----
+                mm.Close();
+                CheckTrue(bake.Showing, "④ 主菜单自己 `Close()` ⇒ 留一张模糊底（原版 `MainMenuWindow.Close`）");
+                CheckTrue(!mm.gameObject.activeSelf, "④ …而且自己藏掉了（`baseMenu` 支 = `Hide()`）");
+
+                // 收尾：开回来（灭自证：同一条路能把快照关掉），然后把探针与 `baseMenu` 还原
+                shell.Windows.OpenWindow(mm);
+                CheckTrue(!bake.Showing, "（收尾）再开一次 ⇒ 快照关掉（上面 ④ 不是「关了就再也关不掉」）");
+                shell.Windows.SetBaseMenu(prevBase);   // 还原（本节之前的 `baseMenu`，通常是 null）
+                Object.DestroyImmediate(mmGo);
+                Object.DestroyImmediate(fsGo);
+            }
         }
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");

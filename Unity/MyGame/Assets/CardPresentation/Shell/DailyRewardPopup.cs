@@ -133,6 +133,12 @@ namespace CardPresentation
 
         /// <summary>四个 Entry 的根（自检用）。</summary>
         public readonly System.Collections.Generic.List<Transform> entries = new System.Collections.Generic.List<Transform>();
+        /// <summary>🆕 **2026-10-17（`N46②`）**：`Tracks ▸ Rewards Scroll View` 的滚动区。
+        /// 原版那台是 `ScrollRect`（`m_ScrollSensitivity = **1.0**` · `m_MovementType = 1 Elastic` ·
+        /// `m_Inertia = 1`）—— 我们原来**根本没建滚动区**（四格按绝对 x 摆死）。
+        /// ⚠️ 当前 4 天的内容宽 ≈1068 &lt; 视口 1705 ⇒ 归零后**看不出差别**；但小屏/多天时它是**原版行为**。
+        /// 判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md` 与 `R_界面线剩余条目现核.md` §`N46②`。</summary>
+        MenuScroll _scroll;
 
         public static DailyRewardPopup Create(WindowsManager mgr)
         {
@@ -232,12 +238,29 @@ namespace CardPresentation
             MenuDraw.Rect(tracks, Art(ArtSepLine), SepBottom, "Separator Line Bottom", QPanel);
             var view = MenuDraw.Node(tracks, "Rewards Scroll View", ScrollView);
             var content = MenuDraw.Node(view, "Rewards Content", new PxRect(ScrollView.x1, 132.09f, ScrollView.x1, 944.19f));
+            // 🆕 **2026-10-17（`N46②`）**：接上原版那台滚动区（灵敏度 **1.0** px/格 · Elastic · Inertia）。
+            float scrollContentW = EntryPitch * (DailyData.RewardDays - 1) + EntryW;
+            var vc = view.gameObject.AddComponent<ViewportClip>();
+            vc.padding = Vector4.zero;
+            vc.softness = Vector2Int.zero;
+            vc.CaptureNow();                    // 同 `AvatarTab`：必须在写矩形之后、建子件之前
+            _scroll = MenuScroll.LeftAligned(ScrollView, scrollContentW, 1f);
+            _scroll.Owner = gameObject;
+            _scroll.Elastic = true;             // 原版 `m_MovementType = 1`
+            _scroll.ClipNode = vc;              // ⚠️ `MenuScroll.ClipNode` 只能宿主显式赋值（`Owner` 反查永远 null）
+            var contentBase = content.localPosition;
+            _scroll.OnChanged = () =>
+                content.localPosition = contentBase + new Vector3(LayoutSpace.Px(-_scroll.Offset), 0f, 0f);
+            SocialPage.RegisterScroll(_scroll); // 指针层要认识它，滚轮才落得到这一格上
 
             // 3) 四个 Entry（`Rewards Content` 的 HLG：spacing **−64**、align=3 MiddleLeft ⇒ 相邻格**故意重叠 64**）
             for (int i = 0; i < DailyData.RewardDays; i++)
             {
                 float x1 = ScrollView.x1 + EntryPitch * i;
-                var r = new PxRect(x1, 132.09f, x1 + EntryW, 132.09f + EntryH);
+                // 🔴 四格一律过 `Shift`（与 `CampaignTab` 同一条口径）；`Offset` 归零时逐位不变。
+                var r = _scroll != null
+                      ? _scroll.Shift(new PxRect(x1, 132.09f, x1 + EntryW, 132.09f + EntryH))
+                      : new PxRect(x1, 132.09f, x1 + EntryW, 132.09f + EntryH);
                 entries.Add(BuildEntry(content, r, i));
             }
 
@@ -262,7 +285,7 @@ namespace CardPresentation
             var dt = ScaleAbout(DayTitle, 0f, 0f, 0.8f, entry);
             // ⚠️ 实测这条 TMP 是 **`m_HorizontalAlignment = 2 (Center)`**（`Day Title_8118259498043006927` 的 MB）
             // ⇒ **居中**，别左对齐
-            var lbDayTitle = MenuDraw.Text(e, dt, "Day " + (day + 1), Color.white, "Day Title", 48f * 0.8f, QText);
+            var lbDayTitle = MenuDraw.Text(e, dt, "Day " + (day + 1), Color.white, "Day Title", 48f * 0.8f, QText, face: TmpFont.Face.LatinCardBody);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Day Title` = `对齐=Center/**Midline**`（fs48）
             //  （判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Daily Reward Popup" --depth 10 --md`）。
             MenuDraw.SetVAlign(lbDayTitle, Label.VAlign.Midline, dt);
@@ -282,7 +305,7 @@ namespace CardPresentation
                           Offset(D_ProgMark, entry), "Image", QContent, null, true);
             // ② `progressSlider` **只在 `milestone.Index != 0` 时才开** ⇒ 第 0 天没有进度条
             MenuDraw.Text(pg, Offset(D_ProgCount, entry), DailyData.RewardDayCounter(day), Color.white,
-                          "Counter", 30f, QContent);
+                          "Counter", 30f, QContent, face: TmpFont.Face.LatinUi);
             return e;
         }
 
@@ -325,7 +348,7 @@ namespace CardPresentation
             //   （判据 = 本仓既有先例 `Shell/MissionsTab.cs` 的 `FS()`：**「自适应上下限也要一起乘」**，
             //     `Editor/…` 那条注释在 `:345` / `:380` / `:1302`）。⇒ 18/45/36 → **14.4 / 36 / 28.8**。
             var nm = MenuDraw.Text(node, R(D_Name), DailyData.RewardName(day, prem), Color.white,
-                                   "Name", 45f * 0.8f, QText, R(D_Name).W, 18f * 0.8f, 45f * 0.8f, 36f * 0.8f);
+                                   "Name", 45f * 0.8f, QText, R(D_Name).W, 18f * 0.8f, 45f * 0.8f, 36f * 0.8f, face: TmpFont.Face.LatinCardBody);
             if (nm != null) nm.AlignLeftOn(LayoutSpace.FromPixel(R(D_Name).x1, 0f).x);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `EverguildTextMeshPro`（奖励名，fs45）
             //   = `对齐=Center/**Midline**`（同一份 dump，8 份实例逐值相同）。
@@ -353,7 +376,7 @@ namespace CardPresentation
             //   🔴 同上一颗：这一组带 `localScale = 0.8` ⇒ 四格一起 × 0.8 → **12 / 160 / 28.8**
             //   （判据 = `Shell/MissionsTab.cs` 的 `FS()`：「自适应上下限也要一起乘」）。
             var claimedTx = MenuDraw.Text(gc, R(D_ClaimedTex), DailyData.RewardClaimedText(), Color.white, "Claimed Tex", 41.95f * 0.8f, QText,
-                                          R(D_ClaimedTex).W, 15f * 0.8f, 200f * 0.8f, 36f * 0.8f);
+                                          R(D_ClaimedTex).W, 15f * 0.8f, 200f * 0.8f, 36f * 0.8f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(claimedTx, R(D_ClaimedTex));
             MenuDraw.SetVAlign(claimedTx, Label.VAlign.Midline, R(D_ClaimedTex));   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半
             gc.gameObject.SetActive(st == RewardState.Collected);
@@ -394,11 +417,11 @@ namespace CardPresentation
             // Free Track
             var f = MenuDraw.Node(bar, "Free Track", FreeTrack);
             MenuDraw.Rect(f, Art(ArtFreeIcon), FreeIcon, "Icon", QContent, null, true);
-            MenuDraw.Text(f, FreeTitle, DailyData.FreeTrackTitle(), Color.white, "Title", 36f, QText);
+            MenuDraw.Text(f, FreeTitle, DailyData.FreeTrackTitle(), Color.white, "Title", 36f, QText, face: TmpFont.Face.LatinCardBody);
             // Premium Track
             var p = MenuDraw.Node(bar, "Premium Track", PremTrack);
             MenuDraw.Rect(p, Art(ArtPremIcon), PremIcon, "Icon", QContent, null, true);
-            MenuDraw.Text(p, PremTitle, DailyData.PremiumTrackTitle(), Color.white, "Title", 36f, QText);
+            MenuDraw.Text(p, PremTitle, DailyData.PremiumTrackTitle(), Color.white, "Title", 36f, QText, face: TmpFont.Face.LatinCardBody);
             var price = MenuDraw.Node(p, "Price Display Button 2 Variant", PremPrice);
             var pb = MenuDraw.Rect(price, Art("UI_Button_Mulligan"), PremPrice, "Generic UI Button", QContent);
             // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 30px。
@@ -408,8 +431,10 @@ namespace CardPresentation
             //   ⚠️ **这一格不在 `localScale = 0.8` 的那棵子树里**（`PremPrice` 没走 `R()`，与 Header 同刻度）
             //   ⇒ 四格**照原值抄、不乘 0.8**（判据 = 同族的 `Shell/PurchasePremiumWindow.cs` 四格常量就是原值）。
             //   ⚠️ 折行 0 ⇒ `SetAutoFitBox` 内部 `SetWrapWidth` 会**无条件**开成 `Normal` ⇒ 紧跟一句关掉。
-            var lbPrice = MenuDraw.Text(price, PremPrice, DailyData.PremiumTrackPrice(), Color.white, "Price", 30f, QText,
-                                        PremPrice.W, 13.46f, 40f, 39f);
+            // 🆕 **2026-10-17（界面线 `T07` · `A1753` #10）**：屏上颜色 = 原版材质 `Pragati-Regular Light Cream`
+            //   的 `_FaceColor` **(0.992, 0.868, 0.733)**（顶点白）。判据 = `R_T07_剩余四项.md` §4·2 #10。
+            var lbPrice = MenuDraw.Text(price, PremPrice, DailyData.PremiumTrackPrice(), new Color(0.992f, 0.868f, 0.733f, 1f), "Price", 30f, QText,
+                                        PremPrice.W, 13.46f, 40f, 39f, face: TmpFont.Face.LatinCardBody);
             if (lbPrice != null) lbPrice.SetWrapping(false);        // 原版折行=0（A205：关这一下顺带推版面）
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版那一格 `…/Price Display Button 2 Variant/
             //   Generic UI Button/…/text`（出厂 `'300,00'`）= `对齐=Center/**Capline**`（同一份 dump）。
@@ -477,14 +502,14 @@ namespace CardPresentation
             //   ⚠️ Header 这一族**不带** `localScale`（我们传的 `40f` 就是原版 `m_fontSize` 原值）
             //   ⇒ 四格照抄、**不乘 0.8**（⛔ 与上面 `Name` / `Claimed Tex` 那两颗不是一套刻度）。
             var t = MenuDraw.Text(h, HeaderTitle, DailyData.HeaderArmyName(), Color.white, "Title", 40f, QText,
-                                  HeaderTitle.W, 18f, 40f, 36f);
+                                  HeaderTitle.W, 18f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             if (t != null) t.AlignLeftOn(LayoutSpace.FromPixel(HeaderTitle.x1, 0f).x);
             // 🆕 **2026-10-16（A712 阶段 2）**：原版顶栏 `Title`（fs40）= `Left/**Midline**`（同一份 dump）。
             MenuDraw.SetVAlign(t, Label.VAlign.Midline, HeaderTitle);
             // 同 `Header Header/Title` 那一族的刻度（不带 `localScale`）：原版 `…/Header Header/Sub-Title` =
             // `auto[18~40] · base 36 · 折行 1`（四格照抄，⛔ 不乘 0.8）。
             var s = MenuDraw.Text(h, HeaderSub, DailyData.HeaderArmySubTitle(), Color.white, "Sub-Title", 39.7f, QText,
-                                  HeaderSub.W, 18f, 40f, 36f);
+                                  HeaderSub.W, 18f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             if (s != null) s.AlignLeftOn(LayoutSpace.FromPixel(HeaderSub.x1, 0f).x);
             // 🆕 **2026-10-16（A712 阶段 2）**：原版 `Sub-Title`（fs39.7）= `Left/**Capline**`
             //   —— ⚠️ **与上一行的 `Title`（`Midline`）同框不同档**，⛔ 别一刀切。
@@ -512,7 +537,7 @@ namespace CardPresentation
             //      `MoreRewardsInText()` —— 原来只有连登窗那条口，本窗只能复用一个「看着像连登窗专用」的名字
             //      （那个会误导下一个会话去找另一份）。⛔ 新调用点一律用中性那个。
             var more = MenuDraw.Text(t, TimerMore, DailyData.MoreRewardsInText(), Color.white,
-                                     "EverguildTextMeshPro", 50f, QText);
+                                     "EverguildTextMeshPro", 50f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignRight(more, TimerMore);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Right/**Capline**`（上面 ① 那条 dump 逐字写着）。
             MenuDraw.SetVAlign(more, Label.VAlign.Capline, TimerMore);
@@ -526,7 +551,7 @@ namespace CardPresentation
             //   **`Right/Capline`**（`245.5 990.8 935.0 1054.1`）—— 🔴 **那一颗 2026-10-13（A516）已经补上了**
             //   （就在本方法**上方**，画在时钟图之前 = 原版的兄弟序），本条注释原来写「我们根本没建、
             //   不在本账里顺手补」**已过期**（铁律 5 就地订正）。
-            var tm = MenuDraw.Text(t, TimerText, DailyData.RewardTimerText(), Color.white, "EverguildTextMeshPro (1)", 50f, QText);
+            var tm = MenuDraw.Text(t, TimerText, DailyData.RewardTimerText(), Color.white, "EverguildTextMeshPro (1)", 50f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(tm, TimerText);
             MenuDraw.SetVAlign(tm, Label.VAlign.Capline, TimerText);   // A712 阶段 2：原版 `Left/Capline` 的纵向那一半
             // 🔴 **2026-10-17（N3）**：这一颗原来只有**建窗那一刻**的活值（`DailyData.RewardTimerText()` 一次性

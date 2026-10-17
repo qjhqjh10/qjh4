@@ -374,9 +374,12 @@ namespace CardPresentation
                 //     可能是 null（下游都有空判：`TextAt` / `Put` / `SetAlpha` 里那几处）。
                 b.text = _ugui
                        ? HudCanvas.MakeText(transform, LabelFor(i), 0f, 0f, 1, Color.white,
-                                            new Vector2(0f, 0.5f), UZBtnText, "ChatButton" + (i + 1) + "_Text")
+                                            new Vector2(0f, 0.5f), UZBtnText, "ChatButton" + (i + 1) + "_Text", face: TmpFont.Face.LatinCardBody)
                        : Label.Create(transform, LabelFor(i), Vector3.zero, 1, Color.white,
                                       new Vector2(0f, 0.5f), "ChatButton" + (i + 1) + "_Text");
+                // 🔴 2026-10-17（A1024③ 第 2 批）：原版 `ChatButtons/.../Text (TMP)` = Pragati。
+                //    两档都过这里（uGUI 档已在 `MakeText` 里换过 ⇒ `SetFace` 同面早退，逐位等价）。
+                if (b.text != null) b.text.SetFace(TmpFont.Face.LatinCardBody);
                 _btns.Add(b);
             }
 

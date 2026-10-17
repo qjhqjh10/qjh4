@@ -349,7 +349,8 @@ namespace CardPresentation
         /// 新调用点用**命名实参**（`autoMaxPx: …`）最稳。</para></summary>
         protected Label Text(Transform parent, PxRect r, string s, Color color, string name, float fontPx, int q,
                              float wrapPx = 0f, float autoMinPx = 0f, int align = 0,
-                             float autoMaxPx = 0f, float autoBasePx = 0f)
+                             float autoMaxPx = 0f, float autoBasePx = 0f,
+                             TmpFont.Face face = TmpFont.Face.Cjk)
         {
             // 🔴 **2026-10-13（A435 阶段 2 · 丁 / B1）：取状态走【一处】共用解析**（`ViewportClip.Resolve`）——
             //    本方法原来两处都直接读 `RenderClip` / `ClipSoftness` 两个**本窗字段**，于是本窗没设
@@ -366,7 +367,8 @@ namespace CardPresentation
             var _st = ViewportClip.Resolve(parent, RenderClip, ClipSoftness, default(Vector4));
             if (!MenuDraw.Visible(r, _st.RenderClip)) return null;
             // A446：后两个口**透传**（`<= 0` ⇒ `MenuDraw.Text` 内部退回旧行为，见那边的注释）
-            var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx, autoMaxPx, autoBasePx);
+            var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, wrapPx, autoMinPx, autoMaxPx, autoBasePx,
+                                   face: face);
             if (lb == null) return null;
             if (align == 1) MenuDraw.AlignLeft(lb, r);
             else if (align == 2) MenuDraw.AlignRight(lb, r);
@@ -490,6 +492,7 @@ namespace CardPresentation
                 CurrentState = WindowState.Open;
                 Open();                    // ← 🔴 **内容只在这一支里重建**（A217② 的核心）
                 ApplySmallScreenScale();   // 🆕 A165 —— 原版这一段写在 `GameWindow.Open()` 里，见方法注释
+                SetBake(false);            // 🆕 T16：回前台 ⇒ 关模糊底（原版 `ToFocus()` 末尾那句 `Toggle(false)`）
                 return true;
             }
 
@@ -500,6 +503,7 @@ namespace CardPresentation
                           + "（照原版 `GameWindow.TryOpen`：`Background ⇒ state=Open + 前台动作`，不调 `Open()`）");
                 gameObject.SetActive(true);          // ← 我们的「前台动作」那半边（原版那一刻那句的等价物）
                 CurrentState = WindowState.Open;
+                SetBake(false);                      // 🆕 T16：回前台 ⇒ 关模糊底（原版 `ToFocus()`）
                 return true;
             }
 
@@ -549,8 +553,67 @@ namespace CardPresentation
         /// <summary>子类在这里铺自己的内容。基类什么都不做（原版 `Open()` 也是虚方法）。</summary>
         public virtual void Open() { }
 
+        // ============================================================ 离屏烘焙 + UI Blur
+        //
+        // 🆕 **2026-10-17（界面线 T16）**：原版 `MainMenuWindow` 身上挂着一个 `screenBaker`（= `UIBakeScreen`），
+        // 五处钩子逐句（`d:/2/tools/decomp_full/MainMenuWindow__*.c`）：
+        //   · `MenuFocusChangeActions(focused)` → `Toggle(!focused)`
+        //   · `ToBackground()` → **`Toggle(true)`** → `base.ToBackground()` → `SetActive(false)`
+        //   · `ToFocus()`      → `SetActive(true)` → … → **`Toggle(false)`**
+        //   · `Hide()`         → **`Toggle(true)`** → `base.Hide()`
+        //   · `Close()`        → **`Toggle(true)`** → `base.Close()`
+        // ⇒ **主菜单不在前台（被压住 / 隐藏 / 关闭）⇒ 先烘再藏；回前台 ⇒ 关。**
+        // 🔴 原版只有 `MainMenuWindow` 带 `screenBaker`（别的窗一个都没有）⇒ 这里统一用
+        //    「这一扇是不是 `WindowsManager.BaseMenu`」当闸门 —— `Shell/MainMenuWindow.cs` **不在本笔白名单**，
+        //    所以钩子只能落在共同基类这一处（两处写同一条规则 = 迟早不一致）。
+        // ⚠️ `MenuFocusChangeActions(focused)` 那一跳**没接**：本地反编译里**找不到它的调用方**
+        //    （`d:/2/tools/decomp_full/` 只有它自己的方法体；类桩 `MainMenuWindow.cs:175` 是空函数）
+        //    ⇒ 不知道它到底由「应用窗口失焦」还是「导航焦点」驱动 —— ⛔ 不凭空发明一个信号。
+        // ⚠️ 原版 `MainMenuWindow.Close` 与 `Hide` 在「关常驻主菜单」那条路上**都会各烘一次**（两次调用，
+        //    第二趟把第一趟的结果再烘一遍）—— 本仓**照原版**保留这两次（`Close` 的 baseMenu 支走 `Hide()`）。
+        //    `UIBakeScreen.Toggle(true)` 烘之前会把快照自己关掉（见那边文件头）⇒ 不会自反馈。
+        // ⚠️ **先烘、再显示新窗**依赖调用方次序：`WindowsManager.OpenWindow` 在 `win.TryOpen(...)`
+        //    （= 新窗 `SetActive(true)`）**之前**调 `ToBackground()` / `HideAllWindows()` ⇒ 快照里不会带上新窗。
+
+        /// <summary>这一扇是不是「常驻主菜单」（原版 `MainMenuWindow` = `WindowsManager.mainMenu` 字段 0x48）。
+        /// <para>⚠️ 用 `Manager`（`OpenWindow` 里赋）判，**不看类型** —— 独立场景/自检里那棵没有 `baseMenu` 时
+        /// 不该凭空烘（原版那一刻场上也没有 `MainMenuWindow` 实例）。</para></summary>
+        public bool IsBaseMenu { get { return Manager != null && Manager.BaseMenu == this; } }
+
+        static bool _bakeMissingWarned;
+
+        /// <summary>原版 `MainMenuWindow.screenBaker.Toggle(on)` 的统一入口（只有常驻主菜单生效）。
+        /// <para>找不到快照件时**出声一次**（红线：不许静默失败）—— 否则「开了窗却什么都没烘」无从分辨。</para></summary>
+        void SetBake(bool on)
+        {
+            if (!IsBaseMenu) return;
+            var shell = ShellRuntime.Instance;
+            var b = UIBakeScreen.Current;                 // 自检/批处理里 `ShellRuntime.Instance` 是 null（`Awake` 不跑）
+            if (b == null && shell != null) b = shell.Bake;
+            if (b == null)
+            {
+                // 独立场景档（`MainMenu.unity` 直起 / `MainMenuScene` 自检）**没有壳** ⇒ 本来就没有这件，
+                // 那不是缺陷（如实记：这一档没有离屏烘焙）。只有「壳在、件却不在」才出声。
+                if (shell == null) return;
+                if (!_bakeMissingWarned)
+                {
+                    _bakeMissingWarned = true;
+                    Debug.LogWarning($"[Bake] 常驻主菜单 `{name}` 要{(on ? "开" : "关")}离屏烘焙，" +
+                                     "但场上没有 `UIBakeScreen`（壳里没建 / 已经销毁）—— 这一下**没有模糊底**");
+                }
+                return;
+            }
+            b.Toggle(on);
+        }
+
         /// <summary>被更高优先级的窗压到背景（原版 `ToBackground()`）。</summary>
-        public virtual void ToBackground() { CurrentState = WindowState.Background; }
+        public virtual void ToBackground()
+        {
+            // 🆕 T16：原版 `MainMenuWindow.ToBackground` 的第一句（烘 → 再 `base.ToBackground` → 再 `SetActive(false)`；
+            //   后两句在 `MainMenuWindow` 的覆写里，基类这一句排在**它之前**正好等价）
+            SetBake(true);
+            CurrentState = WindowState.Background;
+        }
 
         /// <summary>🆕 **A217③**：原版 `GameWindow.Hide()` —— **虚表 Slot 9 = `0x1c8`**
         /// （`d:/2/tools/il2cpp_out/dump.cs` 的 `GameWindow` 一节：`Slot: 9`、VA `0x180835B60`，与该 .c 文件对得上），
@@ -580,6 +643,7 @@ namespace CardPresentation
         {
             if (gameObject == null) return;
             if (!gameObject.activeSelf) return;
+            SetBake(true);              // 🆕 T16：原版 `MainMenuWindow.Hide` 的第一句（先烘、再 `base.Hide`）
             CurrentState = WindowState.Closed;
             gameObject.SetActive(false);
         }
@@ -615,6 +679,12 @@ namespace CardPresentation
                         + "（⚠️ `Hide()` 藏起来的窗**不算**这一档：它的 state 是 `Closed`、按原版就该留在表里。）");
                 return;
             }
+            // ==================== 🆕 2026-10-17（T16）：关闭 / 隐藏主菜单 ⇒ 先烘一张模糊底 ====================
+            // 判据 = `MainMenuWindow__Close.c`：**第一句就是** `screenBaker.Toggle(true)`，然后才 `GameWindow.Close`。
+            // ⚠️ 放在**首句守卫之后**（原版 Toggle 在守卫之前；我们不让「本来就没开」的窗去烘一张
+            //    **当前屏上别的窗**的快照 —— 那只会画出一张与新画面无关的糊图）。
+            // ⚠️ 常驻主菜单这一档会经 `Hide()` 再烘一次（见 `SetBake` 那段注释），与原版同为两次。
+            SetBake(true);
             // ==================== 🆕 2026-10-17（W_G）：关窗音 ====================
             // 判据 = `GameWindow__Close.c` 逐句：① 两个 null 判据 ② `!gameObject.activeSelf ⇒ return`
             //   ③ **播关窗音**（`closeSound` 为空且 `useDefaultCloseSoundIfNull` ⇒ `SoundManager.defaultCloseSound`）
@@ -727,6 +797,7 @@ namespace CardPresentation
         {
             gameObject.SetActive(true);            // = 原版 `UnHide()` 的第二句（顶窗被 `Hide()` 过时要能回来）
             CurrentState = WindowState.Open;       // = 原版 `TryOpen` 非 `Closed` 支那唯一一句写入
+            SetBake(false);                        // 🆕 T16：这是「回前台」的等价动作之一 ⇒ 关模糊底（生产路径已走 `TryOpen`）
         }
 
         /// <summary>🆕 A77㉑①：原版 `GameWindow.UnHide()` **逐句照搬** ——

@@ -100,7 +100,7 @@ namespace CardPresentation
             var col = MenuDraw.Node(root, "Ranked Division Info", new PxRect(RDL, RDT, RDR, RDB));
             // 原版 hAlign = **Center** ⇒ 不调 `Align*`（原来右对齐了）
             MenuDraw.Text(col, new PxRect(RankTitleL, RankTitleT, RankTitleR, RankTitleB), "Rank",
-                          Color.white, "Rank Title", 57.7f, QText);
+                          Color.white, "Rank Title", 57.7f, QText, face: TmpFont.Face.LatinCardBody);
 
             // `info`（原版出厂 **act=0**）⇒ 照纪律**不建**
 
@@ -114,7 +114,7 @@ namespace CardPresentation
                           "Bg", QArt);
             // 原版 Button Text hAlign = Center ⇒ 不调 `Align*`
             MenuDraw.Text(lbn, new PxRect(LeaderTxL, LeaderTxT, LeaderTxR, LeaderTxB), "Leaderboard",
-                          Color.white, "Button Text", 36f, QText);
+                          Color.white, "Button Text", 36f, QText, face: TmpFont.Face.LatinCardBody);
             // 🆕 A17：原版 `Ranked Division Info` 的 `LeaderboardButton` 是 SpriteSwap（普查 §块 5 第 24 行）
             MenuDraw.Hit(lbn, "Hit", new PxRect(LeaderL, LeaderT, LeaderR, LeaderB), QHit,
                          OpenLeaderboard, lbQ, ArtMulligan, clickCue: WindowSounds.PositiveCue);
@@ -134,11 +134,11 @@ namespace CardPresentation
             //    （原来写「`Label` 没有字距接口」—— 那只是**没加**，`Label.SetCharSpacing` 现在有了）。
             //    ⚠️ 字距会改文字宽度 ⇒ 放在 `Align*` **之前**（与 `SetAutoFitBox` 那条顺序纪律同源）。
             var un = MenuDraw.Text(tg, new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB), "Unranked",
-                                   Color.white, "UnrankedText", 45f, QText);
+                                   Color.white, "UnrankedText", 45f, QText, face: TmpFont.Face.LatinCardBody);
             if (un != null) un.SetCharSpacing(-4f);
             MenuDraw.AlignRight(un, new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB));
             var rk = MenuDraw.Text(tg, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB), "Ranked",
-                                   Color.white, "RankedText", 45f, QText);
+                                   Color.white, "RankedText", 45f, QText, face: TmpFont.Face.LatinCardBody);
             if (rk != null) rk.SetCharSpacing(-4f);
             MenuDraw.AlignLeft(rk, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB));
             MenuDraw.Rect(tg, Tex("40_main_bt_toggle_on"),

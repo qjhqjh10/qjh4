@@ -43,11 +43,11 @@ namespace CardPresentation
             var l1 = MenuDraw.Text(Root, new PxRect(cx - 700f, cy - 70f, cx + 700f, cy + 10f),
                                    string.Format(Loc.T("MainMenu/Social/ProfileTitle"), who ?? "?"),
                                    new Color(0.98f, 0.686f, 0.169f, 1f),
-                                   "Stranger Name", 45f, Q, 1400f, 23f);
+                                   "Stranger Name", 45f, Q, 1400f, 23f);   // A1024③ 判不出（自建页）⇒ 保持 Cjk
             if (l1 != null) l1.SetRenderQueue(Q);
             var l2 = MenuDraw.Text(Root, new PxRect(cx - 700f, cy + 20f, cx + 700f, cy + 120f),
                                    Loc.T("MainMenu/Social/ProfileOfflineNote"),
-                                   Color.white, "Stranger Note", 32f, Q + 1, 1400f, 18f);
+                                   Color.white, "Stranger Note", 32f, Q + 1, 1400f, 18f);   // A1024③ 判不出（自建页）⇒ 保持 Cjk
             if (l2 != null) l2.SetRenderQueue(Q + 1);
 
             Debug.Log("[Profile] 看**别人**的档案：「" + (who ?? "?") + "」的 " + Tabs[PageIdx]

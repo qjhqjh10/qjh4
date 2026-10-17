@@ -223,7 +223,8 @@ namespace CardPresentation
             // 走到这里督军一定在（`DeckRules.Validate` 的 ② 那一步否则会给 `NoWarlord`）——
             // 这一行只是「取不到就什么都不做」，不静默编一个名字出来。
             if (w == null) return;
-            Deck.Name = CardText.Name(w.Name, w.NameZh);
+            // 🆕 2026-10-17（`N42`）：按 `CardDef` 取 —— 非中英语档用官方 13 语言卡名（`Card_Name/<id>`）
+            Deck.Name = CardText.Name(w);
         }
 
         /// <summary>卡组还差几张（负数=超了）。UI 上「12/30」那个计数用它。</summary>

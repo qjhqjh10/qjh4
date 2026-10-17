@@ -490,7 +490,7 @@ namespace CardPresentation
             //   ⚠️ 本舱刻度 = 原版刻度（我们传的 `36f` 就是原版 `m_fontSize` 那一档）⇒ 四格照抄、不换算。
             //   ⚠️ 折行 0 ⇒ `SetAutoFitBox` 内部 `SetWrapWidth` 会**无条件**开成 `Normal` ⇒ 紧跟一句关掉。
             var ins2 = MenuDraw.Text(root, new PxRect(Ins2L, HdrT, Ins2R, HdrB), Loc.T(TitleTerm), Color.white, "Instructions 2",
-                          36f, QDsText, Ins2R - Ins2L, 18f, 40f, 36f);
+                          36f, QDsText, Ins2R - Ins2L, 18f, 40f, 36f, face: TmpFont.Face.LatinUi);
             if (ins2 != null) ins2.SetWrapping(false);              // 原版折行=0（A205：关这一下顺带推版面）
             {
                 float ry1 = RndBoxT + (RndBoxB - RndBoxT - RndH) * 0.5f;
@@ -506,7 +506,7 @@ namespace CardPresentation
                 //   `m_text = ''`（本批实读）⇒ **英文原文取不到**（同 `MenuDeck/Tip/SelectDeckAgainst` 那条的先例），
                 //   而 `zh_CN.csv` 里也没有 `Random` ⇒ 中文按英文自拟「随机」。⛔ 别写成「照抄原版」。
                 //   ⛔ 节点名 `"Random Text"` 与 `"Random Bg"` 不动。
-                MenuDraw.Text(root, rr, Loc.T("MenuDeck/Button/Random"), Color.white, "Random Text", 45f, QDsText);
+                MenuDraw.Text(root, rr, Loc.T("MenuDeck/Button/Random"), Color.white, "Random Text", 45f, QDsText, face: TmpFont.Face.LatinCardBody);
                 // A17：原版 `…>Practice buttons>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 3 第 9 行）；
                 // 底下那颗 `EverguildButton`(trans=1) 不换图 —— 换图的是 `Button` 那颗
                 Hit(root, "RandomHit", rr, PickRandom, QDsHit, randomBg, "UI_Button_Mulligan",
@@ -525,7 +525,7 @@ namespace CardPresentation
             var vc = ViewportClip.Hang(holder, "Viewport", SvRect, Vector4.zero, Vector2Int.zero);
             var shown = Shown();
             int rows = Mathf.Max(1, Mathf.CeilToInt(shown.Count / (float)Cols));
-            Scroll = MenuScroll.TopAligned(SvRect, rows * CellH);
+            Scroll = MenuScroll.TopAligned(SvRect, rows * CellH, 100f);   // 原版 `Deck Selection Popup/…/Deck Scroll View` = 100（D_N29）
             Scroll.Owner = gameObject;
             Scroll.ClipNode = vc;                       // 🔴 A465（构建循环那一路也要吃这颗节点）
             Scroll.OnChanged = () => RebuildCells(holder);
@@ -545,7 +545,7 @@ namespace CardPresentation
             //       **写死的英文**（还带着原文的语法错误 "no deck"）。版面照原版，文字照实说 —— 这叫**出声**。
             RefreshEmptyText();
             _emptyNode = MenuDraw.Node(root, "Empty Collection Warning", SvRect);
-            _emptyLabel = MenuDraw.Text(_emptyNode, SvRect, _empty, Color.white, "Warning", 36f, QDsText, SvRect.W);
+            _emptyLabel = MenuDraw.Text(_emptyNode, SvRect, _empty, Color.white, "Warning", 36f, QDsText, SvRect.W, face: TmpFont.Face.LatinCardBody);
             // 🔴 **必须马上摆一次显隐**：`RebuildCells`（第 6 步）里的那次 `RefreshEmptyNote` 跑在本件**之前**，
             //    当时 `_emptyNode` 还是 null ⇒ 什么都没做。少了这一句，「列表非空」时这一件会**留在开着**的状态
             //    （只是文案是空串、看不见 —— 静默错），自检那条 `activeSelf == false` 会红。
@@ -664,7 +664,7 @@ namespace CardPresentation
             //   ⚠️ 框宽只由 `wrapPx` 决定（`TextCore` 把 `wrapPx` 写进 TMP 的 `sizeDelta.x`），
             //   节点位置仍取 `r` 的中心 ⇒ **213 的框自动落在 260 的正中**，与原版 `a[0.5,0-0.5,1]` 同位（不用加对齐）。
             var tabLb = MenuDraw.Text(root, r, label, Color.white, "Tab Text " + (own ? "Own" : "Pre"), 34f, QDsText,
-                                      TabTextW, 12f, 60f, 12f);
+                                      TabTextW, 12f, 60f, 12f, face: TmpFont.Face.LatinCardBody);
             if (tabLb != null) tabLb.SetWrapping(false);            // 原版折行=0
             Hit(root, "TabHit_" + (own ? "Own" : "Pre"), r, () => SwitchTab(own), QDsHit);
         }

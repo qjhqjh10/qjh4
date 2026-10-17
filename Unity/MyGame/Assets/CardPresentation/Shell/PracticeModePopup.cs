@@ -550,9 +550,16 @@ namespace CardPresentation
             //    = `auto[1~36] · base 23 · 折行 1`）⇒ 折行档 = 1，`wrapPx` = 本格框宽
             //    （原版那颗的宽由布局排出来、prefab 里是模板位 ⇒ **这一格不是原版字段值**，
             //     同 `Shell/SettingsWindow.cs:4717` 那条登记）。
+            // 🔴 **A1024③（2026-10-17）换面**：`Practice Mode Menu` 里 **Asar 三颗** =
+            //    `Selected Army Title` / `Lore Text` / `Deck Name`（判据 = `menu_dump … "Practice Mode Menu"
+            //    --depth 25` 逐颗现读）；其余（`Warlord Name` / `GameModeText` / `Main Search message` /
+            //    `Few players online message` / `tooltip` / `Cards in deck` / `Card Cost` / `Button Text` …）**全 Pragati**。
+            //    ⚠️ `Lore Text` 本扇**不建**（原版喂 `DemoDeckInfoSO.Lore`，见文件头）⇒ 两颗 Asar 有落点。
+            //    ⚠️ **同名不同字**：`Deck Selector Menu Item ▸ Deck Name`（`:1416`）是 **Pragati**，
+            //    只有 `Deck info ▸ Deck Name`（`:606`）是 Asar —— 逐站判过，⛔ 别按名统一。
             _txtArmy = Txt(root, SelectedArmyName(), ArmyTxL, ArmyTxR, ArmyTxT, ArmyTxB, 36f, Align.Center, "Selected Army Title", QPrText,
                            wrapPx: ArmyTxR - ArmyTxL, autoMinPx: 1f, autoMaxPx: 36f, autoBasePx: 23f,
-                           vAlign: Label.VAlign.Midline);   // 🆕 N11：原版 `Center/**Midline**`（现读 dump）
+                           vAlign: Label.VAlign.Midline, face: TmpFont.Face.LatinUi);   // 🆕 N11：原版 `Center/**Midline**`（现读 dump）
 
             // `Deck info` —— **容器本身没有图**（红底在子件 `Generic Window Red Background Big` 上，见常量段注释）
             // 🔴 **2026-10-11（A332）**：矩形随节点一起写（`InfoL/InfoT/InfoR/InfoB` = 638.38,78.79→1842.38,863.77
@@ -604,7 +611,8 @@ namespace CardPresentation
             var wl = CollectionData.Warlord(DeckIndex);
             // 🆕 **A1205 接上**（`R5` §2·H #47：原版 `Deck info ▸ Deck Name` = `auto[1~36] · base 22.68 · 折行 1`）
             _txtDeckName = Txt(_info, d.Name, DnL, DnR, DnT, DnB, 36f, Align.Left, "Deck Name", QPrText,
-                               wrapPx: DnR - DnL, autoMinPx: 1f, autoMaxPx: 36f, autoBasePx: 22.68f);
+                               wrapPx: DnR - DnL, autoMinPx: 1f, autoMaxPx: 36f, autoBasePx: 22.68f,
+                               face: TmpFont.Face.LatinUi);
             // 「未选战将」在本文件有三处（建窗这一处 + 两个 `SetText` 刷新点）—— **一律**走同一条词条
             // `MenuDeck/Error/NoWarlord`，施工单 §附_Shell #1 判「复用，别新造」。
             // ⚠️ **如实记**：表里中文列是「还没有选战将」—— 与改前写死的「未选战将」**不同字**，这是有意的
@@ -612,7 +620,8 @@ namespace CardPresentation
             // 🆕 **A1205 接上**（`R5` §2·H #48：原版 `Deck info ▸ Warlord Name` = `auto[1~35] · base 24.3 · 折行 1`）
             _txtWarlord = Txt(_info, wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"), WnL, WnR, WnT, WnB, 35f,
                               Align.Left, "Warlord Name", QPrText,
-                              wrapPx: WnR - WnL, autoMinPx: 1f, autoMaxPx: 35f, autoBasePx: 24.3f);
+                              wrapPx: WnR - WnL, autoMinPx: 1f, autoMaxPx: 35f, autoBasePx: 24.3f,
+                              face: TmpFont.Face.LatinCardBody);
             _armyIcon = Img(_info, DeckRuntime.FactionIcon(d.Faction), ArmImgL, ArmImgT, ArmImgR, ArmImgB,
                             "Army Image", QPrRow, true);
         }
@@ -649,7 +658,8 @@ namespace CardPresentation
             //    `mTerm = Demo/CardCostBalance`、`m_text = 'Card / Energy cost'`（本轮现读）。
             Txt(_general, Loc.T("Demo/CardCostBalance"), CostTxtL, CostTxtR, CostTxtT, CostTxtB, 34f, Align.Center,
                 "Deck Information Cost/balance text", QPrText,
-                wrapPx: CostTxtR - CostTxtL, autoMinPx: 1f, autoMaxPx: 34f, autoBasePx: 22.3f);
+                wrapPx: CostTxtR - CostTxtL, autoMinPx: 1f, autoMaxPx: 34f, autoBasePx: 22.3f,
+                face: TmpFont.Face.LatinCardBody);
             {
                 var counts = CostCurveDrawer.Counts(CollectionData.Raw(DeckIndex), CollectionData.Card);
                 CostCurveDrawer.Build(_general, CostDrwCX, CostDrwCY, CostDrwScl, counts, QPrRow, QPrText);
@@ -685,7 +695,7 @@ namespace CardPresentation
                 //   的**有效框 = 236.77×61.68 画布 px**（`AspectRatioFitter` 宽控高；相对钮 254.538×83.321：
                 //   左 +8.85 / 上 +10.74）。原来传的是**整颗钮 254.54×83.33** ⇒ 宽多 17.77、高多 21.65。
                 //   ⚠️ 与 `DeckInfoPopup.Txt` 的 `boxW/boxH` 同一个口径（父宽×锚跨度＋sd，⛔ 不是裸 `m_SizeDelta`）。
-                boxW: 236.77f, boxH: 61.68f);
+                boxW: 236.77f, boxH: 61.68f, face: TmpFont.Face.LatinCardBody);
             // ✅ 原版这条就是 `DeckGeneralInfoDemo.ChangePlayerDeckButton`
             //    → `WindowsManager.OpenWindow(new DeckSelectionContext(...))`（`…__ChangePlayerDeckButton.c`）。
             HitOn(_general, _general, "ChangeDeckHit", new PxRect(ChgL, ChgT, ChgR, ChgB), () => OpenDeckSelection());
@@ -852,7 +862,8 @@ namespace CardPresentation
             //    原来直接画资产里的 `m_text`（`Back`）⇒ 中文档永远出英文。
             //    ⚠️ 键名⛔ 不许自拟（否则查不到 ⇒ 界面上印键名，见 `Core/Loc.cs` 的 `T` doc）。
             Txt(root, Loc.T("MainMenu/MainButtons/ButtonLabel/Back"), BackTxL, BackTxR, BackT, BackB, 45f, Align.Left, "Back Text", QPrText,
-                wrapPx: BackTxR - BackTxL, autoMinPx: 1f, autoMaxPx: 45f, autoBasePx: 31.9f);
+                wrapPx: BackTxR - BackTxL, autoMinPx: 1f, autoMaxPx: 45f, autoBasePx: 31.9f,
+                face: TmpFont.Face.LatinCardBody);
             // 🆕 A17：原版 `Practice Mode Menu` 的 `Back button` 是 SpriteSwap（普查 §块 5 第 21 行）
             var backHit = Hit(root, root, "BackHit", new PxRect(BackL, BackT, BackR, BackB), () => Close());
             var backWb = backHit != null ? backHit.GetComponent<WindowButton>() : null;
@@ -872,7 +883,8 @@ namespace CardPresentation
             // 🔴 **2026-10-19（`A1501`）：文案改走 `Loc.T`** —— `tooltip` 那颗 TMP 的
             //    `mTerm = Demo/DeckSelectionDemo/SelectDeck`、`m_text = 'Select deck to play'`（本轮现读）。
             Txt(root, Loc.T("Demo/DeckSelectionDemo/SelectDeck"), TipL, TipR, TipT, TipB, 38f, Align.Center, "tooltip", QPrText,
-                wrapPx: TipR - TipL, autoMinPx: 1f, autoMaxPx: 38f, autoBasePx: 23.2f);
+                wrapPx: TipR - TipL, autoMinPx: 1f, autoMaxPx: 38f, autoBasePx: 23.2f,
+                face: TmpFont.Face.LatinCardBody);
             BuildArmySelector(root);
             BuildDeckRows(root);
 
@@ -893,7 +905,8 @@ namespace CardPresentation
             // 🔴 **2026-10-19（`A1501`）：文案改走 `Loc.T`** —— 那颗 TMP 的
             //    `mTerm = Demo/ToBattle`、`m_text = 'Battle!'`（本轮现读：节点 = `DeckSelectionContinueButton ▸ Text`）。
             Txt(root, Loc.T("Demo/ToBattle"), BtTxL, BtTxR, BtTxT, BtTxB, 45f, Align.Right, "Battle Text", QPrText,
-                wrapPx: BtTxR - BtTxL, autoMinPx: 18f, autoMaxPx: 45f, autoBasePx: 36f);
+                wrapPx: BtTxR - BtTxL, autoMinPx: 18f, autoMaxPx: 45f, autoBasePx: 36f,
+                face: TmpFont.Face.LatinCardBody);
             Img(root, "40k_UI_bt_play", CircL, CircT, CircR, CircB, "CircleButton", QPrRow, true);
             HitOn(root, root, "BattleHit", new PxRect(ContL, ContT, CircR, CircB), () => StartBattle(),
                   QPrHit);
@@ -967,7 +980,7 @@ namespace CardPresentation
             //    文案走 `Loc.T`（`mTerm = Event_Description/Generic/GameMode`，既有那条不动）。
             Txt(tog, Loc.T("Event_Description/Generic/GameMode"), GmLabelL, GmLabelR, GmLabelT, GmLabelB,
                 36f, Align.Center, "Toggle Label", QPrText, wrapPx: GmLabelR - GmLabelL,
-                vAlign: Label.VAlign.Capline);   // 🆕 N11：原版 `Toggle ▸ Label` = `Center/**Capline**`（现读 dump）
+                vAlign: Label.VAlign.Capline, face: TmpFont.Face.LatinCardBody);   // 🆕 N11：原版 `Toggle ▸ Label` = `Center/**Capline**`（现读 dump）
 
             // 命中区 = 原版**可射线件的并集**（`Toggle` 根那颗 `NonDrawingGraphic` +
             // 四颗 `m_RaycastTarget = 1` 的 `Image` —— 图标那一份是本轮从 prefab MB 实读的，
@@ -1131,7 +1144,7 @@ namespace CardPresentation
             var facs = CollectionWindow.CardsState.Factions();
             // 内容高照 uGUI `GridLayoutGroup.CalculateLayoutInputVertical`：
             // `pad.vertical + (格高 + spacing.y) × 行数 − spacing.y`（行数 = 13）—— 原来少减了一个 spacing.y。
-            ArmyScroll = MenuScroll.TopAligned(view, GridContentH(facs.Count, ArmyCell, ArmyGapY, 0f, 0f));
+            ArmyScroll = MenuScroll.TopAligned(view, GridContentH(facs.Count, ArmyCell, ArmyGapY, 0f, 0f), 50f);   // 原版 `Practice Mode Menu/…/Army Selector` = 50（D_N29）
             ArmyScroll.Owner = gameObject;
             ArmyScroll.OnChanged = () => RebuildArmyCells(filters);
             PointerLayer.RegisterScroll(ArmyScroll);
@@ -1301,7 +1314,7 @@ namespace CardPresentation
 
             int n = FilteredDeckCount();
             int rows = Mathf.Max(1, (n + DeckCols - 1) / DeckCols);
-            DeckScroll = MenuScroll.TopAligned(view, GridContentH(rows, DeckCellH, DeckGapY, 0f, 0f));
+            DeckScroll = MenuScroll.TopAligned(view, GridContentH(rows, DeckCellH, DeckGapY, 0f, 0f), 100f);   // 原版 `Practice Mode Menu/…/Decks Scroll view` = 100（D_N29）
             DeckScroll.Owner = gameObject;
             DeckScroll.OnChanged = () => RebuildDeckRows(content);
             PointerLayer.RegisterScroll(DeckScroll);
@@ -1422,7 +1435,8 @@ namespace CardPresentation
                              //    会走 `if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false)` 那一支，
                              //    把折行悄悄关掉（下面那句显式 `SetWrapping(true)` 要留着 —— 理由见它自己的注释）。
                              wrapPx: ItemNameR - ItemNameL,
-                             autoMinPx: ItemNameAutoMin, autoMaxPx: ItemNameAutoMax, autoBasePx: ItemNameAutoBase);
+                             autoMinPx: ItemNameAutoMin, autoMaxPx: ItemNameAutoMax, autoBasePx: ItemNameAutoBase,
+                             face: TmpFont.Face.LatinCardBody);
                 if (nm != null)
                 {
                     // 原版 `m_TextWrappingMode = 1 (Normal)`；`SetAutoFitBox` 内部已经开了折行，
@@ -1700,7 +1714,8 @@ namespace CardPresentation
                              //    ⚠️ **故意不传 `wrapPx`**：本件的原版折行 = 0，而本方法在
                              //    `autoMinPx > 0 && wrapPx <= 0` 那一支会调 `SetWrapping(false)` ——
                              //    正是这一站要的那一档（下面那句显式 `SetWrapping(false)` 仍留着，理由见它自己的注释）。
-                             autoMinPx: CardNameAutoMin, autoMaxPx: CardNameAutoMax, autoBasePx: CardNameAutoBase);
+                             autoMinPx: CardNameAutoMin, autoMaxPx: CardNameAutoMax, autoBasePx: CardNameAutoBase,
+                             face: TmpFont.Face.LatinCardBody);
                 // ⚠️ 卡名会超过 **231px** 的格宽（实测 "Death Spinner Warp Spider" 会撞进右边那一列）
                 //    ⇒ 照原版那套开**自适应字号**把它缩进格子里。
                 // 🔴 **2026-10-07（A77-⑤）就地更正（铁律 5）**：这行上面的原注释写着
@@ -2256,12 +2271,16 @@ namespace CardPresentation
                   Align align, string name, int q,
                   PxRect? clip = null, Vector2 clipSoftness = default(Vector2),
                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                  Label.VAlign? vAlign = null, float boxW = 0f, float boxH = 0f)
+                  Label.VAlign? vAlign = null, float boxW = 0f, float boxH = 0f,
+                  TmpFont.Face face = TmpFont.Face.Cjk)
         {
             var lb = Label.Create(parent, text ?? "", Local3(parent, x1, y1, x2, y2), 5, Color.white,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
             lb.SetRenderQueue(q);
+            // 🔴 **2026-10-17（A1024③）**：可选字体面 —— 默认 `Cjk` ⇒ 旧调用点零行为变化。
+            //    ⚠️ **次序**：`SetFace` 必须在 `SetGlyphHeight` 之前（字号按 `ActualFace` 的 em 换算）。
+            if (face != TmpFont.Face.Cjk) lb.SetFace(face);
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
             // 🆕 **A1205**：自适应 + 折行两个开关（逐字照 `Shell/SettingsWindow.cs:4741-4748` 那一档的算法，
             //    落在裸 `Label` 上）。🔴 **必须排在下面两句对齐之前** —— `SetWrapWidth` / `SetAutoFitBox`

@@ -208,16 +208,20 @@ namespace CardPresentation
         /// 本文件 `:108` 那条实读注释「折行=1 · fs42 · auto[10~42] · base 36」；归组 =
         /// `资料/普查产出_第十一会话/RA1212_切块表.md` 块 9。
         /// ⚠️ `max = 42 = m_fontSize` ⇒ 自适应**只能缩、不能涨**（与 `Title` / `Button Text` 那两颗同一条口径）。
-        /// <para>🔴 **2026-10-10 如实登记一条「本族特有的量纲隐患」（本处是全仓第一处「`Cap` 路 + `SetAutoFitBox`」，⛔ 没改口径、只登记）**：
+        /// <para>🔴 **2026-10-10 如实登记一条「本族特有的量纲隐患」（本处是全仓第一处「`Cap` 路 + `SetAutoFitBox`」，⛔ 当时没改口径、只登记）**：
         /// 本面板这三颗走 <see cref="ApplyLangFont"/> ⇒ <see cref="Label.SetScriptHeight"/> ——
         /// **汉字档走 `SetGlyphHeight`、拉丁档走 `SetCapHeight`**（`Loc.HasCjk` 那条唯一判据）。
         /// 而 `Label.SetAutoFitBox` 内部把 `maxPx` 折成 `fontSize` 时用的分母是 `NominalPx()` =
         /// `FontSizeToPx(TmpFontSize())` —— 对 `SetGlyphHeight` 路，`NominalPx == 调用方那个 px`（`42`）；
-        /// 对 `SetCapHeight` 路，它量出来的是**汉字墨高口径**的值（`42 × 0.72 × (0.0948/0.0779) ≈ 36.8`）
+        /// 对 `SetCapHeight` 路，它量出来的是**汉字墨高口径**的值（旧式 `42 × 0.72 × (0.0948/0.0779) ≈ 36.8`）
         /// ⇒ 同一个 `maxPx = 42` 在**英文档**下写进的 `m_fontSizeMax` 会**比 `cur` 大 ≈ 1.14 倍**。
         /// 判据 = `Battle/Label.cs` 的 `NominalPx()` 那段就地订正（它自己写着「哪天有人给 Cap 那一路接上
         /// 自适应，就会静默大 1.22 倍」—— 本次就是那一档，比例按现读的两个实测值算是 1.14）。
-        /// ⛔ **不在这里乘补偿系数**（那是自己发明口径）；如实记着、交调度台裁。</para></summary>
+        /// ⛔ **不在这里乘补偿系数**（那是自己发明口径）；如实记着、交调度台裁。</para>
+        /// <para>✅ **2026-10-17（`A1235`）已在上游修掉、本处不再需要补偿**：`Label.SetScriptHeight` 原来写死
+        /// `px × 0.72f`（em 口径），现在改用实测 `Wcap/Wglyph`（`Label.CapOverGlyph` ≈ 0.8217，推导在那边）
+        /// ⇒ **中/英两条路的 `NominalPx()` 落在同一个 px**（都 = 调用方那个 `42`），上面那个 1.14 倍的差消失。
+        /// 本段保留作历史（别照旧值的 36.8 去对冲任何东西）；断言 → `Editor/BattleScene.cs` §4.6c。</para></summary>
         const float LabelAutoMin = 10f, LabelAutoBase = 36f;
         /// <summary>三根音量滑块标签的**原版词条键**（顺序 = `SliderCy` / `LabelBoxCy` 的顺序）。</summary>
         static readonly string[] SliderNameTerms =
@@ -405,6 +409,25 @@ namespace CardPresentation
         /// <summary>`'Mute opponent'` 那颗 TMP 的 `m_fontSize` = 42 · `autoSizing = 1` · `[18, 42]` · `base 36`
         /// （`…/MonoBehaviour_4200.json` 逐字段实读）· 对齐 `Left/Middle` · 折行 = 1 · 白。</summary>
         const float MuteFontPx = 42f, MuteAutoMin = 18f, MuteAutoBase = 36f;
+
+        // ---- 🆕 2026-10-17（`A1213③`）：本面板那 7 组 TMP 的「四格」里**还欠的 4 组** ----
+        // 读数出处 = `python 工具/menu_dump.py bundle_scenes_scenes_battlearena1 "BattleSettingsPanel" --depth 5`
+        // （2026-10-17 现读；报告 `R_界面线剩余条目现核.md` §二·8 那张表）。⛔ 别按印象改这几个数。
+        /// <summary>`Auto Zoom Toggle ▸ Label`（`'Auto zoom'`）：**229.29 × 75.64** ·
+        /// fs **42** · base **36** · auto **[29, 42]** · 折行 **1** · `Left/Middle`。
+        /// ⚠️ 宽复用上面 `AzLabelWPx`（229.291，同一个框）；**高**这一格以前本文件没有 ⇒ 新立。</summary>
+        const float AzLabelHPx = 75.64f, AzAutoMin = 29f, AzAutoBase = 36f;
+        /// <summary>`Resign Button ▸ Button Text`（`'Resign'`）与 `SkipTutorial Button ▸ Button Text`
+        /// （`'Skip tutorial'`）—— **两颗逐字段同形**：**274.00 × 90.00** · fs **38** · base **12** ·
+        /// auto **[12, 38]** · 折行 **0** · `Center/Midline`。</summary>
+        const float BtnTextWPx = 274.00f, BtnTextHPx = 90.00f, BtnAutoMin = 12f, BtnAutoBase = 12f;
+        /// <summary>`Language Selector ▸ LanguagesDropdown ▸ Label`（框内那行当前语言名）：
+        /// **230.00 × 46.40** · fs **18** · base **14** · auto **[18, 40]** · 折行 **0** · `Left/Middle`。
+        /// ⚠️ `min == fs`（18 = 18）—— `MenuDraw` 那道闸会挡这种组合，**这里直调 `Label.SetAutoFitBox`**（不受那道闸管）。
+        /// ⚠️ 高度用**新名**（`46.40` = 原版框）—— 已有的 `LangCapHPx`（46）是**摆位**用的那一格，别混。</summary>
+        const float LangCapBoxWPx = 230.00f, LangCapBoxHPx = 46.40f;
+        const float LangCapAutoMin = 18f, LangCapAutoMax = 40f, LangCapAutoBase = 14f;
+
         /// <summary>`'ON'` / `'OFF'` 那两颗：`m_fontSize = 30` · `autoSizing = 1` · `[1, 30]` ·
         /// 对齐 `Center/Middle`（`MonoBehaviour_4156` / `_3939` 实读）。⚠️ 原版 `m_fontSizeBase` 也是 36
         /// （三颗同一份 prefab 模板），但**上限只有 30** ⇒ 实绘 ≤ 30。</summary>
@@ -793,6 +816,7 @@ namespace CardPresentation
             _title = HudCanvas.MakeText(_panel, "Settings", 0f, U(PanelH * 0.5f) - U(70f),
                                         4, new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f),
                                         Z - 0.01f, "settings_title");
+            // A1024③ 判不出（原版 `BattleSettingsPanel` 无标题节点）⇒ 保持 `Face.Cjk`，⛔ 不猜
 
             // ---- 关闭钮：75×75，圆底 + 叉（原版 `Generic Close Button`）----
             // 🔴 **2026-10-16（`T09` 批 2）**：两张图都改走 `Img`（uGUI `Image`、中心锚、px）；
@@ -855,9 +879,16 @@ namespace CardPresentation
             // 文字：原版 `Resign`（本地化 key `Battle/Settings/ResignButton`）。
             // 🔴 **2026-09-19 用户口径：先用英文**（原版就是英文；中文**查不到** —— 客户端没有 I2 语言表），
             //    之后再做彻底的完全翻译。字号 fs38 按**拉丁大写高度**定（见 `SliderLabel` 那条注释）。
+            // 🆕 **2026-10-17（界面线 `T07` · `A1753` #16）**：原版 `Resign Button ▸ Button Text` 挂
+            //   `Pragati-Regular Off White Cold`，`_FaceColor = (0.912, 0.981, 0.961)`、顶点白。
+            //   判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·2 #16。
             _resignText = HudCanvas.MakeText(_panel, Loc.T(ResignTerm), U(ResignCxPx), U(ResignCyPx),
-                                             4, Color.white, new Vector2(0.5f, 0.5f), Z - 0.02f, "settings_resign_text");
+                                             4, new Color(0.912f, 0.981f, 0.961f, 1f), new Vector2(0.5f, 0.5f), Z - 0.02f, "settings_resign_text",
+                                             face: TmpFont.Face.LatinCardBody);
             ApplyLangFont(_resignText, Loc.T(ResignTerm), ResignFontPx);
+            // 🆕 **2026-10-17（`A1213③`）**：原版 `Button Text` 的自适应四格 `38 / 12 / [12, 38] / 折行 0`
+            //   （判据 = `menu_dump.py … "BattleSettingsPanel" --depth 5` 现读，见上面 `BtnText*` 常量）。
+            ApplyAutoFit(_resignText, BtnTextWPx, BtnTextHPx, BtnAutoMin, ResignFontPx, BtnAutoBase, 0);
 
             // ---- 🆕 2026-10-18（A991）：**「跳过教程」**（原版 `SkipTutorial Button`）----
             // 与 `Resign` 同一颗 `Bottom buttons` 下的**镜像位**（+171.7, −310.5）· 同尺寸 300×90 ·
@@ -880,9 +911,14 @@ namespace CardPresentation
             }
             else Debug.LogWarning("[Settings] 「跳过教程」那颗钮（`settings_skip_tutorial`）没建起来");
             // 文字：原版 `Button Text` 的 TMP 原文就是 `Skip tutorial`（`mTerm` 见 `SkipTutorialTerm`）。
+            // 🆕 **2026-10-17（`A1753` #16）**：`SkipTutorial ▸ Button Text` 与 `Resign` **同族同材质**
+            //   （`Pragati-Regular Off White Cold`）⇒ 同一个屏上颜色。
             _skipText = HudCanvas.MakeText(_panel, Loc.T(SkipTutorialTerm), U(SkipCxPx), U(SkipCyPx),
-                                           4, Color.white, new Vector2(0.5f, 0.5f), Z - 0.02f, "settings_skip_tutorial_text");
+                                           4, new Color(0.912f, 0.981f, 0.961f, 1f), new Vector2(0.5f, 0.5f), Z - 0.02f, "settings_skip_tutorial_text",
+                                           face: TmpFont.Face.LatinCardBody);
             ApplyLangFont(_skipText, Loc.T(SkipTutorialTerm), ResignFontPx);
+            // 🆕 **2026-10-17（`A1213③`）**：与 `Resign` **逐字段同形**的四格（`38 / 12 / [12, 38] / 折行 0`）。
+            ApplyAutoFit(_skipText, BtnTextWPx, BtnTextHPx, BtnAutoMin, ResignFontPx, BtnAutoBase, 0);
 
             // ---- 对手难度（🆕 2026-09-17）----
             // 用的是**现成的两样东西**：投降那颗钮同一张原版按钮图 `40K_button`（同宽 249 px，
@@ -905,11 +941,11 @@ namespace CardPresentation
             float diffY = U(-155f);
             _diffLabel = HudCanvas.MakeText(_panel, "AI Difficulty", -U(190f), diffY,
                                             4, new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f),
-                                            Z - 0.02f, "settings_diff_label");
+                                            Z - 0.02f, "settings_diff_label");   // A1024③ 判不出（我们加的 AI 难度行）⇒ 保持 Cjk
             _diffBtn = Img(_panel, "settings_diff_btn", resignTex, U(70f), diffY, U(diffH), Z - 0.01f);
             _diffValue = HudCanvas.MakeText(_panel, "", U(70f), diffY,
                                             4, new Color(1f, 0.86f, 0.55f), new Vector2(0.5f, 0.5f),
-                                            Z - 0.02f, "settings_diff_value");
+                                            Z - 0.02f, "settings_diff_value");   // A1024③ 判不出（我们加的 AI 难度值）⇒ 保持 Cjk
 
             // ---- 🆕 2026-10-12（A424）：`Auto Zoom` 那一行（原版 `Auto Zoom Toggle`）----
             // 为什么要有它：原版**战斗内这一扇**设置窗（`BattleSettingsWindow`）本来就有这一行，
@@ -961,7 +997,11 @@ namespace CardPresentation
             string azText = Loc.T(AutoZoomTermKey);
             _azLabel = HudCanvas.MakeText(_panel, azText, U(AzLabelLeftPx), U(AzLabelCyPx),
                                           4, Color.white, new Vector2(0f, 0.5f), Z - 0.02f, "settings_autozoom_label");
+            // A1024③ 判不出（我们加的自动缩放标签）⇒ 保持 `Face.Cjk`
             ApplyLangFont(_azLabel, azText, AzFontPx);
+            // 🆕 **2026-10-17（`A1213③`）**：原版 `Auto Zoom Toggle ▸ Label` 的自适应四格
+            //   `42 / 36 / [29, 42] / 折行 1`（折行本来就是 1 ⇒ `SetAutoFitBox` 内部顺带开的正是这一档，不用还原）。
+            ApplyAutoFit(_azLabel, AzLabelWPx, AzLabelHPx, AzAutoMin, AzFontPx, AzAutoBase, 1);
 
             // ---- 🆕 2026-10-16（`T01`）：`ChatToggle`「静音对手」那一行 ----
             // 位置 = `Volume Sliders` 下面那一行（原版父链就是这么挂的：`BattleSettingsPanel/
@@ -1076,8 +1116,13 @@ namespace CardPresentation
             _langCap = HudCanvas.MakeText(_panel, Loc.LanguageName(Loc.Current),
                                           U(LangFieldX1Px + LangCapInsetPx),
                                           U(LangRowTopPx - LangCapTopPx - LangCapHPx * 0.5f),
-                                          4, LangCapColor, new Vector2(0f, 0.5f), z - 0.02f, "settings_lang_caption");
+                                          4, LangCapColor, new Vector2(0f, 0.5f), z - 0.02f, "settings_lang_caption",
+                                          face: TmpFont.Face.LatinCardBody);
             ApplyLangFont(_langCap, Loc.LanguageName(Loc.Current), LangCapFontPx);
+            // 🆕 **2026-10-17（`A1213③`）**：原版 `LanguagesDropdown ▸ Label` 的四格
+            //   `18 / 14 / [18, 40] / 折行 0`。⚠️ `min == fs`（18）—— 那道 `MenuDraw` 闸挡的是它自己那条路，
+            //   这里是**直调 `Label.SetAutoFitBox`**，不受影响。
+            ApplyAutoFit(_langCap, LangCapBoxWPx, LangCapBoxHPx, LangCapAutoMin, LangCapAutoMax, LangCapAutoBase, 0);
 
             // 右端那个箭头（原版 `Arrow`：20×20 + `preserveAspect` ⇒ 取短边内接）
             // 框内偏移 (225, 19) 是**到它自己的左上角** ⇒ 中心 = 框左 + 225 + 10、框顶 − 19 − 10
@@ -1092,7 +1137,8 @@ namespace CardPresentation
 
             // 左边那颗标签（原版 `SelectLanguageText`，fs42 / Left/Middle / 白；框 335×57.53 ⇒ 框中 y = 316.95）
             _langSelText = HudCanvas.MakeText(_panel, Loc.T(LangLabelTermKey), U(LangRowX1Px), U(LangSelCyPx),
-                                              4, Color.white, new Vector2(0f, 0.5f), z - 0.02f, "settings_lang_label");
+                                              4, Color.white, new Vector2(0f, 0.5f), z - 0.02f, "settings_lang_label",
+                                              face: TmpFont.Face.LatinCardBody);
             ApplyLangFont(_langSelText, Loc.T(LangLabelTermKey), LangSelFontPx);
 
             // 🆕 2026-10-18（A921）：`Template` 子树 —— 挂在**那颗框**下面（原版 `Template` 的父就是
@@ -1121,6 +1167,20 @@ namespace CardPresentation
             l.SetScriptHeight(text, px, 1f);
         }
 
+        /// <summary>把原版那一颗的**自适应四格**接上（`A1213③` 补的那 4 组共用这一条）。
+        /// 🔴 **顺序**：必须排在 `ApplyLangFont` **之后** —— `SetAutoFitBox` 会重排 mesh，
+        /// 先设框再定字号的话字号那一步会拿旧框量一遍（同 `SliderLabel` 的调用次序）。
+        /// ⚠️ `SetAutoFitBox` 内部会调 `SetWrapWidth`，而那个**无条件**把折行设成 `Normal(1)`
+        /// ⇒ 原版 `折行=0` 的件必须在它**之后**用 `SetWrappingMode(0)` 还原（⛔ 别省这一步 ——
+        /// 省了不报错，只是那几颗字会**悄悄开始折行**）。</summary>
+        static void ApplyAutoFit(Label l, float boxWPx, float boxHPx,
+                                 float minPx, float maxPx, float basePx, int wrapMode)
+        {
+            if (l == null) return;
+            l.SetAutoFitBox(U(boxWPx), U(boxHPx), minPx, maxPx, basePx);
+            l.SetWrappingMode(wrapMode);
+        }
+
         /// <summary>把本面板**跟着语言走**的那两行字重设一遍（框里的语言名 + 左边那颗标签）。
         /// 🔴 调用点 = `ChooseLanguage`（选中某一行那一刻）+ `RefreshLangRows` 那条刷新路。⛔ 不走 `Loc` 的静态事件
         /// （同 `Shell/SettingsWindow.RefreshTexts`）。</summary>
@@ -1134,6 +1194,7 @@ namespace CardPresentation
                 string r = Loc.T(ResignTerm);
                 _resignText.SetText(r);
                 ApplyLangFont(_resignText, r, ResignFontPx);
+                ApplyAutoFit(_resignText, BtnTextWPx, BtnTextHPx, BtnAutoMin, ResignFontPx, BtnAutoBase, 0);
             }
             // 🆕 2026-10-18（A991）：跳过钮那颗字**也跟语言走**（词条在 `Core/Loc.cs` 那张表里）。
             if (_skipText != null)
@@ -1141,6 +1202,7 @@ namespace CardPresentation
                 string s = Loc.T(SkipTutorialTerm);
                 _skipText.SetText(s);
                 ApplyLangFont(_skipText, s, ResignFontPx);
+                ApplyAutoFit(_skipText, BtnTextWPx, BtnTextHPx, BtnAutoMin, ResignFontPx, BtnAutoBase, 0);
             }
             var sliders = new[] { _musicLabel, _fxLabel, _voiceLabel };
             for (int i = 0; i < sliders.Length; i++)
@@ -1161,6 +1223,7 @@ namespace CardPresentation
                 string c = Loc.LanguageName(Loc.Current);
                 _langCap.SetText(c);
                 ApplyLangFont(_langCap, c, LangCapFontPx);
+                ApplyAutoFit(_langCap, LangCapBoxWPx, LangCapBoxHPx, LangCapAutoMin, LangCapAutoMax, LangCapAutoBase, 0);
             }
             // 🆕 2026-10-18（双语③ 波 1 · P4）：`Auto Zoom` 那一行的字**改成跟语言走了**
             //   （`Build` 那一次只是**初值**）⇒ 在同一扇窗里换语言时必须当场重设，否则要等下次开窗。
@@ -1170,6 +1233,7 @@ namespace CardPresentation
                 string az = Loc.T(AutoZoomTermKey);
                 _azLabel.SetText(az);
                 ApplyLangFont(_azLabel, az, AzFontPx);
+                ApplyAutoFit(_azLabel, AzLabelWPx, AzLabelHPx, AzAutoMin, AzFontPx, AzAutoBase, 1);
             }
             // 🆕 2026-10-16（T01）：静音那一行的三颗字（说明 + ON/OFF）同一条口径 —— 在同一扇窗里换语言时当场重设。
             if (_muteLabel != null)
@@ -1303,7 +1367,8 @@ namespace CardPresentation
             float bl = l + LstLblPadL, bt = t - LstLblPadT, bb = b + LstLblPadB;   // 右内边距 = `r − LstLblPadR`（只影响框宽，字是左中锚）
             string txt = real ? Loc.LanguageName(Loc.Languages[i]) : "Option A";
             var lb = HudCanvas.MakeText(item, txt, U(bl - rowCx), U((bt + bb) * 0.5f - rowCy),
-                                        4, LstLblColor, new Vector2(0f, 0.5f), z, "Item Label");
+                                        4, LstLblColor, new Vector2(0f, 0.5f), z, "Item Label",
+                                        face: TmpFont.Face.LatinCardBody);
             // 🔴 **队列（旧那套）**：行底图在 `QLangItem`(3142)、字在 `QLangText`(3143) —— uGUI 档这一句
             //   **是有注释的空操作**（层级归画布的兄弟序：三件都按同一个 z 登记 ⇒ 创建顺序 = 底图 → 勾 → 字 ✓，
             //   见 `Img`/`Node`/`MakeText` 里那次 `HudCanvas.Add`）。
@@ -1493,6 +1558,12 @@ namespace CardPresentation
         float _langRowsZ;
 
         // ---- 自检口（⛔ 只读，不给生产用）----
+        /// <summary>🆕 **2026-10-17（`A1213③`）**：那 4 组「补自适应」的标签本体（自检读回 TMP 真字段用）。
+        /// ⛔ 只读 —— 生产代码要改这几颗字请走 `RefreshTexts()` / `Build*`，别从自检口伸手。</summary>
+        public Label ResignLabelForTest { get { return _resignText; } }
+        public Label SkipTutorialLabelForTest { get { return _skipText; } }
+        public Label AutoZoomLabelForTest { get { return _azLabel; } }
+        public Label LanguageCaptionForTest { get { return _langCap; } }
         /// <summary>`Template` 原型节点（**恒 inactive**）。</summary>
         public Transform LangTemplateNode { get { return _langTemplate; } }
         /// <summary>真正显示的那份（`"Dropdown List"`）；没开过 = `null`。</summary>
@@ -1604,14 +1675,14 @@ namespace CardPresentation
             _muteOffText = HudCanvas.MakeText(_panel, offTxt,
                                               U(MuteCxPx + MuteTxtOffCxPx), U(MuteCyPx + MuteTxtCyPx),
                                               4, Color.white, new Vector2(0.5f, 0.5f), z - 0.052f,
-                                              "settings_mute_text_off");
+                                              "settings_mute_text_off", face: TmpFont.Face.LatinCardBody);
             ApplyLangFont(_muteOffText, offTxt, MuteOnOffFontPx);
             if (_muteOffText != null)
                 _muteOffText.SetAutoFitBox(U(MuteTxtOffWPx), U(MuteTxtHPx), 1f, MuteOnOffFontPx, MuteAutoBase);
             _muteOnText = HudCanvas.MakeText(_panel, onTxt,
                                              U(MuteCxPx + MuteTxtOnCxPx), U(MuteCyPx + MuteTxtCyPx),
                                              4, Color.white, new Vector2(0.5f, 0.5f), z - 0.062f,
-                                             "settings_mute_text_on");
+                                             "settings_mute_text_on", face: TmpFont.Face.LatinCardBody);
             ApplyLangFont(_muteOnText, onTxt, MuteOnOffFontPx);
             if (_muteOnText != null)
                 _muteOnText.SetAutoFitBox(U(MuteTxtOnWPx), U(MuteTxtHPx), 1f, MuteOnOffFontPx, MuteAutoBase);
@@ -1620,7 +1691,7 @@ namespace CardPresentation
             string lab = Loc.T(MuteLabelTermKey);
             _muteLabel = HudCanvas.MakeText(_panel, lab, U(MuteLabelLeftPx), U(MuteLabelCyPx),
                                             4, Color.white, new Vector2(0f, 0.5f), z - 0.05f,
-                                            "settings_mute_label");
+                                            "settings_mute_label", face: TmpFont.Face.LatinCardBody);
             // 字号按语种选（`ApplyLangFont` → `Label.SetScriptHeight` → `Loc.HasCjk` 那条唯一判据），
             // ⚠️ 顺序照 `SliderLabel`：**先**定字体高度、**再** `SetAutoFitBox`（后者会重排 mesh）。
             ApplyLangFont(_muteLabel, lab, MuteFontPx);
@@ -1725,9 +1796,10 @@ namespace CardPresentation
             //    **同一把尺（px）、同一个父节点**（先后由 `HudCanvas.Add` 的 z 定）。
             var l = HudCanvas.MakeText(_panel, text, U(LabelLeftX), U(LabelBoxCy[i]),
                                        4, Color.white, new Vector2(0f, 0.5f), z - 0.01f,
-                                       "settings_slider_label_" + i);
+                                       "settings_slider_label_" + i, face: TmpFont.Face.LatinCardBody);
             // 🔴 **字号按语种选**（唯一一份实现 = `ApplyLangFont`）：fs42 是 TMP 的 font size，
-            //    拉丁大写只占约 **0.72 em**、汉字约占 **1 em** —— 写死一种就会让另一档差 28%/39%。
+            //    拉丁大写只占约 **0.72 em**（em 口径）、汉字墨高 ≈ 1 em —— 两条路的实测换算比是
+            //    `Label.CapOverGlyph` ≈ **0.8217**，写死一种就会让另一档差 22%/18%（`A1235`）。
             //    （这两条标签自 2026-10-18 起**跟着语言变**，所以这里不能再写死 `SetCapHeight(0.72em)`。）
             ApplyLangFont(l, text, LabelFontPx);
             // 🆕 **2026-10-10（A1212 块 9）接上自适应**：原版那三颗 `Text` 四格 = `10 / 42 / 36 / 1`

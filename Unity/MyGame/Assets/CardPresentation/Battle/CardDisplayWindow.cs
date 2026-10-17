@@ -357,6 +357,22 @@ namespace CardPresentation
         /// 只是给断言一个读起来明确的别名（同 `BattleLogPanel.PanelRect` 的形状）。</summary>
         public RectTransform WindowRect { get { return (RectTransform)transform; } }
 
+        /// <summary>🆕 **2026-10-17（`A1024`③ 批 2–4）自检口**：本窗的几颗字（**只给自检读**，生产路径不经过）。
+        /// <para>0 = `AffectedBy` · 1 = `EnchanterText[0]` · 2 = `EffectText[0]` · 3 = `LoreText` · 4 = `cdw_hint`。</para>
+        /// <para>⚠️ 没建出来 ⇒ `null`（lore 无文本时整块 `FlavourTextBG` 关着 / 效果清单在 `Build` 之后就建好了）。</para></summary>
+        public Label TextForTest(int i)
+        {
+            switch (i)
+            {
+                case 0: return _fxTitle;
+                case 1: return _fxWho != null && _fxWho.Length > 0 ? _fxWho[0] : null;
+                case 2: return _fxWhat != null && _fxWhat.Length > 0 ? _fxWhat[0] : null;
+                case 3: return _lore;
+                case 4: return _hint;
+            }
+            return null;
+        }
+
         // ============================================================ 🔴 uGUI 档的两个换算/建件口
         //
         //  判据与逐项映射 → `T09` §五·补④ 那张表 + §五·补⑩ 的 8 步配方。本窗只用到这两条：
@@ -394,13 +410,16 @@ namespace CardPresentation
         /// `&lt;= 0` ⇒ 不设、按 `scale` 那一档）；`boxW/boxH` = 那一颗的**框**（px，`boxW > 0` 才开折行 + 自适应）。
         /// <para>🔴 **这些数全是 px** —— 旧那套 `MenuDraw.Text` 收的是同一个数、内部 `÷108` 才写进 TMP；
         /// 这里**直接吃 px**（⛔ 别顺手补一个 `LayoutSpace.Px(...)`：那会让字**小 108 倍**、**不报错**）。
-        /// 与 `MenuDraw.TextCore` 的**唯一差别**就是这三处单位 + 不设渲染队列（画布上没有队列）。</para></summary>
+        /// 与 `MenuDraw.TextCore` 的**唯一差别**就是这三处单位 + 不设渲染队列（画布上没有队列）。</para>
+        /// <para>🆕 **2026-10-17（`A1024`③ 批 2–4 · 本批）：可选字体面** —— 默认 `Cjk` ⇒ 旧调用点零行为变化。
+        /// ⚠️ 必须排在 `SetGlyphHeight` / `SetWrapWidth` / `SetAutoFitBox` **之前**（`MakeText` 内部已紧跟
+        /// `CreateUgui`）—— 那三个口按 `ActualFace` 的 em/cap 比例折算字号，换面晚了会按旧面算。</para></summary>
         static Label Text(Transform parent, string name, string text, Vector3 pos, int scale,
                           float fontPx, float boxW, float boxH, float autoMin, float autoMax,
-                          float z, Color color, Vector2 anchor)
+                          float z, Color color, Vector2 anchor, TmpFont.Face face = TmpFont.Face.Cjk)
         {
             if (parent == null) return null;
-            var lb = HudCanvas.MakeText(parent, text, pos.x, pos.y, scale, color, anchor, z, name);
+            var lb = HudCanvas.MakeText(parent, text, pos.x, pos.y, scale, color, anchor, z, name, face);
             if (lb == null)
             {
                 // `Label.CreateUgui` 已经出过声（拿不到 TMP 字体资产时 uGUI 档**不许**退化成点阵）
@@ -469,6 +488,8 @@ namespace CardPresentation
             //    （`LoreBgT..LoreBgB` = 900.84–1078.84），而 uGUI 档里**同 z 的先后由创建顺序定**
             //    （旧那套同 z 时先后本来就是未定义的）⇒ 给它一个明确的档，免得提示行被底图吃掉。
             //    📌 **这一格是有意收口、不是原版值**（原版这一行是我们自加的，见上一段）。
+            // 🔴 **2026-10-17（`A1024`③ 批 2–4）**：原版 `Card Display Window` 子树里**没有**对应节点
+            //    （判据 = 上面 2026-10-18 `W12`·`W6` 那段现核）⇒ **不换面、保持 `Cjk`**（⛔ 不猜）。
             _hint = Text(_root, "cdw_hint", "再点一下关闭", HudCanvas.PosPx(960f, 1064f), 2,
                          0f, 0f, 0f, 0f, 0f, ZContent - 0.02f,
                          new Color(0.7f, 0.7f, 0.75f), new Vector2(0.5f, 0.5f));
@@ -545,10 +566,13 @@ namespace CardPresentation
             // 🔴 **2026-10-16（`T09` 批 3）**：下面每一件的坐标都改成「**相对 `_fxRoot` 中心**的 px」
             //    （旧那套走 `MenuDraw.*` 的「整屏绝对矩形 → 父件局部」= `MenuDraw.Local`，两者同值）
             //    ⇒ 换算只有 `Rel(...)` 一处，`FxC` 是那个中心（**建件与读回共用**）。
+            // 🔴 **2026-10-17（`A1024`③ 批 2–4）**：原版 `EffectList/AffectedBy` = **Pragati**（现读
+            //    `battle1_tmp.tsv`：`.../Card Display/EffectList/AffectedBy` · `Pragati-Regular SDF` · fs0.4）
+            //    ⇒ `LatinCardBody`。
             _fxTitle = Text(_fxRoot, "AffectedBy", TitleText,
                             Rel(CardWinBox.EffTitleCx, CardWinBox.EffTitleCy, FxC.x, FxC.y), 5,
                             CardWinBox.EffTitlePx, CardWinBox.EffTitleW, CardWinBox.EffTitleH, 19.3f, FxTitleAutoMax,
-                            ZContent - 0.02f, Color.white, new Vector2(0.5f, 0.5f));
+                            ZContent - 0.02f, Color.white, new Vector2(0.5f, 0.5f), TmpFont.Face.LatinCardBody);
             if (_fxTitle != null)
             {
                 _fxTitle.SetAlignLeft();
@@ -579,10 +603,13 @@ namespace CardPresentation
                 float wcy = cy + CardWinBox.EffWhoDy, tcy = cy + CardWinBox.EffWhatDy;
                 // ⚠️ 文字比底板**再近 0.02** —— 旧那套是「同一个渲染队列里靠到相机的距离排序」；uGUI 档里
                 //    它变成**兄弟序的一档**（`HudCanvas.Add` 按 z 降序 ⇒ 值小的排后面 = 画在上面），同向 ✓。
+                // 🔴 **2026-10-17（`A1024`③ 批 2–4）**：`EffectList/Elements/EffectElement*/EnchanterText` 与
+                //    `.../EffectText` 在原版**四组逐颗都是 Pragati**（现读 `battle1_tmp.tsv`，8/8）
+                //    ⇒ 下面两颗都换 `LatinCardBody`。
                 _fxWho[i] = Text(_fxRoot, "EnchanterText", "",
                                  Rel(CardWinBox.EffCx, wcy, FxC.x, FxC.y), 5,
                                  CardWinBox.EffTextPx, CardWinBox.EffWhoW, CardWinBox.EffWhoH, 10f, FxTextAutoMax,
-                                 ZContent - 0.02f, Color.white, new Vector2(0.5f, 0.5f));
+                                 ZContent - 0.02f, Color.white, new Vector2(0.5f, 0.5f), TmpFont.Face.LatinCardBody);
                 if (_fxWho[i] != null)
                 {
                     _fxWho[i].SetAlignLeft();
@@ -600,7 +627,7 @@ namespace CardPresentation
                 _fxWhat[i] = Text(_fxRoot, "EffectText", "",
                                   Rel(CardWinBox.EffCx, tcy, FxC.x, FxC.y), 5,
                                   CardWinBox.EffTextPx, CardWinBox.EffWhatW, CardWinBox.EffWhatH, 10f, FxTextAutoMax,
-                                  ZContent - 0.02f, Color.white, new Vector2(0.5f, 0.5f));
+                                  ZContent - 0.02f, Color.white, new Vector2(0.5f, 0.5f), TmpFont.Face.LatinCardBody);
                 if (_fxWhat[i] != null)
                 {
                     _fxWhat[i].SetAlignLeft();
@@ -1294,12 +1321,17 @@ namespace CardPresentation
             // 🔴 **2026-10-15（`A2111` 表三·3/·4）把剩下那两格也补齐**：之前只改到上限（`LoreAutoMax=32`），
             //   **标称字号仍传菜单版的 `LorePx`(35)**、**下限仍传 `10f`**（原版战斗版是 **18**）。
             //   现在三格都是战斗版的：标称 `LorePxBattle`(32) · 下限 **18** · 上限 `LoreAutoMax`(32)。
+            // 🔴 **2026-10-17（`A1024`③ 批 2–4）**：原版这一颗 = **Asar**（现读 `battle1_tmp.tsv`：
+            //    `.../Card Display/LowerSection/FlavourTextBG/LoreText` · `Asar-Regular SDF` · fs32）
+            //    ⇒ `LatinUi`。⚠️ 普查表 §二附录那一行**把 Asar 名单写漏了这颗**（只列了卡面
+            //    `NameText*` / `CreatedByText`）；本批按它自己写明的**唯一判据**（TMP 的 `m_fontAsset`）落，
+            //    差异记在 `W_A1024_战斗三窗.md`。（菜单版 `Card Displayer Menu…/LoreText` 也是 Asar，互相印证。）
             _lore = Text(_bg, "LoreText", body,
                          Rel((CardWinBox.LoreL + CardWinBox.LoreR) * 0.5f,
                              (CardWinBox.LoreT + CardWinBox.LoreB) * 0.5f, LoreBgC.x, LoreBgC.y), 5,
                          CardWinBox.LorePxBattle, CardWinBox.LoreR - CardWinBox.LoreL,
                          CardWinBox.LoreB - CardWinBox.LoreT, 18f, LoreAutoMax,
-                         ZContent, Color.white, new Vector2(0.5f, 0.5f));
+                         ZContent, Color.white, new Vector2(0.5f, 0.5f), TmpFont.Face.LatinUi);
             if (_lore == null)
                 Debug.LogWarning("[展示窗] 效果文字条建不出来（`Text` 返回 null）—— 不静默");
             _bg.gameObject.SetActive(true);    // 走到这里 body 必非空 ⇒ 照原版「有字才亮」（见上面 ② 那条判据）

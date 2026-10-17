@@ -124,6 +124,9 @@ namespace CardPresentation
             if (msgLb != null)
             {
                 msgLb.SetRenderQueue(QText);
+                // 🆕 2026-10-17（A1024③ 第 3/4 批）：原版 `GenericPromptWindow/Window/MessageText` = **Pragati**。
+                //    必须在 `SetGlyphHeight` **之前**（字号按 `ActualFace` 的 em 换算）。
+                msgLb.SetFace(TmpFont.Face.LatinCardBody);
                 msgLb.SetGlyphHeight(LayoutSpace.Px(MsgFontPx));
                 // ✅ **判据（2026-10-07 · A77⑩ 子表 E3）**：原版 `GenericPromptWindow > Window > MessageText`
                 //   是 **`折行=1 auto[4~50]`**（`md "GenericPromptWindow" --depth 12 --md`）—— 这一处**本来就对**
@@ -250,6 +253,9 @@ namespace CardPresentation
             if (lb != null)
             {
                 lb.SetRenderQueue(QText);
+                // 🆕 2026-10-17（A1024③ 第 3/4 批）：原版 `GenericPromptWindow/Window/Buttons/…/Button Text` = **Pragati**。
+                //    必须在 `SetGlyphHeight` **之前**（字号按 `ActualFace` 的 em 换算）。
+                lb.SetFace(TmpFont.Face.LatinCardBody);
                 lb.SetGlyphHeight(LayoutSpace.Px(BtnFontPx));
                 lb.SetWrapWidth(LayoutSpace.Px((x2 - x1) - 26f));
                 // 🔴 **2026-10-07（A77⑩ · 子表 E4）**：原版 `GenericPromptWindow > Window > Buttons > … > Button Text`

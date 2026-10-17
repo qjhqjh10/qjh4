@@ -637,11 +637,16 @@ namespace CardPresentation
         /// ⛔ 两档差 108 倍、**喂错不报错**（口径 → `T09` §五·补⑨ 四）。</para>
         /// <para>⛔ 不要用 `Label.Create`（那是**世界空间**档）—— 见 `Label` 文件头那条「只许二选一」。</para></summary>
         public static Label MakeText(Transform parent, string text, float px, float py, int scale,
-                                     Color color, Vector2 anchor, float z, string name = null)
+                                     Color color, Vector2 anchor, float z, string name = null,
+                                     TmpFont.Face face = TmpFont.Face.Cjk)
         {
             if (parent == null) return null;
             var l = Label.CreateUgui(parent, text, new Vector3(px, py, 0f), scale, color, anchor, name);
             if (l == null) return null;                 // 拿不到字体资产：`CreateUgui` 已出声
+            // 🔴 **2026-10-17（A1024③ 第 0 批）：可选字体面** —— 默认 `Cjk` ⇒ 旧调用点零行为变化。
+            //    ⚠️ 本方法**不定字号**（调方随后 `SetGlyphHeight` / `SetScriptHeight`）⇒ 只要排在它们之前即可；
+            //    这里紧跟 `CreateUgui` 是**最早**的位置（`SetText` 内部按 `ActualFace` 重算字号）。
+            if (face != TmpFont.Face.Cjk) l.SetFace(face);
             Add((RectTransform)l.transform, z);
             return l;
         }

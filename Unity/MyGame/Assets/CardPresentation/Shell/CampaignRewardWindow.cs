@@ -425,11 +425,11 @@ namespace CardPresentation
             //    断言那侧（`Editor/RewardsScene.cs` 的 `TextOf(ptNode)`）本来就有 `null` 守卫。
             if (gg != null)
                 MenuDraw.Text(gg.transform, glowGetR, TxtGet, Color.white, "Text Get Reward",
-                              TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase);
+                              TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase, face: TmpFont.Face.LatinCardBody);
             var gp = MenuDraw.Rect(title, Art(ArtGlow), glowGetR, "Glow Preview reward", QTitleBg, GlowPreview, true);
             if (gp != null)
                 MenuDraw.Text(gp.transform, glowGetR, TxtPreview, Color.white, "Text Preview Reward",
-                              TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase);
+                              TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase, face: TmpFont.Face.LatinCardBody);
             if (gg != null) gg.gameObject.SetActive(false);
 
             // ⑦ `Menu Vignette` 最后画（原版它是 `Content` 的**下一个兄弟** ⇒ 在最上面）

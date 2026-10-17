@@ -173,7 +173,7 @@ namespace CardPresentation
 
             // `MessageText`：52.5px · Center/Middle · 折行 1（min18/max72 是死值 ⇒ 不传 autoMin）
             MessageLabel = MenuDraw.TextBox(win, MsgR, string.Format(MessageFormat, OpponentName ?? ""),
-                                            Color.white, "MessageText", 52.5f, 0f, QText);
+                                            Color.white, "MessageText", 52.5f, 0f, QText, face: TmpFont.Face.LatinCardBody);
 
             var btns = Node(win, "Buttons", BtnsR);
             DuelButton(btns, "Button Skirmish", "Skirmish image", "40k_gamemode_icon_skirmish",
@@ -235,7 +235,7 @@ namespace CardPresentation
             //    = `fs 38.0 · auto[12~38] · base **12.0**`（判据 = 全库 `'Skirmish'`/`'Continue'` 里
             //    与 `12~38` 这个窗口配对的 4 颗 —— `fs=38 auto[12~38] base=12` ×4；另一族
             //    `fs=38 auto[18~38] base=36` ×8 **不是本窗**）。上限 = 标称 ⇒ A333 本来就对。
-            MenuDraw.TextBox(b, txR, text, Color.white, "Button Text", 38f, 12f, QText, 38f, 12f);
+            MenuDraw.TextBox(b, txR, text, Color.white, "Button Text", 38f, 12f, QText, 38f, 12f, face: TmpFont.Face.LatinCardBody);
             Rect(b, icon, icR, iconName, QContent, null, true);
             // 🆕 **2026-10-18（A1053）**：**命中区 = 可射线件的并集** —— 原版这颗钮的子树里
             //   底 `40K_button`（350×76）与**溢出的模式图标**（100×100）**两颗都 `RT=1`**：

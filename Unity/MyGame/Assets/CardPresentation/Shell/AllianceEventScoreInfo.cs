@@ -134,7 +134,7 @@ namespace CardPresentation
                               "Skull", QBar);
                 // `Score`：原版 hAlign = **Right**（现读 `对齐=Right/Midline · 折行=1`）
                 var sr = Rect(dx + ScoreCx, dy + ScoreCy + rdy, ScoreW, ScoreH);
-                var sc = MenuDraw.Text(row, sr, "1256", Color.white, "Score", 48f, QText);
+                var sc = MenuDraw.Text(row, sr, "1256", Color.white, "Score", 48f, QText, face: TmpFont.Face.LatinCardBody);
                 MenuDraw.AlignRight(sc, sr);
                 _scores.Add(sc);
                 _scoreRects.Add(sr);

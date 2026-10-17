@@ -237,7 +237,7 @@ namespace CardPresentation
             //      base、收敛结果是「装得下的最大号」，上限就是原来那个 50）。
             _msg = MenuDraw.Text(win, new PxRect(MsgL, MsgT, MsgR, MsgB), "", Color.white,
                                  "Main Search message", 50f, QSrText,
-                                 wrapPx: MsgR - MsgL, autoMinPx: 4f, autoMaxPx: 50f, autoBasePx: 36f);
+                                 wrapPx: MsgR - MsgL, autoMinPx: 4f, autoMaxPx: 50f, autoBasePx: 36f, face: TmpFont.Face.LatinCardBody);
 
             // 5) `Buttons`（VLG）→ `Generic UI Button`（`40K_button` col(.369,.894,.587,1)）+ `Button Text` "Cancel"
             var btn = MenuDraw.Node(win, "Buttons", new PxRect(BtnL, BtnT, BtnR, BtnB));
@@ -246,7 +246,7 @@ namespace CardPresentation
                           "Bg", QSr2, new Color(0.369f, 0.894f, 0.587f, 1f), true);
             // 原版 Button Text hAlign = **Center** ⇒ 不调 `Align*`（原来右对齐了）
             MenuDraw.Text(gub, new PxRect(BtnTxL, BtnTxT, BtnTxR, BtnTxB), "Cancel", Color.white,
-                          "Button Text", 45f, QSrText);
+                          "Button Text", 45f, QSrText, face: TmpFont.Face.LatinCardBody);
             // 🆕 A17：原版 `Searching Oponent Popup>Window>Buttons>Generic UI Button` 是 SpriteSwap（普查 §块 5 第 26 行）
             // 🆕 **2026-10-18（A1053）**：**命中区 = 可射线件的并集** —— 这颗钮的子树里底 `40K_button`（478.34×75）
             //   与 **`Button Text`（452.34×91.20，`RT=1`）两颗都吃射线**，文字**上下各凸 8.1**、左右内缩

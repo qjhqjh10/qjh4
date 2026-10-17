@@ -196,7 +196,10 @@ namespace CardPresentation
         const float NameClrX = 277.2f, NameClrY = 316f, NameClrW = 35f, NameClrH = 40f;
 
         // ---- Deck Details：卡组列表（R:57-96）----
-        const float ListX = 0.4f, ListY = 366f, ListW = 325f, ListH = 644.1f;
+        // 🔴 **2026-10-17（`A1736`）**：`ListH` 由 **644.1 → 644.06**（原版 `Viewport` 高实测 644.06；
+        //   原来那个 644.1 是四舍五入 ⇒ 视口底 1010.1 vs 1010.06、残行 9.40 vs 9.36，**差 0.04px**）。
+        //   细小但属「逐值对齐」那一族（铁律 11），改完 `ListY + ListH = 1010.06`。
+        const float ListX = 0.4f, ListY = 366f, ListW = 325f, ListH = 644.06f;
         const float RowW = 325f, RowH = 55.7f;
         /// <summary>行与行之间的**间距**（画布 px）= 原版 `Content` 那颗 `VerticalLayoutGroup` 的
         /// **`m_Spacing`**。
@@ -412,9 +415,9 @@ namespace CardPresentation
         const int RowVisible = 12;
         /// <summary>卡组列表的**视口矩形**（画布 px · 左上原点）= 原版
         /// `Deck Details > Deck List drawer/Scroll View/Viewport` 上那颗 `RectMask2D` 的等效物。
-        /// <para>判据（两条互证）：① 原版那台滚动区的内容高 `= n×57.7 − 2.0`、视口高 `644.1`
-        /// （`Content` 三行实测 171.1 ⇒ 单行 55.7、间距 2.0）；② 参考图那条残行：
-        /// 行 11 顶 **1000.7** + 残行高 **9.4** = **1010.1** = `ListY + ListH` ⇒ 视口底就是它。</para>
+        /// <para>判据（两条互证）：① 原版那台滚动区的内容高 `= n×57.7 − 2.0`、视口高 **644.06**
+        /// （`Content` 三行实测 171.1 ⇒ 单行 55.7、间距 2.0；🔴 2026-10-17 `A1736` 订正：原写 644.1 是四舍五入）；
+        /// ② 参考图那条残行：行 11 顶 **1000.7** + 残行高 **9.36** = **1010.06** = `ListY + ListH` ⇒ 视口底就是它。</para>
         /// <para>⚠️ **它不随滚动变**：滚动只改行的绝对 y（`ListY + i×RowPitch − off`），框恒 = 本矩形。
         /// ⛔ 别写成两份（`RefreshDeckList` 的裁切与命中那半边要读同一份 —— 两处写同一条规则迟早不一致）。</para></summary>
         static readonly PxRect DeckListBand = new PxRect(ListX, ListY, ListX + ListW, ListY + ListH);
@@ -941,8 +944,8 @@ namespace CardPresentation
         // 🔴 **2026-09-28 加这一档**：搜索框的**尾图标**与输入框底图**故意重叠**（原版就是这样），
         //    同一队列里只能靠距离排 ⇒ 谁盖谁不定（实测：图标被底图盖住，截图才看出来）。单独给一档。
         const int QFltIconTop = 3022;
-        // 导入弹窗是**模态**，压在一切之上（`CardDisplayWindow` 那套也在 3000 段，所以留足余量）
-        const int QModal = 3100, QModalRow = 3101, QModalText = 3102;
+        // 🔴 **2026-10-17（T23 删件）**：这里原来还有 `QModal / QModalRow / QModalText`（3100..3102）——
+        //   那是**导入弹窗那一棵树**的队列档，随那棵树一起删了（为什么删见 `BuildImportPopup` 那一节）。
 
         // ============================================================ 状态
         public DeckEditorState State { get; private set; }
@@ -985,10 +988,12 @@ namespace CardPresentation
         /// <summary>0 = 没在编辑 · 1 = 改**卡组名**（原版 `DeckEditingPanel.ChangeName`）· 2 = 改**卡名筛选**（原版 `CardNameFilter`）。</summary>
         int _editKind;
 
-        // 导入卡组弹窗（原版 `ImportDeckPopup`，坐标 = `资料/说明书/04_界面UI/卡组界面说明书.md` §五）
-        bool _importOpen;
-        string _importText = "";
-        string _importError = "";
+        // 🔴 **2026-10-17（T23 删件）：导入卡组弹窗那一棵树 + `_importOpen/_importText/_importError` 已删。**
+        //   为什么删：它**没有生产入口**（侧栏那两颗 `info_*` 圆钮 2026-10-17 已按 D35 删掉，本窗这一份
+        //   只剩自检口 `UiOpenImport()`），而**真正在用的那份**是外壳的 `Shell/ImportDeckPopup.cs`
+        //   （`CollectionWindow.OpenImportPopup()` 在调，`CollectionScene` / `ShellScene` 都有断言）。
+        //   ⇒ 留着 = 同一扇窗两套实现（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。
+        //   ⛔ **别再加回来**：原版这个动作的家在**选卡组页**（`SelectDecksTab.ImportDeck` → `ImportDeckPopup`）。
         readonly HashSet<string> _missingArt = new HashSet<string>();
 
         readonly List<CardView> _poolViews = new List<CardView>();
@@ -1146,6 +1151,12 @@ namespace CardPresentation
         // ============================================================ 生命周期
 
         void Awake() { Instance = this; }
+        /// <summary>🆕 **2026-10-17（`A1738` 收尾）**：卸载时把静态口清掉。
+        /// <para>原来全类**没有 `OnDestroy`** ⇒ 卸载后 `Instance` 指向一个已销毁对象 =
+        /// **Unity 的「假 null」**（`Instance == null` 会判真，但字段本身不是 null；谁拿它当「有没有实例」用就会踩）。
+        /// 今天 `grep DeckRuntime.Instance` = 0 读者 ⇒ 无害，但这是个**静默陷阱**，顺手堵掉。
+        /// 判据 = 第二十四会话 `D9` 顺手发现（`待办判据_第二十五会话.md` §`A1738`）。</para></summary>
+        void OnDestroy() { if (Instance == this) Instance = null; }
 
         void Start()
         {
@@ -1307,7 +1318,8 @@ namespace CardPresentation
             //   判据：`bundle_menus_assets_all/GameObject/Card Drag Controller.json` 的 RT `-3300583987145543900` 的 `m_Father` = `5543959332` → GO `Card Display`；`menu_dump` 缩进也是 `2 Card Display` → `3 Card Drag Controller`（本包同名只有 1 个实例）。⚠️ 行为等价（别的页起不了拖），但注释要按事实写。
             BuildCosmeticDrag();
             BuildCardDrag();
-            BuildImportPopup();
+            // 🔴 **2026-10-17（T23 删件）**：原来这里还有一句 `BuildImportPopup();` —— **已删**
+            //   （那棵树没有生产入口、只是外壳 `Shell/ImportDeckPopup.cs` 的重复实现，见那一节的说明）。
             // 🔴 **2026-10-17（D7/D10/D35）**：原来这里还有一句 `BuildNotice();` —— **已删**
             //   （它建的三件原版都没有，见下面那段注释）。
 
@@ -1319,8 +1331,8 @@ namespace CardPresentation
 
             // 🔴 2026-10-04（A24）：**这里【故意】不建 `PointerLayer`** —— 悬停的派发由本类自己的
             //   `HandlePointer`（下面 `UpdateButtonHover`）做，理由有三条，写在这里免得下一个人「顺手补上」：
-            //   ① 本窗的指针语义是**有模态状态的**（`_importOpen` 模态 / `_filtersOpen` 左抽屉 / `_dragging`），
-            //      而 `PointerLayer` 无状态：导入弹窗开着时它照样会让**弹窗背后**的按钮亮起来
+            //   ① 本窗的指针语义是**有模态状态的**（`ModalPopupOpen` 模态 / `_filtersOpen` 左抽屉 / `_dragging`），
+            //      而 `PointerLayer` 无状态：模态窗开着时它照样会让**窗背后**的按钮亮起来
             //      （我们没建原版那块全屏暗底，没有东西挡它）；
             //   ② `PointerLayer` 自己的「点击 / 滚轮 / 拖拽」会和本类那条**并行跑起来** ——
             //      点一下 `ClickLog` 会多写一块（`Shell/PointerLayer.cs` 里那句 `ClickLog.Begin`，正文还会说
@@ -1748,7 +1760,7 @@ namespace CardPresentation
             //   **`InputFieldBackground`**（Unity 内置 32×32 · **九宫格 (10,10,10,10)** · ppu=200）·
             //   `m_Color = (0.0627,0,0,1)`；同窗 `Card Filters/…/Name FIlter/Input Field` 也是这一张。
             //   我们原来用的是 **`40K_dropdown_bg`** —— 那张是 **`Import Deck Popup` 的输入框**用的
-            //   （两处不是同一张图；`40K_dropdown_bg` 仍归导入弹窗，见 `BuildImportPopup`）。
+            //   （两处不是同一张图；`40K_dropdown_bg` 归外壳那扇导入弹窗 —— 本窗那份 2026-10-17 已按 T23 删件删掉）。
             //   画法与搜索框**同一条**（`BuildFilterFixedParts` 那 6 行）：九宫格 + 同一个 tint
             //   （`FilterPanelModel.InputSprite/InputBorder/InputTint` —— 那一份是共用的唯一出处）。
             var nameTex = Ui(FilterPanelModel.InputSprite);
@@ -3151,7 +3163,7 @@ namespace CardPresentation
         //     · 导入 = `SelectDecksTab.ImportDeck()` → `ImportDeckPopup`（外壳那扇，`Shell/ImportDeckPopup.cs` 已建）。
         //   ⇒ **顺手发现（已在报告里点名，归调度台排）**：本窗 `ShareDeckString()` 现在**没有生产入口**了
         //     （它原来只挂在这颗钮上）；`ImportDeckPopup` 那条链还有外壳那一份（`CollectionWindow.OpenImportPopup`），
-        //     本窗这份只剩自检口 `UiOpenImport()`。⛔ **别把这两颗钮加回来** —— 那是「我们多画的」，
+        //     本窗那份（`UiOpenImport()` 供着的）已按 **T23** 整棵删掉。⛔ **别把这两颗钮加回来** —— 那是「我们多画的」，
         //     正确做法是把它们**接在原版的家里**（那两处都在别的文件，不在本批白名单）。
         //   ⚠️ 一并删掉的登记点：`ClickOrder` 那两项 · `HandleButtons` 那两个 `case` · `KeyLive` 那两个分支 ·
         //     自检读数 `UiInfoActionsVisible`（它读的就是 `Lookup("info_import")`）。
@@ -3573,7 +3585,7 @@ namespace CardPresentation
         const string DragCue = "CardStartDrag";
 
         /// <summary>⚠️ **我们挑的一档队列**（原版靠 Canvas 层级；本工程的世界空间 quad 必须显式分层）。
-        /// 取在筛选抽屉（`QFlt` 3020 那族）**之上**、模态窗（`QModal` 3100）**之下**。</summary>
+        /// 取在筛选抽屉（`QFlt` 3020 那族）**之上**（原导入弹窗那档 3100 已随 T23 删件删掉）。</summary>
         const int QDragPreview = 3050;
         /// <summary>「按住之后动了多少才算起拖」—— **与行拖出那条同一个阈值**：`0.15` 世界单位 × 108
         /// = **16.2 设计像素**（`_draggingMoved` 那一句用的就是 `0.15`；本仓铁律：同一条规则只留一份，
@@ -3860,7 +3872,8 @@ namespace CardPresentation
             }
             _cardDrag.SetDraggable(def);
             _cardDrag.OnBeginDrag(DragEvent(px, deltaSincePress, false));
-            Debug.Log("[Drag] 起拖（卡 `" + CardText.Name(def.Name, def.NameZh) + "`）");
+            // 🆕 2026-10-17（`N42`）：按 `CardDef` 取 —— 非中英语档日志里的卡名也跟语档
+            Debug.Log("[Drag] 起拖（卡 `" + CardText.Name(def) + "`）");
             return true;
         }
 
@@ -3893,167 +3906,20 @@ namespace CardPresentation
             if (card == null) return;
             // `TryAddCard` 自己会 `Say`（进了 / 为什么没进），这里只补一行**拖拽那条路**的日志
             TryAddCard(card);
-            Debug.Log("[Drag] Drop(卡 `" + CardText.Name(card.Name, card.NameZh) + "`)（成没成见上一条）");
+            Debug.Log("[Drag] Drop(卡 `" + CardText.Name(card) + "`)（成没成见上一条）");
         }
 
-        // ------------------------------------------------------------ 导入卡组弹窗（原版 `ImportDeckPopup`）
+        // ------------------------------------------------------------ 导入卡组弹窗（🔴 T23 已删，见下）
 
-        /// <summary>原版 `ImportDeckPopup` 的 rect（`资料/说明书/04_界面UI/卡组界面说明书.md` §五）。
-        /// 🔴 **2026-10-17（D45/D46/D47）**：三处按原版 prefab 改过，逐条见下面各自的注释。</summary>
-        void BuildImportPopup()
-        {
-            const float wx = 560f, wy = 234f, ww = 800f, wh = 452f;
-            // ---- 🆕 **D47：整屏压暗层 + 点窗外关窗**（原来只有里面那块窗口底板，外面是"没有东西"）----
-            //   判据 = 原版那棵树的**根下就有一颗整屏 `Background`**
-            //   （`python 工具/menu_rect.py bundle_menus_assets_all "Import Deck Popup" --depth 3`：
-            //    `0.50,0.50 → 1919.50,1079.50`，1919×1079 = **整屏**），它挂的是 `EverguildButton`
-            //   ⇒ **点窗外 = 关窗**（`Shell/ImportDeckPopup.cs` 那一份早就照这个做了，同一条判据）。
-            //   ⚠️ 色值**不另挑**：与外壳那份同一个数（`ImportDeckPopup.ShadeColor = (0,0,0,0.396)`）。
-            //   ⚠️ 队列 = `QModal − 1`（**3099**）：压在一切之上、又必须**低于本窗那几件**（3100 起）
-            //     —— 同族先例 `QCurveBg = QSide + 1` 那条「派生档位」。
-            //   ⚠️ 它进 `_modalOnly`（开窗/关窗那一处开关），并且**要有一颗自己的命中矩形**（下面 `Btn_`）
-            //     否则"点窗外"这条行为落不了地（`KeyLive` 里那颗也一并登记）。
-            var shade = Img("imp_shade", CardArt.Solid(), 0f, 0f, ScreenW, ScreenH, QModal - 1);
-            if (shade != null) shade.SetTint(new Color(0f, 0f, 0f, 0.396f));
+        // 🔴 **2026-10-17（T23 删件）：`BuildImportPopup()` 整棵树 + `_imp*` 字段 + `_modalOnly` 全部删掉了。**
+        //   它建的 `imp_shade` / `imp_bg` / `imp_title` / `imp_input(_bg)` / `imp_err` / `imp_ok(_t)` /
+        //   `imp_close(_x)` 那十件**只剩自检能开**（生产入口 `info_import` 那颗圆钮 2026-10-17 已按 D35 删，
+        //   `UiOpenImport()` 的调用点全在 `Editor/DeckScene.cs`）。生产那一份是外壳的
+        //   `Shell/ImportDeckPopup.cs`（`CollectionWindow.OpenImportPopup()`）—— **那才是原版这个动作的家**
+        //   （`SelectDecksTab.ImportDeck` → `ImportDeckPopup`）。
+        //   判据 → `资料/普查产出_1017/UI/R_界面线剩余条目现核.md` §二·13（`T23`）。
+        //   ⛔ **别照旧实现补回来** —— 同一扇窗有两套实现时，那颗 `Confirm` 的文案就先分家了（A891 的教训）。
 
-            Img("imp_bg", "40k_popup", wx, wy, ww, wh, QModal);
-            // 🔴 **2026-10-17（A891）**：标题那颗 = 原版 `Import Deck Popup/Window/Main Search message`
-            //   （同一颗的 rect = **610,280 700×60**，与本行实参逐位对上）；它挂着 `Localize`
-            //   `mTerm = **MenuDeck/Share/PasteDeck**`
-            //   （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_8528767437303251090.json` 实读 `mTerm`；
-            //   那颗 TMP 的 `m_text = "Paste your deck"` 就是该词条的**英文列**）
-            //   ⇒ 走词条，⛔ 不再写死英文（原版那颗挂着 `Localize` ⇒ 它**跟着语言变**）。
-            //   ⚠️ 外壳那份 `Shell/ImportDeckPopup.cs` 是同款窗的**另一棵树**（节点名 `Main Search message`），
-            //     它那处不属本批 ⇒ 词条已在 `Core/Loc.cs` 备好，那一批直接取用即可。
-            _impTitle = Txt("imp_title", Loc.T("MenuDeck/Share/PasteDeck"), 610f, 280f, 700f, 60f, 2, Ink, QModalText);
-            // 🔴 **2026-10-10（A1212 · 块 1 #54）**：接上 `m_enableAutoSizing`（四格 = **4 / 50 / 36 / 1**）。
-            //   判据 = `R6` §2·F #54（对应件 = `bundle_menus_assets_all ▸ Import Deck Popup ▸ Window/Main Search message`
-            //   —— ⚠️ **不是**同块别的窗那一颗）。折行 = `1` ⇒ 不必还原。
-            if (_impTitle != null) _impTitle.SetAutoFitBox(U(700f), U(60f), 4f, 50f, 36f);
-            // 输入框：dump 给的是 [610,370] 700×141
-            _impInputBg = Img("imp_input_bg", "40K_dropdown_bg", 610f, 370f, 700f, 141f, QModalRow);
-            // 🔴 **2026-10-17（A891）**：占位符走**词条**（键 = 原版那颗 `Localize` 的 `mTerm` 原文
-            //   `MenuDeck/HUD/EnterText`，与 `Shell/ImportDeckPopup.cs` 的 `PlaceholderTerm` **同一条**）——
-            //   ⛔ 不再写死 `"Enter text..."`（写死就永远是英文，见 `Core/Loc.cs` 那条的注释）。
-            //   ⚠️ **同一颗节点两个入口**：这里是「建」，`RefreshImportText` 里还有一次「刷新」——
-            //     两处都走词条，漏一处 ⇒ 空输入时刷新回英文。
-            _impInputTx = Txt("imp_input", Loc.T("MenuDeck/HUD/EnterText"), 630f, 370f, 660f, 141f, 2,
-                              new Color(1f, 1f, 1f, 0.5f), QModalText);
-            // ---- 🆕 **D46：输入框那行字的对齐 = `Left/Top`（`align 1/256`）**，我们原来传的是居中 ----
-            //   判据（逐份实读 `bundle_menus_assets_all/MonoBehaviour/`，按 `m_text == 'Enter text...'`
-            //   在 `Import Deck Popup` 那棵里认出来那一颗）：`Placeholder` = `HA **1**` · `VA **256**`
-            //   （`256 = 0x100` = TMP 的 **`Top`**）；兄弟 `Text` 同档。
-            //   ⚠️ **本工程 `Label` 两个半边都表达得了**：`SetAlignLeft()` 给 HA=1，`SetVAlign(Top, 框高)`
-            //     给 VA=0x100（档位表 → `Battle/Label.cs` 的 `VAlign`）。
-            //   ⚠️ **顺序是死的**：`SetAlignLeft` 要在「定版面」之前（这里刚 `Txt` 完），而
-            //     `SetVAlign` 排在它**之后** —— 反过来会被 `TextAlignmentOptions.Left` 自带的 `V=Middle` 覆盖。
-            //   ⚠️ `Shell/ImportDeckPopup` 里那句「原版 `Text`/`Placeholder` 都是 hAlign=Center」
-            //     **是错的**（那份文件不在本批白名单 ⇒ 只在这里订正判据，改由那一批的写手收口）。
-            var impBox = new PxRect(630f, 370f, 630f + 660f, 370f + 141f);
-            if (_impInputTx != null)
-            {
-                _impInputTx.SetAlignLeft();
-                // 🔴 **2026-10-10（A1212 · 块 1 #55）**：接上 `m_enableAutoSizing`（四格 = **18 / 32 / 32 / 0**）。
-                //   判据 = `R6` §2·F #55（`…/Import Deck Popup ▸ Window/Input Field/Text Area/Placeholder`）。
-                //   ⚠️ 折行 = `0` ⇒ 还原。**位置**：排在 `SetAlignLeft()` **之后**
-                //   （`SetAlignLeft` 的 doc = 「要在『定版面』之前调」）、`SetVAlign` **之前**。
-                _impInputTx.SetAutoFitBox(U(660f), U(141f), 18f, 32f, 32f);
-                _impInputTx.SetWrappingMode(0);
-                MenuDraw.SetVAlign(_impInputTx, Label.VAlign.Top, impBox);
-            }
-            _impErr = Txt("imp_err", "", 593f, 528f, 734f, 35f, 1, new Color(0.95f, 0.45f, 0.4f), QModalText);
-            // 🔴 **2026-10-10（A1212 · 块 1 #56）**：接上 `m_enableAutoSizing`（四格 = **4 / 28 / 36 / 0**）。
-            //   判据 = `R6` §2·F #56（`…/Import Deck Popup ▸ Window/Error msg`）。
-            //   ⚠️ 折行 = `0` ⇒ 还原（同 `hdr_back_t`）。
-            if (_impErr != null)
-            {
-                _impErr.SetAutoFitBox(U(734f), U(35f), 4f, 28f, 36f);
-                _impErr.SetWrappingMode(0);
-            }
-            // ---- 🆕 **D45：`Confirm` 按 VLG 跑完的位置摆**（原来写死 y=611）----
-            //   🔴 **代码里原来那句「y 取 615 会让按钮**冒出窗口下沿**」的判断本身是错的** ——
-            //     615 是 `Buttons` 容器里那颗按钮的**模板位**（VLG 跑之前），跑完在 **569.86..644.86**
-            //     （窗口底 685.93 ⇒ 还差 **41.07** 余量，根本不会溢出）。
-            //   判据（逐字段实读 `bundle_menus_assets_all`）：
-            //     · `Window/Buttons` RT（`RectTransform_2291685908012369840`）= **733.9 × 90** ·
-            //       绝对矩形 593.05..1326.95 × 562.43..652.43；
-            //     · 它挂着 **VerticalLayoutGroup**（`MB 8786932283964688304`）：`m_Padding` 全 **0** ·
-            //       `m_Spacing 22.24` · **`m_ChildAlignment 4`（= `MiddleCenter`）** · `ctrlW/H = 0`；
-            //     · 唯一那颗子件 `Generic UI Button`（**478.343 × 75**）⇒ 跑完中心 = 容器中心
-            //       ⇒ **x 720.83..1199.17**（= 屏心 960 ± 239.17）· **y ≈ 569.93..644.93**
-            //       （施工单给的实测值是 569.86..644.86，**差 0.07** —— 那是绝对矩形链上的取整，
-            //        两个数在断言容差里是同一个；这里照**串行字段算出来的**那个写，注释留痕）。
-            //   ⚠️ 宽度也照原版 478.343（原来是 478）—— 差 0.34 肉眼看不见，但「屏心 ± 半宽」这条
-            //     等式要成立就得是它（720.83 + 478.343/2 = 960.00）。
-            // 🆕 A24：原版 `Import Deck Popup/Window/Buttons/Generic UI Button` 也是 `SpriteSwap`
-            //   （`m_TargetGraphic` = 自己那层 Image · HL=`40K_button_hover` · P=`40K_button_pressed`，
-            //    `WindowButton` 的两张表推得出）
-            const float okX = 720.83f, okY = 569.93f, okW = 478.343f, okH = 75f;
-            Hover("imp_ok", Img("imp_ok", "40K_button", okX, okY, okW, okH, QModalRow), "40K_button");
-            // 🔴 **2026-10-18（A891 的续 · 续做 B）：这一颗的字也走词条** —— 键 = 原版那颗 `Button Text` 的
-            //   `Localize.mTerm` 原文 **`MainMenu/General/Confirm`**（⚠️ 不是 `MenuDeck/` 族 —— 原版自己
-            //   复用了主菜单那条**通用按钮词条**；同 `Shell/ImportDeckPopup.cs` 的 `ConfirmTerm`）。
-            //   🔴 **本批之前这里是写死 `"Confirm"`** —— 而同一扇窗（`Import Deck Popup`）的**另一份实现**
-            //   （`Shell/ImportDeckPopup` 里那处）早就走词条了 ⇒ 正是 CLAUDE.md §三
-            //   「**两处写同一条规则 = 迟早不一致**」的现成例子（中文档下两扇窗那颗钮一个字中文一个字英文）。
-            //   英文列 = 那颗 TMP 的 `m_text` 原文 `Confirm`；中文列 = 「确认」（`zh_CN.csv:83`）。
-            //   ⛔ 节点名 `imp_ok_t` 不动（自检按名读，见 `Editor/DeckScene.cs` 导入弹窗那一节）。
-            _impOkTx = Txt("imp_ok_t", Loc.T("MainMenu/General/Confirm"), okX, okY, okW, okH, 2, Ink, QModalText);
-            // 🔴 **2026-10-10（A1212 · 块 1 #57）**：接上 `m_enableAutoSizing`（四格 = **12 / 45 / 12 / 0**）。
-            //   判据 = `R6` §2·F #57（`…/Import Deck Popup ▸ Window/Buttons/Generic UI Button/Button Text`）。
-            //   ⚠️ 折行 = `0` ⇒ 还原（同 `hdr_back_t`）；下面那颗 `SetVAlign(Midline, …)` 照旧排在最后
-            //   （`SetWrappingMode` 内部会 `ForceRelayout`，放在它之前会被重排推掉）。
-            if (_impOkTx != null)
-            {
-                // 🔴 **2026-10-17（`A1226` 表 B #57）：框 = 原版有效框 452.34 × 87.99。**
-                //    判据 = `Import Deck Popup ▸ Window/Buttons/Generic UI Button/Button Text`（伸锚 0→1 ·
-                //    `m_SizeDelta.x = −26`）⇒ 父宽 478.343 − 26 = **452.34**；高 87.99
-                //    （原来 478.343 × 75 ⇒ 宽 +26.00 / 高 −12.99 —— 两侧都偏）。
-                _impOkTx.SetAutoFitBox(U(452.34f), U(87.99f), 12f, 45f, 12f);
-                _impOkTx.SetWrappingMode(0);
-            }
-            // 🔴 **2026-10-18（A892）：纵向档显式落成 `Midline`。** 判据 = 原版那颗 TMP 按 pid 亲读
-            //   （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_6959005812579893394.json`）：
-            //   `m_text='Confirm'` · **`m_VerticalAlignment = 4096`（= `Midline`）** · `m_HorizontalAlignment = 2`（Center）·
-            //   `m_fontSize = 45`。我方 `Battle/Label.cs` 的出厂档 `_vTier = VAlign.Middle`（= **512**）
-            //   ⇒ 不显式设就是**另一档**（字墨会比原版低一点点）。⚠️ 这批**只设档、不动出厂值**
-            //   （改 `Label` 出厂值会牵动全工程所有宿主 —— 见 `MenuDraw.SetVAlign` 的 doc）。
-            //   框高按**这颗钮自己的矩形**给（`Midline` 用不到它，但传对才是同一条口径）。
-            if (_impOkTx != null)
-                MenuDraw.SetVAlign(_impOkTx, Label.VAlign.Midline, new PxRect(okX, okY, okX + okW, okY + okH));
-            Img("imp_close", "UI_Button_Round_background", 1317f, 202f, 75f, 75f, QModalRow);
-            // 🆕 A24：这颗的 `m_TargetGraphic` 实测 = **子件 `Icon`**（就是这张 `40k_bt_close`），
-            //   **不是**按钮自己那个圆底 —— 普查 §二 块 B 写的「常态图 = `UI_Button_Round_background`」
-            //   是**按钮节点**的 Image；本轮逐字段复读 prefab：
-            //   `targetGo = Icon` · `sprite = 40k_bt_close` · HL=`40k_bt_close_hover` · P=`40k_bt_close_pressed`
-            //   （照铁律 5 就地订正；两张高亮图 `WindowButton` 的表也推得出）。
-            // 🔴 **2026-10-04（A37 ⑤）改尺寸**：那颗 `Icon` 原来我们画 **75×75**（跟着圆底走），
-            //   原版实读（`menu_dump.py bundle_menus_assets_all "Import Deck Popup" --depth 8`）：
-            //   `Generic Close Button Green` = `[1317.3,202.1]–[1392.3,277.1]`（**75×75 圆底，我们那层是对的**）·
-            //   子件 `Icon` = **`[1326.6,212.4]–[1383.0,266.8]` = 56.37×54.50**，图 `40k_bt_close` 175×174 ·
-            //   `Simple (1,1,1,1)` **无 preserveAspect** ⇒ 原版是**拉**进这个矩形的（我们照拉伸画）。
-            Hover("imp_close",
-                  Img("imp_close_x", "40k_bt_close", 1326.6f, 212.4f, 56.37f, 54.5f, QModalText - 1), "40k_bt_close");
-            // 🔴 **2026-10-17（D45）**：这颗的矩形跟着上面那组常量走（原来写死 `721,611,478,75`）。
-            Btn_("imp_ok", okX, okY, okW, okH);
-            Btn_("imp_close", 1317f, 202f, 75f, 75f);
-            Btn_("imp_input", 610f, 370f, 700f, 141f);
-            // 🆕 **D47**：整屏那颗「点窗外关窗」的命中区。**排在 `ClickOrder` 最后**（那三个 `imp_*`
-            //   小矩形先吃），而它自己只在 `_importOpen` 时算数（`KeyLive`）。
-            Btn_("imp_shade", 0f, 0f, ScreenW, ScreenH);
-            _modalOnly.Add(Lookup("imp_bg") != null ? Lookup("imp_bg").gameObject : null);
-            // 🆕 D47：压暗层也在这张表里（开窗/关窗**只有这一处开关**，见 `OpenImport`/`CloseImport`）。
-            _modalOnly.Add(shade != null ? shade.gameObject : null);
-            foreach (var k in new[] { "imp_input_bg", "imp_ok", "imp_close", "imp_close_x" })
-            { var q = Lookup(k); _modalOnly.Add(q != null ? q.gameObject : null); }
-            // ⚠️ 标签同样要显式收（`Lookup()` 不认 Label —— 同 `info_*` 那条）
-            foreach (var l in new[] { _impTitle, _impInputTx, _impErr, _impOkTx })
-                if (l != null) _modalOnly.Add(l.gameObject);
-            foreach (var go in _modalOnly) if (go != null) go.SetActive(false);
-        }
-        ImageQuad _impInputBg;
-        Label _impInputTx, _impTitle, _impErr, _impOkTx;
-        readonly List<GameObject> _modalOnly = new List<GameObject>();
 
         // 🔴 **2026-10-17（D7/D10/D35 删件）：`BuildNotice()` 整个删掉了。**
         //   它原来建三件，**三件原版都没有**（判据 → `对账_卡组编辑部分_差异与待办.md` D7/D9/D10/D35）：
@@ -4061,7 +3927,7 @@ namespace CardPresentation
         //     · `store_err`（底部报错横幅，D10：那是自检造写盘失败时才会亮的一件）；
         //     · `notice`（底部提示行，D35：`Say(...)` 那句的屏幕落点）。
         //   ⇒ ⛔ 别「顺手补回来」；`Say()` 那条**消息通道**仍在（`Debug.Log` + `UiLastSay`）。
-        //   ⚠️ `Library.LastError` 也**没有**丢掉出口：`SaveAndSay()` / `TryImport` 会把它念出来
+        //   ⚠️ `Library.LastError` 也**没有**丢掉出口：`SaveAndSay()` 会把它念出来
         //      （`Say(...)` 那句日志、`DeckScene` 的 A398/A547 两条断言读的就是它）。
         //   🔴 **2026-10-18（`G8`）**：`LastError` 从那一天起装的是**诊断串**（`DeckStore` 不再拼中文整句）
         //      ⇒ 显示层**不许**再拿它当主文案：给玩家看的人话走 `Loc.T(TermSaveFailed)`
@@ -4127,8 +3993,8 @@ namespace CardPresentation
             {
                 int c = a.Cost.CompareTo(b.Cost);
                 if (c != 0) return c;
-                c = string.CompareOrdinal(CardText.Name(a.Name, a.NameZh),
-                                          CardText.Name(b.Name, b.NameZh));
+                c = string.CompareOrdinal(CardText.Name(a),
+                                          CardText.Name(b));
                 if (c != 0) return c;
                 return string.CompareOrdinal(a.Id, b.Id);
             });
@@ -4248,7 +4114,7 @@ namespace CardPresentation
                 var def = shown[firstRow + i];
                 float y = ListY + i * RowPitch - off;
                 MoveRow(i, y);
-                _deckRowName[i].SetText(CardText.Name(def.Name, def.NameZh));
+                _deckRowName[i].SetText(CardText.Name(def));
                 // 🔴 **2026-10-20（行名左对齐）**：**左沿的落点在这里** —— `SetAlignLeft()`
                 //   只管「真折行时每行在块内怎么排」，把**整块**挪到左沿的是 `AlignLeftOn`
                 //   （两个口的分工 → `Battle/Label.cs` 那两段 doc）。
@@ -4404,11 +4270,11 @@ namespace CardPresentation
 
         // ---- 🆕 2026-10-04（A24）卡组行的悬停变暗（判据见 `RowHoverK`）----
 
-        /// <summary>指针底下那一行（`-1` = 没有）。只在 **Cards 页 + 没在拖 + 导入弹窗没开** 时成立
+        /// <summary>指针底下那一行（`-1` = 没有）。只在 **Cards 页 + 没在拖** 时成立
         /// （其余情况下那几行要么不显示、要么被模态挡着）。</summary>
         int RowUnder(Vector2 px)
         {
-            if (!DeckListPage || _dragging || _importOpen) return -1;
+            if (!DeckListPage || _dragging) return -1;
             if (px.x < RowNodeX || px.x > RowNodeX + RowNodeW) return -1;
             // 🔴 **2026-10-21（`A1727`）**：**射线也要吃那道裁切**（`D5` 留的「没查清」本条就地结清）。
             //   判据 = 原版那颗视口上是 **`RectMask2D`**（本批现读 `工具/menu_dump.py "Deck List drawer" --depth 5`：
@@ -4503,9 +4369,8 @@ namespace CardPresentation
         ///   ⚠️ **2026-10-04（A37 ④）改**：这句声明原来**是错的** —— 那时点击走 `HandleButtons` 的 if 链、
         ///   悬停却走 `_btns` 的**登记顺序**（两套顺序；本窗矩形今天互不重叠所以看不出分叉，但那正是
         ///   「两处写同一条规则 = 迟早不一致」）。现在两处**共用 `ClickOrder` 一份**，声明与实现一致。
-        /// 遮挡口径也照点击那条路（`HandlePointer` 里那三条早退）：导入弹窗是模态 ⇒ **只认弹窗自己那几颗**
-        ///   （原版靠弹窗的全屏暗底吃射线，我们没建那块暗底 ⇒ 在这里显式挡，否则弹窗背后的钮会亮起来）；
-        ///   左抽屉开着时它盖住的那条竖带不认；行拖拽中不认。</summary>
+        /// 遮挡口径也照点击那条路（`HandlePointer` 里那几条早退）：左抽屉开着时它盖住的那条竖带不认；
+        ///   行拖拽中不认；模态件与普通件的互斥收在 `HitBtn` → `KeyLive`（唯一出处）。</summary>
         WindowButton HoverTargetUnder(Vector2 px)
         {
             if (_dragging) return null;
@@ -4514,11 +4379,9 @@ namespace CardPresentation
             {
                 WindowButton wb;
                 if (!_hoverBtns.TryGetValue(k, out wb)) continue;   // 只认接了悬停换图的那几颗
-                // 🔴 **模态件与普通件互斥**（导入弹窗开着时 `_modalOnly` 那一批才显示）：
-                //   弹窗开着 ⇒ 只认 `imp_*`（原版靠弹窗的全屏暗底吃射线，我们没建那块暗底，在这里挡）；
-                //   弹窗关着 ⇒ 反过来不认 `imp_*`（否则会在**看不见**的输入框/按钮上亮起来 —— 静默的那种错）。
-                // 🔴 **2026-10-04（A41 ④）：这段判断已经收进 `HitBtn` → `KeyLive` 了**（唯一出处）——
-                //   悬停与点击都走它，这里不用再判一次（两处写同一条规则 = 迟早不一致）。
+                // 🔴 **成组显隐的件由 `HitBtn` → `KeyLive` 判**（唯一出处；2026-10-17 T23 删件之后
+                //   本窗只剩 `hdr_clear` 那一支）—— 悬停与点击都走它，这里不用再判一次
+                //   （两处写同一条规则 = 迟早不一致）。
                 if (HitBtn(k, px)) return wb;
             }
             return null;
@@ -4696,7 +4559,7 @@ namespace CardPresentation
             //   `_verdict.SetText(...)` / `_verdict.SetColor(...)`（页脚那行「合法/不合法」判词，D35）
             //   与 `_storeErr.SetText(Library.LastError ?? "")`（底部报错横幅，D10）。
             //   两件**原版都没有** ⇒ 已删。⚠️ `err` 这个量**仍然要用**（下面 `foot_hl` 那颗灯），别把上面那句删了。
-            //   ⚠️ `Library.LastError` 的出口没丢：`SaveAndSay()` / `TryImport` 会 `Say(...)` 念出来
+            //   ⚠️ `Library.LastError` 的出口没丢：`SaveAndSay()` 会 `Say(...)` 念出来
             //      （`DeckScene` 的 A398/A547 读的就是那条）。
             // 🔴 **A330（2026-10-11）**：这一句与 `SaveAndSay()` 那道**保存闸**用的是**同一条判据**
             //   （原版 `__UpdateDoneButton.c:24` 与 `__TrySaveDeck.c:80` 是逐参数相同的同一个
@@ -4874,7 +4737,7 @@ namespace CardPresentation
             //   判据 = 原版那扇窗的 `Menu Dark Background` 是 **`m_RaycastTarget = 1` 的整屏图**
             //   （4574.6×2572.36）⇒ UGUI 那一层就把下面的命中全吞了；我们这套没有 UGUI，
             //   等价物 = 这里早退 + `MenuDraw.Absorb` 那颗吸收命中区（`Shell/PopUpGameWindow.cs`）。
-            //   ⚠️ 照 `_importOpen` 那条既有先例的**同一个位置、同一种形状**（那条也是「模态 ⇒ 只认它自己」），
+            //   ⚠️ 与（已删的）导入弹窗那条模态口径**同一个位置、同一种形状**（T23），
             //   ⛔ 别在这儿转发到弹窗那两颗钮上 —— 它们归 `PointerLayer` 派发（两处派发 = 迟早不一致）。
             //   🔴 改坏法：删掉这一句 ⇒ `Editor/DeckScene.cs` 的「A364 ★ 弹窗开着时点下面的钮**没人吃**」红。
             if (ModalPopupOpen) return;
@@ -4884,8 +4747,9 @@ namespace CardPresentation
             //     模态消息窗由本类自己管，别的窗**本类一概不碰**（它们自己有 `PointerLayer` 派发）。
             if (OtherWindowUp() != null) return;
 
-            // 导入弹窗是**模态** —— 开着的时候只认它（点别处不穿透）
-            if (_importOpen) { if (downL) HandleButtons(px); return; }
+            // 🔴 **2026-10-17（T23 删件）**：这里原来还有「导入弹窗是模态 ⇒ 只认它自己」那道闸
+            //   （`if (_importOpen) { if (downL) HandleButtons(px); return; }`）—— 那扇窗整棵删了
+            //   （见 `BuildImportPopup` 那一节）。
 
             // 筛选栏**盖住侧栏**（两者是同一块 rect）⇒ 它开着的时候先问它、并且不许穿透。
             // 🆕 A67：判据走 `FltStripOn`（= 开着**且**已到位）—— **位移那 0.3 秒里不吃**，
@@ -5120,7 +4984,7 @@ namespace CardPresentation
                 if (row >= 0 && row < shown.Count)
                 {
                     var def = shown[row];
-                    if (State.TryRemove(def)) { MarkDeckDirty(); Say("已移出卡组：" + CardText.Name(def.Name, def.NameZh)); }
+                    if (State.TryRemove(def)) { MarkDeckDirty(); Say("已移出卡组：" + CardText.Name(def)); }
                 }
             }
             RefreshAll();
@@ -5144,21 +5008,10 @@ namespace CardPresentation
         static readonly string[] ClickOrder = {
             "hdr_filters", "hdr_clear", "hdr_back", "foot_done",
             "name_clear", "name_box",
-            // 🔴 **2026-10-17（D35 删件）**：这里原来还有 `"info_share", "info_import",` 两项 ——
-            //   那两颗钮**原版没有**、连登记一起删（两个 key 在本文件已无任何生产写入点）。
-            "imp_input", "imp_ok", "imp_close",
-            // 🆕 **2026-10-17（D47）**：整屏那颗压暗层的命中区**排在最后** —— 它面积最大，
-            //   排前面会把窗口里那三颗全吃掉（`TopKeyAt` 取的是**第一个**命中的）。
+            // 🔴 **2026-10-17（D35/T23 删件）**：这里原来还有 `"info_share", "info_import"` 两项
+            //   （那两颗圆钮原版没有）与 `imp_input` / `imp_ok` / `imp_close` / `imp_shade` 四项
+            //   （导入弹窗那棵树，重复实现）—— **已全部删掉**，连它们的登记一起删。
             "tab_0", "tab_1", "tab_2",
-            // 🔴 **2026-10-17（F2 · 修 D47 漏登记）**：上面那句注释写着「压暗层排在最后」，而**本表原来
-            //   没有它**（12 项、末项是 `tab_2`）⇒ `TopKeyAt((200,900))` 一个都不命中 ⇒ `HandleButtons`
-            //   走 `default: return false` ⇒ **点窗外那一下既没被吃掉、也不关窗**（`ImportOpen` 仍 true）。
-            //   判据：`Btn_("imp_shade",…)`（`BuildImportPopup` 里那颗整屏压暗层）· `case "imp_shade":
-            //   CloseImport()`（`HandleButtons`）· `KeyLive` 两条分支**都建了** ⇒ 只是**没登记**。
-            //   ⚠️ **必须在最后**：窗口里那三颗（`imp_input` / `imp_ok` / `imp_close`）先吃；
-            //   `KeyLive` 保证弹窗**关着**时它恒不命中 ⇒ 不会影响别的页签（判据 → `Editor/DeckScene.cs`
-            //   的 D47 那一节：`ate && !_rt.ImportOpen`）。
-            "imp_shade",
         };
 
         /// <summary>这一点上**按 `ClickOrder` 第一个吃到它的 key**（没有 = `null`）—— 点击与悬停都走它。</summary>
@@ -5206,7 +5059,7 @@ namespace CardPresentation
         /// `foot_done`(`Sidebar/Footer/Done`) → **Positive**；`hdr_filters`(`Header/Filters` Toggle) → **Select Toggle**。
         /// ⚠️ 其余 8 颗 Toggle（6 颗卡牌筛选 + 2 颗卡背筛选；第 9 颗 = 表里那颗 `hdr_filters`）在
         /// `HandleFilterClick` / `HandleCosmoFltClick` 里统一播 `SelectToggleCue`（它们按格子走、没有 id）。
-        /// ⚠️ 表外的 key（页签 `tab_*` / 改名框 / 导入弹窗那几颗）**原版没有显式 cue** ⇒ 不播（保持现状），
+        /// ⚠️ 表外的 key（页签 `tab_*` / 改名框）**原版没有显式 cue** ⇒ 不播（保持现状），
         /// 不拿默认音替它们编行为。</para></summary>
         static readonly Dictionary<string, string> ClickCueById = new Dictionary<string, string>
         {
@@ -5243,18 +5096,11 @@ namespace CardPresentation
                 case "foot_done": SaveAndSay(); return true;
                 case "name_box": BeginNameEdit(); return true;
                 case "name_clear": ClearDeckName(); return true;
-                // 🔴 **2026-10-17（D35 删件）**：这里原来还有
-                //   `case "info_share": ShareDeckString();` 与 `case "info_import": OpenImport();`
-                //   —— 那两颗圆钮已删（原版这扇窗里没有它们）⇒ **它们的 key 也到不了这里**。
-                //   ⚠️ `ShareDeckString()` 因此暂时**没有生产入口**（归调度台，见它自己的 doc）；
-                //     `OpenImport()` 仍有自检口 `UiOpenImport()`。
-                case "imp_input": _nameEdit = _importText ?? ""; _editKind = 3; RefreshImportText(); return true;
-                case "imp_ok": TryImport(); return true;
-                case "imp_close": CloseImport(); return true;
-                // 🆕 **2026-10-17（D47）**：整屏压暗层 —— 原版那颗根下的 `Background` 挂的是
-                //   `EverguildButton` ⇒ **点窗外 = 关窗**（判据 → `BuildImportPopup` 里那段）。
-                //   ⚠️ 它**排在 `ClickOrder` 最后**：窗口里那三颗先吃（面积大的不许抢）。
-                case "imp_shade": CloseImport(); return true;
+                // 🔴 **2026-10-17（D35/T23 删件）**：这里原来还有
+                //   `case "info_share": ShareDeckString();` / `case "info_import": OpenImport();`
+                //   （那两颗圆钮原版这扇窗里没有）与 `imp_input/imp_ok/imp_close/imp_shade` 四支
+                //   （导入弹窗那棵树，重复实现）—— **已全部删掉**。
+                //   ⚠️ `ShareDeckString()` 因此暂时**没有生产入口**（归调度台，见它自己的 doc）。
                 case "tab_0": SetTab(0); return true;
                 case "tab_1": SetTab(1); return true;
                 case "tab_2": SetTab(2); return true;
@@ -5582,13 +5428,14 @@ namespace CardPresentation
         ///   ⇒ 本类若再来一次，**同一下 ESC 会被处理两遍**。
         /// 两个方向相反 ⇒ 只能各问各的（⛔ 别把这两个谓词合成一个）。</para>
         ///
-        /// <para>🔴 **不修会怎样**（可推、且**现有 ESC 断言抓不到**）：
-        /// `EscPressed()` 的 ② 那一级 = 「关导入弹窗、**不落盘**」——
-        /// 第一遍把弹窗关掉、第二遍 `_importOpen` 已经为假 ⇒ **一路落到 ④ `SaveAndSay()`**
-        /// ⇒ 玩家在导入弹窗里按一下 ESC，会**既关弹窗、又把卡组存盘并退出编辑器**
-        /// （原版那一天只关弹窗）。⚠️ `Editor/DeckScene.cs` 那几条 ESC 断言**直接调 `_rt.EscPressed()`**、
-        /// 不经过 `PointerLayer` ⇒ 它们**看不见**这个双吃。
-        /// 同一类坏法在 ④ 上只是「存两遍」，在 ② 上才是真缺陷。</para>
+        /// <para>🔴 **不修会怎样**（可推、且**现有 ESC 断言抓不到**）：同一下 ESC 被处理两遍 ——
+        /// 第一遍由宿主窗转进来（保存 / 关最上面那扇窗），第二遍再落到 `EscPressed()` 的保存支
+        /// ⇒ 一次按键**存两遍盘、甚至退两次编辑器**。
+        /// ⚠️ 历史上这条闸的判别式是「**关导入弹窗**那一级」：第一遍关掉弹窗、第二遍 `_importOpen`
+        /// 已为假 ⇒ 一路落到保存支（**既关弹窗、又把卡组存盘并退出**）。那一级 2026-10-17 已随
+        /// `T23` 删件删掉 ⇒ 今天两支都落到保存支（症状变成「存两遍」），**闸本身照样必须有**。
+        /// ⚠️ `Editor/DeckScene.cs` 那几条 ESC 断言**直接调 `_rt.EscPressed()`**、不经过 `PointerLayer`
+        /// ⇒ 它们**看不见**这个双吃（挡住它的是 `UiEscEatenByHost` 那一对断言）。</para>
         ///
         /// <para>🔴 **哪条断言能抓住它（全仓只有这一条）** = <see cref="UiEscEatenByHost"/>
         /// （`Editor/DeckScene.cs` 第 2 步那一节，与 `UiWindowShield` 那条**配成一对**）。
@@ -5776,7 +5623,7 @@ namespace CardPresentation
         /// `ShowMessage` 没往下看。）</para>
         /// <para>⚠️ 原版**只有写、没有读**（`get_systemCopyBuffer` 全库 0 命中）⇒ 我们也不做「一键从剪贴板导入」。</para>
         /// <para>🔴 **2026-10-17（D35 删件后）：本方法暂时【没有生产入口】**。它原来挂在侧栏那颗
-        /// `info_import` / `info_share` 圆钮上，而那两颗钮**原版这扇窗里没有**、已删 ⇒ 今天只有自检能调。
+        /// `info_import` / `info_share` 圆钮上，而那两颗钮**原版这扇窗里没有**、已删 ⇒ 今天无人调用。
         /// **这不是「不做」**（铁律 11）：原版这个动作的家在 **`DeckInfoPopup`**
         /// （`decomp_full/DeckInfoPopup__ShareDeck.c`，卡组线那扇 Info 弹窗的 `Share` 圆钮）——
         /// ✅ **2026-10-08（`A1040`）那边已接上**：`Shell/DeckInfoPopup.ShareDeck("Share")` 调的是**同一个**
@@ -5789,157 +5636,12 @@ namespace CardPresentation
             Say(string.IsNullOrEmpty(s) ? "分享失败：这一副导不出卡组串" : ShareCopiedText(s.Length));
         }
 
-        void OpenImport()
-        {
-            _importOpen = true; _importText = ""; _importError = "";
-            LastImportOutcome = ImportOutcome.None;      // 🔴 G8：开窗复位（同 `_importError`）
-            // 🔴 **2026-10-17（F2 · 修 D46 的调用时机）**：**先激活、再刷文本** ——
-            //   `RefreshImportText()` 末句是 `AlignLeftOn(630)`，它按 `WorldW`（TMP 的 `textBounds`）摆位，
-            //   而 **TMP 在对象没激活时量不出尺寸**（`CLAUDE.md` §三 那条坑：未激活时 `textBounds` 是
-            //   天文数字 —— `Battle/Label.cs` 的 `SetWrapWidth` 头把这条判据写全了）。
-            //   原来这两句是**反的**（先 `RefreshImportText()` 再 `SetActive(true)`）⇒ 未激活那一刻量到的
-            //   垃圾宽度被冻在 `_tmpW` 里，之后**同一串字**再 `SetText` 也救不回来（`Label.SetText` 首句
-            //   `if (text == _text) return;` ⇒ 早退、不重建 mesh）—— 实测 `DeckScene` 报 `imp_input`
-            //   宽 **4832.6px**（= 44.75 世界单位，而框只有 660 宽、文案 12 个字符）。
-            //   ⚠️ 与 `RefreshImportText` 里那句 `ForceRelayout` **成对**：那句是兜底（本方法之外还会被
-            //   `TryImport` 失败 / 进编辑态那两处调到），这一句把**开窗那一拍**的顺序摆正。
-            foreach (var go in _modalOnly) if (go != null) go.SetActive(true);
-            RefreshImportText();
-            Say("把卡组串粘进输入框（Ctrl+V），再点 Confirm");
-        }
-
-        void CloseImport()
-        {
-            _importOpen = false;
-            if (_editKind == 3) { _nameEdit = null; _editKind = 0; _typed.Clear(); }
-            foreach (var go in _modalOnly) if (go != null) go.SetActive(false);
-        }
-
-        /// <summary>走**原版那条链**：`Split(';').Last()` → `DeserializeDeckString`
-        /// （我们这边是 `DeckLibrary.ImportString`，格式逐字对齐）。失败要给**人话**。
-        ///
-        /// <para>🔴 **2026-10-13（A547）**：三种失败现在**都说得出话**，判据走的是**同一条出口**
-        /// `Library.LastError` —— 与 `Shell/CollectionData.ImportDeck`（A503 修好的那一半）**同一处**；
-        /// 本行原来在那边文档里写着「与卡组编辑那边逐字一致」，而**当时并不一致**。
-        /// 原来这里 `Add` 之后**不看落盘结果**：写盘失败照样 `Say("已导入「…」")` **且** `DeckDirty = false`
-        /// ⇒ 页脚说「已导入」、脏标记又被清掉（**下次 `Done` 也不会再试**）⇒ 玩家关掉编辑器就**永久丢**。
-        /// ⛔ 第三个出口（写盘失败）**不许清脏标记** —— 那一格就是「下次 `Done` 再写一次」的开关；
-        /// ⛔ 也不回滚内存（A398 在数据层定过语义：内存改动已生效、落盘失败）。</para>
-        ///
-        /// <para>改坏法：把下面 `bool persisted = …` 与 `if (!persisted) { … }` 这两段删掉（退回
-        /// 「不看落盘结果 + 恒 `DeckDirty = false`」）⇒ `Editor/DeckScene.cs` 的 A547 那一节里
-        /// 「写盘失败 ⇒ 回 false」「……而且脏标记**留着**」「……⛔ 不许再说「已导入」」三条红。</para></summary>
-        public bool TryImport()
-        {
-            var deck = DeckLibrary.ImportString(_importText, State.Find);
-            if (deck == null)
-            {
-                // 🔴 `G8`：结局码与那句话**同一步**写（⛔ 别只改一处 —— 判据与文案分家就会打架）
-                LastImportOutcome = string.IsNullOrWhiteSpace(_importText)
-                    ? ImportOutcome.EmptyInput : ImportOutcome.BadString;
-                // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：这两句人话走词条（**自拟键名**，附件
-                //   `…_附_BattleDeck.md` #44/#45 给的就是这两个）。判据 = 原版那两处**都没有词条**：
-                //   `Import Deck Popup / Window / Error msg` 那颗 TMP `m_text = 'error msg'`
-                //   而 **GO 上一个 `Localize` 都没挂**（本批亲读，见 `Core/Loc.cs` 里 `MenuDeck/HUD/EnterText`
-                //   那段的同一条记录）⇒ 原版这颗就是「引擎按根脚本的三个 term 字段写进去」的那一个
-                //   ⇒ 键名与两列文案都只能自拟（中文列 = 改之前写死的原话 ⇒ **中文档零变化**）。
-                //   ✅ **2026-10-18 收口（铁律 5）**：这一行原来写「⚠️ 键**波 0 未进表** ⇒ 走 `TermOr` 闸门
-                //      （补键后自动生效）」—— **已过期**：两条键**都在表**（`Core/Loc.cs` 实读：
-                //      `{ "MenuDeck/Error/ImportEmpty", ("先粘贴卡组串", "Paste a deck string first") }` ·
-                //      `{ "MenuDeck/Error/ImportBadString", ("这不是一条合法的卡组串", "This is not a valid deck string") }`）
-                //      ⇒ 现在是**裸 `Loc.T`**（闸门已删）。
-                _importError = string.IsNullOrWhiteSpace(_importText)
-                    ? Loc.T("MenuDeck/Error/ImportEmpty")
-                    : Loc.T("MenuDeck/Error/ImportBadString");
-                RefreshImportText();
-                return false;
-            }
-            CloseImport();
-            Library.Add(deck);                  // ⚠️ 这一步**自己会落盘**（`Library.Add` → `SaveOrWarn`）
-            // 🔴 **A397**：`LoadDeck` 装的是**副本**。这里没有「未 Done 的改动会被顺手写盘」的问题 ——
-            //    `Add` 的 `Save()` 写在 `LoadDeck` **之前**，而此刻编辑器那份的归属是上一套卡组。
-            // 🆕 **A547**：`Add` 的落盘**是可能失败的**（A398 起它走 `SaveOrWarn`）⇒ 结果**只在这里读一次**，
-            //    下面两处都看这一个布尔（⛔ 别在第二处再读一遍 `LastError`：中间任何一次落盘都会把它重写）。
-            bool persisted = Library.LastError == null;
-            // 🔴 **2026-10-12（`A1697`）**：导入会把编辑对象**换成库里那一副**（下一句 `LoadDeck(Library.Current)`）
-            //    ⇒ 那份「还没入库的新卡组」**就此放弃**。⛔ 不清它的话：`State.Deck` 已经是导入的那副，
-            //    而 `CommitDeck` 会照着 `_newDeck` 把**导入的那副内容**插进库（名字还是新卡组那个）—— 一次 `Done` 出两套。
-            //    ⚠️ **出声**（红线：不许静默失败）：原版导入入口在**选卡组页**（`SelectDecksTab__ImportDeck`）、
-            //    不在编辑窗里（本窗这个导入标是我们多画的）⇒ 没有现成的界面位可占，只落日志。
-            if (_newDeck != null)
-            {
-                Debug.LogWarning("[Deck] 导入卡组 ⇒ **放弃**那份还没入库的新卡组「" + _newDeck.Name + "」"
-                                 + "（编辑对象换成刚导入的那一副；那份新卡组**一个字节都没进过存档/库**）");
-                _newDeck = null;
-            }
-            State.LoadDeck(Library.Current);
-            // 🆕 A363 + A547：脏标记跟着换对象 —— 刚落过盘 ⇒ 清；**没落盘 ⇒ 留着**（下次 `Done` 再写一次）
-            DeckDirty = !persisted;
-            RefreshAll();
-            if (!persisted)
-            {
-                // 🔴 卡组串**读出来了**、内存里那套**也已经进了库**，只是没进存档 —— 照 A503 的口径，
-                //   说「没成」比说「已导入」诚实（页脚那句话是玩家唯一看得见的读数）。
-                // 🔴 **2026-10-14（A602）**：这句话**也要落进 `ImportError`** —— `TryImport` 回 `false`
-                //   一共有**三种**成因（**串空** / **串不合法** / **没落盘**），而 `_importError` 原来只覆盖
-                //   前两种 ⇒ 调用方按 `ImportError` **分不出**「为什么 false」（`Editor/DeckScene.cs` 的
-                //   A547 那节现在钉了第三种；同族出口 = `Shell/CollectionData.ImportDeck`，A503 修的）。
-                //   ⛔ 文案与 `Say` 那句**同一条**：先算进 `fail` 再两处用 —— 两处各写一份迟早不一致。
-                //   🔴 **2026-10-18（双语线 · 波 1 · P1）**：这一句也走词条 —— 键 = **自拟**
-                //   `MenuDeck/Error/ImportNotPersisted`（附件 #46 让「合成一条带 `{0}`」，`{0}` = 失败原因）。
-                //   判据同上面那两句（原版 `Error msg` 没挂 `Localize` ⇒ 这条文案是我们自己的）。
-                //   ✅ **2026-10-18 收口（铁律 5）**：这两行原来写「⚠️ 键**波 0 未进表** ⇒ 走闸门；
-                //      ⚠️ `{0}` 用 `Replace` 而不是 `string.Format`」—— **前半已过期**（这条键**已在表**：
-                //      `Core/Loc.cs` 的 `MenuDeck/Error/ImportNotPersisted`，ZH/EN 两列都是带 `{0}` 的那句
-                //      ⇒ 原来的 `Loc.HasEntry(...) ? ... : ...` 三元**收成裸 `Loc.T`**）。
-                //   ⚠️ `{0}` 用 `Replace` 而不是 `string.Format`（文案里还有 `**` 星号，`string.Format` 只认花括号、
-                //    两者本来就井水不犯河水，但本工程既有先例 `Battle/HUD/CreatedBy` 用的就是 `Replace("{0}", …)`
-                //    ⇒ 照它）—— 这一半**仍然成立**。
-                string failReason = SaveFailReason();
-                string fail = Loc.T("MenuDeck/Error/ImportNotPersisted").Replace("{0}", failReason);
-                LastImportOutcome = ImportOutcome.NotPersisted;      // 🔴 G8：结局码与那句话同一步
-                _importError = fail;
-                RefreshImportText();
-                Say(fail);
-                return false;
-            }
-            LastImportOutcome = ImportOutcome.Ok;                        // 🔴 G8
-            Say("已导入「" + deck.Name + "」" +
-                (DeckLibrary.LastDroppedIds.Count > 0
-                 ? "（有 " + DeckLibrary.LastDroppedIds.Count + " 张卡在我们卡池里没有，已按原版丢掉）" : ""));
-            return true;
-        }
-
-        void RefreshImportText()
-        {
-            if (_impInputTx == null) return;
-            bool empty = _importText.Length == 0;
-            // 🔴 **2026-10-17（A891）**：占位符的**第二个入口**（建的那处在 `BuildImportPopup`）——
-            //   两处都走同一条词条，⛔ 写死 `"Enter text..."` 会让空输入时刷新回英文。
-            //   ⚠️ 逐次重算（本函数每次 `SetText`/重排都会再进来一次），⛔ 别缓存进字段：
-            //   换语言之后**同一个窗**要能取到新的一行（`Loc` 不发事件，调用方自己重画，见 `Loc.SetLanguage`）。
-            _impInputTx.SetText(empty ? Loc.T("MenuDeck/HUD/EnterText") : _importText);
-            _impInputTx.SetColor(empty ? new Color(1f, 1f, 1f, 0.5f) : Ink);
-            if (_impErr != null) _impErr.SetText(_importError ?? "");
-            // 🔴 **2026-10-17（D46）**：输入框那行字**左对齐的【位置】在这里落**（`SetAlignLeft()` 只管
-            //   逐行、移块靠 `AlignLeftOn`；必须在 `SetText` 之后 —— 它要量 `WorldW`）。
-            //   左沿 = 框左内边 **630**（原版 `Input Field/Text Area` 的内衬；判据见 `AlignLeftOn` 那段）。
-            // 🔴 **2026-10-17（F2）在此补一刀 `ForceRelayout()`**：`AlignLeftOn` 只 `RefreshBounds()`
-            //   （重读 `_tmp.textBounds`、**不重建 mesh**），而 `SetText` 对**同一串字**是早退
-            //   （`Label.SetText` 首句 `if (text == _text) return;`）⇒ **未激活那一刻量到的垃圾宽度会一直冻着**
-            //   （实测 `DeckScene` 报 `imp_input` 宽 = **4832.6px**；`HasMeasuredWidth` 那道哨兵是
-            //   **≤100 世界单位（10800px）**，挡不住 44.75 这种「像真的」的垃圾 —— 于是那行字**真的**会被
-            //   摆到框右边 ~2400px 处）。`ForceRelayout()` = `ForceMeshUpdate()` + `RefreshBounds()`
-            //   ⇒ 把**当前**（已激活时）的版面重量一次。
-            //   ⚠️ **只在已激活时推**：未激活的 TMP 上跑 `ForceMeshUpdate` 会造出「字模有了、渲染网格没有」
-            //   的半成品状态（判据 → `Battle/Label.cs` 的 `SetWrapWidth` 头那 ①② 两条，A266）
-            //   ⇒ 加一道 `activeInHierarchy` 闸（`OpenImport` 已经先激活再调本函数 ⇒ 正常路径恒为真）。
-            if (_impInputTx != null)
-            {
-                if (_impInputTx.gameObject.activeInHierarchy) _impInputTx.ForceRelayout();
-                _impInputTx.AlignLeftOn(LayoutSpace.FromPixel(630f, 0f).x);
-            }
-        }
+        // 🔴 **2026-10-17（T23 删件）：`OpenImport()` / `CloseImport()` / `TryImport()` /
+        //   `RefreshImportText()` 四个方法整段删掉了**（连同 `ImportOutcome` 枚举与 `LastImportOutcome`）。
+        //   它们是 `BuildImportPopup` 那棵树的行为侧 —— 生产入口早已没有，只剩 `Editor/DeckScene.cs` 的
+        //   自检在调。真正的导入链在外壳：`Shell/CollectionData.ImportDeck`（走 `DeckLibrary.ImportString`，
+        //   A503 / A547 那一份，`CollectionScene` 有断言）。
+        //   ⚠️ 注意**别把它和 `ShareDeckString()` 搞混**：分享那个方法**留着**（`Shell/DeckInfoPopup` 在用）。
 
         /// <summary>Deck info 页签开着吗 —— **`_infoOnly` 那批件的显隐判据（唯一出处）**。
         /// `RefreshTabVisibility` 与 `KeyLive` 共用它；不许各写一遍 `_tab == 1`
@@ -6453,7 +6155,6 @@ namespace CardPresentation
         {
             var px = new Vector2(x, y);
             if (ModalPopupOpen) return false;        // 🆕 A364：模态消息窗开着 ⇒ 与 `HandlePointer` 同一条闸
-            if (_importOpen) return HandleButtons(px);
             if (FltStripOn && px.x < FltX + FltW) return HandleFilterClick(px);
             if (CosmoFltStripOn && px.x < FltX + FltW) return HandleCosmoFltClick(px);
             return HandleButtons(px);
@@ -6462,7 +6163,7 @@ namespace CardPresentation
         /// <summary>🆕 **2026-10-13（A1702 ③）**：自检入口 —— **卡池那一条命中路**（`HandlePoolClick`）
         /// 吃不吃画布 px 这一点。形状同 <see cref="UiClickCosmetic"/> 那条先例（直调那个 `Handle*`）。
         ///
-        /// <para>🔴 **为什么非有它不可**：`UiClickPx` 那条自检口**到不了卡池** —— 它过了模态 / 导入 /
+        /// <para>🔴 **为什么非有它不可**：`UiClickPx` 那条自检口**到不了卡池** —— 它过了模态 /
         /// 两条抽屉之后**直接 `return HandleButtons(px)`**，而真实指针链是
         /// `HandlePoolClick → HandleDeckRowClick → HandleCosmeticClick → HandleButtons`
         /// （那前三站在 `UiClickPx` 里**都没有**）⇒ 「滚出视口的卡点不点得到」这一条**只能**这样验
@@ -6486,7 +6187,7 @@ namespace CardPresentation
         /// （<see cref="HandlePointer"/> 的下半段，⛔ 不是单站）。
         ///
         /// <para>🔴 **为什么还要第三口**（已有 `UiClickPx` 与 `UiPoolHit`）：
-        /// · `UiClickPx` **跳过了前三站**（它过了模态/导入/两条抽屉就直接 `HandleButtons`）；
+        /// · `UiClickPx` **跳过了前三站**（它过了模态/两条抽屉就直接 `HandleButtons`）；
         /// · `UiPoolHit` **只走第一站**（直调 `HandlePoolClick`）。
         /// ⇒ 「**卡池 → 卡组行 → 卡背 → 钮**」这一整条**按顺序**的派发（= 真实鼠标那条）
         /// **一个自检口都没有**。`A1495` 那道 NRE 恰恰出在**第一站返回 false 之后**、
@@ -6507,7 +6208,6 @@ namespace CardPresentation
             // ---- 与 `HandlePointer` 逐句同序（左键：`downL = true`、`downR = false`）----
             if (ModalPopupOpen) return false;
             if (OtherWindowUp() != null) return false;
-            if (_importOpen) return HandleButtons(px);
             if (FltStripOn && px.x < FltX + FltW) return HandleFilterClick(px);
             if (CosmoFltStripOn && px.x < FltX + FltW) return HandleCosmoFltClick(px);
             bool ate = false;
@@ -6544,50 +6244,18 @@ namespace CardPresentation
         /// 免得靠副作用反推「到底谁被点到了」。</summary>
         public string UiTopKeyAt(float x, float y) { return TopKeyAt(new Vector2(x, y)); }
 
-        public bool ImportOpen { get { return _importOpen; } }
-        public string ImportText { get { return _importText; } }
-        /// <summary>导入失败的原因（人话）；空串 = 这一拍没有失败原因。
-        /// 🔴 **2026-10-14（A602）**：它现在覆盖 `TryImport` 回 `false` 的**全部三种**成因
-        /// （**串空** / **串不合法** / **没落盘**）—— 第三种原来是空的（只出声、不回填）⇒
-        /// 调用方按它分不出「为什么 false」。⚠️ 只在**导入窗开着那一拍**有意义：
-        /// `OpenImport()` 会把它清空（`CloseImport()` 不清）。</summary>
-        public string ImportError { get { return _importError; } }
-
-        /// <summary>🔴 **2026-10-18（`G8` · 同族排查 ④）：`TryImport` 的【结局码】。**
-        ///
-        /// **为什么非有它不可**：原来「导入了没有 / 成没成」只能**去 `Say()` 那段中文里找字**
-        /// —— `Editor/DeckScene.cs` 的 A547 那一节读的就是 `spoken.Contains("导入失败")` 与
-        /// `!spoken.Contains("已导入")`。那是**拿给人看的句子当判据**，而且**一正一反不对称**：
-        /// 一旦那两句走了本地化，**正面那条会红**（看得见），**反面那条会恒真**（`spoke` 里
-        /// 永远不含英文档不会出现的「已导入」⇒ **静默通过**）—— 这正是本工程最怕的那一种绿。
-        /// ⇒ 判据改成**枚举**（`Say` 那两句怎么改词都不影响它）。</summary>
-        public enum ImportOutcome
-        {
-            /// <summary>还没试过 / 窗刚开（`OpenImport` 复位）。</summary>
-            None = 0,
-            /// <summary>导进来了、也落盘了。</summary>
-            Ok = 1,
-            /// <summary>输入框是空的（`先粘贴卡组串`）。</summary>
-            EmptyInput = 2,
-            /// <summary>那串不是合法卡组串（不是 Base64 / 不是这个格式）。</summary>
-            BadString = 3,
-            /// <summary>🔴 串**读出来了**、也**进了库**，但**没写进存档**（A547 那一种）。</summary>
-            NotPersisted = 4,
-        }
-
-        /// <summary>最近一次 <see cref="TryImport"/> 的结局码（**判据用它，⛔ 别去比 `Say` 的字**）。</summary>
-        public ImportOutcome LastImportOutcome { get; private set; }
-        public void UiOpenImport() { OpenImport(); }
-        public void UiSetImportText(string s) { _importText = s ?? ""; RefreshImportText(); }
-        public bool UiTryImport() { return TryImport(); }
-        public void UiCloseImport() { CloseImport(); }
+        // 🔴 **2026-10-17（T23 删件）**：自检读数 `ImportOpen` / `ImportText` / `ImportError`、
+        //   `ImportOutcome` 枚举与其 `LastImportOutcome`、以及四个自检口
+        //   `UiOpenImport` / `UiSetImportText` / `UiTryImport` / `UiCloseImport` **全部删掉了** ——
+        //   它们服务的导入弹窗那一棵树整棵删了（为什么删见 `BuildImportPopup` 那一节）。
+        //   ⛔ 别再按旧断言名去找它们；导入那条生产链在外壳（`Shell/CollectionData.ImportDeck`）。
         public string UiShareString() { return DeckLibrary.ExportString(State.Deck); }
         /// <summary>自检入口：**直调页脚 `Done`** = `HandleButtons()` 里 `case "foot_done"` 那一支
-        /// （<see cref="SaveAndSay"/>，与 `UiTryImport()` ↔ `case "imp_ok"` 同形；同族先例
+        /// （<see cref="SaveAndSay"/>，与 `UiNameClear()` ↔ `case "name_clear"` 同形；同族先例
         /// `Shell/CampaignTab.ClaimForTest` —— **直调、⛔ 不经那颗钮的命中**）。
         /// 🔴 **2026-10-15（A535）为什么非有它不可**：`SaveAndSay()` **成功支**那句
         /// <see cref="HideDeckPopUp"/>（原版 `DeckEditingWindow__TrySaveDeck.c:103`）**今天没有生产可达路径** ——
-        /// `Done` 钮被 `HandlePointer` 里 `if (ModalPopupOpen) return;` 那道闸挡着、ESC 又被 `EscPressed()` ③ 那一级
+        /// `Done` 钮被 `HandlePointer` 里 `if (ModalPopupOpen) return;` 那道闸挡着、ESC 又被 `EscPressed()` ② 那一级
         /// 吃掉（原版那一刻同样轮不到 `DeckEditingWindow.ESCPressed`）⇒ **窗开着时到不了成功支**，
         /// 把那句删掉也**不会红**（= 零覆盖）。
         /// ⚠️ 本口**只绕开「命中 + 那两道模态闸」**，⛔ **不绕开 `SaveAndSay()` 本身**（它调的就是
@@ -6780,11 +6448,12 @@ namespace CardPresentation
         }
         /// <summary>拖影卡行现在显示着没有（原版 `Deck Selector Card Info button.m_IsActive`）。</summary>
         public bool UiCardGhostActive { get { return _cardGhostGo != null && _cardGhostGo.activeSelf; } }
-        /// <summary>Deck info 页签那两颗动作钮显示出来了没有。</summary>
         // 🔴 **2026-10-17（D35 删件）**：这里原来还有 `UiInfoActionsVisible`（读 `Lookup("info_import")`）
+        //   （它上面那句 `<summary>` 是「Deck info 页签那两颗动作钮显示出来了没有」—— 随它一起删）。
         //   —— 那两颗钮删了，这个读数**恒为 false** ⇒ 一起删（留着一个恒假的读数是误导）。
         //   自检要断「Deck info 的东西在 Cards 页不露」走 `UiInfoOnlyActive`（费用曲线那一批仍在）。
-        public bool UiModalVisible { get { var q = Lookup("imp_bg"); return q != null && q.gameObject.activeSelf; } }
+        // 🔴 **2026-10-17（T23 删件）**：这里原来还有 `UiModalVisible`（读 `Lookup("imp_bg")`）——
+        //   导入弹窗整棵删了 ⇒ 它也一起删（同上面 `UiInfoActionsVisible` 那条「恒假的读数是误导」）。
 
         /// <summary>🔴 **「该藏的东西藏住了吗」的通用守卫**（图 + 文字都算）。
         /// 为什么单开一条：`Lookup()` 只认 `ImageQuad` ⇒ 只验图的话**文字会漏**，
@@ -6820,8 +6489,9 @@ namespace CardPresentation
                 return n;
             }
         }
-        public int UiModalActive { get { int n = 0; foreach (var g in _modalOnly) if (g != null && g.activeSelf) n++; return n; } }
-        /// <summary>正在编辑文本（改名 / 卡名筛选 / 导入框）。</summary>
+        // 🔴 **2026-10-17（T23 删件）**：这里原来还有 `UiModalActive`（数 `_modalOnly` 那批）——
+        //   `_modalOnly` 随导入弹窗一起删了，这个读数也一并删掉。
+        /// <summary>正在编辑文本（0 = 没有 · 1 = 改名 · 2 = 卡名筛选）。</summary>
         public int UiEditKind { get { return _editKind; } }
 
         /// <summary>🔴 模拟「按住卡组第 <paramref name="viewRow"/> 行 → 拖到屏幕 x = <paramref name="toScreenX"/> → 松开」。
@@ -6870,7 +6540,7 @@ namespace CardPresentation
             get
             {
                 var c = _cardWindow != null ? _cardWindow.Card : null;
-                return c != null ? CardText.Name(c.Name, c.NameZh) : null;
+                return c != null ? CardText.Name(c) : null;
             }
         }
 
@@ -7057,7 +6727,6 @@ namespace CardPresentation
                 _deckNameHint.gameObject.SetActive(false);
                 _deckNameText.SetText(_nameEdit + "_");
             }
-            else if (_editKind == 3) { _importText = _nameEdit; RefreshImportText(); }
             else RefreshFilters();
         }
         readonly List<char> _typed = new List<char>();
@@ -7099,11 +6768,7 @@ namespace CardPresentation
                 if (commit) ApplyFilter(f); else RefreshFilters();
                 if (commit) Say(string.IsNullOrEmpty(f.Name) ? "已清空卡名筛选" : "卡名筛选：" + f.Name);
             }
-            else if (kind == 3)
-            {
-                if (commit) _importText = buf.Trim();
-                RefreshImportText();
-            }
+            // 🔴 **2026-10-17（T23 删件）**：这里原来还有 `kind == 3`（导入框）那一支 —— 导入弹窗删了。
         }
 
         void OnEnable() { if (Keyboard.current != null) Keyboard.current.onTextInput += OnText; }
@@ -7117,18 +6782,10 @@ namespace CardPresentation
         /// ⛔ **不是关窗**：关窗走 `DeckEditingWindow__TryClose.c`（没改动直接关 / 有改动先问），
         /// 那条路只由**关闭钮**走）。
         ///
-        /// <para>四级顺序 —— **每一级都有实读判据**：
+        /// <para>三级顺序 —— **每一级都有实读判据**：
         /// ① **文本编辑中** ⇒ 不抢：`HandleTyping` 那条**既有**的路会把 ESC 当「取消编辑」
         ///   （本函数第一句就 `return`，保证同一帧里 ESC 只被用掉一次）；
-        /// ② **导入弹窗开着** ⇒ **关掉它**、**不保存**：原版那扇窗是**独立的窗**
-        ///   （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/ImportDeckPopup.cs:6` = `: GameWindow`），
-        ///   而它的 prefab 实例实读 **`closeOnESC = 1`**
-        ///   （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_8307242524170911890.json`）
-        ///   ⇒ ESC 归**压在最上面那扇窗**，那扇窗吃掉它（关自己）。
-        ///   ⚠️ **如实标注**：「`GameWindow__ESCPressed.c` 里那个 `+0x39` 的布尔**就是** `closeOnESC`」
-        ///   是**推断**（字段名与偏移没逐位坐实）—— 取值 `1` 与 `DeckEditingWindow` 也是 `1` 但**被覆写**
-        ///   这两件都是实读的；
-        /// ③ 🆕 **2026-10-13（A502）模态消息窗（`PopUpGameWindow`）开着 ⇒ ESC 归它、本函数什么都不做** ——
+        /// ② 🆕 **2026-10-13（A502）模态消息窗（`PopUpGameWindow`）开着 ⇒ ESC 归它、本函数什么都不做** ——
         ///   判据是**那扇窗自己的 `closeOnEsc`**，⛔ **不是「有没有弹窗」**：
         ///   · 原版 ESC **只打给最上面那扇窗、没有第二跳**：`WindowsManager__Update.c` 在
         ///     `GetKeyDown(0x1b)` 之后取 `+0x58`（= `currentWindow`），过了 `IsOpen()`（虚表 `0x1f8`）
@@ -7139,11 +6796,13 @@ namespace CardPresentation
         ///   · 那扇窗的 `closeOnESC` 实读 **0**（`Shell/PopUpGameWindow` 里那个 `closeOnESC`，两扇 prefab 同一个值）
         ///     ⇒ `GameWindow__ESCPressed.c` 第二道门槛不过 ⇒ **什么都不做**（我们这一跳就把它的
         ///     `ESCPressed()` 原样转出去，门槛与「出声」都在那一处，⛔ 不在这里再写一份）。
-        ///   ⚠️ **别一刀切成「只要有弹窗就什么都不做」**：② 那一级（`ImportDeckPopup`，`closeOnESC = 1`）
-        ///   与 ③ 的差别**就在那个字段**上，两道门必须分开（② 关得掉、③ 关不掉）；
-        ///   两扇窗在本模型里**不可能同时在场**（开导入要过 `HandlePointer` 的 `ModalPopupOpen` 那道闸、
-        ///   开消息窗要过 `_importOpen` 那道闸）⇒ ②③ 的先后不可观测，按既有顺序排。
-        /// ④ 否则 ⇒ **保存**，而且走的是 **`Done` 钮同一个函数** `SaveAndSay()`
+        ///   ⚠️ **别一刀切成「只要有弹窗就什么都不做」**：门槛是**那扇窗自己的 `closeOnEsc`**
+        ///   （`= 0` ⇒ 什么都不做；`= 1` ⇒ 它自己关掉）—— 这一级只管 `closeOnEsc = 0` 的那扇。
+        ///   🔴 **2026-10-17（T23 删件）**：这里原来还有一级「② 导入弹窗开着 ⇒ 只关它、不保存」
+        ///   （`closeOnESC = 1` 的现成例子）。导入弹窗那棵树整棵删了 ⇒ 那一级也删；
+        ///   「`closeOnESC = 1` 的窗 ESC 归它自己」这条行为**仍然由外壳那扇窗负责**
+        ///   （`Shell/ImportDeckPopup.cs`，`closeOnEsc` 由 `GameWindow` 那套统一处理）。
+        /// ③ 否则 ⇒ **保存**，而且走的是 **`Done` 钮同一个函数** `SaveAndSay()`
         ///   （两处写同一条规则 = 迟早不一致 ⇒ 不给 ESC 另写一份）。
         ///   🔴 **A330（2026-10-11）**：那道「不合法就不落盘」的闸**在 `SaveAndSay()` 里面**
         ///   （原版 `__TrySaveDeck.c:80`）⇒ 本函数**自动跟着有闸**，⛔ 别在这里再写一份校验。</para>
@@ -7152,33 +6811,26 @@ namespace CardPresentation
         /// `DeckRuntime : MonoBehaviour`、自己一个场景（`DeckEditor.unity`、`windowsPlacement = 10` 是原版窗的值）
         /// ⇒ 外壳的 `GameWindow.ESCPressed` / `PointerLayer.KeyCancel` 那一条链**够不着它**
         /// （判据：本类没有 `GameWindow` 祖先；A223 原文记的就是这条前置不成立）。
-        /// 🔴 **③ 那一级补上之后，两条链在本窗里终于同向了**：弹窗开着时 `PointerLayer.KeyCancel`
+        /// 🔴 **A502 那一级补上之后，两条链在本窗里终于同向了**：弹窗开着时 `PointerLayer.KeyCancel`
         /// 打的是 `TopWindow`（= 那扇弹窗、`closeOnEsc = 0` ⇒ 什么都不做），而本函数原来会一路打到
         /// `SaveAndSay()` —— 同一帧两条链的结论相反（缺陷）；现在两边都是「什么都不做」。</para>
         ///
         /// <para>改坏法（对应 `Editor/DeckScene.cs` 那几条）：删掉 `Update()` 里那句 `HandleEscape()`
-        /// ⇒ 「ESC 之后卡组真的提交回库」红；把级别顺序调换（让保存排在导入弹窗之前）⇒
-        /// 「导入弹窗开着时 ESC 只关弹窗、不落盘」红；让 ESC 顺手把编辑态也清掉 ⇒
-        /// 「编辑中 ESC 归输入框」红；🔴 **删掉 ③ 那一级**（或把它写成只看 `ModalPopupOpen` 之外的条件）
+        /// ⇒ 「ESC 之后卡组真的提交回库」红；让 ESC 顺手把编辑态也清掉 ⇒
+        /// 「编辑中 ESC 归输入框」红；🔴 **删掉 A502 那一级**（或把它写成只看 `ModalPopupOpen` 之外的条件）
         /// ⇒ 「丢改动窗开着时 ESC 不落盘」那条红（判据见 A502 那一节）。</para></summary>
         public void EscPressed()
         {
             if (_nameEdit != null) return;                        // ① 输入框优先（`HandleTyping` 会取消编辑）
-            if (_importOpen)                                       // ② 最上面那扇窗先吃（`closeOnESC = 1`）
-            {
-                CloseImport();
-                Say("已关掉导入弹窗");
-                return;
-            }
-            if (ModalPopupOpen)                                    // ③ 模态消息窗（`closeOnESC = 0`）
+            if (ModalPopupOpen)                                    // ② 模态消息窗（`closeOnESC = 0`）
             {
                 // 判据 = **那扇窗自己**的 `closeOnEsc`（`= 0` ⇒ 什么都不做并出声；`= 1` ⇒ 它自己关掉），
                 // 与 `GameWindow.ESCPressed` 那两道门槛**同一份实现**（⛔ 别在这里再判一次）。
-                // 两支都**不再落到保存**：原版那一刻 ESC 已经被最上面那扇窗吃掉了（见方法头 ③）。
+                // 两支都**不再落到保存**：原版那一刻 ESC 已经被最上面那扇窗吃掉了（见方法头 ②）。
                 _popup.ESCPressed();
                 return;
             }
-            SaveAndSay();                                          // ④ = Done = 我们的 `TrySaveDeck`
+            SaveAndSay();                                          // ③ = Done = 我们的 `TrySaveDeck`
         }
 
         /// <summary>每帧问一次 ESC 键（**批处理没有键** ⇒ 自检直接调 `EscPressed()`，同一条路）。</summary>
@@ -7193,8 +6845,10 @@ namespace CardPresentation
             // 🆕 **2026-10-13（`A1132` 第 2 步的必然配套）**：**本窗自己那一扇**宿主窗也不算例外 ——
             //   `PointerLayer.KeyCancel` 刚把这一下 ESC 打给了它，而 `Shell/DeckEditingWindow.ESCPressed`
             //   **就是把这一下转回 `this.EscPressed()`** 的 ⇒ 再跑一遍 = 同一下 ESC 被处理两遍。
-            //   🔴 **不加这一句的坏法**（真缺陷、现有断言抓不到）：② 那一级「关导入弹窗、不落盘」——
-            //     第一遍关掉弹窗、第二遍就**落到 ④ `SaveAndSay()`** = 关弹窗 + 存盘 + 退编辑器。
+            //   🔴 **不加这一句的坏法**（真缺陷、现有断言抓不到）：同一下 ESC 被处理两遍 ——
+            //     第一遍由宿主窗转进来（保存 / 关最上面那扇窗），第二遍再落到 `SaveAndSay()`
+            //     = 存两遍盘、甚至退两次编辑器。（历史上判别式是「关导入弹窗那一级」，
+            //     那一级 2026-10-17 已随 T23 删件删掉；闸本身照旧必须有。）
             //   两个谓词方向相反（指针放行 / ESC 拦下）⇒ ⛔ 别把它们合成一个（见 `HostWindowEatsEsc` 的 doc）。
             if (UiEscEatenByHost) return;
             EscPressed();
@@ -7508,6 +7162,8 @@ namespace CardPresentation
                 var lb = Label.Create(FltParent, c.Label, FltLocal(lr.CX, lr.CY), 1, CellTint(c),
                                       new Vector2(0.5f, 0.5f), "flt_lab");
                 if (lb == null) continue;
+                // 🆕 **2026-10-17（`A1024③`）**：原版 `Deck Editing Menu` 整棵 **0 个 Asar** ⇒ 筛选项 = **Pragati**
+                lb.SetFace(TmpFont.Face.LatinCardBody);
                 if (!string.IsNullOrEmpty(c.Key)) _fltCellLabels[c.Key] = lb;   // 自检读它（`UiFilterCellLabelLeft`）
                 lb.SetRenderQueue(QFltText);
                 lb.SetGlyphHeight(LayoutSpace.Px(c.LabelPx));
@@ -7757,6 +7413,8 @@ namespace CardPresentation
                     var lb = Label.Create(CosmoFltParent, c.Label, CosmoFltLocal(lr.CX, lr.CY), 1, CellTint(c),
                                           new Vector2(0.5f, 0.5f), "cosmoflt_lab");
                     if (lb == null) continue;
+                    // 🆕 **2026-10-17（`A1024③`）**：同上（Deck Editing Menu 整棵 0 个 Asar）⇒ Pragati
+                    lb.SetFace(TmpFont.Face.LatinCardBody);
                     lb.SetRenderQueue(QFltText);
                     lb.SetGlyphHeight(LayoutSpace.Px(c.LabelPx));
                     // 🔴 **2026-10-13（A407）**：本行与上面 `RefreshFilterCells` 那处**同一条口径**
@@ -8149,7 +7807,7 @@ namespace CardPresentation
         void TryAddCard(CardDef def)
         {
             string why;
-            if (State.TryAdd(def, out why)) { MarkDeckDirty(); RefreshAll(); Say("已加入：" + CardText.Name(def.Name, def.NameZh)); }
+            if (State.TryAdd(def, out why)) { MarkDeckDirty(); RefreshAll(); Say("已加入：" + CardText.Name(def)); }
             // 🔴 **2026-10-18（A985①）**：`State.TryAdd` 的 `out why` **现在已经是人话**了
             //   （`DeckEditorState.TryAdd` 里头自己过了一遍 `Loc.T(DeckRules.Describe(e))`）——
             //   ⛔ 这里**不许再包一层** `Loc.T`：那会把一句中文当成键去查表 ⇒ 查不到 ⇒ 原样返回 +
@@ -8195,7 +7853,7 @@ namespace CardPresentation
         /// `window + 0x40`），我们写回的是 `DeckLibrary.CommitCurrent` 的「**当前选中**那一套」
         /// （`_decks[_current]`）。两者等价的**前提** = 「编辑期间 `_current` 不变」—— `_current` 只可能被
         /// `Library.Select / Create / Duplicate / Add / Delete` 改，而 `DeckRuntime` 只在 `Build`（`Select`）
-        /// 与 `TryImport`（`Add`，且**紧接着重装 `LoadDeck`**）里调它们 ⇒ **今天无可达路径**能改它
+        /// 里调它们（`TryImport` 那条 `Add` 2026-10-17 已随 T23 删件删掉）⇒ **今天无可达路径**能改它
         /// （逐处复核表 → `资料/普查产出_1013/WD1b_编辑副本隔离.md` §六·2）。
         /// ⇒ 裁定 = **不加「`_current` 与开窗时不同就出声」的守卫、也不动 `DeckLibrary`**（后者在本件白名单外）；
         /// **理由**：守卫今天**零命中**（加它等于记一条测不到的分支），而真要钉死得先让 `DeckLibrary` 支持
@@ -8212,7 +7870,7 @@ namespace CardPresentation
         /// （加了 `NewUnsaved` / `Insert` 两个口）；而写回的那一副由 `_newDeck` **显式钉住**（= 原版 `window + 0x40` 那一副），
         /// ⛔ 不再依赖「`_current` 恰好没变」这个巧合。
         /// ⚠️ **旧裁定里仍然成立的那半**：「编辑期间 `_current` 不变 ⇒ `CommitCurrent` 写的就是开窗那一副」
-        /// —— 那一半**照旧成立**（`DeckRuntime` 仍然只在 `Build` / `TryImport` 里动 `Library.Select`），
+        /// —— 那一半**照旧成立**（`DeckRuntime` 仍然只在 `Build` 里动 `Library.Select`；`TryImport` 已随 T23 删），
         /// 只是它现在**只覆盖「编辑库里已有的卡组」那一条路**。</para>
         /// </summary>
         public bool CommitDeck()
@@ -8314,66 +7972,22 @@ namespace CardPresentation
 
         /// <summary>🔴 **2026-10-04（A41 ④）：这颗按钮「现在真的在」吗** —— 不在 ⇒ 矩形**不参与命中**。
         ///
-        /// 为什么必须有它：本窗有两批按钮是**成组显隐**的（`RefreshTabVisibility` 关掉 `_infoOnly`、
-        /// `CloseImport` 关掉 `_modalOnly`），而 `_btns` 里的矩形**从不跟着开关走** ⇒ 那些**看不见的钮
-        /// 照旧吃点击**（真缺陷，不是疑点）：
-        ///   · （60..131, 636..707）与（200..271, 636..707）这两片空白（`info_share` / `info_import`）
-        ///     ⇒ 一次点击就**静默分享卡组串到剪贴板** / **打开导入弹窗**；
-        ///   · 导入弹窗**关着**时，（610..1310, 370..511）落在**卡池**里 —— 点在没卡的空白上
-        ///     ⇒ `imp_input` 命中 ⇒ **进入一个看不见的文本编辑态**（`_editKind = 3`，与静默失败同类）。
-        /// 🔴 **2026-10-04 订正（R-W4 F1）：「必现页」是 `Cosmetics`，不是 `Cards`。**
-        ///   真实指针链是 `HandlePoolClick → HandleDeckRowClick → HandleCosmeticClick → HandleButtons`
-        ///   （`:1606-1610`，`HandleButtons` 是**最后一站**），而那两片矩形（x 60..271, y 636..707）
-        ///   **整片落在卡组列表里**（列表 = x 0.4..325.4 · y 366..1010.1）⇒
-        ///     · **`Cards` 页**（`_tab==0`）：只要那一格真有行，`HandleDeckRowClick`（`:1634` 前提正好成立）
-        ///       就把它吃掉（开始行拖拽）⇒ **点不到** `info_*`；只有**那一格是空槽**时才漏得过去
-        ///       （`RefreshDeckList` 的 `on = cards &amp;&amp; (firstRow + i) &lt; shown.Count`，`:1263`）；
-        ///     · **`Cosmetics` 页（必现）**：`_tab==2` ⇒ `HandleDeckRowClick` 在 `:1634` 早退、
-        ///       `HandleCosmeticClick`（`:1159` 要求 `_tab==2`）又只管 x ≥ `CosmoX` 那一片
-        ///       （两片空白在 x 60..271）⇒ **谁也拦不住**，直接落到 `HandleButtons`。
-        ///   ⇒ 「静默分享 / 静默开弹窗」这一条在 **Cosmetics 页必现**、Cards 页**空槽时可现**。
-        ///   🔴 **2026-10-17（D35 删件）后这一族的第 ① 项已经不存在**：那两颗钮（`info_share` /
-        ///      `info_import`）**整颗删了**（原版没有）⇒ 今天只剩 ②（`imp_*`）那一半。
-        ///      上面那两段的**历史成因留着**（它是「为什么要有 `KeyLive` 这道闸」的判据）；
-        ///      ⛔ 别据此以为那两颗钮还在。
+        /// 为什么必须有它：本窗有**成组显隐**的按钮（`RefreshHeader` 那两句 `SetOn` 关掉 `hdr_clear`），
+        /// 而 `_btns` 里的矩形**从不跟着开关走** ⇒ 那些**看不见的钮照旧吃点击**（真缺陷，不是疑点）。
+        /// 历史成因（留着当判据）：2026-10-04 首跑时这条闸是为两族建的 ——
+        ///   · 侧栏那两颗圆钮（`info_share` / `info_import`，2026-10-17 已按 D35 删）；
+        ///   · 导入弹窗那四颗 `imp_*`（2026-10-17 已按 T23 删 —— 那棵树整棵是外壳那份的重复实现）。
+        /// ⇒ 今天只剩 `hdr_clear` 那一支。
         /// 判据 = **与显隐同一个谓词**（不许两份）：
-        ///   · `imp_*` ↔ `_importOpen`（`OpenImport`/`CloseImport`；`_modalOnly` 那批也由它开关）；
-        ///   · 🆕 **`hdr_clear` ↔ `!State.Filter.IsEmpty`**（2026-10-20）—— 它与 `RefreshHeader`
+        ///   · `hdr_clear` ↔ `!State.Filter.IsEmpty`（2026-10-20）—— 它与 `RefreshHeader`
         ///     里那两句 `SetOn` **是同一个谓词**（那边藏、这边挡命中）。
         /// 表里没有的 key = **恒在**（`hdr_back` / `hdr_filters` / `foot_done` / `name_*` / `tab_*`
-        /// 都是常显件；⚠️ 2026-10-20 起 **`hdr_clear` 不再是常显件**，见上一行）。
+        /// 都是常显件；⚠️ 2026-10-20 起 **`hdr_clear` 不再是常显件**）。
         /// ⚠️ 加一颗**成组显隐**的按钮，必须把它的名字写进这里 —— 否则又会出现「看不见却能点」。</summary>
         bool KeyLive(string key)
         {
-            // 🔴 **模态优先（2026-10-04 首跑红了，就地补回）**：导入弹窗开着 ⇒ **只认 `imp_*`**
-            //   （原版靠弹窗那块全屏暗底吃射线；我们没建那块暗底，所以在这里挡）。
-            //   ⚠️ A41 ④ 把这套口径收进 `KeyLive` 时**漏了这一条** —— 它只按「各自的显示条件」判，
-            //   于是弹窗背后那颗 `Back` 又会亮（自检当场报出来：`UiHoverAt(267.2,113.5) != null`）。
-            //   现在两者都在这里：**模态**是先后关系（弹窗开着时背后一律不算），**显示条件**是各自那一支。
-            if (_importOpen)
-            {
-                switch (key)
-                {
-                    case "imp_input":
-                    case "imp_ok":
-                    case "imp_close":
-                    case "imp_shade":      // 🆕 2026-10-17（D47）：整屏压暗层（点窗外关窗）
-                        return true;
-                    default:
-                        return false;      // 弹窗开着 ⇒ 背后的一切**不接受命中/悬停**
-                }
-            }
             switch (key)
             {
-                // 🔴 **2026-10-17（D35 删件）**：这里原来还有
-                //   `case "info_share": case "info_import": return InfoTab;`
-                //   —— 那两颗钮**原版没有**、连它们的分支一起删。
-                //   ⚠️ 于是本函数剩下的「成组显隐」只有下面那四颗 `imp_*` 与 `hdr_clear` 那一支。
-                case "imp_input":       // 只在导入弹窗开着时存在（`_modalOnly`）
-                case "imp_ok":
-                case "imp_close":
-                case "imp_shade":       // 🆕 2026-10-17（D47）：压暗层同上
-                    return false;       // 弹窗关着 ⇒ 这四颗**一律不算**（否则会在看不见的输入框上亮起来）
                 // 🆕 **2026-10-20**：`Clear filters` —— **一个筛选都没设时它被藏起来**（`RefreshHeader`
                 //   里那两句 `SetOn` 用的就是这一个谓词）⇒ 这里必须**同样**判掉，否则「藏起来了却还能点到」
                 //   （静默失败，本仓红线）。判据/推断/为什么走 `SetActive` → `HdrClearX` 上面那一大段。
@@ -8517,7 +8131,7 @@ namespace CardPresentation
         //
         // 判据 = **原 prefab 的组件字段**（不是截图、不是我们的常量）：
         //   卡组编辑窗 `Deck Editing Menu`（`bundle_menus_assets_all`）全树 29 个 `m_Transition`：
-        //   `trans=2(SpriteSwap)` **3** 颗 + 自带导入弹窗 2 颗（本文件要接的那 5 颗）·
+        //   `trans=2(SpriteSwap)` **3** 颗（本文件要接的那 3 颗；导入弹窗那 2 颗随 T23 删件删掉）·
         //   `trans=1(ColorTint)` 12 颗（走 `m_Colors`，其中三颗页签另有 UGUI `Toggle.graphic` 那条路）·
         //   `trans=0` 14 颗（原版悬停什么都不变 ⇒ **我们也不接**）。
         //   逐颗表与出处 → `资料/普查产出_1003/卡组编辑器_按钮悬停图_普查.md`（块 A/B/C/D）。

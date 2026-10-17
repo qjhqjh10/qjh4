@@ -503,17 +503,22 @@ namespace CardPresentation
             //       第 2 格 `Player Rating Display` 高 60.539 ⇒ y[143.513, 204.052]（**不建**，缺口②）
             //     ⛔ 别照抄报告里那三个重叠的 y（那是模板位）。
             var nameRow = Node(_root, RootR, "NameHolder", NameRowR, QText);
+            // 🔴 **A1024③（2026-10-17）换面**：原版这七颗（`PlayerLabel` / `Name Text` / `TitleLabel` /
+            //    `Title Text` / `Alliance Label` / `Alliance Name` / `NotInaAllianceText`）的
+            //    `m_fontAsset` **全是 `Asar-Regular SDF`**（判据 = `menu_dump … bundle_scenes_scenes_battlearena1
+            //    "Alliance Panel"` 逐颗现读；§2·5 表第一行同结论）⇒ 走 `LatinUi`。
+            //    `Avatar Name` / `Individual rating value` 是 Pragati —— 但那两颗本扇**不建**（见文件头缺口②）。
             Txt(nameRow, NameRowR, NameLabelR, LocOr(NameLabelTerm, NameLabelEn), Color.white, "PlayerLabel",
-                NameLabelPx, Label.VAlign.Capline);
+                NameLabelPx, Label.VAlign.Capline, face: TmpFont.Face.LatinUi);
             // ⚠️ **只有这一颗**原版 `m_fontSizeMax` 是 **40**（其余六颗都是 35）⇒ 显式给上限，⛔ 别一刀切
             _nameLb = Txt(nameRow, NameRowR, NameTextR, "", Color.white, "Name Text", NameTextPx,
-                          Label.VAlign.Capline, AutoMaxNamePx);
+                          Label.VAlign.Capline, AutoMaxNamePx, TmpFont.Face.LatinUi);
 
             _titleHolder = Node(_root, RootR, "TitleHolder", TitleRowR, QText);
             Txt(_titleHolder, TitleRowR, TitleLabelR, LocOr(TitleLabelTerm, TitleLabelEn), Color.white,
-                "TitleLabel", TitleLabelPx, Label.VAlign.Capline);
+                "TitleLabel", TitleLabelPx, Label.VAlign.Capline, face: TmpFont.Face.LatinUi);
             _titleLb = Txt(_titleHolder, TitleRowR, TitleTextR, "", Color.white, "Title Text", TitleTextPx,
-                           Label.VAlign.Midline);
+                           Label.VAlign.Midline, face: TmpFont.Face.LatinUi);
 
             // ---- ⑥ `Alliance` 组：`Alliance:` / 联盟名 ----
             //  `allianceGO`（原版字段 0x48）—— **无联盟时整组关掉**（`BattleAlliancePanel__Open.c`）。
@@ -521,14 +526,14 @@ namespace CardPresentation
             //     运行期灌）⇒ 出厂态不画；`Alliance Rating Display` 同缺口② ⇒ 本件只建两行字。
             _allianceGo = Node(_root, RootR, "Alliance", AllianceGroupR, QText);
             Txt(_allianceGo, AllianceGroupR, AllianceLabelR, LocOr(AllianceLabelTerm, AllianceLabelEn),
-                Color.white, "Alliance Label", AllianceLabelPx, Label.VAlign.Capline);
+                Color.white, "Alliance Label", AllianceLabelPx, Label.VAlign.Capline, face: TmpFont.Face.LatinUi);
             _allianceLb = Txt(_allianceGo, AllianceGroupR, AllianceNameR, "", Color.white, "Alliance Name",
-                              AllianceNamePx, Label.VAlign.Capline);
+                              AllianceNamePx, Label.VAlign.Capline, face: TmpFont.Face.LatinUi);
 
             // ---- ⑦ `NotInaAllianceText`：无联盟那一行提示（**原文含 `is is` 双 is = 原版笔误，勿改**）----
             var msg = Txt(_root, RootR, NotInAllianceR, LocOr(NotInAllianceTerm, NotInAllianceEn),
                           new Color(1f, 1f, 1f, NotInAllianceAlpha), "NotInaAllianceText",
-                          NotInAlliancePx, Label.VAlign.Midline);
+                          NotInAlliancePx, Label.VAlign.Midline, face: TmpFont.Face.LatinUi);
             _notInAlliance = msg != null ? msg.transform : null;
 
             Apply("", "", "");      // 出厂态 = 原版 `Awake` 那一支（`Create` 末尾再关一次）
@@ -703,7 +708,8 @@ namespace CardPresentation
         /// `wrapPx &gt; 0 ∧ autoMinPx &gt; 0 ∧ fontPx &gt; autoMinPx` **三条全真**才调 `SetAutoFitBox`
         /// ⇒ **只传 `autoMinPx` 不传 `wrapPx` = 死实参**。</remarks>
         Label Txt(Transform parent, PxRect parentR, PxRect r, string text, Color col, string name,
-                  float px, Label.VAlign v, float autoMaxPx = AutoMaxPx)
+                  float px, Label.VAlign v, float autoMaxPx = AutoMaxPx,
+                  TmpFont.Face face = TmpFont.Face.Cjk)
         {
             Label lb;
             if (_ugui)
@@ -724,7 +730,7 @@ namespace CardPresentation
                 //    —— 也正是**不能**靠 `_tmp.rectTransform` 之外的地方补的原因：一处漏、一处不错最难查。
                 var fix = (parent == _root) ? RootCenterLocal : Vector2.zero;
                 lb = HudCanvas.MakeText(parent, text, r.x1 - parentR.CX + fix.x, -l.y + fix.y, 5, col,
-                                        new Vector2(0f, 0.5f), ZOf(QText), name);
+                                        new Vector2(0f, 0.5f), ZOf(QText), name, face);
                 if (lb == null) return null;              // 拿不到 TMP 字体：`CreateUgui` 已出声（⛔ 不退化成点阵）
                 // 字号：uGUI 档 = **设计 px**（`Label` 内部按 `PxPerUnit = 1` 算，见它那一节）
                 lb.SetGlyphHeight(px);
@@ -735,7 +741,8 @@ namespace CardPresentation
             }
             else
             {
-                lb = MenuDraw.Text(parent, r, text, col, name, px, QText, r.W, AutoMinPx, autoMaxPx, AutoBasePx);
+                lb = MenuDraw.Text(parent, r, text, col, name, px, QText, r.W, AutoMinPx, autoMaxPx, AutoBasePx,
+                                   face: face);
                 if (lb == null) return null;
             }
             lb.SetWrapping(false);              // ⓪ 原版折行=0（`SetAutoFitBox` 会无条件开成 Normal）

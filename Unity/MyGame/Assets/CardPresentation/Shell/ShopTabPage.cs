@@ -128,6 +128,14 @@ namespace CardPresentation
         public static readonly PxRect CellDrawer = new PxRect(-1f, 52.05f, 336.60f, 381.53f);
         public static readonly Color PriceTint = new Color(0.902f, 0.637f, 0.18f, 1f);       // `40K_button` 的 `m_Color`
 
+        /// <summary>🆕 **2026-10-17（界面线 `T07` · `A1753` #10）**：价签 `Button Text` 的**屏上颜色**。
+        /// 原版那一颗挂 `Pragati-Regular Light Cream`，`_FaceColor = (0.992, 0.868, 0.733)`、顶点色白
+        /// （屏上 = 顶点色 × 材质色 ⇒ 就是材质本色）。判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·2 #10。</summary>
+        public static readonly Color PriceInk = new Color(0.992f, 0.868f, 0.733f, 1f);
+        /// <summary>🆕 **2026-10-17（`A1753` #5）**：`Available Counter`（`Available: 1/5`）的屏上颜色 ——
+        /// 原版材质 `Pragati-Regular Off White Warm`，`_FaceColor = (0.972, 0.937, 0.866)`、顶点白。</summary>
+        public static readonly Color AvailableInk = new Color(0.972f, 0.937f, 0.866f, 1f);
+
         // 🔴 **我们自己划出来的三块**（原版那两行字是 `Card Drawer` 画在卡上的，见文件头）：
         //    名字 / 类型 / 主图**各占一条，谁也不压谁** —— 第一版把两行"顶"在抽屉区底部，
         //    而主图占满整个抽屉区 ⇒ **字压在商品图上**（Cards 页一眼就看出来，而**断言全绿**）。
@@ -245,7 +253,7 @@ namespace CardPresentation
             // ---- ③ `Empty Collection Warning`（出厂 INACT；原版在列表为空时显示）----
             var ew = MainMenuSubmenuWindow.Node(_root, "Empty Collection Warning", EmptyWarn);
             var wl = _win.Text(ew, TxtEmpty, EmptyWarn.x1, EmptyWarn.x2, EmptyWarn.y1, EmptyWarn.y2, 5,
-                               WarnColor, "Warning", 36f);
+                               WarnColor, "Warning", 36f, face: TmpFont.Face.LatinCardBody);
             if (wl != null) { wl.SetRenderQueue(QEmpty); MenuDraw.AlignRight(wl, EmptyWarn); }
             // 我们的每一页都有商品 ⇒ **恒不显示**（留着是为了将来真出现空列表时能用）
             ew.gameObject.SetActive(false);
@@ -274,7 +282,7 @@ namespace CardPresentation
                 //   ⛔ 节点名 `"RefreshText"` 不动（`Editor/ShopScene.cs` 按名找）。
                 var lb = _win.Text(tc, Loc.T("MenuShop/RefreshCounter"), TimeCounter.x1, TimeCounter.x2,
                                    TimeCounter.y1, TimeCounter.y2, 5, Color.white, "RefreshText", 30f,
-                                   TimeCounter.W, 10f, 30f, 25f);
+                                   TimeCounter.W, 10f, 30f, 25f, face: TmpFont.Face.LatinCardBody);
                 // 🆕 **2026-10-10（A1212 块 6）接上自适应**：原版那一颗四格 = `10 / 30 / 25 / 0`，
                 //   出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §3（块 6 逐处表 =
                 //   `资料/普查产出_第十一会话/RA1212_切块表.md` 块 6 #15）。闸（`MenuDraw.TextCore`）三条：
@@ -310,7 +318,7 @@ namespace CardPresentation
             //   ⚠️ `折行 = 0` ⇒ 显式还原（同上）。
             var tm = _win.Text(tc, ShopData.RefreshTime, TimeCounter.x1, TimeCounter.x2,
                                TimeCounter.y1, TimeCounter.y2, 5, Color.white, "Time", 30f,
-                               TimeCounter.W, 15f, 30f, 25f);
+                               TimeCounter.W, 15f, 30f, 25f, face: TmpFont.Face.LatinCardBody);
             if (tm != null)
             {
                 tm.SetWrapping(false); tm.SetRenderQueue(QHeaderText); parts.Add(tm.transform); widths.Add(111.31f);
@@ -376,7 +384,7 @@ namespace CardPresentation
 
             if (_gridScroll == null)
             {
-                _gridScroll = MenuScroll.TopAligned(ScrollView, contentH);
+                _gridScroll = MenuScroll.TopAligned(ScrollView, contentH, 1f);   // 原版各 `… Shop Tab/Packs Scroll View` = 1.0（D_N29）
                 // 🔴 档位 = 原版 `m_MovementType = 1` ⇒ UGUI **Elastic**（真值 `0 Unrestricted / 1 Elastic / 2 Clamped`；
                 //    本文件原注释写的「`mode=1(Clamped)`」是【反的】，2026-10-04 已在
                 //    `资料/阶段二_滚动与指针_原版规格.md` §一 订正 —— A28 把行为补上）。
@@ -514,7 +522,7 @@ namespace CardPresentation
                 var pl = _win.Text(cell, ShopData.ShortName(o.Name), pr.x1 + 8f, pr.x2 - 8f,
                                    pr.y1 + 8f, pr.y2 - 8f, 5, new Color(0.78f, 0.78f, 0.82f, 1f),
                                    "PlaceholderName", 24f,
-                                   wrapPx: pr.W - 16f, autoMinPx: 14f, autoMaxPx: 24f);
+                                   wrapPx: pr.W - 16f, autoMinPx: 14f, autoMaxPx: 24f, face: TmpFont.Face.LatinCardBody);
                 if (pl != null) pl.SetRenderQueue(QCellText);
             }
 
@@ -537,7 +545,7 @@ namespace CardPresentation
                 var tyR = Rect(r, CellTypeBand);
                 var ty = _win.Text(cell, o.Type, tyR.x1, tyR.x2, tyR.y1, tyR.y2, 5,
                                    new Color(0.717f, 0.717f, 0.717f, 1f), "Type", 26f,
-                                   wrapPx: tyR.W, autoMinPx: 16f, autoMaxPx: 26f);
+                                   wrapPx: tyR.W, autoMinPx: 16f, autoMaxPx: 26f, face: TmpFont.Face.LatinCardBody);
                 if (ty != null)
                 {
                     ty.SetRenderQueue(QCellText);
@@ -545,7 +553,7 @@ namespace CardPresentation
                 }
                 var nmR = Rect(r, CellNameBand);
                 var nm = _win.Text(cell, o.Name, nmR.x1, nmR.x2, nmR.y1, nmR.y2, 5, Color.white, "Name", 30f,
-                                   wrapPx: nmR.W, autoMinPx: 18f, autoMaxPx: 30f);
+                                   wrapPx: nmR.W, autoMinPx: 18f, autoMaxPx: 30f, face: TmpFont.Face.LatinCardBody);
                 if (nm != null)
                 {
                     nm.SetRenderQueue(QCellText);
@@ -568,8 +576,8 @@ namespace CardPresentation
                 //   ⚠️ 原版**折行 = 0**：`SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**把模式开成
                 //   `Normal` ⇒ 返回后必须 `SetWrapping(false)` 还原（同 `EnergySinglePlayerOnly…:453` 的成对写法）。
                 var al = _win.Text(cell, "Available: " + o.Available + "/" + o.AvailableMax,
-                                   ar.x1, ar.x2, ar.y1, ar.y2, 5, Color.white, "Available Counter", 39f,
-                                   wrapPx: ar.W, autoMinPx: 16f, autoMaxPx: 31.5f, autoBasePx: 39f);
+                                   ar.x1, ar.x2, ar.y1, ar.y2, 5, AvailableInk, "Available Counter", 39f,
+                                   wrapPx: ar.W, autoMinPx: 16f, autoMaxPx: 31.5f, autoBasePx: 39f, face: TmpFont.Face.LatinCardBody);
                 if (al != null)
                 {
                     al.SetWrapping(false);        // 原版 `m_TextWrappingMode = 0`
@@ -594,7 +602,7 @@ namespace CardPresentation
                 //   ⚠️ 折行 = **1** ⇒ 不用还原（`SetAutoFitBox` 顺带开的就是 `Normal(1)`）。
                 var tl = _win.Text(cell, "x" + ShopData.OwnedOf(_page, idx),
                                    tr.x1, tr.x2, tr.y1, tr.y2, 5, Color.white, "Text (TMP)", 23f,
-                                   tr.W, 18f, 72f, 32f);
+                                   tr.W, 18f, 72f, 32f, face: TmpFont.Face.LatinCardBody);
                 if (tl != null) { tl.SetRenderQueue(QCellCountText); MenuDraw.AlignRight(tl, tr); }
             }
 
@@ -610,8 +618,8 @@ namespace CardPresentation
                 //   —— 切块表点名「**别抄它**」；本处只填这一颗自己的四格，**节点名一个字不动**
                 //   （`Editor/ShopScene.cs` 按名找）。
                 //   ⚠️ 折行 = **0** ⇒ 显式还原（同 `RefreshText`）。
-                var lt = _win.Text(cell, o.Price, pr.x1, pr.x2, pr.y1, pr.y2, 5, Color.white, "Button Text", 30f,
-                                   pr.W, 13.46f, 40f, 39f);
+                var lt = _win.Text(cell, o.Price, pr.x1, pr.x2, pr.y1, pr.y2, 5, PriceInk, "Button Text", 30f,
+                                   pr.W, 13.46f, 40f, 39f, face: TmpFont.Face.LatinCardBody);
                 if (lt != null) { lt.SetWrapping(false); lt.SetRenderQueue(QCellPriceText); }
                 var hit = MainMenuSubmenuWindow.New(cell, "Hit");
                 var hq = ImageQuad.Create(hit, CardArt.Solid(),

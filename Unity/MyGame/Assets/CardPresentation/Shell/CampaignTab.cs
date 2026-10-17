@@ -205,7 +205,7 @@ namespace CardPresentation
             _armyContent = RewardsWindow.Node(selVp, "Army Content", _armyContentR);
             // 🔴 阵营条**横向可滚**（原版 `Campaign Army Selector` 也是 `ScrollRect(横)` + `RectMask2D`）；
             //    居中内容的范围**两侧都有** ⇒ 两端各 2 个够不着的都能滚出来（`MenuScroll` 自己算极值）。
-            _armyScroll = new MenuScroll(_selR, _armyContentR.x1, _armyContentR.x2);
+            _armyScroll = new MenuScroll(_selR, _armyContentR.x1, _armyContentR.x2, 1f);   // 原版 `Campaign Army Selector` = 1.0（D_N29）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildArmyItems` 里
             //   `if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的
             //   状态（`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗
@@ -238,9 +238,12 @@ namespace CardPresentation
             //    ⇒ 不设就是「底板把字盖死」（实测：一个字都看不见，而**矩形断言全绿**）。
             // 🔴 **2026-10-09（A1173）**：那一刀 `SetAutoFitBox` 收进 `Text` 的形参（原来是先 `Text`、
             //   再手工补一次 —— 两份写法并存 = 迟早不一致）。三个数值的出处见下面那段 A305① 注释。
+            // 🆕 **2026-10-17（界面线 `T07` · `A1753` #13）**：原版 `Campaign Header ▸ Title`（`ULTRAMARINES`）挂
+            //   `Asar-Regular Mission cream w outline`，`_FaceColor = (1, 0.931, 0.703)`、顶点白。
+            //   判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·2 #13。
             _title = _win.Text(hdr, "", _titleR.x1, _titleR.x2, _titleR.y1, _titleR.y2, 5,
-                               Color.white, "Title", 31.75f,
-                               wrapPx: _titleR.W, autoMinPx: 25f, autoMaxPx: 35f, autoBasePx: 36f);
+                               new Color(1f, 0.931f, 0.703f, 1f), "Title", 31.75f,
+                               wrapPx: _titleR.W, autoMinPx: 25f, autoMaxPx: 35f, autoBasePx: 36f, face: TmpFont.Face.LatinUi);
             if (_title != null)
             {
                 _title.SetRenderQueue(QHeaderTitle);
@@ -273,7 +276,7 @@ namespace CardPresentation
             // 🔴 **2026-10-09（A1173）**：同上（`_title`）—— `SetAutoFitBox` 收进 `Text` 的形参。
             _points = _win.Text(hdr, "", ptsRect.x1, ptsRect.x2, ptsRect.y1, ptsRect.y2, 5,
                                 Color.white, "Points", 34.8f,
-                                wrapPx: ptsRect.W, autoMinPx: 18f, autoMaxPx: 40f, autoBasePx: 36f);
+                                wrapPx: ptsRect.W, autoMinPx: 18f, autoMaxPx: 40f, autoBasePx: 36f, face: TmpFont.Face.LatinCardBody);
             if (_points != null)
             {
                 _points.SetRenderQueue(QHeaderPts);
@@ -366,7 +369,7 @@ namespace CardPresentation
             ContentSpan(out cx1, out cx2);
             if (_trackScroll == null)
             {
-                _trackScroll = new MenuScroll(_vpR, cx1, cx2);
+                _trackScroll = new MenuScroll(_vpR, cx1, cx2, 1f);   // 原版 `Campaign Track` = 1.0（D_N29）
                 _trackScroll.Owner = _root != null ? _root.gameObject : null;
                 _trackScroll.OnChanged = RefreshNodes;
                 PointerLayer.RegisterScroll(_trackScroll);
@@ -998,7 +1001,7 @@ namespace CardPresentation
             //    `Text` 的形参 —— 与 `_title` / `_points` / 左栏四键同一形状。
             var panTitle = _win.Text(p, "Premium Campaign daily bonus", panTitleR.x1, panTitleR.x2,
                                      panTitleR.y1, panTitleR.y2, 5, Color.white, "Title", 33.3f,
-                                     wrapPx: panTitleR.W, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 12f);
+                                     wrapPx: panTitleR.W, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 12f, face: TmpFont.Face.LatinCardBody);
             if (panTitle != null)
             {
                 panTitle.SetRenderQueue(QPanelTitle);
@@ -1061,7 +1064,7 @@ namespace CardPresentation
             _premPoints = RewardsWindow.Node(p, "Points", panPointsR);
             var panQtyR = new PxRect(458.43f, 916.33f, 535.41f, 974.24f);
             var panQty = _win.Text(_premPoints, "200", panQtyR.x1, panQtyR.x2, panQtyR.y1, panQtyR.y2, 5,
-                                   Color.white, "Quantity", 61.23f);
+                                   Color.white, "Quantity", 61.23f, face: TmpFont.Face.LatinCardBody);
             if (panQty != null)
             {
                 panQty.SetRenderQueue(QPanelPts);
@@ -1087,9 +1090,12 @@ namespace CardPresentation
             var btnTxR = new PxRect(btn.x1 + 8.9001f, btn.y1 + 5.3799f,
                                     btn.x1 + 246.9579f, btn.y1 + 52.1680f);
             _premActionTxR = btnTxR;
+            // 🆕 **2026-10-17（界面线 `T07` · `A1753` #14）**：原版 `Campaign Header ▸ Premium Button ▸ Button Text`
+            //   挂 `Pragati-Regular Off White Warm`，`_FaceColor = (0.972, 0.937, 0.866)`、顶点白。
+            //   判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·2 #14。
             var panBtn = _win.Text(_premAction, PremiumTerm("MainMenu/General/Collect", "Collect", "收集"),
                                    btnTxR.x1, btnTxR.x2, btnTxR.y1, btnTxR.y2, 5,
-                                   Color.white, "Button Text", 49.35f,
+                                   new Color(0.972f, 0.937f, 0.866f, 1f), "Button Text", 49.35f,
                                    // 🔴 **2026-10-10（A1212 · 块 13 #21）**：接上原版那颗的 `m_enableAutoSizing`
                                    //   （四格 = **10 / 55 / 12 / 0**）。判据 = `R5_包装层菜单族.md` §2 #21
                                    //   （`Campaign Tab ▸ Premium Panel ▸ Generic Simplified UI Button ▸ Button Text`）。
@@ -1097,7 +1103,7 @@ namespace CardPresentation
                                    //   ⚠️ 折行 = `0` ⇒ 漏斗内部把它开成 `Normal(1)` 之后**显式还原**
                                    //   （写法同本文件上面 `panTitle` 那一处 A281：`SetWrapping` 内部会 `ForceRelayout`
                                    //   ⇒ 还原这一句必须排在 `MenuDraw.AlignRight` **之前**）。
-                                   wrapPx: btnTxR.W, autoMinPx: 10f, autoMaxPx: 55f, autoBasePx: 12f);
+                                   wrapPx: btnTxR.W, autoMinPx: 10f, autoMaxPx: 55f, autoBasePx: 12f, face: TmpFont.Face.LatinCardBody);
             _premActionText = panBtn;
             if (panBtn != null)
             {
@@ -1115,7 +1121,7 @@ namespace CardPresentation
             var panTimerR = new PxRect(408.63f, 1037.15f, 694.55f, 1061.57f);
             var panTimer = _win.Text(_premTimer, "Siguiente: --", panTimerR.x1, panTimerR.x2,
                                      panTimerR.y1, panTimerR.y2, 5,
-                                     new Color(0.745f, 0.745f, 0.745f, 1f), "Timer Text", 37.9f);
+                                     new Color(0.745f, 0.745f, 0.745f, 1f), "Timer Text", 37.9f, face: TmpFont.Face.LatinCardBody);
             if (panTimer != null)
             {
                 panTimer.SetRenderQueue(QPanelTimer);

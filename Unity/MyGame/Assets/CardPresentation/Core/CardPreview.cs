@@ -30,7 +30,8 @@ namespace CardPresentation
         {
             CurrentItem = card;
             if (card == null) return;
-            if (name != null) name.SetText(CardText.Name(card.Name, card.NameZh));
+            // 🆕 2026-10-17（`N42`）：按 `CardDef` 取 —— 非中英语档才是官方 13 语言卡名（`Card_Name/<id>`）
+            if (name != null) name.SetText(CardText.Name(card));
             if (cost != null) cost.SetText(card.Cost.ToString());
         }
     }

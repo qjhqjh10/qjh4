@@ -148,7 +148,8 @@ namespace CardPresentation
         /// ⇒ 那种地方 `alignLeft` 传 `false`（别推左边缘），**别传 `true`**。</para></summary>
         protected Label Text(Transform parent, string text, PxRect r, Color color, string name, float fontPx,
                              int qOff, bool autoFit, float autoMinPx, bool wrap, bool alignLeft,
-                             float autoMaxPx = 0f, float basePx = 0f)
+                             float autoMaxPx = 0f, float basePx = 0f,
+                             TmpFont.Face face = TmpFont.Face.Cjk)
         {
             // 裁切：① 整块在视口外 ⇒ 不建（收口到 `MenuDraw.Visible` —— 🔴 **2026-10-10 订正（A184）**：
             //   它**现在是全壳唯一一份求交**，不再是「A25④ 那四处内联的唯一实现」）；
@@ -159,7 +160,7 @@ namespace CardPresentation
             //      它内部自己解析，且**每次重排都重新解析**（节点挪了/后挂都跟得上，A484）。
             //   ⛔ 别忘了①：只有②的话「整块在视口外」的件仍会**建出来**（静默，且白建一棵子树）。
             if (!MenuDraw.VisibleAbove(parent, r, null)) return null;
-            var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, Q + qOff);
+            var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, Q + qOff, face: face);
             if (lb != null)
             {
                 if (wrap) lb.SetWrapWidth(LayoutSpace.Px(r.W));
@@ -207,11 +208,14 @@ namespace CardPresentation
                               clickCue: clickCue); }
 
         /// <summary>本页的滚动区。**全壳只有 `MenuScroll` 这一份滚动实现**（别在这再写一套偏移+夹取）。
-        /// `vertical = true` 用 `TopAligned`（原版 `m_Vertical 1` 那种）。</summary>
-        protected MenuScroll NewScroll(PxRect viewport, float contentW, float contentH, bool vertical)
+        /// `vertical = true` 用 `TopAligned`（原版 `m_Vertical 1` 那种）。
+        /// <para>`notchPx` = 原版那一页 `ScrollRect` 的 `m_ScrollSensitivity`（每格像素；判据 → `D_N29`）。
+        /// 每一页**都必须显式传** —— 缺省 `DefaultNotchPx`（48）只是「没现读」的兜底，⛔ 不是原版参数。</para></summary>
+        protected MenuScroll NewScroll(PxRect viewport, float contentW, float contentH, bool vertical,
+                                       float notchPx = MenuScroll.DefaultNotchPx)
         {
-            var s = vertical ? MenuScroll.TopAligned(viewport, contentH)
-                             : MenuScroll.LeftAligned(viewport, contentW);
+            var s = vertical ? MenuScroll.TopAligned(viewport, contentH, notchPx)
+                             : MenuScroll.LeftAligned(viewport, contentW, notchPx);
             s.Owner = Root.gameObject;     // 切走的页签里那些滚动区靠它被跳过
             PointerLayer.RegisterScroll(s);
             return s;

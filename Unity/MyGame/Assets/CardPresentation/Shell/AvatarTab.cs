@@ -80,7 +80,33 @@ namespace CardPresentation
         const float TbL = 343.49f, TbT = 771.43f, TbR = 562.21f, TbB = 837.48f;
         const float TbtL = 354.25f, TbtT = 778.86f, TbtR = 550.74f, TbtB = 830.05f;
         public const string ArtButton = "UI_Button_Mulligan";
-        public const string BtnLabel = "Select";          // ⚠️ 我们挑的：原版那条是葡语占位串 `Selecionar`（同 Title 页）
+        /// <summary>词条取样；**`Core/Loc.cs` 表里还没有这个键时就地兜底**（两列 = 官方原文）。
+        /// <para>🔴 **2026-10-17（`N37①`）为什么需要它**：`Demo/AvatarMenu/SelectAvatarButton`
+        /// **不在 `Core/Loc.cs` 的手写表里**，而本批白名单只允许动 `MenuDeck/CantImportDeck` 那一行
+        /// ⇒ 先走本地兜底（中/英两列照官方表；其余 10 语言走 `Loc.Lang13Current` 取官方列）。
+        /// 等主对话把这条键补进 `Loc`，本函数**自动改用 `Loc.T`**（判据 = `Loc.HasEntry`）。
+        /// ⚠️ 直接 `Loc.T(键)` 在**中文/英文档**下会因「表里没这条」而**返回键名本身**
+        /// （`Loc.T` 只在非中英档才查 13 语言表）—— 那会把 `Demo/AvatarMenu/SelectAvatarButton` 印上屏。</para></summary>
+        static string AvatarButtonTerm(string term, string en, string zh)
+        {
+            if (Loc.HasEntry(term)) return Loc.T(term);
+            if (Loc.Current == AvailableLanguages.Chinese) return zh;
+            if (Loc.Current == AvailableLanguages.English) return en;
+            string v13 = Loc.Lang13Current(term);      // 其余 10 语言：官方列（缺列回退英文）
+            return string.IsNullOrEmpty(v13) ? en : v13;
+        }
+
+        /// <summary>`Select Avatar Button/Button Text` 的**上屏文案** —— 🆕 **2026-10-17（`N37①`）起走官方词条**
+        /// （上屏经 `AvatarButtonTerm`：Loc 表里有键走 `Loc.T`、没有就照官方两列兜底）。
+        /// <para>🔴 **原版 prefab 这颗没有 `Localize`/`mTerm`**（2026-10-17 逐组件现读：三个
+        /// `m_text = "Selecionar"` 的节点上只有 TMP + `EverguildTextMeshPro` + `EverguildButtonMaterialModifier`，
+        /// **没有任何带词条字段的组件**）⇒ 原版 prefab 里占位就是葡语 `Selecionar`、没有本地化接线。</para>
+        /// <para>官方表里有键 `Demo/AvatarMenu/SelectAvatarButton` = `Select` / `选择` ⇒ **接它**
+        /// （比葡语占位更接近玩家看到的成品）。⚠️ **「原版用的就是这条键」是【推断】**：
+        /// prefab 无 `mTerm` 可依 —— ⛔ 别写成「原版就是这条键」。</para></summary>
+        public const string BtnLabelTerm = "Demo/AvatarMenu/SelectAvatarButton";
+        /// <summary>原版 prefab 出厂原文（葡语占位 `Selecionar`）—— ⛔ 不上屏，只留作判据。</summary>
+        public const string BtnLabelFactory = "Selecionar";
         public const string ToggleBorderLabel = "Toggle Border";
 
         /// <summary>`Item Display Panel` + 它的三件（与 `Title Tab` 逐位相同 —— 同一套壳）。</summary>
@@ -169,7 +195,7 @@ namespace CardPresentation
             //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾）—— 同 `ViewportClip.Hang` 里那句
             //   `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
             vc.CaptureNow();
-            _scroll = NewScroll(vp, GridW, 0f, true);
+            _scroll = NewScroll(vp, GridW, 0f, true, 50f);   // 原版 `Avatar Tab/Item Display Panel/Scroll Rect` = 50（D_N29）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildRows` 里
             //   `if (!_scroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的状态
             //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 那颗节点就是上面
@@ -191,9 +217,12 @@ namespace CardPresentation
             // 🔴 **A406（2026-10-12）逐站实读**：`Avatar Tab/Item Display Panel/Select Item`
             //   原版 `auto[18.0~35.0] 基准=26.1` ⇒ 上限 35（= 标称）· base **26.1**。判据 =
             //   `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`。
+            // 🔴 **A1024③（2026-10-17）换面**：本页只有**大图那颗** `Avatar Name` 是 `Asar-Regular SDF`
+            //    （判据 = `menu_dump … "Player Profile Window"` 的 `Selected Item Panel ▸ Avatar Menu Item ▸ Avatar Name`）；
+            //    `Select Item` / 两个 `Button Text` / 格子里的 `Avatar Name` 全是 **Pragati** ⇒ `LatinCardBody`。
             Text(disp, Loc.T("Demo/AvatarMenu/SelectAvatar"), new PxRect(TtlL, TtlT, TtlR, TtlB), Color.white, "Select Item",
                  TtlPx, 3, autoFit: true, autoMinPx: TtlAutoMin, alignLeft: true, wrap: true,
-                 autoMaxPx: 35f, basePx: 26.1f);
+                 autoMaxPx: 35f, basePx: 26.1f, face: TmpFont.Face.LatinCardBody);
 
             // ---- ② `Selected Item Panel`：当前选中的头像（大图 + 名 + 两个钮）----
             var sel = Node("Selected Item Panel", new PxRect(SelL, SelT, SelR, SelB));
@@ -216,7 +245,7 @@ namespace CardPresentation
             //   原版 `auto[15.0~35.0] 基准=36.0` ⇒ 上限 35（= 标称）· base **36.0**（同一条 dump）。
             _bigName = Text(big, "", new PxRect(AnL, AnT, AnR, AnB), NameColor, "Avatar Name",
                             AnPx, 6, autoFit: true, autoMinPx: AnAutoMin, alignLeft: false, wrap: false,
-                            autoMaxPx: 35f, basePx: 36f);
+                            autoMaxPx: 35f, basePx: 36f, face: TmpFont.Face.LatinUi);
             if (_bigName != null) _bigName.SetWrapping(false);
 
             // 两个钮：**图和文字都挂在钮节点【里面】**（照原版树：`Select Avatar Button > Button Text`）
@@ -225,9 +254,9 @@ namespace CardPresentation
             // 🔴 **A62 · A29**：原版 `Button Text`（`'Selecionar'`）是 **`折行=0 auto[10~36]`** ⇒ 关掉。
             // 🔴 **A406**：`Avatar Tab/Selected Item Panel/Select Avatar Button/Button Text`
             //   原版 `auto[10.0~36.0] 基准=12.0` ⇒ 上限 36（= 标称）· base **12.0**。
-            var selTx = Text(btn, BtnLabel, new PxRect(BtL, BtT, BtR, BtB), Color.white, "Button Text",
+            var selTx = Text(btn, AvatarButtonTerm(BtnLabelTerm, "Select", "选择"), new PxRect(BtL, BtT, BtR, BtB), Color.white, "Button Text",
                              CNmPx, 7, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false,
-                             autoMaxPx: 36f, basePx: 12f);
+                             autoMaxPx: 36f, basePx: 12f, face: TmpFont.Face.LatinCardBody);
             if (selTx != null) selTx.SetWrapping(false);
             // 🆕 A17：原版 `Avatar Tab>Selected Item Panel>Select Avatar Button` 是 SpriteSwap（普查 §块 5 第 8 行）
             Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton,
@@ -240,7 +269,7 @@ namespace CardPresentation
             //   原版 `auto[10.0~36.0] 基准=12.0` ⇒ 上限 36 · base **12.0**（与上面那颗**同值但是两棵、各读过一次**）。
             var tbTx = Text(tbn, ToggleBorderLabel, new PxRect(TbtL, TbtT, TbtR, TbtB), Color.white, "Button Text",
                             CNmPx, 7, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false,
-                            autoMaxPx: 36f, basePx: 12f);
+                            autoMaxPx: 36f, basePx: 12f, face: TmpFont.Face.LatinCardBody);
             if (tbTx != null) tbTx.SetWrapping(false);
             // 🆕 A17：`Toggle borde` 同族（普查 §块 5 第 9 行）
             Hit(sel, "BordeHit", new PxRect(TbL, TbT, TbR, TbB), 8, ToggleBorder, tbQ, ArtButton,
@@ -288,7 +317,7 @@ namespace CardPresentation
                 //   ⇒ 上限 36（= 标称）· base **36.0**（⚠️ 与上面大图那份的 base 同、上限同，但**两棵各读一次**）。
                 Text(cell, items[i].Name, new PxRect(ox + CNmL, oy + CNmT, ox + CNmR, oy + CNmB),
                      Color.white, "Avatar Name", CNmPx, 2, autoFit: true, autoMinPx: CNmAutoMin, alignLeft: false, wrap: true,
-                     autoMaxPx: 36f, basePx: 36f);
+                     autoMaxPx: 36f, basePx: 36f, face: TmpFont.Face.LatinCardBody);
                 int captured = i;
                 Hit(cell, "Hit", r, 4, () => Select(captured));
                 _cellArt.Add(art); _cellHl.Add(hl); _cellIdx.Add(i);

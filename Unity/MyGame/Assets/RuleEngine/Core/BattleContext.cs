@@ -274,6 +274,17 @@ namespace RuleEngine
         /// </summary>
         public readonly int[] DamageToEnemy = new int[2];
         public readonly int[] TroopsPlayed = new int[2];
+        /// <summary>🆕 **2026-10-17（界面线 `N32`）**：日常任务卡「真口径」要的三格计数（下标 = 玩家号）。
+        /// <para>判据 = 用户实拍的三条日常文案（`A2070③`）：
+        /// ① `Deal 45 damage to enemy warlords` ⇒ **只算打到敌方【督军】的伤害**（打小兵不算）；
+        /// ② `Attack with units 15 times` ⇒ **成功宣告的攻击次数**（被取消 / 被挡在闸外的不算）；
+        /// ③ `Attack with ranged units 15 times` ⇒ 其中**远程**那一档。</para>
+        /// <para>⚠️ 与 <see cref="DamageToEnemy"/> 的分工：那个是「对敌方**任意单位**的伤害」（旧口径），
+        /// 这三个是**任务卡真正要的口径** —— 别互相顶替（`DailyData.OnBattleEnd` 用的是新的三个）。</para>
+        /// <para>🔴 只累加、不参与任何规则判定（同 `DamageToEnemy` 那条口径）。</para></summary>
+        public readonly int[] DamageToEnemyWarlord = new int[2];
+        public readonly int[] AttacksDeclared = new int[2];
+        public readonly int[] RangedAttacksDeclared = new int[2];
 
         /// <summary>全局回合序号（从 1 开始，每换一次边 +1）</summary>
         public int Turn;

@@ -355,11 +355,11 @@ namespace CardPresentation
             //    ⛔ **别拿运行时读回来的字号去断「等于 40」** —— 汉字行盒比拉丁高，TMP 会让一档（实测 34.29）。
             //    🆕 **2026-10-12（A333 + A336③）**：第 4/5 个实参 = 原版 `m_fontSizeMax` / `m_fontSizeBase`
             //    = **40 / 36**（上限 = 标称 ⇒ A333 上本来就对；base 是本窗口第一份逐颗实读）。
-            _title = MenuDraw.TextBox(right, TitleR, "", Color.white, "Title", 40f, 3f, QText, 40f, 36f);
+            _title = MenuDraw.TextBox(right, TitleR, "", Color.white, "Title", 40f, 3f, QText, 40f, 36f, face: TmpFont.Face.LatinUi);
             if (_title != null) MenuDraw.AlignLeft(_title, TitleR);
             // 🆕 **2026-10-12（A336③）**：`Alliance Trophy Info Popup/window/RightSide/Descripton` 实读
             //    = `fs 35 · auto[15~35] · base **36.0**`（上限 = 标称 ⇒ A333 本来就对）。
-            _desc = MenuDraw.TextBox(right, DescR, "", Color.white, "Descripton", 35f, 15f, QText, 35f, 36f);
+            _desc = MenuDraw.TextBox(right, DescR, "", Color.white, "Descripton", 35f, 15f, QText, 35f, 36f, face: TmpFont.Face.LatinCardBody);
             if (_desc != null) MenuDraw.AlignLeft(_desc, DescR);
             // 🔴 **`Next Tier` 原来就建在这一行**（父 = `right` = `RightSide`）—— **层级错**：
             //    原版它是 **`Progress` 的第 2 个子**（`Progress` = [`ProgressBar`, `Next Tier`]）。
@@ -386,7 +386,7 @@ namespace CardPresentation
                               OutCol, true, "Outline", Border90(BarBorder));
             // 🆕 **2026-10-12（A336③）**：`…/Controls/Progress/ProgressBar/counter` 实读
             //    = `fs 35 · auto[12~35] · base **36.0**`（上限 = 标称）。
-            _counter = MenuDraw.TextBox(bar, CounterR, "0/0", Color.white, "counter", 35f, 12f, QBarText, 35f, 36f);
+            _counter = MenuDraw.TextBox(bar, CounterR, "0/0", Color.white, "counter", 35f, 12f, QBarText, 35f, 36f, face: TmpFont.Face.LatinCardBody);
 
             // ---- 5a·2) `Next Tier`（**原版是 `Progress` 的第 2 个子**，排在 `ProgressBar` 之后）----
             //   🔴 **2026-10-05 结构订正（父错 → 照原版改回）**：原来它建在 `right`（= `RightSide`）下、
@@ -423,7 +423,7 @@ namespace CardPresentation
             //    = `fs 35 · auto[3~35] · base **39.0**` —— ⚠️ **与同一棵树上另外三颗不同值**
             //    （`Title`/`Descripton`/`counter` 是 36）⇒ 逐个读、⛔ 别拿一个顶一片（铁律 5·c）。
             _nextTier = MenuDraw.TextBox(_progressHolder, NextTierR, NextTierText, Color.white, "Next Tier", 35f, 3f,
-                                         QNextTier, 35f, 39f);
+                                         QNextTier, 35f, 39f, face: TmpFont.Face.LatinCardBody);
             if (_nextTier != null) MenuDraw.AlignLeft(_nextTier, NextTierR);
 
             // ---- 5b) `selectButton` > `Checkbox`（`EverguildToggle`：方框 + 勾 + 文字）----
@@ -452,7 +452,7 @@ namespace CardPresentation
             // 🆕 **2026-10-12（A336③）**：`…/selectButton/Checkbox/Label` 实读
             //    = `fs 32 · auto[29~32] · base **36.0**`（上限 = 标称）。
             _checkLabel = MenuDraw.TextBox(box, labelR, FeatureLabel, Color.white, "Label", 32f, 29f, QCheckText,
-                                           32f, 36f);
+                                           32f, 36f, face: TmpFont.Face.LatinCardBody);
             if (_checkLabel != null) MenuDraw.AlignLeft(_checkLabel, labelR);
             // 点整行切换（原版那颗 `EverguildToggle` 就在 `Checkbox` 上、命中区 = 整个 `Checkbox`）
             MenuDraw.Hit(box, "CheckHit", CheckR, QHit, () => HandleFeatureTrophy(!ToggleIsOn),

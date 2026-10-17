@@ -7360,7 +7360,10 @@ namespace CardPresentation
         static string CardDisplayName(CardDef c, string fallback)
         {
             if (c == null) return fallback;
-            return CardText.Name(c.Name, c.NameZh);
+            // 🆕 2026-10-17（`N42`）：改走**按 `CardDef` 取**那一口 —— 非中英语档要用官方
+            // `Card_Name/<卡 id>`（`c.Name` 是英文名，官方词条按稳定 id 建键，拿名字查永远查不到）。
+            // 中/英两档 `CardText.Name(CardDef)` 内部就是原来的 `Name(c.Name, c.NameZh)`，逐字节不变。
+            return CardText.Name(c);
         }
 
         /// <summary>卡名 → **显示名**。卡池里没有就**原样返回英文**（不静默丢成空串）。
@@ -9015,7 +9018,7 @@ namespace CardPresentation
             if (selector != null)
                 selector.Show(opts, CardText.Phrase("CHOOSE ACTION"),
                               // 技能效果写在条**上方** —— 中间那条提示行正好被按钮压住
-                              skill ? CardText.Name(u.Name) + ": " + ActiveActionText(u, alt, oath) : null,
+                              skill ? CardDisplayName(u.Card, u.Name) + ": " + ActiveActionText(u, alt, oath) : null,
                               // 🆕 2026-09-29：**整条挂到被拖的那个单位身上**（原版展开时
                               //   `set_position(Get2DWorldPosFromBoardPos(被拖单位.position))`）。
                               //   取不到视图就退回屏幕中心（`Show` 里 `atWorld = null` 那条）。
@@ -9157,7 +9160,7 @@ namespace CardPresentation
         {
             if (skillPanel == null || u == null) return;
             // 卡名当技能名 —— 原版有独立的技能名（`NameText` = "Fire Arrow"），我们还没那个字段
-            skillPanel.Show(CardText.Name(u.Name), u.Ability, targets);
+            skillPanel.Show(CardDisplayName(u.Card, u.Name), u.Ability, targets);
         }
 
         /// <summary>把**合法的**目标标出来。返回个数（技能卡面板和提示行**共用这一个数**）</summary>
@@ -13101,7 +13104,7 @@ namespace CardPresentation
             var layout = e.Player == _me ? playerBoard : enemyBoard;
             // 🔴🔴 **2026-10-11（A359）这一处是 `PlayAttackFeel` 那个缺陷的【同族漏网】**：
             //    原版这枚飘字是**挂在受击那张卡上的** `CardDamageCounterController`（字段
-            //    `damageCounterParent`，见 `CardFeel.PopNumber` 的注释）⇒ 基准点 = **那张卡自己**。
+            //    `damageCounterParent`，见 `Battle/PopNumber.cs` 文件头的注释）⇒ 基准点 = **那张卡自己**。
             //    我们这里原来取 `layout.SlotPosition(e.Slot)` —— 那是 **2D 屏幕布局**的点
             //    （`LayoutSpace.ToWorld`，屏上 708 / 466 px），而场上的卡活在 **3D 战场**里
             //    （`ArenaSlots.RootPosition`，投影到屏上 631~657 px）⇒ 3D 下飘字**偏低 51~72 px**。
@@ -13147,9 +13150,13 @@ namespace CardPresentation
             CardFeel.ShakeCameraForHit(cam, hudRoot, melee, 0f, boardCam);
 
             // 伤害 0 = 被挡下（原版也发事件）—— 那一条不飘字，免得屏幕上冒出「-0」
+            // 🔴 **2026-10-17（`A1213②`）**：伤害 / 治疗走**两条独立路径**（原版是两颗不同的 TMP 组件，
+            //    四格与自己的 RT 缩放都不同 ⇒ 有效字号比 12.1 : 1）。实现在 `Battle/PopNumber.cs`，
+            //    判据（两颗 MB 的 pid 与逐字段读数）在它的文件头。⛔ 别再并回「一颗函数 + 一个 bool」。
             if (e.Amount != 0)
-                LastPop = CardFeel.PopNumber(transform, at + PopOffset,
-                                             e.Amount, e.Amount < 0);
+                LastPop = e.Amount < 0
+                        ? PopNumber.PopHeal(transform, at + PopOffset, e.Amount)
+                        : PopNumber.PopDamage(transform, at + PopOffset, e.Amount);
         }
 
         /// <summary>伤害飘字相对**基准点**（受击那张卡所在格）的偏移。
@@ -14020,7 +14027,8 @@ namespace CardPresentation
                 id = u.Name,
                 // 立绘/抠图清单的文件键：**引擎卡 id**（2026-09-15 起立绘按 id 命名）
                 artId = u.Card != null ? ArtKey(u.Card) : null,
-                title = CardText.Name(u.Name, u.Card != null ? u.Card.NameZh : null),
+                // 🆕 2026-10-17（`N42`）：有 `CardDef` 就走按卡 id 取的那一口（非中英语档才是官方 13 语言卡名）
+                title = u.Card != null ? CardText.Name(u.Card) : CardText.Name(u.Name),
                 cost = -1,
                 melee = u.Attack,
                 ranged = u.RangedAttack,
@@ -14099,7 +14107,8 @@ namespace CardPresentation
             return new CardData
             {
                 id = c.Name,                       // 同上：显示名/配对用它
-                title = CardText.Name(c.Name, c.NameZh),
+                // 🆕 2026-10-17（`N42`）：同上 —— 按 `CardDef` 取（非中英语档 = 官方 `Card_Name/<id>`）
+                title = CardText.Name(c),
                 cost = c.Cost,
                 melee = c.Attack,
                 ranged = c.RangedAttack,
@@ -14153,6 +14162,14 @@ namespace CardPresentation
             //   英文档下本来就该用英文那一份 ⇒ 这一改**顺带把图标也对齐**。
             bool zh = CardText.Zh && !string.IsNullOrEmpty(c.DescZh);
             string body = zh ? c.DescZh : c.Desc;
+            // 🆕 2026-10-17（`N42`）：**非中英语档 ⇒ 官方 `Card_Description/<卡 id>` 的当前那一列**
+            //   （中/英两档 `Loc.Lang13Current` 恒 null ⇒ 上面那两行**逐字节不变**）。
+            //   缺键 / 缺列 ⇒ 回退英文 `c.Desc`（`Loc.Lang13Current` 已出声一次，⛔ 不静默、⛔ 不印键名）。
+            if (!zh && Loc.Current != AvailableLanguages.Chinese && Loc.Current != AvailableLanguages.English)
+            {
+                string v13 = string.IsNullOrEmpty(c.Id) ? null : Loc.Lang13Current("Card_Description/" + c.Id);
+                if (!string.IsNullOrEmpty(v13)) body = v13;
+            }
             string notes = string.Join(" ", UnimplementedNotes(c).ToArray());
             // 🔴 **2026-10-12（第二十三会话新立 `A1687`）：关键词段必须在【空正文早退】之前算。**
             //   原来这一行排在上面 ⇒ **正文为空的卡整段关键词行被吞掉**（`KeywordSegment` 在它下面）。
@@ -14375,7 +14392,8 @@ namespace CardPresentation
             //    ⚠️ **这一行本身是我们自加的**（原版没有 `TurnLabel`）⇒ 该让位的是它，不是敌方手牌。
             //    新位置 0.81（距顶 205 px）：在敌手之下、敌方棋盘（卡顶 357 px）之上。
             _turnLabel = Hud(root, "", 0.5f, 0.810f, 4,
-                             new Color(0.95f, 0.95f, 0.98f), new Vector2(0.5f, 1f), "TurnLabel");
+                             new Color(0.95f, 0.95f, 0.98f), new Vector2(0.5f, 1f), "TurnLabel",
+                             face: TmpFont.Face.LatinCardBody);
 
             // ---- 等待提示（原版 `WaitText`）----
             // 位置/尺寸照原版字段（锚 (0.5,1) + (7,−175.1)、1344×79.4），理由与两处「我们挑的」见 `WaitBanner.cs` 文件头。
@@ -14458,7 +14476,7 @@ namespace CardPresentation
             //    画布 px 值 = ×0.8）⇒ **文字实际居中于 239.099595 − 0.8×13.66015625 = 228.17147**。
             //    ⚠️ 我们自己那版 `Label` 不实现 TMP margin，所以要把**中心**摆到「文字实际居中」那一处。
             _enemyText = Hud(root, "", 228.17147f / 1920f, 1f - 66.88264f / 1080f, 3, dim, new Vector2(0.5f, 0.5f), "EnemyPlateText",
-                             290.94f, 36.84f, 2f, 35f, 36f, 0);
+                             290.94f, 36.84f, 2f, 35f, 36f, 0, TmpFont.Face.LatinUi);
             // 我方那块底（`NameBackground`，与敌方同一贴图/尺寸，中心压在 `PlayerInfo` 正中）：
             // 🔴 **2026-10-19（A1512 + A1254 同批）**：见 `_enemyPlate` 那一段 —— 尺寸 435.7×126.3 → **348.56×101.04**
             //    （实绘 305.8882×101.04），左缘 179.700195 − 152.9441 = **26.7561**；中心不变。
@@ -14471,7 +14489,7 @@ namespace CardPresentation
             //    来自 0827 的 x[112.6,361.9]（未乘 0.8），真值 = `menu_dump` 的框心 **(225.74343, 1002.47582)**
             //    （`MonoBehaviour_3944.json` 的 `m_margin` 是全 0 ⇒ 不用像敌侧那样再扣 margin）。
             _myText = Hud(root, "", 225.74343f / 1920f, 1f - 1002.47582f / 1080f, 3, dim, new Vector2(0.5f, 0.5f), "PlayerPlateText",
-                          199.38f, 35.93f, 2f, 35f, 36f, 0);
+                          199.38f, 35.93f, 2f, 35f, 36f, 0, TmpFont.Face.LatinUi);
 
             // ---- 我方名牌上的**里程碑**：原版 `LeftArea/PlayerInfo/Milestones` = `BattleScoreUiManager` ----
             // 一个骷髅 + `x N`（`MatchSkulls Icon` / `MatchSkulls Score`）。原版还有 tooltip
@@ -14497,7 +14515,7 @@ namespace CardPresentation
             //    ⇒ 接上自适应之后**左缘逐位不动、右缘随字号动**（见 `Hud` 的 doc）。
             _skullScore = Hud(root, "", SkullScoreX01, SkullScoreY01, 3, Color.white,
                               new Vector2(0f, 0.5f), "MatchSkullsScore",
-                              94.46f, 47.31f, 18f, 35f, 36f);
+                              94.46f, 47.31f, 18f, 35f, 36f, face: TmpFont.Face.LatinCardBody);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版 `MatchSkulls Score` 的 **`V = Midline`**
             //   —— 判据 = 上面 `SkullScoreX01` 那条 doc 自己逐字写着「原版 **H=左对齐 / V=Midline**、字号 fs 35」
             //   （出处 `子代理读报_back左区_0827.md` + `MonoBehaviour_5234,3785.json`）。
@@ -14602,10 +14620,10 @@ namespace CardPresentation
             //    ⇒ 解算出来的高不同（原版就长这样，见逐颗表）。
             _myFaithText = Hud(root, "0", MyFaithX01, MyFaithY01, 4, new Color(1f, 1f, 1f),
                                new Vector2(0.5f, 0.5f), "PlayerFaithText",
-                               57.43f, 94.19f, 8f, 40f, 36f);
+                               57.43f, 94.19f, 8f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             _foeFaithText = Hud(root, "0", FoeFaithX01, FoeFaithY01, 4, new Color(1f, 1f, 1f),
                                 new Vector2(0.5f, 0.5f), "EnemyFaithText",
-                                57.43f, 88.40f, 8f, 40f, 36f);
+                                57.43f, 88.40f, 8f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
 
             _myStoneIcon = HudImageTex(root, CardArt.Ui("UI_Energy_Eldar"), MyStoneX01, MyStoneY01,
                         new Vector2(0.5f, 0.5f), StoneH / 108f, "PlayerSpiritStoneHolder", HudDecorZ + 0.05f);
@@ -14624,10 +14642,10 @@ namespace CardPresentation
             // 框/四格 ← 原版 `…/{Player,Enemy}Mana/SpiritStoneHolder/SpiritStoneText`（见上面那四颗的注释）
             _myStoneText = Hud(root, "0", MyStoneX01, MyStoneY01, 4, new Color(1f, 1f, 1f),
                                new Vector2(0.5f, 0.5f), "PlayerSpiritStoneText",
-                               52.80f, 63.00f, 8f, 40f, 36f);
+                               52.80f, 63.00f, 8f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             _foeStoneText = Hud(root, "0", FoeStoneX01, FoeStoneY01, 4, new Color(1f, 1f, 1f),
                                 new Vector2(0.5f, 0.5f), "EnemySpiritStoneText",
-                                52.80f, 136.40f, 8f, 40f, 36f);
+                                52.80f, 136.40f, 8f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             // 开局一律藏着 —— 具体的显隐每帧按值定（`RefreshHud`）
             SetFactionResourceVisible(false, false, false, false);
 
@@ -14690,7 +14708,7 @@ namespace CardPresentation
             //    —— 原版就开着折行、且 `m_fontSizeMax = 40`（我 39.15 是**缩过**的收敛值，说明原版那颗框略紧），
             //    我们这一侧字体行盒更高（`Noto` 1.437 em vs 原版 `Pragati` 0.947 em）⇒ 收敛值会与原版不同。
             _energyLabel = Hud(root, "", MyEnergyLabelX01, MyEnergyLabelY01, 4, gold, new Vector2(0.5f, 0.5f), "EnergyLabel",
-                               73.90f, 82.48f, 8f, 40f, 36f);
+                               73.90f, 82.48f, 8f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             // 敌方水晶：原版有（`EnemyMana`，也带 `ManaText`），**我们原来一颗都没画** ——
             // 于是玩家看不到对手还剩多少能量，只能靠猜。
             // 🔴 **2026-10-16（`A2102` R4）**：敌方球心那一对也**已删除**，理由与上面我方那一对**完全同一条**
@@ -14698,7 +14716,7 @@ namespace CardPresentation
             //    `EnergyAccumulation` 上）。⛔ 别建回来。
             _foeEnergyLabel = Hud(root, "", FoeEnergyLabelX01, FoeEnergyLabelY01, 4, gold,
                                   new Vector2(0.5f, 0.5f), "FoeEnergyLabel",
-                                  77.34f, 80.95f, 8f, 40f, 36f);
+                                  77.34f, 80.95f, 8f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             // ⚠️ x01 从 0.017 挪到 0.075：手牌数底板有 **259 px 宽**，还摆在屏幕左缘的话整块板会有一半在屏幕外
             //    （第一版就是这样，截图里只看得见板子右半边）。原版那个计数在 `HandArea`（手牌区）里、不在屏幕角上，
             //    挪进来既让板进画面、也更接近原版的位置。
@@ -14716,7 +14734,8 @@ namespace CardPresentation
             //    ⇒ 按本仓红线（**不许自己发明口径**）**只报不动**；判据与两条候选读法全文 →
             //    `资料/普查产出_第十一会话/PH_A1213Hud补框.md` §4（那一节还记了「框若按 234×64 px 算」的旁证）。
             //    ⚠️ **只补框不补四格是没意义的** —— 框的唯一目的就是给自适应用（见 `Hud` 的 doc）。
-            _handLabel = Hud(root, "", 0.075f, 0.158f, 3, dim, new Vector2(0f, 0f), "HandLabel");
+            _handLabel = Hud(root, "", 0.075f, 0.158f, 3, dim, new Vector2(0f, 0f), "HandLabel",
+                             face: TmpFont.Face.LatinCardBody);
             // 🔴🆕 **2026-10-16（`A1239`）：补框 + 接四格**（原来这颗**没有框也没有字号**，
             //   落 `Label` 默认档 —— 同族里最后一颗没接的）。
             //   框与三档的**判据（含那条单位桥）×100 怎么来的** → `HandLabelBoxW` 那条 doc，⛔ 不在这里抄第二份。
@@ -14756,11 +14775,12 @@ namespace CardPresentation
             //    （原版就是「命中区 = 文字块」这个模型，见 `Label.Contains`）。
             _endTurnLabel = Hud(root, CardText.Phrase("END TURN"), EndTurnX01, EndTurnY01, 3,
                                 new Color(1f, 1f, 1f), new Vector2(0.5f, 0.5f), "EndTurnButton",
-                                119.08f, 80.43f, 8f, 31f, 36f);
+                                119.08f, 80.43f, 8f, 31f, 36f, face: TmpFont.Face.LatinUi);
             // 回合时钟：写在按钮**下半部分**（原版 `ClockManager.clockText` 也在 `Clock/TurnBtn` 子树里）。
             // 按钮 80.4 px 高 = 0.744 世界单位，往下让 0.021 ≈ 23 px，正好落在按钮下半。
             _clockLabel = Hud(root, "", EndTurnX01, EndTurnY01 + 0.021f, 2,
                               new Color(0.85f, 0.88f, 0.95f), new Vector2(0.5f, 0.5f), "TurnClock");
+            // A1024③ 判不出（原版 `Clock/TurnBtn` 下只有 `TurnText`，倒计时那颗没有 TMP）⇒ 保持 `Face.Cjk`
 
             // ---- 牌堆：照原版 `PlayerDeck` 那一套摆 ----
             //
@@ -14879,10 +14899,10 @@ namespace CardPresentation
             //    ⚠️ `m_fontSizeBase = 49.63`（**≠ 标称**，本族唯一一颗）—— 它是自适应二分的起点，如实照传。
             _pileLabel = Hud(root, "", mySizeX, mySizeY, 3, dim,
                              new Vector2(0.5f, 0.5f), "MyPileLabel",
-                             219.42f, 44.93f, 10f, 42f, 49.63f);
+                             219.42f, 44.93f, 10f, 42f, 49.63f, face: TmpFont.Face.LatinCardBody);
             _foePileLabel = Hud(root, "", foeSizeX, foeSizeY, 3, dim,
                                 new Vector2(0.5f, 0.5f), "FoePileLabel",
-                                193.20f, 39.56f, 10f, 42f, 49.63f);
+                                193.20f, 39.56f, 10f, 42f, 49.63f, face: TmpFont.Face.LatinCardBody);
 
             // ---- 本回合已出牌数：原版 `CardsPlayedInTurnHolder` 里的三枚小方块 ----
             // 三枚 `40k_general_bt_yellow` 各 20×20、间距 9，居中排在 holder 里、底对齐；
@@ -14949,8 +14969,11 @@ namespace CardPresentation
                                + "（照旧出声，不静默）—— 见 `BuildHud` 的提示条那一段");
             }
             // 字：**白 · fs60 · 横中竖中 · 自适应 [4,60] px**（判据 = `MonoBehaviour_4010.json` 现读）
+            // 🔴 **2026-10-17（`A1024`③ 批 7）**：原版 `WaitText/Generic Popup Background/Text` 的
+            //    `m_fontAsset` = **Pragati**（普查表 §2·2 `Battle/WaitBanner.cs` 那两行指向同一个原版节点，
+            //    以及 §2·5 表头「其余」那条）⇒ `LatinCardBody`。
             _tipText = Hud(aboveRoot, "", tipX01, tipY01, TipScale, Color.white, new Vector2(0.5f, 0.5f), "TipText_Text",
-                           TipWpx, TipHpx, TipFsMinPx, TipFsPx);
+                           TipWpx, TipHpx, TipFsMinPx, TipFsPx, face: TmpFont.Face.LatinCardBody);
             SetTipVisible(false);                          // 出厂关着（原版场景态 `m_IsActive=False`）
 
             // ---- 🔴 2026-10-16（`T09` 批 3 收口 · 台账 `W7`/`W55`）：**技能卡面板登记宿主** ----------
@@ -14977,6 +15000,7 @@ namespace CardPresentation
 
             _resultLabel = Hud(root, "", 0.5f, 0.5f, 7,
                                new Color(1f, 0.9f, 0.4f), new Vector2(0.5f, 0.5f), "ResultLabel");
+            // A1024③ 判不出（同 `EndPanel`：原版结算面板无 result 字）⇒ 保持 `Face.Cjk`
 
             // 设置按钮（原版 `SettingsBtn` 63.9²，图 `UI_Settings_Icon`）——
             // 权威表绝对坐标 x[1808.0,1871.9] y[9.2,73.1] → 中心 (1839.95, 41.15)。
@@ -15514,10 +15538,10 @@ namespace CardPresentation
             //    （= 名牌中心 + 0.8×47.409 / 0.8×29.57，逐位对得上）。`m_margin` 是 (0.114,4.541,0.186,4.087) ⇒ 忽略。
             _titleMe = Hud(root, "", 217.62721f / 1920f, 1f - 1038.15523f / 1080f, 3, titleOrange,
                            new Vector2(0.5f, 0.5f), "TitleText_Me",
-                           187.40f, 36.84f, 2f, 35f, 36f, 0);
+                           187.40f, 36.84f, 2f, 35f, 36f, 0, TmpFont.Face.LatinUi);
             _titleFoe = Hud(root, "", 217.92701f / 1920f, 1f - 102.402645f / 1080f, 3, titleOrange,
                             new Vector2(0.5f, 0.5f), "TitleText_Foe",
-                            187.40f, 36.84f, 2f, 35f, 36f, 0);
+                            187.40f, 36.84f, 2f, 35f, 36f, 0, TmpFont.Face.LatinUi);
             // 🔴 **2026-10-16（`T09` 字族迁 uGUI）**：`TitleFontPx`(30.55) **本来就是原版的画布 px**
             //    ⇒ uGUI 档可以**原样喂** `SetGlyphHeight`（口径 = 本标签所在空间的单位 = 设计 px）。
             //    原来那句 `/ 108f` 是**世界档**的换算（`SetGlyphHeight` 收世界单位）—— **已去**。
@@ -15855,10 +15879,10 @@ namespace CardPresentation
             //    落点会与原版不同 ⇒ 交给断言波 + 真 Play 量（见 `Hud` 的 doc）。
             _qpTextMe = Hud(root, "0/3", 1865.8381719470285f / 1920f, 1f - 643.9898812899978f / 1080f, 4, white,
                             new Vector2(0.5f, 0.5f), "QPText_Me",
-                            48.17f, 45.26f, 15.79f, 40.5f, 36f);
+                            48.17f, 45.26f, 15.79f, 40.5f, 36f, face: TmpFont.Face.LatinCardBody);
             _qpTextFoe = Hud(root, "0/3", 1864.9734582742763f / 1920f, 1f - 198.7184759276015f / 1080f, 4, white,
                              new Vector2(0.5f, 0.5f), "QPText_Foe",
-                             48.17f, 45.26f, 15.79f, 40.5f, 36f);
+                             48.17f, 45.26f, 15.79f, 40.5f, 36f, face: TmpFont.Face.LatinCardBody);
             _qpTextMe.gameObject.SetActive(meQp);
             _qpTextFoe.gameObject.SetActive(foeQp);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版 `QPText '0/3'` 的 **`V Capline`**
@@ -16021,8 +16045,11 @@ namespace CardPresentation
             // 🔴 **2026-10-18（第十二轮 · W6）**：文案走**原版词条** `Battle/Overtime/Title`
             //    （判据：`bundle_scenes_scenes_battlearena1/MonoBehaviour_4745.json` 的 `Localize.mTerm`
             //     + 同族 TMP 逐字 `OVERTIME!`；13 个 arena 每场 1 颗）—— 原来这里是写死的英文 `"OVERTIME!"`。
+            // 🔴 **2026-10-17（`A1024`③ 批 7）**：原版 `OvertimeSplashText/Text Container/Text` 的
+            //    `m_fontAsset` = **Asar**（普查表 §2·4 末行）⇒ `LatinUi`。
             _overtimeSplashText = HudCanvas.MakeText(rt, Loc.T(OvertimeTerm), 0f, 0f, 1,
-                                                     Color.white, new Vector2(0.5f, 0.5f), zText, "Text");
+                                                     Color.white, new Vector2(0.5f, 0.5f), zText, "Text",
+                                                     face: TmpFont.Face.LatinUi);
             if (_overtimeSplashText != null)
             {
                 // 🔴 **不能照抄原版那个 `m_fontSize = 80`** —— 那是**原版自己画布**的单位。
@@ -16754,6 +16781,33 @@ namespace CardPresentation
             return p == HudCanvas.RootRect || p.parent == HudCanvas.RootRect;
         }
 
+        /// <summary>🆕 **2026-10-17（`A1024`③ 批 7）**：第 `i` 颗 HUD 标签**实际**挂在哪个 TMP 字体资产上
+        /// （`TMP_Text.font.name`；没建 TMP 后端 / 越界 ⇒ `null`）。
+        /// <para>**用途 = 断「真的换了面」**：读的是 TMP 组件上的**真字段**，⛔ 不是 `Label.Face` 那个指派值
+        /// （那跟我们自己写的常量同源 = 自证）。期望值写**原版资产名**（`Asar-Regular SDF` / `Pragati-Regular SDF`）。</para></summary>
+        public string HudLabelFontAssetNameForTest(int i)
+        {
+            if (i < 0 || i >= _hudLabels.Count || _hudLabels[i] == null) return null;
+            var t = _hudLabels[i].GetComponentInChildren<TMPro.TMP_Text>(true);
+            return t != null && t.font != null ? t.font.name : null;
+        }
+
+        /// <summary>🆕 **2026-10-17（`A1024`③ 批 7）**：第 `i` 颗 HUD 标签**被指派**的字体面
+        /// （`Label.Face`，**未必是实际生效的那个** —— 文本含汉字时 `ActualFace` 会回 CJK）。
+        /// 与上面那条配着用：指派值管「我们有没有给这颗点名」，实际资产名管「真接上了哪份 SDF」。</summary>
+        public TmpFont.Face HudLabelAssignedFaceForTest(int i)
+        {
+            if (i < 0 || i >= _hudLabels.Count || _hudLabels[i] == null) return TmpFont.Face.Cjk;
+            return _hudLabels[i].Face;
+        }
+
+        /// <summary>🆕 **2026-10-17（`A1024`③ 批 7）**：第 `i` 颗 HUD 标签**当前的文本**（判汉字闸用）。</summary>
+        public string HudLabelTextForTest(int i)
+        {
+            if (i < 0 || i >= _hudLabels.Count || _hudLabels[i] == null) return null;
+            return _hudLabels[i].Text;
+        }
+
         /// <summary>手牌数那一格的原版词条键（**只此一份**）。判据 → `UpdateHud` 里那段注释 + `Core/Loc.cs`。</summary>
         public const string HandCountTerm = "Battle/HUD/CardsInHand";
         /// <summary>牌库数那一格的原版词条键（**只此一份**）。</summary>
@@ -16841,11 +16895,14 @@ namespace CardPresentation
         /// <param name="autoMaxPx">原版 `m_fontSizeMax` **原文**。</param>
         /// <param name="autoBasePx">原版 `m_fontSizeBase` **原文**（自适应二分的起点）。</param>
         /// <param name="wrapMode">原版 `m_TextWrappingMode` **原文**（`0`/`1`；本族用不到 `3`）。</param>
+        /// <param name="face">🆕 **2026-10-17（`A1024`③ 批 7）**：原版那颗 TMP 的 `m_fontAsset` 对应面
+        /// （判据 → `资料/普查产出_1017/UI/R_A1024_字体按用途普查.md` §2·4 逐颗表）。
+        /// 默认 `Cjk` ⇒ 旧调用点零行为变化。⛔ 别按节点名批量套 —— 同族里 Asar/Pragati 是混的。</param>
         Label Hud(Transform root, string text, float x01, float y01, int scale,
                   Color c, Vector2 anchor, string name,
                   float boxWpx = 0f, float boxHpx = 0f,
                   float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                  int wrapMode = 1)
+                  int wrapMode = 1, TmpFont.Face face = TmpFont.Face.Cjk)
         {
             // 🔴 **2026-10-16（`T09` §五 第 5 步 · HUD 字族整族迁 uGUI）** —— 口径见本方法 doc 末段，这里只列落点：
             //   ① 父件 = 画布：传进来的是**画布**（子画布，如 `AboveShader Canvas`）就用它；
@@ -16862,6 +16919,10 @@ namespace CardPresentation
             }
             var l = Label.CreateUgui(cv, text, Vector3.zero, scale, c, anchor, name);
             if (l == null) return null;                      // 拿不到 TMP 字体：`CreateUgui` 已出声（⛔ 不退化点阵）
+            // 🆕 **2026-10-17（`A1024`③ 批 7）**：可选字体面 —— 默认 `Cjk` ⇒ 旧调用点零行为变化。
+            //    ⚠️ 必须排在 `SetAutoFitBox` **之前**：那个口按 `NominalPx()`（随面变）把 px 折成 fontSize，
+            //    换面晚了会让自适应四格按旧面的行盒算。
+            if (face != TmpFont.Face.Cjk) l.SetFace(face);
             var rt = (RectTransform)l.transform;
             rt.anchorMin = rt.anchorMax = new Vector2(x01, y01);
             rt.anchoredPosition = Vector2.zero;              // 枢轴居中 + 零尺寸 ⇒ 节点原点正落在锚点上
@@ -17362,9 +17423,15 @@ namespace CardPresentation
                         //     `ModeGivesSkulls` 那张表里给骷髅的是 `{0,3,6,7,10,11,12,13,14}` 九个
                         //     ⇒ **上面这四档全在「给」那一组**，所以本笔改动**不改变任何一局的骷髅产出**
                         //     （它改的是「传得对不对」，不是「这一局的账」）。
+                        // 🆕 **2026-10-17（`N32`）**：三条日常任务的**真口径**由引擎侧三格计数提供
+                        //   （`DamageToEnemyWarlord / AttacksDeclared / RangedAttacksDeclared`，
+                        //   落点 = `RuleCore.ApplyDamage` 的督军那一格 + `DeclareAttack` 过完三道闸之后）。
                         DailyData.OnBattleEnd(Ctx.Winner == _me + 1, Ctx.DamageToEnemy[_me], Ctx.TroopsPlayed[_me],
                                               _foeSkullCount,
-                                              (int)Ctx.PlayMode);
+                                              (int)Ctx.PlayMode,
+                                              Ctx.DamageToEnemyWarlord[_me],
+                                              Ctx.AttacksDeclared[_me],
+                                              Ctx.RangedAttacksDeclared[_me]);
                         // 🆕 2026-09-27：**同一处再写一条本地对局记录**（用户当天拍板要做）。
                         // 原版这一步在服务器（每局结束写 `PlayerDataManager.battleLogData`）——
                         // 本地没有服务器 ⇒ 由我们记，**这是加功能、不是复刻**（判据 → `Shell/BattleLogData.cs` 文件头）。

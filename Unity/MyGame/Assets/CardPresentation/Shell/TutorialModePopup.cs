@@ -479,18 +479,18 @@ namespace CardPresentation
             var info = MenuDraw.Node(root, "TutorialInfo", new PxRect(InfoL, InfoT, InfoR, InfoB));
             // 四条都是 `Left/Capline`（描述那条是 `Left/Top` + 折行）—— 逐条实读
             var t1 = MenuDraw.Text(info, new PxRect(ITiL, ITiT, ITiR, ITiB), StageTitle(StageIndex),
-                                   Color.white, "TutorialTitle", 74.25f, QText);
+                                   Color.white, "TutorialTitle", 74.25f, QText, face: TmpFont.Face.LatinUi);
             if (t1 != null) { t1.SetAutoFitBox(LayoutSpace.Px(ITiR - ITiL), LayoutSpace.Px(ITiB - ITiT), 10f, 74.25f, 12f); MenuDraw.AlignLeft(t1, new PxRect(ITiL, ITiT, ITiR, ITiB)); }
             var t2 = MenuDraw.Text(info, new PxRect(ISuL, ISuT, ISuR, ISuB), SubOf(StageIndex),
-                                   Color.white, "TutorialSubTitle", 54.30f, QText);
+                                   Color.white, "TutorialSubTitle", 54.30f, QText, face: TmpFont.Face.LatinCardBody);
             if (t2 != null) { t2.SetAutoFitBox(LayoutSpace.Px(ISuR - ISuL), LayoutSpace.Px(ISuB - ISuT), 10f, 54.30f, 12f); MenuDraw.AlignLeft(t2, new PxRect(ISuL, ISuT, ISuR, ISuB)); }
             var t3 = MenuDraw.Text(info, new PxRect(IWlL, IWlT, IWlR, IWlB), WarlordLine(StageIndex),
-                                   Color.white, "TutorialWarlordTitle", 54.30f, QText);
+                                   Color.white, "TutorialWarlordTitle", 54.30f, QText, face: TmpFont.Face.LatinCardBody);
             if (t3 != null) { t3.SetAutoFitBox(LayoutSpace.Px(IWlR - IWlL), LayoutSpace.Px(IWlB - IWlT), 10f, 54.30f, 12f); MenuDraw.AlignLeft(t3, new PxRect(IWlL, IWlT, IWlR, IWlB)); }
             // 描述那条：原版 `折行=1` + `Left/Top` ⇒ 给折行宽 + 顶对齐（其余三条都是单行 Capline）
             var t4 = MenuDraw.Text(info, new PxRect(IDsL, IDsT, IDsR, IDsB), DescOf(StageIndex),
                                    Color.white, "TutorialDescription", 40f, QText,
-                                   LayoutSpace.Px(IDsR - IDsL));
+                                   LayoutSpace.Px(IDsR - IDsL), face: TmpFont.Face.LatinCardBody);
             if (t4 != null)
             {
                 t4.SetAutoFitBox(LayoutSpace.Px(IDsR - IDsL), LayoutSpace.Px(IDsB - IDsT), 10f, 40f, 12f);
@@ -531,7 +531,7 @@ namespace CardPresentation
             vc.CaptureNow();
 
             float contentH = Rows.Length * ItemH + (Rows.Length - 1) * ArmGap;   // 6×200 + 5×7.31 = 1236.55
-            _scroll = MenuScroll.TopAligned(new PxRect(ArmL, ArmT, ArmR, ArmB), contentH);
+            _scroll = MenuScroll.TopAligned(new PxRect(ArmL, ArmT, ArmR, ArmB), contentH, 50f);   // 原版 `Tutorial Mode Menu/Army Selector` = 50（D_N29）
             _scroll.Owner = gameObject;
             _stageContent = MenuDraw.Node(vp, "Filters", new PxRect(ArmL, ArmT, ArmR, ArmT + contentH));
             _scroll.OnChanged = () => RebuildStageCells(_stageContent);
@@ -600,11 +600,11 @@ namespace CardPresentation
             MenuDraw.Rect(node, Tex(DeckRuntime.FactionIcon(row.Fac)), InCell(cell, ItemIcon), "Icon", QArt4, null, true);
 
             // 三行字（fs 36 · auto[18,36] · hAlign Left）—— 文案见表头那两条说明
-            var a = MenuDraw.Text(node, InCell(cell, ItemTi), StageTitle(i), Color.white, "TutorialTitle", 36f, QText);
+            var a = MenuDraw.Text(node, InCell(cell, ItemTi), StageTitle(i), Color.white, "TutorialTitle", 36f, QText, face: TmpFont.Face.LatinUi);
             if (a != null) { a.SetAutoFitBox(LayoutSpace.Px(ItemTi.W), LayoutSpace.Px(ItemTi.H), 18f, 36f, 36f); MenuDraw.AlignLeft(a, InCell(cell, ItemTi)); }
-            var b = MenuDraw.Text(node, InCell(cell, ItemSu), SubOf(i), Color.white, "TutorialSubTitle", 36f, QText);
+            var b = MenuDraw.Text(node, InCell(cell, ItemSu), SubOf(i), Color.white, "TutorialSubTitle", 36f, QText, face: TmpFont.Face.LatinCardBody);
             if (b != null) { b.SetAutoFitBox(LayoutSpace.Px(ItemSu.W), LayoutSpace.Px(ItemSu.H), 18f, 36f, 36f); MenuDraw.AlignLeft(b, InCell(cell, ItemSu)); }
-            var c = MenuDraw.Text(node, InCell(cell, ItemDone), ItemDoneText, Color.white, "TutorialComplete", 36f, QText);
+            var c = MenuDraw.Text(node, InCell(cell, ItemDone), ItemDoneText, Color.white, "TutorialComplete", 36f, QText, face: TmpFont.Face.LatinUi);
             if (c != null)
             {
                 c.SetAutoFitBox(LayoutSpace.Px(ItemDone.W), LayoutSpace.Px(ItemDone.H), 18f, 36f, 36f);
@@ -661,7 +661,7 @@ namespace CardPresentation
             //   （同窗 `BuildPlayButton` 那一处同款写法）。
             var compLb = MenuDraw.Text(root, new PxRect(CompL, CompT, CompR, CompB),
                           "Completed: " + CompletedCount() + "/" + Rows.Length, Color.white,
-                          "Completed Text", 54f, QText, CompR - CompL, 10f, 54f, 12f);
+                          "Completed Text", 54f, QText, CompR - CompL, 10f, 54f, 12f, face: TmpFont.Face.LatinCardBody);
             if (compLb != null) compLb.SetWrapping(false);          // 原版折行=0（A205：关这一下顺带推版面）
         }
 
@@ -690,7 +690,7 @@ namespace CardPresentation
             //   ⇒ 紧跟一句 `SetWrapping(false)` 还原自己那一档（成对写法同 A404 / A205 / A34-F4 那一族）。
             //   ⚠️ 顺序：`SetWrapping` 会把版面推下去 ⇒ **在 `Align*` / 量宽之前**（本处不调 `Align*`）。
             var playLb = MenuDraw.Text(btn, new PxRect(PlayTxL, PlayTxT, PlayTxR, PlayTxB), PlayText, Color.white,
-                                       "Button Text", 74.25f, QText, PlayTxR - PlayTxL, 10f, 74.25f, 12f);
+                                       "Button Text", 74.25f, QText, PlayTxR - PlayTxL, 10f, 74.25f, 12f, face: TmpFont.Face.LatinCardBody);
             if (playLb != null) playLb.SetWrapping(false);
             MenuDraw.Hit(btn, "PlayHit", new PxRect(PlayL, PlayT, PlayR, PlayB), QHit, () => PlayTutorial(),
                          clickCue: WindowSounds.PositiveCue);

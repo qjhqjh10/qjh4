@@ -34,6 +34,8 @@
 //      `Toast Collection Get XP` 536.7548828125×97.9000015258789 ·
 //      `Collector Level Tooltip` 500×100（a/p 都是 (.5,.5)，`CanvasGroup` interactable=false）·
 //      `Resource Counter Item` 0×38.066001892089844（a(0,0) p(.5,.5) apos(22.2996826171875,0)）。
+//    🔴 **2026-10-17（`N21②③`）**：后两份**本文件不建**（没有生产路径，见下面「模板 5 / 6」）——
+//      这里保留它们的参数**当知识**（原版 prefab 是真的存在），⛔ 别当成「我们还没做」的待办。
 //    逐颗的「层 × 参数」表在构建代码里逐条标了（字段名 + 数值都写在注释里）。
 // ③ **`ShowNotification` / `ScheduleNotification` 的原文**（`decomp_full/`）：
 //    · `ToastNotificationController__ShowNotification.c`：`SingletonBehaviour.Instance`
@@ -69,13 +71,23 @@
 //      进度来自 `progress`（派给 `MissionInfoDisplay.Initialize`）；`m_IsActive` 由它自己开。
 // ④ **层级 / 队列口径**：原版靠 Canvas 的 `SortingOrder = 900`（+ 排序层 `PopUps`），
 //    本仓外壳是**世界空间 quad + 显式渲染队列**（`MainMenuRuntime` 的注释：
-//    「档位号本身是【我们自己起的梯子】」）。⇒ 本文件取 **5000 起**（现网最高档是
-//    `QPanel = 4090` / `BlockingOverlay 4070/4071` / tooltip 3605–3607），
-//    **并在代码里如实标成「我们挑的梯子」**。
-//    🔴 **2026-10-17（RV·M5）判据未定、保持现状**：原版 toast（Canvas order **900**）与
-//    **加载黑场**（本仓 `LoadingMenu` / `BlockingOverlay`）谁在上谁在下，**本地没有判据**
-//    （原版加载黑场那一层的 order 本地没读到、主菜单也没有实况 dump）⇒ ⛔ **不猜**，先保持 5000；
-//    等真机/远端判据出来再定。**这一条不是「已核对」，是「判据未定」。**
+//    「档位号本身是【我们自己起的梯子】」）。⇒ 本文件取**加载黑场之下、shell 之上**那一档
+//    （现网 = 加载黑场 `LoadingController.QDark 4080`…`LoadingMenu.QPanel 4090` · `BlockingOverlay 4070/4071` ·
+//    shell 最高 `4030`）—— 具体值见下面 `QShade` 那一段。
+//    🔴🔴 **2026-10-17（本批 · `N21①`）：判据【已定】，而且它推翻了旧账【和】R 报告的两句话。**
+//    **原版实读（`globalgamemanagers/TagManager/TagManager_3.json` + 两个 Canvas JSON）**：
+//      · 排序层次序 = `Default(0) → Background → Elements → OverElements → Hand → HandMoving
+//        → OverHand → **PopUps(1054366423)** → **Blocking(2286135553)**`；
+//      · `Toast Notification Controller` 的 Canvas（`Canvas_1074.json`）= 层 **PopUps** · order **900**；
+//      · `LoadingMenu` 的 Canvas（`Canvas_1081.json`）= 层 **Blocking** · order **0**
+//        （`m_SortingLayerID = -2008831743` 按 int32 还原 = **2286135553** = `Blocking`）。
+//    ⇒ **排序层先于 order 比较** ⇒ **原版是「加载黑场在 toast 之上」**。
+//    · 旧账「黑场在 toast 之上」**是对的**；
+//    · R 报告 `R_界面线剩余条目现核.md` §N21① 只比了 `m_SortingOrder`（900 > 0）、**漏了 `m_SortingLayerID`**
+//      ⇒ 它那句「Toast 在黑场之上 / 我们已经同序」**不成立**（错因 = 拿两个**不同排序层**的 order 直接比）。
+//    ⇒ 我们的值**跟着改**：原来 5000（压过加载黑场）是**反的**，现在落在
+//      `BlockingOverlay 4071` 与**加载黑场最底层** `LoadingController.QDark 4080` 之间（4072–4076）
+//      （= 仍高过全部 shell UI 与压暗层、但**低于**加载黑场）。⛔ 别再按「5000 起」去推。
 //
 // ============================ 🔴 数据源现状（如实出声，⛔ 不编数据） ============================
 // · **任务进度**：有本地数据源 —— `Shell/DailyData.cs`（`DailyDesc` / `DailyCounter` /
@@ -93,30 +105,46 @@
 // 两者在原版是**两个类、两个节点、两套时序** —— 合并 = 两处写同一条规则。
 //
 // ============================ 本文件实现的边界（如实标注） ============================
-// ⚠️ **1. 两条「高度运行时算」的模板**（`Toast` / `Toast Collection Get XP`）：
+// ⚠️ **1. 两条「高度运行时算」的模板**（`Toast` / `Toast Collection Get XP`）—— **`N23` 已改**：
 //     原版靠 `VerticalLayoutGroup + ContentSizeFitter` 在重建那几拍算高度；本仓外壳**没有 uGUI 布局**
-//     （世界空间 quad）⇒ 本文件按 **uGUI 的字段语义**取**静态推导的常量根高**——
-//     `Toast = 12 + 89.8638 + 0 + 7 = 108.8638` · `Get XP = 0 + 86.7019 + 0 + 0 = 86.7019`
-//     （`m_ChildControlHeight = 0` ⇒ 取子件 `sizeDelta.y`，两个 Text 的 `sizeDelta.y` 都是 0）。
-//     🔴 2026-10-17（RV·H2）：**这是静态推导、没有跑原版读 `rect.height`，建议真机量一次**。
-//     ⚠️ 同时留一条**反证待复核**：原版 `Initialize` + `ShowNotificationInternal` 一共
-//     `FixLayout`×2 + `ForceRebuildLayoutImmediate`×1 ⇒ 树被**重建三轮**，而 Text 上挂的
-//     `ContentSizeFitterMinMax` 会写 `sizeDelta` ⇒ 第二/三轮 VLG 读到的可能不再是 0
-//     （那样根高 = padding + 图标 + **文本高**）。两条只在「真机 `rect.height`」上分胜负。
-//     判据（padding 等）逐条写在 `BuildToast` / `BuildGetXP`。
+//     （世界空间 quad）。旧实现取的是**静态推导的常量根高**（`Toast = 12 + 89.8638 + 0 + 7 = 108.8638` ·
+//     `Get XP = 0 + 86.7019 + 0 + 0 = 86.7019`，`m_ChildControlHeight = 0` ⇒ 取子件 `sizeDelta.y`，
+//     两个 Text 的 `sizeDelta.y` 都是 0）。
+//     🔴 **2026-10-17（`N23`）静态判定：那两个常量【只对第一轮重建成立】，不是原版运行值：**
+//       `LayoutRebuilder.Rebuild` 一轮 = 计算→控制×2（`Library/PackageCache/com.unity.ugui@…/
+//       Runtime/UGUI/UI/Core/Layout/LayoutRebuilder.cs:76-91`），而原版 `ShowNotificationInternal`
+//       先跑 `FixLayout()`（Toast 根那颗 fixer 的 `layouts = [pid 204]`，= 根自己的 VLG，
+//       `MonoBehaviour/MonoBehaviour_509.json`）再 `ForceRebuildLayoutImmediate(rectTransform)` ⇒ 共三轮；
+//       Text 上挂的 `ContentSizeFitterMinMax`（`MB 538`）在第一轮就把 `sizeDelta.y` 写成**首选文本高**
+//       ⇒ 第二/三轮 VLG（`m_ChildControlHeight = 0`）读到的是**子件 rect 高** ⇒
+//       **根高 = padT + iconH + 文本高 + padB**，**随文案变**（`Toast ▸ Text` 折行 = 1）。
+//     ⇒ 现在的实现：`ShowInternal` 里 `Fill` 之后按**本次文案现量**文本首选高、重算根高并重摆
+//       （`ApplyMeasuredHeight`）；`BuildToast` / `BuildGetXP` 里那两个常量**降级成兜底**
+//       （未激活 / 量不出时用，并**出声**）。判据/算式只在 `ToastRootHeight` 一处。
+//     ⚠️ 仍未做：**原版真机读数**（本仓没有原版 `rect.height` 的实拍）—— 现量的口径是**uGUI 字段语义**
+//       （padding + 子件高），不是从原版画面反推的。
 // ⚠️ **2. `WF_UI_Generic_FancyNotification_Background` 本地 `Resources/` 里没有**
 //     （只在源图 `CardPresentation/Art/原版/0_mainmenu/`，资源导入器没导）。
 //     ⇒ 本文件**退回** `UI_Deck_Information_submenu_Back_opaque`（= 通用 `Toast` 那张底图，
 //     同族、已导入）并**出声一次**。⛔ 没有把「缺图」说成「原版也这样」。
-// ⚠️ **3. `MissionRewardsDisplay` / `MissionRewardItem` / `MissionMilestonesDisplay` /
-//     `MissionProgressBarDisplay` / `MissionCounterDisplay` / `UIResourceCounter` /
-//     `EverguildTooltipCollectorLevel` 这些 MonoBehaviour 的**运行时装配**没有逐行复刻**：
+// ⚠️ **3. Mission toast 的运行时装配（`N20②`）—— 能静态补的已补，补不了的如实标：**
+//     `ToastNotificationMission__Initialize.c` 逐句：`SetActive(true)` → `text = ModifyLocalization(
+//     GetLocalizedDescription(progress))` → 对三个 `MissionInfoDisplay` 各跑一次 `Initialize(progress)`。
+//     那三个的 prefab 字段现读（`MonoBehaviour/{499,500,501}.json`）**全是 `displayRule = 1`**
+//     ⇒ `MissionInfoDisplay__Initialize` 的位运算 = **「只在未完成时显示」**（完成 ⇒ 三个 GameObject 全关）。
+//     已按这条接进 `Fill`（见那一节的注释）。**补不了的**（数据源在服务端/运行时）：
+//       · `MissionRewardsDisplay__Setup` 的 `MissionChallengeProgress.AvailableRewards()`（逐条奖励 → 实例化
+//         `MissionRewardItem`）+ `LiveOpsManager` 的 `ApplyExtraRewards`；
+//       · `MissionMilestonesDisplay__Setup` 的逐里程碑 `MissionMilestoneStep` 实例化（阈值来自同一份运行时奖励表）；
+//       · `MissionCounterDisplay__Setup` 里 `ArmyUtilities.GetArmyIcon(armyId)` 那一支（`armyIcon` 引用在本 prefab
+//         上是 null ⇒ 原版这条也不走）。
 //     本文件按 prefab 的静态结构 + 字段（`drawerHolder` / `amountText` 等）把**可见层**建出来，
 //     奖励图标用 `ItemDrawer.Draw(holder, item, amount, 10)` 的等效摆法（`MissionRewardItem__Setup.c`
 //     第 3 句）画进 `drawerHolder`。逐项标注在各 builder 里。
 // ⚠️ **4. 模板不是 `Prefab` 资产**：原版这 6 个是独立 prefab（`m_Father = 0`），
 //     本仓没有从 bundle 搬 prefab 的通道 ⇒ 建在 `Templates`（**出厂 inactive**）下，
 //     `Show` 时 `Instantiate` 到 `Holder`。名字**逐字照原版 prefab 根**。
+//     🔴 2026-10-17（`N21②③`）：其中 2 个（`Collector Level Tooltip` / `Resource Counter Item`）**不建**（死模板）。
 
 using System;
 using System.Collections.Generic;
@@ -181,16 +209,21 @@ namespace CardPresentation
         public const string LevelUpPrefabName = "Toast Collection Level Up";
         public const string ToastPrefabName = "Toast";
         public const string GetXPPrefabName = "Toast Collection Get XP";
-        public const string CollectorTooltipPrefabName = "Collector Level Tooltip";
-        public const string ResourceCounterPrefabName = "Resource Counter Item";
+        // ⚠️ `Collector Level Tooltip` / `Resource Counter Item` 这两份原版 prefab **本文件不建**（`N21②③`）——
+        //    原版 `notificationTypes` 四条**只指向四个 toast**，这两份没有任何生产路径 ⇒ 建了也是死树。
+        //    名字/矩形留在文件头 ② 当知识，⛔ 别把它们的常量加回来当「预留」。
         /// <summary>6 个 prefab 的容器节点 —— **我们加的**（原版是 6 份独立 prefab 资产）。
         /// 出厂 inactive；`Show` 时从它下面 `Instantiate` 到 `Holder`。</summary>
         public const string TemplatesNodeName = "Templates";
 
         // ============================================================ 渲染队列（⚠️ 我们挑的梯子）
-        // 原版这一层 = Canvas `SortingOrder 900`（主菜单最高一层）。本仓外壳是显式渲染队列，
-        // 现网最高档 = `QPanel 4090` / tooltip 3605–3607 ⇒ 这一族从 **5000** 起。
-        public const int QShade = 5000, QBg = 5001, QArt = 5002, QText = 5003, QHit = 5004;
+        // 原版这一层 = 排序层 `PopUps` + Canvas `SortingOrder 900`（**低于**加载黑场的 `Blocking` 层）。
+        // 本仓外壳是显式渲染队列：shell 最高 `4030`、`BlockingOverlay` 降级遮罩 `4070/4071`、
+        // **加载黑场那一族 `LoadingController.QDark/QSkull/QCog = 4080/4081/4082` + `LoadingMenu.QPanel 4090`** ⇒
+        // 这一族取 **4072–4076**：**高过全部 shell / 压暗层，低于加载黑场的最底层（4080）**
+        // （= 原版「toast 被加载黑场盖住」那一条）。
+        // 🔴 2026-10-17（`N21①`）：原来是 5000–5004（压过加载黑场）——**和原版反了**，判据见文件头 ④。
+        public const int QShade = 4072, QBg = 4073, QArt = 4074, QText = 4075, QHit = 4076;
 
         // ============================================================ 时序（判据 → 文件头 ③·⑧）
         public const float MoveSeconds = 1.0f;
@@ -214,8 +247,8 @@ namespace CardPresentation
         const float LevelUpW = 536.7548828125f, LevelUpH = 97.9000015258789f;
         const float ToastW = 466.1357116699219f;
         const float GetXPW = 536.7548828125f;                        // 出厂 sd.y = 97.9，但 VLG+CSF 会重算
-        const float TooltipW = 500f, TooltipH = 100f;
-        const float CounterW = 0f, CounterH = 38.066001892089844f;
+        // ⚠️ 原版 `Collector Level Tooltip`（500×100）与 `Resource Counter Item`（0×38.066）的常量
+        //    随那两条死模板一起删了（`N21②③`）—— 取值见文件头 ②。
 
         // ---- `Toast` 的 VerticalLayoutGroup（`MB 204`）----
         const float ToastPadL = 83f, ToastPadT = 12f, ToastPadB = 7f;
@@ -366,9 +399,8 @@ namespace CardPresentation
             _templateByType[(int)ToastNotificationType.CollectionGainXP]  = BuildGetXP(_templates);
             _templateByType[(int)ToastNotificationType.CollectionLevelUp] = BuildLevelUp(_templates);
             _templateByType[(int)ToastNotificationType.MissionProgress]   = BuildMission(_templates);
-
-            BuildCollectorTooltip(_templates);
-            BuildResourceCounter(_templates);
+            // 🔴 2026-10-17（`N21②③`）：这里原来还有 `BuildCollectorTooltip` / `BuildResourceCounter` 两棵
+            //    **零消费者的死树** —— 已删（为什么删 → 下面「模板 5 / 6」那一段）。
 
             // 出厂不可见（原版场景里 `Holder` 下 0 子；这 6 份是 prefab 资产、不在场景里）
             _templates.gameObject.SetActive(false);
@@ -396,7 +428,7 @@ namespace CardPresentation
                                           new Vector2(0.5f, 0.5f), new Vector2(377.58f, -42.264f),
                                           new Vector2(545.05f, 55.672f));
             var lb = Tmp(root, textRect, "Deal 500 damage to enemy units", Color.white, "Text", 40f, QText,
-                         wrap: true, autoMin: 0f, autoMax: 0f, autoBase: 0f);
+                         wrap: true, autoMin: 0f, autoMax: 0f, autoBase: 0f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(lb, textRect);
             MenuDraw.SetVAlign(lb, Label.VAlign.Middle, textRect);
 
@@ -434,7 +466,7 @@ namespace CardPresentation
             var countRect = UguiRect.Child(variantRect, Vector2.zero, new Vector2(1f, 0.337f),
                                            new Vector2(0.5f, 0f), Vector2.zero, new Vector2(0f, 0.602545f));
             var count = Tmp(variant, countRect, "100", Color.white, "count", 40f, QText,
-                            wrap: false, autoMin: 20f, autoMax: 40f, autoBase: 36f);
+                            wrap: false, autoMin: 20f, autoMax: 40f, autoBase: 36f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(count, Label.VAlign.Midline, countRect);
 
             // `Mission Milestones Progress Bar`（RT 348）：a(0,0)-(0,0) p(0,0) ap(107.75,17.783) sd(216.689,51.8301)
@@ -482,7 +514,7 @@ namespace CardPresentation
             var progRect = UguiRect.Child(barRect, new Vector2(0f, 0.33f), Vector2.one, Vector2.zero,
                                           new Vector2(0f, -3f), new Vector2(0f, 6f));
             var prog = Tmp(bar, progRect, "52/500", new Color(1f, 0.7725490927696228f, 0.3333333432674408f, 1f),
-                           "progress", 35f, QText, wrap: false, autoMin: 25f, autoMax: 35f, autoBase: 36f);
+                           "progress", 35f, QText, wrap: false, autoMin: 25f, autoMax: 35f, autoBase: 36f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(prog, progRect);
             MenuDraw.SetVAlign(prog, Label.VAlign.Middle, progRect);
 
@@ -521,7 +553,7 @@ namespace CardPresentation
                                           new Vector2(358.523f, 81.6935f));
             var lb = Tmp(root, textRect, "Collector Level Up!",
                          new Color(0.9150943160057068f, 0.9150943160057068f, 0.9150943160057068f, 1f),
-                         "Text", 54.5f, QText, wrap: true, autoMin: 28f, autoMax: 55.46f, autoBase: 40f);
+                         "Text", 54.5f, QText, wrap: true, autoMin: 28f, autoMax: 55.46f, autoBase: 40f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(lb, textRect);
             MenuDraw.SetVAlign(lb, Label.VAlign.Capline, textRect);
 
@@ -540,7 +572,7 @@ namespace CardPresentation
             var lvlTextRect = UguiRect.Child(lvlRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                                              new Vector2(-3.05176e-05f, 0f), new Vector2(-13.722f, -13.722f));
             var lvlText = Tmp(lvl, lvlTextRect, "-", Color.white, "Player Level Text", 37.2f, QText,
-                              wrap: false, autoMin: 18f, autoMax: 37.2f, autoBase: 36.89f);
+                              wrap: false, autoMin: 18f, autoMax: 37.2f, autoBase: 36.89f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(lvlText, Label.VAlign.Midline, lvlTextRect);
 
             MenuDraw.Hit(root, "Hit", rootRect, QHit, null);
@@ -552,30 +584,36 @@ namespace CardPresentation
         // 判据：`RT 343`（466.1357116699219×**0**）· 子件 `RT 355/356`。
         //   VLG（`MB 204`）：padding L 83 / T 12 / B 7 · spacing 0 · childAlignment 0(UpperLeft) ·
         //     **childControl 0/0** · forceExpand 0/0 ⇒ uGUI `GetChildSizes` 在 `!controlSize` 时取
-        //     **子件自己的 `sizeDelta.y`**，而 `RT 356`（Text）的 `m_SizeDelta.y = 0`
-        //     ⇒ **根高 = 12 + 89.8638 + 0 + 7 = 108.8638**（与文案无关）。
-        //   🔴 2026-10-17（RV·H2）按审查裁定改成常量。**这一条是静态推导，没有跑原版读
-        //     `rect.height`，建议真机量一次。** ⚠️ 我这边同时读到一条**反证**（请复核）：
-        //     `ToastNotification__Initialize.c` 末尾 + `__ShowNotificationInternal.c` 里一共
-        //     `FixLayout`×2 + `ForceRebuildLayoutImmediate`×1 ⇒ **同一棵树被重建三轮**，而 Text 上挂的
-        //     `ContentSizeFitterMinMax`（`MB 538`，`SetLayoutVertical` 写 `sizeDelta`）会在第一轮把
-        //     `sizeDelta.y` 改成首选高 ⇒ 第二/三轮 VLG 读到的就不是 0 了（那样根高会是
-        //     `12 + 89.8638 + 文本高 + 7`）。两条说法只在「真机 `rect.height`」这一格上分胜负，
-        //     本批按 RV 裁定取常量。
+        //     **子件自己的 `sizeDelta.y`**，而 `RT 356`（Text）的 `m_SizeDelta.y = 0`。
+        //   🔴 **2026-10-17（`N23`）最终口径**：第一轮重建时确实 = `12 + 89.8638 + 0 + 7 = 108.8638`，
+        //     但原版 `ShowNotificationInternal` 一共重建**三轮**（`FixLayout`×2 + `ForceRebuild…`×1），
+        //     `ContentSizeFitterMinMax`（`MB 538`）在第一轮就把 Text 的 `sizeDelta.y` 写成**首选文本高**
+        //     ⇒ 真值是 **`12 + 89.8638 + 文本高 + 7`**（随文案变）。⇒ 这里建出来的 `h` **只是兜底**
+        //     （未激活/量不出时用），真高由 `ShowInternal` 现量后 `ApplyMeasuredHeight` 重摆
+        //     （判据与推导 → 文件头「边界 1」/ `ToastRootHeight`）。
         static GameObject BuildToast(Transform parent)
         {
             // 量占位文案（原版 `m_text = "Congratulations!\nYou've earned an achievement. "`，fs 40，宽 362.057）
-            // 🔴 **只用于「文本节点自己那个框」**（Label 按框中心摆字）；**不参与根高**（见上面 RV·H2）。
+            // 🔴 **只用于「文本节点自己那个框」**（Label 按框中心摆字）；**不参与根高**（见上面 `N23`）。
             float textH = MeasureTextPx(parent, "Congratulations!\nYou've earned an achievement. ", 40f, ToastTextW);
-            const float h = ToastPadT + ToastIconH + ToastPadB;      // 108.8638
+            const float h = ToastPadT + ToastIconH + ToastPadB;      // 108.8638（= 兜底值，见上）
             var rootRect = PrefabRect(ToastW, h);
             var root = Node(parent, ToastPrefabName,
                             new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f),
                             Vector2.zero, new Vector2(ToastW, h), rootRect);
 
             // 根 Image：`UI_Deck_Information_submenu_Back_opaque` · Sliced · border 18 · ppuMul 1（`MB 3788653729785366146` 那一颗）
-            Nine(root, "UI_Deck_Information_submenu_Back_opaque", rootRect, new Vector4(18f, 18f, 18f, 18f),
-                 69f, 63f, new Vector4(18f, 18f, 18f, 18f), QBg, Color.white, "Background");
+            // 参数走 `BackgroundSpec(false)`（**一处定义** —— 量高之后 `RebuildBackground` 也读它）
+            {
+                Texture2D btex; Vector4 bborder, bborderOut; float btexW, btexH;
+                BackgroundSpec(false, out btex, out bborder, out btexW, out btexH, out bborderOut);
+                if (btex == null)
+                    Debug.LogWarning("[ToastNotifications] 通用 toast 底图 `UI_Deck_Information_submenu_Back_opaque` "
+                                   + "取不到 ⇒ `Background` **没画**（⛔ 不静默）。");
+                else
+                    MenuDraw.Nine(root, btex, rootRect, bborder, btexW, btexH, QBg, Color.white, true,
+                                  "Background", bborderOut);
+            }
 
             // `Icon`（RT 355，VLG 把它摆到 padLeft/padTop；尺寸 = 自己的 89.8613×89.8638）
             //   `40k_Achievements_icon_medal1` · preserveAspect = 1
@@ -589,7 +627,7 @@ namespace CardPresentation
             var textRect = new PxRect(iconRect.x1, iconRect.y2 - textH * 0.5f,
                                       iconRect.x1 + ToastTextW, iconRect.y2 + textH * 0.5f);
             var lb = Tmp(root, textRect, "Congratulations!\nYou've earned an achievement. ",
-                         Color.white, "Text", 40f, QText, wrap: true, autoMin: 0f, autoMax: 0f, autoBase: 0f);
+                         Color.white, "Text", 40f, QText, wrap: true, autoMin: 0f, autoMax: 0f, autoBase: 0f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(lb, textRect);
             MenuDraw.SetVAlign(lb, Label.VAlign.Middle, textRect);
 
@@ -600,12 +638,13 @@ namespace CardPresentation
 
         // ============================================================ 模板 4：Toast Collection Get XP
         // 判据：`RT 344` · 子件 `RT 358/357`。VLG（`MB 205`）：padding L 83 / T 0 / B 0 ·
-        //   **childControlHeight = 0** + `RT 357.m_SizeDelta.y = 0` ⇒ **根高 = 0 + 86.7019 + 0 + 0 = 86.7019**
-        //   （同上：静态推导、未跑原版读 rect.height，建议真机量一次；反证同上）。
+        //   **childControlHeight = 0** + `RT 357.m_SizeDelta.y = 0` ⇒ 第一轮 = `0 + 86.7019 + 0 + 0 = 86.7019`。
+        //   🔴 **2026-10-17（`N23`）**：与 `BuildToast` 同一条 —— 真高 = `padT + 86.7019 + 文本高 + padB`，
+        //   下面的 `h` 只是**兜底**（判据 → 文件头「边界 1」/ `ToastRootHeight`）。
         static GameObject BuildGetXP(Transform parent)
         {
             float textH = MeasureTextPx(parent, "+25 Collector points!", 55.459999084472656f, GetXPTextW);
-            const float h = GetXPPadT + GetXPIconH + GetXPPadB;      // 86.7019
+            const float h = GetXPPadT + GetXPIconH + GetXPPadB;      // 86.7019（兜底）
             var rootRect = PrefabRect(GetXPW, h);
             var root = Node(parent, GetXPPrefabName,
                             new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f),
@@ -628,7 +667,7 @@ namespace CardPresentation
             var lb = Tmp(root, textRect, "+25 Collector points!",
                          new Color(0.9150943160057068f, 0.9150943160057068f, 0.9150943160057068f, 1f),
                          "Text", 55.459999084472656f, QText, wrap: false, autoMin: 28f,
-                         autoMax: 55.459999084472656f, autoBase: 40f);
+                         autoMax: 55.459999084472656f, autoBase: 40f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(lb, textRect);
             MenuDraw.SetVAlign(lb, Label.VAlign.Capline, textRect);
 
@@ -637,147 +676,16 @@ namespace CardPresentation
             return root.gameObject;
         }
 
-        // ============================================================ 模板 5：Collector Level Tooltip
-        // 判据：`RT 351`（500×100 · a/p (.5,.5) · `CanvasGroup{alpha 1, interactable 0, blocks 0}`）·
-        //   子件 `RT 367/380/382/379/378/365/368/377/366/350`。
-        static void BuildCollectorTooltip(Transform parent)
-        {
-            // 独立 prefab（`m_Father = 0`）⇒ 我们放在**屏幕中心**（a/p 都是 .5 时的自然位置）
-            var rootRect = new PxRect((ScreenW - TooltipW) * 0.5f, (ScreenH - TooltipH) * 0.5f,
-                                      (ScreenW + TooltipW) * 0.5f, (ScreenH + TooltipH) * 0.5f);
-            var root = Node(parent, CollectorTooltipPrefabName,
-                            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                            new Vector2(-8.522727148374543e-05f, 0f), new Vector2(TooltipW, TooltipH), rootRect);
-            var cg = root.gameObject.AddComponent<CanvasGroup>();
-            cg.alpha = 1f; cg.interactable = false; cg.blocksRaycasts = false;
-
-            // `Generic Popup Background`（RT 367）：a/p (.5,.5) ap(0,-65.8046) sd(500,221.609)
-            //   `40k_popup` · Sliced · border (169,160,169,160) · ppuMul 3
-            var bgRect = UguiRect.Child(rootRect, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                                        new Vector2(0.5f, 0.5f), new Vector2(0f, -65.8046f),
-                                        new Vector2(500f, 221.609f));
-            var bg = Node(root, "Generic Popup Background", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                          new Vector2(0.5f, 0.5f), new Vector2(0f, -65.8046f), new Vector2(500f, 221.609f), bgRect);
-            Nine(bg, "40k_popup", bgRect, new Vector4(169f, 160f, 169f, 160f), 359f, 336f,
-                 new Vector4(56.333333f, 53.333333f, 56.333333f, 53.333333f), QBg, Color.white, "Background");
-
-            // `Mask`（RT 380，满铺）：**同一张 `40k_popup`、ppuMul 1**（原版就是再画一遍当遮罩）
-            var maskRect = UguiRect.Child(bgRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                                          Vector2.zero, Vector2.zero);
-            var mask = Node(bg, "Mask", Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero,
-                            Vector2.zero, maskRect);
-            Nine(mask, "40k_popup", maskRect, new Vector4(169f, 160f, 169f, 160f), 359f, 336f,
-                 new Vector4(169f, 160f, 169f, 160f), QBg, Color.white, "MaskImage");
-            // `Background fill`（RT 382，满铺）：`40k_popup_texture` · Tiled · ppuMul 6 ⇒ 一格 = 128/6 px
-            var fillRect = UguiRect.Child(maskRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                                          Vector2.zero, Vector2.zero);
-            var fillTex = CardArt.MenuUi("40k_popup_texture");
-            if (fillTex != null)
-                MenuDraw.Tiled(mask, fillTex, fillRect, 128f / 6f, QArt, "Background fill", null);
-            else
-                Debug.LogWarning("[ToastNotifications] `40k_popup_texture` 取不到 ⇒ Collector Level Tooltip 的 "
-                               + "`Background fill` **没画**（⛔ 不静默）。");
-
-            // `Title`（RT 379）：a(.5,1) p(.5,1) ap(0,-4.9) sd(476.541,50) · fs 41.76 · 白 · Center/Midline
-            TooltipText(bg, bgRect, "Title", "Collector level", 41.7599983215332f,
-                        new Vector2(0f, -4.9f), new Vector2(476.541f, 50f), Label.VAlign.Midline,
-                        autoMin: 0f, autoMax: 0f, autoBase: 0f);      // `MB 560`：auto 0
-            // `Description`（RT 378）：ap(0,-58.1) sd(476.541,80.6964) · fs 36 · 白 · Center/**Top**
-            //   🔴 RV·M4：`MB 559` **auto 1** / min 18 / max 36 / base 41.76
-            TooltipText(bg, bgRect, "Description",
-                        "You earn \"Collector XP\" by collecting or visually upgrading cards", 36f,
-                        new Vector2(-1.39293e-06f, -58.1f), new Vector2(476.541f, 80.6964f), Label.VAlign.Top,
-                        autoMin: 18f, autoMax: 36f, autoBase: 41.7599983215332f);
-            // `Xp to next level`（RT 365）：ap(0,-164.1) sd(467.872,37.8634) · fs 32 · 白 · Center/Midline
-            //   🔴 RV·M4：`MB 502` **auto 1** / min 18 / max 32 / base 32
-            TooltipText(bg, bgRect, "Xp to next level", "XP to next level: ----", 32f,
-                        new Vector2(-1.39293e-06f, -164.1f), new Vector2(467.872f, 37.8634f), Label.VAlign.Midline,
-                        autoMin: 18f, autoMax: 32f, autoBase: 32f);
-
-            // `Slider`（RT 368）：a(0,1) p(.5,.5) ap(250,-148.8) sd(251.892,20)
-            var sliderRect = UguiRect.Child(bgRect, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                                            new Vector2(0.5f, 0.5f), new Vector2(250f, -148.8f),
-                                            new Vector2(251.892f, 20f));
-            var slider = Node(bg, "Slider", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0.5f, 0.5f),
-                              new Vector2(250f, -148.8f), new Vector2(251.892f, 20f), sliderRect);
-            // `Background`（RT 377）：a(0,0.25)-(1,0.75) sd 0 · Image **无 sprite** · `(0.2169811,·,·,1)` · Sliced
-            var sBgRect = UguiRect.Child(sliderRect, new Vector2(0f, 0.25f), new Vector2(1f, 0.75f),
-                                         new Vector2(0.5f, 0.5f), new Vector2(-6.10352e-05f, -6.10352e-05f),
-                                         Vector2.zero);
-            var sBg = Node(slider, "Background", new Vector2(0f, 0.25f), new Vector2(1f, 0.75f),
-                           new Vector2(0.5f, 0.5f), new Vector2(-6.10352e-05f, -6.10352e-05f), Vector2.zero, sBgRect);
-            MenuDraw.Rect(sBg, CardArt.Solid(), sBgRect, "BackgroundQuad", QBg,
-                          new Color(0.21698111295700073f, 0.21698111295700073f, 0.21698111295700073f, 1f));
-            // `Fill Area`（RT 366）→ `Fill`（RT 350）：Image **无 sprite** · `(0.8867924,0.4923575,0.1045746,1)`
-            var areaRect = UguiRect.Child(sliderRect, new Vector2(0f, 0.25f), new Vector2(1f, 0.75f),
-                                          new Vector2(0.5f, 0.5f), new Vector2(-3.05176e-05f, 0f), Vector2.zero);
-            var area = Node(slider, "Fill Area", new Vector2(0f, 0.25f), new Vector2(1f, 0.75f),
-                            new Vector2(0.5f, 0.5f), new Vector2(-3.05176e-05f, 0f), Vector2.zero, areaRect);
-            var sFillRect = UguiRect.Child(areaRect, Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f),
-                                           new Vector2(-3.05176e-05f, -6.10352e-05f),
-                                           new Vector2(8.6784e-05f, 0f));
-            var sFill = Node(area, "Fill", Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f),
-                             new Vector2(-3.05176e-05f, -6.10352e-05f), new Vector2(8.6784e-05f, 0f), sFillRect);
-            MenuDraw.Rect(sFill, CardArt.Solid(), sFillRect, "FillQuad", QArt,
-                          new Color(0.8867924213409424f, 0.4923574924468994f, 0.10457456111907959f, 1f));
-
-            root.gameObject.SetActive(false);
-        }
-
-        static void TooltipText(Transform bg, PxRect bgRect, string name, string text, float fs,
-                                Vector2 apos, Vector2 sd, Label.VAlign v,
-                                float autoMin, float autoMax, float autoBase)
-        {
-            var r = UguiRect.Child(bgRect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                                   new Vector2(0.5f, 1f), apos, sd);
-            var lb = Tmp(bg, r, text, Color.white, name, fs, QText, wrap: true,
-                         autoMin: autoMin, autoMax: autoMax, autoBase: autoBase);
-            MenuDraw.SetVAlign(lb, v, r);
-        }
-
-        // ============================================================ 模板 6：Resource Counter Item
-        // 判据：`RT 359`（0×38.066001892089844 · a(0,0) p(.5,.5) ap(22.2996826171875,0)）·
-        //   子件 `RT 372/370/371`。⚠️ 那两个 HLG+CSF 是**运行期排布**；本文件按存档 rect 摆
-        //   （文件头「边界 1」的同一条口径）。
-        static void BuildResourceCounter(Transform parent)
-        {
-            // 独立 prefab ⇒ 放在设计空间左上角原点（它本来是挂 `Resources Container` 的）
-            var rootRect = new PxRect(22.2996826171875f - CounterW * 0.5f, 0f,
-                                      22.2996826171875f + CounterW * 0.5f, CounterH);
-            var root = Node(parent, ResourceCounterPrefabName, Vector2.zero, Vector2.zero,
-                            new Vector2(0.5f, 0.5f), new Vector2(22.2996826171875f, 0f),
-                            new Vector2(CounterW, CounterH), rootRect);
-
-            // `Resource Bar Background`（RT 372）：a(0,1) p(0,.5) ap(20,-19) sd(141.51,38)
-            //   `40k_topmarquee_currency_display BW` · Sliced · border 15 · ppuMul 1 ·
-            //   `m_Color = (0.3301887,0.2601015,0.3156698,1)`
-            var barRect = UguiRect.Child(rootRect, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                                         new Vector2(0f, 0.5f), new Vector2(20f, -19f),
-                                         new Vector2(141.51f, 38f));
-            var bar = Node(root, "Resource Bar Background", new Vector2(0f, 1f), new Vector2(0f, 1f),
-                           new Vector2(0f, 0.5f), new Vector2(20f, -19f), new Vector2(141.51f, 38f), barRect);
-            Nine(bar, "40k_topmarquee_currency_display_BW", barRect, new Vector4(15f, 15f, 15f, 15f),
-                 44f, 39f, new Vector4(15f, 15f, 15f, 15f), QBg,
-                 new Color(0.33018869161605835f, 0.26010146737098694f, 0.31566983461380005f, 1f), "Background");
-
-            // `Resource QuantityText`（RT 370）：a(0,1) p(.5,.5) ap(80.755,-19) sd(103.51,38)
-            //   TMP fs 42 · 白 · Center/Midline · autosize min 10 / max 42 / base 36（`MB 517`）
-            var qtyRect = UguiRect.Child(barRect, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                                         new Vector2(0.5f, 0.5f), new Vector2(80.755f, -19f),
-                                         new Vector2(103.51f, 38f));
-            var qty = Tmp(bar, qtyRect, "-----", Color.white, "Resource QuantityText", 42f, QText,
-                          wrap: false, autoMin: 10f, autoMax: 42f, autoBase: 36f);
-            MenuDraw.SetVAlign(qty, Label.VAlign.Midline, qtyRect);
-
-            // `Icon`（RT 371）：a(0,.5) p(0,.5) ap(-8.5,0) sd(60,59) · `40k_topmarquee_currency_gold`
-            var iconRect = UguiRect.Child(rootRect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                                          new Vector2(0f, 0.5f), new Vector2(-8.5f, 0f),
-                                          new Vector2(60f, 59f));
-            MenuDraw.Rect(root, CardArt.MenuUi("40k_topmarquee_currency_gold"), iconRect, "Icon", QArt,
-                          null, keepAspect: true);
-
-            root.gameObject.SetActive(false);
-        }
+        // ============================================================ 模板 5 / 6：已删（`N21②③`）
+        // 🔴 **2026-10-17（`N21②③`）删掉了两条死模板**：`Collector Level Tooltip` 与 `Resource Counter Item`。
+        // **为什么删**：原版那两份 prefab 确实存在（`RT 351` / `RT 359`），但**没有任何生产路径会用到它们** ——
+        //   · `ToastNotificationController` 的 `notificationTypes` 四条只指向**四个 toast**（`MB 1939`：
+        //     `{0→491}{1→492}{2→490}{3→488}`），`defaultToastNotification = 491` ⇒ 这两份**永远取不到**；
+        //   · 我们这边：删之前全仓 `grep "CollectorTooltipPrefabName\|ResourceCounterPrefabName\|BuildCollectorTooltip\|BuildResourceCounter"`
+        //     **命中 0 个消费者**（只在本文件里自引用）；命中的 `Resource Counter Item` 字样全在 `Shell/TopBar.cs`
+        //     与 `Editor/{MainMenuScene,DeckScene}.cs` —— 那是**顶栏自己**那一族节点，与本文件无关。
+        // ⇒ 留着 = 每次 `BuildInternal()` 白建两棵死树（还各带一次 `CardArt.MenuUi` 取图）。
+        // ⚠️ 原版那两份 prefab 的参数**没有丢**：仍在文件头 ② 与 `资料/普查产出_1017/UI/R_界面线剩余条目现核.md` §N21。
 
         // ============================================================ 生产口（≡ 原版静态方法）
 
@@ -909,9 +817,25 @@ namespace CardPresentation
             // ② Initialize(context)
             Fill(go.transform, ctx);
 
-            // ③④ 布局跑完再量高（我们建模板时已经算好，直接读 sizeDelta）
+            // ③④ 布局跑完再量高 —— 🔴 **2026-10-17（`N23`）：按【本次文案】现量**（不是模板常量）。
+            //    判据/推导 → 文件头「边界 1」；兜底常量 = 模板建出来那两档（未激活/量不出时才用，且出声）。
+            if (ctx.Type == ToastNotificationType.Achievement || ctx.Type == ToastNotificationType.CollectionGainXP)
+            {
+                bool fancy = ctx.Type == ToastNotificationType.CollectionGainXP;
+                float padT = fancy ? GetXPPadT : ToastPadT;
+                float iconH = fancy ? GetXPIconH : ToastIconH;
+                float padB = fancy ? GetXPPadB : ToastPadB;
+                float fallback = padT + iconH + padB;      // 108.8638 / 86.7019
+                float measured = ToastRootHeight(go.transform, padT, iconH, padB, fallback);
+                ApplyMeasuredHeight(go, measured, fancy);
+            }
             var rt = (RectTransform)go.transform;
             float h = PxOf(rt.sizeDelta.y);
+
+            // 根 = `EverguildButton`（原版 `ToastNotification.Initialize` 把 `context.OnClick` 挂到
+            // `button.onClick`）。⚠️ 放在**量高之后**：`ApplyMeasuredHeight` 可能重建命中区。
+            var hitBtn = go.GetComponentInChildren<WindowButton>(true);
+            if (hitBtn != null) hitBtn.onClick = ctx.OnClick;
 
             // ⑤⑥ 入场位置 + 格位
             int slot = _freeSpot; _freeSpot++;
@@ -935,6 +859,20 @@ namespace CardPresentation
             {
                 case ToastNotificationType.MissionProgress:
                     {
+                        // 🔴 **2026-10-17（`N20②`）静态补齐的两条原版规则**（判据 → 文件头「边界 3」）：
+                        //   ① 三个 `MissionInfoDisplay` 的 prefab 字段全是 `displayRule = 1`
+                        //      （`MonoBehaviour/{499,500,501}.json`）⇒ `MissionInfoDisplay__Initialize` 的位运算
+                        //      = **只在「未完成」时显示**（完成 ⇒ `Rewards` / `Progress Bar` / `progress` 三件全关）。
+                        //      「完成」的等价物 = `progress >= maxValue`（`MissionChallengeProgress.IsComplete`
+                        //      对日任务就是「进度到顶」）⇒ 用 `Progress01 >= 1`。
+                        //   ② `MissionCounterDisplay__Setup`：完成 且 `displayCompletedMessage = 1`
+                        //      （`MB 499` 实读）⇒ 文案 = 词条 `Missions/Completed`；否则印 `progressTextFormat
+                        //      "{0}/{1}"`（= 调用方给的 `ProgressText`）。
+                        //   ⚠️ **补不了的**（数据在服务端/运行时）：`MissionRewardsDisplay` 逐奖励实例化、
+                        //      `MissionMilestonesDisplay` 逐里程碑实例化（阈值来自 `AvailableRewards()`）、
+                        //      以及 `MissionRewardItem.ToggleAmount(amount < 3)` 那条计数显隐 —— 我们的
+                        //      `Context` 只有 `RewardText`（字符串），**拿不到原版那个数值** ⇒ 仍按「有文案就显示」。
+                        bool complete = ctx.ShowProgress && ctx.Progress01 >= 1f;
                         var lb = FindLabel(root, "Text");
                         if (lb != null && text != null) lb.SetText(text);
                         var icon = FindQuad(root, "Rewards/Reward Display Mission Vertical Variant/drawerHolder/Icon");
@@ -952,15 +890,23 @@ namespace CardPresentation
                             cnt.gameObject.SetActive(has);
                         }
                         var rewards = root.Find("Rewards");
-                        if (rewards != null) rewards.gameObject.SetActive(!string.IsNullOrEmpty(ctx.RewardText)
-                                                                       || !string.IsNullOrEmpty(ctx.RewardArt));
+                        if (rewards != null) rewards.gameObject.SetActive(!complete
+                                                                       && (!string.IsNullOrEmpty(ctx.RewardText)
+                                                                           || !string.IsNullOrEmpty(ctx.RewardArt)));
 
                         var bar = root.Find("Mission Milestones Progress Bar");
                         if (bar != null) bar.gameObject.SetActive(ctx.ShowProgress);
                         if (ctx.ShowProgress)
                         {
                             var pg = FindLabel(bar, "progress");
-                            if (pg != null && ctx.ProgressText != null) pg.SetText(ctx.ProgressText);
+                            if (pg != null)
+                            {
+                                if (complete) pg.SetText(Loc.T("Missions/Completed"));
+                                else if (ctx.ProgressText != null) pg.SetText(ctx.ProgressText);
+                                pg.gameObject.SetActive(!complete);
+                            }
+                            var pbNode = bar.Find("Progress Bar");
+                            if (pbNode != null) pbNode.gameObject.SetActive(!complete);
                             ApplyFill(bar, Mathf.Clamp01(ctx.Progress01));
                         }
                         break;
@@ -984,30 +930,169 @@ namespace CardPresentation
                     }
             }
 
-            // 根 = `EverguildButton`（原版 `ToastNotification.Initialize` 把 `context.OnClick`
-            // 挂到 `button.onClick`）。我们的等效物 = `MenuDraw.Hit` 建的那颗 `WindowButton`。
-            var hit = root.GetComponentInChildren<WindowButton>(true);
-            if (hit != null) hit.onClick = ctx.OnClick;
+            // 根 = `EverguildButton` 那颗 `WindowButton` 的 `onClick` 现在由 `ShowInternal` 在**量高之后**挂
+            //（`N23`：`ApplyMeasuredHeight` 可能重建命中区 ⇒ 在这里挂会被换掉）。
         }
 
-        /// <summary>`Fill`（原版 `Slider`）：按 `p` 横向缩放，**左缘固定**。
-        /// 建成满格后只改 `localScale.x` + `localPosition.x`（不重建网格）。
-        /// ⚠️ 缩放会让九宫格的横向角块跟着变宽 —— 这条进度条只有 11.6 px 高（`RT 362`）、
-        /// 角块 2 px（border 4 ÷ ppuMul 2）⇒ 放大到满格时差异 &lt; 2 px；如实记下（不是「原版也这样」）。</summary>
+        /// <summary>`Fill`（原版 `RT 361`）：一颗 **Sliced** Image（`m_Type = 1` ·
+        /// `m_PixelsPerUnitMultiplier = 2.0` ⇒ 画出来的角块 = border 4 ÷ 2 = **2px**，见 `MonoBehaviour_410.json`）
+        /// —— 运行时由 `MissionProgressBarDisplay` 只改**宽度**（左缘钉在 `Progress Bar` 的左沿）。
+        ///
+        /// <para>🔴 **2026-10-17（`N20③`）就地改法**：原来改的是 `fill.localScale.x` —— 那会让**九宫格角块
+        /// 跟着横向缩放**（进度 0.2 时角块只剩 0.4px），与原版「Sliced ⇒ 角块恒 2px」不符。
+        /// 现在按目标宽度**重建那九个块**（⛔ 不碰 `localScale`）。</para>
+        ///
+        /// <para>**幂等**：满格宽取自 `Progress Bar` 自己的 `RectTransform.rect`（`RT 362` = 211.189px），
+        /// 左/上/下沿取自**现网格**（重建只动右沿 ⇒ 第二次进来这三点仍与第一次相同）；
+        /// 位置由 `MenuDraw.Nine` 按父件（`Fill` 节点）的设计坐标算 —— `Fill` 节点**不动**。</para></summary>
         void ApplyFill(Transform bar, float p)
         {
             var pb = bar.Find("Progress Bar");
             if (pb == null) return;
             var fill = pb.Find("Fill");
             if (fill == null) return;
-            // 满格宽度 = `Progress Bar` 自己的 rect 宽（`RT 362` = 211.189 px）
-            float halfW = LayoutSpace.Px(211.189f) * 0.5f;
-            // 由「当前 scale + 当前中心」反推**不变的左缘**（幂等 —— 第二次 Show 也算得对）
-            float p0 = Mathf.Max(0.0001f, fill.localScale.x);
-            float left0 = fill.localPosition.x - p0 * halfW;
-            float pn = Mathf.Clamp01(p);
-            var s = fill.localScale; s.x = Mathf.Max(0.0001f, pn); fill.localScale = s;
-            var lp = fill.localPosition; lp.x = left0 + pn * halfW; fill.localPosition = lp;
+            var pbRt = pb as RectTransform;
+            if (pbRt == null) return;
+            float fullW = PxOf(pbRt.rect.width);       // 满格宽（`RT 362` = 211.189 px）
+            if (!(fullW > 1f))
+            {
+                Debug.LogWarning($"[ToastNotifications] `Progress Bar` 的 rect 宽量不出来（{fullW:F2}px）⇒ 进度条没画（⛔ 不静默）。");
+                return;
+            }
+            float x1, y1, x2, y2;
+            // ⚠️ `QuadGate.Self`：完成态下父链可能已被关掉（`displayRule`），而块自己仍 active ⇒ 用 Self 才量得到。
+            if (!MenuDraw.UnionQuadRectPx(fill, MenuDraw.QuadGate.Self, true,
+                                          out x1, out y1, out x2, out y2))
+            {
+                Debug.LogWarning("[ToastNotifications] `Progress Bar/Fill` 下没有 quad ⇒ 进度条没画（⛔ 不静默）。");
+                return;
+            }
+            float w = Mathf.Max(1f, fullW * Mathf.Clamp01(p));
+            ClearChildrenNow(fill);
+            Nine(fill, "40k_generial_bar_fill", new PxRect(x1, y1, x1 + w, y2),
+                 new Vector4(4f, 4f, 4f, 4f), 12f, 12f, new Vector4(2f, 2f, 2f, 2f), QArt,
+                 new Color(1f, 0.7686275243759155f, 0.3333333432674408f, 1f), "FillQuad");
+        }
+
+        // ============================================================ 根高（`N23`）
+
+        /// <summary>根高 = `padT + iconH + 文本首选高 + padB`（`N23`；推导 → 文件头「边界 1」）。
+        /// 只服务 `Toast` / `Toast Collection Get XP` 两条模板（原版 VLG + CSF 那两条）。
+        /// <para>**量不出**（未激活 / 字体资产缺失 / 哨兵值）⇒ **出声 + 退回模板常量**（调用方给的 `fallback`）。
+        /// ⛔ 别把兜底当正常路径：正常情况下这条一次都不该响。</para></summary>
+        static float ToastRootHeight(Transform root, float padT, float iconH, float padB, float fallback)
+        {
+            var lb = FindLabel(root, "Text");
+            if (lb == null)
+            {
+                Debug.LogWarning($"[ToastNotifications] 根高：找不到 `{root.name}/Text` ⇒ 退回模板常量 {fallback:F2}px。");
+                return fallback;
+            }
+            lb.ForceRelayout();                 // 文案刚在 `Fill` 里换过 ⇒ 重排一次再量（TMP 在激活态才量得准）
+            float textH = PxOf(lb.WorldH);
+            if (!(textH > 0f) || textH > 400f)
+            {
+                Debug.LogWarning($"[ToastNotifications] 根高：文本首选高量不出来（{textH:F2}px）⇒ 退回模板常量 "
+                               + $"{fallback:F2}px（这一条只该在未激活 / 字体缺失时出现）。");
+                return fallback;
+            }
+            return padT + iconH + textH + padB;
+        }
+
+        /// <summary>按 `newH` 重摆**已实例化**的那一条（`N23`）。只动 `Toast` / `Get XP`：
+        /// 根高 + 根底图（九宫格按新矩形重建）+ 图标/文字（跟着顶边上移）+ 命中区（跟着长高）。
+        /// <para>⚠️ 根轴心 = **右下角**（原版 `a(1,0)/p(1,0)`）⇒ 底边不动、**向上长**；
+        /// 所以子件要**上移** `ΔH`（图标/文字）或 `ΔH/2`（居中件：底图、命中区）。</para>
+        /// <para>⛔ **别在这里用 `MenuDraw.Local(root, …)` 重算绝对位置** —— 实例刚 `Instantiate` 时
+        /// 还没被 `Pose()` 摆到 Holder 上（`localPosition` 是模板那份），拿它当设计原点会全体偏移。
+        /// 这里只做**局部平移/局部重建**（世界单位 = `LayoutSpace.Px`）。</para></summary>
+        void ApplyMeasuredHeight(GameObject go, float newH, bool fancyBg)
+        {
+            if (go == null) return;
+            var root = go.transform;
+            var rt = root as RectTransform;
+            if (rt == null) return;
+            float oldH = PxOf(rt.sizeDelta.y);
+            if (!(newH > 0f) || Mathf.Abs(newH - oldH) < 0.01f) return;
+
+            rt.sizeDelta = new Vector2(rt.sizeDelta.x, LayoutSpace.Px(newH));
+            float w = PxOf(rt.sizeDelta.x);
+            float dy = LayoutSpace.Px(newH - oldH);          // 顶边上移量（世界单位）
+
+            // ---- 底图：中心上移 ΔH/2，再按新矩形重建九宫格 ----
+            var bg = root.Find("Background");
+            if (bg != null)
+            {
+                var p = bg.localPosition; p.y += dy * 0.5f; bg.localPosition = p;
+                RebuildBackground(bg, w, newH, fancyBg);
+            }
+
+            // ---- 图标 / 文字：跟着顶边走 ----
+            var icon = root.Find("Icon");
+            if (icon != null) { var p = icon.localPosition; p.y += dy; icon.localPosition = p; }
+            var text = root.Find("Text");
+            if (text != null) { var p = text.localPosition; p.y += dy; text.localPosition = p; }
+
+            // ---- 命中区：quad 中心在 rect 中心 ⇒ 上移 ΔH/2，高度换成新根高 ----
+            var hit = root.Find("Hit");
+            if (hit != null)
+            {
+                var hrt = hit as RectTransform;
+                if (hrt != null) hrt.sizeDelta = new Vector2(hrt.sizeDelta.x, LayoutSpace.Px(newH));
+                var q = hit.GetComponentInChildren<ImageQuad>(true);
+                if (q != null)
+                {
+                    var p = q.transform.localPosition; p.y += dy * 0.5f; q.transform.localPosition = p;
+                    q.SetWorldHeight(LayoutSpace.Px(newH));
+                    q.SetAspect(Mathf.Max(1e-4f, w) / Mathf.Max(1e-4f, newH));
+                }
+            }
+        }
+
+        /// <summary>按**局部矩形**（宽 `wPx` × 高 `hPx`，设计 px）重建 `Background` 那颗九宫格。
+        /// 底图参数**只有一份** —— 与 `BuildToast` / `FancyBackground` 共用 <see cref="BackgroundSpec"/>。
+        /// ⚠️ 用 `ImageQuad.CreateNineSlice(..., center: Vector3.zero, ...)`：`bg` 节点本身就在新矩形的中心
+        /// ⇒ 子块以局部原点为中心，**不依赖** `MenuDraw.Local`（见 `ApplyMeasuredHeight` 的警告）。</summary>
+        static void RebuildBackground(Transform bg, float wPx, float hPx, bool fancy)
+        {
+            Texture2D tex; Vector4 border, borderOut; float texW, texH;
+            BackgroundSpec(fancy, out tex, out border, out texW, out texH, out borderOut);
+            ClearChildrenNow(bg);
+            if (tex == null) return;         // `BuildToast` / `FancyBackground` 那两条已经出过声
+            var go = ImageQuad.CreateNineSlice(bg, tex, border, texW, texH, Vector3.zero,
+                                               LayoutSpace.Px(wPx), LayoutSpace.Px(hPx), "Background",
+                                               borderOut, true);
+            if (go == null) return;
+            foreach (var q in go.GetComponentsInChildren<ImageQuad>())
+            {
+                q.SetTint(Color.white);
+                q.SetRenderQueue(QBg);
+            }
+        }
+
+        /// <summary>两条模板的根底图参数（**一处定义**）：`fancy = false` ⇒ 通用 `Toast` 那张
+        /// `UI_Deck_Information_submenu_Back_opaque`（border 18 · 69×63 · 画出来的角块 18）；
+        /// `fancy = true` ⇒ 原版 `WF_UI_Generic_FancyNotification_Background`（border 20 · 352×116 ·
+        /// 角块 15.3846），本地缺图时**退回**同一张通用底图并**出声一次**（判据 → `FancyBackground`）。</summary>
+        static void BackgroundSpec(bool fancy, out Texture2D tex, out Vector4 border,
+                                   out float texW, out float texH, out Vector4 borderOut)
+        {
+            if (fancy)
+            {
+                tex = CardArt.MenuUi(FancyBackgroundName);
+                if (tex != null)
+                {
+                    border = new Vector4(20f, 20f, 20f, 20f);
+                    texW = 352f; texH = 116f;
+                    borderOut = new Vector4(15.384615f, 15.384615f, 15.384615f, 15.384615f);
+                    return;
+                }
+                WarnFancyBackgroundMissingOnce();
+            }
+            tex = CardArt.MenuUi("UI_Deck_Information_submenu_Back_opaque");
+            border = new Vector4(18f, 18f, 18f, 18f);
+            texW = 69f; texH = 63f;
+            borderOut = border;
         }
 
         // ============================================================ 时序泵（原版 DOTween.Sequence）
@@ -1119,6 +1204,18 @@ namespace CardPresentation
             return go.transform;
         }
 
+        /// <summary>清空子件 —— 先 `SetActive(false)` 再交给 `MenuDraw.ClearChildren`。
+        /// 🔴 **为什么多这一下**：`ClearChildren` 在 Play 下走 `Object.Destroy`（**帧末**才真消失）——
+        /// `N23` / `N20③` 那两处是「Show 时按新高度/新宽度重建」，旧块如果还画一帧，
+        /// 就会看到「背景先是旧尺寸、下一帧才变」的闪。先关掉 ⇒ 旧块**当帧就不再渲染**。
+        /// （批处理下 `ClearChildren` 本来就是 `DestroyImmediate`，加这一句是空操作。）</summary>
+        static void ClearChildrenNow(Transform t)
+        {
+            if (t == null) return;
+            for (int i = t.childCount - 1; i >= 0; i--) t.GetChild(i).gameObject.SetActive(false);
+            MenuDraw.ClearChildren(t);
+        }
+
         /// <summary>九宫格：`border` = 贴图像素四边（L,B,R,T）；`borderOut` = **画出来的角块**
         /// （= border ÷ `m_PixelsPerUnitMultiplier`）。贴图取不到 ⇒ 出声 + 不画（⛔ 不静默）。</summary>
         static void Nine(Transform parent, string art, PxRect r, Vector4 border, float texW, float texH,
@@ -1136,9 +1233,10 @@ namespace CardPresentation
         /// <summary>建一段 TMP 文本。`wrap` = 原版 `m_TextWrappingMode == 1`；
         /// `autoMin > 0` = 原版 `m_enableAutoSizing`（`autoMax <= 0` ⇒ 上限 = `fontPx`）。</summary>
         static Label Tmp(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                         int q, bool wrap, float autoMin, float autoMax, float autoBase)
+                         int q, bool wrap, float autoMin, float autoMax, float autoBase,
+                         TmpFont.Face face = TmpFont.Face.Cjk)
         {
-            var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, q, 0f, 0f, 0f, 0f);
+            var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, q, 0f, 0f, 0f, 0f, face: face);
             if (lb == null) return null;
             if (autoMin > 0f)
             {
@@ -1198,30 +1296,26 @@ namespace CardPresentation
         const string FancyBackgroundName = "WF_UI_Generic_FancyNotification_Background";
 
         /// <summary>`Toast Collection Level Up` / `Toast Collection Get XP` 的根底图。
-        /// 原版 = `WF_UI_Generic_FancyNotification_Background`（352×116 · border 20/20/20/20 · ppuMul 1.3）。
-        /// 🔴 这张图**没有进 `Resources/`**（只在源图 `CardPresentation/Art/原版/0_mainmenu/`）⇒
-        /// 退回**同族、已导入**的 `UI_Deck_Information_submenu_Back_opaque`（= 通用 `Toast` 那张底图）
-        /// 并**出声一次**。⛔ 没有把这一档写成「原版也这样」。</summary>
+        /// 参数/退回规则**只有一份** → <see cref="BackgroundSpec"/>（这里只负责画）。</summary>
         static void FancyBackground(Transform parent, PxRect r, int q, string name)
         {
-            var tex = CardArt.MenuUi(FancyBackgroundName);
-            if (tex != null)
-            {
-                MenuDraw.Nine(parent, tex, r, new Vector4(20f, 20f, 20f, 20f), 352f, 116f, q, Color.white, true,
-                              name, new Vector4(15.384615f, 15.384615f, 15.384615f, 15.384615f));
-                return;
-            }
-            if (!_warnedFancyBg)
-            {
-                _warnedFancyBg = true;
-                Debug.LogWarning($"[ToastNotifications] `{FancyBackgroundName}` 在 `Resources/Art/{{ui_menu,ui_deck,ui}}` "
-                               + "里**没有**（只在源图 `CardPresentation/Art/原版/0_mainmenu/`，导入器没导）⇒ "
-                               + "`Toast Collection Level Up` / `Get XP` 的根底图**退回** "
-                               + "`UI_Deck_Information_submenu_Back_opaque`（同族、已导；⛔ 不静默、也⛔ 不写成原版行为）。");
-            }
-            MenuDraw.Nine(parent, CardArt.MenuUi("UI_Deck_Information_submenu_Back_opaque"), r,
-                          new Vector4(18f, 18f, 18f, 18f), 69f, 63f, q, Color.white, true, name,
-                          new Vector4(18f, 18f, 18f, 18f));
+            Texture2D tex; Vector4 border, borderOut; float texW, texH;
+            BackgroundSpec(true, out tex, out border, out texW, out texH, out borderOut);
+            if (tex == null) return;          // 取不到（异常档）⇒ `BackgroundSpec` 的调用方已出声
+            MenuDraw.Nine(parent, tex, r, border, texW, texH, q, Color.white, true, name, borderOut);
+        }
+
+        /// <summary>原版那张 fancy 底图**本地 Resources 里没有**（只在源图，导入器没导）⇒ 出声一次，
+        /// 并由 <see cref="BackgroundSpec"/> 退回同族的 `UI_Deck_Information_submenu_Back_opaque`。
+        /// ⛔ 没有把「缺图」写成「原版也这样」。</summary>
+        static void WarnFancyBackgroundMissingOnce()
+        {
+            if (_warnedFancyBg) return;
+            _warnedFancyBg = true;
+            Debug.LogWarning($"[ToastNotifications] `{FancyBackgroundName}` 在 `Resources/Art/{{ui_menu,ui_deck,ui}}` "
+                           + "里**没有**（只在源图 `CardPresentation/Art/原版/0_mainmenu/`，导入器没导）⇒ "
+                           + "`Toast Collection Level Up` / `Get XP` 的根底图**退回** "
+                           + "`UI_Deck_Information_submenu_Back_opaque`（同族、已导；⛔ 不静默、也⛔ 不写成原版行为）。");
         }
     }
 }

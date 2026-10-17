@@ -430,13 +430,16 @@ namespace CardPresentation
             if (_ugui)
             {
                 t = HudCanvas.MakeText(transform, "", 0f, 0f, 4, TextColor, new Vector2(0f, 0.5f),
-                                       ZText, "chat_text_" + name);
+                                       ZText, "chat_text_" + name, face: TmpFont.Face.LatinCardBody);
             }
             else
             {
                 t = Label.Create(transform, "", Vector3.zero, 4, TextColor,
                                  new Vector2(0f, 0.5f), "chat_text_" + name);
             }
+            // 🔴 2026-10-17（A1024③ 第 2 批）：原版 `Unit Chat/.../ChatText` = Pragati（两档都过这里；
+            //    uGUI 档已在 `MakeText` 换过 ⇒ 同面早退）。必须在下面 `SetGlyphHeight` **之前**。
+            if (t != null) t.SetFace(TmpFont.Face.LatinCardBody);
             Move(t, b.left + TextLeft, topPx + TextCy, ZText, at.ax, at.ay);
             // 原版是 TMP `fontSize 33`（**em 口径**）—— 见 `Speak` 里那段更正说明（别按大写折）。
             // 🔴 **2026-10-16（`T09` 批 3）**：走 `U()`（世界档 = `33/108` 世界单位、uGUI 档 = **33 设计 px**）。

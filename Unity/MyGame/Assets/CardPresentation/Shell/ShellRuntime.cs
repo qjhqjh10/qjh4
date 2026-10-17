@@ -94,6 +94,12 @@ namespace CardPresentation
         /// 本地唯一的原版调用点是公会搜索（`JoinAllianceMenu`）—— 与「进战斗的黑场」不是同一件。</summary>
         public LoadingController LoadingCtl { get { return Loading != null ? Loading.Controller : null; } }
 
+        /// <summary>🆕 **2026-10-17（界面线 T16）**：离屏烘焙 + UI Blur（原版 `MainMenuWindow.screenBaker`
+        /// = `UIBakeScreen`）。主菜单不在前台时显示「上一帧 UI 的模糊快照」，回前台就关。
+        /// <para>建法 / 参数 / 开关时机 → `Shell/UIBakeScreen.cs` 与 `GameWindow` 那三处钩子
+        /// （`ToBackground` / `Hide` / `Close` ⇒ 烘；`OpenByState` 的两支 ⇒ 关）。</para></summary>
+        public UIBakeScreen Bake { get; private set; }
+
         /// <summary>🔴 **2026-10-17（界面线 T16）**：壳里**切场景的统一入口** ——
         /// 有 `LoadingMenu` 就**先淡到全黑再 `LoadScene`**（原版 `GeneralMenuController.ShowLoading` /
         /// `BattleManager._StartBattleSequence` 那条链的等价物），**新场景到了之后淡回**；没有就直接切。
@@ -405,6 +411,15 @@ namespace CardPresentation
             if (cam != null) LayoutSpace.Apply(cam);
             else Debug.LogWarning("[Shell] 场景里没有相机（`Main Camera`）—— 界面对不上屏，先补相机");
 
+            // ---- 离屏烘焙 + UI Blur（原版 `Game UI ▸ Main Canvas ▸ Background Render Texture Holder`）----
+            // 🆕 **2026-10-17（界面线 T16）**：主菜单不在前台时（被窗压住 / 隐藏 / 关闭）显示「上一帧 UI 的模糊快照」。
+            //   位置 = **全部壳 UI 之前**建（它是那一屏的地板层）；渲染队列由 `UIBakeScreen.DisplayQueue` 定
+            //   （2895：高过压暗 2890、低过全部窗 2900+，理由 → 该常量）。出厂不显示、不登记命中。
+            //   判据/逐句对照 → `Shell/UIBakeScreen.cs` 文件头。
+            Bake = NewRoot(root, "Background Render Texture Holder").gameObject.AddComponent<UIBakeScreen>();
+            Bake.cameraToBake = cam;
+            Bake.Build();     // 批处理/编辑模式里 `Awake` 不跑 ⇒ 显式调（同 `Loading.Build()` 的规矩）
+
             // ---- 音频：两个双源（原版 `MusicManager{_audioSources{_first,_second}}` 的双源交叉淡入）----
             _musicA = MakeMusicSource("Music A");
             _musicB = MakeMusicSource("Music B");
@@ -459,8 +474,8 @@ namespace CardPresentation
             Debug.Log($"[Shell·自查] WM={(WindowsManager.Instance != null)} PL={(PointerLayer.Instance != null)} 父={(PointerLayer.Instance != null && PointerLayer.Instance.transform.parent != null ? PointerLayer.Instance.transform.parent.name : "<null>")}");
 
             // ---- 载入文案（版式实证，**文案本身是本地化词条、本地没有 ⇒ 留空并说一声**）----
-            _loadingText = TextBand(root, "Loading text", LoadingY, true);
-            _progressText = TextBand(root, "Progress text", ProgressY, false);
+            _loadingText = TextBand(root, "Loading text", LoadingY, true, 10f);      // 原版 m_fontSizeMin = 10
+            _progressText = TextBand(root, "Progress text", ProgressY, false, 18f);   // 原版 m_fontSizeMin = 18
             if (_loadingText != null)
                 Debug.Log("[Shell] `Loading text` 的文案是本地化词条（`EverguildLocalization`，原版走**远程**语言表）" +
                           "—— 本地没有 ⇒ **留空**，不自己编一个字（正本 §五 第 4 条）");
@@ -525,13 +540,24 @@ namespace CardPresentation
             return src;
         }
 
-        /// <summary>`Loading text` / `Progress text`：1920×48 的一条（**只有版式是实证的**，文本组件本身查不到）。</summary>
-        Label TextBand(Transform root, string name, float yPx, bool active)
+        /// <summary>`Loading text` / `Progress text`：1920×48 的一条。
+        /// <para>🔴 **2026-10-17（`A1213④`）就地订正（铁律 5）**：原文写「文本组件本身查不到」—— **已查到**：
+        /// `工具/read_tmp_level0.py` 从原始 `level0`（无 type tree，借同类型样板的 type tree 读）解出两个 TMP：
+        /// · 两颗都是 **`m_fontSize = 36` · `m_fontSizeBase = 36` · `m_enableAutoSizing = 1` · `m_TextWrappingMode = 1`** ·
+        ///   **Center/Middle** · **白色**；框 1920×48（下面 `TextBandW/H`）。
+        /// · 只有 `m_fontSizeMin` 不同：**`Loading text` = 10** · **`Progress text` = 18**（max 都是 36）。
+        /// ⇒ 照这套值接（参数 `autoMinPx` 由调用点传）。</para></summary>
+        Label TextBand(Transform root, string name, float yPx, bool active, float autoMinPx)
         {
             var t = NewRoot(root, name);
             var lb = Label.Create(t, "", new Vector3(0f, (yPx - 540f) / 108f, 0f), 5,
                                   Color.white, new Vector2(0.5f, 0.5f), name + " Text");
-            if (lb != null) lb.SetCapHeight(TextBandH / 108f * 0.6f);
+            if (lb != null)
+            {
+                lb.SetScriptHeight("", 36f, 108f);                                   // 原版 m_fontSize / Base = 36
+                lb.SetAutoFitBox(TextBandW / 108f, TextBandH / 108f, autoMinPx, 36f, 36f);  // min 逐颗不同、max/base 36
+                lb.SetWrappingMode(1);                                               // 原版 m_TextWrappingMode = 1
+            }
             t.gameObject.SetActive(active);
             return lb;
         }
@@ -809,6 +835,7 @@ namespace CardPresentation
             sb.Append($" · 开场 {(IntroPlaying ? $"{IntroTime:F2}/{IntroLength:F2}s" : "已结束")}");
             sb.Append($" · 压暗层 4 条（左右常开 / 上下关：{( _fadeSides[3] != null && _fadeSides[3].gameObject.activeSelf ? "开" : "关")}）");
             sb.Append($" · 载入文案 y={LoadingY}(开)/{ProgressY}(关)");
+            sb.Append($" · 模糊快照 {(Bake == null ? "没建" : (Bake.Showing ? "显示中" : "关"))}");
             sb.Append(" · " + (Windows != null ? Windows.Dump() : "没有 WindowsManager"));
             sb.Append($" · 音乐 {(_musicA != null && _musicA.isPlaying ? _musicA.clip.name : "没在放")}");
             return sb.ToString();

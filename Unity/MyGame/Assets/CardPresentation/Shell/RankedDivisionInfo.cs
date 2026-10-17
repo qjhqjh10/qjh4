@@ -93,7 +93,7 @@ namespace CardPresentation
                                       //   `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_7569753382547457968.json`
                                       //   = `fs 42.0 · auto[10.0~42.0] · base 23.0`（「-2.6 字距」是本节点唯一的名片，
                                       //   见上面那句 `SetCharSpacing(-2.6f)`；`menu_dump.py` 不印 base 这一列）。
-                                      42f, 23f);
+                                      42f, 23f, face: TmpFont.Face.LatinUi);
             // 🆕 2026-10-03：原版这行 TMP `charSpacing = -2.6`（`资料/阶段二_战斗入口_原版规格.md:175`）。
             //    ⚠️ 这一段**本来就留空**（段位名是服务器数据、用户口径「不编数字」）⇒ 现在设了也看不见，
             //    但**值照原版设上**，将来一旦填字就是对的（别改成「反正看不见就不设」）。

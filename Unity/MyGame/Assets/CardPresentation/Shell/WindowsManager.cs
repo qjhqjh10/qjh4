@@ -696,6 +696,24 @@ namespace CardPresentation
         /// ⇒ 收藏窗卡背页点一张卡背开的就是这一扇（判据全文 → `Shell/ItemDisplayWindow.cs` 文件头）。</para></summary>
         public const string PrefabRefItemDisplay = "Item Display Window";
 
+        /// <summary>🆕 **2026-10-17（界面线 T18/T27）**：`WhereToGetCardsPopup`（卡牌来源窗 · 原版 `WhereToGetCardsWindow`）
+        /// 的 prefab 根名（= `Shell/WhereToGetCardsPopup.cs` 的 `Create()` 里 `new GameObject(...)` 用的名字，**两处同源**）。
+        /// <para>🔴 **原版入口是本地判据、不是猜的**：`ExpansionPassEventTab.cs:25` 与 `GachaEventTab.cs:20` 各有一个
+        /// `AssetReferenceTyped&lt;WhereToGetCardsWindow&gt; getCardsWindow` ⇒ 原版由**事件页那两个 tab** 开出来。
+        /// ⚠️ 我们**没有建承载窗 `Parent Event Window`** ⇒ 这里只提供「怎么开」，⛔ 不伪造调用点
+        /// （同 `TutorialMessagePopup` / `T26` 口径；判据全文 → `Shell/WhereToGetCardsPopup.cs` 文件头）。</para></summary>
+        public const string PrefabRefWhereToGetCards = "WhereToGetCardsPopup";
+
+        /// <summary>🆕 **2026-10-17（界面线 T28）**：`ParentEventWindow`（活动承载窗 · 原版 `BaseParentEventWindow`
+        /// 那一族 / prefab 根名 `Parent Event Window`）的 prefab 根名
+        /// （= `Shell/ParentEventWindow.cs` 的 `Create()` 里 `new GameObject(...)` 用的名字，**两处同源**）。
+        /// <para>⚠️ **本地没有生产入口**：原版由 `ParentEventHandler` / liveops 事件链打开，我们没有那条链
+        /// ⇒ 只提供「怎么开」，⛔ 不伪造调用点（同 `TutorialMessagePopup` / `T26` / `T27` 口径）。</para>
+        /// <para>⚠️ 窗参 / `tabs` 取自 **`Two Sides Event Window`** 那份 prefab（`tabs` = 2），
+        /// 外壳树取自 `Parent Event Window` —— 两份 prefab 的事实与「为什么这样组合」→
+        /// `Shell/ParentEventWindow.cs` 文件头「两个 prefab 的事实」。</para></summary>
+        public const string PrefabRefParentEvent = "Parent Event Window";
+
         /// <summary>🆕 **2026-10-17（界面线 T18）**：`TutorialMessagePopup`（原版 `TutorialMessageWindowPopUp`）的
         /// prefab 根名（= `Shell/TutorialMessagePopup.cs` 的 `Create()` 里 `new GameObject(...)` 用的名字，**两处同源**）。
         /// <para>⚠️ **本地没有生产入口**：原版由 `TutorialManager.ShowTutorialMessageWindow` ← 3 个教程 stage 的
@@ -708,6 +726,24 @@ namespace CardPresentation
         /// <para>⚠️ **本地没有生产入口**：原版由 FTUE onboarding（`!CheckTag(CollectedFirstDeck)`）开出来，
         /// 我们没有 tag 存档 / FTUE ⇒ 这里只提供「怎么开」，**不自己判显隐**。</para></summary>
         public const string PrefabRefWelcome = "WelcomeScreen Alpha";
+
+        /// <summary>🆕 **2026-10-17（界面线 T26）**：`FTUESelectDeckWindow`（选阵营送卡组窗，prefab
+        /// `Choose Army Deck FTUE Window`）的 prefab 根名（= `Shell/FTUESelectDeckWindow.cs` 的 `Create()` 里
+        /// `new GameObject(...)` 用的那个名字，**两处同源**）。
+        /// <para>⚠️ **本地没有生产入口**：原版是 FTUE onboarding（首启送卡组）的一环，而我们**没有菜单版教程状态机**
+        /// （判据 → `Shell/FTUESelectDeckWindow.cs` 的文件头与 `Shell/TutorialMessagePopup.cs` 的类 doc）
+        /// ⇒ 这里只提供「怎么开」，⛔ 不伪造调用点。</para></summary>
+        public const string PrefabRefChooseArmyDeck = "Choose Army Deck FTUE Window";
+
+        /// <summary>🆕 **2026-10-17（界面线 T18 收尾）**：排位赛季三窗 + 反馈问卷的 prefab 根名
+        /// （各自 = 自己 `Create()` 里 `new GameObject(...)` 用的名字，**两处同源**）。
+        /// <para>⚠️ 四扇**本地都没有生产入口**：三窗由排位事件结算链开、反馈窗的 `Feedback Button` 在这个
+        /// build 里出厂关着（判据 → `Shell/GiveFeedbackPopup.cs` 文件头）⇒ 这里只提供「怎么开」，⛔ 不伪造入口。</para>
+        /// <para>⚠️ `Ranked New Season WIndow` 的 **`WIndow`（大写 I）是原版拼写**，⛔ 别「修正」它。</para></summary>
+        public const string PrefabRefRankedDivisionChange = "Ranked Division Change Window";
+        public const string PrefabRefRankedNewSeason = "Ranked New Season WIndow";
+        public const string PrefabRefRankedSeasonEnded = "Ranked Season Ended Window";
+        public const string PrefabRefGiveFeedback = "Give Feedback Popup menu";
 
         /// <summary>🆕 **A251-L2**：`AllianceMemberOptionsPopup` 那一扇的 prefab 根名。
         /// ⚠️ **本地走不到**（八颗钮的显隐全要服务器，见 `Shell/AllianceMemberOptionsPopup.cs` 文件头）。</summary>
@@ -881,6 +917,38 @@ namespace CardPresentation
             return win;
         }
 
+        /// <summary>🆕 **2026-10-17（界面线 T18/T27）**：开一扇 <see cref="WhereToGetCardsPopup"/>
+        /// （原版 `WhereToGetCardsWindow` · prefab `WhereToGetCardsPopup` —— 卡牌来源窗）。
+        /// <para><paramref name="ctx"/> = 大标题词条键 + 来源段列表；`null` ⇒ **出厂那一份（段列表空）**——
+        /// 本机**没有来源数据**（`CardsSpecialConfig` 全 `assets_full` 0 命中）⇒ 那只会在「0 段 + 出声」那一档
+        /// （判据 → `Shell/WhereToGetCardsPopup.cs` 文件头）。</para>
+        /// <para>⚠️ **本地没有生产入口**（原版由事件页两个 tab 的 `getCardsWindow` AssetReference 开；
+        /// 承载窗 `Parent Event Window` 已于 **T28（2026-10-17）** 建出（见 <see cref="OpenParentEvent"/>），
+        /// 但两个事件 tab 本机**没有 liveops 数据** ⇒ 那条入口仍不接线）⇒ 只提供「怎么开」，⛔ 不伪造调用点。
+        /// ⚠️ 新建那一支会**多建一遍**（`Create` 的 `Open()` 建一次、`Show` 再建一次）—— 与同文件
+        /// `OpenItemDisplay` 同一个形状（`TryOpen` 在 `CurrentState == Open` 时照原版早退）。</para></summary>
+        public static WhereToGetCardsPopup OpenWhereToGetCards(WhereToGetCardsPopup.Context? ctx = null)
+        {
+            var win = OpenByRef(PrefabRefWhereToGetCards,
+                                wm => WhereToGetCardsPopup.Create(wm, ctx));
+            win.Show(ctx);
+            return win;
+        }
+
+        /// <summary>🆕 **2026-10-17（界面线 T28）**：开一扇 <see cref="ParentEventWindow"/>
+        /// （活动承载窗 · 原版 `BaseParentEventWindow` 那一族 / prefab 根名 `Parent Event Window`）。
+        /// <para><paramref name="page"/> = 开在哪一页（默认 `ChooseSide` —— 原版 `CheckAndOpenTab` 按
+        /// 「玩家是否已选阵营」决定，那份数据在远端 LiveOps ⇒ 本地只能挑一个并出声；
+        /// 判据 → `Shell/ParentEventWindow.cs` 文件头 ④）。</para>
+        /// <para>⚠️ **本地没有生产入口**（原版由 `ParentEventHandler` / liveops 事件链开）⇒ 只提供「怎么开」，
+        /// ⛔ 不伪造调用点。⚠️ 活动数据全在远端 ⇒ 本窗照 prefab 出厂原文画 + 出声一次
+        /// （数据缺口清单 → 同文件「数据缺口」那一节）。</para></summary>
+        public static ParentEventWindow OpenParentEvent(ParentEventWindow.Page page = ParentEventWindow.Page.ChooseSide)
+        {
+            return OpenByRef(PrefabRefParentEvent,
+                             wm => ParentEventWindow.Create(wm, page));
+        }
+
         /// <summary>🆕 **2026-10-17（界面线 T18）**：开一扇 <see cref="TutorialMessagePopup"/>
         /// （原版 `TutorialMessageWindowPopUp` —— 教程消息窗 / 「点击以继续」整屏简报）。
         /// <para><paramref name="ctx"/> = 标题/正文词条键 + `Event image`（`null` ⇒ prefab 出厂那一份：
@@ -905,6 +973,67 @@ namespace CardPresentation
         {
             var win = OpenByRef(PrefabRefWelcome,
                                 wm => WelcomePopup.Create(wm, ctx));
+            win.Show(ctx);
+            return win;
+        }
+
+        /// <summary>🆕 **2026-10-17（界面线 T26）**：开一扇 <see cref="FTUESelectDeckWindow"/>
+        /// （原版 `FTUESelectDeckWindow` / prefab `Choose Army Deck FTUE Window` —— 「SELECT ARMY」选阵营送卡组）。
+        /// <para><paramref name="decks"/> = 起始卡组表（`null` ⇒ <see cref="FTUESelectDeckWindow.Starters"/>，
+        /// 四副 `UM/ORK/BL/SAU_SK_Starter`，逐列判据 → 那个文件的文件头）。</para>
+        /// <para>⚠️ **本地没有生产入口**（原版在 FTUE onboarding 链里，我们没建那条状态机）⇒ 只提供「怎么开」，
+        /// ⛔ 不伪造调用点。⚠️ 新建那一支会**多建一遍**（`Create` 的 `Open()` 建一次、这里没有 `Show` 二次
+        /// —— 本窗**没有**可换的内容参数，所以**不**走 `Show`；只有 `decks` 变了才需要重建，而那是建窗参数）。</para></summary>
+        public static FTUESelectDeckWindow OpenChooseArmyDeck(FTUESelectDeckWindow.StarterDeck[] decks = null)
+        {
+            var win = OpenByRef(PrefabRefChooseArmyDeck,
+                                wm => FTUESelectDeckWindow.Create(wm, decks));
+            return win;
+        }
+
+        // ---------------------------------------------------------- 🆕 2026-10-17（界面线 T18 收尾）：排位赛季三窗 + 反馈问卷
+        //
+        // 🔴 **四扇都走 `OpenByRef`**（= 原版 `automaticallyLoadedWindows` 命中就复用那一套），
+        //    键 = 上面那四条 `PrefabRef*`（各自 = 自己 `Create()` 里 `new GameObject(...)` 用的名字，两处同源）。
+        // ⚠️ **复用那一支也要把新参数喂进去**：`GameWindow.TryOpen` 在 `CurrentState == Open` 时照原版早退
+        //    ⇒ 显式调各自的 `Show(ctx)`（同 `OpenItemDisplay` / `OpenTutorialMessage` 的形状）。
+        // ⚠️ **本地都没有生产入口**（判据 → 各窗文件头）⇒ 这里只提供「怎么开」，⛔ 不伪造调用点。
+
+        /// <summary>🆕 开一扇 <see cref="RankedDivisionChangeWindow"/>（原版 `RankedEventDivisionChangeWindowNewSystem`）：
+        /// 排位升段窗。`ctx` = 段位名 / 评分 / 印玺进度（**全在服务端**；`null` ⇒ 窗壳 + `--`）。</summary>
+        public static RankedDivisionChangeWindow OpenRankedDivisionChange(RankedDivisionChangeWindow.Context? ctx = null)
+        {
+            var win = OpenByRef(PrefabRefRankedDivisionChange, wm => RankedDivisionChangeWindow.Create(wm, ctx));
+            win.Show(ctx);
+            return win;
+        }
+
+        /// <summary>🆕 开一扇 <see cref="RankedNewSeasonWindow"/>（原版 `RankedEventStartSeasonWindow`）：
+        /// 新赛季窗。`ctx.EndUtc` = 赛季结束时刻（**服务端数据**；`null` ⇒ 显示 `--`）。</summary>
+        public static RankedNewSeasonWindow OpenRankedNewSeason(RankedNewSeasonWindow.Context? ctx = null)
+        {
+            var win = OpenByRef(PrefabRefRankedNewSeason, wm => RankedNewSeasonWindow.Create(wm, ctx));
+            win.Show(ctx);
+            return win;
+        }
+
+        /// <summary>🆕 开一扇 <see cref="RankedSeasonEndedWindow"/>（原版 `RankedEventSeasonEndedWindow`）：
+        /// 赛季结束窗。🔴 它的窗参是 **`type = 0`（Fullscreen）** —— 别照另两扇抄。`ctx` 全在服务端（`null` ⇒ `--`）。</summary>
+        public static RankedSeasonEndedWindow OpenRankedSeasonEnded(RankedSeasonEndedWindow.Context? ctx = null)
+        {
+            var win = OpenByRef(PrefabRefRankedSeasonEnded, wm => RankedSeasonEndedWindow.Create(wm, ctx));
+            win.Show(ctx);
+            return win;
+        }
+
+        /// <summary>🆕 开一扇 <see cref="GiveFeedbackPopup"/>（原版 `GiveFeedbackMenuDemo`）：反馈问卷整窗。
+        /// <para>⚠️ **原版这个 build 里没有活入口**（主菜单 `Feedback Button` 出厂 `m_IsActive = false`、
+        /// `feedbackMenu` 字段全库 0 命中）⇒ 只提供「怎么开」。</para>
+        /// <para>⚠️ 新建那一支会**多建一遍**（`Create` 的 `Open()` 建一次、`Show` 再建一次）—— 同
+        /// `OpenItemDisplay` 那条口径；本窗树很大（问卷 16 题），但只在「复用已开的窗」时才多这一遍。</para></summary>
+        public static GiveFeedbackPopup OpenGiveFeedback(GiveFeedbackPopup.Context? ctx = null)
+        {
+            var win = OpenByRef(PrefabRefGiveFeedback, wm => GiveFeedbackPopup.Create(wm, ctx));
             win.Show(ctx);
             return win;
         }

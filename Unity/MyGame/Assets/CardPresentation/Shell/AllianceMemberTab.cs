@@ -470,7 +470,7 @@ namespace CardPresentation
             //   ⚠️ 档位 = 原版 `m_MovementType = 1`（**Elastic**）—— ⛔ 别套 `BattleLogPopup` 那一档。
             //   ⚠️ `Owner` 取 `TrophiesWindow` **这一棵**（点 `General` 键切回来时它是关的 ⇒
             //     这一格必须一起失去滚轮命中；`HitScroll` 判的就是 `Owner.activeInHierarchy`）。
-            var sc = MenuScroll.TopAligned(TrophyScrollR, 0f);     // 内容高在 `BuildTrophyRows` 里按格数写
+            var sc = MenuScroll.TopAligned(TrophyScrollR, 0f, 50f);     // 内容高在 `BuildTrophyRows` 里按格数写；原版 `TrophiesWindow/Scroll Rect` = 50（D_N29）
             sc.Owner = root.gameObject;
             sc.Elastic = true;
             sc.OnChanged = RebuildTrophiesForTest;                 // 滚轮只改 `Offset`、**画是调用方的事**
@@ -1193,7 +1193,7 @@ namespace CardPresentation
             //   ⚠️ `Owner` 取 `GeneralDetails` **这一棵**（不是整页）：点 `Trophies` 键切走（或切到另一支）时
             //     它是关的，这一格必须**一起失去滚轮命中**（`HitScroll` 判的就是 `Owner.activeInHierarchy`）。
             //   ⚠️ 两棵树的视口**矩形不同**（act T `369.67,493.63…` / act F `371.17,466.85…`）⇒ 取 `g.Viewport`。
-            var sc = MenuScroll.TopAligned(g.Viewport, 0f);        // 内容高在 `AllianceMemberRow.BuildAll` 里按条数写
+            var sc = MenuScroll.TopAligned(g.Viewport, 0f, 50f);        // 内容高在 `AllianceMemberRow.BuildAll` 里按条数写；原版 `MemberList/Scroll View` = 50（D_N29）
             sc.Owner = root.gameObject;
             sc.Elastic = true;                                     // 原版 `m_MovementType = 1` = Elastic
             SocialPage.RegisterScroll(sc);                         // 指针层要认识它，滚轮才落得到这一格上
@@ -1447,9 +1447,10 @@ namespace CardPresentation
             v.Rect(row, null, new PxRect(r.x1 + 2.24f, r.y1 + 2.52f, r.x1 + 47.54f, r.y1 + 97.59f),
                    "Image", 0, new Color(0.481f, 0.182f, 0f, 1f));
             var idxR = new PxRect(r.x1 + 2.52f, r.y1 + 2.56f, r.x1 + 47.04f, r.y1 + 97.34f);
+            // 🆕 **2026-10-17（`A1024③`）**：原版 `member index` = **Asar**（`R_A1024_字体按用途普查.md` §2·5·1）
             var lbIdx = v.Text(row, idxR,
                    m.Index.ToString(), Color.white, "member index", 40f, 3, 18f, wrap: false,
-                   alignLeft: false);   // A319 #10（原版 `Center`(2)）· 原版 `折行=0`
+                   alignLeft: false, face: TmpFont.Face.LatinUi);   // A319 #10（原版 `Center`(2)）· 原版 `折行=0`
             // 🆕 **2026-10-16（A712 阶段 2）**：原版 `member index` = `对齐=Center/**Midline**`
             //   （同一份 dump；`Alliance Member Entry` 那一族 ⇒ **同名不同档**，与 `Individual rating value`
             //   那两族一样要**按祖先链各取各的**，见本文件头 `alignLeft` 表那一段）。

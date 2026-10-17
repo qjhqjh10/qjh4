@@ -52,7 +52,7 @@ namespace CardPresentation
         static readonly PxRect ValueR = new PxRect(1200f, 540f, 1520f, 660f);
         static readonly PxRect InfoR  = new PxRect(600f, 700f, 1650f, 760f);
 
-        /// <summary>文字色：标题/数值取左栏文案那条 **#F4E1AC**（`MenuWindowBase.BuildTabButton` 用的同一个色），
+        /// <summary>文字色：标题/数值取左栏文案那条 **#F4E1AC**（`MainMenuSubmenuWindow.BuildTabButton` 用的同一个色），
         /// 「Current streak:」用白、说明句用灰 —— **我们挑的**。</summary>
         static readonly Color Gold = new Color(0.9569f, 0.8824f, 0.6745f);
         static readonly Color Grey = new Color(0.70f, 0.70f, 0.70f);
@@ -92,17 +92,17 @@ namespace CardPresentation
 
             // 大标题（**我们挑的**）
             _win.Text(_root, TitleText, TitleR.x1, TitleR.x2, TitleR.y1, TitleR.y2, 6, Gold,
-                      "Daily Streak Title", 70f);
+                      "Daily Streak Title", 70f);   // A1024③ 判不出（原版页签是 live-ops 运行期加的）⇒ 保持 Cjk
             // 「Current streak:」—— 复用 `DailyData.StreakCurrentLabel()`（那条串自己标着「我们挑的」；
             // 🔴 **不在这里再写一份字面量**：字面量只留在 `DailyData` 那一处，与连登弹窗共用同一条）。
             _win.Text(_root, DailyData.StreakCurrentLabel(), LabelR.x1, LabelR.x2, LabelR.y1, LabelR.y2,
-                      6, Color.white, "Daily Streak Label", 70f);
+                      6, Color.white, "Daily Streak Label", 70f, face: TmpFont.Face.LatinUi);
             // 数值 —— **本页唯一的数据件**，值 = `DailyData.StreakLoggedDays`
             _value = _win.Text(_root, ValueText(), ValueR.x1, ValueR.x2, ValueR.y1, ValueR.y2,
-                               6, Gold, "Daily Streak Value", 90f);
+                               6, Gold, "Daily Streak Value", 90f, face: TmpFont.Face.LatinUi);
             // 说明句（复用 `DailyData.StreakInfoText()`，同样「我们挑的」）
             _win.Text(_root, DailyData.StreakInfoText(), InfoR.x1, InfoR.x2, InfoR.y1, InfoR.y2,
-                      6, Grey, "Daily Streak Info", 36f);
+                      6, Grey, "Daily Streak Info", 36f, face: TmpFont.Face.LatinCardBody);
         }
     }
 }

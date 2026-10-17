@@ -365,7 +365,8 @@ namespace CardPresentation
             // 玩家名：`fontSize 32` · `auto[10~32]` · `m_fontColor (0.9686,0.9137,0.7137)` · **不折行**
             // （文案 = `ProfileData.PlayerName`，**全工程唯一一份** —— 档案窗改名窗写的就是它）
             var pn = Text(p, ProfileData.PlayerName, 136.9f, 401.9f, 13.7f, 61.7f, 8,
-                          new Color(0.9686f, 0.9137f, 0.7137f), "Player Name", 32f, QBarText);
+                          new Color(0.9686f, 0.9137f, 0.7137f), "Player Name", 32f, QBarText,
+                          TmpFont.Face.LatinUi);   // 原版 `Upper bar/Player Profile/Player Name` = Asar（普查 §2·5）
             if (pn != null)
             {
                 pn.SetAutoFitBox(265f / 108f, 48f / 108f, 10f, 32f, 36f);
@@ -415,7 +416,7 @@ namespace CardPresentation
             Rect(lvl, ArtRoundBtn, 117.5f, 170.6f, 54.3f, 107.4f, "Icon", QBarLevel,
                  null, false, onMissing);
             var lv = Text(lvl, "-", 124.3f, 163.7f, 61.1f, 100.5f, 7, Color.white, "Player Level Text",
-                          37.2f, QBarText);
+                          37.2f, QBarText, TmpFont.Face.LatinCardBody);   // 原版 `Player Level Text` = Pragati
             if (lv != null) lv.SetAutoFitBox(39.4f / 108f, 39.4f / 108f, 18f, 37.2f, 36.89f);
         }
 
@@ -542,7 +543,8 @@ namespace CardPresentation
                 var item = New(container, "Resource Counter Item", 0f, ItemH);
                 var lb = Text(item, MainMenuRuntime.CounterText(MainMenuRuntime.OwnedOf(spec.Currency),
                                                                 MainMenuRuntime.MaxOf(spec.Currency)),
-                              0f, 1f, 0f, PillH, 8, Color.white, "Resource QuantityText", QtyFontPx, QBarText);
+                              0f, 1f, 0f, PillH, 8, Color.white, "Resource QuantityText", QtyFontPx, QBarText,
+                              TmpFont.Face.LatinCardBody);   // R3：原版 `Resource QuantityText` = Pragati（下面按 `WorldW` 量药丸宽）
                 if (lb != null) { lb.SetCharSpacing(QtyCharSpacing); lb.ForceRelayout(); }   // 字距要在量宽之前
                 if (string.IsNullOrEmpty(spec.Icon)) noIcon.Add(spec.Currency);
                 float nat = lb != null ? lb.WorldW * 108f : 0f;
@@ -697,12 +699,16 @@ namespace CardPresentation
         /// ⚠️ 走 `Label.SetGlyphHeight`（工程里实测过的换算），**别自己乘 108** —— 那会大到 2.7 倍
         /// （`MainMenuRuntime.Text` 的 doc 里有那次实测）。</summary>
         static Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
-                          Color color, string name, float fontPx, int queue)
+                          Color color, string name, float fontPx, int queue,
+                          TmpFont.Face face = TmpFont.Face.Cjk)
         {
             var lb = Label.Create(parent, text, Center(x1, x2, y1, y2), scale, color,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
             lb.SetRenderQueue(queue);
+            // 🔴 2026-10-17（A1024③ 逐行对账）：可选字体面（默认 `Cjk` ⇒ 旧调用点零变化）。
+            //    必须在 `SetGlyphHeight` 之前（字号按 `ActualFace` 的 em 换算，判据 → `MenuDraw.TextCore`）。
+            if (face != TmpFont.Face.Cjk) lb.SetFace(face);
             if (fontPx > 0f) lb.SetGlyphHeight(fontPx / 108f);
             return lb;
         }

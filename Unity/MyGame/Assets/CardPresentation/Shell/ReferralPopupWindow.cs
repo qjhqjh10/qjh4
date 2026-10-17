@@ -409,25 +409,25 @@ namespace CardPresentation
 
             // `Referral Title`（fs40 · base 45.2 · auto[3~40] · Center/Middle · 折行=1）
             _refTitle = MenuDraw.TextBox(_content, RefTitleR, TxtRefTitle, Color.white, "Referral Title",
-                                         RefTitleFont, RefTitleMin, QText, RefTitleMax, RefTitleBase);
+                                         RefTitleFont, RefTitleMin, QText, RefTitleMax, RefTitleBase, face: TmpFont.Face.LatinCardBody);
 
             // `Input View`（那一列的输入区）
             _inputView = MenuDraw.Node(_content, "Input View", InputViewR);
             _inLabel = MenuDraw.TextBox(_inputView, InLabelR, TxtInLabel, Color.white, "Label",
-                                        InLabelFont, InLabelMin, QText, InLabelMax, InLabelBase);
+                                        InLabelFont, InLabelMin, QText, InLabelMax, InLabelBase, face: TmpFont.Face.LatinCardBody);
             BuildInput();
             // `spacing`：**空节点**（原版就是一根占位，没有 Image）
             MenuDraw.Node(_inputView, "spacing", InSpacingR);
             BuildReferButton();
             _error = MenuDraw.TextBox(_inputView, ErrorR, TxtError, ErrorTint, "error",
-                                      ErrorFont, ErrorMin, QError, ErrorMax, ErrorBase);
+                                      ErrorFont, ErrorMin, QError, ErrorMax, ErrorBase, face: TmpFont.Face.LatinCardBody);
 
             // `Referred View`（**出厂关着**；两态的那一件 —— `Refresh()` 在 `has` 时开它）
             _referredView = MenuDraw.Node(_content, "Referred View", RefViewR);
             _refLabel = MenuDraw.TextBox(_referredView, RefLabelR, TxtRefLabel, Color.white, "Label",
-                                         RefLabelFont, RefLabelMin, QText, RefLabelMax, RefLabelBase);
+                                         RefLabelFont, RefLabelMin, QText, RefLabelMax, RefLabelBase, face: TmpFont.Face.LatinCardBody);
             _name = MenuDraw.TextBox(_referredView, RefNameR, TxtName, Color.white, "Name",
-                                     NameFont, NameMin, QText, NameMax, NameBase);
+                                     NameFont, NameMin, QText, NameMax, NameBase, face: TmpFont.Face.LatinCardBody);
 
             // `Divisor line members`（分隔条 · 九宫 63,0,63,0 · ppuMul 1.64 ⇒ 角块 38.4146）
             var divTex = Tex(ArtDivisor, "分隔条 `Divisor line members`");
@@ -441,7 +441,7 @@ namespace CardPresentation
             // `spacing (1)`：空节点
             MenuDraw.Node(_content, "spacing (1)", Spacing1R);
             _title = MenuDraw.TextBox(_content, TitleR, TxtTitle, Color.white, "Title",
-                                      TitleFont, TitleMin, QText, TitleMax, TitleBase);
+                                      TitleFont, TitleMin, QText, TitleMax, TitleBase, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-16（A712 阶段 2）就地订正（铁律 5）**：这段原来写着
             //    「`Descripton` 的 `m_VerticalAlignment = 256 (Top)` —— **我们这套 `Label` 没有纵向对齐那一层**
             //    （只有 `AlignLeft`/`AlignRight`）⇒ 建成**居中**并出声」。**「没有那一层」这半句现在过期了**：
@@ -458,12 +458,12 @@ namespace CardPresentation
             //    · ⛔ 别把这一行删了退回「居中」；也别给它传别的档 —— 判据是 prefab 里的
             //      `m_VerticalAlignment = 256`（= `Top`，见本文件 `:427` 与 `W16` §二）。
             _descr = MenuDraw.TextBox(_content, DescrR, TxtDescr, Color.white, "Descripton",
-                                      DescrFont, DescrMin, QText, DescrMax, DescrBase);
+                                      DescrFont, DescrMin, QText, DescrMax, DescrBase, face: TmpFont.Face.LatinCardBody);
             // ⚠️ 排在 `TextBox` **之后**：`SetWrapWidth` / `SetAutoFitBox` 各自会重排一次，
             //    而框高那一份同时由 `SetAutoFitBox` 记进 `Label` ⇒ 先设档会拿不到框高（`SetVAlign` 的 doc）。
             MenuDraw.SetVAlign(_descr, Label.VAlign.Top, DescrR);
             _cntNum = MenuDraw.TextBox(_content, CntNumR, TxtCounter, CntNumTint, "counter number",
-                                       CntNumFont, CntNumMin, QText, CntNumMax, CntNumBase);
+                                       CntNumFont, CntNumMin, QText, CntNumMax, CntNumBase, face: TmpFont.Face.LatinCardBody);
 
             // `counter`（**出厂关着、运行期也没有代码开它** —— 见文件头①）+ 50 颗 `marker`
             _counter = MenuDraw.Node(_content, "counter", CounterR);
@@ -499,13 +499,13 @@ namespace CardPresentation
             var ta = MenuDraw.Node(_input, "Text Area", TextAreaR);
             // `Placeholder`：fs40 · base 14 · auto[18~40] · Center/Middle · **折行=0** · 色 (0.972,0.972,0.972,0.5)
             _placeholder = MenuDraw.TextBox(ta, TextAreaR, TxtPlaceholder, PlaceholderTint, "Placeholder",
-                                            PlaceholderFont, PlaceholderMin, QPlaceholder, PlaceholderMax, PlaceholderBase);
+                                            PlaceholderFont, PlaceholderMin, QPlaceholder, PlaceholderMax, PlaceholderBase, face: TmpFont.Face.LatinCardBody);
             // ⚠️ `TextBox` 会**无条件**把换行开成 `Normal`（`SetAutoFitBox` → `SetWrapWidth`）——
             //    原版这一格是 `m_TextWrappingMode = 0 (NoWrap)` ⇒ 建完显式关掉（同 `BaseOfferPopup` 那几处）。
             if (_placeholder != null) _placeholder.SetWrapping(false);
             // `Text`：fs45 · base 14 · auto[18~45] · Center/Middle · **折行=3**（`PreserveWhitespaceNoWrap`）· 白
             _inputText = MenuDraw.TextBox(ta, TextAreaR, TxtInputEmpty, Color.white, "Text",
-                                          InputTextFont, InputTextMin, QInputText, InputTextMax, InputTextBase);
+                                          InputTextFont, InputTextMin, QInputText, InputTextMax, InputTextBase, face: TmpFont.Face.LatinCardBody);
             if (_inputText != null) { _inputText.SetWrappingMode(3); MenuDraw.ClipText(_inputText, TextClipRect(), Vector2.zero); }
 
             // 命中区：原版 `m_OnValueChanged` / 点一下进编辑 —— 我们走 `PointerLayer.BeginText`
@@ -526,7 +526,7 @@ namespace CardPresentation
             if (btnTex != null) btnQ = MenuDraw.Rect(btnNode, btnTex, BtnR, "Image", QBtn, null, true);
             // `Button Text`：fs26.35 · base 12 · auto[10~30] · Center/**Capline** · **折行=0**
             var tx = MenuDraw.TextBox(btnNode, BtnTextR, TxtBtn, Color.white, "Button Text",
-                                      BtnTextFont, BtnTextMin, QBtnText, BtnTextMax, BtnTextBase);
+                                      BtnTextFont, BtnTextMin, QBtnText, BtnTextMax, BtnTextBase, face: TmpFont.Face.LatinCardBody);
             if (tx != null) tx.SetWrapping(false);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版那颗 = `Center/**Capline** · 折行=0`
             //   （判据 = 上一行那句读数原文）。

@@ -477,12 +477,12 @@ namespace CardPresentation
 
             // ---- 3) `Title`（hAlign = Left ⇒ `AlignLeft`；色 (0.915,0.541,0,1)）----
             _title = MenuDraw.TextBox(root, Abs(TitleR), TxtTitle, TitleTint, "Title",
-                                      TitleFont, TitleMin, QTitle, TitleMax, TitleBase);
+                                      TitleFont, TitleMin, QTitle, TitleMax, TitleBase, face: TmpFont.Face.LatinUi);
             if (_title != null) MenuDraw.AlignLeft(_title, Abs(TitleR));
 
             // ---- 4) `SubTitle`（**出厂 act = F** ⇒ 建成关着的）----
             _subTitle = MenuDraw.TextBox(root, Abs(SubTitleR), TxtSubTitle, Color.white, "SubTitle",
-                                         SubTitleFont, SubTitleMin, QSubTitle, SubTitleMax, SubTitleBase);
+                                         SubTitleFont, SubTitleMin, QSubTitle, SubTitleMax, SubTitleBase, face: TmpFont.Face.LatinCardBody);
             if (_subTitle != null)
             {
                 MenuDraw.AlignLeft(_subTitle, Abs(SubTitleR));
@@ -521,7 +521,7 @@ namespace CardPresentation
             //   （本件也没跑），但调度台已按 A754 那条同族先例裁定「**算 A435 站点 ⇒ 要做**」。
             _content = MenuDraw.Node(vp, "Content", Abs(ContentR));
             // 纵向滚动（原版 `m_Horizontal 0 / m_Vertical 1`）⇒ 走公共件的 `TopAligned`（它顺手置 `Vertical = true`）。
-            _scroll = MenuScroll.TopAligned(Abs(ViewportR), ContentH(0));
+            _scroll = MenuScroll.TopAligned(Abs(ViewportR), ContentH(0), 30f);   // 原版 `Purchase Premium Window/Scroll View` = 30（D_N29）
             // 🔴 **A465（W-A435己）那一行，本件补上**：构建循环（`RebuildContainers` 里
             //   `if (_scroll != null && !_scroll.Intersects(on)) continue;`）从今天起读**同一颗节点**的状态。
             //   ⚠️ **赋值必须紧跟「建这颗节点 / 建这个滚动区」的那一处**：`_content` / `_scroll` / 这颗
@@ -533,9 +533,8 @@ namespace CardPresentation
             _scroll.Owner = gameObject;
             _scroll.OnChanged = RebuildContainers;
             PointerLayer.RegisterScroll(_scroll);
-            // ⚠️ 原版 `m_ScrollSensitivity = 30`（逐处实读）—— 我们这条滚轮走的是**公共件那一份**系数
-            //    （`MenuScroll.NotchK = 0.4`，全壳唯一一份）⇒ 手感与原版的 30 **不是同一个数**。
-            //    如实记（报告 §九②），⛔ 不为这一扇再立第二份滚动实现。
+            // ✅ 2026-10-17（N29）：滚轮灵敏度 = 原版 `m_ScrollSensitivity = 30`（逐处实读），
+            //    已按**每实例一份**传进 `MenuScroll`（构造那一行的 `30f`）—— 不再是全壳 0.4 那个自选手感。
 
             // 模板（`armyInfoContainerReference`，**出厂 act = T、`Initialize()` 用完关掉**）
             _containerTemplate = MenuDraw.Node(_content, "Army Container", Abs(ContainerR));
@@ -679,10 +678,10 @@ namespace CardPresentation
             // `Army Icon`：原版 `m_Sprite = <无图>`（运行期 `ArmyUtilities.GetArmyIcon`）⇒ 只建节点。
             MenuDraw.Node(_armyInfo, "Army Icon", Abs(ArmyIconR));
             _infoTitle = MenuDraw.TextBox(_armyInfo, Abs(DescTitleR), TxtInfoTitle, Color.white, "Description title",
-                                          InfoTitleFont, InfoTitleMin, QInfoTitle, InfoTitleMax, InfoTitleBase);
+                                          InfoTitleFont, InfoTitleMin, QInfoTitle, InfoTitleMax, InfoTitleBase, face: TmpFont.Face.LatinCardBody);
             if (_infoTitle != null) MenuDraw.AlignLeft(_infoTitle, Abs(DescTitleR));
             _infoBody = MenuDraw.TextBox(_armyInfo, Abs(DescBodyR), TxtInfoBody, Color.white, "Description Content",
-                                         InfoBodyFont, InfoBodyMin, QInfoText, InfoBodyMax, InfoBodyBase);
+                                         InfoBodyFont, InfoBodyMin, QInfoText, InfoBodyMax, InfoBodyBase, face: TmpFont.Face.LatinCardBody);
             if (_infoBody != null) MenuDraw.AlignLeft(_infoBody, Abs(DescBodyR));
 
             // `Price Display Button 2`（`PriceDisplayButton`）
@@ -704,7 +703,7 @@ namespace CardPresentation
             //   ⇒ **行为等价、不是偏离**。🔴 **⛔ 不许为此给共用闸加特例**，也 **⛔ 不许把
             //   `PriceBtnTxtMin` 改到 < 12**（那会偏离原版实读值）—— 两处都由本轮调度台现核后裁定。
             var pbt = MenuDraw.TextBox(gb, Abs(PriceBtnTxtR), "", Color.white, "Button Text",
-                                       PriceBtnTxtFont, PriceBtnTxtMin, QPriceBtnText, PriceBtnTxtMax, PriceBtnTxtBase);
+                                       PriceBtnTxtFont, PriceBtnTxtMin, QPriceBtnText, PriceBtnTxtMax, PriceBtnTxtBase, face: TmpFont.Face.LatinCardBody);
             if (pbt != null) pbt.gameObject.SetActive(false);
             // `Price Display`（HLG + `PriceDisplay`；那颗 icon 的 `localScale = 1.2` ⇒ 按**视觉框** 72.03² 摆，
             // 同 `BaseOfferPopup` 那条纪律）
@@ -712,7 +711,7 @@ namespace CardPresentation
             MenuDraw.Node(pbox, "icon", Abs(new PxRect(PriceIconR.x1 - 6f, PriceIconR.y1 - 6f,
                                                        PriceIconR.x2 + 6f, PriceIconR.y2 + 6f)));
             _priceText = MenuDraw.TextBox(pbox, Abs(PriceTextR), TxtPrice, Color.white, "text",
-                                          PriceTextFont, PriceTextMin, QPriceText, PriceTextMax, PriceTextBase);
+                                          PriceTextFont, PriceTextMin, QPriceText, PriceTextMax, PriceTextBase, face: TmpFont.Face.LatinCardBody);
             // 换图那一跳走 `BindNine`（九宫格切成 9 张 ⇒ 只换中心那格 = 边框不跟着亮）。
             var priceHit = MenuDraw.Hit(gb, "Hit", Abs(PriceBtnR), QHit, () => PurchaseButtonClick());
             if (priceHit != null && btnNine != null)
@@ -725,7 +724,7 @@ namespace CardPresentation
 
             // `Purchased Text`
             _purchased = MenuDraw.TextBox(_armyInfo, Abs(PurchasedR), TxtPurchased, PremTextTint, "Purchased Text",
-                                          PurchasedFont, PurchasedMin, QPurchased, PurchasedMax, PurchasedBase);
+                                          PurchasedFont, PurchasedMin, QPurchased, PurchasedMax, PurchasedBase, face: TmpFont.Face.LatinCardBody);
         }
 
         /// <summary>一个 `Army Container`（`PuchasePremiumArmyContainer` 的 6 个节点）。
@@ -753,7 +752,7 @@ namespace CardPresentation
             //   ⛔ 别在这儿补 `ClipText`（同框第二刀 = A821 那 7 个包装器的形状，诊断计数会虚高）。
             //   判据全文 / 全量 199 处 → `资料/普查产出_1015/R2_A799全量表.md` §一① #1。
             var lb = MenuDraw.TextBox(cn, Sub(Abs(ContNameR)), nm, Color.white, "Army Name",
-                                      ArmyNameFont, 0f, QContainerName, ArmyNameFont, ArmyNameBase);
+                                      ArmyNameFont, 0f, QContainerName, ArmyNameFont, ArmyNameBase, face: TmpFont.Face.LatinUi);
             if (lb != null) MenuDraw.AlignLeft(lb, Sub(Abs(ContNameR)));
             var hiTex = Tex(ArtHightlight, "`Hightlight` 的选中底");
             if (hiTex != null)
@@ -772,7 +771,7 @@ namespace CardPresentation
             //   且本句**丢弃返回值**（不接 `Label`）⇒ A798 那条「整块在框外 ⇒ 返回 `null`」在这句上无副作用。
             //   ⛔ 别补 `ClipText`。判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #2。
             MenuDraw.TextBox(pi, Sub(Abs(PremTextR)), TxtPremium, PremTextTint, "Premium Text",
-                             PremiumFont, PremiumMin, QPremiumText, PremiumMax, PremiumBase);
+                             PremiumFont, PremiumMin, QPremiumText, PremiumMax, PremiumBase, face: TmpFont.Face.LatinUi);
             // 原版 `premiumObjects` 的开关（`PuchasePremiumArmyContainer.Initialize`）
             if (o.HasValue) pu.gameObject.SetActive(o.Value.PremiumUnlocked);
         }

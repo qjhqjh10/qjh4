@@ -239,7 +239,8 @@ namespace CardPresentation
                 //   `_vTier = VAlign.Middle`（= **512**）⇒ 不显式设就是**另一档**。
                 //   ⚠️ 这批**只在这两处设档、不动 `Label` 的出厂值**（改出厂值会牵动全工程所有宿主
                 //   —— `MenuDraw.SetVAlign` 的 doc 写着）。框高按**这颗钮自己的矩形**给。
-                //   ⚠️ 与 `Deck/DeckRuntime.cs` 建的那扇同款窗（`imp_ok_t`）是**同一颗原版节点**、两处都设。
+                //   ⚠️ **2026-10-17 订正（`T23`）**：原文写「与 `DeckRuntime` 那扇同款窗（`imp_ok_t`）两处都设」——
+                //     那棵树当天已删（只给自检用的重复实现）⇒ 现在**只有这一处**。
                 if (okLb != null) MenuDraw.SetVAlign(okLb, Label.VAlign.Midline, r);
                 // A17：原版 `Window>Buttons>Generic UI Button` 是 SpriteSwap（普查 §块 3 第 11 行）
                 var okHit = HitOn(b.transform, b.transform, "OkHit", r, () => TryImport());
@@ -314,6 +315,9 @@ namespace CardPresentation
                                   5, empty ? new Color(0.67f, 0.67f, 0.67f, 0.5f) : new Color(0.858f, 0.858f, 0.858f, 1f),
                                   new Vector2(0.5f, 0.5f), "Input Text");
             if (lb == null) return;
+            // 🔴 2026-10-17（A1024③ 第 2 批）：原版 `Import Deck Popup/.../InputField (TMP)/Text` = Pragati。
+            //    必须在下面 `SetGlyphHeight` **之前**（字号按 `ActualFace` 的 em 换算）。
+            lb.SetFace(TmpFont.Face.LatinCardBody);
             lb.SetRenderQueue(QImpText);
             lb.SetGlyphHeight(LayoutSpace.Px(TxtFontPx));
             // ---- 🆕 **2026-10-17（D46 第二处）：输入框那行字的对齐 = `Left/Top`** ----
@@ -321,8 +325,10 @@ namespace CardPresentation
             //     ⇒ `SetVAlign(Top, 框高)` 必须排在它**后面**，反过来会被那次赋值覆盖回 `Middle`。
             //   ⚠️ 框 = **原版那颗节点的 rect**（620,377 → 1300,505.06，就是上面 `TxtL/TxtT/TxtR/TxtB`）
             //     —— `Top` 那一档要**框高**才算得出目标位置（拿不到会出声并退回 `Middle`）。
-            //   ✅ 参照物 = **卡组编辑窗那份已经改对的同款**（`Deck/DeckRuntime.cs` 的 `BuildImportPopup`
-            //     里 `_impInputTx` 那三句，同一对调用、同一个理由）。
+            //   ✅ 参照物 = 这只 `SetAlignLeft` → `SetVAlign(Top, 框高)` 的调用对**本身**（同一个理由：
+            //     `SetAlignLeft` 会把 V 一起写成 Middle，所以设 Top 必须排在它**后面**）。
+            //     ⚠️ **2026-10-17 订正（`T23`）**：原文引的 `DeckRuntime.BuildImportPopup/_impInputTx`
+            //     是只给自检用的重复实现、当天已删 —— 判据本身不变，只是不再有那份镜像代码可对照。
             lb.SetAlignLeft();
             MenuDraw.SetVAlign(lb, Label.VAlign.Top, new PxRect(TxtL, TxtT, TxtR, TxtB));
         }

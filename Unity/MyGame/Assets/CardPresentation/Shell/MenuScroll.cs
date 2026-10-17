@@ -12,9 +12,12 @@
 //    · 两条阵营条：13 个条目本来就放不下（见 `项目任务.md` §三 第 15 条 第 21 条）。
 //
 // ============================ 原版字段（照抄，别自己编） ============================
-// 出处：`d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/` 里 **102 个 ScrollRect**
-//       的实测分布（`m_Horizontal`/`m_Vertical`/`m_MovementType`/`m_Elasticity`/`m_Inertia`/
-//       `m_DecelerationRate`/`m_ScrollSensitivity`）：
+// 出处（判据正本 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`）：
+//       `d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/` 里带
+//       `m_ScrollSensitivity` 的 ScrollRect 的实测分布（`m_Horizontal`/`m_Vertical`/`m_MovementType`/
+//       `m_Elasticity`/`m_Inertia`/`m_DecelerationRate`/`m_ScrollSensitivity`）：
+//       ⚠️ D_N29 记 **143** 个；2026-10-17 本机重扫（`menu_rect.Bundle` 解析父链）= **142** 个，
+//          逐条值一致、差的 1 个**没定位**（按「没查到」记，不影响本类）。
 //   · `m_MovementType`：**1 = Elastic** 或 2 = Clamped（两种都有）
 //     🔴 **2026-10-04 更正：这一行原来写反了**（原写「1 = Clamped 或 2 = Elastic」）。
 //     真值 = UGUI 枚举 `Unrestricted = 0 / Elastic = 1 / Clamped = 2`
@@ -22,11 +25,16 @@
 //     ⚠️ **本仓已有几处照错映射落地**（`ShopWindow` 的 `_gridScroll` / `LeaderboardWindow` / `BattleLogTab`）
 //     —— 见 `资料/阶段二_滚动与指针_原版规格.md` §一 那段更正，**还没改，已列待办**。
 //   · `m_Elasticity` **0.1** · `m_Inertia` **1** · `m_DecelerationRate` **0.135**（全库一致）
-//   · `m_ScrollSensitivity`：**1 / 10 / 50 / 100**（**逐处不同**，没有统一值）
+//   · `m_ScrollSensitivity`：**1.0 / 10 / 30 / 50 / 100**（**逐处不同**，没有统一值；
+//     分布 1.0 ×105 · 50 ×24 · 100 ×12 · 30 ×1 · 10 ×1）—— 逐视图取值见上面那条与各调用点。
 //   · `Forge Tab/Rewards Scroll View` = **横向**（`m_Horizontal 1 / m_Vertical 0`）
 //
-//   · 滚轮一格的手感照**卡组编辑那条已经验过的路**：`DeckRuntime.HandleScroll` 用 `dy * 0.4f`
-//     （同上，`Deck/DeckRuntime.cs` 的 `HandleScroll` —— ⛔ 按【符号】认，别抄行号）⇒ 这里取同一个系数，**别两处各写一套**。
+//   · 滚轮一格滚多少：**逐视图读原版那台 `ScrollRect` 的 `m_ScrollSensitivity`**（`N29`，判据
+//     → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`）。uGUI `OnScroll` 是
+//     `position += scrollDelta × scrollSensitivity`，Windows 上一格 `scrollDelta = 1`
+//     ⇒ **原版值就是「每格像素」**（同值口径，`A1543` 已按 100/50 验过）。
+//     本类原来的全壳魔数 `NotchK = 0.4`（= 48 px/格）**只是「我们挑的手感」**，现在降级成
+//     **缺省值**（`DefaultNotchPx`），只给「没现读到原版值」的视图兜底 —— ⛔ 别把它当原版参数。
 //
 // ============================ 🆕 2026-10-03 惯性 / 回弹 / 拖拽（照 UGUI 源码） ============================
 // 🔴 **判据 = Unity 自带的 `ScrollRect` 源码本体** —— 原版游戏的滚动就是它跑的，
@@ -78,9 +86,25 @@ namespace CardPresentation
     /// ③ 注册给指针层：`PointerLayer.RegisterScroll(_scroll)`（滚轮才会找到它）。</summary>
     public class MenuScroll
     {
-        /// <summary>一格滚轮对应的系数（**照卡组编辑那条已验过的路**：`dy * 0.4f`；
-        /// 新输入系统一格是 ±120 ⇒ 一格滚 48px）。原版 `m_ScrollSensitivity` 逐处不同，我们全壳取一个手感。</summary>
-        public const float NotchK = 0.4f;
+        /// <summary>Windows 上一个滚轮刻度 = **120**（原始 `WHEEL_DELTA`；`Wheel` 收到的就是它）。
+        /// 与 `Battle/TouchInputManager.ScrollUnitsPerNotch` 同源口径。</summary>
+        public const float ScrollUnitsPerNotch = 120f;
+
+        /// <summary>一格滚轮 = 多少画布像素的**缺省值**（= 旧的全壳手感 `0.4 × 120`）。
+        /// 🔴 **缺省 = 未现读到原版值的视图**（没有判据时保留旧行为并出声）；**有判据的视图一律显式传**
+        /// 原版那台 `ScrollRect` 的 `m_ScrollSensitivity`（见各调用点）。⛔ 别把 48 当成「原版就是这样」
+        /// —— 原版 143 台的实测分布是 1.0 / 10 / 30 / 50 / 100，**没有 48**。</summary>
+        public const float DefaultNotchPx = 48f;
+
+        /// <summary>一格滚轮滚多少画布像素 = **原版那台 `ScrollRect` 的 `m_ScrollSensitivity`**。
+        /// uGUI `OnScroll`：`position += scrollDelta × scrollSensitivity`，Windows 上一格 `scrollDelta = 1`
+        /// ⇒ 原版值就是「每格像素」（同值口径，`A1543` 已按 100/50 验过）。
+        /// 判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`。</summary>
+        public readonly float NotchPx;
+
+        /// <summary>一格滚轮对应的系数。**每个滚动区一份**（原来是全壳常量 `0.4`）。
+        /// `Wheel` 收到的 `dy` 是原始 `WHEEL_DELTA`（一格 = ±120）⇒ `NotchK = NotchPx / 120`。</summary>
+        public readonly float NotchK;
 
         // ============================================================ 原版字段（照抄 UGUI，别自己编）
         /// <summary>`m_Elasticity` —— **全库一致 0.1**（102 个 ScrollRect 实测）。回弹的 `SmoothDamp` 时间。</summary>
@@ -156,23 +180,30 @@ namespace CardPresentation
         float _prevOffset;          // m_PrevPosition
         bool _scrolling;            // m_Scrolling（滚轮那一帧 ⇒ 回弹的 smoothTime ×3）
 
-        public MenuScroll(PxRect viewport, float contentX1, float contentX2)
+        /// <param name="notchPx">一格滚轮滚多少画布像素 —— **直接填原版那台 `ScrollRect` 的
+        /// `m_ScrollSensitivity`**（判据 → `D_N29_滚动灵敏度逐视图.md`；原版值 = 每格像素）。
+        /// 缺省 `DefaultNotchPx`（48）= **未现读的视图**，⛔ 不是原版参数。</param>
+        public MenuScroll(PxRect viewport, float contentX1, float contentX2, float notchPx = DefaultNotchPx)
         {
             Viewport = viewport;
             ContentX1 = contentX1;
             ContentX2 = contentX2;
+            NotchPx = notchPx;
+            NotchK = notchPx / ScrollUnitsPerNotch;
         }
 
-        /// <summary>左对齐内容的便捷构造（`Rewards Content` 那种：内容从视口左边起排）。</summary>
-        public static MenuScroll LeftAligned(PxRect viewport, float contentW)
+        /// <summary>左对齐内容的便捷构造（`Rewards Content` 那种：内容从视口左边起排）。
+        /// `notchPx` 同上：原版 `m_ScrollSensitivity`（每格像素）。</summary>
+        public static MenuScroll LeftAligned(PxRect viewport, float contentW, float notchPx = DefaultNotchPx)
         {
-            return new MenuScroll(viewport, viewport.x1, viewport.x1 + contentW);
+            return new MenuScroll(viewport, viewport.x1, viewport.x1 + contentW, notchPx);
         }
 
-        /// <summary>**上对齐**内容的便捷构造（纵向网格那种：内容从视口上边起排）。</summary>
-        public static MenuScroll TopAligned(PxRect viewport, float contentH)
+        /// <summary>**上对齐**内容的便捷构造（纵向网格那种：内容从视口上边起排）。
+        /// `notchPx` 同上：原版 `m_ScrollSensitivity`（每格像素）。</summary>
+        public static MenuScroll TopAligned(PxRect viewport, float contentH, float notchPx = DefaultNotchPx)
         {
-            var s = new MenuScroll(viewport, viewport.y1, viewport.y1 + contentH);
+            var s = new MenuScroll(viewport, viewport.y1, viewport.y1 + contentH, notchPx);
             s.Vertical = true;
             return s;
         }

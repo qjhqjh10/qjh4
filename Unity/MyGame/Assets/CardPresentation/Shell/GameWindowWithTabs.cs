@@ -15,7 +15,7 @@ namespace CardPresentation
 
         /// <summary>左栏的**视觉顺序**（= 键表 `RewardsWindow.Buttons` 的顺序）：
         /// Missions / Campaign / Forge / **DailyStreak（🆕 A815 自建）** / BoosterPacks(母版，不是页签)。
-        /// ⚠️ **最后一项必须是母版那一格**（`MenuWindowBase.BuildBar` 把 `specs` 最后一项当
+        /// ⚠️ **最后一项必须是母版那一格**（`MainMenuSubmenuWindow.BuildBar` 把 `specs` 最后一项当
         /// `tabButtonPrefab` 并关掉）⇒ 想多一个可见键，就得把它**再往下一格挪**（A815 就是这么做的）。</summary>
         public readonly List<WindowTabType> visualTypes = new List<WindowTabType>
         {

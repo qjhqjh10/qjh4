@@ -237,17 +237,25 @@ namespace CardPresentation
         {
             if (keywords == null) return "";
             string hay = body ?? "";
+            // 🆕 2026-10-17（`N42`）：**非中英语档** —— 词取官方 13 语言表的当前那一列（缺 ⇒ 英文名）。
+            //   ⚠️ 中/英两档一个字节都不许变（`lang13` 恒 false ⇒ 走改前那两条原路）。
+            var cur = Loc.Current;
+            bool lang13 = cur != AvailableLanguages.Chinese && cur != AvailableLanguages.English;
             var parts = new List<KeyValuePair<string, string>>();   // (排序键, 印出去的那段)
             var seen = new HashSet<string>();
             foreach (var kv in keywords)
             {
                 string key = kv.Key;
                 if (string.IsNullOrEmpty(key)) continue;
-                string word = zh ? KeywordZh(key) : KeywordEn(key);   // ②
+                string word = zh ? KeywordZh(key)
+                            : (lang13 ? (Loc.Lang13Current(TraitTerm(key)) ?? KeywordEn(key))
+                                      : KeywordEn(key));   // ②
                 if (string.IsNullOrEmpty(word)) continue;
                 if (DeclaredInBody(hay, word)) continue;   // ①
                 // 中文卡面里 `Flying` 也可能写成英文（数据里两种都有）—— 两个写法都判一次
-                string other = zh ? KeywordEn(key) : KeywordZh(key);
+                // 🆕 非中英语档的 `other` 仍取**英文名**：正文可能是「官方那一列缺 ⇒ 回退英文 `Desc`」
+                //    那一档，那时只比当前语言的词会把英文正文里已经写过的同一个词再补一遍（重复印）。
+                string other = zh ? KeywordEn(key) : (lang13 ? KeywordEn(key) : KeywordZh(key));
                 if (!string.IsNullOrEmpty(other) && DeclaredInBody(hay, other)) continue;
                 // ⚠️ 我们的中文数据里**同一个词有两种写法**（`护甲` / `装甲` 都有，
                 //    见 `Lychguard` 的「装甲 2」与 `Heavy Intercessor` 的「护甲 1」）——
@@ -554,6 +562,11 @@ namespace CardPresentation
         public static string Term(string term)
         {
             if (string.IsNullOrEmpty(term)) return "";
+            // 🆕 2026-10-17（`N42`）：非中英语档 ⇒ 官方 13 语言表的**当前那一列**（中/英档恒 null ⇒ 下面逐字节不变）。
+            //   ⚠️ 这一步要**排在 `HasEntry` 之前**：手写表里有的键（`Card_Trait/*` / `Armies/*` / `CardEffect/*`）
+            //   改前在非中英档下**一律回英文列**，正是本笔要修的那一半。
+            string v13 = Loc.Lang13Current(term);
+            if (!string.IsNullOrEmpty(v13)) return v13;
             if (!Loc.HasEntry(term)) return Loc.T(term);       // 表里没有 ⇒ 让它出声 + 回键名（不静默）
             return Zh ? Loc.T(term) : Loc.EnOf(term);          // 闸：没有中文字体资产 ⇒ 回英文
         }
@@ -571,6 +584,10 @@ namespace CardPresentation
         {
             if (string.IsNullOrEmpty(term)) return fallback;
             if (Loc.HasEntry(term)) return Term(term);
+            // 🆕 2026-10-17（`N42`）：表里**没有**这条键时，非中英语档仍可能命中官方 13 语言表
+            //   （我们自拟的键在官方表里一般没有）⇒ 命中就返回，否则照旧出声 + 回 `fallback`。
+            string v13 = Loc.Lang13Current(term);
+            if (!string.IsNullOrEmpty(v13)) return v13;
             Loc.T(term);                       // 缺键：出声 + 记账（⛔ 不是静默）
             return fallback;
         }
@@ -653,6 +670,39 @@ namespace CardPresentation
             return Name(id);
         }
 
+        /// <summary>
+        /// 🆕 2026-10-17（`N42`）：**按 `CardDef` 取显示名** —— 非中英语档走官方 13 语言的 `Card_Name/&lt;卡 id&gt;`。
+        ///
+        /// <para>🔴 **为什么单开这一个重载**：`Name(id, nameZh)` 的那个 `id` 在调用点一直是**英文卡名**
+        /// （`card.Name`），而官方词条表按**卡的稳定 id**（`ASH83` 这种）建键 ⇒ 拿名字查永远查不到。
+        /// 有 `CardDef` 在手上的调用点一律走本口（卡 id 只有这里拿得到）。</para>
+        ///
+        /// <para>**三档行为**（铁律 5·c：一个值 ≠ 全部情况）：
+        /// · **中文档** ⇒ `Name(c.Name, c.NameZh)`（与改前逐字节相同）；
+        /// · **英文档** ⇒ `Name(c.Name, c.NameZh)`（`Zh` 为 false ⇒ 落到英文 id，与改前逐字节相同）；
+        /// · **其余 10 种** ⇒ 官方 `Card_Name/&lt;c.Id&gt;`；**缺键 ⇒ 回退英文卡名**（`c.Name`）并出声一次
+        ///   （`Loc.Lang13Current` 那条去重通道，⛔ 不静默、⛔ 不印键名）。</para>
+        ///
+        /// <para>⚠️ **没有 `CardDef` 的调用点**（只有名字 / 只有 id 的那些）**保持原样**走
+        /// <see cref="Name(string,string)"/> / <see cref="Name(string)"/> —— 它们拿不到卡 id，
+        /// 换成猜测只会更错。这一半如实记在 `资料/普查产出_1017/UI/W_N42_13lang_cards.md`。</para>
+        /// </summary>
+        public static string Name(RuleEngine.CardDef c)
+        {
+            if (c == null) return null;
+            var cur = Loc.Current;
+            if (cur != AvailableLanguages.Chinese && cur != AvailableLanguages.English)
+            {
+                // 我们自己设计的那 26 张**没有官方词条**（它们不在原版卡池里）⇒ 直接回英文名，
+                // ⛔ 不去查表（查了只会白响 26 声「官方表里没有」）。
+                if (!c.FromOriginalPool) return string.IsNullOrEmpty(c.Name) ? c.Id : c.Name;
+                string v13 = string.IsNullOrEmpty(c.Id) ? null : Loc.Lang13Current(CardNameTermPrefix + c.Id);
+                if (!string.IsNullOrEmpty(v13)) return v13;
+                return string.IsNullOrEmpty(c.Name) ? c.Id : c.Name;      // 回退英文（⛔ 不返回空串）
+            }
+            return Name(c.Name, c.NameZh);
+        }
+
         /// <summary>关键词的中文名。`ARMOUR 2` 那种带数值的由调用方拼（`Keyword(Armour) + " " + n`）。
         /// <para>🔴 **2026-10-10（`A1084`）**：原来读的是本文件那张 **12 条**的 `KeywordNames`；
         /// 那张表**已并入** `KeywordZhNames`、一起搬去 `Loc` 的同一个键族（`Card_Trait/*`）——
@@ -664,7 +714,13 @@ namespace CardPresentation
         public static string Keyword(string norm)
         {
             if (string.IsNullOrEmpty(norm)) return norm;
-            if (!Zh) return norm.ToUpperInvariant();
+            if (!Zh)
+            {
+                // 🆕 2026-10-17（`N42`）：非中英语档 ⇒ 官方 13 语言表的当前那一列
+                //   （中/英档 `Lang13Current` 恒 null ⇒ 仍是大写英文，与改前逐字节相同）
+                string v13 = Loc.Lang13Current(TraitTerm(norm));
+                return string.IsNullOrEmpty(v13) ? norm.ToUpperInvariant() : v13;
+            }
             return TermOr(TraitTerm(norm), norm.ToUpperInvariant());
         }
 

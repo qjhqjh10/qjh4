@@ -186,7 +186,7 @@ namespace CardPresentation
             var vpVc = ViewportClip.Hang(scN, "Viewport", vp, Vector4.zero, Vector2Int.zero);
             var vpN = vpVc.transform;
 
-            _scroll = NewScroll(vp, HoW, 0f, true);
+            _scroll = NewScroll(vp, HoW, 0f, true, 1f);   // 原版 `Achievements Tab/Scroll` = 1.0（D_N29）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildCells` 里
             //   `if (!_scroll.Intersects(rr)) continue;`）从今天起读**同一颗节点**的状态
             //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 之前它只看 `Viewport` 那个

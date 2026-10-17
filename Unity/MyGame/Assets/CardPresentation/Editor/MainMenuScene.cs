@@ -2142,6 +2142,14 @@ public static class MainMenuScene
             CheckTrue(pw != null, "点练习卡 ⇒ **开出了 `Practice Mode Menu`**");
             if (pw != null)
             {
+                // 🆕 **2026-10-17（`N29` / `N46⑤`）**：滚动灵敏度逐视图对原版 ——
+                //   `Practice Mode Menu/Deck Selector/Deck Buttons/Decks Scroll view` = **100**
+                //   · `Practice Mode Menu/Deck Selector/Army Selector` = **50**
+                //   （判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`；期望值是原版字面量，⛔ 不读我们自己的缺省常量）。
+                CheckNear(pw.DeckScroll != null ? pw.DeckScroll.NotchPx : -1f, 100f, 0.001f,
+                          "练习窗·卡组列表 滚动灵敏度 = 原版 **100** px/格");
+                CheckNear(pw.ArmyScroll != null ? pw.ArmyScroll.NotchPx : -1f, 50f, 0.001f,
+                          "练习窗·阵营选择 滚动灵敏度 = 原版 **50** px/格");
                 // 🆕 A47：压暗层命中区 —— 档 = `QPr`(3100)（压暗层自己那一档），< 内容命中区档 `QPrHit`(3108)
                 //    ⚠️ `QPrHit` 2026-10-07（A77-㉒）从 **3103** 挪到 **3108**（卡组格内景要五层各一个队列）——
                 //      这里按常量名引用，值变了自动跟上；**只有这行注释里的字面量要跟着订正**。
@@ -6822,6 +6830,16 @@ public static class MainMenuScene
                           "点它 ⇒ 开 `RankedClassicLeaderboardPopup Variant`");
                 CheckTrue(lb0 != null && lb0.CurrentState == WindowState.Open, "那一扇是**开着**的");
                 Check(lb0 != null ? lb0.TabCount : -1, 2, "经典榜 **2 个页签**（没有 Alliances —— 三条独立证据）");
+                // 🆕 **2026-10-17（`N29` / `N46⑤`）**：排行榜两处滚动灵敏度（原版字面量，⛔ 不读缺省常量）——
+                //   `…/Ranking Display/Content/Scroll View` = **50** · `…/Content/Army Selector` = **1.0**
+                //   （判据 → `D_N29_滚动灵敏度逐视图.md`；三扇排行榜同值）。
+                if (lb0 != null)
+                {
+                    CheckNear(lb0.RowsScroll != null ? lb0.RowsScroll.NotchPx : -1f, 50f, 0.001f,
+                              "排行榜·榜单列表 滚动灵敏度 = 原版 **50** px/格");
+                    CheckNear(lb0.ArmyScroll != null ? lb0.ArmyScroll.NotchPx : -1f, 1f, 0.001f,
+                              "排行榜·阵营选择 滚动灵敏度 = 原版 **1.0** px/格");
+                }
                 if (lb0 != null)
                 {
                     // 🆕 A47：压暗层命中区 —— 档 = `QPanel`(3500)（= 压暗层自己那一档），< `QHit`(3520)
@@ -12557,6 +12575,693 @@ public static class MainMenuScene
             CheckTrue(Loc.EntryCount >= 429,
                       $"★（A1025）表基线：`Loc.EntryCount` = {Loc.EntryCount} ≥ **429**（开工前实测）"
                     + "｜🧨 把键删掉、断言也一起删 ⇒ 这条红");
+        }
+
+        // ============================================================ 🆕 2026-10-17（界面线 T18 收尾）
+        // 排位赛季三窗 + 反馈问卷（四扇整窗）。判据全部 = prefab 实读（`menu_dump` 2026-10-17 现读，
+        // 命令写在每扇窗的 `Shell/*.cs` 文件头）· 文案期望值**独立**从 `Loc` / 字面量取（⛔ 不调被测窗的常量）。
+        Section("T18 收尾：排位赛季三窗 + 反馈问卷（四扇整窗 · 窗参 / 节点树 / 文案 / 数据留空）");
+        {
+            string UiTerm(string key, string fallback)
+            {
+                if (Loc.HasEntry(key)) return Loc.T(key);
+                var v = Loc.Lang13Of(key, Loc.Current == AvailableLanguages.Chinese ? "zh" : "en");
+                return string.IsNullOrEmpty(v) ? fallback : v;
+            }
+            float Wpx(Transform t)
+            {
+                var rt = t as RectTransform;
+                return rt != null ? rt.rect.width * 108f : -1f;      // 108 = DesignPxH / DesignHeight
+            }
+            float Hpx(Transform t)
+            {
+                var rt = t as RectTransform;
+                return rt != null ? rt.rect.height * 108f : -1f;
+            }
+
+            // ---------------------------------------------------------- ① 升段窗 `Ranked Division Change Window`
+            var dc = WindowsManager.OpenRankedDivisionChange();
+            CheckTrue(dc != null && dc.CurrentState == WindowState.Open,
+                      "★ 排位升段窗开得出来（`WindowsManager.OpenRankedDivisionChange`）");
+            if (dc != null && dc.CurrentState == WindowState.Open)
+            {
+                // 窗参 = 根 MB `MonoBehaviour_-4938671765695524530.json` 实读
+                Check(dc.type, WindowType.Popup, "升段窗 `type` = **1**（Popup，MB 实读）");
+                Check(dc.placement, WindowsPlacement.Popup, "升段窗 `windowsPlacement` = **15**（Popup）");
+                CheckTrue(dc.closeOnEsc, "升段窗 `closeOnESC` = **1**");
+                CheckNear(dc.extraScaleSmallScreen, 1f, 1e-6f, "升段窗 `extraScaleSmallScreen` = **1.0**");
+                CheckTrue(dc.DarkNode != null && Mathf.Abs(Wpx(dc.DarkNode) - 4574.60f) < 0.05f
+                          && Mathf.Abs(Hpx(dc.DarkNode) - 2572.36f) < 0.05f,
+                          "升段窗 `Menu Dark Background` = **4574.60×2572.36**（prefab 实读）");
+                CheckText(dc.TitleLabel != null ? dc.TitleLabel.Text : null,
+                          UiTerm("Event_Description/Ranked/Promoted", "PROMOTED!"),
+                          "升段窗 `Title` = 词条 `Event_Description/Ranked/Promoted`");
+                CheckText(dc.ReachedLabel != null ? dc.ReachedLabel.Text : null, "--",
+                          "升段窗段位名缺失（服务端数据）⇒ `New division reached Text` = **`--`**（⛔ 不编段位）");
+                CheckTrue(dc.DivisionArtBlank && dc.DivisionNode != null
+                          && dc.DivisionNode.GetComponentsInChildren<ImageQuad>(true).Length == 0,
+                          "升段窗段位大图**不画**（`divisionIcon.m_Sprite = 0`，段位图名对照表本地没有）");
+                CheckTrue(dc.SealStepsNode != null && dc.SealStepsNode.childCount == 4,
+                          "升段窗 `Mission Milestones Progress/steps` = **4 颗** `RankedSealStep`（prefab 实读）");
+                dc.Close();
+            }
+
+            // ---------------------------------------------------------- ② 新赛季窗 `Ranked New Season WIndow`
+            var ns = WindowsManager.OpenRankedNewSeason();
+            CheckTrue(ns != null && ns.CurrentState == WindowState.Open,
+                      "★ 新赛季窗开得出来（`WindowsManager.OpenRankedNewSeason`）");
+            if (ns != null && ns.CurrentState == WindowState.Open)
+            {
+                Check(ns.type, WindowType.Popup, "新赛季窗 `type` = **1**（Popup）");
+                Check(ns.placement, WindowsPlacement.Popup, "新赛季窗 `windowsPlacement` = **15**");
+                CheckTrue(ns.closeOnEsc, "新赛季窗 `closeOnESC` = **1**");
+                CheckText(ns.TitleLabel != null ? ns.TitleLabel.Text : null,
+                          UiTerm("MainMenu/RankedWindow/NewRankedSeason", "NEW RANKED SEASON"),
+                          "新赛季窗 `Title` = 词条 `MainMenu/RankedWindow/NewRankedSeason`");
+                CheckText(ns.TimerLabel != null ? ns.TimerLabel.Text : null,
+                          string.Format(UiTerm("Event_Description/General/EndsInPlusTime", "Ends in: {0}"), "--"),
+                          "新赛季窗倒计时 = `Ends in: {0}` 填 `--`（结束时刻是服务端数据，⛔ 不编日期）");
+                var icon = ns.TimerIconNode != null ? ns.TimerIconNode.GetComponentInChildren<ImageQuad>(true) : null;
+                CheckText(icon != null && icon.Texture != null ? icon.Texture.name : null, "WF_icon_clock",
+                          "新赛季窗 `Timer Icon` = 图 **`WF_icon_clock`**（prefab `m_Sprite` 实读）");
+                CheckTrue(ns.TimerNode != null && Mathf.Abs(Wpx(ns.TimerNode) - 1496.98f) < 0.05f,
+                          "新赛季窗 `Timer` 容器 = **1496.98** 宽（dump 实读）");
+                ns.Close();
+            }
+
+            // ---------------------------------------------------------- ③ 赛季结束窗 `Ranked Season Ended Window`
+            var se = WindowsManager.OpenRankedSeasonEnded();
+            CheckTrue(se != null && se.CurrentState == WindowState.Open,
+                      "★ 赛季结束窗开得出来（`WindowsManager.OpenRankedSeasonEnded`）");
+            if (se != null && se.CurrentState == WindowState.Open)
+            {
+                // 🔴 三分窗里**只有它是 `type = 0`（Fullscreen）**（MB `MonoBehaviour_-3630938164723221848.json`）
+                Check(se.type, WindowType.Fullscreen, "赛季结束窗 `type` = **0**（Fullscreen —— 三分窗里的特例）");
+                Check(se.placement, WindowsPlacement.Popup, "赛季结束窗 `windowsPlacement` = **15**");
+                CheckTrue(se.closeOnEsc, "赛季结束窗 `closeOnESC` = **1**");
+                CheckText(se.TitleLabel != null ? se.TitleLabel.Text : null,
+                          UiTerm("Event_Description/Renked/SeasonEnd", "SEASON ENDED!"),
+                          "赛季结束窗 `Title` = 词条 `Event_Description/Renked/SeasonEnd`（原版拼写 `Renked`）");
+                CheckText(se.PercentLabel != null ? se.PercentLabel.Text : null, "--",
+                          "赛季结束窗名次/百分位缺失（服务端数据）⇒ **`--`**");
+                CheckText(se.PointsQtyLabel != null ? se.PointsQtyLabel.Text : null, "--",
+                          "赛季结束窗评分缺失（服务端数据）⇒ **`--`**");
+                var gm = se.RankPointsNode != null ? se.RankPointsNode.Find("GameMode Icon") : null;
+                var gq = gm != null ? gm.GetComponentInChildren<ImageQuad>(true) : null;
+                CheckText(gq != null && gq.Texture != null ? gq.Texture.name : null, "40k_UI_icon_ranked_Skirmish",
+                          "赛季结束窗 `GameMode Icon` = **`40k_UI_icon_ranked_Skirmish`**（prefab 实读）");
+                CheckTrue(se.Group != null && Mathf.Abs(se.Group.alpha - 1f) < 1e-6f,
+                          "赛季结束窗 `canvasGroup.m_Alpha` = **1**（`CanvasGroup_-3969323529196569944.json` 实读）");
+                CheckTrue(se.RankPointsNode != null && Mathf.Abs(Wpx(se.RankPointsNode) - 1444.31f) < 0.05f,
+                          "赛季结束窗 `Rank Points` = **1444.31** 宽（dump 实读）");
+                se.Close();
+            }
+
+            // ---------------------------------------------------------- ④ 反馈问卷 `Give Feedback Popup menu`
+            var fb = WindowsManager.OpenGiveFeedback();
+            CheckTrue(fb != null && fb.CurrentState == WindowState.Open,
+                      "★ 反馈问卷开得出来（`WindowsManager.OpenGiveFeedback`；原版这个 build 里没有活入口）");
+            if (fb != null && fb.CurrentState == WindowState.Open)
+            {
+                Check(fb.type, WindowType.Popup, "反馈窗 `type` = **1**（Popup）");
+                Check(fb.placement, WindowsPlacement.Popup, "反馈窗 `windowsPlacement` = **15**");
+                CheckTrue(fb.closeOnEsc, "反馈窗 `closeOnESC` = **1**");
+                CheckText(fb.TitleLabel != null ? fb.TitleLabel.Text : null,
+                          UiTerm("Demo/Feedback/Title", "Give us your feedback!"),
+                          "反馈窗 `Title` = 词条 `Demo/Feedback/Title`");
+                // 副标题词条 `Demo/FeedbackSurvey/SubTitle` 本地缺 ⇒ 回 prefab 出厂英文（窗口文件头已记）
+                CheckText(fb.SubtitleLabel != null ? fb.SubtitleLabel.Text : null,
+                          "It takes less than two minutes to help us make the game better!",
+                          "反馈窗 `Subtitle` = prefab 出厂英文（`Demo/FeedbackSurvey/SubTitle` 本地没有译文）");
+                CheckText(fb.SubmitLabel != null ? fb.SubmitLabel.Text : null,
+                          UiTerm("Demo/Feedback/Submit", "Submit"),
+                          "反馈窗 `Submit button/Button Text` = 词条 `Demo/Feedback/Submit`");
+                // 面板 = 九宫 `40k_popup`（1824.95×996.86）
+                float px1, py1, px2, py2;
+                CheckTrue(fb.PanelNode != null && UnionQuadRect(fb.PanelNode, out px1, out py1, out px2, out py2)
+                          && Mathf.Abs(px2 - px1 - 1824.95f) < 0.2f && Mathf.Abs(py2 - py1 - 996.86f) < 0.2f,
+                          "反馈窗 `Generic Popup Background` = **1824.95×996.86**（dump 实读，九宫底）");
+                CheckTrue(fb.ContentNode != null && Mathf.Abs(Hpx(fb.ContentNode) - 6426.93f) < 0.1f,
+                          "反馈窗 `Questions container` 高 = **6426.93**（原版 `ContentSizeFitter` 后实读）");
+                Check(fb.ContentNode != null ? fb.ContentNode.childCount : -1, 4,
+                      "反馈窗问卷 = **4 段**（`Section 1..4`，prefab 实读）");
+                Check(fb.Scroll != null ? fb.Scroll.Offset : -1f, 0f,
+                      "反馈窗滚动区出厂偏移 = **0**（`m_MovementType = 1` Elastic · 纵向）");
+                CheckTrue(fb.Scroll != null && fb.Scroll.MaxOffset > 5000f,
+                          $"反馈窗内容高 6426.93 ≫ 视口 673.64 ⇒ **可纵向滚动**（MaxOffset > 5000，实测 "
+                        + (fb.Scroll != null ? fb.Scroll.MaxOffset.ToString("F2") : "-") + "）");
+                CheckTrue(fb.FreeFeedbackNode != null && !fb.FreeFeedbackNode.gameObject.activeSelf,
+                          "反馈窗 `Free feedback` 出厂 **`m_IsActive = false`**（prefab 实读）");
+                CheckTrue(!fb.SubmitInteractable,
+                          "反馈窗提交钮出厂**不可用**（原版 `Start()`：`submit.interactable = 0`）");
+                fb.Close();
+            }
+        }
+
+        // ============================================================ 🆕 2026-10-17（界面线 T26 / 音效线 S02）
+        // `Choose Army Deck FTUE Window`（选阵营送卡组窗 · 原版 `FTUESelectDeckWindow`）。
+        // 判据全部 = prefab / 根 MB / 反编译**现读**（逐字段出处 → `Shell/FTUESelectDeckWindow.cs` 文件头）；
+        // 期望值**独立**取自 `Loc`（词条表 / 官方 13 语言表）与 prefab 字面量 —— ⛔ 不调被测窗的常量。
+        Section("T26 选阵营送卡组窗 `Choose Army Deck FTUE Window`（窗参 / 4 张阵营卡 / 选中态 / openSound）");
+        {
+            string FtueTerm(string key, string en, string zh)
+            {
+                if (Loc.HasEntry(key)) return Loc.T(key);
+                bool zhUi = Loc.Current == AvailableLanguages.Chinese;
+                string v = Loc.Lang13Of(key, zhUi ? "zh" : "en");
+                return string.IsNullOrEmpty(v) ? (zhUi ? zh : en) : v;
+            }
+            float CW(Transform t) { var rt = t as RectTransform; return rt != null ? rt.rect.width * 108f : -1f; }
+            float CH(Transform t) { var rt = t as RectTransform; return rt != null ? rt.rect.height * 108f : -1f; }
+
+            var fw = WindowsManager.OpenChooseArmyDeck();
+            CheckTrue(fw != null && fw.CurrentState == WindowState.Open,
+                      "★ 选阵营送卡组窗开得出来（`WindowsManager.OpenChooseArmyDeck`）");
+            if (fw != null && fw.CurrentState == WindowState.Open)
+            {
+                // ---- ① 窗参 = 根 MB `MonoBehaviour_-3133570412519170200.json` 逐字段实读 ----
+                Check(fw.type, WindowType.Fullscreen, "窗 `type` = **0**（Fullscreen —— 本批唯一一扇 type=0 的菜单窗）");
+                Check(fw.placement, WindowsPlacement.Popup, "窗 `windowsPlacement` = **15**（Popup）");
+                CheckTrue(!fw.closeOnEsc, "窗 `closeOnESC` = **0**（ESC 不关 —— MB 实读）");
+                CheckTrue(!fw.updateNavPanel, "窗 `updateNavPanel` = **0**");
+                CheckNear(fw.extraScaleSmallScreen, 1f, 1e-6f, "窗 `extraScaleSmallScreen` = **1.0**");
+
+                // ---- ② `Menu Dark Background`（4574.60×2572.36 · 色 (0,0,0,0.773)）----
+                CheckNear(fw.ShadeNode != null ? CW(fw.ShadeNode) : -1f, 4574.60f, 0.05f,
+                          "`Menu Dark Background` 宽 = **4574.60**（prefab 实读）");
+                CheckNear(fw.ShadeNode != null ? CH(fw.ShadeNode) : -1f, 2572.36f, 0.05f,
+                          "`Menu Dark Background` 高 = **2572.36**（prefab 实读）");
+                var shadeQ = fw.ShadeNode != null ? fw.ShadeNode.GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(shadeQ != null && Mathf.Abs(shadeQ.Tint.r) < 0.002f
+                          && Mathf.Abs(shadeQ.Tint.g) < 0.002f && Mathf.Abs(shadeQ.Tint.b) < 0.002f
+                          && Mathf.Abs(shadeQ.Tint.a - 0.772549f) < 0.002f,
+                          "`Menu Dark Background` 色 = **(0,0,0,0.7725)**（`Image.m_Color` 实读）");
+
+                // ---- ③ `Title` / `SubTitle`（词条 + 字号 + 矩形）----
+                CheckText(fw.TitleLabel != null ? fw.TitleLabel.Text : null,
+                          FtueTerm("MainMenu/FTUE/SelectArmy", "SELECT ARMY", "选择军队"),
+                          "`Title` = 词条 `MainMenu/FTUE/SelectArmy`（prefab `Localize.mTerm` 实读）");
+                CheckNear(fw.TitleLabel != null ? fw.TitleLabel.FontPxNow : -1f, 80f, 0.5f,
+                          "`Title` 字号 = **80**（prefab `m_fontSize` 实读）");
+                CheckAt(fw.TitleNode, 0f, 1920f, 55f, 165.349f, "`Title`");
+                CheckText(fw.SubTitleLabel != null ? fw.SubTitleLabel.Text : null,
+                          FtueTerm("MainMenu/FTUE/Description",
+                                   "You will receive a full deck and a Warlord from the selected army.",
+                                   "您将从所选军队中获得一副完整的卡组和一位战将。"),
+                          "`SubTitle` = 词条 `MainMenu/FTUE/Description`");
+                CheckNear(fw.SubTitleLabel != null ? fw.SubTitleLabel.FontPxNow : -1f, 50f, 0.5f,
+                          "`SubTitle` 字号 = **50**（基准 45 · auto[18~50]）");
+
+                // ---- ④ 四张阵营卡：数量 / 尺寸 / 间距（prefab `starterDecks` 4 副 · HLG spacing 106.58）----
+                Check(fw.Cards.Count, 4, "`starterDecks` = **4 副**（prefab 数组实读）");
+                if (fw.Cards.Count == 4)
+                {
+                    var c0 = fw.Cards[0];
+                    // 位置 = `Content` 的 HLG（pad L70/R44 · spacing 106.58 · MiddleCenter）：总宽 1769.932，
+                    // 余量 36.068 平分 ⇒ 第一张左沿 **88.034**；竖 = Content 顶 186.1、高 522.019。
+                    CheckNear(c0 != null ? ((RectTransform)c0.transform).rect.width * 108f : -1f,
+                              362.548f, 0.05f, "`Deck Container FTUE` 宽 = **362.548**（prefab 实读）");
+                    CheckNear(c0 != null ? ((RectTransform)c0.transform).rect.height * 108f : -1f,
+                              522.019f, 0.05f, "`Deck Container FTUE` 高 = **522.019**（Content 高 · `expandH = 1`）");
+                    CheckAtWorld(c0.transform, 88.034f, 450.582f, 186.1f, 708.119f,
+                                 "第 1 张阵营卡（HLG：pad L70/R44 · spacing 106.58 · MiddleCenter）");
+                    if (fw.Cards.Count > 1)
+                        CheckAtWorld(fw.Cards[1].transform, 557.162f, 919.710f, 186.1f, 708.119f,
+                                     "第 2 张阵营卡（左沿 = 上一张右沿 + **106.58**）");
+
+                    // ---- ⑤ 卡内容：阵营名 / 徽记 / glow 色（四档 `glowColor` 逐值照 prefab）----
+                    CheckText(c0.ArmyLabel != null ? c0.ArmyLabel.Text : null,
+                              Loc.T("Armies/Ultramarines"),
+                              "第 1 张 `Army Text` = 词条 `Armies/Ultramarines`（= 原版 `ArmyToLocalizedString`）");
+                    Check(c0.ArmyIconName, "40k_DeckSelection_icon_FactionUM",
+                          "第 1 张阵营徽记 = `40k_DeckSelection_icon_FactionUM`（= `ArmyUtilities.GetArmyIcon` 的等价物）");
+                    CheckNear(c0.GlowQuad != null ? CW(c0.GlowNode) : -1f, 523.794f, 0.05f,
+                              "`Glow` = **523.794²**（prefab 实读）");
+                    CheckTrue(c0.GlowQuad != null
+                              && Mathf.Abs(c0.GlowQuad.Tint.r - 0.3224012f) < 0.002f
+                              && Mathf.Abs(c0.GlowQuad.Tint.g - 0.6783406f) < 0.002f
+                              && Mathf.Abs(c0.GlowQuad.Tint.b - 0.9905660f) < 0.002f,
+                              "第 1 张 `glowColor` = **(0.3224,0.6783,0.9906)**（prefab `starterDecks[0].glowColor` 实读）");
+                    CheckNear(c0.GlowQuad != null ? c0.GlowQuad.Tint.a : -1f, 0f, 1e-4f,
+                              "`Glow` 出厂 **alpha = 0**（原版 `Initialize` 把 a 写成 0，选中才淡入）");
+                    CheckNear(c0.WarlordQuad != null ? CW(c0.WarlordNode) : -1f, 523.794f, 0.05f,
+                              "`Warlord Image` = **523.794²**（prefab 实读）");
+
+                    // ---- ⑥ 出厂态：`Selected Text` INACT · Continue 那一组不亮 ----
+                    CheckTrue(c0.SelectedNode != null && !c0.SelectedNode.gameObject.activeSelf,
+                              "`Selected Text` 出厂 **`m_IsActive = false`**（prefab 实读）");
+                    CheckTrue(!fw.ContinueShown && fw.ContinueButtonNode != null
+                              && !fw.ContinueButtonNode.gameObject.activeSelf,
+                              "`Continue Button` 出厂**关着**（原版 `Open()`：`continueButton.gameObject.SetActive(false)`）");
+
+                    // ---- ⑦ openSound（S02）：cue 名 = `Draft Mode Progress Jingle`（FX 组）----
+                    // ⚠️ 期望值写**字面量**（根 MB 里那个 PPtr 落到的资产名），⛔ 不拿 `WindowSounds.FtueOpenCue` 自证。
+                    CheckText(WindowSounds.LastCue, "Draft Mode Progress Jingle",
+                              "开窗音 cue = **`Draft Mode Progress Jingle`**（根 MB `openSound` PPtr 实读）");
+                    WarpforgeVFX.WFSoundCue ftueCue;
+                    CheckTrue(WarpforgeVFX.WFSoundBank.TryGetCue("Draft Mode Progress Jingle", out ftueCue) && ftueCue != null,
+                              "开窗音 cue 在 `animfx_sounds.json` 音效表里（音效线 S02 已导入；clip = `Draft Mode GainSkull`）");
+
+                    // ---- ⑧ 选中第 1 张 ⇒ Continue 亮 + 角标亮 + glow 落终值（scale 1.1 / alpha 1）----
+                    fw.SelectDeck(0);
+                    CheckTrue(fw.ContinueShown && fw.ContinueButtonNode != null
+                              && fw.ContinueButtonNode.gameObject.activeSelf,
+                              "选中一副之后 `Continue Button` **亮起来**（原版 `RefreshContinueButton`）");
+                    CheckText(fw.ContinueLabel != null ? fw.ContinueLabel.Text : null,
+                              Loc.T("Battle/Tips/Continue"),
+                              "`Continue Button/Text (TMP)` = 词条 `Battle/Tips/Continue`");
+                    CheckTrue(c0.SelectedNode != null && c0.SelectedNode.gameObject.activeSelf,
+                              "选中之后 `Selected Text` **亮**（= 原版 `highlightObjects` 的 `SetActive(true)`）");
+                    CheckNear(c0.GlowQuad != null ? c0.GlowQuad.Tint.a : -1f, 1f, 1e-4f,
+                              "选中之后 `Glow` alpha = **1**（原版 `DOFade(1)` 的终值）");
+                    CheckNear(c0.GlowNode != null ? c0.GlowNode.localScale.x : -1f, 1.1f, 1e-4f,
+                              "选中之后 `Glow` scale = **1.1**（`read_literal 0x1834b31f8`）");
+                    CheckTrue(c0.SelectButton != null && !c0.SelectButton.Interactable,
+                              "已选中的那张**点不动**（原版 `button.interactable = !selected`）");
+                    CheckTrue(fw.SelectedFactionIcon != null
+                              && fw.SelectedFactionIcon.Texture != null
+                              && fw.SelectedFactionIcon.Texture.name == "40k_DeckSelection_icon_FactionUM",
+                              "`Selected Faction Icon` = 该阵营徽记（原版 `ArmyUtilities.GetArmyIcon(army)`）");
+                    if (fw.Cards.Count > 1)
+                        CheckTrue(!fw.Cards[1].IsSelected,
+                                  "其它卡**全部取消选中**（原版 `OnDeckSelected` 的第一段）");
+
+                    // ---- ⑨ 阵营描述：本机没有词条 ⇒ **留空**（⛔ 不编）----
+                    CheckTrue(fw.Views.Count == 4 && string.IsNullOrEmpty(fw.Views[0].Description),
+                              "四副的 `TutorialData/TutorialFTUEDeck/*` 词条**本机取不到** ⇒ `Army Description` 留空"
+                              + "（官方 13 语言表 9441 条逐字节搜零命中；⛔ 不编描述）");
+                    CheckTrue(c0.DescriptionLabel == null || string.IsNullOrEmpty(c0.DescriptionLabel.Text),
+                              "`Army Description` 那一格**没有字**（同上）");
+                }
+                fw.Close();
+            }
+        }
+
+        // ============================================================ 🆕 2026-10-17（界面线 T18/T27）
+        // 卡牌来源窗 `WhereToGetCardsPopup`（原版 `WhereToGetCardsWindow`）。
+        // 判据全部 = prefab / 根 MB / 反编译**现读**（逐字段出处 → `Shell/WhereToGetCardsPopup.cs` 文件头；
+        // dump 命令也写在那里，`--depth 11` 才看得到段内那 40 个节点）。
+        // 期望值**独立**取自 prefab 字面量与根 MB —— ⛔ 不调被测窗的常量。
+        Section("T27 卡牌来源窗 `WhereToGetCardsPopup`（窗参 / 节点树 / 字号 / 数据缺口 / 段模板克隆）");
+        {
+            float CW(Transform t) { var rt = t as RectTransform; return rt != null ? rt.rect.width * 108f : -1f; }
+            float CH(Transform t) { var rt = t as RectTransform; return rt != null ? rt.rect.height * 108f : -1f; }
+
+            var wc = WindowsManager.OpenWhereToGetCards();
+            CheckTrue(wc != null && wc.CurrentState == WindowState.Open,
+                      "★ 卡牌来源窗开得出来（`WindowsManager.OpenWhereToGetCards`；原版入口在两个事件 tab 的 `getCardsWindow`）");
+            if (wc != null && wc.CurrentState == WindowState.Open)
+            {
+                // ---- ① 窗参 = 根 MB `MonoBehaviour_6694678526659093809.json` 逐字段实读 ----
+                Check(wc.type, WindowType.Popup, "卡牌来源窗 `type` = **1**（Popup）");
+                Check(wc.placement, WindowsPlacement.Popup, "卡牌来源窗 `windowsPlacement` = **15**（Popup）");
+                CheckTrue(wc.closeOnEsc, "卡牌来源窗 `closeOnESC` = **1**");
+                CheckTrue(!wc.updateNavPanel, "卡牌来源窗 `updateNavPanel` = **0**");
+                CheckNear(wc.extraScaleSmallScreen, 1f, 1e-6f, "卡牌来源窗 `extraScaleSmallScreen` = **1.0**");
+                CheckTrue(wc.useDefaultCloseSoundIfNull, "卡牌来源窗 `useDefaultCloseSoundIfNull` = **1**（关窗音走家族默认）");
+                CheckTrue(wc.openSound == null && wc.closeSound == null,
+                          "卡牌来源窗 `openSound` / `closeSound` 都是**空 PPtr**（MB 实读 ⇒ 不赋任何 clip）");
+
+                // ---- ② `Menu Dark Background`（4574.60×2572.36 · 色 (0,0,0,0.773)）----
+                CheckNear(wc.ShadeNode != null ? CW(wc.ShadeNode) : -1f, 4574.60f, 0.05f,
+                          "`Menu Dark Background` 宽 = **4574.60**（prefab 实读）");
+                CheckNear(wc.ShadeNode != null ? CH(wc.ShadeNode) : -1f, 2572.36f, 0.05f,
+                          "`Menu Dark Background` 高 = **2572.36**（prefab 实读）");
+                CheckTint(wc.ShadeNode, new Color(0f, 0f, 0f, 0.772549f), 0.002f,
+                          "`Menu Dark Background` 色 = **(0,0,0,0.7725)**（`Image.m_Color` 实读）");
+
+                // ---- ③ `Generic Window Red Background Big`（1510.64×990.61 · 九宫 `UI_Deck_Information_Back`）----
+                CheckNear(wc.PanelNode != null ? CW(wc.PanelNode) : -1f, 1510.64f, 0.05f,
+                          "`Generic Window Red Background Big` 宽 = **1510.64**（dump 实读）");
+                CheckNear(wc.PanelNode != null ? CH(wc.PanelNode) : -1f, 990.61f, 0.05f,
+                          "`Generic Window Red Background Big` 高 = **990.61**（dump 实读）");
+                var panelQ = QuadOf(wc.PanelNode);
+                CheckText(panelQ != null && panelQ.Texture != null ? panelQ.Texture.name : null,
+                          "UI_Deck_Information_Back",
+                          "九宫底 = **`UI_Deck_Information_Back`**（prefab `m_Sprite` 实读）");
+
+                // ---- ④ `Title`（1354.10×109.57 · fs72 · 基准 36 · auto[18~72] · Center/Midline）----
+                CheckText(wc.TitleText, "Where to get Beast Snaggas cards",
+                          "`Title` = prefab 出厂文案（原版运行期用 `context + 0x10` 的词条覆盖；无数据 ⇒ 出厂字）");
+                CheckNear(wc.TitleNode != null ? CW(wc.TitleNode) : -1f, 1354.10f, 0.05f, "`Title` 宽 = **1354.10**");
+                CheckNear(wc.TitleNode != null ? CH(wc.TitleNode) : -1f, 109.57f, 0.05f, "`Title` 高 = **109.57**");
+                CheckFontWindow(wc.TitleNode, 18f, 72f, "`Title` 自适应窗口 = **[18~72]**（prefab 实读）");
+                CheckFontInRange(wc.TitleNode, 18f, 72f, "`Title` 实际字号落在 **[18~72]** 里");
+
+                // ---- ⑤ `TopBar`（1354.10×6 · `40k_main_line` 171×6 · 九宫 (80,0,80,0)）----
+                CheckNear(wc.TopBarNode != null ? CW(wc.TopBarNode) : -1f, 1354.10f, 0.05f, "`TopBar` 宽 = **1354.10**");
+                CheckNear(wc.TopBarNode != null ? CH(wc.TopBarNode) : -1f, 6f, 0.05f, "`TopBar` 高 = **6**");
+                var lineQ = QuadOf(wc.TopBarNode);
+                CheckText(lineQ != null && lineQ.Texture != null ? lineQ.Texture.name : null, "40k_main_line",
+                          "`TopBar` = **`40k_main_line`**（prefab `m_Sprite` 实读）");
+
+                // ---- ⑥ `Scroll View` / `Viewport`（ScrollRect `h=0 v=1` · mode=1 Elastic · 灵敏度 **1.0**）----
+                CheckNear(wc.ScrollNode != null ? CW(wc.ScrollNode) : -1f, 1276.94f, 0.05f,
+                          "`Scroll View` 宽 = **1276.94**（dump 实读）");
+                CheckNear(wc.ScrollNode != null ? CH(wc.ScrollNode) : -1f, 803.72f, 0.05f,
+                          "`Scroll View` 高 = **803.72**（dump 实读）");
+                CheckNear(wc.Scroll != null ? wc.Scroll.NotchPx : -1f, 1f, 1e-6f,
+                          "滚动灵敏度 = **1.0**（`m_ScrollSensitivity` 实读 · D_N29）");
+                CheckTrue(wc.Scroll != null && wc.Scroll.Elastic,
+                          "`m_MovementType = 1`（Elastic —— UGUI `Elastic = 1`，别照 Clamped 那批抄）");
+                CheckTrue(wc.Clip != null && Mathf.Abs(wc.Clip.padding.x) < 1e-6f && Mathf.Abs(wc.Clip.padding.y) < 1e-6f
+                          && Mathf.Abs(wc.Clip.padding.z) < 1e-6f && Mathf.Abs(wc.Clip.padding.w) < 1e-6f
+                          && wc.Clip.softness.x == 0 && wc.Clip.softness.y == 0,
+                          "`Viewport` 的 `RectMask2D` = padding (0,0,0,0) · softness (0,0)（MB 实读）");
+                CheckNear(wc.ContentView != null ? CH(wc.ContentView) : -1f, 50f, 0.05f,
+                          "`Content`（VLG）无段 ⇒ 高 = CSF **v:MinSize 50**（dump 实读）");
+                CheckNear(wc.Scroll != null ? wc.Scroll.MaxOffset : -1f, 0f, 0.01f,
+                          "无数据 ⇒ 内容高 50 < 视口 803.72 ⇒ **滚不动**（`MaxOffset = 0`）");
+
+                // ---- ⑦ 段模板 = 原版 `sectionReference`（**树内**模板节点，`Open()` 第③句把它关掉）----
+                var tpl = wc.SectionTemplate;
+                CheckTrue(tpl != null && !tpl.gameObject.activeSelf,
+                          "模板段 `Section For Reference` 在树里、且**关着**（= 原版 `sectionReference.SetActive(false)`）");
+                CheckNear(tpl != null ? CW(tpl) : -1f, 1250.49f, 0.05f, "段宽 = **1250.49**（dump 实读）");
+                CheckNear(tpl != null ? CH(tpl) : -1f, 59.496f, 0.05f,
+                          "段高 = CSF **v:MinSize 59.496**（= 2 + 52.5 + 5，模板无卡片）");
+                var hdr = tpl != null ? tpl.Find("Header") : null;
+                CheckNear(hdr != null ? CH(hdr) : -1f, 52.5f, 0.05f, "段内 `Header` 高 = **52.5**（dump 实读）");
+                //   `Header/Background`：`Image`(sprite=0) + `Gradient2`（横向 · 左暗红不透明 → 右透明）
+                var grad = hdr != null ? QuadOfInactiveToo(hdr.Find("Background")) : null;
+                CheckTrue(grad != null && grad.CornerColors != null && grad.CornerColors.Length == 4
+                          && Mathf.Abs(grad.CornerColors[0].r - 0.556863f) < 0.001f
+                          && Mathf.Abs(grad.CornerColors[0].g - 0.110495f) < 0.001f
+                          && Mathf.Abs(grad.CornerColors[0].b - 0.098039f) < 0.001f
+                          && Mathf.Abs(grad.CornerColors[0].a - 1f) < 0.001f
+                          && Mathf.Abs(grad.CornerColors[1].a) < 0.001f,
+                          "`Header/Background` 顶点色 = **左 (0.5569,0.1105,0.098,1) → 右透明**"
+                        + "（`Gradient2` MB 实读：type=0 横向 · 2 色键 · key1 alpha=0）");
+                // ⚠️ 模板段整颗关着 ⇒ 不能走 `CheckFont`（它内部是 `GetComponentInChildren<Label>()`、不含未激活件）
+                var hdrTitleLb = hdr != null && hdr.Find("Title") != null
+                                 ? hdr.Find("Title").GetComponentInChildren<Label>(true) : null;
+                CheckText(hdrTitleLb != null ? hdrTitleLb.Text : null,
+                          "Booster packs", "段标题 = prefab 出厂字 **`Booster packs`**（原版运行期换成段词条）");
+                CheckNear(hdrTitleLb != null ? hdrTitleLb.FontPxNow : -1f, 42f, 0.6f,
+                          "段标题字号 = **42**（prefab `m_fontSize` 实读）");
+                var hdrCounterLb = hdr != null && hdr.Find("Counter") != null
+                                   ? hdr.Find("Counter").GetComponentInChildren<Label>(true) : null;
+                CheckText(hdrCounterLb != null ? hdrCounterLb.Text : null,
+                          "5/5", "段计数 = prefab 出厂字 **`5/5`**（原版格式 = 已拥有/总数）");
+                CheckNear(hdr != null && hdr.Find("Toggle") != null ? CW(hdr.Find("Toggle")) : -1f, 42.30f, 0.05f,
+                          "段折叠箭头宽 = **42.30**（dump 实读）");
+                CheckNear(hdr != null && hdr.Find("Toggle") != null ? CH(hdr.Find("Toggle")) : -1f, 30.56f, 0.05f,
+                          "段折叠箭头高 = **30.56**（dump 实读）");
+                var toggleQ = wc.ToggleQuad;
+                CheckText(toggleQ != null && toggleQ.Texture != null ? toggleQ.Texture.name : null,
+                          "40K_dropdown_arrow_opened",
+                          "箭头出厂图 = **`40K_dropdown_arrow_opened`**（`m_IsOn = 1` ⇒ onSprite 实读）");
+                CheckTintOn(toggleQ, Color.white, 0.002f, "箭头出厂 tint = onColor **白**（MB 实读）");
+                var secGrid = tpl != null ? tpl.Find("Content") : null;
+                CheckNear(secGrid != null ? CH(secGrid) : -1f, 0f, 0.05f,
+                          "段内 `Content`（GridLayoutGroup）模板无卡片 ⇒ 高 **0**（dump 实读）");
+
+                // ---- ⑧ 数据缺口：无数据 ⇒ **0 段 + 出声**（⛔ 不编来源）----
+                Check(wc.SectionsShown, 0, "来源数据本地没有 ⇒ **0 段**（模板节点不算）");
+                CheckTrue(wc.DataMissing && !string.IsNullOrEmpty(wc.DataNote)
+                          && wc.DataNote.Contains("CardsSpecialConfig"),
+                          "数据缺口**出声**（`DataNote` 点名 `CardsSpecialConfig` 全 `assets_full` 0 命中）："
+                        + (wc.DataNote ?? "<null>"));
+
+                // ---- ⑨ `Generic Close Button Orange`（74.39×75.61 · 命中区 = 两个子件外扩 20）----
+                CheckNear(wc.CloseNode != null ? CW(wc.CloseNode) : -1f, 74.39f, 0.05f, "关窗钮宽 = **74.39**（dump 实读）");
+                CheckNear(wc.CloseNode != null ? CH(wc.CloseNode) : -1f, 75.61f, 0.05f, "关窗钮高 = **75.61**（dump 实读）");
+                CheckNear(wc.CloseHitNode != null ? CW(wc.CloseHitNode) : -1f, 96.86f, 0.02f,
+                          "关窗钮命中区宽 = 子件 **56.86** 按 `m_RaycastPadding = (-20)⁴` 外扩 ⇒ **96.86**");
+                CheckNear(wc.CloseHitNode != null ? CH(wc.CloseHitNode) : -1f, 98.13f, 0.02f,
+                          "关窗钮命中区高 = 子件 **58.13** 外扩 20 ⇒ **98.13**");
+                var closeRootQ = wc.CloseNode != null ? QuadOf(wc.CloseNode) : null;
+                CheckText(closeRootQ != null && closeRootQ.Texture != null ? closeRootQ.Texture.name : null,
+                          "UI_Button_Round_background",
+                          "关窗钮根图 = **`UI_Button_Round_background`**（prefab `m_Sprite` 实读）");
+
+                // ---- ⑩ 段克隆 + 折叠（**合成数据**，只验模板机制；⛔ 不冒充真实来源）----
+                wc.Show(new WhereToGetCardsPopup.Context
+                {
+                    Sections = new[]
+                    {
+                        new WhereToGetCardsPopup.SectionData
+                        {
+                            TitleTerm = null, TitleFallback = "Booster packs",
+                            TotalCards = 5, OwnedCards = 3,
+                        },
+                    },
+                });
+                Check(wc.SectionsShown, 1, "喂一段 ⇒ **1 段**（`Reset()` + 逐条 clone 的等价路径）");
+                var sec1 = wc.ContentView != null ? wc.ContentView.Find("Section 1") : null;
+                CheckTrue(sec1 != null, "克隆段节点 = **`Section 1`**");
+                if (sec1 != null)
+                {
+                    CheckNear(CH(sec1), 2f + 52.5f + 40f + 290.4f + 5f, 0.1f,
+                              "5 张卡 1 行 ⇒ 段高 = 2+52.5+40+290.4+5 = **389.9**（VLG + Grid 实读）");
+                    var s1Title = sec1.Find("Header/Title") != null
+                                  ? sec1.Find("Header/Title").GetComponentInChildren<Label>(true) : null;
+                    var s1Counter = sec1.Find("Header/Counter") != null
+                                    ? sec1.Find("Header/Counter").GetComponentInChildren<Label>(true) : null;
+                    CheckText(s1Title != null ? s1Title.Text : null, "Booster packs",
+                              "克隆段标题 = 喂进去的字");
+                    CheckText(s1Counter != null ? s1Counter.Text : null, "3/5",
+                              "克隆段计数 = **已拥有/总数** = `3/5`（原版 `string.Format(格式串, 已拥有, 总数)`）");
+                    var grid = sec1.Find("Content");
+                    CheckTrue(grid != null && grid.gameObject.activeSelf, "折叠前卡片区**开着**（`m_IsOn = 1`）");
+                    var twb = sec1.Find("Header/Toggle/Hit") != null
+                              ? sec1.Find("Header/Toggle/Hit").GetComponent<WindowButton>() : null;
+                    CheckTrue(twb != null, "段折叠箭头有命中区（= 原版 `EverguildToggle` 那颗）");
+                    if (twb != null)
+                    {
+                        twb.Click();
+                        CheckTrue(grid != null && !grid.gameObject.activeSelf,
+                                  "点一下 ⇒ 卡片区**关掉**（= 原版 `WhereToGetCardsSection.SetVisibility`）");
+                        var tq = QuadOf(sec1.Find("Header/Toggle"));
+                        CheckText(tq != null && tq.Texture != null ? tq.Texture.name : null,
+                                  "40K_dropdown_arrow_closed", "收起后箭头换成 **`..._closed`**（offSprite 实读）");
+                        CheckTintOn(tq, new Color(0.75f, 0.75f, 0.75f, 1f), 0.002f,
+                                    "收起后箭头 tint = offColor **(0.75,0.75,0.75,1)**（MB 实读）");
+                    }
+                }
+                // 恢复「无数据」那一档
+                wc.Show(null);
+                Check(wc.SectionsShown, 0, "换回出厂内容 ⇒ 又回到 **0 段**");
+
+                // ---- ⑪ 关窗音（根 MB `closeSound = 空` + `useDefaultCloseSoundIfNull = 1` ⇒ 家族默认 cue）----
+                wc.Close();
+                CheckText(WindowSounds.LastCue, "ButtonClick Back",
+                          "关窗音 cue = **`ButtonClick Back`**（`GameWindow.Close` 的家族默认，判据 → 音效线 W_G）");
+            }
+            else if (wc != null) wc.Close();
+        }
+
+        // ============================================================ 🆕 2026-10-17（界面线 T28）
+        // 活动承载窗 `ParentEventWindow`（原版 `BaseParentEventWindow` 那一族 / prefab 根名 `Parent Event Window`）。
+        // 判据全部 = prefab / 根 MB / 反编译**现读**（逐字段出处 → `Shell/ParentEventWindow.cs` 文件头；
+        // dump 命令也写在那里）。期望值**独立**取自 prefab 字面量 —— ⛔ 不调被测窗的常量。
+        Section("T28 活动承载窗 `ParentEventWindow`（窗参 / 页签树 / 两页 / 数据缺口）");
+        {
+            float CW(Transform t) { var rt = t as RectTransform; return rt != null ? rt.rect.width * 108f : -1f; }
+            float CH(Transform t) { var rt = t as RectTransform; return rt != null ? rt.rect.height * 108f : -1f; }
+
+            var pw = WindowsManager.OpenParentEvent();
+            CheckTrue(pw != null && pw.CurrentState == WindowState.Open,
+                      "★ 活动承载窗开得出来（`WindowsManager.OpenParentEvent`；原版由 liveops 事件链打开）");
+            if (pw != null && pw.CurrentState == WindowState.Open)
+            {
+                // ---- ① 窗参 = 根 MB `MonoBehaviour_-1838579764277826042.json` 逐字段实读 ----
+                Check(pw.type, WindowType.Fullscreen, "活动承载窗 `type` = **0**（Fullscreen）");
+                Check(pw.placement, WindowsPlacement.Popup, "活动承载窗 `windowsPlacement` = **15**（Popup）");
+                CheckTrue(!pw.closeOnEsc, "活动承载窗 `closeOnESC` = **0**");
+                CheckTrue(!pw.updateNavPanel, "活动承载窗 `updateNavPanel` = **0**");
+                CheckNear(pw.extraScaleSmallScreen, 1f, 1e-6f, "活动承载窗 `extraScaleSmallScreen` = **1.0**");
+                CheckTrue(pw.useDefaultCloseSoundIfNull, "活动承载窗 `useDefaultCloseSoundIfNull` = **1**（关窗音走家族默认）");
+                CheckTrue(pw.openSound == null && pw.closeSound == null,
+                          "活动承载窗 `openSound` / `closeSound` 都是**空 PPtr**（MB 实读 ⇒ 不赋任何 clip）");
+
+                // ---- ② 外壳：`Content Area`（1752.83×1009.06）+ `Background` = 纯代码渐变 ----
+                CheckNear(pw.ContentAreaNode != null ? CW(pw.ContentAreaNode) : -1f, 1752.83f, 0.05f,
+                          "`Content Area` 宽 = **1752.83**（dump 实读）");
+                CheckNear(pw.ContentAreaNode != null ? CH(pw.ContentAreaNode) : -1f, 1009.06f, 0.05f,
+                          "`Content Area` 高 = **1009.06**（dump 实读）");
+                var bgQ = QuadOf(pw.BackgroundNode);
+                CheckTrue(bgQ != null && bgQ.Texture != null && bgQ.Texture.name.StartsWith("grad_"),
+                          "`Background` = **纯代码渐变**（`Image.m_Sprite = 0` + `UIGradient`：色 (0.2235,0.0118,0.0196)→(0.0471,0,0.0157) · `m_angle = 82`）");
+                CheckNear(pw.BackgroundNode != null ? CW(pw.BackgroundNode) : -1f, 1752.83f, 0.05f,
+                          "`Background` 宽 = **1752.83**（与 `Content Area` 同矩形）");
+
+                // ---- ③ `Tab Buttons`（165×1009.06 · 40k_main_tab_background · Gradient2 · padding-top 120）----
+                CheckNear(pw.TabButtonsNode != null ? CW(pw.TabButtonsNode) : -1f, 165f, 0.05f,
+                          "`Tab Buttons` 宽 = **165**（dump 实读）");
+                CheckNear(pw.TabButtonsNode != null ? CH(pw.TabButtonsNode) : -1f, 1009.06f, 0.05f,
+                          "`Tab Buttons` 高 = **1009.06**（dump 实读）");
+                var tabBgQ = QuadOf(pw.TabButtonsNode);
+                CheckText(tabBgQ != null && tabBgQ.Texture != null ? tabBgQ.Texture.name : null,
+                          "40k_main_tab_background", "页签栏底板 = **`40k_main_tab_background`**（prefab `m_Sprite` 实读）");
+                CheckTrue(tabBgQ != null && tabBgQ.CornerColors != null && tabBgQ.CornerColors.Length == 4
+                          && Mathf.Abs(tabBgQ.CornerColors[0].a - 1f) < 0.01f
+                          && Mathf.Abs(tabBgQ.CornerColors[0].r) < 0.01f
+                          && Mathf.Abs(tabBgQ.CornerColors[2].a) < 0.01f
+                          && Mathf.Abs(tabBgQ.CornerColors[2].r - 0.283f) < 0.01f,
+                          "`Gradient2` 顶点色（两端）= **下 (0,0,0,1) → 上 (0.283,0.283,0.283,0)**"
+                        + "（MB 实读：4 色键 / 2 alpha 键；中段白平台我们这一层表达不了，见文件头「近似」）");
+                CheckNear(pw.TabShadowNode != null ? CW(pw.TabShadowNode) : -1f, 47.64f, 0.05f,
+                          "`Tab Buttons/Shadow` 宽 = **47.64**（dump 实读）");
+                CheckTint(pw.TabShadowNode, new Color(0f, 0f, 0f, 0.4745098f), 0.002f,
+                          "`Shadow` 色 = **(0,0,0,0.4745)**（`Image.m_Color` 实读）");
+                CheckTrue(pw.Shadow1Node != null && !pw.Shadow1Node.gameObject.activeSelf,
+                          "`Shadow (1)` 建出来、且**出厂关着**（dump 的 `INACT`）");
+                CheckNear(pw.Shadow1Node != null ? CW(pw.Shadow1Node) : -1f, 49.43f, 0.05f,
+                          "`Shadow (1)` 宽 = **49.43**（dump 实读）");
+                CheckTrue(pw.SampleTabNode != null && !pw.SampleTabNode.gameObject.activeSelf,
+                          "模板页 `Sample Tab`（= 原版 `tabPrefab`）在树里、且**关着**（两页是预置的，模板只建不用）");
+
+                // ---- ④ 页签树：母版关着 + **2 颗**运行期页签（= `tabs` 的 2 个 PPtr）----
+                CheckTrue(pw.TabMasterNode != null && !pw.TabMasterNode.gameObject.activeSelf,
+                          "母版 `Menu Navigation Panel Button` 在树里、且**关着**（= `TabButtons.Initialize` 第一句 `SetActive(false)`）");
+                Check(pw.TabButtonNodes.Count, 2, "运行期页签 = **2 颗**（`tabs` 两个 PPtr：`TwoSidesEvent_ChooseSideTab` / `TwoSidesEvent_OnGoingTab`）");
+                if (pw.TabButtonNodes.Count == 2)
+                {
+                    CheckNear(CW(pw.TabButtonNodes[0]), 165f, 0.05f, "页签宽 = **165**（prefab 实读）");
+                    CheckNear(CH(pw.TabButtonNodes[0]), 180f, 0.05f, "页签高 = **180**（prefab 实读）");
+                    CheckAtWorld(pw.TabButtonNodes[0], 167.2f, 332.2f, 190.9f, 370.9f,
+                                 "第 1 颗页签在 **[167.2,190.9]–[332.2,370.9]**（= VLG padding-top 120）");
+                    CheckAtWorld(pw.TabButtonNodes[1], 167.2f, 332.2f, 370.9f, 550.9f,
+                                 "第 2 颗页签在 **y 370.9–550.9**（VLG spacing 0）");
+                    CheckTrue(pw.TabHighlights.Count == 2 && pw.TabHighlights[0].gameObject.activeSelf
+                              && !pw.TabHighlights[1].gameObject.activeSelf,
+                              "选中态 = **只亮当前页那颗 `Highlight`**（原版 `m_IsOn` 的等价物）");
+                }
+
+                // ---- ⑤ 页签文字（fs25.65 / 基准23 / auto[12~33] / 字距 −3.5 / 色 0.957,0.882,0.675）----
+                var tl = pw.TabLabels.Count > 0 ? pw.TabLabels[0] : null;
+                CheckText(tl != null ? tl.Text : null, "Select Team Tab",
+                          "页签文字 = 页节点名兜底（原版来自 liveops label，本地没有；不编活动文案）");
+                var tlNode = pw.TabButtonNodes.Count > 0 ? pw.TabButtonNodes[0].Find("Label") : null;
+                CheckFontWindow(tlNode, 12f, 33f, "页签自适应窗口 = **[12~33]**（prefab 实读）");
+                CheckFontBase(tlNode, 23f, "页签自适应起点 = **基准 23**（prefab `m_fontSizeBase`）");
+                CheckNear(tl != null ? tl.CharSpacing : 999f, -3.5f, 0.001f, "页签字距 = **−3.5**（`m_characterSpacing`）");
+                CheckTrue(tl != null && Mathf.Abs(tl.color.r - 0.9568628f) < 0.002f
+                          && Mathf.Abs(tl.color.g - 0.8823530f) < 0.002f
+                          && Mathf.Abs(tl.color.b - 0.6745098f) < 0.002f,
+                          "页签文字色 = **(0.957,0.882,0.675)**（`m_fontColor` 实读）"
+                        + (tl != null ? $"（实得 {tl.color.r:F3},{tl.color.g:F3},{tl.color.b:F3}）" : ""));
+                CheckNear(tlNode != null ? CW(tlNode) : -1f, 155f, 0.05f, "页签名牌宽 = **155**（dump）");
+                CheckNear(tlNode != null ? CH(tlNode) : -1f, 37.86f, 0.05f, "页签名牌高 = **37.86**（dump）");
+
+                // ---- ⑥ 两页（`tabs` 的 2 个 PPtr；节点名 = 原版 prefab 里那两颗）----
+                Check(pw.PageNodes.Count, 2, "两页都建出来（= `tabs` 的 2 个 PPtr）");
+                CheckText(pw.PageNodes.Count > 0 ? pw.PageNodes[0].name : null, "Select Team Tab",
+                          "第 1 页 = **`Select Team Tab`**（`TwoSidesEvent_ChooseSideTab`）");
+                CheckText(pw.PageNodes.Count > 1 ? pw.PageNodes[1].name : null, "Event On Going Tab",
+                          "第 2 页 = **`Event On Going Tab`**（`TwoSidesEvent_OnGoingTab`）");
+                Check(pw.CurrentPageIndex, 0,
+                      "默认落在第 1 页（原版 `CheckAndOpenTab` 按「是否已选阵营」决定 —— 那份数据在远端 ⇒ 只能挑一个并出声）");
+                CheckTrue(pw.ChooseSidePage != null && pw.ChooseSidePage.gameObject.activeSelf
+                          && pw.OnGoingPage != null && !pw.OnGoingPage.gameObject.activeSelf,
+                          "切页 = **`SetActive` 语义**（原版 `GameWindowWithTabs.ChangeTab`）：第 1 页开、第 2 页关");
+                pw.OpenPage(ParentEventWindow.Page.OnGoing);
+                Check(pw.CurrentPageIndex, 1, "`OpenPage(OnGoing)` ⇒ 当前页 = **1**");
+                CheckTrue(!pw.ChooseSidePage.gameObject.activeSelf && pw.OnGoingPage.gameObject.activeSelf,
+                          "切到第 2 页 ⇒ 第 1 页关、第 2 页开");
+
+                // ---- ⑦ 第 1 页（Choose Side）内容：标题 / 两张队伍卡 / 说明 / 返回 ----
+                //   ⚠️ 先切回第 1 页再量 —— `QuadOf` 走的是 `GetComponentInChildren<ImageQuad>()`（**只找激活件**），
+                //      刚在第 ⑥ 节切走之后不切回来，那些图会取不到（假红）。
+                pw.OpenPage(ParentEventWindow.Page.ChooseSide);
+                var p1 = pw.ChooseSidePage;
+                CheckText(pw.P1TitleLabel != null ? pw.P1TitleLabel.Text : null, "BATTLE FOR WARPFORGE",
+                          "第 1 页标题 = prefab 出厂字 **`BATTLE FOR WARPFORGE`**（原版运行期不动）");
+                CheckFontWindow(p1 != null ? p1.Find("Title") : null, 18f, 72f, "标题自适应窗口 = **[18~72]**");
+                CheckNear(pw.P1TitleLabel != null ? pw.P1TitleLabel.CharSpacing : 999f, 5f, 0.001f,
+                          "标题字距 = **5**（`m_characterSpacing`）");
+                CheckNear(p1 != null && p1.Find("Title") != null ? CW(p1.Find("Title")) : -1f, 1337.67f, 0.05f,
+                          "标题框宽 = **1337.67**（dump 实读）");
+                CheckTrue(p1 != null && p1.Find("Two Side Event Select Team A") != null
+                          && p1.Find("Two Side Event Select Team B") != null,
+                          "两张队伍卡 = **`Two Side Event Select Team A` / `B`**（= `tabs` 那一页的 `teamContainers[2]`）");
+                var tA = p1 != null ? p1.Find("Two Side Event Select Team A") : null;
+                var tB = p1 != null ? p1.Find("Two Side Event Select Team B") : null;
+                var tAq = tA != null ? QuadOf(tA) : null;
+                CheckTrue(tAq != null && tAq.CornerColors != null && tAq.CornerColors.Length == 4
+                          && Mathf.Abs(tAq.CornerColors[3].r - 0.8679245f) < 0.002f
+                          && Mathf.Abs(tAq.CornerColors[3].b - 0.1760413f) < 0.002f,
+                          "队伍 A 底 = `UICornersGradient` **红**（左上 (0.868,0.274,0.176)，MB 实读）");
+                var tBq = tB != null ? QuadOf(tB) : null;
+                CheckTrue(tBq != null && tBq.CornerColors != null && tBq.CornerColors.Length == 4
+                          && Mathf.Abs(tBq.CornerColors[3].r - 0.1764706f) < 0.002f
+                          && Mathf.Abs(tBq.CornerColors[3].g - 0.5408802f) < 0.002f,
+                          "队伍 B 底 = `UICornersGradient` **蓝**（左上 (0.176,0.541,0.867)，MB 实读）");
+                var nmA = tA != null && tA.Find("Bottom Text/Team Name") != null
+                          ? tA.Find("Bottom Text/Team Name").GetComponent<Label>() : null;
+                CheckText(nmA != null ? nmA.Text : null, "Red Team",
+                          "队伍名 = prefab 出厂字 **`Red Team`**（原版运行期灌 liveops 队伍名）");
+                CheckNear(nmA != null ? nmA.FontPxNow : -1f, 82.1f, 0.6f, "队伍名字号 = **82.1**（prefab 实读）");
+                Check(pw.P1TapLabels.Count, 2, "两个 **`Tap to select`**（`'Select'`）都在");
+                CheckTrue(pw.P1TapLabels.Count > 0 && pw.P1TapLabels[0].color.g > 0.6f
+                          && pw.P1TapLabels[0].color.g < 0.7f && pw.P1TapLabels[0].color.r > 0.99f,
+                          "`Select` 字色 = **(1,0.656,0.656)**（`m_fontColor` 实读）");
+                var desc = p1 != null && p1.Find("Description") != null
+                           ? p1.Find("Description").GetComponent<Label>() : null;
+                CheckTrue(desc != null && desc.Text != null
+                          && desc.Text.StartsWith("<color=#E27E1B>Choose your side. Fight for glory!</color>"),
+                          "说明 = prefab 出厂原文（含 `<color=#E27E1B>` 那一段）");
+                CheckTrue(p1 != null && p1.Find("Back button/Hit") != null
+                          && p1.Find("Back button/Hit").GetComponent<WindowButton>() != null,
+                          "第 1 页返回钮有命中区（= 原版 `Back button`）");
+
+                // ---- ⑧ 第 2 页（On Going）内容：表头 / 5 档记分 / Collect / 队伍名 / 倒计时 ----
+                pw.OpenPage(ParentEventWindow.Page.OnGoing);
+                var p2 = pw.OnGoingPage;
+                CheckText(pw.P2HeaderTitleLabel != null ? pw.P2HeaderTitleLabel.Text : null, "Game mode",
+                          "第 2 页表头 = prefab 出厂字 **`Game mode`**（运行期由 liveop label 覆盖）");
+                CheckFontWindow(p2 != null ? p2.Find("Game Mode Header With Back Button/Header Background/Window Title") : null,
+                                18f, 67.55f, "表头自适应窗口 = **[18~67.55]**（prefab 实读）");
+                CheckFontInRange(p2 != null ? p2.Find("Game Mode Header With Back Button/Header Background/Window Title") : null,
+                                 18f, 67.55f, "表头实际字号落在 **[18~67.55]** 里（开自适应）");
+                CheckText(pw.P2RewardTileLabel != null ? pw.P2RewardTileLabel.Text : null, "Progression",
+                          "奖励区小标题 = prefab 出厂字 **`Progression`**");
+                CheckText(pw.P2CollectLabel != null ? pw.P2CollectLabel.Text : null, "Collect",
+                          "领奖钮 = prefab 出厂字 **`Collect`**");
+                CheckNear(pw.P2CollectLabel != null ? pw.P2CollectLabel.FontPxNow : -1f, 55f, 0.6f,
+                          "`Collect` 字号 = **55**（prefab 实读）");
+                CheckText(pw.P2TotalVictoriesLabel != null ? pw.P2TotalVictoriesLabel.Text : null, "125",
+                          "`Total Victories` = prefab 出厂字 **`125`**（原版运行期灌真实分数）");
+                Check(pw.P2ScoreLabels.Count, 5, "记分条 = **5 档**（`Score Bar Line Level 1..5`）");
+                if (pw.P2ScoreLabels.Count == 5)
+                {
+                    bool all = true;
+                    for (int i = 0; i < 5; i++) all &= pw.P2ScoreLabels[i] != null && pw.P2ScoreLabels[i].Text == "1256";
+                    CheckTrue(all, "5 行 `Score` 都印 **`1256`**（= prefab 出厂原文；原版运行时灌真实阈值）");
+                    CheckNear(pw.P2ScoreLabels[0] != null ? pw.P2ScoreLabels[0].FontPxNow : -1f, 48f, 0.6f,
+                              "记分字号 = **48**（prefab 实读）");
+                }
+                var tB2 = p2 != null ? p2.Find("Team B Name/Team B Name") : null;
+                var nmB = tB2 != null ? tB2.GetComponent<Label>() : null;
+                CheckText(nmB != null ? nmB.Text : null, "Blue Team",
+                          "第 2 页队伍名 = prefab 出厂字 **`Blue Team`**");
+                CheckTrue(pw.P2TimerLabel != null && pw.P2TimerLabel.Text == "--",
+                          "倒计时 = **`--`**（截止时刻在远端 LiveOps；`TimerDisplay` 不编日期）");
+                CheckTrue(p2 != null && p2.Find("Game Mode Header With Back Button/Header Back Button/Hit") != null,
+                          "第 2 页表头返回钮有命中区（= 原版 `Header Back Button`）");
+
+                // ---- ⑨ 数据缺口 / 素材缺口：**如实留空 + 出声** ----
+                CheckTrue(pw.DataMissing && !string.IsNullOrEmpty(pw.DataNote) && pw.DataNote.Contains("LiveOps"),
+                          "数据缺口**出声**（活动数据全在远端 LiveOps）：" + (pw.DataNote ?? "<null>"));
+                CheckTrue(pw.MissingArt.Contains("VS_icon") && pw.MissingArt.Contains("40k_battle_Win_Skull_SDF"),
+                          "两张**本工程没导入**的图如实记账（`VS_icon` / `40k_battle_Win_Skull_SDF`）⇒ 对应件不画");
+
+                // ---- ⑩ 点压暗层 = 关窗（原版 `TwoSidesEventWindow.OnEnable` 给 `backgroundCloseButton.onClick`
+                //        挂的监听与表头返回钮是同一个 delegate）+ 关窗音 = 家族默认 ----
+                var shadeHit = pw.ShadeNode != null ? pw.ShadeNode.Find("BackgroundHit") : null;
+                var shadeBtn = shadeHit != null ? shadeHit.GetComponent<WindowButton>() : null;
+                CheckTrue(shadeBtn != null, "压暗层有命中区（`BackgroundHit`）");
+                if (shadeBtn != null)
+                {
+                    shadeBtn.Click();
+                    CheckTrue(pw.CurrentState != WindowState.Open,
+                              "点压暗层 ⇒ **关窗**（= 原版 `backgroundCloseButton.onClick` 那条 delegate）");
+                    CheckText(WindowSounds.LastCue, "ButtonClick Back",
+                              "关窗音 cue = **`ButtonClick Back`**（`GameWindow.Close` 的家族默认）");
+                }
+            }
+            else if (pw != null) pw.Close();
         }
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");

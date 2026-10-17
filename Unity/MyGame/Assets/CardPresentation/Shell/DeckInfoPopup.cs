@@ -661,6 +661,20 @@ namespace CardPresentation
             return false;
         }
 
+        /// <summary>原版「导入失败」提示的**唯一**拼装处（`DeckInfoPopup.EditDeck` 那条闸）。
+        /// <para>官方模板 = `MenuDeck/CantImportDeck`：EN `Can't import deck. You don't have enough {0} cards.` /
+        /// ZH `无法导入卡组。你没有足够的{0}张牌。`；`{0}` = **这副卡组督军的阵营名**
+        /// （判据 = `d:/2/tools/decomp_full/DeckInfoPopup__EditDeck.c`：
+        /// `s = string.Format(GetTranslation("MenuDeck/CantImportDeck"), GameStaticData.CardArmyToString(deck.Warlord.Army))`）
+        /// ⇒ **不是数量、不是卡名、不是理由**。</para>
+        /// <para>⚠️ 原版 `Warlord` 恒非空；我们这一侧 `CurWarlord` 可能查不到（卡表里没有那张 id）
+        /// ⇒ 传空串、由调用点 `Debug.LogWarning` 出声（不静默）。</para></summary>
+        public static string CantImportDeckMessage(RuleEngine.CardDef warlord)
+        {
+            string army = warlord != null ? CardText.Faction(warlord.Faction) : "";
+            return string.Format(Loc.T("MenuDeck/CantImportDeck"), army);
+        }
+
         /// <summary>这扇窗看的是哪一副（`CollectionData` 的下标）。</summary>
         public int DeckIndex;
 
@@ -1049,14 +1063,19 @@ namespace CardPresentation
                 Img(root, root, facTex, DdIconL, DdIconT, DdIconR, DdIconB, "Army Icon", QDIRow, true);
             // 🆕 **A1205 接上**（四格出处 = `R5_包装层菜单族.md` §2·F #35：原版
             //    `Deck Details ▸ Deck Details ▸ Deck Name` = `auto[10~45] · base 42 · 折行 0`）
+            // 🔴 **A1024③（2026-10-17）换面**：`Deck info Popup` 里**只有 `Deck Name` 是 Asar**
+            //    （判据 = `menu_dump … bundle_menus_assets_all "Deck info Popup" --depth 25` 逐颗现读）；
+            //    `Warlord Name` / `Cards in deck` / `Card Cost` / `Count` / `Cost` / `Card Name` /
+            //    `Button Text` / `Deck Information Cost/balance text` **全是 Pragati** ⇒ `LatinCardBody`。
             Txt(root, root, info.Name, DdNameL, DdNameT, DdNameR, DdNameB, 44.5f, Align.Left, "Deck Name", QDIText,
-                autoMinPx: 10f, autoMaxPx: 45f, autoBasePx: 42f);      // `wrapPx` 缺省 0 = 原版 `折行 = 0`
+                autoMinPx: 10f, autoMaxPx: 45f, autoBasePx: 42f, face: TmpFont.Face.LatinUi);      // `wrapPx` 缺省 0 = 原版 `折行 = 0`
             // 空战将位那行字走词条（键 `MenuDeck/Error/NoWarlord`）。
             // ⚠️ 中文列是「还没有选战将」—— 与改前写死的「未选战将」**不同字**，这是**有意的**：
             //    施工单 §附_Shell #1 判「语义一致 ⇒ 复用，别新造」（铁律 6：同义两键迟早不一致）。
             // 🆕 **A1205 接上**（`R5` §2·F #36：`Deck Details ▸ Warlord Name` = `auto[10~40] · base 38 · 折行 0`）
             Txt(root, root, wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"), DdWlL, DdWlT, DdWlR, DdWlB, 40f, Align.Left,
-                "Warlord Name", QDIText, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 38f);
+                "Warlord Name", QDIText, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 38f,
+                face: TmpFont.Face.LatinCardBody);
 
             // 5) `Info Panel` + 两个抽屉（`Deck List` 出厂在前、`Deck Info` 出厂 **INACT** ⇒ 建了关着）
             Nine(root, root, "UI_Deck_Information_submenu_Back", PanelBorder, PanelTexW, PanelTexH,
@@ -1117,7 +1136,8 @@ namespace CardPresentation
                     //     ⇒ `MenuDraw.SetVAlign(..., OrigFace.Pragati)`（缺省那份就是 Pragati）。
                     var lab = Txt(holder.transform, holder.transform, labelText, r.x1, r.y1, r.x2, r.y2, 40f, Align.Center,
                         "Text " + btns[i], QDIText, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 12f,
-                        boxW: 294.41f, boxH: 76.70f, vAlign: Label.VAlign.Capline);
+                        boxW: 294.41f, boxH: 76.70f, vAlign: Label.VAlign.Capline,
+                        face: TmpFont.Face.LatinCardBody);
                     string key = btns[i];
                     // A17：原版 `Buttons>{Practice,Edit,Select} Deck` 是 SpriteSwap（普查 §块 3 第 6 行）
                     var hitq = Hit(holder.transform, holder.transform, "Btn_" + key, r, () => OnButton(key),
@@ -1439,7 +1459,7 @@ namespace CardPresentation
                 //   · 纵向：`m_VerticalAlignment = 8192 (Capline)` · `HorizontalAlignment = 2 (Center)` · 字体 Pragati。
                 Txt(node.transform, node.transform, card.Cost.ToString(), x1 + 6f, y1 + 9f, x1 + 46f, y1 + 49f, 50f, Align.Center,
                     "Cost Text", QDIText, wrapPx: 48.819f, autoMinPx: 18f, autoMaxPx: 50f, autoBasePx: 32f,
-                    boxH: 47.88f, vAlign: Label.VAlign.Capline);
+                    boxH: 47.88f, vAlign: Label.VAlign.Capline, face: TmpFont.Face.LatinCardBody);
                 // ④ **卡名 = 本地化名**：原版那一栏喂的就是 `GetLocalizedCardName`（见 ② 的键2），
                 //    而左栏 `DeckRuntime.cs:3189` 用的是 `CardText.Name(def.Name, def.NameZh)`。
                 //    🔴 原来写 `card.Name`（英文）⇒ **同一副牌弹窗英文、编辑窗中文**。
@@ -1448,7 +1468,7 @@ namespace CardPresentation
                 //    ⚠️ 纵向档必须在本函数内部先于 `AlignLeftOn` 落（见 `Txt` 的 `vAlign` doc）。
                 Txt(node.transform, node.transform, CardText.Name(card.Name, card.NameZh), x1 + 52f, y1, x1 + RowW - 52f, y1 + RowH, 38f, Align.Left,
                     "Name", QDIText, autoMinPx: 2f, autoMaxPx: 38f, autoBasePx: 27.69f,
-                    vAlign: Label.VAlign.Capline);
+                    vAlign: Label.VAlign.Capline, face: TmpFont.Face.LatinCardBody);
                 // ⑥ **份数那颗只在 >1 张时才建**（A1531⑥ 同族第二条）：原版
                 //    `UICardInfoItem__SetCount.c:34` = `SetActive(countLabel, 1 < count)`，
                 //    而 `SpawnCardInfo.c:76` 建行时喂的 count 恒 **1** ⇒ **单张的行不印 `x1`**。
@@ -1461,7 +1481,7 @@ namespace CardPresentation
                     //    字体 Pragati（`MonoBehaviour_-4940484093667014232` 亲读）。
                     Txt(node.transform, node.transform, "x" + n, x1 + RowW - 52f, y1, x1 + RowW - 8f, y1 + RowH, 32f,
                         Align.Right, "Count", QDIText, autoMinPx: 2f, autoMaxPx: 32f, autoBasePx: 36f,
-                        vAlign: Label.VAlign.Midline);
+                        vAlign: Label.VAlign.Midline, face: TmpFont.Face.LatinCardBody);
                 // ⑦ **`checkOwnership` 那道闸**（见 `CheckOwnership` 的 doc；本地恒不触发）
                 if (CheckOwnership && n > CardProgress.Owned(card.Id, card.Rarity))
                     DimRow(node.transform, OwnershipDimAlpha);
@@ -1547,7 +1567,8 @@ namespace CardPresentation
             //    = `auto[10~44] · base 22.3 · 折行 1`）。折行档 = 1 ⇒ `wrapPx` = 本格框宽（同上那条说明）。
             Txt(b, b, Loc.T("Demo/CardCostBalance"), DiHeadL, DiHeadT, DiHeadR, DiHeadB, 44f, Align.Center,
                 "Deck Information Cost/balance text", QDIText,
-                wrapPx: DiHeadR - DiHeadL, autoMinPx: 10f, autoMaxPx: 44f, autoBasePx: 22.3f);
+                wrapPx: DiHeadR - DiHeadL, autoMinPx: 10f, autoMaxPx: 44f, autoBasePx: 22.3f,
+                face: TmpFont.Face.LatinCardBody);
 
             // ② 费用曲线（9 行 = 费用 0..8）
             BuildCostDrawer(b);
@@ -1604,19 +1625,21 @@ namespace CardPresentation
                 //   ⇒ **state 1 这一态下点它，原版是「弹提示、不进编辑器」**。
                 //   ⚠️ 我们**没有 state 1 的调用点**（原版那条是 `ChatMessageUI.OnMessageClicked`）⇒ 这一段在本 build
                 //      里是**死档**，但字段是 public（自检造得出来）⇒ 照判据摆着，**不许静默**。
-                //   ⚠️ 原版那句提示的文案是一条 **I2 词条键**（`DAT_1842cebf0`，格式化进阵营名），
-                //      本地没有语言表 ⇒ **读不到** ⇒ 下面这句英文是**我们挑的**（铁律 3，别当原版文案）。
+                //   ✅ **2026-10-17（界面线 `A1852`）就地订正（铁律 5）**：以上两句都过期 ——
+                //      ① 官方 13 语言表 **2026-10-14 起就在本地**（`Resources/official_loc_13lang.json`），
+                //         这条键的值 = 官方原文、**带 `{0}`**，不再「读不到」；
+                //      ② `{0}` 的语义**已查实** = **这副卡组督军的阵营名**
+                //         （判据 = `d:/2/tools/decomp_full/DeckInfoPopup__EditDeck.c`：
+                //         `string.Format(GetTranslation("MenuDeck/CantImportDeck"), CardArmyToString(deck.Warlord.Army))`）。
+                //      ⇒ 拼装只走 `CantImportDeckMessage`（唯一一处）；⛔ 别再往后拼卡组名/督军名。
                 if (State == DeckInfoState.Import && !CanImportDeck(CurDeck))
                 {
                     var wl = CurWarlord;
-                    // 🔴 **2026-10-18（波 1b）**：原来这里是**写死的英文**（中文档下也印英文）⇒ 改走词条
-                    //   （键 `MenuDeck/CantImportDeck`；EN 列与改前写死串**逐字相同**）。
-                    //   ⚠️ 这条**键名是原版的**（`stringliteral.json` RVA `0x42CEBF0`）—— 正是上面注释里那个
-                    //   `DAT_1842cebf0`（VA − ImageBase `0x180000000`）⇒ 查到就用它，不再自拟。
-                    string msg = Loc.T("MenuDeck/CantImportDeck") + (wl != null ? "（" + wl.Name + "）" : "");
+                    string msg = CantImportDeckMessage(wl);
                     Debug.LogWarning("[DeckInfo] state = Import 且 `CanImportDeck == false` ⇒ **不进编辑器**"
-                                     + "（原版 `DeckInfoPopup.EditDeck` 那条闸）；⚠️ 提示文案**是我们挑的** —— "
-                                     + "原版那一条是 I2 词条键（`DAT_1842cebf0`），本地无语言表");
+                                     + "（原版 `DeckInfoPopup.EditDeck` 那条闸）；提示文案 = 官方原文 "
+                                     + "`MenuDeck/CantImportDeck`（`{0}` = 督军阵营名 `"
+                                     + (wl != null ? CardText.Faction(wl.Faction) : "") + "`）");
                     // 弹窗唯一那颗钮走词条（键 `MainMenu/General/OK`，出处 = 原版同 GO TMP `m_text` = `OK`；
                     //   证据与来历写在 `Core/Loc.cs` 里 `MainMenu/General/OK` 那一条的留痕块）。⚠️ 是 `OK` **不是** `Ok`（施工单 §④ 那条口径）。
                     if (Manager != null) Manager.ShowPopUp(msg, Loc.T("MainMenu/General/OK"), null);
@@ -1870,9 +1893,13 @@ namespace CardPresentation
             //     `Successful` 拼成了 **`Succesful`（一个 s）** —— **一个字都别改**，改了就等于换了一条键。
             //   🔴 **2026-10-19（第九会话 · `A1163`）就地改口（铁律 5）**：上面原来写「**那条键本地词条表里
             //     没有 value** …… ⇒ 今天**恒走兜底句**」—— **说反了**。`Core/Loc.cs` 现读**已有该键**
-            //     （`MenuDeck/Share/ExportSuccesful`；ZH/EN 两列都是我们**自拟**的 —— 原版那套值在**远端 I2
-            //      语言表**、本地取不到，判据见 `Core/Loc.cs` 那条自己的注释）⇒ `ErrorMessageBanner.ShowMessage`
+            //     （`MenuDeck/Share/ExportSuccesful`）⇒ `ErrorMessageBanner.ShowMessage`
             //     走的是「**表里有键**」那一支，**兜底句不被使用**。
+            //     🔴 **2026-10-17（界面线 `N37③`）再订正（铁律 5）**：本段此前还写着「ZH/EN 两列都是我们
+            //     **自拟**的 —— 原版那套值在**远端 I2 语言表**、本地取不到」—— **两句都过期**：
+            //     官方 13 语言表 **2026-10-14 起就在本地**（`Resources/official_loc_13lang.json`），
+            //     这条键的官方值 = `Deck copied to clipboard` / `卡组已复制到剪贴板`
+            //     ⇒ `Core/Loc.cs` 那两列**已是官方原文、不是自拟**（见该文件那条自己的注释）。
             //     ⛔ 别把键名印到屏幕上（两态行为 → `ErrorMessageBanner.ShowMessage`）。
             //   🔴 **2026-10-17（`N35`）用户拍板：按官方原文去掉「（N 字符）」那一截** ——
             //     官方表那条是 `Deck copied to clipboard` / `卡组已复制到剪贴板`，**没有 `{0}`**；
@@ -1892,9 +1919,12 @@ namespace CardPresentation
         /// （拼写照原版，**少一个 s**）。
         /// <para>🔴 **2026-10-19（第九会话 · `A1163`）就地改口（铁律 5）**：本段原来写「它的 **value 在远端
         /// I2 语言表**里，本地**没有** ⇒ 调用点**必须**给兜底句（`DeckRuntime.ShareCopiedText`）」——
-        /// **前半句仍对**（原版那套值确实在远端），**后半句已过期**：`Core/Loc.cs` 现读**已有这条键 + 自拟值**
-        /// （且那条值带 `{0}`）⇒ 调用点走的是「表里有键」那一支、**兜底句不被使用**，字符数由
-        /// `string.Format` 拼进去 —— 见 <see cref="ShareDeck"/> 里那一串注释。
+        /// 前半句**已过期**（官方 13 语言表 2026-10-14 起就在本地），后半句也过期：`Core/Loc.cs` 现读
+        /// **已有这条键 + 官方值** ⇒ 调用点走的是「表里有键」那一支、**兜底句不被使用**。
+        /// 🔴 **2026-10-17（界面线 `N37③`）再订正（铁律 5）**：本段此前还写着「那条值**带 `{0}`**，
+        /// 字符数由 `string.Format` 拼进去」—— **不成立**：官方值 = `Deck copied to clipboard` /
+        /// `卡组已复制到剪贴板`、**没有 `{0}`**（`Resources/official_loc_13lang.json` 现读；`N35` 已把
+        /// 「（N 字符）」那一截撤销）⇒ 调用点**不传参**。
         /// ⛔ 别因为「看着像拼错」就改成 `Successful`：那样键就变了、永远查不到。</para></summary>
         public const string ShareSuccessTerm = "MenuDeck/Share/ExportSuccesful";
 
@@ -2210,7 +2240,8 @@ namespace CardPresentation
         Label Txt(Transform parent, Transform basis, string text, float x1, float y1, float x2, float y2,
                   float fontPx, Align align, string name, int q,
                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                  float boxW = 0f, float boxH = 0f, Label.VAlign? vAlign = null)
+                  float boxW = 0f, float boxH = 0f, Label.VAlign? vAlign = null,
+                  TmpFont.Face face = TmpFont.Face.Cjk)
         {
             // 🔴 **2026-10-09（A229）**：与同文件 `Nine`（上面那条）**同一条守卫、同一句话** ——
             //   本类「**位置按 `basis` 算、树父给 `parent`**」这一套里，`basis != parent` 就是**两套坐标系**
@@ -2226,6 +2257,9 @@ namespace CardPresentation
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
             lb.SetRenderQueue(Q(q));            // 🆕 T24：按本扇的基档换算（默认基档 = QDI ⇒ 逐位不变）
+            // 🔴 **2026-10-17（A1024③）**：可选字体面 —— 默认 `Cjk` ⇒ 旧调用点零行为变化。
+            //    ⚠️ **次序**：`SetFace` 必须在 `SetGlyphHeight` 之前（字号按 `ActualFace` 的 em 换算）。
+            if (face != TmpFont.Face.Cjk) lb.SetFace(face);
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
             // 🆕 **A1205**：自适应 + 折行两个开关（逐字照 `Shell/SettingsWindow.cs:4741-4748` 那一档的算法，
             //    只是落在裸 `Label` 上）。🔴 **必须排在下面那两句对齐之前** —— `SetWrapWidth` / `SetAutoFitBox`

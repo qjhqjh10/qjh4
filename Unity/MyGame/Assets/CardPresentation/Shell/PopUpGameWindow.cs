@@ -419,7 +419,7 @@ namespace CardPresentation
             //    ⚠️ `base` = `MsgAutoBasePx`（原版 `m_fontSizeBase`，A1188）—— 原来传缺省 `0`
             //    = 「base 退回调用方那一档」，与原版**不一致**（详见 `MsgAutoBasePx` 的注释）。
             _msgLb = MenuDraw.Text(winNode, msgR, Term(_msgKey), Color.white, "MessageText",
-                                   MsgFontPx, QText, msgR.W, MsgAutoMinPx, MsgFontPx, MsgAutoBasePx);
+                                   MsgFontPx, QText, msgR.W, MsgAutoMinPx, MsgFontPx, MsgAutoBasePx, face: TmpFont.Face.LatinCardBody);
             if (_msgLb == null) Debug.LogWarning("[PopUp] `MessageText` 没建出来（标签建失败）");
 
             // ---- 7) `Buttons` 行（它是**布局组容器**，子件位置由下面的成品矩形定死）----
@@ -492,7 +492,7 @@ namespace CardPresentation
             // 🔴 A1188：`base` = `BtnAutoBasePx`（原版 `m_fontSizeBase = 12`，**1/2 按钮版逐值相同**）——
             //   原来传缺省 `0`（= 退回调用方那一档），与原版不一致。判据见 `BtnAutoBasePx` 的注释。
             var lb = MenuDraw.Text(go, tr, Term(key), Color.white, "Button Text",
-                                   fontPx, QText, tw, BtnAutoMinPx, fontPx, BtnAutoBasePx);
+                                   fontPx, QText, tw, BtnAutoMinPx, fontPx, BtnAutoBasePx, face: TmpFont.Face.LatinCardBody);
             if (lb == null) { Debug.LogWarning("[PopUp] `" + nodeName + "` 的字没建出来"); return null; }
             // 原版那一站 `折行=0`（靠 `auto 12~38/40` 缩字号）⇒ 照它关掉折行。
             // ⚠️ 上面那个 `wrapPx` 只为把**框宽**设上（自适应按框量），模式按原版走。

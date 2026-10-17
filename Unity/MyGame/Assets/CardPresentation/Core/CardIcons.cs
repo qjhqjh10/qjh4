@@ -516,6 +516,13 @@ namespace CardPresentation
         static string OfficialTerm(string term, bool zh)
         {
             if (string.IsNullOrEmpty(term)) return null;
+            // 🆕 2026-10-17（`N42`）：**非中英语档 ⇒ 官方 13 语言表的当前那一列**（中/英档恒 null ⇒ 下面逐字节不变）。
+            //   ⚠️ 这一步要排在 `HasEntry` 之前 —— `[[关键词]]` / `$$卡 id$$` 这类嵌套词在日/韩/俄…正文里
+            //   也要出**对应语言**，改前它们会落回英/中列（半外半英）。
+            //   ⚠️ 本函数收的是**官方词条键**（`Card_Trait/*` / `Card_Name/*` / `Modular_Description/*`），
+            //   与 `zh` 这个形参（=「取中文列」）无关：当前语档是哪一列由 `Loc` 自己判。
+            string v13 = Loc.Lang13Current(term);
+            if (!string.IsNullOrEmpty(v13)) return v13;
             if (Loc.HasEntry(term))
             {
                 string v = zh ? Loc.ZhOf(term) : Loc.EnOf(term);

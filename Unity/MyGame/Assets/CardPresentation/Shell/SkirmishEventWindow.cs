@@ -152,7 +152,7 @@ namespace CardPresentation
             //   在 `MenuDraw.TextCore` 里（45.87 > 18 ⇒ 过闸）。
             MenuDraw.Text(col, new PxRect(RTileL, RTileT, RTileR, RTileB), "Progression",
                           Color.white, "Reward Tile", 45.87f, QText,
-                          RTileR - RTileL, 18f, 45.87f, 36f);
+                          RTileR - RTileL, 18f, 45.87f, 36f, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-18（A1126 · A1 档）**：这一处原来**一个 autosize 实参都没传** ⇒ 固定字号 38px。
             //   判据 = 逐颗现读原版那一颗（`工具/menu_dump.py bundle_menus_assets_all "SkirmishModeEventWindow" --md`）：
             //   `Reward Display/Reward Help` = `'Win battles …unlock rewards.'` · 字号 **38.0** · 基准 **36.0** ·
@@ -163,7 +163,7 @@ namespace CardPresentation
             //   实参顺序照 `MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, q, autoMaxPx, autoBasePx, …)`。
             var help = MenuDraw.TextBox(col, new PxRect(RHelpL, RHelpT, RHelpR, RHelpB),
                                         "Win battles to progress in the event and unlock rewards.", Color.white,
-                                        "Reward Help", 38f, 18f, QText, 38f, 36f);
+                                        "Reward Help", 38f, 18f, QText, 38f, 36f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(help, new PxRect(RHelpL, RHelpT, RHelpR, RHelpB));
 
             // `Player victories`：`Vicotries title`(fs48) + `Skull Victories`(Rank Skull) + `Total Victories`(fs48)
@@ -177,7 +177,7 @@ namespace CardPresentation
             //   （那是给原版 `折行=0` 的件的成对写法，见 A34-F4 那一族）。
             var vt = MenuDraw.Text(vic, new PxRect(VTitleL, VTitleT, VTitleR, VTitleB), "Victories: ",
                                    Color.white, "Vicotries title", 48f, QText,
-                                   VTitleR - VTitleL, 18f, 48f, 36f);
+                                   VTitleR - VTitleL, 18f, 48f, 36f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignRight(vt, new PxRect(VTitleL, VTitleT, VTitleR, VTitleB));
             // ⚠️ `Total Victories` 原版是 `Skull Victories` 的**子件**（实读 depth 4）
             var skull = MenuDraw.Node(vic, "Skull Victories", new PxRect(VSkullL, VSkullT, VSkullR, VSkullB));
@@ -193,7 +193,7 @@ namespace CardPresentation
             //   ⚠️ 原版**折行 = 1** ⇒ 传 `wrapPx` 与它同档，⛔ 不要补 `SetWrapping(false)`。
             var tv = MenuDraw.Text(skull, new PxRect(VCountL, VCountT, VCountR, VCountB), "0", Color.white,
                                    "Total Victories", 48f, QText,
-                                   VCountR - VCountL, 18f, 48f, 36f);
+                                   VCountR - VCountL, 18f, 48f, 36f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(tv, new PxRect(VCountL, VCountT, VCountR, VCountB));
             Debug.Log("[Event] `Total Victories` 印的是 **0** —— 原版读 liveop 事件里的胜利数，"
                       + "我们本地没有事件（**不编数字**，如实印 0）");
@@ -275,19 +275,27 @@ namespace CardPresentation
                                     rowR.x1 + ScoreOffR, rowR.y1 + ScoreOffB);
                 var sc = MenuDraw.Text(row, sr, "1256", Color.white, "Score",
                                        48f * ScoreFontScale, QText, sr.W,
-                                       18f * ScoreFontScale, 48f * ScoreFontScale, 36f * ScoreFontScale);
+                                       18f * ScoreFontScale, 48f * ScoreFontScale, 36f * ScoreFontScale, face: TmpFont.Face.LatinCardBody);
                 MenuDraw.AlignRight(sc, sr);           // 原版 `Right/Midline`（折行 1 ⇒ ⛔ 不补 SetWrapping(false)）
             }
 
-            // 🆕 **2026-10-17（A1221）**：`Collect`（`Generic Simplified UI Button`）。
+            // 🆕 **2026-10-17（界面线 `N37②`）：文字走官方词条** —— `Button Text` 那颗挂了 `Localize`，
+            //   现读 `mTerm = MainMenu/General/Collect`（同 GameObject 的 TMP `m_text = 'Collect'`；
+            //   `bundle_menus_assets_all/MonoBehaviour_5462748652185210226.json` = TMP，
+            //   `MonoBehaviour_-213610246681571982.json` = `Localize`）⇒ 官方值 `Collect` / `收集`。
+            //   ⇒ 上屏 `Loc.T("MainMenu/General/Collect")`；⛔ 别再写死 `"Collect"`（中文档下会印英文）。
             //   判据（同前）：`Button Text` = `'Collect'` · fs **55** · base **12** · `auto[10~55]` ·
             //   对齐 `Center/Capline` · **折行 = 0** · 框 267.32×69.64（= `CollectTxR`）· 祖先刻度积 **1.2563**
             //   ⇒ 四格一起乘；折行 0 ⇒ 建完立刻 `SetWrapping(false)`（`SetAutoFitBox` 会把它开成 Normal）。
             var collect = MenuDraw.Node(bar, "Generic Simplified UI Button", CollectR);
             var cb = MenuDraw.Rect(collect, Tex("UI_Button_Mulligan"), CollectR, "Bg", QArt1, null, true);
-            var ct = MenuDraw.Text(collect, CollectTxR, "Collect", Color.white, "Button Text",
+            // 🔴 **2026-10-17（`A1753` #12 的另一半）**：`Collect` 的 `Button Text` 材质 =
+            //   `Pragati-Regular Off White Cold`，`_FaceColor = (0.9117, 0.9811, 0.9607)`（白顶点 ⇒ 屏上就是这个）。
+            //   与 `EnergySinglePlayerOnlyEventWindow` / `RewardWindow` 同一档（判据 → `R_T07_剩余四项.md` §4·2）。
+            var collectInk = new Color(0.9117f, 0.9811f, 0.9607f, 1f);
+            var ct = MenuDraw.Text(collect, CollectTxR, Loc.T("MainMenu/General/Collect"), collectInk, "Button Text",
                                    55f * SBarScale, QText, CollectTxR.W,
-                                   10f * SBarScale, 55f * SBarScale, 12f * SBarScale);
+                                   10f * SBarScale, 55f * SBarScale, 12f * SBarScale, face: TmpFont.Face.LatinCardBody);
             if (ct != null) ct.SetWrapping(false);
             MenuDraw.Hit(collect, "CollectHit", CollectR, QHit, OnCollectClick, cb, "UI_Button_Mulligan",
                          "UI_Button_Mulligan_hover", "UI_Button_Mulligan_Pressed",
@@ -352,7 +360,7 @@ namespace CardPresentation
             const string TimerPrefix = "Termina en: ";
             var txR0 = new PxRect(icR0.x2, TmTextT, icR0.x2 + TmPrefabTextW, TmTextB);
             var tx = MenuDraw.Text(tm, txR0, TimerPrefix + "23d 5h", Color.white, "Timer", 38f, QText,
-                                   txR0.W, 10f, 38f, 38f);
+                                   txR0.W, 10f, 38f, 38f, face: TmpFont.Face.LatinCardBody);
             if (tx != null) tx.SetWrapping(false);
             float txW = PreferredWidthPx(tx, "Timer");
 
@@ -418,7 +426,7 @@ namespace CardPresentation
             //   对齐 `Center/Midline` · **折行 = 1** · 框 **678.30 × 53.93**（= `Banned*` 四个常量逐位同值）
             //   ⇒ 传 `wrapPx` 与原版同档（折行 1 ⇒ ⛔ 不补 `SetWrapping(false)`，那是折行 0 那族的成对写法）。
             MenuDraw.Text(b, new PxRect(BannedL, BannedT, BannedR, BannedB), "The deck has banned cards",
-                          Color.white, "Text", 50f, QText, BannedR - BannedL, 18f, 50f, 36f);
+                          Color.white, "Text", 50f, QText, BannedR - BannedL, 18f, 50f, 36f, face: TmpFont.Face.LatinCardBody);
             b.gameObject.SetActive(false);
             // 🔴 **原版出厂 act=1**，是**运行时**按「这副牌里有没有禁用卡」关掉的；我们**没有禁用卡表**
             //    ⇒ 只能主动关掉，**出声**（别让它静默消失）

@@ -343,14 +343,38 @@ namespace CardPresentation
         /// ⚠️ 两种模式的**数不同**（差 `PxPerWorld` 倍）⇒ 跨模式比较前先看 <see cref="IsUgui"/>。</summary>
         public float CapHeightWorld { get { return CapWorld; } }
 
+        /// <summary>「**拉丁大写高 ÷ 汉字墨高**」的**实测比值** —— 本文件**唯一一份**
+        /// （`GlyphHeightWorld` 与 `SetScriptHeight` 共用这一处，⛔ 别在别处再写一个系数）。
+        ///
+        /// <para>🔴 **2026-10-17（`A1235`）现核：它【不是】0.72。** 两边都是 `TmpFont.MeasureGlyph`
+        /// 量的**字形方框**（`characterInfo.topLeft.y − bottomLeft.y`；TMP 源码 `TextMeshPro.cs:2841-2846` =
+        /// `(glyph.metrics.height + padding*2) * fontScale`），而 `padding = ShaderUtilities.GetPadding(...)`
+        /// 对 Noto 那份内联材质（`Resources/Fonts/NotoSerifCJK-Regular SDF.asset`：`_GradientScale 6` ·
+        /// `_FaceDilate 0` · `_OutlineWidth 0` · `_OutlineSoftness 0` ⇒ `uniformPadding 0`）
+        /// **恒 = 1.25**（`TMP_ShaderUtilities.cs:526` 末句 `return uniformPadding + 1.25f`）。代入 TTF 实读的
+        /// 字形框（`Assets/CardPresentation/Fonts/NotoSerifCJK-Regular.ttf` · upem 1000 · `'M'` 高 729 ·
+        /// `'国'` 高 898）：`Wcap = (729×50/1000 + 2×1.25) × 0.1 ÷ 50 = 0.0779` ·
+        /// `Wglyph = (898×50/1000 + 2×1.25) × 0.1 ÷ 50 = 0.0948` ⇒ **比值 = 0.8217**（与运行时实测同值）。</para>
+        /// <para>⚠️ **0.72 是另一个分母**：`faceInfo.capLine 36 / pointSize 50` —— **em 口径、不含 SDF padding**。
+        /// 拿它当两条 `Set*` 路的换算，英文档会静默小 `0.72/0.8217 = 12.4%`（这正是 `A1235` 的症状）。</para>
+        /// <para>`0.72` 现在只剩「字体资产缺失、两个量都读不出来」时那一档兜底。</para></summary>
+        static float CapOverGlyph
+        {
+            get
+            {
+                float c = TmpFont.WorldCapPerFontSize, g = TmpFont.WorldGlyphPerFontSize;
+                return (c > 0f && g > 0f) ? c / g : 0.72f;
+            }
+        }
+
         /// <summary>现在的**汉字**高度（**本标签所在空间的单位**，见 <see cref="CapHeightWorld"/>）。`SetGlyphHeight` 定过就是它；
-        /// 只按大写定过的（HUD）就用**实测的两个比例**换算，别写死 0.72</summary>
+        /// 只按大写定过的（HUD）就用**实测的两个比例**换算（`CapOverGlyph`），别写死 0.72</summary>
         public float GlyphHeightWorld
         {
             get
             {
                 if (_glyphHeight > 0f) return _glyphHeight;
-                float k = TmpFont.WorldCapPerFontSize / TmpFont.WorldGlyphPerFontSize;
+                float k = CapOverGlyph;
                 return k > 0f ? CapWorld / k : CapWorld;
             }
         }
@@ -366,8 +390,9 @@ namespace CardPresentation
 
         /// <summary>
         /// 按「一个**汉字**占 `worldHeight` 个世界单位高」定字号。
-        /// 中文文案用它 —— 汉字约占 1 em，而拉丁大写只有约 0.72 em，
-        /// 拿 `SetCapHeight` 喂中文会大 39%。
+        /// 中文文案用它 —— 汉字墨高 ≈ 1 em，而拉丁大写只有 0.72 em（**em 口径**；
+        /// 本工程两条 `Set*` 路的实测换算是 `CapOverGlyph` ≈ 0.8217），
+        /// 拿 `SetCapHeight` 喂中文会大约 22%（`1 ÷ 0.8217`）。
         /// </summary>
         public void SetGlyphHeight(float worldHeight)
         {
@@ -377,18 +402,25 @@ namespace CardPresentation
         /// <summary>
         /// 按「**这段文本的语种**」定字号 —— **全工程唯一一份这个判据在 `Label` 上的实现**。
         /// <para>`px` = 原版那一颗 TMP 的 `m_fontSize`（em 的像素值）、`pxPerUnit` = 本现场的「1 世界单位 = 多少 px」。
-        /// 汉字用 <see cref="SetGlyphHeight"/>（≈1 em）、拉丁用 <see cref="SetCapHeight"/>（≈0.72 em）——
-        /// 语种判据本身 = `Loc.HasCjk`（**它才是唯一一份**，本方法只是把它接到 `Label` 上）。</para>
+        /// 汉字用 <see cref="SetGlyphHeight"/>（≈1 em）、拉丁用 <see cref="SetCapHeight"/>（大写高 = 汉字墨高 ×
+        /// <see cref="CapOverGlyph"/>）—— 语种判据本身 = `Loc.HasCjk`（**它才是唯一一份**，本方法只是把它接到 `Label` 上）。</para>
         /// <para>**为什么要有它**：同一个 `Label` 上的字会**跟着语言变**（`Loc.T`）。
-        /// 写死 `SetCapHeight(px×0.72)` 的话中文会**小 28%**、写死 `SetGlyphHeight(px)` 的话英文会**大 39%**
-        /// —— 两条都在这个工程里真发生过（`Battle/SettingsPanel` 那三根滑块的标签、
+        /// 两条硬写死都会错：只按汉字定 ⇔ 英文大 22%；只按拉丁大写定 ⇔ 中文小 18%
+        /// （`1 ÷ 0.8217` 那一档）—— 两条都在这个工程里真发生过（`Battle/SettingsPanel` 那三根滑块的标签、
         /// `Battle/MulliganPanel` 的先手/后手行与倒计时那几秒）。</para>
+        /// <para>🔴 **2026-10-17（`A1235`）就地订正（铁律 5）**：这里原来写的是 `px * 0.72f`（「0.72 em」）——
+        /// **那个常数让中/英两条路落到两个 px**（英文档比中文档小 12.4%，正是本账记的症状）。
+        /// 0.72 是 `capLine/pointSize` 的 **em 口径**，而 `SetGlyphHeight` 的口径是**汉字墨高（含 SDF padding）**
+        /// —— 两个分母不同，推导与实据逐条写在 `CapOverGlyph` 的 doc 里。
+        /// 现在两条路都经 `CapOverGlyph`（运行时实测 `Wcap/Wglyph` ≈ 0.8217）⇒
+        /// **同一个 `px` 下 `FontSizeToPxNow` 两档相等**。断言（含「改回 0.72 就红」的灭自证）→
+        /// `Editor/BattleScene.cs` 的 §4.6c。</para>
         /// </summary>
         public void SetScriptHeight(string text, float px, float pxPerUnit)
         {
             if (pxPerUnit <= 0f) return;
             if (Loc.HasCjk(text)) SetGlyphHeight(px / pxPerUnit);
-            else SetCapHeight(px * 0.72f / pxPerUnit);      // 0.72 em = 拉丁大写那一条（见 `TmpFont` / `Loc.HasCjk` 的 doc）
+            else SetCapHeight(px * CapOverGlyph / pxPerUnit);   // 大写高 = 汉字墨高 × Wcap/Wglyph（实测 0.8217）—— 见 `CapOverGlyph`
         }
 
         /// <summary>
@@ -592,6 +624,10 @@ namespace CardPresentation
         {
             SetWrappingMode((int)(on ? TextWrappingModes.Normal : TextWrappingModes.NoWrap));
         }
+
+        /// <summary>🆕 **2026-10-17（`A1227` 复现用）**：只读 —— TMP 当前的 `alignment`（`-1` = 点阵后端/没建）。
+        /// ⛔ 不要拿它当生产读口；只给 `Editor/BattleScene.cs` 那条复现断言用。</summary>
+        public int AlignmentForTest { get { return _tmp != null ? (int)_tmp.alignment : -1; } }
 
         /// <summary>🆕 **2026-10-07（A77①）**：**按原版 `m_TextWrappingMode` 的原文**设模式（`0`/`1`/`2`/`3`）。
         /// 传别的值 ⇒ **出声**（`Debug.LogWarning`）并**什么都不设**（不静默降级到 0）。
@@ -1161,8 +1197,11 @@ namespace CardPresentation
         /// · `Runtime/TMP/TextMeshProUGUI.cs:802` **`m_isOrthographic = true`**（`TMP_Text.cs:1002` 的出厂值 = `false`）
         ///   ⇒ 画布档乘 **1**、3D 档乘 **0.1**。
         /// ⇒ 字号↔尺寸的**比值**（`TmpFont.WorldGlyphPerFontSize` 0.0948 /
-        /// `WorldCapPerFontSize` 0.0683）是**拿 3D 量的**（`TmpFont.MeasureGlyph` 里 `AddComponent&lt;TextMeshPro&gt;()`，
-        /// **没有 TMP_UGUI 那一份**）⇒ **对画布档小 10 倍**。</para>
+        /// `WorldCapPerFontSize` 0.0779）是**拿 3D 量的**（`TmpFont.MeasureGlyph` 里 `AddComponent&lt;TextMeshPro&gt;()`，
+        /// **没有 TMP_UGUI 那一份**）⇒ **对画布档小 10 倍**。
+        /// <para>🔴 **2026-10-17（`A1235`）就地订正（铁律 5）**：本行原来写 `WorldCapPerFontSize 0.0683` —— **那个数是错的**。
+        /// 0.0683 是 `capLine/pointSize × Wglyph`（0.72 × 0.0948）的**推算**，而 `MeasureGlyph` 量的是
+        /// `(glyph.metrics.height + padding*2)`（SDF padding = 1.25）⇒ 实测是 **0.0779**。推导 → `CapOverGlyph` 的 doc。</para>
         ///
         /// <para>**不修的后果（两处、都不出声）**：
         /// ① `TmpFontSize()` 会把字号给成 **10 倍**大 ⇒ **没开自适应**的画布标签（`SetAutoFitBox` 都没调过那种）

@@ -197,7 +197,7 @@ namespace CardPresentation
                 Debug.LogWarning("[SearchingOpp] 对手的督军立绘取不到（id=" + warlordId + "）—— 那一层不画，出声");
             MenuDraw.Text(_foeFound, _foeNameRect,
                           string.IsNullOrEmpty(playerName) ? PlaceholderName : playerName,
-                          Color.white, "Player Name", 36f, QSrText);
+                          Color.white, "Player Name", 36f, QSrText, face: TmpFont.Face.LatinCardBody);
             _foeFound.gameObject.SetActive(true);
             if (_foeNotFound != null) _foeNotFound.SetActive(false);
             Debug.Log("[SearchingOpp] **找到对手**：督军「" + warlordId + "」· 名字「"
@@ -287,13 +287,13 @@ namespace CardPresentation
                           "Background", QSr, new Color(0f, 0f, 0f, 0.71f));
             // 原版 hAlign = **Center** ⇒ 不调 `Align*`（原来右对齐了）
             MenuDraw.Text(root, new PxRect(TitleL, TitleT, TitleR, TitleB), "Searching opponent",
-                          Color.white, "Title", 36f, QSrText);
+                          Color.white, "Title", 36f, QSrText, face: TmpFont.Face.LatinCardBody);
 
             // 🆕 **2026-10-18（A932）：提示行**（**自建节点、原版没有** —— 判据 / 为什么接在本窗 /
             //   哪些参数是我们挑的 → 类头那一节）。出厂**空串**：没提示时它不占话。
             //   样式照同族 `SearchingMatchPopup` 的 `Main Search message`（autosize 4~50 · base 36 · 折行 700）。
             _hintLine = MenuDraw.Text(root, new PxRect(HintL, HintT, HintR, HintB), "", Color.white,
-                                      "Hint Line", 50f, QSrText,
+                                      "Hint Line", 50f, QSrText,   // A1024③ 判不出（原版无此节点，我们自加）⇒ 保持 Cjk
                                       wrapPx: HintR - HintL, autoMinPx: 4f, autoMaxPx: 50f, autoBasePx: 36f);
 
             // 玩家那一格：**有数据** ⇒ 走 `Found`（立绘 = 当前选中卡组的督军）
@@ -320,7 +320,7 @@ namespace CardPresentation
                           "Cancel Match", QSrArt1, new Color(0.369f, 0.894f, 0.587f, 1f), true);
             // 原版 Button Text hAlign = **Center** ⇒ 不调 `Align*`
             MenuDraw.Text(root, new PxRect(CxlTxL, CxlTxT, CxlTxR, CxlTxB), "Cancel", Color.white,
-                          "Button Text", 38f, QSrText);
+                          "Button Text", 38f, QSrText, face: TmpFont.Face.LatinCardBody);
             // 🆕 A17：原版 `SearchingOpponentWindow` 根 `Cancel Match` 是 SpriteSwap（普查 §块 5 第 27 行）
             MenuDraw.Hit(root, "CancelHit", new PxRect(CxlL, CxlT, CxlR, CxlB), QSrHit, Cancel,
                          cancelQ, ArtButton);
@@ -343,7 +343,7 @@ namespace CardPresentation
             else if (hasData)
                 Debug.Log("[SearchingOpp] 督军立绘取不到（" + (wl != null ? wl.Name : "这套卡组没有督军") + "）—— 那一层不画，出声");
             // 名字：**用原版 prefab 自带的那行字**（运行时才被真名覆盖）—— 不编一个名字出来
-            MenuDraw.Text(f, nameR, PlaceholderName, Color.white, "Player Name", 36f, QSrText);
+            MenuDraw.Text(f, nameR, PlaceholderName, Color.white, "Player Name", 36f, QSrText, face: TmpFont.Face.LatinCardBody);
 
             // `Not Found Container`：原版**没有 Image**（只有 RectTransform，100×100）⇒ 照原版**空着**
             var nf = MenuDraw.Node(side, "Not Found Container", notFound);

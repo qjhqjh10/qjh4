@@ -586,10 +586,10 @@ namespace CardPresentation
             // 会被按钮压住（踩过）。这条与两档无关，照旧。
             _title = HudCanvas.MakeText(P, "", 0f, 0f, 3,
                                         new Color(0.86f, 0.89f, 0.94f), new Vector2(0.5f, 0.5f),
-                                        ZText, "SelectorTitle");
+                                        ZText, "SelectorTitle");   // A1024③ 判不出（自建标题，原版只有 ValueText）⇒ 保持 Cjk
             _note = HudCanvas.MakeText(P, "", 0f, 0f, 2,
                                        new Color(0.98f, 0.93f, 0.72f), new Vector2(0.5f, 0.5f),
-                                       ZText, "SelectorNote");
+                                       ZText, "SelectorNote");   // A1024③ 判不出（自建副标题）⇒ 保持 Cjk
 
             for (int i = 0; i < Order.Length; i++)
             {
@@ -616,7 +616,7 @@ namespace CardPresentation
                 // 按钮上的数字角标（原版 `Select Active Skill Button/ValueText`）。
                 // 原版字号很大（base 36 / max 89），配上它那个半透明底图，数字是按钮的主视觉
                 _captions[i] = HudCanvas.MakeText(P, "", 0f, 0f, 4, new Color(1f, 0.96f, 0.80f),
-                                                  new Vector2(0.5f, 0.5f), ZText, "Badge_" + k);
+                                                  new Vector2(0.5f, 0.5f), ZText, "Badge_" + k, face: TmpFont.Face.LatinCardBody);
             }
             // 位置一律交给 `RefreshLayout`（建在这儿先落 (0,0)，紧随其后的 `Hide()`/`Show()` 会立刻重排一次）
         }
@@ -640,11 +640,11 @@ namespace CardPresentation
             }
 
             _title = Label.Create(transform, "", Vector3.zero, 3,
-                                  new Color(0.86f, 0.89f, 0.94f), new Vector2(0.5f, 0.5f), "SelectorTitle");
+                                  new Color(0.86f, 0.89f, 0.94f), new Vector2(0.5f, 0.5f), "SelectorTitle");   // A1024③ 判不出 ⇒ 保持 Cjk
             // 标题上面那行小字（技能效果）。**不能塞在中场的提示行上** ——
             // 提示行 y=532 正好是按钮的位置，会被按钮压住（踩过）
             _note = Label.Create(transform, "", Vector3.zero, 2,
-                                 new Color(0.98f, 0.93f, 0.72f), new Vector2(0.5f, 0.5f), "SelectorNote");
+                                 new Color(0.98f, 0.93f, 0.72f), new Vector2(0.5f, 0.5f), "SelectorNote");   // A1024③ 判不出 ⇒ 保持 Cjk
 
             for (int i = 0; i < Order.Length; i++)
             {
@@ -664,6 +664,14 @@ namespace CardPresentation
                 _captions[i] = Label.Create(transform, "", Vector3.zero, 4,
                                             new Color(1f, 0.96f, 0.80f),
                                             new Vector2(0.5f, 0.5f), "Badge_" + k);
+                // 🔴 2026-10-17（A1024③ 逐行对账）：`Label.Create` 没有 face 形参 ⇒ 建完立刻换面
+                //    （原版 `Drag Attack Selector/Select Active Skill Button/ValueText` = Pragati）。
+                //    本函数之后才调 `SetGlyphHeight` ⇒ 换面早于定字号，口径同 `MenuDraw.TextCore`。
+                if (_captions[i] != null) _captions[i].SetFace(TmpFont.Face.LatinCardBody);
+                // 🔴 2026-10-17（A1024③ 第 2 批）：`Label.Create` 没有 face 形参 ⇒ 建完立刻换面
+                //    （原版 `Select Active Skill Button/ValueText` = Pragati）。`SetGlyphHeight` 在本函数之后才调，
+                //    ⇒ 这里换面**早于**定字号，口径与 `MenuDraw.TextCore` 同一条。
+                if (_captions[i] != null) _captions[i].SetFace(TmpFont.Face.LatinCardBody);
             }
         }
 

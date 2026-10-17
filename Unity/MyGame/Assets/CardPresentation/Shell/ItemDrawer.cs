@@ -311,6 +311,17 @@ namespace CardPresentation
         /// <summary>占位板底色（**我们挑的**：中性深灰 —— 不拿别的图冒充，也不与真图混淆）。</summary>
         public static readonly Color BoardColor = new Color(0.16f, 0.16f, 0.18f, 1f);
 
+        /// <summary>🆕 **2026-10-17（界面线 `T07` · `A1753` #8/#9）**：抽屉里两段字的**屏上颜色**。
+        /// 口径 = **顶点色 × 材质 `_FaceColor`**（判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·0/§4·2）：
+        /// <list type="bullet">
+        /// <item><b>`AlreadyOwned`</b>：材质 `Pragati-Regular Off White Warm` (0.972, 0.937, 0.866)
+        ///   × 顶点 **(1, 1, 0.737)** = **(0.972, 0.937, 0.638)** —— ⚠️ 蓝通道被顶点色压过，别抄成材质本色。</item>
+        /// <item><b>`Price Display/text`</b>：材质 `Pragati-Regular Light Cream` (0.992, 0.868, 0.733)、顶点白。</item>
+        /// </list></summary>
+        public static readonly Color AlreadyOwnedInk = new Color(0.972f, 0.937f, 0.638f, 1f);
+        /// <inheritdoc cref="AlreadyOwnedInk"/>
+        public static readonly Color PriceInk = new Color(0.992f, 0.868f, 0.733f, 1f);
+
         // ============================================================ ⓪ 原版 `ItemDrawerConfig` 那张表（🆕 2026-10-05 A68② 搬来）
 
         /// <summary>`ItemDrawerConfig` 里的一条：**物品类型 → 抽屉类**。
@@ -967,8 +978,10 @@ namespace CardPresentation
             //   原版 `m_fontSize × k`（同文件 `TextCentered` 的 `65f * k` 是同一条换算）
             //   ⇒ `min/max/base` 与 `nominal` 必须**同一把尺**（先例 = `Shell/MissionsTab.cs` 的 `FS()`，
             //   本仓 P4 报告 §3 已把这条口径逐处核过）。
-            ClippedText(root, lb, AlreadyOwnedText, Color.white, NodeAlreadyOwned, 75f * k, st.QDecor + 5,
-                        lb.W, st, 0, 12f * k, 75f * k, 36f * k, true);
+            // 🆕 **2026-10-17（`A1753` #8）**：屏上颜色 = `Off White Warm` × 顶点 (1,1,0.737) = (0.972, 0.937, 0.638)
+            //   （改前传纯白 ⇒ 整条说明字偏冷）。材质/顶点逐颗实读，判据见 `AlreadyOwnedInk` 的 summary。
+            ClippedText(root, lb, AlreadyOwnedText, AlreadyOwnedInk, NodeAlreadyOwned, 75f * k, st.QDecor + 5,
+                        lb.W, st, 0, 12f * k, 75f * k, 36f * k, true, TmpFont.Face.LatinCardBody);
         }
 
         /// <summary>第 2/3 跳那两个条（`Converted Drawer` / `Ephemeral Drawer`）**同锚点**：
@@ -999,7 +1012,15 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(s)) return;                     // 原版 `Setup(串, …)` 的串不会是空的
             float k = strip.H / (DecorRefH * 0.10f);                 // 条高 = 0.10 × box.H ⇒ 反推 box.H/1080
             float iconSide = 93.5475f * k, textPx = 65f * k;
-            var row = new PxRect(strip.x1, strip.CY - iconSide * 0.5f, strip.x2, strip.CY + iconSide * 0.5f);
+            // 🔴 **2026-10-17（界面线 `T07` · `A1243`）：价签那段字【自己】的框高 = 原版 `…/Price Display/text`
+            //   的 **93.55**（`ContentSizeFitter h:PreferredSize`；`'2000'@65` 复算 `GetPreferredWidth = 108.96`
+            //   ↔ 序列化 `108.97`）。判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §一·1 #4。
+            //   ⚠️ **别把父件 `Price Display` 的 `108` 当字框** —— 108 是**父节点**的 `m_SizeDelta.y`（= `strip.H`，
+            //   0.10 × box.H）；字框是它里面那颗 `text`（CSF 只撑**宽**，高由 TMP 行盒给）。
+            //   改前这一句写的是 `iconSide`（= 93.5475 × k，与 93.55 只差 0.0025）—— 数值上本来就对，
+            //   这里写成**显式字面量**是为了让「框高 = 93.55」在代码里可读、不被后人按 108 改回去。
+            float priceTextH = 93.55f * k;
+            var row = new PxRect(strip.x1, strip.CY - priceTextH * 0.5f, strip.x2, strip.CY + priceTextH * 0.5f);
             // 🔴 2026-10-13（A435 甲）：`Visible` → **`VisibleAbove`**（要把 `parent` 交进去才解析得到节点；
             //   原来那个纯矩形重载在 `st.Clip == null` 时**恒真** ⇒ 节点态下这一问是空转）。
             if (!MenuDraw.VisibleAbove(parent, row, st.Clip)) return;
@@ -1016,10 +1037,13 @@ namespace CardPresentation
             //   本处这一颗是**抽屉自己**那一颗（`max = 65`），判据见上面那次实读。
             //   ⚠️ 原版这一颗的父件 `Price Display` 带 `HorizontalLayoutGroup`、它自己带 `ContentSizeFitter`
             //   （**框宽跟文字走**）⇒ 原版**没有**一条固定的「框宽」；这里传的 `row.W` = 我们这一层的条宽
-            //   （= 原版 `Price Display` 那个节点的矩形，640.8×108 设计值 ⇒ 与六份 prefab 逐位相同），
+            //   （= 原版 `Price Display` 那个节点的矩形，640.8×108 设计值 ⇒ 与六份 prefab 逐位相同；
+            //     ⚠️ 我们传给**字**的框是 `strip.W × 93.55` —— 折行 0 ⇒ 宽不咬字，高才是原版 `text` 那一档），
             //   `折行` 照原版关回 0 ⇒ 这一格是**下界守卫**、不吃掉任何排版自由度。
-            var lb = MenuDraw.Text(pd, row, s, Color.white, NodePriceText, textPx, q, row.W,
-                                   13.46f * k, 65f * k, 39f * k);
+            // 🆕 **2026-10-17（`A1753` #9）**：原版 `Price Display/text` 挂 `Pragati-Regular Light Cream`
+            //   （`_FaceColor = (0.992, 0.868, 0.733)`、顶点白）⇒ 屏上是暖白，不是纯白。
+            var lb = MenuDraw.Text(pd, row, s, PriceInk, NodePriceText, textPx, q, row.W,
+                                   13.46f * k, 65f * k, 39f * k, face: TmpFont.Face.LatinCardBody);
             // ⓪ 原版折行=0（`SetAutoFitBox` 会把模式开成 `Normal(1)`）—— ⚠️ 必须在下面那次
             //    `MenuDraw.ClipText(lb, …)`（本方法的最后一步）**之前**：`SetWrapping` 会 `ForceRelayout` 推版面。
             if (lb != null) lb.SetWrapping(false);
@@ -1191,7 +1215,8 @@ namespace CardPresentation
                 //     自适应会把它压到 20.83（画面大致对，但 nominal 是死数）。要改得连 `QuantityPx = 34`
                 //     与那两个调用方（`CampaignRewardWindow` / `RewardWindow`）一起定，属另一笔账。
                 ClippedText(node, NameStrip(box, st.NamePx), fac, Color.white, NodeArmyName,
-                            st.NamePx, st.QText, box.W - 20f, st, 0, 12f * k, 75f * k, 36f * k);
+                            st.NamePx, st.QText, box.W - 20f, st, 0, 12f * k, 75f * k, 36f * k,
+                            face: TmpFont.Face.LatinCardBody);
             }
             if (st.QuantityPx > 0f) Quantity(node, box, qty, st);
         }
@@ -1238,7 +1263,8 @@ namespace CardPresentation
             MenuDraw.Rect(node, CardArt.Solid(), br, NodePlaceholder, st.QBoard, BoardColor, false, st.Clip,
                           st.ClipSoftness);
             if (st.NamePx > 0f && !string.IsNullOrEmpty(item.Label))
-                ClippedText(node, br, item.Label, Color.white, NodeItemName, st.NamePx, st.QText, br.W, st);
+                ClippedText(node, br, item.Label, Color.white, NodeItemName, st.NamePx, st.QText, br.W, st,
+                            face: TmpFont.Face.LatinCardBody);
             if (st.QuantityPx > 0f) Quantity(node, box, qty, st);
         }
 
@@ -1285,7 +1311,7 @@ namespace CardPresentation
             //   见那个形参自己的 doc）。⚠️ 三格乘 `k` 的理由同 `Army Name` 那一处。
             float k = box.H / DecorRefH;
             ClippedText(node, qr, "x" + qty, Color.white, NodeQuantity, st.QuantityPx, st.QText, qr.W, st, 2,
-                        12f * k, 75f * k, 36f * k, true);
+                        12f * k, 75f * k, 36f * k, true, TmpFont.Face.LatinCardBody);
         }
 
         /// <summary>抽屉里一段**吃裁切**的文字（🆕 **2026-10-11（A302）**）—— 全库唯一一份。
@@ -1324,13 +1350,13 @@ namespace CardPresentation
         static Label ClippedText(Transform node, PxRect r, string s, Color color, string name,
                                  float fontPx, int q, float wrapPx, ItemDrawerStyle st, int align = 0,
                                  float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                                 bool wrapOff = false)
+                                 bool wrapOff = false, TmpFont.Face face = TmpFont.Face.Cjk)
         {
             // 🔴 2026-10-13（A435）：`Visible` → **`VisibleAbove`**（纯矩形函数手上没有 `Transform`，
             //   解析不了节点 ⇒ 必须走带 `parent` 的那个重载，判据 → `MenuDraw.VisibleAbove` 的注释）。
             if (!MenuDraw.VisibleAbove(node, r, st.Clip)) return null;
             var lb = MenuDraw.Text(node, r, s, color, name, fontPx, q, wrapPx,
-                                   autoMinPx, autoMaxPx, autoBasePx);
+                                   autoMinPx, autoMaxPx, autoBasePx, face: face);
             if (lb == null) return null;
             // ⓪ 原版 `折行=0` 的那几颗：`SetAutoFitBox` 刚把模式开成 `Normal(1)` ⇒ 在这里还原
             //    （⚠️ 必须在 ①② 之前，且必须在 `ClipText` 之前 —— `SetWrapping` 自己会 `ForceRelayout` 推版面）

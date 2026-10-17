@@ -363,7 +363,7 @@ namespace CardPresentation
             //   ⚠️ 顺序要紧：**先有滚动区、再谈裁切** —— 只补裁切会把后面的行**藏掉**而不是可滚。
             //   ⚠️ `Owner` 取 `List View`（不是整页）：点 `Create` 键切到建盟表时 `List View` 会被
             //     `SetActive(false)`，这一格必须**一起失去滚轮命中**（`HitScroll` 判的就是 `Owner.activeInHierarchy`）。
-            _openScroll = MenuScroll.TopAligned(OpenViewportR, 0f);   // 内容高在 `BuildRows` 里按条数写
+            _openScroll = MenuScroll.TopAligned(OpenViewportR, 0f, 1f);   // 内容高在 `BuildRows` 里按条数写；原版 `List View/List Area/Open Alliances` = 1.0（D_N29）
             _openScroll.Owner = _listView.gameObject;
             _openScroll.Elastic = true;                               // 原版 `m_MovementType = 1` = Elastic
             _openScroll.OnChanged = RebuildOpenAlliances;             // 滚轮只改 `Offset`、**画是调用方的事**

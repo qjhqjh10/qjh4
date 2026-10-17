@@ -1,0 +1,32 @@
+# MonoScript 类名索引：5175 条
+# sprite 索引：真包 3316 条 + 切片缓存补齐 ⇒ 共 3316 条
+# sprite 尺寸/九宫格索引：3200 条
+# Parent Event Window  绝对矩形（1920×1080 · 左上原点 · y 向下）
+# 出处 d:/2/新解包资源/assets_full\bundle_menus_assets_all
+# ⚠️ 「组件（类名）」那一列**不截断**（长类名会把右边的列推走、按 ` | ` 找字段）；
+#    最后一列「参数」上限 **200 字符**，被砍时会印 `……[+N]`（N = 被砍掉的字符数）。
+# 行内标记：`⚠️某某` = 布局组那一档（`unk` = **排了**但量算不准 · `grid?`/`axis?`/`cust?`/`sp?` = **本工具没排**、那些子节点还是模板位 —— 表尾有逐条清单）· `⚙…` = 该件挂了自适配组件（`ILayoutSelfController`：CSF/ARF/**CSFMinMax**/**RSL**/**USF**）· `↻rot=` = 自带 z 旋转（矩形是**未旋转帧**）· `↻xy(x)` = **只绕 x/y 转**（本工具不重算）· `⇲ls=` = **父链上有缩放**，矩形已按它换算 · `ANC✗` = 自己 active 但**祖先 inactive**（原版不画它）· `⛔GRP-off` = 这个**布局组自己**不在 `activeInHierarchy` 里（原版此刻不跑它，本表按「激活之后」算）· `⛔MULTI-COMP(n组件·k禁用)` = 这一行挂了 **n 个组件**、其中 **k 个 `m_Enabled=0`** ⇒ 后四格是**按组件并排拼的**，那条 `m_Enabled=0` **只属于被禁的那一个组件**（表里带类名）
+# 🔴 读数口径（A145）：① 「宽×高」「绝对矩形」= **布局框**（设计值）；画出来的是 **布局框 × 这一件自己的 `m_LocalScale`** ⇒ 表里那一格 `×1.2 → 视觉 …`（缩放 1 的行 = `—`）。
+#    ② 「锚点 / anchoredPosition / sizeDelta」三列，对**被布局组管的节点**是**本工具按 uGUI 算法算出的【布局后】值、不是 prefab 字段** （原地写回点 `apply_layout_to_children():1878-1929` · `apply_self_fitters():1348/1508-1515` · `_set_size_axis():1272`）⇒ **拿这三列的数去 prefab JSON 里纯数值搜索搜不到**；要 prefab 原值用 `--no-layout` 或 `工具/menu_rect.py`。
+#    ③ 🔴 **一个节点挂多个组件时，后四格是「按组件并排拼起来」的**（sp/tint/文字/其它四格各是一次 `join`）⇒ **看不出哪一格属于哪个组件**。凡出现 `⛔MULTI-COMP(…)` 的行都属此列：此时 `m_Enabled=0` 那条**只说明「有一个组件被禁」**、且**已经带上类名**（`（`Outline` 组件被禁）`），⛔ **别把它记到别的组件头上**（A499 追加）。
+深  名字                                          x1      y1      x2      y2       宽       高  act  组件（类名）                        参数
+0  Parent Event Window                        0.0     0.0  1920.0  1080.0 1920.00 1080.00       TabbedWindowComponents,BaseParentEventWindow 字段: tabButtons,tabHolder,tabPrefab ; 字段: closeOnESC,closeSound,extraScaleSmallScreen,openSound,tabs,type,updateNavPanel,useDefaultCloseSoundIfNull,windowsPlacement
+1    Content Area                           167.2    70.9  1920.0  1080.0 1752.83 1009.06                                      
+2      Background                           167.2    70.9  1920.0  1080.0 1752.83 1009.06       Image,UIGradient,UIAnchorAvoidSafeArea <无图> | Sliced (1,1,1,1) ppuMul=0.009999999776482582 | 字段: m_angle,m_color1,m_color2,m_ignoreRatio ; 字段: applyHeight,applyWidth,autoFindWidthAndHeightApplyOptions,rectTransform,tempPivotX,tempSizeDelta……[+1]
+2      Tab Buttons                          167.2    70.9   332.2  1080.0  165.00 1009.06       Image,VerticalLayoutGroup,TabButtons,ToggleGroup,Gradient2 40k_main_tab_background 185×4 九宫2,1,10,1 | Simple (1,1,1,1) | spacing=0.0 align=1 pad=0,0,120,0 ctrlW=1 ctrlH=0 expandW=1 expandH=0 scaleW=0 scaleH=0 ; 字段: group,options,tabButtonPrefab ; 字段: m_AllowS……[+85]
+3        Menu Navigation Panel Button       167.2   190.9   332.2   370.9  165.00  180.00       EverguildToggle                isOn=0 onSprite=0 offSprite=0 onColor=(1,1,1,1) offColor=(0.75,0.75,0.75,1)
+4          Highlight                        167.2   190.9   332.2   370.9  165.00  180.00       Image,EverguildButtonMaterialModifier 40k_main_bt_selected BW 71×71 九宫30,30,30,30 | Sliced (1,0,0,1) ppuMul=0.9200000166893005 | 字段: 
+4          Icon                             167.2   190.9   332.2   370.9  165.00  180.00       Image,EverguildButtonMaterialModifier 40K_shop_bt_boosters 126×126 否 | Simple (1,1,1,1) preserveAspect | 字段: 
+4          Label                            172.2   315.2   327.2   353.1  155.00   37.86       Image,EverguildButtonMaterialModifier 40k_main_bt_nametag 109×41 否 | Simple (1,1,1,1) | 字段: 
+5            TabButtonLabel                 172.2   315.2   327.2   353.1  155.00   37.86       TextMeshProUGUI,EverguildButtonMaterialModifier,EverguildTextController 'Booster Packs' 字号=25.649999618530273 基准=23.0 auto[12.0~33.0] 对齐=Center/Midline 折行=0 色=(0.957,0.882,0.675,1) 字距=-3.5 | 字段:  ; 字段: maxFontSize,minFontSize
+4          Badge Highlight                  283.9   215.5   318.9   250.5   35.00   35.00       Image,UiBadgeNotification,EverguildButtonMaterialModifier 40K_notification_number 65×65 否 | Simple (0.736,0.736,0.736,1) preserveAspect | 字段: canvasGroup,counterText,notificationDefinitions,references,showCounter ; 字段: 
+5            OneText                        283.9   216.5   318.9   251.5   35.00   35.00       TextMeshProUGUI,EverguildButtonMaterialModifier '' 字号=34.0 基准=36.0 auto[18.0~34.0] 对齐=Center/Middle 折行=1 色=(1,1,1,1) | 字段: 
+3        Shadow                             167.2    70.9   214.8  1080.0   47.64 1009.06       Image,LayoutElement            40k_main_tab_shadow 51×4 否 | Simple (0,0,0,0.475) | 字段: m_FlexibleHeight,m_FlexibleWidth,m_IgnoreLayout,m_LayoutPriority,m_MinHeight,m_MinWidth,m_PreferredHeight,m_PreferredWidth
+2      Tabs                                 167.2    70.9  1920.0  1080.0 1752.83 1009.06                                      
+3        Sample Tab                         167.2    70.9  1920.0  1080.0 1752.83 1009.06                                      
+4          Header                           167.2    70.9  1920.0   155.9 1752.83   85.00       NonDrawingGraphic              字段: 
+5            Separator Line                 330.7   150.9  1920.0   160.9 1589.33   10.00       Image                          40k_main_line 171×6 九宫80,0,80,0 | Sliced (1,1,1,1) ppuMul=0.75
+2      Shadow (1)                           330.4    70.9   379.8  1080.0   49.43 1009.06  INACTImage,LayoutElement            40k_main_tab_shadow 51×4 否 | Simple (0,0,0,0.475) | 字段: m_FlexibleHeight,m_FlexibleWidth,m_IgnoreLayout,m_LayoutPriority,m_MinHeight,m_MinWidth,m_PreferredHeight,m_PreferredWidth
+
+⚠️ 布局组（子节点位置**由布局算**，上面已是**布局跑之后**的值）：
+        Tab Buttons → VerticalLayoutGroup [ok]

@@ -1052,7 +1052,7 @@ public static class CollectionScene
             //    `TabButtons.Initialize` 关掉时**照样找得到、照样数到 4** ⇒ **全绿而画面上少一个键**。
             //    这正是「16k+ 断言全绿、实拍里只剩 3 个键」的来源（**凡断「该显示」的，都要同时断 `activeSelf`**）。
             //    **判据**（原版本窗 `TabButtons.tabButtonPrefab` = `m_PathID 0` ⇒ 末项**不是**母版、四颗全是真页签）
-            //    → `Shell/MenuWindowBase.cs` 的 `BuildBar` doc（⛔ 不在本文件再抄第二份，铁律 6）。
+            //    → `Shell/MainMenuSubmenuWindow.cs` 的 `BuildBar` doc（⛔ 不在本文件再抄第二份，铁律 6）。
             //    🧨 **鉴别式**：把 `Shell/CollectionWindow.cs` 的 `BuildShell(…, lastIsMaster: false)` 那个实参
             //    删掉（= 回旧写法、末项当母版）⇒ **`…_3` 那条立刻红**（`activeSelf = false`）。
             //    ⚠️ **摆回基线**：本档只读**构建期**的 `SetActive`，与「当前选哪一页 / 高亮在哪」无关
@@ -1077,12 +1077,12 @@ public static class CollectionScene
             }
             // 🆕 **2026-10-08（波 C3 · A212 主表 #31 验收）：左栏键文案的【渲染】断言**（四窗这一族原来一条都没有）。
             //   判据 = 原版四窗左栏键文案的 `m_TextWrappingMode` **一律 `0`（`NoWrap`）**—— 逐窗现读的四窗表
-            //   只写一处：`Shell/MenuWindowBase.cs` 的 `BuildTabButton`（此处不抄第二份，铁律 6）。
+            //   只写一处：`Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton`（此处不抄第二份，铁律 6）。
             //   ⛔ **为什么必须量渲染、不能只比字号**：`SetAutoFitBox` 只把 `fontSizeMin/Max` 交出去，
             //   **装不装得下由 TMP 算** ⇒ 字号对而字冲出去，自检照样全绿（`AutoFitBox` 那条教训，2026-09-22 踩过）。
             //   框宽 **155** = 原版 `Tab Buttons/*/Label` 的 `sz=(155,37.86)`
             //   （⛔ 不读 `BuildTabButton` 的 `labW` —— 那也是被测实现里的数，读了就是自证）。
-            //   **改坏法**：删掉 `MenuWindowBase.BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒
+            //   **改坏法**：删掉 `MainMenuSubmenuWindow.BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒
             //   `SetAutoFitBox` 开出来的 `Normal` 留着 ⇒ `折行=` 那条立刻红（0 → 1）。
             //   ⚠️ 本窗四颗键在**英文档**下是 `DECK`/`CARDS`/`COSMETICS`/`STYLES`（第 1 键原版 `m_text` 是**单数**
             //   `Deck`，2026-10-17 现读 prefab；中文档 = 卡组/张牌/美容品/风格）—— **都不带空格**
@@ -1116,7 +1116,7 @@ public static class CollectionScene
                     //    **一字未动**；TMP 是 `Label` 的子件 —— `Battle/Label.cs:784` `TmpFont.NewText(transform, …)`）。
                     //    ⛔ 别改成 `TmpRenderedRect(keys[i], …)`：那会捞 `keys[i]` 子树里**第一颗 TMP（含 inactive）**，
                     //    与「只找激活」的 `Label` **未必是同一颗** ⇒ 会把「节点不在（红）」与「量到了别一颗（绿）」混成一档。
-                    // **改坏法（只咬旧口）**：在 `Shell/MenuWindowBase.cs` 的 `BuildTabButton` 里那句 `SetWrapping(false)` 那句
+                    // **改坏法（只咬旧口）**：在 `Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton` 里那句 `SetWrapping(false)` 那句
                     //    `if (txt != null) txt.SetWrapping(false);` **之后**插一句 `if (txt != null) txt.SetCharSpacing(5f);`
                     //    ——（那句话是四窗左栏键刷**最后一次**缓存的地方：`SetWrapping` → 模式真的变了 → `ForceRelayout`
                     //    → `RefreshBounds()`，`Battle/Label.cs:454-464`）⇒ 网格重排了、**缓存不动** ⇒ 两个口读到的数
@@ -1198,6 +1198,84 @@ public static class CollectionScene
                         "★ `Close Button` **挪进 `Shared` 之后世界矩形没动**（原版 192.17,83.44→342.17,143.44 = 150×60）");
             }
             Check(win.CurrentTab, WindowTabType.CollectionDecks, "开窗默认落在第 1 页（Decks）");
+
+            // ============================================================ 🆕 **2026-10-17（`A1642`）**
+            //   Deck 页的**容器层级**（原版逐级现读；⛔ 期望值全是**原版字面量**，不读本窗任何常量）
+            //   原版树（`python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Select Deck Tab" --depth 4`）：
+            //     `Select Deck Tab`(167.2,70.9→1920,1080)
+            //       ├ `Decks Tab`(同矩形)
+            //       │  └ `Collection Display`(同矩形)
+            //       │     ├ `Deck Scroll View`(330.9,155.9→1920,1080)
+            //       │     │  └ `Empty Collection Warning`(165.9,70.9→1970,1080)
+            //       │     └ `Deck Filters`(0.1,155.9→335.6,1080)
+            //       └ **`Header`(167.2,70.9→1920.0,155.9)** ← **最后一个孩子**
+            //   🔴 **每一格钉一样东西**（三档改坏法各红各的）：
+            //     · 层级那五条用 **`Transform.Find`（只找直接子件）** 取 ⇒ 少建一层 / 挂错父 ⇒ 取不到 ⇒ 红
+            //       （⚠️ 别的格用的 `FindChild` 是**递归**的 ⇒ 光靠它分不出「挂 `page`」与「挂 `Collection Display`」）；
+            //     · `Header` 的矩形 = 中心（`CheckAt`）+ `sizeDelta` 宽高（两轴独立）；
+            //     · `Header` 是最后一个孩子 = `GetSiblingIndex() == childCount − 1`。
+            Section("Deck 页：容器层级（A1642 · 原版树形）");
+            {
+                var page0 = win.PageRoot(0);
+                var decksTab = page0 != null ? page0.Find("Decks Tab") : null;
+                CheckTrue(decksTab != null,
+                          "★ A1642：`Decks Tab` 是 `Select Deck Tab` 的**直接孩子**（原版 `SelectDecksTab.deckCollectionTab` 就挂它）");
+                var disp = decksTab != null ? decksTab.Find("Collection Display") : null;
+                CheckTrue(disp != null,
+                          "★ A1642：`Collection Display` 是 `Decks Tab` 的**直接孩子**（原版 `DeckCollectionTab.display` 指它）");
+                var deckSv = disp != null ? disp.Find("Deck Scroll View") : null;
+                CheckTrue(deckSv != null,
+                          "★ A1642：`Deck Scroll View` 是 `Collection Display` 的**直接孩子**"
+                        + "（我们原来直接挂 `page` ⇒ 本格红；🧨 另外 `page.Find(\"Deck Scroll View\")` 那三处也因此取不到 ⇒ 已改 `FindDeep`）");
+                var deckFlt = disp != null ? disp.Find("Deck Filters") : null;
+                CheckTrue(deckFlt != null,
+                          "★ A1642：`Deck Filters` 是 `Collection Display` 的**直接孩子**（原版 0.1,155.9→335.6,1080）");
+                var deckEw = deckSv != null ? deckSv.Find("Empty Collection Warning") : null;
+                CheckTrue(deckEw != null,
+                          "★ A1642：`Empty Collection Warning` 在 **`Deck Scroll View` 之下**（原版父链逐级现读；我们原来挂 `page`）"
+                        + "｜🧨 退回挂 `page` ⇒ **只本格红**（`FindChild` 是递归的 ⇒ 别处按名字量它的那些格仍然绿）"
+                        + "｜⚠️ 它现在是 `Deck Scroll View` 的常驻孩子 ⇒ `RebuildDeckCells` 那个「留 Viewport、其余全删」的循环已同步放过它");
+                var hdr = page0 != null ? page0.Find("Header") : null;
+                CheckTrue(hdr != null,
+                          "★ A1642：`Header` 是 `Select Deck Tab` 的**直接孩子**（我们原来**根本没有这一层** —— 页头件直接建在 `page` 上）");
+                if (hdr != null && page0 != null)
+                {
+                    CheckAt(hdr, 167.2f, 1920.0f, 70.9f, 155.9f,
+                            "`Header` 摆在原版矩形里（**167.2,70.9 → 1920.0,155.9** = 1752.83 × 85.00）");
+                    var hrt = hdr as RectTransform;
+                    CheckNear(hrt != null ? hrt.sizeDelta.x * 108f : -1f, 1752.83f, 0.5f,
+                              "★ A1642：`Header` 的**宽 = 1752.83**（原版字面量 = 1920.0 − 167.2）");
+                    CheckNear(hrt != null ? hrt.sizeDelta.y * 108f : -1f, 85.0f, 0.5f,
+                              "★ A1642：`Header` 的**高 = 85.00**（原版字面量 = 155.9 − 70.9）");
+                    Check(hdr.GetSiblingIndex(), page0.childCount - 1,
+                          "★ A1642：`Header` 是 `Select Deck Tab` 的**【最后一个】孩子**"
+                        + "（原版 `m_Children` 序 = `Decks Tab` → `Select Game Mode Deck Tab`（本窗不建）→ `Header`）"
+                        + "｜🧨 删掉 `BuildDeckList` 末尾那句 `SetAsLastSibling()` ⇒ 它停在**第一个** ⇒ 本格红");
+                }
+            }
+
+            // ============================================================ 🆕 **2026-10-17（`A1644` 诊断）**
+            //   卡组页上那块「我们有、原版实拍没有」的暗色渐变矩形：静态手段已排除 40 个渐变组件 / `MenuDraw` 渐变族 /
+            //   全部暗 rect（R1 只留了一条硬线索 `x1≈330.9 = DeckViewport.x1`）⇒ 唯一办法 = 建完本页后
+            //   **遍历全部 `ImageQuad`**，打 `name / 设计 px 矩形 / renderQueue`，筛 `x1∈[330,333] ∧ x2∈[1164,1167] ∧ y2∈[581,583]`。
+            //   ⚠️ 只是诊断输出（`Debug.Log`），**不是断言** —— 跑 `CollectionScene.Run` 后在日志里搜 `[A1644]`。
+            {
+                var qroot = win.PageRoot(0);
+                int qn = 0;
+                if (qroot != null)
+                    foreach (var q in qroot.GetComponentsInChildren<ImageQuad>(true))
+                    {
+                        if (q == null) continue;
+                        var c = LayoutSpace.ToDesignPixel(q.transform.position);
+                        float hw = q.WorldW * 0.5f * LayoutSpace.PxPerWorldX;
+                        float hh = q.WorldH * 0.5f * 108f;
+                        Debug.Log($"[A1644] {q.name} x1={c.x - hw:F2} x2={c.x + hw:F2} y1={c.y - hh:F2} y2={c.y + hh:F2} "
+                                + $"w={q.WorldW * LayoutSpace.PxPerWorldX:F2} h={q.WorldH * 108f:F2} "
+                                + $"q={q.RenderQueue} active={q.gameObject.activeInHierarchy}");
+                        qn++;
+                    }
+                Debug.Log($"[A1644] Deck 页 ImageQuad 共 {qn} 颗（筛条件 x1∈[330,333] ∧ x2∈[1164,1167] ∧ y2∈[581,583]）");
+            }
 
             // ---------------- Deck 页：视口 / 格 / 6 列 ----------------
             Section("Deck 页：卡组列表的几何（正本 §三；A2 实测）");
@@ -1638,6 +1716,25 @@ public static class CollectionScene
             var impHit = FindChild(tabsRoot, "ImportHit");
             CheckTrue(impHit != null && impHit.GetComponent<WindowButton>() != null,
                       "`Import` 钮有点击区（点了**如实说没实现**，不静默）");
+            // ---- 🆕 2026-10-17（N29）：滚轮灵敏度 = 原版那台 `ScrollRect` 的 `m_ScrollSensitivity` ----
+            //   判据 = `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`（原版 prefab 逐台实读）。
+            //   ⛔ 别断 `MenuScroll.DefaultNotchPx` —— 那个 48 是「没现读」的兜底，断它 = 自证。
+            {
+                void Sw(string who, MenuScroll sc, float want)
+                {
+                    CheckTrue(sc != null, $"（前提·不静默）{who} 的滚动区在");
+                    if (sc != null)
+                        CheckNear(sc.NotchPx, want, 0.001f,
+                                  $"{who}：滚轮灵敏度 = 原版 `m_ScrollSensitivity` **{want}** px/格"
+                                  + $"（实测 {sc.NotchPx}）");
+                }
+                Sw("收藏窗·卡牌页", win.CardsScroll, 100f);
+                Sw("收藏窗·卡背页", win.CosmoScroll, 100f);
+                Sw("收藏窗·异画页", win.StyleScroll, 100f);
+                Sw("收藏窗·卡组页", win.DeckScroll, 100f);
+                Sw("收藏窗·筛选项", win.FilterScroll, 50f);
+            }
+
             if (win.DeckScroll != null)
             {
                 float max = win.DeckScroll.MaxOffset;
@@ -9395,7 +9492,10 @@ public static class CollectionScene
                 //   ⛔ 不回读 `CollectionWindow.*View` 那几个常量 —— 那是被测实现自己的那一份）。
                 int[] pgIdx = { 0, 1, 2, 3 };
                 string[] pgName = { "Deck", "Cards", "Cosmetics", "Styles" };
-                string[] pgPath = { "Deck Scroll View/Viewport", "Scroll View/Viewport",
+                // 🔴 **2026-10-17（`A1642`）**：Deck 页那条路径**多了两层容器**（`Decks Tab ▸ Collection Display`）
+                //   —— 原版层级（`menu_dump.py … "Select Deck Tab" --depth 4` 现读）。这里写**全路径**
+                //   （`Transform.Find` 逐段只找直接子件）⇒ 顺带把「容器层级」也钉在这一条上。
+                string[] pgPath = { "Decks Tab/Collection Display/Deck Scroll View/Viewport", "Scroll View/Viewport",
                                     "Scroll View/Viewport", "Scroll View/Viewport" };
                 float[] pgL = { 330.9f, 330.2f, 335.44f, 330.22f };
                 float[] pgT = { 155.9f, 155.9f, 155.94f, 287.67f };
@@ -9435,7 +9535,9 @@ public static class CollectionScene
                 //   把节点搬走它**纹丝不动** ⇒ 下面这一条必红。
                 {
                     var pgD435 = win.PageRoot(0);
-                    var vpD = pgD435 != null ? pgD435.Find("Deck Scroll View/Viewport") : null;
+                    // 🆕 2026-10-17（`A1642`）：`Deck Scroll View` 在两层容器之下 ⇒ 递归取（`FindChild` 是递归的）
+                    var dHolder435 = FindChild(pgD435, "Deck Scroll View");
+                    var vpD = dHolder435 != null ? dHolder435.Find("Viewport") : null;
                     var scD = win.DeckScroll;
                     CheckTrue(vpD != null && scD != null, "（前提）卡组页的视口节点 + 滚动区都在");
                     if (vpD != null && scD != null)
@@ -9473,9 +9575,8 @@ public static class CollectionScene
                 // ---- ③ 节点态真的驱动【裁切】：收小节点 ⇒ 重建 ⇒ **渲出来的真几何**跟着变 ----
                 //   判据全部独立算：带子高 250（我下的毒）· 卡框上沿 = 格顶 + `DcFrameY(17) × K(0.9)`。
                 {
-                    var pgD435b = win.PageRoot(0);
-                    var vpD2 = pgD435b != null ? pgD435b.Find("Deck Scroll View/Viewport") : null;
-                    var holderD = FindChild(win.PageRoot(0), "Deck Scroll View");
+                    var holderD = FindChild(win.PageRoot(0), "Deck Scroll View");     // 🆕 A1642：递归取（两层容器之下）
+                    var vpD2 = holderD != null ? holderD.Find("Viewport") : null;
                     CheckTrue(vpD2 != null && holderD != null, "（前提）卡组页的节点 + `Deck Scroll View` 都在");
                     if (vpD2 != null && holderD != null)
                     {
@@ -9520,7 +9621,9 @@ public static class CollectionScene
                 //   —— 本场景不断它，且每次 `*Scene.Run` 是**独立进程**，不会串到别人那儿。
                 {
                     var pgD435c = win.PageRoot(0);
-                    var vpD3 = pgD435c != null ? pgD435c.Find("Deck Scroll View/Viewport") : null;
+                    // 🆕 2026-10-17（`A1642`）：同上 —— 视口在两层容器之下，先递归取宿主再取直接子件
+                    var dHolder435c = FindChild(pgD435c, "Deck Scroll View");
+                    var vpD3 = dHolder435c != null ? dHolder435c.Find("Viewport") : null;
                     CheckTrue(vpD3 != null, "（前提）拿得到一颗带 `ViewportClip` 的节点当代父件");
                     if (vpD3 != null)
                     {
@@ -9634,10 +9737,10 @@ public static class CollectionScene
             //   · 每次改完把窗**原地重建**一次（`CollectionWindow.Build()` 是 `public`，它首句
             //     `BuildShell` → `DestroyChildren(root)` —— 本来就是「清空再建」的形状）；
             //   · ⇒ 结论与**跑批机器是什么语言**无关。
-            // 🔴 **为什么必须重建**：字是**建窗时**画的（`Shell/MenuWindowBase.cs` 的 `BuildTabButton`
+            // 🔴 **为什么必须重建**：字是**建窗时**画的（`Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton`
             //   里那句 `Loc.T(spec.Term)`），换语档**不会**改已经画上去的字（本窗没有 `RefreshTexts`）
             //   ⇒ 不重建就量不出「跟着变」。
-            // 🧨 **改坏法**：把 `Shell/MenuWindowBase.cs` 的 `BuildTabButton` 里那句 `Loc.T(spec.Term)`
+            // 🧨 **改坏法**：把 `Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton` 里那句 `Loc.T(spec.Term)`
             //   改回 `spec.Label` ⇒ **中文档那一趟**印的仍是英文 ⇒ 「两趟一样」⇒ 对应那条立刻红。
             // ⚠️ 本段排在**全文件收尾**（下面只剩 `total` 与收尾日志）：重建会把这扇窗的孩子整棵换掉，
             //   ⛔ 别把它往前挪 —— 前面每一节都还攥着节点引用（`keys` 那张表就是）。
@@ -9679,7 +9782,7 @@ public static class CollectionScene
                             + $"**跟着语档变** —— 中文档印「{(p4Zh[i] ?? "<取不到>")}」、"
                             + $"英文档印「{(p4En[i] ?? "<取不到>")}」"
                             + $"（⛔ 两趟一样 ⇒ 那颗字**不是从 `Loc.T` 来的**）｜键 `{tabTerms[i]}`"
-                            + "｜🧨 改坏法：`Shell/MenuWindowBase.cs` 的 `BuildTabButton` 里那句"
+                            + "｜🧨 改坏法：`Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton` 里那句"
                             + " `Loc.T(spec.Term)` 改回 `spec.Label` ⇒ 本条红"
                             + "（**语档无关**，不再依赖跑批机器是中文档）");
                     CheckText(p4Zh[i], Loc.ZhOf(tabTerms[i]).ToUpperInvariant(),

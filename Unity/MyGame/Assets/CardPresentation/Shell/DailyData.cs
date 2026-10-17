@@ -1367,20 +1367,34 @@ namespace CardPresentation
         /// 🆕 ③（A429）删掉末尾那句 `Persist("一局结算")` ⇒ 「重启后进度还在」那条红
         /// （本局推进的进度没落盘 ⇒ 重启即回出厂）。</para>
         /// </summary>
-        public static void OnBattleEnd(bool win, int damageToEnemy, int troopsPlayed, int skulls, int playMode)
+        public static void OnBattleEnd(bool win, int damageToEnemy, int troopsPlayed, int skulls, int playMode,
+                                       int damageToEnemyWarlord = -1, int attacksDeclared = -1, int rangedAttacksDeclared = -1)
         {
             // 三张每日任务卡（🆕 2026-10-17 A2070③ 文案已照用户实拍改）：
             //   0 = Deal 45 damage to enemy warlords · 1 = Attack with units 15 times ·
             //   2 = Attack with ranged units 15 times
-            // 🔴 **推进口径没跟着改**（如实记）：仍是「对敌伤害 / 打出部队 / 胜一场」——
-            //   实拍第 0 条要的是**只算战将**、第 1/2 条要的是**攻击次数**（还分近战/远程），
-            //   而引擎在这一拍只交得出 `damageToEnemy / troopsPlayed / win` ⇒ ⛔ 别在这里编一个换算。
-            //   要补真口径 = 战斗线那边加计数（本件白名单外，已写进报告）。
-            Advance(0, damageToEnemy);
-            Advance(1, troopsPlayed);
-            if (win) Advance(2, 1);
+            // 🔴 **2026-10-17（`N32` 收口）**：真口径计数已在引擎侧补上 ——
+            //   `BattleContext.DamageToEnemyWarlord / AttacksDeclared / RangedAttacksDeclared`
+            //   （落点：`RuleCore.ApplyDamage` 的督军那一格 + `RuleCore.DeclareAttack` 过完三道闸之后）。
+            //   **生产调用点（`BattleDriver`）传这三格** ⇒ 三条任务按实拍口径推进。
+            // ⚠️ **缺省 `-1` = 旧口径兜底**：只为**既有的自检夹具**（它们只关心「推到没到顶」，
+            //   不想为三条任务各造一份计数）—— 生产路径**必须**传三个新参（`BattleDriver` 已传）。
+            if (damageToEnemyWarlord >= 0 || attacksDeclared >= 0 || rangedAttacksDeclared >= 0)
+            {
+                Advance(0, Mathf.Max(0, damageToEnemyWarlord));
+                Advance(1, Mathf.Max(0, attacksDeclared));
+                Advance(2, Mathf.Max(0, rangedAttacksDeclared));
+            }
+            else
+            {
+                // ===== 旧口径（**只给自检夹具**；生产不走这里）=====
+                Advance(0, damageToEnemy);
+                Advance(1, troopsPlayed);
+                if (win) Advance(2, 1);
+            }
             int got = AddSkulls(skulls, playMode);          // 🆕 A375：本局 0~3 个（累加，不是覆盖）
-            Say($"本局战果进了任务进度：对敌伤害 +{damageToEnemy} · 打出部队 +{troopsPlayed} · 胜 {(win ? 1 : 0)}"
+            Say($"本局战果进了任务进度：对督军伤害 +{Mathf.Max(0, damageToEnemyWarlord)} · 攻击 +{Mathf.Max(0, attacksDeclared)}"
+                + $" · 远程攻击 +{Mathf.Max(0, rangedAttacksDeclared)}（旧口径兜底时这三格为 −1）"
                 + $" · **骷髅 +{got}**（当日累计 {_skullsCount}）");
             // 🆕 **A429**：这一族是**落盘**的 ⇒ 一局结算这一拍是**最主要的一个写入点**，落一次
             // （⛔ 别挪进 `Advance`/`AddSkulls` —— 那会让一局写三次盘，而且「三张卡 + 骷髅」本来就是一拍改完的）。

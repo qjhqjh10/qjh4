@@ -359,7 +359,7 @@ namespace CardPresentation
             //    传 `EndPanel.PxPerUnit`(108) 会让字**小 108 倍**而**不报错**。
             var tp = HudCanvas.PosPx(960f, BandTopPx + HeaderH * 0.5f);
             _header = HudCanvas.MakeText(_panel, "", tp.x, tp.y, ChromeFontScale, Color.white,
-                                         new Vector2(0.5f, 0.5f), ZContent, "mcd_header");
+                                         new Vector2(0.5f, 0.5f), ZContent, "mcd_header", face: TmpFont.Face.LatinCardBody);
             if (_header != null) _header.SetScriptHeight("", ChromeFontPx, 1f);
 
             // Continue：**贴图用原版那两张**（`40k_bt_underbutton` / `40k_UI_bt_play`），
@@ -419,7 +419,7 @@ namespace CardPresentation
             //     TMP 原文 `Continue`）—— 原来写死的是中文 `"继续"`（与换牌面板那条是**同一条**词条）。
             string continueText = Loc.T(MulliganPanel.DoneTerm);
             _barText = HudCanvas.MakeText(_panel, continueText, 0f, 0f, ChromeFontScale,
-                                          Color.white, new Vector2(0.5f, 0.5f), ZBtnText, "mcd_continue");
+                                          Color.white, new Vector2(0.5f, 0.5f), ZBtnText, "mcd_continue", face: TmpFont.Face.LatinCardBody);
             if (_barText != null) _barText.SetScriptHeight(continueText, ChromeFontPx, 1f);
 
             // 🔴 **三件【同批】改走原版那一级的右-下点锚**（账 `F11`）—— ⛔ 只改一两个会造出
@@ -440,6 +440,7 @@ namespace CardPresentation
             var hntp = HudCanvas.PosPx(960f, BandBottomPx + 34f);
             _hint = HudCanvas.MakeText(_panel, "点「继续」或再点一下牌堆关闭", hntp.x, hntp.y, 2,
                                        new Color(0.7f, 0.7f, 0.75f), new Vector2(0.5f, 0.5f), ZContent, "mcd_hint");
+            // A1024③ 判不出（原版 `Generic Multi Card Display Combat` 无这一行，我们自加）⇒ 保持 `Face.Cjk`
             if (_hint == null) Debug.LogWarning("[多卡展示窗] 底部提示行没建起来（`MakeText` 返回 null —— 拿不到 TMP 字体？）");
 
             SetChrome(false);

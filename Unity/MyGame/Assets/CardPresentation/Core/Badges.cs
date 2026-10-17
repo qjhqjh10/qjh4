@@ -214,6 +214,28 @@ namespace CardPresentation
             { "concussion", "concussive" },
         };
 
+        /// <summary>🆕 **2026-10-17（`N44`）**：规范键 → **官方枚举名**（只走上面那张 `Alias`，⛔ 不另开一张表）。
+        /// 供关键词 tooltip 推官方 `CardTraitDescription/&lt;枚举名&gt;` 用
+        /// （`Tooltip.LoadOfficialTraitMap` 的最后一级兜底）。查不到返回 `null`。
+        /// ⚠️ **别拿它当显示名** —— 它只说明「我们家这个词在原版叫什么」，显示仍走 `CardText`。</summary>
+        public static string OfficialTraitName(string canonKey)
+        {
+            if (string.IsNullOrEmpty(canonKey)) return null;
+            string k = canonKey.Trim().ToLowerInvariant();
+            string a;
+            if (Alias.TryGetValue(k, out a)) return a;
+            // 大小写不同的键（例 `questPoints`）→ 归一化后扫一遍（键只有十几条，开销可忽略）
+            foreach (var kv in Alias)
+                if (Norm(kv.Key) == Norm(k)) return kv.Value;
+            // 🆕 **2026-10-17（`N44`）**：`quest` 是**阵营资源**（任务点），不是关键词图 ——
+            //   ⛔ 不能进 `Alias`（那会把「任务点」的图标换成 `questPoints` 那枚、改变卡面）。
+            //   但它的 **tooltip 官方枚举名**就是 `questPoints`（`CardTraitDescription/questPoints`），
+            //   所以只在本口给一条：**只影响 tooltip 取官方正文，不影响图标**。
+            if (Norm(k) == Norm("quest")) return "questPoints";
+            return null;
+            // ⚠️ `Norm` 在本类下面（`Badges.KeyOf` 用的同一个归一化）。
+        }
+
         /// <summary>
         /// 🆕 2026-09-21：**图名 → 规范键**（卡面那条 `&lt;link>` 用它）。只列「图名 ≠ 规范键」的那几个，
         /// 其余**图名就是规范键**（`rally` / `armour` / `flying` … 小写化即可）。

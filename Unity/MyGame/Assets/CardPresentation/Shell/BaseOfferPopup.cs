@@ -839,7 +839,7 @@ namespace CardPresentation
         void BuildTexts()
         {
             // `Title`：fs40 · base **45.2** · auto[3~40] · `Left/Middle` · 折行=1
-            var title = MenuDraw.Text(TextNode, G.Title, C.Name, Color.white, "Title", 40f, QText);
+            var title = MenuDraw.Text(TextNode, G.Title, C.Name, Color.white, "Title", 40f, QText, face: TmpFont.Face.LatinUi);
             if (title != null)
             {
                 // 🔴 **2026-10-13（A805）就地订正（铁律 5）**：这两句原来**反着写**（`AlignLeft` 在前、
@@ -852,7 +852,7 @@ namespace CardPresentation
                 MenuDraw.AlignLeft(title, G.Title);
             }
             // `Category`：fs39 · base 39（= 标称 ⇒ 不用显式传）· auto[3~39] · `Left/Midline` · 字距 **−1.8**
-            var cat = MenuDraw.Text(TextNode, G.Category, C.Type, Color.white, "Category", 39f, QText);
+            var cat = MenuDraw.Text(TextNode, G.Category, C.Type, Color.white, "Category", 39f, QText, face: TmpFont.Face.LatinCardBody);
             if (cat != null)
             {
                 // 🔴 **2026-10-13（A805）**：`AlignLeft` 挪到 `SetAutoFitBox` **之后** —— 同 `Title` 那条。
@@ -868,14 +868,14 @@ namespace CardPresentation
             }
             // `Descripton`：fs35 · base 39 · auto[3~35] · `Left/Middle` · 折行=1（文本恒用出厂原文，见文件头 ③）
             var desc = MenuDraw.TextBox(TextNode, G.Desc, DefDescText, Color.white, "Descripton", 35f, 3f,
-                                        QText, 35f, 39f);
+                                        QText, 35f, 39f, face: TmpFont.Face.LatinCardBody);
             if (desc != null) MenuDraw.AlignLeft(desc, G.Desc);
 
             // `Available Counter`：**它自己就是那颗 TMP**（原版那颗在 `Text` 下、带 `LayoutElement`）
             // —— fs30 · base 39 · auto[10~30] · `Left/Bottom` · **折行=0**
             // 🔴 **原版的 no-data 分支 = 关掉它自己**（`SetAvailableText.c` 对那颗 TMP 自己 `SetActive`）
             //    ⇒ 没有报价 ⇒ 关。见文件头。
-            var av = MenuDraw.Text(TextNode, G.Avail, C.Available, Color.white, "Available Counter", 30f, QText);
+            var av = MenuDraw.Text(TextNode, G.Avail, C.Available, Color.white, "Available Counter", 30f, QText, face: TmpFont.Face.LatinCardBody);
             AvailNode = av != null ? av.transform : MenuDraw.Node(TextNode, "Available Counter", G.Avail);
             if (av != null)
             {
@@ -910,7 +910,7 @@ namespace CardPresentation
                           + "（只在 `Art/原版/0_mainmenu/` 下躺着）⇒ 节点照样建、**这一格空着不画**"
                           + "（⛔ 不拿别的图顶上）。");
             }
-            var bt = MenuDraw.Text(BadgeNode, G.BadgeText, C.BadgeText, Color.white, "Text (TMP)", 38f, QBadgeText);
+            var bt = MenuDraw.Text(BadgeNode, G.BadgeText, C.BadgeText, Color.white, "Text (TMP)", 38f, QBadgeText, face: TmpFont.Face.LatinCardBody);
             if (bt != null)
             {
                 // 🔴 **2026-10-13（A805 同族）**：同 `Title` —— 先自适应、后摆位。
@@ -931,7 +931,7 @@ namespace CardPresentation
         {
             TimerNode = MenuDraw.Node(TextNode, "Timer", G.Timer);
             Rect(TimerNode, ArtClock, G.TimerIcon, "Icon", QText, null, true);
-            var tt = MenuDraw.Text(TimerNode, G.TimerTextBox, C.TimerText, Color.white, "Timer Text", 30f, QText);
+            var tt = MenuDraw.Text(TimerNode, G.TimerTextBox, C.TimerText, Color.white, "Timer Text", 30f, QText, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-17（N1）**：出厂串 `23h 34m` **不是倒计时**（原版由 LiveOps 报价的到期时刻灌进来，
             //   本地没有报价数据 —— 见文件头「没有数据」那一段）。目标时刻未知 ⇒ 走 `TimerDisplay` 的
             //   未知支：出声一次 + `--`（⛔ 不编一个倒计时）。调用方**真给了** `TimerText`（≠ 出厂串）就照它画。
@@ -960,7 +960,7 @@ namespace CardPresentation
             var pq = Rect(pd, ArtBtn, G.PriceBtn, "Generic UI Button", QBtn, PriceTint, true);
             var gb = pq != null ? pq.transform : MenuDraw.Node(pd, "Generic UI Button", G.PriceBtn);
             // 🔴 `Button Text` **出厂 INACT**（21/21 实读 `act=F`、字串出厂是空串）⇒ 照 prefab 建成关的。
-            var pbt = MenuDraw.Text(gb, G.PriceBtnText, "", Color.white, "Button Text", 12f, QBtn);
+            var pbt = MenuDraw.Text(gb, G.PriceBtnText, "", Color.white, "Button Text", 12f, QBtn, face: TmpFont.Face.LatinCardBody);
             if (pbt != null)
             {
                 pbt.SetAutoFitBox(LayoutSpace.Px(G.PriceBtnText.W), LayoutSpace.Px(G.PriceBtnText.H), 12f, 38f);
@@ -974,7 +974,7 @@ namespace CardPresentation
             MenuDraw.Node(box, "icon", G.PriceIcon);
             Debug.Log("[BaseOffer] 价签的 `icon` **只建节点不画** —— 原版那颗 `Image` 的 `m_Sprite` 出厂是空"
                       + "（21/21 实读 `<无图>`，运行期由 `PriceDisplayButton.Setup(offer)` 灌货币图标）。");
-            var pt = MenuDraw.Text(box, G.PriceText, C.Price, Color.white, "text", 47.45f, QBtn);
+            var pt = MenuDraw.Text(box, G.PriceText, C.Price, Color.white, "text", 47.45f, QBtn, face: TmpFont.Face.LatinCardBody);
             if (pt != null)
                 pt.SetAutoFitBox(LayoutSpace.Px(G.PriceText.W), LayoutSpace.Px(G.PriceText.H), 12f, 54f, 39f);
             // 🔴 2026-10-17（音效线 S01 写手 G）**就地订正 R3 §四·A #59/#60 的行号**：
@@ -991,9 +991,9 @@ namespace CardPresentation
                 Debug.Log("[BaseOffer] `Offer Price Discount Badge` 的 sprite `" + ArtOfferBadge
                           + "` **没进 `Resources/`** ⇒ 节点照样建、**这一格空着不画**（同上，⛔ 不拿别的图顶上）。");
             disc.localRotation = Quaternion.Euler(0f, 0f, DiscountRotDeg);
-            var dt = MenuDraw.Text(disc, G.DiscTitle, DefPrevPriceTitle, Color.white, "Discount Title", 28.15f, QBtn);
+            var dt = MenuDraw.Text(disc, G.DiscTitle, DefPrevPriceTitle, Color.white, "Discount Title", 28.15f, QBtn, face: TmpFont.Face.LatinCardBody);
             if (dt != null) dt.SetAutoFitBox(LayoutSpace.Px(G.DiscTitle.W), LayoutSpace.Px(G.DiscTitle.H), 18f, 72f, 36f);
-            var dp = MenuDraw.Text(disc, G.DiscPrice, DefPrevPriceValue, Color.white, "Discount Price", 39.05f, QBtn);
+            var dp = MenuDraw.Text(disc, G.DiscPrice, DefPrevPriceValue, Color.white, "Discount Price", 39.05f, QBtn, face: TmpFont.Face.LatinCardBody);
             if (dp != null) dp.SetAutoFitBox(LayoutSpace.Px(G.DiscPrice.W), LayoutSpace.Px(G.DiscPrice.H), 18f, 72f, 36f);
 
             // ---- `WebShop Button`（自己**没有** Graphic，四个孩子）----
@@ -1009,7 +1009,7 @@ namespace CardPresentation
             var iconR = new PxRect(G.WebIcon.CX - iconSide * 0.5f, G.WebIcon.CY - iconSide * 0.5f,
                                    G.WebIcon.CX + iconSide * 0.5f, G.WebIcon.CY + iconSide * 0.5f);
             Rect(ws, ArtDiscountIcon, iconR, "Icon", QBtn);
-            var wt = MenuDraw.Text(ws, G.WebText, DefWebShopText, Color.white, "Button Text", 34.2f, QBtn);
+            var wt = MenuDraw.Text(ws, G.WebText, DefWebShopText, Color.white, "Button Text", 34.2f, QBtn, face: TmpFont.Face.LatinCardBody);
             if (wt != null)
             {
                 wt.SetAutoFitBox(LayoutSpace.Px(G.WebText.W), LayoutSpace.Px(G.WebText.H), 12f, 44f, 12f);
@@ -1043,7 +1043,7 @@ namespace CardPresentation
         {
             var q = Rect(transform, ArtBtn, G.Preview, "Preview", QArt, PreviewTint, true);
             PreviewNode = q != null ? q.transform : MenuDraw.Node(transform, "Preview", G.Preview);
-            var t = MenuDraw.Text(PreviewNode, G.PreviewText, DefPreviewText, Color.white, "Button Text", 40f, QArt);
+            var t = MenuDraw.Text(PreviewNode, G.PreviewText, DefPreviewText, Color.white, "Button Text", 40f, QArt, face: TmpFont.Face.LatinCardBody);
             if (t != null)
             {
                 t.SetAutoFitBox(LayoutSpace.Px(G.PreviewText.W), LayoutSpace.Px(G.PreviewText.H), 10f, 40f, 12f);
@@ -1061,7 +1061,7 @@ namespace CardPresentation
         void BuildAvatarHelp(Variant v)
         {
             if (!v.AvatarHelpText) return;
-            var t = MenuDraw.Text(transform, AvatarHelpR, "", Color.white, "AvatarHelpText", 24f, QArt);
+            var t = MenuDraw.Text(transform, AvatarHelpR, "", Color.white, "AvatarHelpText", 24f, QArt, face: TmpFont.Face.LatinCardBody);
             AvatarHelpNode = t != null ? t.transform : MenuDraw.Node(transform, "AvatarHelpText", AvatarHelpR);
             if (t != null) t.SetAutoFitBox(LayoutSpace.Px(AvatarHelpR.W), LayoutSpace.Px(AvatarHelpR.H), 12f, 24f);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `AvatarHelpText` = `Left/**Midline**`

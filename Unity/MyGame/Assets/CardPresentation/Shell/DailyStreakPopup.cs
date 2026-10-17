@@ -419,7 +419,7 @@ namespace CardPresentation
             //   原版那两行是**静态序列化字段**（不存在「先对齐、后加字距」这种次序）⇒ 照原版就只能是「字距在前、对齐在后」。
             //   ⛔ 这里**不补** `ForceRelayout()` —— `AlignLeftOn` 自己就会按**含字距**的 `textBounds` 重量一次
             //   （同 `Shell/LiveOpsEventWindow.cs` 里那处「顺序不能反」的口径 那处的口径）。
-            var curLbl = MenuDraw.Text(p, S_CurLabel, DailyData.StreakCurrentLabel(), Color.white, "Current Streak", 70f, QText);
+            var curLbl = MenuDraw.Text(p, S_CurLabel, DailyData.StreakCurrentLabel(), Color.white, "Current Streak", 70f, QText, face: TmpFont.Face.LatinUi);
             if (curLbl != null) curLbl.SetCharSpacing(5f);
             MenuDraw.AlignLeft(curLbl, S_CurLabel);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `对齐=Left/**Capline**`（同上那条 dump 的实读）。
@@ -432,7 +432,7 @@ namespace CardPresentation
             //   🔴 **写断言的人注意**：⛔ 别写 `FindPath(succ, "Current Streak/Current Streak Value")`
             //   （调度台口径）；按名字取要用**递归**的 `FindChild(succ, "Current Streak Value")`（它穿子树）。
             var curVal = MenuDraw.Text(curLbl != null ? curLbl.transform : p, S_CurValue,
-                                       DailyData.StreakCurrentValue(), Color.white, "Current Streak Value", 80f, QText);
+                                       DailyData.StreakCurrentValue(), Color.white, "Current Streak Value", 80f, QText, face: TmpFont.Face.LatinUi);
             if (curVal != null) curVal.SetCharSpacing(5f);
             MenuDraw.AlignLeft(curVal, S_CurValue);
             MenuDraw.SetVAlign(curVal, Label.VAlign.Capline, S_CurValue);   // A712 阶段 2：原版 `Left/Capline` 的纵向那一半
@@ -454,7 +454,7 @@ namespace CardPresentation
             // ⇒ 范围 `[0, 内容右端 − 视口右端]` = `[0, 979.61]`（`TrackContentW` = 2899.61；由 `MenuScroll` 自己算）。
             // 🔴 `OnChanged` 指向**幂等**的重建（先清后建）—— 正是 `资料/阶段二_滚动与指针_原版规格.md`
             //    §四 第 1、2 条那两个坑（越建越多 / 相对位移翻倍）的规矩。
-            _trackScroll = MenuScroll.LeftAligned(S_Scroll, TrackContentW);
+            _trackScroll = MenuScroll.LeftAligned(S_Scroll, TrackContentW, 1f);   // 原版 `Daily Streak Popup/…/Rewards Scroll View` = 1.0（D_N29）
             _trackScroll.Owner = gameObject;      // ⚠️ C# 的对象初始化器**只能跟在 `new` 后面** —— 别写在方法调用后面
             _trackScroll.OnChanged = BuildTrack;
             BuildTrack();
@@ -466,7 +466,7 @@ namespace CardPresentation
             //   ⚠️ **别一刀切**：同名的另一颗在**断签面板**里（本文件 `BuildFailed` 那句 `F_Info`）——
             //   原版那颗是 **`Center/Midline`**（同一次 dump：`47.4 583.0 1872.6 633.0`，`对齐=Center/Midline`）
             //   ⇒ 那一颗**保持居中、不许改**。
-            var info = MenuDraw.Text(p, S_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText);
+            var info = MenuDraw.Text(p, S_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(info, S_Info);
             MenuDraw.SetVAlign(info, Label.VAlign.Midline, S_Info);   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半
             // ⚠️ `Timer` **在本面板里** ⇒ 断签态下看不到倒计时（原版实况）
@@ -479,13 +479,13 @@ namespace CardPresentation
             // 🔴 **2026-10-13（A643）**：改写**中性口** `MoreRewardsInText()`（原来叫 `StreakNextRewardsText()`）
             //   —— 那条词条是**本窗与每日奖励窗共用**的（原版同一条 I2 词条：本窗英文 `'More Rewards In'`、
             //   奖励窗那份是 es `'Más Recompensas En'`）⇒ 口名不许带 `Streak`（判据 → `DailyData.MoreRewardsInText` 的 doc）。
-            var nxt = MenuDraw.Text(t, S_TimerNext, DailyData.MoreRewardsInText(), Color.white, "Next Rewards text", 36f, QText);
+            var nxt = MenuDraw.Text(t, S_TimerNext, DailyData.MoreRewardsInText(), Color.white, "Next Rewards text", 36f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignRight(nxt, S_TimerNext);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Timer` 底下两颗**同档 `Midline`**
             //   （横向相反：`Next Rewards text` 是 `Right`、`Timer Text` 是 `Left`；判据同上那条 dump）。
             MenuDraw.SetVAlign(nxt, Label.VAlign.Midline, S_TimerNext);
             MenuDraw.Rect(t, Art(ArtClock), S_TimerClock, "Image", QContent);
-            var tmr = MenuDraw.Text(t, S_TimerText, DailyData.StreakTimerText(), Color.white, "Timer Text", 36f, QText);
+            var tmr = MenuDraw.Text(t, S_TimerText, DailyData.StreakTimerText(), Color.white, "Timer Text", 36f, QText, face: TmpFont.Face.LatinCardBody);
             // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时 —— 目标 = 自建日界 `NextResetAt`
             //   （本机时间；原版这一格的目标由服务端下发，本地查不到 ⇒ 取「下一天开始」，**我们挑的**）。
             //   先挂组件再对齐（组件会当场改写文本，对齐要按最终宽度算）。
@@ -578,11 +578,11 @@ namespace CardPresentation
             //   · `Daily Streak Broken`（fs128.1）= `Center/**Midline**` · `Current Streak Lost count`（fs66.9）= `Center/Midline`
             //   · `Info`（fs36）= `Center/Midline` ⇒ 见上面 :375 那条「**别一刀切**」（与 `Streak Successful/Info` 的横向档相反）
             //   · `Generic Simplified UI Button/Button Text`（`'Reset Streak'` fs55）= `Center/**Capline**`
-            var fBreak = MenuDraw.Text(anchor, F_Broken, DailyData.StreakBrokenText(), Color.white, "Daily Streak Broken", 128.1f, QText);
+            var fBreak = MenuDraw.Text(anchor, F_Broken, DailyData.StreakBrokenText(), Color.white, "Daily Streak Broken", 128.1f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(fBreak, Label.VAlign.Midline, F_Broken);
-            var fLost = MenuDraw.Text(anchor, F_Lost, DailyData.StreakLostText(), Color.white, "Current Streak Lost count", 66.9f, QText);
+            var fLost = MenuDraw.Text(anchor, F_Lost, DailyData.StreakLostText(), Color.white, "Current Streak Lost count", 66.9f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(fLost, Label.VAlign.Midline, F_Lost);
-            var fInfo = MenuDraw.Text(anchor, F_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText);
+            var fInfo = MenuDraw.Text(anchor, F_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(fInfo, Label.VAlign.Midline, F_Info);
             var btn = MenuDraw.Rect(anchor, Art(ArtMulligan), F_ResetBtn, "Generic Simplified UI Button", QContent);
             // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 55px。
@@ -593,7 +593,7 @@ namespace CardPresentation
             //   ⚠️ 折行 0 ⇒ `SetAutoFitBox` 内部 `SetWrapWidth` 会**无条件**开成 `Normal` ⇒ 紧跟一句关掉
             //   （必须在 `SetVAlign` **之前** —— `SetWrapping` 会推版面）。
             var fReset = MenuDraw.Text(anchor, F_ResetText, DailyData.ResetStreakText(), Color.white, "Button Text", 55f, QText,
-                                       F_ResetText.W, 10f, 55f, 12f);
+                                       F_ResetText.W, 10f, 55f, 12f, face: TmpFont.Face.LatinCardBody);
             if (fReset != null) fReset.SetWrapping(false);          // 原版折行=0（A205：关这一下顺带推版面）
             MenuDraw.SetVAlign(fReset, Label.VAlign.Capline, F_ResetText);
             if (btn != null)

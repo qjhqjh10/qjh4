@@ -212,7 +212,7 @@ namespace CardPresentation
             //    ✅ **本件的收口 = 把这条差异写在这里**（就是本段），⛔ 不是把形状统一。
             //    ⚠️ 真要合并，得先给 `MenuDraw.Text` 加「字距 + 次序」两维 —— 那是 `MenuDraw.cs`（**共用件**）的改动，
             //      会牵动所有走它的调用点（`TextCore` 也是 `TextBox` 的内层）⇒ **另立账**，⛔ 别在本件里顺手做。
-            var title = MenuDraw.Text(plate, s.TitleRect, s.TitleText, Color.white, TitleName, TitleFontPx, s.QTitle);
+            var title = MenuDraw.Text(plate, s.TitleRect, s.TitleText, Color.white, TitleName, TitleFontPx, s.QTitle, face: TmpFont.Face.LatinUi);
             parts.Title = title;
             if (title != null)
             {

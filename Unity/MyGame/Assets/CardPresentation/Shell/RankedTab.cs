@@ -229,9 +229,13 @@ namespace CardPresentation
             // 🔴 **A406**：`Ranking Tab/Profile Player Info/Avatar Item Small/Avatar Name`
             //   原版 `auto[12.0~36.0] 基准=36.0` ⇒ 上限 36（= 标称）· base 36.0。判据 =
             //   `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`。
+            // 🔴 **A1024③（2026-10-17）换面**：本页 `Player Name` / `Player Title` / `DivisionText`（含
+            //    `'Global Rating'` 那颗大标题）/ `Faction Ranking Points` 的 `m_fontAsset` = **`Asar-Regular SDF`**；
+            //    `Avatar Name`（`Profile Player Info ▸ Avatar Item Small`）/ `Player Level Text` /
+            //    `Individual rating value` 全是 **Pragati**。判据 = `menu_dump … "Player Profile Window" --depth 30`。
             var an = Text(av, "", new PxRect(AvL, AvB, AvR, AvNmB), Color.white, "Avatar Name", 36f, L_Text2,
                           autoFit: true, autoMinPx: 12f, alignLeft: false, wrap: true,
-                          autoMaxPx: 36f, basePx: 36f);
+                          autoMaxPx: 36f, basePx: 36f, face: TmpFont.Face.LatinCardBody);
             if (an != null) an.gameObject.SetActive(false);          // 出厂 F（原版只 set_text、从不 SetActive）
             Hit(info, "AvatarHit", new PxRect(341.16f, 128.01f, 520.06f, 342.45f), L_Hit, OnAvatarClick);
 
@@ -258,13 +262,13 @@ namespace CardPresentation
             var rkNameR = new PxRect(PnL, PnT, PnR, PnB);
             _playerName = Text(nh, ProfileData.PlayerName, rkNameR, NameGold, "Player Name",
                                PnPx, L_Text, autoFit: true, autoMinPx: PnAutoMin, alignLeft: true, wrap: false,
-                               autoMaxPx: 45f, basePx: 35f);
+                               autoMaxPx: 45f, basePx: 35f, face: TmpFont.Face.LatinUi);
             if (_playerName != null) { _playerName.SetWrapping(false); MenuDraw.AlignLeft(_playerName, rkNameR); }
             // 🔴 **A406**：同树 `Player Title` 原版 `auto[20.0~35.0] 基准=35.0` ⇒ 上限 35 · base 35.0。
             var rkTitleR = new PxRect(PtL, PtT, PtR, PtB);
             var rkTitleLb = Text(na, "Player Title", rkTitleR, Color.white, "Player Title",
                                  PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true, wrap: false,
-                                 autoMaxPx: 35f, basePx: 35f);
+                                 autoMaxPx: 35f, basePx: 35f, face: TmpFont.Face.LatinUi);
             if (rkTitleLb != null) { rkTitleLb.SetWrapping(false); MenuDraw.AlignLeft(rkTitleLb, rkTitleR); }
 
             var lv = Node(info, "Player Level", new PxRect(PlL, PlT, PlR, PlB));
@@ -273,7 +277,7 @@ namespace CardPresentation
             //   原版 `auto[18.0~37.2] 基准=36.88999938964844` ⇒ 上限 37.2（= 标称）· base 36.89。
             Text(lv, "-", new PxRect(PltL, PltT, PltR, PltB), Color.white, "Player Level Text",
                  PltPx, L_Text2, autoFit: true, autoMinPx: PltAutoMin, alignLeft: false, wrap: true,
-                 autoMaxPx: 37.2f, basePx: 36.88999938964844f);
+                 autoMaxPx: 37.2f, basePx: 36.88999938964844f, face: TmpFont.Face.LatinCardBody);
         }
 
         // ============================================================ ② `Top4`
@@ -356,7 +360,7 @@ namespace CardPresentation
             Rect(row, iconArt, new PxRect(ix, r.y1, ix + iw, r.y2), "Main Icon", L_Art, null, true);
             Text(row, ScoreEmpty, new PxRect(ix + iw, r.y1, r.x2, r.y2), Color.white, "Individual rating value",
                  px, L_Text, autoFit: true, autoMinPx: autoMin, alignLeft: !center, wrap: true,
-                 autoMaxPx: autoMax, basePx: basePx);
+                 autoMaxPx: autoMax, basePx: basePx, face: TmpFont.Face.LatinCardBody);
         }
 
         /// <summary>中间那一列：大标题 `Global Rating` → 段位大图 → `footer`（`MainRating` > `Global Rating`）。</summary>
@@ -368,7 +372,7 @@ namespace CardPresentation
             //   原版 `auto[18.0~38.0] 基准=23.0` ⇒ 上限 38（= 标称）· base **23.0**。
             var grTitle = Text(c, "Global Rating", new PxRect(CsL, DtxT, CsR, DtxB), RankInk, "DivisionText",
                                38f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: false,
-                               autoMaxPx: 38f, basePx: 23f);           // ⚠️ 名字叫 DivisionText，**装的是大标题**
+                               autoMaxPx: 38f, basePx: 23f, face: TmpFont.Face.LatinUi);           // ⚠️ 名字叫 DivisionText，**装的是大标题**
             if (grTitle != null) grTitle.SetWrapping(false);
             // `DivisionImage`（段位大图 + `RankImage` 名次数字）—— **不画**：段位图 ↔ 段位号的对照本地没有（判据 ③）
             var di = Node(c, "DivisionImage", new PxRect(CsL, DimgT, CsR, DimgB));
@@ -390,7 +394,7 @@ namespace CardPresentation
             //   原版 `auto[18.0~40.0] 基准=31.3799991607666` ⇒ 上限 40（= 标称）· base 31.38。
             Text(gr, ScoreEmpty, new PxRect(gx + SIconW, GrT, 946.73f, GrB), Color.white,
                  "Individual rating value", 40f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: true,
-                 autoMaxPx: 40f, basePx: ScoreAutoBase);
+                 autoMaxPx: 40f, basePx: ScoreAutoBase, face: TmpFont.Face.LatinCardBody);
         }
 
         // ============================================================ ③ `AllFactions`
@@ -406,7 +410,7 @@ namespace CardPresentation
             var afHdR = new PxRect(AfHdL, AfHdT, AfHdR, AfHdB);
             var afHd = Text(af, "Faction Rating", afHdR, RankInk, "Faction Ranking Points",
                             AfHdPx, L_Text, autoFit: true, autoMinPx: AfHdAutoMin, alignLeft: true, wrap: false,
-                            autoMaxPx: 38f, basePx: 23f);
+                            autoMaxPx: 38f, basePx: 23f, face: TmpFont.Face.LatinUi);
             if (afHd != null) { afHd.SetWrapping(false); MenuDraw.AlignLeft(afHd, afHdR); }
             var info = Node(af, "info", new PxRect(AfInfoL, AfInfoT, AfInfoR, AfInfoB));
             Rect(info, ArtInfo, new PxRect(AfInfoL, AfInfoT, AfInfoR, AfInfoB), "Image", L_Art, null, true);
@@ -419,7 +423,7 @@ namespace CardPresentation
             //    `m_Padding = (0,0,0,0)` · `m_Softness = (0,0)`（硬边）—— 与迁移前的 `Clip = scR`（软边恒 0）逐位同值。
             var vpVc = ViewportClip.Hang(sc, "viewport", scR, Vector4.zero, Vector2Int.zero);
             var vp = vpVc.transform;
-            _scroll = NewScroll(scR, 0f, 0f, true);
+            _scroll = NewScroll(scR, 0f, 0f, true, 10f);   // 原版 `Ranking Tab/AllFactions/scroll rect` = 10（D_N29）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildRows` 里
             //   `if (!_scroll.Intersects(rr)) continue;`）从今天起读**同一颗节点**的状态
             //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗 `viewport`。

@@ -429,11 +429,18 @@ namespace CardPresentation
             _bg = HudPiece.Of(ImageQuad.Create(transform, Solid(), Vector3.zero, 1f, new Vector2(0.5f, 0.5f), "AbilityContainer"));
             _light = HudPiece.Of(ImageQuad.Create(transform, Solid(), Vector3.zero, 1f, new Vector2(0.5f, 0.5f), "Lights"));
 
-            _name = MakeLabel("NameText", NamePx, NameColor);
-            _cost = MakeLabel("CostText", CostPx, CostColor);
+            // 🔴 **2026-10-17（`A1024`③ 批 2–4）**：原版 `ActiveSkillDesc` 四颗字的面（现读 `battle1_tmp.tsv`）：
+            //   · `AbilityContainer/NameText`   = **Asar**（fs42.35）  ⇒ `LatinUi`
+            //   · `AbilityContainer/CostPanel/CostText` = **Asar**（fs52.4）⇒ `LatinUi`
+            //   · `AbilityContainer/DescText`   = **Asar**（fs37.35）  ⇒ `LatinUi`
+            //   · `TargetsAvailableText`        = **Pragati**（fs56.45）⇒ `LatinCardBody`
+            //   ⚠️ 普查表 §二附录那一行只列了 `DescText` 一颗 Asar（NameText/CostText 写漏）——
+            //     本批按它自己写明的**唯一判据**（TMP 的 `m_fontAsset`）落，差异记在 `W_A1024_战斗三窗.md`。
+            _name = MakeLabel("NameText", NamePx, NameColor, face: TmpFont.Face.LatinUi);
+            _cost = MakeLabel("CostText", CostPx, CostColor, face: TmpFont.Face.LatinUi);
             // 原版 `DescText` 是**左对齐**（H=1）+ `m_margin.x = 7.4727` → 锚点在左边
-            _desc = MakeLabel("DescText", DescPx, DescColor, new Vector2(0f, 0.5f));
-            _targets = MakeLabel("TargetsAvailableText", TargetsPx, TargetsColor);
+            _desc = MakeLabel("DescText", DescPx, DescColor, new Vector2(0f, 0.5f), face: TmpFont.Face.LatinUi);
+            _targets = MakeLabel("TargetsAvailableText", TargetsPx, TargetsColor, face: TmpFont.Face.LatinCardBody);
 
             // 原版那格的图标是 `manaIcon`（原件里 `costSprite` 是 null，运行时才赋）——
             // 用 HUD 那颗能量宝石那张图占位，方图居中放进它的矩形
@@ -454,11 +461,13 @@ namespace CardPresentation
             _bg = MakeCv(Solid(), "AbilityContainer", ZBg);
             _light = MakeCv(Solid(), "Lights", ZLight);
 
-            _name = MakeLabel("NameText", NamePx, NameColor);
-            _cost = MakeLabel("CostText", CostPx, CostColor);
+            // 🔴 **2026-10-17（`A1024`③ 批 2–4）**：四颗字的面同 `BuildWorld` 那一块（判据 / 落点只此一份）——
+            //   `NameText` · `CostText` · `DescText` = Asar ⇒ `LatinUi`；`TargetsAvailableText` = Pragati ⇒ `LatinCardBody`。
+            _name = MakeLabel("NameText", NamePx, NameColor, face: TmpFont.Face.LatinUi);
+            _cost = MakeLabel("CostText", CostPx, CostColor, face: TmpFont.Face.LatinUi);
             // 原版 `DescText` 是**左对齐**（H=1）+ `m_margin.x = 7.4727` → 锚点在左边
-            _desc = MakeLabel("DescText", DescPx, DescColor, new Vector2(0f, 0.5f));
-            _targets = MakeLabel("TargetsAvailableText", TargetsPx, TargetsColor);
+            _desc = MakeLabel("DescText", DescPx, DescColor, new Vector2(0f, 0.5f), face: TmpFont.Face.LatinUi);
+            _targets = MakeLabel("TargetsAvailableText", TargetsPx, TargetsColor, face: TmpFont.Face.LatinCardBody);
 
             var gem = CardArt.Ui("UI_Energy_Eldar");
             _manaIcon = MakeCv(gem, "manaIcon", ZText);
@@ -477,18 +486,23 @@ namespace CardPresentation
         }
 
         /// <summary>建一颗字。两档的字号**数不同**（世界档 = px ÷ 108、画布档 = px）——
-        /// 口径 → `T09` §五·补⑨ 四（⛔ 喂错**不报错**、只是小到看不见）。</summary>
-        Label MakeLabel(string name, float px, Color c, Vector2? anchor = null)
+        /// 口径 → `T09` §五·补⑨ 四（⛔ 喂错**不报错**、只是小到看不见）。
+        /// <para>🆕 **2026-10-17（`A1024`③ 批 2–4）**：可选字体面，默认 `Cjk` ⇒ 旧调用点零行为变化。
+        /// ⚠️ 必须排在 `SetGlyphHeight` **之前** —— 那个口按 `ActualFace` 的 em 比例折字号
+        /// （判据 → `Label.TmpFontSize`）；两档都过这一处，⛔ 别在调用点各写一遍。</para></summary>
+        Label MakeLabel(string name, float px, Color c, Vector2? anchor = null, TmpFont.Face face = TmpFont.Face.Cjk)
         {
             var a = anchor ?? new Vector2(0.5f, 0.5f);
             if (UguiMode)
             {
                 // 位置由 `RefreshLayout` 写（建的时候先落在子画布中心）
-                var u = HudCanvas.MakeText(_cv, "", 0f, 0f, 1, c, a, ZText, name);
+                var u = HudCanvas.MakeText(_cv, "", 0f, 0f, 1, c, a, ZText, name, face);
                 if (u != null) u.SetGlyphHeight(px);          // ⚠️ **设计 px**（⛔ 不除 108）
                 return u;
             }
             var l = Label.Create(transform, "", Vector3.zero, 1, c, a, name);
+            // 两档同一条口径：换面**在建 TMP 之后、定字号之前**（`MakeText` 内部已紧跟 `CreateUgui`）
+            if (face != TmpFont.Face.Cjk) l.SetFace(face);
             l.SetGlyphHeight(WorldOfPx(px));
             return l;
         }

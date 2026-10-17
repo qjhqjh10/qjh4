@@ -4290,6 +4290,11 @@ namespace RuleEngine
             // （嗜血单位打完第一次**不**疲劳，所以还能再打一次）
             attacker.AttacksThisTurn++;
             if (attacker.AttacksThisTurn >= atkLimit) attacker.Exhausted = true;
+            // 🆕 **2026-10-17（界面线 `N32`）**：任务卡「攻击 15 次 / 远程攻击 15 次」的真口径计数。
+            //   🔴 位置 = **过完 `CanAttackNow` + `IsValidTarget` + 「取消攻击」这三道之后** ——
+            //   被闸挡下 / 被 `aboutToAttack` 取消的那一记**不算攻击**（原版那两处也是早退、不消耗配额）。
+            ctx.AttacksDeclared[p]++;
+            if (ranged) ctx.RangedAttacksDeclared[p]++;
             // 🆕 2026-09-30：嗜血的「亮一下」—— 原版 `FinishAfterAttack` 那条路（判据 → `EmitBloodThirst`）
             EmitBloodThirst(ctx, p, atkSlot, attacker);
             // 🆕 2026-09-29：记下「这次用的是哪一档打法」（原版 `EntityScript.currentAttackType`）
@@ -6117,6 +6122,8 @@ namespace RuleEngine
             //    **不要再写第二份** —— `EffectResolver.cs` 那段的注释点名过「各写各的迟早不一致」。
             int _own = OwnerOf(ctx, u);
             if (_own == 0 || _own == 1) ctx.DamageToEnemy[1 - _own] += actual;
+            // 🆕 **2026-10-17（`N32`）**：任务卡 `Deal 45 damage to enemy warlords` 只算**督军**挨的那一份。
+            if ((_own == 0 || _own == 1) && u.IsWarlord) ctx.DamageToEnemyWarlord[1 - _own] += actual;
             return actual;
         }
 

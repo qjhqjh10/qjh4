@@ -425,7 +425,7 @@ namespace CardPresentation
             ShownTitle = o.Name;
             ShownCategory = CategoryFor(o);
 
-            var title = MenuDraw.Text(text, TitleR, ShownTitle, Color.white, "Title", 40f, QText);
+            var title = MenuDraw.Text(text, TitleR, ShownTitle, Color.white, "Title", 40f, QText, face: TmpFont.Face.LatinUi);
             if (title != null)
             {
                 // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版这一颗的 `m_fontSizeBase` **原文**（画布 px）。
@@ -439,7 +439,7 @@ namespace CardPresentation
             }
 
             // ⚠️ 字距 **−1.8**（原版 `m_characterSpacing`，原样传）
-            var cat = MenuDraw.Text(text, CategoryR, ShownCategory, Color.white, "Category", 39f, QText);
+            var cat = MenuDraw.Text(text, CategoryR, ShownCategory, Color.white, "Category", 39f, QText, face: TmpFont.Face.LatinCardBody);
             if (cat != null)
             {
                 // 🔴 **2026-10-13（A805 同族）**：先自适应、后摆位（`SetCharSpacing` 不挪节点、留在前面）。
@@ -448,7 +448,7 @@ namespace CardPresentation
                 MenuDraw.AlignLeft(cat, CategoryR);
             }
 
-            var desc = MenuDraw.Text(text, DescR, DescFor(o), Color.white, "Descripton", 35f, QText);
+            var desc = MenuDraw.Text(text, DescR, DescFor(o), Color.white, "Descripton", 35f, QText, face: TmpFont.Face.LatinCardBody);
             if (desc != null)
             {
                 desc.SetAutoFitBox(LayoutSpace.Px(DescR.W), LayoutSpace.Px(DescR.H), 3f, 35f, 39f);   // A305①：base 39
@@ -462,7 +462,7 @@ namespace CardPresentation
             //    三个兄弟**全是 `H=1 (Left)`**（⛔ 别把它们的 `AlignLeft` 一起删了）。
             //    ⇒ **不调 `AlignLeft` 就是居中**：`MenuDraw.Text` 建的 Label pivot = `(0.5,0.5)`、
             //      `RefreshBounds` 把字块居中放在锚点上。本仓**没有 `AlignCenter` 助手**，别自己加一个。
-            var cc = MenuDraw.Text(text, CrateCounterR, CrateCounterText, Color.white, "CrateCounter", 35f, QText);
+            var cc = MenuDraw.Text(text, CrateCounterR, CrateCounterText, Color.white, "CrateCounter", 35f, QText, face: TmpFont.Face.LatinCardBody);
             if (cc != null)
             {
                 cc.SetCharSpacing(-2f);
@@ -498,7 +498,7 @@ namespace CardPresentation
             //    （`MonoBehaviour_8510044244370989743.json`）。框本身是**左锚**的（`RectTransform_7090266904154481327`：
             //    锚 (.2,.2)-(.8,.7) · `sd (0,0)` · pivot (0,0.5)，父 `Slider` 宽 406.576 ⇒ 框 = 1085.729→1329.674）
             //    —— **Center 说的是「框内居中」，框的位置一个字没动**。
-            var cnt = MenuDraw.Text(slider, SliderCounterR, CounterSample, Color.white, "counter", 26.35f, QBarText);
+            var cnt = MenuDraw.Text(slider, SliderCounterR, CounterSample, Color.white, "counter", 26.35f, QBarText, face: TmpFont.Face.LatinCardBody);
             if (cnt != null)
             {
                 cnt.SetAutoFitBox(LayoutSpace.Px(SliderCounterR.W), LayoutSpace.Px(SliderCounterR.H), 12f, 35f, 36f);   // A305①：base 36
@@ -601,8 +601,11 @@ namespace CardPresentation
             //   —— 见它的头注「画布 px，逐个亲读原版 MB」）⇒ **不做任何比例换算**，四格照抄。
             //   ⚠️ 折行 0 ⇒ `SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**把它开成 `Normal`
             //   ⇒ 紧跟一句 `SetWrapping(false)` 还原自己那一档（写法与下面 `WebShop Button/Button Text` 那一处成对）。
-            var pt = MenuDraw.Text(gb, PriceR, ShownPrice, Color.white, "Button Text", 40f, QBtnText,
-                                   PriceR.W, 13.46f, 40f, 39f);
+            // 🆕 **2026-10-17（界面线 `T07` · `A1753` #10）**：屏上颜色 = 原版材质 `Pragati-Regular Light Cream`
+            //   的 `_FaceColor` **(0.992, 0.868, 0.733)**（顶点白，乘法 ⇒ 就是材质本色）。
+            //   判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·2 #10（⚠️ 别拿 PnP 卡图的白当判据）。
+            var pt = MenuDraw.Text(gb, PriceR, ShownPrice, new Color(0.992f, 0.868f, 0.733f, 1f), "Button Text", 40f, QBtnText,
+                                   PriceR.W, 13.46f, 40f, 39f, face: TmpFont.Face.LatinCardBody);
             if (pt != null) pt.SetWrapping(false);                    // 原版折行=0（A205：关这一下顺带推版面）
             if (pt != null) MenuDraw.AlignRight(pt, PriceR);          // 原版 `Button Text` 是 Right（格内那份）
             // 原版 `window/Text/Purchase buttons/Price Display/Generic UI Button` 的 `m_onClickSound`
@@ -625,7 +628,7 @@ namespace CardPresentation
                                    WebIconR.CX + iconSide * 0.5f, WebIconR.CY + iconSide * 0.5f);
             var ic = Node(ws, "Icon", iconR);
             Rect(ic, "40K_Icon_Discount_Gold", iconR, "Image", QBtn);
-            var wt = MenuDraw.Text(ws, WebTextR, WebShopText, Color.white, "Button Text", 34.2f, QBtnText);
+            var wt = MenuDraw.Text(ws, WebTextR, WebShopText, Color.white, "Button Text", 34.2f, QBtnText, face: TmpFont.Face.LatinCardBody);
             if (wt != null) wt.SetAutoFitBox(LayoutSpace.Px(WebTextR.W), LayoutSpace.Px(WebTextR.H), 12f, 38f, 12f);   // A305①：base 12
             // 🔴 **2026-10-07（A62 主表 #14）**：原版 `Booster Info Popup > … > WebShop Button > Button Text`
             //   （`'Save More!'`）是 **`折行=0 auto[12~38]`**（判据 = `python 工具/menu_dump.py bundle_menus_assets_all

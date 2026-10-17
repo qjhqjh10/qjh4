@@ -93,7 +93,7 @@ namespace CardPresentation
             //    行 builder（`MatchLogRow`）**本页不再喂 `RowCtx.Clip`** —— 那个字段在生产路径上恒 `null`，
             //    于是 `MenuDraw.*` 沿父链解析到**这颗节点**（见 `Shell/MatchLogRow.cs` 的四处读点）。
 
-            _scroll = NewScroll(vp, vp.W, 0f, true);
+            _scroll = NewScroll(vp, vp.W, 0f, true, 50f);   // 原版 `Battle Log Tab/Matches` = 50（D_N29）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildRows` 里
             //   `if (!_scroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的状态
             //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗 `Viewport`。

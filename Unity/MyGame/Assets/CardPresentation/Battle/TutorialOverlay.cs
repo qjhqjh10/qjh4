@@ -106,6 +106,7 @@
 //         —— 与 `SkillPanel` 那条同源，非 16:9 / 震屏那一档如实记。
 // ═════════════════════════════════════════════════════════════════════════════
 using UnityEngine;
+using TMPro;
 
 namespace CardPresentation
 {
@@ -325,6 +326,25 @@ namespace CardPresentation
         public bool PointerVisible { get { return _pointer != null && _pointer.gameObject.activeSelf; } }
         public bool PointerUsesArrowArt { get { return _pointer != null; } }
         public bool AnnotationsVisible { get { return _annoGo != null && _annoGo.activeSelf; } }
+        /// <summary>🆕 **2026-10-17（`N49①`）自检口**：第 `i` 颗教学标注的 `Label`（`0..3` = Melee/Ranged/Health/Energy）。
+        /// 只读；`Build()` 之前 / 下标越界 ⇒ null。断「细黑描边真上到**实例材质**上」用它。</summary>
+        public Label AnnoLabel(int i)
+        {
+            return (i >= 0 && i < _annoLabels.Length) ? _annoLabels[i] : null;
+        }
+        /// <summary>🆕 **2026-10-17（`A1024`③ 批 2–4）自检口**：提示条两颗字（**只给自检读**）。
+        /// `0` = `TipText` · `1` = `ContinueText`；没建出来 / 下标越界 ⇒ `null`。</summary>
+        public Label TipLabel(int i)
+        {
+            switch (i) { case 0: return _tipText; case 1: return _tipContinue; }
+            return null;
+        }
+        /// <summary>同上的自检口：开场提示两颗字。`0` = `TipText` · `1` = `TipText (1)`。</summary>
+        public Label InitLabel(int i)
+        {
+            switch (i) { case 0: return _initText1; case 1: return _initText2; }
+            return null;
+        }
         /// <summary>🔴 **2026-10-16（`T09` 批 3）：`ContinueText` 那一行的 `GameObject`**（给自检读它的**开关态**用）。
         /// <para>**为什么要开这个口**：`Editor/BattleScene.cs` 原来按**路径**找它
         /// （`ov.transform.Find("TutorialTip/ContinueText")`）—— 画布档下 `TutorialTip` 挂在
@@ -564,17 +584,61 @@ namespace CardPresentation
         /// 画布档 = `HudCanvas.MakeText`（**设计 px**）＋ `SetCapHeight(scale × 7.56)`（见 `CapPxPerScale`）。
         /// <paramref name="worldOffset"/> = 相对**父件中心**的偏移（世界单位、y 向上）。
         /// <para>⚠️ 画布档 `MakeText` 在**拿不到 TMP 字体**时**返 null**（`Label.CreateUgui` 出声、
-        /// ⛔ 不退化成点阵）⇒ **调用点每一处都要判空**（世界档的 `Label.Create` 不会返 null）。</para></summary>
-        Label MakeLbl(Transform parent, string name, Vector3 worldOffset, int scale, Color c, float z)
+        /// ⛔ 不退化成点阵）⇒ **调用点每一处都要判空**（世界档的 `Label.Create` 不会返 null）。</para>
+        /// <para>🆕 **2026-10-17（`A1024`③ 批 2–4）**：可选字体面，默认 `Cjk` ⇒ 旧调用点零行为变化。
+        /// ⚠️ 必须排在定字号**之前**（画布档 `MakeText` 内部紧跟 `CreateUgui`；世界档在下面显式补一刀）——
+        /// 字号按 `ActualFace` 的 cap 比例折算（判据 → `Label.TmpFontSize`）。</para></summary>
+        Label MakeLbl(Transform parent, string name, Vector3 worldOffset, int scale, Color c, float z,
+                      TmpFont.Face face = TmpFont.Face.Cjk)
         {
             if (UguiMode)
             {
                 var l = HudCanvas.MakeText(parent, "", worldOffset.x * Px, worldOffset.y * Px, 1, c,
-                                           new Vector2(0.5f, 0.5f), z, name);
+                                           new Vector2(0.5f, 0.5f), z, name, face);
                 if (l != null) l.SetCapHeight(scale * CapPxPerScale);
                 return l;
             }
-            return Label.Create(parent, "", worldOffset, scale, c, new Vector2(0.5f, 0.5f), name);
+            var w = Label.Create(parent, "", worldOffset, scale, c, new Vector2(0.5f, 0.5f), name);
+            if (face != TmpFont.Face.Cjk)
+            {
+                w.SetFace(face);
+                // 🔴 换面之后**必须显式重定一次字号**：`SetFace` 只换字体资产，而它内部那句 `SetText(_text)`
+                //    因「同串早退」不会重算（见 `Label.SetSizes` 的注释）⇒ 不补这一刀，字号还按 CJK 的
+                //    cap 比例算、换成 Asar/Pragati 后字形会静默缩小 ~10%。这里喂回**同一个 cap 高度**。
+                w.SetCapHeight(w.CapHeightWorld);
+            }
+            return w;
+        }
+
+        /// <summary>🆕 **2026-10-17（`N49①`）**：给教学标注四块上原版那圈**细黑描边**。
+        ///
+        /// <para>**判据（解包现读，⛔ 不是看名字猜）**：原版这四颗挂的材质 =
+        /// `bundle_fonts_assets_all/Material/Material_751232751962157263.json`
+        /// 「`Asar-Regular Light Grey w outline thin`」——
+        /// `_OutlineWidth = 0.10` · `_OutlineColor = (0,0,0,1)` · `_FaceDilate = 0.10` ·
+        /// `_OutlineSoftness = 0` · `_FaceColor = (0.8018868,·,·,1)`（= 我们那个 `annoInk`，逐位同值）。</para>
+        ///
+        /// <para>**写法照 `Core/CardView.ApplyCreatedByOutline`**（同一个套路、只差参数）：
+        /// 取 `TMP_Text.fontMaterial` —— 那个 getter **会实例化**一份材质（`m_fontMaterial`），
+        /// ⇒ 改的是**这一颗自己的**那份，⛔ 不碰字体资产里那份共享材质（`fontSharedMaterial`）。
+        /// 末尾 `UpdateMeshPadding()`：描边会画到字形方框之外，不重算留白会被裁掉一截。</para>
+        ///
+        /// <para>⚠️ 与 `TmpFont.ApplyOutline` 的分工：那边是「卡名 / 卡面正文」那两档固定配方；
+        /// 本颗是**第三种配方（0.10 + FaceDilate 0.10）**，只在这一族用 ⇒ 就地写在这里，
+        /// 不动共用件（⛔ 别在 `TmpFont` 里再开一档去服务单一件）。</para></summary>
+        static void ApplyThinOutline(Label lb)
+        {
+            if (lb == null) return;
+            var t = lb.GetComponent<TMP_Text>();
+            if (t == null) return;                       // 点阵后端（字体资产缺失）⇒ 没有材质可改，不出声
+            var mat = t.fontMaterial;                    // ⚠️ 实例材质，别碰共享的
+            if (mat == null) return;
+            mat.EnableKeyword("OUTLINE_ON");
+            mat.SetColor(ShaderUtilities.ID_OutlineColor, Color.black);
+            mat.SetFloat(ShaderUtilities.ID_OutlineWidth, 0.10f);    // 原版 `_OutlineWidth`
+            mat.SetFloat(ShaderUtilities.ID_FaceDilate, 0.10f);      // 原版 `_FaceDilate`
+            mat.SetFloat(ShaderUtilities.ID_OutlineSoftness, 0f);    // 原版 `_OutlineSoftness`
+            t.UpdateMeshPadding();                       // 描边画到方框之外 ⇒ 重算留白（同族条目的最后一句）
         }
 
         /// <summary>画布档：把一件的**枢轴点**摆到那个**世界点**上。
@@ -667,9 +731,13 @@ namespace CardPresentation
             var tipBgTex = CardArt.MenuUi("40k_popup");
             if (tipBgTex == null) tipBgTex = CardArt.Ui("40K_display");   // 兜底：原版那张取不到时退回 HUD 底板
             _tipBg = tipBgTex != null ? MakeImg(_tipGo.transform, tipBgTex, "TutorialTipBg", TipPxH / Px, ZTipBg) : null;
-            _tipText = MakeLbl(_tipGo.transform, "TipText", new Vector3(0f, 0.12f, 0f), 3, new Color(1f, 1f, 1f), ZTip);
+            // 🔴 **2026-10-17（`A1024`③ 批 2–4）**：原版这两颗的面（现读 `battle1_tmp.tsv`）：
+            //   · `Tutorial/TutorialTip/Generic Popup Background/TipText` = **Pragati**（fs36）⇒ `LatinCardBody`
+            //   · `Tutorial/TutorialTip/ContinueText`                    = **Asar**（fs4.5）⇒ `LatinUi`
+            _tipText = MakeLbl(_tipGo.transform, "TipText", new Vector3(0f, 0.12f, 0f), 3, new Color(1f, 1f, 1f), ZTip,
+                               TmpFont.Face.LatinCardBody);
             _tipContinue = MakeLbl(_tipGo.transform, "ContinueText", new Vector3(0f, -0.38f, 0f), 2,
-                                   new Color(1f, 0.85f, 0.35f), ZTip);
+                                   new Color(1f, 0.85f, 0.35f), ZTip, TmpFont.Face.LatinUi);
 
             // ---- 开场那两条（`InitTutorialTip` → `TipText` + `TipText (1)`）----
             // ⚠️ 原版这一个是 `(inactive)` 的，而且**谁启用它查不到**（R2 §6·7）—— 2026-10-18（`Z8`）**再查一轮的结论**：
@@ -685,9 +753,12 @@ namespace CardPresentation
             //    而 `InitTipPxW` 那 700 是**我们挑的**（那一层不亮、也不参与布局 ⇒ 尺寸只影响这个空容器）。
             _initGo = UguiMode ? NewNode("InitTutorialTip", tipParent, InitTipPxW, InitTipPxH, ZFlat)
                                : PlainNode("InitTutorialTip", tipParent);
-            _initText1 = MakeLbl(_initGo.transform, "TipText", Vector3.zero, 3, new Color(1f, 1f, 1f), ZTip);
+            // 🔴 **2026-10-17（`A1024`③ 批 2–4）**：原版 `Tutorial/InitTutorialTip/TipText` 与
+            //    `…/TipText (1)` **两颗都是 Asar**（现读 `battle1_tmp.tsv`，fs5.2）⇒ `LatinUi`。
+            _initText1 = MakeLbl(_initGo.transform, "TipText", Vector3.zero, 3, new Color(1f, 1f, 1f), ZTip,
+                                 TmpFont.Face.LatinUi);
             _initText2 = MakeLbl(_initGo.transform, "TipText (1)", new Vector3(0f, -0.35f, 0f), 3,
-                                 new Color(1f, 1f, 1f), ZTip);
+                                 new Color(1f, 1f, 1f), ZTip, TmpFont.Face.LatinUi);
             if (UguiMode)
                 // 画布档：同一个**世界点**（`_root.TransformPoint(ToWorld(...))` 与改之前那句
                 //   `localPosition = ToWorld(...)` 摆出来的世界点**逐位相同** —— `_root` 恒在 `hudRoot` 原点）
@@ -733,10 +804,22 @@ namespace CardPresentation
             _annoGo = UguiMode ? NewNode("TutorialObjs", tipParent, 1920f, 1080f, ZFlat)
                                : PlainNode("TutorialObjs", tipParent);
             string[] names = { "MeleeText", "RangedText", "HealthText", "EnergyText" };
+            // 🆕 **2026-10-17（界面线 `T07` · `A1753` #17）**：原版 `…/UnitObjs ▸ {Melee,Ranged,Health,Energy}Text`
+            //   挂 `Asar-Regular Light Grey w outline thin`，`_FaceColor = (0.802, 0.802, 0.802)`、顶点白
+            //   ⇒ 屏上是**浅灰**，不是我们原来的金色 (1, 0.85, 0.35)。
+            //   🆕 **2026-10-17（界面线 `T07` · `N49①`）：细黑描边那一层已补** —— 原版材质
+            //   `bundle_fonts_assets_all/Material/Material_751232751962157263.json` 现读：
+            //   `_OutlineWidth 0.10` · `_OutlineColor (0,0,0,1)` · `_FaceDilate 0.10` · `_OutlineSoftness 0`
+            //   ⇒ 见 `ApplyThinOutline`（**实例材质**，照 `Core/CardView.ApplyCreatedByOutline` 的写法）。
+            var annoInk = new Color(0.802f, 0.802f, 0.802f, 1f);
             for (int i = 0; i < 4; i++)
             {
-                _annoLabels[i] = MakeLbl(_annoGo.transform, names[i], Vector3.zero, 2,
-                                         new Color(1f, 0.85f, 0.35f), ZFlat);
+                // 🔴 **2026-10-17（`A1024`③ 批 2–4）**：原版 `TutorialObjs/{Melee,Ranged,Health,Energy}Text`
+                //    **四颗全是 Asar**（现读 `battle1_tmp.tsv`，fs30；上面 2026-10-17 `T07` 的材质判据
+                //    `Asar-Regular Light Grey w outline thin` 也指同一面）⇒ `LatinUi`。
+                _annoLabels[i] = MakeLbl(_annoGo.transform, names[i], Vector3.zero, 2, annoInk, ZFlat,
+                                         TmpFont.Face.LatinUi);
+                ApplyThinOutline(_annoLabels[i]);
                 if (arrowTex != null)
                     _annoArrows[i] = MakeImg(_annoGo.transform, arrowTex, names[i] + "Arrow", 0.3f, ZFlat);
             }

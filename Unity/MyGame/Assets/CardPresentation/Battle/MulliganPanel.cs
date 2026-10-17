@@ -670,7 +670,8 @@ namespace CardPresentation
             //      ⇒ 下面几处都保留 `!= null` 空判（原来 `Label.Create` 恒非 null，没这个必要）。
             var promptPos = Px(PromptCx, PromptCy);
             p._prompt = HudCanvas.MakeText(frame, promptText, promptPos.x, promptPos.y, 8,
-                                           promptColor, new Vector2(0.5f, 0.5f), Z - 0.05f, "MulliganPrompt");
+                                           promptColor, new Vector2(0.5f, 0.5f), Z - 0.05f, "MulliganPrompt",
+                                           face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-16（`A2102④`）：与 `TurnText` 那颗**同一口径** —— 开原版那条自适应。**
             //   原来这里只调 `SetScriptFont(…, PromptH * 0.55f)`（**那个 0.55 是我们挑的**）
             //   ⇒ 实渲 43.67，而原版**实渲 53.7**（小 19%）。
@@ -694,7 +695,7 @@ namespace CardPresentation
             // 🔴 **2026-10-16（`T09` 批 3）**：同提示行那一处 —— `Label.Create` → `HudCanvas.MakeText`（**设计 px**）。
             var turnPos = Px(TurnCx, TurnCy);
             p._turnText = HudCanvas.MakeText(frame, "", turnPos.x, turnPos.y, 7,
-                                             Color.white, new Vector2(0.5f, 0.5f), Z - 0.05f, "MulliganTurnText");
+                                             Color.white, new Vector2(0.5f, 0.5f), Z - 0.05f, "MulliganTurnText", face: TmpFont.Face.LatinCardBody);
             // ⚠️ 出厂这一下只是给个初始字号；**真正的字号按语种在 `SetTurnText` 里再设一遍**
             //    （那一行是**唯一**的口径：中文 `SetGlyphHeight` / 英文 `SetCapHeight(0.72em)`）。
             // 🔴🔴 **2026-10-16（`A1104`）就地订正 —— 本行原来只写 `SetGlyphHeight(U(TurnPx))`（= 字号写死 55），
@@ -730,7 +731,7 @@ namespace CardPresentation
             var donePos = Px(DoneCx, DoneCy);
             p._doneText = HudCanvas.MakeText(frame, DoneLabel, donePos.x, donePos.y, 6,
                                              new Color(1f, 0.92f, 0.75f), new Vector2(0.5f, 0.5f),
-                                             Z - 0.05f, "MulliganDoneText");
+                                             Z - 0.05f, "MulliganDoneText", face: TmpFont.Face.LatinCardBody);
             p.SetDoneText(DoneLabel);
             // 🔴 **2026-10-16（`A2102④`）：与上面那两颗**同一口径** —— 按原版开自适应。**
             //   框与三档 → `DoneBoxW/H` / `DoneFsMin/Max/Base` 那条 doc（判据 = 现读那颗 TMP 的字段）。
@@ -884,7 +885,7 @@ namespace CardPresentation
                 //    `z` 形参承担旧那句 `localPosition += (0,0,Z−0.05)`；画布上写 `localPosition.z` 会推离平面）。
                 string btnText = CardBtnWord(_marked.Contains(i));
                 var t = HudCanvas.MakeText(_frame, btnText, bx, by, 5, new Color(1f, 0.9f, 0.7f),
-                                           new Vector2(0.5f, 0.5f), Z - 0.05f, "MulliganBtnText_" + i);
+                                           new Vector2(0.5f, 0.5f), Z - 0.05f, "MulliganBtnText_" + i, face: TmpFont.Face.LatinCardBody);
                 if (t != null)
                     SetScriptFont(t, btnText, 28f);           // 语种定字号（英文档不再大 39%）
                 _cardTexts.Add(t);

@@ -143,9 +143,10 @@ namespace CardPresentation
         ///   `m_enableAutoSizing = 0`**，两格**不适用**，多开一个永远填不上的口才是留洞
         ///   （逐站判据见 `资料/普查产出_1012/F2_字号线收尾.md` §2·6 的 `ChatPanel` 表）。</para></summary>
         Label Text(Transform p, PxRect r, string s, Color c, string n, float px, int q, float autoMin,
-                   bool alignLeft, float autoMax = 0f, float autoBase = 0f)
+                   bool alignLeft, float autoMax = 0f, float autoBase = 0f,
+                   TmpFont.Face face = TmpFont.Face.Cjk)
         {
-            var lb = MenuDraw.TextBox(p, r, s, c, n, px, autoMin, q, autoMax, autoBase);
+            var lb = MenuDraw.TextBox(p, r, s, c, n, px, autoMin, q, autoMax, autoBase, face: face);
             if (lb != null && alignLeft) MenuDraw.AlignLeft(lb, r);
             return lb;
         }
@@ -259,8 +260,11 @@ namespace CardPresentation
             //   ⇒ **节点名与路径都和我们这一颗一致**）。
             //   英文列 = TMP 原文 `Type message`；中文列 = 「输入消息」(`zh_CN.csv:183` 精确命中)。
             //   ⛔ 节点名 `"Placeholder"` 与那串字号/对齐实参没动。
+            // 🔴 **A1024③（2026-10-17）换面**：`ChatPanel` + `ChatMessageRow` 两棵根里 **0 颗 Asar**
+            //    （判据 = `menu_dump … bundle_menus_assets_all "ChatPanel"` / `… bundle_mainmenualwaysloaded_assets_all
+            //    "ChatMessageRow"` 逐颗现读）⇒ 本窗全部 `LatinCardBody`（Pragati）。
             var ph = Text(input, InputR, Loc.T("MainMenu/Chat/TypeMessage"), new Color(1f, 1f, 1f, 0.439f), "Placeholder", 28f, QText,
-                 autoMin: 0f, alignLeft: true);
+                 autoMin: 0f, alignLeft: true, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-14（A526）**：原版这一颗是 **`折行 = 3`（`PreserveWhitespaceNoWrap`）**，
             //   而 `MenuDraw.TextBox` 建出来的恒是 `Normal(1)` ⇒ **只有输入框这一族这一格不对**
             //   （同族 `ChatMessageRow/{Sender,Time,Message}` 原版都是 `1` ⇒ 那一族我们对）。
@@ -325,7 +329,8 @@ namespace CardPresentation
                  "Background", QContent, new Color(0.311f, 0.201f, 0.201f, 1f));
             // 🔴 **A406**：`Holder/Chat/Player Options Panel/Name` 原版
             //   `auto[10.0~**40.0**] 基准=**21.0**` ⇒ 上限 40（= 标称）· base **21.0**（同一条 dump）。
-            Text(_options, OptNameR, "Fulanito Name", Color.white, "Name", 40f, QText, 10f, false, 40f, 21f);
+            Text(_options, OptNameR, "Fulanito Name", Color.white, "Name", 40f, QText, 10f, false, 40f, 21f,
+                 face: TmpFont.Face.LatinCardBody);
             // `Buttons`（原版是个 `VerticalLayoutGroup`，5 个键排在它下面 —— 保留这一层，别把键挂到面板上）
             var optBtns = Node(_options, "Buttons", new PxRect(176.58f, 399f, 563.88f, 727f));
             string[] acts = { "Add as a friend", "Challenge", "Report message", "Block player", "Profile" };
@@ -340,7 +345,8 @@ namespace CardPresentation
                 //   Block,Profile}/Button Text` 五颗**逐颗读过** —— 全是 `auto[10.0~**30.0**] 基准=**12.0**`
                 //   ⇒ 上限 30（= 标称）· base **12.0**。判据 = 同一条 `menu_dump … "ChatPanel" --depth 10 --md`。
                 Text(row, new PxRect(rowR.x1 + 12.69f, rowR.y1 - 19.65f, rowR.x2 - 13.84f, rowR.y1 + 57.14f),
-                     acts[i], Color.white, "Button Text", 30f, QText, 10f, false, 30f, 12f);
+                     acts[i], Color.white, "Button Text", 30f, QText, 10f, false, 30f, 12f,
+                     face: TmpFont.Face.LatinCardBody);
                 string act = acts[i];
                 // 🆕 A17：原版 `Chat>Player Options Panel>Buttons>*` 五颗都是 SpriteSwap（普查 §块 5 第 19 行）
                 var oh = MenuDraw.Hit(row, "Hit", rowR, QHit, () => OnOption(act),
@@ -417,7 +423,7 @@ namespace CardPresentation
             //   本窗 `tabButtonPrefab` 实际克隆的 act F 那份 RT `2421717888838184498`）——
             //   「只看 ChatPanel 树里那一份」在这里恰好也对，但是**读过才知道**。
             Text(b, new PxRect(r.x1 + 5f, r.y1 + 106.04f, r.x2 - 5f, r.y1 + 146.04f), label, Color.white,
-                 "Label", 35f, QText, 10f, false, 35f, 35f);
+                 "Label", 35f, QText, 10f, false, 35f, 35f, face: TmpFont.Face.LatinCardBody);
             // 🔴 A17 的两档**逐颗显式给**（`40K_settings_button` 那条后备规则推出的是
             //    `40K_settings_button_hover`，而原版这一颗的悬停图是 `…_selected`）——
             //    不显式给就是「悬停换了张错的图」+ `MissingSwapArt` 记一条。
@@ -527,7 +533,8 @@ namespace CardPresentation
         /// 原版掩码对文字**也是逐像素削 alpha** 的，所以文字不吃软边就等于「边带那一条不对」（静默）。
         /// ⚠️ 它**没有默认值**：漏传要**编不过**（照 `MenuDraw.Rect` 的 `uv0` 那条纪律），不是运行期静默。</summary>
         static Label Text(Transform p, PxRect r, string s, Color col, string n, float px, int q, PxRect? clip,
-                          Vector2 clipSoft, bool alignLeft = false, bool alignRight = false)
+                          Vector2 clipSoft, bool alignLeft = false, bool alignRight = false,
+                          TmpFont.Face face = TmpFont.Face.Cjk)
         {
             // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：改走 **`VisibleAbove`**（节点态那一版）——
             //   调用点（`ChatTab.Rebuild`）现在传的 `clip` 是 `null`（裁切状态在视口节点上）
@@ -544,7 +551,7 @@ namespace CardPresentation
             //   **现读只有 3 处**（`ChatMessageRow.Build` 里的 `Sender` / `Time` / `Message`；
             //   A406 立项时那 3 处在 `:678`/`:680`/`:698`，A435 阶段 2 之后漂到 `:722`/`:724`/`:749`）。
             //   **结论不变**（三处都是 `ChatMessageRow` 的件 ⇒ 不上上限/base 那两格），被订正的只是那个数。
-            var lb = MenuDraw.TextBox(p, r, s, col, n, px, 0f, q);
+            var lb = MenuDraw.TextBox(p, r, s, col, n, px, 0f, q, face: face);
             if (lb == null) return null;
             if (alignLeft) MenuDraw.AlignLeft(lb, r);
             else if (alignRight) MenuDraw.AlignRight(lb, r);
@@ -590,9 +597,9 @@ namespace CardPresentation
             // —— 自己发 ⇒ 名字靠右、时间靠左；别人发 ⇒ 反过来（两套头是镜像的）。
             var sR = new PxRect(headR.x1, headR.y1, headR.x2, headR.y1 + 24.38f);
             Text(head, sR, m.Sender ?? "", new Color(0.337f, 0.843f, 0.4f, 1f), "Sender", 18f, ChatPanel.QHead, clip,
-                 clipSoft, alignLeft: !m.Mine, alignRight: m.Mine);
+                 clipSoft, alignLeft: !m.Mine, alignRight: m.Mine, face: TmpFont.Face.LatinCardBody);
             Text(head, sR, m.Time ?? "", new Color(0.84f, 0.84f, 0.84f, 1f), "Time", 18f, ChatPanel.QHead, clip,
-                 clipSoft, alignLeft: m.Mine, alignRight: !m.Mine);
+                 clipSoft, alignLeft: m.Mine, alignRight: !m.Mine, face: TmpFont.Face.LatinCardBody);
 
             // 头像框（`Profile border` + 里面的立绘）：自己发贴**右沿**（+45）、别人发贴**左沿**（−45），
             // 顶边都从头部顶边往上 15（`p=(0.5,1) pos.y=15`）。
@@ -616,7 +623,8 @@ namespace CardPresentation
             //     `| ·1 | Message | … | 'This is the message' 字号=22.0 基准=22.0 对齐=Left/Top 折行=1 色=(1,1,1,1) |`
             //   ⇒ 改法一行 = 补 `alignLeft: true`（⛔ 别改成右对齐 —— 原版是 `Left/Top`）。
             Text(row, new PxRect(r.x1 + PadX, r.y1 + MsgTop, r.x2 - PadX, r.y1 + MsgTop + 30f),
-                 m.Text ?? "", Color.white, "Message", 22f, ChatPanel.QText, clip, clipSoft, alignLeft: true);
+                 m.Text ?? "", Color.white, "Message", 22f, ChatPanel.QText, clip, clipSoft, alignLeft: true,
+                 face: TmpFont.Face.LatinCardBody);
 
             // 点头像 ⇒ 开玩家选项面板（原版 `ChatMessageUI.OnMessageClicked` / `ChatPlayerOptionsPanel`）
             // ⚠️ `clip` 也传下去（判据 = 原版 `RectMask2D` 的**射线那一面**：框外的点判不中任何东西）

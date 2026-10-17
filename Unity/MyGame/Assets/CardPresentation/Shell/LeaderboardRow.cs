@@ -171,7 +171,7 @@ namespace CardPresentation
             //   本句**丢弃返回值**（居中档不接 `Label`）⇒ A798 的「整块在外 ⇒ `null`」在这句上无副作用。
             //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #4（同族 #5/#6/#7 = 本文件另外三处）。
             MenuDraw.Text(row, Abs(r, RankR), d.Rank > 0 ? d.Rank.ToString() : "", Color.white,
-                          "Ranking", RankPx, c.Q + L_Text, RankR.W, RankMin, RankPx, 36f);
+                          "Ranking", RankPx, c.Q + L_Text, RankR.W, RankMin, RankPx, 36f, face: TmpFont.Face.LatinCardBody);
 
             // ---- 头像格（玩家族）/ 徽章格（联盟族）----
             if (!alliance)
@@ -228,7 +228,7 @@ namespace CardPresentation
                 //   ✅ 返回值有守卫（下一句 `if (nm != null) MenuDraw.AlignLeft(...)`）—— A798 起可能返回 `null`。
                 //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #5。
                 var nm = MenuDraw.Text(holder, nameAbs, d.Name, Color.white, "Name", NamePx, c.Q + L_Text,
-                                       NameR.W, NameMin, NamePx, 36f);   // 🆕 A333/A336③：max 40 · base 36
+                                       NameR.W, NameMin, NamePx, 36f, face: TmpFont.Face.LatinCardBody);   // 🆕 A333/A336③：max 40 · base 36
                 if (nm != null) MenuDraw.AlignLeft(nm, nameAbs);
             }
             if (!string.IsNullOrEmpty(d.Guild))
@@ -240,7 +240,7 @@ namespace CardPresentation
                 //   ✅ 返回值有守卫（下一句 `if (gn != null) MenuDraw.AlignLeft(...)`）。
                 //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #6。
                 var gn = MenuDraw.Text(holder, guildAbs, d.Guild, GuildColor, "Guild Name", GuildPx, c.Q + L_Text2,
-                                       GuildR.W, GuildMin, GuildPx, 36f);   // 🆕 A333/A336③：max 30 · base 36
+                                       GuildR.W, GuildMin, GuildPx, 36f, face: TmpFont.Face.LatinCardBody);   // 🆕 A333/A336③：max 30 · base 36
                 if (gn != null) MenuDraw.AlignLeft(gn, guildAbs);
             }
 
@@ -255,7 +255,7 @@ namespace CardPresentation
             //   ✅ 返回值有守卫（下一句 `if (pts != null) MenuDraw.AlignLeft(...)`）。
             //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #7。
             var pts = MenuDraw.Text(row, pointsAbs, d.Points ?? "", Color.white, "Points", PointsPx,
-                                    c.Q + L_Text, PointsR.W, PointsMin, PointsPx, 36f);   // 🆕 A333/A336③：max 43.2 · base 36
+                                    c.Q + L_Text, PointsR.W, PointsMin, PointsPx, 36f, face: TmpFont.Face.LatinCardBody);   // 🆕 A333/A336③：max 43.2 · base 36
             if (pts != null) MenuDraw.AlignLeft(pts, pointsAbs);
         }
 

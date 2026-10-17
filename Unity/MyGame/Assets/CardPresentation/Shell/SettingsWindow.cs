@@ -4242,7 +4242,7 @@ namespace CardPresentation
                 // 都被夹成 0 —— 照原版 `AdjustBounds`，2026-10-09 A269）⇒ 这一列**停不住任何位移**
                 // （= 原版 `CalculateOffset` 恒 0）；Elastic 仍能抖/回弹（同原版）。
                 // （`MenuScroll` 活在**画布 px** 那一帧里，同本窗其余量测口径 ⇒ 内容高要 × `RootScale`。）
-                _gfxScroll = MenuScroll.TopAligned(_gfxClip.Value, GfxContentH(withSS) * RootScale);
+                _gfxScroll = MenuScroll.TopAligned(_gfxClip.Value, GfxContentH(withSS) * RootScale, 1f);   // 原版 `Graphics Tab/Content/Scroll View` = 1.0（D_N29）
                 // 原版 `ScrollRect.m_MovementType = 1`（**Elastic**：拖过头有橡皮筋、松手回弹）
                 // —— `MenuScroll.Elastic` 默认 `false`（Clamped），这里是**逐处不同**的那一格，必须显式给。
                 _gfxScroll.Elastic = true;
@@ -6139,8 +6139,8 @@ namespace CardPresentation
             // 原版那两颗 TMP：`Placeholder` 画占位（空框时）、`Text` 画真值 —— **裁切**按 `Text Area` 那框
             //（我们这套没有 `RectMask2D`，等价物 = `MenuDraw.Text` 的 `clip` 形参，同一份裁切算法）
             f._placeholderLb = MenuDraw.Text(areaN, area, f._placeholder, new Color(1f, 1f, 1f, 0.45f),
-                                             "Placeholder", FontPx, qText, clip: area);
-            f._value = MenuDraw.Text(areaN, area, "", Color.white, "Text", FontPx, qText, clip: area);
+                                             "Placeholder", FontPx, qText, clip: area, face: TmpFont.Face.LatinCardBody);
+            f._value = MenuDraw.Text(areaN, area, "", Color.white, "Text", FontPx, qText, clip: area, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(f._value, area);
             if (f._placeholderLb != null) MenuDraw.AlignLeft(f._placeholderLb, area);
             MenuDraw.Hit(f.Root, "Hit", s, qHit, () => f.Focus());
@@ -6226,7 +6226,7 @@ namespace CardPresentation
             var tex = CardArt.MenuUi(art);
             f._bg = MenuDraw.Rect(f._root, tex, r, "bg", q);
             f._label = MenuDraw.Text(f._root, new PxRect(r.x1 + pad, r.y1, r.x2 - pad, r.y2),
-                                     f.Show(), Color.white, "Text", InputFontPx, qText);   // 🔴 A171：本类不走漏斗 ⇒ 字号已过 RootScale（见常量）
+                                     f.Show(), Color.white, "Text", InputFontPx, qText, face: TmpFont.Face.LatinCardBody);   // 🔴 A171：本类不走漏斗 ⇒ 字号已过 RootScale（见常量）
             MenuDraw.AlignLeft(f._label, new PxRect(r.x1 + pad, r.y1, r.x2 - pad, r.y2));
             MenuDraw.Hit(f._root, "Hit", r, q + 2, () => f.Focus());
             return f;

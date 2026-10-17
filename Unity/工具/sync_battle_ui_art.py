@@ -253,6 +253,11 @@ NAMES_MENU = [
     "UI_Deck_button_click",
     # 同一格的 `Purity_Seal_02`（128×256；`Shell/PracticeModePopup.cs:893`）
     "Purity Seal_02",
+    # 🆕 **2026-10-17（`T26` FTUE 窗）**：`Deck Container FTUE ▸ Selected Text ▸ SelectedTextBg` 的底图
+    #   （`40k_replace_display`，468×152、`m_Type = Simple`）。原来它只在备查库
+    #   `Art/原版/battleatlasui/` 里、**没同步进 Resources** ⇒ FTUE 窗的「已选」底板画不出来（`N50②`）。
+    #   源：`ui_extract/scenes_scenes_battlearena1_sprites/Sprite/40k_replace_display.png`（与备查库同名图同源）。
+    "40k_replace_display",
 ]
 
 

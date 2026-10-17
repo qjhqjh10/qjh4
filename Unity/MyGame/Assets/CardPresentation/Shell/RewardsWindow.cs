@@ -99,7 +99,7 @@ namespace CardPresentation
         //      常量名不变（继承过来的静态成员照样能写成 `RewardsWindow.ContentL` 等），**行为一字未改**。
 
         /// <summary>键表（**视觉顺序**）：图标名 · 文案 · 原版字号(px) · autosize 区间 · 实例 ID · 红点偏置。
-        /// 🔴 **最后一项必须是母版**（`MenuWindowBase.BuildBar` 的约定：`specs` 最后一项 = `tabButtonPrefab` 并关掉）
+        /// 🔴 **最后一项必须是母版**（`MainMenuSubmenuWindow.BuildBar` 的约定：`specs` 最后一项 = `tabButtonPrefab` 并关掉）
         /// ⇒ **可见的键 = 本表项数 − 1**。</summary>
         public static readonly TabBtnSpec[] Buttons =
         {

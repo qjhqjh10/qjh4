@@ -184,7 +184,8 @@ namespace CardPresentation
         /// </summary>
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                           int qOff, float autoMinPx, bool wrap, bool alignLeft,
-                          float autoMaxPx = 0f, float autoBasePx = 0f)
+                          float autoMaxPx = 0f, float autoBasePx = 0f,
+                          TmpFont.Face face = TmpFont.Face.Cjk)
         {
             // 🔴 求交那一份 = `MenuDraw.Visible`（本行走它的夹取版 `ClipRect`；别在这儿再写一遍 `Max/Min`）。
             // 🔴 **2026-10-13（A435 阶段 2 · 丙）→ 🆕 2026-10-14（A753 · A744 的「全删」）**：走 **`ClipRectAbove`**
@@ -205,7 +206,13 @@ namespace CardPresentation
             //   下面两句都带 `lb != null` 守卫（A798 起「整块在框外 ⇒ 返回 `null`」）。
             //   ⚠️「这条链没有断言钉着」= **A822** 那条账（宿主 `Editor/MainMenuScene.cs` 不在本件白名单）；
             //   A799 这半边只要求「把『会新裁』记在站点上」。判据全文 → R2 §一① #9 / §4·2。
-            var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff, autoMaxPx, autoBasePx);
+            // 🔴 **2026-10-17（A1024③）**：本口加**可选**字体面（缺省 `Cjk` ⇒ 旧调用点零行为变化）。
+            //    ⚠️ **本文件自己 0 个文本创建点**（只是 `AlliancesTab` / `FriendsTab` / `AllianceMemberTab`
+            //    三页共用的漏斗）。社交族唯一一颗 Asar 是 `member index`（判据 = `menu_dump …
+            //    bundle_menus_assets_all "Social Submenu Variant"`，整棵只有它一颗 Asar），
+            //    它的落点在 `AllianceMemberTab.cs:1451` —— **不在本批白名单** ⇒ 那一个站点本批【不改】。
+            var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff, autoMaxPx, autoBasePx,
+                                      face: face);
             // 🔴 **2026-10-08（A213）**：`wrap: false` ⇒ 按原版把模式显式落成 `0`。
             //    ⚠️ 必须在 `TextBox`（里面已跑过 `SetWrapWidth` / `SetAutoFitBox`）**之后**、`AlignLeft` **之前**：
             //    `SetWrapping` 会重排并挪 TMP 子节点（`ForceRelayout`，A205），对齐要落在它之后。

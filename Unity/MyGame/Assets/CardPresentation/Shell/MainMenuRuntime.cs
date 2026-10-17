@@ -143,12 +143,16 @@ namespace CardPresentation
         /// —— **那不是本方法的 bug、是那一站的值**（同 `A1208` 的口径：先查值、别先加闸）。</para></summary>
         Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
                    Color color, string name, float fontPx = 0f, int queue = QText,
-                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
+                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
+                   TmpFont.Face face = TmpFont.Face.Cjk)
         {
             var lb = Label.Create(parent, text, Center(x1, x2, y1, y2), scale, color,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
             lb.SetRenderQueue(queue);        // 🔴 顶栏那几段文字要跟着整条带子走（传 `QBarText`；2026-10-11 起那条带子**降到窗之下**）
+            // 🔴 **2026-10-17（A1024③）**：可选字体面 —— 默认 `Cjk` ⇒ 旧调用点零行为变化。
+            //    ⚠️ **次序**：`SetFace` 必须在 `SetGlyphHeight` 之前（字号按 `ActualFace` 的 em 换算）。
+            if (face != TmpFont.Face.Cjk) lb.SetFace(face);
             if (fontPx > 0f) lb.SetGlyphHeight(fontPx / 108f);
             // 🆕 **A1205**：自适应 + 折行两条路（逐字照 `Shell/SettingsWindow.cs:4741-4748` 那一档的算法，
             //    只是落在裸 `Label` 上 —— 本方法没有 `MenuDraw.Text` 那条路可走）。
@@ -948,6 +952,11 @@ namespace CardPresentation
             //   ⚠️ `Loc.T` 缺键时返回的是**键名本身**（不是空串）⇒ 界面上一眼能看出是「查不到」，不会静默。
             // 🔴 原版这行 TMP 带 **`enableAutoSizing`（18→33）**，框只有 146.9px 宽 ⇒ `COLLECTION` 是**缩出来的**
             //    （实测原版它的在场字号就是 **30.45**）—— 不缩会画出框外被裁。
+            // 🔴 **A1024③（2026-10-17）换面**：主菜单场景这一棵 **0 颗 Asar**（判据 = `menu_dump …
+            //    bundle_scenes_scenes_mainmenuwarpforge "Game UI" --depth 14` 现读：导航 `Text (TMP)`、
+            //    `ChatPreview/text`、模式卡 `Event Title` / `Timer Description` / `Timer Text`、
+            //    `Position #` / `Position Value` / `Individual rating value` 全是 **Pragati**）⇒ 本文件全走 `LatinCardBody`。
+            //    ⚠️ 场景里确有 Asar 的 `Title`/`Player Name` 等，但那些是**别的窗**（卡牌详情/顶栏）的件，不属本文件。
             Text(b, Loc.T(locKey), 9.3f, 156.2f, y1 + 118.3f, y1 + 157.7f, 6,
                                new Color(0.9961f, 0.9294f, 0.7098f), "Text", fontPx,
                                // 🔴 **2026-10-17（`A1233`）**：原来这里是「先 `Text`、再自己补
@@ -958,7 +967,8 @@ namespace CardPresentation
                                //    （`MonoBehaviour_1716/1749/1750/1751/1752`）。
                                //    ⚠️ 框高按本行矩形的 `157.7 − 118.3 = 39.4`（原版 TMP 自己那份 sd.y = 39.39，
                                //       差 0.01px —— 两条边分别来自文案条与 TMP 两个节点，这里不拆第二颗节点）。
-                               wrapPx: 146.92f, autoMinPx: 18f, autoMaxPx: 33f, autoBasePx: 24f);
+                               wrapPx: 146.92f, autoMinPx: 18f, autoMaxPx: 33f, autoBasePx: 24f,
+                               face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-11（A305①）**：上面第 5 个数据实参 = 原版这一颗的 `m_fontSizeBase` **原文**。
             //    判据（本轮自己扫的原版场景 `bundle_scenes_scenes_mainmenuwarpforge`，逐颗现读）：
             //    五个导航钮的 `Text (TMP)`（`'PLAY'`/`'REWARDS'`/`'SHOP'`/`'COLLECTION'`/`'SOCIAL'`，
@@ -1854,7 +1864,7 @@ namespace CardPresentation
             // 两条消息：位置**按 Container 的 VLG 算**（pad T/B=3 · L=15，两行等高 27）；
             // 字号照 §七 表二：`fontSize` **18**（**`auto=0`，不是自适应** —— 这一处别开 autosize）、`m_fontColor` 白
             var m1 = Text(p, "<color=#00FF20>Player Name:</color> Message", 1489.7f, 1817.0f, 88f, 115f, 5,
-                          Color.white, "Message Preview", 18f, QBarText);
+                          Color.white, "Message Preview", 18f, QBarText, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-07（A77⑩ · 子表 E1/E2，调度台裁定选 (a)）**：原版 `Message Preview > text` 是
             //   **既不折行、也不自适应**（`MonoBehaviour_1795.json` 实读：`m_fontSize=18` · `m_enableAutoSizing=0`
             //   · **`m_TextWrappingMode=0`**）⇒ 照原版**关掉折行**。
@@ -1863,7 +1873,7 @@ namespace CardPresentation
             //   现在留着的 `SetWrapWidth` 只为那一份**框宽**（327.3 与原版那个节点的宽一致），模式按原版关掉。
             if (m1 != null) { m1.SetWrapWidth(327.3f / 108f); m1.SetWrapping(false); }
             var m2 = Text(p, "<color=#00FF20>Player Name:</color> Message", 1489.7f, 1817.0f, 115f, 142f, 5,
-                          Color.white, "Message Preview (1)", 18f, QBarText);
+                          Color.white, "Message Preview (1)", 18f, QBarText, face: TmpFont.Face.LatinCardBody);
             // 第 2 行同上（判据 = `MonoBehaviour_1814.json`，同值）。
             if (m2 != null) { m2.SetWrapWidth(327.3f / 108f); m2.SetWrapping(false); }
             Rect(p, "40K_icon_menu_chat", 1811.0f, 1879.0f, 81.8f, 148.3f, "Button", QBarContent);
@@ -2146,7 +2156,10 @@ namespace CardPresentation
             //   ＋ `:415`（Content 20 列、自然宽 11134px）。
             //   ⚠️ 我们的内容只有 4 列（2405），所以能滚的只有 **485px** —— 那正是「练习/教学那一列
             //   在屏外」这一条缺陷的宽度（第 4 列 x 1870..2405，屏宽 1920）。
-            _modeScroll = new MenuScroll(ModeViewport, CardCol0, ModeContentX2);
+            // 🔴 **2026-10-17（`N29`）**：原版 `MainMenu` 的 `Safe area All/GameModes` ScrollRect
+            //   `m_ScrollSensitivity = **1.0**`（`bundle_scenes_scenes_mainmenuwarpforge` 现读）
+            //   ⇒ 每格 1 px。⛔ 别沿用 `MenuScroll.DefaultNotchPx`（48 = 我们挑的旧手感）。
+            _modeScroll = new MenuScroll(ModeViewport, CardCol0, ModeContentX2, 1f);
             _modeScroll.Owner = gameObject;
             _modeScroll.OnChanged = RebuildModeCards;
             PointerLayer.RegisterScroll(_modeScroll);
@@ -2372,7 +2385,8 @@ namespace CardPresentation
                           //    `ti.SetAutoFitBox(513.6959/108, 55.708/108, 18, 72, 36)`」—— 收口进本方法形参。
                           //    四格判据 = 原版 `Event Title`（`'GAME MODE TITLE'`，`m_fontSize 58.8` ·
                           //    `auto[18~72]` · 折行 1 · 框 513.6959×55.708）。
-                          wrapPx: 513.6959f, autoMinPx: 18f, autoMaxPx: 72f, autoBasePx: 36f);
+                          wrapPx: 513.6959f, autoMinPx: 18f, autoMaxPx: 72f, autoBasePx: 36f,
+                          face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase` **原文** = **36.0**。
             //    判据（本轮自己扫 `bundle_menus_assets_all`）：`Event Title`（`'GAME MODE TITLE'`，
             //    `m_fontSize 58.8` · `auto[18~72]` · 折行=1）—— **16 颗全是 `m_fontSizeBase 36.0`**
@@ -2468,7 +2482,7 @@ namespace CardPresentation
                 float tx0 = x + 13f;
                 var timerDesc = Text(card, "Starts in:", tx0, tx0 + descW, rowTop, rowTop + timerRowH, 8,
                                      Color.white, "Timer Description", 42.95f, QText,
-                                     0f, 18f, 44f, 45f);
+                                     0f, 18f, 44f, 45f, face: TmpFont.Face.LatinCardBody);
                 if (timerDesc != null)
                 {
                     MenuDraw.AlignLeft(timerDesc, new PxRect(tx0, rowTop, tx0 + descW, rowTop + timerRowH));
@@ -2502,7 +2516,7 @@ namespace CardPresentation
                 float timerX1 = clockX2, timerY1 = rowTop - 2.40f, timerY2 = rowTop + 45.5207f;
                 var timerLabel = Text(card, "--", timerX1, timerX1 + timerW, timerY1, timerY2, 8,
                                       new Color(0.737f, 0.737f, 0.737f, 1f), "Timer Text", 40f, QText,
-                                      0f, 10f, 40f, 30f);
+                                      0f, 10f, 40f, 30f, face: TmpFont.Face.LatinCardBody);
                 if (timerLabel != null)
                 {
                     MenuDraw.AlignLeft(timerLabel, new PxRect(timerX1, timerY1, timerX1 + timerW, timerY2));
@@ -2803,9 +2817,10 @@ namespace CardPresentation
 
             // ① 两段数字**先建、后量**（临时框宽只用于量，⛔ 不是版面值）
             var posVal = Text(gr, RankedTab.ScoreEmpty, stripL, stripR, midY - NumPx * 0.5f, midY + NumPx * 0.5f,
-                              8, Color.white, "Position Value", NumPx, QContent);
+                              8, Color.white, "Position Value", NumPx, QContent, face: TmpFont.Face.LatinCardBody);
             var indVal = Text(gr, RankedTab.ScoreEmpty, stripL, stripR, midY - NumPx * 0.5f, midY + NumPx * 0.5f,
-                              8, Color.white, "Individual rating value", NumPx, QContent);
+                              8, Color.white, "Individual rating value", NumPx, QContent,
+                              face: TmpFont.Face.LatinCardBody);
             float wPos = LabelW(posVal), wInd = LabelW(indVal);
             // 内容宽 = `#` + 名次串 + `Main Icon` + 分数串（`Secondary Icon` 出厂关着 ⇒ **不进布局**）
             float total = HashW + wPos + MainW + wInd;
@@ -2822,7 +2837,7 @@ namespace CardPresentation
             // ② `Position #` —— 原版 `m_HorizontalAlignment = Center` / `m_VerticalAlignment = Midline`
             //    ⇒ **居中摆是对的**（不是左对齐）；无自适应 ⇒ 只给字号、不给 autofit 框。
             Text(gr, "#", left, left + HashW, midY - HashPx * 0.5f, midY + HashPx * 0.5f, 8, Color.white,
-                 "Position #", HashPx, QContent);
+                 "Position #", HashPx, QContent, face: TmpFont.Face.LatinCardBody);
 
             // ③ 大段位图（`Main Icon`）—— 与 `Secondary Icon` 同一张 `40k_UI_icon_ranked_Skirmish`（128²）
             var rankTex = Art("40k_UI_icon_ranked_Skirmish");

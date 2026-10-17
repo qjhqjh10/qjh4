@@ -324,8 +324,19 @@ namespace CardPresentation
         public static readonly Color NameBgTint = new Color(0f, 0f, 0f, 0.431f);
         /// <summary>`type` 的 `m_fontColor`（实读；19 份一致）。</summary>
         public static readonly Color TypeColor = new Color(0.717f, 0.717f, 0.717f, 1f);
-        /// <summary>`name` 的 `m_fontColor`（实读；19 份一致）。</summary>
+        /// <summary>`name` 的 `m_fontColor`（实读；19 份一致）—— ⚠️ 那是**顶点色**，不等于屏上颜色。
+        /// 🆕 **2026-10-17（界面线 `T07` · `A1753` #6/#7）**：屏上颜色 = **顶点色 × 材质 `_FaceColor`**（乘法）；
+        /// 本容器五颗字的材质**不全是同一份** ⇒ 拆成下面三条 `*Ink`（判据 =
+        /// `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·0/§4·2）。</summary>
         public static readonly Color NameColor = new Color(1f, 1f, 1f, 1f);
+        /// <summary>`Pragati-Regular Light Cream` = **(0.992, 0.868, 0.733)**、顶点白 ⇒ 屏上就是它。
+        /// 用在 `name` / `Timer Text` / `Price Display/text`（三颗的材质逐颗实读同值）。</summary>
+        public static readonly Color LightCreamInk = new Color(0.992f, 0.868f, 0.733f, 1f);
+        /// <summary>`Pragati-Regular Off White Warm` = **(0.972, 0.937, 0.866)**、顶点白 ⇒ `Available Counter`。</summary>
+        public static readonly Color OffWhiteWarmInk = new Color(0.972f, 0.937f, 0.866f, 1f);
+        /// <summary>`Off White Warm` × 顶点 **(1, 1, 0.737)**（原版 `AlreadyOwned` 那颗自己带非白顶点色）
+        /// = **(0.972, 0.937, 0.638)**。⚠️ 与 <see cref="OffWhiteWarmInk"/> **差在蓝通道**，别互推。</summary>
+        public static readonly Color AlreadyOwnedInk = new Color(0.972f, 0.937f, 0.638f, 1f);
 
         // ============================================================ 出厂文本（实读 · 19 份逐字相同）
 
@@ -1092,13 +1103,13 @@ namespace CardPresentation
             //   的 21 颗（`menu_dump.py` **不印 base**）⇒ `36.7 auto[10~42] base=46` ×18 + `42 auto[10~42] base=46` ×3。
             //   🔴 **上限 42 与标称不等**（`Geo778`/`GeoSmall` 那 16 份标称 36.7）⇒ 旧写法把 `fontPx` 当上限
             //   ⇒ **天花板矮 5.3px**（A333 的实测错处之一）。
-            LabelFit(nb, R(g.Name.x1, g.Name.y1, g.Name.x2, g.Name.y2), c.Name, NameColor, NName,
-                     g.NameFs, 10f, qBase + QoText, true, false, 42f, 46f);
+            LabelFit(nb, R(g.Name.x1, g.Name.y1, g.Name.x2, g.Name.y2), c.Name, LightCreamInk, NName,
+                     g.NameFs, 10f, qBase + QoText, true, false, 42f, 46f, TmpFont.Face.LatinCardBody);
             // `type`：原版 **`auto[10~30]`（`TypeFs=30` 那 11 份）/ `auto[10~34]`（34 那 9 份）** ·
             //   **`m_fontSizeBase = 36.0`**（两支同值 —— `'Booster Pack'` 那 21 颗逐颗实读）
             //   ⇒ 上限**恰好等于标称**（30/34）⇒ A333 上本来就对，缺的只有 base。
             LabelFit(nb, R(g.Type.x1, g.Type.y1, g.Type.x2, g.Type.y2), c.Type, TypeColor, NType,
-                     v.TypeFs, 10f, qBase + QoText, true, false, 0f, 36f);
+                     v.TypeFs, 10f, qBase + QoText, true, false, 0f, 36f, TmpFont.Face.LatinCardBody);
             BuildPrice(nb, R, g, c, qBase);
             BuildWebShop(nb, R, g, qBase);
 
@@ -1116,7 +1127,8 @@ namespace CardPresentation
             //   其中 32+10 颗属于本容器）⇒ 上限 = 标称（A333 上本来就对），缺的只有 base。
             if (!string.IsNullOrEmpty(c.Available))
                 LabelFit(nb, R(g.Avail.x1, g.Avail.y1, g.Avail.x2, g.Avail.y2), c.Available,
-                         NameColor, NAvail, v.TypeFs, 10f, qBase + QoText, true, false, 0f, 39f);
+                         OffWhiteWarmInk, NAvail, v.TypeFs, 10f, qBase + QoText, true, false, 0f, 39f,
+                         TmpFont.Face.LatinCardBody);
 
             // ---- 🆕 `background` **自己**的抽屉槽（`Variant.BgDrawers`）----
             //   2026-10-04（A34-F1）：`…Variant Booster_title_resource` 那一份有一个抽屉槽**不挂在
@@ -1150,8 +1162,11 @@ namespace CardPresentation
                 {
                     var tr = g.BadgeText;
                     // 原版 `Text (TMP)`：**fs36 钉死（无 auto）· 折行=1 · Left/Top**
+                    // ⚠️ **2026-10-17（`A1753`）没查到这一颗的材质** —— 普查只逐颗核了 `name` / `Available Counter` /
+                    //    `Timer Text` / `Price Display/text` 四类；`Badge/Text (TMP)` 的原版 `_FaceColor` **未查**
+                    //    ⇒ **保留顶点白**（⛔ 不猜；查到了再改）。
                     LabelFit(badge, R(tr.x1, tr.y1, tr.x2, tr.y2), c.BadgeText, NameColor, NBadgeText,
-                             36f, 0f, qBase + QoText, true, true);
+                             36f, 0f, qBase + QoText, true, true, face: TmpFont.Face.LatinCardBody);
                 }
             }
 
@@ -1183,8 +1198,8 @@ namespace CardPresentation
                     // 🆕 **A336③**：`m_fontSizeBase` = **30.0**（两支同值 —— `fs 28 auto[18~28]` 那 7 颗
                     //   与 `fs 30.6 auto[10~32]` 那 8 颗逐颗实读都是 30.0）。⚠️ 它**既不等于标称**
                     //   （28 / 30.6）**也不等于上限**（28 / 32）⇒ 必须单独传。
-                    var timerLb = LabelFit(timer, R(tt.x1, tt.y1, tt.x2, tt.y2), c.TimerText, NameColor, NTimerText,
-                             tfs, tmin, qBase + QoText, true, true, tmax, 30f);
+                    var timerLb = LabelFit(timer, R(tt.x1, tt.y1, tt.x2, tt.y2), c.TimerText, LightCreamInk, NTimerText,
+                             tfs, tmin, qBase + QoText, true, true, tmax, 30f, TmpFont.Face.LatinCardBody);
                     // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Timer/Timer Text`
                     //   = `Left/**Midline**`（判据 = 本文件头 `:71` / `:84` 两条，**19 份逐份实读**同档
                     //   —— 逐份变的是字号与自适应范围，纵向档**不是**逐份的）。
@@ -1280,8 +1295,8 @@ namespace CardPresentation
                 //   ⛔ 旧写法 `maxPx` 走缺省 ⇒ 上限被当成 **38.15**，**矮 1.85px**（A333 的实测错处之一）。
                 //   🆕 **2026-10-16（A712 阶段 2）**：这里从「单语句 `if`」补成**块** —— 因为 A712 要在
                 //   同一个分支里多接一句 `SetVAlign`（不加花括号会 `CS1023`，实测踩过一次）。
-                var priceLb = LabelFit(inner, R(pr.x1, pr.y1, pr.x2, pr.y2), c.Price, NameColor, NPriceText, 38.15f, 13.46f,
-                         qBase + QoText, false, false, 40f, 39f);
+                var priceLb = LabelFit(inner, R(pr.x1, pr.y1, pr.x2, pr.y2), c.Price, LightCreamInk, NPriceText, 38.15f, 13.46f,
+                         qBase + QoText, false, false, 40f, 39f, TmpFont.Face.LatinCardBody);
                 // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 本容器里**唯一一颗非 `Left` 的横对齐**
                 //   就是它：原版 `…/Price Display/text` = `Center/**Capline**`（判据 = 本文件头 `:84`
                 //   那句「横对齐**除价签那个 `text`（`Center/Capline`）外全是 `Left`**」）。
@@ -1372,10 +1387,10 @@ namespace CardPresentation
         /// 🔴 **顺序**：先 `SetAutoFitBox` 再对齐（对齐按**当前**文字宽算 —— 本工程踩过）。</summary>
         static Label LabelFit(Transform parent, PxRect r, string text, Color color, string name,
                               float fontPx, float minPx, int q, bool left = true, bool wrap = false,
-                              float maxPx = 0f, float basePx = 0f)
+                              float maxPx = 0f, float basePx = 0f, TmpFont.Face face = TmpFont.Face.Cjk)
         {
             if (string.IsNullOrEmpty(text)) return null;
-            var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, q, wrap ? r.W : 0f);
+            var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, q, wrap ? r.W : 0f, face: face);
             if (lb == null) return null;
             if (minPx > 0f && fontPx > minPx)
             {

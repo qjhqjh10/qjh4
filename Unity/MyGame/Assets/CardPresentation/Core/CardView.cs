@@ -1495,7 +1495,9 @@ namespace CardPresentation
         /// </summary>
         public void SetCreatedBy(RuleEngine.CardDef creator)
         {
-            string name = creator != null ? CardText.Name(creator.Name, creator.NameZh) : null;
+            // 🔴 **2026-10-17（`N42` 收尾）**：原来传 `(Name, NameZh)` ⇒ 非中英语言档印英文。
+            //   改走 `Name(CardDef)`（P1 新增的那个口）—— 它按 `CardDef.Id` 取 13 语言表的 `Card_Name/<id>`。
+            string name = creator != null ? CardText.Name(creator) : null;
             if (name == _createdByName) return;           // 同一张卡重复推（每帧都走的那条路）不动手
             _createdByName = name;
             // 场上形态没有这一层（原版那里整张 `2DCard` 关掉；`BuildTextLayers` 也走不到）
@@ -1744,7 +1746,10 @@ namespace CardPresentation
             // 🔴 **2026-10-12（`A1659`）：父节点由 `transform`（卡根）改成 `FaceRoot`（`2DCard`）** ——
             //    理由与 `Fill` 里那段逐字相同（倾摆挂在 `2DCard` 上，挂错父节点 ⇒ 角标数字与徽标底板
             //    在位移中分成两个平面）。徽标底板/图标本来就在 `FaceRoot` 下。
-            var t = TmpFont.NewText(FaceRoot, "badgeCounter" + i, "", BadgeCounterFontSize, BadgeCounterInk);
+            // 🔴 **2026-10-17（`A1024`③ 批 6）**：角标数字 = 原版 `TraitCounter` 的 `m_fontAsset` = **Pragati**
+            //    （普查表 §2·5 卡面那一格）⇒ `LatinCardBody`。
+            var t = TmpFont.NewText(FaceRoot, "badgeCounter" + i, "", BadgeCounterFontSize, BadgeCounterInk,
+                                    TmpFont.Face.LatinCardBody);
             StampTmpQueue(t);   // 🆕 A1665：角标数字也是这张卡的一层
             // 🔴 **2026-10-18（`A848` 的补齐件 · `A994③` 同一轮）**：角标数字那层的纵向对齐 =
             //   原版 **`TraitCounter`** 的 **`Midline`(4096)** —— 现读
@@ -2368,7 +2373,8 @@ namespace CardPresentation
             float k = Width / CardUnitW;                  // 卡单位 → 世界（当前 = 1）
             _createdBy = Fill(_createdBy, "createdBy", CreatedByLine(_createdByName),
                               CreatedByAt01, CreatedByBoxW * k, CreatedByFontSize,
-                              CreatedByInk, false, CreatedByBoxH * k);
+                              CreatedByInk, false, CreatedByBoxH * k,
+                              face: TmpFont.Face.LatinUi);       // 原版 `CreatedByText` = Asar（§2·5）
             ApplyCreatedByOutline(_createdBy);
         }
 
@@ -2415,7 +2421,8 @@ namespace CardPresentation
             if (_title != null) _title.verticalAlignment = VerticalAlignmentOptions.Middle;
             // 🔴 **字号用实例那份 `NameFontSize`（按 `CardUse` 分档），⛔ 不是静态的 `TitleFontSize`** ——
             //    `A2110`：放大窗那 5 张原版是 `fs16`、其余全 19。判据全在 `CardUse` 的注释里。
-            _title = Fill(_title, "title", d.title, nameAt, nameW, NameFontSize, InkName, false, nameH);
+            _title = Fill(_title, "title", d.title, nameAt, nameW, NameFontSize, InkName, false, nameH,
+                          face: TmpFont.Face.LatinUi);        // 原版 `NameTextUnit/NameTextTactic` = Asar（§2·5）
             // 🔴 **2026-10-18（`A848` 那笔账的落点）**：**卡名那层的纵向对齐 = 原版的 `Midline`(4096)**。
             //   判据：原版卡预制体里那 6 个互斥变体（`NameTextUnit` / `…Unit Big` / `…Unit No description` /
             //   `…Unit No Description Big` / `NameTextTactic` / `NameTextTacticBig`）**全是 `m_VerticalAlignment
@@ -2464,7 +2471,8 @@ namespace CardPresentation
             //    （行更宽 ⇒ 折行更多 ⇒ 整块更高 ⇒ `FitToBox` 往死里缩），原因写在那个函数的注释里。
             float kwScale = CardIcons.FontScaleFor(d.keywords);
             _keywords = Fill(_keywords, "keywords", d.keywords, descBotAt, descW, KeywordFontSize * kwScale,
-                             InkDesc, true, descH, true, DescLineSpacing, unit ? 0f : DescParaSpacing);
+                             InkDesc, true, descH, true, DescLineSpacing, unit ? 0f : DescParaSpacing,
+                             face: TmpFont.Face.LatinCardBody);    // 原版 `DescTextUnit*` = Pragati（§2·5）
 
             // ③ 🔴 **阵营行（原版 `ArmyTextUnit` / `ArmyTextTactc`）：按展示场景分档** ——
             //    **手牌 + 场上不印，其余都印**（**用户 2026-09-22 裁定**；三档定义见 `CardFace` 的注释）。
@@ -2492,14 +2500,16 @@ namespace CardPresentation
             //    ② 效果文字那块版面**本来就给阵营行留了位置**（上面 `avail01` 用 `armyAt.y` 算的）
             //       ⇒ 关掉它只是空出那一行，**别的层一个都不动**（手牌版面与这一行启用之前逐字相同）。
             // 对照组：`RaceText`（兵种行）在 **state0/2 是被 `objectsToActivate` 激活的** ⇒ 兵种行照印（见 ④）。
-            _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSize, InkArmy, false);
+            _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSize, InkArmy, false,
+                         face: TmpFont.Face.LatinCardBody);   // 原版 `ArmyText*` = Pragati（§2·5）
             Show(_army, FaceShowsArmy(_faceMode));
 
             // ④ 兵种行 —— 在卡面下部。**印不印不是「只有单位卡」那么简单**，判据见 `SubtypeLine`
             //    🆕 2026-10-17（D5）：这一格的字现在是**按当前语言**取的
             //    （`SubtypeLine` → `RaceTerm` → `Loc.T("Card_Race/<race>")`）。
             //    ⚠️ **版面一个字都没动** —— 位置 / 字号 / 颜色 / 折行照旧（实拍与 prefab 都已收口）。
-            _race = Fill(_race, "race", SubtypeLine(d), UnitRaceAt, nameW, RaceFontSize, InkArmy, false);
+            _race = Fill(_race, "race", SubtypeLine(d), UnitRaceAt, nameW, RaceFontSize, InkArmy, false,
+                         face: TmpFont.Face.LatinCardBody);   // 原版 `RaceText*` = Pragati（§2·5）
 
             // ⑤ 🆕 描边 —— **原版在材质里，不在 TMP 组件上**，见 `TmpFont.ApplyOutline` 的注释。
             //    卡名 0.15 + 一团软黑影；效果/阵营/兵种 0.05 细描边。
@@ -2606,7 +2616,8 @@ namespace CardPresentation
         /// </summary>
         TextMeshPro Fill(TextMeshPro t, string name, string text, Vector2 at, float maxWidth,
                          float fontSize, Color32 baseColor, bool wrap, float maxHeight = 0f,
-                         bool bottomAlign = false, float lineSpacing = 0f, float paragraphSpacing = 0f)
+                         bool bottomAlign = false, float lineSpacing = 0f, float paragraphSpacing = 0f,
+                         TmpFont.Face face = TmpFont.Face.Cjk)
         {
             if (string.IsNullOrEmpty(text))
             {
@@ -2629,7 +2640,10 @@ namespace CardPresentation
                 //  位置逐位不变（所以只看截图看不出来）。
                 // ⚠️ **图标本身（`<sprite>` 行内字形）不用单独处理**：它在**同一条 TMP 网格**里
                 //  （`TMP_SubMesh` 与主网格同父、同 z、同队列）⇒ 父节点修完它自然跟着文字同面。
-                t = TmpFont.NewText(FaceRoot, name, "", fontSize, baseColor);
+                // 🔴 **2026-10-17（`A1024`③ 批 6）**：字体面**按层**传（默认 `Cjk` ⇒ 旧调用点零行为变化）。
+                //    判据 → `资料/普查产出_1017/UI/R_A1024_字体按用途普查.md` §2·5 卡面那一格
+                //    （`NameTextUnit*` / `NameTextTactic*` / `CreatedByText` = Asar；其余 = Pragati）。
+                t = TmpFont.NewText(FaceRoot, name, "", fontSize, baseColor, face);
                 // 图标 sprite asset 由 `TmpFont.NewText` 统一挂上（全工程只那一处设）。
                 // 原地更新的那条路上它已经在 TMP 里了，不用重设。
                 StampTmpQueue(t);      // 🆕 A1665：TMP 也是这张卡的一层（含它的 sprite 子网格）
@@ -6015,13 +6029,20 @@ namespace CardPresentation
         // 卡名 / 效果文字的**原版颜色**（A3 表「颜色确认」）：
         //   卡名橙 (0.9922,0.6039,0.3451) → (253,154,88)；效果文字米白 (0.9804,0.9137,0.8667) → (250,233,221)
         // ⚠️ 2026-09-12 改：原来卡名用白、效果文字用灰，**没有出处**（是我们挑的）。
-        /// <summary>卡名：**白**。⚠️ 2026-09-12 与成品卡核对后定的 —— A3 表把 `NameTextUnit` 记成橙、
-        /// `ArmyTextUnit`（阵营行）记成白，但 `D:/2/Warpforge部队卡片/` 的成品卡**恰好反过来**
-        /// （卡名白、阵营橙，`Warpforge_02_Heavy-Intercessor-2.png` 和 `pariah.png` 都是），
-        /// 数字版实况拿不到，按成品卡走。</summary>
-        static readonly Color32 InkName   = new Color32(255, 255, 255, 255);
-        /// <summary>阵营行 / 兵种行：原版橙 (0.9922,0.6039,0.3451)</summary>
-        static readonly Color32 InkArmy   = new Color32(253, 154, 88, 255);
+        /// <summary>卡名：**数字版材质 `Pragati-Regular Light Cream` 的 `_FaceColor`** = (0.992, 0.868, 0.733)
+        /// → `Color32(253, 221, 187)`（顶点色白 ⇒ 屏上就是材质本色）。
+        /// <para>🔴 **2026-10-17（界面线 `T07` · `A1753` #18）就地改判（铁律 5）**：原来这里写「卡名**白**」、
+        /// 依据是 `D:/2/Warpforge部队卡片/` 的**成品卡图**（PnP）。**那条判据不成立** ——
+        /// 铁律 10 第 3 条：「PnP 成品卡图是**印刷品**，不是数字版规格」，它的白是印刷版式，不是屏上值。
+        /// 数字版真值 = 原版 TMP 的 `m_sharedMaterial`（`NameTextUnit` / `NameTextTactic` 逐颗实读）
+        /// 所挂 **`Pragati-Regular Light Cream`**，`_FaceColor = (0.992, 0.868, 0.733)`（暖白）、顶点白。
+        /// 判据全文 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·2 #18。</para>
+        /// <para>⚠️ 数值取法与 <see cref="InkArmy"/> 同一档（3 位小数 × 255 取整）：0.992→253 · 0.868→221 · 0.733→187。</para>
+        static readonly Color32 InkName   = new Color32(253, 221, 187, 255);
+        /// <summary>阵营行 / 兵种行：原版材质 `Pragati-Regular Card Unit type` 的 `_FaceColor` = (1.0, 0.6055, 0.3443)
+        /// ⇒ (255, 154, 88)。🆕 **2026-10-17（`A1753` #19）**：红通道由 **253 → 255**（原来取的是 0.9922 那个
+        /// 「卡名橙」的近似值；这里改用材质原值 ⇒ 字面量能逐位对上 (255, 154, 88)）。</summary>
+        static readonly Color32 InkArmy   = new Color32(255, 154, 88, 255);
         static readonly Color32 InkDesc   = new Color32(250, 233, 221, 255);
         static readonly Color32 InkMelee  = new Color32(255, 226, 150, 255);   // 近战：暖黄（红宝石上）
         static readonly Color32 InkRanged = new Color32(205, 175, 255, 255);   // 远程：淡紫（紫宝石上）

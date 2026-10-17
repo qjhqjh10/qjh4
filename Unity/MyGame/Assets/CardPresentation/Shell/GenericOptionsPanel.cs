@@ -406,7 +406,7 @@ namespace CardPresentation
             // ---- 4) `Name`（标题）----
             var nameR = NameRect(R);
             _title = MenuDraw.TextBox(root, nameR, _ctx.Title ?? "", Color.white, "Name",
-                                      NameFont, NameFontMin, QName, NameFontMax, NameFontBase);
+                                      NameFont, NameFontMin, QName, NameFontMax, NameFontBase, face: TmpFont.Face.LatinCardBody);
             // 原版 hAlign = **Center(2)** ⇒ 不调 `AlignLeft`（`Label` 默认就是水平居中）。
 
             // ---- 5) `Template`（**关着的那颗模板** —— `Start()` 明文 SetActive(false)）----
@@ -419,7 +419,7 @@ namespace CardPresentation
                                              new Vector4(333f / 3f, 96f / 3f, 333f / 3f, 96f / 3f));
             var tTxtR = BtnTextRect(TemplateRect(R));
             MenuDraw.TextBox(_template, tTxtR, TemplateText, Color.white, "Button Text",
-                             BtnTextFont, BtnTextFontMin, QBtnText, BtnTextFontMax, BtnTextFontBase);
+                             BtnTextFont, BtnTextFontMin, QBtnText, BtnTextFontMax, BtnTextFontBase, face: TmpFont.Face.LatinCardBody);
             _template.gameObject.SetActive(false);      // 🔴 判据 = `GenericOptionsPanel__Start.c` 第一句
 
             // ---- 6) `Buttons`（容器；运行期**空的**，按钮由 `Apply()` 按 `_ctx` 填）----
@@ -476,7 +476,7 @@ namespace CardPresentation
                                         new Vector4(333f / 3f, 96f / 3f, 333f / 3f, 96f / 3f));
                 var txR = BtnTextRect(br);
                 var tx = MenuDraw.TextBox(bn, txR, arr[i].Text ?? "", Color.white, "Button Text",
-                                          BtnTextFont, BtnTextFontMin, QBtnText, BtnTextFontMax, BtnTextFontBase);
+                                          BtnTextFont, BtnTextFontMin, QBtnText, BtnTextFontMax, BtnTextFontBase, face: TmpFont.Face.LatinCardBody);
                 if (tx != null && (tx.Text == null || tx.Text.Length == 0))
                     Debug.LogWarning("[OptionsPanel] 第 " + i + " 颗按钮的文本是空的 ⇒ 底图上没有字。");
                 var item = arr[i];

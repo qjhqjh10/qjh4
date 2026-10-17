@@ -275,7 +275,7 @@ namespace CardPresentation
             //   原版那一档 = 48 = 我们传的 `fontPx` ⇒ 等价），并把 `SetAutoFitBox` **无条件打开**的折行
             //   还原成原版的 `0`。判据/口径 → `TitleAutoMin` 那一段的注释（三颗的 min 各不相同）。
             var titleLb = MenuDraw.Text(c, Title, DailyData.InboxTitle(), Color.white, "Title", 48f, QText,
-                                        Title.W, TitleAutoMin, autoBasePx: WindowLabelAutoBase);
+                                        Title.W, TitleAutoMin, autoBasePx: WindowLabelAutoBase, face: TmpFont.Face.LatinCardBody);
             if (titleLb != null) titleLb.SetWrapping(false);
             // 🆕 **2026-10-12（A470）**：原版这一颗是 **`对齐=Left/Middle`**（我们原来落在框心）——
             //   走 `TitleLeft`（它把「必须在 `SetWrapping(false)` **之后**」这条顺序要求写死在方法上）。
@@ -305,7 +305,7 @@ namespace CardPresentation
             // 🆕 **2026-10-12（A468）**：原版 `auto[10.0~58.0]` · `基准=36.0` · `折行=0`（判据 → `TitleAutoMin`）
             var mdTitleLb = MenuDraw.Text(_display, MdTitle, DailyData.InboxMessageDisplayTitle(),
                                           Color.white, "Title", 58f, QText,
-                                          MdTitle.W, MdTitleAutoMin, autoBasePx: WindowLabelAutoBase);
+                                          MdTitle.W, MdTitleAutoMin, autoBasePx: WindowLabelAutoBase, face: TmpFont.Face.LatinCardBody);
             if (mdTitleLb != null) mdTitleLb.SetWrapping(false);
             // 🆕 **2026-10-12（A470）**：同上一颗 —— 原版 `对齐=Left/Middle`（判据 → `TitleLeft` 的注释）。
             //   ⚠️ 必须排在**上面那句 `SetWrapping(false)` 之后**（理由同 `TitleLeft`）。
@@ -315,7 +315,7 @@ namespace CardPresentation
             // `No News Warning`（空态文案）
             // 🆕 **2026-10-12（A468）**：原版 `auto[12.0~50.0]` · `基准=36.0` · `折行=0`（判据 → `TitleAutoMin`）
             _warn = MenuDraw.Text(c, NoNews, DailyData.InboxNoNewsText(), Color.white, "No News Warning", 50f, QText,
-                                  NoNews.W, NoNewsAutoMin, autoBasePx: WindowLabelAutoBase);
+                                  NoNews.W, NoNewsAutoMin, autoBasePx: WindowLabelAutoBase, face: TmpFont.Face.LatinCardBody);
             if (_warn != null) _warn.SetWrapping(false);
             // 🆕 **2026-10-12（A471）**：原版这一颗**还有 `字距=2`**（我们原来是 0）—— 判据 → `NoNewsCharSpacing`。
             //   ⚠️ 这一颗原版是 `Center/Middle` ⇒ **不做对齐**（与我们一致）；只需要把字距接上。
@@ -484,7 +484,7 @@ namespace CardPresentation
         {
             if (_listContent == null) return;
             float contentH = _messages.Count <= 0 ? 0f : _messages.Count * RowPitch - RowSpacing;
-            _listScroll = MenuScroll.TopAligned(MsgList, contentH);
+            _listScroll = MenuScroll.TopAligned(MsgList, contentH, 1f);   // 原版 `Inbox Menu/Content/Message List` = 1.0（D_N29）
             _listScroll.Owner = gameObject;
             // 偏移一变就重建条目（**`OnChanged` 指向幂等函数**：先清后建 —— 规格 §四 第 1 条那个坑）
             _listScroll.OnChanged = BuildMessageRows;

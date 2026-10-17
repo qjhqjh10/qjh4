@@ -28,8 +28,8 @@
 //      见 `BuildRows` 那一段）。
 //    判据就是上面 ④ 那一条（`ScrollRect` `h=0 v=1` · **mode=2 Clamped** · 灵敏度 1.0）+ 普查 §B 表里
 //    `Content` 的 `ContentSizeFitter m_VerticalFit=1` ⇒ **可滚范围 = 内容高 − 视口高**（同 `BattleLogTab`
-//    那一页，两处的行高/行距/内容高算式逐值相同）。⚠️ 全壳一个滚轮手感（`MenuScroll.NotchK`），
-//    灵敏度 1.0 那一档**不逐处复刻** —— 已知自选，记在普查 §D6。
+//    那一页，两处的行高/行距/内容高算式逐值相同）。✅ 2026-10-17（N29）：灵敏度 1.0 已
+//    **逐视图接进 `MenuScroll`**（构造那一行），不再是「全壳一个手感、不逐处复刻」。
 
 // ---- 🔴 入口：**原版的打开点查不到** ----
 // 普查 §E 追过：它只出现在 `WindowsManager.temporaryWindowDictionary` 那张**预载表**里
@@ -178,7 +178,7 @@ namespace CardPresentation
             //   ⚠️ `Viewport` 在**原版里就是遮罩节点**（`Mask.m_ShowMaskGraphic=0`）⇒ 我们拿它的矩形当
             //     `MenuScroll.Viewport`（= `RectMask2D` 的等效物），**没有另挑一个矩形**。
             PointerLayer.UnregisterOwnedBy(gameObject);   // 重建 ⇒ 旧的那一份是死条目（同 `PlayerProfileWindow.Setup`）
-            _scroll = MenuScroll.TopAligned(ViewportR, 0f);   // 内容高在 `BuildRows` 里按条数写（原版 `ContentSizeFitter`）
+            _scroll = MenuScroll.TopAligned(ViewportR, 0f, 1f);   // 内容高在 `BuildRows` 里按条数写；原版 `Battle Log Popup/Content/Matches` = 1.0（D_N29）
             _scroll.Owner = gameObject;                       // 关着的宿主 ⇒ 指针层跳过（页签/窗口切走那套）
             _scroll.OnChanged = BuildRows;   // 🔴 滚轮只改 `Offset`、**画是调用方的事**：不接 = 滚了什么都不动
             // 🔴 **2026-10-04（A35⑦）：走 `SocialPage.RegisterScroll` 那一份，别直调 `PointerLayer.RegisterScroll`**

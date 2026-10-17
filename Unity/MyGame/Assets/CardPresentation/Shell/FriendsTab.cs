@@ -241,7 +241,7 @@ namespace CardPresentation
             //   ⚠️ 顺序要紧：**先有滚动区、再谈裁切** —— 只补裁切会把后面的格子**藏掉**而不是可滚
             //     （`BattleLogPopup` 上就是这么踩过来的）。
             PointerLayer.UnregisterOwnedBy(gameObject);   // 重建 ⇒ 旧的登记条目是死条目（同 `PlayerProfileWindow.Setup`）
-            _scroll = MenuScroll.TopAligned(ContainerR, 7.3f);   // 内容高在 `BuildRows` 里按条数写（原版 `ContentSizeFitter`）
+            _scroll = MenuScroll.TopAligned(ContainerR, 7.3f, 50f);   // 内容高在 `BuildRows` 里按条数写；原版 `Friends Tab/Friends List/Friends Container` = 50（D_N29）
             _scroll.Owner = gameObject;                   // 页签一 `SetActive(false)` ⇒ 指针层跳过它
             _scroll.Elastic = true;                       // 原版 `m_MovementType = 1` = Elastic（判据见 `ContainerR` 注释）
             _scroll.OnChanged = BuildRows;                // 🔴 滚轮只改 `Offset`、**画是调用方的事**

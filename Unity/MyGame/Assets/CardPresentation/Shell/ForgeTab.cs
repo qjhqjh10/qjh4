@@ -397,7 +397,8 @@ namespace CardPresentation
             // 内容总宽 = `ContentSizeFitter` 跑完的宽（padLeft + 50 格 + 49 个 −130 的间距）
             // 🔴 没有它 ⇒ 第 5 格中心在 2209px（屏幕外）⇒ **领完第 4 格就再也领不动**（第 21 条）
             _trackScroll = MenuScroll.LeftAligned(_trackR,
-                UguiLayout.HorizontalContentW(FixedWs(ForgeData.MaxLevel, CellW), TrackPadL, 0f, TrackSpacing));
+                UguiLayout.HorizontalContentW(FixedWs(ForgeData.MaxLevel, CellW), TrackPadL, 0f, TrackSpacing),
+                1f);   // 原版 `Forge Tab/Rewards Scroll View` 的 `m_ScrollSensitivity = 1.0`（D_N29）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildCell` 里
             //   `if (_trackScroll != null && !_trackScroll.Intersects(r)) return;`）从今天起读**同一颗节点**的
             //   状态（`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗
@@ -437,7 +438,7 @@ namespace CardPresentation
             // 🔴 **阵营条也能横向滚**（原版 `Forge Army Selector` 就是一个 `ScrollRect(横)` + `RectMask2D`）：
             //    13 个条目 1604.68 宽 > 视口 1074.36 ⇒ 两端各 2 个够不着；**居中内容的范围是【两侧都有】的**
             //    （`MenuScroll` 那两个极值由内容两端算出来）⇒ 往右滚能看被左柱盖住的前两个、往左滚能看后两个。
-            _armyScroll = new MenuScroll(_selR, _armyContentR.x1, _armyContentR.x2);
+            _armyScroll = new MenuScroll(_selR, _armyContentR.x1, _armyContentR.x2, 1f);   // 原版 `Forge Army Selector` = 1.0（D_N29）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildArmyItems` 里
             //   `if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的
             //   状态（`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗
@@ -458,9 +459,9 @@ namespace CardPresentation
             // ---- ⑥ `Selected Army Info`：阵营名 + 等级 + 徽记 ----
             var info = RewardsWindow.Node(root, "Selected Army Info", _infoR);
             _armyText = _win.TextBox(info, UguiRect.Child(_infoR, AT_A, AT_A, AT_P, AT_Pos, AT_Sz), "",
-                                     new Color(0xFC / 255f, 0xD3 / 255f, 0x82 / 255f, 1f), "ArmyText", 41.3f, 18f);
+                                     new Color(0xFC / 255f, 0xD3 / 255f, 0x82 / 255f, 1f), "ArmyText", 41.3f, 18f, face: TmpFont.Face.LatinCardBody);
             _levelText = _win.TextBox(info, UguiRect.Child(_infoR, AT_A, AT_A, AT_P, LT_Pos, LT_Sz), "",
-                                      Color.white, "LevelText", 32.38f, 18f);
+                                      Color.white, "LevelText", 32.38f, 18f, face: TmpFont.Face.LatinCardBody);
             _armyIcon = _win.Rect(info, DeckRuntime.FactionIcon(ForgeData.Selected),
                                   UguiRect.Child(_infoR, AI_A, AI_A, UguiRect.P50c, AI_Pos, AI_Sz),
                                   "Army Icon", QTabInfo, null, true);
@@ -835,7 +836,7 @@ namespace CardPresentation
             _win.Rect(cell, (st == ForgeData.ToCollect || claimed) ? "40k_ArmyTrack_milestone_on"
                                                                   : "40k_ArmyTrack_milestone_off",
                       lv, "LevelBg", QCellLevelBg);
-            var lvLab = _win.TextBox(cell, lv, (i + 1).ToString(), Color.white, "LevelLabel", 45f, 0f);
+            var lvLab = _win.TextBox(cell, lv, (i + 1).ToString(), Color.white, "LevelLabel", 45f, 0f, face: TmpFont.Face.LatinCardBody);
             if (lvLab != null) lvLab.SetRenderQueue(QCellLevelText);
 
             if (open)
@@ -869,7 +870,7 @@ namespace CardPresentation
                           new PxRect(px1, ptC.y1, px1 + iconW, ptC.y2), "Army", QCellPtsIcon, null, true);
                 // `PointsLabel` 的文本照原版 `"{currentPoints}/{neededPoints}"`（`__Initialize.c:200-202`）
                 var ptsRect = new PxRect(px1 + iconW, ptC.y1, px1 + iconW + labelW, ptC.y2);
-                var ptsLab = _win.TextBox(cell, ptsRect, ForgeData.PointsText(a, i), Color.white, "PointsLabel", 33.7f, 18f);
+                var ptsLab = _win.TextBox(cell, ptsRect, ForgeData.PointsText(a, i), Color.white, "PointsLabel", 33.7f, 18f, face: TmpFont.Face.LatinCardBody);
                 if (ptsLab != null) { ptsLab.SetRenderQueue(QCellPtsText); MenuDraw.AlignLeft(ptsLab, ptsRect); }
             }
 
@@ -882,7 +883,7 @@ namespace CardPresentation
                 var btnQ = _win.Rect(cell, "40K_button", btn, "Generic UI Button", QCellBtnIcon, new Color(1f, 0.363f, 0.919f, 1f));
                 // `Button Text` N(2, 0,0, 1,1, .5,.5, 0,0, −26,0) ⇒ 左右各缩 13
                 var btLab = _win.TextBox(cell, new PxRect(btn.x1 + 13f, btn.y1, btn.x2 - 13f, btn.y2), "Claim",
-                                         Color.white, "Button Text", 36.8f, 12f);
+                                         Color.white, "Button Text", 36.8f, 12f, face: TmpFont.Face.LatinCardBody);
                 if (btLab != null) btLab.SetRenderQueue(QCellBtnText);
                 // A17：原版 `Forge Menu Reward Button` 的 `Generic UI Button` 是 SpriteSwap（普查 §块 2 第 6 行）
                 AddHit(cell, "ClaimHit", btn, QCellBtnIcon, () => ClaimCell(i), btnQ, "40K_button",

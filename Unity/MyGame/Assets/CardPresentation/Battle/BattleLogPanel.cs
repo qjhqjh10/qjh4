@@ -725,7 +725,7 @@ namespace CardPresentation
                 //    ⇒ 比原版（面板局部 **8.766**）**偏右 23.08 px**。详见 `TextInsetPx`。
                 _rowTexts[i] = HudCanvas.MakeText(_root, "", 0f, 0f, 3,
                                                   new Color(0.93f, 0.93f, 0.93f),   // 原版 ActionText = Asar Almost White
-                                                  new Vector2(0f, 0.5f), ZText, "LogRowText" + i);
+                                                  new Vector2(0f, 0.5f), ZText, "LogRowText" + i, face: TmpFont.Face.LatinCardBody);
                 if (_rowTexts[i] != null)
                     PlaceTextByTopPx(_rowTexts[i], PanelOpenX + RowsCx - RowW * 0.5f + TextInsetPx, cyTop);
                 else

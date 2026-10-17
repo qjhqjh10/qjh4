@@ -101,11 +101,11 @@ namespace CardPresentation
         /// （旧注释说「那一条要跟着改」已过期，就地订正）。</item>
         /// <item><b>四颗都补上 <c>term</c></b>（= 原版 `TabButtonLabel ▸ Localize.mTerm` 原文，本轮现读
         /// `…/Tab Buttons/{Deck,Cards,CardBacks,Alternate Art}/Label/TabButtonLabel`）——
-        /// 屏上的字从此走 `Loc.T`（`Shell/MenuWindowBase.cs` 的 `BuildTabButton`），中文档下是
+        /// 屏上的字从此走 `Loc.T`（`Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton`），中文档下是
         /// **卡组 / 张牌 / 美容品 / 风格**（出处 → `Core/Loc.cs` 的 **F1** 一节，含那两条**与卡组编辑窗共用**的键）。
         /// **错因**：原来直接画资产里的英文 ⇒ 中文档永远出英文（与 `A1493②` 左竖导航、`A1501` 练习窗同一根因）。</item>
         /// <item>⚠️ <b>本表【四项全是真页签、没有母版】</b> —— 见 `Build()` 里 `BuildShell(..., lastIsMaster: false)`
-        /// 与 `Shell/MenuWindowBase.cs` 的 `BuildBar` doc（判据 = 原版本窗 `TabButtons.tabButtonPrefab` 是 `null`）。
+        /// 与 `Shell/MainMenuSubmenuWindow.cs` 的 `BuildBar` doc（判据 = 原版本窗 `TabButtons.tabButtonPrefab` 是 `null`）。
         /// **本项与 `Label`/`term` 无关，但同一笔账**：这三条是同一个会话里一起查出来的。</item>
         /// </list></para>
         /// <para>⚠️ `Label` 从此只是「原版 TMP 的英文原文」那份记录（`Term` 非空 ⇒ 屏上不画它）；
@@ -948,7 +948,7 @@ namespace CardPresentation
             var cardsVp = ViewportClip.Hang(holder, "Viewport", CardsViewport, Vector4.zero, Vector2Int.zero);
             int n = CardsState.VisibleCards().Count;
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)CardsCols));
-            CardsScroll = MenuScroll.TopAligned(CardsViewport, rows * CardsCellH);
+            CardsScroll = MenuScroll.TopAligned(CardsViewport, rows * CardsCellH, 100f);   // 原版 `m_ScrollSensitivity = 100`（D_N29）
             CardsScroll.Owner = gameObject;
             // 🔴 **A465**：构建循环那一路「整块在视口外就不建」也要吃这颗节点
             //   （⛔ 别改成让 `Intersects` 沿 `Owner` 找 —— `Owner` 是窗根、节点在它下面，找不到）。
@@ -1248,7 +1248,7 @@ namespace CardPresentation
             int n = CosmoTotal;
             BuildWatch.Mark("①b2a `CosmoTotal` = `CardArt.CosmeticNames()`（`Resources.LoadAll` 466 张 / 610 MB）");
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)CosmoCols));
-            CosmoScroll = MenuScroll.TopAligned(CosmoView, rows * CosmoCellH);
+            CosmoScroll = MenuScroll.TopAligned(CosmoView, rows * CosmoCellH, 100f);   // 原版 `Cardback Display/Scroll View` = 100（D_N29）
             CosmoScroll.Owner = gameObject;
             CosmoScroll.ClipNode = cosmoVp;             // 🔴 A465（同卡池页那一条）
             CosmoScroll.OnChanged = () => RebuildCosmoCells(holder);
@@ -1759,7 +1759,7 @@ namespace CardPresentation
             var styleVp = ViewportClip.Hang(holder, "Viewport", StyleView, Vector4.zero, Vector2Int.zero);
             int n = StylesState.VisibleCards().Count;
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)StyleCols));
-            StyleScroll = MenuScroll.TopAligned(StyleView, rows * StyleCellH);
+            StyleScroll = MenuScroll.TopAligned(StyleView, rows * StyleCellH, 100f);   // 原版 `Alternate Art Tab/…/Scroll View` = 100（D_N29）
             StyleScroll.Owner = gameObject;
             StyleScroll.ClipNode = styleVp;             // 🔴 A465（同卡池页那一条）
             StyleScroll.OnChanged = () => RebuildStyleCells(holder);
@@ -2008,7 +2008,7 @@ namespace CardPresentation
                 //    （面板收起时整块 SetActive(false)，滚轮就不该再被这一列吃掉）
                 //    🆕 A11：滑动期间节点是**活着的**（要画）⇒ 那条判据不够用，改由
                 //    `SetDrawerInteractive` 在滑动期间**撤登记**、完全展开再登记回来（见那个函数）。
-                _fltScroll = MenuScroll.TopAligned(FltView, FilterPanelModel.ContentHFor(_flt != null ? _flt.State : null));
+                _fltScroll = MenuScroll.TopAligned(FltView, FilterPanelModel.ContentHFor(_flt != null ? _flt.State : null), 50f);   // 原版 `Card Filters/Scroll View` = 50（D_N29）
                 _fltScroll.Owner = panel.gameObject;
                 _fltScroll.ClipNode = fltVp;                 // 🔴 A465（同上；⚠️ `Owner` 是**面板**、节点在它下面 ⇒ 只能显式给）
                 _fltScroll.OnChanged = () => RebuildFilterRows(p);
@@ -2644,6 +2644,17 @@ namespace CardPresentation
         /// <summary>页头那条分隔线（`Header/Separator Line`，四页同值）。</summary>
         public const float HdrSepT = 150.94f, HdrSepB = 160.94f;
 
+        /// <summary>🆕 **2026-10-17（`A1642`）**：页头**容器** `Header` 的原版矩形 =
+        /// **167.2, 70.9 → 1920.0, 155.9**（1752.83 × 85.00）。
+        /// <para>判据（`python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Select Deck Tab" --depth 4` **现读**）：
+        /// `Select Deck Tab` 的三个孩子依序 = `Decks Tab` · `Select Game Mode Deck Tab`（本窗不建）· **`Header`**，
+        /// 而 `Header` 自己的矩形就是这四个数；它与父件**同左右沿**、只占顶部 85px。</para>
+        /// <para>⚠️ 它的 `Separator Line`（150.94→160.94）**跨出了容器下沿 155.9** —— 原版如此
+        /// （dump 里那颗也是 150.9→160.9）⇒ 别把它当作「容器裁切」的证据去改。</para>
+        /// <para>⛔ 这四个数**只给 `BuildDeckHeader` 建容器用**；另外三页的页头直接挂在各自页节点上
+        /// （原版那三页的页头节点名不叫 `Header`，判据未逐页现读 ⇒ 本批不动，见报告）。</para></summary>
+        public const float HdrL = 167.2f, HdrT = 70.9f, HdrR = 1920.0f, HdrB = 155.9f;
+
         /// <summary>建一条**共用页头**：`Filters` 圆钮 + `icon detail` + `label` + 分隔线 + `Clear filters`。
         /// <paramref name="filterPx"/> / <paramref name="clearPx"/> = **本页自己的**字号（原版逐页不同）。
         /// <paramref name="pageNo"/> = **窗口页号**（0=Deck · 1=Cards · 2=Cosmetics · 3=Styles）——
@@ -2895,7 +2906,7 @@ namespace CardPresentation
             //   → 它的 **`tabButtonPrefab` = `m_PathID 0`（null）**；而 `Content Area/Tab Buttons` 的四个孩子
             //   `Deck` / `Cards` / `CardBacks` / `Alternate Art` 全是 `EverguildToggle`（**没有** `Menu Navigation Panel Button`
             //   那种母版）。⚠️ `Shadow` 是第 5 个孩子，但它不是键（我们走 `BarShadowW` 单独建）。
-            //   改法 = `Shell/MenuWindowBase.cs` 的 `BuildBar` 新增的 `lastIsMaster` 形参（判据 / 四窗逐条实读 → 它的 doc）。
+            //   改法 = `Shell/MainMenuSubmenuWindow.cs` 的 `BuildBar` 新增的 `lastIsMaster` 形参（判据 / 四窗逐条实读 → 它的 doc）。
             //   ⚠️ 缺省 `true` 那一支**逐位等于旧行为** ⇒ 奖励窗/商店一个字没变。
             //   **改坏法**：删掉这个实参 ⇒ 第 4 颗（`Styles`）被当母版关掉 ⇒ 实拍又是「`COSMETICS` 下面整片空」。
             // 🔴 `visualTypes` 在基类里带一个**奖励窗的默认表** ⇒ 本窗必须**整表替换**。
@@ -3087,7 +3098,21 @@ namespace CardPresentation
             //   ⇒ 四页里只有卡背页是 33（它连 `Filters` 那颗也是 35，见 `BuildFilterHeader` 的 `filterPx`）。
             //   ⚠️ 这一颗**只在「这一页有筛选」时才显示**（`RefreshClearFilter`），所以默认态截图上看不出来 ——
             //     但它是**实打实的偏离**，照原版改。
-            BuildFilterHeader(page, 0, 42f, 42f, ClearDeckFilters, ToggleDeckFilters);
+            // ============================================================ 🆕 **2026-10-17（`A1642`）**：页头容器 **`Header`**
+            // 🔴 **原版这一层我们原来根本没有** —— 页头那几件（`Filters Button` / `Filters Label` / `Separator Line` /
+            //   `Control Buttons` / `Clear filters`）是**直接建在 `page`（`Select Deck Tab`）上**的。
+            //   判据（`python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Select Deck Tab" --depth 4` **现读**）：
+            //     `Select Deck Tab` 的直接子件 = **`Decks Tab`** → `Select Game Mode Deck Tab`（本窗不建）
+            //     → **`Header` 167.2,70.9 → 1920.0,155.9（1752.83 × 85.00）**，`Header` 是**最后一个孩子**；
+            //   `Header` 自己的孩子（原版序）= `Filter Toggle` → `Control Buttons` → `Separator Line` → `Filters`
+            //   （`Filters` 里才是 `Clear Filter Button`）。
+            // ⚠️ **换父不动一个像素**：`MenuDraw.Node/Rect/Text` 全走 `Local(parent, 世界矩形)`（= 世界 − 父的世界位置）
+            //   ⇒ 只要父节点的**世界位置**对，子件的世界矩形逐位不变（先例：`Shared ▸ Close Button ▸ Button Text`）。
+            // ⚠️ **四个孩子里我们只建了三件半**（`Filter Toggle` 那三颗 + `Control Buttons` + `Separator Line` +
+            //   `Clear filters`）；原版那层 `Filters`（`GridLayoutGroup` · 592.2,70.9→592.2,155.9）**本批没建** ——
+            //   见报告「没查清」：建了会与本页 `Deck Filters ▸ Filters` **同名**，`FindChild`（按名字取第一个）会取错。
+            var header = Node(page, "Header", new PxRect(HdrL, HdrT, HdrR, HdrB));
+            BuildFilterHeader(header, 0, 42f, 42f, ClearDeckFilters, ToggleDeckFilters);
 
             // 🆕 A98（2026-10-06）：**`Control Buttons` 组节点**（原来两颗钮**直接挂在页节点上**、这一层没建）。
             //    原版参数（我逐字段直读 prefab，不是转抄）：
@@ -3109,7 +3134,7 @@ namespace CardPresentation
             //        布局数学只此一份：`Core/UguiRect.cs`）。
             //    ⚠️ 树序照原版 = **`[Create, Import, Unlock]`** —— 它与**视觉序相反**（`reverse=1`：
             //      视觉左→右 = `Unlock`(1180) → `Import`(1391) → `Create`(1661)）。⛔ 别按「树序 = 视觉序」摆。
-            var ctrl = Node(page, "Control Buttons", new PxRect(CtrlGrpL, CtrlGrpT, CtrlGrpR, CtrlGrpB));
+            var ctrl = Node(header, "Control Buttons", new PxRect(CtrlGrpL, CtrlGrpT, CtrlGrpR, CtrlGrpB));
 
             // 🔴 **2026-10-03 就地更正（A22①）**：常态图原来画的是 `40K_button` —— **原版是 `UI_Button_Mulligan`**
             //（判据 = `资料/普查产出_1003/按钮悬停图_普查.md` §块 3 第 1、2 行：
@@ -3204,7 +3229,21 @@ namespace CardPresentation
         /// <summary>卡组列表（**纵向滚**）：6 列 × 225×364.5、spacing (20,0)、pad L10。</summary>
         public void BuildDeckList(Transform page)
         {
-            var holder = Node(page, "Deck Scroll View", DeckViewport);
+            // ============================================================ 🆕 **2026-10-17（`A1642`）**：容器层级
+            // 🔴 **原版 `Select Deck Tab` 底下是三层容器**（`menu_dump.py … "Select Deck Tab" --depth 4` **现读**）：
+            //     `Select Deck Tab`(167.2,70.9→1920,1080)
+            //       └ `Decks Tab`(同矩形)                       ← 挂 `DeckCollectionTab`，字段 `display`
+            //          └ `Collection Display`(同矩形)          ← 挂 `DeckCollectionDisplay` + `EventRelay`
+            //             ├ `Deck Scroll View`(330.9,155.9→1920,1080)  ← 里面才有 `Empty Collection Warning`
+            //             └ `Deck Filters`    (0.1,155.9→335.6,1080)
+            // 我们原来**这两层都没建**（`Deck Scroll View` / `Deck Filters` 直接挂 `page`）。
+            // ⚠️ 两个容器**与页节点同矩形**（原版它们是**拉伸锚 + `sizeDelta (0,0)`**）⇒ 建出来**像素零变化**，
+            //   只是把树形补齐；子件的世界矩形也不动（`MenuDraw.Local` = 世界 − 父的世界位置）。
+            //   这里直接复用 `TabsRect`（**与页节点 `Node(tabHolder, PageNode(p), TabsRect)` 同一条表达式**）——
+            //   ⛔ 别再抄一份 `167.2/70.9/1920/1080` 的数（铁律：同一条规则只留一处）。
+            var decksTab = Node(page, "Decks Tab", TabsRect);
+            var disp = Node(decksTab, "Collection Display", TabsRect);
+            var holder = Node(disp, "Deck Scroll View", DeckViewport);
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A19）**：裁切状态长在这颗视口节点上
             //   （原版这一页的 `Viewport` 挂着 `RectMask2D`：`m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`
             //    —— 与 `RebuildDeckCells` 里原来那一对 `Clip = DeckViewport; … Clip = prevClip;` 逐字同值）。
@@ -3214,7 +3253,7 @@ namespace CardPresentation
             // ⚠️ **尾巴那一项也是纵向的**（原来写的是横向的 `- DeckSpacingX`）—— 2026-10-11 改的时候漏了它，
             //   内容高少 20 ⇒ 「滚到底 ⇒ 最后一格完整落进视口」那条断言当场红（实测 max=149.4 而不是 169.4）。
             float contentH = rows * (DeckCellH + DeckSpacingY) - DeckSpacingY;
-            DeckScroll = MenuScroll.TopAligned(DeckViewport, contentH);
+            DeckScroll = MenuScroll.TopAligned(DeckViewport, contentH, 100f);   // 原版 `Deck Scroll View` = 100（D_N29）
             DeckScroll.Owner = gameObject;
             DeckScroll.ClipNode = deckVp;               // 🔴 A465（同上）
             DeckScroll.OnChanged = () => RebuildDeckCells(holder);
@@ -3226,8 +3265,14 @@ namespace CardPresentation
             //   Deck `165.88,70.94 → 1970.01,1080`（1804.12×1009.06）· Cards `135.22,…`（1834.78）
             //   · Cosmetics `170.44,…`（1799.56）· Styles `330.22,287.67 → 1920,1080`（= 它自己的视口矩形）。
             // ⚠️ 原来那条「Deck 页没有这一件」是**没查到**，不是不存在。
+            // 🆕 **2026-10-17（`A1642`）**：父件改成 **`Deck Scroll View`**（原版父链逐级现读 =
+            //   `Select Deck Tab ▸ Decks Tab ▸ Collection Display ▸ Deck Scroll View ▸ Empty Collection Warning`）
+            //   —— 我们原来挂在 `page` 上。
+            //   ⚠️ **它现在是 `Deck Scroll View` 的兄弟之外的唯一"常驻"孩子** ⇒ `RebuildDeckCells` 那个
+            //   「留下 `Viewport`、其余全删」的循环**必须也放过它**（否则一滚动/一次筛选就把空态提示删掉，
+            //   而 `_deckEmpty` 变成已销毁对象的引用 ⇒ `RefreshDeckEmpty` 静默失效）—— 那里已同步。
             {
-                var ew = Node(page, "Empty Collection Warning", new PxRect(165.88f, 70.94f, 1970.01f, 1080f));
+                var ew = Node(holder, "Empty Collection Warning", new PxRect(165.88f, 70.94f, 1970.01f, 1080f));
                 // 🔴 **2026-10-18（第三轮整改 · 审查 P4）字走 `Loc.T`** —— 键 = 原版那颗 `Warning` 的
                 //   `Localize.mTerm` 原文 `MenuCollection/NoDecksFound`（全库只 1 颗，就是本窗这一颗：
                 //   `… > Decks Tab > Select Deck Tab > Collection Display > Deck Scroll View >
@@ -3242,7 +3287,17 @@ namespace CardPresentation
                 _deckEmpty = ew;
             }
             RefreshDeckEmpty();
-            BuildDeckFilterDrawer(page);
+            // 🆕 2026-10-17（`A1642`）：`Deck Filters` 挂在 **`Collection Display`** 之下（原版父链逐级现读）
+            BuildDeckFilterDrawer(disp);
+
+            // 🔴 **`Header` 必须是 `Select Deck Tab` 的【最后一个孩子】**（原版 `m_Children` 序 =
+            //   `Decks Tab` → `Select Game Mode Deck Tab` → **`Header`**；本窗不建中间那一项）。
+            //   ⚠️ **不能靠「调整 `CollectionTabPage.Setup()` 里的调用次序」** —— `BuildDeckHeader` 必须排在
+            //   `BuildDeckList` **之前**（页头要先把 `_hdrFltBtn[0]` 等引用建出来，`RefreshFilterToggle`
+            //   那条兜底才读得到；见 `CollectionWindow.Build()` 里「①c 收尾刷」那段注释），
+            //   而且那个文件**不在本批白名单**里 ⇒ 在这里显式挪序。
+            var hdr = page.Find("Header");
+            if (hdr != null) hdr.SetAsLastSibling();
         }
 
         // ============================================================ Deck 页的左抽屉 `Deck Filters`（2026-09-24）
@@ -3514,7 +3569,10 @@ namespace CardPresentation
                 DeckScroll.SetOffset(DeckScroll.Offset);
             }
             var page = PageRoot(0);
-            var holder = page != null ? page.Find("Deck Scroll View") : null;
+            // 🆕 2026-10-17（`A1642`）：`Deck Scroll View` 现在在 **两层容器之下**
+            //   （`Decks Tab ▸ Collection Display ▸ Deck Scroll View`）⇒ `Transform.Find`（只找直接子件）取不到了，
+            //   改走本文件已有的 `FindDeep`（递归按名字找）。
+            var holder = page != null ? FindDeep(page, "Deck Scroll View") : null;
             if (holder != null) RebuildDeckCells(holder);
             RefreshDeckEmpty();
         }
@@ -3539,7 +3597,11 @@ namespace CardPresentation
             for (int i = holder.childCount - 1; i >= 0; i--)
             {
                 var ch = holder.GetChild(i);
-                if (ch.name == "Viewport") continue;             // 视口节点留着
+                // 🔴 **2026-10-17（`A1642`）**：`Empty Collection Warning` 现在也是 `Deck Scroll View` 的孩子
+                //   （原版父链要求）⇒ **必须一起留下**。少了这一句，任何一次滚动 / 筛选 / 重画都会把
+                //   空态提示连根删掉，而 `_deckEmpty` 只是**已销毁对象**的引用 ⇒ `RefreshDeckEmpty` 静默失效
+                //   （画面：筛到空结果时什么都不显示；断言：`DeckEmptyShown` 取不到节点 ⇒ 那条才红）。
+                if (ch.name == "Viewport" || ch.name == "Empty Collection Warning") continue;   // 视口 / 空态提示留着
                 Object.DestroyImmediate(ch.gameObject);
             }
             var vp = holder.Find("Viewport");
@@ -3633,7 +3695,8 @@ namespace CardPresentation
                 if (!CollectionData.Select(i))
                     Debug.LogWarning("[Collection] 选中第 " + i + " 套失败：" + CollectionData.LastSelectError);
                 var pr = PageRoot(0);
-                var holder = pr != null ? pr.Find("Deck Scroll View") : null;
+                // 🆕 2026-10-17（`A1642`）：两层容器之下 ⇒ 改递归找（同 `ApplyDeckFilterChanged` 那条注释）
+                var holder = pr != null ? FindDeep(pr, "Deck Scroll View") : null;
                 if (holder != null) RebuildDeckCells(holder);
             }
             OpenDeckInfo(i);
@@ -3683,7 +3746,8 @@ namespace CardPresentation
         public void RebuildDeckListNow()
         {
             var pr = PageRoot(0);
-            var holder = pr != null ? pr.Find("Deck Scroll View") : null;
+            // 🆕 2026-10-17（`A1642`）：同上 —— `Deck Scroll View` 在两层容器之下，递归找
+            var holder = pr != null ? FindDeep(pr, "Deck Scroll View") : null;
             if (holder != null) RebuildDeckCells(holder);
         }
 

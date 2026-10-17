@@ -138,7 +138,7 @@ namespace CardPresentation
             //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾）—— 同 `ViewportClip.Hang` 里那句
             //   `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
             vc.CaptureNow();
-            _scroll = NewScroll(vp, GridW, 0f, true);      // 纵向；内容高度建完再算
+            _scroll = NewScroll(vp, GridW, 0f, true, 50f);      // 纵向；内容高度建完再算；原版 `Title Tab/Item Display Panel/Scroll Rect` = 50（D_N29）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildRows` 里
             //   `if (!_scroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的状态
             //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 那颗节点就是上面
@@ -158,9 +158,12 @@ namespace CardPresentation
             // 🔴 **A406（2026-10-12）逐站实读**：`Title Tab/Item Display Panel/Select Item`
             //   原版 `auto[18.0~35.0] 基准=26.1` ⇒ 上限 35（= 标称）· base **26.1**。判据 =
             //   `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`。
+            // 🔴 **A1024③（2026-10-17）换面**：本页只有**选中项那颗** `Avatar Name` 是 `Asar-Regular SDF`
+            //    （判据 = `menu_dump … "Player Profile Window"` 的 `Title Tab ▸ Selected Item Panel ▸ Avatar Name`，
+            //    样本 `'Warrior of the Raging Winds'`）；`Select Item` / `Button Text` / 格子里的 `Name` 都是 **Pragati**。
             Text(disp, TtlLabel, new PxRect(TtlL, TtlT, TtlR, TtlB), Color.white, "Select Item",
                  TtlPx, 3, autoFit: true, autoMinPx: TtlAutoMin, alignLeft: true, wrap: true,
-                 autoMaxPx: 35f, basePx: 26.1f);
+                 autoMaxPx: 35f, basePx: 26.1f, face: TmpFont.Face.LatinCardBody);
 
             // ---- ② `Selected Item Panel`：当前选中的称号（图 + 名 + 选择钮）----
             var sel = Node("Selected Item Panel", new PxRect(SelL, SelT, SelR, SelB));
@@ -174,7 +177,7 @@ namespace CardPresentation
             //   **它此前是死常量**，本件才第一次接上）· base **36.0**（同一条 dump）。
             _nameLabel = Text(sel, "", new PxRect(NameL, NameT, NameR, NameB), NameColor, "Avatar Name",
                               NamePx, 5, autoFit: true, autoMinPx: NameAutoMin, alignLeft: false, wrap: true,
-                              autoMaxPx: NameAutoMax, basePx: 36f);
+                              autoMaxPx: NameAutoMax, basePx: 36f, face: TmpFont.Face.LatinUi);
 
             // 钮：**图和文字都挂在钮节点【里面】**（照原版树：`Select Avatar Button > Button Text`）
             var btn = Node(sel, "Select Avatar Button", new PxRect(BtnL, BtnT, BtnR, BtnB));
@@ -188,7 +191,7 @@ namespace CardPresentation
             //   原版 `auto[10.0~36.0] 基准=12.0` ⇒ 上限 36（= 标称）· base **12.0**。
             var lbBtn = Text(btn, BtnLabel, new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB), Color.white, "Button Text",
                  BtnTxtPx, 7, autoFit: true, autoMinPx: BtnTxtAutoMin, alignLeft: false, wrap: false,
-                 autoMaxPx: 36f, basePx: 12f);
+                 autoMaxPx: 36f, basePx: 12f, face: TmpFont.Face.LatinCardBody);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版
             //   `Title Tab/Selected Item Panel/Select Avatar Button/Button Text`（`'Selecionar'`）
             //   = `对齐=Center/**Capline**`（判据 = 上面 :176-179 那条 dump 原文；`--depth 25 --md` 同报
@@ -244,7 +247,7 @@ namespace CardPresentation
                 var cellR = new PxRect(r.x1 + 8f, r.y1 + 8f, r.x2 - 8f, r.y2 - 8f);
                 var lbCell = Text(cell, items[i].Name, cellR,
                      Color.white, "Name", 30f, 2, autoFit: true, autoMinPx: 12f, alignLeft: false, wrap: false,
-                     autoMaxPx: 75f, basePx: 36f);
+                     autoMaxPx: 75f, basePx: 36f, face: TmpFont.Face.LatinCardBody);
                 // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版模板
                 //   `Title Drawer Horizontal Variant/Content > Label > Name` 实读
                 //   `对齐=Center/**Midline**`（判据 = 上面 :220-227 那两段引的同一条 dump）。

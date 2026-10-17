@@ -129,7 +129,7 @@ namespace CardPresentation
         //   ⇒ **拉丁文本（页签、按钮、卡面英文、数字）也在用汉字字体渲**。
         //
         // 🔴 **它造成的真实后果（账 `A1927` 就是这么暴露的）**：三份拉丁字体的**字形高度其实差不多**
-        //   （实测「拉丁大写高 ÷ fontSize」`Asar 0.0685` / `Pragati 0.0656` / `Noto ≈0.0683`），
+        //   （实测「拉丁大写高 ÷ fontSize」`Asar 0.0685` / `Pragati 0.0656` / `Noto 0.0779（2026-10-17 订正：原写 ≈0.0683 是 em 口径推算、非实测）`），
         //   **差得多的是【行盒】**：`Pragati 0.9474 em` ↔ `Noto 1.437 em`。
         //   而 TMP 的**自适应是按行盒判「装不装得下」**的 ⇒ 卡组左栏那颗费用数字：
         //   原版（Pragati，`em≈50px` ⇒ 行盒 `47.4px`）**装得下、停在 `m_fontSizeMax = 50`**；
@@ -229,7 +229,9 @@ namespace CardPresentation
         /// 🔴 **为什么不能直接量 `'国'`**：只有 CJK 那份有汉字；拉丁三份量出来的是 `.notdef` 方框（实测 0.0622），
         ///   拿它当 em 会把字号算错一大截。**统一口径** = `量一个大写字母 ÷ (faceInfo.capLine ÷ pointSize)`：
         ///   大写字母高 = `capLine/pointSize` em ⇒ 反推出 1 em。**对 `Noto` 自洽验证过**：
-        ///   `0.0683 ÷ 0.72 ≈ 0.0948` = 汉字实测值（两者一致 ⇒ 这条式子是通的）。
+        ///   `0.0779 ÷ 0.8217 ≈ 0.0948` = 汉字实测值（两者一致 ⇒ 这条式子是通的）。
+        ///   🔴 **2026-10-17 订正（`A1235`）**：原写 `0.0683 ÷ 0.72 ≈ 0.0948` —— `0.0683` 是 em 口径**推算**值、
+        ///   不是实测;TTF 实读 `'M'` 729 / `'国'` 898（upem 1000，含 padding）⇒ `Wcap = 0.0779`、`Wglyph = 0.0948`。
         /// ⚠️ `Face.Cjk` 这一支**直接返回既有那个缓存值**（`WorldGlyphPerFontSize`）—— 保证零行为变化。</summary>
         public static float EmPerFontSize(Face f)
         {
@@ -257,7 +259,7 @@ namespace CardPresentation
 
         /// <summary>「一个**拉丁大写字母**有多高 ÷ fontSize」，**按面**。`Face.Cjk` 这一支返回既有缓存值
         /// （`WorldCapPerFontSize`）⇒ 零行为变化。
-        /// ⚠️ 三份拉丁字体这一项实测**很接近**（`Pragati 0.0656` · `Asar 0.0685` · `Noto ≈0.0683`）
+        /// ⚠️ 三份拉丁字体这一项实测**很接近**（`Pragati 0.0656` · `Asar 0.0685` · `Noto 0.0779（2026-10-17 订正：原写 ≈0.0683 是 em 口径推算、非实测）`）
         ///   ⇒ **换面本身几乎不改变字形大小**；真正会变的量在**行盒**（见 `EmPerFontSize` 上面那段）。</summary>
         public static float CapPerFontSize(Face f)
         {

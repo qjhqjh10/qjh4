@@ -293,16 +293,16 @@ namespace CardPresentation
             var desc = OfficialTerm(_ctx.DescTerm, DescEn, DescZh);
             // `TitleText`：fs 34 · 基准 47.73 · auto[20~34] · 折行 1 · 白 · Center/**Bottom**(1024)
             _title = MenuDraw.Text(_texts, TitleR, title, Color.white, "TitleText",
-                                   TitleFont, QText, TitleR.W, TitleFontMin, TitleFontMax, TitleFontBase);
+                                   TitleFont, QText, TitleR.W, TitleFontMin, TitleFontMax, TitleFontBase, face: TmpFont.Face.LatinUi);
             MenuDraw.SetVAlign(_title, Label.VAlign.Bottom, TitleR);
             // `DescriptionText`：fs 28 · 基准 22.5 · auto[18~28] · 折行 1 · 白 · Center/Middle(512)
             _desc = MenuDraw.TextBox(_texts, DescR, desc, Color.white, "DescriptionText",
-                                     DescFont, DescFontMin, QText, DescFontMax, DescFontBase);
+                                     DescFont, DescFontMin, QText, DescFontMax, DescFontBase, face: TmpFont.Face.LatinCardBody);
             // `Tap To continue`：fs 30 · 基准 60 · auto[18~30] · 折行 1 · 色 (0.627,0.616,0.631) · Center/**Capline**(8192)
             var tapText = Loc.HasEntry(TapTerm) ? Loc.T(TapTerm)
                                                : (Loc.Current == AvailableLanguages.Chinese ? TapZh : TapEn);
             _tap = MenuDraw.TextBox(_texts, TapR, tapText, TapColor, "Tap To continue",
-                                    TapFont, TapFontMin, QText, TapFontMax, TapFontBase);
+                                    TapFont, TapFontMin, QText, TapFontMax, TapFontBase, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(_tap, Label.VAlign.Capline, TapR);
 
             // `BlinkGraphic`（原版挂在这颗 TMP 上；`blinkSpeed 1.0` / `colorVariation 0.5` = 出厂值）

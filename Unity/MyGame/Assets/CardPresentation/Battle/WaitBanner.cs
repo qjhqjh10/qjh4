@@ -396,6 +396,9 @@ namespace CardPresentation
             _text = Label.Create(transform, Loc.T(WaitTerm),
                                  new Vector3(cx, cy, Z - 0.01f), 4,
                                  new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f), "wait_text");
+            // 🔴 2026-10-17（A1024③ 逐行对账）：原版 `WaitText/Generic Popup Background/Text` = Pragati。
+            //    `Label.Create` 无 face 形参 ⇒ 建完立刻换面（早于下面 `SetAutoFitBox` / 定字号）。
+            if (_text != null) _text.SetFace(TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-16（`A2102⑤` / R6）：这颗文字【自己有框与字号】，我们原来一个都没接。**
             //   判据（`B5` 表一 R6 + 主对话现读那颗 TMP 的字段 `MonoBehaviour_4090.json`）：
             //   框 **1270 × 70**（画布 px）· `m_enableAutoSizing = 1` · `m_fontSize = 55.3` ·
@@ -521,7 +524,7 @@ namespace CardPresentation
             // ---- 字（原版 `Generic Popup Background/Text`：框 1270×70 · 自适应 [18, 55.3] · base 36）----
             _text = HudCanvas.MakeText(host, Loc.T(WaitTerm), 0f, 0f, 4,
                                        new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f),
-                                       Z - 0.01f, "wait_text");
+                                       Z - 0.01f, "wait_text", face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-16（`A2102⑤` / R6）：这颗文字【自己有框与字号】，我们原来一个都没接。**
             //   判据（`B5` 表一 R6 + 主对话现读那颗 TMP 的字段 `MonoBehaviour_4090.json`）：
             //   框 **1270 × 70**（画布 px）· `m_enableAutoSizing = 1` · `m_fontSize = 55.3` ·
