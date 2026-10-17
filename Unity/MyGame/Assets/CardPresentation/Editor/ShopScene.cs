@@ -2377,6 +2377,7 @@ public static class ShopScene
             CheckTrue(pgA != null && ShopData.Offers(0)[3].Type == "Booster Pack",
                       "第 4 件是卡包（`Type == \"Booster Pack\"`）");
             int beforeA = ShopData.OwnedOf(0, 3);
+            BoosterPackOpenWindow.ResetReOpenProtectionForTest();   // 防连开是**静态跨窗口**状态 ⇒ 本段从零起
             if (pgA != null) pgA.Buy(3);
             Check(ShopData.OwnedOf(0, 3), beforeA + 1, "买了第 4 件 ⇒ 拥有数 +1");
 
@@ -2440,7 +2441,7 @@ public static class ShopScene
                     CheckNear(PxYOf(s.position.y), 540f, 0.6f, "第 " + (i + 1) + " 格 y = 540（容器中心）");
                 }
                 // 卡背**渲出来**的尺寸 = 2.17×3.14 卡单位 × `CardK` = 287.12 × 415.47
-                CheckRectPx(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 3/Cardback Container/Cardback"),
+                CheckRectPx(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 3/Content/Cardback Container/Cardback"),
                             960f - 2.17f * CardK * 0.5f, 960f + 2.17f * CardK * 0.5f,
                             540f - 3.14f * CardK * 0.5f, 540f + 3.14f * CardK * 0.5f,
                             "第 3 格卡背渲出来的矩形（2.17×3.14 卡单位 × CardK=132.3153）");
@@ -2507,29 +2508,29 @@ public static class ShopScene
                 // ---- 出场态：**卡背开着、卡面关着、三个角标全关、两段提示字全关** ----
                 for (int i = 1; i <= 5; i++)
                 {
-                    var bc = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI " + i + "/Cardback Container");
-                    var fd = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI " + i + "/2DCard");
+                    var bc = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI " + i + "/Content/Cardback Container");
+                    var fd = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI " + i + "/Content/2DCard");
                     CheckTrue(bc != null && bc.gameObject.activeSelf, "第 " + i + " 格**卡背**开着（原版 `ChangeState(1)`）");
                     CheckTrue(fd != null && !fd.gameObject.activeSelf, "第 " + i + " 格**卡面**关着（翻之前）");
                 }
-                var up1 = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Card Ready for level up");
-                var nb1 = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/New Card Badge");
-                var ban1 = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Ban Icon");
+                var up1 = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Content/Card Ready for level up");
+                var nb1 = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Content/New Card Badge");
+                var ban1 = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Content/Ban Icon");
                 CheckTrue(up1 != null && !up1.gameObject.activeSelf,
                           "`Card Ready for level up` 建成、出厂 **INACT**（翻牌后才按判据决定）");
                 CheckTrue(nb1 != null && !nb1.gameObject.activeSelf,
                           "`New Card Badge` 建成、关着（`BasicCardUI.SetRawCardData` 一进来就 `SetActive(false)`）");
                 CheckTrue(ban1 != null && !ban1.gameObject.activeSelf,
                           "`Ban Icon` 建成、**恒不显示**（`SetRawCardData` 末尾关它，翻牌链从不 `ToggleBanned`）");
-                CheckArt(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Card Ready for level up/Image"),
+                CheckArt(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Content/Card Ready for level up/Image"),
                          "Card_Ready_For_Level_Up", "`Card Ready for level up` 的图");
-                CheckArt(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Ban Icon/Image"),
+                CheckArt(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Content/Ban Icon/Image"),
                          "40k_Cross_icon_cross_big_Banned_card", "`Ban Icon` 的图");
                 CheckTrue(bp.NewBadges[0] != null && bp.BanIcons[0] != null && bp.UpBadges[0] != null,
                           "三件角标都建出来了（不是没做）");
-                Check(TextOf(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/New Card Badge/Text")),
+                Check(TextOf(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Content/New Card Badge/Text")),
                       BoosterPackOpenWindow.NewBadgeText, "`New Card Badge/Text` 的文案");
-                Check(TextOf(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Ban Icon/Banned Text")),
+                Check(TextOf(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Content/Ban Icon/Banned Text")),
                       BoosterPackOpenWindow.BannedText, "`Ban Icon/Banned Text` 的文案");
 
                 // ---- ⑤⑥ 两段提示字 ----
@@ -2612,20 +2613,122 @@ public static class ShopScene
                 CheckTrue(bp.Cards != null && bp.Cards.Length == 5, "这一包正好 5 张 `CardDef`");
                 CheckTrue(BoosterPackOpenWindow.RarityInt(null) == 0, "`RarityInt(null)` = 0（不抛）");
 
+                // ================================================================
+                // 🆕 **T19：动画的纯函数（判据 = 原版三份 clip 的关键帧 / MB 的 `contentByRarities[]`）**
+                //  ⛔ 期望值全写原版字面量（clip 时长 / 事件时刻 / 角度 / 0.95 压扁 / MB 公式），
+                //     ⛔ **不读** `BoosterPackAnim` 的常量当期望（那是自证）。
+                Check(BoosterPackAnim.KindForRarity(0), BoosterFlipKind.Normal, "稀有度 0 ⇒ `Card Open Normal`（MB `contentByRarities[0]`）");
+                Check(BoosterPackAnim.KindForRarity(2), BoosterFlipKind.Normal, "稀有度 2 ⇒ 还是 Normal（`contentByRarities[2]` 的 clip 与 `[0]` **同一个 pid**）");
+                Check(BoosterPackAnim.KindForRarity(3), BoosterFlipKind.Rare, "稀有度 3 ⇒ `Card Open Rare`");
+                Check(BoosterPackAnim.KindForRarity(4), BoosterFlipKind.Legendary, "稀有度 4 ⇒ `Card Open Legendary`");
+                CheckNear(BoosterPackAnim.FlipDuration(BoosterFlipKind.Normal), 0.6666667f, 1e-4f,
+                          "Normal clip 时长 = **0.6666667 s**（末帧关键帧）");
+                CheckNear(BoosterPackAnim.FlipDuration(BoosterFlipKind.Rare), 1.1666667f, 1e-4f,
+                          "Rare clip 时长 = **1.1666667 s**");
+                CheckNear(BoosterPackAnim.FlipDuration(BoosterFlipKind.Legendary), 1.5f, 1e-4f,
+                          "Legendary clip 时长 = **1.5 s**");
+                CheckNear(BoosterPackAnim.FlipRevealTime(BoosterFlipKind.Normal), 0.45f, 1e-4f,
+                          "Normal 的 `EnableCardBackAnimEvent` = **0.45 s**（=`m_ScaleCurves` 端点 x=-1 那一刻）");
+                CheckNear(BoosterPackAnim.FlipSquash(BoosterFlipKind.Rare, 0.5f), 0.95f, 1e-4f,
+                          "Rare 在 0.5 s 压扁到 **0.95**（`m_ScaleCurves`）");
+                CheckNear(BoosterPackAnim.WindowOpenScale(0f), 157.58151f / 151f, 1e-5f,
+                          "开包瞬间卡缩放 = **157.58151 / 151**（`Booster Window Open` 的 `m_ScaleCurves`）");
+                CheckNear(BoosterPackAnim.WindowOpenScale(0.6166667f), 1f, 1e-5f, "…末帧收到 **151**（倍率 1）");
+                {
+                    // 防连开（`CalculateReOpenProtectionDelay`）：60 s 窗口 · >4 次后每次 +0.15 · 上限 2 · <=0.15 ⇒ 0
+                    float dly = 0f; int cc = 0;
+                    CheckNear(BoosterPackAnim.StepProtection(1000f, ref dly, ref cc), 0f, 1e-5f,
+                              "防连开：距上次 **1000 s** ⇒ 清零、不延迟");
+                    float d1 = 0f; int c1 = 0;
+                    float r1 = 0f;
+                    for (int k = 0; k < 4; k++) r1 = BoosterPackAnim.StepProtection(1f, ref d1, ref c1);
+                    CheckNear(r1, 0f, 1e-5f, "防连开：前 **4** 次连开都不延迟");
+                    CheckNear(BoosterPackAnim.StepProtection(1f, ref d1, ref c1), 0f, 1e-5f,
+                              "…第 **5** 次：delay 累到 0.15 ⇒ **仍按 0**（原版 `if (ret <= 0.15) ret = 0`）");
+                    CheckNear(BoosterPackAnim.StepProtection(1f, ref d1, ref c1), 0.3f, 1e-4f,
+                              "★ …第 **6** 次 ⇒ **0.3 s**（0.15 + 0.15；原版立即数）");
+                }
+
+                // ================================================================
+                // 🆕 **2026-10-17（界面线 T19）：动画状态机（开包 clip → 翻牌 → 收尾）**
+                //  判据 = `Shell/BoosterPackAnim.cs` 文件头（原版 7 条 clip 的关键帧 + 反编译方法体）。
+                //  ⛔ 期望值写**原版字面量**（clip 时刻 / 角度 / MB 字段），⛔ 不读 `BoosterPackAnim` 的返回值当期望。
+                //  ⏱ 时序一律用 `bp.Advance(dt)` 推进（**不睡真实时间** —— 批处理没有帧循环）。
+                Check(bp.CardStates[0], (int)BoosterPackOpenWindow.CardState.Back,
+                      "出场：第 1 格 state = **1（卡背态）**（原版 `Initialize` 末尾 `ChangeState(1)`）");
+                CheckTrue(!bp.WindowOpenDone, "开包 clip 还没播完（`Booster Window Open` = 0.6166667 s）");
+                if (bp.SlotHits[0] != null) bp.SlotHits[0].ClickForTest();
+                CheckTrue(!bp.Opened[0],
+                          "…开包 clip 播完之前点卡**无效**（原版 `UiColliderOnClick`：`state != 2` 直接 return）");
+                bp.Advance(0.3f);
+                CheckTrue(!bp.WindowOpenDone, "推进 0.3 s ⇒ 还没播完（< 0.6166667）");
+                bp.Advance(0.35f);
+                CheckTrue(bp.WindowOpenDone, "★ 推进到 0.65 s ⇒ 开包 clip 播完（`AnimationEndEvent`）");
+                Check(bp.CardStates[0], (int)BoosterPackOpenWindow.CardState.Ready,
+                      "★ …第 1 格转 **state 2（可交互）**（原版 `AnimationEndEvent` 逐张 `ChangeState(2)`；"
+                      + "把 `Advance` 里那一段删掉 ⇒ 红）");
+                CheckTrue(bp.SlotHits[0].gameObject.activeSelf, "…命中区还开着");
+
                 // ---- 翻牌（原版 `CardInBoosterPack.UiColliderOnClick` → `ChangeState(3)`）----
                 int left0 = bp.CardsLeft;
                 Check(left0, 5, "出场时 5 张都还没翻");
                 CheckTrue(bp.SlotHits[0] != null, "第 1 格的命中区建了");
                 if (bp.SlotHits[0] != null) bp.SlotHits[0].ClickForTest();
-                CheckTrue(bp.Opened[0], "点第 1 格 ⇒ **翻了**（`Opened[0]`）");
+                Check(bp.CardStates[0], (int)BoosterPackOpenWindow.CardState.Opening,
+                      "★ 点第 1 格 ⇒ 进入 **state 3（翻牌中）**（原版 `ChangeState(3)`）");
+                CheckTrue(bp.Opened[0],
+                          "…`Opened[0]`（原版 `CardOpened` 在 `ChangeState(3)` **开头**就记账，不等动画播完）");
                 Check(bp.CardsLeft, 4, "…`cardsLeftToOpen` 自减（原版 `CardOpened`）");
-                CheckTrue(!FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Cardback Container").gameObject.activeSelf,
-                          "…卡背关掉");
-                CheckTrue(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/2DCard").gameObject.activeSelf,
-                          "…卡面开出来");
-                CheckTrue(bp.SlotHits[0] == null || !bp.SlotHits[0].gameObject.activeSelf,
-                          "…翻开的卡**不再吃点击**（原版 `ChangeState` 只在该卡 state==2 时可交互）");
+                var k0 = BoosterPackAnim.KindForRarity(BoosterPackOpenWindow.RarityInt(bp.Cards[0]));
+                float rev0 = BoosterPackAnim.FlipRevealTime(k0);
+                float dur0 = BoosterPackAnim.FlipDuration(k0);
+                CheckTrue(rev0 > 0.4f && dur0 > rev0,
+                          "（前提）第 1 张的 clip 有明确的中段/末段（rev=" + rev0.ToString("F4")
+                          + " · dur=" + dur0.ToString("F4") + "）");
+                var c0 = bp.ContentNodes[0];
+                CheckTrue(c0 != null, "第 1 格有 `Content` 节点（原版 `CardInBoosterPack > Content` —— 翻的是它）");
+                // 蓄力段：Normal 的 clip 在 t=0.25 时偏航 = +27.19°（`m_RotationCurves` 逐帧实读）
+                bp.Advance(0.25f);
+                if (c0 != null && k0 == BoosterFlipKind.Normal)
+                    CheckNear(c0.localRotation.eulerAngles.y, 27.19f, 2.0f,
+                              "★ 蓄力：0.25 s 时 `Content` 偏航 ≈ **+27.19°**（原版 clip 关键帧；⛔ 不是直接翻）");
+                var back0 = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Content/Cardback Container");
+                CheckTrue(back0 != null && back0.gameObject.activeSelf,
+                          "…还没到中段 ⇒ 卡背**还开着**（原版 `EnableCardBackAnimEvent` 那一刻才 `ToggleCardBack(false)`）");
+                // 推进过 `EnableCardBackAnimEvent`
+                bp.Advance(rev0 - 0.25f + 0.02f);
+                CheckTrue(back0 != null && !back0.gameObject.activeSelf,
+                          "★ 跨过中段（" + rev0.ToString("F4") + " s）⇒ 卡背关掉（`EnableCardBackAnimEvent`）");
+                var face0 = FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 1/Content/2DCard");
+                CheckTrue(face0 != null && face0.gameObject.activeSelf, "…卡面开出来");
+                if (c0 != null)
+                    CheckNear(c0.localScale.x, -1f, 0.01f,
+                              "★ …`Content.localScale.x` = **-1**（原版 clip 末帧的镜像纠正；⛔ 少了它卡面是反的）");
+                // 🔴 **2026-10-17（T19 收尾）就地订正**：原来这条断的是「翻开的卡**不再吃点击**」——
+                //   **与原版不符**：翻完之后原版把 `CardInBoosterPack.CardClicked` 挂回这颗 collider
+                //   （`CardClicked.c` → `CardDisplayWindow.ShowCard`）⇒ 再点会开详情窗。
+                //   正确的两半：① 翻牌**进行中**点了什么都不发生；② 翻完再点 ⇒ 开详情窗（下面那条）。
+                int stateBefore = bp.CardStates[0];
+                if (bp.SlotHits[0] != null) bp.SlotHits[0].ClickForTest();
+                Check(bp.CardStates[0], stateBefore,
+                      "…翻牌**进行中**点它 ⇒ 状态不变（原版 `CardClicked` 只挂在翻完之后）");
                 CheckTrue(!disc.gameObject.activeSelf, "…`Tap to discover` 收掉（原版 `CardOpened`）");
+                bp.Advance(dur0 - rev0);
+                Check(bp.CardStates[0], (int)BoosterPackOpenWindow.CardState.Open,
+                      "★ 推进到 " + dur0.ToString("F4") + " s ⇒ state 5（`FinishedOpeningAnimEvent` + `ResetContentAnimation`）");
+                if (c0 != null)
+                {
+                    CheckNear(c0.localRotation.eulerAngles.y, 0f, 0.5f,
+                              "★ …收尾旋转归零（原版 `ResetContentAnimation`）");
+                    CheckNear(c0.localScale.x, 1f, 0.01f, "★ …收尾缩放归 1（镜像是翻牌中间态，不该留）");
+                }
+                // 🆕 **2026-10-17（T19 收尾）**：翻完再点 ⇒ 原版 `CardClicked` → `CardDisplayWindow.ShowCard`
+                //   （菜单场景那扇 = 我们的 `Shell/CardDetailPopup`）。⛔ 不是「翻开的卡不再吃点击」。
+                if (bp.SlotHits[0] != null) bp.SlotHits[0].ClickForTest();
+                CheckTrue(CardDetailPopup.LastOpened != null && CardDetailPopup.LastOpened.IsOpen(),
+                          "★ 翻开的卡再点 ⇒ **开卡片详情窗**（原版 `CardInBoosterPack.CardClicked`）"
+                        + " —— 🧨 改坏法：把 `OnSlotClick` 的 `Open` 分支删掉 ⇒ 红");
+                if (CardDetailPopup.LastOpened != null) CardDetailPopup.LastOpened.Close();
                 // 播粒子（原版 `Instantiate(contentByRarities[rarity].particles, card.transform)`）
                 CheckTrue(bp.PlayedFx.Count >= 1,
                           "翻牌**播了粒子**（" + bp.PlayedFx.Count + " 次 · `" + string.Join("`,`", bp.PlayedFx.ToArray())
@@ -2634,6 +2737,7 @@ public static class ShopScene
                 // 剩下 4 张全翻 ⇒ `Tap to close` 出现（原版 `cardsLeftToOpen` 归零那条）
                 for (int i = 1; i < 5; i++)
                     if (bp.SlotHits[i] != null) bp.SlotHits[i].ClickForTest();
+                bp.Advance(1.6f);                                   // ≥ 最长那条 clip（Legendary 1.5 s）
                 Check(bp.CardsLeft, 0, "5 张全翻开");
                 CheckTrue(clos.gameObject.activeSelf, "全翻开 ⇒ `Tap to close` 出现");
 
@@ -2712,6 +2816,48 @@ public static class ShopScene
                 // 🆕 2026-10-15（A810①）：走公共口 `CheckNoMissingArt`（「0 才绿」的唯一一份）
                 CheckNoMissingArt(bp.MissingArt, "开包窗（这一扇）");
                 Debug.Log(P + "   " + bp.Dump());
+
+                // ================================================================
+                // 🆕 **T19：快速开包（内部 API）** —— 🔴 **原版没有这个入口**（prefab 整棵树逐节点 dump 过：
+                //   background / Booster Animation Parent / Cards / 5×CardInBoosterPack / Tap to discover /
+                //   Tap to close / Collider —— 没有 skip / open-all 件；MB 里也只有 `useQuickOpenProtection`）
+                //   ⇒ 只断 API 的语义（终态 / 张数 / 全部可见），不断任何按钮。
+                ClosePackAndReopenShop(win);
+                {
+                    BoosterPackOpenWindow.ResetReOpenProtectionForTest();  // 第二包也不带上一包的连开计数
+                    var pgQ = win.PageOf(0);                        // ⚠️ `Buy` 会 `Setup()` 重建页内容 ⇒ 现取
+                    if (pgQ != null) pgQ.Buy(3);                    // 再买一件 ⇒ 开第二包
+                    var bp2 = pgQ != null ? pgQ.LastBoosterPack : null;
+                    CheckTrue(bp2 != null && bp2 != bp, "★ 再买一件 ⇒ 开出**第二包**（快速开包用）");
+                    if (bp2 != null)
+                    {
+                        Check(bp2.CardsLeft, 5, "（前提）第二包 5 张都没翻");
+                        CheckTrue(!bp2.WindowOpenDone, "（前提）开包 clip 还没播完");
+                        bp2.QuickOpenAll();
+                        CheckTrue(bp2.WindowOpenDone, "★ 快速开包 ⇒ **开包 clip 直接跳过**（不等 0.6167 s）");
+                        Check(bp2.QuickOpens, 1, "★ 调用记 **1** 次（入口判据未定 —— 只有内部 API `QuickOpenAll()`）");
+                        Check(bp2.CardsLeft, 0, "★ `cardsLeftToOpen` 归零");
+                        int opQ = 0, stQ = 0, faceQ = 0, backQ = 0;
+                        for (int i = 0; i < 5; i++)
+                        {
+                            if (bp2.Opened[i]) opQ++;
+                            if (bp2.CardStates[i] == (int)BoosterPackOpenWindow.CardState.Open) stQ++;
+                            if (bp2.FaceNodes[i] != null && bp2.FaceNodes[i].activeSelf) faceQ++;
+                            if (bp2.BackNodes[i] != null && bp2.BackNodes[i].activeSelf) backQ++;
+                        }
+                        Check(opQ, 5, "★ …5 张 `Opened` 全真");
+                        Check(stQ, 5, "★ …5 张状态全 = 5（收尾）");
+                        Check(faceQ, 5, "★ …**5 张卡面全可见**");
+                        Check(backQ, 0, "★ …5 张卡背全关");
+                        CheckTrue(bp2.CloseNode != null && bp2.CloseNode.gameObject.activeSelf,
+                                  "★ …`Tap to close` 出现（5 张都翻开了）");
+                        CheckTrue(bp2.ContentNodes[0] != null
+                                  && Mathf.Abs(bp2.ContentNodes[0].localRotation.eulerAngles.y) < 0.5f,
+                                  "★ …`Content` 旋转归零（跳过动画 ⇒ 不留翻牌中间态）");
+                        bp2.Close();
+                    }
+                }
+
                 // 收尾：这一扇已经关掉了，把商店开回来给实拍用
                 ClosePackAndReopenShop(win);
             }
@@ -4351,6 +4497,52 @@ public static class ShopScene
                           "★ 命中区**整块盖住**画出来的按钮底（实测 x " + jx1.ToString("F2") + ".." + jx2.ToString("F2")
                           + " · y " + jy1.ToString("F2") + ".." + jy2.ToString("F2") + "）—— 「命中区 ⊇ 实绘矩形」");
                 gopB.Close();
+            }
+
+            // ---------------- L2-①c 🆕 2026-10-17（A1715②）：**点下去真的跑回调** ----------------
+            //  `A1715①`（`OptButton.OnClick` + `OnButton` 真调）已于 2026-10-12（`A1045`）落地，
+            //  但本节原来只验「建起来」⇒ `A1715②` 的断言缺口在这里补上（铁律：不许用「建出来了」代替「点得动」）。
+            //  判据（原版）：`GenericOptionsPanel__SetButtons.c` —— `Button.OnClick` 由调用方挂、点下去跑它；
+            //  `Interactable = false` ⇒ **连派发都没有**（`Selectable.OnPointerClick` 头一句）；
+            //  `AutoClose = true` ⇒ 回调之后**顺带关窗**（原版给每颗多挂一个 `AddListener(this.Close)`）。
+            {
+                int alpha = 0, beta = 0, locked = 0, auto = 0;
+                var gopC = WindowsManager.OpenGenericOptionsPanel(new GenericOptionsPanel.Context
+                {
+                    Title = "FixtureClick",
+                    Buttons = new[]
+                    {
+                        new GenericOptionsPanel.OptButton { Text = "Alpha", Interactable = true, OnClick = () => alpha++ },
+                        new GenericOptionsPanel.OptButton { Text = "Beta", Interactable = true, OnClick = () => beta++ },
+                        new GenericOptionsPanel.OptButton { Text = "Locked", Interactable = false, OnClick = () => locked++ },
+                        new GenericOptionsPanel.OptButton { Text = "Auto", Interactable = true, AutoClose = true, OnClick = () => auto++ },
+                    },
+                });
+                CheckTrue(gopC != null && gopC.BuiltButtons == 4, "（夹具）喂 4 颗按钮 ⇒ `BuiltButtons = 4`");
+                Transform BtnHit(int i)
+                {
+                    var bn = FindChild(FindChild(gopC.transform, "Buttons"), "Button " + i);
+                    return bn != null ? FindChild(bn, "Hit") : null;
+                }
+                var h0 = BtnHit(0);
+                CheckTrue(h0 != null && h0.GetComponent<WindowButton>() != null,
+                          "（前提）`Button 0/Hit` 上挂着 `WindowButton`（下面四条点的是**生产那条路**，⛔ 不直调 `OnClick`）");
+                if (h0 != null) h0.GetComponent<WindowButton>().ClickForTest();
+                Check(alpha, 1, "★ 点第 1 颗 ⇒ 调用方挂的 `OnClick` **真的跑了一次**（A1715② 的核心）");
+                Check(beta, 0, "（反例）第 2 颗的回调**没被顺带跑**");
+                CheckTrue(gopC.IsOpen(), "（前提）普通钮点完**窗还开着**（`AutoClose = false`）");
+                var h1 = BtnHit(1);
+                if (h1 != null) h1.GetComponent<WindowButton>().ClickForTest();
+                Check(beta, 1, "★ 点第 2 颗 ⇒ **它自己**的回调跑一次（不是「点哪颗都跑第 1 颗」）");
+                var h2 = BtnHit(2);
+                if (h2 != null) h2.GetComponent<WindowButton>().ClickForTest();
+                Check(locked, 0, "★ `Interactable = false` ⇒ **连派发都没有**（原版 `Selectable.OnPointerClick` 头一句）");
+                CheckTrue(gopC.IsOpen(), "（反例）被闸挡住那一下**没有顺带关窗**");
+                var h3 = BtnHit(3);
+                if (h3 != null) h3.GetComponent<WindowButton>().ClickForTest();
+                Check(auto, 1, "★ `AutoClose = true` ⇒ 回调**照跑**（关窗之前）");
+                CheckTrue(!gopC.IsOpen(), "★ 而且**窗真的关了**（原版 `SetButtons` 给每颗多挂的那一跳）");
+                if (gopC.IsOpen()) gopC.Close();
             }
 
             // ---------------- L2-② `AllianceMemberOptionsPopup`（22 节点） ----------------

@@ -206,6 +206,37 @@ namespace CardPresentation
                 return list[Mathf.Clamp(AvatarIndex, 0, list.Count - 1)].Name;
             }
         }
+
+        // ---- 🔴 **当前选中的称号 —— 全工程唯一一份**（2026-10-17 · `T20` / `A2118`）----
+        //
+        // 【为什么收到这儿】原来这个选择只存在 `TitleTab.Selected`（**那个页签实例上的字段**）——
+        //   ⇒ 关掉档案窗就没了，而**战斗 HUD 名牌更读不到它**（`BattleDriver.BuildHudExtras` 当年
+        //   只能恒 `SetTitle(null, null)`，称号那一块永远不显示）。与 `AvatarIndex` 完全同性质：
+        //   **两处各存一份 = 迟早不一致**（同 `CLAUDE.md` §三 那条）。
+        //
+        // ⚠️ **原版这个选择来自服务器存档**（`PlayerDataManager.set_PlayerTitle` + `UploadOnlineDemoData`，
+        //   见 `Shell/TitleTab.OnSelectClicked` 原来那条日志），我们**没有存档**
+        //   ⇒ 只在本次会话里有效（重开游戏回到「没选」）。与 `AvatarIndex` / `PlayerName` 同一条边界。
+        //
+        // ⚠️ **默认 −1 = 没选**（**不是 0**）：原版没选过时 `PlayerDataManager.get_PlayerTitle` 是空的
+        //   ⇒ 名牌上**整块不显示**（判据 = `PlayerProfileUIController__SetProfileTitle.c` 的
+        //   `!IsNullOrEmpty`）。⛔ 别学头像那样给个默认下标 —— 那等于凭空给玩家一个他从没选过的称号。
+
+        /// <summary>当前选中称号的**下标**（**−1 = 没选**）。档案窗 `Title` 页写；战斗 HUD 名牌读。</summary>
+        public static int TitleIndex = -1;
+
+        /// <summary>当前选中称号的**显示名**。没选（`TitleIndex &lt; 0`）/ 越界 / 清单为空 ⇒ **`""`**
+        /// （空串 = 没有称号 ⇒ HUD 那一块整块关，判据见 `BattleDriver.SetTitle`）。</summary>
+        public static string TitleName
+        {
+            get
+            {
+                var list = Titles;
+                if (list == null || list.Count == 0) return "";
+                if (TitleIndex < 0 || TitleIndex >= list.Count) return "";
+                return list[TitleIndex].Name;
+            }
+        }
         /// <summary>102 条成就（`Trophies` 页）。</summary>
         public static List<Achievement> Achievements { get { EnsureLoad(); return _ach; } }
 

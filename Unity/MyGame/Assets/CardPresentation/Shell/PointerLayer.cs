@@ -27,8 +27,9 @@
 // 命中顺序：**渲染队列大的先**（画在上面的先吃），同队列再比 `z`（越小越靠前 —— 照 `CardInteraction.HitTest`）。
 //
 // ⚠️ **仍没实现的（出声，不静默）**：
-//   · **摇杆/手柄**那条输入（原版 `InputManager` 里 `Horizontal`/`Vertical` 另有 type=2 的摇杆轴、
-//     `Submit` 另有 `joystick button 0`）—— 见「键盘导航」那一节 ②。**已记账**。
+//   · ✅ **摇杆/手柄那条输入 —— 2026-10-17（T12）已接**：左摇杆（原版 type=2 的 axis 0/1）→ 方向；
+//     `Submit` 的 `joystick button 0` → `buttonSouth`；`Cancel` 的 `joystick button 1` → `buttonEast`。
+//     判据 → 「键盘导航」那一节 ② 与 `Update` 里那段。
 //   · ✅ **选中态的视觉**（原版 `Selectable` 的 `Selected` 态）—— **2026-10-07（A77⑮①）做了**：
 //     `WindowButton.SetSelected` + `WindowButton.BtnState`（优先级照 UGUI `currentSelectionState`），
 //     本文件的 `Select()` 负责通知「原来那颗退、新那颗上」（见那个方法的注释）。
@@ -274,9 +275,22 @@ namespace CardPresentation
             // ⚠️ `wasEditing` = **这一帧的键盘归文本框**（`HandleTyping` 刚用 ESC/回车把编辑收掉了）
             //    ⇒ 导航不许接着把同一次 ESC 当成「关窗」（否则「取消编辑」会顺手关掉整扇窗）。
             var kb = Keyboard.current;
-            if (kb != null && !wasEditing)
-                KeyFrame(kb.escapeKey.wasPressedThisFrame, AxisX(kb), AxisY(kb), SubmitDown(kb),
-                         Time.unscaledTime);
+            // 🆕 **2026-10-17（T12 · 手柄导航）**：左侧摇杆 + 南键/A + 东键/B —— 判据 = 原版
+            //   `InputManager_2.json` 里那几条：`Horizontal`/`Vertical` 的 **type=2 摇杆轴（axis 0/1、
+            //   joyNum 0、dead 0.19、gravity 0、sensitivity 1）** · `Submit` 的 alt **`joystick button 0`** ·
+            //   `Cancel` 的 alt **`joystick button 1`**。
+            //   ⚠️ 摇杆自带的 0.19 死区不必在这里再判一次：UGUI `DetermineMoveDirection(..., 0.6f)`
+            //   那道 0.6 的死区更严 ⇒ 方向判定结果与「先过 0.19 再过 0.6」等价。
+            var gp = Gamepad.current;
+            if ((kb != null || gp != null) && !wasEditing)
+            {
+                float ax = (kb != null ? AxisX(kb) : 0f) + (gp != null ? AxisX(gp) : 0f);
+                float ay = (kb != null ? AxisY(kb) : 0f) + (gp != null ? AxisY(gp) : 0f);
+                bool submit = (kb != null && SubmitDown(kb)) || (gp != null && SubmitDown(gp));
+                bool cancel = (kb != null && kb.escapeKey.wasPressedThisFrame)
+                              || (gp != null && gp.buttonEast.wasPressedThisFrame);
+                KeyFrame(cancel, ax, ay, submit, Time.unscaledTime);
+            }
 
             var mouse = Mouse.current;
             if (mouse == null) return;
@@ -482,9 +496,9 @@ namespace CardPresentation
         //     （`d:/2/tools/decomp_full/EverguildInput__Process.c` 亲读）。
         //  ② **键位 = 原版的 `InputManager`**（`d:/2/新解包资源/assets_full/globalgamemanagers/InputManager/InputManager_2.json`
         //     逐条实读）：`Horizontal` = `left`/`right` + alt `a`/`d` · `Vertical` = `down`/`up` + alt `s`/`w`
-        //     · `Submit` = `return` / `enter` + `space`（另有 `joystick button 0`）· `Cancel` = `escape`。
-        //     ⚠️ **摇杆那几条没接**（`Horizontal`/`Vertical` 另有 type=2 的摇杆轴、`Submit` 的 alt 是手柄键）
-        //     —— 如实记账，**不假装接了**（我们的输入是 `Keyboard.current`，工程里没有 UGUI 事件系统）。
+        //     · `Submit` = `return` / `enter` + `space`（另有 `joystick button 0`）· `Cancel` = `escape`（另有 `joystick button 1`）。
+        //     ✅ **2026-10-17（T12）**：摇杆那几条**已接**（左摇杆 axis 0/1 + `buttonSouth`/`buttonEast`，
+        //     真值见 `InputManager_2.json`）。⚠️ 原版没配十字键 ⇒ 只认左摇杆。
         //  ③ **ESC 关窗 = 原版 `WindowsManager.Update`**（`d:/2/tools/decomp_full/WindowsManager__Update.c`）：
         //     `Input.GetKeyDown(0x1b = KeyCode.Escape)` → 打给 **`currentWindow`**（字段 0x58，
         //     实证 = `WindowsManager__get_CurrentWindow.c` 读的就是 0x58）：先问一个 bool 虚方法
@@ -802,9 +816,10 @@ namespace CardPresentation
             return w != null ? w.gameObject : null;
         }
 
-        // ---- 设备读数（原版 `InputManager` 的键位表 → 我们这边的 `Keyboard.current`）----
+        // ---- 设备读数（原版 `InputManager` 的键位表 → 我们这边的 `Keyboard.current` / `Gamepad.current`）----
         // 出处 = `…/assets_full/globalgamemanagers/InputManager/InputManager_2.json`（逐条实读），见本节 ②。
-        // ⚠️ 摇杆那几条（`Horizontal`/`Vertical` 的 type=2 轴、`Submit` 的 `joystick button 0`）**没接** —— 已记账。
+        // 🆕 **2026-10-17（T12）**：摇杆那几条**已接** —— type=2 的 axis 0/1（左摇杆）→ `AxisX/AxisY(Gamepad)`；
+        //   `Submit` 的 `joystick button 0` → `buttonSouth`；`Cancel` 的 `joystick button 1` → `buttonEast`。
 
         /// <summary>`Horizontal`：`right`/`left` + alt `d`/`a`。静止 = 0（原版数字键的 `GetAxisRaw` 就是 ±1/0）。
         /// 用 `isPressed`（按住）而不是 `wasPressedThisFrame` —— 原版那个轴**按住会重复**（节流见 `KeyMove`）。</summary>
@@ -830,6 +845,15 @@ namespace CardPresentation
         static bool SubmitDown(Keyboard kb)
             => kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame
                || kb.spaceKey.wasPressedThisFrame;
+
+        // 🆕 **2026-10-17（T12 · 手柄导航）** —— 判据 = 原版 `InputManager_2.json` 那几条（见 `Update` 里那段）：
+        //   `Horizontal`/`Vertical` 的 **type=2 摇杆轴 = axis 0 / 1**（= 左摇杆 x / y）·
+        //   `Submit` 的 alt = **`joystick button 0`**（= `buttonSouth`/A）·
+        //   `Cancel` 的 alt = **`joystick button 1`**（= `buttonEast`/B）。
+        //   ⚠️ 原版只配了**左摇杆**（axis 0/1），没配十字键（legacy 里十字键是 axis 6/7）⇒ 这里**不**加 D-pad。
+        static float AxisX(Gamepad gp) => gp.leftStick.x.ReadValue();
+        static float AxisY(Gamepad gp) => gp.leftStick.y.ReadValue();
+        static bool SubmitDown(Gamepad gp) => gp.buttonSouth.wasPressedThisFrame;
 
         /// <summary>UGUI `BaseInputModule.DetermineMoveDirection(x, y, deadZone)` 的原样复刻
         /// （`EventSystem/InputModules/BaseInputModule.cs:159-172`）：先按**圆**判死区（`sqrMagnitude &lt; dz²`），

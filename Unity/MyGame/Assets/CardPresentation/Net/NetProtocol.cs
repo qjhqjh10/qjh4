@@ -306,7 +306,25 @@ namespace CardPresentation.Net
         /// 13 个战场场景各一份），玩家名的长度约束落在 **PlayFab 服务端**
         /// （`ChooseNamePopup__ClickChooseName.c:33` 拿到就直接 `SetPlayfabDisplayName`，客户端一次都不校验）。
         /// ⇒「截断」与「干脆不带对端理由」**都是我们的选择**；这里选**截断 + 省略号**（保留信息，又不给上限）。</para></summary>
+        /// <para>🔴 **2026-10-17（`A1317` 裁定）：这个 40【不跟着提示行的尺子动】** ——
+        /// 它管的是**线上那串原始文本**，而线上发的是 `NetWireText.Pack(键, 参数)`（见 `NetWireText`）：
+        /// 键本身就有 **32 字符**（例 `Settings/Online/Wire/NotYourTurn`），再带参数往往 **35–40**。
+        /// 把它压到提示行那 80 个半宽字位以内（≈ 10 个汉字）**会把键截断** ⇒ `Unpack` 认不出、
+        /// 退化成「把键名原样印给玩家」（静默错）。⇒ **协议层保持 40；提示行那两条夹着对端 `body`
+        /// 的句子照旧可能超 80 位 —— 那是个【诊断阈值】，不是硬上限：超了只 `LogWarning`、照画，
+        /// 字会自动缩小（3 行框内），⛔ 不截断（截了就是把玩家该看的话吃掉）。
+        /// 完整裁定与两侧理由 → `Shell/SearchingMatchPopup` 的 `HintLineMaxWidth` 那一节。</para>
+        ///
+        /// <para>🔴 **2026-10-17（`A1317` 同批）：名字与理由【拆成两个钳】** —— 名字不走
+        /// `NetWireText.Pack`（就是玩家自己的显示名），拿 40 去钳它没有依据；原版把长度交给
+        /// **PlayFab 服务端**（见下一条 `⚠️`），我们本机的改名框上限是
+        /// `Shell/ProfileTab.MaxNameLen = 24` ⇒ 名字这一档取 **24** 与它对齐。</para></summary>
         public const int MaxPeerTextChars = 40;
+
+        /// <summary>🆕 **2026-10-17（`A1317`）：对端**名字**的钳**（只用于 `MsgProof.name` → `PeerName`）。
+        /// 取值 **24** = 我们本机改名框的上限（`Shell/ProfileTab.MaxNameLen`；原版真值在 PlayFab 服务端，
+        /// 客户端一次都不校验 —— 判据见 `MaxPeerTextChars` 末段那条 `⚠️`）。⛔ 别拿理由那个 40 来钳名字。</summary>
+        public const int MaxPeerNameChars = 24;
 
         // ---- 组帧 / 拆帧：4 字节小端长度 + UTF8(JSON) ----
 

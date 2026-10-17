@@ -53,12 +53,20 @@
 //     + 「At least one of the cards is guaranteed to be Rare or better」
 //     ⇒ **5 张 + 至少 1 张 rare/epic/legendary**，阵营按商品主图对（见 `ArmyOfArt`）。
 //     🔴 **哪 5 张是我们挑的**（用 `System.Random(seed)` 定种子可复现；原版 `Initialize` 里那句 `ListExtensions.Shuffle` 是**无种子**的）。
-//   · **翻牌动画没做**：原版是 `Content` 上播 `Booster Opening - Card {Idle,Open Normal,Rare,Legendary}`
-//     （`CardInBoosterPack.ChangeState(3)` 里 `cardAnimation.CrossFade(..., 0.2f)`）—— 我们**直接换层**
-//     （关卡背、开卡面），没有 spin / 没有 0.2 s 交叉淡入。**出声**。
-//   · **相机抖动没做**：`contentByRarities[i].shakes` 那几条 `OverwriteCameraShakePreset`（rarity 2 延迟 0.65 幅度 5 ·
-//     rarity 3 延迟 1.0 幅度 40 · rarity 4 两条：延迟 0 频率 0.25 + 延迟 1.15 幅度 20 方向 z 10 衰减 0.5）——
-//     菜单层没有相机抖动设施。**出声**。
+//   · ✅ **翻牌动画已做（2026-10-17 · 界面线 T19）** —— 🔴 **就地订正（铁律 5）**：本行原来写
+//     「**翻牌动画没做**：原版是 `Content` 上播 `Booster Opening - Card *` …… 我们直接换层」—— **不成立**。
+//     现在按原版三份 clip 的**关键帧**用代码补间（`Shell/BoosterPackAnim.cs`）：翻牌旋转（含 ±40° 反向蓄力）、
+//     `0.95` 压扁、`Content` 起手抖（±0.025 卡单位）、`EnableCardBackAnimEvent` 那一拍换层 + `localScale.x → -1`、
+//     收尾 `ResetContentAnimation` 回 `Card Idle`（8 s 循环）。
+//     ⚠️ **等价物**：原版是 legacy `Animation` 组件播 clip，我们**不能**直接播那 7 份 `.anim`
+//     （路径/缩放/锚点都按原版 prefab 烤死，与我们的绝对 px 坐标系对不上）⇒ 采样表 + 代码补间，逐条标注在
+//     `BoosterPackAnim.cs` 文件头。**没有 0.2 s 的 `CrossFade` 交叉淡入**（我们只播一条、没有混合层）。
+//   · ✅ **稀有度相机抖已做（等价物）**：`contentByRarities[i].shakes`（rarity 2 延迟 0.65 幅度 5 ·
+//     rarity 3 延迟 1.0 幅度 40 · rarity 4 两条：延迟 0 频率 0.25 + 延迟 1.15 幅度 20 方向 z 10 衰减 0.5）。
+//     菜单层**没有相机** ⇒ 抖的是**卡容器**（`Booster Animation Parent`）。⚠️ preset SO 本地没有
+//     （`bundle_menus_assets_all/MonoBehaviour/` 搜 `"amplitude"` 只命中 5 份 `CardInBoosterPack`）
+//     ⇒ `sustain/attack/decay` 的**缺省值拿不到**；时长 0.5 s / 8 Hz / 包络是**我们挑的**。
+//     传奇第一条的幅度取 preset 缺省值 ⇒ **不抖**（不猜）。缺口与判据 → `BoosterPackAnim.cs` 文件头。
 //   · ✅ **音效已接（2026-10-17 · 音效线 `W_G`）** —— 🔴 **就地订正（铁律 5）**：本行原来写
 //     「`clickSound` / `newCardSound` / `openSound` / `closeSound` / 两段音频 cue **全在远端音频表里，本地没有** ⇒ 不播」
 //     —— **不成立**。那几条 cue 全在 `bundle_soundcollection_assets_all` 里，逐个解出来了：
@@ -71,8 +79,20 @@
 //     **关闭声**在 `CloseFromTap()`（原版 `CloseButtonClick`，之后基类 `Close()` 还会再响一声默认关窗音）。
 //     ⚠️ `BoosterPackVisualItem.openBoosterPack` 是我们**用 `Army` 反查**的（原版是那条 prefab 上的字段）；
 //     映射表与判据 → `WindowSounds.BoosterOpenCue`。
-//   · **`useQuickOpenProtection`（60 s 内连开就加速，`CalculateReOpenProtectionDelay`）没做** —— 时间源在批处理里不可靠。**出声**。
+//   · ✅ **`useQuickOpenProtection` 已做（2026-10-17 · T19）** —— 🔴 **就地订正（铁律 5）**：本行原来写
+//     「没做 —— 时间源在批处理里不可靠」—— **不成立**。按 `BoosterPackOpenWindow__CalculateReOpenProtectionDelay.c`
+//     逐句复刻（60 s 窗口 · 连开超过 4 次后每次 +0.15 s · 上限 2.0 · `<= 0.15` 按 0）：
+//     `BoosterPackAnim.StepProtection`，时间源可注入（`Now`，批处理里换掉即可）。
+//     它触发的就是 `CardInBoosterPack.ChangeState(4)` 的**卡抖动**（抖完才翻）。
+//   · **快速开包 = 只有内部 API**（`QuickOpenAll()`）：原版 prefab 的整棵树**没有任何 skip / open-all 件**
+//     （`menu_dump --depth 6` 实读；MB 字段里也只有 `useQuickOpenProtection`）⇒ **入口判据未定**，⛔ 不造按钮。
+//   · **翻开之后再点卡 → 卡详情窗（原版 `CardInBoosterPack.CardClicked`）没接**：它在
+//     `_WaitForSpinAnimationEnd` 收尾时给 `uiCollider.onClick` **再加**一个 `CardClicked` 监听，
+//     `CardDisplayWindow.ShowCard(card, …, true, …)`。我们的卡翻开后把命中区关掉了（`SlotHits` 失效）——
+//     ⇒ 这一条**没复刻**（缺口），要接得先决定用哪扇详情窗（`Shell/CardDetailPopup` 还是战斗那扇）。
 //   · **`OpenCardbacks` 那条 clip 不接** —— 判据弱（见 `BoosterPackExporter.ClipNames` 的最后一条），用途未查清。
+//   · **背景 `Booster Window - Background Shake On Open`（0.9167 s）没做**：它只动
+//     `floatProperty1/2`（`AnimateUIMaterialProperty` 的**材质属性**，原版 shader 的逻辑本地没有）⇒ 我们没有等价物可依。
 //   · ✅ **垂直对齐已落（2026-10-16 · A712 阶段 2）**：`Tap to discover` / `Tap to close` 两条 TMP 原版是
 //     `m_VerticalAlignment = **8192 (Capline)**` + `m_HorizontalAlignment = 4 (Right)`
 //     ⇒ 两条都调 `MenuDraw.SetVAlign(…, Label.VAlign.Capline, HintR)`（横向那半走 `AlignRight`，本来就有）。
@@ -244,6 +264,65 @@ namespace CardPresentation
         /// <summary>自检用：背景那张 quad（量颜色用）。</summary>
         public ImageQuad BgQuad { get; private set; }
 
+        // ============================================================ 🆕 T19：动画状态机（翻牌 / 抖动 / 快速开包）
+        //
+        // 判据与逐条出处 → `Shell/BoosterPackAnim.cs` 文件头（clip 采样表 + 反编译方法体）。
+        // 原版那一套是 **legacy `Animation` 组件**播 clip；我们**不能**直接播那 7 份 `.anim`
+        //   （路径/缩放/锚点都按原版 prefab 烤死：`Cards` 节点带 0.8763、卡节点 scale 151、
+        //   而我们的坐标系是绝对 px、scale 1）⇒ **按同一份关键帧用代码补间**（等价物，逐条标注）。
+        //
+        // 状态号**照抄原版 `CardInBoosterPack.state`**（`CardInBoosterPack__ChangeState.c`）：
+        //   0 = 无 · 1 = 卡背态（交互关）· 2 = 可交互 · 3 = 翻牌中 · 4 = 防连开抖动 ·
+        //   5 = **我们自己加的「翻完了」**（原版翻完之后 `state` **停在 3** —— `_WaitForSpinAnimationEnd`
+        //       只把交互重新打开、不再改 state，再点走的是它后来加上的 `CardClicked` 监听）
+        //       ⇒ 5 只表示「这一张已经收尾」（自检好读），⛔ 别把它当原版状态号。
+        public enum CardState { None = 0, Back = 1, Ready = 2, Opening = 3, Shaking = 4, Open = 5 }
+
+        /// <summary>每张卡的当前状态（原版那套号 + 我们加的 5）。</summary>
+        public readonly int[] CardStates = new int[5];
+        /// <summary>每张卡的 `Content` 节点（原版 `CardInBoosterPack > Content` —— 翻的就是它）。</summary>
+        public readonly Transform[] ContentNodes = new Transform[5];
+        /// <summary>开包 clip（`Booster Window Open`）播完了吗 —— 播完之前**点卡无效**（原版 state 1）。</summary>
+        public bool WindowOpenDone { get; private set; }
+        /// <summary>这一包的防连开延迟（`CalculateReOpenProtectionDelay` 的返回值；0 = 不抖）。
+        /// 🆕 这一格**此前一直是缺口**（文件头旧注释写「时间源在批处理里不可靠」）——
+        /// 现在按原版公式实现了，时间源可注入（<see cref="Now"/>）。</summary>
+        public float ProtectionDelay { get; private set; }
+        /// <summary>快速开包被调用过几次（内部 API —— 原版**没有**这个入口，见 `QuickOpenAll`）。</summary>
+        public int QuickOpens { get; private set; }
+
+        /// <summary>防连开的时间源（**可注入**：批处理里 `Time.unscaledTime` 可能不动）。
+        /// ⚠️ 静态字段 —— 自检用完记得 `ResetReOpenProtectionForTest()`。</summary>
+        public static System.Func<float> Now = () => Time.unscaledTime;
+        static float _protLastOpen = float.NegativeInfinity;
+        static float _protDelayState;
+        static int _protCount;
+
+        /// <summary>清掉防连开的跨窗口状态（自检用 —— 静态字段会跨 `Build()` 活）。</summary>
+        public static void ResetReOpenProtectionForTest()
+        {
+            _protLastOpen = float.NegativeInfinity;
+            _protDelayState = 0f;
+            _protCount = 0;
+        }
+
+        // 每个窗口自己的时钟与逐卡状态
+        float _openT;
+        readonly float[] _flipT = new float[5];
+        readonly int[] _flipKind = new int[5];
+        readonly bool[] _swapped = new bool[5];
+        readonly float[] _idleT = new float[5];
+        readonly float[] _shakeT = new float[5];
+        readonly float[] _shakeDur = new float[5];
+        readonly Vector3[] _slotBase = new Vector3[5];
+        Transform _anchorNode;
+        Vector3 _anchorBase;
+
+        // 稀有度相机抖（原版 `OverwriteCameraShakePreset.Play()`）—— 菜单层没有相机 ⇒ 抖**卡容器**（等价物）
+        struct ShakeBurst { public float At, Amp, Decay, Z; }
+        readonly List<ShakeBurst> _bursts = new List<ShakeBurst>();
+        float _fxClock;
+
         // ============================================================ `Tap to close` 的闪烁（A426）
         //
         // 判据（原版）：`Booster Pack Open Window / Tap to close` 的组件表 = **`TextMeshProUGUI,Localize,
@@ -353,6 +432,21 @@ namespace CardPresentation
                                           BanIcons[i] = null; SlotHits[i] = null; VfxAnchors[i] = null; }
             DiscoverNode = null; CloseNode = null; CloseSurfaceHit = null; BgQuad = null;
             _closeLabel = null;                  // 🆕 A426：上一轮那颗字已经被上面清掉了 ⇒ 别留悬引用
+            // 🆕 T19：动画状态机归零（重开一包 = 时钟从 0 开始）
+            WindowOpenDone = false;
+            ProtectionDelay = 0f;
+            QuickOpens = 0;
+            _openT = 0f;
+            _fxClock = 0f;
+            _bursts.Clear();
+            _anchorNode = null;
+            for (int i = 0; i < 5; i++)
+            {
+                CardStates[i] = (int)CardState.None;
+                ContentNodes[i] = null;
+                _flipT[i] = 0f; _flipKind[i] = 0; _swapped[i] = false;
+                _idleT[i] = 0f; _shakeT[i] = 0f; _shakeDur[i] = 0f;
+            }
 
             var offers = ShopData.Offers(Page);
             if (offers == null || Index < 0 || Index >= offers.Length)
@@ -366,11 +460,22 @@ namespace CardPresentation
             Cards = RollPack(Army, unchecked(Page * 1000 + Index));
             CardsLeft = Cards.Length;
 
+            // 🆕 **T19：防连开延迟**（原版 `BoosterPackOpenWindow.Initialize` 里那句
+            //   `CardInBoosterPack.Initialize(..., fVar9)`，fVar9 就是 `CalculateReOpenProtectionDelay()`
+            //   的返回值 —— 它**在 Initialize 里**算、`lastOpenTime` 也在那里更新）。
+            //   公式与常量 → `BoosterPackAnim.StepProtection`；时间源可注入（`Now`）。
+            {
+                float now = Now();
+                ProtectionDelay = BoosterPackAnim.StepProtection(now - _protLastOpen, ref _protDelayState, ref _protCount);
+                _protLastOpen = now;
+            }
+
             // 🆕 **2026-10-17（音效线 `W_G`）**：拆包那一声（原版 `BoosterPackVisualItem.openBoosterPack`，
             //   `BoosterPackVisualItem__Initialize.c` 末段 `SoundManager.Play2D(cue, **3 = Jingles**)`）。
             // 🔴 **落点是我们挑的**：原版这一声在「卡包实物被点开、卡片开始飞出」那一刻（`BoosterPackVisualItem`），
-            //   而**我们整段开包视觉都没做**（见文件头）⇒ 唯一对应的可听时刻就是本窗铺内容这一拍
-            //   ⇒ 落在 `Build()` 末尾之前（`Army` 已定、还没铺卡）。如实标注，⛔ 别把它当成原版的同一跳。
+            //   而 `BoosterPackVisualItem`（卡包实物那件东西）我们**没建**（开包窗是直接铺 5 张卡的）⇒ 唯一对应的
+            //   可听时刻就是本窗铺内容这一拍 ⇒ 落在 `Build()` 末尾之前（`Army` 已定、还没铺卡）。
+            //   如实标注，⛔ 别把它当成原版的同一跳。
             //   阵营 → cue 的映射判据 → `WindowSounds.BoosterOpenCue`。
             WindowSounds.PlayJingles(WindowSounds.BoosterOpenCue(Army), "开包窗铺内容（拆包声）");
 
@@ -390,6 +495,8 @@ namespace CardPresentation
             //    ⇒ 0.87626 **已经折进 `CardK`**（`CardX[i] * AnchorScale` 那一处），节点保持 scale 1。
             var anchor = MenuDraw.Node(transform, "Booster Animation Parent", AnchorR);
             var cards = MenuDraw.Node(anchor, "Cards", AnchorR);
+            _anchorNode = anchor;
+            _anchorBase = anchor != null ? anchor.localPosition : Vector3.zero;
 
             for (int i = 0; i < 5; i++) BuildSlot(cards, i);
 
@@ -456,11 +563,23 @@ namespace CardPresentation
             var slot = MenuDraw.Node(parent, "CardInBoosterPack UI " + (i + 1),
                                      new PxRect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f));
             SlotNodes[i] = slot;
+            _slotBase[i] = slot != null ? slot.localPosition : Vector3.zero;
             int q0 = QCard + i * CardStride;
+
+            // 🆕 **T19：`Content`**（原版 `CardInBoosterPack > Content`，矩形 = 容器 2.5437×3.3686 卡单位）。
+            //   🔴 **翻牌翻的就是这一层**：三条 `Card Open *` clip 的 `m_RotationCurves` / `m_ScaleCurves` /
+            //   `m_AnchoredPosition` 全部挂在 `path = Content` 上（`CardInBoosterPack.cardAnimation` 字段实读）。
+            //   ⚠️ 粒子挂点（`VfxAnchors`）**留在 slot 上**：原版 `Instantiate(particles, card.transform)`
+            //   挂在卡节点、**不在** Content 里 ⇒ 粒子不跟着翻。
+            var content = MenuDraw.Node(slot, "Content",
+                                        new PxRect(cx - ContainerW * CardK * 0.5f, cy - ContainerH * CardK * 0.5f,
+                                                   cx + ContainerW * CardK * 0.5f, cy + ContainerH * CardK * 0.5f));
+            ContentNodes[i] = content;
+            CardStates[i] = (int)CardState.Back;          // 原版 `Initialize` 末尾 `ChangeState(1)`
 
             // ④a/④b 卡背（原版 `2DCard/Cardback Container` 的两件；`ChangeState(1)` 时开着）
             var backGo = new GameObject("Cardback Container");
-            backGo.transform.SetParent(slot, false);
+            backGo.transform.SetParent(content, false);
             BackNodes[i] = backGo;
             var sdf = MenuDraw.Rect(backGo.transform, CardArt.CardBackSdf(Army),
                                     new PxRect(cx - BackSdfW * CardK * 0.5f, cy - BackSdfH * CardK * 0.5f,
@@ -480,7 +599,7 @@ namespace CardPresentation
 
             // ④c 卡面：`2DCard`（= `CardView`）。**先关着**，翻开才开（`ChangeState(1)` 是 ToggleCardBack(true)）。
             var faceGo = new GameObject("2DCard");
-            faceGo.transform.SetParent(slot, false);
+            faceGo.transform.SetParent(content, false);
             FaceNodes[i] = faceGo;
             if (Cards != null && i < Cards.Length)
             {
@@ -505,7 +624,7 @@ namespace CardPresentation
             // ④d `Card Ready for level up`（1.78×2.74 @ (0,+0.02)，父 = `CardUI`）
             float uw = UpW * CardK, uh = UpH * CardK, uy = cy - UpDy * CardK;
             var upR = new PxRect(cx - uw * 0.5f, uy - uh * 0.5f, cx + uw * 0.5f, uy + uh * 0.5f);
-            var up = MenuDraw.Node(slot, "Card Ready for level up", upR);
+            var up = MenuDraw.Node(content, "Card Ready for level up", upR);
             // ⚠️ 图名用**导入后的文件名**（`CardArt.MenuUi` 不做「空格 → 下划线」转换）
             MenuDraw.Rect(up, Art("Card_Ready_For_Level_Up"), upR, "Image", q0 + 3);
             UpBadges[i] = up.gameObject;
@@ -515,7 +634,7 @@ namespace CardPresentation
             float bcx = cx - bx + BadgeAx * CardK, bcy = cy - BadgeAy * CardK;
             float bw = BadgeW * CardK, bh = BadgeH * CardK;
             var badgeR = new PxRect(bcx - bw * 0.5f, bcy - bh * 0.5f, bcx + bw * 0.5f, bcy + bh * 0.5f);
-            var badge = MenuDraw.Node(slot, "New Card Badge", badgeR);
+            var badge = MenuDraw.Node(content, "New Card Badge", badgeR);
             // `WF_Special offer_Value` 324×87 · 九宫 162,0,162,0 · Sliced · 色 (0.547,0.0876,0.0542,1)
             var badgeTex = Art("WF_Special_offer_Value");
             if (badgeTex != null)
@@ -542,7 +661,7 @@ namespace CardPresentation
             float banW = BanW * CardK, banSide = Mathf.Min(banW, BanH * CardK);
             var banR = new PxRect(cx - banSide * 0.5f, cy - banSide * 0.5f,
                                   cx + banSide * 0.5f, cy + banSide * 0.5f);
-            var ban = MenuDraw.Node(slot, "Ban Icon", banR);
+            var ban = MenuDraw.Node(content, "Ban Icon", banR);
             MenuDraw.Rect(ban, Art("40k_Cross_icon_cross_big_Banned_card"), banR, "Image", q0 + 3);
             var bt2 = MenuDraw.Text(ban, banR, BannedText, Color.white, "Banned Text", 0.25f * CardK, q0 + 3);
             // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版这一颗的 `m_fontSizeBase` **原文**。
@@ -583,7 +702,10 @@ namespace CardPresentation
                     //   那一下的声是 `CardInBoosterPack.clickSound`（cue `CardClick 2`，在 `Reveal` 里播）。
                     //   ⇒ 关掉通用按钮音，免得「一声变两声」。
                     wb.playClickSound = false;
-                    wb.onClick = () => Reveal(captured);
+                    // 🔴 **2026-10-17（T19 收尾）**：翻牌前后是**两个 handler**（原版同形）——
+                    //   `UiColliderOnClick`（state 2 才生效）→ `CardInBoosterPack.CardClicked`（翻完才挂上）。
+                    //   ⇒ 这里走同一个派发口，按当前状态分流。
+                    wb.onClick = () => OnSlotClick(captured);
                     wb.onEnter = () => { if (!Opened[captured]) Hover(captured, true); };
                     wb.onExit = () => { if (!Opened[captured]) Hover(captured, false); };
                 }
@@ -617,37 +739,84 @@ namespace CardPresentation
 
         // ============================================================ 交互
 
-        /// <summary>翻一张（原版 `CardInBoosterPack.UiColliderOnClick` **只在该卡 state==2（可交互）时**生效；
-        /// state 3 = 播翻牌动画 + `BoosterPackOpenWindow.CardOpened(this)`）。
-        /// 🔴 我们**不做 spin 动画与相机抖动**（见文件头），只做「换层 + 记数 + 播粒子」。</summary>
+        /// <summary>卡上那一下点击的**分派**（🔴 2026-10-17 T19 收尾）：
+        /// · `state == 2 Ready` ⇒ 走 <see cref="Reveal"/>（原版 `UiColliderOnClick`，翻牌）；
+        /// · `state == 5 Open` ⇒ 走 <see cref="OpenCardDetail"/>（原版 `CardClicked`，翻开的卡再点开详情窗）；
+        /// · 其余状态（1 开包中 / 3 翻牌中 / 4 抖动）⇒ **什么都不做**（原版那两个 handler 各自有状态守卫）。</summary>
+        public void OnSlotClick(int i)
+        {
+            if (i < 0 || i >= 5) return;
+            if (CardStates[i] == (int)CardState.Ready) { Reveal(i); return; }
+            if (CardStates[i] == (int)CardState.Open) { OpenCardDetail(i); return; }
+        }
+
+        /// <summary>翻开的卡再点 ⇒ 开卡片详情窗。判据 = 原版 `CardInBoosterPack.CardClicked.c`：
+        /// `CardDisplayWindow.Instance.ShowCard(card, …, true, …)` —— 菜单场景里的
+        /// `CardDisplayWindow` 就是我们的 **`Shell/CardDetailPopup`**（见它的文件头：两扇同源、卡体同尺寸）。
+        /// ⚠️ 原版还会在详情窗关闭时做 `ToggleCarUpgradeIfNeeded` / `ToggleNewCardBadge` 收尾
+        /// （`CardDisplayWindowOnCloseWindow.c`）；那两件由 `CardDetailPopup` 自己的升级/新卡逻辑承担，
+        /// 本窗**不再写第二份**。</summary>
+        void OpenCardDetail(int i)
+        {
+            if (Cards == null || i < 0 || i >= Cards.Length) return;
+            if (Manager == null)
+            {
+                Debug.LogWarning("[BoosterPack] 没有 `WindowsManager` ⇒ 开不了卡片详情窗（点的是第 " + (i + 1) + " 张）");
+                return;
+            }
+            var w = CardDetailPopup.Create(Manager);
+            Manager.OpenWindow(w);
+            w.ShowCard(Cards[i]);                 // 同 `CollectionWindow.OpenCardDetail` 那条正路
+            Debug.Log("[BoosterPack] 翻开后点第 " + (i + 1) + " 张 ⇒ 开卡片详情窗：" + Cards[i].Name);
+        }
+
+        /// <summary>点一张卡（原版 `CardInBoosterPack.UiColliderOnClick`）：
+        /// **只有 `state == 2`（可交互）才生效**；先播 `clickSound`；有防连开延迟 ⇒ 先抖（state 4）再翻，
+        /// 否则直接进入翻牌（state 3）。丑条判据 → `BoosterPackAnim.cs` 文件头。
+        /// ⚠️ 开包 clip（0.6167 s）播完之前所有卡都是 state 1 ⇒ **点了没反应**（原版就是这样）。</summary>
         public void Reveal(int i)
         {
-            if (i < 0 || i >= 5 || Opened[i] || CardsLeft <= 0) return;
+            if (i < 0 || i >= 5) return;
+            if (CardStates[i] != (int)CardState.Ready) return;      // 原版：`state != 2` 直接 return
+            if (Cards == null || i >= Cards.Length || CardsLeft <= 0) return;
 
-            // 🆕 **2026-10-17（音效线 `W_G`）：两张卡各自那一对声音。** 判据逐条 → `WindowSounds.cs` 文件头那张表。
-            //   ① `CardInBoosterPack.UiColliderOnClick` 第一句 = `clickSound.Play2D(MixerType.FX)`（cue `CardClick 2`）；
-            //   ② 紧接着 `ChangeState(3)` → 按稀有度取 `contentByRarities[].audioCue`，
-            //      `SoundManager.Play2D(cue, **3 = Jingles**)`（`Cardflip_Common/Rare/Epic/Legendary`）。
-            //   ⚠️ 原版 ② 埋在翻牌 clip 的中段（`ChangeState(3)` 里 `CrossFade` 之后立刻播，不是等动画完）；
-            //      我们没有 spin 动画 ⇒ 两声落在同一拍（这是我们省掉动画的必然后果，如实标注）。
+            // 原版 `UiColliderOnClick` 第一句 = `clickSound.Play2D(MixerType.FX)`（cue `CardClick 2`）。
+            // 稀有度音 + 粒子在 `ChangeState(3)` 里（有防连开时那是**抖完之后**才响）。
             WindowSounds.PlayFx(WindowSounds.BoosterCardClickCue, "开包窗点开第 " + (i + 1) + " 张");
-            if (Cards != null && i < Cards.Length)
-                WindowSounds.PlayJingles(WindowSounds.BoosterRarityCue(RarityInt(Cards[i])),
-                                         "开包窗第 " + (i + 1) + " 张的稀有度音");
 
+            if (ProtectionDelay > 0f)
+            {
+                // 原版 `ChangeState(4)`：`DOShakePosition(duration = +0x98, ...)`，`OnComplete → ChangeState(3)`
+                CardStates[i] = (int)CardState.Shaking;
+                _shakeT[i] = 0f;
+                _shakeDur[i] = ProtectionDelay;
+                Debug.Log("[BoosterPack] 第 " + (i + 1) + " 张：防连开延迟 " + ProtectionDelay.ToString("F2")
+                          + " s ⇒ 先抖（原版 `ChangeState(4)`）");
+                return;
+            }
+            BeginFlip(i);
+        }
+
+        /// <summary>`ChangeState(3)`：开始翻这张（原版先 `window.CardOpened(this)` 记数、再播 clip/音/粒子）。
+        /// <para>⚠️ `Opened[i]` 在**这一刻**就置真（原版 `cardsLeftToOpen` 在 `CardOpened` 里自减，
+        /// 不等动画播完）—— 所以「`Tap to close` 出现」也发生在最后一张**开始翻**的那一拍。</para></summary>
+        void BeginFlip(int i)
+        {
+            var kind = BoosterPackAnim.KindForRarity(RarityInt(Cards[i]));
+            CardStates[i] = (int)CardState.Opening;
+            _flipT[i] = 0f;
+            _flipKind[i] = (int)kind;
+            _swapped[i] = false;
             Opened[i] = true;
-            if (BackNodes[i] != null) BackNodes[i].SetActive(false);
-            if (FaceNodes[i] != null) FaceNodes[i].SetActive(true);
-            if (SlotHits[i] != null) SlotHits[i].gameObject.SetActive(false);   // 翻开的卡不再吃点击
-            ApplyCardBadges(i);
-            // 🆕 ③ `newCardSound`（原版 `_WaitForSpinAnimationEnd`：**拥有数 == 1** 才播 ——
-            //   「这是你第一张」）。判据同一个条件 => `IsNewCard`（也就是角标那条）。
-            //   ⚠️ 我们的 `CardProgress.Owned` 默认给足 ⇒ **这条恒假**（与 `New Card Badge 恒不显示` 是同一裁定，
-            //   见文件头）。接线照判据留着 —— 数据口径一变它就自己响。
-            if (Cards != null && i < Cards.Length && IsNewCard(Cards[i]))
-                WindowSounds.PlayFx(WindowSounds.BoosterNewCardCue, "开包窗第 " + (i + 1) + " 张（第一张）");
-            PlayCardFx(i);
-            // `CardOpened`：把 `Tap to discover` 淡出（我们直接关）+ 计数自减
+            // 原版 `ChangeState(3)` 里那句 `DOScale(记下的 scale, 0.2 s)` —— 把悬停的 1.1 倍收回去
+            // （悬停时点卡，命中区随即关掉 ⇒ `onExit` 不一定会来，必须显式复位）。
+            Hover(i, false);
+            // 🔴 **2026-10-17（T19 收尾）**：命中区**不再关掉** —— 原版翻完之后这颗
+            //   `2DCard/UI Collider` 会重新挂上 `CardClicked`（翻开的卡可以再点开详情窗）。
+            //   翻牌进行中（state 3/4）由 `OnSlotClick` 直接忽略，等价于原来的「点不到」。
+            // （原来这里有一句 `SlotHits[i].gameObject.SetActive(false)`，已删）
+
+            // `CardOpened`（原版 `ChangeState(3)` **第一句**）：`Tap to discover` 淡出（我们直接关）+ 计数自减
             if (DiscoverNode != null) DiscoverNode.gameObject.SetActive(false);
             CardsLeft--;
             if (CardsLeft <= 0 && CloseNode != null)
@@ -655,9 +824,217 @@ namespace CardPresentation
                 CloseNode.gameObject.SetActive(true);      // 原版还会 DOScale ×1.1 / 0.4s OutBack（我们直接设值）
                 Debug.Log("[BoosterPack] 5 张全翻开 ⇒ `Tap to close` 出现（原版 `CardOpened` 里 `cardsLeftToOpen` 归零那条）");
             }
-            Debug.Log("[BoosterPack] 翻开第 " + (i + 1) + " 张：" + (Cards != null && i < Cards.Length ? Cards[i].Name : "?")
-                      + "（稀有度档 " + (Cards != null && i < Cards.Length ? RarityInt(Cards[i]) : -1)
-                      + " · 还剩 " + CardsLeft + " 张）");
+
+            // 原版 `ChangeState(3)`：按稀有度取 `audioCue` → `Play2D(cue, 3 = Jingles)`
+            WindowSounds.PlayJingles(WindowSounds.BoosterRarityCue(RarityInt(Cards[i])),
+                                     "开包窗第 " + (i + 1) + " 张的稀有度音");
+            // 原版 `Instantiate(contentByRarities[rarity].particles, card.transform)`
+            PlayCardFx(i);
+            StartShakes(RarityInt(Cards[i]));
+
+            Debug.Log("[BoosterPack] 翻开第 " + (i + 1) + " 张：" + Cards[i].Name
+                      + "（稀有度档 " + RarityInt(Cards[i]) + " · clip `" + kind + "` "
+                      + BoosterPackAnim.FlipDuration(kind).ToString("F3") + " s · 还剩 " + CardsLeft + " 张）");
+        }
+
+        /// <summary>`EnableCardBackAnimEvent`：翻到 90° ⇒ 关卡背、露卡面（clip 的 `localScale.x → -1` 同一拍）。</summary>
+        void SwapToFace(int i)
+        {
+            _swapped[i] = true;
+            if (BackNodes[i] != null) BackNodes[i].SetActive(false);
+            if (FaceNodes[i] != null) FaceNodes[i].SetActive(true);
+        }
+
+        /// <summary>`FinishedOpeningAnimEvent` + `ResetContentAnimation`：旋转/缩放/位移归零、补角标、
+        /// 之后回 `Card Idle` 待机（原版 `CrossFade` 回当前 clip，那条 clip 是 8 s 循环的 `Card Idle`）。</summary>
+        void FinishFlip(int i)
+        {
+            CardStates[i] = (int)CardState.Open;
+            _idleT[i] = 0f;
+            ResetContent(i);
+            ApplyCardBadges(i);
+            // 🆕 ③ `newCardSound`（原版 `_WaitForSpinAnimationEnd`：**拥有数 == 1** 才播 ——
+            //   「这是你第一张」）。⚠️ 我们的 `CardProgress.Owned` 默认给足 ⇒ **这条恒假**
+            //   （与 `New Card Badge 恒不显示` 是同一裁定，见文件头）。接线照判据留着 —— 口径一变它就自己响。
+            if (Cards != null && i < Cards.Length && IsNewCard(Cards[i]))
+                WindowSounds.PlayFx(WindowSounds.BoosterNewCardCue, "开包窗第 " + (i + 1) + " 张（第一张）");
+        }
+
+        /// <summary>把 `Content` 的旋转/缩放/位移归零（原版 `CardInBoosterPack.ResetContentAnimation`
+        /// 是把 `contentAnimation` 那两跳写回「出厂 scale / rotation」——出厂都是恒等）。</summary>
+        void ResetContent(int i)
+        {
+            var c = ContentNodes[i];
+            if (c == null) return;
+            c.localRotation = Quaternion.identity;
+            c.localScale = Vector3.one;
+            c.localPosition = Vector3.zero;
+        }
+
+        /// <summary>稀有度相机抖 —— 原版 `contentByRarities[rarity].shakes` 里每条 `OverwriteCameraShakePreset.Play()`。
+        /// ⚠️ **等价物**：菜单层没有相机 ⇒ 抖**卡容器**（`Booster Animation Parent`）；包络/时长是我们挑的，
+        /// 依据/缺口 → `BoosterPackAnim.cs` 文件头。</summary>
+        void StartShakes(int rarity)
+        {
+            var list = BoosterPackAnim.ShakesFor(rarity);
+            for (int k = 0; k < list.Length; k++)
+            {
+                if (list[k].Amplitude <= 0f) continue;       // 幅度取 preset 缺省值的那条：本地查不到 ⇒ 不猜
+                _bursts.Add(new ShakeBurst { At = _fxClock + list[k].Delay, Amp = list[k].Amplitude, Decay = list[k].DecayTime, Z = 0f });
+            }
+        }
+
+        /// <summary>推进动画时钟（由 `Update` 每帧调；**批处理没有帧循环 ⇒ 自检直调**，
+        /// 与 `AddTime` / `Tick` 同一条口径）。
+        /// 🔴 **本窗就这一条动画时钟** —— ⛔ 别在别处再推一次（两处推 = 走两倍速）。</summary>
+        public void Advance(float dt)
+        {
+            if (dt <= 0f || Cards == null) return;
+            _fxClock += dt;
+
+            // ---- ① 开包 clip（`Booster Window Open`，0.6167 s）：卡的缩放 157.58151 → 151 ----
+            if (!WindowOpenDone)
+            {
+                _openT += dt;
+                float s = BoosterPackAnim.WindowOpenScale(_openT);
+                for (int i = 0; i < 5; i++) if (SlotNodes[i] != null) SlotNodes[i].localScale = Vector3.one * s;
+                if (_openT >= BoosterPackAnim.WindowOpenDuration)
+                {
+                    WindowOpenDone = true;
+                    // 原版 `AnimationEndEvent`：5 张卡 `ChangeState(2)`
+                    for (int i = 0; i < 5; i++)
+                    {
+                        if (SlotNodes[i] != null) SlotNodes[i].localScale = Vector3.one;
+                        if (CardStates[i] == (int)CardState.Back) CardStates[i] = (int)CardState.Ready;
+                    }
+                    Debug.Log("[BoosterPack] 开包 clip 播完（" + BoosterPackAnim.WindowOpenDuration.ToString("F3")
+                              + " s）⇒ 5 张卡可点（原版 `AnimationEndEvent` 把每张 `ChangeState(2)`）");
+                }
+            }
+
+            // ---- ② 逐卡：抖动 / 翻牌 / 待机 ----
+            for (int i = 0; i < 5; i++) StepCard(i, dt);
+
+            // ---- ③ 稀有度相机抖（等价物：抖卡容器）----
+            StepBursts();
+        }
+
+        void StepCard(int i, float dt)
+        {
+            var c = ContentNodes[i];
+            if (c == null) return;
+            int st = CardStates[i];
+
+            if (st == (int)CardState.Shaking)
+            {
+                _shakeT[i] += dt;
+                float d = Mathf.Max(1e-4f, _shakeDur[i]);
+                float amp = BoosterPackAnim.ProtectionShakePx(_shakeDur[i]);     // px（我们的量纲，见 BoosterPackAnim）
+                float u = Mathf.Clamp01(_shakeT[i] / d);
+                float ph = _shakeT[i] / d * Mathf.PI * 2f * BoosterPackAnim.ProtectionVibrato;
+                float ox = Mathf.Sin(ph) * amp;
+                float oy = Mathf.Cos(ph * 1.37f + 0.6f) * amp * 0.5f;
+                if (SlotNodes[i] != null)
+                    SlotNodes[i].localPosition = _slotBase[i] + new Vector3(LayoutSpace.Px(ox), LayoutSpace.Px(oy), 0f);
+                if (u >= 1f)
+                {
+                    if (SlotNodes[i] != null) SlotNodes[i].localPosition = _slotBase[i];
+                    BeginFlip(i);                                                // 原版 `OnComplete → ChangeState(3)`
+                }
+                return;
+            }
+
+            if (st == (int)CardState.Opening)
+            {
+                _flipT[i] += dt;
+                var kind = (BoosterFlipKind)_flipKind[i];
+                float dur = BoosterPackAnim.FlipDuration(kind);
+                float t = Mathf.Min(_flipT[i], dur);
+                float yaw = BoosterPackAnim.FlipYaw(kind, t);
+                float squash = BoosterPackAnim.FlipSquash(kind, t);
+                float mx = BoosterPackAnim.FlipMirrorX(kind, t);
+                float jx, jy;
+                BoosterPackAnim.FlipJitter(kind, t, out jx, out jy);
+                c.localRotation = Quaternion.Euler(0f, yaw, 0f);
+                c.localScale = new Vector3(mx * squash, squash, squash);        // 镜像纠正（末帧 x = -1）
+                c.localPosition = new Vector3(LayoutSpace.Px(jx * CardK), LayoutSpace.Px(jy * CardK), 0f);
+                if (!_swapped[i] && _flipT[i] >= BoosterPackAnim.FlipRevealTime(kind)) SwapToFace(i);
+                if (_flipT[i] >= dur) FinishFlip(i);
+                return;
+            }
+
+            if (st == (int)CardState.Open)
+            {
+                // 翻开之后回 `Card Idle`（8 s 循环的 ±5° 摆动）
+                _idleT[i] += dt;
+                c.localRotation = Quaternion.Euler(0f, BoosterPackAnim.IdleYaw(_idleT[i]), 0f);
+            }
+        }
+
+        void StepBursts()
+        {
+            if (_anchorNode == null) return;
+            if (_bursts.Count == 0) return;
+            float ox = 0f, oy = 0f;
+            bool any = false;
+            for (int k = 0; k < _bursts.Count; k++)
+            {
+                var b = _bursts[k];
+                float local = _fxClock - b.At;
+                if (local < 0f || local > BoosterPackAnim.CameraShakeDuration) continue;
+                any = true;
+                float u = local / BoosterPackAnim.CameraShakeDuration;
+                float env = b.Decay > 0f ? Mathf.Clamp01(1f - u / b.Decay) : 1f;
+                float w = Mathf.Sin(local * Mathf.PI * 2f * BoosterPackAnim.CameraShakeHz);
+                ox += b.Amp * env * w;
+                oy += b.Amp * env * Mathf.Cos(local * Mathf.PI * 2f * BoosterPackAnim.CameraShakeHz * 1.3f) * 0.35f;
+            }
+            _anchorNode.localPosition = any
+                ? _anchorBase + new Vector3(LayoutSpace.Px(ox), LayoutSpace.Px(oy), 0f)
+                : _anchorBase;
+        }
+
+        /// <summary>**快速开包（内部 API）**：跳过所有动画、把这一包一次性全翻开。
+        /// <para>🔴 **入口判据未定 —— 原版 prefab 里【没有】这个按钮**：`Booster Pack Open Window` 的整棵树
+        /// （`python 工具/menu_dump.py bundle_menus_assets_all "Booster Pack Open Window" --depth 6`）只有
+        /// `Booster pack Background` / `Booster Animation Parent` / `Cards` / 5×`CardInBoosterPack` /
+        /// `Tap to discover` / `Tap to close` / `Collider` —— **没有任何 skip / open-all 件**；
+        /// MB 的字段表里也只有 `useQuickOpenProtection`（那是**防连开**、不是快速开包）。
+        /// ⇒ 本方法**只做内部 API**（自检与将来的入口用），⛔ 不造按钮。</para>
+        /// <para>语义（我们定的）：已翻的不动；没翻的直接置 `Open`（关卡背、开卡面、补角标、内容归零）；
+        /// **不补播**点卡音/稀有度音/粒子（跳过动画的同一条语义），也不闪 `Tap to close` 的缩放。</para></summary>
+        public void QuickOpenAll()
+        {
+            if (Cards == null) return;
+            QuickOpens++;
+            if (!WindowOpenDone)
+            {
+                WindowOpenDone = true;
+                _openT = BoosterPackAnim.WindowOpenDuration;
+                for (int i = 0; i < 5; i++)
+                    if (SlotNodes[i] != null) { SlotNodes[i].localScale = Vector3.one; SlotNodes[i].localPosition = _slotBase[i]; }
+            }
+            for (int i = 0; i < 5; i++)
+            {
+                if (i >= Cards.Length) break;
+                if (CardStates[i] == (int)CardState.Open) continue;
+                if (!Opened[i])
+                {
+                    Opened[i] = true;
+                    if (CardsLeft > 0) CardsLeft--;
+                }
+                if (SlotNodes[i] != null) SlotNodes[i].localPosition = _slotBase[i];
+                // 🔴 2026-10-17（T19 收尾）：命中区**保持开着** —— 翻开的卡可以再点开详情窗（原版 `CardClicked`）。
+                // （原来这里有一句 `SlotHits[i].gameObject.SetActive(false);`，已删）
+                SwapToFace(i);
+                ResetContent(i);
+                ApplyCardBadges(i);
+                CardStates[i] = (int)CardState.Open;
+                _idleT[i] = 0f;
+            }
+            if (DiscoverNode != null) DiscoverNode.gameObject.SetActive(false);
+            if (CloseNode != null) CloseNode.gameObject.SetActive(true);
+            Debug.Log("[BoosterPack] 快速开包（内部 API）：5 张直接全翻（原版无此入口 —— 见 `QuickOpenAll` 注释）");
         }
 
         /// <summary>翻开之后那两个角标（判据逐条见文件头那张表）。</summary>
@@ -762,7 +1139,9 @@ namespace CardPresentation
                       + "（原版 `Update` 里 `timeToShowHelpText` 那条）");
         }
 
-        void Update() { AddTime(Time.deltaTime); Tick(Time.deltaTime); }
+        /// <summary>三条时钟各走各的（⛔ 别合并）：`AddTime` = `timeToShowHelpText` 的累加器、
+        /// `Tick` = `Tap to close` 的闪烁、`Advance` = 开包/翻牌/抖动。</summary>
+        void Update() { AddTime(Time.deltaTime); Tick(Time.deltaTime); Advance(Time.deltaTime); }
 
         // ============================================================ 数据：这一包是哪 5 张
 
@@ -852,22 +1231,34 @@ namespace CardPresentation
             return pick.ToArray();
         }
 
-        /// <summary>把「原版有、我们没做」的几处**当场出声**（红线：不许静默失败）。</summary>
+        /// <summary>把「原版有、我们没做 / 只能做等价物」的几处**当场出声**（红线：不许静默失败）。</summary>
         void HintGaps()
         {
-            Debug.Log("[BoosterPack] ⚠️ 四处如实标注：① **卡包内容是我们摇的**（原版走服务端 drop table，"
-                      + "`DT Ultramarines All(R2+)` 那两张本地没导出来）；② **翻牌动画没做**"
-                      + "（原版 `Content` 上播 `Booster Opening - Card *`）—— 我们直接换层；③ **相机抖动没做**"
-                      + "（原版 `contentByRarities[].shakes` 那几条）；"
-                      + "④ **`useQuickOpenProtection`（60 s 内连开加速）没做**。"
-                      + "✅ **音效已接**（2026-10-17 `W_G`；原来这里写的「音效没做（cue 在远端音频表）」已订正 —— "
-                      + "那几条 cue 本地都有，见文件头）。详见 `Shell/BoosterPackOpenWindow.cs` 文件头");
+            Debug.Log("[BoosterPack] 如实标注：① **卡包内容是我们摇的**（原版走服务端 drop table，"
+                      + "`DT Ultramarines All(R2+)` 那两张本地没导出来）；"
+                      + "② **翻牌动画是代码补间**（判据 = 原版 7 条 clip 的关键帧，采样表在 `BoosterPackAnim`）"
+                      + " —— 原版是 legacy `Animation` 播 clip，我们**不能**直接播（坐标系/缩放/锚点都对不上）；"
+                      + "③ **相机抖是等价物**（菜单层没有相机 ⇒ 抖卡容器；包络/时长我们挑的；"
+                      + "传奇第一条的幅度取 preset 缺省值、本地查不到 ⇒ 不抖）；"
+                      + "④ **防连开（60 s 内连开）已实现**（`BoosterPackAnim.StepProtection`）；"
+                      + "⑤ **快速开包只有内部 API `QuickOpenAll()`** —— 原版 prefab 里没有这个入口；"
+                      + "⑥ `OpenCardbacks` clip 不接（用途未查清）；"
+                      + "⑦ 背景那条 `Booster Window - Background Shake On Open` 只动 `floatProperty1/2`"
+                      + "（原版 shader 的材质属性，逻辑本地没有）⇒ **没做**。"
+                      + "✅ 音效已接（2026-10-17 `W_G`；cue 本地都有）。详见 `Shell/BoosterPackOpenWindow.cs` 文件头"
+                      + " 与 `Shell/BoosterPackAnim.cs` 文件头");
         }
 
         public string Dump()
         {
+            int open = 0;
+            for (int i = 0; i < 5; i++) if (CardStates[i] == (int)CardState.Open) open++;
             return "BoosterPack[" + Page + "/" + Index + "] 阵营 " + (string.IsNullOrEmpty(Army) ? "<全池>" : Army)
-                   + " · 5 张 · 已翻 " + (5 - CardsLeft) + " · 粒子 " + PlayedFx.Count + " 次"
+                   + " · 5 张 · 已翻 " + (5 - CardsLeft) + " · 收尾 " + open + "/5"
+                   + " · 开包 clip " + (WindowOpenDone ? "播完" : (_openT.ToString("F3") + "s"))
+                   + " · 防连开 " + ProtectionDelay.ToString("F2") + "s"
+                   + " · 快速开包 " + QuickOpens + " 次"
+                   + " · 粒子 " + PlayedFx.Count + " 次"
                    + " · 取不到的图 " + MissingArt.Count + " 张";
         }
     }

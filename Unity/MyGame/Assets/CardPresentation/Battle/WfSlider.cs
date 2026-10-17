@@ -714,38 +714,13 @@ namespace CardPresentation
             im.pixelsPerUnitMultiplier = ppuMul;
         }
 
-        /// <summary>🔴 **命中判据：轨道 ∪ 手柄**，写成**一块矩形**（**近似** —— 见下面那条）。
-        /// <para>🔴 **2026-10-19（A1301①）作用域变了，如实记**：本函数现在**只有外壳侧**那根 FPS 滑块在用
-        /// （`Shell/SettingsWindow.cs` 的 `FpsHitRectPx`）。**战斗侧本件的 <see cref="Contains"/> 不再走它** ——
-        /// 那边改成「轨道那块 **∪** 手柄那颗按 `m_RaycastPadding` 外扩后的框」的**真并集**（两块不是同一个
-        /// 纵向带 ⇒ 本函数那个单矩形形式在那边**两个方向都不对**：整条轨道宽都取 `max(半轨道,半手柄)` 会
-        /// **多认**轨道上下 11 画布 px，同时**漏认**手柄外扩出来的那圈）。</para>
-        /// <para>✅ **2026-10-17（A1326）：外壳侧那两笔也收完了**（原来这里记着「两处待收」）——
-        /// `Shell/SettingsWindow.cs` 的 FPS 滑块现在同样走「**轨道 ∪ 手柄按 `m_RaycastPadding` 外扩**」的
-        /// **真并集**：判据 = <see cref="HandleHitRect"/>（转 `MenuDraw.PaddedRect`，算式只此一份），
-        /// 命中区拆成**两块 quad**（轨道 / 手柄各一颗，`PointerLayer` 一颗 `WindowButton` 只认一颗 quad）。
-        /// ⛔ **本函数已无调用点**（保留只为「别把历史结论改成没有过」）——新代码一律走真并集。</para>
-        ///
-        /// <para>**为什么并集本身就是一块矩形**：两块共用同一个纵向带 —— 半高都是
-        /// `max(轨道半高, 手柄半高)`（手柄比轨道高，点在**手柄上**也该算命中）⇒ 横向只要把两端取 min/max。</para>
-        ///
-        /// <para>**单位随调用方**（本件传世界单位、设置窗传设计 px）—— 它是**纯几何**，不碰任何全局换算。</para>
-        ///
-        /// <para>判据出处：原版那两颗 Image（`Background` 轨道 / `Handle` 手柄）的 `m_RaycastTarget` 都是 **1**
-        /// （九根 + FPS 那根逐颗实读）⇒ 两块的射线都冒泡到父件的 `Slider`。而手柄中心带上
-        /// `m_AnchoredPosition.x`(12) 之后在两端会**探出轨道**（值 0 时左缘探出 0.8 设计 px、值 1 时右缘探出
-        /// 19.7 —— 见文件头那条「+17 是算错的」更正）⇒ 只按轨道判会让那一块**静默点不到**。</para></summary>
-        /// <param name="halfH">纵向半高（= `max(halfTrackH, halfHandle)`；没有手柄时 = `halfTrackH`）。</param>
-        public static void HitBand(float trackL, float trackR, float halfTrackH,
-                                   float handleCx, float halfHandle, bool hasHandle,
-                                   out float lx, out float rx, out float halfH)
-        {
-            halfH = hasHandle ? Mathf.Max(halfTrackH, halfHandle) : halfTrackH;
-            lx = trackL; rx = trackR;
-            if (!hasHandle) return;
-            lx = Mathf.Min(lx, handleCx - halfHandle);
-            rx = Mathf.Max(rx, handleCx + halfHandle);
-        }
+        // 🔴 **N41（2026-10-17）：这里原来有个 `HitBand(…)`（「轨道 ∪ 手柄」写成**一块矩形**的近似），
+        //    已删 —— 全仓 0 调用点（战斗侧 `Contains` 在 A1301① 起、外壳侧 FPS 滑块在 A1326 起，
+        //    都改走 `InUnion` / `HandleHitRect` 的**真并集**）。
+        //    ⚠️ 历史结论别丢（它记录的是「为什么不能用单矩形」）：两块**不是同一个纵向带**
+        //    （轨道 13 · 手柄 35.406 设计 px）⇒ 取 `max(半轨道, 半手柄)` 会**多认**轨道上下那两圈、
+        //    同时**漏认**手柄按 `m_RaycastPadding = −25` 外扩出来的那一圈 —— 两个方向都错。
+        //    判据与算式见 `InUnion` 的 doc，⛔ 别再把这个近似写回来。
 
         /// <summary>🆕 **2026-10-17（A1326）**：手柄那颗 `Image` 的**原版命中框** —— 入参 = 它**未外扩**的
         /// 布局框（= 原版 `m_SizeDelta` 那一块：`HandleFrameW × 运行期框高`），返回**四边按 `m_RaycastPadding`
@@ -753,7 +728,7 @@ namespace CardPresentation
         /// <para>🔴 **算式只此一份**：转发 `MenuDraw.PaddedRect`（符号口径「正 = 缩小、负 = 扩大」与退化守卫都在那边，
         /// 本件一个字都不写 `±pad`）。战斗侧 <see cref="HitHandlePadded"/> 与外壳侧 FPS 滑块
         /// （`Shell/SettingsWindow.cs`）用的是**同一条**。</para>
-        /// <para>⚠️ 坐标帧随调用方（本件世界单位 / 外壳设计 px 都行）—— 与 <see cref="HitBand"/> 同一条规矩。</para></summary>
+        /// <para>⚠️ 坐标帧随调用方（本件世界单位 / 外壳设计 px 都行）—— 与 <see cref="InUnion"/> 同一条规矩。</para></summary>
         public static PxRect HandleHitRect(PxRect frame)
         {
             return MenuDraw.PaddedRect(frame,

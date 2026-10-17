@@ -1983,9 +1983,18 @@ namespace CardPresentation
             return m;
         }
 
+        // 🆕 **2026-10-17（T09 第 2 步）**：`Build` 分段计时 —— **只在真 Play 且开关打开时出声**
+        //   （批处理/自检零影响）。用途 = 把「每格 2.6 s」拆成 图加载 / FrameMesh / 其他建层 / rim / 文字。
+        //   判据与下一步 → `资料/普查产出_1017/UI/PERF_T09_收藏窗性能诊断.md` §3 第 2a 步。
+        public static bool BuildTiming = true;
+        static readonly System.Diagnostics.Stopwatch _buildWatch = new System.Diagnostics.Stopwatch();
+
         void Build(CardData d)
         {
             Data = d;
+            bool bt = BuildTiming && Application.isPlaying;
+            long m0 = 0, m1 = 0, m2 = 0, m3 = 0, m4 = 0;
+            if (bt) _buildWatch.Restart();
 
             // ---- 内层节点 `2DCard`：卡面所有层都挂在它底下，`AutoCardRotation` 也挂在它身上 ----
             // 原版两级（`CardUI Reference / 2DCard`，出处 `子代理读报_2dcard_0827.md` A0 全树）：
@@ -2022,6 +2031,7 @@ namespace CardPresentation
                 // 根节点自带的那个 MeshRenderer 用不上 —— 不关掉它会拿默认材质渲出一块品红
                 GetComponent<MeshRenderer>().enabled = false;
                 var artTex = ArtTexture(d);
+                if (bt) m0 = _buildWatch.ElapsedMilliseconds;      // 图加载（CardArt.Load + Frame + ArtTexture）到此
                 var artMesh = ArtMeshInFrame(artTex, FrameQuad(frameTex));
                 // ---- 立绘：**画在框下、由框的 alpha 剪出来**（原版默认就是这个，**不越出**）----
                 //   ① 底层「完整插图」：**忽略贴图的 alpha**（那张图的 alpha 是角色抠图，不是不透明信息），
@@ -2119,6 +2129,7 @@ namespace CardPresentation
                 // UV 裁到卡外框；**uv2 = 立绘的 UV**（破框 shader 靠它采立绘的 alpha —— 现在没有 shader
                 // 采了，但 `CheckCutoutUvAlignment` 仍在守这条对齐判据，**留着**，见那一段注释）
                 if (_frame != null) _frame.GetComponent<MeshFilter>().sharedMesh = FrameMesh(frameTex, artTex);
+                if (bt) m1 = _buildWatch.ElapsedMilliseconds;      // FrameMesh（含 uv2 遮罩对齐）到此
                 // 费用底板 / 护甲盾：原版的**两张真图**（A2 表），垫在数值底下 ——
                 // z 比 `_info`(−0.02) 远、比卡框(0) 近，所以数字盖在它们上面，和原版层级一致。
                 var costTex = CardArt.DeckUi("Card_Frame_Cost_Icon");
@@ -2218,13 +2229,16 @@ namespace CardPresentation
             PlaceRim(rimGo.transform);            // 🆕 2026-09-29：位置与尺寸照原版（见 `PlaceRim`）
             rimGo.AddComponent<MeshFilter>().sharedMesh = Quad();
             _rim = rimGo.AddComponent<MeshRenderer>();
+            if (bt) m2 = _buildWatch.ElapsedMilliseconds;          // 进入 rim 之前
             _rim.sharedMaterial = RimMaterial();
+            if (bt) m3 = _buildWatch.ElapsedMilliseconds;          // rim 材质（`RimMaterial()` 每次都新建一份）
             StampQueue(_rim);            // 🆕 A1665：状态环也是这张卡的一层（`RimMaterial()` 每次都新建一份 ⇒ 安全）
             _rim.enabled = false;
 
             // 卡名/关键词走 TMP（拿不到字体资产时它自己会跳过，字仍旧烘在 _info 里）
             // ⚠️ **场上不挂**（原版整张 `2DCard` 关掉，卡名/阵营行/兵种行/效果文字一起没有）
             if (_faceMode != CardFace.Board) BuildTextLayers(d);
+            if (bt) m4 = _buildWatch.ElapsedMilliseconds;          // 文字层（5 段 TMP + FitToBox 二分）到此
 
             // 🆕 棋盘徽标（`CardData.badges` 为空时这一句什么都不建 —— 手牌/战术卡都是空的）
             SetBadges(d.badges);
@@ -2236,6 +2250,18 @@ namespace CardPresentation
             //    `face=Board · isUnit=True · Pragati=True` 却是 `[-1,-1,-1,-1]`）。
             BuildStatLayers();
             SyncStatLayers();
+
+            // 🆕 **2026-10-17（T09 第 2 步）**：分段计时只在真 Play 出声；批处理/自检零影响。
+            if (bt)
+            {
+                long end = _buildWatch.ElapsedMilliseconds;
+                if (m0 > 0)
+                    Debug.Log($"[CardView.Build] {(string.IsNullOrEmpty(d.artId) ? "?" : d.artId)} 总 {end} ms · "
+                            + $"图加载 {m0} · FrameMesh {m1 - m0} · 其他建层 {m2 - m1} · rim {m3 - m2} · "
+                            + $"文字 {m4 - m3} · 收尾 {end - m4}");
+                else
+                    Debug.Log($"[CardView.Build] {(string.IsNullOrEmpty(d.artId) ? "?" : d.artId)} 总 {end} ms（无卡框，走占位路径）");
+            }
         }
 
         /// <summary>
@@ -5256,11 +5282,44 @@ namespace CardPresentation
         static readonly Dictionary<Texture2D, Rect> _uvCache = new Dictionary<Texture2D, Rect>();
         static readonly Dictionary<Texture2D, Mesh> _meshCache = new Dictionary<Texture2D, Mesh>();
 
+        // 🆕 **2026-10-17（T09 第 2 步 · A1655②）**：卡框 UV 的**离线表**（`Resources/frame_uv.json`）。
+        //   生成器 = `工具/gen_frame_uv.py`（判据与 `FrameUv` 逐字同一套：`alpha <= 8` 透明、
+        //   `(x0+0.5)/W, (y0+0.5)/H, (x1-x0+1)/W, (y1-y0+1)/H`）。
+        //   有它 ⇒ 运行时**不再 `GetPixels32()` + 全图扫描**（实测 ≈55 ms/格，见
+        //   `资料/普查产出_1017/UI/PERF_T09_收藏窗性能诊断.md` §4）；表里没有的贴图**退回原扫描**。
+        [System.Serializable] class FrameUvRow { public string t; public int w, h; public float u, v, sw, sh; }
+        [System.Serializable] class FrameUvFile { public int count; public FrameUvRow[] entries; }
+        static Dictionary<string, Rect> _uvTable;
+        static bool _uvTableTried;
+        const string FrameUvResource = "frame_uv";
+
+        static void EnsureUvTable()
+        {
+            if (_uvTableTried) return;
+            _uvTableTried = true;
+            var ta = Resources.Load<TextAsset>(FrameUvResource);
+            if (ta == null) return;           // 没有表 = 正常（退回运行时扫描，不报错）
+            var f = JsonUtility.FromJson<FrameUvFile>(ta.text);
+            if (f == null || f.entries == null) return;
+            _uvTable = new Dictionary<string, Rect>(f.entries.Length);
+            foreach (var e in f.entries)
+                if (e != null && !string.IsNullOrEmpty(e.t))
+                    _uvTable[e.t] = new Rect(e.u, e.v, e.sw, e.sh);
+        }
+
         /// <summary>卡外框在贴图里的 UV 矩形 (uMin, vMin, uMax, vMax)。量不出来的话退回整张贴图。</summary>
         public static Rect FrameUv(Texture2D tex)
         {
             Rect r;
             if (_uvCache.TryGetValue(tex, out r)) return r;
+
+            // 🆕 **2026-10-17（T09 第 2 步）**：先查离线表（按贴图名）；没有才走原来的像素扫描。
+            EnsureUvTable();
+            if (_uvTable != null && tex != null && _uvTable.TryGetValue(tex.name, out r))
+            {
+                _uvCache[tex] = r;
+                return r;
+            }
 
             int W = tex.width, H = tex.height;
             Color32[] px = null;

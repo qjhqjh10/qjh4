@@ -637,6 +637,97 @@ public static class DeckScene
 
         // ============================================================ 自检
 
+        // ==================================================================
+        //  🆕 2026-10-17（`A1212` 块 1）：**「实参 = 原版四格」那 15 处**的断言。
+        //
+        //  判据 = 原版 MB 的四个字段原文（`m_fontSizeMin` / `m_fontSizeMax` / `m_fontSizeBase` /
+        //  `m_TextWrappingMode`），逐颗现读自 `bundle_menus_assets_all` —— 与
+        //  `资料/普查产出_第十一会话/RA1212_切块表.md` 块 1 那 15 行逐值相同（那份表是 2026-10-10 快照，
+        //  这里**按节点名现取**，⛔ 不按行号）。
+        //  ⛔ 期望值**不许**读 `DeckRuntime` 里的常量 / 注释表（那是自证）。
+        //  🔴 「折行 ≠ 1」那一半（`A1212` 要求逐块核 `SetWrapping` 有没有漏）：
+        //   本块 15 处里 `0` 档 9 处、`3` 档 1 处（`name_t`）—— 接线侧已逐处 `SetWrappingMode(0/3)`，
+        //   这里**逐颗读回**（`Label.WrappingMode` = TMP 的原文），漏一处就红。
+        // ==================================================================
+
+        /// <summary>`A1212` 的公用断言之「一颗字的四格 + 折行档」（判据见上面那一段）。</summary>
+        static void CheckA1212(Transform root, string name, string origNode,
+                               float mn, float mx, float bs, int wrap,
+                               float boxW = -1f, float boxH = -1f)
+        {
+            var t = FindDeep(root, name);
+            // 兜底：导入弹窗那几颗挂在 `DeckRuntime.Root` 那一棵上（现读 `DeckScene` 既有断言
+            // `FindDeep(_rt.Root, "imp_input")` 就是这么取的）—— 两棵树都搜，⛔ 不猜是哪一棵。
+            if (t == null && _rt != null && _rt.Root != null) t = FindDeep(_rt.Root, name);
+            var lb = t != null ? t.GetComponent<Label>() : null;
+            CheckTrue(lb != null, $"（前提）`A1212` `{name}` 建出来了（原版 `{origNode}`）");
+            if (lb == null) return;
+            string tag = $"`{name}`（原版 `{origNode}`）";
+            CheckTrue(lb.AutoSizing, $"★ A1212 {tag}：**`m_enableAutoSizing = 1`**（自适应开着）");
+            // ⚠️ 用**实例口** `FontSizeToPxNow(…, ActualFace)`：`SetAutoFitBox` 写进去的
+            //   `fontSizeMin = cur × minPx / NominalPx()` 在 px 口径下恒等于原版字段原文（逐位），
+            //   静态 `FontSizeToPx` 只在 `Face.Cjk` + 世界档那一档才同源。
+            CheckNear(lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace), mn, 0.05f,
+                      $"★ A1212 {tag}：下界 = 原版 `m_fontSizeMin` {mn}px");
+            CheckNear(lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace), mx, 0.05f,
+                      $"★ A1212 {tag}：上界 = 原版 `m_fontSizeMax` {mx}px");
+            CheckNear(lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace), bs, 0.05f,
+                      $"★ A1212 {tag}：二分起点 = 原版 `m_fontSizeBase` {bs}px"
+                    + "（🧨 只开自适应、不给 base ⇒ 这一格红）");
+            Check(lb.WrappingMode, wrap,
+                  $"★ A1212 {tag}：折行档 = 原版 `m_TextWrappingMode` {wrap}"
+                + "（`SetAutoFitBox` 内部会无条件开 `Normal(1)` ⇒ 这一格抓「接完忘了还原」）");
+            var tmp = t.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (tmp == null) { CheckTrue(false, $"（前提）A1212 {tag}：走 TMP 后端（点阵后端没有框/四格）"); return; }
+            // 框：`SetWrapWidth` / `SetAutoFitBox` 写的是 TMP 子节点的 `sizeDelta`（本档单位）
+            float k = lb.IsUgui ? 1f : (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
+            if (boxW > 0f)
+                CheckNear(Mathf.Abs(tmp.rectTransform.sizeDelta.x) * k, boxW, 0.05f,
+                          $"★ A1212/A1226 {tag}：框宽 = 原版有效框 {boxW}px");
+            if (boxH > 0f)
+                CheckNear(Mathf.Abs(tmp.rectTransform.sizeDelta.y) * k, boxH, 0.05f,
+                          $"★ A1212/A1226 {tag}：框高 = {boxH}px");
+        }
+
+        /// <summary>`A1212` 块 1（`DeckRuntime`，15 处）—— 逐颗对原版四格。</summary>
+        static void TestA1212()
+        {
+            Section("★ A1212 块 1：DeckRuntime 那 15 处「实参 = 原版四格」");
+            var r = _root;
+            CheckTrue(r != null, "（前提）`_root` 在");
+            if (r == null) return;
+
+            CheckA1212(r, "hdr_back_t", "Deck Editing Menu/Content Area/Header/Close/Button Text", 10f, 40f, 12f, 0,
+                       boxW: 133.22f);                       // A1226 表 B #35（框宽已改）
+            CheckA1212(r, "hdr_fltlbl", "…/Sidebar/Filters/Filters", 10f, 40f, 32f, 0);
+            CheckA1212(r, "hdr_clear_t", "…/Header/Filters/…/Button Text", 10f, 42f, 12f, 0,
+                       boxW: 221.44f);                       // A1226 表 B #37
+            for (int i = 0; i < 4; i++)
+                CheckA1212(r, "hdr_wct" + i, "…/Header/Wildcard Counter/Counter", 10f, 38f, 45f, 1);
+            CheckA1212(r, "name_t", "…/Sidebar/Deck Details/Name (Text)", 10f, 28f, 28f, 3);
+            CheckA1212(r, "name_h", "…/Sidebar/Deck Details/Name (Hint)", 10f, 28f, 24f, 0);
+            // 🔴 **2026-10-17（`A1226` 表 B #41/#52）：这两颗**原版没有固定框** —— 判据 = RM 自己那两列
+            //   两种口径的对照：`m_SizeDelta` = **0 × 0**（`HorizontalLayoutGroup` 驱动 ⇒ 序列化里根本没有框）、
+            //   「原版有效框」= **111.52 × 47.90** 是**布局组算出来的**（父格 × 锚跨度），随原版抽屉的格宽/行高走。
+            //   ⇒ 与 `A1226` 其余站**不可比**：照 111.52 抄宽 = 把原版抽屉的布局结果抄成我们的固定框。
+            //   本批的口径 = **断我们实际用的框 = 我们自己的父格**（`RowNameW 190 × RowH 55.7` /
+            //   `CardGhostW − 70 = 217.9 × 55.7`），把「用的就是格、不是原版那个数」钉住；
+            //   ⛔ 不为凑 `A1226` 的差值改几何（铁律 3 的反面：布局组驱动的件没有可抄的原版框）。
+            CheckA1212(r, "row_n0", "…/Deck List drawer/…/Text fill/Card Name", 2f, 38f, 27.69f, 0,
+                       boxW: 190f, boxH: 55.7f);             // A1226 表 B #41（不可比：原版 111.52 = 布局组算的）
+            CheckA1212(r, "row_cnt0", "…/Deck List drawer/…/Cost Image/Cost", 18f, 50f, 32f, 1);
+            CheckA1212(r, "foot_done_t", "…/Sidebar/Footer/Done/Button Text", 10f, 40f, 12f, 0,
+                       boxW: 168.54f);                       // A1226 表 B #46
+            CheckA1212(r, "card_ghost_n", "Card Drag Controller/…/Card Name", 2f, 38f, 27.69f, 0,
+                       boxW: 217.9f, boxH: 55.7f);           // A1226 表 B #52（不可比：原版 111.52 = 布局组算的）
+            CheckA1212(r, "card_ghost_c", "Card Drag Controller/…/Cost Image/Cost", 18f, 50f, 32f, 1);
+            CheckA1212(r, "imp_title", "Import Deck Popup/…/Title", 4f, 50f, 36f, 1);
+            CheckA1212(r, "imp_input", "Import Deck Popup/…/Input Field/Text Area/Placeholder", 18f, 32f, 32f, 0);
+            CheckA1212(r, "imp_err", "Import Deck Popup/…/Error", 4f, 28f, 36f, 0);
+            CheckA1212(r, "imp_ok_t", "Import Deck Popup/Window/Buttons/Generic UI Button/Button Text",
+                       12f, 45f, 12f, 0, boxW: 452.34f);     // A1226 表 B #57
+        }
+
         public static void Run()
         {
             _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
@@ -679,6 +770,13 @@ public static class DeckScene
                 CheckTrue(_root != null && _root.GetComponent<DeckRuntime>() != null,
                           "根对象上挂着 DeckRuntime（按 Play 的入口）");
                 TestLayout(state);
+                // 🆕 2026-10-17（`A1212` 块 1）：15 处「实参 = 原版四格」的断言（必须在 `TestLayout` 之后 ——
+                //   `_root` 是 `Build` 出来的那棵树；本组只读，不建任何东西）。
+                TestA1212();
+                // 🔴 **2026-10-17（N16 撤回，铁律 5）**：原版 `RankedEventWindow ◂ Deck info` 那棵树属于
+                //   **V1 旧窗**；本窗实现的是**现役 V2**（V2 prefab 没有 `deckInfo` 字段），而且原版事件类
+                //   只有 `RankedV2Event` / `RankedV3Event`（无 V1 事件）⇒ 往 V2 里加那块会盖住三栏、且是死件。
+                //   ⇒ 已撤回；判据与结论 → `资料/普查产出_1017/UI/U3_弹窗与小界面族.md` + 界面线总表 N16 行。
                 TestLibraryWiring();
                 // 🆕 2026-10-17：**拖拽那两条链**（卡背预览 / 松手投递 /「拖 vs 滚动」阈值）
                 //    —— 必须在 `TestLayout` 之后（它才把 `_rt` 建出来）
@@ -8764,6 +8862,11 @@ public static class DeckScene
         }
 
         /// <param name="lib">卡组库。**自检必须传临时路径上的库** —— 不能动玩家的真存档。</param>
+
+        // 🔴 **2026-10-17（N16 撤回，铁律 5）**：这里原来有 `TestRankedEmbeddedDeckInfo()` + `CheckNodeRectPx()`，
+        //   断的是原版 **V1** `RankedEventWindow ◂ Deck info` 那棵树。撤回理由见 `Run()` 里那段注释：
+        //   V1 是旧窗、原版事件只有 V2/V3、我们实现的是现役 V2 ⇒ 那些断言等于给死件钉钉子。
+
         static DeckEditorState Build(DeckLibrary lib, out Transform root)
         {
             NewSceneWithCamera();     // 🆕 第 6 步起与 `BuildAndSaveScene` **共用一份建场**（见那个方法）

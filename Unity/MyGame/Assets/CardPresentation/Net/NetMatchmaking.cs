@@ -545,7 +545,7 @@ namespace CardPresentation.Net
                         //     （复用现成的 `NetSession.ClampPeerText`，⛔ 不写第二份）。
                         //   ⚠️ 这是我们自拟的（原版那一刻的名字来自**服务器**账号 id、长度由服务端管）
                         //      → 取值与出处见 `NetProtocol.MaxPeerTextChars`。
-                        FoeName = NetSession.ClampPeerText(st.myName);
+                        FoeName = NetSession.ClampPeerText(st.myName, NetProtocol.MaxPeerNameChars);
                         Debug.Log($"[Net] 主机开局：种子 {st.seed} · 模式 {st.mode} · 战场 {st.arena} · "
                                 + $"先手 = {(st.hostFirst == 0 ? "主机" : "客机")}"
                                 + (string.IsNullOrEmpty(FoeName) ? "" : $" · 对面是「{FoeName}」"));

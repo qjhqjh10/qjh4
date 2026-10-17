@@ -6861,8 +6861,11 @@ namespace CardPresentation
         ///     **底条和文字一起关**（不是「画一条空底条」）。
         /// 实况印证：`runtime_ui_dump_drive_0912.tsv` 里 `TitleBackground` 的 `activeSelf = False`
         /// （原版关服、玩家档案没有称号）⇒ **默认就该是关着的**。
-        /// ⚠️ 单机没有玩家资料（原版那套在服务端）⇒ 正常流程**永远**传 null 进来，
-        ///    这一件在单机里恒不显示。留着它是为了**显式表达原版那条判据**（不许静默失败）。
+        /// ⚠️ ~~单机没有玩家资料（原版那套在服务端）⇒ 正常流程**永远**传 null 进来，这一件在单机里恒不显示。~~
+        /// 🆕 **2026-10-17（`T20` / `A2118`）就地订正**：数据源接上了 ——
+        ///    · 我方 = `ProfileData.TitleName`（玩家在档案窗 `Title` 页选的那一条；`TitleIndex = −1` ⇒ `""` ⇒ null）；
+        ///    · 对手 = `BotTitleName`（按本局 `_seed` 确定性挑，**我们的近似**，见 `BotTitleIndex`）。
+        ///    **判据本身一个字没改**（为空仍整块关），「恒不显示」那句因此作废。
         /// </summary>
         public void SetTitle(string me, string foe)
         {
@@ -6870,6 +6873,17 @@ namespace CardPresentation
             _titleFoeText = foe ?? "";
             ApplyTitle(_titleMe, _titleBgMe, _titleMeText);
             ApplyTitle(_titleFoe, _titleBgFoe, _titleFoeText);
+        }
+
+        /// <summary>把「档案窗那套资料」里的**称号**重新贴到 HUD 名牌上。
+        /// · 我方 = `ProfileData.TitleName`（`TitleIndex = −1` ⇒ 空 ⇒ 传 null ⇒ 整块关）；
+        /// · 对手 = `BotTitleName`（按本局 `_seed` 确定性挑，**我们的近似** —— 判据见 `BotTitleIndex`）。
+        /// 🆕 **2026-10-17（`T20` / `A2118`）**：`BuildHudExtras` 建完那两颗 `Label` + 两条底条之后调它一次；
+        ///   走这个口（而不是内联）是为了让自检能**在 HUD 建好之后改 `ProfileData.TitleIndex` 再验一次接线**。</summary>
+        public void RefreshHudTitles()
+        {
+            string me = ProfileData.TitleName;
+            SetTitle(string.IsNullOrEmpty(me) ? null : me, BotTitleName);
         }
 
         static void ApplyTitle(Label l, HudPiece bg, string text)
@@ -15373,6 +15387,39 @@ namespace CardPresentation
             return (int)(h % (uint)list.Count);
         }
 
+        /// <summary>对手（bot）称号在本局清单里的下标 —— 与 `BotAvatarIndex` 同一套写法：只拿本局种子
+        /// 做一次位混合，**绝不碰 `Ctx.Rng`**（动引擎的随机流 ⇒ 同一种子复现不出同一局）。
+        /// <para>⚠️ **这是我们挑的，不是原版行为**：原版 `MatchData.SetBotDeckRandomCosmetics` 给 bot 配的
+        /// 称号来自 `AIBotsConfig.GetRandomTitle`，而它吃的**允许清单是 LiveOps 远端配置**
+        /// （`ConfigManager.GetConfig&lt;AIBotsConfig&gt;()`，本地没有 ⇒ 查不到，不编）。
+        /// ⇒ 「从本地 462 条里按种子挑一条」与头像那条分支是**同一个近似口径**（见 `HudAvatarW` 那一段）。</para>
+        /// <para>⚠️ 与 `BotAvatarIndex` 之间**加一个不同的盐**：同一局里「头像 + 称号」不该联动
+        /// （原版是两次独立抽取，头像在 `matchData+0x40`、称号在 `+0x50`）。</para>
+        /// <para>🔴 **联机局也走这一条** —— 线上协议目前**不带称号字段**（`Net/NetBattle.cs` 的
+        /// `MyName/FoeName` 只有名字，同头像那条一样）⇒ 屏幕上印的**不是对端的真称号**，
+        /// **这是已知近似**（和对手头像同一档）。要修得先给握手加字段，那是联机线的账。</para>
+        /// 返回 **−1** = 清单为空（= 这个 bot 没有称号）。</summary>
+        int BotTitleIndex()
+        {
+            var list = ProfileData.Titles;
+            if (list == null || list.Count == 0) return -1;
+            uint h = unchecked((uint)_seed) * 2654435761u;
+            h += 0x9E3779B9u;                 // 与头像那一路错开（见上面那条 ⚠️）
+            h ^= h >> 15; h *= 2246822519u; h ^= h >> 13;
+            return (int)(h % (uint)list.Count);
+        }
+
+        /// <summary>对手（bot）称号的显示名；清单为空 ⇒ **null**（`SetTitle` 会把整块关掉）。
+        /// 🆕 2026-10-17（`T20` / `A2118`）· **自检也读它算期望值**（`Editor/BattleScene.cs` 那条称号断言）。</summary>
+        public string BotTitleName
+        {
+            get
+            {
+                int i = BotTitleIndex();
+                return i < 0 ? null : ProfileData.Titles[i].Name;
+            }
+        }
+
         /// <summary>换贴图（**只在下标/种子变了的时候**才动 —— 手法同 `Shell/TopBar.RefreshTopAvatarIfChanged`）。
         /// 玩家在档案窗改头像、或按 R 重开一局换了种子，都会在这里跟上。</summary>
         void RefreshHudAvatars()
@@ -15451,7 +15498,8 @@ namespace CardPresentation
             //    实况 dump 印证（`runtime_ui_dump_drive_0912.tsv`）：`TitleBackground` 的
             //    `activeSelf = False`（原版关服、玩家没有称号）⇒ 我们默认也**不显示**。
             // ⚠️ 所以这一件**不是「画一行字上去」**（§13-E 第 7 条当时是这么理解的）——
-            //    原版无资料时**整块都不出现**。单机没有玩家资料 ⇒ 默认关；`SetTitle` 留好了接线点。
+            //    原版无资料时**整块都不出现**。🆕 2026-10-17（`T20` / `A2118`）：数据源已接上
+            //    （玩家 = 档案窗选的称号 · 对手 = 按种子挑），**没选时仍整块关**（判据一个字没改）。
             var titleOrange = new Color(1.0f, 0.6306f, 0.4198f);
             // 🔴 **2026-10-10（A1213①）**：框/四格 ← 原版两侧的 `…/TitleBackground/EnemyTitle`
             //    （`RectTransform/RectTransform_2893.json`(我) · `_3134.json`(敌)；
@@ -15478,11 +15526,23 @@ namespace CardPresentation
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版两侧 `EnemyTitle` 的 **`V Midline`**
             //   —— 判据 = 上面 `:8364-8365` 逐字写着「H 居中 · **V Midline** · `m_fontColor` = (1.0, 0.6306, 0.4198)」，
             //   直读 `MonoBehaviour_3797.json`（我）/`MonoBehaviour_3887.json`（敌）。`Midline` 不吃框高。
-            //   ⚠️ 本件**单机恒传空串**（`SetTitle(null, null)` ⇒ 整块不显示）⇒ 今天无可见差；
+            //   ⚠️ ~~本件**单机恒传空串**（`SetTitle(null, null)` ⇒ 整块不显示）⇒ 今天无可见差~~
+            //   🆕 **2026-10-17（`T20` / `A2118`）已改**：下面的 `RefreshHudTitles()` 现在喂**真实称号**
+            //   （玩家 = `ProfileData.TitleName` · 对手 = `BotTitleName`）⇒ **会有可见差**；
+            //   档位不受影响（`Midline` 不吃框高，见上）。
             //   而且 `Label` 恒 `NoWrap`（`BuildTmp` 硬写）⇒ 不踩「多行 + 档位」那个坑（见 W16 报告 §五·1）。
             if (_titleMe != null) _titleMe.SetVAlign(Label.VAlign.Midline);
             if (_titleFoe != null) _titleFoe.SetVAlign(Label.VAlign.Midline);
-            SetTitle(null, null);          // 单机没有玩家资料 ⇒ 与实况一致：整块不显示
+            // 🔴 **2026-10-17（`T20` / `A2118`）**：不再恒传空 —— 原版 `PlayerProfileUIController` 是
+            //    **头像 / 称号 / 名字一起设**的，玩家在左上角档案窗（`Player Profile Window`）选的那一套
+            //    进战斗后要原样出现在名牌上（用户 2026-10-17 点名）：
+            //    · 我方 = `ProfileData.TitleName`（`TitleIndex = −1` ⇒ `""` ⇒ 传 null ⇒ **整块关**，
+            //      与上面「原版无资料 ⇒ 底条和文字一起关」那条判据一致）；
+            //    · 对手 = `BotTitleName`（按本局 `_seed` 确定性挑，**我们的近似** —— 原版允许清单在远端，
+            //      见 `BotTitleIndex`）。
+            //    ⚠️ 调用次序不动：两颗 `Label` 与两条底条**都已建好** ⇒ `ApplyTitle` 里
+            //    「先激活、再写字（TMP 未激活量不出尺寸）」那条不会退化（`ApplyTitle` 自己处理，别在这儿重排）。
+            RefreshHudTitles();
 
             // ---- 头像块 `Avatar Item Small` ----
             // 出处：`子代理读报_back左区_0827.md:49`（容器 x[-19.7,136] y[948.1,1084.6]，**左缘出屏 19.7 px**）

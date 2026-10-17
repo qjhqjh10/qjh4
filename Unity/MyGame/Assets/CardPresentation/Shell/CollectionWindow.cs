@@ -991,6 +991,13 @@ namespace CardPresentation
         Transform _deckEmpty;      // Deck 页的「一套卡组都没有」
         Transform _cardsEmpty;     // Cards 页
         Transform _cosmoEmpty;     // Cosmetics 页（卡背）
+        // 🔴 **2026-10-17（T09 第 1 步）：卡池视图池** —— 滚动不再整屏重建。
+        //   键 = `CardDef.Id + 语档`（语档变了卡面文字要重排 ⇒ 不跨语档复用）；上限 ≈2.5 屏。
+        //   判据与实测数字 → `资料/普查产出_1017/UI/PERF_T09_收藏窗性能诊断.md`
+        readonly Dictionary<string, CardView> _cellPool = new Dictionary<string, CardView>();
+        readonly List<string> _cellKeyOrder = new List<string>();
+        readonly List<CardView> _cellUsed = new List<CardView>();
+        const int CellPoolCap = 48;
         /// <summary>Cards 页的「过滤后为空」提示（判据与 Styles 页**同一条**：`VisibleCards().Count &lt;= 0`）。</summary>
         void RefreshCardsEmpty()
         {
@@ -1002,6 +1009,8 @@ namespace CardPresentation
         {
             var page = PageRoot(1);
             if (page == null) return;
+            // 🔴 **2026-10-17（T09 第 1 步）**：池里的视图挂在**将要被销毁的页树**下 ⇒ 先清池，别留悬空引用。
+            _cellPool.Clear(); _cellKeyOrder.Clear(); _cellUsed.Clear();
             for (int i = page.childCount - 1; i >= 0; i--) DestroySafe(page.GetChild(i).gameObject);
             BuildCardsPage(page);
         }
@@ -1010,8 +1019,18 @@ namespace CardPresentation
         {
             var vp = holder.Find("Viewport");
             var parent = vp != null ? vp : holder;
-            for (int i = parent.childCount - 1; i >= 0; i--) DestroySafe(parent.GetChild(i).gameObject);
+            // 🔴 **2026-10-17（T09 第 1 步）：池化** —— 只清「每趟重建」的两类（张数条 + 命中区），
+            //    `CardView` 留在池里复用。原来这里把 `parent` 下**所有孩子**（含 18 张卡）销毁再重建，
+            //    而滚动回调的阈值只有 **0.01 px**（`MenuScroll`）⇒ 拖一下 = 18 × 2.6 s ≈ **49 秒**。
+            //    实测与修法 → `资料/普查产出_1017/UI/PERF_T09_收藏窗性能诊断.md`
+            for (int i = parent.childCount - 1; i >= 0; i--)
+            {
+                var ch = parent.GetChild(i);
+                if (ch.name.StartsWith("Counter ") || ch.name.StartsWith("CardHit_"))
+                    DestroySafe(ch.gameObject);
+            }
             CardsCells.Clear();
+            _cellUsed.Clear();
 
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A15）**：这里原来是一对「`Clip = CardsViewport;` →
             //   循环 → `Clip = prevClip;`」—— 迁移后**整对删掉**：裁切状态长在 `holder/Viewport` 那颗
@@ -1030,10 +1049,29 @@ namespace CardPresentation
                 //   它是拼卡面文案那条路（`FaceTextFull`：中/英二选一 + `CardIcons.Rewrite` + 关键词段），
                 //   算两遍纯属浪费。⛔ 别把它挪回 `CardView.Create` 的实参里（那就又变两份）。
                 var data = BattleDriver.ToCardData(list[i], list[i].Faction);
-                var v = CardView.Create(parent, data, "CollectionCard_" + i);
-                if (v == null) continue;
-                v.gameObject.SetActive(true);
-                BuildWatch.CellPhase("① `CardView.Create`（建整张卡：各层 + TMP + `FitToBox` 二分 + `FitToWidth`）");
+                // 🔴 **2026-10-17（T09 第 1 步）**：**按 `CardDef.Id + 语档` 复用**。
+                //   键带语档的理由：语档变了卡面文字要重排，旧视图不能拿（同 `CardView.Create` 的语义）。
+                //   ⛔ 复用时**不要** `SetData` —— 同一个 id + 同一份语档 ⇒ `ToCardData` 的产物逐字段相同，
+                //   只需要重做「位姿 / 裁切 / 高亮 / 激活」（见下）。
+                string key = list[i].Id + "|" + (int)Loc.Current;
+                CardView v;
+                bool reused = _cellPool.TryGetValue(key, out v) && v != null;
+                if (reused)
+                {
+                    v.gameObject.name = "CollectionCard_" + i;   // 按当前槽号重命名（自检按名字找）
+                    v.gameObject.SetActive(true);                // ⚠️ 先激活：TMP 在未激活对象上量不出尺寸
+                }
+                else
+                {
+                    v = CardView.Create(parent, data, "CollectionCard_" + i);
+                    if (v == null) continue;
+                    v.gameObject.SetActive(true);
+                    _cellPool[key] = v;
+                    _cellKeyOrder.Add(key);
+                }
+                BuildWatch.CellPhase(reused
+                    ? "① `CardView` **复用**（池命中，无新建）"
+                    : "① `CardView.Create`（建整张卡：各层 + TMP + `FitToBox` 二分 + `FitToWidth`）");
                 // 🔴 **2026-10-08（A181）：卡自己也要吃这道裁切** —— 窗级的裁切只到
                 //   `MenuWindowBase` 那几个绘图助手（`Rect`/`Text`/`Nine`/`AddHit`），而这张卡是
                 //   `CardView` 的**自建网格**，看不见它 ⇒ 压在视口边上的卡**整张画出去**
@@ -1075,6 +1113,7 @@ namespace CardPresentation
                 v.SetHighlight(CardHighlightState.Normal);
                 BuildWatch.CellPhase("④ `SetFace` + `SetHighlight`（`SetFace` 是空操作，见本行注释）");
                 CardsCells.Add(v.transform);
+                _cellUsed.Add(v);
                 // 🆕 2026-10-17（B10 · 账上「卡重复与升级 · 三件 UI ①」）：格子**底下那条「张数」**
                 //    （原版 `Collection Card/Content/Counter`）—— 判据 / 文案 / 几何全在 `BuildCardsCounter` 那一段。
                 BuildCardsCounter(parent, i, r, list[i]);
@@ -1083,6 +1122,28 @@ namespace CardPresentation
                 AddHit(parent, "CardHit_" + i, r, QPageRow, () => OpenCardDetail(def));
                 BuildWatch.CellPhase("⑤ 张数条（`Rect`+`Text`）+ 命中区（`AddHit`）");
                 BuildWatch.CellEnd();
+            }
+
+            // 🔴 **2026-10-17（T09 第 1 步）**：本趟没露头的视图 —— **只关不删**（滚回来零成本），
+            //   并改名成 `CollectionCard_parked`：⛔ 别留着旧的 `CollectionCard_<i>`，
+            //   自检按名字 `Find` 会先撞上屏外那颗（假绿/假红）。
+            foreach (var kv in _cellPool)
+            {
+                var v = kv.Value;
+                if (v == null || _cellUsed.Contains(v)) continue;
+                if (v.gameObject.activeSelf) v.gameObject.SetActive(false);
+                v.gameObject.name = "CollectionCard_parked";
+            }
+            // 上限回收：**最老且本趟没露头**的那个直接销毁（长会话滚到底不会把整本卡池都建出来）。
+            for (int k = 0; k < _cellKeyOrder.Count && _cellPool.Count > CellPoolCap; )
+            {
+                string key = _cellKeyOrder[k];
+                CardView v;
+                if (!_cellPool.TryGetValue(key, out v)) { _cellKeyOrder.RemoveAt(k); continue; }
+                if (v != null && _cellUsed.Contains(v)) { k++; continue; }
+                _cellPool.Remove(key);
+                _cellKeyOrder.RemoveAt(k);
+                if (v != null) DestroySafe(v.gameObject);
             }
         }
 
@@ -1227,6 +1288,10 @@ namespace CardPresentation
                 var r = CosmoScroll.Shift(CosmoCellRect(i));
                 if (!CosmoScroll.Intersects(r)) continue;
                 var cell = Node(parent, "CollectionCosmetic_" + i, r);
+                // 🔴 **2026-10-17（界面线 T25）**：名字先落成局部量 —— 下面那颗命中区的闭包要它。
+                //    `for (int i …)` 的 `i` **整轮共用一个变量**（点的时候循环早跑完了），
+                //    直接把 `names[i]` 写进 lambda = **永远点到最后一张**（静默错一张）。
+                var cbName = names[i];
                 // 一格两层（**照原版兄弟序**）：底 = `Cardback Shadow SDF`（距离场，比卡背本体大一圈）、
                 // 面 = 卡背本体。两层**各自一个渲染队列**（`QPageSdf` < `QPageRow`）—— 见梯子那段的注释。
                 var tex = CardArt.Cosmetic(names[i]);
@@ -1311,7 +1376,14 @@ namespace CardPresentation
                 {
                     Debug.LogWarning("[Collection] 卡背取不到：" + names[i]);
                 }
-                AddHit(cell, "Hit", r, QPageRow, () => NotifyNotBuilt("卡背详情/装备（原版点它开哪个窗，普查标了「不确定」）"));
+                // 🔴 **2026-10-17（界面线 T25）**：这里原来 `NotifyNotBuilt(...)`（「原版点它开哪个窗，普查标了「不确定」」）
+                //    —— **判据当天已定**：原版 `CardbackCollectionTab__OnItemSelected.c` = 构造
+                //    `ItemDisplayWindowContext(item, 1)` → `WindowsManager.OpenWindow<ItemDisplayWindow>`
+                //    （`d:/2/tools/decomp_full/CardbackCollectionTab__OnItemSelected.c:17-24`；
+                //     ctor 的符号错配成 `UpgradeCardSignal___ctor`，字段 `+0x10 = item` / `+0x18 = amount`）。
+                //    ⇒ 点一张卡背开 **`Item Display Window`**（`Shell/ItemDisplayWindow.cs`，T18 建的）。
+                AddHit(cell, "Hit", r, QPageRow,
+                       () => WindowsManager.OpenItemDisplay(ItemDisplayWindow.ForCardback(cbName)));
                 CosmoCells.Add(cell);
             }
         }
@@ -2652,7 +2724,13 @@ namespace CardPresentation
                               //   🔴 2026-10-12 订正：原来写 42/33/42/33 —— 那两组数串了页，见 `BuildDeckHeader` 那条）
                               //   ⇒ 最小 33 > 10，闸全过。
                               //   ⚠️ 折行 = `0` ⇒ 显式还原（下面那句）。
-                              wrapPx: ClearFltW, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
+                              // 🔴 **2026-10-17（`A1226` 表 B #8）：框 = 原版有效框 221.44（原来整颗钮 250）。**
+                              //   判据 = 原版 `…/Clear Filter Button/Button Text` 的 `RectTransform`
+                              //   （伸锚跨度 0.92575 · `m_SizeDelta.x = −10`）⇒ 250 × 0.92575 − 10 = **221.44**，
+                              //   高 57.69（宽 +28.56 / 高 +2.31 = `RM_原版TMP框尺寸.md` 表 B 那一行）。
+                              //   ⚠️ **本处只改宽**：`MenuWindowBase.Text` 的框高来自传进去的矩形（60），
+                              //   高的那 2.31 未跟 —— 同一族理由见 `DeckRuntime.hdr_back_t` 那条（CJK 行盒 1.516em）。
+                              wrapPx: 221.44f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
             if (clrLab != null)
             {
                 clrLab.SetRenderQueue(QPageText);
@@ -3056,7 +3134,10 @@ namespace CardPresentation
                               // 🔴 **2026-10-10（A1212 · 块 3 #9）**：接上 `m_enableAutoSizing`（四格 = **10 / 42 / 12 / 0**）。
                               //   判据 = `R5` §2 #9（`… ▸ Select Deck Tab ▸ Header ▸ Control Buttons ▸ Create ▸ Button Text`）。
                               //   闸：`42 > 0 ∧ 10 > 0 ∧ fontPx 42 > 10` 全真。折行 = `0` ⇒ 还原（下面那句）。
-                              wrapPx: HdrBtnW, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
+                              // 🔴 **2026-10-17（`A1226` 表 B #9）：框 = 原版有效框 220.81（原来整颗钮 245）。**
+                              //   判据 = 原版 `…/Control Buttons ▸ Create ▸ Button Text`（伸锚 · `m_SizeDelta.x = −6`）
+                              //   ⇒ 220.81 × 57.52（宽 +24.19 / 高 +2.48）。
+                              wrapPx: 220.81f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
             if (newLab != null)
             {
                 newLab.SetRenderQueue(QPageText);
@@ -3068,7 +3149,9 @@ namespace CardPresentation
                               // 🔴 **2026-10-10（A1212 · 块 3 #10）**：接上 `m_enableAutoSizing`（四格 = **10 / 42 / 12 / 0**）。
                               //   判据 = `R5` §2 #10（同上 `… ▸ Control Buttons ▸ Import ▸ Button Text`）。
                               //   折行 = `0` ⇒ 还原（下面那句）。
-                              wrapPx: HdrBtnW, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
+                              // 🔴 **2026-10-17（`A1226` 表 B #10）：框 = 原版有效框 220.81（原来整颗钮 245）。**
+                              //   判据 = 原版 `…/Control Buttons ▸ Import ▸ Button Text`（同族伸锚）⇒ 220.81 × 57.52。
+                              wrapPx: 220.81f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
             if (impLab != null)
             {
                 impLab.SetRenderQueue(QPageText);
@@ -3276,7 +3359,9 @@ namespace CardPresentation
                            //   Army Filter ▸ Title`）里 **`m_fontSize = 36`**（`min 10 / max 36 / base 32`）
                            //   ⇒ 标称那一格原来写 32 是**抄错**（`R5` §5·2 登记的那条偏离坐实）。
                            //   折行 = `1` ⇒ 与漏斗那一档同档，不必还原。
-                           wrapPx: DTitleW, autoMinPx: 10f, autoMaxPx: 36f, autoBasePx: 32f);
+                           // 🔴 **2026-10-17（`A1226` 表 B #13）：框 = 原版有效框 335.31 × 50（原来 310.50，窄 −24.81）。**
+                           //   判据 = 原版 `…/Army Filter ▸ Title` 的 `RectTransform`（伸锚 · `m_SizeDelta.x = −25`）。
+                           wrapPx: 335.31f, autoMinPx: 10f, autoMaxPx: 36f, autoBasePx: 32f);
             if (ttl != null)
             {
                 ttl.SetRenderQueue(QFltText);

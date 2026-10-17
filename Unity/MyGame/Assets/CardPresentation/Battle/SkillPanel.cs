@@ -387,6 +387,22 @@ namespace CardPresentation
         /// <summary>现在淡到多少（0~1，自检断言用）</summary>
         public float Alpha { get; private set; }
 
+        /// <summary>🆕 **2026-10-17（`A1212` 块 7 的断言口）**：那四颗字（0=`NameText` · 1=`CostText` ·
+        /// 2=`DescText` · 3=`TargetsAvailableText`）。**只给自检读** —— 生产路径不经过它。
+        /// <para>⚠️ 为什么不按节点名找：画布档下它们挂在**共用子画布** `BattleSettingsPanel`/`ActiveSkillDesc`
+        /// 那一层，`Find` 只能拿第一个同名件；本类自己持有引用，直接交出去最准。</para></summary>
+        public Label TextForTest(int i)
+        {
+            switch (i)
+            {
+                case 0: return _name;
+                case 1: return _cost;
+                case 2: return _desc;
+                case 3: return _targets;
+            }
+            return null;
+        }
+
         bool _pressed, _acting;
         Tween _fade;
 
@@ -572,7 +588,13 @@ namespace CardPresentation
             //    `sizeDelta` 直接吃它）⇒ 世界档喂世界单位、画布档喂**设计 px**。
             //    ⛔ 喂错**不报错**：画布档喂世界单位 ⇒ 框宽 5.34 px（而不是 576 px）、字收敛到一个小得看不见的值。
             FitBox(_name, BoxW(NameRect.width), BoxH(NameRect.height));
-            FitBox(_cost, BoxW(CostTextRect.width), BoxH(CostTextRect.height));
+            // 🔴 **2026-10-17（`A1226` 表 B #24）：`CostText` 的框宽改成【原版有效框】56.20。**
+            //    判据 = 原版 `…/AbilityContainer/CostText` 的 `RectTransform`（伸锚）⇒ **56.20 × 68.40**
+            //    （我们原来的归一化矩形量出来 66.58 × 99.85 ⇒ 宽 +10.38 / 高 +31.45）。
+            //    ⚠️ **只跟宽、框高【故意不跟】**：68.40 是 Pragati 行盒 0.9474em 下的数（52.4px 的字占 49.6 < 68.4，
+            //    原版不缩）；我们全仓只有 CJK 那一份字体（行盒 **1.516em**）⇒ 喂 68.40 会压到 45.1px（原版渲 52.4）。
+            //    ⇒ 等 `A1024③` 按用途换面之后，框高再一起改（已在 T07 报告登记）。
+            FitBox(_cost, UguiMode ? 56.20f : WorldOfPx(56.20f), BoxH(CostTextRect.height));
             FitBox(_targets, BoxW(TargetsRect.width), BoxH(TargetsRect.height));
             FitBox(_desc, BoxW(DescRect.width) - MarginW(), BoxH(DescRect.height));
 

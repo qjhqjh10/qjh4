@@ -1852,7 +1852,7 @@ public static class NetSelfTest
             }));
             s.Pump();
             Ok(s.PeerName != null && !s.PeerName.Contains(TAIL)
-               && s.PeerName.Length <= NetProtocol.MaxPeerTextChars + 1,
+               && s.PeerName.Length <= NetProtocol.MaxPeerNameChars + 1,
                $"Q④ ★ 对面握手时报的**超长显示名**同样被钳（实得 {s.PeerName?.Length ?? -1} 字）"
              + " —— 🧨 改坏法：去掉 `PeerName = ClampPeerText(...)` 那一跳 ⇒ 红");
             Ok(s.StatusText != null && !s.StatusText.Contains(TAIL),
@@ -1963,12 +1963,12 @@ public static class NetSelfTest
             // ⑤-b `MsgStart.myName / foeName`（纯静态构造，不用会话）
             var pb = NetPendingBattle.FromStart(new MsgStart { myName = huge, foeName = huge }, isHost: true);
             Ok(pb != null && pb.MyName != null && !pb.MyName.Contains(TAIL)
-               && pb.MyName.Length <= NetProtocol.MaxPeerTextChars + 1,
+               && pb.MyName.Length <= NetProtocol.MaxPeerNameChars + 1,
                "Q⑬ ★ `MsgStart.myName` 同样是**对端可控**的，进 `NetPendingBattle` 前先钳"
              + $"（实得 {pb?.MyName?.Length ?? -1} 字）"
              + " —— 🧨 改坏法：去掉 `FromStart` 里那两次 `ClampPeerText(...)` ⇒ Q⑬/Q⑭ 红");
             Ok(pb != null && pb.FoeName != null && !pb.FoeName.Contains(TAIL)
-               && pb.FoeName.Length <= NetProtocol.MaxPeerTextChars + 1,
+               && pb.FoeName.Length <= NetProtocol.MaxPeerNameChars + 1,
                $"Q⑭ ★ …`foeName` 那一份同理（实得 {pb?.FoeName?.Length ?? -1} 字）");
         }
 
@@ -2025,7 +2025,7 @@ public static class NetSelfTest
                 Ok(NetMatchmaking.HasOpponent,
                    "（Q⑮ 夹具）主机收齐两副 ⇒ 这一刻真的开局了（下面那句 `start` 才发得出去）");
                 Ok(NetMatchmaking.FoeName != null && !NetMatchmaking.FoeName.Contains(TAIL)
-                   && NetMatchmaking.FoeName.Length <= NetProtocol.MaxPeerTextChars + 1,
+                   && NetMatchmaking.FoeName.Length <= NetProtocol.MaxPeerNameChars + 1,
                    "Q⑮ ★ **主机那一路**（`NetMatchmaking.cs:453` 的 `s.PeerName`）端到端也被钳"
                  + $"（实得 {NetMatchmaking.FoeName?.Length ?? -1} 字）"
                  + " —— 它靠的是 `NetSession` 收 `MsgProof` 时那一次钳（`Q④` 那条）；"
@@ -2037,7 +2037,7 @@ public static class NetSelfTest
                 rt6.AttachForTest(cli6);
                 NetMatchmaking.PumpLobby();          // 客机收 `start` ⇒ `FoeName = st.myName`（本笔新钳那一行）
                 Ok(NetMatchmaking.FoeName != null && !NetMatchmaking.FoeName.Contains(TAIL)
-                   && NetMatchmaking.FoeName.Length <= NetProtocol.MaxPeerTextChars + 1,
+                   && NetMatchmaking.FoeName.Length <= NetProtocol.MaxPeerNameChars + 1,
                    "Q⑯ ★★ **客机那一路**（`NetMatchmaking.cs:487` 的 `MsgStart.myName`）也钳过了 ——"
                  + " 而 `FoeName` 就是**玩家看得见**的那一份（「找到对手」那扇窗 + 对局里的敌方名）"
                  + $"（实得 {NetMatchmaking.FoeName?.Length ?? -1} 字）"

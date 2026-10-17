@@ -88,10 +88,10 @@ namespace CardPresentation.Net
         /// 口径、取值判据与「这是我们自拟的、原版没有先例」那条**全文** →
         /// `NetProtocol.MaxPeerTextChars` 的注释。⛔ 只钳**对面发来的**字符串，
         /// **别拿它去钳我们自己写的文案**（自己写的那些本来就有出处、也没上限问题）。</summary>
-        public static string ClampPeerText(string s)
+        public static string ClampPeerText(string s, int maxChars = NetProtocol.MaxPeerTextChars)
         {
-            if (string.IsNullOrEmpty(s) || s.Length <= NetProtocol.MaxPeerTextChars) return s;
-            return s.Substring(0, NetProtocol.MaxPeerTextChars) + "…";
+            if (string.IsNullOrEmpty(s) || s.Length <= maxChars) return s;
+            return s.Substring(0, maxChars) + "…";
         }
 
         public NetSession(INetTransport transport)
@@ -406,7 +406,7 @@ namespace CardPresentation.Net
                     //   （本文件 `:348` · `:352` · `:411`，设置→联机页那一行字）⇒ **进界面前先钳**。
                     //   口径与取值 → `NetProtocol.MaxPeerTextChars`（⚠️ 是**我们自拟的**，原版把玩家名的长度
                     //   校验放在 PlayFab 服务端，客户端一次都不查）。
-                    PeerName = ClampPeerText(m != null ? m.name : null);
+                    PeerName = ClampPeerText(m != null ? m.name : null, NetProtocol.MaxPeerNameChars);
                     // 🔴 **P6d：线上发【键 + 参数】，⛔ 不发已渲染的文本**（收侧 `NetWireText.Unpack` 取词）
                     Send(NetKind.Ack, new MsgAck
                     {

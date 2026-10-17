@@ -357,6 +357,23 @@ namespace CardPresentation
         public void Build()
         {
             _root = transform;
+
+            // 🆕 **2026-10-17（界面线 T16 / `N4`）**：`Safe area All` 归**壳**所有（`ShellRuntime` 建的那一颗），
+            //    而原版里它是 `MainMenuWindow` 的孩子（`RT1086.m_Father = 1087`）⇒ 上一轮构建把它搬进了**本场景**这一棵。
+            //    ⚠️ 不先收回去，下面那轮清场会连它一起销毁；Play 下 `Destroy` **延迟到帧末**（当场还非 null）⇒
+            //    新挂上去的模式卡会跟着它一起消失（**静默**）。收回去 = 本轮重新挂（见下面「安全区」那一节）。
+            var shell = ShellRuntime.Instance;
+            bool rebuilding = _root.childCount > 0;          // 同一棵树上重来一次（上一轮的件还在）
+            if (shell != null)
+            {
+                shell.ReclaimSafeZones();
+                // ⚠️ 上一轮建在 `Safe area All` 下的模式卡**不跟着 `_root` 那轮清场**（它们随安全区节点被搬进了壳根）
+                //    ⇒ 这里补一刀；否则重建后会**多出一整套**模式卡（静默）。
+                var oldSafeA = shell.SafeAreaAll;
+                if (rebuilding && oldSafeA != null)
+                    for (int i = oldSafeA.childCount - 1; i >= 0; i--) DestroySafe(oldSafeA.GetChild(i).gameObject);
+            }
+
             for (int i = _root.childCount - 1; i >= 0; i--) DestroySafe(_root.GetChild(i).gameObject);
             MissingArt.Clear();
 
@@ -389,13 +406,73 @@ namespace CardPresentation
             //   → `Shell/MainMenuWindow.cs` 的文件头 ③：`Main  Canvas` → `MainMenu`(pid 38) →
             //   **`MainMenu`(pid 7 = 那一扇)** ├ `Background` └ `Safe area All/GameModes/…`（模式卡）；
             //   而 `Upper bar`(顶栏) · `Navigation Panel`(左导航) · `ChatPreview` 是**兄弟**、不跟着它被藏。
-            //   ⇒ 我们照这条把「背景 + 模式卡」建进这一颗子节点，**顶栏/左栏/聊天面板仍旧挂在 `_root` 下**。
+            //   ⇒ 我们照这条把「背景 + 模式卡」建进这一颗子节点，**顶栏/左栏/聊天面板不跟着它被藏**。
+            //   🆕 **2026-10-17（T16 / `N4`）就地订正**：本段原写「顶栏/左栏/聊天面板仍旧挂在 `_root` 下」——
+            //      现在它们挂在 `Safe area Only Horizontal` 下（原版树如此；见下一节），**仍然不是这一扇的孩子**。
             //   ⚠️ 多插的这一层**位置恒为零**（`New` = `SetParent(parent,false)` + 只写尺寸）——
             //      本文件那条不变式（所有件把绝对世界坐标当 `localPosition` 用）因此逐位不变。
             var menuWin = New(_root, "MainMenu", LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
 
+            // ============================================================ 🆕 2026-10-17（T16 / `N4`）安全区接线
+            //
+            // 原版树（`bundle_scenes_scenes_mainmenuwarpforge`，逐级解 `m_Father` **实读**；索引 → `主菜单_原版规格.md:53,64-68`）：
+            //   `MainMenu`(pid 38) ├ `MainMenu`(pid 7 = 主菜单那一扇) ├ `Background`(1089)
+            //                                                    └ **`Safe area All`(RT1086) → `GameModes`(1122) → `Viewport`(1093) → `Content`(1107)**
+            //                     └ **`Safe area Only Horizontal`(RT1540)** → `Navigation Panel`(1103) · `ChatPreview`(1169) ·
+            //                       `1 - Below Upper Bar Holder`(1095) · `Upper bar`(1092) · `Borders`(1115) ·
+            //                       `2 - Canvas Holder Above upper bar`(1109) · `3 - PopUp Holder`(1121) · `LoadingMenu`(1098) ·
+            //                       `UI Error Message Controller`(1206) · `TooltipManager`(1557) ·
+            //                       `Toast Notification Controller`(1096) · `Loading Controller`(1083)
+            // ⇒ **顶栏 / 左栏 / 聊天 / Toast 挂在 `Safe area Only Horizontal` 下；模式卡在 `Safe area All` 下**。
+            //
+            // 我们这边分两档（**同一套结构**，⛔ 不是两份实现）：
+            //   ① **运行期有壳**（正常进主菜单）：用壳那两个常驻节点 —— 三 Holder 已经在
+            //      `Safe area Only Horizontal` 下（`ShellRuntime.Build` 干的），本函数把
+            //      `Safe area All` **搬进这一扇**（原版就是它的孩子 ⇒ 跟着 `MainMenuWindow.ToBackground` 一起隐藏）。
+            //   ② **独立场景**（单开 `MainMenu.unity` / 自检，没有壳）：就地建两个同名节点 + 一棵本地 `UISafeArea`，
+            //      层级与 ① 逐级一致（`Safe area All` 在 `MainMenu` 那一扇下、`Safe area Only Horizontal` 在根下）。
+            // ⚠️ 判据在**原版树**里（上面逐个 pid 点过名）；U1 那句「包住模式卡」只是索引，不是唯一来源。
+            Transform safeH, safeA;
+            if (shell != null)
+            {
+                safeH = shell.SafeAreaOnlyHorizontal;
+                safeA = shell.SafeAreaAll;
+                if (safeA != null) safeA.SetParent(menuWin, false);
+                // 存盘的 `MainMenu.unity` 里烘着一棵「独立场景档」的 `UISafeArea`（它的两个 zone 刚随上面清场没了）
+                // ⇒ 这一档用**壳**那一份，⛔ 别留两个经理各写一遍（写的是同一组值，但会让人以为有两套口径）。
+                var localMgr = _root.GetComponent<UISafeArea>();
+                if (localMgr != null)
+                {
+                    Debug.Log("[Menu] 本场景里烘着一棵本地 `UISafeArea`（独立场景档）—— 有壳的这条路上用**壳**那一份 ⇒ 移除本地这一棵");
+#if UNITY_EDITOR
+                    if (!Application.isPlaying) DestroyImmediate(localMgr); else
+#endif
+                    Destroy(localMgr);
+                }
+            }
+            else
+            {
+                safeH = New(_root, "Safe area Only Horizontal", LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
+                safeA = New(menuWin, "Safe area All", LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
+                var mgr = _root.GetComponent<UISafeArea>();
+                if (mgr == null) mgr = _root.gameObject.AddComponent<UISafeArea>();
+                mgr.zones = new[]
+                {
+                    new UISafeArea.Zone { rectTransform = safeA, applyWidth = true, applyHeight = true  },
+                    new UISafeArea.Zone { rectTransform = safeH, applyWidth = true, applyHeight = false },
+                };
+            }
+            if (safeH == null || safeA == null)
+            {
+                // 出声（红线：不许静默失败）—— 「安全区没接上」必须能从日志里分辨
+                Debug.LogWarning("[Menu] 安全区节点取不到（`Safe area All` / `Safe area Only Horizontal`）⇒ "
+                               + "本轮顶栏/左栏/聊天/模式卡**照样建**，但父链退回菜单根（安全区不生效）");
+                safeH = safeH != null ? safeH : _root;
+                safeA = safeA != null ? safeA : menuWin;
+            }
+
             BuildBackground(menuWin);
-            BuildNavigationPanel(_root);
+            BuildNavigationPanel(safeH);
             // 🔴 **2026-10-17（B25）：顶栏改成调共用件 `Shell/TopBar.cs`** —— 本文件原来那份
             //    `BuildUpperBar / BuildPlayerProfile / BuildResourcesBar / BuildTopAvatar` **已删**。
             //    为什么：卡组编辑（独立场景 `DeckEditor.unity`）要**同一条顶栏**，D13/D14 那一轮把本文件
@@ -404,16 +481,19 @@ namespace CardPresentation
             //    ⇒ 现在**几何/结构/接线只有 `TopBar` 一处**；本文件只剩**数据与入口**
             //    （`CounterSpecs` 那几张表 · `OpenInbox/OpenSettings/OpenProfile` · `QBar*` · 红点色）。
             //    ⛔ 别把参数再写回本文件（那等于把两份漂移重新种回来）。
-            _topBar = TopBar.Build(_root, NoteMissingArt);
-            BuildChatPreview(_root);
+            _topBar = TopBar.Build(safeH, NoteMissingArt);
+            BuildChatPreview(safeH);
             // 🆕 **2026-10-17（`A1141`）**：原版 `Toast Notification Controller → Holder`
             //   （任务 / 等级 / 经验飘窗那一族；**与 `MessageToast` 是两套东西**，⛔ 别混）。
             //   判据 = `资料/主菜单_原版规格.md:64-74,237-238` ＋ `ToastNotificationController__*.c`
             //   ＋ 场景 `bundle_scenes_scenes_mainmenuwarpforge` 的 `RT 1096/1100`。建在
             //   `Safe area Only Horizontal` 下（原版兄弟序：`TooltipManager` 之后、`Loading Controller` 之前）。
             //   ⚠️ 不插也能工作（`ShowNotification` 会 `Ensure()` 自建）—— 插上是为了「菜单建场时节点就在」。
-            ToastNotifications.Build(_root);
-            BuildGameModes(menuWin);
+            // ⚠️ `ToastNotifications.Build` 自己会去 `root` 的**直接子件**里找 `Safe area Only Horizontal`
+            //    （原版 `RT1096.m_Father = 1540`）⇒ 传 `safeH` 的父件（独立场景 = 菜单根；运行期 = 壳根），
+            //    ⛔ 别传 `safeH` 本身（那会找不到、退回并刷一条「没有安全区」的假告警）。
+            ToastNotifications.Build(safeH.parent != null ? safeH.parent : _root);
+            BuildGameModes(safeA);
 
             // 🆕 **2026-10-12（`A1629`）**：把这一棵登记成**常驻主菜单**（原版 `MainMenuWindow.Initialize()` 末尾
             //   那两句 `SetBaseMenu(this)` + `OpenWindow(this)`）—— 判据全文 → `Shell/MainMenuWindow.cs` 的文件头。
@@ -734,7 +814,9 @@ namespace CardPresentation
                 return;
             }
             SelectedNav = idx;
-            var old = Find("Selected highlight");
+            // 🆕 2026-10-17（T16 / `N4`）：从**左栏**那棵子树找（运行期它在壳的安全区节点下、不是 `_root` 的后代）；
+            //    `_navPanel` 还没建时才退回老的根递归（自检夹具那一档）。
+            var old = _navPanel != null ? FindIn(_navPanel, "Selected highlight") : Find("Selected highlight");
             if (old != null) DestroySafe(old.gameObject);
             RepaintNavHighlight(idx);
         }
@@ -761,6 +843,10 @@ namespace CardPresentation
             // 🔴 **2026-10-11（FX6）修**：第二实参原来写 `LayoutSpace.DesignHeight`（**世界单位** 10，不是 px 1080）
             //   ⇒ 高被除两次 108、`rect.height` 只剩 0.093。本行是干净的正对照：宽 `191f` 是 px ⇒ 那条断言本来就过。
             var p = New(root, "Navigation Panel", 191f, 1080f);
+            // 🆕 **2026-10-17（T16 / `N4`）**：这里必须**把引用留下来** —— 运行期左栏挂在**壳**的
+            // `Safe area Only Horizontal` 下（跨场景），不再是 `_root` 的后代 ⇒ 下面 `Find("Navigation Panel")`
+            // 那条惰性兜底会落空（`SetNavPanelVisible` / `NavPanelXForTest` 全靠 `_navPanel`）。
+            _navPanel = p;
             // 🔴 底板：`White Square`（8×8，`m_Color` **是白的**）+ **同 GO 上的四角顶点色组件**（`MB1941`）
             //    ⇒ 只补 m_Color 补不出这块板，必须走顶点色（`ImageQuad.SetCornerColors`）
             var bg = Rect(p, "White_Square", -164.4f, 165.1f, 0.1f, 1145.9f, "Background", QPanel);
@@ -2859,11 +2945,17 @@ namespace CardPresentation
         }
 
         /// <summary>自检用：按名字找节点（`GetComponentsInChildren` 包含 inactive）。</summary>
-        public Transform Find(string name)
+        public Transform Find(string name) { return FindIn(_root, name); }
+
+        /// <summary>在任意一棵子树里按名字找（含 inactive）。
+        /// 🔴 **2026-10-17（T16 / `N4`）新开这一支**：运行期左栏/顶栏/聊天挂在**壳**的
+        /// `Safe area Only Horizontal` 下（跨场景）⇒ 它们**不在 `_root` 的后代里**，`Find` 看不到 ——
+        /// 凡是「从某个已知节点往下找」的地方一律走这里，⛔ 别拿 `_root` 那一条兜底。</summary>
+        public static Transform FindIn(Transform t, string name)
         {
-            if (_root == null) return null;
-            foreach (var t in _root.GetComponentsInChildren<Transform>(true))
-                if (t.name == name) return t;
+            if (t == null) return null;
+            foreach (var c in t.GetComponentsInChildren<Transform>(true))
+                if (c.name == name) return c;
             return null;
         }
     }

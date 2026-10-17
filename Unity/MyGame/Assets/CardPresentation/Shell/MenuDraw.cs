@@ -3119,13 +3119,31 @@ namespace CardPresentation
                      "DificultyLevel", qOverlay, null, true, clipR);
 
             if (selected)
-                Rect(cell, CardArt.MenuUi("Highlight_Rounded_Square"),
+            {
+                // 🔴 **N12（2026-10-17 收口）**：原版这颗是 **`Image.Type = Sliced` + 九宫 `(73,75,73,75)`**
+                //   （sprite `Highlight Rounded Square` 原生 **150×155**，`m_Border = x73 / y75 / z73 / w75`
+                //    ⇒ (L,B,R,T) = (73,75,73,75)）。判据（2026-10-17 现读）：
+                //    ① `d:/2/新解包资源/assets_full/bundle_duplicateassetisolation_assets_all/Sprite/`
+                //       `Highlight Rounded Square.json` 的 `m_Rect = 150×155` / `m_Border = 73,75,73,75`；
+                //    ② `工具/menu_dump.py bundle_menus_assets_all -7515975617742763446 --depth 4`
+                //       那一行 = `Highlight … Highlight Rounded Square 150×155 九宫73,75,73,75 | Sliced`。
+                //   ⛔ 改前走的是 `Rect`（**Simple 拉伸**）到 `289.75×427.27` ⇒ 圆角与四条边被不对称拉变形
+                //   （横向 289.75/150 ≈ 1.93、纵向 427.27/155 ≈ 2.76 倍）。
+                //   ⚠️ 角块画出来 = **73/75 作者 px × K**（本函数 `K = DeckCellK = 0.9`，即这一格显示 0.9 倍：
+                //   作者系 250×405 → 显示 225×364.5）⇒ `borderOutPx` 必须乘 `K`，否则角块比原版大 1/0.9 倍、
+                //   而 UV 切分仍按贴图真实边宽（`border`）—— 两件事分开（`Nine` 的两个形参各管一头）。
+                //   原版这颗 `m_PixelsPerUnitMultiplier` 没设（= 1）⇒ 不再额外除。
+                //   ⚠️ **画法变更，待并排渲验收**（现行口径：验收动作攒到复刻完成，本批不跑 Unity）。
+                Nine(cell, CardArt.MenuUi("Highlight_Rounded_Square"),
                      // 原版 `Highlight` 矩形 = 作者系 `−19.8, −10.9 → 270.0, 416.3`（`menu_dump --rt -1941218197625697718`）
                      new PxRect(r.x1 + DcHiX * K, r.y1 + DcHiY * K,
                                 r.x1 + (DcHiX + DcHiW) * K, r.y1 + (DcHiY + DcHiH) * K),
+                     new Vector4(73f, 75f, 73f, 75f), 150f, 155f,
                      // 🔴 **A1529①**：原版 `Highlight` 是 `Deck` 的 child[0]（最底）⇒ 必须落在 `q` **之下**。
                      //   ⛔ 别再传 `qOverlay`（那是「最顶」，金环会糊在卡面上 —— 这条账就是这么来的）。
-                     "Highlight Rounded Square", qBelow, new Color(1f, 0.773f, 0f, 1f));
+                     qBelow, new Color(1f, 0.773f, 0f, 1f), true, "Highlight Rounded Square",
+                     new Vector4(73f * K, 75f * K, 73f * K, 75f * K));
+            }
 
             // 点击区：**视口外的不建、压在视口边上的截到视口内** —— 判据与 `Hit` 同一条
             //（原版 `RectMask2D` 的**射线那一面**：滚出视口的格子**点不到**，见 `ClipRect` 的注释）。

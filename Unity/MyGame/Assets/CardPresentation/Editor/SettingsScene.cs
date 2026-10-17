@@ -1253,10 +1253,10 @@ public static class SettingsScene
                 CheckTrue(Loc.EntryCount > 10, $"语言表非空（{Loc.EntryCount} 条词条）");
                 // 键名照原版 `Localize.mTerm`（抽查三条：本页标题 / 12 项语言名 / 与对战那扇共用的那条）
                 CheckTrue(Loc.HasEntry("Settings/General/Title")
-                          && Loc.HasEntry("MainMenu/Settings/LanguageName/Chinese")
+                          && Loc.HasEntry("MainMenu/Settings/LanguageName/Simplified Chinese")
                           && Loc.HasEntry("MainMenu/Settings/ButtonLabel/SelectLanguage"),
                           "键名照原版 `Localize.mTerm`（抽查 `Settings/General/Title` · "
-                        + "`MainMenu/Settings/LanguageName/Chinese` · `MainMenu/Settings/ButtonLabel/SelectLanguage`）");
+                        + "`MainMenu/Settings/LanguageName/Simplified Chinese` · `MainMenu/Settings/ButtonLabel/SelectLanguage`）");
                 // 🔴 与**对战那扇**共用的那条 —— 两处各是各的常量，值必须相等（同一条词条挂两个窗）
                 Check(SettingsPanel.LangLabelTermKey, "MainMenu/Settings/ButtonLabel/SelectLanguage",
                       "对战那扇（`Battle/SettingsPanel.cs`）的语言标签键 = 与主菜单**同一个字符串**");
@@ -1270,14 +1270,37 @@ public static class SettingsScene
                 CheckTrue(!string.IsNullOrEmpty(zh) && zh != en,
                           $"中文那一列与英文**不一样**（实得「{zh}」）—— 两条合起来才说明表真分了两列");
 
-                // ④ 选到**本地没有文案**的语言 ⇒ 回退英文 + **出声**（⛔ 不是悄悄回退）
+                // ④ 非中英语言 ⇒ **各取各的列**（🆕 2026-10-17 界面线 T08 `A1812`：官方 13 语言全表已接）
+                //   判据 = 官方 I2 表逐字（`数据/游戏数据/官方本地化_13lang.json` 现读）——
+                //   ⛔ 期望值是**字面量**，不是从被测实现里取的。
+                Loc.SetLanguage(AvailableLanguages.Japanese);
+                jp = Loc.T("Settings/General/DisableBots");
+                Check(jp, "ボットを無効にする",
+                      "选到 `Japanese` ⇒ 取到**日语列**（官方 13 语言表，逐字；⛔ 不再是回退英文）");
+                Loc.SetLanguage(AvailableLanguages.Spanish);
+                string es = Loc.T("Settings/General/DisableBots");
+                Check(es, "Desactivar Bots", "…`Spanish` ⇒ **西语列**（官方 13 语言表，逐字）");
+                Loc.SetLanguage(AvailableLanguages.Russian);
+                string ru = Loc.T("Settings/General/DisableBots");
+                Check(ru, "Отключить ботов", "…`Russian` ⇒ **俄语列**（官方 13 语言表，逐字）");
+                CheckTrue(jp != en && es != en && ru != en && jp != es && es != ru && jp != ru,
+                          $"🔴 灭自证：三种非中英语言**各是各的列**（日「{jp}」/ 西「{es}」/ 俄「{ru}」/ 英「{en}」）"
+                        + " —— 谁把 `T()` 改回「非中英一律回退英文」⇒ 这一条红");
+                // Turkish **不在 12 项下拉里**（`AvailableLanguages` 没有它），但官方数据里有这一列
+                Check(Loc.Lang13Count, 9447, "官方 13 语言全表载入 **9,447** 条（`Lang13Count`）");
+                Check(Loc.Lang13Of("Settings/General/DisableBots", "tr"), "Botları Devre Dışı Bırak",
+                      "…数据里连 **Turkish** 那一列都在（`A1812` 判据：Turkish 只当数据、不进下拉）");
+
+                // ④′ 官方表里**没有**的键（我们自拟的 `Settings/Online/Title`）⇒ 回退英文 + **出声**（⛔ 不是悄悄回退）
                 int fb0 = Loc.FallbackCount;
+                Loc.ResetLangFallbackWarnedForTest();
+                string jpMiss = null;
                 var fbLogs = CaptureLogs(() =>
                 {
                     Loc.SetLanguage(AvailableLanguages.Japanese);
-                    jp = Loc.T("Settings/General/DisableBots");
+                    jpMiss = Loc.T("Settings/Online/Title");
                 });
-                Check(jp, "Disable Bots", "选到 `Japanese`（本地只有中/英两套文案）⇒ 取到的仍是**英文**那一列");
+                Check(jpMiss, "Online", "自拟键（官方 13 语言表里没有这条）⇒ 取到的仍是**英文**那一列");
                 CheckTrue(Loc.FallbackCount > fb0, $"…而且**记账了**（`Loc.FallbackCount` {fb0} → {Loc.FallbackCount}）");
                 bool fbLogged = false;
                 foreach (var m in fbLogs) if (m != null && m.Contains("回退英文")) { fbLogged = true; break; }
@@ -2150,7 +2173,7 @@ public static class SettingsScene
                     //   （A202① 当时 = `WfSlider.HitBand` 的**单矩形**近似）**并不等价**（旧带左端宽 19px、纵向半高宽 5.9px）
                     //   ⇒ 早晚分叉。判据全文（两套值的逐维对照）→ `Shell/SettingsWindow.cs` 的 `FpsPressAtCanvas` 注释。
                     //   🔴🔴 **2026-10-17（A1326）判据又收了一次**：现在是「**轨道 ∪ 手柄按 `m_RaycastPadding −25`
-                    //   外扩后的框**」的**真并集**（`WfSlider.InUnion`），`HitBand` 那个单矩形**已无调用点**
+                    //   外扩后的框**」的**真并集**（`WfSlider.InUnion`），`HitBand` 那个单矩形**已无调用点、N41 起已删**
                     //   ⇒ 本节旧期望值里凡是落进「外扩那一圈」的点都**按设计翻转**了（下面 ②③④ 全部重算）：
                     //     · 轨道画布 [842.57,736.76]–[1284.63,748.46]（pad 0）；
                     //     · 手柄命中框 = 布局框 `46.811 × 35.406` 设计 px 四边 +25 ⇒ 画布 **87.13 × 76.87**
@@ -2204,6 +2227,32 @@ public static class SettingsScene
                                   $"★（A202①）轨道右沿**之外 60px**（{1284.63f + 60f:F1},{cyF:F1}）⇒ 也不该开始拖"
                                 + "（新手柄外扩框右端 1329.99、旧带右端 1308.63 —— 两边都在外）"
                                 + "；改坏法：命中带铺成一大块（例如 `±(60,40)` 或「轨道两端各再放 60」）⇒ 红");
+                        // ⑤ 🔴 **N40（2026-10-17）：「抓手半宽」= 原版 `m_HandleRect` 的【布局框宽】÷ 2**，
+                        //    ⛔ 不是手柄**画出来**的正方 ÷ 2。
+                        //    判据：原版 `Handle` 的 `m_SizeDelta.x = 46.811`
+                        //    （`d:/2/新解包资源/assets_full/bundle_menus_assets_all/RectTransform/`
+                        //     `RectTransform_4475875889173987238.json` 现读）⇒ 画布半宽 = 46.811 × 0.9 ÷ 2 = **21.065**；
+                        //    uGUI `Slider.OnPointerDown` 判的是 `RectangleContainsScreenPoint(m_HandleRect, …)`
+                        //    = 布局框，而 `preserveAspect` 只缩画出来的 quad ⇒ 旧口径
+                        //    （35.406 × 0.9 ÷ 2 = **15.93**）少了 5.13 画布 px。
+                        //    两个探针把半宽**两侧**都卡死（期望值全是原版字面量手算，⛔ 不引 `SettingsWindow` 常量）：
+                        //    · +18：>15.93 且 <21.065 ⇒ 新口径记 18、旧口径记 0；
+                        //    · +23：>21.065（仍在外扩命中框 43.56 之内）⇒ 两边都该记 0（挡「半宽随手指加宽」）。
+                        win.SetFpsIndex(1, false);
+                        win.FpsPressAtCanvas(hcx1 + 18f, cyF);
+                        float grabIn = win.FpsGrabPxForTest;
+                        CheckTrue(win.FpsDragging && Mathf.Abs(grabIn - 18f) <= 0.1f,
+                                  $"★（N40）1 档手柄中心 **+18 画布 px**（{hcx1 + 18f:F2},{cyF:F1}）按下 ⇒ "
+                                + $"抓手偏移 = **+18**（实得 {grabIn:F3}）"
+                                + "；期望值 = 原版 `m_HandleRect` 布局框宽 46.811 × 0.9 ÷ 2 = **21.065** ⇒ 18 在框内"
+                                + "（手柄画出来的正方 35.406 × 0.9 ÷ 2 = 15.93 ⇒ 旧口径会记 0）"
+                                + "；改坏法：半宽退回 `FpsHandleSquare ÷ 2` ⇒ 这一条红");
+                        win.FpsPressAtCanvas(hcx1 + 23f, cyF);
+                        float grabOut = win.FpsGrabPxForTest;
+                        CheckTrue(win.FpsDragging && Mathf.Abs(grabOut) <= 0.1f,
+                                  $"★（N40）1 档手柄中心 **+23 画布 px** 按下 ⇒ 抓手偏移 = **0**（实得 {grabOut:F3}）"
+                                + "（23 > 布局半宽 21.065，但仍在外扩命中框 43.56 之内 ⇒ 仍开始拖、只是不算抓手）"
+                                + "；改坏法：把半宽放大（例如换成外扩框的半宽 43.56）⇒ 这一条红");
                         win.SetFpsIndex(i0c, false);                   // 还原档位（不 fire）
                         Check(Application.targetFrameRate, f0c,
                               "（A202① 收尾）探针只碰「开始拖」那件事 —— 进程帧率一个字节没动（四条探针都不改档位）");
@@ -2297,7 +2346,8 @@ public static class SettingsScene
                             System.Func<float, Vector3> W = c => LayoutSpace.FromPixel(c, cy);
                             // 把拖动状态摆回基线：**命中带之外**按一下 ⇒ `_fpsDragging = false`（不碰档位）
                             System.Action disarm = () => win.FpsPressAtCanvas(700f, cy);
-                            // 中性按下：带内、**不在任何手柄的抓手格里**（hx 最左 853.37，差 438px ≫ 半宽 15.93）
+                            // 中性按下：带内、**不在任何手柄的抓手格里**（hx 最左 853.37，差 438px ≫ 半宽 21.065
+                            //   —— N40 起半宽按原版 `m_HandleRect` 布局框宽 46.811 × 0.9 ÷ 2 算）
                             //   ⇒ `_fpsGrabPx == 0`、`_fpsDragging == true`（起点档 = 2 ⇒ 带右端 1302.36 才含 847.57）
                             System.Action armDrag = () =>
                             { win.SetFpsIndex(2, false); win.FpsPressAtCanvas(847.568f, cy); };
@@ -2380,14 +2430,15 @@ public static class SettingsScene
                             // ---- ②-3：抓手偏移（`_fpsGrabPx`）也必须跟 `px` 同帧 —— 同族第二处
                             //   （`FpsPressAtCanvas` 里 `hx = …position.x * 108f + 960f`，2026-10-18 已一并改成
                             //    `MenuDraw.PixelOfDesign(…)`）。原来的病：4:3 下 `|px − hx| = 0.25 × |px − 960|`
-                            //   （手柄离画布中心 480px 时差 **120px**，远大于 `half` = 35.406 × 0.9 ÷ 2 = **15.93**）
+                            //   （手柄离画布中心 480px 时差 **120px**，远大于 `half` = 46.811 × 0.9 ÷ 2 = **21.065**
+                            //    —— N40 起按原版 `m_HandleRect` 布局框宽算；旧口径 35.406 × 0.9 ÷ 2 = 15.93）
                             //   ⇒「按在手柄上」那条判据**恒假** ⇒ `_fpsGrabPx` 恒 0 ⇒ 抓手偏移丢失。
                             //   **怎么让自检看见它**（抓手偏移只改「值跟着谁走」，不改别的）：
                             //     · 偏移在 ⇒ 值跟 **手柄中心 + 位移** 走：1069.90 + (1175 − 1084.90) = **1160.00**
                             //       ⇒ `(1160.00 − 842.57) ÷ 433.06 × 2 = 1.466` ⇒ **档 1**
                             //     · 偏移丢了 ⇒ 值按**指针自己**算 = `(1175.00 − 842.57) ÷ 433.06 × 2 = 1.535` ⇒ **档 2**
                             //   ⛔ **「行为上看得见」那一半**（拖到 1175）**必须**落在取整边界附近
-                            //      （偏移最大只到 `half` = 15.93 画布 px ⇒ 最多把读数搬 0.0736 档）
+                            //      （偏移最大只到 `half` = 21.065 画布 px ⇒ 最多把读数搬 0.0973 档）
                             //      —— 探针取 1175，离边界 1.5 约 **7.4/7.6 画布 px**。
                             //   🔴 **两条一起才有牙**（调度台 2026-10-18 裁定）：下面那条「拖到 1175」断的是
                             //      「这个差**在行为上真的生效**」（值确实跟着「手柄中心 + 位移」走），
@@ -2396,18 +2447,18 @@ public static class SettingsScene
                             {
                                 disarm();
                                 win.SetFpsIndex(1, false);
-                                win.UpdateFpsDragAt(W(hcx[1] + 15f), true, true);   // 按在**手柄上**（15 ≤ 半宽 15.93）
+                                win.UpdateFpsDragAt(W(hcx[1] + 15f), true, true);   // 按在**手柄上**（15 ≤ 半宽 21.065）
                                 // 🔴 **直断**（调度台 2026-10-18 裁定加 `FpsGrabPxForTest` 这个只读口）：
                                 //    按下点离手柄中心 15 画布 px ⇒ 抓手偏移**必须就是 +15.0**。
                                 //    期望值是**外部字面量**（⛔ 不是拿 `px − hx` 现算 —— 那与实现同式 = 自证）；
                                 //    容差 0.01 只留 float 往返那点余量（实测量级 ~1e-4 px）。
-                                //    🔴 这一条比下面那条「拖到 1175」**硬**：那条要把 0.0736 档的差推到取整边界上才看得见
+                                //    🔴 这一条比下面那条「拖到 1175」**硬**：那条要把 0.0973 档的差推到取整边界上才看得见
                                 //    （探针离边界只剩 7.4px），这一条**直接读那个量本身**、与档位取整无关。
                                 CheckNear(win.FpsGrabPxForTest, 15f, 0.01f,
                                           $"★★（A1092）宽高比 {asp:F4}：按在手柄中心**右 15px** ⇒ **抓手偏移 = +15.00 画布 px**"
                                         + $"（实得 {win.FpsGrabPxForTest:F4}）"
                                         + "；改坏法：把 `FpsPressAtCanvas` 里的 `hx` 换回内联的 `… × 108f + 960f` "
-                                        + "⇒ 非 16:9 下 `|px − hx|` 远大于手柄半宽 **15.93**（4:3 差 `0.25 × |px − 960|`、"
+                                        + "⇒ 非 16:9 下 `|px − hx|` 远大于手柄半宽 **21.065**（4:3 差 `0.25 × |px − 960|`、"
                                         + "21:9 差 `0.3125 × |px − 960|`）⇒ 这一下被判成「按在轨道空处」⇒ **偏移 = 0** ⇒ 红"
                                         + "（16:9 两帧重合 ⇒ 仍绿）");
                                 CheckTrue(win.FpsDragging && win.FpsIndex == 1,
@@ -4211,14 +4262,18 @@ public static class SettingsScene
                 {
                     int iZh = System.Array.IndexOf(Loc.Languages, AvailableLanguages.Chinese);
                     int iEn = System.Array.IndexOf(Loc.Languages, AvailableLanguages.English);
-                    int iNoOwn = System.Array.FindIndex(Loc.Languages, l => !Loc.HasOwnText(l));
-                    CheckTrue(iZh >= 0 && iEn >= 0 && iNoOwn >= 0,
+                    int iJa = System.Array.IndexOf(Loc.Languages, AvailableLanguages.Japanese);
+                    CheckTrue(iZh >= 0 && iEn >= 0 && iJa >= 0,
                               $"（波 1b 前提）下拉里找得到 `Chinese`（第 {iZh} 行）/ `English`（第 {iEn} 行）/ "
-                            + $"第一款**本地没文案**的（第 {iNoOwn} 行）—— 下面三条才有对象可点");
+                            + $"`Japanese`（第 {iJa} 行）—— 下面三条才有对象可点");
+                    // 🆕 2026-10-17（T08 `A1812`）：官方 13 语言全表接上之后，下拉 **12 项全部**有自己的文案
+                    CheckTrue(System.Array.TrueForAll(Loc.Languages, l => Loc.HasOwnText(l)),
+                              "（波 1b · `A1812`）下拉 **12 项全部**有文案（`Loc.HasOwnText` 恒 true）"
+                            + " —— 谁把 13 语言表摘掉 ⇒ 这一条红");
                     var selRowB1 = FindChild(FindChild(root, "General Tab"), "Language Selector");
                     CheckTrue(selRowB1 != null, "（波 1b 前提）`General Tab > Language Selector` 在（拿它开列表）");
                     var langFlash = new string[2];
-                    if (iZh >= 0 && iEn >= 0 && iNoOwn >= 0 && selRowB1 != null)
+                    if (iZh >= 0 && iEn >= 0 && iJa >= 0 && selRowB1 != null)
                     {
                         // 那句 flash 的**前半截**（两个占位现取当前语档 —— 与实现同一条公式，但两边都是
                         // 从 `Loc` 的公开面现取，⛔ 不是把中/英任一串抄进断言）。
@@ -4253,21 +4308,33 @@ public static class SettingsScene
                         CheckTrue(langFlash[0] != null && langFlash[1] != null && langFlash[0] != langFlash[1],
                                   $"🔴（波 1b 灭自证）那句 `_flash` 两档真的不同"
                                 + $"（中「{langFlash[0]}」/ 英「{langFlash[1]}」）");
-                        // ③ 本地没文案那一档 ⇒ **多出后半句**（键 `Settings/General/LangHasNoTable`）
+                        // ③ 第三种语言（`Japanese`）⇒ **也有自己的文案** ⇒ flash 照旧只有前半句
+                        //   🔴 2026-10-17（T08 `A1812`）改口径：原来这一条断的是「本地没文案那一档 ⇒
+                        //   **多出后半句**」。13 语言全表接上之后**下拉里已经没有「没文案」的档了** ⇒
+                        //   改成断「第三种语言也**不带** `LangHasNoTable` 后缀、且 flash 是**日语**那一列」。
                         Click(selRowB1, "LanguageHit");
-                        Click(win.LangRowHit(iNoOwn));
-                        Check(Loc.Current, Loc.Languages[iNoOwn],
-                              $"（波 1b）点第 {iNoOwn} 行 ⇒ 切到 `{Loc.Current}`（本地**没有**这一套文案）");
-                        CheckTrue(!Loc.HasOwnText(Loc.Current),
-                                  "（波 1b）…而且这一刻确实是「本地没文案」那一档（`Loc.HasOwnText` = false）");
+                        Click(win.LangRowHit(iJa));
+                        Check(Loc.Current, AvailableLanguages.Japanese,
+                              $"（波 1b）点第 {iJa} 行 ⇒ 切到 `Japanese`");
+                        CheckTrue(Loc.HasOwnText(Loc.Current),
+                                  "（波 1b · `A1812`）…而且这一刻**有**自己的文案（`Loc.HasOwnText` = true）");
                         string head3 = FlashLangHead();
-                        Check(win.Flash, head3 + Loc.T("Settings/General/LangHasNoTable"),
-                              "★（波 1b）那一档 ⇒ 那句 `_flash` **多出后半句**（键 `Settings/General/LangHasNoTable`，"
-                            + "值里**自带前导全角空格 U+3000** ⇒ 调用点 ⛔ 没再补一个）" + $"（实得「{win.Flash}」）");
-                        // 🔴 判别式：只印前半句也行的话，上一条与「漏了后半句」就分不开了
-                        CheckTrue(win.Flash != null && win.Flash != head3 && win.Flash.Length > head3.Length,
-                                  "🔴（波 1b）…而且它**确实比前半句长**（后半句真的拼上去了；"
-                                + "改坏法：漏掉 `LangHasNoTable` 那一截 ⇒ 这一条红）");
+                        Check(win.Flash, head3,
+                              "★（波 1b · 日语档）那句 `_flash` = 同一条公式按**日语**列拼"
+                            + $"（实得「{win.Flash}」）");
+                        CheckTrue(head3.Contains(Loc.LanguageName(AvailableLanguages.Japanese)),
+                                  "★（波 1b · `A1812`）…而且 flash 里那颗语言名 = **日本語**（`…/LanguageName/Japanese` 的日语列）");
+                        string noTableSuffix = Loc.EnOf("Settings/General/LangHasNoTable");
+                        CheckTrue(!string.IsNullOrEmpty(noTableSuffix) && win.Flash != head3 + noTableSuffix,
+                                  "（波 1b · `A1812`）…这一档**不该**再带 `Settings/General/LangHasNoTable` 后缀"
+                                + "（12 项全都有文案了；谁把 13 语言表摘掉 ⇒ 这一条红）");
+                        CheckTrue(win.Flash != null && win.Flash != langFlash[0] && win.Flash != langFlash[1],
+                                  $"🔴（波 1b 灭自证）三档 flash **两两不同**"
+                                + $"（中「{langFlash[0]}」/ 英「{langFlash[1]}」/ 日「{win.Flash}」）");
+                        // 🔴 判别式：`{1}` 那个占位 = **枚举名**（`Loc.Current.ToString()`）——
+                        //   少了它 / 换成数字都不算数（与「后缀」那条解耦，防「只印前半句」也能混过去）
+                        CheckTrue(win.Flash != null && win.Flash.Contains("Japanese"),
+                                  "🔴（波 1b）…而且 flash 里含枚举名 `Japanese`（`{1}` 占位 = `Loc.Current.ToString()`）");
                     }
                     // 还原：语言放回本节入口那一档（⛔ 别把界面留在别的语档上）
                     Loc.SetLanguage(langB1);

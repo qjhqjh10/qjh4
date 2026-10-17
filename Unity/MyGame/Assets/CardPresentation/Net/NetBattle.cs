@@ -115,8 +115,8 @@ namespace CardPresentation.Net
                 //   🔴 **真正在界面上显示对端名的那条路不是这里** —— 是
                 //      `Net/NetMatchmaking.cs:475`（`FoeName = st.myName`）→ `BattleDriver` 的敌方名；
                 //      那份文件**不在本笔白名单**⇒ **还没钳**，如实记在交件报告 §9 续（别以为已经封上了）。
-                MyName = NetSession.ClampPeerText(isHost ? s.myName : s.foeName),   // 它的值就是**绝对先手座位**
-                FoeName = NetSession.ClampPeerText(isHost ? s.foeName : s.myName),
+                MyName = NetSession.ClampPeerText(isHost ? s.myName : s.foeName, NetProtocol.MaxPeerNameChars),   // 它的值就是**绝对先手座位**
+                FoeName = NetSession.ClampPeerText(isHost ? s.foeName : s.myName, NetProtocol.MaxPeerNameChars),
                 Raw = s,
             };
         }

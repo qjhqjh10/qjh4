@@ -4595,7 +4595,7 @@ namespace CardPresentation
         }
 
         /// <summary>这一档的**轨道矩形**（**原版设计 px**，y 向下、左上原点）—— 原版那颗 `Background`
-        /// `m_RaycastPadding` = 0 ⇒ 射线框就是它自己（`WfSlider` 的 `HitBand` doc 里同一条判据）。</summary>
+        /// `m_RaycastPadding` = 0 ⇒ 射线框就是它自己（`WfSlider` 的 `HandleHitRect` doc 里同一条判据）。</summary>
         PxRect FpsTrackRectPx()
         {
             return new PxRect(_fpsL, _fpsT, _fpsR, _fpsB);
@@ -4828,10 +4828,11 @@ namespace CardPresentation
             if (pressedThisFrame)
             {
                 // 🔴 **判据只此一份（A202①）**：这一下算不算点在滑块上，走 `FpsPressAtCanvas`
-                //    —— 命中带 = `WfSlider.HitBand`（**只此一份**，与命中区 quad 同一个函数调出来的）。
+                //    —— 命中带 = `WfSlider.InUnion`（**只此一份**，与命中区 quad 同一个函数调出来的）。
                 //    ⛔ 原来这里手写的是 `px < s.x1-24 || px > s.x2+24 || py < s.y1-16 || py > s.y2+16`
                 //    那份**第二份几何**，别写回来（两套值**并不等价**，自检里那条负例正是拿
-                //    「旧带会认、`HitBand` 不认」的那一点去分辨的，见 `Editor/SettingsScene.cs` A202① 那节）。
+                //    「旧带会认、外扩框不认」的那一点去分辨的，见 `Editor/SettingsScene.cs` A202① 那节）。
+                //    ⚠️ **N41（2026-10-17）**：`WfSlider.HitBand`（单矩形近似）已删，别再找它。
                 // 🔴 **2026-10-18（A1092）**：两个分量都换成**设计 px 那一帧**（原来写的是
                 //    `LayoutSpace.PxX(wp.x)` / `LayoutSpace.PxY(wp.y)` —— x 斜率写死 108）。
                 //    `FpsPressAtCanvas` 吃的是**画布 px**（= 先过 `Screen()`、把固定的 `RootScale`
@@ -4866,7 +4867,7 @@ namespace CardPresentation
         /// **`WfSlider.InUnion`**（**真并集**）—— 与两块命中区 quad **同一次调用**
         /// （`Battle/WfSlider.cs` 那句「判据只此一份 …… 别在任何一侧另写一份」）。
         /// ⛔ A202① 之前这里手写的是 `±(24, 16)` **画布 px** 的第二份几何，两套**并不等价**。
-        /// ⛔ 也别退回 `WfSlider.HitBand`（**单矩形**）：它的纵向半高取「轨道 ∪ 手柄」的 `max`
+        /// ⛔ 也别退回「单矩形近似」（`WfSlider.HitBand`，**N41 已删**）：它的纵向半高取「轨道 ∪ 手柄」的 `max`
         /// ⇒ 会把整条轨道宽都按手柄那个高带认下来（A1326 之前的近似），而上/下那两圈原版**没有任何
         /// 可射线件**。现在两块各判各的：轨道 13 高、手柄 `m_SizeDelta 46.811×35.406` 四边外扩 25。</para>
         ///
@@ -4894,11 +4895,20 @@ namespace CardPresentation
                 //    原来这里是**内联的 108 帧**（`…position.x * 108f + 960f`）：`A1092` 把 `px` 那一路
                 //    换成设计帧之后，**同一个函数里两半不再同帧**（改动前两者同为 108 帧 ⇒ 16:9 下两帧重合
                 //    ⇒ **单态断言抓不住它**）。4:3 下偏差 = `|px − hx| = 0.25 × |px − 960|`
-                //    （手柄离画布中心 480px 时差 **120px**，远大于 `half` = `FpsHandleSquare × RootScale ÷ 2`
-                //    = **15.93**）⇒「按在手柄上」那条判据**恒假** ⇒ `_fpsGrabPx` 恒 0 ⇒ 抓手偏移丢失
+                //    （手柄离画布中心 480px 时差 **120px**，远大于 `half` = `HandleFrameW × RootScale ÷ 2`
+                //    = **21.065**）⇒「按在手柄上」那条判据**恒假** ⇒ `_fpsGrabPx` 恒 0 ⇒ 抓手偏移丢失
                 //    （拖手柄会跳一下）。⛔ **纯重构**：只统一「读数走哪条斜率」，判定式与阈值一字未动。
                 float hx = MenuDraw.PixelOfDesign(_fpsHandle.transform.position).x;
-                float half = FpsHandleSquare * RootScale * 0.5f;
+                // 🔴 **N40（2026-10-17 收口）**：横向半宽取**原版 `m_HandleRect` 的布局框宽**
+                //    `m_SizeDelta.x = 46.811`（现读 `d:/2/新解包资源/assets_full/bundle_menus_assets_all/`
+                //    `RectTransform/RectTransform_4475875889173987238.json`），⛔ **不是**手柄**画出来**的
+                //    正方 35.406 —— uGUI `Slider.OnPointerDown` 判的是
+                //    `RectTransformUtility.RectangleContainsScreenPoint(m_HandleRect, …)` = **布局框**，
+                //    而 `preserveAspect` 只缩**画出来**的 quad、不改 rect。
+                //    ⇒ 半宽 = 46.811 × 0.9 ÷ 2 = **21.065 画布 px**（旧写法 `FpsHandleSquare` ⇒ 15.93，少了 5.13）。
+                //    ⚠️ **按 uGUI 语义推的，没实机验**（`Slider.OnPointerDown` 那条路本机跑不到）。
+                //    ⚠️ 行内旧记写的「22.5 设计 px」与 46.811/2 = **23.4055** 不符，以 `m_SizeDelta` 为准。
+                float half = WfSlider.HandleFrameW * RootScale * 0.5f;
                 if (px >= hx - half && px <= hx + half) _fpsGrabPx = px - hx;
             }
             SetFpsFromCanvasX(px);
@@ -4979,10 +4989,13 @@ namespace CardPresentation
         /// `m_Offset`：「按在手柄上」时 = `按下点 − 手柄中心`；按在轨道空处 = 0）。**只读，给自检。**
         /// <para>🔴 **2026-10-18（`A1092` 收尾 · 调度台裁定加的本口）**：加它的理由 = 本仓点名的三条系统性毛病之一
         /// 「**弱断言分不出两种状态**」—— 抓手偏移的**最大作用范围只有 `half`**
-        /// （= `FpsHandleSquare × RootScale ÷ 2` = **15.93 画布 px**）⇒ 它只把「值跟谁走」搬 **0.0736 档**
+        /// （⚠️ **N40（2026-10-17）起** = `WfSlider.HandleFrameW × RootScale ÷ 2` = **21.065 画布 px**；
+        /// 旧写法按手柄**画出来**的正方算 = 15.93）⇒ 它只把「值跟谁走」搬 **0.0973 档**
+        /// （21.065 ÷ 一档 0.5 × 481.18 × 0.9 = 216.531）
         /// ⇒ **只从档位上看，这一格必须贴着取整边界才观测得到**（既难看又脆）。
         /// 本口返回**那个字段的原值** —— ⛔ **不是第二份算式**（不在这里按 `px`/`hx` 重算一遍）。
-        /// 调用点 → `Editor/SettingsScene.cs` 的「`A1092` 站点②」②-3（直断 `== +15.0`）。</para></summary>
+        /// 调用点 → `Editor/SettingsScene.cs` 的「`A1092` 站点②」②-3（直断 `== +15.0`）
+        /// 与「`A202①`」⑤（N40：+18 记 18 / +23 记 0 —— 量的是**半宽** 21.065 这个数本身）。</para></summary>
         public float FpsGrabPxForTest { get { return _fpsGrabPx; } }
         /// <summary>滑块那三件的父节点（自检量几何用）。</summary>
         public Transform FpsSliderRoot { get { return _fpsSliderRoot; } }

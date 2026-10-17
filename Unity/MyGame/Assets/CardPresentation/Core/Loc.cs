@@ -84,10 +84,14 @@
 //          ⛔ **不在 `A1803` 那批写手的白名单里**）⇒ 已记进 `资料/普查产出_第二十八会话/W4_官方文案族.md`。
 
 //
-// ============================ 🔴 只有中文/英文两套文案 ============================
-// 用户 2026-09-28 拍板：**下拉照原版列 12 项**，但**本地只有中文（我们译的）与英文（原版 TMP 原文）两套**。
-// ⇒ **选到没有文案的语言（西/法/德/葡/俄/意/韩/日/捷/波）一律【回退英文】并 `Debug.Log` 出声**
-//    （⛔ **不许在 UI 上加原版没有的提示行** —— 出声只走日志）。见 `T()` 与 `Effective`。
+// ============================ 🔴 文案：12 项下拉 · 13 语言数据 ============================
+// 用户 2026-09-28 拍板：**下拉照原版列 12 项**。
+// 🔴 **2026-10-17（界面线 T08 `A1812`）起 12 项全部能真工作**：官方 I2 表的 **13 种真语言全列**
+//   落进 `Resources/official_loc_13lang.json`（生成器 `工具/gen_official_loc_13lang.py`），
+//   `T()` / `BulkOr` / `Lore` 按 `Current` **各取各的列**；中文/英文仍以手写 `Table` 为权威。
+//   `Turkish` 在官方表里有、但**不在 `AvailableLanguages`**（原版枚举就 12 项）⇒ 只当数据，不进下拉。
+//   只有「官方表里没有这条键」（我们自拟的那批）或资源文件读不到时才**回退英文**并 `Debug.Log` 出声
+//   （⛔ **不许在 UI 上加原版没有的提示行** —— 出声只走日志）。见 `T()` 与 `Effective`。
 //
 // ============================ 🔴 落盘 ============================
 //  · 键名 = **`"Language"`**（用户口径）；风格照 `Core/WarpforgeAudio.cs` 的 `MusicPrefKey`（工程里唯一的原版键先例）。
@@ -145,10 +149,17 @@ namespace CardPresentation
         /// <summary>没有文案时回退到的那一种（= 本地唯一那份**原版**文案）。</summary>
         public const AvailableLanguages Fallback = AvailableLanguages.English;
 
-        /// <summary>**本地真的有两套文案**的语言（= 下拉 12 项里只有这两个能选到「不是英文」的文本）。</summary>
+        /// <summary>这个语言**有没有自己的文案**（= `T()` 能取到不是英文的文本）。
+        /// <para>🆕 **2026-10-17（界面线 · T08 `A1812`）**：官方 I2 表的 **13 种真语言全列**已落进
+        /// `Resources/official_loc_13lang.json` ⇒ 下拉那 12 项**全部**为 true（原来只有中/英两项）。
+        /// 只有「资源文件读不到」或「这个值不在官方表里」（如 `Turkish`，它不在枚举中）才为 false ——
+        /// 那种时候 `T()` 仍按老规矩回退英文并出声。</para></summary>
         public static bool HasOwnText(AvailableLanguages l)
         {
-            return l == AvailableLanguages.Chinese || l == AvailableLanguages.English;
+            if (l == AvailableLanguages.Chinese || l == AvailableLanguages.English) return true;
+            if (Lang13Column(l) < 0) return false;
+            LoadLang13();
+            return _lang13Idx != null && _lang13Idx.Count > 0;
         }
 
         /// <summary>下拉里的 12 项 —— **原版 `AvailableLanguages` 的声明序**（= 原版下拉的选项序）。</summary>
@@ -337,21 +348,22 @@ namespace CardPresentation
             //    前缀字面量已在 `global-metadata.dat` 核到）。英文那一列 = **本族语言名**（`Español`/`Français`…）。
             // 🔴 **2026-10-17（`A1951`）就地订正**：原写「本地 TMP 拿不到正式选项名 —— 远端 I2 表；中文那一列是
             //    我们译的」—— 官方表 2026-10-14 已在本机，本族共 **13 条**（含 `Turkish`，不进 12 项下拉）。
-            //    ⚠️ **两处键名与官方不同**：官方是 `…/Portuguese (Brazil)` 与 `…/Simplified Chinese`，
-            //    我们这两条的**键名**仍用枚举名（`Portuguese` / `Chinese`，值 `葡萄牙语` / `中文`）；
-            //    其余 11 条与官方逐字相同。
+            //    ✅ **2026-10-17（`A1812` · `N36`）已对齐官方键名**：官方的两条是 `…/Portuguese (Brazil)`
+            //    与 `…/Simplified Chinese`（值分别是 `Português` / `中文`，**13 列逐字相同**）——
+            //    我们这两条原来写成 `…/Portuguese`（`Portuguese` / `葡萄牙语`）与 `…/Chinese`（`Chinese` / `中文`），
+            //    现已改成官方键名 + 官方值（`KeyOf` 跟着改；其余 11 条与官方逐字相同）。
             { "MainMenu/Settings/LanguageName/English",    new Entry("English",     "English") },
             { "MainMenu/Settings/LanguageName/Spanish",    new Entry("Español", "Español") },
             { "MainMenu/Settings/LanguageName/French",     new Entry("Français",     "Français") },
             { "MainMenu/Settings/LanguageName/German",     new Entry("Deutsch",     "Deutsch") },
-            { "MainMenu/Settings/LanguageName/Portuguese", new Entry("葡萄牙语", "Portuguese") },
+            { "MainMenu/Settings/LanguageName/Portuguese (Brazil)", new Entry("Português", "Português") },
             { "MainMenu/Settings/LanguageName/Russian",    new Entry("Русский",     "Русский") },
             { "MainMenu/Settings/LanguageName/Italian",    new Entry("Italiano", "Italiano") },
             { "MainMenu/Settings/LanguageName/Korean",     new Entry("한국어",     "한국어") },
             { "MainMenu/Settings/LanguageName/Japanese",   new Entry("日本語",     "日本語") },
             { "MainMenu/Settings/LanguageName/Czech",      new Entry("Čeština",   "Čeština") },
             { "MainMenu/Settings/LanguageName/Polish",     new Entry("Polski",   "Polski") },
-            { "MainMenu/Settings/LanguageName/Chinese",    new Entry("中文",     "Chinese") },
+            { "MainMenu/Settings/LanguageName/Simplified Chinese", new Entry("中文", "中文") },
 
             // ============================================================ 卡组编辑窗（原版 `Deck Editing Menu`）
             //
@@ -2724,6 +2736,14 @@ namespace CardPresentation
             //   ⇒ 不补这一条，弹窗底部会**在界面上真的印出 `Demo/Welcome/TapToContinue`**（静默坏掉的样子）。
             // 消费侧 = `Shell/BaseEventPopup.cs` 的 `BuildTexts`（唯一调用点）。
             { "Demo/Welcome/TapToContinue",              new Entry("点击以继续", "Click to continue") },
+
+            // ============================================================ 🆕 **2026-10-17（界面线 T18/T25）：物品展示窗的 `Description` 词条**
+            //  键 = 原版 `CosmeticItem.itemDescriptionKey`（`bundle_cosmeticsso_assets_all` 的 243 个卡背 SO 里
+            //        **237 个**是这一键；另 6 个（Ranked/Skirmish Tier1–3）是 `Item_Description/CardbackSeasson`
+            //        —— **那一键官方表里没有**，也无从按卡背查到是哪 6 个（`Resources/Cardbacks.json` 不存这一列））。
+            //  值 = 官方本地化表 `d:/4/Unity/数据/游戏数据/官方本地化_en+zh-CN.json` 的同键两列，**逐字**（2026-10-17 现读）。
+            //  消费侧 = `Shell/ItemDisplayWindow.ForCardback`（唯一调用点）。
+            { "Item_Description/CardbackGeneric",        new Entry("卡背装饰。将其分配给你的卡组，以在战斗中使用它。", "Cosmetic item. Assign it to your deck to use it as reverse image for your cards in battle.") },
         };
         //  ⚠️ **`Wire/HostRestarted` 的 ZH/EN 是本轮【故意改过的】**（`A1038` 顺手项，同 `NetBattle` 那条
         //     R7 中性化纪律）：原来 ZH = 调用点原话「主机重开了」，而那个调用点（`NetRuntime.Reset()`）
@@ -2733,6 +2753,110 @@ namespace CardPresentation
         //  ⚠️ `Wire/NotYourTurn` 与 `Battle/Tips/NotYourTurn`（本文件 `Battle/` 那一节）**ZH 同值、语义不同**
         //     —— 后者是**本机 HUD 的提示行**、前者是**回给对面的拒绝码**（判据 → `NetBattle.Dispatch`
         //     那段注释的判据 ②）⇒ **两族并存，⛔ 别合并**。
+
+        // ============================================================ 🆕 2026-10-17（界面线 · T08 `A1812`）：官方 13 语言全表
+        //
+        // 🔴 **判据**：原版语言下拉 = `AvailableLanguages` 12 项，而官方 I2 表里 **13 种真语言**
+        //   每种 9,438–9,441 / 9,447 条非空（`Turkish` 不在枚举里 ⇒ **只当数据、不进下拉**）。
+        //   数据件 = `Resources/official_loc_13lang.json`，生成器 = `工具/gen_official_loc_13lang.py`
+        //   （原件与解码算法 → `工具/_i2_decode_probe.py` 文件头；全量人读版 =
+        //   `Unity/数据/游戏数据/官方本地化_13lang.json`，**同一份数据**）。
+        //
+        // ⚠️ **只在「当前语言不是中文/英文」时才载入**（约 8 MB / 9,447 键 × 13 列）——
+        //   中文/英文档仍走上面那张手写 `Table`（它是权威：33 条刻意保留的旧译 + 我们自拟的键都在里面）。
+        // ⚠️ 官方表里**没有**的键（例如自拟的 `Settings/Online/Title`）⇒ 回退英文 + 出声一次/键。
+        [System.Serializable] class LangFile
+        {
+            public string[] langs;
+            public string[] keys;
+            public string[] en, es, ru, fr, de, pt, it, ko, zh, ja, pl, cs, tr;
+        }
+
+        /// <summary>`Resources/official_loc_13lang.json` 的路径。</summary>
+        public const string Lang13ResourcePath = "official_loc_13lang";
+
+        /// <summary>13 列的顺序（= 生成器里的 `LANGS`；`Lang13Of` 按码查列用）。</summary>
+        static readonly string[] Lang13Codes = { "en", "es", "ru", "fr", "de", "pt", "it", "ko", "zh", "ja", "pl", "cs", "tr" };
+
+        static Dictionary<string, int> _lang13Idx;    // 键 → 平行数组下标
+        static string[][] _lang13Cols;                 // [列] → 值数组（列序 = Lang13Codes）
+        static bool _lang13Loaded;
+        static readonly HashSet<string> _warnedLangFallback = new HashSet<string>();
+
+        static void LoadLang13()
+        {
+            if (_lang13Loaded) return;
+            _lang13Loaded = true;
+            _lang13Idx = new Dictionary<string, int>();
+            _lang13Cols = null;
+            var ta = Resources.Load<TextAsset>(Lang13ResourcePath);
+            if (ta == null)
+            {
+                // **不静默**：没有它 ⇒ 非中英语言一律回退英文（与 `A1812` 之前的行为相同）
+                Debug.LogError("[Loc] 读不到 `Resources/" + Lang13ResourcePath + ".json` ⇒ "
+                             + "**非中英语言全部回退英文**（下拉里那 10 种语言取不到自己的文案）。"
+                             + "生成器：`工具/gen_official_loc_13lang.py`");
+                return;
+            }
+            var d = JsonUtility.FromJson<LangFile>(ta.text);
+            if (d == null || d.keys == null) return;
+            _lang13Cols = new[] { d.en, d.es, d.ru, d.fr, d.de, d.pt, d.it, d.ko, d.zh, d.ja, d.pl, d.cs, d.tr };
+            for (int i = 0; i < d.keys.Length; i++)
+                if (!string.IsNullOrEmpty(d.keys[i])) _lang13Idx[d.keys[i]] = i;
+        }
+
+        /// <summary>某个枚举语言在官方 13 列里是第几列（`-1` = 不在表里，如 `Turkish` / 非法值）。</summary>
+        static int Lang13Column(AvailableLanguages l)
+        {
+            switch (l)
+            {
+                case AvailableLanguages.English:    return 0;
+                case AvailableLanguages.Spanish:    return 1;
+                case AvailableLanguages.Russian:    return 2;
+                case AvailableLanguages.French:     return 3;
+                case AvailableLanguages.German:     return 4;
+                case AvailableLanguages.Portuguese: return 5;
+                case AvailableLanguages.Italian:    return 6;
+                case AvailableLanguages.Korean:     return 7;
+                case AvailableLanguages.Chinese:    return 8;
+                case AvailableLanguages.Japanese:   return 9;
+                case AvailableLanguages.Polish:     return 10;
+                case AvailableLanguages.Czech:      return 11;
+            }
+            return -1;
+        }
+
+        /// <summary>官方 13 语言表里取一条（**不看当前语档**）。缺键 / 该列空 ⇒ `null`。</summary>
+        static string Lang13Text(string key, AvailableLanguages lang)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            LoadLang13();
+            int col = Lang13Column(lang);
+            if (col < 0 || _lang13Idx == null) return null;
+            int i;
+            if (!_lang13Idx.TryGetValue(key, out i)) return null;
+            var a = _lang13Cols[col];
+            return (a != null && i < a.Length) ? a[i] : null;
+        }
+
+        /// <summary>官方 13 语言表一共载入几条（0 = 文件没读到；自检用）。</summary>
+        public static int Lang13Count { get { LoadLang13(); return _lang13Idx.Count; } }
+
+        /// <summary>自检用：按**语言码**取一条官方词条（`"tr"` 这类**不在枚举里**的列也取得出 ——
+        /// `A1812` 的判据要求「Turkish 只在数据里」）。缺键 / 未知码 ⇒ `null`。⛔ 不改任何状态。</summary>
+        public static string Lang13Of(string key, string langCode)
+        {
+            if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(langCode)) return null;
+            LoadLang13();
+            int col = System.Array.IndexOf(Lang13Codes, langCode);
+            int i;
+            if (col < 0 || _lang13Idx == null || !_lang13Idx.TryGetValue(key, out i)) return null;
+            var a = _lang13Cols[col];
+            return (a != null && i < a.Length) ? a[i] : null;
+        }
+
+        /// <summary>自检用：清空「非中英语言回退英文」的去重表（同 <see cref="ResetMissingWarnedForTest"/>）。</summary>
+        public static void ResetLangFallbackWarnedForTest() { _warnedLangFallback.Clear(); }
 
         // ============================================================ 🆕 **2026-10-14（第二十八会话 · `A1803`）：数据面词条（bulk）**
         //
@@ -2846,6 +2970,11 @@ namespace CardPresentation
             bool zhCol = false;                                                        // 这个值落在哪一列（渲染记号时要按它取子词条）
             if (cur == AvailableLanguages.Chinese && !string.IsNullOrEmpty(r.zh)) { v = r.zh; zhCol = true; }
             else if (cur == AvailableLanguages.English && !string.IsNullOrEmpty(r.en)) v = r.en;
+            else if (cur != AvailableLanguages.Chinese && cur != AvailableLanguages.English)
+            {
+                // 🆕 2026-10-17（`A1812`）：非中英语言 ⇒ 官方 13 语言表按列取（`BulkRow` 仍只有 en/zh 两列）
+                v = Lang13Text(term, cur);
+            }
             if (string.IsNullOrEmpty(v))                                               // 回退英文（同 `T`）
             {
                 zhCol = string.IsNullOrEmpty(r.en);
@@ -2879,6 +3008,110 @@ namespace CardPresentation
             return v;
         }
 
+        // ============================================================ 🆕 2026-10-17（`A1802` + `A1500①`）：卡面风味文本（Lore）
+        //
+        // 🔴 **判据（第一权威 = 反编译）**：原版 `SetCardLore` 取 `GetLocalizedFlavourText()`，
+        //   **空就 `SetActive(loreObjectBG, false)`** —— 所以「没有 lore」的正确画面是**整块底板不亮**，
+        //   ⛔ 不是「拿卡面的效果文字顶上」（那正是本笔要治的病：
+        //   `Shell/CardDetailPopup.cs:716` 与 `Battle/CardDisplayWindow.cs` 原来都是拿效果文字当 lore）。
+        //
+        // 数据 = `Resources/lore_zh+en.json`（生成器 `工具/gen_lore.py`，只从官方表**抽取**、不造词）：
+        //   · `Warlord_Lore/<卡 id>` —— 键**就是**我们 `cards_engine.json` 的 `id`（样本 `Warlord_Lore/GOF28`）。
+        //     2026-10-17 现读 **1042 条**；覆盖我们卡池 **999 / 1127**（逐类：unit 523/586 · tactic 390/446 ·
+        //     hero 50/56 · defence 36/39）—— 缺的 128 张是**2025-07-30 快照之后**的新卡 ⇒ 按原版「无 lore」处理。
+        //   · `Cosmetic_Lore/<uniqueId>` —— 键 = `Resources/Cardbacks.json` 每条的 `uniqueId`；
+        //     现读 **154 条**，233 张卡背里命中 **138**。✅ **首个消费点 = `Shell/ItemDisplayWindow.ForCardback`**
+        //     （2026-10-17 界面线 T18/T25：卡背展示窗的 `FlavourTextBG/LoreText`；没有 lore ⇒ 整块关）。
+        //     ⚠️ 卡背**格**（收藏页）仍然不显示它（那两格只有图、没有文字位）—— ⛔ 别顺手塞进格子里。
+        //
+        // ⚠️ 两扇窗（`Shell/CardDetailPopup` / `Battle/CardDisplayWindow`）**共用这一份判据** ——
+        //   工程红线：「两处写同一条规则 = 迟早不一致」。⛔ 别在窗里自己 `Resources.Load`。
+        [System.Serializable] class LoreRow { public string k; public string en; public string zh; }
+        [System.Serializable] class LoreFile { public LoreRow[] entries; }
+
+        /// <summary>`Resources/lore_zh+en.json` 的路径。</summary>
+        public const string LoreResourcePath = "lore_zh+en";
+
+        static Dictionary<string, LoreRow> _lore;
+        static readonly HashSet<string> _warnedLore = new HashSet<string>();
+
+        static void LoadLore()
+        {
+            if (_lore != null) return;
+            _lore = new Dictionary<string, LoreRow>();
+            var ta = Resources.Load<TextAsset>(LoreResourcePath);
+            if (ta == null)
+            {
+                // **不静默**（缺了它，两扇窗的 lore 条会全部不亮 —— 那是可见的退化）
+                Debug.LogError("[Loc] 读不到 `Resources/" + LoreResourcePath + ".json` ⇒ "
+                             + "**卡面风味文本（Lore）一条都取不到**，两扇详情窗的 `FlavourTextBG` 会整块不亮。"
+                             + "生成器：`工具/gen_lore.py`");
+                return;
+            }
+            var d = JsonUtility.FromJson<LoreFile>(ta.text);
+            if (d == null || d.entries == null) return;
+            foreach (var r in d.entries)
+                if (r != null && !string.IsNullOrEmpty(r.k)) _lore[r.k] = r;
+        }
+
+        /// <summary>风味文本一共几条（两族合计；自检用）。</summary>
+        public static int LoreCount { get { LoadLore(); return _lore.Count; } }
+
+        /// <summary>这张卡有没有官方 Lore（`Warlord_Lore/<卡 id>`；自检用，⛔ 不改任何状态）。</summary>
+        public static bool HasLore(string cardId) { return !string.IsNullOrEmpty(cardId) && HasLoreTerm("Warlord_Lore/" + cardId); }
+
+        /// <summary>这枚卡背有没有官方 Lore（`Cosmetic_Lore/<uniqueId>`；自检用）。</summary>
+        public static bool HasLoreByUniqueId(string uniqueId) { return !string.IsNullOrEmpty(uniqueId) && HasLoreTerm("Cosmetic_Lore/" + uniqueId); }
+
+        /// <summary>按**当前语言**取这张卡的官方风味文本；**没有 ⇒ 返回 null**（不是空串、⛔ 不是键名、⛔ 不是效果文字）。
+        /// <para>调用方拿到 null/空 时**必须照原版 `SetCardLore` 把整块 `FlavourTextBG` 关掉**。</para></summary>
+        public static string Lore(string cardId)
+        {
+            return string.IsNullOrEmpty(cardId) ? null : LoreTerm("Warlord_Lore/" + cardId);
+        }
+
+        /// <summary>按**卡背的 `uniqueId`** 取官方风味文本；规则同 <see cref="Lore"/>。
+        /// ✅ **消费点 = `Shell/ItemDisplayWindow.ForCardback`**（2026-10-17 T18/T25：物品展示窗底部那条
+        /// `Card Display/FlavourTextBG/LoreText`）—— 原版那一格喂的是 `ObtainableItem.itemLoreKey`
+        /// （= `Cosmetic_Lore/&lt;uniqueId&gt;`，`ItemDisplayWindow__Open.c` 现读）。</summary>
+        public static string LoreByUniqueId(string uniqueId)
+        {
+            return string.IsNullOrEmpty(uniqueId) ? null : LoreTerm("Cosmetic_Lore/" + uniqueId);
+        }
+
+        static bool HasLoreTerm(string term)
+        {
+            LoadLore();
+            return _lore.ContainsKey(term);
+        }
+
+        /// <summary>`Lore` / `LoreByUniqueId` 的共用取值口（**只此一处**）。
+        /// 语档规则与 `BulkOr` 一致：中文档取 `zh`、其余回退 `en`；两列都空 ⇒ null。
+        /// 缺键 ⇒ **null + 出声一次**（按键去重）：那多半是 **2025-07-30 快照之后**的新卡，
+        /// 原版对它们同样「没有风味文本」⇒ 两扇窗关底板，**⛔ 不用效果文字回填**。</summary>
+        static string LoreTerm(string term)
+        {
+            LoadLore();
+            LoreRow r;
+            if (!_lore.TryGetValue(term, out r))
+            {
+                if (_warnedLore.Add(term))
+                    Debug.LogWarning("[Loc] 官方 Lore 表里**没有**这条键：`" + term + "`"
+                                   + "（多为 2025-07-30 快照之后新增的卡）⇒ 按原版「无 lore」处理："
+                                   + "两扇详情窗会把 `FlavourTextBG` 整块关掉（⛔ 不拿效果文字回填）。");
+                return null;
+            }
+            if (Current == AvailableLanguages.Chinese && !string.IsNullOrEmpty(r.zh)) return r.zh;
+            // 🆕 2026-10-17（`A1812`）：非中英语言 ⇒ 官方 13 语言表按列取（`LoreRow` 仍只有 en/zh 两列）
+            if (Current != AvailableLanguages.English)
+            {
+                string v13 = Lang13Text(term, Current);
+                if (!string.IsNullOrEmpty(v13)) return v13;
+            }
+            if (!string.IsNullOrEmpty(r.en)) return r.en;
+            return string.IsNullOrEmpty(r.zh) ? null : r.zh;      // 回退中文（同 `BulkOr` 的两列兜底）
+        }
+
         // ============================================================ 取值
 
         /// <summary>按**当前语言**取一条文案。没有这个键 ⇒ 返回**键名本身** + 出声（⛔ 不返回空串：
@@ -2900,9 +3133,41 @@ namespace CardPresentation
         public static string T(string key)
         {
             if (string.IsNullOrEmpty(key)) return "";
+            var cur = Current;
             Entry e;
-            if (!Table.TryGetValue(key, out e))
+            bool inTable = Table.TryGetValue(key, out e);
+
+            // 中文 / 英文：手写 `Table` 是**权威**（33 条刻意保留的旧译 + 我们自拟的键都在里面）
+            if (cur == AvailableLanguages.Chinese && inTable && !string.IsNullOrEmpty(e.Zh)) return e.Zh;
+            if (cur == AvailableLanguages.English && inTable && !string.IsNullOrEmpty(e.En)) return e.En;
+
+            // 🆕 2026-10-17（`A1812`）：其余 10 种语言 ⇒ 官方 13 语言表**各取各的列**；
+            //   中/英档里「`Table` 有键但那一列是空」的条目也从这里兜一下（官方表有就用官方的）。
+            if (cur != AvailableLanguages.Chinese && cur != AvailableLanguages.English)
             {
+                string v13 = Lang13Text(key, cur);
+                if (!string.IsNullOrEmpty(v13)) return v13;
+            }
+
+            if (!inTable)
+            {
+                // 非中英档：官方表里**有这条键**、只是这一列是空的（13 列各 9,438–9,441/9,447 非空）
+                // ⇒ 回退英文（同一条词条的其他列），⛔ **不许把键名印到界面上**
+                if (cur != AvailableLanguages.Chinese && cur != AvailableLanguages.English)
+                {
+                    string en13 = Lang13Text(key, AvailableLanguages.English);
+                    if (!string.IsNullOrEmpty(en13))
+                    {
+                        FallbackCount++;
+                        LastFallbackKey = key;
+                        if (_warnedLangFallback.Add(key))
+                            Debug.LogWarning($"[Loc] `{cur}` 里 `{key}` 那一列是空的 ⇒ **回退英文**："
+                                           + $"\"{en13}\"。（官方 13 语言表里这条的其他列有值；"
+                                           + "⛔ 同一条键只出声这一次）");
+                        return en13;
+                    }
+                }
+
                 MissingCount++;
                 LastMissingKey = key;
                 // 🔴 按键去重地出声（第一次问到这个键才出声；见 `_warnedMissing` 的 doc）
@@ -2920,20 +3185,17 @@ namespace CardPresentation
                 return key;
             }
 
-            var cur = Current;
-            if (cur == AvailableLanguages.Chinese && !string.IsNullOrEmpty(e.Zh)) return e.Zh;
-            if (cur == AvailableLanguages.English && !string.IsNullOrEmpty(e.En)) return e.En;
-
-            // 走到这里 = 当前语言没有这一套文案（或那一条在这个语言里是空的）⇒ 回退英文
+            // 走到这里 = 当前语言这一条是空的 / 官方 13 语言表里没有这条（自拟键）⇒ 回退英文
             FallbackCount++;
             LastFallbackKey = key;
-            string why = HasOwnText(cur)
-                ? $"`{cur}` 里这条是空的"
-                : $"`{cur}` 本地没有文案（官方 I2 表已在本机 `数据/游戏数据/官方本地化_en+zh-CN.json`，"
-                + "但工程只导入了 en / zh-CN 两列 —— 见 `Loc.HasOwnText`）";
-            Debug.LogWarning($"[Loc] {why} ⇒ **回退英文**：`{key}` → \"{e.En}\"。"
-                           + "（⛔ 不在 UI 上加原版没有的提示行 —— 这条日志就是全部提示）");
-            return string.IsNullOrEmpty(e.En) ? key : e.En;
+            string en = e.En;
+            if (string.IsNullOrEmpty(en)) en = Lang13Text(key, AvailableLanguages.English);
+            if (_warnedLangFallback.Add(key))
+                Debug.LogWarning($"[Loc] `{cur}` 里没有 `{key}` 的文案（官方 13 语言表里也没有这一列）"
+                               + $" ⇒ **回退英文**：`{key}` → \"{en}\"。"
+                               + "（⛔ 不在 UI 上加原版没有的提示行 —— 这条日志就是全部提示；"
+                               + "⛔ 同一条键只出声这一次，去重表见 `_warnedLangFallback`）");
+            return string.IsNullOrEmpty(en) ? key : en;
         }
 
         /// <summary>下拉里显示的语言名 = `T("MainMenu/Settings/LanguageName/&lt;枚举名&gt;")`。
@@ -2945,9 +3207,18 @@ namespace CardPresentation
             return T(KeyOf(lang));
         }
 
-        /// <summary>语言 → 它在表里的键（`MainMenu/Settings/LanguageName/&lt;枚举名&gt;`，原版拼法）。</summary>
+        /// <summary>语言 → 它在表里的键（`MainMenu/Settings/LanguageName/&lt;官方名&gt;`，原版拼法）。
+        /// <para>🔴 **2026-10-17（`A1812` · `N36`）**：官方表里这两条**不叫枚举名** ——
+        /// `Portuguese` → `…/Portuguese (Brazil)`、`Chinese` → `…/Simplified Chinese`
+        /// （官方值分别是 `Português` / `中文`，13 列逐字相同；现读 `官方本地化_13lang.json`）。
+        /// 其余 10 条与枚举名一致。</para></summary>
         public static string KeyOf(AvailableLanguages lang)
         {
+            switch (lang)
+            {
+                case AvailableLanguages.Portuguese: return "MainMenu/Settings/LanguageName/Portuguese (Brazil)";
+                case AvailableLanguages.Chinese:    return "MainMenu/Settings/LanguageName/Simplified Chinese";
+            }
             return "MainMenu/Settings/LanguageName/" + lang;
         }
 

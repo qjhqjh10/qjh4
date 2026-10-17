@@ -56,6 +56,41 @@ public static class ShellScene
     static void CheckNoMissingSwapArt(string what) => MenuCheck.NoMissingSwapArt(_sink, what);
     static void CheckNear(float got, float want, float tol, string msg) => MenuCheck.Near(_sink, got, want, tol, msg);
 
+    /// <summary>🆕 **2026-10-17（`A1212` 块 10/12/13）**：一颗字的「四格 + 折行档 + 框」。
+    /// <para>判据 = 原版 MB 原文（`m_enableAutoSizing` / `m_fontSizeMin/Max/Base` / `m_TextWrappingMode`），
+    /// 期望值写字面量、逐颗现读；⛔ 不读被测类里的常量（自证）。</para>
+    /// <para>`root` 用来把同名件（`Button Text` 全仓 447 份）限到**那一颗所在子树**。</para></summary>
+    static void CheckA1212(Transform root, string name, string origNode,
+                           float mnPx, float mxPx, float basePx, int wrap,
+                           float boxW = -1f, float boxH = -1f)
+    {
+        var t = root != null ? FindChildIn(root, name) : null;
+        var lb = t != null ? t.GetComponent<Label>() : null;
+        CheckTrue(lb != null, $"（前提）`A1212` `{name}` 建出来了（原版 `{origNode}`）");
+        if (lb == null) return;
+        string tag = $"`{name}`（原版 `{origNode}`）";
+        CheckTrue(lb.AutoSizing, $"★ A1212 {tag}：**`m_enableAutoSizing = 1`**（自适应开着）");
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace), mnPx, 0.05f,
+                  $"★ A1212 {tag}：下界 = 原版 `m_fontSizeMin` {mnPx}px");
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace), mxPx, 0.05f,
+                  $"★ A1212 {tag}：上界 = 原版 `m_fontSizeMax` {mxPx}px");
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace), basePx, 0.05f,
+                  $"★ A1212 {tag}：二分起点 = 原版 `m_fontSizeBase` {basePx}px"
+                + "（🧨 只开自适应、不给 base ⇒ 这一格红）");
+        Check(lb.WrappingMode, wrap,
+              $"★ A1212 {tag}：折行档 = 原版 `m_TextWrappingMode` {wrap}"
+            + "（`SetAutoFitBox` 内部会无条件开 `Normal(1)` ⇒ 这一格抓「接完忘了还原」）");
+        var tmp = t.GetComponentInChildren<TMPro.TMP_Text>(true);
+        if (tmp == null) { CheckTrue(false, $"（前提）A1212 {tag}：走 TMP 后端"); return; }
+        float k = lb.IsUgui ? 1f : (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
+        if (boxW > 0f)
+            CheckNear(Mathf.Abs(tmp.rectTransform.sizeDelta.x) * k, boxW, 0.05f,
+                      $"★ A1212/A1226 {tag}：框宽 = 原版有效框 {boxW}px");
+        if (boxH > 0f)
+            CheckNear(Mathf.Abs(tmp.rectTransform.sizeDelta.y) * k, boxH, 0.05f,
+                      $"★ A1212/A1226 {tag}：框高 = {boxH}px");
+    }
+
     /// <summary>🆕 **2026-10-13（A497）**：比**一个经「px → 设计世界 → px」往返反推回来的** px 值时用的谓词
     /// —— 逐字段容差 **0.05px**。
     ///
@@ -7406,6 +7441,112 @@ public static class ShellScene
                 RuleEngine.DeckStore.DeleteFile();        // ⚠️ 必须在还原路径**之前**删（`Path` 读的是 `OverridePath`）
                 RuleEngine.DeckStore.OverridePath = null; // 还原成玩家目录（本节唯一的全局副作用）
             }
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-17（`A1212` 块 10 / 12 / 13）：三扇窗里那 4 站的「实参 = 原版四格 + 折行 + 框」。
+        //
+        //  判据 = 原版 MB 逐颗现读（`bundle_menus_assets_all`；`menu_dump … --no-layout --no-ancestor-scale`）：
+        //    块 10 #33 `Daily Streak Reward Popup Entry ▸ NormalReward ▸ Reward Name`
+        //           = 18 / 40 / 36 / 折行 1；未缩放有效框 338.17×32.29
+        //           （锚 0.0652709~0.934729 × 父 389.658 + sd −0.6235 · 高锚 0.110363~0.175637 × 503.556 − 0.576）
+        //    块 10 #34 `… ▸ Collect ▸ Collect Text` = 18 / 72 / 36 / 折行 1；未缩放有效框 249.74×50.07
+        //           （锚 0.033~0.939869 × 父 273.641 + sd 1.584）
+        //    块 12 #30 `Reward Window ▸ Content ▸ Collect Button ▸ Button Text`
+        //           = 10 / 40 / 12 / 折行 0；有效框 220.81×57.52
+        //    块 13 #21 `Campaign Tab ▸ Premium Panel ▸ Generic Simplified UI Button ▸ Button Text`
+        //           = 10 / 55 / 12 / 折行 0；有效框 238.06×46.79
+        //  ⚠️ 连登窗那两站还有**三层祖先缩放**（条目根 1.2、首格再 ×1.2 ⇒ 1.44；`NormalReward` 0.8；
+        //    `Collect` 0.7）—— 四格与框**都要乘进去**（原版 TMP 里存的是局部值；屏上是乘积）。
+        //    `A1226` 表 B #33/#34 的 `−67.78 / −49.38` 是 2026-10-10 那次拿「未缩放帧」比「屏上帧」
+        //    得到的两把尺混用；`A1280`（10-17）把缩放乘进实参之后，**两边现在是同一把尺**（下面直接钉死）。
+        // ==================================================================
+        Section("★ A1212 块 10/12/13：`DailyStreakPopup` / `RewardWindow` / `CampaignTab` 的四格＋折行＋框");
+        {
+            // ---------------- 块 10：`Daily Streak Reward Popup Entry`（两站 × 7 格）----------------
+            // 🔴 夹具：把「可领那一格」的领取位**显式置成未领取**（`_streakClaimed` 是静态、可能吃上一段残留），
+            //   结束后按起点还原（同 `RewardsScene` 的 A509 那节的做法；⛔ 不靠「出厂默认」）。
+            shell.Windows.CloseAllWindows();
+            int a12StreakDay = DailyData.StreakCollected;
+            bool a12StreakClaimed0 = DailyData.StreakRewardClaimed(a12StreakDay);
+            DailyData.ForceStreakClaimedForTest(a12StreakDay, false);
+            var a12Ds = DailyStreakPopup.Create(shell.Windows);
+            shell.Windows.OpenWindow(a12Ds);
+            CheckTrue(a12Ds != null && a12Ds.CurrentState == WindowState.Open,
+                      "（前提）每日连胜窗开起来了（奖格轨才建得出来）");
+            if (a12Ds != null && a12Ds.CurrentState == WindowState.Open)
+            {
+                CheckTrue(!DailyData.StreakFailed(),
+                          "（前提）本窗处于「连胜」态（`StreakFailed() == false`）—— 断签态不建奖格轨");
+                int first = DailyData.StreakCollected;       // 首格 = `scaleMultiplierFirstElement` 作用的那一格
+                // 🔴 **奖格轨只建【视口内】那几格**（`GameWindow.Text` → `MenuDraw.Visible`：整块在视口外 ⇒ 不建）。
+                //   出厂 `StreakCollected = 5` ⇒ `FocusCurrentDay()` 恒不移动（`5 < 5` 假）⇒ 第 5/6 格在屏外。
+                //   把轨滚到最右（`SetOffset(1000)` 会被夹到上限 ≈ 979.61）⇒ 第 4/5/6 格进视口；
+                //   **只对「真的建出来了」的格断言**，并**显式要求首格（`first`）在里面**（⛔ 不静默跳过）。
+                if (a12Ds.TrackScroll != null) a12Ds.TrackScroll.SetOffset(1000f);
+                int a12Checked = 0;
+                for (int i = 0; i < DailyData.StreakDays; i++)
+                {
+                    var ent = FindChildIn(a12Ds.transform, "Daily Streak Reward Popup Entry (" + i + ")");
+                    if (ent == null) continue;
+                    if (FindChildIn(ent, "Reward Name") == null) continue;   // 视口外的格：节点在、标签不建
+                    a12Checked++;
+                    // 条目根 1.2 × NormalReward 0.8 = 0.96；首格再 ×1.2 ⇒ 1.152。
+                    float nr = 0.8f * (i == first ? 1.44f : 1.2f);
+                    CheckA1212(ent, "Reward Name", "NormalReward ▸ Reward Name",
+                               18f * nr, 40f * nr, 36f * nr, 1,
+                               boxW: 338.17f * nr, boxH: 32.29f * nr);
+                    // `Collect Text` 只在「已解锁且未领取」那一格建（本数据 = 第 `StreakCollected` 格）。
+                    if (i == first)
+                        CheckA1212(ent, "Collect Text", "Collect ▸ Collect Text",
+                                   18f * 0.7f * 1.44f, 72f * 0.7f * 1.44f, 36f * 0.7f * 1.44f, 1,
+                                   boxW: 249.74f * 0.7f * 1.44f, boxH: 50.07f * 0.7f * 1.44f);
+                }
+                CheckTrue(a12Checked >= 2,
+                          $"★ 滚到最右之后**至少 2 格**进了视口并建出 `Reward Name`（实测 {a12Checked} 格）"
+                        + " —— 少了就是「滚了但没重建」或视口裁切口径变了");
+                var a12FirstEnt = FindChildIn(a12Ds.transform, "Daily Streak Reward Popup Entry (" + first + ")");
+                CheckTrue(a12FirstEnt != null && FindChildIn(a12FirstEnt, "Collect Text") != null,
+                          $"★ 首格（第 {first} 格）**在视口里**且 `Collect Text` 建出来了 —— 上面那两条 `Collect Text`"
+                        + " 的四格/框断言吃这一条（否则它们等于没跑）");
+            }
+            shell.Windows.CloseAllWindows();
+            if (a12Ds != null) Object.DestroyImmediate(a12Ds.gameObject);
+            DailyData.ForceStreakClaimedForTest(a12StreakDay, a12StreakClaimed0);   // 还原起点（静态残留会污染后面的节）
+
+            // ---------------- 块 12：`RewardWindow ▸ Collect Button ▸ Button Text` ----------------
+            shell.Windows.CloseAllWindows();
+            var a12Rw = RewardWindow.Create(shell.Windows);
+            shell.Windows.OpenWindow(a12Rw);
+            CheckTrue(a12Rw != null && a12Rw.CurrentState == WindowState.Open,
+                      "（前提）奖励窗开起来了（`Collect Button` 那一颗才建得出来）");
+            if (a12Rw != null && a12Rw.CurrentState == WindowState.Open)
+            {
+                var a12RwBtn = FindChildIn(a12Rw.transform, "Collect Button");
+                CheckTrue(a12RwBtn != null, "（前提）`Collect Button` 在");
+                if (a12RwBtn != null)
+                    CheckA1212(a12RwBtn, "Button Text", "Content ▸ Collect Button ▸ Button Text",
+                               10f, 40f, 12f, 0, boxW: 220.81f, boxH: 57.52f);
+            }
+            shell.Windows.CloseAllWindows();
+            if (a12Rw != null) Object.DestroyImmediate(a12Rw.gameObject);
+
+            // ---------------- 块 13：`CampaignTab ▸ Premium Panel ▸ … ▸ Button Text` ----------------
+            shell.Windows.CloseAllWindows();
+            var a12Rw2 = RewardsWindow.Create(shell.Windows);
+            shell.Windows.OpenWindow(a12Rw2);
+            var a12Ct = a12Rw2 != null ? FindChildIn(a12Rw2.transform, "Campaign Tab") : null;
+            CheckTrue(a12Ct != null, "（前提）`Rewards Window ▸ Tabs ▸ Campaign Tab` 建出来了");
+            if (a12Ct != null)
+            {
+                var a12Btn = FindChildIn(a12Ct, "Generic Simplified UI Button");
+                CheckTrue(a12Btn != null, "（前提）`Premium Panel ▸ Generic Simplified UI Button` 在");
+                if (a12Btn != null)
+                    CheckA1212(a12Btn, "Button Text", "Premium Panel ▸ Generic Simplified UI Button ▸ Button Text",
+                               10f, 55f, 12f, 0, boxW: 238.06f, boxH: 46.79f);
+            }
+            shell.Windows.CloseAllWindows();
+            if (a12Rw2 != null) Object.DestroyImmediate(a12Rw2.gameObject);
         }
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");

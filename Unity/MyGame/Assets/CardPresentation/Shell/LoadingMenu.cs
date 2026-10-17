@@ -49,7 +49,9 @@
 // 🔴 **根节点的出厂 active**：场景里 `LoadingMenu` 是 `m_IsActive = false`，而 `GeneralMenuController.ShowLoading`
 //    **不**激活根（只激活 `Panel`）⇒ 原版运行时根一定被别的东西开过，**那一点本地没查到**。
 //    本件：根出厂**关**（安全），`LoadingFade` 第一句显式激活根 + 面板（**显式，不猜哪一处开的**）。
-// 🟡 我们的 `Safe area Only Horizontal` 是个空节点（`ShellRuntime.cs:229-239`），主菜单/窗口都没挂进去（U1 的活）；
+// 🟡 **2026-10-17（T16/N4）就地订正**：本行原来写「我们的 `Safe area Only Horizontal` 是个空节点（U1 的活）」——
+//    **已过期**：安全区接线当天已落地（`ShellRuntime.EnsureSafeZones` + `MainMenuRuntime` 把顶栏/左栏/聊天/Toast/
+//    `Window Anchors` 逐条挂进 `Safe area Only Horizontal`）。
 //    本件**照原版挂在安全区节点下**（PC 无刘海时缩放 = 1，无可见差异；有刘海时跟着安全区走）。
 //
 // ============================ 分工 ============================

@@ -287,6 +287,10 @@ namespace CardPresentation
         public string ShownTitle { get; private set; }
         /// <summary>窗口下面那段正文（自检用）</summary>
         public string ShownBody { get; private set; }
+        /// <summary>风味条上**现在**写的那一行（官方 Lore；没有 = null ⇒ `FlavourTextBG` 整块关着）。
+        /// 🆕 2026-10-17（`A1802`）：与 <see cref="ShownBody"/>（卡面效果文字，另一回事）**不是同一个值**。
+        /// 自检/上层读它。</summary>
+        public string ShownLore { get; private set; }
         /// <summary>语音按钮上一次播的是哪个文件（**没播成是 null**；自检用）</summary>
         public string LastVoiceFile { get; private set; }
 
@@ -1008,6 +1012,7 @@ namespace CardPresentation
             Visible = false;
             ShownTitle = null;
             ShownBody = null;
+            ShownLore = null;
             _hasShown = false;
             LastVoiceFile = null;
             _swapping = false;
@@ -1229,8 +1234,11 @@ namespace CardPresentation
 
         // ============================================================ 下缘那条（文字 + 两颗钮）
 
-        /// <summary>效果文字条那行字。原版这里是 **Lore 背景故事**；我们没有 lore 文案
-        /// （I2 词条在远端，本地拿不到 —— 正本 §十·2 已结案）⇒ 画**效果文字**，并**如实标注**。
+        /// <summary>效果文字条那行字。原版这里是 **Lore 背景故事**。
+        /// 🔴 **2026-10-17（`A1802` + `A1500①`）就地订正**：本行原来写「我们没有 lore 文案
+        /// （I2 词条在远端，本地拿不到 —— 正本 §十·2 已结案）⇒ 画效果文字」—— **不成立了**：
+        /// 官方 I2 表 2026-10-14 已解开，`Warlord_Lore/*` 1042 条就在本地（抽取件 `Resources/lore_zh+en.json`）。
+        /// ⇒ 现在画的是**官方 Lore**（`Loc.Lore`）；**没有 lore 就不亮**（原版 `SetCardLore.c:24-27`）。
         /// ⚠️ 换位收尾（原版 `CardSwapFinished` 的 `SetCardLore(新前台)`）会**重建**它 ⇒ 抽成独立方法。</summary>
         void RefreshLore()
         {
@@ -1261,7 +1269,17 @@ namespace CardPresentation
             //    ⇒ **没字也亮一块空的风味底板**（它当时倒是能被眼睛钮手动切掉，可战斗版原版根本没有那颗钮
             //    ⇒ 实际就是「永远露着」）⇒ 照原版收口（`Editor/BattleScene.cs` 有一条断言钉着）。
             //    🆕 **2026-10-17（B8）**：那个开关本身已删 —— 现在这一块的显隐**只有这一处判据**。
-            string body = ShownBody ?? "";
+            // ② 那行字：**官方风味文本（Lore）** —— 原版 `SetCardLore` 取 `GetLocalizedFlavourText()`。
+            //    🆕 **2026-10-17（`A1802` + `A1500①`）**：来源从「卡面效果文字」（`ShownBody`）换成
+            //    `Loc.Lore(前台那张的卡 id)`（`Warlord_Lore/<卡 id>`，数据件 `Resources/lore_zh+en.json`；
+            //    两扇窗共用 `Core/Loc.cs` 那一个口）。⛔ **没有 lore 时不许拿效果文字回填** ——
+            //    那会静默把「这张卡的背景故事」画成「这张卡怎么打」，正是本笔要治的病。
+            //    ⚠️ 覆盖缺口：我们卡池 1127 张里 128 张没有官方键（**2025-07-30 快照之后**的新卡）
+            //    ⇒ 照原版「无风味文本」处理：整块 `FlavourTextBG` 关掉（`Loc` 会逐键出声一次）。
+            //    ⚠️ **`FrontDef == null` 那条退路**：`Show(CardData)` / `Toggle(CardData)` 这两条入口
+            //    没有卡表项 ⇒ 查不到卡 id，只能退回 `ShownBody`（`BuildFan` 已经为这条链出声过一次）。
+            string body = FrontDef != null ? (Loc.Lore(FrontDef.Id) ?? "") : (ShownBody ?? "");
+            ShownLore = string.IsNullOrEmpty(body) ? null : body;
             if (string.IsNullOrEmpty(body)) { _bg.gameObject.SetActive(false); return; }
             // 🔴 **2026-10-16（`T09` 批 3）**：`MenuDraw.Text(...)` → `Text(...)`（uGUI `TMP_UGUI`）。
             //    那一颗四格（标称 / 下限 / 上限 / 框）**逐值照旧**，只是单位从「世界单位」换成 px：

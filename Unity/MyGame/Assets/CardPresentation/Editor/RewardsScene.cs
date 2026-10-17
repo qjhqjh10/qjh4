@@ -1795,6 +1795,97 @@ public static class RewardsScene
             //     「`FS()` 那一乘被去掉」上），⛔ **不是**页内真值 —— 登录卡那一半裁下来之后要一起重算。
         }
 
+        // ==================================================================
+        //  🆕 2026-10-17（`A1212` 块 5）：`MissionsTab` 那 7 站的「实参 = 原版四格 + 折行档 + 框」。
+        //
+        //  判据 = 原版 MB 逐颗现读（`bundle_menus_assets_all`；
+        //  `python 工具/menu_dump.py bundle_menus_assets_all "Missions Tab" --depth 11 --no-layout`）：
+        //    #56 登录卡 `Timer`       = 15 / 38 / 36 / 折行 1 · 有效框 373.75×65.74（325×1.15 / 57.167×1.15）
+        //    #57 周常 `name`          = 10 / 36 / 46 / 折行 0 · 有效框 307.60×50.00（header 379.75 × 0.81）
+        //    #58 周常 `Timer`         = 15 / 38 / 36 / 折行 1 · 有效框 400.63×57.17
+        //    #59 奖励格 `count` 三档  = ① 每日行 20/40/36/0（真框 145.28×58.83）·
+        //                              ② 登录卡 / 骷髅卡 10/40/36/0（原版宽 = CSF 撑出的 **0** ⇒ 宽**不可比**、
+        //                                 只断高 89.29 = 原版父格高）·
+        //                              ③ 20/30/36/0 是原版**另一份实例**的档，本页三个出生点都不用 ⇒ 不建、不假断；
+        //    #60 每日行 `progress`    = 10 / 40 / 36 / 折行 0 · **框宽不在这里断**（见下：我们的
+        //                               `Mission Milestones Progress Bar` 用的是作者态锚 ⇒ 实得
+        //                               115.29×40.73 设计 px，与页内实例的 302.552×41.23 不同 ——
+        //                               新发现的框差，已写进报告「顺手发现」）
+        //    #61 骷髅卡 `counter`（原 `counter text`）= 30 / 35 / 36 / 折行 0 · 有效框 78.07×36.65
+        //    #62 周常 `counter`       = 15 / 40 / 36 / 折行 1 · 有效框 62.53×35.01
+        //  ⚠️ SM / DM 两棵子树的原版 `localScale = 1.15` ⇒ 四格与框**全部 ×1.15**（期望值写字面量，
+        //    ⛔ 不读 `MissionsTab.FS` / `SM_Scale` / `DM_Scale` —— 那是拿实现证明实现）。
+        //  ⛔ 只读不写：不 `Build()`、不碰 `DailyData`（后面 §三·5/A63 那几节还吃这个现场）。
+        // ==================================================================
+        Section("★ A1212 块 5：`MissionsTab` 那 7 站「实参 = 原版四格」＋折行档＋框");
+        {
+            // 🔴 **#56 的宿主（登录卡 `Timer`）只在【已领取】态才建**（原版 `MissionTimerDisplay.displayRule = 2
+            //   (WhenComplete)`；见 `Shell/MissionsTab.cs` 的 `if (DailyData.LoginClaimed())`）——
+            //   出厂 `_loginState = InProgress` ⇒ 这里**临时置成 `Claimed` 重建一次**，断完还原并重建，
+            //   再把 `rows` 重收一遍（本节后面 :1933/:1947 还要用 `rows[0]`，⛔ 不能留一堆已销毁节点）。
+            var a12Comp = tab.GetComponent<MissionsTab>();
+            CheckTrue(a12Comp != null, "（前提）`Missions Tab` 上挂着 `MissionsTab`（下面要按登录态重建一次）");
+            bool a12WasClaimed = DailyData.LoginClaimed();
+            if (a12Comp != null && !a12WasClaimed)
+            {
+                DailyData.ForceLoginStateForTest(DailyData.State.Claimed);
+                a12Comp.Build();
+            }
+            var a12Login = FindChild(tab, "Daily Login Container");
+            var a12Skulls = FindChild(tab, "Daily Skulls Mission Container");
+            var a12Weekly = FindChild(tab, "Weekly Mission");
+            var a12Row0 = FindChild(tab, "Daily Mission Container (0)");
+            CheckTrue(a12Login != null && a12Skulls != null && a12Weekly != null && a12Row0 != null,
+                      "（前提）四块宿主都在（登录卡 / 骷髅卡 / 周常 / 每日第 1 行）—— 下面 7 站都吃这一条");
+            if (a12Login != null)
+            {
+                CheckA1212(a12Login, "Timer", "Daily Login Container ▸ footer ▸ TimerHolder ▸ Timer",
+                           17.25f, 43.7f, 41.4f, 1, boxW: 373.75f, boxH: 65.74f);
+                // ② 登录卡奖励格：原版 `count` 宽由 CSF 撑（序列化出来是 0）⇒ **宽不可比**，只断高。
+                CheckA1212(a12Login, "count 0", "Rewards ▸ Reward Display Mission ▸ count",
+                           11.5f, 46f, 41.4f, 0, boxH: 89.29f);
+            }
+            if (a12Skulls != null)
+            {
+                CheckA1212(a12Skulls, "counter", "background ▸ body ▸ counter（原 `counter text`）",
+                           34.5f, 40.25f, 41.4f, 0, boxW: 78.07f, boxH: 36.65f);
+                CheckA1212(a12Skulls, "count 1", "footer ▸ Rewards ▸ Reward Display Mission ▸ count",
+                           11.5f, 46f, 41.4f, 0, boxH: 89.29f);
+            }
+            if (a12Weekly != null)
+            {
+                CheckA1212(a12Weekly, "name", "background ▸ header ▸ name",
+                           10f, 36f, 46f, 0, boxW: 307.60f, boxH: 50.00f);
+                CheckA1212(a12Weekly, "Timer", "footer ▸ TimerHolder ▸ Timer",
+                           15f, 38f, 36f, 1, boxW: 400.63f, boxH: 57.17f);
+                CheckA1212(a12Weekly, "counter", "progress ▸ Mission Progress Bar ▸ … ▸ Handle ▸ counter",
+                           15f, 40f, 36f, 1, boxW: 62.53f, boxH: 35.01f);
+            }
+            if (a12Row0 != null)
+            {
+                // 🔴 `progress` **框宽这一格不在这里断**（如实登记，⛔ 不硬凑）：我们那棵
+                //   `Mission Milestones Progress Bar` 用的是**作者态 prefab 的锚**（`aMax.x = 0.316` + `sd.x −77.3111`），
+                //   在页内实际行宽（`Daily Missions` 609.50 设计 px）下解出 **115.29 设计 px ≈ 132.58 画布**；
+                //   而 `RM_原版TMP框尺寸.md` 表 B #60 记的是 **347.94 × 47.41**（页内实例那颗的 `sd = 302.552`）。
+                //   ⇒ 这是一处**新发现的框差**（`A1226` 表 B 当时把 #60 记成「未现算」），**不在本批 6 站里**、
+                //   ⛔ 本批不改几何；已写进报告「顺手发现」，等调度台立账。四格 + 折行照断（那两样判据是硬的）。
+                CheckA1212(a12Row0, "progress", "Mission Milestones Progress Bar ▸ progress",
+                           11.5f, 46f, 41.4f, 0);
+                // ① 每日行奖励格：原版**唯一有真框**的那一档（`aMax.y = 0.337` + `sd.y 0.6025`）。
+                CheckA1212(a12Row0, "count 0", "Rewards ▸ Reward Display Mission Vertical Variant ▸ count",
+                           23f, 46f, 41.4f, 0, boxW: 145.28f, boxH: 58.83f);
+            }
+            // 还原登录态并按新节点重收 `rows`（本节后面还会用 `rows[0]`）。
+            if (a12Comp != null && !a12WasClaimed)
+            {
+                DailyData.ForceLoginStateForTest(DailyData.State.InProgress);
+                a12Comp.Build();
+                rows.Clear();
+                foreach (var t in tab.GetComponentsInChildren<Transform>(true))
+                    if (t.name.StartsWith("Daily Mission Container (")) rows.Add(t);
+            }
+        }
+
         Section("§三·5 周常：`Handle` 与骑在它上面的 `counter`（2026-09-23 补）");
         var weekly = FindChild(tab, "Weekly Mission");
         CheckTrue(weekly != null, "周常卡建了");
@@ -11232,6 +11323,43 @@ public static class RewardsScene
         CheckTrue(nowPx >= loPx - 0.5f && nowPx <= hiPx + 0.5f,
                   what + " 收敛值**落在窗口内**（关系式）：实得 " + nowPx.ToString("F2")
                   + " px ∈ [" + loPx.ToString("F2") + ", " + hiPx.ToString("F2") + "]");
+    }
+
+    /// <summary>🆕 **2026-10-17（`A1212` 块 5）**：`MissionsTab` 那 7 站的「实参 = 原版四格 + 折行档 + 框」。
+    /// <para>判据 = 原版 MB 的四个字段原文（`m_enableAutoSizing` / `m_fontSizeMin` / `m_fontSizeMax` /
+    /// `m_fontSizeBase` / `m_TextWrappingMode`）逐颗现读，值见调用点注释；
+    /// ⛔ 期望值**不许**从 `MissionsTab` 的常量 / 实参读回来（自证）。</para>
+    /// <para>⚠️ `MissionsTab` 的 SM / DM 两棵子树原版 `localScale = 1.15` ⇒ 四格与框**都已 ×1.15**，
+    /// 调用点写字面量（`FS()` 那一乘由实现自己走）。</para></summary>
+    static void CheckA1212(Transform root, string name, string origNode,
+                           float mnPx, float mxPx, float basePx, int wrap,
+                           float boxW = -1f, float boxH = -1f)
+    {
+        var t = FindChild(root, name);
+        var lb = t != null ? t.GetComponent<Label>() : null;
+        CheckTrue(lb != null, $"（前提）`A1212` `{name}` 建出来了（原版 `{origNode}`）");
+        if (lb == null) return;
+        string tag = $"`{name}`（原版 `{origNode}`）";
+        CheckTrue(lb.AutoSizing, $"★ A1212 {tag}：**`m_enableAutoSizing = 1`**（自适应开着）");
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace), mnPx, 0.05f,
+                  $"★ A1212 {tag}：下界 = 原版 `m_fontSizeMin` {mnPx}px");
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace), mxPx, 0.05f,
+                  $"★ A1212 {tag}：上界 = 原版 `m_fontSizeMax` {mxPx}px");
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace), basePx, 0.05f,
+                  $"★ A1212 {tag}：二分起点 = 原版 `m_fontSizeBase` {basePx}px"
+                + "（🧨 只开自适应、不给 base ⇒ 这一格红）");
+        Check(lb.WrappingMode, wrap,
+              $"★ A1212 {tag}：折行档 = 原版 `m_TextWrappingMode` {wrap}"
+            + "（`SetAutoFitBox` 内部会无条件开 `Normal(1)` ⇒ 这一格抓「接完忘了还原」）");
+        var tmp = t.GetComponentInChildren<TMPro.TMP_Text>(true);
+        if (tmp == null) { CheckTrue(false, $"（前提）A1212 {tag}：走 TMP 后端"); return; }
+        float k = lb.IsUgui ? 1f : (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
+        if (boxW > 0f)
+            CheckNear(Mathf.Abs(tmp.rectTransform.sizeDelta.x) * k, boxW, 0.05f,
+                      $"★ A1212/A1226 {tag}：框宽 = 原版有效框 {boxW}px");
+        if (boxH > 0f)
+            CheckNear(Mathf.Abs(tmp.rectTransform.sizeDelta.y) * k, boxH, 0.05f,
+                      $"★ A1212/A1226 {tag}：框高 = {boxH}px");
     }
 
     static void CheckArt(Transform t, string want, string what)

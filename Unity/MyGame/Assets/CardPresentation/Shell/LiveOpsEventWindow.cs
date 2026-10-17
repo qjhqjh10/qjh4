@@ -979,8 +979,17 @@ namespace CardPresentation
         protected virtual string EventHelpTitleTerm { get { return null; } }
 
         /// <summary>帮助弹窗**正文**的官方词条键（= 事件 `EventLabel` 里 `Help` 那一条的 `RawValue`）。
-        /// 缺省 null = 本地查不到（同上）。</summary>
+        /// 缺省 null = 本地查不到（同上）。
+        /// 🆕 **2026-10-17（`A1853②`）**：`SkirmishEventWindow` 已覆写成记分活动那一对
+        /// （`Event_Description/ExpansionPass/{Title,GeneralHelp}`）—— 见那边的注释与判据。</summary>
         protected virtual string EventHelpDescriptionTerm { get { return null; } }
+
+        /// <summary>🆕 2026-10-17（`A1853②`）：上面两条词条里的 `{0}` / `{1}` 实参（原版 `EventLabel.Args`）。
+        /// 缺省 null = 不替换（词条里若真有 `{0}`，`BaseEventPopup` 会**出声**、
+        /// ⛔ 不会静默把大括号印出去）。</summary>
+        protected virtual string[] EventHelpTitleArgs { get { return null; } }
+        /// <inheritdoc cref="EventHelpTitleArgs"/>
+        protected virtual string[] EventHelpDescriptionArgs { get { return null; } }
 
         /// <summary>点 `Help` ⇒ 开事件说明弹窗（原版 `…HelpButtonClick` → `WindowsManager.OpenWindow`）。
         /// 返回开出来的那扇；**没有 `WindowsManager` 时返回 null 并出声**（红线：不静默失败）。</summary>
@@ -993,7 +1002,8 @@ namespace CardPresentation
                                  + "（原版那一跳是 `WindowsManager.OpenWindow`；这里如实说、不假装打开）");
                 return null;
             }
-            var w = BaseEventPopup.Create(Manager, HelpVariant, EventHelpTitleTerm, EventHelpDescriptionTerm, name);
+            var w = BaseEventPopup.Create(Manager, HelpVariant, EventHelpTitleTerm, EventHelpDescriptionTerm, name,
+                                          EventHelpTitleArgs, EventHelpDescriptionArgs);
             Manager.OpenWindow(w);
             LastHelpPopup = w;
             Debug.Log("[Event] `Help Button` ⇒ 开出 `" + BaseEventPopup.RootNameOf(HelpVariant) + "`"
@@ -1309,9 +1319,9 @@ namespace CardPresentation
         }
         public static DeckInfoPopup LastDeckInfo;
 
-        protected void NotBuilt(string what)
-        {
-            Debug.LogWarning("[Event] `" + what + "` 还没实现（**出声**，见 `Shell/LiveOpsEventWindow.cs` 文件头/各处注释）");
-        }
+        // 🔴 **2026-10-17（`N5`）已删**：原来这里有个 `protected void NotBuilt(string what)`（只打一行
+        //    `LogWarning`）。全仓 `grep "NotBuilt("` 现读 **0 个调用点**（唯一那个 `BuildHelp` 已改成真开窗，
+        //    见本文件 `:950` 那段）⇒ 死代码。⛔ 别为了「以后可能用」把它加回来 —— 新的「没实现」走
+        //    `RuleEngine` 那套 `ErrUnimplemented` 或就地 `Debug.LogWarning`，不留一个没人调的空壳。
     }
 }

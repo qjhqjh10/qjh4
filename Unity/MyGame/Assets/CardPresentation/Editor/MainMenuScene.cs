@@ -648,6 +648,75 @@ public static class MainMenuScene
         //    ⇒ 拿它当「主菜单长什么样」的参照会**看错**（2026-09-26 就被它骗过一次）。
         Shoot("00_主菜单_无弹窗.png");
 
+        // ==================================================================
+        //  🆕 2026-10-17（T16 · `N4`）：**安全区父链**（原版树逐级解 `m_Father` 实读）
+        //
+        //  判据 = `bundle_scenes_scenes_mainmenuwarpforge`（索引 → `资料/主菜单_原版规格.md:53,64-68`）：
+        //    `MainMenu`(pid 38) ├ `MainMenu`(pid 7 = 主菜单那一扇) └ **`Safe area All`(RT1086) → `GameModes`(1122)**
+        //                      └ **`Safe area Only Horizontal`(RT1540)** → `Navigation Panel`(1103) ·
+        //                        `Upper bar`(1092) · `ChatPreview`(1169) · `Toast Notification Controller`(1096)
+        //  ⇒ 顶栏 / 左栏 / 聊天 / Toast 挂 **`Safe area Only Horizontal`**；模式卡挂 **`Safe area All`**、
+        //    而 `Safe area All` 是**主菜单那一扇**的孩子（跟着 `MainMenuWindow.ToBackground()` 一起藏）。
+        //  ⚠️ 本宿主走的是 MainMenuRuntime 的**独立场景**那一档（`ShellRuntime.Instance == null`）⇒
+        //    两个节点由它就地建、`UISafeArea` 挂在菜单根上（zones 两条）。
+        // ==================================================================
+        Section("★ T16（A1141/N4）：安全区父链 + `UISafeArea.zones` 两条");
+        {
+            var t16H = FindChild(root, "Safe area Only Horizontal");
+            var t16A = FindChild(root, "Safe area All");
+            CheckTrue(t16H != null && t16A != null, "（前提）两个安全区节点都建出来了");
+            if (t16H != null && t16A != null)
+            {
+                // ⚠️ 根节点自己也叫 `MainMenu` ⇒ 兜底必须用 `Transform.Find`（**直接子件**），
+                //    ⛔ 不能用递归 `FindChild`（那会先命中根、把这条变成恒红）。
+                var t16Win = MainMenuRuntime.Window != null
+                           ? MainMenuRuntime.Window.transform
+                           : (root != null ? root.Find("MainMenu") : null);
+                CheckTrue(t16Win != null && t16A.parent == t16Win,
+                          "★ `Safe area All` 的父件 = **主菜单那一扇**（`MainMenu`/`MainMenuRuntime.Window`）"
+                        + " —— 原版 `RT1086.m_Father` = pid 7；挂到根上 ⇒ 关窗时模式卡不跟着藏（这条红）");
+                var t16Gm = FindChild(t16A, "GameModes");
+                CheckTrue(t16Gm != null && t16Gm.parent == t16A,
+                          "★ `GameModes` 的父件 = **`Safe area All`**（原版 `RT1122.m_Father` = RT1086）"
+                        + " —— `GameModes` 找不到 / 挂在别处 ⇒ 也算红（⛔ 不静默）");
+                string[] t16HKids = { "Navigation Panel", "Upper bar", "ChatPreview", "Toast Notification Controller" };
+                foreach (var n in t16HKids)
+                {
+                    var c = FindChild(t16H, n);
+                    CheckTrue(c != null && c.parent == t16H,
+                              $"★ `{n}` 的父件 = **`Safe area Only Horizontal`**（原版四个 pid 全挂在 RT1540 下）"
+                            + " —— 挂在菜单根上 ⇒ 没有安全区内缩（这条红）");
+                }
+            }
+            var t16Mgr = root != null ? root.GetComponent<UISafeArea>() : null;
+            CheckTrue(t16Mgr != null && t16Mgr.zones != null && t16Mgr.zones.Length == 2,
+                      "★ `UISafeArea.zones` = **两条**（`Safe area All` 全向 · `Safe area Only Horizontal` 只管宽）"
+                    + " —— 条数不对 ⇒ 有一条安全区不生效");
+            if (t16Mgr != null && t16Mgr.zones != null)
+            {
+                int hitA = 0, hitH = 0;
+                foreach (var z in t16Mgr.zones)
+                {
+                    if (z == null || z.rectTransform == null) continue;
+                    if (z.rectTransform == t16A)
+                    {
+                        hitA++;
+                        CheckTrue(z.applyWidth && z.applyHeight,
+                                  "★ `Safe area All` 那一档 = **applyWidth + applyHeight**（原版全向内缩）");
+                    }
+                    if (z.rectTransform == t16H)
+                    {
+                        hitH++;
+                        CheckTrue(z.applyWidth && !z.applyHeight,
+                                  "★ `Safe area Only Horizontal` 那一档 = **applyWidth 开 / applyHeight 关**"
+                                + "（原版只做横向安全区 —— 纵向会让顶栏/左栏被压扁）");
+                    }
+                }
+                Check(hitA, 1, "`Safe area All` 在 zones 里**恰好一条**（重复登记 = 两套值抢同一个节点）");
+                Check(hitH, 1, "`Safe area Only Horizontal` 在 zones 里**恰好一条**");
+            }
+        }
+
         Section("整屏背景（§五 A：`Image(sprite=0)` + 双色渐变，**不是图也不是 3D**）");
         var bg = menu.Find("Background");
         CheckTrue(bg != null, "`Background` 建了");
@@ -4622,6 +4691,34 @@ public static class MainMenuScene
                                   + "（`Title_UM_Premium_1` → `UM Premium 1`）、原版真名在远端 I2 语言表」——"
                                   + "**今天官方 zh-CN 表已解开** ⇒ 显示名先走 `Loc.BulkOr(\"Titles/\" + <32hex id>, 反推名)`"
                                   + "（现读 368/462 命中），**反推名只剩兜底**）");
+                        // 🆕 **2026-10-17（战斗线 `T20` / `A2118`）**：称号选中要**落进 `ProfileData`** ——
+                        //   战斗 HUD 的读口就是它（`BattleDriver.RefreshHudTitles` 读 `ProfileData.TitleName`）。
+                        //   改前 `TitleTab.Selected` 只是本页字段，战斗里恒 `SetTitle(null,null)` ⇒ 永远不显示。
+                        {
+                            var ttab = pp.Page(WindowTabType.ProfileTitle) as TitleTab;
+                            CheckTrue(ttab != null && TitleTab.Titles.Count > 7,
+                                      "（前提）称号页实例在、且至少 8 条称号（下面四条挂在这上面）");
+                            int keepTi = ProfileData.TitleIndex;
+                            if (ttab != null && TitleTab.Titles.Count > 7)
+                            {
+                                ttab.Select(7);
+                                Check(ProfileData.TitleIndex, 7,
+                                      "★ 选第 8 条称号 ⇒ 写进 `ProfileData.TitleIndex`（战斗 HUD 的唯一读口）"
+                                    + " —— 🧨 改坏法：把 `TitleTab.Selected` 改回实例字段 ⇒ 红");
+                                Check(ProfileData.TitleName, TitleTab.Titles[7].Name,
+                                      "★ `ProfileData.TitleName` = 那一条的名字（战斗 HUD 直接印它）");
+                                int before = ProfileData.TitleIndex;
+                                ttab.Select(-1);
+                                ttab.Select(TitleTab.Titles.Count);
+                                Check(ProfileData.TitleIndex, before,
+                                      "★ 越界 `Select(-1 / Count)` **不写**（守卫留在 `Select`，⛔ 别挪进 setter）");
+                                ProfileData.TitleIndex = 9999;
+                                Check(ProfileData.TitleName, "",
+                                      "★ `TitleIndex` 越界 ⇒ `TitleName` 空串（HUD 侧据此把称号整块关掉）");
+                            }
+                            ProfileData.TitleIndex = keepTi;
+                            if (ttab != null) ttab.Refresh();
+                        }
                         // 表格按视口裁：462 条 × 3 列 = 154 行，一屏只该建出看得见的那几行
                         var grid = FindChild(scr, "Item Drawer");
                         int built = grid != null ? grid.childCount : -1;
@@ -10599,9 +10696,13 @@ public static class MainMenuScene
                               "★ 开着社交窗时，**主菜单那棵（背景 + 模式卡）的 `activeSelf == false`** —— "
                             + "原版那一刻它是 `ToBackground()` / `Hide()` 过的；"
                             + "主菜单不在 `WindowsManager` 窗口栈里（本笔之前那一态）⇒ 它**一直可见**、模式卡全露在窗口底下");
-                    //   ⚠️ 节点名用**我们自己的**（`GameModes`）—— 原版那一段的中间层叫 `Safe area All`
-                    //   （见 `MainMenuWindow.cs` 文件头 ③），我们没建那层，照原版名字找会**找不着⇒假红**。
-                    var modesNode = baseW.transform.Find("GameModes");
+                    //   🔴 **2026-10-17（T16 后就地订正 · 铁律 5）**：节点名用**我们自己的**（`GameModes`）；
+                    //   原版那一段的中间层叫 `Safe area All` —— **T16 已经把它建出来了**（原版父链
+                    //   `Safe area All → MainMenuWindow`；`Shell/MainMenuRuntime.cs` 的那一节把 `Safe area All`
+                    //   **搬进了这一扇**）⇒ 本句原来写「我们没建那层」**已过期**。
+                    //   ⇒ 取法从 `baseW.transform.Find("GameModes")`（**只找直接子件**）改成**递归** `FindChild`：
+                    //     现在 `GameModes` 在 `Safe area All` 底下，直接子件找法恒返回 null ⇒ 这条**假红**。
+                    var modesNode = FindChild(baseW.transform, "GameModes");
                     CheckTrue(modesNode != null && modesNode.gameObject.activeInHierarchy == false,
                               "★ 模式卡那一支（`MainMenu/GameModes`）也**不再出现在层级里**"
                             + "（`activeInHierarchy == false`；找不到这一支 ⇒ 也被算红）");

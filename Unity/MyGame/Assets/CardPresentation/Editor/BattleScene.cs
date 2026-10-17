@@ -419,6 +419,42 @@ public static class BattleScene
         }
 
         // ==================================================================
+        //  🆕 2026-10-17（`A1212` 块 7 / 块 9）：**「实参 = 原版四格」**的断言。
+        //
+        //  判据 = 原版 MB 的四个字段原文（`m_fontSizeMin/Max/Base` + `m_TextWrappingMode`）：
+        //   · 块 7（`Battle/SkillPanel.cs`，4 处）—— 原版 `FrontCanvas/…/ActiveSkillDesc/AbilityContainer/
+        //     {NameText,CostText,DescText,TargetsAvailableText}` **四颗逐值相同 = `4 / 60 / 36 / 1`**
+        //     （`RA1212_切块表.md` 块 7，原始读数 `R6_包装层战斗与其余.md` §2·C）。
+        //   · 块 9（`Battle/SettingsPanel.cs`，3 处）—— 原版 `… ▸ Sliders ▸ {Music,Sound Effects,Voice-overs}`
+        //     = `10 / 42 / 36 / 1`（同上 §2·D）。
+        //  ⛔ 期望值不读被测方的常量（`AutoMinPx` / `LabelAutoMin` / `LabelFontPx` …）—— 那是自证。
+        // ==================================================================
+
+        /// <summary>一颗字的四格 + 折行档（判据见上面那一段）。`lb` 由宿主自己的引用交出来
+        /// （`SkillPanel.TextForTest` / `SettingsPanel.SliderLabelForTest`），⛔ 不按节点名在共用子画布里找 ——
+        /// 那里同名件会有多份（面板建过好几遍时），按名找会拿到别人的那一颗。</summary>
+        void CheckA1212Label(Label lb, string what, string origNode,
+                             float mn, float mx, float bs, int wrap)
+        {
+            Check(lb != null, $"（前提）`A1212` {what}（原版 `{origNode}`）拿到引用");
+            if (lb == null) return;
+            string tag = $"★ A1212 {what}（原版 `{origNode}`）";
+            Check(lb.AutoSizing, $"{tag}：**`m_enableAutoSizing = 1`**（自适应开着）");
+            // 实例口（`FontSizeToPxNow` + `ActualFace`）与写进去的那一路同源；静态口在画布档 / 拉丁面下不同源。
+            float gMin = lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace);
+            float gMax = lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace);
+            float gBase = lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace);
+            Check(Mathf.Abs(gMin - mn) <= 0.05f, $"{tag}：下界 = 原版 `m_fontSizeMin` {mn}px（实得 {gMin:F2}）");
+            Check(Mathf.Abs(gMax - mx) <= 0.05f, $"{tag}：上界 = 原版 `m_fontSizeMax` {mx}px（实得 {gMax:F2}）");
+            Check(Mathf.Abs(gBase - bs) <= 0.05f,
+                  $"{tag}：二分起点 = 原版 `m_fontSizeBase` {bs}px（实得 {gBase:F2}）"
+                + "｜🧨 只开自适应、不给 base ⇒ 这一格红");
+            Check(lb.WrappingMode == wrap,
+                  $"{tag}：折行档 = 原版 `m_TextWrappingMode` {wrap}（实得 {lb.WrappingMode}）"
+                + "｜`SetAutoFitBox` 内部会无条件开 `Normal(1)` ⇒ 这一格抓「接完忘了还原」");
+        }
+
+        // ==================================================================
         //  🆕 2026-10-10（`A1213①` 的**断言覆盖**那一半）：HUD「框 + 四格」的公用助手
         //
         //  生产代码 = `BattleDriver.Hud(…, boxWpx, boxHpx, autoMinPx, autoMaxPx, autoBasePx, wrapMode)`
@@ -7416,6 +7452,15 @@ public static class BattleScene
                 {
                     Check(sp.ShownName == CardText.Name("Ironclad"),
                           $"面板上写的是施放者那张卡（「{sp.ShownName}」）");
+                    // 🆕 **2026-10-17（`A1212` 块 7）**：四颗字逐颗对原版四格（四颗**逐值相同** `4/60/36/1`）。
+                    CheckA1212Label(sp.TextForTest(0), "`NameText`",
+                                    "ActiveSkillDesc/AbilityContainer/NameText", 4f, 60f, 36f, 1);
+                    CheckA1212Label(sp.TextForTest(1), "`CostText`",
+                                    "ActiveSkillDesc/AbilityContainer/CostText", 4f, 60f, 36f, 1);
+                    CheckA1212Label(sp.TextForTest(2), "`DescText`",
+                                    "ActiveSkillDesc/AbilityContainer/DescText", 4f, 60f, 36f, 1);
+                    CheckA1212Label(sp.TextForTest(3), "`TargetsAvailableText`",
+                                    "ActiveSkillDesc/AbilityContainer/TargetsAvailableText", 4f, 60f, 36f, 1);
                     // ⚠️ **2026-09-29 改成「跟引擎比」**（原来写死 `== 1`）：面板上那个数**本来就是**
                     //   `HighlightTargets() → RuleCore.CanUseAbility` 数出来的 ⇒ 写死一个常数等于在赌
                     //   「场上只有一个可打目标」，而 AI（后手）开局多抽一张之后打法会变、场上会多一个单位。
@@ -10996,6 +11041,11 @@ public static class BattleScene
 
                 Check(drv.SettingsBtnReady, "右上角设置按钮：贴图是 `UI_Settings_Icon`、命中矩形认自己");
                 Check(drv.SimulateOpenSettings() && sp.Visible, "点设置按钮 → 面板打开");
+                // 🆕 **2026-10-17（`A1212` 块 9）**：三颗音量滑条标签对原版四格 `10 / 42 / 36 / 1`
+                //   （判据 = 原版 `… ▸ Sliders ▸ {Music,Sound Effects,Voice-overs}`，三颗逐值相同）。
+                CheckA1212Label(sp.SliderLabelForTest(0), "`Music`", "…/Sliders/Music", 10f, 42f, 36f, 1);
+                CheckA1212Label(sp.SliderLabelForTest(1), "`Sound Effects`", "…/Sliders/Sound Effects", 10f, 42f, 36f, 1);
+                CheckA1212Label(sp.SliderLabelForTest(2), "`Voice-overs`", "…/Sliders/Voice-overs", 10f, 42f, 36f, 1);
 
                 // ---- 对手难度（🆕 2026-09-17：原版没有这个入口，旋钮在 `AIBotsConfig` 里）----
                 // 取值照原版 `DeckDifficultyLevel`（SuperEasy=0 / Easy=5 / Normal=10 / Hard=15）。
@@ -15004,14 +15054,36 @@ public static class BattleScene
                 Check(drv.HudExtraZDelta("AvatarItemSmall_Foe") > 0f,
                       $"敌方头像块也在名牌**前面**（z 差 {drv.HudExtraZDelta("AvatarItemSmall_Foe"):F2}）");
 
-                // ---- 称号（2026-09-24 新接：原来是**常显的空底条**）----
+                // ---- 称号（🆕 2026-10-17 `T20`/`A2118`：档案窗选的那一条要带进战斗）----
                 // 🔴 判据 = 原版 `PlayerProfileUIController.SetProfileTitle`：
                 //    `SetActive(titleGO, !IsNullOrEmpty(title))` —— 没称号 ⇒ **底条连同文字一起关**。
-                //    实况 dump 里 `TitleBackground.activeSelf = False`（原版关服、玩家没称号）。
+                // 🆕 数据源已接上：我方 = `ProfileData.TitleName`（默认 `TitleIndex = −1` = 没选 ⇒ 关）；
+                //    对手 = 按本局 `_seed` 确定性挑的 `BotTitleName`（**我们的近似**，见 `BattleDriver.BotTitleIndex`）。
                 // ⚠️ **正例与反例必须成对** —— 只验「不显示」的话，「永远不显示」也能过。
-                Check(!drv.TitleVisible(true) && !drv.TitleVisible(false)
-                      && !drv.TitleBgVisible(true) && !drv.TitleBgVisible(false),
-                      "单机没有玩家资料 ⇒ 称号**整块不显示**（底条 + 文字一起关，与原版实况一致）");
+                Check(ProfileData.Titles.Count > 7,
+                          "（前提）称号清单至少 8 条（下面接线往返取第 8 条）");
+                Check(!drv.TitleVisible(true) && !drv.TitleBgVisible(true) && drv.TitleTextOf(true) == "",
+                      "没选称号（`ProfileData.TitleIndex = −1`）⇒ 我方**整块关**（底条 + 文字）");
+                Check(drv.TitleVisible(false) && drv.TitleBgVisible(false)
+                      && drv.TitleTextOf(false) == drv.BotTitleName && !string.IsNullOrEmpty(drv.BotTitleName),
+                      $"★ 对手称号 = 按本局种子挑的那一条（`BotTitleName`「{drv.BotTitleName}」）"
+                    + " —— 🧨 改坏法：把 `RefreshHudTitles()` 换回 `SetTitle(null, null)` ⇒ 这一条红");
+                // 🆕 **接线往返**：档案窗选中 → `ProfileData` → `RefreshHudTitles` → 名牌。
+                //    ⛔ 不直调 `drv.SetTitle(...)` —— 那样只验了画字，验不到「档案窗那一套能不能进来」。
+                {
+                    int keepTi = ProfileData.TitleIndex;
+                    ProfileData.TitleIndex = 7;
+                    drv.RefreshHudTitles();
+                    Check(drv.TitleVisible(true) && drv.TitleBgVisible(true)
+                          && drv.TitleTextOf(true) == ProfileData.Titles[7].Name,
+                          "★ 选第 8 条称号 ⇒ `RefreshHudTitles` 把它贴到我方名牌（T20/A2118 接线）");
+                    ProfileData.TitleIndex = -1;
+                    drv.RefreshHudTitles();
+                    Check(!drv.TitleVisible(true) && !drv.TitleBgVisible(true),
+                          "★ 取消选择 ⇒ 又整块关回去（判据跟着数据走，不是一次性开关）");
+                    ProfileData.TitleIndex = keepTi;
+                    drv.RefreshHudTitles();
+                }
                 drv.SetTitle("测试称号", null);              // 正例：给一个称号
                 Check(drv.TitleVisible(true) && drv.TitleBgVisible(true)
                       && drv.TitleTextOf(true) == "测试称号"

@@ -206,6 +206,71 @@ namespace CardPresentation
         /// <summary>四条压暗边：`_fadeSides` = **外侧半**（贴屏幕边）· `_fadeInners` = **内侧半**（靠屏幕中心）。</summary>
         ImageQuad[] _fadeSides = new ImageQuad[4];
         ImageQuad[] _fadeInners = new ImageQuad[4];
+
+        // ============================================================ 安全区（原版 `UISafeAreaManager.m_safeZones`）
+        //
+        // 🆕 **2026-10-17（界面线 T16 / `N4`）**：这两颗原来建完就没人挂（空节点 ⇒ 安全区**完全没生效**）。
+        // 原版判据（`bundle_scenes_scenes_mainmenuwarpforge` 逐级解 `m_Father`，`主菜单_原版规格.md:53,64-68`）：
+        //   `Game UI`(RT1314, Canvas1085 + **MB2580 `m_safeZones=[RT1086 安全区All, RT1540 安全区OnlyHorizontal]`**)
+        //   └ `Main  Canvas`(RT1514)
+        //      ├ `MainMenu`(RT1114) ├ `MainMenu`(RT1087 = 窗口) ├ `Background`
+        //      │                                         └ **`Safe area All`(RT1086，applyWidth 1 + applyHeight 1)**
+        //      │                                            └ `GameModes`(RT1122) → …
+        //      └ **`Safe area Only Horizontal`(RT1540，applyWidth 1 + applyHeight 0)** 的 12 个孩子 =
+        //        `Navigation Panel`(1103) · `ChatPreview`(1169) · `1 - Below Upper Bar Holder`(1095) ·
+        //        **`Upper bar`(1092)** · `Borders`(1115) · `2 - Canvas Holder Above upper bar`(1109) ·
+        //        `3 - PopUp Holder`(1121) · `LoadingMenu`(1098) · `UI Error Message Controller`(1206) ·
+        //        `TooltipManager`(1557) · `Toast Notification Controller`(1096) · `Loading Controller`(1083)
+        // ⇒ **两个 zone 是真父节点，不是装饰**（PC 无刘海时 scale/偏移恒为 1/0，看不到差别；手机/挖孔屏上全靠它）。
+        Transform _safeAll, _safeH;
+        UISafeArea _safeMgr;
+
+        /// <summary>`Safe area All`（原版的「宽高都缩」那一颗）。取的时候**保证活着**（被场景卸载带走就补建）。</summary>
+        public Transform SafeAreaAll { get { EnsureSafeZones(); return _safeAll; } }
+        /// <summary>`Safe area Only Horizontal`（原版的「只缩宽」那一颗）。</summary>
+        public Transform SafeAreaOnlyHorizontal { get { EnsureSafeZones(); return _safeH; } }
+
+        /// <summary>把两个 zone 从「被主菜单搬走」的状态收回壳根（幂等）。
+        /// <para>🔴 **为什么必须能收**：`Safe area All` 按原版是 `MainMenuWindow` 的孩子（跟着窗口隐藏），
+        /// 所以 `MainMenuRuntime.Build` 会把它 `SetParent` 到**主菜单场景**那一棵里。主菜单重建时那一棵会被清场
+        /// （Play 下 `Destroy` **延迟到帧末**）—— 不先摘回来，会拿一颗**将死**的节点当安全区，挂在它下面的新模式卡
+        /// 跟着一起消失（**静默**：日志里什么都没有）。</para>
+        /// <para>⚠️ 节点若是随主菜单**场景卸载**而销毁的 ⇒ `_safeAll == null`（Unity 的假 null）⇒ 这里补建。</para></summary>
+        public void ReclaimSafeZones()
+        {
+            if (_safeAll != null && _safeAll.parent != transform) _safeAll.SetParent(transform, false);
+            if (_safeH != null && _safeH.parent != transform) _safeH.SetParent(transform, false);
+            EnsureSafeZones();
+        }
+
+        /// <summary>建/重建两颗安全区节点并把它们登记进壳根上的 <see cref="UISafeArea"/>（幂等、可重入）。
+        /// <para>判据 = 原版 `RT1086`(w+h) / `RT1540`(w only) 的 `applyWidth / applyHeight`；几何由
+        /// <see cref="UISafeArea"/> 按 `Screen.safeArea` 写 `localScale` / `localPosition`。</para>
+        /// <para>⚠️ 两颗都是**裸 `Transform`**（不是 `RectTransform`）：我们的壳全线是「世界坐标 + `ImageQuad`」，
+        /// 容器只需承担缩放/平移；原版是 `RectTransform`(stretch, sizeDelta 0)，**画面等价**（PC 上两档恒等）。</para></summary>
+        public void EnsureSafeZones()
+        {
+            if (_safeMgr == null) _safeMgr = GetComponent<UISafeArea>();
+            if (_safeMgr == null) _safeMgr = gameObject.AddComponent<UISafeArea>();
+
+            if (_safeAll == null)
+            {
+                _safeAll = NewRoot(transform, "Safe area All");
+                Debug.Log("[Shell] `Safe area All` 不在（多半随主菜单场景卸载被销毁了）⇒ 已补建到壳根");
+            }
+            if (_safeH == null)
+            {
+                _safeH = NewRoot(transform, "Safe area Only Horizontal");
+                Debug.Log("[Shell] `Safe area Only Horizontal` 不在 ⇒ 已补建到壳根");
+            }
+
+            _safeMgr.zones = new[]
+            {
+                new UISafeArea.Zone { rectTransform = _safeAll, applyWidth = true, applyHeight = true  },
+                new UISafeArea.Zone { rectTransform = _safeH,   applyWidth = true, applyHeight = false },
+            };
+        }
+
         VideoPlayer _video;
         AudioSource _videoAudio;
         RenderTexture _videoRt;
@@ -299,6 +364,28 @@ namespace CardPresentation
         {
             _built = true;
             var root = transform;
+
+            // 🆕 **2026-10-17（界面线 T16 / `N4`）：安全区不再是个空节点** —— 两个 zone 的归属（原版树判据见下面建件那一节）：
+            //   · `Safe area Only Horizontal` ← **窗口三锚点**（`Window Anchors`，三个 `WindowHolder` 都在它下面）；
+            //   · `Safe area All` ← **主菜单的模式卡**（`MainMenuRuntime.Build` 把它搬进 `MainMenuWindow` 那一棵）。
+            // ⚠️ **先收回**（两件都可能被上一次构建挂走了；不收回就会被下面那轮清场**连根拆掉**）：
+            //     `Window Anchors` 平时挂在 `safeH` 下 ⇒ 先摘回壳根，下面那一轮才认得出「独立的常驻件」；
+            //     `Safe area All` 可能被搬进了主菜单场景（Play 下 `Destroy` 是**延迟**的：当场非 null、帧末才没
+            //     ⇒ 不先摘走，下一次 Build 会拿一颗**将死**的节点当安全区，挂在它下面的件跟着一起消失）。
+            // ① 域重载后两个字段是 null，而**存过盘的 `Shell.unity` 里这两颗就在根下** ⇒ 先按名字认领，
+            //    ⛔ 别再新建一颗同名的（一帧内两颗同名 ⇒ 谁 `Find` 到哪颗全看运气）。
+            if (_safeAll == null) _safeAll = transform.Find("Safe area All");
+            if (_safeH == null) _safeH = transform.Find("Safe area Only Horizontal");
+
+            // ② `Window Anchors` 可能在 safeH 下（上一次 Build 挂进去的）⇒ 深搜摘回壳根
+            var anchorsOld = FindDeep(transform, "Window Anchors");
+            if (anchorsOld != null && anchorsOld.parent != root) anchorsOld.SetParent(root, false);
+
+            // ③ 两颗 zone **本身留着复用**（下面那轮清场会跳过它们），但它们的孩子是上一轮烘进去的 ⇒ 自己清
+            if (_safeAll != null) for (int i = _safeAll.childCount - 1; i >= 0; i--) DestroySafe(_safeAll.GetChild(i).gameObject);
+            if (_safeH != null)   for (int i = _safeH.childCount - 1;   i >= 0; i--) DestroySafe(_safeH.GetChild(i).gameObject);
+            EnsureSafeZones();
+
             // 🔴 2026-10-10 修（真鼠标在 player 里点不动 · 见账 `A1491`）：**别把窗口层卷进这次重建**。
             //   Play 里 `DestroySafe` 走的是 `Destroy`（**帧末才生效**），而下面 `EnsureHost` 的判据是
             //   `if (Instance != null) return Instance;` ⇒ 它会**返回那台正在死的**、不建新的、也不打日志；
@@ -310,6 +397,7 @@ namespace CardPresentation
                 var ch = root.GetChild(i).gameObject;
                 if (ch.GetComponent<WindowsManager>() != null) continue;                  // 窗口管理器
                 if (ch.GetComponentInChildren<WindowHolder>(true) != null) continue;      // `Window Anchors` 那几颗
+                if (ch.transform == _safeAll || ch.transform == _safeH) continue;         // 安全区两颗（复用；孩子上面已清）
                 DestroySafe(ch);
             }
 
@@ -338,20 +426,35 @@ namespace CardPresentation
             FadeEdge(fade, 3, "Smooth background fade TOP",     FadeBarX,  FadeBarY - FadeBarH * 0.5f, FadeTopW,    FadeBarH, false);
 
             // ---- 安全区（原版 `UISafeAreaManager{m_safeZones[]}`，挂根上，指向这两个节点）----
-            var safe = new GameObject("Safe area All").transform;
-            safe.SetParent(root, false);
-            var safeH = new GameObject("Safe area Only Horizontal").transform;
-            safeH.SetParent(root, false);
-            var safeMgr = root.gameObject.AddComponent<UISafeArea>();
-            safeMgr.zones = new[]
-            {
-                new UISafeArea.Zone { rectTransform = safe,  applyWidth = true,  applyHeight = true  },
-                new UISafeArea.Zone { rectTransform = safeH, applyWidth = true,  applyHeight = false },
-            };
+            // 🔴 **2026-10-17（T16 / `N4`）**：原来这两颗建完就再没人碰（**空节点** ⇒ 刘海/挖孔屏上什么都不会缩）。
+            //    现在它们是**真父节点**：
+            //      · `Safe area Only Horizontal` ← `Window Anchors`（下面 `EnsureHost` 之后那一步）+
+            //        主菜单的 `Upper bar` / `Navigation Panel` / `ChatPreview` / `Toast Notification Controller`
+            //        （`MainMenuRuntime.Build` 挂进来；运行期壳一直在 ⇒ 跨场景挂是允许的）；
+            //      · `Safe area All` ← 主菜单 `Safe area All` → `GameModes`（`MainMenuRuntime` 把本节点搬进
+            //        `MainMenuWindow` 那一棵 —— 原版 `RT1086.m_Father = 1087`，它**跟着窗口一起隐藏**）。
+            //    `EnsureSafeZones` 是可重入的：主菜单场景卸载会把被搬走的 `Safe area All` 一起销毁，
+            //    下一次进主菜单时这里（或 `MainMenuRuntime.Build` 开头的 `ReclaimSafeZones`）会把它补建出来。
+            EnsureSafeZones();
+            var safeH = _safeH;
 
             // ---- 三个窗口锚点 + 窗口管理器（正本 §三 第 7 条：**缺一不可**，原版取不到会 LogError）----
             // 判据只留一处：`WindowsManager.EnsureHost`（单独打开某个界面场景时也走它）
             Windows = WindowsManager.EnsureHost(root);
+
+            // 🆕 **2026-10-17（T16 / `N4`）：三个 Holder 挂进 `Safe area Only Horizontal`** ——
+            // 原版判据（`bundle_scenes_scenes_mainmenuwarpforge`，`RectTransform_1540.m_Children` **实读**）：
+            //   `Safe area Only Horizontal`(RT1540) 的 12 个孩子里就有 **`1 - Below Upper Bar Holder`(1095) ·
+            //   `2 - Canvas Holder Above upper bar`(1109) · `3 - PopUp Holder`(1121)**（三颗**直接**挂在它下面）。
+            // ⚠️ 我们多一层 `Window Anchors`（`WindowsManager.EnsureHost` 建的，三个 Holder 的公共宿主）——
+            //    这一层是**我们自己的**，原版没有；保留它（拆掉要动 `WindowsManager`，且 `DeckScene` 等宿主按这个名字跳过）。
+            // ⚠️ `PointerLayer` **不跟着进去**（它在壳根；屏幕像素 → 世界是相机换算，与父链无关，而它必须在最外层吃输入）。
+            var windowAnchors = root.Find("Window Anchors");
+            if (windowAnchors != null && safeH != null && windowAnchors.parent != safeH)
+                windowAnchors.SetParent(safeH, false);
+            else if (windowAnchors == null)
+                Debug.LogWarning("[Shell] 找不到 `Window Anchors`（`WindowsManager.EnsureHost` 应该建它）⇒ " +
+                                 "三个 Holder **没有**挂进 `Safe area Only Horizontal`，安全区对窗口不生效（出声，不静默）");
             // 🩺 2026-10-11 临时诊断（`A1491` 收口前删）：建完之后这两件在不在、挂在谁下面
             Debug.Log($"[Shell·自查] WM={(WindowsManager.Instance != null)} PL={(PointerLayer.Instance != null)} 父={(PointerLayer.Instance != null && PointerLayer.Instance.transform.parent != null ? PointerLayer.Instance.transform.parent.name : "<null>")}");
 
@@ -396,6 +499,16 @@ namespace CardPresentation
             if (!Application.isPlaying) { DestroyImmediate(go); return; }
 #endif
             Destroy(go);
+        }
+
+        /// <summary>整棵子树按名字找（含 inactive）。只给 `Build` 开头的「先收回」用
+        /// （`Window Anchors` 可能被上一次构建挂进 `Safe area Only Horizontal`，不再是壳根的直接子件）。</summary>
+        static Transform FindDeep(Transform t, string name)
+        {
+            if (t == null) return null;
+            foreach (var c in t.GetComponentsInChildren<Transform>(true))
+                if (c.name == name) return c;
+            return null;
         }
 
         AudioSource MakeMusicSource(string name)

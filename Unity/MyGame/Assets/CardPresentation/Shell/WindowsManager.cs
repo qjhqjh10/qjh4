@@ -689,6 +689,26 @@ namespace CardPresentation
         /// `DeckInfoPopup__ShareDeckOnChat.c`）。</para></summary>
         public const string PrefabRefGenericOptionsPanel = "Generic Options Panel";
 
+        /// <summary>🆕 **2026-10-17（界面线 T18/T25）**：`ItemDisplayWindow`（物品展示窗）的 prefab 根名
+        /// （= `Shell/ItemDisplayWindow.cs` 的 `Create()` 里 `new GameObject(...)` 用的那个名字，**两处同源**）。
+        /// <para>🔴 **入口是本地判据、不是猜的**：原版 `CardbackCollectionTab__OnItemSelected.c`
+        /// 构造 `ItemDisplayWindowContext(item, 1)` 后 `WindowsManager.OpenWindow&lt;ItemDisplayWindow&gt;`
+        /// ⇒ 收藏窗卡背页点一张卡背开的就是这一扇（判据全文 → `Shell/ItemDisplayWindow.cs` 文件头）。</para></summary>
+        public const string PrefabRefItemDisplay = "Item Display Window";
+
+        /// <summary>🆕 **2026-10-17（界面线 T18）**：`TutorialMessagePopup`（原版 `TutorialMessageWindowPopUp`）的
+        /// prefab 根名（= `Shell/TutorialMessagePopup.cs` 的 `Create()` 里 `new GameObject(...)` 用的名字，**两处同源**）。
+        /// <para>⚠️ **本地没有生产入口**：原版由 `TutorialManager.ShowTutorialMessageWindow` ← 3 个教程 stage 的
+        /// `DoMenuActions` 开出来，而我们**没有菜单版教程 stage 状态机**（判据 → `Shell/TutorialMessagePopup.cs` 的类 doc
+        /// 与 `资料/普查产出_1017/UI/R2_暂缓批复核.md` §1·1）⇒ 这里只提供「怎么开」。</para></summary>
+        public const string PrefabRefTutorialMessage = "Tutorial Message Window PopUp";
+
+        /// <summary>🆕 **2026-10-17（界面线 T18）**：`WelcomePopup`（原版 prefab 根名 `WelcomeScreen Alpha`）的
+        /// prefab 根名（= `Shell/WelcomePopup.cs` 的 `Create()` 里 `new GameObject(...)` 用的名字，**两处同源**）。
+        /// <para>⚠️ **本地没有生产入口**：原版由 FTUE onboarding（`!CheckTag(CollectedFirstDeck)`）开出来，
+        /// 我们没有 tag 存档 / FTUE ⇒ 这里只提供「怎么开」，**不自己判显隐**。</para></summary>
+        public const string PrefabRefWelcome = "WelcomeScreen Alpha";
+
         /// <summary>🆕 **A251-L2**：`AllianceMemberOptionsPopup` 那一扇的 prefab 根名。
         /// ⚠️ **本地走不到**（八颗钮的显隐全要服务器，见 `Shell/AllianceMemberOptionsPopup.cs` 文件头）。</summary>
         public const string PrefabRefAllianceMemberOptions = "Member Options Panel";
@@ -844,6 +864,48 @@ namespace CardPresentation
             var win = OpenByRef(PrefabRefGenericOptionsPanel,
                                 wm => GenericOptionsPanel.Create(wm, ctx, anchor));
             win.Show(ctx, anchor);
+            return win;
+        }
+
+        /// <summary>🆕 **2026-10-17（界面线 T18/T25）**：开一扇 <see cref="ItemDisplayWindow"/>（原版 `ItemDisplayWindow`）。
+        /// <para><paramref name="ctx"/> = 已解析好的内容（名 / 描述 / 类型 / 阵营 / lore / 图）；
+        /// 卡背那一档的建法 = <see cref="ItemDisplayWindow.ForCardback"/>（数据全在本地）。</para>
+        /// <para>⚠️ **新建那一支会多建一遍**（`Create` 的 `Open()` 建一次、`Show` 再建一次）—— 与本文件
+        /// `OpenGenericOptionsPanel` / A251 那四扇**同一个形状**（`GameWindow.TryOpen` 在 `CurrentState == Open`
+        /// 时照原版早退 ⇒ 复用那一支光靠 `Open()` 刷不了内容，必须显式 `Show`）。</para></summary>
+        public static ItemDisplayWindow OpenItemDisplay(ItemDisplayWindow.Context? ctx = null)
+        {
+            var win = OpenByRef(PrefabRefItemDisplay,
+                                wm => ItemDisplayWindow.Create(wm, ctx));
+            win.Show(ctx);
+            return win;
+        }
+
+        /// <summary>🆕 **2026-10-17（界面线 T18）**：开一扇 <see cref="TutorialMessagePopup"/>
+        /// （原版 `TutorialMessageWindowPopUp` —— 教程消息窗 / 「点击以继续」整屏简报）。
+        /// <para><paramref name="ctx"/> = 标题/正文词条键 + `Event image`（`null` ⇒ prefab 出厂那一份：
+        /// `MainMenu/Welcome/{Title,Subtitle}` + 无图）。</para>
+        /// <para>⚠️ **本地没有生产入口**（原版那一跳在教程 stage 系统里，我们没建）⇒ 只提供「怎么开」，
+        /// ⛔ 不伪造调用点。⚠️ 新建那一支会**多建一遍**（`Create` 的 `Open()` 建一次、`Show` 再建一次）——
+        /// 与同文件 `OpenItemDisplay` 同一个形状（`TryOpen` 在 `CurrentState == Open` 时照原版早退）。</para></summary>
+        public static TutorialMessagePopup OpenTutorialMessage(TutorialMessagePopup.Context? ctx = null)
+        {
+            var win = OpenByRef(PrefabRefTutorialMessage,
+                                wm => TutorialMessagePopup.Create(wm, ctx));
+            win.Show(ctx);
+            return win;
+        }
+
+        /// <summary>🆕 **2026-10-17（界面线 T18）**：开一扇 <see cref="WelcomePopup"/>（原版 `WelcomePopup` /
+        /// prefab `WelcomeScreen Alpha`）。
+        /// <para><paramref name="ctx"/> = 标题/正文词条键 + `Event image`（`null` ⇒ prefab 出厂那一份）。
+        /// ⚠️ **不判显隐**：原版入口判据 `IsFirstWelcome` 在远端 PlayFab tag 里（判据 → 那个属性）。
+        /// 谁要在本地开它，自己先确认该不该开。</para></summary>
+        public static WelcomePopup OpenWelcome(WelcomePopup.Context? ctx = null)
+        {
+            var win = OpenByRef(PrefabRefWelcome,
+                                wm => WelcomePopup.Create(wm, ctx));
+            win.Show(ctx);
             return win;
         }
 

@@ -17,6 +17,12 @@
        文件名 = PathID ⇒ 由 `m_Script.m_PathID` 直接拿类名。
     ③ **sprite 名与九宫格** —— Image 里只有 PathID，名字要回图集/切片索引对齐查。
 
+🔴 **已知不可靠的一格（`N22`，2026-10-17 RV 审查实测）**：在某些 bundle（先例 = `bundle_menus_assets_all`）上
+   **GO pid 会撞车**（工具自报 **49 个**，例 `pid 222: CostText_222 / Toast`）⇒ **名字列可能印错**
+   （实测把 Toast 根印成 `TextMeshProUGUI`、把 Text 印成 `'Serghar Targorst Serghar '`）。
+   ⇒ 在这类重名资产上**改用 `MonoBehaviour_*.json` 的 `m_GameObject` + `m_text` 内容认领**，
+   ⛔ 别直接采信本脚本的名字列（矩形/字段仍可用）。根因见 `资料/普查产出_1017/UI/RV_ToastNotifications.md` §没查到 ⑥。
+
 用法：
     python menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 8
     python menu_dump.py bundle_menus_assets_all --rt -8094654694055052750 --depth 6 --relative --md

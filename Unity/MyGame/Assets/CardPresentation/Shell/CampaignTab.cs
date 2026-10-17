@@ -1075,7 +1075,17 @@ namespace CardPresentation
             _premAction = RewardsWindow.Node(p, "Generic Simplified UI Button", btn);
             // A17：原版 `Campaign Tab>Premium Panel>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 2 第 7 行）
             var contQ = _win.Rect(_premAction, "UI_Button_Mulligan", btn, "Image", QPanelBtn);
-            var btnTxR = new PxRect(btn.x1 + 9f, btn.y1 + 4f, btn.x2 - 9f, btn.y2 - 4f);
+            // 🔴 **2026-10-17（`A1212` 块 13 #21 / `A1226`）：框从「钮四边各内缩 9/4」改成【原版有效框】。**
+            //   原版那颗 `Button Text` 的 RT 亲读（`menu_dump --no-layout --no-ancestor-scale`，
+            //   `Campaign Tab ▸ Premium Panel ▸ Generic Simplified UI Button ▸ Button Text`）：
+            //   `m_AnchorMin/Max = (0.0355112, 0.099) → (0.961262, 0.903)` ·
+            //   `m_SizeDelta = (1.135, 2.1942)` · `m_AnchoredPosition = (0.378357, −1.0971)`、父钮 **255.925 × 55.465**
+            //   ⇒ **有效框 = 236.926 + 1.135 = 238.06 宽** · **44.594 + 2.1942 = 46.79 高**；
+            //   相对钮左上（y 向下）= 左 **8.90** · 上 **5.38** · 右内缩 **8.97** · 下内缩 **3.30**。
+            //   改前传的是「四边各内缩 9 / 4」= 237.93 × 47.47（宽 −0.13 / 高 **+0.68**）——
+            //   `A1226` 表 B #21 记的 `−0.13 / +0.68` 就是这两处；量级小但属「框 ≠ 原版」，按铁律 11 一起收。
+            var btnTxR = new PxRect(btn.x1 + 8.9001f, btn.y1 + 5.3799f,
+                                    btn.x1 + 246.9579f, btn.y1 + 52.1680f);
             _premActionTxR = btnTxR;
             var panBtn = _win.Text(_premAction, PremiumTerm("MainMenu/General/Collect", "Collect", "收集"),
                                    btnTxR.x1, btnTxR.x2, btnTxR.y1, btnTxR.y2, 5,

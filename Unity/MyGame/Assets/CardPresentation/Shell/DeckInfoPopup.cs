@@ -1105,8 +1105,19 @@ namespace CardPresentation
                     //    -3952983784560686680 / -2175297685083813464`）逐值相同：
                     //    **`m_fontSize = 40`** · `min 10 / max 40 / base 12` · 折行 0
                     //    ⇒ 标称那一格原来写 34 是**抄错**（`R5` §5·2 登记的那条偏离坐实）。
+                    // 🆕 **2026-10-17（`N34①`/`N33`/`A1226` 表 B #37）：框 + 纵向档一并收口。**
+                    //   · 框：原版 `…/{Practice,Edit,Select} Deck/Button Text` 的 **有效框 = 294.41 × 76.70**
+                    //     （`RectTransform` 亲读：`m_AnchorMin.x 0.035511188 / m_AnchorMax.x 0.961261868`、
+                    //      `m_SizeDelta.x −6.0000019` ⇒ 324.5 × 0.92575068 − 6 = **294.405**；
+                    //      高 = `AspectRatioFitter` 宽控高 `3.83864` ⇒ 294.405 ÷ 3.83864 = **76.70**，
+                    //      挂包根 dump 逐颗印 `294.41 76.70`）。
+                    //      ⇒ 原来传的是**整颗钮 324.50 × 80.10**（宽 +30.09 / 高 +3.40，两边各多 15px 可排宽）。
+                    //   · 纵向：三颗 `m_VerticalAlignment = 8192 (Capline)`（`HorizontalAlignment = 2 Center`）、
+                    //     字体 `m_fontAsset` → `Pragati-Regular SDF`（pid `3485036404935369831`）。
+                    //     ⇒ `MenuDraw.SetVAlign(..., OrigFace.Pragati)`（缺省那份就是 Pragati）。
                     var lab = Txt(holder.transform, holder.transform, labelText, r.x1, r.y1, r.x2, r.y2, 40f, Align.Center,
-                        "Text " + btns[i], QDIText, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 12f);
+                        "Text " + btns[i], QDIText, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 12f,
+                        boxW: 294.41f, boxH: 76.70f, vAlign: Label.VAlign.Capline);
                     string key = btns[i];
                     // A17：原版 `Buttons>{Practice,Edit,Select} Deck` 是 SpriteSwap（普查 §块 3 第 6 行）
                     var hitq = Hit(holder.transform, holder.transform, "Btn_" + key, r, () => OnButton(key),
@@ -1414,16 +1425,30 @@ namespace CardPresentation
                 //    ⇒ 标称那一格原样照抄（三处原来统一传 26 是**抄错**；`R5` §5·2 登记的那条偏离坐实）。
                 //    ⚠️ 「框也偏」那一半**不在本笔**（属 `A1226` 表 B）：我们 `Cost` 传的框 40 宽，
                 //       原版那颗 `Cost Image/Cost` 的 `m_SizeDelta.x = 48.819`（同一条判据；按 `A1226` 一起收）。
-                // ⚠️ `Cost Text` 是 `折行 = 1` 那一档 ⇒ `wrapPx` 必须给（只传 `autoMinPx` 是**死实参**）；
-                //    折行宽 / 自适应框宽 = **本格框宽** 40（`x1+6 … x1+46`）—— 原版那颗的宽是布局排出来的，
-                //    prefab 里读到的是模板位 ⇒ **这一格不是原版字段值**（同 `Shell/SettingsWindow.cs:4717` 那条登记）。
+                // ⚠️ `Cost Text` 是 `折行 = 1` 那一档 ⇒ `wrapPx` 必须给（只传 `autoMinPx` 是**死实参**）。
+                //     🔴 **2026-10-17（铁律 5 就地订正）**：本行原文写「折行宽 / 自适应框宽 = **本格框宽** 40
+                //     （`x1+6 … x1+46`）…… **这一格不是原版字段值**」—— **已过期**：下面那一段核到了原版
+                //     MB 的 `m_SizeDelta.x = 48.819`（宽是字段值），高按 RM 表 B 的有效框 47.88。
+                // 🆕 **2026-10-17（`N34②`/`N33`/`A1226` 表 B #38）：框 + 纵向档。**
+                //   · 框：原版 `Deck Selector Card Info button/Content/Background/Cost Image/Cost` 的
+                //     `RectTransform` 亲读 = 锚 `x 0.5→0.5`、`m_SizeDelta = 48.8191 × ≈0`（高由布局给的父格撑）
+                //     ⇒ **宽 48.819**（我们原来传 40，−8.82）；高按 `RM_原版TMP框尺寸.md` 表 B 的 **47.88**
+                //     （RM 自算 = 父格 55.7 × 锚跨度 0.776；按本 prefab 的 `GridLayoutGroup.cellSize.y = 58`
+                //      自算是 49.66 —— 两者都 > `Pragati` 行盒 `0.9474 × 50 = 47.37` ⇒ 字号都停在 50，
+                //      画面同值；取 RM 那一格并在报告里登记这条 1.8px 的差）。
+                //   · 纵向：`m_VerticalAlignment = 8192 (Capline)` · `HorizontalAlignment = 2 (Center)` · 字体 Pragati。
                 Txt(node.transform, node.transform, card.Cost.ToString(), x1 + 6f, y1 + 9f, x1 + 46f, y1 + 49f, 50f, Align.Center,
-                    "Cost Text", QDIText, wrapPx: 40f, autoMinPx: 18f, autoMaxPx: 50f, autoBasePx: 32f);
+                    "Cost Text", QDIText, wrapPx: 48.819f, autoMinPx: 18f, autoMaxPx: 50f, autoBasePx: 32f,
+                    boxH: 47.88f, vAlign: Label.VAlign.Capline);
                 // ④ **卡名 = 本地化名**：原版那一栏喂的就是 `GetLocalizedCardName`（见 ② 的键2），
                 //    而左栏 `DeckRuntime.cs:3189` 用的是 `CardText.Name(def.Name, def.NameZh)`。
                 //    🔴 原来写 `card.Name`（英文）⇒ **同一副牌弹窗英文、编辑窗中文**。
+                // 🆕 **2026-10-17（`N33`）**：原版 `…/Text fill/Card Name` = `HorizontalAlignment 1 (Left)` ·
+                //    `VerticalAlignment 8192 (Capline)` · 字体 Pragati（`MonoBehaviour_-679054392775177816` 亲读）。
+                //    ⚠️ 纵向档必须在本函数内部先于 `AlignLeftOn` 落（见 `Txt` 的 `vAlign` doc）。
                 Txt(node.transform, node.transform, CardText.Name(card.Name, card.NameZh), x1 + 52f, y1, x1 + RowW - 52f, y1 + RowH, 38f, Align.Left,
-                    "Name", QDIText, autoMinPx: 2f, autoMaxPx: 38f, autoBasePx: 27.69f);
+                    "Name", QDIText, autoMinPx: 2f, autoMaxPx: 38f, autoBasePx: 27.69f,
+                    vAlign: Label.VAlign.Capline);
                 // ⑥ **份数那颗只在 >1 张时才建**（A1531⑥ 同族第二条）：原版
                 //    `UICardInfoItem__SetCount.c:34` = `SetActive(countLabel, 1 < count)`，
                 //    而 `SpawnCardInfo.c:76` 建行时喂的 count 恒 **1** ⇒ **单张的行不印 `x1`**。
@@ -1431,8 +1456,12 @@ namespace CardPresentation
                 //    ⚠️ 那边是「建了再 `SetOn`」（它有一排复用的标签池）；本窗每次 `Build` 重画、
                 //      没有池 ⇒ **不建** 与 `SetActive(false)` 等价。**规则同一条，机制不同**。
                 if (n > 1)
+                    // 🆕 **2026-10-17（`N33`）**：原版 `…/Text fill/Count` = `HorizontalAlignment 4 (Right)` ·
+                    //    **`VerticalAlignment 4096 (Midline)`**（⛔ 不是 Capline —— 四颗里只有这一颗是 Midline）·
+                    //    字体 Pragati（`MonoBehaviour_-4940484093667014232` 亲读）。
                     Txt(node.transform, node.transform, "x" + n, x1 + RowW - 52f, y1, x1 + RowW - 8f, y1 + RowH, 32f,
-                        Align.Right, "Count", QDIText, autoMinPx: 2f, autoMaxPx: 32f, autoBasePx: 36f);
+                        Align.Right, "Count", QDIText, autoMinPx: 2f, autoMaxPx: 32f, autoBasePx: 36f,
+                        vAlign: Label.VAlign.Midline);
                 // ⑦ **`checkOwnership` 那道闸**（见 `CheckOwnership` 的 doc；本地恒不触发）
                 if (CheckOwnership && n > CardProgress.Owned(card.Id, card.Rarity))
                     DimRow(node.transform, OwnershipDimAlpha);
@@ -2164,10 +2193,24 @@ namespace CardPresentation
         /// <para>🔴 **量纲**：四个新形参与本方法的 `fontPx` 同一档（= 原版 TMP 的**设计 px**）；
         /// `SetAutoFitBox` 的后三个实参按它的量纲注**不过** `LayoutSpace.Px()`（同 `MenuWindowBase.Text:337`）。
         /// ⚠️ **本方法没有 `MenuDraw.TextCore` 那条 `fontPx &gt; autoMinPx` 的闸**（走 `Label.SetAutoFitBox`
-        /// 的这条路本来就没有）—— 本文件 7 处的 `autoMinPx` **全部 &lt; 各自的 `fontPx`**，所以今天加不加闸同效。</para></summary>
+        /// 的这条路本来就没有）—— 本文件 7 处的 `autoMinPx` **全部 &lt; 各自的 `fontPx`**，所以今天加不加闸同效。</para>
+        ///
+        /// <para>🆕 **2026-10-17（`A1226`/`N34`）三格「框」**（⛔ 默认值 = 旧行为逐位不变）：
+        /// `boxW`/`boxH` = **原版那一颗 TMP 自己的有效框**（画布 px），与「我们摆标签的那个矩形」是两回事：
+        /// · `Txt` 的 `x1..x2 / y1..y2` 一直喂的是**整格钮 / 整行**（原版那颗 TMP 的 rect 比它小）；
+        /// · 原版的框 = `父宽 × 锚跨度 + m_SizeDelta`（⛔ 不是裸 `m_SizeDelta`，见 `RM_原版TMP框尺寸.md` 结论）；
+        /// · 缺省 `0` ⇒ 退回 `x2−x1` / `y2−y1`（= 旧行为）。
+        /// 🔴 判别式：**框只影响 `SetWrapWidth`/`SetAutoFitBox` 的数值与排版，不挪标签节点**
+        /// （节点仍摆在那颗钮/那一行的心 —— 原版 TMP 的 rect 也是居中的，锚跨度中心 0.4984 ≈ 0.5）。</para>
+        ///
+        /// <para>🆕 **2026-10-17（`N33`）纵向档**：`vAlign` = 原版那一颗的 `m_VerticalAlignment`
+        /// （`Pragati` 度量，四颗逐颗现读见调用点）。⚠️ **必须排在 `Align*` 之前** ——
+        /// `Label.SetVAlign` 末句是 `RefreshBounds()`（会按 `anchor` 把节点重新居中），
+        /// 排在 `AlignLeft/Right` 之后会把那一下横向对齐**抹掉**。缺省 `null` = 一句都不执行。</para></summary>
         Label Txt(Transform parent, Transform basis, string text, float x1, float y1, float x2, float y2,
                   float fontPx, Align align, string name, int q,
-                  float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
+                  float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
+                  float boxW = 0f, float boxH = 0f, Label.VAlign? vAlign = null)
         {
             // 🔴 **2026-10-09（A229）**：与同文件 `Nine`（上面那条）**同一条守卫、同一句话** ——
             //   本类「**位置按 `basis` 算、树父给 `parent`**」这一套里，`basis != parent` 就是**两套坐标系**
@@ -2189,18 +2232,29 @@ namespace CardPresentation
             //    会改写 `sizeDelta.x`，而对齐读的就是那一份（`Battle/Label.cs` 的 `SetWrappingMode` 头写着
             //    次序：`SetAutoFitBox` → 换行模式 → 对齐 → 量）。
             //    `fitW > 0` 才动：两个开关全缺省 ⇒ `fitW = 0` ⇒ **一个分支都不进 = 旧行为逐位不变**。
-            float fitW = wrapPx > 0f ? wrapPx : (autoMinPx > 0f ? x2 - x1 : 0f);
+            // 🔴 **2026-10-17（`A1226`/`N34`）**：框宽/框高可以**显式给**（`boxW`/`boxH` = 原版那一颗 TMP 自己的
+            //    有效框）；缺省 `0` ⇒ 退回 `x2−x1` / `y2−y1`（= 旧行为逐位不变）。
+            //    判据 = `RM_原版TMP框尺寸.md` 表 B：「我们传的框」原来一律是**整格钮/整行**，而原版那颗
+            //    TMP 的 rect 比它窄（钮 324.50 vs 294.41）—— 宽出来的那 30.09px 会让自适应**多排 15px 的余量**。
+            float fitW = wrapPx > 0f ? wrapPx : (autoMinPx > 0f ? (boxW > 0f ? boxW : x2 - x1) : 0f);
+            float fitH = boxH > 0f ? boxH : (y2 - y1);
             if (fitW > 0f)
             {
                 lb.SetWrapWidth(LayoutSpace.Px(fitW));
                 if (autoMinPx > 0f)
                     // 上限兜底 `autoMaxPx <= 0 ⇒ fontPx` 与 `MenuDraw.TextCore` 同义（A333）
-                    lb.SetAutoFitBox(LayoutSpace.Px(fitW), LayoutSpace.Px(y2 - y1), autoMinPx,
+                    lb.SetAutoFitBox(LayoutSpace.Px(fitW), LayoutSpace.Px(fitH), autoMinPx,
                                      autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);
             }
             // 🔴 原版 `折行 = 0` 那一档（本文件 7 处「该接」里占 5 处）要还原：上面 `SetWrapWidth`
             //    **无条件**把模式开成 `Normal`（`TmpFont.SetWrapWidthRect` 原文）。
             if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false);
+            // 🆕 **2026-10-17（`N33`）纵向档** —— 🔴 **必须排在下面两句 `Align*` 之前**：
+            //    `Label.SetVAlign` 末句是 `RefreshBounds()`（按 `anchor` 把整块重新居中到节点上），
+            //    排在 `AlignLeftOn/AlignRightOn` 之后会把那一下横向对齐**静默抹掉**（`WorldW` 变了位置却没重算）。
+            //    缺省 `null` = 一句都不执行；`Middle` 传进来也跳过（出厂档就是它）。
+            if (vAlign.HasValue && vAlign.Value != Label.VAlign.Middle)
+                MenuDraw.SetVAlign(lb, vAlign.Value, new PxRect(x1, y1, x2, y2));
             // 原版这几条 TMP 的对齐：`Deck Name`/`Warlord Name` 居中、行里的卡名左、数量右
             if (align == Align.Right) lb.AlignRightOn(LayoutSpace.FromPixel(x2, 0f).x);
             else if (align == Align.Left) lb.AlignLeftOn(LayoutSpace.FromPixel(x1, 0f).x);

@@ -1469,7 +1469,15 @@ namespace CardPresentation
             //   以及 `Battle/Label.cs` 的 `SetWrapping` doc 里那句「调用方在 `SetAutoFitBox` 之后还原自己那一档」）。
             if (hdrBackTx != null)
             {
-                hdrBackTx.SetAutoFitBox(U(HdrBackW), U(HdrBackH), 10f, 40f, 12f);
+                // 🔴 **2026-10-17（`A1226` 表 B #35）：框宽 = 原版有效框 133.22。**
+                //    判据 = 原版 `…/Header/Close/Button Text` 的 `RectTransform`（伸锚跨度 0.92575 ·
+                //    `m_SizeDelta.x = −5.64`）⇒ 父宽 150 × 0.92575 − 5.64 = **133.22**（原来整颗钮 150，宽 +16.78）。
+                // ⚠️ **框高这一格【故意不跟】**：原版有效框高 48.24（按 Pragati 行盒 0.9474em 算，
+                //    40px 的字占 37.9 < 48.24 ⇒ 原版停在 40）。而**我们全仓只有 CJK 那一份字体**
+                //    （行盒 **1.516em**，见 `Core/TmpFont.cs` 的 `A1024③`）⇒ 喂 48.24 会把字压到
+                //    48.24/1.516 = **31.8px**（原版渲 40）—— 那是**看得见的变小**，不是更接近原版。
+                //    ⇒ 框高暂留整颗钮高 `HdrBackH`，等 `A1024③` 换面之后一起改（已在 T07 报告登记）。
+                hdrBackTx.SetAutoFitBox(U(133.22f), U(HdrBackH), 10f, 40f, 12f);
                 hdrBackTx.SetWrappingMode(0);
             }
             Btn_("hdr_back", HdrBackX, HdrBackY, HdrBackW, HdrBackH);
@@ -1549,7 +1557,12 @@ namespace CardPresentation
             //   ⚠️ 折行 = `0` ⇒ 显式还原（同上）。
             if (hdrClearTx != null)
             {
-                hdrClearTx.SetAutoFitBox(U(HdrClearW), U(HdrClearH), 10f, 42f, 12f);
+                // 🔴 **2026-10-17（`A1226` 表 B #37）：框宽改成【原版有效框】221.44（原来整颗钮 250，宽 +28.56）。**
+                //    判据 = 原版那颗 TMP 的 `RectTransform`（`m_AnchorMin.x→m_AnchorMax.x` 跨度 0.92575 ·
+                //    `m_SizeDelta.x = −10`）⇒ 父宽 250 × 0.92575 − 10 = **221.44**。
+                // ⚠️ **框高【故意不跟】**（原版有效框高 57.69）：CJK 行盒 1.516em ⇒ 喂 57.69 会把 42px 压到
+                //    38.05px（原版渲 42）⇒ 暂留 `HdrClearH`，与 `A1024③` 一起改（同 `hdr_back_t` 那条）。
+                hdrClearTx.SetAutoFitBox(U(221.44f), U(HdrClearH), 10f, 42f, 12f);
                 hdrClearTx.SetWrappingMode(0);
             }
             Btn_("hdr_clear", HdrClearX, HdrClearY, HdrClearW, HdrClearH);
@@ -2320,7 +2333,12 @@ namespace CardPresentation
             //   ⚠️ 折行 = `0` ⇒ 还原（同 `hdr_back_t`）。
             if (footDoneTx != null)
             {
-                footDoneTx.SetAutoFitBox(U(DoneW), U(DoneH), 10f, 40f, 12f);
+                // 🔴 **2026-10-17（`A1226` 表 B #46）：框宽 = 原版有效框 168.54（原来 188.5，宽 +19.96）。**
+                //    判据 = 原版 `…/Footer/Done/Button Text`（伸锚跨度 0.92575 · `m_SizeDelta.x = −6`）
+                //    ⇒ 父宽 188.5 × 0.92575 − 6 = **168.54**。
+                // ⚠️ **框高【故意不跟】**（原版有效框高 43.91）：CJK 行盒 1.516em ⇒ 43.91 会把 40px 压到 28.96px
+                //    （原版因 Pragati 行盒 37.9 < 43.91 停在 40）⇒ 暂留 `DoneH`，与 `A1024③` 一起改。
+                footDoneTx.SetAutoFitBox(U(168.54f), U(DoneH), 10f, 40f, 12f);
                 footDoneTx.SetWrappingMode(0);
             }
             // 🔴 2026-09-27（PA 普查）：原版 `Content Area/Sidebar/Footer/Image` 是 PA=1，贴图
@@ -3987,7 +4005,11 @@ namespace CardPresentation
             //   （`SetWrappingMode` 内部会 `ForceRelayout`，放在它之前会被重排推掉）。
             if (_impOkTx != null)
             {
-                _impOkTx.SetAutoFitBox(U(okW), U(okH), 12f, 45f, 12f);
+                // 🔴 **2026-10-17（`A1226` 表 B #57）：框 = 原版有效框 452.34 × 87.99。**
+                //    判据 = `Import Deck Popup ▸ Window/Buttons/Generic UI Button/Button Text`（伸锚 0→1 ·
+                //    `m_SizeDelta.x = −26`）⇒ 父宽 478.343 − 26 = **452.34**；高 87.99
+                //    （原来 478.343 × 75 ⇒ 宽 +26.00 / 高 −12.99 —— 两侧都偏）。
+                _impOkTx.SetAutoFitBox(U(452.34f), U(87.99f), 12f, 45f, 12f);
                 _impOkTx.SetWrappingMode(0);
             }
             // 🔴 **2026-10-18（A892）：纵向档显式落成 `Midline`。** 判据 = 原版那颗 TMP 按 pid 亲读
@@ -4848,28 +4870,6 @@ namespace CardPresentation
 
             if (!downL && !downR) return;
 
-            // 🆕 **2026-10-13（A1701）诊断探针 —— 只打印、⛔ 不改任何行为。**
-            //   用途：查「卡组编辑里**要先滚动一下才能点/拖**」到底是**哪一道闸**把它挡住的。
-            //   位置是**故意**选的 —— 在**所有闸之前**（`ModalPopupOpen` / `OtherWindowUp` / `_importOpen` /
-            //   两条抽屉），所以**任何一条闸为真它也照样打**：拿它的读数与下面「到了卡池」那一行
-            //   **成对**看，就能分开「被闸拦下」（只有第一行）与「到了但没命中」（两行都有）。
-            //   ⚠️ 真机复现要走**真来路**（直起 `-wfscene DeckEditor` 没有壳 ⇒ `OtherWindowUp()` 那条闸
-            //    读的是 `WindowsManager.Instance`，直起时恒 null ⇒ 复现不出来）。
-            //   🧹 查清之后这两处 `Debug.Log` 连注释一起删掉（它只是探针，不是功能）。
-            if (downL || downR)
-            {
-                var ow = OtherWindowUp();
-                Debug.Log("[A1701] px=(" + px.x.ToString("F1") + "," + px.y.ToString("F1") + ")"
-                  + " 窗=" + (ow != null ? ow.name : "-")
-                  + " modal=" + ModalPopupOpen + " otherWin=" + (ow != null) + " import=" + _importOpen
-                  + " flt=" + FltStripOn + " cosmoFlt=" + CosmoFltStripOn
-                  + " | dragRow=" + _dragging + " dragCosm=" + (_cosmDrag != null && _cosmDrag.Dragging)
-                  + " dragCard=" + (_cardDrag != null && _cardDrag.Dragging)
-                  + " armed=" + (_cosmArmName != null || _cardArmDef != null)
-                  + " | inPoolX=" + (px.x >= PoolX && px.x <= PoolX + PoolW)
-                  + " rawMouse=" + mouse.position.ReadValue().ToString("F1") + " focus=" + Application.isFocused);
-            }
-
             // 🆕 **2026-10-12（A364）：模态消息窗开着 ⇒ 本窗**不吃点击**（点哪儿都不穿透）。
             //   判据 = 原版那扇窗的 `Menu Dark Background` 是 **`m_RaycastTarget = 1` 的整屏图**
             //   （4574.6×2572.36）⇒ UGUI 那一层就把下面的命中全吞了；我们这套没有 UGUI，
@@ -4918,16 +4918,6 @@ namespace CardPresentation
         /// 我们原来只判 `px.x`（左右） ⇒ 滚到视口上沿之外的卡**照样点得到**（点页头空带会弹出那张卡的详情窗）。</para></summary>
         bool HandlePoolClick(Vector3 wp, Vector2 px, bool right)
         {
-            // 🆕 **2026-10-13（A1701）诊断探针 —— 只打印、⛔ 不改行为**（成对的那一行在 `HandlePointer` 里）。
-            //   它答的是「**点击链走到卡池这一站了没有**」：上面那行有、这行没有 ⇒ 被某道闸拦下了；
-            //   两行都有 ⇒ 到了卡池这一站，只是**没命中**（点在格与格之间的空处 / 卡被视口框挡了）。
-            //   🧹 查清之后连注释一起删。
-            //   ⚠️ 不加任何条件：本方法**只从 `HandlePointer` 的按下那一支**进（`downL || downR` 已在那头上判过）。
-            Debug.Log("[A1701] 到了卡池 px=(" + px.x.ToString("F1") + "," + px.y.ToString("F1") + ")"
-                      + " right=" + right
-                      + " inViewport=" + (px.x >= PoolX && px.x <= PoolX + PoolW
-                                          && px.y >= PoolY && px.y <= PoolY + PoolH));
-
             // 🔴 **2026-10-13（A1702 ③）**：四边框都要判（原来**只有 `px.x` 那一条**）。
             //   判据 = 与渲染那一刀**同一个矩形**（`PoolViewClip`）⇒ 两处不会错开。
             //   ⚠️ 断在**指针**上、不是断在卡上：一半露在视口里的卡，点它**露出来的那半**仍然算命中

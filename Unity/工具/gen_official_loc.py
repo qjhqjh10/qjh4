@@ -49,8 +49,10 @@ IDX_ZH = 8          # `mLanguages` 的第 8 项 = `Simplified Chinese` / `zh-CN`
 
 NOTE = (
     "原版官方本地化表（I2 Localization 的 `I2Languages`，来自 Addressables 远端包 "
-    "`localization_assets_all`）。**只留 en 与 zh-CN 两列**；其余 13 种语言跑 "
-    "`工具/_i2_decode_probe.py --out <path>` 取全量。"
+    "`localization_assets_all`）。**本文件只留 en 与 zh-CN 两列**；"
+    "🆕 **2026-10-17 起 13 种语言全量另有生成器** → `工具/gen_official_loc_13lang.py`"
+    "（产出 `Resources/official_loc_13lang.json` + `数据/游戏数据/官方本地化_13lang.json`，"
+    "`Core/Loc.cs` 按 `Loc.Current` 取列）。"
     "⚠️ zh-CN 列是 **I2 占位符模板**（`[[token]]` / `((X_y,…))` / `<br>`），不是成品文字 —— "
     "印出来之前要过图标重写那一层。"
 )

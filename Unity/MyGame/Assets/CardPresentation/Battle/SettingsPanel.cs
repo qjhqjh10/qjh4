@@ -1508,6 +1508,20 @@ namespace CardPresentation
         public HudPiece LangRowBg(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Bg : null; }
         public Label LangRowLabel(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Lb : null; }
         public HudPiece LangRowCheck(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Chk : null; }
+        /// <summary>🆕 **2026-10-17（`A1212` 块 9 的断言口）**：那三颗音量滑条标签
+        /// （0=`Music` · 1=`Sound Effects` · 2=`Voice-overs`）。**只给自检读**。
+        /// <para>⚠️ 为什么不按节点名找：画布档下它们挂在**共用子画布**（`BattleSettingsPanel Canvas`），
+        /// 面板被建过好几次时同名件会有多份 ⇒ 按名找会拿到已销毁/别人的那一颗。</para></summary>
+        public Label SliderLabelForTest(int i)
+        {
+            switch (i)
+            {
+                case 0: return _musicLabel;
+                case 1: return _fxLabel;
+                case 2: return _voiceLabel;
+            }
+            return null;
+        }
         /// <summary>第 `i` 行**底图**的世界中心（自检照着它点 —— 走与真实输入**同一条**判定）。
         /// 🔴 为什么给这个口：行节点名是**运行时按语言拼的**（换一次语言就变）⇒ `transform.Find(名字)` 不可靠。</summary>
         public Vector3 LangRowWorldPos(int i)

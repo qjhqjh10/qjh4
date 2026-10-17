@@ -680,7 +680,12 @@ namespace CardPresentation
             //    `mTerm = MainMenu/RankedWindow/ChangeDeck`、`m_text = 'Change Deck'`（本轮现读）。
             Txt(_general, Loc.T("MainMenu/RankedWindow/ChangeDeck"), ChgL, ChgR, ChgT, ChgB, 45f, Align.Center, "Change Deck Text", QPrText,
                 autoMinPx: 10f, autoMaxPx: 45f, autoBasePx: 12f,
-                vAlign: Label.VAlign.Capline);   // 🆕 N11：原版 `Button Text` = `Center/**Capline**`（现读 dump）
+                vAlign: Label.VAlign.Capline,   // 🆕 N11：原版 `Button Text` = `Center/**Capline**`（现读 dump）
+                // 🆕 **2026-10-17（A1226）框**：原版 `General container ▸ Generic Simplified UI Button ▸ Button Text`
+                //   的**有效框 = 236.77×61.68 画布 px**（`AspectRatioFitter` 宽控高；相对钮 254.538×83.321：
+                //   左 +8.85 / 上 +10.74）。原来传的是**整颗钮 254.54×83.33** ⇒ 宽多 17.77、高多 21.65。
+                //   ⚠️ 与 `DeckInfoPopup.Txt` 的 `boxW/boxH` 同一个口径（父宽×锚跨度＋sd，⛔ 不是裸 `m_SizeDelta`）。
+                boxW: 236.77f, boxH: 61.68f);
             // ✅ 原版这条就是 `DeckGeneralInfoDemo.ChangePlayerDeckButton`
             //    → `WindowsManager.OpenWindow(new DeckSelectionContext(...))`（`…__ChangePlayerDeckButton.c`）。
             HitOn(_general, _general, "ChangeDeckHit", new PxRect(ChgL, ChgT, ChgR, ChgB), () => OpenDeckSelection());
@@ -2251,7 +2256,7 @@ namespace CardPresentation
                   Align align, string name, int q,
                   PxRect? clip = null, Vector2 clipSoftness = default(Vector2),
                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                  Label.VAlign? vAlign = null)
+                  Label.VAlign? vAlign = null, float boxW = 0f, float boxH = 0f)
         {
             var lb = Label.Create(parent, text ?? "", Local3(parent, x1, y1, x2, y2), 5, Color.white,
                                   new Vector2(0.5f, 0.5f), name);
@@ -2262,13 +2267,16 @@ namespace CardPresentation
             //    落在裸 `Label` 上）。🔴 **必须排在下面两句对齐之前** —— `SetWrapWidth` / `SetAutoFitBox`
             //    会改写 `sizeDelta.x`，而对齐读的就是那一份（次序判据 → `Battle/Label.cs` 的 `SetWrappingMode` 头）。
             //    两个开关全缺省 ⇒ `fitW = 0` ⇒ **一个分支都不进 = 旧行为逐位不变**。
-            float fitW = wrapPx > 0f ? wrapPx : (autoMinPx > 0f ? x2 - x1 : 0f);
+            // 🆕 **2026-10-17（A1226 · Change Deck Text 收口）**：`boxW/boxH` = 原版那颗 TMP **自己的有效框**
+            //   （画布 px）；缺省 0 ⇒ 退回 `x2−x1` / `y2−y1`（旧行为逐位不变）。判据与 DeckInfoPopup 同形。
+            float fitW = wrapPx > 0f ? wrapPx : (autoMinPx > 0f ? (boxW > 0f ? boxW : x2 - x1) : 0f);
+            float fitH = boxH > 0f ? boxH : (y2 - y1);
             if (fitW > 0f)
             {
                 lb.SetWrapWidth(LayoutSpace.Px(fitW));
                 if (autoMinPx > 0f)
                     // 上限兜底 `autoMaxPx <= 0 ⇒ fontPx` 与 `MenuDraw.TextCore` 同义（A333）
-                    lb.SetAutoFitBox(LayoutSpace.Px(fitW), LayoutSpace.Px(y2 - y1), autoMinPx,
+                    lb.SetAutoFitBox(LayoutSpace.Px(fitW), LayoutSpace.Px(fitH), autoMinPx,
                                      autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);
             }
             // 🔴 原版 `折行 = 0` 那一档（本文件 8 处里 1 处：`Change Deck Text`）要还原：

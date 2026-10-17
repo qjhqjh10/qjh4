@@ -283,16 +283,26 @@ namespace CardPresentation
         { get { return ProfileData.Titles; } }
 
         /// <summary>选中第 index 个称号。原版 = `TitleTab.OnItemClick`
-        /// （旧选 `ToggleHighlight(false)` + 新选 `true`，见普查文件 §A-补 1 第 3 条）。</summary>
+        /// （旧选 `ToggleHighlight(false)` + 新选 `true`，见普查文件 §A-补 1 第 3 条）。
+        /// 🔴 **2026-10-17（`T20` / `A2118`）**：选中结果写进 `ProfileData.TitleIndex`（**全工程唯一一份**）——
+        ///   原来只写本页自己的字段（`Selected`），关掉档案窗就丢，**战斗 HUD 名牌读不到**。
+        ///   ⚠️ 原版这一步是 `PlayerDataManager.set_PlayerTitle` + 上传服务器；我们**没有存档**
+        ///   ⇒ 只在本次会话里有效（同 `ProfileData.AvatarIndex` 那条边界）。</summary>
         public void Select(int index)
         {
+            // 越界**不写**（守住 `ProfileData.TitleIndex`，别让它变成脏值）
             if (index < 0 || index >= Titles.Count) { Debug.Log("[Profile] 称号选中越界：" + index); return; }
             Selected = index;
             Refresh();
         }
 
-        /// <summary>当前选中的下标（-1 = 没选）。</summary>
-        public int Selected = -1;
+        /// <summary>当前选中的下标（**−1 = 没选**）。**读写都直接落 `ProfileData.TitleIndex`**
+        /// （🔴 2026-10-17 · `T20` / `A2118`：原来这里是本页自己的字段 ⇒ 关窗即丢、战斗 HUD 读不到）。</summary>
+        public int Selected
+        {
+            get { return ProfileData.TitleIndex; }
+            set { ProfileData.TitleIndex = value; }
+        }
 
         /// <summary>把「当前选中的称号」刷到 `Selected Item Panel`。出处：原版 `TitleTab.Initialize`
         /// 末尾那段 `ProfileItemDisplay.Initialize(...)`。
@@ -314,7 +324,8 @@ namespace CardPresentation
             }
             Debug.Log("[Profile] 选中称号「" + Titles[Selected].Name + "」（# " + Selected + "）—— "
                     + "⚠️ **没有存档**：原版这一步会 `PlayerDataManager.set_PlayerTitle` + `UploadOnlineDemoData`，"
-                    + "我们只在本局记住（见 `ProfileData.cs` 文件头）");
+                    + "我们只记在**本次会话**的 `ProfileData.TitleIndex` 里（见 `ProfileData.cs` 那一段），"
+                    + "战斗 HUD 名牌会读它");
         }
     }
 }

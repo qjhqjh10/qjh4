@@ -35,6 +35,14 @@ public static class CollectionScene
             StarNotBlank = true,                 // 本文件原来那句「**不是空图**」带 `**`
         };
 
+        // 🆕 **2026-10-17（界面线 T18/T25）**：自检**独立读数据**用的两份 DTO ——
+        // 期望值从 `Resources/Cardbacks.json` / `Resources/official_names.json` **原样**算，
+        // ⛔ 不经过 `CardbackTable` / `ItemDisplayWindow` 的取数口（那会变成自证）。
+        [System.Serializable] sealed class CbRawItem { public string name, so, army, uniqueId; }
+        [System.Serializable] sealed class CbRawFile { public CbRawItem[] items; }
+        [System.Serializable] sealed class OfficialRow { public string k, en, zh; }
+        [System.Serializable] sealed class OfficialFile { public OfficialRow[] entries; }
+
         static void Section(string t) => MenuCheck.Section(_sink, t);
         static void Check<T>(T got, T want, string msg) => MenuCheck.Check(_sink, got, want, msg);
         static void CheckTrue(bool c, string msg) => MenuCheck.True(_sink, c, msg);
@@ -839,6 +847,60 @@ public static class CollectionScene
 
         // ============================================================ 自检
 
+        // ==================================================================
+        //  🆕 2026-10-17（`A1212` 块 2/3/4/6/8/11）：**「实参 = 原版四格」**的断言。
+        //
+        //  判据 = 原版 MB 的四个字段原文（`m_fontSizeMin` / `m_fontSizeMax` / `m_fontSizeBase` /
+        //  `m_TextWrappingMode`）—— 逐值与 `资料/普查产出_第十一会话/RA1212_切块表.md` 那几块的
+        //  「原版四格」列相同（下标 = 块号 + `#` + R5/R6 的原始号）。
+        //  ⛔ 期望值**不许**从被测助手/常量读回来（自证）。
+        //  ⚠️ **块 5（`MissionsTab`）/ 块 10（`DailyStreakPopup`）/ 块 12（`RewardWindow`）不在本宿主的树上**
+        //    （它们只在 `ShellScene` 里建）⇒ 本文件**没有**它们的断言，如实登记在 T07 报告里，
+        //    ⛔ 不写「查不到就跳过」的假绿。
+        // ==================================================================
+
+        /// <summary>按名字**往深处**找一个节点（`MenuCheck.FindChild` 只认直接子件）。</summary>
+        static Transform FindDeep(Transform root, string name)
+        {
+            if (root == null) return null;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                if (t.name == name) return t;
+            return null;
+        }
+
+        /// <summary>`A1212` 的公用断言之「一颗字的四格 + 折行档」。</summary>
+        static void CheckA1212(Transform root, string name, string origNode,
+                               float mn, float mx, float bs, int wrap,
+                               float boxW = -1f, float boxH = -1f)
+        {
+            var t = FindDeep(root, name);
+            var lb = t != null ? t.GetComponent<Label>() : null;
+            CheckTrue(lb != null, $"（前提）`A1212` `{name}` 建出来了（原版 `{origNode}`）");
+            if (lb == null) return;
+            string tag = $"`{name}`（原版 `{origNode}`）";
+            CheckTrue(lb.AutoSizing, $"★ A1212 {tag}：**`m_enableAutoSizing = 1`**（自适应开着）");
+            // 实例口（`FontSizeToPxNow` + `ActualFace`）才与写进去的那一路同源 —— 静态口在拉丁面/画布档下不同源。
+            CheckNear(lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace), mn, 0.05f,
+                      $"★ A1212 {tag}：下界 = 原版 `m_fontSizeMin` {mn}px");
+            CheckNear(lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace), mx, 0.05f,
+                      $"★ A1212 {tag}：上界 = 原版 `m_fontSizeMax` {mx}px");
+            CheckNear(lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace), bs, 0.05f,
+                      $"★ A1212 {tag}：二分起点 = 原版 `m_fontSizeBase` {bs}px"
+                    + "（🧨 只开自适应、不给 base ⇒ 这一格红）");
+            Check(lb.WrappingMode, wrap,
+                  $"★ A1212 {tag}：折行档 = 原版 `m_TextWrappingMode` {wrap}"
+                + "（`SetAutoFitBox` 内部会无条件开 `Normal(1)` ⇒ 这一格抓「接完忘了还原」）");
+            var tmp = t.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (tmp == null) { CheckTrue(false, $"（前提）A1212 {tag}：走 TMP 后端"); return; }
+            float k = lb.IsUgui ? 1f : (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
+            if (boxW > 0f)
+                CheckNear(Mathf.Abs(tmp.rectTransform.sizeDelta.x) * k, boxW, 0.05f,
+                          $"★ A1212/A1226 {tag}：框宽 = 原版有效框 {boxW}px");
+            if (boxH > 0f)
+                CheckNear(Mathf.Abs(tmp.rectTransform.sizeDelta.y) * k, boxH, 0.05f,
+                          $"★ A1212/A1226 {tag}：框高 = {boxH}px");
+        }
+
         public static void Run()
         {
             _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
@@ -1202,6 +1264,12 @@ public static class CollectionScene
                     CheckNear(fx1, 443.5f, 8f,
                               "★ 页头 `Filters` 文案**左缘 = 443.5**（原版 `label` 是 `Left` 对齐；"
                               + "我们原来是居中 ⇒ 462.3）");
+
+                // 🆕 **2026-10-17（`A1212` 块 3 #7）**：`Filters Label` 的四格 + 框。
+                //   判据 = 原版 `… ▸ Header ▸ Filter Toggle ▸ label`（四页逐值相同）：
+                //   `m_fontSizeMin/Max/Base = 10/42/32` · `m_TextWrappingMode = 0` · 有效框 150 × 50。
+                CheckA1212(win.PageRoot(0), "Filters Label", "…/Header ▸ Filter Toggle ▸ label",
+                           10f, 42f, 32f, 0, boxW: 150f, boxH: -1f);
             }
 
             // 出处：`menu_rect.py bundle_menus_assets_all "Deck Filters" --depth 6`（直读）。
@@ -1402,6 +1470,27 @@ public static class CollectionScene
                           "`Import` 钮文案（键 `MenuDeck/MenuButtons/ImportDeck`，原版 TMP 原文 `Import Deck`；随语档）");
                 CheckText(TextOf(FindChild(tabsRoot, "Create Text")), Loc.T("MenuDeck/MenuButtons/CreateDeck"),
                           "`Create` 钮文案（键 `MenuDeck/MenuButtons/CreateDeck`，原版 TMP 原文 `Create Deck`；随语档）");
+
+                // 🆕 **2026-10-17（`A1212` 块 3 #8/#9/#10/#13）**：这四颗的四格 + 框。
+                //   判据 = 原版 `… ▸ Header ▸ Clear Filter Button/Button Text`（`10/42/12/0`、有效框 221.44）·
+                //   `… ▸ Control Buttons ▸ {Create,Import} ▸ Button Text`（`10/42/12/0`、有效框 220.81）·
+                //   `… ▸ Deck Filters ▸ Filters ▸ Army Filter ▸ Title`（`10/36/32/1`、有效框 335.31）。
+                CheckA1212(tabsRoot, "Clear filters Text", "…/Header ▸ Clear Filter Button ▸ Button Text",
+                           10f, 42f, 12f, 0, boxW: 221.44f);          // A1226 表 B #8（框宽已改）
+                CheckA1212(tabsRoot, "Create Text", "…/Control Buttons ▸ Create ▸ Button Text",
+                           10f, 42f, 12f, 0, boxW: 220.81f);          // #9
+                CheckA1212(tabsRoot, "Import Text", "…/Control Buttons ▸ Import ▸ Button Text",
+                           10f, 42f, 12f, 0, boxW: 220.81f);          // #10
+                // `Title` 这颗在**整棵 Tabs** 里有同名件（几个页头都叫 `Title`）⇒ 在 **Deck 页**
+                //   （`PageRoot(0)`，`Deck Filters ▸ Filters ▸ Army Filter` 那一棵）里逐级找，
+                //   ⛔ 不用 `FindDeep(tabsRoot, …)` 取「第一个同名」（会量错对象）。
+                {
+                    var armyF = FindDeep(FindDeep(win.PageRoot(0), "Deck Filters"), "Army Filter");
+                    CheckTrue(armyF != null, "（前提）`Army Filter` 那一格在（`Title` 要在它下面找）");
+                    if (armyF != null)
+                        CheckA1212(armyF, "Title", "…/Deck Filters ▸ Filters ▸ Army Filter ▸ Title",
+                                   10f, 36f, 32f, 1, boxW: 335.31f);   // #13（原版 fs36 / 框宽 335.31）
+                }
             }
             // 🔴 **2026-10-05（A89）补：`Control Buttons` 的三颗视觉序** —— 原版那个 HLG 是
             //    **`m_ReverseArrangement = 1`**（spacing 25 · `pad.right` 14 · align `MiddleRight` · `expandW=1`）
@@ -4215,6 +4304,19 @@ public static class CollectionScene
                               "（A94 现场）又开出一扇 `Import Deck Popup`");
                     if (imp3 != null)
                     {
+                        // 🆕 **2026-10-17（`A1212` 块 8 #42/#43/#44）**：本窗那 4 处的四格。
+                        //   判据 = `RA1212_切块表.md` 块 8（原始读数 `R6_包装层战斗与其余.md` §2）。
+                        //   ⚠️ #45（`RebuildErrorLine` 那个**第二出生入口**的 `Error msg`）本夹具走不到
+                        //      （它只在错误态才重建）⇒ 如实登记为「未断」；#43（`Build` 那颗）**断得到**。
+                        CheckA1212(imp3.transform, "Main Search message", "Import Deck Popup ▸ Main Search message",
+                                   4f, 50f, 36f, 1);
+                        CheckA1212(imp3.transform, "Confirm Text", "Import Deck Popup ▸ Window ▸ Buttons ▸ … ▸ Button Text",
+                                   12f, 45f, 12f, 0);
+                        // `Error msg` 在 `Build` 里**无条件**建（只是空串 / 不可见）⇒ 这一个出生入口量得到；
+                        // 第二个入口 `RebuildErrorLine`（#45）重造同名节点、四格逐值相同 —— 这一条量的是
+                        // **Build 那一颗**（第二个入口只在错误态才走，本夹具不开那一态，如实登记）。
+                        CheckA1212(imp3.transform, "Error msg", "Import Deck Popup ▸ Window ▸ Error msg",
+                                   4f, 28f, 36f, 0);
                         CheckAbsorbRule("导入卡组窗", imp3.transform, "AbsorbHit",
                                         560f, 234.07f, 1360f, 685.93f,
                                         ImportDeckPopup.QImp, ImportDeckPopup.QImpHit, () => imp3.CurrentState);
@@ -4794,6 +4896,21 @@ public static class CollectionScene
                 var fx0 = new GameObject("A773 探针（无节点）").transform;
                 ItemDrawer.SetConverted(fx0, a773Box, a773St);
                 var drw0 = FindChild(fx0, ItemDrawer.NodeConvertedDrawer);
+                // 🆕 **2026-10-17（`A1212` 块 11 #69）**：`Quantity` 的四格 —— 原版
+                //   `… Drawer ▸ Content/Label/Quantity` = **`12 / 75 / 36 / 0`**（设计帧 712×1080）。
+                //   本夹具的抽屉高 900 ⇒ 该族刻度 `k = box.H / DecorRefH = 900/1080 = 0.8333`
+                //   （`ItemDrawer` 的 `ClippedText` 三格**乘 `k`** 是**同族已接的那一站**（`:970`）的写法，
+                //   文档写明「调用方按该族刻度换算」）⇒ 期望 = `12k / 75k / 36k`，⛔ 不是拿 12/75/36 直接比。
+                //   ⚠️ `Army Name`（#67，同四格但折行 = 1）这一条**没断**：它要求 `fac != null`（阵营图取到才建），
+                //      本夹具的样式没带阵营 ⇒ 如实登记为「本夹具不建这一颗」（⛔ 不写假绿）。
+                {
+                    float k = a773Box.H / ItemDrawer.DecorRefH;
+                    var qtyLb = FindDeep(drw0, ItemDrawer.NodeQuantity);
+                    CheckTrue(qtyLb != null, "（前提）`A1212` 块 11：`Converted Drawer ▸ … ▸ Quantity` 建出来了");
+                    if (qtyLb != null)
+                        CheckA1212(drw0, ItemDrawer.NodeQuantity, "… Drawer ▸ Content/Label/Quantity",
+                                   12f * k, 75f * k, 36f * k, 0);
+                }
                 var own0 = FindChild(drw0, ItemDrawer.NodeAlreadyOwned);
                 var num0 = FindChild(FindChild(drw0, ItemDrawer.NodePriceDisplay), ItemDrawer.NodePriceText);
                 float ox1 = 0f, oy1 = 0f, ox2 = 0f, oy2 = 0f, nx1 = 0f, ny1 = 0f, nx2 = 0f, ny2 = 0f;
@@ -5795,6 +5912,130 @@ public static class CollectionScene
                                       $"★ 灭自证：「两段式后的高」**严格小于框高 {CollectionWindow.CosmoCellH}**"
                                     + $"（实得 {Hpx(wart):F2}，差 {CollectionWindow.CosmoCellH - Hpx(wart):F2}px）"
                                     + " —— 拉满时它**恒等于**框高，两条不可能同时绿");
+                        }
+                    }
+                }
+            }
+            // ============================================================ 🆕 2026-10-17（界面线 T18/T25）
+            // 点一张卡背 ⇒ **`Item Display Window`**（T18 建的那扇窗）。
+            // 🔴 **判据**：`CardbackCollectionTab__OnItemSelected.c:17-24` = `ItemDisplayWindowContext(item,1)` →
+            //   `WindowsManager.OpenWindow<ItemDisplayWindow>`（不猜）。
+            // 🔴 **期望值全部独立算**：标题 / 描述 / lore / 图 都从 `Resources/*.json` **原样读**（`CbRawFile` /
+            //   `OfficialFile`），⛔ 不调被测实现 `ItemDisplayWindow.ForCardback` 的口（那是自证）。
+            Section("T18/T25：点一张卡背 ⇒ `Item Display Window`（大图 + 信息面板 + 风味条）");
+            {
+                var cell0 = win.CosmoCells.Count > 0 ? win.CosmoCells[0] : null;
+                CheckTrue(cell0 != null, "（前提）卡背页画出了至少一格");
+                if (cell0 != null)
+                {
+                    var art0 = FindChild(cell0, "Cardback");
+                    var qArt0 = art0 != null ? art0.GetComponentInChildren<ImageQuad>() : null;
+                    var tex0 = qArt0 != null ? qArt0.Texture as Texture2D : null;
+                    CheckTrue(tex0 != null, "（前提）第 1 格的卡背贴图取得到（要先知道点的是**哪一张**）");
+                    if (tex0 != null)
+                    {
+                        var cbTa = Resources.Load<TextAsset>("Cardbacks");
+                        var cbF = cbTa != null ? JsonUtility.FromJson<CbRawFile>(cbTa.text) : null;
+                        CbRawItem row = null;
+                        if (cbF != null && cbF.items != null)
+                            foreach (var it in cbF.items)
+                                if (it != null && it.name == tex0.name) { row = it; break; }
+                        CheckTrue(row != null, $"（前提）`{tex0.name}` 在 `Resources/Cardbacks.json` 里");
+                        if (row != null)
+                        {
+                            int ci0 = 0;
+                            if (cell0.name.StartsWith("CollectionCosmetic_"))
+                                int.TryParse(cell0.name.Substring("CollectionCosmetic_".Length), out ci0);
+                            // 格矩形走**当前滚动后的那一份**（同上面「整块在视口里」那组：`CosmoScroll.Shift`）
+                            var cellR = win.CosmoScroll != null
+                                ? win.CosmoScroll.Shift(CollectionWindow.CosmoCellRect(ci0))
+                                : CollectionWindow.CosmoCellRect(ci0);
+                            var pl = PointerLayer.Instance;
+                            CheckTrue(pl != null, "（前提）指针层在（`WindowsManager.EnsureHost` 建的）");
+                            // 先问一句「这一点上到底是谁吃到了」—— 若前几段漏关了别的窗（层更高），
+                            // 下面那条「窗开出来了」会红在**错误的原因**上 ⇒ 这一句把原因钉住。
+                            var hit0 = FindChild(cell0, "Hit");
+                            var at0 = pl != null ? pl.ButtonAt((cellR.x1 + cellR.x2) * 0.5f, (cellR.y1 + cellR.y2) * 0.5f) : null;
+                            CheckTrue(hit0 != null && at0 != null && at0.gameObject == hit0.gameObject,
+                                      "★ 卡背格中心吃到的是**它自己的命中区**（没被别的窗顶掉）");
+                            bool clicked = pl != null && pl.ClickAt((cellR.x1 + cellR.x2) * 0.5f, (cellR.y1 + cellR.y2) * 0.5f);
+                            CheckTrue(clicked, "★ 点卡背格：`PointerLayer.ClickAt` 命中并派发了 onClick（真路径）");
+
+                            var idw = ItemDisplayWindow.LastOpened;
+                            CheckTrue(idw != null && idw.CurrentState == WindowState.Open,
+                                      "★ 点一张卡背 ⇒ 开出 **`Item Display Window`**（原版 `CardbackCollectionTab.OnItemSelected`；"
+                                    + "不再是 `NotifyNotBuilt`）");
+                            if (idw != null && idw.CurrentState == WindowState.Open)
+                            {
+                                // ---- 窗参（MB `MonoBehaviour_-3926313906056799325.json` 实读）----
+                                Check(idw.type, WindowType.Popup, "窗参 `type` = **1**（Popup，MB 实读）");
+                                Check(idw.placement, WindowsPlacement.Popup, "窗参 `windowsPlacement` = **15**（Popup）");
+                                CheckTrue(idw.closeOnEsc, "窗参 `closeOnESC` = **1**");
+                                CheckNear(idw.extraScaleSmallScreen, 1f, 1e-6f, "窗参 `extraScaleSmallScreen` = **1.0**");
+
+                                // ---- 标题 = 官方名 `Cardbacks/<SO 名>`（独立读 official_names.json）----
+                                string expTitle = null;
+                                var onTa = Resources.Load<TextAsset>("official_names");
+                                var onF = onTa != null ? JsonUtility.FromJson<OfficialFile>(onTa.text) : null;
+                                if (onF != null && onF.entries != null)
+                                    foreach (var e in onF.entries)
+                                        if (e != null && e.k == "Cardbacks/" + row.so)
+                                        {
+                                            expTitle = Loc.Current == AvailableLanguages.Chinese
+                                                ? (string.IsNullOrEmpty(e.zh) ? e.en : e.zh)
+                                                : (string.IsNullOrEmpty(e.en) ? e.zh : e.en);
+                                            break;
+                                        }
+                                CheckTrue(expTitle != null,
+                                          $"（前提）`Cardbacks/{row.so}` 在官方数据面词条表里（这张卡背有官方名）");
+                                if (expTitle != null)
+                                    CheckText(TextOf(FindChild(idw.transform, "Title")), expTitle,
+                                              $"★ `Title` = 官方名（键 `Cardbacks/{row.so}`；期望值由自检**独立读 json** 算出）");
+
+                                // ---- Description = `itemDescriptionKey`（卡背 = `Item_Description/CardbackGeneric`）----
+                                CheckTrue(Loc.HasEntry("Item_Description/CardbackGeneric"),
+                                          "（前提）`Item_Description/CardbackGeneric` 在词条表里");
+                                CheckText(TextOf(FindChild(idw.transform, "Description")),
+                                          Loc.T("Item_Description/CardbackGeneric"),
+                                          "★ `Description` = 原版 `itemDescriptionKey` 那一格"
+                                        + "（`ItemInformationPanel.Initialize` 的 `descriptionText ← I2(item+0x18)`）");
+
+                                // ---- Type 留空（原版 = I2(options.TypeString)，那份配置资产本地不存在）----
+                                CheckText(TextOf(FindChild(idw.transform, "Type")), "",
+                                          "`Type` **留空**（原版 = I2(`ItemDrawerOptions.TypeString`)，而 `ItemDrawerConfig`"
+                                        + " 资产在解包树里不存在 ⇒ 判据不足，实现出声、⛔ 不编）");
+
+                                // ---- Lore = `Cosmetic_Lore/<uniqueId>`；没有 ⇒ 整块 FlavourTextBG 关 ----
+                                var expLore = Loc.LoreByUniqueId(row.uniqueId);
+                                var fb0 = FindChild(idw.transform, "FlavourTextBG");
+                                CheckTrue(fb0 != null, "（前提）`Card Display/FlavourTextBG` 在");
+                                if (fb0 != null)
+                                {
+                                    if (!string.IsNullOrEmpty(expLore))
+                                    {
+                                        CheckText(TextOf(FindChild(fb0, "LoreText")), expLore,
+                                                  $"★ `LoreText` = `Cosmetic_Lore/{row.uniqueId}`（期望值独立取）");
+                                        CheckTrue(fb0.gameObject.activeSelf, "有 lore ⇒ 整块 `FlavourTextBG` **亮着**");
+                                    }
+                                    else
+                                        CheckTrue(!fb0.gameObject.activeSelf,
+                                                  "没有 lore ⇒ 整块 `FlavourTextBG` **关着**"
+                                                + "（原版 `ItemDisplayWindow__Open.c` 的 `SetActive(!IsNullOrWhiteSpace)`）");
+                                }
+
+                                // ---- 图 = **点的那一张**卡背 ----
+                                var holder0 = FindChild(idw.transform, "Item Holder");
+                                var himg0 = holder0 != null ? FindChild(holder0, "Image") : null;
+                                var hq0 = himg0 != null ? himg0.GetComponentInChildren<ImageQuad>() : null;
+                                CheckTrue(hq0 != null && hq0.Texture != null && hq0.Texture.name == tex0.name,
+                                          "★ `Item Holder` 里画的是 **`" + tex0.name + "`**（点的那张，不是别的）");
+
+                                // ---- 点暗底 ⇒ 关窗（原版靠 `ItemDisplayWindow.OnEnable` 把 Close 挂到
+                                //      `BackgroundCloseButton.onClick`；prefab 里 `window` PPtr 是 0）----
+                                CheckTrue(pl.ClickAt(5f, 5f), "★ 点暗底（5,5）：`PointerLayer.ClickAt` 命中并派发");
+                                Check(idw.CurrentState, WindowState.Closed,
+                                      "★ 点暗底 ⇒ **窗关了**（`BackgroundHit` = 原版那条「点窗外关窗」）");
+                            }
                         }
                     }
                 }
@@ -8365,6 +8606,17 @@ public static class CollectionScene
                               "商店 `Packs Scroll View` 的格子（原版 `m_Softness = (0,25)`）");
                 Check(ScanSoftCuts(shopContent, true, ShopTabPage.ScrollView).Count, 0,
                       "商店这一处**一条竖切线都没有** —— `m_Softness = (0,25)` 只渐变上下");
+
+                // 🆕 **2026-10-17（`A1212` 块 6 #15/#16/#17）**：商店页头那三颗的四格。
+                //   判据 = 原版 `ShopWindow ▸ … ▸ {RefreshText, Time, Available Counter}`：
+                //   `10/30/25/0` · `15/30/25/0` · `16/31.5/39/0`（`Available Counter` 的 `fontPx` 已是 **39**、
+                //   闸 `39 > 16` 真过 —— 账里那句「传 16f、被闸挡住」**已过期**，本批现读订正）。
+                CheckA1212(shop.transform, "RefreshText", "ShopWindow ▸ … ▸ RefreshText",
+                           10f, 30f, 25f, 0);
+                CheckA1212(shop.transform, "Time", "ShopWindow ▸ … ▸ Time",
+                           15f, 30f, 25f, 0);
+                CheckA1212(shop.transform, "Available Counter", "ShopWindow ▸ … ▸ Available Counter",
+                           16f, 31.5f, 39f, 0);
                 shop.Close();
             }
 
@@ -8394,6 +8646,28 @@ public static class CollectionScene
                     dipA.transform.localPosition = new Vector3(2f, 1.5f, 0f); // ……并在它下面有一个非零位移
                     CheckTrue(dipA.TryOpen(null), // 态一（开关关）建一遍 ⇒ p1 == 设计点
                               "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
+                    // 🆕 **2026-10-17（`A1212` 块 4）**：本窗那 7 处的四格 + 框。
+                    //   判据 = 原版 `Deck info Popup` 三份 MB 逐颗现读（pid 见表内注释）：
+                    //   `Deck Name 10/45/42/0` · `Warlord Name 10/40/38/0` ·
+                    //   三颗钮 `Button Text 10/40/12/0`（有效框 **294.41 × 76.70**，`A1226` 表 B #37）·
+                    //   `Cost Text 18/50/32/1`（有效框宽 **48.819**，`N34②`）·
+                    //   `Deck Information Cost/balance text 10/44/22.3/1`。
+                    //   ⚠️ 行里的 `Name 2/38/27.69/0` 未断 —— 它只在**有卡的行走**里建，本夹具的行由
+                    //      `CurInfo` 决定，逐张数不固定；`Count 2/32/36/0` 同理（`n > 1` 才建）⇒ 两条如实登记。
+                    CheckA1212(dipA.transform, "Deck Name", "Deck Details ▸ Deck Details ▸ Deck Name",
+                               10f, 45f, 42f, 0);
+                    CheckA1212(dipA.transform, "Warlord Name", "Deck Details ▸ Warlord Name",
+                               10f, 40f, 38f, 0);
+                    CheckA1212(dipA.transform, "Text Practice Deck", "Buttons ▸ Practice Deck ▸ Button Text",
+                               10f, 40f, 12f, 0, boxW: 294.41f, boxH: 76.70f);
+                    CheckA1212(dipA.transform, "Text Edit Deck", "Buttons ▸ Edit Deck ▸ Button Text",
+                               10f, 40f, 12f, 0, boxW: 294.41f, boxH: 76.70f);
+                    CheckA1212(dipA.transform, "Text Select Deck", "Buttons ▸ Select Deck ▸ Button Text",
+                               10f, 40f, 12f, 0, boxW: 294.41f, boxH: 76.70f);
+                    CheckA1212(dipA.transform, "Cost Text", "Deck List ▸ … ▸ Cost Image ▸ Cost",
+                               18f, 50f, 32f, 1, boxW: 48.819f, boxH: 47.88f);
+                    CheckA1212(dipA.transform, "Deck Information Cost/balance text",
+                               "Deck Info ▸ Deck Information Cost/balance text", 10f, 44f, 22.3f, 1);
                     var btnsA = FindChild(dipA.transform, "Buttons");
                     CheckTrue(btnsA != null, "（前提）`Buttons` 在（那一层就是 `Local3(root, …)` 摆的）");
                     if (btnsA != null)
@@ -8430,6 +8704,41 @@ public static class CollectionScene
                 SmallScreenUI.Set(false);
             }
 
+            // 🔴 **2026-10-17（`A1226` 表 B #40 · `Deck info Popup ▸ Count`）：布局组驱动 ⇒ **不可比**。**
+            //   RM 表 B 的两列在这里正好是两种口径：`m_SizeDelta`（布局组）= **22.87 × 47.90**
+            //   —— **宽**由那颗 `Count` 自己的 CSF 按文案（`x2` / `x3`…）撑出来、**高**由原版父格给；
+            //   而我们传的 **44 × 58** 是「本窗右栏格」= `RowW − 52 − 8` × `RowH`（父格）。两者量的是
+            //   不同东西（原版那一列还带 `⇲ls` 的父链缩放），⛔ 抄 22.87 当框 = 把内容宽当固定框。
+            //   ⇒ 本批口径 = **断「我们用的就是父格」**（44 = 行宽 − 左右两段、58 = 行高），
+            //     ⛔ 不为凑 22.87 改几何（铁律 3 的反面：布局组驱动的件没有可抄的原版框）。
+            //   夹具：库里的第 1 套本来「一张一名」⇒ 没有 `Count`（`n > 1` 才建）⇒ **临时多塞一张同 id**
+            //   造那一行，断完即弃（不写盘、不改库里的对象 —— `Raw(0)` 返回的是副本的克隆）。
+            {
+                var a12Base = CollectionData.Raw(0);
+                CheckTrue(a12Base != null && a12Base.CardIds.Count > 0,
+                          "（前提）夹具卡组第 1 套有卡（要借它造一张重复 id）");
+                if (a12Base != null && a12Base.CardIds.Count > 0)
+                {
+                    var a12Dup = a12Base.Clone();
+                    a12Dup.CardIds.Add(a12Base.CardIds[0]);          // 同一 id ×2 ⇒ 该行建 `Count`
+                    var a12Pop = DeckInfoPopup.CreateForPicked(win.Manager, -1, a12Dup,
+                                                               CollectionData.DeckAt(0),
+                                                               DeckInfoPopup.DeckInfoState.View,
+                                                               true, "Select deck", null);
+                    win.Manager.OpenWindow(a12Pop);
+                    CheckTrue(a12Pop != null && a12Pop.CurrentState == WindowState.Open,
+                              "（前提）重复 id 那张卡组详情窗开起来了（`Count` 只在 n > 1 时建）");
+                    if (a12Pop != null)
+                    {
+                        CheckA1212(a12Pop.transform, "Count",
+                                   "Deck Selector Card Info button ▸ Content/Text fill ▸ Count",
+                                   2f, 32f, 36f, 0, boxW: 44f, boxH: 58f);
+                        a12Pop.Close();
+                        Object.DestroyImmediate(a12Pop.gameObject);
+                    }
+                }
+            }
+
             Section("A327 · A306④：`PracticeModePopup.Local3` 的落位（关 = 逐值不变 / 开 = 设计点 × M）");
             {
                 var pmpA = PracticeModePopup.Create(win.Manager);
@@ -8444,6 +8753,36 @@ public static class CollectionScene
                     pmpA.transform.SetParent(probeD.transform, false);
                     pmpA.transform.localPosition = new Vector3(2f, 1.5f, 0f);
                     CheckTrue(pmpA.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
+                    // 🆕 **2026-10-17（`A1212` 块 2）**：本窗那 8 处的四格（判据 = `RA1212_切块表.md` 块 2，
+                    //   原始读数出处 `R5_包装层菜单族.md` §2·H；⛔ 不读 `PracticeModePopup` 的常量）。
+                    CheckA1212(pmpA.transform, "Selected Army Title", "Deck Selector ▸ Deck Buttons ▸ Selected Army Title",
+                               1f, 36f, 23f, 1);
+                    // ⚠️ `Deck Name` 在本窗有**两颗**（`Deck info` 那颗 + 卡组行那颗）⇒ 先从 `Deck info`
+                    //   容器定位，⛔ 不用 `FindDeep(pmpA.transform, "Deck Name")` 拿「第一个同名」。
+                    {
+                        var infoB = FindDeep(pmpA.transform, "Deck info");
+                        CheckTrue(infoB != null, "（前提）`Practice Mode Menu ▸ Deck info` 容器在");
+                        if (infoB != null)
+                        {
+                            CheckA1212(infoB, "Deck Name", "Deck info ▸ Deck Name", 1f, 36f, 22.68f, 1);
+                            CheckA1212(infoB, "Warlord Name", "Deck info ▸ Warlord Name", 1f, 35f, 24.3f, 1);
+                        }
+                    }
+                    CheckA1212(pmpA.transform, "Card / Energy cost", "General container ▸ Cost/balance text",
+                               1f, 34f, 22.3f, 1);
+                    // 🔴 **2026-10-17（`A1226` 表 B #50）· 框已收口（第四十六会话）**：
+                    //   原版 `… ▸ Generic Simplified UI Button ▸ Button Text` 的有效框 = **236.77 × 61.68**
+                    //   （锚 `(0.0355112, 0.099)→(0.961262, 0.903)` × 父钮 `254.538 × 83.321` + `sd (1.135, 0)`；
+                    //   `menu_dump --no-layout --no-ancestor-scale` 实读）；高 = ARF 宽控高 `236.77 / 3.83864 = 61.68`。
+                    //   我们原来传**整颗钮** `254.54 × 83.33`（+17.77 / +21.65）⇒ `Shell/PracticeModePopup.cs` 的
+                    //   `Txt` 新增 `boxW/boxH` 并传了原版值。下面这条框断言 = 判别式（⛔ 不读实现常量）。
+                    CheckA1212(pmpA.transform, "Change Deck Text", "General container ▸ … ▸ Button Text",
+                               10f, 45f, 12f, 0, boxW: 236.77f, boxH: 61.68f);
+                    CheckA1212(pmpA.transform, "Back Text", "Back button ▸ Text", 1f, 45f, 31.9f, 1);
+                    CheckA1212(pmpA.transform, "tooltip", "Deck Selector ▸ Deck Buttons ▸ tooltip",
+                               1f, 38f, 23.2f, 1);
+                    CheckA1212(pmpA.transform, "Battle Text", "DeckSelectionContinueButton ▸ Text",
+                               18f, 45f, 36f, 1);
                     var selA = FindChild(pmpA.transform, "Army Selector");
                     CheckTrue(selA != null, "（前提）`Army Selector` 在（它是 `Local3(root, …)` 摆的）");
                     if (selA != null)

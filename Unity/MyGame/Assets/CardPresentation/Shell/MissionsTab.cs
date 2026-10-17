@@ -445,6 +445,17 @@ namespace CardPresentation
             float fitW = wrapPx > 0f ? wrapPx : (autoMinPx > 0f ? r.W : 0f);
             var lb = _win.Text(parent, text, f.x1, f.x2, f.y1, f.y2, 4, color, name, FS(fontPx),
                                FS(fitW), FS(autoMinPx), FS(autoMaxPx), FS(autoBasePx));
+            // 🔴 **2026-10-17（`A1212` 块 5 #61 / `A1208` 的「挡上探」那一档）：`fontPx == autoMinPx` 时
+            //   `MenuWindowBase.Text` 的三道闸（`wrapPx > 0 ∧ autoMinPx > 0 ∧ **fontPx > autoMinPx**`）
+            //   会**静默**把自适应挡在门外 —— 而原版那一颗（骷髅卡 `background/body/counter`，MB 亲读）
+            //   就是 `m_fontSize 30 · m_fontSizeMin 30 · m_fontSizeMax 35 · m_enableAutoSizing 1`：
+            //   **`fs == min` 是原版的合法组合**，自适应照样能把字放大到 35。
+            //   ⇒ 闸挡住时**在这一侧补一刀** `Label.SetAutoFitBox`（`MissionsTab.cs` 在 TLE 白名单内；
+            //   ⛔ 不去改共用件 `MenuWindowBase.Text` 的契约，同 `A1195` 的口径）。
+            //   ⚠️ `SetAutoFitBox` 内部会连锁 `SetWrapWidth` ⇒ 下面那句「折行 = 0 还原」照旧排在它**之后**。
+            if (lb != null && autoMinPx > 0f && !(fontPx > autoMinPx))
+                lb.SetAutoFitBox(LayoutSpace.Px(f.W), LayoutSpace.Px(f.H), FS(autoMinPx),
+                                 FS(autoMaxPx > 0f ? autoMaxPx : fontPx), FS(autoBasePx));
             // 🔴 原版 `折行 = 0` 那一档还原：`SetAutoFitBox` 内部的 `SetWrapWidth` **无条件**开成 `Normal`。
             //    ⚠️ 次序：这一句在 `_win.Text` 之后 ⇒ 若那条漏斗内部真裁了一刀，这一句的重排会把它抹掉。
             //    今天 `RewardsWindow` 整棵树**没有 `ViewportClip`**、本窗也没设 `Clip` ⇒ 那一刀本来就不执行；
@@ -1123,7 +1134,16 @@ namespace CardPresentation
             //   **居中**（`Label` 把文字块居中放在锚点上），不显式左对齐 ⇒ 字浮在 header 条中间（静默）。
             //   ⚠️ 那颗 `Txt` 原来的框**已经**从 `head.x1` 起 —— 但「框左沿」与「TMP 的水平对齐」是两回事，
             //      光靠框对不齐（同 `BuildMissionHeader` 里 `name (Mission Header)` 的处理）。
-            var wkNameR = new PxRect(head.x1, head.y1, head.x2, head.y1 + 50f);
+            // 🔴 **2026-10-17（`A1212` 块 5 #57 / `A1226`）：框从「整条 header」改成【原版有效框】。**
+            //   原版那颗 `name` 的 RT 亲读（`bundle_menus_assets_all` 的
+            //   `Weekly Mission Container ▸ background ▸ header ▸ name`，`menu_dump --no-layout --no-ancestor-scale`）：
+            //   `m_AnchorMin/Max = (0.03, 0.5) → (0.84, 0.5)` · `m_SizeDelta = (3.8147e-06, 50)` ·
+            //   `m_AnchoredPosition = (0, 2.67029e-05)` ⇒ **有效框 = 父宽 × 0.81 + 0 = 307.60 × 50.00**
+            //   （页内 `header` 宽 = `0.25 × 1518.99 = 379.7475`）。改前我们传整条 header = 379.75 × 50
+            //   （宽 **+72.15**）⇒ 自适应框与折行宽都比原版宽，`Left` 起点也左移 **11.39**。
+            //   ⚠️ 纵向：原版 y 锚 `0.5→0.5`、`sd.y = 50` ⇒ 上下各留 `(55 − 50) / 2 = 2.5`。
+            var wkNameR = new PxRect(head.x1 + 0.03f * head.W, head.y1 + 2.5f,
+                                     head.x1 + 0.84f * head.W, head.y1 + 52.5f);
             // 🆕 **A1205 接上**（`R5` §2·J #57：原版 `Weekly Mission Holder ▸ Weekly Mission ▸ background ▸
             //    header ▸ name` = `auto[10~36] · base 46 · **折行 0**`）⇒ `wrapOff: true`
             //    （`TextBox` 默认折行、原版这一颗是 `NoWrap`）。

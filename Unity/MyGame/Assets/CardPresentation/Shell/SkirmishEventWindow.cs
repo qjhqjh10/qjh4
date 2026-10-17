@@ -456,6 +456,34 @@ namespace CardPresentation
         /// <summary>遭遇战那张（名字对得上，图也在工程里 —— 练习窗那个 `Toggle` 用的就是它）。</summary>
         protected override string GameModeIconArt { get { return "40k_gamemode_icon_skirmish"; } }
 
+        // ============================================================ 🆕 2026-10-17（`A1853②`）：事件说明弹窗的词条
+        /// <summary>`Help` 开出来的那一份 = **记分活动（Scoring Event）的说明弹窗**。
+        /// 判据 = 本地 4 个 Scoring Event SO 的 `drawData.EventLabels`
+        /// （`d:/2/新解包资源/assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour/` 下
+        ///  `Expansion Orks1 Scoring Event` / `Expansion UM1 …` / `Release Emperors Children …` / `Release Space Wolves …`）：
+        /// <list type="bullet">
+        /// <item>key **0 `Title`** → `Event_Description/ExpansionPass/Title`（ORK1/UM1）· `Event_Description/BattlePass/Title`（EC/SW）</item>
+        /// <item>key **12 `Help`** → `Event_Description/ExpansionPass/GeneralHelp`（ORK1/UM1）· `Event_Description/BattlePass/GeneralHelp`（EC/SW）</item>
+        /// <item>key 4 `NavigationBarTitle` / 10 `EndTitle` / 11 `EndDescription` → 页签标题 / 结束弹窗（**本窗没有这两个面**）</item>
+        /// </list>
+        /// 我们取**基版那一对**（`ExpansionPass/*`）；`BattlePass/*` 是同一形状的后一代（EC/SW 那两场）。
+        /// 🔴 这两条都在 `Resources/official_names.json` 的 bulk 表里（`Loc.BulkOr` 取得到，2026-10-17 现读）。
+        /// ⚠️ **原版「用哪份 popup prefab」= 事件 `EventComponents[30]` 的 assetGUID**
+        /// （4 个 Scoring Event 全是 `2d7ec1a46a19245798bf28a5d1a030bb`）—— 本地**解不出它对应哪个 prefab 名**
+        /// ⇒ 变体仍用基类缺省（`Liveop Event Help Variant`，那个缺省本来就在 `BuildHelp` 的注释里写明是 fallback）。
+        /// 标签 tag 与变体不是同一组（本变体是 `WelcomeTitle(5)` / `Help(12)`，而 Scoring Event **没配 key 5**）——
+        /// 我们这两个值是**直接喂文本**的、不按 tag 解析，所以这里只决定「取哪条词」。</summary>
+        protected override string EventHelpTitleTerm { get { return "Event_Description/ExpansionPass/Title"; } }
+        /// <inheritdoc cref="EventHelpTitleTerm"/>
+        protected override string EventHelpDescriptionTerm { get { return "Event_Description/ExpansionPass/GeneralHelp"; } }
+
+        /// <summary>`GeneralHelp` 的官方值里带 **`+{0}%`** —— 原版由事件 `EventLabel.Args` 填，
+        /// 4 个 Scoring Event SO 逐个现读都是 `{ argType: 0, valueArg: "20" }`
+        /// （`Expansion Orks1` / `Expansion UM1` / `Release Emperors Children` / `Release Space Wolves` 的
+        /// `drawData.EventLabels[key=12].Args`）⇒ 实参 = **"20"**。
+        /// ⛔ 不传的话界面上会印出 `+{0}%`（与「印键名」同一种坏法）。</summary>
+        protected override string[] EventHelpDescriptionArgs { get { return new[] { "20" }; } }
+
         // ============================================================ scale 换算
         /// <summary>「记分条子系统」的本地坐标 → **画布矩形**（绕 `Scoring Bar` 的中心乘 1.2563）。</summary>
         static PxRect ScoreRect(float cx, float cy, float w, float h)

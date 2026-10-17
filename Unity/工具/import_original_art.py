@@ -429,6 +429,11 @@ MENU_IMAGES = [
     ('UI_Main_Upper bar',                     'atlasindividual_assets_0_mainmenu'),   # 顶栏底
     ('40K_notification',                      'atlasindividual_assets_0_mainmenu'),   # 收件箱
     ('40K_notification_number',               'duplicateassetisolation_assets_all'),  # 红点底
+    # 🆕 2026-10-17（N19）：Toast `LevelUp` / `GetXP` 的**根底图**。原来没登记 ⇒ 运行时退回
+    #   `UI_Deck_Information_submenu_Back_opaque` 并出声一次（`Shell/ToastNotifications.cs`）。
+    #   判据 = `bundle_atlasindividual_assets_0_mainmenu/Sprite/WF_UI_Generic_FancyNotification_Background.json`
+    #   现核存在；落盘名同名（名字里没有空格）。
+    ('WF_UI_Generic_FancyNotification_Background', 'atlasindividual_assets_0_mainmenu'),
     ('40K_icon_feedback',                     'duplicateassetisolation_assets_all'),  # 反馈（出厂 inactive）
     ('40K_icon_duel',                         'atlasgroup_assets_all'),               # 挑战
     ('40k_main_player frame',                 'atlasindividual_assets_0_mainmenu'),   # 玩家信息块底

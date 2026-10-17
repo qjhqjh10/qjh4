@@ -360,6 +360,8 @@ namespace CardPresentation
 
         /// <summary>效果文字条（`LowerSection/FlavourTextBG` + `LoreText`）现在露着没有（原版 `Show Card Text` 切它）。</summary>
         public bool LoreVisible = true;
+        /// <summary>前台那张的官方风味文本（没有 = null ⇒ 整块不亮；🆕 2026-10-17 `A1802`）。自检/上层读它。</summary>
+        public string ShownLore { get { return _loreText; } }
         /// <summary>下缘那两颗钮的**整组节点**（图 + 命中区一起开/关）—— 建不建由卡决定，
         /// 判据只此一份 → `CardButtons`（原版 `SetCardVoiceOver` / `showCardTextButton`）。</summary>
         Transform _voiceBox, _eyeBox;
@@ -687,17 +689,37 @@ namespace CardPresentation
         //    —— 两扇窗共用一份。那里也写着**原版其实走的是卡上自带的 `relatedCard1..4` 四个字段**
         //    （值在服务端，本地拿不到 ⇒ 我们这套是替身），判据全文 → 正本 §十·1。
 
-        /// <summary>效果文字条那行字。原版这里是 **Lore 背景故事**；我们没有 lore 字段 ⇒ 画**效果文字**（出声）。
+        /// <summary>风味条那一行字（原版 `LoreText`）。**空 = 这张卡没有官方 Lore** —— 那时整块底板不亮
+        /// （原版 `SetCardLore.c:24-27` 的 `SetActive(loreObjectBG, !IsNullOrEmpty(flavourText))`）。
+        /// 🆕 2026-10-17（`A1802` / `A1500①`）：来源 = `Loc.Lore(卡 id)`（官方 `Warlord_Lore/*`），
+        /// ⛔ **不再是卡面效果文字**。</summary>
+        string _loreText;
+
+        /// <summary>效果文字条那行字。原版这里是 **Lore 背景故事**。
         /// ⚠️ 换位收尾（原版 `CardSwapFinished` 的 `SetCardLore(新前台)`）会**重建**它 ⇒ 抽成独立方法。
         /// 🔴 **2026-09-28：原版是【居中】不是右对齐** —— `LoreText` 的 TMP
         /// `m_HorizontalAlignment = 2`（Center；位标志 Left=1/Center=2/Right=4），实拍也一致
-        /// （正本 §十·5 第 4 条）。`MenuDraw.Text` 默认居中 ⇒ **不要**再 `AlignRight`。</summary>
+        /// （正本 §十·5 第 4 条）。`MenuDraw.Text` 默认居中 ⇒ **不要**再 `AlignRight`。
+        /// 🔴 **2026-10-17（`A1802` + `A1500①`，本件现改）**：那行字的来源换成**官方 Lore**
+        /// （`Loc.Lore(卡 id)` → `Warlord_Lore/<卡 id>`，数据件 `Resources/lore_zh+en.json`）。
+        /// **没有 lore ⇒ 底板 + 字一起不建**（原版 `SetCardLore.c:24-27`），⛔ 不像原来那样拿
+        /// `BattleDriver.FaceTextFull(def).body`（卡面效果文字）顶上去 —— 那是**另一回事**，会静默误导。
+        /// 覆盖缺口：我们卡池 1127 张里 128 张没有官方键（**2025-07-30 快照之后**的新卡）⇒ 它们照原版
+        /// 「无风味文本」处理（底板关掉），并且 `Loc` 会逐键出声一次。</summary>
         void BuildLoreText(Transform bg)
         {
+            var def = FrontDef ?? Card;
+            // ① 那行字：**官方 Lore**（没有 ⇒ 整块不亮，见下面 ③）
+            _loreText = def != null ? Loc.Lore(def.Id) : null;
             if (bg == null) return;
             for (int i = bg.childCount - 1; i >= 0; i--) CollectionWindow.DestroySafe(bg.GetChild(i).gameObject);
-            var def = FrontDef ?? Card;
-            // ① 底板：**按阵营**选图（原版 `FlavourTextSO.GetClanFlavorBackground`）—— 认的是**当前前台**那张；
+            if (string.IsNullOrEmpty(_loreText))
+            {
+                _loreText = null;
+                bg.gameObject.SetActive(false);
+                return;
+            }
+            // ② 底板：**按阵营**选图（原版 `FlavourTextSO.GetClanFlavorBackground`）—— 认的是**当前前台**那张；
             //    换位收尾会重建本方法 ⇒ 阵营跟着换。⚠️ 原版 `m_PreserveAspect = 0`（实读）⇒ **拉伸**，别开 keepAspect。
             var tex = CardArt.FlavorBg(def != null ? def.Faction : null);
             if (tex != null)
@@ -705,15 +727,14 @@ namespace CardPresentation
             else
                 Debug.LogWarning("[CardDetail] 阵营「" + (def != null ? def.Faction : "?")
                                + "」没有风味底图（`CardArt.FlavorBg` 取不到）⇒ **只画字**（不静默）");
-            // ② 那行字
+            // ③ 那行字
             // 🆕 **2026-10-12（A333 + A336③）**：上限 = 原版 `m_fontSizeMax`（**35** = 标称 `LorePx`，本来就对）·
             //   base = 原版 `m_fontSizeBase` = **36.0**。判据 = 本窗那一颗 `LoreText` 的 MB 实读
             //   `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1866.json`
             //   （`m_text` 是那张卡的风味文本、`fs 35.0 · auto[10.0~35.0] · base 36.0 · 折行 1`；
             //   正本 §一 记的 `LoreText … fs35 hAlign=Right` 与 `fs` 这一格吻合 ⇒ 同一颗）。
-            string lore = def != null ? BattleDriver.FaceTextFull(def).body : "";
             var r = new PxRect(LoreL, LoreT, LoreR, LoreB);
-            MenuDraw.Text(bg, r, lore, Color.white, "LoreText", LorePx, QCdText, LoreR - LoreL, 10f, LorePx, 36f);
+            MenuDraw.Text(bg, r, _loreText, Color.white, "LoreText", LorePx, QCdText, LoreR - LoreL, 10f, LorePx, 36f);
         }
 
         /// <summary>点第 `idx` 格 ⇒ **和前台那张两两换位**（原版 `CardDisplayWindow.ChangeCardPosition`，
@@ -1449,12 +1470,17 @@ namespace CardPresentation
         {
             LoreVisible = !LoreVisible;
             RefreshLore();
-            Debug.Log("[CardDetail] `Show Card Text` ⇒ 效果文字条 " + (LoreVisible ? "显示" : "藏起"));
+            Debug.Log("[CardDetail] `Show Card Text` ⇒ 风味文本条 " + (LoreVisible ? "显示" : "藏起")
+                    + (string.IsNullOrEmpty(_loreText) ? "（⚠️ 这张卡**没有官方 Lore** ⇒ 底板本来就不亮）" : ""));
         }
+        /// <summary>风味条（`LowerSection/FlavourTextBG` + `LoreText`）**现在**露着没有。
+        /// 🔴 两个条件**缺一不可**：① 眼睛钮的开关（`LoreVisible`，原版 `Show Card Text`）·
+        /// ② **这张卡真的有官方 Lore**（原版 `SetCardLore.c:24-27`：`SetActive(loreObjectBG, !IsNullOrEmpty(flavourText))`）。
+        /// ② 由 <see cref="BuildLoreText"/> 写进 `_loreText`（没有就置 null 并把 bg 关掉）。</summary>
         void RefreshLore()
         {
             var bg = Find(transform, "FlavourTextBG");
-            if (bg != null) bg.gameObject.SetActive(LoreVisible);
+            if (bg != null) bg.gameObject.SetActive(LoreVisible && !string.IsNullOrEmpty(_loreText));
         }
 
         /// <summary>下缘那两颗钮**按卡决定建不建**（原版 `ShowCard` 与 `CardSwapFinished` 里那两条

@@ -41,7 +41,11 @@
 //   ⑤ `HasAsset(liveOps, 8 /*OpenSound*/)` 才 `AudioCue.Play2D`（prefab 里 `openSound` 是 null）。
 //   🔴 **拿不到标签时 `set_text` 写的是空串**（`GetLabel`：`GetEventLabel` 返回 0 ⇒ 回
 //      `DAT_184557100 + 0xb8` 那个静态空串）—— **不是**保留 prefab 里烤的那句样例文案。
-//      ⇒ 我们本地没有 liveops 事件数据（远端 CCD）时，标题/正文**留空**是**照原版**，不是我们的取舍。
+//      ⇒ 我们拿不到事件标签时，标题/正文**留空**是**照原版**，不是我们的取舍。
+//      🔴 **2026-10-17（`A1853②`）就地订正**：本行原来写「我们本地没有 liveops 事件数据（远端 CCD）」——
+//      **文案那一半不成立**：13 个活动 SO 就在 `bundle_cosmeticsso_assets_all/MonoBehaviour/`，
+//      里面带 **16 个 `Event_Description/*` 键**（逐条见 `ResolveTerm` 的 doc 表）。
+//      本地确实没有的是**事件的组织数据**（日期表之外，还有「组件 GUID → 具体 prefab/图标」那一层）。
 //   🔴 `Tap To continue` **不在这条链上**（Open 只碰 image/title/description）⇒ 它照自己的 `Localize`
 //      词条 `Demo/Welcome/TapToContinue` 显示（官方表：`Click to continue` / `点击以继续`）。
 //   ⚠️ `closeSound` / `useDefaultCloseSoundIfNull` 我们**没有建模**（`GameWindow` 的关窗音整条链不存在，
@@ -70,9 +74,12 @@ namespace CardPresentation
 
     /// <summary>原版 `BaseEventPopup` —— 事件说明弹窗。**一个类、六份变体数据**（原版就是同一个类挂六个 prefab）。
     /// <para>🔴 本类**不自己找事件数据**：原版那三样（图 / 标题 / 正文）都从 `ILiveOps` 的
-    /// `EventLabel` / asset 里取，而 liveops 事件的 JSON 在**远端 CCD**（本地 84 个 bundle 里没有）——
+    /// `EventLabel` / asset 里取，而「哪个事件 = 哪几条标签」这层组织数据在**远端 CCD**（本地没有）。
     /// 见 `资料/普查产出_1017/UI/U3_弹窗与小界面族.md` §五·6。⇒ 调用方要给就把词条键传进来，
-    /// 不给就**留空 + 出声**（照原版 `GetLabel` 缺标签的写法；⛔ 不编文案、⛔ 不拿别的键顶）。</para></summary>
+    /// 不给就**留空 + 出声**（照原版 `GetLabel` 缺标签的写法；⛔ 不编文案、⛔ 不拿别的键顶）。
+    /// 🆕 **2026-10-17（`A1853②`）**：13 个活动 SO 里的 **16 个 `Event_Description/*` 键本地有**
+    /// （逐条 → `ResolveTerm` 的 doc 表）；已接上的消费方 = `SkirmishEventWindow` 的
+    /// `EventHelpTitleTerm` / `EventHelpDescriptionTerm`。</para></summary>
     public class BaseEventPopup : GameWindow
     {
         // ============================================================ 队列
@@ -194,6 +201,13 @@ namespace CardPresentation
         public string DescriptionTerm { get; private set; }
         /// <summary>「这扇窗是哪个事件要出来的」—— 只用于出声（原版 `GetEventLabel` 那条告警里带的也是标签类型）。</summary>
         public string EventNote { get; private set; }
+        /// <summary>🆕 2026-10-17（`A1853②`）：词条里的 `{0}` / `{1}` 实参（原版 = 事件 `EventLabel.Args`，
+        /// `argType 0` 是字面量、`1` 是另一条词条）。null = 不替换。
+        /// 🔴 **别把带 `{0}` 的词条直接印出去** —— 例如 `Event_Description/ExpansionPass/GeneralHelp`
+        /// 的官方值里就有 `+{0}%`（4 个 Scoring Event SO 的 `Args` 都是 `valueArg = "20"`）。</summary>
+        public string[] TitleArgs { get; private set; }
+        /// <inheritdoc cref="TitleArgs"/>
+        public string[] DescriptionArgs { get; private set; }
 
         public Label TitleLabel { get; private set; }
         public Label DescriptionLabel { get; private set; }
@@ -221,7 +235,8 @@ namespace CardPresentation
         /// 传 null = 本地拿不到，**留空 + 出声**。</para></summary>
         public static BaseEventPopup Create(WindowsManager mgr, EventPopupVariant variant,
                                             string titleTerm = null, string descriptionTerm = null,
-                                            string eventNote = null)
+                                            string eventNote = null,
+                                            string[] titleArgs = null, string[] descriptionArgs = null)
         {
             var go = new GameObject(RootNameOf(variant));
             var win = go.AddComponent<BaseEventPopup>();
@@ -229,6 +244,8 @@ namespace CardPresentation
             win.TitleTerm = titleTerm;
             win.DescriptionTerm = descriptionTerm;
             win.EventNote = eventNote;
+            win.TitleArgs = titleArgs;
+            win.DescriptionArgs = descriptionArgs;
             win.type = WindowType.Popup;                                        // 实证 type = 1
             win.placement = WindowsPlacement.Popup;                             // 实证 windowsPlacement = 15
             win.closeOnEsc = true;                                              // 实证 closeOnESC = 1
@@ -363,8 +380,30 @@ namespace CardPresentation
         /// <summary>取一条官方词条；**取不到 ⇒ 空串 + 出声**（⛔ 不编文案、⛔ 不拿别的键顶）。
         /// <para>两处来源都要试：`Resources/official_names.json` 的 **bulk** 表（`Event_Description/*` 111 条在
         /// 那一份里 —— 见 `Core/Loc.cs` 的「数据面词条（bulk）」那一节）与 `Loc.Table`。</para>
+        /// <para>🆕 **2026-10-17（`A1853②`）就地订正**：本节原来写「事件数据在远端 CCD，本地没有」——
+        /// **16 个 `Event_Description/*` 键在本地是有的**，就在 13 个活动 SO 的 `drawData.EventLabels` 里
+        /// （`bundle_cosmeticsso_assets_all/MonoBehaviour/*.json`；逐条清单见下面那张表）。
+        /// 「本地没有」的只是**事件的组织数据**（日期 / 组件 GUID → prefab / 图标），不是这几个文案键。
+        /// ⇒ 调用方**给得出 Term 就应该给**：今天已接的见 `SkirmishEventWindow` 的
+        /// `EventHelpTitleTerm` / `EventHelpDescriptionTerm`（记分活动那一对：`ExpansionPass/Title` + `GeneralHelp`）。</para>
         /// <para>⚠️ 原版这一格是 `LiveOpsAssetUtility.GetLabel(liveOps, tag)`：从**事件自己的** `EventLabel`
-        /// 列表里按键取，取不到就 `CustomDebug.LogWarning` + 回空串 —— 我们这条警告与它同义。</para></summary>
+        /// 列表里按键取，取不到就 `CustomDebug.LogWarning` + 回空串 —— 我们这条警告与它同义。
+        /// <b>13 个活动 SO 的标签表（2026-10-17 现读，label key = `EventLabelReferenceType`）：</b>
+        /// <code>
+        /// 标签 0 Title / 1 Description / 4 NavigationBarTitle / 5 WelcomeTitle / 10 EndTitle / 11 EndDescription / 12 Help
+        /// 16 个不同键：
+        ///   LiveOps/DarkZealots/{Title(0), Description(1)}          ← Dark Zealots Parent Event（enabled=0，已停）
+        ///   Expansion/General/{JoinTheExpansionEvent(0), IntroEventDescription(1)}  ← 4 个 Parent Event
+        ///   Expansion/General/EndEventDescription(11)               ← 4 个 Scoring Event（结束弹窗正文）
+        ///   Expansion/ORKExp1/EventTitle                           ← Parent/Scoring 的 **参数词条**（喂 {0}，不单独显示）
+        ///   ExpansionPass/{Title(0/10), TabTitle(4), GeneralHelp(12)} ← ORK1/UM1 Scoring Event
+        ///   ExpansionPass/PurchasePremiumOffer{Title(0), Subtitle(2), Description(1)} ← Premium Item Offer ×4
+        ///   BattlePass/{Title(0/10), GeneralHelp(12)}              ← EC/SW Scoring Event
+        ///   BattlePass/EC/EventTitle · BattlePass/SW/EventTitle    ← 各自 Parent Event 的标题
+        /// </code>
+        /// 🔴 **`BattlePass/SW/EventTitle` 在官方表快照里【没有】**（2025-07-30 之后才发布）⇒ 那条只能
+        /// 保留英文原文 + 出声，⛔ 不许把键名印出去（本类的 `ResolveTerm` 缺键走的是「空串 + 出声」，
+        /// 调用方要英文原文就自己带一份）。</para></summary>
         string ResolveTerm(string term, string which)
         {
             if (string.IsNullOrEmpty(term))
@@ -374,17 +413,40 @@ namespace CardPresentation
                 if (_warnedNoEventData.Add(key))
                     Debug.LogWarning("[EventPopup] 「" + (EventNote ?? RootNameOf(Variant)) + "」的" + tag
                         + "**没有官方词条键** —— 原版从 liveops 事件的 `EventLabel` 里取"
-                        + "（`LiveOpsAssetUtility.GetLabel`，键在事件 JSON 里、事件数据在远端 CCD，本地没有）"
+                        + "（`LiveOpsAssetUtility.GetLabel`）。🔴 **2026-10-17（`A1853②`）订正**：本地 13 个活动 SO 里"
+                        + "**有 16 个 `Event_Description/*` 键**（见 `ResolveTerm` 的 doc 那张表）"
+                        + " ⇒ 这条多半是**我们这扇窗的调用方还没把事件 id 接进来**，不是「本地没有」"
                         + " ⇒ " + tag + "**留空**（= 原版「取不到标签 ⇒ `set_text(空)`」的画面结果）"
                         + "。⛔ 不编文案、⛔ 不拿别的键顶。");
                 return "";
             }
-            if (Loc.HasBulk(term)) return Loc.BulkOr(term, "");
-            if (Loc.HasEntry(term)) return Loc.T(term);
+            if (Loc.HasBulk(term)) return FillArgs(Loc.BulkOr(term, ""), which, term);
+            if (Loc.HasEntry(term)) return FillArgs(Loc.T(term), which, term);
             Debug.LogWarning("[EventPopup] `" + which + "` 的词条键 `" + term + "` 在本地两处表里都**没有**"
                              + "（`Resources/official_names.json` 的 bulk 表 · `Loc.Table`）⇒ 留空"
                              + "（⛔ 不拿别的键顶）。");
             return "";
+        }
+
+        /// <summary>把 `{0}` / `{1}` 换成实参（原版 `EventLabel.Args`）。**替换不掉就出声**
+        /// （⛔ 不许把 `{0}` 原样印到界面上 —— 那与「印键名」同一种坏法）。</summary>
+        string FillArgs(string v, string which, string term)
+        {
+            if (string.IsNullOrEmpty(v)) return v;
+            var args = which == "TitleText" ? TitleArgs : DescriptionArgs;
+            if (args != null)
+                for (int i = 0; i < args.Length; i++)
+                    v = v.Replace("{" + i + "}", args[i] ?? "");
+            if (v.IndexOf('{') >= 0 && v.IndexOf('}') > v.IndexOf('{'))
+            {
+                string key = term + "/" + which;
+                if (_warnedNoEventData.Add(key))
+                    Debug.LogWarning("[EventPopup] 词条 `" + term + "`（" + which + "）里还有**没替换掉的占位符**"
+                                   + "（" + v + "）—— 原版由事件 `EventLabel.Args` 填（`argType 0` 字面量 / "
+                                   + "`1` 另一条词条）；我们这一路没给 args ⇒ 界面上会看到大括号。"
+                                   + "判据/实参 → `Shell/SkirmishEventWindow.cs` 的 `EventHelpDescriptionArgs`。");
+            }
+            return v;
         }
 
         static bool _noEventImageWarned;
