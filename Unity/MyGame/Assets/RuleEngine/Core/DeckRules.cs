@@ -538,7 +538,15 @@ namespace RuleEngine
         /// </summary>
         public static string Describe(DeckError e)
         {
-            return e == DeckError.None ? "" : TermPrefix + e;
+            if (e == DeckError.None) return "";
+            // 🔴 **2026-10-17（`A1868`/`A1872`）**：原版 `MenuDeck/Error/*` **没有 `EffectOnlyCard` 这条键**
+            //   （官方具名族只有 9 条；`Core/Loc.cs` 已按判据删掉那条自造键）——
+            //   若继续拼 `TermPrefix + e`，`Loc.T` 会把**键名本身**印到屏幕上
+            //   （`DeckRuntime.DeckErrorText(DeckError.EffectOnlyCard)` 的两个调用点会现形）。
+            //   ⇒ 这一档归 **catch-all `MenuDeck/Error/InvalidDeck`**（官方表里已有、EN/ZH 两列齐全），
+            //   与 `DeckRuntime` 数字族退兜底的口径一致。
+            if (e == DeckError.EffectOnlyCard) return TermPrefix + "InvalidDeck";
+            return TermPrefix + e;
         }
     }
 

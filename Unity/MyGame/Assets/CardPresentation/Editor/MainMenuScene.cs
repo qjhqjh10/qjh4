@@ -3290,6 +3290,46 @@ public static class MainMenuScene
                               "★ **合法卡组** ⇒ `Practice Deck` **可点**（同一条判据的阳性那一半）");
                     legalPop.Close();
                 }
+                // ---- 🔴 A1704（2026-10-17）：异画面板的 `Lock Icon` **全解锁 ⇒ 恒关** ----
+                //   判据 = 原版 `AlternateArtPanel__SetStyle.c` 末段
+                //     `GameObject.SetActive(lockIcon /*+0x38*/, !HasItem(当前那张))`；
+                //   本作「拥有」只有 `CardProgress.Owned` 一处、且是**给足**口径（任何 id 都 ≥ 1）
+                //   ⇒ 原版在我们这种全解锁态下**锁恒关**。实现落点 = `Shell/CardDetailPopup.cs` 的
+                //   `BuildAltArt` 里那句 `lockIcon.gameObject.SetActive(!lockOwnerHasItem)`（节点**保留**）。
+                //   ⚠️ 必须喂一张**有异画**的卡：`BuildAltArt` 末尾 `p.gameObject.SetActive(has)`，
+                //      拿普通卡进这一节整块是关的 ⇒ 下面那条量到的是哨兵（同 `ShellScene` 的 A1192 那一节）。
+                //   改坏法：把那句删掉（回到「恒画」）⇒ 最后一条立刻红。
+                {
+                    var wmCd = pw.Manager != null ? pw.Manager : WindowsManager.Instance;
+                    CheckTrue(wmCd != null, "（前提·不静默）拿得到 `WindowsManager` —— 拿不到 ⇒ 下面那条成空转");
+                    CardDetailPopup cdW = null;
+                    if (wmCd != null)
+                    {
+                        cdW = CardDetailPopup.Create(wmCd);
+                        wmCd.OpenWindow(cdW);
+                    }
+                    string altId = null;
+                    foreach (var a in CollectionWindow.AltArtCards)
+                        if (CollectionData.Card(a.CardId) != null) { altId = a.CardId; break; }
+                    CheckTrue(altId != null,
+                              "（前提·不静默）异画表里至少有一张卡**在本地卡池里** —— 拿不到 ⇒ 下面那条成空转"
+                            + "（⛔ 别把「没有卡可喂」当成绿）");
+                    if (altId != null && cdW != null)
+                    {
+                        cdW.ShowCard(CollectionData.Card(altId));
+                        var altPanel = FindChild(cdW.transform, "Alternate Art Panel");
+                        CheckTrue(altPanel != null && altPanel.gameObject.activeSelf,
+                                  "（前提·不静默）异画面板**是开着的**（这张卡在异画表里 ⇒ 原版 `SetActive(…, 1)`）"
+                                + " —— 关着 ⇒ 下面那条量到的是哨兵");
+                        var lockT = FindChild(altPanel, "Lock Icon");
+                        CheckTrue(lockT != null && !lockT.gameObject.activeSelf,
+                                  "★ A1704 · `Lock Icon` **建着但恒关**（原版 `SetActive(lockIcon, !HasItem(当前那张))`，"
+                                + "本作全解锁 ⇒ 恒 false）—— 改回恒画 ⇒ 本条立刻红");
+                    }
+                    // ⚠️ **只关这一扇**（⛔ 别 `CloseAllWindows()`）：练习窗 `pw` 在下面几节还要接着用
+                    //    （`:3380` 起那几条要 `pw.ToggleDeckInfo()` + 读它的子树）。
+                    if (cdW != null) cdW.Close();
+                }
                 // ---- A65④③：两颗圆钮的**两个边界**（`1 < 卡组数` / `卡组数 < 114`）----
                 //   🔴 为什么单开这一节：夹具那 4 套**两边都是真**，分不出「按判据算的」与「写死的 true」。
                 //   做法 = 把 `DeckStore.OverridePath` 指到**另一个**临时存档，造 1 套 / 造 114 套各断一次，
@@ -3786,8 +3826,11 @@ public static class MainMenuScene
                             var ds3 = pw.OpenDeckSelection();
                             if (ds3 != null)
                             {
-                                // 🆕 A47：压暗层命中区 —— 档 = `QDs`(3125)，< 内容命中区档 `QDsHit`(3128)
-                                //   （改前是 `QDsHit − 1` = 3127 = `QDsText` ⇒ 落在**文字那一档**上）
+                                // 🆕 A47：压暗层命中区 —— 档 = `QDs`(3125)，< 内容命中区档 `QDsHit`(**3129**)
+                                //   （改前是 `QDsHit − 1` = **3128** = `QDsText` ⇒ 落在**文字那一档**上）
+                                //   🔴 2026-10-17（N14）就地订正：本行原写 `QDsHit(3128)` —— `A1529①` 给
+                                //   `DeckSelectionPopup` 新开 `QDsHi`(3126) 之后，行/字/命中三档整体 +1 ⇒ 现值 3129。
+                                //   `QDsHit − 1 = 3128 = QDsText` 这个**结构**仍然成立（只是两个数各 +1）。
                                 //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档。
                                 MenuDraw.CheckShadeRule(CheckTrue, "选卡组窗", ds3.ShadeHit,
                                                         ds3.transform.Find("Menu Dark Background"),
@@ -4655,7 +4698,14 @@ public static class MainMenuScene
 
                         var disp2 = FindChild(pg, "Item Display Panel");
                         CheckAtWorld(disp2, 632.79f, 1701.49f, 210.69f, 868.61f, "`Avatar Tab/Item Display Panel`");
-                        CheckText(TextOf(FindChild(disp2, "Select Item")), "Select your avatar", "小标题文案 = `Select your avatar`");
+                        // 🔴 **2026-10-17（`T08`）就地改期望值**：`AvatarTab` 上屏那句已从写死英文
+                        //   改成 `Loc.T("Demo/AvatarMenu/SelectAvatar")`（官方两列 `Select your avatar` / `选择你的头像`）。
+                        //   期望值**随语档**取（⛔ 不再写死英文字面量 —— 那样中文档下必红，且等于把实现钉在英文上）。
+                        //   🧨 鉴别式：实现改回写死英文 ⇒ 中文档读到英文 ≠ `Loc.T(键)` ⇒ 下面这条红。
+                        CheckTrue(Loc.HasEntry("Demo/AvatarMenu/SelectAvatar"),
+                                  "（前提）词条 `Demo/AvatarMenu/SelectAvatar` 在表里");
+                        CheckText(TextOf(FindChild(disp2, "Select Item")), Loc.T("Demo/AvatarMenu/SelectAvatar"),
+                                  "小标题文案 = `Loc.T(\"Demo/AvatarMenu/SelectAvatar\")`（随语档）");
                         var scr2 = FindChild(disp2, "Scroll Rect");
                         CheckAtWorld(scr2, 654.16f, 1680.12f, 210.69f, 855.46f, "`Scroll Rect` 视口（与 Title 页同值）");
                         var grid2 = FindChild(scr2, "Item Drawer");
@@ -4879,7 +4929,14 @@ public static class MainMenuScene
                                      "面板（`40k_popup` · 九宫 169,160,169,160）");
                         CheckAtWorld(FindChild(cnw, "Choose Name Input Field"), 540.13f, 1376.29f, 496.00f, 556.00f,
                                      "输入框（`40K_dropdown_bg` · 九宫 23,20,23,20）");
-                        CheckText(TextOf(FindChild(cnw, "MessageText")), "Choose your player name", "文案 = `Choose your player name`");
+                        // 🔴 **2026-10-17（`T08`）就地改期望值**：`ProfileTab` 那句已从写死英文
+                        //   改成 `Loc.T("MainMenu/Register/PleaseChooseName")`（官方两列 `Choose your player name`
+                        //   / `选择你的玩家名字`）。期望值**随语档**取（⛔ 不再写死英文字面量）。
+                        //   🧨 鉴别式：实现改回写死英文 ⇒ 中文档读到英文 ≠ `Loc.T(键)` ⇒ 下面这条红。
+                        CheckTrue(Loc.HasEntry("MainMenu/Register/PleaseChooseName"),
+                                  "（前提）词条 `MainMenu/Register/PleaseChooseName` 在表里");
+                        CheckText(TextOf(FindChild(cnw, "MessageText")), Loc.T("MainMenu/Register/PleaseChooseName"),
+                                  "文案 = `Loc.T(\"MainMenu/Register/PleaseChooseName\")`（随语档）");
                         CheckText(TextOf(FindChild(FindChild(cnw, "Change Name Button"), "Button Text")), "Free",
                                   "按钮文案 = `Free`（原版两套参数里的**首次改名**那一套）");
                         var pdN = FindChild(FindChild(cnw, "Change Name Button"), "Price Display");
@@ -10575,6 +10632,36 @@ public static class MainMenuScene
                 CheckTrue(keepW != null && keepW.CurrentState == WindowState.Closed,
                           "★ 点 SOCIAL ⇒ **别的窗被关掉**（原版 `closeOtherMenus = 1` ⇒ `OpenByRef(…, closeAll: true)`）"
                         + "；把那个参数丢掉 ⇒ 这条红");
+
+                // ---- 🆕 2026-10-17（`A1636`）：状态不变式 —— `CurrentState` 与 `activeSelf` 必须一致 ----
+                //   判据 = 原版 `MainMenuWindow.ToBackground` 里 `state` 与 `SetActive` 是**一起**走的
+                //   （`d:/2/tools/decomp_full/MainMenuWindow__ToBackground.c`：先 `state = 2`、再 `SetActive(false)`）；
+                //   本仓 `GameWindow.Close()` / `Hide()` 同样成对写。
+                //   实测病根（`A1709`）：`NotifyClosed → ShowPreviousWindow` 把 baseMenu 重新
+                //   `SetActive(true) + state = Open`，紧跟着的老尾句又把它摁灰 ⇒ `(state = Open, activeSelf = false)`。
+                //   ⚠️ 断的是**整张 `openWindows` 表**（不是单独某一扇）—— 换任何一条入口都要过。
+                var wmInv = WindowsManager.Instance;
+                if (wmInv != null)
+                {
+                    int badCount = 0; string badWho = "";
+                    foreach (var w in wmInv.openWindows)
+                    {
+                        if (w == null) continue;
+                        bool active = w.gameObject.activeSelf;
+                        bool closed = w.CurrentState == WindowState.Closed;
+                        if (active == closed)   // 好态 = `active == !closed`；两者相等 ⇒ 脏态
+                        {
+                            badCount++;
+                            if (badWho.Length == 0)
+                                badWho = $"{w.name}(state={w.CurrentState}, activeSelf={active})";
+                        }
+                    }
+                    CheckTrue(badCount == 0,
+                              "★ `openWindows` 里每一扇的 `CurrentState` 与 `activeSelf` **一致**"
+                            + "（`Closed ⇒ 不活`、`Open/Background ⇒ 活`；实测脏态 " + badCount + " 扇"
+                            + (badWho.Length > 0 ? "，例如 " + badWho : "") + "）—— "
+                            + "`A1709` 就是 `ShowPreviousWindow` 把 baseMenu 重新开回来、紧接着又被摁灰造出来的");
+                }
             }
 
             // ---- ④ 收件箱入口（`MainMenuScene.Run` 全程**没盖过它**：原来全文件只有一条 `InboxBtn` 布局断言）----
@@ -11442,9 +11529,12 @@ public static class MainMenuScene
         // （`bundle_menus_assets_all` 实读：`m_Padding.m_Left 11` · `m_ChildAlignment 3 (MiddleLeft)`
         //  · `m_Spacing −4.2` · `m_ChildControlHeight 0`）；两个孩子逐个量过尺寸：
         // `Event Title` 高 **55.708** · `Timer With Time Description` 高 **40.729**，暗带高 **105.866**
-        // ⇒ 内容 = 55.708 + 40.729 − 4.2 = **92.237**，在暗带里**垂直居中** ⇒ 上下各留 **6.814**；
-        // 标题是**第一个孩子** ⇒ 顶在内容最上面 ⇒
-        // **标题上边缘距暗带顶 = 6.814** · **下边缘 = 6.814 + 55.708 = 62.522**。
+        // 🔴 **2026-10-17（`N10`）就地订正（铁律 5）**：旧的期望 `6.814 / 62.522` 是**按错算式**定的 ——
+        //   它假定 VLG 只是「居中排 92.237 的内容」，**漏了 `childForceExpandHeight = 1`**：
+        //   余量 13.629 被**均分进每个孩子的槽**（各 +3.4095），文本框在自己的槽里再垂直居中。
+        //   真值 = `menu_dump.py --relative` 现读原版 prefab：`Base 1x1` 暗带顶 **305.60**、
+        //   `Event Title` 顶 **309.01** / 底 **364.72** ⇒ **上边缘距暗带顶 = 3.41**、下边缘 = **59.12**
+        //   （`Ranked/Skirmish 1x2` 两份同值：743.81 − 740.40 = 3.41）。⇒ 期望值改为 **3.41 / 59.12**。
         // 🔴 这几个数**硬写在测试里**（不引用 `MainMenuRuntime` 的常量）—— 引用就成了自证。
         // ⚠️ 轴向差点搞反（2026-09-25 实测量过）：`RenderedRect` 的 y 是**上到下**
         //    （`LayoutSpace.PxY = 540 − y×108`）⇒ **`y1` 是上边缘、`y2` 是下边缘**；
@@ -11458,12 +11548,12 @@ public static class MainMenuScene
             {
                 // ⚠️ 量的是**那块字自己的高**（`textBounds` 行盒，比 55.708 那个布局盒略小）⇒ 容差 1.5px
                 //    🆕 **2026-10-16（A832/A796′）换口**：这个数原来读 `Label.WorldH`（= **字段缓存** `_tmpH`），
-                //    现已走 `RenderedRect` → `LabelRenderedPx` 的 TMP `textBounds`（两法同源 ⇒ **当天逐位同值**；
-                //    期望值 6.814 / 62.522 与容差 1.5px **一字未动**）。
-                CheckNear(ty1 - by1, 6.814f, 1.5f,
-                          "★ 标题**上边缘距暗带顶 6.81px**（原版 VLG：105.866 − 92.237 的一半）");
-                CheckNear(ty2 - by1, 62.522f, 1.5f,
-                          "★ 标题**下边缘距暗带顶 62.52px**（= 6.814 + 标题高 55.708）");
+                //    现已走 `RenderedRect` → `LabelRenderedPx` 的 TMP `textBounds`（两法同源 ⇒ **当天逐位同值**）。
+                CheckNear(ty1 - by1, 3.41f, 1.5f,
+                          "★ 标题**上边缘距暗带顶 3.41px**（原版 VLG：`childForceExpandHeight=1` ⇒ 每个槽 +3.4095，"
+                        + "`Event Title` 顶 309.01 − 暗带顶 305.60；2026-10-17 现读，旧值 6.814 已订正）");
+                CheckNear(ty2 - by1, 59.12f, 1.5f,
+                          "★ 标题**下边缘距暗带顶 59.12px**（= 3.41 + 标题高 55.708；旧值 62.522 已订正）");
             }
             else CheckTrue(false, "量不到模式卡的 `TextDarkening` / `Event Title` —— 上面两条断言的前提");
         }
@@ -11551,10 +11641,12 @@ public static class MainMenuScene
 
             // ③ **跨天 ⇒ 进度清空 + 出声**：先把「当日那一族」推到**可分辨的两态**（每一条都要能分出来），
             //    再把「下一次刷新时刻」调成**过去**（= 跨天），判一次。
-            DailyData.ForceDailyProgressForTest(0, 500);                     // 第 0 条到顶（500/500 ⇒ 可领取）
+            // 🔴 **2026-10-17（`A2070③`/`N32`）重基线**：出厂改成 **0/45 · 0/15 · 0/15**（用户实拍），
+            //   而 `ForceDailyProgressForTest` 会把值**夹到 `Target`** ⇒ 原来传 `500` 现在实得 **45**。
+            DailyData.ForceDailyProgressForTest(0, 45);                      // 第 0 条到顶（45/45 ⇒ 可领取）
             DailyData.ForceSkullsCountForTest(9);                            // 每日骷髅计数 9
             DailyData.ForceLoginStateForTest(DailyData.State.Claimed);       // 登录卡**今天已领过**
-            CheckTrue(DailyData.DailyProgressValue(0) == 500
+            CheckTrue(DailyData.DailyProgressValue(0) == 45
                       && DailyData.DailyState(0) == DailyData.State.Collectable
                       && DailyData.SkullsCountValue() == 9
                       && !DailyData.CanCollectLogin() && DailyData.RewardsHasBadge,
@@ -11563,7 +11655,7 @@ public static class MainMenuScene
 
             DailyData.ForceNextResetForTest(System.DateTime.Now.AddMinutes(-1));   // 过去 ⇒ 跨天了
             CheckTrue(DailyData.TryDailyReset(), "★ 跨天 ⇒ 真的重置了（返回 true）");
-            Check(DailyData.DailyProgressValue(0), 0, "★ …每日任务的**进度清空**（500 → 0）");
+            Check(DailyData.DailyProgressValue(0), 0, "★ …每日任务的**进度清空**（45 → 0）");
             Check(DailyData.DailyState(0), DailyData.State.InProgress,
                   "…而且回到**未领取**那一态（原版的「换一份新的 mission persistence」）");
             Check(DailyData.SkullsCountValue(), 0, "★ …每日骷髅计数清空（9 → 0）—— 原版**唯一**登记了那个信号的那个");
@@ -11577,7 +11669,7 @@ public static class MainMenuScene
             Debug.Log(P + "    " + DailyData.LastResetMessage);
 
             // ④ **还原**（造出来的态**不许留给**后面的节 / 别的自检）：回到出厂那一套。
-            DailyData.ResetMissionsForTest();                      // 三条任务回到自检基线（52/4/1、未领取）
+            DailyData.ResetMissionsForTest();                      // 三条任务回到自检基线（0/45 · 0/15 · 0/15，未领取）
             DailyData.ForceSkullsCountForTest(0);
             DailyData.ForceSkullsStateForTest(DailyData.State.InProgress);
             DailyData.ForceLoginStateForTest(DailyData.State.InProgress);
@@ -11589,11 +11681,11 @@ public static class MainMenuScene
         // 🔴 **判据 → `资料/普查产出_1013/A表现核_块1.md` §A429** + `资料/普查产出_1013/WA429_每日重置落盘.md` §五：
         //    原版这一族**跨进程由服务端兜**（`DF/DailyLoginChallenge__GetNextUpdate.c:38-72`：`lastUpdate` 从
         //    **服务端下发的挑战数据**里取）⇒ 我们单机 = **落盘到自己的独立文件**（用户 2026-10-13 裁定）。
-        // 🔴 **两态判据**：造一个**不等于出厂值**的态（出厂 52/500 · x0），重启后断「还是那个态」**且**「≠ 出厂」；
+        // 🔴 **两态判据**：造一个**不等于出厂值**的态（出厂 **0/45** · x0），重启后断「还是那个态」**且**「≠ 出厂」；
         //    ⛔ 弱断言（只看「没变」）分不出「重启后保持」与「重启后重置」—— 后者也会「没变」。
         // 🔴 **牙口**：`Persist` 那一句若被删掉，**内存照样是对的** ⇒ 光断内存验不出「落盘」这件事本身，
         //    所以每一步都配一条**从盘上读回来**的断言（`Stored*ForTest`，⛔ 不是读内存）。
-        // 🔴 **落点**：紧接 A384 那一节（它 ④ 刚把状态还原成「52/4/1 · 骷髅 0 · 未领取 · `_nextReset` = 明天」）
+        // 🔴 **落点**：紧接 A384 那一节（它 ④ 刚把状态还原成「**0/45** · 骷髅 0 · 未领取 · `_nextReset` = 明天」）
         //    ⇒ 本节的 ② 直接接得上；本节**不碰任何 UI 节点**（纯数据 + 文件）⇒ 对下一行那张截图零影响。
         //    本节 ⑨ 的收尾与 A384 ④ **逐条相同** ⇒ 跑完之后状态与之前完全一致。
         // ⚠️ **本块是成品块**（`WA429_每日重置落盘.md` §五·3 逐字），标识符已逐条核过本文件：
@@ -11606,12 +11698,15 @@ public static class MainMenuScene
             DailyData.ReloadForTest();           // 「第一次跑、盘上什么都没有」那一态
 
             // ② 出厂基线（**写死字面量** —— 它是判据，⛔ 不是从实现里取的）
-            CheckText(DailyData.DailyCounter(0), "52/500", "出厂第 0 条任务 = 52/500（造态的起点）");
+            CheckText(DailyData.DailyCounter(0), "0/45", "出厂第 0 条任务 = 0/45（造态的起点）");
             CheckText(DailyData.SkullsCounter(), "x0", "出厂骷髅计数 = x0（造态的起点）");
 
             // ③ 用**生产入口**把状态推到可分辨的一态（⛔ 不用 `Force*ForTest` —— 那一族**不落盘**）
-            DailyData.OnBattleEnd(false, 120, 3, 2, 0);   // 对敌伤害 +120 · 打出部队 +3 · 骷髅 +2（模式 0 给骷髅）
-            CheckText(DailyData.DailyCounter(0), "172/500", "…内存：52+120 = 172/500（一局结算真推进了任务）");
+            // 🔴 **2026-10-17（`A2070③`/`N32`）重基线**：出厂 **0/45**，而 `Advance` 会**夹到 `Target`**
+            //   ⇒ 这里给 **20**（留一个**中间值**：既不是 0、也没到顶 —— 下面「还在 / 被清 / 回出厂」三态才分得开）。
+            //   ⚠️ ⛔ 别把「打出部队 +3 推进第 1 条」写成期望（`N32`：`OnBattleEnd` 三样口径没改）。
+            DailyData.OnBattleEnd(false, 20, 3, 2, 0);   // 对敌伤害 +20 · 打出部队 +3 · 骷髅 +2（模式 0 给骷髅）
+            CheckText(DailyData.DailyCounter(0), "20/45", "…内存：0+20 = 20/45（一局结算真推进了任务）");
             CheckText(DailyData.SkullsCounter(), "x2", "…内存：骷髅 x0 → x2");
             Check(DailyData.StoredSkullsCountForTest(), 2,
                   "★ …而且**真的写进盘里了**（从 `" + DailyData.StorePath + "` 读回来是 2）"
@@ -11619,14 +11714,14 @@ public static class MainMenuScene
 
             // ④ **重启**（= 内存全丢 + 从盘上读回来）
             DailyData.ReloadForTest();
-            CheckText(DailyData.DailyCounter(0), "172/500",
-                      "★ **重启后进度还在**（172/500 —— ⛔ 若是出厂的 52/500，说明它根本没读盘）");
+            CheckText(DailyData.DailyCounter(0), "20/45",
+                      "★ **重启后进度还在**（20/45 —— ⛔ 若是出厂的 0/45，说明它根本没读盘）");
             CheckText(DailyData.SkullsCounter(), "x2", "★ …骷髅计数也在（x2 —— ⛔ 不是出厂的 x0）");
-            Check(DailyData.StoredDailyProgressForTest(0), 172, "…盘上第 0 条那格也是 172（内存/盘两处一致）");
+            Check(DailyData.StoredDailyProgressForTest(0), 20, "…盘上第 0 条那格也是 20（内存/盘两处一致）");
 
             // ⑤ **重启后再进壳 ⇒ 不重置**（同一天该做的早做过了）
             CheckTrue(!DailyData.TryDailyReset(), "★ 重启之后再进壳：同一天 ⇒ **不重置**（返回 false）");
-            CheckText(DailyData.DailyCounter(0), "172/500", "★ …进度**没被清**（被清 = 「重启即重置」那个 bug）");
+            CheckText(DailyData.DailyCounter(0), "20/45", "★ …进度**没被清**（被清 = 「重启即重置」那个 bug）");
 
             // ⑥ **跨天重启 ⇒ 恰好重置一次**（原版那一拍由服务器日界发；我们 = 盘上存的「下一次刷新时刻」）
             DailyData.ForceNextResetForTest(System.DateTime.Now.AddMinutes(-1)); // = 上个进程存的那一时刻已过去
@@ -11635,7 +11730,7 @@ public static class MainMenuScene
             int n429 = DailyData.DailyResetCount;                               // 差分基线
             CheckTrue(DailyData.TryDailyReset(), "★ 关着过了日界再开 ⇒ **真的重置了**（返回 true）");
             Check(DailyData.DailyResetCount, n429 + 1, "★ …计数器 +1（差分）");
-            CheckText(DailyData.DailyCounter(0), "0/500", "★ …每日任务进度**清空**（172/500 → 0/500）");
+            CheckText(DailyData.DailyCounter(0), "0/45", "★ …每日任务进度**清空**（20/45 → 0/45）");
             CheckText(DailyData.SkullsCounter(), "x0", "★ …骷髅计数**清空**（x2 → x0）");
             Check(DailyData.StoredSkullsCountForTest(), 0,
                   "★ …而且**清完那一拍也落盘了**（盘上从 2 变 0 —— 删掉 `TryDailyReset` 末尾那句 "
@@ -11650,8 +11745,8 @@ public static class MainMenuScene
             // ⑧ **灭自证**（堵「内存本来就没清 ⇒ 上面 ④ 假绿」）：把盘上那一份拿走再重启 ⇒ 必须回出厂。
             DailyData.DeleteStoreForTest();
             DailyData.ReloadForTest();
-            CheckText(DailyData.DailyCounter(0), "52/500",
-                      "★ 灭自证：**盘上没有档时**重启 ⇒ 回到**出厂值** 52/500"
+            CheckText(DailyData.DailyCounter(0), "0/45",
+                      "★ 灭自证：**盘上没有档时**重启 ⇒ 回到**出厂值** 0/45"
                       + "（若 ④ 是因为「`ReloadForTest` 没真清内存」而绿的，这一条会红）");
             Check(DailyData.StoredSkullsCountForTest(), int.MinValue,
                   "…而且「盘上没有档」这件事可判（`Stored*ForTest` 返回 `int.MinValue`，⛔ 不是 0）");
@@ -11659,7 +11754,7 @@ public static class MainMenuScene
             // ⑨ **还原**：把门关上 + 状态打回出厂（造出来的态不许留给后面的节 / 别的自检）
             DailyData.OverrideDir = null;        // ⚠️ 关掉门（后面的节不再碰盘，行为与今天完全一致）
             DailyData.ReloadForTest();           // 门关着 ⇒ 只把内存打回出厂
-            DailyData.ResetMissionsForTest();    // 与 A384 那节同一条收尾（52/4/1、未领取）
+            DailyData.ResetMissionsForTest();    // 与 A384 那节同一条收尾（0/45 · 0/15 · 0/15，未领取）
             DailyData.ForceSkullsCountForTest(0);
             DailyData.ForceSkullsStateForTest(DailyData.State.InProgress);
             DailyData.ForceLoginStateForTest(DailyData.State.InProgress);

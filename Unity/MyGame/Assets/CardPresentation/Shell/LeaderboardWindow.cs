@@ -654,7 +654,8 @@ namespace CardPresentation
                 // 🆕 A17：原版 `Tab Buttons>{RankedSkirmish…}` 是 Toggle，`m_SpriteState` 的**悬停图 = `…_selected`**
                 //（`onSprite` 的 `_hover` 是**选中态**，见 §一；`WindowButton` 那张表里就是这个映射）
                 MenuDraw.Hit(node, "Hit", r, QHit,
-                             () => { if (wired) SelectTab(tab); else OnDeadTab(tab); }, bgQ, ArtTabOff);
+                             () => { if (wired) SelectTab(tab); else OnDeadTab(tab); }, bgQ, ArtTabOff,
+                             clickCue: WindowSounds.SelectToggleCue);
                 TabCount++;
             }
         }
@@ -710,7 +711,7 @@ namespace CardPresentation
             //   ⛔ 外扩走 `MenuDraw.PaddedRect`。
             //   ✅ 悬停换图那一层（`A1058`）**已在同一轮改到「按钮脸」那颗**（`closeFaceQ`，见上）。
             MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseInnerR, ClosePad), QHit, () => Close(),
-                         closeFaceQ, ArtCloseCircle);
+                         closeFaceQ, ArtCloseCircle, clickCue: WindowSounds.DefaultCloseCue);
         }
 
         /// <summary>`Generic Simplified UI Button_updated`（'Last season'）+ `Last Season Text`。
@@ -731,7 +732,8 @@ namespace CardPresentation
             //    = `fs 36.0 · auto[10~36] · base **12.0**` · 折行 0（上限 = 标称 ⇒ A333 本来就对）。
             MenuDraw.Text(btn, txR, "Last season", Color.white, "Button Text", 36f, QText, txR.W, 10f, 36f, 12f);
             // 🆕 A17：原版这一颗是 SpriteSwap（普查 §块 5 第 2 行）；底图是**九宫格** ⇒ 九张一起换
-            var seasonHit = MenuDraw.Hit(btn, "Hit", btnR, QHit, OnSeasonButton);
+            var seasonHit = MenuDraw.Hit(btn, "Hit", btnR, QHit, OnSeasonButton,
+                                         clickCue: WindowSounds.PositiveCue);
             var seasonWb = seasonHit != null ? seasonHit.GetComponent<WindowButton>() : null;
             if (seasonWb != null) seasonWb.BindNine(seasonBg, ArtSeasonBtn);
             btn.gameObject.SetActive(SeasonButtonVisible);

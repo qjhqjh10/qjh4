@@ -1162,7 +1162,8 @@ namespace CardPresentation
             //    全工程 `grep` 过，**只有这一处**那么写（其余每一处 `AddComponent<WindowButton>` 都建的是自己的节点）。
             //    **改坏法**：把那两行加回来 ⇒ `RewardsScene` §⑦ 那条「`Collect Button` 上**只有一颗**
             //    `WindowButton`」立刻红（不必等「引用相等」那条去撞枚举顺序）。
-            MenuDraw.Hit(btn, "Hit", CollectBtn, QCollectBg, OnCollectClicked, btnQ, ArtCollectBtn);
+            MenuDraw.Hit(btn, "Hit", CollectBtn, QCollectBg, OnCollectClicked, btnQ, ArtCollectBtn,
+                         clickCue: WindowSounds.PositiveCue);
             _collect = btn.gameObject;
 
             // ⑥ `Premium Disclaimer`（右对齐到 1708.8）+ 它的子件 `Premium Icon`

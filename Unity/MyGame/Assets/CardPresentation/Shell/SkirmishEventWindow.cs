@@ -10,6 +10,7 @@
 //
 // 🔴 **窗口参数**：`type=1 Popup` · `windowsPlacement=5 Canvas` · `closeOnESC=1` · `extraScaleSmallScreen=1.0`
 //    （与正本 §一 的表一致；⚠️ **`placement` 是 5 不是 15** —— 别照练习窗抄）。
+using TMPro;                       // 🆕 A1248：量 `GetPreferredValues()`（复刻原版 CSF）要 TMP 的类型
 using UnityEngine;
 
 namespace CardPresentation
@@ -40,18 +41,63 @@ namespace CardPresentation
         const float SBarCx = 299f, SBarCy = 655.065f;
         /// <summary>`Progress Bar` 自己的 `m_LocalScale`（0.8696）与它的中心（与上面几乎重合）。</summary>
         const float ProgrScale = 0.8695655f, ProgrCy = 655.26f;
-        /// <summary>`Score Levels` VLG（spacing 0 · pad 0 · **align MiddleCenter**）⇒ 5 行 60.48 高居中叠。</summary>
-        const float LevelRowH = 60.48f, LevelX1 = 151.19f, LevelX2 = 446.81f, LevelY0 = 465.73f;
+        /// <summary>`Score Levels` VLG（spacing 0 · pad 0 · **align MiddleCenter** · 🔴 **`reverse=1`**）——
+        /// 5 行**从下往上**排：树序第一颗（`Level 1`）在最**下**、最后一颗（`Level 5`）在最**上**。
+        /// <para>🔴 **2026-10-17（N31）就地订正（铁律 5）**：这里原来写「5 行 60.48 高居中叠」、并把
+        /// `LevelRowH` **同时当行高与行距**用 ⇒ 两处都错：
+        /// ① **镜像**：`reverse=1` = 主轴按树序倒排（uGUI `HorizontalOrVerticalLayoutGroup.SetChildrenAlongAxis`
+        ///    `startIndex = reverse ? Count−1 : 0` · `increment = reverse ? −1 : 1`）—— 原来 `i=0` 画在最上
+        ///    ⇒ **整条记分条上下颠倒**（Iron…Warp 五档箱子反了）。
+        /// ② **行距 ≠ 行高**：现读五行中心在屏上相距 **81.375**、行框高 **75.98** ⇒ 设计 px 行距 **64.773**、
+        ///    行高 **60.48**（差 4.29 = 布局给每行的槽比行框高，⛔ 别拿行高当行距）。
+        /// 判据 = `python -I -X utf8 d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "SkirmishModeEventWindow"
+        /// --depth 10 --relative --no-sprite` 现读：`Level 1` = `y 731.9..807.9`、`Level 5` = `406.4..482.4`
+        /// （两行的 x 逐位相同 = `113.3..484.7`）。
+        /// 换算（`ScoreRect` 绕 `Scoring Bar` 中心乘 1.2563）：`Level 1` 中心（设计）
+        /// = `655.065 + (769.9 − 655.065) ÷ 1.2563 = **746.47**`；行距 = `81.375 ÷ 1.2563 = **64.773**`
+        /// （行高 = `75.98 ÷ 1.2563 = 60.48`）。同形写法见兄弟件 `Shell/EnergySinglePlayerOnlyEventWindow.cs`
+        /// 的 `LvlTop0/LvlStep` 与 `Shell/AllianceEventScoreInfo.cs` 的 `LvlCy0/LvlStep`。</para></summary>
+        const float LevelRowH = 60.48f, LevelStep = 64.773f, LevelX1 = 151.19f, LevelX2 = 446.81f;
+        /// <summary>树序第一颗（`Level 1`，排在最**下**那一档）的行中心 y（设计 px —— `ScoreRect` 那一帧）。
+        /// ⚠️ 行号越**大**越靠**上**（y 越小，见 `ScoreLevelRowCy`）。</summary>
+        const float LevelCy1 = 746.47f;
         const float SkullDx = -46.4f, ScoreDx = -93.7f, ChestDx = 70.2f, HiCrateDx = 68.5f, HiCrateDy = -1.3f;
         const float SkullSide = 59.06f, ScoreW = 116.15f, ScoreH = 50f, ChestW = 91.03f, ChestH = 81.20f;
         const float HiCrateW = 150.86f, HiCrateH = 134.43f, HiCrateScale = 0.796f, ChestScale = 0.8696f;
+        /// <summary>🆕 **2026-10-17（A1221）**：`Score` 那 5 颗的**祖先刻度积** = `Scoring Bar` 1.2563 ×
+        /// `Skull` 0.8695655 = **1.0924350**（判据 → 本文件 `BuildMilestones` 上方「A1197」那一段，
+        /// 那一节当时只落了注释、没建字；本次按它把字建上）。四格字号**一起乘**、框不动（`ScoreRect` 已是屏值）。</summary>
+        const float ScoreFontScale = 1.0924350f;
+        /// <summary>🆕 **2026-10-17（A1221）**：`Score` 那一颗在**行内**的相对矩形（屏值，左上原点）。
+        /// 判据 = `menu_dump bundle_menus_assets_all "SkirmishModeEventWindow" --depth 8` 现读
+        /// （Level 1 / Level 5 两行逐位相同 ⇒ 行内偏移是常量）：
+        /// · 行 `Score Bar Line Level k` = `113.3..484.7 × 731.9..807.9`（Level 1）；
+        /// · 行内 `Skull/Score` = `74.9..201.8 × 742.6..797.2`；Level 5 = `74.9..201.8 × 417.1..471.8`
+        ///   （行 `113.3..484.7 × 406.4..482.4`）
+        /// ⇒ 相对行左上角：`x −38.43 … +88.48`、`y +10.70 … +65.30`（两行逐位可验）。</summary>
+        const float ScoreOffL = -38.43f, ScoreOffR = 88.48f, ScoreOffT = 10.70f, ScoreOffB = 65.30f;
         static readonly string[] CrateArt =
         { "40k_Crate_Tier1_Iron", "40k_Crate_Tier2_Copper", "40k_Crate_Tier3_Silver",
           "40k_Crate_Tier4_Gold", "40k_Crate_Tier5_Warp" };
 
         /// <summary>`Timer`（本窗有；⚠️ **排位窗没有这一件** —— 树里实测）。</summary>
         const float TmL = 648.33f, TmT = 1008.55f, TmR = 1271.67f, TmB = 1069.45f;
-        const float TmIcL = 604.43f, TmIcT = 1047.50f, TmIcR = 648.33f, TmIcB = 1091.41f;
+        /// <summary>🆕 **2026-10-17（A1248）**：`Timer` 组的 HLG 子件几何。
+        /// 判据 = `menu_dump bundle_menus_assets_all "SkirmishModeEventWindow" --depth 6`（**本 prefab 跑过布局**，
+        /// 所以这两行是**运行期真值**，不是模板位）：`Timer Icon 813.8..857.7 × 1019.5..1063.5`（**43.91 宽**）·
+        /// `Timer`（TMP，`'Termina en: 23d 5h'`）`857.7..1106.2 × 1013.5..1069.5`（**248.44 宽**）。
+        /// HLG 实读：`spacing 0 · align 4 (MiddleCenter) · pad (0,0,5,0)` ⇒ `start = 648.33 + (623.34 − 43.91 − 文字宽)/2`
+        /// （代入 248.44 ⇒ **813.83**，与现读逐位吻合）。</summary>
+        const float TmIconW = 43.91f, TmIconT = 1019.55f, TmIconB = 1063.45f;
+        const float TmTextT = 1013.55f, TmTextB = 1069.45f;
+        /// <summary>原版字体的 preferred width（prefab 跑过布局那一份）。**只当量不到时的兜底**。</summary>
+        const float TmPrefabTextW = 248.44f;
+
+        /// <summary>🆕 **2026-10-17（A1221）**：记分条上那颗 `Collect` 钮（`Generic Simplified UI Button`）。
+        /// 判据 = 同一份 dump：节点 `155.4..442.6 × 902.8..989.3`、`Button Text 165.4..432.7 × 911.2..980.8`
+        /// （`⇲ls=1.256` ⇒ 这两组已是屏值；字号四格见 `BuildMilestones` 末尾那段，要 × `SBarScale`）。</summary>
+        static readonly PxRect CollectR   = new PxRect(155.4f, 902.8f, 442.6f, 989.3f);
+        static readonly PxRect CollectTxR = new PxRect(165.4f, 911.2f, 432.7f, 980.8f);
         const float BannedL = 1241.78f, BannedT = 1024.60f, BannedR = 1920.08f, BannedB = 1078.54f;
 
         public static SkirmishEventWindow Create(WindowsManager mgr)
@@ -191,18 +237,25 @@ namespace CardPresentation
         }
 
         /// <summary>5 个里程碑（`Score Bar Line Level 1..5`）：左→右 = 分数 · 骷髅标记 · 竖条 · 箱子。
-        /// 摆位来自 `Score Levels` 的 VLG（**静态**）⇒ 这 5 行可以照画；
-        /// ⚠️ **分数文字与「已高亮的那一档」不画**（`MilestoneScoreBar.Initialize(currentScore, scoringMilestones)`
-        /// 要 event 数据，本地没有）—— 出声。箱子那 5 档（Iron/Copper/Silver/Gold/Warp）是**原版写死的**。</summary>
+        /// 摆位来自 `Score Levels` 的 VLG（**静态**）⇒ 这 5 行可以照画。
+        /// 箱子那 5 档（Iron/Copper/Silver/Gold/Warp）是**原版写死的**。
+        /// <para>🆕 **2026-10-17（A1221）**：**`Score`（分数文字）与 `Collect` 钮补建了** —— 原来这里用
+        /// 「`MilestoneScoreBar.Initialize` 要活动数据」当理由不建，但**同一颗件在 `Energy` 那一扇窗里
+        /// 是照 prefab 出厂原文建的**（`EnergySinglePlayerOnlyEventWindow.cs` 的 `BuildMilestones` / `BuildScoreBar`）
+        /// ⇒ 那条理由站不住（两扇窗都没有活动数据）。现在两扇窗同处置：
+        /// · `Score` 印 **prefab 出厂原文 `'1256'`**（原版运行时由 `Initialize(currentScore, …)` 改）；
+        /// · `Collect` 照出厂建、点了**如实说「暂无服务器」**（原版 `CollectClicked` 要走 LiveOps 领奖）。
+        /// ⚠️ `Highlight Crate` 仍是「哪一档都不亮」（`readyToCollect` 由活动数据定），那一条**保留**。</para></summary>
         void BuildMilestones(Transform bar)
         {
             var levels = MenuDraw.Node(bar, "Score Levels",
-                                       ScoreRect(299f, (LevelY0 + LevelY0 + LevelRowH * 5f) * 0.5f, 100f, 0f));
+                                       ScoreRect(299f, LevelCy1 - LevelStep * 2f, 100f, 0f));
             for (int i = 0; i < 5; i++)
             {
-                float cy = LevelY0 + LevelRowH * (i + 0.5f);
-                var row = MenuDraw.Node(levels, "Score Bar Line Level " + (i + 1),
-                                        ScoreRect((LevelX1 + LevelX2) * 0.5f, cy, LevelX2 - LevelX1, LevelRowH));
+                // i = 树序下标（0 = `Level 1`）⇒ 它排在**最下**：`reverse=1` ⇒ 往上每走一档 **−LevelStep**
+                float cy = ScoreLevelRowCy(i);
+                var rowR = ScoreRect((LevelX1 + LevelX2) * 0.5f, cy, LevelX2 - LevelX1, LevelRowH);
+                var row = MenuDraw.Node(levels, "Score Bar Line Level " + (i + 1), rowR);
                 MenuDraw.Rect(row, Tex("Rank_Skull"),
                               ScoreRect(299f + SkullDx, cy, SkullSide * ChestScale, SkullSide * ChestScale),
                               "Skull", QArt, null, true);
@@ -215,10 +268,52 @@ namespace CardPresentation
                 MenuDraw.Rect(row, Tex("Crate_Border_Highlight"),
                               ScoreRect(299f + HiCrateDx, cy + HiCrateDy, HiCrateW * HiCrateScale, HiCrateH * HiCrateScale),
                               "Highlight Crate", QArt1, new Color(0.98f, 0.801f, 0.0588f, 0f));
+                // 🆕 **2026-10-17（A1221）**：`Score`（原版 `…/Skull/Score`）。判据（同文末命令现读）：
+                //   `'1256'` · 字号 **48** · 基准 **36** · **`auto[18.0~48.0]`** · 对齐 `Right/Midline` ·
+                //   **折行 = 1** · 祖先刻度积 **1.0924350**（见 `ScoreFontScale` 那条 doc）⇒ 四格**一起乘**、框不动。
+                var sr = new PxRect(rowR.x1 + ScoreOffL, rowR.y1 + ScoreOffT,
+                                    rowR.x1 + ScoreOffR, rowR.y1 + ScoreOffB);
+                var sc = MenuDraw.Text(row, sr, "1256", Color.white, "Score",
+                                       48f * ScoreFontScale, QText, sr.W,
+                                       18f * ScoreFontScale, 48f * ScoreFontScale, 36f * ScoreFontScale);
+                MenuDraw.AlignRight(sc, sr);           // 原版 `Right/Midline`（折行 1 ⇒ ⛔ 不补 SetWrapping(false)）
             }
-            Debug.Log("[Event] 记分条的**分数文字**与**已达成那一档的高亮**没画 —— "
-                      + "原版 `MilestoneScoreBar.Initialize(currentScore, scoringMilestones)` 要活动数据，本地没有");
-            Debug.Log("[Event] 记分条上那颗 `Collect` 钮没建 —— 同理（`RewardProgressBarPanel.HasMilestoneToCollect` 要活动数据）");
+
+            // 🆕 **2026-10-17（A1221）**：`Collect`（`Generic Simplified UI Button`）。
+            //   判据（同前）：`Button Text` = `'Collect'` · fs **55** · base **12** · `auto[10~55]` ·
+            //   对齐 `Center/Capline` · **折行 = 0** · 框 267.32×69.64（= `CollectTxR`）· 祖先刻度积 **1.2563**
+            //   ⇒ 四格一起乘；折行 0 ⇒ 建完立刻 `SetWrapping(false)`（`SetAutoFitBox` 会把它开成 Normal）。
+            var collect = MenuDraw.Node(bar, "Generic Simplified UI Button", CollectR);
+            var cb = MenuDraw.Rect(collect, Tex("UI_Button_Mulligan"), CollectR, "Bg", QArt1, null, true);
+            var ct = MenuDraw.Text(collect, CollectTxR, "Collect", Color.white, "Button Text",
+                                   55f * SBarScale, QText, CollectTxR.W,
+                                   10f * SBarScale, 55f * SBarScale, 12f * SBarScale);
+            if (ct != null) ct.SetWrapping(false);
+            MenuDraw.Hit(collect, "CollectHit", CollectR, QHit, OnCollectClick, cb, "UI_Button_Mulligan",
+                         "UI_Button_Mulligan_hover", "UI_Button_Mulligan_Pressed",
+                         clickCue: WindowSounds.PositiveCue);
+
+            Debug.Log("[Event] 记分条的 `Score` 照 **prefab 出厂原文 `1256`**、`Collect` 照出厂建 —— "
+                      + "原版 `MilestoneScoreBar.Initialize(currentScore, scoringMilestones)` 会按活动分数改它们，"
+                      + "本地没有活动数据（⛔ 不编数字）");
+        }
+
+        /// <summary>🆕 **2026-10-17（N31）自检用**：第 `i` 行（**树序下标**，0 = `Level 1`）的行中心 y
+        /// （`ScoreRect` 那一帧的设计 px）—— `BuildMilestones` 与自检**共用这一处**（先例 =
+        /// `Battle/WfSlider.cs` 的 `HandleHitRect`：算式只写一份，自检拿同一份判）。
+        /// <para>🔴 **`reverse=1` ⇒ 下标越大越靠上**（y 越小）。灭自证断言：`ScoreLevelRowCy(0) > ScoreLevelRowCy(4)`
+        /// （即屏上 `Level 1` 在 `Level 5` **下面**）—— 改回旧公式 `LevelY0 + LevelRowH*(i+0.5)`（下标越大越靠下）
+        /// 立即红。⛔ 别把这里的 `−` 写成 `+`。</para></summary>
+        public static float ScoreLevelRowCy(int i) { return LevelCy1 - LevelStep * i; }
+
+        /// <summary>🆕 **2026-10-17（A1221）**：`Collect` 点了 ⇒ **如实提示「暂无服务器」**。
+        /// 原版 `RewardProgressBarPanel.CollectClicked` 向 LiveOps 领奖（= `Energy` 窗那一颗同一条链）。</summary>
+        void OnCollectClick()
+        {
+            Debug.Log("[Event] `Collect` 点了 ⇒ **如实提示「暂无服务器」**"
+                    + "（原版要 LiveOps 活动数据领奖；本地没有活动、也没有服务器 —— 照边界③不静默）。");
+            if (WindowsManager.Instance != null)
+                WindowsManager.Instance.ShowPopUp("Event rewards are not available offline.", "OK", null);
         }
 
         // ============================================================ 计时器 + 禁用卡提示
@@ -234,16 +329,80 @@ namespace CardPresentation
                       + "大概率 release 自关），我们按「不建调试件」办");
         }
 
-        /// <summary>`Timer`：图标照画，**倒计时文字不编**（原版读 liveop 事件的下发时间）。</summary>
+        /// <summary>`Timer`：图标 + 倒计时文字（**照 `Energy` 窗那一套**，A1248）。
+        /// <para>🔴 **2026-10-17（A1248）**：原来这里只建一个**空节点** + 一条 `Debug.Log`
+        /// （理由 = 「图标的位置由倒计时文字的宽度决定，本地没有活动结束时间 ⇒ 不编位置」）。
+        /// 那个理由是**半对**：位置确实由 HLG 决定，但**本 prefab（`SkirmishModeEventWindow`）跑过布局**，
+        /// 已经把那份结果序列化回去了 ⇒ 图标 / 文字的落点**有真值可抄**（见 `TmIconW` 那条 doc）；
+        /// 而且文字本身照 prefab 出厂原文 `'Termina en: 23d 5h'`（同 `Energy` 那一颗），
+        /// 截止时刻未知时由 `TimerDisplay` 显示 `--` —— **不需要编位置、也不需要编日期**。</para>
+        /// <para>⚠️ 判据补充：`Vicotries title` 那一颗**已经是对的**（`:132` 起那四格自适应），⛔ 别顺手改它
+        /// —— 本窗的 `Vicotries title` 是**定宽 236.63×50、没有 CSF**（`menu_dump … --depth 6` 现读），
+        /// 与 `Energy` 那一颗（宽 0 + CSF）**不是同一档**。</para></summary>
         void BuildTimer(Transform root)
         {
-            // ⚠️ **整件都不画**（连图标也不画）：`Timer` 是 `HorizontalLayoutGroup`（spacing 0 · align MiddleCenter）
-            //    —— 图标的位置由**"倒计时文字有多宽"**决定，而那段文字（活动结束时间）本地没有
-            //    ⇒ 单画一个图标只能**自己编一个位置**（照模板位会偏左约 207px、下端还出屏）。
-            //    出声，别硬凑。
-            MenuDraw.Node(root, "Timer", new PxRect(TmL, TmT, TmR, TmB));
-            Debug.Log("[Event] `Timer` **一件都没画**（连图标）—— 原版那句 `Termina en: 23d 5h` 读的是 liveop "
-                      + "事件的下发结束时间，本地没有；而图标的位置由那句话的宽度决定（HLG）⇒ 不编位置");
+            var tm = MenuDraw.Node(root, "Timer", new PxRect(TmL, TmT, TmR, TmB));
+            // 图标先按**跑过布局那一份 prefab 的真值**摆（813.8 起），量到文字宽之后随组居中重排。
+            float fbStart = TmL + ((TmR - TmL) - (TmIconW + TmPrefabTextW)) * 0.5f;
+            var icR0 = new PxRect(fbStart, TmIconT, fbStart + TmIconW, TmIconB);
+            var iconQ = MenuDraw.Rect(tm, Tex("WF_icon_clock"), icR0, "Timer Icon", QArt);
+
+            // 文字：prefab 出厂原文；字号四格 = 原版 `38 / 10 / 38 / 38`（**本窗根缩放 = 1** ⇒ 不乘刻度）。
+            // ⚠️ 原版 **折行 = 0** ⇒ 传 `wrapPx` 会让 `SetWrapWidth` 静默开成 `Normal` ⇒ 紧跟一句还原。
+            const string TimerPrefix = "Termina en: ";
+            var txR0 = new PxRect(icR0.x2, TmTextT, icR0.x2 + TmPrefabTextW, TmTextB);
+            var tx = MenuDraw.Text(tm, txR0, TimerPrefix + "23d 5h", Color.white, "Timer", 38f, QText,
+                                   txR0.W, 10f, 38f, 38f);
+            if (tx != null) tx.SetWrapping(false);
+            float txW = PreferredWidthPx(tx, "Timer");
+
+            // HLG 重排：`content = 图标宽 + 文字宽`（`spacing 0` · `align 4 MiddleCenter` · `pad (0,0,5,0)`）。
+            // 量不到（helper 已出声）⇒ 保留上面那套 **prefab 真值**兜底，⛔ 不拿 0 当宽去排。
+            if (txW > 0f)
+            {
+                float x1 = TmL + ((TmR - TmL) - (TmIconW + txW)) * 0.5f;
+                var icR = new PxRect(x1, TmIconT, x1 + TmIconW, TmIconB);
+                var txR = new PxRect(icR.x2, TmTextT, icR.x2 + txW, TmTextB);
+                if (iconQ != null)
+                    iconQ.transform.localPosition = MenuDraw.Local(tm, icR.x1, icR.y1, icR.x2, icR.y2);
+                if (tx != null)
+                {
+                    // 原版 `Center/Capline`（框 = 字宽 ⇒ 居中与左对齐同解）⇒ 摆到新框中心。
+                    tx.transform.localPosition = MenuDraw.Local(tm, txR.x1, txR.y1, txR.x2, txR.y2);
+                    tx.SetAutoFitBox(LayoutSpace.Px(txR.W), LayoutSpace.Px(txR.H), 10f, 38f, 38f);
+                    tx.SetWrapping(false);       // `SetAutoFitBox` 内部会 `SetWrapWidth` ⇒ 还原原版折行 0
+                }
+            }
+
+            // 挂全工程唯一的倒计时口径（截止时刻本地没有 ⇒ 出声 + `Termina en: --`，⛔ 不编日期）。
+            if (tx != null)
+                TimerDisplay.Attach(tx, null, TimerPrefix, "遭遇战活动窗 Timer",
+                                    "活动截止时刻由服务端 LiveOps 事件下发，本地没有");
+        }
+
+        /// <summary>🆕 **2026-10-17（A1248）**：量 TMP 自己的 `GetPreferredValues().x`（= 原版 CSF
+        /// `h:PreferredSize` 走的那条路）。**逐字照抄** `EnergySinglePlayerOnlyEventWindow.PreferredWidthPx`
+        /// （那一份是 `private`、本件与它没有共同基类成员 ⇒ 复制一份；⛔ 别为此去动 `LiveOpsEventWindow`）。
+        /// ⚠️ 量不到就返回 0 并**出声**（点阵后端 / 取不到 TMP）—— 调用方保留兜底框，⛔ 不静默。
+        /// ⚠️ 量的是**我方字体**的宽，不是原版 `Pragati-Regular SDF` 那个数（残差同 Energy 那一份的说明）。</summary>
+        static float PreferredWidthPx(Label lb, string who)
+        {
+            if (lb == null) return 0f;
+            var t = lb.GetComponentInChildren<TextMeshPro>(true);
+            if (t == null)
+            {
+                Debug.LogWarning("[Event] `" + who + "` 量不出 preferred width（这颗没有 TMP —— 字体资产缺失时"
+                        + " `Label` 退回点阵后端）⇒ 框宽停在 prefab 真值那一档，**不是**原版 CSF 的行为。");
+                return 0f;
+            }
+            float wWorld = t.GetPreferredValues().x;
+            if (float.IsNaN(wWorld) || float.IsInfinity(wWorld) || wWorld <= 1e-6f)
+            {
+                Debug.LogWarning("[Event] `" + who + "` 的 preferred width 量出 " + wWorld
+                        + "（NaN/Inf/非正）⇒ 框宽停在 prefab 真值那一档，**不是**原版 CSF 的行为。");
+                return 0f;
+            }
+            return wWorld * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
         }
 
         /// <summary>`Banned card in deck`：**建出来但关着** —— 「这副牌里有禁用卡」要一份禁用表，本地没有。</summary>

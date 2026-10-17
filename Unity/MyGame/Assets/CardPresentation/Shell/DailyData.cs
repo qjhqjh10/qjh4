@@ -16,6 +16,8 @@
 // 🆕 **2026-10-12（A372）例外**：**周常**那**六**档阈值（`5/10/15/20/25/30`）与**格数 6**
 //    同样**照原版实拍**（原来是我们按 prefab 作者预览建的 4 格 / 终值 15）—— 见 `_weeklySteps` 一段。
 //    ⚠️ 但**周常的当前进度**仍是我们挑的（`_weeklyProgress = 13`）：实拍那个 `25/30` 是玩家数据。
+// 🆕 **2026-10-17（A2070③）例外**：**三条每日任务**的文案 / 目标 / 奖励（活动点 ×300）现在**照用户实拍**——
+//    见 `_daily` 那一段。⚠️ 那是**一帧实拍**、不是原版数据表（原版任务内容由服务端下发）。
 //
 // ✅ **接线点（2026-10-11 · A375 接上）**：进度的真正来源 = 战斗结果 —— 落点 = `Battle/BattleDriver.cs`
 //    **结算那一处**的 `DailyData.OnBattleEnd(…)`（原版也是「打完一局回来任务就动了」）。
@@ -47,14 +49,22 @@ namespace CardPresentation
             { get { return St != State.InProgress; } }
         }
 
+        // 🔴🆕 **2026-10-17（A2070③）：这三条的【文案 / 目标 / 奖励图 / 数量】照用户实拍一帧改。**
+        //   参考图（**桌面，不在仓库**）：`C:/Users/qjh36/Desktop/warpforge参考图/奖励—布道所（每日任务）参考图.png`
+        //   —— 右栏「每日布道所」三条：**对敌方战将造成 45 伤害（0/45，300）· 攻击单位 15 次（0/15，300）·
+        //   远程攻击 15 次（0/15，300）**，三条的奖励格都是**同一颗「活动点」图 + `300`**。
+        //   ⚠️ **来源标注（铁律 2/3）**：这是**用户实拍一帧**，**不是**原版数据表 —— 原版任务内容由服务端下发
+        //   （见本文件头），⛔ **别把这句读成「原版就是这三条」**。进度一律 `0`（实拍那一帧就是 `0/45`）。
+        //   ⚠️ **推进逻辑仍是旧的三个口径**（`OnBattleEnd` 的 `damageToEnemy / troopsPlayed / 胜`）——
+        //   与「远程攻击次数」这一条**对不上**（引擎边界上没有那个计数），如实记在报告里、⛔ 不在这里编。
         static readonly Task[] _daily =
         {
-            new Task { Desc = "Deal 500 damage to enemy units", Progress = 52,  Target = 500,
-                       RewardArt = "40k_topmarquee_currency_gold",     RewardText = "150" },
-            new Task { Desc = "Play 10 troops",                 Progress = 10,  Target = 10,
-                       RewardArt = "40k_Achievements_icon_seal_points", RewardText = "20" },
-            new Task { Desc = "Win 3 battles",                  Progress = 1,   Target = 3,
-                       RewardArt = "40k_topmarquee_currency_gold",     RewardText = "200" },
+            new Task { Desc = "Deal 45 damage to enemy warlords", Progress = 0, Target = 45,
+                       RewardArt = "40K_genearl_icon_Campaign_points_big", RewardText = "300" },
+            new Task { Desc = "Attack with units 15 times",       Progress = 0, Target = 15,
+                       RewardArt = "40K_genearl_icon_Campaign_points_big", RewardText = "300" },
+            new Task { Desc = "Attack with ranged units 15 times", Progress = 0, Target = 15,
+                       RewardArt = "40K_genearl_icon_Campaign_points_big", RewardText = "300" },
         };
 
         /// <summary>出厂三行的**内容快照**（`Desc`/`Target`/`RewardArt`/`RewardText` 各拷一份）。
@@ -1359,7 +1369,13 @@ namespace CardPresentation
         /// </summary>
         public static void OnBattleEnd(bool win, int damageToEnemy, int troopsPlayed, int skulls, int playMode)
         {
-            // 三张每日任务卡：0 = Deal 500 damage to enemy units · 1 = Play 10 troops · 2 = Win 3 battles
+            // 三张每日任务卡（🆕 2026-10-17 A2070③ 文案已照用户实拍改）：
+            //   0 = Deal 45 damage to enemy warlords · 1 = Attack with units 15 times ·
+            //   2 = Attack with ranged units 15 times
+            // 🔴 **推进口径没跟着改**（如实记）：仍是「对敌伤害 / 打出部队 / 胜一场」——
+            //   实拍第 0 条要的是**只算战将**、第 1/2 条要的是**攻击次数**（还分近战/远程），
+            //   而引擎在这一拍只交得出 `damageToEnemy / troopsPlayed / win` ⇒ ⛔ 别在这里编一个换算。
+            //   要补真口径 = 战斗线那边加计数（本件白名单外，已写进报告）。
             Advance(0, damageToEnemy);
             Advance(1, troopsPlayed);
             if (win) Advance(2, 1);
@@ -1926,8 +1942,11 @@ namespace CardPresentation
         }
 
         /// <summary>自检用：把三张任务卡恢复到**确定的初值**（**只给自检**，运行时别调）。
-        /// ⚠️ 用**确定的数**而不是「出厂值」—— 出厂的 task1 就是 10/10（已在 target），
-        /// 断言「推进了多少」会恒为 0（2026-09-23 第一版就栽在这）。
+        /// ⚠️ 用**确定的数**而不是「运行到此刻的值」—— 断言「推进了多少」才不会被上一次运行污染。
+        /// 🔴 **2026-10-17（`A2070③`/`N32`）就地订正（铁律 5）**：目标已改成 **45 / 15 / 15**，
+        ///   旧基准 `52/4/1` 会让第 1 条变成 **`52/45`（进度 > 目标）**（`Advance` 的 `Min(Target, …)`
+        ///   只在推进时夹，这里直接赋值不夹）⇒ 改成 **0 / 0 / 0**（= 新出厂值）。
+        ///   原文（留痕）：「出厂的 task1 就是 10/10（已在 target）」—— 那是旧 `_daily`（500 伤害）时代的读数。
         /// 🔴 **2026-10-04（A36-M6）：连【内容】一起还原**（`Desc`/`Target`/`RewardArt`/`RewardText` 走
         /// `_dailyFactory` 那份出厂快照）—— 原来只还原 `Progress`/`St`，于是上一节里
         /// `RerollDaily` 换掉的那条任务（**文案/目标/奖励都变了**）会**泄漏到后面每一节**
@@ -1941,9 +1960,9 @@ namespace CardPresentation
                 _daily[i].RewardArt = _dailyFactory[i].RewardArt;
                 _daily[i].RewardText = _dailyFactory[i].RewardText;
             }
-            _daily[0].Progress = 52; _daily[0].St = State.InProgress;    // /500
-            _daily[1].Progress = 4;  _daily[1].St = State.InProgress;    // /10
-            _daily[2].Progress = 1;  _daily[2].St = State.InProgress;    // /3
+            _daily[0].Progress = 0; _daily[0].St = State.InProgress;    // /45
+            _daily[1].Progress = 0; _daily[1].St = State.InProgress;    // /15
+            _daily[2].Progress = 0; _daily[2].St = State.InProgress;    // /15
         }
 
         // ---- 自检用：把状态推到一个可断言的值（**别影响运行时默认**）----

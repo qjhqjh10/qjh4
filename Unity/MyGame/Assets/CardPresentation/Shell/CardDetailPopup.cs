@@ -302,7 +302,10 @@ namespace CardPresentation
         public const float CcSgPx = 35f, CcSgMin = 25f, CcSgMax = 35f, CcSgBase = 36f, CcSgWrapX = 170f;
         /// <summary>通配符条：`Segment` 0,71→1920,156 · 底 1550,91.5→1870,135.5 · 四组 30×44 图标 + 41×44 数字。</summary>
         public const float WcBgL = 1550f, WcBgT = 91.5f, WcBgR = 1870f, WcBgB = 135.5f;
-        public const float WcStep = 75f, WcX0 = 1565f, WcPx = 32.6f;
+        public const float WcStep = 75f, WcX0 = 1565f;
+        /// <summary>数字格的标称字号 —— 原版 `m_fontSize = 32.6`。🔴 **2026-10-17（`A1229`）收口**：
+        /// 值只在 `DeckRuntime.WcCountFontPx` 一处，本窗 / 收藏窗 / 卡组编辑窗三处都引用它。</summary>
+        public const float WcPx = DeckRuntime.WcCountFontPx;
 
         static readonly Vector4 RedBorder = new Vector4(42f, 363f, 655f, 81f);
         const float RedTexW = 1100f, RedTexH = 701f;
@@ -883,7 +886,8 @@ namespace CardPresentation
             //   `target`（口径 = 原版那颗 `EverguildButton.m_TargetGraphic` 就是它自己的底图，
             //   `m_Transition = 2 (SpriteSwap)` · `m_HighlightedSprite` / `m_PressedSprite` 都非空），
             //   ②点下去走 `OnCraftClicked()`（**本版不实现真机制，出声**）—— 不是 `DoCraft()`。
-            Hit(p, "CraftHit", b, () => { OnCraftClicked(); }, QCdHit, craftBg, "UI_Button_Mulligan");
+            Hit(p, "CraftHit", b, () => { OnCraftClicked(); }, QCdHit, craftBg, "UI_Button_Mulligan",
+                clickCue: WindowSounds.PositiveCue);
         }
 
         // ---- ② 升级 ----
@@ -972,7 +976,8 @@ namespace CardPresentation
             //      （`CheckUpgradeRequirements.c:117-118` 在写 Title 之前就 `return` 了）⇒ 原版没有
             //      「满级时 Title 该印什么」的判据 ⇒ 我们这里印的是钳位后的数（读起来像「还要升到 4 级」）。
             //      要改成「满级就不印」= 落乙 §6·3·1 第 1 条那条待裁（`Content` 整组关），见下面那一段。
-            var upHit = Hit(p, "UpgradeHit", b, () => { DoUpgrade(); }, QCdHit, upBg, "UI_Button_Mulligan");
+            var upHit = Hit(p, "UpgradeHit", b, () => { DoUpgrade(); }, QCdHit, upBg, "UI_Button_Mulligan",
+                            clickCue: WindowSounds.PositiveCue);
             var upWb = upHit != null ? upHit.GetComponent<WindowButton>() : null;
             if (upWb != null)
             {
@@ -1184,8 +1189,19 @@ namespace CardPresentation
             var buyLb = MenuDraw.Text(buyRoot, new PxRect(bx, by, bx + bw, by + bh), has ? "Alternate art" : "No alternate art",
                           Color.white, "Buy Original Card", 32f, QCdText, bw, 12f, 54f, 39f);
             if (buyLb != null) buyLb.SetWrapping(false);            // 原版折行=0
-            MenuDraw.Rect(p, CardArt.MenuUi("WF_Lock_Icon_Simple"), new PxRect(1310f, 690f, 1360f, 740f),
-                          "Lock Icon", QCdRow, null, true);
+            // 🔴 **2026-10-17（账 `A1704`）显隐照原版**：`AlternateArtPanel__SetStyle.c` 的末段是
+            //    `UnityEngine.GameObject.SetActive(*(param_1 + 0x38) /* lockIcon */, !HasItem(当前那张))`
+            //    —— **全解锁 ⇒ 锁恒关**。本工程「拥有」只有 `CardProgress.Owned` 这一处（给足口径，
+            //    任何 id 都 ≥ 1，推导全文见下面 `canBuyOriginal` 那一段）⇒ 这里恒判 false。
+            //    **节点保留**（原版也是建好再 `SetActive`，自检两向都断得到），⛔ 别删节点。
+            //    ⚠️ 真要露的那一支（未拥有）原版 rect = `Lock Background 65.8×124.9
+            //      @1716.6,722.06→1782.4,846.98` + `Lock icon 28.1×42.2`；我们这颗仍是
+            //      `50×50 @1310,690`（几何未核）—— 只影响「未拥有」那一支，本轮**不动几何**
+            //      （判据 → `资料/普查产出_第二十三会话/YI_恢复两块面板与异画钮.md` §八·1）。
+            var lockIcon = MenuDraw.Rect(p, CardArt.MenuUi("WF_Lock_Icon_Simple"),
+                                         new PxRect(1310f, 690f, 1360f, 740f), "Lock Icon", QCdRow, null, true);
+            bool lockOwnerHasItem = Card != null && CardProgress.Owned(Card.Id, Card.Rarity) > 0;
+            if (lockIcon != null) lockIcon.gameObject.SetActive(!lockOwnerHasItem);   // 本作恒 false
 
             // 🆕 **2026-10-12（A1699）：这颗价签**原来**一个命中区都没有**（`Buy Bg` 只是画了一张图）
             //   ⇒ 画面上立着一颗「看起来能点、点下去什么都不发生」的钮（本仓红线：不许静默失败）。
@@ -1223,10 +1239,10 @@ namespace CardPresentation
             //   ⚠️ **另一支（可购买 ⇒ 价签开、logo 关）本版永远走不到** ⇒ 那条链上的
             //      `GetOriginalArtPrice` / `PriceDisplayButton.Setup` **无从验**（⛔ 不假装买成功）。
             //   ⚠️ 顺带：`+0x38`（`lockIcon`）的判据是同一次调用里的 `SetActive(!HasItem(当前那张))` ——
-            //      **同一条「恒拥有」⇒ 原版在我们这种全解锁态下锁恒关**，而我们那颗 `Lock Icon` 仍在
-            //      `p` 下恒画、位置也不同（`1310,690→1360,740` ↔ 原版 `Lock Background` 1716.6,722.06→1782.4,846.98）
-            //      —— 那是**另一笔已立案的偏离**（`资料/普查产出_第二十三会话/YI_恢复两块面板与异画钮.md` §八·2），
-            //      **不在本笔口径内**（whitelist / 分工），⛔ 本轮**没动它**。
+            //      **同一条「恒拥有」⇒ 原版在我们这种全解锁态下锁恒关**。
+            //      ✅ **2026-10-17（`A1704`）本笔已落地**：上面那颗 `Lock Icon` 节点照建、**恒 `SetActive(false)`**
+            //      （判据与理由写在那一段注释里）。仍**未动**的只有它的**几何**（`50×50 @1310,690` ↔
+            //      原版 `Lock Background` 1716.6,722.06→1782.4,846.98）—— 只影响「未拥有」那一支。
             buyRoot.gameObject.SetActive(canBuyOriginal);
 
             // 🔴 **2026-10-17（D17 = 账上 A856）：「没有异画 ⇒ 整块关」** —— 判据 = 第一权威（反编译方法体）
@@ -1278,7 +1294,7 @@ namespace CardPresentation
             //   `MissingSwapArt` / `MissingPressedArt`（自检会红），**不静默画成没反应**。
             Hit(node, "ArrowHit " + side, r,
                 () => { ChangeAltStyle(left ? -1 : +1); }, QCdHit, face != null ? face : round,
-                "40k_general_bt_yellow");
+                "40k_general_bt_yellow", clickCue: WindowSounds.DefaultCloseCue);
         }
 
         // ---- 计数条（`Card Counter`，原版 §三）----
@@ -1409,8 +1425,16 @@ namespace CardPresentation
                 //    原版这四个数是 `WildcardDisplay` 的库存直出、跟着**指针悬停那张卡**的阵营走；
                 //    单机没有发放源 ⇒ 三处（详情窗 / 收藏窗 / 卡组编辑）统一写 99。
                 //    判据 → `项目任务.md` §三 第 15 条 第 29 项。
-                MenuDraw.Text(panel, new PxRect(x + 30f, WcBgT, x + 71f, WcBgB), "99", Color.white,
-                              "Wildcard Count " + i, WcPx, QCdText);
+                MenuDraw.Text(panel, new PxRect(x + 30f, WcBgT, x + 30f + DeckRuntime.WcCountWrapPx, WcBgB),
+                              DeckRuntime.WcCountText, Color.white,
+                              "Wildcard Count " + i, WcPx, QCdText,
+                              // 🔴 **2026-10-17（`A1229`）**：这一处原来**没传四格**（另两个宿主传了）——
+                              //   现按同一份共用常量补上。判据 = 原版
+                              //   `WIldcard Counter/Counters/{Common,Rare,Epic,Legendary}/Counter`
+                              //   **四颗逐值相同**：`m_fontSize 32.6` · `auto[10~38]` · `base 45` · 折行 1 · 框 41×44
+                              //   （出处 → `R5_包装层菜单族.md` §2 #1 · `R6` §2·F #38）。
+                              DeckRuntime.WcCountWrapPx, DeckRuntime.WcCountAutoMinPx,
+                              DeckRuntime.WcCountAutoMaxPx, DeckRuntime.WcCountAutoBasePx);
             }
             var fac = DeckRuntime.FactionIcon(Card.Faction);
             if (!string.IsNullOrEmpty(fac))
@@ -1616,7 +1640,8 @@ namespace CardPresentation
         }
 
         Transform Hit(Transform parent, string name, PxRect r, System.Action onClick, int q = QCdHit,
-                      ImageQuad target = null, string art = null, string hoverArt = null)
+                      ImageQuad target = null, string art = null, string hoverArt = null,
+                      string clickCue = null)
         {
             var hit = MenuDraw.Node(parent, name, r);
             var quad = ImageQuad.Create(hit, CardArt.Solid(), Vector3.zero, LayoutSpace.Px(r.H),
@@ -1629,6 +1654,7 @@ namespace CardPresentation
             }
             var wb = hit.gameObject.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            wb.clickCue = clickCue;
             if (target != null) wb.Bind(target, art, hoverArt);
             return hit;
         }

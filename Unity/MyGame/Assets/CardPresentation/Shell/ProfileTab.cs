@@ -297,7 +297,11 @@ namespace CardPresentation
         /// <summary>`MessageText`：fs 40 · auto[4~40] · Center/Midline · 白。</summary>
         const float MsgL = 540.13f, MsgT = 426.87f, MsgR = 1376.28f, MsgB = 501.13f;
         const float MsgPx = 40f, MsgAutoMin = 4f;
-        const string MsgText = "Choose your player name";
+        /// <summary>`MessageText` 的**出厂原文**（原版 prefab 那颗 TMP 的 `m_text`）。
+        /// 🔴 **2026-10-17（`A1756`）起上屏走词条** `MainMenu/Register/PleaseChooseName`
+        /// （官方两列 = `Choose your player name` / `选择你的玩家名字`，与出厂串逐字相同）
+        /// ⇒ ⛔ 别再把这个常量直接印到界面上。</summary>
+        public const string MsgTextFactory = "Choose your player name";
         /// <summary>`Change Name Button`（`PriceDisplayButton`）> `Generic UI Button`（`40K_button` · border 234,46,234,46）。</summary>
         const float CnbL = 822.82f, CnbT = 578.22f, CnbR = 1097.18f, CnbB = 645.78f;
         const float CnbTxL = 835.82f, CnbTxT = 587.84f, CnbTxR = 1084.18f, CnbTxB = 636.16f;
@@ -896,7 +900,7 @@ namespace CardPresentation
             //   ⇒ 补 `wrap: true` 钉死（防「`SetAutoFitBox` 副作用哪天没了就静默回退」）。
             // 🔴 **A406**：`ChooseNameWindow/MessageText` 原版 `auto[4.0~40.0] 基准=36.0` ⇒ 上限 40（= 标称）· base **36.0**。
             var msgR = new PxRect(MsgL, MsgT, MsgR, MsgB);
-            var lbMsg = Text(_nameWin, MsgText, msgR, Color.white, "MessageText",
+            var lbMsg = Text(_nameWin, Loc.T("MainMenu/Register/PleaseChooseName"), msgR, Color.white, "MessageText",
                  MsgPx, L_Title, autoFit: true, autoMinPx: MsgAutoMin, alignLeft: false, wrap: true,
                  autoMaxPx: 40f, basePx: 36f);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 同 `:297` 那条（原版 `Center/**Midline**`，
@@ -962,7 +966,8 @@ namespace CardPresentation
             //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "ChooseNameWindow" --depth 6
             //   --substr "Close Button Green" --ignore-active`（出厂 inact ⇒ 要加那个开关；实读 `96.37 x 94.50`）。
             Hit(cb, "Hit", MenuDraw.PaddedRect(new PxRect(CbIcL, CbIcT, CbIcR, CbIcB), ClosePad),
-                L_NameHit, CancelNameWindow, cbIconQ, ArtCloseIcon, "40k_bt_close_hover");
+                L_NameHit, CancelNameWindow, cbIconQ, ArtCloseIcon, "40k_bt_close_hover",
+                clickCue: WindowSounds.DefaultCloseCue);
 
             _nameWin.gameObject.SetActive(false);   // 出厂 F（`ProfileTab.Start:19` 显式关它）
         }

@@ -512,7 +512,7 @@ namespace CardPresentation
                 //    判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "SkirmishModeEventWindow"
                 //    --depth 8 --substr "Deck Buttons/Previous"`（实读 `160.49 x 133.01`）。
                 MenuDraw.Hit(b, "Hit", MenuDraw.PaddedRect(IconBox(x1, y1, x2, y2), IconPad),
-                             QHit, acts[i], iconQ, icons[i]);
+                             QHit, acts[i], iconQ, icons[i], clickCue: WindowSounds.DefaultCloseCue);
             }
         }
 
@@ -801,7 +801,8 @@ namespace CardPresentation
                 //    （`Hit` 也不收这个形参）：原版 `m_Softness` 只改渲染，射线那一面只看矩形。
                 int idx = i;
                 MenuDraw.Hit(cell, "Hit", rr, QHit, () => PickArmy(idx), bgQ,
-                             sel ? ArtArmyOn : ArtArmyBack, ArtArmyHover, ArtArmyOn, null);
+                             sel ? ArtArmyOn : ArtArmyBack, ArtArmyHover, ArtArmyOn, null,
+                             clickCue: WindowSounds.SelectAvatarCue);
                 ArmyCells.Add(cell);
             }
             if (!_armyDataNoteShown)
@@ -909,7 +910,10 @@ namespace CardPresentation
             var btBg = MenuDraw.Rect(btn, Tex(ArtMulligan), new PxRect(BattleL, BattleT, BattleR, BattleB),
                           "Bg", QArt, null, true);
             // 原版 hAlign = **Center** ⇒ 不调 `Align*`（原来右对齐了）
-            MenuDraw.Text(btn, new PxRect(BattleTxL, BattleTxT, BattleTxR, BattleTxB), "Battle!",
+            // 🔴 **2026-10-17（`A1511(b)`）**：文案改走词条 —— 原版这颗 `Button Text` 挂 `Localize`，
+            //   `mTerm = Demo/ToBattle`（en `Battle` · zh `战斗`；键与中文出处 → `Core/Loc.cs:471`）。
+            //   原来写死的 `"Battle!"` 是 prefab 出厂占位串，⛔ 别按它保留英文。
+            MenuDraw.Text(btn, new PxRect(BattleTxL, BattleTxT, BattleTxR, BattleTxB), Loc.T("Demo/ToBattle"),
                           Color.white, "Button Text", 74.25f, QText);
 
             var icons = MenuDraw.Node(btn, "ButtonIcons", new PxRect(BIconsL, BIconsT, BIconsR, BIconsB));
@@ -938,7 +942,7 @@ namespace CardPresentation
 
             // 🆕 A17：原版 `To Battle Button` 是 SpriteSwap（普查 §块 4 第 14 行）
             MenuDraw.Hit(btn, "BattleHit", new PxRect(BattleL, BattleT, BattleR, BattleB), QHit, () => StartMatch(),
-                         btBg, ArtMulligan);
+                         btBg, ArtMulligan, clickCue: WindowSounds.PositiveCue);
         }
 
         /// <summary>`Help Button`（原版 `40K_generic_bt_info`，`m_LocalScale 0.7357` ⇒ 真渲出来 65.13²）。

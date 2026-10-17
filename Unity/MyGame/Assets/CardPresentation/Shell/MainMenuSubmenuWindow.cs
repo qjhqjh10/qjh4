@@ -600,6 +600,29 @@ namespace CardPresentation
             //     的档案窗键循环里（按 `TmpRenderedRect` 找），且早已换成 `TmpRenderedRect`）。）
             if (txt != null) txt.SetWrapping(false);
 
+            // 🔴🆕 **2026-10-17（`A1643`）：补上原版 `TabButtonLabel` 漏掉的两档（字距 + 纵向对齐）。**
+            //   判据（`工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 6` 现读，
+            //   四颗 `…/Tab Buttons/{Deck,Cards,CardBacks,Alternate Art}/Label/TabButtonLabel` **逐颗同值**）：
+            //     `字号=36.0 基准=23.0 auto[5.0~36.0] 对齐=Center/**Midline** 折行=0 色=(0.957,0.882,0.675,1) **字距=-3.5**`
+            //   ⇒ 我们此前只对上了 色 / 字号 / auto / 折行 / 底图 / 图标框，**这两样一个都没传**
+            //   （`Shell/MenuWindowBase.cs`（今 `MainMenuSubmenuWindow.cs`）的 `BuildTabButton`）。
+            //   ⚠️ 盒子 = 上面那块 `Label` 底（`cx ± labW*0.5` · `lb-labH..lb`）—— 与 `Text(...)` 那六个实参
+            //     **同一个矩形**，⛔ 别另算一份（A265 那笔「文字自己的框 ≠ 整颗钮的框」就是教训）。
+            //   ⚠️ 次序：`SetCharSpacing` 要排在 `SetAutoFitBox`（`Text` 内部）**之后** —— 它会带新字距
+            //     重跑一次自适应（见 `Battle/Label.cs` 的 `SetCharSpacing` doc）；`SetVAlign` 排在最后
+            //     （与 `WindowHeader.WithBackButton` 里 `SetCharSpacing → SetVAlign` 的次序一致）。
+            //   ⚠️ **四扇窗共用本函数**（奖励 / 商店 / 收藏 / 社交）⇒ 一次改、四窗同时对齐原版；
+            //     原版四窗的 `TabButtonLabel` 都是 `Center/Midline` + `字距 −3.5`（本轮逐窗现读）。
+            //   🧨 改坏法：删掉这两句 ⇒ `Editor/RewardsScene` / `ShopScene` / `CollectionScene` /
+            //     `MainMenuScene` 那四段「左栏页签」断言里**没有一条**盯字距/纵向档（那四段断的是
+            //     「渲出来的宽 ≤ 155」与文案）⇒ 今天**没有断言咬得住**（如实登记，别为它发明判据）。
+            if (txt != null)
+            {
+                txt.SetCharSpacing(-3.5f);                 // 原版 `m_characterSpacing = −3.5`
+                MenuDraw.SetVAlign(txt, Label.VAlign.Midline,
+                                   new PxRect(cx - labW * 0.5f, lb - labH, cx + labW * 0.5f, lb));
+            }
+
             // `Badge Highlight`：35²；色 **#BCBCBC**；纵向偏置**逐键不同**（见 `TabBtnSpec.BadgeDy`）。
             // 🔴 原版四个键**出厂 `m_IsActive = 1`**，但显隐走 `UiBadgeNotification` 的 **alpha 补间**
             //    （`Show()` → 1.0 + 文本=计数 · `Hide()` → 0）—— **不是 `SetActive`**。

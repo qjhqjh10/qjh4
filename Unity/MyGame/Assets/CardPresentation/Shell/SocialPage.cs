@@ -228,8 +228,9 @@ namespace CardPresentation
         /// （= `A822` 要补的那一条，判据与落点见 `Text` 的头）。</para></summary>
         public Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                              ImageQuad target = null, string art = null,
-                             string hoverArt = null, string pressedArt = null)
-        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt); }
+                             string hoverArt = null, string pressedArt = null, string clickCue = null)
+        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt,
+                              clickCue: clickCue); }
 
         /// <summary>点了**还没接**的东西 —— 一律出声（红线：不许静默失败）。</summary>
         public static void Say(string what)

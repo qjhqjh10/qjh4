@@ -45,18 +45,16 @@
 //    **这一副当中途的「我的卡组」、本窗选出来的那副当【对手】** ⇒ 回调 `DeckInfoPopup.StartPracticeMatch`
 //    （判据与订正 → `Shell/DeckInfoPopup.cs` 文件头那段）。本窗**不用改**：它本来就只负责
 //    「列出来 → 选一个 → 把选中那个交给 `OnPicked`」。
-//   🆕 **2026-10-17（D18）：还差一行「第 5 条入口」—— 记在这里，⛔ 不建那颗钮。**
-//     原版 `Deck info Popup` 的 `Deck Options`（`DeckInfoControls`）上有一颗 **`Select Deck`**
-//     （序列化字段 `selectButton` = 8 颗钮里的第 2 颗，偏移 `+0x28`）。
-//     它**在本 build 里永不出现**：显示规则是 `context.SelectButton != null`，而
-//     `DeckInfoContext` 的 **6 个调用点（`DeckCollectionTab` / `DeckDrawer` / `DeckGeneralInfoDemo` /
-//     `RankedEventWindow` / `RankedDeckSelector` / `ChatMessageUI`）全传 `null`**，
-//     且 `DeckInfoContext.set_SelectButton` **全库无调用者** ⇒ 实拍也没有这颗钮。
+//   🆕 **2026-10-17（D18）：`Deck info Popup` 的 `Deck Options` 上那颗 `Select Deck`**（序列化字段
+//     `selectButton` = 8 颗钮里的第 2 颗，偏移 `+0x28`）。
+//     🔴 **2026-10-17（T24）就地订正（铁律 5）：D18 那两句「它在本 build 里永不出现」「连线未验」都不成立。**
+//       · **它会出现**：那张「6 个调用点全传 null」的表**漏了第 7 个构造点 = 本窗的 `UpdateInfo`**
+//         —— 它内联构造 `DeckInfoContext` 时把 `+0x20`（`SelectButton`）写成**非空**
+//         （`decomp_full/DeckSelectionPopup__UpdateInfo.c`），所以「点一行」那条路上这颗钮**真的露**。
+//       · **连线已验**：它的动作就是闭包 `DisplayClass13_0.<UpdateInfo>b__0` = **本窗 `Close()` + `Callback(那一副)`**
+//         （`DeckInfoControls__OnSelect.c` 先关信息窗、再调这颗钮的动作）⇒ 它**就是**本窗的「选定」口，
+//         而 `UpdateInfo` 开的也正是 `Deck info Popup`。⛔ 不需要再找别的「第 5 条入口」。
 //     逐处实读与偏移表 → `Shell/DeckInfoPopup.cs:66-70` 与 `:109`（**判据只此一份，别抄第二份**）。
-//     ⚠️ **它到底连不连本窗，本轮没查到** —— 全量反编译里**只有 `SelectPracticeOpponentDeck` 一处**
-//     用了 `DeckInfoPopup.deckSelectionPopup`（`param_1[0x1a]`，grep 全 `decomp_full` 只此一命中），
-//     而 `Select Deck` 那颗钮的 onClick 落点**没有反编译产物** ⇒ 如实记「**连线未验**」，
-//     ⛔ 不因为它「像」就写成本窗的第 5 条入口。
 //
 // ============================ 🆕 2026-10-17：本窗这一轮的四处改动（D11 / D12 / D16 / D18）============================
 //   · **D11 空态**：原版只有 `Deck Scroll View/Empty Collection Warning` **一件**（视口那一格 + 子 TMP `Warning`，
@@ -65,7 +63,25 @@
 //     `offSprite=40K_tab_button_overwindow`、`onColor=(1,0.6308285,0,1)` / `offColor=(1,0.5442529,0,1)`），
 //     **文字两态都是白的** ⇒ 原来那套「用文字色区分」删掉了（判据全文 → `BuildTab` 的注释）。
 //   · **D16 格子的 `Ban Icon` / `Create`**：触发条件**查清了、都不建**（全文 → `RebuildCells` 里那段长注释）。
-//   · **D18 `Select Deck` 那颗钮**：记一行、**不建**（判据只此一份在 `Shell/DeckInfoPopup.cs:66-70`）。
+//   · **D18 `Select Deck` 那颗钮**：D18 当时记成「不建」—— 🔴 **2026-10-17（T24）已推翻**：那颗钮在
+//     「点一行」这条路上**会出现、而且就是选定口**（`SelectButton` 非空 + 动作 = 本窗关窗 + 回调；见上面 D18 那段订正）。
+//
+// ============================ 🆕 2026-10-17（T24）：**点一行 = 开信息窗**（不是直接选中）============================
+//   🔴 **改前**：格子的点击闭包是 `() => Pick(pick)`（直接选中 + 关窗）。
+//   ✅ **原版**：`CollectionDisplay.OnItemSelected` → `DeckSelectionPopup.UpdateInfo(item, button)`
+//      → 建 `DeckInfoContext { Deck, State=deckInfoMode, SelectButton=非空, CheckOwnership=(state!=3),
+//        EditButtonAction=null }` → `WindowsManager.OpenWindow(Deck info Popup)`。**这一下不选中、也不关本窗。**
+//      真正「选定」= 信息窗里那颗 `Select Deck`：`DeckInfoControls.OnSelect` 先关信息窗、再调
+//      `context.SelectButton` 的动作（= 本窗 `Close()` + `Callback(这一副)`）。
+//      判据逐句：`decomp_full/DeckSelectionPopup__UpdateInfo.c` ·
+//      `DeckSelectionPopup.__c__DisplayClass13_0___UpdateInfo_b__0.c` · `DeckInfoControls__OnSelect.c`。
+//   · **`deckInfoMode` = 3（Practice）**：`TryOpen` 先传 0，随后 `DeckSelectionTabController.Start →
+//     ShowPrebuiltDecks(true)` 传 3，三个切页入口也都传 3 ⇒ 玩家点得到行那一刻就是 3。
+//     信息窗在 state 3 ⇒ 只露 `Select Deck` + `Switch Deck Info`（其余 7 颗按判据藏）。
+//   · **预组卡组也能开**：原版两边都是 `CardDeck`；我们给那扇窗现造一个只读 `PlayerDeck`（`PrebuiltPlayerDeck`）。
+//   · **队列**：信息窗必须画在本窗（3125–3129）**之上** ⇒ 它那一支用 `DeckInfoPopup.QDIOver`(3130)，
+//     默认档 `QDI`(3120) 会给本窗整块盖死（判据与撞档说明 → `DeckInfoPopup.QDIOver` 那段）。
+//   · `Random` 那颗**仍然直接选中 + 关窗**（原版 `DeckSelectionTabController__RandomizeDeck.c` 两步与 `Select` 逐句相同）。
 //
 // ============================ 没建的 / 我们挑的（逐条出声）============================
 //   · ✅ **2026-09-26：「预组卡组」那一页接上了**（此前恒空）。数据 = `Resources/prebuilt_decks.json`，
@@ -113,9 +129,14 @@ namespace CardPresentation
         //   `QDsHit` 2 处（`CheckShadeRule` · `CheckAbsorbRule`）；`QDsRow`/`QDsText` **外部引用 = 0** ⇒ 回 `const`。
         //   ⚠️ 另核过：同文件里的另一个类 `DeckPick` 不用它们；`class X : DeckSelectionPopup` 全 0。
         public const int QDs = 3125;        // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（3 处）
-        const int QDsRow = 3126;            // 3126 卡组行
-        const int QDsText = 3127;           // 3127 行上的字
-        public const int QDsHit = 3128;     // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（2 处）
+        // 🔴 **2026-10-17（A1529①）**：新开 `QDsHi` = 卡组格选中金环那一档 —— 原版 `Highlight` 是
+        //    `Deck` 的 child[0]（**最底**，`menu_dump --rt -1941218197625697718 --depth 3` 实读）
+        //    ⇒ 必须**高于压暗层 `QDs`、低于卡组行 `QDsRow`**。原来行/字/命中三档顺延 +1（3127/3128/3129），
+        //    彼此相对关系一个字没动（`QDsRow`/`QDsText` 外部引用 = 0；`QDsHit` 仍 `public`、引用处都走常量）。
+        const int QDsHi = 3126;             // 3126 卡组格的选中金环（原版 `Highlight`，最底层）
+        const int QDsRow = 3127;            // 3127 卡组行
+        const int QDsText = 3128;           // 3128 行上的字
+        public const int QDsHit = 3129;     // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（2 处）
 
         // ---- 几何（A1 §3 逐条；2026-09-24 从根节点复核过，见文件头）----
         public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
@@ -232,6 +253,37 @@ namespace CardPresentation
         /// <summary>点一套之后干什么（**关窗 + 回调** —— 原版 `DeckSelectionPopup.Select` 就是这两步）。</summary>
         public System.Action<DeckPick> OnPicked;
 
+        // ============================================================ 🆕 2026-10-17（T24）：点一行的语义 = 开信息窗
+        // 原版 `DeckSelectionPopup.UpdateInfo(CollectionItem<CardDeck>, PointerEventData.InputButton)`
+        // （签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/DeckSelectionPopup.cs`；
+        //  接线 = `CollectionDisplay<T>.OnItemSelected`，签名 `Action<CollectionItem<T>, PointerEventData.InputButton>`）
+        // 做的是：建 `DeckInfoContext` → `WindowsManager.OpenWindow(Deck info Popup)` —— **不选中、也不关本窗**。
+        // 判据逐句 → `decomp_full/DeckSelectionPopup__UpdateInfo.c`（本类 `UpdateInfo` 的 doc 里引了那几句）。
+        // ⚠️ 我们改前这里是 `Pick(pick)`（直接选中 + 关窗）⇒ 与原文相反，已按原版改。
+
+        /// <summary>🆕 **点一行开出来的 `Deck info Popup` 用哪一态** = 原版私有字段 `deckInfoMode`
+        /// （`DeckSelectionPopup.cs` 签名桩里的 `DeckInfoContext.DeckInfoStates deckInfoMode`）。
+        /// 取值来源（逐处实读）：
+        /// · `DeckSelectionPopup__TryOpen.c` 末尾 `Initialize(…, overrideDeckInfoMode = **0 = Edit**)`；
+        /// · 随后 `DeckSelectionTabController__Start.c` → `ShowPrebuiltDecks(true)` → `Initialize(…, **3**)`
+        ///   （`ShowOwnDecks` / `ShowPrebuiltDecks` / `Refresh` 三个入口**都传 3**）。
+        /// ⇒ 玩家**点得到行**的那一刻，这个字段已经是 **3（Practice）**（`Start` 在同一帧稍后跑、早于任何点击）。
+        /// `UpdateInfo` 用它当 `DeckInfoContext.State`，并且 `CheckOwnership = (state != 3)`。
+        /// 🔴 别把它当成「本窗自己的层/排序」—— 它只决定信息窗里 8 颗钮哪几颗露（见 `DeckInfoPopup.DeckInfoState`）。</summary>
+        public DeckInfoPopup.DeckInfoState DeckInfoMode = DeckInfoPopup.DeckInfoState.Practice;
+
+        /// <summary>🆕 `Select Deck` 那颗钮的文案词条 —— 原版 `DeckSelectionPopup` 的序列化字段 `selectString`：
+        /// `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_9087721988209816959.json` 的
+        /// `{"mTerm": "MenuDeck/Tip/SelectDeck"}`。
+        /// 官方本地化值（`Unity/数据/游戏数据/官方本地化_en+zh-CN.json` → `terms["MenuDeck/Tip/SelectDeck"]`）=
+        /// EN `Select deck` / ZH `选择卡组`。
+        /// ⚠️ `Core/Loc.cs` 现读**还没有这一条**（那张表里只有 `MenuDeck/Tip/SelectDeckAgainst`；
+        ///   ⛔ 别把它当成已录）⇒ 取词一律先 `Loc.HasEntry`，缺了回英文原值并出声（⛔ 不许把键名印到钮上）。</summary>
+        public const string SelectDeckTerm = "MenuDeck/Tip/SelectDeck";
+
+        /// <summary>🆕 T24：最近一次「点一行」开出来的 `Deck info Popup`（自检口；`PickRandom` / `Pick` 不设它）。</summary>
+        public static DeckInfoPopup LastInfoPopup;
+
         public MenuScroll Scroll;
         /// <summary>画出来的格（自检用）。</summary>
         public readonly List<Transform> Cells = new List<Transform>();
@@ -299,6 +351,10 @@ namespace CardPresentation
             // `ShowPrebuiltDecks(true)`（`DeckSelectionTabController__Start.c:5`）⇒ **起手落在「预组卡组」页**。
             // 我们原来写死 `OwnDecks = true`，那是因为预组那一页当时没数据（文件头那条偏离）—— **现在数据接上了，回退偏离**。
             OwnDecks = false;
+            // 🆕 **2026-10-17（T24）**：`DeckInfoMode` 跟着同一跳走 —— 原版 `TryOpen` 先传 0（Edit）、
+            //   紧接着 `Start → ShowPrebuiltDecks(true)` 传 **3（Practice）**；玩家点得到行那一刻看到的就是 3
+            //   ⇒ 我们在这同一处（本方法同时承担 TryOpen + Start 两跳）直接落 3，见字段 doc。
+            DeckInfoMode = DeckInfoPopup.DeckInfoState.Practice;
             DeckIndex = FirstOwnDeckInMode(CollectionData.CurrentIndex());
             PrebuiltId = "";
             Build();
@@ -453,7 +509,8 @@ namespace CardPresentation
                 MenuDraw.Text(root, rr, Loc.T("MenuDeck/Button/Random"), Color.white, "Random Text", 45f, QDsText);
                 // A17：原版 `…>Practice buttons>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 3 第 9 行）；
                 // 底下那颗 `EverguildButton`(trans=1) 不换图 —— 换图的是 `Button` 那颗
-                Hit(root, "RandomHit", rr, PickRandom, QDsHit, randomBg, "UI_Button_Mulligan");
+                Hit(root, "RandomHit", rr, PickRandom, QDsHit, randomBg, "UI_Button_Mulligan",
+                    clickCue: WindowSounds.PositiveCue);
             }
 
             // 5) ❌ **搜索框不建**（按原版：预制体里 `Collection Menu Input Field` 出厂 `act=N`，
@@ -544,7 +601,8 @@ namespace CardPresentation
             //   --depth 8 --substr "Generic Close Button"`（实读 `96.86 x 98.13`）。
             Hit(root, "CloseHit",
                 MenuDraw.PaddedRect(new PxRect(ix, iy, ix + CloseIw, iy + CloseIh), ClosePad),
-                () => Close(), QDsHit, closeFace, "40k_general_bt_yellow", "40k_general_bt_yellow_hover");
+                () => Close(), QDsHit, closeFace, "40k_general_bt_yellow", "40k_general_bt_yellow_hover",
+                clickCue: WindowSounds.DefaultCloseCue);
 
             if (MissingArtCount() > 0)
                 Debug.LogWarning("[DeckSel] ⚠️ 有 " + MissingArtCount() + " 张图取不到（**这几件没画**）：" + MissingArtList());
@@ -616,6 +674,9 @@ namespace CardPresentation
         {
             if (OwnDecks == own) return;
             OwnDecks = own;
+            // 🆕 **2026-10-17（T24）**：原版三个切页入口（`ShowOwnDecks` / `ShowPrebuiltDecks` / `Refresh`）
+            //   调 `Initialize(…, overrideDeckInfoMode = 3)` ⇒ 切过一次页签之后 `deckInfoMode` 恒为 3。
+            DeckInfoMode = DeckInfoPopup.DeckInfoState.Practice;
             DeckIndex = -1;
             Debug.Log("[DeckSel] 切到「" + (own ? "我的卡组" : "预组卡组") + "」那一页");
             RebuildAll();
@@ -623,6 +684,81 @@ namespace CardPresentation
 
         // ❌ **`BeginTyping` / `RefreshSearchText` 已删**（2026-09-26）—— 搜索框不建了，见 `Search` 那段注释与 `Build()` 第 5 步。
         //    原版的 `Filter`（按卡组名过滤）那条路因此在我们这儿不会触发；**这是照原版的**（原版也够不到那个输入框）。
+
+        /// <summary>🆕 **2026-10-17（T24）**：**点一行** = 原版 `DeckSelectionPopup.UpdateInfo`
+        /// （逐句判据 = `decomp_full/DeckSelectionPopup__UpdateInfo.c`）：
+        ///
+        /// <code>
+        /// lVar3 = new DeckInfoContext();                       // 内联构造，字段逐条写
+        /// lVar3.Deck              = 点中的那一副;               // (+0x10)
+        /// lVar3.State             = deckInfoMode;              // (+0x18) ← 本类 `DeckInfoMode`
+        /// lVar3.SelectButton      = new GameWindowButton(LocalizedString(selectString),
+        ///                                               &lt;UpdateInfo&gt;b__0);   // (+0x20) 非空！
+        /// lVar3.CheckOwnership    = (deckInfoMode != 3);       // (+0x28)
+        /// lVar3.EditButtonAction  = null;                      // (+0x30)
+        /// WindowsManager.Instance.OpenWindow(Deck info Popup, lVar3);   // 末尾
+        /// </code>
+        ///
+        /// <para>而那个 `SelectButton` 的动作（`DeckSelectionPopup.__c__DisplayClass13_0___UpdateInfo_b__0.c`）是：
+        /// `DeckSelectionPopup.Close()` → `context.Callback(这一副)` —— 与我们 `Pick` 的两步**逐句相同**。</para>
+        ///
+        /// <para>🔴 **这一下不选中、也不关本窗**（旧实现是 `Pick(pick)` = 直接选中 + 关窗 ⇒ 真偏离，已改）。
+        /// 信息窗里那颗 `Select Deck` 才是「选定」：`DeckInfoControls__OnSelect`（`popup.Close()` → 调动作）。</para>
+        ///
+        /// <para>两种卡组走同一条：预组那份按 `PrebuiltDecks.Deck` **现造一个 `RuleEngine.PlayerDeck`** 交给
+        /// `DeckInfoPopup.CreateForPicked`（它不在收藏库里）；自建那一份传库下标。原版两边都是同一个 `CardDeck`。</para></summary>
+        public void UpdateInfo(DeckPick pick)
+        {
+            if (Manager == null)
+            {
+                Debug.LogWarning("[DeckSel] 点行开信息窗：没有 `WindowsManager` ⇒ 开不了（出声，不静默）");
+                return;
+            }
+            // ⚠️ 预组那一格却拿不到 `PrebuiltDeck` ⇒ 开出来会是一扇空窗 ⇒ 出声早退（`Shown()` 不会产出这种格，
+            //    这里只是兜底 —— 红线：不许静默失败）。
+            if (pick.Prebuilt && pick.PrebuiltDeck == null)
+            {
+                Debug.LogWarning("[DeckSel] 点行开信息窗：这一格标着「预组」但没有 `PrebuiltDeck` ⇒ 不开（出声，不静默）");
+                return;
+            }
+            // 文案 = 原版那扇窗的 `selectString`（`MenuDeck/Tip/SelectDeck`）。⚠️ `Core/Loc.cs` 还没有这条 ⇒
+            //   `Loc.HasEntry` 判一下，缺了回**官方英文原值**并出声（⛔ 别印键名、也别静默回空串）。
+            string label;
+            if (Loc.HasEntry(SelectDeckTerm)) label = Loc.T(SelectDeckTerm);
+            else
+            {
+                label = "Select deck";      // 官方 EN 值（`官方本地化_en+zh-CN.json` → terms[键][0]）
+                Debug.LogWarning("[DeckSel] `Core/Loc.cs` 里没有词条 `" + SelectDeckTerm + "`（官方值为 EN `Select deck` / "
+                               + "ZH `选择卡组`）⇒ `Select Deck` 那颗钮先显示英文原值。**键名不印到界面上**。");
+            }
+
+            var w = DeckInfoPopup.CreateForPicked(
+                Manager,
+                pick.Prebuilt ? -1 : pick.OwnIndex,
+                pick.Prebuilt ? PrebuiltPlayerDeck(pick) : null,
+                pick.Info,
+                DeckInfoMode,
+                !pick.Prebuilt,                 // 原版 `InventoryManager.HasItem(context.Deck)`：预组不在库存里
+                label,
+                () => Pick(pick));              // 原版 `context.Callback` = 关选卡组窗 + 回调（= 我们 `Pick`）
+            Manager.OpenWindow(w);
+            LastInfoPopup = w;
+            Debug.Log("[DeckSel] 点行 ⇒ 开 `Deck info Popup`（原版 `UpdateInfo`；state = " + DeckInfoMode
+                      + " · SelectButton = 非空 ⇒ 那颗「" + label + "」）。本窗**不关**；"
+                      + "选定由那扇窗的 `Select Deck` 完成（`" + pick.Info.Name + "`）");
+        }
+
+        /// <summary>把一副预组卡组包成 `RuleEngine.PlayerDeck`（`DeckInfoPopup` 的卡表 / 费用曲线 / 防御卡读的就是它）。
+        /// ⚠️ 这是**只读视图**：`CardIds` 是 `PrebuiltDecks.Deck.cardIds` 的**新列表**（`PlayerDeck` 的 ctor 会 copy），
+        /// 不会写回预组数据；⛔ 别拿它去 `CollectionData` 的任何「按库下标」动作（编辑/删除/复制都由
+        /// `DeckInfoPopup` 那几颗钮的 `OverrideDeck` 闸挡住）。</summary>
+        static RuleEngine.PlayerDeck PrebuiltPlayerDeck(DeckPick pick)
+        {
+            var d = pick.PrebuiltDeck;
+            if (d == null) return null;
+            return new RuleEngine.PlayerDeck(d.DisplayName, d.heroId, d.defensiveId, d.cardIds, d.gameMode)
+            { CardbackId = d.cardback };
+        }
 
         /// <summary>抽一套（原版 `RandomizeDeck`：从当前列表随机挑 ⇒ **选中并关窗**）。</summary>
         public void PickRandom()
@@ -732,8 +868,16 @@ namespace CardPresentation
                 //      在 `ShowPrebuiltDecks` 里置 1、`ShowOwnDecks` 里置 0（`DeckSelectionTabController__*.c`）
                 bool pre = pick.Prebuilt && pick.PrebuiltDeck != null;
                 Cells.Add(MenuDraw.DeckCell(this, parent, cellName, r, pick.Info, sel,
-                                            QDsRow, QDsText, QDsText + 1, QDsHit,
-                                            () => Pick(pick),
+                                            // 🆕 **2026-10-17（A1529①）**：`qBelow` = 选中金环那一档 ——
+                                            //   原版 `Highlight` 是 `Deck` 的 child[0]（最底），必须落在 `QDsRow` **之下**、
+                                            //   压暗层 `QDs` **之上** ⇒ `QDsHi`（3126）。⛔ 别改回「行那一档」或更高。
+                                            QDsRow, QDsHi, QDsText, QDsText + 1, QDsHit,
+                                            // 🆕 **2026-10-17（T24）**：原来是 `() => Pick(pick)`（直接选中 + 关窗）——
+                                            //   **与原文相反**。原版点一行 = `DeckSelectionPopup.UpdateInfo` = **开信息窗**
+                                            //   （不选中、不关本窗）；「选定」由那扇窗里的 `Select Deck` 完成
+                                            //   （`DeckInfoControls__OnSelect` → `SelectButton` 的动作 = 本窗 `Close()` + 回调）。
+                                            //   判据逐句 → `UpdateInfo` 的 doc。
+                                            () => UpdateInfo(pick),
                                             pre ? (int?)pick.PrebuiltDeck.gameMode : null,
                                             pre ? (int?)pick.PrebuiltDeck.difficulty : null,
                                             showDifficulty: !OwnDecks));
@@ -806,7 +950,8 @@ namespace CardPresentation
         // ============================================================ 小工具
 
         Transform Hit(Transform parent, string name, PxRect r, System.Action onClick, int q = QDsHit,
-                      ImageQuad target = null, string art = null, string hoverArt = null)
+                      ImageQuad target = null, string art = null, string hoverArt = null,
+                      string clickCue = null)
         {
             var hit = MenuDraw.Node(parent, name, r);
             var quad = ImageQuad.Create(hit, CardArt.Solid(), Vector3.zero, LayoutSpace.Px(r.H),
@@ -819,6 +964,8 @@ namespace CardPresentation
             }
             var wb = hit.gameObject.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            // 🆕 2026-10-17（音效线 S01）：逐颗 cue（原版 `m_onClickSound`）。
+            wb.clickCue = clickCue;
             if (target != null) wb.Bind(target, art, hoverArt);
             return hit;
         }

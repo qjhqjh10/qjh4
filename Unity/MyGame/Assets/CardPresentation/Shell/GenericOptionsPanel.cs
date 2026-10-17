@@ -491,7 +491,7 @@ namespace CardPresentation
                 //    ⚠️ 我们画的文字本来就按 `BtnTextRect(br)`（330.77×86.17 居中）画 ⇒ 并集 = 「按钮的
                 //    x 两边 + 文字矩形那两条 y 边」。
                 var hit = MenuDraw.Hit(bn, "Hit", new PxRect(br.x1, txR.y1, br.x2, txR.y2),
-                                       QHit, () => OnButton(item, i));
+                                       QHit, () => OnButton(item, i), clickCue: WindowSounds.PositiveCue);
                 if (hit != null && bgo != null)
                 {
                     var wb = hit.GetComponent<WindowButton>();

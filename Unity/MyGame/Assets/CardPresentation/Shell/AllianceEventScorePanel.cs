@@ -132,7 +132,8 @@ namespace CardPresentation
             //   英文列 = TMP 原文 `Leaderboard`；中文列 = `zh_CN.csv:119`「排行榜」。
             MenuDraw.Text(_viewLb, vtx, Loc.T("MainMenu/RankedWindow/Leaderboard"), Color.white, "Button Text", 40f, QText);
             MenuDraw.Hit(_viewLb, "ButtonHit", vr, QHit, OnLeaderboardClick, vbg, ArtMulligan,
-                         ArtMulligan + "_hover", ArtMulligan + "_Pressed");
+                         ArtMulligan + "_hover", ArtMulligan + "_Pressed",
+                         clickCue: WindowSounds.PositiveCue);
 
             //   ③ `Alliance Event Score Info`（**嵌套子 prefab**，框与本件 standalone 那一份逐位相同，
             //      只是原点偏到 (54.84,144.36) —— 现读两处的子件坐标差**恰好**是这个偏移）
@@ -166,7 +167,8 @@ namespace CardPresentation
             MenuDraw.Text(_joinBtn, Off(JoinBtnTxR, x1, y1), Loc.T("MenuDeck/HUD/SearchFilter"),
                           Color.white, "Button Text", 36f, QText);
             MenuDraw.Hit(_joinBtn, "ButtonHit", jbR, QHit, OnJoinAllianceClick, jbg, ArtMulligan,
-                         ArtMulligan + "_hover", ArtMulligan + "_Pressed");
+                         ArtMulligan + "_hover", ArtMulligan + "_Pressed",
+                         clickCue: WindowSounds.PositiveCue);
             var lbR = Off(NoLbR, x1, y1);
             _noLb = MenuDraw.Node(_noAlliance, "Leaderboard Button", lbR);
             var lbg = MenuDraw.Rect(_noLb, Art(ArtMulligan), lbR, "Bg", QArt);
@@ -176,7 +178,8 @@ namespace CardPresentation
             MenuDraw.Text(_noLb, Off(NoLbTxR, x1, y1), Loc.T("MainMenu/RankedWindow/Leaderboard"),
                           Color.white, "Button Text", 36f, QText);
             MenuDraw.Hit(_noLb, "ButtonHit", lbR, QHit, OnLeaderboardClick, lbg, ArtMulligan,
-                         ArtMulligan + "_hover", ArtMulligan + "_Pressed");
+                         ArtMulligan + "_hover", ArtMulligan + "_Pressed",
+                         clickCue: WindowSounds.PositiveCue);
 
             // 出厂那一档 = `In Alliance` 开 / `No Alliance` 关（= prefab 实测值）
             SetInAlliance(true);

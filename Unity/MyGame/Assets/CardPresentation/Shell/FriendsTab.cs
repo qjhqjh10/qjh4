@@ -199,7 +199,8 @@ namespace CardPresentation
             // 🆕 A17：原版 `Social Submenu Variant>Friends Tab>Header>Find players panel>{Add Friend,Instant duel}` 都是
             // SpriteSwap，高亮图 = `UI_Button_Organe_Square_Hover`（普查 §块 5 第 16 行）—— 九宫底图 ⇒ 九张一起换
             var addH = Hit(add, "Hit", AddFriendR, L_Hit,
-                () => Say("`Add Friend Button`：加好友要**服务器**（原版发一条好友请求）—— 本地没有那个源。"));
+                () => Say("`Add Friend Button`：加好友要**服务器**（原版发一条好友请求）—— 本地没有那个源。"),
+                clickCue: WindowSounds.PositiveCue);
             _addFriendHit = add.Find("Hit");
             var addWb = addH != null ? addH.GetComponent<WindowButton>() : null;
             if (addWb != null) addWb.BindNine(addNine, "UI_Button_Organe_Square_Normal");
@@ -209,7 +210,8 @@ namespace CardPresentation
             Rect(duel, "40K_bt_challenge1", InstantDuelIconR, "Icon", L_Art, null, true);
             var duelH = Hit(duel, "Hit", InstantDuelR, L_Hit,
                 () => Say("`Instant duel Button`：立即决斗要**先有好友**（原版拿选中的好友去开局）—— "
-                        + "本地好友表恒空 ⇒ 现在没得选。"));
+                        + "本地好友表恒空 ⇒ 现在没得选。"),
+                clickCue: WindowSounds.PositiveCue);
             _instantDuelHit = duel.Find("Hit");
             var duelWb = duelH != null ? duelH.GetComponent<WindowButton>() : null;
             if (duelWb != null) duelWb.BindNine(duelNine, "UI_Button_Organe_Square_Normal");

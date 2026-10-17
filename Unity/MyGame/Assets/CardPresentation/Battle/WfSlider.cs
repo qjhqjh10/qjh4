@@ -720,9 +720,11 @@ namespace CardPresentation
         /// 那边改成「轨道那块 **∪** 手柄那颗按 `m_RaycastPadding` 外扩后的框」的**真并集**（两块不是同一个
         /// 纵向带 ⇒ 本函数那个单矩形形式在那边**两个方向都不对**：整条轨道宽都取 `max(半轨道,半手柄)` 会
         /// **多认**轨道上下 11 画布 px，同时**漏认**手柄外扩出来的那圈）。</para>
-        /// <para>⇒ **两处待收**（都在本件白名单外，已记在报告里）：① 外壳侧那根也要过 `HandlePadPx`；
-        /// ② 外壳侧也应收成真并集。**判据与算式仍是同一份**（`MenuDraw.PaddedRect` /
-        /// `HandleHitPx`），只是「谁调谁」变了。</para>
+        /// <para>✅ **2026-10-17（A1326）：外壳侧那两笔也收完了**（原来这里记着「两处待收」）——
+        /// `Shell/SettingsWindow.cs` 的 FPS 滑块现在同样走「**轨道 ∪ 手柄按 `m_RaycastPadding` 外扩**」的
+        /// **真并集**：判据 = <see cref="HandleHitRect"/>（转 `MenuDraw.PaddedRect`，算式只此一份），
+        /// 命中区拆成**两块 quad**（轨道 / 手柄各一颗，`PointerLayer` 一颗 `WindowButton` 只认一颗 quad）。
+        /// ⛔ **本函数已无调用点**（保留只为「别把历史结论改成没有过」）——新代码一律走真并集。</para>
         ///
         /// <para>**为什么并集本身就是一块矩形**：两块共用同一个纵向带 —— 半高都是
         /// `max(轨道半高, 手柄半高)`（手柄比轨道高，点在**手柄上**也该算命中）⇒ 横向只要把两端取 min/max。</para>
@@ -743,6 +745,28 @@ namespace CardPresentation
             if (!hasHandle) return;
             lx = Mathf.Min(lx, handleCx - halfHandle);
             rx = Mathf.Max(rx, handleCx + halfHandle);
+        }
+
+        /// <summary>🆕 **2026-10-17（A1326）**：手柄那颗 `Image` 的**原版命中框** —— 入参 = 它**未外扩**的
+        /// 布局框（= 原版 `m_SizeDelta` 那一块：`HandleFrameW × 运行期框高`），返回**四边按 `m_RaycastPadding`
+        /// 收/放之后**的框（`HandlePadPx = −25` ⇒ 每边外扩 25）。
+        /// <para>🔴 **算式只此一份**：转发 `MenuDraw.PaddedRect`（符号口径「正 = 缩小、负 = 扩大」与退化守卫都在那边，
+        /// 本件一个字都不写 `±pad`）。战斗侧 <see cref="HitHandlePadded"/> 与外壳侧 FPS 滑块
+        /// （`Shell/SettingsWindow.cs`）用的是**同一条**。</para>
+        /// <para>⚠️ 坐标帧随调用方（本件世界单位 / 外壳设计 px 都行）—— 与 <see cref="HitBand"/> 同一条规矩。</para></summary>
+        public static PxRect HandleHitRect(PxRect frame)
+        {
+            return MenuDraw.PaddedRect(frame,
+                new Vector4(HandlePadPx, HandlePadPx, HandlePadPx, HandlePadPx));
+        }
+
+        /// <summary>🆕 **2026-10-17（A1326）**：**真并集**判据 —— 点落在「轨道」或「手柄命中框」**任一块**里。
+        /// ⛔ **不是它们的外接矩形**：两块纵向带不同（轨道 13 设计 px、手柄外扩后 85.406）⇒ 外接矩形会把
+        /// 轨道上下各多认 ~36 px（原版那两处都没有可射线件）。单位随调用方。</summary>
+        public static bool InUnion(PxRect track, PxRect handleHit, float x, float y)
+        {
+            if (x >= track.x1 && x <= track.x2 && y >= track.y1 && y <= track.y2) return true;
+            return x >= handleHit.x1 && x <= handleHit.x2 && y >= handleHit.y1 && y <= handleHit.y2;
         }
 
         /// <summary>世界坐标是不是落在这根滑块的**轨道**或**手柄**上。

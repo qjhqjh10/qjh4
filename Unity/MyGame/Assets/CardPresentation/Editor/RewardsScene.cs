@@ -1281,7 +1281,9 @@ public static class RewardsScene
                             $"第 {i + 1} 行底图的渲染矩形（{want.W:F2} × {want.H:F2}）");
             }
             // 行内两件：`description` 与 `Collect`（原版锚点依赖父宽 —— **这正是「按父宽重分布」的判据**）
-            // 🔴 **本节的前提是「第 1 行未领取」**（这一节之前没有任何一段动过 `DailyData`，就是出厂态 `52/500`）。
+            // 🔴 **本节的前提是「第 1 行未领取」**（这一节之前没有任何一段动过 `DailyData`，就是出厂态 `0/45`）。
+            //    ⚠️ **2026-10-17（A2070③）**：这三条的出厂 Progress / Target 已照用户实拍改成 `0/45 · 0/15 · 0/15`
+            //    （原来是 `52/500 · 10/10 · 1/3`）—— 这里只读**状态**，不受数值影响。
             //    🆕 2026-10-04（A44 甲）起 `description` / `Rewards` / `Progress Bar` / `progress` / `Collect`
             //    **五件都按「已领取」显隐**（判据见 `MissionsTab.BuildDailyRow` 开头那段）⇒ 下面这几条「在」**吃这个前提**。
             //    把前提先断出来：哪天前一段顺手改了状态，这里会**先报前提**，而不是看着像「四件都没建」。
@@ -1467,15 +1469,17 @@ public static class RewardsScene
         // 🔴 **2026-10-04（M1）谓词订正**：原版 `IsComplete()` = **奖励已领取**（**不是**「进度到顶」；
         //   两条独立证据链 → `资料/待办判据_阶段二与联机.md` §A23 三·1）⇒
         //   `description`（`dr=1` ⇒ `show = !IsComplete`）**未领取**就显示；`timer`（`dr=2` ⇒ `show = IsComplete`）**已领取**才显示。
-        //   ⚠️ 出厂第 2 行是「`10/10` 但 `St = InProgress`」= **到顶未领取** ⇒ 它**仍显示** `description`、**不**显示 `timer`
+        //   ⚠️ 出厂第 2 行是「`0/15` · `St = InProgress`」= **未领取** ⇒ 它**显示** `description`、**不**显示 `timer`
         //   （1.0 版把这里断言反了，是那次反转的直接后果）。
+        //   🔴 **2026-10-17（A2070③）就地订正**：原来这里写的是「`10/10` 但 `St = InProgress` = **到顶**未领取」——
+        //   照用户实拍改数据之后出厂是 `0/15`、**根本没到顶** ⇒ 「到顶」那半句已不成立（断言只看 `St`，仍然成立）。
         CheckTrue(FindChild(rows[0], "description") != null, "未达成行显示 `description`（原版 `displayRule=1` WhenActive）");
         CheckTrue(FindChild(rows[0], "timer") == null, "未达成行**不显示** `timer`（原版 `displayRule=2` WhenComplete）");
         if (rows.Count == 3)
         {
             CheckTrue(FindChild(rows[1], "description") != null,
-                      "**到顶未领取**那一行**仍显示** `description`（`IsComplete` = 已领取，到顶不算）");
-            CheckTrue(FindChild(rows[1], "timer") == null, "**到顶未领取**那一行**不显示** `timer`");
+                      "**未领取**那一行显示 `description`（`IsComplete` = 已领取，未领取就画它）");
+            CheckTrue(FindChild(rows[1], "timer") == null, "**未领取**那一行**不显示** `timer`");
             // 🆕 **再造一次「已领取」态**（只差分 `St` 一个字段、进度一个数不动）—— 两种状态比才证得住。
             //    ⚠️ `Build()` 会**销毁旧节点** ⇒ 收完新行之后必须**把 `rows` 重收一遍**（本节后面 :679/:691 还要用 `rows[0]`）。
             int keepD1 = DailyData.DailyProgressValue(1);
@@ -1505,7 +1509,7 @@ public static class RewardsScene
                 CheckNear(TextLeftPx(FindChild(rowsC[1], "timer")), 1347.62f, 3f,
                           "第 2 行 `timer` 的渲染左边缘(px)（原版 `H=Left`，框左 = 行左 + 136.68 × 1.15）");
             }
-            // 还原成「`10/10` 未领取」并按新节点**重收 `rows`**（后面还有两处用它）
+            // 还原成「`0/15` 未领取」并按新节点**重收 `rows`**（后面还有两处用它）
             DailyData.ForceDailyClaimedForTest(1, false);
             DailyData.ForceDailyProgressForTest(1, keepD1);
             if (mtComp0 != null) mtComp0.Build();
@@ -1899,17 +1903,18 @@ public static class RewardsScene
         // ============================================================ 🆕 A63 + A64（2026-10-04）
         Section("🆕 A63 `progress` 到顶换文案 + A64 点 `Collect` 领到之后**重建整页**");
         {
-            // 🔴 本节起点的**前提**：第 1 行还是出厂那一态（`52/500` · 未领取）。
+            // 🔴 本节起点的**前提**：第 1 行还是出厂那一态（`0/45` · 未领取）。
             //    （上面那些节没动过 `DailyData`；**本节末尾会还原到这里** —— 后面的截图与断言都吃这一态。）
+            //    ⚠️ **2026-10-17（A2070③）**：出厂数值照用户实拍改过（`52/500` ⇒ `0/45`）—— 状态没变。
             Check(DailyData.DailyState(0), DailyData.State.InProgress,
-                  "（前提）第 1 行是**未领取**（出厂 `52/500`）—— 下面三组对比都从这一态出发");
+                  "（前提）第 1 行是**未领取**（出厂 `0/45`）—— 下面三组对比都从这一态出发");
             var mtC63 = tab.GetComponent<MissionsTab>();
             // 🔴 **先断非空再 `Build()`**：`Check` 是**记账式**的（不抛、也不早退）⇒ 缺了组件再往下就是
             //    `NullReferenceException`，自检会**当场崩**（后面一条都不跑），而不是报一条红断言。
             CheckTrue(mtC63 != null, "`Missions Tab` 上挂着 `MissionsTab`（缺了它下面的 `Build()` 会把自检崩掉）");
             if (mtC63 != null)
             {
-                int keepP63 = DailyData.DailyProgressValue(0);          // 出厂 52
+                int keepP63 = DailyData.DailyProgressValue(0);          // 出厂 0（目标 45，A2070③）
                 // 期望坐标 = **原版的锚点五元组** `N(1, 1,0, 1,0, .5,.5, −145.3,40.7107, 254.611,56.4767)`
                 // 套在本页第 1 行的矩形上（`UguiRect.Child` 是工程里唯一一份锚点算法）—— **不从实现读**。
                 // 🔴 **2026-10-06（A124）**：**先在【设计空间】里套五元组、最后再整体过 `DmView`** ——
@@ -1920,7 +1925,9 @@ public static class RewardsScene
                     new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0.5f),
                     new Vector2(-145.3f, 40.7107f), new Vector2(254.611f, 56.4767f)));
                 var pl63 = PointerLayer.Instance;
-                int gold63 = Wallet.Of("40k_topmarquee_currency_gold");
+                // ⚠️ **2026-10-17（A2070③）**：第 1 条的奖励已照用户实拍改成**活动点 ×300**
+                //    （原来是我们挑的「金块 ×150」）⇒ 记账口径跟着换成活动点那张图。
+                int cp63 = Wallet.Of("40K_genearl_icon_Campaign_points_big");
 
                 // ---------------- (i) **未达成** ⇒ 点 `Collect` 什么都不该发生（更不该重建） ----------------
                 var row63 = FindChild(tab, "Daily Mission Container (0)");
@@ -1937,7 +1944,7 @@ public static class RewardsScene
                 }
                 Check(DailyData.DailyState(0), DailyData.State.InProgress,
                       "未达成时点 `Collect` ⇒ 状态**一点没动**（`CollectDaily` 的三态守卫）");
-                Check(Wallet.Of("40k_topmarquee_currency_gold"), gold63, "…资源也一分没动");
+                Check(Wallet.Of("40K_genearl_icon_Campaign_points_big"), cp63, "…资源也一分没动");
                 CheckTrue(row63 != null && FindChild(tab, "Daily Mission Container (0)") == row63,
                           "…而且**没有重建**（原版：未达成时那颗钮 `interactable = false`，`SetChallenge.c` "
                           + "`set_interactable(collectButton, CanCollect(challenge))` ⇒ 点了连派发都没有）"
@@ -1951,14 +1958,14 @@ public static class RewardsScene
                 //   **否则** ⇒ `GetTranslation(completedMessage)`。
                 var prog63 = FindChild(row63, "progress");
                 CheckTrue(prog63 != null, "（前提）第 1 行的 `progress` 建了");
-                Check(TextOf(prog63), "52/500",
-                      "`progress` 常态 = 原版 `progressTextFormat` 的 `{0}/{1}`（出厂数据 52/500）");
+                Check(TextOf(prog63), "0/45",
+                      "`progress` 常态 = 原版 `progressTextFormat` 的 `{0}/{1}`（出厂数据 `0/45` · A2070③ 照实拍）");
                 // **同一行**、只把进度推到顶（`St` 随之变 `Collectable`）—— 两组之间只差「到没到顶」这一个维度
-                DailyData.ForceDailyProgressForTest(0, 500);
+                DailyData.ForceDailyProgressForTest(0, 45);
                 mtC63.Build();
                 var rowFull63 = FindChild(tab, "Daily Mission Container (0)");
                 Check(DailyData.DailyState(0), DailyData.State.Collectable,
-                      "（前提）这一行现在是**到顶未领取**（`500/500` · `St = Collectable`）");
+                      "（前提）这一行现在是**到顶未领取**（`45/45` · `St = Collectable`）");
                 var progFull63 = FindChild(rowFull63, "progress");
                 CheckTrue(progFull63 != null,
                           "到顶那一行的 `progress` **还在**（`displayRule = 1` ⇒ 未领取才显示；到顶不算「已完成」）");
@@ -1977,8 +1984,8 @@ public static class RewardsScene
                       //     ⇒ 实现印键名、期望也是键名 ⇒ 这条会**假绿**，看不出「词条丢了」。
                       + "（原版存的是 I2 词条【键】、原版在它外面套 `GetTranslation`；"
                       + "本仓 EN / ZH 两列是**自拟的**——原版中文在远端、本地拿不到，见 `Core/Loc.cs:1028-1035`）");
-                CheckTrue(TextOf(progFull63) != "500/500",
-                          "…而且**不是** `500/500`（A63 之前我们恒显示计数 ⇒ 拿掉那一支，这条会红）");
+                CheckTrue(TextOf(progFull63) != "45/45",
+                          "…而且**不是** `45/45`（A63 之前我们恒显示计数 ⇒ 拿掉那一支，这条会红）");
 
                 // ---------------- (iii) **A64**：领到之后**重建整页** ----------------
                 // 与 (i) 只差「到没到顶」这一个维度：同一行、同一个坐标、同一颗钮。
@@ -1993,7 +2000,7 @@ public static class RewardsScene
                     CheckTrue(pl63.ClickAt(wantC63.CX, wantC63.CY), "点到顶那一行的 `Collect` —— 指针层吃到了这一下");
                 }
                 Check(DailyData.DailyState(0), DailyData.State.Claimed, "领到了 ⇒ `St` 变**已领取**");
-                CheckTrue(Wallet.Of("40k_topmarquee_currency_gold") > gold63, "…奖励也真的入账了（单机本地兑现）");
+                CheckTrue(Wallet.Of("40K_genearl_icon_Campaign_points_big") > cp63, "…奖励也真的入账了（单机本地兑现）");
                 // 🆕 **2026-10-12（A313）**：这一下**现在会弹那扇 `Reward Window`**（`CollectDaily` 末尾那句
                 // `ShowCollectedWindow`）—— 领奖窗是**弹窗** ⇒ 开着时壳被 `ToBackground()`、指针命中全归它
                 // ⇒ 不关掉，本节后面每一次「点壳上的钮」都会打空、那 4 张「屏上只有壳」的截图会被它**盖住**
@@ -2008,9 +2015,13 @@ public static class RewardsScene
                     Check(rcA64 != null && rcA64.Rewards != null ? rcA64.Rewards.Length : -1, 1,
                           "★ …带进来的是**这一格**那一条奖励（1 条 —— 不是空窗、也不是把三行都塞进来）");
                     CheckTrue(rcA64 != null && rcA64.Rewards != null && rcA64.Rewards.Length == 1
-                              && rcA64.Rewards[0].Id == "40k_topmarquee_currency_gold",
+                              && rcA64.Rewards[0].Id == "40K_genearl_icon_Campaign_points_big",
                               "★ …`Id` = **这一格发出去的那张图名**（`_daily[0].RewardArt` 的出厂字面量"
-                              + " —— 写死字面量而不是读 `DailyRewardArt(0)`：读它就成了同义反复）");
+                              + " —— 写死字面量而不是读 `DailyRewardArt(0)`：读它就成了同义反复）"
+                              + "｜2026-10-17（A2070③）：照实拍改成活动点 ×300（原为金块）");
+                    Check(rcA64 != null && rcA64.Rewards != null && rcA64.Rewards.Length == 1
+                          ? rcA64.Rewards[0].Quantity : -1, 300,
+                          "★ …数量 = **300**（`_daily[0].RewardText` 的出厂字面量 · A2070③ 照实拍）");
                     Check(rcA64 != null ? rcA64.OnCollect : null, (System.Action<CampaignData.RewardSpec[]>)null,
                           "…`onCollect` = **null**（原版 `Collect` 那一支传的就是 null ⇒ `Collect Button` 不建）");
                 }
@@ -2041,8 +2052,8 @@ public static class RewardsScene
                 var rowBack63 = FindChild(tab, "Daily Mission Container (0)");
                 CheckTrue(rowBack63 != null && FindChild(rowBack63, "Generic UI Button") != null,
                           "还原未领取 ⇒ `Collect` **回来了**（本节回到起点状态）");
-                Check(TextOf(FindChild(rowBack63, "progress")), "52/500",
-                      "…`progress` 也回到 `{0}/{1}`（`52/500`）—— 三个状态合起来才证得住「**到顶才换**」");
+                Check(TextOf(FindChild(rowBack63, "progress")), "0/45",
+                      "…`progress` 也回到 `{0}/{1}`（`0/45`）—— 三个状态合起来才证得住「**到顶才换**」");
             }
         }
 
@@ -2061,27 +2072,28 @@ public static class RewardsScene
             CheckTrue(mtB4 != null, "`Missions Tab` 上挂着 `MissionsTab`（缺了它下面的 `Build()` 会把自检崩掉）");
             if (mtB4 != null)
             {
-                int keepP2 = DailyData.DailyProgressValue(2);        // 出厂 1（目标 3）
+                int keepP2 = DailyData.DailyProgressValue(2);        // 出厂 0（目标 15，A2070③）
                 var keepS2 = DailyData.DailyState(2);                // 出厂 InProgress
 
-                // ---- (i) 出厂第 3 行：老表画的是「骷髅 ×150」，而这条任务的奖励是**金块 ×200** ----
+                // ---- (i) 出厂第 3 行：格子里画的 = `_daily[2]` 那一份（A2070③ 起是活动点 ×300） ----
                 // 期望值 = `_daily[2]` 那两个字段的**出厂字面量**（`Shell/DailyData.cs` 的 `_daily[2]`：
-                //   `RewardArt "40k_topmarquee_currency_gold"` · `RewardText "200"`）——
-                //   ⚠️ 那是**我们挑的 mock 数据**（任务内容本来就由服务端下发），**不是原版值**；
+                //   `RewardArt "40K_genearl_icon_Campaign_points_big"` · `RewardText "300"`）——
+                //   ⚠️ **2026-10-17（A2070③）**：这三条照用户实拍改过（原来是「金块 ×200」的金块/20/200 那一套）；
+                //   它仍是**一帧实拍**、不是原版数据表（任务内容本来就由服务端下发）。
                 //   这条断言盯的是「**卡面读的是任务那一份**」，不是「这两个数该是多少」。
                 var r2 = FindChild(tab, "Daily Mission Container (2)");
                 CheckTrue(r2 != null, "第 3 行在");
-                Check(ArtOf(FindChild(r2, "Reward 2")), "40k_topmarquee_currency_gold",
+                Check(ArtOf(FindChild(r2, "Reward 2")), "40K_genearl_icon_Campaign_points_big",
                       "★ 第 3 行奖励格的**图标** = **任务那一份**（`_daily[2].RewardArt`；"
                       + "B4 之前那张按下标表画的是 `40K_missions_icon_Daily_skulls`）");
-                Check(TextOf(FindChild(r2, "count 2")), "200",
+                Check(TextOf(FindChild(r2, "count 2")), "300",
                       "★ …**数量** = **任务那一份**（`_daily[2].RewardText` 的出厂字面量；"
-                      + "B4 之前画的是 150 —— 而 `CollectDaily` 发的一直是这条任务的 200）");
+                      + "B4 之前画的是 150 —— 而 `CollectDaily` 发的就是这条任务那一份）");
 
                 // ---- (ii) 「图标 / 数量 / 发放」三者一致：领到手的那一份 = 格子里画的那一份 ----
                 // 两边都是**量的真值**：`ArtOf` 量 `ImageQuad.Texture`（画出来的图）、
                 // `TextOf` 量 TMP 的串（画出来的数）、`Wallet` 量**真的进了记账的那一份**。
-                DailyData.ForceDailyProgressForTest(2, 3);           // 目标 3 ⇒ 推到顶 = 可领取
+                DailyData.ForceDailyProgressForTest(2, 15);          // 目标 15（A2070③）⇒ 推到顶 = 可领取
                 mtB4.Build();
                 var r2b = FindChild(tab, "Daily Mission Container (2)");
                 var cb2 = r2b != null ? FindChild(r2b, "Generic UI Button") : null;
@@ -7385,37 +7397,66 @@ public static class RewardsScene
         MenuDraw.CheckShadeRule(CheckTrue, "每日连登窗", ds.ShadeHit,
                                 ds.transform.Find("Menu Dark Background"), DailyStreakPopup.QContent);
         Check(ds.entries.Count, DailyData.StreakDays, $"`Rewards Content` 下 {DailyData.StreakDays} 个奖格");
-        // `Rewards Content` 的 HLG 实测 spacing = **−64** ⇒ 相邻两格**故意重叠 64**
+        // `Rewards Content` 的 HLG：spacing = **−64** + 序列化 **`m_ChildScaleWidth = 1`**
+        //   ⇒ 主轴步进 = `379.816 × 1.2 − 64` ⇒ 相邻两格中心距 = **391.7792**（原版 prefab 实读；
+        //   旧实现的 315.816 是漏了条目根 `m_LocalScale 1.2` —— A1280）。
+        // 🔴 **期望值 = 原版字面量**（⛔ 不读 `DailyStreakPopup.EntryPitch` —— 那是被测实现 = 自证）。
+        // **灭自证**：把 `Shell/DailyStreakPopup.cs` 的 `EntryW` 单独改回 **315.816**（= 旧 `EntryPitch` 那个数）
+        //   ⇒ 实测中心距 = 315.816×1.2−64 = **314.98**、差 76.8 ⇒ 红 —— 期望值写死在这里，
+        //   「实现与断言一起改回去」也逃不掉（断言不引用任何实现常量）。
         if (ds.entries.Count >= 2)
             CheckNear(Mathf.Abs(ds.entries[1].position.x - ds.entries[0].position.x) * 108f,
-                      DailyStreakPopup.EntryPitch, 1f, "相邻奖格的中心距(px)（= 379.816 − 64）");
+                      391.78f, 1f, "相邻奖格的中心距(px) = **391.78**（原版 = 379.816 × 1.2 − 64）");
         // 🆕 **2026-10-11（A240）：条目的【纵向摆位】= 原版那个「竖向居中」**（原来顶对齐在 132.09，差 177px）。
         //   判据 = 原版 `Rewards Content` 那条 `HorizontalLayoutGroup`（`align = 3(MiddleLeft)` ·
-        //   `pad = 2,0,58,0` —— ⚠️ 形状是 UGUI 的 `(L,R,T,B)` ⇒ **T 58 / B 0**，见 `DailyStreakPopup.ContentPadT`）：
-        //   条目在**内缩后的内容区**里垂直居中 ⇒ 上沿 = `(132.09 + 58 + 944.19) / 2 − 516.301 / 2` = **308.99**、
-        //   中心 y = **567.14**（`132.09 / 944.19` = 原版 `Rewards Content` 的 y 区间 ·
-        //   `516.301` = 原版 `E_*` 那一族所在 prefab 的条目高；⛔ **不调 `DailyStreakPopup.EntryTop`**，
-        //   那是被测实现 —— 期望值全部写原版字面量）。出处 → `资料/普查产出_1008/波C1_A182_四扇窗裁切.md` §四·4。
-        //   **改坏法**：把 `Shell/DailyStreakPopup.cs` 那两条 `PxRect` 的 y 改回 `S_Content.y1`（顶对齐）
-        //   ⇒ 中心回 390.24（差 176.9）⇒ 下面两条 + 末尾那条「高之比 = 1.2」一起红。
+        //   `pad = 2,0,58,0` —— ⚠️ 形状是 UGUI 的 `(L,R,T,B)` ⇒ **T 58 / B 0**）+ **`m_ChildScaleHeight = 0`**
+        //   （竖向对齐用**未缩放高** 516.301，缩放绕 pivot(.5,.5) ⇒ 视觉中心不变）：
+        //   中心 y = `(132.09 + 58 + 944.19) / 2` = **567.14**；普通格画出来的上沿 = 567.14 − 516.301×1.2/2 = **257.36**。
+        // 🔴🔴 **2026-10-17（A1280）就地订正**：下面原来断言「第 6 格 `BG` 上沿 = **289.70**」——
+        //   那个值**同时漏了两处**：① 容器 `NormalReward` 的 `ls 0.8`（`BG` 在屏上是 `453.20 × 0.8 × 1.2 = 435.07`，
+        //   不是 `453.20 × 1.2`）；② 整族按原版重算之后，第 6 格（与第 7 格）**整块落在视口右沿外**
+        //   （第 6 格框 `x1 = 1960.90`、`BG` 左沿 2032.36 > 1920）⇒ 按 `RectMask2D` 语义**子件不建**、根本量不到。
+        //   ⇒ 改成两条**都咬得住**的现量：
+        //     · **普通格**（第 1 格，整块在视口内）的 `BG` 渲染上沿；
+        //     · **条目节点**自己的框（`MenuDraw.Node` 的 `sizeDelta`）—— 普通格 = 1.2、放大那一格 = 1.44。
+        //   **期望值全部写原版字面量**（⛔ 不调 `DailyStreakPopup.EntryTop` / `EntryVisualW` / `E_Bg`）：
+        //     · 普通格 `BG` 上沿 = `567.14 − (4.60 + 226.60 × 0.8) × 1.2`
+        //       = `567.14 − 185.88 × 1.2` = **344.08**
+        //       （`4.60` = `NormalReward` 的 `anchoredPosition.y`（向上）；`226.60` = `BG` 布局高 453.20 的一半）；
+        //       **漏掉容器 0.8** ⇒ 得 **289.70**（= 旧口径那个数）⇒ 红 —— 这就是「整族重算」的牙口。
+        //     · 条目框 = `379.816 × 1.2` = **455.78 × 619.56**；放大那一格再 ×1.2 ⇒ **546.94 × 743.47**。
+        //   **改坏法**：把摆位改回顶对齐（`S_Content.y1`）⇒ 中心回 390.24 ⇒ 第一条红；
+        //     漏掉 `NormalReward` 的 0.8 ⇒ 第二条回 289.70 ⇒ 红；漏掉条目根 1.2 ⇒ 尺寸回 379.82×516.30 ⇒ 红。
+        //   **灭自证**：期望值全在原版字面量里，不在这份实现的任何常量里。
         if (ds.entries.Count > DailyData.StreakCollected + 1)
         {
             CheckNear(PxYOf(ds.entries[0].position.y), (132.09f + 58f + 944.19f) * 0.5f, 0.5f,
                       "★ 奖格的**竖向中心 = 567.14**（原版 HLG `align = 3(MiddleLeft)` + `pad T58/B0` ⇒ "
                       + "条目在内容区里**居中**；顶对齐那一版是 390.24）");
-            // 渲出来的真值（不是节点位置）：第 6 格（= 放大 1.2 的那一格）`BG` 的**上沿** ——
-            //   未放大时 `BG` 顶沿 = 308.99 + 26.95(`E_Bg.y1`) = 335.94，格心 567.14
-            //   ⇒ 绕格心放大 1.2 = `567.14 − (567.14 − 335.94) × 1.2` = **289.70**。
-            // 🔴 **这条是「放大那一格不再顶出视口」的判据**：顶对齐那一版算出来是 **80.46**（< 视口顶 159.33）
-            //   ⇒ 会被 `Viewport` 裁到 159.33（原版不会；A240 那一行就是拿它记的账）。
-            float tx1, ty1, tx2, ty2;
-            if (RectOfUnion(FindChild(ds.entries[DailyData.StreakCollected], "BG"),
-                            out tx1, out ty1, out tx2, out ty2))
-                CheckNear(ty1, 567.14f - (567.14f - 335.94f) * 1.2f, 0.5f,
-                          "★ 「第一个还没领的」奖格的 `BG` **上沿 = 289.70**（原版「竖向居中 + 放大 1.2 绕格心」"
-                          + "的几何后果；**顶出视口那一版是 80.46**，会被裁到 159.33 ⇒ 与原版不同）");
+            // 现量：普通格的 `BG` 渲染上沿（原版 = 条目根 1.2 × `NormalReward` 0.8、绕 NR 中心缩）
+            float bx1, by1, bx2, by2;
+            if (RectOfUnion(FindChild(ds.entries[0], "BG"), out bx1, out by1, out bx2, out by2))
+                CheckNear(by1, 344.08f, 0.5f,
+                          "★ 普通奖格的 `BG` **上沿 = 344.08**（= 567.14 − (4.60 + 226.60×0.8) × 1.2 ——"
+                          + "原版条目根 `ls 1.2` × `NormalReward` `ls 0.8`；**漏掉容器 0.8 ⇒ 289.70** ⇒ 红）");
             else
-                CheckTrue(false, "（A240）第 6 格的 `BG` 量得到渲染矩形（下面的放大几何才验得成）");
+                CheckTrue(false, "（A1280）第 1 格的 `BG` 量得到渲染矩形（上面的容器缩放才验得成）");
+            // 条目节点自己的框（`MenuDraw.Node` 的 `sizeDelta` = 原版 `RectTransform.sizeDelta` × 运行时 scale）
+            var rtNormal = ds.entries[0] as RectTransform;
+            var rtFirst = ds.entries[DailyData.StreakCollected] as RectTransform;
+            CheckTrue(rtNormal != null && rtFirst != null, "（前提）两个奖格节点都是 `RectTransform`");
+            if (rtNormal != null)
+            {
+                CheckNear(rtNormal.sizeDelta.x * 108f, 455.78f, 0.5f,
+                          "★ 普通奖格的框宽 = **455.78**（原版 379.816 × 条目根 `ls 1.2`）");
+                CheckNear(rtNormal.sizeDelta.y * 108f, 619.56f, 0.5f, "★ …框高 = **619.56**（516.301 × 1.2）");
+            }
+            if (rtFirst != null)
+            {
+                CheckNear(rtFirst.sizeDelta.x * 108f, 546.94f, 0.5f,
+                          "★ 「第一个还没领的」奖格框宽 = **546.94**（1.2 × `scaleMultiplierFirstElement 1.2` = 1.44）");
+                CheckNear(rtFirst.sizeDelta.y * 108f, 743.47f, 0.5f, "★ …框高 = **743.47**");
+            }
         }
         // 两态**互斥**：`HasFailed` 决定谁开。我们的数据默认 `false` ⇒ 连胜态开、断签态关
         var succ = FindChild(ds.transform, "Streak Successful");
@@ -7620,60 +7661,33 @@ public static class RewardsScene
         //      （旧行号统一 **+144**：55→**199** · 63→**207**），**旧件已不在盘上**。
         //      错因：合并那天本文件没有改 `.cs` 的权限（合并件自己头部 `:13` 就记着这条）
         //      ⇒ 指针一直留在**已被合并的旧件**上。两条新行已现读亲核（`0xA8` 只读 · `RefreshRewards:96` · 三分量各乘一次）。
-        //    🔴 **2026-10-08（A182 收尾）：本条改口径 —— 原来比「渲出来的宽」，现在比「渲出来的左沿」。**
-        //       · **为什么不能比宽**：A182 把 `Viewport` 的**硬裁**接上之后，这两格的 `BG` **横竖都被裁**
-        //         ⇒ 渲出来的宽变成 270.43 / 8.54 = **31.7**（A182 之前两格都是 420.83 宽，比出来正好 1.2）。
-        //         两条实测数 → `资料/普查产出_1008/波C1_A182_四扇窗裁切.md` §0·2。
-        //       · 🔴 **「渲出来的高」那一条 2026-10-11（A240）已经【改回 = 1.2】**（就是下面第三条）。
-        //         2026-10-08 写上面那段时它**确实不成立** —— 当时的条目**顶对齐在 132.09**
-        //         （`DailyStreakPopup.cs` 的已知偏差，波 C1 报告 §四·4）⇒ 放大那一格**顶出视口**
-        //         （`BG` 顶沿 80.46 < 视口顶 159.33）被硬裁 ⇒ 高之比只有 **1.098**。
-        //         **A240 把摆位改成原版的竖向居中之后**（上沿 308.99 · 中心 567.14）两格的 `BG` 都**整块**
-        //         落在视口里 ⇒ 高之比**严格 = 1.2**：未放大 = `480.15 − 26.95` = **453.20**、
-        //         放大 1.2 ⇒ **543.84**。⛔ **别把这一条当「恒真」** —— 摆位一退回顶对齐它就红。
-        //       · ✅ **现在量什么**：`BG` 的**渲染左沿** —— 它是这两格唯一**两次裁切都碰不到**的边：
-        //         `BG` 那条路 `keepAspect = false` ⇒ 矩形逐字段等于原版 `E_Bg`（`14.56,26.95 → 365.25,480.15`）；
-        //         左沿在视口内（> 0），也不吃软边那条带（`1831..1920` 只改四角 alpha、不改几何）。
-        //         **期望值 = 原版常量算出来的字面量**（⛔ 不调 `DailyStreakPopup.*`、不读被测实现的实参）：
-        //           · 第 6 格（下标 `StreakCollected` = 5）：未缩放左沿 = `pad.L 2 + 5 × 315.816 + E_Bg.x1 14.56`
-        //             = **1595.64**；格心 = `2 + 5 × 315.816 + 379.816 / 2` = **1770.988**
-        //             ⇒ 绕格心放大 1.2 = `1770.988 − (1770.988 − 1595.64) × 1.2` = **1560.57**（向左挤出 **35.07**）；
-        //           · 第 7 格（邻格，不放大）= `2 + 6 × 315.816 + 14.56` = **1911.46**。
-        //         ⚠️ 第 7 格那一条**也在钉「1.2 只作用在那一格」**（⛔ 别只留一条：只比第 6 格的话，
-        //            「所有格子一起放大」这种实现会假绿）。
-        //    🔴 **改坏法**（三条都真红）：① 删掉 `BuildTrack` 里 `if (i == first) r = ScaleAbout(r, 1.2f);`
-        //       ⇒ 第 6 格的左沿回到 **1595.64**（差 35.07）；② 把 `i == first` 改成对所有 `i` 成立
-        //       ⇒ 第 7 格变 **1876.39**（差 35.07）；③ 把 `ScaleAbout` 改成绕**左上角**放大（pivot 错的实现）
-        //       ⇒ 第 6 格变 **1598.55**（差 37.98）。
-        //    ⚠️ 这两条依赖**开机滚动偏移 = 0**（原版 `FocusOnItem` 在本机数据下不触发；下面 A182 那一段
-        //       另有断言钉着 `Offset = 0`）—— 偏移一非 0，这两个期望值要整体跟着平移。
+        //    🔴 **2026-10-17（A1280）就地订正**：原来这一段量第 6/7 格的 `BG` 左沿（`1560.57` / `1911.46`）——
+        //      整族按原版重算之后，**第 6 格（放大那格）的 `BG` 左沿 = 2032.36、第 7 格 = 2503.39**，都 > 1920
+        //      ⇒ 那两颗 `BG` 按 `RectMask2D` 语义**整块在视口外 ⇒ 不建**、根本量不到
+        //      （这不是裁切回归，是原版几何的必然：内容宽 2899.61、视口 1920 ⇒ 开机时只有前 5 格露头）。
+        //      ⇒ 改成量**节点自己的几何**（节点照建，不受裁切影响）：
+        //        · **框宽比**：第 6 格 / 第 7 格 = `379.816×1.44 / 379.816×1.2` = **1.2**
+        //          （钉「`scaleMultiplierFirstElement` 只作用在那一格」）；
+        //        · **第 6 格的格心**：`pad.L 2 + 5×391.7792 + 379.816×1.44/2` = **2234.36**
+        //          （钉「左沿 = 布局位置、向右放大」—— 绕**未放大框的中心**缩会得 2188.79，差 **45.58**）。
+        //        期望值全部写**原版字面量**（⛔ 不调 `DailyStreakPopup.*`、不读被测实现的实参）。
+        //    🔴 **改坏法**（三条都真红）：① 把 `BuildTrack` 的 `float s = (i == first) ? … : EntryScale;`
+        //       改回恒 `EntryScale` ⇒ 宽比回 1.0、格心回 2188.79；② 把 `i == first` 改成对所有 `i` 成立
+        //       ⇒ 第 7 格也变 546.94；③ 换回「绕未放大框中心缩」（旧 `ScaleAbout` 写法）⇒ 格心 2188.79。
+        //    ⚠️ 依赖**开机滚动偏移 = 0**（原版 `FocusOnItem` 在本机数据下不触发；下面 A182 那一段
+        //       另有断言钉着 `Offset = 0`）—— 偏移一非 0，这些期望值要整体跟着平移。
         if (ds.entries.Count > DailyData.StreakCollected + 1)
         {
-            float bx1, by1, bx2, by2, nx1, ny1, nx2, ny2;
-            bool okB = RectOfUnion(FindChild(ds.entries[DailyData.StreakCollected], "BG"),
-                                   out bx1, out by1, out bx2, out by2);
-            bool okN = RectOfUnion(FindChild(ds.entries[DailyData.StreakCollected + 1], "BG"),
-                                   out nx1, out ny1, out nx2, out ny2);
-            // 两格都压在视口右沿 ⇒ 用**并集**量（软边会把 `BG` 沿 1831 切成两块）
-            CheckTrue(okB && okN, "两格的 `BG` 都量得到渲染矩形（它们都压在视口右沿 ⇒ 量到的是被裁过的那一块）");
-            // 量不到就只报上面那一条（免得同一个问题报两次）
-            if (okB)
-                CheckNear(bx1, 1770.988f - (1770.988f - 1595.64f) * 1.2f, 0.5f,
-                          "「第一个还没领的」奖格的 `BG` **渲染左沿** = 1560.57（原版 `scaleMultiplierFirstElement` "
-                          + "= 1.2 **绕格心**放大的几何后果：未缩放左沿该在 1595.64 ⇒ 向左挤出 **35.07**）");
-            if (okN)
-                CheckNear(nx1, 2f + 6f * 315.816f + 14.56f, 0.5f,
-                          "邻格（第 7 格）的 `BG` 渲染左沿 = 1911.46 —— **没有被放大**"
-                          + "（钉着「1.2 只作用在第一个还没领的那一格」，⛔ 不是「所有格子一起放大」）");
-            // 🆕 **2026-10-11（A240）**：**渲出来的高之比 = 1.2** —— 2026-10-08 那版做不到的那一条，
-            //   等 `Shell/DailyStreakPopup.cs` 的条目摆位改成原版的竖向居中之后就成立了（见上面那段）。
-            //   两条数（原版几何字面量）：未放大 `BG` = `480.15 − 26.95` = **453.20**；绕格心放大 1.2 ⇒ **543.84**。
-            //   **改坏法**：把摆位退回顶对齐（`S_Content.y1`）⇒ 两格的 `BG` 都被视口顶裁一截（497.31 / 452.91）
-            //   ⇒ 比值 **1.098** ⇒ 红。
-            if (okB && okN)
-                CheckNear((by2 - by1) / (ny2 - ny1), 1.2f, 0.01f,
-                          "★ 「第一个还没领的」奖格的 `BG` **渲出来的高 = 邻格的 1.2 倍**"
-                          + "（原版 `scaleMultiplierFirstElement`；A240 修好摆位之后这一条才成立）");
+            CheckNear(PxOf(ds.entries[DailyData.StreakCollected].position.x), 2234.36f, 1f,
+                      "★ 「第一个还没领的」奖格的**格心 x = 2234.36**（= 2 + 5×391.7792 + 379.816×1.44/2 ——"
+                      + "原版 `scaleMultiplierFirstElement` 摆位；绕**未放大框的中心**缩那一版是 2188.79）");
+            var rtFirst = ds.entries[DailyData.StreakCollected] as RectTransform;
+            var rtNext = ds.entries[DailyData.StreakCollected + 1] as RectTransform;
+            CheckTrue(rtFirst != null && rtNext != null, "（前提）第 6/7 格节点都是 `RectTransform`");
+            if (rtFirst != null && rtNext != null)
+                CheckNear(rtFirst.sizeDelta.x / Mathf.Max(1e-6f, rtNext.sizeDelta.x), 1.2f, 0.005f,
+                          "★ 「第一个还没领的」奖格**框宽 = 邻格的 1.2 倍**（原版 `scaleMultiplierFirstElement`；"
+                          + "「所有格子一起放大」那一版 ⇒ 比值 1.0 ⇒ 红）");
         }
         Check(ds.MissingArt.Count, 0, "连登窗没有取不到的图");
         CheckHoverSwap(ds.transform, "连登窗");
@@ -7694,7 +7708,8 @@ public static class RewardsScene
         //      `Viewport`(RectMask2D) 与 `Rewards Scroll View` 同矩形 0,159.33 → 1920,964.94）；
         //   · 掩码字段 → `d:/4/_tmp_view/q1_rm2d.txt:87-88`（`soft=(89,0) pad=(0.0,0.0,0.0,0.0) en=1`）；
         //   · 内容宽 → 该 prefab 的 `Rewards Content` 是 `HorizontalLayoutGroup`（spacing **−64** ·
-        //     `pad=2,0,58,0`）+ `ContentSizeFitter` ⇒ 跑完 = 2 + 7×379.816 + 6×(−64) = **2276.71**。
+        //     `pad=2,0,58,0` · **`m_ChildScaleWidth=1`**）+ `ContentSizeFitter` ⇒ 跑完 =
+        //     `2 + (6×455.7792 + 546.935) + 6×(−64)` = **2899.61**（放大那一格的步进多 91.16）。
         {
             var trackVp = FindPath(ds.transform, "Streak Successful/Rewards Scroll View/Viewport");
             CheckTrue(trackVp != null, "★ 奖格轨有 `Viewport` 那一层（原版三层的中间层 —— 掩码就长在它身上）");
@@ -7705,29 +7720,36 @@ public static class RewardsScene
             CheckTrue(FindPath(ds.transform, "Streak Successful/Rewards Scroll View/Viewport/Rewards Content") != null,
                       "`Rewards Content` 挂在 **`Viewport` 之下**（原版父链 = …/Rewards Scroll View/Viewport/Rewards Content）");
 
-            // ---- 滚动范围（原版 `ContentSizeFitter` 跑完的内容宽 2276.71 − 视口 1920 = 356.71）----
+            // ---- 滚动范围（原版 `ContentSizeFitter` 跑完的内容宽 2899.61 − 视口 1920 = 979.61）----
             CheckTrue(ds.TrackScroll != null, "滚动区建出来了（`MenuScroll`）");
-            CheckNear(ds.TrackScroll != null ? ds.TrackScroll.MaxOffset : -9999f, 356.71f, 0.5f,
-                      "可滚右极值 = **356.71px**（原版内容宽 2276.71 − 视口 1920）");
+            CheckNear(ds.TrackScroll != null ? ds.TrackScroll.MaxOffset : -9999f, 979.61f, 0.5f,
+                      "可滚右极值 = **979.61px**（原版内容宽 2899.61 − 视口 1920）");
             CheckNear(ds.TrackScroll != null ? ds.TrackScroll.Offset : -9999f, 0f, 0.01f,
                       "开机偏移 = **0**（原版 `DailyRewardSelector` 那句 `if (5 < index)` 在 `index = 5` 时为假 ⇒ 不移动）");
 
             // ---- ★ 真裁住了（一）：整块在视口外的**子件不建** ----
             var eLast = ds.entries.Count > 6 ? ds.entries[6] : null;
             CheckTrue(eLast != null, "第 7 格（最后一个）的节点在");
-            // 角标原版局部 x 242.41..342.41，第 7 格 x1 = 2 + 6×315.816 = 1896.90 ⇒ 屏幕 2139.3..2239.3（> 1920）
+            // 角标原版局部 x 242.41..342.41（`NormalReward` 0.8 ÷ 条目 1.2 折算后屏上 92.16 宽）；
+            //   第 7 格 x1 = 2 + 5×391.7792 + 482.935 = 2443.83 ⇒ 角标屏幕 **2722.12..2818.12**（远 > 1920）
             // 🔴 **改坏法**：拿掉 `BuildTrack` 里那三件套（`Clip`/`ClipSoftness`/`ClipPad`）⇒ 它会被建出来
-            //    并画在屏幕外（x 2139..2239），这一条当场红。
+            //    并画在屏幕外（x 2722..2818），这一条当场红。
             CheckTrue(FindChild(eLast, "Extra Reward Indicator") == null,
-                      "★ 第 7 格的 `Extra Reward Indicator`（x 2139..2239，**整块在视口外**）**没建**");
+                      "★ 第 7 格的 `Extra Reward Indicator`（x 2722..2818，**整块在视口外**）**没建**");
 
             // ---- ★ 真裁住了（二）：压在右沿的那一块被截到视口内 ----
+            // 🔴 **2026-10-17（A1280）**：原来是第 7 格——它现在**整块**在视口外（`BG` 左沿 2503.4），
+            //   量不到。改量**第 5 格**（普通格、不放大）：`BG` 左沿 1628.67、右沿 1965.33 ⇒ 横跨 1920，
+            //   正是「压着右沿」的那一格。
             float lx1, ly1, lx2, ly2;
-            CheckTrue(RectOfUnion(FindChild(eLast, "BG"), out lx1, out ly1, out lx2, out ly2),
-                      "第 7 格的 `BG` 量得到渲染矩形（它压在右沿 ⇒ 画出的是被裁过的那一块）");
+            CheckTrue(RectOfUnion(FindChild(ds.entries[4], "BG"), out lx1, out ly1, out lx2, out ly2),
+                      "第 5 格的 `BG` 量得到渲染矩形（它压在右沿 ⇒ 画出的是被裁过的那一块）");
+            CheckNear(lx1, 1628.67f, 0.5f,
+                      "★ 第 5 格 `BG` 的**渲染左沿 = 1628.67**（= 2 + 4×391.7792 + `BG` 左内缩 59.5555 ——"
+                      + "旧中心距 315.816 那一版会落在 1279.82）");
             CheckTrue(lx2 <= 1920.5f,
-                      $"★ 第 7 格 `BG` 的**渲染并集右边缘 ≤ 1920**（实测 {lx2:F1}）"
-                      + " —— 未裁时它会一直画到 2262.15（= 屏幕外 342px）");
+                      $"★ 第 5 格 `BG` 的**渲染并集右边缘 ≤ 1920**（实测 {lx2:F1}）"
+                      + " —— 未裁时它会一直画到 1965.33（= 屏幕外 45px）");
 
             // ---- ★ 软边 (89,0)：竖切线只在带的内沿 89 / 1831；一条横切线都没有 ----
             var SuVp_ = new PxRect(0f, 159.33f, 1920f, 964.94f);                  // `Streak Successful/Rewards Scroll View/Viewport`（同上一条 `CheckAt`）
@@ -7777,10 +7799,35 @@ public static class RewardsScene
                   "（前提）起点那一格**已被本节显式置成「没领过」**"
                   + "（§五 的「关窗自动收」在它之前已经**真收过**这一格 —— 见本行上面那段订正注释；"
                   + "这一条不成立 ⇒ 下面「又画出来了」那条等于没查）");
+            // 🔴 **2026-10-17（A1280）**：整族按原版重算之后内容宽 **2899.61**、视口 1920 ⇒ **开机 offset = 0 时
+            //   第 6 格（可领那格）整块落在视口右沿外**（原版几何如此；那一格的子件按 `RectMask2D` 语义不建）。
+            //   本节要读/点它的 `Collect` 与 `Reward Holder` ⇒ **每次 `Build()` 之后把轨滚到最右**再取节点。
+            //   ⚠️ 这是**测试驱动**、不是被测行为（原版 `ScrollRect` 组件被禁 ⇒ 玩家滚不动；本节只借它把那一格挪进视口）。
+            System.Action revealClaim = () =>
+            {
+                if (ds.TrackScroll != null) ds.TrackScroll.SetOffset(ds.TrackScroll.MaxOffset);
+            };
             wm2.OpenWindow(ds);                                        // 重开（上面 `CheckAbsorbRule` 把它点关了）⇒ 内容重建
+            revealClaim();                                             // 见上面那段：把可领那一格滚进视口
 
             var eClaim = ds.entries.Count > dClaim ? ds.entries[dClaim] : null;
             CheckTrue(eClaim != null, "（前提）连登窗第 " + (dClaim + 1) + " 格建出来了（可领的那一格）");
+            // 🆕 **2026-10-17（A1280）**：**放大那一格（1.44）的 `BG` 上沿** —— 这是旧断言「289.70」的正主，
+            //   但它在开机 offset = 0 时整块在视口外（`BG` 左沿 2032.36）、量不到 ⇒ 先滚进来再量。
+            //   期望值 = 原版字面量：`567.14 − (4.60 + 226.60×0.8) × 1.44` = **299.47**
+            //   （`4.60` = `NormalReward.anchoredPosition.y` · `226.60` = `BG` 布局高 453.20 的一半）。
+            //   **改坏法**（逐条都红）：漏掉 `NormalReward` 的 0.8 ⇒ 得 **234.21**；只漏 `scaleMultiplierFirstElement`
+            //     （或只漏条目根 1.2）⇒ 得 **344.08**；两级都漏（= 旧口径）⇒ 得 **289.70**。
+            {
+                float fx1, fy1, fx2, fy2;
+                if (RectOfUnion(FindChild(eClaim, "BG"), out fx1, out fy1, out fx2, out fy2))
+                    CheckNear(fy1, 299.47f, 0.5f,
+                              "★ 「第一个还没领的」奖格的 `BG` **上沿 = 299.47**（= 567.14 − (4.60 + 226.60×0.8) × 1.44 ——"
+                              + "原版条目根 1.2 × `scaleMultiplierFirstElement` 1.2 × `NormalReward` 0.8；"
+                              + "漏掉容器 0.8 ⇒ 234.21、只漏一级放大 ⇒ 344.08、两级都漏（旧口径）⇒ 289.70 ⇒ 红）");
+                else
+                    CheckTrue(false, "（A1280）可领那一格滚进视口之后，`BG` 量得到渲染矩形");
+            }
             var cNode = eClaim != null ? FindChild(eClaim, "Collect") : null;
             var cBtn = cNode != null ? cNode.GetComponent<WindowButton>() : null;
             CheckTrue(cBtn != null && cBtn.onClick != null,
@@ -7820,6 +7867,7 @@ public static class RewardsScene
 
             // ---- ★ 领过之后那一格**不画 `Collect` 了**（与上面「未领时画了」合起来才分得出「按状态」）----
             ds.Build();                                                // = 领奖窗关掉之后 `RefreshOpenDailyWindows` 那一跳
+            revealClaim();                                             // A1280：那一格在开机 offset 下在视口外 ⇒ 先滚进去再量
             var eAfter = ds.entries.Count > dClaim ? ds.entries[dClaim] : null;
             CheckTrue(eAfter == null || FindChild(eAfter, "Collect") == null,
                       "★ …重建之后那一格的 `Collect` **不画了**（`unlocked && !claimed` —— 领过之后两半都假）");
@@ -7827,6 +7875,7 @@ public static class RewardsScene
             // ---- 还原到本节起点 ----
             DailyData.ForceStreakClaimedForTest(dClaim, claimed0);
             ds.Build();
+            revealClaim();                                             // A1280：同上（重建把偏移归零了）
             var eBack = ds.entries.Count > dClaim ? ds.entries[dClaim] : null;
             CheckTrue(eBack == null || FindChild(eBack, "Collect") != null,
                       "（还原）起点是「没领过」⇒ 那一格的 `Collect` **又画出来了**"
@@ -7864,6 +7913,7 @@ public static class RewardsScene
                 int dAuto = DailyData.StreakClaimableDay;                  // = `StreakCollected`（只有这一格可领）
                 DailyData.ForceStreakClaimedForTest(dAuto, false);
                 ds.Build();
+                revealClaim();                                             // A1280：可领那一格在视口外 ⇒ 先滚进去再量
                 var eAuto = ds.entries.Count > dAuto ? ds.entries[dAuto] : null;
                 CheckTrue(eAuto != null, "★ A482①：（前提）连登窗那一格（可领的那一格）建出来了");
                 string artAuto = eAuto != null ? ArtOf(FindChild(eAuto, "Reward Holder")) : null;
@@ -7912,6 +7962,7 @@ public static class RewardsScene
                 // ---- ⑧ 收工还原：把那一格拨回本节起点那个态（A316 那一节的收尾写法就是范本）----
                 DailyData.ForceStreakClaimedForTest(dAuto, claimed0);
                 ds.Build();
+                revealClaim();                                             // A1280：同上（重建把偏移归零了）
                 var eAutoBack = ds.entries.Count > dAuto ? ds.entries[dAuto] : null;
                 CheckTrue(eAutoBack == null || FindChild(eAutoBack, "Collect") != null,
                           "（A482 还原）那一格回到「没领过」⇒ `Collect` 又画出来"
@@ -8408,10 +8459,18 @@ public static class RewardsScene
                           && ephTxt.IndexOf("0m", System.StringComparison.Ordinal) < 0,
                           $"★ …那串里**没有 `0h` / `0m`**（原版方法体尾上那两句 `Replace`；实测「{ephTxt}」）"
                           + " —— 删掉 `Replace(\"0h\", \"\")` 的实现这里会画出 `2d 0h` ⇒ 红");
-                Check((ephTxt ?? "").Trim(), "2d",
-                      "…2 天整 ⇒ 画出来的就是 `2d`（`{0}d {1}h` 削掉 `0h` 那一支；⚠️ **格式串是我们挑的** —— "
-                      + "六个词条 key 解出来了、正文在远端 CCD，`Replace` 那两句是原版的）"
-                      + " —— 删掉那个 `Replace` ⇒ 这里实得 `2d 0h` ⇒ 红");
+                // 🔴 **2026-10-17 就地订正（铁律 5）**：本行原来写死期望 `"2d"` —— 那是
+                //   「格式串是我们挑的英文」时期的口径。现在 `TimerDisplay.FormatTimeString` 的
+                //   六条格式串来自**官方表 en / zh-CN 两档**（`Shell/TimerDisplay.cs:218-223`），
+                //   而本工程默认语档是中文（`Loc.Default = Chinese`）⇒ 2 天整实际画的是
+                //   **`2天 0小时`**（`Replace("0h"/"0m")` 在中文里是 no-op —— 原版调用点那两句
+                //   也是英文字面量，行为一致）。⇒ 期望值按语档二选一，⛔ 别再写死英文。
+                string ephExpect = Loc.Current == AvailableLanguages.Chinese ? "2天 0小时" : "2d";
+                Check((ephTxt ?? "").Trim(), ephExpect,
+                      "…2 天整 ⇒ 画出来的就是 `" + ephExpect + "`（`{0}d {1}h` 削掉 `0h` 那一支；"
+                      + "格式串来自官方表 en / zh 两档 —— 英文 `2d 0h` → Replace `0h` → `2d`；"
+                      + "中文 `2天 0小时` 里没有 `0h`/`0m` ⇒ Replace 是 no-op，原版同样如此）"
+                      + " —— 删掉那个 `Replace` ⇒ 英文档实得 `2d 0h` ⇒ 红");
                 // 竖向：条在抽屉的**下半**（原版锚 `(0.05,0.15)-(0.95,0.25)`，uGUI 的 y 自下往上
                 // ⇒ 落到框的下半）—— 本工程 `PxRect.y1` 是**上沿**，所以「翻没翻」正是最容易错的一处。
                 if (eph != null && baD != null)
@@ -9180,25 +9239,48 @@ public static class RewardsScene
         }
 
         Section("§八 战果 → 任务进度（接 `Battle/EndPanel` 那条链，2026-09-23 接的）");
-        // 三张每日任务卡：0 = `Deal 500 damage to enemy units` · 1 = `Play 10 troops` · 2 = `Win 3 battles`
+        // 三张每日任务卡（🆕 **2026-10-17（A2070③）照用户实拍改过**）：
+        //   0 = `Deal 45 damage to enemy warlords`（0/45 · 300 活动点）·
+        //   1 = `Attack with units 15 times`（0/15 · 300）·
+        //   2 = `Attack with ranged units 15 times`（0/15 · 300）
+        // 🔴 **本节只断「初值 / 封顶 / 文案」**（`N32`）：`OnBattleEnd` 的推进口径
+        //   （`damageToEnemy / troopsPlayed / win`）**一个字没改**，与卡面新文案（**战将**伤害 / **攻击次数**
+        //   · 还分近战/远程）**并不等价** ⇒ ⛔ 别把「打小兵也推进第 1 条」「胜一场推进第 3 条」写成期望；
+        //   真口径等战斗线补计数（写手 I 的 `N32`）。原来的 152 / 7 / 2 与「输了不加胜场」那几条
+        //   就是旧口径的期望值，已随这一版**删掉**（它们会把人引回「口径已经对上了」的错觉）。
         // 🆕 **2026-10-11（A375）**：`OnBattleEnd` 多了两个实参（`skulls` / `playMode`）。
-        //    本节一律传 **0 个骷髅 + `Classic(0)`** ⇒ 下面这几条断言的期望值**逐字不变**
-        //    （骷髅那半在紧跟着的 §八·2 里单独断，两节互不干扰：那节只传 `win:false, 0, 0`）。
+        //    本节一律传 **0 个骷髅 + `Classic(0)`**（骷髅那半在紧跟着的 §八·2 里单独断，两节互不干扰）。
         const int NoSkulls375 = 0, Classic375 = 0;
-        DailyData.ResetMissionsForTest();      // 52/500 · 4/10 · 1/3（**确定的初值**，见 `ResetMissionsForTest`）
-        DailyData.OnBattleEnd(true, 100, 3, NoSkulls375, Classic375);
-        Check(DailyData.DailyProgressValue(0), 152, "「对敌伤害」按**实打伤害**推进（52 + 100）");
-        Check(DailyData.DailyProgressValue(1), 7,   "「打出部队」按**打出的部队卡张数**推进（4 + 3）");
-        Check(DailyData.DailyProgressValue(2), 2,   "赢了那一局 ⇒ 胜场 +1（1 + 1）");
-        // 一次打够 ⇒ **封顶在 target**（原版 `MissionChallengeProgress` 也是夹住的）
+        DailyData.ResetMissionsForTest();
+        // ⚠️ `ResetMissionsForTest` 仍写死 A2070③ **之前**的旧基准 `52 / 4 / 1`（`Shell/DailyData.cs:1960-1962`，
+        //    本批白名单外；而且 52 已经**大于**新目标 45）⇒ 这里用公开测试口清零，
+        //    断的才是 `_daily` 的**出厂值**（`Progress = 0`）。那处旧基准已记进本批报告。
+        DailyData.ForceDailyProgressForTest(0, 0);
+        DailyData.ForceDailyProgressForTest(1, 0);
+        DailyData.ForceDailyProgressForTest(2, 0);
+        // ---- ① 初值 + 文案（照实拍那一帧：三条都是 `0/N`、奖励 **300 活动点**）----
+        Check(DailyData.DailyCounter(0), "0/45", "初值：第 1 条 = **0/45**（A2070③ 照用户实拍）");
+        Check(DailyData.DailyCounter(1), "0/15", "初值：第 2 条 = **0/15**");
+        Check(DailyData.DailyCounter(2), "0/15", "初值：第 3 条 = **0/15**");
+        Check(DailyData.DailyDesc(0), "Deal 45 damage to enemy warlords",
+              "文案：第 1 条 =「对敌方战将造成 45 伤害」");
+        Check(DailyData.DailyDesc(1), "Attack with units 15 times", "文案：第 2 条 =「攻击单位 15 次」");
+        Check(DailyData.DailyDesc(2), "Attack with ranged units 15 times",
+              "文案：第 3 条 =「远程攻击 15 次」");
+        Check(DailyData.DailyRewardText(0), "300", "奖励数量：三条都是 **300**（活动点）｜第 1 条");
+        Check(DailyData.DailyRewardText(1), "300", "…第 2 条");
+        Check(DailyData.DailyRewardText(2), "300", "…第 3 条");
+        // ---- ② 封顶在 target（原版 `MissionChallengeProgress` 也是夹住的）----
+        // ⚠️ 这一条只断**封顶**；「哪一路战果推到哪一条」是 `N32` 的口径，⛔ 不在本节断。
         DailyData.OnBattleEnd(true, 99999, 99999, NoSkulls375, Classic375);
-        Check(DailyData.DailyProgressValue(0), 500, "进度**封顶在 target**（500）");
-        Check(DailyData.DailyProgressValue(1), 10,  "进度**封顶在 target**（10）");
-        Check(DailyData.DailyProgressValue(2), 3,   "进度**封顶在 target**（3）");
-        Check(DailyData.DailyState(2), DailyData.State.Collectable, "到顶 ⇒ 变**可领取**（原版 `MissionBackgroundHighlighter` 那一态）");
-        // 输了不加胜场
-        DailyData.OnBattleEnd(false, 0, 0, NoSkulls375, Classic375);
-        Check(DailyData.DailyProgressValue(2), 3, "输了那一局 ⇒ 胜场**不加**");
+        Check(DailyData.DailyProgressValue(0), 45, "进度**封顶在 target**（45）");
+        Check(DailyData.DailyProgressValue(1), 15, "进度**封顶在 target**（15）");
+        Check(DailyData.DailyState(0), DailyData.State.Collectable,
+              "到顶 ⇒ 变**可领取**（原版 `MissionBackgroundHighlighter` 那一态）");
+        // 第 3 条一局只 +1 ⇒ 再打满 14 局才到 15（**只断封顶**，不主张推进口径）
+        for (int i = 0; i < 14; i++) DailyData.OnBattleEnd(true, 0, 0, NoSkulls375, Classic375);
+        Check(DailyData.DailyProgressValue(2), 15, "第 3 条同样**封顶在 target**（15；连打多局也不会超）");
+        Check(DailyData.DailyState(2), DailyData.State.Collectable, "…到顶 ⇒ 同样变**可领取**");
 
         // ============================================================ 🆕 A375（2026-10-11）
         // 「一局结束 → 骷髅**累加**进当日计数」—— 这条线原来**整条是断的**：`_skullsCount` 是个出厂 mock
@@ -9975,7 +10057,11 @@ public static class RewardsScene
             //    把三条全推到了 100%，而按原版规则（`MissionReRollButton` 继承的 `displayRule = WhenActive`
             //    ⇒ `!IsComplete` 才显示）**完成的那一行不该有垃圾桶** ⇒ 不重置的话下面「垃圾桶在」会红。
             //    （2026-10-04 A36-① 起这条规则才实现 —— 那时才发现本节原来是「靠三条都完成」在跑的。）
-            DailyData.ResetMissionsForTest();          // 52/500 · 4/10 · 1/3
+            DailyData.ResetMissionsForTest();
+            // ⚠️ **2026-10-17（A2070③）**：它现在还原出来的 Progress 仍是旧基准 `52 / 4 / 1`
+            //    （`Shell/DailyData.cs:1960-1962`，本批白名单外）—— 而目标已改成 `45 / 15 / 15` ⇒ `52/45`。
+            //    本节只吃 **`St = InProgress`**（垃圾桶那条 `displayRule = WhenActive` 的判据），
+            //    所以这条旧基准不影响本节；它该跟着改，已记进本批报告。
             var rwA = RewardsWindow.Create(wm2);
             wm2.OpenWindow(rwA);
             var mtA = FindChild(FindChild(FindChild(rwA.transform, "Content Area"), "Tabs"), "Missions Tab");
@@ -10339,8 +10425,10 @@ public static class RewardsScene
                         // (a) **到顶未领取** ⇒ 垃圾桶**在**（1.0 版正是在这里反了：它按「进度到顶」藏）
                         //     🆕 A44 甲：与垃圾桶**同吃 `displayRule = 1`** 的那 4 件（`Rewards` / `Progress Bar` /
                         //     `progress` / `Collect`）也一起验 —— (a) 与 (b) **只差 `St` 一个字段**
-                        //     （`Progress` 两次都是 500）⇒ 这样比才证得住「是按状态显隐」，而不是「恒建 / 恒不建」。
-                        DailyData.ForceDailyProgressForTest(0, 500);
+                        //     （`Progress` 两次都是 **45** —— 2026-10-17 新目标从 500 改成 45；
+                        //       `ForceDailyProgressForTest` 会夹到 `Target`，传 500 实得 45）⇒ 这样比才证得住
+                        //     「是按状态显隐」，而不是「恒建 / 恒不建」。
+                        DailyData.ForceDailyProgressForTest(0, 45);
                         if (mtComp != null) mtComp.Build();
                         var rowFull = FindChild(mtA, "Daily Mission Container (0)");
                         CheckTrue(rowFull != null && FindChild(rowFull, "Trash mission") != null,

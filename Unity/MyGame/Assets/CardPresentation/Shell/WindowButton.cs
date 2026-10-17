@@ -858,12 +858,22 @@ namespace CardPresentation
         //     整屏层）与 `BackgroundCloseButton`（压暗层，88/88 颗）是**纯 MonoBehaviour，没有声音**。
         //     ⇒ 我们把这几种显式关掉（`playClickSound = false`）：压暗层在这里按 `MenuDraw.WasShadeHit`
         //       判（`ShadeHit` 是公共件、不在本件可改范围），开包窗的卡在那边自己关。
-        //   · 原版那个 `m_onClickSound`（每颗钮可以带自己的 cue，424 颗有）**我们没接** ——
-        //     `WindowButton` 没有逐钮 cue 的数据来源（我们的 `MenuDraw.Hit` 不读 prefab 的 `m_onClickSound`）。
-        //     **如实记在报告里**，不在这里编一张表。
+        //   · 🔴 **2026-10-17 就地订正（铁律 5 · 音效线 S01 写手 G）**：原版那个 `m_onClickSound`
+        //     （每颗钮可以带自己的 cue，`menus` 包 424 颗有）原来这里写「**我们没接**」—— **现在已经接上了**：
+        //     `WindowButton.clickCue` ← `MenuDraw.Hit(..., clickCue)` ← `GameWindow.AddHit(..., clickCue)`；
+        //     逐颗配对（73 条）= `资料/普查产出_1017/UI/R3_S01按钮cue映射.md` §四·A。
+        //     装配规则照原版 `EverguildButton.PlayButtonSound`：**`m_onClickSound` 有 → 播它；为空 → 默认音**。
         /// <summary>点中时要不要播 `SoundManager.defaultButtonSound`（默认**要**，照 1022/1022 那两族）。
-        /// 压暗层 / 开包窗的卡 / 任何原版不是 `EverguildButton|EverguildToggle` 的命中面**置 false**。</summary>
+        /// 压暗层 / 开包窗的卡 / 任何原版不是 `EverguildButton|EverguildToggle` 的命中面**置 false**。
+        /// 🔴 `playClickSound = false` **优先于** `clickCue`（那一族原版根本没有按钮音）。</summary>
         public bool playClickSound = true;
+
+        /// <summary>这颗钮**自己的**点击 cue（原版 `EverguildButton|EverguildToggle.m_onClickSound` 的 cue 名）。
+        /// `null`（默认）= 走 `SoundManager.defaultButtonSound`（`WindowSounds.DefaultButtonCue`）。
+        /// <para>赋值口 = `MenuDraw.Hit(..., clickCue)` / `GameWindow.AddHit(..., clickCue)` 逐层透传；
+        /// 手工建钮那几处（`AddComponent&lt;WindowButton&gt;()`）直接赋值。
+        /// 逐颗配对表 → `资料/普查产出_1017/UI/R3_S01按钮cue映射.md` §四·A（73 条）。</para></summary>
+        public string clickCue = null;
 
         void PlayClickSound()
         {
@@ -871,7 +881,7 @@ namespace CardPresentation
             // 压暗层（原版 `BackgroundCloseButton`）**没有**按钮音 —— 它只负责触发窗自己的 `Close()`
             // （那一声由 `GameWindow.PlayCloseSound` 出）。判据见上面那段普查。
             if (MenuDraw.WasShadeHit(transform)) return;
-            WindowSounds.PlayFx(WindowSounds.DefaultButtonCue, $"按钮 `{name}`");
+            WindowSounds.PlayFx(clickCue ?? WindowSounds.DefaultButtonCue, $"按钮 `{name}`");
         }
 
         /// <summary>🔴 **老式的 `OnMouseUpAsButton`：在这个工程里一次也不会派发** ——

@@ -826,6 +826,7 @@ namespace CardPresentation
         void BuildChatPreview()
         {
             var cp = Node(Root, "ChatPreview", ChatPreviewR);
+            _chatPreview = cp;
             var box = Node(cp, "Container", new PxRect(1479.50f, 109.80f, 1851.80f, 169.80f));
             Nine(box, "Closed-Chat_background", new PxRect(1479.50f, 109.80f, 1851.80f, 169.80f),
                  Vector4.zero, "Image", L_Panel);
@@ -840,7 +841,29 @@ namespace CardPresentation
                 // 🔴 聊天窗本身已建（`Shell/ChatPanelWindow.cs`）⇒ 这里**真的开它**，不是只出声。
                 if (Win != null) Win.OpenChat();
             });
+            // 🆕 **2026-10-17（`A1640`）**：语义与主菜单那块**逐条相同**（判据 → `A1639` 那五条反编译，
+            //   见 `Shell/MainMenuRuntime.BuildChatPreview` 末尾那一大段）——「**有消息才画、读了就收**」，
+            //   而本仓**没有聊天数据源** ⇒「没有消息」恒真 ⇒ 它**出厂就不该出现**。
+            //   ⛔ **别在别处再写一句 `SetActive`**：显隐只走下面那个口（两处写同一条规则 = 迟早不一致）。
+            SetChatPreviewVisible(false);
         }
+
+        /// <summary>`ChatPreview`（联盟页那一块 `1479.80,109.80→1879.80,169.80`）—— 只用来做显隐（`A1640`）。
+        /// <para>⚠️ 它是**联盟这一支自己的孩子**（与主菜单那块是两个不同 prefab 实例）⇒ 各自一个开关，
+        /// ⛔ 别拿主菜单那个 `SetChatPreviewVisible` 去关它（那是另一个对象）。</para></summary>
+        Transform _chatPreview;
+
+        /// <summary>联盟页 `ChatPreview` 的**唯一显隐口**（本仓 `ChatPreview.Show()` 的等效物）。
+        /// 出厂**关**（判据同 `A1639`：没有消息源 ⇒ 永远不该出现）。</summary>
+        public void SetChatPreviewVisible(bool on)
+        {
+            if (_chatPreview == null) return;
+            if (_chatPreview.gameObject.activeSelf != on) _chatPreview.gameObject.SetActive(on);
+        }
+
+        /// <summary>那块「聊天预览」现在**看得见没有**（自检用）。⚠️ 判据只能是 `activeSelf`
+        /// （`Find` / `GetComponentsInChildren(true)` **含 inactive**，拿它们断会假绿）。</summary>
+        public bool ChatPreviewVisible { get { return _chatPreview != null && _chatPreview.gameObject.activeSelf; } }
 
         void MsgRow(Transform parent, PxRect r, string name)
         {

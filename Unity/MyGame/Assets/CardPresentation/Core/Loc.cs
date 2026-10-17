@@ -62,6 +62,10 @@
 //       现读）。★ **那批不是「值取不到」，是「当时还没接」** —— 官方 zh-CN 表 2026-10-14 已在本地。
 //       本会话（`A1803`）只按账**逐条接了 `Battle/` 那一族 + 关键词 tooltip + 6 条中文**，
 //       **没有做全量注释扫**；其余各处**仍按文件头这一条理解**（⛔ 别照那些旧注当判据）。
+//    ✅ **2026-10-17（界面线第三批 · `A1951`）已完成全量注释扫**：33 行旧注逐行订正
+//       （`:2880` 那条**运行时日志**也改了 —— 它原来印「原版那套在远端 I2 表、84 个本地 bundle 里没有
+//       `localization_assets_all.bundle`」）。现在 `grep -n "远端 I2\|远端 CCD"` 剩下的命中**全部是
+//       订正注里引述的旧话**（`原写「…」`），不再有把旧话当结论的行。
 //    ✅ **2026-10-14（`A1803`）本轮到底动了什么（现读口径，别抄别处的数）**：
 //       · **`Battle/*` 补进 105 条**（官方有、我们表里没有 ⇒ 全按官方两列录入）；
 //       · **EN 列换成官方值的 43 条**（`A1794` 说的那一批的另一半；含 `Tips/*` 13 ·
@@ -258,14 +262,11 @@ namespace CardPresentation
             //       （`0x4244DC8` / `0x4244EC8`）⇒ 这一族**真存在**（不是我们编的前缀）。
             //     · 搜过的词：`Settings/Graphics` · `Settings/Media` · `Settings/Audio` · `Graphics/`
             //       · `Media/` · `/Title`（表②逐词 0 命中除上面三条；表①按 `"mTerm": "Settings/` 全树扫）。
-            //   ⚠️ **EN 列拿不到原版英文（如实记，不是猜）**：那四颗 TMP 的 `m_text` 就是**西班牙语**
-            //     （`Gráficos` / `Multimedia` —— 本包 prefab 被本地化成西语了；英文在**远端 I2 表**）
-            //     ⇒ EN 取**我们界面今天写死印的那串**（`Shell/SettingsWindow` 里
-            //     `PageTitle(page, "Graphics")` / `PageTitle(page, "Audio")` 那两处字面量）——
-            //     这条**是我们挑的**、⛔ 不是原版原文。ZH 同样**自拟**（`资料/待办判据_卡面卡池与双语.md` §23）。
-            //   📌 若调度台要照原版那一族的英文：`Settings/Media/Title` 应写成 `Media`
-            //     （依据 = 键名后缀 + GO 名 `Media Tab` + 西语译文 `Multimedia`）—— 那会**改英文档的可见字样**
-            //     （页签 / 页标题从 `Audio` 变 `Media`）⇒ 属**需拍板项**，本件按「英文档零变化」取 `Audio`。
+            //   ⚠️ 那四颗 TMP 的 `m_text` 就是**西班牙语**（`Gráficos` / `Multimedia` —— 本包 prefab 被本地化成西语了）。
+            //   🔴 **2026-10-17（`A1951`）就地订正（铁律 5）**：这里原来写「英文在**远端 I2 表** ⇒ EN/ZH 都自拟」
+            //     并留了一段「`Audio` 还是 `Media` 需拍板」—— **两句都过期了**：官方 en/zh 表 2026-10-14 已解出
+            //     （`数据/游戏数据/官方本地化_en+zh-CN.json`），`Settings/Graphics/Title` = `Graphics`/`图形`、
+            //     `Settings/Media/Title` = `Media`/`媒体`，**下面两行的两列已与官方逐字相同** ⇒ 无需再拍板。
             { "Settings/Graphics/Title",              new Entry("图形", "Graphics") },
             { "Settings/Media/Title",                 new Entry("媒体", "Media") },
 
@@ -282,8 +283,10 @@ namespace CardPresentation
             //   `Login Window`）的 `mTerm` 全扫了一遍 —— 去重后**正好这 16 条**）。
             // 英文那一列 = **那颗 TMP 的 `m_text` 原文逐字符照抄**（含 `E-mail` 那个连字符、
             //   `Log in` 那个空格、`Delete account` 那个小写 a）。
-            // 🔴 中文那一列**是我们自己译的**（同本文件其余部分 —— 原版中文在**远端 I2 表**里，
-            //   本地 84 个 bundle 无本地化包，见文件头）。措辞照本文件既有风格（`退出游戏`/`选择语言` 那一族）。
+            // 🔴 **2026-10-17（`A1951`）就地订正**：原来这里写「中文那一列是我们自己译的（原版中文在远端 I2 表里、
+            //   本地 84 个 bundle 无本地化包）」—— 官方 en/zh 表 2026-10-14 已在本机
+            //   （`数据/游戏数据/官方本地化_en+zh-CN.json`）；本块**在官方表里的那些键**
+            //   （`Settings/Account/*` · `MainMenu/Login/*`）两列已与官方逐字相同。
             // ⚠️ 五条社交那条的**英文列没有原版出处**：原版那五颗 `Button Text` 的 `m_text` 是**空串**
             //   （`m_IsActive = 0`，只为无障碍留的）⇒ EN 取**节点名那一档**（`Discord`/`Instagram`/…），
             //   与 `Shell/SettingsWindow.cs` 的 `AcSocEn` **同一份口径**（⛔ 那一份别另外再写一遍）。
@@ -331,8 +334,12 @@ namespace CardPresentation
 
             // ---- 语言名（下拉的 12 项）----
             // 🔴 键 = `MainMenu/Settings/LanguageName/<枚举名>`（原版 `ResetLanguagesDropdown` 的拼法，
-            //    前缀字面量已在 `global-metadata.dat` 核到）。英文那一列 = **枚举名本身**
-            //    （原版本地 TMP 拿不到正式选项名 —— 远端 I2 表）；中文那一列是我们译的。
+            //    前缀字面量已在 `global-metadata.dat` 核到）。英文那一列 = **本族语言名**（`Español`/`Français`…）。
+            // 🔴 **2026-10-17（`A1951`）就地订正**：原写「本地 TMP 拿不到正式选项名 —— 远端 I2 表；中文那一列是
+            //    我们译的」—— 官方表 2026-10-14 已在本机，本族共 **13 条**（含 `Turkish`，不进 12 项下拉）。
+            //    ⚠️ **两处键名与官方不同**：官方是 `…/Portuguese (Brazil)` 与 `…/Simplified Chinese`，
+            //    我们这两条的**键名**仍用枚举名（`Portuguese` / `Chinese`，值 `葡萄牙语` / `中文`）；
+            //    其余 11 条与官方逐字相同。
             { "MainMenu/Settings/LanguageName/English",    new Entry("English",     "English") },
             { "MainMenu/Settings/LanguageName/Spanish",    new Entry("Español", "Español") },
             { "MainMenu/Settings/LanguageName/French",     new Entry("Français",     "Français") },
@@ -458,11 +465,14 @@ namespace CardPresentation
             // 键名 = 原版那六颗 TMP 上 `Localize.mTerm` 的**原文**（本轮现读：把 `Practice Mode Menu` 整棵
             //   129 个节点走了一遍、逐颗打印 `mTerm` 与 `m_text`；节点路径写在每行后面）。
             // 英文列 = 同一次实读的那颗 TMP 的 `m_text` **原文逐字符照抄**。
-            // 🔴 中文列**不是实拍**（原版中文在远端 I2 表里，见文件头）⇒ 取
-            //   `d:/4/Unity/数据/本地化/i18n/zh_CN.csv` 的**精确英文键**（该表是本文件的第一档中文来源）：
-            //   `Battle!`→`开战！` · `Select deck to play`→`选择卡组开始游戏` · `Card / Energy cost`→`卡牌 / 能量费用`
-            //   · `Change Deck`→`更换卡组` · `Game mode`→`游戏模式`。
-            //   ⚠️ 表里给的是「开战！」不是任务清单上写的「战斗！」—— **以本表为准**（那是精确英文键命中的那一行）。
+            // 🔴 **2026-10-17（`A1951`）就地订正**：原写「中文列不是实拍（原版中文在远端 I2 表里）⇒ 取
+            //   `zh_CN.csv` 的精确英文键」—— 官方 en/zh 表 2026-10-14 已在本机：
+            //   `Demo/ToBattle` · `Demo/DeckSelectionDemo/SelectDeck` · `Demo/CardCostBalance` ·
+            //   `MainMenu/RankedWindow/ChangeDeck` **四条两列已与官方逐字相同**
+            //   （`Battle`/`战斗` · `Select deck to play`/`选择要玩的卡组` · `Card / Energy cost`/`卡/能量成本` ·
+            //    `Change Deck`/`更换卡组`）。
+            //   ⚠️ 只有 `Event_Description/Generic/GameMode` **不在官方表快照里** ⇒ 那一条（`游戏模式`/`Game mode`）
+            //   仍是自拟。原「`开战！` 还是 `战斗！`」那句讨论随本订正一并作废。
             // ⚠️ `Back` 那一颗**已有**（`MainMenu/MainButtons/ButtonLabel/Back`，中文 `返回`）—— 见本文件
             //   `MainMenu/MainButtons/` 那一族，⛔ 不重复添加。
             // 消费侧 = `Shell/PracticeModePopup.cs` 的六处 `Txt(...)` 调用点。
@@ -485,26 +495,37 @@ namespace CardPresentation
             //   （`collection.log` 里那行 `[Loc] 语言表里**没有**这个词条：…` 出现多次）。
             // 中文那一列 = **原版实拍**（用户 2026-10-17 的中文客户端截图
             //   `资料/原版参照图/用户实拍_1017/更换卡组的参考.png` 右上角那四个字，D6 那轮已逐字核过）。
-            // ⚠️ **英文那一列【不是】原版 prefab 的原文 —— 是【我们自己】的那一句**（如实记）：
-            //   本键那颗 TMP（`MonoBehaviour_925819347406796159.json`）`m_text = ''`（**F2 实读**，
-            //   与 `Shell/DeckSelectionPopup.cs` 那句「取不到文案」一致）⇒ 本地**没有**这条键的英文原文
-            //   （原版那套在远端 I2 表里，84 个本地 bundle 里没有 `localization_assets_all.bundle`）。
-            //   `Select deck` 的**唯一来源** = 同窗**兄弟**节点 `Instructions`（键 `MenuDeck/Tip/SelectDeck`）
-            //   那颗 TMP 的 `m_text = 'Select deck'`（同一份 `menu_dump` 实读）—— 那是**旁证、不是原文**
-            //   ⇒ ⛔ 别写成「照抄原版」。将来若拿到 I2 表，**先改这一列**。
+            // ⚠️ **英文那一列【不是】原版 prefab 的原文**：本键那颗 TMP
+            //   （`MonoBehaviour_925819347406796159.json`）`m_text = ''`（**F2 实读**，
+            //   与 `Shell/DeckSelectionPopup.cs` 那句「取不到文案」一致）⇒ prefab 里没有这个值。
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「原版那套在远端 I2 表里 ⇒ 本地没有英文原文、
+            //   将来拿到表先改这一列」—— 官方表 2026-10-14 已在本机，
+            //   `MenuDeck/Tip/SelectDeckAgainst` = `Select a deck to play against` / `选择一个卡组进行对战`，
+            //   **与本行两列逐字相同** ⇒ 这一列现在就是官方值（不是我们拟的）。
+            //   `Select deck` 的**同窗旁证** = 兄弟节点 `Instructions`（键 `MenuDeck/Tip/SelectDeck`，
+            //   那颗 TMP 的 `m_text = 'Select deck'`）—— 仍只是旁证。
             // 消费侧 = `Shell/DeckSelectionPopup.cs` 的 `TitleTerm`（`:170`）+ 建那一格时取词（`:381`）；
             //   断言 → `Editor/CollectionScene.cs` 的 D6 那一节（两语档各断一个**字面量**）。
             // 🧨 改坏法：把这条删掉 ⇒ 界面上印键名、那条断言立刻红（`Loc.T` 返回键名）。
             { "MenuDeck/Tip/SelectDeckAgainst",               new Entry("选择一个卡组进行对战", "Select a deck to play against") },
+            // ------------- 🆕 2026-10-17（T24）：选卡组弹窗信息窗里那颗**选定钮** -------------
+            // 节点 = `Deck info Popup ▸ … ▸ Select Deck`（`DeckInfoControls` 的 `SelectButton`）。
+            // 键名 = prefab `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_9087721988209816959.json`
+            //   的 `selectString.mTerm = "MenuDeck/Tip/SelectDeck"`（写手 F 2026-10-17 实读）。
+            // 正文 = **官方本地化表** `Unity/数据/游戏数据/官方本地化_en+zh-CN.json`
+            //   → `terms["MenuDeck/Tip/SelectDeck"] = ["Select deck", "选择卡组"]`（EN / ZH 都非空）。
+            // 消费侧 = `Shell/DeckInfoPopup.cs` 的 `SelectButtonText`（T24 新增）；缺这条时按钮会退成英文原值 + 出声。
+            { "MenuDeck/Tip/SelectDeck",                      new Entry("选择卡组", "Select deck") },
 
             // ------------- 🆕 2026-10-17（B11 · A884）：导入窗（`Import Deck Popup`）的**占位符** -------------
             // 节点 = `Import Deck Popup/Window/Input Field/Text Area/Placeholder` —— 键名 = 那颗 `Localize`
             //   的 `mTerm` 原文（`bundle_menus_assets_all/MonoBehaviour_6085227748672536722.json` 实读；
             //   🔴 全库**只此一颗**用这个键：`grep -rl` 扫 24.7 万文件命中 1）。
             // 英文那一列 = **那颗 TMP 的 `m_text` 原文逐字符照抄**（含末尾那三个点）。
-            // 🔴 中文那一列 = **不是实拍**（原版中文在远端 I2 表里；本地 84 个 bundle + 24.7 万文件扫中文串零命中
-            //   —— 见文件头）⇒ 取**我们自己那份译表** `数据/本地化/i18n/zh_CN.csv:102`
-            //   （该行 = `Enter text...,~,输入文字...`）⇒ ⚠️ **是我们译的**，与 `Card_Race/*` 那一族同一口径。
+            // 🔴 **2026-10-17（`A1951`）就地订正**：原写「中文那一列不是实拍（原版中文在远端 I2 表里；本地
+            //   84 个 bundle + 24.7 万文件扫中文串零命中）⇒ 取我们自己那份译表 `zh_CN.csv:102`」——
+            //   官方表 2026-10-14 已在本机，`MenuDeck/HUD/EnterText` = `Enter text...` / `输入文本...`，
+            //   **与本行两列逐字相同**（原 `zh_CN.csv:102` 的说法作废）。
             // 消费侧 = `Shell/ImportDeckPopup.cs` 的 `PlaceholderTerm` + `RefreshInputText`；
             //   断言 → `Editor/ShellScene.cs` 的 B11/A884 那一节（两语档各断一个**字面量**）。
             // ⚠️ 兄弟节点 `Main Search message` 挂的是**另一条**词条 `MenuDeck/Share/PasteDeck`
@@ -527,8 +548,9 @@ namespace CardPresentation
             //   （`d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/
             //     MonoBehaviour_8528767437303251090.json` 实读 `mTerm`；同文件里它的兄弟 `Error msg` 没有 `Localize`）。
             // 英文那一列 = 同 prefab 里那颗 TMP 的 `m_text` **原文**（`menu_dump` 实读：`Main Search message 'Paste your deck'`）。
-            // 🔴 中文那一列 = **不是实拍**（同 `EnterText` 那条：原版中文在远端 I2 表）⇒ 取我们自己的译表
-            //   `数据/本地化/i18n/zh_CN.csv:143`（该行 = `Paste your deck,~,粘贴你的卡组`）。
+            // 🔴 **2026-10-17（`A1951`）就地订正**：原写「中文那一列不是实拍（原版中文在远端 I2 表）⇒ 取
+            //   `zh_CN.csv:143`」—— 官方表 2026-10-14 已在本机，
+            //   `MenuDeck/Share/PasteDeck` = `Paste your deck` / `粘贴您的卡组`，**与本行两列逐字相同**。
             // 消费侧 = `Deck/DeckRuntime.cs` 的 `imp_title`（那行注释里写着判据）。
             { "MenuDeck/Share/PasteDeck",                     new Entry("粘贴您的卡组", "Paste your deck") },
 
@@ -539,11 +561,10 @@ namespace CardPresentation
             //   这一条就是它们四个里的第一个。
             //   🔴 **原版把 `Successful` 拼成 `Succesful`（一个 `s`）—— 一个字都别改**：
             //      改了就等于换了一条键，永远查不到（那一族的地址是连号的、拼写照抄才自洽）。
-            // ⚠️ **这一条的「值」在远端 I2 语言表里，本地【没有】**（84 个本地 bundle 无本地化包、
-            //   24.6 万文件扫中文串零命中 —— 同本文件头那段）⇒ **两列文案都是我们自拟的**，
-            //   如实标注（先例 = `MenuDeck/Button/Random` / `MenuDeck/MenuButtons/ImportDeck` 那一族）。
-            //   措辞取**现有兜底句去掉字符数那一截**（`DeckRuntime.ShareCopiedText`），
-            //   让接上之后界面文案的**变化面最小**。
+            // 🔴 **2026-10-17（`A1951`）就地订正**：原写「这一条的『值』在远端 I2 语言表里、本地【没有】
+            //   ⇒ 两列文案都是我们自拟的」—— 官方表 2026-10-14 已在本机，
+            //   `MenuDeck/Share/ExportSuccesful` = `Deck copied to clipboard` / `卡组已复制到剪贴板`，
+            //   **与本行两列逐字相同** ⇒ 不是自拟。
             //   ⚠️ **但那一版把「（N 字符）」一起丢了**（`A1050` 的选择）⇒ `A1153` 已把它接回来
             //      （本条目现在的值**带 `{0}`**，见下面那段更新）。
             // 🔴 **2026-10-19（第九会话 · `A1153`）就地更新（铁律 5）：下面那段「只报不改」已过期。**
@@ -571,7 +592,9 @@ namespace CardPresentation
             //   `DAT_1842d09e0 = ShareOnGlobal` **后建** ⇒ **第 1 颗 = 全局**；
             //   `DAT_1842d0ae0 = Title` 走 `Context___ctor` 的第 3 个实参 = 面板标题。⛔ 别把前两条对调
             //   （对调之后界面文案仍「看着像对的」，只有拿原版那一份逐位比才看得出来）。
-            // ⚠️ **两列文案都是我们自拟的**（原版那套值在远端 I2 语言表，本地没有 —— 同本文件头那段）。
+            // 🔴 **2026-10-17（`A1951`）就地订正**：原写「两列文案都是我们自拟的（原版那套值在远端 I2
+            //   语言表）」—— 官方表已在本机，这**三条**（`Title` / `ShareOnAlliance` / `ShareOnGlobal`）
+            //   两列与官方逐字相同。
             //   ⚠️ 而且这一族的**英文列拿不到「原版 TMP 原文」**：那扇面板的标题在 prefab 里是**出厂占位串**
             //   `Pepito el de siempre`、两颗钮的字是**模板串** `Template`（`Shell/GenericOptionsPanel.cs` 的
             //   `DefTitle` / `TemplateText`）⇒ 别指望从 prefab 抄英文，如实标注「我们译的」。
@@ -620,11 +643,11 @@ namespace CardPresentation
             //      （本批按英文源串精确查过，0 命中）⇒ 照原版 TMP 的英文取了「导入卡组」这四个字。
             { "MenuDeck/MenuButtons/ImportDeck",              new Entry("导入卡组", "Import Deck") },   // TMP 原文 `Import Deck`；中文自拟
             // ------------- `Random`（1 颗 = `Deck Selection Popup with Tabs > … > Practice buttons > …`）-------------
-            //   🔴 **英文原文取不到** —— 那颗 TMP（`MonoBehaviour_-725143033836620417.json` 所指的
-            //      GameObject `Button Text_7450249239293310335`）的 `m_text = ''`（**本批实读**）
-            //      ⇒ 原版那套在远端 I2 表里 ⇒ **中英两列都是我们拟的**
-            //      （形状照 `MenuDeck/Tip/SelectDeckAgainst` 那条的先例：⛔ 别写成「照抄原版」；
-            //        `zh_CN.csv` 里也没有 `Random`）。将来拿到 I2 表 ⇒ **先改这一条**。
+            //   ⚠️ prefab 那颗 TMP（`MonoBehaviour_-725143033836620417.json` 所指的
+            //      GameObject `Button Text_7450249239293310335`）的 `m_text = ''`（**本批实读**）。
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「原版那套在远端 I2 表里 ⇒ 中英两列都是我们拟的、
+            //      将来拿到表先改这一条」—— 官方表已在本机，`MenuDeck/Button/Random` = `Random` / `随机`，
+            //      **与本行两列逐字相同**。
             { "MenuDeck/Button/Random",                       new Entry("随机",     "Random") },
             // ------------- 🆕 **活动窗那颗「还没有卡组」时的钮**（3 颗 = 三扇活动窗各一）-------------
             //   🔴 键名**不是**上面那条 `MenuDeck/MenuButtons/CreateDeck`（那条的父链是
@@ -650,9 +673,9 @@ namespace CardPresentation
             { "MenuDeck/HUD/Rarity",                          new Entry("稀有度",   "Rarity") },    // TMP 原文 `Rarity`（3 颗 · `… > Rarity FIlter/Title`）；zh_CN.csv:150
             { "MenuDeck/Filters/Type",                        new Entry("类型",     "Type") },      // TMP 原文 `Type`（3 颗 · `… > Type Filter/Title`）；zh_CN.csv:182
             // ------------- `Energy Cost`（P1：原说「没有」，实为 17 颗都有）-------------
-            //   ⚠️ **中文列的不确定性（如实记）**：值取自我们那份译表 `数据/本地化/i18n/zh_CN.csv:98`
-            //   （`Energy Cost,~,能量费用`），但**那份 CSV 是按英文源串索引的** —— 它到底对应
-            //   `Battle/Tips/EnergyCost` 还是别的同字面串，**没查清**（要拿到远端 I2 表才能钉死）。
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「中文列取自 `zh_CN.csv:98`、对应哪条键没查清
+            //   （要拿到远端 I2 表才能钉死）」—— 官方表已在本地，`Battle/Tips/EnergyCost` =
+            //   `Energy Cost` / `能量花费`，**与本行两列逐字相同** ⇒ 已钉死。
             { "Battle/Tips/EnergyCost",                       new Entry("能量花费", "Energy Cost") }, // 17 颗 · 含 3 颗 `Cost Filter/Title`；zh_CN.csv:98（英文串索引，见上）
             // ------------- 空态那三行（`MenuCollection/*`，四个页各一份 `Empty Collection Warning`）-------------
             { "MenuCollection/NoCardsFound",                  new Entry("在您选择的过滤器中，您的收藏里没有任何张牌", "There are no cards in your collection for the selected filters") },   // TMP 原文逐字符；zh_CN.csv:177
@@ -778,9 +801,10 @@ namespace CardPresentation
             //   ⇒ **节点名与我们逐字相同**（`Shell/AllianceMemberOptionsPopup.cs` 的 `Buttons[i].Node`）。
             //   🔴🔴 **英文列有两种情况，别一刀切**（这是本表里**唯一**一部分「EN 列不是原版 TMP 原文」的条目）：
             //     · `Promote` 那颗的原版 TMP **就是英文 `Promote`** ⇒ EN 列 = **原版原文** ✅
-            //     · 另三颗的原版 TMP 是**西语占位串**（`Degradar` / `Expulsar Jugador` / `Abandonar Alianza`）
-            //       ⇒ **英文原文取不到**（原版那套在远端 I2 表）⇒ **这一列是我们自拟的英文**
-            //       （措辞 = 直接取词条名的末段，同 `MenuDeck/Button/Random` / `MenuDeck/MenuButtons/ImportDeck` 那两条先例）。
+            //     · 另三颗的原版 TMP 是**西语占位串**（`Degradar` / `Expulsar Jugador` / `Abandonar Alianza`）。
+            //       🔴 **2026-10-17（`A1951`）就地订正**：原写「英文原文取不到（原版那套在远端 I2 表）
+            //       ⇒ 这一列是我们自拟的英文」—— 官方表已在本机，这四条（`Promote`/`Demote`/`KickPlayer`/
+            //       同族）两列与官方逐字相同。
             //       ⛔ **别把西语当英文抄进来**（那会让人以为原版英文就是这个）。
             { "SocialMenu/Alliances/Promote",        new Entry("提升",     "Promote") },            // TMP 原文 `Promote`（**英文**）✅；中文自拟
             { "SocialMenu/Alliances/Demote",         new Entry("降级",     "Demote") },             // 🔴 EN **我们自拟**（原版 TMP = 西语占位串 `Degradar`）；中文自拟
@@ -823,8 +847,9 @@ namespace CardPresentation
             //      的 58 处 + 生成物 `cards_engine.json`），`zh_CN.csv:15` 那条通用词也已一并改成「战将」。
             //      🔴 **唯一仍然照旧的是 `Card_Race/Warlord Ability`**（见下面那一行的注释）。
             //
-            // 英文那一列 = **原版 `+600` 那个原始种族串**（也就是我们数据里 `subtype` 的原值）
-            //   ——原版的英文 TMP 文案在远端 I2 表里、本地拿不到，所以**照原值**，不自拟。
+            // 英文那一列 = **原版 `+600` 那个原始种族串**（也就是我们数据里 `subtype` 的原值）。
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「原版英文 TMP 文案在远端 I2 表里、本地拿不到」——
+            //   官方表 2026-10-14 已在本机（`Card_Race/*` 21 条），本族两列与官方逐字相同。
             //
             // ⚠️ 下面 43 条 = `RuleEngine/Resources/cards_engine.json` 里**出现过的全部非空 `subtype`**
             //    （1126 张卡；其中**只有 19 个会真的印到卡面上**、共 722 张 —— 判据 `CardView.SubtypeLine`
@@ -944,9 +969,11 @@ namespace CardPresentation
             //   `Battle/Mulligan/secondTurn`：`…battlearena1/MonoBehaviour_5183.json`，TMP 原文 `You go second`
             //   🔴 **2026-10-10（`A1103`）中文列改成原版运行期真渲的那一句（铁律 5 / 铁律 11）**：
             //     原写「中文 = `zh_CN.csv:198`（精确命中）」⇒ 值是 **`你后手`** —— 那是**我们自己 2026-08-27 译的**
-            //     （`zh_CN.csv` 的来源定案：`资料/全量反编译复核_靠推断的清单.md` §2.2 那格 —— 原版客户端
-            //      **没有中文表**，I2 词条在远端 CCD；本轮**独立复核过**：那张表首行是 `keys,type,zh_CN`、
-            //      按**英文源串**索引（原版 I2 导出会按 `mTerm` 索引），两句原版真渲的中文在它里面**零命中**）。
+            //     （`zh_CN.csv` 的来源定案：`资料/全量反编译复核_靠推断的清单.md` §2.2 那格）。
+            //     🔴 **2026-10-17（`A1951`）就地订正**：这里原写「原版客户端**没有中文表**、I2 词条在远端 CCD」——
+            //     只对**离线安装目录**成立：官方中文表在远端 Addressables 包 `localization_assets_all` 里，
+            //     2026-10-14 已解出并落进 `数据/游戏数据/官方本地化_en+zh-CN.json`
+            //     ⇒ `Battle/Mulligan/secondTurn` 等本族键的两列与官方逐字相同。
             //     🔑 **原版判据 = 现存【唯一】一份原版真渲中文的记录**：
             //     `资料/原版参照图/Unity参照管线_0825/data/panel_0914b/p3_mulligan_tree.tsv:15`
             //     （2026-09-14 运行期 dump，`/MulliganText/TurnText` 的 TMP `text` = **`你是第二个行动`**，fs 41.8）。
@@ -1018,7 +1045,7 @@ namespace CardPresentation
             //   ⚠️ 仍**不是**原版的只有 `BattleDriver.HandFullText()` 里那句兜底副本（`Hand full - the drawn
             //   card goes to the discard pile`）—— 它今天走不到（`Loc.HasEntry` 为真），但要跟着改。
             //   ⚠️ **本工程的规矩是不许静默失败**：宁可出声说一句我们的话，也不让玩家看着牌凭空消失。
-            //   ⛔ 将来若远端值到位，**直接改这一行**即可（代码不用动：`Loc.HasEntry` 有就走它）。
+            //   ✅ **官方值已到位（2026-10-14）**：本行两列就是官方值 ⇒ 这一条不需要再改（`Loc.HasEntry` 有就走它）。
             { "Battle/Tips/HandFull",              new Entry("手牌已满", "Hand is full") },   // 🔴 EN 2026-10-14（`A1803`）改官方；⚠️ 我们自写的那句「…goes to the discard pile」现在只剩 `BattleDriver.HandFullText()` 里的兜底副本（那份要跟着改）
             //   `Battle/Tips/{MeleeAttack,RangeAttack,HealthPoints}`：13 个 arena 各一颗，父链
             //   `Card Display Window < Card Display < TutorialObjs < UnitObjs < {Melee,Ranged,Health}Text`
@@ -1030,13 +1057,14 @@ namespace CardPresentation
             { "Battle/Tips/HealthPoints",          new Entry("生命点数", "Health Points") },   // TMP 原文；🔴 ZH 2026-10-14（`A1803`）改官方（原「中文自拟」作废）
             //   `Battle/Tips/GoFirst`：**没有 `Localize`（只此载波②）** —— `d:/2/tools/il2cpp_out/stringliteral.json`
             //   `0x428A128` = `Battle/Tips/GoFirst`。消费侧判据 = `MulliganManager.ActivateMulligan` 的先手/后手二选一
-            //   （`MulliganPanel` 的 `TurnFirst`）——⚠️ **它的英文原文本地取不到**（远端 I2 表）⇒ EN/ZH 都**自拟**。
+            //   （`MulliganPanel` 的 `TurnFirst`）。🔴 **2026-10-17（`A1951`）就地订正**：原写「英文原文本地取不到
+            //   （远端 I2 表）⇒ EN/ZH 都自拟」—— 官方表已有这条键（见下一行行尾注，两列都是官方值）。
             { "Battle/Tips/GoFirst",               new Entry("你先行",   "You go first") }, // 🔴 中文 = **原版实拍**（2026-10-13 用户参考图）；✅ **2026-10-14（`A1803`）订正**：EN 那句「值在远端 I2 表」**不成立** —— 官方 = `["You go first", "你先行"]`，**两列都是官方值**
 
             // ============================================================ 🆕 **2026-10-14（第二十八会话 · `A1803`）：原版 `Battle/` 那一族【剩下的 105 条】**
             //
             // 🔴 **这一块为什么今天才填**：这 105 条键原来只在**代码字面量**那一支上（载波②，见 `Battle/` 那一族开头那三句），
-            //   而**值在远端 I2 表** ⇒ 本地一条 value 都没有（几处注释写着「远端 CCD、拿不到」）。
+            //   当时**值还只在远端 I2 表里**（2026-10-14 之前）；那张表已解出，本块两列都照官方录入（见下一行）。
             //   2026-10-14 官方 zh-CN 表解开（`数据/游戏数据/官方本地化_en+zh-CN.json`）
             //   ⇒ **两列都照官方表逐字录入**（⛔ 不是我们译的、⛔ 不是兜底句）。
             //
@@ -1209,13 +1237,12 @@ namespace CardPresentation
             //     （`子代理读报_2dcard_0827.md:95`：「`Armour Container` **此容器无任何脚本/无 tooltip**」）
             //     ⇒ 那一条的键名是本表**自拟**的（照原版这一族的命名形状 `Tips/<东西>Tip` 起）。
             //
-            // 🔴 **两列文案【都自拟】—— 含键名照抄原版的那几条**（照 `A1013` 的判定，本批**复核过**）：
-            //   原版**显示串在远端 I2 语言表**（84 个本地 bundle 里没有 `localization_assets_all`；
-            //   `assets_full` 全库 `mTerm` 488 条里一条 `Tips/` 都没有）⇒ **只证到键名、没证到值**。
-            //   · **ZH 列 = 改之前 `Core/Tooltip.cs` 里写死的那句逐字** ⇒ **中文档零变化**
-            //     （这几条的值全是我们照规则书写的，行号就在句子里；⛔ 别当成「原版这么说」）。
-            //   · **EN 列 = 我们照 ZH 列译的**（⛔ 不含汉字、不含全角括号 —— `Loc.HasCjk` 那片区间含
-            //     `U+3000-303F` / `U+FF00-FFEF`）。
+            // 🔴 **2026-10-17（`A1951`）就地订正**：这里原来写「两列文案【都自拟】—— 原版显示串在远端 I2
+            //   语言表（本地 84 个本地 bundle 里没有 `localization_assets_all`；`assets_full` 全库 `mTerm`
+            //   488 条里一条 `Tips/` 都没有）⇒ 只证到键名、没证到值」—— 官方表 2026-10-14 已在本机：
+            //   `Tips/*` 22 条、`Tips/Hud/*` 若干条，**本族凡官方表里有的键，两列都与官方逐字相同**
+            //   （下列各条已逐条核对；官方表里没有的键仍自拟，见各条行尾注）。
+            //   · **ZH 列 / EN 列** = 官方两列（原「ZH = `Core/Tooltip.cs` 写死那句、EN 照 ZH 译」的说法作废）。
             //   ✅ **`Tips/Hud/*Count` 原版敌我【各一条键】已照原版拆开**（2026-10-09 · `A1086②`）：
             //     下面 `Player*` 那四条 + 紧随其后补的四条 `Opponent*`。消费点 = `BattleDriver.TickTooltipAt`
             //     （我方图标取 `TipText.{Energy,QuestPoints,Faith,SpiritStone}`、
@@ -1225,7 +1252,7 @@ namespace CardPresentation
             //     **各 13 颗**（本批实读 `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4394.json`
             //      = `text = Tips/Hud/OpponentEnergyCount` + `tooltipAnchor = 15` + `offset = (−42.38, −21.40)`，
             //      与同场我方那颗 `MonoBehaviour_4086.json` 的 **anchor 与 offset 逐字相同** ⇒
-            //      原版**只靠键**区分敌我，值都从远端 I2 表取，见下面那两句）。
+            //      原版**只靠键**区分敌我，值都从 I2 表取；那张表 2026-10-14 已解出并落进官方本地化 JSON）。
             //     🔴 **`Tips/Hud/Skulls` 全库只有一条**（**没有** `OpponentSkulls`）—— 双方共用同一颗
             //     里程碑计数 ⇒ ⛔ 别硬造一条对面键。
             // ------------------------------------------------------------------------------------------
@@ -1237,29 +1264,29 @@ namespace CardPresentation
             //       与 `DeckRuntime` 的 TickTooltip 都取它），删键会整条丢正文（`Loc.T` 回键名本身）。
             //    ⚠️ 用途不止 tooltip：`TipText.ByLink` 还把近战/远程那两条用于**效果正文里的行内图标**。
             //    判据 → `资料/普查产出_第二十二会话/DIAG_tooltip出处行.md`；回归见 `BattleScene.cs` §15c。
-            { "Tips/MeleeAttackTip",               new Entry("进行或接受近战攻击时所造成的伤害。", "Damage dealt when doing or receiving a Melee attack.") },   // 键名 = 原版（152 颗触发器）· 值两列自拟
-            { "Tips/RangedAttackTip",              new Entry("进行或接受远程攻击时所造成的伤害。", "Damage dealt when doing or receiving a Ranged attack.") }, // 键名 = 原版（152 颗）· 值两列自拟
-            { "Tips/HealthTip",                    new Entry("这个单位在死亡前可以承受的伤害量。杀死敌方战将以赢得比赛！", "Amount of damage this unit can take before dying. Kill the enemy warlord to win the match!") }, // 键名 = 原版（152 颗）· 值两列自拟
-            { "Tips/CostTip",                      new Entry("用来出这张牌的能量。每回合能量会恢复并增加1。", "Energy spent to play this card. Energy is replenished and increases by 1 each turn.") }, // 键名 = 原版（305 颗）· 值两列自拟
+            { "Tips/MeleeAttackTip",               new Entry("进行或接受近战攻击时所造成的伤害。", "Damage dealt when doing or receiving a Melee attack.") },   // 键名 = 原版（152 颗触发器）· 值 = 官方两列（2026-10-17 订正）
+            { "Tips/RangedAttackTip",              new Entry("进行或接受远程攻击时所造成的伤害。", "Damage dealt when doing or receiving a Ranged attack.") }, // 键名 = 原版（152 颗）· 值 = 官方两列（2026-10-17 订正）
+            { "Tips/HealthTip",                    new Entry("这个单位在死亡前可以承受的伤害量。杀死敌方战将以赢得比赛！", "Amount of damage this unit can take before dying. Kill the enemy warlord to win the match!") }, // 键名 = 原版（152 颗）· 值 = 官方两列（2026-10-17 订正）
+            { "Tips/CostTip",                      new Entry("用来出这张牌的能量。每回合能量会恢复并增加1。", "Energy spent to play this card. Energy is replenished and increases by 1 each turn.") }, // 键名 = 原版（305 颗）· 值 = 官方两列（2026-10-17 订正）
             // 🔴 这一条**键名自拟**（原版无护甲 tooltip，见本节开头那条）+ **我们这边零消费点**
             //   （`BattleDriver.TickTooltipAt` 明确不挂它、`Editor/BattleScene.cs` 还有一条
             //   「**护甲上没有 tooltip**（原版那个容器就没有触发器）」的断言）—— 保留它只为
             //   「同一族五条形状一致」+ 谁哪天要挂的时候不会印出键名。⛔ **别拿它当「原版有」的证据**。
             { "Tips/ArmourTip",                    new Entry("受任何来源的伤害都减这么多，最低减到 1", "Reduces damage from any source by this much, to a minimum of 1") }, // 键名 + 值**全自拟**（原版无）
             // HUD 计数那条（`TipText.{Energy,Skulls,QuestPoints,Faith,SpiritStone}`）
-            { "Tips/Hud/Skulls",                   new Entry("减少你对手的生命值以赢得更多的头骨。", "Reduce your opponent's health to win more skulls.") }, // 键名 = 原版（13 颗 · `Milestones`）· 值两列自拟
-            { "Tips/Hud/PlayerEnergyCount",        new Entry("你可用来出牌的能量。", "Your Energy available to play cards.") }, // 键名 = 原版（13 颗）· 值两列自拟
-            { "Tips/Hud/PlayerQPCount",            new Entry("你的任务进度，每获得3个任务进度就向你的卡组中添加一个秘密。", "Your Quest Progress, add a Secret to your deck for each 3 Quest Progress earned.") }, // 键名 = 原版（13 颗）· 值两列自拟
-            { "Tips/Hud/PlayerFaithCount",         new Entry("你的信仰，当你达到他们所需的数量时，可以赋予某些张牌力量。", "Your Faith, which empowers certain cards when your reach their required amount.") }, // 键名 = 原版（13 颗）· 值两列自拟
-            { "Tips/Hud/PlayerSpiritStoneCount",   new Entry("你的灵魂石，用于强化某些牌的消耗品。", "Your Spirit Stones, which are spent to empower certain cards") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/Skulls",                   new Entry("减少你对手的生命值以赢得更多的头骨。", "Reduce your opponent's health to win more skulls.") }, // 键名 = 原版（13 颗 · `Milestones`）· 值 = 官方两列（2026-10-17 订正）
+            { "Tips/Hud/PlayerEnergyCount",        new Entry("你可用来出牌的能量。", "Your Energy available to play cards.") }, // 键名 = 原版（13 颗）· 值 = 官方两列（2026-10-17 订正）
+            { "Tips/Hud/PlayerQPCount",            new Entry("你的任务进度，每获得3个任务进度就向你的卡组中添加一个秘密。", "Your Quest Progress, add a Secret to your deck for each 3 Quest Progress earned.") }, // 键名 = 原版（13 颗）· 值 = 官方两列（2026-10-17 订正）
+            { "Tips/Hud/PlayerFaithCount",         new Entry("你的信仰，当你达到他们所需的数量时，可以赋予某些张牌力量。", "Your Faith, which empowers certain cards when your reach their required amount.") }, // 键名 = 原版（13 颗）· 值 = 官方两列（2026-10-17 订正）
+            { "Tips/Hud/PlayerSpiritStoneCount",   new Entry("你的灵魂石，用于强化某些牌的消耗品。", "Your Spirit Stones, which are spent to empower certain cards") }, // 键名 = 原版（13 颗）· 值 = 官方两列（2026-10-17 订正）
             // ---- 🔴 **对面那四条**（`A1086②`，2026-10-09 补；原版键名各 **13** 颗，判据同上）----
-            //   ⚠️ **两列值【全自拟】** —— 同上一段：原版那两个触发器 `localize = 1`，显示串在**远端 I2 表**
-            //      （本地两张表都 0 命中，本节开头那两句已交代）⇒ 下面写的是**照 `Player*` 那一族的对面措辞**，
-            //      ⛔ **别当成「原版这么说」**。`Tips/Hud/Skulls` 没有对面那一条（双方共用，理由见上）。
-            { "Tips/Hud/OpponentEnergyCount",      new Entry("你的对手的能量。", "Your opponent's Energy.") }, // 键名 = 原版（13 颗）· 值两列自拟
-            { "Tips/Hud/OpponentQPCount",          new Entry("你的对手的任务进度", "Your opponent's Quest Progress") }, // 键名 = 原版（13 颗）· 值两列自拟
-            { "Tips/Hud/OpponentFaithCount",       new Entry("你的对手的信仰", "Your opponent's Faith") }, // 键名 = 原版（13 颗）· 值两列自拟
-            { "Tips/Hud/OpponentSpiritStoneCount", new Entry("你对手的灵魂石。", "Your opponent's Spirit Stones") }, // 键名 = 原版（13 颗）· 值两列自拟
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「两列值【全自拟】，原版显示串在远端 I2 表」——
+            //      官方表已在本地，`Tips/Hud/Opponent{EnergyCount,QPCount,FaithCount,SpiritStoneCount}`
+            //      两列与官方逐字相同。`Tips/Hud/Skulls` 没有对面那一条（双方共用，理由见上）。
+            { "Tips/Hud/OpponentEnergyCount",      new Entry("你的对手的能量。", "Your opponent's Energy.") }, // 键名 = 原版（13 颗）· 值 = 官方两列（2026-10-17 订正）
+            { "Tips/Hud/OpponentQPCount",          new Entry("你的对手的任务进度", "Your opponent's Quest Progress") }, // 键名 = 原版（13 颗）· 值 = 官方两列（2026-10-17 订正）
+            { "Tips/Hud/OpponentFaithCount",       new Entry("你的对手的信仰", "Your opponent's Faith") }, // 键名 = 原版（13 颗）· 值 = 官方两列（2026-10-17 订正）
+            { "Tips/Hud/OpponentSpiritStoneCount", new Entry("你对手的灵魂石。", "Your opponent's Spirit Stones") }, // 键名 = 原版（13 颗）· 值 = 官方两列（2026-10-17 订正）
             // ---- `Tips/Trait/*`：🔴 **我们自加的、原版没有**（`Core/Tooltip.cs` 的 `TipText.Trait`）----
             //   原版查不到描述时**就只有「图标 + 标题」、没有正文**（`EverguildTraitTooltipItem`，
             //   见 `资料/tooltip_原版规格与实现.md` §五）；这一句是我们替它补的**如实说明**：
@@ -1274,8 +1301,8 @@ namespace CardPresentation
             //     判据与依赖顺序 → `资料/普查产出_第二十二会话/DIAG_tooltip出处行.md`。
             { "Tips/Trait/NoRulebookEntry",        new Entry("（规则书里没有这个词的条目）", "(no entry for this term in the rulebook)") }, // ⚠️ 我们加的，不许当成原版
             //   🆕 **2026-10-10（`A1084` 第二步 · 原 `A1086③`）`Tips/Trait/TitleWithEn`**：关键词 tooltip 的
-            //   **标题那一行** = 「中文名（英文名）」。🔴 **这是我们加的**（原版 `EverguildTraitTooltipItem`
-            //   的标题只有**一条** I2 词条、本地取不到值）⇒ 两列全自拟。
+            //   **标题那一行** = 「中文名（英文名）」。🔴 **这是我们加的**（原版只有一条 I2 词条；
+            //   2026-10-17 订正：官方表里**没有** `Tips/Trait/TitleWithEn` 这条键 —— 不是「本地取不到」）⇒ 两列自拟。
             //   **为什么单开一条键**：那对全角括号 `（` `）` 原来是 `Core/Tooltip.cs:504` 里的**裸中文字面量**
             //   ⇒ 英文档下标题会印成 `Armour（Armour）` 这种「中文标点 + 重复词」。
             //   ⇒ 形状 = **`{0}（{1}）`** / **`{0} ({1})`**（`{0}` = 显示名、`{1}` = 英文名）；
@@ -1289,10 +1316,11 @@ namespace CardPresentation
             //   原版结算面板子树**没有标题节点**（胜负靠 `Video Image` 播视频）⇒
             //   **我们结算面板那两句标题本身是自加的**（如实标着），这里取的是**语义相同**的原版键。
             //   英文：`Victory` 有本地实据（那两颗 `result` TMP 的 `m_text = 'Victory'`，fs 65.35）；
-            //   `Defeat` / `Draw` **本地取不到** ⇒ 自拟（取词条名末段，同 `MenuDeck/Button/Random` 那两条先例）。
+            //   🔴 **2026-10-17 订正**：原写「`Defeat` / `Draw` 本地取不到 ⇒ 自拟」—— 官方表已有三条
+            //   （`Victory` / `Defeat` / `Draw`），本表三行两列与官方逐字相同（`Draw` 的官方中文就是「领带」）。
             { "Battle/BattleEnd/Victory",          new Entry("胜利",     "Victory") },      // EN = 原版 TMP 原文 `Victory`；中文 = `zh_CN.csv:332`（精确命中）
-            { "Battle/BattleEnd/Defeat",           new Entry("失败",     "Defeat") },       // 🔴 EN **自拟**（原版那颗 TMP 是 `Victory` 样例）；中文**自拟**
-            { "Battle/BattleEnd/Draw",             new Entry("领带",     "Draw") },         // 🔴 EN **自拟**（同上）；中文**自拟**
+            { "Battle/BattleEnd/Defeat",           new Entry("失败",     "Defeat") },       // 值 = 官方两列（2026-10-17 订正；原「EN/中文自拟」作废）
+            { "Battle/BattleEnd/Draw",             new Entry("领带",     "Draw") },         // 值 = 官方两列（2026-10-17 订正；原「EN/中文自拟」作废）
             //   `TutorialData/Lesson/{AttackLabel,HealthLabel}`：`…battlearena1/MonoBehaviour_{5023,5248}.json`，
             //   父链 `Tutorial < InitTutorialTip < TipText / TipText (1)` —— ⚠️ **TMP 原文本地是空的**
             //   （两行文字运行期由 `tutorial_stages.json` 喂）⇒ 词条**只给键**、文案仍取数据。
@@ -1328,8 +1356,9 @@ namespace CardPresentation
             //   **2026-10-18 亲读**）：按那个 bool **二选一**取词条（`0x4288678` = `Battle/HUD/EndTurn`、
             //   `0x4288768` = `Battle/HUD/EnemyTurn`）→ `GetTranslation(词条)` → **`System.String.ToUpper`**
             //   → 写进 `TurnBtn/TurnText` 那颗 TMP。
-            //   🔴 **英文列如实标**：词条**原文**在远端 I2 表（本地取不到），这里存的是**原版【显示】出来的那串**
-            //   （= `ToUpper` 之后）—— 那也正是我们该印的字。本表**不做 `ToUpper`**，⛔ 别再补一层
+            //   🔴 **英文列如实标**：这里存的是**原版【显示】出来的那串**（= `ToUpper` 之后）——
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「词条原文在远端 I2 表、本地取不到」—— 官方表已在本地
+            //   （`Battle/HUD/{EndTurn,EnemyTurn,YourTurn}` 两列与官方逐字相同）。本表**不做 `ToUpper`**，⛔ 别再补一层
             //   （本表存的已经是显示形态；原始 TMP 样例见 `battlearena1` 的 `TurnText` = `END TURN`，无 `Localize`）。
             //   ⚠️ 那个 bool 的**语义**是本批按「自己的回合才显示 END TURN」推的（`param_2 != 0 ⇒ EndTurn`），
             //      调用点没找到 ⇒ 只取「这两条键各对应哪个词」这一层，**不搬那个二选一的行为**。
@@ -1361,8 +1390,9 @@ namespace CardPresentation
             //   = `GetTranslation(该键).Replace("{0}", 名字)` —— 与上一条 `TargetsAvailable` **同一个替换式**。
             //   ⚠️ 键名里的 `HUD` 是**原版自己的拼法**（那一族 8 条 `Battle/HUD/*` 都挂在卡面/抬头条上，
             //      ⛔ 别按我们 `Resources/.../HUD` 那种目录去理解它）。
-            //   🔴 **英文列**：值在**远端 I2 表**（84 个本地 bundle 里没有 `localization_assets_all`）⇒
-            //      本地拿得到的最硬的是**原版预制体里那颗 TMP 的占位串** `Created by someone fancy`
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「英文列的值在远端 I2 表（84 个本地 bundle 里没有
+            //      `localization_assets_all`）」—— 官方表已在本地，`Battle/HUD/CreatedBy` 两列与官方逐字相同。
+            //      此前本地拿得到的最硬的是**原版预制体里那颗 TMP 的占位串** `Created by someone fancy`
             //      （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-1229881635839611202.json` 的 `m_text`，
             //      同类共 3 颗）⇒ **模板形态 = `Created by {0}`**。⛔ 别写成「原版印的就是这一句」——
             //      那一句是**样例值**，不是词条值。
@@ -1382,8 +1412,10 @@ namespace CardPresentation
             // 🔴 **本块的共同出处口径**（两条都是**载波②**：键在**代码字面量**里，prefab 上零 `Localize`
             //   ⇒ 「按 `mTerm` 扫」对它们是**无效否定**，`资料/已知的坑.md` #20）：
             //   地址表 = `d:/2/tools/il2cpp_out/stringliteral.json`（`RVA = 地址 − 0x180000000`），
-            //   消费点 = `d:/2/tools/decomp_full/` 的方法体。**两列文案都是我们自拟的**
-            //   （原版显示串在**远端 I2 语言表**，本地 84 个 bundle 里没有 `localization_assets_all.bundle`）。
+            //   消费点 = `d:/2/tools/decomp_full/` 的方法体。
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「两列文案都是我们自拟的（原版显示串在远端 I2
+            //   语言表）」—— 官方表已在本地；本族凡官方表里有的键（`DragToTarget` / `UnitNotReady` …）
+            //   两列都与官方逐字相同。
             // --------------------------------------------------------------------------------------
             // ── `Battle/Tips/DragToTarget`（`0x428A030`）──────────────────────────────────────────
             //   消费点 = **两处**，都在 `BattleManager.Update`（`BattleManager__Update.c`）：
@@ -1396,7 +1428,8 @@ namespace CardPresentation
             //   ⚠️ `NotifyCantDoAction(text, flag)`（`BattleTipController__NotifyCantDoAction.c:5-14`）
             //      = **先**播 `ChatMessage.ICantDoThat`（= 我们的 `SpeakCantDo`）**再** `ShowHeadsUpMessage(text)`
             //      —— 语音与这行**文字**是**同一次**调用的两半；我们过去只做了语音那一半（= 复刻缺漏）。
-            //   🔴 EN/ZH **都自拟**（值在远端 I2 表；`zh_CN.csv` 按英文源串精确查过，0 命中）。
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「EN/ZH 都自拟（值在远端 I2 表；`zh_CN.csv` 按英文源串
+            //   精确查过，0 命中）」—— 官方表已在本地，`Battle/Tips/DragToTarget` 两列与官方逐字相同（见下一行行尾注）。
             { "Battle/Tips/DragToTarget",          new Entry("拖动到有效目标", "Drag to a valid target") },   // 🔴 EN 2026-10-14（`A1803`）改官方
             // ── `Battle/Tips/UnitNotReady`（`0x428AAB0`）─────────────────────────────────────────
             //   消费点 = `BattleManager.CanUseActiveAbility`（`BattleManager__CanUseActiveAbility.c:116-132`）：
@@ -1406,7 +1439,8 @@ namespace CardPresentation
             //   ⚠️ 我们过去这一档走的是 `CardText.Phrase("THIS UNIT ALREADY ACTED")` ——
             //      `Phrases` 里那条**没有对应 `mTerm`**（`G2b` §3.2 那 17 条之一），
             //      **本批把这条键找出来了** ⇒ 那一处改用本键（`CardText.Phrases` 那条降级成兜底、不删）。
-            //   🔴 EN/ZH **都自拟**（值在远端 I2 表）。
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「EN/ZH 都自拟（值在远端 I2 表）」—— 官方表已在本地，
+            //   `Battle/Tips/UnitNotReady` 两列与官方逐字相同（见下一行行尾注）。
             { "Battle/Tips/UnitNotReady",          new Entry("单位未准备好", "Unit isn't ready") },   // 🔴 EN 2026-10-14（`A1803`）改官方
 
             // ── `Battle/Effect/*` 四条（🔴 **消费面本批已钉死**）──────────────────────────────────
@@ -1447,7 +1481,10 @@ namespace CardPresentation
             //     （`I2.Loc.LocalizationManager.GetTermTranslation(<该地址>, …)`）；
             //   · **枚举**：`CustomError.ErrorLoadDeck = 170`
             //     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CustomError.cs:24`；同族键 = `"CustomErrors/" + 名字`）。
-            // 🔴 **英文/中文两列都是我们自拟的** —— 原版显示串在**远端 I2 语言表**里，本地取不到：
+            // 🔴 **2026-10-17（`A1951`）就地订正**：原写「英文/中文两列都是我们自拟的 —— 原版显示串在远端 I2
+            //   语言表里、本地取不到」—— 官方表 2026-10-14 已在本机（`CustomErrors/*` 41 条），
+            //   `CustomErrors/ErrorLoadDeck` 两列与官方逐字相同。下面 ①② 两句只说明**prefab 与 zh_CN.csv 里没有**，
+            //   不再等于「取不到」：
             //   ① 载波①（prefab `Localize.mTerm`）里**没有**这一条（全库扫 `"mTerm": "CustomErrors/…"`
             //      只命中 **2** 条：`DuplicateConnection` / `ErrorSavingMatch`，都在 13 个战场场景那颗
             //      `BattleErrorUIManager` 上）；② `数据/本地化/i18n/zh_CN.csv` 里**没有**对应的英文源串
@@ -1482,9 +1519,10 @@ namespace CardPresentation
             //   · **数字族** `"MenuDeck/Error/{0}"`（`0x42CFBF0`，`{0}` = 原版号；`DeckUtility.ToRawLocalizationString`）。
             //   我们这 13 条**仿具名族的形状**，但**名字是我们枚举的名字**（原版具名族只有 8 条 + 2 条 `Short`，
             //   ⛔ 一个都不重名 ⇒ 不会和原版实有字面量混淆）。
-            // ⚠️ **两列文案都是我们起的**（原版那套在**远端 I2 语言表**，本地 84 个 bundle 里没有
-            //   `localization_assets_all.bundle`）—— **中文那一列 = 改之前 `Describe` 里的原话**
-            //   ⇒ **今天中文档零变化**；英文那一列是我们译的。
+            // ⚠️ **这 13 条键名是我们枚举的名字**（原版具名族只有 9 条、名字都不同 ⇒ 官方表里**没有**这些键）
+            //   —— **中文那一列 = 改之前 `Describe` 里的原话** ⇒ **今天中文档零变化**；英文那一列是我们译的。
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「原版那套在远端 I2 语言表、本地 84 个 bundle 里没有
+            //   `localization_assets_all.bundle`」—— 官方表已在本地，**问题不是取不到，是这些键原版就没有**。
             // 断言 → `Editor/DeckScene.cs`（键形状 + 表里有键 + **中英两档各断一次**）
             //       与 `RuleEngine/Editor/DeckRulesTest.cs`（`Describe` 的形状）。
             // ------------- 13 条（顺序照 `DeckError` 的枚举声明序）-------------
@@ -1500,36 +1538,26 @@ namespace CardPresentation
             { "MenuDeck/Error/WarlordInCards",          new Entry("战将/防御卡不能放在普通卡位里", "Warlord / defence cards cannot go in the normal card slots") },
             { "MenuDeck/Error/WarlordAlreadySet",       new Entry("已经选过战将了（换战将要先把原来的撤掉）", "A warlord is already selected (remove the old one to swap)") },
             { "MenuDeck/Error/DefensiveAlreadySet",     new Entry("已经有防御卡了（不能带两张）", "A defence card is already assigned (only one is allowed)") },
-            { "MenuDeck/Error/EffectOnlyCard",          new Entry("这张是效果生成的卡（药剂/破坏/秘仪），不能放进卡组",
-                                                                "This is an effect-generated card (Elixir / Sabotage / Ritual) and cannot go into a deck") },
-
-            // ============================================================ 🆕 **2026-10-19（第九会话 · `A1133`）：原版【数字族】那三条键**
-            //
-            // 🔴 **为什么要补**：原版 `DeckUtility.ToRawLocalizationString(err)`（`DeckUtility__ToRawLocalizationString.c`）
-            //   拼的是**数字键** —— 格式串 `"MenuDeck/Error/{0}"`（`DAT_1842cfbf0` 地址表读数，见
-            //   `资料/普查产出_1011/WB1_A330.md` §2.4 那四行表；我们这边的同名常量 = `DeckRuntime.MenuDeckErrorKeyFmt`），
-            //   `{0}` = **原版 `DeckError` 的号**（**本件现读** `d:/2/Warpforge_code/Scripts/Assembly-CSharp/DeckError.cs:1-10`：
-            //   `None=0 · CardsNotOwned=1 · MissingHero=2 · InvalidDeckBannedCards=3 · InvalidDeck=4 · IncompleteDeck=5`）。
-            //   ⚠️ 而本表原来**只有具名族**（上面那 13 条 `"MenuDeck/Error/" + 枚举名`，是我们 `G9` 仿形状起的名字）
-            //   ⇒ `DeckRuntime.MenuDeckErrorKey` 现读走 `Loc.HasEntry(数字键)` **恒假** ⇒ 那扇窗**永远退成兜底键**
-            //   `MenuDeck/Error/InvalidDeck` ⇒ **永远只说「卡组不合法」，说不出到底是缺战将 / 别的不合法 / 张数不对**。
-            // ⛔ **别拿具名族的文案去「顶替」这两族**：`MenuDeck/Error/TooFewCards`（具名，我们起的名）与
-            //   `MenuDeck/Error/5`（原版数字键）**是两条不同的键** —— **键名必须照原版**，两族并存（原版自己也是两族并存）。
-            // 🔴 **两列文案都是我们自拟的**（⛔ 不许写成「原版文案」）：原版那套值在**远端 I2 语言表**里，
-            //   本地取不到（84 个本地 bundle 无 `localization_assets_all.bundle`，同本文件头那段）——
-            //   按本仓口径（先例 = `MenuDeck/Button/Random`）**如实标「自拟」**。
-            //   措辞**取我们具名族里同义的那条**（只为让中文档读起来与今天一致，**不是**「原版这么写」）：
-            //   2 ↔ `NoWarlord`（原版 `MissingHero`）· 4 ↔ 兜底键 `InvalidDeck`（原版 catch-all）· 5 ↔ `TooFew/TooManyCards`（原版 `IncompleteDeck`）。
-            // 🔴 **号→义的映射只有一处** = `DeckRuntime.MenuDeckErrorNumber`（那张表上面写着逐条出处）——
-            //   本表只按那三个号落键，⛔ 别在这儿再推一遍。
-            // ⚠️ **1（`CardsNotOwned`）与 3（`InvalidDeckBannedCards`）不补**：我们**永远不回**这两个号
-            //   （前者是持有数、单机全解锁 ⇒ 恒真；后者是 LiveOps 远端下发的禁卡表、本地没有那个数据源）
-            //   ⇒ 补了就是两条**恒不会被问到**的空键。判据同上段那张表。
-            // 账 → `项目任务.md` §29·b 的 `A1133`；判据原文 → `资料/普查产出_第八会话/E14_A1012后半中心修.md` §④·C。
-            // 消费侧 = `Deck/DeckRuntime.cs` 的 `MenuDeckErrorKey`（选键）+ `Shell/PopUpGameWindow.cs` 的 `Term`（取字）。
-            { "MenuDeck/Error/2",                       new Entry("卡组还没有选战将", "This deck has no warlord yet") },              // 原版号 2 = MissingHero · ZH/EN **自拟**
-            { "MenuDeck/Error/4",                       new Entry("卡组不合法", "Invalid deck") },                                    // 原版号 4 = InvalidDeck（catch-all）· ZH/EN **自拟**
-            { "MenuDeck/Error/5",                       new Entry("卡组张数不对", "This deck has the wrong number of cards") },        // 原版号 5 = IncompleteDeck · ZH/EN **自拟**
+            // 🔴🔴 **2026-10-17（`A1868` + `A1872`）就地订正（铁律 5）**：这一段原来有**两条自造的东西**，现已删除：
+            //   ① `MenuDeck/Error/EffectOnlyCard` —— **原版没有这个键**（官方 `MenuDeck/Error/*` 只有 9 条具名键，
+            //      见 `数据/游戏数据/官方本地化_en+zh-CN.json` 现读）。按 `A1872` 的对位表它归**原版 catch-all
+            //      `InvalidDeck`** ⇒ 原版显示的是「所选卡组无效，请编辑或选择其他卡组。」（⛔ 不是「这是效果卡」）。
+            //      ⚠️ **消费侧还差一半**：`RuleEngine/Core/DeckRules.cs` 的 `Describe` 仍拼
+            //      `"MenuDeck/Error/" + 枚举名` ⇒ 删掉本条之后，`EffectOnlyCard` 那一档会**印出键名**
+            //      （`DeckRuntime.DeckErrorText` = `Loc.T(Describe(e))`）。那一半在引擎线、不在本批白名单 ——
+            //      须把 `Describe(EffectOnlyCard)` 改成返回 `MenuDeck/Error/InvalidDeck`（见交件报告）。
+            //   ② **数字族三条** `MenuDeck/Error/{2,4,5}`（`A1133` 那一批）—— 判据被推翻：
+            //      `DeckUtility.ToRawLocalizationString(this DeckError error)` 的 `{0}` 装的是**枚举**，
+            //      `ToString()` 印**名字**；且官方 I2 表**一条数字键都没有**。判据全文 = `A1872` 那一格
+            //      （`资料/待办判据_第三十三会话.md`）⇒ 换成官方名字族：
+            //      `NoWarlord → MissingHero` · `TooFew/TooMany → IncompleteDeck` · 其余 catch-all → `InvalidDeck`
+            //      （`InvalidDeck` 早已在表里，见 `MenuDeck/Error/InvalidDeck` 那一条）。
+            //      ⚠️ **改键那一半**（`DeckRuntime.MenuDeckErrorNumber` → 出名字）在 `Deck/DeckRuntime.cs`，
+            //      本批不动。在它落地之前 `MenuDeckErrorKey` 会退成兜底键 `MenuDeck/Error/InvalidDeck`
+            //      （那条在表里 ⇒ **不会印键名**，只会少一级细分）。
+            //   两列文案 = **官方值**（现读官方表；⛔ 不是自拟）：
+            { "MenuDeck/Error/MissingHero",             new Entry("请为您的卡组选择一个战将，将其拖入您的卡组列表。", "Please choose a Warlord for your deck, by dragging it into your deck list.") },
+            { "MenuDeck/Error/IncompleteDeck",          new Entry("您的卡组不完整。您需要将30张牌添加到您的卡组中，将它们拖入左侧面板的卡组列表。", "Your deck is incomplete. You need to add 30 cards to your deck by dragging them into the deck list on the left panel.") },
 
             // ============================================================ 🆕 **2026-10-18（第四会话 · 双语③ 波 0）：现读扫出的缺键**
             //
@@ -1546,8 +1574,9 @@ namespace CardPresentation
             //   载波 = **②（代码里的字面量）**：`RuleCodes.TermKey` 那四条映射的地址表实读见
             //   `RuleEngine/Core/RuleCodes.cs` 的 `Terms`；消费点 = `BattleDriver.HintForCode`
             //   （`BattleDriver.HintForCodeWithKey`：`Loc.HasEntry(键) ? Loc.T(键) : RuleCodes.Describe(rc)`）。
-            //   🔴 **EN 列是我们自拟的**（原版值在**远端 I2 表**；本地 84 个 bundle 一个 value 都没有）——
-            //      措辞取词条名末段，同 `Battle/Mulligan/Undo` / `MenuDeck/Button/Random` 的先例。
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「EN 列是我们自拟的（原版值在远端 I2 表）」——
+            //      官方表已在本地，这四条（`Battle/Tips/{NotEnoughMana,NotYourTurn,NoTargetAvailable,NotEnoughRoom}`）
+            //      两列与官方逐字相同（各条目行尾的「改官方」注即此）。
             //   🔴 **中文列 = 改之前 `RuleCodes.Describe` 印出来的那句原话**（`RuleCodes.Names`）⇒ **中文档零变化**。
             //   ✅ **`RuleCodes.cs` 头注与 `BattleDriver.HintForCode` / `HintForCodeWithKey` 那两处**
             //      原来写的「这四条键一条都不在 `Loc` 表里」**已过期、本批已就地订正**（`A1018①`，2026-10-09）。
@@ -1685,7 +1714,8 @@ namespace CardPresentation
             //     `MonoBehaviour_-5372889589424334791.json`；含两处 `\n• ` 与那个 `{0}`）——
             //     与 `Shell/PurchasePremiumWindow.TxtInfoBody` **逐字相同**（那边也是照它抄的）
             //     ⇒ 它既是 prefab 原文、也是我们该印的那句（`{0}` = 每日登录给的战役点数）。
-            //   🔴 ZH 列 = **我们自译**（原版中文在远端 I2 表；`zh_CN.csv` 里没有这条英文串）。
+            //   🔴 ~~ZH 列 = 我们自译（原版中文在远端 I2 表；`zh_CN.csv` 里没有这条英文串）~~ ——
+            //      **2026-10-17（`A1951`）就地订正：这一句已过期，见下面那两行**（两列都换成官方值）。
             //   🔴 **2026-10-14（第二十八会话 · `A1803`）两列都换成官方值**（上面两条「与 prefab 逐字相同」「ZH 我们自译」
             //     的说法**作废**）：官方 zh-CN 表里这条是
             //     `["• Unlock the Premium rewards … a Starter Deck and a Legendary Card in the first node. …"
@@ -1715,7 +1745,8 @@ namespace CardPresentation
             //   🔴 **EN 列 = 同一颗 GO 上 TMP 的 `m_text` 原文逐字符**（`MonoBehaviour_{4073,4646,4098,4475}.json`）
             //     = `Name:` / `Title:` / `Alliance:` / `This player is is still not part of an Alliance`
             //     —— 最后那条的 **`is is` 双 is 是原版笔误，照抄勿改**（同 `Shell/AlliancePanelWindow` 里那处）。
-            //   ZH 列 = **我们自译**（远端 I2 表）。
+            //   🔴 **2026-10-17（`A1951`）就地订正**：原写「ZH 列 = 我们自译（远端 I2 表）」—— 官方表已在本地，
+            //   `Battle/AlliancePanel/*` 四条两列与官方逐字相同。
             //   消费点 = `Shell/AlliancePanelWindow.LocOr`（`:152-159`：`Loc.HasEntry ? Loc.T : prefab 英文`）
             //   ⇒ 本批加键之后，**中文档不再印英文**。
             { "Battle/AlliancePanel/PlayerLabel",      new Entry("名称：",   "Name:") },
@@ -2089,7 +2120,9 @@ namespace CardPresentation
             //
             //  ⚠️ `\n` = 真换行；`{0}`/`{1}`/`{2}` = 调用点的运行期值（消费方用 `Replace` 或 `string.Format`）。
             //  ⚠️ 中文列里的 `**` 是**调用点字面量里就有的强调符**（`Net/*.cs` 源码逐字如此），
-            //     **照抄保留** —— 去掉它就等于悄悄改了中文档（本表既有 14 条同款，例如 `MenuDeck/Error/EffectOnlyCard`）。
+            //     **照抄保留** —— 去掉它就等于悄悄改了中文档。
+            //     🔴 **2026-10-17 订正**：这条原来举的例子 `MenuDeck/Error/EffectOnlyCard` 已按 `A1868` 删除
+            //     ⇒ **例子作废**；同句里的「本表既有 14 条同款」本轮**没复核**（照抄时以调用点原文为准）。
             //
             //  ---------------------------------------------------------- ⑬·A `Settings/Online/St/*` · 45 条
             //  出处：`NetSession.cs` `:102/:573` `:133` `:143` `:177` `:181/:354` `:210/:294` `:211/:295` `:256`
@@ -2346,10 +2379,10 @@ namespace CardPresentation
             //      **逐词 0 命中** ⇒ ⑭·A 那 6 条**只活在表①里**。
             //    · ⑭·B / ⑭·C 两族：**两张表都搜过、都没有** ⇒ 键名 + 两列文案**全自拟**（逐条注明）。
             //
-            //  ⚠️ **⑭·A / ⑭·B 的 EN 列拿不到原版英文**：本地 prefab **整包被本地化成西班牙语**
-            //     （`Seleccionar Calidad` / `Aumentar tamaño de UI` / `Sobremuestreo` / `Límite de FPS` / `Ilimitado`），
-            //     英文原文在**远端 I2 表** ⇒ EN 取**我们界面今天写死印的那串**（`Shell/SettingsWindow.cs` 调用点原文）
-            //     —— 这条**是我们挑的**、⛔ **不是原版原文**（与 `Settings/{Graphics,Media}/Title` 同一口径）。
+            //  ⚠️ **⑭·A / ⑭·B 的 EN 列来源**：本地 prefab **整包被本地化成西班牙语**
+            //     （`Seleccionar Calidad` / `Aumentar tamaño de UI` / `Sobremuestreo` / `Límite de FPS` / `Ilimitado`）。
+            //     🔴 **2026-10-17（`A1951`）就地订正**：原写「英文原文在远端 I2 表 ⇒ EN 取我们界面写死的那串、
+            //     ⛔ 不是原版原文」—— 官方表已在本地（`Settings/Graphics/*` 14 条），下列各条两列与官方逐字相同。
             //     🔴 **唯一一条例外 = `Settings/Graphics/Vsync`**：原版那颗 TMP 的 `m_text` 就是英文 `VSync`
             //     （本包唯一一条非西语）⇒ 它的 EN 列**是原版原文**。
             //  ⚠️ **⑭·B 的 ZH 列 = `Shell/SettingsWindow.cs` 调用点的原话逐字**（⇒ 接上之后**中文档零变化**）；
@@ -2467,8 +2500,10 @@ namespace CardPresentation
             //     **这 26 条键名自拟** —— 我们自造的 26 张起始卡在原版两张表里**都查不到**（普查 §④）。
             //   · `Card_Trait/*`：**族 = 原版**（`GameStaticData.TraitNameToString` 拼的就是 `"Card_Trait/" + 枚举名`，
             //     转述见 `资料/普查产出_1018/V-OATH_Oath徽记与记号.md:130-136`；**裸前缀 `Card_Trait/` 在表②**）。
-            //     ⚠️ **值取不到**（原版 I2 词条在远端 CCD；`Card_Trait/` 在 `assets_full` 全库 0 命中）
-            //     ⇒ **两列都是我们自己的写法**（ZH 列 = 改前 `CardText` 那两张表逐字，EN 列 = 改前 `KeywordEn` 的输出）。
+            //     🔴 **2026-10-17（`A1951`）就地订正**：原写「值取不到（原版 I2 词条在远端 CCD；`Card_Trait/`
+            //     在 `assets_full` 全库 0 命中）」—— 官方表已在本地（`Card_Trait/*` 77 条）。⚠️ 我们的值
+            //     **仍是我们自己的写法**：其中 `Card_Trait` 那 25 条属于文件头那批「**暂缓换回**」
+            //     （旧值还出现在卡面 `descZh` 里）⇒ 不是「取不到」。
             //   · `Armies/*`：**族 = 原版**（那 14 条 `mTerm` 在表① 全在；`Ember`/`Tide`/`Neutral` 原版无 ⇒ 自拟）。
             //     ⚠️ **载体没核**（普查 §⑦·2）：那 14 颗 `Localize` 挂在**主菜单阵营选择页**，
             //        **不一定是卡面那行阵营字**（卡面那行按 `CardText.cs:459` 的注释来自 `factions.json` 的 `cn`）
@@ -2648,6 +2683,28 @@ namespace CardPresentation
             { "MainMenu/Level",                         new Entry("等级", "Level") },      // 原版拼法 `"{0} {1}/{2}"` 套它
             { "MainMenu/RewardWindow/AlreadyOwned",     new Entry("已拥有", "Already Owned") },
             { "MenuShop/BoosterInfo/LegendaryTooltip",  new Entry("在最多每30个打开的增强包中，都保证有一张传奇张牌。", "A legendary card is guaranteed in at most every 30 opened booster packs.") },
+            // ============================================================ 🆕 **2026-10-17（界面线第三批 · `A1756`）：
+            //   开包窗（`BoosterPackOpenWindow`）两段提示字的词条。**
+            // 键名 = 官方表里这一族的两条（`TapToDiscover` 的判据由 `A1756` 给出：原版那颗 `Localize.mTerm`；
+            //   `TapToClose` 是**同族官方键**（键名与 prefab 出厂串 `Tap to close` 同文；⚠️ 它那颗的 `mTerm`
+            //   本轮**没逐颗核**，只核了「官方表里有这条键、值逐字相同」）。
+            // 两列 = **官方值**（`数据/游戏数据/官方本地化_en+zh-CN.json` 现读，⛔ 不是自拟）：
+            //   `TapToDiscover` = `Tap on the cards to discover` / `点击卡片进行探索`
+            //   `TapToClose`    = `Tap to close` / `点击关闭`
+            // 消费侧 = `Shell/BoosterPackOpenWindow.cs` 的 `DiscoverText` / `CloseText`（2026-10-17 起是属性）。
+            { "MenuShop/BoosterPackOpening/TapToDiscover", new Entry("点击卡片进行探索", "Tap on the cards to discover") },
+            { "MenuShop/BoosterPackOpening/TapToClose",    new Entry("点击关闭", "Tap to close") },
+            // ---- 同一笔（`A1756`）的另外三个站点：档案窗 / 头像页 / 挑战确认框 ----
+            // 两列 = **官方值**（现读 `数据/游戏数据/官方本地化_en+zh-CN.json`）：
+            //   `MainMenu/Register/PleaseChooseName` = `Choose your player name` / `选择你的玩家名字`
+            //     ← `Shell/ProfileTab.cs` 的 `ChooseNameWindow/MessageText`（出厂英文同值）。
+            //   `Demo/AvatarMenu/SelectAvatar`       = `Select your avatar` / `选择你的头像`
+            //     ← `Shell/AvatarTab.cs` 的 `Item Display Panel/Select Item`（`PlayerProfile/SelectAvatarTip` 同值）。
+            //   `MainMenu/Chat/ChallengeConfirmation`= `Do you want to challenge {0:0}?` / `你想挑战{0:0}吗？`
+            //     ← `Shell/DuelPopupWindow.cs` 的 `MessageText`（⚠️ 官方串**不带 HTML**）。
+            { "MainMenu/Register/PleaseChooseName",        new Entry("选择你的玩家名字", "Choose your player name") },
+            { "Demo/AvatarMenu/SelectAvatar",              new Entry("选择你的头像", "Select your avatar") },
+            { "MainMenu/Chat/ChallengeConfirmation",       new Entry("你想挑战{0:0}吗？", "Do you want to challenge {0:0}?") },
             { "MenuShop/referral/counter",              new Entry("你已收集了{0}个推荐奖励！", "You have collected {0} referral rewards!") },
             { "MenuShop/referral/counterMaximum",       new Entry("您已收集到最多的推荐奖励。", "You have collected the maximum number of referral rewards.") },
             { "Missions/CollectingRewards",             new Entry("正在收集奖励...", "Collecting Rewards...") },
@@ -2682,7 +2739,10 @@ namespace CardPresentation
         // 🔴 **为什么单开这一层，⛔ 不写进上面那张 `Table`**：下面这几族的键**太多、而且键是数据面的**
         //   （GUID / SO 名，不是手写词条）—— 手写进 `Table` 会把那份文件变成一片 GUID：
         //     `Titles/*` 368（**键 = 32 位 GUID**）· `Avatars/*` 419 · `Achievements/*` 198 ·
-        //     `Cardbacks/*` 157 · `PrebuiltDecks/*` 97 · `Event_Description/*` 111。
+        //     `Cardbacks/*` 157 · `PrebuiltDecks/*` 74 · `Event_Description/*` 111。
+        //     🔴 **2026-10-17（`A2029`）就地订正**：`PrebuiltDecks` 原来写 **97**，现读
+        //     `Resources/official_names.json` = **74**（其余五族 368 / 419 / 198 / 157 / 111 逐个复核**全对**；
+        //     那一份表共 2,758 条）。行尾数只是注释、零行为。
         //   ✅ 也⛔ **别让各 `Shell/*Data.cs` 各抄一份** —— 「两处写同一条规则 = 迟早不一致」（工程红线）。
         // 产物 = `Resources/official_names.json`，生成器 = `工具/_loc_official/gen_official_names.py`
         //   （**键 = 原版词条键原样**，拼法逐族写在那个脚本的文件头）。
@@ -2869,8 +2929,8 @@ namespace CardPresentation
             LastFallbackKey = key;
             string why = HasOwnText(cur)
                 ? $"`{cur}` 里这条是空的"
-                : $"`{cur}` 本地没有文案（原版那套在远端 I2 语言表里 —— 84 个本地 bundle 里没有 "
-                + "`localization_assets_all.bundle`）";
+                : $"`{cur}` 本地没有文案（官方 I2 表已在本机 `数据/游戏数据/官方本地化_en+zh-CN.json`，"
+                + "但工程只导入了 en / zh-CN 两列 —— 见 `Loc.HasOwnText`）";
             Debug.LogWarning($"[Loc] {why} ⇒ **回退英文**：`{key}` → \"{e.En}\"。"
                            + "（⛔ 不在 UI 上加原版没有的提示行 —— 这条日志就是全部提示）");
             return string.IsNullOrEmpty(e.En) ? key : e.En;

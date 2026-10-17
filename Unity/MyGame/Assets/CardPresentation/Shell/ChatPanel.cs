@@ -280,7 +280,8 @@ namespace CardPresentation
             var send = Node(_enterText, "Button", SendBtnR);
             Rect(send, "40k_UI_Chat_send", SendBtnR, "Image", QBg, null, true);
             MenuDraw.Hit(send, "Hit", SendBtnR, QHit, () => Debug.Log(
-                "[Chat] `TrySendMessage`：**没有服务器**，也没有 `ChatGlobalManager` 的对等物 ⇒ 发不出去。"));
+                "[Chat] `TrySendMessage`：**没有服务器**，也没有 `ChatGlobalManager` 的对等物 ⇒ 发不出去。"),
+                clickCue: WindowSounds.SendMessageCue);
 
             // 右上关闭钮（`ChatPanel.closeButton` 指的就是它）
             // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P6）：
@@ -316,7 +317,7 @@ namespace CardPresentation
             //   --substr "Generic Close Button"`（实读 `96.86 x 98.13`）。
             MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseIconR, ClosePad),
                          QHit, () => Close(), closeFaceQ, "40k_general_bt_yellow",
-                         "40k_general_bt_yellow_hover");
+                         "40k_general_bt_yellow_hover", clickCue: WindowSounds.DefaultCloseCue);
 
             // 玩家选项面板（出厂 act F；点消息行上的头像才亮）
             _options = Node(chat, "Player Options Panel", OptPanelR);
@@ -342,7 +343,8 @@ namespace CardPresentation
                      acts[i], Color.white, "Button Text", 30f, QText, 10f, false, 30f, 12f);
                 string act = acts[i];
                 // 🆕 A17：原版 `Chat>Player Options Panel>Buttons>*` 五颗都是 SpriteSwap（普查 §块 5 第 19 行）
-                var oh = MenuDraw.Hit(row, "Hit", rowR, QHit, () => OnOption(act));
+                var oh = MenuDraw.Hit(row, "Hit", rowR, QHit, () => OnOption(act),
+                                      clickCue: WindowSounds.PositiveCue);
                 var owb = oh != null ? oh.GetComponent<WindowButton>() : null;
                 if (owb != null) owb.BindNine(rowNine, "UI_Button_Mulligan");
             }
@@ -420,7 +422,8 @@ namespace CardPresentation
             //    `40K_settings_button_hover`，而原版这一颗的悬停图是 `…_selected`）——
             //    不显式给就是「悬停换了张错的图」+ `MissingSwapArt` 记一条。
             var hit = MenuDraw.Hit(b, "Hit", r, QHit, () => tabButtons.Click(idx),
-                                   _tabBg[idx], TabArtOff, TabArtHover, TabArtPressed);
+                                   _tabBg[idx], TabArtOff, TabArtHover, TabArtPressed,
+                                   clickCue: WindowSounds.SelectToggleCue);
             _tabBtn[idx] = hit != null ? hit.GetComponent<WindowButton>() : null;
             return b;
         }

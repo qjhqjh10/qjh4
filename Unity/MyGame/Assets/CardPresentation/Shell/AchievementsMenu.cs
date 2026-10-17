@@ -244,7 +244,8 @@ namespace CardPresentation
                 int captured = type;
                 // 🆕 A17：原版该页是 `Trophies Tab>buttons>Achievement Type Toggle (n)`（**不是 Achievements Tab**），
                 // 是 Toggle、悬停换 `…_selected`（普查 §块 5 第 11 行）
-                _tabHit[i] = Hit(key, "Hit", r, L_Hit, () => Select(captured), _tabBg[i], ArtTab);
+                _tabHit[i] = Hit(key, "Hit", r, L_Hit, () => Select(captured), _tabBg[i], ArtTab,
+                                 clickCue: WindowSounds.SelectToggleCue);
             }
             RefreshTabs();
         }

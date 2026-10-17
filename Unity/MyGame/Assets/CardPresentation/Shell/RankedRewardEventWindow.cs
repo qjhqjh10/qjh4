@@ -394,7 +394,8 @@ namespace CardPresentation
             //   （实读 `96.86 x 98.13`）。
             var closeHit = MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseBgR, ClosePad),
                                         QHit, () => Close(), closeFaceQ, ArtCloseBg,
-                                        "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed");
+                                        "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed",
+                                        clickCue: WindowSounds.DefaultCloseCue);
             if (closeHit == null)
                 Debug.LogWarning("[RankedBoost] 关窗钮的命中区没建出来 ⇒ **点它关不了窗**（还能点窗外或 ESC）。");
 

@@ -337,7 +337,8 @@ namespace CardPresentation
             var closeHit = MenuDraw.Hit(closeNode, "CloseHit", MenuDraw.PaddedRect(CloseBgR, ClosePad),
                                         QHit, () => Close(),
                                         closeFaceQ, "40k_general_bt_yellow",
-                                        "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed");
+                                        "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed",
+                                        clickCue: WindowSounds.DefaultCloseCue);
             if (closeHit == null)
                 Debug.LogWarning("[TrophyPopup] 关窗钮的命中区没建出来（`MenuDraw.Hit` 返回 null）"
                                + " ⇒ **点它关不了窗**（只能点背景或 ESC）。");
@@ -454,7 +455,8 @@ namespace CardPresentation
                                            32f, 36f);
             if (_checkLabel != null) MenuDraw.AlignLeft(_checkLabel, labelR);
             // 点整行切换（原版那颗 `EverguildToggle` 就在 `Checkbox` 上、命中区 = 整个 `Checkbox`）
-            MenuDraw.Hit(box, "CheckHit", CheckR, QHit, () => HandleFeatureTrophy(!ToggleIsOn));
+            MenuDraw.Hit(box, "CheckHit", CheckR, QHit, () => HandleFeatureTrophy(!ToggleIsOn),
+                         clickCue: WindowSounds.SelectToggleCue);
 
             Apply();
         }

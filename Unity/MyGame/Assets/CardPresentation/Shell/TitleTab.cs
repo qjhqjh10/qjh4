@@ -195,7 +195,8 @@ namespace CardPresentation
             //   `字号=36.0 auto[10.0~36.0] 对齐=Center/Capline 折行=0`）。
             MenuDraw.SetVAlign(lbBtn, Label.VAlign.Capline, new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB));
             // 🆕 A17：原版 `Title Tab>Selected Item Panel>Select Avatar Button` 是 SpriteSwap（普查 §块 5 第 8 行）
-            Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton);
+            Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton,
+                clickCue: WindowSounds.SelectAvatarCue);
 
             Refresh();
         }
@@ -250,7 +251,13 @@ namespace CardPresentation
                 //   ⚠️ 本格的字号/居中版式**仍是我们挑的**（见上面那段），**只有档位**来自原版。
                 MenuDraw.SetVAlign(lbCell, Label.VAlign.Midline, cellR);
                 int captured = i;
-                Hit(cell, "Hit", r, 3, () => Select(captured));
+                // 🆕 2026-10-17（音效线 S01）：**推断**（R3 §四·A #24 的节点名 `Toggle borde` 与本页不符）——
+                //   现读：本处是 `BuildRows` 里的**称号格子**（`Title Drawer Horizontal Variant/Content` 下
+                //   运行期 `Instantiate` 出来的条目，见文件头 ③），点它 `Select(captured)`。
+                //   而 `Toggle borde` 在本页是**死节点**（文件头 ①：出厂 INACT、全包无字段指向、8 个方法体没碰过）
+                //   ⇒ R3 那一行的节点名标错了，但**cue 本身**（`SelectAvatar` = 头像/称号这一族的选择音）
+                //   仍然适用于这颗格子 ⇒ 保留。⛔ 若将来判据推翻，改这一处即可。
+                Hit(cell, "Hit", r, 3, () => Select(captured), clickCue: WindowSounds.SelectAvatarCue);
             }
         }
 

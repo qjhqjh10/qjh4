@@ -125,7 +125,28 @@ namespace CardPresentation
         // 每条 2 个子件：**`Icon`(30 宽) 在左 + `Counter`(41 宽) 紧随其后、同一水平带**（正本 `卡组编辑界面_查证_0920.md` §③）。
         // 🔴 2026-09-23 修：原来图标 y 抄了**外层容器顶边 71**（高 20.5）、数字被摆成**图标正下方**且字号只有 1/3。
         const float WcIconY = 91.5f, WcIconW = 30f, WcIconH = 44f;
-        const float WcCntW = 41f, WcCntFontPx = 32.6f;      // 字号 = 原版 TMP 的 `m_fontSize`（autosize 10~38）
+        // 🔴 **2026-10-17（账 `A1229`）：万能卡计数 —— 三个宿主共用这一份，⛔ 别各写一份。**
+        //   判据 = 原版 `WIldcard Counter/Counters/{Common,Rare,Epic,Legendary}/Counter` **四颗逐值相同**：
+        //   字号 **32.6** · 自适应 **10 / 38** · base **45** · 折行 **1** · 框 **41×44**
+        //   （出处 → `资料/普查产出_第十会话/R5_包装层菜单族.md` §2 #1 · `R6` §2·F #38）。
+        //   宿主 = 本窗（`DeckEditingWindow`）· `Shell/CollectionWindow.cs`（收藏窗）·
+        //          `Shell/CardDetailPopup.cs`（卡片详情窗）—— 三处都引用下面这几个常量。
+        //   ⚠️ 数字本身恒 `99`：**用户 2026-09-28 拍板**（原版是 `WildcardDisplay` 的库存直出，
+        //      单机没有发放源）→ `项目任务.md` §三 第 15 条 第 29 项。
+        public const float WcCountFontPx = 32.6f;      // = 原版 `m_fontSize`
+        public const float WcCountWrapPx = 41f;        // 框宽（数字格）
+        public const float WcCountBoxH = 44f;          // 框高（行带 91.5 → 135.5）
+        public const float WcCountAutoMinPx = 10f, WcCountAutoMaxPx = 38f, WcCountAutoBasePx = 45f;
+        public const string WcCountText = "99";
+        /// <summary>把「万能卡计数」那四格的字号自适应接上（框固定 `WcCountWrapPx × WcCountBoxH`）。
+        /// 三个宿主都走这一句 —— 收口前是「同一规则写三遍」（`A1229`）。</summary>
+        public static void FitWildcardCount(Label lb)
+        {
+            if (lb == null) return;
+            lb.SetAutoFitBox(LayoutSpace.Px(WcCountWrapPx), LayoutSpace.Px(WcCountBoxH),
+                             WcCountAutoMinPx, WcCountAutoMaxPx, WcCountAutoBasePx);
+        }
+        const float WcCntW = WcCountWrapPx, WcCntFontPx = WcCountFontPx;   // 本文件内的旧名字（同一份值）
         static readonly float[] WcIconX = { 1565f, 1640f, 1715f, 1790f };
         const float ArmyIconX = 1470f, ArmyIconY = 71f, ArmyIconW = 80f, ArmyIconH = 85f;
 
@@ -988,12 +1009,18 @@ namespace CardPresentation
         /// 原版行里**只有** `Background / Rarity Gradient / Background Border / Cost Image /
         /// banned Icon / Text fill(Card Name, Count)` 这几件，**没有**我们原来那颗
         /// `row_k*`（拿 `40K_main_deck_card_counter` 当底的那块纯色方块 —— 原版行里根本没这个节点，
-        /// 实拍上它是块**空方块**）。⇒ 删 `row_k*`、换成这颗 TMP（节点名 `row_x{i}`）。</summary>
-        readonly List<Label> _deckRowCountX = new List<Label>();
+        /// 实拍上它是块**空方块**）。⇒ 删 `row_k*`、换成这颗 TMP（节点名 `row_x{i}`）。
+        /// <para>🔴 **2026-10-17（`A2007` · 交接_第三十一会话 §六·四·一 `N2`）纯改名**：原名
+        /// `_deckRowCountX`（后缀 `X` = 那个 `x{n}` 文本），**码本身没错、只是名字读不出语义** ⇒
+        /// 改成 `_deckRowCountText`（= **份数** `Count` 那颗 TMP）。同一批：`_deckRowCount`
+        /// → <see cref="_deckRowCostText"/>（= **费用** `Cost` 那颗）。⛔ 别按旧名找。</para></summary>
+        readonly List<Label> _deckRowCountText = new List<Label>();
         readonly List<Label> _deckRowName = new List<Label>();
         /// <summary>圆里那个**费用**（原版 `…/Cost Image/Cost`）。🔴 **2026-10-20 之前喂的是「份数」**
-        /// —— 份数搬去了 `_deckRowCountX`，这一颗改成 `CardDef.Cost`（见 `RefreshDeckList`）。</summary>
-        readonly List<Label> _deckRowCount = new List<Label>();
+        /// —— 份数搬去了 `_deckRowCountText`，这一颗改成 `CardDef.Cost`（见 `RefreshDeckList`）。
+        /// <para>🔴 **2026-10-17（`A2007`）纯改名**：原名 `_deckRowCount`（名字像「份数」、实际盛**费用**）
+        /// ⇒ 改成 `_deckRowCostText`。**代码一行都没动，只改名** —— 判据见上面那条。</para></summary>
+        readonly List<Label> _deckRowCostText = new List<Label>();
         readonly List<ImageQuad> _deckRowCost = new List<ImageQuad>();
 
         // ============================================================ 🔴 2026-10-21（`A1727` + `A1720`）
@@ -1553,16 +1580,17 @@ namespace CardPresentation
                 //   改成 `99`（用户 2026-09-28 拍板：恒定 `99`）—— 中间有一个瞬间它**真的是 `0`**
                 //   （谁在 `RefreshHeader` 之前读一次/渲一帧都会看到 0）。这里直接建成 `99`，
                 //   与 `RefreshHeader` 那句**同一个值**，⛔ 别再把两边写成两个数。
-                _wcTxt[i] = TxtPx("hdr_wct" + i, "99", WcIconX[i] + WcIconW, WcIconY, WcCntW, WcIconH,
+                _wcTxt[i] = TxtPx("hdr_wct" + i, WcCountText, WcIconX[i] + WcIconW, WcIconY, WcCntW, WcIconH,
                                   WcCntFontPx, Ink, QText);
                 // 🔴 **2026-10-10（A1212 · 块 1 #38）**：接上 `m_enableAutoSizing`（四格 = **10 / 38 / 45 / 1**）。
                 //   判据 = `R6` §2·F #38（`…/Header/WIldcard Counter/Counters/{Common,Rare,Epic,Legendary}/Counter`
                 //   —— 原版这**四颗逐值相同**）。标称字号已经由 `TxtPx(..., WcCntFontPx)` 给定（= 原版 `m_fontSize` 32.6，
                 //   见那条常数的注释），本句只补「框 + 自适应区间 + base」。
                 //   ⚠️ 折行 = `1`（= `Normal`）⇒ 与 `SetAutoFitBox` 内部设定的那一档**同档**，不必还原。
+                //   🔴 **2026-10-17（`A1229`）**：四格/字号/框收口到 `FitWildcardCount`（三个宿主共用那一份）。
                 if (_wcTxt[i] != null)
                 {
-                    _wcTxt[i].SetAutoFitBox(U(WcCntW), U(WcIconH), 10f, 38f, 45f);
+                    FitWildcardCount(_wcTxt[i]);
                     _cardsInfoOnly.Add(_wcTxt[i].gameObject);              // 同上：整条一起显隐
                 }
                 // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版这 4 颗
@@ -1925,7 +1953,7 @@ namespace CardPresentation
                     rowCntLb.SetFace(TmpFont.Face.LatinCardBody);
                     rowCntLb.SetAutoFitBox(U(RowCostTxW), U(RowCostTxH), 18f, 50f, 32f);
                 }
-                _deckRowCount.Add(rowCntLb);
+                _deckRowCostText.Add(rowCntLb);
                 // 🆕 **2026-10-20**：行右缘那颗**份数**（原版 TMP 名 `Count`）——
                 //   判据（三条，逐条）：① 文本 = `"x" + n`（原版 `UICardInfoItem__SetCount.c` 的
                 //   `String.Format(字面量, n)`，字面量 = **`x{0}`**，小写 x **无空格**）；
@@ -1976,7 +2004,7 @@ namespace CardPresentation
                 //   ⚠️ 折行那一档（`m_TextWrappingMode`）**只覆盖 Card Info 这一族**的读数、本轮没单独设：
                 //     `SetAutoFitBox` 内部会把折行置成 `Normal`（`Battle/Label.cs` 的 `SetWrapWidth`）。
                 if (rowXLb != null) rowXLb.SetAutoFitBox(U(RowCountW), U(RowH), 2f, 32f, 36f);
-                _deckRowCountX.Add(rowXLb);
+                _deckRowCountText.Add(rowXLb);
             }
 
             // Empty Warning（原版 inactive，空卡组时才显示）
@@ -2133,8 +2161,8 @@ namespace CardPresentation
         void ClipRowLabels(int slot)
         {
             ClipOneLabel(_deckRowName.Count > slot ? _deckRowName[slot] : null);
-            ClipOneLabel(_deckRowCount.Count > slot ? _deckRowCount[slot] : null);
-            ClipOneLabel(_deckRowCountX.Count > slot ? _deckRowCountX[slot] : null);
+            ClipOneLabel(_deckRowCostText.Count > slot ? _deckRowCostText[slot] : null);
+            ClipOneLabel(_deckRowCountText.Count > slot ? _deckRowCountText[slot] : null);
         }
 
         /// <summary>裁一颗标签（并挂上守卫 —— 之后每次 `SetText` / `Align*On` 都会按同一个框重裁）。
@@ -4187,12 +4215,12 @@ namespace CardPresentation
                 }
                 SetOn(_deckRowCost[i], on && !heroRow);
                 SetOn(_deckRowName[i], on);
-                SetOn(_deckRowCount[i], on && !heroRow);
+                SetOn(_deckRowCostText[i], on && !heroRow);
                 // 🔴 **2026-10-20**：份数那颗 `row_x*` **先关掉** —— 它开不开由下面算出来的
                 //   张数定（原版 `SetCount` 那句 `SetActive(1 < count)`），而张数只有 `on` 的行才有。
                 //   ⚠️ 不能只在 `on` 那一支里关：**这些标签不是行那一组的孩子**（都挂在 `Root` 上）
                 //   ⇒ 滚动露头那些 `!on` 的行如果不在这里关，屏上会留一颗**孤儿字**。
-                SetOn(_deckRowCountX[i], false);
+                SetOn(_deckRowCountText[i], false);
                 if (!on) continue;
 
                 var def = shown[firstRow + i];
@@ -4213,14 +4241,14 @@ namespace CardPresentation
                 //   ⚠️ **改之前两颗都喂的是份数**（份数印在费用圆里、而**费用哪都没印**）——
                 //     这正是本件要修的那一处（原版 `UICardInfoItem` 里 `Cost Image/Cost` 是费用、
                 //     `Count` 才是份数：`UICardInfoItem__SetCount.c` 的字面量 = `x{0}`）。
-                _deckRowCount[i].SetText(def.Cost.ToString());
+                _deckRowCostText[i].SetText(def.Cost.ToString());
                 // ⚠️ 这两句的**先后不能换**：TMP 在**没激活**的物体上量不出尺寸（`textBounds` 是垃圾）
                 //   ⇒ 先 `SetText` 再激活的话，这颗字露出来时会被按错误尺寸摆一次（`Battle/Label.cs` 那个已知坑）。
                 bool showX = n > 1;                     // 原版：`1 < count` 才显示（督军 / 防御卡行 = 1 ⇒ 藏）
-                SetOn(_deckRowCountX[i], showX);
+                SetOn(_deckRowCountText[i], showX);
                 if (showX)
                 {
-                    _deckRowCountX[i].SetText("x" + n);
+                    _deckRowCountText[i].SetText("x" + n);
                     // 🔴 **2026-10-11（`A1528` 第二轮）：**墨迹右缘**由**这一句**钉死**（= `RowCountRight` = 317.48）。
                     //   判据 = 原版 `Count` 的 `m_HorizontalAlignment = **4(Right)**` + 它是 `Text fill`
                     //   （`HorizontalLayoutGroup`）的**最后一个**子件 ⇒ 框右沿 = `Text fill` 右沿
@@ -4229,7 +4257,7 @@ namespace CardPresentation
                     //   `SetText` 会重排、把 x 写回块心（同 `_deckRowName[i].AlignLeftOn` 那一句）。
                     //   ⚠️ 原版那一档叫「右对齐」，我们这里用的是**挪整块**的口（`AlignRightOn`）——
                     //   为什么不是 `SetAlignRight`（`Battle/Label.cs` 没这个口）→ 见 `BuildDeckList` 那段。
-                    _deckRowCountX[i].AlignRightOn(LayoutSpace.FromPixel(RowCountRight, 0f).x);
+                    _deckRowCountText[i].AlignRightOn(LayoutSpace.FromPixel(RowCountRight, 0f).x);
                 }
                 // 🆕 **2026-10-17（附加条）**：行上那**两件**都按 `CardRarityColorsSO` 上色 ——
                 //   原版 `UICardInfoItem.imagesToChangeColorByRarity` 那两颗数组元素**逐颗解出来就是**
@@ -4309,11 +4337,11 @@ namespace CardPresentation
             //   **框中心**（`RowCountX + RowCountW/2` = **292.48**），而**真正的 x 随后会被
             //   `RefreshDeckList` 里那句 `AlignRightOn` 覆盖**（右沿钉在 `RowCountRight` = 317.48）——
             //   这一句现在只负责 **y 与渲染队列**（与下一行行名同一个口径）。
-            MoveLabel(_deckRowCountX[i], RowCountX + RowCountW * 0.5f, cy, QText);
+            MoveLabel(_deckRowCountText[i], RowCountX + RowCountW * 0.5f, cy, QText);
             // 🔴 2026-10-20：这一句只管 **y 与渲染队列**（喂的是框心）——
             //   **x 随后会被 `RefreshDeckList` 里那句 `AlignLeftOn` 覆盖**（行名现在是左对齐）。
             MoveLabel(_deckRowName[i], RowNameX + RowNameW * 0.5f, cy, QText);
-            MoveLabel(_deckRowCount[i], RowCostX + RowCostS * 0.5f, cy, QText);
+            MoveLabel(_deckRowCostText[i], RowCostX + RowCostS * 0.5f, cy, QText);
         }
 
         void Move(ImageQuad q, float cx, float cy, int queue)
@@ -5178,9 +5206,39 @@ namespace CardPresentation
         /// ⚠️ 原来这里写「⛔ 不能用 `UiClickPx` 代替 —— 命中区被 `name_box` 盖住」—— 那句**已经过期**（铁律 5）。</summary>
         public void UiNameClear() { ClearDeckName(); }
 
+        /// <summary>🆕 **2026-10-17（音效线 S01 写手 G）**：卡组编辑**逐按钮 cue** ——
+        /// 原版 `Deck Editing Menu` prefab 的 `m_onClickSound`（12 颗，判据 =
+        /// `资料/普查产出_1017/UI/R3_S01按钮cue映射.md` §二·C-1 `Deck Editing Menu`）。
+        /// <para>🔴 **本窗不走 `MenuDraw.Hit`**：点击在 `HandlePointer → HandleButtons` 这一条链上
+        /// （原版那 12 颗也是 `EverguildButton|EverguildToggle`，只是我们的替身不是 `WindowButton`）
+        /// ⇒ cue 只能在**派发点**播。表只收**有显式 cue 的那 4 个 id**：
+        /// `hdr_back`(`Header/Close`) · `hdr_clear`(`Header/Filters/Generic Simplified UI Button_updated`) ·
+        /// `foot_done`(`Sidebar/Footer/Done`) → **Positive**；`hdr_filters`(`Header/Filters` Toggle) → **Select Toggle**。
+        /// ⚠️ 其余 8 颗 Toggle（6 颗卡牌筛选 + 2 颗卡背筛选；第 9 颗 = 表里那颗 `hdr_filters`）在
+        /// `HandleFilterClick` / `HandleCosmoFltClick` 里统一播 `SelectToggleCue`（它们按格子走、没有 id）。
+        /// ⚠️ 表外的 key（页签 `tab_*` / 改名框 / 导入弹窗那几颗）**原版没有显式 cue** ⇒ 不播（保持现状），
+        /// 不拿默认音替它们编行为。</para></summary>
+        static readonly Dictionary<string, string> ClickCueById = new Dictionary<string, string>
+        {
+            { "hdr_back",    WindowSounds.PositiveCue },      // Content Area/Header/Close
+            { "hdr_clear",   WindowSounds.PositiveCue },      // …/Header/Filters/Generic Simplified UI Button_updated
+            { "foot_done",   WindowSounds.PositiveCue },      // Content Area/Sidebar/Footer/Done
+            { "hdr_filters", WindowSounds.SelectToggleCue },  // …/Header/Filters（Toggle）
+        };
+
+        /// <summary>按 id 播这一颗的 cue（表外 / null = **不播** —— 见 `ClickCueById` 的注释）。</summary>
+        static void PlayClickCue(string id)
+        {
+            string cue;
+            if (id != null && ClickCueById.TryGetValue(id, out cue))
+                WindowSounds.PlayFx(cue, $"卡组编辑按钮 `{id}`");
+        }
+
         bool HandleButtons(Vector2 px)
         {
-            switch (TopKeyAt(px))
+            var key = TopKeyAt(px);
+            PlayClickCue(key);
+            switch (key)
             {
                 case "hdr_filters": ToggleFilters(); return true;
                 case "hdr_clear": ClearFilters(); return true;
@@ -6434,6 +6492,63 @@ namespace CardPresentation
             return ate;
         }
 
+        /// <summary>🆕 **2026-10-17（`A1495` 第二半）：自检入口 —— 走【完整】那条点击派发链**
+        /// （<see cref="HandlePointer"/> 的下半段，⛔ 不是单站）。
+        ///
+        /// <para>🔴 **为什么还要第三口**（已有 `UiClickPx` 与 `UiPoolHit`）：
+        /// · `UiClickPx` **跳过了前三站**（它过了模态/导入/两条抽屉就直接 `HandleButtons`）；
+        /// · `UiPoolHit` **只走第一站**（直调 `HandlePoolClick`）。
+        /// ⇒ 「**卡池 → 卡组行 → 卡背 → 钮**」这一整条**按顺序**的派发（= 真实鼠标那条）
+        /// **一个自检口都没有**。`A1495` 那道 NRE 恰恰出在**第一站返回 false 之后**、
+        /// 继续往下走的那条路上 ⇒ 只直调第一站**永远抓不到**它（这就是「16k+ 断言全绿、
+        /// 真机一进去就炸」的结构原因）。</para>
+        ///
+        /// <para>**逐句照 `HandlePointer`**（闸 → 卡池 → 卡组行 → 卡背 → 钮），左键那一支；
+        /// ⛔ **不模拟抬起**：本口只回答「这一点**有人吃**吗」（抬起之后的弹窗/换牌不在这里验）。</para>
+        ///
+        /// <remarks>⚠️ **不留副作用**：`HandlePoolClick` / `HandleCosmeticClick` 的左键支会写
+        /// `_cardArmDef` / `_cosmArmName`（等抬起）⇒ 返回前清掉，同 <see cref="UiPoolHit"/> 那两句。
+        /// ⚠️ **卡组行那一站例外**：`HandleDeckRowClick(…, left: true)` 会 `StartRowDrag`（真实语义如此），
+        /// 本口**不还原**（`EndDrag` 是私有的，没有「撤销起拖」的公开口）⇒ 自检别拿卡组行当探针点。</remarks>
+        public bool UiClickPoolPx(float x, float y)
+        {
+            var px = new Vector2(x, y);
+            var wp = Pos(x, y);
+            // ---- 与 `HandlePointer` 逐句同序（左键：`downL = true`、`downR = false`）----
+            if (ModalPopupOpen) return false;
+            if (OtherWindowUp() != null) return false;
+            if (_importOpen) return HandleButtons(px);
+            if (FltStripOn && px.x < FltX + FltW) return HandleFilterClick(px);
+            if (CosmoFltStripOn && px.x < FltX + FltW) return HandleCosmoFltClick(px);
+            bool ate = false;
+            if (HandlePoolClick(wp, px, false)) ate = true;
+            else if (HandleDeckRowClick(wp, px, true)) ate = true;
+            else if (HandleCosmeticClick(px, false)) ate = true;
+            else ate = HandleButtons(px);
+            _cosmArmName = null; _cardArmDef = null;
+            return ate;
+        }
+
+        // ---- 自检读数：卡池槽与它那颗视图（`A1495` 第二半的不变式用）----
+        /// <summary>卡池槽数（`_poolIndex` 与 `_poolViews` 长度相等 —— 两者在 `RefreshPool` 里同步 `Add`）。</summary>
+        public int UiPoolSlotCount { get { return _poolIndex.Count; } }
+
+        /// <summary>第 `i` 槽绑的是卡表第几张。<c>&lt; 0</c> = **空槽**；越界 = `-2`（自检别把它当空槽）。</summary>
+        public int UiPoolSlotCardIndex(int i)
+        {
+            return (i >= 0 && i < _poolIndex.Count) ? _poolIndex[i] : -2;
+        }
+
+        /// <summary>第 `i` 槽那颗 `CardView` 的激活态：`null` = **根本没建**（A1495 那条 NRE 就出在这种槽上）；
+        /// `true`/`false` = 建了、激活 / 没激活。越界同样 `null`。</summary>
+        public bool? UiPoolSlotViewActive(int i)
+        {
+            if (i < 0 || i >= _poolViews.Count) return null;
+            var v = _poolViews[i];
+            if (v == null) return null;
+            return v.gameObject.activeSelf;
+        }
+
         /// <summary>🆕 A41 ④：这一点上「按 `ClickOrder` 第一个吃到的 key」，`null` = 没有一件命中。
         /// 与点击/悬停**同一条**（都过 `HitBtn` → `KeyLive`：看不见的钮不算）—— 自检直接问它，
         /// 免得靠副作用反推「到底谁被点到了」。</summary>
@@ -7539,7 +7654,15 @@ namespace CardPresentation
         {
             foreach (var b in _fltHit)
                 if (px.x >= b.X && px.x <= b.X + b.W && px.y >= b.Y && px.y <= b.Y + b.H)
-                { HandleFilterRow(b.Key); return true; }
+                {
+                    // 原版这一格是 `EverguildToggle`（`…/Filters/*/Content/Toggle`）⇒ `Select Toggle`
+                    //（R3 §二·C-1 `Deck Editing Menu` 那 6 行；本窗这条点击链不走 `MenuDraw.Hit`）。
+                    // ⚠️ `$name` = 搜索框（**输入聚焦，不是按钮**）⇒ 不播（R3 §五·5.4 的「输入框不传 cue」）。
+                    if (b.Key != "$name")
+                        WindowSounds.PlayFx(WindowSounds.SelectToggleCue, $"卡组编辑筛选 `{b.Key}`");
+                    HandleFilterRow(b.Key);
+                    return true;
+                }
             return false;
         }
 
@@ -7695,7 +7818,13 @@ namespace CardPresentation
         {
             foreach (var b in _cosmoFltHit)
                 if (px.x >= b.X && px.x <= b.X + b.W && px.y >= b.Y && px.y <= b.Y + b.H)
-                { ApplyCosmoFilter(b.Key); return true; }
+                {
+                    // 原版 `…/Cosmetic FIlter/Filters/{Owned Toggle,Army Filter/Content/Toggle}`
+                    // = `EverguildToggle` ⇒ `Select Toggle`（R3 §二·C-1 `Deck Editing Menu` 那两行）。
+                    WindowSounds.PlayFx(WindowSounds.SelectToggleCue, $"卡组编辑卡背筛选 `{b.Key}`");
+                    ApplyCosmoFilter(b.Key);
+                    return true;
+                }
             return false;
         }
 

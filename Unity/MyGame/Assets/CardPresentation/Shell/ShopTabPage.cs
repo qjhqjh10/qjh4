@@ -557,16 +557,22 @@ namespace CardPresentation
             if (o.AvailableMax > 0)
             {
                 var ar = Rect(r, CellAvail);
-                // 🔴 **2026-10-10（A1212 块 6）· 这一处【被闸挡住】⇒ 如实只报不接**（⛔ 别硬塞、别改共用闸）：
-                //   原版那一颗四格 = `16 / 31.5 / 39 / 0`（出处 = `RA1212_切块表.md` 块 6 #17），
-                //   而 `MenuDraw.TextCore` 的闸要求 `fontPx > autoMinPx` **严格大于** —— 本处
-                //   `fontPx = 16`（原版 `m_fontSize`）**恰等于** `autoMinPx = 16` ⇒ **第三条假**、
-                //   `SetAutoFitBox` 不会被执行。那一族的裁定（`A1208`）是「**先查实是不是标称抄错**、
-                //   ⛔ 别先改共用闸」⇒ 本批**不接**，挂账给调度台。
+                // 🆕 **2026-10-17（A1236）：判据已查实 ⇒ 改【值】，⛔ 不动共用闸。**
+                //   按 `A1208` 的既定口径「先看原版那一颗的 `m_fontSizeBase`」：
+                //   全包 50 颗 `m_text` 含 `'Available:'` 的 TMP 里，本处用的是 **5 颗那一档**，
+                //   逐颗实读 = **`fs 16 / min 16 / max 31.5 / base 39 / 折行 0`**
+                //   （本次全包扫 `bundle_menus_assets_all/MonoBehaviour/*.json`）。
+                //   `base(39) > min(16)` ⇒ **原版有可缩余量**、我们原来把 `fontPx` 抄成了运行时字号 16
+                //   ⇒ 现在标称改 **39**（= `m_fontSizeBase`，TMP 自适应的起点）+ 三格照实传。
+                //   ⚠️ 闸 `fontPx > autoMinPx` 现在是 `39 > 16` ✓ ⇒ `SetAutoFitBox` 真会执行。
+                //   ⚠️ 原版**折行 = 0**：`SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**把模式开成
+                //   `Normal` ⇒ 返回后必须 `SetWrapping(false)` 还原（同 `EnergySinglePlayerOnly…:453` 的成对写法）。
                 var al = _win.Text(cell, "Available: " + o.Available + "/" + o.AvailableMax,
-                                   ar.x1, ar.x2, ar.y1, ar.y2, 5, Color.white, "Available Counter", 16f);
+                                   ar.x1, ar.x2, ar.y1, ar.y2, 5, Color.white, "Available Counter", 39f,
+                                   wrapPx: ar.W, autoMinPx: 16f, autoMaxPx: 31.5f, autoBasePx: 39f);
                 if (al != null)
                 {
+                    al.SetWrapping(false);        // 原版 `m_TextWrappingMode = 0`
                     al.SetRenderQueue(QCellText);
                     // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版这颗 `Available Counter`
                     //   是 `v = Geometry (4096)` = **`Midline`**（判据 = `CellAvail` 那条注释自己逐字写的

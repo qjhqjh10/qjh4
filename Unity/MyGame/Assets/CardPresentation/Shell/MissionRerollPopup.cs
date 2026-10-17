@@ -339,7 +339,7 @@ namespace CardPresentation
             // ⑤ 两颗钮（原版 `Buttons` 是 HLG sp 0 ⇒ 两个矩形直接照实测摆）
             var btns = MenuDraw.Node(WindowNode, "Buttons", ButtonsR);
             CancelNode = BuildButton(btns, "ButtonLeft", CancelR, CancelTxR, "Cancel", BtnTint, 324f, 76f,
-                                     () => Close());
+                                     () => Close(), clickCue: WindowSounds.NegativeCue);
             var priceDisplay = MenuDraw.Node(btns, "Price Display", PriceBtnR);   // 原版这一层是 `PriceDisplayButton`
             ConfirmNode = BuildButton(priceDisplay, "Generic UI Button", PriceBtnR,
                                       new PxRect(ConfirmTextR, 541f, ConfirmTextR, 617f), "Confirm ", BtnTint2,
@@ -357,7 +357,8 @@ namespace CardPresentation
         /// （fs38 · auto[12~38] · 折行 0）+ 命中区（`EverguildButton` `trans=2` ⇒ **悬停换图**）。
         /// `rightAlign` 时 `tx` 只有右边界有意义（`Confirm` 那一颗的框是**零宽**的，见 `ConfirmTextR`）。</summary>
         Transform BuildButton(Transform parent, string nodeName, PxRect r, PxRect tx, string label, Color tint,
-                              float autoBoxW, float autoBoxH, System.Action onClick, bool rightAlign = false)
+                              float autoBoxW, float autoBoxH, System.Action onClick, bool rightAlign = false,
+                              string clickCue = null)
         {
             var n = MenuDraw.Node(parent, nodeName, r);
             // 底图：`40K_button` 489×107 塞进 350×76 ⇒ 原版 `preserveAspect` ⇒ 画 **347.3×76**（居中）
@@ -366,7 +367,7 @@ namespace CardPresentation
             if (tex != null) q = MenuDraw.Rect(n, tex, r, "Image", QBtn, tint, true);
             // 命中区：整颗钮；`target` = 底图那块 ⇒ 悬停换 `40K_button_hover`、按下 `40K_button_pressed`
             //（两张图名都是**实读 prefab 的 `m_SpriteState`**，不是我们按 `_hover` 规律猜的 —— 恰好同值）
-            MenuDraw.Hit(n, "Hit", r, QHit, onClick, q, ArtButton);
+            MenuDraw.Hit(n, "Hit", r, QHit, onClick, q, ArtButton, clickCue: clickCue);
 
             var lb = MenuDraw.Text(n, tx, label, Color.white, "Button Text", 38f, QBtnText);
             if (lb != null)

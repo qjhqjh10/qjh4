@@ -1256,11 +1256,50 @@ namespace CardPresentation
             return moved;
         }
 
+        // ============================================================ 输入闸（🆕 2026-10-17 · N8）
+        //
+        // 全屏黑场（`LoadingMenu`）与降级遮罩（`BlockingOverlay`）在屏上时，**指针**一条都不许吃。
+
+        /// <summary>此刻**指针输入**要不要被吃掉 —— `HitButton` / `HitScroll` 两条命中口的第一句都问它，
+        /// `ClickAt` / `WheelAt` / `ButtonAt` / `ScrollUnder` / `PressAt` / `ReleaseAt` / `HoverAt` 因此自动继承。
+        ///
+        /// <para>🔴 **判据（原版实读）**：黑图 `Panel` 的 `Image.m_RaycastTarget = 1`
+        /// （场景 `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1960.json:22`，prefab 同值）
+        /// + `Game UI` 上的 `GraphicRaycaster`（`MonoBehaviour_2579.json`）⇒ **原版靠 uGUI 射线把整屏点击
+        /// 吃在黑洞图上**。我们这条线不走 uGUI 射线（`HitButton` 自己扫 `WindowButton`）⇒ 必须显式问一句。
+        /// 判据全文 → `资料/普查产出_1017/UI/R4_黑场挡点击诊断.md` §四。</para>
+        ///
+        /// <para>🔴 **为什么用 `activeInHierarchy`、⛔ 不用现成的 `LoadingMenu.IsShowing`（α > 0.001）**：
+        /// 原版 `LoadingFade` 第一句就把 α 设成与目标**相反**那个值（`show=true` ⇒ α=0）再补间，
+        /// 而**射线靶不乘 alpha**（`m_RaycastTarget` 与颜色无关、`m_RaycastPadding = 0`）
+        /// ⇒ 原版的拦截区间 = **`Panel` active 的整段**。`IsShowing` 会漏掉**淡入起始**与**淡出末尾**两段
+        /// （那两段 `Panel` 还在屏上、原版照样吃点击）⇒ 判别式只能是「`Panel` 在激活链上」。</para>
+        ///
+        /// <para>⚠️ **只拦指针**：`KeyCancel` / `KeySubmit` / `HandleTyping` / `ClickForTest` 一律不动 ——
+        /// 原版 `WindowsManager__Update.c` 的 ESC 分支里**没有任何 loading / 遮挡门槛**
+        /// （键盘不走 uGUI 射线），而 `ClickForTest` 是自检/工具直调口（不许被黑场挡掉）。</para>
+        ///
+        /// <para>⚠️ **批处理/编辑态也要判得对**：`ShellRuntime.Instance` **只在 `Awake` 里赋、批处理下恒 null**
+        /// （判据 → `Editor/ShellScene.cs:6641`）⇒ 取不到实例时退到 `LoadingMenu.Current`（`Build()` 里登记）。
+        /// 两条都取不到 ⇒ **不挡**（与改前逐位相同）。</para></summary>
+        public static bool InputBlocked
+        {
+            get
+            {
+                if (BlockingOverlay.IsBlocking) return true;         // 降级件也接上（改前零消费者）
+                var rt = ShellRuntime.Instance;
+                var loading = rt != null && rt.Loading != null ? rt.Loading : LoadingMenu.Current;
+                return loading != null && loading.Panel != null
+                       && loading.Panel.gameObject.activeInHierarchy;
+            }
+        }
+
         // ============================================================ 命中
 
         /// <summary>命中顺序：**渲染队列大的先**（画在上面的先吃），同队列再比 `z`（越小越靠前）。</summary>
         WindowButton HitButton(float px, float py)
         {
+            if (InputBlocked) return null;      // 🆕 N8：黑场/遮罩期间指针命中一条都不给（判据见 `InputBlocked`）
             WindowButton best = null;
             int bestQ = int.MinValue;
             float bestZ = float.MaxValue;
@@ -1346,6 +1385,7 @@ namespace CardPresentation
         /// 也会滚这一区），今天两层都闭合 ✔。</para></summary>
         MenuScroll HitScroll(float px, float py)
         {
+            if (InputBlocked) return null;      // 🆕 N8：黑场/遮罩期间滚轮也落到空处（判据见 `InputBlocked`）
             for (int i = _scrolls.Count - 1; i >= 0; i--)
             {
                 var s = _scrolls[i];

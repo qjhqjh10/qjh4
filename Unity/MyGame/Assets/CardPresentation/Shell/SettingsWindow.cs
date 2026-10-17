@@ -223,6 +223,16 @@ namespace CardPresentation
         public const float TabW = 165f;
         /// <summary>键的左沿（**唯一一处**：贴栏的右沿往里 13.42 —— 见 `TabW`）。</summary>
         public const float TabL = BarR - TabW;                      // 341.52
+        /// <summary>🆕 **2026-10-17（A1251）**：`Support` 键右上那颗 `Badge Highlight` 的几何。
+        /// <para>判据 = `python -I 工具/menu_dump.py bundle_menus_assets_all "Main Menu Settings Window" --depth 6`
+        /// 现读（屏幕 px，根 `m_LocalScale = 0.9`）：`Support > Badge Highlight 519.7,787.6 → 551.2,819.1
+        /// **31.50×31.50**`、子件 `OneText 519.7,788.5 → 551.2,820.0`。</para>
+        /// <para>⇒ 折回**设计 px**（`x = 960 + (屏 − 960)/0.9`、`y = 540 + (屏 − 540)/0.9`）：
+        /// 红点 = `[470.778, 815.111] – [505.778, 850.111]`（**35×35**；图 `40K_notification_number`
+        /// 65×65 + `preserveAspect`）；`OneText` 同框、**比它低 1 设计 px**（屏上 +0.9）。</para>
+        /// <para>相对**键那一格**：右沿差 `506.52 − 505.778 = 0.742`、顶差 `815.111 − 805.510 = 9.601`
+        /// （键顶 = `TabTop(4, 5)` = 805.510253…）。⇒ 本件用「贴右上角」的相对偏移，键数变了也不会飘。</para></summary>
+        public const float BadgeW = 35f, BadgeRightGap = 0.742f, BadgeTopOff = 9.601f;
         /// <summary>竖轴对齐系数 = 原版 VLG `m_ChildAlignment = 5 (MiddleCenter)` 的
         /// `GetAlignmentOnAxis(1) = (5 / 3) × 0.5 = **0.5**`（`CalcAlongAxis` 里那个 `align`）。
         /// <para>🔴 **这一项是「原版没在别的键数下出现过」的读数**（原版 `SettingsMenu` 恒为 5 页 ——
@@ -1310,6 +1320,11 @@ namespace CardPresentation
 
         // 渲染队列：整窗一档（设置窗是弹窗，要盖住所有页；`Tooltip` 更高）
         public const int QShade = 3130, QPanel = 3131, QFill = 3132, QContent = 3133, QText = 3134, QOverlay = 3135;
+        /// <summary>页签红点那一层（**压在图标之上**）。🆕 **2026-10-17（A1251）**：`Support` 键的
+        /// `Badge Highlight` 与 `Icon`（`QOverlay`）在键的右上角**真的重叠** ⇒ 必须单独一档
+        /// （同队列 = 谁盖谁不可控，见 `CLAUDE.md` §三「分层要用渲染队列」）。先例 = `ForgeTab` 的
+        /// `QArmyBadge = QArmyIcon + 1`（`Shell/ForgeTab.cs:98`）。</summary>
+        public const int QBadge = 3136;
 
         // ============================================================ 状态
 
@@ -1713,7 +1728,7 @@ namespace CardPresentation
             {
                 Debug.Log("[Settings] 关闭钮");
                 Close();
-            }, closeIconQ, ArtCloseIcon, "40k_bt_close_hover");
+            }, closeIconQ, ArtCloseIcon, "40k_bt_close_hover", clickCue: WindowSounds.DefaultCloseCue);
 
             // 4) 左栏五个页签 + 六页内容
             //    🔴 **顺序 = `SettingsTab` 的序号**（`OpenTab` 按序号切 `activeSelf`）——
@@ -1805,7 +1820,17 @@ namespace CardPresentation
             //   ⚠️ **既有断言会因此变红**（`Editor/SettingsScene.cs:702` 那条 `CheckRectS(…, BarSepT/BarSepB)`，
             //   它的期望值还是**未裁**的那一对）—— 那一条要由**断言宿主那一波**改成裁切后的值，
             //   本件只把「该改成什么」写进报告（`Editor/` 不在本件白名单）。
-            Rect(bar, "Separators", BarSepL, BarSepT, BarSepR, BarSepB, ArtSep, QPanel);
+            // 🔴 **2026-10-17（A1252）画法改成原版的 `Sliced`** —— 原来走 `Rect(...)`（= `Image.Type = Simple`、
+            //   整张拉伸）⇒ 上下各 **63 贴图 px** 的淡出端帽被摊成整条 883 高（端帽被拉成中段）。
+            //   判据（逐字段实读）：
+            //     · `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_159295325986979750.json`：
+            //       `m_Type = 1`(Sliced) · `m_PixelsPerUnitMultiplier = 1.0` · `m_FillCenter = 1`；
+            //     · `sharedassets0/Sprite/40k_Separator Fade Sides Vertical.json`：
+            //       `m_Border = (0,63,0,63)` · `m_Rect = 4×128`（本仓 `Resources/Art/ui_menu/…Vertical.png` 实测 4×128）。
+            //   `ppuMul = 1` ⇒ **不用 `NineOut`**（那个口只服务 ppuMul ≠ 1 的两张 FPS 轨道图）。
+            //   ⚠️ **矩形一个字不动**（`BarSep*` 不变）：`Editor/SettingsScene.cs:702` 那条断言只断矩形。
+            Nine(bar, "Separators", BarSepL, BarSepT, BarSepR, BarSepB, ArtSep,
+                 4f, 128f, new Vector4(0f, 63f, 0f, 63f), QPanel, null);
 
             // **五个键** = **原版那一列的形状，逐位不变**（`A1186` 裁定 ①；原版五页全建 + `Online` **不进栏**）
             // 🔴 **`Label` 有两个身份，别混**：① `Node(...)` 的**节点名**（= 自检 `FindChild` / `Click` 用的
@@ -1871,11 +1896,43 @@ namespace CardPresentation
                 //   改走本窗的两步漏斗 `Term(键, 原版英文)`（同页的页标题 `PageTitle(page, AcTerm(...))` 本来就走对了）；
                 //   **`En` 一路带进 `Keyed`** ⇒ `RefreshTexts()` 换语言时也走同一支（那一处原来**同病**）。
                 if (specs[i].Key != null) _tabLabels.Add(new Keyed(lb, specs[i].Key, specs[i].Label));
+
+                // 🔴 **2026-10-17（A1251）`Support` 键的 `Badge Highlight`** —— 原版有、我们**整块没建**
+                //   （改前全文件 `grep -i badge` = 0 命中）。判据（逐字段现读）：
+                //     · dump：`Support > Badge Highlight` 屏上 31.50×31.50（设计 35×35，几何见 `BadgeW` 那条 doc）·
+                //       `UiBadgeNotification` + `Image` · 图 `40K_notification_number` **65×65** ·
+                //       `Simple` + **`preserveAspect`** · 色 `(0.736,0.736,0.736,1)`；
+                //       子件 `OneText`（TMP，**空串**）fs **34** · 基准 **36** · `auto[18,34]` · Center/Middle · **折行 1**；
+                //     · 显隐：`SettingsMenu__Awake.c:37-58` 只 `UiBadgeNotification.AddNotificationType(...)`
+                //       （匿名通知定义，`:40` 建、`:57` 注册）—— **通知内容在服务端**，本地判不了；
+                //       原版这一族走的是 `Show()/Hide()` 的 **alpha 补间**（`MainMenuRuntime.cs:1507-1509` 的判据），
+                //       ⛔ **不是 `SetActive`**。
+                //   ⇒ 本工程按「**无通知 ⇒ alpha 0**」建（同 `Shell/MainMenuSubmenuWindow.cs:626-632`、
+                //     `Shell/TopBar.cs:197` 那两处），并**出声**（红线：不许静默「画了但其实永远不亮」）。
+                //   ⚠️ `OneText` 走本窗那个 `Text` 漏斗（字号/上下限一律 × `RootScale` 0.9 ⇒ 屏上 30.6/32.4/16.2/30.6）。
+                if (specs[i].Tab == SettingsTab.Support)
+                {
+                    float bx2 = BarR - BadgeRightGap, bx1 = bx2 - BadgeW;
+                    float by1 = t + BadgeTopOff, by2 = by1 + BadgeW;
+                    var badge = Rect(page, "Badge Highlight", bx1, by1, bx2, by2, "40K_notification_number",
+                                     QBadge, new Color(0.7373f, 0.7373f, 0.7373f, 0f), true);
+                    if (badge != null)
+                    {
+                        // `OneText` 是**画在红点底图上**的计数 ⇒ 必须比 `QBadge` 再高一档
+                        // （本窗 `QText` < `QOverlay` < `QBadge`，照 `QText` 挂会被底图盖住）。
+                        Text(badge.transform, "OneText", "", bx1, bx2, by1 + 1f, by2 + 1f,
+                             34f, Color.white, QBadge + 1, null, bx2 - bx1, 18f, 34f, 36f);
+                    }
+                    Debug.Log("[Settings] `Support` 键的 `Badge Highlight` 建出来了，但**恒 alpha 0** —— "
+                            + "原版由 `UiBadgeNotification` 按**服务端通知**亮（`SettingsMenu__Awake` 只注册类型、"
+                            + "本地拿不到通知内容；显隐是 alpha 补间、不是 SetActive）");
+                }
                 var tab = specs[i].Tab;
                 // 🆕 A17：原版页签是 `EverguildToggle`（`onSprite = 40K_settings_button_hover` ·
                 // `offSprite = 40K_settings_button`），而 **`m_SpriteState` 的悬停图是 `…_selected`**
                 // —— 正好是 `WindowButton` 那张表里的一行 ⇒ 直接按常态图名绑。
-                var tabHit = Hit(page, "Hit", TabL, t, BarR, b, QOverlay, () => OpenTab(tab), bg, ArtTabBg);
+                var tabHit = Hit(page, "Hit", TabL, t, BarR, b, QOverlay, () => OpenTab(tab), bg, ArtTabBg,
+                                 clickCue: WindowSounds.SelectToggleCue);
                 var twb = tabHit != null ? tabHit.GetComponent<WindowButton>() : null;
                 if (twb != null && !_tabWbs.Contains(twb)) _tabWbs.Add(twb);
             }
@@ -3048,7 +3105,7 @@ namespace CardPresentation
                 {
                     Debug.Log("[Settings] 登录弹窗：关窗钮");
                     HideLoginWindow();
-                }, _loginCloseIcon, ArtCloseIcon, "40k_bt_close_hover");
+                }, _loginCloseIcon, ArtCloseIcon, "40k_bt_close_hover", clickCue: WindowSounds.DefaultCloseCue);
             }
 
             lw.gameObject.SetActive(false);              // 出厂 `m_IsActive = 0`（由 `Switch Account` 亮起来）
@@ -3108,8 +3165,8 @@ namespace CardPresentation
             _genChecks.Add(new CheckRow(chk, state));
             if (chk != null) chk.gameObject.SetActive(state());
             Action hit = () => { flip(); afterFlip(); RefreshTexts(); };
-            Hit(n, "HitBox", bx1, by1, bx2, by2, QOverlay, hit);
-            Hit(n, "HitLabel", lx, t, GenR, b, QOverlay, hit);
+            Hit(n, "HitBox", bx1, by1, bx2, by2, QOverlay, hit, clickCue: WindowSounds.SelectToggleCue);
+            Hit(n, "HitLabel", lx, t, GenR, b, QOverlay, hit, clickCue: WindowSounds.SelectToggleCue);
         }
 
         /// <summary>`Bottom Buttons` 那两颗（原版 `Redeem Code` / `Close Game Button`）：各 300×90、
@@ -4333,7 +4390,7 @@ namespace CardPresentation
                 var tex = Tex(state() ? ArtToggleOn : ArtToggleOff);
                 if (box != null && tex != null) box.SetTexture(tex);
                 if (lb != null && labelText != null) lb.SetText(labelText());
-            }, null, null, null);
+            }, null, null, null, clickCue: WindowSounds.SelectToggleCue);
             return n;
         }
 
@@ -4489,13 +4546,19 @@ namespace CardPresentation
         Transform _fpsRow, _fpsSliderRoot, _fpsFill;
         ImageQuad _fpsHandle;
         /// <summary>FPS 那根滑块的**命中区**（`MenuDraw.Hit` 建的节点 + 它里面那颗透明 quad）。
-        /// 🔴 **2026-10-07（波 8 · A193）**：命中区不再只是轨道那一块 —— 它按 `WfSlider.HitBand`
-        /// 给成「**轨道 ∪ 手柄**」，并且每换一档都由 <see cref="UpdateFpsHit"/> 挪一次
-        /// （手柄逐档挪 ⇒ 矩形也得跟着；`MenuDraw.Hit` 只会建**一次**固定矩形）。
-        /// 整块在视口外时 `MenuDraw.Hit` 当时返回 null ⇒ 两个字段都是 null，`UpdateFpsHit` 直接不做事
+        /// 🔴 **2026-10-07（波 8 · A193）**：命中区不再只是轨道那一块 —— 原版 `Background`（轨道）与
+        /// `Handle`（手柄）**两颗 Image 都是射线目标** ⇒ 两块都要算命中。
+        /// 🔴 **2026-10-17（A1326）**：拆成**两个节点 / 两颗 quad**（`_fpsHit` = **轨道**、`_fpsHitHandle`
+        /// = **手柄那颗按 `m_RaycastPadding = −25` 外扩后的框**）—— 两块**纵向带不同**（13 vs 85.406 设计 px），
+        /// 外接矩形会在轨道上下多认 ~36 px；而 `PointerLayer` 一颗 `WindowButton` 只认一颗 quad。
+        /// 每换一档都由 <see cref="UpdateFpsHit"/> 把两块各挪一次。
+        /// 整块在视口外时 `MenuDraw.Hit` 当时返回 null ⇒ 相应字段是 null，`UpdateFpsHit` 直接不做事
         /// （与「视口外不建」的老口径一致）。</summary>
         Transform _fpsHit;
         ImageQuad _fpsHitQuad;
+        /// <summary>手柄那一块命中区（见 <see cref="_fpsHit"/> 的 doc）。</summary>
+        Transform _fpsHitHandle;
+        ImageQuad _fpsHitHandleQuad;
         /// <summary>当前档位 = 原版 `GameStaticData.FPSLimit`（**0/1/2**，不是帧率本身 —— 帧率见 `FpsOfIndex`）。</summary>
         int _fpsIndex = 2;
         bool _fpsDragging;
@@ -4523,54 +4586,73 @@ namespace CardPresentation
             return FpsHandleOffset + FpsN(idx) * (FpsSliderW - FpsTrackInset);
         }
 
-        /// <summary>这一档的**命中区矩形**（**原版设计 px**，y 向下、左上原点）= **轨道 ∪ 手柄**。
-        /// 判据 = `WfSlider.HitBand`（**只此一份**，与 `Battle/WfSlider.Contains` 同一份几何 ——
-        /// 那条路是「两块共用同一个纵向带 ⇒ 并集本身就是一块矩形」）。
-        /// ⚠️ 手柄那一半**逐档不同**（值变了手柄就挪了），所以这个矩形必须跟着档位重算。</summary>
-        PxRect FpsHitRectPx(int idx)
+        /// <summary>这一档的**轨道矩形**（**原版设计 px**，y 向下、左上原点）—— 原版那颗 `Background`
+        /// `m_RaycastPadding` = 0 ⇒ 射线框就是它自己（`WfSlider` 的 `HitBand` doc 里同一条判据）。</summary>
+        PxRect FpsTrackRectPx()
         {
-            float lx, rx, halfH;
-            WfSlider.HitBand(0f, FpsSliderW, FpsSliderH * 0.5f,
-                             FpsHandleCxRel(idx), FpsHandleSquare * 0.5f, hasHandle: true,
-                             out lx, out rx, out halfH);
-            float cy = (_fpsT + _fpsB) * 0.5f;      // 手柄与轨道**同中心线**（见 `PlaceFps` 那条注释）
-            return new PxRect(_fpsL + lx, cy - halfH, _fpsL + rx, cy + halfH);
+            return new PxRect(_fpsL, _fpsT, _fpsR, _fpsB);
         }
 
-        /// <summary>这一档的**命中带**，**画布 px** —— = <see cref="FpsHitRectPx"/>（原版设计 px）过 `Screen()`。
-        /// 🔴 **判据只此一份（A202①）**：命中区 quad（<see cref="UpdateFpsHit"/>）与「按下这一下算不算落在
-        /// 这根滑块上」（<see cref="FpsPressAtCanvas"/> ← `UpdateFpsDrag`）**都走它**
-        /// —— ⛔ 别在任何一侧另写一份手算几何。A202① 之前 `UpdateFpsDrag` 里那句
-        /// `px &lt; s.x1 - 24f || px &gt; s.x2 + 24f || py &lt; s.y1 - 16f || py &gt; s.y2 + 16f`
-        /// 就是**第二份**（硬编码的 `±(24, 16)` 画布 px），而且它与 `HitBand` 的值**并不等价**
-        /// （差多少、往哪个方向差 → `FpsPressAtCanvas` 的注释里逐条写着）。</summary>
-        PxRect FpsHitBandCanvasPx(int idx)
+        /// <summary>这一档的**手柄命中框**（**原版设计 px**）= 手柄那颗 `Image` 的布局框
+        /// （`m_SizeDelta` **46.811** × 运行期框高 **35.406** —— 运行期框高 = 滑区高 + 22.406，见
+        /// `WfSlider.HandlePx` 那条 doc）× 四边 `m_RaycastPadding = −25` 的**外扩**。
+        /// <para>🔴 **算式只此一份**：转发 `WfSlider.HandleHitRect`（它再转 `MenuDraw.PaddedRect`）——
+        /// 战斗侧 `WfSlider.HitHandlePadded` 与这里用的是**同一条**。⛔ 别在本文件写 `±25`。</para>
+        /// <para>⚠️ 手柄中心 = `_fpsL + FpsHandleCxRel(idx)`、与轨道**同中心线**（见 `PlaceFps` 那条注释）。</para></summary>
+        PxRect FpsHandleHitRectPx(int idx)
         {
-            var r = FpsHitRectPx(idx);
-            return Screen(r.x1, r.y1, r.x2, r.y2);
+            float cx = _fpsL + FpsHandleCxRel(idx);
+            float cy = (_fpsT + _fpsB) * 0.5f;
+            var frame = new PxRect(cx - WfSlider.HandleFrameW * 0.5f, cy - FpsHandleSquare * 0.5f,
+                                   cx + WfSlider.HandleFrameW * 0.5f, cy + FpsHandleSquare * 0.5f);
+            return WfSlider.HandleHitRect(frame);
         }
 
-        /// <summary>把命中区那一块 quad 挪到**本档**的「轨道 ∪ 手柄」上（A193）。
-        /// 🔴 改法与手柄那一层（`_fpsHandle`）**逐句同形** —— `SetWorldHeight` + `SetAspect` +
-        /// `MenuDraw.Local`，并且**照样过视口裁切**（原版 `RectMask2D` 连射线一起裁：框外的点判不中，
-        /// 见 `MenuDraw.ClipRect`）。⚠️ `ImageQuad` 是**渲染即几何** ⇒ `PointerLayer` 每次事件读的都是
-        /// 它当时的矩形，不用另外登记。</summary>
+        /// <summary>这一档的两块命中区过 `Screen()`（设计 px ⇒ 画布 px）。
+        /// 🔴 **判据只此一份（A202① / A1326）**：命中区 quad（<see cref="UpdateFpsHit"/>）与「按下这一下算不算
+        /// 落在滑块上」（<see cref="FpsPressAtCanvas"/>）**都走这两个函数 + `WfSlider.InUnion`**
+        /// —— ⛔ 别在任何一侧另写一份手算几何（A202① 之前 `UpdateFpsDrag` 里那句 `±(24, 16)` 就是第二份）。</summary>
+        void FpsHitRectsCanvasPx(int idx, out PxRect track, out PxRect handle)
+        {
+            var t = FpsTrackRectPx();
+            var h = FpsHandleHitRectPx(idx);
+            track = Screen(t.x1, t.y1, t.x2, t.y2);
+            handle = Screen(h.x1, h.y1, h.x2, h.y2);
+        }
+
+        /// <summary>把**两块**命中区 quad 挪到本档的位置（A193 / A1326）。
+        /// 🔴 **为什么是两块**：原版那两颗 `Image`（`Background` 轨道 / `Handle` 手柄）**各自**是射线目标，
+        /// 而手柄那颗的 `m_RaycastPadding = −25` 让它的框比轨道**高出一大截**（85.406 vs 13 设计 px）
+        /// ⇒ 两块**不是同一个纵向带**，外接矩形会在轨道上下各多认 ~36 px（那两圈原版没有可射线件）。
+        /// `PointerLayer` 一颗 `WindowButton` 只认**一颗** quad（`HitQuad` 用 `GetComponentInChildren`）
+        /// ⇒ 真并集只能落成**两个节点 / 两个按钮**，两块各自裁切。
+        /// 🔴 改法与手柄那一层（`_fpsHandle`）**逐句同形** —— `SetWorldHeight` + `SetAspect` + `MenuDraw.Local`，
+        /// 并且照样过视口裁切（原版 `RectMask2D` 连射线一起裁：框外的点判不中，见 `MenuDraw.ClipRect`）。
+        /// ⚠️ `ImageQuad` 是**渲染即几何** ⇒ `PointerLayer` 每次事件读的都是它当时的矩形，不用另外登记。</summary>
         void UpdateFpsHit(int idx)
         {
-            if (_fpsHit == null || _fpsHitQuad == null) return;      // 整块在视口外 ⇒ 本来就没建
-            var s = FpsHitBandCanvasPx(idx);
+            PxRect track, handle;
+            FpsHitRectsCanvasPx(idx, out track, out handle);
+            UpdateFpsHitQuad(_fpsHit, _fpsHitQuad, track);
+            UpdateFpsHitQuad(_fpsHitHandle, _fpsHitHandleQuad, handle);
+        }
+
+        /// <summary><see cref="UpdateFpsHit"/> 的单块版（两块共用这一份裁切 / 摆放算式）。</summary>
+        static void UpdateFpsHitQuad(Transform node, ImageQuad quad, PxRect canvasRect)
+        {
+            if (node == null || quad == null) return;      // 整块在视口外 ⇒ 本来就没建
             PxRect vis;
             // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：`ClipRect` ⇒ **`ClipRectAbove`**（节点态那一版）。
-            //    `_fpsHit` 就在 `_fpsRow` 下 ⇒ 父链上是 `Content → Viewport`（那颗 `ViewportClip`）。
-            if (!MenuDraw.ClipRectAbove(_fpsHit, new PxRect(s.x1, s.y1, s.x2, s.y2), null, out vis))
+            //    两个命中节点都在 `_fpsRow` 下 ⇒ 父链上是 `Content → Viewport`（那颗 `ViewportClip`）。
+            if (!MenuDraw.ClipRectAbove(node, canvasRect, null, out vis))
             {
-                if (_fpsHitQuad.gameObject.activeSelf) _fpsHitQuad.gameObject.SetActive(false);
+                if (quad.gameObject.activeSelf) quad.gameObject.SetActive(false);
                 return;
             }
-            if (!_fpsHitQuad.gameObject.activeSelf) _fpsHitQuad.gameObject.SetActive(true);
-            _fpsHitQuad.SetWorldHeight(LayoutSpace.Px(vis.H));
-            _fpsHitQuad.SetAspect(vis.W / Mathf.Max(1e-6f, vis.H));
-            _fpsHitQuad.transform.localPosition = MenuDraw.Local(_fpsHit, vis.x1, vis.y1, vis.x2, vis.y2);
+            if (!quad.gameObject.activeSelf) quad.gameObject.SetActive(true);
+            quad.SetWorldHeight(LayoutSpace.Px(vis.H));
+            quad.SetAspect(vis.W / Mathf.Max(1e-6f, vis.H));
+            quad.transform.localPosition = MenuDraw.Local(node, vis.x1, vis.y1, vis.x2, vis.y2);
         }
 
         /// <summary>档位 → 帧率（= `PlayerDataManager.ApplySettingsOptions` 那段 if 链，逐字节照抄）。
@@ -4666,21 +4748,31 @@ namespace CardPresentation
                                           new Vector2(0.5f, 0.5f), "Handle");
             if (_fpsHandle != null) _fpsHandle.SetRenderQueue(QOverlay);   // 三层里的最上层（见 ②-a 那条注）
 
-            // ②-e 命中区 = **轨道 ∪ 手柄**。原版那条射线是这么来的：`Background`（轨道）与 `Handle`（手柄）
-            //     两颗 Image 的 `m_RaycastTarget` 都是 **1**，点它们都会冒泡到父件的 `Slider`
-            //     （`OnPointerDown` 的 else 分支 = 跳到点的那个位置，**不是**只有拖手柄才算）。
-            //     🔴 **2026-10-07（波 8 · A193）改的就是这一块**：原来只按**轨道**那一块判 ⇒ 手柄比轨道高、
-            //     值贴两端时还会**探出轨道**（2 档探出右端 **19.7 设计 px**、0 档探出左端 5.7）
-            //     那一块**点不到**（原版点得到，因为它也是 raycast 目标）—— 该文件自己早就记着这条。
-            //     ⇒ 现在几何走 `WfSlider.HitBand`（**判据只此一份**，与 `Battle/WfSlider.Contains` 同一份），
-            //     并且由 `PlaceFps` → `UpdateFpsHit` 跟着档位**逐档重算**（手柄跟着值走、矩形也得跟着走）。
+            // ②-e 命中区 = **轨道 ∪ 手柄**（**两块 quad**，真并集）。原版那条射线是这么来的：
+            //     `Background`（轨道）与 `Handle`（手柄）两颗 Image 的 `m_RaycastTarget` 都是 **1**，
+            //     点它们都会冒泡到父件的 `Slider`（`OnPointerDown` 的 else 分支 = 跳到点的那个位置，
+            //     **不是**只有拖手柄才算）。
+            //     🔴 **2026-10-07（波 8 · A193）**：原来只按**轨道**那一块判 ⇒ 手柄比轨道高、值贴两端时
+            //     还会**探出轨道**（2 档探出右端 **19.7 设计 px**、0 档探出左端 5.7）那一块**点不到**。
+            //     🔴 **2026-10-17（A1326）**：手柄那块还要过原版 `m_RaycastPadding = (−25,−25,−25,−25)`
+            //     （**外扩**），而且两块**纵向带不同**（轨道 13、手柄外扩后 85.406 设计 px）
+            //     ⇒ 拼成一个外接矩形会在轨道上下各多认 ~36 px ⇒ **拆成两颗 quad**（真并集）：
+            //       · `Hit`        = 轨道那一块（原版 `Background`，pad 0）；
+            //       · `Handle Hit` = 手柄那一块（原版 `Handle`，pad −25）。
+            //     ⚠️ `PointerLayer` 一颗 `WindowButton` 只认**一颗** quad（`HitQuad` 用
+            //     `GetComponentInChildren`）⇒ 真并集只能落成**两个节点**，两颗都调到同一个行为。
             //     🔴 `clip`（A435·丙 起不再显式传）：轨道没滚进视口之前**这条命中区根本不存在**
             //     （原版 `RectMask2D` 连射线一起裁；裁切来自 `Viewport` 那颗节点）。
-            _fpsHit = Hit(_fpsRow, "Hit", _fpsL, _fpsT, _fpsR, _fpsB, QOverlay, FpsClickAtPointer,
+            var trk = FpsTrackRectPx();
+            var hnd = FpsHandleHitRectPx(_fpsIndex);
+            _fpsHit = Hit(_fpsRow, "Hit", trk.x1, trk.y1, trk.x2, trk.y2, QOverlay, FpsClickAtPointer,
                           null, null, null);
             // `MenuDraw.Hit` 建的是一颗**透明 quad 的节点**（`PointerLayer` 只认 `ImageQuad` ⇒ 裸节点进不了
             // 命中表，A26 那个坑）—— 那颗 quad 就是下面 `UpdateFpsHit` 要挪的那一块。
             _fpsHitQuad = _fpsHit != null ? _fpsHit.GetComponentInChildren<ImageQuad>() : null;
+            _fpsHitHandle = Hit(_fpsRow, "Handle Hit", hnd.x1, hnd.y1, hnd.x2, hnd.y2, QOverlay,
+                                FpsClickAtPointer, null, null, null);
+            _fpsHitHandleQuad = _fpsHitHandle != null ? _fpsHitHandle.GetComponentInChildren<ImageQuad>() : null;
 
             // ③ 按**当前档位**把滑块摆到对应档 —— ⛔ 这里**不再**从 `Application.targetFrameRate` 反查：
             //    开窗那一次的反查在 `BuildGraphicsPage`（只做一次），滚轮/重建不该把玩家的选择冲掉。
@@ -4761,20 +4853,14 @@ namespace CardPresentation
         /// ① 行没建出来 / 不在激活态 ② 落在**命中带之外** ③ 落在**被视口裁掉的那一截**里
         /// （原版 `RectMask2D` 连射线一起裁，见 `MenuDraw.ClipRect` —— 不加这一句会在「看不见的地方」改帧率）。
         ///
-        /// <para>🔴 **判据只此一份（A202①）**：命中带 = `FpsHitBandCanvasPx` → `FpsHitRectPx` →
-        /// **`WfSlider.HitBand`** —— 与命中区 quad **同一次调用**（`Battle/WfSlider.cs` 那句
-        /// 「判据只此一份 …… 别在任何一侧另写一份」）。
-        /// ⛔ A202① 之前这里手写的是 `±(24, 16)` **画布 px** 的第二份几何，两套**并不等价**：
-        /// <list type="bullet">
-        /// <item>**横向**：旧带 = 轨道两端各让 **24**；`HitBand` = **轨道 ∪ 手柄** ⇒ 左端到
-        /// `12 − 17.703 = −5.703` 设计 px（−5.13 画布 px）、右端到 `12 + 481.18 + 17.703 = 510.883`
-        /// 设计 px（轨道右端 **+17.73** 画布 px）。⇒ 横向**变紧**。</item>
-        /// <item>**纵向**：旧带 = 轨道上下各让 **16**（半高 5.85 + 16 = **21.85** 画布 px）；`HitBand` 取
-        /// `max(轨道半高 6.5, 手柄半高 17.703)` = 17.703 设计 px ⇒ 半高 **15.93** 画布 px ⇒ 也**变紧**。</item>
-        /// </list>
-        /// ⇒ 「落在旧带里、但既不在轨道也不在手柄上」的那一圈（例如轨道中心竖直偏 20 画布 px）**从此不开始拖**。
-        /// 这是**有意的**：原版那条射线的目标是「轨道图 + 手柄图 + 三个刻度 TMP」，我们照旧只收
-        /// **轨道 ∪ 手柄** 这一份（刻度那段差额仍记在报告 §没查清 里，⛔ 不是在这里再补一份余量）。</para>
+        /// <para>🔴 **判据只此一份（A202① / A1326）**：命中带 = `FpsHitRectsCanvasPx` →
+        /// `FpsTrackRectPx` / `FpsHandleHitRectPx`（后者转发 `WfSlider.HandleHitRect`）→
+        /// **`WfSlider.InUnion`**（**真并集**）—— 与两块命中区 quad **同一次调用**
+        /// （`Battle/WfSlider.cs` 那句「判据只此一份 …… 别在任何一侧另写一份」）。
+        /// ⛔ A202① 之前这里手写的是 `±(24, 16)` **画布 px** 的第二份几何，两套**并不等价**。
+        /// ⛔ 也别退回 `WfSlider.HitBand`（**单矩形**）：它的纵向半高取「轨道 ∪ 手柄」的 `max`
+        /// ⇒ 会把整条轨道宽都按手柄那个高带认下来（A1326 之前的近似），而上/下那两圈原版**没有任何
+        /// 可射线件**。现在两块各判各的：轨道 13 高、手柄 `m_SizeDelta 46.811×35.406` 四边外扩 25。</para>
         ///
         /// <para>⚠️ **自检直调这一个**：批处理里 `Mouse.current` 是 null、`Update` 也不跑 —— 同
         /// `SetFpsFromCanvasX` 那条（`Editor/SettingsScene.cs` A202① 那节就是拿探针点打进来的）。</para></summary>
@@ -4783,8 +4869,9 @@ namespace CardPresentation
             if (_fpsSliderRoot == null || !_fpsSliderRoot.gameObject.activeInHierarchy)
             { _fpsDragging = false; return false; }
             // 🔴 **必须同时卡 x 和 y**：只卡 x 的话，点画质那一行（x 与轨道重叠）也会改帧率。
-            var hb = FpsHitBandCanvasPx(_fpsIndex);
-            if (px < hb.x1 || px > hb.x2 || py < hb.y1 || py > hb.y2)
+            PxRect track, handle;
+            FpsHitRectsCanvasPx(_fpsIndex, out track, out handle);
+            if (!WfSlider.InUnion(track, handle, px, py))
             { _fpsDragging = false; return false; }
             // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：`Visible` ⇒ **`VisibleAbove`**（节点态那一版）——
             //    裁切状态在 `Viewport` 那颗 `ViewportClip` 上（`_fpsSliderRoot` 就在它下面）。
@@ -5643,11 +5730,13 @@ namespace CardPresentation
             return lb;
         }
         Transform Hit(Transform p, string n, float x1, float y1, float x2, float y2, int q, Action a,
-                      ImageQuad target = null, string art = null, string hoverArt = null, PxRect? clip = null)
+                      ImageQuad target = null, string art = null, string hoverArt = null, PxRect? clip = null,
+                      string clickCue = null)
         {
             var s = Screen(x1, y1, x2, y2);
             // ⚠️ 位置实参：`MenuDraw.Hit` 在 `hoverArt` 与 `clip` 之间还有一颗 `pressedArt`（本窗不用它 ⇒ 显式 null）
-            return MenuDraw.Hit(p, n, new PxRect(s.x1, s.y1, s.x2, s.y2), q, a, target, art, hoverArt, null, clip);
+            return MenuDraw.Hit(p, n, new PxRect(s.x1, s.y1, s.x2, s.y2), q, a, target, art, hoverArt, null, clip,
+                                clickCue: clickCue);
         }
         /// <summary>左对齐到**原版（未缩放）矩形**的左边缘 —— 内部过 `Screen()`。</summary>
         static void AlignLeft(Label lb, PxRect r)

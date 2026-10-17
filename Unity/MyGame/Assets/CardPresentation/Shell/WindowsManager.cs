@@ -248,7 +248,11 @@ namespace CardPresentation
         ///   （`TryOpen` 已按 `CurrentState` 分三档，`Open` 支只早退）。**结论仍然成立，理由换一条**：
         ///   那一压把 state 写成 `Background` ⇒ 紧接着的 `TryOpen(...)` 走 **`Background` 支**
         ///   （`state = Open` + 提前台）⇒ 同样盖回 `Open`、同样**不重建内容** ⇒ **仍是零可观测差异**
-        ///   （本仓 `ToBackground` 没有覆写，见 `grep "override void ToBackground"` 零命中）。
+        ///   （🔴 **2026-10-17 就地订正（铁律 5）**：本行原来写「本仓 `ToBackground` **没有覆写**，
+        ///   见 `grep "override void ToBackground"` 零命中」—— **已过期**：`Shell/MainMenuWindow.cs:77`
+        ///   现在**有**覆写（原版 `MainMenuWindow.ToBackground` = 首句幂等 + `base.ToBackground()` +
+        ///   `gameObject.SetActive(false)`，`A1629` 落地）⇒ 主菜单被压背景时**整棵关掉**；
+        ///   基类那一份仍只写状态、不关物体，与「别的窗」一致）。
         /// </para></summary>
         public void OpenWindow(GameWindow win, object data = null, bool closeAll = false)
         {

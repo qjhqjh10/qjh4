@@ -292,9 +292,9 @@ namespace CardPresentation
         /// ⚠️ **`onClick` 传 null 是合法的**（几处自检就是这么用的：只量命中区、不接行为）。</summary>
         public Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
                                 ImageQuad target = null, string art = null,
-                                string hoverArt = null, string pressedArt = null)
+                                string hoverArt = null, string pressedArt = null, string clickCue = null)
         {
-            return MenuDraw.Hit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt, Clip, ClipPad);
+            return MenuDraw.Hit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt, Clip, ClipPad, clickCue);
         }
 
         /// <summary>摆一段字，**吃本窗的裁切**（`RenderClip` / `ClipSoftness`）—— 原版 `RectMask2D` 对文字一视同仁：

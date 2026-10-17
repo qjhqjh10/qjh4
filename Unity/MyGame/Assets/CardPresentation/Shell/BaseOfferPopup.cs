@@ -144,7 +144,9 @@ namespace CardPresentation
         public const string DefAvailText = "Available: 1/5";
         /// <summary>`Offer Badge/Text (TMP)` 的出厂文本（原版由 `GetLabel(offer, 3)` 覆盖）。</summary>
         public const string DefBadgeText = "+60% value";
-        /// <summary>`Timer/Timer Text` 的出厂文本（原版是 liveop 事件的结束时间）。</summary>
+        /// <summary>`Timer/Timer Text` 的出厂文本（原版是 liveop 事件的结束时间）。
+        /// 🔴 **2026-10-17（N1）**：这一格**只当 prefab 出厂原文留档**，⛔ **不是活值** ——
+        /// 实际显示走 `TimerDisplay`（目标时刻未知 ⇒ `--` + 出声），见 <see cref="BuildTimer"/>。</summary>
         public const string DefTimerText = "23h 34m";
         /// <summary>`Purchase buttons/Price Display/…/text` 的出厂文本（原版是格式化后的价钱）。</summary>
         public const string DefPriceText = "300,00";
@@ -764,7 +766,8 @@ namespace CardPresentation
             //   （两版 `Variant` 的关窗钮子件矩形都是 56.86×58.13、pad 都是 `(-20)⁴`，逐位同值）。
             //   ⚠️ 换图那一层**同一次**改到了子件 `Background`（见上，`A1058`）—— 两笔是两件事，别混。
             MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(G.CloseArt, ClosePad),
-                         QHit, () => Close(), closeFaceQ, ArtCloseYellow, ArtCloseYellowHi);
+                         QHit, () => Close(), closeFaceQ, ArtCloseYellow, ArtCloseYellowHi,
+                         clickCue: WindowSounds.DefaultCloseCue);
 
             // ③ `Artwork`（左半边）—— 两件的出厂显隐**逐份不同**（`Variant.ArtworkOn` / `ForegroundOn`）
             ArtworkNode = MenuDraw.Node(WindowNode, "Artwork", G.Artwork);
@@ -928,10 +931,19 @@ namespace CardPresentation
         {
             TimerNode = MenuDraw.Node(TextNode, "Timer", G.Timer);
             Rect(TimerNode, ArtClock, G.TimerIcon, "Icon", QText, null, true);
-            MenuDraw.Text(TimerNode, G.TimerTextBox, C.TimerText, Color.white, "Timer Text", 30f, QText);
+            var tt = MenuDraw.Text(TimerNode, G.TimerTextBox, C.TimerText, Color.white, "Timer Text", 30f, QText);
+            // 🔴 **2026-10-17（N1）**：出厂串 `23h 34m` **不是倒计时**（原版由 LiveOps 报价的到期时刻灌进来，
+            //   本地没有报价数据 —— 见文件头「没有数据」那一段）。目标时刻未知 ⇒ 走 `TimerDisplay` 的
+            //   未知支：出声一次 + `--`（⛔ 不编一个倒计时）。调用方**真给了** `TimerText`（≠ 出厂串）就照它画。
+            //   ⚠️ 整件**仍然建成关着** —— 原版 `SetTimer` 的 no-data 分支就是 `SetActive(false)`，见本方法头；
+            //   别因为这一条把它打开。
+            if (tt != null && C.TimerText == DefTimerText)
+                TimerDisplay.Attach(tt, null, "", "礼包 Offer 弹窗 Timer Text（BaseOfferPopup）",
+                                    "报价的到期时刻由服务端 LiveOps 下发，本地没有");
             TimerNode.gameObject.SetActive(false);
             Debug.Log("[BaseOffer] `Timer` **整件建成关着**（连图标）—— 原版 `SetTimer`：不是计时活动就"
-                      + "`SetActive(false)`；而图标的位置由倒计时文字的宽度决定（HLG，量出来 0.00）⇒ 不编位置。");
+                      + "`SetActive(false)`；而图标的位置由倒计时文字的宽度决定（HLG，量出来 0.00）⇒ 不编位置。"
+                      + "那颗 `Timer Text` 已挂 `TimerDisplay`：目标时刻未知 ⇒ 内容是 `--`（出声一次），不是死串。");
         }
 
         // ---------------------------------------------------------- 底部三颗（价签 / 折扣徽标 / WebShop）
@@ -965,7 +977,12 @@ namespace CardPresentation
             var pt = MenuDraw.Text(box, G.PriceText, C.Price, Color.white, "text", 47.45f, QBtn);
             if (pt != null)
                 pt.SetAutoFitBox(LayoutSpace.Px(G.PriceText.W), LayoutSpace.Px(G.PriceText.H), 12f, 54f, 39f);
-            MenuDraw.Hit(pd, "Hit", G.Price, QHit, () => ProcessPurchase(), pq, ArtBtn, ArtBtnHi);
+            // 🔴 2026-10-17（音效线 S01 写手 G）**就地订正 R3 §四·A #59/#60 的行号**：
+            //   现读 `:979` = `Price Display`（点它 `ProcessPurchase`）⇒ **Purchase Click**；
+            //   `:1046` = `Preview` ⇒ **Positive**。R3 那两行的号已漂移（它写的 `:1012` 现在是
+            //   `WebShop Button`，而原版每个 General Offer prefab 只有上面那 3 类 cue ⇒ **WebShop 不接**）。
+            MenuDraw.Hit(pd, "Hit", G.Price, QHit, () => ProcessPurchase(), pq, ArtBtn, ArtBtnHi,
+                         clickCue: WindowSounds.PurchaseCue);
 
             // ---- `Offer Price Discount Badge`（**带 rotation 17.17°**，见 `DiscountRotDeg`）----
             var dq = Rect(row, ArtOfferBadge, G.Discount, "Offer Price Discount Badge", QBtn, null, false);
@@ -1035,7 +1052,7 @@ namespace CardPresentation
             MenuDraw.Hit(PreviewNode, "Hit", G.Preview, QHit, () =>
                 Debug.Log("[BaseOffer] 点了 `Preview` —— 原版这颗字段的旧名是 `previewDebugButton`（调试预览），"
                           + "它的动作挂在 prefab 的 UnityEvent 上、要报价里那一项；本地没有报价 ⇒ **只出声、不做别的**。"),
-                q, ArtBtn, ArtBtnHi);
+                q, ArtBtn, ArtBtnHi, clickCue: WindowSounds.PositiveCue);
         }
 
         /// <summary>根级 `AvatarHelpText`（**只有 `Variant Expansion pass` 有**）。

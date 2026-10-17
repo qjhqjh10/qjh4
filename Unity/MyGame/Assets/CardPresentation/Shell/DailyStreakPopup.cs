@@ -114,33 +114,85 @@ namespace CardPresentation
         //    判据（`Sprite/*.json` 实测 + A641 那次全包清点：用这张 sprite 的 20 个 `Image` 实例 `m_Type` 全是 1
         //    ⇒ **别退回 `Simple`**）写在 `WindowHeader` 那三个常量上，⛔ 不在这里再抄一遍。
 
-        // ---------------- 奖格（Entry 局部坐标，见 `menu_rect.py … "Daily Streak Reward Popup Entry"`）
-        // 🔴 **2026-10-10 已查实的偏离（`A1242②`）—— ⛔ 本件【值一个都没改】，只把判据落在这儿**：
-        //   下面这一族（`EntryW` / `EntryPitch` 与那 7 个 `E_*`）**整族漏了三处祖先 `m_LocalScale`**：
-        //     · **条目根** `Daily Streak Reward Popup Entry` = **1.2**（`rt 7189168232786238593`）；
-        //       `scaleMultiplierFirstElement` 是**在它之上再乘** 1.2 ⇒ 原版**第一格 = 1.44、其余 = 1.2**，
-        //       判据 = `DailyStreakWindow__RefreshRewards.c:97-102` 实读（`set_localScale(get_localScale()×f)`，
-        //       只对 `iVar15 == lVar9+0x10` 那一格做）。我们只在**基线 1.0** 上放大了第一格 ⇒ 每一格都小 1/1.2。
-        //     · **两层容器** `NormalReward`(ls 0.8) / `Collect`(ls 0.7) —— 它俩底下那几颗 `E_*` 是
-        //       **未缩放帧**的 rect ⇒ 屏上分别大 1/0.96 与 1/0.84（`P-L` 修好之后的 `menu_dump` 现读）。
-        //     · `Rewards Content` 那条 HLG 序列化 **`m_ChildScaleWidth = 1`**
-        //       （`MonoBehaviour_-4833776845445324117.json`；同包另一条 spacing/pad 相同的 HLG 那份是 **0**
-        //       ⇒ ⛔ 别拿它当默认值）⇒ **原版中心距 = 379.816 × 1.2 − 64 = 391.78**，而 `EntryPitch` = **315.816**（少 24%）。
-        //   🔑 **可见后果**（判据 = 用户实拍 `资料/原版参照图/用户实拍_1017/奖励-每日连胜的参考图…png`）：
-        //     原版相邻两卡**有缝**（卡框 ÷ 中心距 ≈ 336.66/391.78 = **0.859**，实拍量到 0.852），
-        //     而**我们这边是重叠的**（`E_Bg` 350.69 宽 vs 中心距 315.816）。
-        //   ⚠️ `A1242②` 点名的那两颗，**原版屏上** = `Reward Name` **324.64 × 31.00** ·
-        //     `Collect Text` **209.78 × 42.06**（`menu_dump.py bundle_menus_assets_all
-        //     "Daily Streak Reward Popup Entry" --depth 4` 现读；`R-M` 那对 `405.95/299.12` 是**旧尺子**的读数，⛔ 别用）；
-        //     我们传的是 **338.17 / 249.74** ⇒ **偏宽 4.2% / 19.1%**（⛔ 不是 `R-M` 记的「偏窄」）。
-        //   ⛔ **别只改那两个数**：整族要**一起**按「每颗 `E_*` 乘它所在容器的 `ls`（绕**该容器**中心）·
-        //     条目本身按 1.2 渲染（首格再 ×1.2）· 中心距 391.78」重算 —— 且
-        //     `Editor/RewardsScene.cs:7208`（中心距）与 `:7231`（首格 `BG` 上沿 = 289.70）那两条断言**必须同批改**。
-        //     **本件停手只报**（那两条断言不在本件的白名单里）。
+        // ---------------- 奖格（Entry 局部坐标；判据 = `bundle_menus_assets_all` 的
+        //                  `Daily Streak Reward Popup Entry` prefab 逐字段实读）
+        // 🔴 **2026-10-17（A1280）整族重算** —— 下面这 7 个 `E_*` / `EntryW` / `EntryH` 逐值仍是原版 prefab 的
+        //   **未缩放帧**设计值（`python 工具/menu_dump.py bundle_menus_assets_all
+        //   "Daily Streak Reward Popup Entry" --depth 3 --no-ancestor-scale` 现读、逐颗核过），
+        //   **错的是把它们当画布坐标直接用**：原版还有三处祖先 `m_LocalScale` 没乘进来 ——
+        //     · **条目根** `Daily Streak Reward Popup Entry`（`RectTransform_7189168232786238593.json`）：
+        //       **`m_LocalScale = 1.2`**（三轴同值）⇒ 画出来 **455.78 × 619.56**（布局框 379.82 × 516.30）。
+        //     · `scaleMultiplierFirstElement = 1.2`（prefab MB `8654310213240890027` 的序列化字段）
+        //       **在它之上再乘** ⇒ 原版**第一格 = 1.44、其余 = 1.2**。判据 =
+        //       `d:/2/tools/decomp_full/DailyStreakWindow__RefreshRewards.c:93-101` 实读
+        //       （`set_localScale(get_localScale()×f)`，只对 `iVar15 == lVar9 + 0x10` 那一格做）。
+        //       旧实现只在**基线 1.0** 上放大第一格 ⇒ 每一格都小 1/1.2。
+        //     · **两层子容器**：`NormalReward` **ls = 0.8**（底下 `BG` / `Highlight` / `Reward Holder` /
+        //       `Reward Name` / `Extra Reward Indicator`）· `Collect` **ls = 0.7**（底下 `Collect Text`）。
+        //       `Transform.localScale` **绕各自 pivot(.5,.5) 的中心**缩，**位置与尺寸一起缩** ——
+        //       不只缩尺寸（旧实现就是只把尺寸当画布尺寸用 ⇒ 屏上大 1/0.96 与 1/0.84）。
+        //       ⇒ 屏上 = 条目内局部坐标 × 容器 ls × 条目 1.2（首格再 ×1.2）。
+        //   🔴 **中心距**：`Rewards Content` 那条 HLG 的序列化 **`m_ChildScaleWidth = 1`**
+        //     （`MonoBehaviour_-4833776845445324117.json`；同包另一条 spacing/pad 相同的 HLG 那份是 **0**
+        //     ⇒ ⛔ 别拿它当默认值）—— uGUI 主轴步进是 **`pos += childSize * scaleFactor + spacing`**
+        //     （本机 Unity 6 源码 `…/com.unity.ugui/Runtime/UGUI/UI/Core/Layout/HorizontalOrVerticalLayoutGroup.cs:216`）
+        //     ⇒ **普通相邻两格中心距 = 379.816 × 1.2 − 64 = 391.7792**（旧实现 315.816，少 24%）。
+        //   🔴 **放大那一格会把它后面的整排推远**：原版 `RefreshRewards` 改完 `localScale` 之后
+        //     **布局重建过**（`DailyRewardSelector__Initialize.c:38` / `__AdjustView.c:26` 的
+        //     `ForceRebuildLayoutImmediate`）⇒ 那一格的**步进 = 379.816 × 1.44 − 64 = 482.935**
+        //     （= 普通间距 + 91.156）。🔑 **用户实拍可验**（`资料/原版参照图/用户实拍_1017/
+        //     奖励-每日连胜的参考图….png`，1578 宽 ⇒ 设计 px ×0.735）：放大格→次格左边距 **350**
+        //     （若布局不重跑应是 **279**）、其余相邻对 **290**（= 391.78×0.735）—— 见 `EntryAdvance`。
+        //   🔴 **纵向**：同一份源码 `m_ChildScaleHeight = 0` ⇒ 竖向居中用**未缩放高 516.301**、
+        //     缩放绕 pivot ⇒ 条目**视觉中心恒 = 567.14**、普通格视觉上沿 = **257.36**（见 `EntryTop`）。
+        //   🔑 **可见后果**：原版相邻两卡**有缝**（`BG` 336.66 ÷ 中心距 391.78 = **0.859**，实拍量到 0.852），
+        //     视口内恰好 **4 整格 + 第 5 格被右沿切一半**；旧实现中心距 315.816 < `BG` 屏上宽 350.69 ⇒ **卡框重叠**。
+        //   ⚠️ **别只改 `EntryW`**：`EntryPitch` / `EntryAdvance` / `EntryTop` / `TrackContentW` /
+        //     `BuildEntry` 的映射与 `Editor/RewardsScene.cs` 那几条几何断言**必须同批**。
         public const float EntryW = 379.816f, EntryH = 516.301f;
-        /// <summary>`Rewards Content` 的 HLG：**spacing = −64**（相邻两格**故意重叠 64**）、align=3(MiddleLeft)。</summary>
+        /// <summary>条目根的**基础渲染倍数** = 原版 prefab 自己的 `m_LocalScale = 1.2`
+        /// （`RectTransform_7189168232786238593.json` 实读）。</summary>
+        public const float EntryScale = 1.2f;
+        /// <summary>`scaleMultiplierFirstElement` = **1.2**（prefab MB `8654310213240890027` 序列化值；
+        /// 只乘在**第一个还没领**的那一格上 ⇒ 那一格总倍率 **1.44**）。</summary>
+        public const float FirstElementScale = 1.2f;
+        /// <summary>条目**画出来**的框 = `EntryW/H × EntryScale` ⇒ **455.7792 × 619.5612**。</summary>
+        public static float EntryVisualW { get { return EntryW * EntryScale; } }
+        public static float EntryVisualH { get { return EntryH * EntryScale; } }
+        /// <summary>`Rewards Content` 的 HLG：**spacing = −64**（相邻两格在**布局框**上故意重叠 64）、
+        /// align=3(MiddleLeft) —— 画出来的卡框并不重叠（见文件头那条）。</summary>
         public const float EntrySpacing = -64f;
-        public static float EntryPitch { get { return EntryW + EntrySpacing; } }
+        /// <summary>普通相邻两格的**中心距** = `EntryVisualW + EntrySpacing` = **391.7792**。
+        /// ⚠️ 放大那一格**到下一格**的间距是 **482.935**（= 391.78 + 91.156）—— 那份用 `EntryAdvance(i)`，
+        /// ⛔ 别拿本常量当「任意相邻两格」。旧实现是 315.816（漏了条目根 1.2）。</summary>
+        public static float EntryPitch { get { return EntryVisualW + EntrySpacing; } }
+        /// <summary>第 `i` 格在 HLG 里的**步进宽度**（= uGUI 的 `sizeDelta.x × localScale.x`）——
+        /// 只有 `scaleMultiplierFirstElement` 作用的那一格是 `EntryW × 1.44`，其余 `EntryW × 1.2`。
+        /// <para>🔴 **为什么不是常量**：原版在 `RefreshRewards` 改完 `localScale` 之后**重跑过布局**
+        /// （`DailyRewardSelector__Initialize.c:38` 的 `ForceRebuildLayoutImmediate` 在 `CreateRewards`
+        /// 之后、`AdjustView.c:26` 同形）⇒ 后面那些格子的落点按**运行时的 1.44** 排。
+        /// 用户实拍反证（`资料/原版参照图/用户实拍_1017/奖励-每日连胜的参考图….png`）：
+        /// 放大格→次格的 **`BG` 左边距 实测 350 图 px**（模型 = `482.935 + 59.5555 − 71.47` = 471.02 设计 px，
+        /// ×0.735 = **346.2**）；若布局不重跑则应是 **279.2 图 px** —— 差 71px，不可能是量误差。</para></summary>
+        public static float EntryAdvance(int i)
+        {
+            return EntryW * (i == DailyData.StreakCollected ? EntryScale * FirstElementScale : EntryScale);
+        }
+        // ---------------- 两层子容器的缩放（原版 prefab 实读；位置 = 条目中心 + 下面这两个 anchoredPosition）
+        /// <summary>`NormalReward` 的 `m_LocalScale` = **0.8** · `anchoredPosition.y` = **4.6**（y-up · 向上为正）。</summary>
+        public const float NormalRewardScale = 0.8f, NormalRewardAnchorY = 4.6f;
+        /// <summary>`Collect` 的 `m_LocalScale` = **0.7** · `anchoredPosition` = **(−43.2, 153.7)**（y-up）。</summary>
+        public const float CollectScale = 0.7f, CollectAnchorX = -43.2f, CollectAnchorY = 153.7f;
+        /// <summary>`NormalReward` 中心在**条目局部坐标**（左上原点 · y 向下）里的位置。</summary>
+        public static Vector2 NormalRewardCenter
+        {
+            get { return new Vector2(EntryW * 0.5f, EntryH * 0.5f - NormalRewardAnchorY); }
+        }
+        /// <summary>`Collect` 中心在**条目局部坐标**（左上原点 · y 向下）里的位置。</summary>
+        public static Vector2 CollectCenter
+        {
+            get { return new Vector2(EntryW * 0.5f + CollectAnchorX, EntryH * 0.5f - CollectAnchorY); }
+        }
 
         /// <summary>`Rewards Content` 那个 `HorizontalLayoutGroup` 的 **pad.L = 2**（原文
         /// `pad=2,0,58,0`）⇒ **第一格从内容左沿 +2 起排**（内容 = 左对齐容器，它的左沿 = 视口左沿）。</summary>
@@ -158,26 +210,39 @@ namespace CardPresentation
         /// ⇒ 这个容器的位置挪 2px 不会挪动任何看得见的东西。</para></summary>
         public static readonly PxRect S_Content = new PxRect(2f, 132.09f, 2f, 944.19f);
 
-        /// <summary>🔴 **条目的上沿**（`Rewards Content` 里的局部 y）—— 原版那条 HLG 是
-        /// **`align = 3(MiddleLeft)`（竖向居中）** + `pad T58 / B0` ⇒ 条目在**内缩后的内容区**
-        /// 里垂直居中：
+        /// <summary>🔴 **条目的【画出来的】上沿**（画布 y · 左上原点）—— 原版那条 HLG 是
+        /// **`align = 3(MiddleLeft)`（竖向居中）** + `pad T58 / B0` ⇒ 条目在**内缩后的内容区**里垂直居中；
+        /// 竖向对齐吃的是**未缩放高**（`m_ChildScaleHeight = 0`），而缩放绕 pivot(.5,.5) ⇒ **中心不变**：
         /// <code>
-        /// EntryTop = (132.09 + 58 + 944.19 − 0) / 2 − 516.301 / 2 = 567.14 − 258.15 = **308.99**
+        /// 中心 = (132.09 + 58 + 944.19 − 0) / 2 = **567.14**
+        /// 上沿 = 567.14 − 516.301 × 1.2 / 2 = 567.14 − 309.78 = **257.3594**（普通格）
+        /// 放大格（×1.2）绕同一中心 ⇒ 上沿 = 567.14 − 309.78 × 1.2 = **195.40**
         /// </code>
-        /// 🔴 **2026-10-11（A240）之前我们摆在 **132.09**（顶对齐）—— 差 **177px**，而且
-        /// `scaleMultiplierFirstElement = 1.2` 放大那一格之后**顶出视口**（原版不会）。
-        /// 判据 → `资料/普查产出_1008/波C1_A182_四扇窗裁切.md` §四·4（原版上沿 ≈ **309**）。</summary>
+        /// 🔴 **2026-10-11（A240）之前我们摆在 132.09（顶对齐）—— 差 177px**，而且放大那一格会**顶出视口**。
+        /// 🔴 **2026-10-17（A1280）**：这里原来返回 **308.99**（= 中心 − **未缩放**高/2）—— 那是**布局框**的
+        /// 上沿，不是画出来的上沿（漏了条目根 1.2）。现在减的是 `EntryVisualH/2`。
+        /// 判据 → `资料/普查产出_1008/波C1_A182_四扇窗裁切.md` §四·4（原版上沿 ≈ 309 = **布局框**）。</summary>
         public static float EntryTop
         {
             get
             {
-                return (S_Content.y1 + ContentPadT + S_Content.y2 - ContentPadB) * 0.5f - EntryH * 0.5f;
+                return (S_Content.y1 + ContentPadT + S_Content.y2 - ContentPadB) * 0.5f - EntryVisualH * 0.5f;
             }
         }
-        /// <summary>`Rewards Content` 跑完 `ContentSizeFitter` 之后的宽 —— 原版 = pad.L 2 + 7 格 ×379.816
-        /// + 6 个 spacing(−64) = **2276.71**（`menu_dump` 那一行给的是**出厂 0 子件**时的 `MinSize=2`）。
-        /// **视口只有 1920** ⇒ 可滚范围 = 2276.71 − 1920 = **356.71px**。</summary>
-        public static float TrackContentW { get { return ContentPadL + EntryPitch * (DailyData.StreakDays - 1) + EntryW; } }
+        /// <summary>`Rewards Content` 跑完 `ContentSizeFitter` 之后的宽 —— 按原版 HLG 的步进逐格累加
+        /// （`pad.L 2 + Σ EntryAdvance(i) + 6 × (−64)`）= **2899.61**（放大那一格把内容撑宽 91.16）。
+        /// **视口只有 1920** ⇒ 可滚范围 = 2899.61 − 1920 = **979.61px**。
+        /// ⚠️ 旧实现那条 `2 + 7×379.816 + 6×(−64) = 2276.71`（⇒ 356.71）**漏了条目根 1.2**，已作废。</summary>
+        public static float TrackContentW
+        {
+            get
+            {
+                float w = ContentPadL;
+                for (int i = 0; i < DailyData.StreakDays; i++)
+                    w += EntryAdvance(i) + (i > 0 ? EntrySpacing : 0f);
+                return w;
+            }
+        }
 
         // ---------------- 🔴 奖格轨的视口（`Streak Successful/Rewards Scroll View/Viewport`）
         // 原版那一层是 **`RectMask2D`**（组件不在 `MonoBehaviour/` 里按名字查得到 —— 它是 Unity 内置件，
@@ -386,7 +451,7 @@ namespace CardPresentation
             var vp = ViewportClip.Hang(view, "Viewport", S_Scroll, TrackPad, TrackSoft).transform;
             _trackContent = MenuDraw.Node(vp, "Rewards Content", S_Content);
             // 滚动区：**左对齐内容**（原版 `Rewards Content` 贴视口左边 + `ContentSizeFitter`）
-            // ⇒ 范围 `[0, 内容右端 − 视口右端]` = `[0, 356.71]`（由 `MenuScroll` 自己算）。
+            // ⇒ 范围 `[0, 内容右端 − 视口右端]` = `[0, 979.61]`（`TrackContentW` = 2899.61；由 `MenuScroll` 自己算）。
             // 🔴 `OnChanged` 指向**幂等**的重建（先清后建）—— 正是 `资料/阶段二_滚动与指针_原版规格.md`
             //    §四 第 1、2 条那两个坑（越建越多 / 相对位移翻倍）的规矩。
             _trackScroll = MenuScroll.LeftAligned(S_Scroll, TrackContentW);
@@ -455,21 +520,27 @@ namespace CardPresentation
             //      （`NodeShadowedByParam == 0`）红。
             int n = DailyData.StreakDays;
             int first = DailyData.StreakCollected;          // `scaleMultiplierFirstElement` 只作用在**这一格**
+            // 🔴 **2026-10-17（A1280）**：横向落点改成**逐格累加**，照 uGUI HLG 的主轴步进
+            //   `pos += sizeDelta.x × localScale.x + spacing`（`HorizontalOrVerticalLayoutGroup.cs:216`）——
+            //   条目根 `m_LocalScale = 1.2`（首格再 ×1.2 = 1.44）**要进步进**，否则中心距仍是 315.816。
+            //   ⚠️ 放大那一格自己的步进是 `379.816 × 1.44 − 64 = 482.935`（不是 391.78）——
+            //   原版布局在改完 scale 之后重建过（判据与实拍反证 → `EntryAdvance`）。
+            float x = ContentPadL;
             for (int i = 0; i < n; i++)
             {
-                // **内容坐标**：从 `Rewards Content` 左沿 + HLG 的 `pad.L`(2) 起排，再整体 `Shift` 到屏幕。
-                // 🔴 **2026-10-11（A240）：y 从 132.09（顶对齐）改成 `EntryTop`（= 308.99，竖向居中）** ——
-                //   原版那条 HLG 是 `align = 3(MiddleLeft)` + `pad T58/B0`（判据 → `EntryTop` 的注释）。
-                //   ⛔ **别再用 `S_Content.y1` 当条目的上沿**：那是**内容容器**的上沿，不是条目的
-                //   （差 58 + (754.1 − 516.301)/2 = 176.9px），而放大那一格会因此顶出视口。
-                float x1 = ContentPadL + EntryPitch * i;
-                var r = new PxRect(x1, EntryTop, x1 + EntryW, EntryTop + EntryH);
-                // 原版 `DailyStreakWindow.scaleMultiplierFirstElement = 1.2` —— 唯一读取点 = `RefreshRewards` 的
-                // 第一次循环（`i == challenge.collectedRewards`）⇒ **本次第一个「还没领」的奖格**放大 1.2。
-                // 实测该 prefab 根的 `m_Pivot = (.5,.5)` ⇒ 绕**中心**放大。
-                if (i == first) r = ScaleAbout(r, 1.2f);
+                // 条目框 = **画出来的**框。uGUI 把**缩放后的左沿**钉在布局位置 `pos` 上
+                // （`SetChildAlongAxisWithScale`：`anchoredPosition = pos + sizeDelta/2 × scale` ⇒ 视觉左沿 = pos），
+                // 竖向同理绕 pivot(.5,.5) ⇒ 上沿 = 中心 − 高×scale/2。
+                // 🔴 **2026-10-17（A1280）**：这里原来写 `ScaleAbout(rect, 1.2)`（绕**未放大框**的中心缩）——
+                //   那会把放大那格的左沿推到 `pos − 45.58`，与原版「左沿 = pos」差 45.58px。
+                //   用户实拍可判：放大格→次格的 `BG` 左边距 **350 图 px**（模型 471.02 设计 px × 0.735 = 346.2）；
+                //   旧写法会得 **380 图 px**。⛔ **别再改回 `ScaleAbout`**。
+                float s = (i == first) ? EntryScale * FirstElementScale : EntryScale;
+                float top = (S_Content.y1 + ContentPadT + S_Content.y2 - ContentPadB) * 0.5f - EntryH * s * 0.5f;
+                var r = new PxRect(x, top, x + EntryW * s, top + EntryH * s);
                 if (_trackScroll != null) r = _trackScroll.Shift(r);
                 entries.Add(BuildEntry(_trackContent, r, i));
+                x += EntryAdvance(i) + EntrySpacing;
             }
         }
 
@@ -489,7 +560,12 @@ namespace CardPresentation
             int day = DailyData.StreakCollected;
             if (day <= 5) return;                                    // 照原版那条 `5 < index`
             int focus = Mathf.Clamp(day - 3, 0, DailyData.StreakDays - 1);
-            float cx = ContentPadL + EntryPitch * focus + EntryW * 0.5f;
+            // **内容坐标**里的格心：照 HLG 的步进累加（放大那一格比普通格宽 91.156）。
+            // ⚠️ `focus = day − 3 < day = first` ⇒ 放大那一格**永远在 focus 右边**，但这里仍按真实步进算，
+            //    免得将来 `first` 的口径一变就静默偏 91px。
+            float cx = ContentPadL;
+            for (int i = 0; i < focus; i++) cx += EntryAdvance(i) + EntrySpacing;
+            cx += EntryAdvance(focus) * 0.5f;
             _trackScroll.FocusOn(cx);        // 绝对设值（`SetOffset`）—— ⛔ 别改成相对加（规格 §四 第 2 条）
         }
 
@@ -523,6 +599,9 @@ namespace CardPresentation
             if (btn != null)
             {
                 var hit = btn.gameObject.AddComponent<WindowButton>();
+                // 原版 `Streak Failed/Generic Simplified UI Button` 的 `m_onClickSound` = `ButtonClick Positive`
+                //（R3 §四·A #71；节点由下面那条 `Streak Failed` 注释坐实）。
+                hit.clickCue = WindowSounds.PositiveCue;
                 // 原版 `ResetStreakAfterFail` **不发 PlayFab**（prefab 的 `m_OnClick` 持久调用表是空的，
                 // 纯代码挂）；而且它**只是换画面** —— 不写 `HasFailed`、也不减 `currentValue`。
                 hit.onClick = () => { DailyData.ResetStreak(); Close(); };
@@ -609,45 +688,62 @@ namespace CardPresentation
             bool unlocked = DailyData.StreakRewardUnlocked(day);
             bool claimed = DailyData.StreakRewardClaimed(day);
 
-            // 🔴 上面那些 `E_*` 是**格内局部坐标**（原点 = 奖格左上角）——
-            //    本窗的奖格**会被 `scaleMultiplierFirstElement` 放大 1.2**，所以必须按
+            // 🔴 上面那些 `E_*` 是**格内局部坐标**（原点 = 奖格**布局框**左上角）——
+            //    本窗的奖格根画出来是**布局框 × 1.2**（首格 ×1.44），所以必须按
             //    「最终左上角 + 局部坐标 × k」映射（k = 最终宽 ÷ 设计宽），**不能当画布坐标直接用**
             //    （2026-09-23 踩到：所有奖格画到同一处，而断言的宽比对用的是「同一张 BG」⇒ 只报了一条不疼不痒的错）。
-            float k = entry.W / EntryW;
+            // 🔴 **2026-10-17（A1280）**：`E_*` 是**子容器未缩放帧**的值 —— 还要先按**它所在容器的
+            //    `m_LocalScale`（`NormalReward` 0.8 / `Collect` 0.7）绕该容器中心缩一次**（位置与尺寸一起缩）。
+            //    旧实现直接把 `E_*` 当条目坐标用 ⇒ `NormalReward` 那五颗屏上大 1/0.96、`Collect` 那两颗大 1/0.84。
+            float k = entry.W / EntryW;                 // = 1.2（首格 1.44）—— 条目根自己的 1.2 已烘进 `entry`
+            Vector2 cNr = NormalRewardCenter, cCo = CollectCenter;
+            // 绕容器中心缩（= `Transform.localScale` 对子件位置的影响）
+            PxRect In(PxRect r, Vector2 c, float f)
+            {
+                return new PxRect(c.x + (r.x1 - c.x) * f, c.y + (r.y1 - c.y) * f,
+                                  c.x + (r.x2 - c.x) * f, c.y + (r.y2 - c.y) * f);
+            }
             PxRect O(PxRect r) { return new PxRect(entry.x1 + r.x1 * k, entry.y1 + r.y1 * k,
                                                    entry.x1 + r.x2 * k, entry.y1 + r.y2 * k); }
+            // 两族各一条快捷式 —— 读调用点时一眼看得出「这颗属于哪一层容器」
+            PxRect ON(PxRect r) { return O(In(r, cNr, NormalRewardScale)); }   // NormalReward 底下（ls 0.8）
+            PxRect OC(PxRect r) { return O(In(r, cCo, CollectScale)); }        // Collect 底下（ls 0.7）
 
             // 🔴 **2026-10-08（A182）：这一格里的每一件都改走带裁切的那条路**（`DrawRect` / 本文件的 `Text`）
             //    —— 它们都长在 `Viewport` 的 `RectMask2D` 之下，压在视口边上的那几格必须被真裁掉
             //    （原来走裸 `MenuDraw.Rect/Text`：`Rewards Scroll View` 之外的部分**照画出去**，而所有断言全绿）。
-            DrawRect(e, Art(ArtBackOpaque), O(E_Bg), "BG", QPanel);
-            var hl = DrawRect(e, Art(ArtHighlight), O(E_Highlight), "Highlight", QPanel, HighlightTint);
+            DrawRect(e, Art(ArtBackOpaque), ON(E_Bg), "BG", QPanel);
+            var hl = DrawRect(e, Art(ArtHighlight), ON(E_Highlight), "Highlight", QPanel, HighlightTint);
             if (hl != null) hl.gameObject.SetActive(unlocked && !claimed);
-            DrawRect(e, Art(DailyData.StreakRewardIcon(day)), O(E_Holder), "Reward Holder", QContent, null, true);
+            DrawRect(e, Art(DailyData.StreakRewardIcon(day)), ON(E_Holder), "Reward Holder", QContent, null, true);
             // 🆕 **2026-10-10（A1212 块 10）接上自适应**：原版那一颗四格 = `18 / 40 / 36 / 1`
             //   （出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §3；归组 =
             //   `资料/普查产出_第十一会话/RA1212_切块表.md` 块 10 #33）。
-            //   闸（`MenuDraw.TextCore`）：`wrapPx O(E_Name).W > 0` ∧ `18 > 0` ∧ `34.05×k > 18` ⇒ 全真。
+            //   闸（`MenuDraw.TextCore`）：`wrapPx ON(E_Name).W > 0` ∧ `autoMinPx > 0` ∧ `fontPx > autoMinPx` ⇒ 全真。
             //   ⚠️ `折行 = 1` ⇒ 不用还原。⚠️ 用**命名实参**（`WindowsManager.Text` 的 `align` 是 `int`
             //   且排在 `autoMaxPx` 前面，位置一错会**静默**绑错 —— 同 `Collect Text` 那条注释）。
-            //   ⚠️ 三格**不乘 `k`**：本族已接的先例 = `Shell/CampaignRewardWindow.cs` 的
-            //   `WarnAutoMin/WarnAutoMax/WarnAutoBase`（同一条 `GameWindow.Text` 的路，全按原版画布 px **原样传**）。
-            var lbRwName = Text(e, O(E_Name), DailyData.StreakRewardName(day), Color.white, "Reward Name",
-                                34.05f * k, QText, wrapPx: O(E_Name).W, autoMinPx: 18f,
-                                autoMaxPx: 40f, autoBasePx: 36f);
+            // 🔴 **2026-10-17（A1280）**：字号与自适应四格**都要乘 `NormalRewardScale`**
+            //   （原版 TMP 的 `m_fontSize*` 是**局部值**，屏上还会被 `NormalReward` 的 0.8 与条目根的 1.2 缩）
+            //   —— 旧实现只乘了条目那一档、且没乘 0.8 ⇒ 字比框大 25%。`k` 仍要乘（首格 1.44）。
+            float fName = 34.05f * NormalRewardScale * k;
+            var lbRwName = Text(e, ON(E_Name), DailyData.StreakRewardName(day), Color.white, "Reward Name",
+                                fName, QText, wrapPx: ON(E_Name).W,
+                                autoMinPx: 18f * NormalRewardScale * k,
+                                autoMaxPx: 40f * NormalRewardScale * k,
+                                autoBasePx: 36f * NormalRewardScale * k);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版
             //   `Daily Streak Reward Popup Entry/Reward Name` = `对齐=Center/**Midline**`（fs34.05）
             //   （判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Reward Popup Entry" --depth 4 --md`；
             //    ⚠️ 横向是 `Center` ⇒ **不给 `align`**，那一半 A679 已核过）。
-            MenuDraw.SetVAlign(lbRwName, Label.VAlign.Midline, O(E_Name));
+            MenuDraw.SetVAlign(lbRwName, Label.VAlign.Midline, ON(E_Name));
             // `Extra Reward Indicator`：**本窗出厂是 true**（每日奖励窗那份是 false）⇒ 照画
-            DrawRect(e, Art(ArtExtra), O(E_Extra), "Extra Reward Indicator", QContent);
+            DrawRect(e, Art(ArtExtra), ON(E_Extra), "Extra Reward Indicator", QContent);
 
-            // `Collect`（色 (0.06,0.57,0.13,1) + 'Claim'；整组的 `scl=0.7` 已经烘进上面那些矩形里，
-            // 但 TMP 的 `m_fontSize` 是**未缩放**的值 ⇒ 字号要自己乘 0.7）
+            // `Collect`（色 (0.06,0.57,0.13,1) + 'Claim'；整组挂在 `Collect` 底下 —— 那一层 `ls = 0.7`，
+            // 矩形由 `OC` 绕它的中心缩，TMP 的 `m_fontSize` 也要自己乘 0.7）
             if (unlocked && !claimed)
             {
-                var c = DrawRect(e, Art(ArtClaim), O(E_Collect), "Collect", QContent, ClaimTint);
+                var c = DrawRect(e, Art(ArtClaim), OC(E_Collect), "Collect", QContent, ClaimTint);
                 // 🔴 **2026-10-16（A679）**：补 **`align: 1`（左对齐）** —— 原版那一颗的 TMP
                 //    是 **`对齐=Left/Midline`**，我们原来没传 ⇒ `Label` 默认把文字**居中**在框心（`align = 0`）。
                 //    判据（**现读**，⛔ 不是抄表）：`工具/menu_dump.py bundle_menus_assets_all
@@ -662,14 +758,18 @@ namespace CardPresentation
                 //    `资料/普查产出_1016/A679_align全表.md` §一·A / §三。
                 //    ⚠️ 用**命名实参**（⛔ 别把它插到 `autoMaxPx` 前面当位置实参）——
                 //    `int` 字面量能隐式转 `float`，位置一错会**静默**绑成 `autoMaxPx`、对齐退回 0。
-                var lbCollect = Text(e, O(E_CollectText), DailyData.StreakClaimText(), Color.white, "Collect Text",
-                     52.85f * 0.7f * k, QText, wrapPx: O(E_CollectText).W, autoMinPx: 18f,
-                     autoMaxPx: 72f, autoBasePx: 36f, align: 1);
+                var lbCollect = Text(e, OC(E_CollectText), DailyData.StreakClaimText(), Color.white, "Collect Text",
+                     52.85f * CollectScale * k, QText, wrapPx: OC(E_CollectText).W,
+                     autoMinPx: 18f * CollectScale * k,
+                     autoMaxPx: 72f * CollectScale * k,
+                     autoBasePx: 36f * CollectScale * k, align: 1);
                 // 🆕 **2026-10-10（A1212 块 10）接上自适应**：原版那一颗四格 = `18 / 72 / 36 / 1`
-                //   （出处 = `RA1212_切块表.md` 块 10 #34）；闸全真（`52.85×0.7×k ≈ 37 > 18`）。
-                //   ⚠️ `折行 = 1` ⇒ 不用还原。⚠️ 三格**不乘 `k`**（理由同 `Reward Name` 那一处）。
+                //   （出处 = `RA1212_切块表.md` 块 10 #34）；闸全真（`52.85×0.7×k ≈ 44 > 15.12`）。
+                // 🔴 **2026-10-17（A1280）**：四格**全部乘 `CollectScale`（0.7）与 `k`** —— 理由同 `Reward Name`
+                //   （原版 TMP 的 `m_fontSize*` 是局部值，屏上还要被 `Collect` 的 0.7 与条目根的 1.2 缩）。
+                //   ⚠️ `折行 = 1` ⇒ 不用还原。
                 // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 同一行 dump 实读 `对齐=Left/**Midline**`。
-                MenuDraw.SetVAlign(lbCollect, Label.VAlign.Midline, O(E_CollectText));
+                MenuDraw.SetVAlign(lbCollect, Label.VAlign.Midline, OC(E_CollectText));
                 if (c != null)
                 {
                     var hit = c.gameObject.AddComponent<WindowButton>();

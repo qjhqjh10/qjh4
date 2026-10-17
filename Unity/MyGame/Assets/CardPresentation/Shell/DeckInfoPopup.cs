@@ -80,11 +80,16 @@
 //       判据原文 `DeckInfoPopup__Open.c:43-48`（`HasItem(Instance, *(context+0x10)=Deck, …)` 之后原样传进
 //       `DeckInfoControls__Initialize(…, uVar4, 0)`）。**我们恒 true**（三处调用点拿的都是玩家自己的卡组，
 //       我们没有库存/拥有度系统）—— 这条**从「查不到」变成「查到了」**，记一笔。
-//     · **`Select Deck` 在原版 6 个调用点【全都传 null】⇒ 本 build 里这颗钮从不出现** ——
+//     · **`Select Deck` 在原版 6 个调用点【全都传 null】** ——
 //       逐处实读 `DeckInfoContext__ctor(this, deck, state, selectButton, checkOwnership, editButtonAction)`
 //       的第 3 个实参（`DeckCollectionTab` / `DeckDrawer` / `DeckGeneralInfoDemo` / `RankedEventWindow` /
 //       `RankedDeckSelector` / `ChatMessageUI` 六处**全是 0**），且 `DeckInfoContext__set_SelectButton`
 //       **全库无调用者**。⇒ 我们原来**恒画**它 = 真偏离，现已按判据默认关（`SelectButtonProvided = false`）。
+//       🔴 **2026-10-17（T24）就地订正（铁律 5）**：本行原来接着写的「**⇒ 本 build 里这颗钮从不出现**」
+//       **不成立** —— 那张 6 行的表**漏了第 7 个构造点** `DeckSelectionPopup.UpdateInfo`，而它**传的是非空**
+//       `SelectButton`（内联构造的 `+0x20`；文案 = 选卡组窗的 `selectString`、动作 = 关窗 + 回调），
+//       `EditButtonAction`(`+0x30`) 才是 0。⇒ 「选卡组弹窗点一行」那条路上这颗钮**真的会露**，
+//       我们已按原版接上（`CreateForPicked` / `OnSelectDeck`）。别的 6 处仍然全传 null。
 //   ✅ **2026-10-05（A65②）做完了**：`SoftDisable(!CanImportDeck(popup, context.Deck))` 的
 //      「**变灰但点得动**」观感接上了 —— 唯一实现在 `ApplyControlStates()` 的第 ④ 条，判据与核验见
 //      那里 + `CanImportDeck` 的注释。⚠️ **这条观感是真·照抄，但后果要说清**：
@@ -97,12 +102,16 @@
 //        还没把它那一态（View/2）传进来」—— **那一行已经接上了**（**A65①**：
 //        `Shell/PracticeModePopup.cs` 的 `ShowDeckContent()` 现在传 `DeckInfoState.View`）。
 //        错因：那一轮那是**白名单外**的文件，只记不写；本批拿到那个文件就顺手接完了。**留着更正痕。**
-//   · 入口对照（原版 6 个 `DeckInfoContext` 调用点、我们 3 个）：`DeckCollectionTab`→0 ·
+//   · 入口对照（原版 6 个走 `DeckInfoContext` **构造函数**的调用点 + 第 7 个**内联构造**的
+//      `DeckSelectionPopup.UpdateInfo`、我们 4 个）：`DeckCollectionTab`→0 ·
 //      `DeckDrawer`→2 · `DeckGeneralInfoDemo.CardInDeckInfoButtonOnClick`→2 ·
 //      `RankedEventWindow.ViewDeckButtonClick`→0 · `RankedDeckSelector.OnViewDeckButtonClick`→0 ·
-//      `ChatMessageUI.OnMessageClicked`→1；**没有一处用 `Practice = 3`**（和 `PlayerItem.IsHidden()` 一样，
-//      这个 build 里是死档）。**我们的**：`CollectionWindow.OpenDeckInfo`→0 · `LiveOpsEventWindow.OpenDeckInfo`→0 ·
-//      `PracticeModePopup.ShowDeckContent`→**2**（✅ **2026-10-04 A65① 已接** —— 不再是「该给」）。
+//      `ChatMessageUI.OnMessageClicked`→1；**这 6 处没有一处用 `Practice = 3`**。
+//      🔴 **2026-10-17（T24）补第 7 处 = `DeckSelectionPopup.UpdateInfo`**（它不走 ctor、是内联构造）：
+//      **state = 那扇窗的 `deckInfoMode`（玩家点得到行时 = 3）** ⇒ 「`Practice = 3` 是死档」那句**已不成立**。
+//      **我们的**：`CollectionWindow.OpenDeckInfo`→0 · `LiveOpsEventWindow.OpenDeckInfo`→0 ·
+//      `PracticeModePopup.ShowDeckContent`→**2**（✅ **2026-10-04 A65① 已接** —— 不再是「该给」）·
+//      🆕 `DeckSelectionPopup.UpdateInfo`→**3**（`DeckInfoPopup.CreateForPicked`，T24）。
 //   · 🆕 同批**顺手实读到**的三条（原版 `Initialize` 里接线那一段，都不属于「显隐」）——
 //     ✅ **2026-10-04（A65④）三条都接上了**，实现只有一处：`ApplyControlStates()`。
 //     ① `Practice Deck` 的 `interactable = DeckUtility.ValidateDeck(context.Deck)`（`:201-207`）；
@@ -158,6 +167,25 @@ namespace CardPresentation
         // 层：**必须高于收藏窗那一整片**（它最高到 `CollectionWindow.QFltHit = 3043`）。
         // ⚠️ 但**低于** `PromptPopup`（3140+）—— 提示窗要能压在这扇窗之上。
         public const int QDI = 3120, QDIRow = 3121, QDIText = 3122, QDIHit = 3123;
+
+        // ============================================================ 🆕 2026-10-17（T24）：本窗的**队列基档**
+        // 原版 `DeckSelectionPopup.UpdateInfo` 会把**这扇窗开在选卡组弹窗之上**（`WindowsManager.OpenWindow`，
+        // 判据 → `decomp_full/DeckSelectionPopup__UpdateInfo.c` 末尾那一句）。而我们的 `DeckSelectionPopup`
+        // 整片内容在 **3125–3129**（压暗 3125 / 金环 3126 / 行 3127 / 字 3128 / 命中 3129）——
+        // 本窗若还用默认的 3120–3123，会被它**整块盖死**（那块红底板 134..1839 × 82..1032 把本窗完全遮住）。
+        // ⇒ 「从选卡组弹窗里开出来」这一支把基档抬到 **`QDIOver`**；其余调用点（收藏窗 / 练习窗 / 自检）
+        //   仍然用 `QDI`，**行为逐位不变**。
+        // 🔴 3170 / 3140 那两档都在上面（`PromptPopup` 3140+ 必须仍能压住本窗）⇒ 抬档**只抬到 3130**，
+        //    不碰 3140 以上的号。
+        // ⚠️ **数值撞档（如实记）**：3130–3133 与 `ImportDeckPopup.QImp..QImpHit`(3130–3133) **同号** ——
+        //    **两窗不同屏**（那扇在卡组编辑场景、这条抬档只发生在主菜单的选卡组弹窗里）⇒ **今天无影响**；
+        //    但这与 `N14` 记的是同一类坑（同一工程两扇窗各用一套号）：将来谁把 3130 挪作他用、或把这两扇
+        //    窗同时开出来，就是「同档时谁盖谁不可控」—— 下一个动这两个文件的人先看这一行。
+        public const int QDIOver = 3130;
+        /// <summary>本扇的**队列基档**（默认 `QDI`）。只由 `CreateForPicked()` 在「从选卡组弹窗打开」那一支设成 `QDIOver`。</summary>
+        public int QBase = QDI;
+        /// <summary>把本文件里那四个固定档（`QDI`/`QDIRow`/`QDIText`/`QDIHit`）换算成本扇实际用的档。</summary>
+        int Q(int q) { return QBase + (q - QDI); }
 
         // ---- 几何（A1 §2 逐条）----
         public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
@@ -430,15 +458,26 @@ namespace CardPresentation
         /// state 0）· `LiveOpsEventWindow.OpenDeckInfo` → `Edit`（原版 `RankedEventWindow.ViewDeckButtonClick`，
         /// state 0）· `PracticeModePopup.ShowDeckContent` → **该给 `View`**（原版
         /// `DeckGeneralInfoDemo.CardInDeckInfoButtonOnClick` = `DeckInfoContext(deck, 2, …)`）。
-        /// ⛔ **原版一处也没用 `Practice = 3`**（和 `PlayerItem.IsHidden()` 一样是死档）。</summary>
+        /// ⚠️ **原来这里写「原版一处也没用 `Practice = 3`（和 `PlayerItem.IsHidden()` 一样是死档）」——
+        /// 🔴 **2026-10-17（T24）就地订正（铁律 5）：不成立**。`DeckSelectionPopup.UpdateInfo`（第 7 个构造点）
+        /// 传的就是**那扇窗的 `deckInfoMode`**，而玩家点得到行的那一刻它 = **3**（`DeckSelectionTabController.Start`
+        /// → `ShowPrebuiltDecks(true)` 传 3，三个切页入口也都传 3）⇒ 这条路上 `Practice = 3` 是**活的**。
+        /// 那一态下按判据只剩 `Select Deck` + `Switch Deck Info` 两颗（另外 6 颗都藏）—— 正是挑卡组要的样子。</summary>
         public DeckInfoState State = DeckInfoState.Edit;
 
         /// <summary>原版 `context.SelectButton != null`：**给了才显示 `Select Deck`**。
         /// 🔴 **2026-10-04 查实：原版 6 个调用点【全都传 null】** —— 逐处实读
         /// `DeckInfoContext__ctor(this, deck, state, selectButton, checkOwnership, editButtonAction)` 的第 3 个实参：
         /// `DeckCollectionTab`(0) · `DeckDrawer`(0) · `DeckGeneralInfoDemo`(0) · `RankedEventWindow`(0) ·
-        /// `RankedDeckSelector`(0) · `ChatMessageUI`(0)；而且 `DeckInfoContext__set_SelectButton` **全库无调用者**
-        /// ⇒ **本 build 里这颗钮从不出现**。我们原来恒画它 = **真偏离**（已按判据改：默认关）。</summary>
+        /// `RankedDeckSelector`(0) · `ChatMessageUI`(0)；而且 `DeckInfoContext__set_SelectButton` **全库无调用者**。
+        /// <para>🔴 **2026-10-17（T24）就地订正（铁律 5）**：本段原来接着写「⇒ **本 build 里这颗钮从不出现**」——
+        /// **那句是错的**（错因 = 那张 6 行的表**漏了第 7 个调用点**）。`DeckSelectionPopup.UpdateInfo` 是
+        /// `DeckInfoContext` 的**第 7 个**构造点，而且它**传的是非空** `SelectButton`：
+        /// `decomp_full/DeckSelectionPopup__UpdateInfo.c` 里那段内联构造把 `+0x20`（= `SelectButton`）写成
+        /// 一个新的 `GameWindowButton`（文案 = 那扇窗的序列化字段 `selectString`，动作 = 闭包
+        /// `DisplayClass13_0.<UpdateInfo>b__0` = 关选卡组窗 + 回调），并把 `+0x30`（`EditButtonAction`）写 0。
+        /// ⇒ 「选卡组弹窗点一行」这条路上这颗钮**真的会露**（原版实况如此，我们照它接）。
+        /// ⚠️ 原版 6 个**别的**调用点仍然全传 null ⇒ 那几扇窗里它照旧不出现。</para></summary>
         public bool SelectButtonProvided;
 
         /// <summary>原版 `Initialize(…, bool isPlayerDeck)` 的第 4 个实参（语义见上面那段）。
@@ -505,8 +544,10 @@ namespace CardPresentation
         /// ⚠️ 我们**没有**服务端覆盖它那条路 ⇒ 恒 114；`GameStaticData` 里**没有**别的调用点写过它。</summary>
         public const int MaxCustomDecks = 114;
         /// <summary>`Select Deck` 那颗钮的**文案**（原版 `:216-224`：从 `context.SelectButton.Text` 抄过来；
-        /// `context+0x20` 为 0 时抄的是空串）。⚠️ 原版 6 个调用点全传 null ⇒ 这条链在本 build 里从不触发，
-        /// 我们把它照原样摆着（给 `SelectButtonProvided = true` 那一档用）。</summary>
+        /// `context+0x20` 为 0 时抄的是空串）。⚠️ 原版 6 个调用点全传 null ⇒ 那条链在那几扇窗里从不触发；
+        /// 🔴 **2026-10-17（T24）**：第 7 个构造点 `DeckSelectionPopup.UpdateInfo` **给的是非空** ——
+        /// 文案 = 那扇窗的序列化字段 `selectString`（`mTerm = "MenuDeck/Tip/SelectDeck"`，官方值
+        /// EN `Select deck` / ZH `选择卡组`）⇒ 选卡组弹窗里这一格**有字**（`CreateForPicked` 传的就是它）。</summary>
         public string SelectButtonText;
 
         /// <summary>一颗钮「要一起显隐的那几个节点」。🔴 **底 / 字 / 点击区是【兄弟】、不是一个组的子件**
@@ -623,6 +664,46 @@ namespace CardPresentation
         /// <summary>这扇窗看的是哪一副（`CollectionData` 的下标）。</summary>
         public int DeckIndex;
 
+        // ============================================================ 🆕 2026-10-17（T24）：外部送进来的那一副
+        // 原版 `DeckInfoPopup` 收的是 `DeckInfoContext.Deck`（一个 `CardDeck`）—— **预组卡组与自建卡组是同一个类型**，
+        // 所以 `DeckSelectionPopup` 点行开出来的那扇窗，对两页两种卡组走的是**同一条**路
+        // （判据 = `decomp_full/DeckSelectionPopup__UpdateInfo.c`：`DeckInfoContext(deck, deckInfoMode, selectButton, …)`
+        // → `WindowsManager.OpenWindow(Deck info Popup, context)`）。
+        // 🔴 我们这一侧「自建卡组」是 `CollectionData` 的**下标**、预组**不在库里** ⇒ 多出一对字段把那一副直接带进来。
+        // ⛔ 别把它与 `DeckIndex` 混用：**两者只活一个**（`OverrideDeck != null` ⇒ 不读下标；那一支 `DeckIndex` 恒 −1）。
+
+        /// <summary>非空 = 本窗展示的是**【外面送进来的那一副】**（选卡组弹窗点行开出来的；可能是预组卡组）。
+        /// 空 = 老口径：`CollectionData` 的第 `DeckIndex` 套（收藏窗 / 练习窗 / 自检那条路）。</summary>
+        public RuleEngine.PlayerDeck OverrideDeck;
+        /// <summary>与 <see cref="OverrideDeck"/> 配套的显示信息（格子那一套：名 / 督军 / 阵营 / 张数 / 卡背 / 模式）。
+        /// ⚠️ 只在 `OverrideDeck != null` 时被读。</summary>
+        public CollectionData.DeckInfo OverrideInfo;
+        /// <summary>🆕 **原版 `context.SelectButton` 的动作**（那颗钮的 onClick）。非空 ⇒ `Select Deck` 点了走它
+        /// （选卡组弹窗传进来的 = 「关选卡组窗 + 回调」）；空 ⇒ 老口径 `CollectionData.Select(DeckIndex)`（收藏窗 / 自检）。
+        /// 原版的形参是 `Action&lt;GameObject&gt;`（`DeckInfoControls__OnSelect` 把**钮自己的 GameObject** 传进去），
+        /// 而我们这两个动作**都不看那个参数** ⇒ 收成无参 `Action`。</summary>
+        public System.Action OnSelectDeck;
+
+        /// <summary>本窗展示的卡组（`OverrideDeck` 优先，否则 `CollectionData` 第 `DeckIndex` 套）。</summary>
+        public RuleEngine.PlayerDeck CurDeck
+        {
+            get { return OverrideDeck != null ? OverrideDeck : CollectionData.Raw(DeckIndex); }
+        }
+        /// <summary>本窗展示的显示信息（同 <see cref="CurDeck"/> 的取法）。</summary>
+        public CollectionData.DeckInfo CurInfo
+        {
+            get { return OverrideDeck != null ? OverrideInfo : CollectionData.DeckAt(DeckIndex); }
+        }
+        /// <summary>本窗展示的督军卡（`WarlordId` → `CardDef`；查不到给 null）。</summary>
+        public RuleEngine.CardDef CurWarlord
+        {
+            get
+            {
+                string id = CurInfo.WarlordId;
+                return string.IsNullOrEmpty(id) ? null : CollectionData.Card(id);
+            }
+        }
+
         /// <summary>🆕 2026-10-04（§三第29条 A65④）：**原版 `Initialize` 末尾那三条「接线层」** —— 唯一实现。
         /// 逐条判据与偏移怎么对上节点名的，见文件头那张表 + 上面那四个字段的注释。**出厂在建窗末尾调一次。**
         ///
@@ -638,7 +719,7 @@ namespace CardPresentation
         /// （仍然出声）。`Blocked()` 那一层**保留**（同一份布尔、同一处算出来的 —— 不是第二份判据）。</summary>
         public void ApplyControlStates()
         {
-            var deck = CollectionData.Raw(DeckIndex);
+            var deck = CurDeck;      // 🆕 T24：预组那一支从 `OverrideDeck` 来（见 `CurDeck`）
 
             // ① `Practice Deck`：原版 `:201-207`
             //    `uVar4 = DeckUtility__ValidateDeck(context.Deck, local_res10 /*out err*/, **1** /*validateOwnership*/, 0);`
@@ -747,9 +828,9 @@ namespace CardPresentation
             {
                 var wb = kv.Value;
                 if (wb == null) continue;
-                if (wb.target != null) wb.target.SetRenderQueue(QDIRow);
+                if (wb.target != null) wb.target.SetRenderQueue(Q(QDIRow));
                 foreach (var q in wb.GetComponentsInChildren<ImageQuad>(true))
-                    if (q != null && q != wb.target) q.SetRenderQueue(QDIHit);
+                    if (q != null && q != wb.target) q.SetRenderQueue(Q(QDIHit));
             }
         }
 
@@ -790,7 +871,8 @@ namespace CardPresentation
         }
 
         /// <summary>开一扇。`state` = 原版 `context.state`（决定 8 颗钮的显隐，见 `DeckInfoState`）；
-        /// `selectButtonProvided` = 原版 `context.SelectButton != null`（**原版 6 个调用点全传 null**）；
+        /// `selectButtonProvided` = 原版 `context.SelectButton != null`（**原版 6 个老调用点全传 null**；
+        /// 🔴 T24 起多了第 7 个构造点 `DeckSelectionPopup.UpdateInfo`，它传非空 —— 走下面的 `CreateForPicked`）；
         /// 🆕 `selectButtonText` = 原版 `context.SelectButton.Text`（`Select Deck` 那颗钮的文案**从它抄过来**，
         /// `:216-224`；给了 `selectButtonProvided = false` 时它没有意义）。</summary>
         public static DeckInfoPopup Create(WindowsManager mgr, int deckIndex,
@@ -815,6 +897,51 @@ namespace CardPresentation
 
         public override void Open() { Build(); }
 
+        // ============================================================ 🆕 2026-10-17（T24）：选卡组弹窗点行开的那一扇
+        /// <summary>开一扇**由调用方送数据**的（`DeckSelectionPopup.UpdateInfo` 用；判据 →
+        /// `decomp_full/DeckSelectionPopup__UpdateInfo.c` 逐句）。
+        ///
+        /// <para>原版那一下建的是
+        /// `DeckInfoContext(deck = 点中的那一副, state = deckInfoMode,
+        /// selectButton = 非空（文案 = `selectString`, 动作 = 关选卡组窗 + 回调）,
+        /// checkOwnership = state != 3, editButtonAction = null)`
+        /// → `WindowsManager.OpenWindow(Deck info Popup, context)`。</para>
+        ///
+        /// <para>两种卡组走同一条：**自建卡组**传 `deck = null` + 库下标（老口径的 `DeckIndex` 那一路）；
+        /// **预组卡组**传一份现造的 `PlayerDeck`（它不在 `CollectionData` 里），此时 `DeckIndex = −1`。
+        /// 两个分支的 `State` / `SelectButton` / `CheckOwnership` 规则**逐位相同**。</para>
+        ///
+        /// <para>🔴 **队列基档 = `QDIOver`(3130)**：本窗会开在选卡组弹窗（3125–3129）之上，不抬档会被它整块盖死
+        /// —— 判据与撞档说明 → `QDIOver` 那段注释。</para>
+        ///
+        /// <para>⚠️ `isPlayerDeck` = 原版 `InventoryManager.HasItem(context.Deck)`（`DeckInfoPopup__Open.c:43-48`）：
+        /// 自建 = true；预组 = **false**（它不在玩家库存里）⇒ `Share`/`Delete`/`Duplicate`/`Practice` 全按判据藏。</para></summary>
+        public static DeckInfoPopup CreateForPicked(WindowsManager mgr, int deckIndex,
+                                                    RuleEngine.PlayerDeck deck, CollectionData.DeckInfo info,
+                                                    DeckInfoState state, bool isPlayerDeck,
+                                                    string selectButtonText, System.Action onSelect)
+        {
+            var go = new GameObject("Deck info Popup");
+            var win = go.AddComponent<DeckInfoPopup>();
+            win.type = WindowType.Popup;                 // 实证 type=1
+            win.placement = WindowsPlacement.Popup;      // 实证 windowsPlacement=15
+            win.closeOnEsc = true;                       // 实证 closeOnESC=1
+            win.extraScaleSmallScreen = 1f;
+            win.DeckIndex = deck != null ? -1 : deckIndex;
+            if (deck != null) { win.OverrideDeck = deck; win.OverrideInfo = info; }
+            win.State = state;
+            win.IsPlayerDeck = isPlayerDeck;
+            win.SelectButtonProvided = true;             // 原版这一条恒非空（`UpdateInfo` 每次都给）
+            win.SelectButtonText = selectButtonText;
+            win.OnSelectDeck = onSelect;
+            // 原版 `UpdateInfo`：`CheckOwnership = (state != 3)`（= `DeckInfoContext` 构造函数那条 `param_3 != 3`）。
+            win.CheckOwnership = (int)state != 3;
+            win.QBase = QDIOver;
+            win.Manager = mgr;
+            WindowsManager.AttachToAnchor(win);
+            return win;
+        }
+
         void Build()
         {
             var root = transform;
@@ -823,7 +950,7 @@ namespace CardPresentation
             _parts.Clear();          // 🆕 A31：重建 ⇒ 旧的「哪几颗钮」记录一并作废（别留着指已销毁的节点）
             _wbs.Clear();            // 🆕 A65②：同上（这两个表必须同生共死，见 `_wbs` 的注释）
 
-            var info = CollectionData.DeckAt(DeckIndex);
+            var info = CurInfo;      // 🆕 T24：预组那一支从 `OverrideInfo` 来（见 `CurInfo`）
 
             // 1) 压暗整屏（原版 rect 比屏幕大 ⇒ 我们直接铺满可见区；断言量的是「铺满」）
             Solid(root, root, 960f, 540f, 1920f, 1080f, ShadeColor, QDI, "Menu Dark Background");
@@ -837,7 +964,7 @@ namespace CardPresentation
             //      （`:847` 是 **2026-10-07（波 4 件① A126）**实读订正的行号 —— 这里与上面 `ShadeHit`
             //       那处原来都引旧号 `701`，那颗节点已被推下去过两次。）
             //   出处 → `资料/待办判据_阶段二与联机.md` §A81 · 公共件规矩 → `MenuDraw.ShadeHit` 的注释。
-            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), QDI, QDIHit, () => Close(), "BackgroundHit");
+            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), Q(QDI), Q(QDIHit), () => Close(), "BackgroundHit");
 
             // 2) 红底（Sliced）
             Nine(root, root, "UI_Deck_Information_Back", RedBorder, RedTexW, RedTexH,
@@ -849,10 +976,10 @@ namespace CardPresentation
             //   ⚠️ 本窗是调度台点名的那一例：**压暗底 / 红底 / `Info Panel` 全在 `QDI`(3120)**，
             //   而「点窗外关窗」也传 `QDI` ⇒ 压低档时赢家退化成枚举顺序；吸收层因此**不能**沿用
             //   面板那一档，必须由公共件算（`qContentMin − 1`）。红底盖住了 `Info Panel` ⇒ 一块就够。
-            MenuDraw.Absorb(root, "AbsorbHit", new PxRect(RedL, RedT, RedR, RedB), QDI, QDIHit);
+            MenuDraw.Absorb(root, "AbsorbHit", new PxRect(RedL, RedT, RedR, RedB), Q(QDI), Q(QDIHit));
 
             // 3) 督军立绘（原版 sprite=0 运行时喂）
-            var wl = CollectionData.Warlord(DeckIndex);
+            var wl = CurWarlord;     // 🆕 T24：预组那一支 = `OverrideInfo.WarlordId` 查出来的督军
             var wlTex = wl != null ? CardArt.PortraitByName(wl.Name) : null;
             if (wlTex != null)
             {
@@ -967,19 +1094,23 @@ namespace CardPresentation
                     // 🆕 A65④：`Select Deck` 那颗的**文案是从 `context.SelectButton.Text` 抄过来的**
                     //   （原版 `DeckInfoControls__Initialize.c:213-224`：`uVar11 = *(context + 0x20 + 0x10)`
                     //    ⇒ 抄进 `selectButton` 的 TMP；`context+0x20 == 0` 时抄的是空串）。
-                    //   ⚠️ 原版 6 个调用点全传 null ⇒ 这条在本 build 里从不触发；我们照原样摆着。
+                    //   ⚠️ 原版 6 个老调用点全传 null ⇒ 那条链在它们那几扇窗里从不触发；我们照原样摆着。
+                    //   🆕 T24：第 7 个构造点（`DeckSelectionPopup.UpdateInfo`）**传非空** ⇒ 那里有字。
                     string labelText = (btns[i] == "Select Deck" && SelectButtonProvided)
                                        ? (SelectButtonText ?? "") : btns[i];
                     // 🆕 **A1205 接上**（`R5` §2·F #37：`Buttons ▸ {Practice,Edit,Select} Deck ▸ Button Text`
                     //    三颗逐值相同 = `auto[10~40] · base 12 · 折行 0`）
-                    // ⚠️ 我们这颗传的标称 `fontPx = 34`、原版 `m_fontSize = 40`（`R5` §5·2 登记、未裁）
-                    //    —— 标称那一格**不在本笔**（本笔只接 min/max/base/折行），原样不动。
-                    var lab = Txt(holder.transform, holder.transform, labelText, r.x1, r.y1, r.x2, r.y2, 34f, Align.Center,
+                    //   🔴 **2026-10-17（`A1207`）就地核到原版 MB**：`Deck info Popup/Buttons/
+                    //    {Practice,Edit,Select} Deck/Button Text` 三份（`MonoBehaviour_-5754072430087861848 /
+                    //    -3952983784560686680 / -2175297685083813464`）逐值相同：
+                    //    **`m_fontSize = 40`** · `min 10 / max 40 / base 12` · 折行 0
+                    //    ⇒ 标称那一格原来写 34 是**抄错**（`R5` §5·2 登记的那条偏离坐实）。
+                    var lab = Txt(holder.transform, holder.transform, labelText, r.x1, r.y1, r.x2, r.y2, 40f, Align.Center,
                         "Text " + btns[i], QDIText, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 12f);
                     string key = btns[i];
                     // A17：原版 `Buttons>{Practice,Edit,Select} Deck` 是 SpriteSwap（普查 §块 3 第 6 行）
                     var hitq = Hit(holder.transform, holder.transform, "Btn_" + key, r, () => OnButton(key),
-                        bgq, "UI_Button_Mulligan");
+                        bgq, "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
                     // 🆕 A31：这三颗要**按 state 一起显隐**（底/字/点击区是兄弟 ⇒ 逐颗点名）
                     Track("Btn:" + key, bgq, lab, hitq);
                     // 🆕 A65②：登记这颗的 `WindowButton`（`Edit Deck` 的 `SoftDisabled` / `Practice Deck` 的
@@ -1060,7 +1191,8 @@ namespace CardPresentation
                     var ohit = Hit(holder.transform, holder.transform, "Opt_" + key,
                         MenuDraw.PaddedHitRect(
                             new PxRect(fx1, fy1, fx1 + OptIconW, fy1 + OptIconH), OptPad),
-                        () => OnOption(key), face, "40k_general_bt_yellow");
+                        () => OnOption(key), face, "40k_general_bt_yellow",
+                        clickCue: WindowSounds.DefaultCloseCue);
                     // 🔴 **2026-10-11（A299）**：外扩之后**相邻两颗的命中区重叠 ≈2.888px**（原版如此）——
                     //    谁赢**只能靠兄弟序**。原版判据（解包实读 + uGUI 源码）：
                     //      · `Deck Options` 的子件树序 = `Switch Deck Info Button → Duplicate Button →
@@ -1118,7 +1250,8 @@ namespace CardPresentation
                 //    **不是** `r`（加到按钮矩形上会比原版每边多 ≈9px）。
                 var closeHitNode = Hit(root, root, "CloseHit",
                     MenuDraw.PaddedHitRect(new PxRect(fx1, fy1, fx1 + OptIconW, fy1 + OptIconH), ClosePad),
-                    () => Close(), closeFace, "40k_general_bt_yellow");
+                    () => Close(), closeFace, "40k_general_bt_yellow",
+                    clickCue: WindowSounds.DefaultCloseCue);
                 // 🔴 **2026-10-11（A180）**：外扩之后这条窄带**与邻居重叠**（与 `Opt_Switch Deck Info`）。
                 //    ⚠️ **2026-10-11（A299）就地订正**：这段原来写「我们这侧 ≈ 12×19 px、原版 ≈ 24×30 px」——
                 //    那是**当时**读数（邻居那 5 颗还没做外扩）；A299 把那 5 颗也外扩之后，我们这侧
@@ -1162,7 +1295,7 @@ namespace CardPresentation
         /// 逐条判据写在下面每一处（①–⑦）。</para></summary>
         void BuildDeckList(Transform root)
         {
-            var deck = CollectionData.Raw(DeckIndex);
+            var deck = CurDeck;      // 🆕 T24：预组那一支从 `OverrideDeck` 来
             if (deck == null) return;
 
             // ① **一张卡一行 + 份数**。原版 `DeckListDrawer__Initialize.c:154-172`：遍历卡表时先问
@@ -1271,16 +1404,25 @@ namespace CardPresentation
                 //    Background ▸ Cost Image ▸ Cost` = `auto[18~50] · base 32 · 折行 1` ·
                 //    `… ▸ banned Icon ▸ Card Name` = `auto[2~38] · base 27.69 · 折行 0` ·
                 //    `… ▸ banned Icon ▸ Count` = `auto[2~32] · base 36 · 折行 0`）
-                // ⚠️ 三处标称都传 26、原版是 50 / 38 / 32（`R5` §5·2 登记、未裁）—— **标称不在本笔**。
+                // 🔴 **2026-10-17（`A1207`）就地核到原版 MB**：`Deck info Popup/Info Panel/Deck List/Content/
+                //    Deck Selector Card Info button/Content/Background/{Cost Image/Cost · Text fill/Card Name ·
+                //    Text fill/Count}` 三份逐格现读 =
+                //    `m_fontSize **50** · min 18 / max 50 / base 32 / 折行 1` ·
+                //    `m_fontSize **38** · min 2 / max 38 / base 27.69 / 折行 0` ·
+                //    `m_fontSize **32** · min 2 / max 32 / base 36 / 折行 0`
+                //    （`MonoBehaviour_4164049220367124904 / -679054392775177816 / -4940484093667014232`）
+                //    ⇒ 标称那一格原样照抄（三处原来统一传 26 是**抄错**；`R5` §5·2 登记的那条偏离坐实）。
+                //    ⚠️ 「框也偏」那一半**不在本笔**（属 `A1226` 表 B）：我们 `Cost` 传的框 40 宽，
+                //       原版那颗 `Cost Image/Cost` 的 `m_SizeDelta.x = 48.819`（同一条判据；按 `A1226` 一起收）。
                 // ⚠️ `Cost Text` 是 `折行 = 1` 那一档 ⇒ `wrapPx` 必须给（只传 `autoMinPx` 是**死实参**）；
                 //    折行宽 / 自适应框宽 = **本格框宽** 40（`x1+6 … x1+46`）—— 原版那颗的宽是布局排出来的，
                 //    prefab 里读到的是模板位 ⇒ **这一格不是原版字段值**（同 `Shell/SettingsWindow.cs:4717` 那条登记）。
-                Txt(node.transform, node.transform, card.Cost.ToString(), x1 + 6f, y1 + 9f, x1 + 46f, y1 + 49f, 26f, Align.Center,
+                Txt(node.transform, node.transform, card.Cost.ToString(), x1 + 6f, y1 + 9f, x1 + 46f, y1 + 49f, 50f, Align.Center,
                     "Cost Text", QDIText, wrapPx: 40f, autoMinPx: 18f, autoMaxPx: 50f, autoBasePx: 32f);
                 // ④ **卡名 = 本地化名**：原版那一栏喂的就是 `GetLocalizedCardName`（见 ② 的键2），
                 //    而左栏 `DeckRuntime.cs:3189` 用的是 `CardText.Name(def.Name, def.NameZh)`。
                 //    🔴 原来写 `card.Name`（英文）⇒ **同一副牌弹窗英文、编辑窗中文**。
-                Txt(node.transform, node.transform, CardText.Name(card.Name, card.NameZh), x1 + 52f, y1, x1 + RowW - 52f, y1 + RowH, 26f, Align.Left,
+                Txt(node.transform, node.transform, CardText.Name(card.Name, card.NameZh), x1 + 52f, y1, x1 + RowW - 52f, y1 + RowH, 38f, Align.Left,
                     "Name", QDIText, autoMinPx: 2f, autoMaxPx: 38f, autoBasePx: 27.69f);
                 // ⑥ **份数那颗只在 >1 张时才建**（A1531⑥ 同族第二条）：原版
                 //    `UICardInfoItem__SetCount.c:34` = `SetActive(countLabel, 1 < count)`，
@@ -1289,7 +1431,7 @@ namespace CardPresentation
                 //    ⚠️ 那边是「建了再 `SetOn`」（它有一排复用的标签池）；本窗每次 `Build` 重画、
                 //      没有池 ⇒ **不建** 与 `SetActive(false)` 等价。**规则同一条，机制不同**。
                 if (n > 1)
-                    Txt(node.transform, node.transform, "x" + n, x1 + RowW - 52f, y1, x1 + RowW - 8f, y1 + RowH, 26f,
+                    Txt(node.transform, node.transform, "x" + n, x1 + RowW - 52f, y1, x1 + RowW - 8f, y1 + RowH, 32f,
                         Align.Right, "Count", QDIText, autoMinPx: 2f, autoMaxPx: 32f, autoBasePx: 36f);
                 // ⑦ **`checkOwnership` 那道闸**（见 `CheckOwnership` 的 doc；本地恒不触发）
                 if (CheckOwnership && n > CardProgress.Owned(card.Id, card.Rarity))
@@ -1368,11 +1510,13 @@ namespace CardPresentation
             var b = go.transform;
             CostRowCounts.Clear();
 
-            // ① 标题那条（原版是**葡语占位** `Cartas / Coste` · fs44 auto[10,44] · hAlign=Center）
-            //    ⇒ 我们写英文 `Cards / Cost`（**这一处文案是我们挑的**，原版那份是占位串）
+            // ① 标题那条（原版工厂串是葡语占位 `Cartas / Coste`，但组件上挂的 `Localize.mTerm` 是
+            //    `Demo/CardCostBalance`（en `Card / Energy cost` · zh `卡/能量成本`）⇒ **走词条**。
+            //    🔴 **2026-10-17（`A1511(b)`）就地订正（铁律 5）**：原来写「我们写英文 `Cards / Cost`（这一处文案是我们挑的）」
+            //    —— 那句**不成立**：原版有 `mTerm`，不是自由文案。
             // 🆕 **A1205 接上**（`R5` §2·F #41：`Info Panel ▸ Deck Info ▸ Deck Information Cost/balance text`
             //    = `auto[10~44] · base 22.3 · 折行 1`）。折行档 = 1 ⇒ `wrapPx` = 本格框宽（同上那条说明）。
-            Txt(b, b, "Cards / Cost", DiHeadL, DiHeadT, DiHeadR, DiHeadB, 44f, Align.Center,
+            Txt(b, b, Loc.T("Demo/CardCostBalance"), DiHeadL, DiHeadT, DiHeadR, DiHeadB, 44f, Align.Center,
                 "Deck Information Cost/balance text", QDIText,
                 wrapPx: DiHeadR - DiHeadL, autoMinPx: 10f, autoMaxPx: 44f, autoBasePx: 22.3f);
 
@@ -1381,7 +1525,7 @@ namespace CardPresentation
 
             // ③ 卡背（`Cardback` 210×305 @ 中心 (1466,552.6) · **scl 1.85**）
             {
-                var info = CollectionData.DeckAt(DeckIndex);
+                var info = CurInfo;  // 🆕 T24：预组那一支从 `OverrideInfo` 来
                 var tex = CardArt.DeckCardback(info.CardbackId, info.Faction);
                 float w = DiCbW * DiCbScl, h = DiCbH * DiCbScl;
                 if (tex != null)
@@ -1404,8 +1548,8 @@ namespace CardPresentation
         /// （练习窗那扇走同一个函数，只是 `localScale` 是 1.2）。几何与判据全在那个文件里。</summary>
         void BuildCostDrawer(Transform b)
         {
-            var counts = CostCurveDrawer.Counts(CollectionData.Raw(DeckIndex), CollectionData.Card);
-            CostCurveDrawer.Build(b, DiDrawerCX, DiDrawerCY, DiDrawerScl, counts, QDIRow, QDIText);
+            var counts = CostCurveDrawer.Counts(CurDeck, CollectionData.Card);   // 🆕 T24：预组那一支从 `OverrideDeck` 来
+            CostCurveDrawer.Build(b, DiDrawerCX, DiDrawerCY, DiDrawerScl, counts, Q(QDIRow), Q(QDIText));
             CostRowCounts.AddRange(counts);
         }
 
@@ -1415,6 +1559,17 @@ namespace CardPresentation
         {
             if (key == "Edit Deck")
             {
+                // 🆕 **2026-10-17（T24）**：`OverrideDeck != null` = 这一副是**外面送进来的**（选卡组弹窗里的预组卡组），
+                //   没有 `CollectionData` 下标 ⇒ 进不了编辑器。原版这条钮只在 `state < 2` 露出，而选卡组弹窗
+                //   那条路的状态恒为 **3（Practice）** ⇒ **这一支实际不可达**；留着是防「将来那条路的状态被改小」。
+                //   ⛔ 不静默：真走到这里要出声。
+                if (OverrideDeck != null)
+                {
+                    Debug.LogWarning("[DeckInfo] `Edit Deck`：这一副来自选卡组弹窗（预组卡组、不在收藏库里）"
+                                     + " ⇒ **不打开卡组编辑器**（我们这一侧没有它的库下标）。"
+                                     + "原版那个 `CardDeck` 是同一种类型、那条路进得去 —— 这是**我们的模型差异**，如实出声。");
+                    return;
+                }
                 // 🆕 **A65②**：原版 `DeckInfoPopup.EditDeck` 的**头一道闸**（`DF:DeckInfoPopup__EditDeck.c:21-45`）：
                 //   `if (context.State == 1 /*Import*/ && !CanImportDeck(popup, context.Deck)) { 弹错误提示; return; }`
                 //   ⇒ **state 1 这一态下点它，原版是「弹提示、不进编辑器」**。
@@ -1422,9 +1577,9 @@ namespace CardPresentation
                 //      里是**死档**，但字段是 public（自检造得出来）⇒ 照判据摆着，**不许静默**。
                 //   ⚠️ 原版那句提示的文案是一条 **I2 词条键**（`DAT_1842cebf0`，格式化进阵营名），
                 //      本地没有语言表 ⇒ **读不到** ⇒ 下面这句英文是**我们挑的**（铁律 3，别当原版文案）。
-                if (State == DeckInfoState.Import && !CanImportDeck(CollectionData.Raw(DeckIndex)))
+                if (State == DeckInfoState.Import && !CanImportDeck(CurDeck))
                 {
-                    var wl = CollectionData.Warlord(DeckIndex);
+                    var wl = CurWarlord;
                     // 🔴 **2026-10-18（波 1b）**：原来这里是**写死的英文**（中文档下也印英文）⇒ 改走词条
                     //   （键 `MenuDeck/CantImportDeck`；EN 列与改前写死串**逐字相同**）。
                     //   ⚠️ 这条**键名是原版的**（`stringliteral.json` RVA `0x42CEBF0`）—— 正是上面注释里那个
@@ -1445,6 +1600,21 @@ namespace CardPresentation
             }
             if (key == "Select Deck")
             {
+                // 🆕 **2026-10-17（T24）**：原版这一下**由调用方给的动作说了算** ——
+                //   `DeckInfoControls__OnSelect`（`decomp_full/DeckInfoControls__OnSelect.c`）的头两句是
+                //   `popup.Close()` → 再看 `context.SelectButton`（`+0x20`）非空则 `Invoke` 它的动作。
+                //   选卡组弹窗给的那个动作 = `DeckSelectionPopup.__c__DisplayClass13_0.<UpdateInfo>b__0`
+                //   = 「关选卡组窗 + `context.Callback(这一副)`」。
+                //   ⇒ 我们两个动作合收在 `OnSelectDeck`：**先关自己、再交给它**（顺序照原版）。
+                //   ⚠️ `OnSelectDeck == null` = 老口径（收藏窗 / 自检那几处直接 `Create` 出来的），走下面原逻辑。
+                if (OnSelectDeck != null)
+                {
+                    Debug.Log("[DeckInfo] `Select Deck` ⇒ 关本窗，把选择交给调用方的动作"
+                              + "（原版 `DeckInfoControls.OnSelect`：`popup.Close()` → `context.SelectButton`）");
+                    Close();
+                    OnSelectDeck();
+                    return;
+                }
                 // 🔴 **2026-10-13（A600）**：`CollectionData.Select` 现在**有出口**了（返回 `bool` + `LastSelectError`）——
                 //   原来这里紧接着就**无条件**打「已选中」，而它内部那次落盘失败会被吞掉
                 //   （`BattleDriver.PickSavedDeck` 是**从磁盘重读**的 ⇒ 切场景后这一下选择**静默失效**、
@@ -1452,7 +1622,7 @@ namespace CardPresentation
                 //   ⚠️ **关窗那一下照旧无条件**（`Close()` 不动位置）—— 本件只把失败**说出来**，
                 //   ⛔ 不动玩家可见流程（「失败时该不该留窗 / 弹提示」= 另一笔账，报告 §五·2）。
                 if (CollectionData.Select(DeckIndex))
-                    Debug.Log("[DeckInfo] 已选中「" + CollectionData.DeckAt(DeckIndex).Name + "」");
+                    Debug.Log("[DeckInfo] 已选中「" + CurInfo.Name + "」");
                 // 🔴 **2026-10-13（A646）**：这一句从 `Debug.Log` 改成 **`Debug.LogWarning`**（⛔ 正文一字不动，只换通道）。
                 //   当初用**普通级**的理由是「与 A548 那两句（`DeleteDeck` / `DuplicateDeck` 的失败支）**同通道**」，
                 //   而 **A610（2026-10-13）已把那两句统一成 `LogWarning`**（见下面 `Delete Deck` / `Duplicate Deck`
@@ -1495,7 +1665,7 @@ namespace CardPresentation
         {
             LastOpponentSelection = null;
             if (Manager == null) { Debug.LogWarning("[DeckInfo] 没有 `WindowsManager` ⇒ 开不了「挑对手卡组」那扇窗"); return; }
-            var info = CollectionData.DeckAt(DeckIndex);
+            var info = CurInfo;     // 🆕 T24：预组那一支从 `OverrideInfo` 来（这一支在预组上不可达：Practice 钮按 isPlayerDeck 藏）
             int mine = DeckIndex;                       // 闭包别抓 `DeckIndex`（关窗后这个对象还可能被复用）
             var w = DeckSelectionPopup.Create(Manager, pick => StartPracticeMatch(mine, pick),
                                               modeFilter: info.GameMode);
@@ -1548,6 +1718,10 @@ namespace CardPresentation
         {
             if (key == "Delete")
             {
+                // 🆕 T24：预组那一支（`OverrideDeck != null`）没有库下标 ⇒ 不可删。
+                //   原版这条钮按 `state == 0 && isPlayerDeck` 显隐，而选卡组弹窗那条路两半都不成立
+                //   （state 3、预组 isPlayerDeck=false）⇒ **实际不可达**；留着出声。
+                if (OverrideDeck != null) { Debug.LogWarning("[DeckInfo] `Delete`：这一副是外面送进来的（没有库下标）⇒ **不删**"); return; }
                 // 🆕 A65④③：原版 `deleteButton.interactable = (卡组数 > 1)` ⇒ 只剩一套时点了不生效
                 if (Blocked("Delete", DeleteInteractable)) return;
                 if (CollectionData.DeleteDeck(DeckIndex)) { Debug.Log("[DeckInfo] 已删除该卡组"); Close(); }
@@ -1563,6 +1737,8 @@ namespace CardPresentation
             }
             if (key == "Duplicate")
             {
+                // 🆕 T24：同 `Delete` —— 预组那一支没有库下标，不可复制（实际不可达，见上）。
+                if (OverrideDeck != null) { Debug.LogWarning("[DeckInfo] `Duplicate`：这一副是外面送进来的（没有库下标）⇒ **不复制**"); return; }
                 // 🆕 A65④③：原版 `duplicateButton.interactable = (卡组数 < GameStaticData.totalCustomDecks)`
                 if (Blocked("Duplicate", DuplicateInteractable)) return;
                 string nm = CollectionData.DuplicateDeck(DeckIndex);
@@ -1588,7 +1764,7 @@ namespace CardPresentation
         /// <summary>🆕 A10：点督军立绘 ⇒ 开**卡片详情窗**（原版 `Warlord Image` 上那个 `EverguildButton`）。</summary>
         void OpenWarlordDetail()
         {
-            var wl = CollectionData.Warlord(DeckIndex);
+            var wl = CurWarlord;     // 🆕 T24：预组那一支从 `OverrideInfo.WarlordId` 查
             if (wl == null) { Debug.LogWarning("[DeckInfo] 这副没有督军 ⇒ 开不了详情窗"); return; }
             if (Manager == null) { Debug.LogWarning("[DeckInfo] 没有 `WindowsManager` ⇒ 开不了详情窗"); return; }
             var w = CardDetailPopup.Create(Manager);
@@ -1645,7 +1821,7 @@ namespace CardPresentation
         void ShareDeck(string key)
         {
             if (key == "Share On Chat") { ShareOnChat(); return; }   // ⛔ 那条**不写剪贴板**（原版也不写）
-            var deck = CollectionData.Raw(DeckIndex);
+            var deck = CurDeck;                                      // 🆕 T24：预组那一支从 `OverrideDeck` 来
             string s = DeckRuntime.CopyDeckToClipboard(deck);        // 全库唯一一份写剪贴板的实现
             if (string.IsNullOrEmpty(s))
             {
@@ -1850,7 +2026,7 @@ namespace CardPresentation
             }
             // ② 原版第二跳（`CardDeck.Serialize()`）。⚠️ 【故意】调 `ExportString` 而不是
             //    `DeckRuntime.CopyDeckToClipboard` —— 本条**不能**写剪贴板。
-            var deck = CollectionData.Raw(DeckIndex);
+            var deck = CurDeck;                                      // 🆕 T24：预组那一支从 `OverrideDeck` 来
             string s = deck != null ? RuleEngine.DeckLibrary.ExportString(deck) : null;
             // ③ 原版第三跳。**本仓没有对等物** ⇒ 出声（日志给全量、界面给人话）。
             Debug.LogWarning("[DeckInfo] `Share On Chat`：**面板在、发送口不在** —— 目标 = `ChatRoom." + room
@@ -1922,7 +2098,7 @@ namespace CardPresentation
             if (quad == null) return;
             quad.SetAspect(w / h);
             quad.SetTint(color);
-            quad.SetRenderQueue(q);
+            quad.SetRenderQueue(Q(q));          // 🆕 T24：按本扇的基档换算（默认基档 = QDI ⇒ 逐位不变）
         }
 
         ImageQuad Img(Transform parent, Transform basis, Texture2D tex, float x1, float y1, float x2, float y2,
@@ -1940,7 +2116,7 @@ namespace CardPresentation
                                         LayoutSpace.Px(h), new Vector2(0.5f, 0.5f), name);
             if (quad == null) return null;
             quad.SetAspect(w / Mathf.Max(1e-6f, h));
-            quad.SetRenderQueue(q);
+            quad.SetRenderQueue(Q(q));          // 🆕 T24：按本扇的基档换算（默认基档 = QDI ⇒ 逐位不变）
             return quad;
         }
 
@@ -1966,7 +2142,8 @@ namespace CardPresentation
             if (!ReferenceEquals(basis, parent))
                 Debug.LogWarning("[DeckInfo] 九宫格 `Nine` 的 `basis` 必须等于 `parent`"
                                  + "（`MenuDraw.Nine` 只按 `parent` 定位，两个不同就会摆错位置）");
-            return MenuDraw.Nine(parent, tex, new PxRect(x1, y1, x2, y2), border, texW, texH, q, tint, true, name);
+            // 🆕 T24：`q` 按本扇的基档换算（默认基档 = QDI ⇒ 与改前逐位相同）
+            return MenuDraw.Nine(parent, tex, new PxRect(x1, y1, x2, y2), border, texW, texH, Q(q), tint, true, name);
         }
 
         /// <summary>按原版矩形摆一段字（本类唯一的文字口）。
@@ -2006,7 +2183,7 @@ namespace CardPresentation
             var lb = Label.Create(parent, text ?? "", Local3(basis, x1, y1, x2, y2), 5, Color.white,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
-            lb.SetRenderQueue(q);
+            lb.SetRenderQueue(Q(q));            // 🆕 T24：按本扇的基档换算（默认基档 = QDI ⇒ 逐位不变）
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
             // 🆕 **A1205**：自适应 + 折行两个开关（逐字照 `Shell/SettingsWindow.cs:4741-4748` 那一档的算法，
             //    只是落在裸 `Label` 上）。🔴 **必须排在下面那两句对齐之前** —— `SetWrapWidth` / `SetAutoFitBox`
@@ -2039,7 +2216,8 @@ namespace CardPresentation
             => Txt(parent, basis, "A229", 0f, 0f, 120f, 30f, 30f, Align.Left, "TxtBasisProbe", QDIText);
 
         Transform Hit(Transform parent, Transform basis, string name, PxRect r, System.Action onClick,
-                      ImageQuad target = null, string art = null, string hoverArt = null)
+                      ImageQuad target = null, string art = null, string hoverArt = null,
+                      string clickCue = null)
         {
             var hit = new GameObject(name);
             hit.transform.SetParent(parent, false);
@@ -2054,10 +2232,12 @@ namespace CardPresentation
             {
                 q.SetAspect(r.W / Mathf.Max(1e-6f, r.H));
                 q.SetTint(new Color(0f, 0f, 0f, 0f));
-                q.SetRenderQueue(QDIHit);
+                q.SetRenderQueue(Q(QDIHit));    // 🆕 T24：按本扇的基档换算（默认基档 = QDI ⇒ 逐位不变）
             }
             var wb = hit.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            // 🆕 2026-10-17（音效线 S01）：逐颗 cue（原版 `m_onClickSound`）。
+            wb.clickCue = clickCue;
             if (target != null) wb.Bind(target, art, hoverArt);
             return hit.transform;
         }

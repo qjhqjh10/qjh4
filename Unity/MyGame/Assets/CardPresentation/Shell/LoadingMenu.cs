@@ -107,12 +107,23 @@ namespace CardPresentation
         bool _show;
         Action _onDone;
 
+        /// <summary>当前那一台黑场（**只读口**，不改变任何补间行为）。
+        /// <para>🔴 **2026-10-17（N8）为什么要有它**：`PointerLayer.InputBlocked` 要判「黑场面板在不在屏上」，
+        /// 而它的第一判据 `ShellRuntime.Instance` **只在 `Awake` 里赋、批处理/编辑态恒 null**
+        /// （判据 → `Editor/ShellScene.cs:6641`）⇒ 自检宿主里那条路取不到黑场。
+        /// 这里在 `Build()` 里登记（`ShellRuntime.Build()` 在批处理里显式调它）、`OnDestroy` 清掉。
+        /// ⚠️ 生产态仍以 `ShellRuntime.Instance.Loading` 为准，本字段只是**兜底**。</para></summary>
+        public static LoadingMenu Current { get; private set; }
+
         void Awake() { Build(); }
+
+        void OnDestroy() { if (Current == this) Current = null; }
 
         /// <summary>建黑图 + 转圈件。**可重复调用**（幂等）；`ShellRuntime.Build()` 会显式调一次
         /// （批处理/编辑模式里 `Awake` 不跑，不调就存不进场景）。</summary>
         public void Build()
         {
+            Current = this;                     // 只读口（见 `Current` 的注释）；批处理里 `ShellRuntime.Instance` 恒 null
             if (Panel == null)
             {
                 var tex = CardArt.Solid();

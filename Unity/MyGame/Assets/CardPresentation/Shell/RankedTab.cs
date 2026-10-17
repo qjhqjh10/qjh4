@@ -314,17 +314,19 @@ namespace CardPresentation
             RatingRow(card, "Alliance Rating Display", ArtRankIcon,
                       new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT + FIconH,
                                  r.x1 + CardInnerOff + CardInnerW, r.y1 + FIconT + FIconH + FRtH),
-                      SmallIconW, CardValPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase);   // A413：标称 40（原版 `字号=40.0`）
+                      SmallIconW, CardValPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase, center: true);   // A413/A1537：标称 40（原版 `字号=40.0`；align 4 居中）
             RatingRow(card, "MaxRating", ArtGalonIcon,
                       new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT + FIconH + FRtH,
                                  r.x1 + CardInnerOff + CardInnerW,
                                  r.y1 + FIconT + FIconH + FRtH + FMaxH),
-                      SmallIconW, CardMxPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase);    // A413：标称 28.2（原版 `字号=28.200000762939453`）
+                      SmallIconW, CardMxPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase, center: true);    // A413/A1537：标称 28.2（原版 `字号=28.200000762939453`；align 4 居中）
         }
 
         /// <summary>一个 `AllianceRatingDisplay` 行（HLG，spacing 0）。原版三件：`Secondary Icon`（**出厂 F** ⇒
         /// 不参与布局）、`Main Icon`、`Individual rating value`。§A·4 的修正：x **不减** `Secondary Icon` 的宽。
-        /// ⚠️ 原版是**居中**（align 4）；居中量要用字体度量 ⇒ 我们按**左对齐**摆（分数为空时两者视觉一致）。
+        /// 🔴 **2026-10-17（`A1537`）**：原版对齐是**实例级 prefab 字段**，两族不同 ——
+        /// `#N FactionScoreBig` / `Global Rating` = **align 4 (MiddleCenter)**；`FactionScoreSmall` = **align 3 (MiddleLeft)**
+        /// ⇒ 本方法加 `center` 形参，**逐个调用点表态**（⛔ 别做「统一」）。分数恒空 ⇒ 可见差别在图标位置。
         /// ⚠️ `iconW` **逐处不同**（卡里 40 · 排行榜行里 151.82 · 中间列 58.6）—— 别用一个常数套所有。
         /// <para>🔴 **A406（2026-10-12）：`autoMax` / `basePx` 逐处实读，而且【两族不同值】** ——
         /// 判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
@@ -338,15 +340,22 @@ namespace CardPresentation
         /// （`px` 只在自适应不跑时才决定字号）—— 🔴 **`px` 那一笔已由 A413（2026-10-12）收掉**：
         /// 卡那一族改用新常量 `CardValPx = 40f` / `CardMxPx = 28.2f`，`RowValPx`/`RowMxPx` 只留给榜单行那一族。</para></summary>
         void RatingRow(Transform parent, string name, string iconArt, PxRect r, float iconW, float px, float autoMin,
-                       float autoMax, float basePx)
+                       float autoMax, float basePx, bool center = false)
         {
             var row = Node(parent, name, r);
             var si = Rect(row, ArtRankIcon, new PxRect(r.x1, r.y1, r.x1, r.y1), "Secondary Icon", L_Art, null, true);
             if (si != null) si.gameObject.SetActive(false);             // 出厂 F
             float iw = Mathf.Min(iconW, r.W);
-            Rect(row, iconArt, new PxRect(r.x1, r.y1, r.x1 + iw, r.y2), "Main Icon", L_Art, null, true);
-            Text(row, ScoreEmpty, new PxRect(r.x1 + iw, r.y1, r.x2, r.y2), Color.white, "Individual rating value",
-                 px, L_Text, autoFit: true, autoMinPx: autoMin, alignLeft: true, wrap: true,
+            // 🔴 **2026-10-17（`A1537`）**：原版两族的 HLG 对齐**不同**（这是**实例级 prefab 字段**，
+            //   不是「同一个组件同一条判据」——⛔ 别做「统一」）：
+            //     · `#N FactionScoreBig` / `Global Rating` = **align 4 (MiddleCenter)**
+            //     · `FactionScoreSmall`                     = **align 3 (MiddleLeft)**
+            //   （判据 = `menu_dump.py bundle_menus_assets_all "#1 FactionScoreBig"` 与 `"FactionScoreSmall"` 现读）。
+            //   ⚠️ 我们的分数**恒为空**（服务器数据）⇒ 可见差别只在**图标位置**：居中档把图标摆到行心。
+            float ix = center ? r.x1 + (r.W - iw) * 0.5f : r.x1;
+            Rect(row, iconArt, new PxRect(ix, r.y1, ix + iw, r.y2), "Main Icon", L_Art, null, true);
+            Text(row, ScoreEmpty, new PxRect(ix + iw, r.y1, r.x2, r.y2), Color.white, "Individual rating value",
+                 px, L_Text, autoFit: true, autoMinPx: autoMin, alignLeft: !center, wrap: true,
                  autoMaxPx: autoMax, basePx: basePx);
         }
 
@@ -372,11 +381,15 @@ namespace CardPresentation
             var gr = Node(mr, "Global Rating", new PxRect(591.29f, GrT, 946.73f, GrB));
             var si = Rect(gr, ArtRankIcon, new PxRect(591.29f, GrB, 591.29f, GrB), "Secondary Icon", L_Art, null, true);
             if (si != null) si.gameObject.SetActive(false);
-            Rect(gr, ArtRankIcon, new PxRect(591.29f, GrT, 591.29f + SIconW, GrB), "Main Icon", L_Art, null, true);
+            // 🔴 **2026-10-17（`A1537`）**：原版这颗 `Global Rating` 的 HLG 是 **align 4 (MiddleCenter)**
+            //   （判据 = `menu_dump … "#1 FactionScoreBig"` 现读；与 `FactionScoreSmall` 的 align 3 是两回事）。
+            //   分数为空 ⇒ 可见差别 = 图标位置：摆到行心（591.29 + (355.44 − SIconW)/2）。
+            float gx = 591.29f + (946.73f - 591.29f - SIconW) * 0.5f;
+            Rect(gr, ArtRankIcon, new PxRect(gx, GrT, gx + SIconW, GrB), "Main Icon", L_Art, null, true);
             // 🔴 **A406**：`Ranking Tab/Top4/content/center/footer/MainRating/Global Rating/Individual rating value`
             //   原版 `auto[18.0~40.0] 基准=31.3799991607666` ⇒ 上限 40（= 标称）· base 31.38。
-            Text(gr, ScoreEmpty, new PxRect(591.29f + SIconW, GrT, 946.73f, GrB), Color.white,
-                 "Individual rating value", 40f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: true, wrap: true,
+            Text(gr, ScoreEmpty, new PxRect(gx + SIconW, GrT, 946.73f, GrB), Color.white,
+                 "Individual rating value", 40f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: true,
                  autoMaxPx: 40f, basePx: ScoreAutoBase);
         }
 

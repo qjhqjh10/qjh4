@@ -207,8 +207,11 @@ namespace CardPresentation
             // 原来本件写死 `BadgeAlpha(false)`（恒 0）⇒ 有未读也永远不亮（见文件头 ②）。
             Rect(inbox, "40K_notification_number", 454.3f, 489.3f, 2.0f, 37.0f, "Badge Highlight",
                  QBarBadge, MainMenuRuntime.BadgeAlpha(DailyData.InboxHasBadge), false, onMissing);
+            // 🆕 **2026-10-17（`A1840`）**：原版这两颗 **`m_PreserveAspect = 1`**（判据 →
+            //   `资料/普查产出_第二十八会话/W5_顶栏命中区.md`；我们原来写 `keepAspect = false` ⇒ 画面差
+            //   0.1 px / 1.84 px）。⚠️ 它只改**画面**（`FitAspect` 内缩），命中区仍按各自 `m_RaycastPadding` 算。
             var challenge = Rect(btns, "40K_icon_duel", ChallengeBox, "Challenge button",
-                                 QBarContent, null, false, onMissing);
+                                 QBarContent, null, true, onMissing);
             // 🔴 **2026-10-11（`A1523①`）：这一颗【建出来、但出厂 `SetActive(false)`】。**
             //   原版**运行期实况就是关着的**（两条互相独立的判据）：
             //     ① 运行期 dump（真·原版）`资料/原版实拍/menu_topbar_0927/runtime_ui_dump_MainMenu_Warpforge.tsv:76`
@@ -237,7 +240,7 @@ namespace CardPresentation
             //   （判据 → `P_信箱与名牌.md` §「谁被 LayoutGroup 托管」那张表）。
             //   我们的实现在本件里**本来就全部写绝对坐标** ⇒ 这一点自动成立，⛔ 别改成跟着 `InboxBtn` 算。
             var feedback = Rect(btns, "40K_icon_feedback", FeedbackBox, "Feedback Button",
-                                QBarContent, null, false, onMissing);
+                                QBarContent, null, true, onMissing);   // A1840：原版 `m_PreserveAspect = 1`
             if (feedback != null) feedback.gameObject.SetActive(false);
 
             BuildPlayerProfile(bar, parts, onMissing);
@@ -256,7 +259,7 @@ namespace CardPresentation
             // （`Wire` 里那一句早退），命中区逐位照旧 —— 见 `AvatarBorderBox` 的注释与报告「没查清」。
             parts.ProfileHit = Wire(BorderQuad(bar), AvatarBorderBox, true, Vector4.zero,
                                     () => MainMenuRuntime.OpenProfile());
-            parts.ChallengeHit = Wire(challenge, ChallengeBox, false, ChallengePad, ChallengeClicked);
+            parts.ChallengeHit = Wire(challenge, ChallengeBox, true, ChallengePad, ChallengeClicked);   // A1840：`m_PreserveAspect = 1`
             return parts;
         }
 

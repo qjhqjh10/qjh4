@@ -96,8 +96,9 @@ namespace CardPresentation
         /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_6937732152595899093.json`）的
         /// **`m_text = 'Deck'`**、`m_fontStyle = 16`(UpperCase)、`m_fontSize 36`、`m_TextWrappingMode 0`
         /// ⇒ 屏上是 **`DECK`**。**错因**：`Decks` 是照页节点名（`DeckCollectionTab` 那一族的复数叫法）写的，
-        /// 没回 prefab 读那串 `m_text`。⚠️ `Editor/CollectionScene.cs` 的 `wantLabels[0]` 也是 `"DECKS"`
-        /// ⇒ **那一条要跟着改**（`Editor/` 不在本件白名单，已记进报告）。</item>
+        /// 没回 prefab 读那串 `m_text`。⚠️ **2026-10-17 现核**：`Editor/CollectionScene.cs` 的 `wantLabels[0]`
+        /// 现在**不是**写死的 `"DECKS"` —— 它走 `Loc.T(term).ToUpperInvariant()`（`:985`）⇒ **本条不用再跟改**
+        /// （旧注释说「那一条要跟着改」已过期，就地订正）。</item>
         /// <item><b>四颗都补上 <c>term</c></b>（= 原版 `TabButtonLabel ▸ Localize.mTerm` 原文，本轮现读
         /// `…/Tab Buttons/{Deck,Cards,CardBacks,Alternate Art}/Label/TabButtonLabel`）——
         /// 屏上的字从此走 `Loc.T`（`Shell/MenuWindowBase.cs` 的 `BuildTabButton`），中文档下是
@@ -908,15 +909,19 @@ namespace CardPresentation
                 //   我们原来拉伸 ⇒ 画满 30×**44**，**高 ×1.21**。同为 PA=1 的另三张（41×51）同理。
                 Rect(page, wcIc[i], new PxRect(x, 91.5f, x + 30f, 135.5f), "Wildcard Icon " + i, QPageRow,
                      null, true);
-                var t = Text(page, "99", x + 30f, x + 71f, 91.5f, 135.5f, 5, PageInk,
-                             "Wildcard Count " + i, 32.6f,
+                var t = Text(page, DeckRuntime.WcCountText, x + 30f, x + 30f + DeckRuntime.WcCountWrapPx,
+                             91.5f, 91.5f + DeckRuntime.WcCountBoxH, 5, PageInk,
+                             "Wildcard Count " + i, DeckRuntime.WcCountFontPx,
                              // 🔴 **2026-10-10（A1212 · 块 3 #1）**：接上原版那颗的 `m_enableAutoSizing`
                              //   （四格 = **10 / 38 / 45 / 1**）。判据 = `R5_包装层菜单族.md` §2 #1
                              //   （`Collection Menu Variant ▸ … ▸ WIldcard Display ▸ Counters ▸ {…} ▸ Counter`，
                              //   四颗逐值相同）。`wrapPx` = 框宽 **41**（= `x+71 − (x+30)`，与卡组编辑窗那颗
                              //   `WcCntW = 41f` 同值）。折行 = `1` ⇒ 与漏斗里那一档同档，不必还原。
                              //   ⚠️ 闸：`wrapPx 41 > 0 ∧ autoMinPx 10 > 0 ∧ fontPx 32.6 > 10` 三条全真 ⇒ 生效。
-                             wrapPx: 41f, autoMinPx: 10f, autoMaxPx: 38f, autoBasePx: 45f);
+                             //   🔴 **2026-10-17（`A1229`）**：字号 / 框 / 四格 **全部收口到
+                             //   `DeckRuntime.WcCount*` + `FitWildcardCount`** —— 收口前这一组在三个宿主各写一份。
+                             wrapPx: DeckRuntime.WcCountWrapPx, autoMinPx: DeckRuntime.WcCountAutoMinPx,
+                             autoMaxPx: DeckRuntime.WcCountAutoMaxPx, autoBasePx: DeckRuntime.WcCountAutoBasePx);
                 if (t != null) { t.SetRenderQueue(QPageText); _wcCount[i] = t; }
             }
             // 🆕 2026-10-17（B10 · 账上「三件 UI ③」的**「按阵营」那一半**）：这一条计数条**缺的是 `Army Icon`** ——
@@ -1769,7 +1774,8 @@ namespace CardPresentation
             if (q != null && mirror) q.SetUvRect(new Rect(1f, 0f, -1f, 1f));
             // ⚠️ 名字要**带左右**：两颗钮各有一个 `ArrowHit`，同名的话自检按名字找只会拿到第一颗
             //    （`FindChild` 是按名字找的，传路径进去恒 null —— `资料/已知的坑.md`）
-            AddHit(node, "ArrowHit " + side, r, QPageRow, onClick, arrowBg, "40k_general_bt_yellow");
+            AddHit(node, "ArrowHit " + side, r, QPageRow, onClick, arrowBg, "40k_general_bt_yellow",
+                   clickCue: WindowSounds.DefaultCloseCue);
         }
 
         /// <summary>切风格（`ChangeStyleButton(bool isLeft)`：**isLeft=true = 上一个(−1)**，越界回绕）。</summary>
@@ -2201,7 +2207,8 @@ namespace CardPresentation
                     //    而点击发生在**建完之后**（那时 `_flt` 已经还原了）。第一版漏了这一步，
                     //    点一格筛选就 `NullReferenceException`（自检当场抓到）。
                     var owner = _flt;
-                    AddHit(cell, "Hit", r, QFltHit, () => Scope(owner, () => ApplyFilter(key)));
+                    AddHit(cell, "Hit", r, QFltHit, () => Scope(owner, () => ApplyFilter(key)),
+                           clickCue: WindowSounds.SelectToggleCue);
                 }
             }
 
@@ -2366,7 +2373,8 @@ namespace CardPresentation
             // ⚠️ 同 `RebuildFilterRowsNow` 那一条：点击回调要**带上这一份面板**，别用 `ApplyCardFilter`
             //    （那个写死了作用在 Cards 页那份上）
             var owner = _flt;
-            AddHit(cell, "Hit", r, QFltHit, () => Scope(owner, () => ApplyFilter("$name")));
+            AddHit(cell, "Hit", r, QFltHit, () => Scope(owner, () => ApplyFilter("$name")),
+                   clickCue: WindowSounds.SelectToggleCue);
         }
 
         /// <summary>后 6 行的格子表 —— **模型在 `Core/FilterPanelModel.cs`（与卡组编辑共用一份）**，
@@ -2655,7 +2663,7 @@ namespace CardPresentation
                 // A17：原版 `…>Clear Filter Button` 是 SpriteSwap（普查 §块 3 第 4 行；我们 1 颗盖原版 3 颗）
                 clrHit = AddHit(page, "ClearFiltersHit",
                        new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH), QPageRow, onClear,
-                       clrQ2, "UI_Button_Mulligan");
+                       clrQ2, "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
 
             // 🆕 **2026-10-11（A1496）**：三件存下来，交给 `RefreshClearFilter` 按「这一页的筛选空不空」开关
             //   （判据 / 为什么走 `SetActive` 而不是原版的 −550 平移 / 命中闸为什么必须同时翻 → 那三个数组上面那段）。
@@ -2790,6 +2798,19 @@ namespace CardPresentation
 
         public void Build()
         {
+            // 🔴 **2026-10-17（`A1536`）：首句就把本窗名下的旧滚动区撤掉 —— `Build()` 必须可重入。**
+            //   下面 `BuildShell` 第一句是 `DestroyChildren(root)`（把 `transform` 的子件全清掉重建），
+            //   而四个页各自会 **重新 `RegisterScroll` 一颗新的 `MenuScroll`**（`DeckScroll` / `CardsScroll` /
+            //   `CosmoScroll` / `StyleScroll`，`Owner` 全 = `gameObject`）——「清空再建」不会碰登记表。
+            //   ⛔ **兜不住，所以非补不可**（`PointerLayer` 的两道自动清理**都判不出这里已死**）：
+            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类** ⇒ 节点被销毁不会让它变 null；
+            //     · `s.Owner == null` —— `Owner` 指的是**活下来的窗根**（本方法只删子件）⇒ 也恒假。
+            //   ⇒ 少了这一句 = **每重建一次净涨 4 条**，旧条目还能被滚轮命中（`OnChanged` 指向已销毁的节点）。
+            //   ✅ 形状照抄 `Shell/PracticeModePopup.Build()`（A867 · S1）与 `Shell/InboxWindow.BuildMessageList`：
+            //      `UnregisterOwnedBy` **必须在清子件之前**（与登记的顺序成对）。
+            //   📌 为什么现在补：`Editor/CollectionScene.cs` 的换语档真鉴别式（`A1517`，按符号搜 `win.Build()`）
+            //      会**原地重建三次**，那是本函数的第二次以后调用 —— 见 `资料/普查产出_第十八会话/W5_断言宿主.md`「风险」。
+            PointerLayer.UnregisterOwnedBy(gameObject);
             // 🔴 **2026-10-19（`A1498`）：`lastIsMaster: false`** —— 本窗左栏**四项全是真页签**。
             //   判据（原版 prefab 本轮现读，逐级解父链）：`Collection Menu Variant` 根 →
             //   `TabbedWindowComponents`（MB `2277236495604703957`）→ `tabButtons` = MB `1756822263936377557`
@@ -2799,12 +2820,12 @@ namespace CardPresentation
             //   改法 = `Shell/MenuWindowBase.cs` 的 `BuildBar` 新增的 `lastIsMaster` 形参（判据 / 四窗逐条实读 → 它的 doc）。
             //   ⚠️ 缺省 `true` 那一支**逐位等于旧行为** ⇒ 奖励窗/商店一个字没变。
             //   **改坏法**：删掉这个实参 ⇒ 第 4 颗（`Styles`）被当母版关掉 ⇒ 实拍又是「`COSMETICS` 下面整片空」。
-            var res = BuildShell(transform, Buttons, "CollectionTabButton_", "Tabs", lastIsMaster: false);
-            tabButtons = res.buttons;
-            _btnHighlight = res.highlight;
-            _btnRes = res;
-
-            // 🔴 `visualTypes` 在基类里带一个**奖励窗的默认表** ⇒ 本窗必须**整表替换**
+            // 🔴 `visualTypes` 在基类里带一个**奖励窗的默认表** ⇒ 本窗必须**整表替换**。
+            // 🔴 **2026-10-17（`A1511(a)`）就地改序（铁律 5）**：这两句原来排在 `BuildShell` **之后** ——
+            //   而 `BuildBar` 在建每一颗键时就读 `visualTypes[i]` 写进 `TabButtons.options[i].type`
+            //   （`Shell/MainMenuSubmenuWindow.cs:465`）⇒ **建的时候拿到的还是基类那张奖励窗默认表**，
+            //   事后再替换**已经不生效**（`options` 全仓 0 个读取点 ⇒ 今天只是「数据错了但没人用」，
+            //   仍按原版口径修）。⇒ **必须排在 `BuildShell` 之前**。
             if (visualTypes != null)
             {
                 visualTypes.Clear();
@@ -2813,6 +2834,11 @@ namespace CardPresentation
                 visualTypes.Add(WindowTabType.CollectionCosmetics);
                 visualTypes.Add(WindowTabType.CollectionStyles);
             }
+
+            var res = BuildShell(transform, Buttons, "CollectionTabButton_", "Tabs", lastIsMaster: false);
+            tabButtons = res.buttons;
+            _btnHighlight = res.highlight;
+            _btnRes = res;
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[Collection] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
@@ -2913,7 +2939,8 @@ namespace CardPresentation
                 // ⚠️ **命中区照旧挂在窗口根上、本件不动它**：`CloseHit` 是**我们自己加的节点**（原版那颗钮
                 //   自己就是射线靶子，没有对应的原版节点/路径）⇒ 挪它不属于 A264 的范围；而且命中矩形的世界
                 //   坐标与父链无关（`MenuDraw.Hit` 内部走 `Local(parent, …)`）⇒ 换不换挂点在画面与手感上都一样。
-                AddHit(transform, "CloseHit", cr, QPanel, () => Close(), cq, "UI_Button_Mulligan");
+                AddHit(transform, "CloseHit", cr, QPanel, () => Close(), cq, "UI_Button_Mulligan",
+                       clickCue: WindowSounds.PositiveCue);
             }
 
             // 🔴 **本窗的底图必须压到所有页内容之下**（2026-09-23 实拍抓的）：
@@ -3051,9 +3078,9 @@ namespace CardPresentation
 
             // 🆕 A17：这三颗原版都是 SpriteSwap，高亮图都 = `<常态图>_hover`（普查 §块 3 第 1～3 行）
             AddHit(ctrl, "ImportHit", new PxRect(ImportX, HdrBtnY, ImportX + HdrBtnW, HdrBtnY + HdrBtnH), QPageRow,
-                   () => OpenImportPopup(), impQ, "UI_Button_Mulligan");
+                   () => OpenImportPopup(), impQ, "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
             AddHit(ctrl, "CreateHit", new PxRect(CreateX, HdrBtnY, CreateX + HdrBtnW, HdrBtnY + HdrBtnH), QPageRow,
-                   () => CreateDeck(), newQ, "UI_Button_Mulligan");
+                   () => CreateDeck(), newQ, "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
             // ⚠️ `Filters` / `Clear filters` 两处命中区（原来在本方法里各建过一颗）现在随 `BuildFilterHeader`
             //    一起在场 —— **别在这里再建第二颗**：同名节点会长出两个，`FindChild` 只拿得到先建的那颗。
         }
@@ -3240,14 +3267,29 @@ namespace CardPresentation
             //   中文列 = 「军队」(`zh_CN.csv:11`)。
             //   ⛔ 节点名 `"Title"` 不动。
             var ttl = Text(army, Loc.T("MenuDeck/Filters/Army"), DTitleL, DTitleL + DTitleW, DTitleT, DTitleT + DTitleH, 5, PageInk,
-                           "Title", 32f,
+                           "Title", 36f,
                            // 🔴 **2026-10-10（A1212 · 块 3 #13）**：接上 `m_enableAutoSizing`（四格 = **10 / 36 / 32 / 1**）。
                            //   判据 = `R5` §2 #13（`… ▸ Select Deck Tab ▸ Deck Filters ▸ Filters ▸ Army Filter ▸ Title`）。
-                           //   ⚠️ `R5` §5·2 同时登记：「我们传的 `fontPx` = **32**、原版 `m_fontSize` = **36**」——
-                           //   那是**标称那一格**的账（本批**只登记不动**，见报告）；本句照原版填的是 `m_fontSizeMax = 36`。
+                           //   🔴 **2026-10-17（`A1207`）就地核到原版 MB**：同一份
+                           //   `MonoBehaviour_4475443253947130581.json`（=`Collection Menu Variant ▸ … ▸
+                           //   Select Deck Tab ▸ Decks Tab ▸ Collection Display ▸ Deck Filters ▸ Filters ▸
+                           //   Army Filter ▸ Title`）里 **`m_fontSize = 36`**（`min 10 / max 36 / base 32`）
+                           //   ⇒ 标称那一格原来写 32 是**抄错**（`R5` §5·2 登记的那条偏离坐实）。
                            //   折行 = `1` ⇒ 与漏斗那一档同档，不必还原。
                            wrapPx: DTitleW, autoMinPx: 10f, autoMaxPx: 36f, autoBasePx: 32f);
-            if (ttl != null) ttl.SetRenderQueue(QFltText);
+            if (ttl != null)
+            {
+                ttl.SetRenderQueue(QFltText);
+                // 🔴 **2026-10-17（`A1207` 同批现核·横向那一格）**：原版这颗 `Title` 是
+                //   **`m_HorizontalAlignment = 1 (Left)`**（`menu_dump … "Collection Menu Variant" --rt …`
+                //   现读：`Army` · 25.1,240.9→335.6,290.9 (=310.5×50，与我们 `DTitle*` 逐位相同) ·
+                //   **Left/Middle** · `fs 36 / base 32 / auto[10~36] / 折行 1`）。
+                //   而本窗的 `Text` 包装层默认 **Center**（`TmpFont.NewText` 写死 `TextAlignmentOptions.Center`）
+                //   ⇒ 不补这一句，这段字会比原版**右移「剩余宽度的一半」**。
+                //   同族先例 = 本文件 `TextAligned(…, center: false)` 那一支（`A32④` 的实读口径）。
+                //   ⚠️ 纵向 `Middle` 与原版一致（`TextAlignmentOptions.Center` = MiddleCenter）⇒ 不用 `SetVAlign`。
+                ttl.AlignLeftOn(LayoutSpace.FromPixel(DTitleL, 0f).x);
+            }
             // 🔴 **2026-10-11（A1503 ⑤）**：改用**原版 option 序号**那一份（`DeckEditorState.ArmyOrder`）——
             //   原来这里取 `CampaignData.Armies`（= 锻造厂/战役页用的**我们自定序**）⇒ 与参考图逐格对不上。
             //   两处（建格 / 刷选中色）**必须同一份**，否则格子与名字错位。
@@ -3261,7 +3303,8 @@ namespace CardPresentation
                 var cell = Node(army, "Cell_fac_" + fac, cr);
                 Rect(cell, DeckRuntime.FactionIcon(fac), cr, "Icon", QFltRow,
                      ToggleTint(fac == _deckFacFilter), true);
-                AddHit(cell, "Hit", cr, QFltHit, () => ToggleDeckFacFilter(fac));
+                AddHit(cell, "Hit", cr, QFltHit, () => ToggleDeckFacFilter(fac),
+                       clickCue: WindowSounds.SelectToggleCue);
             }
 
             panel.gameObject.SetActive(false);       // 起手收起（**照原版** —— `SetupFilters` 把抽屉摆到 `hiddenPosition` 那一头，见上面那条注释）
@@ -3480,7 +3523,14 @@ namespace CardPresentation
             //     那条链照旧）；高亮那一支**照旧留给弹窗**（`Shell/DeckSelectionPopup.cs:731` 传的才是真值）。
             return MenuDraw.DeckCell(this, parent, "CollectionDeck_" + i, r, info,
                                      false,
-                                     QPageRow, QPageText, QPageOverlay, QPageRow,
+                                     QPageRow,
+                                     // 🆕 **2026-10-17（A1529①）**：`qBelow` = 选中金环那一档（原版 `Highlight`
+                                     //   是 `Deck` 的 child[0] ⇒ 必须在 `q` **之下**）。本页 `selected` 恒 `false`
+                                     //   （`useSelectedHighlight = 0`，见上）⇒ 这一档今天**不画**；取 `QPageSdf`
+                                     //   （= 3031，梯子上 `QPageRow` 的下一格）只为**把形参显式表态**（⛔ 不留缺省值：
+                                     //   缺省 = 下一个调用点静默把金环画到最顶，A1529 就是这么来的）。
+                                     QPageSdf,
+                                     QPageText, QPageOverlay, QPageRow,
                                      () => SelectDeck(idx),
                                      gameMode: info.GameMode);   // `DeckInfo` 是 **struct** ⇒ 没有 null 那一档
         }

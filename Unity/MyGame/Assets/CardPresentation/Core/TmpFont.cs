@@ -41,16 +41,15 @@
 //         ⚠️ **仍没验的是「`Resources.Load` 拿得到、且渲得对」** —— 那要跑一次 Unity（见 ③ 的验收办法）。
 //         ⚠️ 原来这一行还挂着「`Asar Regular White` 等 58 个 Material 要不要一并复刻、
 //            `ApplyOutline` 的 `_OutlineWidth/_Underlay*` 会不会被覆盖」—— **这两条仍未查**，挪到 ③ 一起办。
-//      ③ ⛔ **没做【这一条才是今天真正的缺口】** —— 接 fallback 链（`Asar/Pragati` 主 → `NotoSerifCJK` 兜底 CJK；
-//         TMP 原生支持：`TMP_FontAsset.fallbackFontAssetTable` + `SearchFallbacksForCharacter`，
-//         我们现在「表内 fallback」与「`TMP Settings` 全局 fallback」**两条都是空的**），
-//         并把 `NewText` 里 `t.font = Font` 那一跳改成「**按用途选字体**」的入口。
-//         🔴 **就是因为 ③ 没做，那三份资产【零引用】** —— 全仓给 TMP 赋字体的仍然只有 `Font` 这一个属性
-//            （+ 三个探针），而 `Font` 写死 `ResourcePath = "Fonts/NotoSerifCJK-Regular SDF"`。
-//      ③ ⛔ **没做** —— 接 fallback 链（`Asar/Pragati` 主 → `NotoSerifCJK` 兜底 CJK；
-//         TMP 原生支持：`TMP_FontAsset.fallbackFontAssetTable` + `SearchFallbacksForCharacter`，
-//         我们现在「表内 fallback」与「`TMP Settings` 全局 fallback」**两条都是空的**），
-//         并把 `NewText` 里 `t.font = Font` 那一跳改成「**按用途选字体**」的入口。
+//      ③ 🟡 **2026-10-17：fallback 那一半已接（运行期，⛔ 不落盘）** —— `EnsureCjkFallback()` 在某一份
+//         拉丁面第一次被取用时，把 CJK 那一份挂进它的 `fallbackFontAssetTable`（**内存里改**，
+//         `Resources/Fonts/*.asset` 一个字节都不动）⇒ 混排文本里的汉字走 TMP 原生
+//         `SearchFallbacksForCharacter`，不再画 `.notdef` 方框。
+//         · **仍未做的是「按用途选字体」那一半**：`NewText` 里 `t.font = Font` 仍写死 CJK
+//           （`Font` 属性 / `ResourcePath` 没改）⇒ 今天全仓仍然是「一个 Noto 打天下」，
+//           `Face.LatinUi / LatinCardBody / LatinNarrow` **零消费者**（仓规：逐件换、逐件验收）。
+//         · `TMP Settings` 那条**全局** fallback 路没走：`TMP_Settings.fallbackFontAssets` 没有公开
+//           setter（只有 getter 直通序列化字段），反射硬改会绕过「别弄脏资产」那条纪律。
 //      ⇒ 今天全仓仍然是「**一个 Noto 打天下**」。
 //      ⚠️ **换的时候必须一起重量**：下面「字形高度 ÷ fontSize」那套换算
 //         （`WorldGlyphPerFontSize` / `WorldCapPerFontSize`，是**按字体标定**的）⇒ 换字体会**牵动全仓版面**
@@ -183,7 +182,45 @@ namespace CardPresentation
                 if (a == null) return null;
             }
             _faceAsset[i] = a;
+            if (f != Face.Cjk) EnsureCjkFallback();     // 🆕 2026-10-17（A1024③）：拉丁面挂 CJK 兜底
             return a;
+        }
+
+        static bool _cjkFallbackHooked;
+
+        /// <summary>🆕 **2026-10-17（账 `A1024` ③）**：把 CJK 那一份挂成三份拉丁资产的**运行期** fallback。
+        ///
+        /// <para>原版做法 = 拉丁面渲拉丁、汉字由 CJK 兜底（TMP 原生 `fallbackFontAssetTable` +
+        /// `SearchFallbacksForCharacter`）。此前「表内 fallback」与「`TMP Settings` 全局 fallback」
+        /// **两条都是空的** ⇒ 混排文本（例 `Deck 1 张`）里的汉字会画成 `.notdef` 方框。</para>
+        ///
+        /// <para>🔴 **只改内存，⛔ 不落盘**：`Resources.Load` 拿到的是资产实例，往
+        /// `fallbackFontAssetTable` 里加一份**不会**写回 `Resources/Fonts/*.asset`
+        /// （不 `SetDirty` / 不 `SaveAssets`）⇒ 不会弄脏 git 里跟踪的资产 —— 这正是本文件头
+        /// 「⛔ 不去改那三份资产的 fallback 表」那条纪律允许的那条路（它禁的是**改资产**，不是禁这条链）。</para>
+        ///
+        /// <para>⚠️ **懒挂 + 只挂一次**：只有真的取用某一份拉丁面（`FaceAsset(f != Cjk)`）时才执行；
+        /// `Face.Cjk` 那条路（今天全仓唯一在用的）**逐位不变**。
+        /// ⚠️ 不走 `TMP_Settings.fallbackFontAssets`：它**没有公开 setter**（只有 getter 直通序列化字段），
+        /// 反射硬改会绕过上面那条「别弄脏资产」的纪律。</para></summary>
+        public static void EnsureCjkFallback()
+        {
+            if (_cjkFallbackHooked) return;
+            _cjkFallbackHooked = true;          // 🔴 先置位：下面会回调 `FaceAsset`，防重入
+            var cjk = FaceAsset(Face.Cjk);
+            if (cjk == null) return;            // 没中文资产 ⇒ 维持今天的行为（`Font` 那条会出声）
+            for (int i = 1; i < FaceResource.Length; i++)   // 0 = Cjk 自己，跳过
+            {
+                var a = FaceAsset((Face)i);
+                if (a == null || a == cjk) continue;        // 取不到时 `FaceAsset` 已退回 CJK 并出声
+                var tbl = a.fallbackFontAssetTable;
+                if (tbl == null)
+                {
+                    tbl = new System.Collections.Generic.List<TMP_FontAsset>();
+                    a.fallbackFontAssetTable = tbl;
+                }
+                if (!tbl.Contains(cjk)) tbl.Add(cjk);
+            }
         }
 
         /// <summary>「**1 em** 在世界空间里有多高」÷「fontSize」—— 这是本工程 px 口径的基准

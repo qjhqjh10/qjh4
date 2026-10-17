@@ -1994,7 +1994,7 @@ namespace CardPresentation
         public static Transform Hit(Transform parent, string name, PxRect r, int q, System.Action onClick,
                                     ImageQuad target = null, string art = null,
                                     string hoverArt = null, string pressedArt = null, PxRect? clip = null,
-                                    Vector4 maskPad = default(Vector4))
+                                    Vector4 maskPad = default(Vector4), string clickCue = null)
         {
             // 🔴 **2026-10-12（A198② 阶段 1）**：取裁切状态走同一份解析（`ViewportClip.Resolve`）。
             //    ⚠️ 命中这一路要的是【**裸**框 + `pad`】—— pad 由**下面那一句** `PaddedClip(clip, maskPad)` 缩
@@ -2052,6 +2052,9 @@ namespace CardPresentation
             MakeHitQuad(hit, hr, q, Local(hit, hr.x1, hr.y1, hr.x2, hr.y2));
             var wb = hit.gameObject.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            // 🆕 2026-10-17（音效线 S01）：逐颗 cue（原版 `m_onClickSound`）—— 见 `WindowButton.clickCue`。
+            // ⚠️ 追加在**形参表末尾**、默认 null ⇒ 既有调用点逐位不变（null = 原版默认按钮音）。
+            wb.clickCue = clickCue;
             if (target != null) wb.Bind(target, art, hoverArt, pressedArt);
             return hit;
         }
@@ -2850,8 +2853,16 @@ namespace CardPresentation
                 default: return null;
             }
         }
-        /// <summary>选中高亮 `Highlight Rounded Square` **289.8×427.3**，往格左上偏 (−1.4, −1.4)。</summary>
-        public const float DcHiW = 289.8f, DcHiH = 427.3f, DcHiOff = -1.4f;
+        /// <summary>选中高亮 `Highlight Rounded Square` —— 原版 `Highlight` 的矩形
+        /// **`−19.8, −10.9 → 270.0, 416.3`**（作者系 250×405；`289.75×427.27` · 九宫 `(73,75,73,75)` ·
+        /// 色 `(1, 0.773, 0, 1)` · 出厂 `INACT`）。
+        /// <para>判据（2026-10-17 现读）：`工具/menu_dump.py bundle_menus_assets_all --rt -1941218197625697718 --depth 3`
+        /// ⇒ `Collection Deck With Highlight`（**选卡组弹窗**那一份）的 `content/Deck/Highlight` 一行。</para>
+        /// 🔴 **2026-10-17（`A1529②`）就地订正（铁律 5）**：原来只有一个 `DcHiOff = −1.4`、**x/y 同值** ——
+        /// 原版两轴**不等**（x **−19.8** · y **−10.9**）⇒ 拆成 `DcHiX` / `DcHiY`。
+        /// ⚠️ 这三个（左/上偏移与宽高）都是**作者系**（同 `DcFrameX/Y` 那一族）⇒ 调用处乘 `K`。
+        /// ⛔ 别再合回一个标量 —— 那正是这条账的错法。</summary>
+        public const float DcHiW = 289.75f, DcHiH = 427.27f, DcHiX = -19.8f, DcHiY = -10.9f;
 
         /// <summary>🆕 **2026-10-11（A198③）：`DeckCell` 的 `GameWindow` 包装** —— 裁切与内缩**都取本窗**
         /// （`win.Clip` → `clip` · `win.ClipPad` → `maskPad`），调用点**不必**再自己写
@@ -2880,7 +2891,7 @@ namespace CardPresentation
         /// 出声一次并按「不裁」走，⛔ 不静默。</summary>
         public static Transform DeckCell(GameWindow win, Transform parent, string name, PxRect r,
                                          CollectionData.DeckInfo info, bool selected,
-                                         int q, int qText, int qOverlay, int qHit, System.Action onClick,
+                                         int q, int qBelow, int qText, int qOverlay, int qHit, System.Action onClick,
                                          int? gameMode = null, int? difficulty = null, bool showDifficulty = false)
         {
             if (win == null)
@@ -2891,10 +2902,10 @@ namespace CardPresentation
                                    + "⚠️ 要走「不显式覆盖、由父链上的 `ViewportClip` 节点说了算」那一支，"
                                    + "**只有裸重载的 `clip: null` 这一个写法**（⚠️ 它**不等于**「显式不裁」，"
                                    + "见 `DeckCell(win, …)` 的注释里那条订正）。");
-                return DeckCell(parent, name, r, info, selected, q, qText, qOverlay, qHit, onClick,
+                return DeckCell(parent, name, r, info, selected, q, qBelow, qText, qOverlay, qHit, onClick,
                                 null, gameMode, difficulty, showDifficulty, Vector4.zero);
             }
-            return DeckCell(parent, name, r, info, selected, q, qText, qOverlay, qHit, onClick,
+            return DeckCell(parent, name, r, info, selected, q, qBelow, qText, qOverlay, qHit, onClick,
                             win.Clip, gameMode, difficulty, showDifficulty, win.ClipPad);
         }
 
@@ -2916,13 +2927,14 @@ namespace CardPresentation
         ///      （`收藏—卡组的参考图.png` 里 4 格、`更换卡组的参考.png` 里 12 格）**没有一格是金的**，与该判据一致。
         ///   ⚠️ 与此同时：`CollectionDeck.SelectedHighlight` **自己**还多一道闸 `if (!sortMode)`
         ///      （`CollectionDeck__SelectedHighlight.c`）—— 就算 `useSelectedHighlight=1`，排序列模式下也不画。
-        /// 🔴 **还开着的那一半（⛔ 别当成已修）**：原版 `Highlight` 是 `Deck` 的 **child[0]**（**最底**一层，
-        ///   出厂 `INACT`），我们却排在 `qOverlay`（**最顶**）⇒ 选中那一格的金环糊在卡面上（原版只从卡的
-        ///   四边**露出光圈**）。要修得给本函数加**第 4 档队列**（`q` 之下、窗面板之上）并由
-        ///   `Shell/DeckSelectionPopup.cs:731` 那个调用点传进来 —— **不在本轮两个文件的改动范围内**，
-        ///   账记在 `资料/普查产出_第十七会话/U_收藏卡组格.md`。
-        /// ⚠️ 同族的另一条：`Highlight Rounded Square` 的矩形原版是 **`-19.8,-10.9 → 270.0,416.3`**
-        ///   （`289.75×427.27`），我们的 `DcHiOff = -1.4`（x/y 同值）**两轴都不对** —— 同上，一并留给那一笔。
+        /// ✅ **2026-10-17（`A1529①`）已修**：原版 `Highlight` 是 `Deck` 的 **child[0]**（**最底**一层，
+        ///   出厂 `INACT`），我们原来排在 `qOverlay`（**最顶**）⇒ 选中那一格的金环糊在卡面上（原版只从卡的
+        ///   四边**露出光圈**）。现在本函数有**第 4 档队列** `qBelow`（`q` 之下、窗面板之上），
+        ///   由调用点显式传进来：选卡组弹窗 = `DeckSelectionPopup.QDsHi`（`QDs` 之上、`QDsRow` 之下）。
+        ///   ⚠️ 本窗（收藏窗）传 `QPageSdf`（3031，`QPageRow` 之下一格）—— 但那一页 `selected` **恒 false**
+        ///   （`useSelectedHighlight = 0`，见上），所以这一档在今天**不会真画**。
+        /// ✅ **同批 `A1529②`**：`Highlight` 矩形原版 **`-19.8,-10.9 → 270.0,416.3`**（`289.75×427.27`，
+        ///   作者系）⇒ 常量已拆成 `DcHiX` / `DcHiY`（原来那个 `DcHiOff = −1.4` x/y 同值是错的）。
         /// <para>🆕 **2026-09-26：补上原版 `&lt;Deck>` 下本来就有、我们此前漏画的两层** ——
         /// **难度角标**（`showDifficulty` 为真才画，对应原版 `DeckCollectionDisplay.displayDifficultyLabel`）
         /// 与**模式图标**（`gameMode` 给了才画；图取不到就整层不建 = 原版那句 `enabled = (icon != null)`）。
@@ -2941,7 +2953,7 @@ namespace CardPresentation
         /// （`PaddedClip(clip, maskPad)` 首句 `!clip.HasValue ⇒ return clip` ⇒ **连带 pad 一起不生效**，
         /// 与原版「无 mask 即无 padding」一致 —— ⚠️ 那一句判的是**解析之后的** `clip`：节点给了框就有效）。</summary>
         public static Transform DeckCell(Transform parent, string name, PxRect r, CollectionData.DeckInfo info,
-                                         bool selected, int q, int qText, int qOverlay, int qHit,
+                                         bool selected, int q, int qBelow, int qText, int qOverlay, int qHit,
                                          System.Action onClick, PxRect? clip = null,
                                          int? gameMode = null, int? difficulty = null, bool showDifficulty = false,
                                          Vector4 maskPad = default(Vector4))
@@ -3052,7 +3064,15 @@ namespace CardPresentation
                 //   —— 而 `MenuDraw.Text` 本来就有 auto 那三个口、`Label.SetCharSpacing` 也早就有 ⇒ **只是没接**。
                 var nl = Text(cell, nameR, info.Name, Color.white, "Deck Name", DcNamePx * K, qText,
                               autoMinPx: 8f * K, autoMaxPx: DcNamePx * K, autoBasePx: 30f * K);
-                if (nl != null) nl.SetCharSpacing(-2f);      // 原版 `m_characterSpacing = −2`
+                if (nl != null)
+                {
+                    nl.SetCharSpacing(-2f);      // 原版 `m_characterSpacing = −2`
+                    // 🆕 **2026-10-17（`A1503②` 的同一条判据里最后一格）**：原版这颗 TMP 的对齐是
+                    //   `Center/**Capline**`（`menu_dump --rt -1941218197625697718 --depth 3` 的
+                    //   `Deck Name … 对齐=Center/Capline`；两份 prefab 变体逐字段相同）。
+                    //   `Label` 出厂是 `Middle` ⇒ 不传就差一档（横向 Center 由 `Text` 的默认居中负责）。
+                    SetVAlign(nl, Label.VAlign.Capline, nameR);
+                }
                 if (clipR.HasValue) ClipText(nl, clipR, Vector2.zero);   // 「整块在框外」也由 `ClipText` 兜底（切到 0 宽）
             }
 
@@ -3100,8 +3120,12 @@ namespace CardPresentation
 
             if (selected)
                 Rect(cell, CardArt.MenuUi("Highlight_Rounded_Square"),
-                     new PxRect(r.x1 + DcHiOff, r.y1 + DcHiOff, r.x1 + DcHiW * K + DcHiOff, r.y1 + DcHiH * K + DcHiOff),
-                     "Highlight Rounded Square", qOverlay, new Color(1f, 0.773f, 0f, 1f));
+                     // 原版 `Highlight` 矩形 = 作者系 `−19.8, −10.9 → 270.0, 416.3`（`menu_dump --rt -1941218197625697718`）
+                     new PxRect(r.x1 + DcHiX * K, r.y1 + DcHiY * K,
+                                r.x1 + (DcHiX + DcHiW) * K, r.y1 + (DcHiY + DcHiH) * K),
+                     // 🔴 **A1529①**：原版 `Highlight` 是 `Deck` 的 child[0]（最底）⇒ 必须落在 `q` **之下**。
+                     //   ⛔ 别再传 `qOverlay`（那是「最顶」，金环会糊在卡面上 —— 这条账就是这么来的）。
+                     "Highlight Rounded Square", qBelow, new Color(1f, 0.773f, 0f, 1f));
 
             // 点击区：**视口外的不建、压在视口边上的截到视口内** —— 判据与 `Hit` 同一条
             //（原版 `RectMask2D` 的**射线那一面**：滚出视口的格子**点不到**，见 `ClipRect` 的注释）。

@@ -87,7 +87,11 @@ namespace CardPresentation
         const float DisL = 632.79f, DisT = 210.69f, DisR = 1701.49f, DisB = 868.61f;
         const float TtlL = 654.16f, TtlT = 147.51f, TtlR = 1166.61f, TtlB = 210.70f;
         const float TtlPx = 35f, TtlAutoMin = 18f;
-        public const string TtlLabel = "Select your avatar";
+        /// <summary>`Select Item` 的**出厂原文**（原版 prefab 那颗 TMP 的 `m_text = "Select your avatar"`）。
+        /// 🔴 **2026-10-17（`A1756`）起上屏走词条** `Demo/AvatarMenu/SelectAvatar`
+        /// （官方两列 = `Select your avatar` / `选择你的头像`；同值键还有 `PlayerProfile/SelectAvatarTip`）
+        /// ⇒ ⛔ 别再把这个常量直接印到界面上。</summary>
+        public const string TtlLabelFactory = "Select your avatar";
         public const string ArtPanel = "UI_Deck_Information_submenu_Back";
         public static readonly Vector4 PanelBorder = new Vector4(18f, 18f, 18f, 18f);
         const float VpL = 654.16f, VpT = 210.69f, VpR = 1680.12f, VpB = 855.46f;
@@ -187,7 +191,7 @@ namespace CardPresentation
             // 🔴 **A406（2026-10-12）逐站实读**：`Avatar Tab/Item Display Panel/Select Item`
             //   原版 `auto[18.0~35.0] 基准=26.1` ⇒ 上限 35（= 标称）· base **26.1**。判据 =
             //   `python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`。
-            Text(disp, TtlLabel, new PxRect(TtlL, TtlT, TtlR, TtlB), Color.white, "Select Item",
+            Text(disp, Loc.T("Demo/AvatarMenu/SelectAvatar"), new PxRect(TtlL, TtlT, TtlR, TtlB), Color.white, "Select Item",
                  TtlPx, 3, autoFit: true, autoMinPx: TtlAutoMin, alignLeft: true, wrap: true,
                  autoMaxPx: 35f, basePx: 26.1f);
 
@@ -226,7 +230,8 @@ namespace CardPresentation
                              autoMaxPx: 36f, basePx: 12f);
             if (selTx != null) selTx.SetWrapping(false);
             // 🆕 A17：原版 `Avatar Tab>Selected Item Panel>Select Avatar Button` 是 SpriteSwap（普查 §块 5 第 8 行）
-            Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton);
+            Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton,
+                clickCue: WindowSounds.SelectAvatarCue);
 
             var tbn = Node(sel, "Toggle borde", new PxRect(TbL, TbT, TbR, TbB));
             var tbQ = Rect(tbn, ArtButton, new PxRect(TbL, TbT, TbR, TbB), "Image", 7);
@@ -238,7 +243,8 @@ namespace CardPresentation
                             autoMaxPx: 36f, basePx: 12f);
             if (tbTx != null) tbTx.SetWrapping(false);
             // 🆕 A17：`Toggle borde` 同族（普查 §块 5 第 9 行）
-            Hit(sel, "BordeHit", new PxRect(TbL, TbT, TbR, TbB), 8, ToggleBorder, tbQ, ArtButton);
+            Hit(sel, "BordeHit", new PxRect(TbL, TbT, TbR, TbB), 8, ToggleBorder, tbQ, ArtButton,
+                clickCue: WindowSounds.SelectAvatarCue);
 
             Refresh();
         }

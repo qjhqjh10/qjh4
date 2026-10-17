@@ -202,8 +202,9 @@ namespace CardPresentation
         /// 这一处走的就是它（`AvatarTab.cs:224` 那颗格子的命中区）。</summary>
         protected Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                                 ImageQuad target = null, string art = null,
-                                string hoverArt = null, string pressedArt = null)
-        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt); }
+                                string hoverArt = null, string pressedArt = null, string clickCue = null)
+        { return MenuDraw.Hit(parent, name, r, Q + qOff, onClick, target, art, hoverArt, pressedArt,
+                              clickCue: clickCue); }
 
         /// <summary>本页的滚动区。**全壳只有 `MenuScroll` 这一份滚动实现**（别在这再写一套偏移+夹取）。
         /// `vertical = true` 用 `TopAligned`（原版 `m_Vertical 1` 那种）。</summary>

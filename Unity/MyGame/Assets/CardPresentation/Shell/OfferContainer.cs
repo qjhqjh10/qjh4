@@ -331,7 +331,9 @@ namespace CardPresentation
 
         /// <summary>`Badge/Text (TMP)` 的出厂文本（实读）。</summary>
         public const string DefBadgeText = "+60% value";
-        /// <summary>`Timer/Timer Text` 的出厂文本（实读）。</summary>
+        /// <summary>`Timer/Timer Text` 的出厂文本（实读）。
+        /// 🔴 **2026-10-17（N1）**：这一格**只当 prefab 出厂原文留档**，⛔ **不是活值** ——
+        /// 实际显示走 `TimerDisplay`（目标时刻未知 ⇒ `--` + 出声），见 `Build` 的 `Timer` 那一段。</summary>
         public const string DefTimerText = "5d 20h 15m";
         /// <summary>`Available Counter` 的出厂文本（实读）。</summary>
         public const string DefAvailText = "Available: 1/5";
@@ -1187,6 +1189,13 @@ namespace CardPresentation
                     //   = `Left/**Midline**`（判据 = 本文件头 `:71` / `:84` 两条，**19 份逐份实读**同档
                     //   —— 逐份变的是字号与自适应范围，纵向档**不是**逐份的）。
                     MenuDraw.SetVAlign(timerLb, Label.VAlign.Midline, R(tt.x1, tt.y1, tt.x2, tt.y2));
+                    // 🔴 **2026-10-17（N1）**：出厂串 `5d 20h 15m` **不是倒计时**（原版由服务端 LiveOps
+                    //   报价的到期时刻灌进来 —— 本族本地没有数据源，见文件头）。目标时刻未知 ⇒ 走
+                    //   `TimerDisplay` 的未知支：出声一次 + `--`（⛔ 不编一个倒计时）。
+                    //   调用方**真给了** `TimerText`（≠ 出厂串）就照它画、不覆盖。
+                    if (timerLb != null && c.TimerText == DefTimerText)
+                        TimerDisplay.Attach(timerLb, null, "", "商品条目 Timer Text（OfferContainer）",
+                                            "本族数据源 = 服务端 LiveOps 报价，本地没有到期时刻");
                 }
                 // ② `Icon`（原版的第二个孩子）
                 var ic = g.TimerIcon;
@@ -1336,7 +1345,7 @@ namespace CardPresentation
 
             // 悬停/按下换图：原版这一颗的 `HL/P` 实读到名字（`HL=40K_button_square_hover` · `P=…_pressed`）
             var hit = MenuDraw.Hit(node, "Hit", R(wr.x1, wr.y1, wr.x2, wr.y2),
-                                   qBase + QoWebShopHit, WebShopClick);
+                                   qBase + QoWebShopHit, WebShopClick, clickCue: WindowSounds.PurchaseCue);
             var wb = hit != null ? hit.GetComponent<WindowButton>() : null;
             if (wb != null && n9 != null) wb.BindNine(n9, WebShopArt, "40K_button_square_hover", "40K_button_square_pressed");
         }

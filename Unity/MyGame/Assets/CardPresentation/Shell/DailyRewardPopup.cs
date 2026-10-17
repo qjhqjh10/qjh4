@@ -529,6 +529,12 @@ namespace CardPresentation
             var tm = MenuDraw.Text(t, TimerText, DailyData.RewardTimerText(), Color.white, "EverguildTextMeshPro (1)", 50f, QText);
             MenuDraw.AlignLeft(tm, TimerText);
             MenuDraw.SetVAlign(tm, Label.VAlign.Capline, TimerText);   // A712 阶段 2：原版 `Left/Capline` 的纵向那一半
+            // 🔴 **2026-10-17（N3）**：这一颗原来只有**建窗那一刻**的活值（`DailyData.RewardTimerText()` 一次性
+            //   算好的字符串），**没有每秒 tick**（判据/缺口见 `资料/普查产出_1017/UI/W_A_TimerDisplay.md` §4·5）。
+            //   这里挂上全工程唯一的倒计时口径 `TimerDisplay` ⇒ 每秒重算一次。
+            //   目标 = 我们自建的**日界** `DailyData.NextResetAt`（本机时间；原版这颗由 `TimerDisplay` 运行时填，
+            //   我们没有服务器 —— 见 `DailyData.ResetIn` 那条注释）。前缀与 `RewardTimerText()` 同一格（`Resets in `）。
+            TimerDisplay.Attach(tm, () => DailyData.NextResetAt, "Resets in ", "每日奖励窗 Timer", null);
         }
 
         // ============================================================ 工具

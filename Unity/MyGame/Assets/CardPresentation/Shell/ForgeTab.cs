@@ -716,7 +716,8 @@ namespace CardPresentation
                           UguiRect.Child(r, UguiRect.A11, UguiRect.A11, UguiRect.P50c, Bd_Pos, Bd_Sz),
                           "Badge Highlight", QArmyBadge, new Color(0.7358f, 0.7358f, 0.7358f, 0f));
 
-                AddHit(item, "Hit", r, QArmyBadge, () => SelectArmy(army));
+                AddHit(item, "Hit", r, QArmyBadge, () => SelectArmy(army),
+                       clickCue: WindowSounds.SelectAvatarCue);
             }
         }
 
@@ -884,7 +885,8 @@ namespace CardPresentation
                                          Color.white, "Button Text", 36.8f, 12f);
                 if (btLab != null) btLab.SetRenderQueue(QCellBtnText);
                 // A17：原版 `Forge Menu Reward Button` 的 `Generic UI Button` 是 SpriteSwap（普查 §块 2 第 6 行）
-                AddHit(cell, "ClaimHit", btn, QCellBtnIcon, () => ClaimCell(i), btnQ, "40K_button");
+                AddHit(cell, "ClaimHit", btn, QCellBtnIcon, () => ClaimCell(i), btnQ, "40K_button",
+                       clickCue: WindowSounds.PositiveCue);
             }
         }
 
@@ -943,8 +945,9 @@ namespace CardPresentation
         ///    而原版 `RectMask2D` 同时是**射线过滤器**：框外的点判不中）。
         /// 判据与收口说明见 `MenuWindowBase.AddHit` 的注释（UGUI 源码出处写在 `MenuDraw.ClipRect` 里）。</summary>
         Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
-                         ImageQuad target = null, string art = null, string hoverArt = null, string pressedArt = null)
-            => _win.AddHit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt);
+                         ImageQuad target = null, string art = null, string hoverArt = null, string pressedArt = null,
+                         string clickCue = null)
+            => _win.AddHit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt, clickCue);
 
         /// <summary>点一格上的 `Generic UI Button`（Claim）。**「真领到」那一拍就在这一句的 `true` 分支**。
         /// <para>🆕 **2026-10-12（A401）：领到奖 ⇒ 弹领奖窗**。判据（第一权威 = 反编译方法体）：

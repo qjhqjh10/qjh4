@@ -406,6 +406,13 @@ namespace CardPresentation
             //    ⛔ 别把参数再写回本文件（那等于把两份漂移重新种回来）。
             _topBar = TopBar.Build(_root, NoteMissingArt);
             BuildChatPreview(_root);
+            // 🆕 **2026-10-17（`A1141`）**：原版 `Toast Notification Controller → Holder`
+            //   （任务 / 等级 / 经验飘窗那一族；**与 `MessageToast` 是两套东西**，⛔ 别混）。
+            //   判据 = `资料/主菜单_原版规格.md:64-74,237-238` ＋ `ToastNotificationController__*.c`
+            //   ＋ 场景 `bundle_scenes_scenes_mainmenuwarpforge` 的 `RT 1096/1100`。建在
+            //   `Safe area Only Horizontal` 下（原版兄弟序：`TooltipManager` 之后、`Loading Controller` 之前）。
+            //   ⚠️ 不插也能工作（`ShowNotification` 会 `Ensure()` 自建）—— 插上是为了「菜单建场时节点就在」。
+            ToastNotifications.Build(_root);
             BuildGameModes(menuWin);
 
             // 🆕 **2026-10-12（`A1629`）**：把这一棵登记成**常驻主菜单**（原版 `MainMenuWindow.Initialize()` 末尾
@@ -855,16 +862,24 @@ namespace CardPresentation
             //   ⚠️ `Loc.T` 缺键时返回的是**键名本身**（不是空串）⇒ 界面上一眼能看出是「查不到」，不会静默。
             // 🔴 原版这行 TMP 带 **`enableAutoSizing`（18→33）**，框只有 146.9px 宽 ⇒ `COLLECTION` 是**缩出来的**
             //    （实测原版它的在场字号就是 **30.45**）—— 不缩会画出框外被裁。
-            var navText = Text(b, Loc.T(locKey), 9.3f, 156.2f, y1 + 118.3f, y1 + 157.7f, 6,
-                               new Color(0.9961f, 0.9294f, 0.7098f), "Text", fontPx);
-            // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版这一颗的 `m_fontSizeBase` **原文**。
+            Text(b, Loc.T(locKey), 9.3f, 156.2f, y1 + 118.3f, y1 + 157.7f, 6,
+                               new Color(0.9961f, 0.9294f, 0.7098f), "Text", fontPx,
+                               // 🔴 **2026-10-17（`A1233`）**：原来这里是「先 `Text`、再自己补
+                               //    `navText.SetAutoFitBox(146.92/108, 39.39/108, 18, 33, 24)`」——
+                               //    收口进本方法自己的形参（同一件事只写一处）。
+                               //    四格判据（原版 `bundle_scenes_scenes_mainmenuwarpforge` 五颗逐颗现读）：
+                               //    `m_SizeDelta 146.92 × 39.39` · `auto[18~33]` · `m_fontSizeBase = 24.0`
+                               //    （`MonoBehaviour_1716/1749/1750/1751/1752`）。
+                               //    ⚠️ 框高按本行矩形的 `157.7 − 118.3 = 39.4`（原版 TMP 自己那份 sd.y = 39.39，
+                               //       差 0.01px —— 两条边分别来自文案条与 TMP 两个节点，这里不拆第二颗节点）。
+                               wrapPx: 146.92f, autoMinPx: 18f, autoMaxPx: 33f, autoBasePx: 24f);
+            // 🔴 **2026-10-11（A305①）**：上面第 5 个数据实参 = 原版这一颗的 `m_fontSizeBase` **原文**。
             //    判据（本轮自己扫的原版场景 `bundle_scenes_scenes_mainmenuwarpforge`，逐颗现读）：
             //    五个导航钮的 `Text (TMP)`（`'PLAY'`/`'REWARDS'`/`'SHOP'`/`'COLLECTION'`/`'SOCIAL'`，
             //    `m_SizeDelta` 全是 **146.92 × 39.39**，与我们的框逐值相同）—— `auto[18~33]` ·
             //    **`m_fontSizeBase` 五颗全是 `24.0`**（`MonoBehaviour_1716/1749/1750/1751/1752`）。
             //    ⚠️ 与 V7 §二·3 #30 的关系：那一行记的是**全库** `[18~33]` 那族的 base 分布
             //    （24.0 ×4 / 33.0 ×3）⇒ 本条按**场景内实读**取 24（那 3 颗 33.0 不在主菜单这一族里）。
-            if (navText != null) navText.SetAutoFitBox(146.92f / 108f, 39.39f / 108f, 18f, 33f, 24f);   // 原版 autosize 18→33
             // 红点：亮图 × `m_Color (0.7358,0.7358,0.7358,1)` = **中灰**（原版这就是「无内容/禁用」的灰点）
             // 🔴 **只有 REWARDS（第 4 个导航钮）有真实的通知源** —— 原版它由 `Missions.CheckNotification` 驱动；
             //    其余四个我们**没有通知源** ⇒ 按 `Hide()` 的样子 **alpha = 0**（不是画一个假的灰点）。
@@ -2256,23 +2271,27 @@ namespace CardPresentation
             //    **`VerticalLayoutGroup`** 排（`bundle_menus_assets_all` 实读）：
             //    `m_Padding.m_Left = 11` · `m_ChildAlignment = 3 (MiddleLeft)` · `m_Spacing = −4.2` ·
             //    `m_ChildControlWidth/Height = 0`（子女尺寸就是各自序列化值，不被布局组改）。
-            //    两个孩子逐个实读：`Event Title` 高 **55.708**、`Timer With Time Description` 高 **40.729**。
-            //    ⇒ 整块内容 = 55.708 + 40.729 − 4.2 = **92.237**，在 **105.866** 高的暗带里**垂直居中**
-            //      ⇒ 上下各留 **6.814**；标题是**第一个孩子** ⇒ 顶在**内容最上面**：
-            //      **标题顶边距暗带顶 = 6.814**、底边 = 6.814 + 55.708 = **62.522**。
-            //    ⚠️ **`by2` 是暗带【底】、`by1` 是暗带【顶】**（本文件的 y 是**上到下**的像素：
-            //       `by2 = y + h − bandBottom`，`y+h` 是卡底）。`titleTop = by1 + 6.8` 正好是
-            //       「标题顶边距暗带顶 6.8」⇒ **这一条一直是对的**，2026-09-25 实测量到 6.80/62.5 复核过。
-            float titleTop = by1 + 6.8f;
+            //    🔴 **2026-10-17（`N10`）用 `menu_dump.py --relative` 现读绝对矩形，订正了旧算式（铁律 5）**：
+            //      旧写法按「两个孩子 55.708 + 40.729 − 4.2 = 92.237、上下各留 6.814」算标题顶 ——
+            //      **错因 = 漏了 `childForceExpandHeight = 1`**：VLG 会把余量**均分进每个孩子的槽**（各 +3.4095），
+            //      文本框在自己的槽里再垂直居中 ⇒ 实测（`Base Game Mode Container 1x1` 与
+            //      `Ranked/Skirmish … 1x2` 三份逐值相同）：**标题顶距暗带顶 = 3.41**、倒计时行顶 = **61.73**；
+            //      `Draft … 1x2`（`TextDarkening` 里**只有标题**）⇒ 标题顶 = (105.866 − 55.708)/2 = **25.08**。
+            //    ⚠️ 原版 `m_text` 是占位串 `GAME MODE TITLE`，真标题运行时灌 ⇒ 这里用**模式名**。
+            float titleTop = by1 + (modeKind == "draft" ? 25.08f : 3.41f);
             // ⚠️ 原版 `m_text` 是占位串 `GAME MODE TITLE`，真标题运行时灌 ⇒ 这里用**模式名**（和 `Game Mode Title` 那个通用件的样例 `Draft Mode` 同口径）
             // 🔴 原版这行 TMP 带 **autosize 18→72**，框 513.7×55.7 ⇒ 让它自己缩着放进框里
-            var ti = Text(card, title, x + 13f, x + 13f + 513.6959f, titleTop, titleTop + 55.708f, 8, Color.white, "Event Title", 58.8f);
+            var ti = Text(card, title, x + 13f, x + 13f + 513.6959f, titleTop, titleTop + 55.708f, 8, Color.white, "Event Title", 58.8f,
+                          // 🔴 **2026-10-17（`A1233`）**：原来这里是「先 `Text`、再自己补
+                          //    `ti.SetAutoFitBox(513.6959/108, 55.708/108, 18, 72, 36)`」—— 收口进本方法形参。
+                          //    四格判据 = 原版 `Event Title`（`'GAME MODE TITLE'`，`m_fontSize 58.8` ·
+                          //    `auto[18~72]` · 折行 1 · 框 513.6959×55.708）。
+                          wrapPx: 513.6959f, autoMinPx: 18f, autoMaxPx: 72f, autoBasePx: 36f);
             // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase` **原文** = **36.0**。
             //    判据（本轮自己扫 `bundle_menus_assets_all`）：`Event Title`（`'GAME MODE TITLE'`，
             //    `m_fontSize 58.8` · `auto[18~72]` · 折行=1）—— **16 颗全是 `m_fontSizeBase 36.0`**
             //    （`MonoBehaviour_-1926919290004399602.json` 等）；V7 §二·3 #31 记的是全库那族
             //    （258 个，36.0×240 / 32.0×8 / …）⇒ 本条以**这一族自己**的实读为准。
-            if (ti != null) ti.SetAutoFitBox(513.6959f / 108f, 55.708f / 108f, 18f, 72f, 36f);   // 原版 autosize 18→72
             // 🔴 **2026-10-11（界面复刻）：标题改成【左对齐】** —— 原版那颗 `Event Title` 的 TMP 是
             //   **`m_HorizontalAlignment = 1 (Left)`**（只读判据代理 2026-10-11 现读 MB 实测；
             //   ⚠️ **`资料/主菜单_原版规格.md:554` 写它「居中」是错的**，同族的
@@ -2339,9 +2358,74 @@ namespace CardPresentation
             //    判据 / 父子链 / 显隐口径 / 颗数兜底口径 → `BuildRankedSealRow` 上方那一大段（⛔ 不在这里抄第二份）。
             if (modeKind == "ranked" && cx1 <= x + 0.01f && cx2 >= x + w - 0.01f) BuildRankedSealRow(card, x, y);
 
-            // ⑤ 倒计时那一行（`Starts in:` + 时钟 + 剩余时间）**本批不画** —— 它是 liveop 的活动倒计时，本地没有数据源。
-            //    不静默：说一声。
-            Debug.Log($"[Menu] 模式卡 `{name}`：倒计时那一行**没画**（`Starts in:` + 时钟 + 剩余时间 —— 原版是 liveop 活动数据，本地没有）");
+            // ⑤ 倒计时那一行（`Timer With Time Description`：`Starts in:` + 时钟 + 剩余时间）
+            //    🔴 **2026-10-17（`N10`）从「不画」改成「照原版画」** —— 判据 = `资料/主菜单_原版规格.md:560-565`
+            //    ＋ `menu_dump.py --relative` 现读原版 prefab（`Base 1x1` / `Ranked 1x2` / `Skirmish 1x2` 三份）：
+            //      · 行框 **424.7056 × 40.729**；**行顶 = 暗带顶 + 61.73**
+            //        （`Base 1x1`：367.33 − 305.60 · `Ranked/Skirmish 1x2`：802.13 − 740.40，两份逐值相同）；
+            //      · `Timer Description`（`Starts in:`）：fs **42.95** · auto[18~44] · 基准 45 · 白 · 左/Midline；
+            //      · `Clock Icon`：**40.7607 × 40.7604** · sprite `WF_icon_clock for shader` · 色 (0.7372,0.7372,0.7372)；
+            //      · `Timer Text`：**198.9886 × 45.5207** · fs **40** · auto[10~40] · 基准 30 · 同灰。
+            //    ⚠️ 三段宽度里 `Starts in:` 那一段是**反推**出来的：原版 `Timer Description` 的 `sizeDelta.x = 0`
+            //    + `ContentSizeFitter PreferredSize` ⇒ 它等于字宽；行宽 424.7056 − 时钟 40.7607 − 时间 198.9886
+            //    = **184.9563**（三段首尾相接，与 `Clock Icon`/`Timer Text` 的 `anchor (1,.5)` 链自洽）。
+            //    🔴 **数据源 = liveop 活动到期时刻，本地没有** ⇒ 按 `TimerDisplay` 的口径显示 `--` **并出声**
+            //    （⛔ 不许编一个日期顶上去）；`TimerDisplay.Attach(null, …)` 就是那条口径的唯一实现。
+            //    🔴 **`Draft` 卡没有这一行** —— 原版 `Draft Game Mode Container 1x2` 的 `TextDarkening` 里
+            //    **只有 `Event Title`**（Event Title y 765.48 = 暗带顶 + **25.08**，见 ③ 那条），
+            //    ⇒ 本块只在 `modeKind != "draft"` 时执行。⛔ 别给 Draft 补一行（与它自己的变体矛盾）。
+            if (modeKind != "draft")
+            {
+                float rowTop = by1 + 61.73f;
+                const float timerRowH = 40.729f;
+                const float descW = 184.9563f, clockW = 40.7607f, timerW = 198.9886f;
+                float tx0 = x + 13f;
+                var timerDesc = Text(card, "Starts in:", tx0, tx0 + descW, rowTop, rowTop + timerRowH, 8,
+                                     Color.white, "Timer Description", 42.95f, QText,
+                                     0f, 18f, 44f, 45f);
+                if (timerDesc != null)
+                {
+                    MenuDraw.AlignLeft(timerDesc, new PxRect(tx0, rowTop, tx0 + descW, rowTop + timerRowH));
+                    // 视口裁切：与标题同一条口（队列 2921 > 导航底板 2910，不裁会压到导航上）。
+                    if (clip.HasValue && (cx1 > x + 0.01f || cx2 < x + w - 0.01f))
+                        MenuDraw.ClipText(timerDesc, clip, Vector2.zero);
+                }
+                var clockTex = Art("WF_icon_clock_for_shader");
+                float clockX1 = tx0 + descW, clockX2 = clockX1 + clockW;
+                float clockY1 = rowTop - 0.02f, clockY2 = rowTop + 40.7404f;
+                if (clockTex != null)
+                {
+                    // 视口裁切照卡图那条路：**缩网格 + 缩 UV 窗**（⛔ 只缩网格会把图标拉扁）。
+                    float cL = clip.HasValue ? Mathf.Max(clockX1, cx1) : clockX1;
+                    float cR = clip.HasValue ? Mathf.Min(clockX2, cx2) : clockX2;
+                    if (cR - cL > 0.01f)
+                    {
+                        var cq = ImageQuad.Create(card, clockTex, Center(cL, cR, clockY1, clockY2),
+                                                  (clockY2 - clockY1) / 108f, new Vector2(0.5f, 0.5f), "Clock Icon");
+                        if (cq != null)
+                        {
+                            cq.SetAspect((cR - cL) / (clockY2 - clockY1));
+                            cq.SetUvRect(new Rect((cL - clockX1) / (clockX2 - clockX1), 0f,
+                                                  (cR - cL) / (clockX2 - clockX1), 1f));
+                            cq.SetTint(new Color(0.7372f, 0.7372f, 0.7372f, 1f));
+                            cq.SetRenderQueue(QText);
+                        }
+                    }
+                }
+                else MissingArt.Add("WF_icon_clock_for_shader");
+                float timerX1 = clockX2, timerY1 = rowTop - 2.40f, timerY2 = rowTop + 45.5207f;
+                var timerLabel = Text(card, "--", timerX1, timerX1 + timerW, timerY1, timerY2, 8,
+                                      new Color(0.737f, 0.737f, 0.737f, 1f), "Timer Text", 40f, QText,
+                                      0f, 10f, 40f, 30f);
+                if (timerLabel != null)
+                {
+                    MenuDraw.AlignLeft(timerLabel, new PxRect(timerX1, timerY1, timerX1 + timerW, timerY2));
+                    TimerDisplay.Attach(timerLabel, null, "", "模式卡 " + name,
+                                        "liveop 活动没有到期时刻（本地没有该数据源）");
+                    if (clip.HasValue && (cx1 > x + 0.01f || cx2 < x + w - 0.01f))
+                        MenuDraw.ClipText(timerLabel, clip, Vector2.zero);
+                }
+            }
 
             // ⑥ 点击区（**只有模式卡有**）：原版卡根上挂 `LiveopMenuContainer` + `EverguildButton`，
             //    开哪扇窗由 liveop 数据给的事件对象决定（本地查不到）⇒ 我们自己接（见 `OpenMode`）。

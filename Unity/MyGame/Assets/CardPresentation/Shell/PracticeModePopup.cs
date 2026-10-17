@@ -551,7 +551,8 @@ namespace CardPresentation
             //    （原版那颗的宽由布局排出来、prefab 里是模板位 ⇒ **这一格不是原版字段值**，
             //     同 `Shell/SettingsWindow.cs:4717` 那条登记）。
             _txtArmy = Txt(root, SelectedArmyName(), ArmyTxL, ArmyTxR, ArmyTxT, ArmyTxB, 36f, Align.Center, "Selected Army Title", QPrText,
-                           wrapPx: ArmyTxR - ArmyTxL, autoMinPx: 1f, autoMaxPx: 36f, autoBasePx: 23f);
+                           wrapPx: ArmyTxR - ArmyTxL, autoMinPx: 1f, autoMaxPx: 36f, autoBasePx: 23f,
+                           vAlign: Label.VAlign.Midline);   // 🆕 N11：原版 `Center/**Midline**`（现读 dump）
 
             // `Deck info` —— **容器本身没有图**（红底在子件 `Generic Window Red Background Big` 上，见常量段注释）
             // 🔴 **2026-10-11（A332）**：矩形随节点一起写（`InfoL/InfoT/InfoR/InfoB` = 638.38,78.79→1842.38,863.77
@@ -678,7 +679,8 @@ namespace CardPresentation
             // 🔴 **2026-10-19（`A1501`）：文案改走 `Loc.T`** —— 那颗 `Button Text` 的
             //    `mTerm = MainMenu/RankedWindow/ChangeDeck`、`m_text = 'Change Deck'`（本轮现读）。
             Txt(_general, Loc.T("MainMenu/RankedWindow/ChangeDeck"), ChgL, ChgR, ChgT, ChgB, 45f, Align.Center, "Change Deck Text", QPrText,
-                autoMinPx: 10f, autoMaxPx: 45f, autoBasePx: 12f);
+                autoMinPx: 10f, autoMaxPx: 45f, autoBasePx: 12f,
+                vAlign: Label.VAlign.Capline);   // 🆕 N11：原版 `Button Text` = `Center/**Capline**`（现读 dump）
             // ✅ 原版这条就是 `DeckGeneralInfoDemo.ChangePlayerDeckButton`
             //    → `WindowsManager.OpenWindow(new DeckSelectionContext(...))`（`…__ChangePlayerDeckButton.c`）。
             HitOn(_general, _general, "ChangeDeckHit", new PxRect(ChgL, ChgT, ChgR, ChgB), () => OpenDeckSelection());
@@ -959,7 +961,8 @@ namespace CardPresentation
             //    原版字段：`m_fontSize 36 / m_fontSizeBase 36`（**无自适应**）、`Center/Capline`、`折行 = 1`。
             //    文案走 `Loc.T`（`mTerm = Event_Description/Generic/GameMode`，既有那条不动）。
             Txt(tog, Loc.T("Event_Description/Generic/GameMode"), GmLabelL, GmLabelR, GmLabelT, GmLabelB,
-                36f, Align.Center, "Toggle Label", QPrText, wrapPx: GmLabelR - GmLabelL);
+                36f, Align.Center, "Toggle Label", QPrText, wrapPx: GmLabelR - GmLabelL,
+                vAlign: Label.VAlign.Capline);   // 🆕 N11：原版 `Toggle ▸ Label` = `Center/**Capline**`（现读 dump）
 
             // 命中区 = 原版**可射线件的并集**（`Toggle` 根那颗 `NonDrawingGraphic` +
             // 四颗 `m_RaycastTarget = 1` 的 `Image` —— 图标那一份是本轮从 prefab MB 实读的，
@@ -1407,12 +1410,16 @@ namespace CardPresentation
                 //    —— 原来是「顶 38px + 172 宽 + fs26 + **没有自适应**（我们挑的）」⇒ 长卡组名画到框外。
                 var nm = Txt(cell.transform, info.Name,
                              ix + ItemNameL, ix + ItemNameR, iy + ItemNameT, iy + ItemNameB,
-                             ItemNameFontPx, Align.Center, "Deck Name", QPrText, null, DeckClipSoft);
+                             ItemNameFontPx, Align.Center, "Deck Name", QPrText, null, DeckClipSoft,
+                             // 🔴 **2026-10-17（`A1233`）**：原来这里是「先 `Txt`、再自己补
+                             //    `nm.SetAutoFitBox(…)`」—— 收口进本方法形参（同一件事只写一处）。
+                             //    ⚠️ `wrapPx` **必须显式给**（本件的原版折行 = 1）：不给的话本方法末段
+                             //    会走 `if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false)` 那一支，
+                             //    把折行悄悄关掉（下面那句显式 `SetWrapping(true)` 要留着 —— 理由见它自己的注释）。
+                             wrapPx: ItemNameR - ItemNameL,
+                             autoMinPx: ItemNameAutoMin, autoMaxPx: ItemNameAutoMax, autoBasePx: ItemNameAutoBase);
                 if (nm != null)
                 {
-                    nm.SetAutoFitBox(LayoutSpace.Px(ItemNameR - ItemNameL),
-                                     LayoutSpace.Px(ItemNameB - ItemNameT),
-                                     ItemNameAutoMin, ItemNameAutoMax, ItemNameAutoBase);   // 🆕 A336①：base 17.95
                     // 原版 `m_TextWrappingMode = 1 (Normal)`；`SetAutoFitBox` 内部已经开了折行，
                     // 这里**显式**再写一次（它现在是 `Label` 上唯一那个显式口，别让以后改公共件时静默回退）。
                     nm.SetWrapping(true);
@@ -1682,7 +1689,13 @@ namespace CardPresentation
                 MenuDraw.SetPxSize(cell.transform, DlCellW, DlCellH);
                 cell.transform.localPosition = Local3(_cardHolder, x1, y1, x1 + DlCellW, y1 + DlCellH);
                 var nm = Txt(cell.transform, CardText.Name(card.Name, card.NameZh), x1, x1 + DlCellW, y1, y1 + DlCellH, 20f, Align.Left,
-                             "Name", QPrText);
+                             "Name", QPrText, null, default(Vector2),
+                             // 🔴 **2026-10-17（`A1233`）**：原来这里是「先 `Txt`、再自己补
+                             //    `nm.SetAutoFitBox(DlCellW, DlCellH, 2, 38, 27.69)`」—— 收口进本方法形参。
+                             //    ⚠️ **故意不传 `wrapPx`**：本件的原版折行 = 0，而本方法在
+                             //    `autoMinPx > 0 && wrapPx <= 0` 那一支会调 `SetWrapping(false)` ——
+                             //    正是这一站要的那一档（下面那句显式 `SetWrapping(false)` 仍留着，理由见它自己的注释）。
+                             autoMinPx: CardNameAutoMin, autoMaxPx: CardNameAutoMax, autoBasePx: CardNameAutoBase);
                 // ⚠️ 卡名会超过 **231px** 的格宽（实测 "Death Spinner Warp Spider" 会撞进右边那一列）
                 //    ⇒ 照原版那套开**自适应字号**把它缩进格子里。
                 // 🔴 **2026-10-07（A77-⑤）就地更正（铁律 5）**：这行上面的原注释写着
@@ -1708,8 +1721,6 @@ namespace CardPresentation
                 //        ⛔ 这不是「原版就是这样」，是**我们知道的一处差别**，记在这儿等判据齐了再收。
                 if (nm != null)
                 {
-                    nm.SetAutoFitBox(LayoutSpace.Px(DlCellW), LayoutSpace.Px(DlCellH),
-                                     CardNameAutoMin, CardNameAutoMax, CardNameAutoBase);   // 🆕 A336①：base 27.69
                     // 原版 `Card Name` 是 `m_TextWrappingMode = 0`（**不折行**）—— 必须在 `SetAutoFitBox`
                     // **之后**调（那个函数内部无条件走 `SetWrapWidth` ⇒ 会把模式开成 `Normal`）。
                     nm.SetWrapping(false);
@@ -2223,10 +2234,24 @@ namespace CardPresentation
         /// ⚠️ 本方法**没有** `MenuDraw.TextCore` 那条 `fontPx &gt; autoMinPx` 的闸（走 `Label.SetAutoFitBox`
         /// 的这条路本来就没有）—— 本文件 8 处的 `autoMinPx` 全部 &lt; 各自 `fontPx`，今天加不加闸同效。
         /// ⚠️ **次序**：自适应/折行两步排在 `MenuDraw.ClipText` **之前**（裁切必须是最后一步 —— 见上面那条）。</para></summary>
+        /// <param name="vAlign">🆕 **2026-10-17（`N11`）**：原版那一颗 TMP 的**纵向档**
+        /// （`m_VerticalAlignment`）。⛔ 缺省（`null` = `Middle`）= **旧行为逐位不变** —— 本文件
+        /// 11 个调用点里只有 3 处不是 `Middle`，其余一处都不用动。
+        /// <para>逐处判据 = **本轮现读** `python -I 工具/menu_dump.py bundle_menus_assets_all
+        /// "Practice Mode Menu" --depth 8 --md`（每个节点的「文字」那一格末尾 `对齐=H/V`）：
+        /// · `Deck Selector ▸ Deck Buttons ▸ Selected Army Title` = `Center/**Midline**`
+        /// · `Deck info ▸ General container ▸ Generic Simplified UI Button ▸ Button Text`（Change Deck）
+        ///   = `Center/**Capline**`
+        /// · `Toggle ▸ Label`（Game mode）= `Center/**Capline**`
+        /// · 其余（`Deck Name` / `Warlord Name` / `Cost/balance text` / `Back button ▸ Text` /
+        ///   `tooltip` / `Continue Button ▸ Text` / `Deck Selector Menu Item ▸ Deck Name`）**全是 `Middle`**。
+        /// ⚠️ 卡列表那一颗 `Card Name` 也是 `Left/Capline`，但它要在 `SetAutoFitBox` / `SetWrapping` /
+        ///   `RelayoutNow` **之后**才摆（调用方自己的那句 `MenuDraw.SetVAlign`，见 `BuildCardRows`）⇒ ⛔ 别搬进来。</para>
         Label Txt(Transform parent, string text, float x1, float x2, float y1, float y2, float fontPx,
                   Align align, string name, int q,
                   PxRect? clip = null, Vector2 clipSoftness = default(Vector2),
-                  float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
+                  float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
+                  Label.VAlign? vAlign = null)
         {
             var lb = Label.Create(parent, text ?? "", Local3(parent, x1, y1, x2, y2), 5, Color.white,
                                   new Vector2(0.5f, 0.5f), name);
@@ -2252,6 +2277,12 @@ namespace CardPresentation
             if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false);
             if (align == Align.Right) lb.AlignRightOn(LayoutSpace.FromPixel(x2, 0f).x);
             else if (align == Align.Left) lb.AlignLeftOn(LayoutSpace.FromPixel(x1, 0f).x);
+            // 🆕 **2026-10-17（`N11`）**：纵向档（判据 / 逐处档位 → 上面 `vAlign` 的 `<param>`）。
+            //    🔴 **必须排在 `ClipText` 之前** —— `Label.SetVAlign` 末句是 `RefreshBounds()`（一次重排），
+            //    重排会把 mesh 重刷一遍；排在裁切之后 = 那一刀白裁（本文件 `ClipText` 是最后一步的那条纪律）。
+            //    ⚠️ 缺省 `null` ⇒ **一句都不执行**（旧行为逐位不变）；`Middle` 传进来也跳过（出厂档就是它）。
+            if (vAlign.HasValue && vAlign.Value != Label.VAlign.Middle)
+                MenuDraw.SetVAlign(lb, vAlign.Value, new PxRect(x1, y1, x2, y2));
             // 🔴 **2026-10-09（A233）就地订正（铁律 5）**：原来这道闸写的是
             //    `clip.HasValue && (clipSoftness.x > 0f || clipSoftness.y > 0f)` ⇒ **`clipSoftness = (0,0)`
             //    时这段字既不硬裁也不建软边**（整段画到视口外）。判据 = 原版 `RectMask2D`：

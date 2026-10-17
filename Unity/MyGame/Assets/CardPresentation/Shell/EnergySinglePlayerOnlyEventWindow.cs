@@ -31,7 +31,7 @@
 // | `Reward Help` | **act = F** | 无人（出厂就关） | 建出来、**关着** |
 // | 5 行 `Score` | `'1256'` | `RefreshScore()` 按活动分数 | **照 prefab 出厂原文** + 出声 |
 // | 5 颗 `Chest` / `Highlight Crate` | 闭箱图 / 不透明金高亮（都开着） | 同上 | **照 prefab 出厂原文** + 出声 |
-// | `Timer` / `Timer Icon` | `'Termina en: 23d 5h'` | `TimerDisplay.Initialize(endTime)` | **照 prefab 出厂原文** + 出声 |
+// | `Timer` / `Timer Icon` | `'Termina en: 23d 5h'` | `TimerDisplay.Initialize(endTime)` | **接 `TimerDisplay`**（截止时刻本地没有 ⇒ `Termina en: --` + 出声；描述串照 prefab 原文） |
 // | `Energy Instructions` | `'… every {0} minutes.'` | `ShowCurrentEnergyRegenText.OnEnable` 读 **LiveOps Config** | **照 prefab 出厂原文（含 `{0}`）** + 出声（判据见下） |
 // | `Total Victories` | `'751'` | `RewardProgressBarPanel` 按活动数据 | **照 prefab 出厂原文** + 出声 |
 // | `Event Image` / `Scoring Icon` / `ArmyItemReference` | **`m_Sprite` = null** | 运行时由字段灌图 | 建节点、**不画**、出声 |
@@ -291,7 +291,8 @@ namespace CardPresentation
             _warned = true;
             Debug.Log("[Energy] 本窗的**活动数据全在远端**（`SinglePlayerScoringEvent` 是 LiveOps 事件）："
                     + "5 档分数 / 箱子开关 / 倒计时截止时刻 / `Total Victories` 都是**运行时灌**的 "
-                    + "⇒ 我们照 **prefab 出厂原文**画（`1256` / `751` / `Termina en: 23d 5h` / 闭箱图），⛔ 不编数字。");
+                    + "⇒ 我们照 **prefab 出厂原文**画（`1256` / `751` / 闭箱图），⛔ 不编数字；"
+                    + "`Timer` 那颗已接 `TimerDisplay`，截止时刻本地没有 ⇒ 显示 `Termina en: --`（出声一次）。");
             Debug.Log("[Energy] `Energy Instructions` 里那个 **`{0}` 原样保留** —— 替换值来自 **LiveOps Config**"
                     + "（远端）：`ShowCurrentEnergyRegenText__OnEnable.c` 逐句可读（`ConfigManager.GetConfig(...)` "
                     + "+0x20 那个整数 + `String.Format(译文, 它, 时长)`）。本地没有那份 Config ⇒ 照字段抄。");
@@ -453,7 +454,8 @@ namespace CardPresentation
             // 原版这颗钮 → `CollectClicked()`：要向 LiveOps 领奖 ⇒ **要服务器**。
             //（本工程边界③：入口照做、点了如实说，⛔ 不静默。）
             MenuDraw.Hit(_collect, "CollectHit", CollectR, QHit, OnCollectClick, cb, ArtMulligan,
-                         ArtMulligan + "_hover", ArtMulligan + "_Pressed");
+                         ArtMulligan + "_hover", ArtMulligan + "_Pressed",
+                         clickCue: WindowSounds.PositiveCue);
         }
 
         void OnCollectClick()
@@ -462,6 +464,10 @@ namespace CardPresentation
                     + "（原版 `SinglePlayerOnlyEnergyEventWindow__CollectClicked.c` 要走 LiveOps 领奖；"
                     + "本地没有活动、也没有服务器 —— 照边界③不静默）。");
             if (WindowsManager.Instance != null)
+                // 🔴 **2026-10-17（`A1756`）如实标注**：这一句**是我们自拟的**（官方表里**没有**
+                //   `Event rewards are not available offline.` 这条 —— 现读 `官方本地化_en+zh-CN.json` 0 命中；
+                //   原版这一路要连服务器，客户端没有「离线」这个分支的文案）⇒ ⛔ 别硬套键、别当成原版文案。
+                //   同族同一句还在 `Shell/SkirmishEventWindow.cs`（那一处不在本笔白名单）。
                 WindowsManager.Instance.ShowPopUp("Event rewards are not available offline.", "OK", null);
         }
 
@@ -577,32 +583,62 @@ namespace CardPresentation
             //   开自适应会让字**比原版小一点**」——**方向反了**。现算（`R4_布局刻度族查实.md` §1·3）：
             //   `254.112 vs 176.98` = 我们**宽 44%** ⇒ 开自适应**不会缩字号**；两边的残差只在
             //   「运行期文案变长」那一档（原版**撑框**、我们**缩字**），见 `Open()` 里那句出声。
-            var vt = MenuDraw.Text(pv, vtR, "Victories: ", Color.white, "Victories title", 53.5f, QText,
+            var vt = MenuDraw.Text(pv, vtR, "Victories: ", Color.white, "Vicotries title", 53.5f, QText,
                                    vtR.W, 18f, 53.5f, 36f);
             // 🔴 **A1178**：量 preferred width ⇒ 把框收成它（= 原版 CSF 那一档）。
-            //   生长方向 = **右沿不动**（`VTitleX2`）：原版这一颗 `H=Right`、我们下面也是 `AlignRight`
-            //   ⇒ 框往左收，右对齐那一刀的落点不变（画面上零位移；变的是「框」这个结构本身）。
             //   ⚠️ `SetAutoFitBox` 会**再跑一次自适应**（原版 CSF 撑完框也要重排一次，语义同）；
             //   它的 `SetWrapWidth` 顺手把折行模式开成 `Normal` —— 本颗原版就是 **折行 1** ⇒ 不用还原。
             float vtW = PreferredWidthPx(vt, "Victories title");
-            var vtFit = vtW > 0f ? new PxRect(VTitleX2 - vtW, VTitleY1, VTitleX2, VTitleY2) : vtR;
-            if (vtW > 0f)
-                vt.SetAutoFitBox(LayoutSpace.Px(vtFit.W), LayoutSpace.Px(vtFit.H), 18f, 53.5f, 36f);
-            MenuDraw.AlignRight(vt, vtFit);
-            _victoriesTitle = vt != null ? vt.transform : null;
-            MenuDraw.Rect(pv, Art(ArtSkull), VSkullR, "Skull Victories", QArt);
+            // `Skull Victories` 先按模板位建着，下面量完 `ttW` 再整行重排（HLG 复制）。
+            var skullQ = MenuDraw.Rect(pv, Art(ArtSkull), VSkullR, "Skull Victories", QArt);
             var ttR = new PxRect(VTotalX1, VTitleY1, VBgR.x2, VTitleY2);
             // 🔴 **2026-10-19（A1179）**：补 autosize 四格（原来没传 ⇒ 固定 77px）。
             //   判据 = 同一颗现读（同 `Reward Tile` 那条命令）：
             //   `…/PLayer Victories/Total Victories` · `'751'` · 字号 **77.0** · 基准 **36.0** ·
             //   **`m_enableAutoSizing = 1` · `auto[18.0~77.0]`** · 对齐 `Left/Midline` · **折行 = 1** ·
             //   原版框 **宽 0**（+ `ContentSizeFitterMinMax(h:PreferredSize)`，工具标注 `⚙CSF` = 算不出，
-            //   运行期框宽 = 文字的 preferred width）⇒ 下面传的 `ttR.W` = **213.99 是我们摆的**
-            //   （同上面 `Victories title` 那一段的处置与残差说明）。
+            //   运行期框宽 = 文字的 preferred width）。
             //   ⚠️ 原版**折行 = 1** ⇒ 传 `wrapPx` 与它同档，⛔ 不要补 `SetWrapping(false)`。
             var tt = MenuDraw.Text(pv, ttR, "751", Color.white, "Total Victories", 77f, QText,
                                    ttR.W, 18f, 77f, 36f);
-            MenuDraw.AlignLeft(tt, ttR);
+            float ttW = PreferredWidthPx(tt, "Total Victories");
+
+            // 🔴🆕 **2026-10-17（A1245 + A1246）：整行按原版那条 `HorizontalLayoutGroup` 重排。**
+            //   `<para>判据（本次现跑两份 prefab 的差别本身就是判据）：
+            //   `EnergySinglePlayerOnlyEventWindow`（**没跑过布局**）的模板位 = `Victories title` 1574.60 宽 0 ·
+            //   `Skull Victories` 1581.20..1654.59 · `Total Victories` 1661.19 宽 0；
+            //   `SkirmishModeEventWindow`（**跑过布局**）的真值 = `…`（那一扇没有 HLG，见报告）。
+            //   Energy 这一颗的 HLG 实读：**`spacing = 6.6` · `align = 4 (MiddleCenter)` · pad 0**、
+            //   容器 `Player victories` = `[1320.49, 227.39] – [1915.30, 317.83]`（**594.81** 宽）；
+            //   `Victories Background` 挂 `LayoutElement.m_IgnoreLayout = 1` ⇒ **不参与**布局。
+            //   ⇒ `content = vtW + 6.6 + 73.39 + 6.6 + ttW`、`start = 1320.49 + (594.81 − content) × 0.5`。
+            //   模板位正是 `vtW = ttW = 0` 那一档：`1320.49 + (594.81 − 86.59)/2 = 1574.60` ✓（交叉自洽）。</para>
+            //   ⚠️ 量不到（`PreferredWidthPx` 返回 0，它自己已经出声）⇒ **整行退回建树时的模板位**，
+            //   ⛔ 不拿 0 当宽去排。`vtW` 只量到一半时也不重排（两个 CSF 子件是**同一条 HLG** 里的两块）。
+            if (vtW > 0f && ttW > 0f)
+            {
+                const float RowSpacing = 6.6f;                   // 原版 HLG `m_Spacing`
+                float content = vtW + RowSpacing + VSkullR.W + RowSpacing + ttW;
+                float x = PVicR.x1 + (PVicR.W - content) * 0.5f; // align 4 = MiddleCenter
+                var vtFit = new PxRect(x, VTitleY1, x + vtW, VTitleY2);
+                x += vtW + RowSpacing;
+                var skFit = new PxRect(x, VTitleY1, x + VSkullR.W, VTitleY2);
+                x += VSkullR.W + RowSpacing;
+                var ttFit = new PxRect(x, VTitleY1, x + ttW, VTitleY2);
+                vt.SetAutoFitBox(LayoutSpace.Px(vtFit.W), LayoutSpace.Px(vtFit.H), 18f, 53.5f, 36f);
+                MenuDraw.AlignRight(vt, vtFit);                  // 原版 `Right/Capline`（框 = 字宽 ⇒ 两者同解）
+                if (skullQ != null)
+                    skullQ.transform.localPosition =
+                        MenuDraw.Local(pv, skFit.x1, skFit.y1, skFit.x2, skFit.y2);
+                tt.SetAutoFitBox(LayoutSpace.Px(ttFit.W), LayoutSpace.Px(ttFit.H), 18f, 77f, 36f);
+                MenuDraw.AlignLeft(tt, ttFit);                   // 原版 `Left/Midline`
+            }
+            else
+            {
+                MenuDraw.AlignRight(vt, vtR);
+                MenuDraw.AlignLeft(tt, ttR);
+            }
+            _victoriesTitle = vt != null ? vt.transform : null;
             _victoriesTotal = tt != null ? tt.transform : null;
         }
 
@@ -658,13 +694,10 @@ namespace CardPresentation
         void BuildTimer(Transform root)
         {
             var tm = MenuDraw.Node(root, "Timer", TimerR);
-            MenuDraw.Rect(tm, Art(ArtClock), TimerIcR, "Timer Icon", QArt);
+            var iconQ = MenuDraw.Rect(tm, Art(ArtClock), TimerIcR, "Timer Icon", QArt);
             // 那一格的现读框**宽 = 0**（`ContentSizeFitterMinMax(h:PreferredSize)` 算不出）。
             // 🔴 **2026-10-10（A1178）这一档【已复刻】**：运行时框宽 = **文字的 preferred width**，
             //   由下面的 `PreferredWidthPx` 在**建树期量一次**写回（⛔ 量我方字体，不是原版那个 248.44）。
-            //   ⚠️ 仍然**是我们摆的**只剩两颗自由度：① 框的**左沿**（`TimerTxX1` = 图标右沿 981.95 ——
-            //   原版那一颗由 HLG 算位置，见报告 §7 顺手发现②）；② 量之前的那个初值框
-            //   （从图标右沿 981.95 撑到容器右沿 1271.67）。**文字照 prefab 出厂原文**。
             var txR = new PxRect(TimerTxX1, TimerTxY1, TimerR.x2, TimerTxY2);
             // 🔴 **2026-10-18（A1126 · A1 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 38px。
             //   判据 = 逐颗现读原版那一颗（同本文件头那条命令）：`…/Timer/Timer`（TMP） = `'Termina en: 23d 5h'` ·
@@ -672,33 +705,56 @@ namespace CardPresentation
             //   对齐 `Center/Capline` · **折行 = 0**（`m_TextWrappingMode = 0`）· 原版 `m_SizeDelta = (0, 55.905)`。
             //   ⚠️ 原版**折行 = 0** ⇒ 传 `wrapPx` 会让 `SetWrapWidth` 把它**静默开成 `Normal(1)`**
             //   ⇒ 紧跟一句 `SetWrapping(false)` 还原（成对写法同 A404 / A205 / A34-F4 那一族）。
-            //   ⚠️ 原版那颗**宽 = 0** + `ContentSizeFitterMinMax(h:PreferredSize)`（工具标注 `⚙CSF` = 算不出）
-            //   ⇒ 运行时框宽 = **文字的 preferred width**（A1178 已复刻，见上面那一段）。
-            //   🔴 **2026-10-10 就地订正（A1178 · 铁律 5）**：本段原来写「`txR` 的 289.72 是我们摆的 ⇒
-            //   「原版框放不下才缩」这条边界我们复刻不了，残差如实记在 `W2_A1126A1.md` §五」——
-            //   **框那一半已复刻**（不再是「复刻不了」）；而且现算（`R4_布局刻度族查实.md` §1·3）
-            //   `289.72 vs 248.44` = 我们**宽 17%** ⇒ 用出厂文案时自适应**不会缩字**，
-            //   残差只剩「运行期文案变长」那一档（原版**撑框**、我们**缩字**，见 `Open()` 里那句出声）。
-            var tx = MenuDraw.Text(tm, txR, "Termina en: 23d 5h", Color.white, "Timer", 38f, QText,
+            // 🔴 **2026-10-17（N2）**：描述串 = prefab 出厂原文 `Termina en: `。原版那个键是
+            //   `Event_Description/General/EndsInPlusOrangeTime`（`bundle_menus_assets_all/MonoBehaviour/
+            //   MonoBehaviour_666837755613493937.json` 实读 `useExtraText = 1` + 该 mTerm），但**正文不在**
+            //   官方本地化快照里（`官方本地化_en+zh-CN.json` 只有 `EndsIn` / `EndsInPlusTime` / `TimeEndsIn`）
+            //   ⇒ 按本窗既有口径**照 prefab 原文**，⛔ 不猜译文。下面 `TimerDisplay.Attach` 用同一格。
+            const string TimerPrefix = "Termina en: ";
+            var tx = MenuDraw.Text(tm, txR, TimerPrefix + "23d 5h", Color.white, "Timer", 38f, QText,
                                    txR.W, 10f, 38f, 38f);
             if (tx != null) tx.SetWrapping(false);
             // 🔴 **A1178**：量 preferred width ⇒ 把框收成它（= 原版 CSF 那一档）。
-            //   生长方向 = **左沿不动**（`TimerTxX1` = 图标右沿 981.95）：原版这一颗在
-            //   `HorizontalLayoutGroup` 里排在**图标之后**、框自然往右长（组再整体居中）⇒
-            //   我们这一档对应的就是「框的左沿 = 图标右沿、右沿跟着文字走」。
-            //   ⚠️ 两条**我们摆的**自由度如实记：① 框的左沿（原版由 HLG 算，见报告 §7 顺手发现②）；
-            //   ② 量之前那个初值框（`txR` 的右沿 = 容器右沿 1271.67）。⚠️ 这条**不是**「零位移」——
-            //   框一收/一放，TMP 的自适应就会按新框重排（原本被压小的字会回到 38px），
-            //   而文字的定位口径是「框内居中」⇒ 字的中心会跟着框心走。判据/残差 → 报告 §4/§5。
             float txW = PreferredWidthPx(tx, "Timer");
-            var txFit = txW > 0f ? new PxRect(TimerTxX1, TimerTxY1, TimerTxX1 + txW, TimerTxY2) : txR;
+
+            // 🔴🆕 **2026-10-17（A1246）：按原版那条 `HorizontalLayoutGroup` 重排这一组。**
+            //   判据（本次现跑两份 prefab 的差别本身就是判据）：
+            //   · `EnergySinglePlayerOnlyEventWindow`（**没跑过布局**）= 模板位：图标 `938.0..982.0`
+            //     （43.91 宽）、文字 `982.0` **宽 0**；
+            //   · `SkirmishModeEventWindow`（**跑过布局**）= 运行期真值：图标 `813.8..857.7`、文字
+            //     `857.7..1106.2`（248.44 宽）—— 正是 `start = 648.33 + (623.34 − 43.91 − 248.44)/2 = 813.83`。
+            //   HLG 实读：`spacing 0 · align 4 (MiddleCenter) · pad (0,0,5,0)`、容器 `Timer` = `[648.33,1008.55]–[1271.67,1069.45]`。
+            //   ⇒ `start = 648.33 + (623.34 − 43.91 − txW) / 2`、图标紧随、文字紧跟图标（⛔ 不是把它钉在 981.95）。
+            //   ⚠️ 量不到（helper 已出声）⇒ 保留建树时的模板位，⛔ 不拿 0 当宽去排。
             if (txW > 0f)
             {
+                float content = TimerIcR.W + txW;                 // spacing = 0
+                float x1 = TimerR.x1 + (TimerR.W - content) * 0.5f;
+                var icFit = new PxRect(x1, TimerIcR.y1, x1 + TimerIcR.W, TimerIcR.y2);
+                var txFit = new PxRect(icFit.x2, TimerTxY1, icFit.x2 + txW, TimerTxY2);
+                if (iconQ != null)
+                    iconQ.transform.localPosition =
+                        MenuDraw.Local(tm, icFit.x1, icFit.y1, icFit.x2, icFit.y2);
+                // 文字是 `Center/Capline`（框 = 字宽 ⇒ 居中与左对齐同解）⇒ 直接摆到新框的中心。
+                if (tx != null)
+                    tx.transform.localPosition =
+                        MenuDraw.Local(tm, txFit.x1, txFit.y1, txFit.x2, txFit.y2);
                 tx.SetAutoFitBox(LayoutSpace.Px(txFit.W), LayoutSpace.Px(txFit.H), 10f, 38f, 38f);
                 // ⚠️ 上面那一句内部会调 `SetWrapWidth` ⇒ **无条件把模式开成 `Normal`**，而原版这一颗是
                 //   **折行 = 0** ⇒ 紧跟着还原（成对写法同 A404 / A205 / A34-F4 那一族，这里与上面那次同源）。
                 tx.SetWrapping(false);
             }
+            // 🔴 **2026-10-17（N2）**：接上全工程唯一的倒计时口径 `TimerDisplay`（本文件头 `:34` 自己写着
+            //   原版是 `TimerDisplay.Initialize(endTime)`）。那个 `endTime` = LiveOps 事件的截止时刻，
+            //   **由服务端下发、本地没有** ⇒ 目标传 `null`：出声一次 + `Termina en: --`（⛔ 不编日期）。
+            //   ⚠️ **挂的时机必须在 `PreferredWidthPx` 之后** —— 那一格量的是 prefab 出厂串的 preferred 宽
+            //   （A1178 已复刻）；先挂会按 `--` 把框重新量窄，`Editor/ShellScene.cs` 那条
+            //   「框宽 − 渲出宽 ≥ 1.5px」当场红。
+            //   ⚠️ 原版这颗还开了 `useLastMinutesText = 1`（键 `Event_Description/Generic/EndsSoon`），
+            //   该键正文**也不在**官方快照里 ⇒ 最后 5 分钟档**暂不接**（目标未知时这一档本来也走不到）。
+            if (tx != null)
+                TimerDisplay.Attach(tx, null, TimerPrefix, "单机能源活动窗 Timer",
+                                    "活动截止时刻由服务端 LiveOps 事件下发，本地没有");
             _timerText = tx != null ? tx.transform : null;
         }
 

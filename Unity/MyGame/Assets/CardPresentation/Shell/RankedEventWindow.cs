@@ -117,7 +117,7 @@ namespace CardPresentation
                           Color.white, "Button Text", 36f, QText);
             // 🆕 A17：原版 `Ranked Division Info` 的 `LeaderboardButton` 是 SpriteSwap（普查 §块 5 第 24 行）
             MenuDraw.Hit(lbn, "Hit", new PxRect(LeaderL, LeaderT, LeaderR, LeaderB), QHit,
-                         OpenLeaderboard, lbQ, ArtMulligan);
+                         OpenLeaderboard, lbQ, ArtMulligan, clickCue: WindowSounds.PositiveCue);
 
             // `Ranked Division Info/Content`（**段位信息块**）—— 2026-09-27 建；唯一正本 =
             // `资料/普查产出_0927/段位块_RankedDivisionInfo.md`（表 + 字段→节点对照 + 查不到的）。
@@ -143,7 +143,8 @@ namespace CardPresentation
             MenuDraw.AlignLeft(rk, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB));
             MenuDraw.Rect(tg, Tex("40_main_bt_toggle_on"),
                           new PxRect(TgKnobL, TgKnobT, TgKnobR, TgKnobB), "Image", QArt1, null, true);
-            MenuDraw.Hit(tg, "Hit", new PxRect(TgL, TgT, TgR, TgB), QHit, ToggleRankedMode);
+            MenuDraw.Hit(tg, "Hit", new PxRect(TgL, TgT, TgR, TgB), QHit, ToggleRankedMode,
+                         clickCue: WindowSounds.SelectToggleCue);
             ApplyToggleState(un, rk);
         }
 

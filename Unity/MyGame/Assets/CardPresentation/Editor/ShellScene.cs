@@ -1121,6 +1121,108 @@ public static class ShellScene
         shell.Blocker.StopSpinning();
         CheckTrue(!BlockingOverlay.IsBlocking, "`StopSpinning()` 之后放开");
 
+        // ---------------- ④·b 🆕 2026-10-17（N8）：**全屏黑场挡指针** ----------------
+        //
+        // 判据（原版实读 → `资料/普查产出_1017/UI/R4_黑场挡点击诊断.md` §四）：
+        //   · 黑图 `Panel` 的 `Image.m_RaycastTarget = 1`（场景 `MonoBehaviour_1960.json:22`，prefab 同值）
+        //     + `Game UI` 上的 `GraphicRaycaster`（`MonoBehaviour_2579.json`）
+        //     ⇒ **原版靠 uGUI 射线把整屏点击吃在黑洞图上**（我们这条线不走 uGUI 射线 ⇒ 必须显式问一句）；
+        //   · 同一条判据**只挡指针**：`d:/2/tools/decomp_full/WindowsManager__Update.c` 的 ESC 分支里
+        //     **没有任何 loading / 遮挡门槛** ⇒ 键盘（ESC / 回车 / 文本框）不受影响。
+        // 🔴 **灭自证**：下面每一条都是**同一坐标、翻一个状态**（出厂 / 遮罩 / 黑场 / 淡回后）——
+        //    只断「黑场中挡」的话，一个「`HitButton` 恒返回 null」的实现也能全绿。
+        Section("N8：全屏黑场（`LoadingMenu`）挡指针 —— 命中 / 滚轮 / 悬停被吃掉；键盘与直调口不受影响");
+        {
+            var plN8 = PointerLayer.Instance;
+            var lmN8 = shell.Loading;
+            CheckTrue(plN8 != null, "前置：指针层在场（下面每一条都走它这条唯一输入路）");
+            CheckTrue(lmN8 != null && lmN8.Panel != null,
+                      "前置：壳侧黑场 `LoadingMenu.Panel` 建出来了（取不到 ⇒ 本节全是空断）");
+
+            // 探针：一颗真钮 + 一个滚动区（命中点是同一个 (400,400)，几态共用）
+            var n8Go = new GameObject("N8Probe");
+            var n8Hits = new GameObject("Hits").transform;
+            n8Hits.SetParent(n8Go.transform, false);
+            var n8Btn = MakeNavButton(n8Hits, "N8Btn", 400f, 400f, 80f, 40f);
+            int n8Fired = 0;
+            n8Btn.onClick = () => n8Fired++;
+            var n8Scroll = MenuScroll.TopAligned(new PxRect(200f, 200f, 600f, 900f), 2000f);
+            n8Scroll.Owner = n8Go;
+            PointerLayer.RegisterScroll(n8Scroll);
+
+            // ---- ① 出厂态（对照：证明这颗钮 / 这个滚动区**本来就可命中**）
+            CheckTrue(!PointerLayer.InputBlocked, "① 出厂：`InputBlocked == false`（黑场 Panel 关着、遮罩没开）");
+            CheckTrue(plN8.ButtonAt(400f, 400f) == n8Btn,
+                      "① 出厂：同一坐标命中的是探针钮（= 下面「黑场中 == null」的对照）");
+            float n8Off0 = n8Scroll.Offset;
+            CheckTrue(plN8.WheelAt(400f, 400f, -120f), "① 出厂：滚轮滚得到（`WheelAt` 命中滚动区）");
+            CheckTrue(n8Scroll.Offset > n8Off0, "① …而且偏移**真的动了**（返回 true 但没滚 = 假绿）");
+            CheckTrue(plN8.HoverAt(400f, 400f) == n8Btn && n8Btn.Hovered, "① 出厂：悬停落到它身上");
+
+            // ---- ② `BlockingOverlay`（降级件）也接上 —— 改前 `IsBlocking` 是**零消费者**
+            shell.Blocker.StartSpinning();
+            CheckTrue(PointerLayer.InputBlocked, "② `BlockingOverlay.StartSpinning()` ⇒ `InputBlocked == true`（把零消费者接上）");
+            CheckTrue(plN8.ButtonAt(400f, 400f) == null, "② …同一坐标命不到了");
+            CheckTrue(!plN8.WheelAt(400f, 400f, -120f), "② …滚轮也落空");
+            shell.Blocker.StopSpinning();
+            CheckTrue(!PointerLayer.InputBlocked, "② 停转之后放开（与上面那一对合起来才分得开）");
+            CheckTrue(plN8.ButtonAt(400f, 400f) == n8Btn, "② …同一坐标恢复命中");
+
+            // ---- ③ 黑场态
+            lmN8.LoadingFade(true);
+            lmN8.TickForTest(2f);                       // > FadeSeconds（批处理里 `Complete()` 已当场落终态）
+            CheckTrue(lmN8.Panel.gameObject.activeInHierarchy,
+                      "③ 黑场 Panel 在屏上（判别式 = `activeInHierarchy`，⛔ 不是 `IsShowing`："
+                      + "淡入首帧 α=0 时原版的射线靶照样在）");
+            CheckTrue(PointerLayer.InputBlocked, "③ 黑场期间 `InputBlocked == true`");
+            CheckTrue(plN8.ButtonAt(400f, 400f) == null, "③ 黑场：同一坐标**命不到**探针钮");
+            CheckTrue(!plN8.ClickAt(400f, 400f), "③ 黑场：`ClickAt` 也吃不到（命中既空 ⇒ 不派发）");
+            Check(n8Fired, 0, "③ …探针钮一次都没被点");
+            float n8Off1 = n8Scroll.Offset;
+            CheckTrue(!plN8.WheelAt(400f, 400f, -120f),
+                      "③ 黑场：滚轮落空（`HitScroll` 是**另一条**登记表路 —— 只拦 `HitButton` 时这里会静默地滚）");
+            CheckNear(n8Scroll.Offset, n8Off1, 0.001f, "③ …偏移一个像素都没动");
+            CheckTrue(plN8.HoverAt(400f, 400f) == null && plN8.HoveredForTest == null && !n8Btn.Hovered,
+                      "③ 黑场：悬停被**退掉**（不是只把返回值改 null —— `HoveredForTest` 与 `Hovered` 两面都断）");
+
+            // ---- ④ 键盘**不挡**（原版 `WindowsManager__Update.c` 的 ESC 分支没有 loading 门槛）
+            var n8WinGo = new GameObject("N8EscWin");
+            var n8Win = n8WinGo.AddComponent<GameWindow>();
+            n8Win.type = WindowType.Fullscreen;
+            n8Win.closeOnEsc = true;
+            n8Win.placement = WindowsPlacement.Canvas;
+            WindowsManager.AttachToAnchor(n8Win);
+            shell.Windows.OpenWindow(n8Win);
+            Check(n8Win.CurrentState, WindowState.Open, "④ 前置：探针窗开着（`closeOnEsc = true`）");
+            CheckTrue(plN8.KeyCancel(),
+                      "④ 黑场期间 **ESC 仍然关得掉窗**（原版键盘不走射线、不受黑场影响；⛔ 别顺手把 `KeyCancel` 也拦了）");
+            Check(shell.Windows.TopWindow, null, "④ …那扇窗真的关了");
+            shell.Windows.CloseAllWindows();            // 兜底：上面那条若红，别把窗留给 ⑤ 去数
+            Object.DestroyImmediate(n8WinGo);
+
+            // ---- ⑤ 直调口**不挡**（我们只拦射线命中，不拦 `Click()` 派发）
+            int n8Before = n8Fired;
+            n8Btn.ClickForTest();
+            Check(n8Fired, n8Before + 1, "⑤ 黑场期间 `ClickForTest()` 仍然派发（自检/工具直调口不许被黑场挡掉）");
+
+            // ---- ⑥ 淡回后（灭自证：同一坐标全部恢复；同时钉住 N8 的前置缺陷「黑场永不淡出」）
+            lmN8.LoadingFade(false);
+            lmN8.TickForTest(2f);
+            CheckTrue(!lmN8.Panel.gameObject.activeInHierarchy, "⑥ `LoadingFade(false)` + 补间之后 Panel 关掉了");
+            CheckTrue(!PointerLayer.InputBlocked, "⑥ `InputBlocked == false`（收尾之后不锁输入 —— 前置缺陷的反面）");
+            CheckTrue(plN8.ButtonAt(400f, 400f) == n8Btn,
+                      "⑥ 淡回后同一坐标**恢复命中**探针钮（⛔ 只断 ③ 不断这条 ⇒「恒返回 null」也能全绿）");
+            float n8Off2 = n8Scroll.Offset;
+            CheckTrue(plN8.WheelAt(400f, 400f, -120f), "⑥ 淡回后滚轮恢复");
+            CheckTrue(n8Scroll.Offset > n8Off2, "⑥ …偏移真的又动了");
+            CheckTrue(plN8.HoverAt(400f, 400f) == n8Btn && n8Btn.Hovered, "⑥ 淡回后悬停恢复");
+
+            // 清场（批处理没有帧循环 ⇒ 一律 `DestroyImmediate`；先退悬停、再退滚动登记）
+            plN8.HoverAt(10f, 10f);
+            PointerLayer.UnregisterOwnedBy(n8Go);
+            Object.DestroyImmediate(n8Go);
+        }
+
         // ---------------- ⑤ 窗口系统（照原版 `OpenWindowCO` 的判定顺序）
         Section("窗口系统：全屏窗 / 弹窗 / 关窗（正本 §三）");
         var winGo = new GameObject("TestWindow");
@@ -6898,6 +7000,18 @@ public static class ShellScene
                         FindChildIn(a1126Sk.transform, "Banned card in deck"),
                         678.30f, 53.93f, 18f, 50f, 36f, 1,
                         "原版 `…/Banned card in deck/Text` 实读 `auto[18~50]`（`m_fontSize 50` · 基准 36 · 折行 1 · 框 678.30×53.93）");
+                // ---- 🆕 2026-10-17（`N31`）：`Score Levels` 五行是 VLG `reverse=1` —— 树序第一颗 `Level 1` 在最【下】----
+                //   判据 = `python -I d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "SkirmishModeEventWindow"
+                //   --depth 10 --relative --no-sprite` 现读：`Score Levels … reverse=1`；
+                //   `Level 1` y **731.9..807.9** · `Level 5` y **406.4..482.4**（设计 px，上到下）。
+                //   改坏法：把 `SkirmishEventWindow.ScoreLevelRowCy` 改回旧公式 `LevelY0 + LevelRowH*(i+0.5)`
+                //   （下标越大越靠下）⇒ 下面两条都红。
+                CheckTrue(SkirmishEventWindow.ScoreLevelRowCy(0) > SkirmishEventWindow.ScoreLevelRowCy(4),
+                          "★ N31：`Level 1`（树序第一颗）的 y **大于** `Level 5` —— `Score Levels` VLG `reverse=1` ⇒ 第一颗在最下");
+                var skLv1 = FindChildIn(a1126Sk.transform, "Score Bar Line Level 1");
+                var skLv5 = FindChildIn(a1126Sk.transform, "Score Bar Line Level 5");
+                CheckTrue(skLv1 != null && skLv5 != null && skLv1.position.y < skLv5.position.y,
+                          "★ N31：屏上 `Level 1` 在 `Level 5` **下面**（世界 y 向上 ⇒ 更小）；镜像改回去 ⇒ 红");
                 a1126Sk.Close();
                 CheckTrue(a1126Sk.CurrentState == WindowState.Closed,
                           "收尾：遭遇战窗关掉（它的压暗层是整屏的）");

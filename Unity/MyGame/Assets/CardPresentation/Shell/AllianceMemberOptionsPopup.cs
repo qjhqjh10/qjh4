@@ -402,7 +402,7 @@ namespace CardPresentation
                 //    「按钮的 x 两边 + 文字矩形那两条 y 边」。
                 var txR = BtnTextRect(br);
                 var hit = MenuDraw.Hit(bn, "Hit", new PxRect(br.x1, txR.y1, br.x2, txR.y2),
-                                       QHit, () => OnClicked(idx));
+                                       QHit, () => OnClicked(idx), clickCue: WindowSounds.PositiveCue);
                 if (hit != null && bgo != null)
                 {
                     var wb = hit.GetComponent<WindowButton>();

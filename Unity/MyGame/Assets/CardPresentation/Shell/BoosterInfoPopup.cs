@@ -97,7 +97,8 @@ namespace CardPresentation
         ///   `DeckSelectionPopup:294` / `ImportDeckPopup:99` 用 `QDsHit−1` / `QImpHit−1`、
         ///   `PlayerProfileWindow:245` 用 `QShade+1`、`BoosterPackOpenWindow:95` 用 `QBase−1`」。
         ///   **四处值已过期**，全是**同一天（2026-10-04 · A47 / A25⑥）那一批**订掉的（判据 = 各自文件里那段「订正档号」注释）：
-        ///   `QDsHit−1`(3127) → **`QDs`**(3125) · `QImpHit−1`(3132) → **`QImp`**(3130) ·
+        ///   `QDsHit−1`（当时 = **3127**；🔴 **2026-10-17（N14）现读：`QDsHit` 已随 `A1529①` 顺延到 3129
+        ///   ⇒ 这个表达式今天是 3128，= `QDsText`**）→ **`QDs`**(3125) · `QImpHit−1`(3132) → **`QImp`**(3130) ·
         ///   `QShade+1`(3151) → **`QShade`**(3150) · `QBase−1`(3169，`QCloseSurface` **那个号已删**) → **`QShade`**(3170)。
         ///   ⚠️ **七个行号也全漂了** ⇒ 这一段改**按符号认**（⛔ 别把行号抄回来；全仓「行号已漂」是另一件账 **A338** 在治）。
         /// ✅ **2026-10-04 订正：公共件已经做了** —— `MenuDraw.ShadeHit`（`Shell/MenuDraw.cs`，本批时在 `:1068`，
@@ -375,7 +376,7 @@ namespace CardPresentation
             //   "Booster Info Popup" --depth 8`（实读 `96.86 x 98.13`）。
             MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseArtR, ClosePad),
                          QHit, () => Close(), faceQ, "40k_general_bt_yellow",
-                         "40k_general_bt_yellow_hover");
+                         "40k_general_bt_yellow_hover", clickCue: WindowSounds.DefaultCloseCue);
 
             // ④ `Artwork` —— 主图放 `background`（原版两处都空、运行期赋图；见文件头）
             var artwork = Node(window, "Artwork", new PxRect(395.72f, 188.35f, 960.00f, 851.65f));
@@ -604,7 +605,11 @@ namespace CardPresentation
                                    PriceR.W, 13.46f, 40f, 39f);
             if (pt != null) pt.SetWrapping(false);                    // 原版折行=0（A205：关这一下顺带推版面）
             if (pt != null) MenuDraw.AlignRight(pt, PriceR);          // 原版 `Button Text` 是 Right（格内那份）
-            MenuDraw.Hit(pd, "Hit", PriceR, QHit, () => Buy(), priceQ, "40K_button");
+            // 原版 `window/Text/Purchase buttons/Price Display/Generic UI Button` 的 `m_onClickSound`
+            // = `Purchase Click`（R3 §四·A #38）。⚠️ 同一 prefab **只有这 1 颗** Purchase Click ⇒
+            // 下面那两颗钮（`WebShop Button` 等）**不接**（R3 §六·3 已逐颗核清）。
+            MenuDraw.Hit(pd, "Hit", PriceR, QHit, () => Buy(), priceQ, "40K_button",
+                         clickCue: WindowSounds.PurchaseCue);
 
             // `WebShop Button`：自己的 HLG（spacing 0）⇒ 三个子件摆放照实测
             var ws = Node(row, "WebShop Button", WebShopR);

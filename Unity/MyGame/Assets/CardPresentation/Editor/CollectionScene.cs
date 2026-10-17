@@ -1022,7 +1022,8 @@ public static class CollectionScene
             //   （⛔ 不读 `BuildTabButton` 的 `labW` —— 那也是被测实现里的数，读了就是自证）。
             //   **改坏法**：删掉 `MenuWindowBase.BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒
             //   `SetAutoFitBox` 开出来的 `Normal` 留着 ⇒ `折行=` 那条立刻红（0 → 1）。
-            //   ⚠️ 本窗四颗键是 `DECKS`/`CARDS`/`COSMETICS`/`STYLES` —— **都不带空格**
+            //   ⚠️ 本窗四颗键在**英文档**下是 `DECK`/`CARDS`/`COSMETICS`/`STYLES`（第 1 键原版 `m_text` 是**单数**
+            //   `Deck`，2026-10-17 现读 prefab；中文档 = 卡组/张牌/美容品/风格）—— **都不带空格**
             //   ⇒ 「就一行」那条在这里的红法要 `auto` 缩不动才轮到（真正当场能红的是 `折行=` 那条）。
             {
                 int tabN = 0;
@@ -1063,6 +1064,9 @@ public static class CollectionScene
                     //    ⇒ 上面那个改坏法**不一定**把绿翻红（「两个口读到的数不一样」才是换口的全部意义）。
                     //    实测（`_tmp_view/collection.log` 那一次；⚠️ 那是**换口之前**的跑，四颗读的都是**旧口**）：
                     //    `DECKS` 87.3 · `CARDS` 89.0 · `COSMETICS` **153.5** · `STYLES` 96.5
+                    //    ⚠️ **2026-10-17 补记（A1643 / A1498）**：第 1 键早已是 `Deck`（英文档 `DECK`），
+                    //    且四颗都接了原版的 `字距 −3.5` + `Midline` ⇒ **上面那四个宽是历史读数**，
+                    //    ⛔ 别拿它们当期望值（本段的判据只有 `≤ 155 + 0.5`）。
                     //    ⇒ 🔴 第 3 键 `COSMETICS` 余量只有 **2.0px**（十二颗键里最紧的一颗）——
                     //    **首跑重点看它**：红了先量实得值判「实现没对齐」还是「量法没生效（全 0 / 天文数字）」，
                     //    ⛔ **别动期望值 `155f`**。

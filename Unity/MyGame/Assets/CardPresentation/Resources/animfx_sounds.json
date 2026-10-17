@@ -674,6 +674,28 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "ButtonClick Negative",
+   "clips": [
+    "UIButtonPress Negative"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "ButtonClick Positive",
+   "clips": [
+    "UIButtonPress"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.2,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "CardClick 2",
    "clips": [
     "UI Click Card 2"
@@ -2485,6 +2507,17 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "MenuStartGame",
+   "clips": [
+    "StartMatch"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "Methodical Destruction",
    "clips": [
     "MethodicalDestruction"
@@ -3105,6 +3138,17 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "Purchase Click",
+   "clips": [
+    "UI PurchaseClick"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "Putrid Miasma",
    "clips": [
     "PutridMiasma"
@@ -3507,6 +3551,28 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Select Toggle",
+   "clips": [
+    "UI Click 2_no delay"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "SelectAvatar",
+   "clips": [
+    "SelectAvatar"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
   },
   {
    "name": "ShellCasingHit",
@@ -4810,6 +4876,28 @@
    "minVolume": 0.9,
    "maxVolume": 0.9,
    "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "UI Purchase 2",
+   "clips": [
+    "UI Purchase 2"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "UI Send Message",
+   "clips": [
+    "UI Send Message"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
   },
   {
    "name": "Unbridled Carnage",

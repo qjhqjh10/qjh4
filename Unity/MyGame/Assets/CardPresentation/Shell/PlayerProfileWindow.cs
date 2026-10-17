@@ -347,7 +347,8 @@ namespace CardPresentation
                 // 🆕 A17：原版 `Tab Buttons>Menu Area>Player Profile Window` 是 Toggle，悬停换 `…_selected`
                 //（`onSprite` 的 `_hover` 是选中态，见普查 §一）
                 var tabHit = MenuDraw.Hit(b, "Hit", new PxRect(KeyL, top, KeyR, bot), QHit,
-                             () => { if (tabButtons != null) tabButtons.Click(captured); }, _btnBg[i], ArtTabOff);
+                             () => { if (tabButtons != null) tabButtons.Click(captured); }, _btnBg[i], ArtTabOff,
+                             clickCue: WindowSounds.SelectToggleCue);
                 if (tabHit != null) _btnWb[i] = tabHit.GetComponent<WindowButton>();
 
                 tb.options.Add(new TabButtons.Option
@@ -399,7 +400,8 @@ namespace CardPresentation
             //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Player Profile Window"
             //   --depth 8 --substr "Tab  Area/Generic Close Button"`（实读 `96.86 x 98.13`）。
             MenuDraw.Hit(c, "Hit", MenuDraw.PaddedRect(new PxRect(CloseInL, CloseInT, CloseInR, CloseInB), ClosePad),
-                         QHit, () => Close(), closeFaceQ, ArtCloseBg, "40k_general_bt_yellow_hover");
+                         QHit, () => Close(), closeFaceQ, ArtCloseBg, "40k_general_bt_yellow_hover",
+                         clickCue: WindowSounds.DefaultCloseCue);
         }
 
         /// <summary>六个页根。**出厂 active 状态照原版**：只有 `Title Tab` 是 true，其余五个 false

@@ -1065,32 +1065,23 @@ namespace CardPresentation
         /// <summary>`Badge` 的锚跨 = `0.3 − 0.0`（横竖各 30%）。</summary>
         public const float BadgeFrac = 0.3f;
 
-        /// <summary>第 2 跳那段时间串 —— **原版 `SupportMethods.GetTimeString` 的逐句移植**
+        /// <summary>第 2 跳那段时间串 —— **原版 `SupportMethods.GetTimeString` 那一条链**
         /// （`decomp_full/SupportMethods__GetTimeString.c` 170 行全文读；调用点的三个开关
         /// `eventTimer: true, clampTo0: false, hide0Values: false` 是 `SetEphemeralDisplay` 里**立即数**读到的）。
-        /// <para>结构（`hide0Values = false` 这一支，也就是我们唯一用到的那一支）：
-        /// `TotalDays &gt; 1` ⇒ `DH(Days, Hours)` · 否则 `TotalHours &gt; 1` ⇒ `Minutes == 0 ? H_Only(hours) : HM(hours, minutes)`
-        /// · 否则 ⇒ `MS(minutes, seconds)`。另两支（`hide0Values = true` / `eventTimer = false`）也照抄了，
-        /// 免得以后有人真用上时是另一套。</para>
-        /// <para>🔴 **六个词条 key 是解出来的、正文是兜底**：key 逐地址从 `script.json` 的 `ScriptString` 解出 =
-        /// `MainMenu/Time/{DH,D_Only,H_Only,HM,M_Only,MS}`（地址 `0x42C1B10 / 0x42C1C10 / 0x42C2010 /
-        /// 0x42C1F10 / 0x42C2310 / 0x42C2210`）；**词条正文在远端 CCD、本地没有** ⇒
-        /// 我们按 **调用方那两个 `Replace`** 反推格式串 —— 只有 `"{0}d {1}h"` / `"{0}h {1}m"` 这种写法里
-        /// 才会出现 `0h` / `0m` 这两个子串（原版紧接着就把它们删掉）⇒ 兜底串 = `{0}d {1}h` / `{0}d` / `{0}h` /
-        /// `{0}h {1}m` / `{0}m` / `{0}m {1}s`。**这是【我们挑的】**，别当原版文案。</para>
+        /// <para>🔴 **2026-10-17（N4）**：格式化**已收口**到 `TimerDisplay.FormatTimeString`
+        /// （全工程唯一一份实现）—— 本文件原来那第二份拷贝已删（铁律：两处写同一条规则 = 迟早不一致）。
+        /// 分支与边界（`TotalDays &gt; 1` ⇒ `DH` · `TotalHours &gt; 1` ⇒ `H_Only` / `HM` · 否则 `MS`）
+        /// 现在只在 `TimerDisplay.cs` 里维护。</para>
+        /// <para>本方法只留**调用点自己的后处理**：`.Replace("0m","").Replace("0h","")`
+        /// （两个实参是字符串字面量 `0m` / `0h` 与空串，按 `d:/2/tools/il2cpp_out/script.json` 的
+        /// `ScriptString` 表逐地址解出：`0x42B8338 = "0h"` · `0x42B8438 = "0m"` · `0x42B80E0 = ""`），
+        /// **顺序也照原版**。`clampTo0: true` 对应原来那句 `if (ms < 0) ms = 0;`
+        /// （两端都来自本地数据，负数只会是脏数据）。</para>
         /// <remarks>**改坏法**：把 `"0h"` 那一句 `Replace` 删掉 ⇒ `2d 0h` 那种串会原样冒出来（自检那条红）。</remarks></summary>
         public static string EphemeralTextOf(long ms)
         {
-            if (ms < 0) ms = 0;
-            var span = System.TimeSpan.FromMilliseconds(ms);
-            string t;
-            if (span.TotalDays > 1d)
-                t = string.Format("{0}d {1}h", span.Days, span.Hours);          // `MainMenu/Time/DH`
-            else if (span.TotalHours > 1d)
-                t = span.Minutes == 0 ? string.Format("{0}h", (int)span.TotalHours)   // `MainMenu/Time/H_Only`
-                                      : string.Format("{0}h {1}m", (int)span.TotalHours, span.Minutes); // `HM`
-            else
-                t = string.Format("{0}m {1}s", span.Minutes, span.Seconds);     // `MainMenu/Time/MS`
+            string t = TimerDisplay.FormatTimeString(System.TimeSpan.FromMilliseconds(ms),
+                                                     eventTimer: true, clampTo0: true);
             return t.Replace("0m", string.Empty).Replace("0h", string.Empty);   // **两个 Replace 的顺序也照原版**
         }
 
@@ -1325,8 +1316,11 @@ namespace CardPresentation
         /// ⚠️ 三者都是**原版设计空间的原文**，调用方自己按该族的刻度换算（见下面 `AlreadyOwned` 那一处）。</param>
         /// <param name="wrapOff">🔴 原版那一颗 `m_TextWrappingMode = 0`（不折行）时传 `true` ——
         /// `SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**把模式开成 `Normal(1)`，
-        /// 而 `MenuDraw.ClipText` **必须是最后一步**（A781/A435：任何一次重排都会把裁好的顶点抹掉）
-        /// ⇒ 「关折行」只能在这里、`ClipText` **之前**做，⛔ 调用方拿到返回值再关就晚了。</param>
+        /// ⇒「关折行」要做在 `ClipText` **之前**（在这里做最省事、一次做对）。
+        /// 🔴 **2026-10-17（`A1228`）就地订正（铁律 5）**：本行原来写「**调用方拿到返回值再关就晚了**」
+        /// —— **不成立**：`SetWrappingMode → ForceRelayout → RefreshBounds`，而 `RefreshBounds` 的末句
+        /// 就是 `ReclipNow()`（`Battle/Label.cs:1325`）⇒ **调用方那条路也会重裁**、结果一样。
+        /// （判据 = 本仓现读；⛔ 别据此再给调用方加顺序限制。）</param>
         static Label ClippedText(Transform node, PxRect r, string s, Color color, string name,
                                  float fontPx, int q, float wrapPx, ItemDrawerStyle st, int align = 0,
                                  float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,

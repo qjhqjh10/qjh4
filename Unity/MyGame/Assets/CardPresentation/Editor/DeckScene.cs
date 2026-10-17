@@ -574,7 +574,8 @@ public static class DeckScene
         //
         // 名单上这一批（`Deck/DeckRuntime.cs` 里刚做完、此前**一条断言都没有**）：
         //   ① `A1527` 督军行**不印费用圆** —— `SetOn(_deckRowCost[i], on && !heroRow)`
-        //      与 `SetOn(_deckRowCount[i], on && !heroRow)`（**两颗一起**，本工程它们是两颗独立物体）；
+        //      与 `SetOn(_deckRowCostText[i], on && !heroRow)`（**两颗一起**，本工程它们是两颗独立物体；
+        //      ⚠️ `_deckRowCostText` 原名 `_deckRowCount` —— `A2007` 纯改名，它盛的是**费用**）；
         //   ② `A1525` 卡组列表三件 —— 按 `Id` 去重 / `Cost → 显示名(序数)` 排序 / 行名左对齐到 **68**。
         // 判据（⛔ 一律**不是我们自己的常量**）：
         //   · **行名左沿 68** = 参考图（`桌面/warpforge参考图/卡组编辑界面参考.png`）量出来的 ——
@@ -604,11 +605,10 @@ public static class DeckScene
         //   ✅ **`hdr_army` 那一族**：期望值原本取自 `FactionIcon` **自己**的输出 ⇒ 只证「视图用了那条映射」、
         //      证不了映射本身。**本轮补了一条独立腿**（卡池里出现过的每个阵营：图名非空 / 不落 `default` /
         //      两两不同），见那一节里的 `A1145` 注释块。
-        //   ⏸ **`MenuDeckErrorKey` 那一族**（`numKey5` 那两处）：`numKey5` 由 `MenuDeckErrorKeyFmt`
-        //      + `MenuDeckErrorNumber` **两个生产函数**拼出来 ⇒ 严格说属形状①。**暂不改**：紧邻那六条用
-        //      **字面量 2/5/5/4/4/4** 已经把这两个函数钉住了；要灭自证得把 `numKey5` 写成字面量
-        //      `"MenuDeck/Error/5"`，那又与 `MenuDeckErrorKeyFmt` 的常量值**重复**（两处写同一条规则）
-        //      ⇒ 两组代价取轻，**如实登记在这里**，⛔ 不假装它不存在。
+        //   ✅ **`MenuDeckErrorKey` 那一族**（原 `numKey5` 那两处）：**2026-10-17（`T08`）已收掉自证的那一半** ——
+        //      ③-a / ③-c 的期望值现在是**字面量** `"MenuDeck/Error/InvalidDeck"`（不再拿 `numKey5` 当期望值）；
+        //      `numKey5` 只剩**一处**、且只是「**真前提**」（`!Loc.HasEntry(numKey5)` = 数字键今天不在表里）。
+        //      那四个号（`MenuDeckErrorNumber`）仍由紧邻那六条 **字面量 2/5/5/4/4/4** 钉住 ⇒ ⛔ 不假装它不存在。
         //   ✅ 其余扫到的期望值来源（`PxOfWorld` 作**量尺** · `FilterPanelModel.*` · `CardText.*` ·
         //      `DeckRules.*` · `CardArt.*` · 纯字面量）：都是另一条腿，**不属这一族**。
         //   ⚠️ **本件没扫的**：① `DeckScene.cs` 之外别的自检宿主；② **结构冒烟**那类断言
@@ -5780,9 +5780,33 @@ public static class DeckScene
                           "★ G9：`None` ⇒ **空串**（原版 `ToRawLocalizationString` 的 `err==0` 那一支）");
                     CheckTrue(Loc.HasEntry(kFew),
                           $"★ G9：`{kFew}` **在 `Loc` 表里** —— 键不在 ⇒ 界面上印的是键名（不是中文、也不是英文）");
+                    // 🔴 **2026-10-17（`T08`）就地订正（铁律 5）**：`Describe` 那族今天 = **12 条枚举具名键
+                    //   + 1 条 catch-all `MenuDeck/Error/InvalidDeck`**（共 13 条；现读 `Core/Loc.cs` 的
+                    //   `MenuDeck/Error/*` 段）—— `EffectOnlyCard` **原版没有这个键**，`A1868` 已从表里删掉，
+                    //   `Describe` 那一档归 catch-all ⇒ 下面第二个 `HasEntry` 命中的是 `InvalidDeck`，
+                    //   **不是** `EffectOnlyCard`。原文「13 条键抽查三条（`WrongFaction` / `EffectOnlyCard` 各一）」已过期。
                     CheckTrue(Loc.HasEntry(DeckRules.Describe(DeckError.WrongFaction))
                               && Loc.HasEntry(DeckRules.Describe(DeckError.EffectOnlyCard)),
-                          "★ G9：13 条键**抽查三条**都在表里（`WrongFaction` / `EffectOnlyCard` 各一）");
+                          "★ G9：`Describe` 那族 = **12 条枚举具名键 + 1 条 catch-all `InvalidDeck`**（共 13 条）都在表里"
+                        + "（抽查 `TooFewCards` / `WrongFaction` 走自己的键；`EffectOnlyCard` **无原版键**、归 catch-all）"
+                        + "｜🔴 2026-10-17（`A1868`/`A1872`）订正：`EffectOnlyCard` 那条键**已删**，"
+                        + "这里 `Describe(EffectOnlyCard)` 返回的是 `MenuDeck/Error/InvalidDeck`");
+
+                    // 🔴🔴 **2026-10-17（`T08`）新增两条【灭自证】**：上面那条只证明「`Describe(EffectOnlyCard)`
+                    //   的返回值在表里」—— **两态都绿**（自造键还在表里时绿、归 catch-all 时也绿）
+                    //   ⇒ 它测不出「自造键删干净了没有」。下面两条各钉住一半，合起来**不可能一起退化成旧写法**：
+                    //     ① 表里**确实没有** `MenuDeck/Error/EffectOnlyCard`（`A1868` 删掉了）；
+                    //     ② `Describe(EffectOnlyCard)` **逐字等于** catch-all 键（⛔ 不是 `TermPrefix + e`）。
+                    //   🧨 **改坏法**：把 `Describe` 改回 `TermPrefix + e` ⇒ ② 红（① 仍绿 ⇒ 必须两条并存）；
+                    //      把 `MenuDeck/Error/EffectOnlyCard` 加回 `Loc`（假装「原版有这个键」）⇒ ① 红。
+                    CheckTrue(!Loc.HasEntry("MenuDeck/Error/EffectOnlyCard"),
+                          "★ 灭自证①：`MenuDeck/Error/EffectOnlyCard` **不在** `Loc` 表里 ——"
+                        + " 原版没有这个键（官方 `MenuDeck/Error/*` 只有 9 条具名键），我们那条自造键已删"
+                        + "｜🧨 把它加回表里 ⇒ 红");
+                    Check(DeckRules.Describe(DeckError.EffectOnlyCard), "MenuDeck/Error/InvalidDeck",
+                          "★ 灭自证②：`Describe(EffectOnlyCard)` = **catch-all** `MenuDeck/Error/InvalidDeck`"
+                        + "（⛔ 不再拼 `TermPrefix + e` —— 那样会印出**键名本身**）"
+                        + "｜🧨 把它改回 `TermPrefix + e` ⇒ 红");
 
                     Loc.RestoreForTest(AvailableLanguages.Chinese);
                     string zhMsg = DeckRuntime.DeckErrorText(DeckError.TooFewCards);
@@ -5880,36 +5904,49 @@ public static class DeckScene
                 //        ⇒ 往 `Terms` 塞一条 `MenuDeck/Error/5`，**选出来的键不动、字却取到了**
                 //        —— **同一个实现不可能同时**「选键看 `Terms`」又「选键不看 `Terms`」
                 //        （原来那两条是「两边一起改回去就全绿」的自证）。
-                //   ✅ **2026-10-09（第九会话 · `A1133`）**：`MenuDeck/Error/{2,4,5}` 三条数字键**已经补进 `Loc` 表**
-                //     ⇒ 「数字键在表里 ⇒ 就用它」那一档**现在是实况**；下面 ② 那条前提与 ③-a / ③-b 的期望值
-                //     **已按新实况改**（原来那套是按「不在表里」写的）。
+                //   🔴 **2026-10-17（`T08`）就地订正（铁律 5）**：`A1133` 补进表的三条数字键
+                //     `MenuDeck/Error/{2,4,5}` **已按 `A1872` 删掉**（官方 I2 表一条数字键都没有；
+                //     原版 `ToRawLocalizationString` 的 `{0}` 装的是**枚举**、`ToString()` 印**名字**）
+                //     ⇒ ② 今天**又回到「不在表里」**，③-a 的期望值 = **兜底键** `MenuDeck/Error/InvalidDeck`。
+                //     ⚠️ **数字侧（`MenuDeckErrorNumber`）不动**：仍回原版号 2/5/4（那是原版枚举号，⛔ 别改成名字）。
+                //     ⚠️ 那两句「2026-10-09 起数字键在表里」的旧话**已作废**，⛔ 别再照它改期望值。
                 CheckTrue(Loc.HasEntry(DeckRuntime.MenuDeckErrorKeyFallback),
                           $"★ 兜底键 `{DeckRuntime.MenuDeckErrorKeyFallback}` **在 `Loc` 表里**"
                         + "（`Term` 真能把它取成词条）｜🧨 它不在 ⇒ 那扇窗印的是键名本身");
                 string numKey5 = string.Format(DeckRuntime.MenuDeckErrorKeyFmt,
                                                DeckRuntime.MenuDeckErrorNumber(DeckError.TooFewCards));
-                CheckTrue(Loc.HasEntry(numKey5),
-                          $"★ **真前提**（2026-10-09 起的实情）：数字键 `{numKey5}` **在** `Loc` 表里 ——"
-                        + " 下面 ③-a / ③-b 的期望值（落**数字键**、取到**词条**）就是照这个实情写的｜🧨 哪天把这条"
-                        + " 词条**删掉** ⇒ **这一条自动红**，那时把 ③-a 的期望值一起改回**兜底键**"
+                CheckTrue(!Loc.HasEntry(numKey5),
+                          $"★ **真前提**（2026-10-17 起的实情）：数字键 `{numKey5}` **不在** `Loc` 表里 ——"
+                        + " `A1872`：官方 I2 表一条数字键都没有（`{0}` 装的是**枚举**、`ToString()` 印名字），"
+                        + " `A1133` 补进表的那三条已删 ⇒ 下面 ③-a 的期望值（**落兜底键**）就是照这个实情写的"
+                        + "｜🧨 哪天把数字键**加回**表里 ⇒ **这一条自动红**，那时把 ③-a 的期望值一起改回**数字键**"
                         + "（两态跟着切，⛔ 别把它当缺陷去改实现）");
                 CheckTrue(PopUpGameWindow.Terms.Count == 0,
                           "（前提）本类的 `Terms` 落点**仍是空的** —— 它与 `Loc` 是**两处**表"
                         + "（`Term()` 先查前者、再转后者；见 `Shell/PopUpGameWindow.cs` 的 `Term`）");
                 // ---- ③-a 选键那一侧：看 `Loc` ----
-                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), numKey5,
-                      "★ 选键：数字键**在表里** ⇒ 原版 `ToRawLocalizationString` **直接用数字键**（⛔ 不再落兜底键）"
+                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), "MenuDeck/Error/InvalidDeck",
+                      "★ 选键：数字键**不在表里** ⇒ 落**兜底键** `MenuDeck/Error/InvalidDeck`"
+                    + "（原版 `ToRawLocalizationString` 拼的是数字键、查不到词条时原版也回兜底**键**；"
+                    + "我们那一跳现读 = `Loc.HasEntry(key) ? key : MenuDeckErrorKeyFallback`）"
                     + "｜🧨 判据改回 `Terms.ContainsKey`（那张**恒空**的表）⇒ ③-c 红");
                 Check(DeckRuntime.MenuDeckErrorKey(DeckError.None), "", "★ ……`None` ⇒ 空串（原版 `:16` 那一支）");
                 // ---- ③-b 取字那一侧：**先**看 `Terms`、再转 `Loc` ----
-                Check(PopUpGameWindow.Term("MenuDeck/Error/5"), Loc.T("MenuDeck/Error/5"),
+                //   🔴 **2026-10-17（`T08`）改测兜底键**：原来测的是 `MenuDeck/Error/5`（那时它在表里）。
+                //   数字键删掉之后 `Loc.T("MenuDeck/Error/5")` 两边**都回键名本身** ⇒ 断言恒真、失去鉴别力。
+                //   现在测**兜底键**（它确实在表里）：`Term` 的第二跳能取到词条、且**不是键名**。
+                Check(PopUpGameWindow.Term("MenuDeck/Error/InvalidDeck"), Loc.T("MenuDeck/Error/InvalidDeck"),
                       "★ 取字：`Terms` 没有、**`Loc` 有** ⇒ `Term()` 的第二跳转到 `Loc`、取到**词条**"
                     + "（`Loc.T` 的实值；⛔ 不是键名本身）");
+                CheckTrue(PopUpGameWindow.Term("MenuDeck/Error/InvalidDeck") != "MenuDeck/Error/InvalidDeck",
+                      "★ 灭自证：兜底键取到的是**词条**、不是键名 —— 与上一条并排 ⇒「第二跳真的进了 `Loc`」"
+                    + "｜🧨 把 `Term()` 末句改回 `return key ?? \"\"` ⇒ 上一条与这条一起红");
                 // ---- ③-c **灭自证（结构）**：同一时刻，选出来的键不动、字却取到了塞进去的那条 ----
                 PopUpGameWindow.Terms["MenuDeck/Error/5"] = "（自检塞的假词条）";
-                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), numKey5,
-                      "★ 灭自证之一：往 `Terms` 塞了 `MenuDeck/Error/5`，**选出来的键仍是数字键** ——"
-                    + " 选键那一侧看的是 `Loc.HasEntry`，`Terms` **不参与选键**｜🧨 判据改回 `Terms.ContainsKey` ⇒ 红");
+                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), "MenuDeck/Error/InvalidDeck",
+                      "★ 灭自证之一：往 `Terms` 塞了 `MenuDeck/Error/5`，**选出来的键仍是兜底键** ——"
+                    + " 选键那一侧看的是 `Loc.HasEntry`（数字键**不在**表里），`Terms` **不参与选键**"
+                    + "｜🧨 判据改回 `Terms.ContainsKey` ⇒ 选出来会变成 `MenuDeck/Error/5` ⇒ 红");
                 Check(PopUpGameWindow.Term("MenuDeck/Error/5"), "（自检塞的假词条）",
                       "★ 灭自证之二：**同一时刻** `Term` 取到的却是塞进去的那条（`Terms` 仍**优先于** `Loc`）"
                     + " —— 与上一条并排 ⇒ 「两处表、两个口各看各的」被钉死"
@@ -5949,8 +5986,9 @@ public static class DeckScene
                     CheckNear(pop.extraScaleSmallScreen, 1f, 1e-6f, "★ `extraScaleSmallScreen = 1.0`（原版 MB 实读）");
                     Check(pop.transform.parent != null ? pop.transform.parent.name : "(空)",
                           "3 - PopUp Holder", "★ 挂在 **Popup(15)** 那档锚点下（原版同一个 Holder）");
-                    Check(pop.MessageKey, "MenuDeck/Error/5",
-                          "★ 正文键 = **数字键** `MenuDeck/Error/5`（判据 = 它**在** `Loc` 表里，见 ① ③-a）");
+                    Check(pop.MessageKey, "MenuDeck/Error/InvalidDeck",
+                          "★ 正文键 = **兜底键** `MenuDeck/Error/InvalidDeck`（`TooFewCards` 的原版号是 **5**，"
+                        + "但数字键 `MenuDeck/Error/5` **不在** `Loc` 表里 ⇒ `MenuDeckErrorKey` 落兜底键；见 ① ③-a）");
                     // 🔴 **2026-10-19（A1012）就地改口径（铁律 5）**：下面这几条原来断的是
                     //   「**画出来的就是那个键**」—— `Term()` 转 `Loc` 之后**已经不对了**（印的是**词条**）。
                     //   现在按本文件既有写法（先例 = A891 那一节的 `Loc.HasEntry(键)` + `Loc.T(键)` 一对）拆成：
@@ -5959,7 +5997,9 @@ public static class DeckScene
                     //     ③ **灭自证**：印的**不是键名本身** —— 这正是本缺陷要防的那一半
                     //        （把 `Term()` 末句改回 `return key ?? ""` ⇒ ③ 红）。
                     //   ⚠️ 只有 ① 会「两边一起退化成键名」而假绿（键不在表里时）⇒ ①③ 缺一不可。
-                    string wantMsg = Loc.T("MenuDeck/Error/5");
+                    //   🔴 **2026-10-17（`T08`）**：期望值的键跟着上一条换成**兜底键**
+                    //     `MenuDeck/Error/InvalidDeck`（它**在**表里 ⇒ ①②③ 三条都仍有鉴别力）。
+                    string wantMsg = Loc.T("MenuDeck/Error/InvalidDeck");
                     Check(pop.MessageShown, wantMsg,
                           $"★ ……而且**画出来的是那条键的词条**（`A1012` 起 `Term()` 先查 `Terms`、再转 `Loc`；"
                         + $"当前语档下 =「{wantMsg}」）");
@@ -8273,6 +8313,122 @@ public static class DeckScene
                         + "；本条量**顶点**、① 读 `Clip` **字段** —— 两条腿缺一不可（同 A198③ 的口径）");
 
                 _rt.UiScrollPool(-100000f);                      // 收尾：回池顶
+            }
+
+            // ---- 🆕 2026-10-17（`A1495` 第二半）：**卡池 → 卡组行 → 卡背 → 钮** 那条【完整】派发链 ----
+            //   判据（账文）→ `资料/任务线/界面线/任务/T01_卡组编辑窗.md` §2·3。
+            //   🔴 **结构原因**（那一段原文）：自检口 `UiClickPx` **只走 `HandleButtons`**，
+            //     `UiPoolHit` **只走 `HandlePoolClick`** ⇒ 真实鼠标那条**按顺序**的派发
+            //     **一个自检口都覆盖不到**。`A1495` 那道 NRE 恰恰出在「卡池这一站返回 false 之后、
+            //     继续往下走」那条路上 ⇒ 只直调单站**永远抓不到**它（= 「16k+ 断言全绿、真机一进去就炸」）。
+            //   ⚠️ 本节**不跑自检时的那条真鼠标路**（批处理 `Mouse.current == null`）—— 它走的是新自检口
+            //     `UiClickPoolPx`，那个口的每一句**逐句照 `HandlePointer`**（闸 → 池 → 行 → 卡背 → 钮）。
+            {
+                _rt.UiSetSmallScreenUIForTest(false);            // 桌面档（6 列 × 4 行 = 24 格）
+                _rt.UiSetTab(0);                                 // 卡池只在 Cards / Deck info 两页画
+                _rt.UiClearFilters();                            // 清掉前面几节留下的筛选
+                _rt.UiScrollPool(-100000f);                      // 先回池顶（把「槽 → 卡表下标」收成 0..23）
+                int nPool = _rt.State.VisibleCards().Count;
+                CheckTrue(nPool > 0, $"（前提）卡池有卡（{nPool} 张）");
+                // 一次滚到底：**只刷新一趟** ⇒ 尾行那几格没有可复用的视图（见 `RefreshPool` 的复用判据）
+                //   ⇒ 它们就是 `_poolIndex[i] < 0` 且 `_poolViews[i] == null` 的**真 null 槽**。
+                _rt.UiScrollPool(100000f);
+
+                int cols = _rt.UiPoolColsNow;
+                int slots = _rt.UiPoolSlotCount;
+                CheckTrue(slots > cols * 2, $"（前提）卡池槽数 {slots} 够多（列数 {cols}）");
+
+                // ---- ② 不变式：空槽（`_poolIndex[i] < 0`）⇒ 视图 **null 或未激活** ----
+                //   ⚠️ 遍历只到 `UiPoolSlotCount`（`_poolIndex.Count`）—— `_poolViews` 尾巴上还挂着
+                //     「换档多出来、被 park 的那几格」（`_poolViews.Count` 可以比它大）⇒ 别拿 `_poolViews.Count` 当槽数。
+                var badSlots = new List<string>();
+                int emptySlots = 0, nullSlots = 0;
+                for (int i = 0; i < slots; i++)
+                {
+                    if (_rt.UiPoolSlotCardIndex(i) >= 0) continue;
+                    emptySlots++;
+                    bool? act = _rt.UiPoolSlotViewActive(i);
+                    if (act == null) nullSlots++;
+                    if (act == true) badSlots.Add($"{i}(活着)");
+                }
+                CheckTrue(badSlots.Count == 0,
+                          $"★ A1495 不变式：**空槽**（`_poolIndex[i] < 0`）的视图必须是 **null 或未激活**"
+                        + $"（空槽 {emptySlots} 个：null {nullSlots} · 未激活 {emptySlots - nullSlots}；"
+                        + $"违例 {badSlots.Count} 个{(badSlots.Count > 0 ? "：" + string.Join("、", badSlots) : "")}）"
+                        + "｜🧨 `RefreshPool` 给空槽留下一个**还开着**的视图 ⇒ 这一条红");
+
+                // ---- ③ **灭自证**：挑一个**真 null 槽**去点 ----
+                //   为什么要挑 null 槽：`HandlePoolClick` 的守卫是
+                //     `if (v == null || !v.gameObject.activeSelf || … ) return false;`
+                //   ⇒ 若点的是「**建了但没激活**」的那种空槽，**把 `v == null` 那截删掉也照样返回 false**
+                //     ⇒ ① 会变成**假绿**。只有 **null 槽**才真正踩到那道守卫（删掉它 ⇒ 下一句
+                //     `v.gameObject` 直接 NRE）。所以「必须找到 null 槽」本身是 ① 的**鉴别力前提**。
+                int probe = -1, above = -1, c0 = -1, c1 = -1;
+                for (int i = cols; i < slots; i++)
+                {
+                    int up = i - cols;
+                    if (up < cols) continue;                                // 还要能再往上取一格量行距
+                    if (_rt.UiPoolSlotCardIndex(i) >= 0) continue;          // 要空槽
+                    if (_rt.UiPoolSlotViewActive(i) != null) continue;      // 要**真 null** 槽
+                    if (_rt.UiPoolSlotCardIndex(up) < 0) continue;          // 正上方那一格要装真卡（用来反推中心）
+                    if (_rt.UiPoolSlotCardIndex(up - cols) < 0) continue;   // 再上面那一格也要装真卡（量行距）
+                    c0 = up - cols; c1 = up;
+                    probe = i; above = up; break;
+                }
+                CheckTrue(probe >= 0,
+                          "★ A1495 灭自证（前提）：滚到底之后存在**真 null 空槽**（`_poolIndex < 0` 且视图为 null），"
+                        + "而且它正上方那一格装着真卡"
+                        + "｜🧨 若这一条红（只有「未激活视图」的空槽 / 卡池张数正好是格数整数倍）⇒ 下面 ① 的鉴别力就没了，"
+                        + "先检查夹具或 `RefreshPool` 的空槽处置");
+                CheckTrue(c0 >= 0 && c1 >= 0,
+                          "★ A1495 灭自证（前提）：同一列有**两格连续的真卡**（用来量行距 —— 别拿我们自己的常量当尺子）");
+
+                if (probe >= 0 && c0 >= 0 && c1 >= 0
+                    && _rt.UiPoolCellRect(above, out float ax, out float ay, out _, out _)
+                    && _rt.UiPoolCellRect(c0, out _, out float cy0, out _, out _)
+                    && _rt.UiPoolCellRect(c1, out _, out float cy1, out _, out _))
+                {
+                    float pitch = cy1 - cy0;                 // 行距 = 相邻两行同列真实框心之差
+                    float ex = ax, ey = ay + pitch;          // 空槽（正上方那一格）的中心
+                    CheckTrue(pitch > 0f, $"（前提）行距量得出来（{pitch:F1}px > 0）");
+                    // 闸（与 `HandlePointer` 同一对，`UiClickPoolPx` 逐句照抄）—— 它们为真时点击**进不了卡池那一站**
+                    CheckTrue(!_rt.ModalPopupOpen && !_rt.UiWindowShield,
+                              "（前提）两道闸都开着（没有模态消息窗 / 没有别的窗压着）"
+                            + "—— 否则 `UiClickPoolPx` 在进卡池之前就返回 false（下面两条会变成假绿/假红）");
+
+                    // ---- ① 点空槽格中心 ⇒ **没人吃**，而且 **这一下没有异常** ----
+                    //   🔴 判据是「**该次调用有没有 Exception**」，⛔ 不是只看返回值 ——
+                    //     `A1495` 那道 NRE 恰恰是**在返回 false 的路上**炸的（`!v.gameObject.activeSelf`）。
+                    var clickLogs = new List<string>();
+                    Application.LogCallback sink1 = (condition, stackTrace, type) =>
+                        clickLogs.Add(type + ": " + (condition ?? ""));
+                    Application.logMessageReceived += sink1;
+                    bool ateEmpty;
+                    try { ateEmpty = _rt.UiClickPoolPx(ex, ey); }
+                    finally { Application.logMessageReceived -= sink1; }
+                    string exceptions = null;
+                    foreach (var l in clickLogs)
+                        if (l != null && l.StartsWith("Exception: ")) { exceptions = l; break; }
+                    CheckTrue(!ateEmpty,
+                              $"★ A1495 ①：点**空槽**（第 {probe} 格）的中心 ({ex:F0},{ey:F0}) ⇒ **没人吃这一下**"
+                            + "｜🧨 `HandlePoolClick` 把 `_poolIndex[i] < 0` 那一截判漏 ⇒ 这里变 true（点空格等于点到了卡）⇒ 红");
+                    CheckTrue(exceptions == null,
+                              "★ A1495 ①：……而且**这一下没有抛任何异常**"
+                            + (exceptions != null ? $"（实得：{exceptions}）" : "")
+                            + "｜🧨 删掉 `HandlePoolClick` 里 `v == null ||` 那截守卫 ⇒ 这条红（NRE），"
+                            + "而**只看返回值**的上一条**照样绿** —— 这正是 `A1495` 当时漏掉的那一半");
+
+                    // ---- ④ 正向控制：点**真卡**中心 ⇒ **吃** ----
+                    //   与 ① 成对 ⇒ 「一律 return false」那种错法在这里必红。
+                    CheckTrue(_rt.UiPoolCellRect(above, out float px0, out float py0, out _, out _),
+                              "（前提）空槽正上方那一格量得出来");
+                    CheckTrue(_rt.UiClickPoolPx(px0, py0),
+                              $"★ A1495 ④ 正向控制：点**真卡**（第 {above} 格）的中心 ({px0:F0},{py0:F0}) ⇒ **吃**了这一下"
+                            + "｜🧨 `HandlePoolClick` 改成「一律 return false」/ 视口框算错 ⇒ 本条红"
+                            + "（① 与 ④ 结构上不可能同时被同一种错法满足）");
+
+                    _rt.UiScrollPool(-100000f);              // 收尾：回池顶
+                }
             }
 
             // ---- 🆕 2026-10-13（A1702 ②）：卡池滚一格**只建新进来的那一行**（原来重建 24 张）----

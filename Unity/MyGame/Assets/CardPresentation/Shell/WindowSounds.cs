@@ -51,6 +51,21 @@ namespace CardPresentation
         public const string BoosterCardClickCue = "CardClick 2";     // clip: UI Click Card 2
         public const string BoosterNewCardCue = "New Card";          // clip: New Card
 
+        // ---- 逐按钮 cue（原版 `EverguildButton|EverguildToggle.m_onClickSound`）----
+        // 🔴 判据 = `资料/普查产出_1017/UI/R3_S01按钮cue映射.md` §二·B（10 个 cue 的包装 / clip / 参数，
+        //    全部本地可解析）+ §四·A（我们的节点 → 原版节点 → cue，73 条）。
+        // ⚠️ `ButtonClick` / `ButtonClick Back` 就是上面那两条默认音，这里**不再重复定义**。
+        // ⚠️ `Select Toggle` 的 clip 是 `UI Click 2_no delay`（**不是** `ButtonClick` 那条 `UI Select Toggle`）——
+        //    名字像、资产不同，⛔ 别按名字合并。
+        public const string PositiveCue = "ButtonClick Positive";    // clip: UIButtonPress（pitch 0.8–1.2 随机）
+        public const string NegativeCue = "ButtonClick Negative";    // clip: UIButtonPress Negative
+        public const string SelectToggleCue = "Select Toggle";       // clip: UI Click 2_no delay
+        public const string SelectAvatarCue = "SelectAvatar";        // clip: SelectAvatar
+        public const string PurchaseCue = "Purchase Click";          // clip: UI PurchaseClick
+        public const string StartGameCue = "MenuStartGame";          // clip: StartMatch
+        public const string SendMessageCue = "UI Send Message";      // clip: UI Send Message
+        public const string Purchase2Cue = "UI Purchase 2";          // clip: UI Purchase 2
+
         /// <summary>`contentByRarities[]` 的 5 档 → cue（原版分组：`0/1 → Rarity 1` · `2` · `3` · `4/5 → Rarity 4`）。
         /// 🔴 与 `BoosterPackOpenWindow.CardFxFor` 那张**粒子**表同分组、不同资产，⛔ 别合并成一张。</summary>
         public static readonly string[] BoosterRarityCues =

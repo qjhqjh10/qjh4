@@ -79,8 +79,14 @@ namespace CardPresentation
         // 梯子：压暗 < 面板 < 图/装饰 < 文字 < 命中。
         // 🔴 必须**严格高于活动窗整族**（`LiveOpsEventWindow.QBg..QHit` = 3104–3116 —— 这扇窗就是被它开出来的），
         //    且**低于** `SearchingMatchPopup`（3130）与 `PromptPopup`（3140）。
-        //    3124–3129 这一段今天没有别的窗用（3125–3128 属 `DeckSelectionPopup`、但两者不会同屏：
-        //    选卡组窗关掉之后才可能点 Help）。同档时谁盖谁不可控（透明队列按到相机的距离排）⇒ 每层必须不同档。
+        //    3124–3129 这一段除了 `DeckSelectionPopup`（3125–3129）之外没有别的窗用 —— 而且**数值上**它与本窗**撞了三档**：
+        //    本窗 `QPanel/QArt/QText` = **3125/3126/3127** vs 那边的 `QDs/QDsHi/QDsRow` = **3125/3126/3127**
+        //    （那边现占 **3125–3129**：`QDs` 3125 · `QDsHi` 3126 · `QDsRow` 3127 · `QDsText` 3128 · `QDsHit` 3129
+        //    —— 2026-10-17 现读；本行原来写「3125–3128 属 `DeckSelectionPopup`」，**上界是错的**）。
+        //    **两窗不同屏**（选卡组窗关掉之后才可能点 Help）⇒ **今天无影响**；但那是「同一工程里两扇窗各用一套号」，
+        //    谁哪天把这两扇同时开出来，就是「同档时谁盖谁不可控」—— 下一个动这两个文件的人先看这一行。
+        //    （同族坑另见 `N14`：`DeckInfoPopup` 抬档后占 3130–3133，与 `ImportDeckPopup` 同号、同样两窗不同屏。）
+        //    同档时谁盖谁不可控（透明队列按到相机的距离排）⇒ 每层必须不同档。
         public const int QShade = 3124;
         public const int QPanel = 3125;
         public const int QArt = 3126;

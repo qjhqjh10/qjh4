@@ -29,6 +29,7 @@
 //   ④ **里程碑的图不在 Image 上、在脚本字段里**（`activeSprite`/`disabledSprite`，正本 §三·7）
 //      ⇒ 照字段画，别照 Image 的 `sprite` 画（那个是空的）。
 using System.Collections.Generic;
+using TMPro;                       // 🆕 A1289：量 `GetPreferredValues()`（复刻原版 CSF）要 TMP 的类型
 using UnityEngine;
 
 namespace CardPresentation
@@ -468,6 +469,34 @@ namespace CardPresentation
             if (lb != null) lb.AlignRightOn(LayoutSpace.FromPixel(R(r).x2, 0f).x);
         }
 
+        /// <summary>🆕 **2026-10-17（A1289）**：量 TMP 自己的 `GetPreferredValues().x`（= 原版 CSF
+        /// `h:PreferredSize` 走的那条路），返回**画布 px**。
+        /// <para>🔴 **逐字照抄** `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `PreferredWidthPx`
+        /// （那一份是 `private`、与本体没有共同基类成员 ⇒ 复制一份；⛔ 别为此去动 `LiveOpsEventWindow`
+        /// 或别的窗）。判据 = `TMP_Text.GetPreferredWidth()`：字号取 `m_enableAutoSizing ? m_fontSizeMax : m_fontSize`、
+        /// margin = ∞（不折行）——与 `ContentSizeFitter(h:PreferredSize)` 同一个函数。</para>
+        /// <para>⚠️ 量不到就返回 0 并**出声**（`lb == null` / 点阵后端 / 取不到 TMP）⇒ 调用方保留原落点，
+        /// ⛔ 不静默、⛔ 不拿猜测的宽度去挪。</para></summary>
+        static float PreferredWidthPx(Label lb, string who)
+        {
+            if (lb == null) return 0f;
+            var t = lb.GetComponentInChildren<TextMeshPro>(true);
+            if (t == null)
+            {
+                Debug.LogWarning("[Missions] `" + who + "` 量不出 preferred width（这颗没有 TMP —— 字体资产缺失时"
+                        + " `Label` 退回点阵后端）⇒ 奖励块停在「数字宽当 0」那一档");
+                return 0f;
+            }
+            float wWorld = t.GetPreferredValues().x;       // ⚠️ 用**无参**重载（不重解析 `m_text`）
+            if (float.IsNaN(wWorld) || float.IsInfinity(wWorld) || wWorld <= 1e-6f)
+            {
+                Debug.LogWarning("[Missions] `" + who + "` 的 preferred width 量出 " + wWorld
+                        + "（NaN/Inf/非正）⇒ 奖励块停在「数字宽当 0」那一档");
+                return 0f;
+            }
+            return wWorld * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
+        }
+
         // ============================================================ 三种卡
         //
         // 卡内五元组出处：`工具/menu_rect.py <pid> --cs --root-size <显示尺寸>`。
@@ -849,7 +878,12 @@ namespace CardPresentation
                 // 🆕 **A1205 接上**（`R5` §2·J #56：原版 `Normal Missions ▸ Special Missions ▸
                 //    Daily Login Container ▸ background ▸ footer ▸ TimerHolder ▸ Timer`
                 //    = `auto[15~38] · base 36 · 折行 1`）—— ⚠️ **来源分叉**：同一颗在独立预制体
-                //    `Daily Login Bonus Container` 上是另一档（`R5` §5·3）⇒ 本行按 **页内那一份**取（玩家看到的是它）。
+                //    `Daily Login Bonus Container` 上是另一档（`R5` §5·3）⇒ 本行按 **页内那一份**取。
+                //    🔴 **2026-10-17（`A1232`）就地订正（铁律 5）**：这里原来写「**玩家看到的是它**（页内那份）」
+                //    —— **不成立**：原版任务卡运行时会把作者子件 `ContainerHolder.Clear()` 销毁、再按
+                //    **服务端 Title Data `EventComponents[key=0].GUID`** 选中的 prefab `Instantiate`
+                //    ⇒ 玩家实际看到哪一份**本地判不了**（要 PlayFab Title Data / 真 Play 的 Addressables dump）。
+                //    ⛔ 因此别据此重挑字号来源；本行保持现状，账目挂「等远端」。
                 //    `Txt` 走 `TextBox`（**默认就折行**、折行宽 = 本格框宽）⇒ 折行档 = 1 **不用传任何东西**
                 //    （`wrapOff` 缺省 `false` 就是这一档）。
                 var tl = Txt(parent, th, DailyData.ResetIn(), new Color(0.5686f, 0.5686f, 0.5882f, 1f), "Timer", 28f,
@@ -1024,9 +1058,9 @@ namespace CardPresentation
             //    `sideIconW` = 图标宽 = `drawerHolder` 的 `LayoutElement.m_PreferredWidth = 55.0`
             //    （屏上 63.25）；`sideGap` = 那条 HLG 的 `m_Spacing = 6.0`（⚠️ 与登录卡那两格**不同**：
             //    那两格是 5.0 / 4.0 —— 铁律 5·c，别抄成一个）。
-            //    ⚠️ 残差（同 `BuildRewardCell` 里那段）：数字那一截的宽是 TMP 的 `preferredWidth`、
-            //    静态算不出来 ⇒ 我们把那一截当 0 宽记，整块因此比原版**偏右**约「数字宽 ÷ 2」
-            //    （实拍复核：原版图标左沿 ≈ 120 设计 px，我们 ≈ 132）。
+            //    ✅ **2026-10-17（A1289）那条残差已收口**：数字那一截的宽现在由 `BuildRewardCell` 末尾
+            //    用 `PreferredWidthPx` 量出来、`off` 按 `(图标 + 间距 + numW)` 重算 ⇒ 整块回到原版的居中位
+            //    （原来比原版**偏右**约「数字宽 ÷ 2」；实拍复核：原版图标左沿 ≈ 120 设计 px、我们 ≈ 132）。
             BuildRewardCell(parent, rw, DailyData.SkullsRewardArt(), DailyData.SkullsRewardCount().ToString(), "1",
                             10f, 40f, 36f, sideIconW: 55f, sideGap: 6f, sideAlignT: 0.5f);
 
@@ -1727,6 +1761,9 @@ namespace CardPresentation
                 //    骷髅卡实测原版图标左沿 120 设计 px、我们 132，差 **12 设计 px ≈ 13.8 画布 px**，
                 //    可比对象 = 用户那张原版实拍 `奖励—布道所（每日任务）参考图.png` 左栏「每日骷髅头」卡）。
                 //    ⛔ **缺省 `0` ⇒ 既有调用点（每日行 / 登录卡两格）逐位不变**（`(W−块宽) × 0 = 0`）。
+                //    ✅ **2026-10-17（A1289）这条残差已收口**：数字那一截的宽现在由 `PreferredWidthPx` 在建树期
+                //    量出来，`off` 按 `(图标 + 间距 + numW)` 重算 ⇒ 整块回到原版的居中位（不再是「偏右 numW/2」）。
+                //    见本函数末尾那一段（量不到时它自己出声 + 原地不动）。
                 float off = (r.W - (sideIconW + sideGap)) * sideAlignT;
                 dh = new PxRect(r.x1 + off, r.y1, r.x1 + off + sideIconW, r.y2);
                 c = new PxRect(dh.x2 + sideGap, r.y1, r.x2, r.y2);
@@ -1752,7 +1789,7 @@ namespace CardPresentation
                 c = UguiRect.Child(r, UguiRect.A00, new Vector2(1f, 0.337f), new Vector2(0.5f, 0f),
                                    Vector2.zero, new Vector2(0f, 0.602545f));
             }
-            Draw(parent, art, dh, "Reward " + key, RewardsWindow.QContent, null, true);
+            var artQ = Draw(parent, art, dh, "Reward " + key, RewardsWindow.QContent, null, true);
             // 🆕 **A1205**：三档（见上面 summary）都在 `Txt` 的 `autoMinPx`/`autoMaxPx`/`autoBasePx` 上，
             //    由**调用点**传；`折行 = 0` 是这三档**共同**的那一格 ⇒ 这里恒 `wrapOff: true`。
             var cLb = Txt(parent, c, countText, Color.white, "count " + key, 40f, autoMinPx, autoMaxPx, autoBasePx,
@@ -1765,6 +1802,35 @@ namespace CardPresentation
             //    宽框的中间**（离图标约 `(框宽 − 字宽)/2`，静默：位置类断言此前一条都抓不到它）。
             //    ⛔ 三处宿主**同一个偏差**，因此在这里统一按其原版档改（不是「只修骷髅卡」那一半）。
             AlignL(cLb, c);
+
+            // 🔴🆕 **2026-10-17（A1289）：整块按原版的 `preferredWidth` 重摆（原来把数字那一截当 0 宽）。**
+            //   原版那一格的 HLG（`m_ChildAlignment = 4 MiddleCenter`）里，主轴上的块宽
+            //   = 图标 `55` + 间距 + **数字自己的 `preferredWidth`**（`count` 挂 CSF `h:PreferredSize`）；
+            //   我们原来只按 `图标 + 间距` 居中 ⇒ **整块比原版偏右「数字宽 ÷ 2」**（实拍约 12 设计 px）。
+            //   ⇒ 顺序照账里那条：**先建标签 → 量 → 用 `numW` 重算 `off` → 重摆图标与字**。
+            //   ⚠️ `PreferredWidthPx` 量不到（0，它自己已出声）⇒ **原地不动**（保留上面那一档），⛔ 不猜。
+            //   ⚠️ 只动**横向落点**：`count` 的框仍是「图标右边 → 格子右边」那一整条（`AlignL` 只吃左沿），
+            //     框宽 / 自适应窗口一个字都没改 ⇒ 不存在「量出来的宽反过来改了字号」的回路。
+            if (sideIconW > 0f && sideAlignT > 0f && cLb != null)
+            {
+                // ⚠️ **量纲**：`PreferredWidthPx` 返回**画布 px**，而本函数里的 `r` / `dh` / `c` 一律是
+                //    **设计空间 px**（未缩放；`R()` 只在建对象那一刻乘 `_s`）⇒ 必须 **÷ `_s`** 才是同一帧。
+                //    ⛔ 别直接拿画布 px 去减 `r.W`（骷髅卡 `_s = 1.15` ⇒ 会少挪 13%）。
+                float numWCanvas = PreferredWidthPx(cLb, "count " + key);
+                float numW = _s > 1e-6f ? numWCanvas / _s : numWCanvas;
+                if (numW > 0f)
+                {
+                    float off2 = (r.W - (sideIconW + sideGap + numW)) * sideAlignT;
+                    var dh2 = new PxRect(r.x1 + off2, r.y1, r.x1 + off2 + sideIconW, r.y2);
+                    var c2 = new PxRect(dh2.x2 + sideGap, r.y1, r.x2, r.y2);
+                    if (artQ != null)
+                    {
+                        var f2 = R(dh2);
+                        artQ.transform.localPosition = MenuDraw.Local(parent, f2.x1, f2.y1, f2.x2, f2.y2);
+                    }
+                    AlignL(cLb, c2);
+                }
+            }
         }
 
         /// <summary>`40K_button` 底的按钮。🔴 实测这几处的 `Image` 都是 **`m_PreserveAspect = 1`**

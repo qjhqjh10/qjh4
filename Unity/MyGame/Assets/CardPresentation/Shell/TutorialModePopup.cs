@@ -692,7 +692,8 @@ namespace CardPresentation
             var playLb = MenuDraw.Text(btn, new PxRect(PlayTxL, PlayTxT, PlayTxR, PlayTxB), PlayText, Color.white,
                                        "Button Text", 74.25f, QText, PlayTxR - PlayTxL, 10f, 74.25f, 12f);
             if (playLb != null) playLb.SetWrapping(false);
-            MenuDraw.Hit(btn, "PlayHit", new PxRect(PlayL, PlayT, PlayR, PlayB), QHit, () => PlayTutorial());
+            MenuDraw.Hit(btn, "PlayHit", new PxRect(PlayL, PlayT, PlayR, PlayB), QHit, () => PlayTutorial(),
+                         clickCue: WindowSounds.PositiveCue);
         }
 
         // ============================================================ 交互

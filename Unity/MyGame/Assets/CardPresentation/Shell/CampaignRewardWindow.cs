@@ -797,6 +797,8 @@ namespace CardPresentation
             //   `PointerLayer` 自己会跳过它（`HitQuad` 拿不到 quad ⇒ 这一件点不动）——与「画不出来」一致。
             DrawRect(hit, CardArt.Solid(), r, "HitBox", QUnlockBg, new Color(0f, 0f, 0f, 0f));
             var wb = hit.gameObject.AddComponent<WindowButton>();
+            // 原版 `…/Unlock Button` 的 `m_onClickSound` = `ButtonClick Positive`（R3 §四·A #39）。
+            wb.clickCue = WindowSounds.PositiveCue;
             // 🔴 **2026-10-12（A466）：可点性补上「付点解锁」那一支的 `ctx.Claimable`**（原来**恒定可点**）。
             // 判据 = 反编译方法体 `CampaignRewardsWindow__SetBaseButton.c`（**本件亲读**，两条支各一句）：
             //   · `*(int *)(ctx + 0x30) < 1`（= `PointCost < 1`，`:38`）⇒ `SetAsFreeClaim(btn, **1**)`（`:40`）

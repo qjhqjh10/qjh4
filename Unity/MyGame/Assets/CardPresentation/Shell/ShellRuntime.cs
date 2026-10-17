@@ -96,18 +96,105 @@ namespace CardPresentation
 
         /// <summary>🔴 **2026-10-17（界面线 T16）**：壳里**切场景的统一入口** ——
         /// 有 `LoadingMenu` 就**先淡到全黑再 `LoadScene`**（原版 `GeneralMenuController.ShowLoading` /
-        /// `BattleManager._StartBattleSequence` 那条链的等价物），没有就直接切。
+        /// `BattleManager._StartBattleSequence` 那条链的等价物），**新场景到了之后淡回**；没有就直接切。
         /// <para>判据：`U3` §二 D 把「进战斗是硬切」列为本仓缺口；黑场参数/时长 → `Shell/LoadingMenu.cs`。</para>
-        /// <para>⚠️ **批处理/编辑模式**：`LoadingFade` 内部 `!Application.isPlaying ⇒ Complete()`（没有帧循环）
-        /// ⇒ 回调**当场**执行、`LoadScene` 照旧立即切 —— 自检行为不变。</para></summary>
+        /// <para>🔴 **2026-10-17（N8 前置缺陷）就地订正**：本方法原来**只淡到黑、永不淡回**
+        /// （全仓零处 `LoadingFade(false)`，判据 → `资料/普查产出_1017/UI/R4_黑场挡点击诊断.md` §二·2），
+        /// 而 `LoadingMenu` 是 `DontDestroyOnLoad` 的壳的后代 ⇒ 进过一次战斗之后**菜单永久黑屏**；
+        /// 黑场一旦参与挡指针（`PointerLayer.InputBlocked`）就是**永久锁死输入**。现在三条路都保证收尾：
+        /// ① **播放态** = `sceneLoaded`（一次性）到了 ⇒ `LoadingFade(false)`；
+        /// ② **批处理/编辑态** = 没有帧循环（`LoadingFade` 内部 `Complete()` 当场落终态）⇒ 切完**立刻**淡回；
+        /// ③ **切场景抛异常**（场景不在 Build Settings 等，`sceneLoaded` 永远不来）⇒ 退订 + 淡回 + `LogError`
+        ///    （**不永久黑屏**）。</para>
+        /// <para>⚠️ **批处理/编辑模式**：`LoadingFade` 内部 `!Application.isPlaying ⇒ Complete()`
+        /// ⇒ 回调**当场**执行、`LoadScene` 照旧立即切 —— 自检行为不变（且现读两个生产调用点
+        /// `PracticeModePopup.cs:2075` / `LiveOpsEventWindow.cs:1152` 在批处理里**都提前 return**，
+        /// 全仓**没有任何自检**直调本方法）。</para></summary>
         public static void LoadSceneWithFade(string scene)
         {
             var rt = Instance;
-            if (rt != null && rt.Loading != null)
-                rt.Loading.LoadingFade(true, () => UnityEngine.SceneManagement.SceneManager.LoadScene(scene));
-            else
+            if (rt == null || rt.Loading == null)
+            {
                 UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
+                return;
+            }
+
+            var loading = rt.Loading;
+
+            // ---- ① 批处理 / 编辑态：没有帧循环 ----
+            if (!Application.isPlaying)
+            {
+                try
+                {
+                    // `LoadingFade(true)` 内部 `!isPlaying ⇒ Complete()` ⇒ 回调当场跑、`LoadScene` 立即切
+                    //（这一句与改前**逐位相同**）
+                    loading.LoadingFade(true, () => UnityEngine.SceneManagement.SceneManager.LoadScene(scene));
+                }
+                finally
+                {
+                    // 🔴 改前**没有这一句**（黑场停在 α=1、Panel 一直 active）。
+                    //    这里同样走 `Complete()`，当场落终态：α=0、`Panel.SetActive(false)`。
+                    loading.LoadingFade(false);
+                }
+                return;
+            }
+
+            // ---- ② 播放态：淡到全黑 → 切场景 → `sceneLoaded` 到了再淡回 ----
+            loading.LoadingFade(true, () =>
+            {
+                if (_pendingFadeBack != null)
+                {
+                    // 出声：上一次订阅没等到事件（否则这次会把那条静默覆盖掉）
+                    UnityEngine.SceneManagement.SceneManager.sceneLoaded -= _pendingFadeBack;
+                    _pendingFadeBack = null;
+                    Debug.LogWarning("[Shell] 上一次切场景**没等到** `sceneLoaded`（那次的黑场没淡回）—— 本次覆盖那次订阅");
+                }
+
+                UnityEngine.Events.UnityAction<UnityEngine.SceneManagement.Scene,
+                                                      UnityEngine.SceneManagement.LoadSceneMode> cb = null;
+                cb = (loaded, mode) =>
+                {
+                    UnityEngine.SceneManagement.SceneManager.sceneLoaded -= cb;      // 一次性
+                    if (_pendingFadeBack == cb) _pendingFadeBack = null;
+                    // ⚠️ **隔一帧**再淡回：`sceneLoaded` 是在 `LoadScene` 的**同步调用里**发出来的，
+                    //    而 `LoadScene` 又在我们这次 `LoadingFade(true)` 的 **`Complete()` 回调里** ——
+                    //    直接在这里再进 `LoadingFade` 会与 `Complete()` 的收尾（它读 `_show`）**重入**。
+                    //    一帧之后那边已彻底返回；黑场此时是 α=1，画面看不出这一帧。
+                    if (rt != null) rt.StartCoroutine(CoFadeBackAfterLoad(loading));
+                    else loading.LoadingFade(false);
+                };
+                _pendingFadeBack = cb;
+                UnityEngine.SceneManagement.SceneManager.sceneLoaded += cb;
+                Debug.Log("[Shell] 黑场已淡到全黑 → 切场景 `" + scene + "`；等 `sceneLoaded` 到达后淡回" +
+                          "（等不到 ⇒ 黑场会留在屏上，届时看这条日志）");
+
+                try
+                {
+                    UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
+                }
+                catch (System.Exception e)
+                {
+                    // 兜底：`sceneLoaded` 永远不会来（场景不在 Build Settings / name 打错…）⇒ 不能永久黑屏
+                    UnityEngine.SceneManagement.SceneManager.sceneLoaded -= cb;
+                    if (_pendingFadeBack == cb) _pendingFadeBack = null;
+                    loading.LoadingFade(false);
+                    Debug.LogError("[Shell] 切场景 `" + scene + "` 失败：" + e.Message +
+                                   " —— **黑场已淡回**（不会永久黑屏）；异常不再向上抛，免得打断 `Update`。");
+                }
+            });
         }
+
+        /// <summary>`sceneLoaded` 之后**隔一帧**再淡回（重入的理由 → `LoadSceneWithFade` 里那一句）。</summary>
+        static IEnumerator CoFadeBackAfterLoad(LoadingMenu loading)
+        {
+            yield return null;
+            if (loading != null) loading.LoadingFade(false);
+        }
+
+        /// <summary>在飞的那一条「等 `sceneLoaded` ⇒ 淡回」订阅（`null` = 没有）。
+        /// 留成字段只为**出声**：再次切场景时若它还非空，说明上一次没等到事件（否则那次会被静默覆盖）。</summary>
+        static UnityEngine.Events.UnityAction<UnityEngine.SceneManagement.Scene,
+                                              UnityEngine.SceneManagement.LoadSceneMode> _pendingFadeBack;
 
         /// <summary>压暗边四条（`0..3` = Left / Right / Bottom / Top）的**外侧半** —— 贴屏幕边、不透明那一块，
         /// 名字沿用原版的节点名。⚠️ 一条边是**两块**（理由见 `FadeEdge`）。给自检读顶点色用。</summary>

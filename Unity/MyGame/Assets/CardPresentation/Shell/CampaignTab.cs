@@ -522,7 +522,7 @@ namespace CardPresentation
             var ih = UguiRect.Child(r, UguiRect.A00, UguiRect.A11, UguiRect.P50c, Vector2.zero, Vector2.zero);
             BuildNodeReward(RewardsWindow.Node(node, "Item Holder", ih), ih, i);
 
-            AddHit(node, "Hit", r, QNodeItem, () => OnNodeClicked(i));
+            AddHit(node, "Hit", r, QNodeItem, () => OnNodeClicked(i), clickCue: WindowSounds.PositiveCue);
         }
 
         /// <summary>节点上的**首奖励** —— 照原版 `CampaignNode.Setup` 那一句
@@ -739,7 +739,8 @@ namespace CardPresentation
                 BuildArmySlider(item, army, new PxRect(r.x1 + ArmySliderInset, r.y1 + ArmyHlH,
                                                  r.x1 + ArmyItemW - ArmySliderInset, r.y1 + ArmyHlH + ArmySliderH));
                 // ⚠️ **不画 `Arrow`** —— 这一变体**没有这个节点**（母版与 Forge 版才有）。我们本来就没画，记着别加。
-                AddHit(item, "Hit", r, QArmyIcon, () => SelectArmy(army));
+                AddHit(item, "Hit", r, QArmyIcon, () => SelectArmy(army),
+                       clickCue: WindowSounds.SelectAvatarCue);
             }
         }
 
@@ -1096,7 +1097,7 @@ namespace CardPresentation
             }
             AddHit(_premAction, "ContinueHit", btn, QPanelBtn, () =>
                 Debug.Log("[Campaign] `Continue`：原版是「领高级每日奖励」，走 PlayFab 云脚本 —— **单机没有服务器**，本轮不实现"),
-                contQ, "UI_Button_Mulligan");
+                contQ, "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
             // `Timer`（HLG：时钟图标 + 倒计时文本）—— 原版 state 2 才显示，state 0/1 关（同上反编译 `:48-51`）。
             _premTimer = RewardsWindow.Node(p, "Timer", new PxRect(370.10f, 1030.09f, 694.55f, 1068.62f));
             _win.Rect(_premTimer, "WF_icon_clock", new PxRect(370.10f, 1030.09f, 408.63f, 1068.62f),
@@ -1280,8 +1281,9 @@ namespace CardPresentation
         /// ⚠️ 行为**只有变严**：视口外的条目命中区**不再建**（原版 `RectMask2D` 同时是射线过滤器）；
         /// 本页两条 `Clip` 的窗口（`RefreshNodes` 的轨道 `_vpR`、阵营条的 `_selR`）现在才真的吃到它。</summary>
         void AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
-                    ImageQuad target = null, string art = null, string hoverArt = null, string pressedArt = null)
-            => _win.AddHit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt);
+                    ImageQuad target = null, string art = null, string hoverArt = null, string pressedArt = null,
+                    string clickCue = null)
+            => _win.AddHit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt, clickCue);
 
         /// <summary>🔴 **2026-10-17（界面线 T25）**：`40K_generic_bt_info` 那颗圆钮的 **tooltip 触发**。
         /// 判据 = 原版每颗 info 都挂 `EverguildTooltipTrigger`（`U2` 普查 §二 战役/日常那几行；先例 =

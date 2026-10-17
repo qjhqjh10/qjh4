@@ -268,7 +268,7 @@ namespace CardPresentation
             // A17：原版 `Window>Generic Close Button Green` 是 SpriteSwap，`40k_bt_close` → `40k_bt_close_hover`（普查 §块 3 第 12 行）
             var clHit = Hit(root, "CloseHit",
                             MenuDraw.PaddedRect(new PxRect(ix1, iy1, ix1 + 56.37f, iy1 + 54.50f), ClosePad),
-                            () => Close());
+                            () => Close(), clickCue: WindowSounds.DefaultCloseCue);
             var clWb = clHit != null ? clHit.GetComponent<WindowButton>() : null;
             // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：把高亮图**显式写出来**。
             //   ⚠️ **本处本来就是对的**（层 = 子件 `Icon` 画 `40k_bt_close`、`art` 也传的是常态图名 ——
@@ -510,17 +510,18 @@ namespace CardPresentation
             return lb;
         }
 
-        Transform Hit(Transform parent, string name, PxRect r, System.Action onClick, int q = QImpHit)
-            => HitOn(parent, parent, name, r, onClick, q);
+        Transform Hit(Transform parent, string name, PxRect r, System.Action onClick, int q = QImpHit,
+                      string clickCue = null)
+            => HitOn(parent, parent, name, r, onClick, q, clickCue: clickCue);
 
         Transform AddHitOn(Transform parent, Transform basis, string name, PxRect r, System.Action onClick,
                            ImageQuad target = null, string art = null,
-                           string hoverArt = null, string pressedArt = null)
-            => HitOn(parent, basis, name, r, onClick, QImpHit, target, art, hoverArt, pressedArt);
+                           string hoverArt = null, string pressedArt = null, string clickCue = null)
+            => HitOn(parent, basis, name, r, onClick, QImpHit, target, art, hoverArt, pressedArt, clickCue);
 
         Transform HitOn(Transform parent, Transform basis, string name, PxRect r, System.Action onClick,
                         int q = QImpHit, ImageQuad target = null, string art = null,
-                        string hoverArt = null, string pressedArt = null)
+                        string hoverArt = null, string pressedArt = null, string clickCue = null)
         {
             var hit = new GameObject(name);
             hit.transform.SetParent(parent, false);
@@ -535,6 +536,7 @@ namespace CardPresentation
             }
             var wb = hit.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            wb.clickCue = clickCue;
             if (target != null) wb.Bind(target, art, hoverArt, pressedArt);
             return hit.transform;
         }

@@ -98,7 +98,15 @@ EXTRA_CUES = ["Reward open item by item", "CardStartDrag",
               "Booster Pack Open Card Rarity 1", "Booster Pack Open Card Rarity 2",
               "Booster Pack Open Card Rarity 3", "Booster Pack Open Card Rarity 4",
               "Booster Open Standard", "Booster Open Ultramarines", "Booster Open Sautekh",
-              "Booster Open Space Wolves", "Booster Open Tyranid"]
+              "Booster Open Space Wolves", "Booster Open Tyranid",
+              # —— 逐按钮 cue（2026-10-17 · S01 写手 G）——
+              # 原版 `EverguildButton|EverguildToggle.m_onClickSound` 的另外 8 个 cue 名；
+              # 判据 = `资料/普查产出_1017/UI/R3_S01按钮cue映射.md` §二·B（10 个 cue，`ButtonClick`
+              # 与 `ButtonClick Back` 上面已有）。⚠️ `Select Toggle` 的 clip 是 `UI Click 2_no delay`，
+              # 与 `ButtonClick` 的 `UI Select Toggle` **不是同一个资产**。
+              "ButtonClick Positive", "ButtonClick Negative", "Select Toggle",
+              "SelectAvatar", "Purchase Click", "MenuStartGame",
+              "UI Send Message", "UI Purchase 2"]
 
 # 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**
 #   `AnimFXModuleCollisions` 的 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent`

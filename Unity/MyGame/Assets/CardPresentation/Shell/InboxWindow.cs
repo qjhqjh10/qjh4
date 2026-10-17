@@ -431,7 +431,8 @@ namespace CardPresentation
                 //   「`QShade`(3002) 严格低于内容命中区档」的不变量由 `RewardsScene` 那条断言钉着）。
                 var closeHit = MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseBg, ClosePad),
                                             QOverlay, () => Close(), closeFaceQ, ArtCloseIcon,
-                                            "40k_general_bt_yellow_hover");
+                                            "40k_general_bt_yellow_hover",
+                                            clickCue: WindowSounds.DefaultCloseCue);
                 if (closeHit == null)
                     Debug.LogWarning("[Inbox] 关窗钮的命中区没建出来（`MenuDraw.Hit` 返回 null）"
                                    + " ⇒ **点它关不了窗**（只能点窗外或 ESC）。");

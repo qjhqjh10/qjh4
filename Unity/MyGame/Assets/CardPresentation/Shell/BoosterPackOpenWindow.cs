@@ -170,10 +170,15 @@ namespace CardPresentation
         static readonly PxRect HintR = new PxRect(1156.67f, 977f, 1865f, 1080f);
         const float HintPx = 49.81999969f;
         static readonly Color HintColor = new Color(0.5566f, 0.5566f, 0.5566f, 1f);
-        /// <summary>`Tap to discover/Text` 的出厂文本（**原版就是这句、英文**）。</summary>
-        public const string DiscoverText = "Tap on the cards to discover";
-        /// <summary>`Tap to close` 的出厂文本（**原版就是这句、英文**）。</summary>
-        public const string CloseText = "Tap to close";
+        /// <summary>`Tap to discover/Text` 的**出厂原文**（原版 prefab 那颗 TMP 的 `m_text`）。
+        /// 🔴 **2026-10-17（`A1756`）起上屏走词条** `MenuShop/BoosterPackOpening/TapToDiscover`
+        /// （官方两列 = `Tap on the cards to discover` / `点击卡片进行探索`）。
+        /// ⚠️ 这里是**属性**不是 `const`：自检（`Editor/ShopScene.cs`）读到的也要是**当前语档**的值
+        /// （`const` 只能写死英文，中文档下那条断言会假红）。</summary>
+        public static string DiscoverText { get { return Loc.T("MenuShop/BoosterPackOpening/TapToDiscover"); } }
+        /// <summary>`Tap to close` 的**出厂原文**；词条 = `MenuShop/BoosterPackOpening/TapToClose`
+        /// （官方两列 = `Tap to close` / `点击关闭`），规格同 <see cref="DiscoverText"/>。</summary>
+        public static string CloseText { get { return Loc.T("MenuShop/BoosterPackOpening/TapToClose"); } }
         /// <summary>`Tap to close/Collider`：盖满整屏那块（`NonDrawingGraphic`）的矩形。</summary>
         static readonly PxRect CloseSurfaceR = new PxRect(-534.74f, -204.55f, 3318.35f, 2027.98f);
 

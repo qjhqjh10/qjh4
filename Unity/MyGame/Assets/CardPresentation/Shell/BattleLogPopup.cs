@@ -164,7 +164,8 @@ namespace CardPresentation
             //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Battle Log Popup" --depth 6
             //   --substr "Close Button"`（实读 `139.10 x 139.68`）。
             MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseCircleR, ClosePad),
-                         QHit, () => Close(), closeQ, "40k_general_bt_yellow");
+                         QHit, () => Close(), closeQ, "40k_general_bt_yellow",
+                         clickCue: WindowSounds.DefaultCloseCue);
 
             // `Matches`（`ScrollRect` **Clamped** · 灵敏度 1.0 —— 判据 ④）
             // ⚠️ 它自己的底是 UGUI 内置 `Background`、`m_Color=(1,1,1,0)` ⇒ **看不见 ⇒ 不画**

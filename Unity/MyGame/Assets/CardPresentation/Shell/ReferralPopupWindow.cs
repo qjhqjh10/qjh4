@@ -402,7 +402,7 @@ namespace CardPresentation
             //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_generalgamewindows_assets_all "Referral Popup"
             //   --depth 8 --substr "Generic Close Button"`（实读 `96.86 x 98.13`）。
             MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseArtR, ClosePad), QHit, () => Close(), closeFaceQ,
-                         ArtCloseBg, ArtCloseHover, ArtClosePressed);
+                         ArtCloseBg, ArtCloseHover, ArtClosePressed, clickCue: WindowSounds.DefaultCloseCue);
 
             // ---- ④ `content` 那一列（**兄弟序照 `m_Children`**）----
             _content = MenuDraw.Node(_window, "content", ContentR);
@@ -531,7 +531,8 @@ namespace CardPresentation
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版那颗 = `Center/**Capline** · 折行=0`
             //   （判据 = 上一行那句读数原文）。
             MenuDraw.SetVAlign(tx, Label.VAlign.Capline, BtnTextR);
-            var hit = MenuDraw.Hit(btnNode, "Hit", BtnR, QHit, SubmitReferrer, btnQ, ArtBtn, ArtBtnHover, ArtBtnPressed);
+            var hit = MenuDraw.Hit(btnNode, "Hit", BtnR, QHit, SubmitReferrer, btnQ, ArtBtn, ArtBtnHover, ArtBtnPressed,
+                                   clickCue: WindowSounds.PositiveCue);
             if (hit != null && btnQ == null)
                 Debug.LogWarning("[Referral] 确认钮的底图没建出来 ⇒ 这一颗**没有图可换**（悬停/按下看不出来）。");
         }

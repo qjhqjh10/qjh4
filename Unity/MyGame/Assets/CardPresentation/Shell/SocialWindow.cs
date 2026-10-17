@@ -155,10 +155,15 @@ namespace CardPresentation
             if (tabButtons != null) tabButtons.Click(0);
             RefreshHighlights();
             RefreshBadges();
-            // 原版 `updateNavPanel = 1` ⇒ 开窗时把左竖导航的 SOCIAL 键点亮（回点导航钮）——
-            // 我们让主菜单侧自己处理（同 `RewardsWindow.Open` 那条注释），这里只出声。
-            Debug.Log("[Social] 社交窗已开（默认页 = Alliances）。⚠️ 原版 `updateNavPanel=1` 会回点左竖导航第 5 键，"
-                    + "那一步归主菜单侧。");
+            // 🔴 **2026-10-17（`A1641`）就地订正（铁律 5）**：本行原来写「原版 `updateNavPanel = 1` ⇒
+            //   **开窗时**把左竖导航的 SOCIAL 键点亮」—— **那是错口径**。实读：`updateNavPanel`
+            //   （`GameWindow` 偏移 `0x3A`）全库**只有两个读点、都在 ESC 那一支**
+            //   （`GameWindow__ESCPressed` / `SearchingMatchWindowDemo__ESCPressed`），
+            //   **没有任何「开窗时读它」的地方**；而 SOCIAL 那颗亮起来来自**导航钮自己的 `ToggleGroup` 单选**
+            //   （全库**没有** `SetToggle(nav, 4)` 调用点）。⇒ 这里**只需要出声**，
+            //   ⛔ 别照旧注释去补「开窗点亮」（那是我们编的口径）。
+            Debug.Log("[Social] 社交窗已开（默认页 = Alliances）。原版**没有**「开窗时回点左竖导航」这一跳"
+                    + "（`updateNavPanel` 只在 ESC 那一支被读；SOCIAL 亮起来自导航钮自己的 `ToggleGroup` 单选）。");
         }
 
         /// <summary>建整个窗口（**自检与运行时同一条路**）。外壳走基类 `BuildShell`（与奖励窗/商店同一份）。</summary>
@@ -175,17 +180,20 @@ namespace CardPresentation
 //      `Shop Menu Variant`(MB `764348890710493308`) 的 `tabButtonPrefab` **都非 0** ⇒ 那两扇窗必须走缺省。
 //   ⚠️ 症状**静默**：末项照建、只是被关掉，而断言走 `FindChild`（含 inactive）照样找得到它 ——
 //      所以本行下面对应的那条 `activeSelf` 断言是**成对**的，⛔ 别只留一条。
+            // 视觉顺序 = 原版 `Tab Buttons` 下两个孩子的顺序（Alliances → Friends），也是 `tabs[]` 的顺序。
+            // 🔴 **2026-10-17（`A1511(a)`）就地改序（铁律 5）**：这两句原来排在 `BuildShell` **之后** ——
+            //   而 `BuildBar` 建每一颗键时就读 `visualTypes[i]` 写进 `TabButtons.options[i].type`
+            //   （`Shell/MainMenuSubmenuWindow.cs:465`）⇒ 事后替换**不生效**。⇒ **必须排在 `BuildShell` 之前**。
+            visualTypes.Clear();
+            visualTypes.Add(WindowTabType.SocialAlliances);
+            visualTypes.Add(WindowTabType.SocialFriends);
+
             var res = BuildShell(transform, LocalizedButtons(), "SocialTabButton_", "Tabs", lastIsMaster: false);
             tabButtons = res.buttons;
             _btnRoot = res.roots;
             _btnHighlight = res.highlight;
             _btnRes = res;
             _btnBadge = res.badge;
-
-            // 视觉顺序 = 原版 `Tab Buttons` 下两个孩子的顺序（Alliances → Friends），也是 `tabs[]` 的顺序
-            visualTypes.Clear();
-            visualTypes.Add(WindowTabType.SocialAlliances);
-            visualTypes.Add(WindowTabType.SocialFriends);
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[Social] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："

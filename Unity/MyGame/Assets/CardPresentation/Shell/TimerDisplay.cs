@@ -32,8 +32,10 @@
 // · 描述串有两档（原版 `useExtraText` / `useLastMinutesText`）：
 //   ① 常档 = `prefix`（原版 `extraText` 或 `Initialize` 的 `timerDescription`；商店那条是空串）；
 //   ② 最后 5 分钟档 = `lastMinutesPrefix`（原版 `lastMinutesText`，阈值的常量 `DAT_1834b3380`
-//      **实读 = 5.0 分钟**）。只有 `useLastMinutesText = 1` 的实例才有这一档 —— 五处消费点里
-//      **只有商店**是 1（`MonoBehaviour_-5363483528564307958` 实读），其余为 0 或不使用。
+//      **实读 = 5.0 分钟**）。只有 `useLastMinutesText = 1` 的实例才有这一档 —— 我们接的消费点里
+//      **商店**（`MonoBehaviour_-5363483528564307958`）与**单机能源活动窗**
+//      （`MonoBehaviour_666837755613493937`，键 `Event_Description/Generic/EndsSoon`）是 1；
+//      ⚠️ 能源窗那一档**暂未接**（该键正文不在官方本地化快照里，我们也不猜译文），其余为 0 或不使用。
 // · 到点（剩余 <= 0）：原版把 timer 那颗 TMP 的 GameObject `SetActive(false)` 并**只触发一次**
 //   `OnRunOutOfTime`。我们把**同一个 `Label` 的文本清空**（视觉等价；组件继续每秒 tick，
 //   目标滚到下一档时会自己把字写回来 —— 原版那条路把 GameObject 关了，Update 也就停了）。
@@ -221,8 +223,10 @@ namespace CardPresentation
         static string FmtMOnly() { return Zh ? "{0:0}分钟" : "{0:0}m"; }                  // ⚠️ 我们挑的
 
         /// <summary>原版 `MainMenu/LastMinutes` 的正文（官方表：en `Last Minutes` · zh-CN `最后时刻`）。
-        /// 五处消费点里只有商店的 `TimerDisplay` 把 `useLastMinutesText` 开成 1
-        /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-5363483528564307958.json` 实读）。</summary>
+        /// 我们接的消费点里，`useLastMinutesText = 1` 的是**商店**
+        /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-5363483528564307958.json` 实读，
+        /// 键就是 `MainMenu/LastMinutes`）与**单机能源活动窗**（`MonoBehaviour_666837755613493937`，
+        /// ⚠️ 它的键是 `Event_Description/Generic/EndsSoon` —— **正文不在官方表快照里** ⇒ 那一档暂未接）。</summary>
         public static string LastMinutesText()
         { return Zh ? "最后时刻" : "Last Minutes"; }
 

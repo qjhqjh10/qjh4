@@ -82,8 +82,13 @@ namespace CardPresentation
         static readonly Color BtnTint = new Color(0.369f, 0.894f, 0.587f, 1f);
         static readonly Vector4 BtnBorder = new Vector4(234f, 46f, 234f, 46f);
 
-        /// <summary>原档那句的模板（`{0}` = 对手名）。⚠️ 闭合标签顺序照原档，别「修」。</summary>
-        public const string MessageFormat = "Do you want to challenge <b><color=#FCDEBB>{0}</b></color>?";
+        /// <summary>原档那句的模板（`{0}` = 对手名）。
+        /// 🔴 **2026-10-17（`A1756`）起走词条** `MainMenu/Chat/ChallengeConfirmation`
+        /// （官方两列 = `Do you want to challenge {0:0}?` / `你想挑战{0:0}吗？`）。
+        /// ⚠️ **官方串不带 HTML** ⇒ 以前那层 `<b><color=#FCDEBB>` 已去掉（原版走 I2 词条渲染，本就没有富文本）；
+        /// `{0:0}` 里那个 `:0` 对字符串实参**不生效**（`string` 不实现 `IFormattable`，`string.Format` 直接用 `ToString()`）。
+        /// 改成**属性**不是 `const`：自检（`Editor/MainMenuScene.cs`）要用**当前语档**的值去拼期望串。</summary>
+        public static string MessageFormat { get { return Loc.T("MainMenu/Chat/ChallengeConfirmation"); } }
 
         public readonly System.Collections.Generic.List<string> MissingArt =
             new System.Collections.Generic.List<string>();
@@ -212,7 +217,8 @@ namespace CardPresentation
             //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "MessagePopupWindowDuel"
             //   --depth 6 --substr "Rounded Button Green"`（实读 `96.37 x 94.50`）。
             MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseIcR, ClosePad),
-                         QHit, () => Close(), closeIconQ, "40k_bt_close");
+                         QHit, () => Close(), closeIconQ, "40k_bt_close",
+                         clickCue: WindowSounds.DefaultCloseCue);
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[Duel] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
@@ -238,7 +244,8 @@ namespace CardPresentation
             //   --depth 8 --substr "Button Skirmish"`（实读 `350.00 x 100.00`）；
             //   ⚠️ 我们画的那两颗与它**逐位同矩形**（`SkirmishR` 350×76 · `SkirmishIcR` 100×100 且相对偏移 −13.8 相同）
             //   ⇒ 直接取「按钮的 x 两边 + 图标的 y 两边」就是并集。
-            MenuDraw.Hit(b, "Hit", new PxRect(r.x1, icR.y1, r.x2, icR.y2), QHit, onClick);
+            MenuDraw.Hit(b, "Hit", new PxRect(r.x1, icR.y1, r.x2, icR.y2), QHit, onClick,
+                         clickCue: WindowSounds.PositiveCue);
         }
 
         /// <summary>原版 `OnSkirmishButtonPressed` / `OnClassicButtonPressed` —— 两个方法**逐行同构**，
