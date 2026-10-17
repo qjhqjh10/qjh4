@@ -837,7 +837,41 @@ namespace CardPresentation
                                  + "⚠️ 悬停那半边我们**没有判据**（见 `Interactable` 的注释）⇒ 照旧吃悬停。");
                 return;
             }
+            PlayClickSound();
             if (onClick != null) onClick();
+        }
+
+        // ============================================================ 🆕 2026-10-17（音效线 W_G）：按钮音
+        //
+        // 判据（逐条 → `资料/普查产出_1017/UI/W_G_AudioLine.md`）：
+        //   · 原版真正播「默认按钮音」的消费者是 `EverguildButton.PlayButtonSound`
+        //     （`EverguildButton__PlayButtonSound.c`：`m_onClickSound` 有 clip 就播它；为空则
+        //     `useDefaultAudioClipIfNull`(0x178) 为真时播 `SoundManager.defaultButtonSound`）与
+        //     **同形的** `EverguildToggle.PlayButtonSound`（`EverguildToggle.cs` 字段逐字相同）；
+        //     触发点 = 各自的 `OnPointerClick`。
+        //   · 普查（`bundle_menus_assets_all` + `generalgamewindows_assets_all`，2026-10-17 现读）：
+        //     `EverguildButton` **1022/1022** 颗 `useDefaultAudioClipIfNull = 1`（564 颗自身 cue 为空 ⇒ 走默认）；
+        //     `EverguildToggle` **151/151** 颗为 1（18 颗走默认）。
+        //     ⇒ **默认音是绝大多数钮的实际行为**，而我们的 `WindowButton` 正是这一族的替身
+        //       （`EverguildButton` 与 `EverguildToggle` 在我们这边**都是** `WindowButton`）。
+        //   · ⛔ **不是所有命中区都该响**：原版 `UIGenericEventCatcher`（开包窗的卡、`Tap to close`
+        //     整屏层）与 `BackgroundCloseButton`（压暗层，88/88 颗）是**纯 MonoBehaviour，没有声音**。
+        //     ⇒ 我们把这几种显式关掉（`playClickSound = false`）：压暗层在这里按 `MenuDraw.WasShadeHit`
+        //       判（`ShadeHit` 是公共件、不在本件可改范围），开包窗的卡在那边自己关。
+        //   · 原版那个 `m_onClickSound`（每颗钮可以带自己的 cue，424 颗有）**我们没接** ——
+        //     `WindowButton` 没有逐钮 cue 的数据来源（我们的 `MenuDraw.Hit` 不读 prefab 的 `m_onClickSound`）。
+        //     **如实记在报告里**，不在这里编一张表。
+        /// <summary>点中时要不要播 `SoundManager.defaultButtonSound`（默认**要**，照 1022/1022 那两族）。
+        /// 压暗层 / 开包窗的卡 / 任何原版不是 `EverguildButton|EverguildToggle` 的命中面**置 false**。</summary>
+        public bool playClickSound = true;
+
+        void PlayClickSound()
+        {
+            if (!playClickSound || absorbOnly) return;
+            // 压暗层（原版 `BackgroundCloseButton`）**没有**按钮音 —— 它只负责触发窗自己的 `Close()`
+            // （那一声由 `GameWindow.PlayCloseSound` 出）。判据见上面那段普查。
+            if (MenuDraw.WasShadeHit(transform)) return;
+            WindowSounds.PlayFx(WindowSounds.DefaultButtonCue, $"按钮 `{name}`");
         }
 
         /// <summary>🔴 **老式的 `OnMouseUpAsButton`：在这个工程里一次也不会派发** ——

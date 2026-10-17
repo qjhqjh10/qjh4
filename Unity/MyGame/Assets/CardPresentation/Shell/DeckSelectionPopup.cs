@@ -76,6 +76,9 @@
 //     → `资料/预组卡组_原版规格.md` §五之四；规格 → `资料/加时与冲突模式_原版规格.md` §二。
 //     ⚠️ **难度角标**（原版预组页会画 `easyMark/normalMark/hardMark`）与 **`gameMode` 图标**都**还没画**，
 //     原因写在 `PrebuiltDecks.cs` 文件头 —— **是缺口，不是「原版没有」**。
+//     🔴 **2026-10-17 就地订正（铁律 5 · `U4` 现核）：这一句【已过期】** —— 两颗**都画了**
+//     （`DeckCell` 的 `showDifficulty: !OwnDecks` 那一路，2026-09-26 就落了；见 `:719-737`）。
+//     错因 = 实现落地后没回来改这段文件头。⛔ 别再按它去「补画角标/模式图标」。
 //   · **两个页签的文案是我们定的**：原版两个 `m_text` 都是**空串**、只有 `mTerm`
 //     （`MenuDeck/Button/PresetDeck` / `MenuDeck/Button/OwnDeck`），而**本地没有任何术语表/翻译源**
 //     （2026-09-24 在 `assets_full` / `extract` / 反编译 / `资料/` 四处搜过，0 命中）⇒ 写 `Prebuilt Decks` / `My Decks`。

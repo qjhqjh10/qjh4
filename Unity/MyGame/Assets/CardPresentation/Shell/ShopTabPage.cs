@@ -311,7 +311,20 @@ namespace CardPresentation
             var tm = _win.Text(tc, ShopData.RefreshTime, TimeCounter.x1, TimeCounter.x2,
                                TimeCounter.y1, TimeCounter.y2, 5, Color.white, "Time", 30f,
                                TimeCounter.W, 15f, 30f, 25f);
-            if (tm != null) { tm.SetWrapping(false); tm.SetRenderQueue(QHeaderText); parts.Add(tm.transform); widths.Add(111.31f); }
+            if (tm != null)
+            {
+                tm.SetWrapping(false); tm.SetRenderQueue(QHeaderText); parts.Add(tm.transform); widths.Add(111.31f);
+                // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时 —— 原版这一格就是 `TimerDisplay`
+                //   （`ShopTab.Setup` → `TimerDisplay.Initialize(CheckTimer(...), "")`）。
+                //   · 目标 = **Cards 页的 9 点规则**（`CardShopTab.CheckTimer`；`<9 点取当天、否则次日` + 9h）；
+                //     ⚠️ Items 页原版走 `ItemShopTab.CheckTimer` 的 `IsTimedEvent`，我们**没有 store 数据**
+                //     ⇒ 三页统一按 9 点规则（**我们挑的**，已在报告里记账）。
+                //   · 本机时钟（无服务器 —— 本项目允许的偏离）。
+                //   · 原版这一颗 `useLastMinutesText = 1` ⇒ 最后 5 分钟描述串换成 `MainMenu/LastMinutes`
+                //     （`MonoBehaviour_-5363483528564307958.json` 实读；常量 `DAT_1834b3380` = 5.0）。
+                TimerDisplay.Attach(tm, () => TimerDisplay.ShopRefreshAt(System.DateTime.Now),
+                                    "", "商店 TimeCounter", null, TimerDisplay.LastMinutesText());
+            }
 
             // 居中排：总宽 = Σ + spacing×(n−1)，从容器中心往两边分
             float total = 0f;

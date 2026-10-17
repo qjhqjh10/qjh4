@@ -941,16 +941,64 @@ namespace CardPresentation
                          btBg, ArtMulligan);
         }
 
-        /// <summary>`Help Button`（原版 `40K_generic_bt_info`，`m_LocalScale 0.7357` ⇒ 真渲出来 65.13²）。</summary>
+        /// <summary>`Help Button`（原版 `40K_generic_bt_info`，`m_LocalScale 0.7357` ⇒ 真渲出来 65.13²）。
+        ///
+        /// <para>🔴 **2026-10-17（本笔）接线** —— 原文是 `NotBuilt("…本地没有那份文案")`，**那条理由已过期**。
+        /// 原版这一颗的开窗链**逐句实读**（`d:/2/tools/decomp_full/`）：
+        /// `SkirmishEventWindow__HelpButtonClick.c` / `RankedEventWindowV2__HelpButtonClick.c` **逐行同构** =
+        /// ① `LiveOpsAssetUtility.HasComponent(liveOps, 0x1e)`（`0x1e` = **30** = `EventComponentReferenceType.HelpPopup`）；
+        /// ② `GetComponentReference(liveOps, 30)` → 一颗 `GameWindow`（就是某个 `BaseEventPopup` 变体 prefab）；
+        /// ③ 虚表 `0x248` 那一跳（合法性判定）通过 ⇒ `WindowsManager.OpenWindow(组件, liveOps)`。
+        /// ⇒ **「用哪一份变体」是事件数据里配的**（`EventComponents.HelpPopup`），本地没有（事件 JSON 在远端 CCD）。
+        /// 我们这一侧：变体由 <see cref="HelpVariant"/> 给（缺省 = `Liveop Event Help Variant` —— 它三颗 tag 是
+        /// `WelcomeTitle / Help / ForegroundImage`，正是「活动帮助」那一套）；文案键由
+        /// <see cref="EventHelpTitleTerm"/> / <see cref="EventHelpDescriptionTerm"/> 给（**缺省 null**）
+        /// ⇒ 弹窗照开、标题与正文**留空并出声**（= 原版 `GetLabel` 取不到标签时 `set_text(空)` 的画面结果）。
+        /// ⛔ 别为了「别空着」拿 `Event_Description/Event/EventModeDesc` 之类的键顶进来（那会静默画错文案）。</para></summary>
         void BuildHelp(Transform root)
         {
             float cx = (HelpL + HelpR) * 0.5f, cy = (HelpT + HelpB) * 0.5f;
             float half = (HelpR - HelpL) * HelpScale * 0.5f;
             var r = new PxRect(cx - half, cy - half, cx + half, cy + half);
             MenuDraw.Rect(root, Tex(ArtHelp), r, "Help Button", QArt, null, true);
-            MenuDraw.Hit(root, "HelpHit", r, QHit,
-                         () => NotBuilt("`Help Button`（原版弹一段活动说明；本地没有那份文案）"));
+            MenuDraw.Hit(root, "HelpHit", r, QHit, () => OpenHelp());
         }
+
+        /// <summary>本窗 `Help Button` 开哪一份事件弹窗变体。
+        /// ⚠️ 原版的答案在 liveops 事件的 `HelpPopup` 组件引用里（`HasComponent(liveOps, 30)`，
+        /// 判据见 `BuildHelp`）—— 事件数据在远端 CCD、本地没有 ⇒ 我们取「活动帮助」那一份
+        /// （`Liveop Event Help Variant`）。子类要钉死就覆写它。</summary>
+        protected virtual EventPopupVariant HelpVariant { get { return EventPopupVariant.LiveopEventHelp; } }
+
+        /// <summary>帮助弹窗**标题**的官方词条键（= 事件 `EventLabel` 里 `WelcomeTitle`/`Title` 那一条的
+        /// `RawValue`）。**缺省 null = 本地查不到**（事件数据在远端）⇒ 标题留空 + 出声。</summary>
+        protected virtual string EventHelpTitleTerm { get { return null; } }
+
+        /// <summary>帮助弹窗**正文**的官方词条键（= 事件 `EventLabel` 里 `Help` 那一条的 `RawValue`）。
+        /// 缺省 null = 本地查不到（同上）。</summary>
+        protected virtual string EventHelpDescriptionTerm { get { return null; } }
+
+        /// <summary>点 `Help` ⇒ 开事件说明弹窗（原版 `…HelpButtonClick` → `WindowsManager.OpenWindow`）。
+        /// 返回开出来的那扇；**没有 `WindowsManager` 时返回 null 并出声**（红线：不静默失败）。</summary>
+        public BaseEventPopup OpenHelp()
+        {
+            LastHelpPopup = null;
+            if (Manager == null)
+            {
+                Debug.LogWarning("[Event] `Help Button`：**没有 `WindowsManager`**，开不了事件说明弹窗"
+                                 + "（原版那一跳是 `WindowsManager.OpenWindow`；这里如实说、不假装打开）");
+                return null;
+            }
+            var w = BaseEventPopup.Create(Manager, HelpVariant, EventHelpTitleTerm, EventHelpDescriptionTerm, name);
+            Manager.OpenWindow(w);
+            LastHelpPopup = w;
+            Debug.Log("[Event] `Help Button` ⇒ 开出 `" + BaseEventPopup.RootNameOf(HelpVariant) + "`"
+                      + "（原版 `HelpButtonClick`：`HasComponent(liveOps, 30 HelpPopup)` ⇒ `OpenWindow(组件, liveOps)`）");
+            return w;
+        }
+
+        /// <summary>最近一次由 `Help` 开出来的那扇（自检用；同族先例 = <see cref="LastOpened"/>）。</summary>
+        public static BaseEventPopup LastHelpPopup;
 
         // ============================================================ 开战：原版那条链
         /// <summary>点 `Battle!` ⇒ 照原版 `MatchMakerManager.StartMatch`：**先显示 `Searching Oponent Popup`，
@@ -1098,7 +1146,8 @@ namespace CardPresentation
                          ? " —— ⚠️ **该场那份场景还没建，这一局用的是兜底 `Battle`（战场 = " + ArenaByArmy.DefaultScene + "）**"
                          : "）"));
             if (Application.isBatchMode) { Debug.Log("[Event] （批处理：不切场景，只记账）"); return; }
-            UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
+            // 🔴 **2026-10-17（界面线 T16）**：同 `PracticeModePopup` —— 先走壳侧 `LoadingMenu` 黑场再切场景。
+            ShellRuntime.LoadSceneWithFade(scene);
         }
 
         /// <summary>点 `Create deck`：**建一副「本窗模式」的卡组，然后进卡组编辑**。

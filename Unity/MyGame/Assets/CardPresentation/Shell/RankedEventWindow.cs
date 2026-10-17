@@ -48,6 +48,22 @@ namespace CardPresentation
             return Init(go.AddComponent<RankedEventWindow>(), mgr);
         }
 
+        /// <summary>🔴 **2026-10-17（界面线 `T12`）：打开/关闭时收起、放回左竖导航。**
+        /// 判据 = `RankedEventWindow__OnEnable.c:72`（`NavigationPanelController.Toggle(0,1,0)` 收起）；
+        /// 放回走同族的关窗径（与 `DeckEditingWindow.Close` 一样，原版关窗时 `Toggle(true,true)`）。
+        /// ⚠️ 没有 `MainMenuRuntime`（非壳宿主）时 `SetNavPanelVisible` 自己会静默跳过。</summary>
+        public override void Open()
+        {
+            MainMenuRuntime.SetNavPanelVisible(false, true);
+            base.Open();
+        }
+
+        public override void Close()
+        {
+            MainMenuRuntime.SetNavPanelVisible(true, true);
+            base.Close();
+        }
+
         // ============================================================ 背景
         protected override void BuildBackdrop(Transform root)
         {

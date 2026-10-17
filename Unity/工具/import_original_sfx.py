@@ -75,7 +75,30 @@ REF_PREFIX = "@asset:MonoBehaviour:"
 #   ⚠️ 另 7 个名字**另有产出方，别并到这里来**（理由逐条在 `CODE_ONLY_KNOWN` 里）：
 #     残骸六条 = `工具/import_remnant_sfx.py` · `OvertimeStart` = `工具/rebuild_overtime_start_ogg.py`
 #     （⛔ 并进来会把那条**重制过的 ogg 覆盖**掉）· `Add card to deck` 是 clip 名不是 cue 名。
-EXTRA_CUES = ["Reward open item by item", "CardStartDrag"]
+# 🆕 **2026-10-17（音效线 `W_G`）—— 壳侧（主菜单/窗口/开包）的 cue，同一类「工程按名字播」。**
+#   出处逐条（判据 = 反编译 + 序列化字段，全文 → `资料/普查产出_1017/UI/W_G_AudioLine.md`）：
+#   · `ButtonClick`       —— `SoundManager.defaultButtonSound`（MB pid `-5308416599568047990` 的
+#      `defaultCloseSound` 旁边那一格 = pid `6176553109044381692`）→ 消费者 = `EverguildButton.PlayButtonSound`
+#      / `EverguildToggle.PlayButtonSound`（`useDefaultAudioClipIfNull = 1` 时）；clip `UI Select Toggle`。
+#   · `ButtonClick Back`  —— `SoundManager.defaultCloseSound`（pid `8084683923307806969`）→
+#      `GameWindow.Close`（`GameWindow__Close.c` 里那一跳 `SoundManager.Play2D`）；clip `UIButton Back`。
+#   · `CardClick 2` / `New Card` —— `CardInBoosterPack.clickSound` / `.newCardSound`（prefab pid
+#      `3481876391266756950` / `4962178071637942874`）；`UiColliderOnClick` 与 `_WaitForSpinAnimationEnd`。
+#   · `Booster Pack Window Close` —— `BoosterPackOpenWindow.soundOnClose`（pid `3416723080278618344`）；
+#      `CloseButtonClick`；clip `Cardshuffle out`。
+#   · `Booster Pack Open Card Rarity 1..4` —— `CardInBoosterPack.contentByRarities[].audioCue`
+#      （`ChangeState(3)`，**MixerType 3 = Jingles**）。
+#   · `Booster Open *` —— `BoosterPackVisualItem.openBoosterPack`（`Initialize`，**MixerType 3**）。
+#   ⚠️ 这一批本来报「全在远端音频表里、本地没有」（`Shell/BoosterPackOpenWindow.cs:62`）—— **不成立**：
+#      12 个 cue 全在 `bundle_soundcollection_assets_all` 里，clip 名也全部解得出来（逐个写进了报告）。
+EXTRA_CUES = ["Reward open item by item", "CardStartDrag",
+              # —— 壳侧（2026-10-17 · W_G）——
+              "ButtonClick", "ButtonClick Back",
+              "CardClick 2", "New Card", "Booster Pack Window Close",
+              "Booster Pack Open Card Rarity 1", "Booster Pack Open Card Rarity 2",
+              "Booster Pack Open Card Rarity 3", "Booster Pack Open Card Rarity 4",
+              "Booster Open Standard", "Booster Open Ultramarines", "Booster Open Sautekh",
+              "Booster Open Space Wolves", "Booster Open Tyranid"]
 
 # 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**
 #   `AnimFXModuleCollisions` 的 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent`

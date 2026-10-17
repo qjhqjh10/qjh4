@@ -130,6 +130,48 @@ namespace CardPresentation
             _mixer.SetFloat(param, v <= 0f ? -80f : Mathf.Log10(v) * 20f);
         }
 
+        // ============================================================ Jingles 播放口
+        // 🔴 **2026-10-17（音效线 `W_G`）新增的唯一一个播放口** —— 为什么要单开：
+        //   `WarpforgeVFX.WFSoundPlayer` 把音源**写死挂 `FxGroup`**（它那条是特效音效，原版走 `MixerType.FX`），
+        //   而壳侧有两条原版 cue 走 **`MixerType.Jingles`（= 3）**：
+        //     · `BoosterPackOpenWindow` 的拆包声（`BoosterPackVisualItem.openBoosterPack`，`BoosterPackVisualItem__Initialize.c` 末段 `Play2D(...,3)`）
+        //     · 开卡包逐张的稀有度声（`CardInBoosterPack.ChangeState(3)`，`SoundManager__Play2D(...,3)`）
+        //   ⚠️ 它们在 mixer 里**音量恰好与 FX 同值**（`ApplyAll` 的 `VolumeJingles = _fx`）⇒
+        //     塞回 FX 组**听不出差别**，所以只能照字段接、不能靠耳朵验（同一条坑 → `JinglesGroup` 的注释）。
+        //   ⛔ 别把 `WFSoundPlayer` 改成带组参数的重载：它服务的是一整族特效音效，改它等于给那 900+ 条
+        //     开一个「可以接错组」的口子；这里只服务壳侧两条，单独一个音源最省事。
+        static AudioSource _jingle;
+        static readonly System.Random _jingleRng = new System.Random(20261017);
+
+        /// <summary>按 cue 播一条到 **Jingles** 组（随机挑 clip / 音高 / 音量，照原版 cue 的区间）。
+        /// 返回真的播出去的那条 clip（没播 = null）。语义对齐 `WFSoundPlayer.Play(cue, …)`。</summary>
+        public static AudioClip PlayJingle(WarpforgeVFX.WFSoundCue cue)
+        {
+            if (cue == null) return null;
+            var clip = WarpforgeVFX.WFSoundBank.PickClip(cue, _jingleRng);
+            if (clip == null) return null;                     // 已经警告过，这里不刷屏
+            if (!WarpforgeVFX.WFSoundPlayer.Enabled) return null;   // 批处理自检：不出声、不建对象
+
+            if (_jingle == null)
+            {
+                var go = new GameObject("WFJinglePlayer");
+                // 与 `WFSoundPlayer.Rent()` 同一条规矩：批处理自检里的运行时对象**别存进场景**
+                // （判据 → `WFSoundPlayer` 的 `A1534` 注释）。
+                go.hideFlags = HideFlags.DontSave;
+                if (Application.isPlaying) Object.DontDestroyOnLoad(go);
+                _jingle = go.AddComponent<AudioSource>();
+                _jingle.playOnAwake = false;
+                _jingle.spatialBlend = 0f;                     // `Play2D`
+            }
+
+            float pitch = Mathf.Lerp(cue.minPitch, cue.maxPitch, (float)_jingleRng.NextDouble());
+            float vol = Mathf.Lerp(cue.minVolume, cue.maxVolume, (float)_jingleRng.NextDouble());
+            _jingle.outputAudioMixerGroup = JinglesGroup;
+            _jingle.pitch = pitch <= 0f ? 1f : pitch;
+            _jingle.PlayOneShot(clip, vol);
+            return clip;
+        }
+
         // ---- 三根滑块的入口（值都是线性 0..1）----
 
         public static void SetMusic(float v)

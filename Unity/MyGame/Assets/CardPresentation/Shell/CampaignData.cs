@@ -238,7 +238,12 @@ namespace CardPresentation
 
         /// <summary>阵营 → 战役背景图。**GUID ↔ 阵营 已闭环**（`Ultramarines Campaign.json` 的
         /// `Background.m_AssetGUID` = `2cca2c1f…` → `Campaign_Faction_Bck_Ultramarines`）；
-        /// 13 张都是 **1024² 整图**（`m_Rect = 0,0,1024,1024`）⇒ 不用裁。落在 `Resources/Art/ui_campaign/`。</summary>
+        /// 13 张都是 **1024² 整图**（`m_Rect = 0,0,1024,1024`）⇒ 不用裁。
+        /// 🔴 **2026-10-17 就地订正（铁律 5）**：原来这里写「落在 `Resources/Art/ui_campaign/`」——
+        /// **不成立**：那个目录是**空的**、也没有任何取图口读它；这 13 张实际在
+        /// **`Resources/Art/ui_menu/`**（现读磁盘）。调用方走 `_win.Rect/_win.Art`（`MenuUi` 口径 ⇒
+        /// `ui_menu/ → ui_deck/ → ui/` 三级兜底），所以**行为一直是对的，错的只是这条注释**。
+        /// 判据 → `普查产出_1017/BSC62/S3_取图口错目录普查.md` §顺手发现 ①。</summary>
         public static string Background(string army)
         {
             switch (army)

@@ -371,6 +371,116 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Booster Open Sautekh",
+   "clips": [
+    "Open_Cardpack_Sautekh"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 1.0
+  },
+  {
+   "name": "Booster Open Space Wolves",
+   "clips": [
+    "Open_Cardpack_SpaceWolves"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Booster Open Standard",
+   "clips": [
+    "Open_Cardpack_Generic"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Booster Open Tyranid",
+   "clips": [
+    "Open_Cardpack_Leviathan"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 1.0
+  },
+  {
+   "name": "Booster Open Ultramarines",
+   "clips": [
+    "Open_Cardpack_Ultramarines"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 1.0
+  },
+  {
+   "name": "Booster Pack Open Card Rarity 1",
+   "clips": [
+    "Cardflip_Common"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Booster Pack Open Card Rarity 2",
+   "clips": [
+    "Cardflip_Rare"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Booster Pack Open Card Rarity 3",
+   "clips": [
+    "Cardflip_Epic"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Booster Pack Open Card Rarity 4",
+   "clips": [
+    "Cardflip_Legendary"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Booster Pack Window Close",
+   "clips": [
+    "Cardshuffle out"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "Bore Through",
    "clips": [
     "Bore Through"
@@ -540,6 +650,39 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "ButtonClick",
+   "clips": [
+    "UI Select Toggle"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "ButtonClick Back",
+   "clips": [
+    "UIButton Back"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "CardClick 2",
+   "clips": [
+    "UI Click Card 2"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
   },
   {
    "name": "CardStartDrag",
@@ -2440,6 +2583,17 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "New Card",
+   "clips": [
+    "New Card"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
   },
   {
    "name": "Night Spinner Explosion",

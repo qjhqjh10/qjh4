@@ -395,6 +395,7 @@ namespace CardPresentation
             public void Add(RectTransform rt, float z)
             {
                 if (rt == null) return;
+                Prune();
                 int i = 0;
                 while (i < _zs.Count && _zs[i] >= z) i++;
                 rt.SetSiblingIndex(i);
@@ -406,9 +407,25 @@ namespace CardPresentation
             public void Reorder(RectTransform rt, float newZ)
             {
                 if (rt == null) return;
+                Prune();
                 int i = _kids.IndexOf(rt);
                 if (i >= 0) { _kids.RemoveAt(i); _zs.RemoveAt(i); }
                 Add(rt, newZ);
+            }
+
+            /// <summary>🔴 **2026-10-17 修（`HudCanvas.Group` 僵尸账）**：把**已销毁**或**已换父**的登记踢掉。
+            /// <para>为什么必须做：本账是「按 z 算下标」用的，**下标里混着死件** ⇒ 后续 `SetSiblingIndex`
+            /// 会越插越靠后（**静默**、只在「反复重建同一件」时现形）。判据/先例 = `ErrorMessageBanner`
+            /// 那段注释（2026-10-17 `W18` 现核）：`Tooltip` 换文案时**每次重建**底图，
+            /// 第 2 次起底图就会漂到文字**之后**、把字盖死，而且**不会自愈**。</para>
+            /// <para>⚠️ 「已换父」也算失效 —— 账里的 `Root` 是登记那一刻的父节点，换父后它不再归这一组管。</para></summary>
+            void Prune()
+            {
+                for (int i = _kids.Count - 1; i >= 0; i--)
+                {
+                    var k = _kids[i];
+                    if (k == null || k.parent != Root) { _kids.RemoveAt(i); _zs.RemoveAt(i); }
+                }
             }
 
             /// <summary>这个件在本容器里占的 **z 档**。认不出 ⇒ `NaN`（⛔ 不是 0）。</summary>

@@ -291,6 +291,28 @@ namespace CardPresentation
             if (_inst._target <= 0f) _inst.gameObject.SetActive(false);
         }
 
+        /// <summary>自检用：uGUI 档底图在 `TooltipLayer` 里的**兄弟序**（世界档没有兄弟序语义 ⇒ `−1`）。
+        /// 判据 = 它必须**小于** <see cref="BodySiblingIndexForTest"/>（先画 = 在字底下）；
+        /// 见 `BuildBg` 里 2026-10-17 那条修复。</summary>
+        public static int BgSiblingIndexForTest
+        {
+            get
+            {
+                return (UguiMode && _inst != null && _inst._bgRoot != null)
+                     ? _inst._bgRoot.transform.GetSiblingIndex() : -1;
+            }
+        }
+
+        /// <summary>自检用：uGUI 档文字的**兄弟序**（世界档 ⇒ `−1`）。</summary>
+        public static int BodySiblingIndexForTest
+        {
+            get
+            {
+                return (UguiMode && _inst != null && _inst._body != null)
+                     ? _inst._body.transform.GetSiblingIndex() : -1;
+            }
+        }
+
         /// <summary>自检用：把面板与文字的当前状态摊开（排「面板在、字不在」这种问题）。</summary>
         public static string DebugDump()
         {
@@ -417,6 +439,13 @@ namespace CardPresentation
                 var piece = HudCanvas.MakeSlicedPiece(transform, tex, "tip_bg", _w, _h, BgBorder,
                                                       new Color(0f, 0f, 0f, 0.9f));
                 if (piece == null) { Debug.LogWarning("[Tooltip] uGUI 档的九宫格底图没建起来"); return; }
+                // 🔴🔴 **2026-10-17 修（活缺陷）：底图必须登记兄弟序** —— `MakeSlicedPiece` **既
+                //   不写 z、也不登记**（见 `ErrorMessageBanner` 同一处注释），而 `tip_body` 是
+                //   `Build()` 里**先**建的（uGUI 树里排在 0）⇒ 不登记的话底图落在**文字之后**、
+                //   把整块字盖死（`UguiMode = _host != null`，战斗侧这个档是活的）。
+                // ⚠️ 而且换文案时本方法**重建**底图 ⇒ 没有这事先登记，新件永远排到末尾、**不会自愈**；
+                //   重复重建还会让 `Group` 的 z 账里堆死件（已在 `HudCanvas.Group.Prune` 修掉）。
+                HudCanvas.Add(piece.Rect, 0f);
                 _bgRoot = piece.gameObject;
                 _bgParts.Add(piece);
                 ApplyAlpha(_alpha);

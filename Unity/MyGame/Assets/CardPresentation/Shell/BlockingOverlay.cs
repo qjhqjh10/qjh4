@@ -7,6 +7,21 @@
 //   `资料/任务_卡组卡牌战斗.md` 的 `A1506`。
 //
 // 遮罩层（挡住点击、不画东西）。
+//
+// 🔴 **2026-10-17（T16 · 壳侧加载）定位变更：本件是【降级路径】，不是原版件。**
+//   原版那两件已经照判据建在 `Shell/LoadingMenu.cs`：
+//     · `LoadingMenu`        = 全屏黑场（`Safe area Only Horizontal/LoadingMenu`，`LoadingFade(bool, Action)`）；
+//     · `LoadingController`  = 转圈件（`MenuLoadingController`：暗底 α0.4667 + 骷髅 α0.7 + 齿轮 `-20°/s`，270.438995²）。
+//   本件留着的原因有两条，**都不是「原版长这样」**：
+//     ① `Editor/ShellScene.cs` 的自检直接调 `StartSpinning/StopSpinning` 探 `IsBlocking`；
+//     ② 图取不到时 `LoadingController` 会报错，此时它是「只剩一块暗底 + 旧圈」的那条兜底。
+//   ⚠️ **现读全仓没有任何运行时调用点**（`grep "BlockingOverlay"` 只命中本文件 / `ShellRuntime.Build` /
+//      `ShellScene` 自检 / 注释）—— 别以为大厅断线在用它（那条走 `NetRuntime.Notice` 那套）。
+//   ⚠️ 它画的圈是旧图 `40K_menu_loading`、128px、转速我们挑的 —— **与原版不符**，只当兜底。
+//
+// 🔴 2026-10-17：渲染队列 3060/3061 → **4070/4071**。原来的 3060 写着「挡住一切」，
+//   而壳侧弹窗/面板的队列已到 4030（`AlliancePanelWindow.QText`）⇒ 作为兜底它其实**挡不住**。
+//   抬到全部 shell UI 之上、加载黑场（4090）之下。本件没有运行时调用点 ⇒ 行为面零影响。
 
 using System.Collections;
 using UnityEngine;
@@ -15,7 +30,8 @@ namespace CardPresentation
 {
     public class BlockingOverlay : MonoBehaviour
     {
-        /// <summary>有没有东西在挡输入。菜单的点击/拖拽入口都要问它一句。</summary>
+        /// <summary>有没有东西在挡输入。菜单的点击/拖拽入口都要问它一句。
+        /// ⚠️ **现读全仓没有消费者**（只有自检读它）—— 这条「挡输入」目前是**没有接线**的。</summary>
         public static bool IsBlocking { get; private set; }
 
         ImageQuad _dim, _spinner;
@@ -31,14 +47,14 @@ namespace CardPresentation
             {
                 _dim.SetAspect(1f);
                 _dim.SetTint(new Color(0f, 0f, 0f, 0.35f));
-                _dim.SetRenderQueue(3060);      // 挡住一切
+                _dim.SetRenderQueue(4070);      // 高于全部 shell UI（现读最高 4030）、低于加载黑场（4090）
             }
 
             var tex = CardArt.MenuUi("40K_menu_loading");
             if (tex != null)
                 _spinner = ImageQuad.Create(transform, tex, Vector3.zero, 128f / 108f,
                                             new Vector2(0.5f, 0.5f), "Spinner");
-            if (_spinner != null) _spinner.SetRenderQueue(3061);
+            if (_spinner != null) _spinner.SetRenderQueue(4071);
         }
 
         void SetActiveState(bool on)

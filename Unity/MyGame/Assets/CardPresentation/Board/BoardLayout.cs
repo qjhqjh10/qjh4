@@ -275,6 +275,12 @@ namespace CardPresentation
             {
                 var r = _markers[i];
                 if (r == null) continue;
+                // 🔴 **2026-10-17：被借走的底片【不许碰】** —— `AttachDropSlotTo` 把它挂到了那张卡的
+                //   底下，`localPosition` 的语义是「相对那张卡」（`(0,0,−1.0)`）。本函数是
+                //   `EnsureMarkers()`（每帧 `ReanchorHud` 都调）的一部分 ⇒ 不跳过的话，拖拽期间
+                //   它会被按**棋盘局部系**重摆一次，亮着的那格当场跳走（真机每帧都会发生）。
+                //   ⚠️ 还回来由 `SetDropSlot(-1)` 负责（`_borrowed` 置空后本函数自然会重新摆它）。
+                if (_borrowed != null && r.transform == _borrowed) continue;
                 // 🔴🔴 **2026-10-16 就地订正（铁律 5）—— 这里原来那段 2026-10-01 的注释【错因记错了】，别照它改回去。**
                 //   · **原来写的是**：「`DropTargetWorld` 走 `ScreenToWorld`（相机反投影）⇒ 实测**偏左 600 px** ⇒
                 //     正确做法 = `FromPixel`（HUD 平面那把尺子）」。**那两条都不成立**：

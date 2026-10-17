@@ -83,6 +83,30 @@ namespace CardPresentation
         /// 锚 `(0,0.2)-(1,0.8)`、`sizeDelta 0`）。</summary>
         const float ArmyBarH = 12f;
 
+        // ---- 阵营条进度条（原版 `Campaign Army Item Button/Slider`，2026-10-17 现读 prefab 坐实）----
+        //   三张图 / 九宫 / 染色全部逐字段照抄 `menu_dump.py … "Campaign Army Item Button" --depth 5`：
+        //     · `Background` = `40k_campaign_bar_bg` 42×18 · 九宫 (20,0,20,0) · `Sliced` 色 (0.299,0.289,0.689,1) · ppuMul **2.0**
+        //     · `Fill`       = `40k_campaign_bar_fill` 42×18 · 九宫 (10,0,10,0) · 色 (1,0.509,0,1)
+        //     · `Outline`    = `40k_campaign_bar_outline` 46×22 · 九宫 (20,0,20,0) · 色 (1,0.841,0,1) · ppuMul **2.0**
+        //   🔴 **满档换绿 = 原版代码，不是我们挑的**：`CampaignArmyUIDecorator.CheckFillColor`
+        //     在「当前值 == 最大值 ∧ 最大值 ≥ 1」时把 **`fill` 和 `outline` 两颗都设成 `completedColor`**
+        //     （反编译 `CampaignArmyUIDecorator__CheckFillColor.c:26-44`），
+        //     而 prefab 里 `completedColor = (0.02002177, 0.8867924, 0.01254893, 1)`
+        //     （`MonoBehaviour_5329563854910789322.json`）⇒ **满档时金描边也一起变绿**（实拍同色，逐像素核过）。
+        static readonly Color ArmyBarBgTint = new Color(0.299f, 0.289f, 0.689f, 1f);
+        static readonly Color ArmyBarPartialTint = new Color(1f, 0.509f, 0f, 1f);
+        static readonly Color ArmyBarGoldTint = new Color(1f, 0.841f, 0f, 1f);
+        static readonly Color ArmyBarCompletedTint = new Color(0.02002177f, 0.8867924f, 0.01254893f, 1f);
+        /// <summary>角块像素 = `m_Border ÷ m_PixelsPerUnitMultiplier`（2.0 只挂在 bg/outline 上）。</summary>
+        static readonly Vector4 ArmyBarBorder = new Vector4(20f, 0f, 20f, 0f);
+        static readonly Vector4 ArmyBarBorderOut = new Vector4(20f / 2f, 0f, 20f / 2f, 0f);
+        static readonly Vector4 ArmyBarFillBorder = new Vector4(10f, 0f, 10f, 0f);
+
+        // ---- `Premium Panel` 三态（原版 `CampaignPremiumPointsPanel.State`）----
+        //   枚举原文：`PremiumPurchased = 0` · `PremiumNotPurchased = 1` · `AlreadyCollected = 2`
+        //   （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CampaignPremiumPointsPanel.cs:11-16`）。
+        const int PremStatePurchased = 0, PremStateNotPurchased = 1, PremStateCollected = 2;
+
         /// <summary>节点的原始尺寸（原版 `Campaign Node` 根 = **100×100**）。</summary>
         const float NodeSize = 100f;
         /// <summary>`Collectable Highlight` 的尺寸（原版 `N(1, .5,.5, .5,.5, .5,.5, 0,0, 178.915,178.915)`）。</summary>
@@ -118,6 +142,14 @@ namespace CardPresentation
         public MenuScroll TrackScroll { get { return _trackScroll; } }
         Label _title, _points;
         ImageQuad _armyIcon;
+
+        // ---- `Premium Panel` 三态要开关的三件（原版 `CampaignPremiumPointsPanel` 的
+        //      `pointsObject` / `collectButton` / `timerDisplay`，见 `BuildPremiumPanel` 的注释）----
+        Transform _premPoints;      // 点数行（`Quantity` + 战役点图标）
+        Transform _premAction;      // `Generic Simplified UI Button`（含命中区）
+        Transform _premTimer;       // `Timer`（时钟图标 + 倒计时文本）
+        Label _premActionText;      // 按钮文字（state 0/1 各一条词条）
+        PxRect _premActionTxR;      // 按钮文字的框（`SetText` 之后要按它重新左对齐）
 
         /// <summary>节点首奖励里**本地点不出图**的那些 id（画的是占位板）——**逐条出声**（红线：不许静默失败）。
         /// 由 `AuditNodeRewards()` 逐条查 47 个节点填出来，**与视口滚到哪无关**（自检也读它）。</summary>
@@ -263,10 +295,11 @@ namespace CardPresentation
             _win.Rect(hdr, "40K_genearl_icon_Campaign_points", ptIcon, "Campaign Point Background",
                       QHeaderPts, null, true);
             _win.Rect(hdr, DeckRuntime.FactionIcon(CampaignData.Selected), ptIcon, "Army Icon", QHeaderPts, null, true);
-            _win.Rect(hdr, "40K_generic_bt_info",
-                UguiRect.Child(_headerR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
-                               new Vector2(179.57f, 28.829f), new Vector2(41.1569f, 41.1573f)),
-                "Info Button", QHeaderInfo);
+            var infoR = UguiRect.Child(_headerR, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
+                               new Vector2(179.57f, 28.829f), new Vector2(41.1569f, 41.1573f));
+            _win.Rect(hdr, "40K_generic_bt_info", infoR, "Info Button", QHeaderInfo);
+            // 🔴 **2026-10-17（界面线 T25）**：这颗 `info` 的 **tooltip 触发**（原版挂 `EverguildTooltipTrigger`）。
+            AddInfoTooltip(hdr, infoR, "Info Button");
             RestoreClip(noClip3);
 
             // ---- ④ `Campaign Track`：轨道（连线 + 47 个节点）----
@@ -711,26 +744,39 @@ namespace CardPresentation
         }
 
         /// <summary>阵营格底下那条**战役进度条**（原版 `Campaign Army Item Button/Slider`）。
-        /// 🔴 **两张图和值都是我们挑的**（出声，别当原版）：
-        ///   · **图**：原版那三张（`Background`/`Fill`/`Outline`）的 sprite pid 我**没解析出来**
-        ///     （`bundle_menus_assets_all` 里按 pid 反查 sprite 名那次没跑通）⇒ 借用工程里已有的进度条
-        ///     `40k_CardAmount_bar_bg` / `40k_CardAmount_bar_fill`（费用曲线那条用的同一对）。
-        ///   · **值** = `ClaimedCount ÷ NodeCount`，且**只给「本地有内容」的阵营填**（`CampaignData.HasContent`）——
-        ///     ⚠️ 第一版对**全部 13 格**都填同一个值，那是错的：原版的滑条是**逐阵营**的进度，
-        ///     本地只有 Ultramarines 有内容 ⇒ 别的阵营**一格都不该有填充**。
-        ///     原版的 `Slider.value` 到底由哪个字段写**没查到**。
+        /// ✅ **2026-10-17（T20 · A818）三张图与全部参数已坐实、不再是我们挑的**：
+        ///   判据 = `menu_dump.py bundle_menus_assets_all "Campaign Army Item Button" --depth 5`
+        ///   （`Background`/`Fill`/`Outline` 三行逐字段照抄，含九宫、染色、`ppuMul`）。
+        ///   **满档换绿** = 原版 `CampaignArmyUIDecorator.CheckFillColor`（当前 == 最大 ∧ 最大 ≥ 1 时
+        ///   `fill` **与** `outline` 都设成 `completedColor`）—— 值见 `ArmyBarCompletedTint`。
+        /// ⚠️ **值仍是我们的口径**：`ClaimedCount ÷ NodeCount`，且**只给「本地有内容」的阵营填**
+        ///   （`CampaignData.HasContent`）—— 原版 `Slider.value` 由哪个服务端字段写**仍未查到**。
+        ///   第一版对**全部 13 格**都填同一个值，那是错的：原版的滑条是**逐阵营**的进度，
+        ///   本地只有 Ultramarines 有内容 ⇒ 别的阵营**一格都不该有填充**。
         /// 版式是原版的：滑条 110×20、芯 12 高（锚 `(0,0.2)-(1,0.8)`）、节点段贴着高亮框下沿。</summary>
         void BuildArmySlider(Transform item, string army, PxRect r)
         {
-            // ⚠️ **不能挂 `keepAspect`**：原版那条是**拉伸**的（锚 (0,0.2)-(1,0.8)、`sizeDelta 0`），
-            //    而工程里那两张进度条图比例不是 110:12 ⇒ 等比会被缩成 25.7 宽（自检第一版就抓到）。
+            // ⚠️ **不能挂 `keepAspect`**：原版那三个 Image 都是 `Sliced`（拉伸），不是等比。
             float barY1 = r.y1 + (r.H - ArmyBarH) * 0.5f;
             var band = new PxRect(r.x1, barY1, r.x2, barY1 + ArmyBarH);
-            _win.Rect(item, "40k_CardAmount_bar_bg", band, "Slider/Background", QArmySlider);
-            float frac = (CampaignData.HasContent(army) && CampaignData.NodeCount > 0)
+            _win.Nine(item, "40k_campaign_bar_bg", band, ArmyBarBorder, QArmySlider,
+                      ArmyBarBgTint, true, "Slider/Background", ArmyBarBorderOut);
+            bool hasContent = CampaignData.HasContent(army) && CampaignData.NodeCount > 0;
+            float frac = hasContent
                 ? Mathf.Clamp01(CampaignData.ClaimedCount / (float)CampaignData.NodeCount) : 0f;
+            // 原版 `CheckFillColor` 的判定式：`当前值 == 最大值 ∧ 最大值 ≥ 1`
+            // （`CampaignArmyUIDecorator__CheckFillColor.c:26`）；满档时 **fill 与 outline 同色**。
+            bool completed = hasContent && CampaignData.NodeCount >= 1
+                             && CampaignData.ClaimedCount >= CampaignData.NodeCount;
             var fill = new PxRect(band.x1, band.y1, band.x1 + band.W * frac, band.y2);
-            if (fill.W > 0.01f) _win.Rect(item, "40k_CardAmount_bar_fill", fill, "Slider/Fill", QArmySlider);
+            if (fill.W > 0.01f)
+                _win.Nine(item, "40k_campaign_bar_fill", fill, ArmyBarFillBorder, QArmySlider + 1,
+                          completed ? ArmyBarCompletedTint : ArmyBarPartialTint, true,
+                          "Slider/Fill", null);
+            // `Outline` 在 `Background` 之后建（原版兄弟序：Background < Fill < Outline）⇒ 队列最高。
+            _win.Nine(item, "40k_campaign_bar_outline", band, ArmyBarBorder, QArmySlider + 2,
+                      completed ? ArmyBarCompletedTint : ArmyBarGoldTint, true,
+                      "Slider/Outline", ArmyBarBorderOut);
         }
 
         /// <summary>把**选中的阵营**对到视口中心（照原版 `ArmySelector.FocusOnArmy`）。开页 / 换阵营时调。</summary>
@@ -761,7 +807,11 @@ namespace CardPresentation
             string a = CampaignData.Selected;
             if (_title != null)
             {
-                _title.SetText(a.ToUpperInvariant());
+                // 🔴 **2026-10-17（T20）就地订正**：原版 `CampaignHeaderDisplay.Initialize` 写的是
+                //   `ArmyUtilities.GetLocalizedArmyName(armyId, …)`（反编译 `CampaignHeaderDisplay__Initialize.c:72`）
+                //   ⇒ **战役显示名 = 阵营本地化词条**，**没有 `ToUpperInvariant()`**。
+                //   用户实拍（中文档）是「太空野狼」—— 大写是**我们加的**，已删。
+                _title.SetText(Loc.T("Armies/" + a));
                 // 🔴 **对齐必须在 `SetText` 之后** —— 原版这两个 TMP 是 `H=Left`。
                 //    第一版把 `AlignLeft` 写在 `Build` 里（那时文字还是空串）⇒ 位置按空串算，
                 //    实测左边缘量出 **2.3e11**（TMP 边界是垃圾值）。见 `已知的坑.md` 那条「文字边界是缓存的」。
@@ -769,7 +819,15 @@ namespace CardPresentation
             }
             if (_points != null)
             {
-                _points.SetText("Points: " + CampaignData.Points);
+                // 🔴 **2026-10-17（T20）**：原版那一颗 = 硬编码键 `Rewards Menu/Points`（"Points: {0}" / "积分：{0}"）
+                //   经 `String.Format` 填**本阵营真实余额**（反编译 `CampaignHeaderDisplay__Initialize.c:84-94`；
+                //   键名在 `global-metadata.dat` 偏移 654216 处有字面量）。
+                //   ⚠️ 本轮 `Core/Loc.cs` **不在白名单**（一个字都不能加）⇒ 现在表里**没有这个键**。
+                //   本行写成「有就用真键、没有先借同格式的 `MainMenu/Campaign/Points`」：
+                //   等主对话把 `Rewards Menu/Points` 补进 Loc，这一句**自动换成原版文案**（中文 = 官方「积分：」）。
+                const string PointsTerm = "Rewards Menu/Points";
+                string fmt = Loc.HasEntry(PointsTerm) ? Loc.T(PointsTerm) : Loc.T("MainMenu/Campaign/Points");
+                _points.SetText(fmt.Replace("{0}", CampaignData.Points.ToString()));
                 MenuDraw.AlignLeft(_points, _pointsR);
             }
             if (_armyIcon != null)
@@ -995,22 +1053,31 @@ namespace CardPresentation
                 MenuDraw.AlignRight(panTitle, panTitleR);
             }
             // `Points`（HLG：Quantity + 战役点图标）—— 实算 rect 见正版 §四
+            // 🔴 **2026-10-17（T20）**：原版 `ChangeState` 在 **state 2** 关掉的是**整个 `pointsObject`**
+            //   （反编译 `CampaignPremiumPointsPanel__ChangeState.c:42-47`：`SetActive(pointsObject, 0)`）
+            //   ⇒ 这里先建一个**容器节点**，两颗子件都挂在它下面，三态切换只开关这一层。
+            var panPointsR = new PxRect(458.43f, 910.43f, 606.22f, 980.15f);
+            _premPoints = RewardsWindow.Node(p, "Points", panPointsR);
             var panQtyR = new PxRect(458.43f, 916.33f, 535.41f, 974.24f);
-            var panQty = _win.Text(p, "200", panQtyR.x1, panQtyR.x2, panQtyR.y1, panQtyR.y2, 5,
+            var panQty = _win.Text(_premPoints, "200", panQtyR.x1, panQtyR.x2, panQtyR.y1, panQtyR.y2, 5,
                                    Color.white, "Quantity", 61.23f);
             if (panQty != null)
             {
                 panQty.SetRenderQueue(QPanelPts);
                 MenuDraw.AlignLeft(panQty, panQtyR);
             }
-            _win.Rect(p, "40K_genearl_icon_Campaign_points_big", new PxRect(541.22f, 910.43f, 606.22f, 980.15f),
-                      "Points", QPanelPts, null, true);
-            // `Generic Simplified UI Button`（`Continue`）
+            _win.Rect(_premPoints, "40K_genearl_icon_Campaign_points_big",
+                      new PxRect(541.22f, 910.43f, 606.22f, 980.15f),
+                      "Point Icon", QPanelPts, null, true);
+            // `Generic Simplified UI Button`（state 0 = `Collect` · state 1 = `Premium`；state 2 整颗关）
             var btn = new PxRect(404.36f, 974.24f, 660.29f, 1029.71f);
+            _premAction = RewardsWindow.Node(p, "Generic Simplified UI Button", btn);
             // A17：原版 `Campaign Tab>Premium Panel>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 2 第 7 行）
-            var contQ = _win.Rect(p, "UI_Button_Mulligan", btn, "Generic Simplified UI Button", QPanelBtn);
+            var contQ = _win.Rect(_premAction, "UI_Button_Mulligan", btn, "Image", QPanelBtn);
             var btnTxR = new PxRect(btn.x1 + 9f, btn.y1 + 4f, btn.x2 - 9f, btn.y2 - 4f);
-            var panBtn = _win.Text(p, "Continue", btnTxR.x1, btnTxR.x2, btnTxR.y1, btnTxR.y2, 5,
+            _premActionTxR = btnTxR;
+            var panBtn = _win.Text(_premAction, PremiumTerm("MainMenu/General/Collect", "Collect", "收集"),
+                                   btnTxR.x1, btnTxR.x2, btnTxR.y1, btnTxR.y2, 5,
                                    Color.white, "Button Text", 49.35f,
                                    // 🔴 **2026-10-10（A1212 · 块 13 #21）**：接上原版那颗的 `m_enableAutoSizing`
                                    //   （四格 = **10 / 55 / 12 / 0**）。判据 = `R5_包装层菜单族.md` §2 #21
@@ -1020,28 +1087,109 @@ namespace CardPresentation
                                    //   （写法同本文件上面 `panTitle` 那一处 A281：`SetWrapping` 内部会 `ForceRelayout`
                                    //   ⇒ 还原这一句必须排在 `MenuDraw.AlignRight` **之前**）。
                                    wrapPx: btnTxR.W, autoMinPx: 10f, autoMaxPx: 55f, autoBasePx: 12f);
+            _premActionText = panBtn;
             if (panBtn != null)
             {
                 panBtn.SetRenderQueue(QPanelBtn);
                 panBtn.SetWrappingMode(0);      // 原版 `m_TextWrappingMode = 0`
                 MenuDraw.AlignRight(panBtn, btnTxR);
             }
-            AddHit(p, "ContinueHit", btn, QPanelBtn, () =>
+            AddHit(_premAction, "ContinueHit", btn, QPanelBtn, () =>
                 Debug.Log("[Campaign] `Continue`：原版是「领高级每日奖励」，走 PlayFab 云脚本 —— **单机没有服务器**，本轮不实现"),
                 contQ, "UI_Button_Mulligan");
-            // `Timer`（HLG：时钟图标 + 倒计时文本）
-            _win.Rect(p, "WF_icon_clock", new PxRect(370.10f, 1030.09f, 408.63f, 1068.62f), "Icon", QPanelTimer,
-                      new Color(0.764f, 0.764f, 0.764f, 1f));
+            // `Timer`（HLG：时钟图标 + 倒计时文本）—— 原版 state 2 才显示，state 0/1 关（同上反编译 `:48-51`）。
+            _premTimer = RewardsWindow.Node(p, "Timer", new PxRect(370.10f, 1030.09f, 694.55f, 1068.62f));
+            _win.Rect(_premTimer, "WF_icon_clock", new PxRect(370.10f, 1030.09f, 408.63f, 1068.62f),
+                      "Icon", QPanelTimer, new Color(0.764f, 0.764f, 0.764f, 1f));
             var panTimerR = new PxRect(408.63f, 1037.15f, 694.55f, 1061.57f);
-            var panTimer = _win.Text(p, "Siguiente: 5d 20h 15m", panTimerR.x1, panTimerR.x2,
+            var panTimer = _win.Text(_premTimer, "Siguiente: --", panTimerR.x1, panTimerR.x2,
                                      panTimerR.y1, panTimerR.y2, 5,
                                      new Color(0.745f, 0.745f, 0.745f, 1f), "Timer Text", 37.9f);
             if (panTimer != null)
             {
                 panTimer.SetRenderQueue(QPanelTimer);
+                // 🔴🔴 **2026-10-17（W_A_TimerDisplay）**：原版这一格 = `TimerDisplay.Initialize(timeToNextCollect)`。
+                //   ⚠️ **`timeToNextCollect` 在本地数据模型里【不存在】** —— 已按铁律 2 查过：
+                //      · `Shell/CampaignData.cs` 全文 0 个 `DateTime` / 0 个 `*Time*` 字段；
+                //      · 全仓 grep `timeToNextCollect|TimeToNextCollect|NextCollect|CollectAt` = **0 命中**
+                //        （只有 `资料/` 里的规格文档提到它）。
+                //   原版那个值是**服务端**给的（`CampaignWindowTab.SetActiveCampaign` →
+                //   `PremiumPointsPanel.Initialize(..., timeToNextCollect, ...)`，规格 §七）。
+                //   ⇒ 按用户口径**不编日期**：目标传 `null` ⇒ `TimerDisplay` 出声一次 + 稳定显示 `--`。
+                //   ⚠️ 原版那颗 `TimerDisplay` 的 `useExtraText = 1`（`extraText = MainMenu/General/NextWithTwoPoints`，
+                //      `MonoBehaviour_-4260101405004392705.json` 实读）⇒ 描述串 + 时间串拼成一条；
+                //      这个词条的正文**官方表里没有**（`官方本地化_en+zh-CN.json` 查过，0 命中），
+                //      所以描述串照旧用 prefab 出厂占位 `Siguiente: `（⛔ 不是我们译的）。
+                TimerDisplay.Attach(panTimer, null, "Siguiente: ", "战役 Premium Panel 的 Timer",
+                                    "`timeToNextCollect` 在本地数据模型里不存在（原版由服务端下发）");
                 MenuDraw.AlignLeft(panTimer, panTimerR);
             }
+            ApplyPremiumState(LocalPremiumState());
             RestoreClip(noClip4);
+        }
+
+        // ============================================================ Premium Panel 三态
+
+        /// <summary>当前 `Premium Panel` 的三态（0/1/2；自检可读）。`-1` = 还没跑过 `BuildPremiumPanel`。</summary>
+        public int PremiumPanelState { get { return _premState; } }
+        int _premState = -1;
+
+        /// <summary>**我们挑的**三态来源（⛔ 不是原版的）。原版 =
+        /// `CampaignPremiumPointsPanel.Initialize` 里 `collected ? AlreadyCollected : (campaign.IsPremium ? PremiumPurchased : PremiumNotPurchased)`
+        /// （反编译 `CampaignPremiumPointsPanel__Initialize.c:36-43`）—— 两个输入**都来自服务端**
+        /// （`Campaign.IsPremium` 与当日 `collected`），而本地数据模型里**一个都没有**：
+        /// `Shell/CampaignData.cs` 全文 0 个 `DateTime` / 0 个 `*Time*`，也没有「高级已购 / 今日已领」字段。
+        /// ⇒ 我们挑的口径 = **无活动数据 ⇒ state 2（`AlreadyCollected`）**：
+        ///   ① 与用户实拍一致（实拍正好是 state 2：只留标题 + 倒计时）；
+        ///   ② 不假装有「可领取」行为 —— 原版 `Collect` 走 PlayFab 云脚本，单机没有服务器。
+        /// ⚠️ 将来若接了活动数据，只需换这一个函数的返回值（`ApplyPremiumState` 已经把三档都接好了）。</summary>
+        static int LocalPremiumState()
+        {
+            return PremStateCollected;
+        }
+
+        /// <summary>按原版 `CampaignPremiumPointsPanel.ChangeState` 三态表开关件（逐条出处见下）：
+        /// <list type="table">
+        /// <item><term>state 0 `PremiumPurchased`</term><description>点数行 **开** · 按钮 **开**（文字 = `MainMenu/General/Collect`）· 计时器 **关**</description></item>
+        /// <item><term>state 1 `PremiumNotPurchased`</term><description>点数行 **开** · 按钮 **开**（文字 = `MainMenu/PurchasePremium/Premium`）· 计时器 **关**</description></item>
+        /// <item><term>state 2 `AlreadyCollected`</term><description>点数行 **关** · 按钮 **关** · 计时器 **开**（只剩标题 + 倒计时）</description></item>
+        /// </list>
+        /// 判据 = 反编译 `CampaignPremiumPointsPanel__ChangeState.c`：state 0/1 走 `:15-36` / `:66-86`
+        /// （`pointsObject`(0x30) 开、`collectButton`(0x48) 开、`timerDisplay`(0x38) 关、按钮文字用
+        /// `collectText`/`becomePremiumText`）；state 2 走 `:42-57`（三者**全反**）。
+        /// 两条词条名 = prefab `MonoBehaviour_-4598054059081945715.json` 的 `mTerm` 原文。
+        /// ⚠️ **本方法不管**底图 sprite 与 `backgroundShinyEffect` —— 那两件我们**根本没建**（如实记在报告里）。</summary>
+        void ApplyPremiumState(int state)
+        {
+            _premState = state;
+            bool showAction = state == PremStatePurchased || state == PremStateNotPurchased;
+            if (_premPoints != null) _premPoints.gameObject.SetActive(showAction);
+            if (_premAction != null) _premAction.gameObject.SetActive(showAction);
+            if (_premTimer != null) _premTimer.gameObject.SetActive(state == PremStateCollected);
+            if (_premActionText != null)
+            {
+                if (showAction)
+                {
+                    _premActionText.SetText(state == PremStatePurchased
+                        ? PremiumTerm("MainMenu/General/Collect", "Collect", "收集")
+                        : PremiumTerm("MainMenu/PurchasePremium/Premium", "Premium", "高级"));
+                    // 与 `Refresh` 同一条纪律：`SetText` 之后重新对齐（TMP 宽度变了）。
+                    MenuDraw.AlignRight(_premActionText, _premActionTxR);
+                }
+            }
+        }
+
+        /// <summary>本地化词条取样；**Loc 里还没有这个键时就地兜底**（⛔ 不是我们译的 —— 两列都照
+        /// `数据/游戏数据/官方本地化_en+zh-CN.json`）。
+        /// 🔴 **2026-10-17（T20）为什么需要它**：原版的三个词条键
+        /// `Rewards Menu/Points` / `MainMenu/General/Collect` / `MainMenu/PurchasePremium/Premium`
+        /// **都不在 `Core/Loc.cs` 的表里**，而本轮白名单**禁止改 `Loc.cs`**。
+        /// 等主对话把这三条补进 Loc，本函数**自动改用 `Loc.T`**（判据：`Loc.HasEntry`）。
+        /// 只支持中/英两套（与 `Loc` 的口径一致）；其它语言按 Loc 的规则回退英文。</summary>
+        static string PremiumTerm(string term, string en, string zh)
+        {
+            if (Loc.HasEntry(term)) return Loc.T(term);
+            return Loc.Current == AvailableLanguages.Chinese ? zh : en;
         }
 
         // ============================================================ 「这一页四处没有 mask」（A353）
@@ -1134,6 +1282,23 @@ namespace CardPresentation
         void AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
                     ImageQuad target = null, string art = null, string hoverArt = null, string pressedArt = null)
             => _win.AddHit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt);
+
+        /// <summary>🔴 **2026-10-17（界面线 T25）**：`40K_generic_bt_info` 那颗圆钮的 **tooltip 触发**。
+        /// 判据 = 原版每颗 info 都挂 `EverguildTooltipTrigger`（`U2` 普查 §二 战役/日常那几行；先例 =
+        /// 锻造页 `Help Icon` 与同族的 `MissionsTab.AddInfoTooltip`，两处同一套写法）。
+        /// <para>⚠️ **正文在远端词条**（本地没有 value）⇒ **面板照原版的时机弹、里面是空的**
+        /// （`Tooltip.Show(" ")`：空串 = 不显示，一个空格让它照弹；同 `ForgeTab.HelpTipBody`）。⛔ 不编文案。</para>
+        /// <para>⚠️ 这颗的 `tooltipAnchor` / `offset` **没有现读** ⇒ 照同族默认 `25`（右上）+ 零偏移
+        /// —— **我们照同族挑的**，如实标。</para></summary>
+        void AddInfoTooltip(Transform parent, PxRect r, string name)
+        {
+            var hit = _win.AddHit(parent, name + " TipHit", r, RewardsWindow.QOverlay, null);
+            if (hit == null) return;
+            var wb = hit.GetComponent<WindowButton>();
+            if (wb == null) return;
+            wb.onEnter = () => Tooltip.Show(" ", LayoutSpace.FromPixel(r.CX, r.CY), 25, Vector3.zero);
+            wb.onExit = Tooltip.Hide;
+        }
 
         public string Dump()
         {

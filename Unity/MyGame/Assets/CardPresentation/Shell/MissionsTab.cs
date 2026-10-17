@@ -279,7 +279,13 @@ namespace CardPresentation
             // **做法（本文件此后一律遵守）**：卡内按**设计空间**（未缩放）算矩形**与字号**，
             //    只在**建对象的那一刻**过 `R()` / `FS()` 换成最终值（`Draw` / `Txt` / `Txt1` / `NodeD` / `Node`+`R`）。
             _s = SM_Scale; _so = new Vector2(sm.x1, sm.y1);
-            BuildLoginCard(smNode, UguiRect.Child(sm, DL_A0, DL_A1, DL_P, DL_Pos, DL_Sz));
+            // 🔴 **2026-10-17（界面线 T19 · `A1288`）就地改框：`334×565` 模板位 → 布局组实算的 `347.64×555`。**
+            //   判据与**同族先例**（下面那颗骷髅卡，2026-10-10 `A1271` 已改）：这两张卡都在 `Special Missions`
+            //   的 HLG 里，`ctrlW/H = 1` ⇒ 高被 `Clamp(innerSize, 555, 555)` 钉成 **555**、宽取
+            //   `minW 347.64` ⇒ **两张各 347.64、间距 11.01**（合计 706.29 = `SM_Sz.x`，自洽）。
+            //   ⇒ 登录卡 = 第 **0** 个子件，走 `HorizontalChild(…, 0, 0f, 11.01f)`（与骷髅卡同一条算法）。
+            //   ⛔ 别再回到「按 `DL_Sz` 手摆 (167, −282.5)」—— 那是**模板位**，原版运行期由 HLG 覆写。
+            BuildLoginCard(smNode, UguiLayout.HorizontalChild(sm, 347.64f, 555f, 0, 0f, 11.01f));
 
             // 🔴 **2026-10-10（A1271）改框：`336 × 277.5` → `347.64 × 555`。**
             //   原来那句「页内那份尺寸是 0×0 ⇒ 用独立预制体 Small 的实尺 336×277.5」**两半都不成立**：
@@ -551,11 +557,17 @@ namespace CardPresentation
             // 显示条件 = **`IsComplete`**（`displayRule = 2 (WhenComplete)`）⇒ **已领取**才画
             // ⚠️ 本行 MB 是 `MissionTimerDisplay`（`MissionInfoDisplay` 的派生类），`dr = 2` 是**独立复读**到的
             //    （MB `9196887547440731903`）—— 别拿 `description` 那条 `dr=1` 当通例（同一个类在不同行 dr 可以不同）。
+            // 🆕 **2026-10-12（A336③）**：`timer` 那一颗的原版读数 = `fs 35 · auto[15~35] · base **36.0**` ·
+            //   折行 1（判据 = MB 里 `m_text='Available in 64h'` · `fs=35.0` · `auto[15.0~35.0]` 那颗
+            //   `MonoBehaviour_-8858791808131827979.json`；与 `description` 那颗**base 同值但节点不同**）。
             if (claimed)
-                // 🆕 **2026-10-12（A336③）**：`timer` 那一颗的原版读数 = `fs 35 · auto[15~35] · base **36.0**` ·
-                //   折行 1（判据 = MB 里 `m_text='Available in 64h'` · `fs=35.0` · `auto[15.0~35.0]` 那颗
-                //   `MonoBehaviour_-8858791808131827979.json`；与 `description` 那颗**base 同值但节点不同**）。
-                AlignL(Txt(parent, tim, DailyData.DailyTimer(index), new Color(1f, 1f, 1f, 0.59f), "timer", 35f, 15f, 0f, 36f), tim);
+            {
+                var tv = Txt(parent, tim, DailyData.DailyTimer(index), new Color(1f, 1f, 1f, 0.59f), "timer", 35f, 15f, 0f, 36f);
+                // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时（目标 = 自建日界 `NextResetAt`）。
+                //   先挂组件再对齐 —— 组件会**当场**把文本写成真值，对齐要按最终宽度算。
+                TimerDisplay.Attach(tv, () => DailyData.NextResetAt, "Available in ", "每日任务行 Timer", null);
+                AlignL(tv, tim);
+            }
 
             // `Separator Line`  N(1, 0,0, 0,1, 1,0.5, 122.062,-0.0370026, 1.60199,-3.049)  无 sprite，只有色
             var sep = UguiRect.Child(row, UguiRect.A00, new Vector2(0f, 1f), new Vector2(1f, 0.5f),
@@ -843,6 +855,11 @@ namespace CardPresentation
                 var tl = Txt(parent, th, DailyData.ResetIn(), new Color(0.5686f, 0.5686f, 0.5882f, 1f), "Timer", 28f,
                              autoMinPx: 15f, autoMaxPx: 38f, autoBasePx: 36f);
                 if (tl == null) Debug.LogWarning("[Rewards] 登录卡的 `Timer` 没建出来（红线：不许静默失败）");
+                else
+                    // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时（目标 = 自建日界 `NextResetAt`，本机时间）。
+                    //   ⚠️ `Editor/RewardsScene.cs:2209` 那条断言还把文案钉在出厂串 `Resets in 12h 34 m` 上
+                    //   —— 本件只改实现、**没动 Editor**（不在白名单）⇒ 那条断言**会红**，需主对话另行更新。
+                    TimerDisplay.Attach(tl, () => DailyData.NextResetAt, "Resets in ", "登录卡 Timer", null);
             }
         }
 
@@ -1044,6 +1061,9 @@ namespace CardPresentation
             var tm = Txt(parent, th, DailyData.ResetIn(), new Color(0.5686f, 0.5686f, 0.5882f, 1f), "Timer", 38f,
                          autoMinPx: 15f, autoMaxPx: 38f, autoBasePx: 36f);
             if (tm == null) Debug.LogWarning("[Rewards] 骷髅卡的 `Timer` 没建出来（红线：不许静默失败）");
+            else
+                // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时（目标 = 自建日界 `NextResetAt`，本机时间）。
+                TimerDisplay.Attach(tm, () => DailyData.NextResetAt, "Resets in ", "骷髅卡 Timer", null);
         }
 
         /// <summary>`Weekly Mission`（1518.99×227.51）· **6** 个 70² 里程碑 + 进度条 + `Ends in`。
@@ -1177,8 +1197,12 @@ namespace CardPresentation
                                     new Vector2(0f, 31.287f), new Vector2(100f, 57.167f));
             // 🆕 **A1205 接上**（`R5` §2·J #58：原版 `Weekly Mission Holder ▸ Weekly Mission ▸ background ▸
             //    footer ▸ TimerHolder ▸ Timer` = `auto[15~38] · base 36 · 折行 1`）
-            Txt(parent, tm, DailyData.WeeklyEndsIn(), new Color(0.57f, 0.57f, 0.59f, 1f), "Timer", 38f,
-                15f, 38f, 36f);
+            var wkTimer = Txt(parent, tm, DailyData.WeeklyEndsIn(), new Color(0.57f, 0.57f, 0.59f, 1f), "Timer", 38f,
+                              15f, 38f, 36f);
+            // 🆕 **2026-10-17（W_A_TimerDisplay）**：周常的刷新时刻**不在我们的数据模型里**
+            //   ⇒ 目标传 `null`：`TimerDisplay` 出一声 + 稳定显示 `Ends in --`（⛔ 不编日期）。
+            TimerDisplay.Attach(wkTimer, null, "Ends in ", "周常 Timer",
+                                "周常刷新时刻在本地数据模型里不存在（原版由服务端下发；`TryDailyReset` 不碰周常）");
         }
 
         /// <summary>`Mission Header`：标题条（`Daily Missions` 那一条）。
@@ -1210,6 +1234,7 @@ namespace CardPresentation
             var inf = UguiRect.Child(h, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                                      new Vector2(-10f, 0f), new Vector2(41f, 41f));
             Draw(parent, "40K_generic_bt_info", inf, "info", RewardsWindow.QContent);
+            AddInfoTooltip(parent, inf, "info");
             // `Refill Counter`  N(3, 0,0.5, 1,0.5, .5,.5, -26.93,0, -53.86,50)   '0 Disponible' fs36
             var rc = UguiRect.Child(h, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), UguiRect.P50c,
                                     new Vector2(-26.93f, 0f), new Vector2(-53.86f, 50f));
@@ -1296,6 +1321,25 @@ namespace CardPresentation
             var inf = UguiRect.Child(h, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                                      new Vector2(-10f, 0f), new Vector2(41f, 41f));
             Draw(parent, "40K_generic_bt_info", inf, what + " info", RewardsWindow.QContent);
+            AddInfoTooltip(parent, inf, what + " info");
+        }
+
+        /// <summary>🔴 **2026-10-17（界面线 T25）**：`40K_generic_bt_info` 那颗圆钮的 **tooltip 触发**。
+        /// 判据：原版每颗 info 都挂 `EverguildTooltipTrigger`（`U2` 普查 §二 日常那两行；先例 =
+        /// 锻造页 `Help Icon` 的 `BuildHelpTip`，那一颗已接）。我们原来**只画图、没有触发**。
+        /// <para>⚠️ **正文在远端词条**（那族 `mTerm` 的 value 本地没有）⇒ **面板照原版的时机弹、里面是空的**
+        /// （同 `ForgeTab.HelpTipBody = " "`：`Tooltip.Show` 的契约是「空串 = 不显示」⇒ 用一个空格让它照弹）。
+        /// ⛔ 不许自己编文案。</para>
+        /// <para>⚠️ 这两颗的 `tooltipAnchor` / `offset` **没有现读**（锻造那颗实读是 `25 / (0,0,0)`）
+        /// ⇒ 照同族默认 `25`（右上）+ 零偏移 —— **我们照同族挑的**，如实标。</para></summary>
+        void AddInfoTooltip(Transform parent, PxRect r, string name)
+        {
+            var hit = _win.AddHit(parent, name + " Hit", r, RewardsWindow.QOverlay, null);
+            if (hit == null) return;
+            var wb = hit.GetComponent<WindowButton>();
+            if (wb == null) return;
+            wb.onEnter = () => Tooltip.Show(" ", LayoutSpace.FromPixel(r.CX, r.CY), 25, Vector3.zero);
+            wb.onExit = Tooltip.Hide;
         }
 
         /// <summary>进度条：两张图都是**九宫格 `(4,4,4,4)`**、12×12（正本 §九）。底色 `(1,0.59,0,1)` · 填充 `(1,0.77,0.33,1)`。

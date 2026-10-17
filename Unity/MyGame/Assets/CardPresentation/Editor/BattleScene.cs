@@ -506,6 +506,14 @@ public static class BattleScene
                 + " —— 不成立时它下面那 **9 条**等于没验（点阵后端没有「框 / 四格 / 自适应」这三档）");
             if (lb == null || tmp == null) return;
 
+            // 🔴 **2026-10-17（`BSC62` · 两颗张数标签 `MyPileLabel`/`FoePileLabel` 的 4.29e9 残差）：**
+            //   批处理**没有帧循环**，换显隐之后 TMP 不会自己重排（`OnEnable` 在编辑模式下也不跑）
+            //   ⇒ `textBounds` 停在**未测量哨兵 `4.29e9`** 上，`HudBlockRel` 算出来就是那个天文数字。
+            //   产品侧**没有错**：`Label.RefreshBounds` 里有 `UsableBounds` 守卫（量不出来一个字都不动）。
+            //   ⇒ 这里**显式推一次**（`ForceRelayout` = `ForceMeshUpdate` + `RefreshBounds`，幂等），
+            //   量到真值之后再断。⚠️ 只在**自检**里推，产品路径由每帧的 `UpdateHud` 自己推。
+            lb.ForceRelayout();
+
             // ① 框真的写进去了（写在 TMP 子节点的 `sizeDelta` 上）。⚠️ 容差 1e-4：**别精确比浮点**
             //    改坏法：把 `Hud` 的 `boxWpx/boxHpx` 传成 `0`（或漏掉那 6 个实参）⇒ 这两条立刻红
             // 🔴 **2026-10-16（`EW8`）：两边的尺都换成【设计 px】。**
@@ -2191,6 +2199,9 @@ public static class BattleScene
                 //   ⇒ 打印 `0.00`、卡在 `> 1f` 门槛下。产品侧没错（`RefreshBounds` 有哨兵守卫）。
                 drv.SetCardHoldForTest(true);
                 drv.ApplyTutorialVisibilityForTest();      // 批处理无帧循环 ⇒ 手动重刷一次显隐
+                // 🔴 **2026-10-17**：显出来之后**还要手动推一次 TMP 排版** —— 否则 `WorldW` 停在初值
+                //   （打印 `0.00`），下面那条永远过不了。见 `RelayoutPileLabelsForTest` 的 doc。
+                drv.RelayoutPileLabelsForTest();
                 Check(drv.PileLabelWorldW > 1f && drv.PileLabelWorldW < 238.5f - 0.5f,
                       $"张数文字宽 {drv.PileLabelWorldW:F2} **px** < 底板宽 **238.5 px**"
                     + "（原版文字是 TMP 自动缩字号塞进去的；⛔ 别拿 `MyDeckSizePlateWorldH` 比 —— 那是**世界单位**）");
@@ -3887,6 +3898,15 @@ public static class BattleScene
                     //   所以只能靠这里钉住 —— ⛔ **跳过被借走的那一格**（它的 `localPosition` 是相对那张卡的）。
                     if (pBoard.use3D && pBoard.boardCam != null)
                     {
+                        // 🔴 **2026-10-17（`20915` 收口）：先按【当前】分辨率重摆一次底片，再比位置。**
+                        //   `PlaceMarkers` 只在 `EnsureMarkers()` 里跑，而真机那条链是**每帧**
+                        //   `UpdateHud → ReanchorHud → EnsureMarkers`；**批处理没有帧循环** ⇒
+                        //   底片停在「上一次显式刷」那一刻的分辨率/相机状态上（本文件 `PlaceMarkers`
+                        //   自己的 doc 就写着「批处理自检里就是 4:3 建、16:9 拍」）。
+                        //   ⇒ 残差 `(0.0000, 0.2165)` 是**尺子不同时**，不是换算错 —— 断言按当前状态重算
+                        //   `DropTargetWorld`，底片却还是旧值。刷这一次之后两边才是同一个状态。
+                        //   ⚠️ 产品侧不需要额外调用（真机每帧都刷）；⛔ 别把这一句当成「补丁」去改产品路径。
+                        pBoard.EnsureMarkers();
                         int probeSlot = (freeSlot == 0) ? 1 : 0;
                         var pr = pBoard.SlotMarkerRenderer(probeSlot);
                         var want = pBoard.transform.TransformPoint(pBoard.DropTargetWorld(probeSlot));
@@ -3898,10 +3918,16 @@ public static class BattleScene
                             + " —— 原来那条换算把「实际像素」当「设计像素」用、y 还反了");
                         // ★ **灭自证**：两个候选靶**真的分得开** —— 没有这一条，上面那条对
                         //   「有人把换算改回 `SlotPosition` / `FromPixel`」**无感**（与 `A337` 的 `sep3D` 同型）。
+                        // 🔴 **2026-10-17 就地订正（`BSC62` · 复跑现核）**：阈值原写 **0.05**，而**修好之后**
+                        //   这一格的真值是 **0.024** —— 旧读数 `0.2165` 是**底片停在旧分辨率那一次**的
+                        //   **陈旧值**（见上面 `EnsureMarkers()` 那段）⇒ 那个 0.05 其实是在**坏状态下**
+                        //   校准出来的，修好后反而红。今天两个候选只差 0.024，但上面那条位置断言的容差是
+                        //   **1e-3** ⇒ 取 **0.01**（10× 容差）仍然**挡得住「改回 SlotPosition」**。
                         var lineP = pBoard.SlotPosition(probeSlot);
-                        Check(pr != null && Mathf.Abs(got.y - lineP.y) > 0.05f,
+                        Check(pr != null && Mathf.Abs(got.y - lineP.y) > 0.01f,
                               $"★ 底片**不在 2D 行线**上（与 `SlotPosition` 的 y 差 {Mathf.Abs(got.y - lineP.y):F3} 世界单位）"
-                            + " —— 3D 下卡画在别处，底片得跟着卡");
+                            + " —— 3D 下卡画在别处，底片得跟着卡（⚠️ 本格两个候选只差 ~0.024，"
+                            + "但位置断言容差是 1e-3 ⇒ 0.01 的阈值仍能分辨「改回 SlotPosition」）");
                         // ★🆕 **督军位的投影要用 `HeroScale`**（`2026-10-16 · 普查 §二 H`）：真落位
                         //   `BattleDriver.PoseFor` 取的是 `u.IsWarlord ? HeroScale : CardScale`
                         //   （我方 0.40 / 敌 0.77 vs 别的格 0.36 / 0.69）⇒ 原来恒用 `CardScale` 时，
@@ -8610,8 +8636,17 @@ public static class BattleScene
                                 var oldRot = s1.transform.localRotation;
                                 s1.transform.localRotation = Quaternion.Euler(0f, 0f, 30f);
                                 // ⚠️ 必须走**卡的子件** `f1rot`（`Contains` 的标架就是它），⛔ 不是卡根。
+                                // 🔴 **2026-10-17 就地订正（铁律 5）**：取样点原来按 `BoxCollider2D` 主面
+                                //   （`HitHalfW/H`）取，而**展示窗**的送达件是 `UI Collider`（`UiColliderHalfW/H`，
+                                //   更小：半宽 0.94635 / 半高 1.44565 / 中心 −0.02）—— `W4` 写这条断言与
+                                //   `W16` 把矩形换成 `UI Collider` 是**并行落地的两笔**、没对齐 ⇒ 取样点落在
+                                //   新矩形外、实得 −1/−1（**机制没坏，是断言量的范围过时了**）。
+                                //   🔑 同一个「卡」有**两套**命中矩形：手牌/棋盘 = `BoxCollider2D`（`HitHalf*`）、
+                                //   展示窗 = `UI Collider`（`UiCollider*`）⇒ 这条判别式必须用**展示窗那一套**，
+                                //   ⛔ 别改回 `HitHalfW/H`（改回去 = 又回到「点得到的是错的矩形」）。
                                 Vector3 Crot(float kx, float ky) => f1rot.TransformPoint(
-                                    new Vector3(kx * CardView.HitHalfW, CardView.HitCenterDy + ky * CardView.HitHalfH, 0f));
+                                    new Vector3(kx * CardView.UiColliderHalfW,
+                                                CardView.UiColliderCenterDy + ky * CardView.UiColliderHalfH, 0f));
                                 int hA = cdw.HitSlot(Crot(+0.995f, +0.995f));
                                 int hB = cdw.HitSlot(Crot(-0.995f, -0.995f));
                                 Check(hA == 1 && hB == 1,
@@ -14182,6 +14217,15 @@ public static class BattleScene
                     Check(hit && Tooltip.Visible, "把指针放到**近战数值**上 → tooltip 立刻显示（enter 立刻显示，无延迟）");
                     Check(Tooltip.ShownBody == TipText.Melee, "显示的是近战那一条");
                     Check(Tooltip.ShowCount == n0 + 1, "……而且只来了一条");
+                    // 🔴🆕 2026-10-17（活缺陷修复）：**底图必须在文字【之前】**（兄弟序更小 = 先画 = 垫在字底下）。
+                    //   修之前 `HudCanvas.MakeSlicedPiece` 既不写 z、也不登记兄弟序，而 `tip_body`
+                    //   是 `Tooltip.Build()` 里先建的 ⇒ 底图落在文字**之后**、把整块字盖死
+                    //   （`UguiMode = _host != null`，战斗侧这个档是活的）。判据 → `Tooltip.BuildBg`。
+                    //   灭自证：把 `HudCanvas.Add(piece.Rect, 0f)` 删掉 ⇒ bg 回到 1、body 是 0 ⇒ 本条红。
+                    Check(Tooltip.BgSiblingIndexForTest >= 0 && Tooltip.BodySiblingIndexForTest >= 0
+                          && Tooltip.BgSiblingIndexForTest < Tooltip.BodySiblingIndexForTest,
+                          "★ tooltip 底图在文字**之前**（兄弟序更小）—— 否则底图会把字整块盖死"
+                        + $"（bg={Tooltip.BgSiblingIndexForTest} / body={Tooltip.BodySiblingIndexForTest}）");
                     // 🔴🆕 2026-10-15（账 `A2088`）：**悬停期间不许每帧重建面板**。
                     //   原版是 `OnPointerEnter` 建一次 / `OnPointerExit` 收一次（`Core/Tooltip.cs` 文件头第 5 行），
                     //   我们这套是**每帧轮询**（`BattleDriver.TickTooltipAt`）⇒ 修之前 `Show` 无条件走
@@ -14215,6 +14259,14 @@ public static class BattleScene
                         + "—— 「把 `_laidBody` 那道门改成**恒真**（= 永远重排版，即修回原样）」"
                         + " ⇒ **上面那条**变红；「把门改成**永不重排版**」 ⇒ **这条**变红"
                         + " ⇒ 两条**结构上不可能同时满足**，改哪一头都躲不过去");
+                    // 🔴🆕 2026-10-17：**重建之后仍然要「底图在文字之前」** —— 换文案会 `BuildBg()` 重建底图，
+                    //   而新件默认追加到兄弟序末尾 ⇒ 没有 `HudCanvas.Group.Prune`（踢掉已销毁的旧账）+
+                    //   `HudCanvas.Add` 这一对，第 2 次起底图会漂到文字之上、**不会自愈**。
+                    //   这一条与上面那条**测的不是同一件事**：上面断「重建发生了」，这条断「重建后层序还对」。
+                    Check(Tooltip.BgSiblingIndexForTest >= 0
+                          && Tooltip.BgSiblingIndexForTest < Tooltip.BodySiblingIndexForTest,
+                          "★ **重建之后仍然**底图在文字之前（换文案会重建底图 ⇒ 这条专钉「第一次对、之后不自愈」）"
+                        + $"（bg={Tooltip.BgSiblingIndexForTest} / body={Tooltip.BodySiblingIndexForTest}）");
                     drv.TickTooltipAt(cv.StatWorld(CardView.StatHealth));
                     Check(Tooltip.ShownBody == TipText.Health, "挪到**生命数值**上 → 换成生命那条");
                     // 🔴 **2026-10-15（第三十二会话 · 诊断 `BT-3`）：费用那一步改用【手牌】视图探。**
@@ -14651,6 +14703,11 @@ public static class BattleScene
                     Check(Tooltip.ShownBody == TipText.Trait(foundKey),
                           "★ 弹的是**这个词**那一条（实得「" + Tooltip.ShownBody + "」）");
                     Check(Tooltip.ShowCount == n0 + 1, "……而且只来了一条");
+                    // 🔴🆕 2026-10-17：同一条活缺陷的第二条路径（关键词 tooltip）—— 底图必须在文字之前。
+                    Check(Tooltip.BgSiblingIndexForTest >= 0
+                          && Tooltip.BgSiblingIndexForTest < Tooltip.BodySiblingIndexForTest,
+                          "★ 关键词 tooltip 的底图也在文字**之前**（兄弟序更小）"
+                        + $"（bg={Tooltip.BgSiblingIndexForTest} / body={Tooltip.BodySiblingIndexForTest}）");
                     Tooltip.FinishFade();
                     Debug.Log(P + "  [DBG] trait tooltip: " + Tooltip.DebugDump());
                     Shot(cam, "30_悬停关键词tooltip");

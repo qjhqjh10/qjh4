@@ -56,8 +56,12 @@
 //      `Core/Loc.cs` 语言表** ⇒ 表里**有的**键印**词条**（`MenuDeck/HUD/DiscardChanges` /
 //      `MainMenu/General/{Discard,Cancel}` 三条都在 `Loc` 里）、**两处都没有**的才印键名。
 //      ⛔ 仍然**不自己编词条**（红线：不许把「查不到」写成猜测）。
-//   ② **开/关音效没做**：prefab 的 `openSound` / `closeSound` 都是空 + `useDefaultCloseSoundIfNull = 1`
-//      （默认关窗音在**远端音频表**里）⇒ 与全仓其它窗同一条既有缺口（`Shell/RewardWindow.cs:10` 等 6 处已记）。
+//   ② ~~**开/关音效没做**：prefab 的 `openSound` / `closeSound` 都是空 + `useDefaultCloseSoundIfNull = 1`
+//      （默认关窗音在**远端音频表**里）⇒ 与全仓其它窗同一条既有缺口（`Shell/RewardWindow.cs:10` 等 6 处已记）。~~
+//      🔴 **2026-10-17 就地订正（铁律 5 · 音效线 `W_G`）：这一条已不成立** —— `GameWindow` 现在有
+//      `closeSound` + `useDefaultCloseSoundIfNull`，默认关窗音已解出并接上（cue `ButtonClick Back` →
+//      clip `UIButton Back`）；本窗 prefab 正好是「`closeSound` 空 + 开关 1」⇒ **自动吃到默认音**，
+//      不需要在这里另写一句。判据 → `资料/普查产出_1017/UI/W_G_AudioLine.md`。
 //   ③ **没有布局系统**：原版 `Buttons` 那两处是 `VerticalLayoutGroup` / `HorizontalLayoutGroup` 在**运行时**
 //      算子件位置，序列化的 `Window` 尺寸是**写死的成品值**（`750×420` / `850×430`，两扇都**没有**
 //      `ContentSizeFitter`）⇒ 我们按**布局跑之后**的绝对矩形摆死（每条都在下面 `static readonly PxRect` 处注明算式）。

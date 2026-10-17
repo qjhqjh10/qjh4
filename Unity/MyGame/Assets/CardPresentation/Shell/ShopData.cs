@@ -238,8 +238,14 @@ namespace CardPresentation
         /// <summary>页签头那句「刷新倒计时」。**我们挑的**（原版是 `TimerDisplay` + 服务端到期时间 +
         /// `MenuShop/RefreshCounter` 词条；`CardShopTab.CheckTimer` 里那个「9 点」分支的常量没解出）。</summary>
         public static string RefreshText { get { return "Refreshes in:"; } }
-        /// <summary>刷新倒计时的值。**我们挑的固定串**（原版是本地时间的真倒计时）。</summary>
-        public static string RefreshTime { get { return "12h 24m"; } }
+        /// <summary>刷新倒计时的值。🆕 **2026-10-17（W_A_TimerDisplay）：不再是死串** ——
+        /// 走全工程唯一的倒计时件 <see cref="TimerDisplay.ShopRefreshText"/>：
+        /// 目标时刻 = `CardShopTab.CheckTimer` 的 **9 点规则**（`< 9 点取当天、否则次日`，再 `+9h`；
+        /// 判据 `decomp_full/CardShopTab__CheckTimer.c:20-35`），格式化 = `SupportMethods.GetTimeString`。
+        /// ⚠️ **本机时钟**（原版是 `PlayerDataManager.CurrentServerDateTime`；我们没有服务器 —— 本项目允许的偏离）。
+        /// <para>⚠️ 这里返回的是**调用那一刻**的文本；`ShopTabPage` 的 `Time` 那一格另挂了
+        /// <see cref="TimerDisplay"/> 组件，运行期每秒自己重算（批处理里没有帧循环 ⇒ 取这一刻的值就够）。</para></summary>
+        public static string RefreshTime { get { return TimerDisplay.ShopRefreshText(); } }
 
         /// <summary>商品名的**短名**（没有主图时写在占位板上；太长的折成两行）。
         /// ⚠️ 这是我们为了「占位板别太空」加的，**原版没有这一层**。</summary>

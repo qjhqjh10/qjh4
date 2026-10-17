@@ -82,6 +82,11 @@ namespace CardPresentation
                            QCellBarsBg = 3011, QCellBarsFill = 3012, QCellBarsEnd = 3013,
                            QCellReward = 3014, QCellLevelBg = 3015, QCellLevelText = 3016,
                            QCellPtsIcon = 3017, QCellPtsText = 3018;
+        /// <summary>🔴 **2026-10-17（界面线 T21）**：奖励**抽屉**的图/文字两层。
+        /// 抽屉要 board/art/text 三个队列，而格内原梯子在 `QCellReward`(3014) 之后**紧接** 3015(`LevelBg`)、
+        /// 没有空档 ⇒ 另取 **3028/3029**（在 `QTabHelp 3027` 之上；它们只出现在奖励格内部，
+        /// 与格内任何件、与页内任何件都**不重叠**）。</summary>
+        public const int QCellRewardArt = 3028, QCellRewardText = 3029;
         /// <summary>阵营条自己的**纯黑底**（原版 `Forge Army Selector` 根上的 `Image`：`sprite=0` +
         /// `col=(0,0,0,1)` ⇒ **不透明纯黑**；正本 §二「两块纯黑，照画」）。
         /// 🔴 2026-09-23 找茬查出**这一块原来整个漏画**（第 15 条第 18 行那一轮）—— 战役页那份我们是画了的，
@@ -898,15 +903,38 @@ namespace CardPresentation
         ///    原来那一版用的是**裸 `ImageQuad.Create`** ⇒ **不吃裁切**：压在视口边上的格子里这张图
         ///    会整张画到视口外（原版 `RectMask2D` 下面它是被切掉的）。`keepAspect` 那条路会把图
         ///    按自身宽高比放进框 —— 我们给的框与图同比 ⇒ 与原来的「150px 高 + 等比」**逐像素一致**。</summary>
+        /// 🔴 **2026-10-17（界面线 T21）就地订正**：上面那句「高度 150px 是我们挑的」**已过期** ——
+        /// 奖励格现在**走抽屉库整层画**（野牌：卡面图 + 阵营名 + 数量 + 阵营小徽），
+        /// 判据 = 实拍 `奖励—锻造厂的参考图.png` + `ItemDrawer.Draw`（本文件头列的四个消费点之一）。
         void BuildRewardIcon(Transform holder, PxRect holderR, int i)
         {
-            var tex = _win.Art(ForgeData.RewardAt(i).Art);
+            var rw = ForgeData.RewardAt(i);
+            // 🔴 **2026-10-17（T21）：走【抽屉库】整层画** —— 原版 = `ItemDrawer.Draw(rewardTransform, item, 1, …)`。
+            //   ⚠️ **「哪一级给哪档」是我们挑的**（原版 `RewardInfo` 在服务端）；图与抽屉语义是原版的。
+            if (rw.WildcardRarity > 0)
+            {
+                // 野牌 id 走原版命名 `Wildcard<阵营><1..4>`（`ItemDrawer.Spec` 会解出 Rarity / CardArmy）。
+                var spec = ItemDrawer.Spec("Wildcard" + ForgeData.Selected + rw.WildcardRarity, rw.Art, rw.Label);
+                var st = ItemDrawerStyle.Default(QCellReward, QCellRewardArt, QCellRewardText);
+                st.IconFill = 0.95f;      // ⚠️ **我们挑的**（默认 0.7 是给 200×300 的格子；本格 297.655×384.66）
+                st.QDecor = QCellRewardText;
+                st.NodeName = ItemDrawer.PickDrawer(spec, DrawerOverride.Default) ?? "Reward";
+                var res = ItemDrawer.Draw(holder, holderR, spec, rw.Qty, DrawerOverride.Default, st);
+                if (res.Node == null)
+                    Debug.LogWarning($"[Forge] 第 {i + 1} 格的奖励抽屉**没建出来**（id={spec.Id}，drawer={res.Drawer}）");
+                if (res.Placeholder || res.MissingArt || res.FallbackArt)
+                    Debug.LogWarning($"[Forge] 第 {i + 1} 格的奖励抽屉**缺图**（id={spec.Id}，art={rw.Art}，"
+                                   + $"placeholder={res.Placeholder} missing={res.MissingArt} fallback={res.FallbackArt}）");
+                return;
+            }
+            // 兜底：不是野牌（今天 `Palette` 里没有这种）—— 保留旧那条裸图，⛔ 别静默什么都不画。
+            var tex = _win.Art(rw.Art);
             if (tex == null) return;                       // 图不在时不画（`Art` 已经会报出来）
             const float IconH = 150f;
             float w = IconH * ((float)tex.width / Mathf.Max(1f, tex.height));
             var box = new PxRect(holderR.CX - w * 0.5f, holderR.CY - IconH * 0.5f,
                                  holderR.CX + w * 0.5f, holderR.CY + IconH * 0.5f);
-            _win.Rect(holder, ForgeData.RewardAt(i).Art, box, "Reward", QCellReward, null, true);
+            _win.Rect(holder, rw.Art, box, "Reward", QCellReward, null, true);
         }
 
         /// <summary>一个透明点击区（整块矩形），挂 `WindowButton`。🆕 A17：可传「常态图 → 高亮图」。

@@ -149,6 +149,9 @@ namespace CardPresentation
             win.placement = WindowsPlacement.Canvas;          // 实证 windowsPlacement=5（**商店是 10**）
             win.closeOnEsc = true;                            // 实证 closeOnESC=1（**奖励窗是 0**）
             win.extraScaleSmallScreen = 1f;                   // 实证 1.0
+            // 🔴 **2026-10-17（音效线 `W_G`）**：原版 prefab `useDefaultCloseSoundIfNull = 0`（实读）
+            //   ⇒ 关窗**不出声**。`GameWindow` 的出厂值是 `true`（原版 ctor 默认 1）⇒ 这一扇必须显式关。
+            win.useDefaultCloseSoundIfNull = false;
             win.Manager = mgr;
             WindowsManager.AttachToAnchor(win);
             return win;

@@ -915,6 +915,15 @@ namespace CardPresentation
         {
             switch (idx)
             {
+                case 0:   // PLAY / Home —— 原版开**场景内**的 `MainMenuWindow`
+                    // 🔴 **2026-10-17（界面线 `T12`）：原来这里落 `default`、只打一句「还没接」** ⇒
+                    //   从收藏/商店/奖励/社交窗里点 PLAY **回不到主菜单**（`U1` 普查判定 高）。
+                    // 判据 = `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2556.json`
+                    //   （`OpenWindowButton{windowToOpenScene = MB1927(MainMenuWindow), closeOtherMenus = 1}`）
+                    //   ＋ `OpenWindowButton__OpenWindow.c`：`+0x40` 那个 byte **直接**喂给
+                    //   `WindowsManager.OpenWindow(..., closeAll)` ⇒ 等价物 = 打开常驻主菜单 + 关掉其余窗。
+                    OpenHome();
+                    break;
                 case 1:   // COLLECTION —— 原版开 `Collection Menu Variant`（`资料/阶段二_卡组线_原版规格.md` §一）
                     OpenCollection();
                     break;
@@ -960,6 +969,125 @@ namespace CardPresentation
             //   零行为变化；改它只为「四个入口都走同一个口」，⛔ 不是为了改行为。
             SetNavToggle((NavigationPanelToggleType)idx);
         }
+
+        // ============================================================ 🆕 2026-10-17（界面线 T12）：左栏收起 / 放回
+        //
+        // 原版 = `NavigationPanelController.Toggle(bool option, bool withAnimation)`，逐句见
+        // `d:/2/tools/decomp_full/NavigationPanelController__Toggle.c`：
+        //   · `gameObject.activeSelf == option` ⇒ **动画取消**（直接切）；
+        //   · 先 `DOTween.Kill` 上一条 tween；
+        //   · **藏**：起点 = `originalAnchorPosition`（`Awake` 抓的展示位）→ `DOAnchorPos(hiddenPosition, animationTime)`
+        //         → OnComplete `SetActive(false)`；**不动画** ⇒ 直接写 `hiddenPosition` + `SetActive(false)`；
+        //   · **放**：先写 `hiddenPosition` → `SetActive(true)` → `DOAnchorPos(originalAnchorPosition, animationTime)`。
+        // 字段真值（`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1955.json` 实读）：
+        //   `hiddenPosition = (−1162.77001953125, 0)` · `animationTime = 0.30000001192092896`。
+        // ⚠️ **`originalAnchorPosition` 不是序列化值** —— 它是 `Awake` 里抓的；我们对应「建树那一刻的 localPosition」。
+        // ⚠️ 缓动 = **DOTween 的默认 `OutQuad`**（`DOAnchorPos` 没显式给 ease；同 `Core/Tooltip` 那条 fade 的口径）。
+        //   这是我们照库默认值写的，**不是从原版数据里量出来的**（如实标）。
+        const float NavHiddenX = -1162.77001953125f;    // 设计 px（`hiddenPosition.x`）
+        const float NavToggleTime = 0.30000001192092896f;
+
+        Transform _navPanel;
+        bool _navHasShown;
+        float _navShownX;                 // = 原版 `originalAnchorPosition.x`（本地单位）
+        bool _navTweening, _navHideAtEnd;
+        float _navFromX, _navToX, _navT;
+
+        /// <summary>把左竖导航【收起/放回】（原版 `NavigationPanelController.Instance.Toggle(show, animate)`）。
+        /// 调用点（判据 = `U1` 普查 §二 左栏那两行）：
+        /// · 卡组编辑窗 `DeckEditingWindow.TryOpen.c:139` 收起 · `Close` 放回；
+        /// · 排位窗 `RankedEventWindow__OnEnable.c:72` 收起；
+        /// · 回到主菜单 `MainMenuWindow.ToFocus.c` 放回（本仓由那些窗的 `Close()` 承担）。
+        /// ⚠️ 没有 `MainMenuRuntime` 时（非壳宿主）**静默跳过**：那一档「左栏」根本不存在，不是失败。</summary>
+        public static void SetNavPanelVisible(bool show, bool animate)
+        {
+            var inst = InstanceOrFind();
+            if (inst == null) return;
+            inst.SetNavPanelVisibleInternal(show, animate);
+        }
+
+        void SetNavPanelVisibleInternal(bool show, bool animate)
+        {
+            if (_navPanel == null) _navPanel = Find("Navigation Panel");
+            if (_navPanel == null)
+            {
+                Debug.LogWarning("[Menu] `Navigation Panel` 不在树里 ⇒ `SetNavPanelVisible(" + show + ")` 这一下落空（出声，不静默）");
+                return;
+            }
+            if (!_navHasShown) { _navShownX = _navPanel.localPosition.x; _navHasShown = true; }
+            float hiddenX = LayoutSpace.Px(NavHiddenX);
+            // 原版首句：已经处在目标可见态 ⇒ **动画取消**（直接切，不播那 0.3 s）
+            if (_navPanel.gameObject.activeSelf == show) animate = false;
+            _navTweening = false;                                  // = 原版 `DOTween.Kill`
+            if (!show)
+            {
+                if (!animate)
+                {
+                    SetNavX(hiddenX);                              // 原位版：写 hiddenPosition
+                    _navPanel.gameObject.SetActive(false);
+                    return;
+                }
+                _navPanel.gameObject.SetActive(true);
+                SetNavX(_navShownX);                               // 原版：起点 = originalAnchorPosition
+                BeginNavTween(hiddenX, hideAtEnd: true);
+            }
+            else
+            {
+                SetNavX(hiddenX);                                  // 原版：先写 hiddenPosition
+                _navPanel.gameObject.SetActive(true);
+                if (!animate) { SetNavX(_navShownX); return; }
+                BeginNavTween(_navShownX, hideAtEnd: false);
+            }
+        }
+
+        void SetNavX(float x)
+        {
+            if (_navPanel == null) return;
+            var lp = _navPanel.localPosition;
+            lp.x = x;
+            _navPanel.localPosition = lp;
+        }
+
+        void BeginNavTween(float toX, bool hideAtEnd)
+        {
+            _navFromX = _navPanel.localPosition.x;
+            _navToX = toX;
+            _navT = 0f;
+            _navHideAtEnd = hideAtEnd;
+            _navTweening = true;
+        }
+
+        /// <summary>每帧推左栏那条补间（批处理没有帧循环 ⇒ 自检里要直调；真机由 `Update` 推）。</summary>
+        void TickNavPanelTween() { TickNavPanel(Time.unscaledDeltaTime); }
+
+        void TickNavPanel(float dt)
+        {
+            if (!_navTweening) return;
+            if (_navPanel == null) { _navTweening = false; return; }
+            _navT += dt;
+            float k = NavToggleTime > 0f ? Mathf.Clamp01(_navT / NavToggleTime) : 1f;
+            float e = 1f - (1f - k) * (1f - k);                    // DOTween 默认 OutQuad
+            SetNavX(Mathf.Lerp(_navFromX, _navToX, e));
+            if (k < 1f) return;
+            _navTweening = false;
+            if (_navHideAtEnd) _navPanel.gameObject.SetActive(false);
+        }
+
+        /// <summary>自检用：左栏补间是不是还在跑（批处理里 `Update` 不跑，要手动 `Tick`）。</summary>
+        public bool NavPanelTweeningForTest { get { return _navTweening; } }
+
+        /// <summary>自检用：左栏面板的当前 x（本地单位；不在树里 ⇒ `NaN`）。</summary>
+        public float NavPanelXForTest
+        {
+            get
+            {
+                var p = _navPanel != null ? _navPanel : Find("Navigation Panel");
+                return p != null ? p.localPosition.x : float.NaN;
+            }
+        }
+
+        /// <summary>自检用：推一帧左栏补间（与真机 `Update` 走同一个 `TickNavPanel`）。</summary>
+        public void TickNavPanelForTest(float dt) { TickNavPanel(dt); }
 
         static string NavName(int idx)
         {
@@ -1304,6 +1432,27 @@ namespace CardPresentation
             return win;
         }
 
+        /// <summary>回主菜单（左栏第 1 颗 PLAY/Home）。🔴 **2026-10-17（界面线 `T12`）新接**。
+        /// <para>原版判据：那颗钮挂 `OpenWindowButton{windowToOpenScene = MainMenuWindow, closeOtherMenus = 1}`
+        /// （`MB_2556.json:16-33`），而 `OpenWindowButton__OpenWindow.c` 把 `closeOtherMenus`（+0x40）
+        /// **直接**传给 `WindowsManager.OpenWindow(win, data, closeAll)` ⇒ 等价物 =
+        /// <c>OpenWindow(BaseMenu, null, closeAll: true)</c>。</para>
+        /// <para>⚠️ 与 `ShowMainMenu()` 的区别：那个是原版 `WindowsManager.ShowMainMenu()`（`closeAll: false`，
+        /// 用在「关掉上面那扇窗、回常驻主菜单」）；**这一颗钮是 `closeOtherMenus = 1`** ⇒ 必须 `closeAll: true`。</para></summary>
+        public void OpenHome()
+        {
+            var wm = WindowsManager.Get();
+            if (wm == null || wm.BaseMenu == null)
+            {
+                // 红线：不许静默失败 —— 「点了 PLAY 没反应」必须能从日志分辨
+                Debug.LogWarning("[Menu] 点了 PLAY/Home，但 `WindowsManager.BaseMenu` 还没登记（场上没有常驻主菜单）"
+                               + " ⇒ 这一下**回不到主菜单**（不是没接：`OpenHome` 已接，前提不成立）");
+                return;
+            }
+            wm.OpenWindow(wm.BaseMenu, null, true);
+            Debug.Log("[Menu] PLAY/Home ⇒ 回常驻主菜单（`OpenWindow(BaseMenu, closeAll: true)`，原版 `closeOtherMenus = 1`）");
+        }
+
         /// <summary>开收藏窗（原版 `Collection Menu Variant`，由左竖导航的 COLLECTION 开）。
         /// 🔴 那个钮挂的 `OpenWindowButton` 是 `closeOtherMenus = 1`
         /// （`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2494.json:16-33`）⇒ `closeAll: true`。
@@ -1590,7 +1739,7 @@ namespace CardPresentation
         /// **同一个函数**（`DeckRuntime.UiRefreshTopAvatar`）；这里只转调，签名与语义不变。</summary>
         public void RefreshTopAvatarIfChanged() { TopBar.RefreshTopAvatarIfChanged(_topBar, NoteMissingArt); }
 
-        void Update() { RefreshTopAvatarIfChanged(); }
+        void Update() { RefreshTopAvatarIfChanged(); TickNavPanelTween(); }
 
         /// <summary>自检用：顶栏那块立绘（**一张头像图都加载不到时会是 null** —— 那种情况按出厂态处理：只剩盾）。</summary>
         public ImageQuad TopAvatar { get { return _topBar != null ? _topBar.TopAvatar : null; } }
@@ -1721,6 +1870,30 @@ namespace CardPresentation
         /// 我们取 **182.8**（居中那一种）。**这一格没有原版出处，别当成复刻**。</summary>
         const float CardRow0Top = 182.8f;
 
+        // ============================================================ 🔴 2026-10-17（界面线 T12）：模式卡横向滚动
+        //
+        // 原版 `GameModes` 是一个 **`ScrollRect(horizontal=1, vertical=0, movementType=Elastic,
+        // elasticity 0.1, decelerationRate 0.135)`**，`Content` 自然宽 **11134px**（20 列；
+        // `资料/主菜单_原版规格.md:173,415`），而视口宽只有 **1752.96**（`GameModes` 与 `Viewport` 同矩形）。
+        // 我们摆了 4 列（内容右端 **2405**）⇒ 第 4 列有 **485px 在屏外、滚轮/拖拽都到不了**
+        // （`U1` 普查判 高；「练习/教学」那一列 90% 看不见）。
+        //
+        // 落地 = 现成的 `MenuScroll`（全壳唯一一份滚动实现；横向 + 惯性/回弹/拖拽都已有）：
+        //   · `Viewport` = `GameModes` 的矩形 **x[167.04, 1920] y[71.33, 1080]**（`ModesW/H` 反推）；
+        //   · 内容两端 = `CardCol0`（205）→ 最后一列右缘 **2405**；
+        //   · 偏移变了 ⇒ **重建模式卡**（`OnChanged = RebuildModeCards`），与 `ForgeTab` 那两处同一条路。
+        // ⚠️ **裁切**：本文件**没有 `ViewportClip` 节点**（那套要求节点自己带矩形位置，而本文件的树
+        //   全部停在原点、拿绝对 px 当 localPosition）⇒ 裁切**按 `MenuDraw` 的显式 `clip` 形参**传
+        //   （`Nine` / `ClipText` 都吃），卡图则用 **UV 窗收缩**（与它现有的「UV 裁到卡面」同一套算法）。
+        static readonly PxRect ModeViewport = new PxRect(167.04f, 71.33f, 1920f, 1080f);
+        /// <summary>内容右端（= 第 4 列右缘 `205 + 3×555 + 535`）。</summary>
+        const float ModeContentX2 = CardCol0 + 3 * CardColStep + CardW;
+
+        Transform _modeContent;
+        MenuScroll _modeScroll;
+        float _modeOffsetPx;                     // 当前滚到的偏移（设计 px）
+        System.Action _placeAllCards;            // 第一次摆放与滚动重建共用这一份
+
         void BuildGameModes(Transform root)
         {
             // A332：原版 `GameModes` = 1752.9606 × 1008.671（`anchor (0.087,0)-(1,0.934)` ⇒ 167.04,71.33→1920,1080）
@@ -1765,6 +1938,13 @@ namespace CardPresentation
             //   现读 `bundle_menus_assets_all/GameObject/` 三个名字逐字如此 ⇒ 那句话已过期）；
             //   剩下 `Tutorial` / `Practice` 两张 `1×1` 是我们按 `Base Game Mode Container 1x1` 那一族取的。
             // ---- 排布：**逐张填格子（first-fit）· 不留洞** ----
+            // 🔴 **2026-10-17（界面线 `T12`）：整段搬进 `_placeAllCards` 委托** —— 横向滚动靠「偏移变了重建内容」
+            //   （`MenuScroll.OnChanged`），而**第一次摆放与滚动重建必须是同一份代码**（两份迟早不一致）。
+            //   `used` 因此从外面搬进来：每次调用都要一张新表。
+            _modeContent = content;
+            _modeOffsetPx = 0f;
+            _placeAllCards = () =>
+            {
             const float ColStep = CardColStep, RowStep = CardH + 20f;   // 行距 = 卡高 + `spacing (20,20)` 的 20
             const int MaxCols = 8;                                      // 本菜单最多摆 8 列（现在用满 4 列）
             var used = new bool[MaxCols, 2];                            // [列, 行] 这一格占没占
@@ -1797,8 +1977,8 @@ namespace CardPresentation
                 }
                 used[col, row] = true;
                 if (tall) used[col, 1] = true;
-                BuildModeCard(content, nm, CardCol0 + col * ColStep, CardRow0Top + row * RowStep,
-                              CardW, h, art, title, kind);
+                BuildModeCard(content, nm, CardCol0 + col * ColStep - _modeOffsetPx, CardRow0Top + row * RowStep,
+                              CardW, h, art, title, kind, ModeViewport);
             };
             // 🔴 **2026-10-13 就地改序（铁律 5，取代 `A1522⑤` 那一版）：五张卡的 `Put` 次序按【用户原版实拍】重排。**
             //   判据 = 用户原版客户端实拍 `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`（1503×883），
@@ -1857,7 +2037,33 @@ namespace CardPresentation
                 Loc.T("MainMenu/GameModes/Practice"), CardH, "practice");                       // col3 / row0（1×1 · 上）
             Put("Base Game Mode Container 1x1 - Tutorial", "Container_Image_Tutorial",
                 Loc.T("MainMenu/GameModes/Tutorial"), CardH, "tutorial");                       // col3 / row1（1×1 · 下）
+            };                                   // ← `_placeAllCards` 委托结束
+            _placeAllCards();                    // 第一次摆放
+
+            // ---- 🆕 2026-10-17（界面线 T12）：横向滚动（原版那条 `ScrollRect` 的等价物）----
+            //   判据 = `主菜单_原版规格.md:173`（horizontal=1 / vertical=0 / Elastic / .1 / .135）
+            //   ＋ `:415`（Content 20 列、自然宽 11134px）。
+            //   ⚠️ 我们的内容只有 4 列（2405），所以能滚的只有 **485px** —— 那正是「练习/教学那一列
+            //   在屏外」这一条缺陷的宽度（第 4 列 x 1870..2405，屏宽 1920）。
+            _modeScroll = new MenuScroll(ModeViewport, CardCol0, ModeContentX2);
+            _modeScroll.Owner = gameObject;
+            _modeScroll.OnChanged = RebuildModeCards;
+            PointerLayer.RegisterScroll(_modeScroll);
         }
+
+        /// <summary>滚动偏移变了 ⇒ 重建模式卡（`MenuScroll.OnChanged` 的约定；与 `ForgeTab` 那两处同一条路）。
+        /// ⚠️ 只重建 `Content` 的子件 —— 页面 / 视口节点一个都不动（`MainMenuScene` 有引用它们后面的断言）。</summary>
+        void RebuildModeCards()
+        {
+            if (_modeContent == null || _placeAllCards == null) return;
+            for (int i = _modeContent.childCount - 1; i >= 0; i--) DestroySafe(_modeContent.GetChild(i).gameObject);
+            _modeOffsetPx = _modeScroll != null ? _modeScroll.Offset : 0f;
+            _placeAllCards();
+        }
+
+        /// <summary>自检用：模式卡滚动区（批处理没有滚轮事件 ⇒ 直调 `Wheel/ScrollBy`，与真滚同一条）。
+        /// ⚠️ 滚动会**重建**卡节点 ⇒ 取 `CardTransformAt` 之类引用之前要用最新的。</summary>
+        public MenuScroll ModeScroll { get { return _modeScroll; } }
 
         /// <summary>模式卡点下去 = **进对应模式的界面**（用户 2026-09-24 拍板的那条路）。
         /// ⚠️ 映射是**我们定的**（见 `BuildGameModes` 上方那段）；窗还没建的那两个**出声**，不静默。</summary>
@@ -1992,8 +2198,19 @@ namespace CardPresentation
         /// <summary>按 §九 9·4 的「最小清单」建一张卡（1x1 与 1x2 共用；1x2 只是更高）。
         /// <paramref name="modeKind"/> 非空 ⇒ 这张卡**可点**（点它进对应模式的界面；见 `OpenMode`）。</summary>
         void BuildModeCard(Transform parent, string name, float x, float y, float w, float h, string art, string title,
-                           string modeKind = null)
+                           string modeKind = null, PxRect? clip = null)
         {
+            // 🔴 **2026-10-17（界面线 `T12`）：视口裁切。** 横向滚动之后卡片会跨过视口左缘
+            //   （`GameModes` 的 x1 = 167.04，左边就是左竖导航）—— 不裁的话，卡的暗带 / 边框 / 标题
+            //   （队列 2920/2930/2921 **高于**导航底板 2910）会压在导航上。判据 = 原版视口上的 `RectMask2D`
+            //   （`主菜单_原版规格.md:173` 那一族）。整张卡在视口外 ⇒ **连节点都不建**（同 `MenuDraw` 四条）。
+            float cx1 = x, cx2 = x + w;
+            if (clip.HasValue)
+            {
+                cx1 = Mathf.Max(cx1, clip.Value.x1);
+                cx2 = Mathf.Min(cx2, clip.Value.x2);
+                if (cx2 - cx1 <= 0.01f) return;
+            }
             // A332：⚠️ **原版没有这一件** —— 原版 `GameModes/Content` **出厂 0 子**，卡是 liveop 运行时
             //   实例化的（本文件头「已知缺口」那条）⇒ 这里的矩形**是我们自己的**（= 下面 `Nine` 那一格
             //   `(x,y)→(x+w,y+h)`），⛔ 别去原版找这几个名字。
@@ -2010,13 +2227,17 @@ namespace CardPresentation
                 float u0 = (side - w) * 0.5f / side, v0 = (side - h) * 0.5f / side;
                 // 🆕 **2026-10-19（`A1493④`）**：这一格再叠上原版那条**常驻位置视差**（判据与算式 → 上面
                 //   `ModeCardParallaxDu` 那一整段）。⚠️ 只挪**采样窗**，窗**宽**（`1 - 2*u0`）一个字没动。
+                // 🔴 **2026-10-17（`T12`）**：视口裁切**同时缩网格与 UV 窗** —— 横向缩多少、UV 就缩多少
+                //   （否则图会被拉扁）。视差 `du` 仍按**整张卡**的中心算（原版取的是那颗 RT 的位置）。
+                float fL = (cx1 - x) / w, fR = (x + w - cx2) / w;
+                float uvW = 1f - 2f * u0;
                 float du = ModeCardParallaxDu(x + w * 0.5f);
-                cardArtQ = ImageQuad.Create(card, tex, Center(x, x + w, y, y + h), h / 108f,
+                cardArtQ = ImageQuad.Create(card, tex, Center(cx1, cx2, y, y + h), h / 108f,
                                             new Vector2(0.5f, 0.5f), "Background Image");
                 if (cardArtQ != null)
                 {
-                    cardArtQ.SetAspect(w / h);
-                    cardArtQ.SetUvRect(new Rect(u0 + du, v0, 1f - 2f * u0, 1f - 2f * v0));
+                    cardArtQ.SetAspect((cx2 - cx1) / h);
+                    cardArtQ.SetUvRect(new Rect(u0 + du + fL * uvW, v0, uvW * (1f - fL - fR), 1f - 2f * v0));
                     cardArtQ.SetRenderQueue(QCardArt);   // ⚠️ **不能和整屏渐变同队列**（否则谁盖谁不确定，见上面那行注释）
                 }
             }
@@ -2025,7 +2246,11 @@ namespace CardPresentation
             // ② `TextDarkening`：贴底的纯黑带（`m_Color` **a = 0.6117647**），a(0.0037,0)-(0.9963,0) sz(−1.18×105.87)
             float bandH = 105.8657f, bandBottom = 2.6f;
             float by2 = y + h - bandBottom, by1 = by2 - bandH;
-            Rect(card, null, x + 2.0f, x + w - 2.0f, by1, by2, "TextDarkening", QContent, new Color(0f, 0f, 0f, 0.6117647f));
+            // 🔴 **2026-10-17（`T12`）**：纯色带照视口裁（与上面卡图同一对 `cx1/cx2`；
+            //   它队列 2920 **高于**导航底板 2910 ⇒ 不裁会压到导航上）。
+            if (cx2 - cx1 > 0.01f)
+                Rect(card, null, Mathf.Max(x + 2.0f, cx1), Mathf.Min(x + w - 2.0f, cx2), by1, by2,
+                     "TextDarkening", QContent, new Color(0f, 0f, 0f, 0.6117647f));
 
             // ③ 标题（`Event Title`，TMP **58.8** 白 · 居中）。原版那行归 `TextDarkening` 上的
             //    **`VerticalLayoutGroup`** 排（`bundle_menus_assets_all` 实读）：
@@ -2058,6 +2283,11 @@ namespace CardPresentation
             //   而 autofit 会重排、重排后宽度才定）—— 本仓踩过「`SetAutoFitBox` 排在 `AlignLeft` 前
             //   ⇒ 对齐被抹掉」那条坑（见 `d4-work-rules` 的 10-13 收口三条）。
             MenuDraw.AlignLeft(ti, new PxRect(x + 13f, titleTop, x + 13f + 513.6959f, titleTop + 55.708f));
+            // 🔴 **2026-10-17（`T12`）**：标题**也吃视口裁切** —— 它队列 2921、高于导航底板 2910。
+            //   `MenuDraw.ClipText` 是公共件里那条「按裁切框逐字改 alpha」的口（与窗内文字同一份实现）。
+            //   ⚠️ 只在**真的被裁到**时挂：没裁时挂上等于多一颗 `ClippedTextGuard`（无行为差异、但没必要）。
+            if (ti != null && clip.HasValue && (cx1 > x + 0.01f || cx2 < x + w - 0.01f))
+                MenuDraw.ClipText(ti, clip, Vector2.zero);
 
             // ④ `Border`：`40k_square_border` —— 原版 **Type 1 Sliced · `m_PixelsPerUnitMultiplier` 5 · `m_FillCenter` 0**，灰 **0.33962**。
             //    `m_Border` = **(13,13,13,13)**（图 64²，出自 `bundle_atlasindividual_assets_0_mainmenu/Sprite/40k_square_border.json`）
@@ -2099,7 +2329,7 @@ namespace CardPresentation
                 //     `m_FillCenter 0` · 色 `0.33962`）。
                 MenuDraw.Nine(card, borderTex, new PxRect(x, y, x + w, y + h), new Vector4(13, 13, 13, 13),
                               64f, 64f, QOverlay, new Color(0.33962f, 0.33962f, 0.33962f, 1f), false, "Border",
-                              new Vector4(13f / 5f, 13f / 5f, 13f / 5f, 13f / 5f));   // = 2.6px（13 ÷ ppuMul 5）
+                              new Vector4(13f / 5f, 13f / 5f, 13f / 5f, 13f / 5f), clip);   // = 2.6px（13 ÷ ppuMul 5）
             }
 
             // ④·b 排位卡那一排「段位印玺」（原版 `Rating ▸ Mission Milestones Progress ▸ steps ▸ RankedSealStep ×N`）。
@@ -2107,7 +2337,7 @@ namespace CardPresentation
             //       里**没有这一排**，`Skirmish` 那棵 `Skirmish Ranked Game Mode Container 1x2` 里**也没有**
             //       （逐档 dump 核过）⇒ 闸口就是 `modeKind == "ranked"`，**别按「像不像」扩散到别的卡**。
             //    判据 / 父子链 / 显隐口径 / 颗数兜底口径 → `BuildRankedSealRow` 上方那一大段（⛔ 不在这里抄第二份）。
-            if (modeKind == "ranked") BuildRankedSealRow(card, x, y);
+            if (modeKind == "ranked" && cx1 <= x + 0.01f && cx2 >= x + w - 0.01f) BuildRankedSealRow(card, x, y);
 
             // ⑤ 倒计时那一行（`Starts in:` + 时钟 + 剩余时间）**本批不画** —— 它是 liveop 的活动倒计时，本地没有数据源。
             //    不静默：说一声。
@@ -2120,11 +2350,12 @@ namespace CardPresentation
                 // A332：⚠️ **原版也没有这一件**（同一族：原版卡自己挂 `EverguildButton`，没有另建的命中区子件）
                 //   ⇒ 矩形**是我们自己的**（= 卡那一格 `w × h`）。
                 var hitGo = New(card, "Hit", w, h);
-                var q = ImageQuad.Create(hitGo, CardArt.Solid(), Center(x, x + w, y, y + h), h / 108f,
+                // 🔴 **2026-10-17（`T12`）**：命中区也照视口裁 —— 否则滚到左边的那段卡会**盖着导航钮吃点击**。
+                var q = ImageQuad.Create(hitGo, CardArt.Solid(), Center(cx1, cx2, y, y + h), h / 108f,
                                          new Vector2(0.5f, 0.5f), "Hit");
                 if (q != null)
                 {
-                    q.SetAspect(w / h);
+                    q.SetAspect((cx2 - cx1) / h);
                     q.SetTint(new Color(0f, 0f, 0f, 0f));
                     q.SetRenderQueue(QOverlay + 1);      // 盖在卡之上，才吃得到点击
                 }

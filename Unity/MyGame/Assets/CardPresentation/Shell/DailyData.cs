@@ -144,7 +144,14 @@ namespace CardPresentation
         public static string DailyDesc(int i) { return At(i).Desc; }
         public static string DailyCounter(int i) { var t = At(i); return t.Progress + "/" + t.Target; }
         public static float DailyProgress01(int i) { var t = At(i); return t.Target <= 0 ? 0f : Mathf.Clamp01(t.Progress / (float)t.Target); }
-        public static string DailyTimer(int i) { return "Available in 64h"; }   // ⚠️ 我们挑的（原版是本地化词条 + 服务端到期时间）
+        /// <summary>`timer` 那一格（原版是 `MissionTimerDisplay` · 文案由 `Missions/CollectCounter` /
+        /// `Missions/CompleteCounter` 词条在运行期拼）。🆕 **2026-10-17（W_A_TimerDisplay）：真倒计时** ——
+        /// 目标 = 我们自建的**日界** `NextResetAt`（本机时间；我们没有服务器 —— 本项目允许的偏离）。
+        /// ⚠️ 原版这一格的目标是**每条挑战自己的 refill/end 时刻**（`MissionTimerDisplay__Update.c`），
+        /// 我们的三条任务数据里没有这个字段 ⇒ 用「我们的日界」代替（**我们挑的**，已在报告记账）。
+        /// 前缀保留 prefab 出厂串 `Available in `（原版运行期按词条本地化，本地 `Loc` 没有那两条键）。</summary>
+        public static string DailyTimer(int i)
+        { return TimerDisplay.TextFor(NextResetAt, "Available in ", "每日任务行 Timer", null); }
 
         /// <summary>🆕 **A63**：画在 `progress` 那一节点上的**最终文本** —— 原版
         /// `MissionCounterDisplay__Setup` 就是**两支**（`d:/2/tools/decomp_full/MissionCounterDisplay__Setup.c:23-79`，
@@ -656,8 +663,19 @@ namespace CardPresentation
         /// **两处各说各话**（格亮不亮和计数 `13/15` 可以互相矛盾，加档还要改两处）。
         /// 现在与骷髅卡（`SkullsStepDone`）**同一条口径**：**唯一数据源 = 阈值数组**，亮不亮由计数算出来。</summary>
         public static bool WeeklyStepDone(int i) { return _weeklyProgress >= WeeklyStepTarget(i); }
-        public static string WeeklyEndsIn() { return "Ends in 12h 34 m"; }       // ⚠️ 我们挑的
-        public static string ResetIn() { return "Resets in 12h 34 m"; }          // ⚠️ 我们挑的
+        /// <summary>`Weekly Mission / TimerHolder / Timer`（prefab 占位 `Ends in 12h 34 m`）。
+        /// 🆕 **2026-10-17（W_A_TimerDisplay）**：目标时刻 = **未知** —— 我们的数据模型里**没有周常刷新时刻**
+        /// （`TryDailyReset` 明确「只清当日那一族 ⇒ 周常不在内」，全仓也没有 `weeklyReset` 之类的字段；
+        /// 原版由服务端下发）⇒ 按用户口径**不编日期**：出声一次 + 稳定显示 `Ends in --`。</summary>
+        public static string WeeklyEndsIn()
+        {
+            return TimerDisplay.TextFor(null, "Ends in ", "周常 Timer",
+                                        "周常刷新时刻在本地数据模型里不存在（原版由服务端下发；`TryDailyReset` 不碰周常）");
+        }
+        /// <summary>`Timer`（`Resets in 12h 34 m` 那一族：每日行 / 登录卡 / 骷髅卡 / 每日奖励窗）。
+        /// 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时，目标 = 自建日界 `NextResetAt`（本机时间，无服务器）。</summary>
+        public static string ResetIn()
+        { return TimerDisplay.TextFor(NextResetAt, "Resets in ", "日常 Timer", null); }
 
         // ============================================================ 每日奖励（`Daily Reward Popup`）
         //
@@ -733,7 +751,10 @@ namespace CardPresentation
         public static string HeaderArmyName() { return "Orks"; }                // 原版 prefab 占位串就是 'Orks'
         public static string HeaderArmySubTitle() { return "Daily Rewards"; }   // ⚠️ 我们挑的（原版是本地化词条）
 
-        public static string RewardTimerText() { return ResetIn(); }            // 原版由 `TimerDisplay` 运行时填
+        /// <summary>每日奖励窗右下那颗 `Timer Text`。🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时 ——
+        /// 与日常那族同一份目标（自建日界 `NextResetAt`，本机时间）。原版由 `TimerDisplay` 运行时填。
+        /// ⚠️ 本窗（`DailyRewardPopup.cs`）**不在本批白名单** ⇒ 只给了「建窗那一刻」的值，没有挂每秒 tick 的组件。</summary>
+        public static string RewardTimerText() { return ResetIn(); }
 
         /// <summary>领一天的奖励。**只有 `Unlocked` 那一态能领**（原版的 `colider` 也只有那一态可点）。
         /// 🆕 **2026-10-11（批次1 · W1 · A309）起返回「这一下是不是真的领到了」**（与 `CollectDaily` 同一条口径）
@@ -950,7 +971,12 @@ namespace CardPresentation
         /// <summary>⚠️ **2026-10-13（A643）起本名只是旧名转发**：两窗共用的那条词条改用中性口
         /// `MoreRewardsInText()`。保留它只为不掐断既有调用点（本仓不许留下第二份字面量）。</summary>
         public static string StreakNextRewardsText() { return MoreRewardsInText(); }
-        public static string StreakTimerText() { return "19h 23m"; }                 // 原版 prefab 占位串
+        /// <summary>连登窗 `Timer Text`（prefab 占位 `19h 23m`）。
+        /// 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时 —— 目标 = 自建日界 `NextResetAt`（本机时间）。
+        /// <para>⚠️ **我们挑的**：原版这一格的具体目标时刻（服务端的 `LiveOp` 到期时间）本地查不到；
+        /// 连登的语义就是「下一天开始」，日界是数据模型里唯一对得上的时刻 ⇒ 取它。⛔ 不是原版值。</para></summary>
+        public static string StreakTimerText()
+        { return TimerDisplay.TextFor(NextResetAt, "", "连登 Timer", null); }
         public static string StreakBrokenText() { return "STREAK BROKEN"; }          // 原版 prefab 占位串
         public static string StreakLostText() { return "Streak lost: " + StreakLostValue; }
         public static string ResetStreakText() { return "Reset Streak"; }            // 原版 prefab 占位串

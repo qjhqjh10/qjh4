@@ -59,8 +59,18 @@
 //   · **相机抖动没做**：`contentByRarities[i].shakes` 那几条 `OverwriteCameraShakePreset`（rarity 2 延迟 0.65 幅度 5 ·
 //     rarity 3 延迟 1.0 幅度 40 · rarity 4 两条：延迟 0 频率 0.25 + 延迟 1.15 幅度 20 方向 z 10 衰减 0.5）——
 //     菜单层没有相机抖动设施。**出声**。
-//   · **音效没做**：`clickSound` / `newCardSound` / `openSound` / `closeSound` / 两段音频 cue 全在远端音频表里，
-//     本地没有 ⇒ **不播**（不拿别的音顶）。**出声**。
+//   · ✅ **音效已接（2026-10-17 · 音效线 `W_G`）** —— 🔴 **就地订正（铁律 5）**：本行原来写
+//     「`clickSound` / `newCardSound` / `openSound` / `closeSound` / 两段音频 cue **全在远端音频表里，本地没有** ⇒ 不播」
+//     —— **不成立**。那几条 cue 全在 `bundle_soundcollection_assets_all` 里，逐个解出来了：
+//     `CardClick 2`→`UI Click Card 2` · `New Card`→`New Card` · `Booster Pack Window Close`→`Cardshuffle out` ·
+//     `Booster Pack Open Card Rarity 1..4`→`Cardflip_{Common,Rare,Epic,Legendary}` ·
+//     `Booster Open *`→`Open_Cardpack_*`。表与播放口 → `Shell/WindowSounds.cs`（唯一一张表）。
+//     落点：**拆包声**在 `Build()`（原版在 `BoosterPackVisualItem.Initialize`，那件东西我们没建 ⇒ 落点是我们挑的）·
+//     **点卡声 + 稀有度声**在 `Reveal()`（原版 `UiColliderOnClick` + `ChangeState(3)`）·
+//     **`newCardSound`** 跟 `IsNewCard`（= 角标那条，**当前恒假**，见下）·
+//     **关闭声**在 `CloseFromTap()`（原版 `CloseButtonClick`，之后基类 `Close()` 还会再响一声默认关窗音）。
+//     ⚠️ `BoosterPackVisualItem.openBoosterPack` 是我们**用 `Army` 反查**的（原版是那条 prefab 上的字段）；
+//     映射表与判据 → `WindowSounds.BoosterOpenCue`。
 //   · **`useQuickOpenProtection`（60 s 内连开就加速，`CalculateReOpenProtectionDelay`）没做** —— 时间源在批处理里不可靠。**出声**。
 //   · **`OpenCardbacks` 那条 clip 不接** —— 判据弱（见 `BoosterPackExporter.ClipNames` 的最后一条），用途未查清。
 //   · ✅ **垂直对齐已落（2026-10-16 · A712 阶段 2）**：`Tap to discover` / `Tap to close` 两条 TMP 原版是
@@ -312,6 +322,18 @@ namespace CardPresentation
             Build();
         }
 
+        /// <summary>🆕 **2026-10-17（音效线 `W_G`）**：`Tap to close` / 整屏 `Collider` 那一下。
+        /// <para>判据 = `BoosterPackOpenWindow__CloseButtonClick.c`：**先**播 `soundOnClose`
+        /// （字段 `+0x80`，cue `Booster Pack Window Close` → clip `Cardshuffle out`，`MixerType.FX`），
+        /// **再**起 `WaitAnimationForClose` 协程；协程末尾才调虚表 `0x1b8`（= `GameWindow.Close()`）
+        /// ⇒ 关窗那一刻**还会再响一声默认关窗音**（`ButtonClick Back`）。两声是**原版就有的**，⛔ 别去重。</para>
+        /// <para>⚠️ 我们不做 `Booster Window Close` 那段动画（文件头已标注）⇒ 两声响在同一拍。</para></summary>
+        public void CloseFromTap()
+        {
+            WindowSounds.PlayFx(WindowSounds.BoosterCloseCue, "开包窗 `Tap to close`");
+            Close();
+        }
+
         // ============================================================ 建
 
         public void Build()
@@ -338,6 +360,14 @@ namespace CardPresentation
             Army = ArmyOfArt(o.Art);
             Cards = RollPack(Army, unchecked(Page * 1000 + Index));
             CardsLeft = Cards.Length;
+
+            // 🆕 **2026-10-17（音效线 `W_G`）**：拆包那一声（原版 `BoosterPackVisualItem.openBoosterPack`，
+            //   `BoosterPackVisualItem__Initialize.c` 末段 `SoundManager.Play2D(cue, **3 = Jingles**)`）。
+            // 🔴 **落点是我们挑的**：原版这一声在「卡包实物被点开、卡片开始飞出」那一刻（`BoosterPackVisualItem`），
+            //   而**我们整段开包视觉都没做**（见文件头）⇒ 唯一对应的可听时刻就是本窗铺内容这一拍
+            //   ⇒ 落在 `Build()` 末尾之前（`Army` 已定、还没铺卡）。如实标注，⛔ 别把它当成原版的同一跳。
+            //   阵营 → cue 的映射判据 → `WindowSounds.BoosterOpenCue`。
+            WindowSounds.PlayJingles(WindowSounds.BoosterOpenCue(Army), "开包窗铺内容（拆包声）");
 
             // ① 背景：**纯色块**（原版 `backgroundImage` 的 `m_Sprite = 0`）——
             //    有传奇就换成 `thereIsALegendaryCardbackgroundColor`。
@@ -391,7 +421,7 @@ namespace CardPresentation
             //   —— 仍**严格低于**卡命中区的最低档 `QCard`(3171) ⇒ 卡照样能点（规矩 → `MenuDraw.ShadeHit`）。
             //   ⚠️ 摆法随之改变（**这是 `MenuDraw.Hit` 的既有摆法，别改**）：节点摆在父原点、
             //      quad 摆在矩形中心 —— 自检里原先那条量**节点位置**的断言因此改成量 quad（见 `ShopScene`）。
-            var surf = MenuDraw.ShadeHit(CloseNode, CloseSurfaceR, QShade, QCard, Close, "Collider");
+            var surf = MenuDraw.ShadeHit(CloseNode, CloseSurfaceR, QShade, QCard, CloseFromTap, "Collider");
             if (surf == null)
                 Debug.LogWarning("[BoosterPack] 整屏那块 `Collider` 的命中区**没建起来**（`CardArt.Solid()` 取不到？）"
                                  + " —— 「点哪儿都关」这一路会失效（红线：不许静默失败）");
@@ -543,6 +573,11 @@ namespace CardPresentation
                 SlotHits[i] = wb;
                 if (wb != null)
                 {
+                    // 🆕 2026-10-17（W_G）：原版这颗 `2DCard/UI Collider` 是 `UIGenericEventCatcher`
+                    //   （`CardInBoosterPack.uiCollider`）—— **它自己不播默认按钮音**；
+                    //   那一下的声是 `CardInBoosterPack.clickSound`（cue `CardClick 2`，在 `Reveal` 里播）。
+                    //   ⇒ 关掉通用按钮音，免得「一声变两声」。
+                    wb.playClickSound = false;
                     wb.onClick = () => Reveal(captured);
                     wb.onEnter = () => { if (!Opened[captured]) Hover(captured, true); };
                     wb.onExit = () => { if (!Opened[captured]) Hover(captured, false); };
@@ -583,11 +618,29 @@ namespace CardPresentation
         public void Reveal(int i)
         {
             if (i < 0 || i >= 5 || Opened[i] || CardsLeft <= 0) return;
+
+            // 🆕 **2026-10-17（音效线 `W_G`）：两张卡各自那一对声音。** 判据逐条 → `WindowSounds.cs` 文件头那张表。
+            //   ① `CardInBoosterPack.UiColliderOnClick` 第一句 = `clickSound.Play2D(MixerType.FX)`（cue `CardClick 2`）；
+            //   ② 紧接着 `ChangeState(3)` → 按稀有度取 `contentByRarities[].audioCue`，
+            //      `SoundManager.Play2D(cue, **3 = Jingles**)`（`Cardflip_Common/Rare/Epic/Legendary`）。
+            //   ⚠️ 原版 ② 埋在翻牌 clip 的中段（`ChangeState(3)` 里 `CrossFade` 之后立刻播，不是等动画完）；
+            //      我们没有 spin 动画 ⇒ 两声落在同一拍（这是我们省掉动画的必然后果，如实标注）。
+            WindowSounds.PlayFx(WindowSounds.BoosterCardClickCue, "开包窗点开第 " + (i + 1) + " 张");
+            if (Cards != null && i < Cards.Length)
+                WindowSounds.PlayJingles(WindowSounds.BoosterRarityCue(RarityInt(Cards[i])),
+                                         "开包窗第 " + (i + 1) + " 张的稀有度音");
+
             Opened[i] = true;
             if (BackNodes[i] != null) BackNodes[i].SetActive(false);
             if (FaceNodes[i] != null) FaceNodes[i].SetActive(true);
             if (SlotHits[i] != null) SlotHits[i].gameObject.SetActive(false);   // 翻开的卡不再吃点击
             ApplyCardBadges(i);
+            // 🆕 ③ `newCardSound`（原版 `_WaitForSpinAnimationEnd`：**拥有数 == 1** 才播 ——
+            //   「这是你第一张」）。判据同一个条件 => `IsNewCard`（也就是角标那条）。
+            //   ⚠️ 我们的 `CardProgress.Owned` 默认给足 ⇒ **这条恒假**（与 `New Card Badge 恒不显示` 是同一裁定，
+            //   见文件头）。接线照判据留着 —— 数据口径一变它就自己响。
+            if (Cards != null && i < Cards.Length && IsNewCard(Cards[i]))
+                WindowSounds.PlayFx(WindowSounds.BoosterNewCardCue, "开包窗第 " + (i + 1) + " 张（第一张）");
             PlayCardFx(i);
             // `CardOpened`：把 `Tap to discover` 淡出（我们直接关）+ 计数自减
             if (DiscoverNode != null) DiscoverNode.gameObject.SetActive(false);
@@ -797,11 +850,13 @@ namespace CardPresentation
         /// <summary>把「原版有、我们没做」的几处**当场出声**（红线：不许静默失败）。</summary>
         void HintGaps()
         {
-            Debug.Log("[BoosterPack] ⚠️ 五处如实标注：① **卡包内容是我们摇的**（原版走服务端 drop table，"
+            Debug.Log("[BoosterPack] ⚠️ 四处如实标注：① **卡包内容是我们摇的**（原版走服务端 drop table，"
                       + "`DT Ultramarines All(R2+)` 那两张本地没导出来）；② **翻牌动画没做**"
                       + "（原版 `Content` 上播 `Booster Opening - Card *`）—— 我们直接换层；③ **相机抖动没做**"
-                      + "（原版 `contentByRarities[].shakes` 那几条）；④ **音效没做**（cue 在远端音频表）；"
-                      + "⑤ **`useQuickOpenProtection`（60 s 内连开加速）没做**。详见 `Shell/BoosterPackOpenWindow.cs` 文件头");
+                      + "（原版 `contentByRarities[].shakes` 那几条）；"
+                      + "④ **`useQuickOpenProtection`（60 s 内连开加速）没做**。"
+                      + "✅ **音效已接**（2026-10-17 `W_G`；原来这里写的「音效没做（cue 在远端音频表）」已订正 —— "
+                      + "那几条 cue 本地都有，见文件头）。详见 `Shell/BoosterPackOpenWindow.cs` 文件头");
         }
 
         public string Dump()

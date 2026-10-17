@@ -1687,6 +1687,16 @@ public static class RewardsScene
             CheckTrue(smLogin != null && smSkulls != null,
                       "（前提）两张 SM 卡都在（`Daily Login Container` + `Daily Skulls Mission Container`）"
                       + " —— 下面的字号断言**吃这一条**");
+            // 🔴 **2026-10-17（界面线 T19 · `A1288`）：登录卡**卡框** —— 与骷髅卡同一条 HLG 实算**
+            //   （原版 `LayoutElement.m_MinWidth/MinHeight` = `347.64 × 555`）⇒ ×1.15 = **399.79 × 638.25**。
+            //   改前是独立预制体 `… Small` 的**模板位** `334 × 565`（⇒ 384.1 × 649.75）⇒ 这两条会红。
+            //   ⚠️ 期望值写字面量（⛔ 不读 `MissionsTab` 的常量 = 自证）。
+            if (smLogin != null)
+            {
+                CheckW(smLogin, 347.64f * 1.15f, "登录卡宽 = 原版 `LayoutElement.m_MinWidth` **347.64** × 1.15（`A1288`）");
+                CheckH(smLogin, 555f * 1.15f,
+                       "登录卡高 = 原版 HLG 交叉轴那一格 **555** × 1.15（`A1288`；与骷髅卡同一条算法）");
+            }
             // ①【`Txt` 带自适应那一路】登录卡的奖励格 `count 0`：🔴 **这一颗原来是按「没有自适应」断的** —
             //    `A143` 那段写着「`Txt` 无自适应那一路」，而 `A1205` 已经给它接了自适应
             //    （原版本来就是 `m_enableAutoSizing = 1`）⇒ 旧断言（`CheckFontPx(…, 46f)`）第一次跑就红。
@@ -2206,8 +2216,18 @@ public static class RewardsScene
                 CheckTrue(lgCard2 != null && FindChild(lgCard2, "Timer") != null,
                           "★ …而重建后**已领取** ⇒ `Timer` **出现了**（与上面「未领取不建」合起来才证得住"
                           + "它是**按状态**显隐，不是恒建 / 恒不建）");
-                Check(TextOf(FindChild(lgCard2, "Timer")), "Resets in 12h 34 m",
-                      "…`Timer` 文案 = **原版 prefab 出厂那个串**（正本 §3·3 #16 `'Resets in 12h 34 m'`）");
+                // 🔴 **2026-10-17（界面线 U2-1 就地订正）：倒计时已经接成【活值】** —— 原来这里钉的是
+                //    prefab 出厂死串 `Resets in 12h 34 m`（当时产品侧就是写死的，所以钉得住）。
+                //    现在 `DailyData.RewardTimerText()` 由 `TimerDisplay` 按 `NextResetAt` 每秒重算
+                //    ⇒ **只能断「前缀 + 确实有剩余」**，⛔ 不能再钉那个字面量（钉了必红）。
+                //    🧨 改坏法：把 `DailyData.RewardTimerText` 换回死串 / 空串 ⇒ 本条红。
+                {
+                    var timerText = TextOf(FindChild(lgCard2, "Timer"));
+                    CheckTrue(timerText != null && timerText.StartsWith("Resets in ")
+                              && timerText.Length > "Resets in ".Length,
+                              "…`Timer` 文案 = **活倒计时**（`Resets in ` + `TimerDisplay` 算出的剩余；"
+                            + "实得「" + timerText + "」）");
+                }
 
                 // ---------------------------------------------------------------- ① + B4 骷髅卡
                 // 🔴 **2026-10-11（A375）**：先把**计数**顶到 100 —— A370 起「领得到」是**两关**
@@ -4044,9 +4064,14 @@ public static class RewardsScene
                 //   ⛔ 不是再读一次 `ForgeData.RewardAt(...)`（读它就成了同义反复）。
                 string artCell = ArtOf(FindChild(cellR, "RewardTransform"));
                 CheckTrue(artCell != null, "（前提）该领那一格里的奖励图**画出来了**（下面拿它比窗里那一条）");
-                CheckTrue(artCell == null || artCell != ForgeData.RewardAt(0).Art,
+                // 🔴 **2026-10-17（界面线 T21）**：奖励格改成**抽屉整层画**（野牌：卡面 + 阵营名 + 数量 + 阵营小徽）
+                //    ⇒ `ArtOf` 读到的仍是**抽屉里那张主图**（`WildcardIcon` 先画它 ⇒ 深度优先第一个 quad）。
+                //    ⚠️ **分辨前提只在两档图不同时成立**（`RewardAt` 是 4 档轮换；`lvR % 4 == 0` 时两边同图、
+                //    这条**没有鉴别力**）⇒ 那一格**如实放行**，不硬造一条恒红的断言。
+                CheckTrue(artCell == null || ForgeData.RewardAt(lvR).Art == ForgeData.RewardAt(0).Art
+                          || artCell != ForgeData.RewardAt(0).Art,
                           "★ …（分辨前提）这一格画的**不是** `RewardAt(0)` 那一张 —— 否则「把格号传成 0」"
-                          + "这个改坏法在下面两条里**看不出来**（两条都会绿）"
+                          + "这个改坏法在下面两条里**看不出来**（两条都会绿；`lvR % 4 == 0` 时同图 ⇒ 本条自动放行）"
                           + "（写成 `artCell == null ||` 是**不叠红**：取不到图那条上一句已经报过了）");
                 var rwForge = ClickCollectAndDismiss(claimN, claimW, "锻造轨道的 `ClaimHit`");
                 Check(ForgeData.LevelOf(ForgeData.Selected), lvR + 1,

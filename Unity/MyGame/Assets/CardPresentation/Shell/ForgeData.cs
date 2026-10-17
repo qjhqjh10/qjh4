@@ -41,27 +41,41 @@ namespace CardPresentation
             "Sautekh", "AstraMilitarum", "Leviathan", "Sororitas", "EmperorsChildren", "SpaceWolves",
         };
 
-        /// <summary>一格奖励。⚠️ **我们挑的**（原版 `RewardInfo` 在服务端）。
+        /// <summary>一格奖励。⚠️ **「哪一级给什么」是我们挑的**（原版 `RewardInfo` 在服务端）。
         /// <para>🔴 **2026-10-12（A401）就地订正**：原来这个结构里只有 `Text`（显示用的**字符串**），
         /// 于是「领到多少」这件事**在数据侧不是一个数** —— 接领奖窗时要再 `int.Parse` 一次字符串
         /// （两个地方各认一次同一个数 = 迟早不一致）。现在数量就是 `Qty` 一个 `int`，
-        /// `Text` 由它派生。</para></summary>
+        /// `Text` 由它派生。</para>
+        /// <para>🔴 **2026-10-17（界面线 T21）**：加 `WildcardRarity` —— 原版锻造奖励不是「一张图标」，
+        /// 而是**野牌 / 增强包**（实拍 `奖励—锻造厂的参考图.png`：紫/绿野牌 + 一包卡），由
+        /// `ItemDrawer.Draw` 整层画出来（卡面图 + 品阶 + 阵营名 + 数量 + 阵营小徽）。
+        /// ⇒ 我们的奖励改成**真野牌**（`40k_general_wildcard_*` 四档图本地都在），
+        /// 「哪一级给哪档」仍是我们挑的（服务端数据本地没有）。</para></summary>
         public struct Reward
         {
-            public string Art;      // `Resources/Art/ui_menu/` 里的图名
+            /// <summary>奖励图名（野牌 = `40k_general_wildcard_{common,rare,epic,legendary}`；
+            /// 领奖窗也读它）。</summary>
+            public string Art;
             /// <summary>发多少（原版 `RewardInfo.quantity` 那一格）。**领奖窗与卡面下方那行字都读它**。</summary>
             public int Qty;
+            /// <summary>野牌稀有度 **1..4**（`cardRarity` 那一档）；`0` = 不是野牌（走旧那条裸图）。
+            /// ⚠️ 渲染时拼成 `Wildcard<阵营><稀有度>` 交给 `ItemDrawer.Spec` —— 阵营取**当前选中的阵营**。</summary>
+            public int WildcardRarity;
+            /// <summary>兜底短名（抽屉取不到图时占位板上用；野牌那两档用不到）。</summary>
+            public string Label;
             /// <summary>显示在奖励下方的数量。**由 `Qty` 派生** —— ⛔ 别在 `Palette` 里再手写一个数字。</summary>
             public string Text { get { return Qty.ToString(); } }
         }
 
-        // ⚠️ **我们挑的奖励表**：按「每 10 级一档、档内轮换」编，图标全用工程里已有的原版图。
+        // ⚠️ **我们挑的奖励表**：按「每级轮换」编。🔴 **2026-10-17（T21）**：从四张货币图标
+        //    改成**四档真野牌**（图 = 原版 `40k_general_wildcard_*`，判据 = 实拍那三张卡 + `ItemDrawer`
+        //    的 `Wildcard` 抽屉）。**「哪一级给哪档」仍是我们挑的**（原版在服务端）—— 如实标。
         static readonly Reward[] Palette =
         {
-            new Reward { Art = "40k_topmarquee_currency_gold",      Qty = 150 },   // 金币
-            new Reward { Art = "40K_general_icon_Forge_points",     Qty = 250 },   // 锻造点
-            new Reward { Art = "40k_Achievements_icon_seal_points", Qty = 20  },   // 印章点
-            new Reward { Art = "40K_missions_icon_Daily_skulls",    Qty = 5   },   // 骷髅
+            new Reward { Art = "40k_general_wildcard_epic",      Qty = 1, WildcardRarity = 3 }, // 史诗通用牌（实拍紫色那张）
+            new Reward { Art = "40k_general_wildcard_rare",      Qty = 1, WildcardRarity = 2 }, // 稀有通用牌（实拍绿色那张）
+            new Reward { Art = "40k_general_wildcard_legendary", Qty = 1, WildcardRarity = 4 }, // 传说通用牌
+            new Reward { Art = "40k_general_wildcard_common",    Qty = 1, WildcardRarity = 1 }, // 普通通用牌
         };
 
         /// <summary>第 `level` 格（0 基）的奖励。⚠️ 我们挑的。</summary>

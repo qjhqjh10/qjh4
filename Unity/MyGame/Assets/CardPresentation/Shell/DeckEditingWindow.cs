@@ -35,10 +35,12 @@
 //      ⇒ **今天关掉本窗【不会】回主菜单 / 不会回收藏窗**（那一跳还是「在壳底下换场景」）。
 //      第 4 步必须补：`BackToMenu` → 关本窗（`HostWindow.Close()`），并收拾
 //      `MainMenuRuntime` 的 `PendingReturn` / `Editor/DeckScene.cs` 那 5 条 A855 断言。
-//   ⛔ **第 5 步**（遮让）：`Open()` 里**还没有**把上一扇（收藏窗）`Hide()` ——
-//      收藏窗挂在锚点 `Canvas`(5)、本窗挂 `World`(10)，**同一台相机**、`ImageQuad` 只按 render queue 排
-//      ⇒ 收藏窗那一档（`QPagePanel 3030…QFlt 3044`）**仍然会盖住本窗**（`QAreaBg 2980…QText 3009`）。
-//   ⛔ **第 6 步**：`DeckEditor.unity` 场景本身的定位（D10 §三「`DeckEditor.unity` 还要不要？—— 要，但改定位」）。
+//      🔴 **2026-10-17 就地订正（铁律 5 · `U4` 现核）：上面这条【已过期】** —— 第 4 步
+//      （2026-10-14）已落地：`Deck/DeckRuntime.cs:4997` 走 `LeaveByHostWindow()`（关窗不切场景），
+//      `:5027-5062` 收拾了回程。第 3 步（三处入口）也已接（`CollectionWindow.cs:3622/3698`·
+//      `LiveOpsEventWindow.cs:1163`）。⛔ 别再照这三行去「补第 4 步」。
+//   ✅ **第 5 步**（遮让）：**已被 `D10 §三` 证伪取消**（`OpenWindow` 全屏支已经 `HideAllWindows`）。
+//   ✅ **第 6 步**：`DeckEditor.unity` 的定位已按 D10 §三 定（它只剩自检/兜底用途）。
 //
 // ---- ⚠️ 如实标注、⛔ 别当成已复刻的一处 ----
 //   ① **原版那一堆 `[SerializeField]`（约 20 个）与它们带的行为一个都没接**
@@ -123,6 +125,10 @@ namespace CardPresentation
         /// （`GameWindow.TryOpen` 只在 `Closed ⇒ Open` 那一拍调 `Open()`，见它那边的注释）。</summary>
         public override void Open()
         {
+            // 🔴 **2026-10-17（界面线 `T12`）：收起左竖导航** —— 原版 `DeckEditingWindow__TryOpen.c:139`
+            //    = `NavigationPanelController.Toggle(0, 1, 0)`（收起、带动画）。放回在 `Close()`。
+            //    ⚠️ 必须在 `Build` **之前**：那一跳会把整棵界面建出来，晚一步会看到左栏压在编辑器上闪一下。
+            MainMenuRuntime.SetNavPanelVisible(false, true);
             if (_runtime == null) _runtime = gameObject.AddComponent<DeckRuntime>();
             // 🔴🔴 **2026-10-13（`A1132` 第 2 步）—— 本句【不能省】**（它和第 3 步必须同批交件）：
             //   第 3 步起本窗就是「进编辑」的落点 ⇒ 开出来那一刻，**本窗自己就是 `wm.TopWindow`**；
@@ -164,6 +170,17 @@ namespace CardPresentation
             }
             _runtime.EscPressed();
             return false;   // 只存不关 ⇒ 没有关掉任何一扇窗（判据见上面的 doc）
+        }
+
+        /// <summary>🔴 **2026-10-17（界面线 `T12`）：关窗时把左竖导航放回来。**
+        /// 判据 = `DeckEditingWindow__Close.c:19-20`（**先** `NavigationPanelController.Toggle(true, true)`，
+        /// **再** `GameWindow.Close()`）⇒ 顺序照抄：放回在 `base.Close()` 之前。
+        /// ⚠️ 原版 `Toggle` 的「放」会先写 `hiddenPosition` 再 `SetActive(true)` 再补间回展示位 ——
+        /// 那三条在 `MainMenuRuntime.SetNavPanelVisible` 里逐句照做了，⛔ 别在这儿重写一份。</summary>
+        public override void Close()
+        {
+            MainMenuRuntime.SetNavPanelVisible(true, true);
+            base.Close();
         }
     }
 }

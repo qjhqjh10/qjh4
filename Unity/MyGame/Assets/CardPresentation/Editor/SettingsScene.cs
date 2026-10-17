@@ -1689,10 +1689,16 @@ public static class SettingsScene
             int q0 = QualitySettings.GetQualityLevel();
             int qAsked = -1, vAsked = -1;
             SettingsWindow.QualitySetterOverride = lv => qAsked = lv;
+            // 🔴 **2026-10-17（界面线 T17）**：画质档改成**真下拉**（`TMP_Dropdown`）⇒ 点行**不再切档**，
+            //   而是**打开列表**；要切档得再点目标行（`DropdownRowHit`）。
+            //   期望值一个字没改（仍是「切到下一档」）。
             Click(FindChild(root, "Graphics Tab"), "QualityHit");
-            SettingsWindow.QualitySetterOverride = null;
             int qWant = (q0 + 1) % Mathf.Max(1, QualitySettings.names.Length);
-            Check(qAsked, qWant, $"点画质行 ⇒ 要求切到**下一档**（{q0} → {qAsked}，共 {QualitySettings.names.Length} 档）");
+            CheckTrue(win.DropdownOpen(SettingsWindow.DdQuality),
+                      "点画质行 ⇒ **列表打开了**（真下拉，不是「点一下换一个」）");
+            Click(win.DropdownRowHit(SettingsWindow.DdQuality, qWant));
+            SettingsWindow.QualitySetterOverride = null;
+            Check(qAsked, qWant, $"点画质行 + 选第 {qWant} 行 ⇒ 要求切到**下一档**（{q0} → {qAsked}，共 {QualitySettings.names.Length} 档）");
             // 🔴 **2026-10-19（波 1b）就地改掉「写死中文当需子串」**：这句 `_flash` 现在**跟着语言走**
             //    （`Shell/SettingsWindow.cs:2070` = `string.Format(Loc.T("Settings/Graphics/Flash/Quality"), QualityName())`）
             //    ⇒ 旧写法 `Contains("画质")` 只在**中文档**成立，英文档那句是 `Quality → …` ⇒ 红。
@@ -1717,7 +1723,9 @@ public static class SettingsScene
             Debug.Log(P + "  （图像页建了 `Quality`/`Small Screen UI`/`Auto Zoom`/`Use super sampling`/`VSync`/`FPS limit` 六件 ——"
                     + " `FPS limit` 自 A168 起是**滑块**；那一列自 A170 起是**真的 `Scroll View`**"
                     + "（原版 `RectMask2D` 视口），**A172 起行位回正、整列塞得进视口 ⇒ 滚不动**；"
-                    + "原版那几行里 `Text In Hand Selector` / `Hi FPS` / `Android extra compatibility` 运行时**都不在**；"
+                    + "原版那几行里 `Hi FPS` / `Android extra compatibility` 运行时**不在**；"
+                    + "🔴 **2026-10-17（T17）就地订正**：`Text In Hand Selector` **运行时是显示的**（`GraphicsTab__OnSetup` 从未关它），"
+                    + "我们**已建**（真下拉）；"
                     + "`Use super sampling` **A176 起建了**（原版：只在允许超采样的档出现；"
                     + "🔴 旧记录写「我们没超采样能力 ⇒ 不建」——**已作废**，见 `SuperSampling` 那个类））");
 
@@ -2624,14 +2632,18 @@ public static class SettingsScene
                           "⑤★ 再关窗 ⇒ `renderScale` 回到 **1.0**（两个方向都真的写到那份资产上了）");
 
                 // ⑥ = 原版 `ApplyGraphicsQuality.c:73-78`：应用到一个**不允许**超采样的档 ⇒ 把开关**强制清 0**
-                //    （走**产品那条路**：点画质行 ⇒ `CycleQuality` → `ApplyQuality` → `SuperSampling.Apply()`）
+                //    （走**产品那条路**：点画质行开下拉 → 点目标行 ⇒ `ApplyQuality` → `SuperSampling.Apply()`）
                 win.Manager.OpenWindow(win);                     // ⑤ 关掉了 ⇒ 重开（`Click` 找的是 active 子树里的按钮）
                 SuperSampling.Set(true);
                 CheckTrue(SuperSampling.Enabled, "（前提）先把开关打开，再看换档会发生什么");
                 ssQuality = 0;                                   // 换到不允许的那一档（注入，不真改工程设置）
                 int qlBefore = QualitySettings.GetQualityLevel();
                 SettingsWindow.QualitySetterOverride = lv => { };   // 挡住真 `SetQualityLevel`（会把 `QualitySettings.asset` 写脏）
+                // 🔴 **2026-10-17（界面线 T17）**：真下拉 ⇒ 先开列表、再点一个**不等于 `ssQuality`** 的行
+                //   （`ssQuality` = 允许超采样的那一档；换到别的档才会把开关强制清 0）。
                 Click(FindChild(root, "Graphics Tab"), "QualityHit");
+                int qTarget = (ssQuality + 1) % Mathf.Max(1, QualitySettings.names.Length);
+                Click(win.DropdownRowHit(SettingsWindow.DdQuality, qTarget));
                 SettingsWindow.QualitySetterOverride = null;
                 CheckTrue(!SuperSampling.Enabled,
                           "⑥★ 换到**不允许**超采样的档 ⇒ 那颗开关被**强制清 0**"

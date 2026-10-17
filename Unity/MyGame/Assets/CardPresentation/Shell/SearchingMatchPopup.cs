@@ -327,7 +327,10 @@ namespace CardPresentation
         /// `Skull` 上挂着一个 legacy `Animation`（`m_PlayAutomatically = 1`）+ clip
         /// **`SearchingOpponentCog`**（`AnimationClip_-6716633893720174568.json` · `m_Legacy=true` · `m_SampleRate=60`）——
         /// euler **Z 每档 +20°、共 37 个键、0 → 10.01667 秒走满 360°**、循环。
-        /// ⚠️ 我们**没实现旋转**（`ImageQuad` 没有「转自身」的口子，得另做一个；**这一条是缺口，不是"查不到"**）。</summary>
+        /// ⚠️ 我们**没实现旋转**（`ImageQuad` 没有「转自身」的口子，得另做一个；**这一条是缺口，不是"查不到"**）。
+        /// 🔴 **2026-10-17 就地订正（铁律 5 · `U4` 现核）：上一句【已过期】** —— 旋转**已经实现了**
+        /// （`Tick` 里 `_cog.localRotation` 按 clip 的 37 个键推；见紧跟着的实现与 `U4` §二 D「打字机…」那一行）。
+        /// 错因 = 只保留了「没实现」那一版记录、实现落地后没回来改这一行。⛔ 别再按它去补一个旋转。</summary>
         public void Tick(float dt)
         {
             // 🆕 2026-10-03：**`Cog` 自转**（原版 `Skull` 上那条 legacy `Animation` + clip `SearchingOpponentCog`

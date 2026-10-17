@@ -1447,8 +1447,14 @@ public static class ShopScene
                               $"时钟图标**落在 `TimeCounter` 的横向范围内**（实测 x {pxc:F1}，容器 367.47..678.87）");
                 }
             }
+            // 🔴 **2026-10-17（界面线 U2-1 就地订正）**：上一句的说明里「值是我们挑的」**已过期** ——
+            //    现在 `ShopData.RefreshTime` 由 `TimerDisplay` 按「9 点规则 + 本机时钟」算（那两条仍是我们挑的），
+            //    而屏上那颗 `TimeText` 是同一个 `TimerDisplay` 实例每秒写出来的活值。
+            //    ⚠️ 仍是「同一瞬间的两个读数」：批处理没有帧循环、组件只在 `Attach` 时写过一次，
+            //    跨**分钟**边界时两边会差一分钟（极小概率 flake，如实记；不为此放宽成「像时间就行」——
+            //    那会让「换回死串」这一类改坏法照样绿）。
             CheckTrue(TextOf(FindChild(tc, "Time")) == ShopData.RefreshTime,
-                      $"倒计时文本 = `{ShopData.RefreshTime}`（原版是 `TimerDisplay` 给的真时间；**值是我们挑的**）");
+                      $"倒计时文本 = `{ShopData.RefreshTime}`（`TimerDisplay` 的活值；9 点规则/本机时钟是我们挑的）");
 
             // ---- 栅格：`GridLayoutGroup cell 335.6×475 · spacing 0 · padding.top 7 · 2 列 · UpperLeft` ----
             var offers = ShopData.Offers(p);

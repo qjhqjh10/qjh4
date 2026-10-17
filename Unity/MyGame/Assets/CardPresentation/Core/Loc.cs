@@ -1613,6 +1613,30 @@ namespace CardPresentation
             { "MainMenu/General/OK",           new Entry("好的",     "OK") },      // EN = 原版同 GO TMP `m_text` 逐字符；ZH **自拟**（⚠️ 有可见副作用，见上「留痕」块）
             { "MainMenu/General/Cancel",       new Entry("取消",     "Cancel") },  // EN = 原版同 GO TMP `m_text` 逐字符；ZH = `zh_CN.csv:21`（`Cancel,~,取消`，**精确命中**）
             { "MainMenu/General/Discard",      new Entry("放弃更改",     "Discard changes") }, // 🔴 EN **自拟**（本地无 TMP 原文）；ZH **自拟**
+            // ---- 🆕 2026-10-17（界面线 T20 · 战役 Header / Premium Panel 三态；3 条）----
+            //   三条**官方表实读**（`数据/游戏数据/官方本地化_en+zh-CN.json` 的 `terms`，逐字）：
+            //     `Rewards Menu/Points`             = ["Points: {0}", "积分：{0}"]
+            //     `MainMenu/General/Collect`        = ["Collect", "收集"]
+            //     `MainMenu/PurchasePremium/Premium` = ["Premium", "高级"]
+            //   ⚠️ `Rewards Menu/Points` 带 `{0}` 占位 —— 调用方 `CampaignTab` 用 `Replace("{0}", 余额)` 填，
+            //      ⛔ 别在这一层做格式化（`Loc.T` 只查表）。
+            { "Rewards Menu/Points",            new Entry("积分：{0}", "Points: {0}") },
+            { "MainMenu/General/Collect",       new Entry("收集", "Collect") },
+            { "MainMenu/PurchasePremium/Premium", new Entry("高级", "Premium") },
+            // ---- 🆕 2026-10-17（界面线 T17 · 设置窗三个下拉；7 条官方词条，逐字取自官方表 `terms`）----
+            //   `Settings/Media/WindowMode` = ["Window Mode","窗口模式"]
+            //   `…/Fullscreen` = ["Full screen","全屏"] · `…/Windowed` = ["Windowed","窗口化"]
+            //   `Settings/CardTextInHand/{Default,OnlyDescription,OnlyName}` = ["Full text"/"Only description"/"Only name",
+            //                                                                  "全文"/"仅描述"/"仅名称"]
+            //   `Settings/Graphics/SelectTextOfCardsInHand` = ["Text for cards in hand","手中的张牌文本"]
+            //   ⚠️ 末条 ZH 读着别扭（官方原文如此）—— **逐字照抄，别润色**（先例：错在真值那边 ⇒ 保留原样）。
+            { "Settings/Media/WindowMode",              new Entry("窗口模式", "Window Mode") },
+            { "Settings/Media/WindowMode/Fullscreen",   new Entry("全屏", "Full screen") },
+            { "Settings/Media/WindowMode/Windowed",     new Entry("窗口化", "Windowed") },
+            { "Settings/CardTextInHand/Default",        new Entry("全文", "Full text") },
+            { "Settings/CardTextInHand/OnlyDescription", new Entry("仅描述", "Only description") },
+            { "Settings/CardTextInHand/OnlyName",       new Entry("仅名称", "Only name") },
+            { "Settings/Graphics/SelectTextOfCardsInHand", new Entry("手中的张牌文本", "Text for cards in hand") },
             // ---- ④ ~~退出游戏那两句~~ → 🔴 **2026-10-08（波 0b3）已删**（两条自拟键成了死键）----
             //   原委：这两条是波 0 的**自拟键**（原版没有 —— 同族真键只有 `MainMenu/Settings/ButtonLabel/Exit_Game`）。
             //   后来 `A1026` 把三处调用点**全部改指原版真键** `Demo/MainMenu/{ExitGame,ExitButton,CancelButton}`
@@ -2363,7 +2387,7 @@ namespace CardPresentation
             { "Settings/General/Flash/Language",       new Entry("语言 → {0}（{1}）", "Language → {0} ({1})") },  // `:1589`；`{0}` = 语言名、`{1}` = 枚举值（`Loc.Current`）
             { "Settings/General/LangHasNoTable",       new Entry("　⚠️ 本地没有这一套文案 ⇒ 界面文字回退英文",
                                                                      "⚠️ No text for this language locally ⇒ the UI text falls back to English") }, // `:1590`；⚠️ ZH 那个**行首全角空格 U+3000 是调用点原文**
-            { "Settings/Graphics/Flash/Quality",       new Entry("画质档 → {0}", "Quality → {0}") },               // `:1987`（`CycleQuality`）
+            { "Settings/Graphics/Flash/Quality",       new Entry("画质档 → {0}", "Quality → {0}") },               // `:1987`（画质下拉选中那一档）
             { "Settings/Graphics/Flash/Vsync",         new Entry("VSync → {0}", "VSync → {0}") },                 // `:1995`（`ToggleVsync`）
             { "Settings/Graphics/Flash/SmallScreenUI", new Entry("Small Screen UI → {0}", "Small Screen UI → {0}") }, // `:2006`；ZH 列照抄调用点（那串**本来就叫英文**，⛔ 别改成中文）
             { "Settings/Graphics/Flash/AutoZoom",      new Entry("Auto Zoom → {0}", "Auto Zoom → {0}") },         // `:2029`；同上（调用点写 `Auto Zoom`，大写 Z）
@@ -2628,6 +2652,21 @@ namespace CardPresentation
             { "MenuShop/referral/counterMaximum",       new Entry("您已收集到最多的推荐奖励。", "You have collected the maximum number of referral rewards.") },
             { "Missions/CollectingRewards",             new Entry("正在收集奖励...", "Collecting Rewards...") },
             { "Rewards Menu/Claimed",                   new Entry("已认领", "Claimed") },
+
+            // ============================================================ 🆕 **2026-10-17（界面线 · 事件说明弹窗族）：
+            //   `BaseEventPopup` 那六份 prefab 里 `Tap To continue` 那一颗的词条。**
+            //
+            // 键名 = 原版那颗 TMP 上 `Localize.mTerm` 的**原文**（`mTerm = "Demo/Welcome/TapToContinue"`，
+            //   现读 `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_6361195102692256584.json`；
+            //   该实例挂在 `Liveop Event Help Variant/Texts/Tap To continue`。
+            //   六个变体各自的 `Tap To continue` **逐颗实读、mTerm 全同** —— 一条键、六处共用）。
+            // 两列 = 官方本地化表（`d:/4/Unity/数据/游戏数据/官方本地化_en+zh-CN.json` 的
+            //   `Demo/Welcome/TapToContinue` = `["Click to continue", "点击以继续"]`，2026-10-17 实读）。
+            // 🔴 **为什么必须进 `Table`**：`Loc.BulkOr` 走的是 `Resources/official_names.json` 那 6 族
+            //   （`Event_Description/*` 等），`Demo/Welcome/*` **不在里面**；而 `Loc.T` 对缺键是「返回键名本身 + 出声」
+            //   ⇒ 不补这一条，弹窗底部会**在界面上真的印出 `Demo/Welcome/TapToContinue`**（静默坏掉的样子）。
+            // 消费侧 = `Shell/BaseEventPopup.cs` 的 `BuildTexts`（唯一调用点）。
+            { "Demo/Welcome/TapToContinue",              new Entry("点击以继续", "Click to continue") },
         };
         //  ⚠️ **`Wire/HostRestarted` 的 ZH/EN 是本轮【故意改过的】**（`A1038` 顺手项，同 `NetBattle` 那条
         //     R7 中性化纪律）：原来 ZH = 调用点原话「主机重开了」，而那个调用点（`NetRuntime.Reset()`）

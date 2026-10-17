@@ -1,5 +1,11 @@
 // ReplayBar.cs — 原版 `ReplayButtons`（战斗界面左上角那 4 枚回放按钮）
 //
+// 🔴 **2026-10-17（`W15` 顺手发现，本批收）：下面这段「坐标悬案」里引的 GO/RT 号是【两套编号混写】。**
+//   `ReplayButtons(GO 143 / RT 3355)` · `Safe area BackCanvas(RT 3498)` · `LeftArea(RT 2849)` 等
+//   **都是 `battlearena1` 的实例号**；而**真正落地用的几何 / 层序参数一律取 `battlearena2`**
+//   （见下面「原版实测值」那一节，以及 2026-10-17 那条 uGUI 迁移的现读）。
+//   ⇒ 两套指的是**同一棵树**，⛔ 别拿 `143`/`3355` 去 `battlearena2` 里找；**有冲突时以 `battlearena2` 为准**。
+//
 // 出处（**坐标悬案 2026-09-17 已复核，以坑 38 为准**）：
 //   `资料/索引与盘点/解包资源使用地图.md` 的坑 35 说它在屏外（`LeftArea` 相对 [-550,1117]、
 //   观战才滑入）—— **那条是错的**：`ReplayButtons`(GO 143 / RT 3355) 的 `m_Father` 是
@@ -208,12 +214,9 @@ namespace CardPresentation
             return p;
         }
 
-        /// <summary>分辨率变了要重算 —— 🔴 **uGUI 档不需要**：位置/尺寸由 `RectTransform` 的锚点
-        /// 自己跟画布缩放走（原版也是这么做的）。保留本口是因为 `BattleDriver.ReanchorHud` 还在调它，
-        /// ⛔ 别在这里再加「重贴世界坐标」那一套（那就是半迁移态）。</summary>
-        public void RefreshLayout()
-        {
-        }
+        // 🔴 **2026-10-17：`RefreshLayout()` 那个空口已删**（连同 `BattleDriver.ReanchorHud` 里对它的调用）——
+        //    uGUI 档位置/尺寸由 `RectTransform` 的锚点自己跟画布缩放走（原版也是这么做的），
+        //    留一个空方法只会让人以为「这里还要重算」。⛔ 别再把它加回来当万能钩子。
 
         // ============================================================ 原版那两层（2026-09-27 补）
 

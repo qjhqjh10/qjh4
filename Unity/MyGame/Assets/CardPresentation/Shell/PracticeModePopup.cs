@@ -445,7 +445,23 @@ namespace CardPresentation
             new System.Collections.Generic.List<int>();
         public const float ShowBtnL = 1729.25f, ShowBtnT = 238.17f, ShowBtnR = 1793.49f, ShowBtnB = 301.41f;
         public const float ChgL = 1398f, ChgT = 680.75f, ChgR = 1652.54f, ChgB = 764.08f;
+        /// <summary>原版 `Practice Mode Menu/Toggle` 的**根矩形**（`EverguildToggle` + `NonDrawingGraphic`）。
+        /// ⚠️ 它**只是交互框**，四件可见子件**都探出**这个矩形（见下）—— 旧代码把这四个数当「整框」画底图/文字，
+        /// 那是错的（U4-1 已改）。</summary>
         public const float TogL = 813.24f, TogT = 906.26f, TogR = 1106.76f, TogB = 964.10f;
+        // ---- `Game mode` 开关的四件子件（🔴 2026-10-17（U4-1）**现读 dump 逐值**，绝对设计 px、y 向上）----
+        // 判据命令 = `python -I -X utf8 d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Practice Mode Menu" --depth 6 --md`
+        //   `Background`            915.50,915.18 → 1004.50,955.18   **89×40**  · sprite `40_main_bt_toggle_off`
+        //   `Skirmish toggle Image` 813.24,887.86 →  907.89,982.50   **94.6439²** · `40k_gamemode_icon_skirmish`
+        //   `Classic toggle Image` 1012.11,887.86 → 1106.76,982.50   **94.6439²** · `40k_gamemode_icon_classic`
+        //   `Label Background`      799.87,853.24 → 1120.13,893.24   **320.267×40** · `40k_main_bt_nametag`（源图 109×41，Simple 拉伸）
+        //   `Label`                 854.73,853.24 → 1065.27,893.24   **210.536×40** · fs36 基准36 · Center/Capline · 折行1
+        // ⚠️ 命名沿用本文件既有 `L/T/R/B`（`T` = **下沿** y1、`B` = **上沿** y2 —— 与 `Back*` / `Cont*` 那几组同一约定）。
+        public const float GmBgL = 915.50f, GmBgT = 915.18f, GmBgR = 1004.50f, GmBgB = 955.18f;
+        public const float GmSkL = 813.24f, GmSkT = 887.86f, GmSkR = 907.89f, GmSkB = 982.50f;
+        public const float GmClL = 1012.11f, GmClT = 887.86f, GmClR = 1106.76f, GmClB = 982.50f;
+        public const float GmPlateL = 799.87f, GmPlateT = 853.24f, GmPlateR = 1120.13f, GmPlateB = 893.24f;
+        public const float GmLabelL = 854.73f, GmLabelT = 853.24f, GmLabelR = 1065.27f, GmLabelB = 893.24f;
         public const float ContL = 1384.90f, ContT = 906.26f, ContR = 1837.98f, ContB = 956.10f;
         public const float BtTxL = 1385.08f, BtTxR = 1672.41f, BtTxT = 911.25f, BtTxB = 956.10f;
         public const float CircL = 1678.74f, CircT = 886.18f, CircR = 1768.74f, CircB = 976.18f;
@@ -783,6 +799,10 @@ namespace CardPresentation
             LastOpened = this;
             DeckIndex = CollectionData.CurrentIndex();
             ArmyIndex = -1;
+            // 🆕 2026-10-17（U4-1）：`Game mode` 初值 = **当前选中卡组自己的模式**
+            //   （⚠️ 原版 ctor 默认 13 —— 这处偏离的理由逐条写在 `SelectedGameMode` 的 doc 里）。
+            //   必须在 `Build()` **之前**：`BuildGameModeToggle` 要按它画底图、`RebuildDeckRows` 要按它筛。
+            SelectedGameMode = ToggleModeOf(CollectionData.DeckAt(DeckIndex).GameMode);
             Build();
         }
 
@@ -854,13 +874,10 @@ namespace CardPresentation
             BuildDeckInfo(root);
 
             // 5) 底下那一条：`Game mode` 开关 + `Battle!`
-            Img(root, "40_main_bt_toggle_off", TogL, TogT, TogR, TogB, "Toggle Bg", QPrRow, true);
-            // 🔴 **2026-10-19（`A1501`）：`Label` 改走 `Loc.T`** —— `Toggle ▸ Label` 那颗 TMP 的
-            //    `mTerm = Event_Description/Generic/GameMode`、`m_text = 'Game mode'`（本轮现读）。
-            //    ⚠️ 下面那颗开关本身**照样没建**（判据见紧跟的 `NotBuilt`，一个字没变）。
-            Txt(root, Loc.T("Event_Description/Generic/GameMode"), TogL, TogR, TogT, TogB, 36f, Align.Center, "Toggle Label", QPrText);
-            HitOn(root, root, "ToggleHit", new PxRect(TogL, TogT, TogR, TogB), () =>
-                NotBuilt("`Game mode` 开关（原版切 Classic/Skirmish 两种赛制；本地只有一个卡池口径）"));
+            //    🔴 **2026-10-17（U4-1）**：原来这里把 **89×40 的开关底图**按 `keepAspect` 拉进整框
+            //    293.51×57.84、文字也画在整框上，**两颗 94.64² 模式图标 + 名牌底一个都没建**、点了只 `NotBuilt`。
+            //    现在四件按原版逐值建全并接上 `SetGameMode`（判据 = 本文件常量段 `Gm*` 那一组）。
+            BuildGameModeToggle(root);
 
             Img(root, "40k_bt_underbutton", ContL, ContT, ContR, ContB, "Continue Button", QPrRow, true,
                 new Color(0.369f, 0.894f, 0.587f, 1f));
@@ -873,6 +890,158 @@ namespace CardPresentation
             Img(root, "40k_UI_bt_play", CircL, CircT, CircR, CircB, "CircleButton", QPrRow, true);
             HitOn(root, root, "BattleHit", new PxRect(ContL, ContT, CircR, CircB), () => StartBattle(),
                   QPrHit);
+        }
+
+        // ============================================================ 🆕 2026-10-17（U4-1）：`Game mode` 开关
+        // 原版 = `Practice Mode Menu/Toggle`（`EverguildToggle`，`isOn = 0`）+ 四件子件。
+        // 行为判据（逐句实读）：
+        //   · `PracticeModePopup__GameModeValueChange.c`：`false → *(int*)(self+0x110) = 13 (Skirmish)` ·
+        //     `true → 0 (Classic)`，然后 `ResetContent`（销毁旧卡组格、选择归零、按新模式重列）。
+        //   · `PracticeModePopup__.ctor.c`：`*(int*)(self+0x110) = 0xd`（**出厂 = Skirmish**）；
+        //     prefab 那颗 `Toggle.m_IsOn = 0` 与它自洽。
+        //   · prefab MB `-8743438662623342788`：`changeSpriteOnValueChange = 1` · `spriteToChange` = `Background` ·
+        //     `colorTintOnValueChange = 0`（**只换图、不换色** —— 别照 `onColor/offColor` 做色偏，那两个值在本件是死值）。
+        //   · `PracticeModePopup__SetArmyButtons.c`：卡组列表按 `gameMode` 在**两套槽位**（`+0x18` / `+0x20`）里二选一
+        //     ⇒ 我们的等价物 = 按 `PlayerDeck.GameMode` 过滤「我的卡组」列表。
+
+        /// <summary>本窗当前的赛制（原版 `PracticeModePopup.gameMode` @`+0x110`）。
+        /// <para>⚠️ **一处主动偏离（如实记，⛔ 别当原版语义）**：原版 ctor 默认 **Skirmish(13)**，本类
+        /// `Open()` 却按**当前选中卡组自己的模式**初始化。理由：我们这扇窗列的是**玩家自己的卡组**
+        /// （原版列的是预组 `Practice Deck`，每条带 Classic/Skirmish 两套槽位），而玩家卡组默认
+        /// `GameMode = Classic(0)` —— 照 13 开局的话绝大多数玩家的列表会是空的。
+        /// 开关出现条件也不同：原版 `Awake` 里只有 LiveOps 有对应活动才 `SetActive(true)`，
+        /// 我们没有服务器 ⇒ 常显（同 `ChatPanel` 那条老账）。</para></summary>
+        public GameMode SelectedGameMode { get; private set; } = GameMode.Skirmish;
+
+        /// <summary>`Background` 那一颗（开关底图，换态时换图用）。</summary>
+        ImageQuad _gmKnob;
+
+        /// <summary>把卡组里的 `GameMode` 号归到这颗开关能表达的两档（`0` / `13`）。
+        /// 原版 `EverguildToggle` 只有两档（`false→13 / true→0`）⇒ 别的号（例如事件窗建的卡组）原版同样表达不了；
+        /// 我们统一按 **Classic** 处理（与 `MenuDraw.GameModeIconFile` 只认 `0/13` 那一条同向，但不复用它的 UI 映射）。</summary>
+        public static GameMode ToggleModeOf(int rawGameMode)
+            => rawGameMode == (int)GameMode.Skirmish ? GameMode.Skirmish : GameMode.Classic;
+
+        /// <summary>开关底图：`isOn = false → offSprite`、`true → onSprite`（prefab 实读；见上面那一段）。
+        /// `isOn` ⟺ `Classic`（`GameModeValueChange` 的 `true → 0`）。</summary>
+        static string GameModeKnobArt(GameMode mode)
+            => mode == GameMode.Classic ? "40_main_bt_toggle_on" : "40_main_bt_toggle_off";
+
+        void BuildGameModeToggle(Transform root)
+        {
+            // 原版 `Toggle` 那一层（`EverguildToggle` + `NonDrawingGraphic`）—— 四件子件挂在它下面，
+            // 兄弟序照原版（从下到上）：`Background` → `Skirmish toggle Image` → `Classic toggle Image`
+            //                      → `Label Background`（其下 `Label`）。
+            var tog = New(root, "Toggle", new PxRect(TogL, TogT, TogR, TogB));
+
+            // ① `Background`（89×40）—— **只有它随 `isOn` 换图**（`m_PreserveAspect = 0` ⇒ ⛔ 别 keepAspect，
+            //    这张图正好 89×40；旧代码把它按 keepAspect 拉进整框就是这么错的）。
+            _gmKnob = Img(tog, GameModeKnobArt(SelectedGameMode), GmBgL, GmBgT, GmBgR, GmBgB,
+                          "Background", QPrRow, false);
+
+            // ②③ 两颗 94.6439² 模式图标（源图 256×256 方形；原版 `m_PreserveAspect = 0`，
+            //     方形框 + 方形图 ⇒ keepAspect 与拉伸同值，这里显式写 keepAspect 只表达「保持比例」）。
+            Img(tog, "40k_gamemode_icon_skirmish", GmSkL, GmSkT, GmSkR, GmSkB,
+                "Skirmish toggle Image", QPrRow, true);
+            Img(tog, "40k_gamemode_icon_classic", GmClL, GmClT, GmClR, GmClB,
+                "Classic toggle Image", QPrRow, true);
+
+            // ④ `Label Background`（`40k_main_bt_nametag`，源图 109×41 **拉成** 320.267×40 ⇒ keepAspect = false）
+            //    队列比两颗图标高：原版兄弟序里它在**最后**（后来的兄弟画在上面），而它的上沿（893.24）
+            //    压进图标下沿（887.86）5.38px。`QPrItemHL` 那一档与本窗 item 内景**屏上不相交**
+            //    （item 在左两列，这一条在底部 799.87..1120.13 × 853.24..893.24）⇒ 复用，
+            //    与 A178「两族 item 共号」同一口径（⛔ 别为此新开号挤别人的档）。
+            Img(tog, "40k_main_bt_nametag", GmPlateL, GmPlateT, GmPlateR, GmPlateB,
+                "Label Background", QPrItemHL, false);
+
+            // ⑤ `Label` —— 🔴 原版节点名就叫 `Label`；我们沿用**既有名 `Toggle Label`**
+            //    （`Editor/MainMenuScene.cs:2240` 的文案断言按这个名字取件 ⇒ 改名会红）。
+            //    原版字段：`m_fontSize 36 / m_fontSizeBase 36`（**无自适应**）、`Center/Capline`、`折行 = 1`。
+            //    文案走 `Loc.T`（`mTerm = Event_Description/Generic/GameMode`，既有那条不动）。
+            Txt(tog, Loc.T("Event_Description/Generic/GameMode"), GmLabelL, GmLabelR, GmLabelT, GmLabelB,
+                36f, Align.Center, "Toggle Label", QPrText, wrapPx: GmLabelR - GmLabelL);
+
+            // 命中区 = 原版**可射线件的并集**（`Toggle` 根那颗 `NonDrawingGraphic` +
+            // 四颗 `m_RaycastTarget = 1` 的 `Image` —— 图标那一份是本轮从 prefab MB 实读的，
+            // `m_RaycastTarget = 1`、`m_RaycastPadding = 0`）。四块都指向同一个动作：
+            // `PointerLayer` 要「按下与抬起落在同一个 `WindowButton` 上」才派发 ⇒ 重叠处不会双触发。
+            // ⚠️ 主命中区沿用既有节点名 `ToggleHit`（`Editor/CollectionScene.cs:4043` 按这个名字断类型）。
+            HitOn(tog, tog, "ToggleHit", new PxRect(TogL, TogT, TogR, TogB), ToggleGameMode);
+            HitOn(tog, tog, "ToggleSkirmishHit", new PxRect(GmSkL, GmSkT, GmSkR, GmSkB), ToggleGameMode);
+            HitOn(tog, tog, "ToggleClassicHit", new PxRect(GmClL, GmClT, GmClR, GmClB), ToggleGameMode);
+            HitOn(tog, tog, "ToggleLabelHit", new PxRect(GmPlateL, GmPlateT, GmPlateR, GmPlateB), ToggleGameMode);
+        }
+
+        /// <summary>点一下开关 = 原版 `Toggle.onValueChanged` → `GameModeValueChange(isOn)`
+        /// （`false → Skirmish(13)`、`true → Classic(0)`）。</summary>
+        public void ToggleGameMode()
+            => SetGameMode(SelectedGameMode == GameMode.Classic ? GameMode.Skirmish : GameMode.Classic);
+
+        /// <summary>切赛制（原版 `PracticeModePopup__GameModeValueChange.c` 的等价物）：
+        /// 写 `gameMode` → `ResetContent`（重列该模式的卡组）。</summary>
+        public void SetGameMode(GameMode mode)
+        {
+            mode = ToggleModeOf((int)mode);
+            bool changed = mode != SelectedGameMode;
+            SelectedGameMode = mode;
+            RefreshGameModeVisual();
+            ResetContent();
+            Debug.Log("[Practice] `Game mode` → " + (mode == GameMode.Classic ? "Classic(0)" : "Skirmish(13)")
+                      + (changed ? "" : "（本来就是这一档，仍按原版走一次 `ResetContent`）")
+                      + " ⇒ 重列该模式的卡组");
+        }
+
+        /// <summary>换开关底图（`spriteToChange = Background`）。图取不到 ⇒ **出声一次**、停在上一态。</summary>
+        void RefreshGameModeVisual()
+        {
+            if (_gmKnob == null) return;
+            string art = GameModeKnobArt(SelectedGameMode);
+            var tex = CardArt.MenuUi(art);
+            if (tex == null)
+            {
+                Debug.LogWarning("[Practice] `Game mode` 开关底图取不到：" + art
+                                 + " ⇒ 底图停在上一态（如实出声，不假装换成功）");
+                return;
+            }
+            // ⚠️ 两个重载语义不同：`SetTexture(t)` 会顺手把 `_aspect` 冲成新贴图自己的比例；
+            //    这里两张图都是 89×40（同比例）⇒ 今天同值，但**显式**走 `keepAspect: true`（A292 那条纪律）。
+            _gmKnob.SetTexture(tex, true);
+        }
+
+        /// <summary>原版 `PracticeModePopup__ResetContent` + `SetArmyButtons` 那两步的等价物：
+        /// **选择归零 → 按当前（模式 + 阵营）筛选重列**。
+        /// ⚠️ 我们的重列长在 `RebuildDeckRows` / `PickDeck` 里，所以这里只负责「选出第一副该模式的卡组」。</summary>
+        void ResetContent()
+        {
+            int first = FirstDeckInMode(SelectedGameMode);
+            if (first >= 0) { PickDeck(first); return; }
+
+            // 该模式下一副都没有 ⇒ 空列表（原版这一次 `ResetContent` 也是空的；⛔ 不许静默）
+            DeckIndex = -1;
+            PickedPrebuilt = null;
+            PrebuiltDecks.ClearPendingBattleDeck();
+            if (_deckHolder != null) RebuildDeckRows(_deckHolder);
+            if (_info != null) BuildCardRows(_info);
+            if (_txtDeckName != null) _txtDeckName.SetText("");
+            if (_txtWarlord != null) _txtWarlord.SetText("");
+            if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
+            Debug.LogWarning("[Practice] `Game mode` = "
+                             + (SelectedGameMode == GameMode.Classic ? "Classic(0)" : "Skirmish(13)")
+                             + "：当前筛选下**一套卡组都没有** ⇒ 列表为空（如实出声，不假装选到了）");
+        }
+
+        /// <summary>当前（模式 + 阵营）筛选下**第一副**卡组的下标；一套都没有 ⇒ −1。</summary>
+        int FirstDeckInMode(GameMode mode)
+        {
+            for (int i = 0; i < CollectionData.DeckCount(); i++)
+            {
+                var info = CollectionData.DeckAt(i);
+                if (ToggleModeOf(info.GameMode) != mode) continue;
+                if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count
+                    && info.Faction != _facs[ArmyIndex]) continue;
+                return i;
+            }
+            return -1;
         }
 
         /// <summary>左栏：13 个阵营格子（**82×82、纵向 spacing 26.38、横向居中**，可纵向滚）。
@@ -1149,6 +1318,9 @@ namespace CardPresentation
                 var info = CollectionData.DeckAt(i);
                 if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count && info.Faction != _facs[ArmyIndex])
                     continue;
+                // 🆕 2026-10-17（U4-1）：**赛制筛选**（原版 `SetArmyButtons` 按 `gameMode` 在两套槽位里二选一；
+                //    我们每副卡组自己带 `GameMode` ⇒ 直接按它筛）。`ResetContent` 之后这一行就是「重列该模式的卡组」。
+                if (ToggleModeOf(info.GameMode) != SelectedGameMode) continue;
                 // 🔴 格位照原版 `GridLayoutGroup.SetCellsAlongAxis`：
                 //   横 = `Content.x1 + startOffset + 列 × (格宽 + spacing.x)`（`startOffset` = 8.02 ⇒ 第 1 列 270.08）
                 //   纵 = `Viewport.y1 + 行 × (格高 + spacing.y)`（**spacing.y 是 −21** ⇒ 行距 159）
@@ -1340,10 +1512,16 @@ namespace CardPresentation
 
         int FilteredDeckCount()
         {
-            if (ArmyIndex < 0 || _facs == null || ArmyIndex >= _facs.Count) return CollectionData.DeckCount();
             int n = 0;
             for (int i = 0; i < CollectionData.DeckCount(); i++)
-                if (CollectionData.DeckAt(i).Faction == _facs[ArmyIndex]) n++;
+            {
+                var info = CollectionData.DeckAt(i);
+                // 🆕 2026-10-17（U4-1）：与 `RebuildDeckRows` 同一套筛选（模式 + 阵营）—— 两处必须同源，
+                //    否则「内容高」按 A 算、列表按 B 建（滚到一半是空白）。
+                if (ToggleModeOf(info.GameMode) != SelectedGameMode) continue;
+                if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count && info.Faction != _facs[ArmyIndex]) continue;
+                n++;
+            }
             return n;
         }
 
@@ -1382,9 +1560,12 @@ namespace CardPresentation
                 }
                 int idx = CollectionData.IndexOf(pick.Info.Name);
                 if (idx >= 0) PickDeck(idx);
-            }, (int)GameMode.Classic);   // 🆕 2026-09-26：练习 = 经典 ⇒「我的卡组」页只列经典那批
-            // ⚠️ 原版练习窗里有个 `Game mode` 开关（经典/冲突）我们**没建**（见本文件头那条 `NotBuilt`），
-            //    所以这里**写死经典**；真要支持「练习里也能打遭遇」得先把那个开关做出来。
+            }, (int)SelectedGameMode);   // 🆕 2026-10-17（U4-1）：按**开关当前的赛制**筛「我的卡组」页
+            // 🔴 **2026-10-17（U4-1）就地订正（铁律 5）**：这里原来写「原版练习窗里有个 `Game mode` 开关我们**没建**
+            //    ⇒ 写死经典」—— **已经建了**（`BuildGameModeToggle`），模式按 `SelectedGameMode` 走。
+            //    判据 = `PracticeModePopup__BattleButtonOnClick.c:96-160`（按 `gameMode` 在两套卡组/督军数据里二选一）
+            //    + `DeckSelectionPopup.__TryOpen_b__10_0`（候选卡组模式 == `context.GameMode` 那条筛选）。
+            //    ⚠️ 预组那一页**照原版不筛**（`DeckSelectionPopup.Shown` 只筛 `OwnDecks`）。
             Manager.OpenWindow(w);
             LastDeckSelection = w;
             Debug.Log("[Practice] 开 `Deck Selection Popup with Tabs`");
@@ -1626,6 +1807,10 @@ namespace CardPresentation
             var w = Create(mgr);
             mgr.OpenWindow(w);                       // `Open()` 会把 `DeckIndex` 重置成 `DeckLibrary.Current` ⇒ 下面再对齐
             w.PlayMode = playMode;                   // 🔴 必须在 `StartBattle()` **之前**（它会把这个号发出去）
+            // 🆕 2026-10-17（U4-1）：开关先对齐**这一副自己的模式**，再 `PickDeck`（否则列表会按
+            //   `DeckLibrary.Current` 的模式筛，选中的那一副可能不在列表里）。
+            w.SelectedGameMode = ToggleModeOf(CollectionData.DeckAt(ownDeckIndex).GameMode);
+            w.RefreshGameModeVisual();
             w.PickDeck(ownDeckIndex);                // 面板/卡列表跟着走（原版开这扇窗时也是拿这副铺的）
             w.OpponentDeck = PlayerDeckOf(opponent);
             Debug.Log("[Practice] 练习赛：**我** = 「" + CollectionData.DeckAt(ownDeckIndex).Name + "」（原版 `playerDeck`）"
@@ -1729,6 +1914,21 @@ namespace CardPresentation
                 // 钮文案同 `DeckInfoPopup`：`MainMenu/General/OK`（⚠️ `OK` 不是 `Ok`）。
                 if (Manager != null) Manager.ShowPopUp(Loc.T("MenuDeck/Error/CantStartNoWarlord"), Loc.T("MainMenu/General/OK"), null);
                 return;
+            }
+            // 🆕 2026-10-17（U4-1）：`Battle!` **按当前开关的赛制取卡组**（原版 `BattleButtonOnClick.c:96-160`
+            //   按 `gameMode` 在 `plVar1[3]/[4]` 两套卡组/督军槽位里二选一）。我们每副牌自带 `GameMode`
+            //   ⇒ 列表与选卡组窗都已按模式筛，这里只做**一致性出声**：选中的那副若是另一档
+            //   （最可能的来源 = 选卡组窗的「预组」页 —— 原版那一页**不按模式筛**），原版会取同一个条目的
+            //   **另一套槽位**，我们没有那套数据 ⇒ **如实警告**，⛔ 不许静默换成别的牌。
+            {
+                var preSel = PrebuiltDecks.PendingSource;
+                int selMode = preSel != null ? preSel.gameMode : info.GameMode;
+                if (ToggleModeOf(selMode) != SelectedGameMode)
+                    Debug.LogWarning("[Practice] ⚠️ 选中的卡组是 "
+                                     + (ToggleModeOf(selMode) == GameMode.Classic ? "Classic(0)" : "Skirmish(13)")
+                                     + " 模式，而 `Game mode` 开关在 "
+                                     + (SelectedGameMode == GameMode.Classic ? "Classic(0)" : "Skirmish(13)")
+                                     + " ⇒ 原版会取该条目的另一套槽位，我们没有那套数据（如实出声，不换牌）");
             }
             // 🆕 2026-09-26（N3）：**联机已连上 ⇒ 走 P2P，不跑那 12 秒 bot 链**
             //    （判据 → `资料/联机P2P_设计与交接.md` §六 N3）。没接管时照旧 —— 单机行为一字不改。
@@ -1870,7 +2070,10 @@ namespace CardPresentation
                          ? " —— ⚠️ **该场那份场景还没建，这一局用的是兜底 `Battle`（战场 = " + ArenaByArmy.DefaultScene + "）**"
                          : "）"));
             if (Application.isBatchMode) { Debug.Log("[Practice] （批处理：不切场景，只记账）"); return; }
-            UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
+            // 🔴 **2026-10-17（界面线 T16）**：壳侧 `LoadingMenu` 黑场 → 再 `LoadScene`
+            //   （原版 `GeneralMenuController.ShowLoading` 那条链；`U3` 把「进战斗是硬切」列为本仓缺口）。
+            //   批处理已经在上面 return，**自检行为零变化**。
+            ShellRuntime.LoadSceneWithFade(scene);
         }
 
         void NotBuilt(string what)

@@ -75,6 +75,25 @@ namespace CardPresentation
         /// <summary>开窗音效（原版 `TryOpen` 里播，走 FX 组）。没有就不播。</summary>
         public AudioClip openSound;
 
+        /// <summary>关窗音效（原版 `GameWindow.closeSound`，字段偏移 **0x30**）。没有就按下一格兜底。</summary>
+        public AudioClip closeSound;
+
+        /// <summary>🆕 **2026-10-17（音效线 `W_G`）**：原版 `GameWindow.useDefaultCloseSoundIfNull`
+        /// —— 字段偏移 **0x38**，**ctor 里就置 1**（`GameWindow__.ctor.c`：`*(param_1 + 0x38) = 1`
+        /// 紧挨着 `extraScaleSmallScreen = 1.0f` 那一句；字段序旁证 → 本文件 `ESCPressed` 的注释）。
+        /// <para>语义（逐句读 `GameWindow__Close.c`）：**`closeSound == null` 且本开关为真** ⇒
+        /// 播 `SoundManager.defaultCloseSound`；两者都不成立时**什么都不播**（原版那一刻
+        /// `SoundManager.Play2D(null, …)` 只在 `showNullAudioPlaysLog` 打开时才打日志，而那一位实测是 **0**）。
+        /// ⇒ 默认值必须是 **true**（不是 C# 的 `false` 默认）—— 否则**全库 141 扇窗一起静音**。</para>
+        /// <para>默认 cue 的判据链（**2026-10-17 解开**，此前 `资料/普查产出_1017/UI/U1` §五·5 记的是「没解出」）：
+        /// `SoundManager` MB（`bundle_staticgeneralassets_assets_all` pid `-5308416599568047990`）
+        /// 的 `defaultCloseSound` = PPtr `m_FileID 5 / m_PathID 8084683923307806969`
+        /// （`m_FileID` 是 **1-based externals** ⇒ externals[4] = `CAB-62d1945b…` = `soundcollection`）
+        /// → cue **`ButtonClick Back`** → `clipList[0]` = pid `-3585420588411809655` → AudioClip
+        /// **`UIButton Back`**。cue 参数（`min/maxPitch = 1` · `min/maxVolume = 1` · `timeToPlayAgain = 0.1`）
+        /// 已进 `Resources/animfx_sounds.json`（`工具/import_original_sfx.py` 的 `EXTRA_CUES`）。</para>
+        public bool useDefaultCloseSoundIfNull = true;
+
         // ============================================================ 裁切状态：`Clip` / `ClipSoftness` / `ClipPad`
         //
         // 🆕 **2026-10-07（A78②）「三兄弟」从 `MenuWindowBase` 挪到这里** —— 按判据原文：
@@ -596,6 +615,13 @@ namespace CardPresentation
                         + "（⚠️ `Hide()` 藏起来的窗**不算**这一档：它的 state 是 `Closed`、按原版就该留在表里。）");
                 return;
             }
+            // ==================== 🆕 2026-10-17（W_G）：关窗音 ====================
+            // 判据 = `GameWindow__Close.c` 逐句：① 两个 null 判据 ② `!gameObject.activeSelf ⇒ return`
+            //   ③ **播关窗音**（`closeSound` 为空且 `useDefaultCloseSoundIfNull` ⇒ `SoundManager.defaultCloseSound`）
+            //   ④ 才把活交给 `WindowsManager.CloseWindow`（= 我们的「置灰 + 摘表」那一对）。
+            // ⇒ **放在守卫之后、`CurrentState = Closed` 之前**：原版那一刻窗还活着（activeSelf 为真）。
+            // ⚠️ `Hide()` 那条路**不播**（原版 `GameWindow__Hide.c` 里没有这一句）—— ⛔ 别把它挪进 `Hide()`。
+            PlayCloseSound();
             CurrentState = WindowState.Closed;
             Data = null;
             // 🔴 **2026-10-12（`A1709`）就地改次序（铁律 5）**：本行原来排在 `NotifyClosed` **之后**
@@ -644,6 +670,26 @@ namespace CardPresentation
             // ==========================================================================================================
             gameObject.SetActive(false);                      // = 原版 `CloseWindowCO` 里那一跳 `Hide()` 的尾句（**排在摘表之前**）
             if (Manager != null) Manager.NotifyClosed(this);  // = 原版 `List.Remove` + `ShowPreviousWindow`（排在置灰之后）
+        }
+
+        /// <summary>🆕 **2026-10-17（音效线 `W_G`）**：原版 `GameWindow.Close` 里那一句关窗音
+        /// （`GameWindow__Close.c` 的 `SoundManager__Play2D(…, uVar2, 0)`，`uVar2` 的取法见下面注释）。
+        /// <para>逐句：`if (closeSound == null &amp;&amp; useDefaultCloseSoundIfNull) cue = SoundManager.Instance.defaultCloseSound;`
+        /// （反编译里那段 `op_Implicit` + `*(param_1 + 0x38)` + `lVar3 + 0x38` 三句就是它），
+        /// 然后**无条件** `SoundManager.Play2D(cue, MixerType.FX)` —— cue 为空时原版是静默的
+        /// （`showNullAudioPlaysLog = 0`，实读 `bundle_staticgeneralassets_assets_all` 的 SoundManager MB）。
+        /// ⇒ 这里同样：**两个来源都空 ⇒ 不播、也不出声**（那是原版的正常路径，不是缺陷）。</para>
+        /// <para>⚠️ 我们的 `closeSound` 是 `AudioClip`（与 `openSound` 同一个口径 —— 我们把原版单 clip 的
+        /// `AudioCue` 直接摊成 clip）；**默认**那条走 `WindowSounds` 的 cue（它带 `timeToPlayAgain = 0.1` 的节流）。</para></summary>
+        void PlayCloseSound()
+        {
+            if (closeSound != null)
+            {
+                WFSoundPlayer.Play(closeSound, true, 1f, 1f);   // = 原版 `Play2D(..., MixerType.FX)`
+                return;
+            }
+            if (!useDefaultCloseSoundIfNull) return;            // 原版：两个来源都空 ⇒ 静默
+            WindowSounds.PlayFx(WindowSounds.DefaultCloseCue, $"窗 `{name}` 的 Close()");
         }
 
         /// <summary>🆕 A77㉑①：**这一扇窗现在是不是「开着」**（原版 `GameWindow.IsOpen()`，虚表 **Slot 12 / 0x1f8**）。

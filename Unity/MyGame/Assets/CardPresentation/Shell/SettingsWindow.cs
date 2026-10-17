@@ -69,8 +69,13 @@
 //     组高 350.800 − 三格 317 = 33.800 的余量被 VLG（`ctrlH=0` + `expandH=1`）**每格均摊 11.2667**
 //     ⇒ 行顶**步进** = 行高 + 11.2667（= 116.2667 / 117.2667），**不是** 105。
 //     ⚠️ 组底 630.947 **比末行底（619.680）低 11.267** —— 那截是 force-expand 的余量，**不是第四行**。
+//     🆕 **2026-10-17（T17）**：组底下面就是 `Visual Settings`（[596.52,630.94]–[1485.60,929.50]）>
+//     `WindowMode Selector` 行 [596.52,630.94]–[1431.37,690.34]（`Dropdown` 400.67×59.40 + `Template`；
+//     `Media Tab` 的 `PlatformBasedComponents`：**PC 档才显示**、android/iOS 关）。
 //   · 图像页（原版 `Graphics Tab`）：`Content` [506.52,267.71]–[1538.89,966.19]（VLG）；
 //     `Quality Selector` 行 [551.52,267.71]–[1386.37,327.10]（下拉框到 x=952.18、**文字在框右边** [978.86…]）；
+//     🆕 **2026-10-17（T17）**：第二条 = `Text In Hand  Selector` [551.52,350.10]–[1386.37,409.50]
+//     （`Text in Hand DropDown` 400.67×59.40 + `Template`，VLG spacing 23；运行时**显示**）。
 //     勾选行在 `Scroll View` [551.52,432.50]–[1538.89,954.00] 里，`Content` x 563.52–1018.73、
 //     **每行 75.641 高、步长 80.641**（🔴 2026-10-10 A176 就地订正：这里原来写「76 高、步长 80.6」，
 //     是四舍五入 —— A172 已按原版 `m_SizeDelta.y = 75.64099884033203` + VLG `m_Spacing 5` 精确化）。
@@ -813,6 +818,72 @@ namespace CardPresentation
         /// <summary>列表根节点的名字 —— **照原版运行时的名字**（`TMP_Dropdown.Show():820` 的 `"Dropdown List"`）。</summary>
         public const string LangListNodeName = "Dropdown List";
 
+        // ============================================================ 🆕 2026-10-17（T17）通用下拉：画质 / 窗口模式 / 手牌文本
+        //
+        // 为什么单开一块：设置窗里**同一个 `TMP_Dropdown` 模板**一共四颗 ——
+        //   · `General Tab > Language Selector > LanguagesDropdown`（A862 已建，见上面那组 `Lst*`）
+        //   · `Graphics Tab > Quality  Selector > Quality DropDown`（本笔：**点一下换下一个 → 真下拉**）
+        //   · `Graphics Tab > Text In Hand  Selector > Text in Hand DropDown`（本笔：**整行补建**）
+        //   · `Media Tab > Visual Settings > WindowMode Selector > Dropdown`（本笔：**整行补建**）
+        // 语言那颗的列表实现带着**自检钉死的几何**（面板恒 573.96 高，见 `Editor/SettingsScene.cs:1593`）
+        // ⇒ 本笔**不动它**、另建一份**通用**实现给后三颗共用（行为逐句照 A862 与 `TMP_Dropdown`）。
+        //
+        // 🔴 三颗新下拉的几何（**未缩放设计 px**，逐条出处 = `menu_dump` 实读）：
+        //   · `Template` 的 RT 字段四颗**逐值相同**（`RectTransform` 实读）：
+        //     `aMin(0,0.5) aMax(1,0.5) aPos(-2.5,-22) sizeDelta(-4.9998, 573.96) pivot(0.5,1)`
+        //     ⇒ 挂在 **400.666 宽**的下拉框上：**左 = 框左、右 = 框右 − 5、顶 = 框心 + 22、高 573.96**。
+        //   · `Viewport` = `sizeDelta.x −17` ⇒ **右沿 = 面板右 − 17**（`LstVpR` 的同一跳）。
+        //   · `Item` 高 **40.8707**、`Content` 模板高 **41.7226** ⇒ 内容高 = `n × 40.8707 + 0.8519`。
+        //   · 🔴 **面板会缩到内容高**（`TMP_Dropdown.Show():929-931`：`extraSpace > 0` ⇒ `sizeDelta.y -= extraSpace`）
+        //     ⇒ 2 项列表的实际面板只有 **82.59** 高，不是 573.96。
+        //     ⚠️ **语言那颗 12 项 = 491.30 < 573.96、既有实现却画 573.96** —— 那是一处**已知偏离**，
+        //     本笔不碰（它的 `bg` 矩形被自检 `SettingsScene.cs:1593` 钉死了），记在报告里。
+        //   · `Item Checkmark` / `Item Label` / 行四态图 / 滚动条两根 —— 与语言那颗**同一个模板**，
+        //     ⇒ 直接复用 `LstChk*` / `LstLbl*` / `ArtLst*` / `LstHandleH`（⛔ 别各抄一份）。
+        /// <summary>`Content` 模板高（41.7226）− `Item` 高（40.8707）= **0.8519** —— `Show():926` 那条
+        /// `sizeDelta.y = itemSize.y × n + offsetMin.y − offsetMax.y` 里的常量项。</summary>
+        public const float LstItemGap = 0.8519f;
+        /// <summary>`Template` 原型的**高**（`sizeDelta.y = 573.9600219726562`）。运行时列表会缩到内容高。</summary>
+        public const float DdPanelHFull = 573.96f;
+        /// <summary>`Template` 相对下拉框的偏移：**顶 = 框心 + 22**（`aPos.y = −22`、pivot 在顶上 ⇒ 向下 22）、
+        /// **右 = 框右 − 5**（`aPos.x = −2.5` 两侧对称 ⇒ 每边 2.5 + 拉伸锚）。</summary>
+        public const float DdTplDown = 22f, DdTplRightInset = 5f;
+        /// <summary>`Viewport.m_SizeDelta.x = −17` ⇒ 列表右沿比面板右沿内缩 **17**。</summary>
+        public const float DdViewportInsetR = 17f;
+        /// <summary>下拉框里那颗 **caption**（`… > Label`）相对行顶 / 行底的内缩：顶 **6.99**、底 **6**、
+        /// 左右各 **10**（`GenCapInset`；四颗同一档，见 `QualLabelT` 那条 doc 的实测）。</summary>
+        public const float DdCapTop = 6.99f, DdCapBottom = 6f;
+        /// <summary>箭头（`Arrow`）：20×20、**右沿 = 框右 − 5**、**顶 = 行顶 + 19.69**（逐颗实读同值）。</summary>
+        public const float DdArrowTop = 19.69f, DdArrowRightInset = 5f, DdArrowW = 20f;
+
+        // ---- 图像页第二行：`Text In Hand  Selector`（本笔补建）----
+        // 屏幕 `[592.37,369.09]–[1343.73,422.55]` ⇒ 设计 `[551.52,350.10]–[1386.37,409.50]`
+        //（= `960 + (屏 − 960) ÷ 0.9` / `540 + (屏 − 540) ÷ 0.9`；与 Quality 行的 x 范围逐值相同）。
+        public const float TihL = 551.52f, TihT = 350.10f, TihR = 1386.37f, TihB = 409.50f;
+        /// <summary>`Text in Hand DropDown` 的右沿：屏幕 `952.97` ⇒ 设计 **952.19**（与 `QualBoxR` 同一档）。</summary>
+        public const float TihBoxR = 952.18f;
+        /// <summary>行右那行说明字（原版节点名**也叫** `Quality selector text`）的左沿：屏幕 `976.97`
+        /// ⇒ 设计 **978.86**（= `QualTextL`）。词条 = `Settings/Graphics/SelectTextOfCardsInHand`。</summary>
+        public const float TihTextL = 978.86f;
+
+        // ---- 音频页下半：`Visual Settings > WindowMode Selector`（本笔补建）----
+        // `Visual Settings` 组：屏幕 `[632.87,621.85]–[1433.04,890.55]`
+        // ⇒ 设计 `[596.52,630.94]–[1485.60,929.50]`（`sizeDelta 889.083 × 298.555`、VLG spacing 0）。
+        public const float VsL = 596.52f, VsT = 630.94f, VsR = 1485.60f, VsB = 929.50f;
+        /// <summary>`WindowMode Selector` 行：屏幕 `[632.87,621.85]–[1384.23,675.31]`
+        /// ⇒ 设计 `[596.52,630.94]–[1431.37,690.34]`；**顶正好 = `AuB`**（原版 `Audio Settings` 的底）。</summary>
+        public const float WinL = 596.52f, WinT = 630.94f, WinR = 1431.37f, WinB = 690.34f;
+        /// <summary>`Dropdown` 的右沿：屏幕 `993.47` ⇒ 设计 **997.19**（= `GenFieldR` 那一档的 400.67 宽）。</summary>
+        public const float WinBoxR = 997.19f;
+        /// <summary>行右那行 `Label`（原版 `'Modo Ventana'`，`Localize.mTerm = Settings/Media/WindowMode`）的左沿：
+        /// 屏幕 `1017.47` ⇒ 设计 **1023.86**（= `GenSelTextL` 同一档）。</summary>
+        public const float WinTextL = 1023.86f;
+        /// <summary>🔴 **PC 档才显示**：原版 `Media Tab` 根上那颗 `PlatformBasedComponents` 的表 =
+        /// `android(0) → Visual Settings enable 0` · `iOS(10) → 0` · **`PC(20) → 1`**
+        /// （`bundle_menus_assets_all` 的 MB 实读；枚举 = `PlatformBasedComponents.PlatformDisplay`）。
+        /// 我们是 PC ⇒ **建、且常显**。</summary>
+        public const string WinVisualSettingsName = "Visual Settings";
+
         // ============================================================ 🆕 2026-10-19（A1175）账号页
         // 判据（逐值出处）：
         //   · **几何** = `python 工具/menu_rect.py bundle_menus_assets_all "Account Tab" --depth 4
@@ -1372,7 +1443,7 @@ namespace CardPresentation
         /// （波 1b 之前它们是 `_flash = "字面量"`，现在赋值右边也走语言表了，**但形状没变** ——
         /// 仍是「那一刻算好、存下来」那一档，不是 `SetFlash` 的现算工厂）—— 不在这儿把工厂清掉，
         /// 那几笔就会被**上一条联机结果**盖回去（静默回归）。
-        /// ⚠️ 顺带记：那几条的字**每次现算 `Loc.T` 没错**（`CycleQuality` / `ToggleVsync` … 都是点一下才拼），
+        /// ⚠️ 顺带记：那几条的字**每次现算 `Loc.T` 没错**（`ChooseQualityOption` / `ToggleVsync` … 都是点一下才拼），
         /// 所以它们**天然跟语言走**、不需要登记语言链（`_onLabels` 那条 doc 的判据）。</para></summary>
         string _flash
         {
@@ -1468,6 +1539,9 @@ namespace CardPresentation
             //   我们的列表挂在窗根下 ⇒ 根一销毁就没了，但**光收不显式关**会留下一个活着的 `Blocker`
             //   命中区（队列 3140）挡住下一扇窗 —— 那是静默故障）。⛔ 别删这两句。
             HideLangList();
+            // 🆕 2026-10-17（T17）：三颗通用下拉也要显式收 —— 与上面 `HideLangList` 同一条理由
+            //   （`Blocker` 挂在窗根下、队列 3140 ⇒ 不收掉会挡住下一扇窗）。
+            HideAllDropdowns();
             // 🆕 A1175：登录弹窗同理（它挂在账号页子树里 ⇒ 子树随根一起销毁，但**先显式收掉**这一条
             //   与 `HideLangList` 同一形状：显式收 = 意图清楚 + 将来若把它挪到窗根下也不会留下浮层）。
             HideLoginWindow();
@@ -1492,6 +1566,14 @@ namespace CardPresentation
             {
                 HideLoginWindow();
                 Debug.Log("[Settings] ESC：**先关登录弹窗**（原版 `BasicLoginWithEmailWindow.closeOnESC = 1`）—— 窗不关");
+                return true;
+            }
+            // 🆕 2026-10-17（T17）：三颗通用下拉同理 —— **列表开着时 `ESC` 只收列表、不关窗**
+            //   （原版 `TMP_Dropdown.OnCancel → Hide()`）。同一时刻最多一颗开着（`ShowDropdown` 先收别的）。
+            if (AnyDropdownOpen)
+            {
+                HideAllDropdowns();
+                Debug.Log("[Settings] ESC：**先收下拉列表**（原版 `TMP_Dropdown.OnCancel → Hide()`）—— 窗不关");
                 return true;
             }
             if (LangListOpen)
@@ -1530,6 +1612,11 @@ namespace CardPresentation
             // 🆕 A862：列表这一族也要清（`_langList` / `_langBlocker` 是 `Build()` 里新挂的子树，
             //   上一棵树的引用会变假 null）；⚠️ `PointerLayer` 那几件不在本窗（列表不注册滚动区，见 `LstHandleH`）。
             _langRows.Clear(); _langList = null; _langBlocker = null; _langBlockerHit = null; _langTemplate = null;
+            // 🆕 2026-10-17（T17）通用下拉同理（画质 / 窗口模式 / 手牌文本）——
+            //   它们的 `Template` / `Dropdown List` / `Blocker` 都是**这一棵树里的**件。
+            _dds.Clear(); _ddBlocker = null; _ddBlockerHit = null;
+            _ddQuality = null; _ddWindowMode = null; _ddTextInHand = null;
+            _winCap = null; _tihCap = null;
             // 🆕 **2026-10-19（A1175）账号页 / 登录弹窗那一族也要清**：它们全是**这一棵树里的**件
             //   （弹窗子树、四颗输入框、两颗错误行 `Label`）⇒ 与 `_langList` 同一条理由
             //   （不清 = 指着上一棵树里已销毁的件 ⇒ 假 null，守卫挡住不炸但那一格**永远不再更新**）。
@@ -1801,6 +1888,9 @@ namespace CardPresentation
             // 🆕 A862：切页时先把语言下拉收掉（列表挂在 `General Tab` 的 `LanguagesDropdown` 下、而
             //   `Blocker` 挂在**窗根**下 ⇒ 切走那一页的话列表跟着藏了、`Blocker` 却还盖着整屏 = 静默卡死）。
             HideLangList();
+            // 🆕 2026-10-17（T17）：三颗通用下拉同一条理由（列表挂在各自页子树里、`Blocker` 却在窗根下
+            //   ⇒ 切走那一页时不收就会「列表没了、挡板还盖着整屏」= 静默卡死）。
+            HideAllDropdowns();
             // 🆕 **2026-10-19（A1175）**：登录弹窗是**账号页子树里**的一层浮层（队列 3145–3150 ⇒ 盖在整页之上）
             //   —— 与上面那条 `HideLangList` **同一个理由**：切走那一页时它若还亮着，就会盖在**别的页**上面
             //   （原版它是独立的 `GameWindow`、不存在这个问题；我们把它套在页子树里 ⇒ 这一句是必须的）。
@@ -2148,7 +2238,11 @@ namespace CardPresentation
         /// 只读口 = <see cref="AccountMissingTermKeys"/>（自检 / 报告打印用）。空 = 全都进表了。
         /// <para>🔴 **2026-10-19（A1185）之后运行时应当是【空表】**：账号页 / 登录弹窗那 16 条 + 支持页那 9 条
         /// 都已进 `Core/Loc.cs` ⇒ 这个 `List` 现在是**回归哨兵**（哪天有人把键改错、或把表里某条删了，
-        /// 它就会长出东西来 + 那声 `warning` 回来）。⛔ **别因为「它是空的」就把它删掉**。</para></summary>
+        /// 它就会长出东西来 + 那声 `warning` 回来）。⛔ **别因为「它是空的」就把它删掉**。</para>
+        /// <para>🆕 **2026-10-17（T17）口径**：媒体页 / 图像页那 7 条（`Settings/Media/WindowMode` +
+        /// `…/Fullscreen` + `…/Windowed` + `Settings/CardTextInHand/{Default,OnlyDescription,OnlyName}` +
+        /// `Settings/Graphics/SelectTextOfCardsInHand`）**现读还不在 `Core/Loc.cs`**（那份文件不在本件白名单）
+        /// ⇒ 它们**会**出现在这张表里，那是**预期**、不是回归。补键之后这张表应重新变空。</para></summary>
         static readonly List<string> _acMissingKeys = new List<string>();
 
         /// <summary>取一条**原版词条**的文案。两步走：
@@ -2184,6 +2278,27 @@ namespace CardPresentation
         /// <para>⚠️ **`en == null` ⇒ 退回老行为（`Loc.T(key)`）** —— `_genLabels` 那两条链**逐位不变**
         /// （它们的键都在表里，本来就没有这个病）。</para></summary>
         static string Term(string key, string en) { return en == null ? Loc.T(key) : AcTerm(key, en); }
+
+        /// <summary>🆕 **2026-10-17（T17）**：窗口模式 / 手牌文本那两族词条的两步漏斗 —— 与 `AcTerm`
+        /// **同一条规矩**（表里有就用表、没有退**原版英文原文**并**出声一次**），只是日志里换个「哪一页」。
+        /// <para>⚠️ 那 6 条键（`Settings/Media/WindowMode*` · `Settings/CardTextInHand/*` ·
+        /// `Settings/Graphics/SelectTextOfCardsInHand`）**2026-10-17 现读还不在 `Core/Loc.cs` 里**
+        /// （`Loc.cs:257` 那条只是注释、不是词条）—— 而 `Core/Loc.cs` **不在本件白名单**
+        /// ⇒ 本笔只保证「缺键不静默、不把键名印到屏上」，补键由调度台另派。</para></summary>
+        const string WinTermWhere = "设置窗媒体页（WindowMode）";
+        const string TihTermWhere = "设置窗图像页（Text In Hand）";
+        static string UiTerm(string key, string origEn, string where)
+        {
+            if (Loc.HasEntry(key)) return Loc.T(key);
+            if (!_acMissingKeys.Contains(key))
+            {
+                _acMissingKeys.Add(key);
+                Debug.LogWarning($"[Settings] {where}的词条键 `{key}` **还不在 `Core/Loc.cs` 的表里** ⇒ "
+                               + $"本格退原版英文原文「{origEn}」（⛔ 不是静默：整张缺键清单见 "
+                               + "`SettingsWindow.AccountMissingTermKeys`）。");
+            }
+            return origEn;
+        }
 
         /// <summary>账号那一格的状态（登录态 / 邮箱 / player id）—— 原版在 `PlayerDataManager` + PlayFab 上。
         /// <para>🔴 **我们这一格是【本地模拟】**（原版服务器已关）：三项都落 `PlayerPrefs`，
@@ -3088,6 +3203,9 @@ namespace CardPresentation
             if (_langCap != null) _langCap.SetText(Loc.LanguageName(Loc.Current));
             // 🆕 A862：列表那 12 行也跟着语言走（行内文字 + **哪一行显示勾**）
             RefreshLangRows();
+            // 🆕 2026-10-17（T17）：三颗通用下拉的行内文字 / 勾也按当前语言与当前值重挑
+            //   （`Labels` 是**现算**的 ⇒ 换语言后选项名跟着变）。
+            for (int i = 0; i < _dds.Count; i++) RefreshDropdownRows(_dds[i]);
             RefreshGenChecks();
         }
 
@@ -3228,8 +3346,11 @@ namespace CardPresentation
         void BuildLangListSubtree(Transform listRoot, bool withRows)
         {
             // 面板底图：`40K_dropdown_bg` **Sliced**、端帽过 ppuMul 1.09、染色 (0.2863,0.9647,0.6863)
+            // 🔴 **2026-10-17（T17）就地更正**：这一句原来 tint 传 **null**（= 白）—— 而原版 `Template`
+            //   那颗 `Image.m_Color` 实读是 **(0.286,0.965,0.686,1)**（同一颗 MB 现读；贴图本身是灰的
+            //   `(44.6,44.6,44.6)`）⇒ 照原版应染成绿。与三颗新下拉**同一个模板**，一并走 `GenFieldTint`。
             NineOut(listRoot, "bg", LstL, LstT, LstR, LstB, ArtLstPanel, LstPanelTexW, LstPanelTexH,
-                    LstPanelBorder, LstPanelBorderOut, QListBg, null);
+                    LstPanelBorder, LstPanelBorderOut, QListBg, null, GenFieldTint);
             // `Viewport`（原版 `Mask` + `Image(UIMask, showGraphic = 0)` ⇒ **不画**、只当裁切框）
             // 🔴 裁切状态挂在它身上（= 原版那个 `RectMask2D`）—— 本工程唯一一份（`ViewportClip`）。
             var s = Screen(LstL, LstT, LstVpR, LstB);
@@ -3309,6 +3430,9 @@ namespace CardPresentation
         public void ShowLangList()
         {
             if (_langField == null) return;
+            // 🆕 2026-10-17（T17）：语言列表与三颗通用下拉**同一时刻只能开一颗**（原版靠每颗自己的
+            //   Blocker + UGUI 射线；我们显式收）。
+            HideAllDropdowns();
             if (_langList == null)
             {
                 // 原版：`m_Dropdown = CreateDropdownList(m_Template.gameObject)` → `name = "Dropdown List"`
@@ -3378,6 +3502,407 @@ namespace CardPresentation
             }
         }
         Transform _langBlocker, _langBlockerHit;
+
+        // ============================================================ 🆕 2026-10-17（T17）通用下拉
+        //
+        // 逐句照 A862 那份语言下拉（`BuildLangTemplate` / `ShowLangList` / `HideLangList` / `ChooseLanguage` /
+        // `RefreshLangRows`）与 `TMP_Dropdown` 源码；**两份不合并**的理由见上面常量块
+        // （语言那颗的 `bg` 矩形被自检钉死、且它的面板是高 573.96 的旧口径）。
+        //
+        // 原版行为链（本机 `Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TMP_Dropdown.cs`）：
+        //   `OnPointerClick:742 → Show():778`（克隆 `Template` → 改名 `"Dropdown List"` →
+        //   挂到 `Template` 的父下 → 面板缩到内容高 → 建全屏透明 `Blocker`）；
+        //   点行 ⇒ `OnSelectItem:1247`（按兄弟序定 `value` → **末尾 `Hide()`**）；
+        //   点空白 ⇒ `Blocker.onClick → Hide`；`ESC` ⇒ `OnCancel:763 → Hide()`。
+
+        /// <summary>一颗通用下拉的运行时状态（每颗一份；`Build()` 每次重建）。</summary>
+        class DropdownBox
+        {
+            public string Name;                 // 日志用（含页面归属，方便对日志）
+            public Transform Field;             // 下拉框节点（= `Template` / `Dropdown List` 的父）
+            public Transform Template;          // 恒关原型（原版出厂 `m_IsActive = 0`）
+            public Transform List;              // 运行时克隆（`"Dropdown List"`，首开才建）
+            public readonly List<DdRow> Rows = new List<DdRow>();
+            public Func<string[]> Labels;       // 选项文案（**现算** ⇒ 换语言自动跟着走）
+            public Func<int> Value;             // 当前选中下标（**现读** ⇒ 选项变了/别处改了都跟得上）
+            public Action<int> Choose;          // 选中之后的动作（写设置 + 出声；越界由调用方兜）
+            public float L, T, R, B;            // `Template` 原型的矩形（左/顶/右/底；底只给原型用）
+            public bool Open { get { return List != null && List.gameObject.activeSelf; } }
+        }
+
+        struct DdRow { public ImageQuad Bg; public ImageQuad Chk; public Label Lb; public Transform Hit; public int Idx; }
+
+        /// <summary>三颗通用下拉的**自检口编号**（0 画质 / 1 窗口模式 / 2 手牌文本）。</summary>
+        public const int DdQuality = 0, DdWindowMode = 1, DdTextInHand = 2;
+
+        readonly List<DropdownBox> _dds = new List<DropdownBox>();
+        /// <summary>三颗共用一颗全屏透明 `Blocker`（原版每颗 `Show()` 建一颗、`Hide()` 销毁；
+        /// 同一时刻只有一颗开着 ⇒ 共用等价、且少一层常驻子树）。</summary>
+        Transform _ddBlocker, _ddBlockerHit;
+
+        /// <summary>建一颗通用下拉（`Template` 原型 + 登记进 `_dds`）。矩形按原版 RT 字段从**下拉框矩形**推：
+        /// 左 = 框左、右 = 框右 − 5、顶 = 框心 + 22、高 573.96（见常量块）。</summary>
+        DropdownBox BuildDropdown(Transform field, float boxL, float boxT, float boxR, float boxB,
+                                  Func<string[]> labels, Func<int> value, Action<int> choose, string name)
+        {
+            float tplT = (boxT + boxB) * 0.5f + DdTplDown;
+            var box = new DropdownBox
+            {
+                Name = name, Field = field,
+                L = boxL, T = tplT, R = boxR - DdTplRightInset, B = tplT + DdPanelHFull,
+                Labels = labels, Value = value, Choose = choose
+            };
+            var tpl = Node(field, "Template", box.L, box.T, box.R, box.B);
+            box.Template = tpl;
+            BuildDropdownSubtree(box, tpl, false);
+            tpl.gameObject.SetActive(false);
+            _dds.Add(box);
+            Debug.Log($"[Settings] 下拉「{name}」的 `Template` 子树建好了（**关着** —— 原版出厂 `m_IsActive = 0`；"
+                    + "真正显示的那份叫 `Dropdown List`，见 `TMP_Dropdown.Show():820`）");
+            return box;
+        }
+
+        /// <summary>`n` 项时 `Content` 的高 = `n × 40.8707 + 0.8519`（= 原版 `Show():926` 那条算式）。</summary>
+        static float DropdownContentH(int n) { return n * LstItemH + LstItemGap; }
+
+        /// <summary>运行时列表的面板底（= 原版 `Show():929-931`：内容比模板矮 ⇒ 缩到内容高）。</summary>
+        float DropdownPanelB(DropdownBox box)
+        {
+            var opts = box.Labels();
+            int n = Mathf.Max(1, opts == null ? 0 : opts.Length);
+            return Mathf.Min(box.B, box.T + DropdownContentH(n));
+        }
+
+        /// <summary>建列表的**一件**（`Template` 与克隆体共用这一份 —— 两处写同一条规则 = 迟早不一致）。
+        /// `withRows = false` ⇒ 原型：整块 573.96 高、`Content` 里只放原版那个模板行（`'Option A'`）。</summary>
+        void BuildDropdownSubtree(DropdownBox box, Transform root, bool withRows)
+        {
+            string[] opts = box.Labels() ?? new string[0];
+            int n = withRows ? Mathf.Max(1, opts.Length) : 1;
+            float contentH = DropdownContentH(n);
+            // 🔴 原版 `Show():929-931`：内容比模板矮 ⇒ **面板缩到内容高**（2 项 ⇒ 82.59）
+            float panelB = withRows ? DropdownPanelB(box) : box.B;
+            float vpR = box.R - DdViewportInsetR;
+            // 面板底图：`40K_dropdown_bg` **Sliced**、端帽过 ppuMul 1.09；染色 = 原版 `Image.m_Color`
+            // (0.286,0.965,0.686,1)（= `GenFieldTint` 那三格逐值相同 —— 同一个模板）。
+            NineOut(root, "bg", box.L, box.T, box.R, panelB, ArtLstPanel, LstPanelTexW, LstPanelTexH,
+                    LstPanelBorder, LstPanelBorderOut, QListBg, null, GenFieldTint);
+            // `Viewport`（原版 `Mask` + `Image(UIMask, showGraphic = 0)` ⇒ 不画、只当裁切框）
+            var vp = ViewportClip.Hang(root, "Viewport", Screen(box.L, box.T, vpR, panelB),
+                                       Vector4.zero, Vector2Int.zero).transform;
+            var content = Node(vp, "Content", box.L, box.T, vpR, box.T + contentH);
+            // 滚动条：**建出来但恒关着**（原版 `m_VerticalScrollbarVisibility = 2`；2/3 项内容装得下
+            // ⇒ `SetVerticalScrollbarVisibility` 会 `SetActive(false)`）。见 `LstHandleH` 那条。
+            {
+                var sb = Node(root, "Scrollbar", box.R - LstSbW, box.T, box.R, panelB);
+                Rect(sb, "scroll_bg", box.R - LstSbW, box.T, box.R, panelB, ArtLstSbBg, QScroll);
+                var slide = Node(sb, "Sliding Area", box.R - LstSbW + LstSbW * 0.5f, box.T + 10f,
+                                 box.R - LstSbW + LstSbW * 0.5f, panelB - 10f);
+                Rect(slide, "Handle", box.R - LstSbW, panelB - LstHandleH, box.R, panelB, ArtLstSbHandle, QScroll);
+                sb.gameObject.SetActive(false);
+            }
+            for (int i = 0; i < n; i++) BuildDropdownItem(box, content, vpR, i, withRows, opts);
+        }
+
+        /// <summary>列表里的一行（原版 `Content > Item`，`Toggle` + 三个子件）。行顶 = 面板顶 + `i × 40.8707`。
+        /// 字号 / 内边距 / 色 / 四态图与语言那颗**同一个模板** ⇒ 复用 `Lst*` 常量（⛔ 别各抄一份）。</summary>
+        void BuildDropdownItem(DropdownBox box, Transform content, float vpR, int i, bool real, string[] opts)
+        {
+            float t = box.T + i * LstItemH, b = t + LstItemH;
+            string label = (real && i < opts.Length) ? opts[i] : "Option A";
+            var item = Node(content, real ? ("Item " + i + (label != null ? ": " + label : "")) : "Item",
+                            box.L, t, vpR, b);
+            var bg = Rect(item, "Item Background", box.L, t, vpR, b, ArtLstItem, QListItem, LstItemTint);
+            var chk = Rect(item, "Item Checkmark", box.L, (t + b) * 0.5f - LstChkS * 0.5f,
+                           box.L + LstChkS, (t + b) * 0.5f + LstChkS * 0.5f, ArtLstCheck, QListText);
+            // 🆕 A1181 口径同语言那颗：`Item Label` = `fs 30` · `min 18` · `max 40` · `base 14` · 折行 1
+            var lb = Text(item, "Item Label", label,
+                          box.L + LstLblPadL, vpR - LstLblPadR, t + LstLblPadT, b - LstLblPadB,
+                          LstLblFontPx, LstLblColor, QListText,
+                          null, vpR - LstLblPadR - box.L - LstLblPadL, 18f, 40f, 14f);
+            if (lb != null)
+                AlignLeft(lb, new PxRect(box.L + LstLblPadL, t + LstLblPadT, vpR - LstLblPadR, b - LstLblPadB));
+            if (!real) return;   // 原型那一行：静态样子，不接任何行为
+            int idx = i;
+            var hit = Hit3(item, "Hit", box.L, t, vpR, b, QListItem, () => ChooseDropdown(box, idx),
+                           bg, ArtLstItem, ArtLstItemHi, ArtLstItemPr);
+            box.Rows.Add(new DdRow { Bg = bg, Chk = chk, Lb = lb, Hit = hit, Idx = idx });
+        }
+
+        /// <summary>有没有任何一颗通用下拉开着（`ESC` / 关窗 / 切页 / 面板挡板都读它）。</summary>
+        public bool AnyDropdownOpen
+        {
+            get { for (int i = 0; i < _dds.Count; i++) if (_dds[i].Open) return true; return false; }
+        }
+
+        /// <summary>点框：开 / 收（原版 `Show()` **不是 toggle**，但框外被 `Blocker` 盖着 ⇒ 真实交互里
+        /// 「再点一下框 = 收起」；我们没有 UGUI 射线优先级 ⇒ 显式 toggle。与 `ToggleLangList` 同一条口径）。</summary>
+        void ToggleDropdown(DropdownBox box) { if (box.Open) HideDropdown(box); else ShowDropdown(box); }
+
+        /// <summary>开列表（= 原版 `Show()`）：首开时建克隆体，然后 `SetActive(true)` + 亮 `Blocker`。</summary>
+        void ShowDropdown(DropdownBox box)
+        {
+            if (box == null || box.Field == null) return;
+            // 同一时刻只允许一颗开着（原版靠 UGUI 射线 + 每颗自己的 Blocker；我们显式收）。
+            HideAllDropdowns();
+            if (LangListOpen) HideLangList();
+            if (box.List == null)
+            {
+                // 原版 `Show():929-931` 会把 `Dropdown List` 的 rect 一起缩到内容高 ⇒ 容器节点也照缩。
+                box.List = Node(box.Field, LangListNodeName, box.L, box.T, box.R, DropdownPanelB(box));
+                box.Rows.Clear();
+                BuildDropdownSubtree(box, box.List, true);
+            }
+            box.List.gameObject.SetActive(true);
+            EnsureDdBlocker();
+            _ddBlocker.gameObject.SetActive(true);
+            RefreshDropdownRows(box);
+            Debug.Log($"[Settings] 下拉「{box.Name}」**点开**（{box.Rows.Count} 项 —— 原版 `TMP_Dropdown.Show()`："
+                    + "`Instantiate(Template)` → `\"Dropdown List\"` → 面板缩到内容高 → 建全屏 `Blocker`）");
+        }
+
+        /// <summary>收起（= 原版 `Hide()` + `DestroyBlocker`）。**不销毁克隆体**（原版淡出后销毁；
+        /// 我们不做淡出 ⇒ 留着复用，它关着、也不在命中里）。</summary>
+        void HideDropdown(DropdownBox box)
+        {
+            if (box == null) return;
+            bool was = box.Open;
+            if (box.List != null) box.List.gameObject.SetActive(false);
+            if (_ddBlocker != null && !AnyDropdownOpen) _ddBlocker.gameObject.SetActive(false);
+            if (was) Debug.Log($"[Settings] 下拉「{box.Name}」**收起**（原版 `Hide()` → `DelayedDestroyDropdownList` → "
+                             + "`DestroyBlocker`；本窗不做淡出，见 `A862` 常量段 ③）");
+        }
+
+        void HideAllDropdowns()
+        {
+            for (int i = 0; i < _dds.Count; i++) if (_dds[i].List != null) _dds[i].List.gameObject.SetActive(false);
+            if (_ddBlocker != null) _ddBlocker.gameObject.SetActive(false);
+        }
+
+        /// <summary>点某一行 ⇒ 选中（= 原版 `OnSelectItem`：定 `value` → **末尾 `Hide()`**）。</summary>
+        void ChooseDropdown(DropdownBox box, int i)
+        {
+            if (box == null) return;
+            var labels = box.Labels();
+            if (labels == null || i < 0 || i >= labels.Length)
+            {
+                Debug.LogWarning($"[Settings] 下拉「{box.Name}」：行号 {i} 越界（共 {(labels == null ? 0 : labels.Length)} 项）");
+                HideDropdown(box);
+                return;
+            }
+            HideDropdown(box);
+            if (box.Choose != null) box.Choose(i);
+            RefreshDropdownRows(box);
+        }
+
+        /// <summary>全屏透明 `Blocker`（原版 `CreateBlocker:1009`：铺满 rootCanvas、`onClick → Hide`）。
+        /// 队列 `QBlocker`(3140)：高于本窗所有内容（`QOverlay` 3135）、低于列表（`QListBg` 3141）；
+        /// 也高于「点窗外关窗」那颗（`QShade` 3130）⇒ 列表开着时点窗外只会关**列表**。</summary>
+        void EnsureDdBlocker()
+        {
+            if (_ddBlocker != null) return;
+            _ddBlocker = Node(transform, "Blocker", 960f - ShadeW * 0.5f, 540f - ShadeH * 0.5f,
+                              960f + ShadeW * 0.5f, 540f + ShadeH * 0.5f);
+            Solid(_ddBlocker, "bg", 960f, 540f, ShadeW, ShadeH, new Color(0f, 0f, 0f, 0f), QBlocker);
+            var bs = Screen(960f - ShadeW * 0.5f, 540f - ShadeH * 0.5f,
+                            960f + ShadeW * 0.5f, 540f + ShadeH * 0.5f);
+            _ddBlockerHit = MenuDraw.Hit(_ddBlocker, "Hit", bs, QBlocker, HideAllDropdowns);
+        }
+
+        /// <summary>勾那一层按当前值重挑 + 行内文字按当前语言重算（= 原版 `Toggle.isOn = value == i`；
+        /// 语言换了 / 值变了都走这一处）。</summary>
+        void RefreshDropdownRows(DropdownBox box)
+        {
+            if (box == null) return;
+            var labels = box.Labels();
+            int cur = box.Value != null ? box.Value() : 0;
+            for (int i = 0; i < box.Rows.Count; i++)
+            {
+                var r = box.Rows[i];
+                if (r.Chk != null) r.Chk.gameObject.SetActive(r.Idx == cur);
+                if (r.Lb != null && labels != null && r.Idx < labels.Length) r.Lb.SetText(labels[r.Idx]);
+            }
+        }
+
+        // ---- 三颗下拉各自的「选项 / 当前值 / 选中动作」----
+
+        /// <summary>画质选项 = **我们引擎里真实存在的 QualitySettings 档**（`ProjectSettings/QualitySettings.asset`：
+        /// `Mobile` / `PC` 两档）。
+        /// <para>🔴 **如实记一处与原版的差**（铁律 11：记下来、之后完全复刻）：原版那颗的选项是
+        /// `EverguildQualitySetting` 五个枚举值 `VeryLow/Low/Medium/High/Ultra`，运行时由
+        /// `GraphicsTab__OnSetup.c:44-114` 用 `Enum.GetValues` + `Settings/Graphics/<名>` 词条填（引擎里能读到的
+        /// 真值，不是猜）。**我们工程只有 2 个 QualitySettings 档**，而 `资料/普查产出_1007/A170_设置窗滚动视图.md:246`
+        /// 已查定「`Mobile/PC` 与原版 `VeryLow…Ultra` **没有对应关系**」⇒ **硬编 5 项 = 自己发明一套画质系统**。
+        /// 所以这里列**引擎真有的两档**（点哪一档都真生效），⛔ **不编 5 个假选项**。</para></summary>
+        static string[] QualityOptionLabels()
+        {
+            var names = QualitySettings.names;
+            if (names == null || names.Length == 0)
+            {
+                if (!_warnedNoQuality)
+                {
+                    _warnedNoQuality = true;
+                    Debug.LogWarning("[Settings] `QualitySettings.names` 是空的 ⇒ 画质下拉没有选项（不静默）。");
+                }
+                return new[] { "Level 0" };
+            }
+            return names;
+        }
+        static bool _warnedNoQuality;
+
+        static int QualityOptionIndex()
+        {
+            var names = QualitySettings.names;
+            int n = names == null ? 0 : names.Length;
+            return n <= 0 ? 0 : Mathf.Clamp(QualitySettings.GetQualityLevel(), 0, n - 1);
+        }
+
+        /// <summary>画质下拉选中 = 原版 `GraphicsTab__GraphicsQualityDropdownChange` 那一支的等价物：
+        /// `ApplyQuality(档)`（`SetQualityLevel` + `SuperSampling.Apply`）→ 重算超采样那一行（`RebuildGfxRows`）
+        /// → 状态行出声。原版把枚举名写进 `GameStaticData.graphicsQuality` 并置脏位；我们`QualitySettings` 自己存。</summary>
+        void ChooseQualityOption(int i)
+        {
+            var names = QualitySettings.names;
+            if (names == null || i < 0 || i >= names.Length) { Debug.LogWarning($"[Settings] 画质档 {i} 越界"); return; }
+            if (i == QualitySettings.GetQualityLevel())
+            {
+                Debug.Log($"[Settings] 画质已经是「{QualityName()}」—— 不变");
+                return;
+            }
+            ApplyQuality(i);
+            if (_qualityLabel != null) _qualityLabel.SetText(QualityName());
+            // = 原版 `GraphicsQualityDropdownChange.c:58` 的 `ConfigureSuperSamplingVisibility()`：
+            //   换档之后**当场**重算「超采样那一行在不在」。
+            RebuildGfxRows();
+            _flash = string.Format(Loc.T(lkFlashQuality), QualityName());
+            Debug.Log("[Settings] " + _flash + "（超采样那一行：" + (SuperSampling.RowVisible ? "在" : "不在") + "）");
+        }
+
+        /// <summary>窗口模式选项 —— 原版 `MediaTab__SetupVideoSettings.c:82` 的 `AddOptions` 两条：
+        /// `I2 GetTranslation(Settings/Media/WindowMode/Fullscreen)` · `…/Windowed`（顺序 = **0 全屏 / 1 窗口化**，
+        /// 由 `MediaTab__OnWindowModeChanged.c:13` 那句 `SetFullScreen(param_2 == 0)` 反证）。</summary>
+        static string[] WindowModeOptionLabels()
+        {
+            return new[]
+            {
+                UiTerm("Settings/Media/WindowMode/Fullscreen", "Full screen", WinTermWhere),
+                UiTerm("Settings/Media/WindowMode/Windowed", "Windowed", WinTermWhere),
+            };
+        }
+        static int WindowModeOptionIndex() { return IsFullScreen() ? 0 : 1; }
+
+        /// <summary>窗口模式选中 = 原版 `MediaTab__OnWindowModeChanged` → `ResolutionManager.SetFullScreen(v == 0)`。
+        /// 我们的等价物 = `UnityEngine.Screen.fullScreen`；两个注入点给自检（真改窗口模式不该由自检干）。</summary>
+        public static Func<bool> FullScreenGetter;
+        public static Action<bool> FullScreenSetter;
+        static bool IsFullScreen() { return FullScreenGetter != null ? FullScreenGetter() : UnityEngine.Screen.fullScreen; }
+        static void SetFullScreen(bool on)
+        {
+            if (FullScreenSetter != null) FullScreenSetter(on);
+            else UnityEngine.Screen.fullScreen = on;
+            Debug.Log($"[Settings] 窗口模式 → **{(on ? "全屏" : "窗口化")}**"
+                    + "（原版 `MediaTab__OnWindowModeChanged` → `ResolutionManager.SetFullScreen(value == 0)`）");
+        }
+        void ChooseWindowModeOption(int i)
+        {
+            bool wantFull = i == 0;
+            if (wantFull == IsFullScreen()) { Debug.Log("[Settings] 窗口模式没变 —— 不变"); return; }
+            SetFullScreen(wantFull);
+            if (_winCap != null) _winCap.SetText(WindowModeOptionLabels()[WindowModeOptionIndex()]);
+        }
+
+        /// <summary>手牌文本选项 —— 原版 `CardTextsInHandOptions`（`d:/2/Warpforge_code/.../CardTextsInHandOptions.cs`：
+        /// `Default = 0` · `OnlyDescription = 1` · `OnlyName = 2`），文案 = `Settings/CardTextInHand/<枚举名>`
+        /// （原版 `GraphicsTab__OnSetup.c:279-301` 用 `Enum.GetValues` + 同一个前缀拼词条）。</summary>
+        static string[] TextInHandOptionLabels()
+        {
+            return new[]
+            {
+                UiTerm("Settings/CardTextInHand/Default", "Full text", TihTermWhere),
+                UiTerm("Settings/CardTextInHand/OnlyDescription", "Only description", TihTermWhere),
+                UiTerm("Settings/CardTextInHand/OnlyName", "Only name", TihTermWhere),
+            };
+        }
+
+        /// <summary>手牌文本选中（= 原版 `GraphicsTab__CardsTextInHandDropdownChange`：写
+        /// `GameStaticData.cardsTextInHandFormat`(+0x140) + `…ChosenManually`(+0x144)）。
+        /// 🔴 **如实出声**：我们工程里**还没有消费者**（`CardTextsController.ToggleSimplifiedView` 那一支
+        /// 手牌渲染没接）⇒ 值先存下来，日志里明说「不生效」，⛔ 不假装它能用。</summary>
+        void ChooseTextInHandOption(int i)
+        {
+            TextInHand.Value = i;
+            if (_tihCap != null) _tihCap.SetText(TextInHandOptionLabels()[TextInHand.Value]);
+            Debug.Log($"[Settings] 手牌文本 → 「{TextInHandOptionLabels()[TextInHand.Value]}」"
+                    + "（原版写 `GameStaticData.cardsTextInHandFormat`(+0x140) 与 `…ChosenManually`(+0x144)，"
+                    + "由 `CardTextsController.ToggleSimplifiedView` 改手牌卡面。"
+                    + "⚠️ **我们的手牌卡面还没有消费者** ⇒ 这一格现在只把值存下来（`PlayerPrefs[\"CardsTextInHand\"]`），"
+                    + "**画面上不会变**。不许让你以为它已经生效。）");
+        }
+
+        /// <summary>手牌文本的持久值（原版 = 玩家存档里的 `cardsTextInHandFormat`）。</summary>
+        public static class TextInHand
+        {
+            public const string PrefKey = "CardsTextInHand";
+            /// <summary>自检注入点：true ⇒ 只改内存、不写 `PlayerPrefs`（同 `GeneralFlags` 那一族）。</summary>
+            public static bool PersistOverride;
+            static bool _loaded;
+            static int _value;
+            static void Load()
+            {
+                if (_loaded) return;
+                _loaded = true;
+                _value = Mathf.Clamp(PlayerPrefs.GetInt(PrefKey, 0), 0, 2);
+            }
+            public static int Value
+            {
+                get { Load(); return _value; }
+                set
+                {
+                    Load();
+                    _value = Mathf.Clamp(value, 0, 2);
+                    if (PersistOverride) return;
+                    PlayerPrefs.SetInt(PrefKey, _value);
+                    PlayerPrefs.Save();
+                }
+            }
+            public static void ResetForTest() { _loaded = true; _value = 0; }
+            public static void RestoreForTest(int v) { _loaded = true; _value = Mathf.Clamp(v, 0, 2); }
+        }
+
+        Label _winCap, _tihCap;
+        /// <summary>三颗通用下拉（画质 / 窗口模式 / 手牌文本）—— `Build()` 每次重建。</summary>
+        DropdownBox _ddQuality, _ddWindowMode, _ddTextInHand;
+
+        // ---- 通用下拉的自检只读口（⛔ 别藏：自检拿不到只能瞎猜，同 `LangTemplateNode` 那条）----
+        // 🔴 **按【名字】取、⛔ 不按 `_dds` 下标取** —— 建页次序是 `General → Audio → Account → Graphics …`
+        //   ⇒ Audio 页那颗（窗口模式）先于 Graphics 页那两颗进 `_dds`，下标**不等于** `DdQuality/DdWindowMode/…`。
+        DropdownBox DdBox(int which)
+        {
+            switch (which)
+            {
+                case DdQuality: return _ddQuality;
+                case DdWindowMode: return _ddWindowMode;
+                case DdTextInHand: return _ddTextInHand;
+                default: return null;
+            }
+        }
+        public int DropdownCount { get { return _dds.Count; } }
+        public Transform DropdownTemplateNode(int which) { var b = DdBox(which); return b != null ? b.Template : null; }
+        public Transform DropdownListNode(int which) { var b = DdBox(which); return b != null ? b.List : null; }
+        public Transform DropdownFieldNode(int which) { var b = DdBox(which); return b != null ? b.Field : null; }
+        public bool DropdownOpen(int which) { var b = DdBox(which); return b != null && b.Open; }
+        public int DropdownRowCount(int which) { var b = DdBox(which); return b != null ? b.Rows.Count : 0; }
+        public ImageQuad DropdownRowBg(int which, int i)
+        { var b = DdBox(which); return (b != null && i >= 0 && i < b.Rows.Count) ? b.Rows[i].Bg : null; }
+        public Label DropdownRowLabel(int which, int i)
+        { var b = DdBox(which); return (b != null && i >= 0 && i < b.Rows.Count) ? b.Rows[i].Lb : null; }
+        public Transform DropdownRowHit(int which, int i)
+        { var b = DdBox(which); return (b != null && i >= 0 && i < b.Rows.Count) ? b.Rows[i].Hit : null; }
+        /// <summary>三颗共用的那颗全屏透明 `Blocker`（原版 `TMP_Dropdown.CreateBlocker` 的等价物）。
+        /// ⚠️ **它和语言下拉那颗同名 `Blocker`**（原版运行时都叫这个名字）⇒ 自检请走本口 / `LangBlockerNode`，
+        /// ⛔ 别按名字在窗根下找（会命中哪一颗取决于遍历序）。</summary>
+        public Transform DropdownBlockerNode { get { return _ddBlocker; } }
+
 
         /// <summary>点「Redeem Code」。原版 = 弹一个兑换码输入框（`PromptContext`）→ `TryRedeemCode` →
         /// **发给服务器**。我们**没有任何服务器** ⇒ 照建、点了**如实出声**（用户 2026-09-28 口径：
@@ -3545,11 +4070,57 @@ namespace CardPresentation
                           null, QualR - QualTextL, 29f, 42f, 36f);
             // 🆕 **2026-10-19（A1181）**：原版 `Quality Selector > Quality selector text` 逐字段实读
             //   `29 / 42 / 36 · 折行 1`（⚠️ 同一台 prefab 里 `Text In Hand Selector` 那颗**也**叫这个名字、
-            //   四格**逐值相同** ⇒ 收在这一处；那颗我们**没建**，见本页末尾那条 `Debug.Log`）。
+            //   四格**逐值相同** ⇒ 两颗各建一处、都照这四格传；T17 起那颗已建，见下面 ② ）。
             if (lb != null) AlignLeft(lb, new PxRect(QualTextL, QualT, QualR, QualB));
             OnLangText(lb, () => Loc.T(lkGfxQuality));
-            Hit(row, "QualityHit", QualL, QualT, QualBoxR, QualB, QOverlay, CycleQuality,
+            // 🆕 **2026-10-17（T17）**：画质那颗从「点一下换下一个」改成**真下拉**
+            //   （原版 `Quality DropDown` 是 `Image + TMP_Dropdown`、带一个出厂关着的 `Template`；
+            //   判据 = `GraphicsTab__GraphicsQualityDropdownChange` / `GraphicsTab__OnSetup.c:44-114`）。
+            _ddQuality = BuildDropdown(qualQ.transform, QualL, QualT, QualBoxR, QualB,
+                                       QualityOptionLabels, QualityOptionIndex, ChooseQualityOption,
+                                       "Graphics > Quality Selector");
+            Hit(row, "QualityHit", QualL, QualT, QualBoxR, QualB, QOverlay, () => ToggleDropdown(_ddQuality),
                 qualQ, "40K_dropdown_field_closed");
+
+            // ② 🆕 **2026-10-17（T17）**：`Text In Hand  Selector`（原版 `Graphics Tab` 第二行、
+            //   VLG spacing 23 ⇒ 行顶 = 画质行底 327.10 + 23.0 = **350.10**）。
+            //   原版 `Text in Hand DropDown`（400.666 × 59.3985）+ `Template`；出厂 `m_IsActive = 1`。
+            //   🔴 **运行时显示与否（本笔查清）**：`GraphicsTab__OnSetup` 尾部那段链式 `SetActive` 按
+            //   **字段偏移**逐条对上号了 —— `GraphicsTab` 序列化字段序 = `0x30 smallScreenToggle` ·
+            //   `0x38 hiFPS` · `0x40 superSampling` · `0x48 extendedCompatibility` · `0x50 autoZoom` ·
+            //   `0x58 qualityDropdown` · **`0x60 cardsTextInHandDropdown`** · `0x68 vsync` · `0x70 fpsLimit`；
+            //   那几处 `SetActive` 只碰 0x38(关) / 0x48(关) / 0x68(开) / 0x70 的父(开)
+            //   ⇒ **没有一处碰 0x60 或它的父** ⇒ **运行时是显示的**（不是出厂关）。
+            {
+                var tihRow = Node(page, "Text In Hand Selector", TihL, TihT, TihR, TihB);
+                var tihFld = Node(tihRow, "Text in Hand DropDown", TihL, TihT, TihBoxR, TihB);
+                var tihBg = Rect(tihFld, "bg", TihL, TihT, TihBoxR, TihB, ArtLangField, QContent, GenFieldTint);
+                // caption = 原版 `Text in Hand DropDown > Label`（fs 18 · base 14 · auto 18~40 · 折行 0 · 灰 (0.67)）
+                _tihCap = Text(tihFld, "Label", TextInHandOptionLabels()[TextInHand.Value],
+                               TihL + GenCapInset, TihBoxR - GenCapInset, TihT + DdCapTop, TihB - DdCapBottom,
+                               GenCapFontPx, GenCapColor, QText, null, 0f, 18f, 40f, 14f);
+                if (_tihCap != null)
+                    AlignLeft(_tihCap, new PxRect(TihL + GenCapInset, TihT + DdCapTop,
+                                                 TihBoxR - GenCapInset, TihB - DdCapBottom));
+                OnLangText(_tihCap, () => TextInHandOptionLabels()[TextInHand.Value]);
+                // 箭头：20×20 · 右沿 = 框右 − 5 · 顶 = 行顶 + 19.69（与画质那颗逐值相同）
+                Rect(tihFld, "Arrow", TihBoxR - DdArrowRightInset - DdArrowW, TihT + DdArrowTop,
+                     TihBoxR - DdArrowRightInset, TihT + DdArrowTop + DdArrowW,
+                     ArtLangArrow, QOverlay, GenArrowTint, true);
+                // 行右说明字（原版节点名**也叫** `Quality selector text`；fs 42 · base 36 · auto 29~42 · 折行 1）
+                Func<string> tihText = () => UiTerm("Settings/Graphics/SelectTextOfCardsInHand",
+                                                    "Text for cards in hand", TihTermWhere);
+                var tihLb = Text(tihRow, "Quality selector text", tihText(),
+                                 TihTextL, TihR, TihT, TihB, FontRowLabel, Color.white, QText,
+                                 null, TihR - TihTextL, 29f, 42f, 36f);
+                if (tihLb != null) AlignLeft(tihLb, new PxRect(TihTextL, TihT, TihR, TihB));
+                OnLangText(tihLb, tihText);
+                _ddTextInHand = BuildDropdown(tihFld, TihL, TihT, TihBoxR, TihB,
+                                              TextInHandOptionLabels, () => TextInHand.Value, ChooseTextInHandOption,
+                                              "Graphics > Text In Hand");
+                Hit(tihRow, "TextInHandHit", TihL, TihT, TihBoxR, TihB, QOverlay,
+                    () => ToggleDropdown(_ddTextInHand), tihBg, ArtLangField);
+            }
             Debug.Log("[Settings] 图像页：这一列照原版运行时那**两种**排法 —— "
                     + "`Small Screen UI`(第 0 行) · **`Auto Zoom`(第 1 行, A172 补)** · "
                     + "**`Use super sampling`(第 2 行, A176 补)** · `VSync` / **`FPS limit` 滑块**；"
@@ -3561,8 +4132,10 @@ namespace CardPresentation
                     + "⇒ 两支**都塞得进视口**（内容高 ≤ 427.57 < 视口高 521.51）⇒ **不裁切、也没有可停留的滚动范围**"
                     + "（= 原版：`Content.m_SizeDelta.y = 300` + CSF `m_VerticalFit = 0` ⇒ `CalculateOffset` 恒 0；"
                     + "Elastic 下能抖/回弹但停不住）。"
-                    + "⛔ **没建的**：`Text In Hand Selector`（原版出厂 `m_IsActive = 0`）· `Hi FPS` · "
-                    + "`Android extra compatibility`（后两个运行时被 `OnSetup` 关掉，原版也不画）。"
+                    + "⛔ **没建的**：`Hi FPS` · `Android extra compatibility`"
+                    + "（运行时被 `OnSetup` 的链式 `SetActive` 关掉，原版也不画）。"
+                    + "✅ **2026-10-17（T17）`Text In Hand  Selector` 已补建、且运行时是显示的**"
+                    + "（那段 `SetActive` 按字段偏移逐条对过：只碰 0x38/0x48/0x68/0x70，**没有一处碰 0x60**）。"
                     + "✅ **A176 起 `Use super sampling` 建了、也真接上了**（原先那份「没建，因为没超采样能力、建了就是假开关」"
                     + "的说明已作废）：它写的是 URP `renderScale` 1.0↔2.0，判据与落地见 `SuperSampling` 那个类。");
 
@@ -3803,21 +4376,10 @@ namespace CardPresentation
             return f <= 0 ? Loc.T(lkFpsUnlimited) : string.Format(Loc.T(lkFpsValue), f);
         }
 
-        void CycleQuality()
-        {
-            var names = QualitySettings.names;
-            if (names == null || names.Length == 0) { Debug.LogWarning("[Settings] 没有画质档可切"); return; }
-            int next = (QualitySettings.GetQualityLevel() + 1) % names.Length;
-            ApplyQuality(next);
-            if (_qualityLabel != null) _qualityLabel.SetText(QualityName());
-            // 🆕 **2026-10-10（A176）**：= 原版 `GraphicsTab__GraphicsQualityDropdownChange.c:58` 的**最后一句**
-            // `ConfigureSuperSamplingVisibility()` —— 换档之后**当场**重算「超采样那一行在不在」
-            // （原版换档也是**只重算这一行的显隐**：真正写 `renderScale` 要等关窗 / 切场景，见 `ApplyQuality`）。
-            RebuildGfxRows();
-            // 🆕 2026-10-18（波 1b · A1046/A1062）：状态行这句改走语言表（`{0}` = 画质档名）。
-            _flash = string.Format(Loc.T(lkFlashQuality), QualityName());
-            Debug.Log("[Settings] " + _flash + "（超采样那一行：" + (SuperSampling.RowVisible ? "在" : "不在") + "）");
-        }
+        // 🔴 **2026-10-17（T17）**：`CycleQuality()`（点一下换下一个）**已删** —— 那是旧实现，
+        //   原版那颗是 `TMP_Dropdown`（点开列表、点哪项生效哪项）。等价动作搬进 `ChooseQualityOption()`：
+        //   `ApplyQuality(档)` → 重算超采样那一行（= 原版 `GraphicsQualityDropdownChange.c:58` 的
+        //   `ConfigureSuperSamplingVisibility()`）→ 状态行出声。⛔ 别再把它复活成循环。
 
         void ToggleVsync()
         {
@@ -4491,17 +5053,59 @@ namespace CardPresentation
                                                    trackW: AuTrackW * RootScale, trackH: AuTrackH * RootScale);
             }
 
-            var note = Text(page, "Note", Loc.T(lkAudioMixerNote), AuL, AuR, AuB + 20f, AuB + 60f,
+            // ② 🆕 **2026-10-17（T17）**：原版这一页的下半 = `Visual Settings > WindowMode Selector`
+            //   （`Media Tab` 的第二个孩子；组顶 = `Audio Settings` 的底 **630.947**，VLG spacing 0）。
+            //   🔴 **PC 档才显示** —— `Media Tab` 根上那颗 `PlatformBasedComponents` 的表逐条实读：
+            //   `android(0) → Visual Settings enable 0` · `iOS(10) → 0` · **`PC(20) → 1`**
+            //   （枚举 `PlatformBasedComponents.PlatformDisplay`）。我们是 PC ⇒ 建、且常显。
+            {
+                var visual = Node(page, WinVisualSettingsName, VsL, VsT, VsR, VsB);
+                var winRow = Node(visual, "WindowMode Selector", WinL, WinT, WinR, WinB);
+                var winFld = Node(winRow, "Dropdown", WinL, WinT, WinBoxR, WinB);
+                var winBg = Rect(winFld, "bg", WinL, WinT, WinBoxR, WinB, ArtLangField, QContent, GenFieldTint);
+                // caption = 原版 `Dropdown > Label`（fs 18 · base 14 · auto 18~40 · 折行 0）。
+                // 🔴 这一颗是**白**的（逐字段实读 `(1,1,1,1)`）；画质 / 手牌那两颗是灰 `(0.67)`
+                //   —— 三颗各照各的原版件，⛔ 别归一。
+                _winCap = Text(winFld, "Label", WindowModeOptionLabels()[WindowModeOptionIndex()],
+                               WinL + GenCapInset, WinBoxR - GenCapInset, WinT + DdCapTop, WinB - DdCapBottom,
+                               GenCapFontPx, Color.white, QText, null, 0f, 18f, 40f, 14f);
+                if (_winCap != null)
+                    AlignLeft(_winCap, new PxRect(WinL + GenCapInset, WinT + DdCapTop,
+                                                  WinBoxR - GenCapInset, WinB - DdCapBottom));
+                OnLangText(_winCap, () => WindowModeOptionLabels()[WindowModeOptionIndex()]);
+                // 箭头：20×20 · 右沿 = 框右 − 5 · 顶 = 行顶 + 19.69（与画质那颗逐值相同）
+                Rect(winFld, "Arrow", WinBoxR - DdArrowRightInset - DdArrowW, WinT + DdArrowTop,
+                     WinBoxR - DdArrowRightInset, WinT + DdArrowTop + DdArrowW,
+                     ArtLangArrow, QOverlay, GenArrowTint, true);
+                // 行右标签：原版 `Label`（TMP `'Modo Ventana'`、`Localize.mTerm = Settings/Media/WindowMode`；
+                //   fs 42 · base 36 · auto **1**~42 · 折行 1 —— ⚠️ 下限是 **1**，与画质那行（29）**不同**
+                //   ⇒ 逐颗实读，⛔ 别按同页别的行推）。
+                Func<string> winText = () => UiTerm("Settings/Media/WindowMode", "Window Mode", WinTermWhere);
+                var winLb = Text(winRow, "Label", winText(), WinTextL, WinR, WinT, WinB,
+                                 FontRowLabel, Color.white, QText, null, WinR - WinTextL, 1f, 42f, 36f);
+                if (winLb != null) AlignLeft(winLb, new PxRect(WinTextL, WinT, WinR, WinB));
+                OnLangText(winLb, winText);
+                _ddWindowMode = BuildDropdown(winFld, WinL, WinT, WinBoxR, WinB,
+                                              WindowModeOptionLabels, WindowModeOptionIndex, ChooseWindowModeOption,
+                                              "Media > WindowMode Selector");
+                Hit(winRow, "Hit", WinL, WinT, WinBoxR, WinB, QOverlay, () => ToggleDropdown(_ddWindowMode),
+                    winBg, ArtLangField);
+            }
+
+            // ③ 那一行「音量走 AudioMixer」= **我们自己的**（键自拟，原版没有）。
+            //   🆕 T17 起原版那个位置被 `WindowMode Selector` 占了 ⇒ 把这行**挪到它下面**
+            //   （`Visual Settings` 组下方那片在原版里是空的）。**位置是我们挑的**，不冒充原版。
+            float noteT = WinB + 16f, noteB = noteT + 40f;
+            var note = Text(page, "Note", Loc.T(lkAudioMixerNote), AuL, AuR, noteT, noteB,
                             FontSmall, new Color(1f, 1f, 1f, 0.6f), QText);
-            // 🆕 **2026-10-19（A1181）如实记一处「不接」**：这一行是**我们自己的**（键
-            //   `Settings/Media/AudioMixerNote` = 自拟，`Core/Loc.cs` 里 ZH 写的是「音量走 AudioMixer」）
-            //   —— 原版 `Media Tab` 这个位置是 `Visual Settings > WindowMode Selector`（窗口模式下拉，
-            //   **我们没建**，见本页末尾那条 `Debug.Log`）⇒ **没有原版四格可抄** ⇒ 不接。
-            if (note != null) AlignLeft(note, new PxRect(AuL, AuB + 20f, AuR, AuB + 60f));
+            if (note != null) AlignLeft(note, new PxRect(AuL, noteT, AuR, noteB));
             // 🆕 2026-10-18（换语言刷新链）：这一行是 `Build()` 里**只画一次**的 ⇒ 登记进 `_onLabels`
             //   （换语言只能在 General 页做，那时本页是关着的 ⇒ 不登记就停在旧语言）。
             OnLangText(note, () => Loc.T(lkAudioMixerNote));
-            Debug.Log("[Settings] 音频页：原版这一页还有 `WindowMode Selector`（窗口模式）—— **没建**（不做假开关）");
+            Debug.Log("[Settings] 音频页：已补建原版下半 `Visual Settings > WindowMode Selector`"
+                    + "（`Media Tab` 的 `PlatformBasedComponents`：**PC 档 enable 1**、android/iOS 0）；"
+                    + "选项 = 原版 I2 那两条 `Settings/Media/WindowMode/{Fullscreen,Windowed}`，"
+                    + "默认值读运行时 `Screen.fullScreen`（= 原版 `GameStaticData.noFullScreen` 的等价物）。");
             return page;
         }
 
@@ -4932,13 +5536,14 @@ namespace CardPresentation
         /// ⚠️ 音频页那三根走 `Battle/WfSlider`（没传这个参数 ⇒ 端帽按 184 画）、不在本件白名单 ⇒ 另记在报告里。
         /// 宽 ≤ 0（0 档的 `Fill`，原版那条矩形宽就是 0）⇒ 不建。</summary>
         ImageQuad NineOut(Transform p, string n, float x1, float y1, float x2, float y2, string art,
-                          float tw, float th, Vector4 border, Vector4 borderOut, int q, PxRect? clip = null)
+                          float tw, float th, Vector4 border, Vector4 borderOut, int q, PxRect? clip = null,
+                          Color? tint = null)
         {
             var t = Tex(art);
             if (t == null || x2 - x1 <= 0.01f) return null;
             var s = Screen(x1, y1, x2, y2);
             var go = MenuDraw.Nine(p, t, new PxRect(s.x1, s.y1, s.x2, s.y2), border, tw, th, q,
-                                   null, true, n, borderOut, clip);
+                                   tint, true, n, borderOut, clip);
             return go != null ? go.GetComponentInChildren<ImageQuad>() : null;
         }
         void Tiled(Transform p, string n, float x1, float y1, float x2, float y2, string art, float tile, int q)

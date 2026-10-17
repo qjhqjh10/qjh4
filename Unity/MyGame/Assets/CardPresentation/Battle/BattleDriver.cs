@@ -15052,6 +15052,16 @@ namespace CardPresentation
             BuildErrorBanner(root);
             BuildScreenAspectRatioController();
 
+            // 🔴 **2026-10-17（`T05` 第 2 步的下游）：把 `Anim Anchors` 在 `BuildHud` 里补建出来。**
+            //   原来它只靠 `BattleDriver.AnimAnchorNode` → `HudCanvas.EnsureAnimAnchors()` **懒建**
+            //   ⇒ 数据里 `6/11/140/145` 四档今天 0 引用时，`BuildHud` 跑完**树里根本没有这颗节点**
+            //   （自检/普查看不见它，得靠真解一次 UI 档才冒出来）。
+            //   原版它是 `Canvas` 的**直子**（子件序 `… BattleDoors, Tutorial highlight, Anim Anchors,
+            //   UI Error Message Controller`）⇒ 放在上面那几件之后建。它是**空锚点节点**
+            //   （无 `Image`、不吃射线、不占渲染）⇒ 兄弟序对画面无影响。
+            HudCanvas.Ensure(LayoutSpace.Cam);             // 幂等；本件要求根 canvas 先在
+            HudCanvas.EnsureAnimAnchors();                 // 幂等（按名字找/建）
+
             // ---- 🔴 2026-10-16（`T09` 批 3 收口 · 台账 `W30`）：**攻击方式选择器登记宿主** -------
             //   原版那个节点**身上带 `Canvas` 组件**（`CV_2759`：`rm 2`(ScreenSpaceCamera) ·
             //   `overrideSorting false` · `Default`/order 0 · `PlaneDistance 100.0`），原版**子件序 0/14**
@@ -16406,6 +16416,17 @@ namespace CardPresentation
         /// ⚠️ 用它的断言要成对换尺：`MyDeckSizePlateWorldH` 走 `HudPiece.WorldH`（`GetWorldCorners`）
         /// **仍是世界单位** ⇒ 直接相乘比大小会**混两把尺**（详见 `EW4` 报告 ③ 那条接线）。</para></summary>
         public float PileLabelWorldW { get { return _pileLabel != null ? _pileLabel.WorldW : 0f; } }
+
+        /// <summary>自检用：把牌堆那两颗「按住一张牌才亮」的标签**强制重排一次**（`ForceRelayout` = 幂等）。
+        /// <para>🔴 为什么需要：批处理**没有帧循环**，且编辑模式下 `OnEnable` 不跑 ⇒ 节点从关到开之后
+        /// TMP 不会自己重排，`WorldW` 读到的还是初值（打印 `0.00`）。产品侧**没有错**
+        /// （`Label.RefreshBounds` 用 `UsableBounds` 守卫，量不出来一个字都不动）。</para>
+        /// <para>⚠️ 只给 `Editor/BattleScene.cs` 用；⛔ 产品路径不要调（真机由每帧 `UpdateHud` 推）。</para></summary>
+        public void RelayoutPileLabelsForTest()
+        {
+            if (_pileLabel != null) _pileLabel.ForceRelayout();
+            if (_foePileLabel != null) _foePileLabel.ForceRelayout();
+        }
         /// <summary>本回合我已经出了几张牌</summary>
         public int CardsPlayedThisTurn { get { return _cardsPlayedThisTurn; } }
         /// <summary>三枚「已出牌数」灯里有几枚是亮的</summary>
@@ -17023,8 +17044,8 @@ namespace CardPresentation
             if (selector != null) selector.RefreshLayout();
             // 技能卡面板取的是**屏幕 30%×30% 的 anchor**，宽高比跟着屏幕走 —— 同理
             if (skillPanel != null) skillPanel.RefreshLayout();
-            // 回放条同理（它按 1920×1080 的绝对矩形定，要跟着 VisibleWidth 重算）
-            if (_replayBar != null) _replayBar.RefreshLayout();
+            // 🔴 回放条**不再有**这一句（2026-10-17）：它已迁 uGUI，位置/尺寸由锚点自己跟画布缩放，
+            //    `ReplayBar.RefreshLayout()` 空口一并删了（留着会让人以为这里还要重算）。
             // 语音条同理
             if (_unitChat != null) _unitChat.RefreshLayout();
         }

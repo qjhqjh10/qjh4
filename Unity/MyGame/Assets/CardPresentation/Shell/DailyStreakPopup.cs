@@ -421,6 +421,10 @@ namespace CardPresentation
             MenuDraw.SetVAlign(nxt, Label.VAlign.Midline, S_TimerNext);
             MenuDraw.Rect(t, Art(ArtClock), S_TimerClock, "Image", QContent);
             var tmr = MenuDraw.Text(t, S_TimerText, DailyData.StreakTimerText(), Color.white, "Timer Text", 36f, QText);
+            // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时 —— 目标 = 自建日界 `NextResetAt`
+            //   （本机时间；原版这一格的目标由服务端下发，本地查不到 ⇒ 取「下一天开始」，**我们挑的**）。
+            //   先挂组件再对齐（组件会当场改写文本，对齐要按最终宽度算）。
+            TimerDisplay.Attach(tmr, () => DailyData.NextResetAt, "", "连登 Timer", null);
             MenuDraw.AlignLeft(tmr, S_TimerText);
             MenuDraw.SetVAlign(tmr, Label.VAlign.Midline, S_TimerText);
             p.gameObject.SetActive(!HasFailed);

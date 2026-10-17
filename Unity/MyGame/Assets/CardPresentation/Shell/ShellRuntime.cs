@@ -86,6 +86,28 @@ namespace CardPresentation
         public WindowsManager Windows { get; private set; }
         public Shade Shade { get; private set; }
         public BlockingOverlay Blocker { get; private set; }
+        /// <summary>壳侧加载黑场（原版 `Safe area Only Horizontal/LoadingMenu`）——
+        /// 进战斗/切场景前 `LoadingFade(true, cb)` 淡到黑，回来 `LoadingFade(false)` 淡回透明。
+        /// 建/参数判据 → `Shell/LoadingMenu.cs` 文件头。**出厂关**（场景实例就是这个状态）。</summary>
+        public LoadingMenu Loading { get; private set; }
+        /// <summary>壳侧转圈件（原版 `Loading Controller` = `MenuLoadingController`）。
+        /// 本地唯一的原版调用点是公会搜索（`JoinAllianceMenu`）—— 与「进战斗的黑场」不是同一件。</summary>
+        public LoadingController LoadingCtl { get { return Loading != null ? Loading.Controller : null; } }
+
+        /// <summary>🔴 **2026-10-17（界面线 T16）**：壳里**切场景的统一入口** ——
+        /// 有 `LoadingMenu` 就**先淡到全黑再 `LoadScene`**（原版 `GeneralMenuController.ShowLoading` /
+        /// `BattleManager._StartBattleSequence` 那条链的等价物），没有就直接切。
+        /// <para>判据：`U3` §二 D 把「进战斗是硬切」列为本仓缺口；黑场参数/时长 → `Shell/LoadingMenu.cs`。</para>
+        /// <para>⚠️ **批处理/编辑模式**：`LoadingFade` 内部 `!Application.isPlaying ⇒ Complete()`（没有帧循环）
+        /// ⇒ 回调**当场**执行、`LoadScene` 照旧立即切 —— 自检行为不变。</para></summary>
+        public static void LoadSceneWithFade(string scene)
+        {
+            var rt = Instance;
+            if (rt != null && rt.Loading != null)
+                rt.Loading.LoadingFade(true, () => UnityEngine.SceneManagement.SceneManager.LoadScene(scene));
+            else
+                UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
+        }
 
         /// <summary>压暗边四条（`0..3` = Left / Right / Bottom / Top）的**外侧半** —— 贴屏幕边、不透明那一块，
         /// 名字沿用原版的节点名。⚠️ 一条边是**两块**（理由见 `FadeEdge`）。给自检读顶点色用。</summary>
@@ -124,6 +146,9 @@ namespace CardPresentation
         void Update()
         {
             if (Current == Phase.Intro) TickIntro(Time.unscaledDeltaTime);
+            // 加载两件（原版 `LoadingMenu` / `MenuLoadingController`）——
+            // ⚠️ 两个 dt 分开：黑场补间用 unscaled，齿轮用 `Time.deltaTime`（原版 `SimpleRotation.Update`）。
+            if (Loading != null) Loading.Tick(Time.unscaledDeltaTime, Time.deltaTime);
             TickChainCheck();
         }
 
@@ -253,6 +278,14 @@ namespace CardPresentation
             // ---- 压暗 / 遮罩 ----
             Shade = NewRoot(root, "Shade").gameObject.AddComponent<Shade>();
             Blocker = NewRoot(root, "BlockingOverlay").gameObject.AddComponent<BlockingOverlay>();
+
+            // ---- 加载两件（原版 `Safe area Only Horizontal/LoadingMenu` + `Loading Controller`）----
+            // 判据/逐值对照 → `Shell/LoadingMenu.cs` 文件头。两件都挂在**安全区节点**下（原版的父级）。
+            // ⚠️ `LoadingMenu.Build()` 必须显式调：批处理/编辑模式里 `Awake` 不跑，不调就存不进场景。
+            Loading = NewRoot(safeH, "LoadingMenu").gameObject.AddComponent<LoadingMenu>();
+            Loading.StartFaded = 0;         // 主菜单场景实例的值（`MonoBehaviour_1942.json`；prefab/战场是 1）
+            Loading.Build();
+            Loading.gameObject.SetActive(false);   // 原版场景里 `LoadingMenu.m_IsActive = false`（出厂不画）
 
             // ---- 开场动画 ----
             BuildIntro(root);

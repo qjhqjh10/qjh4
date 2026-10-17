@@ -1586,10 +1586,16 @@ namespace RuleEngine
                     "Ripper Swarm", "Neurogaunt", "Neurogaunt Nodebeast", "Termagant", "Hormagaunt",
                     "Genestealer", "Gargoyle", "Barbgaunt", "Von Ryan's Leaper", "Termagant Brood" },
             //  锈蚀通风口（1d11）—— 背后：`Create a random troop with Ambush in your hand`
+            //  🔴 **2026-10-17 补第 12 个名字 `Aberrant`**：粉丝规则书附录 C 的 1d11 名单**漏列了它**
+            //     （卡面 `d:/2/Warpforge部队卡片/Genestealer Cult/3部队/Warpforge_27_Aberrant.png` 印着
+            //     `Armour 1. Ambush: Gain Vanguard`、橙字 `Infantry`；卡池 `keywords` 也确有 `Ambush`）。
+            //     ⚠️ **表名保留书里的「1d11」** —— 它是 `RuleEngineTest.CheckDiceTables` 的查表键
+            //     （改了那一格就查不到）；「书里几种」是那本书自己的尺子，我们只如实补差集。
+            //     判据/先例 → `普查产出_1017/BSC62/W19_伏击断言11到12.md`（那一轮改的是断言，这一处是它的下游）。
             new[] { "锈蚀通风口(1d11)",
                     "Concealed Explosives", "Neophyte Hybrid", "Neophyte Heavy", "Acolyte Hybrid",
                     "Jackal Outrider", "Acolyte Heavy", "Acolyte Specialist", "Sanctus",
-                    "Hulking Aberrant", "Abominant", "Patriarch" },
+                    "Aberrant", "Hulking Aberrant", "Abominant", "Patriarch" },
             //  狂野宿主·灵族载具（1d20）—— 背后：`Create two random Saim-Hann Vehicles in your hand`
             new[] { "狂野宿主(1d20)",
                     "Weapons Platform", "Windrider", "Shroud Runner", "Shining Spear", "Vyper",
