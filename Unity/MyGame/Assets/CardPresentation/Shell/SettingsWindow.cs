@@ -3213,9 +3213,17 @@ namespace CardPresentation
             float x1 = GenOnlineL, x2 = GenOnlineR, y1 = GenBtnT, y2 = GenBtnT + GenBtnH;
             var n = Node(page, "Online Button", x1, y1, x2, y2);
             var aq = Rect(n, "bg", x1, y1, x2, y2, ArtButton, QContent, GenBtnTint, true);
+            // 🔴 **2026-10-17（`A1230`）用户拍板：按同族 ARF 框** —— 原版无此件（是我们自加的），
+            //   但至少要与同族文本框口径一致：`GenButton` 那颗的文字框 = `GenBtnW−26 × /ArfAspectRatio`
+            //   （300×90 钮里的 **274×53.30**，偏移 `GenBtnTxtApx/Apy`）。同一条规则套到本钮（154.81×90）
+            //   ⇒ **128.81×25.06**。⛔ 原来把**整颗钮**（154.81×90）传给 `Text`，长文案会少缩一档。
+            float onlineW = x2 - x1, onlineH = y2 - y1;
+            float otw = onlineW - 26f, oth = otw / ArfAspectRatio;
+            float otx = x1 + (onlineW - otw) * 0.5f + GenBtnTxtApx;
+            float oty = y1 + (onlineH - oth) * 0.5f - GenBtnTxtApy;
             // 自适应 = 同族那两颗的四格（`12 / fs / 12 · 折行 0`）；折行 0 ⇒ `wrapPx` 传 0，
-            // 自适应框宽 = 本格文字框宽（= 整颗钮宽，与 `GenButton` 同一档）。
-            var lb = Text(n, "Button Text", Loc.T(lkOnTitle), x1, x2, y1, y2,
+            // 自适应框宽 = **本格文字框宽**（`otw` = 128.81，与 `GenButton` 同一条规则）。
+            var lb = Text(n, "Button Text", Loc.T(lkOnTitle), otx, otx + otw, oty, oty + oth,
                           GenOnlineFontPx, Color.white, QText, null, 0f, 12f, GenOnlineFontPx, 12f);
             if (lb != null) _genLabels.Add(new Keyed(lb, lkOnTitle));
             Hit(n, "Hit", x1, y1, x2, y2, QOverlay,

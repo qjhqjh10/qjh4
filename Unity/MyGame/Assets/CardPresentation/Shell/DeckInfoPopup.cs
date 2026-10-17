@@ -1845,16 +1845,15 @@ namespace CardPresentation
             //      语言表**、本地取不到，判据见 `Core/Loc.cs` 那条自己的注释）⇒ `ErrorMessageBanner.ShowMessage`
             //     走的是「**表里有键**」那一支，**兜底句不被使用**。
             //     ⛔ 别把键名印到屏幕上（两态行为 → `ErrorMessageBanner.ShowMessage`）。
-            //   🔴 **2026-10-19（第九会话 · `A1153`）：「（N 字符）」那一截要【保住】** —— 它是 `A1050`
-            //     落键那一步丢掉的。做法 = 把长度拼进**表里那条模板**（那条键的值带 `{0}`）+ `string.Format` 取词。
-            //     ✅ **中文档与改前逐字相同**（改前走兜底句 `DeckRuntime.ShareCopiedText(len)`，它拼的就是
-            //     「卡组串已复制到剪贴板（N 字符）」）；EN 档顺带从「印中文兜底句」变成「印英文模板」。
-            //     ⛔ 别退回 `MessageToast.Show(键, localize:true, 兜底句)` —— 表里有键时**兜底句根本不会被用**，
-            //       字符数就又没了；⛔ 也别把兜底句那份文案再抄一遍（它仍是「表里没这条键」那一支的，两宿主共用）。
+            //   🔴 **2026-10-17（`N35`）用户拍板：按官方原文去掉「（N 字符）」那一截** ——
+            //     官方表那条是 `Deck copied to clipboard` / `卡组已复制到剪贴板`，**没有 `{0}`**；
+            //     `A1153` 那套「把长度拼进模板、保住字符数」是**我们自加的**，与「一切照原版」冲突 ⇒ 撤销。
+            //     ⛔ **别再给表里那条加 `{0}`**，也别再 `string.Format(..., s.Length)`（多余实参会被忽略、
+            //     字符数根本不会显示 —— 那就是 `N35` 当时的症状）。
             //   ⚠️ 与旧弹窗的**一处有意差别**：原版那条提示**只有一句话、不含卡组串**（串已经写进系统
             //     剪贴板了）⇒ 这里也**不再把串印出来**（原来印串是「让玩家自己抄」的权宜做法）。
             string shareMsg = Loc.HasEntry(ShareSuccessTerm)
-                ? string.Format(Loc.T(ShareSuccessTerm), s.Length)     // 表里那条模板的 `{0}` = 卡组串长度
+                ? Loc.T(ShareSuccessTerm)                              // 官方原文（无 `{0}`）
                 : DeckRuntime.ShareCopiedText(s.Length);               // 表里**没有**这条键才落它（两宿主共用）
             MessageToast.Show(shareMsg, false);
         }
