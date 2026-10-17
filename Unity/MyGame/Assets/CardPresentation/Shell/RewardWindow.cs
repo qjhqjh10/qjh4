@@ -252,6 +252,11 @@ namespace CardPresentation
         /// ⚠️ `max` 恰好等于 `m_fontSize` ⇒ 自适应**只能缩、不能涨**（与 `Title` 那颗同一条口径）。
         /// ⚠️ 本颗 `折行 = 0` ⇒ 接完必须 `SetWrapping(false)`（`SetAutoFitBox` 内部那句 `SetWrapWidth`
         /// 会**无条件**把模式开成 `Normal(1)`，`Label.SetWrapping` 的 doc 写着这条）。</summary>
+        /// <summary>`Collect Button/Button Text` 的原版 `m_text`（fs40 · auto[10~40] · base 12 · 折行 0）。
+        /// 🔴 **2026-10-17（第四十八会话 · `N47`）整包普查现核：保持字面量 `"Collect"`，⛔ 别接词条。**
+        /// 原版这一颗**有** `Localize`，但 `mTerm` 是 `MainMenu/RankedWindow/ChangeDeck`、**`m_Enabled = 0`**
+        /// ⇒ 运行期**不会被替换**，任何语言都显示 `Collect`（`Debug Reward Window` 那一颗同值）。
+        /// 同一普查里另外 24 颗 `Collect` 都是 `MainMenu/General/Collect`（enabled=1）—— 那些才接词条。</summary>
         public const string TxtCollect = "Collect";
         public const float CollectFont = 40f, CollectAutoMin = 10f;
         public const float CollectAutoMax = 40f, CollectAutoBase = 12f;

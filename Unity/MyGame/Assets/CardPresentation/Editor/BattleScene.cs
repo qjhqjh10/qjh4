@@ -15414,10 +15414,22 @@ public static class BattleScene
                                 193.20f, 39.56f, 10f, 42f, 49.63f, 1);
                     driver.SetCardHoldForTest(null);             // 还原成看真指针，别影响后面的段
                     driver.ApplyTutorialVisibilityForTest();
+                    // 🔴 **2026-10-17（R1 现核）**：这两颗在非 DarkAngels 局是**未激活**的 ——
+                    //   TMP 对未激活对象的 `ForceMeshUpdate` 直接返回 ⇒ 读到 `SetTextTmp` 留下的标称值
+                    //   （`QPText_Me` 43.68 > 窗口上限 40.5，而同组 `QPText_Foe` = 40.5 为证）。
+                    //   ⇒ 夹具：**先点亮、量完还原**（⛔ 不改产品显隐逻辑）。
+                    var qpMeNode = HudCanvas.RootRect != null ? HudCanvas.RootRect.Find("QPText_Me") : null;
+                    var qpFoeNode = HudCanvas.RootRect != null ? HudCanvas.RootRect.Find("QPText_Foe") : null;
+                    bool qpMeWas = qpMeNode != null && qpMeNode.gameObject.activeSelf;
+                    bool qpFoeWas = qpFoeNode != null && qpFoeNode.gameObject.activeSelf;
+                    if (qpMeNode != null) qpMeNode.gameObject.SetActive(true);
+                    if (qpFoeNode != null) qpFoeNode.gameObject.SetActive(true);
                     CheckHudBox("QPText_Me", "…/PlayerMana/QuestPointsHolder/QPText",
                                 48.17f, 45.26f, 15.79f, 40.5f, 36f, 1);
                     CheckHudBox("QPText_Foe", "…/EnemyMana/QuestPointsHolder/QPText",
                                 48.17f, 45.26f, 15.79f, 40.5f, 36f, 1);
+                    if (qpMeNode != null) qpMeNode.gameObject.SetActive(qpMeWas);
+                    if (qpFoeNode != null) qpFoeNode.gameObject.SetActive(qpFoeWas);
 
                     // ---- ⑤ 反向：这 3 颗 **必须没有框** ----
                     //  判据 → `PH` §四：`TurnLabel` / `ResultLabel` **原版根本没有此件**
@@ -21194,7 +21206,9 @@ public static class BattleScene
                         for (int ai = 0; ai < 4; ai++)
                         {
                             var al = driver.TutorialView.AnnoLabel(ai);
-                            var at = al != null ? al.GetComponent<TMPro.TMP_Text>() : null;
+                            // 🔴 **2026-10-17（R1 现核）**：TMP 是 `Label` 的**子节点** ⇒
+                            //   `GetComponent` 恒 null（原来这一口 + 实现那一口同错，4 条全静默跳过）。
+                            var at = al != null ? al.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
                             var am = at != null ? at.fontMaterial : null;
                             if (am == null) continue;
                             bool okW = Mathf.Abs(am.GetFloat(TMPro.ShaderUtilities.ID_OutlineWidth) - 0.10f) < 1e-4f;
@@ -21203,7 +21217,11 @@ public static class BattleScene
                             var oc = am.GetColor(TMPro.ShaderUtilities.ID_OutlineColor);
                             bool okC = oc.r < 1e-3f && oc.g < 1e-3f && oc.b < 1e-3f;
                             if (okW && okD && okS && okC) outlined++;
-                            var sm = at.fontSharedMaterial;
+                            // 🔴 **2026-10-17 订正（末轮红）**：原判据读 `at.fontSharedMaterial` —— 但 TMP 的
+                            //   `fontMaterial` getter（上面 `am`）内部会把 `m_sharedMaterial` 指向**这一颗的实例**
+                            //   ⇒ 再读 `fontSharedMaterial` 读到的是**实例**、描边当然在 ⇒ 假红。
+                            //   真正要证明的是「**字体资产自己那份**没被写脏」= `at.font.material`。
+                            var sm = at.font != null ? at.font.material : null;
                             if (sm != null && Mathf.Abs(sm.GetFloat(TMPro.ShaderUtilities.ID_OutlineWidth) - 0.10f) < 1e-4f)
                                 sharedDirty = true;
                         }

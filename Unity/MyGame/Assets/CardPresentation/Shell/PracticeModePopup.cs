@@ -781,7 +781,10 @@ namespace CardPresentation
         public Transform Hit(string name) { return transform.Find(name); }
         public Transform BtHit { get { return transform.Find("BattleHit"); } }
         public Transform BackHit { get { return transform.Find("BackHit"); } }
-        public Transform TogHit { get { return transform.Find("ToggleHit"); } }
+        // 🔴 **2026-10-17（第四十八会话 · 桶 G3）**：`ToggleHit` 挂在一个叫 `Toggle` 的**中间节点**上
+        //   （`:955` `New(root, "Toggle", …)` → `:990` `HitOn(tog, tog, "ToggleHit", …)`）⇒
+        //   `transform.Find` **只查直接子件**，写 `"ToggleHit"` 恒 null（自检报「命中区没建出来」）。
+        public Transform TogHit { get { return transform.Find("Toggle/ToggleHit"); } }
         public Transform ChgHit { get { return transform.Find("ChangeDeckHit"); } }
 
         public static PracticeModePopup Create(WindowsManager mgr)

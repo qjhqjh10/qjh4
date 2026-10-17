@@ -53,9 +53,6 @@ namespace CardPresentation
         /// 判据与对齐对象 → `Setup` 里那段注释。</summary>
         MenuScroll _scroll;
 
-        /// <summary>「本页滚动没有原版判据」只出声一次（每页各一份、多次重建不刷屏）。</summary>
-        static bool _warnedNoSensitivity;
-
         /// <summary>自检用：批处理里没有滚轮事件 ⇒ 直调 `MenuScroll.Wheel/SetOffset`（**和真滚同一条路**）。</summary>
         public MenuScroll RowsScroll { get { return _scroll; } }
 
@@ -108,18 +105,10 @@ namespace CardPresentation
             //     —— 那条**潜伏缺陷已经修掉**（`ApplySoftEdges` 的 `uv0` 改成显式入参，A52/F1，
             //     断言见 `Editor/ShellScene.cs` ⑤·c）。⛔ 别再照旧注释把这条接线推回去。
             PointerLayer.UnregisterOwnedBy(_root != null ? _root.gameObject : gameObject);   // 重开一次窗 ⇒ 旧的那份是死条目
-            // ⚠️ **原版判据查不到（N29）**：`ChatContentView` 是 **OSA 虚拟列表**（不是 UGUI `ScrollRect`）
-            //    —— 全包 142 个 `m_ScrollSensitivity` 里**没有聊天气泡列表**那一条
-            //    （唯一命中 = `ChatPanel/Holder/Chat/Enter Text/InputField` 的 **1.0**，那是**输入框**）。
-            //    ⇒ 保留旧值 48 px/格（`MenuScroll.DefaultNotchPx`）并**出声**，⛔ 不是「原版就是这样」。
-            _scroll = MenuScroll.TopAligned(_rect, 0f, MenuScroll.DefaultNotchPx);   // 内容高在 `Rebuild` 里按条数写
-            if (!_warnedNoSensitivity)
-            {
-                _warnedNoSensitivity = true;
-                Debug.LogWarning("[ChatTab] 原版聊天列表是 OSA 虚拟列表、没有 `m_ScrollSensitivity` 判据"
-                                 + "（搜过 `bundle_menus_assets_all` 全部 ScrollRect + `ChatPanel` 子树）"
-                                 + "⇒ 滚轮保留旧值 48 px/格（`MenuScroll.DefaultNotchPx`），不是原版参数。");
-            }
+            // 🔴 **2026-10-17（第四十八会话 · `N46③`）就地订正（铁律 5）**：原注释写「判据查不到 ⇒ 保留 48」，
+            //    **不成立** —— 判据就在**上面同一段实读**里：OSA `_Params._ScrollSensivity = 20`（`:92`）。
+            //    它不是 UGUI `ScrollRect`（所以 142 条 `m_ScrollSensitivity` 里没有它），但 OSA 自己有这台参数。
+            _scroll = MenuScroll.TopAligned(_rect, 0f, 20f);   // 原版 OSA `_ScrollSensivity = 20`（内容高在 `Rebuild` 里按条数写）
             _scroll.Owner = _root.gameObject;             // 这一页不显示时指针层跳过它（切页走 `SetActive`）
             _scroll.OnChanged = Rebuild;                  // 🔴 滚轮只改 `Offset`、**画是调用方的事**：不接 = 滚了什么都不动
             // ⚠️ 走 `SocialPage.RegisterScroll` 那一份（**会出声**）——`PointerLayer.RegisterScroll` 在

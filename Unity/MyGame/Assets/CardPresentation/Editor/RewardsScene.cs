@@ -1608,12 +1608,26 @@ public static class RewardsScene
                     float jx1, jy1, jx2, jy2;
                     if (RectOf(rwIcon, out jx1, out jy1, out jx2, out jy2))
                     {
-                        float dx = ((jx1 + jx2) * 0.5f) - PxOf(skc2.position.x);
-                        CheckTrue(Mathf.Abs(dx) <= 34.5f,
-                                  "奖励块**居中**（原版 `m_ChildAlignment = 4 (MiddleCenter)`）：图标心离卡心 "
-                                  + dx.ToString("F1") + " px，须 ≤ 34.5（= 30 设计 × 1.15）"
-                                  + " —— ⛔ 这条只挡「摆错边」（左对齐 ≈ −157 · 按两格排 ≈ −99 都在窗口外），"
-                                  + "**挡不了** 20px 级的偏差（残差：数字那一截的 `preferredWidth` 静态算不出来）");
+                        // 🔴 **2026-10-17（R4 现核 · 末轮三条同源）**：原来的窗口 ±34.5 假设
+                        //   `numW = 50.29`（= prefab 占位串 '000' 的宽）；我们实画 '200'、且现行 px 口径下
+                        //   实得 **53.57**（R4 手算 advance 复现，误差 0.3%）⇒ 原版自己的值 −34.11 px
+                        //   只剩 0.39 px 余量，这条断言本身**过紧**。
+                        //   ⇒ 改成**与原版 HLG 规则等价、与 numW 无关**的关系式：
+                        //   `MiddleCenter` ⇒ (图标左沿 + count 框右沿)/2 = 卡心 − footer `pos.x`(−1.5201)。
+                        var cntN = FindChild(skc2, "count 1");
+                        var cntT = cntN != null ? cntN.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+                        CheckTrue(cntT != null, "（前提）骷髅卡 `count 1` 的 TMP 拿得到（块中心那条）");
+                        if (cntT != null)
+                        {
+                            var rc = new Vector3[4];
+                            cntT.rectTransform.GetWorldCorners(rc);
+                            float cntR = Mathf.Max(PxOf(rc[0].x), PxOf(rc[2].x));
+                            float blockC = (jx1 + cntR) * 0.5f;
+                            CheckNear(blockC - PxOf(skc2.position.x), -1.5201f * 1.15f, 2f,
+                                      "奖励块**居中**（原版 `m_ChildAlignment = 4 (MiddleCenter)`）："
+                                    + "(图标左沿 + `count` 框右沿)/2 = 卡心 − footer `pos.x` **−1.5201** 设计 ×1.15"
+                                    + " —— ⛔ 不依赖数字宽/字号；左对齐 / 按两格排都会红");
+                        }
                     }
                 }
                 // ③ **`count 1` 那一格**（🔴 本件之前**零断言覆盖**的静默站）。
@@ -1919,19 +1933,37 @@ public static class RewardsScene
                     && RectOf(cardBg, out ax1, out ay1, out ax2, out ay2)
                     && RectOf(ic0, out ix1, out iy1, out ix2, out iy2))
                 {
-                    float ic0Cx = (ix1 + ix2) * 0.5f;
-                    CheckNear(ic0Cx - ax1, 89.51f * 1.15f, 3f,
-                              "★ A1272 登录卡第 0 格（`MiddleRight` + `m_Padding.m_Left −20`）：图标心 − 卡左沿 "
-                            + "= **89.51** 设计 × 1.15 = **102.94** px（缺 `padL`/对齐 ⇒ 只剩 37.30 设计 ≈ 42.9 px ⇒ 红）");
+                    // 🔴 **2026-10-17（R4 现核）**：三条字面量都建立在 `numW = 50.29` 上，而那是
+                    //   **prefab 占位串（'000'）** 的宽 —— 我们运行期画 `'100'`、现行 px 口径实得 ≈53.53。
+                    //   ⇒ 改成**与原版 HLG 规则等价、与 numW 无关**的关系式：
+                    //     · 第 0 格 `MiddleRight + padL −20` ⇒ **count 框右沿 = 格右沿**（padR 0）
+                    //     · 第 1 格 `MiddleLeft + padL 10`   ⇒ **图标左沿 = 格左沿 + 10**
+                    //   ⛔ 不拿 `numW` / `PreferredWidth` 当期望（自证）；鉴别力同上（缺 padL/对齐退化 ⇒ 红）。
+                    var c0N = FindChild(a12Login, "count 0");
+                    var c0T = c0N != null ? c0N.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+                    CheckTrue(c0T != null, "（前提）登录卡 `count 0` 的 TMP 拿得到（`MiddleRight` 那条）");
+                    // ⚠️ 网格（325 宽的两格）不是贴在卡左沿：`9.7999 = 卡宽 347.64/2 − footer pos.x 1.5201 − 325/2`
+                    //   （原版字段；实测差 11.27 px = 9.7999×1.15，逐位对上）。
+                    const float GridL = 9.7999f;
+                    if (c0T != null)
+                    {
+                        var rc = new Vector3[4];
+                        c0T.rectTransform.GetWorldCorners(rc);
+                        float cntR = Mathf.Max(PxOf(rc[0].x), PxOf(rc[2].x));
+                        CheckNear(cntR, ax1 + (GridL + 162.5f) * 1.15f, 2f,
+                                  "★ A1272 登录卡第 0 格（`MiddleRight` + `m_Padding.m_Left −20`）："
+                                + "`count` **框右沿 = 格右沿**（网格左 9.7999 + 格宽 162.5 设计 × 1.15；padR = 0）"
+                                + "（缺 `padL`/对齐 ⇒ 整块右移 ⇒ 红）");
+                    }
                     float jx1, jy1, jx2, jy2;
                     if (RectOf(ic1, out jx1, out jy1, out jx2, out jy2))
                     {
-                        float ic1Cx = (jx1 + jx2) * 0.5f;
-                        CheckNear(ic1Cx - ic0Cx, 120.29f * 1.15f, 3f,
-                                  "★ A1272 登录卡两格的块间距 = **120.29** 设计 × 1.15 = **138.33** px"
-                                + "（= 格宽 162.5 + `padL 10` − 第 0 格落点 52.21；两格同一档 ⇒ 185.875 px ⇒ 红）");
+                        CheckNear(jx1, ax1 + (GridL + 162.5f + 10f) * 1.15f, 2f,
+                                  "★ A1272 登录卡第 1 格（`MiddleLeft` + `m_Padding.m_Left 10`）："
+                                + "**图标左沿 = 格左沿 162.5 + padL 10**（均含网格左 9.7999，设计 × 1.15）"
+                                + "（两格同一档 ⇒ 红）");
                     }
-                    else CheckTrue(false, "（前提）A1272 登录卡 `Reward 1` 量不到矩形（两格间距那条没查成）");
+                    else CheckTrue(false, "（前提）A1272 登录卡 `Reward 1` 量不到矩形（第 1 格那条没查成）");
                 }
                 else CheckTrue(false, "（前提）A1272 登录卡 `Daily Login Bonus Container` / `Reward 0` 量不到矩形");
             }
@@ -4421,29 +4453,33 @@ public static class RewardsScene
                     }
 
                     // ---- ③ 同一格：`Reward` 图标的矩形与 **uv 一起**被截（只截矩形不截 uv 会把图压扁）----
-                    var rwEdge = FindChild(cellEdge, "Reward");
+                    // 🔴 **2026-10-17（第四十八会话 · 桶 H1）**：`T21` 已把奖励格改成**抽屉整层画** ——
+                    //   根节点名是 `WildcardDrawer`（`ItemDrawer.DrawerWildcard`），主图在它下面的 `Icon`
+                    //   （`ItemDrawer.NodeIcon`）。旧断言找 `"Reward"` 恒 null ⇒ 「量得到（有图）」假红。
+                    //   几何也变了：图标装在**方框**里 = `min(297.655, 384.66) × 0.95 = 282.7725`
+                    //   （`ItemDrawer.Square(box, st.IconFill=0.95)`），不再是旧的 150 × 图宽高比。
+                    var rwDrawer = FindChild(cellEdge, ItemDrawer.DrawerWildcard);
+                    if (rwDrawer == null) rwDrawer = FindChild(cellEdge, "Reward");   // 旧口径兜底
+                    var rwEdge = rwDrawer != null ? FindChild(rwDrawer, ItemDrawer.NodeIcon) : null;
                     var rwQ = rwEdge != null ? rwEdge.GetComponentInChildren<ImageQuad>() : null;
                     CheckTrue(rwQ != null && rwQ.Texture != null, "那一格的 `Reward` 图标量得到（有图）");
-                    if (rwQ != null && rwQ.Texture != null)
+                    // 对照：完全落在视口里的那一格 ⇒ 整块宽、uv = 整张。
+                    // 🔴 **2026-10-17（桶 H1）**：「整块宽」**从这一格现量**（各页的 drawer 框不同 ——
+                    //   Campaign 页是 297.655×384.66、锻造格是别的值；写死 282.7725 只在锻造格成立）。
+                    var rwInDrawer = FindChild(FindChild(fcontent, "ForgeCell_" + (lvV + 1)), ItemDrawer.DrawerWildcard);
+                    var rwIn = rwInDrawer != null ? FindChild(rwInDrawer, ItemDrawer.NodeIcon) : null;
+                    var rwInQ = rwIn != null ? rwIn.GetComponentInChildren<ImageQuad>() : null;
+                    float fullW = rwInQ != null && rwInQ.Texture != null ? rwInQ.WorldW * 108f : -1f;
+                    CheckTrue(fullW > 0f, "（前提）完全落在视口里的那一格量得到**整块宽**（拿它当被截那一格的基准）");
+                    if (rwQ != null && rwQ.Texture != null && fullW > 0f)
                     {
-                        // 整块宽 = 框高 150（`ForgeTab.BuildRewardIcon` 里那个高度，⚠️ 那一处是「我们挑的」）
-                        //          × 图自身的宽高比（`keepAspect` 那条路）
-                        float fullW = 150f * ((float)rwQ.Texture.width / Mathf.Max(1f, rwQ.Texture.height));
                         CheckTrue(rwQ.WorldW * 108f < fullW - 1f,
                                   $"压在视口边上的那一格：`Reward` 渲出来的宽 **{rwQ.WorldW * 108f:F1} < 整块 {fullW:F1}**（真被截了）");
                         CheckTrue(rwQ.UvRect.width < 0.999f,
                                   $"…而且 **uv 跟着截**（`UvRect.width = {rwQ.UvRect.width:F3} < 1`）");
                     }
-                    // 对照：完全落在视口里的那一格 ⇒ 整块宽、uv = 整张
-                    var rwIn = FindChild(FindChild(fcontent, "ForgeCell_" + (lvV + 1)), "Reward");
-                    var rwInQ = rwIn != null ? rwIn.GetComponentInChildren<ImageQuad>() : null;
                     if (rwInQ != null && rwInQ.Texture != null)
-                    {
-                        float fullW2 = 150f * ((float)rwInQ.Texture.width / Mathf.Max(1f, rwInQ.Texture.height));
-                        CheckNear(rwInQ.WorldW * 108f, fullW2, 1f,
-                                  "对照：完全落在视口里的那一格 ⇒ `Reward` **整块宽**（没被截）");
-                        CheckNear(rwInQ.UvRect.width, 1f, 0.001f, "…且 uv 是整张（`width = 1`）");
-                    }
+                        CheckNear(rwInQ.UvRect.width, 1f, 0.001f, "对照：整块那一格的 uv 是整张（`width = 1`）");
 
                     // ---- ④ 🔴 **2026-10-13（A435 甲）：迁移后【改写】**（旧写法是「真毒框」，迁完会**静默空转**）----
                     // 旧写法 = 「把毒值下在**窗字段** `win.Clip` 上 ⇒ `Refresh()` 必须把它**原样还原**」。
@@ -5256,11 +5292,14 @@ public static class RewardsScene
                         }
                         // 进度条（**这一页独有**）：宽 = 条目宽 − 10 = 110、芯 12 高
                         var sl = FindChild(it0, "Slider/Background");
-                        CheckTrue(sl != null && RectOf(sl, out x1, out y1, out x2, out y2),
+                        // 🔴 **2026-10-17（第四十八会话 · 桶 H2）**：这条九宫格是**三块**（左端/中段/右端），
+                        //   `RectOf` 只取**第一颗 quad** = 左端块（`borderOut 20 ÷ 2 = 10`）⇒ 实得宽恒 10。
+                        //   改量**并集**；高 12 三块一致，所以同一条并集也成立。
+                        CheckTrue(sl != null && RectOfUnion(sl, out x1, out y1, out x2, out y2),
                                   "条目底下那条 `Slider`（**Campaign 变体独有**，母版没有）");
-                        if (sl != null && RectOf(sl, out x1, out y1, out x2, out y2))
+                        if (sl != null && RectOfUnion(sl, out x1, out y1, out x2, out y2))
                         {
-                            CheckNear(x2 - x1, 110f, 1f, "进度条宽 **110**（原版 `sizeDelta.x = −10`）");
+                            CheckNear(x2 - x1, 110f, 1f, "进度条宽 **110**（原版 `sizeDelta.x = −10`；量九宫格**并集**）");
                             CheckNear(y2 - y1, 12f, 1f, "进度条芯高 **12**（原版 `Background` 锚 0.2–0.8）");
                         }
                         // ⚠️ **不许有 `Arrow`** —— 这一变体**没有这个节点**（母版与 Forge 版才有）
@@ -7497,8 +7536,11 @@ public static class RewardsScene
             Check((timerN != null ? timerN.childCount : -1), 3,
                   "★ A516：`Timer` 的直接子件**恰好三件**（原版 = 'More Rewards In' + `WF_icon_clock` + 倒计时；"
                 + "改成两件那一版 ⇒ 红）");
-            CheckNear(TmpEdgePx(moreN, true), 935.0f, 1.5f,
-                      "★ A516：那颗的**真渲染右缘** = 框右沿 **935.0**（原版 `对齐=Right/Capline`；"
+            // 🔴 **2026-10-17（R2 现核 · 桶 ⑦）**：原版期望值 935 是**排版框右沿**（`textBounds`），
+            //   而 `TmpEdgePx(…, true)` 量的是**墨迹**右缘 ⇒ 差 2.21px（末字右边距）。
+            //   与同文件 A493/A517 那批**同一把尺子**：`edgePx(node, false)`。
+            CheckNear(edgePx(moreN, false), 935.0f, 1.5f,
+                      "★ A516：那颗的**排版框右缘** = 框右沿 **935.0**（原版 `对齐=Right/Capline`；"
                     + "写成 `AlignLeft` ⇒ 右缘 = 245.5 + 文字宽 ⇒ 红）");
             var moreLb = moreN != null ? moreN.GetComponentInChildren<Label>() : null;
             CheckTrue(moreLb != null && Mathf.Abs(moreLb.FontPxNow - 50f) <= 0.5f,
@@ -7558,13 +7600,22 @@ public static class RewardsScene
                 var c = cases[i];
                 CheckTrue(c.Node != null, $"（前提）{c.What}：节点找得到（找不到 ⇒ 本条等于没查）");
                 if (c.Node == null) continue;
-                Check(FontName(c.Node), c.Want, $"★ {c.What}：TMP 指向 **{c.Want}**（原版 `m_fontAsset`）");
                 var lb = c.Node.GetComponentInChildren<Label>(true);
                 CheckTrue(lb != null, $"（前提）{c.What}：`Label` 拿得到");
                 if (lb != null)
-                    Check(lb.ActualFace,
-                          c.Want == "Asar-Regular SDF" ? TmpFont.Face.LatinUi : TmpFont.Face.LatinCardBody,
-                          $"★ …`Label.ActualFace` = 对应那一面（{c.Want}；纯拉丁文本，不触发汉字闸）");
+                {
+                    // 🔴 **2026-10-17（R2 现核 · 桶 ⑧⑨）**：`face:` 已经接对了 —— 但这几颗的文字
+                    //   **是中文**（`2小时 34分钟`，`Loc.Default = Chinese`）⇒ `ActualFace` 被汉字闸
+                    //   折回 **Cjk**，`_tmp.font` 也随之是 Noto。旧断言拿「Pragati」去比实际渲染面
+                    //   = 把「指派面」和「实际面」混为一谈。
+                    var wantFace = c.Want == "Asar-Regular SDF" ? TmpFont.Face.LatinUi : TmpFont.Face.LatinCardBody;
+                    Check(lb.Face, wantFace, $"★ {c.What}：**指派面** = {wantFace}（原版 `m_fontAsset`）");
+                    bool hasCjk = Loc.HasCjk(lb.Text);
+                    Check(lb.ActualFace, hasCjk ? TmpFont.Face.Cjk : wantFace,
+                          $"★ …**实际面** = {(hasCjk ? "Cjk（文本含汉字 ⇒ 汉字闸）" : wantFace.ToString())}"
+                        + (hasCjk ? "；这不是没接面，是文本本身是中文" : ""));
+                    if (!hasCjk) Check(FontName(c.Node), c.Want, $"★ {c.What}：TMP 指向 **{c.Want}**（原版 `m_fontAsset`）");
+                }
             }
         }
 

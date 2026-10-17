@@ -102,8 +102,11 @@ namespace CardPresentation
         public const float DescFont = 45f, DescFontMin = 18f, DescFontMax = 45f, DescFontBase = 36f;
 
         // 图 / 九宫（prefab + 素材库实读）
-        /// <summary>`Army Icon Shadow` / `Army Text Shadow` 的底图（102×102 · border 50,50,50,50 · 黑）。</summary>
-        public const string ShadowArtName = "40k_Smooth shadow background";
+        /// <summary>`Army Icon Shadow` / `Army Text Shadow` 的底图（102×102 · border 50,50,50,50 · 黑）。
+        /// 🔴 **2026-10-17（第四十八会话 · 桶 G4）**：原版资产名是 `40k_Smooth shadow background`（空格），
+        ///   但导入器把**空格换成了下划线** ⇒ `CardArt.MenuUi` 按原名取不到，两张影子一直**静默没画**。
+        ///   同一族：`Glow UI W40K` → `Glow_UI_W40K`。</summary>
+        public const string ShadowArtName = "40k_Smooth_shadow_background";
         public const float ShadowTexW = 102f, ShadowTexH = 102f;
         /// <summary>`SelectedTextBg` 的底图（prefab 实读：`40k_replace_display` 468×152 · Simple · (0.632,0,0,1)）。
         /// 🔴 **本机 `Resources/` 里没有这张** ⇒ 取不到时底板不画（文字照画）+ 出声。</summary>
@@ -112,8 +115,9 @@ namespace CardPresentation
         public static readonly Color SelBgTint = new Color(0.632f, 0f, 0f, 1f);
         /// <summary>`Glow` 的出厂色（prefab 实读 (0,0.646,0.991,1)）—— 运行期被 `glowColor` 覆盖、并把 a 置 0。</summary>
         public static readonly Color GlowFactoryTint = new Color(0f, 0.646f, 0.991f, 1f);
-        /// <summary>`Glow` 的图名（prefab 实读；123×123 · Simple）。</summary>
-        public const string GlowArtName = "Glow UI W40K";
+        /// <summary>`Glow` 的图名（prefab 实读；123×123 · Simple）。
+        /// 🔴 **2026-10-17（桶 G4）**：资源落盘名是 `Glow_UI_W40K`（下划线），原版 prefab 里写的是空格。</summary>
+        public const string GlowArtName = "Glow_UI_W40K";
 
         // ============================================================ 数据 + 状态
         /// <summary>这张卡对应的那一副起始卡组（窗口解析好后喂进来）。</summary>

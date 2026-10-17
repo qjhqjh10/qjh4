@@ -743,7 +743,7 @@ namespace CardPresentation
             // ✅ 于是「藏了 Collect ⇒ 玩家领不了奖」**不成立**：领不到奖那一态（`Collectable`）它是**在**的
             //    （`CollectDaily` 只在 `St == Collectable` 时才真的发奖 —— 见 `DailyData.CollectDaily`）。
             if (!claimed)
-                BuildButton(parent, btn, "40K_button", new Color(1f, 0.53f, 0f, 1f), "Collect", 35f, "Generic UI Button",
+                BuildButton(parent, btn, "40K_button", new Color(1f, 0.53f, 0f, 1f), Loc.T("MainMenu/General/Collect"), 35f, "Generic UI Button",
                             () => CollectThenRebuild(index), DailyData.CanCollectDaily(index));
 
             // `Trash mission`  N(1, 1,0, 1,0, .5,.5, -307.44,40.711, 49.104,49.368)   `40k_general_bt_yellow` 色 (1,0.77,0.33,1)
@@ -936,7 +936,7 @@ namespace CardPresentation
             var btn = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                      new Vector2(3.1692f, -24.0231f), new Vector2(255.992f, 74.6201f));
             // 🆕 **A75①**：这一颗也走 `OnCollect` ⇒ **领到就重建整页**（判据见 `CollectThenRebuild(string,…)`）。
-            BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), "Collect", 35f, "Generic UI Button",
+            BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), Loc.T("MainMenu/General/Collect"), 35f, "Generic UI Button",
                         () => CollectThenRebuild("登录卡", () => DailyData.CollectLogin()), DailyData.CanCollectLogin());
 
             // `footer.TimerHolder`  N(3, 0,0.5, 1,0.5, .5,0, 0,-118.5, 0,57.167)   文本 'Resets in …' fs28 灰
@@ -1160,7 +1160,7 @@ namespace CardPresentation
             //   └ `Button Text` 的 TMP 实读（`MonoBehaviour_-972942723976875335.json`）：`'Collect'` ·
             //     `fs **44**` · `base 12` · `auto[12 ~ 44]` · `折行 0` · `H=Center`
             //     （⚠️ 设计字号改前是 34.05 = **Small 那一份**的 `m_fontSize`；窗口 12/44 两处同值）。
-            BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), "Collect", 44f, "Generic UI Button",
+            BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), Loc.T("MainMenu/General/Collect"), 44f, "Generic UI Button",
                         () => CollectThenRebuild("骷髅卡", () => DailyData.CollectSkulls()), DailyData.CanCollectSkulls(),
                         // 🆕 **A336③**：第三格 = 原版 `Generic UI Button/Button Text` 的 `m_fontSizeBase` = **12.0**
                         //   （判据 = 全库 `'Collect'` 那族 `auto[12.0~44.0]` 的件逐颗实读都是 base 12.0 ——
@@ -1315,7 +1315,7 @@ namespace CardPresentation
                                         new Vector2(582.18f, -29.3f), new Vector2(300.631f, 102.049f));
             var btn = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                      new Vector2(3.1692f, 0f), new Vector2(294.29f, 74.62f));
-            BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), "Collect", 44f, "Generic UI Button",
+            BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), Loc.T("MainMenu/General/Collect"), 44f, "Generic UI Button",
                         () => CollectThenRebuild("周常卡", () => DailyData.CollectWeekly()), DailyData.CanCollectWeekly());
             // ⚠️ 周常**没有「奖励格」这一件**（原版 `Rewards` 出厂 `activeSelf = false`，正本 §3·5 #8）
             //    ⇒ B4 改的是「每日行 / 登录卡 / 骷髅卡」三处；周常那份奖励只在 `CollectWeekly` 里（500 金块，我们挑的）。
@@ -1908,7 +1908,11 @@ namespace CardPresentation
             // 🆕 **A1205**：三档（见上面 summary）都在 `Txt` 的 `autoMinPx`/`autoMaxPx`/`autoBasePx` 上，
             //    由**调用点**传；`折行 = 0` 是这三档**共同**的那一格 ⇒ 这里恒 `wrapOff: true`。
             var cLb = Txt(parent, c, countText, Color.white, "count " + key, 40f, autoMinPx, autoMaxPx, autoBasePx,
-                wrapOff: true);
+                wrapOff: true, face: TmpFont.Face.LatinCardBody);
+            // 🔴 **2026-10-17（R2 现核 · 桶 ②③）**：原版这两颗 `count`（MB `1175879379365507769` /
+            //   `1234353403895984825`）的 `m_sharedMaterial` = `-5050103597772954521` = **Pragati Atlas**
+            //   ⇒ 必须走 `LatinCardBody`。之前没传 `face:` ⇒ 走 CJK，`numW` 比原版宽 36%，
+            //   后面按 `numW` 重摆的整块（骷髅 −44.6px / 登录卡 81.93、159.34）全跟着偏。
             // 🔴 **2026-10-10（A1271）→ 2026-10-17（`A1272`）就地订正（铁律 5）：两档宿主的水平对齐【不一样】。**
             //   · **横向变体**（登录卡 / 骷髅卡，`sideIconW > 0`）：原版 `count` 的 `m_HorizontalAlignment = 1 (Left)`
             //     （实读：骷髅卡 MB `1175879379365507769` · 登录卡 MB `1234353403895984825` 同档）⇒ 显式左对齐。
@@ -1943,16 +1947,19 @@ namespace CardPresentation
                     float off2 = sidePadL + (r.W - sidePadL - (sideIconW + sideGap + numW)) * sideAlignT;
                     var dh2 = new PxRect(r.x1 + off2, r.y1, r.x1 + off2 + sideIconW, r.y2);
                     // 🔴 `A1272③`：`count` 的**自框宽 = `numW`**（原版那条 CSF `h:PreferredSize` 的结果）。
-                    var c2 = new PxRect(dh2.x2 + sideGap, r.y1, dh2.x2 + sideGap + numW, r.y2);
+                    //   ⚠️ **2026-10-17（R4 实测）**：框宽 == preferredWidth 是「刀刃」——任何一次度量口径漂移
+                    //   都会先落进 TMP 的「压字距」那一支 ⇒ 这里留 **0.5 设计 px** 余量（不改变视觉）。
+                    var c2 = new PxRect(dh2.x2 + sideGap, r.y1, dh2.x2 + sideGap + numW + 0.5f, r.y2);
                     if (artQ != null)
                     {
                         var f2 = R(dh2);
                         artQ.transform.localPosition = MenuDraw.Local(parent, f2.x1, f2.y1, f2.x2, f2.y2);
                     }
-                    // 重设字框宽：`SetWrapWidth` 会把折行模式无条件开成 `Normal` ⇒ 立刻按原版（折行 0）还原。
+                    // 重设字框：🔴 **2026-10-17（R2 现核）**：`SetWrapWidth` 会把 TMP `sizeDelta` 写成
+                    //   `(w, 0)`（`TmpFont.cs:498-503`）⇒ **框高变 0**（断言 `count 框高 89.29` 就是这么红的）。
+                    //   ⇒ 改走 `FitWindow`（`SetAutoFitBox` 会同时写回框宽/框高），再还原折行（原版折行 0）。
                     // ⚠️ 这两句都会重排 mesh，所以**必须排在最后那次 `AlignL` 之前**（否则对齐被抹掉）。
-                    var f2c = R(c2);
-                    cLb.SetWrapWidth(LayoutSpace.Px(f2c.W));
+                    FitWindow(cLb, c2, autoMinPx, autoMaxPx > 0f ? autoMaxPx : 40f, autoBasePx);
                     cLb.SetWrapping(false);
                     AlignL(cLb, c2);
                 }

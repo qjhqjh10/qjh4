@@ -1162,9 +1162,10 @@ namespace CardPresentation
                 {
                     var tr = g.BadgeText;
                     // 原版 `Text (TMP)`：**fs36 钉死（无 auto）· 折行=1 · Left/Top**
-                    // ⚠️ **2026-10-17（`A1753`）没查到这一颗的材质** —— 普查只逐颗核了 `name` / `Available Counter` /
-                    //    `Timer Text` / `Price Display/text` 四类；`Badge/Text (TMP)` 的原版 `_FaceColor` **未查**
-                    //    ⇒ **保留顶点白**（⛔ 不猜；查到了再改）。
+                    // ✅ **2026-10-17（`N49②` 现核，原账「已订正」当时并没落进代码）**：
+                    //    `Badge/Text (TMP)` 的原版材质 = **`Pragati-Regular Atlas Material`**
+                    //    （pid `-5050103597772954521`），`_FaceColor = (1,1,1,1)`、`_OutlineWidth = 0`
+                    //    （5 份同名 MB 逐份同值）⇒ **保留顶点白是对的**，⛔ 不再是「未查」。
                     LabelFit(badge, R(tr.x1, tr.y1, tr.x2, tr.y2), c.BadgeText, NameColor, NBadgeText,
                              36f, 0f, qBase + QoText, true, true, face: TmpFont.Face.LatinCardBody);
                 }

@@ -1530,7 +1530,8 @@ namespace CardPresentation
         /// —— 见 `ApplySoftEdges` 那一大段（判据/代价都在那儿）。⚠️ 只在 `clip` 有值时有意义。</param>
         public static ImageQuad Rect(Transform parent, Texture2D tex, PxRect r, string name, int q,
                                      Color? tint = null, bool keepAspect = false, PxRect? clip = null,
-                                     Vector2 clipSoftness = default(Vector2))
+                                     Vector2 clipSoftness = default(Vector2),
+                                     float skewX = 0f, float skewY = 0f)
         {
             if (tex == null) return null;
             // 🔴 **2026-10-12（A198② 阶段 1）：裁切状态走【一处】共用解析**（`ViewportClip.Resolve`）——
@@ -1591,7 +1592,37 @@ namespace CardPresentation
             //    见上面 `uv = new Rect(...)` 那两行）—— **别改成 `quad.UvRect`**（切开后它会被写小，见 `ApplySoftEdges`）
             if (clip.HasValue && (clipSoftness.x > 0f || clipSoftness.y > 0f))
                 ApplySoftEdges(quad, new PxRect(x1, y1, x2, y2), clip.Value, clipSoftness, uv);
+            // 🆕 **2026-10-17（`N53②` SkewedImage）**：斜切放在最后。
+            //    ⚠️ 斜切与软边**不同时用**（软边会把这块切成子块、子块不继承斜切）；
+            //    今天用到斜切的件都没有软边 —— 真要同时用，得把 shear 传进 `ApplySoftEdges`。
+            if (skewX != 0f || skewY != 0f) quad.SetShear(skewX, skewY);
             return quad;
+        }
+
+        /// <summary>🆕 **2026-10-17（第四十八会话 · `N53①`）：竖直多段渐变**（原版 `Gradient2`
+        /// `_gradientType = 1 (Vertical)` + `_modifyVertices = 1` + `SplitTrianglesAtGradientStops`）。
+        /// <para>做法：按色标把矩形切成 **N−1 条横带**，每条一个 quad、UV 取对应那一段、四角顶点色按两档
+        /// 色标插值 ⇒ 与 `Gradient2` 的分段线性结果**等价**（没有中段白平台的问题）。</para>
+        /// <para>⚠️ 方向：Unity 顶点 y 向上 ⇒ `t = 0` 在**下**；本工程的 `PxRect` y 向下 ⇒ 已在这一层翻过来。
+        /// ⚠️ alpha：Unity `Gradient.Evaluate` 只取 **alphaKeys**（序列化的 `atime0/1` + `key0.a/key1.a`），
+        /// 色标自己的 `.a`（`key2.a/key3.a`）**不生效** —— 判据 → `ParentEventWindow` 文件头那条实读。</para></summary>
+        public static Transform GradientV(Transform parent, Texture2D tex, PxRect r, int q, string name,
+                                          float[] ts, Color[] cs)
+        {
+            var root = Node(parent, name, r);
+            if (tex == null || ts == null || cs == null || ts.Length < 2 || cs.Length < ts.Length) return root;
+            for (int i = 0; i + 1 < ts.Length; i++)
+            {
+                float t0 = Mathf.Clamp01(ts[i]), t1 = Mathf.Clamp01(ts[i + 1]);
+                if (t1 - t0 < 1e-5f) continue;
+                float yTop = r.y2 - r.H * t1;          // t=1（上）⇒ 屏幕 y 小
+                float yBot = r.y2 - r.H * t0;
+                var band = Rect(root, tex, new PxRect(r.x1, yTop, r.x2, yBot), "Band " + i, q);
+                if (band == null) continue;
+                band.SetUvRect(new Rect(0f, t0, 1f, t1 - t0));      // uv 的 v 自下而上
+                band.SetCornerColors(cs[i], cs[i], cs[i + 1], cs[i + 1]);   // 底 = t_i · 顶 = t_{i+1}
+            }
+            return root;
         }
 
         /// <summary>原版 `Image.Type = Sliced`：九宫格。`border` 是**贴图像素**的四边（L,B,R,T）。
@@ -1612,7 +1643,8 @@ namespace CardPresentation
         public static GameObject Nine(Transform parent, Texture2D tex, PxRect r, Vector4 border,
                                       float texW, float texH, int q, Color? tint = null, bool fillCenter = true,
                                       string name = "Nine", Vector4? borderOutPx = null, PxRect? clip = null,
-                                      Vector2 clipSoftness = default(Vector2))
+                                      Vector2 clipSoftness = default(Vector2),
+                                      float skewX = 0f, float skewY = 0f)
         {
             if (tex == null) return null;
             // 🔴 **2026-10-12（A198② 阶段 1）**：取裁切状态走同一份解析（同 `Rect` 的那一段，判据在 `ViewportClip`）。
@@ -1645,6 +1677,16 @@ namespace CardPresentation
                     ApplySoftEdges(q2, QuadRectPx(q2), clip.Value, clipSoftness, q2.UvRect);
                 }
             }
+            // 🆕 **2026-10-17（`N53②` SkewedImage）**：九宫格按**子块**分别斜切，
+            //   块心在父件里的偏移（`localPosition`）要一起进算式 —— 否则每块各绕自己中心切、块间错开。
+            //   ⚠️ 放在裁切/软边**之后**：那两趟会改子块的 `localPosition`，先切就作废。
+            if (skewX != 0f || skewY != 0f)
+                foreach (var q2 in go.GetComponentsInChildren<ImageQuad>(true))
+                {
+                    if (q2 == null || !q2.gameObject.activeSelf) continue;
+                    var lp = q2.transform.localPosition;
+                    q2.SetShear(skewX, skewY, lp.x, lp.y);
+                }
             return go;
         }
 
@@ -1887,12 +1929,16 @@ namespace CardPresentation
             var lb = Label.Create(parent, text, Local(parent, r.x1, r.y1, r.x2, r.y2), 5, color,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
-            lb.SetRenderQueue(q);
+            // 🔴 **2026-10-17（第四十八会话 · 桶 G6）：`SetRenderQueue` 必须排在 `SetFace` 之后。**
+            //   `SetFace` 换 `_tmp.font` 会连带换掉 `m_sharedMaterial`（每份字体资产自带 atlas 材质），
+            //   而材质一换，原先写在上面的 `renderQueue` 就**静默冲回 3000** —— 实测模式卡行底
+            //   期望 3302 实得 3000，聊天文字被行底盖住。全仓 424 个 `face:` 站点都受影响。
             // 🔴 **2026-10-17（A1024③ 第 0 批）：可选字体面 —— 默认 `Cjk` ⇒ 旧调用点零行为变化。**
             //    ⚠️ **次序不能反**：`SetFace` 必须在 `SetGlyphHeight` **之前** —— 字号是按
             //    `ActualFace` 的 em 换算的（`Label.TmpFontSize` 读 `ActualFace`），反了会按 CJK 的
             //    行盒算出一个偏小的字号（静默、不报错）。判据 → `Battle/Label.cs` 的 `SetFace` / `TmpFontSize`。
             if (face != TmpFont.Face.Cjk) lb.SetFace(face);
+            lb.SetRenderQueue(q);
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
             if (wrapPx > 0f)
             {

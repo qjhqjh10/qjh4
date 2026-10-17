@@ -45,19 +45,21 @@
 //
 // ============================ 我们侧的对位（逐件写清，不冒充原版）============================
 // · **`Menu Dark Background` 的关闭语义**：原版 `BackgroundCloseButton.window` 的 PPtr 是 **0**、`onClick` 也是空
-//   （MB `2649394885390853425` 实读）⇒ 严格照抄是「点暗底什么都不发生」。本窗按**同族弹窗的既有口径**
-//   做成「点暗底 = 关窗」（`ItemDisplayWindow` / `BattleLogPopup` / `T26` 那几扇一致）——
-//   ⚠️ **这一条是我们挑的、不是原版 prefab 字段**，如实标注。关窗音走 `GameWindow.Close()` 的家族默认（`ButtonClick Back`）。
+//   （MB `2649394885390853425` 实读）⇒ **点暗底什么都不发生**（但那一层仍然吃掉点击）。
+//   🔴 **2026-10-17（`N51③`）**：原来做成「点暗底 = 关窗」是**我们挑的**，按铁律 11 已改回原版语义
+//   （`MenuDraw.Absorb` 吸收层）。关窗只走右上那颗钮 / ESC（家族默认关窗音 `ButtonClick Back`）。
 // · **段模板的卡片格**：原版那一格是 `Card Drawer`（`CardDrawer + ItemDrawerComponents`，ARF 高控宽 0.66）。
-//   我们没有卡片引用（见上面的数据缺口）⇒ 只建到「卡片区容器」这一层；若调用方**真喂了**卡片引用，
-//   本窗会**出声**说「卡片格没画」（⛔ 不假装画了）。
-// · **折叠（`Toggle`）只做「卡片区开/关 + 箭头换图换色」**：原版靠 `VerticalLayoutGroup` + `ContentSizeFitter`
-//   重算整列（收起后下面的段会**向上挪**）；我们这一层没有布局组、段高在 `BuildSections` 里一次算定
-//   ⇒ **收起不重排**（卡片区本来就按张数预留了高度）。⚠️ 这是**已知偏离**，等卡片格真接上时一并补。
-// · **Toggle 的垂直档**：原版 `Counter` 的 `m_VerticalAlignment = 4096`(Baseline)，`Label.VAlign` 没有这一档
-//   ⇒ 那两格文字**保持默认居中**（如实标注；Title 的 8192 = `Midline` 已按档接）。
+//   ✅ **2026-10-17（`N51②`）已画**：按 `CardRefs` 在本地卡池里查（`CardDatabase.Find`）→ `CardView`；
+//   查不到的格如实计数 + 出声（⛔ 不假装画了）。
+// · **折叠（`Toggle`）**：✅ **2026-10-17（`N51②`）已重排** —— 收起后下面的段按高度差上移、
+//   滚动内容高同步（原版 `VerticalLayoutGroup` + `ContentSizeFitter` 的等价物）。
+// · **垂直档**：TMP 的 `VerticalAlignmentOptions` = Top 0x100 · Middle 0x200 · Bottom 0x400 ·
+//   **Baseline 0x800(2048)** · **Midline 0x1000(4096)** · **Capline 0x2000(8192)**。
+//   原版 `Counter` = **4096 = Midline**、`Title` = **8192 = Capline**（旧注释把后者记成 Midline，2026-10-17 已订正）。
+//   这两档我们都有 ⇒ 逐颗按值接。
 using System.Collections.Generic;
 using UnityEngine;
+using RuleEngine;      // `CardDatabase` / `CardDef`（来源段的卡片格）
 
 namespace CardPresentation
 {
@@ -143,7 +145,10 @@ namespace CardPresentation
         /// ⚠️ 它的框右沿 1594.84 **超出段右沿 1568.25**（原版 prefab 就这么写的，文字左对齐从 375.15 起排
         /// ⇒ 可见字仍落在段内）。</summary>
         public const float HeaderTitleX1 = 375.1523f, HeaderTitleX2 = 1594.8423f;
-        /// <summary>`Header/Counter`（`5/5` · fs42 · Right/Baseline；dump 宽 **1366.64**）。
+        /// <summary>`Header/Counter`（`5/5` · fs42 · Right/**Midline**；dump 宽 **1366.64**）。
+        /// 🔴 **2026-10-17（第四十八会话 · `N51④`）就地订正（铁律 5）**：原账把 `m_VerticalAlignment = 4096`
+        /// 记成 **Baseline** —— **错**，TMP 枚举里 **`0x800 = Baseline`、`0x1000(=4096) = Midline`**。
+        /// 我们**已经有 `Midline` 这一档** ⇒ 按它接。
         /// ⚠️ 框左沿 201.60 在段外，右对齐到 1568.245（= 段右沿）。</summary>
         public const float CounterX1 = 201.605f, CounterX2 = 1568.245f;
         public const float HeaderFont = 42f;
@@ -298,10 +303,12 @@ namespace CardPresentation
             // ---- 1) `Menu Dark Background`（压暗 + 「点窗外关窗」）----
             _shade = MenuDraw.Node(transform, "Menu Dark Background", ShadeR);
             MenuDraw.Rect(_shade, CardArt.Solid(), ShadeR, "Image", QShade, ShadeTint);
-            //   原版 prefab 的 `BackgroundCloseButton.window` 是 **空 PPtr**（MB `2649394885390853425` 实读）
-            //   ⇒ 严格照抄 = 点暗底什么都不发生；本窗按**同族弹窗的既有口径**做成「点暗底 = 关窗」
-            //   （我们挑的，不是原版字段 —— 见文件头）。
-            MenuDraw.ShadeHit(_shade, ShadeR, QShade, QHit, () => Close(), "BackgroundHit");
+            //   原版 prefab 的 `BackgroundCloseButton.window` 是 **空 PPtr**、`onClick` 也空
+            //   （`BackgroundCloseButton__OnPointerClick.c`：`if (window != null) Close(); if (onClick != null) Invoke();`）
+            //   ⇒ **点暗底什么都不发生**，但那一层**仍然吃掉点击**。
+            //   🔴 **2026-10-17（第四十八会话 · `N51③`）**：原来做成「点暗底 = 关窗」是**我们挑的**；
+            //   按铁律 11 改回原版语义 ⇒ 走 `MenuDraw.Absorb`（吸收层：吃掉点击、零派发、零视觉）。
+            MenuDraw.Absorb(_shade, "BackgroundHit", ShadeR, QShade, QHit);
 
             // ---- 2) `Generic Window Red Background Big`（九宫底；`Image.m_RaycastTarget = 1` ⇒ 吃点击）----
             _panel = MenuDraw.Node(transform, "Generic Window Red Background Big", PanelR);
@@ -314,8 +321,8 @@ namespace CardPresentation
             _titleNode = MenuDraw.Node(transform, "Title", TitleR);
             _title = MenuDraw.TextBox(_titleNode, TitleR, ResolvedTitle(), Color.white, "Text",
                                       TitleFont, TitleFontMin, QText, TitleFontMax, TitleFontBase, face: TmpFont.Face.LatinUi);
-            // 原版 `m_VerticalAlignment = 8192`（Midline）· 横向 2（Center，`TextBox` 默认居中）
-            MenuDraw.SetVAlign(_title, Label.VAlign.Midline, TitleR);
+            // 原版 `m_VerticalAlignment = 8192` = **Capline**（不是 Midline · TMP 枚举见文件头）· 横向 2（Center）
+            MenuDraw.SetVAlign(_title, Label.VAlign.Capline, TitleR);
 
             // ---- 4) `TopBar`（`40k_main_line` 九宫）----
             _topBar = MenuDraw.Node(transform, "TopBar", TopBarR);
@@ -487,9 +494,11 @@ namespace CardPresentation
             var titleR = Sh(new PxRect(HeaderTitleX1, hdrTop, HeaderTitleX2, hdrTop + HeaderH));
             var title = MenuDraw.TextBox(header, titleR, titleText, Color.white, "Title", HeaderFont, 0f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(title, titleR);
-            MenuDraw.SetVAlign(title, Label.VAlign.Midline, titleR);
+            MenuDraw.SetVAlign(title, Label.VAlign.Capline, titleR);   // 原版 8192 = Capline（见文件头）
 
-            // `Header/Counter`（Right/Baseline · fs42）—— 原版格式串读不到，prefab 出厂字 `5/5` ⇒ `{0}/{1}`（如实标注）
+            // `Header/Counter`（Right/Midline · fs42）—— 格式串**已解出** = `"{0}/{1}"`
+            //   （`WhereToGetCardsSection__Initialize.c:64` 的 `System_String__Format(DAT_18426de28,…)`，
+            //    `stringliteral.json @0x426DE28 = "{0}/{1}"`）⇒ `Owned + "/" + Total` **逐字一致**。
             string counterText;
             if (data.HasValue)
             {
@@ -501,7 +510,8 @@ namespace CardPresentation
             var counterR = Sh(new PxRect(CounterX1, hdrTop, CounterX2, hdrTop + HeaderH));
             var counter = MenuDraw.TextBox(header, counterR, counterText, Color.white, "Counter", HeaderFont, 0f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignRight(counter, counterR);
-            // ⚠️ 原版 `m_VerticalAlignment = 4096`(Baseline)，`Label.VAlign` 没有这一档 ⇒ 保持默认居中（如实标注）。
+            // 🔴 **`N51④`**：原版 `m_VerticalAlignment = 4096` = **Midline**（不是 Baseline）。
+            MenuDraw.SetVAlign(counter, Label.VAlign.Midline, counterR);
 
             // `Header/Toggle`（`EverguildToggle`：on/off 两个 sprite + 两档 tint）
             //   纵向**在 Header 里居中**（原版 raw `m_AnchoredPosition.y` 给的中心恰好 = Header 中心）。
@@ -536,19 +546,54 @@ namespace CardPresentation
                 v.ToggleQuad = toggleQuad;
 
                 if (cards > 0)
-                {
-                    // 🔴 **卡片格画不出来**：段数据里的卡片引用是原版 `LoadableReference<Card>`，
-                    //   本机**没有解析源**（`CardsSpecialConfig` 全库 0 命中，见文件头）⇒ 出声，⛔ 不假装画了。
-                    Debug.LogWarning("[WhereToGetCards] 段「" + titleText + "」带了 " + cards + " 张卡，"
-                                   + "但**卡片格没画**：原版那一格是 `CardDrawer + ItemDrawerComponents`，"
-                                   + "它的卡片引用（`LoadableReference<Card>`）在本机没有解析源"
-                                   + "（`CardsSpecialConfig` 全 `assets_full` 0 命中）⇒ 只保留了卡片区容器。");
-                }
+                    DrawCardCells(gridNode, hdrTop, data.Value, cards);
             }
             return node;
         }
 
-        /// <summary>段折叠（原版 `WhereToGetCardsSection.SetVisibility`）：卡片区开/关 + 箭头换图/换色。</summary>
+        static List<CardDef> _pool;
+        static List<CardDef> Pool()
+        {
+            if (_pool == null) _pool = CardDatabase.Load();
+            return _pool;
+        }
+
+        /// <summary>🆕 **2026-10-17（第四十八会话 · `N51②`）：把来源段的卡片格画出来。**
+        /// <para>数据：`SectionData.CardRefs`（原版 `LoadableReference&lt;Card&gt;` 的 id/名）。
+        /// 本机**拿不到那个引用对象**，但**能按 id/名在我们的卡池里查**（`CardDatabase.Find`）——
+        /// 查得到的照原版画 `CardView`，查不到的如实计数 + 出声（⛔ 不假装画了）。</para>
+        /// <para>网格：原版 `EverguildGridLayoutGroup`（cell 206.667×290.4 · spacing 25/35 · padTop 40）
+        /// ⇒ 按 `Columns()` 的列数逐格摆；卡按格高等比缩（同 Collection 卡池那条 `CardView.SetPose`）。</para></summary>
+        void DrawCardCells(Transform grid, float hdrTop, SectionData d, int cards)
+        {
+            int cols = Columns();
+            int drawn = 0, unresolved = 0;
+            float scale = GridCellH / (CardView.Height * 108f);
+            for (int i = 0; i < cards; i++)
+            {
+                string id = (d.CardRefs != null && i < d.CardRefs.Length) ? d.CardRefs[i] : null;
+                var def = string.IsNullOrEmpty(id) ? null : CardDatabase.Find(Pool(), id);
+                if (def == null) { unresolved++; continue; }
+
+                int col = i % cols, row = i / cols;
+                float x1 = SectionX1 + col * (GridCellW + GridSpaceX);
+                float y1 = hdrTop + HeaderH + GridPadTop + row * (GridCellH + GridSpaceY);
+                var cell = Sh(new PxRect(x1, y1, x1 + GridCellW, y1 + GridCellH));
+
+                var cv = CardView.Create(grid, BattleDriver.ToCardData(def, def.Faction), "SourceCard_" + (i + 1));
+                if (cv == null) continue;
+                cv.SetPose(MenuDraw.Local(grid, cell.x1, cell.y1, cell.x2, cell.y2), 0f, scale);
+                drawn++;
+            }
+            if (unresolved > 0)
+                Debug.LogWarning("[WhereToGetCards] 这一段有 " + unresolved + "/" + cards + " 张卡的引用"
+                               + "**在本机卡池里查不到**（`CardRefs` 是原版 `LoadableReference<Card>` 的 id/名）"
+                               + "⇒ 那几格**没画**（已画的 " + drawn + " 张是能对上的）。");
+        }
+
+        /// <summary>段折叠（原版 `WhereToGetCardsSection.SetVisibility`）：卡片区开/关 + 箭头换图/换色
+        /// + 🔴 **2026-10-17（`N51②`）重排**：原版靠 `VerticalLayoutGroup` + `ContentSizeFitter`
+        /// 重算整列（收起后下面的段会**向上挪**）—— 我们现在按段高差逐段平移后面的节点、并同步滚动内容高。</summary>
         void ToggleSection(SectionView v)
         {
             if (v == null) return;
@@ -560,6 +605,23 @@ namespace CardPresentation
                 if (tex != null) v.ToggleQuad.SetTexture(tex, true);
                 v.ToggleQuad.SetTint(v.On ? ToggleOnTint : ToggleOffTint);
             }
+
+            // ---- 重排（展开高度 ↔ 收起高度 = `SectionMinH`）----
+            var secs = _ctx.Sections;
+            int idx = _views.IndexOf(v);
+            if (secs == null || idx < 0 || idx >= secs.Length) return;
+            float full = SectionHeight(secs[idx]);
+            float delta = v.On ? (full - SectionMinH) : (SectionMinH - full);   // 正 = 后面的段往下
+            if (Mathf.Abs(delta) < 0.01f) return;
+            for (int j = idx + 1; j < _views.Count; j++)
+            {
+                var n = _views[j] != null ? _views[j].Node : null;
+                if (n == null) continue;
+                var p = n.localPosition;
+                p.y -= delta / 108f;        // 屏幕 y 向下、世界 y 向上
+                n.localPosition = p;
+            }
+            if (_scroll != null) _scroll.ContentX2 += delta;
         }
 
         // ============================================================ 滚动坐标

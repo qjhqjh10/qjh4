@@ -1211,6 +1211,10 @@ namespace CardPresentation
                 string t = Loc.T(SliderNameTerms[i]);
                 sliders[i].SetText(t);
                 ApplyLangFont(sliders[i], t, LabelFontPx);
+                // 🔴 **2026-10-17（第四十八会话 · `N54①`）**：这三颗原来只重设文字/字体，
+                //   **没重套自适应** —— 换语言后字号停在上一档（同族 `_resignText`/`_langCap` 都补了，这里是漏）。
+                //   参数逐值照 `SliderLabel` 的建法（框 `LabelBoxW/H` · auto[LabelAutoMin, LabelFontPx] · base · 折行 1）。
+                ApplyAutoFit(sliders[i], LabelBoxW, LabelBoxH, LabelAutoMin, LabelFontPx, LabelAutoBase, 1);
             }
             if (_langSelText != null)
             {
@@ -1241,18 +1245,22 @@ namespace CardPresentation
                 string ml = Loc.T(MuteLabelTermKey);
                 _muteLabel.SetText(ml);
                 ApplyLangFont(_muteLabel, ml, MuteFontPx);
+                // `N54①` 同族：参数逐值照 Build 那一处（`MuteLabelWPx/MuteLabelHPx` · auto[MuteAutoMin, MuteFontPx]）。
+                ApplyAutoFit(_muteLabel, MuteLabelWPx, MuteLabelHPx, MuteAutoMin, MuteFontPx, MuteAutoBase, 0);
             }
             if (_muteOffText != null)
             {
                 string ot = Loc.T(MuteOffTermKey);
                 _muteOffText.SetText(ot);
                 ApplyLangFont(_muteOffText, ot, MuteOnOffFontPx);
+                ApplyAutoFit(_muteOffText, MuteTxtOffWPx, MuteTxtHPx, 1f, MuteOnOffFontPx, MuteAutoBase, 0);
             }
             if (_muteOnText != null)
             {
                 string nt = Loc.T(MuteOnTermKey);
                 _muteOnText.SetText(nt);
                 ApplyLangFont(_muteOnText, nt, MuteOnOffFontPx);
+                ApplyAutoFit(_muteOnText, MuteTxtOnWPx, MuteTxtHPx, 1f, MuteOnOffFontPx, MuteAutoBase, 0);
             }
         }
 

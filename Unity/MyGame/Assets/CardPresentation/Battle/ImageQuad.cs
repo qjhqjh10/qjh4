@@ -33,9 +33,15 @@ namespace CardPresentation
 
         MeshRenderer _mr;
         MeshFilter _mf;
-        Texture _tex;
-        float _worldH = 1f;
-        float _aspect = 1f;
+        [SerializeField] Texture _tex;
+        [SerializeField] float _worldH = 1f;
+        [SerializeField] float _aspect = 1f;
+        // 🆕 **2026-10-17（第四十八会话 · `N53②` SkewedImage）**：斜切量（`skewVector` 原样）。
+        //   原版 `SkewedImage.OnPopulateMesh` 的换算（decomp 实读）：
+        //   `x' = x + y * skewX` · `y' = y + x * skewY`（顶点在**图自己的局部空间**、以中心为原点）。
+        //   `_skewOffX/_skewOffY` 只给**九宫子块**用：块心在父件里的偏移要一起进算式，
+        //   否则每块各绕自己中心切 ⇒ 块与块之间错开。
+        [SerializeField] float _skewX, _skewY, _skewOffX, _skewOffY;
 
         // ============================================================ 软边子块（`MenuDraw.ApplySoftEdges`）
         //
@@ -136,6 +142,25 @@ namespace CardPresentation
         }
 
         public Texture Texture { get { return _tex; } }
+
+        /// <summary>🔴 **2026-10-17（第四十八会话 · 桶 B）：克隆出来的图块必须重绑 `_mf/_mr`。**
+        /// <para>它们和 `Label` 的 `_tmp/_mr` 是同一个病：**运行时字段、没有序列化** ⇒
+        /// `Instantiate` 一个含 `ImageQuad` 的预制体时，子节点克隆了、引用却是 null。</para>
+        /// <para>后果：`SetTexture` / `SetRenderQueue` 静默空转；一旦走到 `SetWorldHeight`
+        /// （`ApplyMeasuredHeight` 那条链）⇒ `RebuildMesh` 在 `_mf.sharedMesh` 上 NRE。</para>
+        /// <para>⚠️ `_tex/_worldH/_aspect` 已标 `[SerializeField]` ⇒ 克隆体保留原几何，
+        /// 重绑后 `RebuildMesh` 得到的是**同一块尺寸**（不是出厂 1×1）。</para></summary>
+        public void RebindAfterClone()
+        {
+            if (_mr == null) _mr = GetComponent<MeshRenderer>();
+            if (_mf == null) _mf = GetComponent<MeshFilter>();
+            if (_mf == null)
+            {
+                Debug.LogError("[ImageQuad] 克隆后重绑失败：找不到 `MeshFilter` ⇒ 这一块图会是死的（⛔ 不静默）。");
+                return;
+            }
+            RebuildMesh();
+        }
 
         /// <summary>把贴图**内接**进一个框，返回内接后的**高**（世界单位）—— 这就是原版
         /// `Image.m_PreserveAspect` 的语义：**等比放进框、居中**（宽由 `WorldW` 自然得出）。
@@ -332,6 +357,18 @@ namespace CardPresentation
             NotifySoftEdgeChanged();      // 🆕 A38③：同上
         }
 
+        /// <summary>斜切（原版 `SkewedImage.skewVector = (x, y)`）。
+        /// 换算逐句照 `SkewedImage__OnPopulateMesh.c`：`x' = x + y·skewX` · `y' = y + x·skewY`
+        /// （顶点在**图自己的局部空间**、中心为原点）。
+        /// <para>`offsetX/offsetY` 只给**九宫子块**用 —— 块心在父件里的偏移要一起进算式，
+        /// 否则每块各绕自己中心切、块与块之间会错开。</para></summary>
+        public void SetShear(float skewX, float skewY, float offsetX = 0f, float offsetY = 0f)
+        {
+            _skewX = skewX; _skewY = skewY; _skewOffX = offsetX; _skewOffY = offsetY;
+            RebuildMesh();
+            NotifySoftEdgeChanged();
+        }
+
         /// <summary>重新贴到某个归一化锚点（切分辨率要调）。**保留 z** —— HUD 靠它分层</summary>
         public void SetAnchorPosition(float x01, float y01)
         {
@@ -346,11 +383,20 @@ namespace CardPresentation
             float x0 = -anchor.x * w, y0 = -anchor.y * h;
 
             var m = new Mesh { name = "ImageQuad" };
-            m.vertices = new[]
+            var verts = new[]
             {
                 new Vector3(x0, y0, 0f), new Vector3(x0 + w, y0, 0f),
                 new Vector3(x0 + w, y0 + h, 0f), new Vector3(x0, y0 + h, 0f),
             };
+            // `SkewedImage`：x' = x + (y + 父系偏移y) * skewX · y' = y + (x + 父系偏移x) * skewY
+            if (_skewX != 0f || _skewY != 0f)
+                for (int i = 0; i < verts.Length; i++)
+                {
+                    float x = verts[i].x, y = verts[i].y;
+                    verts[i].x = x + (y + _skewOffY) * _skewX;
+                    verts[i].y = y + (x + _skewOffX) * _skewY;
+                }
+            m.vertices = verts;
             // UV 默认是整张图；九宫格/平铺靠 `SetUvRect` 只取一块
             m.uv = new[]
             {

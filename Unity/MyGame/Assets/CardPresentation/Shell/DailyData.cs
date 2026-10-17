@@ -990,7 +990,11 @@ namespace CardPresentation
         public static string StreakBrokenText() { return "STREAK BROKEN"; }          // 原版 prefab 占位串
         public static string StreakLostText() { return "Streak lost: " + StreakLostValue; }
         public static string ResetStreakText() { return "Reset Streak"; }            // 原版 prefab 占位串
-        public static string StreakClaimText() { return "Claim"; }                   // 原版 prefab 占位串
+        /// <summary>连登卡的领取钮文案。🔴 **2026-10-17（`N47` 整包普查）**：原版对应词条 =
+        /// `ShopOffers/GeneralClaim`（`Daily Streak Reward Popup Entry / Collect / Collect Text` 的
+        /// `Localize.mTerm`，enabled=1）。⚠️ **该键在本地 13 语言表与 en+zh 表里都不存在**
+        /// （`ShopOffers/*` 130 条无 claim 键）⇒ 属**快照缺口**，`BulkOr` 回退英文并出声（同 `N15` 族）。</summary>
+        public static string StreakClaimText() { return Loc.BulkOr("ShopOffers/GeneralClaim", "Claim"); }
         public static string StreakInfoText()
         { return "Log in every day to keep your streak going."; }                    // ⚠️ 我们挑的
 

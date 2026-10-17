@@ -1449,8 +1449,17 @@ public static class SettingsScene
                     Check(TipText.OfficialTraitNameForTest("rally"), "rally", "（映射）`rally` → `rally`（直取那条规则）");
                     Check(TipText.OfficialTraitNameForTest("destroyer"), "frenzied",
                           "（映射）`destroyer` → `frenzied`（按 `Card_Trait` 的英文名逐字相同推出，⛔ 不是手写猜的）");
-                    CheckTrue(TipText.OfficialTraitNameForTest("darkpact") == null,
-                              "（已知缺口 · 如实记）`darkpact` 推不出官方枚举名 ⇒ 非中英档 tooltip 正文回退英文（⛔ 不猜映射）");
+                    // 🔴 **2026-10-17（第四十八会话 · 桶 E）就地订正（铁律 5）**：这条原来断言 `== null`
+                    //   （「已知缺口 · 推不出」），**已过期** —— 现在走 `Tooltip.cs` 第③级「中文列相同」
+                    //   （`Card_Trait/markOfChaos` 的 zh = 黑暗契约 = `trait_tips.zh`）真的推得出来。
+                    //   错因：账写于别名表补齐之前，之后没回写。
+                    Check(TipText.OfficialTraitNameForTest("darkpact"), "markOfChaos",
+                          "（映射）`darkpact` → `markOfChaos`（第③级「中文列相同」；⛔ 不是别名表兜的）");
+                    // 🔴 **灭自证（`N44①`）**：`concussion→concussive` **只能**靠 `Badges.Alias` ——
+                    //   精确/归一化/同词三级都差一个字（Concussion vs Concussive / 震荡 vs 震荡的）。
+                    //   🧨 把 `Alias` 那条删掉 ⇒ 这条红。
+                    Check(TipText.OfficialTraitNameForTest("concussion"), "concussive",
+                          "（映射）`concussion` → `concussive`（只有 `Badges.Alias` 能解；三级判据都差一个字）");
                 }
 
                 Loc.PersistOverride = persist0;
@@ -2855,13 +2864,24 @@ public static class SettingsScene
                 CheckTrue(SuperSampling.Enabled, "（前提）先把开关打开，再看换档会发生什么");
                 ssQuality = 0;                                   // 换到不允许的那一档（注入，不真改工程设置）
                 int qlBefore = QualitySettings.GetQualityLevel();
-                SettingsWindow.QualitySetterOverride = lv => { };   // 挡住真 `SetQualityLevel`（会把 `QualitySettings.asset` 写脏）
+                int qAsked6 = -1;                                // 记「下拉真的请求了哪一档」（挡住早退的假绿）
+                SettingsWindow.QualitySetterOverride = lv => { qAsked6 = lv; };   // 挡住真 `SetQualityLevel`（会把 `QualitySettings.asset` 写脏）
                 // 🔴 **2026-10-17（界面线 T17）**：真下拉 ⇒ 先开列表、再点一个**不等于 `ssQuality`** 的行
                 //   （`ssQuality` = 允许超采样的那一档；换到别的档才会把开关强制清 0）。
                 Click(FindChild(root, "Graphics Tab"), "QualityHit");
-                int qTarget = (ssQuality + 1) % Mathf.Max(1, QualitySettings.names.Length);
+                // 🔴 **2026-10-17（第四十八会话 · 桶 F）：目标档必须按【当前真实画质档】算。**
+                //   原来写 `(ssQuality + 1) % 2`，而本机 `QualitySettings.asset:7 m_CurrentQuality = 1`
+                //   ⇒ 算出来正好等于当前档 ⇒ `SettingsWindow` 把它当「点当前已选中行」**正当早退**
+                //   ⇒ `ApplyQuality` / `SuperSampling.Apply` / `RebuildGfxRows` 全没跑，三条断言假红。
+                //   判据 = 同文件 `:1834` 那一处早就是按 `GetQualityLevel()` 算的。
+                int qTarget = (QualitySettings.GetQualityLevel() + 1) % Mathf.Max(1, QualitySettings.names.Length);
                 Click(win.DropdownRowHit(SettingsWindow.DdQuality, qTarget));
                 SettingsWindow.QualitySetterOverride = null;
+                // 🔴 **2026-10-17（桶 F）灭自证**：光断言「开关被清 0」挡不住「整段根本没跑」——
+                //   上面那条当被告别用 `qTarget == 当前档` 时就会静默早退（`ChooseQualityOption` 的正当分支）。
+                //   这条咬住「下拉真的走到了 `ApplyQuality`」：请求档必须 = 目标档（早退时停在 −1）。
+                Check(qAsked6, qTarget,
+                      $"⑥ …下拉**真的走到了 `ApplyQuality`**（请求档 = {qTarget}；早退时停在 −1 ⇒ 红）");
                 CheckTrue(!SuperSampling.Enabled,
                           "⑥★ 换到**不允许**超采样的档 ⇒ 那颗开关被**强制清 0**"
                         + "（原版 `ApplyGraphicsQuality.c:73-78` 那一句；改坏法：不写这段 ⇒ 开关还留着 ⇒ 红）");

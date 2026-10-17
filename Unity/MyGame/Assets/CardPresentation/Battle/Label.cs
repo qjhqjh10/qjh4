@@ -70,7 +70,10 @@ namespace CardPresentation
         /// 字小到看不见、**而没有任何报错**。⇒ 迁调用点时**必须同批把数换成设计 px**。</para>
         /// <para>🔴 **只许二选一、⛔ 不许两边都建**（同 `HudPiece` 那条铁律）：世界空间 TMP 挂在 canvas 下
         /// **不归 canvas 管**（它走 `MeshRenderer`、不参与 canvas 排序）⇒ 会变成「位置对不上 + 层级不受控」的半迁移态。</para></summary>
-        bool _ugui;
+        [SerializeField] bool _ugui;
+        /// <summary>🆕 **2026-10-17（R3 根因）**：宿主显式设过的渲染队列（`-1` = 没设过）。
+        /// 换字体面会换材质 ⇒ `SyncFace` 之后按这个值**重放**（见 `ApplyQueue`）。</summary>
+        [SerializeField] int _queue = -1;
 
         /// <summary>本标签是不是 uGUI 后端（见 <see cref="_ugui"/>）。诊断/断言/审计用。</summary>
         public bool IsUgui { get { return _ugui; } }
@@ -228,7 +231,19 @@ namespace CardPresentation
         /// ⚠️ 同 `HudPiece` 的先例：**不是「悄悄没做」** —— 读 <see cref="IsUgui"/> 能查出来。</summary>
         public void SetRenderQueue(int q)
         {
-            if (_ugui) return;
+            _queue = q;                 // 🆕 `N53` 配套：记下来，换字体面（换材质）之后重放
+            ApplyQueue();
+        }
+
+        /// <summary>🆕 **2026-10-17（第四十八会话 · R3 根因）：队列要「粘住」。**
+        /// `Label.SetFace` / `SyncFace` 换 `_tmp.font` 时，TMP 会连带把 `m_sharedMaterial` 换成
+        /// 新字体资产里那份 atlas 材质 ⇒ 原先写在旧材质上的 `renderQueue` **静默冲回 3000**。
+        /// `A1024③` 换面把这条从潜伏变成可见（顶栏文字 / 弹窗 / tooltip 全落到 3000）。
+        /// ⇒ `SetRenderQueue` 记值，任何一次换面之后**重放一次**。</summary>
+        void ApplyQueue()
+        {
+            int q = _queue;
+            if (q < 0 || _ugui) return;
             if (_tmp != null)
             {
                 // 🔴 **必须先实例化一份**（2026-09-27 实测补的）——
@@ -357,12 +372,18 @@ namespace CardPresentation
         /// `Wglyph = (898×50/1000 + 2×1.25) × 0.1 ÷ 50 = 0.0948` ⇒ **比值 = 0.8217**（与运行时实测同值）。</para>
         /// <para>⚠️ **0.72 是另一个分母**：`faceInfo.capLine 36 / pointSize 50` —— **em 口径、不含 SDF padding**。
         /// 拿它当两条 `Set*` 路的换算，英文档会静默小 `0.72/0.8217 = 12.4%`（这正是 `A1235` 的症状）。</para>
-        /// <para>`0.72` 现在只剩「字体资产缺失、两个量都读不出来」时那一档兜底。</para></summary>
-        static float CapOverGlyph
+        /// <para>`0.72` 现在只剩「字体资产缺失、两个量都读不出来」时那一档兜底。</para>
+        /// <para>🔴 **2026-10-17（第四十八会话 · 桶 A 顺手项）：改成【按实际字体面】取。**
+        /// 原来这一支恒用 CJK 的 `WorldCapPerFontSize / WorldGlyphPerFontSize = 0.8217`，
+        /// 而拉丁面的大写只有 **0.0656（Pragati）/ 0.0685（Asar）** ⇒ 真实比值是 **0.692 / 0.7226**。
+        /// 对「显式 `SetFace(拉丁)`、随后 `SetScriptHeight`」的件（`Battle/ErrorMessageBanner`），
+        /// 拿 0.8217 会让字号大 **≈19%**（0.8217 ÷ 0.692）。CJK 面仍逐位 = 0.8217。</para></summary>
+        float CapOverGlyph
         {
             get
             {
-                float c = TmpFont.WorldCapPerFontSize, g = TmpFont.WorldGlyphPerFontSize;
+                var f = ActualFace;
+                float c = TmpFont.CapPerFontSize(f), g = TmpFont.EmPerFontSize(f);
                 return (c > 0f && g > 0f) ? c / g : 0.72f;
             }
         }
@@ -879,13 +900,21 @@ namespace CardPresentation
             get { return (_face != TmpFont.Face.Cjk && Loc.HasCjk(_text)) ? TmpFont.Face.Cjk : _face; }
         }
 
-        /// <summary>指定字体面。当场换掉已有的 TMP 并重排（字号要按新面重算）。</summary>
+        /// <summary>指定字体面。当场换掉已有的 TMP 并重排（字号要按新面重算）。
+        /// 🔴 **2026-10-17（第四十八会话 · 桶 A 顺手项）**：原来这里直接 `SetText(_text)` ——
+        /// 而 `SetText` **同串早退**（`if (text == _text) return;`）⇒ 注释写的「字号按新面重算」
+        /// **根本没发生**。现在先置空再喂回去，强制走一遍 `SetTextTmp`（重算 + 重排）。</summary>
         public void SetFace(TmpFont.Face f)
         {
             if (_face == f) return;
             _face = f;
             SyncFace();
-            if (_tmp != null) SetText(_text);       // 字号按新面重算 + 重新排
+            if (_tmp != null)
+            {
+                var t = _text;
+                _text = null;                 // 强制重排（`SetText` 同串会早退）
+                SetText(t);
+            }
         }
 
         /// <summary>把 `_tmp.font` 对到当前该用的那一面上去（没换就不动）。</summary>
@@ -894,7 +923,12 @@ namespace CardPresentation
             if (_tmp == null) return;
             var f = ActualFace;
             var want = f == TmpFont.Face.Cjk ? TmpFont.Font : TmpFont.FaceAsset(f);
-            if (want != null && _tmp.font != want) _tmp.font = want;
+            if (want != null && _tmp.font != want)
+            {
+                _tmp.font = want;
+                // 换 `font` 会连带换掉 `m_sharedMaterial` ⇒ 队列必须重放（否则静默回 3000）
+                ApplyQueue();
+            }
         }
 
         /// <summary>🆕 2026-10-04（A50①）：TMP 现在的**自适应下限/上限**（`fontSize` 单位，**不是**世界单位、
@@ -1265,6 +1299,44 @@ namespace CardPresentation
         public static float FontSizeFor(int scale)
         {
             return TmpFont.FontSizeForCapHeight(CapHeightWorldOfScale * Mathf.Max(1, scale));
+        }
+
+        /// <summary>🔴 **2026-10-17（第四十八会话 · 桶 B）：克隆出来的标签必须重绑后端。**
+        /// <para>`_tmp` / `_mr` / `_mf` / `_tmpW` / `_tmpH` 都是**运行时字段、没有序列化**
+        /// （`[SerializeField]` 都没挂）⇒ `Instantiate` 一个含 `Label` 的预制体时，
+        /// **TMP 子节点被克隆了、但 `Label` 里指向它的引用是 null**。</para>
+        /// <para>后果是**静默且致命**：`SetText` 看到 `_tmp == null` ⇒ 走点阵分支
+        /// （`SetTextDot`）⇒ `_mr` 也是 null ⇒ `NullReferenceException`。
+        /// 实测先例：`ToastNotifications.Fill → Label.SetText → SetTextDot`（ShellScene 整条崩）。</para>
+        /// <para>做法 = 在**子件里重新找**（TMP 是子节点，必须 `includeInactive: true`）、
+        /// 按实际后端还原尺寸缓存；找不到后端时**出声**（⛔ 不许静默）。</para></summary>
+        public void RebindAfterClone()
+        {
+            if (_tmp != null || _mr != null) return;          // 不是克隆体 / 已经重绑过
+
+            var t = GetComponentInChildren<TMP_Text>(true);
+            if (t != null)
+            {
+                _tmp = t;
+                _tmpW = 1e-4f; _tmpH = 1e-4f;                 // 让 RefreshBounds 重新量
+                SyncFace();
+                ApplyQueue();                                  // 克隆体上的队列也要粘住（R3 根因）
+                RefreshBounds();
+                return;
+            }
+
+            _mf = GetComponent<MeshFilter>();
+            _mr = GetComponent<MeshRenderer>();
+            if (_mr != null)
+            {
+                var tex = _mr.sharedMaterial != null ? _mr.sharedMaterial.mainTexture : null;
+                if (tex != null) { _texW = tex.width; _texH = tex.height; }
+                RebuildMesh();
+                return;
+            }
+
+            Debug.LogError("[Label] 克隆后重绑失败：既找不到 `TMP_Text` 子节点、也没有点阵后端的 "
+                         + "`MeshRenderer` ⇒ 这个标签会是死的（⛔ 不静默）。");
         }
 
         void BuildTmp()
@@ -1661,9 +1733,9 @@ namespace CardPresentation
         /// <para>⚠️ 换档时**三处要一起换**；漏一处就是静默错、且 **16:9 下看不出来**。</para></summary>
         float PxPerUnit { get { return _ugui ? 1f : PxPerWorld; } }
 
-        VAlign _vTier = VAlign.Middle;      // 出厂 = `Middle`（原版 64~67% 的件是它；本阶段全工程都用这一档）
-        OrigFace _vFace = OrigFace.Pragati; // 默认取**主力**那一份（`WA712` §2·4：Pragati 是主力）
-        float _vBoxH;                       // 原版那一颗的**框高**（世界单位）；<= 0 = 调用方没给
+        [SerializeField] VAlign _vTier = VAlign.Middle;      // 出厂 = `Middle`（原版 64~67% 的件是它；本阶段全工程都用这一档）
+        [SerializeField] OrigFace _vFace = OrigFace.Pragati; // 默认取**主力**那一份（`WA712` §2·4：Pragati 是主力）
+        [SerializeField] float _vBoxH;                       // 原版那一颗的**框高**（世界单位）；<= 0 = 调用方没给
         /// <summary>`SetAutoFitBox(…, worldH, …)` 写进去的那个框高（世界单位）—— <see cref="VOffsetWorldNow"/>
         /// 在调用方没显式给框高时的**唯一**兜底来源（见 `SetAutoFitBox` 里那一行）。
         /// ⛔ **别改成现读 `_tmp.rectTransform.sizeDelta.y`**：那是「最后一次谁写过它」，不是「原版框高」。</summary>

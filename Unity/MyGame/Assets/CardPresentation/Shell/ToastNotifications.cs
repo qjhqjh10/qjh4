@@ -814,6 +814,13 @@ namespace CardPresentation
             var go = Instantiate(_templateByType[ti], _holder, false);
             go.SetActive(true);
 
+            // 🔴 **2026-10-17（第四十八会话 · 桶 B）：克隆体上的运行时后端引用全是 null，必须逐个重绑。**
+            //   `Label._tmp/_mr` 与 `ImageQuad._mf/_mr` 都是**非序列化字段** ⇒
+            //   不重绑时 `Fill → SetText` 会误走点阵分支并在 `SetTextDot` 里 NRE
+            //   （ShellScene 整条崩），下一个撞的是 `ImageQuad.RebuildMesh`。
+            foreach (var lb in go.GetComponentsInChildren<Label>(true)) lb.RebindAfterClone();
+            foreach (var iq in go.GetComponentsInChildren<ImageQuad>(true)) iq.RebindAfterClone();
+
             // ② Initialize(context)
             Fill(go.transform, ctx);
 
@@ -990,8 +997,11 @@ namespace CardPresentation
             }
             lb.ForceRelayout();                 // 文案刚在 `Fill` 里换过 ⇒ 重排一次再量（TMP 在激活态才量得准）
             float textH = PxOf(lb.WorldH);
-            if (!(textH > 0f) || textH > 400f)
+            if (!(textH > 0f) || textH > 100000f)
             {
+                // 🔴 **2026-10-17（R1 现核）**：上界原来是 **400px** —— 长文案真值 **627.51px**
+                //   （`= 9.000 × 单行 69.72`）被误判成「量不出来」⇒ 退回常量 108.86（N23 红）。
+                //   哨兵值是 **4.29e9** 那一档（同 `Label.UsableBounds`）⇒ 上界取 100000 足够宽松。
                 Debug.LogWarning($"[ToastNotifications] 根高：文本首选高量不出来（{textH:F2}px）⇒ 退回模板常量 "
                                + $"{fallback:F2}px（这一条只该在未激活 / 字体缺失时出现）。");
                 return fallback;

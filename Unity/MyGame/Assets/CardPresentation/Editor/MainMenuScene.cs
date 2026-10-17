@@ -5791,8 +5791,10 @@ public static class MainMenuScene
                                   "⚠️ 节点名叫 `DivisionText`，**装的是大标题 `Global Rating`**（照抄预制体）");
                         CheckAtWorld(FindChild(ctr, "DivisionImage"), 584.36f, 953.66f, 599.34f, 732.62f, "`DivisionImage`（段位大图形位）");
                         var gr = FindChild(FindChild(FindChild(FindChild(ctr, "footer"), "MainRating"), "Global Rating"), "Main Icon");
-                        CheckAtWorld(gr, 591.29f, 591.29f + 58.6f, 770.59f, 827.94f,
-                                     "中间列 `Main Icon` 的 x = **591.29**（**§A·4 的修正值**：表里那个 651.29 把出厂 F 的 `Secondary Icon` 也算进主轴了）");
+                // 🔴 **2026-10-17（R3 现核）**：原版 dump 现读 `Main Icon = 739.71→798.31`（`align=4` 居中）；
+                //   实现本来就对 —— `591.29` 是 0927 旧工具按左对齐推出来的错值。
+                CheckAtWorld(gr, 739.71f, 798.31f, 770.59f, 827.94f,
+                             "中间列 `Main Icon` 的 x = **739.71→798.31**（原版 `align=4` 居中；0917 旧工具按左对齐推出的 591.29 是错的）");
                         CheckText(TextOf(FindChild(FindChild(FindChild(FindChild(ctr, "footer"), "MainRating"), "Global Rating"),
                                                    "Individual rating value")), RankedTab.ScoreEmpty,
                                   "全局评分 = **空态串 `------`**（照原版预制体自己的空态；`'32'`/`'3000'` 是示例数字，不抄）");
@@ -6237,8 +6239,9 @@ public static class MainMenuScene
                 CheckAtWorld(FindChild(sk.transform, "To Battle Button"), 1376.76f, 1817.09f, 917.80f, 1038.40f,
                              "`To Battle Button`");
                 // ⚠️ `Button Text` 这个名字在树里有**三处**（另一处在「无督军」那块）⇒ 必须**限定父节点**找
-                CheckText(TextOf(FindChild(FindChild(sk.transform, "To Battle Button"), "Button Text")), "Battle!",
-                          "开战钮文案 = `Battle!`");
+                CheckText(TextOf(FindChild(FindChild(sk.transform, "To Battle Button"), "Button Text")),
+                          Loc.T("Demo/ToBattle"),
+                          "`To Battle Button` 文案 = 原版 `mTerm` `Demo/ToBattle`（⛔ 不写死英文 `Battle!`）");
                 {
                     var tq = FindChild(sk.transform, "TrophyIcon");
                     var tQuad = tq != null ? tq.GetComponentInChildren<ImageQuad>() : null;
@@ -6272,8 +6275,15 @@ public static class MainMenuScene
                     //    ⇒ **整件都不画**（连图标），只留节点 + 出声（原来画了个位置错的图标：偏左 207px、下端出屏）
                     var tm = FindChild(sk.transform, "Timer");
                     CheckTrue(tm != null, "`Timer` 节点在（原版这一件在**遭遇战**有、**排位根上没有**）");
-                    CheckTrue(tm != null && tm.GetComponentInChildren<ImageQuad>() == null,
-                              "`Timer` 里**没有画任何东西**（连图标都没画 —— 位置由本地没有的倒计时文字决定，出声）");
+                    // 🔴 **2026-10-17（R3 现核 · `A1248`）**：这一件**已经真画了**（旧断言写「整件都不画」已过期）——
+                    //   `Timer Icon`（`WF_icon_clock`）+ `Termina en: ` + 时长。截止时刻本地没有 ⇒ 时长为 `--`。
+                    var tmIcon = tm != null ? tm.Find("Timer Icon") : null;
+                    CheckTrue(tmIcon != null && tmIcon.GetComponentInChildren<ImageQuad>() != null,
+                              "`Timer` 里画了 **`Timer Icon`**（`WF_icon_clock`；`A1248` 起真画）");
+                    var tmTx = tm != null ? tm.Find("Timer") : null;
+                    var tmLb = tmTx != null ? tmTx.GetComponent<Label>() : null;
+                    CheckTrue(tmLb != null && (tmLb.Text ?? "").StartsWith("Termina en: "),
+                              "…倒计时文案 = prefab 原文 `Termina en: ` + 时长（本地无截止时刻 ⇒ `--`）");
                 }
                 {
                     var ban = FindChild(sk.transform, "Banned card in deck");
@@ -13091,16 +13101,26 @@ public static class MainMenuScene
                           "`Tab Buttons` 宽 = **165**（dump 实读）");
                 CheckNear(pw.TabButtonsNode != null ? CH(pw.TabButtonsNode) : -1f, 1009.06f, 0.05f,
                           "`Tab Buttons` 高 = **1009.06**（dump 实读）");
-                var tabBgQ = QuadOf(pw.TabButtonsNode);
-                CheckText(tabBgQ != null && tabBgQ.Texture != null ? tabBgQ.Texture.name : null,
-                          "40k_main_tab_background", "页签栏底板 = **`40k_main_tab_background`**（prefab `m_Sprite` 实读）");
-                CheckTrue(tabBgQ != null && tabBgQ.CornerColors != null && tabBgQ.CornerColors.Length == 4
-                          && Mathf.Abs(tabBgQ.CornerColors[0].a - 1f) < 0.01f
-                          && Mathf.Abs(tabBgQ.CornerColors[0].r) < 0.01f
-                          && Mathf.Abs(tabBgQ.CornerColors[2].a) < 0.01f
-                          && Mathf.Abs(tabBgQ.CornerColors[2].r - 0.283f) < 0.01f,
-                          "`Gradient2` 顶点色（两端）= **下 (0,0,0,1) → 上 (0.283,0.283,0.283,0)**"
-                        + "（MB 实读：4 色键 / 2 alpha 键；中段白平台我们这一层表达不了，见文件头「近似」）");
+                var tabBgNode = pw.TabButtonsNode != null ? pw.TabButtonsNode.Find("Image") : null;
+                var tabBands = tabBgNode != null ? tabBgNode.GetComponentsInChildren<ImageQuad>() : new ImageQuad[0];
+                Check(tabBands.Length, 3, "`Tab Buttons` 渐变 = **3 条横带**（4 个色标 ⇒ N−1；`MenuDraw.GradientV`）");
+                if (tabBands.Length >= 3)
+                {
+                    var b0 = tabBands[0]; var b2 = tabBands[2];
+                    CheckTrue(b0 != null && b0.CornerColors != null && b0.CornerColors.Length == 4
+                              && Mathf.Abs(b0.CornerColors[0].a - 1f) < 0.01f
+                              && Mathf.Abs(b0.CornerColors[0].r) < 0.01f
+                              && Mathf.Abs(b0.CornerColors[2].r - 1f) < 0.01f
+                              && Mathf.Abs(b0.CornerColors[2].a - 1f) < 0.01f,
+                              "底带 = **黑(0,0,0,a1) → 白(a1)**（色标 t=0 → 0.3353）");
+                    CheckTrue(b2 != null && b2.CornerColors != null && b2.CornerColors.Length == 4
+                              && Mathf.Abs(b2.CornerColors[0].r - 1f) < 0.01f
+                              && Mathf.Abs(b2.CornerColors[0].a - 1f) < 0.01f
+                              && Mathf.Abs(b2.CornerColors[2].r - 0.283f) < 0.01f
+                              && Mathf.Abs(b2.CornerColors[2].a - 1f) < 0.01f,
+                              "顶带 = **白(a1) → 灰(0.283,a1)**（色标 t=0.7324 → 1；alpha 取 alphaKeys ⇒ **恒 1**）"
+                            + "｜改坏法：把最后一档 a 写成 0（旧「两端近似」那一版）⇒ 红");
+                }
                 CheckNear(pw.TabShadowNode != null ? CW(pw.TabShadowNode) : -1f, 47.64f, 0.05f,
                           "`Tab Buttons/Shadow` 宽 = **47.64**（dump 实读）");
                 CheckTint(pw.TabShadowNode, new Color(0f, 0f, 0f, 0.4745098f), 0.002f,
@@ -13192,7 +13212,14 @@ public static class MainMenuScene
                           ? tA.Find("Bottom Text/Team Name").GetComponent<Label>() : null;
                 CheckText(nmA != null ? nmA.Text : null, "Red Team",
                           "队伍名 = prefab 出厂字 **`Red Team`**（原版运行期灌 liveops 队伍名）");
-                CheckNear(nmA != null ? nmA.FontPxNow : -1f, 82.1f, 0.6f, "队伍名字号 = **82.1**（prefab 实读）");
+                // 🔴 **2026-10-17（第四十八会话 · 桶 G5）就地订正（铁律 5）**：
+                //   原来断言 `FontPxNow ≈ 82.1`（nominal），但原版 prefab 这颗 **`m_enableAutoSizing = 1`**
+                //   （窗口 **18~86.4** · `base 36`，MB 实读）⇒ 收敛值是 **85.286**，本来就不该等于 nominal。
+                //   ⇒ 改成断「窗口 + 起点 + 收敛值落在窗口内」（与同文件其它自适应站同一条口径）。
+                var nmAT = tA != null ? tA.Find("Bottom Text/Team Name") : null;
+                CheckFontWindow(nmAT, 18f, 86.4f, "队伍名");
+                CheckFontBase(nmAT, 36f, "队伍名");
+                CheckFontInRange(nmAT, 18f, 86.4f, "队伍名：收敛值落在原版窗口 18~86.4 内");
                 Check(pw.P1TapLabels.Count, 2, "两个 **`Tap to select`**（`'Select'`）都在");
                 CheckTrue(pw.P1TapLabels.Count > 0 && pw.P1TapLabels[0].color.g > 0.6f
                           && pw.P1TapLabels[0].color.g < 0.7f && pw.P1TapLabels[0].color.r > 0.99f,
@@ -13244,8 +13271,11 @@ public static class MainMenuScene
                 // ---- ⑨ 数据缺口 / 素材缺口：**如实留空 + 出声** ----
                 CheckTrue(pw.DataMissing && !string.IsNullOrEmpty(pw.DataNote) && pw.DataNote.Contains("LiveOps"),
                           "数据缺口**出声**（活动数据全在远端 LiveOps）：" + (pw.DataNote ?? "<null>"));
-                CheckTrue(pw.MissingArt.Contains("VS_icon") && pw.MissingArt.Contains("40k_battle_Win_Skull_SDF"),
-                          "两张**本工程没导入**的图如实记账（`VS_icon` / `40k_battle_Win_Skull_SDF`）⇒ 对应件不画");
+                // 🔴 **2026-10-17（第四十八会话 · `N53` 三张图）**：两张图**已经导进工程**了
+                //   （`sync_battle_ui_art.py` 的 `NAMES_MENU`）⇒ 不再是素材缺口。这条改成**反向**钉住：
+                //   若哪天又退化成「不画」，这里红。
+                CheckTrue(!pw.MissingArt.Contains("VS_icon") && !pw.MissingArt.Contains("40k_battle_Win_Skull_SDF"),
+                          "两张图**已导入**（`VS_icon` / `40k_battle_Win_Skull_SDF`）⇒ `MissingArt` 里**不该**再有它们");
 
                 // ---- ⑩ 点压暗层 = 关窗（原版 `TwoSidesEventWindow.OnEnable` 给 `backgroundCloseButton.onClick`
                 //        挂的监听与表头返回钮是同一个 delegate）+ 关窗音 = 家族默认 ----
@@ -14467,10 +14497,26 @@ public static class MainMenuScene
         var bg = FindChild(card, "Background Image");
         var q = bg != null ? bg.GetComponentInChildren<ImageQuad>() : null;
         if (q == null) { CheckTrue(false, $"{what} 的卡图建了"); return; }
-        CheckNear(q.WorldW, w / 108f, 0.01f, $"{what} 卡宽 = {w}px（`itemSize.x` 实证）");
-        CheckNear(q.WorldH, h / 108f, 0.01f, $"{what} 卡高 = {h}px（`itemSize.y` 实证）");
-        var wantX = MainMenuRuntime.Center(colLeft, colLeft + w, 0f, 0f).x;
-        CheckNear(q.transform.localPosition.x, wantX, 0.01f, $"{what} 在第 {colLeft}px 起的那一列（列左 = 205+555c 实证）");
+        // 🔴 **2026-10-17（桶 G1/G2）就地订正（铁律 5）**：
+        //   `T12` 给 `GameModes` 加了横向视口裁切 —— 卡图 quad 会被**物理缩成可见片**
+        //   （col3 的卡 x=1870..2405、视口右沿 1920 ⇒ quad 只剩 50px）。
+        //   裁切本身正确（等价原版 `RectMask2D`），**错的是旧量法**：
+        //   · 宽/高要量**卡容器自己的 rect**（裁切不改容器）；
+        //   · 列位要量**渲染左沿 = quad 中心 − 半宽**（裁切前后都成立）。
+        //   ⚠️ 中心必须用 **`LayoutSpace.ToDesignPixel(transform.position)`**（绝对设计 px）——
+        //   `q.localPosition` 是 `FromPixel` 的产物（**屏幕中心为原点**，x 已减 960）⇒ 直接拿它比会整体差 960px。
+        var cardRt = card as RectTransform;
+        float gotW = cardRt != null ? cardRt.rect.width * 108f : -1f;
+        float gotH = cardRt != null ? cardRt.rect.height * 108f : -1f;
+        CheckNear(gotW, w, 0.01f, $"{what} 卡宽 = {w}px（`itemSize.x` 实证；量**卡容器**，不是被裁过的 quad）");
+        CheckNear(gotH, h, 0.01f, $"{what} 卡高 = {h}px（`itemSize.y` 实证；量**卡容器**）");
+        var qc = LayoutSpace.ToDesignPixel(q.transform.position);
+        float renderLeftPx = qc.x - q.WorldW * 0.5f * LayoutSpace.PxPerWorldX;
+        CheckNear(renderLeftPx, colLeft, 0.01f,
+                  $"{what} 渲染左沿 = {colLeft}px 起的列（列左 = 205+555c 实证；量 `quad 中心 − 半宽`）");
+        // ⚠️ 旧写法（`q.transform.localPosition.x == Center(colLeft, colLeft+w)`）在裁切后不成立
+        //   —— 它断的是「被裁过的 quad 的中心」，而裁切会把中心挪到可见片的中点。已由上面的
+        //   `renderLeftPx`（quad 中心 − 半宽 = 渲染左沿）取代，⛔ 别再恢复。
         // 🆕 **2026-10-11（界面复刻 · 两行网格）**：`rowTop ≥ 0` 时**顺带断行位** ——
         //   1×2 独占整列、1×1 一列放两张（上 row0 / 下 row1），判据 = 参考图右缘那一列
         //   （两张 1×1 上下叠着、中间留 20px 缝）。理由：**只断 x/宽/高 是断不出「排布对不对」的**

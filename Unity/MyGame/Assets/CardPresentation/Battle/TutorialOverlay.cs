@@ -629,9 +629,12 @@ namespace CardPresentation
         static void ApplyThinOutline(Label lb)
         {
             if (lb == null) return;
-            var t = lb.GetComponent<TMP_Text>();
+            var t = lb.GetComponentInChildren<TMP_Text>(true);
             if (t == null) return;                       // 点阵后端（字体资产缺失）⇒ 没有材质可改，不出声
             var mat = t.fontMaterial;                    // ⚠️ 实例材质，别碰共享的
+            // 🔴 **2026-10-17 订正**：TMP 的 `fontMaterial` getter 内部就是 `GetMaterial(m_sharedMaterial)`，
+            //   它会**当场建一份实例并把 `m_sharedMaterial` 指向它** ⇒ 这里拿到的**一定是实例**，
+            //   ⛔ 不需要再比较/新建（上一版那条比较恒真、每次多造一份材质）。
             if (mat == null) return;
             mat.EnableKeyword("OUTLINE_ON");
             mat.SetColor(ShaderUtilities.ID_OutlineColor, Color.black);
@@ -1030,6 +1033,9 @@ namespace CardPresentation
                     {
                         lb.SetText(t ?? "");
                         if (lb.gameObject.activeSelf != has) lb.gameObject.SetActive(has);
+                        // 🔴 **2026-10-17（R1 现核）**：`SetText` 里中文会触发 `SyncFace` 换回 CJK 字体 ⇒
+                        //   TMP 连带换 `m_sharedMaterial` ⇒ **实例描边会丢**。⇒ 每次设完字都重上一遍。
+                        if (has) ApplyThinOutline(lb);
                     }
                     if (_annoArrows[i] != null)
                     {

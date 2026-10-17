@@ -37,9 +37,12 @@
 //   `Questions container` 高 **6426.93**（`Scroll Rect` 视口只有 673.64 高 ⇒ 必须滚动）。
 //   滚动走全壳唯一一份 `MenuScroll`（纵向 · `m_MovementType = 1 Elastic` · `m_Inertia = 1` ·
 //   `m_Elasticity = 0.1` · `m_DecelerationRate = 0.135`，prefab 实读）。
-// · **文字输入**：工程**没有** IME/键盘输入层 ⇒ 两处文本框（`Free feedback/Input field` 与三道开放题）
-//   只画原版的框和占位字，**不接受输入**（出声一次，⛔ 不假装能用）。因此**开放题不参与必答判定**
-//   （如实标注的偏离）。
+// · **文字输入**：🔴 **2026-10-17（第四十八会话 · `N48③`）就地订正（铁律 5）** —— 原文写
+//   「工程没有 IME/键盘输入层」**已过期**：`Shell/PointerLayer.cs` 早有壳级输入
+//   （`BeginText / TypeChar / Backspace / EndText`，卡名筛选 / `Import Deck Popup` / 改名都在用）。
+//   ⇒ 两处文本框（`Free feedback/Input field` 与三道开放题）**已接**；开放题**参与必答判定**。
+//   ⚠️ 能力边界（如实标）：`PointerLayer` 是**纯字符流**（`onTextInput` + Backspace + Enter/Esc），
+//   **没有**光标 / 选区 / 拖选 / 多行编辑 —— 原版是 `TMP_InputField`。⛔ 别宣称「和原版一样能编辑」。
 // · **`Free feedback`**：prefab 出厂 `m_IsActive = false`（旧版单行反馈面板），照建、整颗关着。
 // · **提交**：`Submit()` 做完整的本地校验与交互，但**上报不实现**（原版走 `UploadOnlineDemoData` → PlayFab；
 //   本地没有后端）⇒ 出声 + 照原版弹「感谢」消息窗 + `Close()`。
@@ -366,10 +369,14 @@ namespace CardPresentation
 
         Transform _dark, _window, _panel, _mask, _fill, _title, _subtitle, _submit, _close, _free, _scrollNode, _content;
         Label _titleLabel, _subtitleLabel, _submitLabel;
+        Label _freeTextLabel, _freeCounterLabel;     // 🆕 `N48③`：旧版单行反馈框（出厂关着）
+        string _freeText = "";
         MenuScroll _scroll;
         ViewportClip _clip;
         readonly Dictionary<string, HashSet<int>> _selected = new Dictionary<string, HashSet<int>>();
         readonly Dictionary<string, int> _score = new Dictionary<string, int>();
+        // 🆕 **2026-10-17（`N48③`）**：开放题的作答文本（键 = `Item.Name`）。
+        readonly Dictionary<string, string> _text = new Dictionary<string, string>();
         public bool SubmitInteractable { get; private set; }
         public readonly List<string> MissingArt = new List<string>();
 
@@ -422,8 +429,10 @@ namespace CardPresentation
             MissingArt.Clear();
             _selected.Clear();
             _score.Clear();
+            _text.Clear();
             _dark = _window = _panel = _mask = _fill = _title = _subtitle = _submit = _close = _free = _scrollNode = _content = null;
             _titleLabel = _subtitleLabel = _submitLabel = null;
+            _freeTextLabel = _freeCounterLabel = null;
             _scroll = null;
             _clip = null;
             SubmitInteractable = false;
@@ -490,14 +499,16 @@ namespace CardPresentation
                  TutorialMessagePopup.OfficialTerm(PlaceholderTerm, "Enter text...", "输入文字..."),
                  new Color(0.196f, 0.196f, 0.196f, 0.5f), "Placeholder", PlaceholderFont, QText, 0f, 0f, 0f, 1,
                  face: TmpFont.Face.LatinCardBody);
-            Text(inputArea, InputTextR, "\u200b", new Color(0.196f, 0.196f, 0.196f, 1f),
+            _freeTextLabel = Text(inputArea, InputTextR, "\u200b", new Color(0.196f, 0.196f, 0.196f, 1f),
                  "Text", PlaceholderFont, QText, 0f, 0f, 0f, 1, face: TmpFont.Face.LatinCardBody);
             Text(inputNode, InputTitleR,
                  TutorialMessagePopup.OfficialTerm(InputTitleTerm, "Let us know your comments and feedback",
                                                     "告诉我们你的意见与反馈"),
                  Color.white, "Input Field title", 38f, QText, 4f, 38f, 36f, 1, face: TmpFont.Face.LatinCardBody);
-            Text(inputNode, CounterR, "280/500", new Color(0.642f, 0.642f, 0.642f, 1f),
+            _freeCounterLabel = Text(inputNode, CounterR, "280/500", new Color(0.642f, 0.642f, 0.642f, 1f),
                  "Character Counter", 24.7f, QText, 0f, 0f, 0f, 2, face: TmpFont.Face.LatinCardBody);
+            // 🆕 `N48③`：旧版单行反馈框也接外壳文本输入（本窗出厂整块关着 ⇒ 只有将来启用才用得上）。
+            MenuDraw.Hit(inputNode, "Hit", InputR, QHit, BeginEditFree);
             _free.gameObject.SetActive(false);           // = prefab 出厂 `m_IsActive = false`
 
             // ---- 9) `Scroll Rect`（`ScrollRect + RectMask2D`，`h=0 v=1 mode=1` ⇒ 纵向 Elastic）----
@@ -519,7 +530,6 @@ namespace CardPresentation
 
             BuildSurvey();
 
-            NoteTextInputMissing();
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[GiveFeedback] ⚠️ 有 " + MissingArt.Count + " 张图取不到："
                                  + string.Join("、", MissingArt.ToArray()));
@@ -656,8 +666,54 @@ namespace CardPresentation
                           new Color(1f, 1f, 1f, 0.5f), "Placeholder", 29f, QText, 0f, 0f, 0f, 1,
                           face: TmpFont.Face.LatinCardBody);
             if (ph != null) ph.gameObject.SetActive(false);
-            Text(area, inner, "\n\u200b", Color.white, "description text", 38f, QText, 0f, 0f, 0f, 1,
-                 face: TmpFont.Face.LatinCardBody);
+            // \ud83c\udd95 **2026-10-17\uff08`N48\u2462`\uff09**\uff1a\u5f00\u653e\u9898\u63a5\u5916\u58f3\u6587\u672c\u8f93\u5165\uff08`PointerLayer.BeginText`\uff09\u3002
+            //   \u6709\u4f5c\u7b54\u5c31\u663e\u793a\u4f5c\u7b54\u3001\u5360\u4f4d\u5b57\u85cf\u8d77\u6765\uff1b\u70b9\u6846\u5f00\u59cb\u7f16\u8f91\uff08\u56de\u8f66\u63d0\u4ea4 / ESC \u53d6\u6d88\uff09\u3002
+            string curTxt = _text.TryGetValue(it.Name, out var t0) ? t0 : "";
+            if (ph != null) ph.gameObject.SetActive(string.IsNullOrEmpty(curTxt));
+            Text(area, inner, string.IsNullOrEmpty(curTxt) ? "\n\u200b" : curTxt, Color.white,
+                 "description text", 38f, QText, 0f, 0f, 0f, 1, face: TmpFont.Face.LatinCardBody);
+            MenuDraw.Hit(box, "Hit", areaR, QHit, () => BeginEditOpen(it));
+        }
+
+        /// <summary>\u65e7\u7248\u5355\u884c\u53cd\u9988\u6846\u7684\u8f93\u5165\u5165\u53e3\uff08\u672c\u7a97\u51fa\u5382\u6574\u5757\u5173\u7740\uff1b\u540c `BeginEditOpen` \u7684\u80fd\u529b\u8fb9\u754c\uff09\u3002</summary>
+        void BeginEditFree()
+        {
+            var pl = PointerLayer.Instance;
+            if (pl == null)
+            {
+                Debug.LogWarning("[GiveFeedback] `PointerLayer` \u53d6\u4e0d\u5230 \u21d2 \u8fd9\u4e2a\u8f93\u5165\u6846**\u8fd9\u6b21\u6539\u4e0d\u4e86**\uff08\u26d4 \u4e0d\u9759\u9ed8\uff09\u3002");
+                return;
+            }
+            pl.BeginText(_freeText, 500,
+                s => { _freeText = (s ?? "").Trim(); RefreshFreeText(); },
+                RefreshFreeText,
+                s => { if (_freeTextLabel != null) _freeTextLabel.SetText(s);
+                       if (_freeCounterLabel != null) _freeCounterLabel.SetText(s.Length + "/500"); });
+        }
+
+        void RefreshFreeText()
+        {
+            if (_freeTextLabel != null) _freeTextLabel.SetText(_freeText);
+            if (_freeCounterLabel != null) _freeCounterLabel.SetText(_freeText.Length + "/500");
+        }
+
+        /// <summary>\u5f00\u653e\u9898\u7684\u8f93\u5165\u5165\u53e3\uff08\u5916\u58f3\u7eaf\u5b57\u7b26\u6d41\uff1a\u65e0\u5149\u6807/\u9009\u533a/\u591a\u884c\uff0c\u89c1\u6587\u4ef6\u5934\uff09\u3002</summary>
+        void BeginEditOpen(Item it)
+        {
+            var pl = PointerLayer.Instance;
+            if (pl == null)
+            {
+                Debug.LogWarning("[GiveFeedback] `PointerLayer` \u53d6\u4e0d\u5230 \u21d2 \u8fd9\u9053\u5f00\u653e\u9898**\u8fd9\u6b21\u6539\u4e0d\u4e86**\uff08\u26d4 \u4e0d\u9759\u9ed8\uff09\u3002");
+                return;
+            }
+            string started = _text.TryGetValue(it.Name, out var s0) ? s0 : "";
+            pl.BeginText(started, 500,
+                s => { _text[it.Name] = (s ?? "").Trim(); BuildSurvey(); RefreshSubmitState(); },
+                () => BuildSurvey(),
+                s => { var lb = FindChildDeep(FindChildDeep(_content, it.Name), "description text");
+                       var l = lb != null ? lb.GetComponent<Label>() : null; if (l != null) l.SetText(s + "_"); });
+            Debug.Log("[GiveFeedback] \u300c" + it.Name + "\u300d\u5f00\u653e\u9898\uff1a\u8f93\u5165\u540e**\u56de\u8f66**\u786e\u8ba4\u3001**ESC** \u53d6\u6d88"
+                    + "\uff08\u5916\u58f3\u8f93\u5165\u5c42\u662f\u7eaf\u5b57\u7b26\u6d41\uff0c\u6ca1\u6709\u5149\u6807/\u9009\u533a/\u591a\u884c \u2014\u2014 \u539f\u7248\u662f `TMP_InputField`\uff09\u3002");
         }
 
         // ============================================================ 交互
@@ -704,7 +760,8 @@ namespace CardPresentation
         }
 
         /// <summary>`AllRequiredAnswered`：原版 `OnAnswer` 的 `Enumerable.All(...)` 等价物。
-        /// ⚠️ **开放题不参与**（工程没有文本输入层；如实标注的偏离，见文件头）。</summary>
+        /// ✅ **2026-10-17（`N48③`）**：开放题**已参与**（文本输入已接；非空才算答）。
+        /// ⚠️ 输入能力是纯字符流（无光标/选区/多行），但「答没答」这条判据与原版同义。</summary>
         bool AllRequiredAnswered()
         {
             foreach (var sec in Sections)
@@ -720,6 +777,11 @@ namespace CardPresentation
                     {
                         int v;
                         if (!_score.TryGetValue(it.Name, out v) || v == 0) return false;
+                    }
+                    else if (it.Kind == ItemKind.Open)
+                    {
+                        string t;
+                        if (!_text.TryGetValue(it.Name, out t) || string.IsNullOrEmpty(t)) return false;
                     }
                 }
             return true;
@@ -745,6 +807,7 @@ namespace CardPresentation
             int answers = 0;
             foreach (var kv in _selected) answers += kv.Value.Count;
             answers += _score.Count;
+            answers += _text.Count;      // 🆕 `N48③`：开放题作答也计入「收齐了多少条」
             Debug.LogWarning("[GiveFeedback] **问卷上报未实现**：原版 `Submit()` → `UploadOnlineDemoData` → PlayFab，"
                            + "本地没有后端 ⇒ 只收齐了 " + answers + " 条答案（内存里），**不发送**。"
                            + "（`GameAnalytics.SendFeedbackEvent` 同样没有对应实现。）");
@@ -786,16 +849,6 @@ namespace CardPresentation
             return o.Id;
         }
         static readonly HashSet<string> _optionWarned = new HashSet<string>();
-
-        static bool _textInputWarned;
-        static void NoteTextInputMissing()
-        {
-            if (_textInputWarned) return;
-            _textInputWarned = true;
-            Debug.LogWarning("[GiveFeedback] **文本输入未接**：工程没有 IME/键盘输入层 ⇒ `Input field` 与三道开放题"
-                           + "只画原版的框 + 占位字，**不接受输入**；因此**开放题不参与必答判定**"
-                           + "（如实标注的偏离，⛔ 不假装能用）。");
-        }
 
         Transform FindChildDeep(Transform root, string name)
         {

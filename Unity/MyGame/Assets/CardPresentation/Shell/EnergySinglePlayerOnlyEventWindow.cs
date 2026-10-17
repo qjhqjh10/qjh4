@@ -436,7 +436,10 @@ namespace CardPresentation
             // 🆕 **2026-10-17（界面线 `T07` · `A1753` #12）**：原版 `Collect Button ▸ Button Text` 挂
             //   `Pragati-Regular Off White Cold`，`_FaceColor = (0.912, 0.981, 0.961)`、顶点白。
             //   判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·2 #12（同族另一站 `SkirmishEventWindow` 由别的写手改）。
-            var ct = MenuDraw.Text(_collect, CollectTxR, "Collect", new Color(0.912f, 0.981f, 0.961f, 1f), "Button Text",
+            // 🔴 **2026-10-17（第四十八会话 · `N47`）**：这一颗原版 `Button Text` 的 `Localize.mTerm` =
+            //   **`MainMenu/General/Collect`**（整包普查 26 颗里 24 颗是这个键、`m_Enabled = 1`）⇒ 接词条。
+            var ct = MenuDraw.Text(_collect, CollectTxR, Loc.T("MainMenu/General/Collect"),
+                                   new Color(0.912f, 0.981f, 0.961f, 1f), "Button Text",
                                    55f * SBarFontScale, QText, CollectTxR.W,
                                    10f * SBarFontScale, 55f * SBarFontScale, 12f * SBarFontScale, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-19（A1190）**：这一颗原来**没传 autosize 实参** ⇒ 固定 55px。

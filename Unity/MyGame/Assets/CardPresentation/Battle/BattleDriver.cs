@@ -3115,6 +3115,11 @@ namespace CardPresentation
             if (myFaction != null) _myFaction = myFaction;
             if (foeFaction != null) _foeFaction = foeFaction;
             _seed = seed;
+            // 🔴 **2026-10-17（R1 现核）**：`RefreshHudTitles()` 原来只在 `_hudBuilt` 闩住的
+            //   `BuildHudExtras` 里调（`:15569`）⇒ **二次 `Begin` 换种子后，名牌还停着首局的称号**
+            //   （自检先 Begin 首局、再 Begin 种子 20260916，断言读到的仍是 20260911 那一档）。
+            //   `Begin` 是所有开局入口的唯一汇合点 ⇒ 这里补调一次（方法内部对未建的 HUD 有判空）。
+            RefreshHudTitles();
             // 🆕 **2026-10-14（A1892）**：把**对局种子**锚到震屏的相位基线上。
             //   病灶：震屏种子原先是 `ShakeSeedBase + 进程内单调序号` ⇒ 同一局重放两次逐位相同 ✅，
             //   但**两局之间「第一下」的相位相同**（`ResetShakePhases()` 全仓 0 调用点 = 死代码，

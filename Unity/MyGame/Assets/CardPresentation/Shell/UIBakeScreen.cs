@@ -67,8 +67,11 @@ namespace CardPresentation
         public const string ShaderName = "CardPresentation/UIBlur";
         /// <summary>整屏快照的渲染队列（我们起的号；理由见文件头）。</summary>
         public const int DisplayQueue = 2895;
-        /// <summary>RT 名字（⚠️ **我们挑的**：原版那个字符串常量没读出，见文件头）。</summary>
-        public const string RTName = "Background Render Texture";
+        /// <summary>RT 名字 —— **原版实读** `"RT Background bake"`。
+        /// 判据：`UIBakeScreen__CreateRT.c:16,54` 的 `DAT_1842a4768`，RVA = `0x1842a4768 − 0x180000000 = 0x42A4768`；
+        /// `d:/2/tools/il2cpp_out/stringliteral.json` 里该地址 = `"RT Background bake"`
+        /// （同一手法解过 `"Everguild/UI/Greyscale" @0x42AB248`，见 `Shell/MissionsTab.cs:1973` 附近）。</summary>
+        public const string RTName = "RT Background bake";
 
         // ---- 原版字段（名字逐字照抄）----
         /// <summary>烘哪台相机（原版 `cameraToBake`；我们 = `Camera.main` = `LayoutSpace.Apply` 用的那台）。</summary>

@@ -1254,27 +1254,32 @@ public static class CollectionScene
                 }
             }
 
-            // ============================================================ 🆕 **2026-10-17（`A1644` 诊断）**
-            //   卡组页上那块「我们有、原版实拍没有」的暗色渐变矩形：静态手段已排除 40 个渐变组件 / `MenuDraw` 渐变族 /
-            //   全部暗 rect（R1 只留了一条硬线索 `x1≈330.9 = DeckViewport.x1`）⇒ 唯一办法 = 建完本页后
-            //   **遍历全部 `ImageQuad`**，打 `name / 设计 px 矩形 / renderQueue`，筛 `x1∈[330,333] ∧ x2∈[1164,1167] ∧ y2∈[581,583]`。
-            //   ⚠️ 只是诊断输出（`Debug.Log`），**不是断言** —— 跑 `CollectionScene.Run` 后在日志里搜 `[A1644]`。
+            // ============================================================ 🆕 **2026-10-17（`A1644` 定位后收口）**
+            //   原位是「遍历 Deck 页 ImageQuad 打日志」的诊断探针 —— **它定位不到本件**（只遍历 `PageRoot(0)`，
+            //   而真正的件在**外壳**里；筛条件 `x1∈[330,333]` 与真值 `x1=−762.5` 也不符）⇒ 删除探针、换成断言。
+            //   定位结论（静态闭合，D5）：那块暗渐变 = 外壳左竖导航的投影
+            //   `Navigation Panel/Panel Shadow`（队列 **2910**、α 0.4667），**不是本窗的件**。
+            //   原版兄弟序里 `Navigation Panel` 在窗口 Holder **之前** ⇒ 窗画在它上面；
+            //   我们把窗口底图压到 2000（为躲 `CardView` 的 3000）⇒ 反被这条影子盖住。
+            //   修法 = 底图队列 **2940**（∈ (2910, 3000)）。本断言咬住这条区间。
             {
-                var qroot = win.PageRoot(0);
-                int qn = 0;
-                if (qroot != null)
-                    foreach (var q in qroot.GetComponentsInChildren<ImageQuad>(true))
+                var bgNode = win.transform.Find("Content Area/Background");
+                CheckTrue(bgNode != null, "`Content Area/Background` 底图节点存在");
+                if (bgNode != null)
+                {
+                    int qn = 0, bad = 0;
+                    foreach (var q in bgNode.GetComponentsInChildren<ImageQuad>(true))
                     {
                         if (q == null) continue;
-                        var c = LayoutSpace.ToDesignPixel(q.transform.position);
-                        float hw = q.WorldW * 0.5f * LayoutSpace.PxPerWorldX;
-                        float hh = q.WorldH * 0.5f * 108f;
-                        Debug.Log($"[A1644] {q.name} x1={c.x - hw:F2} x2={c.x + hw:F2} y1={c.y - hh:F2} y2={c.y + hh:F2} "
-                                + $"w={q.WorldW * LayoutSpace.PxPerWorldX:F2} h={q.WorldH * 108f:F2} "
-                                + $"q={q.RenderQueue} active={q.gameObject.activeInHierarchy}");
                         qn++;
+                        int rq = q.RenderQueue;
+                        if (rq <= 2910 || rq >= 3000) bad++;
                     }
-                Debug.Log($"[A1644] Deck 页 ImageQuad 共 {qn} 颗（筛条件 x1∈[330,333] ∧ x2∈[1164,1167] ∧ y2∈[581,583]）");
+                    CheckTrue(qn > 0, $"底图下有 {qn} 块 `ImageQuad`（⛔ 一颗都没有 = 底图没建）");
+                    // 🧨 改回 2000（或任何 ≤2910）⇒ 红；改到 ≥3000 ⇒ 卡池会被底图盖住。
+                    Check(bad, 0, "★ A1644：底图每一块的渲染队列都 ∈ (2910, 3000)"
+                                + "（> 外壳 `Navigation Panel/Panel Shadow` 的 2910、< `CardView` 的 3000）");
+                }
             }
 
             // ---------------- Deck 页：视口 / 格 / 6 列 ----------------
@@ -2463,7 +2468,7 @@ public static class CollectionScene
                                       "两个抽屉**互斥**（`Deck List` 关了、`Deck Info` 开了）");
                             // ⑤ `Deck Info` 里的三件：标题 / 费用曲线 9 行 / 卡背
                             var di = FindChild(pr, "Deck Info");
-                            CheckText(TextOf(FindChild(di, "Deck Information Cost/balance text")), "Cards / Cost",
+                            CheckText(TextOf(FindChild(di, "Deck Information Cost/balance text")), Loc.T("Demo/CardCostBalance"),
                                       "费用那条标题（⚠️ 原版 prefab 里是**葡语占位** `Cartas / Coste` ⇒ 这行文案是我们挑的）");
                             Check(pop.CostRowCounts.Count, 9, "费用曲线 **9 行**（费用 0..8 —— 原版序列化就是 9 行）");
                             int sum = 0; for (int k = 0; k < pop.CostRowCounts.Count; k++) sum += pop.CostRowCounts[k];
@@ -6509,12 +6514,27 @@ public static class CollectionScene
                 var lc2 = clrT != null ? clrT.GetComponent<Label>() : null;
                 if (lt != null && lc2 != null)
                 {
+                    // 🔴 **2026-10-17（R2 现核 + 末轮复跑）**：这一节跑的时候当前页可能不是 Cosmetics ⇒ 页节点
+                    //   `SetActive(false)`；而且**没有筛选时 `Clear filters` 那一颗本身也是关着的**
+                    //   （`RefreshClearFilter` 按「筛选空不空」开关）⇒ 两颗 TMP 都量不到（哨兵 4.29e9）。
+                    //   ⇒ 量之前把「页 + 按钮 + 文字」这条链临时点亮、量完逐级还原（⛔ 不改产品显隐）。
+                    bool pageWas = cpage != null && cpage.gameObject.activeSelf;
+                    var cfParent = clrT != null ? clrT.parent : null;
+                    bool cfPWas = cfParent != null && cfParent.gameObject.activeSelf;
+                    bool cfTWas = clrT != null && clrT.gameObject.activeSelf;
+                    if (cpage != null && !pageWas) cpage.gameObject.SetActive(true);
+                    if (cfParent != null && !cfPWas) cfParent.gameObject.SetActive(true);
+                    if (clrT != null && !cfTWas) clrT.gameObject.SetActive(true);
+                    lt.ForceRelayout(); lc2.ForceRelayout();
                     // 🆕 **2026-10-16（A796′）换口**：半宽（`WorldW × 54`）→ `LabelRenderedPx`（TMP `textBounds`）；
                     //    中心仍是**节点位置**（只换「从哪个口读那个数」）。
                     float tLeft = PxOf(lt.transform.position.x) - LabelRenderedPx(lt).x * 0.5f;
                     float cRight = PxOf(lc2.transform.position.x) + LabelRenderedPx(lc2).x * 0.5f;
                     CheckTrue(tLeft > cRight,
                               $"标题（左缘 **{tLeft:F0}**，右对齐到 1821）与 `Clear filters`（右缘 **{cRight:F0}**）**不叠**");
+                    if (cfParent != null && !cfPWas) cfParent.gameObject.SetActive(false);
+                    if (clrT != null && !cfTWas) clrT.gameObject.SetActive(false);
+                    if (cpage != null && !pageWas) cpage.gameObject.SetActive(false);
                 }
             }
             // 左抽屉：**出厂 act=F**，靠 `Filter Toggle` 开合
@@ -8244,7 +8264,13 @@ public static class CollectionScene
                 rbtn.Click();
                 Check(win.StyleIndex, 0, "点右箭 ⇒ 下标**仍是 0**（只有 1 档；⛔ 既不是回绕也不是报错）");
                 Check(win.StyleVisibleCount, 7, "点数不受影响（还是那 7 张）");
-                lbtn.Click();
+                // 🔴 **2026-10-17（桶 C）**：夹具**每次点击后重取按钮** —— 不假设点击不重建页面
+                //   （原版 `ConfigureStyle` 只刷新、不重建，但夹具不能把这条当前提；否则实现一旦重建
+                //   第二下就点在已销毁对象上，报出来的是 `WindowButton.PlayClickSound` 的 NRE）。
+                lhit = spage != null ? FindChild(spage, "ArrowHit Left") : null;
+                lbtn = lhit != null ? lhit.GetComponent<WindowButton>() : null;
+                CheckTrue(lbtn != null, "点右箭之后左箭钮仍在（⛔ 不是一个已销毁的引用）");
+                if (lbtn != null) lbtn.Click();
                 Check(win.StyleIndex, 0, "点左箭 ⇒ 下标**仍是 0**");
             }
             // 筛选**真的筛得动**（复用同一套 `DeckEditorState`：筛 `legendary` 只剩传奇那几张）
@@ -8865,7 +8891,7 @@ public static class CollectionScene
                             CheckA1212(infoB, "Warlord Name", "Deck info ▸ Warlord Name", 1f, 35f, 24.3f, 1);
                         }
                     }
-                    CheckA1212(pmpA.transform, "Card / Energy cost", "General container ▸ Cost/balance text",
+                    CheckA1212(pmpA.transform, "Deck Information Cost/balance text", "General container ▸ Cost/balance text",
                                1f, 34f, 22.3f, 1);
                     // 🔴 **2026-10-17（`A1226` 表 B #50）· 框已收口（第四十六会话）**：
                     //   原版 `… ▸ Generic Simplified UI Button ▸ Button Text` 的有效框 = **236.77 × 61.68**

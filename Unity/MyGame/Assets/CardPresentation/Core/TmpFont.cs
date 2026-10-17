@@ -165,7 +165,6 @@ namespace CardPresentation
         };
 
         static readonly TMP_FontAsset[] _faceAsset = new TMP_FontAsset[4];
-        static readonly float[] _faceEm = new float[4];
 
         /// <summary>取某一面的字体资产。**取不到就退回 CJK 那一份并出声**（⛔ 不返回 null、不静默变空白）。</summary>
         public static TMP_FontAsset FaceAsset(Face f)
@@ -226,26 +225,20 @@ namespace CardPresentation
         /// <summary>「**1 em** 在世界空间里有多高」÷「fontSize」—— 这是本工程 px 口径的基准
         /// （`Label.FontSizeToPx` = `fontSize × 本值 × 108`）。
         ///
-        /// 🔴 **为什么不能直接量 `'国'`**：只有 CJK 那份有汉字；拉丁三份量出来的是 `.notdef` 方框（实测 0.0622），
-        ///   拿它当 em 会把字号算错一大截。**统一口径** = `量一个大写字母 ÷ (faceInfo.capLine ÷ pointSize)`：
-        ///   大写字母高 = `capLine/pointSize` em ⇒ 反推出 1 em。**对 `Noto` 自洽验证过**：
-        ///   `0.0779 ÷ 0.8217 ≈ 0.0948` = 汉字实测值（两者一致 ⇒ 这条式子是通的）。
-        ///   🔴 **2026-10-17 订正（`A1235`）**：原写 `0.0683 ÷ 0.72 ≈ 0.0948` —— `0.0683` 是 em 口径**推算**值、
-        ///   不是实测;TTF 实读 `'M'` 729 / `'国'` 898（upem 1000，含 padding）⇒ `Wcap = 0.0779`、`Wglyph = 0.0948`。
-        /// ⚠️ `Face.Cjk` 这一支**直接返回既有那个缓存值**（`WorldGlyphPerFontSize`）—— 保证零行为变化。</summary>
+        /// 🔴 **2026-10-17（第四十八会话 · 桶 A）：本值【与字体面无关】，恒返回 `WorldGlyphPerFontSize`。**
+        ///   2026-10-17 的 `A1024③` 换面曾让这一支**按面实测「1 em」**（`'M' ÷ capLine/pointSize`：
+        ///   Pragati 0.103906 / Asar 0.105507），而 `Face.Cjk` 支返回的是「国」字**墨高 0.0948
+        ///   （= 0.898 em，不是 1 em）** ⇒ 同一把 px 尺随面变 9–11%
+        ///   （**0.9122 = 0.0948 ÷ 0.103906** · 0.8983 = 0.0948 ÷ 0.105507）。
+        ///   后果：`SetAutoFitBox` 的 min/max/base 与所有「按面取尺」的断言整体缩水
+        ///   （实得 42→38.31 · 35→31.44 · 36→32.84 …）。
+        ///   🔑 **判据**：本工程的 px 口径是按 CJK **标定**的（原版 `m_fontSize` 也不随字体面变），
+        ///   换面只该换字形与行盒，**不该换 px↔fontSize 这把尺**。
+        ///   ⚠️ `CapPerFontSize` **仍然按面**（它量的是拉丁大写，换面确实会变）。
+        /// ⚠️ 历史注释保留：不能直接量 `'国'` 给拉丁面（那三份量出来是 `.notdef` 方框 0.0622）。</summary>
         public static float EmPerFontSize(Face f)
         {
-            if (f == Face.Cjk) return WorldGlyphPerFontSize;      // 既有口径，一个字不动
-            int i = (int)f;
-            if (_faceEm[i] > 0f) return _faceEm[i];
-            var a = FaceAsset(f);
-            if (a == null) return WorldGlyphPerFontSize;
-            float cap = MeasureGlyph(a, 'M', "拉丁大写（" + f + "）");
-            var fi = a.faceInfo;
-            float capEm = fi.pointSize > 0f ? fi.capLine / fi.pointSize : 0.72f;
-            float em = capEm > 0.01f ? cap / capEm : WorldGlyphPerFontSize;
-            _faceEm[i] = em;
-            return em;
+            return WorldGlyphPerFontSize;      // 与面无关；`Face.Cjk` 逐位不变，拉丁面回到换面前的口径
         }
 
         /// <summary>要让 1 em 占 `worldHeight` 个世界单位高，fontSize 该给多少（按面折算）。</summary>

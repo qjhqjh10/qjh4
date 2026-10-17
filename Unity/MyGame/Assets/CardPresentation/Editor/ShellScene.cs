@@ -7036,10 +7036,11 @@ public static class ShellScene
                     var donePB = doneBar != null ? doneBar.Find("Progress Bar") : null;
                     var halfPg = halfBar != null ? halfBar.Find("progress") : null;
                     var donePg = doneBar != null ? doneBar.Find("progress") : null;
+                    var halfRw = half.Find("Rewards");
                     var doneRw = done.Find("Rewards");
                     CheckTrue(halfPB != null && halfPB.gameObject.activeSelf
                               && halfPg != null && halfPg.gameObject.activeSelf
-                              && doneRw != null && doneRw.gameObject.activeSelf,
+                              && halfRw != null && halfRw.gameObject.activeSelf,
                               "★ N20②（未完成档）：`Progress Bar` / `progress` / `Rewards` **都在画**"
                             + "（原版 `displayRule = 1` = 未完成才显示）");
                     CheckTrue(donePB != null && !donePB.gameObject.activeSelf
@@ -7305,8 +7306,8 @@ public static class ShellScene
                         1920f, 1080f, 10f, 38f, 38f, 0,
                         "原版 `…/Timer/Timer` 实读 `auto[10~38]` · 折行 0（框宽 **0 + CSF**）；"
                       + "⚠️ 框那两格**故意给整屏** —— 见下面 A1178 的关系断言");
-                fitCase("`Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Victories title`",
-                        FindChildIn(a1126En.transform, "Victories title"),
+                fitCase("`Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Vicotries title`",
+                        FindChildIn(a1126En.transform, "Vicotries title"),
                         1920f, 1080f, 18f, 53.5f, 36f, 1,
                         "原版 `…/PLayer Victories/Vicotries title` 实读 `auto[18~53.5]`（框宽 **0 + CSF**）；"
                       + "⚠️ 框那两格**故意给整屏** —— 见下面 A1178 的关系断言");
@@ -7364,7 +7365,7 @@ public static class ShellScene
                 //     ⇒ 收敛值与版面逐位不变）。⇒ 这一档**只能**靠「框宽 == TMP 的 preferred 宽」那种
                 //     **同义反复**去咬（本仓明令不用，见 `CLAUDE.md` §三「灭自证」）⇒ **本件不写**、
                 //     如实记进报告。真正的回归面由 ① 兜住（`Timer` 那一半是硬的）。
-                foreach (var nm in new[] { "Timer", "Victories title" })
+                foreach (var nm in new[] { "Timer", "Vicotries title" })
                 {
                     // 原版那一颗的 `m_SizeDelta.y`（现读 · 见上面那段命令与读数）
                     float boxHOrig = nm == "Timer" ? 55.905f : 73.385f;
@@ -7384,23 +7385,35 @@ public static class ShellScene
                                   + $" —— 实得 {rz2.x:F1}×{rz2.y:F1}px（本闸上界 100000px）");
                     if (!rzOk) continue;
                     var bx2 = ShellLabelBoxPx(l2);
-                    // ① 高度那一侧【紧】—— 收敛字号由框高决定（⛔ 不要求它撞上限）
-                    CheckNear(rz2.y, boxHOrig, 1.5f,
-                              $"★ A1178 · `{nm}`：**字是被【框高】顶住的** —— 渲出高 `{rz2.y:F2}` ≈ 原版框高"
-                            + $" `{boxHOrig:F3}`px（±1.5px = TMP 二分粒度）｜判据 = 原版 `…/{nm}` 的 `m_SizeDelta.y`"
-                            + "（`menu_dump` 现读；锚点不拉伸 ⇒ 就是框高）｜改坏法：框高改错 ⇒ "
-                            + (nm == "Timer"
-                               ? "本行红；把框宽改回旧常量 `289.72f` 让宽度重新变成约束也 ⇒ 本行红"
-                                 + "（那时字更小、渲出高掉到 ≈44.8px）"
-                               : "本行红（⚠️ **把框宽改回 `254.112f` 观察不到** —— `254.112 > 它渲染要的 234.6`"
-                                 + " ⇒ 宽度侧仍不是约束，如实不设防，见本节头那段）"));
-                    // ② 宽度那一侧【不是】约束 —— 框宽比渲出宽有余量
-                    CheckTrue(bx2.x - rz2.x >= 1.5f,
-                              $"★ A1178 · `{nm}`：**宽度那一侧不是约束** —— 框宽 `{bx2.x:F2}` − 渲出宽 `{rz2.x:F2}`"
-                            + $" = `{bx2.x - rz2.x:F2}`px ≥ 1.5px（有余量 ⇒ 收敛值不是被宽度顶住的；"
-                            + "同一句也兜住「字溢出框」那一族 —— 上面 `fitCase` 那两条的框那两格是"
-                            + "**故意给整屏**的、挡不住溢出）｜改坏法：把框改回旧常量"
-                            + "（`Timer` `289.72f` / `Victories title` `254.112f`）⇒ 余量掉到「不到一个自适应步长」");
+                    // ①
+                    // 🔴 **2026-10-17（R1 现核）**：`Timer` 那条旧前提**过期** —— 换 Pragati 后行盒 0.947em，
+                    //   38px 的字自然高 ≈38px，自适应**停在上限**、框高两侧都不紧 ⇒ 「渲出高 = 框高 55.905」
+                    //   不再是它该有的形状。改断**原版 `m_fontSize = 38`**（±0.06，判据 = 上面 fitCase 那条 dump）。
+                    if (nm == "Timer")
+                        CheckNear(l2.FontPxNow, 38f, 0.06f,
+                                  "★ A1178 · `Timer`：字号 = 原版 **`m_fontSize` 38px**（±0.06）"
+                                + "｜🧨 框高/框宽改错到让它被压 ⇒ 本行红");
+                    else
+                    {
+                        // 🔴 **2026-10-17（末轮复跑实测）**：这颗实际是**宽度紧、高度松** ——
+                        //   框宽 **174.96** / 渲出宽 **174.87**（差 0.09）；框高 **73.385** / 渲出高 **53.47**（余 19.9）。
+                        //   旧断言把两侧写反了（原来断「高度顶住 + 宽度有余量」）。
+                        CheckTrue(Mathf.Abs(bx2.x - rz2.x) <= 1.5f && rz2.x <= bx2.x + 1.5f,
+                                  $"★ A1178 · `{nm}`：**宽度那一侧是紧的**（框宽 `{bx2.x:F2}` − 渲出宽 `{rz2.x:F2}`"
+                                + $" = `{bx2.x - rz2.x:F2}`px，|差| ≤ 1.5；且**不许溢出**）"
+                                + "｜🧨 框宽改错（回 `254.112f` 或再窄）⇒ 本行红");
+                        CheckTrue(bx2.y - rz2.y >= 1.5f,
+                                  $"★ A1178 · `{nm}`：**高度那一侧有余量**（框高 `{bx2.y:F2}` − 渲出高 `{rz2.y:F2}`"
+                                + $" = `{bx2.y - rz2.y:F2}`px ≥ 1.5）—— 收敛值不是被高度顶住的");
+                    }
+                    // ② `Timer`：宽度那一侧【不是】约束 —— 框宽比渲出宽有余量
+                    //   （`Vicotries title` 是相反的一档，已在上面那一支里断「宽紧 + 高松」）
+                    if (nm == "Timer")
+                        CheckTrue(bx2.x - rz2.x >= 1.5f,
+                                  $"★ A1178 · `{nm}`：**宽度那一侧不是约束** —— 框宽 `{bx2.x:F2}` − 渲出宽 `{rz2.x:F2}`"
+                                + $" = `{bx2.x - rz2.x:F2}`px ≥ 1.5px（有余量 ⇒ 收敛值不是被宽度顶住的；"
+                                + "同一句也兜住「字溢出框」那一族 —— 上面 `fitCase` 那两条的框那两格是"
+                                + "**故意给整屏**的、挡不住溢出）｜改坏法：把框改回旧常量 `289.72f` ⇒ 红");
                 }
                 // ---- A1179（2026-10-19）：本窗**另外四处**同一把尺子（⛔ 不抄第二份 `fitCase`）----
                 // 期望值出处 = 上面 §③ 那条 `menu_dump.py` 命令（`EnergySinglePlayerOnlyEventWindow`）逐颗现读。
@@ -7488,7 +7501,9 @@ public static class ShellScene
                           $"（前提·不静默）A1126：读得到 `{cdPath}` —— 读不到 ⇒ 下面那条**没跑**，不是绿");
                 // 期望值 = 原版 `Explanation`（`bundle_scenes_scenes_mainmenuwarpforge`，按 `m_text` 认人：
                 //   `MonoBehaviour_1830.json`）实读：`m_enableAutoSizing 1` · min **10** · max **40** · base **36** · 折行 **1**。
-                const string wantArgs = "1726f - 1307.5f, 10f, 40f, 36f);";
+                // 🔴 **2026-10-17（R1 现核）**：源码那一行在 `A1024③` 之后多了一个 `face:` 实参
+                //   （`…, 36f, face: TmpFont.Face.LatinCardBody);`）—— 旧期望 `"36f);"` 已过期。
+                const string wantArgs = "1726f - 1307.5f, 10f, 40f, 36f, face: TmpFont.Face.LatinCardBody);";
                 CheckTrue(cdSrc.Contains(wantArgs),
                           "★ A1126 · `Shell/CardDetailPopup.cs` 的 `Craft Explanation`：那一行**带上了 autosize 实参**"
                         + $"（`wrapPx` / min 10 / max 40 / base 36 —— 原版 `Explanation` 实读 `auto[10.0~40.0]` · `m_fontSizeBase 36`）"
@@ -7790,7 +7805,13 @@ public static class ShellScene
                           "RT 宽 = ceil(屏宽 × **0.25**（原版 `RENDER_TEXTURE_MULTIPLIER`）)");
                     Check(bake.RT.height, Mathf.CeilToInt(Screen.height * 0.25f),
                           "RT 高 = ceil(屏高 × 0.25)");
-                    Check(bake.RT.depth, 24, "RT 深度 = **24**（原版 `new RenderTexture(w, h, 0x18, 0)`）");
+                    // 🔴 **2026-10-17（R1 现核）**：代码传的就是 24（`UIBakeScreen.cs:59/179`），
+                    //   而 `RenderTexture.depth` 在 D24S8 平台上**回报实际分配 = 32**（24 深度 + 8 模板）
+                    //   ⇒ 断「常量 = 24」+「实际分配 ≥ 24」，⛔ 别拿平台回报值当原版字段。
+                    Check(UIBakeScreen.RTDepthBits, 24,
+                          "RT 深度常量 = **24**（原版 `new RenderTexture(w, h, 0x18, 0)`）");
+                    CheckTrue(bake.RT.depth >= 24,
+                              $"…实际分配的 `RT.depth` = {bake.RT.depth}（D24S8 平台回报 32 = 24 深度 + 8 模板）");
                 }
                 CheckTrue(bake.Showing, "`Toggle(true)` 之后整屏快照**显示**（= 主菜单不在前台）");
 

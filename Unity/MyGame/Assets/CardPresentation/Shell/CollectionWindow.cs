@@ -1720,34 +1720,7 @@ namespace CardPresentation
             //   ⇒ 现在**照原版画图**；载不到才退回画名字（并出声 —— 红线：不许静默失败）。
             //   ⚠️ 图与框同比例（都 512×128 = 4.0）⇒ `keepAspect` 传哪一档画出来都一样；
             //      原版那颗 `Image.m_PreserveAspect` 的值**本地没有判据**，如实记在这里，别当原版值。
-            var _styleTex = StyleLogo(CurrentStyleName());
-            if (_styleTex != null)
-            {
-                Rect(page, StyleLogoName(CurrentStyleName()),
-                     new PxRect(StyleLogoL, StyleBarT, StyleLogoR, StyleBarB),
-                     "Art Style Logo", QPageText, null, keepAspect: true);
-            }
-            else
-            {
-                Debug.LogWarning("[Collection] 风格 logo 图载不到（style=" + CurrentStyleName()
-                                 + "）⇒ 退回画风格名 —— 查 `Resources/Art/ui_menu/` 与 `CardArt.MenuUi`");
-                // 兜底 = 画风格名。**必须限宽自适应** —— 那一格是 **512×128**，`Hammer and Bolter` 按 56px
-                //   画出来宽 ≈1270px，**直接压到右箭钮上**（第一版实拍一眼可见）。`SetAutoFitBox` 按框宽缩到放得下为止。
-                //   ⚠️ 判据要量**渲染宽度**，不是比字号 —— 见 `CLAUDE.md` §二 的 `AutoFitBox` 教训。
-                //   🔴 **2026-10-16（A830）**：那个「渲染宽度」现在由**自检自己量**
-                //      （TMP 自己渲出来那块 `textBounds`，`Editor/CollectionScene.cs` 的 `LabelRenderedPx`）——
-                //      ⛔ 本窗那个 `StyleLogoWidthPx` 属性（读 `Label.WorldW` = **字段缓存** `_tmpW/_tmpH`，
-                //      只有 `RefreshBounds()` 写 = **被测实现自己**）**已删**，别再把它加回来当尺子。
-                //      （判据 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3；同族先例 = W4/W5/W6 三个宿主换口。）
-                //   🔴 **2026-10-09（A1173）**：那对 `(18f, 56f)` 现在直接喂 `Text` 的形参（原来是「先 `Text`、
-                //      再手工 `SetAutoFitBox`」两份写法；且 `Text` 里那道裁切还被那次重排抹掉）。
-                _styleLogo = Text(page, StyleLabel(CurrentStyleName()), StyleLogoL, StyleLogoR, StyleBarT, StyleBarB,
-                                  6, PageInk, "Art Style Logo", 56f,
-                                  // 框 = 那一格自己（`StyleLogoR−L` × `StyleBarB−T`），与收口前手传的两维逐值相同
-                                  wrapPx: StyleLogoR - StyleLogoL, autoMinPx: 18f, autoMaxPx: 56f);
-                if (_styleLogo != null)
-                    _styleLogo.SetRenderQueue(QPageText);
-            }
+            BuildStyleLogo(page);
             Rect(page, "40k_main_line", new PxRect(StyleSep1L, StyleSep1T, 1920.01f, StyleSep1B),
                  "Separator Line (1)", QPageRow);
 
@@ -1855,9 +1828,14 @@ namespace CardPresentation
         {
             var s = AltStyles;
             if (s.Length == 0) return;
-            StyleIndex = ((StyleIndex + dir) % s.Length + s.Length) % s.Length;
+            int next = ((StyleIndex + dir) % s.Length + s.Length) % s.Length;
+            // 🔴 **2026-10-17（桶 C）**：只有 1 档时 `next == StyleIndex` —— 原版那是**死键**
+            //   （`ConfigureStyle` 根本不会被调用）。这里必须早退：否则会白白重建一次页面，
+            //   把正在点击的箭钮一起销毁（自检第二下点击即 NRE）。
+            if (next == StyleIndex) return;
+            StyleIndex = next;
             Debug.Log("[Collection] 切风格 → 「" + StyleLabel(s[StyleIndex]) + "」（第 " + (StyleIndex + 1) + "/" + s.Length + " 种）");
-            RebuildStylesPage();
+            RefreshStyleView();
         }
 
         /// <summary>重建整个 Styles 页（切风格 / 筛选变了调它）。</summary>
@@ -1883,6 +1861,73 @@ namespace CardPresentation
                 RebuildStyleCells(holder);
             }
             if (_fltStyles != null) RebuildFilterRows(_fltStyles);
+            RefreshStyleEmpty();
+        }
+
+        /// <summary>画/重画「风格 logo」那一格（`BuildStylesPage` 与切风格共用一份，⛔ 别写两遍）。</summary>
+        void BuildStyleLogo(Transform page)
+        {
+            // `Art Style Logo` = **原版那一格是 `Image`**：`AlternateArtCardCollectionTab.styleImage`
+            //   ← `AlternateArtStylesUtilities.GetStyleIcon(style)`（判据 → `StyleLogoName` 的头注）。
+            //   🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1808`）**：原来这里画的是**风格名文字**，注释写着
+            //   「原版运行时喂图（**风格图标 SO 本地没有**）⇒ 我们画风格名文字（**我们挑的**）」——
+            //   **两句都不成立**：SO 的本体就在**本地内置文件**里，而它那两张图（各 512×128）**现在都在工程里**
+            //   （`Resources/Art/ui_menu/Cell_Shaded_Alternative_Art_Style.png` / `WarpForgeLogo_Style.png`）。
+            //   ⇒ 现在**照原版画图**；载不到才退回画名字（并出声 —— 红线：不许静默失败）。
+            //   ⚠️ 图与框同比例（都 512×128 = 4.0）⇒ `keepAspect` 传哪一档画出来都一样；
+            //      原版那颗 `Image.m_PreserveAspect` 的值**本地没有判据**，如实记在这里，别当原版值。
+            var _styleTex = StyleLogo(CurrentStyleName());
+            if (_styleTex != null)
+            {
+                Rect(page, StyleLogoName(CurrentStyleName()),
+                     new PxRect(StyleLogoL, StyleBarT, StyleLogoR, StyleBarB),
+                     "Art Style Logo", QPageText, null, keepAspect: true);
+            }
+            else
+            {
+                Debug.LogWarning("[Collection] 风格 logo 图载不到（style=" + CurrentStyleName()
+                                 + "）⇒ 退回画风格名 —— 查 `Resources/Art/ui_menu/` 与 `CardArt.MenuUi`");
+                // 兜底 = 画风格名。**必须限宽自适应** —— 那一格是 **512×128**，`Hammer and Bolter` 按 56px
+                //   画出来宽 ≈1270px，**直接压到右箭钮上**（第一版实拍一眼可见）。`SetAutoFitBox` 按框宽缩到放得下为止。
+                //   ⚠️ 判据要量**渲染宽度**，不是比字号 —— 见 `CLAUDE.md` §二 的 `AutoFitBox` 教训。
+                //   🔴 **2026-10-16（A830）**：那个「渲染宽度」现在由**自检自己量**
+                //      （TMP 自己渲出来那块 `textBounds`，`Editor/CollectionScene.cs` 的 `LabelRenderedPx`）——
+                //      ⛔ 本窗那个 `StyleLogoWidthPx` 属性（读 `Label.WorldW` = **字段缓存** `_tmpW/_tmpH`，
+                //      只有 `RefreshBounds()` 写 = **被测实现自己**）**已删**，别再把它加回来当尺子。
+                //      （判据 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3；同族先例 = W4/W5/W6 三个宿主换口。）
+                //   🔴 **2026-10-09（A1173）**：那对 `(18f, 56f)` 现在直接喂 `Text` 的形参（原来是「先 `Text`、
+                //      再手工 `SetAutoFitBox`」两份写法；且 `Text` 里那道裁切还被那次重排抹掉）。
+                _styleLogo = Text(page, StyleLabel(CurrentStyleName()), StyleLogoL, StyleLogoR, StyleBarT, StyleBarB,
+                                  6, PageInk, "Art Style Logo", 56f,
+                                  // 框 = 那一格自己（`StyleLogoR−L` × `StyleBarB−T`），与收口前手传的两维逐值相同
+                                  wrapPx: StyleLogoR - StyleLogoL, autoMinPx: 18f, autoMaxPx: 56f);
+                if (_styleLogo != null)
+                    _styleLogo.SetRenderQueue(QPageText);
+            }
+        }
+
+        /// <summary>🔴 **2026-10-17（第四十八会话 · 桶 C）：切风格只刷新，不整页重建。**
+        /// <para>原版 `ChangeStyleButton` → `ConfigureStyle`（decomp `:45/:50`）只换 logo 与卡格；
+        /// 我们原来调 `RebuildStylesPage()` **把整页（含两颗箭钮）`DestroyImmediate`** ——
+        /// 于是「点右箭、再点左箭」第二下点在已销毁的对象上（`WindowButton.PlayClickSound`
+        /// 的 `get_transform` NRE，`CollectionScene` 整条崩）。</para>
+        /// <para>现在只重画 logo + 卡格 + 空态；页头/箭钮/分隔线/滚动区**原地不动**。</para></summary>
+        void RefreshStyleView()
+        {
+            var page = PageRoot(3);
+            if (page == null) return;
+
+            var oldLogo = page.Find("Art Style Logo");
+            if (oldLogo != null) DestroySafe(oldLogo.gameObject);
+            _styleLogo = null;
+            BuildStyleLogo(page);
+
+            var holder = page.Find("Scroll View");
+            if (holder != null)
+            {
+                if (StyleScroll != null) StyleScroll.SetOffset(0f);
+                RebuildStyleCells(holder);
+            }
             RefreshStyleEmpty();
         }
 
@@ -2651,8 +2696,10 @@ namespace CardPresentation
         /// 而 `Header` 自己的矩形就是这四个数；它与父件**同左右沿**、只占顶部 85px。</para>
         /// <para>⚠️ 它的 `Separator Line`（150.94→160.94）**跨出了容器下沿 155.9** —— 原版如此
         /// （dump 里那颗也是 150.9→160.9）⇒ 别把它当作「容器裁切」的证据去改。</para>
-        /// <para>⛔ 这四个数**只给 `BuildDeckHeader` 建容器用**；另外三页的页头直接挂在各自页节点上
-        /// （原版那三页的页头节点名不叫 `Header`，判据未逐页现读 ⇒ 本批不动，见报告）。</para></summary>
+        /// <para>🔴 **2026-10-17（第四十八会话 · `N52②`）就地订正（铁律 5）**：原文写「另外三页的页头节点名
+        /// 不叫 `Header`，判据未逐页现读」—— **判据其实早已在 `R5 §2 #7`**，四页逐页是：
+        /// `Select Deck Tab ▸ Header` · `CardsTab ▸ Header Filters` · `Cardback Tab ▸ Header` ·
+        /// `Alternate Art Tab ▸ Header Filters`（rect 四页同值）⇒ **本函数按页名建容器**。</para></summary>
         public const float HdrL = 167.2f, HdrT = 70.9f, HdrR = 1920.0f, HdrB = 155.9f;
 
         /// <summary>建一条**共用页头**：`Filters` 圆钮 + `icon detail` + `label` + 分隔线 + `Clear filters`。
@@ -2666,12 +2713,24 @@ namespace CardPresentation
         /// 我们原来给 Deck 页单独写的 `BuildDeckHeader` **连那颗 `40k_menu_bt` 都没建**（只铺了 50×50 的图标）。
         /// 四页的差别只有：① 字号（Deck/Cards/Styles 各 **42/42**、卡背页 **35/33**）② Deck 多一条 `Control Buttons`（见 `BuildDeckHeader`）。</summary>
         public void BuildFilterHeader(Transform page, int pageNo, float filterPx, float clearPx, System.Action onClear,
-                                      System.Action onToggle)
+                                      System.Action onToggle, Transform headerOverride = null)
         {
-            var btnQ = Rect(page, "40k_menu_bt", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS, FltBtnY + FltBtnS),
+            // 🔴 **2026-10-17（`N52②`）**：按原版建**页头容器**（逐页名不同；rect 四页同值 167.2,70.9→1920,155.9）
+            //   + `Filter Toggle` 容器 + `Filters`（GridLayoutGroup 容器）。
+            //   孩子仍用**绝对设计 px** 落位（`Local(parent, …)` 会按父链换算）⇒ 视觉不变。
+            //   ⚠️ 页内会多出一颗叫 `Filters` 的容器（与 Deck 页的 `Deck Filters ▸ Filters` 同名）——
+            //   现读 `Editor/CollectionScene.cs` 里按 `"Filters"` 取的那一处只在 `PracticeModePopup` 子树
+            //   （不是收藏窗）⇒ **不歧义**；以后要取就用**路径取法**（`FindChild(header, "Filters")`）。
+            string headerName = (pageNo == 1 || pageNo == 3) ? "Header Filters" : "Header";
+            // Deck 页的 `Header` 由 `BuildDeckHeader` 先建（它还要往里放 `Control Buttons`）⇒ 复用，⛔ 别再嵌一层。
+            var header = headerOverride != null ? headerOverride : Node(page, headerName, new PxRect(HdrL, HdrT, HdrR, HdrB));
+            var filterToggle = Node(header, "Filter Toggle",
+                                    new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS, FltBtnY + FltBtnS));
+
+            var btnQ = Rect(filterToggle, "40k_menu_bt", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS, FltBtnY + FltBtnS),
                  "Filters Button", QPagePanel);
             if (pageNo >= 0 && pageNo < _hdrFltBtn.Length) _hdrFltBtn[pageNo] = btnQ;
-            Rect(page, "40k_bt_icon_search", new PxRect(FltBtnX + 10f, FltBtnY + 10f, FltBtnX + 40f, FltBtnY + 40f),
+            Rect(filterToggle, "40k_bt_icon_search", new PxRect(FltBtnX + 10f, FltBtnY + 10f, FltBtnX + 40f, FltBtnY + 40f),
                  "Filters Icon", QPageRow, null, true);
             // 🔴 **2026-10-18（A891 的续 · 续做 B）：字走 `Loc.T`** —— 键 = 原版那颗 `Label` 的
             //   `Localize.mTerm` 原文 **`MenuDeck/Filters/Filters`**（与卡组编辑窗页头那颗**同一条键**，
@@ -2682,7 +2741,7 @@ namespace CardPresentation
             //   ⛔ 节点名 `"Filters Label"`（`Editor/CollectionScene.cs` 按名找）与上面那颗底图/图标的名字都不动。
             // `label` 自己的矩形（= 原版 `Filter Toggle/label` 那一格）；`AlignLeft` 要用它。
             var fltLabR = new PxRect(437.2f, FltBtnY, 587.2f, FltBtnY + FltBtnS);
-            var fltLab = Text(page, Loc.T("MenuDeck/Filters/Filters"), fltLabR.x1, fltLabR.x2, fltLabR.y1, fltLabR.y2,
+            var fltLab = Text(filterToggle, Loc.T("MenuDeck/Filters/Filters"), fltLabR.x1, fltLabR.x2, fltLabR.y1, fltLabR.y2,
                               5, PageInk,
                               "Filters Label", filterPx,
                               // 🔴 **2026-10-10（A1212 · 块 3 #7）**：接上 `m_enableAutoSizing`（四格 = **10 / 42 / 32 / 0**）。
@@ -2712,12 +2771,17 @@ namespace CardPresentation
                 MenuDraw.AlignLeft(fltLab, fltLabR);
             }
             if (onToggle != null)
-                AddHit(page, "FiltersHit", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS + 220f, FltBtnY + FltBtnS),
+                AddHit(filterToggle, "FiltersHit", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS + 220f, FltBtnY + FltBtnS),
                        QPageRow, onToggle);
 
-            Rect(page, "40k_main_line", new PxRect(167.17f, HdrSepT, 1920.01f, HdrSepB), "Separator Line", QPageRow);
+            Rect(header, "40k_main_line", new PxRect(167.17f, HdrSepT, 1920.01f, HdrSepB), "Separator Line", QPageRow);
 
-            var clrQ2 = Rect(page, "UI_Button_Mulligan", new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH),
+            // `Header ▸ Filters`（原版 `GridLayoutGroup`，cell 85×70 · count 1 · MiddleLeft · CSF(H=Preferred)；
+            // 唯一子件 `Clear Filter Button` 带 `LayoutElement.m_IgnoreLayout = 1` ⇒ 容器宽算出来 **0**、
+            // 钮按自己的锚落在「容器右缘 592.2 + 20 = 612.2」）。⇒ 容器按**退化矩形**建，纯结构。
+            var filtersGrp = Node(header, "Filters",
+                                  new PxRect(ClearFltX - 20f, ClearFltY, ClearFltX - 20f, ClearFltY + ClearFltH));
+            var clrQ2 = Rect(filtersGrp, "UI_Button_Mulligan", new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH),
                  "Clear filters", QPageRow);
             // 🔴 **2026-10-18（A891 的续）：字走 `Loc.T`** —— 词条键 = 原版 prefab 上那颗
             //   `Localize.mTerm` 的原文 `MenuDeck/Filters/ClearFilters`（5 颗同键，节点名一律 `Button Text`；
@@ -2726,7 +2790,7 @@ namespace CardPresentation
             //   英文列 = 那颗 TMP 的 `m_text` 原文 `Clear filters`；中文列 = 「清除过滤器」（2026-10-14 官方 zh-CN 表；原「清除筛选」= `zh_CN.csv:9`）。
             //   ⛔ **上一个实参（节点名 `"Clear filters"`）与 `"Clear filters Text"` 都不动**
             //      （`Editor/CollectionScene` 里按名找它的那两处 —— 底图 `FindChild(…, "Clear filters")`、字 `…"Clear filters Text"`）。
-            var clrLab = Text(page, Loc.T("MenuDeck/Filters/ClearFilters"),
+            var clrLab = Text(filtersGrp, Loc.T("MenuDeck/Filters/ClearFilters"),
                               ClearFltX, ClearFltX + ClearFltW, ClearFltY, ClearFltY + ClearFltH,
                               5, PageInk, "Clear filters Text", clearPx,
                               // 🔴 **2026-10-10（A1212 · 块 3 #8）**：接上 `m_enableAutoSizing`（四格 = **10 / 42 / 12 / 0**）。
@@ -2750,7 +2814,7 @@ namespace CardPresentation
             Transform clrHit = null;
             if (onClear != null)
                 // A17：原版 `…>Clear Filter Button` 是 SpriteSwap（普查 §块 3 第 4 行；我们 1 颗盖原版 3 颗）
-                clrHit = AddHit(page, "ClearFiltersHit",
+                clrHit = AddHit(filtersGrp, "ClearFiltersHit",
                        new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH), QPageRow, onClear,
                        clrQ2, "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
 
@@ -2804,7 +2868,16 @@ namespace CardPresentation
         //    ⇒ 不再拼路径，**直接存页节点引用**。
         readonly Transform[] _pages = new Transform[4];
         /// <summary>第 <paramref name="p"/> 页的节点（未建时给 null）。</summary>
-        public Transform PageRoot(int p) { return (p >= 0 && p < _pages.Length) ? _pages[p] : null; }
+        public Transform PageRoot(int p)
+        {
+            if (p < 0 || p >= _pages.Length) return null;
+            // 🔴 **2026-10-17（`T09` 性能第 1 步的配套）**：页是**懒建**的 —— 任何一处（含自检）
+            //   拿到 `PageRoot(p)` 就意味着「要用这一页」⇒ 在这里补一次 `SetupOnce()`。
+            //   `SetupOnce` 先置 `_built = true` 再建 ⇒ 建的过程中再调 `PageRoot(同一页)` 不会递归。
+            //   ⚠️ 生产路径正常是「切页 → OnOpen → SetupOnce」，这里只是**兜底**（不会被多建）。
+            if (p < tabs.Count && tabs[p] is CollectionTabPage ct) ct.SetupOnce();
+            return _pages[p];
+        }
 
         /// <summary>四页页头那颗 `Filter Toggle` 的图（下标 = **窗口页号**：0=Deck · 1=Cards · 2=Cosmetics · 3=Styles）。
         /// 原版四页**各有一颗**（`Collection Menu Variant` 逐页实读，见 `BuildFilterHeader` 那段），
@@ -3036,19 +3109,27 @@ namespace CardPresentation
             //    `CardView`（卡池用的那个外来组件）**所有层都落在默认队列 3000**
             //    （全工程只给 SDF 那层显式设过 3000，其余靠材质默认）—— 而基类给 `Background` 的是
             //    `QPanel = 3005` ⇒ **整片卡池被窗口底图盖住**：截图里一片空，而**断言全绿**
-            //    （断言量的是节点位置与尺寸，量不到「谁盖谁」）。⇒ 把这张底图压到 2000：
-            //    页内容（3000+）与左栏（3005）都在它上面；它下面没有别的东西（它本来就是最底层）。
+            //    （断言量的是节点位置与尺寸，量不到「谁盖谁」）。
+            // 🔴 **2026-10-17（第四十八会话 · `A1644`）：2000 → 2940。**
+            //    原来压到 2000 只考虑了「页内容 3000+ / 左栏 3005」，**漏了外壳自己的 2910 那一档** ——
+            //    `Navigation Panel/Panel Shadow`（`Shell/MainMenuRuntime.cs:863`，队列 **2910**、α 0.4667）
+            //    是外壳左竖导航的投影；原版兄弟序里 `Navigation Panel` 在窗口 Holder **之前**⇒ 窗画在它上面。
+            //    我们把底图压到 2000 ⇒ 这条影子反过来盖在窗底图上，在收藏窗左沿露出一条暗渐变。
+            //    **取值区间 = (2910, 3000)**：> 外壳 2910 梯子、< `CardView` 的 3000。取 2940。
             // ⚠️ 底图在 `Content Area/Background`（不是窗口根的直接子节点 —— 正本 §二）
             var bgNode = transform.Find("Content Area/Background");
             if (bgNode != null)
-                foreach (var q in bgNode.GetComponentsInChildren<ImageQuad>(true)) q.SetRenderQueue(2000);
+                foreach (var q in bgNode.GetComponentsInChildren<ImageQuad>(true)) q.SetRenderQueue(2940);
 
-            // ⚠️ 逐页分开计时（`A1628`）：四页**一次性全建**，哪一页贵必须看得出来。
-            for (int p = 0; p < tabs.Count; p++)
-            {
-                tabs[p].Setup();
-                BuildWatch.Mark("①b 页 " + p + "（`" + PageNode(p) + "`）· `Setup()`");
-            }
+            // 🔴 **2026-10-17（第四十八会话 · `T09` 性能第 1 步）：只建落地页（第 0 页），其余页懒建。**
+            //   实测旧行为「四页一次性全建」首开 ≈75.5 s（Cards 18 格 51.4 s · 异画 6 格 17.3 s ·
+            //   卡背 3.4 s · 卡组 2.75 s），而玩家落地的是第 0 页 ⇒ 另外三页的 71 s 白花。
+            //   `CollectionTabPage.OnOpen()` 会在**每次切页**时调 `SetupOnce()`（首建 + 之后空转）。
+            //   ⚠️ 下面 `RefreshFilterToggles` / `RefreshClearFilters` 对未建页的 null 已有守卫。
+            var page0 = tabs.Count > 0 ? tabs[0] as CollectionTabPage : null;
+            if (page0 != null) page0.SetupOnce();
+            else if (tabs.Count > 0) tabs[0].Setup();       // 兜底：类型对不上时仍建第 0 页（⛔ 不静默空着）
+            BuildWatch.Mark("①b 页 0（`" + PageNode(0) + "`）· `Setup()`（其余三页懒建）");
 
             // 🔴 **四页的 `Filter Toggle` 收尾刷一次**（2026-10-05）：四份抽屉是在上面那句 `Setup()` 里
             //   才陆续建起来的（页头比抽屉先建）⇒ `BuildFilterHeader` 末尾那次 `RefreshFilterToggle(pageNo)`
@@ -3108,11 +3189,11 @@ namespace CardPresentation
             //   （`Filters` 里才是 `Clear Filter Button`）。
             // ⚠️ **换父不动一个像素**：`MenuDraw.Node/Rect/Text` 全走 `Local(parent, 世界矩形)`（= 世界 − 父的世界位置）
             //   ⇒ 只要父节点的**世界位置**对，子件的世界矩形逐位不变（先例：`Shared ▸ Close Button ▸ Button Text`）。
-            // ⚠️ **四个孩子里我们只建了三件半**（`Filter Toggle` 那三颗 + `Control Buttons` + `Separator Line` +
-            //   `Clear filters`）；原版那层 `Filters`（`GridLayoutGroup` · 592.2,70.9→592.2,155.9）**本批没建** ——
-            //   见报告「没查清」：建了会与本页 `Deck Filters ▸ Filters` **同名**，`FindChild`（按名字取第一个）会取错。
+            // ⚠️ **2026-10-17（`N52②`）就地订正（铁律 5）**：原文写「`Filters` 那层本批没建（同名会取错）」——
+            //   **已建**（`BuildFilterHeader` 里按退化矩形建，纯结构）；现读 `FindChild(…,"Filters")`
+            //   在收藏窗外**没有**第二处消费者 ⇒ 取法用**路径**即可。
             var header = Node(page, "Header", new PxRect(HdrL, HdrT, HdrR, HdrB));
-            BuildFilterHeader(header, 0, 42f, 42f, ClearDeckFilters, ToggleDeckFilters);
+            BuildFilterHeader(header, 0, 42f, 42f, ClearDeckFilters, ToggleDeckFilters, header);
 
             // 🆕 A98（2026-10-06）：**`Control Buttons` 组节点**（原来两颗钮**直接挂在页节点上**、这一层没建）。
             //    原版参数（我逐字段直读 prefab，不是转抄）：
@@ -3135,6 +3216,9 @@ namespace CardPresentation
             //    ⚠️ 树序照原版 = **`[Create, Import, Unlock]`** —— 它与**视觉序相反**（`reverse=1`：
             //      视觉左→右 = `Unlock`(1180) → `Import`(1391) → `Create`(1661)）。⛔ 别按「树序 = 视觉序」摆。
             var ctrl = Node(header, "Control Buttons", new PxRect(CtrlGrpL, CtrlGrpT, CtrlGrpR, CtrlGrpB));
+            // 🔴 **原版兄弟序** = `Filter Toggle` → `Control Buttons` → `Separator Line` → `Filters`；
+            //   `BuildFilterHeader` 先把后三件建好了 ⇒ 把本组挪到第 1 位（视觉零影响，纯结构复刻）。
+            ctrl.SetSiblingIndex(1);
 
             // 🔴 **2026-10-03 就地更正（A22①）**：常态图原来画的是 `40K_button` —— **原版是 `UI_Button_Mulligan`**
             //（判据 = `资料/普查产出_1003/按钮悬停图_普查.md` §块 3 第 1、2 行：

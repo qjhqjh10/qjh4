@@ -258,6 +258,18 @@ NAMES_MENU = [
     #   `Art/原版/battleatlasui/` 里、**没同步进 Resources** ⇒ FTUE 窗的「已选」底板画不出来（`N50②`）。
     #   源：`ui_extract/scenes_scenes_battlearena1_sprites/Sprite/40k_replace_display.png`（与备查库同名图同源）。
     "40k_replace_display",
+    # 🆕 **2026-10-17（第四十八会话 · `N53` / `N50④`）**：
+    #   · `Parent Event Window` 的两张图（源名**带空格**，落盘自动换下划线）：
+    #     `ArtVs = "VS_icon"` / `ArtSkullSdf = "40k_battle_Win_Skull_SDF"`。
+    #     多份副本逐字节一致（`atlasindividual_0_mainmenu` / `liveopsicons` / `menus` 三份 VS 同 md5）。
+    "VS icon",
+    "40k_battle_Win Skull SDF",
+    #   · FTUE 选阵营窗的四张 **2048² 方形督军立绘**（`FTUESelectDeckWindow.HeroArt` 拼名 = 空格换下划线）。
+    #     原来只手工拷了 `Uriel Ventris` 一张 ⇒ 另外三副卡组退回卡面插图（`N50④`）。
+    "UI_Deck_Warlord_Uriel Ventris",
+    "UI_Deck_Warlord_Grukk Face-Rippa",
+    "UI_Deck_Warlord_Haarken Worldclaimer",
+    "UI_Deck_Warlord_Nemesor Zahndrekh",
 ]
 
 

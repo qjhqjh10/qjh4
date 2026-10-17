@@ -982,6 +982,10 @@ namespace CardPresentation
             //   （改前传纯白 ⇒ 整条说明字偏冷）。材质/顶点逐颗实读，判据见 `AlreadyOwnedInk` 的 summary。
             ClippedText(root, lb, AlreadyOwnedText, AlreadyOwnedInk, NodeAlreadyOwned, 75f * k, st.QDecor + 5,
                         lb.W, st, 0, 12f * k, 75f * k, 36f * k, true, TmpFont.Face.LatinCardBody);
+            // 🆕 **2026-10-17（第四十八会话 · A1212 块 11 #69）**：原版 `Converted Drawer` 里**也有**
+            //   `Content/Label/Quantity`（四格 `12/75/36/0`）—— 我们原来只建了 `Price Display` +
+            //   `AlreadyOwned` ⇒ 自检「Quantity 建出来了」红。走同一份 `Quantity()`（⛔ 不另写一套排版）。
+            Quantity(root, box, st.ConvertedQuantity, st);
         }
 
         /// <summary>第 2/3 跳那两个条（`Converted Drawer` / `Ephemeral Drawer`）**同锚点**：

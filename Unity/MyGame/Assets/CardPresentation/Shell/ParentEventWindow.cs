@@ -49,7 +49,8 @@
 //   `BATTLE FOR WARPFORGE` / `Choose your side. Fight for glory!` …），并**出声一次**；
 //   **页签文字**用两个 tab 的**节点名**（`Select Team Tab` / `Event On Going Tab`，本地判据）兜底；
 //   **页签图标**留空（`AddTabButton` 的 sprite 实参本地没有）—— ⛔ 不拿 `40K_shop_bt_boosters` 冒充。
-// 另有两张图**本工程还没导**：`VS_icon` / `40k_battle_Win_Skull_SDF` ⇒ 对应件**不画 + 记账**（`MissingArt`）。
+// 另有两张图**源图在本地、尚未导入工程**：`VS icon` / `40k_battle_Win Skull SDF`（源名带空格；落盘换下划线）
+//   ⇒ 已在 `工具/sync_battle_ui_art.py` 的 `NAMES_MENU` 登记，跑一次同步即到位（到位前对应件不画 + 记账）。
 //
 // ============================ 我们侧的对位（逐件写清，不冒充原版）============================
 // · **为什么不继承 `GameWindowWithTabs`**：我们那个类不是原版泛型基类的等价物 —— 它的 `tabs` 是
@@ -62,11 +63,12 @@
 //   切页只做 `SetActive`（原版 `GameWindowWithTabs.ChangeTab` 的语义）。
 // · **页签栏渐变**（`Tab Buttons` 的 `Gradient2`，MB `-6105840469599813308` 实读）：
 //     `_gradientType = 1`(Vertical) · **`_blendMode = 0`(Override)** · `_modifyVertices = 1` · `_offset = 0` · `_zoom = 1`
-//     色键 4 个：`0 → 黑` · `0.3353 → 白` · `0.7324 → 白` · `1 → (0.283,0.283,0.283)`
-//     alpha 键 2 个：`0 → 1` · `1 → 0`
-//   ⇒ 我们这一层只有**四角顶点色**（`ImageQuad.SetCornerColors`），**表达不了中段那段白平台**
-//      ⇒ 取**两端**做两档近似（下 = 黑不透明，上 = 灰透明；方向按 uGUI 顶点 y 向上，`t=0` 在下）。
-//      ⚠️ **这是近似、不是逐顶点复刻**；`Gradient2.ModifyMesh` 的方法体被反编译器打散，**方向没能逐句确证**。
+//     色键 4 个（RGB/时间**无歧义**）：`0 → 黑` · `21974/65535=0.3353 → 白` · `47995/65535=0.7324 → 白` ·
+//     `1 → (0.283,0.283,0.283)`；`m_NumAlphaKeys = 2`（`atime 0/65535`，alpha 取 `key0.a/key1.a` = **1/1**）
+//     ⇒ **alpha 恒 1**；色标自己的 `key2.a/key3.a = 0` **不生效**（Unity `Gradient.Evaluate` 只取 alphaKeys）。
+//   ✅ **2026-10-17（第四十八会话 · `N53①`）：已按四段逐带复刻**（`MenuDraw.GradientV`，`t=0` 在下）。
+//     旧注释写「方法体被反编译打散 / 只能取两端」**已过期** —— `ModifyMesh` 945 行**完整在**
+//     `d:/2/tools/decomp_full/UnityEngine.UI.Extensions.Gradient2__ModifyMesh.c`。
 // · **`UICornersGradient`（两张队伍卡底，MB 实读）**：四角色值逐条照抄（A 红 / B 蓝），SkewedImage 的
 //   `skewVector = 0.09` 与 `Mask` 的裁切**没做**（我们这一层没有斜切/掩码原语）。
 // · **`EverguildToggle` 的选中态**：原版靠 `m_IsOn` 换 on/off 色与 sprite；本窗只有**两颗页签**，
@@ -171,6 +173,15 @@ namespace CardPresentation
         // 页签栏 `Gradient2`（MB `-6105840469599813308` 实读；见文件头「近似」）
         public static readonly Color TabGradBottom = new Color(0f, 0f, 0f, 1f);
         public static readonly Color TabGradTop = new Color(0.2830189f, 0.2830189f, 0.2830189f, 0f);
+        // 🆕 **2026-10-17（`N53①`）**：`Gradient2` 的 4 个色标（时间归一化 + RGB 原样；alpha 恒 1）。
+        public static readonly float[] TabGradT = { 0f, 21974f / 65535f, 47995f / 65535f, 1f };
+        public static readonly Color[] TabGradC =
+        {
+            new Color(0f, 0f, 0f, 1f),
+            new Color(1f, 1f, 1f, 1f),
+            new Color(1f, 1f, 1f, 1f),
+            new Color(0.2830189f, 0.2830189f, 0.2830189f, 1f),
+        };
 
         // ============================================================ 两页（tabs 的 2 个 PPtr）
         public enum Page { ChooseSide = 0, OnGoing = 1 }
@@ -202,7 +213,7 @@ namespace CardPresentation
         public static readonly PxRect P1TeamACaptainR = new PxRect(423.6f, 175.1f, 928.5f, 252.9f);
         public static readonly PxRect P1TeamBCaptainR = new PxRect(1069.6f, 175.1f, 1574.5f, 252.9f);
         public static readonly PxRect P1TitleBgR = new PxRect(465.8f, 31.0f, 1454.2f, 131.0f);
-        public static readonly PxRect P1TitleR = new PxRect(291.2f, 31.0f, 1628.8f, 131.0f);
+        public static readonly PxRect P1TitleR = new PxRect(291.16f, 31.0f, 1628.84f, 131.0f);
         public static readonly PxRect P1VsR = new PxRect(837.7f, 432.7f, 1082.3f, 685.3f);
         public static readonly PxRect P1DescR = new PxRect(160.8f, 921.6f, 1759.2f, 1068.4f);
         public static readonly PxRect P1BackR = new PxRect(35.0f, 995.8f, 99.2f, 1059.0f);
@@ -213,7 +224,7 @@ namespace CardPresentation
         public const string ArtNoise = "UI_Dirt_And_Noise_skratches"; // 1024×1024
         public const string ArtBottomGlow = "Smooth_background_lateral"; // 32×32 九宫 3,0,3,0
         public const string ArtBorder = "40k_square_border";          // 64×64 九宫 13,13,13,13
-        public const string ArtVs = "VS_icon";                        // 369×381 —— **本工程未导入**
+        public const string ArtVs = "VS_icon";                        // 369×381 —— 源图在本地（名字带空格），走 `sync_battle_ui_art.py` 导入
         public const string ArtBackRound = "UI_Button_Round_background";
         public const string ArtBackIcon = "40k_UI_bt_back";
 
@@ -299,7 +310,7 @@ namespace CardPresentation
         public const string ArtMulliganBtn = "UI_Button_Mulligan";       // 410×124 九宫 333,96,333,96
         public const string ArtMiniBar = "MiniBar_01";                   // 59×648
         public const string ArtSkull = "40k_battle_Win_Skull";           // 66×73
-        public const string ArtSkullSdf = "40k_battle_Win_Skull_SDF";    // 128×128 —— **本工程未导入**
+        public const string ArtSkullSdf = "40k_battle_Win_Skull_SDF";    // 128×128 —— 源图在本地（名字带空格），走 `sync_battle_ui_art.py` 导入
         public const string ArtInfo = "40K_generic_bt_info";             // 128×128
         public const string ArtClock = "WF_icon_clock";                  // 表头那颗时钟（31×31）
         public static readonly string[] CrateArt =
@@ -475,11 +486,9 @@ namespace CardPresentation
 
             // ---- 3) `Tab Buttons`（165×1009.06 · 40k_main_tab_background · VLG spacing0 align1 pad(0,0,120,0)）----
             _tabButtons = MenuDraw.Node(_contentArea, "Tab Buttons", TabButtonsR);
-            MenuDraw.Rect(_tabButtons, Tex(ArtTabBg, "页签栏底板"), TabButtonsR, "Image", QPanel);
-            // `Gradient2`：见文件头「页签栏渐变」——四个角色值近似两端（中段白平台表达不了）。
-            var tabBgQuad = QuadOf(_tabButtons);
-            if (tabBgQuad != null)
-                tabBgQuad.SetCornerColors(TabGradBottom, TabGradBottom, TabGradTop, TabGradTop);
+            // `Gradient2` 四段（判据/alpha 语义 → 文件头）。⚠️ 底色图的 UV 也按同一分段切。
+            MenuDraw.GradientV(_tabButtons, Tex(ArtTabBg, "页签栏底板"), TabButtonsR, QPanel, "Image",
+                               TabGradT, TabGradC);
 
             // `Shadow`（Tab Buttons 的子件；47.64×1009.06 · 40k_main_tab_shadow · (0,0,0,0.4745)）
             _tabShadow = MenuDraw.Node(_tabButtons, "Shadow", TabShadowR);
@@ -658,9 +667,11 @@ namespace CardPresentation
         void BuildTeamCard(Transform page, PxRect card, PxRect noise, PxRect glow, PxRect bottomText,
                            PxRect nameR, PxRect tapR, PxRect topR, PxRect captainR, bool isA)
         {
-            // `Background`（SkewedImage + Mask + UICornersGradient）：斜切/掩码没做，四角色照抄（见文件头）
+            // `Background`（**SkewedImage** + Mask + UICornersGradient）：斜切已接（`skewVector=(0.09,0)`）；
+            //   `Mask` 本壳用 `ViewportClip` 等价、这一件没有裁切需求 ⇒ 不接；四角色照抄。
             var bg = MenuDraw.Node(page, "Two Side Event Select Team " + (isA ? "A" : "B"), Scr(card));
-            var bgQuad = MenuDraw.Rect(bg, CardArt.Solid(), Scr(card), "Background", QPageBg);
+            var bgQuad = MenuDraw.Rect(bg, CardArt.Solid(), Scr(card), "Background", QPageBg,
+                                       null, false, null, default, skewX: 0.09f);
             if (bgQuad != null)
                 bgQuad.SetCornerColors(isA ? TeamABl : TeamBBl, isA ? TeamABr : TeamBBr,
                                        isA ? TeamATr : TeamBTr, isA ? TeamATl : TeamBTl);
@@ -685,9 +696,11 @@ namespace CardPresentation
             }
 
             // `Border`（40k_square_border · 九宫 13,13,13,13 · ppuMul 5 · fillCenter=0）
+            //   🆕 **2026-10-17（`N53②`）**：原版这颗也挂 `SkewedImage skewVector=(0.09,0)` ⇒ 同斜切。
             MenuDraw.Nine(bg, Tex(ArtBorder, "队伍卡边框"), Scr(card), new Vector4(13f, 13f, 13f, 13f),
                           64f, 64f, QPageArt1, TeamBorderTint, false, "Border",
-                          new Vector4(13f / 5f, 13f / 5f, 13f / 5f, 13f / 5f));
+                          new Vector4(13f / 5f, 13f / 5f, 13f / 5f, 13f / 5f),
+                          null, default, skewX: 0.09f);
 
             var top = MenuDraw.Node(bg, "Top", Scr(topR));
             var cap = MenuDraw.TextBox(top, Scr(captainR), P1Captain, Color.white, "Team captain",
@@ -706,8 +719,11 @@ namespace CardPresentation
         // ============================================================ 第 2 页：On Going
         void BuildOnGoingPage(Transform page)
         {
-            // `General Red Background`（父 rect 退化 ⇒ 用子件导出值；见文件头）
-            var gen = MenuDraw.Node(page, "General Red Background", Scr(new PxRect(0f, 0f, 1920f, 1080f)));
+            // `General Red Background` —— 🔴 **2026-10-17（`N53②` 现核）**：容器 rect **不是退化**，
+            //   原版 RT 实读 = `anchor (0,0.5)-(1,0.5)` · `sizeDelta (0,−159.7153)` · `pos (0,−14.4843)`
+            //   ⇒ 屏幕 **x 0..1920 · y 94.34..1014.63**；它自己**没有 Image 组件** ⇒ 不产生画面，
+            //   真正画的是子件 `P2RedBgR`（= 同一范围，逐位吻合）。
+            var gen = MenuDraw.Node(page, "General Red Background", Scr(new PxRect(0f, 94.34f, 1920f, 1014.63f)));
             // 页内那层 `Menu Dark Background` **出厂 INACT**（dump 实读）⇒ 建出来、关着。
             var pageShade = MenuDraw.Node(gen, "Menu Dark Background",
                                           Scr(new PxRect(-1327.3f, -759.2f, 3247.3f, 1813.2f)));
@@ -831,10 +847,17 @@ namespace CardPresentation
                 var row = MenuDraw.Node(_scoreLevels, "Score Bar Line Level " + (i + 1),
                                         Scr(new PxRect(1465.3f, top, 1465.3f + ScoreRowW, top + ScoreRowH)));
                 // `Highlight Crate` / `Chest` / `Skull` / `Score`（dump 的**视觉框**，已含嵌套 localScale）
-                // ⚠️ `Highlight Crate` 的图 `Crate Border Highlight` **本工程没导入**、且它是 `fillCenter=0` 的
-                //    **描边框** —— ⛔ 别拿实心色块顶（那会糊成一大块金块）⇒ 只建节点、不出图。
-                MenuDraw.Node(row, "Highlight Crate",
-                              Center(new PxRect(1642.3f, top - 52.9f, 1831.8f, top + 116.0f), 150.86f, 134.43f));
+                // 🔴 **2026-10-17（第四十八会话 · `N53` 三张图）就地订正（铁律 5）**：
+                //   旧注释写「`Crate Border Highlight` **本工程没导入**」—— **过期**，图早在
+                //   `Resources/Art/ui_menu/Crate_Border_Highlight.png`。
+                //   判据（原版 Image MB `-2678701858188120570` 实读）：`m_Type = 0 (Simple)` ·
+                //   `m_PreserveAspect = 0` · `m_Color = (0.98039, 0.80104, 0.05882, 1)`（金）·
+                //   sprite `m_Border = (0,0,0,0)` ⇒ `m_FillCenter = 0` 对 **Simple** 不生效，
+                //   原版就是「整块拉伸的金色版」、中心被上面的 `Chest` 盖住 ⇒ 用 `Rect` 照画。
+                //   队列取 `QPageArt`（在 `Chest` 的 `QPageArt1` 之下）。
+                MenuDraw.Rect(row, Tex("Crate_Border_Highlight", "奖励箱高亮框"),
+                              Center(new PxRect(1642.3f, top - 52.9f, 1831.8f, top + 116.0f), 150.86f, 134.43f),
+                              "Highlight Crate", QPageArt, new Color(0.9803922f, 0.8010414f, 0.0588235f, 1f));
                 MenuDraw.Rect(row, Tex(CrateArt[i], "第 " + (i + 1) + " 档箱子"),
                               Center(new PxRect(1682.0f, top - 13.1f, 1796.4f, top + 88.9f), 99.45f, 88.70f),
                               "Chest", QPageArt1, Color.white);

@@ -3084,8 +3084,11 @@ public static class ShopScene
                 CheckTrue(ColorEq(lbType != null ? lbType.color : Color.clear, TypeColorLit),
                           $"[{i + 1}] `type` 的颜色 = 原版 `(0.717,0.717,0.717,1)`（实得 "
                           + (lbType != null ? lbType.color.ToString() : "<没有 label>") + "）");
-                CheckTrue(lbName != null && ColorEq(lbName.color, Color.white),
-                          $"[{i + 1}] `name` 的颜色 = 原版**白**");
+                // 🔴 **2026-10-17（R2 现核 · 桶 Shop-19）**：原版 `name` 不是纯白，是
+                //   `Pragati-Regular Light Cream` 材质的 `_FaceColor = (0.992,0.868,0.733)`（MB 实读）。
+                CheckTrue(lbName != null && ColorEq(lbName.color, new Color(0.992f, 0.868f, 0.733f, 1f)),
+                          $"[{i + 1}] `name` 的颜色 = 原版 `(0.992,0.868,0.733,1)`（实得 "
+                          + (lbName != null ? lbName.color.ToString() : "<没有 label>") + "）");
                 CheckTrue(lbName != null && !lbName.Wrapping, $"[{i + 1}] `name` **不折行**（原版 `折行=0`）");
                 CheckTrue(lbType != null && !lbType.Wrapping, $"[{i + 1}] `type` **不折行**（原版 `折行=0`）");
                 CheckTrue(lbTimer != null && lbTimer.Wrapping, $"[{i + 1}] `Timer Text` **折行=1**（原版）");
