@@ -1,0 +1,2712 @@
+[
+ {
+  "bundle_id": "SW4",
+  "bundle_name": "Blood Claw",
+  "mapping_ids_same_name": [
+   "SW11"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "AM51",
+  "bundle_name": "Cadia Stands",
+  "mapping_ids_same_name": [
+   "44761bc257d1f1243ac5f6058459ede6"
+  ],
+  "army": "AstraMilitarum"
+ },
+ {
+  "bundle_id": "DA42",
+  "bundle_name": "Reconnaissance Mission",
+  "mapping_ids_same_name": [
+   "e8cf1eb55ca41534abe38efc90b302e9"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "SW52",
+  "bundle_name": "Proper Hunt",
+  "mapping_ids_same_name": [
+   "SW58"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "DA68",
+  "bundle_name": "Vengeful Brethren Bladeguard",
+  "mapping_ids_same_name": [
+   "DA80"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "SAU53",
+  "bundle_name": "Undying Legions",
+  "mapping_ids_same_name": [
+   "eab54e4c131034e4dacf8ce72807ed07"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "DA46",
+  "bundle_name": "The Rock",
+  "mapping_ids_same_name": [
+   "0cc4533fc0bee374196e55fb1569e63b",
+   "6ffe2680a560aa94496080a025f561a1",
+   "8a028d3771c60014aa35c7269d38159e"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "TL66",
+  "bundle_name": "Neurogaunt",
+  "mapping_ids_same_name": [
+   "TL77"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "SW57",
+  "bundle_name": "Birth of a Saga",
+  "mapping_ids_same_name": [
+   "SW64"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "8a028d3771c60014aa35c7269d38159e",
+  "bundle_name": "The Rock",
+  "mapping_ids_same_name": [
+   "DA46",
+   "0cc4533fc0bee374196e55fb1569e63b",
+   "6ffe2680a560aa94496080a025f561a1"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "b2f3624dc0fdad84d9eacd4a3a3ff8ea",
+  "bundle_name": "Drag it Down",
+  "mapping_ids_same_name": [
+   "GOF104"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "UM107",
+  "bundle_name": "Whirlwind",
+  "mapping_ids_same_name": [
+   "UM90"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW16",
+  "bundle_name": "Long Fang",
+  "mapping_ids_same_name": [
+   "SW25"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "fbdc291f3a847a846905c46fe98de618",
+  "bundle_name": "Enhanced Aggression",
+  "mapping_ids_same_name": [
+   "GSC53"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "4604f2deaa3fad6418e2d8f4b3dc36e4",
+  "bundle_name": "Infinite Biomorphologies",
+  "mapping_ids_same_name": [
+   "TL50",
+   "2aa8026988b605d40874798f3992bc81",
+   "59a4d20eed92a624c9512a392b163bf3",
+   "9f7068f052d4a8b4f99b007134f2d8f1",
+   "d34f1b514c330e646b609a106bb8a76a",
+   "da8a1ba85a045484eb90f55394873119"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "SW9",
+  "bundle_name": "Fenrisian Wolf",
+  "mapping_ids_same_name": [
+   "SW16"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "b8e81b2fe85cda747a68c4d6326b669c",
+  "bundle_name": "Mark of Slaanesh (enchantment)",
+  "mapping_ids_same_name": [
+   "ca169f2a6b7b2364ca99bd951c60f1d5"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "35b64a8458fc60745b2f49204081c1cb",
+  "bundle_name": "Hyper-adaptation",
+  "mapping_ids_same_name": [
+   "TL49",
+   "5b8d4332867628448a3b0e66882f8f1b",
+   "9a13583b689e99c43b33020d7dac6e2f",
+   "ae8e1ca230ab7714e87b50e5cfe47db5",
+   "c69c3f3a38002844ca8e3324850df22a",
+   "ea971f5e838a9c14aa3790af44e42e19"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "8d1fbc34ac945c547b61bc9627a77fda",
+  "bundle_name": "Normal Conditions (Black Legion)",
+  "mapping_ids_same_name": [
+   "0161699f3a4cf5c489126356b3538ce5"
+  ],
+  "army": "EmperorsChildren"
+ },
+ {
+  "bundle_id": "SW44",
+  "bundle_name": "Death Shun",
+  "mapping_ids_same_name": [
+   "SW48"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "GOF104",
+  "bundle_name": "Drag it Down",
+  "mapping_ids_same_name": [
+   "b2f3624dc0fdad84d9eacd4a3a3ff8ea"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "SW23",
+  "bundle_name": "Fenrisian Drop Pod",
+  "mapping_ids_same_name": [
+   "SW31"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "c69c3f3a38002844ca8e3324850df22a",
+  "bundle_name": "Hyper-adaptation",
+  "mapping_ids_same_name": [
+   "TL49",
+   "35b64a8458fc60745b2f49204081c1cb",
+   "5b8d4332867628448a3b0e66882f8f1b",
+   "9a13583b689e99c43b33020d7dac6e2f",
+   "ae8e1ca230ab7714e87b50e5cfe47db5",
+   "ea971f5e838a9c14aa3790af44e42e19"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "SW53",
+  "bundle_name": "Embers of Prospero",
+  "mapping_ids_same_name": [
+   "SW55"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "57bfef8500ae0d84186f713561c16bcc",
+  "bundle_name": "Stormhawk Interception",
+  "mapping_ids_same_name": [
+   "UM98"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "b3dce3f10cc118541910156ec8da1d9b",
+  "bundle_name": "High King of Fenris",
+  "mapping_ids_same_name": [
+   "SW4"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "AM76",
+  "bundle_name": "Armoured Lightning",
+  "mapping_ids_same_name": [
+   "AM77"
+  ],
+  "army": "AstraMilitarum"
+ },
+ {
+  "bundle_id": "GOF56",
+  "bundle_name": "Deffkopta",
+  "mapping_ids_same_name": [
+   "c40a06616a2968240b1f765d0f919b69"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "f70efd9867a9cf3458b722aeaf2982bc",
+  "bundle_name": "Unhallowed Gifts",
+  "mapping_ids_same_name": [
+   "141c5ed661a9e42bd9a793f0d2a1c682"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "da8a1ba85a045484eb90f55394873119",
+  "bundle_name": "Infinite Biomorphologies",
+  "mapping_ids_same_name": [
+   "TL50",
+   "2aa8026988b605d40874798f3992bc81",
+   "4604f2deaa3fad6418e2d8f4b3dc36e4",
+   "59a4d20eed92a624c9512a392b163bf3",
+   "9f7068f052d4a8b4f99b007134f2d8f1",
+   "d34f1b514c330e646b609a106bb8a76a"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "6ea114bce68bc714e8f0a4587dbbafe1",
+  "bundle_name": "No Mercy",
+  "mapping_ids_same_name": [
+   "UM99"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "DA66",
+  "bundle_name": "Ravenwing Ballistus Dreadnought",
+  "mapping_ids_same_name": [
+   "DA83"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "b15f2dbd58f65b5468f4e0e483cf500a",
+  "bundle_name": "Idolatrous Despoilers",
+  "mapping_ids_same_name": [
+   "BL75",
+   "BL76"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "0094e6b79ffe12e4c8d9fd70beb02b5e",
+  "bundle_name": "Power of the Waaagh!",
+  "mapping_ids_same_name": [
+   "GOF106"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "45974e4f54c6c44419704741e6b76aa9",
+  "bundle_name": "Radiation Storm",
+  "mapping_ids_same_name": [
+   "TAU61"
+  ],
+  "army": "TauEmpire"
+ },
+ {
+  "bundle_id": "DA61",
+  "bundle_name": "Plasma Generator",
+  "mapping_ids_same_name": [
+   "DA66"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "c8d33688d555809488ea506274e5927b",
+  "bundle_name": "Solar Storm",
+  "mapping_ids_same_name": [
+   "SAU64"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "4b8214d3b5e589f42beab20e56ca21b0",
+  "bundle_name": "Storm of Silence",
+  "mapping_ids_same_name": [
+   "1d9ff6a401bba1f44a65bf843c21a586",
+   "851f73daf747eb642934a16429b391db"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "DA67",
+  "bundle_name": "Assault Terminator",
+  "mapping_ids_same_name": [
+   "DA81"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "SAU36",
+  "bundle_name": "Nemesor Zahndrekh",
+  "mapping_ids_same_name": [
+   "cb29b9bcde7995948a3c373401e67e3c",
+   "ef547f829b6491f45a8ad371f492278e"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "fe6fde3df4104374092a642460dadf03",
+  "bundle_name": "Fall Back",
+  "mapping_ids_same_name": [
+   "UM93"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "UM102",
+  "bundle_name": "Terminator Captain",
+  "mapping_ids_same_name": [
+   "UM88"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "UM114",
+  "bundle_name": "Lead From the Front",
+  "mapping_ids_same_name": [
+   "UM97"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "DA73",
+  "bundle_name": "Relic Munitions",
+  "mapping_ids_same_name": [
+   "DA85"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "UM110",
+  "bundle_name": "Fall Back",
+  "mapping_ids_same_name": [
+   "UM93"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW35",
+  "bundle_name": "Venerable Dreadnought",
+  "mapping_ids_same_name": [
+   "SW43"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "d4ed3be9de80b00469a9cd255df63f35",
+  "bundle_name": "Graceful Avoidance",
+  "mapping_ids_same_name": [
+   "ASH72"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "SW11",
+  "bundle_name": "Grey Hunter Pack Leader",
+  "mapping_ids_same_name": [
+   "SW19"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "8f0302f1603cc954392d90d5dabd22d5",
+  "bundle_name": "Tyrnak and Fenrir",
+  "mapping_ids_same_name": [
+   "SW9"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "GSC51",
+  "bundle_name": "Living Icon",
+  "mapping_ids_same_name": [
+   "0474b16360827b6408fb02b6820e7e63"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "648c492fa988aba44ad9a4507bd43ee4",
+  "bundle_name": "Wurrboy",
+  "mapping_ids_same_name": [
+   "GOF90"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "SW59",
+  "bundle_name": "Orbital Defences",
+  "mapping_ids_same_name": [
+   "SW67"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "AM63",
+  "bundle_name": "Dawn Attack",
+  "mapping_ids_same_name": [
+   "b3dd8a39126b31342b38756e72e8660b"
+  ],
+  "army": "AstraMilitarum"
+ },
+ {
+  "bundle_id": "cd053fb3b46dc4d4c93762a20fa3c7e1",
+  "bundle_name": "Fall Back",
+  "mapping_ids_same_name": [
+   "UM93"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "ea971f5e838a9c14aa3790af44e42e19",
+  "bundle_name": "Hyper-adaptation",
+  "mapping_ids_same_name": [
+   "TL49",
+   "35b64a8458fc60745b2f49204081c1cb",
+   "5b8d4332867628448a3b0e66882f8f1b",
+   "9a13583b689e99c43b33020d7dac6e2f",
+   "ae8e1ca230ab7714e87b50e5cfe47db5",
+   "c69c3f3a38002844ca8e3324850df22a"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "28a3c2e48250bd247b793ae1c80daa92",
+  "bundle_name": "Solar Eclipse",
+  "mapping_ids_same_name": [
+   "TAU59"
+  ],
+  "army": "TauEmpire"
+ },
+ {
+  "bundle_id": "UM112",
+  "bundle_name": "Champions of Humanity",
+  "mapping_ids_same_name": [
+   "UM94"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "TL49",
+  "bundle_name": "Hyper-adaptation",
+  "mapping_ids_same_name": [
+   "35b64a8458fc60745b2f49204081c1cb",
+   "5b8d4332867628448a3b0e66882f8f1b",
+   "9a13583b689e99c43b33020d7dac6e2f",
+   "ae8e1ca230ab7714e87b50e5cfe47db5",
+   "c69c3f3a38002844ca8e3324850df22a",
+   "ea971f5e838a9c14aa3790af44e42e19"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "2882d40f009bf8c46a89e975c37d00ab",
+  "bundle_name": "Ancient Reliquary",
+  "mapping_ids_same_name": [
+   "DA39",
+   "2ef504be18b9be54a91ef4e6750d86c7",
+   "b5cdf76897db0a84ca518725d20168a7"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "SW21",
+  "bundle_name": "Wulfen Pack Leader",
+  "mapping_ids_same_name": [
+   "SW28"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "bfd9797b5365aa0429914f12ec4d6df2",
+  "bundle_name": "Experimental Drones",
+  "mapping_ids_same_name": [
+   "TAU42"
+  ],
+  "army": "TauEmpire"
+ },
+ {
+  "bundle_id": "DA72",
+  "bundle_name": "Vengeful Brethren",
+  "mapping_ids_same_name": [
+   "DA84"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "BL35",
+  "bundle_name": "Haarken Worldclaimer",
+  "mapping_ids_same_name": [
+   "b3a0be3e80b938144ba9364714823062"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "d722e8df0e8bbb944b5d6d1fc80e2cb5",
+  "bundle_name": "Thunderstorm",
+  "mapping_ids_same_name": [
+   "UM51"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "4fb657397011daf47829ed4e135f8eab",
+  "bundle_name": "Shrine Bombardment",
+  "mapping_ids_same_name": [
+   "SOR63"
+  ],
+  "army": "Sororitas"
+ },
+ {
+  "bundle_id": "32ed2b1e771ee494fa072c24c959a5a0",
+  "bundle_name": "Stimm-Vents Leak",
+  "mapping_ids_same_name": [
+   "EC63"
+  ],
+  "army": "EmperorsChildren"
+ },
+ {
+  "bundle_id": "b432e12e60e66a94fa032cd62011d2e1",
+  "bundle_name": "Orbital Bombardment",
+  "mapping_ids_same_name": [
+   "UM50"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW8",
+  "bundle_name": "Blackmane Reiver",
+  "mapping_ids_same_name": [
+   "SW13"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "76d59d92d5d2d4ec89b2e441b1d18548",
+  "bundle_name": "Immortal Beams",
+  "mapping_ids_same_name": [
+   "SAU63"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "TL70",
+  "bundle_name": "Norn Emissary",
+  "mapping_ids_same_name": [
+   "TL83"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "d32332a368c7919469dfa0d5d4df7d03",
+  "bundle_name": "No Respite",
+  "mapping_ids_same_name": [
+   "UM100"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "7210fc3a4509b3649969609a1fa822ea",
+  "bundle_name": "The Fang",
+  "mapping_ids_same_name": [
+   "SW53"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "DA55",
+  "bundle_name": "Wages of Retribution",
+  "mapping_ids_same_name": [
+   "41642ef512a2dbf42889c51fff3a8aaa"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "DA69",
+  "bundle_name": "Vengeful Brethren Hellblaster",
+  "mapping_ids_same_name": [
+   "DA79"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "ef42ad6c970ec5f49804b1f9f9ad5685",
+  "bundle_name": "Dust Storm",
+  "mapping_ids_same_name": [
+   "GOF50"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "ae8e1ca230ab7714e87b50e5cfe47db5",
+  "bundle_name": "Hyper-adaptation",
+  "mapping_ids_same_name": [
+   "TL49",
+   "35b64a8458fc60745b2f49204081c1cb",
+   "5b8d4332867628448a3b0e66882f8f1b",
+   "9a13583b689e99c43b33020d7dac6e2f",
+   "c69c3f3a38002844ca8e3324850df22a",
+   "ea971f5e838a9c14aa3790af44e42e19"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "66486b3f61682ab42ba2ce0fa921002f",
+  "bundle_name": "Tempestus Scion",
+  "mapping_ids_same_name": [
+   "AM68"
+  ],
+  "army": "AstraMilitarum"
+ },
+ {
+  "bundle_id": "a51adc8f5c311584385c3117cfd919e9",
+  "bundle_name": "High Rune Priest",
+  "mapping_ids_same_name": [
+   "SW5"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "TL69",
+  "bundle_name": "Neurotyrant",
+  "mapping_ids_same_name": [
+   "TL82"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "eab54e4c131034e4dacf8ce72807ed07",
+  "bundle_name": "Undying Legions",
+  "mapping_ids_same_name": [
+   "SAU53"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "edb0fd16ad0760e47b4b37737f3e60bd",
+  "bundle_name": "Medreyal Ghaelyn",
+  "mapping_ids_same_name": [
+   "ASH3"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "ba33eab5a0587d34d8809cfae2f14058",
+  "bundle_name": "Daemonic Feast",
+  "mapping_ids_same_name": [
+   "BL60"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "239f468a65ba1b24ba119ab1a1ac53cc",
+  "bundle_name": "Normal Conditions (GSC)",
+  "mapping_ids_same_name": [
+   "bf538271ab431244399a01e3ba3a103f"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "TL71",
+  "bundle_name": "Toxic Entanglement",
+  "mapping_ids_same_name": [
+   "TL84"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "cd9b6eaafe52865409cbb239abb00525",
+  "bundle_name": "Craftworld Convergence",
+  "mapping_ids_same_name": [
+   "ASH71",
+   "98efedc81da043a48ba219d1aaed8965",
+   "e8711efdd74a2a544a3ff12c729c230c"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "7552fe029df141946b0f813e28bfac98",
+  "bundle_name": "Mining Tremors",
+  "mapping_ids_same_name": [
+   "GSC60"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "BL49",
+  "bundle_name": "Delightful Agonies",
+  "mapping_ids_same_name": [
+   "9b1a9b14d290b4d07a575e0af8ffdf9b"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "16c804b7e1b10b542a8b1dbc5decec9e",
+  "bundle_name": "Shall Know No Fear",
+  "mapping_ids_same_name": [
+   "UM96"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SAU76",
+  "bundle_name": "Inescapable Retribution",
+  "mapping_ids_same_name": [
+   "SAU77"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "1c7892a2816a53d4388d6dc5272853b6",
+  "bundle_name": "Warp Storm",
+  "mapping_ids_same_name": [
+   "BL61"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "d4ef67e300a56834f9cef7715118362f",
+  "bundle_name": "Sergeant Gadriel",
+  "mapping_ids_same_name": [
+   "UM82"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SAU64",
+  "bundle_name": "Solar Storm",
+  "mapping_ids_same_name": [
+   "c8d33688d555809488ea506274e5927b"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "SW28",
+  "bundle_name": "Blackmane Aggressor",
+  "mapping_ids_same_name": [
+   "SW35"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "BL59",
+  "bundle_name": "Helfire Outburst",
+  "mapping_ids_same_name": [
+   "0fbe7282202537b4aad103e73cc20223"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "d01a5ba5865ded4418194ea50e333b21",
+  "bundle_name": "Inscrutable Cunning",
+  "mapping_ids_same_name": [
+   "b7e5ee472ec1b2d48a36aee54b1862c5"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "a5960475756bec144a1d6d8a9d141fc9",
+  "bundle_name": "Hive Fleet Leviathan",
+  "mapping_ids_same_name": [
+   "TL47"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "SW60",
+  "bundle_name": "Fenrisian Runestones",
+  "mapping_ids_same_name": [
+   "SW66"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "b3a0be3e80b938144ba9364714823062",
+  "bundle_name": "Haarken Worldclaimer",
+  "mapping_ids_same_name": [
+   "BL35"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "GSC60",
+  "bundle_name": "Mining Tremors",
+  "mapping_ids_same_name": [
+   "7552fe029df141946b0f813e28bfac98"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "1a647ea39bbb0154b9673c5194e51a46",
+  "bundle_name": "Telephatic Domination",
+  "mapping_ids_same_name": [
+   "GSC49"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "41e94f2d95a5b6143b44d5356a486213",
+  "bundle_name": "Raid Tactics",
+  "mapping_ids_same_name": [
+   "SW59"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "BL61",
+  "bundle_name": "Warp Storm",
+  "mapping_ids_same_name": [
+   "1c7892a2816a53d4388d6dc5272853b6"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "0fbe7282202537b4aad103e73cc20223",
+  "bundle_name": "Helfire Outburst",
+  "mapping_ids_same_name": [
+   "BL59"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "GOF91",
+  "bundle_name": "Beastboss on Squigosaur",
+  "mapping_ids_same_name": [
+   "468a87d4e3969ac47b58555970456895"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "b7e5ee472ec1b2d48a36aee54b1862c5",
+  "bundle_name": "Inscrutable Cunning",
+  "mapping_ids_same_name": [
+   "d01a5ba5865ded4418194ea50e333b21"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "ef43a2362ee779f429aad3d0a5097964",
+  "bundle_name": "Raging Storm",
+  "mapping_ids_same_name": [
+   "SOR62",
+   "2ef404c4fa412f840b8b6fa5ea6469a2"
+  ],
+  "army": "Sororitas"
+ },
+ {
+  "bundle_id": "SW10",
+  "bundle_name": "Grey Hunter",
+  "mapping_ids_same_name": [
+   "SW17"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "c40a06616a2968240b1f765d0f919b69",
+  "bundle_name": "Deffkopta",
+  "mapping_ids_same_name": [
+   "GOF56"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "GOF71",
+  "bundle_name": "Krump da Gitz",
+  "mapping_ids_same_name": [
+   "91fed153a7ef8734b89b7892c67201ef"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "e3b5735d801fcbd49aa8d3975a5b0c31",
+  "bundle_name": "War Howl",
+  "mapping_ids_same_name": [
+   "SW10"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "SOR63",
+  "bundle_name": "Shrine Bombardment",
+  "mapping_ids_same_name": [
+   "4fb657397011daf47829ed4e135f8eab"
+  ],
+  "army": "Sororitas"
+ },
+ {
+  "bundle_id": "SW13",
+  "bundle_name": "Wolf Guard Headtaker",
+  "mapping_ids_same_name": [
+   "SW21"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "UM49",
+  "bundle_name": "Aerial Clash",
+  "mapping_ids_same_name": [
+   "364bf7f669176924eab7fbb1a477e3a4"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW14",
+  "bundle_name": "Wolf Priest",
+  "mapping_ids_same_name": [
+   "SW22"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "BL74",
+  "bundle_name": "Spreading Corruption",
+  "mapping_ids_same_name": [
+   "BL77",
+   "875eedc90a1608d49a95b34a863ca104"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "GSC61",
+  "bundle_name": "Sump Overspill",
+  "mapping_ids_same_name": [
+   "898b7eb633e8336419642d3e96664ccc"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "5b8d4332867628448a3b0e66882f8f1b",
+  "bundle_name": "Hyper-adaptation",
+  "mapping_ids_same_name": [
+   "TL49",
+   "35b64a8458fc60745b2f49204081c1cb",
+   "9a13583b689e99c43b33020d7dac6e2f",
+   "ae8e1ca230ab7714e87b50e5cfe47db5",
+   "c69c3f3a38002844ca8e3324850df22a",
+   "ea971f5e838a9c14aa3790af44e42e19"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "SW48",
+  "bundle_name": "The Fang",
+  "mapping_ids_same_name": [
+   "SW53"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "SW26",
+  "bundle_name": "Arjac Rockfist",
+  "mapping_ids_same_name": [
+   "SW29"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "TAU61",
+  "bundle_name": "Radiation Storm",
+  "mapping_ids_same_name": [
+   "45974e4f54c6c44419704741e6b76aa9"
+  ],
+  "army": "TauEmpire"
+ },
+ {
+  "bundle_id": "SW31",
+  "bundle_name": "Wolf Guard Terminator",
+  "mapping_ids_same_name": [
+   "SW38"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "5a790d31393197845a833476a455c598",
+  "bundle_name": "Acid Rain",
+  "mapping_ids_same_name": [
+   "TL57"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "898b7eb633e8336419642d3e96664ccc",
+  "bundle_name": "Sump Overspill",
+  "mapping_ids_same_name": [
+   "GSC61"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "ef547f829b6491f45a8ad371f492278e",
+  "bundle_name": "Nemesor Zahndrekh",
+  "mapping_ids_same_name": [
+   "SAU36",
+   "cb29b9bcde7995948a3c373401e67e3c"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "TL73",
+  "bundle_name": "Bestial Rage",
+  "mapping_ids_same_name": [
+   "TL86"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "GSC49",
+  "bundle_name": "Telephatic Domination",
+  "mapping_ids_same_name": [
+   "1a647ea39bbb0154b9673c5194e51a46"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "TL47",
+  "bundle_name": "Hive Fleet Leviathan",
+  "mapping_ids_same_name": [
+   "a5960475756bec144a1d6d8a9d141fc9"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "b3dd8a39126b31342b38756e72e8660b",
+  "bundle_name": "Dawn Attack",
+  "mapping_ids_same_name": [
+   "AM63"
+  ],
+  "army": "AstraMilitarum"
+ },
+ {
+  "bundle_id": "ASH71",
+  "bundle_name": "Craftworld Convergence",
+  "mapping_ids_same_name": [
+   "98efedc81da043a48ba219d1aaed8965",
+   "cd9b6eaafe52865409cbb239abb00525",
+   "e8711efdd74a2a544a3ff12c729c230c"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "d0549600681827a42963bd24a46f297a",
+  "bundle_name": "Pledge to the Dark Prince",
+  "mapping_ids_same_name": [
+   "EC38"
+  ],
+  "army": "EmperorsChildren"
+ },
+ {
+  "bundle_id": "UM106",
+  "bundle_name": "Ferren Areios",
+  "mapping_ids_same_name": [
+   "UM89"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW30",
+  "bundle_name": "Terminator Rune Priest",
+  "mapping_ids_same_name": [
+   "SW37"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "UM109",
+  "bundle_name": "Adaptive Strategy",
+  "mapping_ids_same_name": [
+   "UM92"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "e09280c7545371941b57dc0cc813012f",
+  "bundle_name": "Litany of Despair",
+  "mapping_ids_same_name": [
+   "9176318eaf469354e858f51af2333aa3"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "59a4d20eed92a624c9512a392b163bf3",
+  "bundle_name": "Infinite Biomorphologies",
+  "mapping_ids_same_name": [
+   "TL50",
+   "2aa8026988b605d40874798f3992bc81",
+   "4604f2deaa3fad6418e2d8f4b3dc36e4",
+   "9f7068f052d4a8b4f99b007134f2d8f1",
+   "d34f1b514c330e646b609a106bb8a76a",
+   "da8a1ba85a045484eb90f55394873119"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "070f7594d50c74944b3e86ebae80bde1",
+  "bundle_name": "Hunters of Heretics",
+  "mapping_ids_same_name": [
+   "DA86"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "4cc68a0d541c4364e937d77d0838fb0d",
+  "bundle_name": "Electro-Static Interference",
+  "mapping_ids_same_name": [
+   "TAU60"
+  ],
+  "army": "TauEmpire"
+ },
+ {
+  "bundle_id": "e8cf1eb55ca41534abe38efc90b302e9",
+  "bundle_name": "Reconnaissance Mission",
+  "mapping_ids_same_name": [
+   "DA42"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "UM73",
+  "bundle_name": "Oath of Moment",
+  "mapping_ids_same_name": [
+   "61ef8171ef572ac4b98e33c25fbefc70"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW6",
+  "bundle_name": "Blood Claw Pack Leader",
+  "mapping_ids_same_name": [
+   "SW14"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "TL59",
+  "bundle_name": "Blazing Biomass",
+  "mapping_ids_same_name": [
+   "b380adbe398519740958b1cc7e0736cb"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "ac6aa9739f7773e449347e1e79ea0e83",
+  "bundle_name": "Indomitus Crusade",
+  "mapping_ids_same_name": [
+   "UM101"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "fb248c0fdddc5ec4da1ffcc0a8ab603a",
+  "bundle_name": "Stormhawk Interception",
+  "mapping_ids_same_name": [
+   "UM98"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "2f00dde3a303fe34b99399c8bf987140",
+  "bundle_name": "Planetary Invasion",
+  "mapping_ids_same_name": [
+   "AM64"
+  ],
+  "army": "AstraMilitarum"
+ },
+ {
+  "bundle_id": "SW18",
+  "bundle_name": "Hrolf the Ironhowl",
+  "mapping_ids_same_name": [
+   "SW23"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "SW32",
+  "bundle_name": "Stormwolf",
+  "mapping_ids_same_name": [
+   "SW40"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "9a13583b689e99c43b33020d7dac6e2f",
+  "bundle_name": "Hyper-adaptation",
+  "mapping_ids_same_name": [
+   "TL49",
+   "35b64a8458fc60745b2f49204081c1cb",
+   "5b8d4332867628448a3b0e66882f8f1b",
+   "ae8e1ca230ab7714e87b50e5cfe47db5",
+   "c69c3f3a38002844ca8e3324850df22a",
+   "ea971f5e838a9c14aa3790af44e42e19"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "851f73daf747eb642934a16429b391db",
+  "bundle_name": "Storm of Silence",
+  "mapping_ids_same_name": [
+   "1d9ff6a401bba1f44a65bf843c21a586",
+   "4b8214d3b5e589f42beab20e56ca21b0"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "SW36",
+  "bundle_name": "Bjorn the Fell-Handed",
+  "mapping_ids_same_name": [
+   "SW42"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "4889d3ae002db2d4785cb2286a84e48e",
+  "bundle_name": "Sweeping Infestation",
+  "mapping_ids_same_name": [
+   "TL58"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "SW45",
+  "bundle_name": "Unbridled Fury",
+  "mapping_ids_same_name": [
+   "SW54"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "BL75",
+  "bundle_name": "Idolatrous Despoilers",
+  "mapping_ids_same_name": [
+   "BL76",
+   "b15f2dbd58f65b5468f4e0e483cf500a"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "SW54",
+  "bundle_name": "Fenrisian Monstrosities",
+  "mapping_ids_same_name": [
+   "SW60"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "ASH46",
+  "bundle_name": "Aerial Dominion",
+  "mapping_ids_same_name": [
+   "2ece07942d1524d2e8856cfa94d21db1"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "SW15",
+  "bundle_name": "Fyrri Askar",
+  "mapping_ids_same_name": [
+   "SW18"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "UM82",
+  "bundle_name": "Sergeant Gadriel",
+  "mapping_ids_same_name": [
+   "d4ef67e300a56834f9cef7715118362f"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "875eedc90a1608d49a95b34a863ca104",
+  "bundle_name": "Spreading Corruption",
+  "mapping_ids_same_name": [
+   "BL74",
+   "BL77"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "f3df0cfc57695654cb31a72b65470522",
+  "bundle_name": "Abaddon's Chosen",
+  "mapping_ids_same_name": [
+   "BL37"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "GOF2",
+  "bundle_name": "Makari the Grot",
+  "mapping_ids_same_name": [
+   "77a7253295da8234f8c04de2ad5e2d59"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "bd6baa4e586791244a25861a52dfab02",
+  "bundle_name": "Tervigon",
+  "mapping_ids_same_name": [
+   "TL34"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "b34ec9176268dca4db0b975d1f9028ea",
+  "bundle_name": "Adaptive Strategy",
+  "mapping_ids_same_name": [
+   "UM92"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "3df005b0c8973d5419eb1a4981f777b0",
+  "bundle_name": "Helspear Assault",
+  "mapping_ids_same_name": [
+   "61046837c330b48978b4af5201230b6e"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "61ef8171ef572ac4b98e33c25fbefc70",
+  "bundle_name": "Oath of Moment",
+  "mapping_ids_same_name": [
+   "UM73"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "b5cdf76897db0a84ca518725d20168a7",
+  "bundle_name": "Ancient Reliquary",
+  "mapping_ids_same_name": [
+   "DA39",
+   "2882d40f009bf8c46a89e975c37d00ab",
+   "2ef504be18b9be54a91ef4e6750d86c7"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "3d012092ba60a2f49acbf766ab556600",
+  "bundle_name": "Armoured Support",
+  "mapping_ids_same_name": [
+   "UM44"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "GSC75",
+  "bundle_name": "Roaming Outriders",
+  "mapping_ids_same_name": [
+   "GSC78"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "db34f054e134c094aaf92e7a6ae124c0",
+  "bundle_name": "Asteroid Zone",
+  "mapping_ids_same_name": [
+   "DA62"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "SW58",
+  "bundle_name": "Fenrisian Wolfpack",
+  "mapping_ids_same_name": [
+   "SW65"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "GOF29",
+  "bundle_name": "Grukk Face-Rippa",
+  "mapping_ids_same_name": [
+   "52520927841c93c4785d2690edb9fb1f"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "69bf10fe198146b4bb8aec3f8dd3fe4e",
+  "bundle_name": "The Fang",
+  "mapping_ids_same_name": [
+   "SW53"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "a20b3a843b961c04bb1b6dde3850859b",
+  "bundle_name": "Champions of Humanity",
+  "mapping_ids_same_name": [
+   "UM94"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW5",
+  "bundle_name": "Hunting Wolf",
+  "mapping_ids_same_name": [
+   "SW12"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "TL58",
+  "bundle_name": "Sweeping Infestation",
+  "mapping_ids_same_name": [
+   "4889d3ae002db2d4785cb2286a84e48e"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "59e47125a7f5b36448bd1f71fd17b4cf",
+  "bundle_name": "Tale of the Faithful",
+  "mapping_ids_same_name": [
+   "cdc015de8cecdc74fa0aaa2bbeb29d8f",
+   "e9f33f1a8acbc3949a99f3ad69078d4d"
+  ],
+  "army": "Sororitas"
+ },
+ {
+  "bundle_id": "DA71",
+  "bundle_name": "Watcher in the Dark",
+  "mapping_ids_same_name": [
+   "DA77"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "70ce5448c46c2c34d80192472e976a67",
+  "bundle_name": "Master Outrider",
+  "mapping_ids_same_name": [
+   "c433e3dde4952cc448220908226127ae"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "SW61",
+  "bundle_name": "Halls of Legend",
+  "mapping_ids_same_name": [
+   "SW68"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "c433e3dde4952cc448220908226127ae",
+  "bundle_name": "Master Outrider",
+  "mapping_ids_same_name": [
+   "70ce5448c46c2c34d80192472e976a67"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "TL50",
+  "bundle_name": "Infinite Biomorphologies",
+  "mapping_ids_same_name": [
+   "2aa8026988b605d40874798f3992bc81",
+   "4604f2deaa3fad6418e2d8f4b3dc36e4",
+   "59a4d20eed92a624c9512a392b163bf3",
+   "9f7068f052d4a8b4f99b007134f2d8f1",
+   "d34f1b514c330e646b609a106bb8a76a",
+   "da8a1ba85a045484eb90f55394873119"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "AM59",
+  "bundle_name": "Astropath",
+  "mapping_ids_same_name": [
+   "AM20"
+  ],
+  "army": "AstraMilitarum"
+ },
+ {
+  "bundle_id": "77a7253295da8234f8c04de2ad5e2d59",
+  "bundle_name": "Makari the Grot",
+  "mapping_ids_same_name": [
+   "GOF2"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "6bce17171773ce044ac88728f5ea1d33",
+  "bundle_name": "Indomitus Crusade",
+  "mapping_ids_same_name": [
+   "UM101"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW24",
+  "bundle_name": "Frost Claw Wulfen",
+  "mapping_ids_same_name": [
+   "SW32"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "3852c4775eacc5b4da2e6099e2bffff7",
+  "bundle_name": "Blackout",
+  "mapping_ids_same_name": [
+   "ASH58"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "91fed153a7ef8734b89b7892c67201ef",
+  "bundle_name": "Krump da Gitz",
+  "mapping_ids_same_name": [
+   "GOF71"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "EC64",
+  "bundle_name": "Empyric Rift",
+  "mapping_ids_same_name": [
+   "430c733f7e6de72489e2f0586ccc8d3d"
+  ],
+  "army": "EmperorsChildren"
+ },
+ {
+  "bundle_id": "6b945ed622dee0e479d44e0bfd2273c5",
+  "bundle_name": "Uge Choppa",
+  "mapping_ids_same_name": [
+   "6899b199f5e36144ebbdd7ed9d9e7afe"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "SW20",
+  "bundle_name": "Thunderwolf Cavalry Pack Leader",
+  "mapping_ids_same_name": [
+   "SW26"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "TL34",
+  "bundle_name": "Tervigon",
+  "mapping_ids_same_name": [
+   "bd6baa4e586791244a25861a52dfab02"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "364bf7f669176924eab7fbb1a477e3a4",
+  "bundle_name": "Aerial Clash",
+  "mapping_ids_same_name": [
+   "UM49"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "44761bc257d1f1243ac5f6058459ede6",
+  "bundle_name": "Cadia Stands",
+  "mapping_ids_same_name": [
+   "AM51"
+  ],
+  "army": "AstraMilitarum"
+ },
+ {
+  "bundle_id": "GSC62",
+  "bundle_name": "Toxic Fumes",
+  "mapping_ids_same_name": [
+   "202fb454856a2b04d904c4ff7bc2410f"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "0474b16360827b6408fb02b6820e7e63",
+  "bundle_name": "Living Icon",
+  "mapping_ids_same_name": [
+   "GSC51"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "98efedc81da043a48ba219d1aaed8965",
+  "bundle_name": "Craftworld Convergence",
+  "mapping_ids_same_name": [
+   "ASH71",
+   "cd9b6eaafe52865409cbb239abb00525",
+   "e8711efdd74a2a544a3ff12c729c230c"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "DA70",
+  "bundle_name": "Vengeful Brethren Intercessor",
+  "mapping_ids_same_name": [
+   "DA78"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "fdacb4e306ae79547883557cce46f557",
+  "bundle_name": "Saviour Protocols",
+  "mapping_ids_same_name": [
+   "TAU51"
+  ],
+  "army": "TauEmpire"
+ },
+ {
+  "bundle_id": "TAU59",
+  "bundle_name": "Solar Eclipse",
+  "mapping_ids_same_name": [
+   "28a3c2e48250bd247b793ae1c80daa92"
+  ],
+  "army": "TauEmpire"
+ },
+ {
+  "bundle_id": "UM116",
+  "bundle_name": "No Mercy",
+  "mapping_ids_same_name": [
+   "UM99"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "UM117",
+  "bundle_name": "No Respite",
+  "mapping_ids_same_name": [
+   "UM100"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "cdc015de8cecdc74fa0aaa2bbeb29d8f",
+  "bundle_name": "Tale of the Faithful",
+  "mapping_ids_same_name": [
+   "59e47125a7f5b36448bd1f71fd17b4cf",
+   "e9f33f1a8acbc3949a99f3ad69078d4d"
+  ],
+  "army": "Sororitas"
+ },
+ {
+  "bundle_id": "TL68",
+  "bundle_name": "Psychophage",
+  "mapping_ids_same_name": [
+   "TL80"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "DA59",
+  "bundle_name": "Grim Effigy",
+  "mapping_ids_same_name": [
+   "DA65"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "SAU62",
+  "bundle_name": "Earthquake",
+  "mapping_ids_same_name": [
+   "03b4f1012b03fbe4193b68c99d9a7129"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "2bee2e8f8b3f8bc47981084f14495088",
+  "bundle_name": "Champions of Humanity",
+  "mapping_ids_same_name": [
+   "UM94"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "fae4ef61e87b2ee44b8e52fc705c2030",
+  "bundle_name": "Unbridled Carnage",
+  "mapping_ids_same_name": [
+   "GOF41"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "UM115",
+  "bundle_name": "Stormhawk Interception",
+  "mapping_ids_same_name": [
+   "UM98"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "UM47",
+  "bundle_name": "Uriel Ventris",
+  "mapping_ids_same_name": [
+   "b5eedae31b83f564baba23db311c9112"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "6b18f49379aca9742894111f7ed409c7",
+  "bundle_name": "Duelist's Hubris",
+  "mapping_ids_same_name": [
+   "6ed51d59b9f8ea24ab0dc7ceaef7956c"
+  ],
+  "army": "EmperorsChildren"
+ },
+ {
+  "bundle_id": "6899b199f5e36144ebbdd7ed9d9e7afe",
+  "bundle_name": "Uge Choppa",
+  "mapping_ids_same_name": [
+   "6b945ed622dee0e479d44e0bfd2273c5"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "ASH60",
+  "bundle_name": "Webway Rift",
+  "mapping_ids_same_name": [
+   "25875bfb8bb08564aa03a3c9bfef25c3"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "1bfe0893592c9dd40bed8d68d5d2b516",
+  "bundle_name": "Path of the Warrior",
+  "mapping_ids_same_name": [
+   "e59ac9e46f4ea804784e954c3b820e77"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "DA74",
+  "bundle_name": "Hunters of Heretics",
+  "mapping_ids_same_name": [
+   "DA86"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "a424ea66742166b4999fe97e07d61ac7",
+  "bundle_name": "Adaptive Strategy",
+  "mapping_ids_same_name": [
+   "UM92"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "0cc4533fc0bee374196e55fb1569e63b",
+  "bundle_name": "The Rock",
+  "mapping_ids_same_name": [
+   "DA46",
+   "6ffe2680a560aa94496080a025f561a1",
+   "8a028d3771c60014aa35c7269d38159e"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "EC51",
+  "bundle_name": "Coterie of the Conceited",
+  "mapping_ids_same_name": [
+   "e9d68c658708e7149b6ddefa492e7357"
+  ],
+  "army": "EmperorsChildren"
+ },
+ {
+  "bundle_id": "c988c599275dcdb449a5d5a46af0d27b",
+  "bundle_name": "The Fang",
+  "mapping_ids_same_name": [
+   "SW53"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "GSC53",
+  "bundle_name": "Enhanced Aggression",
+  "mapping_ids_same_name": [
+   "fbdc291f3a847a846905c46fe98de618"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "52520927841c93c4785d2690edb9fb1f",
+  "bundle_name": "Grukk Face-Rippa",
+  "mapping_ids_same_name": [
+   "GOF29"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "TAU51",
+  "bundle_name": "Saviour Protocols",
+  "mapping_ids_same_name": [
+   "fdacb4e306ae79547883557cce46f557"
+  ],
+  "army": "TauEmpire"
+ },
+ {
+  "bundle_id": "EC63",
+  "bundle_name": "Stimm-Vents Leak",
+  "mapping_ids_same_name": [
+   "32ed2b1e771ee494fa072c24c959a5a0"
+  ],
+  "army": "EmperorsChildren"
+ },
+ {
+  "bundle_id": "SW37",
+  "bundle_name": "Wulfen Dreadnought",
+  "mapping_ids_same_name": [
+   "SW44"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "ASH58",
+  "bundle_name": "Blackout",
+  "mapping_ids_same_name": [
+   "3852c4775eacc5b4da2e6099e2bffff7"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "91992b401487b494596d42098b8ec9ee",
+  "bundle_name": "Indomitus Crusade",
+  "mapping_ids_same_name": [
+   "UM101"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW43",
+  "bundle_name": "Anvil of Endurance",
+  "mapping_ids_same_name": [
+   "SW51"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "SW42",
+  "bundle_name": "Savage Legacy",
+  "mapping_ids_same_name": [
+   "SW50"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "SW25",
+  "bundle_name": "Wolf Guard Battle Leader",
+  "mapping_ids_same_name": [
+   "SW33"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "SW12",
+  "bundle_name": "Thunderwolf Cavalry",
+  "mapping_ids_same_name": [
+   "SW20"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "9176318eaf469354e858f51af2333aa3",
+  "bundle_name": "Litany of Despair",
+  "mapping_ids_same_name": [
+   "e09280c7545371941b57dc0cc813012f"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "TL72",
+  "bundle_name": "Tyranid Invasion",
+  "mapping_ids_same_name": [
+   "TL85"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "03b4f1012b03fbe4193b68c99d9a7129",
+  "bundle_name": "Earthquake",
+  "mapping_ids_same_name": [
+   "SAU62"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "TL67",
+  "bundle_name": "Barbgaunt",
+  "mapping_ids_same_name": [
+   "TL78"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "SW50",
+  "bundle_name": "Hordeslayer",
+  "mapping_ids_same_name": [
+   "SW61"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "ASH72",
+  "bundle_name": "Graceful Avoidance",
+  "mapping_ids_same_name": [
+   "d4ed3be9de80b00469a9cd255df63f35"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "752141bbf0543314987e3b9afed938af",
+  "bundle_name": "Hallowed Martyrs",
+  "mapping_ids_same_name": [
+   "SOR57"
+  ],
+  "army": "Sororitas"
+ },
+ {
+  "bundle_id": "DA63",
+  "bundle_name": "Void Combat",
+  "mapping_ids_same_name": [
+   "b12d246ee426d0f48861a5842b7b0ba5"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "SW56",
+  "bundle_name": "Let Loose",
+  "mapping_ids_same_name": [
+   "SW63"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "e9f33f1a8acbc3949a99f3ad69078d4d",
+  "bundle_name": "Tale of the Faithful",
+  "mapping_ids_same_name": [
+   "59e47125a7f5b36448bd1f71fd17b4cf",
+   "cdc015de8cecdc74fa0aaa2bbeb29d8f"
+  ],
+  "army": "Sororitas"
+ },
+ {
+  "bundle_id": "UM111",
+  "bundle_name": "Shall Know No Fear",
+  "mapping_ids_same_name": [
+   "UM96"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "e8711efdd74a2a544a3ff12c729c230c",
+  "bundle_name": "Craftworld Convergence",
+  "mapping_ids_same_name": [
+   "ASH71",
+   "98efedc81da043a48ba219d1aaed8965",
+   "cd9b6eaafe52865409cbb239abb00525"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "SW17",
+  "bundle_name": "Wulfen",
+  "mapping_ids_same_name": [
+   "SW27"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "79fe758082cb0a548ba235d45bb26ca8",
+  "bundle_name": "No Respite",
+  "mapping_ids_same_name": [
+   "UM100"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "202fb454856a2b04d904c4ff7bc2410f",
+  "bundle_name": "Toxic Fumes",
+  "mapping_ids_same_name": [
+   "GSC62"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "9b1a9b14d290b4d07a575e0af8ffdf9b",
+  "bundle_name": "Delightful Agonies",
+  "mapping_ids_same_name": [
+   "BL49"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "UM51",
+  "bundle_name": "Thunderstorm",
+  "mapping_ids_same_name": [
+   "d722e8df0e8bbb944b5d6d1fc80e2cb5"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW22",
+  "bundle_name": "Blackmane Inceptor",
+  "mapping_ids_same_name": [
+   "SW30"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "bf538271ab431244399a01e3ba3a103f",
+  "bundle_name": "Normal Conditions (GSC)",
+  "mapping_ids_same_name": [
+   "239f468a65ba1b24ba119ab1a1ac53cc"
+  ],
+  "army": "AstraMilitarum"
+ },
+ {
+  "bundle_id": "2aa8026988b605d40874798f3992bc81",
+  "bundle_name": "Infinite Biomorphologies",
+  "mapping_ids_same_name": [
+   "TL50",
+   "4604f2deaa3fad6418e2d8f4b3dc36e4",
+   "59a4d20eed92a624c9512a392b163bf3",
+   "9f7068f052d4a8b4f99b007134f2d8f1",
+   "d34f1b514c330e646b609a106bb8a76a",
+   "da8a1ba85a045484eb90f55394873119"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "SW39",
+  "bundle_name": "Canis Helix",
+  "mapping_ids_same_name": [
+   "SW47"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "d34f1b514c330e646b609a106bb8a76a",
+  "bundle_name": "Infinite Biomorphologies",
+  "mapping_ids_same_name": [
+   "TL50",
+   "2aa8026988b605d40874798f3992bc81",
+   "4604f2deaa3fad6418e2d8f4b3dc36e4",
+   "59a4d20eed92a624c9512a392b163bf3",
+   "9f7068f052d4a8b4f99b007134f2d8f1",
+   "da8a1ba85a045484eb90f55394873119"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "74d2e50e16f323548a7c329ff80b788b",
+  "bundle_name": "Sudden Assault",
+  "mapping_ids_same_name": [
+   "ASH43"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "7a01882fe4610244292d16b15f4b873e",
+  "bundle_name": "Living Lightning",
+  "mapping_ids_same_name": [
+   "SW8"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "0078441d07f6d604db6c6cfb1c1fa46f",
+  "bundle_name": "Ferocious Rage",
+  "mapping_ids_same_name": [
+   "84d4d192e0f57a34a90ac0f6172c3358"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "41642ef512a2dbf42889c51fff3a8aaa",
+  "bundle_name": "Wages of Retribution",
+  "mapping_ids_same_name": [
+   "DA55"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "SW7",
+  "bundle_name": "Deathwolf Scout",
+  "mapping_ids_same_name": [
+   "SW15"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "SOR57",
+  "bundle_name": "Hallowed Martyrs",
+  "mapping_ids_same_name": [
+   "752141bbf0543314987e3b9afed938af"
+  ],
+  "army": "Sororitas"
+ },
+ {
+  "bundle_id": "GOF41",
+  "bundle_name": "Unbridled Carnage",
+  "mapping_ids_same_name": [
+   "fae4ef61e87b2ee44b8e52fc705c2030"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "a3f0dda16acf35140add842152477c94",
+  "bundle_name": "Self-Destruction",
+  "mapping_ids_same_name": [
+   "SAU52"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "AM68",
+  "bundle_name": "Tempestus Scion",
+  "mapping_ids_same_name": [
+   "66486b3f61682ab42ba2ce0fa921002f"
+  ],
+  "army": "AstraMilitarum"
+ },
+ {
+  "bundle_id": "DA65",
+  "bundle_name": "Chaplain Gabutheron",
+  "mapping_ids_same_name": [
+   "DA82"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "SW49",
+  "bundle_name": "Fenrisian Blizzard",
+  "mapping_ids_same_name": [
+   "SW56"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "2ece07942d1524d2e8856cfa94d21db1",
+  "bundle_name": "Aerial Dominion",
+  "mapping_ids_same_name": [
+   "ASH46"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "f16df0b3a3bf1974db565107bda33847",
+  "bundle_name": "Let Loose",
+  "mapping_ids_same_name": [
+   "SW63"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "GOF106",
+  "bundle_name": "Power of the Waaagh!",
+  "mapping_ids_same_name": [
+   "0094e6b79ffe12e4c8d9fd70beb02b5e"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "TAU60",
+  "bundle_name": "Electro-Static Interference",
+  "mapping_ids_same_name": [
+   "4cc68a0d541c4364e937d77d0838fb0d"
+  ],
+  "army": "TauEmpire"
+ },
+ {
+  "bundle_id": "4d4b9170663891f488c0e96ee8e55ba1",
+  "bundle_name": "Murderous Hurricane",
+  "mapping_ids_same_name": [
+   "SW7"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "b12d246ee426d0f48861a5842b7b0ba5",
+  "bundle_name": "Void Combat",
+  "mapping_ids_same_name": [
+   "DA63"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "SW41",
+  "bundle_name": "Pack of One",
+  "mapping_ids_same_name": [
+   "SW49"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "13fc6dfbba030b643a1e8893a611c88e",
+  "bundle_name": "Star Orbit",
+  "mapping_ids_same_name": [
+   "DA64"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "UM44",
+  "bundle_name": "Armoured Support",
+  "mapping_ids_same_name": [
+   "3d012092ba60a2f49acbf766ab556600"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW27",
+  "bundle_name": "Wolf Guard Terminator Pack Leader",
+  "mapping_ids_same_name": [
+   "SW34"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "SW34",
+  "bundle_name": "Murderfang",
+  "mapping_ids_same_name": [
+   "SW39"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "SW47",
+  "bundle_name": "Saga of the Bold",
+  "mapping_ids_same_name": [
+   "SW52"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "DA62",
+  "bundle_name": "Asteroid Zone",
+  "mapping_ids_same_name": [
+   "db34f054e134c094aaf92e7a6ae124c0"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "38871853fabb5244d8148766829230cd",
+  "bundle_name": "Refuse to Yield",
+  "mapping_ids_same_name": [
+   "DA76"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "TL65",
+  "bundle_name": "Neuroloid",
+  "mapping_ids_same_name": [
+   "TL76"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "2ef404c4fa412f840b8b6fa5ea6469a2",
+  "bundle_name": "Raging Storm",
+  "mapping_ids_same_name": [
+   "SOR62",
+   "ef43a2362ee779f429aad3d0a5097964"
+  ],
+  "army": "Sororitas"
+ },
+ {
+  "bundle_id": "430c733f7e6de72489e2f0586ccc8d3d",
+  "bundle_name": "Empyric Rift",
+  "mapping_ids_same_name": [
+   "EC64"
+  ],
+  "army": "EmperorsChildren"
+ },
+ {
+  "bundle_id": "2c2866efa62a21a49bbd4691eff428ec",
+  "bundle_name": "The Fang",
+  "mapping_ids_same_name": [
+   "SW53"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "7b703582937f4c444bbda8fb6a1710b1",
+  "bundle_name": "No Mercy",
+  "mapping_ids_same_name": [
+   "UM99"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW46",
+  "bundle_name": "Raid Tactics",
+  "mapping_ids_same_name": [
+   "SW59"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "SW29",
+  "bundle_name": "Morkai Eliminator",
+  "mapping_ids_same_name": [
+   "SW36"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "GOF50",
+  "bundle_name": "Dust Storm",
+  "mapping_ids_same_name": [
+   "ef42ad6c970ec5f49804b1f9f9ad5685"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "SAU63",
+  "bundle_name": "Immortal Beams",
+  "mapping_ids_same_name": [
+   "76d59d92d5d2d4ec89b2e441b1d18548"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "ASH3",
+  "bundle_name": "Medreyal Ghaelyn",
+  "mapping_ids_same_name": [
+   "edb0fd16ad0760e47b4b37737f3e60bd"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "BL60",
+  "bundle_name": "Daemonic Feast",
+  "mapping_ids_same_name": [
+   "ba33eab5a0587d34d8809cfae2f14058"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "TL57",
+  "bundle_name": "Acid Rain",
+  "mapping_ids_same_name": [
+   "5a790d31393197845a833476a455c598"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "GOF54",
+  "bundle_name": "Spore Cloud",
+  "mapping_ids_same_name": [
+   "1dd9a2768507ae6429409c4eec54b422"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "TL75",
+  "bundle_name": "Termagant Brood",
+  "mapping_ids_same_name": [
+   "TL79"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "7710974b1e108d243a399ed127674ad4",
+  "bundle_name": "Duelist's Hubris",
+  "mapping_ids_same_name": [
+   "6ed51d59b9f8ea24ab0dc7ceaef7956c"
+  ],
+  "army": "EmperorsChildren"
+ },
+ {
+  "bundle_id": "1d9ff6a401bba1f44a65bf843c21a586",
+  "bundle_name": "Storm of Silence",
+  "mapping_ids_same_name": [
+   "4b8214d3b5e589f42beab20e56ca21b0",
+   "851f73daf747eb642934a16429b391db"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "0161699f3a4cf5c489126356b3538ce5",
+  "bundle_name": "Normal Conditions (Black Legion)",
+  "mapping_ids_same_name": [
+   "8d1fbc34ac945c547b61bc9627a77fda"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "GOF90",
+  "bundle_name": "Wurrboy",
+  "mapping_ids_same_name": [
+   "648c492fa988aba44ad9a4507bd43ee4"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "SW19",
+  "bundle_name": "Iron Priest",
+  "mapping_ids_same_name": [
+   "SW24"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "ASH43",
+  "bundle_name": "Sudden Assault",
+  "mapping_ids_same_name": [
+   "74d2e50e16f323548a7c329ff80b788b"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "DA39",
+  "bundle_name": "Ancient Reliquary",
+  "mapping_ids_same_name": [
+   "2882d40f009bf8c46a89e975c37d00ab",
+   "2ef504be18b9be54a91ef4e6750d86c7",
+   "b5cdf76897db0a84ca518725d20168a7"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "AM64",
+  "bundle_name": "Planetary Invasion",
+  "mapping_ids_same_name": [
+   "2f00dde3a303fe34b99399c8bf987140"
+  ],
+  "army": "AstraMilitarum"
+ },
+ {
+  "bundle_id": "e59ac9e46f4ea804784e954c3b820e77",
+  "bundle_name": "Path of the Warrior",
+  "mapping_ids_same_name": [
+   "1bfe0893592c9dd40bed8d68d5d2b516"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "6e4f9040e8cc59641a32f29e33ea4cbc",
+  "bundle_name": "Tyrnak and Fenrir",
+  "mapping_ids_same_name": [
+   "SW9"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "SW55",
+  "bundle_name": "Legendary Tenacity",
+  "mapping_ids_same_name": [
+   "SW62"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "GSC40",
+  "bundle_name": "Backstab",
+  "mapping_ids_same_name": [
+   "GSC48"
+  ],
+  "army": "Genestealers"
+ },
+ {
+  "bundle_id": "84d4d192e0f57a34a90ac0f6172c3358",
+  "bundle_name": "Ferocious Rage",
+  "mapping_ids_same_name": [
+   "0078441d07f6d604db6c6cfb1c1fa46f"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "UM108",
+  "bundle_name": "Brutalis Dreadnought",
+  "mapping_ids_same_name": [
+   "UM91"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "2ef504be18b9be54a91ef4e6750d86c7",
+  "bundle_name": "Ancient Reliquary",
+  "mapping_ids_same_name": [
+   "DA39",
+   "2882d40f009bf8c46a89e975c37d00ab",
+   "b5cdf76897db0a84ca518725d20168a7"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "EC38",
+  "bundle_name": "Pledge to the Dark Prince",
+  "mapping_ids_same_name": [
+   "d0549600681827a42963bd24a46f297a"
+  ],
+  "army": "EmperorsChildren"
+ },
+ {
+  "bundle_id": "9f7068f052d4a8b4f99b007134f2d8f1",
+  "bundle_name": "Infinite Biomorphologies",
+  "mapping_ids_same_name": [
+   "TL50",
+   "2aa8026988b605d40874798f3992bc81",
+   "4604f2deaa3fad6418e2d8f4b3dc36e4",
+   "59a4d20eed92a624c9512a392b163bf3",
+   "d34f1b514c330e646b609a106bb8a76a",
+   "da8a1ba85a045484eb90f55394873119"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "SAU52",
+  "bundle_name": "Self-Destruction",
+  "mapping_ids_same_name": [
+   "a3f0dda16acf35140add842152477c94"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "ca169f2a6b7b2364ca99bd951c60f1d5",
+  "bundle_name": "Mark of Slaanesh (enchantment)",
+  "mapping_ids_same_name": [
+   "b8e81b2fe85cda747a68c4d6326b669c"
+  ],
+  "army": "EmperorsChildren"
+ },
+ {
+  "bundle_id": "b5eedae31b83f564baba23db311c9112",
+  "bundle_name": "Uriel Ventris",
+  "mapping_ids_same_name": [
+   "UM47"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "TAU42",
+  "bundle_name": "Experimental Drones",
+  "mapping_ids_same_name": [
+   "bfd9797b5365aa0429914f12ec4d6df2"
+  ],
+  "army": "TauEmpire"
+ },
+ {
+  "bundle_id": "141c5ed661a9e42bd9a793f0d2a1c682",
+  "bundle_name": "Unhallowed Gifts",
+  "mapping_ids_same_name": [
+   "f70efd9867a9cf3458b722aeaf2982bc"
+  ],
+  "army": "BlackLegion"
+ },
+ {
+  "bundle_id": "6ffe2680a560aa94496080a025f561a1",
+  "bundle_name": "The Rock",
+  "mapping_ids_same_name": [
+   "DA46",
+   "0cc4533fc0bee374196e55fb1569e63b",
+   "8a028d3771c60014aa35c7269d38159e"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "481a554f4bcaf124681916a2854e775d",
+  "bundle_name": "Shall Know No Fear",
+  "mapping_ids_same_name": [
+   "UM96"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "UM118",
+  "bundle_name": "Indomitus Crusade",
+  "mapping_ids_same_name": [
+   "UM101"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "SW33",
+  "bundle_name": "Vindicator",
+  "mapping_ids_same_name": [
+   "SW41"
+  ],
+  "army": "SpaceWolves"
+ },
+ {
+  "bundle_id": "1dd9a2768507ae6429409c4eec54b422",
+  "bundle_name": "Spore Cloud",
+  "mapping_ids_same_name": [
+   "GOF54"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "25875bfb8bb08564aa03a3c9bfef25c3",
+  "bundle_name": "Webway Rift",
+  "mapping_ids_same_name": [
+   "ASH60"
+  ],
+  "army": "SaimHann"
+ },
+ {
+  "bundle_id": "SOR62",
+  "bundle_name": "Raging Storm",
+  "mapping_ids_same_name": [
+   "2ef404c4fa412f840b8b6fa5ea6469a2",
+   "ef43a2362ee779f429aad3d0a5097964"
+  ],
+  "army": "Sororitas"
+ },
+ {
+  "bundle_id": "UM50",
+  "bundle_name": "Orbital Bombardment",
+  "mapping_ids_same_name": [
+   "b432e12e60e66a94fa032cd62011d2e1"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "DA64",
+  "bundle_name": "Star Orbit",
+  "mapping_ids_same_name": [
+   "13fc6dfbba030b643a1e8893a611c88e"
+  ],
+  "army": "DarkAngels"
+ },
+ {
+  "bundle_id": "e9d68c658708e7149b6ddefa492e7357",
+  "bundle_name": "Coterie of the Conceited",
+  "mapping_ids_same_name": [
+   "EC51"
+  ],
+  "army": "EmperorsChildren"
+ },
+ {
+  "bundle_id": "UM104",
+  "bundle_name": "Bladeguard Ancient",
+  "mapping_ids_same_name": [
+   "UM87"
+  ],
+  "army": "Ultramarines"
+ },
+ {
+  "bundle_id": "cb29b9bcde7995948a3c373401e67e3c",
+  "bundle_name": "Nemesor Zahndrekh",
+  "mapping_ids_same_name": [
+   "SAU36",
+   "ef547f829b6491f45a8ad371f492278e"
+  ],
+  "army": "Sautekh"
+ },
+ {
+  "bundle_id": "b380adbe398519740958b1cc7e0736cb",
+  "bundle_name": "Blazing Biomass",
+  "mapping_ids_same_name": [
+   "TL59"
+  ],
+  "army": "Leviathan"
+ },
+ {
+  "bundle_id": "468a87d4e3969ac47b58555970456895",
+  "bundle_name": "Beastboss on Squigosaur",
+  "mapping_ids_same_name": [
+   "GOF91"
+  ],
+  "army": "Goff"
+ },
+ {
+  "bundle_id": "61046837c330b48978b4af5201230b6e",
+  "bundle_name": "Helspear Assault",
+  "mapping_ids_same_name": [
+   "3df005b0c8973d5419eb1a4981f777b0"
+  ],
+  "army": "BlackLegion"
+ }
+]

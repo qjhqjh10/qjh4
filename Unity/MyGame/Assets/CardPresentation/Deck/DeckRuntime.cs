@@ -1589,8 +1589,14 @@ namespace CardPresentation
             //   `Content Area/Header/WIldcard Counter/{Background, Counters/*, Army Icon}`
             //   ⇒ **一件都不能漏**（漏了就是「一条规则两种结果」）。
             //   我们的外层没有那格容器，只能逐个登记进 `_cardsInfoOnly`（显隐在 `RefreshTabVisibility`）。
-            var wcBg = Img("hdr_wcbg", "40k_topmarquee_currency_display_BW", WcBgX, WcBgY, WcBgW, WcBgH, QPanel);
-            if (wcBg != null) _cardsInfoOnly.Add(wcBg.gameObject);
+            // 🔴 **2026-10-18（N57）**：原版 `WIldcard Counter/Background` = `40k_topmarquee_currency_display BW`
+            //   **Sliced 九宫 15** · `m_Color (0.462,0.462,0.462,1)`（判据 = `Deck Editing Menu` dump）。
+            //   原来走 `Img`（Simple 拉伸 + 无 tint = 白）⇒ 画成一条亮白边；改九宫 + 原版灰。
+            var wcBg = MenuDraw.Nine(Root, Ui("40k_topmarquee_currency_display_BW"),
+                                     new PxRect(WcBgX, WcBgY, WcBgX + WcBgW, WcBgY + WcBgH),
+                                     new Vector4(15f, 15f, 15f, 15f), 44f, 39f, QPanel,
+                                     new Color(0.462f, 0.462f, 0.462f, 1f), true, "hdr_wcbg");
+            if (wcBg != null) _cardsInfoOnly.Add(wcBg);
             string[] wcIc = { "40k_general_wildcard_common_small", "40k_general_wildcard_rare_small",
                               "40k_general_wildcard_epic_small", "40k_general_wildcard_legendary_small" };
             for (int i = 0; i < 4; i++)

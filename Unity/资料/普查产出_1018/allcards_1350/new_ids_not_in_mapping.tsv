@@ -1,0 +1,78 @@
+uniqueId	cardName	cardArmy	cost	melee	ranged	health	armour	cardType	spellType
+0d2874f3b124db2408e2c52ae47e5e0e	Catechism of Death	Ultramarines	3	0	0	0	0	20	0
+16c804b7e1b10b542a8b1dbc5decec9e	Shall Know No Fear	Ultramarines	2	0	0	0	0	20	0
+2bee2e8f8b3f8bc47981084f14495088	Champions of Humanity	Ultramarines	6	0	0	0	0	20	0
+40667e346ae58a84dbda1033dff70ccb	Author of the Codex	Ultramarines	2	0	0	0	0	20	0
+481a554f4bcaf124681916a2854e775d	Shall Know No Fear	Ultramarines	10	0	0	0	0	20	0
+4de4fcfb5d7e0554a88b9f419a2cd7c2	Angel's Wrath	Ultramarines	1	0	0	0	0	20	0
+57bfef8500ae0d84186f713561c16bcc	Stormhawk Interception	Ultramarines	6	0	0	0	0	20	0
+6bce17171773ce044ac88728f5ea1d33	Indomitus Crusade	Ultramarines	6	0	0	0	0	20	0
+6ea114bce68bc714e8f0a4587dbbafe1	No Mercy	Ultramarines	8	0	0	0	0	20	0
+74480125107476f498ab284871b20401	Catechism of Death	Ultramarines	0	0	0	0	0	20	0
+79fe758082cb0a548ba235d45bb26ca8	No Respite	Ultramarines	8	0	0	0	0	20	0
+7b703582937f4c444bbda8fb6a1710b1	No Mercy	Ultramarines	4	0	0	0	0	20	0
+8482077f309b08943b190f18b5874871	Catechism of Death	Ultramarines	0	0	0	0	0	20	0
+91992b401487b494596d42098b8ec9ee	Indomitus Crusade	Ultramarines	12	0	0	0	0	20	0
+97a4b83aa9331d5489bcd837fd4be8e8	Angel's Wrath	Ultramarines	3	0	0	0	0	20	0
+UM102	Terminator Captain	Ultramarines	7	6	6	7	2	0	0
+UM103	Terminator	Ultramarines	5	6	6	6	0	0	0
+UM104	Bladeguard Ancient	Ultramarines	7	7	5	7	0	0	0
+UM105	Dreadnought	Ultramarines	6	4	7	7	0	0	0
+UM106	Ferren Areios	Ultramarines	8	9	9	9	0	0	0
+UM107	Whirlwind	Ultramarines	8	3	6	8	0	0	0
+UM108	Brutalis Dreadnought	Ultramarines	9	10	6	10	0	0	0
+UM109	Adaptive Strategy	Ultramarines	1	0	0	0	0	20	0
+UM110	Fall Back	Ultramarines	1	0	0	0	0	20	0
+UM111	Shall Know No Fear	Ultramarines	2	0	0	0	0	20	0
+UM112	Champions of Humanity	Ultramarines	2	0	0	0	0	20	0
+UM113	Duty's End	Ultramarines	2	0	0	0	0	20	0
+UM114	Lead From the Front	Ultramarines	3	0	0	0	0	20	0
+UM115	Stormhawk Interception	Ultramarines	3	0	0	0	0	20	0
+UM116	No Mercy	Ultramarines	4	0	0	0	0	20	0
+UM117	No Respite	Ultramarines	5	0	0	0	0	20	0
+UM118	Indomitus Crusade	Ultramarines	6	0	0	0	0	20	0
+a20b3a843b961c04bb1b6dde3850859b	Champions of Humanity	Ultramarines	2	0	0	0	0	20	0
+a424ea66742166b4999fe97e07d61ac7	Adaptive Strategy	Ultramarines	2	0	0	0	0	20	0
+ac6aa9739f7773e449347e1e79ea0e83	Indomitus Crusade	Ultramarines	6	0	0	0	0	20	0
+b14d1db2b0730d649b3bec35af100363	Master of Battle	Ultramarines	2	0	0	0	0	20	270
+b34ec9176268dca4db0b975d1f9028ea	Adaptive Strategy	Ultramarines	1	0	0	0	0	20	0
+cd053fb3b46dc4d4c93762a20fa3c7e1	Fall Back	Ultramarines	1	0	0	0	0	20	0
+d05168153d48a004a98397101dc4954f	Angel's Wrath	Ultramarines	1	0	0	0	0	20	0
+d32332a368c7919469dfa0d5d4df7d03	No Respite	Ultramarines	5	0	0	0	0	20	0
+e874c2bd84895e64694daa44bd5fd5c2	Primarch of the XIII	Ultramarines	1	0	0	0	0	20	270
+ed8105674efc55e4185a5c74d5abf844	Duty's End	Ultramarines	2	0	0	0	0	20	0
+ef596edae1828bd46bfc4348535a3acc	Supreme Strategist	Ultramarines	3	0	0	0	0	20	270
+fb248c0fdddc5ec4da1ffcc0a8ab603a	Stormhawk Interception	Ultramarines	3	0	0	0	0	20	0
+fe6fde3df4104374092a642460dadf03	Fall Back	Ultramarines	3	0	0	0	0	20	0
+7a02359776e89f243b8cf41642dc44c9	Witchblade Warlock (tutorial)	SaimHann	4	4	3	5	0	0	0
+f3df0cfc57695654cb31a72b65470522	Abaddon's Chosen	BlackLegion	1	0	0	0	0	20	0
+070f7594d50c74944b3e86ebae80bde1	Hunters of Heretics	DarkAngels	3	0	0	0	0	20	0
+38871853fabb5244d8148766829230cd	Refuse to Yield	DarkAngels	2	0	0	0	0	20	0
+DA67	Assault Terminator	DarkAngels	6	6	0	5	1	0	0
+DA68	Vengeful Brethren Bladeguard	DarkAngels	4	4	3	4	1	0	0
+DA69	Vengeful Brethren Hellblaster	DarkAngels	3	2	3	4	0	0	0
+DA70	Vengeful Brethren Intercessor	DarkAngels	2	2	2	3	0	0	0
+DA71	Watcher in the Dark	DarkAngels	1	1	0	3	0	0	0
+DA72	Vengeful Brethren	DarkAngels	1	0	0	0	0	20	0
+DA73	Relic Munitions	DarkAngels	2	0	0	0	0	20	0
+DA74	Hunters of Heretics	DarkAngels	3	0	0	0	0	20	0
+6b18f49379aca9742894111f7ed409c7	Duelist's Hubris	EmperorsChildren	1	0	0	0	0	20	0
+7710974b1e108d243a399ed127674ad4	Duelist's Hubris	EmperorsChildren	1	0	0	0	0	20	0
+29ee7b2dcd0d13e43a7065d3194a59b4	First Light	SpaceWolves	-1	0	0	0	0	20	200
+2c2866efa62a21a49bbd4691eff428ec	The Fang	SpaceWolves	0	0	0	0	0	20	0
+41e94f2d95a5b6143b44d5356a486213	Raid Tactics	SpaceWolves	3	0	0	0	0	20	0
+4d4b9170663891f488c0e96ee8e55ba1	Murderous Hurricane	SpaceWolves	0	0	0	0	0	20	265
+69bf10fe198146b4bb8aec3f8dd3fe4e	The Fang	SpaceWolves	2	0	0	0	0	20	0
+6e4f9040e8cc59641a32f29e33ea4cbc	Tyrnak and Fenrir	SpaceWolves	10	4	0	9	0	0	0
+7210fc3a4509b3649969609a1fa822ea	The Fang	SpaceWolves	2	0	0	0	0	20	0
+7a01882fe4610244292d16b15f4b873e	Living Lightning	SpaceWolves	0	0	0	0	0	20	265
+7c06b8117fe86e74dbc454139da8653b	Everstorm	SpaceWolves	-1	0	0	0	0	20	200
+8f0302f1603cc954392d90d5dabd22d5	Tyrnak and Fenrir	SpaceWolves	10	4	0	9	0	0	0
+a51adc8f5c311584385c3117cfd919e9	High Rune Priest	SpaceWolves	2	0	0	0	0	20	0
+b3dce3f10cc118541910156ec8da1d9b	High King of Fenris	SpaceWolves	2	0	0	0	0	20	0
+b5036545b0241504f96efdc00cf4ce01	Normal Conditions (SW)	SpaceWolves	-1	0	0	0	0	20	200
+b551c8351ebe5784faf9912b573eaf93	Tempest's Wrath	SpaceWolves	0	0	0	0	0	20	265
+c988c599275dcdb449a5d5a46af0d27b	The Fang	SpaceWolves	2	0	0	0	0	20	0
+e3b5735d801fcbd49aa8d3975a5b0c31	War Howl	SpaceWolves	2	0	0	0	0	20	0
+f16df0b3a3bf1974db565107bda33847	Let Loose	SpaceWolves	6	0	0	0	0	20	0
+f240bc73f2297494c9baf3784cc23a5e	Full Moon	SpaceWolves	0	0	0	0	0	20	200

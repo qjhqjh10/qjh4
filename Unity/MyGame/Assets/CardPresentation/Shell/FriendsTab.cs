@@ -216,8 +216,11 @@ namespace CardPresentation
             var duelWb = duelH != null ? duelH.GetComponent<WindowButton>() : null;
             if (duelWb != null) duelWb.BindNine(duelNine, "UI_Button_Organe_Square_Normal");
 
-            Text(panel, SearchPlayerR, "Search player", Color.white, "Search Player", HeadPx, L_Text, 0f,
-                 wrap: true, alignLeft: true);
+            // 🔴 **2026-10-18（N60）**：原来硬编码英文 `"Search player"` ⇒ 中文档里这颗字**永远英文**
+            //   （用户截图 `13_social_friends.png`）。官方词条 = `Demo/FriendsMenu/SearchPlayer`
+            //   （EN `Search player` / ZH `搜索玩家`）。
+            Text(panel, SearchPlayerR, Loc.T("Demo/FriendsMenu/SearchPlayer"), Color.white, "Search Player",
+                 HeadPx, L_Text, 0f, wrap: true, alignLeft: true);
             // ☝ A323：原版 `Left/Middle`；A414（表 #2）：原版 `字号=38.27 基准=38.27`、**无 `auto[…]` 段**
             //   （`m_enableAutoSizing = 0`）⇒ 上限/base 两格**不适用**，`autoMinPx` 我们也传 0 ⇒ 故意**不填**
 

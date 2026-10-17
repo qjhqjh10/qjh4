@@ -601,8 +601,12 @@ namespace CardPresentation
                 if (!string.IsNullOrEmpty(spec.Icon))
                 {
                     float iconL = x + IconOffsetL, iconTop = iT + (ItemH - IconH) * 0.5f;
+                    // 🔴 **2026-10-18（N57）**：原版资源格的兄弟序 = `Resource Bar Background` → `Icon`
+                    //   ⇒ **图标画在药丸之上**（原版实拍里图标压住数字框左端）。我们原来与药丸同队列
+                    //   `QBarContent 2987` ⇒ 药丸后画/更近，把图标右侧切掉一截。
+                    //   2988（`QBarBadge`）是现有最近的空档；红点在齿轮/信封上，与本处**区域不重叠**。
                     Rect(icon, spec.Icon, iconL, iconL + IconW, iconTop, iconTop + IconH,
-                         "Image", QBarContent, null, true, onMissing);
+                         "Image", QBarBadge, null, true, onMissing);
                 }
                 x += itemW[i] + ResSpacing;
             }

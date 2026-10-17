@@ -477,6 +477,7 @@
      "ASH24",
      "ASH45",
      "ASH29",
+     "ASH19",
      "ASH12",
      "ASH4",
      "ASH25",
@@ -491,6 +492,7 @@
      "ASH9",
      "ASH11",
      "ASH18",
+     "ASH19",
      "ASH33",
      "ASH42",
      "ASH15",
@@ -503,10 +505,8 @@
      "ASH43",
      "ASH31"
     ],
-    "complete": false,
-    "missing": [
-     "7a02359776e89f243b8cf41642dc44c9 x2 (miss-unknown)"
-    ],
+    "complete": true,
+    "missing": [],
     "problems": [],
     "overLegendary": [],
     "so": "Aeldari_Deck0_Tutorial5_Ghaelyn"

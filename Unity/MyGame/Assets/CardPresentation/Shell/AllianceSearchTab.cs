@@ -334,7 +334,10 @@ namespace CardPresentation
             var area = Node(_listView, "List Area", new PxRect(361.00f, 252.29f, 1874.90f, 1079.77f));
 
             var inv = Node(area, "Invitations", new PxRect(360.99f, 252.29f, 1874.90f, 252.29f));
-            Text(inv, InvTitleR, "Alliances invitations:", Color.white, "Title", 47.5f, L_Text, 18f,
+            // 🔴 **2026-10-18（N56）**：原来这里**硬编码英文** `"Alliances invitations:"`，而下面
+            //   `Open Alliances` 那颗已经走 `Loc.T` ⇒ 中文档里两行语言不同（用户截图 `12_social.png`）。
+            //   官方词条 = `SocialMenu/Alliances/Invitations`（EN `Alliances invitations:` / ZH `联盟邀请：`）。
+            Text(inv, InvTitleR, Loc.T("SocialMenu/Alliances/Invitations"), Color.white, "Title", 47.5f, L_Text, 18f,
                  wrap: true, alignLeft: true, autoMaxPx: 72f, autoBasePx: 36f);   // A323：原版 `Left/Middle`；A414（表 #3）`auto[18~72] 基准=36.0`
             // ⚠️ 上面这一行以下的 `wrap: true` 全是 **A258**（原版 `折行=1`）⇒ 逐处显式声明。
             //   ⛔ 判据别再抄第二份 —— 逐条真值见文件头那张表 + `…/波C3_A212其余_A213_A214.md` §A213 表 A。

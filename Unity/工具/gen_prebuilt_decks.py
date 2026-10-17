@@ -208,12 +208,15 @@ def warlord_name_of_table(v):
     return re.sub(r"^Presale_", "", short)
 
 
-def id_direct(by_id, cid, want_type=None):
+def id_direct(by_id, cid, want_type=None, true_to_pool=None):
     """🔴 **按原版卡号在我们卡池里直查** —— 匹配的**第一档（t0）**，比任何名字比对都硬。
 
     🔴 **`match()` 与 `hero_match()` 共用这一处**（本文件内的规矩：两处写同一条 = 迟早不一致）。
     🔴 **核对脚本 `check_prebuilt_decks.py` 的 `match()` / `hero_check()` 同批同改**（`build_matcher`
        的抬头写着「改规则必须两边一起改」）—— 别只改这一边。
+    🔴 **2026-10-18**：原版卡号是**真 id**，而我们池里还有 114 张用旧池 id（重编号是另一笔迁移）
+       ⇒ 先经 `true_to_pool`（`card_ids.json` 的 `poolTrueIds` 反转）翻成池 id 再查。
+       不在表里的真 id（我们池里没有那张卡）**不直查** —— 否则可能撞上旧的同号卡。
 
     `want_type` 给了就要求那张卡的 `type` 与它一致（督军那一档传 `"hero"`）；不一致 ⇒ **不算命中**
       —— 交给调用方回落名字表，并**如实出声**（见 `hero_match` 的 `"id指向非督军(%s)"`）。
@@ -222,7 +225,10 @@ def id_direct(by_id, cid, want_type=None):
        （`cards_engine.json` sha1 `869935d8…`）：236 副共 5157 处卡引用里 **id 直查命中 5085 处（98.6%）**、
        **命中处与卡组阵营不符 0 处**、**指向督军 0 处** ⇒ 加不加阵营闸，结果都一样，何必多一道会静默丢牌的闸。
     """
-    c = by_id.get(cid)
+    pid = true_to_pool.get(cid) if true_to_pool else cid
+    if pid is None:
+        return None
+    c = by_id.get(pid)
     if c is None:
         return None
     if want_type is not None and c["type"] != want_type:
@@ -230,7 +236,7 @@ def id_direct(by_id, cid, want_type=None):
     return c
 
 
-def build_matcher(pool, mapping):
+def build_matcher(pool, mapping, true_to_pool=None):
     """把 `check_prebuilt_decks.py` 的 `match()` 原样搬过来，只是返回值多带一个「我们的卡 id」。
 
     🔴 **2026-10-16（A13）两边同批补了 `t0` = id 直查** —— 补的是**匹配机制**，卡名一个字没动
@@ -267,7 +273,7 @@ def build_matcher(pool, mapping):
         if key in cache:
             return cache[key]
         nm = mapping.get(cid)
-        c = id_direct(by_id, cid)
+        c = id_direct(by_id, cid, true_to_pool=true_to_pool)
         if c is not None:
             cache[key] = ("t0", c["id"])
             return cache[key]
@@ -325,7 +331,7 @@ def build_matcher(pool, mapping):
            有一批名字明显不同（`SW3` 表写 `SW_Fenrir`、池里是 `Ragnar Blackmane`；`SOR1` 表写 `SOR_Arco Flagellant`、
            池里是 `Erika Luminas`；`ASH76` 表写 `ASH_Jain Zar`、池里是 `Lhykhis` …）
            ⇒ 名字表只能当**第二判据**，别倒过来。"""
-        hit = id_direct(by_id, hid, want_type="hero")
+        hit = id_direct(by_id, hid, want_type="hero", true_to_pool=true_to_pool)
         if hit is not None:
             # 🔴 id 命中也**照样出声**：`warlord_ids.json` 那个名字若与池里这张对不上，就写进 note
             #    —— ⛔ 不许让「按 id 凑上了」把数据缺陷盖掉（`SW3` 表写 `SW_Fenrir`、
@@ -337,7 +343,8 @@ def build_matcher(pool, mapping):
             if s and (s == hn or s in hn or hn in s):
                 return hit["id"], "id命中"
             return hit["id"], "id命中(名字表作 %s)" % v
-        c = by_id.get(hid)
+        _pid = true_to_pool.get(hid) if true_to_pool else hid
+        c = by_id.get(_pid) if _pid else None
         v = (warlord or {}).get(hid)
         if v is None:
             return None, "查不到"
@@ -635,13 +642,17 @@ def build_tutorial(ctx, decks):
 
 def main():
     decks = load(os.path.join(D, "decklists.json"))["decklists"]
-    mapping = load(os.path.join(D, "card_ids.json"))["mapping"]
+    ids_doc = load(os.path.join(D, "card_ids.json"))
+    mapping = ids_doc["mapping"]
+    # 🔴 **2026-10-18**：真 id → 池 id（`card_ids.json` 的 `poolTrueIds` 反转）。
+    #   原版预组给的是真 id，池里 114 张仍是旧 id ⇒ 直查前先翻；旧表没有这个键 ⇒ 空表、行为不变。
+    true_to_pool = {v: k for k, v in (ids_doc.get("poolTrueIds") or {}).items()}
     pool = load(POOL)["cards"]
     zh_names = load(ZH)["names"]
     gmap = load_cardback_guid_map()
     have_cb = load_have_cardbacks()
     defpick = pick_defensive(pool)
-    match, hero_match = build_matcher(pool, mapping)
+    match, hero_match = build_matcher(pool, mapping, true_to_pool)
 
     rarity = {(c["faction"], c["name"]): c["rarity"] for c in pool}
     by_id = {c["id"]: c for c in pool}

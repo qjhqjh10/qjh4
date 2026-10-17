@@ -2478,13 +2478,24 @@ namespace CardPresentation
             {
                 float rowTop = by1 + 61.73f;
                 const float timerRowH = 40.729f;
-                const float descW = 184.9563f, clockW = 40.7607f, timerW = 198.9886f;
+                const float descWMax = 184.9563f, clockW = 40.7607f, timerW = 198.9886f;
                 float tx0 = x + 13f;
-                var timerDesc = Text(card, "Starts in:", tx0, tx0 + descW, rowTop, rowTop + timerRowH, 8,
+                // 🔴 **2026-10-18（N61）**：原版 prefab 里那颗 TMP 的**出厂占位**是 `Starts in:`，但运行期
+                //   `TimerDisplay.InitializeWitLocKey(end, locKey)` 会把它换成**调用方给的词条**
+                //   （`TimerDisplay__InitializeWitLocKey.c` → `I2 Loc.GetTranslation(locKey)` → `SetTimerDescriptionText`）。
+                //   中文原版实拍（桌面参考图 `主界面参考图.png`）显示的是 **「结束于：」** ⇒ 用官方
+                //   `Event_Description/General/EndsIn`（EN `Ends in:` / ZH `结束于：`），⛔ 别再写死英文。
+                //   宽度也照原版 `CSF PreferredSize` 现量（原来 184.9563 是从英文串反推的定值）。
+                var timerDesc = Text(card, Loc.T("Event_Description/General/EndsIn"),
+                                     tx0, tx0 + descWMax, rowTop, rowTop + timerRowH, 8,
                                      Color.white, "Timer Description", 42.95f, QText,
                                      0f, 18f, 44f, 45f, face: TmpFont.Face.LatinCardBody);
+                float descW = descWMax;
                 if (timerDesc != null)
                 {
+                    timerDesc.ForceRelayout();
+                    float natW = timerDesc.WorldW * 108f;
+                    if (natW > 1f) descW = Mathf.Clamp(natW, 0f, descWMax);
                     MenuDraw.AlignLeft(timerDesc, new PxRect(tx0, rowTop, tx0 + descW, rowTop + timerRowH));
                     // 视口裁切：与标题同一条口（队列 2921 > 导航底板 2910，不裁会压到导航上）。
                     if (clip.HasValue && (cx1 > x + 0.01f || cx2 < x + w - 0.01f))

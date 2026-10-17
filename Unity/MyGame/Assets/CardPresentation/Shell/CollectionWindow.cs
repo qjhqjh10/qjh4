@@ -894,8 +894,12 @@ namespace CardPresentation
             BuildFilterHeader(page, 1, 42f, 42f, ClearCardFilters, ToggleFilters);
 
             // 万能卡计数：4 个稀有度图标 + 各自的数字（**复用卡组编辑那条几何**，别抄第二份）
-            Rect(page, "40k_topmarquee_currency_display_BW",
-                 new PxRect(1550f, 91.5f, 1870f, 135.5f), "Wildcard Bg", QPagePanel);
+            // 🔴 **2026-10-18（N57）**：原版 `WIldcard Display/Background` 是 **Sliced 九宫 15**、
+            //   `m_Color = (0.462,0.462,0.462,1)`（判据 = `Collection Menu Variant` dump；`Deck Editing Menu`
+            //   的同名件逐值相同）。我们原来走 `Rect`（Simple 拉伸）+ **无 tint（白）** ⇒ 画成一条亮白边。
+            Nine(page, "40k_topmarquee_currency_display_BW",
+                 new PxRect(1550f, 91.5f, 1870f, 135.5f), new Vector4(15f, 15f, 15f, 15f), QPagePanel,
+                 new Color(0.462f, 0.462f, 0.462f, 1f), true, "Wildcard Bg", null, 44f, 39f);
             string[] wcIc = { "40k_general_wildcard_common_small", "40k_general_wildcard_rare_small",
                               "40k_general_wildcard_epic_small", "40k_general_wildcard_legendary_small" };
             // 🔴 **2026-09-28 用户拍板：万能卡数字一律恒定 `99`**（原版这 4 个数是 `WildcardDisplay`
@@ -3049,6 +3053,12 @@ namespace CardPresentation
                 var shared = Node(tabHolder, "Shared", TabsRect);      // `tabHolder` = `Content Area/Tabs`
                 var cr = new PxRect(CloseBtnL, CloseBtnT, CloseBtnR, CloseBtnB);
                 var cq = Rect(shared, "UI_Button_Mulligan", cr, "Close Button", QPanel);
+                // 🔴 **2026-10-18（N58）**：原版这颗 `Close Button` 画在左栏底图（`Tab Buttons`，QPanel=3005）**之上**
+                //   —— 判据 = 原版父子序 `Tabs/Shared/Close Button` 在 `Tab Buttons` 之后、且它自己的矩形
+                //   `192.2..342.2` 与左栏 `167.2..332.2` 交叠 140px，原版实拍里金框完整可见。
+                //   我们原来与左栏同队列（QPanel）⇒ **右侧约 10px 被左栏盖住**（截图 `03_collection_cards.png`）。
+                //   抬到 `QContent`（= `Tabs` 页内容那一档，3010）：左栏 3005 < 3010。
+                if (cq != null) cq.SetRenderQueue(QContent);
                 // 🔴 **2026-10-08 就地订正（铁律 5）：`Button Text` 要挂在 `Close Button` **底下**（原来是兄弟）。**
                 //   原版层级（`python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 12`
                 //   实读，**缩进就是层级**）：

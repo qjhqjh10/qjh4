@@ -1,0 +1,149 @@
+[
+ {
+  "id": "AM20",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Astropath"
+ },
+ {
+  "id": "AM77",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Armoured Lightning"
+ },
+ {
+  "id": "BL76",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Idolatrous Despoilers"
+ },
+ {
+  "id": "BL77",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Spreading Corruption"
+ },
+ {
+  "id": "DA65",
+  "in_bundle": true,
+  "bundle_name": "Chaplain Gabutheron",
+  "army": "DarkAngels",
+  "mapping_name": "Grim Effigy"
+ },
+ {
+  "id": "DA66",
+  "in_bundle": true,
+  "bundle_name": "Ravenwing Ballistus Dreadnought",
+  "army": "DarkAngels",
+  "mapping_name": "Plasma Generator"
+ },
+ {
+  "id": "GSC48",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Backstab"
+ },
+ {
+  "id": "GSC78",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Roaming Outriders"
+ },
+ {
+  "id": "SAU77",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Inescapable Retribution"
+ },
+ {
+  "id": "TL76",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Neuroloid"
+ },
+ {
+  "id": "TL77",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Neurogaunt"
+ },
+ {
+  "id": "TL78",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Barbgaunt"
+ },
+ {
+  "id": "TL79",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Termagant Brood"
+ },
+ {
+  "id": "TL80",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Psychophage"
+ },
+ {
+  "id": "TL82",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Neurotyrant"
+ },
+ {
+  "id": "TL83",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Norn Emissary"
+ },
+ {
+  "id": "TL84",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Toxic Entanglement"
+ },
+ {
+  "id": "TL85",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Tyranid Invasion"
+ },
+ {
+  "id": "TL86",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Bestial Rage"
+ },
+ {
+  "id": "SOR76",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Emperors Judgement"
+ },
+ {
+  "id": "TAU76",
+  "in_bundle": false,
+  "bundle_name": null,
+  "army": null,
+  "mapping_name": "Hunters Instincts"
+ }
+]

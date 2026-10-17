@@ -240,19 +240,19 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>
-    /// 🔴 **被这个格子钉住的是 `InsteadSkips` 里那句「能力层只配【无条件】的 `instead`」
-    /// （`pairConditional: false`）** —— 它是**判据逼出来的**，不是偷懒：
-    /// 能力层**没有 `chosen`** ⇒ `ConditionHolds` 只能退回 `ctx.LastTargets` / `ctx.LastTarget`，
-    /// 而 `ResolveOps` 入口刚把那个槽种成 **`prime` = 这条能力的施放者**
-    /// ⇒ 结算前判「it has Flying」**判的是施放者自己**。
+    /// 🔴 **2026-10-18（T02）起：能力层【也配】有条件的 `instead`** —— 判据不再是旧的
+    /// 「不配」，而是「**先按被替换那条的目标判条件、再决定跳谁**」：
+    /// 能力层没有 `chosen`，且 `ctx.LastTargets` 在入口被种成**施放者**（`prime`）⇒
+    /// 直接判会「判施放者自己」（`ASH31` 那个陷阱）。`InsteadSkips` 现在先用 `ResolveTargets`
+    /// 解出**被替换那条**的目标、把它临时当 referent 判条件，判完还原。
     ///
-    /// 夹具照抄真卡 `ASH31 Crimson Hunter`（自带 `Flying`，`Rally: Deal 3 damage to an enemy.
-    /// If it has Flying, deal 6 damage instead`）：施放者**有** `Flying`、目标**没有**。
-    ///   · 正解（也是现状）= 目标没飞行 ⇒ 只结算基数那一下 = **3**；
-    ///   · 若把 `pairConditional` 改成 `true` ⇒ 条件拿**施放者**去判 ⇒ 恒成立 ⇒ 只结算 6 —— **假红**。
+    /// 本格夹具照抄真卡 `ASH31 Crimson Hunter`（施放者**有** `Flying`、目标**没有**）：
+    /// 正解 = 目标没飞行 ⇒ 只结算基数那一下 = **3**；
+    /// 若拿**施放者**去判 ⇒ 恒成立 ⇒ 只结算 6 —— 那是【把对的改错】。
+    /// 同函数的第二个分支（②）把「目标**有** Flying」那一支也钉住（应为 **6**，改回不配对则 9）。
     ///
-    /// **怎么才能红**：`InsteadSkips(..., pairConditional: false)` 改成 `true`
-    /// ⇒ 本格实得 **6**（把对的改错）。
+    /// **怎么才能红**：把 `InsteadSkips` 里「能力层先解 base 目标」那段删掉 / 改用施放者判
+    /// ⇒ ② 得 9 或 6，本格对应行红。
     /// </summary>
     static void TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer()
     {
@@ -280,6 +280,34 @@ public static partial class RuleEngineTest
                 + "只结算基数 3"
                 + "｜🧨 把 `InsteadSkips(…, pairConditional: false)` 改成 `true` ⇒ 本行实得 **6**"
                 + "（条件拿**施放者**去判、恒成立 —— 那是【把对的改错】）" + logs);
+
+        // ---- ② 🔴 **2026-10-18（T02）新增：条件【成立】那一支** ——
+        //   原来能力层不配有条件的 instead ⇒ 基数 3 先结算、instead 那道条件闸在**后面**才判
+        //   ⇒ 目标带 Flying 时两条都结算 = **9**。现在 `InsteadSkips` 先把被替换那条的目标解出来、
+        //   用**它**判条件 ⇒ 只结算 instead 的 **6**。
+        {
+            var hunter2 = new CardDef("S23R_HUNTER2", "S23R Crimson Hunter-ish 2", "unit",
+                                      "Rally: Deal 3 damage to an enemy. If it has Flying, deal 6 damage instead",
+                                      "common", "Test", 1, 1, 5, 0, new[] { "Rally" });
+            var ctx2 = ProbeBattle(new[] { hunter2 }, new CardDef[0]);
+            ToP1Turn(ctx2, 2);
+            ctx2.Players[0].Energy = 20;
+            Place(ctx2, 1, 3, Unit("S23R_Flyer", 1, 0, 30, "Flying"), exhausted: true);
+
+            int logFrom2 = ctx2.Events.Count;
+            int hpF0 = S23RSumHealth(ctx2, 1);
+            CheckCode(RuleCore.PlayCard(ctx2, 0, HandIdx(ctx2, 0, "S23R Crimson Hunter-ish 2"), 2),
+                      RuleCodes.OK, "打出一张「目标带 Flying、Rally 体里带条件式 instead」的单位");
+            string logs2 = S23RTail(ctx2, logFrom2);
+
+            CheckTrue(Board(ctx2, 1, 3) != null && Board(ctx2, 1, 3).Has("flying"),
+                      "（前提）目标**带 `Flying`**（条件应当成立）");
+            Check(hpF0 - S23RSumHealth(ctx2, 1), 6,
+                  "★★ `T02`：能力层有条件 `instead` 的**条件成立**时，只结算替代那一条（敌方共掉 **6**）"
+                + "｜🧨 改回「不配对」⇒ 本行实得 **9**（`3 + 6` 两条都结算）" + logs2);
+            CheckTrue(!HasLog(ctx2, "对 1 个目标造成 3 点伤害"),
+                      "★★ 判别式：基数那 3 点那一条根本没结算（日志里没有它）" + logs2);
+        }
     }
 
     // ==================================================================

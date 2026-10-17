@@ -79,25 +79,19 @@ namespace RuleEngine
         ///   instead`）：出牌路 = **6** 伤（对）· 能力路 = **9** 伤（`3 + 6` 都结算了，错）。
         /// **本笔**：规则收进本函数、两条路共用 ⇒ 能力层也消费 `instead`。
         ///
-        /// ⚠️ **能力层只配【无条件】的 `instead`（`pairConditional: false`）——
-        ///    这一档是**判据逼出来的**，不是偷懒**：
-        ///   · 能力层**没有 `chosen`** ⇒ `ConditionHolds` 只能退回 `ctx.LastTargets` / `ctx.LastTarget`
-        ///     （`Alreadyhas` / `TargetHasKw` / `TargetHasArmour` 那些支一律 `chosen ?? ctx.LastTargets`），
+        /// ⚠️ **能力层**（`pairConditional: false`）**也配有条件的那一族**（2026-10-18 `T02` 起）——
+        ///    判据不是偷懒，而是「先解被替换那条的目标、再判条件」：
+        ///   · 能力层**没有 `chosen`** ⇒ 直接 `ConditionHolds` 会退回 `ctx.LastTargets` / `ctx.LastTarget`，
         ///     而 `ResolveOps` 入口刚把那个槽种成 **`prime` = 这条能力的施放者** ⇒
-        ///     结算前判「it has Flying / it has Armour」**判的是施放者自己**，不是这一下要打的目标。
-        ///     实测后果：`ASH31 Crimson Hunter`（自带 `Flying`）的
-        ///     `Rally: Deal 3 damage to an enemy. If it has Flying, deal 6 damage instead`
-        ///     会**永远**判成立 ⇒ 打非飞行目标也从 3 变成 6。**那是把对的改错** ⇒ 不配。
-        ///   · 有条件的那一族在能力层**保持现状**（条件在 `ResolveOneCore` 的闸上判 ——
-        ///     那时前一条 op 已经结算、`ctx.LastTargets` 正是**它打中的那个目标**，referent 是对的），
-        ///     ⚠️ **但它现在只跳掉自己、跳不掉前一条** ⇒ 「条件成立」时那两条**都**结算
-        ///     （同一张卡实测：带 `Flying` 的目标会吃 `3 + 6`）。**这是一个【还没做】的真缺陷**，
-        ///     判据与「为什么只能走 `AltAmount` 折叠那条路」写在 `资料/普查产出_第二十三会话/
-        ///     W2_结算层A1682A1685A1617.md`（与 `or … if` 族同一条判据 —— 见 `AltHolds` 的 doc：
-        ///     条件说的目标**结算前还不存在**，只能在**数值被消费的地方**逐目标判）。
+        ///     结算前判「it has Flying / it has Armour」**判的是施放者自己**（`ASH31 Crimson Hunter` 实测：
+        ///     施放者带 `Flying`、目标不带 ⇒ 直接判会恒成立 ⇒ 打非飞行目标也从 3 变 6）。
+        ///   · 正解 = **先用 `ResolveTargets` 解出被替换那条的目标**（只算目标、不结算），把它临时当
+        ///     referent 填进 `ctx.LastTargets`，`ConditionHolds` 用**它**判；判完把槽原样还原。
+        ///     ⇒ 目标带 `Flying` 时只结算替代那一条（6），不带时只结算基数（3），**不再 3+6**。
+        ///   · 条件判不了 / 要数 `for each` 时**仍让位**（两条各走正规流程，如实记）。
         /// </summary>
         static bool[] InsteadSkips(BattleContext ctx, int owner, IReadOnlyList<EffectOp> ops,
-                                   UnitState chosen, bool pairConditional)
+                                   UnitState chosen, bool pairConditional, UnitState source = null)
         {
             var skip = new bool[ops.Count];
 
@@ -110,8 +104,11 @@ namespace RuleEngine
             for (int i = 0; i < ops.Count; i++)
             {
                 if (!ops[i].Instead) continue;
-                // 能力层：有条件的那一族**不配**（referent 还不存在 —— 理由见本函数 doc）
-                if (!pairConditional && !string.IsNullOrEmpty(ops[i].Condition)) continue;
+                // 🔴 **2026-10-18（T02）**：能力层**也配有条件的那一族**了 —— 见下面裁决段
+                //   「先按被替换那条的目标判条件、再决定跳谁」。原来这里有一句
+                //   `if (!pairConditional && !string.IsNullOrEmpty(ops[i].Condition)) continue;`
+                //   ⇒ 条件成立时两条**都结算**（`Deal 3 … If it has Flying, deal 6 instead` 实测 9）。
+                //   ⛔ 别把这一句加回来（加回来 = 回到双结算）。
 
                 for (int j = i - 1; j >= 0; j--)
                 {
@@ -135,7 +132,29 @@ namespace RuleEngine
                     // 无条件的 `instead`（`A1388` 修的那一支）—— 没有条件可判 ⇒ 恒成立
                     judgeable = true; holds = true;
                 }
-                else judgeable = ConditionHolds(ctx, owner, ops[i], chosen, out holds);
+                else if (pairConditional)
+                {
+                    // 出牌 / 战术卡那条路：`chosen` 是玩家选定的目标，条件在结算前就判得准。
+                    judgeable = ConditionHolds(ctx, owner, ops[i], chosen, out holds);
+                }
+                else
+                {
+                    // 🔴 **2026-10-18（T02）· 能力层**：没有 `chosen`，且 `ctx.LastTargets` 此刻还是
+                    //   入口种下的**施放者**（`prime`）⇒ 直接判会「判施放者自己」（`ASH31` 那个陷阱）。
+                    //   正解 = **先把被替换那条的目标解出来**（`ResolveTargets`，只算目标、不结算），
+                    //   用它当 referent 判条件；判完把槽原样还原。
+                    var bt = ResolveTargets(ctx, owner, ops[baseIdx].Target, source, null);
+                    var savedTargets = new List<UnitState>(ctx.LastTargets);
+                    var savedLast = ctx.LastTarget;
+                    ctx.LastTargets.Clear();
+                    ctx.LastTargets.AddRange(bt);
+                    ctx.LastTarget = bt.Count > 0 ? bt[0] : null;
+                    judgeable = ConditionHolds(ctx, owner, ops[i],
+                                               bt.Count == 1 ? bt[0] : null, out holds);
+                    ctx.LastTargets.Clear();
+                    ctx.LastTargets.AddRange(savedTargets);
+                    ctx.LastTarget = savedLast;
+                }
                 bool usesForEach = (ops[i].PerCount > 0 && !string.IsNullOrEmpty(ops[i].CountRef))
                                    || !string.IsNullOrEmpty(ops[i].CountScope);
                 if (!judgeable || usesForEach) continue;      // 两条都照常走
@@ -5147,13 +5166,12 @@ namespace RuleEngine
             //  行为不一致（实测 `Rally: Deal 3 damage to an enemy. Deal 6 damage instead`
             //  ⇒ 出牌路 6 伤（对）· 能力路 **9 伤**（错））。
             //  ⚠️ **规则只有一份** = `InsteadSkips`（⛔ 别在这儿内联一段配对的副本）。
-            //  ⚠️ **能力层只配【无条件】那一档**（`pairConditional: false`）—— 有条件的那一族
-            //     在能力层**没有 `chosen`**、结算前判的是**施放者自己**（判据全文与实测 →
-            //     `InsteadSkips` 的 doc）。⚠️ 那一档**仍然是真缺陷**（条件成立时两条都结算），
-            //     已单独立账，见同一段 doc 末尾指的那份报告。
+            //  ⚠️ **有条件的那一族**：2026-10-18（`T02`）起也配对了 —— 能力层没有 `chosen`，
+            //     但 `InsteadSkips` 会**先解出被替换那条的目标**当 referent 判条件（判完还原），
+            //     ⛔ 别再用「判的是施放者」那个理由把条件档排除（那会回到 `3 + 6` 双结算）。
             //  ⚠️ **位置**：必须排在下面 `ChargePaidGroups` **之前**（同出牌那条路：先配对裁决、
             //     再收钱 —— 收费会改 `Energy`，而已有卡的 `instead` 条件会读余额，如 `SOR6`）。
-            var skip = InsteadSkips(ctx, owner, ops, null, pairConditional: false);
+            var skip = InsteadSkips(ctx, owner, ops, null, pairConditional: false, source: source);
 
             var paidOk = ChargePaidGroups(ctx, owner, source, by, ops, null, unresolved);
             for (int i = 0; i < ops.Count; i++)

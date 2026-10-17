@@ -1,0 +1,1352 @@
+uniqueId	cardName	cardArmy	cost	melee	ranged	health	armour	hasActiveAbility	abilityCount	m_Name
+EC29	Heldrake	120	8	7	5	6	0	0	1	33 EmperorsChildren-Heldrake
+BL27	Venomcrawler	50	6	6	6	6	1	0	1	25 BlackLegion-Venomcrawler
+GSC6	Neophyte Initiate	90	1	1	2	2	0	0	1	2 GenestealerCults-Neophyte Initiate
+SW4	Blood Claw	130	1	2	1	2	0	1	0	1 SpaceWolves-Blood Claw
+EC16	Screamer Kakophonist	120	6	3	6	7	0	0	1	27 EmperorsChildren-Screamer Kakophonist
+GOF73	Stomp 'Em	20	2	0	0	0	0	0	1	T9 Goff-Stomp Em
+SOR36	Exorcist	80	10	7	10	10	1	0	1	35 Sororitas-Exorcist
+SAU37	Orikan the Diviner	40	2	2	2	25	0	0	2	Sautekh_war_Orikan the Diviner
+ASH12	Swooping Hawk	30	3	2	3	4	0	0	1	9 SaimHann-Swooping Hawk
+GOF79	Beast Snagga Boy	20	2	3	1	3	0	0	1	2 Goff-Beast Snagga Boy
+AM51	Cadia Stands	100	4	0	0	0	0	0	1	T13 AstraMilitarum-Cadia Stands
+TAU10	Stealth Drone	70	2	0	1	1	0	0	1	7 TauEmpire-Stealth Drone
+DA42	Reconnaissance Mission	110	1	0	0	0	0	0	1	T4 DarkAngels-Reconnaissance Mission
+30007162b68992e41a422f2061705b65	Lord of the Storm	40	2	0	0	0	0	0	2	Z-NC Sautekh-Lord of the Storm
+SW52	Proper Hunt	130	3	0	0	0	0	0	1	T14 SpaceWolves-Proper Hunt
+DA68	Vengeful Brethren Bladeguard	110	4	4	3	4	1	0	1	4 DarkAngels-Vengeful Brethren Bladeguard
+SOR3	Morvenn Vahl	80	2	2	2	30	0	1	2	Sororitas_war_Morvenn Vahl
+ASH73	Whirling Death	30	5	0	0	0	0	0	2	10 SaimHann-Whirling Death
+SAU53	Undying Legions	40	3	0	0	0	0	0	1	T16 Sautekh-Undying Legions
+ASH83	Autarch	30	6	5	6	6	0	0	1	7 SaimHann-Autarch
+SAU7	Canoptek Wraith	40	3	4	2	3	0	0	0	7 Sautekh-Canoptek Wraith
+DA46	The Rock	110	2	0	0	0	0	0	1	T8 DarkAngels-The Rock
+AM36	Maelon Dhrost	100	8	8	6	8	0	1	1	33 AstraMilitarum-Maelon Dhrost
+TL66	Neurogaunt	60	1	1	0	2	0	0	0	2 Leviathan-Neurogaunt
+TAU47	Dynamic Offensive	70	3	0	0	0	0	0	1	T9 TauEmpire-Dynamic Offensive
+SW57	Birth of a Saga	130	7	0	0	0	0	0	6	T19 SpaceWolves-Birth of a Saga
+8a028d3771c60014aa35c7269d38159e	The Rock	110	2	0	0	0	0	0	1	T8 DarkAngels-The Rock_enchantment2
+ef596edae1828bd46bfc4348535a3acc	Supreme Strategist	10	3	0	0	0	0	0	1	Z-NC UM-Supreme Strategist
+TAU26	Stealth Shas’ui	70	5	4	5	5	0	0	0	23 TauEmpire-Stealth Shas’ui
+EC58	Vengeful Surge	120	4	0	0	0	0	0	2	T16 EmperorsChildren-Vengeful Surge
+GOF62	Kommando	20	7	8	4	7	0	0	1	34 Goff-Kommando
+b2f3624dc0fdad84d9eacd4a3a3ff8ea	Drag it Down	20	3	0	0	0	0	0	1	T7 Goff-Drag it Down_enchantment
+GOF87	Zodgrod Wortsnagga	20	4	4	3	3	0	0	2	10 Goff-Zodgrod Wortsnagga
+UM83	Valtus	10	9	9	9	9	1	0	1	7 Ultramarines-Valtus
+GSC27	Achilles Ridgerunner	90	6	3	5	6	0	0	1	25 GenestealerCults-Achilles Ridgerunner
+EC24	Slaanesh's Spawn	120	3	3	0	2	0	0	1	9 EmperorsChildren-Slaanesh's Spawn
+TL40	Infestation Node	60	2	0	0	0	0	0	1	T7 Leviathan-Infestation Node
+ASH34	Avatar of Khaine	30	9	12	6	9	2	0	2	31 SaimHann-Avatar of Khaine
+TL41	Overwhelming Swarm	60	3	0	0	0	0	0	1	T8 Leviathan-Overwhelming Swarm
+UM107	Whirlwind	10	8	3	6	8	0	0	1	19 Ultramarines-Whirlwind
+UM35	Codex Discipline	10	3	0	0	0	0	0	1	T5 Codex Discipline
+SAU3	Flayed One	40	2	4	0	2	0	0	1	3 Sautekh-Flayed One
+BL23	Sorcerer	50	5	4	6	6	0	0	1	21 BlackLegion-Sorcerer
+DA23	Bladeguard Veteran	110	5	5	2	5	1	1	0	20 DarkAngels-Bladeguard Veteran
+UM64	Angels of Death	10	6	0	0	0	0	0	3	T21 Angels of Death
+SW16	Long Fang	130	4	2	5	5	0	0	1	13 SpaceWolves-Long Fang
+fbdc291f3a847a846905c46fe98de618	Enhanced Aggression	90	3	0	0	0	0	0	1	T9 GenestealerCults-Enhanced Aggression_enchantment
+ASH29	Wave Serpent	30	7	3	6	8	0	0	1	26 SaimHann-Wave Serpent
+ASH59	Infinity Circuit Overload	30	-1	0	0	0	0	0	1	Z-SaimHann-Infinity Circuit Overload
+GOF27	Boss Zagstruk	20	2	2	2	25	0	0	1	Goff_war_BossZagstruk
+4604f2deaa3fad6418e2d8f4b3dc36e4	Infinite Biomorphologies	60	-1	0	0	0	0	0	1	T12 Leviathan-Infinite Biomorphologies_enchantment1
+SW9	Fenrisian Wolf	130	2	3	0	3	0	1	2	6 SpaceWolves-Fenrisian Wolf
+b8e81b2fe85cda747a68c4d6326b669c	Mark of Slaanesh (enchantment)	50	-1	0	0	0	0	0	1	Z-NC BlackLegion-Mark of Slaanesh_enchantment
+UM105	Dreadnought	10	6	4	7	7	0	1	0	17 Ultramarines-Dreadnought
+35b64a8458fc60745b2f49204081c1cb	Hyper-adaptation	60	-1	0	0	0	0	0	1	T6 Leviathan-Hyper-adaptation_enchantment4
+8d1fbc34ac945c547b61bc9627a77fda	Normal Conditions (Black Legion)	120	-1	0	0	0	0	0	0	Z-NC-EmperorsChildren-Normal Conditions
+SW44	Death Shun	130	1	0	0	0	0	0	1	T6 SpaceWolves-Death Shun
+TAU38	Stormsurge	70	10	7	12	10	1	0	1	35 TauEmpire-Stormsurge
+SAU9	Ophydian Destroyer	40	3	4	1	4	0	0	1	9 Sautekh-Ophydian Destroyer
+SOR34	Celestian Superior	80	7	6	6	8	0	1	2	29 Sororitas-Celestian Superior
+UM23	Bladeguard Lieutenant	10	6	6	2	6	1	0	1	23 UM-Bladeguard Lieutenant
+4d348cff71208c24d8e39252d913ff9d	Hymn of Battle	80	2	0	0	0	0	0	1	Z-NC Sororitas-Hymn of Battle
+SAU39	Reconstitution Protocol	40	1	0	0	0	0	0	1	T2 Sautekh-Reconstitution Protocol
+GOF104	Drag it Down	20	3	0	0	0	0	0	3	T7 Goff-Drag it Down
+SAU46	Spyder Nest	40	3	0	0	0	0	0	1	T9 Sautekh-Spyder Nest
+SOR5	Battle Sister	80	2	1	2	3	0	1	1	3 Sororitas-Battle Sister
+SW23	Fenrisian Drop Pod	130	5	0	3	7	1	1	0	20 SpaceWolves-Fenrisian Drop Pod
+SAU23	Lychguard	40	5	5	0	5	2	0	0	23 Sautekh-Lychguard
+SOR49	Shrineworld	80	6	0	0	0	0	0	1	T20 Sororitas-Shrineworld
+UM31	Sheltered Location	10	1	0	0	0	0	0	1	T1 Sheltered Location
+GSC47	Perfect Hosts	90	2	0	0	0	0	0	1	T12 GenestealerCults-Perfect Hosts
+BL58	Helfire Pit	50	0	0	0	0	0	0	1	Z-BlackLegion-Helfire Pit
+GOF47	Will of Gork	20	9	0	0	0	0	0	1	T18 Goff-Will of Gork
+TL46	Rapacious Hunger	60	6	0	0	0	0	0	2	T17 Leviathan-Rapacious Hunger
+c69c3f3a38002844ca8e3324850df22a	Hyper-adaptation	60	-1	0	0	0	0	0	1	T6 Leviathan-Hyper-adaptation_enchantment6
+SW53	Embers of Prospero	130	3	0	0	0	0	0	2	T15 SpaceWolves-Embers of Prospero
+SAU74	Dimensional Corridor	40	3	0	0	0	0	0	1	T1 Sautekh-Dimensional Corridor
+EC53	Rapturous Ruination	120	7	0	0	0	0	0	1	T19 EmperorsChildren-Rapturous Ruination
+33eabec155f628440a426a4ba480ec24	Wrath of Khaine	30	2	0	0	0	0	0	2	Z-NC SaimHann-Wrath of Khaine
+UM86	Assault Doctrine	10	8	0	0	0	0	0	2	T3 Ultramarines-Assault Doctrine
+SOR37	Triumph of Saint Katherine	80	9	7	5	9	2	1	2	34 Sororitas-Triumph of Saint Katherine
+EC8	Infractor	120	2	1	1	3	0	0	1	2 EmperorsChildren-Infractor
+GSC56	A Trap Sprung	90	6	0	0	0	0	0	2	T16 GenestealerCults-A Trap Sprung
+1dfc9bc738bfc4f4d93d48f165aee510	Mark of Nurgle (enchantment)	50	-1	0	0	0	0	0	1	Z-NC BlackLegion-Mark of Nurgle_enchantment
+508002f5d7ee54f4686aefa2e6adce41	Wreckin Ball	20	0	0	0	0	0	0	1	Z-NC Goff-Wreckin Ball
+57bfef8500ae0d84186f713561c16bcc	Stormhawk Interception	10	6	0	0	0	0	0	1	T7 Ultramarines-Stormhawk Interception_oath
+DA19	Interrogator Chaplain	110	4	4	3	5	0	0	1	16 DarkAngels-Interrogator Chaplain
+ASH39	Deadly Ambush	30	2	0	0	0	0	0	1	T4 SaimHann-Deadly Ambush
+3f38d2e2c83df4b4c9052ef4a510cfbb	Rites of Possession	50	2	0	0	0	0	0	2	Z-NC BlackLegion-Rites of Possession
+b3dce3f10cc118541910156ec8da1d9b	High King of Fenris	130	2	0	0	0	0	0	1	Z-NC SpaceWolves-High King of Fenris
+SAU71	Immortals Phalanx	40	6	3	7	7	0	0	1	5 Sautekh-Immortals Phalanx
+BL56	Throne of the Heretic	50	0	0	0	0	0	0	1	Z-BlackLegion-Throne of the Heretic
+AM73	Taurox Prime	100	6	3	5	6	1	1	0	7 AstraMilitarum-Taurox Prime
+TL39	Ambush Predator	60	1	0	0	0	0	0	1	T1 Leviathan-Ambush Predator
+AM34	Valkyrie	100	7	3	7	8	0	1	1	31 AstraMilitarum-Valkyrie
+TAU19	Honoured Ethereal	70	4	4	3	4	0	0	2	16 TauEmpire-Honoured Ethereal
+DA37	Deathwing Knight Master	110	9	9	0	9	2	0	1	34 DarkAngels-Deathwing Knight Master
+ASH74	Jain Zar	30	2	2	2	25	0	0	2	SaimHann_war_Jain Zar
+DA45	Stubborn Defiance	110	2	0	0	0	0	0	1	T7 DarkAngels-Stubborn Defiance
+DA12	Company Veteran	110	3	3	3	4	0	0	1	9 DarkAngels-Company Veteran
+TAU18	Fire Warrior Marksman	70	4	2	5	5	0	0	1	15 TauEmpire-Fire Warrior Marksman
+TL51	Toxic Miasma	60	3	0	0	0	0	0	1	T13 Leviathan-Toxic Miasma
+d7255ddd4822c954c9f4cc0826ea1d47	Inscrutable Cunning 3	90	2	0	0	0	0	0	1	Z-NC GenestealerCults-Inscrutable Cunning_enchantment3
+SOR10	Sister Repentia	80	3	3	0	4	0	0	2	12 Sororitas-Sister Repentia
+GOF82	Beast Snagga Nob	20	3	4	2	4	0	0	1	5 Goff-Beast Snagga Nob
+UM26	Epistolary Librarian	10	7	8	5	8	0	0	1	26 UM-Epistolary Librarian
+eb17cd22c6a5d7941a7456838d927ab1	Particle Whip	40	6	0	0	0	0	0	1	Z-NC Sautekh-Particle Whip
+EC26	Emperor's Children Terminator Champion	120	6	6	5	6	1	0	1	26 EmperorsChildren-Terminator Champion
+TL33	Adrenal Surge	60	2	0	0	0	0	0	1	T4 Leviathan-Adrenal Surge
+EC17	Konstrictus Tormentor	120	2	1	3	3	0	0	1	6 EmperorsChildren-Konstrictus Tormentor
+GSC67	Jackal Scout	90	1	1	1	2	0	0	1	1 Genestealers-Jackal Scout
+UM76	Lieutenant Titus	10	2	2	2	25	0	0	1	Ultramarines_war_Lieutenant Titus
+AM21	Tech-Priest Enginseer	100	4	5	3	4	0	1	2	18 AstraMilitarum-Tech-Priest Enginseer
+AM76	Armoured Lightning	100	6	0	0	0	0	0	2	T3 AstraMilitarum-Armoured Lightning
+AM72	Vitus Gryf	100	5	4	3	4	0	0	2	6 AstraMilitarum-Vitus Gryf
+UM98	Devastator Marine	10	5	4	6	6	0	1	0	10 Ultramarines-Devastator Marine
+AM25	Armoured Sentinel	100	5	4	5	4	1	0	1	19 AstraMilitarum-Armoured Sentinel
+GOF56	Deffkopta	20	4	3	4	5	0	0	2	28 Goff-Deffkopta
+9e0eecf8cb9a8df49bf18cc5d9051109	Master of the Deathwing	110	2	0	0	0	0	0	1	Z-NC DarkAngels-Master of the Deathwing
+TAU23	Breacher Shas'ui	70	5	5	5	6	0	0	0	20 TauEmpire-Breacher Shas'ui
+f70efd9867a9cf3458b722aeaf2982bc	Unhallowed Gifts	50	2	0	0	0	0	0	1	Z-NC BlackLegion-Unhallowed Gifts_Tutorial_Khorne
+EC41	Internal Rivalry	120	3	0	0	0	0	0	1	T11 EmperorsChildren-Internal Rivalry
+da8a1ba85a045484eb90f55394873119	Infinite Biomorphologies	60	-1	0	0	0	0	0	1	T12 Leviathan-Infinite Biomorphologies_enchantment6
+SOR24	Simulacrum Imperialis	80	5	5	4	6	0	1	1	23 Sororitas-Simulacrum Imperialis
+6ea114bce68bc714e8f0a4587dbbafe1	No Mercy	10	8	0	0	0	0	0	1	T8 Ultramarines-No Mercy_oath
+AM9	Kasrkin	100	3	2	3	4	0	0	2	8 AstraMilitarum-Kasrkin
+DA66	Ravenwing Ballistus Dreadnought	110	8	5	9	9	1	0	2	2 DarkAngels-Ravenwing Ballistus Dreadnought
+BL17	Warp Talon	50	4	6	0	5	0	0	0	15 BlackLegion-Warp Talon
+BL62	Dark Disciple	50	1	2	2	2	0	0	1	32 BlackLegion-Dark Disciple
+ASH26	War Walker	30	5	3	5	4	1	0	0	23 SaimHann-War Walker
+TAU27	Broadside Battlesuit	70	5	4	5	5	1	0	0	24 TauEmpire-Broadside Battlesuit
+UM38	Stormraven	10	4	0	0	0	0	0	1	T8 Stormraven
+GOF81	Thump Gun Beast Snagga	20	2	1	3	3	0	0	1	4 Goff-Thump Gun Beast Snagga
+GOF31	Cloud of Smoke	20	2	0	0	0	0	0	2	T2 Goff-Cloud of Smoke
+BL30	Chaos Lord	50	8	8	7	9	0	0	2	28 BlackLegion-Chaos Lord
+TL32	Encircle the Prey	60	1	0	0	0	0	0	1	T2 Leviathan-Encircle the Prey
+GOF55	Ork Boy	20	2	3	1	3	0	0	0	27 Goff-Ork Boy
+b15f2dbd58f65b5468f4e0e483cf500a	Idolatrous Despoilers	50	5	0	0	0	0	0	1	T3 BlackLegion-Idolatrous Despoilers_enchantment
+24fcaf45556573549b922c06cad3aa2c	None Must Know	110	2	0	0	0	0	0	1	Z-NC DarkAngels-None Must Know
+AM58	Siege Warfare	100	10	0	0	0	0	0	2	T20 AstraMilitarum-Siege Warfare
+DA3	Asmodai, Master Interrogator	110	0	2	2	25	0	1	2	DarkAngels_war_Asmodai
+SOR55	Trial of Suffering	80	1	0	0	0	0	0	2	T11 Sororitas-Trial of Suffering
+0094e6b79ffe12e4c8d9fd70beb02b5e	Power of the Waaagh!	20	4	0	0	0	0	0	1	T9 Goff-Power of the Waaagh!_enchantment
+TL25	Hive Tyrant	60	7	8	8	8	0	0	1	27 Leviathan-Hive Tyrant
+GSC36	Goliath Rockgrinder	90	8	9	7	8	1	0	0	33 GenestealerCults-Goliath Rockgrinder
+45974e4f54c6c44419704741e6b76aa9	Radiation Storm	70	-1	0	0	0	0	0	1	Z-TauEmpire-Radiation Storm_enchantment
+UM78	Heavy Intercessor	10	3	2	3	3	1	0	1	2 Ultramarines-Heavy Intercessor
+TL12	Tyrant Guard	60	5	5	0	5	2	0	0	13 Leviathan-Tyrant Guard
+GOF100	Cyber‑augmentation	20	2	0	0	0	0	0	1	T3 Goff-Cyber‑augmentation
+BL71	Havoc Champion	50	7	8	6	8	0	0	1	6 BlackLegion-Havoc Champion
+UM88	Valius Paxor	10	2	2	2	25	0	0	2	Ultramarines_war_Valius Paxor
+ASH69	Howling Banshee Exarch	30	5	6	3	6	0	0	1	4 SaimHann-Howling Banshee Exarch
+DA61	Plasma Generator	110	3	0	0	0	0	0	1	Z-DA-Plasma Generator
+c8d33688d555809488ea506274e5927b	Solar Storm	40	-1	0	0	0	0	0	2	Z-Sautekh-Solar Storm_enchantment
+BL54	Drach'nyen	50	6	0	0	0	0	0	1	T18 BlackLegion-Drachnyen
+4b8214d3b5e589f42beab20e56ca21b0	Storm of Silence	30	2	0	0	0	0	0	1	Z-NC SaimHann-Storm of Silence_enchantment_buff_hero
+AM50	Thermal Weaponry	100	3	0	0	0	0	0	1	T12 AstraMilitarum-Thermal Weaponry
+DA67	Assault Terminator	110	6	6	0	5	1	0	1	3 DarkAngels-Assault Terminator
+TAU33	Razorshark Fighter	70	7	2	7	7	0	0	1	30 TauEmpire-Razorshark Fighter
+c06453b330af61745beb5fa567ba863e	Lord Commander	100	2	0	0	0	0	0	1	Z-NC AstraMilitarum-Lord Commander
+BL19	Chaos Terminator	50	6	5	6	6	0	0	0	17 BlackLegion-Chaos Terminator
+SAU36	Nemesor Zahndrekh	40	2	2	2	25	0	0	2	Sautekh_war_Nemesor Zahndrekh
+UM14	Honour Guard	10	4	4	3	5	0	0	1	14 UM-Honour Guard
+fe6fde3df4104374092a642460dadf03	Fall Back	10	3	0	0	0	0	0	1	T2 Ultramarines-Fall Back_oath
+TAU28	Enforcer Battlesuit	70	6	5	7	6	1	0	1	25 TauEmpire-Enforcer Battlesuit
+GOF3	Bomb Squig	20	2	2	0	2	0	0	2	3 Goff-Bomb Squig
+UM102	Terminator Captain	10	7	6	6	7	2	1	0	14 Ultramarines-Terminator Captain
+UM114	Lead From the Front	10	3	0	0	0	0	0	1	T6 Ultramarines-Lead From the Front
+DA18	Inner Circle Companion	110	4	4	3	5	0	1	0	15 DarkAngels-Inner Circle Companion
+TL26	Maleceptor	60	7	7	6	8	0	0	1	28 Leviathan-Maleceptor
+DA73	Relic Munitions	110	2	0	0	0	0	0	1	T2 DarkAngels-Relic Munitions
+TL1	Ripper Swarm	60	1	1	1	1	0	0	0	2 Leviathan-Ripper Swarm
+TL64	Ravenous Hunter	60	5	0	0	0	0	0	1	T20 Leviathan-Ravenous Hunter
+ASH38	Will of Asuryan	30	1	0	0	0	0	0	2	T3 SaimHann-Will of Asuryan
+AM12	Flamer Trooper	100	3	2	3	3	0	1	0	7 AstraMilitarum-Flamer Trooper
+UM110	Fall Back	10	1	0	0	0	0	0	2	T2 Ultramarines-Fall Back
+EC61	Dark Prince's Throne	120	0	0	0	0	0	0	1	Z-EmperorsChildren-Dark Prince's Throne
+fd67b47572987b84cb2990ea1ecfe982	Brood Prophet	90	2	0	0	0	0	0	1	Z-NC GenestealerCults-Brood Prophet
+GOF44	Skorcha Assault	20	4	0	0	0	0	0	1	T15 Goff-Skorcha Assault
+SW35	Venerable Dreadnought	130	8	9	6	8	1	0	1	32 SpaceWolves-Venerable Dreadnought
+DA43	Grim Resolve	110	2	0	0	0	0	0	2	T5 DarkAngels-Grim Resolve
+SW1	Logan Grimnar	130	0	2	2	30	0	0	1	SpaceWolves_war_Logan Grimnar
+SAU51	Scythe Assault	40	5	0	0	0	0	0	1	T14 Sautekh-Scythe Assault
+d4ed3be9de80b00469a9cd255df63f35	Graceful Avoidance	30	2	0	0	0	0	0	1	9 SaimHann-Graceful Avoidance_enchantment
+GSC39	Lying in Wait	90	2	0	0	0	0	0	1	T2 GenestealerCults-Lying in Wait
+ASH85	Fate Inescapable	30	2	0	0	0	0	0	2	T2 SaimHann-Fate Inescapable
+SW11	Grey Hunter Pack Leader	130	3	3	3	4	0	1	0	8 SpaceWolves-Grey Hunter Pack Leader
+GOF30	Attack Squig	20	1	0	0	0	0	0	1	T1 Goff-Attack Squig
+SOR38	Paragon Warsuit	80	8	8	6	8	1	0	2	33 Sororitas-Paragon Warsuit
+GOF46	Stormboyz Strike	20	6	0	0	0	0	0	2	T17 Goff-Stormboyz Strike
+8f0302f1603cc954392d90d5dabd22d5	Tyrnak and Fenrir	130	10	4	0	9	0	0	1	Z-NC SpaceWolves-Tyrnak and Fenrir_startinghand
+GSC51	Living Icon	90	3	0	0	0	0	0	1	T11 GenestealerCults-Living Icon
+EC34	Fiend	120	4	5	0	5	0	0	1	17 EmperorsChildren-Fiend
+TL28	Haruspex	60	8	8	2	8	0	0	1	30 Leviathan-Haruspex
+BL18	Bringer of Decay	50	5	5	4	5	0	0	1	16 BlackLegion-Bringer of Decay
+UM67	Outrider	10	3	3	2	3	0	0	1	2 Ultramarines-Outrider
+648c492fa988aba44ad9a4507bd43ee4	Wurrboy	20	5	2	5	5	0	0	1	13 Goff-Wurrboy_enchantment
+SW59	Orbital Defences	130	0	0	0	0	0	0	1	Z-SW-Orbital Defences
+1688c6146abb1e04f98e540b4cbbabd7	Homing Beacon	70	4	0	0	0	0	0	1	Z-NC TauEmpire-Homing Beacon
+GOF40	No Mukkin' About	20	4	0	0	0	0	0	1	T11 Goff-No Mukkin About
+AM63	Dawn Attack	100	-1	0	0	0	0	0	1	Z-AstraMilitarum-Dawn Attack
+DA5	Apothecary	110	2	1	1	4	0	0	2	2 DarkAngels-Apothecary
+cd053fb3b46dc4d4c93762a20fa3c7e1	Fall Back	10	1	0	0	0	0	0	1	T2 Ultramarines-Fall Back_normal
+UM79	Primaris Eradicator	10	4	2	4	4	1	0	1	3 Ultramarines-Primaris Eradicator
+ea971f5e838a9c14aa3790af44e42e19	Hyper-adaptation	60	-1	0	0	0	0	0	1	T6 Leviathan-Hyper-adaptation_enchantment5
+28a3c2e48250bd247b793ae1c80daa92	Solar Eclipse	70	-1	0	0	0	0	0	1	Z-TauEmpire-Solar Eclipse_enchantment
+UM112	Champions of Humanity	10	2	0	0	0	0	0	2	T4 Ultramarines-Champions of Humanity
+TL6	Biovore	60	3	1	3	4	0	0	1	7 Leviathan-Biovore
+GOF102	Thundering Stampede	20	3	0	0	0	0	0	2	T5 Goff-Thundering Stampede
+f8260229254a09746af6d9ff7a9b0b54	Ethereal Supreme	70	1	0	0	0	0	0	1	Z-NC TauEmpire-Ethereal Supreme
+4a48457c24877f345be2e96f867c1e94	Mark of Tzeentch (enchantment)	50	-1	0	0	0	0	0	1	Z-NC BlackLegion-Mark of Tzeentch_enchantment
+7bf8ce67fb6be4744ae44345a5b465fd	Diabolic Strength	50	2	0	0	0	0	0	1	Z-NC BlackLegion-Diabolic Strength
+TL49	Hyper-adaptation	60	2	0	0	0	0	0	1	T6 Leviathan-Hyper-adaptation
+2882d40f009bf8c46a89e975c37d00ab	Ancient Reliquary	110	1	0	0	0	0	0	1	T1 DarkAngels-Ancient Reliquary_enchantment3
+SW21	Wulfen Pack Leader	130	4	4	3	4	0	1	0	18 SpaceWolves-Wulfen Pack Leader
+ASH30	Fire Prism	30	7	2	6	6	0	0	2	27 SaimHann-Fire Prism
+bfd9797b5365aa0429914f12ec4d6df2	Experimental Drones	70	4	0	0	0	0	0	1	T4 TauEmpire-Experimental Drones_enchantment
+AM54	At All Costs	100	4	0	0	0	0	0	2	T16 AstraMilitarum-At All Costs
+ASH86	Forewarned	30	3	0	0	0	0	0	2	T3 SaimHann-Forewarned
+TAU37	Sun Shark Bomber	70	9	4	6	9	0	0	1	34 TauEmpire-Sun Shark Bomber
+SAU66	Ramatekh the Cruel	40	2	2	2	25	0	0	2	Sautekh_war_Ramatekh the Cruel
+TAU9	Pathfinder	70	2	1	2	3	0	0	1	6 TauEmpire-Pathfinder
+DA72	Vengeful Brethren	110	1	0	0	0	0	0	1	T1 DarkAngels-Vengeful Brethren
+AM41	Move! Move! Move!	100	2	0	0	0	0	0	1	T3 AstraMilitarum-Move! Move! Move!
+70199b6f183ec364082ca16e62f3d0cb	Heliotrophos	120	0	0	0	0	0	0	1	Z-NC CombatElixir - EmperorsChildren-Heliotrophos
+GSC71	Atalan Leader	90	4	5	3	5	0	0	2	4 Genestealers-Atalan Leader
+UM85	Tactical Doctrine	10	5	0	0	0	0	0	2	T2 Ultramarines-Tactical Doctrine
+SOR30	Celestian Sacresant	80	6	6	2	6	1	1	1	24 Sororitas-Celestian Sacresant
+BL35	Haarken Worldclaimer	50	2	2	2	25	0	0	2	BlackLegion_war_Haarken Worldclaimer
+d722e8df0e8bbb944b5d6d1fc80e2cb5	Thunderstorm	10	-1	0	0	0	0	0	2	Z-UM-Thunderstorm_enchantment
+4fb657397011daf47829ed4e135f8eab	Shrine Bombardment	80	-1	0	0	0	0	0	1	Z-Sororitas-Shrine Bombardment_enchantment
+TAU39	Kauyon Tactics	70	2	0	0	0	0	0	1	T1 TauEmpire-Kauyon Tactics
+SOR53	Blade of Faith	80	3	0	0	0	0	0	2	T7 Sororitas-Blade of Faith
+AM13	Ogryn	100	3	4	3	4	0	0	0	10 AstraMilitarum-Ogryn
+32ed2b1e771ee494fa072c24c959a5a0	Stimm-Vents Leak	120	-1	0	0	0	0	0	2	Z-EmperorsChildren-Stimm-Vents Leak_enchantment
+SAU27	Scarab Swarm	40	6	8	0	8	0	0	1	27 Sautekh-Scarab Swarm
+UM42	Forward Deployment	10	2	0	0	0	0	0	1	T13 Forward Deployment
+GOF83	Grot on Bombsquig	20	3	1	2	2	0	0	1	6 Goff-Grot on Bombsquig
+TL54	Digestion Pool	60	0	0	0	0	0	0	1	Z-Leviathan-Digestion Pool
+36892cd906b0e5e4c9bbbe249db009b8	Bitter Blows	50	3	0	0	0	0	0	1	Z-NC BlackLegion-Bitter Blows
+TAU56	Valued Sacrifice	70	6	0	0	0	0	0	1	T19 TauEmpire-Valued Sacrifice
+UM84	Devastator Doctrine	10	3	0	0	0	0	0	2	T1 Ultramarines-Devastator Doctrine
+GSC76	Cut Them Off	90	3	0	0	0	0	0	1	T3 Genestealers-Cut Them Off
+UM60	Humanity's Shield	10	2	0	0	0	0	0	1	T17 Humanity's Shield
+EC25	Emperor's Children Terminator	120	4	5	0	4	1	0	1	14 EmperorsChildren-Terminator
+SOR48	Imperial Creed	80	5	0	0	0	0	0	2	T17 Sororitas-Imperial Creed
+SW40	Bjorn's Shrine	130	1	0	0	0	0	0	1	T2 SpaceWolves-Bjorn's Shrine
+AM39	Born Soldier	100	1	0	0	0	0	0	2	T1 AstraMilitarum-Born Soldier
+ASH57	Webway Entrance	30	0	0	0	0	0	0	1	Z-SaimHann-Webway Entrance
+8901e35c5de30eb48804da6651cfb132	Fury of the Righteous	80	2	0	0	0	0	0	2	Z-NC Sororitas-Fury of the Righteous
+DA2	Belial, Master of the Deathwing	110	0	2	2	25	0	0	3	DarkAngels_war_Belial
+b432e12e60e66a94fa032cd62011d2e1	Orbital Bombardment	10	0	0	0	0	0	0	1	Z-UM-Orbital Bombardment_enchantment
+ASH70	Swooping Hawk Exarch	30	6	5	5	6	0	0	1	5 SaimHann-Swooping Hawk Exarch
+ASH55	Aspect Shrine	30	1	0	0	0	0	0	1	Z-SaimHann-Aspect Shrine
+DA4	Intercessor	110	1	2	2	2	0	0	1	1 DarkAngels-Intercessor
+AM29	Hydra	100	6	3	7	7	0	0	1	26 AstraMilitarum-Hydra
+AM35	Leman Russ Vanquisher	100	8	5	8	8	1	1	0	32 AstraMilitarum-Leman Russ Vanquisher
+AM7	Vox Operator	100	2	2	2	3	0	0	1	5 AstraMilitarum-Vox Operator
+SOR39	Prayer	80	2	0	0	0	0	0	2	T6 Sororitas-Prayer
+SW8	Blackmane Reiver	130	2	3	1	3	0	1	0	5 SpaceWolves-Blackmane Reiver
+76d59d92d5d2d4ec89b2e441b1d18548	Immortal Beams	40	-1	0	0	0	0	0	2	Z-Sautekh-Immortal Beams_enchantment
+27a4b748a7bf358499f038aa09895ead	Reanimate	40	1	0	0	0	0	0	1	Z-NC Sautekh-Reanimate
+65cfec7d2bc719040b3b4b88622931b2	Lead the Righteous	80	2	0	0	0	0	0	2	Z-NC Sororitas-Lead the Righteous
+TL70	Norn Emissary	60	14	8	12	10	1	0	1	7 Leviathan-Norn Emissary
+d32332a368c7919469dfa0d5d4df7d03	No Respite	10	5	0	0	0	0	0	1	T9 Ultramarines-No Respite_normal
+BL72	Accursed Helbrute	50	8	9	7	9	0	0	1	7 BlackLegion-Accursed Helbrute
+7210fc3a4509b3649969609a1fa822ea	The Fang	130	2	0	0	0	0	0	1	T10 SpaceWolves-The Fang_enchanatment1
+cea9ccf7dae74b240a4c514608f256a1	Disrupted Ceremony	80	-1	0	0	0	0	0	2	Z-Sororitas-Disrupted Sanctuary_enchantment
+UM19	Aggressor Sergeant	10	5	5	5	6	0	0	0	19 UM-Aggressor Sergeant
+ASH82	Farseer Skyrunner	30	5	4	5	5	0	0	1	6 SaimHann-Farseer Skyrunner
+SOR9	Preacher	80	2	2	1	3	0	0	2	6 Sororitas-Preacher
+f104d4c21abe84546abc9365d9eda8dd	Righteous Repugnance	80	2	0	0	0	0	0	2	Z-NC Sororitas-Righteous Repugnance
+UM24	Lieutenant Calsius	10	6	6	4	6	0	0	1	24 UM-Lieutenant Calsius
+UM39	Inspired Retribution	10	5	0	0	0	0	0	2	T9 Inspired Retribution
+BL11	Veteran Legionary	50	3	3	4	4	0	0	0	9 BlackLegion-Veteran Legionary
+DA55	Wages of Retribution	110	3	0	0	0	0	0	1	T17 DarkAngels-Wages of Retribution
+DA69	Vengeful Brethren Hellblaster	110	3	2	3	4	0	0	1	5 DarkAngels-Vengeful Brethren Hellblaster
+ef42ad6c970ec5f49804b1f9f9ad5685	Dust Storm	20	0	0	0	0	0	0	2	Z-NC Goff-Dust Storm_enchantment
+cbabeb234380634479feab1a1b4c733a	Master Chronomancer	40	1	0	0	0	0	0	1	Z-NC Sautekh-Master Chronomancer
+SW2	Njal Stormcaller	130	0	2	2	25	0	0	2	SpaceWolves_war_Njal Stormcaller
+SOR26	Aestred-Thurga	80	5	5	4	6	0	1	2	19 Sororitas-Aestred-Thurga
+GSC38	Cult Leman Russ	90	10	6	10	10	1	0	1	35 GenestealerCults-Cult Leman Russ
+GSC25	Sanctus	90	5	3	6	5	0	0	1	23 GenestealerCults-Sanctus
+ASH48	Cosmic Serpent	30	3	0	0	0	0	0	2	T13 SaimHann-Cosmic Serpent
+7ae784e51720db24985842a91f91ad6d	Abaddon's Chosen (tutortial)	50	1	0	0	0	0	0	1	T1 BlackLegion-Abaddons Chosen_Tutorial_Nurgle
+TAU2	Aun'Va	70	2	2	2	25	0	0	1	TauEmpire_war_Aun'Va
+AM55	Mechanised Infantry	100	6	0	0	0	0	0	2	T17 AstraMilitarum-Mechanised Infantry
+ae8e1ca230ab7714e87b50e5cfe47db5	Hyper-adaptation	60	-1	0	0	0	0	0	1	T6 Leviathan-Hyper-adaptation_enchantment1
+DA44	Secret Agenda	110	2	0	0	0	0	0	2	T6 DarkAngels-Secret Agenda
+66486b3f61682ab42ba2ce0fa921002f	Tempestus Scion	100	2	2	2	3	0	1	0	2 AstraMilitarum-Tempestus Scion_withVanguard
+TAU13	DS8 Support Turret	70	3	0	2	5	0	0	1	10 TauEmpire-DS8 Support Turret
+a51adc8f5c311584385c3117cfd919e9	High Rune Priest	130	2	0	0	0	0	0	1	Z-NC SpaceWolves-High Rune Priest
+TAU70	Flesh Shaper	70	5	5	4	5	0	0	1	5 TauEmpire-Flesh Shaper
+BL39	Hideous Mutation	50	1	0	0	0	0	0	1	T3 BlackLegion-Hideous Mutation
+TL69	Neurotyrant	60	6	2	6	7	0	0	1	6 Leviathan-Neurotyrant
+SAU38	Extermination Protocol	40	1	0	0	0	0	0	1	T1 Sautekh-Extermination Protocol
+eab54e4c131034e4dacf8ce72807ed07	Undying Legions	40	5	0	0	0	0	0	1	T16 Sautekh-Undying Legions_enchantment
+UM16	Sergeant Allectius	10	4	5	2	4	0	0	1	16 UM-Sergeant Allectius
+af98d423c7279a14c84c0d0382c53541	Legendary Commandant	100	2	0	0	0	0	0	1	Z-NC AstraMilitarum-Legendary Commandant
+edb0fd16ad0760e47b4b37737f3e60bd	Medreyal Ghaelyn	30	2	2	2	20	0	0	1	SaimHann_war_Medreyal Ghaelyn_EASY
+0fca8843c85ec1148b3bb77cc834a010	Firstborn (tutorial)	10	2	2	2	2	0	0	0	3 UM-Firstborn_tutorial
+UM87	Roboute Guilliman	10	2	2	2	30	0	0	2	Ultramarines_war_Roboute Guilliman
+461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	40	2	0	0	0	0	0	1	Z-NC Sautekh-Hardwired Destruction
+DA10	Black Knight	110	3	2	4	3	0	0	1	7 DarkAngels-Black Knight
+ba33eab5a0587d34d8809cfae2f14058	Daemonic Feast	50	-1	0	0	0	0	0	2	Z-BlackLegion-Daemonic Feast_enchantment
+GSC30	Metamorph Leader	90	6	3	4	5	0	0	2	27 GenestealerCults-Metamorph Leader
+592d08f237a69e14cb738607af3da0d1	Normal Conditions (TauEmpire)	70	-1	0	0	0	0	0	0	Z-NC-TauEmpire-Normal Conditions
+AM30	Manticore	100	6	2	6	6	0	1	0	28 AstraMilitarum-Manticore
+239f468a65ba1b24ba119ab1a1ac53cc	Normal Conditions (GSC)	90	-1	0	0	0	0	0	0	Z-NC-GenestealerCults-Normal Conditions
+9f75a6fe11922eb409ffbad4ecdeb405	Hero of the Empire	70	1	0	0	0	0	0	1	Z-NC TauEmpire-Hero of the Empire
+SOR46	Furious Reprisal	80	2	0	0	0	0	0	1	T3 Sororitas-Furious Reprisal
+UM71	Storm Speeder Hailstrike	10	6	2	5	5	0	0	1	6 Ultramarines-Storm Speeder Hailstrike
+SOR21	Death Cult Assassin	80	3	3	0	4	0	0	1	9 Sororitas-Death Cult Assassin
+ASH16	Nuadhu 'Fireheart'	30	4	5	3	4	0	0	1	13 SaimHann-Nuadhu 'Fireheart'
+BL47	Disgustingly Resilient	50	3	0	0	0	0	0	1	T11 BlackLegion-Disgustingly Resilient
+UM2	Octavio Infiltrator	10	1	1	2	2	0	0	1	2 UM-Octavio Infiltrator
+EC48	Carnival of Excess	120	7	0	0	0	0	0	1	T18 EmperorsChildren-Carnival of Excess
+DA56	Desperate Mission	110	5	0	0	0	0	0	3	T18 DarkAngels-Desperate Mission
+97e959444b53f424ea4285e2ca02c7e6	Warmaster	50	2	0	0	0	0	0	1	Z-NC BlackLegion-Warmaster
+e3d67d86f73f7564eb0bf886ec848af6	Waaagh! Energy	20	0	0	0	0	0	0	1	Z-NC Goff-Waaagh! Energy
+BL6	Rubric Marine	50	2	2	3	2	0	0	1	4 BlackLegion-Rubric Marine
+EC4	Veteran Noise Marine	120	4	2	4	5	0	0	0	18 EmperorsChildren-Veteran Noise Marine
+8482077f309b08943b190f18b5874871	Catechism of Death	10	0	0	0	0	0	0	2	Z-NC UM-Catechism of Death
+TL16	Mawloc	60	5	5	0	6	0	0	1	20 Leviathan-Mawloc
+ASH51	Infinity Circuit	30	5	0	0	0	0	0	1	T16 SaimHann-Infinity Circuit
+TL71	Toxic Entanglement	60	4	0	0	0	0	0	1	T1 Leviathan-Toxic Entanglement
+EC20	Turyan Ghauze	120	6	5	6	6	0	0	1	28 EmperorsChildren-Turyan Ghauze
+TL35	Swarmlord	60	2	3	1	25	0	0	1	Leviathan_war_Swarmlord
+b3735ef3d1408d544b0947e31f898e20	Grisly Feast	70	2	0	0	0	0	0	1	Z-NC TauEmpire-Grisly Feast
+BL9	Possessed Marine	50	3	4	0	4	0	0	0	7 BlackLegion-Possessed Marine
+AM60	Timely Reinforcements	100	0	0	0	0	0	0	1	Z-AstraMilitarum-Timely Reinforcements
+GOF11	Banner Nob	20	4	4	2	4	0	0	1	11 Goff-Banner Nob
+BL69	Meltagun Legionary	50	5	3	6	6	0	0	1	4 BlackLegion-Meltagun Legionary
+SAU68	Lokhust Destroyer	40	4	3	5	4	0	0	1	3 Sautekh-Lokhust Destroyer
+SAU13	Canoptek Spyder	40	4	3	3	5	0	0	1	13 Sautekh-Canoptek Spyder
+SOR70	Sororitas Rhino	80	4	2	3	5	0	0	1	5 Sororitas-Sororitas Rhino
+b14d1db2b0730d649b3bec35af100363	Master of Battle	10	2	0	0	0	0	0	1	Z-NC UM-Master of Battle
+BL34	Abaddon the Despoiler	50	2	2	2	30	0	0	1	BlackLegion_war_Abaddon the Despoiler
+cd9b6eaafe52865409cbb239abb00525	Craftworld Convergence	30	2	0	0	0	0	0	1	8 SaimHann-Craftworld Convergence_enchantment3
+ASH77	Death Spinner Warp Spider	30	1	1	3	1	0	0	1	1 SaimHann-Death Spinner Warp Spider
+GOF4	Slugga Boy	20	2	2	2	3	0	0	1	4 Goff-Slugga Boy
+7552fe029df141946b0f813e28bfac98	Mining Tremors	90	-1	0	0	0	0	0	2	Z-GenestealerCults-Mining Tremors_enchantment
+DA40	Inner Circle	110	1	0	0	0	0	0	1	T2 DarkAngels-Inner Circle
+334a32d196d46ed4387bf3740cce069b	Improvised Barricade	90	3	0	0	0	0	0	1	Z-NC Sabotage - GenestealerCults-Improvised Barricade
+SW63	Full Moon	130	-1	0	0	0	0	0	1	Z-SW-Full Moon
+BL49	Delightful Agonies	50	4	0	0	0	0	0	1	T13 BlackLegion-Delightful Agonies
+GOF10	Grot Tank	20	3	3	3	3	1	0	1	10 Goff-Grot Tank
+b4d6d186eb95a3f468013c5be649ee3b	Sawbonez	20	1	0	0	0	0	0	2	Z-NC Goff-Sawbonez
+16c804b7e1b10b542a8b1dbc5decec9e	Shall Know No Fear	10	2	0	0	0	0	0	1	T3 Ultramarines-Shall Know No Fear_normal
+TAU16	Vespid Stingwings	70	3	2	3	3	1	0	0	13 TauEmpire-Vespid Stingwings
+BL70	Veteran Havoc	50	6	3	6	5	0	0	1	5 BlackLegion-Veteran Havoc
+SAU76	Inescapable Retribution	40	5	0	0	0	0	0	1	T3 Sautekh-Inescapable Retribution
+BL38	Dark Oratory	50	2	0	0	0	0	0	1	T2 BlackLegion-Dark Oratory
+DA21	Land Speeder Vengeance	110	4	1	5	4	0	0	1	18 DarkAngels-Land Speeder Vengeance
+GSC54	Rampant Infestation	90	7	0	0	0	0	0	1	T18 GenestealerCults-Rampant Infestation
+1c7892a2816a53d4388d6dc5272853b6	Warp Storm	50	-1	0	0	0	0	0	2	Z-BlackLegion-Warp Storm_enchantment
+SAU42	Relentless Advance	40	2	0	0	0	0	0	1	T5 Sautekh-Relentless Advance
+EC37	Thrill Seekers	120	1	0	0	0	0	0	1	T4 EmperorsChildren-Thrill Seekers
+d4ef67e300a56834f9cef7715118362f	Sergeant Gadriel	10	7	7	6	7	0	0	1	6 Ultramarines-Sergeant Gadriel_enchantment
+0544047df88d2ba4cad9c17ff080c0eb	Greatest Deeds	10	2	0	0	0	0	0	1	Z-NC UM-Greatest Deeds
+SAU64	Solar Storm	40	-1	0	0	0	0	0	1	Z-Sautekh-Solar Storm
+TAU21	Stealth Battlesuit	70	4	3	4	5	0	0	1	18 TauEmpire-Stealth Battlesuit
+UM74	Rapid Deployment	10	3	0	0	0	0	0	1	T1 Ultramarines-Rapid Deployment
+7a02359776e89f243b8cf41642dc44c9	Witchblade Warlock (tutorial)	30	4	4	3	5	0	0	1	16 SaimHann-Witchblade Warlock_tutorial
+e4bb5208917e50248b1913c0f0daa691	Normal Conditions (Leviathan)	60	-1	0	0	0	0	0	0	Z-NC-Leviathan-Normal Conditions
+TAU68	Trail Shaper	70	3	4	2	4	0	0	1	3 TauEmpire-Trail Shaper
+74480125107476f498ab284871b20401	Catechism of Death	10	0	0	0	0	0	0	1	Z-NC UM-Catechism of Death_normal
+SAU29	Necron Lord	40	7	7	5	8	0	0	1	29 Sautekh-Necron Lord
+SAU72	Lokhust Lord	40	6	4	7	6	0	0	1	6 Sautekh-Lokhust Lord
+SW28	Blackmane Aggressor	130	6	5	5	6	0	0	1	25 SpaceWolves-Blackmane Aggressor
+ASH45	Banshee Mask	30	3	0	0	0	0	0	1	T10 SaimHann-Banshee Mask
+BL59	Helfire Outburst	50	-1	0	0	0	0	0	1	Z-BlackLegion-Helfire Outburst
+744e35eddd8fa0a489902221ed82a733	Normal Conditions (Saim Hann)	30	-1	0	0	0	0	0	0	Z-NC-SaimHann-Normal Conditions
+SOR66	Armorium Cherub	80	1	1	0	2	0	1	2	1 Sororitas-Armorium Cherub
+GSC17	Locus	90	3	3	0	4	0	0	2	9 GenestealerCults-Locus
+0360bbe6c59d84b4aaf03454a7e0e4ff	Normal Conditions (Sororitas)	80	-1	0	0	0	0	0	0	Z-NC-Sororitas-Normal Conditions
+d01a5ba5865ded4418194ea50e333b21	Inscrutable Cunning	90	2	0	0	0	0	0	1	Z-NC GenestealerCults-Inscrutable Cunning
+EC62	Aural Hijack	120	-1	0	0	0	0	0	1	Z-EmperorsChildren-Cacophonic Surge
+GOF51	Night Attack	20	-1	0	0	0	0	0	1	Z-Goff-Night Attack
+8204f59a011f94d5c9ea1bed18ae9c57	Hellblaster (tutorial)	10	4	2	5	4	0	0	0	10 UM-Hellblaster_Tutorial
+TL9	Pyrovore	60	3	1	4	4	0	0	1	10 Leviathan-Pyrovore
+TAU62	Watch Tower	70	0	0	0	0	0	0	1	Z-TauEmpire-Watch Tower
+a5960475756bec144a1d6d8a9d141fc9	Hive Fleet Leviathan	60	7	0	0	0	0	0	0	T18 Leviathan-Hive Fleet Leviathan_enchantment
+UM52	Firestrike Turrets	10	0	0	0	0	0	0	1	Z-UM-Firestrike Turrets
+EC13	Lord Exultant	120	7	7	6	8	0	0	1	29 EmperorsChildren-Lord Exultant
+aa3b6aa4741556e4998c300975b15230	Crushing Claws	60	-1	4	4	6	0	0	1	17 Leviathan-Carnifex_Enchantment_Crushing Claws
+ASH52	Hosts of the Dead	30	7	0	0	0	0	0	2	T17 SaimHann-Hosts of the Dead
+SW60	Fenrisian Runestones	130	0	0	0	0	0	0	1	Z-SW-Fenrisian Runestones
+UM53	Hive Factory	10	0	0	0	0	0	0	1	Z-UM-Hive Factory
+GOF64	Pyromaniaks	20	3	0	0	0	0	0	1	T20 Goff-Pyromaniaks
+SOR42	Rite of Restoration	80	3	0	0	0	0	0	1	T10 Sororitas-Rite of Restoration
+b3a0be3e80b938144ba9364714823062	Haarken Worldclaimer	50	2	2	2	20	0	0	1	BlackLegion_war_Haarken Worldclaimer_EASY
+GOF93	Hunta Rig	20	7	5	8	7	0	0	2	16 Goff-Hunta Rig
+GSC60	Mining Tremors	90	-1	0	0	0	0	0	1	Z-GenestealerCults-Mining Tremors
+BL65	Ghallaron the Pious	50	2	2	2	25	0	0	2	BlackLegion_war_Ghallaron the Pious
+EC28	Chaos Land Raider	120	10	5	10	12	2	0	1	35 EmperorsChildren-Chaos Land Raider
+GOF49	Gretchin Tower	20	0	0	0	0	0	0	1	Z-Goff-Gretchin Tower
+ASH18	Vyper	30	4	1	3	4	0	0	0	15 SaimHann-Vyper
+BL53	Heldrake Strike	50	6	0	0	0	0	0	1	T17 BlackLegion-Heldrake Strike
+1a647ea39bbb0154b9673c5194e51a46	Telephatic Domination	90	7	0	0	0	0	0	1	T19 GenestealerCults-Telephatic Domination_enchantment
+EC15	Winged Daemon Prince	120	9	10	6	10	0	0	2	34 EmperorsChildren-Winged Daemon Prince
+SAU17	Psychomancer	40	4	4	3	5	0	0	1	17 Sautekh-Psychomancer
+41e94f2d95a5b6143b44d5356a486213	Raid Tactics	130	3	0	0	0	0	0	1	T8 SpaceWolves-Raid Tactics_enchantment
+GSC29	Metamorph Iconbearer	90	5	5	4	5	0	0	1	22 GenestealerCults-Metamorph Iconbearer
+UM58	Desolation Marine	10	6	3	6	7	0	0	0	34 UM-Desolation Marine
+BL61	Warp Storm	50	-1	0	0	0	0	0	1	Z-BlackLegion-Warp Storm
+f45dd53721b645b4ab45d334edb986af	Deadliest Killer	90	2	0	0	0	0	0	2	Z-NC GenestealerCults-Deadliest Killer
+6e2399fed068fd3409bd2c1cf4b5bbd0	Factories Overdrive	100	-1	0	0	0	0	0	2	Z-AstraMilitarum-Manufactorum Overdrive_enchantment
+GOF60	Tankbusta	20	6	5	5	6	0	0	1	32 Goff-Tankbusta
+TAU5	Fire Warrior	70	2	2	4	2	0	0	0	2 TauEmpire-Fire Warrior
+EC27	Rugged Disharmonist	120	7	6	8	7	0	0	1	31 EmperorsChildren-Rugged Disharmonist
+684196db974ab254090f39ef6e89868c	Shield Generator	70	0	0	0	0	0	0	1	Z-NC TauEmpire-Shield Generator
+GOF84	Runtherd	20	3	3	2	3	0	0	1	7 Goff-Runtherd
+SOR75	Devout Serenity	80	5	0	0	0	0	0	1	T3 Sororitas-Devout Serenity
+DA49	Hunt the Fallen	110	3	0	0	0	0	0	1	T11 DarkAngels-Hunt the Fallen
+77af39fae01dff044ac948424e5479c1	Night	20	0	0	0	0	0	0	2	Z-NC Goff-Night_enchantment
+0fbe7282202537b4aad103e73cc20223	Helfire Outburst	50	-1	0	0	0	0	0	1	Z-BlackLegion-Helfire Outburst_enchantment
+ASH62	Dire Avenger	30	4	2	4	4	0	0	0	34 SaimHann-Dire Avenger
+ASH40	Nightshade Interceptors	30	2	0	0	0	0	0	1	T5 SaimHann-Nightshade Interceptors
+GOF63	Gunwagon	20	8	5	8	9	0	0	1	35 Goff-Gunwagon
+GOF97	Gargantuan Squiggoth	20	10	10	7	13	0	0	3	20 Goff-Gargantuan Squiggoth
+ASH9	Windrider	30	2	0	1	3	0	0	0	6 SaimHann-Windrider
+ASH54	Wailing Doom	30	8	0	0	0	0	0	2	T19 SaimHann-Wailing Doom
+SOR7	Crusader	80	2	3	0	3	0	0	1	5 Sororitas-Crusader
+ASH13	Warp Spider	30	3	4	2	3	0	0	1	10 SaimHann-Warp Spider
+TL15	Tyranid Prime	60	4	5	4	5	0	0	1	16 Leviathan-Tyranid Prime
+GOF91	Beastboss on Squigosaur	20	6	7	5	7	0	0	1	14 Goff-Beastboss on Squigosaur
+b7e5ee472ec1b2d48a36aee54b1862c5	Inscrutable Cunning	90	2	0	0	0	0	0	1	Z-NC GenestealerCults-Inscrutable Cunning_enchantment2
+EC40	Embrace the Pain	120	2	0	0	0	0	0	2	T5 EmperorsChildren-Embrace the Pain
+7831725387c8a774dbdf5b6492d928e0	Nexus of Devotion	90	2	0	0	0	0	0	1	Z-NC GenestealerCults-Nexus of Devotion
+SAU35	Imotekh the Stormlord	40	2	2	2	30	0	0	1	Sautekh_war_Imotekh the Stormlord
+GOF69	Mega Blasta Deffkopta	20	7	4	5	8	0	0	2	5 Goff-Mega Blasta Deffkopta
+GOF25	Gorkanaut	20	9	10	5	10	1	0	1	25 Goff-Gorkanaut
+ef43a2362ee779f429aad3d0a5097964	Raging Storm	80	-1	0	0	0	0	0	2	Z-Sororitas-Raging Storm_enchantment
+BL13	Chosen	50	4	4	4	4	0	0	1	11 BlackLegion-Chosen
+GSC10	Biophagus	90	3	1	2	3	0	0	2	8 GenestealerCults-Biophagus
+GSC65	Pilfered Supplies	90	0	0	0	0	0	0	1	Z-GenestealerCults-Pilfered Supplies
+SW10	Grey Hunter	130	2	2	2	3	0	0	1	7 SpaceWolves-Grey Hunter
+DA30	Deathwing Strikemaster	110	6	6	4	6	1	0	1	27 DarkAngels-Deathwing Strikemaster
+c40a06616a2968240b1f765d0f919b69	Deffkopta	20	4	3	4	5	0	0	1	28 Goff-Deffkopta_enchantment
+UM56	Intercessor Sergeant	10	3	2	4	4	0	0	1	32 UM-Intercessor Sergeant
+GSC21	Clamavus	90	5	4	3	5	0	0	2	20 GenestealerCults-Clamavus
+SAU49	Resurrection Orb	40	3	0	0	0	0	0	1	T12 Sautekh-Resurrection Orb
+GOF71	Krump da Gitz	20	2	0	0	0	0	0	1	T7 Goff-Krump da Gitz
+6ed51d59b9f8ea24ab0dc7ceaef7956c	Duelist's Hubris	120	1	0	0	0	0	0	1	Z-NC EmperorsChildren-Duelist's Hubris
+ASH19	Witchblade Warlock	30	4	4	3	5	0	0	1	16 SaimHann-Witchblade Warlock
+65b2be828179515458a282cf1b027182	Indomitable Will	40	1	0	0	0	0	0	1	Z-NC Sautekh-Indomitable Will
+GOF70	Krumpaklaw	20	8	8	6	8	0	0	2	6 Goff-Krumpaklaw
+SOR33	Saint Celestine	80	7	7	7	7	0	0	1	31 Sororitas-Saint Celestine
+AM4	Faeburn Vanquisher	100	1	1	2	2	0	0	1	1 AstraMilitarum-Faeburn Vanquisher
+eb815e1e93912d24394c7fca6d3558f4	Primaris Intercessor (tutorial)	10	2	2	2	2	0	0	0	6 UM-Primaris Intercessor_tutorial
+e3b5735d801fcbd49aa8d3975a5b0c31	War Howl	130	2	0	0	0	0	0	1	Z-NC SpaceWolves-War Howl
+EC6	Plasma Gun Tormentor	120	3	2	4	4	0	0	1	8 EmperorsChildren-Plasma Gun Tormentor
+GOF96	Snakebite Battlewagon	20	9	6	9	11	0	0	2	19 Goff-Snakebite Battlewagon
+GSC50	Clandestine Operation	90	2	0	0	0	0	0	1	T5 GenestealerCults-Clandestine Operation
+AM42	Pinning Fire	100	2	0	0	0	0	0	1	T4 AstraMilitarum-Pinning Fire
+UM89	Incursor	10	1	1	2	2	0	1	1	1 Ultramarines-Incursor
+BL46	Gifts of Chaos	50	3	0	0	0	0	0	1	T10 BlackLegion-Gifts of Chaos
+BL32	Iskandar Khayon	50	9	8	10	10	0	0	1	30 BlackLegion-Iskandar Khayon
+TL18	Zoanthrope	60	5	3	5	6	0	0	1	21 Leviathan-Zoanthrope
+SOR63	Shrine Bombardment	80	-1	0	0	0	0	0	1	Z-Sororitas-Shrine Bombardment
+d05168153d48a004a98397101dc4954f	Angel's Wrath	10	1	0	0	0	0	0	1	Z-NC UM-Angel's Wrath_normal
+TAU57	Burgeoning Empire	70	8	0	0	0	0	0	2	T20 TauEmpire-Burgeoning Empire
+GSC63	Alien Idol	90	0	0	0	0	0	0	1	Z-GenestealerCults-Alien Idol
+TAU22	Strike Team	70	4	2	6	5	0	0	0	19 TauEmpire-Strike Team
+AM32	Leman Russ Tank	100	7	5	7	7	1	0	1	30 AstraMilitarum-Leman Russ Tank
+GOF107	Fasta Than Yooz	20	5	0	0	0	0	0	1	T10 Goff-Fasta Than Yooz
+TAU45	Recon Sweep	70	2	0	0	0	0	0	1	T7 TauEmpire-Recon Sweep
+SW13	Wolf Guard Headtaker	130	3	3	2	3	0	0	1	10 SpaceWolves-Wolf Guard Headtaker
+UM49	Aerial Clash	10	-1	0	0	0	0	0	1	Z-UM-Aerial Clash
+TAU4	Guardian Drone	70	1	0	1	3	0	0	0	1 TauEmpire-Guardian Drone
+SW14	Wolf Priest	130	3	2	2	5	0	0	2	11 SpaceWolves-Wolf Priest
+TAU41	Zephyr's Grace	70	1	0	0	0	0	0	1	T3 TauEmpire-Zephyr's Grace
+EC44	Quicksilver Grace	120	2	0	0	0	0	0	1	T7 EmperorsChildren-Quicksilver Grace
+TL2	Hormagaunt	60	2	3	0	3	0	0	0	3 Leviathan-Hormagaunt
+DA13	Librarian	110	3	2	4	3	0	1	0	10 DarkAngels-Librarian
+BL74	Spreading Corruption	50	3	0	0	0	0	0	1	T2 BlackLegion-Spreading Corruption
+GSC61	Sump Overspill	90	-1	0	0	0	0	0	1	Z-GenestealerCults-Sump Overspill
+5b8d4332867628448a3b0e66882f8f1b	Hyper-adaptation	60	-1	0	0	0	0	0	1	T6 Leviathan-Hyper-adaptation_enchantment3
+SW48	The Fang	130	2	0	0	0	0	0	1	T10 SpaceWolves-The Fang
+BL20	Child of Torment	50	6	4	6	7	0	0	1	18 BlackLegion-Child of Torment
+GOF7	Warbiker	20	3	4	1	2	0	0	1	7 Goff-Warbiker
+SW26	Arjac Rockfist	130	5	6	4	5	0	0	2	23 SpaceWolves-Arjac Rockfist
+TL45	Apex Predator	60	4	0	0	0	0	0	1	T16 Leviathan-Apex Predator
+TL31	Enhanced Organism	60	2	0	0	0	0	0	1	T5 Leviathan-Enhanced Organism
+BL7	Khorne Berzerker	50	3	4	2	4	0	0	1	5 BlackLegion-Khorne Berzerker
+EC1	Sonic Blaster Noise Marine	120	3	1	4	4	0	0	1	10 EmperorsChildren-Sonic Blaster Noise Marine
+TAU61	Radiation Storm	70	-1	0	0	0	0	0	1	Z-TauEmpire-Radiation Storm
+SW31	Wolf Guard Terminator	130	6	6	6	6	1	0	0	28 SpaceWolves-Wolf Guard Terminator
+TAU55	Relentless Fusillade	70	4	0	0	0	0	0	1	T18 TauEmpire-Relentless Fusillade
+SOR56	Beacon of Faith	80	2	0	0	0	0	0	3	T2 Sororitas-Beacon of Faith
+5a790d31393197845a833476a455c598	Acid Rain	60	-1	0	0	0	0	0	1	Z-Leviathan-Acid Rain_enchantment
+DA16	Captain	110	4	3	5	5	0	0	1	13 DarkAngels-Captain
+AM57	Godspear Warhead	100	9	0	0	0	0	0	1	T19 AstraMilitarum-Godspear Warhead
+GOF8	Hornhelmz' Boy	20	3	4	2	4	0	0	0	8 Goff-Hornhelmz Boy
+SAU75	Awakened Dynasty	40	4	0	0	0	0	0	1	T2 Sautekh-Awakened Dynasty
+UM25	Devastator Centurion	10	7	4	9	8	0	0	1	25 UM-Devastator Centurion
+898b7eb633e8336419642d3e96664ccc	Sump Overspill	90	-1	0	0	0	0	0	2	Z-GenestealerCults-Sump Overspill_enchantment
+TL14	Sporocyst	60	4	2	4	5	0	0	1	15 Leviathan-Sporocyst
+UM21	Primaris Judiciar	10	5	5	2	5	0	0	1	21 UM-Primaris Judiciar
+DA1	Azrael, Grand Master	110	0	2	2	30	0	1	2	DarkAngels_war_Azrael
+ef547f829b6491f45a8ad371f492278e	Nemesor Zahndrekh	40	2	2	2	25	0	0	1	Sautekh_war_Nemesor Zahndrekh_tutorial
+ASH24	Vengeful Wraithblade	30	5	5	0	6	0	0	1	21 SaimHann-Vengeful Wraithblade
+TL73	Bestial Rage	60	8	0	0	0	0	0	1	T3 Leviathan-Bestial Rage
+DA27	Ravenwing Talonmaster	110	5	3	5	5	0	1	1	24 DarkAngels-Ravenwing Talonmaster
+GSC4	Genestealer Familiar	90	1	1	0	1	0	0	2	1 GenestealerCults-Genestealer Familiar
+DA75	Master Zacharial	110	0	2	2	25	0	1	2	DarkAngels_war_Master Zacharial
+GSC49	Telephatic Domination	90	8	0	0	0	0	0	1	T19 GenestealerCults-Telephatic Domination
+UM9	Primaris Inceptor	10	3	2	3	4	0	0	1	9 UM-Primaris Inceptor
+dcbd28525888ce54aaa93a47ba4de1e6	Master Tactician	10	2	0	0	0	0	0	2	Z-NC UM-Master Tactician
+EC55	Lucius the Eternal	120	2	3	1	25	0	0	2	CSM_EmperorsChildren_war_Lucius the Eternal
+UM11	7th Company Bike	10	3	2	3	2	0	0	1	11 UM-7th Company Bike
+BL36	Sylar Hexscorn	50	2	2	2	25	0	0	1	BlackLegion_war_Sylar Hexscorn
+TAU24	Devilfish	70	5	3	5	5	1	0	1	21 TauEmpire-Devilfish
+0740581c2c0523745a42dbec1b2ef82a	Might of Heroes	10	2	0	0	0	0	0	1	Z-NC UM-Might of Heroes
+DA33	Nephilim Jetfighter	110	7	1	6	6	0	0	2	30 DarkAngels-Nephilim Jetfighter
+TL47	Hive Fleet Leviathan	60	6	0	0	0	0	0	1	T18 Leviathan-Hive Fleet Leviathan
+TAU12	Darkstrider	70	3	2	4	3	0	0	2	9 TauEmpire-Darkstrider
+SAU32	Skorpekh Lord	40	8	8	8	8	0	0	1	32 Sautekh-Skorpekh Lord
+BL15	Master of Executions	50	4	5	3	5	0	0	1	13 BlackLegion-Master of Executions
+GOF15	Burna Boy	20	4	2	5	4	0	0	1	15 Goff-Burna Boy
+BL37	Abaddon's Chosen	50	1	0	0	0	0	0	1	T1 BlackLegion-Abaddons Chosen
+BL29	Terminator Champion	50	7	7	7	8	1	0	0	27 BlackLegion-Terminator Champion
+b3dd8a39126b31342b38756e72e8660b	Dawn Attack	100	-1	0	0	0	0	0	1	Z-AstraMilitarum-Dawn Attack_enchantment
+BL55	Black Crusade	50	10	0	0	0	0	0	4	T19 BlackLegion-Black Crusade
+ASH71	Craftworld Convergence	30	2	0	0	0	0	0	1	8 SaimHann-Craftworld Convergence
+EC46	Peerless Bladesmen	120	4	0	0	0	0	0	1	T14 EmperorsChildren-Peerless Bladesmen
+TAU52	Storm of Fire	70	3	0	0	0	0	0	1	T14 TauEmpire-Storm of Fire
+GOF23	'Ardshell Gurk	20	7	8	5	6	2	0	1	23 Goff-Ardshell Gurk
+GOF78	Snakebite Grot	20	1	1	2	2	0	0	1	1 Goff-Snakebite Grot
+EC42	Beautiful Death	120	8	0	0	0	0	0	2	T20 EmperorsChildren-Beautiful Death
+AM71	Tempestus Aquilon	100	4	1	5	4	0	0	1	5 AstraMilitarum-Tempestus Aquilon
+EC12	Flawless Blade Champion	120	5	6	1	6	0	0	2	22 EmperorsChildren-Flawless Blade Champion
+ASH63	Dire Avenger Exarch	30	6	6	3	6	0	0	1	35 SaimHann-Dire Avenger Exarch
+d0549600681827a42963bd24a46f297a	Pledge to the Dark Prince	120	4	0	0	0	0	0	1	T15 EmperorsChildren-Pledge to the Dark Prince_enchantment
+UM106	Ferren Areios	10	8	9	9	9	0	1	1	18 Ultramarines-Ferren Areios
+SOR64	Disrupted Sanctuary	80	-1	0	0	0	0	0	1	Z-Sororitas-Disrupted Sanctuary
+UM5	Primaris Reiver	10	2	3	2	3	0	0	0	5 UM-Primaris Reiver
+SW30	Terminator Rune Priest	130	6	5	5	6	1	0	1	27 SpaceWolves-Terminator Rune Priest
+UM109	Adaptive Strategy	10	1	0	0	0	0	0	2	T1 Ultramarines-Adaptive Strategy
+dc7e575c0a328f446be1521c23ec850b	Empyric Ambush	30	2	0	0	0	0	0	2	Z-NC SaimHann-Empyric Ambush
+GOF5	Trukk Boy	20	2	2	2	3	0	0	1	5 Goff-Trukk Boy
+cde6b147d68431341a6408b7720ca460	EnchantmentCloud of Smoke	20	2	0	0	0	0	0	1	T2 Goff-Cloud of Smoke_enchantment
+DA25	Deathwing Knight	110	5	4	0	5	2	0	1	22 DarkAngels-Deathwing Knight
+e09280c7545371941b57dc0cc813012f	Litany of Despair	50	2	0	0	0	0	0	1	Z-NC BlackLegion-Litany of Despair_enchantment
+TAU67	Kroot Hound	70	3	3	0	3	0	0	1	2 TauEmpire-Kroot Hound
+TL55	Sporecaster Biostructure	60	0	0	0	0	0	0	1	Z-Leviathan-Sporecaster Biostructure
+GSC73	Spotter Ridgerunner	90	7	4	7	7	0	0	2	7 Genestealers-Spotter Ridgerunner
+DA28	Company Master	110	6	7	4	7	0	0	1	25 DarkAngels-Company Master
+59a4d20eed92a624c9512a392b163bf3	Infinite Biomorphologies	60	-1	0	0	0	0	0	1	T12 Leviathan-Infinite Biomorphologies_enchantment2
+070f7594d50c74944b3e86ebae80bde1	Hunters of Heretics	110	3	0	0	0	0	0	1	T3 DarkAngels-Hunters of Heretics_enchantment
+f279c5cf1c3e16e4db6b9df4d941ad11	Structural Analyzer	70	3	0	0	0	0	0	1	Z-NC TauEmpire-Structural Analyzer
+4cc68a0d541c4364e937d77d0838fb0d	Electro-Static Interference	70	-1	0	0	0	0	0	2	Z-TauEmpire-Electro-Static Interference_enchantment
+TAU65	War Shaper	70	2	2	2	20	0	0	2	TauEmpire_war_War Shaper
+EC31	Chaos Rhino	120	6	3	5	7	0	0	1	25 EmperorsChildren-Chaos Rhino
+UM91	Tactical Marine	10	2	2	2	3	0	1	0	3 Ultramarines-Tactical Marine
+SOR40	Inspiring Oratory	80	2	0	0	0	0	0	1	T4 Sororitas-Inspiring Oratory
+TL60	Neurogaunt Nodebeast	60	2	2	1	3	0	0	0	33 Leviathan-Neurogaunt Nodebeast
+SAU47	Curse of the Phaeron	40	4	0	0	0	0	0	1	T10 Sautekh-Curse of the Phaeron
+b3364cdc54882b04e8a931e86700ac23	Obscure Ritual	110	2	0	0	0	0	0	1	Z-NC DarkAngels-Obscure Ritual
+GOF89	Squighog Boyz	20	5	5	3	5	0	0	1	12 Goff-Squighog Boyz
+64a657fc5ed5bbb4fa7b585cf29c1e95	Da Bigger Dey Iz...	20	2	0	0	0	0	0	2	Z-NC Goff-Da Bigger Dey Iz...
+EC7	Tormentor Obsessionist	120	4	3	4	5	0	0	1	16 EmperorsChildren-Tormentor Obsessionist
+DA20	Master Lazarus	110	4	5	3	4	1	1	0	17 DarkAngels-Master Lazarus
+GOF32	Grot Bomb	20	1	0	0	0	0	0	1	T3 Goff-Grot Bomb
+AM53	Artillery Strike	100	4	0	0	0	0	0	1	T15 AstraMilitarum-Artillery Strike
+e8cf1eb55ca41534abe38efc90b302e9	Reconnaissance Mission	110	1	0	0	0	0	0	1	T4 DarkAngels-Reconnaissance Mission_enchantment
+UM73	Oath of Moment	10	1	0	0	0	0	0	1	T2 Ultramarines-Oath of Moment
+SOR74	Emperor's Judgement	80	9	0	0	0	0	0	1	T2 Sororitas-Emperor's Judgement
+SOR35	Immolator	80	8	6	6	9	1	1	1	32 Sororitas-Immolator
+ASH78	Warp Spider Exarch	30	2	2	2	3	0	0	1	2 SaimHann-Warp Spider Exarch
+AM46	High Command	100	4	0	0	0	0	0	1	T8 AstraMilitarum-High Command
+UM32	Tactical Insight	10	1	0	0	0	0	0	1	T2 Tactical Insight
+TAU73	Hidden Hunters	70	2	0	0	0	0	0	1	T1 TauEmpire-Hidden Hunters
+507f79fa60945d04e93fe806aca912b7	Deploy Anchors	70	4	0	0	0	0	0	1	Z-NC TauEmpire-Deploy Anchors
+ASH36	Fire and Fade	30	1	0	0	0	0	0	1	T1 SaimHann-Fire and Fade
+SW6	Blood Claw Pack Leader	130	2	2	2	3	0	0	1	3 SpaceWolves-Blood Claw Pack Leader
+TL59	Blazing Biomass	60	-1	0	0	0	0	0	1	Z-Leviathan-Blazing Biomass
+AM61	Defence Batteries	100	0	0	0	0	0	0	1	Z-AstraMilitarum-Defence Batteries
+ac6aa9739f7773e449347e1e79ea0e83	Indomitus Crusade	10	6	0	0	0	0	0	1	T10 Ultramarines-Indomitus Crusade_enchantment
+ASH22	Fire Dragon	30	6	3	6	6	0	0	0	19 SaimHann-Fire Dragon
+EC32	Daemonette	120	1	2	0	2	0	0	1	1 EmperorsChildren-Daemonette
+GSC20	Aberrant	90	5	6	0	6	1	0	1	19 GenestealerCults-Aberrant
+fb248c0fdddc5ec4da1ffcc0a8ab603a	Stormhawk Interception	10	3	0	0	0	0	0	1	T7 Ultramarines-Stormhawk Interception_normal
+2f00dde3a303fe34b99399c8bf987140	Planetary Invasion	100	-1	0	0	0	0	0	2	Z-AstraMilitarum-Planetary Invasion_enchantment
+GSC26	Aberrant Hypermorph	90	6	5	0	6	2	0	0	24 GenestealerCults-Aberrant Hypermorph
+UM48	Varro Tigurius	10	2	2	2	25	0	0	1	Ultramarines_war_Varro Tigurius
+ASH66	Shining Spear Exarch	30	4	4	3	4	0	0	1	2 SaimHann-Shining Spear Exarch
+SW18	Hrolf the Ironhowl	130	4	4	3	5	0	0	2	15 SpaceWolves-Hrolf the Ironhowl
+UM18	Company Ancient	10	6	6	6	6	0	0	1	18 UM-Company Ancient
+SW32	Stormwolf	130	7	3	7	7	0	0	1	29 SpaceWolves-Stormwolf
+9a13583b689e99c43b33020d7dac6e2f	Hyper-adaptation	60	-1	0	0	0	0	0	1	T6 Leviathan-Hyper-adaptation_enchantment2
+851f73daf747eb642934a16429b391db	Storm of Silence	30	2	0	0	0	0	0	2	Z-NC SaimHann-Storm of Silence
+EC18	Glittering Myriad Infractor	120	2	2	2	3	0	0	1	5 EmperorsChildren-Glittering Myriad Infractor
+4959cd9e99597f74ca9af0bd65ae6307	Experimental Bio-Horrors	90	1	0	0	0	0	0	1	Z-NC GenestealerCults-Experimental Bio-Horrors
+SAU24	Command Barge	40	6	2	6	6	0	0	1	24 Sautekh-Command Barge
+EC9	Icon of Excess	120	3	2	2	4	0	0	1	7 EmperorsChildren-Icon of Excess
+BL66	Ghallaron's Disciple	50	2	1	1	3	0	0	1	1 BlackLegion-Ghallaron's Disciple
+GOF48	Rok Invasion	20	10	0	0	0	0	0	1	T19 Goff-Rok Invasion
+SAU31	Doomstalker	40	8	4	8	9	0	0	1	31 Sautekh-Doomstalker
+BL67	Ghallaron's Champion	50	3	3	3	4	0	0	2	2 BlackLegion-Ghallaron's Champion
+SW36	Bjorn the Fell-Handed	130	8	9	8	9	1	1	1	33 SpaceWolves-Bjorn the Fell-Handed
+4889d3ae002db2d4785cb2286a84e48e	Sweeping Infestation	60	-1	0	0	0	0	0	1	Z-Leviathan-Sweeping Infestation_enchantment
+319bfeba880818c4690067f2596cd6f9	Infernal Gaze (tutorial)	50	2	0	0	0	0	0	1	Z-NC BlackLegion-Infernal Gaze_Tutorial
+b551c8351ebe5784faf9912b573eaf93	Tempest's Wrath	130	0	0	0	0	0	0	1	Z-NC SpaceWolves-Tempest's Wrath
+ASH53	Reclaim the Stars	30	7	0	0	0	0	0	2	T18 SaimHann-Reclaim the Stars
+ASH75	Yrlla the Huntress	30	7	5	5	7	0	0	1	7 SaimHann-Yrlla the Huntress
+DA38	Repulsor	110	10	6	10	12	1	0	2	35 DarkAngels-Repulsor
+4de4fcfb5d7e0554a88b9f419a2cd7c2	Angel's Wrath	10	1	0	0	0	0	0	2	Z-NC UM-Angel's Wrath
+AM47	Press the Attack	100	3	0	0	0	0	0	1	T9 AstraMilitarum-Press the Attack
+SW45	Unbridled Fury	130	2	0	0	0	0	0	1	T7 SpaceWolves-Unbridled Fury
+SOR11	Dominion	80	3	2	4	4	0	0	0	10 Sororitas-Dominion
+BL75	Idolatrous Despoilers	50	4	0	0	0	0	0	1	T3 BlackLegion-Idolatrous Despoilers
+GOF85	Snakebite Nob	20	4	4	3	5	0	0	1	8 Goff-Snakebite Nob
+GOF61	Rukkatrukk Squigbuggy	20	6	3	5	5	1	0	2	33 Goff-Rukkatrukk Squigbuggy
+SW54	Fenrisian Monstrosities	130	4	0	0	0	0	0	1	T16 SpaceWolves-Fenrisian Monstrosities
+DA58	Fury of the Unforgiven	110	7	0	0	0	0	0	1	T20 DarkAngels-Fury of the Unforgiven
+GSC46	Bore Through	90	3	0	0	0	0	0	2	T8 GenestealerCults-Bore Through
+ASH21	Crimson Hunter	30	6	0	5	6	0	0	1	18 SaimHann-Crimson Hunter
+1ff4815a506d2f34e94ec2f50900d352	Efficiency and Excellence	100	2	0	0	0	0	0	2	Z-NC AstraMilitarum-Efficiency and Excellence
+468db99b4b10d0745bab346df37d3fb2	Feeding Frenzy	60	1	0	0	0	0	0	2	Z-NC Leviathan-Feeding Frenzy
+GOF43	Gretchin Mob	20	4	0	0	0	0	0	1	T14 Goff-Gretchin Mob
+ASH46	Aerial Dominion	30	4	0	0	0	0	0	1	T11 SaimHann-Aerial Dominion
+ASH20	Wraithguard	30	4	3	3	4	0	0	1	17 SaimHann-Wraithguard
+AM26	Taurox	100	5	4	4	5	0	0	1	23 AstraMilitarum-Taurox
+SW15	Fyrri Askar	130	3	3	2	5	0	0	1	12 SpaceWolves-Fyrri Askar
+TAU44	Pulse Onslaught	70	2	0	0	0	0	0	1	T6 TauEmpire-Pulse Onslaught
+SOR41	Conviction of Faith	80	3	0	0	0	0	0	1	T8 Sororitas-Conviction of Faith
+UM8	Eliminator	10	3	2	4	3	0	0	0	8 UM-Eliminator
+AM24	Bullgryn Bone'ead	100	5	3	4	5	1	0	0	21 AstraMilitarum-Bullgryn Bone'ead
+EC47	Exquisite Swordsmanship	120	5	0	0	0	0	0	2	T17 EmperorsChildren-Exquisite Swordsmanship
+TAU6	Gun Drone	70	2	0	2	3	0	0	1	3 TauEmpire-Gun Drone
+GSC19	Purestrain Genestealer	90	4	5	0	4	0	0	0	18 GenestealerCults-Purestrain Genestealer
+UM30	Repulsor Executioner	10	10	6	10	12	0	0	1	30 UM-Repulsor Executioner
+GOF75	Warboss Gordrang	20	2	2	2	25	0	0	1	Goff_war_Warboss Gordrang
+UM82	Sergeant Gadriel	10	7	7	6	7	0	0	1	6 Ultramarines-Sergeant Gadriel
+EC19	Threnodic Noise Marine	120	3	1	4	4	0	0	1	11 EmperorsChildren-Threnodic Noise Marine
+AM22	Primaris Psyker	100	5	3	5	5	0	1	0	22 AstraMilitarum-Primaris Psyker
+9dcbe3d0c04b02f4fbb19974ae0e37b2	Mekaniak	20	2	0	0	0	0	0	1	Z-NC Goff-Mekaniak
+GOF16	Big Krumpaz	20	5	6	2	5	0	0	1	16 Goff-Big Krumpaz
+UM27	Assault Centurion	10	8	7	5	7	2	0	0	27 UM-Assault Centurion
+ASH42	Dance of Death	30	4	0	0	0	0	0	1	T7 SaimHann-Dance of Death
+GSC34	Kelermorph	90	8	4	8	8	0	0	1	31 GenestealerCults-Kelermorph
+TAU25	Firesight Marksman	70	5	2	5	5	0	0	2	22 TauEmpire-Firesight Marksman
+GOF34	Prophet of the Waaagh!	20	2	0	0	0	0	0	1	T5 Goff-Prophet of the Waaagh!
+GOF80	Grot Orderly	20	2	1	1	2	0	0	2	3 Goff-Grot Orderly
+BL2	Black Legionary	50	2	3	3	2	0	0	0	2 BlackLegion-Black Legionary
+cd155c09a88e15c428b29ef000bd8954	Cacophonic Surge	120	-1	0	0	0	0	0	2	Z-EmperorsChildren-Cacophonic Surge_enchantment
+UM113	Duty's End	10	2	0	0	0	0	0	1	T5 Ultramarines-Duty's End
+GOF101	Da Old Ways	20	2	0	0	0	0	0	1	T4 Goff-Da Old Ways
+GOF13	Deffgun Loota	20	4	3	4	5	0	0	1	13 Goff-Deffgun Loota
+875eedc90a1608d49a95b34a863ca104	Spreading Corruption	50	4	0	0	0	0	0	2	T2 BlackLegion-Spreading Corruption_enchantment
+SOR43	Cleansing Flames	80	4	0	0	0	0	0	1	T12 Sororitas-Cleansing Flames
+GOF77	Beastboss Morgrim	20	2	2	2	25	0	0	2	Goff_war_Beastboss Morgrim
+f3df0cfc57695654cb31a72b65470522	Abaddon's Chosen	50	1	0	0	0	0	0	1	T1 BlackLegion-Abaddons Chosen_startinghand
+SAU50	Dimensional Breach	40	5	0	0	0	0	0	1	T13 Sautekh-Dimensional Breach
+TAU17	Crisis Bodyguard	70	4	3	4	4	0	0	0	14 TauEmpire-Crisis Bodyguard
+UM34	Point-Blank Shot	10	2	0	0	0	0	0	2	T4 Point-Blank Shot
+GOF2	Makari the Grot	20	1	1	1	2	0	0	2	2 Goff-Makari the Grot
+SOR29	Ephrael Stern	80	6	6	5	7	0	1	2	26 Sororitas-Ephrael Stern
+UM81	Eliminator Sergeant	10	6	2	5	5	0	0	1	5 Ultramarines-Eliminator Sergeant
+ASH4	Guardian Defender	30	1	1	2	2	0	0	0	1 SaimHann-Guardian Defender
+BL10	Plague Marine	50	3	3	2	4	0	0	1	8 BlackLegion-Plague Marine
+UM37	Death from Above	10	4	0	0	0	0	0	2	T7 Death from Above
+bd6baa4e586791244a25861a52dfab02	Tervigon	60	2	2	2	20	0	0	1	Leviathan_war_Tervigon_EASY
+ASH80	Farseer	30	3	3	4	3	0	0	2	4 SaimHann-Farseer
+SAU33	Vargard Obyron	40	9	10	5	9	2	0	1	33 Sautekh-Vargard Obyron
+8f2da557fe484ee4bbf427c13eccd4cb	Alpha Warrior	60	2	0	0	0	0	0	1	Z-NC Leviathan-Alpha Warrior
+AM69	Tempestor Sergeant	100	3	3	4	4	0	1	1	3 AstraMilitarum-Tempestor Sergeant
+GSC12	Neophyte Iconbearer	90	3	2	2	3	0	0	1	11 GenestealerCults-Neophyte Iconbearer
+GOF72	Dead Choppy	20	3	0	0	0	0	0	1	T8 Goff-Dead Choppy
+5a8a11b2a89796f48b34fbec8db6f452	Antrak Silk	120	0	0	0	0	0	0	1	Z-NC CombatElixir - EmperorsChildren-Antrak Silk
+TL38	Hive Guard	60	6	3	6	6	0	0	0	19 Leviathan-Hive Guard
+SOR52	Spirit of the Martyr	80	4	0	0	0	0	0	2	T15 Sororitas-Spirit of the Martyr
+UM65	Chaplain Letharius	10	2	2	2	25	0	0	2	Ultramarines_war_Chaplain Letharius
+b5036545b0241504f96efdc00cf4ce01	Normal Conditions (SW)	130	-1	0	0	0	0	0	0	Z-NC-SW-Normal Conditions
+ASH61	Weapons Platform	30	2	0	3	3	0	0	0	33 SaimHann-Weapons Platform
+GSC16	Acolyte Heavy	90	4	5	2	5	0	0	2	15 GenestealerCults-Acolyte Heavy
+e9b45df57f8a55d49a5083327af8377b	Normal Conditions (Ultramarines)	10	-1	0	0	0	0	0	0	Z-NC-UM-Normal Conditions
+b34ec9176268dca4db0b975d1f9028ea	Adaptive Strategy	10	1	0	0	0	0	0	1	T1 Ultramarines-Adaptive Strategy_normal
+GSC18	Neophyte Leader	90	3	4	3	4	0	0	1	12 GenestealerCults-Neophyte Leader
+GOF57	Ork Nob	20	4	4	4	5	0	0	1	29 Goff-Ork Nob
+BL12	Aspiring Champion	50	4	3	4	5	0	0	1	10 BlackLegion-Aspiring Champion
+3df005b0c8973d5419eb1a4981f777b0	Helspear Assault	50	2	0	0	0	0	0	1	Z-NC BlackLegion-Helspear Assault_enchantment
+UM29	Captain Sicarius	10	9	10	7	10	0	0	2	29 UM-Captain Sicarius
+61ef8171ef572ac4b98e33c25fbefc70	Oath of Moment	10	2	0	0	0	0	0	1	T2 Ultramarines-Oath of Moment_enchantment
+d2b16a347052dc541a07c40cd9b40b78	Primaris Impulsor (tutorial)	10	5	2	3	6	0	0	1	17 UM-Primaris Impulsor_tutorial
+TAU20	Piranha	70	4	2	4	4	0	0	1	17 TauEmpire-Piranha
+SOR4	Sister Novitiate	80	1	2	1	2	0	1	2	1 Sororitas-Sister Novitiate
+TAU14	Fire Warrior Breacher	70	3	3	3	4	0	0	0	11 TauEmpire-Fire Warrior Breacher
+b5cdf76897db0a84ca518725d20168a7	Ancient Reliquary	110	1	0	0	0	0	0	1	T1 DarkAngels-Ancient Reliquary_enchantment2
+UM54	Light Cover	10	0	0	0	0	0	0	1	Z-UM-Light Cover
+29ee7b2dcd0d13e43a7065d3194a59b4	First Light	130	-1	0	0	0	0	0	1	Z-SW-First Light_enchantment
+TAU31	Hammerhead	70	6	4	7	7	0	0	0	28 TauEmpire-Hammerhead
+EC10	Infractor Obsessionist	120	4	4	4	4	0	0	2	15 EmperorsChildren-Infractor Obsessionist
+TAU3	Commander O'Maisos	70	2	2	2	25	0	0	2	TauEmpire_war_Commander O'Maisos
+EC50	Rapid Evisceration	120	2	0	0	0	0	0	2	T8 EmperorsChildren-Rapid Evisceration
+3d012092ba60a2f49acbf766ab556600	Armoured Support	10	4	0	0	0	0	0	1	T15 Armoured Support_enchantment
+GSC31	Reductus Saboteur	90	6	3	5	6	0	0	1	28 GenestealerCults-Reductus Saboteur
+ASH64	Devoted of Khaine	30	3	0	0	0	0	0	2	T20 SaimHann-Devoted of Khaine
+GSC75	Roaming Outriders	90	5	0	0	0	0	0	2	T2 Genestealers-Roaming Outriders
+GOF94	Painboss	20	7	8	5	7	0	0	2	17 Goff-Painboss
+ASH49	Eldritch Storm	30	4	0	0	0	0	0	2	T14 SaimHann-Eldritch Storm
+ASH32	Wraithlord	30	8	8	8	8	0	0	1	29 SaimHann-Wraithlord
+db34f054e134c094aaf92e7a6ae124c0	Asteroid Zone	110	-1	0	0	0	0	0	1	Z-DA-Asteroid Zone_enchantment
+SW58	Fenrisian Wolfpack	130	9	0	0	0	0	0	2	T20 SpaceWolves-Fenrisian Wolfpack
+GOF29	Grukk Face-Rippa	20	2	2	2	25	0	0	2	Goff_war_GrukkFace-Rippa
+dd535f7a54bcf6241b24ca6d0e81bbb4	Supreme Grand Master	110	2	0	0	0	0	0	2	Z-NC DarkAngels-Supreme Grand Master
+GOF38	Proper Killy	20	3	0	0	0	0	0	1	T9 Goff-Proper Killy
+UM94	Scout Sniper	10	3	2	4	3	0	1	0	6 Ultramarines-Scout Sniper
+GOF33	'Ard as Nails	20	2	0	0	0	0	0	1	T4 Goff-Ard as Nails
+UM1	Scout	10	1	1	2	2	0	0	1	1 UM-Scout
+SAU5	Necron Warrior	40	2	2	2	2	0	0	0	5 Sautekh-Necron Warrior
+GOF28	GhazghkullThraka	20	2	2	2	30	0	0	1	Goff_war_GhazghkullThraka
+GOF37	Da Green Horde	20	3	0	0	0	0	0	1	T8 Goff-Da Green Horde
+ASH33	Hemlock Wraithfighter	30	8	3	8	8	0	0	1	30 SaimHann-Hemlock Wraithfighter
+GSC41	Open Insurrection	90	3	0	0	0	0	0	1	T14 GenestealerCults-Open Insurrection
+SAU18	Skorpekh Destroyer	40	4	5	0	4	0	0	0	18 Sautekh-Skorpekh Destroyer
+BL57	Helfire Torch	50	0	0	0	0	0	0	1	Z-BlackLegion-Helfire Torch
+BL48	Skeins of Fate	50	3	0	0	0	0	0	1	T12 BlackLegion-Skeins of Fate
+SOR28	Zephyrim	80	6	6	3	5	0	0	0	28 Sororitas-Zephyrim
+69bf10fe198146b4bb8aec3f8dd3fe4e	The Fang	130	2	0	0	0	0	0	1	T10 SpaceWolves-The Fang_enchanatment3
+TL53	Swarming Masses	60	4	0	0	0	0	0	1	T15 Leviathan-Swarming Masses
+a20b3a843b961c04bb1b6dde3850859b	Champions of Humanity	10	2	0	0	0	0	0	1	T4 Ultramarines-Champions of Humanity_normal
+AM75	Valkyrie Drop	100	4	0	0	0	0	0	2	T2 AstraMilitarum-Valkyrie Drop
+SW5	Hunting Wolf	130	1	2	0	2	0	1	0	2 SpaceWolves-Hunting Wolf
+GSC15	Acolyte Specialist	90	4	2	5	5	0	0	1	14 GenestealerCults-Acolyte Specialist
+SOR23	Canoness	80	5	5	4	5	0	0	2	20 Sororitas-Canoness
+TL58	Sweeping Infestation	60	-1	0	0	0	0	0	1	Z-Leviathan-Sweeping Infestation
+AM65	Manufactorum Overdrive	100	-1	0	0	0	0	0	1	Z-AstraMilitarum-Manufactorum Overdrive
+GOF39	Tide of Muscle	20	3	0	0	0	0	0	1	T10 Goff-Tide of Muscle
+AM8	Cadian Medic	100	2	2	2	3	0	0	2	2 AstraMilitarum-Cadian Medic
+BL21	Lheorvine Ukris	50	5	6	5	6	0	0	1	19 BlackLegion-Lheorvine Ukris
+59e47125a7f5b36448bd1f71fd17b4cf	Tale of the Faithful	80	2	0	0	0	0	0	1	Z-NC Sororitas-Hymn of Battle_enchantment2
+DA32	Deathwing Champion	110	7	6	0	7	1	0	1	29 DarkAngels-Deathwing Champion
+BL68	Zealot Legionary	50	4	5	3	4	0	0	1	3 BlackLegion-Zealot Legionary
+GOF65	Stikkbomb Boy	20	3	2	4	4	0	0	1	1 Goff-Stikkbomb Boy
+DA71	Watcher in the Dark	110	1	1	0	3	0	1	0	7 DarkAngels-Watcher in the Dark
+EC60	Tools of Torture	120	0	0	0	0	0	0	3	Z-EmperorsChildren-Tools of Torture
+AM49	Summary Execution	100	3	0	0	0	0	0	1	T11 AstraMilitarum-Summary Execution
+DA34	Unforgiven Redemptor	110	7	6	6	7	1	0	1	31 DarkAngels-Unforgiven Redemptor
+GSC74	Rogue Informant	90	2	0	0	0	0	0	1	T1 Genestealers-Rogue Informant
+TL61	Stranded Termagant	60	2	1	2	3	0	0	0	34 Leviathan-Stranded Termagant
+UM17	Primaris Impulsor	10	5	3	3	6	0	0	1	17 UM-Primaris Impulsor
+DA26	Ravenwing Ancient	110	5	3	5	5	0	0	1	23 DarkAngels-Ravenwing Ancient
+98d3c65702746b04baf7f5ead1a9e507	Ramshackle	20	0	0	0	0	0	0	1	Z-NC Goff-Ramshackle
+ASH6	Ranger	30	2	1	3	2	0	0	0	3 SaimHann-Ranger
+SAU21	Doom Scythe	40	5	2	5	5	0	0	0	21 Sautekh-Doom Scythe
+UM55	Sternguard Sergeant	10	3	3	3	3	0	0	1	31 UM-Sternguard Sergeant
+70ce5448c46c2c34d80192472e976a67	Master Outrider	90	2	0	0	0	0	0	1	Z-NC GenestealerCults-Master Outrider_enchantment
+BL22	Master of Possession	50	5	5	4	6	0	0	1	20 BlackLegion-Master of Possession
+ASH1	Anvirr Keltoc	30	2	2	2	25	0	0	1	SaimHann_war_Anvirr Keltoc
+GOF95	Kill Rig	20	8	3	8	7	0	0	2	18 Goff-Kill Rig
+847acecf682cb0748bc4445b52125cb4	Gauss Warrior (tutorial)	40	2	2	2	2	0	0	1	4 Sautekh-Gauss Warrior_tutorial
+ASH37	Webway Incursion	30	1	0	0	0	0	0	1	T2 SaimHann-Webway Incursion
+BL63	Havoc	50	5	3	6	6	0	0	1	33 BlackLegion-Havoc
+SW61	Halls of Legend	130	1	0	0	0	0	0	1	Z-SW-Halls of Legend
+DA41	Martial Superiority	110	1	0	0	0	0	0	1	T3 DarkAngels-Martial Superiority
+c433e3dde4952cc448220908226127ae	Master Outrider	90	2	0	0	0	0	0	1	Z-NC GenestealerCults-Master Outrider
+SAU57	Tomb World	40	9	0	0	0	0	0	5	T20 Sautekh-Tomb World
+a58e05916eb5e994daa0349cbe237001	Synaptic Imperative	60	1	0	0	0	0	0	1	Z-NC Leviathan-Synaptic Imperative
+EC3	Disharmonist	120	5	3	5	5	0	0	1	21 EmperorsChildren-Disharmonist
+TL50	Infinite Biomorphologies	60	2	0	0	0	0	0	1	T12 Leviathan-Infinite Biomorphologies
+ASH35	Wraithknight	30	10	6	6	12	2	0	1	32 SaimHann-Wraithknight
+TL21	Screamer-Killer	60	6	5	6	6	1	0	0	23 Leviathan-Screamer-Killer
+AM59	Astropath	100	4	2	2	4	0	1	0	13 AstraMilitarum-Astropath
+77a7253295da8234f8c04de2ad5e2d59	Makari the Grot	20	1	1	1	2	0	0	2	2 Goff-Makari the Grot_tutorial
+9218576fd3e26554db5b4c239a36dbc7	Pray Enchantment	80	2	0	0	0	0	0	2	Z-NC Sororitas-Pray_enchantment
+6bce17171773ce044ac88728f5ea1d33	Indomitus Crusade	10	6	0	0	0	0	0	1	T10 Ultramarines-Indomitus Crusade_normal
+ASH31	Winged Autarch	30	7	7	7	7	0	0	1	28 SaimHann-Winged Autarch
+ASH56	Inspiring Legacy	30	0	0	0	0	0	0	1	Z-SaimHann-Inspiring Legacy
+GSC11	Neophyte Heavy	90	3	1	5	4	0	0	1	10 GenestealerCults-Neophyte Heavy
+ASH25	Warlock Skyrunner	30	5	5	3	5	0	0	1	22 SaimHann-Warlock Skyrunner
+SW24	Frost Claw Wulfen	130	5	6	3	5	1	0	0	21 SpaceWolves-Frost Claw Wulfen
+3852c4775eacc5b4da2e6099e2bffff7	Blackout	30	-1	0	0	0	0	0	2	Z-SaimHann-Blackout_enchantment
+SAU34	Monolith	40	10	8	10	10	3	0	2	34 Sautekh-Monolith
+GSC32	Abominant	90	7	8	0	8	1	0	1	29 GenestealerCults-Abominant
+91fed153a7ef8734b89b7892c67201ef	Krump da Gitz	20	2	0	0	0	0	0	1	T7 Goff-Krump da Gitz_enchantment
+09bcb1b3b8794c4429d82d4b2e68fa1f	Path of the Seer	30	1	0	0	0	0	0	1	Z-NC SaimHann-Path of the Seer
+EC64	Empyric Rift	120	-1	0	0	0	0	0	1	Z-EmperorsChildren-Empyric Rift
+SOR50	Relics of Saint Katherine	80	4	0	0	0	0	0	2	T18 Sororitas-Relics of Saint Katherine
+ASH76	Lhykhis	30	2	2	2	25	0	0	1	SaimHann_war_Lhykhis
+SOR69	Zephyrim Superior	80	5	4	4	5	0	1	1	4 Sororitas-Zephyrim Superior
+6b945ed622dee0e479d44e0bfd2273c5	Uge Choppa	20	2	0	0	0	0	0	1	Z-NC Goff-Uge Choppa_enchantment
+DA6	Sergeant Taaman	110	2	2	3	3	0	0	1	3 DarkAngels-Sergeant Taaman
+AM3	Commissar Denkler	100	2	2	2	25	0	1	1	AstraMilitarum_war_Commissar Denkler
+e01e8e933ad574b44bce5473ae486667	Rites of Penance	110	2	0	0	0	0	0	1	Z-NC DarkAngels-Rites of Penance
+SW20	Thunderwolf Cavalry Pack Leader	130	4	4	4	5	0	0	2	17 SpaceWolves-Thunderwolf Cavalry Pack Leader
+UM63	Chapter Council	10	6	0	0	0	0	0	1	T20 Chapter Council
+AM18	Master of Ordnance	100	3	3	3	3	0	0	1	9 AstraMilitarum-Master of Ordnance
+TL34	Tervigon	60	2	2	2	30	0	0	1	Leviathan_war_Tervigon
+51e88ac3d55f7d947bee19f8eb02c06a	Devourer Cannon	60	-1	4	4	6	0	0	1	17 Leviathan-Carnifex_Enchantment_Devourer Cannon
+GOF20	Veteran Stormboy	20	6	7	4	6	0	0	1	20 Goff-Veteran Stormboy
+GOF18	Painboy Sniklaw	20	5	6	3	6	0	0	2	18 Goff-Painboy Sniklaw
+40667e346ae58a84dbda1033dff70ccb	Author of the Codex	10	2	0	0	0	0	0	1	Z-NC UM-Author of the Codex
+GSC35	Benefictus	90	7	3	8	5	0	0	1	32 GenestealerCults-Benefictus
+SW38	Land Raider	130	10	6	9	12	0	0	1	35 SpaceWolves-Land Rider
+AM66	Tempestor Prime	100	2	2	2	25	0	1	1	AstraMilitarum_war_Hektor Thenmann
+GOF35	Ork Encampment	20	2	0	0	0	0	0	1	T6 Goff-Ork Encampment
+AM38	Baneblade Tank	100	10	6	12	10	2	1	1	35 AstraMilitarum-Baneblade Tank
+DA52	March of Vengeance	110	4	0	0	0	0	0	1	T14 DarkAngels-March of Vengeance
+EC22	Veldras the Sublime	120	4	4	1	4	0	0	2	19 EmperorsChildren-Veldras the Sublime
+ASH14	Wraithblade	30	3	3	0	4	0	0	1	11 SaimHann-Wraithblade
+364bf7f669176924eab7fbb1a477e3a4	Aerial Clash	10	-1	0	0	0	0	0	2	Z-UM-Aerial Clash_enchantment
+BL28	Helbrute	50	7	6	6	7	2	0	1	26 BlackLegion-Helbrute
+ASH15	Howling Banshee	30	4	3	2	4	0	0	1	12 SaimHann-Howling Banshee
+44761bc257d1f1243ac5f6058459ede6	Cadia Stands	100	4	0	0	0	0	0	1	T13 AstraMilitarum-Cadia Stands_enchantment
+DA9	Aggressor	110	3	3	3	4	0	0	1	6 DarkAngels-Aggressor
+GSC62	Toxic Fumes	90	-1	0	0	0	0	0	1	Z-GenestealerCults-Toxic Fumes
+UM72	Predator Annihilator	10	7	5	7	8	0	0	1	7 Ultramarines-Predator Annihilator
+TL48	Predator Instincts	60	1	0	0	0	0	0	1	T3 Leviathan-Predator Instincts
+453b0e8f88e094a17866a6979f389ef5	Infernal Gaze	50	1	0	0	0	0	0	1	Z-NC BlackLegion-Infernal Gaze
+DA7	Ravenwing Bikes	110	2	2	1	3	0	1	0	4 DarkAngels-Ravenwing Bikes
+UM61	The Chapter's Due	10	1	0	0	0	0	0	1	T18 The Chapter's Due
+GOF98	Gnarled and Rugged	20	1	0	0	0	0	0	1	T1 Goff-Gnarled and Rugged
+AM37	Rogal Dorn Tank	100	9	6	9	9	1	0	1	34 AstraMilitarum-Rogal Dorn Tank
+ed8105674efc55e4185a5c74d5abf844	Duty's End	10	2	0	0	0	0	0	1	T5 Ultramarines-Duty's End_enchantment
+UM59	Stormtalon	10	7	4	6	7	0	0	1	35 UM-Stormtalon
+0474b16360827b6408fb02b6820e7e63	Living Icon	90	3	0	0	0	0	0	1	T11 GenestealerCults-Living Icon_enchantment
+BL44	Daemonic Pact	50	4	0	0	0	0	0	1	T8 BlackLegion-Daemonic Pact
+ASH11	Striking Scorpion	30	3	2	1	3	0	0	0	8 SaimHann-Striking Scorpion
+BL16	Possessed Champion	50	4	4	0	5	0	0	1	14 BlackLegion-Possessed Champion
+f240bc73f2297494c9baf3784cc23a5e	Full Moon	130	0	0	0	0	0	0	1	Z-SW-Full Moon_enchantment
+DA29	Darkshroud	110	6	2	6	6	0	1	1	26 DarkAngels-Darkshroud
+98efedc81da043a48ba219d1aaed8965	Craftworld Convergence	30	2	0	0	0	0	0	1	8 SaimHann-Craftworld Convergence_enchantment2
+DA70	Vengeful Brethren Intercessor	110	2	2	2	3	0	0	1	6 DarkAngels-Vengeful Brethren Intercessor
+5c4d9e7824bf8d941b69eeb2589e30aa	Normal Conditions (Goff)	20	-1	0	0	0	0	0	0	Z-NC-Goff-Normal Conditions
+GOF53	Extractor Rig	20	0	0	0	0	0	0	1	Z-Goff-Extractor Rig
+c4ff279078605aa42942c8dd16b77147	Scryer's Gaze	10	1	0	0	0	0	0	1	Z-NC UM-Scryer's Gaze
+fdacb4e306ae79547883557cce46f557	Saviour Protocols	70	3	0	0	0	0	0	0	T13 TauEmpire-Saviour Protocols_enchantment
+SOR61	Guidance of the Saints	80	0	0	0	0	0	0	1	Z-Sororitas-Guidance of the Saints
+SAU12	Tomb Blade	40	3	1	3	3	0	0	0	12 Sautekh-Tomb Blade
+UM90	Phobos Lieutenant	10	2	1	3	3	0	1	1	2 Ultramarines-Phobos Lieutenant
+TAU59	Solar Eclipse	70	-1	0	0	0	0	0	1	Z-TauEmpire-Solar Eclipse
+c4f5c920744030c4e84428dc5a0f1bf2	Drone Companion	70	1	0	0	0	0	0	1	Z-NC TauEmpire-Drone Companion
+UM116	No Mercy	10	4	0	0	0	0	0	3	T8 Ultramarines-No Mercy
+UM117	No Respite	10	5	0	0	0	0	0	2	T9 Ultramarines-No Respite
+SW64	Everstorm	130	-1	0	0	0	0	0	1	Z-SW-Everstorm
+d1a037ffd7c538c4aae209e1708aef13	Marneus Calgar (tutorial)	10	2	2	2	30	0	0	0	Ultramarines_war_Marneus Calgar_tutorial
+cdc015de8cecdc74fa0aaa2bbeb29d8f	Tale of the Faithful	80	2	0	0	0	0	0	1	Z-NC Sororitas-Hymn of Battle_enchantment3
+SOR18	Dialogus	80	4	4	3	5	0	1	1	13 Sororitas-Dialogus
+GSC64	Rusted Vents	90	0	0	0	0	0	0	1	Z-GenestealerCults-Rusted Vents
+TL68	Psychophage	60	5	2	2	5	0	0	2	5 Leviathan-Psychophage
+UM6	Primaris Intercessor	10	2	2	2	3	0	0	0	6 UM-Primaris Intercessor
+DA59	Grim Effigy	110	0	0	0	0	0	0	1	Z-DA-Grim Effigy
+AM14	Autocannon Squad	100	3	1	4	4	0	0	1	6 AstraMilitarum-Autocannon Squad
+SAU62	Earthquake	40	-1	0	0	0	0	0	1	Z-Sautekh-Earthquake
+EC33	Alluress	120	2	3	0	3	0	0	2	4 EmperorsChildren-Alluress
+2bee2e8f8b3f8bc47981084f14495088	Champions of Humanity	10	6	0	0	0	0	0	1	T4 Ultramarines-Champions of Humanity_oath
+fae4ef61e87b2ee44b8e52fc705c2030	Unbridled Carnage	20	4	0	0	0	0	0	1	T12 Goff-Unbridled Carnage_enchantment
+UM115	Stormhawk Interception	10	3	0	0	0	0	0	2	T7 Ultramarines-Stormhawk Interception
+AM70	Medic Scion	100	4	3	3	5	0	1	1	4 AstraMilitarum-Medic Scion
+SAU26	Plasmancer	40	6	5	5	7	0	0	1	26 Sautekh-Plasmancer
+GOF17	Killa Kan	20	5	7	7	5	0	0	2	17 Goff-Killa Kan
+UM100	Chaplain Cassius	10	6	4	4	7	0	0	1	12 Ultramarines-Chaplain Cassius
+SOR32	Mortifier	80	7	6	6	7	0	0	1	30 Sororitas-Mortifier
+2621d4280735baf4c952e6afea8d0686	Excessive Vigour	120	2	0	0	0	0	0	1	Z-NC EmperorsChildren-Excessive Vigour
+ASH17	Spiritseer	30	5	5	5	5	0	0	1	14 SaimHann-Spiritseer
+GOF88	Nob on Smasha Squig	20	5	6	3	5	1	0	1	11 Goff-Nob on Smasha Squig
+UM47	Uriel Ventris	10	2	2	2	25	0	0	1	Ultramarines_war_Uriel Ventris
+SOR60	Holy Fire	80	0	0	0	0	0	0	1	Z-Sororitas-Holy Fire
+SOR19	Seraphim	80	4	2	4	4	0	0	1	17 Sororitas-Seraphim
+SAU40	Protection Protocol	40	2	0	0	0	0	0	2	T3 Sautekh-Protection Protocol
+ASH84	Ahnakh-Yth Shrine	30	1	0	0	0	0	0	2	T1 SaimHann-Ahnakh-Yth Shrine
+EC35	Blissbringer	120	5	5	0	6	0	0	1	20 EmperorsChildren-Blissbringer
+GOF86	Unleashed Tramplasquig	20	4	4	0	5	0	0	1	9 Goff-Unleashed Tramplasquig
+SOR1	Erika Luminas	80	2	2	2	25	0	1	2	Sororitas_war_Erika Luminas
+e874c2bd84895e64694daa44bd5fd5c2	Primarch of the XIII	10	1	0	0	0	0	0	1	Z-NC UM-Primarch of the XIII
+SOR2	Junith Eruita	80	2	2	2	25	0	1	2	Sororitas_war_Junith Eruita
+SOR44	Moment of Grace	80	1	0	0	0	0	0	2	T5 Sororitas-Moment of Grace
+6b18f49379aca9742894111f7ed409c7	Duelist's Hubris	120	1	0	0	0	0	0	1	Z-NC EmperorsChildren-Duelist's Hubris_enchantment1
+TL19	Broodlord	60	6	5	3	6	0	0	1	22 Leviathan-Broodlord
+6899b199f5e36144ebbdd7ed9d9e7afe	Uge Choppa	20	2	0	0	0	0	0	1	Z-NC Goff-Uge Choppa
+SOR45	Defenders of the Faith	80	6	0	0	0	0	0	1	T19 Sororitas-Defenders of the Faith
+SAU11	Technomancer	40	3	2	2	4	0	0	2	11 Sautekh-Technomancer
+aa45079b714e3ff498549e533c5954a1	Xylocil	120	0	0	0	0	0	0	1	Z-NC CombatElixir - EmperorsChildren-Xylocil
+e01f4d54e8a474d96b5a1167cc28eebf	Daemonbreaker	80	2	0	0	0	0	0	2	Z-NC Sororitas-Daemonbreaker
+GOF19	Meganob Ugrak	20	6	5	6	6	0	0	1	19 Goff-Meganob Ugrak
+ASH60	Webway Rift	30	-1	0	0	0	0	0	1	Z-SaimHann-Webway Rift
+SOR47	Miraculous Feat	80	3	0	0	0	0	0	2	T9 Sororitas-Miraculous Feat
+1bfe0893592c9dd40bed8d68d5d2b516	Path of the Warrior	30	2	0	0	0	0	0	1	Z-NC SaimHann-Path of the Warrior
+GOF21	Mekboy Gazmek	20	5	4	5	6	0	0	2	21 Goff-Mekboy Gazmek
+SOR22	Dominion Superior	80	5	4	6	5	0	0	2	21 Sororitas-Dominion Superior
+BL8	Noise Marine	50	3	1	2	4	0	0	1	6 BlackLegion-Noise Marine
+DA60	Defensive Turrets	110	0	0	0	0	0	0	1	Z-DA-Defensive Turrets
+TL24	Harpy	60	7	4	7	8	0	0	1	26 Leviathan-Harpy
+GOF1	Grot	20	1	1	1	2	0	0	0	1 Goff-Grot
+4cdc1b5f965f99945b685bca7660e9fa	Exemplar of Hate	110	1	0	0	0	0	0	2	Z-NC DarkAngels-Exemplar of Hate
+GSC70	Jackal Specialist	90	5	3	5	5	0	0	1	5 Genestealers-Jackal Specialist
+9238c27730a0c424288d46ed0f4a742c	Master of the Fleet	10	2	0	0	0	0	0	1	Z-NC UM-Master of the Fleet
+d0ac7c259308ab540aabb5123d0c1633	Primaris Reiver (tutorial)	10	2	3	1	2	0	0	0	5 UM-Primaris Reiver_tutorial
+DA74	Hunters of Heretics	110	3	0	0	0	0	0	1	T3 DarkAngels-Hunters of Heretics
+a424ea66742166b4999fe97e07d61ac7	Adaptive Strategy	10	2	0	0	0	0	0	1	T1 Ultramarines-Adaptive Strategy_oath
+GOF14	Skarboy Nob	20	4	3	3	5	0	0	1	14 Goff-Skarboy Nob
+UM101	Terminator Sergeant	10	6	5	6	6	1	1	0	13 Ultramarines-2nd Company Terminator
+BL1	Chaos Spawn	50	1	2	0	1	0	0	0	1 BlackLegion-Chaos Spawn
+0cc4533fc0bee374196e55fb1569e63b	The Rock	110	2	0	0	0	0	0	1	T8 DarkAngels-The Rock_enchantment3
+UM62	Battlefield Supremacy	10	4	0	0	0	0	0	1	T19 Battlefield Supremacy
+67adbc7f7bce2bd4c8f6937fab3134e5	Flickerjump	30	0	0	0	0	0	0	1	Z-NC SaimHann-Flickerjump
+AM74	Forged Killers	100	3	0	0	0	0	0	1	T1 AstraMilitarum-Forged Killers
+TAU58	Coordinated Engagement	70	3	0	0	0	0	0	2	T15 TauEmpire-Coordinated Engagement
+GSC33	Goliath Truck	90	7	5	7	7	1	0	1	30 GenestealerCults-Goliath Truck
+SAU65	Royal Warden	40	6	2	6	6	0	0	1	35 Sautekh-Royal Warden
+EC51	Coterie of the Conceited	120	4	0	0	0	0	0	1	T13 EmperorsChildren-Coterie of the Conceited
+c988c599275dcdb449a5d5a46af0d27b	The Fang	130	2	0	0	0	0	0	1	T10 SpaceWolves-The Fang_enchanatment2
+GSC53	Enhanced Aggression	90	2	0	0	0	0	0	1	T9 GenestealerCults-Enhanced Aggression
+52520927841c93c4785d2690edb9fb1f	Grukk Face-Rippa	20	2	2	2	20	0	0	1	Goff_war_GrukkFace-Rippa_EASY
+TAU51	Saviour Protocols	70	4	0	0	0	0	0	1	T13 TauEmpire-Saviour Protocols
+ASH2	Eliac Zephyrblade	30	2	2	2	30	0	0	1	SaimHann_war_Eliac Zephyrblade
+SAU41	Reanimation Protocol	40	1	0	0	0	0	0	1	T4 Sautekh-Reanimation Protocol
+SOR13	Simulacrum Bearer	80	3	2	2	5	0	1	1	11 Sororitas-Simulacrum Bearer
+EC63	Stimm-Vents Leak	120	-1	0	0	0	0	0	1	Z-EmperorsChildren-Stimm-Vents Leak
+TL42	Darkened Skies	60	2	0	0	0	0	0	1	T9 Leviathan-Darkened Skies
+UM97	Suppressor	10	4	2	4	4	0	1	0	9 Ultramarines-Suppressor
+BL41	Possession	50	8	0	0	0	0	0	1	T5 BlackLegion-Possession
+EC49	Terrifying Crescendo	120	3	0	0	0	0	0	2	T12 EmperorsChildren-Terrifying Crescendo
+TAU75	Hunter's Instincts	70	4	0	0	0	0	0	1	T3 TauEmpire-Hunter's Instincts
+TAU48	Emergency Dispensation	70	3	0	0	0	0	0	1	T10 TauEmpire-Emergency Dispensation
+DA50	Sacred Standard	110	3	0	0	0	0	0	1	T12 DarkAngels-Sacred Standard
+SOR73	Sacred Rose	80	4	0	0	0	0	0	2	T1 Sororitas-Sacred Rose
+SW37	Wulfen Dreadnought	130	9	10	8	9	1	0	1	34 SpaceWolves-Wulfen Dreadnought
+SAU1	Canoptek Scarab	40	1	1	0	1	0	0	1	1 Sautekh-Canoptek Scarab
+ASH58	Blackout	30	-1	0	0	0	0	0	1	Z-SaimHann-Blackout
+GSC28	Hulking Aberrant	90	6	7	0	7	1	0	1	26 GenestealerCults-Hulking Aberrant
+ASH47	Bladestorm	30	4	0	0	0	0	0	1	T12 SaimHann-Bladestorm
+TL29	Winged Tyrant	60	9	9	9	9	0	0	1	31 Leviathan-Winged Tyrant
+TAU54	Razorshark Strike	70	4	0	0	0	0	0	1	T17 TauEmpire-Razorshark Strike
+AM6	Ratling	100	2	1	3	3	0	0	1	3 AstraMilitarum-Ratling
+TL44	Hardened Biology	60	3	0	0	0	0	0	1	T11 Leviathan-Hardened Biology
+91992b401487b494596d42098b8ec9ee	Indomitus Crusade	10	12	0	0	0	0	0	1	T10 Ultramarines-Indomitus Crusade_oath
+3ebb159036778d14ebd1c48451aa6ca0	Greatest Warboss	20	2	0	0	0	0	0	2	Z-NC Goff-Greatest Warboss
+SW43	Anvil of Endurance	130	2	0	0	0	0	0	2	T5 SpaceWolves-Anvil of Endurance
+DA51	Covert Operation	110	3	0	0	0	0	0	2	T13 DarkAngels-Covert Operation
+SW62	First Light	130	-1	0	0	0	0	0	1	Z-SW-First Light
+UM69	Land Speeder	10	4	3	4	5	0	0	1	4 Ultramarines-Land Speeder
+GSC66	Shanus Daskovian	90	2	2	2	25	0	0	1	GenestealerCult_war_Lhaska Szenari
+BL50	Execution	50	4	0	0	0	0	0	1	T14 BlackLegion-Execution
+708c0306e73fd494eb0f718ddaeea48a	Smothering Decree	110	2	0	0	0	0	0	2	Z-NC DarkAngels-Smothering Decree
+EC52	Mercurial Host	120	4	0	0	0	0	0	1	T10 EmperorsChildren-Mercurial Host
+DA36	Sammael	110	8	9	7	9	0	0	2	33 DarkAngels-Sammael
+GSC3	Iconward Malak Vorenth	90	2	2	2	25	0	0	1	GenestealerCult_war_Iconward Malak Vorenth
+DA48	Deathwing Assault	110	3	0	0	0	0	0	1	T10 DarkAngels-Deathwing Assault
+TAU32	Aun'Shi	70	6	6	3	6	0	0	2	29 TauEmpire-Aun'Shi
+GSC42	Enhanced Musculature	90	2	0	0	0	0	0	1	T6 GenestealerCults-Enhanced Musculature
+TAU72	Lone-spear	70	7	6	6	8	0	0	1	7 TauEmpire-Lone-spear
+AM10	Cadian Standard Bearer	100	4	2	3	5	0	1	1	15 AstraMilitarum-Cadian Standard Bearer
+BL45	Spawndom	50	3	0	0	0	0	0	1	T9 BlackLegion-Spawndom
+SW42	Savage Legacy	130	1	0	0	0	0	0	2	T4 SpaceWolves-Savage Legacy
+SW25	Wolf Guard Battle Leader	130	5	5	4	6	0	0	1	22 SpaceWolves-Wolf Guard Battle Leader
+760bd3afde513774d96d6492f995fd37	Spirit Leech	60	1	0	0	0	0	0	1	Z-NC Leviathan-Spirit Leech
+SAU54	Conquering Tyrant	40	6	0	0	0	0	0	1	T17 Sautekh-Conquering Tyrant
+340fad5472405bf4296618152c4f003b	Armoured Exoskeleton	60	-1	4	4	6	0	0	1	17 Leviathan-Carnifex_Enchantment_Armoured Exoskeleton
+SW12	Thunderwolf Cavalry	130	3	3	3	4	0	0	1	9 SpaceWolves-Thunderwolf Cavalry
+AM5	Shock Trooper	100	2	1	2	3	0	1	0	4 AstraMilitarum-Shock Trooper
+GSC44	Subterranean Ambush	90	4	0	0	0	0	0	1	T17 GenestealerCults-Subterranean Ambush
+TAU15	Sniper Drone	70	3	1	3	3	0	0	1	12 TauEmpire-Sniper Drone
+GSC13	Neophyte Specialist	90	2	1	3	2	0	0	1	6 GenestealerCults-Neophyte Specialist
+0d2874f3b124db2408e2c52ae47e5e0e	Catechism of Death	10	3	0	0	0	0	0	1	Z-NC UM-Catechism of Death_oath
+9176318eaf469354e858f51af2333aa3	Litany of Despair	50	2	0	0	0	0	0	1	Z-NC BlackLegion-Litany of Despair
+GSC59	Day of Ascension	90	10	0	0	0	0	0	1	T20 GenestealerCults-Day of Ascension
+ASH65	Shining Spear	30	3	3	1	3	0	0	1	1 SaimHann-Shining Spear
+UM77	Chairon	10	2	3	2	3	0	0	2	1 Ultramarines-Chairon
+EC2	Blastmaster Noise Marine	120	4	2	6	5	0	0	1	13 EmperorsChildren-Blastmaster Noise Marine
+3a52026b99bb56f40aa9dc130fc66f34	Cadian Honour	100	2	0	0	0	0	0	1	Z-NC AstraMilitarum-Cadian Honour
+AM1	Lord Solar Leontus	100	2	2	2	30	0	1	1	AstraMilitarum_war_Lord Solar Leontus
+UM12	Antaro Chronus	10	4	4	5	5	0	0	2	12 UM-Antaro Chronus
+SAU45	Hyperlogical Strategist	40	1	0	0	0	0	0	1	T8 Sautekh-Hyperlogical Strategist
+SOR15	Celestian	80	3	2	3	4	0	1	1	8 Sororitas-Celestian
+GSC1	Primus Saffa Rhiannor	90	2	2	2	25	0	0	1	GenestealerCult_war_Primus Saffa Rhiannor
+SAU56	Methodical Destruction	40	7	0	0	0	0	0	1	T19 Sautekh-Methodical Destruction
+SAU67	Damaged Plasmacyte	40	2	1	1	3	0	0	1	1 Sautekh-Damaged Plasmacyte
+UM43	Knights of Macragge	10	3	0	0	0	0	0	1	T14 Knights of Macragge
+SAU43	Solar Pulse	40	4	0	0	0	0	0	1	T6 Sautekh-Solar Pulse
+SAU28	Ghost Ark	40	7	5	5	9	0	0	2	28 Sautekh-Ghost Ark
+SOR59	Sacred Altar	80	1	0	0	0	0	0	1	Z-Sororitas-Sacred Altar
+TL74	Terror of Vardenghast	60	2	2	2	25	0	0	2	Leviathan_war_Terror of Vardenghast
+AM43	Recon Operation	100	2	0	0	0	0	0	2	T5 AstraMilitarum-Recon Operation
+TL72	Tyranid Invasion	60	6	0	0	0	0	0	1	T2 Leviathan-Tyranid Invasion
+f8ba395632901b84397bd14282472c35	Lieutenant Calsius (tutorial)	10	6	6	3	6	0	0	1	24 UM-Lieutenant Calsius_tutorial
+5b5425f6e2848b449807bd1643d0d936	Hive Commander	60	2	0	0	0	0	0	1	Z-NC Leviathan-Hive Commander
+UM33	Pariah Vanguard	10	1	0	0	0	0	0	1	T3 Pariah Vanguard
+03b4f1012b03fbe4193b68c99d9a7129	Earthquake	40	0	0	0	0	0	0	1	Z-Sautekh-Earthquake_enchantment
+ASH7	Veteran Guardian	30	2	2	1	3	0	0	0	4 SaimHann-Veteran Guardian
+ASH5	Storm Guardian	30	1	2	1	2	0	0	0	2 SaimHann-Storm Guardian
+AM62	Munitorum Supplies	100	2	0	0	0	0	0	1	Z-AstraMilitarum-Munitorum Supplies
+TL67	Barbgaunt	60	3	1	4	4	0	0	0	3 Leviathan-Barbgaunt
+UM57	Primaris Invader	10	4	3	4	5	0	0	1	33 UM-Primaris Invader
+SW50	Hordeslayer	130	4	0	0	0	0	0	1	T12 SpaceWolves-Hordeslayer
+GOF24	Battlewagon	20	8	6	5	10	0	0	2	24 Goff-Battlewagon
+ASH72	Graceful Avoidance	30	2	0	0	0	0	0	1	9 SaimHann-Graceful Avoidance
+d8a14171b08b54144ba9dbf324b0a042	Relentless March	40	2	0	0	0	0	0	1	Z-NC Sautekh-Relentless March
+752141bbf0543314987e3b9afed938af	Hallowed Martyrs	80	4	0	0	0	0	0	2	T14 Sororitas-Hallowed Martyrs_enchantment
+DA63	Void Combat	110	-1	0	0	0	0	0	1	Z-DA-Void Combat
+AM48	Regimental Doctrine	100	2	0	0	0	0	0	1	T10 AstraMilitarum-Regimental Doctrine
+UM10	Hellblaster	10	4	2	5	5	0	0	0	10 UM-Hellblaster
+BL42	Traitors Hate	50	2	0	0	0	0	0	1	T6 BlackLegion-Traitors Hate
+UM95	Attack Bike	10	4	3	5	5	0	1	0	7 Ultramarines-Attack Bike
+BL25	Dark Apostle	50	6	5	4	7	0	0	1	23 BlackLegion-Dark Apostle
+SAU69	Flayed Ones Pack	40	3	3	0	3	0	0	1	2 Sautekh-Flayed Ones Pack
+SW56	Let Loose	130	6	0	0	0	0	0	2	T18 SpaceWolves-Let Loose
+SAU30	Triarch Stalker	40	7	5	7	7	0	0	1	30 Sautekh-Triarch Stalker
+e9f33f1a8acbc3949a99f3ad69078d4d	Tale of the Faithful	80	2	0	0	0	0	0	1	Z-NC Sororitas-Hymn of Battle_enchantment1
+UM92	Firestrike Servo-Turret	10	3	1	4	3	0	1	0	4 Ultramarines-Firestrike Servo Turret
+UM111	Shall Know No Fear	10	2	0	0	0	0	0	2	T3 Ultramarines-Shall Know No Fear
+BL31	Maulerfiend	50	8	9	5	9	1	0	1	29 BlackLegion-Maulerfiend
+GSC45	Underground Network	90	5	0	0	0	0	0	1	T13 GenestealerCults-Underground Network
+GOF103	Da Hunt is On	20	3	0	0	0	0	0	1	T6 Goff-Da Hunt is On
+97a4b83aa9331d5489bcd837fd4be8e8	Angel's Wrath	10	3	0	0	0	0	0	1	Z-NC UM-Angel's Wrath_oath
+7c06b8117fe86e74dbc454139da8653b	Everstorm	130	-1	0	0	0	0	0	1	Z-SW-Everstorm_enchantment
+e8711efdd74a2a544a3ff12c729c230c	Craftworld Convergence	30	2	0	0	0	0	0	1	8 SaimHann-Craftworld Convergence_enchantment1
+GOF42	Da Irongob	20	4	0	0	0	0	0	1	T13 Goff-Da Irongob
+SW17	Wulfen	130	4	5	3	5	0	0	0	14 SpaceWolves-Wulfen
+EC45	Mechanised Murder	120	3	0	0	0	0	0	1	T9 EmperorsChildren-Mechanised Murder
+GOF58	Boomdakka Snazzwagon	20	5	3	5	5	0	0	1	30 Goff-Boomdakka Snazzwagon
+cc1400347b15ee3449bc18bbdb9ddec9	Exemplary Warrior	10	2	0	0	0	0	0	1	Z-NC UM-Exemplary Warrior
+79fe758082cb0a548ba235d45bb26ca8	No Respite	10	8	0	0	0	0	0	1	T9 Ultramarines-No Respite_oath
+GSC52	Summon the Cult	90	3	0	0	0	0	0	1	T15 GenestealerCults-Summon the Cult
+202fb454856a2b04d904c4ff7bc2410f	Toxic Fumes	90	-1	0	0	0	0	0	1	Z-GenestealerCults-Toxic Fumes_enchantment
+ASH41	Webway Gate	30	2	0	0	0	0	0	2	T6 SaimHann-Webway Gate
+e9952f50921d2844a94d39ce883430f4	Vox-Hacker	90	1	0	0	0	0	0	1	Z-NC GenestealerCults-Vox-Hacker
+EC5	Tormentor	120	2	1	3	3	0	0	1	3 EmperorsChildren-Tormentor
+SOR65	Celestian Sacresant Aveline	80	2	2	2	25	0	1	2	Sororitas_war_Celestian Sacresant Aveline
+SOR68	Ministorum Priest	80	3	3	3	4	0	1	1	3 Sororitas-Ministorum Priest
+GOF92	Weirdboy	20	6	4	6	6	0	0	2	15 Goff-Weirdboy
+SAU19	Canoptek Reanimator	40	5	2	2	5	0	0	2	19 Sautekh-Canoptek Reanimator
+GSC58	Gestalt Energy	90	3	0	0	0	0	0	1	T10 GenestealerCults-Gestalt Energy
+UM93	Vico Therbeus	10	3	3	4	4	0	1	1	5 Ultramarines-Vico Therbeus
+TAU50	Priority Target	70	2	0	0	0	0	0	1	T12 TauEmpire-Priority Target
+20d0f4451f16fc441836a02f99bf77da	Da Red Waaagh	20	2	0	0	0	0	0	1	Z-NC Goff-Da Red Waaagh
+SOR54	Fiery Conviction	80	4	0	0	0	0	0	2	T13 Sororitas-Fiery Conviction
+AM16	Scout Sentinel	100	4	3	4	5	0	1	0	17 AstraMilitarum-Scout Sentinel
+AM2	Ursula Creed	100	2	2	2	25	0	1	1	AstraMilitarum_war_Ursula Creed
+9b1a9b14d290b4d07a575e0af8ffdf9b	Delightful Agonies	50	4	0	0	0	0	0	1	T13 BlackLegion-Delightful Agonies_enchantment
+SOR17	Sister Superior	80	4	4	4	5	0	1	1	18 Sororitas-Sister Superior
+SW3	Ragnar Blackmane	130	0	2	2	25	0	0	1	SpaceWolves_war_Ragnar Blackmane
+SAU44	Disruption Blades	40	3	0	0	0	0	0	1	T7 Sautekh-Disruption Blades
+UM51	Thunderstorm	10	-1	0	0	0	0	0	1	Z-UM-Thunderstorm
+SW22	Blackmane Inceptor	130	5	3	5	5	0	0	1	19 SpaceWolves-Blackmane Inceptor
+TAU46	Sense of Stone	70	2	0	0	0	0	0	1	T8 TauEmpire-Sense of Stone
+GOF74	Grizzled Skarboy	20	6	0	0	0	0	0	1	T10 Goff-Grizzled Skarboy
+GSC5	Concealed Explosives	90	2	5	0	1	0	0	2	3 GenestealerCults-Concealed Explosives
+bf538271ab431244399a01e3ba3a103f	Normal Conditions (GSC)	100	-1	0	0	0	0	0	0	Z-NC-AstraMilitarum-Normal Conditions
+4eec3b13d157dae48b14ed412169e692	Skorflense	120	0	0	0	0	0	0	1	Z-NC CombatElixir - EmperorsChildren-Skorflense
+9a2cadc64c80a6b42912441105bb1cee	Mark of Khorne (enchantment)	50	-1	0	0	0	0	0	1	Z-NC BlackLegion-Mark of Khorne_enchantment
+EC39	Eternal Servitude	120	2	0	0	0	0	0	1	T6 EmperorsChildren-Eternal Servitude
+AM15	Minka Lesk	100	3	4	3	4	0	0	2	12 AstraMilitarum-Minka Lesk
+2aa8026988b605d40874798f3992bc81	Infinite Biomorphologies	60	-1	0	0	0	0	0	1	T12 Leviathan-Infinite Biomorphologies_enchantment5
+SW39	Canis Helix	130	1	0	0	0	0	0	1	T1 SpaceWolves-Canis Helix
+DA54	Unwavering Zeal	110	4	0	0	0	0	0	1	T16 DarkAngels-Unwavering Zeal
+7693f2b21b2f85644b739da990bc2216	Paragon of Ultramar	10	0	0	0	0	0	0	1	Z-NC UM-Paragon of Ultramar
+TL17	Deathleaper	60	5	6	0	4	0	0	1	18 Leviathan-Deathleaper
+TAU49	Inspired to Greatness	70	2	0	0	0	0	0	1	T11 TauEmpire-Inspired to Greatness
+ASH8	Warlock	30	2	2	2	2	0	0	1	5 SaimHann-Warlock
+6e6d14006d8e9514b83a6c99e572081c	Quail	120	0	0	0	0	0	0	1	Z-NC CombatElixir - EmperorsChildren-Quail
+d34f1b514c330e646b609a106bb8a76a	Infinite Biomorphologies	60	-1	0	0	0	0	0	1	T12 Leviathan-Infinite Biomorphologies_enchantment4
+SAU61	Resurrection Vault	40	0	0	0	0	0	0	2	Z-Sautekh-Resurrection Vault
+EC14	Varius, Lord Kakophonist	120	7	7	7	7	0	0	1	30 EmperorsChildren-Varius, Lord Kakophonist
+74d2e50e16f323548a7c329ff80b788b	Sudden Assault	30	3	0	0	0	0	0	1	T8 SaimHann-Sudden Assault_enchantment
+TL63	Bounding Leap	60	2	0	0	0	0	0	1	T19 Leviathan-Bounding Leap
+DA31	Ezekiel	110	6	7	4	6	0	0	1	28 DarkAngels-Ezekiel
+TL7	Gargoyle	60	3	1	3	3	0	0	0	8 Leviathan-Gargoyle
+EC36	Chosen of Slaanesh	120	1	0	0	0	0	0	1	T1 EmperorsChildren-Chosen of Slaanesh
+7a01882fe4610244292d16b15f4b873e	Living Lightning	130	0	0	0	0	0	0	1	Z-NC SpaceWolves-Living Lightning
+BL24	Chosen Champion	50	6	6	6	6	0	0	1	22 BlackLegion-Chosen Champion
+8425b809e9e64e24f9035f709f5aaee4	Worst Temper	20	1	0	0	0	0	0	1	Z-NC Goff-Worst Temper
+SOR27	Penitent Engine	80	6	4	5	7	0	0	1	27 Sororitas-Penitent Engine
+GOF22	Deff Dread	20	7	8	5	8	0	0	2	22 Goff-Deff Dread
+0078441d07f6d604db6c6cfb1c1fa46f	Ferocious Rage	20	2	0	0	0	0	0	1	Z-NC Goff-Ferocious Rage_enchantment
+GSC57	Perfect Ambush	90	1	0	0	0	0	0	1	T3 GenestealerCults-Perfect Ambush
+SOR51	Divine Intervention	80	5	0	0	0	0	0	2	T16 Sororitas-Divine Intervention
+41642ef512a2dbf42889c51fff3a8aaa	Wages of Retribution	110	4	0	0	0	0	0	1	T17 DarkAngels-Wages of Retribution_enchantment
+TAU43	For The Greater Good	70	2	0	0	0	0	0	1	T5 TauEmpire-For The Greater Good
+f2b80d575cbf8f64597b991022beaf35	Serene Unifier	70	2	0	0	0	0	0	1	Z-NC TauEmpire-Serene Unifier
+TL22	Hive Crone	60	6	5	4	7	0	0	1	24 Leviathan-Hive Crone
+SW7	Deathwolf Scout	130	2	1	3	3	0	0	1	4 SpaceWolves-Deathwolf Scout
+GOF68	Big Choppa Nob	20	6	7	5	7	0	0	1	4 Goff-Big Choppa Nob
+TAU63	Tidewall Gunrig	70	1	0	0	0	0	0	1	Z-TauEmpire-Tidewall Gunrig
+ASH81	Bright Lance Vyper	30	4	2	4	5	0	0	2	5 SaimHann-Bright Lance Vyper
+SOR57	Hallowed Martyrs	80	5	0	0	0	0	0	1	T14 Sororitas-Hallowed Martyrs
+9f4e1b7ea9f00da458c6a859a4e958c8	More Dakka	20	0	0	0	0	0	0	1	Z-NC Goff-More Dakka
+GSC37	Patriarch	90	14	10	8	9	0	0	3	34 GenestealerCults-Patriarch
+GOF26	Stompa	20	10	10	12	9	2	0	2	26 Goff-Stompa
+BL5	Hound of Abaddon	50	2	1	3	3	0	0	0	4 BlackLegion-Hound of Abaddon
+9c3562ffa183ede41b1626d9c9dc1e2f	Path of Command	30	2	0	0	0	0	0	1	Z-NC SaimHann-Path of Command
+SAU8	Gauss Immortal	40	3	1	4	4	0	0	0	8 Sautekh-Gauss Immortal
+SAU58	Implacable Conqueror	40	5	0	0	0	0	0	1	T21 Sautekh-Implacable Conqueror
+GSC72	Atalan Wolfquad	90	6	3	6	6	0	0	1	6 Genestealers-Atalan Wolfquad
+GOF41	Unbridled Carnage	20	4	0	0	0	0	0	1	T12 Goff-Unbridled Carnage
+SAU22	Lokhust Heavy Destroyer	40	5	2	6	6	0	0	1	22 Sautekh-Lokhust Heavy Destroyer
+TAU34	Coldstar Battlesuit	70	7	6	8	7	1	0	1	31 TauEmpire-Coldstar Battlesuit
+77621c4437867564a8eb7cf208e1c64d	Normal Conditions (DA)	110	-1	0	0	0	0	0	0	Z-NC-DA-Normal Conditions
+a3f0dda16acf35140add842152477c94	Self-Destruction	40	5	0	0	0	0	0	1	T15 Sautekh-Self-Destruction_enchantment
+EC56	Lord Kaphrael	120	2	2	2	25	0	0	2	CSM_EmperorsChildren_war_Lord Kaphrael
+AM68	Tempestus Scion	100	2	2	2	3	0	1	0	2 AstraMilitarum-Tempestus Scion
+GSC69	Jackal Outrider	90	3	2	4	4	0	0	1	3 Genestealers-Jackal Outrider
+DA65	Chaplain Gabutheron	110	7	5	5	7	2	1	1	1 DarkAngels-Chaplain Gabutheron
+SAU48	Disintegration Capacitors	40	4	0	0	0	0	0	1	REMOVED_T11 Sautekh-Disintegration Capacitors
+SW49	Fenrisian Blizzard	130	3	0	0	0	0	0	2	T11 SpaceWolves-Fenrisian Blizzard
+SOR71	Adelaide the Serene	80	6	7	5	6	0	0	2	6 Sororitas-Adelaide the Serene
+2ece07942d1524d2e8856cfa94d21db1	Aerial Dominion	30	4	0	0	0	0	0	1	T11 SaimHann-Aerial Dominion_enchantment
+GOF9	Shoota Boy	20	3	1	5	4	0	0	1	9 Goff-Shoota Boy
+SAU2	Canoptek Plasmacyte	40	2	1	1	4	0	0	1	2 Sautekh-Canoptek Plasmacyte
+f16df0b3a3bf1974db565107bda33847	Let Loose	130	6	0	0	0	0	0	1	T18 SpaceWolves-Let Loose_enchantment
+GOF106	Power of the Waaagh!	20	3	0	0	0	0	0	1	T9 Goff-Power of the Waaagh!
+BL26	Obliterator	50	7	6	8	8	0	0	0	24 BlackLegion-Obliterator
+SAU14	Cryptothrall	40	4	5	2	4	0	0	0	14 Sautekh-Cryptothrall
+UM40	Avenging Zeal	10	12	0	0	0	0	0	2	T10 Avenging Zeal
+TAU8	Missile Drone	70	2	0	2	3	0	0	0	5 TauEmpire-Missile Drone
+TAU60	Electro-Static Interference	70	-1	0	0	0	0	0	1	Z-TauEmpire-Electro-Static Interference
+TAU36	Riptide Battlesuit	70	8	3	8	9	0	0	1	33 TauEmpire-Riptide Battlesuit
+4d4b9170663891f488c0e96ee8e55ba1	Murderous Hurricane	130	0	0	0	0	0	0	1	Z-NC SpaceWolves-Murderous Hurricane
+TAU66	Kroot Carnivore	70	2	3	1	3	0	0	1	1 TauEmpire-Kroot Carnivore
+TL43	Augmented Ferocity	60	3	0	0	0	0	0	1	T10 Leviathan-Augmented Ferocity
+GSC14	Acolyte Leader	90	4	4	4	4	0	0	2	13 GenestealerCults-Acolyte Leader
+b12d246ee426d0f48861a5842b7b0ba5	Void Combat	110	0	0	0	0	0	0	2	Z-DA-Void Combat_enchantment
+SW41	Pack of One	130	1	0	0	0	0	0	2	T3 SpaceWolves-Pack of One
+c0ddba6cc45944f46a65f4fd93bcc0a5	Aerial Seeding	60	0	0	0	0	0	0	1	Z-NC Leviathan-Aerial Seeding
+13fc6dfbba030b643a1e8893a611c88e	Star Orbit	110	-1	0	0	0	0	0	2	Z-DA-Star Orbit_enchantment
+UM44	Armoured Support	10	4	0	0	0	0	0	1	T15 Armoured Support
+SW27	Wolf Guard Terminator Pack Leader	130	5	4	2	4	2	0	1	24 SpaceWolves-Wolf Guard Terminator Pack Leader
+SOR20	Hospitaller	80	4	4	3	5	0	1	1	14 Sororitas-Hospitaller
+DA17	Deathwing Terminator	110	4	3	3	4	1	0	1	14 DarkAngels-Deathwing Terminator
+SW34	Murderfang	130	7	8	5	8	1	0	1	31 SpaceWolves-Murderfang
+SW47	Saga of the Bold	130	2	0	0	0	0	0	2	T9 SpaceWolves-Saga of the Bold
+a7bb23355a30d344e9d2decf976d91e1	Poisoned Supplies	90	2	0	0	0	0	0	2	Z-NC Sabotage - GenestealerCults-Poisoned Supplies
+f923701f207d23a4f81d6ff5891b4a0c	Master of Arcana	10	1	0	0	0	0	0	1	Z-NC UM-Master of Arcana
+9215799995ff7a941b14737e27021032	Shivversplint	120	0	0	0	0	0	0	1	Z-NC CombatElixir - EmperorsChildren-Shivversplint
+ASH68	Night Spinner	30	7	2	6	8	0	0	0	6 SaimHann-Night Spinner
+TAU29	Cadre Fireblade	70	6	5	7	6	0	0	1	26 TauEmpire-Cadre Fireblade
+SAU25	Hexmark Destroyer	40	6	2	6	6	0	0	1	25 Sautekh-Hexmark Destroyer
+ec0d25faeb266ea4eaec41ae72b8d8ad	Uriel Ventris (tutorial)	10	2	2	2	30	0	0	0	Ultramarines_war_Uriel Ventris_tutorial1
+UM28	Redemptor Dreadnought	10	8	6	8	8	0	0	1	28 UM-Redemptor Dreadnought
+DA57	Deadly Hunters	110	7	0	0	0	0	0	1	T19 DarkAngels-Deadly Hunters
+DA62	Asteroid Zone	110	-1	0	0	0	0	0	1	Z-DA-Asteroid Zone
+SAU20	Chronomancer	40	5	5	4	6	0	0	2	20 Sautekh-Chronomancer
+9be8bfe7063f14345966de388c7ba3ec	Primaris Reiver (tutorial1)	10	2	3	1	2	0	0	0	5 UM-Primaris Reiver_tutorial1
+3e99603a7b7b2c54c8f1ad40250ee2ae	Convoke the Circle	110	2	0	0	0	0	0	1	Z-NC DarkAngels-Convoke the Circle
+38871853fabb5244d8148766829230cd	Refuse to Yield	110	2	0	0	0	0	0	1	Z-NC DarkAngels-Refuse to Yield
+571aa5da2842f49478c6cccb3cf369b9	Inscrutable Cunning 1	90	2	0	0	0	0	0	1	Z-NC GenestealerCults-Inscrutable Cunning_enchantment1
+26d4ded12b28a3742b5c8fc155e29803	Righteous Fury	10	0	0	0	0	0	0	1	Z-NC UM-Righteous Fury
+TL52	Leviathan's Tendrils	60	3	0	0	0	0	0	1	T14 Leviathan-Leviathans Tendrils
+TL65	Neuroloid	60	1	1	0	3	0	0	0	1 Leviathan-Neuroloid
+SAU55	Immortal Pride	40	7	0	0	0	0	0	1	T18 Sautekh-Immortal Pride
+SAU16	Night Scythe	40	4	1	5	4	0	0	1	16 Sautekh-Night Scythe
+AM56	Vengeance for Cadia	100	8	0	0	0	0	0	2	T18 AstraMilitarum-Vengeance for Cadia
+2ef404c4fa412f840b8b6fa5ea6469a2	Raging Storm	80	-1	0	0	0	0	0	2	Z-Sororitas-Raging Storm_enchantment1
+GOF99	Skrag Every Stash!	20	3	0	0	0	0	0	1	T2 Goff-Skrag Every Stash!
+d3e99cb18b8cbba4081486f57f510f75	Witchfire	30	0	0	0	0	0	0	2	Z-NC SaimHann-Witchfire
+430c733f7e6de72489e2f0586ccc8d3d	Empyric Rift	120	-1	0	0	0	0	0	2	Z-EmperorsChildren-Empyric Rift_enchantment
+SOR6	Battle Sister Gunner	80	2	1	3	3	0	1	1	4 Sororitas-Battle Sister Gunner
+b5ee585c2678220478c4aed4893f4cc4	Sylar Hexscorn (tutorial)	50	2	2	2	25	0	0	1	BlackLegion_war_Sylar Hexscorn_Tutorial
+a84a5b49f0ca9144585058db6987c2a0	Master Interromancer	110	1	0	0	0	0	0	2	Z-NC DarkAngels-Master Interromancer
+EC11	Flawless Blade	120	3	5	1	4	0	0	1	12 EmperorsChildren-Flawless Blade
+GSC2	Magus Uthrel Naas	90	2	2	2	25	0	0	1	GenestealerCult_war_Magus Uthrel Naas
+2c2866efa62a21a49bbd4691eff428ec	The Fang	130	0	0	0	0	0	0	1	T10 SpaceWolves-The Fang_enchanatment2_card
+UM7	Tyrannic War Veteran	10	3	3	3	4	0	0	1	7 UM-Tyrannic War Veteran
+7b703582937f4c444bbda8fb6a1710b1	No Mercy	10	4	0	0	0	0	0	1	T8 Ultramarines-No Mercy_normal
+SW46	Raid Tactics	130	4	0	0	0	0	0	1	T8 SpaceWolves-Raid Tactics
+d19e8b68aaa9a884781d06697ad237a6	Special Dose	20	1	0	0	0	0	0	1	Z-NC Goff-Special Dose
+SW29	Morkai Eliminator	130	6	3	7	5	0	1	1	26 SpaceWolves-Morkai Eliminator
+GOF50	Dust Storm	20	-1	0	0	0	0	0	1	Z-Goff-Dust Storm
+315d9f293e4f56d4f813584b43f0511c	Exhortation of Rage	10	2	0	0	0	0	0	2	Z-NC UM-Exhortation of Rage
+TL5	Tyranid Warrior	60	3	3	3	4	0	0	0	6 Leviathan-Tyranid Warrior
+EC54	Dark Apparitions	120	1	0	0	0	0	0	2	T2 EmperorsChildren-Dark Apparitions
+SAU63	Immortal Beams	40	-1	0	0	0	0	0	1	Z-Sautekh-Immortal Beams
+BL51	Hosts of Chaos	50	3	0	0	0	0	0	1	T15 BlackLegion-Hosts of Chaos
+UM36	Hero's Respite	10	2	0	0	0	0	0	1	T6 Hero's Respite
+SOR72	Castigator	80	7	4	7	7	1	0	1	7 Sororitas-Castigator
+ASH3	Medreyal Ghaelyn	30	2	2	2	25	0	0	1	SaimHann_war_Medreyal Ghaelyn
+GSC7	Neophyte Hybrid	90	2	1	3	3	0	0	1	4 GenestealerCults-Neophyte Hybrid
+b888bfd3849c4da48973f8217e41129c	Swooping Hawk (tutorial)	30	3	2	3	3	0	0	0	9 SaimHann-Swooping Hawk_tutorial
+BL43	Daemonic Frenzy	50	3	0	0	0	0	0	1	T7 BlackLegion-Daemonic Frenzy
+AM45	Thunderous Charge	100	2	0	0	0	0	0	1	T7 AstraMilitarum-Thunderous Charge
+SOR58	Devout Warriors	80	1	0	0	0	0	0	2	T1 Sororitas-Devout Warriors
+BL60	Daemonic Feast	50	-1	0	0	0	0	0	1	Z-BlackLegion-Daemonic Feast
+SOR25	Imagifier	80	5	5	5	6	0	1	1	22 Sororitas-Imagifier
+TL20	Carnifex	60	5	4	4	6	0	0	1	17 Leviathan-Carnifex
+UM46	Marneus Calgar	10	2	2	2	30	0	0	1	Ultramarines_war_Marneus Calgar
+TL36	Neurothrope	60	2	2	2	25	0	0	1	Leviathan_war_Neurothrope
+TAU69	Krootox Rider	70	4	3	3	5	0	0	1	4 TauEmpire-Krootox Rider
+EC23	Slaanesh Sorcerer	120	5	4	4	5	0	0	1	23 EmperorsChildren-Slaanesh Sorcerer
+TAU53	Fortified Positions	70	4	0	0	0	0	0	1	T16 TauEmpire-Fortified Positions
+TL57	Acid Rain	60	-1	0	0	0	0	0	1	Z-Leviathan-Acid Rain
+GOF54	Spore Cloud	20	-1	0	0	0	0	0	1	Z-Goff-Spore Cloud
+EC43	Plains of Excess	120	1	0	0	0	0	0	1	T3 EmperorsChildren-Plains of Excess
+TL75	Termagant Brood	60	4	3	5	5	0	0	1	4 Leviathan-Termagant Brood
+UM41	Sacred Bolter	10	1	0	0	0	0	0	1	T12 Sacred Bolter
+UM68	Primaris Techmarine	10	3	4	3	4	0	0	1	3 Ultramarines-Primaris Techmarine
+UM70	Invictor Warsuit	10	5	3	5	6	0	0	1	5 Ultramarines-Invictor Warsuit
+AM31	Cadian Castellan	100	6	6	6	6	0	0	1	24 AstraMilitarum-Cadian Castellan
+AM11	Shock Trooper Sgt.	100	3	4	2	4	0	1	0	11 AstraMilitarum-Shock Trooper Sgt.
+7710974b1e108d243a399ed127674ad4	Duelist's Hubris	120	1	0	0	0	0	0	1	Z-NC EmperorsChildren-Duelist's Hubris_enchantment2
+TAU35	Longstrike	70	8	3	7	8	0	0	1	32 TauEmpire-Longstrike
+GOF36	Scrag ’Em	20	2	0	0	0	0	0	1	T7 Goff-Scrag ’Em
+DA14	Ravenwing Speeder	110	3	2	3	4	0	1	1	11 DarkAngels-Ravenwing Speeder
+1d9ff6a401bba1f44a65bf843c21a586	Storm of Silence	30	2	0	0	0	0	0	1	Z-NC SaimHann-Storm of Silence_enchantment_random_stun
+8f35df0536e4f7e4d86f3885e2597404	Dok’s Toolz	20	2	0	0	0	0	0	2	Z-NC Goff-Dok’s Toolz
+0161699f3a4cf5c489126356b3538ce5	Normal Conditions (Black Legion)	50	-1	0	0	0	0	0	0	Z-NC-BlackLegion-Normal Conditions
+BL73	Malicious Volleys	50	2	0	0	0	0	0	1	T1 BlackLegion-Malicious Volleys
+GOF90	Wurrboy	20	5	2	5	5	0	0	2	13 Goff-Wurrboy
+UM15	Apothecary Polixis	10	5	3	4	5	0	0	1	15 UM-Apothecary Polixis
+DA47	Blacksword Missiles	110	3	0	0	0	0	0	1	T9 DarkAngels-Blacksword Missiles
+SOR67	Sacred Rose Sister	80	2	1	2	3	0	1	3	2 Sororitas-Sacred Rose Sister
+ASH50	Evasive Manoeuvre	30	4	0	0	0	0	0	1	T15 SaimHann-Evasive Manoeuvre
+ASH67	Hornet	30	5	1	5	4	0	0	1	3 SaimHann-Hornet
+DA22	Techmarine	110	4	4	4	5	0	0	2	19 DarkAngels-Techmarine
+GOF67	Boss Nob	20	5	5	4	6	0	0	1	3 Goff-Boss Nob
+SW19	Iron Priest	130	4	3	2	6	0	0	2	16 SpaceWolves-Iron Priest
+SAU4	Gauss Warrior	40	2	2	2	3	0	0	1	4 Sautekh-Gauss Warrior
+AM17	Commissar	100	4	4	4	4	0	0	1	16 AstraMilitarum-Commissar
+SW51	Hunter's Guile	130	3	0	0	0	0	0	2	T13 SpaceWolves-Hunter's Guile
+5b427f1ad98e8534f8590dad5bd560af	Honour Guard (tutorial)	10	4	4	4	5	0	0	0	14 UM-Honour Guard_tutorial
+DA8	Reiver	110	2	3	1	3	0	0	1	5 DarkAngels-Reiver
+ASH43	Sudden Assault	30	3	0	0	0	0	0	1	T8 SaimHann-Sudden Assault
+UM80	Bladeguard Sergeant	10	5	4	2	5	1	0	1	4 Ultramarines-Bladeguard Sergeant
+DA39	Ancient Reliquary	110	1	0	0	0	0	0	1	T1 DarkAngels-Ancient Reliquary
+AM64	Planetary Invasion	100	-1	0	0	0	0	0	1	Z-AstraMilitarum-Planetary Invasion
+e59ac9e46f4ea804784e954c3b820e77	Path of the Warrior	30	1	0	0	0	0	0	2	Z-NC SaimHann-Skyborne Deployment
+TAU1	Shadowsun	70	2	2	2	30	0	0	1	TauEmpire_war_Shadowsun
+EC57	Xarahan Daemon Prince	120	2	2	2	30	0	0	2	CSM_EmperorsChildren_war_Xarahan Daemon Prince
+UM3	Firstborn	10	2	1	2	2	0	0	1	3 UM-Firstborn
+SOR12	Retributor	80	4	2	5	4	0	0	1	16 Sororitas-Retributor
+UM20	Sergeant Telion	10	5	3	6	6	0	0	1	20 UM-Sergeant Telion
+6e4f9040e8cc59641a32f29e33ea4cbc	Tyrnak and Fenrir	130	10	4	0	9	0	0	1	Z-NC SpaceWolves-Tyrnak and Fenrir
+SAU70	Damaged Hexmark	40	5	1	5	4	0	0	1	4 Sautekh-Damaged Hexmark
+SAU59	Awakened Obelisk	40	0	0	0	0	0	0	2	Z-Sautekh-Awakened Obelisk
+SW55	Legendary Tenacity	130	5	0	0	0	0	0	1	T17 SpaceWolves-Legendary Tenacity
+GSC40	Backstab	90	2	0	0	0	0	0	2	T4 GenestealerCults-Backstab
+77fd626140a8c164fbb708a46956898d	Primaris Chaplain (tutorial)	10	4	3	4	4	0	0	1	13 UM-Primaris Chaplain_tutorial
+BL4	Chaos Sergeant	50	2	2	1	2	0	0	1	4 BlackLegion-Chaos Sergeant
+84d4d192e0f57a34a90ac0f6172c3358	Ferocious Rage	20	2	0	0	0	0	0	1	Z-NC Goff-Ferocious Rage
+UM108	Brutalis Dreadnought	10	9	10	6	10	0	1	0	20 Ultramarines-Brutalis Dreadnought
+ASH28	Spiritseer Qelenaris	30	6	6	6	7	0	0	1	25 SaimHann-Spiritseer Qelenaris
+TAU74	Thundering Rampage	70	2	0	0	0	0	0	1	T2 TauEmpire-Thundering Rampage
+DA35	Dark Talon	110	8	4	8	8	0	0	1	32 DarkAngels-Dark Talon
+UM4	Assault Intercessor	10	2	3	1	3	0	0	0	4 UM-Assault Intercessor
+GSC24	Nexos	90	4	3	4	4	0	0	1	17 GenestealerCults-Nexos
+UM99	Phobos Librarian	10	5	6	4	6	0	1	1	11 Ultramarines-Phobos Librarian
+GSC43	Enhanced Resilience	90	2	0	0	0	0	0	1	T7 GenestealerCults-Enhanced Resilience
+AM67	Aquilon Servo-Sentry	100	1	0	1	3	0	0	1	1 AstraMilitarum-Aquilon Servo-Sentry
+UM45	Gather the Company	10	5	0	0	0	0	0	1	T16 Gather the Company
+TAU71	Krootox Rampager	70	6	6	2	6	0	0	1	6 TauEmpire-Krootox Rampager
+2ef504be18b9be54a91ef4e6750d86c7	Ancient Reliquary	110	1	0	0	0	0	0	1	T1 DarkAngels-Ancient Reliquary_enchantment1
+EC38	Pledge to the Dark Prince	120	3	0	0	0	0	0	1	T15 EmperorsChildren-Pledge to the Dark Prince
+9f7068f052d4a8b4f99b007134f2d8f1	Infinite Biomorphologies	60	-1	0	0	0	0	0	1	T12 Leviathan-Infinite Biomorphologies_enchantment3
+TAU40	Technological Supremacy	70	2	0	0	0	0	0	2	T2 TauEmpire-Technological Supremacy
+cc11838649ff68a40b7d5d2b9fccd2bc	Lead by Example	100	2	0	0	0	0	0	1	Z-NC AstraMilitarum-Lead by Example
+EC30	Emperor's Children Maulerfiend	120	8	9	5	9	0	0	1	32 EmperorsChildren-Maulerfiend
+SAU52	Self-Destruction	40	5	0	0	0	0	0	1	T15 Sautekh-Self-Destruction
+AM52	Armoured Squadron	100	4	0	0	0	0	0	1	T14 AstraMilitarum-Armoured Squadron
+55b8e3d2040f86d4190ffb1a91abb5ed	Master of Arms	10	0	0	0	0	0	0	1	Z-NC UM-Master of Arms
+ca169f2a6b7b2364ca99bd951c60f1d5	Mark of Slaanesh (enchantment)	120	-1	0	0	0	0	0	1	Z-NC EmperorsChildren-Mark of Slaanesh_enchantment
+b5eedae31b83f564baba23db311c9112	Uriel Ventris	10	2	2	2	20	0	0	1	Ultramarines_war_Uriel Ventris_EASY
+BL33	Vex Machinator	50	10	10	8	12	0	0	2	31 BlackLegion-Vex Machinator
+TAU42	Experimental Drones	70	4	0	0	0	0	0	1	T4 TauEmpire-Experimental Drones
+BL52	Unholy Smite	50	6	0	0	0	0	0	2	T16 BlackLegion-Unholy Smite
+TL4	Termagant	60	2	1	2	2	0	0	0	5 Leviathan-Termagant
+SOR14	Amalia Novena	80	3	3	3	4	0	0	1	7 Sororitas-Amalia Novena
+TAU11	Crisis Battlesuit	70	3	2	4	4	0	0	0	8 TauEmpire-Crisis Battlesuit
+ASH23	Striking Scorpion Exarch	30	5	4	2	4	0	0	0	20 SaimHann-Striking Scorpion Exarch
+141c5ed661a9e42bd9a793f0d2a1c682	Unhallowed Gifts	50	2	0	0	0	0	0	1	Z-NC BlackLegion-Unhallowed Gifts
+GSC55	Eve of the Uprising	90	1	0	0	0	0	0	1	T1 GenestealerCults-Eve of the Uprising
+AM33	Basilisk	100	7	4	6	8	0	0	0	29 AstraMilitarum-Basilisk
+cf0b346f70e748c4bbfc4dc03ab39ead	Smite	10	1	0	0	0	0	0	1	Z-NC UM-Smite
+6ffe2680a560aa94496080a025f561a1	The Rock	110	2	0	0	0	0	0	1	T8 DarkAngels-The Rock_enchantment1
+UM96	Chapter Champion	10	4	3	2	5	1	1	1	8 Ultramarines-Chapter Champion
+481a554f4bcaf124681916a2854e775d	Shall Know No Fear	10	10	0	0	0	0	0	1	T3 Ultramarines-Shall Know No Fear_oath
+AM28	Chimera	100	6	3	5	7	0	1	1	25 AstraMilitarum-Chimera
+GOF59	Big Shoota Boy	20	6	3	6	6	0	0	2	31 Goff-Big Shoota Boy
+SAU73	Annihilation Barge	40	8	3	6	8	0	0	1	7 Sautekh-Annihilation Barge
+GOF76	Mozrog Skragbad	20	2	2	2	30	0	0	1	Goff_war_Mozrog Skragbad
+711ec03391d6f46a3a07de5ffb409d6b	Devastator Centurion (tutorial)	10	8	4	7	6	0	0	0	25 UM-Devastator Centurion_tutorial
+cbc9d98e39cc7fb4fa6f94c7e69bda18	Brood Progenitor	60	1	0	0	0	0	0	1	Z-NC Leviathan-Brood Progenitor
+TL3	Mucolid Spore	60	2	3	1	3	0	0	2	4 Leviathan-Mucolid Spore
+8d04a976efd628e43ad37d67e57140a0	Aggressor Sergeant (tutorial)	10	8	4	7	6	0	0	0	19 UM-Aggressor Sergeant_tutorial
+SOR16	Missionary	80	4	5	2	5	0	0	2	15 Sororitas-Missionary
+68909cf02f472734ea391665e0d28e15	Jammed Communications	90	2	0	0	0	0	0	2	Z-NC Sabotage - GenestealerCults-Jammed Communications
+UM118	Indomitus Crusade	10	6	0	0	0	0	0	3	T10 Ultramarines-Indomitus Crusade
+SW33	Vindicator	130	7	7	7	8	0	0	1	30 SpaceWolves-Vindicator
+TL27	Exocrine	60	8	5	10	10	0	0	1	29 Leviathan-Exocrine
+1dd9a2768507ae6429409c4eec54b422	Spore Cloud	20	-1	0	0	0	0	0	2	Z-Goff-Spore Cloud_enchantment
+DA24	Company Champion	110	5	5	4	6	0	0	1	21 DarkAngels-Company Champion
+GSC68	Atalan Jackal	90	2	1	3	3	0	0	1	2 Genestealers-Atalan Jackal
+BL3	Chaos Legionary	50	2	2	2	3	0	0	1	3 BlackLegion-Chaos Legionary
+AM40	Full Throttle	100	1	0	0	0	0	0	1	T2 AstraMilitarum-Full Throttle
+UM66	Scout Bike	10	2	1	2	3	0	0	1	1 Ultramarines-Scout Bike
+25875bfb8bb08564aa03a3c9bfef25c3	Webway Rift	30	-1	0	0	0	0	0	2	Z-SaimHann-Webway Rift_enchantment
+6ba4b132d24528844a86304f8ce67833	Follower of Gork	20	2	0	0	0	0	0	1	Z-NC Goff-Follower of Gork
+SAU60	Divination Menhir	40	0	0	0	0	0	0	1	Z-Sautekh-Divination Menhir
+TAU30	Sky Ray Gunship	70	7	4	9	8	0	0	0	27 TauEmpire-Sky Ray Gunship
+DA11	Chaplain	110	3	3	3	3	0	0	1	8 DarkAngels-Chaplain
+d94f91051ecfe014f97577ff573571aa	Spear of Macragge	10	1	0	0	0	0	0	1	Z-NC UM-Spear of Macragge
+GSC23	Hybrid Metamorph	90	4	4	4	4	0	0	1	16 GenestealerCults-Hybrid Metamorph
+AM27	Nork Deddog	100	6	7	5	6	1	0	1	27 AstraMilitarum-Nork Deddog
+TL56	Toxic Vapours	60	1	0	0	0	0	0	1	Z-Leviathan-Toxic Vapours
+ASH44	Wild Host	30	3	0	0	0	0	0	2	T9 SaimHann-Wild Host
+TL62	Ravener	60	4	4	2	4	0	0	1	35 Leviathan-Ravener
+TAU7	Marker Drone	70	2	0	2	3	0	0	1	4 TauEmpire-Marker Drone
+SOR62	Raging Storm	80	-1	0	0	0	0	0	1	Z-Sororitas-Raging Storm
+SOR31	Dogmata	80	6	7	3	7	0	0	3	25 Sororitas-Dogmata
+UM103	Terminator	10	5	6	6	6	0	1	0	15 Ultramarines-Terminator
+SAU15	Deathmark	40	4	2	5	3	0	0	1	15 Sautekh-Deathmark
+GOF6	Stormboy	20	2	3	1	3	0	0	0	6 Goff-Stormboy
+AM44	Shock Troops	100	2	0	0	0	0	0	1	T6 AstraMilitarum-Shock Troops
+AM23	Bombast Field Gun	100	5	1	5	5	0	1	0	20 AstraMilitarum-Bombast Field Gun
+ASH79	Orian Laratharjos	30	4	2	4	5	0	0	2	3 SaimHann-Orian Laratharjos
+GSC8	Neophyte Trooper	90	2	1	2	3	0	0	1	5 GenestealerCults-Neophyte Trooper
+ASH27	Falcon	30	6	2	4	7	0	0	0	24 SaimHann-Falcon
+DA15	Ravenwing Champion	110	3	4	3	3	0	0	2	12 DarkAngels-Ravenwing Champion
+UM50	Orbital Bombardment	10	-1	0	0	0	0	0	1	Z-UM-Orbital Bombardment
+DA64	Star Orbit	110	-1	0	0	0	0	0	1	Z-DA-Star Orbit
+BL64	Murderous Desires	50	4	0	0	0	0	0	1	T20 BlackLegion-Murderous Desires
+GOF52	Toxic Bonfire	20	0	0	0	0	0	0	1	Z-Goff-Toxic Bonfire
+GOF66	Rokkit Boy	20	4	3	5	5	0	0	1	2 Goff-Rokkit Boy
+7c666a04c1b9e8b4e9a96247e9fe115a	Cult Propaganda	90	2	0	0	0	0	0	2	Z-NC Sabotage - GenestealerCults-Cult Propaganda
+e9d68c658708e7149b6ddefa492e7357	Coterie of the Conceited	120	4	0	0	0	0	0	1	T13 EmperorsChildren-Coterie of the Conceited_enchantment
+BL40	Legacy of Vengeance	50	2	0	0	0	0	0	1	T4 BlackLegion-Legacy of Vengeance
+TL23	Tyrannocyte	60	6	2	4	8	0	0	1	25 Leviathan-Tyrannocyte
+UM13	Primaris Chaplain	10	4	4	4	4	0	0	1	13 UM-Primaris Chaplain
+BL14	Daemon Blade Legionary	50	4	5	2	5	0	0	1	12 BlackLegion-Daemon Blade Legionary
+GOF105	Monster Hunters	20	4	0	0	0	0	0	2	T8 Goff-Monster Hunters
+ASH10	Shroud Runner	30	3	1	3	2	0	0	0	7 SaimHann-Shroud Runner
+b9665eadf1207ff49bcf0a730b0b7f9d	Euphoric Strike	120	1	0	0	0	0	0	2	Z-NC EmperorsChildren-Euphoric Strike
+EC59	Vial Tanks	120	0	0	0	0	0	0	1	Z-EmperorsChildren-Vial Tanks
+TAU64	Tidewall Droneport	70	0	0	0	0	0	0	1	Z-TauEmpire-Tidewall Droneport
+TL30	Tyrannofex	60	10	5	10	14	0	0	1	32 Leviathan-Tyrannofex
+98cd4c021d615174aba88df6012219c4	Renowned Bodyguard	100	1	0	0	0	0	0	1	Z-NC AstraMilitarum-Renowned Bodyguard
+SOR8	Arco-flagellant	80	2	2	0	3	0	0	1	2 Sororitas-Arco-flagellant
+AM19	Attilan Rough Rider	100	4	4	2	4	0	0	1	14 AstraMilitarum-Attilan Rough Rider
+EC21	Malgarash the Adamant	120	5	3	5	5	1	0	2	24 EmperorsChildren-Malgarash the Adamant
+UM104	Bladeguard Ancient	10	7	7	5	7	0	1	1	16 Ultramarines-Bladeguard Ancient
+GOF45	Get'em ladz!	20	4	0	0	0	0	0	1	T16 Goff-Get'em ladz!
+cb29b9bcde7995948a3c373401e67e3c	Nemesor Zahndrekh	40	2	2	2	20	0	0	1	Sautekh_war_Nemesor Zahndrekh_EASY
+7c45a641ec845994097d185af58715f6	Master of Manoeuvre	110	1	0	0	0	0	0	1	Z-NC DarkAngels-Master of Manoeuvre
+96748dc1b99eea34babbceb588ff601b	Normal Conditions (Sautekh)	40	-1	0	0	0	0	0	0	Z-NC-Sautekh-Normal Conditions
+GOF12	Spanner	20	3	2	3	4	0	0	1	12 Goff-Spanner
+TL8	Genestealer	60	3	3	0	3	0	0	1	9 Leviathan-Genestealer
+GSC9	Acolyte Hybrid	90	3	4	1	4	0	0	1	7 GenestealerCults-Acolyte Hybrid
+UM22	Inceptor Sergeant	10	6	4	5	6	0	0	1	22 UM-Inceptor Sergeant
+DA53	Steadfast Warriors	110	4	0	0	0	0	0	1	T15 DarkAngels-Steadfast Warriors
+TL11	Venomthrope	60	4	2	2	6	0	0	1	12 Leviathan-Venomthrope
+SAU6	Tesla Immortal	40	2	1	3	3	0	0	1	6 Sautekh-Tesla Immortal
+UM75	Armoured Offensive	10	5	0	0	0	0	0	1	T3 Ultramarines-Armoured Offensive
+TL10	Von Ryans Leaper	60	4	5	0	4	0	0	0	11 Leviathan-Von Ryans Leaper
+b380adbe398519740958b1cc7e0736cb	Blazing Biomass	60	-1	0	0	0	0	0	2	Z-Leviathan-Blazing Biomass_enchantment
+TL37	Spore Mine	60	1	2	0	2	0	0	1	1 Leviathan-Spore Mine
+468a87d4e3969ac47b58555970456895	Beastboss on Squigosaur	20	6	7	5	7	0	0	1	14 Goff-Beastboss on Squigosaur_enchantment
+GSC22	Cult Sentinel	90	5	5	5	5	0	0	1	21 GenestealerCults-Cult Sentinel
+TL13	Lictor	60	4	4	0	5	0	0	0	14 Leviathan-Lictor
+SAU10	Triarch Praetorian	40	3	3	3	4	0	0	0	10 Sautekh-Triarch Praetorian
+61046837c330b48978b4af5201230b6e	Helspear Assault	50	2	0	0	0	0	0	1	Z-NC BlackLegion-Helspear Assault

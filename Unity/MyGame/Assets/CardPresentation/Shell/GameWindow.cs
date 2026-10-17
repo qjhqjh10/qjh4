@@ -553,6 +553,11 @@ namespace CardPresentation
         /// <summary>子类在这里铺自己的内容。基类什么都不做（原版 `Open()` 也是虚方法）。</summary>
         public virtual void Open() { }
 
+        /// <summary>🆕 **2026-10-18（N63）**：换语言后由 `SettingsWindow.ChooseLanguage` 广播给**仍开着的窗**。
+        /// 默认空实现（各窗按需覆盖）。`Loc` 本身**不发静态事件**（理由见 `Loc.SetLanguage` 的 doc：
+        /// 静态事件在 `Build()` 每次开窗都跑的环境里是个漏）⇒ 由设置窗在换语言那一刻逐个叫。</summary>
+        public virtual void OnLanguageChanged() { }
+
         // ============================================================ 离屏烘焙 + UI Blur
         //
         // 🆕 **2026-10-17（界面线 T16）**：原版 `MainMenuWindow` 身上挂着一个 `screenBaker`（= `UIBakeScreen`），

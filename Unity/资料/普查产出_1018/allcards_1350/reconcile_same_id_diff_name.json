@@ -1,0 +1,470 @@
+[
+ {
+  "id": "SW4",
+  "mapping_name": "High King of Fenris",
+  "bundle_name": "Blood Claw",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW52",
+  "mapping_name": "Saga of the Bold",
+  "bundle_name": "Proper Hunt",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW57",
+  "mapping_name": "Hunters Guile",
+  "bundle_name": "Birth of a Saga",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW16",
+  "mapping_name": "Fenrisian Wolf",
+  "bundle_name": "Long Fang",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW9",
+  "mapping_name": "Tyrnak and Fenrir",
+  "bundle_name": "Fenrisian Wolf",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW44",
+  "mapping_name": "Wulfen Dreadnought",
+  "bundle_name": "Death Shun",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW23",
+  "mapping_name": "Hrolf the Ironhowl",
+  "bundle_name": "Fenrisian Drop Pod",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW53",
+  "mapping_name": "The Fang",
+  "bundle_name": "Embers of Prospero",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "UM98",
+  "mapping_name": "Stormhawk Interception",
+  "bundle_name": "Devastator Marine",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "DA66",
+  "mapping_name": "Plasma Generator",
+  "bundle_name": "Ravenwing Ballistus Dreadnought",
+  "army": "DarkAngels"
+ },
+ {
+  "id": "UM88",
+  "mapping_name": "Terminator Captain",
+  "bundle_name": "Valius Paxor",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "SW35",
+  "mapping_name": "Blackmane Aggressor",
+  "bundle_name": "Venerable Dreadnought",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW11",
+  "mapping_name": "Blood Claw",
+  "bundle_name": "Grey Hunter Pack Leader",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW59",
+  "mapping_name": "Raid Tactics",
+  "bundle_name": "Orbital Defences",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW21",
+  "mapping_name": "Wolf Guard Headtaker",
+  "bundle_name": "Wulfen Pack Leader",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW40",
+  "mapping_name": "Stormwolf",
+  "bundle_name": "Bjorn's Shrine",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW8",
+  "mapping_name": "Living Lightning",
+  "bundle_name": "Blackmane Reiver",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "UM87",
+  "mapping_name": "Bladeguard Ancient",
+  "bundle_name": "Roboute Guilliman",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "SW63",
+  "mapping_name": "Let Loose",
+  "bundle_name": "Full Moon",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW28",
+  "mapping_name": "Wulfen Pack Leader",
+  "bundle_name": "Blackmane Aggressor",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW60",
+  "mapping_name": "Fenrisian Monstrosities",
+  "bundle_name": "Fenrisian Runestones",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW10",
+  "mapping_name": "War Howl",
+  "bundle_name": "Grey Hunter",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "UM89",
+  "mapping_name": "Ferren Areios",
+  "bundle_name": "Incursor",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "SW13",
+  "mapping_name": "Blackmane Reiver",
+  "bundle_name": "Wolf Guard Headtaker",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW14",
+  "mapping_name": "Blood Claw Pack Leader",
+  "bundle_name": "Wolf Priest",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW48",
+  "mapping_name": "Death Shun",
+  "bundle_name": "The Fang",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW26",
+  "mapping_name": "Thunderwolf Cavalry Pack Leader",
+  "bundle_name": "Arjac Rockfist",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW31",
+  "mapping_name": "Fenrisian Drop Pod",
+  "bundle_name": "Wolf Guard Terminator",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW30",
+  "mapping_name": "Blackmane Inceptor",
+  "bundle_name": "Terminator Rune Priest",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "UM91",
+  "mapping_name": "Brutalis Dreadnought",
+  "bundle_name": "Tactical Marine",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "SW6",
+  "mapping_name": "Tempests Wrath",
+  "bundle_name": "Blood Claw Pack Leader",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW18",
+  "mapping_name": "Fyrri Askar",
+  "bundle_name": "Hrolf the Ironhowl",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW32",
+  "mapping_name": "Frost Claw Wulfen",
+  "bundle_name": "Stormwolf",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW36",
+  "mapping_name": "Morkai Eliminator",
+  "bundle_name": "Bjorn the Fell-Handed",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW45",
+  "mapping_name": "Land Rider",
+  "bundle_name": "Unbridled Fury",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW54",
+  "mapping_name": "Unbridled Fury",
+  "bundle_name": "Fenrisian Monstrosities",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW15",
+  "mapping_name": "Deathwolf Scout",
+  "bundle_name": "Fyrri Askar",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW58",
+  "mapping_name": "Proper Hunt",
+  "bundle_name": "Fenrisian Wolfpack",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "UM94",
+  "mapping_name": "Champions of Humanity",
+  "bundle_name": "Scout Sniper",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "SW5",
+  "mapping_name": "High Rune Priest",
+  "bundle_name": "Hunting Wolf",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW61",
+  "mapping_name": "Hordeslayer",
+  "bundle_name": "Halls of Legend",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW24",
+  "mapping_name": "Iron Priest",
+  "bundle_name": "Frost Claw Wulfen",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW20",
+  "mapping_name": "Thunderwolf Cavalry",
+  "bundle_name": "Thunderwolf Cavalry Pack Leader",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW38",
+  "mapping_name": "Wolf Guard Terminator",
+  "bundle_name": "Land Raider",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "UM90",
+  "mapping_name": "Whirlwind",
+  "bundle_name": "Phobos Lieutenant",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "SW64",
+  "mapping_name": "Birth of a Saga",
+  "bundle_name": "Everstorm",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "UM100",
+  "mapping_name": "No Respite",
+  "bundle_name": "Chaplain Cassius",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "UM101",
+  "mapping_name": "Indomitus Crusade",
+  "bundle_name": "Terminator Sergeant",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "UM97",
+  "mapping_name": "Lead From the Front",
+  "bundle_name": "Suppressor",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "SW37",
+  "mapping_name": "Terminator Rune Priest",
+  "bundle_name": "Wulfen Dreadnought",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW43",
+  "mapping_name": "Venerable Dreadnought",
+  "bundle_name": "Anvil of Endurance",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW62",
+  "mapping_name": "Legendary Tenacity",
+  "bundle_name": "First Light",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW42",
+  "mapping_name": "Bjorn the Fell Handed",
+  "bundle_name": "Savage Legacy",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW25",
+  "mapping_name": "Long Fang",
+  "bundle_name": "Wolf Guard Battle Leader",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW12",
+  "mapping_name": "Hunting Wolf",
+  "bundle_name": "Thunderwolf Cavalry",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW50",
+  "mapping_name": "Savage Legacy",
+  "bundle_name": "Hordeslayer",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "UM95",
+  "mapping_name": "Dutys End",
+  "bundle_name": "Attack Bike",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "SW56",
+  "mapping_name": "Fenrisian Blizzard",
+  "bundle_name": "Let Loose",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "UM92",
+  "mapping_name": "Adaptive Strategy",
+  "bundle_name": "Firestrike Servo-Turret",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "SW17",
+  "mapping_name": "Grey Hunter",
+  "bundle_name": "Wulfen",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "UM93",
+  "mapping_name": "Fall Back",
+  "bundle_name": "Vico Therbeus",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "SW22",
+  "mapping_name": "Wolf Priest",
+  "bundle_name": "Blackmane Inceptor",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW39",
+  "mapping_name": "Murderfang",
+  "bundle_name": "Canis Helix",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW7",
+  "mapping_name": "Murderous Hurricane",
+  "bundle_name": "Deathwolf Scout",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "DA65",
+  "mapping_name": "Grim Effigy",
+  "bundle_name": "Chaplain Gabutheron",
+  "army": "DarkAngels"
+ },
+ {
+  "id": "SW49",
+  "mapping_name": "Pack of One",
+  "bundle_name": "Fenrisian Blizzard",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW41",
+  "mapping_name": "Vindicator",
+  "bundle_name": "Pack of One",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW27",
+  "mapping_name": "Wulfen",
+  "bundle_name": "Wolf Guard Terminator Pack Leader",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW34",
+  "mapping_name": "Wolf Guard Terminator Pack Leader",
+  "bundle_name": "Murderfang",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW47",
+  "mapping_name": "Canis Helix",
+  "bundle_name": "Saga of the Bold",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW46",
+  "mapping_name": "Bjorns Shrine",
+  "bundle_name": "Raid Tactics",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW29",
+  "mapping_name": "Arjac Rockfist",
+  "bundle_name": "Morkai Eliminator",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW19",
+  "mapping_name": "Grey Hunter Pack Leader",
+  "bundle_name": "Iron Priest",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW51",
+  "mapping_name": "Anvil of Endurance",
+  "bundle_name": "Hunter's Guile",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "SW55",
+  "mapping_name": "Embers of Prospero",
+  "bundle_name": "Legendary Tenacity",
+  "army": "SpaceWolves"
+ },
+ {
+  "id": "UM99",
+  "mapping_name": "No Mercy",
+  "bundle_name": "Phobos Librarian",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "UM96",
+  "mapping_name": "Shall Know No Fear",
+  "bundle_name": "Chapter Champion",
+  "army": "Ultramarines"
+ },
+ {
+  "id": "SW33",
+  "mapping_name": "Wolf Guard Battle Leader",
+  "bundle_name": "Vindicator",
+  "army": "SpaceWolves"
+ }
+]

@@ -234,3 +234,12 @@ desktop.ini
 /_tmp_*/
 /Unity/_tmp_*/
 /Unity/工具/mod_scenejumpshot/*.cs.bak
+
+# 🆕 2026-10-18 · 第四十九会话 allcards 解析的**原始/大体积衍生物**（留在本地，不进库）
+# 口径同仓库红线：原版资产及其直接衍生物不进仓库；以下都是从 allcards/localization 包直接解出的原始数据。
+# 我们的**分析产物**（cards.tsv / missing118_* / pool_true_ids.* / 报告.md / loc_card_names.tsv）照常进库。
+/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json
+/Unity/资料/普查产出_1018/allcards_1350/localization_temp_2026.bin
+/Unity/资料/普查产出_1018/allcards_1350/localization_2026_decoded.json
+/Unity/资料/普查产出_1018/allcards_1350/reconcile_added_vs_2025snapshot.json
+/Unity/资料/普查产出_1018/allcards_1350/reconcile_new_ids.json

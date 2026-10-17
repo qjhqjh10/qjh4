@@ -8575,7 +8575,13 @@ public static class MainMenuScene
                                  "`Add Friend Button`（⚠️ **没有 Button Text**，纯图标钮）");
                     CheckAtWorld(FindChild(fp, "Instant duel Button"), 1045.70f, 1125.70f, 167.63f, 236.04f,
                                  "`Instant duel Button`");
-                    CheckText(TextOf(FindChild(fp, "Search Player")), "Search player", "`Search Player` 那行字");
+                    // 🔴 **2026-10-18（N60）**：`Search Player` 那行字从本轮起走词条
+                    //   （`Shell/FriendsTab.cs` → `Loc.T("Demo/FriendsMenu/SearchPlayer")`）⇒ 写死英文必红。
+                    CheckTrue(Loc.HasEntry("Demo/FriendsMenu/SearchPlayer"),
+                              "（前提）词条 `Demo/FriendsMenu/SearchPlayer` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                    CheckText(TextOf(FindChild(fp, "Search Player")), Loc.T("Demo/FriendsMenu/SearchPlayer"),
+                              "`Search Player` 那行字 = `Loc.T(\"Demo/FriendsMenu/SearchPlayer\")`（随语档；"
+                            + "原版 TMP 原文 `Search player` / 中文「搜索玩家」）");
                     var fl = FindChild(fr, "Friends List");
                     // 🔴 **2026-10-18（第七轮）改「随语档」**：这一行从本轮起走词条
                     //   （`Shell/FriendsTab.cs` 的 `Loc.T("Demo/FriendsMenu/YourFriends")`）⇒ 写死的 `"Your friends:"` 必红。

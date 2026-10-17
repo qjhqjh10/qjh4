@@ -1,0 +1,1083 @@
+[
+ {
+  "pool_id": "DA76",
+  "pool_name": "Refuse to Yield",
+  "true_id": "38871853fabb5244d8148766829230cd",
+  "true_name_so": "Refuse to Yield",
+  "true_name_loc": "Refuse to Yield",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "DA81",
+  "pool_name": "Assault Terminator",
+  "true_id": "DA67",
+  "true_name_so": "Assault Terminator",
+  "true_name_loc": "Assault Terminator",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "DA82",
+  "pool_name": "Chaplain Gabutheron",
+  "true_id": "DA65",
+  "true_name_so": "Chaplain Gabutheron",
+  "true_name_loc": "Chaplain Gabutheron",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "DA80",
+  "pool_name": "Vengeful Brethren Bladeguard",
+  "true_id": "DA68",
+  "true_name_so": "Vengeful Brethren Bladeguard",
+  "true_name_loc": "Vengeful Brethren Bladeguard",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "DA79",
+  "pool_name": "Vengeful Brethren Hellblaster",
+  "true_id": "DA69",
+  "true_name_so": "Vengeful Brethren Hellblaster",
+  "true_name_loc": "Vengeful Brethren Hellblaster",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "DA78",
+  "pool_name": "Vengeful Brethren Intercessor",
+  "true_id": "DA70",
+  "true_name_so": "Vengeful Brethren Intercessor",
+  "true_name_loc": "Vengeful Brethren Intercessor",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "DA77",
+  "pool_name": "Watcher in the Dark",
+  "true_id": "DA71",
+  "true_name_so": "Watcher in the Dark",
+  "true_name_loc": "Watcher in the Dark",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "DA86",
+  "pool_name": "Hunters of Heretics",
+  "true_id": "DA74",
+  "true_name_so": "Hunters of Heretics",
+  "true_name_loc": "Hunters of Heretics",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "DA85",
+  "pool_name": "Relic Munitions",
+  "true_id": "DA73",
+  "true_name_so": "Relic Munitions",
+  "true_name_loc": "Relic Munitions",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "DA84",
+  "pool_name": "Vengeful Brethren",
+  "true_id": "DA72",
+  "true_name_so": "Vengeful Brethren",
+  "true_name_loc": "Vengeful Brethren",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "DA83",
+  "pool_name": "Ravenwing Ballistus Dreadnought",
+  "true_id": "DA66",
+  "true_name_so": "Ravenwing Ballistus Dreadnought",
+  "true_name_loc": "Ballistus Dreadnought",
+  "method": "so-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "DA75",
+  "pool_name": "Master Zacharial",
+  "true_id": "DA75",
+  "true_name_so": "Master Zacharial",
+  "true_name_loc": "Master Zacharial",
+  "method": "loc-name+same-id",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW1",
+  "pool_name": "Logan Grimnar",
+  "true_id": "SW1",
+  "true_name_so": "Logan Grimnar",
+  "true_name_loc": "Logan Grimnar",
+  "method": "loc-name+same-id",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW24",
+  "pool_name": "Iron Priest",
+  "true_id": "SW19",
+  "true_name_so": "Iron Priest",
+  "true_name_loc": "Iron Priest",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW29",
+  "pool_name": "Arjac Rockfist",
+  "true_id": "SW26",
+  "true_name_so": "Arjac Rockfist",
+  "true_name_loc": "Arjac Rockfist",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW35",
+  "pool_name": "Blackmane Aggressor",
+  "true_id": "SW28",
+  "true_name_so": "Blackmane Aggressor",
+  "true_name_loc": "Blackmane Aggressor",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW13",
+  "pool_name": "Blackmane Reiver",
+  "true_id": "SW8",
+  "true_name_so": "Blackmane Reiver",
+  "true_name_loc": "Blackmane Reiver",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW14",
+  "pool_name": "Blood Claw Pack Leader",
+  "true_id": "SW6",
+  "true_name_so": "Blood Claw Pack Leader",
+  "true_name_loc": "Blood Claw Pack Leader",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW11",
+  "pool_name": "Blood Claw",
+  "true_id": "SW4",
+  "true_name_so": "Blood Claw",
+  "true_name_loc": "Blood Claw",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW15",
+  "pool_name": "Deathwolf Scout",
+  "true_id": "SW7",
+  "true_name_so": "Deathwolf Scout",
+  "true_name_loc": "Deathwolf Scout",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW16",
+  "pool_name": "Fenrisian Wolf",
+  "true_id": "SW9",
+  "true_name_so": "Fenrisian Wolf",
+  "true_name_loc": "Fenrisian Wolf",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW32",
+  "pool_name": "Frost Claw Wulfen",
+  "true_id": "SW24",
+  "true_name_so": "Frost Claw Wulfen",
+  "true_name_loc": "Frost Claw Wulfen",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW18",
+  "pool_name": "Fyrri Askar",
+  "true_id": "SW15",
+  "true_name_so": "Fyrri Askar",
+  "true_name_loc": "Fyrri Askar",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW19",
+  "pool_name": "Grey Hunter Pack Leader",
+  "true_id": "SW11",
+  "true_name_so": "Grey Hunter Pack Leader",
+  "true_name_loc": "Grey Hunter Pack Leader",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW17",
+  "pool_name": "Grey Hunter",
+  "true_id": "SW10",
+  "true_name_so": "Grey Hunter",
+  "true_name_loc": "Grey Hunter",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW23",
+  "pool_name": "Hrolf the Ironhowl",
+  "true_id": "SW18",
+  "true_name_so": "Hrolf the Ironhowl",
+  "true_name_loc": "Hrolf the Ironhowl",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW12",
+  "pool_name": "Hunting Wolf",
+  "true_id": "SW5",
+  "true_name_so": "Hunting Wolf",
+  "true_name_loc": "Hunting Wolf",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW25",
+  "pool_name": "Long Fang",
+  "true_id": "SW16",
+  "true_name_so": "Long Fang",
+  "true_name_loc": "Long Fang",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW36",
+  "pool_name": "Morkai Eliminator",
+  "true_id": "SW29",
+  "true_name_so": "Morkai Eliminator",
+  "true_name_loc": "Sons of Morkai Eliminator",
+  "method": "so-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW37",
+  "pool_name": "Terminator Rune Priest",
+  "true_id": "SW30",
+  "true_name_so": "Terminator Rune Priest",
+  "true_name_loc": "Terminator Rune Priest",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW26",
+  "pool_name": "Thunderwolf Cavalry Pack Leader",
+  "true_id": "SW20",
+  "true_name_so": "Thunderwolf Cavalry Pack Leader",
+  "true_name_loc": "Thunderwolf Cavalry Pack Leader",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW20",
+  "pool_name": "Thunderwolf Cavalry",
+  "true_id": "SW12",
+  "true_name_so": "Thunderwolf Cavalry",
+  "true_name_loc": "Thunderwolf Cavalry",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW9",
+  "pool_name": "Tyrnak and Fenrir",
+  "true_id": "6e4f9040e8cc59641a32f29e33ea4cbc",
+  "true_name_so": "Tyrnak and Fenrir",
+  "true_name_loc": "Tyrnak and Fenrir",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW33",
+  "pool_name": "Wolf Guard Battle Leader",
+  "true_id": "SW25",
+  "true_name_so": "Wolf Guard Battle Leader",
+  "true_name_loc": "Wolf Guard Battle Leader",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW21",
+  "pool_name": "Wolf Guard Headtaker",
+  "true_id": "SW13",
+  "true_name_so": "Wolf Guard Headtaker",
+  "true_name_loc": "Wolf Guard Headtaker",
+  "method": "loc-name+id-fix",
+  "value_mismatch": [
+   [
+    4,
+    3
+   ]
+  ]
+ },
+ {
+  "pool_id": "SW34",
+  "pool_name": "Wolf Guard Terminator Pack Leader",
+  "true_id": "SW27",
+  "true_name_so": "Wolf Guard Terminator Pack Leader",
+  "true_name_loc": "Wolf Guard Terminator Pack Leader",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW38",
+  "pool_name": "Wolf Guard Terminator",
+  "true_id": "SW31",
+  "true_name_so": "Wolf Guard Terminator",
+  "true_name_loc": "Wolf Guard Terminator",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW22",
+  "pool_name": "Wolf Priest",
+  "true_id": "SW14",
+  "true_name_so": "Wolf Priest",
+  "true_name_loc": "Wolf Priest",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW28",
+  "pool_name": "Wulfen Pack Leader",
+  "true_id": "SW21",
+  "true_name_so": "Wulfen Pack Leader",
+  "true_name_loc": "Wulfen Pack Leader",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW27",
+  "pool_name": "Wulfen",
+  "true_id": "SW17",
+  "true_name_so": "Wulfen",
+  "true_name_loc": "Wulfen",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW51",
+  "pool_name": "Anvil of Endurance",
+  "true_id": "SW43",
+  "true_name_so": "Anvil of Endurance",
+  "true_name_loc": "Anvil of Endurance",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW64",
+  "pool_name": "Birth of a Saga",
+  "true_id": "SW57",
+  "true_name_so": "Birth of a Saga",
+  "true_name_loc": "Birth of a Saga",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW46",
+  "pool_name": "Bjorn's Shrine",
+  "true_id": "SW40",
+  "true_name_so": "Bjorn's Shrine",
+  "true_name_loc": "Bjorn's Shrine",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW47",
+  "pool_name": "Canis Helix",
+  "true_id": "SW39",
+  "true_name_so": "Canis Helix",
+  "true_name_loc": "Canis Helix",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW48",
+  "pool_name": "Death Shun",
+  "true_id": "SW44",
+  "true_name_so": "Death Shun",
+  "true_name_loc": "Death Shun",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW55",
+  "pool_name": "Embers of Prospero",
+  "true_id": "SW53",
+  "true_name_so": "Embers of Prospero",
+  "true_name_loc": "Embers of Prospero",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW56",
+  "pool_name": "Fenrisian Blizzard",
+  "true_id": "SW49",
+  "true_name_so": "Fenrisian Blizzard",
+  "true_name_loc": "Fenrisian Blizzard",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW60",
+  "pool_name": "Fenrisian Monstrosities",
+  "true_id": "SW54",
+  "true_name_so": "Fenrisian Monstrosities",
+  "true_name_loc": "Fenrisian Monstrosities",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW66",
+  "pool_name": "Fenrisian Runestones",
+  "true_id": "SW60",
+  "true_name_so": "Fenrisian Runestones",
+  "true_name_loc": "Fenrisian Runestones",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW65",
+  "pool_name": "Fenrisian Wolfpack",
+  "true_id": "SW58",
+  "true_name_so": "Fenrisian Wolfpack",
+  "true_name_loc": "Fenrisian Wolfpack",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW68",
+  "pool_name": "Halls of Legend",
+  "true_id": "SW61",
+  "true_name_so": "Halls of Legend",
+  "true_name_loc": "Halls of Legend",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW4",
+  "pool_name": "High King of Fenris",
+  "true_id": "b3dce3f10cc118541910156ec8da1d9b",
+  "true_name_so": "High King of Fenris",
+  "true_name_loc": "High King of Fenris",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW5",
+  "pool_name": "High Rune Priest",
+  "true_id": "a51adc8f5c311584385c3117cfd919e9",
+  "true_name_so": "High Rune Priest",
+  "true_name_loc": "High Rune Priest",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW61",
+  "pool_name": "Hordeslayer",
+  "true_id": "SW50",
+  "true_name_so": "Hordeslayer",
+  "true_name_loc": "Hordeslayer",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW57",
+  "pool_name": "Hunter's Guile",
+  "true_id": "SW51",
+  "true_name_so": "Hunter's Guile",
+  "true_name_loc": "Hunter's Guile",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW62",
+  "pool_name": "Legendary Tenacity",
+  "true_id": "SW55",
+  "true_name_so": "Legendary Tenacity",
+  "true_name_loc": "Legendary Tenacity",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW63",
+  "pool_name": "Let Loose",
+  "true_id": "SW56",
+  "true_name_so": "Let Loose",
+  "true_name_loc": "Let Loose",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW8",
+  "pool_name": "Living Lightning",
+  "true_id": "7a01882fe4610244292d16b15f4b873e",
+  "true_name_so": "Living Lightning",
+  "true_name_loc": "Living Lightning",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW7",
+  "pool_name": "Murderous Hurricane",
+  "true_id": "4d4b9170663891f488c0e96ee8e55ba1",
+  "true_name_so": "Murderous Hurricane",
+  "true_name_loc": "Murderous Hurricane",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW67",
+  "pool_name": "Orbital Defences",
+  "true_id": "SW59",
+  "true_name_so": "Orbital Defences",
+  "true_name_loc": "Orbital Defences",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW49",
+  "pool_name": "Pack of One",
+  "true_id": "SW41",
+  "true_name_so": "Pack of One",
+  "true_name_loc": "Pack of One",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW58",
+  "pool_name": "Proper Hunt",
+  "true_id": "SW52",
+  "true_name_so": "Proper Hunt",
+  "true_name_loc": "Proper Hunt",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW59",
+  "pool_name": "Raid Tactics",
+  "true_id": "SW46",
+  "true_name_so": "Raid Tactics",
+  "true_name_loc": "Raid Tactics",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW52",
+  "pool_name": "Saga of the Bold",
+  "true_id": "SW47",
+  "true_name_so": "Saga of the Bold",
+  "true_name_loc": "Saga of the Bold",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW50",
+  "pool_name": "Savage Legacy",
+  "true_id": "SW42",
+  "true_name_so": "Savage Legacy",
+  "true_name_loc": "Savage Legacy",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW6",
+  "pool_name": "Tempest's Wrath",
+  "true_id": "b551c8351ebe5784faf9912b573eaf93",
+  "true_name_so": "Tempest's Wrath",
+  "true_name_loc": "Tempest's Wrath",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW53",
+  "pool_name": "The Fang",
+  "true_id": "SW48",
+  "true_name_so": "The Fang",
+  "true_name_loc": "The Fang",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW54",
+  "pool_name": "Unbridled Fury",
+  "true_id": "SW45",
+  "true_name_so": "Unbridled Fury",
+  "true_name_loc": "Unbridled Fury",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW10",
+  "pool_name": "War Howl",
+  "true_id": "e3b5735d801fcbd49aa8d3975a5b0c31",
+  "true_name_so": "War Howl",
+  "true_name_loc": "War Howl",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW42",
+  "pool_name": "Bjorn the Fell-Handed",
+  "true_id": "SW36",
+  "true_name_so": "Bjorn the Fell-Handed",
+  "true_name_loc": "Bjorn the Fell-Handed",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW30",
+  "pool_name": "Blackmane Inceptor",
+  "true_id": "SW22",
+  "true_name_so": "Blackmane Inceptor",
+  "true_name_loc": "Blackmane Inceptor",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW31",
+  "pool_name": "Fenrisian Drop Pod",
+  "true_id": "SW23",
+  "true_name_so": "Fenrisian Drop Pod",
+  "true_name_loc": "Fenrisian Drop Pod",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW45",
+  "pool_name": "Land Rider",
+  "true_id": "SW38",
+  "true_name_so": "Land Raider",
+  "true_name_loc": "Land Raider",
+  "method": "no-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW39",
+  "pool_name": "Murderfang",
+  "true_id": "SW34",
+  "true_name_so": "Murderfang",
+  "true_name_loc": "Murderfang",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW40",
+  "pool_name": "Stormwolf",
+  "true_id": "SW32",
+  "true_name_so": "Stormwolf",
+  "true_name_loc": "Stormwolf",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW43",
+  "pool_name": "Venerable Dreadnought",
+  "true_id": "SW35",
+  "true_name_so": "Venerable Dreadnought",
+  "true_name_loc": "Venerable Dreadnought",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW41",
+  "pool_name": "Vindicator",
+  "true_id": "SW33",
+  "true_name_so": "Vindicator",
+  "true_name_loc": "Vindicator",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW44",
+  "pool_name": "Wulfen Dreadnought",
+  "true_id": "SW37",
+  "true_name_so": "Wulfen Dreadnought",
+  "true_name_loc": "Wulfen Dreadnought",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW2",
+  "pool_name": "Njal Stormcaller",
+  "true_id": "SW2",
+  "true_name_so": "Njal Stormcaller",
+  "true_name_loc": "Njal Stormcaller",
+  "method": "loc-name+same-id",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "SW3",
+  "pool_name": "Ragnar Blackmane",
+  "true_id": "SW3",
+  "true_name_so": "Ragnar Blackmane",
+  "true_name_loc": "Ragnar Blackmane",
+  "method": "loc-name+same-id",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_2nd_Company_Terminator",
+  "pool_name": "2nd Company Terminator",
+  "true_id": "UM101",
+  "true_name_so": "Terminator Sergeant",
+  "true_name_loc": "1st Company Terminator",
+  "method": "no-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM87",
+  "pool_name": "Bladeguard Ancient",
+  "true_id": "UM104",
+  "true_name_so": "Bladeguard Ancient",
+  "true_name_loc": "Bladeguard Ancient",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Chaplain_Cassius",
+  "pool_name": "Chaplain Cassius",
+  "true_id": "UM100",
+  "true_name_so": "Chaplain Cassius",
+  "true_name_loc": "Chaplain Cassius",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Chapter_Champion",
+  "pool_name": "Chapter Champion",
+  "true_id": "UM96",
+  "true_name_so": "Chapter Champion",
+  "true_name_loc": "Chapter Champion",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Devastator_Marine",
+  "pool_name": "Devastator Marine",
+  "true_id": "UM98",
+  "true_name_so": "Devastator Marine",
+  "true_name_loc": "Devastator Marine",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM89",
+  "pool_name": "Ferren Areios",
+  "true_id": "UM106",
+  "true_name_so": "Ferren Areios",
+  "true_name_loc": "Ferren Areios",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Incursor",
+  "pool_name": "Incursor",
+  "true_id": "UM89",
+  "true_name_so": "Incursor",
+  "true_name_loc": "Incursor",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Phobos_Librarian",
+  "pool_name": "Phobos Librarian",
+  "true_id": "UM99",
+  "true_name_so": "Phobos Librarian",
+  "true_name_loc": "Phobos Librarian",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Phobos_Lieutenant",
+  "pool_name": "Phobos Lieutenant",
+  "true_id": "UM90",
+  "true_name_so": "Phobos Lieutenant",
+  "true_name_loc": "Phobos Lieutenant",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Scout_Sniper",
+  "pool_name": "Scout Sniper",
+  "true_id": "UM94",
+  "true_name_so": "Scout Sniper",
+  "true_name_loc": "Scout Sniper",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Suppressor",
+  "pool_name": "Suppressor",
+  "true_id": "UM97",
+  "true_name_so": "Suppressor",
+  "true_name_loc": "Suppressor",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Tactical_Marine",
+  "pool_name": "Tactical Marine",
+  "true_id": "UM91",
+  "true_name_so": "Tactical Marine",
+  "true_name_loc": "Tactical Marine",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM88",
+  "pool_name": "Terminator Captain",
+  "true_id": "UM102",
+  "true_name_so": "Terminator Captain",
+  "true_name_loc": "Terminator Captain",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Terminator",
+  "pool_name": "Terminator",
+  "true_id": "UM103",
+  "true_name_so": "Terminator",
+  "true_name_loc": "Terminator",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Vico_Therbeus",
+  "pool_name": "Vico Therbeus",
+  "true_id": "UM93",
+  "true_name_so": "Vico Therbeus",
+  "true_name_loc": "Vico Therbeus",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM92",
+  "pool_name": "Adaptive Strategy",
+  "true_id": "UM109",
+  "true_name_so": "Adaptive Strategy",
+  "true_name_loc": "Adaptive Strategy",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Angel_s_Wrath",
+  "pool_name": "Angel's Wrath",
+  "true_id": "4de4fcfb5d7e0554a88b9f419a2cd7c2",
+  "true_name_so": "Angel's Wrath",
+  "true_name_loc": "Angel's Wrath",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Author_of_the_Codex",
+  "pool_name": "Author of the Codex",
+  "true_id": "40667e346ae58a84dbda1033dff70ccb",
+  "true_name_so": "Author of the Codex",
+  "true_name_loc": "Author of the Codex",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Catechism_of_Death",
+  "pool_name": "Catechism of Death",
+  "true_id": "8482077f309b08943b190f18b5874871",
+  "true_name_so": "Catechism of Death",
+  "true_name_loc": "Catechism of Death",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM94",
+  "pool_name": "Champions of Humanity",
+  "true_id": "UM112",
+  "true_name_so": "Champions of Humanity",
+  "true_name_loc": "Champions of Humanity",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM95",
+  "pool_name": "Duty's End",
+  "true_id": "UM113",
+  "true_name_so": "Duty's End",
+  "true_name_loc": "Duty's End",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM93",
+  "pool_name": "Fall Back",
+  "true_id": "UM110",
+  "true_name_so": "Fall Back",
+  "true_name_loc": "Fall Back",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM101",
+  "pool_name": "Indomitus Crusade",
+  "true_id": "UM118",
+  "true_name_so": "Indomitus Crusade",
+  "true_name_loc": "Indomitus Crusade",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM97",
+  "pool_name": "Lead From the Front",
+  "true_id": "UM114",
+  "true_name_so": "Lead From the Front",
+  "true_name_loc": "Lead From the Front",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Master_of_Battle",
+  "pool_name": "Master of Battle",
+  "true_id": "b14d1db2b0730d649b3bec35af100363",
+  "true_name_so": "Master of Battle",
+  "true_name_loc": "Master of Battle",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM99",
+  "pool_name": "No Mercy",
+  "true_id": "UM116",
+  "true_name_so": "No Mercy",
+  "true_name_loc": "No Mercy",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM100",
+  "pool_name": "No Respite",
+  "true_id": "UM117",
+  "true_name_so": "No Respite",
+  "true_name_loc": "No Respite",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Primarch_of_the_XIII",
+  "pool_name": "Primarch of the XIII",
+  "true_id": "e874c2bd84895e64694daa44bd5fd5c2",
+  "true_name_so": "Primarch of the XIII",
+  "true_name_loc": "Primarch of the XIII",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM96",
+  "pool_name": "Shall Know No Fear",
+  "true_id": "UM111",
+  "true_name_so": "Shall Know No Fear",
+  "true_name_loc": "Shall Know No Fear",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM98",
+  "pool_name": "Stormhawk Interception",
+  "true_id": "UM115",
+  "true_name_so": "Stormhawk Interception",
+  "true_name_loc": "Stormhawk Interception",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Supreme_Strategist",
+  "pool_name": "Supreme Strategist",
+  "true_id": "ef596edae1828bd46bfc4348535a3acc",
+  "true_name_so": "Supreme Strategist",
+  "true_name_loc": "Supreme Strategist",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Attack_Bike",
+  "pool_name": "Attack Bike",
+  "true_id": "UM95",
+  "true_name_so": "Attack Bike",
+  "true_name_loc": "Attack Bike",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM91",
+  "pool_name": "Brutalis Dreadnought",
+  "true_id": "UM108",
+  "true_name_so": "Brutalis Dreadnought",
+  "true_name_loc": "Brutalis Dreadnought",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Dreadnought",
+  "pool_name": "Dreadnought",
+  "true_id": "UM105",
+  "true_name_so": "Dreadnought",
+  "true_name_loc": "Dreadnought",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Firestrike_Servo_Turret",
+  "pool_name": "Firestrike Servo Turret",
+  "true_id": "UM92",
+  "true_name_so": "Firestrike Servo-Turret",
+  "true_name_loc": "Firestrike Servo-Turret",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM90",
+  "pool_name": "Whirlwind",
+  "true_id": "UM107",
+  "true_name_so": "Whirlwind",
+  "true_name_loc": "Whirlwind",
+  "method": "loc-name+id-fix",
+  "value_mismatch": null
+ },
+ {
+  "pool_id": "UM_Roboute_Guilliman",
+  "pool_name": "Roboute Guilliman",
+  "true_id": "UM87",
+  "true_name_so": "Roboute Guilliman",
+  "true_name_loc": "Roboute Guilliman",
+  "method": "loc-name+id-fix",
+  "value_mismatch": [
+   [
+    0,
+    2
+   ],
+   [
+    40,
+    30
+   ]
+  ]
+ },
+ {
+  "pool_id": "UM_Valius_Paxor",
+  "pool_name": "Valius Paxor",
+  "true_id": "UM88",
+  "true_name_so": "Valius Paxor",
+  "true_name_loc": "Valius Paxor",
+  "method": "loc-name+id-fix",
+  "value_mismatch": [
+   [
+    0,
+    2
+   ]
+  ]
+ }
+]

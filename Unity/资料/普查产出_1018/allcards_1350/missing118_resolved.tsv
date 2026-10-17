@@ -1,0 +1,119 @@
+pool_id	pool_name	resolution	true_id	true_name_SO	true_name_LOC_en	value_mismatch
+DA76	Refuse to Yield	id-fix	38871853fabb5244d8148766829230cd	Refuse to Yield	Refuse to Yield	
+DA81	Assault Terminator	id-fix	DA67	Assault Terminator	Assault Terminator	
+DA82	Chaplain Gabutheron	id-fix	DA65	Chaplain Gabutheron	Chaplain Gabutheron	
+DA80	Vengeful Brethren Bladeguard	id-fix	DA68	Vengeful Brethren Bladeguard	Vengeful Brethren Bladeguard	
+DA79	Vengeful Brethren Hellblaster	id-fix	DA69	Vengeful Brethren Hellblaster	Vengeful Brethren Hellblaster	
+DA78	Vengeful Brethren Intercessor	id-fix	DA70	Vengeful Brethren Intercessor	Vengeful Brethren Intercessor	
+DA77	Watcher in the Dark	id-fix	DA71	Watcher in the Dark	Watcher in the Dark	
+DA86	Hunters of Heretics	id-fix	DA74	Hunters of Heretics	Hunters of Heretics	
+DA85	Relic Munitions	id-fix	DA73	Relic Munitions	Relic Munitions	
+DA84	Vengeful Brethren	id-fix	DA72	Vengeful Brethren	Vengeful Brethren	
+DA83	Ravenwing Ballistus Dreadnought	id-fix	DA66	Ravenwing Ballistus Dreadnought	Ballistus Dreadnought	
+DA75	Master Zacharial	same-id	DA75	Master Zacharial	Master Zacharial	
+SW1	Logan Grimnar	same-id	SW1	Logan Grimnar	Logan Grimnar	
+SW24	Iron Priest	id-fix	SW19	Iron Priest	Iron Priest	
+SW29	Arjac Rockfist	id-fix	SW26	Arjac Rockfist	Arjac Rockfist	
+SW35	Blackmane Aggressor	id-fix	SW28	Blackmane Aggressor	Blackmane Aggressor	
+SW13	Blackmane Reiver	id-fix	SW8	Blackmane Reiver	Blackmane Reiver	
+SW14	Blood Claw Pack Leader	id-fix	SW6	Blood Claw Pack Leader	Blood Claw Pack Leader	
+SW11	Blood Claw	id-fix	SW4	Blood Claw	Blood Claw	
+SW15	Deathwolf Scout	id-fix	SW7	Deathwolf Scout	Deathwolf Scout	
+SW16	Fenrisian Wolf	id-fix	SW9	Fenrisian Wolf	Fenrisian Wolf	
+SW32	Frost Claw Wulfen	id-fix	SW24	Frost Claw Wulfen	Frost Claw Wulfen	
+SW18	Fyrri Askar	id-fix	SW15	Fyrri Askar	Fyrri Askar	
+SW19	Grey Hunter Pack Leader	id-fix	SW11	Grey Hunter Pack Leader	Grey Hunter Pack Leader	
+SW17	Grey Hunter	id-fix	SW10	Grey Hunter	Grey Hunter	
+SW23	Hrolf the Ironhowl	id-fix	SW18	Hrolf the Ironhowl	Hrolf the Ironhowl	
+SW12	Hunting Wolf	id-fix	SW5	Hunting Wolf	Hunting Wolf	
+SW25	Long Fang	id-fix	SW16	Long Fang	Long Fang	
+SW36	Morkai Eliminator	id-fix	SW29	Morkai Eliminator	Sons of Morkai Eliminator	
+SW37	Terminator Rune Priest	id-fix	SW30	Terminator Rune Priest	Terminator Rune Priest	
+SW26	Thunderwolf Cavalry Pack Leader	id-fix	SW20	Thunderwolf Cavalry Pack Leader	Thunderwolf Cavalry Pack Leader	
+SW20	Thunderwolf Cavalry	id-fix	SW12	Thunderwolf Cavalry	Thunderwolf Cavalry	
+SW9	Tyrnak and Fenrir	id-fix	6e4f9040e8cc59641a32f29e33ea4cbc	Tyrnak and Fenrir	Tyrnak and Fenrir	
+SW33	Wolf Guard Battle Leader	id-fix	SW25	Wolf Guard Battle Leader	Wolf Guard Battle Leader	
+SW21	Wolf Guard Headtaker	id-fix	SW13	Wolf Guard Headtaker	Wolf Guard Headtaker	[(4, 3)]
+SW34	Wolf Guard Terminator Pack Leader	id-fix	SW27	Wolf Guard Terminator Pack Leader	Wolf Guard Terminator Pack Leader	
+SW38	Wolf Guard Terminator	id-fix	SW31	Wolf Guard Terminator	Wolf Guard Terminator	
+SW22	Wolf Priest	id-fix	SW14	Wolf Priest	Wolf Priest	
+SW28	Wulfen Pack Leader	id-fix	SW21	Wulfen Pack Leader	Wulfen Pack Leader	
+SW27	Wulfen	id-fix	SW17	Wulfen	Wulfen	
+SW51	Anvil of Endurance	id-fix	SW43	Anvil of Endurance	Anvil of Endurance	
+SW64	Birth of a Saga	id-fix	SW57	Birth of a Saga	Birth of a Saga	
+SW46	Bjorn's Shrine	id-fix	SW40	Bjorn's Shrine	Bjorn's Shrine	
+SW47	Canis Helix	id-fix	SW39	Canis Helix	Canis Helix	
+SW48	Death Shun	id-fix	SW44	Death Shun	Death Shun	
+SW55	Embers of Prospero	id-fix	SW53	Embers of Prospero	Embers of Prospero	
+SW56	Fenrisian Blizzard	id-fix	SW49	Fenrisian Blizzard	Fenrisian Blizzard	
+SW60	Fenrisian Monstrosities	id-fix	SW54	Fenrisian Monstrosities	Fenrisian Monstrosities	
+SW66	Fenrisian Runestones	id-fix	SW60	Fenrisian Runestones	Fenrisian Runestones	
+SW65	Fenrisian Wolfpack	id-fix	SW58	Fenrisian Wolfpack	Fenrisian Wolfpack	
+SW68	Halls of Legend	id-fix	SW61	Halls of Legend	Halls of Legend	
+SW4	High King of Fenris	id-fix	b3dce3f10cc118541910156ec8da1d9b	High King of Fenris	High King of Fenris	
+SW5	High Rune Priest	id-fix	a51adc8f5c311584385c3117cfd919e9	High Rune Priest	High Rune Priest	
+SW61	Hordeslayer	id-fix	SW50	Hordeslayer	Hordeslayer	
+SW57	Hunter's Guile	id-fix	SW51	Hunter's Guile	Hunter's Guile	
+SW62	Legendary Tenacity	id-fix	SW55	Legendary Tenacity	Legendary Tenacity	
+SW63	Let Loose	id-fix	SW56	Let Loose	Let Loose	
+SW8	Living Lightning	id-fix	7a01882fe4610244292d16b15f4b873e	Living Lightning	Living Lightning	
+SW7	Murderous Hurricane	id-fix	4d4b9170663891f488c0e96ee8e55ba1	Murderous Hurricane	Murderous Hurricane	
+SW67	Orbital Defences	id-fix	SW59	Orbital Defences	Orbital Defences	
+SW49	Pack of One	id-fix	SW41	Pack of One	Pack of One	
+SW58	Proper Hunt	id-fix	SW52	Proper Hunt	Proper Hunt	
+SW59	Raid Tactics	id-fix	SW46	Raid Tactics	Raid Tactics	
+SW52	Saga of the Bold	id-fix	SW47	Saga of the Bold	Saga of the Bold	
+SW50	Savage Legacy	id-fix	SW42	Savage Legacy	Savage Legacy	
+SW6	Tempest's Wrath	id-fix	b551c8351ebe5784faf9912b573eaf93	Tempest's Wrath	Tempest's Wrath	
+SW53	The Fang	id-fix	SW48	The Fang	The Fang	
+SW54	Unbridled Fury	id-fix	SW45	Unbridled Fury	Unbridled Fury	
+SW10	War Howl	id-fix	e3b5735d801fcbd49aa8d3975a5b0c31	War Howl	War Howl	
+SW42	Bjorn the Fell-Handed	id-fix	SW36	Bjorn the Fell-Handed	Bjorn the Fell-Handed	
+SW30	Blackmane Inceptor	id-fix	SW22	Blackmane Inceptor	Blackmane Inceptor	
+SW31	Fenrisian Drop Pod	id-fix	SW23	Fenrisian Drop Pod	Fenrisian Drop Pod	
+SW45	Land Rider	id-fix	SW38	Land Raider	Land Raider	
+SW39	Murderfang	id-fix	SW34	Murderfang	Murderfang	
+SW40	Stormwolf	id-fix	SW32	Stormwolf	Stormwolf	
+SW43	Venerable Dreadnought	id-fix	SW35	Venerable Dreadnought	Venerable Dreadnought	
+SW41	Vindicator	id-fix	SW33	Vindicator	Vindicator	
+SW44	Wulfen Dreadnought	id-fix	SW37	Wulfen Dreadnought	Wulfen Dreadnought	
+SW2	Njal Stormcaller	same-id	SW2	Njal Stormcaller	Njal Stormcaller	
+SW3	Ragnar Blackmane	same-id	SW3	Ragnar Blackmane	Ragnar Blackmane	
+UM_2nd_Company_Terminator	2nd Company Terminator	id-fix	UM101	Terminator Sergeant	1st Company Terminator	
+UM87	Bladeguard Ancient	id-fix	UM104	Bladeguard Ancient	Bladeguard Ancient	
+UM_Chaplain_Cassius	Chaplain Cassius	id-fix	UM100	Chaplain Cassius	Chaplain Cassius	
+UM_Chapter_Champion	Chapter Champion	id-fix	UM96	Chapter Champion	Chapter Champion	
+UM_Devastator_Marine	Devastator Marine	id-fix	UM98	Devastator Marine	Devastator Marine	
+UM89	Ferren Areios	id-fix	UM106	Ferren Areios	Ferren Areios	
+UM_Incursor	Incursor	id-fix	UM89	Incursor	Incursor	
+UM_Phobos_Librarian	Phobos Librarian	id-fix	UM99	Phobos Librarian	Phobos Librarian	
+UM_Phobos_Lieutenant	Phobos Lieutenant	id-fix	UM90	Phobos Lieutenant	Phobos Lieutenant	
+UM_Scout_Sniper	Scout Sniper	id-fix	UM94	Scout Sniper	Scout Sniper	
+UM_Suppressor	Suppressor	id-fix	UM97	Suppressor	Suppressor	
+UM_Tactical_Marine	Tactical Marine	id-fix	UM91	Tactical Marine	Tactical Marine	
+UM88	Terminator Captain	id-fix	UM102	Terminator Captain	Terminator Captain	
+UM_Terminator	Terminator	id-fix	UM103	Terminator	Terminator	
+UM_Vico_Therbeus	Vico Therbeus	id-fix	UM93	Vico Therbeus	Vico Therbeus	
+UM92	Adaptive Strategy	id-fix	UM109	Adaptive Strategy	Adaptive Strategy	
+UM_Angel_s_Wrath	Angel's Wrath	id-fix	4de4fcfb5d7e0554a88b9f419a2cd7c2	Angel's Wrath	Angel's Wrath	
+UM_Author_of_the_Codex	Author of the Codex	id-fix	40667e346ae58a84dbda1033dff70ccb	Author of the Codex	Author of the Codex	
+UM_Catechism_of_Death	Catechism of Death	id-fix	8482077f309b08943b190f18b5874871	Catechism of Death	Catechism of Death	
+UM94	Champions of Humanity	id-fix	UM112	Champions of Humanity	Champions of Humanity	
+UM95	Duty's End	id-fix	UM113	Duty's End	Duty's End	
+UM93	Fall Back	id-fix	UM110	Fall Back	Fall Back	
+UM101	Indomitus Crusade	id-fix	UM118	Indomitus Crusade	Indomitus Crusade	
+UM97	Lead From the Front	id-fix	UM114	Lead From the Front	Lead From the Front	
+UM_Master_of_Battle	Master of Battle	id-fix	b14d1db2b0730d649b3bec35af100363	Master of Battle	Master of Battle	
+UM99	No Mercy	id-fix	UM116	No Mercy	No Mercy	
+UM100	No Respite	id-fix	UM117	No Respite	No Respite	
+UM_Primarch_of_the_XIII	Primarch of the XIII	id-fix	e874c2bd84895e64694daa44bd5fd5c2	Primarch of the XIII	Primarch of the XIII	
+UM96	Shall Know No Fear	id-fix	UM111	Shall Know No Fear	Shall Know No Fear	
+UM98	Stormhawk Interception	id-fix	UM115	Stormhawk Interception	Stormhawk Interception	
+UM_Supreme_Strategist	Supreme Strategist	id-fix	ef596edae1828bd46bfc4348535a3acc	Supreme Strategist	Supreme Strategist	
+UM_Attack_Bike	Attack Bike	id-fix	UM95	Attack Bike	Attack Bike	
+UM91	Brutalis Dreadnought	id-fix	UM108	Brutalis Dreadnought	Brutalis Dreadnought	
+UM_Dreadnought	Dreadnought	id-fix	UM105	Dreadnought	Dreadnought	
+UM_Firestrike_Servo_Turret	Firestrike Servo Turret	id-fix	UM92	Firestrike Servo-Turret	Firestrike Servo-Turret	
+UM90	Whirlwind	id-fix	UM107	Whirlwind	Whirlwind	
+UM_Roboute_Guilliman	Roboute Guilliman	id-fix	UM87	Roboute Guilliman	Roboute Guilliman	[(0, 2), (40, 30)]
+UM_Valius_Paxor	Valius Paxor	id-fix	UM88	Valius Paxor	Valius Paxor	[(0, 2)]

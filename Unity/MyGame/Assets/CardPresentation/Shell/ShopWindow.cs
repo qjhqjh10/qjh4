@@ -70,14 +70,24 @@ namespace CardPresentation
 
         /// <summary>左栏键表：三个页 + **一个母版**（`TabButtons.tabButtonPrefab`，`Initialize` 一进来就关掉）。
         /// 🔴 **这张表是我们定的**（原版由服务端 store 列表驱动）—— 见文件头。</summary>
-        public static readonly TabBtnSpec[] Buttons =
+        public static TabBtnSpec[] ButtonsNow()
         {
-            new TabBtnSpec(ShopData.Pages[0].Icon, ShopData.Pages[0].Label, 36f, 5f, 36f, "ShopMenu_CardsButton"),
-            new TabBtnSpec(ShopData.Pages[1].Icon, ShopData.Pages[1].Label, 36f, 5f, 36f, "ShopMenu_DailyButton"),
-            new TabBtnSpec(ShopData.Pages[2].Icon, ShopData.Pages[2].Label, 36f, 5f, 36f, "ShopMenu_ItemsButton"),
-            // 第 4 个 = 母版（原版 `TabButtons.tabButtonPrefab`）：**照建但关着**。
-            new TabBtnSpec(ShopData.MasterKeyIcon, "Booster Packs", 25.65f, 12f, 33f, "", 47.9f),
-        };
+            // 🔴 **2026-10-18（N59）**：页签文案补 `Term`（`BuildBar` 非空即走 `Loc.T`）——
+            //   三个页签的**显示名**照内容取官方 `MenuShop/ShopItemType/*`（Boosters/Gold/Cosmetics），
+            //   `Label` 仍留英文原名（诊断/自检用，别改）。原版的页签名本来由**服务端 store 列表**下发
+            //   （本地没有），这三个 term 是**按页内容挑的** —— 如实记，不冒充原版。
+            return new[]
+            {
+                new TabBtnSpec(ShopData.Pages[0].Icon, ShopData.Pages[0].Label, 36f, 5f, 36f,
+                               "ShopMenu_CardsButton", term: "MenuShop/ShopItemType/BoosterPacks"),
+                new TabBtnSpec(ShopData.Pages[1].Icon, ShopData.Pages[1].Label, 36f, 5f, 36f,
+                               "ShopMenu_DailyButton", term: "MenuShop/ShopItemType/Gold"),
+                new TabBtnSpec(ShopData.Pages[2].Icon, ShopData.Pages[2].Label, 36f, 5f, 36f,
+                               "ShopMenu_ItemsButton", term: "MenuShop/ShopItemType/Cosmetics"),
+                // 第 4 个 = 母版（原版 `TabButtons.tabButtonPrefab`）：**照建但关着**。
+                new TabBtnSpec(ShopData.MasterKeyIcon, "Booster Packs", 25.65f, 12f, 33f, "", 47.9f),
+            };
+        }
 
         public ShopWindow()
         {
@@ -121,6 +131,15 @@ namespace CardPresentation
             RefreshHighlights();
         }
 
+        /// <summary>🆕 **2026-10-18（N63）**：换语言后刷新**页内**文案（`TimeCounter` 的「可用的」/时间格式）。
+        /// 左栏页签文字是 `BuildBar` 建时取的词条（`TabBtnSpec.Term`），要下次开窗才换 —— 如实记账。</summary>
+        public override void OnLanguageChanged()
+        {
+            if (tabs == null) return;
+            for (int i = 0; i < tabs.Count; i++)
+                if (tabs[i] is ShopTabPage p) p.RefreshLanguageTexts();
+        }
+
         /// <summary>点了还没做的件 —— **出声**（红线：不许静默失败）。</summary>
         public override void NotifyNotBuilt(string what)
         {
@@ -134,7 +153,7 @@ namespace CardPresentation
         {
             // 🔴 **2026-10-11（`A1498`）显式表态**：原版 `Shop Menu Variant` 的
             //   `tabButtons.tabButtonPrefab` = MB `764348890710493308` 的 `m_PathID`（**非 0**）⇒ **末项【是】母版**。
-            var res = BuildShell(transform, Buttons, "ShopTabButton_", "Tabs", lastIsMaster: true);
+            var res = BuildShell(transform, ButtonsNow(), "ShopTabButton_", "Tabs", lastIsMaster: true);
             tabButtons = res.buttons;
             _btnRoot = res.roots;
             _btnHighlight = res.highlight;
@@ -195,7 +214,7 @@ namespace CardPresentation
         public string Dump()
         {
             var sb = new System.Text.StringBuilder();
-            sb.Append($"Shop：页签 {CurrentTab} · 页 {tabs.Count} 个 · 左栏 {Buttons.Length} 键");
+            sb.Append($"Shop：页签 {CurrentTab} · 页 {tabs.Count} 个 · 左栏 {ButtonsNow().Length} 键");
             sb.Append(" · 取不到的图 ").Append(MissingArt.Count).Append(" 张");
             return sb.ToString();
         }

@@ -142,6 +142,30 @@ EV_DEATH = "death"
 EV_ABILITY = "ability"
 EV_TRIGGER = "trigger"
 
+# 🔴 **2026-10-18（T21）**：原版 `CardAbility.trigger`（`AbilityTrigger` 枚举名）→ **我们引擎真正会发的事件**。
+#   以前 `cardAbilities[].cardAnimations[]` **一律归到 `ability`**（当时明写「是我们拍的」）⇒
+#   `ThisCardPlayed` 那 696 条（战术/防守整族）**永远不播**（`PlayTactic` 只发 `EvtKind.Play`）。
+#   这里按原版触发名归口；**判据不足的一律保持 `ability`**（= 当前不可达，宁可少播、不可错播）。
+TRIGGER_EVENT = {
+    "ThisCardPlayed": EV_PLAY,
+    "Strike": EV_TRIGGER,
+    "Slay": EV_TRIGGER,
+    "ThisUnitDeath": EV_DEATH,
+    "UnitDeathByAbility": EV_DEATH,
+    "UnitDamaged": EV_HIT,
+    "UnitAttack": EV_ATK_MELEE,
+}
+
+
+def trigger_event(name):
+    """`AbilityTrigger` 枚举名 → 我们的事件名 + 一句理由。
+    ⚠️ 只归**引擎真的会发**的事件；其余保持 `ability`（⛔ 别乱塞到 `trigger` 让它在任何触发上播）。"""
+    ev = TRIGGER_EVENT.get(name)
+    if ev:
+        return ev, "原版 `AbilityTrigger.%s` → `%s`" % (name, ev)
+    return EV_ABILITY, "未归口（保持 `ability`；原版触发 `%s` 我们引擎没有对应事件）" % (name,)
+
+
 # 卡 SO 里**带 VFX 绑定**的顶层字段 → (我们的事件名, 一句解释)
 # 事件名归口的出处：`customRangedAttackParticles` 与 `CardScript.rangedAttackParticlesSO` 是同一件事的
 # 「逐卡覆盖 / 阵营档」两个来源（见 `build_generic` 的 `attackRangedByArmy`），所以归 `attack_ranged`；
@@ -815,9 +839,9 @@ def resolve_so_ref(guid, guid_map, idx, want_prefab):
 def so_refs(card, trig_names, eff_names):
     """一张**原版**卡 SO → [(soField, event, guid, extra)]；`event is None` = 非 VFX 字段。
 
-    ⚠️ `cardAnimations` 那两路的**事件名归到 `ability` 是我们拍的**（`VfxMap.Ability` = 「部队卡在场上发动技能」）：
-    原版真正给的是 `CardAbility.trigger` / `AbilityLogic.chosenAbility` 两个枚举，
-    **两个原样带在 entry 上**（`abilityTrigger(+Name)` / `chosenAbility(+Name)`），下游要精确到事件自己判。
+    ⚠️ `cardAnimations` 两路的**事件名**：`cardAbilities[]` 自 **2026-10-18（T21）** 起按
+    `AbilityTrigger` 枚举名归口（`trigger_event()`），**不再一律归 `ability`**；
+    `activeAbility` 仍归 `ability`（它就是「部队卡在场上发动技能」）。两个枚举原样带在 entry 上。
     """
     out = []
     for f, ev, _why in SO_VFX_FIELDS:
@@ -829,6 +853,8 @@ def so_refs(card, trig_names, eff_names):
         if g:
             out.append((f, None, g, {}))
     for i, ab in enumerate(card.get("cardAbilities") or []):
+        _trig_name = trig_names.get(ab.get("trigger"))
+        _ev, _ev_why = trigger_event(_trig_name)
         for j, lg in enumerate(ab.get("abilityLogic") or []):
             for k, a in enumerate(lg.get("cardAnimations") or []):
                 g = (a or {}).get("m_AssetGUID")
@@ -836,10 +862,12 @@ def so_refs(card, trig_names, eff_names):
                     continue
                 out.append((
                     "cardAbilities[%d].abilityLogic[%d].cardAnimations[%d]" % (i, j, k),
-                    EV_ABILITY, g,
+                    _ev, g,
                     {"abilitySlot": "cardAbilities[%d].abilityLogic[%d]" % (i, j),
                      "abilityTrigger": ab.get("trigger"),
-                     "abilityTriggerName": trig_names.get(ab.get("trigger")),
+                     "abilityTriggerName": _trig_name,
+                     "abilityEvent": _ev,
+                     "abilityEventWhy": _ev_why,
                      "chosenAbility": lg.get("chosenAbility"),
                      "chosenAbilityName": eff_names.get(lg.get("chosenAbility"))}))
     aab = card.get("activeAbility") or {}

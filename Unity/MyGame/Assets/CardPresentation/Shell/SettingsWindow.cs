@@ -1390,6 +1390,12 @@ namespace CardPresentation
         readonly List<Keyed> _tabLabels = new List<Keyed>();
         /// <summary>General 页里所有要翻译的标签（含那两个钮上的字）。</summary>
         readonly List<Keyed> _genLabels = new List<Keyed>();
+        /// <summary>🆕 **2026-10-18（N62）**：三颗勾选行的标签（`Disable Bots` / `Disable Notifications` /
+        /// `Touch Input`）—— 长英文折行后 `SetText` 会按 TMP 默认的 **Center** 重排，文字会压到复选框上
+        /// （截图 `10_settings_english.png`）。这里存「标签 + 原版框」，在 `RefreshTexts()` 里重落
+        /// `SetAlignLeft + AlignLeft`（原版这三颗是 `m_HorizontalAlignment = 1 (Left)`）。</summary>
+        readonly List<CheckLabel> _genCheckLabels = new List<CheckLabel>();
+        struct CheckLabel { public Label Lb; public PxRect R; }
         /// <summary>🆕 **2026-10-18（第四会话 · 双语③ · 换语言刷新链）**：**音频页 / 联机页**那几件
         /// 「`Build()` 里画一次」的玩家可见文字 —— `RefreshTexts()` 按它重设。
         /// <para>🔴 **为什么不照 `_genLabels` 存 `Keyed`（一个键）**：这一族里有两种 `Keyed` 表达不了的形状 ——
@@ -1611,7 +1617,7 @@ namespace CardPresentation
             // ⚠️ **这三个也要清**：`Build()` 每次开窗都跑（`Open()` 第一句），不清就会攒下**上一棵树里
             //    已经销毁的** quad / label 引用 ⇒ `RefreshTexts` 去碰它们（假 null 守卫挡住了不会炸，
             //    但那一批字就**永远不再更新**了 ⇒ 静默）。
-            _tabLabels.Clear(); _genLabels.Clear(); _genChecks.Clear(); _langCap = null;
+            _tabLabels.Clear(); _genLabels.Clear(); _genCheckLabels.Clear(); _genChecks.Clear(); _langCap = null;
             // 🆕 2026-10-18（换语言刷新链）：`_onLabels` 存的是**闭包**（里面抓着 `Label` / `MenuInputField`）
             //   ⇒ 同上，不清就会指着上一棵树里已销毁的件（`Label` 那条口里虽有守卫，但整条链会白走一遍）。
             _onLabels.Clear();
@@ -3159,8 +3165,14 @@ namespace CardPresentation
                           null, GenR - lx, 29f, 42f, 36f);
             if (lb != null)
             {
+                // 🔴 **2026-10-18（N62）**：原版这三颗 `Label` 是 `m_HorizontalAlignment = 1 (Left)`；
+                //   TMP 默认是 Center ⇒ 长英文（`Disable Notifications`）折行后会**压到复选框上**。
+                //   `SetAlignLeft` 自己不重排 ⇒ 显式 `ForceRelayout` 再落 `AlignLeft`。
+                lb.SetAlignLeft();
+                lb.ForceRelayout();
                 AlignLeft(lb, new PxRect(lx, t, GenR, b));
                 _genLabels.Add(new Keyed(lb, key));
+                _genCheckLabels.Add(new CheckLabel { Lb = lb, R = new PxRect(lx, t, GenR, b) });
             }
             _genChecks.Add(new CheckRow(chk, state));
             if (chk != null) chk.gameObject.SetActive(state());
@@ -3251,6 +3263,16 @@ namespace CardPresentation
                 if (_tabLabels[i].Lb != null) _tabLabels[i].Lb.SetText(Term(_tabLabels[i].Key, _tabLabels[i].En));
             for (int i = 0; i < _genLabels.Count; i++)
                 if (_genLabels[i].Lb != null) _genLabels[i].Lb.SetText(Loc.T(_genLabels[i].Key));
+            // 🔴 **2026-10-18（N62）**：三颗勾选行换语言后**重新落**「逐行左对齐 + 左缘」——
+            //   `SetText` 会按 TMP 默认的 Center 重排；长英文（`Disable Notifications`）会压到复选框上。
+            for (int i = 0; i < _genCheckLabels.Count; i++)
+            {
+                var e = _genCheckLabels[i];
+                if (e.Lb == null) continue;
+                e.Lb.SetAlignLeft();
+                e.Lb.ForceRelayout();
+                AlignLeft(e.Lb, e.R);
+            }
             // 🆕 2026-10-18（换语言刷新链）：音频页 / 联机页那几件「`Build()` 里画一次」的。
             // ⚠️ 这几件多数落在**当前没显示的那一页**上（换语言只能在 General 页做）—— 照设不误：
             //   切过去时 `OpenTab` 会先激活再调本函数，`Label` 那两条后端都能在未激活时兑现量测
@@ -3547,6 +3569,17 @@ namespace CardPresentation
             if (Loc.Current == v) { Debug.Log($"[Settings] 语言已经是「{Loc.LanguageName(v)}」—— 不变"); RefreshLangRows(); return; }
             bool changed = Loc.SetLanguage(v);
             RefreshTexts();
+            // 🔴 **2026-10-18（N63）**：设置窗底下可能还开着别的窗（商店/收藏…）—— 它们不是
+            //   `Loc` 的订阅者（`Loc` 不发静态事件，见 `Loc.SetLanguage` 的 doc）⇒ 在这里逐个叫一次。
+            if (Manager != null && Manager.openWindows != null)
+            {
+                var wins = Manager.openWindows;
+                for (int wi = 0; wi < wins.Count; wi++)
+                {
+                    var w = wins[wi];
+                    if (w != null && !ReferenceEquals(w, this)) w.OnLanguageChanged();
+                }
+            }
             // 🆕 2026-10-18（波 1b · A1046）：两句都改走语言表 ——
             //   键 `Settings/General/Flash/Language`（`语言 → {0}（{1}）`；`{0}` = 语言名、`{1}` = 枚举值）
             //   + `Settings/General/LangHasNoTable`（那半句的**值里自带前导全角空格** ⇒ 这里 ⛔ 别再补一个）。

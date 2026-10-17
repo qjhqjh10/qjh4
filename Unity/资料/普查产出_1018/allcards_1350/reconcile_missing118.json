@@ -1,0 +1,975 @@
+{
+ "direct": [
+  {
+   "id": "DA75",
+   "name": "Master Zacharial"
+  },
+  {
+   "id": "SW1",
+   "name": "Logan Grimnar"
+  },
+  {
+   "id": "SW24",
+   "name": "Iron Priest"
+  },
+  {
+   "id": "SW29",
+   "name": "Arjac Rockfist"
+  },
+  {
+   "id": "SW35",
+   "name": "Blackmane Aggressor"
+  },
+  {
+   "id": "SW13",
+   "name": "Blackmane Reiver"
+  },
+  {
+   "id": "SW14",
+   "name": "Blood Claw Pack Leader"
+  },
+  {
+   "id": "SW11",
+   "name": "Blood Claw"
+  },
+  {
+   "id": "SW15",
+   "name": "Deathwolf Scout"
+  },
+  {
+   "id": "SW16",
+   "name": "Fenrisian Wolf"
+  },
+  {
+   "id": "SW32",
+   "name": "Frost Claw Wulfen"
+  },
+  {
+   "id": "SW18",
+   "name": "Fyrri Askar"
+  },
+  {
+   "id": "SW19",
+   "name": "Grey Hunter Pack Leader"
+  },
+  {
+   "id": "SW17",
+   "name": "Grey Hunter"
+  },
+  {
+   "id": "SW23",
+   "name": "Hrolf the Ironhowl"
+  },
+  {
+   "id": "SW12",
+   "name": "Hunting Wolf"
+  },
+  {
+   "id": "SW25",
+   "name": "Long Fang"
+  },
+  {
+   "id": "SW36",
+   "name": "Morkai Eliminator"
+  },
+  {
+   "id": "SW37",
+   "name": "Terminator Rune Priest"
+  },
+  {
+   "id": "SW26",
+   "name": "Thunderwolf Cavalry Pack Leader"
+  },
+  {
+   "id": "SW20",
+   "name": "Thunderwolf Cavalry"
+  },
+  {
+   "id": "SW9",
+   "name": "Tyrnak and Fenrir"
+  },
+  {
+   "id": "SW33",
+   "name": "Wolf Guard Battle Leader"
+  },
+  {
+   "id": "SW21",
+   "name": "Wolf Guard Headtaker"
+  },
+  {
+   "id": "SW34",
+   "name": "Wolf Guard Terminator Pack Leader"
+  },
+  {
+   "id": "SW38",
+   "name": "Wolf Guard Terminator"
+  },
+  {
+   "id": "SW22",
+   "name": "Wolf Priest"
+  },
+  {
+   "id": "SW28",
+   "name": "Wulfen Pack Leader"
+  },
+  {
+   "id": "SW27",
+   "name": "Wulfen"
+  },
+  {
+   "id": "SW51",
+   "name": "Anvil of Endurance"
+  },
+  {
+   "id": "SW64",
+   "name": "Birth of a Saga"
+  },
+  {
+   "id": "SW46",
+   "name": "Bjorn's Shrine"
+  },
+  {
+   "id": "SW47",
+   "name": "Canis Helix"
+  },
+  {
+   "id": "SW48",
+   "name": "Death Shun"
+  },
+  {
+   "id": "SW55",
+   "name": "Embers of Prospero"
+  },
+  {
+   "id": "SW56",
+   "name": "Fenrisian Blizzard"
+  },
+  {
+   "id": "SW60",
+   "name": "Fenrisian Monstrosities"
+  },
+  {
+   "id": "SW4",
+   "name": "High King of Fenris"
+  },
+  {
+   "id": "SW5",
+   "name": "High Rune Priest"
+  },
+  {
+   "id": "SW61",
+   "name": "Hordeslayer"
+  },
+  {
+   "id": "SW57",
+   "name": "Hunter's Guile"
+  },
+  {
+   "id": "SW62",
+   "name": "Legendary Tenacity"
+  },
+  {
+   "id": "SW63",
+   "name": "Let Loose"
+  },
+  {
+   "id": "SW8",
+   "name": "Living Lightning"
+  },
+  {
+   "id": "SW7",
+   "name": "Murderous Hurricane"
+  },
+  {
+   "id": "SW49",
+   "name": "Pack of One"
+  },
+  {
+   "id": "SW58",
+   "name": "Proper Hunt"
+  },
+  {
+   "id": "SW59",
+   "name": "Raid Tactics"
+  },
+  {
+   "id": "SW52",
+   "name": "Saga of the Bold"
+  },
+  {
+   "id": "SW50",
+   "name": "Savage Legacy"
+  },
+  {
+   "id": "SW6",
+   "name": "Tempest's Wrath"
+  },
+  {
+   "id": "SW53",
+   "name": "The Fang"
+  },
+  {
+   "id": "SW54",
+   "name": "Unbridled Fury"
+  },
+  {
+   "id": "SW10",
+   "name": "War Howl"
+  },
+  {
+   "id": "SW42",
+   "name": "Bjorn the Fell-Handed"
+  },
+  {
+   "id": "SW30",
+   "name": "Blackmane Inceptor"
+  },
+  {
+   "id": "SW31",
+   "name": "Fenrisian Drop Pod"
+  },
+  {
+   "id": "SW45",
+   "name": "Land Rider"
+  },
+  {
+   "id": "SW39",
+   "name": "Murderfang"
+  },
+  {
+   "id": "SW40",
+   "name": "Stormwolf"
+  },
+  {
+   "id": "SW43",
+   "name": "Venerable Dreadnought"
+  },
+  {
+   "id": "SW41",
+   "name": "Vindicator"
+  },
+  {
+   "id": "SW44",
+   "name": "Wulfen Dreadnought"
+  },
+  {
+   "id": "SW2",
+   "name": "Njal Stormcaller"
+  },
+  {
+   "id": "SW3",
+   "name": "Ragnar Blackmane"
+  },
+  {
+   "id": "UM87",
+   "name": "Bladeguard Ancient"
+  },
+  {
+   "id": "UM89",
+   "name": "Ferren Areios"
+  },
+  {
+   "id": "UM88",
+   "name": "Terminator Captain"
+  },
+  {
+   "id": "UM92",
+   "name": "Adaptive Strategy"
+  },
+  {
+   "id": "UM94",
+   "name": "Champions of Humanity"
+  },
+  {
+   "id": "UM95",
+   "name": "Duty's End"
+  },
+  {
+   "id": "UM93",
+   "name": "Fall Back"
+  },
+  {
+   "id": "UM101",
+   "name": "Indomitus Crusade"
+  },
+  {
+   "id": "UM97",
+   "name": "Lead From the Front"
+  },
+  {
+   "id": "UM99",
+   "name": "No Mercy"
+  },
+  {
+   "id": "UM100",
+   "name": "No Respite"
+  },
+  {
+   "id": "UM96",
+   "name": "Shall Know No Fear"
+  },
+  {
+   "id": "UM98",
+   "name": "Stormhawk Interception"
+  },
+  {
+   "id": "UM91",
+   "name": "Brutalis Dreadnought"
+  },
+  {
+   "id": "UM90",
+   "name": "Whirlwind"
+  }
+ ],
+ "name_hit": [
+  {
+   "pool_id": "DA76",
+   "pool_name": "Refuse to Yield",
+   "candidates": [
+    {
+     "id": "38871853fabb5244d8148766829230cd",
+     "name": "Refuse to Yield",
+     "army": "DarkAngels",
+     "cost": 2,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "DA81",
+   "pool_name": "Assault Terminator",
+   "candidates": [
+    {
+     "id": "DA67",
+     "name": "Assault Terminator",
+     "army": "DarkAngels",
+     "cost": 6,
+     "melee": 6,
+     "ranged": 0,
+     "hp": 5,
+     "armour": 1
+    }
+   ]
+  },
+  {
+   "pool_id": "DA82",
+   "pool_name": "Chaplain Gabutheron",
+   "candidates": [
+    {
+     "id": "DA65",
+     "name": "Chaplain Gabutheron",
+     "army": "DarkAngels",
+     "cost": 7,
+     "melee": 5,
+     "ranged": 5,
+     "hp": 7,
+     "armour": 2
+    }
+   ]
+  },
+  {
+   "pool_id": "DA80",
+   "pool_name": "Vengeful Brethren Bladeguard",
+   "candidates": [
+    {
+     "id": "DA68",
+     "name": "Vengeful Brethren Bladeguard",
+     "army": "DarkAngels",
+     "cost": 4,
+     "melee": 4,
+     "ranged": 3,
+     "hp": 4,
+     "armour": 1
+    }
+   ]
+  },
+  {
+   "pool_id": "DA79",
+   "pool_name": "Vengeful Brethren Hellblaster",
+   "candidates": [
+    {
+     "id": "DA69",
+     "name": "Vengeful Brethren Hellblaster",
+     "army": "DarkAngels",
+     "cost": 3,
+     "melee": 2,
+     "ranged": 3,
+     "hp": 4,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "DA78",
+   "pool_name": "Vengeful Brethren Intercessor",
+   "candidates": [
+    {
+     "id": "DA70",
+     "name": "Vengeful Brethren Intercessor",
+     "army": "DarkAngels",
+     "cost": 2,
+     "melee": 2,
+     "ranged": 2,
+     "hp": 3,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "DA77",
+   "pool_name": "Watcher in the Dark",
+   "candidates": [
+    {
+     "id": "DA71",
+     "name": "Watcher in the Dark",
+     "army": "DarkAngels",
+     "cost": 1,
+     "melee": 1,
+     "ranged": 0,
+     "hp": 3,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "DA86",
+   "pool_name": "Hunters of Heretics",
+   "candidates": [
+    {
+     "id": "070f7594d50c74944b3e86ebae80bde1",
+     "name": "Hunters of Heretics",
+     "army": "DarkAngels",
+     "cost": 3,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    },
+    {
+     "id": "DA74",
+     "name": "Hunters of Heretics",
+     "army": "DarkAngels",
+     "cost": 3,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "DA85",
+   "pool_name": "Relic Munitions",
+   "candidates": [
+    {
+     "id": "DA73",
+     "name": "Relic Munitions",
+     "army": "DarkAngels",
+     "cost": 2,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "DA84",
+   "pool_name": "Vengeful Brethren",
+   "candidates": [
+    {
+     "id": "DA72",
+     "name": "Vengeful Brethren",
+     "army": "DarkAngels",
+     "cost": 1,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "DA83",
+   "pool_name": "Ravenwing Ballistus Dreadnought",
+   "candidates": [
+    {
+     "id": "DA66",
+     "name": "Ravenwing Ballistus Dreadnought",
+     "army": "DarkAngels",
+     "cost": 8,
+     "melee": 5,
+     "ranged": 9,
+     "hp": 9,
+     "armour": 1
+    }
+   ]
+  },
+  {
+   "pool_id": "SW66",
+   "pool_name": "Fenrisian Runestones",
+   "candidates": [
+    {
+     "id": "SW60",
+     "name": "Fenrisian Runestones",
+     "army": "SpaceWolves",
+     "cost": 0,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "SW65",
+   "pool_name": "Fenrisian Wolfpack",
+   "candidates": [
+    {
+     "id": "SW58",
+     "name": "Fenrisian Wolfpack",
+     "army": "SpaceWolves",
+     "cost": 9,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "SW68",
+   "pool_name": "Halls of Legend",
+   "candidates": [
+    {
+     "id": "SW61",
+     "name": "Halls of Legend",
+     "army": "SpaceWolves",
+     "cost": 1,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "SW67",
+   "pool_name": "Orbital Defences",
+   "candidates": [
+    {
+     "id": "SW59",
+     "name": "Orbital Defences",
+     "army": "SpaceWolves",
+     "cost": 0,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Chaplain_Cassius",
+   "pool_name": "Chaplain Cassius",
+   "candidates": [
+    {
+     "id": "UM100",
+     "name": "Chaplain Cassius",
+     "army": "Ultramarines",
+     "cost": 6,
+     "melee": 4,
+     "ranged": 4,
+     "hp": 7,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Chapter_Champion",
+   "pool_name": "Chapter Champion",
+   "candidates": [
+    {
+     "id": "UM96",
+     "name": "Chapter Champion",
+     "army": "Ultramarines",
+     "cost": 4,
+     "melee": 3,
+     "ranged": 2,
+     "hp": 5,
+     "armour": 1
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Devastator_Marine",
+   "pool_name": "Devastator Marine",
+   "candidates": [
+    {
+     "id": "UM98",
+     "name": "Devastator Marine",
+     "army": "Ultramarines",
+     "cost": 5,
+     "melee": 4,
+     "ranged": 6,
+     "hp": 6,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Incursor",
+   "pool_name": "Incursor",
+   "candidates": [
+    {
+     "id": "UM89",
+     "name": "Incursor",
+     "army": "Ultramarines",
+     "cost": 1,
+     "melee": 1,
+     "ranged": 2,
+     "hp": 2,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Phobos_Librarian",
+   "pool_name": "Phobos Librarian",
+   "candidates": [
+    {
+     "id": "UM99",
+     "name": "Phobos Librarian",
+     "army": "Ultramarines",
+     "cost": 5,
+     "melee": 6,
+     "ranged": 4,
+     "hp": 6,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Phobos_Lieutenant",
+   "pool_name": "Phobos Lieutenant",
+   "candidates": [
+    {
+     "id": "UM90",
+     "name": "Phobos Lieutenant",
+     "army": "Ultramarines",
+     "cost": 2,
+     "melee": 1,
+     "ranged": 3,
+     "hp": 3,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Scout_Sniper",
+   "pool_name": "Scout Sniper",
+   "candidates": [
+    {
+     "id": "UM94",
+     "name": "Scout Sniper",
+     "army": "Ultramarines",
+     "cost": 3,
+     "melee": 2,
+     "ranged": 4,
+     "hp": 3,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Suppressor",
+   "pool_name": "Suppressor",
+   "candidates": [
+    {
+     "id": "UM97",
+     "name": "Suppressor",
+     "army": "Ultramarines",
+     "cost": 4,
+     "melee": 2,
+     "ranged": 4,
+     "hp": 4,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Tactical_Marine",
+   "pool_name": "Tactical Marine",
+   "candidates": [
+    {
+     "id": "UM91",
+     "name": "Tactical Marine",
+     "army": "Ultramarines",
+     "cost": 2,
+     "melee": 2,
+     "ranged": 2,
+     "hp": 3,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Terminator",
+   "pool_name": "Terminator",
+   "candidates": [
+    {
+     "id": "UM103",
+     "name": "Terminator",
+     "army": "Ultramarines",
+     "cost": 5,
+     "melee": 6,
+     "ranged": 6,
+     "hp": 6,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Vico_Therbeus",
+   "pool_name": "Vico Therbeus",
+   "candidates": [
+    {
+     "id": "UM93",
+     "name": "Vico Therbeus",
+     "army": "Ultramarines",
+     "cost": 3,
+     "melee": 3,
+     "ranged": 4,
+     "hp": 4,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Angel_s_Wrath",
+   "pool_name": "Angel's Wrath",
+   "candidates": [
+    {
+     "id": "d05168153d48a004a98397101dc4954f",
+     "name": "Angel's Wrath",
+     "army": "Ultramarines",
+     "cost": 1,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    },
+    {
+     "id": "4de4fcfb5d7e0554a88b9f419a2cd7c2",
+     "name": "Angel's Wrath",
+     "army": "Ultramarines",
+     "cost": 1,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    },
+    {
+     "id": "97a4b83aa9331d5489bcd837fd4be8e8",
+     "name": "Angel's Wrath",
+     "army": "Ultramarines",
+     "cost": 3,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Author_of_the_Codex",
+   "pool_name": "Author of the Codex",
+   "candidates": [
+    {
+     "id": "40667e346ae58a84dbda1033dff70ccb",
+     "name": "Author of the Codex",
+     "army": "Ultramarines",
+     "cost": 2,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Catechism_of_Death",
+   "pool_name": "Catechism of Death",
+   "candidates": [
+    {
+     "id": "8482077f309b08943b190f18b5874871",
+     "name": "Catechism of Death",
+     "army": "Ultramarines",
+     "cost": 0,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    },
+    {
+     "id": "74480125107476f498ab284871b20401",
+     "name": "Catechism of Death",
+     "army": "Ultramarines",
+     "cost": 0,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    },
+    {
+     "id": "0d2874f3b124db2408e2c52ae47e5e0e",
+     "name": "Catechism of Death",
+     "army": "Ultramarines",
+     "cost": 3,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Master_of_Battle",
+   "pool_name": "Master of Battle",
+   "candidates": [
+    {
+     "id": "b14d1db2b0730d649b3bec35af100363",
+     "name": "Master of Battle",
+     "army": "Ultramarines",
+     "cost": 2,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Primarch_of_the_XIII",
+   "pool_name": "Primarch of the XIII",
+   "candidates": [
+    {
+     "id": "e874c2bd84895e64694daa44bd5fd5c2",
+     "name": "Primarch of the XIII",
+     "army": "Ultramarines",
+     "cost": 1,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Supreme_Strategist",
+   "pool_name": "Supreme Strategist",
+   "candidates": [
+    {
+     "id": "ef596edae1828bd46bfc4348535a3acc",
+     "name": "Supreme Strategist",
+     "army": "Ultramarines",
+     "cost": 3,
+     "melee": 0,
+     "ranged": 0,
+     "hp": 0,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Attack_Bike",
+   "pool_name": "Attack Bike",
+   "candidates": [
+    {
+     "id": "UM95",
+     "name": "Attack Bike",
+     "army": "Ultramarines",
+     "cost": 4,
+     "melee": 3,
+     "ranged": 5,
+     "hp": 5,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Dreadnought",
+   "pool_name": "Dreadnought",
+   "candidates": [
+    {
+     "id": "UM105",
+     "name": "Dreadnought",
+     "army": "Ultramarines",
+     "cost": 6,
+     "melee": 4,
+     "ranged": 7,
+     "hp": 7,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Firestrike_Servo_Turret",
+   "pool_name": "Firestrike Servo Turret",
+   "candidates": [
+    {
+     "id": "UM92",
+     "name": "Firestrike Servo-Turret",
+     "army": "Ultramarines",
+     "cost": 3,
+     "melee": 1,
+     "ranged": 4,
+     "hp": 3,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Roboute_Guilliman",
+   "pool_name": "Roboute Guilliman",
+   "candidates": [
+    {
+     "id": "UM87",
+     "name": "Roboute Guilliman",
+     "army": "Ultramarines",
+     "cost": 2,
+     "melee": 2,
+     "ranged": 2,
+     "hp": 30,
+     "armour": 0
+    }
+   ]
+  },
+  {
+   "pool_id": "UM_Valius_Paxor",
+   "pool_name": "Valius Paxor",
+   "candidates": [
+    {
+     "id": "UM88",
+     "name": "Valius Paxor",
+     "army": "Ultramarines",
+     "cost": 2,
+     "melee": 2,
+     "ranged": 2,
+     "hp": 25,
+     "armour": 0
+    }
+   ]
+  }
+ ],
+ "none": [
+  {
+   "pool_id": "UM_2nd_Company_Terminator",
+   "pool_name": "2nd Company Terminator",
+   "faction": "Ultramarines"
+  }
+ ]
+}

@@ -1,0 +1,1065 @@
+[
+ {
+  "id": "SAU37",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "TAU10",
+  "diff": {
+   "maxHealth": [
+    2,
+    1
+   ]
+  }
+ },
+ {
+  "id": "SOR3",
+  "diff": {
+   "maxHealth": [
+    40,
+    30
+   ]
+  }
+ },
+ {
+  "id": "GOF62",
+  "diff": {
+   "meleeAttack": [
+    7,
+    8
+   ],
+   "maxHealth": [
+    6,
+    7
+   ]
+  }
+ },
+ {
+  "id": "ASH29",
+  "diff": {
+   "maxHealth": [
+    7,
+    8
+   ]
+  }
+ },
+ {
+  "id": "GOF27",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "DA19",
+  "diff": {
+   "rangeAttack": [
+    2,
+    3
+   ]
+  }
+ },
+ {
+  "id": "ASH74",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "TAU18",
+  "diff": {
+   "maxHealth": [
+    4,
+    5
+   ]
+  }
+ },
+ {
+  "id": "GOF82",
+  "diff": {
+   "rangeAttack": [
+    1,
+    2
+   ]
+  }
+ },
+ {
+  "id": "UM76",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "TAU27",
+  "diff": {
+   "meleeAttack": [
+    3,
+    4
+   ]
+  }
+ },
+ {
+  "id": "DA3",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "SAU36",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "SAU66",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "BL35",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "GOF83",
+  "diff": {
+   "meleeAttack": [
+    2,
+    1
+   ]
+  }
+ },
+ {
+  "id": "DA2",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "DA55",
+  "diff": {
+   "manaCost": [
+    4,
+    3
+   ]
+  }
+ },
+ {
+  "id": "TAU2",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "GSC30",
+  "diff": {
+   "meleeAttack": [
+    6,
+    3
+   ],
+   "rangeAttack": [
+    6,
+    4
+   ],
+   "maxHealth": [
+    6,
+    5
+   ]
+  }
+ },
+ {
+  "id": "e3d67d86f73f7564eb0bf886ec848af6",
+  "diff": {
+   "manaCost": [
+    2,
+    0
+   ]
+  }
+ },
+ {
+  "id": "TL35",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "BL34",
+  "diff": {
+   "maxHealth": [
+    40,
+    30
+   ]
+  }
+ },
+ {
+  "id": "TAU21",
+  "diff": {
+   "maxHealth": [
+    4,
+    5
+   ]
+  }
+ },
+ {
+  "id": "BL65",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "GOF60",
+  "diff": {
+   "meleeAttack": [
+    4,
+    5
+   ],
+   "rangeAttack": [
+    4,
+    5
+   ]
+  }
+ },
+ {
+  "id": "GOF63",
+  "diff": {
+   "rangeAttack": [
+    7,
+    8
+   ]
+  }
+ },
+ {
+  "id": "SAU35",
+  "diff": {
+   "maxHealth": [
+    40,
+    30
+   ]
+  }
+ },
+ {
+  "id": "GOF25",
+  "diff": {
+   "maxHealth": [
+    9,
+    10
+   ]
+  }
+ },
+ {
+  "id": "6ed51d59b9f8ea24ab0dc7ceaef7956c",
+  "diff": {
+   "manaCost": [
+    2,
+    1
+   ]
+  }
+ },
+ {
+  "id": "GOF70",
+  "diff": {
+   "rangeAttack": [
+    4,
+    6
+   ]
+  }
+ },
+ {
+  "id": "GOF96",
+  "diff": {
+   "maxHealth": [
+    10,
+    11
+   ]
+  }
+ },
+ {
+  "id": "TAU22",
+  "diff": {
+   "rangeAttack": [
+    5,
+    6
+   ]
+  }
+ },
+ {
+  "id": "DA1",
+  "diff": {
+   "maxHealth": [
+    40,
+    30
+   ]
+  }
+ },
+ {
+  "id": "ef547f829b6491f45a8ad371f492278e",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "EC55",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "BL36",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "TAU65",
+  "diff": {
+   "maxHealth": [
+    30,
+    20
+   ]
+  }
+ },
+ {
+  "id": "GSC20",
+  "diff": {
+   "maxHealth": [
+    5,
+    6
+   ]
+  }
+ },
+ {
+  "id": "UM48",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "SOR11",
+  "diff": {
+   "rangeAttack": [
+    3,
+    4
+   ]
+  }
+ },
+ {
+  "id": "GOF85",
+  "diff": {
+   "maxHealth": [
+    4,
+    5
+   ]
+  }
+ },
+ {
+  "id": "GOF61",
+  "diff": {
+   "armour": [
+    0,
+    1
+   ]
+  }
+ },
+ {
+  "id": "ASH20",
+  "diff": {
+   "meleeAttack": [
+    2,
+    3
+   ]
+  }
+ },
+ {
+  "id": "TAU6",
+  "diff": {
+   "rangeAttack": [
+    1,
+    2
+   ]
+  }
+ },
+ {
+  "id": "GOF75",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "TAU25",
+  "diff": {
+   "rangeAttack": [
+    4,
+    5
+   ]
+  }
+ },
+ {
+  "id": "GOF77",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "UM65",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "GSC16",
+  "diff": {
+   "rangeAttack": [
+    0,
+    2
+   ]
+  }
+ },
+ {
+  "id": "TAU3",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "GOF29",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "GOF28",
+  "diff": {
+   "maxHealth": [
+    40,
+    30
+   ]
+  }
+ },
+ {
+  "id": "GOF37",
+  "diff": {
+   "manaCost": [
+    4,
+    3
+   ]
+  }
+ },
+ {
+  "id": "GSC15",
+  "diff": {
+   "meleeAttack": [
+    1,
+    2
+   ]
+  }
+ },
+ {
+  "id": "ASH1",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "GSC11",
+  "diff": {
+   "maxHealth": [
+    3,
+    4
+   ]
+  }
+ },
+ {
+  "id": "GSC32",
+  "diff": {
+   "armour": [
+    0,
+    1
+   ]
+  }
+ },
+ {
+  "id": "ASH76",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "AM3",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "TL34",
+  "diff": {
+   "maxHealth": [
+    40,
+    30
+   ]
+  }
+ },
+ {
+  "id": "GOF20",
+  "diff": {
+   "meleeAttack": [
+    6,
+    7
+   ]
+  }
+ },
+ {
+  "id": "GOF18",
+  "diff": {
+   "meleeAttack": [
+    5,
+    6
+   ],
+   "rangeAttack": [
+    2,
+    3
+   ]
+  }
+ },
+ {
+  "id": "AM66",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "ASH15",
+  "diff": {
+   "meleeAttack": [
+    4,
+    3
+   ]
+  }
+ },
+ {
+  "id": "GOF88",
+  "diff": {
+   "meleeAttack": [
+    5,
+    6
+   ]
+  }
+ },
+ {
+  "id": "UM47",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "SOR1",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "SOR2",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "SOR22",
+  "diff": {
+   "rangeAttack": [
+    5,
+    6
+   ]
+  }
+ },
+ {
+  "id": "9238c27730a0c424288d46ed0f4a742c",
+  "diff": {
+   "manaCost": [
+    1,
+    2
+   ]
+  }
+ },
+ {
+  "id": "ASH2",
+  "diff": {
+   "maxHealth": [
+    40,
+    30
+   ]
+  }
+ },
+ {
+  "id": "GSC28",
+  "diff": {
+   "armour": [
+    0,
+    1
+   ]
+  }
+ },
+ {
+  "id": "DA51",
+  "diff": {
+   "manaCost": [
+    4,
+    3
+   ]
+  }
+ },
+ {
+  "id": "GSC66",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "GSC3",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "GSC44",
+  "diff": {
+   "manaCost": [
+    5,
+    4
+   ]
+  }
+ },
+ {
+  "id": "AM1",
+  "diff": {
+   "maxHealth": [
+    40,
+    30
+   ]
+  }
+ },
+ {
+  "id": "SOR15",
+  "diff": {
+   "meleeAttack": [
+    1,
+    2
+   ]
+  }
+ },
+ {
+  "id": "GSC1",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "SOR59",
+  "diff": {
+   "manaCost": [
+    0,
+    1
+   ]
+  }
+ },
+ {
+  "id": "TL74",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "SOR65",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "AM2",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "SOR17",
+  "diff": {
+   "maxHealth": [
+    4,
+    5
+   ]
+  }
+ },
+ {
+  "id": "GOF68",
+  "diff": {
+   "rangeAttack": [
+    4,
+    5
+   ]
+  }
+ },
+ {
+  "id": "SOR57",
+  "diff": {
+   "manaCost": [
+    4,
+    5
+   ]
+  }
+ },
+ {
+  "id": "TAU34",
+  "diff": {
+   "meleeAttack": [
+    5,
+    6
+   ]
+  }
+ },
+ {
+  "id": "EC56",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "UM40",
+  "diff": {
+   "manaCost": [
+    10,
+    12
+   ]
+  }
+ },
+ {
+  "id": "SOR20",
+  "diff": {
+   "rangeAttack": [
+    2,
+    3
+   ]
+  }
+ },
+ {
+  "id": "SAU55",
+  "diff": {
+   "manaCost": [
+    6,
+    7
+   ]
+  }
+ },
+ {
+  "id": "GOF99",
+  "diff": {
+   "manaCost": [
+    1,
+    3
+   ]
+  }
+ },
+ {
+  "id": "d3e99cb18b8cbba4081486f57f510f75",
+  "diff": {
+   "manaCost": [
+    1,
+    0
+   ]
+  }
+ },
+ {
+  "id": "SOR6",
+  "diff": {
+   "rangeAttack": [
+    2,
+    3
+   ]
+  }
+ },
+ {
+  "id": "b5ee585c2678220478c4aed4893f4cc4",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "a84a5b49f0ca9144585058db6987c2a0",
+  "diff": {
+   "manaCost": [
+    3,
+    1
+   ]
+  }
+ },
+ {
+  "id": "GSC2",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "ASH3",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "UM46",
+  "diff": {
+   "maxHealth": [
+    40,
+    30
+   ]
+  }
+ },
+ {
+  "id": "TL36",
+  "diff": {
+   "maxHealth": [
+    35,
+    25
+   ]
+  }
+ },
+ {
+  "id": "e59ac9e46f4ea804784e954c3b820e77",
+  "diff": {
+   "manaCost": [
+    2,
+    1
+   ]
+  }
+ },
+ {
+  "id": "TAU1",
+  "diff": {
+   "maxHealth": [
+    40,
+    30
+   ]
+  }
+ },
+ {
+  "id": "EC57",
+  "diff": {
+   "maxHealth": [
+    40,
+    30
+   ]
+  }
+ },
+ {
+  "id": "SAU70",
+  "diff": {
+   "maxHealth": [
+    5,
+    4
+   ]
+  }
+ },
+ {
+  "id": "TAU42",
+  "diff": {
+   "manaCost": [
+    5,
+    4
+   ]
+  }
+ },
+ {
+  "id": "GOF59",
+  "diff": {
+   "meleeAttack": [
+    2,
+    3
+   ]
+  }
+ },
+ {
+  "id": "GOF76",
+  "diff": {
+   "maxHealth": [
+    35,
+    30
+   ]
+  }
+ },
+ {
+  "id": "SOR16",
+  "diff": {
+   "maxHealth": [
+    4,
+    5
+   ]
+  }
+ },
+ {
+  "id": "TAU30",
+  "diff": {
+   "meleeAttack": [
+    3,
+    4
+   ],
+   "rangeAttack": [
+    8,
+    9
+   ]
+  }
+ },
+ {
+  "id": "GSC23",
+  "diff": {
+   "meleeAttack": [
+    3,
+    4
+   ]
+  }
+ },
+ {
+  "id": "TAU7",
+  "diff": {
+   "rangeAttack": [
+    1,
+    2
+   ]
+  }
+ },
+ {
+  "id": "ASH79",
+  "diff": {
+   "rangeAttack": [
+    5,
+    4
+   ]
+  }
+ },
+ {
+  "id": "GOF66",
+  "diff": {
+   "meleeAttack": [
+    2,
+    3
+   ],
+   "rangeAttack": [
+    4,
+    5
+   ]
+  }
+ }
+]

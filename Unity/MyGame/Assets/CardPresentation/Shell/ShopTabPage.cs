@@ -47,6 +47,18 @@ namespace CardPresentation
         /// 自检用：`GridScroll.ClipNode` 直接读得到。</summary>
         ViewportClip _gridVp;
 
+        /// <summary>🆕 **2026-10-18（N63）**：`TimeCounter` 的两颗字（`RefreshText` / `Time`）——
+        /// 换语言时由 <see cref="RefreshLanguageTexts"/> 重设（`Loc` 不发静态事件，见 `Loc.SetLanguage`）。</summary>
+        Label _refreshText, _refreshTime;
+
+        /// <summary>🆕 **2026-10-18（N63）**：换语言后重设页内文案。页签文字由 `ShopWindow` 的左栏负责；
+        /// 这里只处理本页 `TimeCounter` 那两颗（截图 `10_settings_english.png` 里「可用的」不随语档变）。</summary>
+        public void RefreshLanguageTexts()
+        {
+            if (_refreshText != null) _refreshText.SetText(Loc.T("MenuShop/RefreshCounter"));
+            if (_refreshTime != null) _refreshTime.SetText(ShopData.RefreshTime);
+        }
+
         public void SetHost(MainMenuSubmenuWindow win, Transform root, int page)
         { _win = win; _root = root; _page = page; }
 
@@ -289,7 +301,7 @@ namespace CardPresentation
                 //   `wrapPx 311.40 > 0` ∧ `autoMinPx 10 > 0` ∧ `fontPx 30 > 10` ⇒ 全真，真生效。
                 //   ⚠️ 原版 `折行 = 0` ⇒ `SetAutoFitBox` 顺带打开的 `Normal(1)` 要**显式还原**
                 //   （两条路的帮助器都**没有**任何 wrap 还原，见块表那段注）。
-                if (lb != null) { lb.SetWrapping(false); lb.SetRenderQueue(QHeaderText); parts.Add(lb.transform); widths.Add(lb.WorldW * 108f); }
+                if (lb != null) { lb.SetWrapping(false); lb.SetRenderQueue(QHeaderText); parts.Add(lb.transform); widths.Add(lb.WorldW * 108f); _refreshText = lb; }
             }
             else
             {
@@ -322,6 +334,7 @@ namespace CardPresentation
             if (tm != null)
             {
                 tm.SetWrapping(false); tm.SetRenderQueue(QHeaderText); parts.Add(tm.transform); widths.Add(111.31f);
+                _refreshTime = tm;
                 // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时 —— 原版这一格就是 `TimerDisplay`
                 //   （`ShopTab.Setup` → `TimerDisplay.Initialize(CheckTimer(...), "")`）。
                 //   · 目标 = **Cards 页的 9 点规则**（`CardShopTab.CheckTimer`；`<9 点取当天、否则次日` + 9h）；
@@ -603,7 +616,14 @@ namespace CardPresentation
                 var tl = _win.Text(cell, "x" + ShopData.OwnedOf(_page, idx),
                                    tr.x1, tr.x2, tr.y1, tr.y2, 5, Color.white, "Text (TMP)", 23f,
                                    tr.W, 18f, 72f, 32f, face: TmpFont.Face.LatinCardBody);
-                if (tl != null) { tl.SetRenderQueue(QCellCountText); MenuDraw.AlignRight(tl, tr); }
+                if (tl != null)
+                {
+                    tl.SetRenderQueue(QCellCountText);
+                    // 🔴 **2026-10-18（N59）**：原版 `Counter/Text (TMP)` 是 **`Center/Middle`**（判据 =
+                    //   `Catalog Item Shop Container` dump：框 58.48..277.12、对齐 Center/Middle）。
+                    //   我们原来 `AlignRight` ⇒ `x3` 被推到计数药丸（居中只画 ~105px 宽）外面。
+                    MenuDraw.SetVAlign(tl, Label.VAlign.Midline, tr);
+                }
             }
 
             // `Price Display Button` → `Generic UI Button`（`40K_button`，Simple + preserveAspect，金色）
@@ -612,14 +632,21 @@ namespace CardPresentation
                 // 🆕 2026-10-03 A17：原版这一颗是 SpriteSwap —— `40K_button` → `40K_button_hover`
                 //（普查 §块 2 第 1 行：`Catalog Item Shop Container>background>price-bg>Price Display Button>Generic UI Button`）
                 var priceQ = _win.Rect(cell, "40K_button", pr, "Generic UI Button", QCellPrice, PriceTint, true);
+                // 🔴 **2026-10-18（N59）**：原版 `Price Display` = **金币图标 + 数字**
+                //   （`Catalog Item Shop Container` dump：`Price Display` 86.36,416.86 → 247.86,442.54，
+                //   子件 `icon` = `40k_topmarquee_currency_gold`、ARF 高控宽 1:1；我们原来只画数字）。
+                var iconR = Rect(r, new PxRect(86.36f, 416.86f, 112.04f, 442.54f));
+                _win.Rect(cell, "40k_topmarquee_currency_gold", iconR, "Price Icon", QCellPrice, null, true);
+                var textR = Rect(r, new PxRect(112.04f, 416.86f, 247.86f, 442.54f));
                 // 🆕 **2026-10-10（A1212 块 6）接上自适应**：原版那一颗（价格）四格 = `13.46 / 40 / 39 / 0`
                 //   （出处 = `RA1212_切块表.md` 块 6 #19）。闸三条全真（`30 > 13.46`）。
                 //   🔴 **同层另有【一颗也叫 `Button Text`】**（`INACT`/空串/`fs12·base12·auto[12~38]`）
                 //   —— 切块表点名「**别抄它**」；本处只填这一颗自己的四格，**节点名一个字不动**
                 //   （`Editor/ShopScene.cs` 按名找）。
                 //   ⚠️ 折行 = **0** ⇒ 显式还原（同 `RefreshText`）。
-                var lt = _win.Text(cell, o.Price, pr.x1, pr.x2, pr.y1, pr.y2, 5, PriceInk, "Button Text", 30f,
-                                   pr.W, 13.46f, 40f, 39f, face: TmpFont.Face.LatinCardBody);
+                var lt = _win.Text(cell, o.Price, textR.x1, textR.x2, textR.y1, textR.y2, 5, PriceInk,
+                                   "Button Text", 30f, textR.W, 13.46f, 40f, 39f,
+                                   face: TmpFont.Face.LatinCardBody);
                 if (lt != null) { lt.SetWrapping(false); lt.SetRenderQueue(QCellPriceText); }
                 var hit = MainMenuSubmenuWindow.New(cell, "Hit");
                 var hq = ImageQuad.Create(hit, CardArt.Solid(),

@@ -100,7 +100,13 @@ def main():
     decks_full = defaultdict(list)
     for x in load(os.path.join(D, "prebuilt_decks_full.json")):
         decks_full[x["deckId"]].append(Counter(x.get("cardLibraryIds") or []))
-    mapping = load(os.path.join(D, "card_ids.json"))["mapping"]
+    ids_doc = load(os.path.join(D, "card_ids.json"))
+    mapping = ids_doc["mapping"]
+    # 🔴 **2026-10-18**：`card_ids.json` 带 `poolTrueIds`（我们池 id → 真 id）。
+    #   原版预组里的卡号是**真 id**，而我们池里 114 张卡仍用旧的池 id（重编号是另一笔大迁移）
+    #   ⇒ t0 直查必须先翻成池 id，否则 `SW4` 会命中池里那张**旧的 SW4**（High King of Fenris），
+    #   把 Blood Claw 认成别人。没有 `poolTrueIds` 的旧表 ⇒ 退化为原行为（空表）。
+    true_to_pool = {v: k for k, v in (ids_doc.get("poolTrueIds") or {}).items()}
     warlords = load(os.path.join(D, "warlord_ids.json"))
     pool = load(POOL)["cards"]
 
@@ -129,9 +135,10 @@ def main():
         if key in cache:
             return cache[key]
         nm = mapping.get(cid)
-        # 🔴 t0：先按原版卡号直查（与 gen_prebuilt_decks.py 的 match() 同批同改，2026-10-16 A13）。
-        #    它只加档位、不动 miss 的判定顺序 —— 查不到才落到下面的名字阶梯。
-        c = by_id.get(cid)
+        # 🔴 t0：先按原版卡号直查 —— **必须先翻成池 id**（`poolTrueIds`）；不在表里的真 id
+        #    （= 我们池里没有那张卡）**不做直查**，交给名字阶梯，避免撞上旧的同号卡。
+        pool_id = true_to_pool.get(cid)
+        c = by_id.get(pool_id) if pool_id else None
         if c is not None:
             res = ("t0", (c["faction"], c["name"]), nm)
             cache[key] = res
