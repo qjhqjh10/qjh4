@@ -6008,9 +6008,29 @@ public static partial class RuleEngineTest
             CheckTrue(!r.Cards.Exists(c => c.Name == "Swarming Masses"),
                       "`Swarming Masses` 是战术卡，不在「troops」池里");
 
-            // 附录 B「锈蚀通风口：手牌生成随机带伏击部队」+ 附录 C 的 1d11 名单
+            // 锈蚀通风口：卡面原文 `Create a random troop with Ambush in your hand`
+            // 🔴 **2026-10-17 更正（铁律 5 / 7）：11 → 12**。原来这条钉的是
+            //    「== 附录 C「锈蚀通风口(1d11)」的 11 个名字」—— 那是把一份**非官方**的粉丝规则书
+            //    （`d:/2/Warpforge部队卡片/Warpforge_Offline_Rulebook_1_5-3_中文翻译.md:4`
+            //   自述「非官方粉丝保存项目」）当成了真值源。**判据改回卡面**：
+            //    · `d:/2/Warpforge部队卡片/Genestealer Cult/3部队/Warpforge_27_Aberrant.png`
+            //      印着 `Armour 1. Ambush: Gain Vanguard`、橙字 `Infantry` ⇒ **`Aberrant` 有伏击**；
+            //      而书的 1d11 名单（同文件 `:314`）**漏列了它**（书里第 9 个是另一张 `Hulking Aberrant`）。
+            //    · `Warpforge_13_Acolyte-Hybrid.png` 印着 `Ambush: Gain +2 [Attack] and +2 [Ranged]`
+            //      ⇒ `Acolyte Hybrid` **也有伏击**（`7e17675` 2026-10-16 已按卡面补进 keywords）。
+            //    ⇒ 池子 = 书里 11 个 + `Aberrant` = **12**。
             r = PoolOf(pool, "Create a random troop with Ambush in your hand", "Genestealers");
-            Check(r.Cards.Count, 11, "基因窃取者带伏击的部队 11 张 == 附录 C「锈蚀通风口(1d11)」的 11 个名字");
+            Check(r.Cards.Count, 12, "基因窃取者带伏击的部队 12 张（判据 = 卡面；粉丝规则书附录 C 的 1d11 漏列 `Aberrant`）");
+            // ★ 逐名钉死：字面量清单，⛔ 不读实现给的名单再比回去（那是自证）。
+            {
+                var got = new List<string>();
+                foreach (var c in r.Cards) got.Add(c.Name);
+                got.Sort(StringComparer.Ordinal);
+                Check(string.Join("|", got.ToArray()),
+                      "Aberrant|Abominant|Acolyte Heavy|Acolyte Hybrid|Acolyte Specialist|Concealed Explosives"
+                      + "|Hulking Aberrant|Jackal Outrider|Neophyte Heavy|Neophyte Hybrid|Patriarch|Sanctus",
+                      "……而且这 12 个名字逐个对上（`Aberrant` 是附录 C 漏列的那张，按卡面 `Ambush: Gain Vanguard` 补）");
+            }
 
             // `Combat Elixir` / `Sabotage` 在原版数据里是**兵种**（subtype）不是卡名 ——
             // 这一点以前在计划文档里记反了（记成「原版数据里没有这张卡」），见文末更正
@@ -21200,16 +21220,21 @@ public static partial class RuleEngineTest
                   "★ `Tyranid Prime` **不在**「带虫群的利维坦部队」池子里（2026-09-21 起："
                   + "卡面只在从句里引用 `Swarm`，那不是它的关键词）—— 池子现在 10 张 == 附录 B/C 的 10 个名字");
 
-        // 附录 C 的 1d11 名单里写着 `Acolyte Hybrid`，而卡池里那一格是 `Aberrant`。
-        // 查清楚了才敢下结论：**`Acolyte Hybrid` 这张卡在卡池里**，只是**身上没有伏击关键词** ——
-        // 所以它进不了「带伏击部队」的池子。这是**数据差异**（名字对不上 / 关键词挂在哪张卡上），
-        // 不是我们筛错了。**不做别名映射**（没有第二条证据说这两张是同一张），如实钉在这儿。
+        // 🔴 **2026-10-17 反转（铁律 5 / 7）**：这一组原来钉的是「`Acolyte Hybrid` 在卡池里但**没有伏击**
+        //    ⇒ 不在带伏击部队池里」，依据是**粉丝规则书附录 C 的 1d11 名单**与当时的数据 —— 两处都过期了：
+        //    ① 卡面 `d:/2/Warpforge部队卡片/Genestealer Cult/3部队/Warpforge_13_Acolyte-Hybrid.png`
+        //       明写 `Ambush: Gain +2 [Attack] and +2 [Ranged]`、橙字 `Infantry` ⇒ **它有伏击**；
+        //    ② `7e17675`（2026-10-16 卡牌线按 PnP 卡面）已把它的 keywords 补成
+        //       `Ambush: Gain +2 [Attack] and +2 [Ranged]` ⇒ 它**在**那个池子里。
+        //    而书里那一格对应的其实是 `Aberrant`（`Warpforge_27_Aberrant.png` 印着
+        //    `Armour 1. Ambush: Gain Vanguard`）—— **书的 1d11 名单漏列了它**，不是名字对不上。
+        //    ⇒ 判据一律回到**卡面**（⛔ 粉丝规则书不是官方文档，它自己写着「非官方粉丝保存项目」）。
         var acolyte = CreatePool.FindByName(pool, "Acolyte Hybrid");
         CheckTrue(acolyte != null, "`Acolyte Hybrid` 这张卡本身在卡池里");
-        CheckTrue(!acolyte.Has("ambush"), "……但它身上**没有伏击关键词**，所以不在「带伏击部队」池里");
-        CheckTrue(!HasCard(PoolOf(pool, "Create a random troop with Ambush in your hand", "Genestealers").Cards,
+        CheckTrue(acolyte.Has("ambush"), "……它身上**有伏击关键词**（卡面 `Ambush: Gain +2 [Attack] and +2 [Ranged]`）");
+        CheckTrue(HasCard(PoolOf(pool, "Create a random troop with Ambush in your hand", "Genestealers").Cards,
                            "Acolyte Hybrid"),
-                  "……于是它确实没进那个池子（不是筛子漏了它）");
+                  "……所以它**在**「带伏击部队」池里（2026-10-17 起反转；旧断言写「不在」，依据是过期的数据 + 粉丝规则书）");
     }
 
     /// <summary>

@@ -3539,7 +3539,15 @@ namespace CardPresentation
                 // ⚠️ 挂**卡根**（不是 `FaceRoot`）：卡背是这张卡的另一面，不该跟着卡面的倾摆走。
                 _backLayer.transform.SetParent(transform, false);
                 _backLayer.transform.localPosition = new Vector3(0f, 0f, CardBackZ);
-                _backLayer.AddComponent<MeshFilter>().sharedMesh = CenteredQuad("cardBack", Width, Height, back);
+                // 🔴🔴 **2026-10-17（W5 · BSC62 `136547`）：这里原来走 `CenteredQuad("cardBack", Width, Height, back)`
+                //   —— 它**按贴图自身比例内接**（见 `CenteredQuad`:1823-1848），而这张卡背贴图比 ≈0.752 ≠ 卡身比
+                //   `Width/Height` ≈ 0.628 ⇒ 网格**高**被压到 `Width / 0.752` = **2.782**（比卡矮 16.5%），
+                //   于是翻面前半段那张卡背比卡面矮一截。卡背是**这张卡的另一面**（原版 = 同一条网格的另一面、
+                //   与卡面**同尺寸**，见上面 :3503-3504）⇒ 尺寸必须取**卡身** `Width × Height`，
+                //   不能用贴图比例去内接。改走 `Quad()`（= **卡大小的居中 quad**，UV 拉满 0..1 ⇒ 贴图铺满整张卡）。
+                //   判据：`Editor/BattleScene.cs:13056-13061`（断 `sharedMesh.bounds.size` = `Width × Height`）。
+                //   ⛔ 别改贴图本身（`CardArt.CardBack(...)` 那张仍是原样）。
+                _backLayer.AddComponent<MeshFilter>().sharedMesh = Quad();
                 _backMr = _backLayer.AddComponent<MeshRenderer>();
                 _backMr.sharedMaterial = new Material(BaseMaterial());
                 _backMr.sharedMaterial.mainTexture = back;
@@ -4469,29 +4477,70 @@ namespace CardPresentation
         }
 
         // ==================================================================
-        //  可点矩形（原版 `CardUI/2DCard/UI Collider`）—— 2026-10-16（`T09` 卡体批 ①）
+        //  可点矩形（原版 `CardUI/2DCard` 上那两颗 `BoxCollider2D`）—— 2026-10-17（`T09` 卡体批 ②）
         // ==================================================================
-        // 🔴 **判据只此一份** = `Core/CardFan.cs:131-165`（`HitRatioX` / `HitRatioY` / `HitCyDropPx`），
-        //    本文件**只转发**（⛔ 别在这儿再写一份比例：两处写同一条规则 = 迟早不一致）。
-        //    原版那颗 `UI Collider` 是 `2DCard` 的**子件**：拉伸锚 `(0,0)-(1,1)` · `m_SizeDelta(−0.2,−0.44)`
-        //    · `m_AnchoredPosition(0,−0.02)` · `m_RaycastTarget=1` · `m_RaycastPadding=(0,0,0,0)`
-        //    ⇒ 可点矩形 = 卡身 `2.0927×3.3313` 各边内缩 ⇒ **1.8927 × 2.8913 卡单位**、中心比卡心**低 0.02**。
-        //    出处：卡 prefab 原件 `bundle_battleprefabs_vfxandmisc_assets_all/`（卡 prefab 在那个包、
-        //    **不在战斗场景包里** —— `S7_卡体终点形态_报告.md` §一·B 现读）；逐字段对照 → `CardFan.cs` 那段。
-        //    卡体批整条判据 → `资料/普查产出_1016战斗判据/T03_命中与可点区域判据.md` §四 第 1 步。
-        // 🔴 **标架 = 内层 `2DCard`（`_tiltRoot`）**，⛔ 不是卡根 —— 可点件挂在 `2DCard` 底下，而
-        //    `AutoCardRotation`（10/10/10）也挂在 `2DCard` 上 ⇒ **可点区跟着卡面的倾摆一起转**、
+        // 🔴 **判据 = 原版 `2DCard` 上的两颗 `BoxCollider2D`**（卡 prefab 原件在
+        //    `bundle_battleprefabs_vfxandmisc_assets_all/`，**不在战斗场景包里**）：
+        //    · 主面 **1.97 × 3.02 @ (0,0)** —— `BoxCollider2D_7520353667969031104.json`
+        //    · 第二面 **1.25 × 2.53 @ (0,−2.62)** —— `BoxCollider2D_2582590304383179712.json`
+        //      （只在 `inHandShowing` 打开；用途 = 接住「卡被放大抬走后指针留在原处」那一段）
+        //    · in-hand 档 = 序列化 `colliderHeightMultiplierInHand = **1.01**`（⚠️ ctor 默认 `1.2` **不是**游戏用的）：
+        //      `size.y ×= 1.01` · `offset.y −= (newH − origH) × 0.5` ⇒ **1.97 × 3.0502 @ y −0.0151**
+        //      （**上沿 1.51 不动**，只往下拉长）。
+        //    ⚠️ **本批只做【行为级】前两档**（常态 / in-hand）。第三档（悬停放大 = 主面 ∪ 第二面）**还没落**：
+        //      我们手里**没有** `inHandShowing` 这个状态 —— 手牌唯一的悬停态在 `CardInteraction._hovered` /
+        //      `HandLayout.hoveredIndex`，不在 `CardView` 上，而 `Contains` 正是**判出它**的那一步
+        //      ⇒ 从这里读不到（详见 `资料/普查产出_1017/BSC62/W13_卡体②行为级.md` §二）。
+        //      ⇒ 第三档与「真建 collider」同属 `T09` 第 4/5 步，同批落。
+        // 🔴 **标架 = 内层 `2DCard`（`_tiltRoot`）**，⛔ 不是卡根 —— 两颗 collider 都挂在 `2DCard` 上，而
+        //    `AutoCardRotation`（10/10/10）也挂在同一 GO ⇒ **可点区跟着卡面的倾摆一起转**、
         //    与「画到哪」同标架（`A2093`）。⇒ 也顺手解掉 `CardFan.cs:151`「碰撞与卡自己的转角无关」
         //    与 `A2093` 的**互斥**记录（那条互斥记录 → `资料/任务线/战斗线/准则与做法.md` §六 坑 13）。
+        // ⚠️ `CardFan.HitRatioX/Y` / `HitCyDropPx`（批① 用的**旧 `UI Collider`** 那套）**仍保留**：
+        //    它们现在是**战斗展示窗「拿不到 `CardView`」时的轴对齐退路**（`CardDisplayWindow.cs:874`）
+        //    与**菜单详情窗** `CardDetailPopup.BuildCardHit` 的判据 —— 与本文件这套**不是同一个来源**，
+        //    ⛔ 别把两套混成一套（合并要另开一件、另配断言）。
 
-        /// <summary>可点矩形的**半宽**（卡局部单位）= `Width × CardFan.HitRatioX ÷ 2` = **0.94635**。</summary>
-        public const float HitHalfW = Width * CardFan.HitRatioX * 0.5f;
-        /// <summary>可点矩形的**半高**（卡局部单位）= `Height × CardFan.HitRatioY ÷ 2` = **1.44565**。</summary>
-        public const float HitHalfH = Height * CardFan.HitRatioY * 0.5f;
-        /// <summary>可点矩形**中心**相对卡心的局部 y 偏移（卡局部单位；负 = 向下）= **−0.02**
-        /// （= 原版 `m_AnchoredPosition.y`）。算式：`CardFan.HitCyDropPx`（5 px @ 前台 scale 250）
-        /// ÷ 前台「每卡单位多少 px」（`CardFan.FrontHpx / Height` = 250）。</summary>
-        public const float HitCenterDy = -(CardFan.HitCyDropPx * Height / CardFan.FrontHpx);
+        /// <summary>可点矩形的**半宽**（卡局部单位）= 原版主面 `1.97 ÷ 2` = **0.985**（**三档共用**，in-hand 不改宽）。</summary>
+        public const float HitHalfW = 1.97f * 0.5f;
+        /// <summary>**常态 / 板上**可点矩形的**半高** = 原版主面 `3.02 ÷ 2` = **1.51**。</summary>
+        public const float HitHalfH = 3.02f * 0.5f;
+        /// <summary>常态可点矩形**中心**相对卡心的局部 y 偏移 = 原版主面 `offset.y` = **0**。</summary>
+        public const float HitCenterDy = 0f;
+        /// <summary>**in-hand** 档的**半高** = 主面 `3.02 × colliderHeightMultiplierInHand(1.01) ÷ 2`
+        /// = **1.5251**（原版矩形 = `1.97 × 3.0502`）。</summary>
+        public const float HitHalfHInHand = HitHalfH * 1.01f;
+        /// <summary>**in-hand** 档的中心 y 偏移 = `−(3.0502 − 3.02) ÷ 2` = **−0.0151**
+        /// （原版那一步只把矩形**往下**拉长 ⇒ **上沿仍是 1.51**）。</summary>
+        public const float HitCenterDyInHand = -(HitHalfHInHand - HitHalfH);
+
+        // ------------------------------------------------------------------
+        //  第二套矩形：原版 uGUI 那颗 `UI Collider`（**只给战斗展示窗**用）—— 2026-10-17（`BSC62·W16`）
+        // ------------------------------------------------------------------
+        // 🔴 **为什么需要第二套**：上面那套 `BoxCollider2D` 是原版**手牌/棋盘**的送达路径
+        //    （`CardCollider` 实现 8 个 pointer/drag 接口），⛔ **不要动**；
+        //    而**战斗展示窗**的点击在原版走的是另一颗件：`2DCard/UI Collider`（uGUI，挂
+        //    `UIGenericEventCatcher`）。硬证据：
+        //    · `BasicCardUI.uiEventCatcher`（`+0xd0`）正指向它 —— `BasicCardUI__get_UIEventCatcher.c:5`
+        //    · `CardDisplayWindow.AddCardsListeners.c:25/30` 往它的 `OnClick` 上 `AddListener`
+        //    · 该节点 `Image.raycastTarget = 1`，`UICollider.OnEnable` 把 `BoxCollider2D.size` 设成 `RT.rect`
+        //    ⇒ ⚠️ `R5`/`EW12` 那句「`UI Collider` 三事件全空 ⇒ 不是送达路径」**漏了运行时 `AddListener`**，
+        //      已由 `BSC62` 只读诊断现核推翻（判定与处方 → `资料/普查产出_1017/D_新红11条诊断.md` A1）。
+        // 🔴 **判据 = 解包原件字段**（与 `Core/CardFan.cs` 的「点击区」同一份原件）：
+        //    该节点 `m_AnchorMin=(0,0)` · `m_AnchorMax=(1,1)`（**拉伸锚**）· `m_AnchoredPosition=(0,−0.02)`
+        //    · `m_SizeDelta=(−0.2,−0.44)`；父 `2DCard` = **`2.0927 × 3.3313`**（= 本类的 `Width/Height`）
+        //    ⇒ rect = **1.8927 × 2.8913 卡单位、中心比卡心低 0.02**。
+        //    ⚠️ **没有 in-hand 档**：`colliderHeightMultiplierInHand` 是 `2DCard` 上那颗 `BoxCollider2D`
+        //       的属性，拉伸锚这颗 `RectTransform` 不随它变 ⇒ 只有一档。
+        // ⚠️ 标架**仍是内层 `2DCard`（`_tiltRoot`）** —— `UI Collider` 就是 `2DCard` 的子件
+        //    （`RectTransform_-5674508438467339328.json` 的 `m_Father` = `2DCard`）⇒ 与
+        //    `Contains` 同标架，**扇形角与倾摆都跟着转**（`EW12` 那条修不丢）。
+        /// <summary>原版 `UI Collider` 矩形**半宽**（卡局部单位）= `(2.0927 − 0.2) ÷ 2` = **0.94635**。</summary>
+        public const float UiColliderHalfW = (Width - 0.2f) * 0.5f;
+        /// <summary>原版 `UI Collider` 矩形**半高**（卡局部单位）= `(3.3313 − 0.44) ÷ 2` = **1.44565**。</summary>
+        public const float UiColliderHalfH = (Height - 0.44f) * 0.5f;
+        /// <summary>原版 `UI Collider` 矩形**中心**相对卡心的局部 y 偏移 = `m_AnchoredPosition.y` = **−0.02**。</summary>
+        public const float UiColliderCenterDy = -0.02f;
 
         bool _hitFrameWarned;
 
@@ -4505,23 +4554,51 @@ namespace CardPresentation
             {
                 _hitFrameWarned = true;
                 Debug.LogWarning("[CardPresentation] " + name + "：内层 `2DCard`（`_tiltRoot`）还没建 ⇒ "
-                               + "命中判定退回**卡根**（= 不跟倾摆，与原版 `UI Collider` 挂在 `2DCard` 上不符）；"
+                               + "命中判定退回**卡根**（= 不跟倾摆，与原版那两颗 `BoxCollider2D` 挂在 `2DCard` 上不符）；"
                                + "唯一成因 = `Build()` 没跑过（正常路径 `Create` 就建）");
             }
             return transform;
         }
 
+        /// <summary>这张卡当前该用**哪一档**可点矩形（⚠️ 两档、不是三档 —— 悬停放大那档见文件头）：
+        /// **`CardFace.Hand` ⇒ in-hand 档**（`1.97 × 3.0502 @ y −0.0151`）；
+        /// **其余一律常态档**（`1.97 × 3.02 @ (0,0)` —— 含 `CardFace.Board`/`Full`）。
+        /// 判据 = 原版那两颗 `BoxCollider2D` + 序列化 `colliderHeightMultiplierInHand`（见文件头）。</summary>
+        void HitRect(out float halfH, out float centerDy)
+        {
+            bool inHand = _faceMode == CardFace.Hand;
+            halfH   = inHand ? HitHalfHInHand     : HitHalfH;
+            centerDy = inHand ? HitCenterDyInHand : HitCenterDy;
+        }
+
         /// <summary>世界坐标在不在这张卡上。
-        /// 🔴 **2026-10-16（`T09` 卡体批 ①）起判据换成原版那颗 `UI Collider`**：标架 = 内层
-        /// `2DCard`（⇒ **跟卡面的倾摆一起转**），矩形 = `|x| ≤ HitHalfW` 且 `|y − HitCenterDy| ≤ HitHalfH`
-        /// = **1.8927 × 2.8913 卡单位**、中心比卡心低 **0.02**（比例/偏置的判据只在 `CardFan`）。
-        /// <para>改前 = **整卡矩形**（`±Width/2 × ±Height/2`）**挂在卡根**。</para>
+        /// 🔴 **2026-10-17（`T09` 卡体批 ②）起底矩形 = 原版 `2DCard` 的 `BoxCollider2D`**：标架 = 内层
+        /// `2DCard`（⇒ **跟卡面的倾摆一起转**），矩形按 `CardFace` 取档 ——
+        /// **常态** `|x| ≤ 0.985` 且 `|y| ≤ 1.51`；**in-hand**（`CardFace.Hand`）`|x| ≤ 0.985` 且
+        /// `|y + 0.0151| ≤ 1.5251`（= 主面 × 1.01，**只往下长**）。
+        /// <para>改前 = 批① 那颗 `UI Collider` 的 **1.8927 × 2.8913 @ −0.02**（小 4.1% 宽 / 4.5% 高）。</para>
         /// <para>⚠️ **两个标架都已经跟上了扇形角**（它由 `SetPose` 写在**卡根**上，`_tiltRoot` 是它的子件）
         /// —— 换标架真正补上的是**倾摆**：`AutoCardRotation` 只写 `_tiltRoot` 的 `localRotation`。</para></summary>
         public bool Contains(Vector3 world)
         {
             var l = HitFrame().InverseTransformPoint(world);
-            return Mathf.Abs(l.x) <= HitHalfW && Mathf.Abs(l.y - HitCenterDy) <= HitHalfH;
+            HitRect(out float halfH, out float centerDy);
+            return Mathf.Abs(l.x) <= HitHalfW && Mathf.Abs(l.y - centerDy) <= halfH;
+        }
+
+        /// <summary>世界坐标在不在**原版 `UI Collider`** 那个矩形里（**只给战斗展示窗**
+        /// <see cref="CardDisplayWindow.HitSlot"/> 用；⛔ 手牌/棋盘仍走 <see cref="Contains"/>）。
+        /// 标架与 <see cref="Contains"/> **相同** = 内层 `2DCard`（`_tiltRoot`）⇒ 命中区跟着卡的
+        /// **扇形角与倾摆**一起转；只有矩形数值换回 `UI Collider` 那套（**1.8927 × 2.8913 @ y −0.02**，
+        /// 判据见上面「第二套矩形」那一块的注释）。
+        /// <para>⚠️ 为什么不直接复用 <see cref="Contains"/>：`BoxCollider2D` 主面（`1.97 × 3.02 @ 0`）
+        /// 是原版**手牌/棋盘**的送达件，而展示窗的点击在原版由 `2DCard/UI Collider` 送达 ——
+        /// 两套矩形各有各的判据，⛔ 别合并、也别把 `Contains` 本身改回旧矩形。</para></summary>
+        public bool ContainsUiCollider(Vector3 world)
+        {
+            var l = HitFrame().InverseTransformPoint(world);
+            return Mathf.Abs(l.x) <= UiColliderHalfW
+                && Mathf.Abs(l.y - UiColliderCenterDy) <= UiColliderHalfH;
         }
 
         /// <summary>和 <see cref="Contains"/> 同一套算法（**同一标架、同一矩形**），但**四周外扩 `margin`**
@@ -4542,12 +4619,17 @@ namespace CardPresentation
         ///   复算过一遍：唯一的消费者 `BattleDriver.TickTraitTip` 传 `margin = 0.15`，而底矩形每边只缩
         ///   **0.1（左右）/ 0.24（上）/ 0.2（下）**卡单位 ⇒ 带 `margin` 的那一圈**横向仍盖满整卡宽**、
         ///   纵向盖住卡身高度的 **0.03…0.985**，而关键词那段文字在卡面中段 ⇒ **这道门的松紧没有变**
-        ///   （只是标架从卡根换成跟着倾摆的 `2DCard`，与文字实际所在的层对上了）。</summary>
+        ///   （只是标架从卡根换成跟着倾摆的 `2DCard`，与文字实际所在的层对上了）。
+        /// 🔴 **2026-10-17（`T09` 卡体批 ②）：底矩形再跟着换成 `BoxCollider2D` 那套**（`1.97×3.02`
+        ///   ＋ in-hand 档 `1.97×3.0502`）⇒ 比批① **更大**（横向每边 +0.03865；常态档上沿 +0.08435、
+        ///   下沿 +0.04435 卡单位）
+        ///   ⇒ 这道门对唯一的消费者**只会更松**（`margin = 0.15` 不变）：「关键词在卡面中段」这个前提不受影响。</summary>
         public bool ContainsNear(Vector3 world, float margin)
         {
             var l = HitFrame().InverseTransformPoint(world);
+            HitRect(out float halfH, out float centerDy);
             return Mathf.Abs(l.x) <= HitHalfW + margin
-                && Mathf.Abs(l.y - HitCenterDy) <= HitHalfH + margin;
+                && Mathf.Abs(l.y - centerDy) <= halfH + margin;
         }
 
         // ==================================================================

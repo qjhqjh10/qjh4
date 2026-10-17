@@ -518,6 +518,12 @@ namespace CardPresentation
                                                           _preset.RefBarWPx, _preset.RefBarHPx, BarBorder, BarTint);
                     if (piece != null)
                     {
+                        // 🔴 **必须登记兄弟序**（判据 = 原版 `ErrorMesage Text` 的父 = `Background`、且
+                        //    「Background 先、Text 后」，见文件头 ③/b）：`MakeSlicedPiece` **不写 z、也不登记**，
+                        //    而 `MakeText` 会把自己 `Add` 进空组 ⇒ 不登记的话底条落在**文字之后**、把字盖住。
+                        //    写法照 `SettingsPanel.Img`（建完就 `HudCanvas.Add`）——`ZBar(0) > ZText(−0.01)`
+                        //    在 `Group.Add` 的降序表里排在前面 = 先绘 = 在文字底下。
+                        HudCanvas.Add(piece.Rect, ZBar);
                         t.barRoot = piece.gameObject;
                         t.barParts = new List<HudPiece> { piece };
                     }
@@ -700,6 +706,16 @@ namespace CardPresentation
                 //    ⚠️ 尺寸**直接吃 px**（⛔ 别走 `U()` —— 那个世界档要 ÷108）
                 var piece = HudCanvas.MakeSlicedPiece(it.root, tex, "Background", wPx, hPx, BarBorder, BarTint);
                 if (piece == null) return;
+                // 🔴 **必须登记兄弟序**：`MakeSlicedPiece` 不写 z、也不登记，而文字（`MakeText`）登记在
+                //    `ZText(−0.01)` ⇒ 不登记的话底条落在文字**之后**、把字盖住（模板那处同病，见
+                //    `BuildTemplateChildren`；写法照 `SettingsPanel.Img`）。
+                HudCanvas.Add(piece.Rect, ZBar);
+                // 🔴 再显式钉到**第一个兄弟**：底条**每次 Show 都重建**，而 `HudCanvas.Group` 的 z 账
+                //    **从不清理已销毁的子件**（`HudCanvas.cs` 的 `Group.Add` 只 `Insert`、无 `Remove`）⇒
+                //    第 3 次 Show 起，算出来的下标会被那些陈旧的 `z=0` 记录顶大，`SetSiblingIndex` 落到末尾
+                //    （= 文字之上）。钉 0 ⇒ `it.root` 的子件恒为 `[Background, ErrorMesage Text]`，
+                //    与文件头 ③/b「Background 先、Text 后」逐位一致（本节点只有这两颗子件）。
+                piece.Rect.SetSiblingIndex(0);
                 it.barRoot = piece.gameObject;
                 it.barParts = new List<HudPiece> { piece };
                 return;
@@ -852,10 +868,21 @@ namespace CardPresentation
             return BarSizeOfParts(_items[i].barParts);
         }
 
-        /// <summary>九宫格子块的并集包围盒（px）。
-        /// 🔴 **2026-10-16（`T09` 批 2）**：参数类型 `ImageQuad` → **`HudPiece`** —— 世界档照旧（九块），
-        /// uGUI 档只有**一块**（一张 `Image (Sliced)`）而 `HudPiece.WorldW/H` 两档都返回**世界单位**
-        /// （uGUI 侧走 `GetWorldCorners`）⇒ 本函数**算式一个字不用改** ✓。</summary>
+        /// <summary>九宫格子块的并集包围盒（**真设计 px**）。
+        /// 🔴 **2026-10-16（`T09` 批 2）**：参数类型 `ImageQuad` → **`HudPiece`**。
+        /// 🔴🔴 **2026-10-17（`T09` 批 4 · W11）现核就地换口（铁律 5）—— 原来那版对 uGUI 件有【两处】错**：
+        ///   ① **量纲混**：uGUI 件的 `q.transform.localPosition` 是**设计 px**，而 `q.WorldW/H`
+        ///      （经 `GetWorldCorners`）是**世界单位** —— 两者被混进同一个并集、再 `× 108f`
+        ///      （只有「单件 且 `localPosition == 0`」时才不现形；本件的底条恰好就走那一格）；
+        ///   ② **动画缩放漏进读回**：uGUI 档的 `WorldW/H` 走**世界**矩形 ⇒ 会把**父链上的缩放**一起量进来；
+        ///      而本件每一条在入场时 `root.localScale = 0.3`（见 `ShowItem`）⇒ 「刚弹出来那条」在入场期
+        ///      读出来是**真尺寸的 0.3 倍**。
+        ///   实据（同文件自证）：`TemplateBarSizePx` 量的是**模板**（`root` 缩放 = 1）⇒ 读出正确的
+        ///   `870.98 × 60.85`；而 `BarSizeOf(刚 Show 的那条)` 读出 **405.09**，配它那条的文字宽 **1110.29**
+        ///   ⇒ `(1110.29 + 240) × 0.3 = 405.087` **逐位吻合** —— 差的正是那条入场缩放。
+        ///   ⇒ **改法**：尺寸一律走 `HudPiece.SizePx`（两档都交**真设计 px**；uGUI 侧 = `sizeDelta`，**与缩放无关**）；
+        ///   位置按档换（uGUI 件的 `localPosition` 本就是设计 px，只有世界档 quad 才是世界单位）。
+        ///   ⚠️ 世界档那半边**逐位不变**（`SizePx(quad)` = `WorldW/H × 108`、`localPosition × 108` 两条恒等式）。</summary>
         static Vector2 BarSizeOfParts(List<HudPiece> parts)
         {
             if (parts == null || parts.Count == 0) return new Vector2(-1f, -1f);
@@ -864,13 +891,15 @@ namespace CardPresentation
             foreach (var q in parts)
             {
                 if (q == null) continue;
-                var l = q.transform.localPosition;
-                minX = Mathf.Min(minX, l.x - q.WorldW * 0.5f); maxX = Mathf.Max(maxX, l.x + q.WorldW * 0.5f);
-                minY = Mathf.Min(minY, l.y - q.WorldH * 0.5f); maxY = Mathf.Max(maxY, l.y + q.WorldH * 0.5f);
+                float u = q.IsUgui ? 1f : 108f;      // uGUI 件的 localPosition = 设计 px；世界档 quad = 世界单位
+                Vector2 l = new Vector2(q.transform.localPosition.x, q.transform.localPosition.y) * u;
+                Vector2 s = q.SizePx;                // 两档都交**真设计 px**（uGUI = sizeDelta，与父链缩放无关）
+                minX = Mathf.Min(minX, l.x - s.x * 0.5f); maxX = Mathf.Max(maxX, l.x + s.x * 0.5f);
+                minY = Mathf.Min(minY, l.y - s.y * 0.5f); maxY = Mathf.Max(maxY, l.y + s.y * 0.5f);
                 n++;
             }
             if (n == 0) return new Vector2(-1f, -1f);
-            return new Vector2((maxX - minX) * 108f, (maxY - minY) * 108f);
+            return new Vector2(maxX - minX, maxY - minY);
         }
 
         /// <summary>第 i 条**根节点**的自上而下中心（px）。用它钉布局算法（文件头 ④⑪：单条时

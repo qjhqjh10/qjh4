@@ -821,6 +821,21 @@ namespace RuleEngine
         public bool OffensiveChosen;
 
         /// <summary>
+        /// **本回合已打出的牌张数** —— 原版 `BattleManager + 0x3D0` 那个 `ObscuredInt`
+        /// （`d:/2/tools/decomp_full/BattleManager__CardsPlayedInTurn.c:16-25` 读的就是它；
+        ///  `_ResolvePlayCardFromHand_d__447__MoveNext.c:1390-1406` 是唯一的 `op_Increment` 写点）。
+        ///
+        /// 写点 = `RuleCore.PlayCard`（单位支）/ `RuleCore.PlayTactic`（战术支）各一处 ——
+        ///   都在「校验过、费用付掉、手牌已拿走」之后 ⇒ **打不出去的牌一张都不记**；
+        /// 清点 = `RuleCore.BeginTurn`（原版 `_NextTurn_d__395__MoveNext.c:231` 写 0）；
+        /// 读点 = `AbilityTrigger.PlayedThirdCardInTurn`（`RuleCore.FirePlayedThirdCardInTurn`，
+        ///   **只认 `== 3`**，见那边文件头）。
+        /// 🔴 这张计数只数**从手牌打出的牌**（每张成功结算的单位/战术 +1），
+        ///   与「本局打出过的牌」(`PlayedCards` / `NotePlayed`)**不是同一件事**。
+        /// </summary>
+        public int CardsPlayedInTurn;
+
+        /// <summary>
         /// **上一句效果打中的那个单位** —— 供文本里的 `it` / `them` / `the target` 指代。
         ///
         /// 为什么放在 ctx 上：这是**跨分句**的上下文（`Deal 3 damage to an enemy. If it dies, draw a card.`

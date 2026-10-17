@@ -1016,7 +1016,12 @@ public static class BattleScene
                       "★ **`EvtKind.AmbushExit` 真的变成了特效**（`AmbushEffect`）—— "
                     + "改坏法：把 `PlaySignal` 里那个 case 删掉 ⇒ 掉 `default: return` ⇒ 本条红");
                 var at = FiredPosOf("AmbushEffect");
-                Vector3 want = pBoard.SlotPosition(BoardLayout.WarlordSlot);
+                // 🔴 **2026-10-17（`BSC62` · W4）：期望值改走 `DropTargetWorld`（卡心投影），不是 `SlotPosition`。**
+                //   `PlaySignal` 已改喂 `layout.DropTargetWorld(slot)`（`BattleDriver.cs:12351`，`A367`）；
+                //   而 `SlotPosition` 是 **2D 兜底布局的行线点**，3D 下与卡心差 51~72 px
+                //   ⇒ 实得 (−0.01,−0.96) vs `SlotPosition` (0.00,−0.89) 差 0.07 世界单位。判据只此一处
+                //   （`BoardLayout.cs:504-514`：非 3D 时 `DropTargetWorld` 逐位等于 `SlotPosition`）。
+                Vector3 want = pBoard.DropTargetWorld(BoardLayout.WarlordSlot);
                 Check(at.HasValue && Vector3.Distance(at.Value, want) < 1e-3f,
                       $"★ 它的落点 = **事件里那一格**（实得 {at}，期望 {want}）");
                 // **灭自证**：落点**不能**跑到手牌区去 —— 「把伏击翻面也当成 HUD 锚点事件」
@@ -1599,11 +1604,18 @@ public static class BattleScene
                   $"手牌卡高 = 原版的 {HandCardHeightPx} px");
             Check(step > cardW, $"相邻两格不叠（空档 {(step - cardW) / visW * 1920f:F1} px）");
 
-            // ② 两行不叠：我的行上沿 < 对手行下沿
-            float pTop = pBoard.SlotPosition(0).y + CardView.Height * pBoard.placedScale * LayoutSpace.Scale * 0.5f;
+            // ② 两行**行心**不叠：敌行心在我方行心之上
+            // 🔴 **2026-10-17（`BSC62` · W4）：原断「两行卡框不叠」与【它自己也在验的原版值】矛盾。**
+            //   原版行卡高 = `BoardCardHeightPx` **218.4 px**（本节上面 1590 那条刚断过 ✓），
+            //   而两行心距只有 **211 px**（我方 636 / 敌方 425，都是原版实测行心）⇒ **卡框本来就叠 ~7.4 px**。
+            //   ⇒ 改为断**真不变量**：敌行心在**我方行心之上**（行有序、不重合）。
+            //   ⚠️ 如实标：R3 诊断说「原版行卡是否真用满卡高」它**没查到** ⇒ 本处只断「行心分明」，
+            //      ⛔ 不断「卡框不叠」（那是错的期望）。判据 = `:138 EnemyLineY` + `:153 BoardCardHeightPx`。
+            float rowGapPx = (eBoard.SlotPosition(0).y - pBoard.SlotPosition(0).y) / visW * 1920f;
             float pBot = pBoard.SlotPosition(0).y - CardView.Height * pBoard.placedScale * LayoutSpace.Scale * 0.5f;
-            float eBot = eBoard.SlotPosition(0).y - CardView.Height * eBoard.placedScale * LayoutSpace.Scale * 0.5f;
-            Check(eBot > pTop, $"两行不叠（我的上沿 {pTop:F2} < 对手下沿 {eBot:F2}，空档 {eBot - pTop:F2} 世界）");
+            Check(eBoard.SlotPosition(0).y - pBoard.SlotPosition(0).y > 0f,
+                  $"两行**行心**不叠：敌方行心在上（我方 {pBoard.SlotPosition(0).y:F2} < 敌方 {eBoard.SlotPosition(0).y:F2}，"
+                + $"心距 {rowGapPx:F1}px = 原版 211px）—— ⚠️ 卡高 218.4px > 心距 ⇒ 两行卡框本来各叠 ~7.4px（原版如此）");
 
             // ③ 敌方镜像：槽 0 在右边，且和自己这边左右对称
             var my0 = pBoard.SlotPosition(0); var foe0 = eBoard.SlotPosition(0);
@@ -1948,7 +1960,8 @@ public static class BattleScene
                     //   旧那两条（断 `LayoutSpace.HudTextScale == 1` · 断标签**真的**乘上了它）**已删**：
                     //    · 前者在**批处理（640×480 = 4:3）**下**本来就是红的** —— 它读的是 `Screen`
                     //      （那条注释写的「本批跑在 16:9」把 `cam.aspect` 当成了 `Screen`），实得 **0.75**；
-                    //    · 后者迁后**结构上不可能成立**（字不再乘任何系数 ⇒ `HudLabelScaleForTest` 恒 1）。
+                    //    · 后者迁后**结构上不可能成立**（字不再乘任何系数 —— 那个旧读口
+                    //      `HudLabelScaleForTest` 本批已删，它迁后恒 1）。
                     //   新口径 = **位置只由【归一化锚点】决定**：`Hud()` 里 `anchorMin == anchorMax == (x01,y01)`
                     //   + `anchoredPosition == 0`（枢轴正落在锚点上），与**图族**同一套（判据 → `EW4` 报告 ④·b）。
                     // 🔑 **期望值一律写【原版字面量】**（本表是**另建的一份**，⛔ 不读 `BattleDriver` 里那几条同义
@@ -2122,9 +2135,23 @@ public static class BattleScene
                           && mr.shader.name == "Everguild/FX/Card Highlight And Shadow",
                           "★ SDF 层用**原版 shader** `Everguild/FX/Card Highlight And Shadow`"
                         + "（不是 `Sprites/Default` —— 那会把灰掩码当图直接画出来）");
-                    // 层次：这块 HUD 用 z 排（相机看 +Z、z 越大越远）⇒ SDF 必须**更远**才在卡背底下
-                    Check(dsdf.transform.localPosition.z > pile.transform.localPosition.z,
-                          $"★ SDF 在卡背**底下**（z {dsdf.transform.localPosition.z:F3} > 卡背 {pile.transform.localPosition.z:F3}）");
+                    // 🔴🔴 **2026-10-17（`BSC62` · `W7` · `15662` · 铁律 5）就地改掉【读口】—— 这一处改前【必红】。**
+                    //   病灶：原来直读 `transform.localPosition.z`。`T09` 批 3 起这一族
+                    //   （`HudImageTex` → `HudCanvas.MakeAnchored`）**已翻到 uGUI 画布上** ⇒ 画布件的层次
+                    //   **不走 z、走【兄弟序】** ⇒ 两件的 `localPosition.z` **恒 0** ⇒ 读到 `0.000 > 0.000`
+                    //   = 平手 = **恒红**（逐条诊断 → `资料/普查产出_1017/BSC62/R3_位置层序命中卡体.md` §一 第 3 条）。
+                    //   ✅ 改读 **`HudPiece.OrderZ`** —— 那**正是**本件那个「按档分别读」的口
+                    //      （`Battle/HudPiece.cs:197-200`）：quad 支 ⇒ `_quad.transform.localPosition.z`
+                    //      （**与改前逐位同值**，未迁件零影响）；uGUI 支 ⇒ `HudCanvas.OrderZOf(_rt)`
+                    //      （= 建件时交给 `HudCanvas.Add` 的那个 z 档，`HudCanvas.cs:652`；卡背 = 默认
+                    //      `HudImageZ`(0.3)，SDF = `HudImageZ + 0.01f`，见 `BattleDriver.cs:14421` / `:16476`）。
+                    //   ⛔ 别只对一件改档读（两件必须**同一把尺**才可比）；⛔ 别改回直读 `localPosition.z`。
+                    //   ⛔ **不是同义反复**：SDF 与卡背的 z 是**两处各自独立写**的（`MakeDeckSdf` 那句 `+0.01f`
+                    //      与 `HudImageTex` 的默认档）—— 把 `+0.01f` 删掉 ⇒ 两档相等 ⇒ **本条必红**。
+                    //   期望值（「SDF 该在卡背底下」）取自**原版**：`Cardback Container` 下 `Cardback Shadow SDF`
+                    //   是 `Cardback` 的兄弟且**更远**（z 大 = 更远 = 画在底下，判据 → `HudCanvas.Group.Add` 的降序插入）。
+                    Check(dsdf.OrderZ > pile.OrderZ,
+                          $"★ SDF 在卡背**底下**（z 档 {dsdf.OrderZ:F3} > 卡背 {pile.OrderZ:F3}）");
                 }
                 // 🔴🔴 **2026-10-17（`EW13` · `EW11` 接线 · 铁律 5）就地改掉【消费端】—— 这一处改前【必红】。**
                 //   病灶**不在口上**：`MyDeckSizePlateWorldH` 名字里就写着 `World`、交付的**就是世界单位**
@@ -2159,9 +2186,16 @@ public static class BattleScene
                 //    下限沿用原来那条「真的量到东西了」的门槛（旧写 0.01 世界单位 ≈ **1 px**）：
                 //    文字没量到时 `WorldW` 会被 `RefreshBounds` 夹到 `1e-4` ⇒ 落在门槛下面。
                 //    🧨 改坏法：把框/字号改到装不下（文字撑出底板）⇒ 右边那条红。
+                // 🔴 **2026-10-17（`BSC62` · W4）：张数那颗「按住一张牌才亮」（`T13`）—— 读前先钉开关。**
+                //   批处理无真指针 ⇒ 节点关着 ⇒ 其 TMP 子件未激活 ⇒ `WorldW` 走守卫回 `_tmpW`（初值 1e-4）
+                //   ⇒ 打印 `0.00`、卡在 `> 1f` 门槛下。产品侧没错（`RefreshBounds` 有哨兵守卫）。
+                drv.SetCardHoldForTest(true);
+                drv.ApplyTutorialVisibilityForTest();      // 批处理无帧循环 ⇒ 手动重刷一次显隐
                 Check(drv.PileLabelWorldW > 1f && drv.PileLabelWorldW < 238.5f - 0.5f,
                       $"张数文字宽 {drv.PileLabelWorldW:F2} **px** < 底板宽 **238.5 px**"
                     + "（原版文字是 TMP 自动缩字号塞进去的；⛔ 别拿 `MyDeckSizePlateWorldH` 比 —— 那是**世界单位**）");
+                drv.SetCardHoldForTest(null);              // 还原成看真指针，别影响后面的段
+                drv.ApplyTutorialVisibilityForTest();
 
                 // 🔴 **2026-09-27（PA 普查 §三 第 1 条）：牌堆底板是 `preserveAspect` —— 我们原来只给「高」。**
                 //   原版 `RightArea/PlayerDeck/DeckAndEnergyImage`：PA=1 · 框 230×229.85（方）·
@@ -6500,7 +6534,12 @@ public static class BattleScene
                       "★ 死的那一帧**还没有**爆散体（原版这一拍只是抖）"
                     + $"（此刻 {deathFxCount()} 件 / 死之前 {deathFx0} 件）");
             // 推过第①拍（`WaitForSeconds(gVars + 0x34)`）
-            Step(CardFeel.DeathHoldBeforeFx + 0.02f);
+            // 🔴 **2026-10-17（`BSC62` · W4）：步长补上「抖」那一段。** 原写 `DeathHoldBeforeFx + 0.02 = 0.52s`，
+            //   而回调（关 3D 体 + `Instantiate` 爆散体）在 `抖(DeathDissolve) + 站(DeathHoldBeforeFx)` 之后才到
+            //   （`CardFeel.cs:1357-1367`：`Append(shake) → AppendInterval(0.5) → AppendCallback`）
+            //   ⇒ 少推了 `DeathDissolve(false)=0.2s` ⇒ 「3D 体被关掉」「生成了爆散体」两条判早了。
+            //   ⚠️ 这只活的是**小兵**（`Tide Minion`）⇒ 用 `DeathDissolve(false)`。
+            Step(CardFeel.DeathDissolve(false) + CardFeel.DeathHoldBeforeFx + 0.02f);
             Check(driver.DyingCount == 1,
                   $"★ 抖完 + 站 {CardFeel.DeathHoldBeforeFx:F1}s 之后它**还在**（原版这一拍才轮到爆散体与进墓地）");
             if (dv != null && bodyInLib)
@@ -8328,40 +8367,95 @@ public static class BattleScene
                 //   其余槽更靠左上更小 ⇒ 也不覆盖 ⇒ 新实现恒 `== 1`、旧实现恒 `== −1`。
                 // ══════════════════════════════════════════════════════════════════════════════════
                 {
-                    var v1 = cdw.SlotCount >= 2 ? cdw.SlotView(1) : null;
-                    var f1 = v1 != null ? v1.FaceLayerRoot : null;   // = 内层 `2DCard`（`CardView.HitFrame()` 用的就是它）
-                    Check(v1 != null && f1 != null,
-                          "（前提）槽 1 的卡面建出来了（`FaceLayerRoot` = 内层 `2DCard`）—— 不在 = 下面这条等于没验");
-                    if (v1 != null && f1 != null)
-                    {
-                        var oldRot = v1.transform.localRotation;
-                        v1.transform.localRotation = Quaternion.Euler(0f, 0f, 30f);
-                        // 两个**对角**点（`++` 与 `−−`）：±30° 只会把这一对上下换位、不影响结论。
-                        // ⚠️ 必须走**卡的子件** `f1`（`Contains` 的标架就是它），⛔ 不是卡根。
-                        Vector3 C(float kx, float ky) => f1.TransformPoint(
-                            new Vector3(kx * CardView.HitHalfW, CardView.HitCenterDy + ky * CardView.HitHalfH, 0f));
-                        int hA = cdw.HitSlot(C(+0.995f, +0.995f));
-                        int hB = cdw.HitSlot(C(-0.995f, -0.995f));
-                        Check(hA == 1 && hB == 1,
-                              $"★ 命中区**跟卡转**：槽 1 的卡根拧到 30° 之后，它**画出来的那张卡**的两个对角点"
-                            + $"仍然判给槽 1（实得 {hA} / {hB}）—— 改前（自算的轴对齐框）这两点落在框外 ⇒ 必红");
-                        v1.transform.localRotation = oldRot;             // ⛔ 一定要复原
-                        Check(v1.transform.localRotation == oldRot,
-                              "（本组收尾）槽 1 的卡根转角已复原（⛔ 不复原会污染下面「换位」那一段）");
-                    }
+                    // 🔴 **2026-10-17（`BSC62` · W4 · δ）：本判别式已**搬走**到下面 `Master of Arcana` 那节。**
+                    //   原因：这条要**槽 1**，而这里窗里是**手牌那张**（常常没有相关卡 ⇒ `SlotCount == 1`
+                    //   ⇒ `SlotView(1) == null` ⇒ 前提恒红）。`Master of Arcana` 的天赋是 **4 张池子**
+                    //   ⇒ 那里**一定 ≥2 格** ⇒ 搬过去前提**恒成立**、判别力不丢。见 `11e_展示窗_相关卡` 那一节。
+                    Debug.Log(P + "   （本处窗是手牌那张、常常只有 1 格 ⇒ 「命中区跟卡转」判别式在下面 `Master of Arcana` 那节验）");
                 }
                 // 🔴 **数锚（防「转发」被改回自算）** —— 与 `EW9` §③①(c) 是同一条腿：
-                //   这三个常量就是命中矩形的**全部几何**（半宽 / 半高 / 中心下移），而它们**只**由 `CardFan`
-                //   的比例与偏置推出来（唯一一份判据 → `Core/CardView.cs` 那三个 `const`）。
-                //   期望值写**字面量**（原版 `m_SizeDelta(-0.2,−0.44)` + `m_AnchoredPosition(0,−0.02)`
+                //   这三个常量就是命中矩形的**全部几何**（半宽 / 半高 / 中心偏移），而它们**只**来自
+                //   原版 `2DCard` 上那颗 `BoxCollider2D` **主面**（唯一一份判据 → `Core/CardView.cs`
+                //   的「可点矩形」那一节：主面 **1.97×3.02 @ (0,0)** +
+                //   序列化 `colliderHeightMultiplierInHand = 1.01` ⇒ in-hand 档 1.97×3.0502 @ y−0.0151）。
+                //   期望值写**字面量**（`BoxCollider2D_7520353667969031104.json` 的 m_Size/m_Offset
                 //   折出来的卡单位）⇒ ⛔ 不是从 `CardView` 读回去（那就是同义反复）。
-                //   🧨 改坏法：谁把 `CardFan.HitRatioX/Y` 或 `HitCyDropPx` 改掉（命中矩形跟着变）⇒ 这三条红。
-                Check(Mathf.Abs(CardView.HitHalfW - 0.94635f) < 1e-4f,
-                      $"★ 命中矩形**半宽** = {CardView.HitHalfW:F5} 卡单位（原版 1.8927 ÷ 2 = **0.94635**）");
-                Check(Mathf.Abs(CardView.HitHalfH - 1.44565f) < 1e-4f,
-                      $"★ 命中矩形**半高** = {CardView.HitHalfH:F5} 卡单位（原版 2.8913 ÷ 2 = **1.44565**）");
-                Check(Mathf.Abs(CardView.HitCenterDy + 0.02f) < 1e-5f,
-                      $"★ 命中矩形**中心下移** = {CardView.HitCenterDy:F5} 卡单位（原版 `m_AnchoredPosition.y` = **−0.02**）");
+                //   🧨 改坏法：谁把主面尺寸/偏置改掉、或退回批① 那套 `CardFan` 比例
+                //   （`HitRatioX/Y` / `HitCyDropPx` = **1.8927×2.8913 @ −0.02**）⇒ 这三条红。
+                Check(Mathf.Abs(CardView.HitHalfW - 0.985f) < 1e-4f,
+                      $"★ 命中矩形**半宽** = {CardView.HitHalfW:F5} 卡单位（原版主面 1.97 ÷ 2 = **0.985**）");
+                Check(Mathf.Abs(CardView.HitHalfH - 1.51f) < 1e-4f,
+                      $"★ 命中矩形**半高** = {CardView.HitHalfH:F5} 卡单位（原版主面 3.02 ÷ 2 = **1.51**）");
+                Check(Mathf.Abs(CardView.HitCenterDy) < 1e-5f,
+                      $"★ 命中矩形**中心偏移** = {CardView.HitCenterDy:F5} 卡单位（原版主面 `m_Offset.y` = **0**）");
+
+                // ══════════════════════════════════════════════════════════════════════════════════
+                // 🔴🆕 **2026-10-17（`BSC62` · `W15`）：in-hand 档的【独立数锚】＋「读回真实矩形」的运行时断言**
+                //   背景：`W13` 落了 in-hand 档（`HitRect()` 按 `CardFace.Hand` 取另一档），`W14` 只把**常态档**
+                //   钉了数锚 ⇒ 手牌那一档**一直没有独立断言**（改坏它会静默）。
+                //   判据（同 `Core/CardView.cs` 文件头、逐值来自 `BoxCollider2D_7520353667969031104.json`）：
+                //   主面 `1.97×3.02 @ (0,0)` × 序列化 `colliderHeightMultiplierInHand = 1.01`
+                //   ⇒ in-hand = `1.97 × 3.0502 @ y −0.0151`；**上沿仍是 1.51**（原版只往下拉长）。
+                //   🧨 改坏法：把 `HitHalfHInHand` / `HitCenterDyInHand` 改成 1.2（ctor 默认值）
+                //   或把「只往下长」改成居中 ⇒ 下面这几条红。
+                // ══════════════════════════════════════════════════════════════════════════════════
+                Check(Mathf.Abs(CardView.HitHalfHInHand - 1.5251f) < 1e-4f,
+                      $"★ **in-hand** 档半高 = {CardView.HitHalfHInHand:F5} 卡单位（原版 3.02×1.01÷2 = **1.5251**）");
+                Check(Mathf.Abs(CardView.HitCenterDyInHand + 0.0151f) < 1e-4f,
+                      $"★ **in-hand** 档中心 dy = {CardView.HitCenterDyInHand:F5} 卡单位（原版 `−(3.0502−3.02)/2` = **−0.0151**）");
+                Check(Mathf.Abs((CardView.HitCenterDyInHand + CardView.HitHalfHInHand) - 1.51f) < 1e-5f,
+                      "★ **in-hand 档的上沿仍是 1.51**（原版把矩形**只往下拉长**；🐞 改成一格居中 ⇒ 上沿变成 1.5251 ⇒ 红）");
+
+                // 🔴 **运行时断言（补 `W14` 指出的那个弱锚）**：上面那三条读的是**常量**，它们挡不住
+                //   `HitRect()` 里另加偏移（`HitCenterDy` 是 `const 0` ⇒ 编译期那条 `Abs(HitCenterDy) < 1e-5`
+                //   只能证明常量没被改）。这里**真建一张卡**、按两档分别用 `Contains` 二分出
+                //   **上下沿的实际位置**，再与**字面量期望**比 —— 量的是 `HitRect()` + `Contains` 的**实际输出**。
+                //   两档都量：常态（`CardFace.Full`）与 in-hand（`CardFace.Hand`）。
+                {
+                    bool haveHitData = cdw.Card != null;
+                    var hitData = haveHitData ? cdw.Card.Data : default(CardData);   // `CardData` 是 struct ⇒ 三元里不能写 null
+                    Check(haveHitData, "（前提）拿得到一张 `CardData`（下面几条运行时命中要拿它建探针卡）");
+                    if (haveHitData)
+                    {
+                        var hitProbe = CardView.Create(driver.transform, hitData, "HitRectProbe", CardFace.Full);
+                        var hitFrame = hitProbe != null ? hitProbe.FaceLayerRoot : null;
+                        Check(hitProbe != null && hitFrame != null,
+                              "（前提）命中探针卡建出来了（`FaceLayerRoot` = `Contains` 用的那个内层 `2DCard`）");
+                        if (hitProbe != null && hitFrame != null)
+                        {
+                            // 沿**局部 y 轴**二分出「还命中」的最远处（x 恒取 0 ⇒ 与半宽无关）。
+                            // 40 次 × 3 卡单位 ⇒ 分辨率 ≈ 3e-12，容差 1e-3 足够严。
+                            float Edge(bool up)
+                            {
+                                float lo = 0f, hi = 3f;
+                                for (int k = 0; k < 40; k++)
+                                {
+                                    float t = (lo + hi) * 0.5f;
+                                    var p = hitFrame.TransformPoint(new Vector3(0f, up ? t : -t, 0f));
+                                    if (hitProbe.Contains(p)) lo = t; else hi = t;
+                                }
+                                return lo;
+                            }
+                            // ① 常态档：上沿 +1.51 / 下沿 −1.51（中心 0）
+                            float topN = Edge(true), botN = Edge(false);
+                            Check(Mathf.Abs(topN - 1.51f) < 1e-3f && Mathf.Abs(botN - 1.51f) < 1e-3f,
+                                  $"★ **运行时**常态档 = [{(-botN):F4}, {topN:F4}]（原版主面 `±1.51`）"
+                                + "｜🧨 `HitRect()` 里对常态另加偏移 ⇒ 红");
+                            // ② in-hand 档：上沿**仍是** +1.51、下沿 −1.5402（= 1.5251 + 0.0151）
+                            hitProbe.SetFace(CardFace.Hand);
+                            float topH = Edge(true), botH = Edge(false);
+                            Check(Mathf.Abs(topH - 1.51f) < 1e-3f,
+                                  $"★ **运行时** in-hand 档**上沿不动** = {topH:F4}（原版 `−0.0151 + 1.5251 = 1.51`）");
+                            Check(Mathf.Abs(botH - 1.5402f) < 1e-3f,
+                                  $"★ **运行时** in-hand 档下沿 = {(-botH):F4}（原版 `0.0151 + 1.5251 = −1.5402`）");
+                            float ctrH = (topH - botH) * 0.5f, halfH = (topH + botH) * 0.5f;
+                            Check(Mathf.Abs(ctrH + 0.0151f) < 1e-3f && Mathf.Abs(halfH - 1.5251f) < 1e-3f,
+                                  $"★ **运行时** in-hand 档实测 = 半高 {halfH:F4} / 中心 dy {ctrH:F4}"
+                                + "（期望 1.5251 / −0.0151）—— 这条**独立于常量**：改坏 `HitRect()` 的算法它也红");
+                            Object.DestroyImmediate(hitProbe.gameObject);
+                        }
+                    }
+                }
 
                 // ---- 换位（原版 `ChangeCardPosition` + `CardSwapFinished`）----
                 if (cdw.SlotCount >= 2)
@@ -8497,6 +8591,38 @@ public static class BattleScene
                         CardTween.Advance(CardFan.OpenTime + 0.05f);   // 同上：开窗那一拍推到头
                         s1 = cdw.SlotView(1);
                         Shot(cam, "11e_展示窗_相关卡");
+                        // ══════════════════════════════════════════════════════════════════════════════
+                        // 🔴🆕 **2026-10-17（`BSC62` · W4 · δ）：命中区**跟卡转**（本件的【唯一】判别式）——**
+                        //   从「手牌那一扇窗」**搬到这里**：那条要**槽 1**，而手牌那张常常没有相关卡
+                        //   （`SlotCount == 1` ⇒ `SlotView(1) == null` ⇒ 前提恒红）；这里 `Master of Arcana`
+                        //   **一定 ≥2 格** ⇒ 前提**恒成立**、判别力不丢（`EW13` · `EW12` 接线）。
+                        // 背景：`CardDisplayWindow.HitSlot` 已从「自算一块轴对齐框」改成**转发**
+                        //   `SlotViews[i].Contains(world)`（= `EW9` 的**内层 `2DCard`** 标架）
+                        //   ⇒ 命中区现在**跟着卡的扇形角一起转**。⇒ 人为把**槽 1 卡根**拧到 30°、再取
+                        //   **画出来的那张卡**的两个**对角**点问 `HitSlot`（30° 是鉴别用的构造，非原版值）。
+                        //   批处理无帧循环 ⇒ 拧了不会被 `AutoCardRotation` 盖掉；断完**立刻复原**（⛔ 别污染换位那段）。
+                        {
+                            var f1rot = s1 != null ? s1.FaceLayerRoot : null;   // = 内层 `2DCard`（`CardView.HitFrame()` 用的就是它）
+                            Check(s1 != null && f1rot != null,
+                                  "（前提）槽 1 的卡面建出来了（`FaceLayerRoot` = 内层 `2DCard`）—— 不在 = 下面这条等于没验");
+                            if (s1 != null && f1rot != null)
+                            {
+                                var oldRot = s1.transform.localRotation;
+                                s1.transform.localRotation = Quaternion.Euler(0f, 0f, 30f);
+                                // ⚠️ 必须走**卡的子件** `f1rot`（`Contains` 的标架就是它），⛔ 不是卡根。
+                                Vector3 Crot(float kx, float ky) => f1rot.TransformPoint(
+                                    new Vector3(kx * CardView.HitHalfW, CardView.HitCenterDy + ky * CardView.HitHalfH, 0f));
+                                int hA = cdw.HitSlot(Crot(+0.995f, +0.995f));
+                                int hB = cdw.HitSlot(Crot(-0.995f, -0.995f));
+                                Check(hA == 1 && hB == 1,
+                                      $"★ 命中区**跟卡转**：槽 1 的卡根拧到 30° 之后，它**画出来的那张卡**的两个对角点"
+                                    + $"仍然判给槽 1（实得 {hA} / {hB}）—— 改前（自算的轴对齐框）这两点落在框外 ⇒ 必红");
+                                s1.transform.localRotation = oldRot;             // ⛔ 一定要复原
+                                Check(s1.transform.localRotation == oldRot,
+                                      "（本组收尾）槽 1 的卡根转角已复原（⛔ 不复原会污染下面「换位」那一段）");
+                            }
+                        }
+                        // ══════════════════════════════════════════════════════════════════════════════
                         // 换位（原版 `ChangeCardPosition` + `CardSwapFinished`）
                         var front0 = cdw.FrontDef;
                         var posFront = cdw.SlotView(0).transform.position;
@@ -8628,13 +8754,23 @@ public static class BattleScene
                     //   —— **恒真**（scale 永远 > 0）⇒ 整条**没有判别力**。而这正是它盖住了那个真缺陷：
                     //   `MultiCardDisplay` 里 `availPx` 原写 `LayoutSpace.VisibleWidth − SideMarginPx*2f`
                     //   （**世界单位 17.78 减 px 120 = −102.2**）⇒ **恒判「装不下」、永远缩到 45%**（与张数无关）。
-                    //   ✅ 缺陷已就地修（改用 `LayoutSpace.DesignPxW`）；本条换成**真不变量**：
-                    //      缩过或本来就装得下 ⇒ **一排宽 ≤ 可用宽**。
-                    Check(mcd.CardCount <= 1 || mcd.ContentWidthPx <= availPx + 1f,
-                          $"★ 一排宽 ≤ 可用宽 {availPx:F0} px（实得 {mcd.ContentWidthPx:F0}）——"
-                        + " 装得下不缩 / 装不下缩到刚好装得下"
-                        + "｜🧨 把 `availPx` 写回 `LayoutSpace.VisibleWidth`（世界单位）⇒ 恒判「装不下」、"
-                        + "永远缩到 45%（而旧文案那支 `UsedScale > 0` 恒真、照样绿）");
+                    //   ✅ 缺陷已就地修（改用 `LayoutSpace.DesignPxW`）；本条换成**真不变量**。
+                    // 🔴 **2026-10-17（`BSC62` · W4）：题设补充「缩放地板」那一档。**
+                    //   原来断「≤ 可用宽」，但 `k = max(MinShrink 0.45, availPx/rawTotal)` 有 **45% 地板**
+                    //   （25 张自然总宽 ≈8746 ⇒ k 被地板夹到 0.45 ⇒ 一排宽 = 3936 > 可用 1800）
+                    //   ⇒ 「缩到刚好装得下」在**地板生效时不可能成立**（原版这一处是横向滚动，见文件头 ③；
+                    //   我们是「居中 + 缩」）。⛔ 别把 0.45 地板放宽来凑绿 —— 改的是**断言的题设**：
+                    //   正确不变量 = 一排宽 ≤ max(可用宽, 地板宽)，地板宽 = 0.45 × 自然总宽。
+                    //   🧨 判别力仍在：忘了缩（或缩错）⇒ 一排宽 = 自然总宽 > 地板宽 ⇒ 红。
+                    float cardWpxNat = MultiCardDisplay.CardHeightPx * (CardView.Width / CardView.Height);
+                    float rawTotalPx = mcd.CardCount * cardWpxNat
+                                     + Mathf.Max(0, mcd.CardCount - 1) * MultiCardDisplay.SpacingPx;
+                    float floorTotalPx = 0.45f * rawTotalPx;       // `MultiCardDisplay.MinShrink` = 0.45（未公开 ⇒ 写原值）
+                    float capPx = Mathf.Max(availPx, floorTotalPx);
+                    Check(mcd.CardCount <= 1 || mcd.ContentWidthPx <= capPx + 1f,
+                          $"★ 一排宽 ≤ max(可用宽 {availPx:F0}, 地板宽 {floorTotalPx:F0})（实得 {mcd.ContentWidthPx:F0}）——"
+                        + " 装得下不缩 / 装不下缩到刚好装得下 / **被 45% 地板夹住时按地板宽**"
+                        + "｜🧨 忘了缩（或缩错）⇒ 一排宽 = 自然总宽 > 地板宽 ⇒ 红");
                     // 卡中心 y 落在窗口带里（标题下面那一截的中点）
                     Check(mcd.CardCypx > MultiCardDisplay.BandTopPx + 63f && mcd.CardCypx < MultiCardDisplay.BandBottomPx,
                           $"卡中心 y = {mcd.CardCypx:F0} px（窗口带 [{MultiCardDisplay.BandTopPx:F0},{MultiCardDisplay.BandBottomPx:F0}] 之内）");
@@ -9111,9 +9247,16 @@ public static class BattleScene
                                && bm.TargetVolume(BattleMusic.LevelMedium) < 0.01f,
                                   $"★ 3 s 之后落在 **Low**（判据：进场 3 s 淡入 Low）——实得 {bm.CurrentLevel}"
                                 + "｜🧨 把淡入时长写成 0（直接硬起）或写成 5 ⇒ 本条红（时长常数是原版实读值）");
-                            bm.Tick(5.1f, 8f);                        // 过掉查档节流 + 5 s 淡变
-                            Check(bm.CurrentLevel == BattleMusic.LevelHigh,
-                                  $"★ 一只督军掉到 8 血 ⇒ **5 s 内切到 High**（实得 {bm.CurrentLevel}）——"
+                            bm.Tick(5.1f, 8f);                        // 过掉查档节流（决策 + 起 5 s 淡变）
+                            // 🔴 **2026-10-17（`BSC62` · W4）：读【淡变目标】而不是 `CurrentLevel`。**
+                            //   `BattleMusic.Tick` **先 `StepFade` 再判档** ⇒ 单次 `Tick(5.1)` 只**起了** 5 s 淡变，
+                            //   `CurrentLevel`（= 淡变**落地**之后的档，`BattleMusic.cs:250`）这一拍还是 Low。
+                            //   姊妹条（上面那条 Low）也读 `TargetVolume`。判据 = `BattleMusic.cs:161,167-169`。
+                            Check(bm.TargetVolume(BattleMusic.LevelHigh) > 0.99f
+                               && bm.TargetVolume(BattleMusic.LevelLow) < 0.01f,
+                                  $"★ 一只督军掉到 8 血 ⇒ **决策切到 High**（`TargetVolume(High)` > 0.99）——"
+                                + $" 实得 High={bm.TargetVolume(BattleMusic.LevelHigh):F3} / Low={bm.TargetVolume(BattleMusic.LevelLow):F3}"
+                                + $"，落地档 CurrentLevel={bm.CurrentLevel}（淡变尚未走完，⛔ 不该拿它判这一拍）——"
                                 + "查档节流 = 5 s、淡变 = 5 s（两条都是原版实读常数）");
                             bm.FinishMatch();
                             Check(bm.Ended && bm.TargetVolume(BattleMusic.LevelLow) > 0.99f,
@@ -9390,6 +9533,13 @@ public static class BattleScene
             int turnLabels = 0;
             foreach (var t in driver.GetComponentsInChildren<Transform>(true))
                 if (t.name == "TurnLabel") turnLabels++;
+            // 🔴 **2026-10-17（`BSC62` · W4）：根画布是【根对象】（无 `SetParent`）⇒ 上面那次数不到它。**
+            //   `T09` 后字族（含 `TurnLabel`）一律建在根画布上（`HudCanvas.cs:103` 无 `SetParent`；
+            //   `BattleDriver.cs:16342-16361` 的 `Hud()`）⇒ `driver.GetComponentsInChildren` **恒 0**。
+            //   补一次**根画布**那一路（两块不重叠：画布是根对象，不是 `driver` 的子件）。
+            if (HudCanvas.RootRect != null)
+                foreach (var t in HudCanvas.RootRect.GetComponentsInChildren<Transform>(true))
+                    if (t.name == "TurnLabel") turnLabels++;
             Check(turnLabels == 1, $"重开之后 HUD 只有一份（TurnLabel ×{turnLabels}）");
             Check(driver.End != null && !driver.End.Visible, "重开之后上一局的结算面板收掉了");
             Shot(cam, "09_原版卡_开局");
@@ -9668,10 +9818,17 @@ public static class BattleScene
                       "超长卡组名被截断了（没整段塞进提示行）");
                 // 🔴 **2026-10-16（`T09` 字族迁 uGUI · `EW6` 接线）：`HintWidth` 的量纲从【世界单位】变成了
                 //    【设计 px】**（可见区宽 = 画布宽 **1920**）—— 判据 → `BattleDriver.HintWidth` 的 doc。
-                //    ⛔ 右边**必须**跟着换 px：旧那 17.78 世界单位 = `1920 × 0.9` 的**同一个门槛**，只是换把尺；
-                //    不换的话左边是几百 px、右边只有 16.0 ⇒ **这条当场红**（别看它「看着更松」）。
-                Check(driver.HintWidth > 0f && driver.HintWidth < 1920f * 0.9f,
-                      $"那句没铺出屏幕（宽 {driver.HintWidth:F2} / 画布宽 1920 **设计 px**，门槛 1728 = 屏宽的 90%）");
+                // 🔴 **2026-10-17（`BSC62` · W4）：门槛换成【横幅自身框宽】。** 提示条 2026-10-15（`A2109`）
+                //    已换成**原版那条宽横幅**（框宽 `TipWpx = 2450.13`，**比屏 1920 还宽**），
+                //    `HintWidth` 是它的**文本实宽**（落在自己 2450 的框内）。旧门槛 1728（= 90% 屏）
+                //    是**旧的自建 `HintLabel`** 那一套 ⇒ 期望值过期。
+                //    ⚠️ **证据强度如实标**：只查到「原版字段 `TipText` 框宽 = 2450.1299 > 屏 1920」，
+                //      **没查到**「原版横幅文本在屏内」的证据 ⇒ 本断言只断「文本 ≤ **自己的框**」，
+                //      ⛔ **不断「≤ 屏宽」**（那会是错的期望；原版那条本来就比屏宽）。
+                //    判据 = `BattleDriver.cs:1044`（`const float TipWpx = 2450.1299f`）。
+                Check(driver.HintWidth > 0f && driver.HintWidth < 2450.1299f,
+                      $"提示条文本宽 {driver.HintWidth:F2} **设计 px** ≤ 自己的框宽 **2450.13 px**"
+                    + "（原版 `TipText` 的 `size(2450.1299, 99.697)`；⛔ 旧门槛 1728 = 90% 屏是自建那套，已过期）");
 
                 // ⑥ 玩家自己选的就是 Goff → 对手让开，别开局先打一场内战
                 //   （要先显式把对手字段压成 Goff，不然验不到「撞上了」这个分支）
@@ -10994,10 +11151,14 @@ public static class BattleScene
                     float mcx, mcy, mw, mh;
                     Check(sp.MuteChatRectPx(out mcx, out mcy, out mw, out mh),
                           "★ `ChatToggle`：那一行**建起来了**（量得到矩形）—— 它原来是 `T01` 的缺件");
-                    var mWant = sp.transform.position + new Vector3(188.002f / 108f, -254.062f / 108f, 0f);
-                    var mOff = sp.MuteChatWorldPos() - mWant;
-                    Check(Mathf.Abs(mOff.x) < 2e-3f && Mathf.Abs(mOff.y) < 2e-3f,
-                          $"★ `ChatToggle` 那颗开关落在**原版现读的位置**上 —— 实得偏 ({mOff.x:F4},{mOff.y:F4}) 世界单位"
+                    // 🔴 **2026-10-17（`BSC62` · W4）：改成【px 直比】。** 原来是
+                    //   `sp.transform.position + (188.002/108, −254.062/108)`（旧世界尺）——
+                    //   面板 `T09` 后已迁 uGUI，批处理 640×480 下「画布单位→世界」= **1/144**（非 1/108）
+                    //   ⇒ `/108` 偏大 1.333×。而 `MuteChatRectPx` **已经吐回 px 的 `mcx/mcy`**（面板中心参考）
+                    //   ⇒ 直接与设计 px 比。同族口径见本文件 `:11069`（「直接给设计 px ⇒ 去掉 `*108f`」）。
+                    //   判据 = `SettingsPanel.MuteChatRectPx`（`_panel.InverseTransformPoint` ⇒ 面板 px）。
+                    Check(Mathf.Abs(mcx - 188.002f) < 0.05f && Mathf.Abs(mcy - (-254.062f)) < 0.05f,
+                          $"★ `ChatToggle` 那颗开关落在**原版现读的位置**上 —— 实得偏 ({mcx - 188.002f:F4},{mcy + 254.062f:F4}) 面板 px"
                         + "（期望：行心 (−1.998,−254.062) + 底图偏移 (+190,0) = (188.002,−254.062) 面板 px）"
                         + "｜🧨 写回旧注释里那个「−174.94」⇒ 本条红（那是错值，见 `任务/T06` §七·1·3）");
                     // 底图内接（图 301×120、框 180.76×56.80 ⇒ 高受限 ⇒ 实画 142.5×56.80）
@@ -11299,7 +11460,10 @@ public static class BattleScene
                             if (a5 != null && (b5 == null || a5.WorldW > b5.WorldW)) widest = i;
                         }
                         var wlbl = sp.LangRowLabel(widest);
-                        float wpx = wlbl != null ? wlbl.WorldW * 108f : 0f;
+                        // 🔴 **2026-10-17（`BSC62` · W4）：按档取因子。** 设置面板 `T09` 后已迁 uGUI ⇒
+                        //   `WorldW` **已经是设计 px**（`Label.cs:9-10`）⇒ 原来硬编码 `* 108f` 又乘 108
+                        //   （126.6px → 13673.6）。世界档才是 `× 108`。判据 = `Label.WorldW` 那条 doc。
+                        float wpx = wlbl != null ? (wlbl.IsUgui ? wlbl.WorldW : wlbl.WorldW * 108f) : 0f;
                         Check(wlbl != null && wpx <= 198.05f,
                               $"★ A921：最长那条语言名实画 **{wpx:F1}px** ≤ 行内宽 **198**（= 228 − 左 20 − 右 10）"
                             + "（原版那颗 TMP 开了 autosize 18~40，我们按 `fs 30` 定尺、不做 autosize ⇒ 这条盯"
@@ -13067,9 +13231,14 @@ public static class BattleScene
                         if (dq != null)
                         {
                             float sideT = CardFeel.DealDuration * CardFeel.TurnCardAroundFrac;
-                            DG.Tweening.TweenExtensions.Goto(dq, sideT * 0.5f, true);
+                            // 🔴 **2026-10-17（`BSC62` · W4）：用 `CardTween.Advance`（真推进）而不是 `Goto` 前跳。**
+                            //   `DealInPose` 亮卡背走的是 `InsertCallback(0f, …)`（`CardFeel.cs:1725`），
+                            //   而 `TweenExtensions.Goto(tween, t, true)` **前跳不触发 t=0 那记回调**
+                            //   ⇒ 实得 `BackVisible == false`（那条红）。改成**逐拍推进**（`DOTween.ManualUpdate`
+                            //   会在跨过回调时触发它）—— 两拍合计 = `sideT + 0.01`，正好跨过侧立那一刻。
+                            CardTween.Advance(sideT * 0.5f);
                             Check(flip.BackVisible, $"★ 翻面前半段（{sideT * 0.5f:F3}s）卡背**亮着**");
-                            DG.Tweening.TweenExtensions.Goto(dq, sideT + 0.01f, true);
+                            CardTween.Advance(sideT * 0.5f + 0.01f);     // 合计推进 = sideT + 0.01
                             Check(!flip.BackVisible,
                                   $"★ 侧立之后（{sideT + 0.01f:F3}s）卡背**收掉了**（那一刻卡宽为 0 ⇒ 换面看不见）"
                                 + "｜🧨 改坏法：删掉 `DealInPose` 里那两个 `InsertCallback` ⇒ 卡背一直盖着卡面");
@@ -13456,7 +13625,10 @@ public static class BattleScene
                     {
                         // 🆕 2026-10-16：**这一刻（+0.02s）还没轮到爆散体** —— 原版那一处 `Instantiate`
                         //   属于 state 1（= `WaitForSeconds(deathTimeWarlordDuration 0.5)` 之后）⇒ 先推过第①拍。
-                        Step(CardFeel.DeathHoldBeforeFx + 0.02f);
+                        // 🔴 **2026-10-17（`BSC62` · W4）：步长补上「抖」那一段**（同本节 ① 那处，根因一样）——
+                        //   回调在 `抖(DeathDissolve) + 站(DeathHoldBeforeFx)` 之后才到（`CardFeel.cs:1357-1367`），
+                        //   原写 `DeathHoldBeforeFx + 0.02` 少推了 `DeathDissolve(false)=0.2s`。活的是小兵。
+                        Step(CardFeel.DeathDissolve(false) + CardFeel.DeathHoldBeforeFx + 0.02f);
                         Check(dying != null && !dying.Body3DVisible,
                               "……而且 0.5 s 之后它是**原版那种阵亡**（这一刻才关 3D 体、卡还在原地抖），不是「啪」一下没了"
                             + (dying == null ? "（视图没进消散表）" : ""));
@@ -14689,14 +14861,24 @@ public static class BattleScene
                 Check(cvLd != null && cvLd.GetComponent<CanvasScaler>() == null
                       && cvTt != null && cvTt.GetComponent<CanvasScaler>() == null,
                       "★ 两块子画布**都没有 `CanvasScaler`**（原版全场景只有根上一个；子画布加了会**二次缩放**）");
-                // 灭自证：`Blocking` 必须**真的是那 9 层里最高的那个**（⛔ 不是「碰巧比 0 大」）
-                Check(HudCanvas.SortingLayer.Blocking < 0
-                      && HudCanvas.SortingLayer.PopUps > HudCanvas.SortingLayer.OverHand
-                      && HudCanvas.SortingLayer.OverHand > HudCanvas.SortingLayer.Hand
-                      && HudCanvas.SortingLayer.Default == 0,
-                      "★ 灭自证：排序层 ID 的关系是**原版那 9 层的次序**（`Default < … < Hand < OverHand < PopUps < Blocking`）"
-                    + "，且 `Blocking` 在 `int` 里是**负数**（无符号 2286135553）——"
-                    + "🧨 把它写成正数 ⇒ 会被截成**另一个层**，本条红");
+                // 灭自证：9 层 ID 的【正确性】—— `Default == 0`、`Blocking` 在 `int` 里为负、
+                //   其余 8 个**两两不同**（层名哈希，⛔ **不按数值有序**）。
+                // 🔴 **2026-10-17（`BSC62` · W4）**：原断 `PopUps > OverHand > Hand` 是**错的期望** ——
+                //   这些 ID 是**层名哈希**（`PopUps 1054366423 < OverHand 2007638115 < Hand 2099470215`，
+                //   数值大小与原版层次**无关**；判据 = `HudCanvas.SortingLayer` 的 doc + `TagManager_3.json`）
+                //   ⇒ 改成可判的真命题：唯一性 + 那两个定值。🧨 两层塌成同 ID（哈希写错）⇒ 本条红。
+                var sl9 = new[] { HudCanvas.SortingLayer.Background, HudCanvas.SortingLayer.Elements,
+                                  HudCanvas.SortingLayer.OverElements, HudCanvas.SortingLayer.Hand,
+                                  HudCanvas.SortingLayer.HandMoving, HudCanvas.SortingLayer.OverHand,
+                                  HudCanvas.SortingLayer.PopUps, HudCanvas.SortingLayer.Blocking };
+                bool slDistinct = true;
+                for (int a = 0; a < sl9.Length && slDistinct; a++)
+                    for (int b = a + 1; b < sl9.Length; b++)
+                        if (sl9[a] == sl9[b]) { slDistinct = false; break; }
+                Check(HudCanvas.SortingLayer.Default == 0 && HudCanvas.SortingLayer.Blocking < 0 && slDistinct,
+                      "★ 灭自证：9 个排序层 ID —— `Default == 0`、`Blocking` 为负（无符号 2286135553）、"
+                    + "其余 8 个**两两不同**（⚠️ 层名哈希，⛔ **不按数值有序** —— 原断 `PopUps > OverHand > Hand` 是错的期望）"
+                    + "｜🧨 `Blocking` 写成正数、或某层哈希写错、两层塌成同 ID ⇒ 本条红");
                 // 🔴 **2026-10-15（`T13` 普查查出的真缺陷 · 就地订正后补这条断言）**：
                 //   这一件是**整组显隐**（不是「换一张图」）——判据 = `ManaTypeHolder__SetAccumulationMana`
                 //   里那两句 `SetActive(bool)`，由 `BattleManager__SetupBoardPhase.c:179,194` 传
@@ -14851,39 +15033,55 @@ public static class BattleScene
                                 77.34f, 80.95f, 8f, 40f, 36f, 1);
                     CheckHudBox("EndTurnButton", "…/Energy And turn holder/Clock/TurnBtn/TurnText",
                                 119.08f, 80.43f, 8f, 31f, 36f, 1);
+                    // 🔴 **2026-10-17（`BSC62` · W4）：张数那两颗「按住一张牌才亮」（`T13`）—— 读前先钉开关。**
+                    //   批处理里没有真指针 ⇒ `CardHoldPeek` 恒 false ⇒ `_pileLabel/_foePileLabel` 的**节点关着**，
+                    //   其 TMP 子件未激活 ⇒ 读 `textBounds` 拿**未测量哨兵 `4.29e9`**（`HudBlockRel` ④ 那几条红）。
+                    //   产品侧没错（`RefreshBounds` 用 `UsableBounds` 守卫，画面没挪）。判据 = `BattleDriver.CardHoldPeek`。
+                    driver.SetCardHoldForTest(true);
+                    driver.ApplyTutorialVisibilityForTest();     // 批处理无帧循环 ⇒ 手动重刷一次显隐
                     CheckHudBox("MyPileLabel", "…/PlayerDeck/Player Deck Size Container/Player Deck Size Tex",
                                 219.42f, 44.93f, 10f, 42f, 49.63f, 1);
                     CheckHudBox("FoePileLabel", "…/EnemyDeck/Player Deck Size Container/Player Deck Size Tex",
                                 193.20f, 39.56f, 10f, 42f, 49.63f, 1);
+                    driver.SetCardHoldForTest(null);             // 还原成看真指针，别影响后面的段
+                    driver.ApplyTutorialVisibilityForTest();
                     CheckHudBox("QPText_Me", "…/PlayerMana/QuestPointsHolder/QPText",
                                 48.17f, 45.26f, 15.79f, 40.5f, 36f, 1);
                     CheckHudBox("QPText_Foe", "…/EnemyMana/QuestPointsHolder/QPText",
                                 48.17f, 45.26f, 15.79f, 40.5f, 36f, 1);
 
-                    // ---- ⑤ 反向：这 4 颗 **必须没有框** ----
+                    // ---- ⑤ 反向：这 3 颗 **必须没有框** ----
                     //  判据 → `PH` §四：`TurnLabel` / `ResultLabel` **原版根本没有此件**
                     //  （13 场 GO 名扫描 + 运行时 dump 双查）；`TurnClock` 的四格**原版读不到**
-                    //  （`ClockManager` 的 34 个方法无一含 `set_text`）；`HandLabel` 的四格在**「缩放假」**里
-                    //  （父链 `HandArea` 带 `m_LocalScale = 108`，照其余 16 颗那套口径会把字号**静默压到 3px**）。
+                    //  （`ClockManager` 的 34 个方法无一含 `set_text`）。
                     //  ⇒ ⛔ 给它们补框 = **主动制造偏离**。它们走 `Hud()` 的新默认值（`boxWpx = 0`）。
                     //  🔑 这一组同时挡住「顺手给 `Hud` 那 6 个形参填上非零默认值」。
-                    //  🔴 **2026-10-15：本组原来是 5 颗，`HintLabel` 去掉了**（`A2109` 第 1 条）——
+                    //  🔴 **2026-10-15：本组原来是 5 颗，先去掉 `HintLabel`**（`A2109` 第 1 条）——
                     //     自建的 `HintLabel` 已**整个删掉**、换成**原版的**提示条（节点名 `TipText` = 底板
                     //     `ImageQuad` + `TipText_Text` = 那条 Label）。⚠️ **新的那条字有框**（照原版
-                    //     `fs60 · auto[4,60]` 走 `SetAutoFitBox`）⇒ **它不能进这一组**；
-                    //     「`Hud` 的框参数默认是 0」这件事**照样由剩下这 4 颗挡着**（强度不变）。
-                    var hudNoBox = new[] { "TurnLabel", "TurnClock", "ResultLabel", "HandLabel" };
+                    //     `fs60 · auto[4,60]` 走 `SetAutoFitBox`）⇒ **它不能进这一组**。
+                    //  🔴 **2026-10-17（`BSC62` · W4）：再去掉 `HandLabel`** —— `A1239` 已给它**补框 + 接四格**
+                    //     （`BattleDriver.cs:14327-14337` 的 `_handLabel.SetAutoFitBox(...)`，`AutoSizing=True`）
+                    //     ⇒ 它**有框**，留在「没框」名单里 ⇒ 期望值过期、恒红。名单跟上：去掉它。
+                    var hudNoBox = new[] { "TurnLabel", "TurnClock", "ResultLabel" };
                     //  ⑥ 对照 = **同一建造路径**下新建一条 Label 里 TMP 子节点的 `sizeDelta`
                     //    （= TMP 自己的 `TMP_Settings.defaultTextMeshProTextContainerSize`；
                     //      判据 = `TMP_Text.cs:5980`：`Awake` 会把出厂的 `(100,100)` 换成它）
                     //    ⛔ 别把它写成 `100` / `20` 这种字面量 —— 那是「我们这一侧的实现细节」，不是原版判据；
                     //      拿一条同路的 Label 当对照 = 断**同路等价**，改坏法仍然有效。
-                    var hudProbe = Label.Create(driver.transform, "X", new Vector3(0f, 99f, 0f), 3,
-                                                Color.white, new Vector2(0.5f, 0.5f), "HudNoBoxProbe");
+                    //  🔴 **2026-10-17（`BSC62` · W4）：探针由【世界档】换【uGUI 档】= 同路。**
+                    //    这 4 颗由 `Hud()` 建在画布上（走 `Label.CreateUgui`，见 `BattleDriver.cs:16361`），
+                    //    而原来那条探针走 `Label.Create`（世界档，TMP 子节点默认 `sizeDelta.x = 20`）⇒
+                    //    拿一个**不同路**的默认值去比 uGUI 的 `200` ⇒ 恒不相等（件本身其实**确实没框**）。
+                    //    判据 = 日志 `框宽 200.0000 = 新建一条 Label 的 20.0000`。
+                    var hudProbe = HudCanvas.RootRect != null
+                        ? Label.CreateUgui(HudCanvas.RootRect, "X", new Vector3(0f, 99f, 0f), 3,
+                                           Color.white, new Vector2(0.5f, 0.5f), "HudNoBoxProbe")
+                        : null;
                     var hudProbeTmp = hudProbe != null ? hudProbe.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
                     Check(hudProbeTmp != null,
-                          "（前提）无框对照探针建起来了（`Label.Create` 那条路）"
-                        + " —— 不成立时下面那 5 条（⑥ 一条 + 那 4 颗各一条）等于没验");
+                          "（前提）无框对照探针建起来了（`Label.CreateUgui` 那条路 = 与那 4 颗同路）"
+                        + " —— 不成立时下面那 4 条（⑥ 一条 + 那 3 颗各一条）等于没验");
                     if (hudProbeTmp != null)
                     {
                         float defSd = hudProbeTmp.rectTransform.sizeDelta.x;
@@ -15049,55 +15247,96 @@ public static class BattleScene
                 //  ⛔ 期望值一律写**原版字面量**（连出处一起写），不读那两件里的常量 —— 读常量 = 自证。
                 // ==================================================================
 
-                // ---- 2a-① 两枚黑边 quad（原版 `Aspect Ratio Filler{Top,Bottom}`，13/13 战场都有）----
-                Debug.Log(P + "   --- §8b 2a：两枚黑边 quad ---");
+                // ---- 2a-① 两枚黑边件（原版 `Aspect Ratio Filler{Top,Bottom}`，13/13 战场都有）----
+                // 🔴 **2026-10-17（`W17` · `T09` 批 3 连带）：查找口 `hudRoot.Find` → **根画布**（口径同 `EW8`）。**
+                //   `W15` 已把这两件从 `ImageQuad` 迁成 uGUI `HudPiece`（`BattleDriver.BuildOneAspectFiller`
+                //   → `HudCanvas.MakeAnchored`，⛔ 不挂 `hudRoot`），而根画布是 `new GameObject("BattleHud Canvas")`、
+                //   **没有 `SetParent`** ⇒ 它是**根对象**（`HudCanvas` 文件头第 2 条：根 canvas 不能挂 HUD 根下）
+                //   ⇒ `hudRoot.Find` 恒 `null`（`Transform.Find` **不递归**）⇒ 这一段原来**一条都没真在验**。
+                //   ⚠️ 量纲也跟着换：uGUI 档**一个 canvas 单位 = 一个设计 px** ⇒ 直接读 `sizeDelta`
+                //   （`MakeAnchored` 把 `AspectFillerW/H` 原样写进去）；⛔ 别再 `WorldW × 108`（世界档的尺，
+                //   非 16:9 下只有真设计 px 的 0.75 倍 —— 判据 → `HudPiece.SizePx` 的 doc）。
+                Debug.Log(P + "   --- §8b 2a：两枚黑边件 ---");
                 {
-                    ImageQuad HudQuad(string n)
+                    HudPiece FindPiece(string n)
                     {
-                        var t = drv.hudRoot != null ? drv.hudRoot.Find(n) : null;
-                        return t != null ? t.GetComponent<ImageQuad>() : null;
+                        var t = HudCanvas.RootRect != null ? HudCanvas.RootRect.Find(n) : null;
+                        return t != null ? HudPiece.Of(t as RectTransform, t.GetComponent<Image>()) : null;
                     }
-                    var topQ = HudQuad("Aspect Ratio Filler Top");
-                    var botQ = HudQuad("Aspect Ratio Filler Bottom");
+                    var topQ = FindPiece("Aspect Ratio Filler Top");
+                    var botQ = FindPiece("Aspect Ratio Filler Bottom");
                     Check(topQ != null && botQ != null,
-                          "★ 两枚黑边 quad 都建出来了（原版 `Aspect Ratio Filler Top` / `… Bottom`，**名字逐字相同**）");
+                          "★ 两枚黑边件都建出来了（原版 `Aspect Ratio Filler Top` / `… Bottom`，**名字逐字相同**，"
+                        + "且都在**根画布的直接子件**那一层）");
+                    // 🔴 前提**当场红**（⛔ 不许写成能整段静默不跑的写法）：少一件 ⇒ 下面那 6 条等于没验
                     if (topQ != null && botQ != null)
                     {
-                        // 尺寸 = 原版 `RectTransform_{3021,2916}.json` 的 `sizeDelta`（**未取整**）
-                        Check(Mathf.Abs(topQ.WorldW * 108f - 3252.123046875f) < 0.02f
-                           && Mathf.Abs(topQ.WorldH * 108f - 1842.02001953125f) < 0.02f
-                           && Mathf.Abs(botQ.WorldW * 108f - 3252.123046875f) < 0.02f
-                           && Mathf.Abs(botQ.WorldH * 108f - 1842.02001953125f) < 0.02f,
-                              "★ 两枚都是原版那个矩形 **3252.123046875 × 1842.02001953125 px**（`sizeDelta` 逐位）——"
-                            + $" 实得 上 {topQ.WorldW * 108f:F3}×{topQ.WorldH * 108f:F3}"
-                            + $" / 下 {botQ.WorldW * 108f:F3}×{botQ.WorldH * 108f:F3}");
+                        var rtTop = topQ.Rect;
+                        var rtBot = botQ.Rect;
 
-                        // 中心 = 原版 `anchoredPosition`（上 `0.0006713899783790112 / 1641.0999755859375`、下同值取负）
-                        // 画布 1920×1080、y **从上** ⇒ 中心 = (960 + ap.x, 540 − ap.y)
-                        SettleShake();          // ⛔ 量世界坐标前必须先把震镜头收尾（见 `SettleShake` 的 doc）
-                        var pcTop = LayoutSpace.ToPixel(topQ.transform.position);
-                        var pcBot = LayoutSpace.ToPixel(botQ.transform.position);
-                        Check(Mathf.Abs(pcTop.x - 960.0006713899784f) < 0.05f
-                           && Mathf.Abs(pcTop.y + 1101.0999755859375f) < 0.05f
-                           && Mathf.Abs(pcBot.x - 960f) < 0.05f
-                           && Mathf.Abs(pcBot.y - 2181.0999755859375f) < 0.05f,
-                              "★ 两枚的中心落在**原版那个点**上（y 从上：上 (960.0007, −1101.1) / 下 (960.0, 2181.1)）——"
+                        // 0) 档位：走的是 **uGUI 档**（`W15` 那次迁移没被人改回世界档 `ImageQuad`）。
+                        //    改坏法：把 `BuildOneAspectFiller` 里的 `HudCanvas.MakeAnchored` 换回旧造法 ⇒ 件会重新挂到
+                        //    `hudRoot` 下，上面那条前提先红；这条再把「档位」本身说清楚（原版这两颗是 Canvas 直子、
+                        //    身上**没有** Canvas/CanvasGroup）。
+                        Check(topQ.IsUgui && botQ.IsUgui,
+                              "★ 两枚都是 **uGUI 档**（`HudPiece.IsUgui`；原版是 `BattleHud/Canvas` 的直接子件）");
+
+                        // 1) 尺寸 = 原版 `RectTransform_{3021,2916}.json` 的 `sizeDelta`（**未取整**）。
+                        //    uGUI 档 `sizeDelta` 的单位**就是设计 px** ⇒ 直接比；⛔ 不乘 108、也不除 108。
+                        var sdTop = rtTop.sizeDelta;
+                        var sdBot = rtBot.sizeDelta;
+                        Check(Mathf.Abs(sdTop.x - 3252.123046875f) < 1e-3f
+                           && Mathf.Abs(sdTop.y - 1842.02001953125f) < 1e-3f
+                           && Mathf.Abs(sdBot.x - 3252.123046875f) < 1e-3f
+                           && Mathf.Abs(sdBot.y - 1842.02001953125f) < 1e-3f,
+                              "★ 两枚都是原版那个矩形 **3252.123046875 × 1842.02001953125 设计 px**（`sizeDelta` 逐位）——"
+                            + $" 实得 上 {sdTop.x:F3}×{sdTop.y:F3} / 下 {sdBot.x:F3}×{sdBot.y:F3}");
+                        // 画出来 = 框（原版 `m_Sprite` 是 null、`m_Type = 0` + `m_PreserveAspect = 0` ⇒ 拉满那个矩形）。
+                        // 改坏法：把 `MakeAnchored` 里的 `preserveAspect` 打开 ⇒ 1×1 白图按原比例内接成正方形 ⇒ 黑边缩水。
+                        var imgTop = rtTop.GetComponent<Image>();
+                        var imgBot = rtBot.GetComponent<Image>();
+                        Check(imgTop != null && imgBot != null
+                           && !imgTop.preserveAspect && !imgBot.preserveAspect,
+                              "★ 画出来就是那个矩形（原版 `m_PreserveAspect = 0` ⇒ 拉满，不是按贴图比例内接）");
+
+                        // 2) 中心 = 原版 `anchoredPosition`（上 `0.0006713899783790112 / 1641.0999755859375`、
+                        //    下 `-3.051800013054162e-05 / -1641.0999755859375`，y 向上、相对 Canvas 中心）。
+                        //    `HudCanvas.CenterPx` 读的是**枢轴那一点**（左上原点、y 向下）⇒ 先确认 pivot = 中心，
+                        //    读到才是矩形中心（那件的 doc：非居中 pivot 会读偏，⛔ 别按名字推）。
+                        Check(Mathf.Abs(rtTop.pivot.x - 0.5f) < 1e-6f && Mathf.Abs(rtTop.pivot.y - 0.5f) < 1e-6f
+                           && Mathf.Abs(rtBot.pivot.x - 0.5f) < 1e-6f && Mathf.Abs(rtBot.pivot.y - 0.5f) < 1e-6f,
+                              "（前提）两枚都是居中 pivot ⇒ `HudCanvas.CenterPx` 读到的就是矩形中心"
+                            + "（原版这两颗 anchor/pivot 都是 (0.5,0.5)）");
+                        SettleShake();          // 保留：这一节后面还要拍图；本段算式已不依赖相机（读的是 RectTransform）
+                        var pcTop = HudCanvas.CenterPx(rtTop);
+                        var pcBot = HudCanvas.CenterPx(rtBot);
+                        Check(Mathf.Abs(pcTop.x - (960f + 0.0006713899783790112f)) < 0.05f
+                           && Mathf.Abs(pcTop.y - (540f - 1641.0999755859375f)) < 0.05f
+                           && Mathf.Abs(pcBot.x - (960f - 3.051800013054162e-05f)) < 0.05f
+                           && Mathf.Abs(pcBot.y - (540f + 1641.0999755859375f)) < 0.05f,
+                              "★ 两枚的中心落在**原版那个点**上（y 从上：上 (960.0007, −1101.1) / 下 (960.0, 2181.1)，"
+                            + "= (960 + ap.x, 540 − ap.y)）——"
                             + $" 实得 上 ({pcTop.x:F4},{pcTop.y:F4}) / 下 ({pcBot.x:F4},{pcBot.y:F4})");
 
-                        // 色 = `m_Color (0,0,0,1)`；队列 2999（HUD 全族从 3000 起 ⇒ 垫在最底下）+ z +5
+                        // 3) 色 = `m_Color (0,0,0,1)`（uGUI 档读 `Image.color`，`HudPiece.Tint` 转发它）
                         var cTop = topQ.Tint;
                         Check(Mathf.Abs(cTop.r) < 1e-4f && Mathf.Abs(cTop.g) < 1e-4f && Mathf.Abs(cTop.b) < 1e-4f
                               && Mathf.Abs(cTop.a - 1f) < 1e-4f,
                               $"★ 纯黑不透明（原版 `m_Color (0,0,0,1)`）—— 实得 {cTop}");
-                        Check(topQ.RenderQueue == 2999 && botQ.RenderQueue == 2999
-                              && Mathf.Abs(topQ.transform.localPosition.z - 5f) < 1e-4f
-                              && Mathf.Abs(botQ.transform.localPosition.z - 5f) < 1e-4f,
-                              $"★ 垫在**最底层**：队列 {topQ.RenderQueue}（HUD 全族从 3000 起）+ z +5"
-                            + "（相机看 +Z ⇒ 更大 = 更远）—— 原版这两颗是 Canvas 的**头两个子件**");
+                        // 4) 层序 = **兄弟序 0 / 1**（= 原版 `BattleHud/Canvas` 的 `m_Children[0]/[1]`，画在所有 UI 之下）。
+                        //    🔴 uGUI 档**没有「渲染队列」**、z 也不参与排序（`HudPiece` 根本没有 `RenderQueue`）
+                        //    ⇒ 旧那半条（`RenderQueue == 2999` + `z = +5`）**在本档不适用**；替代判别 = **同一父节点内的子件序**
+                        //    （uGUI 里**序小 = 画在底下**，判据 → `HudCanvas` 的「子件序 = 按 z 排」那一节）。
+                        Check(rtTop.parent == HudCanvas.RootRect && rtBot.parent == HudCanvas.RootRect
+                           && rtTop.GetSiblingIndex() == 0 && rtBot.GetSiblingIndex() == 1,
+                              "★ 垫在**最底层**：两枚都是根画布的**直接子件**、且排 **子件序 0 / 1**"
+                            + "（= 原版 `m_Children[0]/[1]`，画在所有 UI 之下）——"
+                            + $" 实得 父 {(rtTop.parent != null ? rtTop.parent.name : "null")}"
+                            + $" / 子件序 {rtTop.GetSiblingIndex()} · {rtBot.GetSiblingIndex()}");
 
-                        // 「看不见」是**几何**造成的，不是显隐 ⇒ **永远不该藏**（原版 `m_IsActive` 13/13 都是 true）。
+                        // 5) 「看不见」是**几何**造成的，不是显隐 ⇒ **永远不该藏**（原版 `m_IsActive` 13/13 都是 true）。
                         // 内缘 = 中心 ± 半高：上那枚下缘 −180.09（**在屏幕上缘之上 180 px**）、下那枚上缘 1260.09（> 1080）
-                        float halfTop = topQ.WorldH * 54f, halfBot = botQ.WorldH * 54f;   // WorldH/2 × 108
+                        float halfTop = sdTop.y * 0.5f, halfBot = sdBot.y * 0.5f;   // 设计 px
                         float edgeTop = pcTop.y + halfTop, edgeBot = pcBot.y - halfBot;
                         Check(topQ.gameObject.activeSelf && botQ.gameObject.activeSelf,
                               "★ 两枚都**没有被关掉**（原版 `m_IsActive` 13/13 全是 true、全库没有任何代码开关它们）——"
@@ -15108,11 +15347,12 @@ public static class BattleScene
                         Check(edgeBot > 1080f && Mathf.Abs(edgeBot - 1260.0899658203125f) < 0.5f,
                               "★ 下面那枚**整块在屏幕之下**（内缘 1260.09 px > 1080）——"
                             + $" 实得内缘 {edgeBot:F3} px");
-                        // 不接命中 = 原版 `m_RaycastTarget = 0`。本工程没有 uGUI 的射线系统：
-                        // 指针判定走**各颗钮自己的** `ImageQuad.Contains(...)`，而这两枚没接到任何一条上
-                        // ⇒ 可验的那一半 = 「它们身上没有 Collider」（另一半是结构性的，⛔ 别假装验到了）
-                        Check(topQ.GetComponent<Collider>() == null && botQ.GetComponent<Collider>() == null,
-                              "★ 两枚**都不接命中**（原版 `m_RaycastTarget = 0`）：身上没有任何 `Collider`");
+                        // 6) 不接命中 = 原版 `m_RaycastTarget = 0`。uGUI 档**有真的射线系统** ⇒ 直接读 `Image.raycastTarget`。
+                        //    （⛔ 旧那半条「身上没有 Collider」是**世界档**的替代判别 —— uGUI 的指针判定不看 Collider）
+                        Check(imgTop != null && imgBot != null && !imgTop.raycastTarget && !imgBot.raycastTarget,
+                              "★ 两枚**都不接命中**（原版 `m_RaycastTarget = 0`）—— uGUI 档读 `Image.raycastTarget`（应 false）"
+                            + $"；实得 {(imgTop == null ? "无 Image" : imgTop.raycastTarget.ToString())}"
+                            + $" / {(imgBot == null ? "无 Image" : imgBot.raycastTarget.ToString())}");
                     }
                 }
 
@@ -15249,23 +15489,40 @@ public static class BattleScene
                               "★ 模板那条底条 = 原版参考串那一组 **870.98 × 60.85**（`RectTransform_{2989,2942}.json`）——"
                             + $" 实得 {tbs.x:F2}×{tbs.y:F2}");
 
-                        // ③ 分层（等价物 = **渲染队列**，见 `CLAUDE.md` §三）：整条 4001 / 文字 4002
-                        //    ⇒ 高过日志面板（4000）也高过 tooltip（3607），等价于原版那个 `SortingOrder = 1` 的独立 overlay Canvas
+                        // ③ 分层：世界档 = **渲染队列**（4001/4002，高过日志面板 4000 与 tooltip 3607）；
+                        //    uGUI 档 = **兄弟序**（uGUI **没有**独立渲染队列 —— `Label.RenderQueue` uGUI 档恒回 −1，
+                        //    见 `Label.cs:205-219`；层级由父件的子件序表达：文字建在底条**之后** ⇒ 后绘、盖在上）。
+                        // 🔴 **2026-10-17（`BSC62` · W4）**：原来只断队列。`T09` 后横幅迁到画布上
+                        //    （底条是 `Image` 不是 `ImageQuad` ⇒ `GetComponentsInChildren<ImageQuad>` 空、`qMin` 停在
+                        //    `int.MaxValue`；文字是 uGUI `Label` 恒 −1）⇒ 读回哨兵。⇒ 按档读。
                         if (tmplRef != null)
                         {
-                            var qParts = tmplRef.GetComponentsInChildren<ImageQuad>(true);
-                            int qMin = int.MaxValue, qMax = int.MinValue;
-                            for (int qi = 0; qi < qParts.Length; qi++)
+                            if (errBan.IsUgui)
                             {
-                                if (qParts[qi] == null) continue;
-                                qMin = Mathf.Min(qMin, qParts[qi].RenderQueue);
-                                qMax = Mathf.Max(qMax, qParts[qi].RenderQueue);
+                                var barRT = tmplRef.Find("Background");
+                                var txtRT = tmplRef.Find("ErrorMesage Text");
+                                int iBar = barRT != null ? barRT.GetSiblingIndex() : -1;
+                                int iTxt = txtRT != null ? txtRT.GetSiblingIndex() : -1;
+                                Check(barRT != null && txtRT != null && iTxt > iBar,
+                                      $"★ 分层（**兄弟序**，uGUI 无独立渲染队列）：底条 idx {iBar} / 文字 idx {iTxt}"
+                                    + "（文字建在底条之后 ⇒ 后绘、盖在上面 —— 等价于原版那个 `SortingOrder = 1` 的独立 overlay）");
                             }
-                            var labRef = tmplRef.GetComponentInChildren<Label>(true);
-                            Check(qParts.Length > 0 && qMin == 4001 && qMax == 4001
-                                  && labRef != null && labRef.RenderQueue == 4002,
-                                  $"★ 分层（**队列**，不是 z）：底条 {qMin} / 文字 {(labRef == null ? -1 : labRef.RenderQueue)}"
-                                + "（期望 4001 / 4002 —— 都要高过日志面板的 4000 与 tooltip 的 3607）");
+                            else
+                            {
+                                var qParts = tmplRef.GetComponentsInChildren<ImageQuad>(true);
+                                int qMin = int.MaxValue, qMax = int.MinValue;
+                                for (int qi = 0; qi < qParts.Length; qi++)
+                                {
+                                    if (qParts[qi] == null) continue;
+                                    qMin = Mathf.Min(qMin, qParts[qi].RenderQueue);
+                                    qMax = Mathf.Max(qMax, qParts[qi].RenderQueue);
+                                }
+                                var labRef = tmplRef.GetComponentInChildren<Label>(true);
+                                Check(qParts.Length > 0 && qMin == 4001 && qMax == 4001
+                                      && labRef != null && labRef.RenderQueue == 4002,
+                                      $"★ 分层（**队列**，不是 z）：底条 {qMin} / 文字 {(labRef == null ? -1 : labRef.RenderQueue)}"
+                                    + "（期望 4001 / 4002 —— 都要高过日志面板的 4000 与 tooltip 的 3607）");
+                            }
                         }
 
                         // ④ 弹一条（走**生产口** `ShowError`）。⚠️ **用哪一条**由 `currentMessageIndex` 说了算
@@ -15300,7 +15557,12 @@ public static class BattleScene
                             Check(false, "找不到那一条的 `ErrorMesage Text` 节点 ⇒ 下面两条 Hug 关系验不了");
                         else
                         {
-                            float txtW0 = lab0.WorldW * 108f, txtH0 = lab0.WorldH * 108f;
+                            // 🔴 **2026-10-17（`BSC62` · W4）：读口按档取因子。** `T09` 后横幅在画布上 ⇒
+                            //   `Label.WorldW/H` **已经是设计 px**（`Label.cs:9-10`：uGUI 档单位 = 设计 px）。
+                            //   原来硬编码 `* 108f` ⇒ 把一个 px 又乘 108（实得 119911 / 9824）。
+                            //   生产侧 `ErrorMessageBanner.cs:649` 就是 `unitPx = _ugui ? 1f : 108f` ⇒ 断言照抄它。
+                            float unitPx0 = errBan.IsUgui ? 1f : 108f;
+                            float txtW0 = lab0.WorldW * unitPx0, txtH0 = lab0.WorldH * unitPx0;
                             Check(Mathf.Abs(barSz0.x - (txtW0 + 240f)) < 1.0f,
                                   "★ **Hug**：底条宽 = 文字宽 + 240（原版内层 `padding L120 + R120`）——"
                                 + $" 实得 底条 {barSz0.x:F2} − 文字 {txtW0:F2} = {barSz0.x - txtW0:F2} px"
@@ -20577,8 +20839,12 @@ public static class BattleScene
                     //    （原版那颗不在 HUD 上），而设置面板下**按名字找得到** `settings_skip_tutorial`。
                     var straySkip = driver.TutorialView != null
                                   ? driver.TutorialView.transform.Find("SkipTutorial Button") : null;
-                    var inPanelSkip = driver.Settings != null
-                                    ? driver.Settings.transform.Find("settings_skip_tutorial") : null;
+                    // 🔴 **2026-10-17（`BSC62` · W4）：找错根 —— 改走 `PanelRect`（= `_panel`）。**
+                    //   那颗钮建在 `_panel`（画布下的面板帧）上（`SettingsPanel.cs:872`
+                    //   `MakeSlicedPiece(_panel, …)`），而 `Settings.transform` 是 "SettingsPanel" **壳**，
+                    //   `Transform.Find` **不递归** ⇒ 壳下直接子件里找不到它。`PanelRect` = 那个 `_panel`。
+                    var inPanelSkip = driver.Settings != null && driver.Settings.PanelRect != null
+                                    ? driver.Settings.PanelRect.Find("settings_skip_tutorial") : null;
                     Check(straySkip == null && inPanelSkip != null,
                           $"★ **灭自证（结构）**：教程 HUD 子树下 {(straySkip == null ? "没有" : "**还有**")} "
                         + $"`SkipTutorial Button` · 设置面板下 {(inPanelSkip == null ? "**找不到**" : "找得到")} "
@@ -21936,7 +22202,7 @@ public static class BattleScene
                             + $"（实得 {hn964} 张）—— 空手牌时下面两条是空跑");
                         if (hi964 != null && hn964 > 0)
                         {
-                            int hCnt964 = 0, hBad964 = 0, hEdge964 = 0, hFar964 = 0;
+                            int hCnt964 = 0, hBad964 = 0, hEdge964 = 0, hMid964 = 0, hFar964 = 0;
                             for (int k964 = 0; k964 < hn964; k964++)
                             {
                                 Vector3 c964;
@@ -21947,19 +22213,34 @@ public static class BattleScene
                                 // 手牌是扇形叠压，横向那点会落进**左边邻牌**（z 更小 ⇒ 判给它），
                                 // 那是叠压的**语义**、不是缺陷（`A964 续 ②` 的「报告式」裁定）；
                                 // 竖直方向邻牌中心隔着 ≥1.339 世界单位 > 卡半宽 1.10 ⇒ 干净。
+                                // 🔴 **2026-10-17（`W13` · 主对话裁定）：`0.40` → 回 `0.45`。**
+                                //   本会话早先 `W4` 按「新命中矩形上沿 1.42565」把取样点放宽到 `0.40` ——
+                                //   **那是在迁就当时错的实现**。批② 把实现改成原版 `BoxCollider2D` 之后
+                                //   底矩形 = `1.97 × 3.02`、in-hand 档**上沿仍是 1.51** ⇒
+                                //   `0.45 × 3.3313 = 1.499085 < 1.51` ⇒ **原值本来就是对的**。
+                                //   判据 = `Core/CardView.cs` 文件头（主面 `1.97×3.02 @ (0,0)`）。
+                                // ⚠️ `0.45` 的余量只剩 `1.51 − 1.499085 = 0.0109` 卡单位（前台 250 px/卡单位 ≈ 2.7 px，很薄）
+                                //   ⇒ 另补一条更内侧的 **`0.35`** 作**稳定判别**（覆盖实绘靠它兜底）。
                                 Vector3 e964;
                                 if (hi964.HandCardPointForTest(k964, 0f, 0.45f, out e964)
                                     && hi964.HitCardForTest(e964) == k964) hEdge964++;
+                                Vector3 m964;
+                                if (hi964.HandCardPointForTest(k964, 0f, 0.35f, out m964)
+                                    && hi964.HitCardForTest(m964) == k964) hMid964++;
                                 // 灭自证那一半：挪到手牌上方 10 世界单位（手牌是窄带）⇒ 一张都不许中
                                 if (hi964.HitCardForTest(c964 + new Vector3(0f, 10f, 0f)) != -1) hFar964++;
                             }
                             hits964.Add($"E2①\t手牌 ×{hCnt964}\tCardInteraction.HitCardForTest（= 私有 HitTest 本体）"
                                       + $"\t中心中 {hCnt964 - hBad964}/{hCnt964} · 0.45 半高中 {hEdge964}/{hCnt964}"
+                                      + $" · 0.35 半高中 {hMid964}/{hCnt964}"
                                       + $"\t中心判错 {hBad964} · 上方 10 单位误中 {hFar964}\t卡是扇形 ⇒ 只在卡的局部系取点");
                             Check(hCnt964 > 0 && hBad964 == 0 && hEdge964 == hCnt964,
                                   $"★ A964/E2①：手牌 {hCnt964} 张 —— **每张的视觉中心 + 实绘矩形内的 0.45 半高点都判回它自己**"
                                 + $"（中心中 {hCnt964 - hBad964}/{hCnt964} · 内侧点中 {hEdge964}/{hCnt964}）"
                                 + "｜🧨 改坏法：`HitTest` 里 `c.Contains(world)` 失效、或卡的 z 排序反了 ⇒ 红");
+                            Check(hCnt964 > 0 && hMid964 == hCnt964,
+                                  $"★ A964/E2①（稳定判别）：0.35 半高那点（{hMid964}/{hCnt964}）"
+                                + " —— 比 0.45 离边远 0.33 卡单位，命中矩形一旦退回批①那套小的就必红（0.45 只有 ~1 px 余量）");
                             Check(hFar964 == 0,
                                   $"★ A964/E2①（**灭自证**）：手牌上方 10 世界单位处**一张都判不中**（误中 {hFar964} 张）"
                                 + " —— 与上一条配对：「命中区无界 / 恒 return 0」会让上一条绿、本条红");
@@ -21985,18 +22266,30 @@ public static class BattleScene
                                 var ud964 = new Vector2(uv964.transform.lossyScale.x * CardView.Width,
                                                         uv964.transform.lossyScale.y * CardView.Height);
                                 // ⛔ 偏移同样在**卡的局部系**里取（棋盘上的单位也带摆放角）
+                                // 🔴 **2026-10-17（`W13` · 主对话裁定）：`0.40` → 回 `0.45`。**
+                                //   同一支 `Contains`：批② 之后底矩形 = 原版 `BoxCollider2D` `1.97×3.02`
+                                //   ⇒ 半高 **1.51**，`0.45 × Height = 1.499085 < 1.51` ⇒ **原值本来就是对的**；
+                                //   早先那个 `0.40` 是迁就错实现（上沿 1.42565）放的宽。⛔ 别翻回去。
+                                //   ⚠️ 余量只有 0.0109 卡单位（很薄）⇒ 另补 **`0.35`** 作**稳定判别**。
                                 var uin964  = uv964.transform.TransformPoint(new Vector3(0f, 0.45f * CardView.Height, 0f));
+                                var uinM964 = uv964.transform.TransformPoint(new Vector3(0f, 0.35f * CardView.Height, 0f));
                                 var uout964 = uv964.transform.TransformPoint(new Vector3(0f, 3f    * CardView.Height, 0f));
                                 bool inU964  = drvE964.HitUnitSlotForTest(side964u, uc964) == uSlot964
                                             && drvE964.HitUnitSlotForTest(side964u, uin964) == uSlot964;
+                                bool inM964  = drvE964.HitUnitSlotForTest(side964u, uinM964) == uSlot964;
                                 bool outU964 = drvE964.HitUnitSlotForTest(side964u, uout964) != uSlot964;
                                 hits964.Add($"E2②\t场上单位（槽 {uSlot964}）\tBattleDriver.HitUnitSlotForTest（= 私有 HitSlot 本体）"
                                           + $"\t实绘 {ud964.x * PxPerUnit964:F2}×{ud964.y * PxPerUnit964:F2} px"
-                                          + $"\t中心/内侧中={inU964} · 外侧不中={outU964}\t探针单位 = `Tide Minion`（量完即摘）");
+                                          + $"\t中心/0.45 内侧中={inU964} · 0.35 内侧中={inM964} · 外侧不中={outU964}"
+                                          + $"\t探针单位 = `Tide Minion`（量完即摘）");
                                 Check(inU964,
                                       $"★ A964/E2②：场上单位的**视觉中心 + 实绘矩形内的 0.45 半高点都判回它自己**（槽 {uSlot964}）"
                                     + "（命中 = `HitSlot`，量的就是 `CardView.Contains` = 卡自己的局部矩形）"
                                     + "｜🧨 改坏法：`HitSlot` 的 `v.Contains(world)` 失效、或格的 z 排序反了 ⇒ 红");
+                                Check(inM964,
+                                      $"★ A964/E2②（稳定判别）：0.35 半高那点也判回它自己（槽 {uSlot964}）"
+                                    + " —— 离边 0.35×3.3313=1.166 卡单位，命中矩形退回批①那套小的也仍然绿 ⇒ 它只是**稳定**那一半，"
+                                    + "判「矩形够不够大」靠上面 0.45 那条");
                                 Check(outU964,
                                       "★ A964/E2②（**灭自证**）：卡**外侧 3 倍半高**处**判不中**（命中区有界）"
                                     + " —— 与上一条配对：「恒命中某个槽」会让上一条绿、本条红");
@@ -22532,7 +22825,14 @@ public static class BattleScene
                     //     ⛔ 再减半个 `WorldW` 会凭空左移（而且画布档的 `WorldW` `IsUgui` 时是**画布 px**、
                     //     我们当年那一跳 `×108` 也不该有）。判据 → `T09_AlliancePanel_锚点补正_报告.md` §③。
                     //   `PxX` 是线性的（`w×108 + 960`）⇒ 世界档那一路与改之前**逐位同值**。
-                    float nodePx985 = LayoutSpace.PxX(MenuDraw.PosInDesignSpace(panel985.NameLabel.transform).x);
+                    // 🔴 **2026-10-17（`BSC62` · W4）：画布档**别过 `PxX`**。**
+                    //   画布档的 `PosInDesignSpace(...).x` **已经是设计 px 偏移（原点 = 画布中心）**，
+                    //   再过 `PxX`（又 `×108 + 960`）⇒ 实得 −683.77×108+960 = −72887（红）。
+                    //   正解 = `designX + DesignPxW/2`（= 偏移 + 960）= −683.77 + 960 = **276.23**。判据 = `LayoutSpace.cs:241`。
+                    float designX985 = MenuDraw.PosInDesignSpace(panel985.NameLabel.transform).x;
+                    float nodePx985 = panel985.OnCanvas
+                                    ? designX985 + LayoutSpace.DesignPxW * 0.5f     // 画布档：已是设计 px（原点在画布中心）
+                                    : LayoutSpace.PxX(designX985);                 // 世界档：×108 + 960（改前同值）
                     float left985 = nodePx985 - (panel985.OnCanvas ? 0f : panel985.NameLabel.WorldW * 54f);
                     Check(notIn985 && !grp985 && !ttl985 && panel985.NameLabel.Text == "测试名",
                           "★ A985③：`Open(n,\"\",\"\")` ⇒ 无联盟那行**开** · `Alliance` 组**关** · `Title:` 组**关**"
@@ -22636,9 +22936,15 @@ public static class BattleScene
                             {
                                 var lb1192 = L1192(s1192.P);
                                 if (lb1192 == null) continue;
-                                float fMin1192 = Label.FontSizeToPx(lb1192.FontSizeMin);   // 期望 14.4
-                                float fMax1192 = Label.FontSizeToPx(lb1192.FontSizeMax);   // 期望 28 / 32
-                                float fBas1192 = Label.FontSizeToPx(lb1192.FontSizeBase);  // 期望 28.8
+                                // 🔴 **2026-10-17（`BSC62` · W4）：读口由【静态世界档】换成【实例·按档】。**
+                                //   这 7 颗 `T09` 后已迁 uGUI，用静态 `Label.FontSizeToPx`（世界档 `×PxPerWorld(108)`）
+                                //   去折 = 恒偏 ×10.8（实得 155.52 / 302.40 / 311.04 vs 期望 14.4 / 28(32) / 28.8）。
+                                //   `FontSizeToPxNow` 按 `IsUgui` 取尺（uGUI 档 `×PxPerUnit(1)×UguiFontScale(10)`）；
+                                //   世界档两者逐位相同 ⇒ 换口对世界档零影响。判据 = `Label.cs:807-810` 的 doc（那条 doc
+                                //   明写「这族必须改用本口」）+ 同文件 `RW1192`（`W52` 已按 `IsUgui` 分档）。
+                                float fMin1192 = lb1192.FontSizeToPxNow(lb1192.FontSizeMin);   // 期望 14.4
+                                float fMax1192 = lb1192.FontSizeToPxNow(lb1192.FontSizeMax);   // 期望 28 / 32
+                                float fBas1192 = lb1192.FontSizeToPxNow(lb1192.FontSizeBase);  // 期望 28.8
                                 Check(lb1192.AutoSizing,
                                       $"★ A1192：`{s1192.P}` 的**自适应开着**（原版 `m_enableAutoSizing = 1`）"
                                     + "；🧨 改坏法：把 `Txt` 那个 `AutoMinPx` 实参去掉（或 `wrapPx` 只传一半）⇒"

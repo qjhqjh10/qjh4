@@ -116,8 +116,10 @@
 //          卡体变大压过来，也是「画布在上」才对）。
 //   · **命中那一路（`HitSlot`/`HitVoice`/`ContainsPointer`）当时一个字没改**：它们比的是
 //     `LayoutSpace.ToPixel(世界点)` 与**设计 px** 常量 —— 与「那件建在哪一层」无关。
-//     🔴 **2026-10-17（`T09` 卡体批派生件 `EW12`）起 `HitSlot` 改了**：它现在**转发**
-//     `CardView.Contains`（标架 = 卡自己 ⇒ 命中区**跟着卡的扇形角与倾摆转**；⛔ 别再退回轴对齐框）。
+//     🔴 **2026-10-17（`T09` 卡体批派生件 `EW12`）起 `HitSlot` 改了**：它现在**转发**到
+//     `CardView.ContainsUiCollider`（标架 = 卡自己 ⇒ 命中区**跟着卡的扇形角与倾摆转**；
+//     矩形 = 原版 `2DCard/UI Collider` 的 `1.8927×2.8913 @ y −0.02`；⛔ 别再退回轴对齐框，
+//     ⛔ 也别改用 `BoxCollider2D` 主面 —— 那是手牌/棋盘的送达件，见 `HitSlot` 的 doc）。
 //     `HitVoice` / `HitBtn`（语音那颗钮）**仍按 px 判** —— 它比的是**不转的**那颗钮，本来就该按 px。
 //     ⚠️ 那一族（含 `HitSlot` 的降级支）另有 `A990②` 的账：拿 `ToPixel` 读回来的 px 去比**字面设计 px**
 //     只在 16:9 对；非 16:9 下画布会缩放、而世界那份不缩 ⇒ 两者分家（`T09` 第 4/5 步的账）。
@@ -811,11 +813,22 @@ namespace CardPresentation
         /// 前面的卡盖住后面的，所以从槽 0 往后找、先命中的就是它。
         ///
         /// <para>🔴 **2026-10-17（`T09` 卡体批派生件 `EW12`）：判据【转发】到卡体自己那一份** ——
-        /// <see cref="CardView.Contains"/>（标架 = 内层 `2DCard`、矩形 = 原版那颗 `UI Collider` 的
-        /// `1.8927×2.8913` 卡单位、中心比卡心低 `0.02`；比例/偏置的**唯一一份数**在 `Core/CardFan.cs`）。
-        /// ⛔ **别再退回「拿设计 px 比一个轴对齐矩形」** —— 那个框**不跟卡转**，而原版那颗
-        /// `UI Collider` 是 `2DCard` 的**子件**、随卡一起转（判据 →
-        /// `资料/普查产出_1016并行/S7_卡体终点形态_报告.md` §一·B ＋ `CardView.cs` 的「可点矩形」那一节）。
+        /// 标架 = 内层 `2DCard`（⇒ 命中区跟着卡的**扇形角与倾摆**转）。
+        /// 🔴 **2026-10-17（`BSC62` 派生件 `W16`）就地换矩形**：本窗的矩形 = 原版 `2DCard` 的子件
+        /// **`UI Collider`** `1.8927 × 2.8913 @ y −0.02`（卡单位）⇒ 调
+        /// <see cref="CardView.ContainsUiCollider"/>（**唯一一份数**在 `Core/CardView.cs` 的
+        /// 「第二套矩形」那一节）。⛔ **不是** `BoxCollider2D` 主面 `1.97 × 3.02 @ (0,0)` ——
+        /// 那一套是原版**手牌/棋盘**的送达路径（`CardCollider` 实现 8 个 pointer/drag 接口），
+        /// 展示窗若跟着它用，命中区会比原版**大 4.1% 宽 / 4.5% 高**（日志四边
+        /// `102.5 / 857.5 / 713.75 / 1206.25` = `1.97×3.02×250` 逐位吻合那次就是这个成因）。
+        /// ⛔ **也别退回「拿设计 px 比一个轴对齐矩形」** —— 那个框**不跟卡转**。
+        /// 🔴 **`BSC62` 现核的送达路径（就地订正 `R5`/`EW12` 那句）**：本窗的点击在**原版由
+        /// `2DCard/UI Collider` 送达** —— 该节点挂 `UIGenericEventCatcher`，`BasicCardUI.uiEventCatcher`
+        /// （`+0xd0`）正指向它（`BasicCardUI__get_UIEventCatcher.c:5`），而
+        /// `CardDisplayWindow.AddCardsListeners.c:25/30` 往它的 `OnClick` 上 **`AddListener`**；
+        /// 该节点 `Image.raycastTarget = 1`，`UICollider.OnEnable` 把 `BoxCollider2D.size` 设成 `RT.rect`。
+        /// ⚠️ **`R5` 原写「`UI Collider` 三个 UnityEvent 全空 ⇒ 它不是送达路径」—— 那条漏了
+        /// 【运行时 `AddListener`】**，已推翻（判定 → `资料/普查产出_1017/D_新红11条诊断.md` A1）。
         /// 旧写法漏掉两样：
         /// ① **扇形角**（槽 1–8 = `CardFan._rot` 的 `2.510°…32.4°`）⇒ 轴对齐框与画出来的卡**对不上**：
         ///    最坏处 = θ 32.4°（槽 8）时**两块命中区的最大距离（Hausdorff）= 0.6273 卡单位**
@@ -823,7 +836,8 @@ namespace CardPresentation
         ///    **两块命中区的对称差 = 命中区面积的 38.2%**（两边各 19.1%）；槽 1（2.510°）
         ///    是 0.0624 卡单位 ≈ **14.5 px** / 4.6% —— 各档都随 θ 单调涨（逐档表 → `EW12` 报告 §④）。
         ///    🔴 **复算订正（本件现算）**：`EW9` 报告 §③③ 引的 `(w/2)·sinθ + (h/2)(cosθ−1) = 0.3014`
-        ///    ① 用的是**卡身** `2.0927×3.3313`，而这里比的是**命中矩形** `1.8927×2.8913`；
+        ///    ① 用的是**卡身** `2.0927×3.3313`，而这里比的是**当时的命中矩形** `1.8927×2.8913`
+        ///    （批② 起已换成 `1.97×3.02`；下面这组数按批① 旧矩形复算，**未按新矩形重算**）；
         ///    ② 而且**只是【纵向】**那一半（横向 = `(h/2)·sinθ + (w/2)(cosθ−1)` **更大**）。
         ///    按命中矩形的两个分量复算：纵向 **0.2820** · 横向 **0.6273**（= Hausdorff）⇒ 按大的记；
         /// ② **倾摆**（`AutoCardRotation` 的 ±10°，只写在 `_tiltRoot` 上）。
@@ -843,8 +857,11 @@ namespace CardPresentation
                 var v = SlotViews[i];
                 if (v != null)
                 {
-                    // 🔴 判据只此一份 = `CardView.Contains`（它转发 `Core/CardFan.cs` 的比例/偏置）
-                    if (v.Contains(world)) return i;
+                    // 🔴 判据只此一份 = `CardView.ContainsUiCollider`（矩形 = 原版 `2DCard` 的子件
+                    //    `UI Collider`：`1.8927×2.8913 @ y −0.02`；标架 = 内层 `2DCard` ⇒ 跟卡转）。
+                    //    见 `Core/CardView.cs` 的「第二套矩形」那一节。⛔ 不是 `BoxCollider2D` 主面
+                    //    （那是手牌/棋盘的送达件）、⛔ 也不是 `CardFan` 那套轴对齐比例。
+                    if (v.ContainsUiCollider(world)) return i;
                     continue;
                 }
                 if (!_hitNoViewSaid)
@@ -902,7 +919,14 @@ namespace CardPresentation
 
         static bool HitBtn(Vector3 world, float cx)
         {
-            var px = LayoutSpace.ToPixel(world);
+            // 🔴 **2026-10-17（`T09` 批 4 · W11）就地换口（铁律 5）**：`ToPixel` → **`ToDesignPixel`**。
+            //   这里比的是 `CardWinBox.VoiceCx` / `CardWinBox.BtnCy`（**字面设计 px**）—— 与同文件
+            //   `HitSlotNoView`（比 `CardFan.Cx` / `HitCy`）是**同一条判据**：只有 `ToDesignPixel` 才是
+            //   `FromPixel`（建件那条路）的逆；`ToPixel` 的 x 斜率**写死 108**，非 16:9 下差
+            //   `VisibleWidth / DesignWidth` 倍（4:3 ⇒ 0.75）⇒ 语音钮的可点区在别的宽高比下会漂。
+            //   判据 → `LayoutSpace.ToPixel` 那段 doc（「凡读回来的 px 要去比一个【字面设计 px】一律用
+            //   `ToDesignPixel`」）。
+            var px = LayoutSpace.ToDesignPixel(world);
             float h = CardWinBox.BtnS * 0.5f;
             return Mathf.Abs(px.x - cx) <= h && Mathf.Abs(px.y - CardWinBox.BtnCy) <= h;
         }

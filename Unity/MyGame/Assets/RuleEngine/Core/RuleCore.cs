@@ -1030,6 +1030,10 @@ namespace RuleEngine
             // 放到 `EndTurn` 里撤的话那会儿 Turn 还没变，会晚撤一个回合（撞到过）。
             ExpireCostMods(ctx);
             ctx.DiedThisTurn = 0;      // 「本回合阵亡数」按回合清零（`For each one that dies …` 用）
+            // 🆕 2026-10-17（`A1547`）：**本回合打出的牌张数**按回合清零 ——
+            // 原版 `BattleManager._NextTurn_d__395__MoveNext.c:231` 把 `+0x3D0` 写回 0
+            // （`ObscuredInt.op_Implicit(0)`），读点 = `PlayedThirdCardInTurn` 那道 `== 3` 闸。
+            ctx.CardsPlayedInTurn = 0;
             var p = ctx.ActivePlayer;
             // 「这回合从牌库抽到的牌」也按回合清零（传送 `Teleport` 判据的来源，
             // 见 `CardInstance.DrawnThisTurn`）—— 只清**当前行动方**名下的：
@@ -2412,6 +2416,12 @@ namespace RuleEngine
             //    ⚠️ **不是伏击就保持默认 `false`**（⛔ 不写哨兵值）。
             //    ⚠️ 这里用 `Emit(BattleEvent)` 那个重载而不是按字段那个 —— 后者**没有**这个形参
             //       （它的签名在 `BattleContext.cs`，本笔没在改动范围里）。
+            // 🆕 2026-10-17（`A1547`）：**本回合打出第几张**在这一刻 +1。
+            //    判据 = 原版 `BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:1390-1406`
+            //    的 `ObscuredInt.op_Increment`（写 `BattleManager + 0x3D0`）——
+            //    位置也在「这张牌已经确定打出去（校验过 / 费用付掉 / 手牌已拿走）」之后。
+            //    ⚠️ 战术卡走 `PlayTactic`，那边**各写各的一笔**（两条路互斥，不会重记）。
+            ctx.CardsPlayedInTurn++;
             ctx.Emit(new BattleEvent
             {
                 Kind = EvtKind.Play,
@@ -2626,6 +2636,14 @@ namespace RuleEngine
             // ⚠️ **位置在召唤触发之后** —— 照原版 `CardScript__ResolveCardPlayed` 里的先后
             //    （同一个函数里 `ResolveUnitSummoned` 在前、合并那一段在后）。
             TrySwarmMerge(ctx, p, slot, unit);
+
+            // ---- 🆕 `AbilityTrigger.PlayedThirdCardInTurn = 15`（账 `A1547`）----
+            // 原版 `RawCardScript__OnCardPlayedWithTarget.c:105-112`：本回合第 3 张牌打出时，
+            // 在**进攻卡（环境卡）自己身上**跑它 `trigger == 15` 的能力（⛔ 不是「在刚打出的那张牌上」）。
+            // 位置：`OnCardPlayedWithTarget` 里 0xf 排在 600（灵魂石）/ 605（信仰）/ 690（传送）
+            //   之后、20（WhileInPlay）之前；我们这边对应的最后一段是虫群合并 ⇒ 放在它后面、
+            //   `CheckCodex` / `CheckWinner` 之前（伤害可能打死督军，胜负要在它之后判）。
+            FirePlayedThirdCardInTurn(ctx, p, card);
 
             // ---- 🆕 典籍（`Codex`）的自动触发点：**打出之后的能量为 0**（2026-09-14 A5）----
             // 照我们自己的参考实现 `rule_core.gd:2337`（旁证、非权威）（单位部署完）与 `:2244`（虫群合并之后）——

@@ -537,9 +537,11 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-16 就地订正（铁律 5）**：本行原来写「⚠️ `SkillPanel`(1) / `Unit Chat`(2) **还没迁**，
         /// 迁了要**插到前面**」—— **已过期**：那两扇连同 `Drag Attack Selector`(0) 与 `Alliance Panel`(13)
         /// 本会话都已迁完，且**都已按序落进下面那张表**。⛔ 别再照那句去插一次。
-        /// ⚠️ **还没迁的四格 = `DebugButtons`(7) / `PopupAnchor`(9) / `Tutorial`(11) / `LoadingMenu`(12)**
-        /// —— 将来迁它们时**必须插在 `"Alliance Panel Canvas"` 【前面】**（它们的原版子件序都 < 13；
-        /// 这一条同样写在下面那张表的尾部注释里）。</para>
+        /// ⚠️ **这四格不是「还没迁」**（🔴 2026-10-17 就地订正，铁律 5）：`Tutorial`(11) 与 `LoadingMenu`(12)
+        /// **早已迁完**（`T09` §八 有记；前者在 `HandMoving` 的三块子画布、后者在 `Blocking` 层、本就不进这张表）；
+        /// `DebugButtons`(7) 是原版 `m_IsActive=false` 的调试件、**我们没建**；`PopupAnchor`(9) 是 `T09` 已裁定**不建**。
+        /// ⇒ 这一格**没有「将来要迁」的东西**；若日后真要建，仍须插在 `"Alliance Panel Canvas"` 【前面】
+        /// （原版子件序都 < 13 —— 这一条同样写在下面那张表的尾部注释里）。</para>
         /// <para>⚠️ 三块 `PopUps`/order 0 的画布正是靠这一格分先后的 —— 不排的话**建得早的就在下面**，
         /// 而建序**不是**判据（今天它甚至是偶然的）。</para>
         /// <para>⛔ **跨层的先后不靠这个表**（层不同 ⇒ 层说了算）⇒ 两张表并成一条链是安全的，
@@ -572,9 +574,11 @@ namespace CardPresentation
             "Card Display Window Canvas",        // 6/14
             "AboveShader Canvas",                // 8/14
             "Alliance Panel Canvas",             // 13/14
-            // 🔴 **将来迁 `[7] DebugButtons` / `[9] PopupAnchor` / `[11] Tutorial` / `[12] LoadingMenu` 时，
-            //    一律插在上一行 `"Alliance Panel Canvas"` 【前面】**（它们的原版子件序都 < 13）。
-            //    ⛔ 别顺手加在表尾 —— 表尾 = 画得**最上面**的一格。
+            // ⚠️ **这一节没有「将来要迁」的格了**（🔴 2026-10-17 就地订正，铁律 5；与上面 `:540` 那条同源）：
+            //    `[11] Tutorial` / `[12] LoadingMenu` **早已迁完**（前者在 `HandMoving` 的子画布、
+            //    后者在 `Blocking` 层，本就不进这张表）· `[7] DebugButtons` 原版 `m_IsActive=false`、**没建** ·
+            //    `[9] PopupAnchor` 已裁定**不建**。若日后真要建，仍须插在上一行 `"Alliance Panel Canvas"`
+            //    【前面】（它们的原版子件序都 < 13）；⛔ 别顺手加在表尾 —— 表尾 = 画得**最上面**的一格。
             //  ⚠️ 重名/漏项的自查：本表每一项都必须是**某扇面板 `SubCanvasName` 的字面量**（现核清单 →
             //     `grep -rn "SubCanvasName = " Battle/ Shell/`）；对不上的项 `RootRect.Find` 永远 null、
             //     **静默不排**（这正是本表最容易被写坏的方式）。
@@ -651,6 +655,69 @@ namespace CardPresentation
             img.raycastTarget = false;       // 这一族是装饰；可点件走第 4 步
             Add(rt, z);
             return HudPiece.Of(rt, img);
+        }
+
+        // ── 🔴 2026-10-17（T05 第 2 步）：原版 `Anim Anchors` 那一族动画锚点 ─────────────────────
+        //   原版 `BattleHud` 下有一族**空锚点节点**（`Canvas/Anim Anchors` 下的 4 颗），
+        //   技能（`AbilityLogic.GetPos`）在 `6 boardCenterUI / 11 nextToClock / 140 createCardPos /
+        //   145 stratagemGeneralShowCase` 四档上锚到它们。判据 → `T05d_GetPos锚点缺口判据.md` §一·2 / §二。
+
+        /// <summary>原版那一族锚点的父节点名（**唯一处** —— 建 / 找都读它）。</summary>
+        public const string AnimAnchorsName = "Anim Anchors";
+
+        /// <summary>🔴 **2026-10-17（T05 第 2 步）：建原版 `Anim Anchors` 那一族动画锚点**
+        /// （`GetPos` 的档 `6/140/145/11` 要锚到这里）。
+        /// <para>判据 = 原版 `bundle_scenes_scenes_battlearena2` 的 `Canvas/Anim Anchors` —— 一颗**铺满父 Canvas**
+        /// 的空节点（`aMin(0,0) / aMax(1,1)`、`sd=0`、`pivot=(0.5,0.5)`），下挂 4 颗子锚点
+        /// （`pivot=(0.5,0.5)`、`sd=100×100`）：</para>
+        /// <list type="bullet">
+        ///   <item>`Anchor: UI Center` `ap=(0, 0)` ← 档 `6 boardCenterUI`</item>
+        ///   <item>`Anchor: CreateCard` `ap=(885.56, 84.27)` ← 档 `140 createCardPos`</item>
+        ///   <item>`Anchor: Stratagem ShowCase` `ap=(529, 83)` ← 档 `145 stratagemGeneralShowCase`</item>
+        ///   <item>`Anchor: Next To Clock` `ap=(766, 83)` ← 档 `11 nextToClock`</item>
+        /// </list>
+        /// <para>出处：`MonoBehaviour_5150.json` 的 `uiAnimAnchors`（7 条）＋逐节点 `RectTransform_*.json`
+        /// （T05d §一·2 / §二）。⚠️ 那 4 个 `ap` 是**相对 Canvas 中心**的设计 px
+        /// （`Anim Anchors` 铺满 ⇒ 原点 = Canvas 中心），与 <see cref="MakeImage"/> 那套「绝对 px」不是一回事。</para>
+        /// <para>⚠️ **幂等**（按名字找/建）；⚠️ `RootRect` 还没建（`Ensure(cam)` 之前）⇒ **出声** + 返回 null
+        /// （调用点应跳过）。⚠️ 这些是**空锚点节点**（无 `Image`、不吃射线、不占渲染）。</para></summary>
+        public static RectTransform EnsureAnimAnchors()
+        {
+            if (RootRect == null)
+            {
+                Debug.LogError("[HudCanvas] `Anim Anchors` 要挂在根 canvas 下，但根 canvas 还没建（先调 Ensure(cam)）");
+                return null;
+            }
+            var existing = RootRect.Find(AnimAnchorsName) as RectTransform;
+            if (existing != null) return existing;
+
+            var go = new GameObject(AnimAnchorsName, typeof(RectTransform));
+            go.transform.SetParent(RootRect, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = Vector2.zero;               // 铺满父 canvas（原版 `aMin(0,0)/aMax(1,1)`）
+            rt.anchorMax = Vector2.one;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;        // 四边贴合 ⇒ 原点 = Canvas 中心
+            rt.sizeDelta = Vector2.zero;
+
+            MakeAnchorChild(rt, "Anchor: UI Center",         0f,      0f);
+            MakeAnchorChild(rt, "Anchor: CreateCard",         885.56f, 84.27f);
+            MakeAnchorChild(rt, "Anchor: Stratagem ShowCase", 529f,    83f);
+            MakeAnchorChild(rt, "Anchor: Next To Clock",      766f,    83f);
+            return rt;
+        }
+
+        /// <summary>一颗**空锚点**：中心锚 + 中心枢轴、`100×100`、`ap = (x, y)`（设计 px、**y 向上**）。
+        /// 名字逐字照原版（`T05d` §二）。</summary>
+        static void MakeAnchorChild(Transform parent, string name, float x, float y)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(x, y);
+            rt.sizeDelta = new Vector2(100f, 100f);     // 原版那 4 颗都是 100×100
         }
 
         /// <summary>旧 quad 那一套里「HUD 图统一用的那个 z」（= `BattleDriver.HudImageZ`）。

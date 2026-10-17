@@ -12,7 +12,13 @@
 //   · **该算哪几条**（`AbilityLogic__PlayAnim.c`，逐行读过）：一个 `AbilityLogic` 的
 //    `cardAnimations` 列表会被**逐条** `BattleManager.AddCardAnim(...)` 排队播完
 //    （调用点 `AbilityLogic__PlayAbility.c:273`）⇒ **一张卡的值 = 它这一串时长之和**。
-//    排在末尾那条若 `animInfo.waitAnimToApplyEffect != 0` 才 `waitForCompletion = true`，
+//    🔴 **2026-10-17 更正（铁律 5）**：这里原来写「**排在末尾那条**若 `animInfo.waitAnimToApplyEffect != 0`
+//    才 `waitForCompletion = true`」—— **【错】**。实际是 **每一拍各读【自己那份】`AnimInfo.waitAnimToApplyEffect`（`0x58`）**：
+//    `AbilityLogic__PlayAnim.c:274`（单目标那一支）把它**原样传走、没有任何「最后一拍」门**。
+//    **错因** = 把 `PlayAnim(…, `**`List<CardScript> abilityTargets`**`)`（= **目标**）误当成了 `cardAnimations`（= **步骤**）；
+//    `(iVar11 == param_4._size - 1)` 判的是「这一拍循环到的**最后一个目标**」。
+//    ⚠️ **本表的【时长求和】不受这条更正影响**（求和与 wait 标记无关）；改的只是「**哪一拍带 wait 标记**」。
+//    判据与现核 → `d:/4/Unity/资料/普查产出_1017/BSC62/R4_waitForAnim语义.md`（`dump.cs:19516` / `:19457`）。
 //    由 `_ResolveAnim` 播。
 //  · **播多久**（`BattleManager._ResolveAnim_d__466__MoveNext.c`）：先（仅当
 //    `animInfo.tweenAnim != null && tweenAnim.waitAnimation != 0`）`WaitForCompletion(BuildSequence(…))`，

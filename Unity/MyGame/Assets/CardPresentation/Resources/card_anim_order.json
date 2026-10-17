@@ -1,0 +1,1596 @@
+{
+ "schema": 1,
+ "source": "Unity/数据/游戏数据/card_anim_order.json（A6 · 2026-10-16）",
+ "filter": "abilities[].path == 'activeAbility'（= 该卡的主动能力；判据见生成器文件头）",
+ "note": "运行期瘦身版。字段短名 = CardAnimBeat：ca=CardAnim guid · vfx=prefab 名（空串 = 纯延时拍）· sp/ep/pt=startPosOption/endPosOption/pointTowardsOption · vd/ts/tm/te=vfxDelayTime/timeAtStartPos/timeMoving/timeAtEndPos · w=waitAnimToApplyEffect",
+ "stats": {
+  "blank_guid": 84,
+  "unresolved_guid": 0,
+  "pure_wait": 0,
+  "cards": 63,
+  "steps": 100,
+  "cards_no_steps": 834,
+  "rows_not_active": 1003,
+  "steps_not_active": 1284
+ },
+ "cards": [
+  {
+   "id": "SOR3",
+   "name": "Morvenn Vahl",
+   "steps": [
+    {
+     "ca": "2b7c9d7feb639c544ac2c538a74f5846",
+     "vfx": "BulletImpact_MissileToTarget",
+     "sp": 3,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.2000000476837158,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM36",
+   "name": "Maelon Dhrost",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "c3a05b2beaf35d241a5dcf4200de5de3",
+     "vfx": "Basic_army_Guard Intense",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "5d3d5b2ba084a8840a2a5922244bd3d6",
+     "vfx": "Card_Buff_Hand",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "DA23",
+   "name": "Bladeguard Veteran",
+   "steps": [
+    {
+     "ca": "a6cd0947c6cb4da4598c5c224207840a",
+     "vfx": "Buff_Green_Agenda",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "b421340356422a7438cb1fc70a480911",
+     "vfx": "ArmourEffect",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.7999999523162842,
+     "te": 0.0,
+     "w": 0
+    }
+   ]
+  },
+  {
+   "id": "SOR34",
+   "name": "Celestian Superior",
+   "steps": [
+    {
+     "ca": "37f8eb7d2eb62b34e860f7c4c65b5d88",
+     "vfx": "Sororitas Summon Basic",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR5",
+   "name": "Battle Sister",
+   "steps": [
+    {
+     "ca": "765006f412a23bf4696533d6ca54fee9",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR37",
+   "name": "Triumph of Saint Katherine",
+   "steps": [
+    {
+     "ca": "b4819b6cd564b3a4ebc9399b54e4c58f",
+     "vfx": "Faith_trigger_unit",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "b3bb91353a324384a929fb63e2a32553",
+     "vfx": "Sororitas_Destroy_Flames",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 3.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM73",
+   "name": "Taurox Prime",
+   "steps": [
+    {
+     "ca": "1e56d9192c5c85b4e893b1755c751bab",
+     "vfx": "GuardSummon",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "98b4336726559a442b73576d8cf38ab7",
+     "vfx": "GuardSummon",
+     "sp": 16,
+     "ep": 16,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM34",
+   "name": "Valkyrie",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "34fac67e26fffd04b8941685c4b80236",
+     "vfx": "GatlingSweep",
+     "sp": 0,
+     "ep": 0,
+     "pt": 4,
+     "vd": 0.0,
+     "ts": 1.25,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM21",
+   "name": "Tech-Priest Enginseer",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "5d3d5b2ba084a8840a2a5922244bd3d6",
+     "vfx": "Card_Buff_Hand",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR24",
+   "name": "Simulacrum Imperialis",
+   "steps": [
+    {
+     "ca": "b413dcf9e903ea84990b97cd2feed278",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "DA3",
+   "name": "Asmodai, Master Interrogator",
+   "steps": [
+    {
+     "ca": "a6cd0947c6cb4da4598c5c224207840a",
+     "vfx": "Buff_Green_Agenda",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "DA18",
+   "name": "Inner Circle Companion",
+   "steps": [
+    {
+     "ca": "a6cd0947c6cb4da4598c5c224207840a",
+     "vfx": "Buff_Green_Agenda",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "b39a2a1f34eacbb4494c91a7ce9454cb",
+     "vfx": "Trait_GainQuest",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.699999988079071,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM12",
+   "name": "Flamer Trooper",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "e46d5c5934943ed479c57704e460e6f4",
+     "vfx": "FlamethrowerSweepAttack_1",
+     "sp": 0,
+     "ep": 0,
+     "pt": 4,
+     "vd": 0.0,
+     "ts": 1.2000000476837158,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM35",
+   "name": "Leman Russ Vanquisher",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "5cc65250372f51240931386ead912848",
+     "vfx": "BulletImpact_tank_huge",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.75,
+     "tm": 0.0,
+     "te": 0.25,
+     "w": 1
+    },
+    {
+     "ca": "5cc65250372f51240931386ead912848",
+     "vfx": "BulletImpact_tank_huge",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.75,
+     "tm": 0.0,
+     "te": 0.25,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR26",
+   "name": "Aestred-Thurga",
+   "steps": [
+    {
+     "ca": "cda7e3de55bfcc449905ebab0616e88d",
+     "vfx": "Buff_Sororitas",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "66486b3f61682ab42ba2ce0fa921002f",
+   "name": "Tempestus Scion",
+   "steps": [
+    {
+     "ca": "81f6fa73effa3334a8a7e15bd118e585",
+     "vfx": "Lasrifle_Hotshot_2shots",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.6000000238418579,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM30",
+   "name": "Manticore",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "9e089ab7f84285642a239bb7749837fa",
+     "vfx": "Artillery Manticore up 2x",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "568f720012a0f0d4da193bd56caa243c",
+     "vfx": "Artillery Manticore down 2x spread",
+     "sp": 4,
+     "ep": 4,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR70",
+   "name": "Sororitas Rhino",
+   "steps": [
+    {
+     "ca": "37f8eb7d2eb62b34e860f7c4c65b5d88",
+     "vfx": "Sororitas Summon Basic",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR66",
+   "name": "Armorium Cherub",
+   "steps": [
+    {
+     "ca": "b413dcf9e903ea84990b97cd2feed278",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "5e976dee37dcb7b4d8f0b1f27dec102b",
+     "vfx": "Buff_Purple",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "DA13",
+   "name": "Librarian",
+   "steps": [
+    {
+     "ca": "b39a2a1f34eacbb4494c91a7ce9454cb",
+     "vfx": "Trait_GainQuest",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.699999988079071,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "DA1",
+   "name": "Azrael, Grand Master",
+   "steps": [
+    {
+     "ca": "a6cd0947c6cb4da4598c5c224207840a",
+     "vfx": "Buff_Green_Agenda",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "d9435865cb5d2394391e159a4abd77cd",
+     "vfx": "DeckBuff_MoveToTop",
+     "sp": 50,
+     "ep": 50,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "DA27",
+   "name": "Ravenwing Talonmaster",
+   "steps": [
+    {
+     "ca": "a5b8ac7f2b8201c4aa29d44056d401a8",
+     "vfx": "BulletImpact_gatling_1s",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 1.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "DA20",
+   "name": "Master Lazarus",
+   "steps": [
+    {
+     "ca": "a6cd0947c6cb4da4598c5c224207840a",
+     "vfx": "Buff_Green_Agenda",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "0599072b03e95c443ab7202faddbaf23",
+     "vfx": "Teleport Trigger Effect Quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 0
+    }
+   ]
+  },
+  {
+   "id": "SOR35",
+   "name": "Immolator",
+   "steps": [
+    {
+     "ca": "7b124d293975df44ca56c88cc6391f2e",
+     "vfx": "BulletImpact_FlamethrowerSororitas_long",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 1.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM22",
+   "name": "Primaris Psyker",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "8606c664f55e9be46b7ceb2bccd9df41",
+     "vfx": "Psychic_Lightning",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.6499999761581421,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR29",
+   "name": "Ephrael Stern",
+   "steps": [
+    {
+     "ca": "c3d1ad0a04f9620458cf672695592980",
+     "vfx": "BulletImpact_3shot_pointblank",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.4000000059604645,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM69",
+   "name": "Tempestor Sergeant",
+   "steps": [
+    {
+     "ca": "0e319744a50505c40883128e814d02a4",
+     "vfx": "Basic_army_Guard_quick",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "d50e0f9ec7e82934f92795f0eb321e8b",
+     "vfx": "Buff_Green",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR4",
+   "name": "Sister Novitiate",
+   "steps": [
+    {
+     "ca": "37f8eb7d2eb62b34e860f7c4c65b5d88",
+     "vfx": "Sororitas Summon Basic",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM59",
+   "name": "Astropath",
+   "steps": [
+    {
+     "ca": "4f3493ef1b90a8c4daaf3a0e9ec620d5",
+     "vfx": "Basic_army_Guard Digital",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.800000011920929,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR69",
+   "name": "Zephyrim Superior",
+   "steps": [
+    {
+     "ca": "765006f412a23bf4696533d6ca54fee9",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM3",
+   "name": "Commissar Denkler",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "2bfc32aae4ae01f47ac979a22a8e809e",
+     "vfx": "Basic_army_Guard_quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.5,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "3d4b9507c95ac3a4b9944ada70283928",
+     "vfx": "FlankEffect",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 0
+    }
+   ]
+  },
+  {
+   "id": "AM66",
+   "name": "Tempestor Prime",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "0839bfdd8c98f5c4b97ca9d328dc8d4f",
+     "vfx": "Impact_blunt_lightning",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM38",
+   "name": "Baneblade Tank",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "53989a5ca7b8167488cf4b2dbbbb089f",
+     "vfx": "BulletImpact_tank_baneblade",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.75,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "DA7",
+   "name": "Ravenwing Bikes",
+   "steps": [
+    {
+     "ca": "a6cd0947c6cb4da4598c5c224207840a",
+     "vfx": "Buff_Green_Agenda",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "b39a2a1f34eacbb4494c91a7ce9454cb",
+     "vfx": "Trait_GainQuest",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.699999988079071,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "DA29",
+   "name": "Darkshroud",
+   "steps": [
+    {
+     "ca": "a6cd0947c6cb4da4598c5c224207840a",
+     "vfx": "Buff_Green_Agenda",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "075c125925578004b8c8cc469da8ac5c",
+     "vfx": "BlindEffect",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.7999999523162842,
+     "te": 0.0,
+     "w": 0
+    }
+   ]
+  },
+  {
+   "id": "SOR18",
+   "name": "Dialogus",
+   "steps": [
+    {
+     "ca": "cda7e3de55bfcc449905ebab0616e88d",
+     "vfx": "Buff_Sororitas",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM70",
+   "name": "Medic Scion",
+   "steps": [
+    {
+     "ca": "1e56d9192c5c85b4e893b1755c751bab",
+     "vfx": "GuardSummon",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR1",
+   "name": "Erika Luminas",
+   "steps": [
+    {
+     "ca": "b413dcf9e903ea84990b97cd2feed278",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR2",
+   "name": "Junith Eruita",
+   "steps": [
+    {
+     "ca": "b413dcf9e903ea84990b97cd2feed278",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR13",
+   "name": "Simulacrum Bearer",
+   "steps": [
+    {
+     "ca": "b413dcf9e903ea84990b97cd2feed278",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "10c16023e351282498c5e8bf164a5551",
+     "vfx": "Buff_Red",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "GSC66",
+   "name": "Shanus Daskovian",
+   "steps": [
+    {
+     "ca": "2b7c9d7feb639c544ac2c538a74f5846",
+     "vfx": "BulletImpact_MissileToTarget",
+     "sp": 3,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.2000000476837158,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "GSC3",
+   "name": "Iconward Malak Vorenth",
+   "steps": [
+    {
+     "ca": "b413dcf9e903ea84990b97cd2feed278",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM10",
+   "name": "Cadian Standard Bearer",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "2bfc32aae4ae01f47ac979a22a8e809e",
+     "vfx": "Basic_army_Guard_quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.5,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "5e976dee37dcb7b4d8f0b1f27dec102b",
+     "vfx": "Buff_Purple",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM5",
+   "name": "Shock Trooper",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "290d3e38a0b80504aaebbbe143723404",
+     "vfx": "Lasrifle_basic",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.4000000059604645,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM1",
+   "name": "Lord Solar Leontus",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "0a90f48568a930d42816be94cab9aaec",
+     "vfx": "Sword_Slash_Simple",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.5,
+     "te": 0.0,
+     "w": 0
+    }
+   ]
+  },
+  {
+   "id": "SOR15",
+   "name": "Celestian",
+   "steps": [
+    {
+     "ca": "057ddcdd1312f3e439e161ac636ef394",
+     "vfx": "Buff_Sororitas",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "GSC1",
+   "name": "Primus Saffa Rhiannor",
+   "steps": [
+    {
+     "ca": "2b7c9d7feb639c544ac2c538a74f5846",
+     "vfx": "BulletImpact_MissileToTarget",
+     "sp": 3,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.2000000476837158,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR68",
+   "name": "Ministorum Priest",
+   "steps": [
+    {
+     "ca": "b413dcf9e903ea84990b97cd2feed278",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "10c16023e351282498c5e8bf164a5551",
+     "vfx": "Buff_Red",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM16",
+   "name": "Scout Sentinel",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "ec2fe45ebe783a047991e8b4f2db56df",
+     "vfx": "Basic_army_Guard",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM2",
+   "name": "Ursula Creed",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "1e56d9192c5c85b4e893b1755c751bab",
+     "vfx": "GuardSummon",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR17",
+   "name": "Sister Superior",
+   "steps": [
+    {
+     "ca": "e8d9367bcc29a224b951345ea191cd11",
+     "vfx": "BulletImpact_1shot_pointblank",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.4000000059604645,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM68",
+   "name": "Tempestus Scion",
+   "steps": [
+    {
+     "ca": "81f6fa73effa3334a8a7e15bd118e585",
+     "vfx": "Lasrifle_Hotshot_2shots",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.6000000238418579,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR71",
+   "name": "Adelaide the Serene",
+   "steps": [
+    {
+     "ca": "37f8eb7d2eb62b34e860f7c4c65b5d88",
+     "vfx": "Sororitas Summon Basic",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR20",
+   "name": "Hospitaller",
+   "steps": [
+    {
+     "ca": "b413dcf9e903ea84990b97cd2feed278",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR6",
+   "name": "Battle Sister Gunner",
+   "steps": [
+    {
+     "ca": "148e58bc98b232c42b7874ba205e12c6",
+     "vfx": "BulletImpact_Sororitas_Melta",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.6499999761581421,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "GSC2",
+   "name": "Magus Uthrel Naas",
+   "steps": [
+    {
+     "ca": "b413dcf9e903ea84990b97cd2feed278",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR72",
+   "name": "Castigator",
+   "steps": [
+    {
+     "ca": "37f8eb7d2eb62b34e860f7c4c65b5d88",
+     "vfx": "Sororitas Summon Basic",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR25",
+   "name": "Imagifier",
+   "steps": [
+    {
+     "ca": "b413dcf9e903ea84990b97cd2feed278",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "3d4b9507c95ac3a4b9944ada70283928",
+     "vfx": "FlankEffect",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 0
+    }
+   ]
+  },
+  {
+   "id": "AM11",
+   "name": "Shock Trooper Sgt.",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "1e56d9192c5c85b4e893b1755c751bab",
+     "vfx": "GuardSummon",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "DA14",
+   "name": "Ravenwing Speeder",
+   "steps": [
+    {
+     "ca": "1d9846e533e2e534cbe76284f3286a2f",
+     "vfx": "BulletImpact_2shot_trail",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.75,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "SOR67",
+   "name": "Sacred Rose Sister",
+   "steps": [
+    {
+     "ca": "765006f412a23bf4696533d6ca54fee9",
+     "vfx": "Buff_Sororitas_quick",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM28",
+   "name": "Chimera",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "1e56d9192c5c85b4e893b1755c751bab",
+     "vfx": "GuardSummon",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    },
+    {
+     "ca": "1e56d9192c5c85b4e893b1755c751bab",
+     "vfx": "GuardSummon",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  },
+  {
+   "id": "AM23",
+   "name": "Bombast Field Gun",
+   "steps": [
+    {
+     "ca": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+     "vfx": "DutyEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 0
+    },
+    {
+     "ca": "a7d81b7d21acdf740afa1cd8a93d5802",
+     "vfx": "BulletImpact_artillery_arc",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.75,
+     "te": 0.0,
+     "w": 1
+    }
+   ]
+  }
+ ]
+}

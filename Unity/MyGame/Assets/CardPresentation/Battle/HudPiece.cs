@@ -249,11 +249,50 @@ namespace CardPresentation
 
         /// <summary>这个件贴着的**归一化锚点**（x 从左、y 从**下**算）—— 自检读回用。
         /// ⚠️ 与 <see cref="SetAnchorPosition"/> 成对。⛔ **别用 `transform.localPosition` 代替**：
-        /// uGUI 那一侧的单位是「设计 px」、且相对的是 canvas，与归一化锚点不是一回事。</summary>
+        /// uGUI 那一侧的单位是「设计 px」、且相对的是 canvas，与归一化锚点不是一回事。
+        ///
+        /// <para>🔴🔴 **2026-10-17（`BSC62` · W2）：uGUI 支原来【只回 `anchorMin`】、把 `anchoredPosition`
+        /// 丢了 —— 已修。** 病灶：<see cref="NudgeWorld"/> 是**增量**（`_rt.anchoredPosition += …`），
+        /// 而本口只读回锚点那一半 ⇒ **凡是偏移过的件（牌堆回合灯 / 手牌数底板 / 牌堆卡背）读回来都少了那个偏移**。
+        /// 「牌堆回合灯」那条断言（`Editor/BattleScene.cs:3588-3590`，期望 `0.94451 / 0.08778`）就是它的直接受害者：
+        /// 实读 `0.90104 / 0.10648`（= 纯 `anchorMin`），差 `+0.04347 / −0.0187`
+        /// —— 换成 px 正是 `PlaceDeckLights` 喂进 `NudgeWorld` 的 `(83.46, −20.2)`，一分不差。</para>
+        ///
+        /// <para>🔑 **单位契约（逐跳写清，口径见 <see cref="NudgeWorld"/> / <see cref="SetAnchorPosition"/> 的 doc）**：
+        /// · <see cref="SetAnchorPosition"/> 写的是**归一化**（`anchorMin = anchorMax = (x01,y01)`、`ap = 0`）；
+        /// · <see cref="NudgeWorld"/> 写的是 `ap += dxWorld·k`，`k = 108 = DesignPxH/DesignHeight`
+        ///   （= `LayoutSpace.Px()` 的**逆**）；而调用点喂进来的 `dxWorld` 已经是 `Px(px)`（设计 px÷108）
+        ///   ⇒ `ap` 累加的**就是设计 px**（px）；
+        /// · ⇒ 本口把「设计 px 的偏移」折回**归一化** = **除以设计框**（`DesignPxW` / `DesignPxH` = 1920 / 1080）。
+        /// quad 支（`ToNormalized(localPosition)`）**同样是设计框归一化**（`ToNormalized` 是 `ToWorld` 的逆、
+        /// 与分辨率无关）⇒ 两支量的是**同一件事**。</para>
+        ///
+        /// <para>🔴 **「锚点参考矩形」取【设计框 1920×1080】，⛔ 不是父件（canvas）的实 rect。**
+        /// 为什么单写这一句（这一条错了会**静默偏**、16:9 下还看不出来）：
+        /// 根 canvas 挂的是 `CanvasScaler(1920×1080, **Expand**)`（见 `HudCanvas.Ensure`）⇒ canvas 的实 rect
+        /// = `屏px ÷ scaleFactor`，**只在 16:9 下 = 1920×1080**；比 16:9 **窄**时它**变高**
+        /// （批处理 640×480 → `scaleFactor = min(640/1920, 480/1080) = 1/3` ⇒ canvas = **1920×1440**）。
+        /// 若拿父 rect 当分母：y 就变成除以 1440 ⇒ 回合灯读回 `≈0.0925`（≠ 期望 `0.08778`，超 0.002 容差），
+        /// 而且读数会**随宽高比变**，与「写侧写的是设计 px」以及 quad 支**都对不上**。
+        /// ⇒ 设计框才是本 HUD 坐标系**约定的那块矩形**（`Px()` / `FromPixel` / `SetAnchorPosition` 全按它建），
+        /// 归一化也相对它 ⇒ 两轴各除 (`DesignPxW`, `DesignPxH`)。</para>
+        ///
+        /// <para>⚠️ **依赖（别当成无关）**：<see cref="NudgeWorld"/> 是**增量**，本口读的是「当前 `ap`」⇒
+        /// 只在「**上一次绝对复位（`SetAnchorPosition`）之后、被 nudge 了 n 次**」这个前提下才等于
+        /// 「偏移后的设计框归一化位置」。本口**不依赖**「写侧不累加」、也**不依赖**「复位一定跑」——
+        /// 它忠实反映当前 `ap`；累加 / 漏复位是**写侧**的事（另有一件活在排队，⛔ 不在本件）。</para>
+        ///
+        /// <para>⚠️ **点锚前提**：本式假设 `anchorMin == anchorMax`（点锚 + `ap` 相对那个锚）。
+        /// 拉伸锚（`anchorMin != anchorMax`）下 `ap` 的语义不是这个 —— 今天本口没有拉伸锚的消费者
+        /// （那四件 `_shade` / `_dim` 覆盖层都没被读过）。</para></summary>
         public Vector2 Anchor01()
         {
             if (_quad != null) return LayoutSpace.ToNormalized(_quad.transform.localPosition);
-            return _rt != null ? _rt.anchorMin : new Vector2(-1f, -1f);
+            if (_rt == null) return new Vector2(-1f, -1f);
+            // `ap` 是【设计 px】（见上面推导）⇒ 除以设计框即归一化。两轴各除（⛔ 别拿 108 去折 —— y 那个 108 只是
+            // `Px()` 的系数，这里要的是「相对整框的比例」，框高就是 1080）。
+            return new Vector2(_rt.anchorMin.x + _rt.anchoredPosition.x / LayoutSpace.DesignPxW,
+                               _rt.anchorMin.y + _rt.anchoredPosition.y / LayoutSpace.DesignPxH);
         }
 
         /// <summary>设**画心高**（世界单位），**保持当前宽高比**（⛔ 不动比例 —— 调用点接着会自己调

@@ -803,7 +803,11 @@ namespace CardPresentation
         /// （`TMP_UGUI` 的 `fontSize` 以 canvas 单位 = 设计 px 计，而那个「比例」是**3D 量的** ⇒ 差 10 倍，
         /// 判据全文 → <see cref="UguiFontScale"/> 的 doc）。
         /// ⚠️ **自检要注意**：`Editor/BattleScene.cs` 那一族原来比的是静态那条（世界档口径）——
-        /// 被比的那颗标签一旦迁到 uGUI 档，**必须改用本口**，否则会「用世界尺量 px 值」而**恒差 108 倍**。</summary>
+        /// 被比的那颗标签一旦迁到 uGUI 档，**必须改用本口**，否则会「用世界尺量 px 值」而**恒差 10.8 倍**。
+        /// ⚠️ **2026-10-17 更正：原来这里写「恒差 108 倍」，【倍数错】** —— 那是把**静态口
+        /// `Label.FontSizeToPx`（×108）**用在**已迁 uGUI 的件**上的比值 = `108 / 10` = **10.8 倍**
+        /// （uGUI 档的 `UguiFontScale = 10`）。**正确口 = 实例口 `Label.FontSizeToPxNow(...)`**。
+        /// 错因：把「两档单位【本身】差 108 倍」与「**静态口量 uGUI 件**差 10.8 倍」混为一谈。</summary>
         public float FontSizeToPxNow(float fontSize, TmpFont.Face face)
         {
             return fontSize * TmpFont.EmPerFontSize(face) * PxPerUnit * (_ugui ? UguiFontScale : 1f);

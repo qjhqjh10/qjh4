@@ -53,6 +53,16 @@
 //        StepPlay = **单步**推进一条排在最前的事件
 //   ⛔ **这两条现在都不成立了**（上面①②已经答了）—— 保留只为「当年为什么这么写」。
 //      ⚠️ 但那四个**功能**没删（挪到键盘了），别以为它们没了。
+//
+// 🔴 **2026-10-17（`BSC62` · `W15`）：整条已从世界空间 `ImageQuad` 迁到 uGUI 根画布**
+//   —— 判据 = 原版它是**画布件**（父链 `Replay <- Holder <- ReplayButtons <- Safe area BackCanvas <- Canvas`，
+//   `battlearena2` 现读）。**原版 layer / order（`R5` 留的那条「没查清」—— 本次现核）**：
+//   `BackCanvas` 的 `Canvas`（`Canvas_2768`）与根 `Canvas`（`Canvas_2765`）都是
+//   `m_SortingLayerID = 0`(**Default**) · `m_SortingOrder = 0` · `m_OverrideSorting = false`
+//   ⇒ 这一条**不另立排序组**，就画在根画布这一组里；层内先后由**兄弟序**定。
+//   我们的等价物 = **根画布 + `HudCanvas.Add(z = 0.3)`**（与 HUD 图族同一档）。
+//   ⚠️ 四枚钮的 `m_AnchoredPosition` **取原版序列化值**（`-86 / -6.9488 / -6.9488 / +72.2512`），
+//   ⛔ 别再按 `BarX + SlotDx + BtnW/2` 反算（那会差 0.03 px，且把原版的两套坐标混成一套）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -62,32 +72,35 @@ namespace CardPresentation
         /// <summary>点到了哪一枚</summary>
         public enum Btn { None, Replay, Play, Pause, Step }
 
-        // ---- 原版实测值（1920×1080，**y 从上往下**）----
-        const float RefW = 1920f, RefH = 1080f;
-        const float BarX = 410.2f, BarY = 37.3f;
-        const float BtnW = 79.80f, BtnH = 48.57f, BtnTop = 4.4f;
-        const float BtnAspect = BtnW / BtnH;                 // 1.6430（原版是拉伸，不是按贴图比例）
-        static readonly float[] SlotDx = { 9.42f, 88.47f, 167.67f };   // 第 2 槽是 Play/Pause 共用
+        // ---- 原版实测值（1920×1080 设计 px；**全部逐值来自 battlearena2 现读**）----
+        /// <summary>一枚按钮的矩形（原版 4 颗都是 `m_SizeDelta (79.8, 48.57)` · `pivot (0.5,0.5)`）——
+        /// 原版 `m_PreserveAspect = 0` ⇒ **Simple 拉伸到该矩形**（所以不按贴图 95×59 的比例画）。</summary>
+        const float BtnW = 79.80f, BtnH = 48.57f;
 
-        /// <summary>`Holder`（原版字段 `objHolder`，偏移 0x48）的中心：绝对 rect
-        /// `416.3,36.3 → 674.8,95.7` ⇒ **(545.55, 66.00)**。⚠️ **比外面那条容器还高 1 px**（原版如此，别「修」）。</summary>
-        const float HolderCx = 545.55f, HolderCy = 66.00f;
+        /// <summary>每枚钮**相对 `Holder` 中心**的 `m_AnchoredPosition.x`（原版逐值：
+        /// `Replay -86.0` · `Play / Pause -6.9487762451171875`（同座标互斥）· `StepPlay +72.251220703125`）。
+        /// ⚠️ 与 `BarX + SlotDx + BtnW/2` 算出来的「**近似**值」差 0.03 px 以内 —— 这里取**原版序列化值**。</summary>
+        static readonly float[] SlotApX = { -86.0f, -6.9487762451171875f, 72.251220703125f };
 
-        /// <summary>🔴 **两个容器的矩形尺寸（px）** —— 2026-10-11（A218）为写 `sizeDelta` 立的常量，
-        /// 值逐条来自原版实读（`bundle_scenes_scenes_battlearena1` 与运行时 dump 两处一致）：
-        /// · 根 `ReplayButtons`：绝对 rect **x[410.2, 703.8] y[37.3, 94.7]** ⇒ **293.60 × 57.41**
-        ///   （`m_SizeDelta = (293.6, 57.406)` · `anchor (0.5,1) 重合` · `ap (−403, −66)`）；
-        /// · `Holder`：绝对 rect **x[416.3, 674.8] y[36.3, 95.7]** ⇒ **258.54 × 59.43**
-        ///   （`m_SizeDelta = (258.5, 59.4)`，和上面那句「比外面那条还高 1 px」是同一件事）。
-        /// ⛔ 别拿 `BtnW` 去凑：容器宽 293.60 ≠ 4 个按钮的宽（原版它俩本来就不同源）。</summary>
-        const float BarW = 293.60f, BarH = 57.41f, HolderW = 258.54f, HolderH = 59.43f;
+        /// <summary>`ReplayButtons`（根）的原版锚点/偏移/尺寸：`anchor (0.5,1)` · `pivot (0.5,0.5)` ·
+        /// `m_AnchoredPosition (-403, -66)` · `m_SizeDelta (293.6000061035156, 57.40599822998047)`。
+        /// ⇒ 绝对 rect `x[410.2,703.8] y[37.3,94.7]`（与文件头一致）。</summary>
+        const float RootApX = -403f, RootApY = -66f;
+
+        /// <summary>`Holder`（原版字段 `objHolder`，偏移 0x48）：`anchor/pivot (0.5,0.5)` ·
+        /// `m_AnchoredPosition (-11.47700023651123, 0)` · `m_SizeDelta (258.5379943847656, 59.428001403808594)`
+        /// ⇒ 绝对 rect `x[416.3,674.8] y[36.3,95.7]`（**比外面那条容器高 1 px，原版如此，别「修」**）。</summary>
+        const float HolderApX = -11.47700023651123f;
+        const float BarW = 293.6000061035156f, BarH = 57.40599822998047f;
+        const float HolderW = 258.5379943847656f, HolderH = 59.428001403808594f;
 
         Transform _holder;
 
-        /// <summary>HUD 图统一的 z（`BattleDriver.HudImageZ`）—— 排在 HUD 那一层</summary>
+        /// <summary>uGUI 档的**兄弟序深度**（`HudCanvas.Add` 的 z；语义同旧世界 z：大的在底下）。
+        /// 原版这一条挂在 `Safe area BackCanvas` 下、和 HUD 图族同一档 ⇒ 沿用 `HudImageZ` 的 0.3。</summary>
         const float Z = 0.3f;
 
-        ImageQuad _replay, _play, _pause, _step;
+        HudPiece _replay, _play, _pause, _step;
 
         /// <summary>自检用：4 枚图都取到了没有</summary>
         public bool HasArt
@@ -122,12 +135,32 @@ namespace CardPresentation
 
         public static ReplayBar Create(Transform parent)
         {
-            // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`
-            //    （= 原版容器 `ReplayButtons` 的矩形 **293.60 × 57.41**，见 `BarW/BarH` 的注释）。
-            //    改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218「`ReplayBar` 根 = 293.6×57.41」红。
+            // 🔴 **2026-10-17（`BSC62` · `W15`）：根节点已从世界空间 quad 迁到 uGUI 根画布**。
+            //    原版父链 `ReplayButtons <- Safe area BackCanvas <- Canvas`；**两块祖先 canvas 的
+            //    `m_SortingLayerID = 0`(Default) · `m_SortingOrder = 0` · `m_OverrideSorting = false`**
+            //    （`battlearena2` 的 `Canvas_2768` / `Canvas_2765` 现读）⇒ 它不另立排序组，
+            //    就画在**根画布这一组**里（与 HUD 图族同一层）。⚠️ `parent`（原来是 `hudRoot`）
+            //    **不再使用** —— uGUI 件一律挂 `HudCanvas.RootRect`，⛔ 别挂 `hudRoot`（那是反向补震用的）。
+            //    改坏法：根节点不再是 `RectTransform`、或矩形不是原版 293.6×57.406
+            //    ⇒ `Editor/BattleScene.cs` §A218「`ReplayBar` 根 = 293.6×57.41」红。
+            var canvas = HudCanvas.Ensure(LayoutSpace.Cam);
             var go = new GameObject("ReplayBar", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            MenuDraw.SetPxSize(go.transform, BarW, BarH);
+            var rt = (RectTransform)go.transform;
+            if (canvas != null)
+            {
+                rt.SetParent(canvas, false);
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);   // 原版 `m_AnchorMin/Max (0.5,1)`
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.anchoredPosition = new Vector2(RootApX, RootApY);  // 原版 `m_AnchoredPosition (-403,-66)`
+                rt.sizeDelta = new Vector2(BarW, BarH);               // 原版 `m_SizeDelta`
+                HudCanvas.Add(rt, Z);
+            }
+            else
+            {
+                // ⛔ 不许静默退回世界空间 quad（半迁移态在 16:9 下看不出来）—— 出声。
+                Debug.LogError("[ReplayBar] uGUI 根画布建不起来（`LayoutSpace.Cam` 为空？）⇒ 回放条**不显示**");
+                rt.SetParent(parent, false);
+            }
             var b = go.AddComponent<ReplayBar>();
             b.Build();
             return b;
@@ -137,21 +170,26 @@ namespace CardPresentation
         {
             // 🔴 **`Holder` 这一层是照原版加的**（原版 `objHolder`，字段偏移 0x48）——
             //    `ReplayHud.Setup()` 的显隐开关**做在这一层**，不是根节点。
-            //    ⚠️ 原版这个容器 `x[416.3,674.8] y[36.3,95.7]`，**比外面那条还高 1 px**（原版如此）。
+            //    ⚠️ 原版这个容器 `x[416.3,674.8] y[36.3,95.7]`，**比外面那条还高 1 px**（原版如此）；
+            //    锚/枢轴 = 中心、`ap = (-11.477, 0)`、`sd = (258.538, 59.428)`（`RectTransform_3133` 现读）。
             var holderGo = new GameObject("Holder", typeof(RectTransform));
-            holderGo.transform.SetParent(transform, false);
-            MenuDraw.SetPxSize(holderGo.transform, HolderW, HolderH);
-            holderGo.transform.localPosition = Spot(HolderCx, HolderCy);
-            _holder = holderGo.transform;
+            var hrt = (RectTransform)holderGo.transform;
+            hrt.SetParent(transform, false);
+            hrt.anchorMin = hrt.anchorMax = new Vector2(0.5f, 0.5f);
+            hrt.pivot = new Vector2(0.5f, 0.5f);
+            hrt.anchoredPosition = new Vector2(HolderApX, 0f);
+            hrt.sizeDelta = new Vector2(HolderW, HolderH);
+            HudCanvas.Add(hrt, Z);          // Holder 只分组；先后仍由它自己那一档的兄弟序
+            _holder = hrt;
 
-            _replay = Make("Replay",   SlotDx[0], "40K_replay_bt_restart");
-            _play   = Make("Play",     SlotDx[1], "40K_replay_bt_play");
-            _pause  = Make("Pause",    SlotDx[1], "40K_replay_bt_pause");
-            _step   = Make("StepPlay", SlotDx[2], "40K_replay_bt_next");
+            _replay = Make("Replay",   SlotApX[0], "40K_replay_bt_restart");
+            _play   = Make("Play",     SlotApX[1], "40K_replay_bt_play");
+            _pause  = Make("Pause",    SlotApX[1], "40K_replay_bt_pause");
+            _step   = Make("StepPlay", SlotApX[2], "40K_replay_bt_next");
             SetPlaying(true);      // 开局就在播 ⇒ 亮的是「暂停」（**与原版 `Initialize()` 一致**，见文件头 ③）
         }
 
-        ImageQuad Make(string goName, float relX, string art)
+        HudPiece Make(string goName, float apX, string art)
         {
             var tex = CardArt.Ui(art);
             if (tex == null)
@@ -160,36 +198,21 @@ namespace CardPresentation
                 Debug.LogWarning($"[ReplayBar] 取不到图 `{art}`（回放条这一枚会是空的）");
                 return null;
             }
-            // 原版容器左上角 + 容器内相对位；按钮**贴容器顶**（相对顶 4.4 px）而不是垂直居中
-            float xPx = BarX + relX + BtnW * 0.5f;
-            float yPx = BarY + BtnTop + BtnH * 0.5f;
-            var q = ImageQuad.Create(_holder, tex,
-                                     Spot(xPx, yPx) - (_holder != null ? _holder.position : Vector3.zero),
-                                     BtnH / 108f, new Vector2(0.5f, 0.5f), "replay_" + goName);
-            if (q != null) q.SetAspect(BtnAspect);       // 原版 `m_PreserveAspect = 0` ⇒ 拉成原版矩形
-            return q;
+            // 原版锚/枢轴都是中心，`m_AnchoredPosition = (SlotApX, 0)`；尺寸直接是原版
+            // `m_SizeDelta (79.8, 48.57)` + `PA = 0` ⇒ **拉满该矩形**（⛔ 不按贴图 95×59 的比例）。
+            var p = HudCanvas.MakeImageInParent(_holder, tex, goName, apX, 0f, BtnW, BtnH, Z, Color.white);
+            if (p == null)
+            {
+                Debug.LogWarning($"[ReplayBar] `{goName}` 建不出来（`HudCanvas.MakeImageInParent` 回了 null）");
+            }
+            return p;
         }
 
-        static Vector3 Spot(float xPx, float yPx)
-        {
-            // 原版 y 从上往下；`LayoutSpace.ToWorld` 是 (0,0)=左下 ⇒ 翻一下
-            return LayoutSpace.ToWorld(xPx / RefW, 1f - yPx / RefH);
-        }
-
-        /// <summary>分辨率变了要重算（和 HUD 其它件一样，`BattleDriver.ReanchorHud` 里调）。</summary>
+        /// <summary>分辨率变了要重算 —— 🔴 **uGUI 档不需要**：位置/尺寸由 `RectTransform` 的锚点
+        /// 自己跟画布缩放走（原版也是这么做的）。保留本口是因为 `BattleDriver.ReanchorHud` 还在调它，
+        /// ⛔ 别在这里再加「重贴世界坐标」那一套（那就是半迁移态）。</summary>
         public void RefreshLayout()
         {
-            Place(_replay, SlotDx[0]);
-            Place(_play, SlotDx[1]);
-            Place(_pause, SlotDx[1]);
-            Place(_step, SlotDx[2]);
-        }
-
-        void Place(ImageQuad q, float relX)
-        {
-            if (q == null) return;
-            var p = Spot(BarX + relX + BtnW * 0.5f, BarY + BtnTop + BtnH * 0.5f);
-            q.transform.localPosition = new Vector3(p.x, p.y, Z) - (_holder != null ? _holder.position : Vector3.zero);
         }
 
         // ============================================================ 原版那两层（2026-09-27 补）

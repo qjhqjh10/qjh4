@@ -289,15 +289,14 @@ namespace CardPresentation
                 //   ⚠️ 它在今天的画面上**看不出来**：真亮的那格走 `AttachDropSlotTo` 挂到卡上、其余 alpha=0
                 //     ⇒ 所以没人发现；改它**同批配了断言**（`Editor/BattleScene.cs` 的「底片位置」两条）。
                 //   判据全文 → `资料/普查产出_1016战斗/W2_PlaceMarkers与督军位判据.md`
+                // 🔴🔴 **2026-10-17（W5 · BSC62 `20915`）：这里原来在 `DropTargetWorld(i)` 之后还有一段【重复计算】，
+                //   把它的结果整体覆盖掉 —— 那段恒用 `ArenaSlots.CardScale(mirror)`、丢了 `HeroScale`
+                //   ⇒ 督军位（槽 4）的底片会与真落位差 ~9px（`BattleDriver.PoseFor` 走
+                //   `u.IsWarlord ? HeroScale : CardScale`）。那是**两份判据**（违反「判据只此一处」）
+                //   ⇒ **删掉那段**，位置**直调 `DropTargetWorld`**：它内部已按 `ProjectionScale(i)`
+                //   （督军 `HeroScale` / 其余 `CardScale`）取卡心，是**唯一判据**。
+                //   ⛔ 别把那段抄回来、也别在别处再写一份「卡心投到 HUD 平面」。
                 Vector3 markerPos = DropTargetWorld(i);
-                if (use3D && boardCam != null)
-                {
-                    var msp = boardCam.WorldToScreenPoint(
-                        ArenaSlots.CardCenter(i, mirror, ArenaSlots.CardScale(mirror)));
-                    if (msp.z > 0f)
-                        markerPos = transform.InverseTransformPoint(
-                            LayoutSpace.ScreenToWorld(new Vector2(msp.x, msp.y)));
-                }
                 r.transform.localPosition = markerPos + new Vector3(0f, 0f, 0.05f);
                 // 🔴 **2026-09-20：真 3D 时底片的位置与尺寸都要按「投影」来。**
                 //    底片平时不可见（alpha 0），但**拖拽时是亮的**（alpha 0.45）——

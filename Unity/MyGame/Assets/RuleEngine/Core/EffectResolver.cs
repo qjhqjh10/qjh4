@@ -1581,6 +1581,11 @@ namespace RuleEngine
             //      ⇒ 不会漏、也不会重记。
             if (card.Subtype == "Secret") ps.SecretsPlayed++;
             ctx.Log($"{ps.Name} 打出战术卡「{card.Name}」（{paid} 能）");
+            // 🆕 2026-10-17（`A1547`）：**本回合打出第几张**在这一刻 +1。
+            //    判据 = 原版 `BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:1390-1406`
+            //    的 `ObscuredInt.op_Increment`（写 `BattleManager + 0x3D0`）。
+            //    ⚠️ 与 `RuleCore.PlayCard`（单位支）**各写各的一笔**：两条路互斥、不会重记。
+            ctx.CardsPlayedInTurn++;
             // 战术卡到这儿才算真打出去 —— 事件要在**校验与扣费都过了之后**发
             // （和单位卡那条 `Play` 对称，日志/表现层两边都能看见战术卡）
             // 🆕 2026-10-18（`A985⑥①`）：**把「这张战术卡有没有指目标、指的是哪一格」记进事件**。
@@ -1701,6 +1706,12 @@ namespace RuleEngine
             //     两件事，我们没有能分辨巧技该挂哪一处依据 ⇒ **这是我们的选择**，如实标着。）
             // ⚠️ 防御卡走的是同一条路（规则书 `:105`：防御卡属于战术大类），所以也会触发巧技。
             FireTriggerOnSide(ctx, p, KeywordTable.Artifice);
+
+            // ---- 🆕 `AbilityTrigger.PlayedThirdCardInTurn = 15`（账 `A1547`）----
+            // 原版 `RawCardScript__OnCardPlayedWithTarget.c:105-112`：本回合第 3 张牌打出时，
+            // 在**进攻卡自己身上**跑它 `trigger == 15` 的能力。战术卡也是「打出的一张牌」，
+            // 所以这一支同样要接（⛔ 别只接单位卡那一路）。
+            FirePlayedThirdCardInTurn(ctx, p, card);
 
             // ---- 🆕 典籍（`Codex`）的自动触发点：**打出之后的能量为 0**（2026-09-14 A5）----
             // 照我们自己的参考实现 `rule_core.gd:2183`（旁证、非权威）（战术打完那张牌的收尾）。

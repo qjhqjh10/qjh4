@@ -11,7 +11,14 @@
 //   `0 self` · `1 cardTarget` · `2 abilityTarget` · `3 friendlyHero` · `4 enemyHero` · `5 boardCenter` ·
 //   `14 nextFriendlyMinionSpot` · `18 friendlyHand` · `19 enemyHand` · `50 friendlyDeck` · `55 enemyDeck`，
 //   **其余全部 = `CustomDebug.LogError`（「这一档本不该走到」）+ 退回我方督军的 `EffectAnchor`**。
-//   ⇒ ⛔ **别照这个枚举去实现 36 档** —— 多写的档反而与原版不一致。
+//   ⇒ ⛔ **别照 `GetAnimTransform` 这条【兜底路】去实现 36 档** —— 多写的档反而与原版不一致。
+//
+// ⚠️ **2026-10-17 更正：原来这里只写「⛔ 别照这个枚举去实现 36 档」（无限定），【已过期 —— 那句话
+//   只对上面的兜底路 `GetAnimTransform` 成立】**。**真路 = `AbilityLogic.GetPos`，【36 档全实现】**
+//   （判据 = 第一权威 `d:/2/tools/decomp_full/AbilityLogic__GetPos.c`，逐档照抄见 `Battle/AnimAnchors.cs`
+//   文件头）；`GetAnimTransform` 只是**取不到时的兜底**。错因：当初只找到 `GetAnimTransform` 这条
+//   兜底路就下了结论，**没找到真路 `GetPos`**。
+//   ✅ 本仓 `Battle/AnimAnchors.cs`（写手 W8）**已按 `GetPos` 把 36 档补完**（24 实现 / 10 取不到 / 2 原版死档）。
 //   判据全文（逐档映射 + 每个 `+0x??` 的字段名）→ `资料/任务线/战斗线/任务/T05_逐卡演出与特效接线.md` §2·6。
 //
 // ⚠️ 实测数据里真出现过的取值（`animinfo_lookup.json` 的 `sp`/`ep`）：

@@ -1553,8 +1553,13 @@ namespace CardPresentation
         /// （这正是本线 `准则与做法.md` §三·3「一个值 ≠ 全部情况」那一类：字段有值 ≠ 它会生效。）</para></summary>
         void BuildMuteChatRow(float z)
         {
-            var offTex = CardArt.Ui("40K_toggle_off");
-            var onTex  = CardArt.Ui("40K_toggle_on");
+            // 取图口 = **三级兜底** `ui/ → ui_menu/ → ui_deck/`（先例 = 同族 `Shell/AlliancePanelWindow.cs`
+            //   的 `Art()`；`MenuUi` 内部已含 `ui_menu/ → ui_deck/ → ui/`）。
+            // 🔴 这两张 `40K_toggle_*` 属**去重资源**批次，只导在 `Resources/Art/ui_deck/`；而 `CardArt.Ui`
+            //   只查 `Art/ui/`（`Core/CardArt.cs:424-428`）⇒ 裸 `Ui` 恒 null ⇒ 两块底图根本不建
+            //   （日志 `[Settings]…贴图取不到 ⇒ 这一件不建`）。`Volume_button` 在 `ui/` 下、裸 `Ui` 取得到，不动。
+            var offTex = CardArt.Ui("40K_toggle_off") ?? CardArt.MenuUi("40K_toggle_off") ?? CardArt.DeckUi("40K_toggle_off");
+            var onTex  = CardArt.Ui("40K_toggle_on")  ?? CardArt.MenuUi("40K_toggle_on")  ?? CardArt.DeckUi("40K_toggle_on");
             var chkTex = CardArt.Ui("Volume_button");
 
             // 两块底图（原版 `Image` + `preserveAspect = 1` ⇒ 按框内接；图 301×120、框 180.76×56.80）

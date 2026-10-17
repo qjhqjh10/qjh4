@@ -1093,8 +1093,9 @@ namespace CardPresentation
         //  ＋ 交接报告 §2a/§2b；**本文件只管「建出来 + 接上触发」**。
         // ==================================================================
 
-        /// <summary>原版 `Aspect Ratio Filler` 的两枚黑边 quad（判据 → <see cref="BuildAspectRatioFillers"/>）</summary>
-        ImageQuad _aspectFillerTop, _aspectFillerBottom;
+        /// <summary>原版 `Aspect Ratio Filler` 的两枚黑边件（判据 → <see cref="BuildAspectRatioFillers"/>）。
+        /// 🔴 **2026-10-17（`BSC62` · `W15`）：已从世界空间 quad 迁到 uGUI**（字段类型 `ImageQuad` → `HudPiece`）。</summary>
+        HudPiece _aspectFillerTop, _aspectFillerBottom;
         /// <summary>错误横幅（原版 `UI Error Message Controller`，判据 → `ErrorMessageBanner.cs` 文件头）</summary>
         ErrorMessageBanner _errorBanner;
         /// <summary>比例控制器（原版 `ScreenAspectRatioController`，判据 → 那一件的文件头）</summary>
@@ -2236,7 +2237,7 @@ namespace CardPresentation
         //  「18/19 极性相反」的**就地订正**：那两段其实是自洽的）。
         void HookAnimAnchors()
         {
-            // 3/4 档 + 兜底那一档：某座位的**督军卡**的锚点。
+            // 3/4/9 档 + 枚举外兜底那一档：某座位的**督军卡**的锚点。
             //   原版走 `CardScript.GetEffectAnchor()`（按卡状态二选一）；督军恒在场上 ⇒ 场上档。
             AnimAnchors.HeroAnchorOf = seat =>
             {
@@ -2264,9 +2265,32 @@ namespace CardPresentation
             // 5 档：棋盘中心那颗**裸 Transform**（原版 `+0x1d0`）。
             AnimAnchors.BoardCenterOf = EnsureBoardCenterAnchor;
 
-            // 14 档：下一空位。⚠️ 原版这一档钉死用**本地玩家**的 `MinionManager`（`+0xe0`），
-            //   所以 `Ctx` 传进来的就是 `mySeat`（见 `AnimAnchors` 文件头那两处「真的不对称」）。
-            AnimAnchors.NextMinionSpotOf = EnsureNextMinionSpotAnchor;
+            // 14/15/16/17 档：空位。原版 = `CreateTempAbilityTransform(isPlayer, getEnemyPos, slot)`，
+            //   **用行动方那一侧**（不是本地玩家；对手用这几档时取对手那一侧）。
+            AnimAnchors.MinionSpotOf = (seat, getEnemyPos, slot) => EnsureMinionSpotAnchor(seat, getEnemyPos, slot);
+
+            // 6/7/11/12/13/140/145 档：`BattleHud.GetUIAnchor` 那张数据表（原版 `uiAnimAnchors`）。
+            AnimAnchors.UiAnchorOf = (opt, isPlayer) => UiAnimAnchor(opt, isPlayer);
+            // `8/10` 两档原版是死档 ⇒ `GetUIAnchor` 退回 `BattleHud` 根 transform（我们 = `hudRoot`）。
+            AnimAnchors.HudRootOf = () => hudRoot;
+
+            // 150/155 档：手牌**世界锚**（原版 `BattleManager.get_{Friendly,Enemy}HandAnchor`）。
+            //   ⚠️ **这是我们改的**（铁律 3）：原版那两颗是 `+0x1d8`/`+0x1e0` 两格**相机换算出来的**
+            //     世界锚（`BattleManager__get_FriendlyHandAnchor.c` 逐句读过），**我们没有对应件**；
+            //     我们的手牌本来就是**世界空间**的，所以直接用手牌容器自己的 transform 顶这一档。
+            AnimAnchors.HandWorldAnchorOf = seat =>
+            {
+                var hl = HandOf(seat);
+                return hl != null ? hl.transform : null;
+            };
+
+            // 60-130 档：Psychic / SpiritStone / Plasma 三族能量锚 —— **我们 HUD 里没有这些件**
+            //   ⇒ **不挂** `ManaTransformOf`，那 10 档照 `Resolve` 的「取不到」分支出声、返回 null。
+            //   （原版取的是 `PlayerManager.Get{X}ManaTransform` 那颗 `TMP_Text` 的 transform。）
+
+            // 0/1/2 档的「卡状态」判据：原版读 `card + 0x228`（`CardStateOptions`）二选一；
+            //   我们的视图不存卡状态 ⇒ 退一步用「**这张视图现在在不在棋盘上**」判断。
+            AnimAnchors.OnBoardOf = IsViewOnBoard;
         }
 
         /// <summary>某座位的**手牌容器**。判据只此一处（`HandRow01` 也走它）——
@@ -2304,31 +2328,119 @@ namespace CardPresentation
         /// <summary>棋盘中心的 z（原版 `Board Center` 节点的本地 z，见上面那一整段判据）。</summary>
         public const float BoardCenterZ = -2.8108f;
 
-        // ---- 14 档：下一空位 ----
-        //  ⚠️ **这一格是「我们改的」，判据照抄不了**（如实标，铁律 3）：
-        //    · 原版是 `MinionManager.GetNextSlotPos(mouseClickPos, 1)` —— **以鼠标点击点为基准**取下一格；
+        // ---- 14/15/16/17 档：空位（原版 `AbilityLogic.CreateTempAbilityTransform`）----
+        //  ⚠️ **这几格是「我们改的」，判据照抄不了**（如实标，铁律 3）：
+        //    · 原版 `CreateTempAbilityTransform(isPlayer, getEnemyPos, slot)` 内部走
+        //      `MinionManager.GetNextSlotPos` —— **以鼠标点击点为基准**取「第 `slot` 个可用格」；
         //      而动画播出的那一刻**没有点击点**（那是「这张卡被召唤出来」的演出）⇒ 原版那条路子我们复刻不了。
-        //    · 我们改用**引擎自己那条「下一个空位」规则**（`SimpleAI.FirstFreeSlot`）——
-        //      它是「这一局 AI/玩家下一张牌会落到哪」的**同一个口**，语义上与「下一个空位」一致。
+        //    · 我们改用**引擎自己那条「下一个空位」规则**（`SimpleAI.FirstFreeSlot`）：`slot=1` 取那一侧的
+        //      下一空格，`slot=2/3` 由它**向外推** `slot-1` 格。`getEnemyPos` 决定取**行动方自己的**还是**对面**那一侧。
         //  ⚠️ **另一处「我们改的」**：原版每次调用都 **new 一个 GameObject 再 `Destroy`** 掉；
-        //     我们**复用同一颗**（`_animNextSpot`）只挪位置 —— 批处理下没有帧循环、`Object.Destroy` 不生效
+        //     我们**复用同一颗**（`_animMinionSpot`）只挪位置 —— 批处理下没有帧循环、`Object.Destroy` 不生效
         //     （本线 `准则与做法.md` §六·6），每次新建会漏一堆空对象。
-        Transform _animNextSpot;
-        Transform EnsureNextMinionSpotAnchor(int seat)
+        Transform _animMinionSpot;
+        Transform EnsureMinionSpotAnchor(int seat, bool getEnemyPos, int slot)
         {
-            if (_animNextSpot == null)
+            if (_animMinionSpot == null)
             {
                 var go = new GameObject("Next Minion Spot");
-                _animNextSpot = go.transform;
+                _animMinionSpot = go.transform;
             }
-            bool foe = seat != _me;
-            int slot = (Ctx != null && Ctx.Players != null && seat >= 0 && seat < Ctx.Players.Length)
-                     ? RuleEngine.SimpleAI.FirstFreeSlot(Ctx.Players[seat])
-                     : RuleEngine.BoardSpec.WarlordSlot + 1;
-            if (slot < 0) slot = RuleEngine.BoardSpec.WarlordSlot + 1;
-            _animNextSpot.position = ArenaSlots.RootPosition(slot, foe, ArenaSlots.CardScale(foe));
-            return _animNextSpot;
+            // `getEnemyPos` 相对**行动方**翻一侧：0 = 行动方那一侧、1 = 对面那一侧。
+            int sideSeat = getEnemyPos ? (1 - seat) : seat;
+            bool foe = sideSeat != _me;
+            int first = (Ctx != null && Ctx.Players != null && sideSeat >= 0 && sideSeat < Ctx.Players.Length)
+                      ? RuleEngine.SimpleAI.FirstFreeSlot(Ctx.Players[sideSeat])
+                      : RuleEngine.BoardSpec.WarlordSlot + 1;
+            if (first < 0) first = RuleEngine.BoardSpec.WarlordSlot + 1;
+            int want = Mathf.Clamp(first + Mathf.Max(0, slot - 1), 0, RuleEngine.BoardSpec.Size - 1);
+            _animMinionSpot.position = ArenaSlots.RootPosition(want, foe, ArenaSlots.CardScale(foe));
+            return _animMinionSpot;
         }
+
+        // ---- 6/7/11/12/13/140/145 档：`BattleHud.uiAnimAnchors` 那张数据表 ----
+        //  原版**数据驱动**（数组 7 条，13 场逐场一致；判据 → T05d §1·2 / §二）。
+        //  ⚠️ `8/10` **不在表里**（原版死档）⇒ 由 `AnimAnchors.Resolve` 自己处理，**不走这里**。
+        Transform UiAnimAnchor(PositionOption opt, bool isPlayer)
+        {
+            switch (opt)
+            {
+                case PositionOption.boardCenterUI:            return AnimAnchorNode("Anchor: UI Center");
+                case PositionOption.createCardPos:            return AnimAnchorNode("Anchor: CreateCard");
+                case PositionOption.stratagemGeneralShowCase: return AnimAnchorNode("Anchor: Stratagem ShowCase");
+                case PositionOption.nextToClock:              return AnimAnchorNode("Anchor: Next To Clock");
+
+                // 7 cemetery —— 原版锚到 `CemeteryLogPanel` 那颗节点；我们 = 墓地/战斗日志面板。
+                case PositionOption.cemetery:
+                    return _logPanel != null ? _logPanel.transform : null;
+
+                // 12 friendlyMana / 13 enemyMana —— 原版锚到 `PlayerMana` / `EnemyMana`（互为镜像，`useIsPlayer=1`）：
+                //   12 = anchor(我)/opponent(敌)；13 = anchor(敌)/opponent(我)。`!isPlayer` 时取 `opponentAnchor`。
+                //   我们这两颗 = `_myEnergyPlate`(PlayerMana) / `_foeEnergyPlate`(EnemyMana)。
+                case PositionOption.friendlyMana:
+                case PositionOption.enemyMana:
+                {
+                    bool wantMine = (opt == PositionOption.friendlyMana) == isPlayer;
+                    var plate = wantMine ? _myEnergyPlate : _foeEnergyPlate;
+                    return plate != null ? plate.transform : null;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>取 `Anim Anchors` 下那 4 颗锚点之一（懒建 —— 根 canvas 在 `BuildHud` 里才建）。
+        /// 判据 = `HudCanvas.EnsureAnimAnchors`（节点名逐字照原版）。</summary>
+        Transform AnimAnchorNode(string name)
+        {
+            var anchors = HudCanvas.EnsureAnimAnchors();
+            if (anchors == null) return null;
+            var t = anchors.Find(name);
+            if (t == null)
+                Debug.LogError($"[Battle] `Anim Anchors` 下找不到 `{name}`（`HudCanvas.MakeAnchorChild` 建的那 4 颗之一）");
+            return t;
+        }
+
+        // ---- 0/1/2 档的「卡状态」判据 ----
+        //  原版读 `card + 0x228`（`CardStateOptions`）二选一；我们的视图**不存卡状态** ⇒
+        //  退一步用「**这张视图现在在不在棋盘上**」判断：在棋盘 → 场上档，否则手牌/牌堆档。
+        //  （督军 / AI 出生就在场上的兵都在棋盘上；手牌 / 牌堆 / 揭示卡都不在。）
+        bool IsViewOnBoard(CardView v)
+        {
+            if (v == null) return false;
+            foreach (var kv in _myUnits) if (kv.Value == v) return true;
+            foreach (var kv in _foeUnits) if (kv.Value == v) return true;
+            return false;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-17（T05 第 2 步）：`AnimAnchors.Ctx` 的构造点
+        // ==================================================================
+        //  原版 `GetPos` 在 `AbilityLogic.PlayAnim` 里被调用（每拍解 start/end/rotate 三个锚点），
+        //  它吃的是 `abilityData`（行动卡 `+0x10` / 目标卡 `+0x20`）＋ `abilityTarget` ＋ 两个座位量。
+        //  我们这边**只有驱动知道**「哪张视图是行动卡 / 目标卡、行动方是几号」⇒ 构造点定在这里。
+        //  🔴 消费方 = **第 3 步**（`PlaySignals` 展开每一拍时按 `startPosOption` / `endPosOption` /
+        //     `pointTowardsOption` 各调一次 <see cref="ResolveAnimAnchor"/>）。
+        /// <summary>建一份 <see cref="AnimAnchors.Ctx"/>（原版 `GetPos` 的入参）。</summary>
+        internal AnimAnchors.Ctx BuildAnimCtx(int actorSeat, CardView self, CardView target)
+        {
+            return new AnimAnchors.Ctx
+            {
+                self = self,
+                target = target,
+                actorSeat = actorSeat,
+                mySeat = _me,
+            };
+        }
+
+        /// <summary>解一档锚点（建 `Ctx` + 喂给 <see cref="AnimAnchors.Resolve"/>）—— 第 3 步的消费口。</summary>
+        internal Transform ResolveAnimAnchor(PositionOption opt, int actorSeat, CardView self, CardView target)
+        {
+            return AnimAnchors.Resolve(opt, BuildAnimCtx(actorSeat, self, target));
+        }
+
+        /// <summary>诊断（自检用）：`AnimAnchors.Resolve` 被调过几次 / 有没有落兜底。</summary>
+        internal int AnimAnchorCalls { get { return AnimAnchors.Calls; } }
+        internal int AnimAnchorFallbacks { get { return AnimAnchors.Fallbacks; } }
 
         /// <summary>
         /// **按 Play 时的开局**：读卡组编辑器里当前选中的那套 → 开一局。
@@ -4481,7 +4593,10 @@ namespace CardPresentation
             // ⚠️ 三个字段**一个都不能漏**：`StepReplaySignal` 是**第二条出口**（回放条的单步）——
             //   只传 `drawFromEnd` 的话，抽卡那条在「单步」时走的还是老的**单点**路（铁律 10 第 5 条：
             //   「一个对象有多个入口时，状态要在每个入口都带上」）。
-            PlaySignal(p.evt, p.drawFromEnd, p.points, p.pointIndex);
+            //   🆕 2026-10-17（`T05` 第 3 步）：**按表展开的那几个字段同理** —— 漏了它们，
+            //   「单步」时每一条 `EvtKind.Ability` 会退回整事件那一路（N 拍又变回 1 拍）。
+            PlaySignal(p.evt, p.drawFromEnd, p.points, p.pointIndex,
+                       p.beat, p.beatVfx, p.beatSp, p.beatEp, p.beatPt, p.beatTail);
             return true;
         }
 
@@ -6780,12 +6895,17 @@ namespace CardPresentation
         }
         /// <summary>自检用：称号那段字现在的文本</summary>
         public string TitleTextOf(bool mine) { return mine ? _titleMeText : _titleFoeText; }
-        /// <summary>自检用：称号文字的**中心**（原版 1920×1080 绝对 px，y 从上）</summary>
+        /// <summary>自检用：称号文字的**中心**（原版 1920×1080 绝对 px，y 从上）。口径同 <see cref="PlateTextPosPx"/>。</summary>
         public Vector2 TitlePosPx(bool mine)
         {
             var l = mine ? _titleMe : _titleFoe;
             if (l == null) return new Vector2(-1f, -1f);
-            var n = LayoutSpace.ToNormalized(l.transform.localPosition);
+            // 🔴 **2026-10-17（`T09` 字族迁 uGUI）**：位置**不再读 `localPosition`** ——
+            //    那在 uGUI 档是**画布单位**（原点在画布中心），喂给 `ToNormalized`（世界尺）**量纲就错了**
+            //    （旧写法报出 `(-79216.3, 54340.8)`）。这一族字现在建在**归一化锚点**上（`Hud()` 里那句
+            //    `rt.anchorMin = rt.anchorMax = new Vector2(x01, y01)`）⇒ **锚点本身就是它在屏幕上的位置**。
+            //    口径与同族 `PlateTextPosPx`（`T09` 当日已按同一路改对）**一致**。
+            var n = ((RectTransform)l.transform).anchorMin;
             return new Vector2(n.x * 1920f, (1f - n.y) * 1080f);
         }
 
@@ -11760,6 +11880,22 @@ namespace CardPresentation
                     drawIndex = drawSeen[e.Player]++;
                 }
                 t += EventTiming.DelayBetween(prev, e);
+
+                // 🆕 2026-10-17（`T05` 第 3 步）：**「一次技能」按表展开成 N 拍**。
+                //   判据链/表结构 → `Battle/CardAnimOrder.cs` 文件头；口径「引擎不动、由驱动侧展开」→
+                //   `资料/任务线/战斗线/任务/T05_逐卡演出与特效接线.md` §四①。
+                //   🔴 **只在 `EvtKind.Ability` 上展开** —— `Trigger`/`Play`/`Deploy` 是**别的时机**，
+                //      ⛔ 别顺手一起扩（它们的动画在**别的行**里，那属另外的账）。
+                //   表里没有这张卡 ⇒ `ExpandAbilityBeats` 回 false（它自己已出声）⇒ 走下面的原样（一拍）。
+                if (e.Kind == EvtKind.Ability && ExpandAbilityBeats(e, t))
+                {
+                    // 整条事件**仍占它自己那段**（`DurationOf` = 该卡技能总时长，见 `AbilityAnimDurations`）——
+                    // 展开出来的 N 拍排在这一段里，后面的事件照旧按原来的节拍跟上。
+                    t += EventTiming.DurationOf(e);
+                    prev = e;
+                    continue;
+                }
+
                 _timeline.Add(new PendingSignal
                 {
                     evt = e, at = t, drawFromEnd = drawFromEnd,
@@ -11772,6 +11908,170 @@ namespace CardPresentation
             AdvanceTimeline(0f);        // 延迟为 0 的那几条**这一帧**就播，不用等下一帧
         }
 
+        // ==================================================================
+        //  🆕 2026-10-17（`T05` 第 3 步）：**「一次技能」按 `CardAnimOrder` 展开成 N 拍**
+        // ==================================================================
+        //  口径（主对话已定案）：**引擎不动**（`RuleEngine` 只发一条 `EvtKind.Ability`），N 拍是
+        //  **表现**概念 ⇒ 由驱动侧按表展开。判据与「为什么不改成引擎多发」→ `任务/T05` §四①。
+        //  表 / join / 字段取舍 → `Battle/CardAnimOrder.cs` 文件头。
+        //
+        //  ⚠️ 本步**只展开、只按起锚点播**；`endPosOption` / `pointTowardsOption` 已解析但**未消费**
+        //     （起→终位移 + `easeCurve`/`screenShake`/… 那一批属 `T05` 第 4 步「接参数」）。
+        // ------------------------------------------------------------------
+
+        readonly List<CardAnimBeat> _beatBuf = new List<CardAnimBeat>();
+
+        /// <summary>展开过几次（= 查表命中、且真的排了拍）。自检用。</summary>
+        public int AbilityBeatsExpanded { get; private set; }
+        /// <summary>「空位可用性门」挡掉过几拍（原版 `MinionManager.IsAvailableSlot`）。</summary>
+        public int AbilityBeatsSlotSkipped { get; private set; }
+        /// <summary>「多目标拍 + 我们这边一个目标都没有」挡掉过几拍（原版那一支是 `LogError` + return）。</summary>
+        public int AbilityBeatsNoTargetSkipped { get; private set; }
+
+        /// <summary>已经出声过的「跳过」键（去重；只打一次）。</summary>
+        static readonly HashSet<string> _beatSkipWarned = new HashSet<string>();
+        const int BeatWarnCap = 16;
+
+        /// <summary>把一条 `EvtKind.Ability` 按 `CardAnimOrder` 展开成 N 拍排进 `_timeline`。
+        /// 返回 `true` = 已展开（调用方**别再**排那条整事件信号）；`false` = 表里没有这张卡 ⇒ 走原样。
+        ///
+        /// <para>**每拍的 `at`** = 起始时刻 + 前面各拍**等到的**时长之和；
+        /// 「等到多久」= `beat.Waits ? beat.Duration : 0` ——
+        /// 🔴 **是否等 = 这拍自己的 `waitAnimToApplyEffect(0x58)`**（⛔ 不是「只有最后一拍才等」；
+        /// 判据 → `普查产出_1017/BSC62/R4_waitForAnim语义.md`，`AbilityLogic__PlayAnim.c:274`）。
+        /// 每拍时长 = `AnimInfo.GetAnimDuration()`（`CardAnimBeat.Duration`）。</para>
+        ///
+        /// <para>**空位可用性门**（`AbilityLogic__PlayAnim.c:104-169`，逐句读过）：这一拍的
+        /// `startPosOption` 或 `endPosOption` ∈ {14,15,16,17} 时，原版先查
+        /// `MinionManager.IsAvailableSlot(那一侧的 MinionManager, N)` —— **空位不够就【跳过这一拍】**
+        /// （`goto LAB_180821700` = 直接进下一拍）。逐档的「哪一侧 / 至少几个空位」：
+        /// `14` → **行动方**那一侧 · 1 ·（`start` 与 `end` 都查）；
+        /// `15` → **对面**那一侧 · 1 ·（⚠️ **只查 `start`** —— `endPosOption == 15` 那一支源码里**没有**，照抄）；
+        /// `16` → 行动方 · 2 ·（`start`/`end` 都查）；`17` → 行动方 · 3 ·（`start`/`end` 都查）。
+        /// ⚠️ 我们用「那一侧的空格数 ≥ N」**等价实现**（同 `14-17` 锚点那条同族近似，如实标，铁律 3）。</para>
+        ///
+        /// <para>**多目标拍**（`PlayAnim.c:171`）：三个位置选项**任一 == 2（`abilityTarget`）**时，
+        /// 原版按 `abilityTargets` 逐目标各播一份；`abilityTargets` 为空 ⇒ 原版 `LogError` + **return**。
+        /// 我们的引擎一条事件**只带 0 或 1 个目标**（`BattleEvent.TargetPlayer/TargetSlot`，
+        /// 只有 `EffectTargets.NeedsPick` 的技能才填）⇒ ① **1 个目标**：播一份
+        /// （`waitForAnim` 退化成 `= 这拍自己的 waitAnimToApplyEffect` —— 正是 `PlayAnim.c:274` 单目标那一支）；
+        /// ② **0 个目标**：**出声**（同原版的 `LogError`）后**跳过这一拍**。
+        /// ⚠️ 原版是**整个 `PlayAnim` return**，我们**只跳这一拍** —— 我们的目标粒度比原版粗，
+        /// 「整段 return」会把不用目标的那几拍一起吃掉；这条**是我们改的**，如实记。</para>
+        /// </summary>
+        bool ExpandAbilityBeats(BattleEvent e, float t0)
+        {
+            _beatBuf.Clear();
+            int n = CardAnimOrder.TryGetBeats(e.CardId, _beatBuf);
+            if (n <= 0) return false;      // 表里没有这张卡 ⇒ 走原样（`TryGetBeats` 已出声）
+
+            CardView self = ViewAt(e.Player, e.Slot);
+            CardView target = (e.TargetPlayer >= 0 && e.TargetSlot >= 0) ? ViewAt(e.TargetPlayer, e.TargetSlot) : null;
+            int targetCount = target != null ? 1 : 0;
+            int optAbilityTarget = (int)PositionOption.abilityTarget;
+
+            float acc = 0f;                // 从 `t0` 起、前面各拍**等到的**时长之和
+            bool first = true;
+            for (int i = 0; i < n; i++)
+            {
+                var b = _beatBuf[i];
+                if (b == null) continue;
+
+                // ① 空位可用性门（原版 `PlayAnim.c:104-169`）—— 不够就跳过这一拍
+                if (!BeatSlotGate(b.sp, b.ep, e.Player)) continue;
+
+                // ② 多目标拍 + 我们这边一个目标都没有（原版 `LogError` + return）
+                if ((b.sp == optAbilityTarget || b.ep == optAbilityTarget || b.pt == optAbilityTarget)
+                    && targetCount == 0)
+                {
+                    AbilityBeatsNoTargetSkipped++;
+                    BeatSoundOff($"notarget:{e.CardId}:{b.ca}",
+                        $"`{e.CardId}` 的一拍是**多目标拍**（位置选项里有 `abilityTarget`），"
+                      + "可这条事件**一个目标都没带** ⇒ 原版这一支是 `LogError` + **return**"
+                      + "（`AbilityLogic__PlayAnim.c:172-176`）。我们**只跳过这一拍**（原版是整段 return —— 见 doc）。");
+                    continue;
+                }
+
+                _timeline.Add(new PendingSignal
+                {
+                    evt = e, at = t0 + acc, drawFromEnd = -1, points = null, pointIndex = -1,
+                    beat = true, beatVfx = b.vfx, beatSp = b.sp, beatEp = b.ep, beatPt = b.pt,
+                    beatTail = !first,
+                });
+                first = false;
+                if (b.Waits) acc += Mathf.Max(0f, b.Duration);
+            }
+
+            // 所有拍都被门挡掉 ⇒ **仍排一条空拍**：事件级副作用（语音 / 音效 / 手感）照原版响一次，
+            //   否则这一条 `EvtKind.Ability` 会整条静默（`PlaySignal` 从没被调到）。
+            if (first)
+                _timeline.Add(new PendingSignal
+                {
+                    evt = e, at = t0, drawFromEnd = -1, points = null, pointIndex = -1,
+                    beat = true, beatVfx = null, beatTail = false,
+                });
+
+            AbilityBeatsExpanded++;
+            return true;
+        }
+
+        /// <summary>空位可用性门（`AbilityLogic__PlayAnim.c:104-169`）—— 逐档判据见
+        /// <see cref="ExpandAbilityBeats"/> 的 doc。返回 `false` = 这一拍该**跳过**。</summary>
+        bool BeatSlotGate(int sp, int ep, int actorSeat)
+        {
+            return BeatSlotOk(sp, actorSeat, isStart: true)
+                && BeatSlotOk(ep, actorSeat, isStart: false);
+        }
+
+        /// <summary>单档那半边（见 <see cref="ExpandAbilityBeats"/> 的 doc 那张逐档表）。</summary>
+        bool BeatSlotOk(int opt, int actorSeat, bool isStart)
+        {
+            int need, seat;
+            switch ((PositionOption)opt)
+            {
+                case PositionOption.nextFriendlyMinionSpot:
+                    need = 1; seat = actorSeat; break;
+                case PositionOption.nextEnemyMinionSpot:
+                    // ⚠️ 原版**只查 `startPosOption == 15`**（`endPosOption == 15` 那一支源码里没有）—— 照抄
+                    if (!isStart) return true;
+                    need = 1; seat = 1 - actorSeat; break;
+                case PositionOption.secondFriendlyMinionSpot:
+                    need = 2; seat = actorSeat; break;
+                case PositionOption.thirdFriendlyMinionSpot:
+                    need = 3; seat = actorSeat; break;
+                default:
+                    return true;               // 不是那四档 ⇒ 这道门不适用
+            }
+
+            if (FreeMinionSlots(seat) >= need) return true;
+            AbilityBeatsSlotSkipped++;
+            BeatSoundOff($"slot:{seat}:{need}",
+                $"座位 {seat} 的空位不够（需要 ≥{need} 个，`MinionManager.IsAvailableSlot` 那一档）"
+              + $" ⇒ 跳过这一拍（`startPosOption={opt}` / `isStart={isStart}`；"
+              + "判据 `AbilityLogic__PlayAnim.c:104-169`）。");
+            return false;
+        }
+
+        /// <summary>某座位**还空着几个可部署格**（督军格不算）——
+        /// 原版 `MinionManager.IsAvailableSlot` 的左侧那个「有多少空位」的等价物（**我们改的**，见 doc）。</summary>
+        int FreeMinionSlots(int seat)
+        {
+            if (Ctx == null || Ctx.Players == null || seat < 0 || seat >= Ctx.Players.Length) return 0;
+            var b = Ctx.Players[seat].Board;
+            if (b == null) return 0;
+            int n = 0;
+            for (int s = 0; s < b.Length; s++)
+                if (s != RuleEngine.BoardSpec.WarlordSlot && b[s] == null) n++;
+            return n;
+        }
+
+        /// <summary>「跳过了一拍」出声（去重 + 有上限；⛔ 不静默 —— 本仓红线）。</summary>
+        static void BeatSoundOff(string key, string msg)
+        {
+            if (_beatSkipWarned.Count >= BeatWarnCap || !_beatSkipWarned.Add(key)) return;
+            Debug.Log($"[Battle] 逐卡演出：{msg}");
+        }
+
         struct PendingSignal
         {
             public BattleEvent evt; public float at; public int drawFromEnd;
@@ -11780,6 +12080,22 @@ namespace CardPresentation
             public Vector3[] points;
             /// <summary>本事件在 <see cref="points"/> 里占第几个（0 起）。</summary>
             public int pointIndex;
+
+            // 🆕 2026-10-17（`T05` 第 3 步）：**「按表展开的一拍」那五个字段** ——
+            //   `beat == false`（默认）= 老形状（一条事件一条信号，`PlaySignal` 走原来那整段）。
+            //   `beat == true` = 本信号是某条 `EvtKind.Ability` 按 `CardAnimOrder` 展开出来的 N 拍之一。
+            /// <summary>本信号是不是「按表展开的一拍」。见 <see cref="PlaySignal"/> 顶部那道分支。</summary>
+            public bool beat;
+            /// <summary>本拍的 prefab 名（`CardAnimOrder` 的 `CardAnimBeat.vfx`）。
+            /// **空串 = 纯延时拍**（原版 `Wait_*`）—— 没有特效可播，但它的时长已经算进调度。</summary>
+            public string beatVfx;
+            /// <summary>本拍的三个位置选项（原版 `AnimInfo` 的 `0x18/0x1C/0x20`）——
+            /// 交给 `ResolveAnimAnchor` 解析成锚点（判据 → `Battle/AnimAnchors.cs`）。</summary>
+            public int beatSp, beatEp, beatPt;
+            /// <summary>`true` = **不是这一串里的第一拍** ⇒ 事件级副作用（语音 / 音效 / 手感补间 / trait 粒子）
+            /// **不再重复**。理由：一条 `EvtKind.Ability` 展开成 N 拍之后 `PlaySignal` 会被调 N 次 ——
+            /// 没有这道门，一次技能会响 N 遍单位语音与战斗音效（原版只响一遍：那是**事件**级的，不是拍级的）。</summary>
+            public bool beatTail;
         }
         readonly List<PendingSignal> _timeline = new List<PendingSignal>();
         float _clock;
@@ -11887,7 +12203,8 @@ namespace CardPresentation
 
                 var p = _timeline[best];
                 _timeline.RemoveAt(best);
-                PlaySignal(p.evt, p.drawFromEnd, p.points, p.pointIndex);
+                PlaySignal(p.evt, p.drawFromEnd, p.points, p.pointIndex,
+                           p.beat, p.beatVfx, p.beatSp, p.beatEp, p.beatPt, p.beatTail);
             }
         }
 
@@ -12237,8 +12554,31 @@ namespace CardPresentation
         /// （1 起；别的种类恒 -1）。由 `PlaySignals` 排时间线时算好、随 `PendingSignal` 一路带下来。
         /// <paramref name="points"/> / <paramref name="pointIndex"/> 🆕（`A1884`）= **同一批抽卡的全部落点**
         /// 与「本事件占第几个」—— 由 `PlaySignals` **一次算齐**（见那儿那段注释），这里是唯一的消费点。</summary>
-        void PlaySignal(BattleEvent e, int drawFromEnd = -1, Vector3[] points = null, int pointIndex = -1)
+        void PlaySignal(BattleEvent e, int drawFromEnd = -1, Vector3[] points = null, int pointIndex = -1,
+                        bool beat = false, string beatVfx = null, int beatSp = 0, int beatEp = 0,
+                        int beatPt = 0, bool beatTail = false)
         {
+            // 🆕 2026-10-17（`T05` 第 3 步）：**「按表展开的一拍」那条出口**（展开点 = `ExpandAbilityBeats`）。
+            //   它**整条在这里处理**（含第一拍的事件级副作用），走完就 return ⇒ 下面原来那整段
+            //   （`case EvtKind.Ability: evt = VfxMap.Ability;` 那一格）**只留给「表里没有这张卡」的卡**
+            //   （= 原样一拍，行为与改前**逐字一致**）。
+            if (beat)
+            {
+                if (!beatTail)
+                {
+                    // 事件级副作用**只在这一串的第一拍上跑一次** —— 一条 `EvtKind.Ability` 展开成 N 拍后
+                    // 本方法会被调 N 次；不设这道门，一次技能会响 N 遍单位语音与战斗音效
+                    // （原版这两样是**事件**级的，不是拍级的）。
+                    SpeakFor(e);
+                    PlayRemnantSfx(e);
+                    PlayBattleSfx(e);
+                    if (animateFeel) PlayFeel(e);
+                    PlayTraitParticles(e);
+                }
+                PlayAbilityBeat(e, beatVfx, beatSp, beatEp, beatPt);
+                return;
+            }
+
             SpeakFor(e);          // 单位语音条（原版 `Unit Chat`）—— 和特效同一个事件流，不另开一条路
             PlayRemnantSfx(e);    // 🆕 2026-09-29：残骸体那三条原版音效（出现 / 收集 / 被打掉）
             PlayBattleSfx(e);     // 🆕 2026-10-15（`T06`）：战斗「时机 → cue」那一族（原版 `SoundAssetCollection`）
@@ -12407,7 +12747,51 @@ namespace CardPresentation
             _animfxCtx = default;
         }
 
-        /// <summary>「挂在 HUD 上、不是挂在格位上」的三件资源事件。见 `PlaySignal` 里那段注释。</summary>
+        /// <summary>🆕 2026-10-17（`T05` 第 3 步）：播**按表展开的一拍**（`PlaySignal` 那条 `beat` 出口）。
+        ///
+        /// <para>**起锚点** = 这一拍的 `startPosOption` 经 <see cref="ResolveAnimAnchor"/> 解析
+        /// （原版 `AbilityLogic.GetPos`，36 档；判据 → `Battle/AnimAnchors.cs` 文件头）。
+        /// 解析不出来（那一档取不到 —— `AnimAnchors` 自己已经出声）⇒ **退回这一格**（`DropTargetWorld`）
+        /// 并**出声**，⛔ 不静默、也⛔ 不猜一个点（本仓红线）。</para>
+        ///
+        /// <para>⚠️ **本步只吃 `startPosOption`**：`endPosOption`(ep) / `pointTowardsOption`(pt) 已经传进来、
+        /// 但**未消费** —— 「起 → 终的位移」与 `easeCurve`/`screenShake`/… 那一批属 `T05` 第 4 步「接参数」。
+        /// ⚠️ 锚点**不在同一个空间**（场上卡 = 竞技场空间；手牌 / 牌堆 / HUD 锚 = HUD 空间）——
+        /// 这里直接取 `Transform.position`；那条换算的口径仍欠（如实记，见报告 §九）。</para>
+        /// </summary>
+        void PlayAbilityBeat(BattleEvent e, string vfx, int sp, int ep, int pt)
+        {
+            if (string.IsNullOrEmpty(vfx)) return;   // 纯延时拍：没有特效（时长已由 `ExpandAbilityBeats` 算进调度）
+
+            CardView self = ViewAt(e.Player, e.Slot);
+            CardView target = (e.TargetPlayer >= 0 && e.TargetSlot >= 0) ? ViewAt(e.TargetPlayer, e.TargetSlot) : null;
+
+            Vector3 pos;
+            Transform anchor = ResolveAnimAnchor((PositionOption)sp, e.Player, self, target);
+            if (anchor != null)
+            {
+                pos = anchor.position;
+            }
+            else
+            {
+                // 那一档取不到（`AnimAnchors` 已经出过声）⇒ 退回**这一格**，与下面普通那条路同一个落点口径。
+                if (e.Slot < 0)
+                {
+                    Debug.LogWarning($"[Battle] 逐卡演出：`{e.CardId}` 的一拍既解不出起锚点（`startPosOption={sp}`）"
+                                   + "、又不在场上（`Slot={e.Slot}`）⇒ 这一拍不播");
+                    return;
+                }
+                var layout = e.Player == _me ? playerBoard : enemyBoard;
+                pos = layout.DropTargetWorld(e.Slot);
+            }
+
+            string faction = e.Player == _me ? _myFaction : _foeFaction;
+            _animfxLastEvent = e;
+            _animfxCtx = BuildCardContext(e);         // AnimFX 模块要用「为哪两张卡播的」
+            CardEffects.Fire(vfx, pos);
+            _animfxCtx = default;
+        }
+
         static bool IsResourceUiEvent(EvtKind k)
         {
             return k == EvtKind.GainFaith || k == EvtKind.GainSpirit || k == EvtKind.GainQuest;
@@ -14433,7 +14817,12 @@ namespace CardPresentation
             FitDeckPile(_myPile, CardArt.CardBack(_myFaction), MyDeckX01, MyDeckY01);
             FitDeckPile(_foePile, CardArt.CardBack(_foeFaction), FoeDeckX01, FoeDeckY01);
 
-            // 回合灯：底板右下角（位置在 `PlaceDeckLights` 里统一摆 —— 换分辨率要重贴）
+            // 回合灯：底板右下角（位置在 `PlaceDeckLights` 里统一摆）
+            // ⚠️ **2026-10-17 更正：原来这里接着写「换分辨率要重贴」，【已过期】。** 字族/图族
+            //   2026-10-16（`T09` §五 第 5 步）迁 uGUI 后，位置 = **归一化锚点**
+            //   ⇒ **锚点自己跟分辨率、切分辨率【不需要】重贴**；且本会话（`BSC62` 批 5·c）已把
+            //   `ReanchorHud` 里那三处重贴（复位循环 / 两句 `FitDeckPile` / 一句 `PlaceHandPlate`）删掉。
+            //   `PlaceDeckLights` 自身已改【绝对赋值】⇒ 幂等；`ReanchorHud` 里保留的那次调用只是无害重写。
             _myDeckLight = HudImageTex(root, CardArt.Ui("40k_DeckHolder_light_green"), MyDeckX01, MyDeckY01,
                                        new Vector2(0.5f, 0.5f), Px(DeckLightPx), "MyDeckLight", HudImageZ - 0.01f);
             _foeDeckLight = HudImageTex(root, CardArt.Ui("40k_DeckHolder_light_green"), FoeDeckX01, FoeDeckY01,
@@ -14659,7 +15048,7 @@ namespace CardPresentation
             //            BackCanvas, FrontCanvas, BattleDoors, Tutorial highlight, Anim Anchors,
             //            UI Error Message Controller (MUST BE ENABLED)}` —— `RT_2759.m_Children` 实读。
             // 我们的 `HudRoot` = 原版 `BattleHud` 那一级（没有 uGUI Canvas 节点）⇒ 三件都挂它下。
-            BuildAspectRatioFillers(root);
+            BuildAspectRatioFillers();
             BuildErrorBanner(root);
             BuildScreenAspectRatioController();
 
@@ -15670,66 +16059,81 @@ namespace CardPresentation
         }
 
         // ==================================================================
-        //  🆕 2026-10-18（§8b · 2a）`Aspect Ratio Filler{Top,Bottom}` —— 两枚纯黑 quad
+        //  🆕 2026-10-18（§8b · 2a）`Aspect Ratio Filler{Top,Bottom}` —— 两枚纯黑件
         // ==================================================================
 
         /// <summary>建原版 **`Aspect Ratio Filler Top` / `Aspect Ratio Filler Bottom`**（**13/13 战场都有**）。
         ///
         /// <para>🔴 **原版判据（逐位，全是实读）**：
-        /// `assets_full/bundle_scenes_scenes_battlearena1/GameObject/Aspect Ratio Filler {Top,Bottom}.json`
-        /// ＋ `RectTransform/RectTransform_{3021,2916}.json` ＋ `MonoBehaviour/MonoBehaviour_{5038,5206}.json`：
+        /// `assets_full/bundle_scenes_scenes_battlearena2/GameObject/Aspect Ratio Filler {Top,Bottom}.json`
+        /// ＋ `RectTransform/RectTransform_{3214,3109}.json` ＋ `MonoBehaviour/MonoBehaviour_{5252,5423}.json`：
         /// · `RectTransform`：`anchor = pivot = (0.5,0.5)` · `sizeDelta` **3252.123046875 × 1842.02001953125** ·
         ///   Top `anchoredPosition (0.0006713899783790112, 1641.0999755859375)`、
-        ///   Bottom `(−3.051800013054162e-05, −1641.0999755859375)` · 父 = Canvas 自己的 RT（`RectTransform_2759`）；
+        ///   Bottom `(−3.051800013054162e-05, −1641.0999755859375)` · 父 = Canvas 自己的 RT（`RectTransform_2952`）；
         /// · `Image`：`m_Sprite` = **null**（`m_PathID 0`）· `m_Color` = **(0,0,0,1)** ·
         ///   `m_RaycastTarget` = **0** · `m_Type = 0`(Simple) · `m_Material` = null。
-        /// ⇒ 我们这边 = `Texture2D.whiteTexture`（配 `SetTint` 画纯色，同 `_overtimeSplashBg` 那套）
-        /// ＋ **不接命中**（本工程没有 uGUI raycastTarget 这一层 —— 这两枚也从没进过任何命中判定）。</para>
+        /// ⇒ 我们这边 = `Texture2D.whiteTexture`（配纯黑 `Image.color`，同 `_overtimeSplashBg` 那套）
+        /// ＋ **不接命中**（`raycastTarget = false`；这两枚也从没进过任何命中判定）。</para>
         ///
-        /// <para>⚠️ **它们在屏外 —— 这与原版一致，不是漏画**：中心距画布中心 ±1641.10、高 1842.02
+        /// <para>🔴 **2026-10-17（`BSC62` · `W15`）：已从世界空间 quad 迁到 uGUI** —— 判据 = 原版它是
+        /// **`Canvas` 的直子**（`RT_2952.m_Children[0..1]`，`battlearena2` 现读）。
+        /// **原版 layer / order（R5 留的那条「没查清」—— 本次现核）**：这两颗身上**没有 `Canvas`、
+        /// 也没有 `CanvasGroup`**（`GameObject/Aspect Ratio Filler *.json` 的组件表只有
+        /// `RectTransform + CanvasRenderer + Image`）⇒ 它们不另立排序组，属于**祖先画布**
+        /// `BattleHud/Canvas`（`Canvas_2765`：`m_SortingLayerID = 0`(**Default**) · `m_SortingOrder = 0` ·
+        /// `m_OverrideSorting = false`）的排序组；组内先后由**兄弟序**定，而它们正是那个 canvas 的
+        /// **`m_Children[0] / [1]`** ⇒ **画在所有 UI 之下**。
+        /// 我们的等价物 = **根画布 + 最大的 `z`**（`HudCanvas.Add` 按 z **降序**插兄弟序 ⇒ z 大 = 最底下）。</para>
+        ///
+        /// <para>⚠️ **16:9 下它们在屏外 —— 这与原版一致，不是漏画**：中心距画布中心 ±1641.10、高 1842.02
         /// ⇒ 内缘在 `1641.0999755859375 − 1842.02/2 = 720.089…`，而 16:9 画布半高只有 540
-        /// ⇒ **下缘落在屏幕上缘之外 180.09 px**。原版也要窄到 `< 4:3`（`CanvasScaler` 是
-        /// `ScaleWithScreenSize` + `match-width`，画布会变高）才可能露出来；**我们这套坐标的可见高恒
-        /// 10 世界单位**（`LayoutSpace`）⇒ 照值摆它们**恒在屏外**。⇒ 本件建它们的意义 =
-        /// **存在性与参数逐值一致**（原版 13/13 都有这两颗，`m_IsActive` 都是 true）；
-        /// 真正的黑边由 <see cref="BuildScreenAspectRatioController"/> 写相机 rect + `GL.Clear` 产生。</para>
+        /// ⇒ **下缘落在屏幕上缘之外 180.09 px**。原版也要窄到 `< 4:3`（`CanvasScaler` 的 `Expand` 档下
+        /// 画布会变高）才可能露出来；**迁到 uGUI 之后我们与它同一口径**（`HudCanvas` 的 `CanvasScaler` 是
+        /// `1920×1080 / Expand`，非 16:9 时画布框跟着变）—— 迁移前那套世界坐标的可见高恒 10 世界单位，
+        /// 这两件**任何比例下都不会露出来**，那才是与原版不符的地方。⇒ 本件建它们的意义 =
+        /// **存在性、参数与层序逐值一致**。真正的黑边由 <see cref="BuildScreenAspectRatioController"/>
+        /// 写相机 rect + `GL.Clear` 产生。</para>
         ///
-        /// <para>⚠️ **分层（等价物，如实标）**：原版这两颗是 Canvas 的**头两个子件**（`RT 2759.m_Children[0..1]`，
-        /// 排在 `BackCanvas`/`FrontCanvas`/`BattleDoors` 之前）⇒ **画在所有 UI 之下**。
-        /// 我们没有 uGUI 的兄弟序 ⇒ 等价物 = **渲染队列**（`CLAUDE.md` §三）+ 一个**很靠后**的 z：
-        /// 队列 `2999`（HUD 全族是默认 3000 起）、z = `+5`（相机看 +Z ⇒ z 越大越远）。</para>
-        /// ✍️ 该藏的时候：**永远不用藏** —— 原版这两颗 `m_IsActive` 13/13 都是 `true`、也没有任何代码开关它们
-        /// （全库按名 grep 0 命中，见报告 §五）。它们「看不见」是**几何**造成的，不是显隐。</summary>
-        void BuildAspectRatioFillers(Transform root)
+        /// <para>✍️ 该藏的时候：**永远不用藏** —— 原版这两颗 `m_IsActive` 13/13 都是 `true`、也没有任何
+        /// 代码开关它们。它们「看不见」是**几何**造成的，不是显隐。</para></summary>
+        void BuildAspectRatioFillers()
         {
-            const int QFiller = 2999;         // 比 HUD 全族的 3000 小 ⇒ 垫在最底下
-            const float ZFiller = 5f;         // 相机看 +Z ⇒ z 越大越远（HUD 文字 0 / 图 0.3 / 装饰 0.6）
+            // `HudCanvas.Add` 的 z：**比所有 HUD 件都大**（图 0.3 / 底板 0.6 / 字 0）
+            // ⇒ 兄弟序最前 = 画在原版那两件所在的位置（Canvas 的 children[0..1]）。
+            const float ZFiller = 5f;
 
-            // 自上而下的 px：Top = 540 − 1641.0999755859375、Bottom = 540 + 1641.0999755859375
-            float topY = LayoutSpace.DesignPxH * 0.5f - AspectFillerTopY;
-            float botY = LayoutSpace.DesignPxH * 0.5f - AspectFillerBottomY;
-            float topCx = LayoutSpace.DesignPxW * 0.5f + AspectFillerTopX;
-            float botCx = LayoutSpace.DesignPxW * 0.5f + AspectFillerBottomX;
-
-            _aspectFillerTop = BuildOneAspectFiller(root, "Aspect Ratio Filler Top", topCx, topY, QFiller, ZFiller);
-            _aspectFillerBottom = BuildOneAspectFiller(root, "Aspect Ratio Filler Bottom", botCx, botY, QFiller, ZFiller);
+            _aspectFillerTop    = BuildOneAspectFiller("Aspect Ratio Filler Top",
+                                                       AspectFillerTopX, AspectFillerTopY, ZFiller);
+            _aspectFillerBottom = BuildOneAspectFiller("Aspect Ratio Filler Bottom",
+                                                       AspectFillerBottomX, AspectFillerBottomY, ZFiller);
         }
 
-        ImageQuad BuildOneAspectFiller(Transform root, string name, float cxPx, float cyPx, int queue, float z)
+        HudPiece BuildOneAspectFiller(string name, float apX, float apY, float z)
         {
-            var q = ImageQuad.Create(root, Texture2D.whiteTexture, LayoutSpace.FromPixel(cxPx, cyPx),
-                                     Px(AspectFillerH), new Vector2(0.5f, 0.5f), name);
-            if (q == null)
+            // 🔴 **别挂 `root`（`hudRoot`）** —— 那是反向补震用的；uGUI 件一律挂在根画布下
+            //    （判据 → `T09` §五·补④ 最后一行 / `HudCanvas` 文件头）。
+            var canvas = HudCanvas.Ensure(cam);
+            if (canvas == null)
             {
-                Debug.LogWarning("[Battle] 🔴 `" + name + "` 建不出来（`ImageQuad.Create` 回了 null）"
+                Debug.LogError("[Battle] 🔴 `" + name + "` 建不出来（uGUI 根画布没建起来 —— `cam` 为空？）"
+                             + " —— 原版 13/13 战场都有这一颗，别静默");
+                return null;
+            }
+            // 尺寸 = 原版 `m_SizeDelta`（canvas 单位 = 设计 px）；比例**不由贴图给**（原版 `m_Sprite` 是 null、
+            // `m_Type = 0` + `PA = 0` ⇒ 拉满那个矩形）。`MakeAnchored` 的 `hPx/wPx` 直接进 `sizeDelta`。
+            var p = HudCanvas.MakeAnchored(canvas, Texture2D.whiteTexture, name,
+                                           0.5f, 0.5f, new Vector2(0.5f, 0.5f),
+                                           AspectFillerH, AspectFillerW, z,
+                                           new Color(0f, 0f, 0f, 1f));
+            if (p == null)
+            {
+                Debug.LogWarning("[Battle] 🔴 `" + name + "` 建不出来（`HudCanvas.MakeAnchored` 回了 null）"
                                + " —— 原版 13/13 战场都有这一颗，别静默");
                 return null;
             }
-            q.SetAspect(AspectFillerW / AspectFillerH);          // 原版是 `m_Type = 0`(Simple) + 没有图 ⇒ 按矩形拉伸
-            q.SetTint(new Color(0f, 0f, 0f, 1f));                // `m_Color = (0,0,0,1)`
-            q.SetRenderQueue(queue);
-            q.transform.localPosition += new Vector3(0f, 0f, z);   // ⚠️ 这一件**没迁**（不在那一族里）⇒ 仍走旧口
-            return q;
+            // 原版 `m_AnchoredPosition` 逐值照抄（锚 = 中心、pivot = 中心、y 向上、canvas 单位 = 设计 px）。
+            if (p.Rect != null) p.Rect.anchoredPosition = new Vector2(apX, apY);
+            return p;
         }
 
         // ==================================================================
@@ -15886,24 +16290,42 @@ namespace CardPresentation
 
         /// <summary>
         /// 把两盏回合灯摆到牌堆底板的右下角。
-        /// ⚠️ **必须可重入** —— `ReanchorHud` 换分辨率时会把所有 HUD 图拉回各自的锚点，
-        ///    那会把灯上的偏移抹掉，所以那边也要再调一次。这里是从零算出来的，调几次都一样。
+        /// 🔴 **2026-10-17（`BSC62` · 批 5 · b）：从「相对累加」改成【绝对赋值】。**
+        ///   旧写法走 `HudPiece.NudgeWorld`，而它 uGUI 支 = `_rt.anchoredPosition += …`（**增量**）⇒
+        ///   依赖「调用前有人先把它拉回锚点」（那就是 `ReanchorHud` 里那轮 `SetAnchorPosition` 复位循环）。
+        ///   批 5 的 c 删掉那轮复位后，若这里还累加 ⇒ **每切一次分辨率就 `+=` 一次、静默累加**
+        ///   （16:9 下看不出来、只有非 16:9 才现形）。⇒ 改成绝对：先定锚、再写设计 px 偏移，
+        ///   调几次都一样（**幂等**），**不再依赖任何复位**。写法与同文件的 `PlaceHandPlate` 一致。
+        ///   ⚠️ 偏移量 `MyLightDxPx/MyLightDyPx`（= 83.46 / −20.2）与旧写法喂进 `NudgeWorld` 的**同一个数**
+        ///   （它 uGUI 支把 `Px(dx)·k` 还原回**设计 px** ⇒ 那里加的本来就是设计 px），一笔不差。
         /// </summary>
         void PlaceDeckLights()
         {
-            // ⚠️ **2026-10-16（`T09` 翻件）**：原来这里是「自己算绝对位置再写 `transform.localPosition`」——
-            //   uGUI 那一侧**那是个错的口**（单位是设计 px、相对的是画布，不是世界）⇒ 改走
-            //   `HudPiece.NudgeWorld`（两种模式各用各的口，判据在 `Battle/HudPiece.cs`）。
-            //   ⚠️ 原来这里还顺带定了 z（`HudImageZ - 0.01`）⇒ 那一档改成**建的时候给**
-            //     （uGUI 下 z 没有意义、兄弟序才有，见 `HudCanvas.Add`）。
-            if (_myDeckLight != null) _myDeckLight.NudgeWorld(Px(MyLightDxPx), Px(MyLightDyPx));
-            if (_foeDeckLight != null) _foeDeckLight.NudgeWorld(Px(FoeLightDxPx), Px(FoeLightDyPx));
+            // ⚠️ **2026-10-16（`T09` 翻件）留痕**：原来这里是「自己算绝对位置再写 `transform.localPosition`」——
+            //   uGUI 那一侧那是个错的口（单位是设计 px、相对的是画布，不是世界）。z 那档改成**建的时候给**
+            //   （uGUI 下 z 没有意义、兄弟序才有，见 `HudCanvas.Add`）。
+            // 🔴 **2026-10-17（`BSC62` · 批 5 · b）**：直接写 `Rect` 的锚点 + `anchoredPosition`（**绝对**，
+            //   ⛔ 不再走 `NudgeWorld` 那个 `+=`；`HudPiece.NudgeWorld` 本件不动 —— 别的件还用它）。
+            if (_myDeckLight != null && _myDeckLight.Rect != null)
+            {
+                _myDeckLight.Rect.anchorMin = _myDeckLight.Rect.anchorMax = new Vector2(MyDeckX01, MyDeckY01);
+                _myDeckLight.Rect.anchoredPosition = new Vector2(MyLightDxPx, MyLightDyPx);
+            }
+            if (_foeDeckLight != null && _foeDeckLight.Rect != null)
+            {
+                _foeDeckLight.Rect.anchorMin = _foeDeckLight.Rect.anchorMax = new Vector2(FoeDeckX01, FoeDeckY01);
+                _foeDeckLight.Rect.anchoredPosition = new Vector2(FoeLightDxPx, FoeLightDyPx);
+            }
         }
 
         /// <summary>把手牌数底板摆到**手牌标签的后面**（原版就是「文字居中压在板上」的关系）。
         /// ⚠️ 位置是**我们挑的** —— 原版那两个节点在 dump 里 `activeInHierarchy=False`、祖先链又算不出
         ///    绝对坐标（见 `HandPlatePx` 的注释）。所以不写死坐标，跟着标签走：标签换文案/换分辨率，
-        ///    板也自己跟过去。`ReanchorHud` 换分辨率后要再调一次（它会把板拉回自己的锚点）。</summary>
+        ///    板也自己跟过去。
+        ///    ⚠️ **2026-10-17 更正：原来这里接着写「`ReanchorHud` 换分辨率后要再调一次（它会把板拉回
+        ///    自己的锚点）」，【已过期】。** 本函数现在只**绝对**写 `anchoredPosition`（不依赖任何复位），
+        ///    且它在 `UpdateHud()` 里**每帧**都被调 ⇒ `ReanchorHud` 里那一句本来就是多余的、
+        ///    本会话（`BSC62` 批 5·c）已删。错因：旧写法依赖「调用前先被复位」，改制后该前提消失。</summary>
         void PlaceHandPlate()
         {
             if (_handPlate == null || _handLabel == null) return;
@@ -16042,9 +16464,14 @@ namespace CardPresentation
         {
             get { return _myPlate != null ? _myPlate.Anchor01() : Vector2.zero; }
         }
+        /// <summary>自检用：敌方名牌的**左缘中点**（归一化）。**与 `MyPlatePos01` 同源** —— 都走
+        /// <see cref="HudPiece.Anchor01"/>（`_myPlate`/`_enemyPlate` 同由 `HudImage("UI_Player_Frame", …)` 建）。
+        /// 🔴 **2026-10-17**：原来走 `ToNormalized(localPosition)`（世界尺）—— `T09` 后名牌已在画布上、
+        /// `localPosition` 是**画布 px** ⇒ 量纲就错了（`A1512` 那条红）。孪生 getter 原来不同源，本处补齐。
+        /// ⚠️ 本口依赖 `HudPiece.Anchor01()` 的 uGUI 支（`W2` 正在补 `anchoredPosition` 那一跳）。</summary>
         public Vector2 EnemyPlatePos01
         {
-            get { return _enemyPlate != null ? LayoutSpace.ToNormalized(_enemyPlate.transform.localPosition) : Vector2.zero; }
+            get { return _enemyPlate != null ? _enemyPlate.Anchor01() : Vector2.zero; }
         }
         /// <summary>自检用：名牌那面 `NameBackground` 的**实绘高/宽**（世界单位）。
         /// 原版（`menu_dump` 的 `视觉框`）：**101.04 × 305.8882 px**
@@ -16160,10 +16587,11 @@ namespace CardPresentation
             //    改成直接用建的时候就存下来的引用（同一批对象，而且不再依赖名字）。
             return PosOf(mine ? _myQuestIcon : _foeQuestIcon);
         }
-        static Vector2 PosOf(Component c)
-        {
-            return c == null ? new Vector2(-1f, -1f) : LayoutSpace.ToNormalized(c.transform.localPosition);
-        }
+        // 🔴 **2026-10-17（`BSC62` · 批 5 · d）：这里原来是 `PosOf(Component)`（读 `transform.localPosition`
+        //   再 `LayoutSpace.ToNormalized`，= **已被推翻的世界尺口径**）。** 它的 3 个调用点传的全是 `HudPiece`
+        //   （`_myEnergyPlate`/`_foeEnergyPlate`/`_myQuestIcon`/`_foeQuestIcon`，声明见 `:1285-1286`）⇒
+        //   重载解析一律选中下面的 `PosOf(HudPiece)` ⇒ 它**零调用**。留着哪天被误调会**静默拿错值**
+        //   （uGUI 侧单位是设计 px、相对的是画布，`localPosition` 量不出归一化位置）⇒ 已删。⛔ 别加回来。
 
         /// <summary>🆕 `T09`（2026-10-16）：`HudPiece` 那一支 —— 读的是**它贴着的归一化锚点**
         /// （⛔ 不是 `transform.localPosition`：uGUI 那一侧单位是设计 px、相对的是 canvas）。</summary>
@@ -16176,7 +16604,8 @@ namespace CardPresentation
         //    这一族字**不再挂世界空间**：`Hud()` 把它们建在**画布**下、位置 = **归一化锚点** ⇒
         //    锚点**自己跟分辨率**（切分辨率**不需要**重贴）⇒ `_hudSpots`（那份「重贴用」的坐标备份）
         //    **已随 `ReanchorHud` 里那一轮一起删掉**。⛔ 别照上面那两行再把重贴加回来。
-        //    ⚠️ `_hudLabels` **留着**：`HudLabelScaleForTest`（自检读口）与 `HudLabelAnchorForTest` 用它。
+        //    ⚠️ `_hudLabels` **留着**：`HudLabelOnCanvasForTest` / `HudLabelAnchorForTest` 用它
+        //      （旧的 `HudLabelScaleForTest` 本批已删 —— 它迁后恒 1、且全仓零活调用者）。
         readonly List<Label> _hudLabels = new List<Label>();
         readonly List<HudPiece> _hudImages = new List<HudPiece>();
         readonly List<Vector2> _hudImageSpots = new List<Vector2>();
@@ -16209,18 +16638,10 @@ namespace CardPresentation
         /// <summary>自检口：uGUI 层建起来了没有（`T09` 第 2 步「层立住了」就靠它）。</summary>
         public bool HudCanvasReady { get { return HudCanvas.RootRect != null; } }
 
-        /// <summary>🆕 `T09`：第 `i` 个 HUD 标签的 `localScale.x`。
-        /// <para>🔴 **2026-10-16（`T09` §五 第 5 步 · 字族迁 uGUI）后就恒为 1** —— 这一族字不再乘
-        /// `LayoutSpace.HudTextScale`（改由画布 `CanvasScaler` 统一缩放）⇒ **这个口的原意没了**。
-        /// ⚠️ 它**留着只为编得过**（`Editor/BattleScene.cs:1908` 还在调它，那个文件不在本件白名单 ——
-        /// 该断言要换成 `HudLabelOnCanvasForTest` / `HudLabelAnchorForTest`，见 `EW4` 报告 ③）。
-        /// ⛔ 别拿它当「迁移有没有生效」的判据（它恒 1）。</para>
-        /// 越界 / 没建 ⇒ **`-1`**（⛔ 不返回 0 或 1 —— 那两个都像「合法值」）。</summary>
-        public float HudLabelScaleForTest(int i)
-        {
-            return (i >= 0 && i < _hudLabels.Count && _hudLabels[i] != null)
-                 ? _hudLabels[i].transform.localScale.x : -1f;
-        }
+        // 🔴 **2026-10-17（`BSC62` · 批 5 · a）：这里原来是 `HudLabelScaleForTest(int)`（读标签 `localScale.x`）。
+        //   字族迁 uGUI 后它**恒为 1**（字不再乘 `LayoutSpace.HudTextScale`）⇒ 原意没了、**全仓零活调用者**
+        //   ⇒ 已删（连同它那段「留着只为编得过」的 doc）。⛔ 别加回来。要读这族字用
+        //   `HudLabelOnCanvasForTest` / `HudLabelAnchorForTest`。
 
         /// <summary>🔴 **2026-10-16（`T09` §五 第 5 步 · 字族迁 uGUI）新增**：HUD 那一族字的**颗数**
         /// （= `Hud()` 的建字次数，现读 **21**）—— 自检用它**逐颗**跑
@@ -16426,8 +16847,10 @@ namespace CardPresentation
         /// 宽 **+16.1%** / 高 **+10.0%**；实况用的 `UM_Warlord_Tigurius` 高 +7.5%）。
         /// 算式与判据全文 → `Core/CardbackFace.cs`（本仓唯一一份）。</para>
         ///
-        /// <para>🔴 **幂等**：每次先 `SetAnchorPosition(x01,y01)`（= 回到基准，⛔ **不要在现位置上累加** ——
-        /// `ReanchorHud` 每切一次分辨率就会调一次本函数，累加会一次偏一点、静默）。
+        /// <para>🔴 **幂等**：每次先 `SetAnchorPosition(x01,y01)`（= 回到基准，⛔ **不要在现位置上累加**）。
+        /// ⚠️ **2026-10-17 更正：原来这里接着写「`ReanchorHud` 每切一次分辨率就会调一次本函数」，
+        /// 【已过期】—— 本会话（`BSC62` 批 5·c）已删掉 `ReanchorHud` 里对它的那两句调用。**
+        /// 幂等的前提（第一句 `SetAnchorPosition` 回基准）不变；锚点自己跟分辨率 ⇒ 换分辨率也无需重贴。
         /// 取不到卡背图 / 该图没登记 ⇒ `Fit` 返回 false ⇒ **不改几何**（缺图 `CardArt.CardBack` 那边已出声）。</para></summary>
         void FitDeckPile(HudPiece q, Texture2D tex, float x01, float y01)
         {
@@ -16579,21 +17002,18 @@ namespace CardPresentation
             //        ⇒ `LayoutSpace.HudTextScale` 在本文件**再无消费者**
             //        （⚠️ 它本体在 `Core/LayoutSpace.cs` —— **那不在本件白名单** ⇒ 待删，见 `EW4` 报告 ③）。
             //    ⛔ 别把那一轮加回来（加回来 = 与 `Hud()` 里写的锚点**打架**：会把字按世界坐标摆到画布原点附近）。
-            for (int i = 0; i < _hudImages.Count; i++)
-                if (_hudImages[i] != null)
-                    _hudImages[i].SetAnchorPosition(_hudImageSpots[i].x, _hudImageSpots[i].y);
+            // 🔴 **2026-10-17（`BSC62` · 批 5 · c）：这里原来还有【三条已迁件的重贴】，一并删掉 —— 已删。**
+            //     ① 一轮 `for (_hudImages…) SetAnchorPosition(spot)` **复位循环** —— 那 21 颗 HUD 图现已挂在
+            //        **画布**下、位置 = 归一化锚点 ⇒ **锚点自己跟分辨率**，换分辨率**不需要**重贴；
+            //     ② 两句 `FitDeckPile(_myPile/_foePile, …)` —— `FitDeckPile` **自身幂等**（每次先回基准再加偏移），
+            //        建时已摆对、锚点也自己跟分辨率 ⇒ 删掉这里的重复调用**不改变几何**；
+            //     ③ 一句 `PlaceHandPlate()` —— 它早已改成**绝对**写 `anchoredPosition`（自足、幂等）。
+            //     ⚠️ 登记点 `_hudImages` / `_hudImageSpots` **两个 List 留着**（语义已变「画布件锚点册」）；
+            //        `PlaceDeckLights()` 调用**留着**（它本批也已改成绝对 ⇒ 幂等、无害）。
+            //     ⛔ 别把这三条加回来（尤其那轮复位会把 `PlaceDeckLights` 的偏移重新拉回锚点、与绝对赋值打架）。
 
-            // 🆕 **2026-10-19（B2）**：牌堆卡背的**画心也不在锚点上**（尺寸按 `texRect/m_Rect` 缩、
-            //   位置按 `padding` 偏，见 `FitDeckPile`）—— 上面那一轮 `SetAnchorPosition` 把它拉回了锚点 ⇒
-            //   这里必须重来一次（**同一个理由**，就在下面 `PlaceDeckLights` 那两行旁边）。
-            //   ⚠️ `FitDeckPile` 自身幂等（先回基准再加偏移）⇒ 重复调用不会累积偏移。
-            FitDeckPile(_myPile, CardArt.CardBack(_myFaction), MyDeckX01, MyDeckY01);
-            FitDeckPile(_foePile, CardArt.CardBack(_foeFaction), FoeDeckX01, FoeDeckY01);
-
-            // 牌堆的回合灯不是贴在锚点上的（要偏到牌堆底板的右下角），上面那一轮会把它拉回中心
+            // 牌堆的回合灯（本批已改成**绝对**摆放 ⇒ 这里再调一次只是幂等重写、无害；调用保留）
             PlaceDeckLights();
-            // 手牌数底板同理（它是跟着手牌标签的中心摆的）
-            PlaceHandPlate();
 
             // 格位底片和槽带同理（它们也是用 VisibleWidth 算的）
             if (playerBoard != null) playerBoard.EnsureMarkers();
@@ -17214,8 +17634,13 @@ namespace CardPresentation
         {
             if (!ClickLog.Enabled) return;
             var wp = WorldPointer();
+            // 🔴 **2026-10-17（`T09` 批 4 · W11）就地换口（铁律 5）**：`ToPixel` → **`ToDesignPixel`**。
+            //   `ClickLog` 第三参的契约是**画布像素（1920×1080 口径）**（`Core/ClickLog.cs:103`）；另一条
+            //   调用链 `Shell/PointerLayer` 喂进去的就是设计 px（`MenuDraw.PixelOfDesign` = 转调
+            //   `ToDesignPixel`）⇒ 两条链必须同一把尺，否则非 16:9 下「画布」读数对不上
+            //   （`ToPixel` 的 x 写死 108，差 `VisibleWidth / DesignWidth` 倍）。⛔ y 那半两者逐位相同。
             ClickLog.Begin(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, "BattleDriver",
-                           LayoutSpace.ToPixel(wp));
+                           LayoutSpace.ToDesignPixel(wp));
             ClickLog.Hit("世界坐标 (" + wp.x.ToString("F2") + ", " + wp.y.ToString("F2") + ", "
                          + wp.z.ToString("F2") + ")"
                          + " —— 战场没有统一的命中表，**实际吃到的是哪一件看下面这帧的日志**");
