@@ -122,7 +122,10 @@ namespace CardPresentation
         static readonly PxRect TabsRowR = new PxRect(359.97f, 116.65f, 1417.27f, 185.15f);
         static readonly PxRect InfoBtnR = new PxRect(359.97f, 117.08f, 619.97f, 184.72f);
         static readonly PxRect TrophiesBtnR = new PxRect(632.42f, 117.08f, 892.42f, 184.72f);
-        static readonly Vector4 TabBtnBorder = new Vector4(188f, 0f, 99f, 30f);
+        // 🔴 **2026-10-18（P1 §八 #3）**：这里原来有一条 `TabBtnBorder = (188,0,99,30)`，**声明了却从未使用**
+        //   （底图走 `Rect` = 单块拉伸）。现在九宫格那两套 border（两张 sprite **各一份**）收在
+        //   文件尾的 `AllianceTabBg` 里 —— 本文件与 `AllianceSearchTab` **共用那一份**，
+        //   ⛔ 别在这里再复制一遍数值（铁律 6）。
         static readonly Color TabOnCol = new Color(1f, 0.631f, 0f, 1f), TabOffCol = new Color(1f, 0.544f, 0f, 1f);
         const string ArtTabOn = "40K_tab_button", ArtTabOff = "40K_tab_button_overwindow";
 
@@ -154,7 +157,10 @@ namespace CardPresentation
         static readonly PxRect ChatPreviewR = new PxRect(1479.80f, 109.80f, 1879.80f, 169.80f);
 
         Transform _general, _trophies;
-        ImageQuad _infoBg, _trophiesBg;
+        /// <summary>两颗页签的**节点**（底图的九宫格挂在它下面、名字仍叫 `Image`）。
+        /// 🔴 **2026-10-18（P1 §八 #3）**：类型从 `ImageQuad` 改成 `Transform` —— 九宫格底图是
+        /// **九块子件**，换图要走 `AllianceTabBg.Build` 重建（`SetTexture` 换不了角块切分，见那个类的 doc）。</summary>
+        Transform _infoBg, _trophiesBg;
 
         /// <summary>🆕 2026-10-03（A25④）：`MemberList>Scroll View` 那一格的**纵向滚动区**
         /// （全壳唯一一份滚动实现 = `MenuScroll`）。由 `AllianceGeneralDetails.Build` 建好后写进来
@@ -356,10 +362,14 @@ namespace CardPresentation
         //   `Shell/SocialWindow.cs` 的 `SocialPage.Text` 头（A213 表）· 标称字号那一族 ⇒ A413 / A406。
         // ============================================================================================
 
-        ImageQuad Toggle(Transform parent, PxRect r, string name, string text, bool on)
+        Transform Toggle(Transform parent, PxRect r, string name, string text, bool on)
         {
             var n = Node(parent, name, r);
-            var q = Rect(n, on ? ArtTabOn : ArtTabOff, r, "Image", L_Btn, on ? TabOnCol : TabOffCol);
+            // 🔴 **2026-10-18（P1 §八 #3）**：底图从 `Rect`（单块拉伸）改成**九宫格**
+            //   （原版这两颗 `Image.Type = Sliced` · `m_PixelsPerUnitMultiplier = 1.5`）；
+            //   border 两张 sprite 各一份，统一在文件尾的 `AllianceTabBg`。改前 489px 整图横向压进
+            //   260px（÷1.88）⇒ 圆角端帽被压扁。底图节点名仍是 `Image`（原版子件名）。
+            AllianceTabBg.Build(Page, n, r, on, ArtTabOn, ArtTabOff, TabOnCol, TabOffCol, QOff + L_Btn);
             // 🔴 **A319 #1**：原版 `Generic Tab UI Button {Info,Trophies}/Button Text` = **`Center`(2)**
             //   （`menu_dump … "AllianceMemberVariant"` 那份的「对齐=」列报 `Center/Midline`）。
             //   原来没传 `alignLeft` ⇒ 借缺省 `true` 被 `MenuDraw.AlignLeft` 推到左边缘（**真偏离**）。
@@ -398,7 +408,7 @@ namespace CardPresentation
             //   一条 7 实参的 `Clip` 探针，那文件不在白名单）⇒ 判据与最小改法只写在
             //   `Shell/SocialWindow.cs` 的 `SocialPage.Text` 文档头，**别在这儿抄第二份**。
             //   ⛔ **行号那一串会漂** —— 认节点名，别认行号。
-            return q;
+            return n;              // 2026-10-18：返**节点**（九宫格底图挂在它下面），⛔ 不是 `ImageQuad` 了
         }
 
         public void ShowGeneral()
@@ -417,19 +427,12 @@ namespace CardPresentation
 
         void SwapTabArt(bool trophiesOn)
         {
-            var onTex = Page.ArtOf(ArtTabOn);
-            if (_infoBg != null && onTex != null)
-            {
-                _infoBg.SetTexture(onTex);
-                _infoBg.SetAspect(InfoBtnR.W / InfoBtnR.H);
-                _infoBg.SetTint(trophiesOn ? TabOffCol : TabOnCol);
-            }
-            if (_trophiesBg != null && onTex != null)
-            {
-                _trophiesBg.SetTexture(onTex);
-                _trophiesBg.SetAspect(TrophiesBtnR.W / TrophiesBtnR.H);
-                _trophiesBg.SetTint(trophiesOn ? TabOnCol : TabOffCol);
-            }
+            // 🔴 **2026-10-18（P1 §八 #3）**：原版 `EverguildToggle.ToggleSprite` 是
+            //   `Image.sprite = isOn ? onSprite : offSprite`（**每颗按自己的 `m_IsOn` 各取各的**）——
+            //   改前我们把**同一张 onSprite** 刷到两颗身上、只靠染色区分。这里改成**各按各的状态**取图，
+            //   并且因为两张 sprite 的 `m_Border` 不同，换图必须**重建九宫格**（`AllianceTabBg.Build`）。
+            AllianceTabBg.Build(Page, _infoBg, InfoBtnR, !trophiesOn, ArtTabOn, ArtTabOff, TabOnCol, TabOffCol, QOff + L_Btn);
+            AllianceTabBg.Build(Page, _trophiesBg, TrophiesBtnR, trophiesOn, ArtTabOn, ArtTabOff, TabOnCol, TabOffCol, QOff + L_Btn);
         }
 
         // ---------------------------------------------------------- `TrophiesWindow`（`AllianceTrophiesView`）
@@ -1541,6 +1544,55 @@ namespace CardPresentation
             //   ⚠️ 与**上面页内**那两颗同名的 `{Alliance,Draft} Rating Display/Individual rating value`
             //   （`Left/Midline`）是**同名不同档**，见本文件头那张表：横向取 `Right`、纵向**两颗都是 `Midline`**）。
             MenuDraw.SetVAlign(lb, Label.VAlign.Midline, tr);
+        }
+    }
+
+    /// <summary>联盟两个页（`AllianceMemberTab` 的 `{General,Trophies}` 与 `AllianceSearchTab` 的
+    /// `{Join,Create}`）**共用的页签底图九宫格** —— 2026-10-18（`P1_弹窗排版_卡组卡牌.md` §八 #3）收口。
+    ///
+    /// <para>🔴 **判据 = 贴图自己的 `m_Border`**（`d:/2/新解包资源/assets_full/sharedassets0/Sprite/` 逐张现读）
+    /// ＋ prefab 的 `m_PixelsPerUnitMultiplier = 1.5`（`menu_dump.py bundle_menus_assets_all
+    /// "AllianceMemberVariant" --depth 12` 那两行页签都印着 `九宫… | Sliced … ppuMul=1.5`）：
+    /// · `40K_tab_button` **489×79** · `m_Border = (183, 0, 128, 29)`
+    /// · `40K_tab_button_overwindow` **489×97** · `m_Border = (188, 0, 99, 30)`</para>
+    ///
+    /// <para>🔴 **两张图各一份 border**（不是同一份值的复制）：原版 `Image.Type = Sliced` 切的是**当前那张
+    /// sprite 自己的** `m_Border`，而 `EverguildToggle` 换 sprite 时 uGUI 会**重新切一遍**
+    /// ⇒ 我们换图也必须**重建**九宫格（只 `SetTexture` 的话角块仍按旧 border 切，端帽比例错）。</para>
+    ///
+    /// <para>⚠️ **别把 `border` 与 `borderOutPx` 混为一谈**：`MenuDraw.Nine` 的 `border` 收**贴图 px**，
+    /// `m_PixelsPerUnitMultiplier` 走 `borderOutPx`（= `border ÷ 1.5`，判据 → `ImageQuad.CreateNineSlice`
+    /// 的同名参数注释）。⚠️ 本工程里页签底图**只有这一份九宫格参数**，⛔ 别在调用点再抄一遍数值。</para></summary>
+    internal static class AllianceTabBg
+    {
+        static readonly Vector4 BorderOff = new Vector4(188f, 0f, 99f, 30f);   // 40K_tab_button_overwindow · 489×97
+        static readonly Vector4 BorderOn = new Vector4(183f, 0f, 128f, 29f);   // 40K_tab_button · 489×79
+        /// <summary>两张页签底图的 `m_PixelsPerUnitMultiplier`（prefab 实读 = 1.5）。</summary>
+        const float PpuMul = 1.5f;
+
+        /// <summary>把一颗页签的底图（重）建成九宫格 —— 节点名仍是 `Image`（照原版子件名），挂在页签节点下。
+        /// <param name="on"/> = 原版那颗 `EverguildToggle.m_IsOn`：决定取哪张 sprite / 哪份 border / 哪个染色。
+        /// 旧的那一层会先被撤掉（`MainMenuSubmenuWindow.DestroySafe` —— 批处理下自动走 `DestroyImmediate`）。</summary>
+        internal static void Build(SocialPage page, Transform node, PxRect r, bool on,
+                                   string onArt, string offArt, Color onCol, Color offCol, int qOff)
+        {
+            if (page == null || node == null) return;
+            // 先撤掉旧的底图层（可能不止一层：运行时 `Object.Destroy` 到帧末才真销毁 ⇒ 按名字全清一遍）
+            for (int i = node.childCount - 1; i >= 0; i--)
+            {
+                var ch = node.GetChild(i);
+                if (ch != null && ch.name == "Image") MainMenuSubmenuWindow.DestroySafe(ch.gameObject);
+            }
+            var tex = page.Win != null ? page.Win.Art(on ? onArt : offArt) : null;
+            if (tex == null)
+            {
+                // 红线：不许静默失败 —— 图取不到就说出来（`Win.Art` 已把它记进 `MissingArt`）
+                SocialPage.Say("[Social] 页签底图取不到：" + (on ? onArt : offArt) + " ⇒ 那一层不画");
+                return;
+            }
+            var border = on ? BorderOn : BorderOff;
+            MenuDraw.Nine(node, tex, r, border, tex.width, tex.height, page.Q + qOff,
+                          on ? onCol : offCol, true, "Image", border / PpuMul);
         }
     }
 }

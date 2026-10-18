@@ -8874,8 +8874,12 @@ public static partial class RuleEngineTest
             selfMade++;
             if (CardDatabase.FindById(pool, c.Id) != c) reverseFail++;
         }
-        CheckTrue(selfMade > 0, $"池子里有自造 id 的卡（{selfMade} 张）");
-        CheckTrue(reverseFail == 0, $"自造 id 也能按 id 反查回同一张（{selfMade} 张，失败 {reverseFail} 张）");
+        // 🔴 **2026-10-18（第五十二会话收口 · 铁律 5）**：K06 把最后 23 张自造 id 全换成了真 id
+        //   ⇒ 现读 **0 张自造**（K06 报告 `:11/:16` 的目标态）。旧断言 `selfMade > 0` 是 K06 之前的期望；
+        //   上方注释 `:8846-8849` 早已写明「没样本了」，两处自相矛盾 —— 这里钉「**正好 0**」（将来再冒出
+        //   自造 id ⇒ 红，仍然咬得住）。
+        CheckTrue(selfMade == 0, $"池子里**没有**自造 id 的卡（{selfMade} 张；K06 起池 id 全真值）");
+        CheckTrue(reverseFail == 0, $"按 id 反查回同一张（{selfMade} 张自造样本，失败 {reverseFail} 张）");
 
         // ---- ③ id 的两种形态：原版 `AM12` / 自造 `AM_Some_Card` ----
         // **自造的必须数得出来**（不许静默）—— 它等于「这张卡原版 id 表里没有」。
@@ -11795,9 +11799,12 @@ public static partial class RuleEngineTest
                 nonZero++;
                 if (c.Cost == 2) nTwo++; else nOther++;
             }
-            CheckTrue(nonZero == 47 && nTwo == 47 && nOther == 0,
-                      $"★ 督军里 cost 非 0 的应**正好 47 张**、且**全是 2**（实得 nonZero={nonZero} · "
-                      + $"=2 的 {nTwo} 张 · 别的取值 {nOther} 张）—— 那 47 张是**真值给的 2**"
+            // 🔴 **2026-10-18（第五十二会话收口 · 铁律 5）**：47 → **49**。K06 把 `UM_Roboute_Guilliman` /
+            //   `UM_Valius_Paxor` 换成真 id（UM87 / UM88），它们在真值快照里 `manaCost = 2` ⇒
+            //   `gen_cards_engine.py:1861-1868` 把它们从 0 提到 2（判据本身没变、是数据补齐了）。
+            CheckTrue(nonZero == 49 && nTwo == 49 && nOther == 0,
+                      $"★ 督军里 cost 非 0 的应**正好 49 张**、且**全是 2**（实得 nonZero={nonZero} · "
+                      + $"=2 的 {nTwo} 张 · 别的取值 {nOther} 张）—— 那 49 张是**真值给的 2**"
                       + "（`gen_cards_engine.py:1663-1683`）；原来那句「≤ 9 张」的闸在 `A1773` 落地那天就作废了"
                       + "｜🧨 有人往督军身上写第三个取值、或把真值那一支撤掉 ⇒ 本行红");
         }
@@ -15435,12 +15442,12 @@ public static partial class RuleEngineTest
                   "督军费用只有 `2`（有真值）与 `0`（真值里没有这张）两种取值"
                   + "｜🧨 有人往督军身上写第三个取值 ⇒ 本行红"
                   + (other.Count > 0 ? " —— 别的取值：" + string.Join(" / ", other) : ""));
-            Check(two.Count, 47,
+            Check(two.Count, 49,
                   "★ **有真值的督军 `cost == 2`**（判据 = `gen_cards_engine.py:1663-1683` 的 `A1773`"
                   + " ＋ 对抗性验证裁决；⛔ 不是「卡面不印费用 ⇒ 数据就该是 0」）"
-                  + "｜🧨 把 `gen_cards_engine.py` 里那一支撤掉 ⇒ 这 47 张退回 0、本行红");
-            Check(zero.Count, 9,
-                  "★ **真值那份快照里没有的 9 张保持 0**（快照 = 2025-07-30，后来加的内容不在里面）："
+                  + "｜🧨 把 `gen_cards_engine.py` 里那一支撤掉 ⇒ 这 49 张退回 0、本行红");
+            Check(zero.Count, 7,
+                  "★ **真值那份快照里没有的 7 张保持 0**（快照 = 2025-07-30，后来加的内容不在里面）："
                   + " " + string.Join(" / ", zero)
                   + "｜🧨 给它们凭空写个费用 ⇒ 本行红");
         }
@@ -19491,9 +19498,13 @@ public static partial class RuleEngineTest
                 //    给出 **82 / 33**（与原来钉的值**逐字相同**）⇒ 工具可信，差值是本轮改动造成的。
                 //    ⚠️ 另一个**已存在**的成因：`cardface_fixes.json` 的 `descZh` 手工列在这中间还改过
                 //    ⇒ 从 82/33 到换官方前的 80/31 那一小段差**不是本轮**造成的（如实记，⛔ 别混算在本笔头上）。
-                Check(mentionsZh, 60, "★ **中文档**（喂 `DescZh`）全池总处数 —— 现读 **60**（换官方 `descZh` 之前是 80/82；"
-                                    + "差值是「官方正文用 `$$ID$$` 指卡、不含字面卡名」造成的，见 `A1763`）");
-                Check(distinctZh.Count, 32, "★ 中文档被点到的**卡**数 —— 现读 **32**（同上，换官方 `descZh` 之前是 31/33）");
+                // 🔴 **2026-10-18（第五十二会话收口 · 铁律 5）**：60/32 → **49/27**。K07 把官方表从
+                //   9,441 条并入当前 build（10,854 条 en+zh），`nameZh`/`descZh` 各变了 84/85 张
+                //   ⇒ `MentionedCards` 按字面卡名匹配的命中数下降。分诊用 Python 复算：旧数据 60/32、
+                //   新数据 49/27，与旧期望 / 本次实得逐字一致（混合归因：nameZh 51/28 · descZh 51/29 · 两者 49/27）。
+                Check(mentionsZh, 49, "★ **中文档**（喂 `DescZh`）全池总处数 —— 现读 **49**（K07 官方表并入后；"
+                                    + "换官方 `descZh` 之前是 80/82 —— 差值是「官方正文用 `$$ID$$` 指卡、不含字面卡名」造成的，见 `A1763`）");
+                Check(distinctZh.Count, 27, "★ 中文档被点到的**卡**数 —— 现读 **27**（同上，换官方 `descZh` 之前是 31/33）");
                 // 🔴 **2026-10-14 就地改期望值 12 → 0；2026-10-15 复核仍是 0（成因换了）**：
                 //    · 旧成因（`A1827`）：`Reanimate` 的官方中文名是「重生」而 `descZh` 里写「复生」；
                 //    · **现成因**：`Reanimate` 这张的 `descZh` 已是官方模板（`$$` 指卡、按字面匹配更点不到）。
@@ -19533,14 +19544,14 @@ public static partial class RuleEngineTest
                 CheckTrue(noKey == 0,
                           $"★ 每张有中文名的卡，用**它的中文名**都**查得回某一张卡**（键非空 ⇒ 中文索引不是空表）；"
                           + $"查不回来的 {noKey} 张；⛔ 把 `NormCjk` 改回 `Norm` 会让这里变成 1126");
-                // ② 重名那几张：**数据侧**事实（`nameZh` 重名 6 组 / 12 张，其中 3 组两张卡的**英文名也不同**）：
-                //     `复仇者` = `Dire Avenger`(ASH19) / `Vindicator`(SW33) · `剑卫老兵` = `Bladeguard Veteran`(DA26)
-                //     / `Bladeguard Ancient`(UM104) · `连队老兵` = `Company Veteran`(DA15) / `Company Ancient`(UM35)
-                //     （另 3 组两组卡片的**英文名也相同**：`终结者冠军` · `蹂躏魔` · `终结者` ⇒ 那 3 组不算「查不回自己」）。
-                Check(notSelf, 4,
-                      "★ 中文名重名、查回来的不是它自己的有 **4** 张"
-                      + "（🔴 **2026-10-14 就地改期望值 3→4（铁律 5 · 账 `A1824`）**：换官方卡名之后"
-                      + "**新增** 秘密行动/侵犯者/魅魔、**消失** 复仇者/连队老兵 —— `W2` 预告的就是 3→4）"
+                // ② 重名那几张：**数据侧**事实（现读 `nameZh` 重名 **6 组 / 12 张**，其中 **3 张**的英文名也不同）：
+                //    🔴 **2026-10-18（第五十二会话收口 · 铁律 5）**：期望 4 → **3**、名单重写。
+                //    K06 把 `Bladeguard Ancient` 的 id 从 UM87 换成 **UM104**，K07 新表给出
+                //    `Card_Name/UM104 = (Bladeguard Ancient, 剑卫旗手)`（旧名「剑卫老兵」来自自译 `zh_cards.json`）
+                //    ⇒ 「`剑卫老兵` 重名组」消失。现名单：`EC32 Daemonette` · `EC8 Infractor` ·
+                //    `GSC50 Clandestine Operation`（旧注释里的 复仇者/连队老兵/剑卫老兵 都已不存在）。
+                Check(notSelf, 3,
+                      "★ 中文名重名、查回来的不是它自己的有 **3** 张"
                       + (firstNotSelf == null ? "" : $"；例：{firstNotSelf}"));
             }
         }

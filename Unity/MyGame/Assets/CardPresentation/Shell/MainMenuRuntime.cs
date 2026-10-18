@@ -1314,7 +1314,15 @@ namespace CardPresentation
         public static bool EscapePressed()
         {
             var mm = InstanceOrFind();
-            if (mm == null) return false;
+            if (mm == null)
+            {
+                // 🆕 **2026-10-18（`N67`）出声**：本行原来是**静默 `return false`** —— 真机上「ESC 按了没反应」
+                //   在这一支与「ESC 根本没进进程」之间**日志上完全一样**（N67 那次就是零日志）。
+                //   ⚠️ 这一支只在「场上一扇窗都没有、且当前场景没有常驻主菜单」时走到（卡组编辑 / 对战场景）。
+                Debug.Log("[Menu] ESC 落到「主菜单」这一支，但场上**没有 `MainMenuRuntime`** ⇒ 什么都不做"
+                          + "（当前场景不是主菜单、也没有窗可关 —— 这是**正常路径**，不是缺陷）。");
+                return false;
+            }
             return mm.EscPressed();
         }
 
@@ -2176,9 +2184,20 @@ namespace CardPresentation
             //   ⚠️ 我们的内容只有 4 列（2405），所以能滚的只有 **485px** —— 那正是「练习/教学那一列
             //   在屏外」这一条缺陷的宽度（第 4 列 x 1870..2405，屏宽 1920）。
             // 🔴 **2026-10-17（`N29`）**：原版 `MainMenu` 的 `Safe area All/GameModes` ScrollRect
-            //   `m_ScrollSensitivity = **1.0**`（`bundle_scenes_scenes_mainmenuwarpforge` 现读）
-            //   ⇒ 每格 1 px。⛔ 别沿用 `MenuScroll.DefaultNotchPx`（48 = 我们挑的旧手感）。
-            _modeScroll = new MenuScroll(ModeViewport, CardCol0, ModeContentX2, 1f);
+            //   `m_ScrollSensitivity = **1.0**`（`bundle_scenes_scenes_mainmenuwarpforge` 现读）。
+            // 🔴🔴 **2026-10-18（`N66`）就地改：最后一参 `1f → 120f` —— 这个 120 是【我们挑的】，不是原版值。**
+            //   原版那条是 **horizontal-only**（`m_Horizontal = 1 / m_Vertical = 0`）⇒ **纵向滚轮在原版
+            //   本来就不参与**（uGUI `ScrollRect.OnScroll` 只把量喂给「允许的那根轴」）⇒ 原版这一段靠**拖拽**；
+            //   `m_ScrollSensitivity = 1.0` 是**横向**的灵敏度，⛔ 不是我们这条列表「一格滚轮走多少」的判据。
+            //   照 1.0 传进来的后果：`MenuScroll.NotchK = 1 / 120` ⇒ 一格滚轮（`WHEEL_DELTA = 120`）只走 **1 px**，
+            //   滚完整个行程要 **几百格**（实测等于「滚不动」）。
+            //   ⇒ 给一个可用步长 **120 px / 格**（= 一屏 1080 的 1/9）：本文件几何的行程 =
+            //     `ModeContentX2 − ModeViewport.x2` = 2405 − 1920 = **485 px** ⇒ **485 ÷ 120 ≈ 4 格到底**
+            //     （⚠️ 派单里写「447 px」与这里按 `ModeContentX2` 算出的 485 差 38 px —— 按本文件实际几何记 485，
+            //      两者都 ≈ 4 格，不影响这条改动）。
+            //   ⚠️ **拖拽一点没动**（`MenuScroll.BeginDrag / DragTo` + `PointerLayer` 那条 10px 阈值照旧）；
+            //      ⛔ 别把这个 120 写成「原版 `m_ScrollSensitivity`」—— 原版值是 1.0、且那是横向的。
+            _modeScroll = new MenuScroll(ModeViewport, CardCol0, ModeContentX2, 120f);
             _modeScroll.Owner = gameObject;
             _modeScroll.OnChanged = RebuildModeCards;
             PointerLayer.RegisterScroll(_modeScroll);

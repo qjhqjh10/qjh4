@@ -598,8 +598,12 @@ namespace CardPresentation
                 var row = MenuDraw.Node(q, i == 0 ? "Checkbox" : "Checkbox (" + i + ")", rowR);
                 var togR = new PxRect(rowR.x1, rowR.y1, rowR.x1 + ToggleW, rowR.y2);
                 var tog = MenuDraw.Node(row, "Toggle", togR);
-                MenuDraw.Nine(tog, Tex(ArtDropdownBg, "复选框底"), togR, new Vector4(23f, 20f, 23f, 20f),
-                              119f, 102f, QRow, null, true, "Image");
+                // 🔴 **2026-10-18（W3）就地订正（铁律 5）**：原版这颗 `Toggle` 是
+                //   **`m_Type = Simple` + `m_PreserveAspect = 1`**（贴图 `40K_dropdown_bg` 119×102）
+                //   ⇒ 按比例内接画成 **88.2×75.64**，**不是**九宫拉满 119×75.64（宽 31px）。
+                //   判据 = dump 原文 `40K_dropdown_bg 119×102 九宫23,20,23,20 | Simple (1,1,1,1) preserveAspect`
+                //   → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §9。
+                MenuDraw.Rect(tog, Tex(ArtDropdownBg, "复选框底"), togR, "Image", QRow, null, true);
                 var chkR = new PxRect(rowR.x1, rowR.y1, rowR.x1 + ToggleW, rowR.y2);
                 var chk = MenuDraw.Node(tog, "CheckMark", chkR);
                 MenuDraw.Rect(chk, Tex(ArtCheck, "复选框勾"), chkR, "Image", QRow + 1, null, true);
@@ -657,8 +661,14 @@ namespace CardPresentation
             BuildHeader(node, it, true);
             var areaR = new PxRect(blk.x1, blk.y1 + it.HdrH, blk.x2, blk.y1 + it.HdrH + 220f);
             var box = MenuDraw.Node(node, "Text Area", areaR);
+            // 🔴 **2026-10-18（W3）就地订正（铁律 5）**：原版这颗 `Text Area` 的 `Image` 是
+            //   **`Sliced` + `m_PixelsPerUnitMultiplier = 2.0`** ⇒ 画出来的角块 = 九宫 ÷ 2
+            //   （L/R 23→**11.5**、B/T 20→**10**）。我们原来没传 `borderOutPx` ⇒ 角块是 23/20（大一倍）。
+            //   判据 = dump 原文 `40K_dropdown_bg 119×102 九宫23,20,23,20 | Sliced … ppuMul=2.0`
+            //   → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §9（P2-8）。
             MenuDraw.Nine(box, Tex(ArtDropdownBg, "开放题输入框底"), areaR, new Vector4(23f, 20f, 23f, 20f),
-                          119f, 102f, QRow, OpenAreaTint, true, "Image");
+                          119f, 102f, QRow, OpenAreaTint, true, "Image",
+                          new Vector4(11.5f, 10f, 11.5f, 10f));
             var inner = new PxRect(areaR.x1 + 10f, areaR.y1 + 7f, areaR.x2 - 10f, areaR.y2 - 7f);
             var area = MenuDraw.Node(box, "Text Area", inner);
             var ph = Text(area, inner,

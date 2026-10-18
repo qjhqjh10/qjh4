@@ -362,6 +362,34 @@ namespace CardPresentation
             return Get(Root + "cards/art_" + Slug(artKey));
         }
 
+        /// <summary>🔴 **2026-10-18**：卡组格的**督军方形立绘** —— 原版 `deckHero.cardImageReference` 指向的
+        /// 不是卡面插图，而是独立一族 **`UI_Deck_Warlord_&lt;督军名&gt;`**（`bundle_uiwarlords_assets_all`，
+        /// **2048×2048 方形**、白底抠图、构图居中；本机现读 63 张）。
+        /// <para>判据：该族 2048² 正好对上卡组格 `Deck Image` 的 **347.70×346.35**（方形）画框；而卡面插图
+        /// （668×1024）拉进方形框会**变形**、再被 `RectMask2D` 裁掉大半 ⇒ 就是用户 2026-10-18 报的
+        /// 「战将立绘残缺」。同族先例 = `FTUESelectDeckWindow.HeroArt`（同一套取法 + 同一档兜底）。</para>
+        /// <para>取不到（快照之后新增的 16 位督军没有这张图）⇒ 退回 <see cref="Portrait"/>（卡面插图），
+        /// 调用点会按**非方形图**走等比内接 —— **这一档是我们挑的兜底**，不是原版做法。</para></summary>
+        public static Texture2D DeckHero(string warlordId)
+        {
+            if (string.IsNullOrEmpty(warlordId)) return null;
+            if (_nameById == null)
+            {
+                _nameById = new System.Collections.Generic.Dictionary<string, string>();
+                foreach (var c in RuleEngine.CardDatabase.Load())
+                    if (!string.IsNullOrEmpty(c.Id) && !string.IsNullOrEmpty(c.Name))
+                        if (!_nameById.ContainsKey(c.Id)) _nameById[c.Id] = c.Name;
+            }
+            string name;
+            if (_nameById.TryGetValue(warlordId, out name) && !string.IsNullOrEmpty(name))
+            {
+                var t = MenuUi("UI_Deck_Warlord_" + name.Replace(' ', '_'));
+                if (t != null) return t;
+            }
+            return Portrait(warlordId);
+        }
+        static System.Collections.Generic.Dictionary<string, string> _nameById;
+
         /// <summary>按**卡名**取立绘 —— **只给「手上只有卡名」的那一处用**（`BattleLogPanel` 的
         /// 小头像：战斗事件里带的是卡名，见 `BattleEvent.CardId`）。
         /// ⚠️ **同名卡只能取到第一张**（`Terminator` 有两张）—— 头像这么小，认了；

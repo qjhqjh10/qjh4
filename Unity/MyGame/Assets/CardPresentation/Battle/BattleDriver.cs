@@ -14335,13 +14335,29 @@ namespace CardPresentation
         /// </summary>
         static readonly Dictionary<string, bool> _mechFail = new Dictionary<string, bool>();
 
+        /// <summary>🆕 **2026-10-18（T09）**：`MechanismFails` 用的卡池 —— **只读、进程级存一份**。
+        /// 🔴 原来每张卡都调一次 `CardDatabase.Load()`；本函数是**逐卡**调的，而 `Load()` 当时**没有缓存**
+        /// ⇒ 每张卡都要 `JsonUtility.FromJson` 重解析 1127 张（实测 **2.4 s/卡**）——
+        /// 这就是 T09「首次开窗 48.9 s」的根因（探针：`UnimplementedNotes` 单卡首次 2,477 ms / 暖 0.23 ms）。
+        /// `Load()` 现在自带缓存（并返回浅拷贝）；这里再存一份**引用**，避免逐卡浅拷贝。
+        /// ⚠️ 本函数只读这个列表（`OpHasMechanism` 的形参是 `IReadOnlyList`）⇒ 存引用安全。</summary>
+        static List<CardDef> _mechPool;
+
         static bool MechanismFails(CardDef c)
         {
             if (c == null || string.IsNullOrEmpty(c.Id)) return false;
             bool fail;
             if (_mechFail.TryGetValue(c.Id, out fail)) return fail;
 
-            var pool = CardDatabase.Load();            // 懒加载 + 之后走缓存
+            var pool = _mechPool;
+            if (pool == null)
+            {
+                pool = CardDatabase.Load();
+                // 🔴 **2026-10-18（RV 复核·低）**：`Load()` 在**资源缺失**时返回空表且明确**不缓存**那一档
+                //   （`CardDatabase.cs` 的 `Load`）；这里若把空表存进 `_mechPool` 就把它**锁死**了 ⇒
+                //   之后所有卡的机制判定都拿空 createPool（多标 `*` 且无声）。空表**不缓存**。
+                if (pool.Count > 0) _mechPool = pool;
+            }
             var ops = EffectText.WillRunOps(c);
             fail = false;
             foreach (var op in ops)

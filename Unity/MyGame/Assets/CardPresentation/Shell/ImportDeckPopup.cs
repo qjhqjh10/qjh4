@@ -50,6 +50,16 @@ namespace CardPresentation
 
         // ---- 几何（A1 §4 逐条）----
         public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.396f);
+        /// <summary>压暗层 `Background` 的**原版矩形** = **3161.26 × 1777.49**（超画幅；中心恰好还是 (960,540)
+        /// ⇒ `Solid` 的尺寸实参 = `ShadeW/ShadeH`）。
+        /// <para>判据 = `menu_dump.py bundle_menus_assets_all "Import Deck Popup" --depth 8`：
+        /// `-620.63,-348.74 → 2540.63,1428.74` · 色 **(0,0,0,.396)** · 那颗 `EverguildButton` 就是「点它关」。</para>
+        /// <para>🔴 **视觉层与点击区共用这一份**：原版点窗外关窗就挂在这一层上 ⇒ 可点区 = 整块。
+        /// 我们原来两处都写死 `1920×1080` ⇒ 超宽屏两侧露边、也点不到。判据 → 报告
+        /// `P1_弹窗排版_卡组卡牌.md` §四 与 §七 S1。</para></summary>
+        public const float ShadeL = -620.63f, ShadeT = -348.74f, ShadeR = 2540.63f, ShadeB = 1428.74f;
+        public const float ShadeW = ShadeR - ShadeL, ShadeH = ShadeB - ShadeT;      // 3161.26 × 1777.48
+        public static readonly PxRect ShadeRect = new PxRect(ShadeL, ShadeT, ShadeR, ShadeB);
         public const float WinL = 560f, WinT = 234.07f, WinR = 1360f, WinB = 685.93f;
         public const float MsgL = 610f, MsgT = 280f, MsgR = 1310f, MsgB = 340f, MsgFontPx = 50f;
         public const float InL = 610f, InT = 370f, InR = 1310f, InB = 511.06f;
@@ -147,12 +157,14 @@ namespace CardPresentation
             for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
 
             // 1) 压暗 + 点背景关（原版 `backgroundCloseButton`）
-            Solid(root, 960f, 540f, 1920f, 1080f, ShadeColor, QImp, "Background");
+            //    🔴 **2026-10-18（P1 §四）**：尺寸照原版超画幅 **3161.26 × 1777.49**（改前写死 1920×1080
+            //    ⇒ 超宽屏两侧露边）。中心仍是 (960,540) ⇒ 只换尺寸；判据 → `ShadeL` 的 doc。
+            Solid(root, 960f, 540f, ShadeW, ShadeH, ShadeColor, QImp, "Background");
             // 🔴 **2026-10-04（A25⑥）**：档从 `QImpHit − 1`（= 3132，**从内容档派生**出来的，
             //    而且正好撞上 `QImpText`）改成 **压暗层自己那一档 `QImp`(3130)** —— 统一到
             //    `BoosterInfoPopup.QShadeHit` 那条正确编码，并改走公共件 `MenuDraw.ShadeHit`
             //    （它现场核「压暗档 **严格低于** 本窗内容命中区档」，不满足就告警）。收口理由见那边注释。
-            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), QImp, QImpHit, () => Close(), "BackgroundHit");
+            MenuDraw.ShadeHit(root, ShadeRect, QImp, QImpHit, () => Close(), "BackgroundHit");
 
             // 2) 面板（九宫格 `40k_popup`）
             var win = new GameObject("Window");

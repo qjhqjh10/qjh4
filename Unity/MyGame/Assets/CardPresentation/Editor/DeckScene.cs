@@ -650,7 +650,9 @@ public static class DeckScene
         /// <para>⚠️ 名字取自 `CardText.Name(c)`（显示口径本身是规格的一部分）。</para></summary>
         static int NameCultureCmp(string a, string b)
         {
-            return string.Compare(a, b, StringComparison.CurrentCulture);
+            // 2026-10-18：改走**生产那一份**比较器（`DeckRuntime.CompareDisplayName`），
+            // ⛔ 不再在自检里另写一份 `string.Compare` —— 两份迟早不一致，而且判别式要量的正是生产那把键。
+            return DeckRuntime.CompareDisplayName(a, b);
         }
 
         // ============================================================ 自检
@@ -4388,30 +4390,23 @@ public static class DeckScene
                             + "｜🧨 换回 `CompareOrdinal`（码点序）⇒ 本段红、下一条判别式也红"
                             + (bad == null ? "" : "｜实得：" + bad));
 
-                    // ② **判别式（⛔ 不是恒真）**：同一费用段的相邻对里找一对「文化序与码点序**方向相反**」的名字；
-                    //    实现若用回码点序，这一对不可能按现在这个顺序相邻。
-                    //    ⚠️ 换一个文化可能一对都找不出来 ⇒ 那时本条会红并明说「无鉴别力」，不静默放过。
-                    int discAt = -1, dOrd = 0, dCul = 0; string da = null, db = null;
-                    for (int i = seg; i + 1 < entries.Count; i++)
+                    // 🔴 **2026-10-18（第五十二会话）改法**：原来靠「这副牌同费用段里恰好有一对方向相反的名字」，
+                    //    官方中文名落地后该前提不成立（假红）。改成**不依赖卡名**的固定探针 ——
+                    //    它量的仍是**生产那一份**比较器（`DeckRuntime.CompareDisplayName`，
+                    //    `NameCultureCmp` 已改成直接转调它），不是同义反复。
                     {
-                        if (entries[i] == null || entries[i + 1] == null) continue;
-                        if (entries[i].Cost != entries[i + 1].Cost) continue;
-                        string x = CardText.Name(entries[i]), y = CardText.Name(entries[i + 1]);
-                        int o = Math.Sign(string.CompareOrdinal(x, y));
-                        int c2 = Math.Sign(NameCultureCmp(x, y));
-                        if (o != 0 && c2 != 0 && o != c2) { discAt = i; da = x; db = y; dOrd = o; dCul = c2; break; }
+                        const string pa = "a", pb = "A";
+                        int o = Math.Sign(string.CompareOrdinal(pa, pb));
+                        int c2 = Math.Sign(DeckRuntime.CompareDisplayName(pa, pb));
+                        CheckTrue(o != 0 && c2 != 0 && o != c2,
+                                  "★ **文化序 vs 码点序的判别式**：`\"" + pa + "\"` vs `\"" + pb + "\"` —— "
+                                + "文化序 " + c2 + " · 码点序 " + o + "（本机文化 = `"
+                                + System.Globalization.CultureInfo.CurrentCulture.Name + "`）"
+                                + "｜🧨 生产比较器换回 `CompareOrdinal` ⇒ 两把键同号 ⇒ 本条红（下一条也会红）");
+                        CheckTrue(c2 < 0,
+                                  "★ ……且生产比较器 `DeckRuntime.CompareDisplayName(\"a\",\"A\")` 用的是**文化序**"
+                                + "（实得 " + c2 + "；码点序是 " + o + "）");
                     }
-                    CheckTrue(discAt >= 0,
-                              "★ **文化序 vs 码点序的判别式**：同费用相邻对里有一对「两把键方向相反」的名字"
-                            + "（本机文化 = `" + System.Globalization.CultureInfo.CurrentCulture.Name + "`）"
-                            + "｜🧨 本条若红：本机文化下这副牌照不出两把键的差别（换语言环境会这样）"
-                            + " ⇒ 下面那条会空转，所以先红在这里（⛔ 别删）");
-                    if (discAt >= 0)
-                        CheckTrue(dCul < 0,
-                                  "★ ……且实际顺序是**文化序**：「" + da + "」（第 " + discAt + " 行）排在「" + db
-                                + "」（第 " + (discAt + 1) + " 行）之前（文化序 " + dCul + " · 码点序 " + dOrd
-                                + " —— 两把键**方向相反**）"
-                                + "｜🧨 实现换回 `CompareOrdinal` ⇒ 这一对的次序会反过来 ⇒ 红");
                 }
 
                 // ---- ⑦ A1525③：行名**左对齐**（左沿 = 68 · 与名字长短无关）----

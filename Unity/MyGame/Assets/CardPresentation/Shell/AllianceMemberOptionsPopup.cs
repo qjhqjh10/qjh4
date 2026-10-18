@@ -103,7 +103,10 @@ namespace CardPresentation
         /// <summary>八颗按钮的**竖直步进**下的 `Buttons` 高度 = `60×8 + 5×7 = 515`（dump 实测 515.00 ✓）。</summary>
         public const float ButtonsH8 = 515f;
 
-        public const string ArtShadow = "OctagonUI_Filled_SDF";                  // 工程里没有 ⇒ 出声、不画
+        public const string ArtShadow = "OctagonUI_Filled_SDF";                  // 128×128 · 九宫 52,52,52,52 · **Sliced**（图在 `Resources/Art/ui_menu/`）
+        // ⚠️ **2026-10-18（W3）就地订正（铁律 5）**：本行原来接着写「工程里没有 ⇒ 出声、不画」——
+        //   **该图早已在盘上**（`Resources/Art/ui_menu/OctagonUI_Filled_SDF.png`，同 `Editor/ShopScene.cs:4453` 的订正），
+        //   `Tex()` 取得到 ⇒ 这一件**会画**（判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §16）。
         public const string ArtBg = "40k_topmarquee_currency_display_BW";
         public const string ArtBtn = "UI_Button_Mulligan",
                             ArtBtnHover = "UI_Button_Mulligan_hover",
@@ -349,9 +352,14 @@ namespace CardPresentation
             MenuDraw.ShadeHit(root, S, QShade, QHit, () => Close(), "BackgroundHit");
 
             // ---- 2) `bg shadow` → 3) `bg` ----
+            // 🔴 **2026-10-18（W3）就地订正（铁律 5）**：`bg shadow` 原版是 **`m_Type = Sliced` · 九宫 (52,52,52,52) · 贴图 128×128**
+            //   （dump 实读：`OctagonUI Filled SDF 128×128 九宫52,52,52,52 | Sliced`）——
+            //   我们原来走 `MenuDraw.Rect`（Simple 拉伸到 450×656）⇒ 八角投影的角块被放大 ~3.5×。
+            //   判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §16（P2-5）。
             var shadowTex = Tex(ArtShadow, "`bg shadow` 的八边形投影");
             if (shadowTex != null)
-                MenuDraw.Rect(root, shadowTex, ShadowRect(R), "bg shadow", QBgShadow, ShadowTint);
+                MenuDraw.Nine(root, shadowTex, ShadowRect(R), new Vector4(52f, 52f, 52f, 52f), 128f, 128f,
+                              QBgShadow, ShadowTint, true, "bg shadow");
             else
                 MenuDraw.Node(root, "bg shadow", ShadowRect(R));
             var bgTex = Tex(ArtBg, "面板底 `bg`");
@@ -364,6 +372,11 @@ namespace CardPresentation
             var nameR = NameRect(R);
             _name = MenuDraw.TextBox(root, nameR, _view.Name ?? "", Color.white, "Name",
                                      NameFont, NameFontMin, QName, NameFontMax, NameFontBase, face: TmpFont.Face.LatinCardBody);
+            // 🔴 **2026-10-18（W3）补垂直档（铁律 5）**：原版 `Name` 那颗 TMP 是 **`Center/Top`**
+            //   （dump 实读 `对齐=Center/Top`；`m_VerticalAlignment = 256`）——
+            //   我们原来没设 ⇒ 落到 `Label` 默认 `Middle`（差 ~1.8px）。
+            //   判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §16（P2-9）。
+            MenuDraw.SetVAlign(_name, Label.VAlign.Top, nameR);
 
             // ---- 5) `Buttons`：**八颗写死的子件**（不是模板 —— 这一扇没有 `Template`）----
             _buttons = MenuDraw.Node(root, "Buttons", ButtonsRect(R));
@@ -387,6 +400,10 @@ namespace CardPresentation
                 //   换成 `BtnLabel(bt)`（有词条走词条、没有就原样）—— ⛔ 节点名 `bt.Node` 与字体/色/矩形都没动。
                 var tx = MenuDraw.TextBox(bn, BtnTextRect(br), BtnLabel(bt), Color.white, "Button Text",
                                           bt.Font, BtnTextFontMin, QBtnText, BtnTextFontMax, BtnTextFontBase, face: TmpFont.Face.LatinCardBody);
+                // 🔴 **2026-10-18（W3）补垂直档（铁律 5）**：原版 `Button Text` 是 **`Center/Capline`**
+                //   （dump 实读 `对齐=Center/Capline`；`m_VerticalAlignment = 8192`）——
+                //   我们原来没设 ⇒ 默认 `Middle`（差 ~1.8px）。框 = ARF 跑完的 **330.77×86.17**。
+                MenuDraw.SetVAlign(tx, Label.VAlign.Capline, BtnTextRect(br));
                 int idx = i;
                 // ⚠️ 换图那一跳**不在 `Hit` 里传 `target`** —— 九宫格被切成 9 张小 quad，只换中心那格
                 //    = 边框不跟着亮（`WindowButton.BindNine` 的注释就是为这件事写的）⇒ 命中区先建、

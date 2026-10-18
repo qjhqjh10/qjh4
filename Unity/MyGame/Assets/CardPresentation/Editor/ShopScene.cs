@@ -1303,13 +1303,24 @@ public static class ShopScene
         Check(CountVisible(bar, "ShopTabButton_"), 3, "**可见的键恰好 3 个**（母版照原版 `TabButtons.Initialize` 关掉）");
         CheckTrue(FindChild(bar, "ShopTabButton_3") != null && !FindChild(bar, "ShopTabButton_3").gameObject.activeSelf,
                   "第 4 键（母版）**建成但关着**");
+        // 🔴 **2026-10-18（N59 之后的断言过期，第五十二会话就地订正）**：页键文案从 2026-10-18 起
+        //    **走官方词条** `MenuShop/ShopItemType/*`（`Shell/ShopWindow.cs:82/84/86`），
+        //    而这里原来钉的是 `ShopData.Pages[i].Label.ToUpperInvariant()`（`CARDS`/`DAILY`/`ITEMS`，
+        //    那是**页的内部名**、不是屏上文案）⇒ 中文档必红。期望改成官方词条的**当前语档值**。
+        string[] tabTerms =
+        {
+            "MenuShop/ShopItemType/BoosterPacks",
+            "MenuShop/ShopItemType/Gold",
+            "MenuShop/ShopItemType/Cosmetics",
+        };
         for (int i = 0; i < ShopData.Pages.Length; i++)
         {
             var b = FindChild(bar, "ShopTabButton_" + i);
             CheckArt(FindChild(b, "Icon"), ShopData.Pages[i].Icon,
                      $"第 {i + 1} 键的图标 = `{ShopData.Pages[i].Icon}`");
-            CheckTrue(TextOf(FindChild(b, "Text")) == ShopData.Pages[i].Label.ToUpperInvariant(),
-                      $"第 {i + 1} 键的文案 = `{ShopData.Pages[i].Label.ToUpperInvariant()}`");
+            string wantTab = Loc.T(tabTerms[i]);
+            CheckTrue(TextOf(FindChild(b, "Text")) == wantTab,
+                      $"第 {i + 1} 键的文案 = `{wantTab}`（官方词条 `{tabTerms[i]}` 的当前语档值）");
         }
         // 🆕 **2026-10-08（波 C3 · A212 主表 #31 验收）：左栏键文案的【渲染】断言**（四窗这一族原来一条都没有）。
         //   判据 = 原版四窗左栏键文案的 `m_TextWrappingMode` **一律 `0`（`NoWrap`）**—— 逐窗现读的四窗表
@@ -1453,8 +1464,26 @@ public static class ShopScene
             //    ⚠️ 仍是「同一瞬间的两个读数」：批处理没有帧循环、组件只在 `Attach` 时写过一次，
             //    跨**分钟**边界时两边会差一分钟（极小概率 flake，如实记；不为此放宽成「像时间就行」——
             //    那会让「换回死串」这一类改坏法照样绿）。
-            CheckTrue(TextOf(FindChild(tc, "Time")) == ShopData.RefreshTime,
-                      $"倒计时文本 = `{ShopData.RefreshTime}`（`TimerDisplay` 的活值；9 点规则/本机时钟是我们挑的）");
+            // 🔴 **2026-10-18（第五十二会话）实测这条 flake 不是「极小概率」**：2335 条跑几分钟，
+            //    后半段 4 条里有 3 条差正好 1 分钟（`19小时 59分钟` vs `19小时 58分钟`）。
+            //    ⇒ 断言改成「两个读数解析成分钟后相差 ≤1 分钟」；**死串仍然咬得住**（解析不出分钟 ⇒ 红）。
+            {
+                string tLabel = TextOf(FindChild(tc, "Time"));
+                string tNow = ShopData.RefreshTime;
+                var rx = new System.Text.RegularExpressions.Regex(@"(\d+)\s*(?:小时|h|H)\s*(\d+)\s*(?:分钟|m|M)");
+                var mLabel = rx.Match(tLabel ?? "");
+                var mNow = rx.Match(tNow ?? "");
+                bool timerOk = tLabel == tNow;
+                if (!timerOk && mLabel.Success && mNow.Success)
+                {
+                    int a = int.Parse(mLabel.Groups[1].Value) * 60 + int.Parse(mLabel.Groups[2].Value);
+                    int b2 = int.Parse(mNow.Groups[1].Value) * 60 + int.Parse(mNow.Groups[2].Value);
+                    timerOk = System.Math.Abs(a - b2) <= 1;      // 跨分钟边界：差 1 分钟算同一读数
+                }
+                CheckTrue(timerOk,
+                          $"倒计时文本 = `{ShopData.RefreshTime}`（`TimerDisplay` 的活值；9 点规则/本机时钟是我们挑的；"
+                        + $"实际标签「{tLabel}」，允许跨分钟差 1 分钟）");
+            }
 
             // ---- 栅格：`GridLayoutGroup cell 335.6×475 · spacing 0 · padding.top 7 · 2 列 · UpperLeft` ----
             var offers = ShopData.Offers(p);

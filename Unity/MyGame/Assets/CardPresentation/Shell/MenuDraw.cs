@@ -3049,7 +3049,11 @@ namespace CardPresentation
             //   用户给的参考图 `收藏—卡组的参考图.png` 也是**一幅督军立绘**（四格四张不同角色）⇒ 两边一致。
             //   ⚠️ 几何照原版：图**画在 347.7×346.4**（比遮罩大）再被 `RectMask2D` 裁到 **228×305.97 @(11,26.1)**
             //     ⇒ 等价复现 = 画在遮罩那一格、**只取图正中的 `228/347.7 × 305.97/346.4`**（同模式卡那条 UV 路的做法）。
-            var front = CardArt.Portrait(info.WarlordId);       // `Portrait(cardId)` —— 全仓取立绘的通用口
+            // 🔴🔴 **2026-10-18（用户报「战将立绘残缺」· 就地改对）**：原版这一格 = `CardArt.DeckHero` ——
+            //   独立的 **`UI_Deck_Warlord_<督军名>`** 方形立绘族（2048²，本机现读 63 张，`bundle_uiwarlords_assets_all`）。
+            //   原来取的是**卡面插图**（668×1024）再拉进 347.7×346.4 的方形框 + 遮罩 ⇒ 变形且只露中间一块。
+            //   取不到（快照之后新增的 16 位督军没有这张图）⇒ 退回卡面插图，并按**非方形图**等比内接（见下）。
+            var front = CardArt.DeckHero(info.WarlordId);
             if (front != null)
             {
                 // 🔴🔴 **2026-10-11（`A1530①` · 第十七会话代理 `X` 现读 prefab · 本会话落盘）：原版这一颗
@@ -3075,10 +3079,13 @@ namespace CardPresentation
                 // 整块（遮罩格）在视口外 ⇒ 原版 `RectMask2D` **一个像素都不画** ⇒ 不建这颗（同 `Rect` 的语义）
                 if (ClipRect(maskCell, clipR, out visMask))
                 {
+                    // 🔴 **2026-10-18**：`UI_Deck_Warlord_*` 是 2048² 方形 ⇒ `keepAspect:false`（原版也是拉伸到方形框、
+                    //   比例恰好不变）；**退回卡面插图那一档**（非方形）才用 `keepAspect:true` 等比内接，避免变形。
+                    bool square = Mathf.Abs(front.width - front.height) <= 1;
                     var fq = Rect(cell, front,
                          new PxRect(r.x1 + DcImgX * K, r.y1 + DcImgY * K,
                                     r.x1 + (DcImgX + DcImgW) * K, r.y1 + (DcImgY + DcImgH) * K),
-                         "Deck Image", q, null, false, visMask);
+                         "Deck Image", q, null, !square, visMask);
                     // 🔴 **必须换成「忽略贴图 alpha」那一档** —— 见 `CardView.MakeOpaqueQuad` 的注释：
                     //   原版 668 张卡的立绘是**抠图**（全透明 > 5%），普通 `Sprites/Default` 会把它们画成
                     //   「一个淡淡的人影 + 近乎空的格子」（2026-10-11 实测），而**卡面**一直是按忽略 alpha 画的。

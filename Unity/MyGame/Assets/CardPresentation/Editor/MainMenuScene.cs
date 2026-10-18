@@ -12705,10 +12705,12 @@ public static class MainMenuScene
                 CheckText(fb.TitleLabel != null ? fb.TitleLabel.Text : null,
                           UiTerm("Demo/Feedback/Title", "Give us your feedback!"),
                           "反馈窗 `Title` = 词条 `Demo/Feedback/Title`");
-                // 副标题词条 `Demo/FeedbackSurvey/SubTitle` 本地缺 ⇒ 回 prefab 出厂英文（窗口文件头已记）
+                // 🔴 **2026-10-18（N71 后就地订正，铁律 5）**：`Demo/FeedbackSurvey/SubTitle` **现在在官方表里**
+                //   （zh = 「不到两分钟的时间就能帮助我们把游戏做得更好！」）⇒ `Loc.T` 能取到、不再回 prefab 英文。
+                //   旧断言钉死英文 ⇒ 必红；改成断「官方词条当前语档值」。
                 CheckText(fb.SubtitleLabel != null ? fb.SubtitleLabel.Text : null,
-                          "It takes less than two minutes to help us make the game better!",
-                          "反馈窗 `Subtitle` = prefab 出厂英文（`Demo/FeedbackSurvey/SubTitle` 本地没有译文）");
+                          Loc.T("Demo/FeedbackSurvey/SubTitle"),
+                          "反馈窗 `Subtitle` = 官方词条 `Demo/FeedbackSurvey/SubTitle`（N71 起可取到）");
                 CheckText(fb.SubmitLabel != null ? fb.SubmitLabel.Text : null,
                           UiTerm("Demo/Feedback/Submit", "Submit"),
                           "反馈窗 `Submit button/Button Text` = 词条 `Demo/Feedback/Submit`");
@@ -12862,12 +12864,17 @@ public static class MainMenuScene
                         CheckTrue(!fw.Cards[1].IsSelected,
                                   "其它卡**全部取消选中**（原版 `OnDeckSelected` 的第一段）");
 
-                    // ---- ⑨ 阵营描述：本机没有词条 ⇒ **留空**（⛔ 不编）----
-                    CheckTrue(fw.Views.Count == 4 && string.IsNullOrEmpty(fw.Views[0].Description),
-                              "四副的 `TutorialData/TutorialFTUEDeck/*` 词条**本机取不到** ⇒ `Army Description` 留空"
-                              + "（官方 13 语言表 9441 条逐字节搜零命中；⛔ 不编描述）");
-                    CheckTrue(c0.DescriptionLabel == null || string.IsNullOrEmpty(c0.DescriptionLabel.Text),
-                              "`Army Description` 那一格**没有字**（同上）");
+                    // ---- ⑨ 阵营描述：N71 起官方表里有 `TutorialData/TutorialFTUEDeck/*` ⇒ **有字** ----
+                    // 🔴 **2026-10-18 就地订正（铁律 5）**：原来这里断「留空」（当时官方 9,441 条表零命中）；
+                    //   N71 把 **10,862 键**的表接进 `Loc.T` 后四副描述都取得到 ⇒ 改断「有字且 = 官方词条」。
+                    string umDesc = Loc.T("TutorialData/TutorialFTUEDeck/UltraMarines");
+                    CheckTrue(fw.Views.Count == 4 && !string.IsNullOrEmpty(fw.Views[0].Description)
+                              && fw.Views[0].Description == umDesc,
+                              "四副的 `TutorialData/TutorialFTUEDeck/*` 官方词条**取得到** ⇒ `Army Description` = 官方描述"
+                              + "（UM 现读「" + umDesc + "」）");
+                    CheckTrue(c0.DescriptionLabel != null && !string.IsNullOrEmpty(c0.DescriptionLabel.Text)
+                              && c0.DescriptionLabel.Text == umDesc,
+                              "`Army Description` 那一格**有字** = 官方词条（⛔ 不是键名）");
                 }
                 fw.Close();
             }

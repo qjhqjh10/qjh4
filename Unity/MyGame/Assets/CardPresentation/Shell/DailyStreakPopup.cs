@@ -30,8 +30,11 @@
 //
 // ---- ⚠️ 我们挑的 / 没做的 ----
 //   · **数据全是我们自建**（`DailyData`）—— 原版走 PlayFab 云脚本 #907（`CloudHandle.UpdateMissionPoints`）；
-//   · **`bg` 用 `UIGradient` 画**：实测那对颜色是 **#390503 → #0C0004 · angle 82**，与奖励窗 `Content Area` 的
-//     完全一致 ⇒ 复用 `RewardsWindow.GradC1/GradC2`（不是猜的，是读出来的）；
+//   · **`bg` 用四角顶点色画**：原版那颗挂的是 **`UICornersGradient`（四角渐变）**、⛔ 不是双色 `UIGradient` ——
+//     四角色 MB `8800391613077463723` 实读见 `Build()` 里那一大段。
+//     🔴 **2026-10-18（T29 · D3）就地订正**：本行原来写「实测那对颜色是 #390503 → #0C0004 · angle 82，与奖励窗
+//     `Content Area` 完全一致 ⇒ 复用 `RewardsWindow.GradC1/GradC2`」——**组件认错了**（把 `UICornersGradient`
+//     当成了 `UIGradient`），照那个画法整窗上半部会发黑。错因 = 当时只比了「有两对颜色」没读组件类型；
 //   · **`Streak Failed` 面板**：出厂就亮，但我们单机口径下默认 `HasFailed=false`（见 `DailyData`）⇒
 //     默认看到的是 `Streak Successful`。面板本身照建，驱动是数据。
 using UnityEngine;
@@ -340,8 +343,10 @@ namespace CardPresentation
             HasFailed = DailyData.StreakFailed();
 
             // 1) 压暗整屏
+            // ⚠️ **2026-10-18（T29 · 顺手）**：alpha 原来写 `0.77f`，原版 `Menu Dark Background` 的 `m_Color.a` 是
+            //    **0.773**（同 `DailyRewardPopup.ShadeColor` / `SettingsWindow.ShadeColor` 那一族）⇒ 对齐成 0.773f。
             MenuDraw.Rect(root, CardArt.Solid(), Shade, "Menu Dark Background", QShade,
-                          new Color(0f, 0f, 0f, 0.77f));
+                          new Color(0f, 0f, 0f, 0.773f));
             // 🔴 **2026-10-05（A81）**：压暗层的**点击区**（「点窗外关窗」）—— **原来零 `ShadeHit(`**。
             //   判据：原版是压在 `Menu Dark Background` **自身节点**上的 `BackgroundCloseButton`；
             //   本窗的接线字段叫 **`backgroundButton`**（`DailyStreakWindow__Start.c`，偏移 `0x98`）——
@@ -357,9 +362,22 @@ namespace CardPresentation
             //   出处 → `资料/待办判据_阶段二与联机.md` §A81 · 公共件规矩 → `MenuDraw.ShadeHit` 的注释。
             MenuDraw.ShadeHit(root, Shade, QShade, QContent,
                               () => { DailyData.StreakAutoCollect(); Close(); }, "BackgroundHit");
-            // 2) `bg`：**无 sprite + `UIGradient`** —— 实测那对颜色与奖励窗 `Content Area` **完全一致**
-            //    （`m_color1 #390503 / m_color2 #0C0004 / m_angle 82`）⇒ 直接复用那两个常量。
-            MenuDraw.Rect(root, CardArt.Gradient(RewardsWindow.GradC1, RewardsWindow.GradC2, 82f), Bg, "bg", QPanel);
+            // 2) `bg`：⚠️ 原版挂的是 **`UICornersGradient`（四角渐变）**，⛔ 不是双色 `UIGradient` ——
+            //    MB `8800391613077463723` 实读四角色：
+            //      TL = TR = (0.22352941, 0.01176471, 0.01568628)
+            //      BR      = (0.11320752, 0.00160199, 0.00366875)
+            //      BL      = (0.15094340, 0.04912781, 0.05101327)
+            //    实拍逐点吻合：TL(300,200)=(56,4,5) · TR(1200,200)=(56,4,5) · BL(300,700)=(39,12,11) · BR(1200,700)=(34,3,3)
+            //    —— **BL 的绿/蓝分量（12/11）是四角渐变独有的**，双色渐变做不出来。
+            // 🔴 **2026-10-18（T29 · D3）就地改**：原来用 `CardArt.Gradient(#390305, #0C0004, 82f)`（双色、按竖轴）
+            //    ⇒ 顶部画成近黑 (12,0,4)、而原版顶部是 (56,4,5) —— **整窗上半部明显发黑**（差 ≈44 个 R 单位）。
+            //    四角顶点色的写法照 `MainMenuRuntime.cs:875-881`（`SetCornerColors(BL, BR, TR, TL)`）。
+            var bgQ = MenuDraw.Rect(root, CardArt.Solid(), Bg, "bg", QPanel);
+            if (bgQ != null)
+                bgQ.SetCornerColors(new Color(0.15094340f, 0.04912781f, 0.05101327f),   // 左下 BL
+                                    new Color(0.11320752f, 0.00160199f, 0.00366875f),   // 右下 BR
+                                    new Color(0.22352941f, 0.01176471f, 0.01568628f),   // 右上 TR
+                                    new Color(0.22352941f, 0.01176471f, 0.01568628f));  // 左上 TL
             // 🆕 **2026-10-06（A94）：`bg` 那块整幅面板底图吸收点击**。判据 = 原版 prefab
             //   `Daily Streak Popup > bg` 那颗 `Image` 的 **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）
             //   —— 射线打到它自己、父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 在压暗层上）

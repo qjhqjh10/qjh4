@@ -100,6 +100,8 @@ namespace CardPresentation
         MenuScroll _dragScroll;
         Vector2 _pressPx, _lastPx;
         bool _pressed, _dragging, _haveLastPx;
+        /// <summary>🆕 2026-10-18（`N67`）：「键盘设备不可见」那条警告只报一次（别每帧刷屏）。</summary>
+        bool _warnedNoKeyboard;
 
         /// <summary>此刻指针压着的那一颗（没有就是 null）。</summary>
         public WindowButton HoveredButton { get { return _hover; } }
@@ -173,7 +175,14 @@ namespace CardPresentation
         {
             var kb = Keyboard.current;
             if (kb == null || !_editing) return;
-            if (kb.escapeKey.wasPressedThisFrame) { EndText(false); return; }
+            if (kb.escapeKey.wasPressedThisFrame)
+            {
+                // 🆕 **2026-10-18（`N67`）出声**：这一下 ESC 是「取消编辑」、**不是**「关窗」——
+                //   原来两条都静默，日志里分不出「ESC 被文本框吃掉」与「ESC 根本没进来」。
+                Debug.Log("[Key] ESC ⇒ **结束文本框编辑（取消）**；这一下按原版**不关窗**"
+                          + "（`PointerLayer.Update` 的 `wasEditing` 守卫）—— 再按一次才是关窗。");
+                EndText(false); return;
+            }
             if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame) { EndText(true); return; }
             if (kb.backspaceKey.wasPressedThisFrame) Backspace();
             for (int i = 0; i < _typed.Count; i++) TypeChar(_typed[i]);
@@ -275,6 +284,17 @@ namespace CardPresentation
             // ⚠️ `wasEditing` = **这一帧的键盘归文本框**（`HandleTyping` 刚用 ESC/回车把编辑收掉了）
             //    ⇒ 导航不许接着把同一次 ESC 当成「关窗」（否则「取消编辑」会顺手关掉整扇窗）。
             var kb = Keyboard.current;
+            // 🆕 **2026-10-18（`N67`）**：**键盘设备看不到就明说一次** —— 此前这一整块是**静默跳过**的，
+            //   「按 ESC 没反应」在日志里与「窗根本没接 ESC」**分不开**（N67 真机那次零日志，只能逐句读代码排除）。
+            //   ⚠️ 这只覆盖「设备没建出来」；**窗口失焦**是另一档（Input System 的 `backgroundBehavior` 会把
+            //   非后台设备置灰，`Keyboard.current` 仍非空、但 `wasPressedThisFrame` 恒 false）—— 那一档
+            //   进程内看不到任何痕迹，只能靠「先把游戏窗口置前再发键」。
+            if (kb == null && !_warnedNoKeyboard)
+            {
+                _warnedNoKeyboard = true;
+                Debug.LogWarning("[Key] `Keyboard.current == null` ⇒ **方向键 / 回车 / ESC 这一整组都收不到**"
+                    + "（新输入系统的键盘设备没建出来）。⚠️ 这不是「窗不接 ESC」—— 派的链在 `KeyCancel`。");
+            }
             // 🆕 **2026-10-17（T12 · 手柄导航）**：左侧摇杆 + 南键/A + 东键/B —— 判据 = 原版
             //   `InputManager_2.json` 里那几条：`Horizontal`/`Vertical` 的 **type=2 摇杆轴（axis 0/1、
             //   joyNum 0、dead 0.19、gravity 0、sensitivity 1）** · `Submit` 的 alt **`joystick button 0`** ·
@@ -682,7 +702,16 @@ namespace CardPresentation
         /// </summary>
         public bool KeyFrame(bool esc, float ax, float ay, bool submit, float time = -1f)
         {
-            if (_editing) return false;                 // 键盘归文本框
+            if (_editing)                 // 键盘归文本框
+            {
+                // 🆕 **2026-10-18（`N67`）出声**：文本框有焦点时 ESC 会被这一句吃掉 ⇒ 窗不关。
+                //   原来这里是**静默 return**，与「ESC 没进进程」在日志上完全一样（N67 真机那次零日志）。
+                if (esc)
+                    Debug.Log("[Key] ESC 被**文本框**吃掉了（`PointerLayer.TextEditing == true`）⇒ 这一下**不关窗**；"
+                              + "若这个框所属的窗其实已经关了，那就是「ESC 按了没反应」的来历"
+                              + "（`_editing` 是**进程级**状态，关窗不会清它 —— 本条只出声，没改行为）。");
+                return false;
+            }
             if (esc && KeyCancel()) return true;        // ESC 先吃（原版它在 `WindowsManager.Update` 里）
             bool used = KeyMove(ax, ay, time);          // = `SendMoveEventToSelectedObject`（恒 false，见该方法）
             if (!used && submit) used = KeySubmit();    // = `SendSubmitEventToSelectedObject`

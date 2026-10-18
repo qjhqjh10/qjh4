@@ -88,7 +88,11 @@ namespace CardPresentation
             var copy = new Task[src.Length];
             for (int i = 0; i < src.Length; i++)
                 copy[i] = new Task { Desc = src[i].Desc, Progress = src[i].Progress, Target = src[i].Target,
-                                     RewardArt = src[i].RewardArt, RewardText = src[i].RewardText, St = src[i].St };
+                                     RewardArt = src[i].RewardArt, RewardText = src[i].RewardText, St = src[i].St,
+                                     // 🔴 **2026-10-18（Rewards 四条红 #4）**：`Term`/`Arg` 也要拷 ——
+                                     //   原来漏了这两个，`ResetMissionsForTest` 还原内容时**没还原词条键**
+                                     //   ⇒ 被重摇过的那一行会「文案回到出厂、词条仍指旧任务」。
+                                     Term = src[i].Term, Arg = src[i].Arg };
             return copy;
         }
 
@@ -673,6 +677,12 @@ namespace CardPresentation
             t.Target = src.Target;
             t.RewardArt = src.RewardArt;
             t.RewardText = src.RewardText;
+            // 🔴 **2026-10-18（Rewards 四条红 #4 · 真缺陷）**：`Term`/`Arg` **必须跟着换**。
+            //   原来只拷上面四个字段 ⇒ `DailyDesc` 见 `Term` 非空就仍走**旧任务的官方键 + 旧 Arg**
+            //   （实测：目标已变 0/300、描述还印「对敌方战将造成 45 伤害」）。
+            //   池条目目前没有 Term（文案是我们自拟的）⇒ 拷过来就是 `null` / 0，`DailyDesc` 自然回 `Desc`。
+            t.Term = src.Term;
+            t.Arg = src.Arg;
             t.St = State.InProgress;                       // 新任务从「未完成」起
             RerollCount++;
             Say("第 " + (i + 1) + " 条任务已**重摇**：「" + oldDesc + "」⇒「" + t.Desc + "」"
@@ -1791,6 +1801,12 @@ namespace CardPresentation
                         if (r.target > 0) _daily[i].Target = r.target;
                         if (r.rewardArt != null) _daily[i].RewardArt = r.rewardArt;
                         if (r.rewardText != null) _daily[i].RewardText = r.rewardText;
+                        // 🔴 **2026-10-18（Rewards 四条红 #4）**：盘上的重摇行**没有 `Term`/`Arg` 列**
+                        //   ⇒ 这里必须**清掉**出厂那两个，否则 `DailyDesc` 会拿旧任务的官方键覆盖盘上的新描述
+                        //   （重启后「文案退回出厂、进度却是重摇后的」那一类残留）。
+                        //   ⚠️ 将来的重摇池若带 Term，要先把 term/arg 加进 `RowDto` 再存这里。
+                        _daily[i].Term = null;
+                        _daily[i].Arg = 0;
                     }
                     _daily[i].Progress = Mathf.Clamp(r.progress, 0, _daily[i].Target);   // 夹到**这一行真正的**目标值上
                     _daily[i].St = (State)Mathf.Clamp(r.st, (int)State.InProgress, (int)State.Claimed);
@@ -2013,6 +2029,8 @@ namespace CardPresentation
                 _daily[i].Target = _dailyFactory[i].Target;
                 _daily[i].RewardArt = _dailyFactory[i].RewardArt;
                 _daily[i].RewardText = _dailyFactory[i].RewardText;
+                _daily[i].Term = _dailyFactory[i].Term;                  // 🔴 2026-10-18（#4）：词条键也还原
+                _daily[i].Arg = _dailyFactory[i].Arg;
             }
             _daily[0].Progress = 0; _daily[0].St = State.InProgress;    // /45
             _daily[1].Progress = 0; _daily[1].St = State.InProgress;    // /15

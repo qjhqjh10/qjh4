@@ -588,6 +588,20 @@ namespace CardPresentation
             //   （我们自拟的键在官方表里一般没有）⇒ 命中就返回，否则照旧出声 + 回 `fallback`。
             string v13 = Loc.Lang13Current(term);
             if (!string.IsNullOrEmpty(v13)) return v13;
+            // 🆕 **2026-10-18（N71 第二半）**：中/英两档也吃官方全表兜底（`Loc.OfficialCurrent` 按当前语档取列）。
+            //   原来中/英档缺 Table 键时直接回 `fallback`（卡名会退回裸 id / 英文原值）——
+            //   而官方表里这些键**是有中英文的**（例 `Card_Name/TAU46` = `Sense of Stone` / `石之感`）。
+            //   改了之后**唯一翻掉的断言**是 `Editor/CardBaseDemo.cs` 那条钉「英文档回裸 id」的旧基线
+            //   （已按官方英文名同步订正，并补了「不许退回裸 id」的判别式）。
+            //   ⚠️ `HasEntry` 仍只查手写 Table（⛔ 不动它的语义：自检拿它判「键在不在表里」）。
+            //   🔴 **2026-10-18（RV 复核·中）**：**不能**无条件取 `OfficialCurrent` —— 那一口只看
+            //   `Loc.Current`、不看字体闸。当「语言=中文、但中文字体资产缺失（`Zh == false`）」时，
+            //   Table 有键那一路走 `Term()` 会回**英文**，缺键这一路若返回中文 ⇒ 同一张卡面中英混排 +
+            //   中文画方块，违反本文件 `:553-561` 的红线。⇒ 那一种边界态取**官方英文列**。
+            string vo = (Loc.Current == AvailableLanguages.Chinese && !Zh)
+                        ? Loc.OfficialEnglish(term)
+                        : Loc.OfficialCurrent(term);
+            if (!string.IsNullOrEmpty(vo)) return vo;
             Loc.T(term);                       // 缺键：出声 + 记账（⛔ 不是静默）
             return fallback;
         }

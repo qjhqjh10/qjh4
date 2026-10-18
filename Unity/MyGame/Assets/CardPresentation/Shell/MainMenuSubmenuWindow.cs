@@ -41,14 +41,43 @@ namespace CardPresentation
         public const string ArtBarBg = "40k_main_tab_background";
         public const string ArtBarShadow = "40k_main_tab_shadow";
 
+        /// <summary>`Tab Buttons` 的 **`Gradient2`**（原版 `_gradientType=1` 竖 · `_blendMode=0` **Override** ·
+        /// `_modifyVertices=1`）。4 个色标：`t=0 → 黑` · `21974/65535=0.3353 → 白` · `47995/65535=0.7324 → 白` ·
+        /// `t=1 → 0.283 灰`；`m_NumAlphaKeys=2`（atime 0/65535，值 **1/1**）⇒ **alpha 恒 1**
+        /// （色标自己的 `.a` 不生效 —— Unity `Gradient.Evaluate` 只取 alphaKeys）。
+        /// <para>判据 = `bundle_menus_assets_all` 里 **5 扇窗**的 `Tab Buttons` 那颗 `Gradient2` **逐位相同**
+        /// （RT `6015769152683513599`(Rewards) · `-5136901115363047300`(Shop) · `-3625937570430197597`(Social) ·
+        /// `-1995773233925987627`(Collection) · `6575864103241236067`(Base Submenu)）。
+        /// 与 `ParentEventWindow.cs:179-186` 那份是**同一组 prefab 值**（那边 2026-10-17 已落地）；
+        /// ⚠️ 本批**不许改 `MenuDraw.cs`**（别的代理在用）⇒ 没有提到公共件，两处各留一份、值逐位相同。</para>
+        /// <para>🔴 **2026-10-18（T29 · D2）**：左栏底板此前**根本没画这条渐变** ⇒ 整条左栏是一条**均匀亮度的红带**
+        /// （实拍：下沿 y=860 原版 (8,1,2)、我们≈(70,13,21)）。改法照 `ParentEventWindow.cs:492` 的 `MenuDraw.GradientV`。</para></summary>
+        public static readonly float[] TabGradT = { 0f, 21974f / 65535f, 47995f / 65535f, 1f };
+        public static readonly Color[] TabGradC =
+        {
+            new Color(0f, 0f, 0f, 1f),
+            new Color(1f, 1f, 1f, 1f),
+            new Color(1f, 1f, 1f, 1f),
+            new Color(0.2830189f, 0.2830189f, 0.2830189f, 1f),
+        };
+
         /// <summary>选中/未选中**共用同一张底图**：`40k_main_bt_selected BW` 纯红 #FF0000。
         /// ⚠️ 工程里的切片名是**下划线**版（导入器把空格换成下划线）：`40k_main_bt_selected_BW`。</summary>
         public const string ArtSelHighlight = "40k_main_bt_selected_BW";
         public const string ArtNametag = "40k_main_bt_nametag";
 
-        /// <summary>`Content Area/Background` 的 `UIGradient`：c1 **#390503** · c2 **#0C0004** · angle **82**。</summary>
-        public static readonly Color GradC1 = new Color(0x39 / 255f, 0x05 / 255f, 0x03 / 255f);
-        public static readonly Color GradC2 = new Color(0x0C / 255f, 0.0f, 0x04 / 255f);
+        /// <summary>`Content Area/Background` 的 `UIGradient`：c1 **#390305** · c2 **#0C0004** · angle **82**（原版坐标系）。
+        /// <para>🔴 **2026-10-18（T29 · 铁律 5 就地订正）：`GradC1` 原来写的是 `(0x39, 0x05, 0x03)` —— G/B 反了。**
+        /// 判据 = prefab 原值 `m_color1 = (0.22352943, 0.01176471, 0.01960784)`（= RGB **57,3,5** ⇒ `#390305`；
+        /// `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-3308698737451929820.json` 起 **8 份逐值相同**）。
+        /// 错因 = 旧注释照 `#390503` 抄，而那个 hex 本身把 G/B 写反了 ——
+        /// `资料/普查产出_1018/R_T29_全界面底纹背景对账.md` §0·4 的**数字三元组**与实拍公式 `(12+45t, 3t, 4+t)` 都是 (57,3,5)。
+        /// `GradC2` 本来就对（12,0,4 = `#0C0004`）。</para>
+        /// <para>⚠️ 角度：原版 `UIGradient` 的有效轴是 `(sin,cos)`、本仓 `CardArt.Gradient` 是 `(cos,sin)`
+        /// ⇒ 要还原同一张图须传 **188**（同 `DeckRuntime.BuildAreaBackground` / `ParentEventWindow.BgGradAngle`），
+        /// ⛔ 不是 82。</para></summary>
+        public static readonly Color GradC1 = new Color(0.2235294f, 0.0117647f, 0.0196078f, 1f);
+        public static readonly Color GradC2 = new Color(0.0470588f, 0f, 0.0156863f, 1f);
 
         // ⚠️ 分层用**渲染队列**、不用 z（`ImageQuad` 全是透明队列，按到相机的 3D 距离排序 —— 屏幕中间的
         //    反而更近）。**同一个队列 + z 都是 0 ⇒ 谁盖谁完全不确定**（2026-09-22 踩过）⇒ 每层差 1 都行。
@@ -400,13 +429,18 @@ namespace CardPresentation
             // ---- Content Area（页签内容的父）----
             var area = Node(root, "Content Area", areaRect);
 
-            // `Background`：原版是 `Image(sprite=null)` + **`UIGradient` 双色**（c1 #390503 · c2 #0C0004 · angle 82）
+            // `Background`：原版是 `Image(sprite=null)` + **`UIGradient` 双色**（c1 #390305 · c2 #0C0004 · angle 82）
             // ⇒ 走 `CardArt.Gradient`（主菜单整屏背景是同一套做法）。
+            // 🔴 **2026-10-18（T29 · D1）就地改角度：`82f` → `188f`。**
+            //   原版 angle 的有效轴是 `(sin,cos)`、本仓助手是 `(cos,sin)` ⇒ **差 90°**（再翻 180° 让亮端落在右上）。
+            //   传 82 时我们画成「上暗下亮」（同一张纹理按 `(cos82,sin82)` 投轴）；实拍是**左暗右亮**：
+            //   收藏窗 x=500/1000/1400 → (24,1,4)/(39,2,6)/(52,4,6)，与 `RGB(x)=(12+45t, 3t, 4+t)` 逐点吻合。
+            //   影响面 = 奖励三页 / 商店 / 收藏四页 / 社交（共 4 个窗、至少 8 页）。判据 → `R_T29_…对账.md` §0·2 + D1。
             // ⚠️ **不能先 `Rect()` 再 `SetTexture`** —— `SetTexture` 会把 `_aspect` 改成贴图自己的
             //    宽高比（128×128 = 1.0），把 `Rect` 刚设好的 1752.83/1009.06 冲掉。
             {
                 float w = areaRect.W, h = areaRect.H;
-                var q = ImageQuad.Create(area, CardArt.Gradient(GradC1, GradC2, 82f),
+                var q = ImageQuad.Create(area, CardArt.Gradient(GradC1, GradC2, 188f),
                                          Local(area, areaRect.x1, areaRect.y1, areaRect.x2, areaRect.y2),
                                          LayoutSpace.Px(h), new Vector2(0.5f, 0.5f), "Background");
                 if (q != null) { q.SetAspect(w / h); q.SetRenderQueue(QBackground); }   // 🆕 见 `QBackground`
@@ -457,7 +491,11 @@ namespace CardPresentation
         {
             var barRect = new PxRect(ContentL, ContentT, ContentL + BarW, ContentB);
             var bar = Node(area, "Tab Buttons", barRect);
-            Rect(bar, ArtBarBg, barRect.x1, barRect.x2, barRect.y1, barRect.y2, "Background", QPanel);
+            // 底板：`40k_main_tab_background` + 原版那颗 `Gradient2`（竖 · 4 色标 · Override）。
+            // 🔴 **2026-10-18（T29 · D2）**：原来只画底图（单块 `Rect`）⇒ 一条均匀红带；实拍是「中段全亮 /
+            //    下沿约 20% 渐到黑 / 上沿压到 0.283 灰」。写法照 `ParentEventWindow.cs:492`（同一组键值）。
+            //    ⚠️ `GradientV` 的 `t=0` 在**下**（Unity 顶点 y 向上 ⇒ 本层已翻）—— 键值 0→黑 正对「下沿渐黑」。
+            MenuDraw.GradientV(bar, Art(ArtBarBg), barRect, QPanel, "Background", TabGradT, TabGradC);
             // `Shadow`：**宽 0 就不建**（社交窗那条原版自己就是 0 高/0 宽，见 `BarShadowW` 的注释）
             if (BarShadowW > 0f)
                 Rect(bar, ArtBarShadow, ContentL, ContentL + BarShadowW, ContentT, ContentB, "Shadow", QPanel);

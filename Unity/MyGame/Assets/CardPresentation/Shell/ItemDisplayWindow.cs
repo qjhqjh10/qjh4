@@ -275,17 +275,20 @@ namespace CardPresentation
             var titleR = new PxRect(TextL, TitleT, TextR, TitleB);
             var descR = new PxRect(TextL, TitleB, TextR, DescB);
             var typeR = new PxRect(TextL, DescB, TextR, TypeB);
-            // Title / Type 原版 `m_TextWrappingMode = 0`（不折行）+ autosize[10~37]；Description 折行 ⇒ `TextBox`。
-            // ⚠️ **如实标注（我们挑的写法）**：本仓的 `Label.SetAutoFitBox` **内部必调 `SetWrapWidth`**
-            //   （判据 → `Battle/Label.cs:1022`）⇒ 走它就没法「不折行只缩字号」。四格统一用 `TextBox`
-            //   （折行 + 自适应）：最长的那几个官方名（如 `Grit and Determination`）会**折成两行并把字号缩到框内**，
-            //   而原版是**单行缩字号** —— 两者都落在 314×50 的框里，差别只在那一档长名的排版。
+            // Title / Type 原版 `m_TextWrappingMode = 0`（不折行）+ autosize[10~37] / [10~35]；Description 折行 ⇒ `TextBox`。
+            // 🔴 **2026-10-18（W3）就地订正（铁律 5）**：本行原来写「走 `SetAutoFitBox` 就没法『不折行只缩字号』」——
+            //   **有解**：`SetAutoFitBox` 之后**再**调 `SetWrapping(false)` 即可（`Label` 的调用次序契约 =
+            //   `SetAutoFitBox` → `SetWrapping` → 对齐 → 量；同族先例 = `Shell/RewardWindow.cs` 的 `Collect Button/Button Text`）。
+            //   ⇒ 现在 Title / Type **照原版折行=0**（单行缩字号），Description 保持折行1。
+            //   判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §14（P2-10）。
             _title = MenuDraw.TextBox(_panel, titleR, _ctx.Title ?? "", Color.white, "Title",
                                       TitleFont, TitleFontMin, QPanelText, TitleFontMax, TitleFontBase, face: TmpFont.Face.LatinUi);
+            if (_title != null) _title.SetWrapping(false);          // 原版 `折行=0`（dump：`Title … 折行=0`）
             _desc = MenuDraw.TextBox(_panel, descR, _ctx.Description ?? "", Color.white, "Description",
                                      DescFont, DescFontMin, QPanelText, DescFontMax, DescFontBase, face: TmpFont.Face.LatinCardBody);
             _type = MenuDraw.TextBox(_panel, typeR, _ctx.Type ?? "", Color.white, "Type",
                                      TypeFont, TypeFontMin, QPanelText, TypeFontMax, TypeFontBase, face: TmpFont.Face.LatinCardBody);
+            if (_type != null) _type.SetWrapping(false);            // 原版 `折行=0`（dump：`Type … 折行=0`）
 
             // 面板底那颗 `Image` 的 `m_RaycastTarget = 1`、父链上没有点击处理器 ⇒ 原版点面板**什么都不发生**
             MenuDraw.Absorb(_panel, "AbsorbHit", panelR, QShade, QHit);

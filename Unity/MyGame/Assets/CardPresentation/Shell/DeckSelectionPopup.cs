@@ -140,6 +140,16 @@ namespace CardPresentation
 
         // ---- 几何（A1 §3 逐条；2026-09-24 从根节点复核过，见文件头）----
         public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
+        /// <summary>压暗层 `Menu Dark Background` 的**原版矩形**（= **超画幅** 4574.60 × 2572.36，不是 1920×1080）。
+        /// <para>判据 = `menu_dump.py bundle_menus_assets_all "Deck Selection Popup with Tabs" --depth 8`
+        /// 的 `Menu Dark Background` 行（`-1327.3,-746.2 → 3247.3,1826.2` · 色 (0,0,0,.773)）。</para>
+        /// <para>🔴 **点击区必须用同一份矩形**：原版那颗 `BackgroundCloseButton` 就挂在**这一层**上，
+        /// 它的 `Graphic` 就是这张 4574.6×2572.36 的 `Image` ⇒ 可点区 = 整块超画幅矩形。
+        /// 我们原来写死 `0,0,1920,1080` ⇒ `LayoutSpace` 的可见宽在 21:9 = **2520 设计 px**，
+        /// **两侧各 300px 既没有压暗、也点不到（关不掉窗）**。判据 → `资料/普查产出_1018/P1_弹窗排版_卡组卡牌.md` §七 S1。</para>
+        /// ⚠️ 本窗（选卡组）的**视觉层**改前就是对的（同一串数），只有**点击区**取错了 —— 现在两者共用这一份。</summary>
+        public const float ShadeL = -1327.30f, ShadeT = -746.18f, ShadeR = 3247.30f, ShadeB = 1826.18f;
+        public static readonly PxRect ShadeRect = new PxRect(ShadeL, ShadeT, ShadeR, ShadeB);
         /// <summary>`Tab buttons` 容器（HLG spacing 12.45 align MiddleLeft）；两个页签各 **260×67.6421**（模板位是重合的）。</summary>
         public const float TabL = 196.30f, TabT = 35.07f, TabW = 260f, TabH = 67.6421f, TabGap = 12.45f;
         /// <summary>🔴 **2026-10-19（`A1219`）：`TabW`（260）是【整颗页签钮】的宽，而原版那颗 TMP 的框比它窄 —— 这里这 213 才是原版 `Button Text` 的框宽。**
@@ -164,13 +174,24 @@ namespace CardPresentation
         /// <summary>`Deck Scroll View`（RSR 的视口）**194.50,208.63 → 1759.50,986.69**（1565 × 778.06）。</summary>
         public const float SvL = 194.50f, SvT = 208.63f, SvR = 1759.50f, SvB = 986.69f;
         public static readonly PxRect SvRect = new PxRect(SvL, SvT, SvR, SvB);
-        /// <summary>`Header` 那一行（`Separator Line` 在 204.95→214.95）。</summary>
-        public const float HdrT = 124.95f, HdrB = 209.95f, SepT = 204.95f, SepB = 214.95f;
+        /// <summary>`Header` 那一行 **184.50,124.95 → 1769.50,209.95**（`Separator Line` 在 204.95→214.95）。
+        /// 🔴 **2026-10-18（P1 §1·2）**：补 `HdrL/HdrR` —— 分隔线原来拿的是 `DdL..DdR`（= `Deck Display`
+        /// 的 144.50→1809.50）⇒ **左右各多 40px、整条宽 80px**。原版 `Separator Line` 实读
+        /// **184.5,204.95 → 1769.5,214.95（1585×10）**（`menu_dump … "Deck Selection Popup with Tabs" --depth 8`）
+        /// —— 它挂在 `Header` 里，左右边就是 `Header` 的左右边。</summary>
+        public const float HdrL = 184.50f, HdrR = 1769.50f, HdrT = 124.95f, HdrB = 209.95f,
+                           SepT = 204.95f, SepB = 214.95f;
         /// <summary>提示语：`Instructions`(act=N) 618.72→1335.28 · `Instructions 2`(act=Y) 1236.12→1770.24。</summary>
         public const float Ins2L = 1236.12f, Ins2R = 1770.24f;
         /// <summary>`Practice buttons`(HLG spacing 24.5 align MiddleLeft) 184.50,117.50→443.61,217.39；
         /// 子件作者 **212.24×63.92**、`childControl=0/forceExpand=0` ⇒ 保持作者尺寸、垂直居中。</summary>
         public const float RndL = 184.50f, RndW = 212.24f, RndH = 63.92f, RndBoxT = 117.50f, RndBoxB = 217.39f;
+        /// <summary>`…/Generic Simplified UI Button/Button Text` **自己那颗 TMP 的框** = **189.83 × 49.45**
+        /// （`AspectRatioFitter` 宽控高 3.83864 —— prefab 实读，`menu_dump … --depth 12` 印
+        /// `⚙ARF 宽控高(3.83864)` 与 `189.83 49.45`）。它**比钮小**（钮 212.24×63.92）且居中
+        /// （实读矩形 `195.7,142.7 → 385.6,192.2`）⇒ 自适应必须按**这个框**算，⛔ 不是按整颗钮。
+        /// 判据 → 报告 `P1_弹窗排版_卡组卡牌.md` §1·2「该钮文字 `Button Text`」那一行。</summary>
+        public const float RndTextW = 189.83f, RndTextH = 49.45f;
         /// <summary>搜索框 `Collection Menu Input Field`（`InputFieldBackground` 500×49.078）。</summary>
         public const float InL = 727.00f, InT = 142.91f, InR = 1227.00f, InB = 191.98f;
         /// <summary>关闭圆钮 `Generic Close Button Orange`（74.39×75.60）+ 图标 56.86×58.13。</summary>
@@ -203,7 +224,23 @@ namespace CardPresentation
 
         public static readonly Vector4 RedBorder = new Vector4(42f, 363f, 655f, 81f);
         const float RedTexW = 1100f, RedTexH = 701f;
-        static readonly Vector4 TabBorder = new Vector4(0f, 0f, 0f, 0f);
+        /// <summary>页签底图那**两张**图各自的九宫格边界（原版 `Image.Type = Sliced`）。
+        /// <para>判据 = **贴图自己的 `m_Border`**（`d:/2/新解包资源/assets_full/sharedassets0/Sprite/` 逐张现读）：
+        /// · `40K_tab_button` **489×79** · `m_Border = (183, 0, 128, 29)`
+        /// · `40K_tab_button_overwindow` **489×97** · `m_Border = (188, 0, 99, 30)`</para>
+        /// <para>🔴 **两张图各有一份、不能用一份套两张** —— 报告 §1·2 只列了 on 那张的 (183,0,128,29)；
+        /// off 那张在 `menu_dump … "Deck Selection Popup with Tabs" --depth 8` 里印的是
+        /// **`九宫188,0,99,30`**（两颗 toggle 各印各的）。</para>
+        /// <para>🔴 **`m_PixelsPerUnitMultiplier = 1.5`**（prefab 两颗 `Image` 逐字段实读）⇒ **画出来的角块 =
+        /// `m_Border ÷ 1.5`**：`MenuDraw.Nine` 的 `border` 收的是**贴图 px**、`borderOutPx` 才是**画出来的 px**
+        /// —— ppuMul 必须走后者（判据 → `MenuDraw.Nine` 的 `<param name="borderOutPx">` 与
+        /// `ImageQuad.CreateNineSlice` 的 `<param name="borderOutPx">`）。</para>
+        /// <para>⚠️ 改前这里是一个 `(0,0,0,0)` 的 `TabBorder`（**从未被使用**）⇒ 底图走 `MenuDraw.Rect` = **单块拉伸**：
+        /// 489px 的整张图横向压进 260px（÷1.88）⇒ **圆角端帽被压扁**。判据 → 报告 §1·2 与 §七 S2。</para></summary>
+        static readonly Vector4 TabBorderOn = new Vector4(183f, 0f, 128f, 29f);
+        static readonly Vector4 TabBorderOff = new Vector4(188f, 0f, 99f, 30f);
+        /// <summary>`40K_tab_button` / `…_overwindow` 两张图的 `m_PixelsPerUnitMultiplier`（prefab 实读 = 1.5）。</summary>
+        const float TabPpuMul = 1.5f;
 
         /// <summary>🆕 2026-10-17（D6）：标题那一格的**词条键** —— 原版 `Instructions 2` 节点上那颗
         /// `Localize` 的 `mTerm` 原文（不是自拟）。
@@ -438,16 +475,14 @@ namespace CardPresentation
             _emptyNode = null; _emptyLabel = null;      // 旧的那件随子件一起没了 ⇒ 引用也要清（同 `CardDetailPopup.Build`）
 
             // 1) 压暗 + 点背景关窗（原版 `backgroundCloseButton`）
-            var shade = MenuDraw.Rect(root, CardArt.Solid(),
-                                      new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f), "Menu Dark Background",
-                                      QDs, ShadeColor);
+            var shade = MenuDraw.Rect(root, CardArt.Solid(), ShadeRect, "Menu Dark Background", QDs, ShadeColor);
             if (shade == null)
                 MenuDraw.Rect(root, CardArt.Solid(), new PxRect(0f, 0f, 1920f, 1080f), "Menu Dark Background", QDs, ShadeColor);
             // 🔴 **2026-10-04（A47 接线批）订正档号：`QDsHit − 1`(3127) → `QDs`(3125)** ——
             //   规矩 = 「压暗层的命中区落在**压暗层自己那一档**，且严格低于本窗任何内容命中区档」
             //   （判据 → `MenuDraw.ShadeHit` 的注释 · `资料/待办判据_阶段二与联机.md` §A25·补（一））。
             //   ⚠️ 3127 恰好是 `QDsText`（文字那一档）。
-            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), QDs, QDsHit, () => Close(), "BackgroundHit");
+            MenuDraw.ShadeHit(root, ShadeRect, QDs, QDsHit, () => Close(), "BackgroundHit");
 
             // 2) 两个页签（HLG spacing 12.45 ⇒ 第 2 个从 196.30 + 260 + 12.45 起）
             //    容器高 **68.50**、键高 **67.6421** ⇒ 竖直居中（`align=MiddleLeft`）
@@ -465,7 +500,9 @@ namespace CardPresentation
             MenuDraw.Absorb(root, "AbsorbHit", new PxRect(RedL, RedT, RedR, RedB), QDs, QDsHit);
 
             // 4) `Header` 那一行：分隔线 + 提示语 + 「随机挑一套」
-            MenuDraw.Rect(root, CardArt.MenuUi("40k_main_line"), new PxRect(DdL, SepT, DdR, SepB), "Separator Line", QDsRow);
+            //    🔴 **2026-10-18（P1 §1·2）**：x 从 `DdL..DdR`（144.50→1809.50）改成 **`HdrL..HdrR`**
+            //    （**184.50→1769.50** = 原版 `Separator Line` 的 1585×10；改前左右各多 40px）。
+            MenuDraw.Rect(root, CardArt.MenuUi("40k_main_line"), new PxRect(HdrL, SepT, HdrR, SepB), "Separator Line", QDsRow);
             // 🔴 2026-10-17（D6）：这一格的文案**走词条**，键 = 原版 `Instructions 2` 上那颗 `Localize`
             //   （<see cref="TitleTerm"/> = `MenuDeck/Tip/SelectDeckAgainst`）。
             //   ⚠️ 这里原来写「`Instructions 2`(act=Y) 的文案取不到 ⇒ 用同窗 `Instructions` 那句
@@ -506,7 +543,30 @@ namespace CardPresentation
                 //   `m_text = ''`（本批实读）⇒ **英文原文取不到**（同 `MenuDeck/Tip/SelectDeckAgainst` 那条的先例），
                 //   而 `zh_CN.csv` 里也没有 `Random` ⇒ 中文按英文自拟「随机」。⛔ 别写成「照抄原版」。
                 //   ⛔ 节点名 `"Random Text"` 与 `"Random Bg"` 不动。
-                MenuDraw.Text(root, rr, Loc.T("MenuDeck/Button/Random"), Color.white, "Random Text", 45f, QDsText, face: TmpFont.Face.LatinCardBody);
+                // 🔴 **2026-10-18（P1 §1·2 · 报告第 4 条）**：这一颗的文字原来是**固定 45px、无自适应、默认 Middle**。
+                //   原版 `…>Practice buttons>Generic Simplified UI Button>Button Text` 按 pid 亲读
+                //   （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-2112395929452759681.json`，GO pid
+                //   `7450249239293310335`）—— 逐字段：
+                //     · `m_enableAutoSizing = 1` · `m_fontSize = **12**` · `m_fontSizeBase = **12**` ·
+                //       `m_fontSizeMin = **10**` · `m_fontSizeMax = **60**` · **折行 = 0**
+                //     · `m_HorizontalAlignment = 2`(Center) · 🔴 **`m_VerticalAlignment = 8192` = `Capline`**
+                //     · 它自己那颗 TMP 的框 = **189.83 × 49.45**（`AspectRatioFitter` 宽控高 3.83864；
+                //       `menu_dump --depth 12` 实读 `195.7,142.7 → 385.6,192.2`，而钮是 `184.5,135.5 → 396.7,199.4`
+                //       ⇒ **在钮里居中**，四边内缩 11.2/11.1 与 7.2/7.2）。
+                //   🔴 **就地订正（铁律 5）**：只读报告 `P1_弹窗排版_卡组卡牌.md` §1·2 把纵向档写成 **`Midline`** ——
+                //     **不成立**：那颗 TMP 的 `m_VerticalAlignment` 实读是 **8192 = `Capline`**
+                //     （同一条 `menu_dump` 行也印着 `对齐=Center/Capline`）。本处照**资产字段**落 `Capline`。
+                //   ⚠️ 框宽只由 `wrapPx` 决定（`MenuDraw.TextCore` 把它写进 TMP 的 `sizeDelta.x`），
+                //     节点仍摆在那颗钮的心里 ⇒ 用 `rr` 的中心 + 框尺寸算一个小矩形。
+                var rndTxtR = new PxRect(rr.CX - RndTextW * 0.5f, rr.CY - RndTextH * 0.5f,
+                                         rr.CX + RndTextW * 0.5f, rr.CY + RndTextH * 0.5f);
+                var rndLb = MenuDraw.Text(root, rndTxtR, Loc.T("MenuDeck/Button/Random"), Color.white, "Random Text",
+                                          12f, QDsText, RndTextW, 10f, 60f, 12f, face: TmpFont.Face.LatinCardBody);
+                if (rndLb != null)
+                {
+                    rndLb.SetWrapping(false);                                     // 原版折行=0
+                    MenuDraw.SetVAlign(rndLb, Label.VAlign.Capline, rndTxtR);     // 原版 `m_VerticalAlignment = 8192`
+                }
                 // A17：原版 `…>Practice buttons>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 3 第 9 行）；
                 // 底下那颗 `EverguildButton`(trans=1) 不换图 —— 换图的是 `Button` 那颗
                 Hit(root, "RandomHit", rr, PickRandom, QDsHit, randomBg, "UI_Button_Mulligan",
@@ -649,9 +709,19 @@ namespace CardPresentation
             bool on = OwnDecks == own;                  // = 原版那颗 `EverguildToggle.m_IsOn`
             // 底图与染色**都由 `on` 决定**（⛔ 不是「按是哪一颗页签写死两张图」—— 那会把
             // `My Decks` 选中时的底图钉死在 `…_overwindow` 上，正是 D12 那条偏离）。
-            MenuDraw.Rect(root, Art(on ? TabOnArt : TabOffArt), r,
-                          own ? "Generic Tab UI Button 1" : "Generic Tab UI Button", QDsRow,
-                          on ? TabOnColor : TabOffColor);
+            // 🔴 **2026-10-18（P1 §1·2 / §七 S2 · 报告第 3 条）**：底图从 `MenuDraw.Rect`（单块拉伸）
+            //   改成 **`MenuDraw.Nine`**（原版 `Image.Type = Sliced`）—— 两张图**各用自己的九宫 + 纹理尺寸**
+            //   （`TabBorderOn/Off` 与 `489×79 / 489×97`），`m_PixelsPerUnitMultiplier = 1.5` 走 `borderOutPx`
+            //   （= `border ÷ 1.5`）。判据与「为什么两张不能共用一份 border」→ `TabBorderOn` 的 doc。
+            //   ⚠️ 底板图仍用 `r`（= `TabW` 260，原版父件就是 260）；节点名与改前逐字相同
+            //   （子树根叫 `Generic Tab UI Button[ 1]`，九块子件是 `…_00..22`）。
+            var tabTex = Art(on ? TabOnArt : TabOffArt);
+            var tabBorder = on ? TabBorderOn : TabBorderOff;
+            MenuDraw.Nine(root, tabTex, r, tabBorder,
+                          tabTex != null ? tabTex.width : 489f, tabTex != null ? tabTex.height : 79f,
+                          QDsRow, on ? TabOnColor : TabOffColor, true,
+                          own ? "Generic Tab UI Button 1" : "Generic Tab UI Button",
+                          tabBorder / TabPpuMul);
             // 文字**两态都是白的**（原版两颗 TMP 都是 `(1,1,1,1)`，且染色够不到它 —— 见上面那段）
             // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 34px。
             //   判据 = 原版 `menus ▸ …/Alliance Header Buttons/Tab buttons/Generic Tab UI Button[ 1]/Button Text`：

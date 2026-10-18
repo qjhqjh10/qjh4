@@ -1474,8 +1474,15 @@ public static class CardBaseDemo
 
             // ---- ③ 绕过闸的那一处：`Name(id, nameZh)` 原来无条件返回中文名 ----
             string enName = CardText.Name("TAU46", "石之感");
-            Check(enName == "TAU46",
-                  $"③ ★ 英文档卡名回**英文 id**（实得「{enName}」）—— 🧨 只改 `Zh`、不给 `Name(id,nameZh)` 补闸 ⇒ 本条红");
+            // 🔴 **2026-10-18（N71 第二半）就地订正**：原来这条钉的是「英文档 ⇒ 回**裸 id** `TAU46`」——
+            //   那是 `TermOr` 缺 Table 键时的**旧兜底**。`N71` 让 `TermOr` 在中/英档也吃官方全表之后，
+            //   官方 `Card_Name/TAU46` = `["Sense of Stone","石之感"]` ⇒ 英文档应当印 **Sense of Stone**。
+            //   ⛔ 别再改回 `"TAU46"`：那是把「查不到官方名」当成期望值。
+            Check(enName == "Sense of Stone",
+                  $"③ ★ 英文档卡名回**官方英文名**（实得「{enName}」）—— 官方 `Card_Name/TAU46` = Sense of Stone；"
+                  + "🧨 删掉 `TermOr` 里那条 `Loc.OfficialCurrent` 兜底 ⇒ 本条红");
+            Check(enName != "TAU46",
+                  "③ 判别式：**不许退回裸 id**（防「两边都回 id」也照样过）");
             Check(enName != zhName,
                   "③ 判别式：两档的卡名**不是同一串**（防「两边都返回 id」也照样过）");
         }

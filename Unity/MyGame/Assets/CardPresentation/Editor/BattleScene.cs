@@ -749,16 +749,21 @@ public static class BattleScene
                 Check(byName == perCard,
                       $"★ **两条键必须同解**：按卡名「{byName}」= 按 id「{perCard}」 ⇒ "
                     + "「把 `ResolveCardIdOf` 那一步换算删掉」时**这条单独变红**、上面 id 那条仍绿（灭自证）");
-                // 重名那一族：`Maulerfiend` 全池两张（`BL31` 黑军团 / `EC30` 帝皇之子）⇒ **只能靠 `faction` 钉**，
+                // 重名那一族：`Terminator` 全池两张（`EC25` 帝皇之子 / `UM103` 极限战士）⇒ **只能靠 `faction` 钉**，
                 //   这也是「为什么运行时那份必须带 `fa`」的现场证明（⛔ 不是可选的装饰字段）。
-                string mfBL = VfxMap.Resolve(VfxMap.Ability, "BlackLegion", "Maulerfiend");
-                string mfEC = VfxMap.Resolve(VfxMap.Ability, "EmperorsChildren", "Maulerfiend");
-                Check(mfBL == "TraitorsHate_Board" && mfEC == "Buff_HideousMutation_EC",
-                      $"★ **重名靠阵营钉**：`Maulerfiend` 黑军团 →「{mfBL}」（期望 `TraitorsHate_Board`）· "
-                    + $"帝皇之子 →「{mfEC}」（期望 `Buff_HideousMutation_EC`）"
+                // 🔴 **2026-10-18（第五十二会话 · 铁律 5 就地改断言）**：原来用 `Maulerfiend`（`BL31`），
+                //    但第四十九会话 `cd7d3e8` 的 `gen_card_vfx_by_card.py:168-180` 给 `Strike` 新增了
+                //    `TRIGGER_EVENT` 映射后，`BL31` 的 `TraitorsHate_Board` 从 `ability` 挪到了 `trigger`
+                //    ⇒ `Resolve(Ability, …)` 必然查不到、掉到通用兜底 `Buff_Blue_SW`（实现是对的）。
+                //    改用同名的 `Terminator` 两张（同事件 `ability`、都 authoritative、已模拟）。
+                string mfEC = VfxMap.Resolve(VfxMap.Ability, "EmperorsChildren", "Terminator");
+                string mfUM = VfxMap.Resolve(VfxMap.Ability, "Ultramarines", "Terminator");
+                Check(mfEC == "Buff EC Pink Twirl" && mfUM == "Oath_Effect",
+                      $"★ **重名靠阵营钉**：`Terminator` 帝皇之子 →「{mfEC}」（期望 `Buff EC Pink Twirl`）· "
+                    + $"极限战士 →「{mfUM}」（期望 `Oath_Effect`）"
                     + " —— 钉不出唯一时 `ResolveCardIdOf` **出声并放弃**，⛔ 不拿「先到的那个」充数");
-                Check(mfBL != mfEC,
-                      "★ **灭自证**：同一个卡名 `Maulerfiend` 在两个阵营下**必须解析成不同的 prefab** ⇒ "
+                Check(mfEC != mfUM,
+                      "★ **灭自证**：同一个卡名 `Terminator` 在两个阵营下**必须解析成不同的 prefab** ⇒ "
                     + "「改回『重名取第一条』」时这条与上面那条**同时**变红");
 
                 // 🆕 2026-10-15（账 `A2083`）：**阵亡那一档只认 `customDeathParticles`**。
@@ -839,12 +844,18 @@ public static class BattleScene
                       $"★ **灭自证**：两张卡的值必然不同（{am35:F2} vs {am2v:F2}）—— "
                     + "退回常数／退回「只按 `EvtKind` 查表」都会让这条**与上面两条同时**变红");
                 // **灭自证 ②**：表里**没有**的卡要**退回兜底并出声**（`TryGet` 自己打 warning + 计数）
-                //   `Terminator`（池里 `UM103` 的卡名）—— 21 张 UM 誓约卡**一张都不在 2022 快照里**
+                //   🔴 **2026-10-18（第五十二会话 · 铁律 5 就地改断言）**：原来用 `Terminator` ——
+                //   第五十会话 `3251df0` 把 VFX 真值源换成当前 build 的 1,351 张 allcards 后，
+                //   `UM103 Terminator` **进了** `ability_anim_durations`（93 张，`s=2.0`）⇒ 它不再走兜底。
+                //   改用现读确认**不在表里**的 `Celestian Sacresant`（SOR30，在卡池），并补 `Has()` 前提。
+                const string noTruthCard = "Celestian Sacresant";
+                Check(!AbilityAnimDurations.Has(noTruthCard),
+                      $"（前提）`{noTruthCard}` **不在** `ability_anim_durations` 表里（不在才验得到兜底）");
                 int beforeFallback = AbilityAnimDurations.FallbackHits;
-                float noTruth = EventTiming.DurationOf(new BattleEvent { Kind = EvtKind.Ability, CardId = "Terminator" });
+                float noTruth = EventTiming.DurationOf(new BattleEvent { Kind = EvtKind.Ability, CardId = noTruthCard });
                 Check(AbilityAnimDurations.FallbackHits == beforeFallback + 1
                       && Mathf.Abs(noTruth - EventTiming.AbilityFallbackSeconds) < 1e-4f,
-                      $"★ 表里没有的卡**退回兜底值**（`Terminator` 判据为空 ⇒ {noTruth:F2}s，"
+                      $"★ 表里没有的卡**退回兜底值**（`{noTruthCard}` 判据为空 ⇒ {noTruth:F2}s，"
                     + $"退回计数 {beforeFallback}→{AbilityAnimDurations.FallbackHits}）—— ⛔ 不是静默失败");
             }
 

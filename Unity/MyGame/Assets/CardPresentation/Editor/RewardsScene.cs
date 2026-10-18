@@ -1009,7 +1009,23 @@ public static class RewardsScene
         var bar = FindChild(area, "Tab Buttons");
         CheckTrue(bar != null, "`Tab Buttons` 建了");
         CheckAt(bar, 167.17f, 332.17f, 70.94f, 1080f, "`Tab Buttons`");
-        CheckRectPx(bar, 167.17f, 332.17f, 70.94f, 1080f, "左栏底图 `40k_main_tab_background`");
+        // 🔴 **2026-10-18（T29·D2 触发，本批就地改断言）**：左栏底板由**单块 `Rect`** 换成
+        //    `MenuDraw.GradientV`（原版 `Gradient2` 4 色标 ⇒ **3 条横带**，见 `MainMenuSubmenuWindow.cs:498`）。
+        //    旧断言用 `CheckRectPx` 只拿 `GetComponentInChildren<ImageQuad>()` 的**第一条带**
+        //    （338.34 = 1009.06 × 21974/65535）⇒ 必红。改为量「3 条带的并集」，样板 =
+        //    `Editor/MainMenuScene.cs:13110-13126`（同一族 3 带 + 色标）。⛔ 别改回单块 Rect。
+        var barBg = FindChild(bar, "Background");
+        var barBands = barBg != null ? barBg.GetComponentsInChildren<ImageQuad>() : new ImageQuad[0];
+        Check(barBands.Length, 3, "左栏底图 = **3 条横带**（原版 `40k_main_tab_background` + `Gradient2` 4 色标）");
+        float bandSum = 0f, bandW = 0f;
+        for (int i = 0; i < barBands.Length; i++)
+            if (barBands[i] != null)
+            {
+                bandSum += barBands[i].WorldH * 108f;
+                bandW = Mathf.Max(bandW, barBands[i].WorldW * 108f);
+            }
+        CheckNear(bandSum, 1009.06f, 2.0f, "左栏底图 3 条带**高之和**(px)");
+        CheckNear(bandW, 165f, 2.0f, "左栏底图带**宽**(px)");
         CheckAt(FindChild(bar, "Shadow"), 167.18f, 214.81f, 70.94f, 1080f, "`Tab Buttons/Shadow`（窄 47.64）");
 
         Section("五个键（§二·2：VLG padTop 120 ⇒ 绝对 y 190.94 / 370.94 / 550.94 / 730.94 / 910.94）");
@@ -1307,9 +1323,10 @@ public static class RewardsScene
             //    （`menu_dump bundle_menus_assets_all "Missions Tab" --depth 12 --no-sprite` 实算 46.84）。
             // 窗口三格的原版实据（MB 亲读，见报告 §2 对照表）：`m_fontSizeMin/Max/Base = 10 / 40 / 36`
             // ⇒ × 1.15 = **11.5 / 46 / 41.4**。
-            CheckFontWindow(rows[0], "progress", 11.5f, 46f,
-                            "`progress` 自适应窗口 = 原版 `m_fontSizeMin/Max 10/40` × `localScale` 1.15 = [11.5, 46]"
-                            + "（改坏法：`FS()` 那一乘漏掉 ⇒ 实得 10.00/40.00 ⇒ 红；"
+            CheckFontWindow(rows[0], "progress", 28.75f, 40.25f,
+                            "`progress` 自适应窗口 = **独立 `Daily Mission Container` 的 25/35 × `localScale` 1.15 = [28.75, 40.25]**"
+                            + "（🔴 2026-10-18 A1232 改判：页内副本没有 GUID、运行时选不中 ⇒ 不再用页内的 10/40；"
+                            + "改坏法：`FS()` 那一乘漏掉 ⇒ 实得 25.00/35.00 ⇒ 红；"
                             + "把自适应关掉 ⇒ `guards` 那条 `AutoSizing` 红）", 41.4f, true);
         }
 
@@ -1634,10 +1651,10 @@ public static class RewardsScene
                 //    原版那一颗的 TMP 实读（MB `1175879379365507769`）：`fs **40**` · `base **36**` ·
                 //    `m_enableAutoSizing = 1` · `auto[**10 ~ 40**]` · `折行 0` ⇒ 窗口 = 10/40/36 × 1.15
                 //    = **[11.5, 46] / base 41.4**。⛔ 不钉收敛值（那是 TMP 二分出来的，随框与字体变）。
-                CheckFontWindow(skc2, "count 1", 11.5f, 46f,
-                                "骷髅卡奖励格 `count 1` 自适应窗口 = 原版 **10 / 40** × 1.15 = [11.5, 46]"
-                                + "（与每日行那一档 **20 / 40** 不同值；改坏法：`BuildRewardCell` 那三个实参"
-                                + "漏传/传成 Small 那一档 ⇒ 实得 11.50/34.50 ⇒ 红）", 41.4f, true);
+                CheckFontWindow(skc2, "count 1", 23f, 34.5f,
+                                "骷髅卡奖励格 `count 1` 自适应窗口 = **独立 `Daily Skulls Mission Container` 的 20/30 × 1.15 = [23, 34.5]**"
+                                + "（🔴 2026-10-18 A1232：页内 10/40 作废，运行时只会实例化有 GUID 的独立 prefab；"
+                                + "改坏法：`BuildRewardCell` 那三个实参漏传/传成 Small 那一档 ⇒ 实得 11.50/34.50 ⇒ 红）", 41.4f, true);
                 // ④ **关系式**（挡住「框和数字两边一起改回去」）：
                 //    `count` 在 prefab 里 `aMin == aMax == (0,0)`、`sd = (0,0)` —— **它没有锚点框**，
                 //    框由父格那条 HLG 给 ⇒ 它的**高必须 = 整格高 = 图标的高**。
@@ -1730,10 +1747,9 @@ public static class RewardsScene
             //    ⛔ 所以这条断言**不再钉收敛值**（46 是「框够大时会收敛到上限」的结果，不是判据）——
             //    改成窗口三格 + 自适应开着 + 收敛值落在窗口内。
             //    窗口三格的原版实据（MB 亲读）：`m_fontSizeMin/Max/Base = 10 / 40 / 36` ⇒ × 1.15 = 11.5 / 46 / 41.4。
-            CheckFontWindow(smLogin, "count 0", 11.5f, 46f,
-                            "登录卡奖励格 `count 0` 自适应窗口 = 原版 **10 / 40** × 1.15 = [11.5, 46]"
-                            + "（与每日行那一档 `20 / 40` **不同值**，见 `BuildRewardCell` 的 summary；"
-                            + "改坏法：`FS()` 那一乘漏掉 ⇒ 实得 10.00/40.00 ⇒ 红）", 41.4f, true);
+            CheckFontWindow(smLogin, "count 0", 23f, 34.5f,
+                            "登录卡奖励格 `count 0` 自适应窗口 = **独立 `Daily Login Bonus Container` 的 20/30 × 1.15 = [23, 34.5]**"
+                            + "（🔴 2026-10-18 A1232：页内 10/40 作废；改坏法：`FS()` 那一乘漏掉 ⇒ 实得 20.00/30.00 ⇒ 红）", 41.4f, true);
             // ②【同一条 `Txt`，换一个设计字号】`Collect` 按钮文案：设计空间 **fs35** ⇒ 屏上 **40.25**
             //    （⛔ 不是「凑一个常数」—— ① 与 ② 的设计字号不同，乘完之后是 46 / 40.25 两个数）
             CheckFontPx(smLogin, "Generic UI Button Text", 40.25f,
@@ -1759,9 +1775,9 @@ public static class RewardsScene
             //    ⇒ 窗口 = **12/44 × 1.15 = [13.8, 50.6]**。改坏法：把 `BuildButton` 的 `12f, 44f` 去掉 ⇒
             //    窗口退回「没开自适应」（`FontSizeMin/Max` 读出来不是这两个数）⇒ 红；
             //    把 `FS()` 那一乘去掉 ⇒ 实得 12.00 / 44.00 ⇒ 红。
-            CheckFontWindow(smSkulls, "Generic UI Button Text", 13.8f, 50.6f,
-                            "骷髅卡 `Collect` 文案的自适应窗口 = **原版 12/44 × 1.15 = [13.8, 50.6]**"
-                            + "（`m_fontSizeMax 44` ≠ 设计字号 ⇒ 必须走 `Txt` 的 `autoMaxPx`）");
+            CheckFontWindow(smSkulls, "Generic UI Button Text", 13.8f, 40.25f,
+                            "骷髅卡 `Collect` 文案的自适应窗口 = **独立全尺寸 prefab 的 12/35 × 1.15 = [13.8, 40.25]**"
+                            + "（🔴 2026-10-18 A1232：页内 12/44 作废；`m_fontSizeMax 35` ≠ 设计字号 ⇒ 必须走 `Txt` 的 `autoMaxPx`）");
             // ⑤【`Txt` 带自适应那一路】卡头 `name` 的**自适应窗口**。⚠️ 这一路**不能**断 `FontPxNow`
             //    （那是 TMP 二分出来的**收敛值**：标题装不下就比上界小）⇒ 只有窗口是定死的。
             // 🔴 **原版判据（页内真值）**= `GameObject/Missions Tab.json` 的
@@ -1780,8 +1796,8 @@ public static class RewardsScene
             //    ⇒ 两张卡**各配一条自己的尺子**。页内真值 `…/Daily Skulls Mission Container/background/header/name`：
             //    `m_fontSizeMin = 20` · `m_fontSizeMax = **36**`（= 我们的设计字号 ⇒ 两半都对得上 ✓）。
             //    改坏法同 ⑤（下界 23.0：改成 20.00 或 13.80 都红）。
-            CheckFontWindow(smSkulls, "Daily Skulls name", 23.0f, 41.4f,
-                            "骷髅卡卡头标题的自适应窗口 = **原版 20/36 × 1.15 = [23.0, 41.4]**（两处来源一致）");
+            CheckFontWindow(smSkulls, "Daily Skulls name", 23.0f, 34.5f,
+                            "骷髅卡卡头标题的自适应窗口 = **独立全尺寸 prefab 的 20/30 × 1.15 = [23.0, 34.5]**（🔴 2026-10-18 A1232：页内 20/36 作废）");
             // ⑦ 骷髅卡的时钟行 `Timer`（**恒建** —— 不像登录卡那颗 `Timer` 吃「已领取」状态，见 A75②）。
             //    🔴 **2026-10-10（A1271）就地订正（铁律 5）**：这一段原来说它走 `BuildClockRow` 那条路、
             //    并写着「`m_fontSizeMax`(38) ≠ 设计字号(30.15)」—— **`30.15` 是 Small 那一份的值，
@@ -1794,8 +1810,8 @@ public static class RewardsScene
             //    去掉 ⇒ 窗口退回 `TextBox` 那一套 ⇒ 实得 13.80 / 34.67 ⇒ 红。
             //    ⚠️ `FindChild(smSkulls, "Timer")` 是安全的：另一个叫 `Timer` 的节点在 **`Weekly Mission`** 下
             //    （周常卡），**不在 SM 子树里**。
-            CheckFontWindow(smSkulls, "Timer", 17.25f, 43.7f,
-                            "骷髅卡时钟行 `Timer` 的自适应窗口 = **原版 15/38 × 1.15 = [17.25, 43.7]**");
+            CheckFontWindow(smSkulls, "Timer", 17.25f, 32.2f,
+                            "骷髅卡时钟行 `Timer` 的自适应窗口 = **独立全尺寸 prefab 的 15/28 × 1.15 = [17.25, 32.2]**（🔴 2026-10-18 A1232：页内 15/38 作废）");
             // 🔴 **「来源分叉」的裁定进度（2026-10-10 · A1271 就地更新）** —— 原文是
             //    「本件【故意没动】的那几条 …… **等调度台裁定**」（全文 `资料/普查产出_1006/A143_SM字号断言.md` §七）。
             //    **骷髅卡那一半已裁**：本页画的**就是页内那一份（全尺寸）**，判据四条 →
@@ -1854,22 +1870,22 @@ public static class RewardsScene
             if (a12Login != null)
             {
                 CheckA1212(a12Login, "Timer", "Daily Login Container ▸ footer ▸ TimerHolder ▸ Timer",
-                           17.25f, 43.7f, 41.4f, 1, boxW: 373.75f, boxH: 65.74f);
+                           17.25f, 32.2f, 41.4f, 1, boxW: 373.75f, boxH: 65.74f);
                 // ② 登录卡奖励格：原版 `count` 宽由 CSF 撑（序列化出来是 0）⇒ **宽不可比**，只断高。
                 CheckA1212(a12Login, "count 0", "Rewards ▸ Reward Display Mission ▸ count",
-                           11.5f, 46f, 41.4f, 0, boxH: 89.29f);
+                           23f, 34.5f, 41.4f, 0, boxH: 89.29f);
             }
             if (a12Skulls != null)
             {
                 CheckA1212(a12Skulls, "counter", "background ▸ body ▸ counter（原 `counter text`）",
                            34.5f, 40.25f, 41.4f, 0, boxW: 78.07f, boxH: 36.65f);
                 CheckA1212(a12Skulls, "count 1", "footer ▸ Rewards ▸ Reward Display Mission ▸ count",
-                           11.5f, 46f, 41.4f, 0, boxH: 89.29f);
+                           23f, 34.5f, 41.4f, 0, boxH: 89.29f);
             }
             if (a12Weekly != null)
             {
                 CheckA1212(a12Weekly, "name", "background ▸ header ▸ name",
-                           10f, 36f, 46f, 0, boxW: 307.60f, boxH: 50.00f);
+                           20f, 36f, 46f, 0, boxW: 307.60f, boxH: 50.00f);
                 CheckA1212(a12Weekly, "Timer", "footer ▸ TimerHolder ▸ Timer",
                            15f, 38f, 36f, 1, boxW: 400.63f, boxH: 57.17f);
                 CheckA1212(a12Weekly, "counter", "progress ▸ Mission Progress Bar ▸ … ▸ Handle ▸ counter",
@@ -1889,7 +1905,7 @@ public static class RewardsScene
                 //   （`0.316 × 609.50 − 77.3111`）—— **规则不变、只差父行宽**，属服务端卡数差异（产品口径），
                 //   ⛔ 不是几何缺陷、本批不改几何。四格 + 折行照断（那两样判据是硬的）。
                 CheckA1212(a12Row0, "progress", "Mission Milestones Progress Bar ▸ progress",
-                           11.5f, 46f, 41.4f, 0);
+                           28.75f, 40.25f, 41.4f, 0);
                 // ① 每日行奖励格：原版**唯一有真框**的那一档（`aMax.y = 0.337` + `sd.y 0.6025`）。
                 CheckA1212(a12Row0, "count 0", "Rewards ▸ Reward Display Mission Vertical Variant ▸ count",
                            23f, 46f, 41.4f, 0, boxW: 145.28f, boxH: 58.83f);
@@ -2421,9 +2437,16 @@ public static class RewardsScene
                 //    🧨 改坏法：把 `DailyData.RewardTimerText` 换回死串 / 空串 ⇒ 本条红。
                 {
                     var timerText = TextOf(FindChild(lgCard2, "Timer"));
-                    CheckTrue(timerText != null && timerText.StartsWith("Resets in ")
-                              && timerText.Length > "Resets in ".Length,
-                              "…`Timer` 文案 = **活倒计时**（`Resets in ` + `TimerDisplay` 算出的剩余；"
+                    // 🔴 **2026-10-18（Rewards 四条红 #2）**：前缀已走官方词条 `Missions/CollectCounter`
+                    //   （`DailyData.ResetIn()` → `Loc.T("Missions/CollectCounter")`，中文档 = 「准备在 … 收集」）。
+                    //   旧断言钉死英文 `"Resets in "` ⇒ 中文档必红。这里从**词条字符串本身**按 `{0}` 拆前缀
+                    //   （⛔ 不拿 `DailyData.ResetIn()` 当期望 = 自证）。
+                    string cntTerm = Loc.T("Missions/CollectCounter");
+                    int cut = cntTerm.IndexOf("{0}", System.StringComparison.Ordinal);
+                    string prefix = cut > 0 ? cntTerm.Substring(0, cut) : cntTerm;
+                    CheckTrue(timerText != null && timerText.StartsWith(prefix)
+                              && timerText.Length > prefix.Length,
+                              "…`Timer` 文案 = **活倒计时**（`" + prefix + "` + `TimerDisplay` 算出的剩余；"
                             + "实得「" + timerText + "」）");
                 }
 
@@ -5678,8 +5701,22 @@ public static class RewardsScene
             CheckNear(TintOf(FindChild(croot, "Menu Dark Background")).a, 0.773f, 0.005f,
                       "压暗层 alpha = **0.773**（原版 `m_Color` 原文）");
             CheckNear(TintOf(FindChild(croot, "Menu Dark Background")).r, 0f, 0.005f, "压暗层是纯黑");
-            CheckRectPx(FindPath(croot, "Content"), 0f, 1920f, 165f, 965f,
-                        "`Content`（`N(1,0,.5,1,.5,.5,.5, 0,−25, 0,800)` ⇒ y 165..965）");
+            // 🔴 **2026-10-18（P2-2 后就地改断言）**：`Content` 的底图已从 `Rect`（Simple 拉伸）改成
+            //   **九宫 `DrawNine`**（原版 Sliced 21×81 九宫 0,26,0,26）⇒ `CheckRectPx` 的
+            //   `GetComponentInChildren<ImageQuad>()` 只会量到**第一个角块**（高 26）。
+            //   改成量这颗底图**九宫块的并集**（`RectOfUnion`），仍是「Content 的整块 1920×800 @ y165」。
+            {
+                float bx1 = 0f, by1 = 0f, bx2 = 0f, by2 = 0f;
+                var contentBg = FindChild(FindPath(croot, "Content"), "Reward Background Preview Reward");
+                bool hasBg = contentBg != null && RectOfUnion(contentBg, out bx1, out by1, out bx2, out by2);
+                CheckTrue(hasBg, "（前提）`Content` 底图九宫量得到");
+                if (hasBg)
+                {
+                    CheckNear(bx2 - bx1, 1920f, 2f, "`Content` 底图**九宫并集**宽(px)");
+                    CheckNear(by2 - by1, 800f, 2f, "`Content` 底图**九宫并集**高(px)");
+                    CheckNear(by1, 165f, 2f, "`Content` 底图**九宫并集**上沿 y");
+                }
+            }
             var vig = FindChild(croot, "Menu Vignette");
             CheckRectPx(vig, 0f, 1920f, 0f, 1080f, "`Menu Vignette` **铺满整屏**");
             CheckNear(TintOf(vig).a, 0.58f, 0.005f, "暗角 alpha = **0.58**（原版 `m_Color` 原文）");
@@ -9572,8 +9609,13 @@ public static class RewardsScene
               "文案：第 1 条 = 官方 `Missions/Daily_5`（对敌方战将造成 45 点伤害）");
         Check(DailyData.DailyDesc(1), Loc.T("Missions/Daily_Generic_8").Replace("{0}", "15"),
               "文案：第 2 条 = 官方 `Missions/Daily_Generic_8`（攻击单位 15 次）");
-        Check(DailyData.DailyDesc(2), CardIcons.RewriteMarks(Loc.T("Missions/Daily_10").Replace("{0}", "15"), CardText.Zh),
-              "文案：第 3 条 = 官方 `Missions/Daily_10`（[[ranged]] 攻击 15 次）");
+        // 🔴 **2026-10-18（Rewards 四条红 #3）**：`DailyDesc` 会先把 `[[ranged]]`/`[[melee]]` 换成
+        //    **当前语言的词**（`DailyData.cs:177-178`），再交给 `RewriteMarks`；旧断言漏了这一步 ⇒ 必红。
+        //    这里逐字复算同一条链（仍然只用 `Loc`/`CardText` 这两个公开源，⛔ 不调 `DailyDesc` 自证）。
+        Check(DailyData.DailyDesc(2), CardIcons.RewriteMarks(Loc.T("Missions/Daily_10").Replace("{0}", "15")
+                  .Replace("[[ranged]]", CardText.Keyword("ranged"))
+                  .Replace("[[melee]]", CardText.Keyword("melee")), CardText.Zh),
+              "文案：第 3 条 = 官方 `Missions/Daily_10`（[[ranged]] 攻击 15 次；按当前语档换成词再渲染）");
         Check(DailyData.DailyRewardText(0), "300", "奖励数量：三条都是 **300**（活动点）｜第 1 条");
         Check(DailyData.DailyRewardText(1), "300", "…第 2 条");
         Check(DailyData.DailyRewardText(2), "300", "…第 3 条");

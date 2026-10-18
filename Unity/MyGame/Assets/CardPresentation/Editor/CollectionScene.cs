@@ -2537,10 +2537,30 @@ public static class CollectionScene
                             CheckTrue(false, "`Warlord Image` 那一层没建出来（督军立绘取不到 ⇒ 实现里已经出声）");
                         else
                         {
-                            CheckNear(wlQ.WorldW * 108f, 1108f, 2f,
-                                      "立绘**渲染宽度** = **1108**（原版 `m_PreserveAspect = 0` 拉满；"
-                                      + "退回 `keepAspect: true` 时这里 ≈ 726 ⇒ 这条红）");
-                            CheckNear(wlQ.WorldH * 108f, 1108f, 2f, "立绘**渲染高度** = **1108**（同上）");
+                            // 🔴 **2026-10-18（督军方形立绘族落地后）**：原版这颗喂的是 **2048² 方形**
+                            //   `UI_Deck_Warlord_<名>` ⇒ `m_PreserveAspect = 0` 拉满 1108²；
+                            //   但快照之后新增的 16 位督军**没有**这张图，`CardArt.DeckHero` 会退回
+                            //   卡面插图（671×1024 竖构图）并按**非方形图等比内接**（那一档是兜底、不是原版）。
+                            //   ⇒ 判据分两档：方形图仍必须拉满 1108²（挡「方形图误用 keepAspect」）；
+                            //   非方形兜底则必须**等比**（高度 1108、宽 = 1108×texW/texH，挡「把竖图拉方」）。
+                            var tex = wlQ.Texture;
+                            bool square = tex != null && Mathf.Abs(tex.width - tex.height) <= 1;
+                            float wpx = wlQ.WorldW * 108f, hpx = wlQ.WorldH * 108f;
+                            if (square)
+                            {
+                                CheckNear(wpx, 1108f, 2f,
+                                          "方形立绘**渲染宽度** = **1108**（原版 `m_PreserveAspect = 0` 拉满；"
+                                        + "退回 `keepAspect: true` 时这里 ≈ 726 ⇒ 这条红）");
+                                CheckNear(hpx, 1108f, 2f, "方形立绘**渲染高度** = **1108**（同上）");
+                            }
+                            else
+                            {
+                                float wantW = tex != null && tex.height > 0 ? 1108f * tex.width / tex.height : 726f;
+                                CheckNear(hpx, 1108f, 2f, "非方形兜底立绘**渲染高度** = **1108**（等比内接）");
+                                CheckNear(wpx, wantW, 3f,
+                                          "非方形兜底立绘**渲染宽度** = **等比**（1108×texW/texH；"
+                                        + "⛔ 不是 1108 拉满 —— 那会把竖图拉方）");
+                            }
                         }
                         if (wh != null)
                         {

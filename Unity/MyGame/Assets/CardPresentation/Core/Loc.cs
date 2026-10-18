@@ -91,6 +91,8 @@
 // 🔴 **2026-10-17（界面线 T08 `A1812`）起 12 项全部能真工作**：官方 I2 表的 **13 种真语言全列**
 //   落进 `Resources/official_loc_13lang.json`（生成器 `工具/gen_official_loc_13lang.py`），
 //   `T()` / `BulkOr` / `Lore` 按 `Current` **各取各的列**；中文/英文仍以手写 `Table` 为权威。
+//   🆕 **2026-10-18（界面线 `N71`）**：中/英档在 `Table` + 数据面 bulk **都没命中**时，也从这份官方全表
+//   **兜底**（`T()` 的 doc 里写着三档顺序）—— 只补「手写表里根本没有」的键，⛔ 不覆盖任何已有键的值。
 //   `Turkish` 在官方表里有、但**不在 `AvailableLanguages`**（原版枚举就 12 项）⇒ 只当数据，不进下拉。
 //   只有「官方表里没有这条键」（我们自拟的那批）或资源文件读不到时才**回退英文**并 `Debug.Log` 出声
 //   （⛔ **不许在 UI 上加原版没有的提示行** —— 出声只走日志）。见 `T()` 与 `Effective`。
@@ -2822,8 +2824,10 @@ namespace CardPresentation
         //   （原件与解码算法 → `工具/_i2_decode_probe.py` 文件头；全量人读版 =
         //   `Unity/数据/游戏数据/官方本地化_13lang.json`，**同一份数据**）。
         //
-        // ⚠️ **只在「当前语言不是中文/英文」时才载入**（约 **9.2 MB** / **10,862** 键 × 13 列）——
-        //   中文/英文档仍走上面那张手写 `Table`（它是权威：33 条刻意保留的旧译 + 我们自拟的键都在里面）。
+        // ⚠️ **载入时机（2026-10-18 界面线 `N71` 起）**：非中英档**必然**载入；中文/英文档只在
+        //   「`Table` + 数据面 bulk 都没命中」的键上**兜底**时才载入（约 **9.2 MB** / **10,862** 键 × 13 列）。
+        //   中文/英文档的**权威仍是上面那张手写 `Table`**（33 条刻意保留的旧译 + 我们自拟的键都在里面），
+        //   官方全表只补「`Table`/bulk 里根本没有」的键（⛔ 不覆盖任何已有键的值 —— 见 `T()` 那三档顺序）。
         // ⚠️ 官方表里**没有**的键（例如自拟的 `Settings/Online/Title`）⇒ 回退英文 + 出声一次/键。
         [System.Serializable] class LangFile
         {
@@ -2938,6 +2942,36 @@ namespace CardPresentation
                 Debug.LogWarning($"[Loc] `{cur}` 里没有 `{key}` 的文案（官方 13 语言表缺这条键、或那一列是空）"
                                + " ⇒ **回退英文**（⛔ 不印键名、⛔ 不静默；同一条键只出声这一次）。");
             return null;
+        }
+
+        /// <summary>🆕 **2026-10-18（界面线 `N71`）：官方全表里按【当前语档】取一条 —— 含中/英两档**。
+        /// <para>口径与 <see cref="T"/> 新加的中/英兜底**逐字一致**：中文档取 `zh` 列，**该列为空 ⇒ 回退 `en` 列**；
+        /// 英文档取 `en` 列；缺键 / 两列都空 ⇒ `null`（⛔ 不返回键名、**不出声、不记账** ——
+        /// 出声与 `MissingCount` / `FallbackCount` 那些账由 `T()` / `CardText.TermOr` 各自的调用点负责）。</para>
+        /// <para>非中英档**恒 `null`**：那 10 种走 <see cref="Lang13Current"/>（它的回退与出声口径不一样，⛔ 两条别合并）。</para>
+        /// <para>⚠️ 本口是「官方全表按当前语档取值」的**唯一一份**（`T()` 用它做中/英兜底），
+        /// ⛔ 别拿它当第二条显示取值路 —— 界面上正常取文案一律走 `T()` / `CardText.Term`。</para></summary>
+        public static string OfficialCurrent(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            var cur = Current;
+            if (cur == AvailableLanguages.Chinese)
+            {
+                string zh = Lang13Text(key, AvailableLanguages.Chinese);
+                return !string.IsNullOrEmpty(zh) ? zh : Lang13Text(key, AvailableLanguages.English);
+            }
+            if (cur == AvailableLanguages.English) return Lang13Text(key, AvailableLanguages.English);
+            return null;
+        }
+
+        /// <summary>🆕 **2026-10-18（RV 复核·中）**：官方全表的**英文列**（无视当前语档）。
+        /// 用途**只有一处**：`CardText.TermOr` 在「`Loc.Current == 中文`、但中文字体资产缺失（`CardText.Zh == false`）」
+        /// 时避免印中文方块 —— 那一路卡面必须回英文（`CardText.cs:553-561` 的字体闸红线）。
+        /// ⛔ 别拿它当正常的显示取值路。</summary>
+        public static string OfficialEnglish(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            return Lang13Text(key, AvailableLanguages.English);
         }
 
         /// <summary>🆕 2026-10-17（`N42`）：官方 13 语言表里以 <paramref name="prefix"/> 开头的键
@@ -3215,6 +3249,16 @@ namespace CardPresentation
         /// <summary>按**当前语言**取一条文案。没有这个键 ⇒ 返回**键名本身** + 出声（⛔ 不返回空串：
         /// 空串在界面上是「什么都没画」，那正是本工程最忌讳的静默失败）。
         /// <para>当前语言没有这一套文案（西/法/德/…）⇒ **回退英文** + 出声，见文件头。</para>
+        /// <para>🆕 **2026-10-18（界面线 `N71`）：三档顺序 = 手写 `Table`（权威）→ 数据面 bulk →
+        /// 官方全表 → 缺键档。** 中文/英文档此前只查前两层，官方表里有的 UI 键在中英档取不到
+        /// （B 报告 §一 #54：`MainMenu/Campaign/Help` · `Missions/Info/*` · `Rewards Menu/DailyStreak/*`
+        /// · `Missions/FreeTrack`/`PremiumTrack` · `MainMenu/General/NextWithTwoPoints` …
+        /// 全部「官方表有、`Table` 没有」）⇒ 直接吃返回值的调用点会印**键名**。
+        /// 官方全表那层读 `Resources/official_loc_13lang.json` 的 `zh` / `en` 列（现读 10,862 键）；
+        /// ⚠️ **只接住「前两层都没命中」的那一档** ⇒ 已有键的返回值**逐字节不变**，
+        /// <see cref="HasEntry"/> 的语义也**没动**（仍只认手写 `Table`，各处
+        /// `HasEntry ? T : 兜底` 的调用点行为不变）。判据 →
+        /// `资料/普查产出_1018/R_界面审查B_商店设置奖励战役.md` §一 #54。</para>
         /// <para>🔴 **2026-10-18（第四轮 · 审查 S2）**：缺键那声 `LogWarning` **按键去重**（`_warnedMissing`）——
         /// 同一条键**只出声一次**（不然被每帧调用时会刷屏，把抓日志型自检淹掉）。
         /// ⚠️ 记账（<see cref="MissingCount"/> / <see cref="LastMissingKey"/>）**照旧每次 +1**，不受去重影响。</para>
@@ -3264,6 +3308,41 @@ namespace CardPresentation
                               : Lang13Text(key, cur);
                     if (string.IsNullOrEmpty(bv)) bv = br.en;
                     if (!string.IsNullOrEmpty(bv)) return bv;
+                }
+
+                // 🆕 **2026-10-18（界面线 `N71`）：中文 / 英文档也从官方全表兜底。**
+                //   本条之前这两档**只查手写 `Table` + 数据面 bulk** ⇒ 官方表里有、而 `Table`/bulk 里没有的
+                //   UI 键（`MainMenu/Campaign/Help` · `Missions/Info/*` · `Rewards Menu/DailyStreak/*` ·
+                //   `Missions/FreeTrack`/`PremiumTrack` · `MainMenu/General/NextWithTwoPoints` ·
+                //   `Event_Description/TwoSidesEvent/*` …）在**中英档取不到** —— 直接吃返回值的调用点
+                //   会印**键名**（B 报告 §一 #54 点名的机制性偏差）。
+                //   数据源 = `Resources/official_loc_13lang.json` 的 `zh` / `en` 两列（= 官方 I2 全表，
+                //   现读 **10,862** 键；⛔ 不另落一份 en+zh 表 —— 那份数据已经在这个文件里，两处存同一份
+                //   迟早不一致）。三档顺序 = `Table`（权威）→ bulk（数据面族）→ **官方全表** → 缺键档，
+                //   ⚠️ **已在 `Table` / bulk 里的键一律不会走到这里 ⇒ 已有键的返回值逐字节不变**。
+                //   ⚠️ 值原样返回（与上面非中英档的 `Lang13Text` 同口径）：记号渲染在
+                //   `CardIcons.Rewrite` / `Loc.BulkOr` 那两层做，本口**不重复实现**。
+                //   ⚠️ 取值走 <see cref="OfficialCurrent"/>（「官方全表按当前语档取值」的唯一一份）。
+                if (cur == AvailableLanguages.Chinese || cur == AvailableLanguages.English)
+                {
+                    string voff = OfficialCurrent(key);
+                    if (!string.IsNullOrEmpty(voff))
+                    {
+                        // 中文列是空的那 21 条（13 列各 8–21 条空列）⇒ `OfficialCurrent` 已回退英文列；
+                        // 这里照旧记一次「回退英文」+ 出声（与 `T()` 对「`Table` 有键但 Zh 空」的记账口径一致）。
+                        // 仍空（官方表也没有这条键）⇒ 落到下面的缺键档（返回键名 + 出声，⛔ 不静默）
+                        if (cur == AvailableLanguages.Chinese
+                            && string.IsNullOrEmpty(Lang13Text(key, AvailableLanguages.Chinese)))
+                        {
+                            FallbackCount++;
+                            LastFallbackKey = key;
+                            if (_warnedLangFallback.Add(key))
+                                Debug.LogWarning($"[Loc] `{cur}` 里 `{key}` 那一列是空的 ⇒ **回退英文**："
+                                               + $"\"{voff}\"。（官方 13 语言表里这条的其他列有值；"
+                                               + "⛔ 同一条键只出声这一次）");
+                        }
+                        return voff;
+                    }
                 }
 
                 // 非中英档：官方表里**有这条键**、只是这一列是空的（13 列各 9,438–9,441/9,447 非空）

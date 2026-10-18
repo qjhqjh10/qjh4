@@ -49,8 +49,10 @@
 // ============================ 我们侧的对位（逐件写清，不冒充原版） ============================
 // · **阵营 id** = 督军卡在 `cards_engine.json` 里的 `faction`（UM47 → Ultramarines / GOF29 → Goff /
 //   BL35 → BlackLegion / SAU36 → Sautekh）—— 等价于原版 `deck.deckHero.Reference.cardArmy`。
-// · **阵营描述**：原版 `I2(TutorialData/TutorialFTUEDeck/<阵营>)`。🔴 **本机查不到**（官方 13 语言表 9441 条
-//   与 en+zh 表逐字节搜 `TutorialFTUEDeck` **零命中**）⇒ 四格**留空 + 出声一次**（⛔ 不编描述）。
+// · **阵营描述**：原版 `I2(TutorialData/TutorialFTUEDeck/<阵营>)`。
+//   🔴 **2026-10-18 就地订正（铁律 5，N71）**：原文写「本机查不到（9,441 条零命中）⇒ 四格留空」——
+//   **已过期**：`official_loc_13lang.json` 现读 **10,862 键**，四条 `TutorialFTUEDeck/*` **都在**（zh/en 齐全）
+//   ⇒ 四格**有字**（取不到时才留空 + 出声一次）。
 // · **领取起始卡组**：原版走 PlayFab（`GrantStarterDeck`）。我们**没有后端 / 没有玩家卡库** ⇒
 //   `Continue` 只 **`Debug.LogWarning` 出声 + 关窗**（照原版成功后的那一跳），⛔ 不伪造「已发放」，
 //   也不写任何存档。**关窗**是必须的：原版 `closeOnESC = 0` + 暗底不关窗 ⇒ 不关就成了一扇死窗。
@@ -371,8 +373,10 @@ namespace CardPresentation
                 v.HeroArt = HeroArt(hero);
             }
 
-            // 原版 `armyDescription.text = I2(deckInfo.mTerm)`。🔴 本机官方表里**没有** `TutorialFTUEDeck/*`
-            // （9441 条逐字节搜零命中）⇒ 留空 + 出声一次（⛔ 不编描述、也不拿阵营名顶上）。
+            // 原版 `armyDescription.text = I2(deckInfo.mTerm)`。
+            // 🔴 **2026-10-18 就地订正（铁律 5，N71）**：原文写「官方表里没有 `TutorialFTUEDeck/*`（9441 条零命中）」
+            //   —— **已过期**：现表 **10,862 键**、四条都在 ⇒ 正常情况下 `Loc.T` / `Lang13Of` 都能取到；
+            //   下面那条「都取不到 ⇒ 留空 + 出声」只在**真缺键**时才走（⛔ 仍不编描述）。
             if (Loc.HasEntry(d.InfoTerm))
                 v.Description = Loc.T(d.InfoTerm);
             else

@@ -48,7 +48,9 @@ namespace CardPresentation
     {
         // ---------------- 窗口根（正本 §四 表 #1~#3）
         public const float ShadeW = 4574.6f, ShadeH = 2572.36f;
-        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.77f);
+        /// <summary>🔴 **2026-10-18（T29 · D6）**：alpha 原来是 `0.77f`，原版 `Menu Dark Background` 的 `m_Color` 是
+        /// **(0,0,0,0.773)**（判据 = `R_T29_全界面底纹背景对账.md` §13 那张表；同族 `SettingsWindow.ShadeColor` 也是这一档）。</summary>
+        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
 
         public static readonly PxRect Tracks = new PxRect(231.00f, 152.84f, 1947.55f, 964.94f);
         public static readonly PxRect TrackBg = new PxRect(242.37f, 159.34f, 1918.78f, 558.89f);
@@ -232,8 +234,16 @@ namespace CardPresentation
 
             // 2) `Tracks`：轨底 + 两条分隔线 + 滚动区
             var tracks = MenuDraw.Node(root, "Tracks", Tracks);
-            // ⚠️ `bg` 是「无 sprite + `UIGradient`」——**渐变参数没读到**（正本没记），
-            //    所以这里**不猜**：只画 `40k_main_line` 那两条分隔线，`bg` 留空并在自检里报出来。
+            // 🆕 **2026-10-18（T29 · D4）**：`Tracks/bg` —— 判据本轮已读到（之前那条「渐变参数没读到 ⇒ 不猜」的注释作废）：
+            //    原版 `Tracks/bg` = `Image`(**sprite=null** · Simple · `m_Color` 白) + `UIGradient`
+            //    （MB `5183763081869680591` 的组件实读：c1 **(0.22352943, 0.01176471, 0.01960784)** ·
+            //     c2 **(0.04705883, 0, 0.01568628)** · angle **82** · ignoreRatio 1 · rect → `TrackBg` 242.37,159.34→1918.78,558.89）。
+            //    🔴 这组数字与 `Content Area/Background` **逐位相同** ⇒ 直接复用 `MainMenuSubmenuWindow.GradC1/GradC2`；
+            //       角度照 §0·2 的换算传 **188**（原版 `(sin,cos)` vs 本仓 `(cos,sin)`，差 90° —— ⛔ 不是 82）。
+            //    队列 `QPanel − 1`：原版 `Tracks` 子件序 = `bg` → 两条分隔线 → `Rewards Scroll View`
+            //    ⇒ bg 必须在分隔线(QPanel)/页内容(QContent)之下，又高于压暗层(QShade)。
+            MenuDraw.Rect(tracks, CardArt.Gradient(MainMenuSubmenuWindow.GradC1, MainMenuSubmenuWindow.GradC2, 188f),
+                          TrackBg, "bg", QPanel - 1);
             MenuDraw.Rect(tracks, Art(ArtSepLine), SepTop, "Separator Line Top", QPanel);
             MenuDraw.Rect(tracks, Art(ArtSepLine), SepBottom, "Separator Line Bottom", QPanel);
             var view = MenuDraw.Node(tracks, "Rewards Scroll View", ScrollView);

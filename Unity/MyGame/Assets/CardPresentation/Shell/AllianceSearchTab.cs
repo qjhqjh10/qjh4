@@ -25,7 +25,11 @@ namespace CardPresentation
         static readonly PxRect JoinBtnR = new PxRect(360.47f, 90.30f, 620.47f, 157.94f);
         /// <summary>`Create` 键：`632.92,90.30→892.92,157.94`（同底图）。</summary>
         static readonly PxRect CreateBtnR = new PxRect(632.92f, 90.30f, 892.92f, 157.94f);
-        static readonly Vector4 TabBtnBorder = new Vector4(188f, 0f, 99f, 30f);
+        // 🔴 **2026-10-18（P1 §八 #3）**：这里原来有一条 `TabBtnBorder = (188,0,99,30)`，**声明了却从未使用**
+        //   （底图走 `Rect` = 单块拉伸）。现在九宫格那两套 border（两张 sprite **各一份**）收在
+        //   `AllianceMemberTab.cs` 文件尾的 `AllianceTabBg` 里 —— 本文件与 `AllianceMemberTab` **共用那一份**，
+        //   ⛔ 别在这里再复制一遍数值（铁律 6）。本文件上面 `JoinBtnR` 的 doc 里那句
+        //   「`40K_tab_button_overwindow` 489×97 · 九宫 (188,0,99,30) · ppuMul 1.5」**仍然成立**（= 未选中那张）。
         /// <summary>两个键的**选中态换图**：`onSprite = 40K_tab_button` · `offSprite = 40K_tab_button_overwindow`
         /// （由 Atlas `SpriteAtlas_4765312961718699286` 的 `m_PackedSprites ↔ names` 解出）。
         /// 染色 `onColor = (1,0.631,0,1)` · `offColor = (1,0.544,0,1)`。</summary>
@@ -75,7 +79,10 @@ namespace CardPresentation
         const float OpenRowGap = 5f;
 
         Transform _listView, _createView, _invList, _openList;
-        ImageQuad _joinBg, _createBg;
+        /// <summary>两颗页签的**节点**（九宫格底图挂在它下面、名字仍叫 `Image`）。
+        /// 🔴 **2026-10-18（P1 §八 #3）**：类型从 `ImageQuad` 改成 `Transform` —— 换图要重建九宫格
+        /// （见 `AllianceTabBg` 的类 doc）。</summary>
+        Transform _joinBg, _createBg;
         /// <summary>🆕 2026-10-04（A55②）：`AllianceNotMemberVariant>GeneralDetails`（**act F** 那一棵）
         /// —— 「点公开列表里某个盟 → 看它的详情」那一态的整棵树（原版 `AllianceSearchTab.allianceView`）。</summary>
         Transform _detail;
@@ -138,12 +145,17 @@ namespace CardPresentation
             Hit(head, "CreateHit", CreateBtnR, L_Hit, ShowCreate);
         }
 
-        /// <summary>一个页签键（底图 + 文案）。返回底图 quad 供选中态换图/换色；`label` 交出那句文案
-        /// （`Join` 那颗的文案在详情态要换，见 `LabelBack`）。</summary>
-        ImageQuad TabToggle(Transform parent, PxRect r, string name, string text, bool on, out Label label)
+        /// <summary>一个页签键（底图 + 文案）。返回**页签节点**（九宫格底图挂在它下面、名字仍是 `Image`）
+        /// 供选中态换图/换色；`label` 交出那句文案（`Join` 那颗的文案在详情态要换，见 `LabelBack`）。
+        /// 🔴 **2026-10-18（P1 §八 #3）**：返回类型从 `ImageQuad` 改成 `Transform` —— 九宫格底图是
+        /// **九块子件**，换图要走 `AllianceTabBg.Build` 重建（两张 sprite 的 `m_Border` 不同，
+        /// 只 `SetTexture` 会按旧 border 切角块，见那个类的 doc）。</summary>
+        Transform TabToggle(Transform parent, PxRect r, string name, string text, bool on, out Label label)
         {
             var n = Node(parent, name, r);
-            var q = Rect(n, on ? ArtTabOn : ArtTabOff, r, "Image", L_Btn, on ? TabOnCol : TabOffCol);
+            // 原版这两颗 `Image.Type = Sliced` · `m_PixelsPerUnitMultiplier = 1.5` ⇒ 九宫格
+            // （改前走 `Rect` = 单块拉伸：489px 整图横向压进 260px，圆角端帽被压扁）。
+            AllianceTabBg.Build(Page, n, r, on, ArtTabOn, ArtTabOff, TabOnCol, TabOffCol, QOff + L_Btn);
             var tr = new PxRect(r.x1 + 9.66f, r.y1 + 4.66f, r.x2 - 9.66f, r.y2 + 4.66f);   // `Button Text` 的实测矩形
             // 🔴 **2026-10-08（A213）`wrap: false`**：原版这 **2** 颗页签键（`Join` / `Create`）的
             //    `Button Text` 实读 **`折行=0`**（`字号=60 auto[12~60] 对齐=Center/Midline`）——
@@ -156,7 +168,7 @@ namespace CardPresentation
             // 🆕 A255：原版 `Center/Midline`（判据见文件头那张表）
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `m_VerticalAlignment = 4096 (Midline)`。
             MenuDraw.SetVAlign(label, Label.VAlign.Midline, tr);
-            return q;
+            return n;
         }
 
         /// <summary>`ShowJoin`（原版 `AllianceSearchTab.ShowJoinAllianceMenu`）—— 切到 `List View`。
@@ -270,19 +282,13 @@ namespace CardPresentation
         /// 原版 `HandleDisplayAlliance` 把两个 `EverguildToggle.isOn` 都置 0）。</summary>
         void SwapTabArt(int onTab)
         {
-            var onTex = Win.Art(ArtTabOn);
-            if (_joinBg != null && onTex != null)
-            {
-                _joinBg.SetTexture(onTex);
-                _joinBg.SetAspect(JoinBtnR.W / JoinBtnR.H);   // ⚠️ `SetTexture` 会把 aspect 冲成贴图自己的比值
-                _joinBg.SetTint(onTab == 0 ? TabOnCol : TabOffCol);
-            }
-            if (_createBg != null && onTex != null)
-            {
-                _createBg.SetTexture(onTex);
-                _createBg.SetAspect(CreateBtnR.W / CreateBtnR.H);
-                _createBg.SetTint(onTab == 1 ? TabOnCol : TabOffCol);
-            }
+            // 🔴 **2026-10-18（P1 §八 #3）**：原版 `EverguildToggle.ToggleSprite` 是**每颗按自己的 `m_IsOn`
+            //   各取各的 sprite**（`isOn ? onSprite : offSprite`）。改前我们把**同一张 onSprite** 刷到两颗身上、
+            //   只靠染色区分 ⇒ 未选中那颗的底图本来就不对。现在各按各的状态取图；又因为两张 sprite 的
+            //   `m_Border` 不同，换图必须**重建九宫格**（`AllianceTabBg.Build`）。
+            //   `onTab` 约定：0 = `Join` 亮 · 1 = `Create` 亮 · −1 = 两颗都灭（详情态，见 `ShowTabArtNone`）。
+            AllianceTabBg.Build(Page, _joinBg, JoinBtnR, onTab == 0, ArtTabOn, ArtTabOff, TabOnCol, TabOffCol, QOff + L_Btn);
+            AllianceTabBg.Build(Page, _createBg, CreateBtnR, onTab == 1, ArtTabOn, ArtTabOff, TabOnCol, TabOffCol, QOff + L_Btn);
         }
 
         /// <summary>详情态那一档：两颗都灭（`SwapTabArt(-1)`，名字留一个、免得调用处写魔数）。</summary>

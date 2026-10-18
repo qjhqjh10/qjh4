@@ -45,8 +45,8 @@
 //   `keepAspect = true` 等比放（⛔ 不拉变形，也不假装这是原版行为）。
 // · **阵营名** = `Loc.T("Armies/" + faction)`（= 原版 `GameStaticData.ArmyToLocalizedString`）。
 // · **阵营描述** = 原版 `I2(TutorialData/TutorialFTUEDeck/<阵营>)`。
-//   🔴 **本机查不到**：`Resources/official_loc_13lang.json`（9441 条）与 `数据/游戏数据/官方本地化_en+zh-CN.json`
-//   逐字节搜 `TutorialFTUEDeck` **零命中** ⇒ 这一格**留空 + 出声一次**（⛔ 不编描述）。
+//   🔴 **2026-10-18 就地订正（铁律 5，N71）**：原文写「本机查不到（9,441 条零命中）⇒ 留空」——
+//   **已过期**：现表 **10,862 键**、四条 `TutorialFTUEDeck/*` 都在 ⇒ 这一格有字（真缺键才留空 + 出声）。
 // · **选中角标** `Selected Text`：出厂 `m_IsActive = false`（实读）；`ToggleSelected(true)` 才打开。
 //   它绕 z 转 **17.95°**（`m_LocalRotation.z = 0.15599912, w = 0.98775727` ⇒ 2·atan2 = 17.9495°）。
 //   🔴 **2026-10-17 就地订正（铁律 5）**：原文写「底图在 `Resources/` 里没有 ⇒ 底板不画 + 出声」——
@@ -232,7 +232,7 @@ namespace CardPresentation
                                          SelFontMax, SelFontBase, face: TmpFont.Face.LatinCardBody);
             _selected.gameObject.SetActive(false);      // 出厂 `m_IsActive = false`（dump 的 `INACT`）
 
-            // ---- 6) `Army Description`（Left/Top；本机没有词条 ⇒ 空串 + 窗口那边出声一次）----
+            // ---- 6) `Army Description`（Left/Top；N71 起官方表有 `TutorialFTUEDeck/*` ⇒ 有字；真缺键才空串）----
             var descR = Abs(card, DescL, DescT, DescW, DescH);
             _desc = MenuDraw.Node(transform, "Army Description", descR);
             _descLabel = MenuDraw.TextBox(_desc, descR, View.Description ?? "", Color.white, "Army Description",

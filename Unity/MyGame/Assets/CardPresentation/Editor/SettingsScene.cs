@@ -1287,7 +1287,10 @@ public static class SettingsScene
                           $"🔴 灭自证：三种非中英语言**各是各的列**（日「{jp}」/ 西「{es}」/ 俄「{ru}」/ 英「{en}」）"
                         + " —— 谁把 `T()` 改回「非中英一律回退英文」⇒ 这一条红");
                 // Turkish **不在 12 项下拉里**（`AvailableLanguages` 没有它），但官方数据里有这一列
-                Check(Loc.Lang13Count, 9447, "官方 13 语言全表载入 **9,447** 条（`Lang13Count`）");
+                // 🔴 **2026-10-18 就地订正（铁律 5）**：这里原来钉 **9,447**（2025-07-30 旧快照的口径），
+                //   `K07` 并入当前 build 的官方表后 `official_loc_13lang.json` 现读 **10,862** 键 ⇒ 旧断言必红。
+                //   ⚠️ 条数一律现读；这个数由 `工具/gen_official_loc_13lang.py` 决定，改表时同步改这里。
+                Check(Loc.Lang13Count, 10862, "官方 13 语言全表载入 **10,862** 条（`Lang13Count`；K07 现读）");
                 Check(Loc.Lang13Of("Settings/General/DisableBots", "tr"), "Botları Devre Dışı Bırak",
                       "…数据里连 **Turkish** 那一列都在（`A1812` 判据：Turkish 只当数据、不进下拉）");
 
@@ -1629,17 +1632,36 @@ public static class SettingsScene
                                  SettingsWindow.GenOnlineR, SettingsWindow.GenOnlineT + SettingsWindow.GenBtnH,
                                  "`Online Button` 的矩形（**我们挑的** —— 2026-10-18 按用户「远窄于同排」改到"
                                + "空地 ① 右半：宽/高 = 同排两颗的 300×90、右对齐 `GenR`，见 `GenOnlineT` 那条 doc）");
-                        // 🔴 **「不压原版任何元素」**：量**渲出来的**矩形，与原版那颗钮的**渲染**矩形比
-                        //   —— 判据是**不相交**，⛔ 不是拿我们自己的常量比（拿常量比 = 自证）。
+                        // 🔴 **「不压原版任何元素」**：量**渲出来的**矩形，与原版那两颗钮的**渲染**矩形比
+                        //   —— 判据是**两轴都不相交**，⛔ 不是拿我们自己的常量比（拿常量比 = 自证）。
+                        //   🔴 **2026-10-18 就地订正（铁律 5）**：这一条原来只断 `eLx >= cRx`（X 轴），
+                        //   那是**窄版 154.81** 时代的代理判据；2026-10-18 按用户「远窄于同排」把入口钮
+                        //   加宽到 **300**（右对齐 `GenR = 1431.33` ⇒ 左沿 1131.33），X 上必然压进
+                        //   `Close Game Button` 的跨度（右沿 1208.9），但它与那两颗**不在同一行**
+                        //   （`GenOnlineT = 686.26` vs `GenBtnT = 779.56`）⇒ 视觉不相交。
+                        //   改成**真正的判据**：两个矩形在 X/Y 两轴上至少一轴分离（相交检测）。
                         float eLx, eTy, eRx, eBy, cLx, cTy, cRx, cBy;
                         var closeBtn = FindChild(gtab, "Close Game Button");
+                        var redeemBtn = FindChild(gtab, "Redeem Code");
                         if (RectOf(onBtn, out eLx, out eTy, out eRx, out eBy)
                             && RectOf(closeBtn, out cLx, out cTy, out cRx, out cBy))
-                            CheckTrue(eLx >= cRx - 0.5f,
-                                      $"🔴 入口钮在**原版两颗钮的右边**、两颗不相交（新钮左沿 {eLx:F1} ≥ "
-                                    + $"`Close Game Button` 右沿 {cRx:F1}）—— 原版 `Bottom Buttons` 从左起排两颗 300 宽"
-                                    + " ⇒ 设计 px 里 `x > 1236.52` 一直是空的；改坏法：把它挪到 `GenL` 上"
-                                    + "（= 与 `Redeem Code` 同格）⇒ 本条红、而 ① 那条矩形断言照样绿");
+                        {
+                            bool noOverlap = eLx >= cRx - 0.5f || eRx <= cLx + 0.5f
+                                          || eTy >= cBy - 0.5f || eBy <= cTy + 0.5f;
+                            CheckTrue(noOverlap,
+                                      $"🔴 入口钮与原版 `Close Game Button` **两轴不相交**"
+                                    + $"（入口钮 {eLx:F1},{eTy:F1}..{eRx:F1},{eBy:F1} · Close {cLx:F1},{cTy:F1}..{cRx:F1},{cBy:F1}）"
+                                    + " —— 入口钮在横带 ①（y 686.26）、原版两颗在下排（y 779.56），**不同行**；"
+                                    + "改坏法：把它挪到 `GenL`/`GenBtnT` 那一格 ⇒ 与 `Redeem Code` 相交 ⇒ 本条红");
+                            if (redeemBtn != null && RectOf(redeemBtn, out cLx, out cTy, out cRx, out cBy))
+                            {
+                                bool noOverlap2 = eLx >= cRx - 0.5f || eRx <= cLx + 0.5f
+                                               || eTy >= cBy - 0.5f || eBy <= cTy + 0.5f;
+                                CheckTrue(noOverlap2,
+                                          $"🔴 入口钮与原版 `Redeem Code` 也**两轴不相交**"
+                                        + $"（Redeem {cLx:F1},{cTy:F1}..{cRx:F1},{cBy:F1}）");
+                            }
+                        }
                         else
                             CheckTrue(false, "（前提）`Online Button` / `Close Game Button` 的渲染矩形量得到"
                                            + " —— 量不到 = 上面那条等于没验（`RectOf` 返 false）");

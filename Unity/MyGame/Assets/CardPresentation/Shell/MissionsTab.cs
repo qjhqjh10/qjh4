@@ -648,6 +648,15 @@ namespace CardPresentation
             //   `m_text='Deal 500 damage to enemy uni…'` · `fs=35.0` · `auto[15.0~35.0]` 那一颗
             //   `MonoBehaviour_-2508897762510038832.json` —— `menu_dump.py` 不印 base）。
             //   ⚠️ 36 ≠ 标称 35 ⇒ 原版显式设过，⛔ 别省。
+            // 🔴 **2026-10-18（W2 · A1232）字号档裁定：本行改用【基础命名的独立 prefab】那一档**
+            //    （`Daily Mission Container`，Addressables GUID `b07892dd…`）。
+            //    判据 = `AssetBundle_1.json` 的 `m_Container`（**有 GUID** 的候选）＋「基础命名档」；
+            //    假设 = 服务端在**桌面 / 非活动态**选基础档；`Small` / `Variant  Expansion Pass` /
+            //    `Mission Container Vertical` 是**条件变体**（小屏 / 活动态 / 用途未定），本次不用。
+            //    本行现状：`description` 35/[15~35]/36 ✅ · `timer` 35/[15~35]/36 ✅ ·
+            //    `progress` 窗口 10/40 → **25/35** · `Button Text` 无窗口 → **5/35/12**。
+            //    ⚠️ 页内三行是作者态（`40/[10~40]`、`44/[12~44]`）—— 运行时不可能是它（没有 GUID）。
+            //    全文 → `资料/普查产出_1018/W2_A1232_任务卡字号.md`。
             if (!claimed)
                 AlignL(Txt(parent, desc, DailyData.DailyDesc(index), Color.white, "description", 35f, 15f, 0f, 36f), desc);
 
@@ -731,9 +740,11 @@ namespace CardPresentation
                 // 🆕 **A1205 接上**（`R5` §2·J #60：原版 `Daily Missions ▸ Daily Missions Holder ▸
                 //    Daily Mission Container ▸ progress ▸ Mission Milestones Progress Bar ▸ progress`
                 //    = `auto[10~40] · base 36 · **折行 0**` —— `(1)`/`(2)` 两颗同值）
+                //    🔴 **2026-10-18（`A1232`）**：上面那档是**页内作者态**；按「基础命名的独立 prefab」
+                //    （`Daily Mission Container`）改为 **auto[25~35]**（`35 / base 36 / 折行 0`）。
                 //    ⇒ `wrapPx` 缺省 0（原版不折行，`Txt1` 内部会 `SetWrapping(false)` 还原）。
                 AlignL(Txt1(parent, pt, DailyData.DailyCounterText(index), new Color(1f, 0.77f, 0.33f, 1f), "progress", 35f,
-                             autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 36f), pt);
+                             autoMinPx: 25f, autoMaxPx: 35f, autoBasePx: 36f), pt);
             }
 
             // `Generic UI Button`  N(1, 1,0, 1,0, .5,.5, -145.3,40.7107, 254.611,56.4767)   `40K_button` 色 (1,0.53,0,1) type=1
@@ -744,7 +755,8 @@ namespace CardPresentation
             //    （`CollectDaily` 只在 `St == Collectable` 时才真的发奖 —— 见 `DailyData.CollectDaily`）。
             if (!claimed)
                 BuildButton(parent, btn, "40K_button", new Color(1f, 0.53f, 0f, 1f), Loc.T("MainMenu/General/Collect"), 35f, "Generic UI Button",
-                            () => CollectThenRebuild(index), DailyData.CanCollectDaily(index));
+                            () => CollectThenRebuild(index), DailyData.CanCollectDaily(index),
+                            5f, 35f, 12f);
 
             // `Trash mission`  N(1, 1,0, 1,0, .5,.5, -307.44,40.711, 49.104,49.368)   `40k_general_bt_yellow` 色 (1,0.77,0.33,1)
             var trash = UguiRect.Child(row, UguiRect.A10, UguiRect.A10, UguiRect.P50c,
@@ -925,7 +937,7 @@ namespace CardPresentation
                 //    判据全文与残差 → `BuildRewardCell` 函数体里那一段。
                 BuildRewardCell(parent, new PxRect(rw.x1 + rw.W * 0.5f * i, rw.y1, rw.x1 + rw.W * 0.5f * (i + 1), rw.y2),
                                 DailyData.LoginRewardArt(i), DailyData.LoginRewardCount(i).ToString(), i.ToString(),
-                                10f, 40f, 36f, sideIconW: 55f, sideGap: i == 0 ? 5f : 4f,
+                                20f, 30f, 36f, sideIconW: 55f, sideGap: i == 0 ? 5f : 4f,
                                 // 🆕 **2026-10-17（界面线 `T07` · `A1272`）**：两格原版的 HLG 对齐/内缩**不同**：
                                 //   第 0 格 `m_ChildAlignment = 5 (MiddleRight)` + `m_Padding.m_Left = −20` ·
                                 //   第 1 格 `3 (MiddleLeft)` + `10`（`MB 7266792112342177535` / `MB -3940592343783237889`）。
@@ -937,7 +949,8 @@ namespace CardPresentation
                                      new Vector2(3.1692f, -24.0231f), new Vector2(255.992f, 74.6201f));
             // 🆕 **A75①**：这一颗也走 `OnCollect` ⇒ **领到就重建整页**（判据见 `CollectThenRebuild(string,…)`）。
             BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), Loc.T("MainMenu/General/Collect"), 35f, "Generic UI Button",
-                        () => CollectThenRebuild("登录卡", () => DailyData.CollectLogin()), DailyData.CanCollectLogin());
+                        () => CollectThenRebuild("登录卡", () => DailyData.CollectLogin()), DailyData.CanCollectLogin(),
+                        12f, 35f, 12f);
 
             // `footer.TimerHolder`  N(3, 0,0.5, 1,0.5, .5,0, 0,-118.5, 0,57.167)   文本 'Resets in …' fs28 灰
             // 🔴 **显示条件 = 已领取**（🆕 **A75②**）：原版这一件是 **`MissionTimerDisplay` · `displayRule = 2
@@ -971,10 +984,22 @@ namespace CardPresentation
                 //    **服务端 Title Data `EventComponents[key=0].GUID`** 选中的 prefab `Instantiate`
                 //    ⇒ 玩家实际看到哪一份**本地判不了**（要 PlayFab Title Data / 真 Play 的 Addressables dump）。
                 //    ⛔ 因此别据此重挑字号来源；本行保持现状，账目挂「等远端」。
+                // 🔴 **2026-10-18（界面线 `W2` · `A1232`）字号档裁定 —— 本行改用【基础命名的独立 prefab】**
+                //    （`Daily Login Bonus Container`，Addressables GUID `fab12dd4…`）：
+                //    判据 = `AssetBundle_1.json` 的 `m_Container`（**有 GUID** 的候选；页内副本没有 GUID、
+                //    运行时不可能被 `m_AssetGUID` 选中）＋「基础命名档」；
+                //    假设 = 服务端在**桌面 / 非活动态**选基础档；`Small` / `Variant  Expansion Pass` /
+                //    `Mission Container Vertical` 是**条件变体**（小屏 / 活动态 / 用途未定），本次不用。
+                //    实测对照：页内两份全同（`Timer 38/[15~38]`·`Button 44/[12~44]`·`count 40/[10~40]`·
+                //    `name 35.15/[20~36]`），基础档 = `Timer 28/[15~28]`·`Button 35/[12~35]`·
+                //    `count 40/[20~30]`·`name 30/[20~30]`。
+                //    ⇒ 本行：`Timer` autoMax **38 → 28**（字号 28 不变）；`count` 窗口 **10/40 → 20/30**；
+                //    `Button Text` 补窗口 **12/35/12**；`name` 早就是 30/[20~30] ✅。
+                //    全文 → `资料/普查产出_1018/W2_A1232_任务卡字号.md`。
                 //    `Txt` 走 `TextBox`（**默认就折行**、折行宽 = 本格框宽）⇒ 折行档 = 1 **不用传任何东西**
                 //    （`wrapOff` 缺省 `false` 就是这一档）。
                 var tl = Txt(parent, th, DailyData.ResetIn(), new Color(0.5686f, 0.5686f, 0.5882f, 1f), "Timer", 28f,
-                             autoMinPx: 15f, autoMaxPx: 38f, autoBasePx: 36f);
+                             autoMinPx: 15f, autoMaxPx: 28f, autoBasePx: 36f);
                 if (tl == null) Debug.LogWarning("[Rewards] 登录卡的 `Timer` 没建出来（红线：不许静默失败）");
                 else
                     // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时（目标 = 自建日界 `NextResetAt`，本机时间）。
@@ -1031,7 +1056,21 @@ namespace CardPresentation
         {
             parent = NodeD(parent, "Daily Skulls Mission Container", card);
             Draw(parent, "40K_missions_display_Daily_vertical", card, "Daily Skulls Mission Container", RewardsWindow.QPanel);
-            BuildCardHeader(parent, card, "Daily Skulls", DailyData.SkullsTitle(), 36f, false);
+            // 🔴 **2026-10-18（W2 · A1232）字号档裁定：骷髅卡改用【基础命名的独立 prefab】**
+            //    `Daily Skulls Mission Container`（全尺寸，Addressables GUID `c4be7a6f…`）。
+            //    判据 = `AssetBundle_1.json` 的 `m_Container`（**有 GUID** 的候选；页内副本没有 GUID、
+            //    运行时不可能被 `m_AssetGUID` 选中）＋「基础命名档」；
+            //    假设 = 服务端在**桌面 / 非活动态**选基础档；`Small` / `Variant  Expansion Pass` /
+            //    `Mission Container Vertical` 是**条件变体**（小屏 / 活动态 / 用途未定），本次不用。
+            //    实测对照：页内（两份同值）= `name 36/[20~36]`·`count 40/[10~40]`·`Button 44/[12~44]`·
+            //    `Timer 38/[15~38]`；基础档 = `name 30/[20~30]`·`count 30/[20~30]`·
+            //    `Button 35/[12~35]`·`Timer 28/[15~28]`；`body/counter 30/[30~35]` 两处一致。
+            //    ⇒ 本卡：`name` 36→**30**、`count` 40→**30**（窗口 10/40→20/30）、`Button` 44→**35**
+            //    （窗口 44→35）、`Timer` 38→**28**（窗口 38→28）；`counter` 不动。
+            //    ⚠️ 里程碑数字（`Step Text`）**没动** —— 它运行期由独立的 `stepPrefab` 实例化，
+            //    `MissionMilestonesDisplay.stepPrefab` 的 PPtr 本地解不出名字 ⇒ 属未闭合项、⛔ 不猜（只登记）。
+            //    全文 → `资料/普查产出_1018/W2_A1232_任务卡字号.md`。
+            BuildCardHeader(parent, card, "Daily Skulls", DailyData.SkullsTitle(), 30f, false);
 
             // ==================== `background/body`（全尺寸那一份才有）============================
             // 页内实例 raw（`RectTransform/RectTransform_1733095348392145593.json`）：
@@ -1139,6 +1178,8 @@ namespace CardPresentation
             //    `Daily Skulls Mission Container ▸ background ▸ footer ▸ Rewards` ⇒
             //    原版 `Reward Display Mission ▸ count` 的 TMP 实读（`MonoBehaviour_1175879379365507769.json`）：
             //    `fs 40` · `base 36` · `m_enableAutoSizing = 1` · `auto[10 ~ 40]` · **`折行 = 0`**（与登录卡同档）。
+            //    🔴 **2026-10-18（`A1232`）**：上面那颗是**页内作者态**；按基础命名的独立 prefab
+            //    `Daily Skulls Mission Container`（MB -8063506949765759796）改为 **`fs 30 · base 36 · auto[20~30]`**。
             // 🆕 **A1271（2026-10-10）第 11 个实参 `sideAlignT: 0.5f`** —— 格子里那条 HLG 实读
             //    `m_ChildAlignment = **4 (MiddleCenter)**`（`spacing 6.0` · `pad 0` · `ctrlW/H 1` ·
             //     `expandW 0 / expandH 1`）⇒ `GetAlignmentOnAxis(轴0) = ((int)4) % 3 × 0.5 = **0.5**`。
@@ -1149,7 +1190,7 @@ namespace CardPresentation
             //    用 `PreferredWidthPx` 量出来、`off` 按 `(图标 + 间距 + numW)` 重算 ⇒ 整块回到原版的居中位
             //    （原来比原版**偏右**约「数字宽 ÷ 2」；实拍复核：原版图标左沿 ≈ 120 设计 px、我们 ≈ 132）。
             BuildRewardCell(parent, rw, DailyData.SkullsRewardArt(), DailyData.SkullsRewardCount().ToString(), "1",
-                            10f, 40f, 36f, sideIconW: 55f, sideGap: 6f, sideAlignT: 0.5f);
+                            20f, 30f, 36f, sideIconW: 55f, sideGap: 6f, sideAlignT: 0.5f, fontPx: 30f);
 
             // `footer.Generic UI Button`  N(a=(.5,.5) p=(.5,.5) pos=(**3.1692, −24.0231**) sd=(**255.9915 × 74.6201**))
             //   `RectTransform_1077679669784720057.json`；那个 MB 实读 `m_Color = (1, 0.47396, 0.09906, 1)`
@@ -1159,13 +1200,15 @@ namespace CardPresentation
                                      new Vector2(3.1692f, -24.0231f), new Vector2(255.9915f, 74.6201f));
             //   └ `Button Text` 的 TMP 实读（`MonoBehaviour_-972942723976875335.json`）：`'Collect'` ·
             //     `fs **44**` · `base 12` · `auto[12 ~ 44]` · `折行 0` · `H=Center`
+            //     🔴 **2026-10-18（`A1232`）**：上面是**页内作者态**；基础命名独立 prefab
+            //     （MB 8596436757323545804）是 **`fs 35 · base 12 · auto[12~35]`** ⇒ 本行改 35/[12~35]/12。
             //     （⚠️ 设计字号改前是 34.05 = **Small 那一份**的 `m_fontSize`；窗口 12/44 两处同值）。
-            BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), Loc.T("MainMenu/General/Collect"), 44f, "Generic UI Button",
+            BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), Loc.T("MainMenu/General/Collect"), 35f, "Generic UI Button",
                         () => CollectThenRebuild("骷髅卡", () => DailyData.CollectSkulls()), DailyData.CanCollectSkulls(),
                         // 🆕 **A336③**：第三格 = 原版 `Generic UI Button/Button Text` 的 `m_fontSizeBase` = **12.0**
-                        //   （判据 = 全库 `'Collect'` 那族 `auto[12.0~44.0]` 的件逐颗实读都是 base 12.0 ——
-                        //   登录卡/骷髅卡/每日行三处同值；`menu_dump.py` 不印这一列）。
-                        12f, 44f, 12f);
+                        //   （判据 = 全库 `'Collect'` 那族逐颗实读 **base 都是 12.0**；窗口按宿主不同：
+                        //   登录/骷髅基础档 [12~35]、每日行/周常 [12~44] —— `menu_dump.py` 不印 base 这一列）。
+                        12f, 35f, 12f);
 
             // `footer.TimerHolder`  N(a=(**0,0.5**)-(**1,0.5**) p=(**.5,0**) pos=(**0, −118.5**) sd=(**0, 57.167**))
             //   `RectTransform_-1896766040164224327.json` —— 与登录卡那颗**同一个五元组**。
@@ -1179,8 +1222,10 @@ namespace CardPresentation
             //   那一颗 TMP 实读（`MonoBehaviour_-1074133513752366407.json`）：`'Resets in 12h 34 m'` ·
             //     `fs **38**` · `base 36` · `auto[15 ~ 38]` · `折行 1` · `H=Center`
             //     （⚠️ 设计字号改前是 30.15 = **Small 那一份**的 `m_fontSize`）。
-            var tm = Txt(parent, th, DailyData.ResetIn(), new Color(0.5686f, 0.5686f, 0.5882f, 1f), "Timer", 38f,
-                         autoMinPx: 15f, autoMaxPx: 38f, autoBasePx: 36f);
+            //     🔴 **2026-10-18（`A1232`）**：上面是**页内作者态**；基础命名独立 prefab
+            //     （MB -997214307310601012）是 **`fs 28 · base 36 · auto[15~28]`** ⇒ 本行已改 28/[15~28]/36。
+            var tm = Txt(parent, th, DailyData.ResetIn(), new Color(0.5686f, 0.5686f, 0.5882f, 1f), "Timer", 28f,
+                         autoMinPx: 15f, autoMaxPx: 28f, autoBasePx: 36f);
             if (tm == null) Debug.LogWarning("[Rewards] 骷髅卡的 `Timer` 没建出来（红线：不许静默失败）");
             else
                 // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时（目标 = 自建日界 `NextResetAt`，本机时间）。
@@ -1222,8 +1267,15 @@ namespace CardPresentation
                                      head.x1 + 0.84f * head.W, head.y1 + 52.5f);
             // 🆕 **A1205 接上**（`R5` §2·J #57：原版 `Weekly Mission Holder ▸ Weekly Mission ▸ background ▸
             //    header ▸ name` = `auto[10~36] · base 46 · **折行 0**`）⇒ `wrapOff: true`
+            //    ⚠️ 上面那个 `[10~36]` 是**页内作者态**；见下面 `A1232` 那条（基础档是 `[20~36]`）。
             //    （`TextBox` 默认折行、原版这一颗是 `NoWrap`）。
-            var wkNameLb = Txt(parent, wkNameR, Loc.T("Missions/Title/WeeklyChallenge"), Color.white, "name", 36f, 10f, 36f, 46f,
+            // 🔴 **2026-10-18（W2 · A1232）字号档裁定：改用【基础命名的独立 prefab】**
+            //    `Weekly Mission Container`（Addressables GUID `5cd709cb…`）—— 判据 = `AssetBundle_1.json`
+            //    的 `m_Container`（**有 GUID** 的候选；页内副本没有 GUID）＋「基础命名档」；
+            //    假设 = 服务端在**桌面 / 非活动态**选基础档（`Small`/`Variant` 是条件变体、本次不用）。
+            //    本颗只有 `autoMin` 不同：页内 **10** / 基础档 **20** ⇒ 本行 **10 → 20**
+            //    （`36 / max 36 / base 46` 两处同值）。全文 → `资料/普查产出_1018/W2_A1232_任务卡字号.md`。
+            var wkNameLb = Txt(parent, wkNameR, Loc.T("Missions/Title/WeeklyChallenge"), Color.white, "name", 36f, 20f, 36f, 46f,
                                wrapOff: true, face: TmpFont.Face.LatinUi);
             AlignL(wkNameLb, wkNameR);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版周常 `name`（`'Weekly Challenge'`）
@@ -1316,7 +1368,8 @@ namespace CardPresentation
             var btn = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                      new Vector2(3.1692f, 0f), new Vector2(294.29f, 74.62f));
             BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), Loc.T("MainMenu/General/Collect"), 44f, "Generic UI Button",
-                        () => CollectThenRebuild("周常卡", () => DailyData.CollectWeekly()), DailyData.CanCollectWeekly());
+                        () => CollectThenRebuild("周常卡", () => DailyData.CollectWeekly()), DailyData.CanCollectWeekly(),
+                        12f, 44f, 12f);
             // ⚠️ 周常**没有「奖励格」这一件**（原版 `Rewards` 出厂 `activeSelf = false`，正本 §3·5 #8）
             //    ⇒ B4 改的是「每日行 / 登录卡 / 骷髅卡」三处；周常那份奖励只在 `CollectWeekly` 里（500 金块，我们挑的）。
 
@@ -1430,23 +1483,39 @@ namespace CardPresentation
             var nm = UguiRect.Child(h, new Vector2(0.03f, 0.5f), new Vector2(0.84f, 0.5f), UguiRect.P50c,
                                     Vector2.zero, new Vector2(3.8147e-06f, 50f));
             // ⚠️ 原版这条 TMP 实测 **`H=Left`**（`m_HorizontalAlignment=1`）⇒ 标题贴左边起，**不是居中**
-            // 🔴 **2026-10-06（A143）把卡头 TMP 的自适应三字段核到底了**。判据优先取**页内真值** ——
+            // 🔴 **2026-10-06（A143）把卡头 TMP 的自适应三字段核到底了**。当时按**页内实例**取值 ——
             //    `GameObject/Missions Tab.json` 的 `…/Special Missions/Daily Login Container/background/header/name`
-            //    与 `…/Daily Skulls Mission Container/background/header/name`（**这才是玩家看到的那份**；
-            //    见 `资料/普查产出_1006/A143_SM字号断言.md` §七）。两处**都**是：
+            //    与 `…/Daily Skulls Mission Container/background/header/name`
+            //    （见 `资料/普查产出_1006/A143_SM字号断言.md` §七）。两处**都**是：
             //      `m_enableAutoSizing = 1` · `m_fontSizeMin = **20**`（卡头两颗一致）
             //      · `m_fontSizeMax`：登录卡 **36** · 骷髅卡 **36**（各自的 `m_fontSize` 是 35.15 / 36）
-            //    旁证（独立预制体，同两处 `m_fontSizeMin` 也是 20）：`MonoBehaviour/MonoBehaviour_6907930910134838868.json`
-            //    · `…_4389928180546541826.json`。
+            //    🔴 **2026-10-18（`A1232` · 铁律 5）就地订正两处**：
+            //      ① 原来写「（**这才是玩家看到的那份**）」—— **不成立**：页内是**作者态**，原版运行时
+            //         `ContainerHolder.Clear()` 销毁后按服务端 Title Data 的 `EventComponents[key=0].m_AssetGUID`
+            //         **重新 Instantiate**（判据 → `资料/普查产出_1018/W2_A1232_任务卡字号.md`）。
+            //      ② 原来的「旁证（独立预制体）」**混进了另一族**：
+            //         · `MonoBehaviour_6907930910134838868.json` = 独立预制体 **`Daily Login Bonus Container`**
+            //           的 `header/name`，`fs 30 / auto[20~30] / base 46`（与页内 `35.15 / [20~36]` **不同**）；
+            //         · `…_4389928180546541826.json` = **`Daily Skulls Mission Container Small`** 的 `header/name`
+            //           （`36 / [20~36]`），**不是**全尺寸 `Daily Skulls Mission Container` ——
+            //           后者的那是 `MB 311881750146743500` = `30 / [20~30]`。
+            //      ⇒ 卡头这一档同样**页内 vs 独立不一致**（登录 35.15/[20~36] vs 30/[20~30]；
+            //        骷髅 36/[20~36] vs 30/[20~30]）。
+            //      🔴 **2026-10-18（`W2` · `A1232`）裁定：按【基础命名的独立 prefab】统一** ——
+            //        登录 = `Daily Login Bonus Container`、骷髅 = `Daily Skulls Mission Container`（全尺寸）
+            //        ⇒ 两颗都走 **`fontPx 30 / auto[20~30] / base 46`**（`Txt` 的 `autoMaxPx=0` 代标称字号）。
+            //        判据 = `AssetBundle_1.json` 的 `m_Container`（有 GUID 的候选）＋「基础命名档」；
+            //        假设 = 服务端在桌面 / 非活动态选基础档；`Small`/`Variant` 是条件变体、本次不用。
             //    ✅ **对得上的两半**：① `Txt` 的第 2 个参数（`autoMinPx`）**确实对应原版 `m_fontSizeMin`**
             //      （口径出处 = `MenuDraw.Text` 的 summary「传原版那两个字段的原文即可」；反证 = 每日行
             //       `description` 那处 `Txt(…, 35f, 15f)` 与原版实测 `m_fontSizeMin 15` 吻合）；
             //       ② `Txt` 把自适应**上界**设成 `fontPx` 的口径本身没错（只是**值**要照原版填）。
             //    ✅ **本行已按原版改**：`autoMinPx` **12 → 20**（下界以前矮 8px：卡头标题在窄框里会被 TMP 压得更小）。
-            //    🔴 **还没对齐的**：登录卡卡头的**设计字号/上界** —— 页内真值是 `fs 35.15 / max 36`，
-            //      我们传的是 `30`（取自**独立预制体** `Daily Login Bonus Container`）。
-            //      ⚠️ 同族还有一批（`count` / `Button Text` / `Timer` / `counter`）也是「照独立预制体 vs 照页内」的
-            //      来源分叉 ⇒ **判据要调度台裁定**，本件只动了「两处来源一致」的那些，详见报告 §七。
+            //    🔴 **2026-10-18（`A1232`）收口（铁律 5，原文是「还没对齐」）**：登录卡卡头字号 `30`
+            //      原来是**独立预制体**那一档、被记为「还没对齐」；本笔已裁定**统一到基础命名的独立 prefab**
+            //      ⇒ **30 / auto[20~30] / base 46 就是目标值**（骷髅卡同时 36 → 30）。
+            //      `count` / `Button Text` / `Timer` / `counter` 那批「照独立 vs 照页内」的分叉也已按同一档改完
+            //      （`counter` 两档同值、不动）。详见 `资料/普查产出_1018/W2_A1232_任务卡字号.md`。
             // 🆕 **2026-10-17（`A1753` #3）**：三张卡的卡头 `name` 与 `Mission Header ▸ name` **同族同材质**
             //   （`Asar-Regular Mission cream w outline`）⇒ (1, 0.931, 0.703)。
             var cardNameLb = Txt(parent, nm, title, MissionCreamInk, what + " name", fontPx, 20f, 0f, 46f,
@@ -1792,7 +1861,9 @@ namespace CardPresentation
         /// <item>每日行（`Daily Missions ▸ Daily Missions Holder ▸ Daily Mission Container`）·
         ///   `Rewards ▸ Reward Display Mission Vertical Variant ▸ count` = `20 / 40 / 36 / 折行 0`</item>
         /// <item>登录卡 / 骷髅卡的 `… ▸ background ▸ footer ▸ Rewards` ·
-        ///   `Reward Display Mission ▸ count` = `10 / 40 / 36 / 折行 0`</item>
+        ///   `Reward Display Mission ▸ count` = `10 / 40 / 36 / 折行 0`
+        ///   🔴 **2026-10-18（`A1232`）**：上面那档是**页内作者态**；按基础命名的独立 prefab 改为
+        ///   **登录卡 `20 / 30 / 36`（字号 40）· 骷髅卡 `20 / 30 / 36`（字号 30）**（见 `fontPx` 形参）</item>
         /// <item>周常卡那一档 = `20 / 30 / 36 / 折行 0`（⚠️ **本函数没有周常调用点** —— 原版周常的
         ///   `Rewards` 出厂 `activeSelf = false`，我们也没画，见 `BuildWeekly` 末段）</item>
         /// </list>
@@ -1816,11 +1887,15 @@ namespace CardPresentation
         /// 父 HLG 的 `m_Padding.m_Left`（**设计空间原值**）：登录卡第 0 格 **−20** · 第 1 格 **+10** · 骷髅卡 **0**。
         /// 主轴起点 = `padL + (innerSize − totalPref) × alignmentOnAxis`（`innerSize = 格宽 − padL`，`padR = 0`）。
         /// ⛔ 缺省 `0` ⇒ 每日行（竖向变体）与骷髅卡逐位不变。判据 → 函数体里 `off` 那一段。</para>
+        /// <para>🆕 **2026-10-18（`W2` · `A1232`）多了第 13 个形参 `fontPx`**（缺省 `40`）—— `count` 的**设计字号**。
+        /// 按「基础命名的独立 prefab」这一档：每日行 **40** · 登录卡 **40** · 骷髅卡全尺寸 **30**
+        /// （`Daily Skulls Mission Container ▸ footer ▸ Rewards ▸ Reward Display Mission ▸ count`
+        /// = `30 / 36 / auto[20~30]`）。⛔ 缺省 `40` ⇒ 每日行/登录卡逐位不变。</para>
         /// ⇒ ⛔ **别把两档合成一个**：把每日行改成横向（或反过来）都会「看着像对的」地画错一整列。</para></summary>
         void BuildRewardCell(Transform parent, PxRect r, string art, string countText, string key,
                              float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
                              float sideIconW = 0f, float sideGap = 0f, float sideAlignT = 0f,
-                             float sidePadL = 0f)
+                             float sidePadL = 0f, float fontPx = 40f)
         {
             PxRect dh, c;
             if (sideIconW > 0f)
@@ -1907,7 +1982,7 @@ namespace CardPresentation
             var artQ = Draw(parent, art, dh, "Reward " + key, RewardsWindow.QContent, null, true);
             // 🆕 **A1205**：三档（见上面 summary）都在 `Txt` 的 `autoMinPx`/`autoMaxPx`/`autoBasePx` 上，
             //    由**调用点**传；`折行 = 0` 是这三档**共同**的那一格 ⇒ 这里恒 `wrapOff: true`。
-            var cLb = Txt(parent, c, countText, Color.white, "count " + key, 40f, autoMinPx, autoMaxPx, autoBasePx,
+            var cLb = Txt(parent, c, countText, Color.white, "count " + key, fontPx, autoMinPx, autoMaxPx, autoBasePx,
                 wrapOff: true, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-17（R2 现核 · 桶 ②③）**：原版这两颗 `count`（MB `1175879379365507769` /
             //   `1234353403895984825`）的 `m_sharedMaterial` = `-5050103597772954521` = **Pragati Atlas**
@@ -1959,7 +2034,7 @@ namespace CardPresentation
                     //   `(w, 0)`（`TmpFont.cs:498-503`）⇒ **框高变 0**（断言 `count 框高 89.29` 就是这么红的）。
                     //   ⇒ 改走 `FitWindow`（`SetAutoFitBox` 会同时写回框宽/框高），再还原折行（原版折行 0）。
                     // ⚠️ 这两句都会重排 mesh，所以**必须排在最后那次 `AlignL` 之前**（否则对齐被抹掉）。
-                    FitWindow(cLb, c2, autoMinPx, autoMaxPx > 0f ? autoMaxPx : 40f, autoBasePx);
+                    FitWindow(cLb, c2, autoMinPx, autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);
                     cLb.SetWrapping(false);
                     AlignL(cLb, c2);
                 }
@@ -2029,7 +2104,8 @@ namespace CardPresentation
             }
             // `Button Text`  N(2, 0,0, 1,1, .5,.5, 0,0, -14,0)  → 文本 fs35 白居中
             // 🔴 **A143（2026-10-06）**：`autoMinPx`/`autoMaxPx` = 原版那两个字段的**原值**
-            //    （被调用方传进来 —— 各处的 `m_fontSizeMin/Max` 不同：每日行/周常 12/44 · 登录卡 12/35 · 骷髅卡 12/44）。
+            //    （被调用方传进来 —— 各处的 `m_fontSizeMin/Max` 不同：每日行/周常 12/44 · 登录卡 12/35 ·
+            //      骷髅卡基础档 **12/35**（`A1232` 2026-10-18 从页内 12/44 改来））。
             //    ⚠️ 只有**上下界在两处来源上一致**的调用点才填了值（见 `资料/普查产出_1006/A143_SM字号断言.md` §七）。
             var t = UguiRect.Child(r, UguiRect.A00, UguiRect.A11, UguiRect.P50c, Vector2.zero,
                                    new Vector2(-14f, 0f));

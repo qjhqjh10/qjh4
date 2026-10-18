@@ -59,6 +59,12 @@ namespace CardPresentation
         public const float MaskInsetX = 20.268f, MaskInsetY = 19.245f;
         public const float MsgMinH = 100f, BtnRowH = 110f, BtnH = 80f, BtnGap = 40f;
         public const float MsgFontPx = 50f, BtnFontPx = 50f;
+        /// <summary>🔴 **2026-10-18（W3）补两格（铁律 5）**：`MessageText` 的 TMP 实读四格 =
+        /// `m_fontSize 50` · **`m_fontSizeMin 4`** · `m_fontSizeMax 50` · **`m_fontSizeBase 36`** ·
+        /// `m_enableAutoSizing = 1` · `m_TextWrappingMode = 1`（dump 原文：`字号=50.0 基准=36.0 auto[4.0~50.0] 对齐=Center/Middle 折行=1`）。
+        /// 我们原来只 `SetWrapWidth`、**没接自适应** ⇒ 长文更早折行。判据 →
+        /// `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §1（P2-6）。</summary>
+        public const float MsgAutoMinPx = 4f, MsgAutoBasePx = 36f;
         public static readonly Color BtnColor = new Color(0.3686f, 0.8941f, 0.5874f, 1f);
 
         public const string ArtPopup = "40k_popup";              // 359×336 · 九宫格 (169,160,169,160)
@@ -115,23 +121,31 @@ namespace CardPresentation
             //    画一块纯色矩形（同一个套路见 `RewardsWindow` 的背景与卡片 header）。
             Solid(root, cx, cy, ShadeW, ShadeH, ShadeColor, QShade, "Menu Dark Background");
 
-            // 2) `MessageText`：先按 900 宽限制换行画出来（**量出它的真实高度**），再定面板高。
+            // 2) `MessageText`：先按 **900** 宽限制换行画出来（**量出它的真实高度**），再定面板高。
             TwoButtons = !string.IsNullOrEmpty(_cancelText);
-            float msgW = PanelW - 40f;                        // ⚠️ 我们挑的左右留白（原版由 VLG 的 padding 决定，是 0）
+            // 🔴 **2026-10-18（W3）就地订正（铁律 5）**：原版 `MessageText` = **900×100**（`Window` 的 VLG
+            //   `pad = 0,0,0,0`、`ctrlW = 1` ⇒ 正文列**吃满 900**）· fs50 · **auto[4~50] base36** · 折行1。
+            //   我们原来按 `PanelW − 40`（= **860**，自选的左右留白）画、**没接自适应** ⇒ 长文更早折行、面板更高。
+            //   判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §1（P2-6）。
+            float msgW = PanelW;                              // = 原版 `MessageText` 的 900 宽（VLG padding = 0）
             var msgLb = Label.Create(root, _text ?? "", new Vector3(0f, 0f, 0f), 6, Color.white,
                                      new Vector2(0.5f, 0.5f), "MessageText");
             float msgH = MsgMinH;
             if (msgLb != null)
             {
-                msgLb.SetRenderQueue(QText);
-                // 🆕 2026-10-17（A1024③ 第 3/4 批）：原版 `GenericPromptWindow/Window/MessageText` = **Pragati**。
+                // 🔴 **2026-10-17（A1024③ 第 3/4 批）：原版 `GenericPromptWindow/Window/MessageText` = **Pragati**。
                 //    必须在 `SetGlyphHeight` **之前**（字号按 `ActualFace` 的 em 换算）。
+                // 🔴 **2026-10-18（W3）**：`SetRenderQueue` 排在 `SetFace` **之后** —— 与 `MenuDraw.TextCore`
+                //    的次序约定一致（换字体材质会重放队列；`Label` 自 2026-10-17 R3 起会把队列记下来重放，
+                //    这里按约定排、不依赖那条兜底）。
                 msgLb.SetFace(TmpFont.Face.LatinCardBody);
+                msgLb.SetRenderQueue(QText);
                 msgLb.SetGlyphHeight(LayoutSpace.Px(MsgFontPx));
                 // ✅ **判据（2026-10-07 · A77⑩ 子表 E3）**：原版 `GenericPromptWindow > Window > MessageText`
-                //   是 **`折行=1 auto[4~50]`**（`md "GenericPromptWindow" --depth 12 --md`）—— 这一处**本来就对**
-                //   （原版就是限宽换行），⛔ **别顺手给它补 `SetWrapping(false)`**（那是把 `1` 改错）。
-                msgLb.SetWrapWidth(LayoutSpace.Px(msgW));
+                //   是 **`折行=1 auto[4~50]`** —— 这一处本来就对（⛔ 别顺手给它补 `SetWrapping(false)`）。
+                // 🆕 **2026-10-18（W3）**：`SetAutoFitBox` = 原版 `auto[4~50]`（顺带设折行宽，框高 = 原版 100）。
+                msgLb.SetAutoFitBox(LayoutSpace.Px(msgW), LayoutSpace.Px(MsgMinH),
+                                    MsgAutoMinPx, MsgFontPx, MsgAutoBasePx);
                 msgLb.RefreshBounds();
                 msgH = Mathf.Max(MsgMinH, msgLb.WorldH * 108f);
             }
@@ -252,10 +266,12 @@ namespace CardPresentation
             var lb = Label.Create(go, text ?? "", Vector3.zero, 6, Color.white, new Vector2(0.5f, 0.5f), "Button Text");
             if (lb != null)
             {
-                lb.SetRenderQueue(QText);
                 // 🆕 2026-10-17（A1024③ 第 3/4 批）：原版 `GenericPromptWindow/Window/Buttons/…/Button Text` = **Pragati**。
                 //    必须在 `SetGlyphHeight` **之前**（字号按 `ActualFace` 的 em 换算）。
+                // 🔴 **2026-10-18（W3）**：`SetRenderQueue` 排在 `SetFace` **之后**（同 `MessageText` 那一处；
+                //    与 `MenuDraw.TextCore` 的次序约定一致 —— 换字体材质会把队列重放，这里不依赖那条兜底）。
                 lb.SetFace(TmpFont.Face.LatinCardBody);
+                lb.SetRenderQueue(QText);
                 lb.SetGlyphHeight(LayoutSpace.Px(BtnFontPx));
                 lb.SetWrapWidth(LayoutSpace.Px((x2 - x1) - 26f));
                 // 🔴 **2026-10-07（A77⑩ · 子表 E4）**：原版 `GenericPromptWindow > Window > Buttons > … > Button Text`

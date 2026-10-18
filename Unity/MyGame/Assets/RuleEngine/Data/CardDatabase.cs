@@ -186,9 +186,24 @@ namespace RuleEngine
             public int targeted;
         }
 
-        /// <summary>从 Resources 读卡表。取不到返回空表（不抛异常 —— 让调用方能自己决定怎么报）。</summary>
+        /// <summary>🆕 **2026-10-18（T09）**：解析结果的缓存。
+        /// 🔴 `JsonUtility.FromJson` + 1127 张卡的构造实测 **≈2.4 s**，而全仓有 **216 个调用点**，
+        /// 其中 `BattleDriver.MechanismFails` 是**逐卡**调的（卡面 `*` 判据）⇒ 不缓存 = **每张卡 2.4 s**
+        /// （T09「首次开窗 48.9 s / 17.3 s」的**唯一根因**；探针实测 `UnimplementedNotes` 单卡首次
+        /// **2,477 ms**、同一张卡第二次 **0.23 ms**）。
+        /// ⚠️ **每次返回一份新的 `List` 浅拷贝** —— 有调用方会改这个列表（排序 / 筛选 / 增删），
+        /// 共享同一份会互相污染（本工程吃过「两处共用一份可变表」的亏）。</summary>
+        static List<CardDef> _cache;
+
+        /// <summary>🆕 2026-10-18（T09）：丢掉缓存 —— 编辑器里改完卡表、或自检要重读时用。</summary>
+        public static void InvalidateCache() { _cache = null; }
+
+        /// <summary>从 Resources 读卡表。取不到返回空表（不抛异常 —— 让调用方能自己决定怎么报）。
+        /// 🔴 **2026-10-18（T09）起有进程级缓存**（见 `_cache` 的说明）；读不到的那一路**不缓存**，
+        /// 这样补上资源后下一次调用还能读到。</summary>
         public static List<CardDef> Load()
         {
+            if (_cache != null) return new List<CardDef>(_cache);
             var asset = Resources.Load<TextAsset>(ResourcePath);
             if (asset == null)
             {
@@ -196,7 +211,8 @@ namespace RuleEngine
                              + "跑一下：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_cards_engine.py");
                 return new List<CardDef>();
             }
-            return Parse(asset.text);
+            _cache = Parse(asset.text);
+            return new List<CardDef>(_cache);       // 浅拷贝（见 `_cache` 的说明）
         }
 
         public static List<CardDef> Parse(string json)

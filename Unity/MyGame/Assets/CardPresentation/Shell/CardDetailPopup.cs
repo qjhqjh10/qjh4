@@ -492,14 +492,18 @@ namespace CardPresentation
             // 1) 压暗 + 点遮罩关窗（原版唯一的「关」）
             //    🔴 队列 `QShade`（**3105**）—— **必须低于卡格**（`QCardStack = 3106`）：
             //    原版那棵树里 `Menu Dark Background` 是**第一个孩子**（画在最下），卡在它上面。
-            MenuDraw.Rect(root, CardArt.Solid(),
-                          new PxRect(CardWinBox.MaskL, CardWinBox.MaskT, CardWinBox.MaskR, CardWinBox.MaskB),
-                          "Menu Dark Background", QShade, ShadeColor);
+            //    🔴 **2026-10-18（P1 §三 · 报告第 1 条）**：视觉层与**点击区**从这一份矩形走 ——
+            //    原版那颗「点它关」的图形就是这块 **超画幅** `-1327.3,-746.18 → 3247.3,1826.18` 的
+            //    `Menu Dark Background` 自身；我们原来的点击区写死 `1920×1080`
+            //    ⇒ **超宽屏两侧点不到（关不掉窗）**（21:9 可见宽 = 2520 设计 px，两侧各 300px）。
+            //    判据 → `资料/普查产出_1018/P1_弹窗排版_卡组卡牌.md` §三 与 §七 S1。
+            var shadeRect = new PxRect(CardWinBox.MaskL, CardWinBox.MaskT, CardWinBox.MaskR, CardWinBox.MaskB);
+            MenuDraw.Rect(root, CardArt.Solid(), shadeRect, "Menu Dark Background", QShade, ShadeColor);
             // 🔴 **2026-10-04（A47 接线批）订正档号：`QCdHit − 1`(3117) → `QShade`(3105)** ——
             //   规矩 = 「压暗层的命中区落在**压暗层自己那一档**，且严格低于本窗任何内容命中区档」
             //   （判据 → `MenuDraw.ShadeHit` 的注释 · `资料/待办判据_阶段二与联机.md` §A25·补（一））。
             //   ⚠️ 3117 恰好是 `QCdText`（**文字那一档**）——「内容档 − 1」看着像派生，其实落在别的层上。
-            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), QShade, QCdHit, () => Close(), "BackgroundHit");
+            MenuDraw.ShadeHit(root, shadeRect, QShade, QCdHit, () => Close(), "BackgroundHit");
 
             // 2) 卡片那一叠（1 主卡 + 8 相关卡 · 扇形）—— 判据与真值 → `CardFan`
             var cardNode = MenuDraw.Node(root, "Card Display", new PxRect(CardL, CardT, CardR, CardB));

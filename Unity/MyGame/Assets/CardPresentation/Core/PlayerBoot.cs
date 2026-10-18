@@ -45,6 +45,8 @@ public class PlayerBoot : MonoBehaviour
     //   不在可读语料里**（`decomp_full` 只有定义、0 引用）⇒ 不发明原版没有的设置项；只留命令行口。
     //   `-wfskipftue`  = 整链标记为已跳过（写 `PlayerPrefs`，以后进主菜单都不再启动）
     //   `-wfresetftue` = 清掉进度/跳过标记，下次进主菜单从第 1 段重来
+    //   🆕 `-wfftue`   = **显式启动**菜单侧引导（🔴 2026-10-18 用户口径：默认**不再自动启动**，
+    //                    玩家自己会去点对应的地方学习；这个口只给调试/回归用）
     const string FlagSkipFtue = "-wfskipftue";
     const string FlagResetFtue = "-wfresetftue";
 

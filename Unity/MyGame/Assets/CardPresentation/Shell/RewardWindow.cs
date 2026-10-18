@@ -216,9 +216,12 @@ namespace CardPresentation
         public const int QDecor = 3136;
 
         // ============================================================ 图（名字 = 导入后的文件名；原版原名见括号）
-        public const string ArtBgGet = "40k_general_popup_simple_red";             // 原名 `40k_general_popup_simple red`
-        public const string ArtBgPreview = "40k_general_popup_simple_greyscale";   // 原名 `… greyscale`
-        public const string ArtGlow = "40k_bt_underbutton";                        // 两团底光同一张（Sliced 240,0,240,0 + PA）
+        public const string ArtBgGet = "40k_general_popup_simple_red";             // 原名 `40k_general_popup_simple red`（21×81 · 九宫 0,26,0,26 · **Sliced**）
+        public const string ArtBgPreview = "40k_general_popup_simple_greyscale";   // 原名 `… greyscale`（同上）
+        /// <summary>两团底光同一张（**Sliced 240,0,240,0** · 贴图 485×83）。
+        /// 🔴 **Sliced 下 `preserveAspect` 不生效**（uGUI 只有 Simple/Tiled 走 PA）⇒ 底光**拉满 600×75**，
+        /// ⛔ 别再按等比内接画（2026-10-18 W3 订正，判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §5）。</summary>
+        public const string ArtGlow = "40k_bt_underbutton";
         public const string ArtCollectBtn = "UI_Button_Mulligan";                  // Simple；HL/Pressed 见 `WindowButton.Bind`
         public const string ArtPremIcon = "40k_campaign_Premium-icon";             // 301×305
 
@@ -1074,8 +1077,14 @@ namespace CardPresentation
             // ② `Content`
             var content = MenuDraw.Node(root, "Content", Content);
             // 两态底图（「Get」红 / 「Preview」灰）—— 出场都建，由 `ConfigureIsPreviewState` 决定开哪一张
-            _bgGet = RectGo(content, Art(ArtBgGet), Content, "Reward Background Get Reward", QContentBg);
-            _bgPrev = RectGo(content, Art(ArtBgPreview), Content, "Reward Background Preview Reward", QContentBg);
+            // 🔴 **2026-10-18（W3）就地订正（铁律 5）**：原版两颗都是 **`m_Type = Sliced` · 九宫 (0,26,0,26) · 贴图 21×81**
+            //   （dump 实读：`40k_general_popup_simple red 21×81 九宫0,26,0,26 | Sliced`）——
+            //   我们原来走 `RectGo`（= `MenuDraw.Rect`，**Simple 拉伸**）⇒ 顶/底亮边带从 ~6px 扩到 ~59px。
+            //   判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §5。
+            _bgGet = DrawNine(content, Art(ArtBgGet), Content, new Vector4(0f, 26f, 0f, 26f), 21f, 81f,
+                              QContentBg, null, true, "Reward Background Get Reward");
+            _bgPrev = DrawNine(content, Art(ArtBgPreview), Content, new Vector4(0f, 26f, 0f, 26f), 21f, 81f,
+                               QContentBg, null, true, "Reward Background Preview Reward");
             // 面板底图吸收点击（判据 = 原版那颗 `Image.m_RaycastTarget = 1`；层 = 内容档 − 1，同 A94 的口径）
             MenuDraw.Absorb(root, "AbsorbHit", Content, QShade, QCollectBg);
 
@@ -1117,9 +1126,15 @@ namespace CardPresentation
 
             // ④ `Title` 两态（底光 + 文字；`Text *` 是 `Glow *` 的**子件**，挂错父会让「开关底光」管不到字）
             var title = MenuDraw.Node(content, "Title", Title);
-            _glowGet = RectGo(title, Art(ArtGlow), Glow, "Glow Get reward", QTitleBg, GlowGet, true);
+            // 🔴 **2026-10-18（W3）就地订正（铁律 5）**：原版是 **`m_Type = Sliced` · 九宫 (240,0,240,0) · 贴图 485×83**
+            //   ⇒ **Sliced 下 `preserveAspect` 不生效**（uGUI 只有 Simple/Tiled 才走 PA；反编译实证）⇒
+            //   底光**拉满 600×75**。我们原来按 `Rect(keepAspect=true)` 等比内接画成 ≈438×75（窄 24%）。
+            //   判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §5。
+            _glowGet = DrawNine(title, Art(ArtGlow), Glow, new Vector4(240f, 0f, 240f, 0f), 485f, 83f,
+                                QTitleBg, GlowGet, true, "Glow Get reward");
             _titleGet = GlowText(_glowGet, "Text Get Reward", TxtGet);
-            _glowPrev = RectGo(title, Art(ArtGlow), Glow, "Glow Preview reward", QTitleBg, GlowPreview, true);
+            _glowPrev = DrawNine(title, Art(ArtGlow), Glow, new Vector4(240f, 0f, 240f, 0f), 485f, 83f,
+                                 QTitleBg, GlowPreview, true, "Glow Preview reward");
             _titlePreview = GlowText(_glowPrev, "Text Preview Reward", TxtPreview);
             if (!string.IsNullOrEmpty(ctx.CustomTitle))
             {   // 原版：非空时给**可见那一份**的 TMP 设 `Localize.Term`（我们两份都设，语义等价）
@@ -1500,13 +1515,6 @@ namespace CardPresentation
         {
             float cx = (ScrollView.x1 + ScrollView.x2) * 0.5f;
             return new PxRect(cx - w * 0.5f, ScrollView.y1, cx + w * 0.5f, ScrollView.y2);
-        }
-
-        GameObject RectGo(Transform parent, Texture2D tex, PxRect r, string name, int q,
-                          Color? tint = null, bool keepAspect = false)
-        {
-            var quad = MenuDraw.Rect(parent, tex, r, name, q, tint, keepAspect);
-            return quad != null ? quad.gameObject : null;
         }
 
         /// <summary>底光里那一段字（`Text *` 是 `Glow *` 的子件；文字盒 = 底光盒）。

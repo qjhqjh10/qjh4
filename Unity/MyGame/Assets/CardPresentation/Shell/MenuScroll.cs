@@ -99,7 +99,12 @@ namespace CardPresentation
         /// <summary>一格滚轮滚多少画布像素 = **原版那台 `ScrollRect` 的 `m_ScrollSensitivity`**。
         /// uGUI `OnScroll`：`position += scrollDelta × scrollSensitivity`，Windows 上一格 `scrollDelta = 1`
         /// ⇒ 原版值就是「每格像素」（同值口径，`A1543` 已按 100/50 验过）。
-        /// 判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`。</summary>
+        /// 判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`。
+        /// <para>🔴 **2026-10-18（N66）唯一一处【不是原版值】的传参**：主菜单模式卡区传 **120**。
+        /// 原版 `GameModes` 是 **horizontal-only ScrollRect**（`m_Horizontal=1 / m_Vertical=0`）⇒
+        /// **纵向滚轮在原版本来就不参与**（原版靠拖拽），`m_ScrollSensitivity=1.0` 那条是**横向**灵敏度；
+        /// 若照它传 1，一格滚轮只走 **1 px**（447/485 px 行程要滚几百格 = 实际滚不动）。
+        /// **120 是我们挑的可用步长**，⛔ 别写成「原版值」。</para></summary>
         public readonly float NotchPx;
 
         /// <summary>一格滚轮对应的系数。**每个滚动区一份**（原来是全壳常量 `0.4`）。

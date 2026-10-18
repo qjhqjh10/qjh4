@@ -219,11 +219,11 @@ namespace CardPresentation
         // 🔴 **下列名字一律是「导入后的文件名」（空格 → 下划线）**，不是原版切片的原名 ——
         //    `CardArt.MenuUi` **不做空格转换**（`DailyRewardPopup` 那条注释踩过一次）。
         //    原名 ↔ 文件名的对照见 `工具/import_original_art.py` 的 `MENU_IMAGES`。
-        public const string ArtBgGet = "40k_general_popup_simple_red";        // 原名 `40k_general_popup_simple red`
-        public const string ArtBgPreview = "40k_general_popup_simple_greyscale"; // 原名 `… greyscale`
+        public const string ArtBgGet = "40k_general_popup_simple_red";        // 原名 `40k_general_popup_simple red`（21×81 · 九宫 0,26,0,26 · **Sliced**）
+        public const string ArtBgPreview = "40k_general_popup_simple_greyscale"; // 原名 `… greyscale`（同上）
         public const string ArtColumnBg = "UI_Deck_Information_submenu_Back"; // 两列 `Rewards` 的底
         public const string ArtUnlockBtn = "UI_Button_Mulligan";              // `Unlock Button`（Simple）
-        public const string ArtGlow = "40k_bt_underbutton";                   // 标题那团底光（Sliced + preserveAspect）
+        public const string ArtGlow = "40k_bt_underbutton";                   // 标题那团底光（Sliced 240,0,240,0 —— **Sliced 下 PA 不生效** ⇒ 拉满 600×75）
         public const string ArtBadge = "40k_campaign_Premium-icon";
         public const string ArtPointIcon = "40K_genearl_icon_Campaign_points"; // 按钮里的战役点图标（⚠️ 原版拼写就是 genearl）
 
@@ -355,9 +355,14 @@ namespace CardPresentation
             // ③ `Content`
             var content = MenuDraw.Node(root, "Content", Content);
             // `Reward Background Get Reward`（红）/ `Reward Background Preview Reward`（灰）—— 出厂 active = 后者
-            MenuDraw.Rect(content, Art(ArtBgGet), Content, "Reward Background Get Reward", QContentBg)
-                ?.gameObject.SetActive(false);
-            MenuDraw.Rect(content, Art(ArtBgPreview), Content, "Reward Background Preview Reward", QContentBg);
+            // 🔴 **2026-10-18（W3）就地订正（铁律 5）**：原版两颗都是 **`m_Type = Sliced` · 九宫 (0,26,0,26) · 贴图 21×81**
+            //   （dump 实读：`40k_general_popup_simple red 21×81 九宫0,26,0,26 | Sliced`）——
+            //   我们原来走 `MenuDraw.Rect`（**Simple 拉伸**）⇒ 顶/底亮边带从 ~6px 扩到 ~59px。
+            var bgGetGo = DrawNine(content, Art(ArtBgGet), Content, new Vector4(0f, 26f, 0f, 26f), 21f, 81f,
+                                   QContentBg, null, true, "Reward Background Get Reward");
+            if (bgGetGo != null) bgGetGo.SetActive(false);
+            DrawNine(content, Art(ArtBgPreview), Content, new Vector4(0f, 26f, 0f, 26f), 21f, 81f,
+                     QContentBg, null, true, "Reward Background Preview Reward");
             // 🆕 **2026-10-06（A94）：那一整块面板底图吸收点击**。判据 = 原版 prefab
             //   `Campaign Reward Window > Content > Reward Background*` 那颗 `Image` 的
             //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读；整块盖满 0,165→1920,965，
@@ -404,7 +409,8 @@ namespace CardPresentation
             var title = MenuDraw.Node(content, "Title", Title);
             var glowGetR = UguiRect.Child(Title, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                           new Vector2(0f, 5.92f), new Vector2(600f, 75f));
-            var gg = MenuDraw.Rect(title, Art(ArtGlow), glowGetR, "Glow Get reward", QTitleBg, GlowGet, true);
+            var gg = DrawNine(title, Art(ArtGlow), glowGetR, new Vector4(240f, 0f, 240f, 0f), 485f, 83f,
+                              QTitleBg, GlowGet, true, "Glow Get reward");
             // 🔴 `Text *` 是 `Glow *` 的**子件**（原版深度 3 → 4）—— 挂错父会让「开关底光」管不到文字，
             //    而且 `FindPath(gPre, "Text Preview Reward")` 也找不到（**实测过一次**）。
             // 🔴 **2026-10-16（A679）就地订正（铁律 5）：这两颗 Title 原先是【右对齐】，原版是【居中】。**
@@ -426,7 +432,12 @@ namespace CardPresentation
             if (gg != null)
                 MenuDraw.Text(gg.transform, glowGetR, TxtGet, Color.white, "Text Get Reward",
                               TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase, face: TmpFont.Face.LatinCardBody);
-            var gp = MenuDraw.Rect(title, Art(ArtGlow), glowGetR, "Glow Preview reward", QTitleBg, GlowPreview, true);
+            // 🔴 **2026-10-18（W3）就地订正（铁律 5）**：两颗底光原版都是 **`m_Type = Sliced` · 九宫 (240,0,240,0) · 贴图 485×83**
+            //   ⇒ **Sliced 下 `preserveAspect` 不生效**（uGUI 只有 Simple/Tiled 才走 PA）⇒ 底光**拉满 600×75**。
+            //   我们原来按 `MenuDraw.Rect(..., keepAspect: true)` 等比内接画成 ≈438×75（窄 24%）。
+            //   判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §4。
+            var gp = DrawNine(title, Art(ArtGlow), glowGetR, new Vector4(240f, 0f, 240f, 0f), 485f, 83f,
+                              QTitleBg, GlowPreview, true, "Glow Preview reward");
             if (gp != null)
                 MenuDraw.Text(gp.transform, glowGetR, TxtPreview, Color.white, "Text Preview Reward",
                               TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase, face: TmpFont.Face.LatinCardBody);

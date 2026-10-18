@@ -866,6 +866,10 @@ namespace CardPresentation
                 return false;
             }
             Close();
+            // 🆕 **2026-10-18（`N67`）出口出声**：前面三道门槛每一道都有日志，**唯独「真的关掉了」这一支原来一声不响**
+            //   ⇒ 真机验「ESC 到底有没有走到这扇窗」时，只能靠「窗没了」这种间接证据。
+            //   ⚠️ 与那三条门槛日志同一条口径（红线：不许静默失败），**只加日志、不改行为**。
+            Debug.Log($"[Win] ESC ⇒ **关掉 `{name}`**（`closeOnEsc = true`、输入层启用 ⇒ 照 `GameWindow__ESCPressed` 走 `Close()`）");
             // ③ 原版**第三道门槛**：`updateNavPanel`（0x3A）—— 见上面那一格的 doc。
             //    原版这一句是 `NavigationPanelController.SetMainToggle(this)`（`__ESCPressed.c` 末段）。
             //    ⚠️ 只在**这一支**（ESC 真的关掉了这扇窗）里调 —— 原版就是这一处，⛔ 别顺手挪进 `Close()`：

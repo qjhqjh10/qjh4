@@ -61,6 +61,11 @@ namespace CardPresentation
         public const string ArtClock = "WF_icon_clock";
 
         // 文字档位（prefab 逐颗实读）
+        /// <summary>🔴 **2026-10-18（W3）就地订正（铁律 5）**：MB `-517081153138623030` 实读
+        /// `m_fontSize = 87.01` · `m_fontSizeBase = 87.01` · min **18** · max **72** · **`m_enableAutoSizing = 0`**
+        /// ⇒ 原版**渲染 87.01**（min/max 是**死字段**，不参与）。
+        /// ⚠️ 我们原来照 min/max 传了自适应（`autoMinPx = TitleFontMin`）⇒ `SetAutoFitBox` 把字号**夹到 ≤72**
+        /// （标题小 17%）。判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §11。</summary>
         public const float TitleFont = 87.01f, TitleFontMin = 18f, TitleFontMax = 72f, TitleFontBase = 87.01f;
         public const float TimerFont = 50f, TimerFontMin = 18f, TimerFontMax = 72f, TimerFontBase = 50f;
 
@@ -140,11 +145,14 @@ namespace CardPresentation
             _back = MenuDraw.Node(transform, "Back Background", BackR);
             MenuDraw.Rect(_back, CardArt.Solid(), BackR, "Image", QShade, ShadeTint);
 
-            // ---- 2) `Title`：fs 87.01 · base 87.01 · auto[18~72] · Center/Middle ----
+            // ---- 2) `Title`：fs 87.01 · base 87.01 · **AUTO=0**（min18/max72 是死字段）· Center/Middle ----
+            // 🔴 `autoMinPx` 传 **0** ⇒ **不开自适应**（`MenuDraw.TextCore` 的闸 = `autoMinPx > 0 && fontPx > autoMinPx`），
+            //    只保留 `wrapPx` = 框宽（原版 `m_TextWrappingMode = 1`）⇒ 字号恒 **87.01**（= 原版渲染值）。
+            //    ⛔ 别把 auto 三格改成 `[0, 72, base]` 那种半套 —— `autoMinPx = 0` 就够，后两格是死实参。
             _title = MenuDraw.Node(transform, "Title", TitleR);
             _titleLabel = MenuDraw.Text(_title, TitleR, TutorialMessagePopup.OfficialTerm(TitleTerm, TitleEn, TitleZh),
                                         Color.white, "EverguildTextMeshPro", TitleFont, QTitle, TitleR.W,
-                                        TitleFontMin, TitleFontMax, TitleFontBase, face: TmpFont.Face.LatinCardBody);
+                                        face: TmpFont.Face.LatinCardBody);
 
             // ---- 3) `Timer`（HorizontalLayoutGroup spacing 15.1 · MiddleCenter）----
             _timer = MenuDraw.Node(transform, "Timer", TimerR);

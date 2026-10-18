@@ -189,6 +189,18 @@ namespace CardPresentation
 
         // ---- 几何（A1 §2 逐条）----
         public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
+        /// <summary>压暗层 `Menu Dark Background` 的**原版矩形** —— **超画幅 4574.60 × 2572.36**
+        /// （中心恰好还是 (960,540)，所以 `Solid` 那两个尺寸实参 = `ShadeW/ShadeH`）。
+        /// <para>判据 = `menu_dump.py bundle_menus_assets_all "Deck info Popup" --depth 7`
+        /// （`-1327.3,-746.2 → 3247.3,1826.2` · 色 (0,0,0,.773)）。</para>
+        /// <para>🔴 **视觉层与点击区共用这一份**：原版「点窗外关窗」那颗 `BackgroundCloseButton`
+        /// **就挂在压暗层自己身上**（`DeckInfoPopup__Open.c:135-146` 挂 · `OnDisable.c:32-42` 摘），
+        /// 它的 `Graphic` 就是那张超画幅 `Image` ⇒ 可点区 = 整块。
+        /// 我们原来两处都写死 `1920×1080` ⇒ **超宽屏两侧既没压暗、也点不到**（21:9 可见宽 = 2520 设计 px，
+        /// 两侧各 300px）。判据 → 报告 `P1_弹窗排版_卡组卡牌.md` §2·2 与 §七 S1。</para></summary>
+        public const float ShadeL = -1327.30f, ShadeT = -746.18f, ShadeR = 3247.30f, ShadeB = 1826.18f;
+        public const float ShadeW = ShadeR - ShadeL, ShadeH = ShadeB - ShadeT;      // 4574.60 × 2572.36
+        public static readonly PxRect ShadeRect = new PxRect(ShadeL, ShadeT, ShadeR, ShadeB);
         public const float RedL = 134.50f, RedT = 82f, RedR = 1839.50f, RedB = 1032f;
         public const float WarlordL = -108.98f, WarlordT = -33.99f, WarlordR = 999.02f, WarlordB = 1074f;
         /// <summary>`Warlord Image` 那颗 `Image` 的 **`m_RaycastPadding`**（UGUI 序 **L,B,R,T**）。
@@ -201,6 +213,14 @@ namespace CardPresentation
         /// ⚠️ **立绘本身照旧画满 1108²** —— padding **只改命中区**，不改渲染。</summary>
         public static readonly Vector4 WarlordPad = new Vector4(246.8f, 84.44f, 338.6f, 132.38f);
         public const float SepL = 759.0f, SepT = 106.7f, SepR = 767.9f, SepB = 216.7f;
+        /// <summary>`Game Mode Separator` 的**自带 z 旋转**（原版 `m_LocalRotation` · `↻ -10.60°`）。
+        /// 判据 = `menu_dump … "Deck info Popup" --depth 12` 的 `↻-10.60°` 标记与表尾
+        /// 「3 处带 `m_LocalRotation`」那张清单（另两处 = `Cardback` **+1.60°** 与它的子件 `Cardback Front` −3.43°）。</summary>
+        public const float GmSepRotDeg = -10.60f;
+        /// <summary>`Cardback` 的**自带 z 旋转**（原版 `m_LocalRotation` · `↻ +1.60°`）。判据同 `GmSepRotDeg`。
+        /// ⚠️ 原版它下面还有一层 `Cardback Front`（`↻ -3.43°`），我们**本来就只画一层**（见 `DiCbW` 的 doc）
+        /// —— 本处只补**父层**那 1.60°。</summary>
+        public const float CardbackRotDeg = 1.60f;
         public const float DdIconL = 767.9f, DdIconT = 106.7f, DdIconR = 867.9f, DdIconB = 216.7f;
         public const float DdNameL = 872.9f, DdNameT = 114.4f, DdNameR = 1358.5f, DdNameB = 168.9f;
         public const float DdWlL = 872.9f, DdWlT = 166.7f, DdWlR = 1359.9f, DdWlB = 216.7f;
@@ -966,8 +986,9 @@ namespace CardPresentation
 
             var info = CurInfo;      // 🆕 T24：预组那一支从 `OverrideInfo` 来（见 `CurInfo`）
 
-            // 1) 压暗整屏（原版 rect 比屏幕大 ⇒ 我们直接铺满可见区；断言量的是「铺满」）
-            Solid(root, root, 960f, 540f, 1920f, 1080f, ShadeColor, QDI, "Menu Dark Background");
+            // 1) 压暗整屏（原版 rect **超画幅** 4574.60×2572.36 · 中心 (960,540) ⇒ 尺寸照抄；
+            //    🔴 **2026-10-18（P1 §2·2）**：原来写死 1920×1080，超宽屏两侧露边 —— 判据 → `ShadeL` 的 doc）
+            Solid(root, root, 960f, 540f, ShadeW, ShadeH, ShadeColor, QDI, "Menu Dark Background");
             // 🔴 **2026-10-05（A81）**：压暗层的**点击区**（「点窗外关窗」）—— **原来漏了**（本窗只建了压暗层）。
             //   判据：原版这一层不是独立节点，而是压在 `Menu Dark Background` **自身节点**上的
             //   `BackgroundCloseButton`；挂/摘在窗口类自己身上（`DeckInfoPopup__Open.c:135-146` 挂 ·
@@ -978,7 +999,7 @@ namespace CardPresentation
             //      （`:847` 是 **2026-10-07（波 4 件① A126）**实读订正的行号 —— 这里与上面 `ShadeHit`
             //       那处原来都引旧号 `701`，那颗节点已被推下去过两次。）
             //   出处 → `资料/待办判据_阶段二与联机.md` §A81 · 公共件规矩 → `MenuDraw.ShadeHit` 的注释。
-            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), Q(QDI), Q(QDIHit), () => Close(), "BackgroundHit");
+            MenuDraw.ShadeHit(root, ShadeRect, Q(QDI), Q(QDIHit), () => Close(), "BackgroundHit");
 
             // 2) 红底（Sliced）
             Nine(root, root, "UI_Deck_Information_Back", RedBorder, RedTexW, RedTexH,
@@ -993,8 +1014,13 @@ namespace CardPresentation
             MenuDraw.Absorb(root, "AbsorbHit", new PxRect(RedL, RedT, RedR, RedB), Q(QDI), Q(QDIHit));
 
             // 3) 督军立绘（原版 sprite=0 运行时喂）
+            // 🔴 **2026-10-18（用户报「战将立绘残缺」· 就地改对）**：原版这一格喂的是
+            //   **`UI_Deck_Warlord_<督军名>`**（2048² 方形立绘族，`bundle_uiwarlords_assets_all`）——
+            //   正好对上这里 **1108×1108 方形**、`m_PreserveAspect=0` 的画框；而卡面插图是 671×1024 竖构图，
+            //   拉进方形框会**变形、只露中间一块**。⇒ 取 `CardArt.DeckHero`（同一套取法/兜底，
+            //   见 `CardArt.DeckHero` 的 doc；快照之后新增的 16 位督军没有这张图 ⇒ 退回卡面插图并按非方形图等比内接）。
             var wl = CurWarlord;     // 🆕 T24：预组那一支 = `OverrideInfo.WarlordId` 查出来的督军
-            var wlTex = wl != null ? CardArt.PortraitByName(wl.Name) : null;
+            var wlTex = wl != null ? CardArt.DeckHero(wl.Id) : null;
             if (wlTex != null)
             {
                 // 🔴 **2026-10-07（波 4 件① A142①）：`keepAspect` 改回原版语义 = 【拉伸】。**
@@ -1015,7 +1041,12 @@ namespace CardPresentation
                 //      原版是**拉满 1108²**。⚠️ 观感差归 `资料/真Play待验清单.md`（批处理只能量几何、看不了像不像）。
                 //   🔴 **这一行只改【渲染】**（`Img` 的 `keepAspect`）—— **命中区与它无关**（由下一段的
                 //      `WarlordPad` 决定，⛔ 别把两者写进同一条断言；自检那边是两条分开的）。
-                Img(root, root, wlTex, WarlordL, WarlordT, WarlordR, WarlordB, "Warlord Image", QDI, false);
+                // 🔴 **2026-10-18（真机验收发现）**：原来这颗与 `Info Panel` **同为 `QDI`(3120)** ⇒
+                //   同队列 + 同 z 时谁盖谁退化成渲染器排序；换贴图（方形立绘）后排到了面板**下面**，
+                //   真机表现 =「立绘只剩左下角一条」。原版立绘是**压在面板背景之上**的 ⇒ 抬到
+                //   `QDIRow`(3121)（面板之上、文字/行之下；行/文字都在右半，不与立绘相交）。
+                Img(root, root, wlTex, WarlordL, WarlordT, WarlordR, WarlordB, "Warlord Image", QDIRow,
+                    !(Mathf.Abs(wlTex.width - wlTex.height) <= 1));   // 方形立绘=拉伸(恒等)；退回卡面插图=等比
             }
             else
                 Debug.Log("[DeckInfo] 督军立绘取不到（" + (wl != null ? wl.Name : "没有督军") + "）—— 那一层不画，出声");
@@ -1056,8 +1087,14 @@ namespace CardPresentation
                 string gmArt = info.GameMode == 13 ? "40k_gamemode_icon_skirmish" : "40k_gamemode_icon_classic";
                 Img(root, root, CardArt.MenuUi(gmArt), DdGmL, DdGmT, DdGmR, DdGmB, "Game Mode Icon", QDIRow, true);
             }
-            Nine(root, root, "40k_Generic_Smooth_line", new Vector4(55f, 15f, 55f, 15f), 113f, 32f,
+            // 🔴 **2026-10-18（P1 §2·2 · 报告第 6 条）**：原版这一颗带 **`↻ -10.60°`** 的 z 旋转
+            //   （`menu_dump … "Deck info Popup" --depth 12` 的 `↻-10.60°`；AABB 748.9,107.6→777.8,217.4）。
+            //   改前我们画的是**正**的竖条。`MenuDraw.Nine` 没有 rotation 形参 ⇒ 拿回节点自己设
+            //   （先例 = `Shell/CampaignTab.cs` 的 `q.transform.localRotation = Quaternion.Euler(0,0,θ)`）。
+            //   ⚠️ 旋转中心 = 枢轴（节点中心）；表里那个 759.0..767.9 是**未旋转帧**的布局框。
+            var gmSep = Nine(root, root, "40k_Generic_Smooth_line", new Vector4(55f, 15f, 55f, 15f), 113f, 32f,
                  SepL, SepT, SepR, SepB, QDIRow, "Game Mode Separator", new Color(0.42f, 0.157f, 0.137f, 1f));
+            if (gmSep != null) gmSep.transform.localRotation = Quaternion.Euler(0f, 0f, GmSepRotDeg);
             var facTex = string.IsNullOrEmpty(info.Faction) ? null : CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction));
             if (facTex != null)
                 Img(root, root, facTex, DdIconL, DdIconT, DdIconR, DdIconB, "Army Icon", QDIRow, true);
@@ -1067,8 +1104,17 @@ namespace CardPresentation
             //    （判据 = `menu_dump … bundle_menus_assets_all "Deck info Popup" --depth 25` 逐颗现读）；
             //    `Warlord Name` / `Cards in deck` / `Card Cost` / `Count` / `Cost` / `Card Name` /
             //    `Button Text` / `Deck Information Cost/balance text` **全是 Pragati** ⇒ `LatinCardBody`。
+            // 🔴 **2026-10-18（P1 §2·2 · 报告第 5 条）**：补 **`vAlign = Bottom`** —— 原版那颗 `Deck Name`
+            //   的 TMP 实读 `对齐=Left/Bottom`（`m_VerticalAlignment = 1024`；判据 =
+            //   `menu_dump … "Deck info Popup" --depth 12` 那一行，MB pid 见报告 §2·2「Deck Name 对齐」）。
+            //   改前不传 ⇒ `Label` 出厂档 `Middle` ⇒ 垂直方向差 ≈5px（框 54.5 / 字 44.5）。
+            //   ⚠️ `Txt` 里 `SetVAlign` 排在 `AlignLeft` **之前**（`Label.SetVAlign` 末句
+            //   `RefreshBounds()` 会按 anchor 重新居中 ⇒ 排后面会把横向对齐抹掉 —— 见 `Txt` 的 doc）。
+            //   ⚠️ `face` 档走 `MenuDraw.SetVAlign` 的缺省 `Pragati`（与全仓其它 `SetVAlign` 调用点同一档），
+            //   本处只补「哪一档」，不改度量面。
             Txt(root, root, info.Name, DdNameL, DdNameT, DdNameR, DdNameB, 44.5f, Align.Left, "Deck Name", QDIText,
-                autoMinPx: 10f, autoMaxPx: 45f, autoBasePx: 42f, face: TmpFont.Face.LatinUi);      // `wrapPx` 缺省 0 = 原版 `折行 = 0`
+                autoMinPx: 10f, autoMaxPx: 45f, autoBasePx: 42f, vAlign: Label.VAlign.Bottom,
+                face: TmpFont.Face.LatinUi);      // `wrapPx` 缺省 0 = 原版 `折行 = 0`
             // 空战将位那行字走词条（键 `MenuDeck/Error/NoWarlord`）。
             // ⚠️ 中文列是「还没有选战将」—— 与改前写死的「未选战将」**不同字**，这是**有意的**：
             //    施工单 §附_Shell #1 判「语义一致 ⇒ 复用，别新造」（铁律 6：同义两键迟早不一致）。
@@ -1579,8 +1625,15 @@ namespace CardPresentation
                 var tex = CardArt.DeckCardback(info.CardbackId, info.Faction);
                 float w = DiCbW * DiCbScl, h = DiCbH * DiCbScl;
                 if (tex != null)
-                    Img(b, b, tex, DiCbCX - w * 0.5f, DiCbCY - h * 0.5f, DiCbCX + w * 0.5f, DiCbCY + h * 0.5f,
-                        "Cardback", QDIRow, false);
+                {
+                    var cbq = Img(b, b, tex, DiCbCX - w * 0.5f, DiCbCY - h * 0.5f, DiCbCX + w * 0.5f, DiCbCY + h * 0.5f,
+                                  "Cardback", QDIRow, false);
+                    // 🔴 **2026-10-18（P1 §2·2 · 报告第 6 条）**：原版 `Cardback` 带 **`↻ +1.60°`**
+                    //   （`menu_dump … "Deck info Popup" --depth 12` 的 `↻1.60°`；改前我们画的是正的）。
+                    //   旋转中心 = 枢轴（节点中心 = 视觉框中心）—— 矩形/缩放**不动**（表里给的也是未旋转帧）。
+                    //   ⚠️ 原版它下面还有一层 `Cardback Front`（`↻ -3.43°`），我们这一层**本来就没建**（老账）。
+                    if (cbq != null) cbq.transform.localRotation = Quaternion.Euler(0f, 0f, CardbackRotDeg);
+                }
                 else
                     Debug.Log("[DeckInfo] 卡背取不到（`" + (info.CardbackId ?? "") + "` / 阵营 "
                               + (info.Faction ?? "") + "）⇒ `Cardback` 那一层不画，出声");

@@ -94,6 +94,18 @@ namespace CardPresentation
         public MenuTutorialHighlight Highlight { get { return _highlight; } }
 
         // ============================================================ 入口
+        /// <summary>🔴 **2026-10-18（用户口径）**：初次进入游戏**不再自动启动**菜单侧引导 ——
+        /// 玩家自己会去点对应的地方学习。保留给调试/回归的显式开关 `-wfftue`（命令行，⛔ 不是 UI）。
+        /// <para>⚠️ 原版行为（首次进菜单自动播）在 `MenuTutorialStages` 里仍完整保留，改回 true 即恢复。</para></summary>
+        public static bool AutoStart = false;
+
+        static bool HasForceStartFlag()
+        {
+            foreach (var a in System.Environment.GetCommandLineArgs())
+                if (string.Equals(a, "-wfftue", System.StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
         /// <summary>主菜单建完之后调一次（`MainMenuRuntime.Build()` 末尾那一跳）。
         /// <para>🔴 **只运行时挂**：本工程的自检是**编辑器非播放**跑同一份 `Build()`，
         /// 挂上去会往自检树里多塞指针/聚光灯节点、并写 `PlayerPrefs` ⇒ 一律不挂（`Application.isPlaying` 判）。</para></summary>
@@ -101,20 +113,21 @@ namespace CardPresentation
         {
             if (!Application.isPlaying) return null;
             if (menu == null) return null;
+            bool start = AutoStart || HasForceStartFlag();
             // 🔴 **复用跨场景存活的那一份**（`Awake` 里 `DontDestroyOnLoad`）：
             //   `_rankedPlayed` 这类「本进程内观测过的事」必须留着（否则从战斗场景回来就丢了 → 阶段死锁）。
             //   ⚠️ **不挂到主菜单下面**：`DontDestroyOnLoad` 只对根对象生效，挂上去就跟着场景一起没了。
             if (_instance != null)
             {
                 _instance._menu = menu;
-                _instance.StartFlow();
+                if (start) _instance.StartFlow(); else _instance._active = false;
                 return _instance;
             }
             var go = new GameObject("Menu Tutorial Flow");
             var f = go.AddComponent<MenuTutorialFlow>();
             f._menu = menu;
             _instance = f;
-            f.StartFlow();
+            if (start) f.StartFlow(); else f._active = false;
             return f;
         }
 

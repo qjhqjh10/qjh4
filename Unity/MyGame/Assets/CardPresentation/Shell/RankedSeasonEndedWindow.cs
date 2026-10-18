@@ -74,6 +74,11 @@ namespace CardPresentation
         public const string ArtGameModeIcon = "40k_UI_icon_ranked_Skirmish";
 
         // 文字档位（prefab 逐颗实读）
+        /// <summary>🔴 **2026-10-18（W3）就地订正（铁律 5）**：MB `999434982901775016` 实读
+        /// `m_fontSize = 87.01` · `m_fontSizeBase = 87.01` · min **18** · max **72** · **`m_enableAutoSizing = 0`**
+        /// ⇒ 原版**渲染 87.01**（min/max 是**死字段**，不参与）。
+        /// ⚠️ 我们原来照 min/max 传了自适应 ⇒ `SetAutoFitBox` 把大字标题**夹到 ≤72**。
+        /// 判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §12。</summary>
         public const float TitleFont = 87.01f, TitleFontMin = 18f, TitleFontMax = 72f, TitleFontBase = 87.01f;
         public const float PercentFont = 50f, PercentFontMin = 18f, PercentFontMax = 72f, PercentFontBase = 50f;
         public const float TapFont = 50f, TapFontMin = 18f, TapFontMax = 72f, TapFontBase = 50f;
@@ -194,11 +199,13 @@ namespace CardPresentation
             _rankIcon = MenuDraw.Node(_division, "Rank Icon", RankIconR);
             NoteNoArt("Rank Icon", "`rankIcon.m_Sprite = 0`（运行期 `RankedDivisions.GetRankData(...)`）");
 
-            // ---- 4) `Title`：fs 87.01 · base 87.01 · auto[18~72] · Center/**Capline** ----
+            // ---- 4) `Title`：fs 87.01 · base 87.01 · **AUTO=0**（min18/max72 是死字段）· Center/**Capline** ----
+            // 🔴 `autoMinPx` 传 **0** ⇒ 不开自适应（闸 = `autoMinPx > 0 && fontPx > autoMinPx`），
+            //    只保留 `wrapPx` = 框宽 ⇒ 字号恒 **87.01**（= 原版渲染值）。⛔ 别传成 `[0, 72, base]` 半套。
             _title = MenuDraw.Node(transform, "Title", TitleR);
             _titleLabel = MenuDraw.Text(_title, TitleR, TutorialMessagePopup.OfficialTerm(TitleTerm, TitleEn, TitleZh),
                                         Color.white, "EverguildTextMeshPro", TitleFont, QTitle, TitleR.W,
-                                        TitleFontMin, TitleFontMax, TitleFontBase, face: TmpFont.Face.LatinCardBody);
+                                        face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(_titleLabel, Label.VAlign.Capline, TitleR);
 
             // ---- 5) `Percentage Or Score text`：fs 50 · base 50 · Center/**Capline** ----

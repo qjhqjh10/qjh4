@@ -1675,7 +1675,50 @@ namespace CardPresentation
 
         void BuildSidebar()
         {
-            Img("side_bg", "40k_main_tab_background", SideBgX, SideBgY, SideBgW, SideBgH, QSide);
+            // ---- 侧栏底板：`40k_main_tab_background` + 原版那颗 **`Gradient2`**（横向 · **Multiply** · 2 色标）----
+            // 判据 = `Deck Editing Menu > Content Area > Sidebar > Background`（RT `-8357444074261844188`）的
+            //        `Gradient2` 组件 MB `8417643871566819108` 实读（`bundle_menus_assets_all`）：
+            //          `_gradientType = 0`（**横**）· `_blendMode = 2`（**Multiply**）· `_modifyVertices = 1`
+            //          key0 = (0.10377359, 0.00440548, 0.00440548) @ `ctime0 = 4241 / 65535` = **0.06471**
+            //          key1 = **白** @ `ctime1 = 65535`
+            //          alpha 键 `atime 0 / 65535`、值 **1 / 1** ⇒ **alpha 恒 1**
+            //        ⇒ **左沿 6.47% 是深红、往右线性回到原亮度**（参考图取不到干净采样，本件只有预制体判据）。
+            // 🔴 **2026-10-18（T29 · D5）**：原来这里只有 `Img("side_bg", …)` 一张底图 ⇒ 整块同亮度、缺这条渐变。
+            // ⚠️ **Multiply 语义**（⛔ 别用「半透明黑压一层」冒充 —— 那是 alpha 混合、不是乘法）：
+            //    反编译 `UnityEngine.UI.Extensions.Gradient2__ModifyMesh.c:303-314`：`_blendMode==1` 加法、
+            //    `==2` **乘法**（顶点色 = 原顶点色 × 求值色）、其余**替换**。原版那颗 `Image.m_Color` 是**白**的
+            //    ⇒ 原顶点色 (1,1,1,1) × 求值色 = **求值色本身** ⇒ 乘法与替换**同结果**。
+            //    我们 `ImageQuad` 的 shader 本来就是 `tex × 顶点色`（同 `MenuDraw.GradientV` 的做法）
+            //    ⇒ 只要把**顶点色**设成求值色就**逐像素等价**，不需要新的混合原语。
+            // ⚠️ 结构 = 照 `MenuDraw.GradientV` 的同一形状就地写**横版**两条带（那个助手是竖版，本批不许改 `MenuDraw.cs`）：
+            //      `[0, t0]` 恒 key0 · `[t0, 1]` 从 key0 线性到白（Unity `Gradient.Evaluate` 区间外夹到首尾键）。
+            //    ⚠️ `side_bg` 因此从「单块 quad」变成「一棵子树」——`Editor/DeckScene.cs` 那三条读数都认子树：
+            //      `UiQuadRect`→`UiNodeRect` 取**包围盒**（= 整条侧栏 -203,156→335.5,1080.1）、
+            //      `UiQueueOf`/`UiQuadActive` 取**第一块**（队列 QSide / active）⇒ 既有断言一个数都不变。
+            //      ⛔ 别为了「省事」改回单块：那样 0..6.47% 那一段会被画成全程线性（左沿偏亮）。
+            var sideBgR = new PxRect(SideBgX, SideBgY, SideBgX + SideBgW, SideBgY + SideBgH);
+            var sideBg = MenuDraw.Node(Root, "side_bg", sideBgR);
+            {
+                const float stop = 4241f / 65535f;                       // 0.0647
+                var cLeft = new Color(0.10377359f, 0.00440548f, 0.00440548f, 1f);
+                var tex = Ui("40k_main_tab_background");
+                var b0 = MenuDraw.Rect(sideBg, tex,
+                                       new PxRect(SideBgX, SideBgY, SideBgX + SideBgW * stop, SideBgY + SideBgH),
+                                       "Band 0", QSide);
+                if (b0 != null)
+                {
+                    b0.SetUvRect(new Rect(0f, 0f, stop, 1f));            // uv 只取左起那一小段
+                    b0.SetCornerColors(cLeft, cLeft, cLeft, cLeft);      // 恒定 key0
+                }
+                var b1 = MenuDraw.Rect(sideBg, tex,
+                                       new PxRect(SideBgX + SideBgW * stop, SideBgY, SideBgX + SideBgW, SideBgY + SideBgH),
+                                       "Band 1", QSide);
+                if (b1 != null)
+                {
+                    b1.SetUvRect(new Rect(stop, 0f, 1f - stop, 1f));
+                    b1.SetCornerColors(cLeft, Color.white, Color.white, cLeft);   // 左 key0 → 右 key1
+                }
+            }
 
             // Window Options：三个互斥页签（Cards / Deck info / Cosmetics）
             string[] tabIc = { "40k_collection_bt_cards", "40k_collection_bt_decks", "40k_collection_bt_cosmetics" };
@@ -3984,6 +4027,16 @@ namespace CardPresentation
         /// </list>
         /// `Id` 在池里唯一（1,127 条无重复）⇒ 第三档保证任意两张都能分出先后，排序结果逐拍一致。</para>
         /// <para>⚠️ **本函数是「卡组行」唯一的数据源**（画 / 命中 / 拖拽 / 悬停 / 滚动全长在它上面）
+        /// <summary>🔴 **2026-10-18（第五十二会话 · `DeckScene` 判别式）**：**卡组排序的第二把键** ——
+        /// 显示名的**当前文化**比较（原版 `OrderBy/ThenBy` 没传 comparer ⇒ `Comparer&lt;string&gt;.Default`
+        /// = `string.CompareTo` = `StringComparison.CurrentCulture`）。
+        /// <para>抽成 `public` 的**唯一原因**：自检要能**直接对这把键**做「文化序 vs 码点序」判别。
+        /// 原来那个判别式依赖「这副牌里恰好有一对方向相反的名字」，而官方中文名落地后该前提不成立了
+        /// （2026-10-18 `DeckScene` 假红）。⛔ 生产排序**必须**走它（两处写同一条规则 = 迟早不一致）。</para></summary>
+        public static int CompareDisplayName(string a, string b)
+            => string.Compare(a ?? "", b ?? "", System.StringComparison.CurrentCulture);
+
+        /// <summary>……按「费用 → 显示名（当前文化）→ Id」排好序的卡组行（去重后的）。
         /// ⇒ 去重与排序**只能放这里**；放在 `RefreshDeckList` 里会让**命中与画面对不上**。</para></summary>
         public List<CardDef> DeckEntries()
         {
@@ -4018,8 +4071,7 @@ namespace CardPresentation
             {
                 int c = a.Cost.CompareTo(b.Cost);
                 if (c != 0) return c;
-                c = string.Compare(CardText.Name(a), CardText.Name(b),
-                                   System.StringComparison.CurrentCulture);
+                c = CompareDisplayName(CardText.Name(a), CardText.Name(b));
                 if (c != 0) return c;
                 return string.CompareOrdinal(a.Id, b.Id);
             });
