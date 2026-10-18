@@ -187,6 +187,29 @@ namespace RuleEngine
             /// <summary>这张牌**要选目标**（0/1）。⚠️ 我们**从效果解析推**（`SimpleAI` 引
             /// `EntityScript__get_targeted`）—— 两者是否等价**未核** ⇒ 只落值、⛔ 不替换现有推断。</summary>
             public int targeted;
+
+            // ================================================================================
+            //  🆕 **v10（2026-10-19 · 引擎线波 2b `A1959`/`A1960`）**：原版 `RawCardScript.choicesDefinition`
+            //  （`TargetCriteria`，`dump.cs:23341` @0x2A0）—— 「**这张卡要做一次选牌**」的规格。
+            //
+            //  🔴 **判据**：`BattleManager__GetChoiceFullPool.c:36-49` ——
+            //     `targetsAffected == 0xb4(180 = TargetsAffected.choiceResolution)` ⇒ 候选池 =
+            //     `filterSpecificCards`（@0x70）；**为空时回落 `BattleManager+0x308`**（`pooledAbilityData`，
+            //     我们**没有**那一格）；`maxTargets`（@0x40）在 `GetChoiceOptions.c:40-45` 被夹到候选张数。
+            //
+            //  🔴 **缺值 = `-1`（整数）/ 空表** —— 真值快照比现池旧的那批卡没有这张 SO。
+            //     ⛔ 别把 `-1` 当成 `0`：`targetsAffected = 0` 是合法取值 `any`、
+            //     `maxTargets = 0` 是合法的「不摆」。
+            // ================================================================================
+
+            /// <summary>原版 `choicesDefinition.targetsAffected`（`TargetsAffected` 枚举）。</summary>
+            public int choicesTargetsAffected;
+            /// <summary>原版 `choicesDefinition.maxTargets`（面板摆几张）。</summary>
+            public int choicesMaxTargets;
+            /// <summary>原版 `choicesDefinition.filterSpecificCards` 解出来的卡 id 表
+            /// （PPtr → truth `path_id` → `uniqueId`）。⚠️ 里面的 id **未必在本池**
+            /// （变体卡 SO）—— 消费侧如实跳过，别当数据错。</summary>
+            public string[] choicesSpecificCardIds;
         }
 
         /// <summary>🆕 **2026-10-18（T09）**：解析结果的缓存。
@@ -252,6 +275,16 @@ namespace RuleEngine
                                + "`itemDescriptionKey` · `fullHeroSpriteReference` · `eventSpriteName` · "
                                + "`targeted`），它们会被读成 **0/空** 而不是「缺值(-1)/空串」⇒ "
                                + "「这一列不存在」会被静默读成「值是 0」。跑一下 gen_cards_engine.py 重生成。");
+            // 🆕 2026-10-19（波 2b `A1959`/`A1960`）：v10 起才有 `choicesTargetsAffected` /
+            //   `choicesMaxTargets` / `choicesSpecificCardIds` 三列（原版 `choicesDefinition`）。
+            //   **旧表读进来 = `-1`/空**（本文件 `CardDto` 的默认值就是 0/`null`，JsonUtility 不会给 -1）——
+            //   ⚠️ 这正是要出声的那一格：`0` 是**合法取值**（`TargetsAffected.any` / `maxTargets = 0` =
+            //   「不摆」）⇒ 「这一列不存在」会被静默读成「这张卡定义了一个空选择」。
+            if (dto.version < 10)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 10 —— 没有 `choicesDefinition` 三列"
+                               + "（`choicesTargetsAffected` / `choicesMaxTargets` / `choicesSpecificCardIds`），"
+                               + "它们会被读成 **0/空** 而不是「缺值(-1)」⇒ 选牌面板的逐卡 `maxTargets` 拿不到真值"
+                               + "（`A1959`）。跑一下 gen_cards_engine.py 重生成。");
 
             int noId = 0;
 
@@ -315,7 +348,12 @@ namespace RuleEngine
                     inventoryOptions: c.inventoryOptions,
                     showInCollectionOptions: c.showInCollectionOptions,
                     initiative: c.initiative,
-                    armour: c.armour));
+                    armour: c.armour,
+                    // 🆕 v10（2026-10-19 · `A1959`/`A1960`）：原版 `choicesDefinition` 三列 ——
+                    //    ⚠️ 缺值口径是 `-1`（旧表读进来是 `0` ⇒ 上面那条 version 守卫会出声）。
+                    choicesTargetsAffected: c.choicesTargetsAffected,
+                    choicesMaxTargets: c.choicesMaxTargets,
+                    choicesSpecificCardIds: c.choicesSpecificCardIds));
             }
             // 🔴 🆕 2026-10-15（接线批）：**护甲两套口径一旦分叉就出声** ——
             //   引擎读的那一份（`CardDef` 构造里定下来的 `_keywords[armour]`）由

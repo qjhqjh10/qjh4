@@ -197,14 +197,39 @@ namespace WarpforgeVFX
             "Everguild/FX/Particle Dissolve Premultiply",     //   1
             "Everguild/FX/Specific/Pray Glow",                //   1
             "Everguild/FX/Vortex",                            //   1（原件在主包）
-            // ⏸ **暂缓的两个大头**（改它们会一次性动 ~974 条效果，要单独一批 + 一次全量 sweep 量过再动）：
-            //   `Everguild/FX/Extra Color`（741）· `Everguild/FX/Particle Distortion Affect Transparents`（233）
+            // ---- 🆕 2026-10-19：**`Everguild/FX/Extra Color`（741 处引用）整条改走原件** ----
+            // 🔴 **为什么改**：它原来落在 `Replacements` → 我们那份 `WarpforgeVFX/Particles/Extra Color`，
+            //    而那一份**同时顶了 8 个原版 shader**（内置族 + EC 族），只能按内置族的算式写（`tex × vcol`）；
+            //    而原版 EC 这一族比它**多一跳** —— 32/32 个 VS 变体都写
+            //    `o2.xyz = LinearToSRGB(_Color.rgb) × vcol.rgb`，12 个 Universal Forward PS 变体全都把 `v2`
+            //    （= o2）乘进最终色 ⇒ **原版最终色 = `tex × LinearToSRGB(_Color) × vcol`**，我们少乘 `_Color` 那一项
+            //    ⇒ 这一族**系统性偏暗**。判据全文 → `资料/普查产出_第二十三会话/V23_特效ExtraColor的PS读数.md`
+            //    §一/§二（槽位铁证：`cb2[1]` = `_Color`，Unity 序列化反射 `off=16` ⇒ slot 1）。
+            // 🔴 **为什么走原件而不是再单开一份自建**：原件**就在随包 `wf_shaders.bundle` 里、带编译字节码**
+            //    （V23 §二 实读 `shaders_assets_all.bundle`，与 `wf_shaders.bundle` 逐字相同）
+            //    ⇒ 绑原件 = **零猜测、精确复刻那一跳**，741 处一次到位，且与下面 23 件「本来就走原件」同形。
+            // ⚠️ **`Replacements` 里那一条【保留不动】** —— 理由见那条自己的注释（导出期占位 + 兜底路）。
+            // ⚠️ **生效范围**：这一族几乎全在 `UseOriginal` 里 ⇒ **只在正常态生效**；原件包不在场时
+            //    （`TryResolve` 落到 `Replacements`）仍走我们那份 —— 那半边本来就按内置族写，**不是这次能修的**。
+            // ⚠️ **仍未跑的验证**（本轮不起 Unity）：`ShaderFallbackProbe` 的「不品红」与 `EffectCompare` 的 A/B
+            //    —— 命令写在 `资料/普查产出_1018/W_特效线_ExtraColor与UnlitAmbient.md` §三。
+            "Everguild/FX/Extra Color",                                // 741
+            // ⏸ **暂缓的大头（仅剩这一个）**（改它会一次性动 233 条效果，要单独一批 + 一次全量 sweep 量过再动）：
+            //   `Everguild/FX/Particle Distortion Affect Transparents`（233）
+            //   （另一件 `Everguild/FX/Extra Color` 741 **已于 2026-10-19 改走原件**，见上一段。）
         };
 
         /// <summary>原版 shader 名 → 本工程 shader 名</summary>
         public static readonly Dictionary<string, string> Replacements = new Dictionary<string, string>
         {
             // 自定义 ShaderGraph shader —— 源码被剥离，自建替代
+            // 🔴 **2026-10-19：运行时正常态已改走原件**（本文件上面 `UseOriginal` 里加了
+            //    `Everguild/FX/Extra Color`）—— 这一条**故意保留**，两个用途都还在：
+            //    ① **导出期占位材质**：`EffectExporter.ShaderMap` 与本表必须同步，而占位材质不能是
+            //       bundle 里的 shader（`Shader.Find` 拿不到非工程资产）⇒ 导出时仍需一个工程内 shader；
+            //    ② **兜底路**：原件包不在场时 `TryResolve` 会落到这里（= 我们那份）。
+            //    ⚠️ 但**别指望它复刻 EC 那一族**：这一份同时顶了 8 个原版 shader，按内置族算式写的
+            //    （`tex × vcol`，没有 `LinearToSRGB(_Color)` 那一跳）⇒ 兜底路上 EC 族仍偏暗。
             { "Everguild/FX/Extra Color", "WarpforgeVFX/Particles/Extra Color" },
             // 本质是 Unity 内置 Sprites/Default 的加法版（7 个属性、Blend One One 写死）。
             // 不映射的话会掉到默认的 URP 粒子 shader —— 属性名对不上，_MainTex/_Color 全丢，

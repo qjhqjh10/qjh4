@@ -19,12 +19,16 @@ sys.stdout.reconfigure(encoding="utf-8")
 ROOT = "D:/4/Unity"
 CARDS = os.path.join(ROOT, "MyGame/Assets/RuleEngine/Resources/cards_engine.json")
 
-# `Badges.SpriteKey`（Badges.cs:173-179）—— 只有这四条是反向映射，其余 = 小写化图名
+# `Badges.SpriteKey`（Badges.cs:173-179）—— 只有这几条是反向映射，其余 = 小写化图名
 SPRITE_KEY = {
     "frenzied":   "destroyer",
     "rage":       "penitence",
     "markOfChaos": "darkpact",
     "concussive": "concussion",
+    # 🔴 2026-10-18（`A1647`）：`Badges.cs:262`（`A1379`）早就补了这条，本文件漏跟 ⇒
+    #    `BL19` 的 `❄ Dark Pact of Excess` 计划表里那枚 `markOfSlaanesh` 会被算成
+    #    `markofslaanesh`（`Loc` 里没有这个键），误伤面读数因此偏大。
+    "markOfSlaanesh": "darkpact",
 }
 
 

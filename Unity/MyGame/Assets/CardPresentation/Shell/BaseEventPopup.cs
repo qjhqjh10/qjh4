@@ -48,8 +48,10 @@
 //      本地确实没有的是**事件的组织数据**（日期表之外，还有「组件 GUID → 具体 prefab/图标」那一层）。
 //   🔴 `Tap To continue` **不在这条链上**（Open 只碰 image/title/description）⇒ 它照自己的 `Localize`
 //      词条 `Demo/Welcome/TapToContinue` 显示（官方表：`Click to continue` / `点击以继续`）。
-//   ⚠️ `closeSound` / `useDefaultCloseSoundIfNull` 我们**没有建模**（`GameWindow` 的关窗音整条链不存在，
-//      见 `GameWindow.Close` 的注释）—— 如实记。
+//   ✅ **2026-10-18 就地订正（铁律 5 · 音效线 `W_音效线_缺口修复`）**：本行原写「`closeSound` /
+//      `useDefaultCloseSoundIfNull` 我们**没有建模**」—— **已过期**：音效线 `W_G`（2026-10-17）
+//      已把整条关窗音链接上（`GameWindow.useDefaultCloseSoundIfNull` + `PlayCloseSound`）；
+//      本族的两个 prefab 字段都是**空** ⇒ 走默认 `ButtonClick Back`（正确，不需要逐窗接线）。
 using System.Collections.Generic;
 using UnityEngine;
 

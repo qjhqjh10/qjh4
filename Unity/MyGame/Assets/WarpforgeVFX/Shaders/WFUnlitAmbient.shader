@@ -121,6 +121,17 @@ Shader "WarpforgeVFX/UnlitAmbient"
         //   ⚠️ **用浮点、不用 keyword**：keyword 在 player 构建里可能被剥掉变体，而这个 keyword
         //      **没有材质数据能替它保活**（`_APPLYAMBIENTCOLOR` 那批是原版材质自己带的）。
         [HideInInspector] _EmissiveFlickerOn("EmissiveFlickerOn (ours, not original)", Float) = 0
+        // 🔴 **2026-10-19 新加的闸（原版没有这个 uniform）**：基础 `Everguild/UnlitAmbient` 的
+        //   `lerp(tex, v2, v2.w)` 要**按渲染器所在网格有没有颜色通道**分流（判据 → `frag` 里那段）。
+        //   · 有颜色通道 ⇒ 原版 VS 走 `COLOR` 那支（`mov o2.xyzw, v4.xyzw`）⇒ `v2` 是真顶点色
+        //     ⇒ 必须 `lerp(tex.rgb, vcol.rgb, vcol.w)`；
+        //   · 没有 ⇒ 原版 VS 那支把 `v2` 写成 `(cb0[61].xyz, 0)`（`w = 0`）⇒ lerp 是空操作
+        //     ⇒ 保持 `tex * _Color`。**不能一刀切**：Unity 对「声明了 COLOR 但网格没有」的补值是
+        //     `(1,1,1,1)` ⇒ 那种网格走 lerp 会**整片渲成纯白**（2026-10-02 实测 `|exp|/|orig| = 1.766`）。
+        //   ⚠️ **用浮点、不用 keyword**：与 `_EmissiveFlickerOn` 同因 —— 这个关键字**没有材质数据
+        //     能替它保活**（材质是运行时 `new Material` 出来的），`shader_feature` 变体会在 player 里被剥掉。
+        //   灌它的地方 = `WarpforgeVFX/Runtime/WarpforgeEffectBinder.cs`（逐渲染器判 `Mesh.HasVertexAttribute(Color)`）。
+        [HideInInspector] _VertexColorLerpOn("VertexColorLerpOn (ours, not original)", Float) = 0
         // 🔴 2026-09-30 更正：原版属性表里是 **`(0,1,0,0)`**（min=0），我们原来写成 `(0.8,1,0,0)`
         //   ⇒ 闪烁的下限被抬到 0.8、摆幅只有原版的三分之一。（判据 → `项目任务.md` §三 第 30 条 散件 C。）
         //   ⚠️ 这条**只影响兜底/自建这条路**：战场网格在运行时是用**原版 shader** 重建的
@@ -203,6 +214,7 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 float  _ClipThreshold;
                 float  _FlickerSpeed;
                 float  _EmissiveFlickerOn;   // 🔴 2026-10-12：我们加的闸（原版没有它）
+                float  _VertexColorLerpOn;   // 🔴 2026-10-19：同上（逐渲染器顶点色分流闸）
                 float  _FogContribution;
                 float  _Cutoff;
                 float  _Surface; float _Blend;
@@ -315,7 +327,31 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 //         落在哪些网格上、那些网格的颜色通道是什么）⇒ 记成新账，**本轮不擅自改**。
                 //       · 🔴 另一条并列发现：**我们的 OBJ 导出链把颜色通道整个丢了**（烛光那个 OBJ 只有 3 个 float/顶点）
                 //         ⇒ 本 shader 拿到的 `IN.color` 是 (1,1,1,1) ⇒ ① 那条自发光会乘上白色而不是真顶点色。
-                half3 col = tex.rgb * _Color.rgb;
+                //    ✅ **2026-10-19：上面那条「别只按 prefab 级判」的账已落** —— 现在就按**渲染器所在网格**
+                //       有没有颜色通道分流（见下面那段），闸 = `_VertexColorLerpOn`。
+                // ================= 顶点色分流（T04 · 2026-10-19）=================
+                // 🔴 **判据（原版 DXBC + 网格通道实读；全文 → `资料/历史/项目任务_第二十五会话_搬出段.md` ⑨）**：
+                //   基础 `Everguild/UnlitAmbient` 的 PS 基础变体是
+                //     `sample_b r0, v1, t0` → `add r1, -r0, v2` → `mad r0, v2.w, r1, r0`
+                //     → `mul o0.xyz, r0, cb1[5]`          （= `lerp(tex.rgb, v2.rgb, v2.w) * _Color.rgb`）
+                //   而 **`v2` 是不是真顶点色，取决于 VS 变体**（Unity 按网格有没有 COLOR 流选支）：
+                //     · 有 COLOR（VS 段 0/1/2）：`mov o2.xyzw, v4.xyzw` ⇒ `v2` = 真顶点色、`w` 可为 0..1
+                //     · 没有 COLOR（VS 段 3）：`mov o2.xyz, cb0[61].xyzx` + `mov o2.w, l(0)` ⇒ lerp 恒等
+                //   所以**必须按渲染器所在网格分流**：
+                //     · 网格有颜色通道 ⇒ `lerp(tex.rgb, IN.color.rgb, IN.color.w) * _Color.rgb`
+                //     · 没有           ⇒ `tex.rgb * _Color.rgb`（= 原来那条，也是 lerp(w=0) 的恒等形）
+                // ⚠️ **不能一刀切走 lerp**：Unity 对「shader 声明 COLOR、网格却没有」的补值是 `(1,1,1,1)`
+                //   ⇒ `lerp(tex, 1, 1) = 1` ⇒ **整片渲成纯白**。2026-10-02 实测过：`|exp|/|orig| = 1.766`，
+                //   43452 个像素差 > 12（`Background Sky` 那一族）。
+                // ⚠️ **闸由 `WarpforgeEffectBinder.Apply` 逐渲染器灌**（`_VertexColorLerpOn`）——
+                //   它拿得到 `MeshFilter.sharedMesh` / `SkinnedMeshRenderer.sharedMesh`。
+                // ⚠️ **只对基础那份生效**：`… Emissive Flickker` 的 PS 用的是 `v3`，而它的 COLOR 支
+                //   把 `o3` 写成 `(cb0[61].xyz, 0)`（`w = 0`）⇒ 对 Flickker 恒等，**binder 不会开这个闸**。
+                half3 col;
+                if (_VertexColorLerpOn > 0.5)
+                    col = lerp(tex.rgb, IN.color.rgb, IN.color.w) * _Color.rgb;
+                else
+                    col = tex.rgb * _Color.rgb;
 
                 // ✅ **2026-10-02 修（原来是加法 `col += SampleSH(normalWS) * _ExtraAmbientColor.rgb`）**：
                 //    判据与本工程 `ArenaEnvGlobal.cs` 的注释一致（那句注释就是照着这件 shader 写的）：
@@ -386,7 +422,7 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 float4 _ExtraAmbientColor; float _ClipThreshold; float _FlickerSpeed;
                 // ⚠️ 这一份 CBUFFER 必须与 pass 0 **逐字段同序**（SRP Batcher 兼容要求；顺序不一致 = 同一个属性在
                 //    两个 pass 里落在不同偏移 ⇒ 静默退回旧批处理，而且影子 pass 会读到隔壁字段的值）
-                float _EmissiveFlickerOn; float _FogContribution;
+                float _EmissiveFlickerOn; float _VertexColorLerpOn; float _FogContribution;
                 float _Cutoff; float _Surface; float _Blend; float _SrcBlend; float _DstBlend;
                 float _SrcBlendAlpha; float _DstBlendAlpha; float _ZWrite; float _ZWriteControl;
                 float _ZTest; float _Cull; float _AlphaClip; float _AlphaToMask;

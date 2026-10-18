@@ -1224,10 +1224,23 @@ namespace CardPresentation
         void ReplayFitForFace()
         {
             float w = _fitW, h = _fitH, lo = _fitMinPx, hi = _fitMaxPx, bc = _fitBasePx;
+            // 🔴 **2026-10-18（`W_red_A` · 修 `4995622` 的 `N55` 回归）**：重放会经 `SetAutoFitBox` → `SetWrapWidth`
+            //    把折行**无条件**开回 `Normal(1)`（`SetWrapWidth` 的 doc 自己就写着这件事）——
+            //    而调用方的 `SetWrappingMode(0)` 发生在**灌文本之前**（HUD 在 `BattleDriver.cs:16958-16961`、
+            //    联盟窗在 `AlliancePanelWindow.cs:740/748`），翻面之后**没人再关**。
+            //    红的那 7 颗形态完全同构：**建时 `face: LatinUi` + 初始空串 + 之后灌汉字才翻面**
+            //    （`TitleText_Me/Foe` · `EnemyPlateText` · `PlayerPlateText` · A1192 的 `Name Text` /
+            //     `Title Text` / `Alliance Name`；原版 `m_TextWrappingMode` = **0**，实得 `1`）。
+            //    ⇒ 重放前**记下调用方此刻的档**、重放后还原：`SetWrappingMode` 自带「值没变就早退」
+            //    ＋ `ForceRelayout()`，正好把版面按原档推回去。
+            //    ⛔ 别改 `SetAutoFitBox` 的全局语义（既有调用点依赖「它之后折行 = 1」）；
+            //    ⛔ 也别去调用点补 `SetWrappingMode(0)` —— 文本是**运行期**灌的，补在建字那一刻无效（正是漏掉的那一跳）。
+            int wrap = WrappingMode;          // -1 = 点阵后端（那后端没有折行这回事，别拿它调 SetWrappingMode）
             _fitValid = false;
             _fitReplaying = true;
             try { SetAutoFitBox(w, h, lo, hi, bc); }
             finally { _fitReplaying = false; }
+            if (wrap >= 0) SetWrappingMode(wrap);   // 重放会经 `SetWrapWidth` 开回 Normal ⇒ 这里还原
         }
 
         /// <summary>`cur`（= <see cref="TmpFontSize"/> 那一档）折算成**画布像素** —— 也就是调用方要的那个字号，

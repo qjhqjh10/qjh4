@@ -361,6 +361,13 @@ namespace CardPresentation
                              () => { if (tabButtons != null) tabButtons.Click(captured); }, _btnBg[i], ArtTabOff,
                              clickCue: WindowSounds.SelectToggleCue);
                 if (tabHit != null) _btnWb[i] = tabHit.GetComponent<WindowButton>();
+                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版这六颗页签是 `EverguildToggle` +
+                //   **`allowClickWhenAlreadySelected = 0`** ⇒ 再点当前页时连按钮音一起跳过。
+                if (_btnWb[i] != null)
+                {
+                    _btnWb[i].allowClickWhenAlreadySelected = false;
+                    _btnWb[i].isOn = () => tabButtons != null && tabButtons.CurrentVisualIndex == captured;
+                }
 
                 tb.options.Add(new TabButtons.Option
                 {

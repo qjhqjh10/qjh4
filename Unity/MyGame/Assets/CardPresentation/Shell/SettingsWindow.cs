@@ -1937,6 +1937,13 @@ namespace CardPresentation
                                  clickCue: WindowSounds.SelectToggleCue);
                 var twb = tabHit != null ? tabHit.GetComponent<WindowButton>() : null;
                 if (twb != null && !_tabWbs.Contains(twb)) _tabWbs.Add(twb);
+                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版这五颗页签是 `EverguildToggle` +
+                //   **`allowClickWhenAlreadySelected = 0`** ⇒ 再点当前页时**连按钮音一起跳过**。
+                if (twb != null)
+                {
+                    twb.allowClickWhenAlreadySelected = false;
+                    twb.isOn = () => Current == tab;
+                }
             }
         }
 
@@ -4491,6 +4498,17 @@ namespace CardPresentation
         void ToggleSmallScreenUI()
         {
             SmallScreenUI.Set(!SmallScreenUI.Enabled);
+            // 🔴 **2026-10-18（卡面侧第二波 `A1549` 的尾巴 · 判据在 `Core/CardView.cs` 的 `RefreshAllCostTiers` doc）**：
+            //   费用格那两档（普通 / 大号）**只由 `SmallScreenUI` 决定**，而档位是**建卡时烘死**的
+            //   （`CostAt01`）⇒ 切完设置，**已经建出来的卡不会自己变**。
+            //   原版每次 `CardTextCountersController.Toggle` 都按当时的 `GameStaticData.smallScreenUI` 重算
+            //   （`CardTextCountersController__Toggle.c`）⇒ 这里补同一条刷新链：**设置落盘之后**一次性刷全场。
+            //   ⚠️ `SetPose` / `SetData` 那两个口也会自动比档位，但只覆盖「之后重新布局的那些卡」——
+            //     已上屏、这帧不重排的卡必须靠这一句（否则「切了没反应」）。返回重做的张数，出个声。
+            int costTierRedone = CardView.RefreshAllCostTiers();
+            if (costTierRedone > 0)
+                Debug.Log("[Settings] 小屏 UI 切档 ⇒ 重做了 " + costTierRedone + " 张卡的费用格"
+                        + "（判据 = `Core/CardView.RefreshAllCostTiers`；A1549 尾巴）");
             // 🆕 2026-10-18（波 1b · A1046/A1062）：同上（键 `Settings/Graphics/Flash/SmallScreenUI`）。
             _flash = string.Format(Loc.T(lkFlashSmallUI), SmallScreenUI.Enabled ? Loc.T(lkOn) : Loc.T(lkOff));
             Debug.Log("[Settings] " + _flash + "（原版 `GraphicsTab.SmallScreenToggleClick`：同时置 "

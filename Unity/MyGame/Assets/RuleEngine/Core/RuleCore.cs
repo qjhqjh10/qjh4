@@ -1915,22 +1915,27 @@ namespace RuleEngine
             if (ps.Deck.Count == 0)
             {
                 ps.Fatigue++;
-                ps.Warlord.Health -= ps.Fatigue;
-                ctx.Log($"{ps.Name} 牌库抽空 —— 疲劳 {ps.Fatigue} 点伤害（督军剩 {ps.Warlord.Health}）");
-                // 疲劳也算「挨了一下」—— 不带走 ApplyDamage（它不吃护盾/护甲），但要发事件，
-                // 否则画面上督军莫名其妙掉血、一点反馈都没有
-                ctx.Emit(EvtKind.Hit, p, BoardSpec.WarlordSlot, ps.Warlord.Name, amount: ps.Fatigue);
                 // 🆕 2026-10-14（账 `A1155②`）：**「挨伤害就不再祈祷」这一条也要在这里补一份** ——
                 //   原版疲劳走的是 `BattleManager._ResolveFatigue_d__587__MoveNext.c:125-137`
                 //   `DealMultiDamage(DamageInfo(量 = 疲劳值, 类型 = 2))` → `_ResolveMultiDamage_d__456__MoveNext.c:141
                 //   BattleManager__BroadcastUnitDamaged` ⇒ **同样落进** `CardScript__ResolveDamageDealt.c:168`
-                //   那一句（闸 = 受伤者 == 自己）。
-                //   ⚠️ 我们这一支**绕开了 `ApplyDamage`**（直扣血 + 手发 `EvtKind.Hit`，见上一行），
-                //     所以 `ApplyDamage` 里那一句盖不到它 ⇒ 在这里照同一条判据补一次。
+                //   那一句（闸 = 受伤者 == 自己）——而广播的第一跳就是受伤者自己
+                //   （`BroadcastUnitDamaged.c:19`）⇒ 其它监听器跑的时候它已经清掉了。
+                //   ⚠️ 我们这一支**绕开了 `ApplyDamage`** ⇒ 在这里照同一条判据补。
                 //   ⚠️ 不需要 `dmg != 0` 那道闸：疲劳值恒 ≥ 1（`ps.Fatigue++` 之后才扣）。
                 //   ⛔ 别改成「调 `ApplyDamage`」：那会连带把护盾/护甲/堡垒/伏击都拉进来 ——
-                //     那不是本笔要改的东西（上面那句注释「它不吃护盾/护甲」是既有口径）。
+                //     那不是本笔要改的东西（下面那句注释「它不吃护盾/护甲」是既有口径）。
                 ps.Warlord.Prayed = false;
+                // 🔴 **2026-10-19（`A1649` 同一条判据 · 疲劳这个第二落点）**：
+                //   `_ResolveMultiDamage_d__456__MoveNext.c:141` 的 `BroadcastUnitDamaged`
+                //   **排在 `:154/:168 ReceiveDamage` 之前** ⇒ 广播那一刻督军的血**还没掉**。
+                //   我们这一支原来「先扣血、再手发一条光秃秃的 `EvtKind.Hit`」——
+                //   既次序反了，又**根本没发 `damaged` 广播**（`When … receives damage` 监听器
+                //   在疲劳这一路上一次都不响）。⇒ 改走 `EmitHit`（它 = `EvtKind.Hit` ＋ `damaged`
+                //   广播，判据收在一处），并排在扣血之前。
+                EmitHit(ctx, ps.Warlord, ps.Fatigue);
+                ps.Warlord.Health -= ps.Fatigue;
+                ctx.Log($"{ps.Name} 牌库抽空 —— 疲劳 {ps.Fatigue} 点伤害（督军剩 {ps.Warlord.Health}）");
                 CheckWinner(ctx);
                 return null;
             }
@@ -2065,6 +2070,14 @@ namespace RuleEngine
 
             var inst = ps.Hand[handIdx];           // 第 7 行第 3 步：算费用要连**哪一份**一起给
             var card = inst.Card;      // 第 7 行第 2 步：手牌存实例，取模板走 `.Card`
+
+            // 🔴 **2026-10-19：`cost < 0` = 原版 `manaCost = -1` 的哨兵 ⇒ 不可直接打出。**
+            //    （`Dark Pact of Fate/Blood/Excess/Resilience` 4 张附魔模板；用户当天裁定它们没有费用。）
+            //    放在战术卡分流**之前**：本方法是表现层唯一查询口，两条路都从这里过
+            //    （战术卡自己那条 `CanPlayTactic` 里也有一句同样的守卫 —— 那边是 `PlayCard` 的分流入口）。
+            //    ⚠️ 不挡的话 `CostOf` 会把 `-1` clamp 成 `0` ⇒ 「不可打出」被误判成「免费可打」。
+            //    判据与码的语义见 `RuleCodes.ErrNotPlayable`。
+            if (card.Cost < 0) return RuleCodes.ErrNotPlayable;
 
             // 战术卡走**另一条判据**（不落格位、可能要选目标 —— 见 `EffectResolver.CanPlayTactic`），
             // 但**入口仍然是这一个**：表现层只问 `CanPlayCard`，免得两处各判一份、迟早不一致。
@@ -2238,8 +2251,11 @@ namespace RuleEngine
         ///   —— 即 `CardScript.MinionPlayedIntoField(...)` 协程里的 **`if (!keepStatus) card.summonSickness = true;`**
         ///   （字段序见 `UnitState.SummonSickness` 的 doc；工厂 `CardScript__MinionPlayedIntoField.c:20-25` 印证）。
         ///   它排在 `UpdateSummonSicknessAnims().ActivateMinion()` **之前** ⇒ 本方法现在 = 原版部署那一路的
-        ///   **三条语句的和**（写 `+0x58 = 1` → `ActivateMinion` → `ActivateTraitsOnSummonOrEnchantment`），
-        ///   而 `canAct` 那一半仍只走 <see cref="HasDeployExemption"/> **一个谓词**。
+        ///   **三条语句的和**（写 `+0x58 = 1` → `ActivateMinion` → `ActivateTraitsOnSummonOrEnchantment`）。
+        ///   🔴 **2026-10-19（`A1312` 残半）就地订正：`canAct` 那一半不再只走 `HasDeployExemption`** ——
+        ///   现在按原版 `displaySummonSickness = SummonSickness && !fast && !flank` 重算两个位
+        ///   （`ferocity`/`oath` 只抬 `Exhausted`，见方法体里那段）。`HasDeployExemption` 仍用于
+        ///   `UnitState` 构造器的初值与 `ResetSummonSickness`，两处判据不同、别合并。
         ///   ⚠️ **2026-10-11（`A1312①`）那一格【已查清】**：原版那 5 个调用点全部读到值了
         ///   （`R3_A1168与A1312查证.md` §`A1312`① 的 VA 反汇编逐点取证）——
         ///   其中 **4 处是常量 `false`**（`_ResolvePlayCardFromHand_d__447` 的两处、
@@ -2271,17 +2287,38 @@ namespace RuleEngine
             //    = `if (!keepStatus) card.summonSickness = true;`
             //    ⇒ `keepStatus` 为真时这一位**保持原值**（**不是**写 0）。
             if (!keepStatus) u.SummonSickness = true;                 // 原版 `_MinionPlayedIntoField…MoveNext.c:70`
-            // ⚠️ **下面两半【与 `keepStatus` 无关】—— 但这是已知的近似，如实标着**：
-            //    原版紧接着 `ActivateMinion()` 按 `displaySummonSickness`（= `+0x58 && !fast && !flank`）
-            //    重算 `canAct` / `canAttack`（`CardScript__ActivateMinion.c:39-42`），
-            //    再 `ActivateTraitsOnSummonOrEnchantment`（`ferocity` / `oath` 把 `canAct` 抬回去）。
-            //    我们这一档走的是 `HasDeployExemption` / `HasAttackDeployExemption` **两个谓词**，
-            //    它们**不看 `+0x58`** ⇒ 传 `keepStatus = true` 时，`+0x58` 保持假、按原版
-            //    `canAct` / `canAttack` 都会是真，而我们**仍会写一个 `Exhausted`**。
-            //    ⛔ **今天不可达**（没有调用点传 `true`，见上一段）⇒ 不在这里顺手重构那两个谓词
-            //    （那会把「一个判据一处」那张表拆开）；已记进报告「没做的那部分」，等真正那条入口出现时一起收。
-            u.Exhausted = !HasDeployExemption(u);
-            u.CannotAttackThisTurn = !HasAttackDeployExemption(u);
+            // 🔴 **2026-10-19（`A1312` 残半）：两位改为【跟 `+0x58` 一起重算】。**
+            //   判据 = `CardScript__ActivateMinion.c:14-42`（现读 `d:/2/tools/decomp_full/`）：
+            //     `bVar7 = (owner == turn) && cardState == 2 ? !displaySummonSickness : false;`
+            //     `canAct(+0x230) = canAttack(+0x23C) = bVar7;`
+            //   而 `EntityScript__get_displaySummonSickness.c`（整个方法体）=
+            //     `+0x58 /*SummonSickness*/ && !HasCurrentTrait(0x28 /*fast*/) && !HasCurrentTrait(0x1cc /*flank*/)`。
+            //   紧接着 `CardScript__ActivateTraitsOnSummonOrEnchantment.c:86-99`：`ferocity(0x4f1)` /
+            //   `oath(0x4fb)` **只把 `canAct` 抬回** `!HasCurrentTrait(100 /*stun*/)`，`canAttack` 不动。
+            //   ⇒ 本方法 = 那三条语句的和。
+            //
+            //   🔴 **`keepStatus == true` 那一档的行为差异（这才是本笔修的）**：
+            //     上面 `if (!keepStatus)` 写完之后 `+0x58` 可能是**假**（保持原值），
+            //     此时原版 `displaySummonSickness` = 假 ⇒ `canAct = canAttack = true`。
+            //     改前我们仍按 `HasDeployExemption` / `HasAttackDeployExemption` 两个**只看关键词**的
+            //     谓词写 —— 不看 `+0x58` ⇒ 会把一个**本来就能动**的单位写成疲劳。
+            //     ⚠️ **今天没有调用点传 `true`**（见上面那段判据）⇒ **零行为变化**；
+            //     这一笔是把形状补齐（等 `SummonCriteria.keepEffects == true` 那条入口出现）。
+            //
+            //   ⚠️ **「必须轮到该卡主人」那一半没有对象可复刻**：`Core/` 没有「本机 / 对手」概念，
+            //     而且本方法的调用点一律发生在**当前行动方自己的部署**上（`PlayCard` / `DeployFree`）
+            //     ⇒ 原版那个 `owner == turn` 闸在我们这两条路上恒真。如实标着，⛔ 别新造一个 owner 形参
+            //     （那要改所有调用点，而今天没有一处需要它）。
+            bool displaySummonSickness = u.SummonSickness
+                                       && !u.Has("fast") && !u.Has("flank");
+            // 原版 `ActivateMinion.c:39-42`：`canAct = canAttack = !displaySummonSickness`
+            // ⇒ 我们的两个反向位（`Exhausted` = !canAct · `CannotAttackThisTurn` = !canAttack）都 = 它。
+            u.Exhausted = displaySummonSickness;               // 原版 `canAct`  `+0x230`
+            u.CannotAttackThisTurn = displaySummonSickness;    // 原版 `canAttack` `+0x23C`
+            // `ferocity` / `oath` 的第二个写点：只抬 `canAct`（= 把 `Exhausted` 压回 `stun` 那一档），
+            // `canAttack` 不动。原版 `ActivateTraitsOnSummonOrEnchantment.c:86-99`：`canAct = !Has(stun)`。
+            if (u.Has(KeywordTable.Ferocity) || u.Has(KeywordTable.Oath))
+                u.Exhausted = u.Has(KeywordTable.Stun);
         }
 
         /// <summary>
@@ -2298,9 +2335,15 @@ namespace RuleEngine
         ///
         /// ⇒ 本方法 = 那两条语句**在 `canAct` 那一半上的和**。
         ///
-        /// 🔴 **`canAct` 的算式仍然只有一处**：`!` <see cref="HasDeployExemption"/> ——
-        ///    与 <see cref="ApplyDeployTurnState"/> 和 `UnitState` 的构造函数**同一个谓词**。
-        ///    ⛔ 别在这儿另抄一份关键词表（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。
+        /// 🔴 **本支的 `Exhausted` 仍用 `!` <see cref="HasDeployExemption"/>**（= `fast`/`flank`/`ferocity`/`oath`）。
+        ///   ⚠️ **2026-10-19（`A1312` 残半）就地订正（铁律 5）**：这一句原来写
+        ///   「`canAct` 的算式仍然只有一处 —— 与 `ApplyDeployTurnState` / `UnitState` 构造函数同一个谓词」——
+        ///   `ApplyDeployTurnState` **已经改成** `displaySummonSickness = +0x58 && !fast && !flank`
+        ///   （见那一支），**两支不再同一个算式**。
+        ///   原版 `CardScript__ResetSummonSickness.c` 只调 `ActivateMinion`（`canAct = !displaySummonSickness`）、
+        ///   **不调** `ActivateTraitsOnSummonOrEnchantment` ⇒ 严格说本支的 `ferocity`/`oath`
+        ///   **不该豁免**。**这一格本批没改**（会动 `DoTakeControl` 那条已发布路径、且
+        ///   `give it Fast` 是随后的第二条 op，先后关系没逐条核）—— 记成残余账，⛔ 别当「已经对齐」。
         ///
         /// 🔴 **⛔ 这里【不】写 `CannotAttackThisTurn`（= 原版 `canAttack` `+0x23C`）**，
         ///    尽管原版那一次 `ActivateMinion` 是**两个位一起写**的。两条理由，都实测过：
@@ -3075,10 +3118,14 @@ namespace RuleEngine
         ///      落地后**再按光环给的那一份重算一次**（判据 `HasDeployExemption`，见下面正文里那段 🔴 F8）；
         ///   ③ 发一条部署事件（表现层靠它播登场特效）。
         ///
-        /// ⚠️ **不触发 Rally**。这是**故意的**，不是漏了：规则书 `:200` 写的是
-        ///   「集结：**从手牌**部署后触发效果」，原版也只在 `play_card` 那条路上触发
-        ///   （`rule_core.gd:2314`），`_deploy_unit` 里没有（它的注释明说 play_card 路径自己广播）。
-        ///   `RuleCore.PlayCard` 那边照旧触发 —— 两条路不一样是对的。
+        /// ⚠️ **默认不触发 Rally**。这是**故意的**，不是漏了：效果召唤 / 部署在原版走的是
+        ///   `_ResolveSummonUnit_d__510`（`MinionPlayedIntoField(..., 0)` = `shouldTriggerSummon` **假**），
+        ///   `RuleCore.PlayCard` 那条「从手牌打出」的路才触发 —— 两条路不一样是对的。
+        /// 🔴 **例外 = `fromHand: true`（`A1571`）**：原版 `autoPlayFromHand(250)` 走的是
+        ///   `_ResolveCardAutoSummoned_d__511`，那里 `MinionPlayedIntoField(..., 1)` ⇒
+        ///   `ThisUnitSummoned(195)` = **Rally 会触发**，而且 `PlayerHand.CardPlayedWithEffects`
+        ///   会兑现手牌加成。⇒ 只有「从牌库拿出来免费打出」那一档传 `true`（今天 = `BL55` / `SW57`）；
+        ///   ⛔ 别给普通效果召唤传 —— 那会把 Rally 多触发一次（静默多打）。
         /// </summary>
         /// <param name="slot">放到哪一格；失败时是 -1</param>
         /// <param name="inst">
@@ -3086,7 +3133,10 @@ namespace RuleEngine
         ///   · **从某个区域挪过来的**（手牌 / 牌库 / 弃牌堆 / 残骸）⇒ 传**那个实例**（沿用）；
         ///   · **凭空造一张**（卡池 / 指代 / 造衍生物）⇒ 传 `ctx.NewInstance(card)`（新发一份）。
         /// </param>
-        public static bool DeployFree(BattleContext ctx, int owner, CardInstance inst, out int slot)
+        /// <param name="fromHand">原版 `autoPlayFromHand` 那一档（见上面那段 🔴）：兑现手牌加成 +
+        /// 触发 Rally。默认 `false` = 效果召唤 / 部署的老行为。</param>
+        public static bool DeployFree(BattleContext ctx, int owner, CardInstance inst, out int slot,
+                                      bool fromHand = false)
         {
             slot = -1;
             if (ctx == null || inst == null || inst.Card == null) return false;
@@ -3111,10 +3161,52 @@ namespace RuleEngine
                 ctx.Log($"{ps.Name} 场上没空格了 —— {card.Name} 部署不了");
                 return false;
             }
+            // 🔴 **2026-10-19（`A1692`）：目标格被占时【不许静默覆盖】。**
+            //   `BoardSlots.NextWithoutDisplacing` 算的是「该侧最外那一格」=
+            //   `SlotOf(side, CountOnSide(side))`，它**假设棋盘连续无洞**
+            //   （原版两侧是 `List`，结构上不可能有洞 —— `MinionManager__GetNextSlotWithoutDisplacing.c:14-30`
+            //    整个方法只读两个 `List.Count`、**没有任何占用检查**）。
+            //   我们的 `Board[]` 是定长数组，**自检夹具**可以造出「有洞」的局面
+            //   （直接写 `Board[x]`）⇒ 那一格可能已经有人 ⇒ 原来 `ps.Board[dst] = unit`
+            //   会**把那个人静默抹掉**（`S23` 那一批实测踩过：复制体盖掉了陪衬单位）。
+            //
+            //   🔴 **原版行为【不可比】**：原版根本没有「目标格被占」这一档（不是「原版选择盖掉」）。
+            //   ⇒ 下面这一闸是**补我们表示法的洞**，⛔ 别在注释里写成「照原版」。
+            //   处置 = **出声 + 换到该侧最外的空格**（从最外往里找；找不到 ⇒ 按满场处理）。
+            //   ⚠️ 只在**有洞**时才会走到（引擎自己的增删路径都维持连续无洞）。
+            if (ps.Board[dst] != null)
+            {
+                int side = BoardSlots.SideOf(dst);
+                int alt = -1;
+                for (int i = BoardSpec.SlotsPerSide - 1; i >= 0; i--)
+                {
+                    int s = BoardSlots.SlotOf(side, i);
+                    if (ps.Board[s] == null) { alt = s; break; }
+                }
+                if (alt < 0)
+                {
+                    ctx.Log($"{ps.Name} 的免费部署目标格 {dst} 被 "
+                          + $"{ps.Board[dst].Name} 占着（棋盘不连续）、该侧也没有空格 —— "
+                          + $"{card.Name} 部署不了");
+                    return false;
+                }
+                ctx.Log($"{ps.Name} 的免费部署目标格 {dst} 已被 {ps.Board[dst].Name} 占着"
+                      + $"（棋盘不连续）—— **不覆盖**，改放到该侧最外的空格 {alt}：{card.Name}");
+                dst = alt;
+            }
             {
                 var unit = new UnitState(inst, false);   // 第 7 行第 2 步：实例原样上场
                 unit.DeployedTurn = ctx.Turn;   // 🆕 同上：免费部署也算「本回合上场」
                 ps.Board[dst] = unit;
+                // 🔴 **2026-10-19（`A1571`）：`autoPlayFromHand` 那一档要兑现【手牌加成】。**
+                //   判据 = `_ResolveCardAutoSummoned_d__511__MoveNext.c` 末尾的
+                //   `PlayerHand.CardPlayedWithEffects(hand, CardScript.GetCopyOfCardEffects(card))` ——
+                //   原版那张牌先在手里（`SetupCardInHand` 把效果挂到牌上），打出时才兑现。
+                //   我们在 `DoDeployOnce` 里做的是「进手牌 → `SetupCardInHand` → 出牌」⇒ 这里兑现。
+                //   ⚠️ **排在 `Auras.Recompose` 之前**（与 `PlayCard` 同一个理由：加成可能带关键词，
+                //   光环重算要看得见它）。普通召唤（`fromHand == false`）不走这一句 ——
+                //   行为与改前逐字相同。
+                if (fromHand) ApplyHandBuffs(ctx, owner, inst, unit);
                 Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算（理由同 `PlayCard`）
                 // 🔴 **2026-10-17（F8）：部署豁免在【这条入口】上也要重算一次** ——
                 //    与 `PlayCard` 里 `Auras.Recompose` 之后那一句**同一个理由、同一份判据**（别在这边另写一份）：
@@ -3144,21 +3236,34 @@ namespace RuleEngine
                 BroadcastWhen(ctx, WhenEventKind.Deploy, owner, unit.Card, unit);
                 // **部署时触发也管这条路**：卡面写的是 `you **put in play**`，
                 // 效果免费部署同样是「放进场上」（`Armoured Support` 那张 UM 卡说的就是它）。
-                // ⚠️ 但 **Rally 不管** —— 规则书写的是「**从手牌**部署后触发」（见上面注释）。
+                // ⚠️ 但 **Rally 默认不管** —— 效果召唤的那条原版协程传 `shouldTriggerSummon = 0`
+                //    （`_ResolveSummonUnit_d__510`），**从手牌打出**那一路才触发（见上面 summary 那段）。
                 //    两条路一个管一个不管，是**故意的**，别顺手改齐。
+                //    🔴 **例外 = `fromHand: true`**（`A1571` 的 `autoPlayFromHand`）—— 见下面那一句。
                 ResolveDeploy(ctx, owner, unit);
                 // 🆕 **2026-10-11（`A1452`）信仰能力【也要在这条入口上跑】。**
                 //    🔴 判据（原版反编译）：605 的发起源之一是
                 //      **`CardScript__ResolveUnitSummoned.c:51`** —— 「**一个 Minion 入场时**」，
                 //      它盯的是**入场**这件事，**不管这个单位是怎么进来的**（出牌 / 效果免费部署
                 //      / 召唤 / 再造都算）⇒ 效果免费部署这条路照样要点火。
-                //    ⚠️ **与 `Rally` 的差别是原版就有的、别改齐**：Rally 只在**从手牌**打出时触发
-                //      （规则书 `:200`；上面那行 `ResolveDeploy` 的注释里已记），
+                //    ⚠️ **与 `Rally` 的差别是原版就有的、别改齐**：Rally 只在**从手牌打出**那一路触发
+                //      （判据 = 两条协程的 `shouldTriggerSummon` 实参不同：`_d__511` 传 `1`、
+                //       `_d__510` 传 `0`——见上面 summary 与 `A1571` 那段；⛔ 别再引规则书当判据，
+                //       那份是粉丝实体版、非官方），
                 //      而**灵魂石（600）也只在「打出一张牌」那条路上发**
                 //      （`RawCardScript__OnCardPlayedWithTarget.c:66`，与 605 相邻但那一条在
                 //      `ResolveUnitSummoned` 里**没有**）⇒ **这一格只加信仰、⛔ 不要顺手把
                 //      灵魂石也搬过来**（那会造出一个原版没有的触发）。
                 ResolveFaithAbility(ctx, owner, unit);
+                // 🔴 **2026-10-19（`A1571`）：`autoPlayFromHand` 那一档要触发 Rally。**
+                //   判据 = `_ResolveCardAutoSummoned_d__511__MoveNext.c` 的
+                //   `CardScript__MinionPlayedIntoField(..., 1 /*shouldTriggerSummon*/)`：
+                //   1 ⇒ `CardScript.ResolveUnitSummoned` 会发 `ThisUnitSummoned(195)`
+                //   （= 我们的 `Rally`）；而效果召唤那条协程（`_ResolveSummonUnit_d__510`）传的是
+                //   `0` ⇒ **不触发**。这就是两条路唯一可观测的差别，⛔ 别把默认那一档也改齐。
+                //   ⚠️ **排在 `ResolveFaithAbility` 之后**，与 `PlayCard` 里的先后一致
+                //     （`PlayCard`：`ResolveDeploy` → … → `ResolveFaithAbility` → **Rally**）。
+                if (fromHand) FireTriggerOnBoard(ctx, unit, KeywordTable.Rally);
                 return true;
             }
         }
@@ -6120,8 +6225,30 @@ namespace RuleEngine
             //    我们那边是**直扣血 + 手发 `EvtKind.Hit`**（绕开了 `ApplyDamage`）⇒ 在那一处也补一句。
             if (!absorbed && dmg != 0) u.Prayed = false;
 
-            u.Health -= actual;
+            // 🔴 **2026-10-19（`A1649`）：`damaged` 广播排在【扣血之前】—— 原版就是这个次序。**
+            //   判据 = `decomp_full/BattleManager._ResolveMultiDamage_d__456__MoveNext.c`：
+            //     `:136 GetAdjustedDamage` → **`:141 BattleManager__BroadcastUnitDamaged`**
+            //     → `:154/:168 CardScript._ReceiveDamage`（扣血）。
+            //   我们改前是「先扣血、再 `EmitHit`」⇒ **监听器正文里读到的血量比原版少一份**。
+            //   改法 = 把 `EmitHit` 整条**挪到扣血之前**（`EmitHit` 自己发两样东西：
+            //   表现层的 `EvtKind.Hit` ＋ 事件层的 `damaged` 广播 —— 两样都在扣血前）。
+            //
+            //   ⚠️ **消费面已盘（只读，`A1649` 的前置要求）**：
+            //     · `EvtKind.Hit` 的消费者（`BattleDriver` 的 VFX/飘字/时序、`BattleEvent.ToString`、
+            //       自检断言）**只读 `Amount` / `Player` / `Slot` / `CardId`**，没有任何一处
+            //       从事件里读「掉血后的生命」⇒ 挪动对表现层**零影响**。
+            //     · 真正有影响的就是**事件层的 `damaged` 监听器** —— 那正是本笔要修的：
+            //       原版那一刻受伤单位的 `Health` **还没掉**。
+            //     · `EmitUnit` 里的 `FindUnit` 也在扣血之前 ⇒ 单位一定还在棋盘上（格位不会变 -1）。
+            //
+            //   ⚠️ **`u.Prayed = false` 保持在广播之前**（上一句）—— 原版广播的第一跳就是
+            //     `ResolveDamageDealt(damagedCard, damagedCard, …)`（`BroadcastUnitDamaged.c:19`），
+            //     它 `:168` 把 `isPraying` 清 0 ⇒ 其它监听器跑的时候「不再祈祷」已经生效。
+            //     我们这里的顺序（`Prayed=false` → `EmitHit` → 扣血）与它**逐跳同形**。
+            //   🔴 **`EmitHit` 的 `amount` 参数不变**（= `actual`，扣甲/减伤之后的实际伤害）——
+            //     原版广播带的 `DamageInfo.damageValue` 也是调整后的那一份（`:136` 之后才广播）。
             EmitHit(ctx, u, actual);
+            u.Health -= actual;
             // 🆕 2026-09-23 战果：算给**被打那个单位的对方**（「打自己人」因此不会被记成「对敌方伤害」）
             // ⚠️ `OwnerOf` **是 `RuleCore` 这个 partial 类里早就有的那一份**（定义在 `Core/EffectResolver.cs`），
             //    **不要再写第二份** —— `EffectResolver.cs` 那段的注释点名过「各写各的迟早不一致」。

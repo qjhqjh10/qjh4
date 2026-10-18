@@ -11022,6 +11022,13 @@ public static class BattleScene
                     int handBefore = cT.Players[0].Hand.Count;
                     int energyBefore = cT.Players[0].Energy;
 
+                    // 🆕 2026-10-19（战斗线 W 复跑红 #2–5）：**先把上一批演出推到放行**。
+                    //   批处理没有帧循环 ⇒ `Begin` / `SimulateAiTurn` 排的事件不会自己演完；而本次新加的
+                    //   `WaitingForBlockingAction` 闸会把下面这一拖判成「引擎拒绝」⇒ 卡根本没打出去
+                    //   （手牌 7→7 / 费用 4→4 / 弃牌堆 / 伤害 四条一起红）。生产里这一步是 `Update` 每帧做的。
+                    StepThrough(driver);
+                    { int wgTac = 0; while (driver.WaitingForBlockingAction && wgTac++ < 400) Step(1f / 30f); }
+
                     var view = driver.HandViewAt(tacIdx);
                     var tgtPos = eBoard.DropTargetWorld(tgt);
                     it.SimulateHover(view.transform.position);
@@ -11209,6 +11216,12 @@ public static class BattleScene
             else
             {
                 drv.Begin("Ultramarines", "Goff", 20260913);
+                // 🆕 2026-10-19（战斗线 W）：批处理没有帧循环 ⇒ 开局那批事件（抽牌/回合开始）不会自己演完，
+                //   而 W 段新加的 `WaitingForBlockingAction` 闸对**超时结束回合**（原版 `EndTurnClick(true)`）
+                //   同样有效 ⇒ 不排空的话下面「倒计时走完 → 自动结束回合」会被闸挡下。
+                //   ⚠️ 只推事件时间线，**不推** `TickClock` ⇒ 下面那串 `ClockLeft` 断言一格不变。
+                StepThrough(drv);
+                { int wgClock = 0; while (drv.WaitingForBlockingAction && wgClock++ < 400) Step(1f / 30f); }
                 // 🔴 2026-09-17：时长**照原版的三步结构算**（`TurnSecondsForThisMatch` =
                 // ScenarioVariables 默认 → 缩时标志 → **matchType 覆盖**）。本局 matchType=80(EventAI)
                 // ⇒ 覆盖成 **240 s**（`ClockManager__GetTotalTime.c`；常量 `0x1834b31c4` 复核过 = 240.0）。
@@ -12699,11 +12712,19 @@ public static class BattleScene
                         Check(prA != null && prA.renderMode == ParticleSystemRenderMode.Mesh
                               && prA.mesh != null && prA.mesh.name == "Quad",
                               "★ `CanActParticles` 网格 = **Unity 内置 `Quad`**（原版 `m_Mesh` pathID **10210**，`FileID 5`）");
+                        // 🔴 **2026-10-19（`W_red_C` · 修 #4）：判据从「绝对 3000」改成「跟着这张卡那一段队列走」。**
+                        //    本批 `A1674` 有意把 `SetQueue` 扩到 `ParticleSystemRenderer` ⇒ 场上卡那一段是
+                        //    `BoardLayout.QueueOf`（2962..2979）⇒ `SyncBoard` 会把绿光材质盖成**这一格自己的号**。
+                        //    这**不是回退点**（`CardFaceProbe` 已有 2971 的用例，否则卡重叠时绿光会盖到邻居卡上）；
+                        //    原 prefab 的 `m_CustomRenderQueue = 3000` 只作为事实留在文案里，⛔ 不再当断言值。
                         Check(prA != null && prA.sharedMaterial != null
                               && prA.sharedMaterial.shader != null
                               && prA.sharedMaterial.shader.name == "Universal Render Pipeline/Particles/Unlit"
-                              && prA.sharedMaterial.renderQueue == 3000,
-                              "★ 绿光材质 = 原版 `Circle_Hoop Additive`（shader 就是 **URP 自带的 Particles/Unlit**，队列 3000）");
+                              && prA.sharedMaterial.renderQueue == probe.Queue,
+                              "★ 绿光材质 = 原版 `Circle_Hoop Additive`（shader 就是 **URP 自带的 Particles/Unlit**）"
+                            + $"—— 队列**跟着这张卡那一段**走（现读 {probe.Queue}；原 prefab 的 `m_CustomRenderQueue` 是 3000，"
+                            + "A1674 起按「一张卡一段队列」盖章 → `CardView.SetQueue`）；"
+                            + $"实得 {((prA != null && prA.sharedMaterial != null) ? prA.sharedMaterial.renderQueue : -1)}");
                         // ② **真的会出粒子吗** —— `shapeType = 6 (Mesh)` 而 `m_Mesh` 是空的（原版就这样），
                         //    这一步是唯一能证伪「形状不发射」的办法。批处理没有帧循环 ⇒ 手动 Simulate。
                         probe.SetCanAct(true);
@@ -17268,8 +17289,11 @@ public static class BattleScene
         }
 
         // ---- 20-b. 🆕 2026-10-14（账 `A1964`）：候选上限是【逐卡数据】，不是一条常数 ----
-        //   原版 `choicesDefinition.maxTargets` **逐卡不同**（分布：`= 3` 204 张 · `= 4` 10 张 ·
-        //   `= 2` 1 张）⇒「同一句 `Choose a …` 子句 ⇒ 同一个上限」是**错的**。两张卡就是那对反例：
+        //   原版 `choicesDefinition.maxTargets` **逐卡不同**（🆕 2026-10-19 现读当前 build 的
+        //   `allcards_export/cards_raw.json`：**全 1351 张** = `0` 1103 · `3` 224 · `2` 13 · `4` 11；
+        //   **池内 1127 张** = `0` 979 · `3` 127 · `2` 12 · `4` 9。
+        //   ⚠️ 本行原来写的是 2022 旧快照的 `= 3` 204 张 · `= 4` 10 张 · `= 2` 1 张 —— 已过期）
+        //   ⇒「同一句 `Choose a …` 子句 ⇒ 同一个上限」是**错的**。两张卡就是那对反例：
         //     · `GSC65 Pilfered Supplies`（`type = defence`）—— 原版 `maxTargets = 4`
         //       `desc = "Choose a Sabotage card and add it to your opponent's hand"`
         //     · `GSC50 Clandestine Operation`（`type = tactic`）—— 原版 `maxTargets = 3`
@@ -17352,6 +17376,56 @@ public static class BattleScene
                 Check(sameSet,
                       "★（a）摆出来的 4 张**就是**那个域里的 4 张（各一张、一张不多一张不少）："
                       + $"`{string.Join("/", got4.ToArray())}`");
+
+                // ---- (a2) 🆕 2026-10-19（`A1961`）：**面板顺序 = 原版比较函数排出来的** ----
+                //   判据 = `BattleManager__SortByCostAndName.c`（`BattleManager__GetChoiceOptions.c:110-113`
+                //   那次 `Sort`；玩家那一路 `ChoiceOfCardPlayer.c:27` 的 `param_4 = 0` ⇒ 一定排）：
+                //   **`manaCost` 升序 → 本地化卡名（`ToLower()`、当前文化）→ `uniqueId`**。
+                //   🔴 **判别力（灭自证）**：这 4 张在**卡池里的顺序**是
+                //   `Cult Propaganda(2) / Improvised Barricade(3) / Jammed Communications(2) / Poisoned Supplies(2)`
+                //   （`cards_engine.json` 的数组序）—— **费用不单调**（2,3,2,2）。
+                //   不排序 ⇒ 面板照池序摆 ⇒ 下面「费用非降」这条**必红**；只有排序真跑了才绿。
+                //   ⚠️ 只断**规则**、不写死这 4 张的期望顺序：第 2 键（卡名）是**文化相关**的
+                //   （原版 `String.CompareTo` 走当前文化）⇒ 写死某台机器的顺序会变成假红。
+                var costById = new Dictionary<string, int>();
+                foreach (var cc in ctx.CardPool)
+                    if (cc != null && cc.Id != null) costById[cc.Id] = cc.Cost;
+                bool costAsc = true;
+                var costSeq = new List<string>();
+                for (int i = 0; i < driver.ChooseOptionCount; i++)
+                {
+                    int cv;
+                    if (!costById.TryGetValue(driver.ChooseOptionStableId(i), out cv))
+                    {
+                        costAsc = false;
+                        costSeq.Add("?");
+                        continue;
+                    }
+                    costSeq.Add(cv.ToString());
+                    if (i > 0)
+                    {
+                        int pv;
+                        if (!costById.TryGetValue(driver.ChooseOptionStableId(i - 1), out pv)) pv = cv;
+                        if (pv > cv) costAsc = false;
+                    }
+                }
+                Check(costAsc,
+                      "★（a2）面板顺序的第 1 键 = **费用升序**（原版 `SortByCostAndName`）："
+                      + $"面板费用 [{string.Join(",", costSeq.ToArray())}]"
+                      + "（🔴 改坏法：删掉 `cands.Sort(CompareChoiceOptions)` ⇒ 照池序 2,3,2,2 ⇒ 这条红）");
+                bool nameAsc = true;
+                for (int i = 1; i < driver.ChooseOptionCount; i++)
+                {
+                    int c0, c1;
+                    if (!costById.TryGetValue(driver.ChooseOptionStableId(i - 1), out c0)) continue;
+                    if (!costById.TryGetValue(driver.ChooseOptionStableId(i), out c1)) continue;
+                    if (c0 != c1) continue;                 // 只对**同费用**的相邻两张比第 2 键
+                    string n0 = (driver.ChooseOptionName(i - 1) ?? "").ToLower();
+                    string n1 = (driver.ChooseOptionName(i) ?? "").ToLower();
+                    if (string.Compare(n0, n1, System.StringComparison.CurrentCulture) > 0) nameAsc = false;
+                }
+                Check(nameAsc,
+                      "★（a2）同费用的相邻两张按**本地化卡名**升序（原版第 2 键 = `GetLocalizedCardName().ToLower()`）");
 
                 Check(driver.SimulateChoosePick(0), "（a）点第 1 张候选");
                 // 这一条是「点到了卡、不是点到了『继续』」的判据：`TogglePick` 只做标记、
@@ -19721,6 +19795,13 @@ public static class BattleScene
             //    `HookAnimFxShake/HookAnimFxCards` 那一串（W4 §三 的注脚也是这么写的）。
             driver.Begin("Ultramarines", "Goff", 20260915);
             if (driver.InMulligan) driver.SimulateMulliganDone();
+            // 🆕 2026-10-19（战斗线 W）：**先把开局/换牌那一批演出排空**。
+            //   批处理没有帧循环 ⇒ 那批事件不会自己演完；而 W 段新加的
+            //   `WaitingForBlockingAction` 闸会让 `DrivePlayerTurnForTest`（走玩家那条 `fromUi` 路）
+            //   在下面 A462 的「悬停即选中」处被挡下。这不是 A462 要验的东西 ⇒ 这里显式推完。
+            //   ⚠️ 后面 A462 全程只做白盒摆盘 + `RefreshAll`（不产生新事件），所以推这一次就够。
+            StepThrough(driver);
+            { int wgA462 = 0; while (driver.WaitingForBlockingAction && wgA462++ < 400) Step(1f / 30f); }
             // ⬇⬇ 2026-10-14（#9 · A462 搬家）：这一段原来在整轮末尾（`DestroyImmediate(driver)` **之后**）
             //    ⇒ 进段时 `Object.FindObjectOfType<BattleDriver>()` 恒为 null（**前提不成立**）⇒ 整段一条都验不了。
             //    搬到这儿（`driver.Begin(...)` + `SimulateMulliganDone()` 之后）：driver 活着、HUD 已建、开局已走完。
@@ -21254,14 +21335,24 @@ public static class BattleScene
 
                     // 第 2 回合 4 条**全是脚本自己执行的** ⇒ 每调一次 `DriveAiTurn` 推一条；
                     // 推完（`Exhausted`）⇒ 那一支自己**交回合**（原版 `_PlayAi` 的 `case 8`）
-                    driver.DriveAiTurnForTest();      // Attack
+                    // 🆕 2026-10-19（战斗线 W 复跑红 #10–12）：**每步之前先把上一批演出推到放行**。
+                    //   生产里这一步是 `Update` 每帧做的（`AdvanceTimeline` 在 `DriveAiTurn` 之前）；
+                    //   批处理没有帧循环 ⇒ 不补的话 W 段的闸会让 `DriveAiTurn` 一条脚本都不推（假红）。
+                    void AiStep()
+                    {
+                        StepThrough(driver);
+                        int wgAI = 0;
+                        while (driver.WaitingForBlockingAction && wgAI++ < 400) Step(1f / 30f);
+                        driver.DriveAiTurnForTest();
+                    }
+                    AiStep();                         // Attack
                     Check(tA.ActionCounter == 1 && cA.Turn == 2, "★ **脚本接管 AI 回合**：`DriveAiTurn` 推的是脚本，不是 `SimpleAI`");
-                    driver.DriveAiTurnForTest();      // AiChat（纯演出）
-                    driver.DriveAiTurnForTest();      // PlayerChat（纯演出）
+                    AiStep();                         // AiChat（纯演出）
+                    AiStep();                         // PlayerChat（纯演出）
                     Check(tA.ActionCounter == 3 && cA.Turn == 2, "（前提）推到第 3 条，回合还没变");
-                    driver.DriveAiTurnForTest();      // EndTurn（脚本里是 no-op）
+                    AiStep();                         // EndTurn（脚本里是 no-op）
                     Check(tA.ActionCounter == 4 && cA.Turn == 2, "（前提）4 条跑完，仍在 AI 回合");
-                    driver.DriveAiTurnForTest();      // Exhausted ⇒ 收尾交回合
+                    AiStep();                         // Exhausted ⇒ 收尾交回合
                     Check(cA.Turn == 3 && tA.Turn == 3 && tA.ActionCounter == 0,
                           $"★ **脚本跑完 ⇒ 那一支自己交回合并推进**（回合 {cA.Turn}、指针 {tA.ActionCounter} 归零）"
                         + "｜🧨 把 `DriveAiTurn` 里那段 `if (TutorialOwnsThisTurn) { … }` 删掉 ⇒ 本条红"
@@ -23540,6 +23631,157 @@ public static class BattleScene
                     Check(!driver.AlliancePanelVisible, "★ A985③：（收尾）窗关上了");
                     BattleDriver.PointerHeldForTest  = held985w;
                     BattleDriver.PointerWorldForTest = world985w;
+                }
+            }
+
+            // ==================================================================
+            //  🆕 2026-10-19（战斗线 W）：**第 1、2 条系统性偏差的落地断言**
+            //  判据 → `资料/普查产出_1018/R_战斗表现链路对拍.md` 偏差 1「结算永远领先表现」/ 偏差 2「没有阻塞」。
+            //   · 第 2 条 = `WaitingForBlockingAction` 等价闸：演出没演完 ⇒ `CanPlayCard`（= 这里唯一那个
+            //     落点委托 `CanDropAtSlot`）与 `EndTurnClick`（= `EndPlayerTurn(fromUi:true)`）都挡。
+            //     原版消费点五处：`BattleManager__CanPlayCard.c:72` · `__EndTurnClick.c:47` ·
+            //     `__ExecuteActiveAbility.c:39` · `__Update.c:1033,1060`。
+            //   · 第 1 条 = 血量**可见时刻**：引擎已经把血扣完时，卡面显示**旧血**；受击那一拍才跳
+            //     （原版 `_ResolveMultiDamage…:136-168` 逐目标改 HP）。
+            //  ⚠️ 本段自己 `Begin` 一局（同 `A515`）：前面的段已经把局面推得很远，拿不到干净的手牌/回合。
+            //  ⚠️ **每条都配了灭自证**（同一调用在两个状态下的结果**必须不同**），否则「闸根本没接」
+            //     与「闸接了但恒真」分不开。
+            // ==================================================================
+            Debug.Log(P + "--- W 战斗线：串行/阻塞闸 + 血量可见时刻（第 1、2 条）---");
+            {
+                driver.Begin("Ultramarines", "Goff", 20261019);
+                if (driver.InMulligan) driver.SimulateMulliganDone();
+                StepThrough(driver);
+                // 开局若排了事件（换牌/抽牌那一批），`StepThrough` 只保证队列空 —— 闸还要等最后一条
+                //  cue 的时长 ⇒ 显式推到放行，否则下面「进本节时没有在拦」的前提不成立。
+                int wg0 = 0;
+                while (driver.WaitingForBlockingAction && wg0++ < 400) Step(1f / 30f);
+
+                int wme = driver.MySeat;
+                var wctx = driver.Ctx;
+                Check(!driver.WaitingForBlockingAction,
+                      "★ W0：（前提）进本节时**没有**在拦（开局那批事件已排空、闸已放行）"
+                    + " —— 不然『拦起来』那条分不出真假");
+                // 种子决定谁先手；对手先手那一档先用测试口把它那一整个回合走掉。
+                if (wctx.Active != wme) driver.SimulateAiTurn();
+                StepThrough(driver);
+                wg0 = 0;
+                while (driver.WaitingForBlockingAction && wg0++ < 400) Step(1f / 30f);
+                Check(wctx.Active == wme,
+                      $"★ W0：（前提）现在是我方回合（`Active` = P{wctx.Active + 1}，我方 = P{wme + 1}）");
+                Check(driver.TimelinePending == 0,
+                      $"★ W0：（前提）进夹具时时间线是空的（待播 {driver.TimelinePending} 条）");
+                // 能量给足：否则 `SimpleAI.NextPlay` 可能一张都挑不出来，出牌闸那条会**空跑**
+                wctx.Players[wme].Energy = 20;
+                driver.RefreshAll();
+
+                int ws = BoardSpec.WarlordSlot;
+                var wUnit = wctx.Players[wme].Warlord;
+                int whp0 = wUnit != null ? wUnit.Health : -1;
+                CardView wView;
+                driver.MyUnits.TryGetValue(ws, out wView);
+
+                if (wUnit == null || wView == null)
+                {
+                    Check(false, "★ W0：（夹具）我方督军在场上、视图在手上 —— 拿不到的话下面第 1 条那组一条都验不了");
+                }
+                else
+                {
+                    Check(wView.Data.health == whp0,
+                          $"★ W0：（前提）视图血量 = 引擎值 {whp0}（实得 {wView.Data.health}）");
+
+                    // ---- 造一批「Trigger → Hit」：Trigger 占 0.2 s ⇒ Hit 排在它之后（不是同帧）----
+                    //  `ApplyDamage` 就是实战那条发 Hit 的口（`EmitHit`：**先发事件、再扣血**，
+                    //  所以事件里的 `Amount` = 这次实际扣的血 —— 我们的账用的正是它）。
+                    wctx.Emit(EvtKind.Trigger, wme, ws, wUnit.Name);
+                    RuleCore.ApplyDamage(wctx, wUnit, 2, "自检夹具（W 战斗线）");
+                    driver.RefreshAll();
+                    int whp1 = wUnit.Health;
+                    int wdmg = whp0 - whp1;
+
+                    Check(wdmg > 0, $"★ W1：（前提）引擎**真扣了血**（{whp0} → {whp1}，护甲会削掉一部分）");
+                    Check(driver.WaitingForBlockingAction,
+                          "★ W2：动作一结算就立闸（`WaitingForBlockingAction` = 真）—— "
+                        + "🧨 删掉 `PlaySignals` 末尾那句 `BeginBlockingWindow(t)` ⇒ 本条红");
+                    Check(driver.TimelinePending >= 1,
+                          $"★ W2：Hit 还排在时间线上（待播 {driver.TimelinePending} 条）");
+                    Check(wView.Data.health == whp0,
+                          $"★ W1：挨打那一拍**之前**卡面还是旧血 {whp0}（实得 {wView.Data.health}）—— "
+                        + "🧨 把 `SyncBoard` 里的 `ToBoardCardData` 换回 `ToCardData` ⇒ 本条红（会显示终值 "
+                        + $"{whp1}）");
+                    Check(driver.PendingHpForTest(wme, ws) == wdmg,
+                          $"★ W1：账上记着「引擎已扣、还没演到」的 {wdmg} 点（实得 "
+                        + $"{driver.PendingHpForTest(wme, ws)}）");
+                    // ★ 灭自证：两个候选值**真的分得开**（旧血 ≠ 引擎终值）。没有这一条，
+                    //   「显示旧血」与「显示终值」在 dmg == 0 时会长得一样。
+                    Check(wView.Data.health != wUnit.Health,
+                          $"★ W1（灭自证）：卡面 {wView.Data.health} ≠ 引擎 {wUnit.Health} —— 两个候选分得开");
+
+                    Step(0.05f);                       // Trigger 还没演完（0.2 s）⇒ Hit 没到
+                    Check(wView.Data.health == whp0 && driver.PendingHpForTest(wme, ws) == wdmg,
+                          $"★ W1：0.05 s 时仍是旧血 {whp0}、账还在（实得 {wView.Data.health} / "
+                        + $"{driver.PendingHpForTest(wme, ws)}）");
+
+                    Step(0.2f);                        // 越过 Hit 那一拍（0.05 + 0.2 > 0.2）
+                    Check(wView.Data.health == whp1,
+                          $"★ W1：**受击帧之后**卡面才跳到新值 {whp1}（实得 {wView.Data.health}）");
+                    Check(driver.PendingHpForTest(wme, ws) == 0,
+                          "★ W1：账清了（0 条）—— 🧨 删掉 `PlaySignal` 里那句 `CompletePendingHpBeat(e)` ⇒ 本条红");
+                    Check(driver.TimelinePending == 0,
+                          $"★ W2：时间线已空（待播 {driver.TimelinePending} 条）");
+                    Check(driver.WaitingForBlockingAction,
+                          "★ W2：**队列空 ≠ 演完** —— 受击动画本身（`EventTiming.DurationOf(Hit)`）还在跑，"
+                        + "闸必须继续拦（🧨 把 `TickBlockingWindow` 改成只看 `_timeline.Count` ⇒ 本条红）");
+
+                    // ---- 第 2 条的消费点之一：出牌（原版 `CanPlayCard`） ----
+                    int wIdx, wSlot;
+                    bool wCanPlay = SimpleAI.NextPlay(wctx, out wIdx, out wSlot);
+                    CardView wHand = wCanPlay ? driver.HandViewAt(wIdx) : null;
+                    if (wCanPlay && wHand != null)
+                    {
+                        Check(!driver.interaction.CanDropAtSlot(wSlot, wHand),
+                              "★ W2：演出没演完 ⇒ 出牌落点被拒（= 原版 `CanPlayCard` 那道闸）—— "
+                            + "🧨 删掉 `CanDropAtSlot` 里那句 `if (WaitingForBlockingAction) return false;` ⇒ 本条红");
+                    }
+                    else
+                    {
+                        // ⛔ 不静默跳过：满能量还挑不出一张牌 = 夹具摆错了，下面的「灭自证」会说不出话
+                        Check(false, "★ W2：（夹具）给足能量之后手上有能打出的牌 —— 挑不出来这条闸就空跑了");
+                    }
+
+                    // 推到自然放行（`DurationOf(Hit)` 走完；安全阀 20 s 远在后面）
+                    int wg1 = 0;
+                    while (driver.WaitingForBlockingAction && wg1++ < 400) Step(1f / 30f);
+                    Check(!driver.WaitingForBlockingAction && wg1 < 400,
+                          $"★ W2：演完 ⇒ **自动放行**（用了 {wg1} 帧）—— 🧨 删掉 `TickBlockingWindow` 的放行那行 ⇒ 本条红");
+                    Check(wView.Data.health == whp1,
+                          $"★ W1：放行之后卡面仍 = 引擎值 {whp1}（实得 {wView.Data.health}）");
+                    // ★ 灭自证：**同一次调用**，闸放行之前被拒、放行之后通过 —— 两个状态真的分得开。
+                    if (wCanPlay && wHand != null)
+                    {
+                        Check(driver.interaction.CanDropAtSlot(wSlot, wHand),
+                              "★ W2（灭自证）：**同一个** `CanDropAtSlot(slot, card)` 在闸放行之后**通过**"
+                            + " —— 闸是活的、不是恒拒");
+                    }
+
+                    // ---- 第 2 条的消费点之二：结束回合（原版 `EndTurnClick`） ----
+                    int wActive1 = wctx.Active, wTurn1 = wctx.Turn;
+                    wctx.Emit(EvtKind.Trigger, wme, ws, wUnit.Name);
+                    RuleCore.ApplyDamage(wctx, wUnit, 1, "自检夹具（W 战斗线 · 结束回合闸）");
+                    driver.RefreshAll();
+                    Check(driver.WaitingForBlockingAction, "★ W2：（前提）又拦起来了");
+                    driver.SimulateEndTurnFromUi();
+                    Check(wctx.Active == wActive1 && wctx.Turn == wTurn1,
+                          $"★ W2：演出没演完 ⇒ 玩家点「结束回合」**不生效**（`Active` 仍 P{wctx.Active + 1}、"
+                        + $"`Turn` 仍 {wctx.Turn}）—— 判据 `BattleManager__EndTurnClick.c:47`；"
+                        + "🧨 删掉 `EndPlayerTurn` 顶上的 `if (fromUi && WaitingForBlockingAction) return;` ⇒ 本条红");
+                    int wg2 = 0;
+                    while (driver.WaitingForBlockingAction && wg2++ < 400) Step(1f / 30f);
+                    Check(!driver.WaitingForBlockingAction, "★ W2：（前提）第二批也放行了");
+                    driver.SimulateEndTurnFromUi();
+                    Check(wctx.Active != wActive1,
+                          $"★ W2（灭自证）：**同一个口**在放行之后真的结束了回合（`Active` P{wActive1 + 1} → "
+                        + $"P{wctx.Active + 1}）—— 挡与放行两个状态分得开");
                 }
             }
 
@@ -26242,6 +26484,13 @@ public static class BattleScene
         for (int s = 0; s < BoardSpec.Size; s++)
             if (BoardSpec.IsDeployable(s) && ctx.Players[0].Board[s] == null) { dropSlot = s; break; }
         if (dropSlot < 0) dropSlot = BoardSpec.WarlordSlot;      // 满场也行，反正不落格位
+
+        // 🆕 2026-10-19（战斗线 W 复跑红 #6–9）：**先把上一批演出推到放行** ——
+        //   批处理没有帧循环，`Begin` / `SimulateAiTurn` 排的事件不会自己演完；本次新加的
+        //   `WaitingForBlockingAction` 闸会把下面这一拖判成「引擎拒绝」⇒ 战术卡根本没打出去
+        //   （造牌 / 部署那一族断言全红）。生产里这一步是 `Update` 每帧做的（同一个等价物）。
+        StepThrough(driver);
+        { int wgTac = 0; while (driver.WaitingForBlockingAction && wgTac++ < 400) Step(1f / 30f); }
 
         var view = driver.HandViewAt(idx);
         // 🔴 2026-09-20：**这里也必须用 `DropTargetWorld`** —— 上一轮改拖拽目标时漏了这一处

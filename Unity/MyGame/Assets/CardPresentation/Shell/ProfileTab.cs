@@ -594,6 +594,28 @@ namespace CardPresentation
                     + "⇒ 整块空态；且按判据 ② 只走**非传奇支**（`Legendary Display Profile` 关）。");
         }
 
+        /// <summary>点 `Ranking/{Current,Highest} Rank/LeaderboardButton` ⇒ 开**经典榜**
+        /// （`RankedClassicLeaderboardPopup Variant`）。
+        /// <para>🔴 **判据如实标注**：原版这两颗钮**没有接线** —— `m_OnClick.m_Calls` 空，且全量反编译里
+        /// `LeaderboardButton` 只有三处（`RankedEventWindow` / `RankedEventWindowV2` / `AlliancesEventScorePanel`，
+        /// 全是**别处**的同名钮）；本页 `ProfileRankingSection.Initialize` 只 SetActive 那三个 display。
+        /// ⇒ 动作**是我们按同名钮的用途挑的**（同 `Shell/RankedEventWindow.cs` 那颗 `LeaderboardButton` →
+        /// `LeaderboardKindForMode`；本页没有模式上下文 ⇒ 取 **Classic**），⛔ 别写成「原版行为」。</para></summary>
+        void OpenLeaderboard()
+        {
+            var mgr = Win != null ? Win.Manager : null;
+            if (mgr == null)
+            {
+                Debug.LogWarning("[Profile] `LeaderboardButton`：拿不到 `WindowsManager` ⇒ 榜开不出来（不许静默）");
+                return;
+            }
+            // 复用同一扇（同 `RankedEventWindow.OpenLeaderboard` 的口径：`OpenByRef` 命中就复用，⛔ 不叠窗）
+            WindowsManager.OpenByRef(LeaderboardWindow.NameOf(LeaderboardKind.Classic),
+                                     m => LeaderboardWindow.Create(m, LeaderboardKind.Classic));
+            Debug.Log("[Profile] `LeaderboardButton` ⇒ 开 `" + LeaderboardWindow.NameOf(LeaderboardKind.Classic) + "`"
+                    + "（⚠️ 动作是我们的判断：原版这两颗无接线，见本方法 doc）");
+        }
+
         /// <summary>一张 `RankingDisplay` 卡（`Current Rank` 与 `Highest Rank` 同构，只有几个数不同）。
         /// 🔴 两份的**互斥参数**（§A.1）：`Current Rank` 的 `MainRating` 出厂 **T**（`displaySeals=1`）、
         /// `Highest Rank` 的出厂 **F**（`displaySeals=0`）—— `Mission Milestones Progress` 只在 `MainRating` 下面。</summary>
@@ -610,12 +632,18 @@ namespace CardPresentation
             var card = Node(parent, name, new PxRect(l, t, r, b));
             Nine(card, cardArt, new PxRect(l, t, r, b), cardBorder, "Generic Window Red Background Small", L_Bg);
 
-            // `LeaderboardButton`（出厂 F · 全包无字段引用 —— §A.1）⇒ 建成后关。
-            // ⚠️ 它的 rect 在表里是 **y 189.56..242.79**（在卡片**之上**、页面之外）—— 那是**模板位**
-            //    （它在父的 VLG 里、而 VLG 的主轴算不准，§A.2 末）⇒ 我们按卡片顶部对齐摆一小块，**只求结构在**。
-            var lbR = new PxRect(l + 67.15f, t + 20f, l + 358.10f, t + 73.23f);
+            // `LeaderboardButton`（出厂 **F** · 全包反查无字段引用 —— `资料/普查产出_0927/档案窗_Profile页.md` §A.1 / §C·10）。
+            // 🔴 **2026-10-18（音效缺口批）：rect 改成【原版逐值】**（原来按卡片顶部对齐摆一小块，「只求结构在」）。
+            //   原版实读（`档案窗_Profile页.md` §A 表，两棵各一行）：
+            //     · `Current Rank/LeaderboardButton` = **418.18,189.56 → 709.13,242.79**（290.95×53.23）
+            //     · `Highest Rank/LeaderboardButton` = **811.95,189.56 → 1102.90,242.79**（同尺寸）
+            //   ⇒ 两张卡**各自水平居中**（偏移 = (卡宽 − 290.95)/2：Current 67.155 · Highest 34.225）、
+            //     **y 恒 189.56..242.79**（在卡片**之上**那一条空带里 —— 不是「模板位」，两棵同 y 就是作者态）。
+            //   `Button Text` = 431.51,194.78→694.86,237.58（框内缩 13.33 / 5.22 / 14.27 / 5.21，两棵同值）。
+            float lbCx = (l + r) * 0.5f;
+            var lbR = new PxRect(lbCx - 290.9464f * 0.5f, 189.56f, lbCx + 290.9464f * 0.5f, 242.79f);
             var lb = Node(card, "LeaderboardButton", lbR);
-            Nine(lb, ArtMulligan, lbR, MulliganBorder, "Image", L_Frame);
+            var lbBg = Nine(lb, ArtMulligan, lbR, MulliganBorder, "Image", L_Frame);
             // 🔴 **2026-10-07（A62 子表 A · A12）**：原版 `Button Text`（`'Leaderboard'`）= **`折行=0`**
             //   （判据 = `md "Player Profile Window" --depth 25 --md`，该行 `折行=0 auto[10~36]`）⇒ 关掉。
             // 🔴 **A406**：`Ranking/{Current,Highest} Rank/LeaderboardButton/Button Text` 原版
@@ -624,6 +652,19 @@ namespace CardPresentation
                              Color.white, "Button Text", 36f, L_Text2, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false,
                              autoMaxPx: 36f, basePx: 12f, face: TmpFont.Face.LatinCardBody);
             if (lbTxt != null) lbTxt.SetWrapping(false);
+            // 🆕 **2026-10-18（音效线转来的界面缺口）**：补**命中区 + 点击音**。
+            //   原版值（`bundle_menus_assets_all` MB 实读，两棵各一份、逐值相同）：
+            //     `EverguildButton.m_onClickSound` = pid **8549838806721213354** = **`ButtonClick Positive`**
+            //     · `useDefaultAudioClipIfNull = 1` · `m_Interactable = 1` · `m_OnClick.m_Calls` **空**
+            //     （Current 那颗 MB `3930931442171673138` · Highest 那颗 MB `-2929059975558170062`）。
+            //   ⚠️ **原版这两颗是 `m_IsActive = 0`**（prefab 实读；`档案窗_Profile页.md` §C·10 如实记着
+            //     「**查不到激活点**」—— 搜过 `SetActive` / `set_enabled` / `Transform.Find` / `GetChild` /
+            //     `GetComponentsInChildren` + 全包组件反向引用扫描，这些节点只被 `m_Children`/`m_Father` 引用）
+            //     ⇒ **我们也不擅自激活**（激活 = 多出一颗原版运行时看不到的钮）。命中与音先接好：
+            //     哪天真找到激活点，一颗 `SetActive(true)` 就能用。
+            //   动作**判据缺失**（原版无接线）：按**同名钮**的用途接**经典榜**（同 `Shell/RankedEventWindow.cs:110-120`）。
+            var lbQ = lbBg != null ? lbBg.GetComponentInChildren<ImageQuad>() : null;
+            Hit(lb, "Hit", lbR, L_Hit, OpenLeaderboard, lbQ, ArtMulligan, clickCue: WindowSounds.PositiveCue);
             lb.gameObject.SetActive(false);
 
             var ct = Node(card, "Content", new PxRect(ctL, ctT, ctR, ctB));

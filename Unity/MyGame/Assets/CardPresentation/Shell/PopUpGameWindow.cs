@@ -374,7 +374,8 @@ namespace CardPresentation
                     + (TwoButtons ? " · 右钮 `" + _secondaryKey + "`" : "")
                     + " —— 文案走 `Term()`（本类 `Terms` → `Core/Loc.cs`；2026-10-19 `A1012` 起转 `Loc`）"
                     + "⇒ **表里有就印词条、两处都没有才是键名**；"
-                    + "⚠️ 开/关音效没做（`useDefaultCloseSoundIfNull = 1`，默认音在远端音频表）。");
+                    + "⚠️ 开窗音：原版为空 ⇒ 不播；关窗音：`useDefaultCloseSoundIfNull = 1` ⇒ 默认 "
+                    + "`ButtonClick Back`；按钮 cue：1 钮版 = Positive · 2 钮版 左 Negative / 右 Positive（2026-10-18 已接）。");
         }
 
         /// <summary>照两扇 prefab 逐节点搭（**自检与运行时走同一条路**）。</summary>
@@ -435,9 +436,11 @@ namespace CardPresentation
                 // 🔴 A454：`out` 那两颗引用（点击件 + 按钮节点）**存下来** —— 复用这扇窗时 `RefreshLiveContent`
                 //    要靠它们改回调/藏钮（`Open()` 不会再跑，见 `Configure`）。
                 _primaryLb = MakeButton(btnsNode, "ButtonLeft", BtnL2R, Btn2FontPx, 0f, 0f,
-                                        _primaryKey, _onPrimary, true, out _primaryHit, out _);
+                                        _primaryKey, _onPrimary, true, out _primaryHit, out _,
+                                        clickCue: WindowSounds.NegativeCue);
                 _secondaryLb = MakeButton(btnsNode, "ButtonRight", BtnR2R, Btn2FontPx, 0f, 0f,
-                                          _secondaryKey, _onSecondary, true, out _secondaryHit, out _secondaryNode);
+                                          _secondaryKey, _onSecondary, true, out _secondaryHit, out _secondaryNode,
+                                          clickCue: WindowSounds.PositiveCue);
                 if (!HasSecondary)
                 {
                     // = 原版 `ConfigurePopUp` 循环里「超出给定按钮数的 `SetActive(false)`」那一支
@@ -451,7 +454,8 @@ namespace CardPresentation
             {
                 _primaryLb = MakeButton(btnsNode, "Generic UI Button", Btn1R, Btn1FontPx,
                                         Btn1TextAposX, Btn1TextAposY, _primaryKey, _onPrimary, false,
-                                        out _primaryHit, out _);
+                                        out _primaryHit, out _,
+                                        clickCue: WindowSounds.PositiveCue);
                 // A454：1 按钮版**没有**第二颗 ⇒ 这三样必须显式清掉（否则重建后 `RefreshLiveContent`
                 // 会去动上一辈子的对象 —— 那是本类唯一会「静默改到别人身上」的地方）
                 _secondaryLb = null; _secondaryHit = null; _secondaryNode = null;
@@ -467,7 +471,7 @@ namespace CardPresentation
         /// —— 两扇不一样，逐扇实读，⛔ 别统一。</param>
         Label MakeButton(Transform parent, string nodeName, PxRect r, float fontPx,
                          float aposX, float aposY, string key, System.Action onClick, bool keepAspect,
-                         out WindowButton hit, out Transform node)
+                         out WindowButton hit, out Transform node, string clickCue = null)
         {
             var go = MenuDraw.Node(parent, nodeName, r);
             node = go;      // 出参先落一个（下面有 `return null` 那条早退，出参必须在所有路径上都赋过值）
@@ -479,6 +483,12 @@ namespace CardPresentation
             {
                 hit = q.gameObject.AddComponent<WindowButton>();
                 hit.onClick = onClick;
+                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B8/B9）**：原版两颗按钮的 `m_onClickSound`
+                //   —— `MessagePopupWindow/Window/Buttons/Generic UI Button` = **`ButtonClick Positive`**；
+                //   `MessagePopupWindow2Buttons/Window/Buttons/ButtonLeft` = **`ButtonClick Negative`**
+                //   （pid 1387228150816026206）· `ButtonRight` = **`ButtonClick Positive`**（pid 8549838806721213354）。
+                //   `null`（缺省）= 原版默认按钮音 —— 但本窗两颗**都不是**默认档。
+                hit.clickCue = clickCue;
                 // 原版 `m_Transition = 2(SpriteSwap)`：HL = `40K_button_hover` · P = `40K_button_pressed`
                 // （`m_SpriteState` 实读；`BindSelf` 按「常态图名 + _hover/_pressed」推出来，与 prefab 那两颗逐名相同）。
                 hit.BindSelf(ArtButton);

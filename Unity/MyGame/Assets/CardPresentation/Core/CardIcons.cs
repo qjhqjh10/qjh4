@@ -626,6 +626,13 @@ namespace CardPresentation
         /// `前缀+数字`，也有 `27a4b748…` 这样的 **32 位 GUID**）；而 `Card_Name/*` 在 `Resources/` 下**也没有**
         /// （同 ① 的六族里没有它，`Loc` 手写表里那 20 来条是我们自造的 `Ember Warlord` 那种，不是官方 id）
         /// ⇒ **本支今天也会全部「原样留着 + 出声」**。数据侧同属 `A1763` / `A1982`。</para>
+        /// <para>🔴 **2026-10-18（`A1957`）现读订正 —— 上面那段【已过期】，⛔ 别照它再立账**：
+        /// `Resources/official_names.json` 现在带 `Card_Name/*` **1198 条**（九个族、共 3156 条）。
+        /// 官方全表里含 `$$…$$` 的描述 **189 条**（`Card_Description` 182 + `Card_Abilities` 7）·
+        /// **141 个唯一 id / 363 处**；我们卡池 `descZh` 里 `$$…$$` **107 个 id / 139 处** ——
+        /// **逐 id 在 `official_names.json` 的 `Card_Name/*` 全都能查到（0 个解不出）** ⇒ 本支今天**全部能展开**，
+        /// 「原样留着 + 出声」只剩下「将来出现新 id」时的兜底。判据与计数口径 →
+        /// `资料/普查产出_1018/W_卡牌线_数据侧.md` §一 `A1957`。</para>
         /// </summary>
         static string RewriteMarkCardRefs(string s, bool zh)
         {
@@ -679,6 +686,19 @@ namespace CardPresentation
         /// ⇒ **是数据侧的改名映射缺口，不是本层的 bug**。⇒ 那 56 处今天落到下面那条**原版自己的兜底**
         /// （只印枚举名），⛔ **不由本层私自加别名表**（那会把缺口藏起来，而且 `markOfSlaanesh` 的官方词
         /// 是 `Dark Pact of Excess`、与 `darkpact` 那条**不是同一个词**）。</para>
+        /// <para>🔴 **2026-10-18（`A1982`）现算订正 —— 上面那段读数【已过期】，⛔ 别照它再立账**：
+        /// 运行时两个口 = `Loc.cs` 的 `Card_Trait/*` **64 条** ＋ `Resources/official_names.json` 的 `Card_Trait` **27 条**。
+        /// 按这两个口逐 token 解（exact → `Norm` 兜底）：
+        /// <list type="bullet">
+        /// <item>**官方全表**（`Card_Description` / `Card_Abilities` / `Card_Name` / `Modular_Description` / `Missions`）：
+        ///   `[[X]]` **3508 处 / 74 种**，缺词条 **8 处 / 7 种** = `reanimate` 2 · `盔甲` · `震荡的` · `不稳定` ·
+        ///   `集结` · `tainted` · `maintenance` 各 1（后四个是官方表里**已经是中文的 token**）。</item>
+        /// <item>**我们卡池**（`cards_engine.json` 的 `descZh` + `desc` —— 真正会进渲染层的输入）：
+        ///   `[[X]]` **1079 处 / 60 种**，缺词条 **0 处 / 0 种** ⇒ **对玩家可见的卡面，这条账已经关上**。</item>
+        /// </list>
+        /// ⇒ 「46 处/8 种」与「56 处/8 种」两个旧读数都是**更早的分母**（那时 `Card_Trait` 的 27 条还没进
+        /// `official_names.json`、`descZh` 也还没换官方表）；**现口径的唯一结论 = 卡池 0 缺**。
+        /// 计算脚本口径见 `资料/普查产出_1018/W_卡牌线_数据侧.md` §一 `A1982`。</para>
         /// </summary>
         static string RewriteMarkTraits(string s, bool zh)
         {

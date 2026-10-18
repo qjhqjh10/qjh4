@@ -1,7 +1,7 @@
 {
  "schema": "card_vfx_by_card/v1",
  "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
- "generatedAt": "2026-10-18 07:02:13",
+ "generatedAt": "2026-10-19 01:34:12",
  "_sources": {
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
@@ -1657,7 +1657,7 @@
      "cardanim": "Traitors' Hate Board",
      "conf": "inferred-name",
      "src": "name-match",
-     "why": "卡名 `Traitors Hate` 归一化后是 CardAnim 名 `Traitors' Hate Board` 的前缀；名字含 Board/Battleground（全场/落板那一下）"
+     "why": "卡名 `Traitors' Hate` 归一化后是 CardAnim 名 `Traitors' Hate Board` 的前缀；名字含 Board/Battleground（全场/落板那一下）"
     }
    ],
    "_unclassified": [
@@ -3387,7 +3387,7 @@
      "cardanim": "Arco-Flagellant Strike",
      "conf": "inferred-name",
      "src": "name-match",
-     "why": "卡名 `Arco-Flagellant` 归一化后是 CardAnim 名 `Arco-Flagellant Strike` 的前缀；名字含 strike/slash/slice/sweep/claw/melee/cleave"
+     "why": "卡名 `Arco-flagellant` 归一化后是 CardAnim 名 `Arco-Flagellant Strike` 的前缀；名字含 strike/slash/slice/sweep/claw/melee/cleave"
     }
    ],
    "trigger": [
@@ -33005,6 +33005,14 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally: Give +2 [attack] to all friendly units with Pack` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ],
    "attack_ranged": [
@@ -33095,6 +33103,192 @@
      "abilityEventWhy": "原版 `AbilityTrigger.ThisCardPlayed` → `play`",
      "chosenAbility": 30,
      "chosenAbilityName": "buffOthers",
+     "inLibrary": true
+    }
+   ]
+  },
+  "SW2": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent: High Rune Priest` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "b72a60d3f44f21d4aafa4f14bbe86c88",
+     "origCardId": "SW2",
+     "joinKey": "id",
+     "assetName": "Atk_Njal_Blizzard",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "b72a60d3f44f21d4aafa4f14bbe86c88",
+     "cardanim": "Atk_Njal_Blizzard",
+     "prefab": "Njal Blizzard Attack",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "f2ef04da070d01e4394dfb543224eb40",
+     "origCardId": "SW2",
+     "joinKey": "id",
+     "assetName": "SM_SpaceWolves_warlord_Njal Stormcaller",
+     "assetType": "Sprite",
+     "assetBundle": "spacemarinesspacewolvescardassets_assets_all.bundle",
+     "containerKey": "f2ef04da070d01e4394dfb543224eb40",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "1d60580a1ced6ea498cc677ca07905d3",
+     "origCardId": "SW2",
+     "joinKey": "id",
+     "assetName": "VO_SpaceWolves_Njal Stormcaller_attack",
+     "assetType": "AudioClip",
+     "assetBundle": "spacemarinesspacewolvescardassets_assets_all.bundle",
+     "containerKey": "1d60580a1ced6ea498cc677ca07905d3",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "d5353f5ca8cf50e4c9b7a5d38ee54c54",
+     "origCardId": "SW2",
+     "joinKey": "id",
+     "assetName": "VO_SpaceWolves_Njal Stormcaller_death",
+     "assetType": "AudioClip",
+     "assetBundle": "spacemarinesspacewolvescardassets_assets_all.bundle",
+     "containerKey": "d5353f5ca8cf50e4c9b7a5d38ee54c54",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "cb3f0301bb119dd4c8243fad8797ca90",
+     "origCardId": "SW2",
+     "joinKey": "id",
+     "assetName": "Card_Buff_Hand_SW",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "chaosspacemarinesblacklegioncardanims_assets_all.bundle",
+     "containerKey": "cb3f0301bb119dd4c8243fad8797ca90",
+     "cardanim": "Card_Buff_Hand_SW",
+     "prefab": "Card_Buff_Hand_SW",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 726,
+     "abilityTriggerName": "TriggeredFerocity",
+     "abilityEvent": "ability",
+     "abilityEventWhy": "未归口（保持 `ability`；原版触发 `TriggeredFerocity` 我们引擎没有对应事件）",
+     "chosenAbility": 30,
+     "chosenAbilityName": "buffOthers",
+     "inLibrary": true
+    }
+   ]
+  },
+  "SW3": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent: War Howl` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "1d9846e533e2e534cbe76284f3286a2f",
+     "origCardId": "SW3",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_2shot",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "1d9846e533e2e534cbe76284f3286a2f",
+     "cardanim": "Atk_BulletImpact_2shot",
+     "prefab": "BulletImpact_2shot_trail",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "355d4707b26094e2e89db27f62239baf",
+     "origCardId": "SW3",
+     "joinKey": "id",
+     "assetName": "SM_SpaceWolves_warlord_Ragnar Blackmane",
+     "assetType": "Sprite",
+     "assetBundle": "spacemarinesspacewolvescardassets_assets_all.bundle",
+     "containerKey": "355d4707b26094e2e89db27f62239baf",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "2e5d5af9b09c60a44a308fa6983af9cc",
+     "origCardId": "SW3",
+     "joinKey": "id",
+     "assetName": "VO_SpaceWolves_Ragnar Blackmane_attack",
+     "assetType": "AudioClip",
+     "assetBundle": "spacemarinesspacewolvescardassets_assets_all.bundle",
+     "containerKey": "2e5d5af9b09c60a44a308fa6983af9cc",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "b05b61c9ac99fa64db56637f90eebf71",
+     "origCardId": "SW3",
+     "joinKey": "id",
+     "assetName": "VO_SpaceWolves_Ragnar Blackmane_death",
+     "assetType": "AudioClip",
+     "assetBundle": "spacemarinesspacewolvescardassets_assets_all.bundle",
+     "containerKey": "b05b61c9ac99fa64db56637f90eebf71",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.activeAbility.activeAbilityLogic[0].cardAnimations[0]",
+     "soField": "activeAbility.activeAbilityLogic[0].cardAnimations[0]",
+     "guid": "a6cd0947c6cb4da4598c5c224207840a",
+     "origCardId": "SW3",
+     "joinKey": "id",
+     "assetName": "Buff_Green_Agenda_Self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "a6cd0947c6cb4da4598c5c224207840a",
+     "cardanim": "Buff_Green_Agenda_Self",
+     "prefab": "Buff_Green_Agenda",
+     "abilitySlot": "activeAbility.activeAbilityLogic[0]",
+     "abilityTrigger": null,
+     "abilityTriggerName": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+     "chosenAbility": 60,
+     "chosenAbilityName": "buffMana",
      "inLibrary": true
     }
    ]
@@ -36096,6 +36290,76 @@
     }
    ]
   },
+  "TL74": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent: Alpha Warrior` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "17ff12736c7974742883fc821f385135",
+     "origCardId": "TL74",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_Tyranid_Fleshborer",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "tyranidsleviathancardanims_assets_all.bundle",
+     "containerKey": "17ff12736c7974742883fc821f385135",
+     "cardanim": "Atk_BulletImpact_Tyranid_Fleshborer",
+     "prefab": "BulletImpact_Tyranid_Small",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "ae53bd7c3d78343849e6df883ae06434",
+     "origCardId": "TL74",
+     "joinKey": "id",
+     "assetName": "Tyranid_Leviathan_Warlord_Terror of Vardenghast",
+     "assetType": "Sprite",
+     "assetBundle": "tyranidsleviathancardassets_assets_all.bundle",
+     "containerKey": "ae53bd7c3d78343849e6df883ae06434",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.attackAudio",
+     "soField": "attackAudio",
+     "guid": "3a3a5d00eaad14c1c9679d8086d64e34",
+     "origCardId": "TL74",
+     "joinKey": "id",
+     "assetName": "VO_Tyranid_Leviathan_Winged Tyranid Prime_attack",
+     "assetType": "AudioClip",
+     "assetBundle": "tyranidsleviathancardassets_assets_all.bundle",
+     "containerKey": "3a3a5d00eaad14c1c9679d8086d64e34",
+     "assetKind": "audio"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.deathAudio",
+     "soField": "deathAudio",
+     "guid": "b049b75a3200649aa84f906c54a29141",
+     "origCardId": "TL74",
+     "joinKey": "id",
+     "assetName": "VO_Tyranid_Leviathan_Winged Tyranid Prime_death",
+     "assetType": "AudioClip",
+     "assetBundle": "tyranidsleviathancardassets_assets_all.bundle",
+     "containerKey": "b049b75a3200649aa84f906c54a29141",
+     "assetKind": "audio"
+    }
+   ]
+  },
   "TL67": {
    "trigger": [
     {
@@ -38724,6 +38988,92 @@
     }
    ]
   },
+  "UM12": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent: Spear of Macragge` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "ee900fdd41d10214bb9f5e0be1f41fb3",
+     "origCardId": "UM12",
+     "joinKey": "id",
+     "assetName": "SM_UM_inf_Antaro Chronus",
+     "assetType": "Sprite",
+     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
+     "containerKey": "ee900fdd41d10214bb9f5e0be1f41fb3",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "dc02909d6dfbc364f86951ebffc5aed1",
+     "origCardId": "UM12",
+     "joinKey": "id",
+     "assetName": "VO_UM_Antaro Chronus - Make the engines roar Its time to scour this battlefield",
+     "assetType": "AudioClip",
+     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
+     "containerKey": "dc02909d6dfbc364f86951ebffc5aed1",
+     "assetKind": "audio"
+    }
+   ],
+   "ability": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "ac8294917513e6141b7283ee37f35dff",
+     "origCardId": "UM12",
+     "joinKey": "id",
+     "assetName": "Buff_Blue_self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "ac8294917513e6141b7283ee37f35dff",
+     "cardanim": "Buff_Blue_self",
+     "prefab": "Buff_Blue",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 190,
+     "abilityTriggerName": "OtherUnitSummoned",
+     "abilityEvent": "ability",
+     "abilityEventWhy": "未归口（保持 `ability`；原版触发 `OtherUnitSummoned` 我们引擎没有对应事件）",
+     "chosenAbility": 30,
+     "chosenAbilityName": "buffOthers",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[1]",
+     "guid": "3d4b9507c95ac3a4b9944ada70283928",
+     "origCardId": "UM12",
+     "joinKey": "id",
+     "assetName": "Flank Effect",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "3d4b9507c95ac3a4b9944ada70283928",
+     "cardanim": "Flank Effect",
+     "prefab": "FlankEffect",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 190,
+     "abilityTriggerName": "OtherUnitSummoned",
+     "abilityEvent": "ability",
+     "abilityEventWhy": "未归口（保持 `ability`；原版触发 `OtherUnitSummoned` 我们引擎没有对应事件）",
+     "chosenAbility": 30,
+     "chosenAbilityName": "buffOthers",
+     "inLibrary": true
+    }
+   ]
+  },
   "UM15": {
    "trigger": [
     {
@@ -39169,6 +39519,63 @@
      "chosenAbility": 12,
      "chosenAbilityName": "doDamageMultiRandom",
      "inLibrary": true
+    }
+   ]
+  },
+  "UM100": {
+   "trigger": [
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent: Catechism of Death` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ],
+   "attack_ranged": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.customRangedAttackParticles",
+     "soField": "customRangedAttackParticles",
+     "guid": "8e9b85c5ef986de44b34220cab191ab5",
+     "origCardId": "UM100",
+     "joinKey": "id",
+     "assetName": "Atk_Combi_Flamer_Infernus",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "8e9b85c5ef986de44b34220cab191ab5",
+     "cardanim": "Atk_Combi_Flamer_Infernus",
+     "prefab": "BulletImpact_Combi_Flamer_Infernus",
+     "inLibrary": true
+    }
+   ],
+   "_assetRefs": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardImageReference",
+     "soField": "cardImageReference",
+     "guid": "01b48683af02f5b40b57691215e87ed3",
+     "origCardId": "UM100",
+     "joinKey": "id",
+     "assetName": "SM_UM_inf_Chaplain Cassius",
+     "assetType": "Sprite",
+     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
+     "containerKey": "01b48683af02f5b40b57691215e87ed3",
+     "assetKind": "art"
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.summonAudio",
+     "soField": "summonAudio",
+     "guid": "937603150b1d49d498bec54aada2b50c",
+     "origCardId": "UM100",
+     "joinKey": "id",
+     "assetName": "VO_UM_Chaplain Cassius - At our backs stand the whole of the Imperium",
+     "assetType": "AudioClip",
+     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
+     "containerKey": "937603150b1d49d498bec54aada2b50c",
+     "assetKind": "audio"
     }
    ]
   },
@@ -42723,6 +43130,14 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Trigger(3)",
      "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    },
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent: Author of the Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "_assetRefs": [
@@ -71568,172 +71983,6 @@
     }
    ]
   },
-  "SW2": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "b72a60d3f44f21d4aafa4f14bbe86c88",
-     "origCardId": "SW2",
-     "joinKey": "id",
-     "assetName": "Atk_Njal_Blizzard",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "b72a60d3f44f21d4aafa4f14bbe86c88",
-     "cardanim": "Atk_Njal_Blizzard",
-     "prefab": "Njal Blizzard Attack",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "f2ef04da070d01e4394dfb543224eb40",
-     "origCardId": "SW2",
-     "joinKey": "id",
-     "assetName": "SM_SpaceWolves_warlord_Njal Stormcaller",
-     "assetType": "Sprite",
-     "assetBundle": "spacemarinesspacewolvescardassets_assets_all.bundle",
-     "containerKey": "f2ef04da070d01e4394dfb543224eb40",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "1d60580a1ced6ea498cc677ca07905d3",
-     "origCardId": "SW2",
-     "joinKey": "id",
-     "assetName": "VO_SpaceWolves_Njal Stormcaller_attack",
-     "assetType": "AudioClip",
-     "assetBundle": "spacemarinesspacewolvescardassets_assets_all.bundle",
-     "containerKey": "1d60580a1ced6ea498cc677ca07905d3",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "d5353f5ca8cf50e4c9b7a5d38ee54c54",
-     "origCardId": "SW2",
-     "joinKey": "id",
-     "assetName": "VO_SpaceWolves_Njal Stormcaller_death",
-     "assetType": "AudioClip",
-     "assetBundle": "spacemarinesspacewolvescardassets_assets_all.bundle",
-     "containerKey": "d5353f5ca8cf50e4c9b7a5d38ee54c54",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "cb3f0301bb119dd4c8243fad8797ca90",
-     "origCardId": "SW2",
-     "joinKey": "id",
-     "assetName": "Card_Buff_Hand_SW",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "chaosspacemarinesblacklegioncardanims_assets_all.bundle",
-     "containerKey": "cb3f0301bb119dd4c8243fad8797ca90",
-     "cardanim": "Card_Buff_Hand_SW",
-     "prefab": "Card_Buff_Hand_SW",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 726,
-     "abilityTriggerName": "TriggeredFerocity",
-     "abilityEvent": "ability",
-     "abilityEventWhy": "未归口（保持 `ability`；原版触发 `TriggeredFerocity` 我们引擎没有对应事件）",
-     "chosenAbility": 30,
-     "chosenAbilityName": "buffOthers",
-     "inLibrary": true
-    }
-   ]
-  },
-  "SW3": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "1d9846e533e2e534cbe76284f3286a2f",
-     "origCardId": "SW3",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_2shot",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "1d9846e533e2e534cbe76284f3286a2f",
-     "cardanim": "Atk_BulletImpact_2shot",
-     "prefab": "BulletImpact_2shot_trail",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "355d4707b26094e2e89db27f62239baf",
-     "origCardId": "SW3",
-     "joinKey": "id",
-     "assetName": "SM_SpaceWolves_warlord_Ragnar Blackmane",
-     "assetType": "Sprite",
-     "assetBundle": "spacemarinesspacewolvescardassets_assets_all.bundle",
-     "containerKey": "355d4707b26094e2e89db27f62239baf",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "2e5d5af9b09c60a44a308fa6983af9cc",
-     "origCardId": "SW3",
-     "joinKey": "id",
-     "assetName": "VO_SpaceWolves_Ragnar Blackmane_attack",
-     "assetType": "AudioClip",
-     "assetBundle": "spacemarinesspacewolvescardassets_assets_all.bundle",
-     "containerKey": "2e5d5af9b09c60a44a308fa6983af9cc",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "b05b61c9ac99fa64db56637f90eebf71",
-     "origCardId": "SW3",
-     "joinKey": "id",
-     "assetName": "VO_SpaceWolves_Ragnar Blackmane_death",
-     "assetType": "AudioClip",
-     "assetBundle": "spacemarinesspacewolvescardassets_assets_all.bundle",
-     "containerKey": "b05b61c9ac99fa64db56637f90eebf71",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.activeAbility.activeAbilityLogic[0].cardAnimations[0]",
-     "soField": "activeAbility.activeAbilityLogic[0].cardAnimations[0]",
-     "guid": "a6cd0947c6cb4da4598c5c224207840a",
-     "origCardId": "SW3",
-     "joinKey": "id",
-     "assetName": "Buff_Green_Agenda_Self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "a6cd0947c6cb4da4598c5c224207840a",
-     "cardanim": "Buff_Green_Agenda_Self",
-     "prefab": "Buff_Green_Agenda",
-     "abilitySlot": "activeAbility.activeAbilityLogic[0]",
-     "abilityTrigger": null,
-     "abilityTriggerName": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
-     "chosenAbility": 60,
-     "chosenAbilityName": "buffMana",
-     "inLibrary": true
-    }
-   ]
-  },
   "TAU4": {
    "attack_ranged": [
     {
@@ -73566,66 +73815,6 @@
      "assetType": "AudioClip",
      "assetBundle": "tyranidsleviathancardassets_assets_all.bundle",
      "containerKey": "131db07d86ef34d428cca5e4e66ee53a",
-     "assetKind": "audio"
-    }
-   ]
-  },
-  "TL74": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "17ff12736c7974742883fc821f385135",
-     "origCardId": "TL74",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_Tyranid_Fleshborer",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "tyranidsleviathancardanims_assets_all.bundle",
-     "containerKey": "17ff12736c7974742883fc821f385135",
-     "cardanim": "Atk_BulletImpact_Tyranid_Fleshborer",
-     "prefab": "BulletImpact_Tyranid_Small",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "ae53bd7c3d78343849e6df883ae06434",
-     "origCardId": "TL74",
-     "joinKey": "id",
-     "assetName": "Tyranid_Leviathan_Warlord_Terror of Vardenghast",
-     "assetType": "Sprite",
-     "assetBundle": "tyranidsleviathancardassets_assets_all.bundle",
-     "containerKey": "ae53bd7c3d78343849e6df883ae06434",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.attackAudio",
-     "soField": "attackAudio",
-     "guid": "3a3a5d00eaad14c1c9679d8086d64e34",
-     "origCardId": "TL74",
-     "joinKey": "id",
-     "assetName": "VO_Tyranid_Leviathan_Winged Tyranid Prime_attack",
-     "assetType": "AudioClip",
-     "assetBundle": "tyranidsleviathancardassets_assets_all.bundle",
-     "containerKey": "3a3a5d00eaad14c1c9679d8086d64e34",
-     "assetKind": "audio"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.deathAudio",
-     "soField": "deathAudio",
-     "guid": "b049b75a3200649aa84f906c54a29141",
-     "origCardId": "TL74",
-     "joinKey": "id",
-     "assetName": "VO_Tyranid_Leviathan_Winged Tyranid Prime_death",
-     "assetType": "AudioClip",
-     "assetBundle": "tyranidsleviathancardassets_assets_all.bundle",
-     "containerKey": "b049b75a3200649aa84f906c54a29141",
      "assetKind": "audio"
     }
    ]
@@ -75515,82 +75704,6 @@
     }
    ]
   },
-  "UM12": {
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "ee900fdd41d10214bb9f5e0be1f41fb3",
-     "origCardId": "UM12",
-     "joinKey": "id",
-     "assetName": "SM_UM_inf_Antaro Chronus",
-     "assetType": "Sprite",
-     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
-     "containerKey": "ee900fdd41d10214bb9f5e0be1f41fb3",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "dc02909d6dfbc364f86951ebffc5aed1",
-     "origCardId": "UM12",
-     "joinKey": "id",
-     "assetName": "VO_UM_Antaro Chronus - Make the engines roar Its time to scour this battlefield",
-     "assetType": "AudioClip",
-     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
-     "containerKey": "dc02909d6dfbc364f86951ebffc5aed1",
-     "assetKind": "audio"
-    }
-   ],
-   "ability": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "ac8294917513e6141b7283ee37f35dff",
-     "origCardId": "UM12",
-     "joinKey": "id",
-     "assetName": "Buff_Blue_self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "ac8294917513e6141b7283ee37f35dff",
-     "cardanim": "Buff_Blue_self",
-     "prefab": "Buff_Blue",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 190,
-     "abilityTriggerName": "OtherUnitSummoned",
-     "abilityEvent": "ability",
-     "abilityEventWhy": "未归口（保持 `ability`；原版触发 `OtherUnitSummoned` 我们引擎没有对应事件）",
-     "chosenAbility": 30,
-     "chosenAbilityName": "buffOthers",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[1]",
-     "guid": "3d4b9507c95ac3a4b9944ada70283928",
-     "origCardId": "UM12",
-     "joinKey": "id",
-     "assetName": "Flank Effect",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "3d4b9507c95ac3a4b9944ada70283928",
-     "cardanim": "Flank Effect",
-     "prefab": "FlankEffect",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 190,
-     "abilityTriggerName": "OtherUnitSummoned",
-     "abilityEvent": "ability",
-     "abilityEventWhy": "未归口（保持 `ability`；原版触发 `OtherUnitSummoned` 我们引擎没有对应事件）",
-     "chosenAbility": 30,
-     "chosenAbilityName": "buffOthers",
-     "inLibrary": true
-    }
-   ]
-  },
   "UM4": {
    "_assetRefs": [
     {
@@ -75707,53 +75820,6 @@
      "chosenAbility": 30,
      "chosenAbilityName": "buffOthers",
      "inLibrary": true
-    }
-   ]
-  },
-  "UM100": {
-   "attack_ranged": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.customRangedAttackParticles",
-     "soField": "customRangedAttackParticles",
-     "guid": "8e9b85c5ef986de44b34220cab191ab5",
-     "origCardId": "UM100",
-     "joinKey": "id",
-     "assetName": "Atk_Combi_Flamer_Infernus",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "8e9b85c5ef986de44b34220cab191ab5",
-     "cardanim": "Atk_Combi_Flamer_Infernus",
-     "prefab": "BulletImpact_Combi_Flamer_Infernus",
-     "inLibrary": true
-    }
-   ],
-   "_assetRefs": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardImageReference",
-     "soField": "cardImageReference",
-     "guid": "01b48683af02f5b40b57691215e87ed3",
-     "origCardId": "UM100",
-     "joinKey": "id",
-     "assetName": "SM_UM_inf_Chaplain Cassius",
-     "assetType": "Sprite",
-     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
-     "containerKey": "01b48683af02f5b40b57691215e87ed3",
-     "assetKind": "art"
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.summonAudio",
-     "soField": "summonAudio",
-     "guid": "937603150b1d49d498bec54aada2b50c",
-     "origCardId": "UM100",
-     "joinKey": "id",
-     "assetName": "VO_UM_Chaplain Cassius - At our backs stand the whole of the Imperium",
-     "assetType": "AudioClip",
-     "assetBundle": "spacemarinesultramarinescardassets_assets_all.bundle",
-     "containerKey": "937603150b1d49d498bec54aada2b50c",
-     "assetKind": "audio"
     }
    ]
   },
@@ -80390,7 +80456,7 @@
    "play": 534,
    "attack_ranged": 518,
    "ability": 440,
-   "trigger": 419,
+   "trigger": 424,
    "death": 101,
    "_unclassified": 31,
    "attack_melee": 13,
@@ -80400,11 +80466,11 @@
   "entriesByConf": {
    "inferred-name": 59,
    "authoritative": 3949,
-   "inferred-keyword": 631
+   "inferred-keyword": 638
   },
   "cardsByConf": {
    "authoritative": 1127,
-   "inferred-keyword": 469,
+   "inferred-keyword": 474,
    "inferred-name": 42
   },
   "authoritativePerCardEntries": 3949,

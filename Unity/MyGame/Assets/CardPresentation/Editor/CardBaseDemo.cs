@@ -23,6 +23,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using CardPresentation;
+using RuleEngine;
 
 public static class CardBaseDemo
 {
@@ -59,11 +60,68 @@ public static class CardBaseDemo
         else { _fail++; Debug.LogError(P + $"   ✗ {msg}"); }
     }
 
+    // ==================================================================
+    //  🔴 2026-10-19：`Dark Pact of *` 的「**无费用**」
+    // ==================================================================
+    // 背景：用户 2026-10-19 裁定这 4 张（`Fate/Blood/Excess/Resilience`）是战术卡触发生成的
+    //   **契约 / 附魔模板**、**没有费用**（不是「0 费」）。
+    // 数据判据：当前 build 的卡 SO `manaCost = -1`（原版「不可直接打出」哨兵）——
+    //   `资料/普查产出_1018/allcards_1350/cards_raw.json` 里这 4 个 `uniqueId` 全 `-1`；
+    //   生成链 = `Enchantments` SO 的 markOfChaos 映射（10→Blood / 20→Resilience /
+    //   30→Excess / 40→Fate，50 = 四选一）+ 反编译 `CardScript__AddEffect.c:776-792` case 8
+    //   `Enchantments.GetMarkOfChaos` → `RawCardScript.TriggerEnchantment`（只作附魔挂上去，从不直接打出）。
+    // ⇒ 生成器（`工具/gen_cards_engine.py` 的 SO 真值层）落 `cost = -1`；
+    //   `CardView.ShowsCost` = `cost >= 0 && type != "hero"` ⇒ 费用格（底板 + 数字）都不画。
+    //
+    // 三条断言，**每条都写明怎么才能红（灭自证）**：
+    //   ① `cost == -1` —— 🧨 把生成器改回「只取 `manaCost >= 0`」⇒ 必红；
+    //   ② `ShowsCost == false` —— 🧨 删掉 `ShowsCost` 里的 `cost >= 0` ⇒ 必红；
+    //   ③ 费用底板节点不激活 —— 🧨 把 `Build`/`SetFace` 里的 `ShowsCost` 判据删掉 ⇒ 必红。
+    static void CheckDarkPactNoCost()
+    {
+        Debug.Log(P + "--- Dark Pact of *（附魔模板）：无费用 ---");
+        var pool = RuleEngine.CardDatabase.Load();
+        var names = new[]
+        {
+            "Dark Pact of Fate", "Dark Pact of Blood",
+            "Dark Pact of Excess", "Dark Pact of Resilience",
+        };
+        foreach (var n in names)
+        {
+            RuleEngine.CardDef def = null;
+            foreach (var c in pool) if (c.Name == n) { def = c; break; }
+            Check(def != null, $"卡池里有 `{n}`（找不到 ⇒ 这一张的下面两条**没验到**，不是通过）");
+            if (def == null) continue;
+
+            // ① 数据：`cost = -1`（原版哨兵）。⛔ 别读成「缺值」—— 缺值是 `-1`、但这里 SO 里就是 `-1`。
+            Check(def.Cost == -1,
+                  $"① `{n}` 的 `cost = -1`（现读 {def.Cost}；原版 `manaCost = -1` = 不可直接打出）"
+                + "｜🧨 生成器改回「只取 >=0」⇒ 本条必红");
+
+            var data = BattleDriver.ToCardData(def, def.Faction);
+            // ② 卡面判据：不画费用。🧨 删掉 `ShowsCost` 的 `cost >= 0` ⇒ 必红。
+            bool show = CardView.ShowsCost(data);
+            Check(!show,
+                  $"② `{n}` 的 `CardView.ShowsCost == false`（现读 {show}）"
+                + "｜🧨 删掉 `ShowsCost` 的 `cost >= 0` ⇒ 本条必红");
+
+            // ③ 真正的节点：费用底板（原版 `Cost Container/Cost Background`）**不激活**。
+            var root = new GameObject("chk_darkpact_" + n.Replace(" ", "_"));
+            var v = CardView.Create(root.transform, data, root.name);
+            Check(!v.CostVisible,
+                  $"③ `{n}` 的费用底板节点**不激活**（`CostVisible == false`）"
+                + "｜🧨 把 `Build`/`SetFace` 里的 `ShowsCost` 判据删掉 ⇒ 本条必红");
+            Object.DestroyImmediate(root);
+        }
+    }
+
     [MenuItem("Tools/CardPresentation/生成演示场景并截图")]
     public static void Run()
     {
         Debug.Log(P + "=== 卡牌基座自检 开始 ===");
         _pass = 0; _fail = 0;      // 这个入口也能从菜单跑，跑第二次不能累加
+        // 🔴 2026-10-19：`Dark Pact of *` 的「无费用」（数据 + 卡面两条口径，见下面那个方法）
+        CheckDarkPactNoCost();
         Debug.Log(P + "  " + CardArt.Describe());
         Directory.CreateDirectory(OutDir);
 
@@ -249,6 +307,8 @@ public static class CardBaseDemo
         AssertTitleMidline();             // 🔴 2026-10-18：`A848` —— 卡名那层 = 原版的 `Midline`
         AssertCreatedBy();                // 🔴 2026-10-18：`A985④` —— 卡面第五层「由谁造出来的」（原版 `CreatedByText`）
         AssertTextBg(cam);               // 🔵 2026-10-19（A1500② 的断言侧）：文字底板 —— 含**渲图像素**判据
+        AssertRarityGem(cam);             // 🔴 2026-10-18（A1492）：稀有度宝石 —— 结构 + 渲图灭自证
+        AssertCostTierRefresh();          // 🆕 2026-10-18（A1549 尾巴）：运行时切档 → 已建好的卡跟上
 
         // ---- 4c. 🆕 2026-10-12（`A1658` / `A1659` / `A1665`）：**卡面层级三项**的断言 ----
         //   为什么挂这儿：那三条全是「**层与层之间的关系**」（用户 2026-10-12 真机上报的三件），
@@ -262,6 +322,7 @@ public static class CardBaseDemo
         Debug.Log(P + "--- 手牌布局：小屏档触发 · 最近空位 · 选中让位 · 层序 ---");
         AssertHandLayout(cam);
         ProbeTextBg(cam);                 // 🔍 诊断（`WF_TEXTBG_PROBE=1` 才跑；不设 = 零输出）
+        ProbeTextBgDiff(cam);             // 🔍 诊断（`A1934`；`WF_TEXTBG_DIFF=1` 才跑 —— 开/关两帧存 PNG + 逐像素 diff）
 
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
         if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
@@ -1131,6 +1192,46 @@ public static class CardBaseDemo
                     + $"｜线性读数 开 {linOn:F5} / 关 {linOff:F5}"
                     + $"｜🔴 **本条不断量级**：实测 {thru:F3} 与 {band} 不符 ⇒ 账 `A1934`（两条测量路矛盾）"
                     + "｜🔴 2026-10-14 前的旧读法（全卡净掉幅 ≥25%）**已废** —— 它的期望值来路错了两处，见上面那段订正痕");
+
+                // ==================================================================
+                // ---- ⑥ 灭自证（`A1513`）：证明 ④ 那条检测器**真的会红** ----
+                //  **为什么要它**：检测器自己也会坏（判据写错 / 窗口量错 / 读数路径变了）——
+                //  ④ 今天绿，可能只是「它根本量不出差别」。这里用一个**必然更差**的现场反证：
+                //  把底板 α 调 0（层还在、一个像素都不画），用**同一条算式**再量一次，
+                //  透过率必须回到 ≈1（> 0.95）⇒ ④ 会判红。改完**当场还原**。
+                // ==================================================================
+                if (matBig != null)
+                {
+                    var others2 = new List<MeshRenderer>();
+                    foreach (var rr in vBig.transform.GetComponentsInChildren<MeshRenderer>(true))
+                        if (rr != rBig && rr.enabled) { rr.enabled = false; others2.Add(rr); }
+                    var inkBack = matBig.color;
+                    matBig.color = new Color(0f, 0f, 0f, 0f);
+                    float linInk0 = MeanLumLinear(RenderPixels(cam, PW, PH, pxIn));
+                    matBig.color = inkBack;
+                    foreach (var rr in others2) if (rr != null) rr.enabled = true;
+                    float thru0 = linOff > 1e-6f ? linInk0 / linOff : -1f;
+                    Check(thru0 > 0.95f,
+                          $"⑥ 灭自证①：把底板 **α 调 0** ⇒ ④ 那条检测器**必须判红**（实测透过率 {thru0:F3} > 0.95）"
+                        + "｜这条自己不绿 = ④ 的算式/窗口坏了 ⇒ **④ 的绿也不能信**");
+
+                    // ⑥·b 层序的**机制**：同一张卡的所有层共用**同一个** renderQueue（卡内层序靠 z / 到相机距离）。
+                    //  判据：`CardView` 的「一张卡一段队列」（`SetQueue` / `StampQueue` 是唯一实现）。
+                    var rCost = LayerMesh(vBig.transform, "costBg");
+                    int qBg = matBig.renderQueue;
+                    int qCost = (rCost != null && rCost.sharedMaterial != null) ? rCost.sharedMaterial.renderQueue : -1;
+                    Check(rCost != null && qBg == vBig.Queue && qCost == qBg,
+                          $"⑥·b 同一张卡的层**共用一个 renderQueue**（textBg {qBg} · costBg {qCost} · 卡 {vBig.Queue}）"
+                        + "｜🧨 某层漏了 `StampQueue`（队列与别人不同）⇒ 这一层的层序就散了 ⇒ 本条红");
+                    if (rCost != null)
+                    {
+                        matBig.renderQueue = qBg - 1;                       // 故意制造「层序散了」
+                        bool broke = matBig.renderQueue != qCost;
+                        matBig.renderQueue = qBg;                           // 当场还原
+                        Check(broke, "⑥·b 灭自证②：把底板队列**调低 1** ⇒ 层序检测器**必须**判出不一致"
+                                   + "｜不红 = 这条检测器没牙（层序错了它也看不见）");
+                    }
+                }
             }
 
             // ---- ⑤ 同类风险：别让那几块**静态缓存网格**被收成 null ----
@@ -1161,6 +1262,244 @@ public static class CardBaseDemo
                 + "｜🧨 `UnloadUnusedAssets` 把静态缓存网格收走 ⇒ `sharedMesh` 变 null、那几层静默不画");
         }
         finally { Object.DestroyImmediate(root); }
+    }
+
+    // ==================================================================
+    //  🔴 2026-10-18（`A1492`）：**稀有度宝石**（卡底那颗菱形）—— 结构断言 + 渲图灭自证
+    //
+    //  **为什么要有这一块**：宝石落点 2026-10-11 已按「卡框贴图上那个黑菱形凹槽」重算过
+    //  （`CardView.FaceGemAt01` / `RarityGemX/Y`），但**一条断言都没有** —— 谁把
+    //  `FrameGemPx/Py` / `GemMesh` 改回去，全套自检照样全绿。
+    //
+    //  **判据锚在【卡框贴图实测】上**（⛔ 不是我们自己的 `RarityGem*` 常量）：
+    //    · 凹槽 bbox = 卡框贴图 `x 478..544 / y 919..981`（贴图像素、y 从顶部数）
+    //      —— 2026-10-11 对 `frame_saimhann_tier3.png` 的黑菱形连通域实测；15 个阵营的卡框
+    //      画在同一张 1024² 画布上、凹槽像素位置逐张一致 ⇒ 中心 **(511, 950)**。
+    //    · ① **结构**：`gem` 层网格 bounds 的中心 = 凹槽中心（走**卡框层自己的网格 bounds +
+    //      `FrameUvRect`** 换算，⛔ 不碰任何私有常量），且中心**落在凹槽矩形内**。
+    //      容差 0.004 卡单位（≈1.3 贴图像素）。旧实现 y 偏 0.0491 / x 偏 0.0147 ⇒ **必红**。
+    //    · ② **渲图（灭自证）**：只留 `frame` 渲一帧、再开 `gem` 渲一帧，两帧作差 = **宝石亮核**
+    //      （权重 = 逐像素亮度增量）；其质心必须落在**凹槽中心**在屏幕上的位置 **≤ 3 px** 内，
+    //      且「宝石确实比背后的卡框亮」（平均增量 ≥ 12）。
+    //      ⚠️ **为什么不用「渲出来的暗区质心」当凹槽锚点**：实测卡框在凹槽**上下**同样暗
+    //      （贴图行剖面：凹槽外 lum≈13..23、凹槽内≈0..25）⇒ 暗区质心被拉偏 ≈8 px，那条件不成立。
+    //      **凹槽位置只能从贴图像素来** —— 这也是本条比「读 `RarityGemY`」有牙的地方
+    //      （改实现不改判据 ⇒ 红；改判据不改实现 ⇒ 红）。
+    //
+    //  ⚠️ **0.042 的成因仍然没查清**（原版实拍里宝石比凹槽中心再靠右 ~0.042 卡单位；prefab 两个
+    //     节点的 x 都是 0 ⇒ 推不出来，疑为原版 frame sprite 的 rect/pivot 与我们的 `FrameUv` 不同）
+    //     ⇒ **本笔不改几何、也不拿断言去逼近它**（判据不足；见 `T04_卡面几何与图标.md:34`）。
+    //  ⚠️ **「宝石整块完全落在凹槽内」也不断言**：`RarityGemW/H` 是**固定卡单位**（按
+    //     `frame_saimhann_tier3` 那一张量出来的），而凹槽经各卡框 uv 换算后宽 **0.2149..0.2532**
+    //     （150 张实测）⇒ 125/150 张卡框的凹槽比这块宝石窄。尺寸该不该按 uv 缩放
+    //     **判据不足**（PnP 上量到的真宝石反而比凹槽小 ~20%）⇒ 只**记录**、不立红线。
+    // ==================================================================
+    static void AssertRarityGem(Camera cam)
+    {
+        var pool = CardDatabase.Load();
+        CardDef def = null;
+        for (int i = 0; i < pool.Count; i++) if (pool[i].Name == "Heavy Intercessor") { def = pool[i]; break; }
+        Check(def != null, "★ 前提：卡池里有尺子卡 `Heavy Intercessor`（换名字要同时改这一行）");
+        if (def == null) return;
+
+        var data = BattleDriver.ToCardData(def, def.Faction);
+        var root = new GameObject("gem_probe");
+        try
+        {
+            var v = CardView.Create(root.transform, data, "gem_probe");
+            var rFrame = LayerMesh(v.transform, "frame");
+            var rGem = LayerMesh(v.transform, "gem");
+            Check(rFrame != null && rGem != null,
+                  "★ 前提：这张卡建出了 `frame` 与 `gem` 两层（缺一层 = 资源缺失 ⇒ 下面**没验到**，别读成通过）");
+            if (rFrame == null || rGem == null) return;
+
+            // 凹槽（**贴图像素**，y 从顶部数）—— 判据见上面那段
+            const float Gx0 = 478f, Gx1 = 544f, Gy0 = 919f, Gy1 = 981f, Gcx = 511f, Gcy = 950f;
+
+            // 贴图像素 → **卡框层局部坐标**。只走公开量：`FrameTexture` / `FrameUvRect` / 网格 bounds。
+            // ⚠️ 层没有旋转与缩放（`AddLayer` 只给 z）⇒ 层局部系与卡根局部系同向、同尺度。
+            Vector2 FramePxToLocal(float px, float py)
+            {
+                var tex = v.FrameTexture;
+                var mf = rFrame.GetComponent<MeshFilter>();
+                var uv = v.FrameUvRect;
+                if (tex == null || mf == null || mf.sharedMesh == null
+                    || uv.width <= 1e-5f || uv.height <= 1e-5f) return new Vector2(float.NaN, float.NaN);
+                var b = mf.sharedMesh.bounds;
+                float u = (px + 0.5f) / tex.width;
+                float vv = 1f - (py + 0.5f) / tex.height;
+                float fu = (u - uv.xMin) / uv.width;
+                float fv = (vv - uv.yMin) / uv.height;
+                return new Vector2(b.min.x + fu * b.size.x, b.min.y + fv * b.size.y);
+            }
+
+            var g00 = FramePxToLocal(Gx0, Gy0);
+            var g11 = FramePxToLocal(Gx1, Gy1);
+            var gc = FramePxToLocal(Gcx, Gcy);
+            bool mapped = !float.IsNaN(gc.x) && !float.IsNaN(g00.x) && !float.IsNaN(g11.x);
+            Check(mapped, "★ 前提：凹槽像素能换算到卡根坐标（卡框贴图 / `FrameUvRect` / 网格都在）");
+            if (!mapped) return;
+
+            var groove = Rect.MinMaxRect(Mathf.Min(g00.x, g11.x), Mathf.Min(g00.y, g11.y),
+                                         Mathf.Max(g00.x, g11.x), Mathf.Max(g00.y, g11.y));
+            // 卡根局部 → 卡单位（今天两者相等；写成除法是为将来改卡尺寸时不静默错）
+            float kx = CardView.CardUnitW / CardView.Width, ky = CardView.CardUnitH / CardView.Height;
+            var grooveCu = Rect.MinMaxRect(groove.xMin * kx, groove.yMin * ky,
+                                           groove.xMax * kx, groove.yMax * ky);
+            var gcCu = new Vector2(gc.x * kx, gc.y * ky);
+
+            // ---- ① 结构：宝石中心 == 凹槽中心 ----
+            var mfGem = rGem.GetComponent<MeshFilter>();
+            var bGem = (mfGem != null && mfGem.sharedMesh != null) ? mfGem.sharedMesh.bounds : default(Bounds);
+            var gemCu = new Vector2(bGem.center.x * kx, bGem.center.y * ky);
+            float dCu = Vector2.Distance(gemCu, gcCu);
+            Check(dCu < 0.004f,
+                  $"① 宝石中心 = **卡框贴图上那个凹槽的中心** (511,950)（实测差 {dCu:F4} 卡单位）"
+                + $"｜判据 = 贴图实测 bbox（478..544 / 919..981），⛔ 不是 `RarityGem*` 常量"
+                + "｜🧨 改回旧固定值（y −1.4635 / x=0）⇒ 差 0.049 / 0.015 ⇒ 本条红");
+            Check(grooveCu.Contains(gemCu),
+                  $"①·b 宝石中心**落在凹槽矩形内**（凹槽 {grooveCu.xMin:F4}..{grooveCu.xMax:F4} × "
+                + $"{grooveCu.yMin:F4}..{grooveCu.yMax:F4}，宝石中心 {gemCu.x:F4}, {gemCu.y:F4}）"
+                + "｜🧨 宝石被挪出凹槽 ⇒ 红");
+            // 只记录、不断言：整块 bounds 与凹槽的大小关系（尺寸判据不足，见方法头那段）
+            Debug.Log(P + $"  [A1492] 宝石 bounds {bGem.size.x * kx:F4}×{bGem.size.y * ky:F4} 卡单位 · "
+                        + $"凹槽 {grooveCu.width:F4}×{grooveCu.height:F4} ⇒ 每边溢出 "
+                        + $"x {(bGem.size.x * kx - grooveCu.width) * 0.5f:F4} / "
+                        + $"y {(bGem.size.y * ky - grooveCu.height) * 0.5f:F4} 卡单位（**记录，不断言**）");
+
+            // ---- ② 渲图：宝石亮核质心 vs 凹槽中心的屏幕位置 ----
+            const int PW = 1920, PH = 1080;
+            v.SetPose(new Vector3(0f, 1.6f, 0f), 0f, 1f);      // 上半屏空地（与 AssertTextBg 同一处）
+            cam.aspect = (float)PW / PH;                        // ⚠️ `WorldToViewportPoint` 也吃它，先设死
+            var gemPx = LayerPxRect(cam, rGem, PW, PH);
+            bool okPx = gemPx.width > 8f && gemPx.height > 8f
+                     && gemPx.xMin > 4f && gemPx.yMin > 4f && gemPx.xMax < PW - 4f && gemPx.yMax < PH - 4f;
+            Check(okPx, $"★ 前提：宝石那块**整块落在 {PW}×{PH} 画面内**"
+                      + $"（像素矩形 x {gemPx.x:F0} y {gemPx.y:F0} w {gemPx.width:F0} h {gemPx.height:F0}）");
+            if (okPx)
+            {
+                // 只留 `frame`（和 `gem`）；其余层全关 —— 两帧作差会把这些静态东西约掉，但关掉更干净
+                var hidden = new List<MeshRenderer>();
+                foreach (var rr in v.transform.GetComponentsInChildren<MeshRenderer>(true))
+                    if (rr != rFrame && rr != rGem && rr.enabled) { rr.enabled = false; hidden.Add(rr); }
+
+                var win = new Rect(gemPx.x - gemPx.width * 0.25f, gemPx.y - gemPx.height * 0.25f,
+                                   gemPx.width * 1.5f, gemPx.height * 1.5f);
+                // `RenderPixels` 会把这几个值再钳一次 —— 这里照它的算式先算，下面换算质心才与读数同坐标系
+                int rw = Mathf.Max(1, Mathf.RoundToInt(win.width));
+                int rh = Mathf.Max(1, Mathf.RoundToInt(win.height));
+                int rx = Mathf.Clamp(Mathf.RoundToInt(win.x), 0, Mathf.Max(0, PW - rw));
+                int ry = Mathf.Clamp(Mathf.RoundToInt(win.y), 0, Mathf.Max(0, PH - rh));
+
+                rGem.enabled = false;
+                var frameOnly = RenderPixels(cam, PW, PH, win);
+                rGem.enabled = true;
+                var withGem = RenderPixels(cam, PW, PH, win);
+                foreach (var rr in hidden) if (rr != null) rr.enabled = true;
+
+                double sw = 0, sx = 0, sy = 0, sdiff = 0;
+                int n = 0, len = Mathf.Min(frameOnly.Length, withGem.Length);
+                for (int i = 0; i < len; i++)
+                {
+                    float d = Lum(withGem[i]) - Lum(frameOnly[i]);
+                    if (d <= 8f) continue;                       // 8/255 ≈ 噪声底（宝石增量实测 >100）
+                    int x = i % rw, y = i / rw;                  // `GetPixels32` 的 row 0 在**下边**
+                    sw += d; sx += x * d; sy += y * d; sdiff += d; n++;
+                }
+
+                // 凹槽中心 → 世界 → 屏幕 → 同一块读回窗口的局部坐标
+                Vector3 world = rFrame.transform.TransformPoint(new Vector3(gc.x, gc.y, 0f));
+                Vector3 vp = cam.WorldToViewportPoint(world);
+                var expected = new Vector2(vp.x * PW - rx, vp.y * PH - ry);
+
+                bool hasPix = sw > 0 && n >= 40;
+                Check(hasPix, $"② ★ 前提：宝石**真的画出了像素**（亮核 {n} 像素 / 权重和 {sw:F0}）"
+                            + "｜一个像素都没有 = 下面那条**没验到**，不是通过");
+                if (hasPix)
+                {
+                    var core = new Vector2((float)(sx / sw), (float)(sy / sw));
+                    float dist = Vector2.Distance(core, expected);
+                    float meanDiff = (float)(sdiff / n);
+                    Check(dist < 3f,
+                          $"② **灭自证**：渲染结果里「宝石亮核质心」= 凹槽中心（屏幕差 {dist:F2} px ≤ 3）"
+                        + $"｜亮核 {core.x:F1},{core.y:F1} · 凹槽期望 {expected.x:F1},{expected.y:F1}"
+                        + "｜🧨 把 `GemMesh` 的 x 改回 0 / y 改回 −1.4635 ⇒ 质心偏 5 / 16 px ⇒ 本条红"
+                        + "（期望点来自**贴图像素 511,950**，⛔ 不来自任何 `RarityGem*` 常量）");
+                    Check(meanDiff > 12f,
+                          $"②·b **宝石确实比它背后的卡框亮**（亮核内平均亮度增量 {meanDiff:F1} ≥ 12）"
+                        + "｜🧨 宝石没画 / 画成暗色 / 被卡框盖住 ⇒ 本条红（质心那条也会跟着红）");
+                }
+            }
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
+    /// <summary>一个像素的 Rec.709 亮度（0..255）—— 与 `MeanLum` 同一套权重，单像素版。</summary>
+    static float Lum(Color32 c) { return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b; }
+
+    // ==================================================================
+    //  🆕 2026-10-18（`A1549` 尾巴）：**运行时切档 ⇒ 已建好的卡跟上**
+    // ==================================================================
+    //  原版的行为 = `CardTextCountersController.Toggle(...)` 每次按当时的
+    //  `GameStaticData.smallScreenUI` **重新选容器**（`CardTextCountersController__Toggle.c`）。
+    //  我们的费用格把档位**烘进了网格**（尺寸/落点），所以切档之后必须有一条刷新链：
+    //    ① `CardView.RefreshCostTier()` —— 单卡重做；
+    //    ② `SetPose` / `SetData` 开头自动比一次档位（= 切完设置后的下一次布局就生效）；
+    //    ③ `CardView.RefreshAllCostTiers()` —— 给设置窗那颗开关一次性刷全场（接线在
+    //       `Shell/**`，不在本写手白名单 ⇒ 见报告 §三）。
+    //  ⚠️ 本条**动全局开关** ⇒ 与 `BattleScene.Run` 同一套自检纪律：`PersistOverride = true`
+    //     （不写 `PlayerPrefs`）+ `finally` 里还原内存态。
+    // ==================================================================
+    static void AssertCostTierRefresh()
+    {
+        Debug.Log(P + "--- 费用格两档：运行时切档后的刷新链（A1549 尾巴）---");
+        bool wasOn = SmallScreenUI.Enabled, wasChosen = SmallScreenUI.ChosenManually;
+        bool wasPersist = SmallScreenUI.PersistOverride;
+        SmallScreenUI.PersistOverride = true;
+        var root = new GameObject("cost_tier_refresh");
+        try
+        {
+            SmallScreenUI.Set(false);
+            var v = CardView.Create(root.transform, CardData.Placeholder(0), "cost_tier");
+            Check(v.CostTierBuilt == 0, "① 前提：普通档建出来的卡 `CostTierBuilt == 0`");
+            var mr = LayerMesh(v.transform, "costBg");
+            Check(mr != null, "① 前提：这张卡建出了 `costBg` 层（督军 / 底图取不到时没有 ⇒ 下面验不了）");
+            if (mr == null) return;
+            var mf0 = mr.GetComponent<MeshFilter>();
+            float w0 = mf0 != null && mf0.sharedMesh != null ? mf0.sharedMesh.bounds.size.x : 0f;
+
+            SmallScreenUI.Set(true);
+            bool did = v.RefreshCostTier();
+            Check(did, "② 切到大号档后 `RefreshCostTier()` **真的重做了**（返回 true）"
+                     + "｜🧨 只改标记不换网格 ⇒ 本条红");
+            Check(v.CostTierBuilt == 1, "② `CostTierBuilt` 跟到 1");
+            var mr2 = LayerMesh(v.transform, "costBg");
+            var mf2 = mr2 != null ? mr2.GetComponent<MeshFilter>() : null;
+            float w1 = mf2 != null && mf2.sharedMesh != null ? mf2.sharedMesh.bounds.size.x : 0f;
+            Check(w0 > 1e-4f && Mathf.Abs(w1 / w0 - CardView.CostBigScale) < 0.01f,
+                  $"③ 网格**真的**按原版两档 ×{CardView.CostBigScale} 放大（{w0:F4} → {w1:F4}，比 {w1 / w0:F3}）"
+                + "｜判据 = 原版 `Cost Container` ↔ `Cost Container Big` 逐项 ×1.2（见 `CardView.CostBigScale` 注释）");
+            Check(!v.RefreshCostTier(), "④ 档位没变时再调一次 = 空操作（返回 false，不白重建）");
+
+            // ⑤ **自动那条链**：切回去之后**不显式调** `RefreshCostTier`，只 `SetPose` 一次
+            //    （= 真机上「设置切完 → 下一次布局」那条路）。
+            SmallScreenUI.Set(false);
+            v.SetPose(Vector3.zero, 0f, 1f);
+            var mr3 = LayerMesh(v.transform, "costBg");
+            var mf3 = mr3 != null ? mr3.GetComponent<MeshFilter>() : null;
+            float w2 = mf3 != null && mf3.sharedMesh != null ? mf3.sharedMesh.bounds.size.x : 0f;
+            Check(v.CostTierBuilt == 0 && Mathf.Abs(w2 / w0 - 1f) < 0.01f,
+                  $"⑤ `SetPose` 开头的自动同步把档位刷回普通档（`CostTierBuilt` = {v.CostTierBuilt}，宽 {w2:F4}）"
+                + "｜🧨 删掉 `SetPose` 里那句 `SyncCostTier()` ⇒ 本条红（真机上表现为「切完设置卡不变」）");
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            // ⚠️ **还原内存态必须还在 `PersistOverride = true` 期间做** —— 否则 `Set` 会写
+            //    `PlayerPrefs`（自检不许动玩家的真设置）。先把 `PersistOverride` 放回去就会踩这个。
+            if (wasChosen) SmallScreenUI.Set(wasOn); else SmallScreenUI.ResetForTest();
+            SmallScreenUI.PersistOverride = wasPersist;
+        }
     }
 
     // ==================================================================
@@ -1257,6 +1596,173 @@ public static class CardBaseDemo
             foreach (var rr in reenable) if (rr != null) rr.enabled = true;
             Object.DestroyImmediate(root);
         }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-18（`A1934`）「只留这一层」开/关两帧**各存 PNG** + 逐像素 diff
+    //
+    //  **门 = 环境变量 `WF_TEXTBG_DIFF=1`**（与 `ProbeTextBg` 的 `WF_TEXTBG_PROBE` 分开，互不影响；
+    //  不设 ⇒ 一个字节都不打、不出图）。
+    //
+    //  **为什么要有它**：量「文字底板压暗了多少」有两条路 ——
+    //    · 路 A（`Shot` 存图、在矩形左右边缘读台阶）：压暗 **≈38%**（线性透过率 ≈0.43，
+    //      正好落在原版字段 `m_Color.a = 0.647` 推出的 0.432 一带）；
+    //    · 路 B（`RenderPixels` 读回、只留这一层开/关各渲一帧）：**0.927**（只掉 7%）。
+    //  两条必有一条在骗人（账 `A1934`，判据 → `资料/普查产出_第二十九会话/A1922_文字底板_诊断.md`）。
+    //  本探针把**同一台相机、同一条渲染路径**渲出的两帧**都落成 PNG**，再在**同一份 Color32[]**
+    //  上逐像素做差 ⇒「存图」与「读回」之间不再有任何实现差异，矛盾只可能出在
+    //  「取的矩形」或「看的位置」上。
+    //
+    //  **怎么读结果**（图在 `_tmp_view/cardbase/`）：
+    //    ① `cardbase_a1934_textbg_on.png` / `cardbase_a1934_textbg_off.png` —— 两帧应当**只差那块底板矩形**；
+    //    ② `cardbase_a1934_textbg_diff.png` —— |Δ| 的放大图（×32 截断）。底板矩形应当**整块亮**：
+    //       · 整张全黑 ⇒ 底板真的没画；
+    //       · 只在日志里那块 `px` 矩形**之外**亮 ⇒ `LayerPxRect` 算错了（矩形取偏）。
+    //    ③ 日志 `[A1934]` 那几行给出：`px` 矩形内 / 整帧的平均**线性**与 **sRGB** 透过率、
+    //       |Δ|>1 / >8 的像素数、|Δ| 的 bbox（屏幕像素，原点左下）、以及 bbox 与 `px` 的 IoU。
+    //       **判据**：
+    //       · bbox 与 `px` 重叠良好（IoU > 0.5）⇒ 矩形是对的；
+    //       · `px` 内线性透过率若与路 B 的 0.927 一致（而远离 0.43）⇒ **读回这条路没骗人**，
+    //         当年的 38% 是在**另一套配置**（全卡 / 另一层 / 另一个位置）上量的；
+    //       · PNG 里肉眼可见强压暗、而这里仍算 ≈0.93 ⇒ **读回路径在骗人**（那时才去查
+    //         `ReadPixels` 的 sRGB/linear 或 RT 格式）。
+    // ==================================================================
+    static void ProbeTextBgDiff(Camera cam)
+    {
+        if (System.Environment.GetEnvironmentVariable("WF_TEXTBG_DIFF") != "1") return;
+        const string Q = P + "  [A1934] ";
+        const int PW = 1920, PH = 1080;
+        var root = new GameObject("textbg_diff_diag");
+        var reenable = new List<MeshRenderer>();
+        try
+        {
+            var v = CardView.Create(root.transform, CardData.Placeholder(0), "textbg_diff");
+            v.SetPose(new Vector3(0f, 1.6f, 0f), 0f, 1f);     // 与 `AssertTextBg` / `ProbeTextBg` 同一处空地
+            var r = LayerMesh(v.transform, "textBg");
+            if (r == null)
+            {
+                Debug.Log(Q + "**没建出 `textBg` 层** ⇒ 本探针无从做起（先查底板图 `Card_Text_smooth_background`）");
+                return;
+            }
+            // 「只留这一层」：同卡其余所有 MeshRenderer 全关（与 `ProbeTextBg` 同一套做法）
+            foreach (var rr in v.transform.GetComponentsInChildren<MeshRenderer>(true))
+                if (rr != r && rr.enabled) { rr.enabled = false; reenable.Add(rr); }
+            var px = LayerPxRect(cam, r, PW, PH);
+
+            // ---- 两帧：开 / 关，都走同一个 `RenderFramePixels`，都存 PNG ----
+            r.gameObject.SetActive(true);
+            var on = RenderFramePixels(cam, PW, PH);
+            SavePixelsPng(on, PW, PH, "a1934_textbg_on");
+            r.gameObject.SetActive(false);
+            var off = RenderFramePixels(cam, PW, PH);
+            SavePixelsPng(off, PW, PH, "a1934_textbg_off");
+            r.gameObject.SetActive(true);
+
+            // ---- 逐像素 diff ----
+            int n = PW * PH;
+            var diff = new Color32[n];
+            double sInOn = 0, sInOff = 0, sAllOn = 0, sAllOff = 0;
+            double lInOn = 0, lInOff = 0;
+            int nIn = 0, hit1 = 0, hit8 = 0;
+            int bx0 = PW, bx1 = -1, by0 = PH, by1 = -1;
+            float maxAbs = 0f;
+            int rx0 = Mathf.Clamp(Mathf.RoundToInt(px.x), 0, PW - 1);
+            int ry0 = Mathf.Clamp(Mathf.RoundToInt(px.y), 0, PH - 1);
+            int rx1 = Mathf.Clamp(Mathf.RoundToInt(px.x + px.width), rx0 + 1, PW);
+            int ry1 = Mathf.Clamp(Mathf.RoundToInt(px.y + px.height), ry0 + 1, PH);
+            for (int y = 0; y < PH; y++)
+            {
+                for (int x = 0; x < PW; x++)
+                {
+                    int i = y * PW + x;
+                    float lo = Lum(on[i]), lf = Lum(off[i]);
+                    float d = Mathf.Abs(lo - lf);
+                    sAllOn += lo; sAllOff += lf;
+                    bool inRect = x >= rx0 && x < rx1 && y >= ry0 && y < ry1;
+                    if (inRect)
+                    {
+                        nIn++;
+                        sInOn += lo; sInOff += lf;
+                        lInOn += SrgbToLinear(on[i].r); lInOff += SrgbToLinear(off[i].r);
+                    }
+                    if (d > 1f) { hit1++; if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+                    if (d > 8f) hit8++;
+                    if (d > maxAbs) maxAbs = d;
+                    byte g = (byte)Mathf.Clamp(Mathf.RoundToInt(d * 32f), 0, 255);
+                    diff[i] = new Color32(g, g, g, 255);
+                }
+            }
+            SavePixelsPng(diff, PW, PH, "a1934_textbg_diff");
+
+            float srgbIn = nIn > 0 && sInOff != 0 ? (float)(sInOn / sInOff) : float.NaN;   // sRGB 亮度比
+            float linIn = nIn > 0 && lInOff != 0 ? (float)(lInOn / lInOff) : float.NaN;    // 线性 R 透过率（够做比值）
+            float srgbAll = sAllOff != 0 ? (float)(sAllOn / sAllOff) : float.NaN;
+            bool bboxOk = bx1 >= 0;
+            float iou = bboxOk ? IouRect(bx0, by0, bx1 + 1, by1 + 1, rx0, ry0, rx1, ry1) : 0f;
+            Debug.Log(Q + $"「只留这一层」开/关两帧已存：`cardbase_a1934_textbg_on.png` / `_off.png` "
+                        + $"· diff `cardbase_a1934_textbg_diff.png`（×32；像素原点左下）");
+            Debug.Log(Q + $"`px` 矩形 x{px.x:F0} y{px.y:F0} w{px.width:F0} h{px.height:F0}（{nIn} px）"
+                        + $"｜**线性**透过率 = {linIn:F3}（路 B 读数 = 0.927、路 A = 0.43 一带）"
+                        + $"｜sRGB 亮度比 = {srgbIn:F3}｜整帧 sRGB 亮度比 = {srgbAll:F3}");
+            Debug.Log(Q + $"|Δ| sRGB 亮度：>1 的像素 **{hit1}** · >8 的 **{hit8}** · 最大 {maxAbs:F1}"
+                        + $"｜|Δ|>1 的 bbox = " + (bboxOk ? $"x{bx0}..{bx1} y{by0}..{by1}" : "**空（两帧逐像素相同）**")
+                        + $"｜bbox vs `px` 的 IoU = {iou:F2}"
+                        + (bboxOk && iou > 0.5f
+                           ? " ⇒ **矩形取对了**（差异确实落在记录的那块里）"
+                           : bboxOk
+                             ? " ⇒ 🔴 **差异不在记录的那块矩形里** ⇒ 先查 `LayerPxRect`"
+                             : " ⇒ 🔴 **两帧一个像素都没差** ⇒ 底板真的没画（或两帧渲的是同一状态）"));
+            Debug.Log(Q + "怎么读：见本方法头部「怎么读结果」——① 肉眼看 on/off 两帧；"
+                        + "② diff 图整块亮 = 底板真画了；③ 若线性透过率贴 0.927 而 PNG 肉眼强压暗 ⇒ 读回路径在骗人。");
+        }
+        finally
+        {
+            foreach (var rr in reenable) if (rr != null) rr.enabled = true;
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    /// <summary>两个整数矩形（x0,y0,x1,y1，右/上开区间）的交并比。`A1934` 用。</summary>
+    static float IouRect(int ax0, int ay0, int ax1, int ay1, int bx0, int by0, int bx1, int by1)
+    {
+        int ix0 = Mathf.Max(ax0, bx0), iy0 = Mathf.Max(ay0, by0);
+        int ix1 = Mathf.Min(ax1, bx1), iy1 = Mathf.Min(ay1, by1);
+        int iw = Mathf.Max(0, ix1 - ix0), ih = Mathf.Max(0, iy1 - iy0);
+        long inter = (long)iw * ih;
+        long union = (long)(ax1 - ax0) * (ay1 - ay0) + (long)(bx1 - bx0) * (by1 - by0) - inter;
+        return union > 0 ? (float)inter / union : 0f;
+    }
+
+    /// <summary>渲**整帧**并读回全部像素（`Color32[]` 行 0 = 图**下边**，与 `ReadPixels` 同坐标系）。
+    /// 与 `Shot` / `RenderPixels` **同一条渲染路径**（同一台相机、同一个 `cam.Render()`、同一种 RT）
+    /// —— `A1934` 要的正是「把路 A 存图与路 B 读回之间的实现差异抹掉」。</summary>
+    static Color32[] RenderFramePixels(Camera cam, int w, int h)
+    {
+        cam.aspect = (float)w / h;
+        var rt = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32);
+        cam.targetTexture = rt;
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        cam.Render();
+        var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+        tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+        tex.Apply();
+        var got = tex.GetPixels32();
+        RenderTexture.active = prev;
+        cam.targetTexture = null;
+        Object.DestroyImmediate(tex);
+        RenderTexture.ReleaseTemporary(rt);
+        return got;
+    }
+
+    /// <summary>把一整帧 `Color32[]` 存成 PNG（`A1934` 用；路径规则与 `Shot` 同一目录/前缀）。</summary>
+    static void SavePixelsPng(Color32[] p, int w, int h, string tag)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+        tex.SetPixels32(p);
+        tex.Apply();
+        File.WriteAllBytes($"{OutDir}/cardbase_{tag}.png", tex.EncodeToPNG());
+        Object.DestroyImmediate(tex);
     }
 
     /// <summary>在卡的子树里按**节点名**找一层 `MeshRenderer`（`textBg` / `costBg` / `armourIcon` / `gem` …）

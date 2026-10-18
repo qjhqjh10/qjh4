@@ -575,6 +575,14 @@ OCR_ARMOR_FAMILY_ALIAS = {
 #   ③ 同 subtype 的另外三张（Blood / Excess / Resilience）**在我们的卡表里，全是 `cost: 1`**
 #   ④ 它的效果文字 `Give +2 Health and Camouflage` 与规则书 :179「命运：+2 生命与伪装」**完全一致**
 # ⇒ 费用取同族值 1（③ 是唯一来源，**不是猜**：同 subtype 同阵营同稀有度的四张是一套）
+#
+# 🔴 **2026-10-19 就地订正（铁律 5）**：上面 ③ 推出的 `cost: 1` **已作废** —— 用户当天裁定这 4 张
+#    `Dark Pact of *` 是**战术卡触发生成的契约/附魔模板**、**没有费用**；当前 build 的卡 SO
+#    （`资料/普查产出_1018/allcards_1350/cards_raw.json`，`uniqueId` 直配这 4 张）里
+#    `manaCost = -1` —— 原版「**不可直接打出**」的哨兵（`Enchantments` SO 的 markOfChaos 映射：
+#    `10→Blood` / `20→Resilience` / `30→Excess` / `40→Fate`，`50` = 四选一随机）。
+#    ⇒ 本表这条只保留「**把 Fate 收进卡池**」的作用（`hasStats=False` 白名单），
+#      `cost` 最终由 `build()` 的 SO 真值层落成 **`-1`**（见那一段的 2026-10-19 注释）。
 STATS_EXCEPTIONS = {
     "Dark Pact of Fate": {"cost": 1},
     # 🆕 2026-09-15 PnP 对账：源表里这条 `hasStats=False`（无数值）⇒ 被整个跳过，
@@ -907,7 +915,7 @@ def load_truth_index():
 
 
 def pick_truth_id(ix, faction, faction_id, name, ocrname):
-    """按真值索引挑这张卡的 id；挑不出返回 None（**不猜**，由调用方自造并出声）。
+    """按真值索引挑这张卡的 id → `(id or None, 是否只靠 by_name 软匹配)`（**不猜**，挑不出返回 `(None, False)`）。
 
     口径（判据 → `资料/普查产出_第三十会话/乙档六笔_判据查证.md` §`A1800`）：
       · 候选 = ①官方英文名 ②真值 `m_Name` 尾巴 ③真值 `cardName`（名字**先用 `name`、再退 `ocrname`**）
@@ -915,17 +923,35 @@ def pick_truth_id(ix, faction, faction_id, name, ocrname):
         「前缀 + 纯数字」那条
       · 取谁 = **基准卡唯一** → 取它；否则**同阵营短 id 唯一** → 取它；否则**候选只剩一个** → 取它
       · 其余（多个候选且不唯一）⇒ **None**（例：`Normal Conditions` 那族在真值里根本没有基准卡）
+
+    🔴 **`A1880`（2026-10-18）：第 ③ 级 `by_name` 降为【报警档】** ——
+      它拿**我们卡池的卡名**去比**真值 `cardName`**，而卡名会被改名 / 是美术资产名 / 同阵营重名，
+      是三级里**最弱**的一级（`by_official_en` / `by_tail` 都落空时才会用到）。
+      本函数把「**只有 by_name 有候选**」这件事通过第二个返回值报出去，由调用方写进 `cascade_how`
+      （跑完的 `id_cascade` 摘要里逐条可见）。⛔ 不许再把它当「和另外两级一样可信」直接用。
+      ⚠️ 现读 **1127/1127 走 `uniqueId` 直取表**（`load_direct_ids`）⇒ 本函数只做交叉校验、
+      `by_name` 今天一次都不会出手；这一条是**防回归**。
     """
     if not ix:
-        return None
+        return None, False
     keys = [k for k in (name, ocrname) if k]
     cands, seen = [], set()
-    for tbl in ("by_official_en", "by_tail", "by_name"):
+    # ① + ② = 硬判据（官方英文名 / 真值 `m_Name` 尾巴）
+    for tbl in ("by_official_en", "by_tail"):
         for k in keys:
             for c in ix[tbl].get(_norm_name(k), []):
                 if c not in seen:
                     seen.add(c)
                     cands.append(c)
+    # ③ `by_name` = 软匹配：**只在 ①② 完全落空时才用**，并要求调用方把这件事报出来。
+    soft = False
+    if not cands:
+        for k in keys:
+            for c in ix["by_name"].get(_norm_name(k), []):
+                if c not in seen:
+                    seen.add(c)
+                    cands.append(c)
+        soft = bool(cands)
     pre = PREFIX_OF.get(faction)
 
     def _short(cid):
@@ -938,12 +964,12 @@ def pick_truth_id(ix, faction, faction_id, name, ocrname):
     base = [c for c in same if c in ix["_base"]]
     sh = [c for c in same if _short(c)]
     if len(base) == 1:
-        return base[0]
+        return base[0], soft
     if len(sh) == 1:
-        return sh[0]
+        return sh[0], soft
     if len(same) == 1:
-        return same[0]
-    return None
+        return same[0], soft
+    return None, False
 
 
 # ---- 🔴 2026-10-18（`W25`）：按 `uniqueId` **直取**的 id 表 --------------------------------
@@ -1051,8 +1077,12 @@ def load_truth_cards():
         rows = json.load(f)
     # 🆕 **2026-10-18（`K06`）**：当前 build 的解析产物是 `{bundle,count,cards:[{…,full_raw}]}`，
     #   卡 SO 全字段在 `full_raw` ⇒ 统一展平（与 `gen_card_id_truth_index.py` 同口径）。
+    #   🔴 **2026-10-19（`A1960`）**：`path_id` **只在元素外层**（`full_raw` 里没有）——
+    #   而 `choicesDefinition.filterSpecificCards` 是 **PPtr**、按 `m_PathID` 指卡，
+    #   `m_PathID ↔ 卡的 uniqueId` 的唯一桥就是这一格 ⇒ 展平时**必须**把它带进来
+    #   （不带 ⇒ 178 条 filter 引用一条都解不出，而且**静默**变成空表）。
     if isinstance(rows, dict) and isinstance(rows.get("cards"), list):
-        rows = [c.get("full_raw") or c for c in rows["cards"]]
+        rows = [dict(c.get("full_raw") or c, path_id=c.get("path_id")) for c in rows["cards"]]
     by_id, by_name = {}, {}
     for r in rows:
         uid = r.get("uniqueId")
@@ -1126,7 +1156,14 @@ TRAIT_DISPLAY = {
 #        （`SOR8`/`SOR21`/`SOR10`/`SOR27`；`SOR32` 本来就有）、`Unstoppable` 1 张（`SAU7`）。
 #        引擎行为**不变**（那几张卡的效果是从 `Desc` 收的 —— `CardDef.CollectTriggerOps` ①，
 #        ⛔ 不靠 `Has()`），变的是 `Has(penitence)` 1→5 · `Has(unstoppable)` 0→1 与卡面关键词行。
-TRAIT_ENGINE_UNREGISTERED = set()
+#   🆕 **2026-10-18（卡牌线数据侧第二波 · `A2073` 全池对账）补一条**：`oathdouble` ——
+#     真值 `CardTraits` 里有 `oathDouble`（`DefinedTrait.cs` = 1277，全池 1 张 = `UM100 Chaplain Cassius`），
+#     而 `CardDef.Prefixes` **只登记了 `oath`、没有 `oathdouble`** ⇒ 写进 `keywords` 会被 `Normalize` 丢。
+#     它**没有官方显示名**（`官方本地化` 的 `Card_Trait/*` 里 0 条）⇒ `TRAIT_DISPLAY` 不给它编一个；
+#     `cardTraits` 列**仍照原样落枚举名 `oathDouble`**（那是纯落值列、不喂引擎），
+#     但 `keywords` 这一层**不再把它写进去再被静默丢掉** —— 改为进 `skipped`、摘要里逐条报数。
+#     引擎的等价能力走 `desc` 那句「Friendly Oath abilities apply an additional time.」（`CardDef.OathDouble`）。
+TRAIT_ENGINE_UNREGISTERED = {"oathdouble"}
 
 
 def truth_traits_of(row):
@@ -1586,18 +1623,32 @@ def load_official_cardname():
     return by_id, by_en, bad, stats
 
 
-def official_name(by_id, by_en, cid, name, faction, conflicts):
+def official_name(by_id, by_en, cid, name, faction, conflicts, bridge=None):
     """一张卡的官方中文名（两级查，见 `load_official_cardname`）→ `(值 or None, 命中路, 官方键 or None)`。
 
     🔴 **第三个返回值（官方键）是 `A1763` 数据层要的**：官方表里 `Card_Name/*` 与
     `Card_Description/*` **共用同一个键空间**（都是卡 id / 32 位 GUID）⇒ 这里解出来的那个键
     就是去 `Card_Description/` 查描述的钥匙（否则那 147 个 GUID 键的卡一张都查不到）。
+
+    🔴 **`by_en` 是英文名桥 —— 不许静默走（`A2050` / `N5`，2026-10-18）**：
+      第 ① 级（`cid in by_id`，按 id 直查）是**判据唯一**的那条路；第 ② 级（`by_en`，拿卡名去
+      官方表里找英文值相同的那一条）是**启发式** —— 同名卡 / 改名都会让它**静默换一张卡的中文**。
+      现读（2026-10-18）池内 **1127/1127 走第 ① 级、`by_en` 命中 0 次**（官方表按 id 建键已覆盖全池）。
+      ⇒ 本函数把每一次 `by_en` 命中都**记进 `bridge` 列表**（调用方跑完逐张打出来）；
+      没传 `bridge` 时**当场 print 报警**（任何调用点都逃不掉「出声」这一条）。
+      ⛔ 别改回「命中就悄悄用」—— 那正是 `A2050` 要治的静默。
     """
     if cid in by_id:
         return by_id[cid], "id", cid
     cands = by_en.get(name)
     if not cands:
         return None, None, None
+    # ⚠️ 走到这里 = 英文名桥要出手了 —— 先出声（有 `bridge` 就记账、由调用方汇总打印）
+    if bridge is not None:
+        bridge.append((cid, name, cands[0][0]))
+    else:
+        print(f"⚠️ 英文名桥接：我们 id `{cid}`（`{name}`）在官方 `Card_Name/*` 里**没有 id 键**，"
+              f"退回按英文名匹配到键 `{cands[0][0]}` —— 该路是启发式，⛔ 别当判据（`A2050`/`N5`）")
     if len(cands) > 1:
         vals = {z for _k, z in cands}
         if len(vals) > 1:
@@ -1794,6 +1845,9 @@ def build():
     off_same = []         # 官方值 == 我们自译（不需要动）
     off_miss = []         # 两级都没查到 → 保持自译（**要出声**，见跑完的摘要）
     off_conflict = []     # 同名卡的多条候选值不一致（要出声）
+    # 🔴 `A2050` / `N5`（2026-10-18）：**英文名桥**的每一次命中（`official_name()` 的第 ② 级）——
+    #    现读 0 次；非 0 ⇒ 跑完**逐张打出来**（⛔ 别让它静默换掉一张卡的中文名）。
+    off_en_bridge = []    # (我们 id, 卡名, 官方表命中的键)
     face_fixes, face_fixes_by_fac = load_cardface_fixes()   # 卡面逐张核对修正（2026-09-13），见那张表的长注释
     # ⚠️ 两张表：裸卡名 / 带阵营 —— **同名卡必须用后者**，见 `load_cardface_fixes` 的注释
     face_fixed = []                         # 被修正过的卡（跑完打出来给人看）
@@ -1811,6 +1865,15 @@ def build():
     # 键只认 `uniqueId` —— 与我们卡池 id 是**同一套**（P1 相换过一次），所以 `truth_cards.get(cid)`
     # 就是那份**已裁过的 join**，本相不另开第二条。
     truth_cards, truth_by_name = load_truth_cards()
+    # 🔴 2026-10-19（`A1960`）：`choicesDefinition.filterSpecificCards` 的 **PPtr 解引用表**。
+    #   `m_PathID` → 真值卡的 `uniqueId`（= 我们池的 id）。现核 178 条引用**全部**能解（0 未解）。
+    #   ⚠️ 解出来的 id **未必在我们卡池里**（实测：`Adaptive Strategy` 的选项指向 `_normal`/`_oath`
+    #   两张**变体卡 SO**，它们不在卡池）—— 本层**照实落值**；「这一项能不能用」由引擎侧判，
+    #   ⛔ 别在这里替它丢掉（丢掉之后下游不知道原版给了什么，也就无从如实报）。
+    truth_by_path = {r.get("path_id"): uid for uid, r in truth_cards.items() if r.get("path_id") is not None}
+    # `A1959`/`A1960` 的跑完读数（见主循环末尾与 `main()` 的打印）
+    choices_report = {"with_choice": 0, "pool_180": 0, "pool_180_ids": [],
+                      "pool_180_no_filter": [], "unresolved_refs": [], "not_in_pool_refs": 0}
     # 🔴 2026-10-18（`W25`）：**按 `uniqueId` 直取**的落位表（见 `load_direct_ids` 那段）。
     #    ⚠️ 它必须在主循环**之前**建好 —— 主循环里 `cid` 的第一来源就是它。
     id_direct_tbl, direct_ambiguous = load_direct_ids(truth_cards, load_id_mapping())
@@ -1828,6 +1891,9 @@ def build():
     # 🆕 2026-10-18（`W` 笔）：**SO 数值真值覆盖层**的两个记账口（见下面那段长注释）
     so_stat_changed = []                    # (cid, 卡名, 类型, 字段, 改前, 改后) —— 本层真改掉的每一处
     so_stat_skipped = []                    # (cid, 卡名, 类型, 字段, 现值, SO值, SO卡名) —— 有 SO 值但**没敢覆盖**的
+    # 🔴 2026-10-19：`manaCost = -1`（原版「不可直接打出」哨兵）⇒ `cost = -1` 的那一档。
+    #    (cid, 卡名, 类型, 改前值, SO 卡名) —— 4 张 `Dark Pact of *`（附魔模板）现读全在这里。
+    unplayable_cost_set = []
     discarded_hasstats = []                 # 被 `hasStats=false` 整批丢的那批 → 跑完按真值归类
     # 🆕 2026-10-18（`W25`）：id 层的三个新记账口（见主循环「稳定 id」那段）。
     id_direct = []                          # 直取命中（`uniqueId` 表唯一落位）—— 现读 = 全池
@@ -1970,11 +2036,16 @@ def build():
         ocr_name = norm_str(c.get("ocrName"))
         cid = pick_direct_id(id_direct_tbl, faction_id, name, ocr_name)
         # 名级联（老路）—— 现在只为**交叉校验**跑；直取没落位时才真的用它。
-        cid_cascade = pick_truth_id(truth_idx, faction, faction_id, name, ocr_name)
+        cid_cascade, cascade_soft = pick_truth_id(truth_idx, faction, faction_id, name, ocr_name)
         cascade_how = "真值索引"
+        _cascade_truth = True          # 这一张的兜底 id 是「真值索引」给的（不是 card_ids.json）
         if not cid_cascade:
             cid_cascade = pick_id(id_by_name.get(_norm_name(name), []), faction)
             cascade_how = "card_ids.json"
+            _cascade_truth = False
+        elif cascade_soft:
+            # 🔴 `A1880`：只有 `by_name` 有候选 ⇒ 这一条 id 是**软匹配**来的 —— 摘要里逐条可见
+            cascade_how = "真值索引(by_name 软匹配)"
         if cid:
             id_direct.append((cid, name, faction))
             if cid_cascade and cid_cascade != cid:
@@ -1982,7 +2053,7 @@ def build():
         elif cid_cascade:
             cid = cid_cascade
             id_cascade.append((cid, name, faction, cascade_how))
-            if cascade_how == "真值索引":
+            if _cascade_truth:
                 id_truth.append((cid, name, faction))
             else:
                 id_orig.append((cid, name, faction))
@@ -2068,11 +2139,21 @@ def build():
         #      · `attack` ← `meleeAttack` —— **现表 `attack` 就是近战攻击**：1126/1127 逐张相等，
         #        唯一例外 `TAU12 Darkstrider`（我们 3 / SO 2）**正是本层要改的那 1 项**；
         #        `rangeAttack` 对应现表 `ranged`，**本层不动它**。
-        #      · `cost`   ← `manaCost`，**仅 `>= 0` 时**。`-1` = 原版「不可直接打出」的哨兵
-        #        （全快照 105 张；落进我们池的只有 4 张，而且那 4 行的 SO 名是
+        #      · `cost`   ← `manaCost`。**`>= 0` ⇒ 照抄**；**`== -1` ⇒ 落 `cost = -1`**（🔴 2026-10-19
+        #        用户裁定，见下）。`-1` = 原版「不可直接打出」的哨兵（全快照 105 张；落进我们池的
+        #        只有 4 张 = `Dark Pact of Fate/Blood/Excess/Resilience` —— 它们的 SO 行名是
         #        `Mark of Tzeentch/Khorne/Slaanesh/Nurgle (enchantment)`（`cardType=20` 附魔模板），
-        #        **不是**我们池里的实体卡 `Dark Pact of Fate/Blood/Excess/Resilience`）——
-        #        现表也没有「不可打出」这一档表达 ⇒ **保持原值、逐条出声**（`so_stat_skipped`）。
+        #        `uniqueId` 与我们池里那 4 张**逐一对上**；生成链 = `Enchantments` SO 的 markOfChaos
+        #        映射（`bundle_duplicateassetisolationso_assets_all/MonoBehaviour/Enchantments.json`）
+        #        + 反编译 `CardScript__AddEffect.c:776-792` case 8 `Enchantments.GetMarkOfChaos`
+        #        → `RawCardScript.TriggerEnchantment` —— **只作附魔挂上去，从不直接打出**。
+        #        🔴 **2026-10-19 就地订正（铁律 5）**：本行原来写「现表没有『不可打出』这一档表达
+        #        ⇒ 保持原值、逐条出声（`so_stat_skipped`）」—— **已作废**：用户当天裁定这 4 张
+        #        **没有费用**，且显示侧 `CardView.ShowsCost` 早就是 `cost >= 0 && type != "hero"`
+        #        （`A2006①`）⇒ `cost = -1` **天然不印费用格**（底板 + 数字两处都过那一条）。
+        #        ⇒ 现在**落 `-1`**、记进 `unplayable_cost_set`（⛔ 不再进 `so_stat_skipped`）。
+        #        引擎侧另有「不可直接打出」守卫（`RuleCore.CanPlayCard` / `EffectResolver.CanPlayTactic`
+        #        开头那一句 `card.Cost < 0`）—— `CostOf` 会把负值 clamp 成 0，不挡就会被当成**免费**。
         #      · **督军 `cost` 跳过**：上面 `A1773` 那一段已经从同一个 `manaCost` 取过值了，
         #        本层再写一次只会让两个记账口重复计数。
         #    ⚠️ 本层**盖过 `STAT_FIXES`**（那些是 OCR 修正、曾按 PnP 核过）—— 这正是本轮裁定的方向：
@@ -2092,7 +2173,16 @@ def build():
                 attack = _so_a
             if ctype != "hero":
                 _so_c = truth_int(trow, "manaCost")
-                if _so_c < 0:
+                # 🔴 2026-10-19：`-1` = 原版「不可直接打出」哨兵（**不是缺值**）。
+                #   ⚠️ 判「字段真的存在且就是 -1」—— `truth_int` 缺值也回 -1，⛔ 不能靠它区分，
+                #   否则快照里**没有 `manaCost` 的行**会被误当成「不可直接打出」。
+                _so_c_raw = trow.get("manaCost")
+                if isinstance(_so_c_raw, int) and not isinstance(_so_c_raw, bool) and _so_c_raw == -1:
+                    # ⇒ 落 `cost = -1`；显示侧 `CardView.ShowsCost` 因此不画费用格。
+                    if cost != -1:
+                        unplayable_cost_set.append((cid, name, ctype, cost, norm_str(trow.get("cardName"))))
+                        cost = -1
+                elif _so_c < 0:
                     so_stat_skipped.append((cid, name, ctype, "cost", cost, _so_c, norm_str(trow.get("cardName"))))
                 elif _so_c != cost:
                     so_stat_changed.append((cid, name, ctype, "cost", cost, _so_c))
@@ -2171,8 +2261,9 @@ def build():
             # ---- 🆕 2026-10-15（`A1776`）：`armour` / `cardTraits` -------------------------
             # `armour` = **数值**（`Armour N` 关键词里的那个 N 的**一等公民**版本）——
             #   用途是「护甲值别再去 `keywords` 里正则捞」（`A1776` 的「与 trait 解耦」）。
-            #   ⚠️ **消费者还没切**：引擎今天仍读 `KwValue("armour")`（`Core/` 的两个读点，
-            #   本笔白名单外）⇒ 本列**现在不改变任何结算**，只是把值落下来。
+            #   🔴 **`A2036`（2026-10-18 现读）**：原来这里写「消费者还没切：引擎今天仍读 `KwValue("armour")`
+            #   ⇒ 本列现在不改变任何结算」—— **已过期**：`CardDef.cs:297-299` 已接线
+            #   （`ArmourFromPool = armour > 0 ? armour : 0`，非 0 时写回 `_keywords[Armour]`）⇒ **本列非 0 就赢**。
             "armour":   _armour_pnp,
             "cardTraits": _traits,
         }
@@ -2204,6 +2295,33 @@ def build():
                 entry[_col] = truth_ref_name(trow, _tf)
             else:
                 entry[_col] = truth_int(trow, _tf, _dflt)
+        # ---- 🆕 2026-10-19（`A1959` 数据管线半边 ＋ `A1960`）：原版 `choicesDefinition` --------------
+        #   `TargetCriteria`（`dump.cs:23341` —— `RawCardScript.choicesDefinition; // 0x2A0`）=
+        #   「**这张卡要做一次选牌**」的规格。原版消费点 = `BattleManager__GetChoiceFullPool.c:36-49`：
+        #   `targetsAffected == 0xb4(180, TargetsAffected.choiceResolution)` ⇒ 候选池 = `filterSpecificCards`
+        #   （@0x70）；为空时回落 `BattleManager+0x308`（我们**没有**那一格）。
+        #   三列（引擎侧消费者 = `Core/CardDef.cs` 的 `Choices*` 属性）：
+        #     · `choicesTargetsAffected` ← `targetsAffected`（`TargetsAffected` 枚举；180 = choiceResolution）
+        #     · `choicesMaxTargets`      ← `maxTargets`（面板**摆几张**，`A1959`）
+        #     · `choicesSpecificCardIds` ← `filterSpecificCards`（PPtr 列表，按 `path_id` 解成 `uniqueId`）
+        #   缺值口径：真值快照里没有这张卡 ⇒ 前两列 `-1`、列表空 —— ⛔ 别当 `0`
+        #   （`targetsAffected = 0` 是合法取值 `any`；`maxTargets = 0` 是「不摆」）。
+        _cd = (trow.get("choicesDefinition") if trow is not None else None) or {}
+        _cd_ta, _cd_mt = _cd.get("targetsAffected"), _cd.get("maxTargets")
+        entry["choicesTargetsAffected"] = _cd_ta if isinstance(_cd_ta, int) and not isinstance(_cd_ta, bool) else -1
+        entry["choicesMaxTargets"] = _cd_mt if isinstance(_cd_mt, int) and not isinstance(_cd_mt, bool) else -1
+        _cd_ids = []
+        for _ref in (_cd.get("filterSpecificCards") or []):
+            _pid = _ref.get("m_PathID") if isinstance(_ref, dict) else None
+            _uid = truth_by_path.get(_pid)
+            if _uid is None:
+                # ⛔ 不许静默丢 —— 跑完摘要逐条打出来（现核 0 条）
+                choices_report["unresolved_refs"].append((cid, _pid))
+            else:
+                _cd_ids.append(_uid)
+        entry["choicesSpecificCardIds"] = _cd_ids
+        if _cd_ids or entry["choicesMaxTargets"] > 0:
+            choices_report["with_choice"] += 1
         # ---- 卡面逐张核对修正（2026-09-13）----
         # 上面那两列 `subtype` / `keywords` 都是**从 OCR 那份源表来的**，实测会串列、会掉数值。
         # 这一层用「1118 张逐张看卡图独立抄」的结果盖掉 —— 见 `CARD_FACE_FIXES_SRC` 的长注释。
@@ -2286,7 +2404,7 @@ def build():
         #    ⚠️ 两级查法是**必需**的，⛔ 不能只按 id：官方表是 2025-07-30 快照，之后原版还出过新卡，
         #       那批的 `Card_Name` 键是 32 位 GUID、**对不上我们的卡 id** ⇒ 要走**英文名桥**
         #       （拿卡名去官方表里找英文值相同的那一条）。现读命中 974（id 837 + 英文名补 137）。
-        _ozh, _ovia, _okey = official_name(off_id, off_en, cid, name, faction, off_conflict)
+        _ozh, _ovia, _okey = official_name(off_id, off_en, cid, name, faction, off_conflict, off_en_bridge)
         if _ozh is None:
             off_miss.append((cid, name, entry.get("nameZh") or ""))
         elif _ozh == (entry.get("nameZh") or ""):
@@ -2307,8 +2425,10 @@ def build():
         #
         # 🔴 **本层必须排在 ③【之前】** —— 反过来排会把那个人工值**静默盖掉**
         #    （`资料/普查产出_第三十会话/卡表块_施工设计_1014.md` §五·10 点名的坑）。
-        #    现读 ③ 有 **251** 条（`cardface_fixes.json` 的 `descZh` 是 251 个叶子键 ——
-        #    账面写的 248 是旧读数，**2026-10-15 现数 251**）。下面紧跟一条**结构断言**钉死这件事。
+        #    现读 ③ 有 **279** 条（`cardface_fixes.json` 的 `descZh` 是 **279** 个叶子键 ——
+        #    历史读数：账面 248（旧）→ 2026-10-15 现数 251 → **2026-10-18（`A2117`）现数 279**；
+        #    ⛔ 别把这个数写死当判据，读 `len(cardface_fixes.json 的 descZh)`）。
+        #    下面紧跟一条**结构断言**钉死这件事。
         #
         # ⚠️ **取值钥匙 = `official_name()` 解出来的那个官方键**（`Card_Name/*` 与
         #    `Card_Description/*` **共用同一个键空间**）—— 那 147 个 GUID 键的卡只有走这条路才查得到。
@@ -2419,6 +2539,62 @@ def build():
                 f"{_k[0]}/{_k[1]} —— 期望源表 `ranged_attack` **不是** null（这一张本来是"
                 "「家族判据圈不出来、值直接写在源表里」那一张），实际是 null ⇒"
                 " 它**变成**家族判据的成员了，要重核 `R8` 那份清单")
+
+    # 🔴 **`card_stats.json` 的 `art` 一族守卫**（`A2011` + `A2044`，2026-10-18）——
+    #    **形状照抄 `armor_family_bad`**（逐条列名打印），🔴 **口径同它：进 `_bad`**
+    #    （不符 ⇒ rc=1、**一个字节都不写**）。
+    #    **为什么要有它**：`art` 是「这张卡用哪张立绘」的源表列。判据 = 路径里的
+    #    `.../art/<阵营目录>/...` 那一段必须与这一行自己的 `faction` 对得上
+    #    （13 个 cardassets 包之间**文件名 0 重名** ⇒ 目录段这条判据可靠，`R8_card_stats审计.md` §二·1）。
+    #    对不上 = 这张卡在用**别阵营**的美术 —— 今天不影响画面（立绘按卡 id 取名，全仓无一处读 `art`），
+    #    但它是**源表里的静默错**，将来谁把 `art` 接进产出链就会直接印错。
+    #    🔴 **用户拍板「路 B：加守卫、⛔ 不改源表」**（`准则与做法.md` §七 · `T02` 裁定 1）
+    #    ⇒ 现读那 **4 条真错配**进 `ART_KNOWN_BAD`（逐条留痕、不报错），**新增的第 5 条立刻红**。
+    #    ⚠️ **不报的两类**：
+    #      · `noise:true` 的占位行（`Normal` / `Normal Conditions` 共 10 行，**设计上**共用
+    #        UM / Sororitas 的环境占位图，`R8` §二·1 已核）；
+    #      · `art` 为空（现读 21 条 —— 本地无立绘原件，**铁律 11 例外①**，不是错配）。
+    ART_DIR_OF_FACTION = {
+        "AstraMilitarum": "AstraMilitarum", "BlackLegion": "BlackLegion", "DarkAngels": "DarkAngels",
+        "EmperorsChildren": "EmperorsChildren", "Genestealers": "GenestealerCults", "Goff": "Orks",
+        "Leviathan": "Tyranids", "SaimHann": "Aeldari", "Sautekh": "Necrons", "Sororitas": "Sororitas",
+        "SpaceWolves": "SpaceWolves", "TauEmpire": "Tau", "Ultramarines": "Ultramarines",
+    }
+    # 4 条**已裁定不改**的真错配（`R8_card_stats审计.md` §二·2，逐条开 PnP 核过）。
+    # ⛔ 这张表**只许缩小**（等哪天解了「不改源表」那条裁定）：往里加一条 = 把一条新缺陷藏起来。
+    ART_KNOWN_BAD = {
+        ("DarkAngels", "Aggressor"),
+        ("EmperorsChildren", "Terminator"),
+        ("BlackLegion", "Terminator Champion"),
+        ("BlackLegion", "Maulerfiend"),
+    }
+    art_guard_bad, art_known_bad = [], []
+    for _c in raw:
+        _a = _c.get("art") or ""
+        if not _a:
+            continue                                  # 21 条空 = 本地无原件（铁律 11 例外①）
+        _am = re.search(r"/art/([^/]+)/", _a)
+        _cf = norm_str(_c.get("faction"))
+        _cn = re.sub(r"\s+", " ", norm_str(_c.get("name"))).strip()
+        if not _am:
+            art_guard_bad.append(f"{_cf}/{_cn} —— `art` 路径里认不出 `/art/<阵营目录>/` 段：`{_a}`")
+            continue
+        _adir = _am.group(1)
+        _aexp = ART_DIR_OF_FACTION.get(_cf)
+        if _aexp is None:
+            art_guard_bad.append(f"{_cf}/{_cn} —— **未知阵营** `{_cf}`（`ART_DIR_OF_FACTION` 没有这一行）"
+                                 f"，没法判 `art` 目录对不对：`{_a}`")
+            continue
+        if _adir.startswith(_aexp + "_"):
+            continue
+        if _c.get("noise"):
+            continue                                  # 10 条环境占位图（设计，见上）
+        if (_cf, _cn) in ART_KNOWN_BAD:
+            art_known_bad.append(f"{_cf}/{_cn} —— `{_adir}`（已裁定**不改源表**，路 B）")
+            continue
+        art_guard_bad.append(
+            f"{_cf}/{_cn} —— `art` 指向**别阵营**目录 `{_adir}`（应为 `{_aexp}_*`）：`{_a}`"
+            " ⇒ 这张卡在用别的阵营的美术（今天不入产出链，但它是源表里的静默错）")
 
     # 🔴 **稀有度这一层的守卫**（`A2044`，2026-10-15 `G3`）——
     #    **形状照抄上面三条**（`orphan_face_fix` / `orphan_stat_fix` / `armor_family_bad`：逐条列名打印），
@@ -2571,8 +2747,25 @@ def build():
         else:
             offname_same.append(_c["id"])
 
+    # ---- 🆕 2026-10-19（`A1959`/`A1960`）：`choicesDefinition` 的跑完读数 --------------------
+    #   `pool_180` = 池内「`targetsAffected == 180` 且 `maxTargets > 0`」的卡（解析层要发 `choosecard` 的那批）。
+    #   `pool_180_no_filter` = 其中 `filterSpecificCards` 为空的那几张（原版回落 `BattleManager+0x308`；
+    #     我们**没有**那一格 ⇒ 引擎侧如实不动、不猜）。
+    #   `not_in_pool_refs` = filter 引用里指向**池外卡**的条数（变体卡 SO 等；数据照实落值，消费侧自己判）。
+    choices_report["pool_180_ids"] = [c["id"] for c in cards
+                                      if c.get("choicesTargetsAffected") == 180
+                                      and (c.get("choicesMaxTargets") or 0) > 0]
+    choices_report["pool_180"] = len(choices_report["pool_180_ids"])
+    choices_report["pool_180_no_filter"] = [c["id"] for c in cards
+                                            if c.get("choicesTargetsAffected") == 180
+                                            and (c.get("choicesMaxTargets") or 0) > 0
+                                            and not c.get("choicesSpecificCardIds")]
+    _pool_ids = {c["id"] for c in cards}
+    choices_report["not_in_pool_refs"] = sum(
+        1 for c in cards for _i in (c.get("choicesSpecificCardIds") or []) if _i not in _pool_ids)
+
     return {
-        "version": 9,          # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+        "version": 10,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
@@ -2580,6 +2773,10 @@ def build():
                                #    再加 A1799 那 10 个 SO 字段列（attackDamageType · cardShortId ·
                                #    useOverDraw · cantBeRandomlyCreated · expansionPack · refNameId ·
                                #    itemDescriptionKey · fullHeroSpriteReference · eventSpriteName · targeted）
+                               # v10（2026-10-19 `A1959`/`A1960`）：加 `choicesTargetsAffected` /
+                               #    `choicesMaxTargets` / `choicesSpecificCardIds` 三列 ——
+                               #    原版 `RawCardScript.choicesDefinition`（`TargetCriteria` @0x2A0）；
+                               #    `filterSpecificCards` 的 PPtr 按 `path_id → uniqueId` 解引用。
                                #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声），
                                #       否则新列会被静默读成 `0`/`null`（`施工设计 §五·3`）
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
@@ -2605,7 +2802,9 @@ def build():
                   " 资料/普查产出_1018/allcards_1350/cards_raw.json（**当前 build** · 1,351 张卡 SO）"
                   "—— 🔴 那些列只在 PnP 成品卡图【不印】的地方生效（闸 = `施工设计 §七 已裁⑥`）；"
                   "🔴 **2026-10-18 起 `health` / `cost` / `attack` 三列改以该快照为真值**"
-                  "（`health←maxHealth` · `cost←manaCost`（仅 >=0）· `attack←meleeAttack`；"
+                  "（`health←maxHealth` · `cost←manaCost`（`>=0` 照抄；🔴 2026-10-19 起 `-1` ="
+                  "「不可直接打出」哨兵，**原样落 `cost=-1`** —— 4 张 `Dark Pact of *` 附魔模板，"
+                  "`CardView.ShowsCost` 因此不印费用格）· `attack←meleeAttack`；"
                   "判据 = `资料/普查产出_1018/R_督军10血成因.md` §1 结论 A：当前 build 的 SO 就是真值）；"
                   "`ranged` / `desc` / `keywords` / `art` 不动",
         "note": "由 工具/gen_cards_engine.py 生成，不要手改。"
@@ -2638,11 +2837,22 @@ def build():
                 "值与 trait **解耦**（真值 `CardTraits` 里 `name==\"armour\"` 全快照只有 2 条，"
                 "而 `armour` 数值 >0 有 62 张 —— `A1748_原版trait真值.md` §7）。"
                 "取值 = **PnP 那一层（`keywords` 里的 `Armour N`）优先、真值 `armour` 兜底**。"
-                "⚠️ **消费者尚未切换**（引擎今天仍读 `KwValue(\"armour\")`）⇒ 本列现在不改变任何结算。"
+                "🔴 **`A2036`（2026-10-18 现读）：消费者【已切换】** —— `RuleEngine/Core/CardDef.cs:297-299`"
+                "（`ArmourFromPool = armour > 0 ? armour : 0`，非 0 时写回 `_keywords[KeywordTable.Armour]`）"
+                "⇒ **本列非 0 就赢过 `keywords`**；本列 = 0 才回落到 `KwValue(\"armour\")` 的旧口径。"
                 "🔴 `cardTraits`（v9）= 真值 `CardTraits` 的**全量**显示写法（**读 `CardTraits`、不读 "
                 "`ShowTraits`** —— 后者非空只 32 张，对着它判会把 633 张误判成「没挂 trait」）。"
-                "⚠️ 它**不喂引擎**（纯落值）：里面包含 `Frenzied`/`Rage`/`Unstoppable` 三个"
-                "**引擎 `CardDef.Prefixes` 未登记**的词，那三个**不进 `keywords`**（写了会被静默丢弃）。"
+                "⚠️ 它**不喂引擎**（纯落值）：引擎读的是 `keywords`，不读这一列。"
+                "🔴 **`A2036`（2026-10-18 现读）**：原来这里写着「里面包含 `Frenzied`/`Rage`/`Unstoppable`"
+                "三个引擎 `CardDef.Prefixes` **未登记**的词，那三个**不进 `keywords`**（写了会被静默丢弃）」"
+                "—— **两句都已过期**：① 那三个已于 2026-10-15 登记进 `CardDef.Prefixes`"
+                "（`rage`→`Penitence` · `frenzied`→`Destroyer` · `unstoppable`→`Unstoppable`），"
+                "生成器的 `TRAIT_ENGINE_UNREGISTERED` 也随之清空 ⇒ 真值那一层**会**把"
+                "`Destroyer`/`Penitence`/`Unstoppable` 补进 `keywords`（第 ① 层只补空；"
+                "第 ③ 层 `_manual_keywords` 仍可按卡面否决 —— 现读 `keywords` 里 Penitence **5** 张 · "
+                "Destroyer **10** 张 · Unstoppable **0** 张，后者是 `SAU7` 的 `_manual_keywords` "
+                "按卡面「没印」挡掉的）；② 这一列的字面值也已按卡面换过"
+                "（`frenzied`→`Destroyer`、`rage`→`Penitence`，见 `TRAIT_DISPLAY`），不再是那三个枚举名。"
                 "🔴 A1799 那 10 列（`attackDamageType` / `cardShortId` / `useOverDraw` / "
                 "`cantBeRandomlyCreated` / `expansionPack` / `refNameId` / `itemDescriptionKey` / "
                 "`fullHeroSpriteReference` / `eventSpriteName` / `targeted`）= 原版同名字段的**落值**，"
@@ -2653,9 +2863,9 @@ def build():
         "cards": cards,
     }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, id_truth, \
        (id_direct, id_cascade, id_cross_mismatch, direct_ambiguous), \
-       orphan_face_fix, orphan_stat_fix, armor_family_bad, \
+       orphan_face_fix, orphan_stat_fix, armor_family_bad, art_guard_bad, art_known_bad, \
        key_conflicts, (def_report, _gs_n, _gs_hero, _gs_missing_fac), \
-       (off_hit, off_same, off_miss, off_conflict, off_bad, off_stats), \
+       (off_hit, off_same, off_miss, off_conflict, off_bad, off_stats, off_en_bridge), \
        (off_desc_hit, off_desc_same, off_desc_miss, off_desc_bad, off_desc_stats,
         desc_zh_order_violations, man_desc_ok, man_desc_total), \
        (inv_unknown, raw_inv), \
@@ -2663,11 +2873,12 @@ def build():
        (truth_hit, kw_truth_filled, kw_truth_skipped, kw_truth_wiped,
         armour_src_pnp, armour_src_truth, hero_cost_from_truth, hero_cost_kept,
         discarded_hasstats, truth_cards, truth_by_name, kw_order_violations,
-        so_stat_changed, so_stat_skipped), \
+        so_stat_changed, so_stat_skipped, unplayable_cost_set), \
        (rarity_guard_bad, _rarity_truth_n, _rarity_truth_skip_n,
         rarity_truth_filled, rarity_src_truth, rarity_src_table, rarity_src_source,
         orphan_rarity_key), \
-       (offname_hit, offname_same, offname_miss, off_names_stats)
+       (offname_hit, offname_same, offname_miss, off_names_stats), \
+       choices_report
 
 
 def fix_own_armour(entry):
@@ -2721,20 +2932,21 @@ def main():
     args = ap.parse_args()
 
     (doc, skipped, total, filled, still_missing, stat_fixed, face_fixed,
-     id_orig, id_made, id_truth, id_new, orphan_face_fix, orphan_stat_fix, armor_family_bad, key_conflicts,
+     id_orig, id_made, id_truth, id_new, orphan_face_fix, orphan_stat_fix, armor_family_bad,
+     art_guard_bad, art_known_bad, key_conflicts,
      goes_second, off, off_desc,
-     inv, init, truth, rarity_guard, offname) = build()
+     inv, init, truth, rarity_guard, offname, choices_report) = build()
     offname_hit, offname_same, offname_miss, off_names_stats = offname
     id_direct, id_cascade, id_cross_mismatch, direct_ambiguous = id_new
     def_report, _gs_n, _gs_hero, _gs_missing_fac = goes_second
-    off_hit, off_same, off_miss, off_conflict, off_bad, off_stats = off
+    off_hit, off_same, off_miss, off_conflict, off_bad, off_stats, off_en_bridge = off
     (off_desc_hit, off_desc_same, off_desc_miss, off_desc_bad, off_desc_stats,
      desc_zh_order_violations, _man_desc_ok, _man_desc_total) = off_desc
     inv_unknown, raw_inv = inv
     init_unknown, raw_init = init
     (truth_hit, kw_truth_filled, kw_truth_skipped, kw_truth_wiped, armour_src_pnp, armour_src_truth,
      hero_cost_from_truth, hero_cost_kept, discarded_hasstats, truth_rows, truth_by_name,
-     kw_order_violations, so_stat_changed, so_stat_skipped) = truth
+     kw_order_violations, so_stat_changed, so_stat_skipped, unplayable_cost_set) = truth
     rarity_guard_bad, _rarity_truth_n, _rarity_truth_skip_n = rarity_guard[:3]
     (rarity_truth_filled, rarity_src_truth, rarity_src_table, rarity_src_source,
      orphan_rarity_key) = rarity_guard[3:]
@@ -2844,6 +3056,18 @@ def main():
               "它一失效，那几张卡的 `ranged` 会**静默变 0**。见 `OCR_ARMOR_FAMILY` 那段注释。")
     else:
         print(f"\n`armor` 一族：源表里 `armor` 有值的 {len(OCR_ARMOR_FAMILY)} 行与预期一致 ✅")
+
+    # 🔴 **`art` 一族守卫**（`A2011` + `A2044`，2026-10-18，见 `build()` 里那段）——
+    #    判据 = `.../art/<阵营目录>/` 与这一行 `faction` 对得上；**路 B：守卫进 `_bad`、源表不改**。
+    if art_guard_bad:
+        print(f"\n🔴 `card_stats.json` 的 `art` 一族有 {len(art_guard_bad)} 处**指向别阵营**：")
+        for _k in art_guard_bad:
+            print(f"            · {_k}")
+    else:
+        print(f"\n`art` 一族：{len(art_known_bad)} 条已知错配（已裁定不改源表）之外无新增 ✅")
+    if art_known_bad:
+        for _k in art_known_bad:
+            print(f"            · 已知（路 B，⛔ 不改源表）：{_k}")
 
     # 🔴 **稀有度守卫**（`A2044` / `A2062`，见 `build()` 末尾那三条谓词）—— **①②进 `_bad`**：
     #    ① 「`rarity` 空串、但别名还能在宝石表查到」= 改名导致的**静默丢失**（`SOR24` 那次就是这个）；
@@ -2989,6 +3213,16 @@ def main():
                   + " · ".join(f"{k}=「{z}」" for k, z in cands))
         for _id, _en, _zh in off_bad:
             print(f"  ⚠️ 官方值不成立已丢弃：`Card_Name/{_id}` = ({_en!r}, {_zh!r}) ⇒ 该卡保持自译")
+        # 🔴 `A2050` / `N5`（2026-10-18）：**英文名桥**每一次命中都逐张打出来。
+        #    现读 0 次（池内 1127 张全走 id 直查）⇒ 这一块今天不打印；一旦出现，就是
+        #    「官方表里这张卡的键不是我们的 id」⇒ 中文名是**按名字猜的**，⛔ 别当判据。
+        if off_en_bridge:
+            print(f"  🔴 **英文名桥接 {len(off_en_bridge)} 张**（`official_name()` 第 ② 级 = 启发式，"
+                  "现读基线 0 ⇒ 出现即为变化，逐张核）：")
+            for cid, nm, okey in off_en_bridge[:20]:
+                print(f"            · {cid:<34} {nm:<32} → 官方表键 `{okey}`")
+            if len(off_en_bridge) > 20:
+                print(f"            … 其余 {len(off_en_bridge) - 20} 张同理")
     else:
         print("\n官方中文名   ⚠️ 没读到官方表 ⇒ 卡名仍是我们自译（见 `OFFICIAL_LOC_SRC`）")
 
@@ -3152,12 +3386,19 @@ def main():
         _so_by[_x[3]] = _so_by.get(_x[3], 0) + 1
     print(f"\nSO 覆盖：health **{_so_by.get('health', 0)}** 张 / cost **{_so_by.get('cost', 0)}** 张"
           f" / attack **{_so_by.get('attack', 0)}** 张（合计改 **{len(so_stat_changed)}** 处）")
-    print("             源 = `cards_raw.json` 的 `maxHealth` / `manaCost`（仅 >=0）/ `meleeAttack`；"
+    print("             源 = `cards_raw.json` 的 `maxHealth` / `manaCost`（`>=0` 照抄；`-1` 见下一段）/ `meleeAttack`；"
           "判据 → `资料/普查产出_1018/R_督军10血成因.md` §1 结论 A")
     for cid, nm, ty, col, old, new in so_stat_changed:
         print(f"            · {cid:<34} {nm:<30} [{col}] {old} → {new}")
+    # ---- 🔴 2026-10-19：`manaCost = -1` = 原版「不可直接打出」哨兵 ⇒ `cost = -1` ----------------
+    print(f"\n不可直接打出  `manaCost=-1` 的卡 **{len(unplayable_cost_set)}** 张 ⇒ `cost = -1`"
+          "（原版哨兵；这不是缺值，⛔ 别拿 0 顶）：")
+    for cid, nm, ty, old, sonm in unplayable_cost_set:
+        print(f"            · {cid:<34} {nm:<30} [{ty}] {old} → -1   （SO 行名 = `{sonm}`）")
+    if not unplayable_cost_set:
+        print("            （0 张 —— 🧨 若这里空、而池里确实有 `Dark Pact of *`，说明 SO 真值层没跑到）")
     if so_stat_skipped:
-        print(f"  ⚠️ 有 **{len(so_stat_skipped)}** 处**没敢覆盖**（`manaCost=-1` 哨兵 / 缺值）⇒ 保持原值：")
+        print(f"  ⚠️ 有 **{len(so_stat_skipped)}** 处**没敢覆盖**（缺值 / 非法负值；`manaCost=-1` 不在此列，见上）⇒ 保持原值：")
         for cid, nm, ty, col, cur, sov, sonm in so_stat_skipped:
             _why = (f"（SO 行名 = `{sonm}`，与我们的卡不是同一张）" if sonm and sonm != nm else "")
             print(f"            · {cid:<34} {nm:<26} [{col}] 我们 {cur} / SO {sov}{_why}")
@@ -3288,13 +3529,12 @@ def main():
         for cid, nm, fac in id_made[:8]:
             print(f"            · {cid:<34} {fac} / {nm}")
         if len(id_made) > 8:
-            print(f"            … 其余 {len(id_made) - 8} 张见 {MADE_LIST}")
-        os.makedirs(os.path.dirname(MADE_LIST), exist_ok=True)
-        with open(MADE_LIST, "w", encoding="utf-8") as f:
-            f.write("# 自造 id 的卡（原版 id 表里没有 / 同名候选不唯一）—— 由 gen_cards_engine.py 重写\n")
-            f.write("# 卡名 | 阵营 | 我们发的 id\n")
-            for cid, nm, fac in sorted(id_made, key=lambda x: (x[2], x[1])):
-                f.write(f"{nm}\t{fac}\t{cid}\n")
+            print(f"            … 其余 {len(id_made) - 8} 张见 {MADE_LIST}"
+                  "（⚠️ 该清单**只在本次运行成功落盘时**才写 —— `A1980`②）")
+        # 🔴 **`A1980`②（2026-10-18）：清单的写出挪到 `--check` 与 `_bad` 两处闸【之后】**
+        #    （见 `main()` 末尾写 `DST` 那一段）。原来它写在 `--check` 分支之前
+        #    ⇒ 跑 `--check`（「只对账、不写文件」）也会往 `_tmp_view` 落一份清单；
+        #    若本次还 `_bad`（非零退出、卡表一个字节都不写），清单却已经写出去 = 口径不一致。
 
     # 🔴 **退出码先算、再决定落不落盘**（与 `工具/gen_icon_plan.py` 的 `A1626` 同一条口径）——
     #    「非 0」必须等于「没写文件」。`bare_ambiguous` 是**数据侧的错**，不是提示：
@@ -3310,7 +3550,24 @@ def main():
     _rarity_unexpected = [x for x in rarity_truth_filled
                           if RARITY_TRUTH_ACCEPTED.get((x[0], x[1])) != (x[2], x[3])]
     _bad = bool(bare_ambiguous) or bool(kw_order_violations) or bool(desc_zh_order_violations) \
-        or bool(armor_family_bad) or bool(rarity_guard_bad) or bool(_rarity_unexpected)
+        or bool(armor_family_bad) or bool(rarity_guard_bad) or bool(_rarity_unexpected) \
+        or bool(art_guard_bad)
+
+    # 🆕 2026-10-19（`A1959`/`A1960`）—— `choicesDefinition` 三列的跑完读数。
+    #   判据 → `dump.cs:23341 choicesDefinition // 0x2A0` · `BattleManager__GetChoiceFullPool.c:36-49`。
+    print(f"\n选牌定义     `choicesDefinition` 落值 **{choices_report['with_choice']}/{doc['count']}** 张"
+          f"（`maxTargets > 0` 或 `filterSpecificCards` 非空）")
+    print(f"             `targetsAffected==180 && maxTargets>0`（解析层要发 `choosecard` 的那批）："
+          f"**{choices_report['pool_180']}** 张")
+    if choices_report["pool_180_no_filter"]:
+        print(f"  ⚠️ 其中 `filterSpecificCards` **为空** {len(choices_report['pool_180_no_filter'])} 张"
+              f"（原版回落 `BattleManager+0x308`，我们**没有**那一格 ⇒ 不猜）："
+              + "、".join(choices_report["pool_180_no_filter"]))
+    if choices_report["unresolved_refs"]:
+        print(f"  🔴 filter 的 PPtr **解不出** {len(choices_report['unresolved_refs'])} 条："
+              + "、".join(f"{cid}:{pid}" for cid, pid in choices_report["unresolved_refs"][:6]))
+    print(f"             filter 引用里指向**池外卡**的 {choices_report['not_in_pool_refs']} 条"
+          f"（变体卡 SO 等 —— 照实落值，消费侧自己判）")
 
     if args.check:
         if os.path.exists(DST):
@@ -3333,6 +3590,8 @@ def main():
                         "（人工值被官方层盖掉）」")
         if armor_family_bad:
             _why.append(f"「`card_stats.json` 的 `armor` 一族 {len(armor_family_bad)} 处不符预期」")
+        if art_guard_bad:
+            _why.append(f"「`card_stats.json` 的 `art` 一族 {len(art_guard_bad)} 处指向别阵营」")
         if rarity_guard_bad:
             _why.append(f"「稀有度这一层 {len(rarity_guard_bad)} 处对不上"
                         "（别名能查到却落成空串 / 与游戏侧真值不一致）」")
@@ -3348,6 +3607,16 @@ def main():
     with open(DST, "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, separators=(",", ":"))
     print(f"\n写出 {DST}  ({os.path.getsize(DST) / 1024:.0f} KB)")
+    # 🔴 **`A1980`②（2026-10-18）：自造 id 清单** —— 写在「`--check` 已返回、`_bad` 也已返回」之后，
+    #    与卡表**同生共死**（只对账不落盘 / 出错不落盘，两种情况下都不该留下这份清单）。
+    if id_made:
+        os.makedirs(os.path.dirname(MADE_LIST), exist_ok=True)
+        with open(MADE_LIST, "w", encoding="utf-8") as f:
+            f.write("# 自造 id 的卡（原版 id 表里没有 / 同名候选不唯一）—— 由 gen_cards_engine.py 重写\n")
+            f.write("# 卡名 | 阵营 | 我们发的 id\n")
+            for cid, nm, fac in sorted(id_made, key=lambda x: (x[2], x[1])):
+                f.write(f"{nm}\t{fac}\t{cid}\n")
+        print(f"写出 {MADE_LIST}（自造 id {len(id_made)} 张）")
     return 0
 
 

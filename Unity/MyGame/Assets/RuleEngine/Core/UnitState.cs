@@ -832,7 +832,23 @@ namespace RuleEngine
         {
             if (string.IsNullOrEmpty(keyword)) return;
             int now = KwValue(keyword) - value;
-            if (now > 0) _keywords[keyword] = now;
+            if (now > 0)
+            {
+                _keywords[keyword] = now;
+                // 🔴 **2026-10-19（`T01 §六·6`②）：护甲的【反方向】也要同步。**
+                //   改前这一支只动 `_keywords`、不动 `Armor`（`AddKeyword` 走
+                //   `SyncKeywordState` 会把字段一起加上，减这一半却没人补）——
+                //   同一件事两种表示脱节 = `Armour 2` 被 `lose 1 Armour` 减到 1 之后，
+                //   `KwValue("armour") == 1` 而 `u.Armor` 仍是 **2**（减伤照旧按 2 算）。
+                //   判据与 `A2015`（`EffectResolver.ApplyOneGain` 的 `case "armour"`）同一条：
+                //   全仓护甲读点是 `KwValue` / `Has` / `UnitState.Armor`，
+                //   而 `Armor` 在构造时就是 `KwValue(armour)`（本文件 `:594`）⇒
+                //   两边必须逐值相等。
+                //   ⚠️ **整份摘掉那一支不用在这里补** —— `RemoveAll` 里已经有
+                //   `if (keyword == Armour) Armor = 0;`（`:850`）；这一行只管「减一层」。
+                if (keyword == KeywordTable.Armour)
+                    Armor = System.Math.Max(0, Armor - value);
+            }
             else RemoveAll(keyword);
         }
 
@@ -938,7 +954,26 @@ namespace RuleEngine
                     Health += v;
                     MaxHealth = System.Math.Max(1, MaxHealth + v);
                     break;
-                case "armour": Armor = System.Math.Max(0, Armor + v); break;
+                // 🔴 **2026-10-19（`T01 §六·6`①）：护甲要【两种表示一起动】。**
+                //   改前这一行只写 `Armor`、不同步 `_keywords["armour"]` —— 和 `A2015`
+                //   （`EffectResolver.ApplyOneGain`）**一字不差地同病**：黑暗契约 / 光环
+                //   走 `RecordGrant("armour", …)` 这条路由本方法落地，之后
+                //   `KwValue("armour")` / `Has("armour")` 仍是 0（给甲了、关键词没有）。
+                //   判据 = `CardDef` 构造函数头部那段（`Core/CardDef.cs:269-271`）：
+                //   全仓护甲读点都是 `_keywords` 那一格（含本文件 `:594` 的构造）⇒ 必须相等。
+                //   ⚠️ **加减都走现成的那两个口**（`AddKeyword` → `SyncKeywordState` 会把
+                //   `Armor` 一起加；`RemoveKeyword` 现在减那一支也会同步 —— 见它的注释）。
+                //   ⛔ 这里**别**再自己写 `Armor += v`（会加两次）。
+                //   ⚠️ **负甲 clamp 0 照旧**（原版 `:3320`）；`delta` 取夹过之后的实际增量。
+                case "armour":
+                {
+                    int before = Armor;
+                    int after = System.Math.Max(0, Armor + v);   // 原版 `:3320` 负甲夹 0
+                    int delta = after - before;
+                    if (delta > 0) AddKeyword(KeywordTable.Armour, delta);
+                    else if (delta < 0) RemoveKeyword(KeywordTable.Armour, -delta);
+                    break;
+                }
             }
             SyncAttackTypeAfterStatChange();     // 🆕 `W5`：数值变了 ⇒ 重挑攻击型（见该方法的注释）
         }
@@ -1144,7 +1179,13 @@ namespace RuleEngine
                         case "ranged": RangedAttack -= b.Value; break;
                         // 生命是**上限也跟着变**的（原版 `:3317` 同步 max_health），撤的时候一起回
                         case "health": Health -= b.Value; MaxHealth -= b.Value; break;
-                        case "armour": Armor = System.Math.Max(0, Armor - b.Value); break;
+                        // 🔴 **2026-10-19（`T01 §六·6` 同族，顺手补）：护甲不能只回字段那一半。**
+                        //    本支是**限时属性护甲**（`+N Armour this turn`，`IsKeyword == false`
+                        //    ⇒ 当前这一格）—— 改前只减 `Armor`、关键词值还在，
+                        //    到期后 `KwValue("armour")` 仍是非 0（同一件事两种表示又脱节，
+                        //    与 `ApplyGrant` / `RemoveKeyword` 两处**同一条判据**）。
+                        //    ⇒ 走 `RemoveKeyword`（它现在会把 `Armor` 一起减）。
+                        case "armour": RemoveKeyword(KeywordTable.Armour, b.Value); break;
                     }
                 }
                 n++;
@@ -1187,7 +1228,8 @@ namespace RuleEngine
                         case "attack": Attack -= b.Value; break;
                         case "ranged": RangedAttack -= b.Value; break;
                         case "health": Health -= b.Value; MaxHealth -= b.Value; break;
-                        case "armour": Armor = System.Math.Max(0, Armor - b.Value); break;
+                        // 同 `RevertBuffs`：护甲走同一个口（`RemoveKeyword` 会同步减 `Armor`）。
+                        case "armour": RemoveKeyword(KeywordTable.Armour, b.Value); break;
                     }
                 }
                 n++;

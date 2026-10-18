@@ -700,9 +700,18 @@ namespace CardPresentation
             //      `RectMask2D`），而悬停/按下那两档原版这几颗键**没有**（`m_Transition` → 见 `HoverTint`）。
             //   ⛔ 别把它改回「手写三件套」；断言 → `Editor/MainMenuScene.cs` 的社交窗左栏那一段（A219②）。
             int captured = idx;
-            MenuDraw.Hit(b, "Hit",
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版这四扇窗（奖励/商店/收藏/社交）的左栏键
+            // 都是 `EverguildToggle` 且 **`allowClickWhenAlreadySelected = 0`** ⇒ 再点**当前**那一页
+            // 时连按钮音一起跳过（`EverguildToggle__OnPointerClick.c` 第一段）。
+            var tabHitT = MenuDraw.Hit(b, "Hit",
                          new PxRect(cx - BarW * 0.5f, cy - TabBtnH * 0.5f, cx + BarW * 0.5f, cy + TabBtnH * 0.5f),
                          QPanel, () => tabButtons.Click(captured));
+            var tabWb = tabHitT != null ? tabHitT.GetComponent<WindowButton>() : null;
+            if (tabWb != null)
+            {
+                tabWb.allowClickWhenAlreadySelected = false;
+                tabWb.isOn = () => tabButtons != null && tabButtons.CurrentVisualIndex == captured;
+            }
             return b;
         }
 

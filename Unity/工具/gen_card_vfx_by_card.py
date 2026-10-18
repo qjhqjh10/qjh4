@@ -921,7 +921,11 @@ def build_authoritative(cards, idx, stats, problems, truth_path, guid_map_path, 
     ⚠️ **卡名匹配为什么必须带阵营闸**：实测同名跨阵营真的存在 —— 我们的 `EC_Terminator_Champion` /
     `EC_Maulerfiend`（帝皇之子）在真值里**只有** `BL29` / `BL31`（黑色军团）同名卡；
     不加阵营闸就会**把别家的动画安到自家卡上**（静默错，正是项目记过的坑）。
-    ⚠️ **同名多卡**（真值里有 259 张卡的 `uniqueId` 是 32 位十六进制串，是同内容的第二份 dump）
+    ⚠️ **同名多卡**（真值里 **311** 张卡的 `uniqueId` 是 32 位十六进制串 —— 2026-10-19 `T15` 现数；
+     🔴 **不再是「同内容的第二份 dump」**：原写「259 张 · 同内容第二份」，实测①是 311、②**内容/身份都不同** ——
+     117 张 `m_Name` 带 `_enchantment*` 后缀（能力生成的变体卡，`cardAbilities` 与本体不同，
+     例 `e9d68c65…` = `…-Coterie of the Conceited_enchantment` ≠ 池内 `EC51`）·
+     194 张是 `Z-NC` / `_oath` / `_normal` / `_tutorial` 这一族**独立卡 SO**；同名同内容的对子实测 **0**）
      ⇒ 优先取「`uniqueId` 是正常卡 id」的那一份；**仍有歧义**时全取并在条目上打 `nameJoinAmbiguous`。
     """
     if not os.path.isfile(truth_path):

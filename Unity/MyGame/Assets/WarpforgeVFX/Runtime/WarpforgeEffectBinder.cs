@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;   // `VertexAttribute.Color`（逐渲染器顶点色分流要用）
 
 namespace WarpforgeVFX
 {
@@ -83,6 +84,15 @@ namespace WarpforgeVFX
         /// 用途 = A/B「队列是不是某个偏亮/偏暗的原因」。⚠️ 只在排查时用（正常路径照队列真值表）。</summary>
         public static readonly bool SkipRenderQueue =
             System.Environment.GetEnvironmentVariable("WFBIND_NOQUEUE") == "1";
+
+        /// <summary>🔬 实验覆盖（2026-10-19 · T04）：`WFBIND_NO_VERTEXCOLOR=1` → **不开**顶点色分流闸
+        /// （`_VertexColorLerpOn` 恒 0 = 改前的旧行为）。
+        /// 用途 = A/B「那 6 个带颜色通道的渲染器换了分支到底差多少」，**不用改代码**：
+        ///   · 默认（不设）        ⇒ 新行为（网格有颜色通道的走 `lerp(tex, vcol, vcol.a)`）
+        ///   · `WFBIND_NO_VERTEXCOLOR=1` ⇒ 旧行为（一律 `tex * _Color`）
+        /// ⚠️ 只在排查时用。配合 `WFBIND_FORCE_BUILTIN="UnlitAmbient"` 才量得到（正常态走原件）。</summary>
+        public static readonly bool SkipVertexColorLerp =
+            System.Environment.GetEnvironmentVariable("WFBIND_NO_VERTEXCOLOR") == "1";
         static readonly HashSet<string> LoggedShaders = new HashSet<string>();
 
         /// <summary>🆕 2026-10-01：这个 prefab 的 `Animator` 在原版里用的**控制器名**（导出器写的）。
@@ -107,6 +117,12 @@ namespace WarpforgeVFX
             var rends = GetComponentsInChildren<Renderer>(true);
             var built = new Material[materials.Length];     // 不开 _EMISSION 的那一份
             var builtEm = new Material[materials.Length];   // 开了 _EMISSION 的那一份
+            // 🔴 2026-10-19（T04）：`Everguild/UnlitAmbient` 的**顶点色分流**那一档。
+            //   为什么必须另建一份、不能复用：`_VertexColorLerpOn` 是**逐渲染器**的
+            //   （同一个材质挂在不同网格上，原版走的 VS 变体不同）⇒ 同一个 `WFMatDef` 需要两个材质实例。
+            //   判据与后果 → `WFUnlitAmbient.shader` 里 `_VertexColorLerpOn` 的注释。
+            var builtVc = new Material[materials.Length];
+            var builtVcEm = new Material[materials.Length];
             int slot = 0, ri = 0;
             foreach (var r in rends)
             {
@@ -137,9 +153,16 @@ namespace WarpforgeVFX
                         slot++;
                         if (idx >= 0 && idx < built.Length)
                         {
-                            var m = em
-                                ? (builtEm[idx] ?? (builtEm[idx] = Build(materials[idx], true)))
-                                : (built[idx] ?? (built[idx] = Build(materials[idx], false)));
+                            // 🔴 顶点色分流只对**基础 `Everguild/UnlitAmbient`** 生效（见 shader 里那段判据）：
+                            //   Flickker 的 lerp 用的是 `v3` 且 `w = 0`（恒等）⇒ 不该开这个闸。
+                            bool vc = !SkipVertexColorLerp && IsBaseUnlitAmbient(materials[idx]) && RendererHasVertexColor(r);
+                            var m = vc
+                                ? (em
+                                    ? (builtVcEm[idx] ?? (builtVcEm[idx] = Build(materials[idx], true, true)))
+                                    : (builtVc[idx] ?? (builtVc[idx] = Build(materials[idx], false, true))))
+                                : (em
+                                    ? (builtEm[idx] ?? (builtEm[idx] = Build(materials[idx], true)))
+                                    : (built[idx] ?? (built[idx] = Build(materials[idx], false))));
                             if (m != null) { arr[i] = m; continue; }
                         }
                         arr[i] = r.sharedMaterials[i];     // 保持占位
@@ -162,6 +185,43 @@ namespace WarpforgeVFX
                 }
                 ri++;
             }
+        }
+
+        /// <summary>这个材质定义的原版 shader 是不是**基础那份** `Everguild/UnlitAmbient`。
+        ///
+        /// 为什么只认它：顶点色分流那条判据只对基础那份成立 —— `… Emissive Flickker` 的 PS lerp 用的是 `v3`，
+        /// 而它的 COLOR VS 支把 `o3` 写成 `(cb0[61].xyz, 0)`（`w = 0`）⇒ lerp 恒等，开闸没有意义。
+        /// 判据全文 → `WFUnlitAmbient.shader` 里 `_VertexColorLerpOn` 的注释与 `frag` 那一段。</summary>
+        static bool IsBaseUnlitAmbient(WFMatDef d)
+        {
+            return d != null && string.Equals(d.shader, "Everguild/UnlitAmbient", StringComparison.Ordinal);
+        }
+
+        /// <summary>这个渲染器所在网格**有没有顶点色通道**（= 原版 `Everguild/UnlitAmbient` 会走哪一支 VS）。
+        ///
+        /// 🔴 判据 = 网格自己的 `m_Channels` 里颜色通道是否有维度（`Mesh.HasVertexAttribute(Color)`）；
+        ///   **不是**「这个 prefab 里有几个网格有颜色」—— 2026-10-12 那笔记的就是 prefab 级口径不可用
+        ///   （判据 → `资料/历史/项目任务_第二十五会话_搬出段.md` ⑨）。
+        /// ⚠️ **粒子渲染器一律返回 false**：粒子颜色由 `ParticleSystem` 每帧供，"网格有没有 COLOR" 推不出
+        ///   `IN.color` 的补值是不是 `(1,1,1,1)`；而原版那 13 个 UnlitAmbient 材质都挂在普通网格上
+        ///   ⇒ 宁可走旧路径（`tex * _Color`），也别冒「整片渲白」的风险。
+        /// ⚠️ 找不到网格（`sharedMesh == null`）也返回 false —— 那种情况原版同样没有顶点色。</summary>
+        static bool RendererHasVertexColor(Renderer r)
+        {
+            if (r == null) return false;
+            var smr = r as SkinnedMeshRenderer;
+            if (smr != null) return MeshHasColor(smr.sharedMesh);
+            if (r is MeshRenderer)
+            {
+                var mf = r.GetComponent<MeshFilter>();
+                return mf != null && MeshHasColor(mf.sharedMesh);
+            }
+            return false;
+        }
+
+        static bool MeshHasColor(Mesh m)
+        {
+            return m != null && m.HasVertexAttribute(VertexAttribute.Color);
         }
 
         /// <summary>把 `animatorController` 指定的那份**原版控制器**从重打的小包里取回来挂上。
@@ -204,12 +264,18 @@ namespace WarpforgeVFX
         /// <summary>同上，但能指定 `_EMISSION` 那一档 —— 自检要能断言「按 Emission 模块判」这条也生效。</summary>
         public static Material BuildForProbe(WFMatDef d, bool emissionOn) { return Build(d, emissionOn); }
 
+        /// <summary>同上，再加**顶点色分流**那一档（`_VertexColorLerpOn`）—— 自检要能断言两条分支都建得出来。</summary>
+        public static Material BuildForProbe(WFMatDef d, bool emissionOn, bool vertexColorLerp)
+        { return Build(d, emissionOn, vertexColorLerp); }
+
         /// <param name="emissionOn">该材质挂着的那个发射器，Emission 模块是不是开着的。
         /// **由调用方（`Apply`）逐渲染器算出来传进来** —— 判据的解释与实测见 `Apply` 里的注释。</param>
-        static Material Build(WFMatDef d, bool emissionOn = false)
+        /// <param name="vertexColorLerp">该渲染器所在网格**有没有顶点色通道**（见 `RendererHasVertexColor`）。
+        /// 只对基础 `Everguild/UnlitAmbient` 有意义 —— 判据 → `WFUnlitAmbient.shader` 的 `_VertexColorLerpOn`。</param>
+        static Material Build(WFMatDef d, bool emissionOn = false, bool vertexColorLerp = false)
         {
             if (d == null) return null;
-            string key = d.name + "|" + d.shader + (emissionOn ? "|em" : "");
+            string key = d.name + "|" + d.shader + (emissionOn ? "|em" : "") + (vertexColorLerp ? "|vc" : "");
             if (Cache.TryGetValue(key, out var c) && c != null) return c;
 
             Shader sh;
@@ -291,6 +357,14 @@ namespace WarpforgeVFX
             if (m.HasProperty("_EmissiveFlickerOn"))
                 m.SetFloat("_EmissiveFlickerOn",
                     d.shader == "Everguild/UnlitAmbient Emissive Flickker" ? 1f : 0f);
+
+            // 🔴 2026-10-19 新加（T04）：基础 `Everguild/UnlitAmbient` 的**顶点色分流闸**。
+            //   判据与为什么不能用 keyword → `WFUnlitAmbient.shader` 里 `_VertexColorLerpOn` 的注释：
+            //   原版基础 PS 是 `lerp(tex.rgb, v2.rgb, v2.w) * _Color.rgb`，而 `v2` 是不是真顶点色
+            //   **取决于网格有没有 COLOR 流**（Unity 按网格选 VS 变体）⇒ 只能逐渲染器判。
+            //   ⚠️ 对所有材质都写一次是无害的：没声明这个属性的 shader `SetFloat` 是 no-op。
+            if (m.HasProperty("_VertexColorLerpOn"))
+                m.SetFloat("_VertexColorLerpOn", vertexColorLerp ? 1f : 0f);
 
             foreach (var k in d.keywords)
                 if (!string.IsNullOrEmpty(k)) m.EnableKeyword(k);

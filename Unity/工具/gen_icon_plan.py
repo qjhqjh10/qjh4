@@ -19,6 +19,19 @@
 并且用 `_还原效果文字.md`（29 个子代理逐张看卡图抄的还原表，1965/1968 已还原）
 **做一遍交叉核对**：锚点对不上的、或者锚点说是 A 而表里写着 B 的，**全部报出来**，不静默。
 
+🔴 **2026-10-19（`A1771`）就地更正 —— 上面「`[Attack]` 只能逐卡定」的前提，对【现池】已被官方数据推翻。**
+判据不再是卡图 OCR / 还原表，而是**官方 `Card_Description` 的 EN 列**（`数据/游戏数据/官方本地化_en+zh-CN.json`）：
+池内 **123 处 `[Attack]`（119 张卡）全部**对位 `((…_melee_attack…))` 或内联
+`<sprite name=Atlas_trait_icon_Melee>`（**0 例外**）⇒ `[Attack]` 已升成 `TOKEN_BY_RULE` 的
+**官方 EN 规则（→ Melee）**，`TOKEN_BY_CARD` 里那 119 条逐卡条目**已整批删除**。
+	· **旧结论为什么曾经成立**：当时判据只有卡图 OCR + 还原表；上面两个例子**今天读已不是原样** ——
+	  `DA44` 现在是 `Secret Agenda`（`desc` 里没有 `[Attack]`）、`EC8` 现在是 `Infractor`
+	  （`… +1 [Attack] and +1 [Ranged]`，`[Attack]` 就是拳）⇒ ⛔ **别拿文件头这段旧话当「`[Attack]` 有枪」的依据**。
+	· 换代是**零可见变化**：两份 `card_icon_plan.json` 的 `token`/`sprite` 逐字节不变（只有 `[Attack]` 条目的
+	  `why` 换成规则文案，运行时不读 `why`）。`desc` 一个字都没动。
+	· **对账段**在 `main()` 末尾「`A1771` 官方 EN 对账」那一节；判据 →
+	  `资料/普查产出_1018/AUD_A1771_A1945_可行性.md`。
+
 **产物**
 
 * `数据/游戏数据/card_icon_plan.json` —— 每张卡每个记号的答案（带证据）+ 通用表
@@ -44,6 +57,7 @@ import json
 import os
 import re
 import sys
+import hashlib
 import collections
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -52,6 +66,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # d:/4/Unit
 
 RESTORED = os.path.join(ROOT, "资料/卡表核对_卡图提取/_还原效果文字.md")
 CARDS = os.path.join(ROOT, "MyGame/Assets/RuleEngine/Resources/cards_engine.json")
+# 🆕 2026-10-19（`A1771`）：**官方本地化表** = `[Attack]`/`[Ranged]`/`Spirit`/`Quest` 图标的**来源正本**。
+#   我们只读它的 **EN 列**（`terms[k][0]`）；官方 zh 列**不能**当图标源（15/207 缺、且会把
+#   「近战攻击」写成纯文字 —— 判据 → `资料/普查产出_1018/AUD_A1771_A1945_可行性.md` §3·3）。
+LOC_OFFICIAL = os.path.join(ROOT, "数据/游戏数据/官方本地化_en+zh-CN.json")
 OUT_JSON = os.path.join(ROOT, "数据/游戏数据/card_icon_plan.json")
 # 运行时那一份（`Resources.Load<TextAsset>("card_icon_plan")` 要它在 Resources 下）——
 # **每次都由本脚本一起写**，别手改；两处内容永远一样（同一份数据写两遍）
@@ -99,6 +117,13 @@ SYMBOLS = {
 # 🔵 **2026-10-14（第三十一会话 · P1 id 置换批）**：本表与 `BARE_TOKEN_BY_CARD` 的**卡 id 键已整族换算**
 #   （171 张卡的 id 从「自造名样式」换成真值 —— 60 个键 / 107 处），**答案与注释一字未动**。
 TOKEN_BY_CARD = {
+    # 🔴🔴 **2026-10-19（`A1771`）：`(卡, "[Attack]")` 那 119 条逐卡条目【已整批删除】。**
+    #    `[Attack]` 的答案现在**只**来自 `TOKEN_BY_RULE` 的官方 EN 规则（→ `Melee`）——
+    #    官方 `Card_Description` EN 里 123/123 处对位 `melee_attack_icon_x` / `Atlas_trait_icon_Melee`。
+    #    删前逐条核过：119 条**全部 = Melee**、池里 119 张带 `[Attack]` 的卡**一条不少**
+    #    （`plan` 的 `token`/`sprite` 改前改后逐字节相同，见 `main()` 末尾「`A1771` 官方 EN 对账」）。
+    #    ⚠️ 本表里**仍留着一些提到 `[Attack]` 逐卡条目的历史注释**（它们记的是「当初为什么这么写」）——
+    #      那些条目**今天已经不在**，⛔ **别照着注释把它们加回来**（加回来 = 与官方源两处判据）。
     # ---- 名字骗人最狠的四对（卡面看过的）----
     # ⚪ 2026-10-10（`A1411`）：`("EC33","[Health]")` **已删** —— 死键（该卡文本里已无 `[Health]`）；
     #    它当年那个答案（Melee / 第一个圆徽 = 粉拳）**已由下面那条 `("EC33","[Attack]")` 承接**（同答案）⇒ 删掉不丢覆盖。
@@ -110,7 +135,6 @@ TOKEN_BY_CARD = {
     # 🔴 2026-10-10（`A1411`）：键由 `[Health]` **订正成 `[Ranged]`** —— 死键，卡表那一处 2026-10-18
     #    已写成 `[Ranged]`（英文第二个属性）。答案不变（Ranged）、证据沿用原来那份。
     ("461354d98aa5e3142afa4eb4922e5456", "[Ranged]"): ("Ranged", "卡图 Hardwired Destruction：第二个圆徽 = 紫枪"),
-    ("461354d98aa5e3142afa4eb4922e5456", "[Attack]"): ("Melee", "还原表：`Give +1Melee and +1Ranged`"),
     ("GOF88", "[attack]"): ("Melee", "还原表 Nob on Smasha Squig：`+1 Melee and +1 Ranged`"),
     # ⚪ 2026-10-10（`A1411`）：`("GOF88","[health]")` **已删** —— 死键；
     #    同位置的 `("GOF88","[ranged]")` / `("GOF88","[远程]")` 两条一直活着（同答案 Ranged）。
@@ -187,7 +211,6 @@ TOKEN_BY_CARD = {
     #    ⚠️ 但这两条本身是**独立的一份旁证**：`[1]` 早就被认出是**暗黑天使任务点**
     #    （"卡面 `gain (①)`"，见 `资料/卡表核对_卡图提取/_裁定_图标丢失.md`）⇒ 与 `A1634` 的结论一致。
     # ---- 攻击/远程：还原表逐张写了 Melee / Ranged ----
-    ("EC18", "[Attack]"): ("Melee", "还原表：`Gain +1 Melee, +1 Ranged`"),
     ("EC18", "[Ranged]"): ("Ranged", "同上"),
     # ⚪ 2026-10-10（`A1411`）：`("SOR13","[Armor]")` **已删** —— 死键；这一处的答案（Melee）由本卡的
     #    `("SOR13","[攻击]")` + `("SOR13","[Attack]")` 两条承接（同答案）⇒ 删掉不丢覆盖。
@@ -199,35 +222,19 @@ TOKEN_BY_CARD = {
     ("AM37", "[Ranged]"): ("Ranged", "还原表：`+1 Ranged`（键 2026-10-10 由 `[Attack]` 订正）"),
     ("AM74", "[Ranged]"): ("Ranged", "还原表：`+2 Ranged`（键 2026-10-10 由 `[Attack]` 订正）"),
     ("DA73", "[Ranged]"): ("Ranged", "还原表：`+1 Ranged`（键 2026-10-10 由 `[Attack]` 订正）"),
-    ("DA45", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
     ("9e0eecf8cb9a8df49bf18cc5d9051109", "[attack]"): ("Melee", "还原表：`+2 Melee`"),
-    ("38871853fabb5244d8148766829230cd", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
     ("EC35", "[attack]"): ("Melee", "还原表：`+1 Melee`"),
     ("EC15", "[attack]"): ("Melee", "还原表：`+2 Melee`"),
-    ("GSC28", "[Attack]"): ("Melee", "还原表：`+2 Melee`"),
-    ("GSC30", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
-    ("GSC58", "[Attack]"): ("Melee", "还原表：`+2 Melee`"),
-    ("GOF77", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
     ("GOF72", "[attack]"): ("Melee", "还原表：`+2 Melee`"),
-    ("508002f5d7ee54f4686aefa2e6adce41", "[Attack]"): ("Melee", "还原表：`+2 Melee`"),
-    ("d19e8b68aaa9a884781d06697ad237a6", "[Attack]"): ("Melee", "还原表：`+3 Melee`"),
-    ("SAU44", "[Attack]"): ("Melee", "还原表：`+1 Melee … +3 Melee`（两处都是拳）"),
-    ("SAU66", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
-    ("e01f4d54e8a474d96b5a1167cc28eebf", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
     ("SOR68", "[attack]"): ("Melee", "还原表：`+3 Melee`"),
     ("SOR65", "[attack]"): ("Melee", "还原表：`+1 Melee`"),
     ("SW37", "[attack]"): ("Melee", "还原表：`+2 Melee`"),
-    ("SW41", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
-    ("SW45", "[Attack]"): ("Melee", "还原表：`+2 Melee`"),
     # ⚪ 2026-10-10（`A1411` 顺手）：这里原来还有一条 `("SW55","[Attack]"): ("Melee", "还原表：`+4 Melee`")`
     #    —— 它和本表后面那条同名键（why = `"还原表 Legendary Tenacity：…"`）**是同一个键**，
     #    而 **Python 的字典字面量遇到重复键是「后者静默赢」** ⇒ 这一条从来没生效过
     #    （生成器计划表里 `SW55` 的 `desc [Attack]` 打的 why 一直是后面那条）。
     #    **两条答案相同（Melee）**，所以删掉它**零行为变化**（删前实测：本卡 `plan` 条目逐字未变），
     #    只是把"静默重复"这种坑清掉。
-    ("UM109", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
-    ("55b8e3d2040f86d4190ffb1a91abb5ed", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
-    ("26d4ded12b28a3742b5c8fc155e29803", "[Attack]"): ("Melee", "还原表：`+1 Melee`"),
     # ⚪ 2026-10-10（`A1411`）：`("TL75","[Attack]")` **已删** —— 死键，而且**两个答案打架**：
     #    这条写 Melee，而卡表现已写 `[Ranged]`（`+1 Ranged Attack` → `+1 [Ranged]`，`8b84a3d` 改的）
     #    且 `[Ranged]`→Ranged 有按规则条目 ⇒ 这条旧答案**已被卡表推翻**，删（不是换键）。
@@ -255,7 +262,6 @@ TOKEN_BY_CARD = {
     #    **③ `ZH2EN` 那一支根本轮不到**（实测：现读 `plan` 里 `AM50` 的 `descZh` 带的是规则那条 `why`）
     #    ⇒ 它已经是个**够不着的死键**，删掉不丢覆盖（删前实测：本卡 `plan` 条目一字未变）。
     ("AM45", "[ranged]"): ("Ranged", "同上"),
-    ("DA39", "[Attack]"): ("Melee", "卡图 `Dark Angels/4计策/Warpforge_44_Ancient-Reliquary.png`：第一枚 = 粉拳"),
     # 🔴 2026-10-18（A980-c）：键从 `[Armor]` 换成 `[Ranged]` —— 那张卡池文本里**从来没有** `[Armor]`
     #    （注释里也一直写着「卡面第二枚 = 紫枪」，只是键名沿用了更早那版 OCR 写法）⇒ 旧键是**死条目**。
     #    本批把 `desc` 里那个**裸词 `Ranged`** 改成了记号（卡面只印枪、不印词），键跟着换。
@@ -273,15 +279,11 @@ TOKEN_BY_CARD = {
     #    **就是这条死条目**（死条目不参与渲染，所以「不一致」本来就落不到画面上；
     #    而五张 `markOf*` 切片**渲染上完全一样**，见 `SYMBOLS` 里 `❄` 那条的说明）。
     #    ⛔ **别把它加回来** —— 加回来就是死条目，生成器的自检会再报一次。
-    ("dd535f7a54bcf6241b24ca6d0e81bbb4", "[Attack]"): ("Melee", "还原表 Supreme Grand Master：`Give +1Melee and +1Ranged`"),
     # 🔴 2026-10-10（`A1411`）：键 `[Armor]` **订正成 `[Ranged]`**（死键）—— 同一处的键名早就是错的
     #    （`[Armor]` 是 OCR 起的名字，答案从来是「紫枪」），卡表 2026-10-18 已写成 `[Ranged]`。答案不变。
     ("dd535f7a54bcf6241b24ca6d0e81bbb4", "[Ranged]"): ("Ranged", "同上（键 2026-10-10 由 `[Armor]` 订正）"),
-    ("EC3", "[Attack]"): ("Melee", "还原表 Disharmonist：`-2Melee and -2Ranged`"),
     ("EC3", "[Ranged]"): ("Ranged", "同上（键 2026-10-10 由 `[Armor]` 订正）"),
-    ("5a8a11b2a89796f48b34fbec8db6f452", "[Attack]"): ("Melee", "还原表 Antrak Silk：`+1Melee and +1Ranged`"),
     ("5a8a11b2a89796f48b34fbec8db6f452", "[Ranged]"): ("Ranged", "同上（键 2026-10-10 由 `[Armor]` 订正）"),
-    ("SW55", "[Attack]"): ("Melee", "还原表 Legendary Tenacity：`+4Melee, +4Ranged`"),
     ("SW55", "[Ranged]"): ("Ranged", "同上（键 2026-10-10 由 `[Armour]` 订正）"),
     # ⚪ 2026-10-10（`A1411`）：`("EC1","[armor]")` **已删** —— 死键；这一处（第一枚 = 拳）今天写 `[Attack]`，
     #    本表已有 `("EC1","[Attack]")`（同答案 Melee）⇒ 删掉不丢覆盖。
@@ -311,9 +313,6 @@ TOKEN_BY_CARD = {
     ("DA34", "[honour]"): ("questPoints", "还原表 Unforgiven Redemptor：`When you gain Quest Point, deal 2 damage`"
                           "　⛔ **别删：`[honour]` 是个词、不是图标名，靠本逐卡条目才对上**"
                           "（删条目 / 改 token ⇒ 徽记整枚不画；`DA38` 的 token 本来就**不是** `[Quest Point]`）"),
-    ("8425b809e9e64e24f9035f709f5aaee4", "[Attack]"): ("Melee", "还原表：`+1Melee, Armour Armour 1 and Flying Flying`"),
-    ("6899b199f5e36144ebbdd7ed9d9e7afe", "[Attack]"): ("Melee", "还原表：`+2Melee and Slay Slay:`"),
-    ("GOF101", "[Attack]"): ("Melee", "还原表 Da Old Ways：`give it +2 Melee this turn instead`"),
     ("AM56", "[Ranged]"): ("Ranged", "还原表：`Give +2 Ranged to your units`"),
     # 🔴 2026-10-10（`A1411`）：键 `[Armor]` **订正成 `[Ranged]`**（死键）—— 同一处卡表 2026-10-18
     #    已写成 `[Ranged]`（第二枚 = 紫枪）。答案不变（Ranged）、证据沿用原来那份。
@@ -367,104 +366,17 @@ TOKEN_BY_CARD = {
         "同 `DA8`（卡图 `Dark Angels/3部队/Warpforge_15_Company-Veteran.png`：行首 `〔红盾+红骷髅〕Vanguard.` "
         "那枚才是 `vanguard`，`gain` 后面这枚与 `DA8` **逐像素同款**，都是任务点徽记）"),
 
-    # ── 🆕 2026-10-18：`[Attack]` 的**逐卡**近战条目（本批新写的记号）──────────────────
-    #  ⚠️ **这一批必须逐卡列，不能升成 `TOKEN_BY_RULE`** —— `[Attack]` 这个**名字**在本工程里
-    #    拳/枪都有：老数据 `EC23` / `AM22` / `AM42` / `AM75` / `DA73` 是**枪**、`DA44` / `DA50` 是**拳**
-    #    （文件头那条「token 名不可信」讲的就是它）。升成规则 = 哪天有人写了个「实为枪」的
-    #    `[Attack]`，会被**静默**画成拳 ⇒ 宁可多 90 行数据。
+    # ── 🆕 2026-10-18 的 `[Attack]` **逐卡**近战条目（**2026-10-19 `A1771` 已整批删除**）──────
+    #  🔴 **删掉的是 119 条 `(卡, "[Attack]") → Melee`**；答案今天由 `TOKEN_BY_RULE` 的
+    #    「官方 `Card_Description` EN」规则给（见那张表里 `("[Attack]", None, "Melee", …)`）。
+    #  删前实测：119 条**全部 = Melee**、池里 119 张带 `[Attack]` 的卡**一条不少**
+    #  （两份 plan 的 `token`/`sprite` 改前改后逐字节相同，只有 `why` 换了文案）。
+    #  **当初为什么逐卡列**（留作历史，⛔ 别据此加回来）：那时判据只有卡图 OCR + 还原表，
+    #  而老数据里 `[Attack]` 被记成拳/枪都有；**那个前提今天已被官方数据推翻**（123/123 = melee）。
     #  ⚠️ 本批**新写的**近战记号**一律**用 `[Attack]`（不是 `[Melee]`）是有原因的，别顺手统一：
     #    英文 `desc` 是**引擎输入**，`GivePayload.ReAttr` 认的是字面 `attack` ⇒ 写 `[Attack]`
     #    才能让去括号后的串与改前**逐字节相同**（`EffectText.ParseSegment` 只剥方括号、不剥内容）。
     #    唯一例外 `EC39` 用 `[Melee]` —— 那句走 `TryDouble` 的**字面** `melee and ranged` 匹配。
-    ("c06453b330af61745beb5fa567ba863e", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("ASH32", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("851f73daf747eb642934a16429b391db", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("ASH69", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("ASH86", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("DA26", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("DA30", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("DA32", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("DA37", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("DA48", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("DA50", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("DA52", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("DA68", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("DA65", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("DA72", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC56", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC8", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC24", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC1", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC22", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC23", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC26", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC13", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC57", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC47", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC32", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("aa45079b714e3ff498549e533c5954a1", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC33", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF29", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF106", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF14", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF17", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF2", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF39", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF45", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF79", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF4", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF82", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF85", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF98", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF100", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("64a657fc5ed5bbb4fa7b585cf29c1e95", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("20d0f4451f16fc441836a02f99bf77da", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("6ba4b132d24528844a86304f8ce67833", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("3ebb159036778d14ebd1c48451aa6ca0", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GOF70", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("e3d67d86f73f7564eb0bf886ec848af6", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GSC9", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("7831725387c8a774dbdf5b6492d928e0", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GSC18", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GSC16", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GSC14", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GSC24", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("GSC4", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("EC25", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR7", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR13", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR10", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR23", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR25", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR24", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR56", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR44", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("f104d4c21abe84546abc9365d9eda8dd", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR60", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR67", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SOR5", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SW8", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SW9", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SW11", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SW20", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SW27", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("SW47", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("4d4b9170663891f488c0e96ee8e55ba1", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("TAU71", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("TAU73", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("TAU74", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("b3735ef3d1408d544b0947e31f898e20", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("5b5425f6e2848b449807bd1643d0d936", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("TL68", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("TL73", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("UM91", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("UM96", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("8482077f309b08943b190f18b5874871", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("UM111", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("4de4fcfb5d7e0554a88b9f419a2cd7c2", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("UM86", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("UM40", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("UM42", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     # 🔴 2026-10-18 **第二批**：这两张的**英文 `desc` 已改**（`[Attack]` → `[Ranged]`）——
     #     卡面 `Ultramarines/3部队/inceptor srg.png` / `inceptor.png` 那一枚都是**紫圈枪**（本批再亲读一次确认），
     #     而 `[Attack]` 经 `GivePayload.ReAttr` 解出来是 **`attack`（近战）** ⇒ 引擎原来按「近战 +1」结算。
@@ -474,10 +386,6 @@ TOKEN_BY_CARD = {
     # 🆕 2026-10-18 第二批：`UM118` 的英文 `desc` 原来**截断在 `equal to its`**（少了那一枚记号），
     #    本批补上（判据 = 卡面 `Ultramarines/4计策/Warpforge_37_Indomitus-Crusade.png`：
     #    `Oath 6: Deal damage to all enemy troops equal to its〔**粉拳**〕` —— 本批作者亲读）。
-    ("UM118", "[Attack]"): ("Melee", "卡图 `Ultramarines/4计策/Warpforge_37_Indomitus-Crusade.png`：`equal to its〔粉拳〕`（亲读）"),
-    ("UM67", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("7693f2b21b2f85644b739da990bc2216", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
-    ("e874c2bd84895e64694daa44bd5fd5c2", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
     # 🔴 2026-10-18 **第二批**：同上一张，英文 `desc` 已改（`[Attack]` → `[Ranged]`）。
     ("UM9", "[Ranged]"): ("Ranged", "卡图 `Ultramarines/3部队/inceptor.png`：那一枚是**紫圈枪**（锚点核对 + 亲读两处一致）"),
 }
@@ -518,6 +426,21 @@ BARE_TOKEN_BY_CARD = {
     ("UM106", "誓言能力"): ("oath", "同上（中文写法；`descZh` = `友方部队的誓言能力每回合最多可激活 3 次。`）"),
     ("UM93", "誓言能力"): ("oath", "同上（中文写法；`descZh` = `友方部队的誓言能力可在后续回合激活。`）"),
 }
+
+# ── 🆕 2026-10-19（`A1771`）：`EC49` 的**第二枚**远程徽记 —— 官方对账查出来的真缺口，按官方补 ──
+# 🔴 **缺什么**：`desc` = `Give -3 [Ranged] to an enemy troop. Then, if it has 0 Ranged Attack, destroy it`
+#    ⇒ 只有第一处（`-3 [Ranged]`）有记号；**第二处 `0 Ranged Attack` 没有** ⇒ 卡面少画一枚枪。
+#    **官方 EN 判据**（`数据/游戏数据/官方本地化_en+zh-CN.json` 的 `Card_Description/EC49`）：
+#    `… Then, if it has ((Ranged_attack_icon_x,0)), destroy it` —— **两处** ranged。
+#    `descZh` 那侧本来就有**两处** `[远程]`（中文一直是对的），只有英文这半缺。
+# ✅ **为什么不改 `desc`**：`desc` 是引擎唯一解析输入（口径：一个字不动）⇒ 按**裸 token** 在词前补图标。
+#    token 取 `Ranged Attack`（**不带前面的 `0`**）：官方那枚画在数字**后面**（`0〔枪〕`），
+#    带 `0` 会把图标插到数字前面去。⚠️ 词仍会印出来（`desc` 里就有这个词，不能删）——
+#    本轮只补**枚数**；「词要不要印」属显示源那一层（`A1763`/`A2117`），不在这里擅自裁。
+BARE_TOKEN_BY_CARD[("EC49", "Ranged Attack")] = (
+    "Ranged",
+    "官方 `Card_Description/EC49` 的 EN：`Then, if it has ((Ranged_attack_icon_x,0)), destroy it` —— "
+    "本卡第二处远程徽记；我们 `desc` 那一处原来没有记号（`A1771` 官方对账查出的真缺口）")
 
 # 🔴 2026-10-11（`A1347`）—— **这四张不要在这儿补条目**：`UM80` / `UM81` / `UM94` / `UM74`。
 #    `A1331` 把它们的 `desc` 段首补回 `Oath ` 之后（=`Oath 4:` / `Oath 3:` / `Oath 1:` / `Oath 3:`），
@@ -1991,10 +1914,10 @@ TOKEN_BY_RULE = [
     ("[Energy]", None, "faith",
      "**行首付费前缀**：卡面画的是**这一行的资源图标**。修女会 = 金太阳（信仰）。"
      "逐张核过 Daemonbreaker `8` / Miraculous Feat `6` / Fiery Conviction `4` 三张 + Preacher"),
-    # ---- 🆕 2026-10-18：**属性记号**（`[攻击]/[远程]/[Melee]/[Ranged]`）----------------
-    #  ⚠️ 这四条和上面那三条**性质不同**，必须先说清「凭什么是按规则的」——
+    # ---- 🆕 2026-10-18：**属性记号**（`[Attack]/[攻击]/[远程]/[Melee]/[Ranged]`）----------------
+    #  ⚠️ 这几条和上面那三条**性质不同**，必须先说清「凭什么是按规则的」——
     #     本文件头写着「token 名不可信」，那是针对**卡图 OCR 猜出来的**名字
-    #     （`[Health]` 画的是拳、`[Power]` 画的是枪…）。这四条是**我们自己写的**：
+    #     （`[Health]` 画的是拳、`[Power]` 画的是枪…）。这几条是**我们自己写的**：
     #     2026-10-18 那一批把 `+N 近战攻击 / +N 远程攻击 / +N Melee / +N Ranged` 这批
     #     **卡面上只印图标、不印词**的位置改写成了方括号记号（改动在
     #     `数据/游戏数据/cardface_fixes.json` 的 `desc`/`descZh`，说明见那张表的
@@ -2002,19 +1925,31 @@ TOKEN_BY_RULE = [
     #  ✅ **旁证 = 全池既有同形记号，无一例外**（`--write` 前实测扫过）：
     #     `[攻击]` 18 处 → **全部** Melee · `[远程]` 7 处 → **全部** Ranged ·
     #     `[Ranged]`/`[ranged]` 8 处 → **全部** Ranged · `[Melee]` 0 处（新记号）。
-    #     ⇒ 加这四条**不改动任何既有卡的答案**（① 逐卡表先命中，那 33 处本来就有答案）。
-    #  🔴 `[Attack]` **故意不在**这张表里：它在老数据里拳/枪都有（`EC23`/`AM22`/`AM42`/
-    #     `AM75`/`DA73` 是枪、`DA44`/`DA50` 是拳）⇒ 名字不可信，**只能逐卡定**
-    #     （本批给它新写的那 94 条在下面 `TOKEN_BY_CARD` 末尾，整块带说明）。
+    #     ⇒ 加这几条**不改动任何既有卡的答案**（① 逐卡表先命中，那些处本来就有答案）。
+    #  🔴🔴 **2026-10-19（`A1771`）：`[Attack]` 从「逐卡」升成「按规则的官方 EN」—— 判据换代。**
+    #     **来源正本 = 官方 `Card_Description` 的 EN 列**（`数据/游戏数据/官方本地化_en+zh-CN.json`），
+    #     **不是**卡图 OCR、也**不是**还原表。现读：池里 **123 处 `[Attack]` / 119 张卡，全部**对位
+    #     `((Melee_attack_icon_x,…))` 或内联 `<sprite name=Atlas_trait_icon_Melee>`（**0 例外**）；
+    #     反向也成立：官方 melee 枚数 == 我们的 `[Attack]` 处数（除白名单 `SOR25`，见 `main()`）。
+    #     ⇒ 这条规则取代了原来的 119 条逐卡条目（**已整批删除**，见表头那条注）。
+    #     ⚠️ **原来那句「`[Attack]` 老数据里拳/枪都有」对现池不成立**：它举的卡 **id 已漂**
+    #     （`A1777` 族）—— `EC23`/`AM22`/`AM42`/`AM75`/`DA73` 现读**全都没有 `[Attack]`**，
+    #     而 `DA44` 已不是 `Ancient Reliquary`。现池里 `[Attack]` 的同位语就是 melee。
+    #     🛡 **防它将来漂**：`main()` 末尾的「`A1771` 官方 EN 对账」**每跑一次都逐卡重算**；
+    #     真有「实为枪」的 `[Attack]` 冒出来 ⇒ 图标序列对不上 ⇒ **rc≠0、零落盘**（不许静默）。
     #  ⚠️ **英文侧「新写的近战记号」用哪个名字，是有约束的**（别顺手统一成 `[Melee]`）：
     #     英文 `desc` 是**引擎输入**，`GivePayload.ReAttr` 认的是**字面** `attack` ⇒
     #     原文写 `Attack` 的地方要写 `[Attack]`（去括号后逐字节相同）；原文写 `Melee` 的地方
     #     才写 `[Melee]`。例外只有 `EC39`（走 `TryDouble` 的**字面** `melee and ranged`）。
+    ("[Attack]", None, "Melee",
+     "**官方 `Card_Description` EN 直证**：池内 123/123 处 `[Attack]` 对位 "
+     "`((Melee_attack_icon_x,…))` / 内联 `Atlas_trait_icon_Melee`（119/119 张卡、0 例外）；"
+     "逐卡对账见 `main()` 末尾「`A1771` 官方 EN 对账」"),
     ("[攻击]", None, "Melee", "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"),
     ("[远程]", None, "Ranged", "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"),
     ("[Melee]", None, "Melee",
      "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用"
-     "（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"),
+     "（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]`（同上一条，按官方 EN 规则）"),
     ("[Ranged]", None, "Ranged", "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"),
     ("[\u80fd\u91cf]", None, "faith", "同上（中文写法）"),
 ]
@@ -2345,6 +2280,19 @@ def find_icon_by_anchor(annotated, pre, post):
                 if hits:
                     # ⚠️ 有后锚点时取**最后一个**标记 —— 段尾就贴着后锚点，所以最后那个才是它的图标。
                     #    取第一个会撞上相邻的前一个图标（实测 EC8 `[Attack]` 就这样被配成 Melee）。
+                    if q and not p:
+                        # 🔴 2026-10-18（`A1656`）：**第三条兜底**（没有前锚点）时，段是「从文本
+                        #    开头切到后锚点」⇒ 里面可能同时有 ⟦独立图标⟧ 和 ❨图标+词❩。上面那套
+                        #    「先只认 ⟦⟧、一个都没有才看 ❨❩」会让**更早的独立图标**压过**贴着
+                        #    后锚点的 ❨图标+词❩**（`ASH35 [Invulnerable]` 实测：段里 ⟦Spirit Stone⟧
+                        #    在开头、正确的 `invulnerable` 在段尾 ⇒ 旧逻辑取到 Spirit Stone）。
+                        #    ⇒ 这里改成 **取离后锚点最近的那一枚**（两类一起按「结束位置最靠后」挑）。
+                        marks = list(re.finditer(re.escape(MARK_L) + "([^" + MARK_R + "]+)"
+                                                 + re.escape(MARK_R), seg))
+                        marks += list(re.finditer(re.escape(MARK2_L) + "([^" + MARK2_R + "]+)"
+                                                  + re.escape(MARK2_R), seg))
+                        if marks:
+                            return max(marks, key=lambda mm: mm.end()).group(1), "锚点对齐（离后锚点最近）"
                     return (hits[-1] if q else hits[0]), "锚点对齐"
                 return None, "锚点命中、中间没有图标"
             i = a.find(p, i + 1)
@@ -2420,7 +2368,13 @@ ANCHOR_NOISE = {("GOF88", "[health]"), ("6899b199f5e36144ebbdd7ed9d9e7afe", "[Sl
                 #    距后锚点只有 ~20 字符，缩到 38 字符的窗口它**还在**（缩到 20 才消失）。
                 #    ⇒ 真要修得改成「**离后锚点最近的那一枚**（不分 ⟦⟧/❨❩）」= 换启发式，
                 #      影响面不止这一张 ⇒ 本轮**不改**，只记进本表（账见交接）。
-                ("ASH35", "[Invulnerable]")}
+                #    ✅ **2026-10-18（`A1656`）已按上面那条启发式改掉**（`find_icon_by_anchor`
+                #      的第三条兜底），锚点现在给出 `invulnerable`、与本表一致
+                #      ⇒ **这条抑制条目已摘**（留着就是永远不会命中的死条目）。
+                #      ⚠️ 同日量过影响面：两份 `card_icon_plan.json` **逐字节不变**（锚点只做交叉核对、
+                #      不参与出计划）；报告里「锚点给出另一个答案」由 **1 处 → 0 处**
+                #      （顺带修掉 `84d4d192… Ferocious Rage [skull]` 那条假不一致）。
+                }
 
 
 def dump_plan(plan):
@@ -2746,6 +2700,145 @@ def has_official_marks(text):
     return ("[[" in text) or ("((" in text) or ("$$" in text)
 
 
+# ── 🆕 2026-10-19（`A1771`）：**官方 `Card_Description` EN 对账** ──────────────────────────────
+#
+# **为什么有这一段**：`[Attack]` 画拳还是枪，原来是「卡图 OCR + 还原表逐张猜」的证据层
+#   （`TOKEN_BY_CARD` 里那 119 条）。官方 I2 表的 `Card_Description` **EN 列**把同一个语义
+#   写成了结构化记号：`((Melee_attack_icon_x,+3))` / `((Ranged_attack_icon_x,+1))` /
+#   `((Spirit_x,2))` / `((QuestPoints1))`，以及**直接烘在正文里**的
+#   `<sprite name=Atlas_trait_icon_Melee>`。⇒ 本段把「计划表算出来的图标序列」与
+#   「官方 EN 解析出来的图标序列」**逐卡比**；不一致 ⇒ `bad`（`rc≠0`、**零落盘**）。
+#   判据与可行性 → `资料/普查产出_1018/AUD_A1771_A1945_可行性.md` §四/§五。
+#
+# **口径（照抄运行时，别自己发明）**：
+#   · `((Key,a,b))` 的展开 = `CardIcons.RewriteMarkModular`（`Core/CardIcons.cs:600-618`）：
+#     键 = `Modular_Description/<Key>`、第 1 段替 `{0}`、第 2 段替 `{1}`（**都不 Trim**）。
+#   · 展开前后**都要扫内联 `<sprite name=…>`** —— 1258 行 `Card_Description` 里有 37 行把图标
+#     **直接烘在正文里**（`GSC14` / `EC30` / `SAU44` / `SOR5` 都是这种）；只扫 `((…))` 会漏半池。
+#   · **判定类目 = `melee` / `ranged` / `spiritstone_N` / `questpointsN`**。
+#     ⚠️ `faith` **不在 `bad` 判据里**：我们 `desc` 有一批把信仰费写成**裸词** `4 Energy`
+#     （`f104…` / `SOR44`，没有 `☀` 记号）⇒ 那是**另一条显示源缺口**、不属于 `[Attack]` 换代。
+#     本段照样把差异**数出来打一行**（不许静默），但不进 `bad`。
+#   · **官方 zh 列不参与**（207 张里有 15 张缺 + 会把「近战攻击」写成纯文字 ⇒ 会掉图标）：
+#     判据 → `AUD_A1771_A1945_可行性.md` §3·3。
+RX_SINGLE_TOK = re.compile(r"(?<!\[)\[([^\[\]]{1,24})\](?!\])")
+# ⚠️ 与 `main()` 里那个 `TOK` **不是**同一个正则：`TOK` 在 `[[rally]]` 上会从**位置 1**
+#   匹配出 `[rally]`（这正是 `has_official_marks` 要整字段跳过的原因）；这里的判据是
+#   「**单方括号** token」⇒ 必须用前后负向断言把它和官方 `[[…]]` 分开。
+_RX_MARK_MOD = re.compile(r"\(\((.*?)\)\)")
+_RX_SPRITE = re.compile(r'<sprite name="?([^">\s]+)"?>')
+_OFF_ICON_CATS = ("melee", "ranged", "spiritstone", "questpoints")
+
+# 白名单：每条**必须**带理由 + 日期。⚠️ 条目**必须仍然真不一致** —— 哪天数据修好了，
+#   「死白名单」同样报 `bad`（⛔ 别把已修好的卡挂在白名单里遮着）。
+OFFICIAL_SEQ_WHITELIST = {
+    "ASH48": ("2026-10-19",
+              "**官方数据缺**：官方 EN 只有 `Trigger the abilities requiring Spirit Stones of all your troops`，"
+              "后半句 `2 [Spirit Stone]: Repeat this effect` 整段没有 ⇒ 不是我们错"),
+    "SOR25": ("2026-10-19",
+              "**内容分歧**：官方 EN 只写 `[[pray]]: Give [[flank]] to another friendly troop`（没有 +1/+1），"
+              "我们的 `desc` 有 `+1 [Attack], +1 [Ranged]` ⇒ 谁对要拿 PnP 成品卡图裁（铁律 7），未裁前保留现状"),
+}
+
+
+def load_official():
+    """→ `(card_desc_en, modular_en)`。两个 dict 的键都是**去掉族前缀**后的名字。"""
+    with open(LOC_OFFICIAL, encoding="utf-8") as f:
+        terms = json.load(f)["terms"]
+    cd, mod = {}, {}
+    for k, v in terms.items():
+        if k.startswith("Card_Description/"):
+            cd[k.split("/", 1)[1]] = v[0] if isinstance(v, list) else v
+        elif k.startswith("Modular_Description/"):
+            mod[k.split("/", 1)[1]] = v[0] if isinstance(v, list) else v
+    return cd, mod
+
+
+def _sprite_norm(name):
+    """图名 → 判据档（`Atlas_trait_icon_Melee`→`melee`、`Atlas_SpiritStone_2`→`spiritstone_2`、
+    `Atlas_trait_icon_questPoints1`→`questpoints1`、`Atlas_trait_icon_faith`→`faith`）。"""
+    n = name.replace("Atlas_trait_icon_", "").replace("Atlas_", "")
+    low = n.lower()
+    if low in ("melee", "ranged", "faith"):
+        return low
+    if low.startswith("spiritstone_"):
+        return "spiritstone_" + low.rsplit("_", 1)[-1]
+    if low.startswith("questpoints"):
+        return "questpoints" + low[len("questpoints"):]
+    return None
+
+
+def _cat_ok(s, cats):
+    base = s or ""
+    while base and base[-1].isdigit():
+        base = base[:-1]
+    if "_" in base:
+        base = base.split("_")[0]
+    return base in cats
+
+
+def official_icon_seq(en, mod):
+    """官方 EN → `(图标序列, 信仰图标序列)`；图标序列只含 `_OFF_ICON_CATS` 四类。
+
+    ⚠️ **展开顺序与运行时一致**：`((…))` 先替词条 → 再扫 `<sprite>`；
+       内联 `<sprite>` 与 `((…))` 的**相对位置**按原文从左到右走（顺序参与逐卡比）。
+    """
+    icons, faith = [], []
+
+    def push(seg):
+        for sm in _RX_SPRITE.finditer(seg):
+            s = _sprite_norm(sm.group(1))
+            if s in ("melee", "ranged") or (s or "").startswith(("spiritstone_", "questpoints")):
+                icons.append(s)
+            elif s == "faith":
+                faith.append(s)
+
+    pos = 0
+    for m in _RX_MARK_MOD.finditer(en):
+        push(en[pos:m.start()])
+        parts = m.group(1).split(",")
+        term = mod.get(parts[0])
+        if term is not None:
+            if len(parts) > 1 and parts[1]:
+                term = term.replace("{0}", parts[1])
+            if len(parts) > 2 and parts[2]:
+                term = term.replace("{1}", parts[2])
+            push(term)
+        pos = m.end()
+    push(en[pos:])
+    return icons, faith
+
+
+def plan_icon_seq(by_field, field, text, cats=_OFF_ICON_CATS):
+    """计划表（`main()` 里那份 `plan[cid]`）→ 该字段的图标序列（按**正文出现顺序**）。
+
+    ⚠️ **不能拿 `got` 的 dict 顺序**：它的插入序是「句首关键词 → 资源词 → 方括号 → 符号 → 裸 token」，
+       **不是正文序**。这里按 token 在 `text` 里的**位置**走（长的先占位，避免子串重叠）。
+    """
+    got = by_field.get(field) or {}
+    pairs = sorted(((t, lst[0][0]) for t, lst in got.items() if lst and lst[0][0]),
+                   key=lambda x: -len(x[0]))
+    used = [False] * len(text)
+    hits = []
+    for t, sp in pairs:
+        start = 0
+        while True:
+            i = text.find(t, start)
+            if i < 0:
+                break
+            if not any(used[i:i + len(t)]):
+                for j in range(i, i + len(t)):
+                    used[j] = True
+                hits.append((i, sp))
+            start = i + 1
+    out = []
+    for _i, sp in sorted(hits):
+        s = _sprite_norm(sp)
+        if _cat_ok(s, cats):
+            out.append(s)
+    return out
+
+
 def _a1703_lock_check(tokens, texts):
     """位置锁：`tokens = {卡: {字段: [token,…]}}`、`texts = {卡: {字段: 原文}}`。
 
@@ -2777,6 +2870,10 @@ def _a1703_lock_check(tokens, texts):
 
 
 def main():
+    # 🆕 2026-10-19（`A1771` A4）：把 `cards_engine.json` 的**原始字节**留一份 —— 跑完再算一次
+    #   hash 证明本脚本**一个字节都没写**（它就是 `desc`/`descZh` 的载体；`desc` 是引擎唯一解析输入）。
+    with open(CARDS, "rb") as _f:
+        _cards_raw = _f.read()
     restored = load_restored()
     vocab = sorted(set(trait_names()) | set(EXTRA_VOCAB), key=len, reverse=True)
     # ⚠️ 前面那条 `(?<![A-Za-z0-9])` 是必须的：`Invulnerable` 里**含着** `vulnerable`
@@ -3018,6 +3115,112 @@ def main():
     have = {os.path.splitext(f)[0] for f in os.listdir(TRAITS) if f.endswith(".png")} |            {os.path.splitext(f)[0] for f in os.listdir(UI) if f.endswith(".png")}
     missing = sorted({s for e in plan.values() for got in e.values() for lst in got.values()
                       for s, _w in lst if s and s not in have})
+
+    # ═════════════ 🆕 2026-10-19（`A1771`）：官方 `Card_Description` EN 对账 ═════════════
+    #  A1 官方覆盖 · A2 图标序列一致 · A3 `[Attack]` 官方直证 · A4 `desc` 未被写。
+    #  ⚠️ A5（显示快照等价）/ A6（`PinnedPlayMd5` 0 引用）/ A7（幂等）在
+    #     `Editor/IconSetup.cs` 的 ⑧ 那一节 —— **别在这里再做第二份判据**（两处写同一条迟早不一）。
+    _off_bad, _off_ctrl_missed, _off_faith_gap = [], [], []
+    _off_stat = {}
+    _off_cd, _off_mod = ({}, {}) if not os.path.exists(LOC_OFFICIAL) else load_official()
+    if not os.path.exists(LOC_OFFICIAL):
+        _off_bad.append(f"A1 官方表不存在：{LOC_OFFICIAL}（⛔ 读不到 ≠ 全过）")
+    # ── A1 官方覆盖：`desc`/`descZh` 里带**单方括号 token** 的卡，官方 EN 必须有一条 ──
+    _off_cov_cards = [c for c in cards
+                      if RX_SINGLE_TOK.search(c.get("desc") or "")
+                      or RX_SINGLE_TOK.search(c.get("descZh") or "")]
+    _off_cov_miss = [c["id"] for c in _off_cov_cards if c["id"] not in _off_cd]
+    _off_stat["A1 覆盖"] = (len(_off_cov_cards) - len(_off_cov_miss), len(_off_cov_cards))
+    if _off_cov_miss:
+        _off_bad.append(f"A1 官方 `Card_Description` EN 缺 {len(_off_cov_miss)} 张（带单方括号 token 的卡）："
+                        + "、".join(_off_cov_miss))
+    # ── A2 图标序列一致（按 `desc`）：计划表算出来的 vs 官方 EN 解析出来的 ──
+    #   ⚠️ **只比四类**（`_OFF_ICON_CATS`）—— `faith` 另算、不进 bad（理由见 `_OFF_ICON_CATS` 那段）。
+    _off_seq_cards = [c for c in cards if RX_SINGLE_TOK.search(c.get("desc") or "")]
+    _off_seq_diff = []
+    _off_whitelist_live = 0
+    for _c in _off_seq_cards:
+        _cid = _c["id"]
+        _want = official_icon_seq(_off_cd.get(_cid) or "", _off_mod)[0]
+        _got = plan_icon_seq(plan.get(_cid) or {}, "desc", _c.get("desc") or "")
+        if _cid in OFFICIAL_SEQ_WHITELIST:
+            if _got == _want:
+                _off_bad.append(f"A2 白名单条目**已不成立**（{_cid} 现在一致了）⇒ 删掉它，⛔ 别拿白名单遮着")
+            else:
+                _off_whitelist_live += 1
+            continue
+        if _got != _want:
+            _off_seq_diff.append((_cid, _c["name"], _got, _want))
+        # faith 表示差异（**不计入 bad**，但必须看得见）
+        _faith_off = official_icon_seq(_off_cd.get(_cid) or "", _off_mod)[1]
+        _faith_ours = plan_icon_seq(plan.get(_cid) or {}, "desc", _c.get("desc") or "",
+                                    cats=("faith",))
+        if len(_faith_off) > len(_faith_ours):
+            _off_faith_gap.append((_cid, _c["name"], _faith_ours, _faith_off))
+    if _off_seq_diff:
+        _off_bad.append(f"A2 图标序列与官方 EN 不一致 {len(_off_seq_diff)} 张："
+                        + "；".join(f"{i} {n} 我们={g} 官方={w}" for i, n, g, w in _off_seq_diff))
+    _off_stat["A2 序列一致"] = (len(_off_seq_cards) - len(_off_seq_diff) - _off_whitelist_live,
+                              len(_off_seq_cards))
+    # ── A3 `[Attack]` 的官方直证：每张卡的官方 melee 枚数 == 我们的 `[Attack]` 处数 ──
+    _off_atk_cards = [c for c in cards if "[Attack]" in (c.get("desc") or "")]
+    _off_atk_tot = sum((c.get("desc") or "").count("[Attack]") for c in _off_atk_cards)
+    _off_atk_wl = sum((c.get("desc") or "").count("[Attack]") for c in _off_atk_cards
+                      if c["id"] in OFFICIAL_SEQ_WHITELIST)
+    _off_atk_bad = []
+    for _c in _off_atk_cards:
+        _cid = _c["id"]
+        if _cid in OFFICIAL_SEQ_WHITELIST:
+            continue
+        _n = (_c.get("desc") or "").count("[Attack]")
+        _n_off = official_icon_seq(_off_cd.get(_cid) or "", _off_mod)[0].count("melee")
+        if _n_off != _n:
+            _off_atk_bad.append((_cid, _n, _n_off))
+    if _off_atk_bad:
+        _off_bad.append(f"A3 `[Attack]` 官方直证失败 {len(_off_atk_bad)} 张（我们处数 ≠ 官方 melee 枚数）："
+                        + "；".join(f"{i} 我们={a} 官方={b}" for i, a, b in _off_atk_bad))
+    _off_atk_bad_n = sum(a for _i, a, _b in _off_atk_bad)
+    _off_stat["A3 `[Attack]` 直证"] = (_off_atk_tot - _off_atk_wl - _off_atk_bad_n, _off_atk_tot)
+    # ── A4 `desc` 未被写：`cards_engine.json` 的字节 hash 跑前跑后必须相同 ──
+    with open(CARDS, "rb") as _f:
+        _cards_after = _f.read()
+    _desc_written = (_cards_after != _cards_raw)
+    if _desc_written:
+        _off_bad.append("A4 `cards_engine.json` 在本次运行中**被改过**（`desc` 是引擎唯一解析输入，⛔ 不许写）")
+    # ── ★ 灭自证（四条控制臂）：每条都必须**变红**，否则判据没有判别力 ──
+    _ctrl_probe = next((c for c in _off_atk_cards if c["id"] not in OFFICIAL_SEQ_WHITELIST), None)
+    if _ctrl_probe is None or not _off_cov_cards:
+        _off_ctrl_missed.append("控制臂造不出样本（池里没有可用的 `[Attack]` 卡）")
+    else:
+        _pid = _ctrl_probe["id"]
+        # A1：从官方表副本里删掉一条 ⇒ 覆盖检查必须报出来
+        _cd2 = dict(_off_cd)
+        _cd2.pop(_pid, None)
+        if _pid in _cd2:
+            _off_ctrl_missed.append("A1：删不掉官方行（副本没生效）")
+        # A2/A3：把那张卡的官方 melee 记号换成 ranged ⇒ 序列与 melee 枚数都必须变
+        #   ⚠️ **两种载体都要翻**：① 正文里的 `((Melee_attack_icon_x…))` / 内联 sprite；
+        #   ② `Modular_Description` 词条里的 sprite（`Give_x_melee_attack` / `Gain_x_melee_attack`
+        #   这些键的**值**里才是 `Atlas_trait_icon_Melee` —— 只翻正文会**漏掉**这一大半，
+        #   实测第一版就漏了：`ASH69` 的官方写法是 `((Give_x_melee_attack,+1))` ⇒ 控制臂没变红）。
+        _en2 = (_off_cd.get(_pid) or "").replace("Melee_attack_icon_x", "Ranged_attack_icon_x")
+        _en2 = _en2.replace("Atlas_trait_icon_Melee", "Atlas_trait_icon_Ranged")
+        _mod2 = {k: v.replace("Atlas_trait_icon_Melee", "Atlas_trait_icon_Ranged")
+                 for k, v in _off_mod.items()}
+        _cd3 = dict(_off_cd)
+        _cd3[_pid] = _en2
+        _want2 = official_icon_seq(_cd3.get(_pid) or "", _mod2)[0]
+        _got_real = plan_icon_seq(plan.get(_pid) or {}, "desc", _ctrl_probe.get("desc") or "")
+        if _want2 == _got_real or _want2.count("melee") == (_ctrl_probe.get("desc") or "").count("[Attack]"):
+            _off_ctrl_missed.append(f"A2/A3：把 {_pid} 官方的 melee 改成 ranged 之后**没变红**")
+        # A4：翻一个字节 ⇒ hash 必须变
+        if _cards_raw[:1] == b"" or hashlib.sha256(_cards_raw).hexdigest() == \
+                hashlib.sha256(_cards_raw[:-1] + bytes([_cards_raw[-1] ^ 1])).hexdigest():
+            _off_ctrl_missed.append("A4：翻一个字节之后 hash **没变**（谓词写成自引用了）")
+    if _off_ctrl_missed:
+        _off_bad.append("A1771【灭自证】控制臂没变红 " + str(len(_off_ctrl_missed)) + " 条："
+                        + "；".join(_off_ctrl_missed))
+    _off_desc_sha = hashlib.sha256(_cards_after).hexdigest()
 
     print("=== 统计 ===")
     for k, v in stat.most_common():
@@ -3426,13 +3629,42 @@ def main():
           + ("（✅ 五条控制臂全部变红、判据有判别力）" if not _a1703_ctrl_missed
              else "：🔴 " + "；".join(_a1703_ctrl_missed)))
 
+    # ═════════════ 打印 `A1771` 官方 EN 对账（判据 → `AUD_A1771_A1945_可行性.md` §四/§五）═════════════
+    print("")
+    print("=== `A1771` 官方 `Card_Description` EN 对账（`[Attack]`/`[Ranged]` 的来源换代）===")
+    _a1_ok, _a1_tot = _off_stat.get("A1 覆盖", (0, 0))
+    print(f"  · A1 官方覆盖：带单方括号 token 的卡 **{_a1_ok}/{_a1_tot}** 有官方 EN 行"
+          + ("" if _a1_ok == _a1_tot else f" —— 🔴 缺 {_a1_tot - _a1_ok}"))
+    _a2_ok, _a2_tot = _off_stat.get("A2 序列一致", (0, 0))
+    print(f"  · A2 图标序列（melee/ranged/spiritstone/questpoints）：一致 **{_a2_ok}/{_a2_tot}**"
+          f" + 白名单 {len(OFFICIAL_SEQ_WHITELIST)} 张（{'、'.join(OFFICIAL_SEQ_WHITELIST)}）")
+    for _cid, _d in sorted(OFFICIAL_SEQ_WHITELIST.items()):
+        print(f"      ⚪ {_cid}（{_d[0]}）：{_d[1]}")
+    _a3_ok, _a3_tot = _off_stat.get("A3 `[Attack]` 直证", (0, 0))
+    print(f"  · A3 `[Attack]` 官方直证：**{_a3_ok}/{_a3_tot}** 处（官方 melee 枚数 == 我们的处数；"
+          f"白名单 {_off_atk_wl} 处不计）")
+    print(f"  · A4 `desc` 未被写：`cards_engine.json` 字节 sha256 改前 == 改后 = **{not _desc_written}**"
+          f"（`{_off_desc_sha[:16]}…`）")
+    if _off_faith_gap:
+        print(f"  · ⚪ faith 表示差异（**不计入 rc**，属另一条显示源缺口）：{len(_off_faith_gap)} 张 —— "
+              + "；".join(f"{i} {n} 我们={a} 官方={b}" for i, n, a, b in _off_faith_gap))
+    if _off_bad:
+        for _d in _off_bad:
+            print(f"  🔴 {_d}")
+    else:
+        print("  ✅ A1/A2/A3/A4 全过")
+    print(f"  ★ 灭自证：{len(_off_ctrl_missed)} 条控制臂没变红"
+          + ("（✅ 四条控制臂全部变红、判据有判别力）" if not _off_ctrl_missed
+             else "：🔴 " + "；".join(_off_ctrl_missed)))
+
     # 🔴 **退出码先算、再决定落不落盘**（`A1626`）——「非 0」必须等于「没写文件」。
     bad = (missing or unresolved or conflicts or why_conflict
            or _abs_dead or _abs_lost or face_bad
            or _legacy or _fp_bad or _fp_ctrl_missed
            or _a75_miss or _a75_ctrl
            or _dp_dead or _dp_lost or _dp_bad or _dp_ctrl_missed or _dp_mixed
-           or _a1703_bad or _a1703_lock_bad or _a1703_ctrl_missed)
+           or _a1703_bad or _a1703_lock_bad or _a1703_ctrl_missed
+           or _off_bad)
     if WRITE and bad:
         print("")
         print("🔴 有未解决的问题 ⇒ **本脚本不落盘**（`--write` 被忽略，两份 json 一个字节都没动）：")
@@ -3489,6 +3721,10 @@ def main():
         if _a1703_ctrl_missed:
             print(f"   · `A1703` 【灭自证】漏掉的 {len(_a1703_ctrl_missed)} 条控制臂（改了冻表/计划却没变红）："
                   + "；".join(_a1703_ctrl_missed))
+        if _off_bad:
+            print(f"   · `A1771` 官方 `Card_Description` EN 对账未过 {len(_off_bad)} 条：")
+            for _d in _off_bad:
+                print(f"       - {_d}")
         print("   ⇒ 先把上面这些解决掉再 `--write`（⛔ 别绕过这道闸 —— 非 0 就该没有产物）。")
     elif WRITE:
         os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)

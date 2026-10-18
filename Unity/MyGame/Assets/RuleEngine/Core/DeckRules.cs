@@ -241,7 +241,10 @@ namespace RuleEngine
         /// 所以 `&&` 那两条只是「完全内部的卡」的**冗余兜底**，原版看不出差别。
         /// 🔴 **我们是单机全解锁（没有持有数那道闸 —— 那正是 `MenuDeckErrorNumber` 里
         /// 「`CardsNotOwned` 我们永远不回」的原因）** ⇒ 必须按 `||` 那一版做，
-        /// 否则那 77 张会**静默变得能进卡组**（`Append` 里那句「不许静默失败」）。</para>
+        /// 否则那 77 张会**静默变得能进卡组**（`Append` 里那句「不许静默失败」）。
+        /// 🔴 **2026-10-18 就地订正（卡池排序与显隐）**：上面这句**只对其中 72 张成立**（那批是
+        /// `inv=5`、在本池里全是 defence ⇒ 已被卡型路由先返回）；**另外 5 张** `inv=10 & show=5`
+        /// 的暗黑天使秘仪按用户全解锁边界**有意放开**（主对话 2026-10-18 裁定）⇒ 本函数已改成 `&&`。</para>
         ///
         /// <para>**两条路由照原版**：`CanAddCard.c:32-39` 先把 `cardType == Hero(10)` 交给 `CanAddHero`、
         /// 把 `cardType == Tactic(20) && spellType == 210` 交给 `CanAddDefensive` —— **这两个分支在
@@ -249,16 +252,25 @@ namespace RuleEngine
         /// 玩家要从那儿挑 —— 用户 2026-09-27 指出过）。本函数把这条路由**收在内部**（判据只此一处），
         /// 于是调用点不用各自记得先挡 hero/defence。</para>
         ///
-        /// <para>**落地的效果（2026-10-14 现读 `cards_engine.json`）**：全池 1126 张里
-        /// **955 张**接上真值（`id` 837 · 卡名+阵营 108 · 卡名唯一 2 · 重名但值一致 8），
-        /// 本条拦下 **98 张**（全是 `type == "tactic"` 的 `NotInInventory(10)`；其中 5 张
-        /// 暗黑天使秘仪的 `show` 是 `Show(5)`，靠 `||` 那一条才拦得住 —— 就是上面那个「差集」）。</para>
+        /// <para>**落地的效果（`A2052` 关账现读，2026-10-18；⛔ 读数会变，别当基线）**：判据 = 现扫
+        /// `cards_engine.json`（**张数一律现读 `count`**）—— 全池 **1127** 张里 `inventoryOptions &lt; 0`
+        /// 或 `showInCollectionOptions &lt; 0` 的 = **0 张**（真值覆盖缺口已被**当前 build 的 SO** 补上；
+        /// 原文那句「真值接不上的 171 张」**已过期**）；按原版 `||` 口径**会拦 127 张**（126 张
+        /// `type == "tactic"` + 1 张 `unit`，**全是 `NotInInventory(10)`**；其中 5 张 `inv=10 & show=5`
+        /// 的暗黑天使秘仪见上一段的**有意放开** ⇒ **现口径实际拦 122 张**）。
+        /// 🔴 **2026-10-18（卡池排序与显隐）改口径后 = 拦下 122 张** —— 那 5 张暗黑天使秘仪
+        /// （`inv=10` 但 `show=5`）按用户全解锁边界**放开**（见下面 `return` 前那段注释与
+        /// `资料/普查产出_1018/AUD_卡池排序与天赋卡显隐.md` §五.B.5）。</para>
         ///
-        /// <para>⚠️ **真值接不上的 171 张**（快照 2025-07-30 比现池旧：整个 SpaceWolves 阵营 68 张 +
-        /// 暗黑天使 `DA75..DA74` 等新卡）记 `-1` ⇒ **本条不拦**（⛔ **不猜**；清单在
-        /// `card_inventory_options.json` 的 `unknown` 段，重跑生成器时也会打出来）。
-        /// 那 171 张里若混着 `NotInInventory` 的卡，本条会**放它们进卡组** —— 这是**已知的覆盖缺口**，
-        /// 要堵得先补真值（`A1800` 的「自造 id ↔ GUID 卡」那笔），不是在解析层猜一个默认值。</para>
+        /// <para>🔴 **`A2052` 关账（2026-10-18，只补注释、⛔ 不动行为）**：那条账原来写「池里 113 张卡的
+        /// id 仍是 32 位 GUID」—— **前提已被 `A2069` 推翻**（那些 GUID **就是**原版的 `uniqueId`：
+        /// 快照里按同 `uniqueId` 找得到、`m_Name` = `Z-NC &lt;阵营&gt;-&lt;名字&gt;`、`cardShortId = 0`）。
+        /// **仍成立的那半 = NC 卡**（`NotInInventory`）：它们**本来就该被卡组拦掉** —— 判据 = 原版
+        /// `DeckUtility__ValidateDeckCards.c:68-72`（`inventoryOptions != 0` ⇒ `*param_3 = 4`、return 0）
+        /// 与 `DeckUtility__TryRemoveInvalidCards.c:39-43`（逐张摘除）⇒ **本分支在那 5 张之外的行为符合原版**
+        /// （那 5 张按用户全解锁边界**有意放开**，见上一段）。
+        /// ⚠️ 2026-10-18（`K06`）换 id 之后，这些 NC 卡的 id 也是**真 id**（短号 / GUID 形状都可能是
+        /// 原版 `uniqueId`）⇒ ⛔ **别再把 GUID 形状的 id 当成「自造残留」**。</para>
         /// </summary>
         public static bool CannotAddToDeck(CardDef c)
         {
@@ -271,7 +283,20 @@ namespace RuleEngine
                 WarnUnknown(c);
                 return false;
             }
-            return c.InventoryOptions != InInventory || c.ShowInCollectionOptions != ShowInCollection;
+            // 🔴 **2026-10-18（卡池排序与显隐 · 用户全解锁边界，就地改口径）**：
+            //   原来是 `||`（照 `ValidateDeckCards.c:68-77` / `TryRemoveInvalidCards.c:39-43` 那三处），
+            //   理由是「照 `CardDeck__CanAddCard.c:40` 的 `&&` 会让那 77 张差集静默变得能进卡组」。
+            //   **今天按用户边界放开的只有其中 5 张**：`inv=10` **`show=5`** 的暗黑天使秘仪
+            //   （`Convoke the Circle` / `None Must Know` / `Obscure Ritual` / `Rites of Penance` / `Smothering Decree`）。
+            //   原版它们卡池里**看得见**、`CanAddCard` 的列判据也放行，最后是靠
+            //   `InventoryManager.GetOwnedCount == 0`（`CanAddCard.c:76-77`）拦住的 —— 我们**单机全解锁、
+            //   没有持有数这道闸** ⇒ 主对话 2026-10-18 裁定：**显示且可加**（判据 → `资料/普查产出_1018/
+            //   AUD_卡池排序与天赋卡显隐.md` §五.B.5）。
+            //   差集里另外那 72 张 `inv=5`（`CantAddToDeck`）在本池里 **39 张全是 `type == "defence"`**，
+            //   已被上面那条路由（`CanAddCard.c:32-39`）先返回 ⇒ 换 `&&` 后**实际只放开这 5 张**，其余一个不动
+            //   （现读 `cards_engine.json`：`inv=5` 39 张全是 defence；`inv=10 & show=5` 5 张；`inv=10 & show=0` 122 张）。
+            //   ⚠️ 这是**有意偏离** `ValidateDeckCards` 的 `||`，锚点断言在 `Editor/DeckScene.cs`（`A1798` 那一节已跟着改）。
+            return c.InventoryOptions != InInventory && c.ShowInCollectionOptions != ShowInCollection;
         }
 
         // 真值缺失（`-1`）**总共只出一次声** —— 卡池是 1126 张级的、实测缺 171 张，

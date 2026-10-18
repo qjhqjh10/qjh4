@@ -177,6 +177,13 @@ namespace CardPresentation
             win.extraScaleSmallScreen = 1f;               // 实读 1.0（= 不覆盖）
             // `openSound` / `closeSound` 实读都是空 PPtr、`useDefaultCloseSoundIfNull = 1`
             //   ⇒ 一个 clip 都不赋，关窗音走 `GameWindow.Close()` 的家族默认。
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 A2）**：本窗真正的那一声**不是** `openSound`，是
+            //   **`soundOnOpen`** —— 原版 MB `-4938671765695524530`
+            //   （`RankedEventDivisionChangeWindowNewSystem : GameWindow`，prefab `Ranked Division Change Window`）
+            //   `soundOnOpen = PPtr(fileID 6, pid -2236843390636958589)` = cue **`Division Change`**
+            //   （clip `Division Increase`，ttp 0.01）；播放点 = 反编译
+            //   `RankedEventDivisionChangeWindowNewSystem._DoPromoteAnimations_d__22.MoveNext.c:32-33`
+            //   `AudioCue__Play2D(cue, 3)` ⇒ **MixerType 3 = Jingles**。见 `Open()`。
             win.Manager = mgr;
             win._ctx = FillDef(ctx);
             WindowsManager.AttachToAnchor(win);
@@ -188,6 +195,13 @@ namespace CardPresentation
         public override void Open()
         {
             LastOpened = this;
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 A2）**：`soundOnOpen` = cue **`Division Change`**，
+            // **Jingles 组（MixerType 3）** —— 判据见 `Create()` 里那一段（原版 MB pid + 反编译
+            // `_DoPromoteAnimations` 的 `Play2D(cue, 3)`）。⛔ 别用 `PlayFx`（`WFSoundPlayer` 写死 FX 组）。
+            // ⚠️ **落点是我们的（如实标注）**：原版挂在 `DoPromoteAnimations` 那个协程的起点；
+            //   我们的升级动画**没建**（见本文件头）⇒ 落在 `Open()` —— 玩家开窗即听到，顺序上等价于
+            //   「动画一开始就响」。
+            WindowSounds.PlayJingles(WindowSounds.DivisionChangeCue, "[RankedDivChange] `soundOnOpen`");
             Build();
         }
 

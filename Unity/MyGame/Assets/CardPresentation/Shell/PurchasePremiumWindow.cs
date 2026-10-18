@@ -263,6 +263,10 @@ namespace CardPresentation
         Transform _content, _armyInfo, _containerTemplate;
         GameObject _priceBtn;
         readonly System.Collections.Generic.List<Transform> _containers = new System.Collections.Generic.List<Transform>();
+        /// <summary>当前右栏展示的是第几条报价（= 原版 `SelectArmy` 之后被点亮的那个 `Army Container`）。
+        /// 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：只服务于 `allowClickWhenAlreadySelected` 守卫
+        /// （原版 `Army Container` 是 `EverguildToggle` + 该字段 = 0）—— 改前我们**没有**「当前项」这个状态。</summary>
+        int _selectedArmy;
 
         // 开场动画（`OnEnable` 那一段；`_popT < 0` = 没在跑）
         float _popT = -1f;
@@ -331,6 +335,7 @@ namespace CardPresentation
             // 模板：原版**用完就关**（`Initialize.c` 尾段）⇒ 我们建出来那一颗也关掉。
             // ⚠️ 它在 `Build()` 里已经建成关着的了；这里再关一次是**幂等**的（复用路径上不会复活）。
             if (_containerTemplate != null) _containerTemplate.gameObject.SetActive(false);
+            _selectedArmy = 0;      // 原版 `Initialize` 落 `_armies[0]` ⇒ 第 0 格是「已选中」的那一格
             ApplyArmyInfo(_offers.Length > 0 ? (ArmyOffer?)_offers[0] : null);
             FocusOnArmy(FocusArmy);
         }
@@ -388,6 +393,7 @@ namespace CardPresentation
         public void SelectArmy(int index)
         {
             if (index < 0 || index >= _offers.Length) return;
+            _selectedArmy = index;
             ApplyArmyInfo(_offers[index]);
         }
 
@@ -593,9 +599,13 @@ namespace CardPresentation
             //   ⇒ **96.86 × 98.13**；改前传根矩形 `Abs(CloseR)`（74.39×75.60）⇒ 每边小 11.2。
             //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Purchase Premium Window"
             //   --depth 8 --substr "Generic Close Button"`（实读 `96.86 x 98.13`）。
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B7）**：原版
+            //   `Purchase Premium Window/Generic Close Button Orange` → **`ButtonClick Back`**
+            //   ⇒ 补 `clickCue`（改前不传 = 默认 `ButtonClick`，响错）。
             var closeHit = MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(Abs(CloseBgR), ClosePad),
                                         QHit, () => Close(), closeFaceQ, ArtCloseBg,
-                                        "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed");
+                                        "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed",
+                                        clickCue: WindowSounds.DefaultCloseCue);
             if (closeHit == null)
                 Debug.LogWarning("[Premium] 关窗钮的命中区没建出来 ⇒ **点它关不了窗**（还能点窗外或 ESC）。");
 
@@ -661,7 +671,16 @@ namespace CardPresentation
                 var cn = MenuDraw.Node(_content, i == 0 ? "Army Container" : "Army Container (" + i + ")", on);
                 BuildContainer(cn, on, _offers[i]);
                 int idx = i;
-                MenuDraw.Hit(cn, "Hit", on, QHit, () => SelectArmy(idx));
+                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版 `Purchase Premium Window/Army Container`
+                //   是 `EverguildToggle` + **`allowClickWhenAlreadySelected = 0`** ⇒ 再点当前那一格时
+                //   连按钮音一起跳过。
+                var cHit = MenuDraw.Hit(cn, "Hit", on, QHit, () => SelectArmy(idx));
+                var cWb = cHit != null ? cHit.GetComponent<WindowButton>() : null;
+                if (cWb != null)
+                {
+                    cWb.allowClickWhenAlreadySelected = false;
+                    cWb.isOn = () => _selectedArmy == idx;
+                }
                 _containers.Add(cn);
             }
         }

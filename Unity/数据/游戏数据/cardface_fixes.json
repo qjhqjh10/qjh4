@@ -4,6 +4,7 @@
  "_2026-10-15_AH_br与卡名": "2026-10-15（`AH` 笔）：两条。① **`Cosmic Serpent`（`ASH48`）的 `descZh` 里那个 `。` 改成 `<br>`** —— 上面那条 `AD` 的说明里写着「本笔给那半句故意没用 `<br>`、改用 `。`，理由就是它今天渲染不出来」，**那个理由不成立**：TMP 自己的解析器把 `<br>` 当换行（判据 = `TMP_Text.cs:2277-2296` 的 `PopulateTextProcessingArray`，`case MarkupTag.BR:` ⇒ `unicode = 10`；字面量表 `TMP_RichTextTagsCommon.cs:133` `BR = 2256`），而全量反编译 `d:/2/tools/decomp_full/` 里 `<br>` **0 命中** ⇒ 原版也是原样交给 TMP；PnP 成品卡面印的就是两段（`Aeldari/4计策/Warpforge_52_Cosmic-Serpent.png` 亲读：`of all your troops.` 之后另起一行 `② Repeat this effect`，而那一行左边还有大片空白 ⇒ 是显式断行、不是折行）。② **卡名 `Saviour Protocolst` → `Saviour Protocols`**（我们多了一个尾巴 `t`）：三源一致 = 官方 `Card_Name/TAU51` = `Saviour Protocols` · `card_ids.json` 的真值映射 `TAU51 → Saviour Protocols` · PnP 卡面 `Tau/4计策/Warpforge_63_Saviour-Protocols.png` 亲读印 `Saviour Protocols`。落点 = `card_stats.json` 的 `name` 字段（源表），同步改了 `zh_cards.json` 与**本文件**里那两条按卡名查的键（⛔ 不改会变成孤立键 ⇒ 生成器会打「键没匹配到任何卡」、且本条 `descZh` 修正会失效）。⚠️ 上面 `AD` 那条说明里出现的 `Saviour Protocolst` 是**改名前**的写法，不是今天的卡名。⚠️ `card_stats.json` 的 `art` 字段仍带旧拼法 —— 那个字段**生成器整列丢弃**（`KEEP` 里没有它），所以没有跟着改（如实记在这里）。全过程 → `资料/普查产出_第三十一会话/AH_br与卡名.md`。",
  "_2026-10-15_AD_descZh两代": "2026-10-15（卡牌线收口笔 `AD`）：**`desc` 与 `descZh` 不是同一代源文本**，四张卡的中文比英文旧一代 ⇒ 这里按主对话口径补中文（**⛔ `desc` 一字未动**）。判据链：`desc` 来自 **PnP 成品卡图那一代**（`2026-08-15`，逐张开图核过），`descZh` 来自 **官方本地化 `Card_Description/*`**（`2025-07-30` 远端包快照，比 PnP 旧）⇒ 官方 EN 比 PnP 少一句/半句，而 P3 把 `descZh` 换成官方那代之后**中文就跟着少了**。四张：`SOR31 Sister Dogmata`（官方少 `dies or`；PnP `Sorotitas/3部队/Warpforge_32_Dogmata.png` 亲读印着 `If the target dies or is a friendly unit`）· `ASH48 Cosmic Serpent`（少 `2 [Spirit Stone]: Repeat this effect`；`Aeldari/4计策/Warpforge_52_Cosmic-Serpent.png` 亲读印着 `② Repeat this effect`）· `SAU58 Implacable Conqueror`（少 `Draw a troop`；`Necron/4计策/Warpforge_58_Implacable-Conqueror.png` 亲读）· `TAU51 Saviour Protocolst`（少 `Choose a Drone and add it to your hand`；`Tau/4计策/Warpforge_63_Saviour-Protocols.png` 亲读）。**改法 = 保留官方那句、把缺的那半句补进去**（⛔ 不是把官方那句删掉）——所以四条都是「官方中文 + 补译」。补译的来源两档、都**不是自创**：① 官方表里**同义句**自己的译法（`Modular_Description/Repeat_this_effect` 的 `重复此效果` · `Card_Description/b3364cdc…` 的 `抽一张军队牌` · `Card_Description/fd67b475…` 的 `选择…并加入你的手牌` · `Card_Description/ASH73` 那一族的 `如果目标死亡`）；② 记号形态取**能渲染的那一代**（`ASH48` 用 `②` —— 因为 `Modular_Description/*` 本地一条都没有、`((Spirit_x,2))` 会原样印在卡面上；而 `②` 正是 `card_icon_plan` 给 `ASH48.descZh` 的那个 token → `SpiritStone_2`）。⚠️ `SOR31` 那一格因此仍是官方记号形态（`[[rally]]`/`((…))`），与它**改前**的形态一致（`Modular_Description/*` 那个数据缺口另立，见 `A1982`）。顺带：官方表里其实有 **18 个 `_new` 键**（例 `Card_Description/ASH48_new` = `Trigger the abilities requiring Spirit Stones of all your troops.<br>((Spirit_x,2)) ((Repeat_this_effect))`，zh 列**未译**）—— **那一代才是 PnP 的源**。全过程/立的那笔账见 `资料/普查产出_第三十一会话/AD_descZh两代.md`。",
  "_2026-10-15_TL40_InfestationNode_descZh": "2026-10-15（P1 收尾笔 · `A1783` 真新增的那一张）：`TL40 Infestation Node` 是**新进池**的卡，`zh_cards.json` 里它的 `d` 是空串 ⇒ 卡面中文效果本来会退成英文。这里补的**不是我方自译，是官方本地化原样**：`Unity/数据/游戏数据/官方本地化_en+zh-CN.json` 的 `Card_Description/TL40`（en/zh 两条）。⚠️ 英文 `desc` 那一半走的是 `gen_cards_engine.STATS_EXCEPTIONS`（`desc` 列本身没动）。",
+ "_2026-10-18_A2005_A1995_A2002_desc与descZh": "\"2026-10-18（卡牌线数据侧 `W` 批 · 账 `A2005`/`A1995`/`A2002`）：① `AM15 Minka Lesk` 的 `desc` 补 `Talent: Cadian Honour`（判据 = 官方 `Card_Description/AM15` `[[talent]]: $$3a52026b…$$` → `Card_Name` = Cadian Honour）；② `DA1 Azrael` 的 `desc` 补 `Talent:` 前缀（官方 `[[talent]]: $$dd535f7a…$$` = Supreme Grand Master；原值把天赋名直接缀在句尾、`Talent:` 丢了）；③ `ASH83 Autarch` 的 `desc` 补 `Waystone. `（官方 `Card_Description/ASH83` 以 `[[waystone]].` 开头；`keywords` 本来就有 `Waystone`）；④ `descZh`：`PainBoy Sniklaw`→`Painboy Sniklaw` 且「锯骨大夫」→「锯骨者」（官方 `Card_Name/b4d6…` = Sawbonez/锯骨者）；`Abaddon the Despoiler`「四神宠儿」→「四者之选」（官方 `Card_Name/97e959…` = Chosen of the Four/四者之选）。🔴 ①②③ 动 `desc` ⇒ 已按 PlayProbe 指引重钉 `PinnedPlayMd5`。\"",
  "_note": "卡面逐张核对（2026-09-13）算出的修正表。来源：Unity/资料/卡表核对_卡图提取/_合并总表.md（1118 张逐张看图抄的）。生成脚本：Unity/工具/gen_cardface_fixes.py。由 gen_cards_engine.py 读取。⚠️ 本文件里带 `_manual_` 前缀的说明段与 `desc` 列是**手工维护**的 —— 脚本会原样保留（见脚本里那段注释），别手删。",
  "_manual_subtype_note": {
   "_": "2026-09-14 A4 批 4 手工加（铁律 7：拿不准就去看成品卡图）。**这一类卡从没被逐张核对过** —— `资料/卡表核对_卡图提取/_合并总表.md` 只有 部队/计策/天赋/督军/防御/药剂 六类共 1118 行，**没有 `6破坏卡`**（那 4 张不在任何一类里）。四张的卡面**橙字兵种行都印 `Sabotage`**（`d:/2/Warpforge部队卡片/Genestealer Cult/6破坏卡/`，主对话逐张开图读过）⇒ `subtype` 一律取 `Sabotage`。⚠️ 覆盖走 `_manual_subtype` 这一列（脚本原样保留并最后应用）—— **直接往 `subtype` 列里加会被下一次 `gen_cardface_fixes.py` 重跑静默抹掉**。⚠️ `Jammed Communications` 与 `Cult Propaganda` 原来分别是 `Stratagem` / `Spell`（错值）；另两张本来就是 `Sabotage`，这里一并显式写上（幂等，便于复查）。",
@@ -56,7 +57,10 @@
  "_2026-09-16_AvengingZeal属性": "2026-09-16 `Avenging Zeal` 的**属性 token 名是错的**：我们的 desc 写 `+2 [health icon] and +2 [attack icon]`（⇒ **+2 生命**！），而卡面是 `Give +2 **Melee** and +2 **Ranged**` —— **两处独立来源**：① 我们自己的开图抄录 `资料/卡表核对_卡图提取/_还原效果文字.md:1128`（`zeal.png` 那一行）；② 本项目 `工具/gen_icon_plan.py` 的逐卡图标表（同结论：写着 health、画的是拳）。**真改玩法**（health→attack 的差别是「多 2 点血」vs「多 2 点近战」），写法用裸词 `Attack`/`Ranged`（同 `Simulacrum Imperialis` 那批的约定），**不是**去放宽 `GivePayload.ReAttr` 的词表。",
  "_2026-09-16_引号丢失": "2026-09-16 **卡面那半句是带引号的，OCR 抄录时把引号丢了** ⇒ 引号里那项「嵌入效果」整段没被认出来（`GivePayload` 的 ①b 分支**要求带引号**）。两张：`Litany of Despair`（`Ephemeral. Give Vulnerable 2 to an enemy troop and \"Backlash: Give a Dark Pact to a random enemy troop\"`）· `Beastboss on Squigosaur`（`Friendly Beasts cost 1 less and have \"Slay: Gain Blood Thirst this turn\"`）。**逐字依据 = 我们自己的开图抄录** `资料/卡表核对_卡图提取/_还原效果文字.md:201` / `:628`（两处都带引号；成品图在 `d:/2/Warpforge部队卡片/`）。⚠️ **引号是承重的**：没有引号时 `backlash: …` 会被当成一个**目标**（或整段并进载荷），两种都错；Litany 还会被吞从句里的 `a random enemy troop` 把**主目标误标成「随机」** ⇒ 不让玩家选目标、结算随机抽一个。",
  "_2026-10-08_A977_A981_中文资源符号与裸属性": "2026-10-08（卡面数据批）。**只改 descZh（显示层）**，desc（引擎解析原文）一字未动。三类，判据一律 = 逐张开 PnP 成品卡图亲读（铁律 7）+ 对照卡池 desc：① **A977 · 4 张「发动费用前缀」的中文卡面原来一枚图标都没有**：`UM80 Devastator Marine` / `UM81 Phobos Librarian` / `UM94 Scout Sniper` —— 卡图 `Ultramarines/3部队/Warpforge_16_Devastator-Marine.png` 等三张首行都是 `〔蓝圆盘+白袍人形〕Oath 4: …`，中文原来只有 `4：…`、`3：…`、`1：…` ⇒ 补成 `誓言 N：`（与全池既有 `誓言 1..8：` 写法一致，计划表自会画 oath 徽记）；`SOR72 Adelaide the Serene` —— 卡图 `Sorotitas/3部队/Warpforge_08_Adelaide-the-Serene.png` 上那个前缀是**金太阳**（`6☀：…若你的少于 6☀，每有 1 个敌方单位便获得 1☀`）= **信仰**，中文原来写成「能量」⇒ 改成 `6 ☀：` + 「信仰」。② **A981 · 13 张「中文把图标整个漏掉、只剩裸数字」**：英文 desc 这几张**早就补好了**（`+1 Attack` / `+3 Attack` / `+1 Ranged`，见 `_manual_desc_note`），中文一条都没跟（`获得 +1` / `给予 +3`）。逐张开图核过属性（`Astra Militarum/3部队/Warpforge_12_Autocannon-Squad.png` 是 gun、`Emperor_s Children/4计策/Warpforge_58_Exquisite-Swordsmanship.png` 是拳…），中文按英文的规范写法补词：`+N 攻击` / `+1 远程攻击`。🔴 `DA74 Hunters of Heretics`（`Dark Angels/4计策/Warpforge_12_Hunters-of-Heretics.png`）是**写错**那一档：卡面是**锯齿环里烘着 2** = 任务点，中文原来写「2 个骷髅头」（骷髅是 `Backlash:` 那枚前缀图标）⇒ 改 `2 点任务`（顺带对上计划表的 `N 点任务` → `questPointsN`）。⚠️ 这批**不覆盖**同族的另两类：`+N 近战/远程攻击` 那 124 张的**属性图标**（要换掉词、机制上要单独定，见 `项目任务.md`）、以及中文漏印了整句关键词的（`GSC25 Nexos` 的 `Artifice:`）。",
+ "_2026-10-19_A1959_天赋行补回": "2026-10-19（引擎线波 2b · `A1959`/波5 §3·3）：**三张卡的 `desc` 末尾补回 `Talent: <天赋名>`**（卡面印着、数据管线丢掉了）—— `GOF87 Zodgrod Wortsnagga`（`Talent: Speshul Dose`）· `SW1 Logan Grimnar`（`Talent: High King of Fenris`）· `GOF77 Beastboss Morgrim`（`Talent: Ferocious Rage`）。判据 = **逐张开 PnP 成品卡图亲读**（铁律 7；路径 `d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_12_Zodgrod-Wortsnagga.png` · `…/Space Wolves/1督军/Warpforge_01_Logan-Grimnar.png` · `…/Orks/1督军/Warpforge_01_Beastboss-Morgrim.png`）。为什么有意义：补上之前这三张的 `TalentName` 都抽不出来（`ExtractTalent` 找不到前缀、裸名那条又认不出整句），补上之后 `EffectText.TryTalent` 会产出一条 `create`（`A1873` 的口径），与 `RuleCore.SpawnTalents` 的机制层对齐；GOF87 的 Mob 裸写正文由 `BareBodyText`/`HandledByOtherLayer` 在 `Talent:` 段截断，不会被 Mob 吞掉（已静态核对）。",
  "desc": {
+  "Minka Lesk": "Friendly Infantry costs 1 less. Talent: Cadian Honour",
+  "Azrael": "Choose a card from your deck and put it at the top of your deck. Talent: Supreme Grand Master",
   "Maelon Dhrost": "Regiment: Draw a Stratagem. Duty: Lower the cost of Stratagems in your hand by 4",
   "Morkai Eliminator": "Sniper. Rally: Give Hunt Mark to a random enemy troop. Ferocity: Attack a random enemy with Hunt Mark.",
   "Night Spinner": "Flying. Sniper. Blast 3",
@@ -166,7 +170,7 @@
   "Death Spinner Warp Spider": "Waystone. Stealth. 1 [Spirit Stone]: Gain Flank.",
   "Farseer": "When you collect a Spirit Stone, gain Shield. 1 [Spirit Stone]: Choose a card from your deck and draw it",
   "Farseer Skyrunner": "2 [Spirit Stone]: Choose a card in the enemy hand and shuffle it into their deck",
-  "Autarch": "1 [Spirit Stone]: Give +1 [Melee], +1 [Ranged] and +1 Health to all your troops",
+  "Autarch": "Waystone. 1 [Spirit Stone]: Give +1 [Melee], +1 [Ranged] and +1 Health to all your troops",
   "Ahnakh-Yth Shrine": "Give Shuriken 1 to a friendly troop. 1 [Spirit Stone]: Create a copy of Ahnakh-Yth Shrine in your hand",
   "Will of Asuryan": "Give Vanguard to a friendly troop.\n1 [Spirit Stone]: Draw a card",
   "Webway Gate": "Choose a troop from your deck and draw it.\n1 [Spirit Stone]: It costs 2 less",
@@ -329,7 +333,10 @@
   "Daemonbreaker": "Give +1 [Attack], Blast 1 and Shield to your Warlord until your next turn. 8 ☀: Give it permanently",
   "Aun'Va": "Talent: Ethereal Supreme",
   "PainBoy Sniklaw": "Rally: Heal 3 to a friendly unit. Talent: Sawbonez",
-  "Abaddon the Despoiler": "Talent: Chosen of the Four"
+  "Abaddon the Despoiler": "Talent: Chosen of the Four",
+  "Zodgrod Wortsnagga": "Deploy a Grot or a Snakebite Grot at random. Talent: Speshul Dose",
+  "Logan Grimnar": "Start the game with Tyrnak and Fenrir in hand. Talent: High King of Fenris",
+  "Beastboss Morgrim": "When you deploy a Beast, give +1 [Attack] to your Warlord this turn. Talent: Ferocious Rage"
  },
  "_manual_subtype": {
   "_": "手工覆盖 `subtype`（脚本原样保留、最后应用，手工赢过算出来的）。加条目前先读上面那份说明。",
@@ -389,7 +396,9 @@
   "Raid Tactics": [],
   "Oath of Moment": [],
   "Rusted Vent": [],
-  "Njal Stormcaller": [],
+  "Njal Stormcaller": [
+   "Talent: High Rune Priest"
+  ],
   "Banshee Mask": [],
   "Malicious Volleys": [],
   "Toxic Bonfire": [],
@@ -437,7 +446,8 @@
   "AstraMilitarum/Thermal Weaponry": [],
   "Ultramarines/Chapter Champion": [
    "Armour 1",
-   "Codex"
+   "Codex",
+   "Oath"
   ],
   "Ultramarines/Bladeguard Lieutenant": [
    "Armour 1",
@@ -495,15 +505,20 @@
   ],
   "Daemonbreaker": [],
   "Saga of the Bold": [],
-  "Ragnar Blackmane": [],
+  "Ragnar Blackmane": [
+   "Talent: War Howl"
+  ],
   "Terror of Vardenghast": [
-   "Slay"
+   "Slay",
+   "Talent: Alpha Warrior"
   ],
   "Enhanced Organism": [],
   "Apothecary Polixis": [
    "Codex"
   ],
-  "Tactical Marine": [],
+  "Tactical Marine": [
+   "Oath"
+  ],
   "Forward Deployment": [],
   "Firestrike Servo Turret": [
    "Long Range",
@@ -539,7 +554,8 @@
    "Codex"
   ],
   "Roboute Guilliman": [
-   "Codex"
+   "Codex",
+   "Talent: Author of the Codex"
   ],
   "Vox Operator": [],
   "Press the Attack": [],
@@ -768,12 +784,17 @@
    "Talent"
   ],
   "Sheltered Location": [],
-  "Attack Bike": [],
+  "Attack Bike": [
+   "Oath"
+  ],
   "Chapter Champion": [
    "Armour 1",
-   "Codex"
+   "Codex",
+   "Oath"
   ],
-  "Chaplain Cassius": [],
+  "Chaplain Cassius": [
+   "Talent: Catechism of Death"
+  ],
   "Terminator Captain": [
    "Oath",
    "Armour 2"
@@ -784,7 +805,9 @@
   "Angels of Death": [
    "Codex"
   ],
-  "Antaro Chronus": [],
+  "Antaro Chronus": [
+   "Talent: Spear of Macragge"
+  ],
   "Light Cover": [],
   "Master of Arms": [],
   "_2026-09-21_普通关键词误抽": "OCR 把**效果句里被授予/被引用的普通关键词**也记成了本卡自己的关键词（前几批清的是「带正文关键词」那一族 —— `_2026-09-18_Stun误抽` / `_2026-09-19_Ferocity误抽` / `_2026-09-19_句中引用误抽_13张`，本批是那一族**没做的另一半**，见 `资料/关键词图标_现状与总表.md`）。**114 条 / 104 张卡**，由 **6 路子代理逐张开 PnP 成品卡图核对**（卡面原文逐条抄进报告，主对话另行复核了仲裁项：`Grukk Face-Rippa` 本人开图、`Jackal Outrider` 本人开图）。⚠️ **2026-09-21 晚更正：原写「111 条 / 96 张卡」，实际那批是 111 条 / 101 张卡**（96 是错的，与本脚本实跑打印的 `命中 N 张卡` 不符），本次再 +3 条 ⇒ **114 / 104**。判据（唯一）：卡面上该词**独立成项**（图标 + 词 + `:`/`.`，或与别的关键词并列）⇒ 保留；**只出现在句子里**（被 `Give`/`Gain`/`give it`/`has`/`with`/`an enemy with` 领着，或夹在 and/逗号之间）⇒ 误抽。🔴 **影响玩法**：引擎真的读这一列（`RuleCore` 的 `UnitState.Has(...)` —— `flank`/`fast` 决定打出的当回合能不能攻击（`UnitState.cs:226`）、`stealth` 不可被选中、`vanguard` 强制先打、`invulnerable` 免伤…）⇒ 不删 = **静默给卡加一个它没有的能力**。⚠️ **不动的 5 条（核过是真关键词）**：`SOR72 Adelaide the Serene` flank/shield（`Gain ⌾Flank and ⌾Shield.` 自获且带句号独立成项）·`UM_Honour_Guard` vanguard（卡面单独一行 `⌾Vanguard`）· `TAU36 Enforcer Battlesuit` armour（盾徽值，卡面效果区没印字）·`SAU70 Lokhust Destroyer` 的 `Remnant.`/`Destroyer.`（独立成项）。🔴 **2026-09-21 晚更正（本条原来把它当成「不动」的第 5 项，是错的）**：`GSC15 Poisoned Supplies` / `GSC_Cult_Propaganda` / `GSC_Improvised_Barricade` 的 `Sabotage` **已改成删** ——**错因 = 把「卡面下方那行橙字」当成了关键词的证据**，而**橙字那一行就是兵种行（`subtype`）**，不是关键词（卡面版式见 `CLAUDE.md` §七：卡名白 / 阵营橙 / 效果米白 / **兵种橙**）。一张一张开图 + 逐行像素扫描复核：三张卡**全卡面 `Sabotage` 只出现一次**，就是效果区下方那行橙字，效果区原文里没有这个词（也没有带图标的独立关键词项）。**独立佐证**：原版 `BattleCardUI.ChangeToHighlightColor`（`d:/2/tools/decomp_full/`）判破坏高亮走的是**卡类** `spellType == 0xe6(=230)`（`SpellType.Sabotage = 230`），**不是** trait/keyword ⇒ 破坏在数据上本来就该只落在 `subtype`。⚠️ **不动的 4 条「带正文关键词」**：`GOF24 Killa Kan` 的 `Mob: …` · `ASH32` 的 `Rally: …` · `ASH79` 的 `Strike: …` · `DA28` 的 `Teleport: …`。⚠️ 顺带核过：库里本来就有的**畸形值**（如 `Armour 2.` / `Remnant.` / `Destroyer.` 带尾点、`Sentry` 丢数字）本批**没动**。",
@@ -917,7 +940,23 @@
    "Rally: If you have less than 6 ☀, gain 1 ☀ for each enemy unit"
   ],
   "Stomp Em": [],
-  "_2026-10-16_T02_关键词回卡面核": "2026-10-16（卡牌线 `T02` / 账 `A2073`）：**把「卡面印的关键词行」写回 `keywords` / `_manual_keywords`**。判据一律 = **逐张开 PnP 成品卡图亲读**（`d:/2/Warpforge部队卡片/<阵营>/<1督军..5防御卡>/*.png`，铁律 7）。25 张：漏 `Talent` 5（`Imotekh` / `Orikan` / `Acolyte Iconward` / `Ghazghkull` / `Nork Deddog`）· 漏 `Ambush`/`Artifice`/`Backlash`/`Rally`/`Flank` 各若干 · `Ecstasy N` 的**数值**（`EC5`=1 · `EC9`/`EC19`/`EC21`/`EC25`=2）· 等。⚠️ **这些改动【不改变卡面渲染结果】** —— `CardText.KeywordSegment` 的第一条闸就是「`body`（= `desc`）里已经**声明**过的词不补」（`CardPresentation/Core/CardText.cs:248` 的 `DeclaredInBody`），而这一批的 `desc` **本来就写着** `Talent: X` / `Rally: …` 那些行。⇒ 本笔修的是**卡表与卡面逐格一致**（进引擎的那份 `keywords` 字典），不是画面。⚠️ **两处刻意保持现状**（真值快照与 PnP 冲突，PnP 赢）：`GOF26 Stompa` 的 `Rally`（卡面明印 `Rally: Stun a random enemy`，快照没有）· `AM72 Vitus Gryf` 的 `Strike`（卡面印 `Strike:`，快照写 `slay`）；另 `GOF61 Rukkatrukk` 的 `Flank`、`SAU7 Canoptek Wraith` 的 `Unstoppable` **不补**（卡面没印）。详见 `资料/普查产出_1016并行/卡牌线T02_报告.md` §2·A2073。"
+  "_2026-10-16_T02_关键词回卡面核": "2026-10-16（卡牌线 `T02` / 账 `A2073`）：**把「卡面印的关键词行」写回 `keywords` / `_manual_keywords`**。判据一律 = **逐张开 PnP 成品卡图亲读**（`d:/2/Warpforge部队卡片/<阵营>/<1督军..5防御卡>/*.png`，铁律 7）。25 张：漏 `Talent` 5（`Imotekh` / `Orikan` / `Acolyte Iconward` / `Ghazghkull` / `Nork Deddog`）· 漏 `Ambush`/`Artifice`/`Backlash`/`Rally`/`Flank` 各若干 · `Ecstasy N` 的**数值**（`EC5`=1 · `EC9`/`EC19`/`EC21`/`EC25`=2）· 等。⚠️ **这些改动【不改变卡面渲染结果】** —— `CardText.KeywordSegment` 的第一条闸就是「`body`（= `desc`）里已经**声明**过的词不补」（`CardPresentation/Core/CardText.cs:248` 的 `DeclaredInBody`），而这一批的 `desc` **本来就写着** `Talent: X` / `Rally: …` 那些行。⇒ 本笔修的是**卡表与卡面逐格一致**（进引擎的那份 `keywords` 字典），不是画面。⚠️ **两处刻意保持现状**（真值快照与 PnP 冲突，PnP 赢）：`GOF26 Stompa` 的 `Rally`（卡面明印 `Rally: Stun a random enemy`，快照没有）· `AM72 Vitus Gryf` 的 `Strike`（卡面印 `Strike:`，快照写 `slay`）；另 `GOF61 Rukkatrukk` 的 `Flank`、`SAU7 Canoptek Wraith` 的 `Unstoppable` **不补**（卡面没印）。详见 `资料/普查产出_1016并行/卡牌线T02_报告.md` §2·A2073。",
+  "Wolf Guard Terminator Pack Leader": [
+   "Vanguard",
+   "Armour 2",
+   "Slay: Gain +1 [Attack], +1 [Ranged] and +1 Health"
+  ],
+  "Murderfang": [
+   "Pack",
+   "Armour 1",
+   "Slay: Heal 2 and gain Blood Thirst this turn"
+  ],
+  "Wulfen Dreadnought": [
+   "Pack",
+   "Armour 1",
+   "Rally: Give +2 [attack] to all friendly units with Pack"
+  ],
+  "_2026-10-18_A2073_全池对账补关键词": "2026-10-18（卡牌线数据侧第二波 · `A2073` 全池关键词对账）：**12 张**按「卡面印的 trait + 当前 build SO 的 `CardTraits`」补齐 `keywords`（两列都写全：`keywords` 列 + `_manual_keywords`，与 2026-10-16 `T02` 批同一条口径）。判据 = PnP 成品卡图逐张（`d:/2/Warpforge部队卡片/…`）+ `资料/卡表核对_卡图提取/_还原效果文字.md` 的双写转录 + SO `CardTraits`，三票同向：① 漏 `Oath`（引擎 `Has(Oath)` 真的读：部署当回合可动 `RuleCore.HasDeployExemption` / 回合末重挑攻击型 `:1719` / `RecomputeAttackTypeAfterActiveAbility:3900` / `ForceAttackTypeOnDeploy:3998`）—— `UM91 Tactical Marine` · `UM95 Attack Bike` · `UM96 Chapter Champion`（裸 `Oath`，与池内另 17 张同写法；⛔ 不写成 `Oath N`，见 `_manual_desc_note` 的 `A1331` 条）；② 漏 `Talent: <名>` — `SW2 Njal Stormcaller`（High Rune Priest）· `SW3 Ragnar Blackmane`（War Howl）· `TL74 Terror of Vardenghast`（Alpha Warrior）· `UM12 Antaro Chronus`（Spear of Macragge）· `UM100 Chaplain Cassius`（Catechism of Death）· `UM87 Roboute Guilliman`（Author of the Codex）；③ 漏 `Slay`/`Rally` 正文条目 — `SW27 Wolf Guard Terminator Pack Leader` · `SW34 Murderfang`（Slay）· `SW37 Wulfen Dreadnought`（Rally）。⚠️ **不动**（已裁定）：`GOF57 Ork Nob` 的 Flank（卡面只在效果句里「give it Flank」，不是本卡 trait）· `AM72 Vitus Gryf` 的 Slay（卡面印 Strike）· `SAU7 Canoptek Wraith` 的 Unstoppable（SO `_hide=1`、卡面没印）· `e01f4d54… Daemonbreaker` 的 Ephemeral（卡面没印；它是 `inventoryOptions=10` 的天赋生成卡，`RuleCore.SpawnTalents` 逐张 `EphemeralMarked=true`）· `UM100` 的 `oathDouble`（官方 `Card_Trait` 表无此条 ⇒ 无显示名；引擎从 `desc` 的「Friendly Oath abilities apply an additional time.」那句读）。"
  },
  "descZh": {
   "Boss Zagstruk": "天赋：最差的脾气",
@@ -1026,7 +1065,7 @@
   "Warlock": "①：给予你的所有部队 +1 [远程]和 +1 生命",
   "Wraithblade": "①：获得护甲 2",
   "Wraithguard": "①：获得 +2 [远程]和 +2 生命",
-  "Spiritseer": "②：部署 1 个幽卫",
+  "Spiritseer": "②：部署 1 个幽冥守卫",
   "Farseer Skyrunner": "②：选择敌方手牌中的 1 张牌并将其洗入其牌库",
   "Wraithknight": "③：获得 [无敌] 无敌直到你的下个回合",
   "Nightshade Interceptors": "给予你的载具 +1 [远程]和 +2 生命",
@@ -1035,7 +1074,7 @@
   "War Walker": "护甲 1。爆裂 2。",
   "Thunderous Charge": "给予一个友方部队 +2 [攻击]、+2 [远程] 和震荡。",
   "Primaris Chaplain": "典籍：给予你的步兵部队 +1 [攻击]和 +1 [远程]。",
-  "Cadian Standard Bearer": "集结：部署一个震荡突击兵。职责：本回合给予你的单位 +2 [远程]。",
+  "Cadian Standard Bearer": "集结：部署一个震荡兵。职责：本回合给予你的单位 +2 [远程]。",
   "Rogal Dorn Tank": "团：本回合给予你的单位 +1 [远程]。",
   "Tempestor Sergeant": "团：给予一个随机友方部队 +1 [远程]。职责：给予所有友方步兵 +1 生命。",
   "Forged Killers": "给予一个友方部队及其相邻部队 +2 [远程]。",
@@ -1045,9 +1084,9 @@
   "Sonic Blaster Noise Marine": "被本单位攻击的敌方部队获得眩晕，并获得 -1 [攻击]和 -1 [远程]。",
   "Disharmonist": "给予一个随机敌方部队 -2 [攻击]和 -2 [远程]。",
   "Antrak Silk": "对一个友方单位造成 1 点伤害，并使其本回合获得 +1 [攻击]和 +1 [远程]。",
-  "Alluress": "集结：给予一个敌方部队 -2 [攻击]和 -2 [远程]。友方恶魔少女具有侧翼。",
+  "Alluress": "集结：给予一个敌方部队 -2 [攻击]和 -2 [远程]。友方魅魔具有侧翼。",
   "Acolyte Heavy": "伏击：获得 +2 [攻击]。猛击：在对手手牌中生成一张随机破坏卡。",
-  "Slugga Boy": "潮涌 1。集结：每有一个其他友方斯鲁格小子，获得 +1 [攻击]。",
+  "Slugga Boy": "潮涌 1。集结：每有一个其他友方短铳小子，获得 +1 [攻击]。",
   "Beast Snagga Boy": "潮涌 1。践踏。集结：如果你控制一只野兽，获得 +1 [攻击]。",
   "Nob on Smasha Squig": "其他友方野兽获得 +1[攻击] 和 +1[远程]。",
   "Gnarled and Rugged": "给予一个友方单位 +2 生命值。如果它是野兽，同时给予其 +2 [攻击]。",
@@ -1089,7 +1128,7 @@
   "Hunters of Heretics": "给予一个敌方部队脆弱 4 与“反噬：你的对手获得 2 点任务”",
   "Techmarine": "当我方载具攻击时，获得 1 点任务。若其存活，为其治疗 3 点",
   "Wages of Retribution": "本场战斗持续生效：当敌人死亡时，你获得 1 点任务。",
-  "Hymn of Battle": "选择一项：获得 1 ☀；抽 1 张牌；或部署 1 个十字军战士",
+  "Hymn of Battle": "选择一项：获得 1 ☀；抽 1 张牌；或部署 1 个圣战士",
   "Howling Banshee Exarch": "路标石。伪装。猛击：给予你的单位 +1 [攻击]",
   "Swooping Hawk": "①：获得 +1 [远程]和侧翼",
   "Warp Spider Exarch": "当你收集灵魂石时，获得 +1 [攻击]、+1 [远程]和潜行。",
@@ -1151,7 +1190,7 @@
   "Pack of One": "给予 1 个友方部队 +1 [攻击]和 +1 生命。若你未控制其他部队，给予它侧翼。",
   "Saga of the Bold": "给予 1 个友方部队 +2 [攻击]和 +2 生命。若你控制 3 个或更多部队，抽 1 张卡。",
   "Wulfen Dreadnought": "护甲 1。兽群。集结：给予所有带兽群的友方单位 +2 [攻击]。",
-  "Enforcer Battlesuit": "先锋。相邻单位获得 +1 [远程]。\n伴生 2：守护无人机",
+  "Enforcer Battlesuit": "先锋。相邻单位获得 +1 [远程]。\n伴生 2：守护者无人机",
   "Firesight Marksman": "潜行。当你部署无人机时，给予其 +1 [远程]。\n集结：给予 1 个敌方部队标记光 3",
   "Deploy Anchors": "给予 1 个友方战斗服或载具 +5 [远程]",
   "Grisly Feast": "给予你的战将和步兵部队本回合 +1 [攻击]和 +1 生命",
@@ -1197,8 +1236,8 @@
   "Miraculous Feat": "本回合给予 1 个友方单位 [无敌] 无敌。<br>6 ☀：将效果延长到你的下个回合",
   "Fiery Conviction": "直到你的下个回合给予你的单位 +2 [力量]。4 ☀：额外给予 +1 [力量]",
   "Daemonbreaker": "直到你的下个回合给予你的战将 +1 [攻击]、爆裂 1 和护盾。8 ☀：使其永久生效",
-  "PainBoy Sniklaw": "集结：治疗一个友方单位 3 点生命值。天赋：锯骨大夫。",
-  "Abaddon the Despoiler": "天赋：四神宠儿"
+  "PainBoy Sniklaw": "集结：治疗一个友方单位 3 点生命值。天赋：锯骨者。",
+  "Abaddon the Despoiler": "天赋：四者之选"
  },
  "_2026-09-16_Shrineworld段首写错": "🔴 **2026-09-16 更正：`desc.Shrineworld` 的段首原来写成了 `Destroy an enemy unit.` —— 那一整句是错的，卡面印的是 `Draw 3 cards.`。** 这一列本来的用途只是「**把被 OCR 丢掉的图标补回来**」（见 `_manual_desc_note`），而这一条**把一整句话换成了另一个效果** ⇒ `Shrineworld`（`SOR62` · 6 费）在引擎里**打出去会消灭一个敌方单位**，而卡面写的是抽 3 张牌。**静默**：探针报「认了 · 0 · 0」，卡面不打 `*`，日志也不报。\n**逐字依据 = 开成品卡图**（铁律 7）：`d:/2/Warpforge部队卡片/Sorotitas/4计策/Warpforge_62_Shrineworld.png` 印 `Draw 3 cards. For each Troop drawn, gain 1 ☀`；`数据/游戏数据/card_stats.json` 的原始转录也是对的（`Draw 3 cards. For each Troop drawn, gain 1.`，只少了图标词）。**错因**：这一条把「补图标」写成了「改句子」，而这一列的覆盖优先级**高于** `card_stats.json`（`工具/gen_cards_engine.py` 的 `load_cardface_fixes`）。\n**查出经过**：2026-09-16 的「中文结构对账」普查（`_tmp_view/zh_crosscheck_0916.md`）—— 中文卡面写「抽 3 张牌」，spec 却是 `destroy`。",
  "_2026-09-16_two_bare_icon_tokens": "🔴 **2026-09-16：两处 `±N` 后面的属性 token 名是错的**（铁律 7：主对话**逐张亲读成品卡图**之后改的）。① `Hidden Hunters`（`TAU74`）原写 `Give +1 [Power] and Stealth to your Infantry troops`，卡面（`Tau/4计策/Warpforge_10_Hidden-Hunters.png`）是 **`+1【粉圈白拳】` = 近战**；而 `power` 不在 `GivePayload.ReAttr` 的词表里 ⇒ 整段判「不认识」⇒ 改成 `Attack`。② `Inner Circle Companion`（`DA21`）原写 `Gain Vanguard and 2`，卡面（`Dark Angels/3部队/Warpforge_21_Inner-Circle-Companion.png`）是 `👁Stealth. 🌿Agenda: Gain 🛡Vanguard and ⌾2` —— 最后那个是**锯齿圆环+数字 = 任务点**（同 `The Rock` 的 `Gain 2 任务点`）⇒ 补成 `2 Quest Points`。⚠️ 两处都走**这一列**（不是去放宽 `GivePayload` 的属性词表）—— 同 `[Armor]`/`[Armour]` 在 `+N Attack … +N Armour` 里也是枪那条先例：那是**数据侧**的错，放宽词表会同时打到别的卡。",
@@ -1525,11 +1564,13 @@
   ],
   "Wolf Guard Terminator Pack Leader": [
    "Vanguard",
-   "Armour 2"
+   "Armour 2",
+   "Slay: Gain +1 [Attack], +1 [Ranged] and +1 Health"
   ],
   "Murderfang": [
    "Pack",
-   "Armour 1"
+   "Armour 1",
+   "Slay: Heal 2 and gain Blood Thirst this turn"
   ],
   "Bjorn the Fell-Handed": [
    "Ferocity",
@@ -1541,7 +1582,8 @@
   ],
   "Wulfen Dreadnought": [
    "Pack",
-   "Armour 1"
+   "Armour 1",
+   "Rally: Give +2 [attack] to all friendly units with Pack"
   ],
   "Devilfish": [
    "Armour 1"
@@ -1600,7 +1642,9 @@
   "Raid Tactics": [],
   "Oath of Moment": [],
   "Rusted Vent": [],
-  "Njal Stormcaller": [],
+  "Njal Stormcaller": [
+   "Talent: High Rune Priest"
+  ],
   "Banshee Mask": [],
   "Malicious Volleys": [],
   "Toxic Bonfire": [],
@@ -1645,7 +1689,8 @@
   "AstraMilitarum/Thermal Weaponry": [],
   "Ultramarines/Chapter Champion": [
    "Armour 1",
-   "Codex"
+   "Codex",
+   "Oath"
   ],
   "Ultramarines/Bladeguard Lieutenant": [
    "Armour 1",
@@ -1702,15 +1747,20 @@
   ],
   "Daemonbreaker": [],
   "Saga of the Bold": [],
-  "Ragnar Blackmane": [],
+  "Ragnar Blackmane": [
+   "Talent: War Howl"
+  ],
   "Terror of Vardenghast": [
-   "Slay"
+   "Slay",
+   "Talent: Alpha Warrior"
   ],
   "Enhanced Organism": [],
   "Apothecary Polixis": [
    "Codex"
   ],
-  "Tactical Marine": [],
+  "Tactical Marine": [
+   "Oath"
+  ],
   "Forward Deployment": [],
   "Firestrike Servo Turret": [
    "Long Range",
@@ -1742,7 +1792,8 @@
    "Codex"
   ],
   "Roboute Guilliman": [
-   "Codex"
+   "Codex",
+   "Talent: Author of the Codex"
   ],
   "Vox Operator": [],
   "Press the Attack": [],
@@ -1936,19 +1987,26 @@
    "Talent"
   ],
   "Sheltered Location": [],
-  "Attack Bike": [],
+  "Attack Bike": [
+   "Oath"
+  ],
   "Chapter Champion": [
    "Armour 1",
-   "Codex"
+   "Codex",
+   "Oath"
   ],
-  "Chaplain Cassius": [],
+  "Chaplain Cassius": [
+   "Talent: Catechism of Death"
+  ],
   "Fall Back": [
    "Oath"
   ],
   "Angels of Death": [
    "Codex"
   ],
-  "Antaro Chronus": [],
+  "Antaro Chronus": [
+   "Talent: Spear of Macragge"
+  ],
   "Light Cover": [],
   "Master of Arms": [],
   "Poisoned Supplies": [],

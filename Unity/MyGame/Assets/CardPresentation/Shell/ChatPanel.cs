@@ -431,6 +431,13 @@ namespace CardPresentation
                                    _tabBg[idx], TabArtOff, TabArtHover, TabArtPressed,
                                    clickCue: WindowSounds.SelectToggleCue);
             _tabBtn[idx] = hit != null ? hit.GetComponent<WindowButton>() : null;
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版这两颗频道键是 `EverguildToggle` +
+            //   **`allowClickWhenAlreadySelected = 0`** ⇒ 再点当前频道时连按钮音一起跳过。
+            if (_tabBtn[idx] != null)
+            {
+                _tabBtn[idx].allowClickWhenAlreadySelected = false;
+                _tabBtn[idx].isOn = () => tabButtons != null && tabButtons.CurrentVisualIndex == idx;
+            }
             return b;
         }
 

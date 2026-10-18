@@ -1021,6 +1021,12 @@ namespace CardPresentation
             int captured = idx;
             var wb = hitGo.gameObject.AddComponent<WindowButton>();
             wb.onClick = () => OnNavClick(captured);
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版这五颗导航钮是 `EverguildToggle` +
+            //   **`allowClickWhenAlreadySelected = 0`** ⇒ 再点**当前**那一颗时连按钮音一起跳过
+            //   （`EverguildToggle__OnPointerClick.c` 第一段）。行为面与 `SelectNav` 已有的
+            //   「`idx == SelectedNav` 幂等」同向；这里把**声音**也一起挡在派发之前。
+            wb.allowClickWhenAlreadySelected = false;
+            wb.isOn = () => SelectedNav == captured;
             // ============================================================ 🆕 2026-10-10（A222）
             // 🔴 **色偏（悬停/选中/按下）要打在这颗【可见】的图形上** —— 那颗 `Hit` 是**另建的透明命中区**
             //    （`SetTint(0,0,0,0)`），`WindowButton.Collect()` 只收**自己子树**里的 quad

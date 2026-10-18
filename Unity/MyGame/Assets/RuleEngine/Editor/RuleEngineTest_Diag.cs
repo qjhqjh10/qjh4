@@ -76,7 +76,8 @@ public static partial class RuleEngineTest
         "TestA1576SacrificeOrder", "TestA1563VulnerableDamageSplit", "TestA1566LandingAndAboutToAttackRegistration", "TestA1462NonKeywordTargetFilter", "TestA1606TurnStartForceAttack", "TestA1631HalfUnderstoodTriggerBody",
         "TestA1632EachTurnAttackOnOpponentTurn", "TestA1455DeployNamedTroop", "TestA1600SelfFatalHitHeard", "TestA1468BatchAllEnemiesHitsStealth", "TestA1600DyingListenerExcluded", "TestA1468SingleTargetStealthGate",
         "TestS23ParseWhenPrefix", "TestS23ParseCostWhenInstead", "TestS23ParseCostWhenIconMarker", "TestS23AssertImplementedReadSites", "TestS23AssertA1413PayGroup", "TestS23ResolveDeployCopyOfThisTroop",
-        "TestS23ResolveInsteadOnAbilityLayer", "TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", "TestS23ResolveLandingCancelsAttack",
+        "TestS23ResolveInsteadOnAbilityLayer", "TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", "TestS23ResolveLandingCancelsAttack", "TestS23ResolveA1426GiveToDyingOnBoard", "TestS23ResolveArmourTwoRepresentations", "TestS23ResolveA1692DeployFreeNoOverwrite",
+        "TestS23ResolveA1690WhenBodyAdjacentAnchor", "TestS23ResolveA1312KeepStatusTurnState",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -464,6 +465,11 @@ public static partial class RuleEngineTest
         Safe("TestS23ResolveInsteadOnAbilityLayer", () => TestS23ResolveInsteadOnAbilityLayer());
         Safe("TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", () => TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer());
         Safe("TestS23ResolveLandingCancelsAttack", () => TestS23ResolveLandingCancelsAttack());
+        Safe("TestS23ResolveA1426GiveToDyingOnBoard", () => TestS23ResolveA1426GiveToDyingOnBoard());
+        Safe("TestS23ResolveArmourTwoRepresentations", () => TestS23ResolveArmourTwoRepresentations());
+        Safe("TestS23ResolveA1692DeployFreeNoOverwrite", () => TestS23ResolveA1692DeployFreeNoOverwrite());
+        Safe("TestS23ResolveA1690WhenBodyAdjacentAnchor", () => TestS23ResolveA1690WhenBodyAdjacentAnchor());
+        Safe("TestS23ResolveA1312KeepStatusTurnState", () => TestS23ResolveA1312KeepStatusTurnState());
 
         VerifyDiagCoverage();
 

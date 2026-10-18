@@ -65,6 +65,20 @@ namespace RuleEngine
         ///   本档是**规则上放不下**（对局状态），两者的「该说什么」不一样。</summary>
         public const int ErrNotEnoughRoom = 19;
 
+        /// <summary>**这张卡不能直接打出** —— 原版 `manaCost = -1` 的哨兵（附魔 / 生成模板）。
+        ///
+        /// 🔴 **2026-10-19 新开的一档**（用户当天裁定 `Dark Pact of *` 4 张「**没有费用**」）。
+        /// 判据 = 当前 build 的卡 SO 里 `manaCost = -1`
+        /// （`资料/普查产出_1018/allcards_1350/cards_raw.json`；这 4 个 `uniqueId` 逐一对上
+        /// `Mark of Tzeentch/Khorne/Slaanesh/Nurgle (enchantment)`；生成链 =
+        /// `Enchantments` SO 的 markOfChaos 映射 + 反编译 `CardScript__AddEffect.c:776-792` case 8
+        /// `Enchantments.GetMarkOfChaos` → `RawCardScript.TriggerEnchantment` ——
+        /// **只作为附魔挂到单位身上，从不直接打出**）。
+        /// **谁返回它**：`RuleCore.CanPlayCard` 与 `RuleCore.CanPlayTactic` 开头的 `card.Cost &lt; 0`。
+        /// ⚠️ 不复用 `ErrCost` —— 「能量不足」会误导玩家「攒够费就能打」；
+        ///    也不复用 `ErrUnimplemented` —— 那是「本版没实现效果」，本档是「原版就不许直接打出」。</summary>
+        public const int ErrNotPlayable = 20;
+
         static readonly Dictionary<int, string> Names = new Dictionary<int, string>
         {
             { OK,             "OK" },
@@ -113,6 +127,7 @@ namespace RuleEngine
             //    ⛔ 下面是**给人看的中文整句**，**不是** I2 词条键 ——「`Describe` 改出键」是 `A985⑧` 第 ③ 步，本轮不做。
             { ErrNoTargetAvailable, "这张战术卡没有可选的合法目标" },
             { ErrNotEnoughRoom,     "棋盘上已经放不下了" },
+            { ErrNotPlayable,       "这张卡不能直接打出" },
         };
 
         public static string Describe(int code)

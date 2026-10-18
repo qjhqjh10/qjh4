@@ -66,6 +66,39 @@ namespace CardPresentation
         public const string SendMessageCue = "UI Send Message";      // clip: UI Send Message
         public const string Purchase2Cue = "UI Purchase 2";          // clip: UI Purchase 2
 
+        // ---- 窗级 / 特殊 cue（2026-10-18 · 音效线缺口修复 `W_音效线_缺口修复`）----
+        // 判据 → `资料/普查产出_1018/AUD_音效线_完整性复核.md` §三 A1/A2/B1/D（逐条带原版 MB pid）。
+
+        /// <summary>卡牌详情窗（`CardDisplayWindow`）**开窗音** —— 场景
+        /// `bundle_scenes_scenes_mainmenuwarpforge` 的 `Card Displayer Menu For Menu` 根 MB（pid **2033**）
+        /// `openSound = PPtr(fileID 6, pid 4006604330728631164)`。cue 包装
+        /// `bundle_soundcollection_assets_all/MonoBehaviour/CardExpand.json`（clip `CardExpand`，
+        /// pitch 0.8–1.1 · vol 1–1 · `timeToPlayAgain` 0.1）。
+        /// <para>🔴 **组 = FX（MixerType 0）** —— 消费点是继承来的 `GameWindow.TryOpen`
+        /// （`SoundManager.Play2D(cue, MixerType.FX)`，与 FTUE 那一条同一条指令流）。
+        /// 播放口 = <see cref="PlayFx"/>；`CardDetailPopup.Open()` 里喊它。</para></summary>
+        public const string CardExpandCue = "CardExpand";
+
+        /// <summary>卡牌详情窗**关窗音** —— 同一根 MB 的
+        /// `closeSound = PPtr(fileID 6, pid 3524674544779823761)`；消费点 = `GameWindow.Close`
+        /// （`GameWindow__Close.c` 在 `useDefaultCloseSoundIfNull` 兜底**之前**）。clip 同名（ttp 0.1）。
+        /// <para>⚠️ 我们 `GameWindow.closeSound` 是 `AudioClip`、原版是 `AudioCue`（带 pitch/节流参数）
+        /// ⇒ 走 cue 表（同 FTUE 的先例）；`CardDetailPopup` 同时把 `useDefaultCloseSoundIfNull`
+        /// 置 **false**，防止基类再叠一声默认 `ButtonClick Back`（原版只会响一条）。</para></summary>
+        public const string CloseCardDisplayCue = "Close Card Display";
+
+        /// <summary>段位升降窗的 **`soundOnOpen`** —— `bundle_menus_assets_all` MB `-4938671765695524530`
+        /// （`RankedEventDivisionChangeWindowNewSystem : GameWindow`，prefab `Ranked Division Change Window`）
+        /// `soundOnOpen = PPtr(fileID 6, pid -2236843390636958589)`。cue 包装
+        /// `bundle_soundcollection_assets_all/MonoBehaviour/Division Change.json`（clip `Division Increase`，
+        /// **`timeToPlayAgain` 0.01**）。
+        /// <para>🔴 **组 = Jingles（MixerType 3）** —— 判据 = 反编译
+        /// `RankedEventDivisionChangeWindowNewSystem._DoPromoteAnimations_d__22.MoveNext.c:32-33`：
+        /// `AudioCue__Play2D(cue, 3)`；`MixerType.cs` = `FX=0 · Music=1 · Voices=2 · Jingles=3`。
+        /// ⛔ 别用 `PlayFx`（`WFSoundPlayer` 写死 FX 组）—— 走 <see cref="PlayJingles"/>。</para>
+        /// <para>⚠️ 原版落点是「升级动画的起点」；我们的动画没建 ⇒ 落在 `Open()`（见那边的注释）。</para></summary>
+        public const string DivisionChangeCue = "Division Change";
+
         /// <summary>🆕 **2026-10-17（界面线 T26 / 音效线 S02）**：`Choose Army Deck FTUE Window`
         /// （`FTUESelectDeckWindow`）的 **`openSound`** —— 根 MB `MonoBehaviour_-3133570412519170200.json`
         /// 实读 `openSound = PPtr(fileID 6, pid -1332049501696130703)`，那个 cue 的资产名就是这一串

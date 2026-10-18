@@ -135,6 +135,18 @@ class Scan
             string S(string k) => c.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
             string name = S("name"), desc = S("desc");
             // 🔴 **2026-10-14（第二十九会话 · 账 `A1941`）**：这一句就是「**全池 1120**」与「卡池 `count = 1126`」对不上的**全部**原因 —— `desc` 为空的卡**不进全池 dump**，现读正好 **6 张**：`ASH61` · `BL2` · `BL26` · `GOF8` · `TL61` · `UM6`（`1126 − 6 = 1120`）。⚠️ **后果**：这 6 张的效果**永远不在基线里** ⇒ 改 `EffectText` 时动到它们，`check` **不会出声**。⇒ 本句**保留**（没 desc 本来就没得解析），但**这条盲区要写在案上**，⛔ 别再把 1120 当「卡池张数」。
+            //   ⚠️ **张数一律现读**（`A1681` 同款口径）：上面那组 `1126 / 1120` 是 **2026-10-14 的快照**；
+            //   2026-10-19 现读池 = **1127**（`cards_engine.json.count`）⇒ 现值 = `1127 − 6 = 1121`。
+            // ✅ **2026-10-19（波 4 · `A1941` 收口）：6 张已全部查实 —— 原版侧本来就没有效果文本，不是我们的数据缺口。**
+            //   判据（逐张）：`ASH61` / `BL2` / `BL26` / `TL61` / `UM6` = `cards_1195_2022时代.json` 的
+            //   `itemDescriptionKey = ''` 且 `itemNameKey = None`；`GOF8` = 2022 快照 `itemDescriptionKey = ''`
+            //   ＋ 当前 build 的 SO（`allcards_1350/cards_raw.json`）`abilityCount = 0` / `cardAbilities = []` /
+            //   `activeAbility` 与 `alternativeAbility` 的 logic 都为空 ＋ **PnP 成品卡图**（
+            //   `d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_12_Hornhelmz-Boy.png`）卡面**没有效果行**
+            //   （只有 `Tide 2` 关键词与 `Infantry`）。
+            //   ⇒ 按**铁律 11 例外①**（原版本身没有）处置；本句**继续保留**（那 6 张本来就没有可解析正文）。
+            //   ⚠️ **仍未闭合的那一半**：若将来原版/数据侧给它们补了 desc，这张盲区自动消失；
+            //      在那之前「`check` 看不见这 6 张」是**已知且被解释的**，不是静默缺陷。
             if (string.IsNullOrEmpty(desc)) continue;
             var ops = EffectText.Parse(desc, out var unparsed, out var partial, false);
             sb.Append(S("id") ?? "").Append("|").Append(name ?? "").Append("|")
@@ -162,6 +174,17 @@ class Scan
                       //    ⚠️ 渲染在 `Program.TargetBlock`（唯一口，`Dump` 打的是同一批值）；
                       //       取尾部列前必须先 `Sentinel.Legacy()` 摘掉它（块里是卡面原文、可含 `/`）。
                       .Append(Program.TargetBlock(op))
+                      // 🔴 **2026-10-19（波 4 · `A1568②` / `A1561②` 现核）**：`Tail` 那半条已经**闭合** ——
+                      //   `A1877②` 起 `TargetBlock` 会追加 `/{TAIL:…}`（`Program.cs` 的 `if (op.AmountMax > 0)` 那两行），
+                      //   所以 `scan` 的 ops 列**看得见 `Tail`**；同族里**仍缺的只有 `ChooseDeadScope`**
+                      //   （`Dump` 打成 `deadScope=`，`scan` 一个字都不打；现池用到它的 = `GSC44` / `SAU39` / `UM61`，
+                      //   值都是 `all` —— `EffectText.cs:5032-5036`）。
+                      //   ⛔ **本波【没有】补它**：加块会改 scan 输出 ⇒ `check` 立刻红，而收口必须
+                      //   **重生成 `基线/out_baseline.txt` ＋ 重钉 `PinnedBaselineMd5`/`PinnedParseMd5`**
+                      //   （本波红线：只跑 typecheck、不跑 ruleprobe）。施工图 = 在 `Program.TargetBlock`
+                      //   的 `/{SRC:…}` **之前**加
+                      //     `if (!string.IsNullOrEmpty(op.ChooseDeadScope)) s += "/{CDS:" + op.ChooseDeadScope + "}";`
+                      //   然后按本文件头 `A1877②` 那三步重生成/重钉，并复核「只有那 3 行变长、删掉新块后逐字节相同」。
                       .Append(";");
             sb.Append("\n");
         }

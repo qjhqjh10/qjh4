@@ -29,6 +29,9 @@ Shader "CardPresentation/Card3D"
         _MatCapPower ("MatCap 幂", Float) = 1.24
         _CountersIntensity ("计数器面板强度", Float) = 1.12
         _Color ("整卡着色 / 透明度", Color) = (1,1,1,1)
+        // 🆕 2026-10-19（`A2139`）：原版去饱和通道（判据 → `Resources/Shaders/CardSprite.shader` 头部）。
+        // 0 = 原色（默认，画面不变）/ 1 = 全灰。场上 3D 卡体也是「卡面」的一部分。
+        _GreyScale ("Greyscale", Range(0,1)) = 0
     }
 
     SubShader
@@ -72,6 +75,7 @@ Shader "CardPresentation/Card3D"
             float _MatCapPower;
             float _CountersIntensity;
             fixed4 _Color;
+            float _GreyScale;
 
             v2f vert(appdata v)
             {
@@ -116,6 +120,11 @@ Shader "CardPresentation/Card3D"
                 //    背面（0.015–0.128）与滚边（0.836–0.989）故意落在区间外 ⇒ 自动回落到底板
                 float m = (i.uv1.x > 0.18 && i.uv1.x <= 0.82 && i.uv1.y > 0) ? 1 : 0;
                 col = saturate(col * (1 - m) + art.rgb * m);
+
+                // ⑤ 🆕 2026-10-19（`A2139`）：去饱和（原版 `_GreyScale` 语义；同 `CardSprite.shader`）。
+                //    放在 `_Color` 之前 —— 整卡淡出/着色照旧，只把颜色去饱和。
+                float lum = dot(col, float3(0.299, 0.587, 0.114));
+                col = lerp(col, lum.xxx, saturate(_GreyScale));
 
                 return fixed4(col * _Color.rgb, _Color.a);
             }

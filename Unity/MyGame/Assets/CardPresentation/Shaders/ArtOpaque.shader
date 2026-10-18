@@ -18,6 +18,10 @@ Shader "CardPresentation/ArtOpaque"
     {
         _MainTex ("Texture", 2D) = "white" {}
         _Color ("Tint", Color) = (1,1,1,1)
+        // 🆕 2026-10-19（`A2139`）：原版去饱和通道（判据 → `Resources/Shaders/CardSprite.shader` 头部）。
+        // 0 = 原色（默认，画面不变）/ 1 = 全灰。立绘这层是卡面最大的一块颜色，
+        // 少了它，「加不进的卡」只有框/文字会灰、插图还是彩的。
+        _GreyScale ("Greyscale", Range(0,1)) = 0
     }
     SubShader
     {
@@ -39,6 +43,7 @@ Shader "CardPresentation/ArtOpaque"
 
             sampler2D _MainTex;
             fixed4 _Color;
+            float _GreyScale;
 
             v2f vert(appdata v)
             {
@@ -52,6 +57,9 @@ Shader "CardPresentation/ArtOpaque"
             fixed4 frag(v2f i) : SV_Target
             {
                 fixed4 c = tex2D(_MainTex, i.uv) * i.color;
+                // 🆕 A2139：去饱和（同 `CardSprite.shader` 的口径：Rec.601 · 只动 RGB）
+                fixed lum = dot(c.rgb, fixed3(0.299, 0.587, 0.114));
+                c.rgb = lerp(c.rgb, lum.xxx, saturate(_GreyScale));
                 c.a = 1;                       // **关键**：贴图的 alpha 是「角色抠图」，这一层不要它
                 return c;
             }

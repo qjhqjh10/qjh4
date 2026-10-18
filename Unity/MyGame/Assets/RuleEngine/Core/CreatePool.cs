@@ -837,12 +837,17 @@ namespace RuleEngine
         ///     **用【真编译出来的引擎代码】重算过**（`RuleEngine/Core/*.cs` 只读编进一个 net8 控制台，
         ///     全池 1126 张 × `desc`/`descZh` 两趟，口径逐字照 `RuleEngineTest.TestMentionedCards` ⑤：
         ///     `self` = 该卡、`max = 999`）：
-        ///       · **英文侧现在是 `125 / 64`（处数 / 卡数），不是 128 / 67** —— 128 是 `A1078`
-        ///         （补上规则② 的「裸写天赋名」半段）**之前**的值，那半段当天就落地、英文侧 −3
-        ///         （`Azrael` / `Aun'Va` / `Abaddon the Despoiler` 各少一处假命中）。
-        ///         **复算办法**：把 `StripTalentSegments` 的裸写那一半停掉重编一次 ⇒ 实测**退回
-        ///         `128 / 67`**，与 `RuleEngineTest:17337` 记的 `128/67 → 125/64` 逐字吻合
-        ///         ⇒ **是过期，不是错**（也⛔ 不是「复算不出来」）。
+        ///       · ⚠️ **2026-10-18（`W_red_A`）就地订正（铁律 5）—— 本 bullet 原来写「英文侧现在是 `125 / 64`，
+        ///         停掉裸写半段退回 `128 / 67`」，与现算对不上，按实际数值改写**：
+        ///         **HEAD（2026-10-18 现算）**：ON = **`128 / 67`** · OFF（停掉 `StripTalentSegments` 的裸写那一半）=
+        ///         **`129 / 68`**；**上一版数据**（`4995622` 的 `cards_engine.json`）：ON = `127 / 66` · OFF = `128 / 67`。
+        ///         （顺序 = 「处数 / 卡数」，同 `RuleEngineTest` ⑤ 那两条、⛔ 别写反。ON→OFF 两边各 +1，
+        ///         多出来的那一处就是 `DA1 Azrael` 的裸写天赋名 —— 那半段本来就该剥掉。）
+        ///         **复算办法不变**：把裸写那一半停掉重编一次；HEAD 与上一版的 ON 差 +1，来自 `579bcad` 把
+        ///         `GOF12 Ork Spanner` 改成官方名 `Spanner`（`GOF15 Burna Boy` 原文里的 `a Spanner` 第一次命中）。
+        ///         ⚠️ **原文那个 `125 / 64` 与这两版快照都对不上**（两版 ON 是 `127/66` / `128/67`）——
+        ///         它测的是**哪一版数据 / 哪一种口径：判不出**（只确认原文「OFF 退回 `128 / 67`」与
+        ///         **上一版快照的 OFF** 逐字吻合）。⇒ ⛔ 别再把它当现状引用。
         ///       · **差值是 `+7`，不是 `+4`**（`125 → 132`）。逐张 dump 出来是 **4 族 7 张**：
         ///         `复生` 那族 **+4**（`SAU9` / `SAU10` / `SAU29` / `SAU72`，见下面那句），
         ///         外加 `BL1 Abaddon the Despoiler`（中文 `四神宠儿` **没有** `天赋：` 前缀 ⇒
@@ -1204,8 +1209,21 @@ namespace RuleEngine
 
         static void SortByName(List<CardDef> list)
         {
-            // 池子顺序**必须定死**：结算层用 `ctx.Rng` 按下标抽，顺序一变同一局就不一样了
-            list.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
+            // 池子顺序**必须定死**：结算层用 `ctx.Rng` 按下标抽，顺序一变同一局就不一样了。
+            // 🔴 **2026-10-19（`A2137`）排序键 `Name` → `Id`**：原来按**显示名**排序，于是
+            //   「改卡名」会静默改掉**随机部署**的结果 —— `GOF48 Rok Invasion` 实测：W28 把
+            //   `Ork Spanner` 改成 `Spanner` 后，24 张候选里第 11 名之后整体前移一位，
+            //   同一串 `ctx.Rng` 下标抽到了**另外几张卡**，`play check` 于是红一行、看上去像
+            //   结算漂移（诊断 → `资料/普查产出_1018/DIAG_A2137_playcheck.md` §2·4）。
+            //   指纹行的设计意图是「不含卡名 ⇒ 改名不该让这条天天红」，按名排序把那句话**间接**
+            //   推翻了。`Id` 自 K06 起是池内真 `uniqueId`（1127/1127，自造 0）⇒ 稳定、与显示名
+            //   解耦。`Name` 只作**同 Id 兜底**（`List.Sort` 不稳定，没有兜底键时并列项的顺序
+            //   不可保证）。⚠️ 方法名沿用历史叫法，**它现在不按名字排**。
+            list.Sort((a, b) =>
+            {
+                int c = string.CompareOrdinal(a.Id, b.Id);
+                return c != 0 ? c : string.CompareOrdinal(a.Name, b.Name);
+            });
         }
 
         static string AppendDetail(string a, string b)

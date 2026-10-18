@@ -707,6 +707,17 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "CardExpand",
+   "clips": [
+    "CardExpand"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "CardStartDrag",
    "clips": [
     "CardMove"
@@ -771,6 +782,17 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Close Card Display",
+   "clips": [
+    "Close Card Display"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
   },
   {
    "name": "Coordinated Engagement Lock",
@@ -1068,6 +1090,17 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Division Change",
+   "clips": [
+    "Division Increase"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.01
   },
   {
    "name": "Drach'nyen",

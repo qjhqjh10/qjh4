@@ -742,8 +742,16 @@ namespace CardPresentation
                 BuildArmySlider(item, army, new PxRect(r.x1 + ArmySliderInset, r.y1 + ArmyHlH,
                                                  r.x1 + ArmyItemW - ArmySliderInset, r.y1 + ArmyHlH + ArmySliderH));
                 // ⚠️ **不画 `Arrow`** —— 这一变体**没有这个节点**（母版与 Forge 版才有）。我们本来就没画，记着别加。
-                AddHit(item, "Hit", r, QArmyIcon, () => SelectArmy(army),
-                       clickCue: WindowSounds.SelectAvatarCue);
+                var armyHit = AddHit(item, "Hit", r, QArmyIcon, () => SelectArmy(army),
+                                     clickCue: WindowSounds.SelectAvatarCue);
+                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版 `Campaign Army Item Button` 是
+                //   `EverguildToggle` + **`allowClickWhenAlreadySelected = 0`** ⇒ 再点当前阵营时静音且不派发。
+                var armyWb = armyHit != null ? armyHit.GetComponent<WindowButton>() : null;
+                if (armyWb != null)
+                {
+                    armyWb.allowClickWhenAlreadySelected = false;
+                    armyWb.isOn = () => CampaignData.Selected == army;
+                }
             }
         }
 
@@ -1296,7 +1304,10 @@ namespace CardPresentation
         /// （UGUI 源码行号写在 `MenuDraw.ClipRect` / `MenuDraw.PaddedHitRect` 里）。
         /// ⚠️ 行为**只有变严**：视口外的条目命中区**不再建**（原版 `RectMask2D` 同时是射线过滤器）；
         /// 本页两条 `Clip` 的窗口（`RefreshNodes` 的轨道 `_vpR`、阵营条的 `_selR`）现在才真的吃到它。</summary>
-        void AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
+        /// <summary>🔴 **2026-10-18（音效线 `AUD` §三 C9）**：返回值从 `void` 改成 `Transform` ——
+        /// 阵营格的 `allowClickWhenAlreadySelected` 守卫要拿到刚建的 `WindowButton`
+        /// （既有调用点全是语句式，返回值可忽略 ⇒ 行为零变化）。</summary>
+        Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
                     ImageQuad target = null, string art = null, string hoverArt = null, string pressedArt = null,
                     string clickCue = null)
             => _win.AddHit(parent, name, r, q, onClick, target, art, hoverArt, pressedArt, clickCue);

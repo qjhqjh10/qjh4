@@ -504,6 +504,25 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🆕 **2026-10-19（`A1690`）：这批事件里有没有「**带单位宾语**」的** —— 判据只此一处。
+        ///
+        /// 用途：`CardDef.TryParseWhenSentence` / `CollectHandTrapWhens` 与
+        /// `EffectText.TryWhenSuffix` 三处都要把「事件宾语」这一维传给解析器
+        /// （正文里**裸写的 `adjacent`** 锚点定成谁，见 `EffectText.FillAdjacentAnchors` ⑤·二/⑤·二·二）。
+        /// 原来前两处各抄一遍同样的 `foreach`，第三处**根本没有** —— 三份口径迟早不一致
+        /// （`A1690` 要求「两条闸共用一份判据」）⇒ 收进这里。
+        ///
+        /// 口径与原来那两处**逐字相同**：`TargetCriteria != null || TargetOwnerIs != -1`。
+        /// </summary>
+        public static bool AnyHasTarget(IList<WhenEvent> evs)
+        {
+            if (evs == null) return false;
+            foreach (var e in evs)
+                if (e != null && (e.TargetCriteria != null || e.TargetOwnerIs != -1)) return true;
+            return false;
+        }
+
+        /// <summary>
         /// `A or B` 两条事件（`create or play a secret`）→ 两条 <see cref="WhenEvent"/>；拆不出来返回 null。
         ///
         /// **拆法**：以 `or` 为界，后半段（`play secret`）本身就是一条完整的事件短语；

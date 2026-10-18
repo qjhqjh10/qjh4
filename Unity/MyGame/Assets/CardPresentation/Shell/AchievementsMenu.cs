@@ -246,6 +246,16 @@ namespace CardPresentation
                 // 是 Toggle、悬停换 `…_selected`（普查 §块 5 第 11 行）
                 _tabHit[i] = Hit(key, "Hit", r, L_Hit, () => Select(captured), _tabBg[i], ArtTab,
                                  clickCue: WindowSounds.SelectToggleCue);
+                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版这一族是 `EverguildToggle` +
+                //   **`allowClickWhenAlreadySelected = 0`** —— `Select()` 里那句 `if (_filter == type) return;`
+                //   只是**我们 onClick 里**的守卫，改前**声音已经先响过了**（`WindowButton.Click` 先播音）。
+                //   现在把它搬到 `WindowButton` 的守卫上（连声音一起跳过，与原版 `OnPointerClick` 第一段同效）。
+                var tabWb = _tabHit[i] != null ? _tabHit[i].GetComponent<WindowButton>() : null;
+                if (tabWb != null)
+                {
+                    tabWb.allowClickWhenAlreadySelected = false;
+                    tabWb.isOn = () => _filter == captured;
+                }
             }
             RefreshTabs();
         }

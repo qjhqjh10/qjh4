@@ -837,6 +837,10 @@ namespace CardPresentation
                                  + "⚠️ 悬停那半边我们**没有判据**（见 `Interactable` 的注释）⇒ 照旧吃悬停。");
                 return;
             }
+            // 🆕 2026-10-18（`AUD` §三 C9）：原版 `EverguildToggle.OnPointerClick` **第一段** ——
+            //   `allowClickWhenAlreadySelected == 0 && isOn` ⇒ 连按钮音一起跳过（见字段那段注释）。
+            //   🔴 必须排在 `PlayClickSound()` **之前**（改前先响后 return 的那个坑就是这条要修的）。
+            if (!allowClickWhenAlreadySelected && isOn != null && isOn()) return;
             PlayClickSound();
             if (onClick != null) onClick();
         }
@@ -883,6 +887,32 @@ namespace CardPresentation
             if (MenuDraw.WasShadeHit(transform)) return;
             WindowSounds.PlayFx(clickCue ?? WindowSounds.DefaultButtonCue, $"按钮 `{name}`");
         }
+
+        // ============================================================ 🆕 2026-10-18（音效线缺口 `AUD` §三 C9）
+        //
+        // 原版 `EverguildToggle__OnPointerClick.c` **第一段**（在 `base.OnPointerClick` 之前）：
+        //     `if (*(char *)(this + 0x139) == 0 && *(char *)(this + 0x120) != 0) return;`
+        //   = **`allowClickWhenAlreadySelected == 0 && isOn`** ⇒ **整下点击被吃掉**
+        //     （`Toggle.OnPointerClick` 不派发、`onValueChanged` 不发、按钮音也不响）。
+        // 全量 = **64 颗**（30 个 prefab 根，判据 → `资料/普查产出_1018/AUD_音效线_完整性复核.md` §三 C9）。
+        // 🔴 我们的 `Click()` 原来**先播音、再执行 onClick**（见下面那一句次序）⇒ 即使 onClick 里自己
+        //   写了「同一键再点就 return」（例如 `AchievementsMenu.Select`），**声音已经响过了**。
+        // ⇒ 本段把原版那条守卫搬进 `Click()`，位置在 `interactable` 判定之后、`PlayClickSound` **之前**。
+
+        /// <summary>原版 `EverguildToggle.allowClickWhenAlreadySelected`（字段偏移 `0x139`；**出厂 = 0**，
+        /// 即「已选中时再点 = 什么都不做」）。我们这一边**缺省 true**（= 旧的「每次都派发」行为），
+        /// 只有**逐站点**确认过「这一颗原版是 `allowClickWhenAlreadySelected = 0`」才置 false
+        /// （判据 = prefab MB 逐颗实读，见 `isOn` 的注释与 `AUD` §三 C9）。
+        /// <para>⚠️ 它**只**对 toggle/radio 类站点有意义 —— 普通按钮没有「已选中」态（`isOn` 恒 null）。</para></summary>
+        public bool allowClickWhenAlreadySelected = true;
+
+        /// <summary>「这一颗**此刻**是选中态吗」—— 原版 `EverguildToggle.isOn`（`0x120`）。
+        /// 由**建钮的站点**给（同一个窗的 tab / radio 选择器共用一份状态；闭包读那个状态字段，
+        /// 所以换页/换选项之后**自动跟着变**，⛔ 不需要重建钮）。
+        /// <para>`null`（缺省）= 没有「已选中」概念 ⇒ <see cref="allowClickWhenAlreadySelected"/> 不生效。</para>
+        /// <para>守卫语义照原版：`allowClickWhenAlreadySelected == false && isOn() == true` ⇒
+        /// `Click()` 在**播音之前**整个返回（连 `onClick` 一起跳过）。</para></summary>
+        public System.Func<bool> isOn;
 
         /// <summary>🔴 **老式的 `OnMouseUpAsButton`：在这个工程里一次也不会派发** ——
         /// ① 它要求同一物体上有 `Collider`，而本工程**零处**加过 collider；

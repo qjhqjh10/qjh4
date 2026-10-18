@@ -3002,8 +3002,22 @@ namespace CardPresentation
                 v.SetPose(Pos(cx, cy), 0f, P.CardScale, PoolViewClip);
                 v.SetData(BattleDriver.ToCardData(def, def.Faction));
                 v.SetFace(CardFace.Full);
-                v.SetHighlight(State.CanAdd(def) == DeckError.None
-                               ? CardHighlightState.Playable : CardHighlightState.Normal);
+                // 🔴 **2026-10-18（卡池排序与显隐）：加不进的卡 = 【显示 + 变灰】，⛔ 不是不显示。**
+                //   判据 = 原版 `DeckEditorCollectionDisplay__DrawCell.c:75-92` 把 `CanAddCard` 的结果当
+                //   `canAdd` 传给 `CollectionCard__UpdateCardVisuals`，后者 `:19-20` 是
+                //   `UIImageGreyscaleController__ToggleGreyScale(controller, param_2 ^ 1, …)`
+                //   （`param_2` = canAdd ⇒ **加不进 = 灰**）。
+                //   ✅ **2026-10-19（`A2139`）**：灰的方式改成**真去饱和**了 ——
+                //   `CardView.SetGrey` 写原版那个材质属性 `_GreyScale`（0 = 原色 / 1 = 全灰；
+                //   判据 = 原版材质 `Sprite Greyscale` 的 `_GreyScale = 1.0`）。
+                //   ⚠️ 原来这里借 `CardHighlightState.Unplayable` 的**乘法压暗**（0.55,0.55,0.58），
+                //   那个口径**已作废**：`SetHighlight(Unplayable)` 自己现在也只做去饱和、不着色。
+                //   状态本身**保留**（`Unplayable`）—— 卡池断言/战斗侧都还在读它。
+                bool canAdd = State.CanAdd(def) == DeckError.None;
+                v.SetHighlight(canAdd ? CardHighlightState.Playable : CardHighlightState.Unplayable);
+                // 显式再喂一次灰度：`SetHighlight` 已经按状态给过，这里写出来是为了让「卡池为什么灰」
+                // 在调用点上**自解释**（也给以后换状态名留一条不依赖枚举的线）。
+                v.SetGrey(canAdd ? 0f : 1f);
                 // 底下那条「张数」（原版 `Collection Card/Content/Counter` + `Text (TMP)`）
                 ShowPoolCounter(vi, true);
                 SetPoolCounter(vi, def, cx - P.CellW * 0.5f, cellTop);
@@ -5137,19 +5151,30 @@ namespace CardPresentation
         /// `资料/普查产出_1017/UI/R3_S01按钮cue映射.md` §二·C-1 `Deck Editing Menu`）。
         /// <para>🔴 **本窗不走 `MenuDraw.Hit`**：点击在 `HandlePointer → HandleButtons` 这一条链上
         /// （原版那 12 颗也是 `EverguildButton|EverguildToggle`，只是我们的替身不是 `WindowButton`）
-        /// ⇒ cue 只能在**派发点**播。表只收**有显式 cue 的那 4 个 id**：
+        /// ⇒ cue 只能在**派发点**播。表收 `m_onClickSound` **非空**的那 4 个 id 之外，
+        /// **还要收 3 颗页签**（见下一条注释）：
         /// `hdr_back`(`Header/Close`) · `hdr_clear`(`Header/Filters/Generic Simplified UI Button_updated`) ·
         /// `foot_done`(`Sidebar/Footer/Done`) → **Positive**；`hdr_filters`(`Header/Filters` Toggle) → **Select Toggle**。
         /// ⚠️ 其余 8 颗 Toggle（6 颗卡牌筛选 + 2 颗卡背筛选；第 9 颗 = 表里那颗 `hdr_filters`）在
         /// `HandleFilterClick` / `HandleCosmoFltClick` 里统一播 `SelectToggleCue`（它们按格子走、没有 id）。
-        /// ⚠️ 表外的 key（页签 `tab_*` / 改名框）**原版没有显式 cue** ⇒ 不播（保持现状），
-        /// 不拿默认音替它们编行为。</para></summary>
+        /// 🔴 **2026-10-18 就地订正（铁律 5 · 音效线缺口 `AUD` §三 A3）**：这一段原来写
+        /// 「表外的 key（页签 `tab_*` / 改名框）**原版没有显式 cue** ⇒ 不播（保持现状）」——
+        /// **推理不成立**：原版「没有显式 cue」**不等于静音**。判据（`AUD` 现核 prefab 实读）：
+        /// `Deck Editing Menu/Content Area/Sidebar/Window Options/Buttons/{Cards,Cosmetics,Info}` =
+        /// `EverguildToggle`，`m_onClickSound` 空 + **`useDefaultAudioClipIfNull = 1`** ⇒ 切到别的页时
+        /// 播**默认 `ButtonClick`**；再点当前页则被 `allowClickWhenAlreadySelected = 0` 整下吃掉
+        /// （连声音一起）。⇒ `tab_0..2` 收进本表映射 `DefaultButtonCue`，且 `HandleButtons`
+        /// **先判「已选中」再播音**。⚠️ 改名框（`name_box`）确实不是按钮（输入框）⇒ 仍然不播，是对的。</para></summary>
         static readonly Dictionary<string, string> ClickCueById = new Dictionary<string, string>
         {
             { "hdr_back",    WindowSounds.PositiveCue },      // Content Area/Header/Close
             { "hdr_clear",   WindowSounds.PositiveCue },      // …/Header/Filters/Generic Simplified UI Button_updated
             { "foot_done",   WindowSounds.PositiveCue },      // Content Area/Sidebar/Footer/Done
             { "hdr_filters", WindowSounds.SelectToggleCue },  // …/Header/Filters（Toggle）
+            // 🆕 2026-10-18（`AUD` §三 A3）：3 颗页签 = 空 cue + `useDefaultAudioClipIfNull = 1` ⇒ 默认音
+            { "tab_0",       WindowSounds.DefaultButtonCue }, // …/Sidebar/Window Options/Buttons/Cards
+            { "tab_1",       WindowSounds.DefaultButtonCue }, // …/Buttons/Info（Deck info）
+            { "tab_2",       WindowSounds.DefaultButtonCue }, // …/Buttons/Cosmetics
         };
 
         /// <summary>按 id 播这一颗的 cue（表外 / null = **不播** —— 见 `ClickCueById` 的注释）。</summary>
@@ -5163,6 +5188,15 @@ namespace CardPresentation
         bool HandleButtons(Vector2 px)
         {
             var key = TopKeyAt(px);
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版三颗页签是 `EverguildToggle` +
+            //   **`allowClickWhenAlreadySelected = 0`** ⇒ `EverguildToggle__OnPointerClick.c` 第一段
+            //   「已选中 ⇒ 整下点击被吃掉」—— **连按钮音也不响、`onValueChanged` 也不发**。
+            //   ⇒ 守卫必须排在 `PlayClickCue` **之前**（改前是先播音、再由 `SetTab` 重复设一次 = 多响一声）。
+            if (key != null && key.Length == 5 && key.StartsWith("tab_", System.StringComparison.Ordinal))
+            {
+                int want = key[4] - '0';
+                if (want >= 0 && want <= 2 && want == _tab) return true;
+            }
             PlayClickCue(key);
             switch (key)
             {

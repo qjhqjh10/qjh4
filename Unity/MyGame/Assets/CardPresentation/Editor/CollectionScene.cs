@@ -93,7 +93,7 @@ public static class CollectionScene
         /// <summary>🆕 2026-10-11（F6）：**像素空间 2D** 版的 `CheckAt` —— ⛔ **z 不参与比较**。
         /// <para>为什么单开一条（而不是改 `CheckAt`）：`CheckAt` 比的是 `Vector3.Distance(节点, 期望)`，
         /// **含 z**、容差 **0.01 世界单位 = 1.08px**；而命中区节点可以被**有意**前移 z ——
-        /// `Shell/DeckInfoPopup.cs:213-218` 的 `HitZFront` 就是那把「同队列（`QDIHit` 3123）同 z 打平 ⇒
+        /// `Shell/DeckInfoPopup.cs:213-218` 的 `HitZFront` 就是那把「同队列（`QDIHit` 3129）同 z 打平 ⇒
         /// 显式排出谁深谁浅」的尺子（原版靠 `m_Children` 的兄弟序定胜负，我们这侧只能靠 z）。
         /// **那不是「节点没摆对」**，却**一个人就能吃满 `CheckAt` 的容差** ⇒ 那种红是**口径错**，不是缺陷。</para>
         /// <para>口径：容差 **±1.5px**、**逐轴**比（与四条边那组 `CheckNear` 同一个口径；换算尺子仍只此一份
@@ -2766,11 +2766,16 @@ public static class CollectionScene
                                   "★ A180：命中区**宽 = 原版 96.86**（= 子件宽 56.86 + 2×20 外扩）");
                         CheckNear(chH2, 98.13f, 1.5f,
                                   "★ A180：命中区**高 = 原版 98.13**（= 子件高 58.12 + 2×20 外扩）");
-                        //  ② **档位 = `QDIHit` 3123**（⛔ 写字面量、不写常量名）：常量与实现同源，
+                        //  ② **档位 = `QDIHit` 3129**（⛔ 写字面量、不写常量名）：常量与实现同源，
                         //     只改常量那种写法会跟着一起动、照样绿（= 丙-3 报告 §四那笔「自证残余」的修法）。
                         //     语义：它必须**压在压暗层 `QDI`(3120) 之上**，否则「点窗外关窗」那颗会先吃到命中。
-                        Check(chQ.RenderQueue, 3123,
-                              "关闭钮命中区的档 = `QDIHit` **3123**（字面量钉死；同档的还有 8 颗钮的命中区与 "
+                        //     🔴 **2026-10-18 就地订正（铁律 5）**：这里原来钉 `3123`（= 四档梯子时的 `QDIHit`）；
+                        //        同批 `DeckInfoPopup` 已把队列重排成**十档**（压暗 3120 / 红底 3121 / 立绘 3122 /
+                        //        面板 3123 / 行 3124 / 行图 3125 / 行边 3126 / 费用圈 3127 / 文字 3128 / 命中 3129，
+                        //        见 `Shell/DeckInfoPopup.cs:207-209`）⇒ 命中区现在是 **3129**；
+                        //        「命中区 > 压暗层 `QDI`(3120)」这一条**语义不变**。
+                        Check(chQ.RenderQueue, 3129,
+                              "关闭钮命中区的档 = `QDIHit` **3129**（字面量钉死；同档的还有 8 颗钮的命中区与 "
                               + "`WarlordHit` —— 它们都要在压暗层的 3120 之上）");
                     }
                     //  ①-b 🔴 **2026-10-11（A180）外扩带来的那条重叠带 —— 谁赢必须与原版同向**。
@@ -2781,7 +2786,7 @@ public static class CollectionScene
                     //     Deck Details(3) → Buttons(4) → Deck Options(5) → Info Panel(6) → Generic Close Button Orange(7)`
                     //    ⇒ **关窗钮是最后一个子件、最深** ⇒ 那条带里点下去**应当关窗**。
                     //    我们这一侧的「谁压谁」= **队列 → z**（`Shell/PointerLayer.cs` 的 `HitButton`：
-                    //    同队列再比 z、**越小越靠前**），而本窗 9 颗命中区**全在 3123、z 又全相等** ⇒ 打平，
+                    //    同队列再比 z、**越小越靠前**），而本窗 9 颗命中区**全在 3129、z 又全相等** ⇒ 打平，
                     //    胜负落在 `FindObjectsByType` 的返回序上（**不可靠**）。
                     //    ⇒ 本窗 `Build()` 第 8) 节把那颗节点的 z 显式往前挪一点点（相对量）。
                     //    ⛔ 期望值不写那个常量：这里比的是**两颗 quad 的 z 相对大小**（题面即断言）。
@@ -3611,7 +3616,7 @@ public static class CollectionScene
                     Object.DestroyImmediate(probeT.gameObject);
                 }
                 // 🆕 A83②（A81 的尾巴）：压暗层（「点窗外关窗」）那条不变量 —— 档 = **压暗层自己那一档**
-                //   `QDI`(3120)，**严格低于**本窗内容命中区档 `QDIHit`(3123)；并核「这节点确实是
+                //   `QDI`(3120)，**严格低于**本窗内容命中区档 `QDIHit`(3129)；并核「这节点确实是
                 //   公共件 `MenuDraw.ShadeHit` 建的」。期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
                 //   ⚠️ 它与本窗那颗**带按钮脸的** `CloseHit`（`Shell/DeckInfoPopup.cs` 的
                 //   `Hit(root, root, "CloseHit", …)`，**现 `:847`**）**不是一件事**（两颗都要有）；
@@ -3687,7 +3692,7 @@ public static class CollectionScene
                 v5.Close();
                 v4.Close();
                 // 🔴 **2026-10-04（A66）补的两句**：上面两扇关了，**这两扇一直没关** —— 它们会一路开着
-                //   走到收工（层 3123 的 `Warlord Image` 命中区比屏还大，**顶掉后面所有的真命中路**）。
+                //   走到收工（层 3129 的 `Warlord Image` 命中区比屏还大，**顶掉后面所有的真命中路**）。
                 //   实据：`_tmp_view/collection.log:6055` 那条「A11 前置：收掉 **2** 扇还开着的
                 //   `Deck info Popup`」—— 全场只有这两扇从头到尾没有 `Close()`，正好 2。
                 v3.Close();
@@ -4199,7 +4204,7 @@ public static class CollectionScene
                     // 🔴 **2026-10-04（A66）**：这一扇（`dp3`）走到这里必须**显式收掉**。
                     //   它的「开完自己关」那条路在 `DeckInfoPopup.SelectPracticeOpponentDeck():667` 里，
                     //   但**只在点击真的发生了**（`d3w != null`）时才走得到 ⇒ 补一句兜底，
-                    //   别让一扇层 3123 的模态一路盖到收工（那会顶掉后面所有人的真命中路）。
+                    //   别让一扇层 3129 的模态一路盖到收工（那会顶掉后面所有人的真命中路）。
                     if (dp3 != null) dp3.Close();
                     // ③ 预组也能当对手（原版那条链默认就落在预组页）—— 判据只一份：`PracticeModePopup.PlayerDeckOf`
                     if (PrebuiltDecks.Available && PrebuiltDecks.Tab.Count > 0)
@@ -4584,14 +4589,31 @@ public static class CollectionScene
             var cardsHolder = FindChild(tabsRoot, "Scroll View");
             CheckAt(cardsHolder, 330.2f, 1919.9f, 155.9f, 1079.9f,
                     "`Scroll View`（卡池视口；⚠️ 与 Deck 页的视口**差 0.7/0.1**，两份实测都记着）");
-            CheckTrue(win.CardsVisibleCount > 1000, $"卡池读到 {win.CardsVisibleCount} 张（`CardDatabase.Load()`）");
+            // 🔴 **2026-10-18（卡池排序与显隐 · 收口补丁）**：这条原来写 `CardsVisibleCount > 1000`。
+            //   卡池 **1127 → 1005**（剔掉 122 张 `show=0`）之后那条硬阈值**只剩 5 张余量** —— 下次数据一变就假红。
+            //   ⇒ 改成**两列现算**：期望值 = `Pool` 里 `showInCollectionOptions != 0` 的张数
+            //   （收藏卡牌页的显示判据，判据 = `CardCollectionTab.__c___GetCollection_b__8_0.c:19-30`；
+            //    与 `CollectionWindow.CardsState.ShowInCollectionOnly` 是同一条链）。⛔ 别再写成硬数字。
+            int wantCardsShown = 0;
+            foreach (var pc in CollectionWindow.CardsState.Pool) if (pc.ShowInCollectionOptions != 0) wantCardsShown++;
+            Check(win.CardsVisibleCount, wantCardsShown,
+                  $"卡池读到 {win.CardsVisibleCount} 张 = **两列现算**（`Pool` 里 `showInCollectionOptions != 0` 共 {wantCardsShown} 张）");
             CheckTrue(win.CardsCells.Count > 0, $"画出了 {win.CardsCells.Count} 格（视口外的不建 = `RectMask2D` 那套）");
             if (win.CardsCells.Count > 0)
             {
                 var cc0 = win.CardsCells[0];
                 CheckNear(PxOf(cc0.position.x), 468.8f, 1.5f,
                           "第 1 格中心 x = **468.8**（贴左但整体居中：330.2 + 7.35 + 262.5/2）");
-                CheckNear(PxYOf(cc0.position.y), 347.9f, 1.5f, "第 1 格中心 y = **347.9**（155.9 + 384/2）");
+                // 🔴 **2026-10-18 就地订正（铁律 5）**：这条原来钉 **347.9**（= 格心 155.9 + 384/2），
+                //   `W11`（2026-10-18，用户报「张数与卡牌重叠」）之后**卡**不再占满整格 ——
+                //   卡块 = 格高 384 − 底下张数条 **38.272**（原版 `/Counter` 锚 `0.09966714 × 384`，
+                //   见 `Shell/CollectionWindow.cs:225-242` 的 `CardsCounterH` / `CardsCardRect`；
+                //   缩放与 `SetPose` 在 `:1091` / `:1137`），而 `win.CardsCells` 存的是
+                //   **`CardView` 的 transform**（`:1170`）⇒ 这里量到的是**卡块中心**：
+                //   347.9 − 38.272/2 = **328.764**（实得 328.76 逐位吻合）。
+                //   ⛔ 别再改回 347.9（那是格心，不是卡心）。
+                CheckNear(PxYOf(cc0.position.y), 328.76f, 1.5f,
+                          "第 1 格**卡块**中心 y = **328.76**（= 格心 347.9 − 张数条 38.272/2；W11）");
             }
             if (win.CardsScroll != null && win.CardsScroll.MaxOffset > 0f)
             {
@@ -4601,6 +4623,108 @@ public static class CollectionScene
                 CheckTrue(lc != null && PxYOf(lc.position.y) + 192f <= 1080.5f,
                           $"**滚到底 ⇒ 第 {lastIdx + 1} 张（最后一张）完整落进视口**");
                 win.CardsScroll.ScrollBy(-win.CardsScroll.MaxOffset);
+            }
+
+            // ================================================================
+            // 🔴🆕 **2026-10-18（卡池排序与天赋卡显隐）**：收藏卡牌页的两条原版判据
+            //   判据（现读 `d:/2/tools/decomp_full/`）：
+            //   · **显示** = `CardCollectionTab.__c___GetCollection_b__8_0.c:19-30` 的
+            //     `Where(showInCollectionOptions != Hide(0))`（另有 `!IsHidden()` 与「非异画」两道 ——
+            //     `IsHidden` 的配置在服务端、本地没有 ⇒ 不做；异画那一道我们卡池里只有本体条目 ⇒ 无对象）；
+            //   · **排序** = `CardCollectionTab__GetCollection.c:69,84,99,114,129` 的 5 个稳定 `OrderBy`
+            //     ⇒ 实际主序 **阵营 → 战将 → `inventoryOptions` → 费用 → 名**。
+            //   本节全部**从两列原值现算**，⛔ 不盯我们自己的常量。
+            Section("★ 收藏卡牌页：显示判据（`showInCollectionOptions`）+ 排序（阵营 → 战将 → inventory → 费用 → 名）");
+            {
+                var cs = CollectionWindow.CardsState;
+                var vis = cs.VisibleCards();
+
+                // ① `show == 0` 的卡数 = 0
+                int show0 = 0; string firstShow0 = null;
+                foreach (var c in vis)
+                    if (c.ShowInCollectionOptions == 0) { show0++; if (firstShow0 == null) firstShow0 = c.Name; }
+                Check(show0, 0, "★ ① 收藏卡牌页里 `showInCollectionOptions == 0` 的卡数 = **0**"
+                              + $"（92 张天赋卡 + 30 张 `Z-NC` 效果卡共 122 张都不该出现"
+                              + (firstShow0 == null ? "" : $"；反例 `{firstShow0}`") + "）");
+                int wantShown = 0;
+                foreach (var c in cs.Pool) if (c.ShowInCollectionOptions != 0) wantShown++;
+                Check(vis.Count, wantShown, $"★ ① 卡数 = 两列现算（`show != 0` 共 {wantShown} 张）"
+                                          + "｜🧨 把 `ShowInCollectionOnly` 关掉 ⇒ 回到全池张数、本条红");
+
+                // ② 天赋卡数 = 0（真值 = `talent_cards.json` 的全部 `talents` id —— 96 宿主 / 92 张去重；
+                //    它们 `show=0`，所以 ① 过了 ② 必然过，但 ② 是**按真值表逐 id 查**的独立读数）
+                var ta = Resources.Load<TextAsset>(RuleEngine.TalentCardData.ResourcePath);
+                CheckTrue(ta != null, "（前提）`Resources/talent_cards.json` 载到了（否则下面 ② 是空转）");
+                if (ta != null)
+                {
+                    var dto = JsonUtility.FromJson<RuleEngine.TalentCardData.FileDto>(ta.text);
+                    var tal = new HashSet<string>();
+                    if (dto != null && dto.entries != null)
+                        foreach (var e in dto.entries)
+                            if (e != null && e.talents != null)
+                                foreach (var t in e.talents) if (!string.IsNullOrEmpty(t)) tal.Add(t);
+                    CheckTrue(tal.Count > 0, $"（前提）天赋真值表里读到 {tal.Count} 个去重天赋 id");
+                    int talShown = 0; string firstTal = null;
+                    foreach (var c in vis)
+                        if (tal.Contains(c.Id)) { talShown++; if (firstTal == null) firstTal = c.Name; }
+                    Check(talShown, 0, $"★ ② 收藏卡牌页里**天赋卡 = 0 张**（真值表 {tal.Count} 个去重 id 逐张查）"
+                                     + (firstTal == null ? "" : $"；反例 `{firstTal}`"));
+                }
+
+                // ③ 排序：首卡 = 第一个阵营（`cardArmy` 10 = Ultramarines）的**战将**
+                CheckTrue(vis.Count > 0, "（前提）收藏卡牌页非空");
+                if (vis.Count > 0)
+                {
+                    Check(vis[0].Type, "hero", "★ ③ 排序首卡是**战将**（原版 `cardType != Hero` 那把键；"
+                                              + "🧨 不排序 ⇒ 首卡是卡表原序第一张、不是战将）");
+                    Check(vis[0].Faction, DeckEditorState.ArmyOrder[0],
+                          "★ ③ ……而且属于**第一个阵营**（`cardArmy` 10 = Ultramarines，`DeckEditorState.ArmyOrder[0]`）");
+                }
+
+                // ③b `inventoryOptions` 那一层：同阵营、同「战将档」的每一段里必须**非减**
+                //   （现读卡表这条的判别力 = 防御卡 `inv=5` 必须整段排在 `inv=0` 之后，
+                //     🧨 去掉那一层 ⇒ 防御卡按费用混进 inv=0 那段 ⇒ 本条红）
+                int invBreaks = 0, segStart = 0;
+                for (int i = 1; i <= vis.Count; i++)
+                {
+                    bool brk = i == vis.Count || vis[i].Faction != vis[segStart].Faction
+                            || (vis[i].Type == "hero") != (vis[segStart].Type == "hero");
+                    if (!brk) continue;
+                    int lastInv = int.MinValue;
+                    for (int j = segStart; j < i; j++)
+                    {
+                        if (vis[j].InventoryOptions < lastInv) invBreaks++;
+                        lastInv = vis[j].InventoryOptions;
+                    }
+                    segStart = i;
+                }
+                Check(invBreaks, 0, "★ ③b 「同阵营 + 同战将档」每一段里 `inventoryOptions` **非减**"
+                                  + "（原版第 3 个 `OrderBy`，**只有收藏窗有这一层**）");
+
+                // ④ 异画页 / 卡背页**不受**这条显示闸影响（它们各自有自己的数据源与状态对象）
+                Check(CollectionWindow.StylesState.Pool.Count, CollectionWindow.AltArtCards.Length,
+                      "（前提）异画那份池子 = 异画表那 7 张（不受卡牌显示闸影响）");
+                Check(win.StyleVisibleCount, CollectionWindow.AltArtCards.Length,
+                      $"★ ④ 异画页照旧显示那 {CollectionWindow.AltArtCards.Length} 张"
+                    + "（🧨 把显示闸套到 `StylesState` 上 ⇒ 异画卡若 `show=0` 会被一起剔掉 ⇒ 本条红）");
+                CheckTrue(!CollectionWindow.StylesState.ShowInCollectionOnly
+                          && !CollectionWindow.StylesState.SortByInventoryOptions,
+                          "★ ④ 异画页那份 `DeckEditorState` **没被**套上卡牌显示闸 / 收藏排序（各走各的）");
+                CheckTrue(!CollectionWindow.CosmoState.ShowInCollectionOnly
+                          && !CollectionWindow.CosmoState.SortByInventoryOptions,
+                          "★ ④ 卡背页那份状态同样没被套（卡背本来就不走卡池）");
+                // 🔴 **2026-10-18（收口补丁）**：这条原来也是硬阈值 `Pool.Count > 1000` —— 改成
+                //   **卡表去重 id 现算**（卡池 1127→1005 后硬阈值余量只剩 5 张；而 `Pool` 是**未过滤**的本体，
+                //   它的期望值应恒等于卡表的去重 id 数）。⛔ 别再写死数字。
+                int wantPoolAll = 0;
+                {
+                    var seenPool = new HashSet<string>();
+                    foreach (var pc in CardDatabase.Load())
+                        if (pc != null && !string.IsNullOrEmpty(pc.Id) && seenPool.Add(pc.Id)) wantPoolAll++;
+                }
+                Check(cs.Pool.Count, wantPoolAll,
+                      $"★ ④ 卡池本体**没被改小**（`Pool` = {cs.Pool.Count} 张 = 卡表去重 id 现算 —— "
+                    + "过滤只发生在 `VisibleCards`，⛔ 不是从 `Pool` 里删卡）");
             }
 
             // ================================================================
@@ -5685,7 +5809,7 @@ public static class CollectionScene
                 CheckTrue(pl3 != null, "`PointerLayer` 在（下面两条要拿它问「真鼠标点不点得到」）");
                 // ⚠️ **前置：把前几段留下的弹窗收干净** —— ② 那两条走的是**真命中路**（`ButtonAt`），
                 //    而 `Deck info Popup` 的 `Warlord Image` 命中区盖着 x∈[−109, 999]、y∈[−34, 1074]（比屏还大），
-                //    层又是 `QDIHit = 3123` > 筛选格的 `QFltHit = 3043` ⇒ 留着它，
+                //    层又是 `QDIHit = 3129` > 筛选格的 `QFltHit = 3043` ⇒ 留着它，
                 //    「点不到 / 点得到」两条量到的都是**它**顶掉的结果（不是筛选格的真值）。
                 // 🔴 **2026-10-04（A66）：这笔债已经还清** —— 原来一路开到收工的是 **2 扇**
                 //    （`_tmp_view/collection.log:6055`「收掉 2 扇」）：A31 那一段建的四扇里 **`v2`/`v3` 没关**
@@ -5697,7 +5821,7 @@ public static class CollectionScene
                     if (lw != null && lw.CurrentState != WindowState.Closed) { lw.Close(); closedLeftovers++; }
                 Check(closedLeftovers, 0,
                       "★ A11 前置：这一路跑完，场上**没有**还开着的 `Deck info Popup`（A66 —— 有 = 又漏关了一扇"
-                      + (closedLeftovers == 0 ? "）" : $"：实测 {closedLeftovers} 扇，它层 3123、"
+                      + (closedLeftovers == 0 ? "）" : $"：实测 {closedLeftovers} 扇，它层 3129、"
                          + "`Warlord Image` 命中区比屏还大，会顶掉下面两条真命中路）"));
                 // 起点：上面那一段刚把它收回去
                 CheckNear(win.DrawerSlide(0), 0f, 0.001f, "起点进度 = **0**（整栏停在 `hiddenPosition` 那一头）");
@@ -7040,7 +7164,8 @@ public static class CollectionScene
                         //   ② `autoMinPx` 传错（如 25 → 10）⇒ `FontSizeMin` 那条红；③ 删掉 `SetWrapping(false)` ⇒ 折行档回 1 ⇒ 红。
                         // ⚠️ **如实说清判别力**（实测过这三颗的文案）：咬住 ① 的是 `AutoSizing` / `fontSizeMin/Max` /
                         //   **TMP 容器宽**那 **12 条**（字段级、唯一判别式）。宽/高那两条**对 ① 不一定有判别力** ——
-                        //   本夹具的文案是 `x2`（`cap = 2`）/ `/ ` / **一位数**（`spares = 9`：
+                        //   本夹具的文案是 `x1`（战将 `DeckCap(rarity, type) = 1`，2026-10-19 批次 D 订正；
+                        //   改前记的是 `x2` —— 那时夹具拿到的是非战将）/ `/ ` / **一位数**（`spares = 9`：
                         //   `NeedCopies[4] − NeedCopies[1] = 9 − 0`，见 `CardDetailPopup.NeedCopies`），
                         //   按 52.6 / 57px **不缩**大概也塞得进 73.28 / 28.02 / 44.09 这三个框
                         //   （⚠️ 那三个字的墨宽**没在实机上量过**，这一句是估的）⇒ 那两条是**另一族**
@@ -7219,7 +7344,13 @@ public static class CollectionScene
                                       "★ …而且 `Single Counter` **不该在**（原版 `singleCounterContent.SetActive(0)`）"
                                     + " —— 改坏法：去掉 `if (!dup)` 的早返回、两支都建 ⇒ 这条红");
                             // ---------- ② 把 `spares` 压到 0 ⇒ 换另一支 ----------
-                            int sgCap = CardProgress.DeckCap(cd.Card.Rarity);
+                            // 🔴 **2026-10-19（批次 D · 红 #7）：上限必须带卡型** —— 本批排序后 `CardHit_0` =
+                            //   战将 `UM47 Uriel Ventris`（`type=hero, rarity=rare`）；原版 `GetMaxCopiesInDeck` 对
+                            //   督军返回 **1**（`decomp_full/Everguild.LiveOps.GameplayVariablesData__GetMaxCopiesInDeck.c:7-9`
+                            //   ⇒ `DeckRules.CopyLimit` 同一档），详情窗也是按 `DeckCap(rarity, type)` 印 **x1**。
+                            //   旧夹具用不带卡型的那一档（rare ⇒ 2）⇒ 期望 `x2`、实测 `x1`。
+                            //   ⚠️ 改成带卡型后 `sgDelta` 随之自洽：`AddOwned` 落到 1 ⇒ `Spares` 仍 = 0（见 `Spares` 的 `min(o,cap)`）。
+                            int sgCap = CardProgress.DeckCap(cd.Card.Rarity, cd.Card.Type);
                             int sgOwned = CardProgress.Owned(cd.Card.Id, cd.Card.Rarity);
                             int sgDelta = sgCap - sgOwned;               // ⇒ 拥有 = 卡组上限 ⇒ `spares == 0`
                             CardProgress.AddOwned(cd.Card.Id, cd.Card.Rarity, sgDelta);
@@ -7332,7 +7463,8 @@ public static class CollectionScene
                         //   ⚠️ **旧口径已作废**（2026-10-12「Craft 只出声」；同日早些时候 W5「Craft 真扣、
                         //     Upgrade 可交互度 = `CanUpgrade`」）—— ⛔ 别再断回
                         //     「Craft 按通配符库存变灰 / 点了 owned+1 且通配符−1 / Upgrade == CanUpgrade」。
-                        int cap = CardProgress.DeckCap(cd.Card.Rarity);
+                        // ⚠️ 2026-10-19（批次 D）：这里原来还有一句未使用的 `int cap = DeckCap(cd.Card.Rarity);`
+                        //   —— 已删（它是**不带卡型**的那一档，留着只会再把人引向 #7 那个坑）。
                         int owned0 = CardProgress.Owned(cd.Card.Id, cd.Card.Rarity);
                         int wc0 = CardProgress.Wildcards(cd.Card.Rarity);
                         // 存档快照（点之前）：比的是**玩家真存档文件的字节**。
@@ -8735,6 +8867,17 @@ public static class CollectionScene
             //     「升级 / 降级」= **两颗并列钮**，置灰只看等级上下限。
             //     ⇒ 本节只断「面板 / 两颗钮建没建 + 升级钮的可交互度」；**行为**由上面那一节（`:7310` 附近）逐条钉。
             Section("卡片详情窗 · 「创建副本」/「升级」两块面板已恢复（行为：2026-10-18 起接真机制）");
+            // 🔴 **2026-10-18（`N116`）**：本段会 5 次 `win.OpenCardDetail` —— 顺手把「开一扇留一具」那笔债
+            //   断掉：前后各数一次**含未激活**的 `CardDetailPopup`（默认 `FindObjectsByType` 是
+            //   `FindObjectsInactive.Exclude`，数不到关着的那扇 ⇒ 必须显式 `Include`）。
+            //   修法 = `Shell/CollectionWindow.OpenCardDetail` 新建前 `Close()` + `DestroySafe` 上一扇。
+            int cdWinsBefore = Object.FindObjectsByType<CardDetailPopup>(
+                                   FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+            // 🔴 **2026-10-19（批次 D · 红 #8）**：进本段时**可能已经有一扇**本文件开的详情窗
+            //   （上一节点 `CardHit_0` 开的那扇 `Uriel Ventris` 还留着）⇒ 第一次 `OpenCardDetail`
+            //   会先把它销毁再新建，**净增 0**；旧的 `cdWinsBefore + 1` 只在「起手为空」时成立。
+            bool hadChainWin = CollectionWindow.LastCardDetail != null;
+            int cdWinsAfterFirst = -1;                 // 第一次真正开成之后数一次（见下面第二条断言）
             foreach (var want in new[] { "common", "rare", "epic", "legendary", "special" })
             {
                 CardDef cd = null;
@@ -8744,6 +8887,10 @@ public static class CollectionScene
                 if (cd == null) { Check(true, false, $"卡池里找不到稀有度 `{want}` 的卡"); continue; }
                 var dw = win.OpenCardDetail(cd);
                 if (dw == null) { Check(true, false, $"打不开卡片详情窗（{cd.Name}）"); continue; }
+                // 第一次开成之后立刻数一次 → 作为「后面 4 次不再涨」的基线（见本节末尾那条断言）
+                if (cdWinsAfterFirst < 0)
+                    cdWinsAfterFirst = Object.FindObjectsByType<CardDetailPopup>(
+                                           FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
                 // 「创建副本」那一块：**可合成的稀有度才建**（`special` 空价 ⇒ 整块不建；判据 = 原版
                 //   `CraftingPanel__CheckButtons.c`：空价 ⇒ `SetActive(0)`，**不是变灰**）
                 bool craftable = want != "special";
@@ -8798,6 +8945,34 @@ public static class CollectionScene
                 // 🆕 A17：卡片详情窗的两颗圆钮（语音 / 显示卡面文字）
                 if (want == "common") CheckHoverSwap(dw.transform, "卡片详情窗");
                 dw.Close();
+            }
+            // 🔴 **2026-10-18（`N116`）**：本文件开的详情窗**最多存活 1 扇** —— 原版关窗只是不显示、
+            //   实例由下一次 `CloseWindowCO` 的 `Destroy` 收掉；我们把它提前到「下一次新建之前」。
+            //   🔴 **2026-10-19（批次 D · 红 #8）期望值订正**：起手若**已经有一扇**本文件开的窗（上一节点的
+            //   `CardHit_0` 详情窗），第一次 `OpenCardDetail` 会先销毁它再新建 ⇒ **净增 0**，旧的 `+1` 只在
+            //   「起手为空」时成立。⚠️ 日志实测 =「实得 2 扇；本段开之前 2 扇」= **净增 0**
+            //   （`collection.log:52664`）—— 不是简报里说的「多 2 扇」。
+            {
+                int cdWinsAfter = Object.FindObjectsByType<CardDetailPopup>(
+                                      FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+                int cdWinsExpect = cdWinsBefore + (hadChainWin ? 0 : 1);
+                Check(cdWinsAfter, cdWinsExpect,
+                      "★ N116：本段开了 **5** 次卡片详情窗 ⇒ "
+                    + (hadChainWin
+                        ? "相对起手**不增**（起手已有一扇，第一次 open 先销毁它）"
+                        : "场上只多 **1** 扇（最后那扇）")
+                    + $"（实得 {cdWinsAfter} 扇；本段开之前 {cdWinsBefore} 扇" + (hadChainWin ? "、起手有本文件的窗" : "") + "）"
+                    + " —— 判据 = 原版 `CloseWindowCO` 的收尾是 Hide → List.Remove → **Destroy**"
+                    + "（`decomp_full/WindowsManager__CloseWindowCO.c`）；我们那条链的 Destroy 落在"
+                    + " `CollectionWindow.OpenCardDetail` 新建之前。改坏法：删掉那一段 ⇒ 每开一次 +1");
+                // 更强的一条（不看起手）：第 1 次开成之后的扇数 = 5 次之后 —— 咬住「每次新建前销毁上一扇」。
+                // 删掉 N116 那段时：起手为空 ⇒ 第一次 1 扇、末尾 5 扇 ⇒ 这条红。
+                if (cdWinsAfterFirst >= 0)
+                    Check(cdWinsAfter, cdWinsAfterFirst,
+                          $"★ N116（更强）：第 1 次开成之后 = **{cdWinsAfterFirst}** 扇，后面 4 次**不再涨**"
+                        + $"（实得 {cdWinsAfter}）—— 这条不看起手，删掉「新建前销毁上一扇」⇒ 本条必红");
+                else
+                    Check(true, false, "N116：一次详情窗都没开成 ⇒ 这条判不了（上面已有逐次红，⛔ 不静默跳过）");
             }
 
             // 🆕 A17：本窗的换图按钮（四页共用的 `Clear filters` / `Import` / `Create` / 换风格箭头 / 关闭钮「Back」）
@@ -9193,8 +9368,17 @@ public static class CollectionScene
                                10f, 40f, 12f, 0, boxW: 294.41f, boxH: 76.70f);
                     CheckA1212(dipA.transform, "Text Select Deck", "Buttons ▸ Select Deck ▸ Button Text",
                                10f, 40f, 12f, 0, boxW: 294.41f, boxH: 76.70f);
+                    //   🔴 **2026-10-18 就地订正（铁律 5）**：`Cost` 的框高 **47.88 → 49.66**（实得 49.66）。
+                    //      原版链现核（`bundle_menus_assets_all`）：`Deck List/Content` 的
+                    //      `GridLayoutGroup.cellSize.y = **58**` ⇒ 行高 58 ⇒ `Background` 高 58（RT
+                    //      `6569929413234690472`：anchors y 0..1 · sd.y 0）⇒ `Cost Image` 高 **58 + 6 = 64**
+                    //      （RT `4517749637251500456`：anchors y 0..1 · `m_SizeDelta.y = 6`）⇒ `Cost` TMP 高
+                    //      `0.776 × 64 = **49.664**`（RT `-3142486381871265368`：anchors y `0.112 → 0.888` · sd.y ≈ 0）。
+                    //      **47.88 的来源 = `RM_原版TMP框尺寸.md` 表 B 的 55.7 行高那一支**
+                    //      （= `Deck Editing Menu` 的 `DeckRuntime.cs:254` `RowCostS = 61.7 = 55.7 + 6`）
+                    //      —— **张冠李戴**：本 popup 的行高是 58，不是 55.7。
                     CheckA1212(dipA.transform, "Cost Text", "Deck List ▸ … ▸ Cost Image ▸ Cost",
-                               18f, 50f, 32f, 1, boxW: 48.819f, boxH: 47.88f);
+                               18f, 50f, 32f, 1, boxW: 48.819f, boxH: 49.66f);
                     CheckA1212(dipA.transform, "Deck Information Cost/balance text",
                                "Deck Info ▸ Deck Information Cost/balance text", 10f, 44f, 22.3f, 1);
                     var btnsA = FindChild(dipA.transform, "Buttons");
@@ -9233,13 +9417,20 @@ public static class CollectionScene
                 SmallScreenUI.Set(false);
             }
 
-            // 🔴 **2026-10-17（`A1226` 表 B #40 · `Deck info Popup ▸ Count`）：布局组驱动 ⇒ **不可比**。**
-            //   RM 表 B 的两列在这里正好是两种口径：`m_SizeDelta`（布局组）= **22.87 × 47.90**
-            //   —— **宽**由那颗 `Count` 自己的 CSF 按文案（`x2` / `x3`…）撑出来、**高**由原版父格给；
-            //   而我们传的 **44 × 58** 是「本窗右栏格」= `RowW − 52 − 8` × `RowH`（父格）。两者量的是
-            //   不同东西（原版那一列还带 `⇲ls` 的父链缩放），⛔ 抄 22.87 当框 = 把内容宽当固定框。
-            //   ⇒ 本批口径 = **断「我们用的就是父格」**（44 = 行宽 − 左右两段、58 = 行高），
-            //     ⛔ 不为凑 22.87 改几何（铁律 3 的反面：布局组驱动的件没有可抄的原版框）。
+            // 🔴 **2026-10-18 就地改判（铁律 5 · 覆盖 2026-10-17「`A1226` 表 B #40 · 布局组驱动 ⇒ 不可比」那段口径）**：
+            //   那一版写「我们传 **44 × 58**（= 右栏父格）、⛔ 不为凑 22.87 改几何」—— **已过期**：
+            //   `Shell/DeckInfoPopup.cs` 的 P1 批（2026-10-18）已把 `Count` 的框改成**宽 22.87、右沿 x+351.60**。
+            //   本笔（新账 `A2133`）再把**高**从「整行 58」改成原版锚跨度：**0.86 × 58 = 49.88**。
+            //   · **宽 22.87** = 原版 `LayoutElement.m_MinWidth`（MB `-8067466461408032344`）——
+            //     ⚠️ 同 GO 的 `Count` RT（`-327133057421637208`）**`m_SizeDelta = (0,0)`** ⇒ 框宽由
+            //     `Text fill` 的 `HorizontalLayoutGroup` 撑开 ⇒ **22.87 是下限、不是运行时框宽**。
+            //     🔴 诊断另估「真布局宽 ≈ 83.16px」= **推导值、没实机量过** ⇒ 本笔**不据此改宽度**
+            //     （已记进报告的「没查清」一节）。
+            //   · **高 49.88** = 同一颗 RT 的 anchors y **0.07 → 0.93**（跨度 **0.86**）× 父行高 **58**
+            //     （`m_SizeDelta.y = 0`）；`Count` 是 `Text fill` 的布局子件
+            //     （`childControlHeight = 1 · childForceExpandHeight = 1`）⇒ 高 = 父内高 49.88。
+            //     ⚠️ 改前我们传的是**整行 58**（断言也钉 58 ⇒ **假绿**）；节点仍居行心
+            //     （锚跨度中心 = 0.5），实现同步传 `boxH: 49.88f`。
             //   夹具：库里的第 1 套本来「一张一名」⇒ 没有 `Count`（`n > 1` 才建）⇒ **临时多塞一张同 id**
             //   造那一行，断完即弃（不写盘、不改库里的对象 —— `Raw(0)` 返回的是副本的克隆）。
             {
@@ -9261,7 +9452,7 @@ public static class CollectionScene
                     {
                         CheckA1212(a12Pop.transform, "Count",
                                    "Deck Selector Card Info button ▸ Content/Text fill ▸ Count",
-                                   2f, 32f, 36f, 0, boxW: 44f, boxH: 58f);
+                                   2f, 32f, 36f, 0, boxW: 22.87f, boxH: 49.88f);
                         a12Pop.Close();
                         Object.DestroyImmediate(a12Pop.gameObject);
                     }
@@ -10320,10 +10511,21 @@ public static class CollectionScene
                               "★ …**交接链路端到端走通了**：入口写下 `PendingEditDeck = 0`（上一条断的），"
                             + "窗里 `DeckRuntime.Build` 开局把它**读掉并清掉** ⇒ 此刻是 −1"
                             + "（这条红 = 窗开了、但**没接上交接**，等于开了一扇别的卡组）");
+                        // 🔴 **2026-10-18（收口补丁 · 铁律 5）**：这一条原来写 `PoolCount > 1000` 的硬阈值。
+                        //   `PoolCount` 是**未过滤**的卡池本体（收藏页那 122 张显示闸不参与）⇒ 期望值 =
+                        //   **卡表去重 id 现算**；硬阈值在「1127 → 1005」之后只剩 127 的余量，数据一动就会假红。
+                        //   ⛔ 别再写死数字。
+                        int wantPoolN = 0;
+                        {
+                            var seenP = new HashSet<string>();
+                            foreach (var pc in CardDatabase.Load())
+                                if (pc != null && !string.IsNullOrEmpty(pc.Id) && seenP.Add(pc.Id)) wantPoolN++;
+                        }
                         CheckTrue(deW3 != null && deW3.Runtime != null && deW3.Runtime.State != null
-                                  && deW3.Runtime.State.PoolCount > 1000,
-                                  "★ …而且编辑器内容**真建在窗里**（`DeckRuntime` 在 + 卡池张数 > 1000）"
-                                + " —— 只断「窗活着」的话，一个空窗也能过");
+                                  && deW3.Runtime.State.PoolCount == wantPoolN,
+                                  $"★ …而且编辑器内容**真建在窗里**（`DeckRuntime` 在 + 卡池张数 = 卡表去重 id 现算 {wantPoolN}）"
+                                + " —— 只断「窗活着」的话，一个空窗也能过"
+                                + $"（实测 {deW3?.Runtime?.State?.PoolCount}）");
                         CheckTrue(deW3 != null && deW3.Runtime != null && deW3.Runtime.HostWindow == deW3,
                                   "★ …**而且第 2 步那道豁免的宿主登记也生效了**（`DeckRuntime.HostWindow` = 这一扇）"
                                 + " —— 第 2 / 3 步是**同一批**交件，本条就是把它们钉在一起的那一句");

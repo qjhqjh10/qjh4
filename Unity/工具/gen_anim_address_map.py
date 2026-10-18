@@ -43,6 +43,13 @@ join 办法（三选一里选了「UnityPy 重读原 bundle」+「文件名后�
     实测 `a5834a7ae2dd92745a7d0e2637239c47` → pathId `-1939833645471234905`
     → `battleprefabs_vfxandmisc_assets_all/GameObject/Swarm_Trigger_OnTarget.json`
     （文件名里**没有**这个 path_id，正是走 ② 的那一支）。
+  · 🆕 **短 internalId 容器键（2026-10-19 `T15` / `A2131`）**：EC 的 cardassets / cardanims 两个束，
+    `m_Container` 的键是**短 internalId**（`bc` / `0d7` / `eac` …，= 真 GUID 的前缀截断），不是 GUID。
+    只枚举容器项时这些资产**没有 GUID 身份**（实测 EC 卡引用的 27 个 CardAnim GUID 全缺）。
+    ⇒ 本脚本额外读 Addressables `catalog_main.json` 的「GUID → (束, internalId)」补这一跳
+    （判据：`资料/普查产出_1018/R_K11_K12_报告.md` §五·1；EC29 全链
+    `bc43540f…` → `Rally EC Heldrake` → `67eb257e…` → prefab `EC Heldrake Rally`）。
+    找不到那份 catalog 时**如实降级**（stats 里记 `catalogJsonError`），不编理由。
 """
 
 import argparse
@@ -62,6 +69,16 @@ ASSETS_FULL = r"d:/2/新解包资源/assets_full"
 BUNDLE_SRC_CANDIDATES = [
     r"d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64",
     r"d:/2/unity_run_ref/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64",
+]
+
+# Addressables 目录（JSON 形态）—— **GUID → (束, internalId)** 的唯一权威来源。
+# 有些束（EC 的 cardassets / cardanims）的 `m_Container` 键是**短 internalId**（`bc` / `0d7`），
+# 不是 GUID；只枚举容器项时这些资产就**没有 GUID 身份**。catalog 给出这一跳。
+# 判据：`资料/普查产出_1018/R_K11_K12_报告.md` §五·1（EC29 全链例子）。
+CATALOG_JSON_CANDIDATES = [
+    os.path.join(os.path.expanduser("~"), "AppData", "LocalLow", "Everguild",
+                 "Warpforge", "com.unity.addressables", "catalog_main.json"),
+    r"d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/catalog_main.json",
 ]
 
 DATA_DIR = r"d:/4/Unity/数据/游戏数据"
@@ -137,6 +154,186 @@ def catalog_hex_set(bundle_src):
         return None, "读不动 catalog.bin: %s" % e
     return set(m.decode("ascii").lower()
                for m in re.findall(rb"[0-9a-f]{32}", raw)), rel(p)
+
+
+# ---------------------------------------------------------------- ①·b catalog 补一跳
+
+
+def decode_catalog_json(path):
+    """Addressables `catalog_main.json` → (keys, ents, internalIds, buckets)。
+
+    格式与 `工具/_guid_resolve_probe.py:56-79` 相同（同一份 Unity Addressables 目录序列化）：
+      · `m_KeyDataString`    = [int32 n] + n × (u8 type=0 + int32 len + utf8)
+      · `m_EntryDataString`  = [int32 n] + n × 7 × int32
+      · `m_BucketDataString` = [int32 ?] 后接 (count, ...indices) 的桶表
+    """
+    import base64
+    import struct
+    d = json.load(io.open(path, encoding="utf-8"))
+    kb = base64.b64decode(d["m_KeyDataString"])
+    n = struct.unpack_from("<i", kb, 0)[0]
+    keys, o = [], 4
+    for _ in range(n):
+        t = kb[o]
+        o += 1
+        if t == 0:
+            l = struct.unpack_from("<i", kb, o)[0]
+            o += 4
+            keys.append(kb[o:o + l].decode("utf-8"))
+            o += l
+        else:
+            raise RuntimeError("m_KeyDataString 里出现未知键类型 %d" % t)
+    eb = base64.b64decode(d["m_EntryDataString"])
+    ne = struct.unpack_from("<i", eb, 0)[0]
+    ents = [struct.unpack_from("<7i", eb, 4 + 28 * i) for i in range(ne)]
+    bb = base64.b64decode(d["m_BucketDataString"])
+    ni = (len(bb) - 4) // 4
+    ints = struct.unpack_from("<%di" % ni, bb, 4)
+    buckets, i = [], 0
+    while i < len(ints):
+        cnt = ints[i + 1]
+        buckets.append(ints[i + 2:i + 2 + cnt])
+        i += 2 + cnt
+    return keys, ents, d["m_InternalIds"], buckets
+
+
+def load_catalog_internal_ids(bundle_dirs):
+    """catalog → `{(束文件名, internalId): (GUID, 类名)}`（只收 GUID 键、只留本地束）。
+
+    **为什么需要这一跳（2026-10-19 `T15` / `A2131`）**：
+      EC（帝皇之子）的 cardassets / cardanims 两个束，`m_Container` 的键是**短 internalId**
+      （`bc` / `0d7` / `eac` …，= 真 GUID 的前缀截断），**不是 GUID**。只枚举容器项时，
+      这些资产就**没有 GUID 身份** —— `guid_to_asset` / `cardanim_guid_to_name` 里查不到
+      （实测 EC 卡引用的 **27 个 CardAnim GUID 全缺**）。
+      catalog 正好给出「GUID → (束, internalId)」，补上这一跳就能把短键换回真 GUID。
+      判据：`资料/普查产出_1018/R_K11_K12_报告.md` §五·1（EC29 全链例子：
+      `bc43540f…` → CardAnim `Rally EC Heldrake` → `67eb257e…` → prefab `EC Heldrake Rally`）。
+
+    🔴 **只取依赖桶里的【第一个】束**（2026-10-19 实测）：catalog 的 `dependencies` 桶
+    把**资产所在的主束排在第一**，后面是依赖束（`tweenandshakes` 等）。依赖束里也可能
+    有同名的短键（`a` / `23` …）指向**完全不同的对象** —— 全收会把 Texture2D 对到 AudioClip。
+    实测：只取第一束后，旧表 148 行里 **exact=True 的 117 行全部「束名 + 容器键」逐字对上**；
+    exact=False 的 31 行（目录的键被截断、旧表靠退键解出来的那一族）则对不上 ⇒ 调用方跳过它们。
+
+    ⚠️ 目录里的束名有**已知字符串损坏**（`...emperirschildren...`；
+      `_guid_resolve_probe.py:127-145` 记过）⇒ 精确匹配失败时用 difflib 兜底。
+
+    返回 `(pairs, catalogPath|None, error|None)`；找不到 catalog 时**如实降级**，不编理由。
+    同一 `(束, internalId)` 对到两个不同 GUID ⇒ 该键记 `None`（歧义，不升级）。
+    """
+    import difflib
+    path = next((p for p in CATALOG_JSON_CANDIDATES if os.path.isfile(p)), None)
+    if path is None:
+        return {}, None, ("catalog_main.json 找不到（试过 %d 个路径）" %
+                          len(CATALOG_JSON_CANDIDATES))
+    try:
+        keys, ents, ids, buckets = decode_catalog_json(path)
+        rtypes = json.load(io.open(path, encoding="utf-8"))["m_resourceTypes"]
+    except Exception as e:
+        return {}, rel(path), "catalog_main.json 解不开: %s" % e
+
+    local = [d[len("bundle_"):] + ".bundle" for d in bundle_dirs
+             if d.startswith("bundle_")]
+    local_set = set(local)
+    _match_cache = {}
+
+    def norm_bundle(b):
+        b = os.path.basename((b or "").replace("\\", "/"))
+        if b.endswith(".bundle"):
+            head, _, tail = b[:-7].rpartition("_")
+            if len(tail) == 32 and all(c in "0123456789abcdef" for c in tail.lower()):
+                b = head + ".bundle"          # 去掉构建哈希
+        return b
+
+    def match_local(b):
+        if b in _match_cache:
+            return _match_cache[b]
+        r = b if b in local_set else None
+        if r is None:
+            m = difflib.get_close_matches(b, local, n=1, cutoff=0.85)
+            r = m[0] if m else None
+        _match_cache[b] = r
+        return r
+
+    pairs = {}
+    for ki, k in enumerate(keys):
+        if not GUID_RE.match(k):
+            continue
+        g = k.lower()
+        for ei in buckets[ki]:
+            e = ents[ei]
+            iid = ids[e[0]]
+            depkey = keys[e[2]] if 0 <= e[2] < len(keys) else None
+            cand = []
+            if isinstance(depkey, str) and depkey.lstrip("-").isdigit():
+                for be in buckets[e[2]]:
+                    cand.append(ids[ents[be][0]])
+            elif isinstance(depkey, str) and depkey.endswith(".bundle"):
+                cand.append(depkey)
+            if not cand:
+                continue
+            lb = match_local(norm_bundle(cand[0]))     # 第一束 = 资产主束
+            if not lb:
+                continue
+            rt = rtypes[e[6]] if 0 <= e[6] < len(rtypes) else None
+            cls = rt.get("m_ClassName") if isinstance(rt, dict) else str(rt)
+            key2 = (lb, iid)
+            if key2 in pairs:
+                if pairs[key2] is not None and pairs[key2][0] != g:
+                    pairs[key2] = None        # 同 (束, 短键) 对到两个 GUID ⇒ 歧义
+            else:
+                pairs[key2] = (g, (cls or "").split(".")[-1])
+    return {k: v for k, v in pairs.items() if v}, rel(path), None
+
+
+# 旧表（2025-07-30 目录快照建的那份）—— 只用来**校验** catalog 补跳，不参与正向 join。
+# 它有 `exact` 列：`False` = 目录给的 internalId 在束里取不到、靠退键解出来的那一族。
+OLD_GUID_MAP = r"d:/4/Unity/资料/普查产出_第二十七会话/guid_map.tsv"
+
+
+def load_old_guid_map(path=OLD_GUID_MAP):
+    """旧 `guid_map.tsv` → `{guid: row}`；读不到如实返回错误串（调用方降级）。"""
+    import csv
+    if not os.path.isfile(path):
+        return {}, "旧表不存在: %s" % rel(path)
+    out = {}
+    try:
+        with io.open(path, encoding="utf-8") as fh:
+            for r in csv.DictReader(fh, delimiter="\t"):
+                g = (r.get("assetGuid") or "").lower()
+                if g:
+                    out[g] = r
+    except Exception as e:
+        return {}, "旧表读不动（%s）: %s" % (rel(path), e)
+    return out, None
+
+
+# `m_resourceTypes` 里的引擎类名（其余一律当 MonoBehaviour 子类）
+_ENGINE_CLASSES = {
+    "Sprite", "Texture2D", "Texture", "Texture3D", "Cubemap", "RenderTexture",
+    "AudioClip", "Mesh", "Material", "Shader", "ComputeShader", "Font",
+    "TextAsset", "VideoClip", "GameObject", "AnimationClip", "AnimatorController",
+    "LightmapSettings", "NavMeshData", "SceneAsset", "DefaultAsset", "ScriptableObject",
+}
+
+
+def type_compatible(cat_cls, obj_type):
+    """catalog 的 `m_ClassName` 与束里对象的类型是否相容。
+
+    · 完全相同 → 相容；
+    · `Sprite` 与 `Texture2D` 是同一张图的两种取法（容器项指哪个都可能）→ 互认；
+    · catalog 写的是**具体 MonoBehaviour 子类**（`CardAnim` / `ScenarioEnvironmentConditionSO` …），
+      束里的 `type` 只会是 `MonoBehaviour` → 认。
+    """
+    if not cat_cls or not obj_type:
+        return False
+    if cat_cls == obj_type:
+        return True
+    if cat_cls in ("Sprite", "Texture2D") and obj_type in ("Sprite", "Texture2D"):
+        return True
+    if obj_type == "MonoBehaviour" and cat_cls not in _ENGINE_CLASSES:
+        return True
+    return False
 
 
 # ---------------------------------------------------------------- ① 容器项
@@ -547,6 +744,10 @@ def main():
         entries = [e for e in entries if e["bundleDir"] in keep]
         bundles = [b for b in bundles if b["dir"] in keep]
 
+    # ---- ①·b catalog 读一跳（真正升级要等 ② 的 `resolved` 出来：要按对象类型/名字校验）
+    catalog_pairs, catalog_json, catalog_err = load_catalog_internal_ids(
+        [b["dir"] for b in bundles])
+
     want = defaultdict(set)
     for e in entries:
         want[e["bundleDir"]].add(e["pathId"])
@@ -590,6 +791,57 @@ def main():
     else:
         print("       ✓ _stats.json: 84 个 bundle 的 dump fail 全为 0"
               "（按名字反查 dump 文件这条路对 bundle 对象是安全的）")
+
+    # ---- ①·b catalog 补一跳（第二步：校验后把「短 internalId」换回真 GUID）
+    #
+    # 三条闸门（缺一不可）：
+    #   ① 旧表（`资料/普查产出_第二十七会话/guid_map.tsv`）**有**这个 GUID ⇒ 必须
+    #      `exact=True` 且**资产名逐字相同**。`exact=False` 是「目录的键被截断、旧表靠退键
+    #      解出来」的那一族 —— 2026-10-19 实测：拿 catalog 的 internalId 去束里取，
+    #      **31/31 全取到别的对象**（Texture2D 对到 AudioClip 等）。必须整族跳过。
+    #   ② 旧表**没有**这个 GUID ⇒ 按**类型**兜底：catalog 的 `m_ClassName` 与束里对象的
+    #      类型必须相容（`Sprite`/`Texture2D` 互认；非引擎类名 = MonoBehaviour 子类）。
+    #   ③ 同一 `(束, 短键)` 对到两个 GUID ⇒ 已在 `load_catalog_internal_ids` 里记歧义、跳过。
+    old_map, old_map_err = load_old_guid_map()
+    upgraded = []
+    up_why = Counter()
+    for e in entries:
+        if e["keyKind"] == "guid" or e["pathId"] == 0:
+            continue
+        bf = e["bundleDir"][len("bundle_"):] + ".bundle"
+        pv = catalog_pairs.get((bf, e["guid"]))
+        if not pv:
+            continue
+        g, cls = pv
+        r = resolved.get((e["bundleDir"], e["pathId"])) or {}
+        obj, nm = r.get("type"), r.get("name")
+        if g in old_map:
+            o = old_map[g]
+            if o.get("exact") != "True":
+                up_why["旧表 exact=False（目录键被截断，catalog 的 iid 取到别的对象）"] += 1
+                continue
+            if o.get("name") != nm:
+                up_why["旧表名字与束里对象不符"] += 1
+                continue
+        elif not type_compatible(cls, obj):
+            up_why["非旧表条目 && 类型不符"] += 1
+            continue
+        ne = dict(e)
+        ne["shortKey"] = e["guid"]          # 保留短键，便于追溯
+        ne["guid"] = g
+        ne["keyKind"] = "guid"
+        ne["viaCatalog"] = True
+        ne["catalogClass"] = cls
+        upgraded.append(ne)
+    entries.extend(upgraded)
+    if catalog_err:
+        print("       catalog_main.json: %s ⇒ 短键容器项**不做 GUID 升级**" % catalog_err)
+    else:
+        print("       catalog_main.json: %s；短键容器项校验后升级 **%d 条**"
+              "（跳过 %d 条：%s）"
+              % (catalog_json, len(upgraded), sum(up_why.values()), dict(up_why)))
+    if old_map_err:
+        print("       ! 旧表校验降级：%s（非旧表条目只走类型兜底）" % old_map_err)
 
     # ---- ③ 正向表 + dump 路径
     dump_idx = DumpIndex(ASSETS_FULL, [b["dir"] for b in bundles])
@@ -763,10 +1015,12 @@ def main():
         r = resolved.get((e["bundleDir"], e["pathId"]))
         if not r or not r.get("name"):
             continue
-        if r["type"] == "MonoBehaviour":
-            _name_to_guid[e["bundleDir"]].setdefault(r["name"], e["guid"])
-        else:
-            _name_to_guid_fb[e["bundleDir"]].setdefault(r["name"], e["guid"])
+        tbl = (_name_to_guid if r["type"] == "MonoBehaviour" else _name_to_guid_fb)
+        prev = tbl[e["bundleDir"]].get(r["name"])
+        # **真 GUID 优先于短 internalId**：①·b 的升级项与短键项同指一个对象时，
+        # 选 GUID（短键不是 Addressables 的可寻址身份，查表查不到）。
+        if prev is None or (not GUID_RE.match(prev) and GUID_RE.match(e["guid"])):
+            tbl[e["bundleDir"]][r["name"]] = e["guid"]
     cardanim_guid_index = {}                   # CardAnim 容器 GUID → CardAnim 名字
     _cg_miss = []
     for h in all_hits + no_guid:
@@ -857,6 +1111,12 @@ def main():
                                            if e["keyKind"] == "guid"),
             "containerEntriesNonGuidKey": sum(1 for e in entries
                                               if e["keyKind"] != "guid"),
+            # 🆕 2026-10-19（T15 / A2131）：由 catalog 的「GUID → 短 internalId」补出来的子集
+            "containerEntriesGuidViaCatalog": len(upgraded),
+            "containerEntriesGuidUpgradeSkipped": dict(up_why),
+            "catalogJson": catalog_json,
+            "catalogJsonError": catalog_err,
+            "oldGuidMapError": old_map_err,
             "nonGuidUniqueKeys": sum(1 for r in per_guid.values()
                                      if r[0].get("keyKind")),
             "uniqueGuids": len(guid_to_asset) - sum(1 for r in per_guid.values()

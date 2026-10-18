@@ -100,11 +100,16 @@ namespace CardPresentation
         /// uGUI `OnScroll`：`position += scrollDelta × scrollSensitivity`，Windows 上一格 `scrollDelta = 1`
         /// ⇒ 原版值就是「每格像素」（同值口径，`A1543` 已按 100/50 验过）。
         /// 判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`。
-        /// <para>🔴 **2026-10-18（N66）唯一一处【不是原版值】的传参**：主菜单模式卡区传 **120**。
-        /// 原版 `GameModes` 是 **horizontal-only ScrollRect**（`m_Horizontal=1 / m_Vertical=0`）⇒
-        /// **纵向滚轮在原版本来就不参与**（原版靠拖拽），`m_ScrollSensitivity=1.0` 那条是**横向**灵敏度；
-        /// 若照它传 1，一格滚轮只走 **1 px**（447/485 px 行程要滚几百格 = 实际滚不动）。
-        /// **120 是我们挑的可用步长**，⛔ 别写成「原版值」。</para></summary>
+        /// <para>🔴 **2026-10-18（用户拍板）：`120` 是【我们挑的可用步长】，⛔ 不是原版值。**
+        /// 原版这些视图的 `m_ScrollSensitivity` 都是 **1.0**（主菜单模式卡那台还是 horizontal-only，
+        /// 纵向滚轮在原版本来就不参与、靠拖拽）；若照 1.0 传，一格滚轮只走 **1 px**，
+        /// 几百 px 的行程要滚几百格 = **实际滚不动**。**用户 2026-10-18 明确保留 120**，
+        /// 按铁律 11 记为「**待将来评估的偏离**」（判据 → `W16_横向滚轮步长.md`）。
+        /// 现共 **8 处**显式实参：主菜单模式卡 `MainMenuRuntime.cs:2206`（N66）＋
+        /// `LeaderboardWindow.cs:461` · `RewardWindow.cs:1121` · `ForgeTab.cs:399/443` ·
+        /// `CampaignTab.cs:208/372` · `DailyRewardPopup.cs:257`（W16 那 7 处）。
+        /// 🔴 上一版这段写「**唯一一处**不是原版值的传参 = 主菜单模式卡」—— **已过期**（铁律 5 就地订正：
+        /// 那是 W16 之前的数；W16 把另外 7 处也从 `1f` 改成了 `120f`）。</para></summary>
         public readonly float NotchPx;
 
         /// <summary>一格滚轮对应的系数。**每个滚动区一份**（原来是全壳常量 `0.4`）。

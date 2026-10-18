@@ -871,6 +871,9 @@ namespace CardPresentation
             var backHit = Hit(root, root, "BackHit", new PxRect(BackL, BackT, BackR, BackB), () => Close());
             var backWb = backHit != null ? backHit.GetComponent<WindowButton>() : null;
             if (backWb != null) backWb.Bind(backIc, "40k_UI_bt_back");
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C1）**：原版 `Practice Mode Menu/Back button` = 空 cue +
+            //   **`useDefaultAudioClipIfNull = 0`** ⇒ **静音**（关窗本身那一声由 `GameWindow.Close()` 出）。
+            if (backWb != null) backWb.playClickSound = false;
 
             // 3) 选卡组那一列
             // ⚠️ 原版这一件是 **Sliced**（贴图 439×664 · border (0,325,0,35)）—— 原来按 Simple+keepAspect 拉的
@@ -911,8 +914,11 @@ namespace CardPresentation
                 wrapPx: BtTxR - BtTxL, autoMinPx: 18f, autoMaxPx: 45f, autoBasePx: 36f,
                 face: TmpFont.Face.LatinCardBody);
             Img(root, "40k_UI_bt_play", CircL, CircT, CircR, CircB, "CircleButton", QPrRow, true);
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B11）**：原版
+            //   `Practice Mode Menu/DeckSelectionContinueButton/Continue Button` → **`MenuStartGame`**
+            //   （pid -1545367626748338049，clip `StartMatch`）—— 同 prefab 根 `DeckSelectionContinueButton` 也是它。
             HitOn(root, root, "BattleHit", new PxRect(ContL, ContT, CircR, CircB), () => StartBattle(),
-                  QPrHit);
+                  QPrHit, null, WindowSounds.StartGameCue);
         }
 
         // ============================================================ 🆕 2026-10-17（U4-1）：`Game mode` 开关
@@ -1237,9 +1243,10 @@ namespace CardPresentation
                 //   ③ 调用时机：`PracticeModePopup__Open.c` 尾部 —— 开窗时 `ChangeSelectedArmy(有卡组 ? 卡组阵营 : 10)`，
                 //      所以**开窗后一定恰好有一格亮着**（`ResetContent` 把 `+0xe8` 归 0，再靠这一句补上）。
                 // ⚠️ **我们的等价物**：`ArmyIndex`（本窗的那个「当前阵营」；`-1` = 不限）与
-                //    `CollectionData.DeckAt(DeckIndex).Faction`。⚠️ 本窗 `ArmyIndex` 语义比原版**多一个**
-                //    「再点一下取消筛选」（原版没有撤销档）—— 那一档下**一格都不亮**，与原版「恒有一格亮」不同；
-                //    这是 `PickArmy` 的既有设计，本轮**不动它**（如实登记）。
+                //    `CollectionData.DeckAt(DeckIndex).Faction`。🔴 **2026-10-19（批次 D）就地订正（铁律 5）**：
+                //    这里原来写「本窗 `ArmyIndex` 比原版**多一个**『再点一下取消筛选』，本轮不动它」—— **已过期**。
+                //    现在 `PickArmy` 按原版 `ChangeSelectedArmy.c:30-33` **同阵营早返回**（再点不改筛选），
+                //    `-1` 只剩「`Open()` 里那句 `ArmyIndex = -1`」那一个来路（原版 `ResetContent` 把 `+0xe8` 归 0 同款）。
                 // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-a）**：下面四层 + 命中区的 `clip` 形参
                 //    **一律换成 `null`** —— 硬裁那一刀（以及 `ArmyClipSoft (0,50)` 那道渐隐带）现在由
                 //    `Army Selector/Viewport` 那颗 `ViewportClip` 节点给（`MenuDraw.*` / `ImgTex` / `HitOn`
@@ -1458,6 +1465,10 @@ namespace CardPresentation
                 var rowHit = HitOn(cell.transform, cell.transform, "Hit", rr, () => PickDeck(idx), QPrHit, null);
                 var rowWb = rowHit != null ? rowHit.GetComponent<WindowButton>() : null;
                 if (rowWb != null) rowWb.Bind(rowBg, "UI_Button_Mulligan");
+                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C2）**：原版
+                //   `Practice Mode Menu/Deck info/Deck List Drawer/Content/Deck Selector Card Info button_ref`
+                //   = 空 cue + **`useDefaultAudioClipIfNull = 0`** ⇒ **静音**。
+                if (rowWb != null) rowWb.playClickSound = false;
                 DeckRows.Add(cell.transform);
             }
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
@@ -1767,7 +1778,15 @@ namespace CardPresentation
 
         void PickArmy(int i)
         {
-            ArmyIndex = (ArmyIndex == i) ? -1 : i;
+            // 🔴 **2026-10-19（批次 D · 红 #4/#5）**：原版 `PracticeModePopup__ChangeSelectedArmy.c:30-33`
+            //   **开头第一句**就是 `if (param_2 == *(int *)(param_1 + 0xe8)) return;` ⇒ **同阵营再点 = 直接返回**
+            //   （不改筛选、不重建列表）。改前这里是 toggle（`ArmyIndex == i ? -1 : i`）——
+            //   那是我们自设计的「再点取消」，原版没有，已删。
+            //   ⚠️ 练习窗的阵营格是真 prefab `Practice Army Select Button` 上的 **`EverguildButton`**（**不是 Toggle**）
+            //   ⇒ ⛔ 别改用 `WindowButton.allowClickWhenAlreadySelected = false` 来表达这件事：那会把原版
+            //   第二次点击**仍会响的默认按钮音**一起吞掉（`m_onClickSound=null` + `useDefaultAudioClipIfNull=1`）。
+            if (ArmyIndex == i) return;
+            ArmyIndex = i;
             if (DeckScroll != null) DeckScroll.SetOffset(0f);
             if (_deckHolder != null) RebuildDeckRows(_deckHolder);
             Debug.Log("[Practice] 阵营筛选：" + (ArmyIndex < 0 ? "不限" : _facs[ArmyIndex]));
@@ -2369,7 +2388,7 @@ namespace CardPresentation
         /// 没有节点也没有形参时两者也逐位相同（`ClipRectAbove` 的头里写着这一条）。
         /// ⚠️ 交出去的仍是**调用方原样那一份** `clip`（⛔ 别把解析后的框传进来 —— 那样会走成「显式覆盖」）。</summary>
         Transform HitOn(Transform parent, Transform basis, string name, PxRect r, System.Action onClick,
-                        int q = QPrHit, PxRect? clip = null)
+                        int q = QPrHit, PxRect? clip = null, string clickCue = null)
         {
             // 🔴 **2026-10-09（A229）**：与同文件 `Nine`（上面那条）**同一条守卫、同一句话**。
             //   ⚠️ **本文件没有带 `basis` 的 `Txt`**（那个 `Txt` 只有 `parent` 一个基准、`Local3(parent, …)`，
@@ -2411,6 +2430,9 @@ namespace CardPresentation
             }
             var wb = hit.AddComponent<WindowButton>();
             wb.onClick = onClick;
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B11）**：逐个 cue（原版 `m_onClickSound`）——
+            //   缺省 `null` = 原版默认按钮音（既有调用点逐位不变）。
+            wb.clickCue = clickCue;
             return hit.transform;
         }
     }

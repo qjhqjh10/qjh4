@@ -487,7 +487,10 @@ namespace CardPresentation
                           QButton, null, true);
             var closeIcon = MenuDraw.Node(_close, "Icon", CloseIconR);
             MenuDraw.Rect(closeIcon, Tex(ArtCloseIcon, "关闭钮的叉"), CloseIconR, "Image", QButton + 1, null, false);
-            MenuDraw.Hit(_close, "Hit", CloseR, QHit, Close);
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B3）**：原版
+            //   `Give Feedback Popup menu/Window/Generic Close Button` → `ButtonClick Back`
+            //   （pid 8084683923307806969）⇒ 显式传关窗 cue（同 `WindowSounds.DefaultCloseCue`）。
+            MenuDraw.Hit(_close, "Hit", CloseR, QHit, Close, clickCue: WindowSounds.DefaultCloseCue);
 
             // ---- 8) `Free feedback`（prefab 出厂 `m_IsActive = false`；旧版单行反馈面板）----
             _free = MenuDraw.Node(_window, "Free feedback", FreeR);
@@ -508,7 +511,12 @@ namespace CardPresentation
             _freeCounterLabel = Text(inputNode, CounterR, "280/500", new Color(0.642f, 0.642f, 0.642f, 1f),
                  "Character Counter", 24.7f, QText, 0f, 0f, 0f, 2, face: TmpFont.Face.LatinCardBody);
             // 🆕 `N48③`：旧版单行反馈框也接外壳文本输入（本窗出厂整块关着 ⇒ 只有将来启用才用得上）。
-            MenuDraw.Hit(inputNode, "Hit", InputR, QHit, BeginEditFree);
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C6）**：原版 `Free feedback/Input field` 是
+            //   `Image + TMP_InputField + EverguildInputField`（**没有 EverguildButton**）⇒ 点它 = 聚焦，
+            //   **不该有按钮音** ⇒ 关掉。
+            var freeHit = MenuDraw.Hit(inputNode, "Hit", InputR, QHit, BeginEditFree);
+            var freeWb = freeHit != null ? freeHit.GetComponent<WindowButton>() : null;
+            if (freeWb != null) freeWb.playClickSound = false;
             _free.gameObject.SetActive(false);           // = prefab 出厂 `m_IsActive = false`
 
             // ---- 9) `Scroll Rect`（`ScrollRect + RectMask2D`，`h=0 v=1 mode=1` ⇒ 纵向 Elastic）----
@@ -612,7 +620,11 @@ namespace CardPresentation
                 var lbl = Text(row, lblR, OptionText(o), Color.white, "Label", CheckLabelFont, QRow,
                                CheckLabelMin, CheckLabelMax, CheckLabelBase, 1, face: TmpFont.Face.LatinCardBody);
                 int idx = i;
-                var hit = MenuDraw.Hit(row, "Hit", rowR, QHit, () => ToggleChoice(it, idx, chk));
+                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B4）**：原版 41 颗复选框
+                //（`…/Questions container/Section */S*Q*/Questions List/Checkbox*`）全部
+                // `m_onClickSound = 8881786964274599484` = **`Select Toggle`** ⇒ 显式传。
+                var hit = MenuDraw.Hit(row, "Hit", rowR, QHit, () => ToggleChoice(it, idx, chk),
+                                       clickCue: WindowSounds.SelectToggleCue);
                 if (hit == null) { /* 视口外 ⇒ 不建（框已判过；这里只是兜底） */ }
             }
         }
@@ -644,7 +656,17 @@ namespace CardPresentation
                 Text(btn, r, (i + 1).ToString(), Color.white, "Scoring", ScoreFont, QRow + 2, 0f, 0f, 0f, 0,
                      face: TmpFont.Face.LatinCardBody);
                 int idx = i;
-                MenuDraw.Hit(btn, "Hit", r, QHit, () => SetScore(it.Name, idx));
+                // 🆕 **2026-10-18（主对话裁定 · 按原版订正）**：原版 `Feedback Scoring Button` 是
+                //   **`allowClickWhenAlreadySelected = 0`** ⇒ 已选中再点 = **什么都不做**
+                //   （不播音、不改分、不取消）。改前它是普通按钮（每次都派发）⇒ 我们自设计的
+                //   「再点一次 = 取消」由 `SetScore` 实现 —— 那条语义**已删**。
+                var scoreHit = MenuDraw.Hit(btn, "Hit", r, QHit, () => SetScore(it.Name, idx));
+                var scoreWb = scoreHit != null ? scoreHit.GetComponent<WindowButton>() : null;
+                if (scoreWb != null)
+                {
+                    scoreWb.allowClickWhenAlreadySelected = false;
+                    scoreWb.isOn = () => _score.TryGetValue(it.Name, out int s) && s == idx + 1;
+                }
                 // 选中态：原版靠 `Highlight` 子件（出厂关着）；我们按同一颗子件名建，答了才亮
                 var hl = MenuDraw.Node(btn, "Highlight", r);
                 MenuDraw.Rect(hl, Tex(ArtScore, "评分钮高亮"), r, "Image", QRow + 1,
@@ -682,7 +704,11 @@ namespace CardPresentation
             if (ph != null) ph.gameObject.SetActive(string.IsNullOrEmpty(curTxt));
             Text(area, inner, string.IsNullOrEmpty(curTxt) ? "\n\u200b" : curTxt, Color.white,
                  "description text", 38f, QText, 0f, 0f, 0f, 1, face: TmpFont.Face.LatinCardBody);
-            MenuDraw.Hit(box, "Hit", areaR, QHit, () => BeginEditOpen(it));
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C7）**：原版 `…/Text Area` 是
+            //   `Image + EverguildInputField`（**没有 EverguildButton**）⇒ 点它 = 聚焦，**不该有按钮音**。
+            var openHit = MenuDraw.Hit(box, "Hit", areaR, QHit, () => BeginEditOpen(it));
+            var openWb = openHit != null ? openHit.GetComponent<WindowButton>() : null;
+            if (openWb != null) openWb.playClickSound = false;
         }
 
         /// <summary>\u65e7\u7248\u5355\u884c\u53cd\u9988\u6846\u7684\u8f93\u5165\u5165\u53e3\uff08\u672c\u7a97\u51fa\u5382\u6574\u5757\u5173\u7740\uff1b\u540c `BeginEditOpen` \u7684\u80fd\u529b\u8fb9\u754c\uff09\u3002</summary>
@@ -765,7 +791,13 @@ namespace CardPresentation
 
         void SetScore(string qid, int idx)
         {
-            _score[qid] = _score[qid] == idx + 1 ? 0 : idx + 1;   // 再点一次 = 取消（原版 Toggle）
+            // 🔴 **2026-10-18（主对话裁定 · 按原版 `allowClickWhenAlreadySelected = 0` 订正）**：
+            //   原版评分钮**已选中再点 = 什么都不做**（不播音、不改分、**不取消**）。
+            //   改前这里是 `_score[qid] == idx + 1 ? 0 : idx + 1`（「再点一次 = 取消」）——
+            //   那是**我们自设计的语义**，已删。现在写入是幂等的；同分再点由
+            //   `WindowButton.allowClickWhenAlreadySelected = false` 的守卫挡在派发之前（连声音一起）。
+            //   ⚠️ 改分（点**别的**分值）照旧——那条路 `isOn` 为假、守卫不收。
+            _score[qid] = idx + 1;
             BuildSurvey();                                        // 重画这一题（Highlight 只有一个亮）
         }
 

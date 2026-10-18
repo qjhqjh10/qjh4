@@ -151,14 +151,40 @@ namespace CardPresentation
         //        `素材/Warpforge原版/UI图集/图集/battleatlasui/sliced/`、`d:/2/Warpforge_tools/data/ui_extract/`
         //        与**我们工程的 `Resources/Art/ui/`** 三处都有；工程那份与原版逐字节相同。
         //        ⇒ **「今天不画」的理由从「找不到」换成「还没做」**（⛔ 别再拿「找不到」当理由）。
-        //        ⚠️ 要画它得先定口径：`Trait Not Active` 这个独立渲染器与 `disabledMaterial`（灰化）
-        //        **是两条并存的通道**（见上面那条更正）—— **另立一条账**，别在这儿顺手补。
-        //   ⚠️ 所以 `IconSizeInactive` **已无用处**（原来也是死代码，全工程无引用）—— 留个 0 值的占位会误导，直接删。
+        //     ✅ **2026-10-18（`A1676`）已画**（`CardView.SetBadgeCross`）—— 口径见下面「未激活态第二条通道」。
+        //  ⚠️ 所以 `IconSizeInactive` **已无用处**（原来也是死代码，全工程无引用）—— 留个 0 值的占位会误导，直接删。
         /// <summary>原版那层「未激活」用的材质名 —— `BoardTraitIcon.disabledMaterial` 指向的资源
         /// （`bundle_battleprefabs_vfxandmisc_assets_all/Material/Material_-1344813161239158161.json`，
         /// `m_Name = "Sprite Greyscale"`，`_GreyScale = 1.0`）。我们的等价物是自建 shader
         /// `CardPresentation/TraitDisabled` 的 `_GreyScale` 属性（同一个语义、同一个属性名）。</summary>
         public const string DisabledMaterialName = "Sprite Greyscale";
+
+        // ── 未激活态的**第二条通道**：那枚 ✕（`Trait Not Active` / `40k_Combat_Icon_Cross`）──
+        //  账 `A1676`（2026-10-18 落地）。
+        //
+        //  🔴 **与灰化是【叠加】，⛔ 不是二选一** —— 判据 = 反编译**同一个方法体里两条一起做**：
+        //    `d:/2/tools/decomp_full/BoardTraitIcon__Initialize.c`
+        //      · `traitIcons` 逐个：`SetMaterial(r, traitEnabled ? originalMaterial(+0x80) : disabledMaterial(+0x60))`
+        //      · `traitNotActiveIcons` 逐个：`set_enabled(r, traitEnabled ^ 1)`
+        //    两条在**同一次 `Initialize`** 里、用**同一个 `param_4`** 判 ⇒ 未激活时**灰化 + ✕ 同时出现**。
+        //    实据（预制体 7 份逐个同形，例 `bundle_battleprefabs_vfxandmisc_assets_all/`：
+        //      `MonoBehaviour_-2012836666520331328.json`）：`traitIcons` 2 个、`traitNotActiveIcons` 2 个、
+        //      `disabledMaterial` → `Material_-1344813161239158161.json`（`m_Name = "Sprite Greyscale"`、`_GreyScale = 1`）。
+        //
+        //  **几何**（`Transform/Transform_6666491460811267008.json` = 图标 · `Transform_5341559741513440192.json` = ✕）：
+        //    · 图标 `TraitIcon`：local **(0,0,0)**、scale **0.7593**
+        //    · ✕ `Trait Not Active`：local **(0,0,−0.004)**、scale **0.49**（两者同父 = `Without counter`）
+        //    · 两者 SpriteRenderer 的 `m_Size` 都是 **0.8 × 0.8**（`SpriteRenderer_-1467968542656586816.json`）
+        //    ⇒ ✕ 边长 = 图标边长 × (0.49 / 0.7593) = **0.64533**；
+        //      z 比图标**更靠前** 0.004 × 容器 scale 0.7502 ≈ **0.0030** 卡单位（卡内 z 越负越靠前）。
+        //    ⚠️ 贴图 `40k_Combat_Icon_Cross.png` 是 **128×128**（工程 `Resources/Art/ui/` 那份与原版逐字节同），
+        //      所以按 `CenteredQuad` 的比例内接后仍是正方形。
+        /// <summary>✕ 相对图标边长的比例（原版 scale 0.49 ÷ 0.7593）。</summary>
+        public const float NotActiveScale = 0.49f / 0.7593f;                 // ≈ 0.64533
+        /// <summary>✕ 的边长（卡单位）—— 与图标共用同一个中心。</summary>
+        public const float NotActiveCrossSize = IconSize * NotActiveScale;    // ≈ 0.29427
+        /// <summary>✕ 比图标**更靠前**多少（卡单位；原版 local z −0.004 × 容器 0.7502）。</summary>
+        public const float NotActiveCrossZOffset = 0.004f * 0.7502f;          // ≈ 0.0030
 
         // ── 脉冲高亮（原版 `BoardTraitIcon.HighlightIcon`）──────────────────────────
         //

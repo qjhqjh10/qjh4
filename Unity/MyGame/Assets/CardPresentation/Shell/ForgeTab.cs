@@ -719,8 +719,16 @@ namespace CardPresentation
                           UguiRect.Child(r, UguiRect.A11, UguiRect.A11, UguiRect.P50c, Bd_Pos, Bd_Sz),
                           "Badge Highlight", QArmyBadge, new Color(0.7358f, 0.7358f, 0.7358f, 0f));
 
-                AddHit(item, "Hit", r, QArmyBadge, () => SelectArmy(army),
-                       clickCue: WindowSounds.SelectAvatarCue);
+                var armyHit = AddHit(item, "Hit", r, QArmyBadge, () => SelectArmy(army),
+                                     clickCue: WindowSounds.SelectAvatarCue);
+                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版 `Forge Army Item Button` 是
+                //   `EverguildToggle` + **`allowClickWhenAlreadySelected = 0`** ⇒ 再点当前阵营时静音且不派发。
+                var armyWb = armyHit != null ? armyHit.GetComponent<WindowButton>() : null;
+                if (armyWb != null)
+                {
+                    armyWb.allowClickWhenAlreadySelected = false;
+                    armyWb.isOn = () => ForgeData.Selected == army;
+                }
             }
         }
 

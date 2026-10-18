@@ -3281,6 +3281,13 @@ namespace CardPresentation
             //    ⚠️ 附带一个更阴的：队列是**按时间有序**的，一条「未来」的事件会把后面过期的全堵住
             //       （`AdvanceTimeline` 只从队头弹）—— 两个毛病合起来能让整条时间线哑掉。
             _timeline.Clear();
+            // 🆕 2026-10-19（战斗线 W 第 1、2 条）：**闸与血量账跨局必须清** ——
+            //   闸留着 ⇒ 新一局开局玩家动不了（要等安全阀 20 s）；账留着 ⇒ 新一局的同一格
+            //   显示上少了/多了上一局的血（静默错）。
+            _blocking = false;
+            _blockingQuietAt = 0f;
+            _blockingSince = 0f;
+            _pendingHp.Clear();
 
             // 卡池是**原版那 1131 张**（`cards_engine.json`）—— 不再是 `StarterCards` 那 26 张自设计的。
             // `StarterCards` 还留着：`RuleEngineTest` 里那批规则用例还在用它（那些卡是专门为了
@@ -3467,6 +3474,11 @@ namespace CardPresentation
             interaction.CanDropAtSlot = (slot, card) =>
             {
                 if (Ctx == null || Ctx.IsOver) return false;
+                // 🆕 2026-10-19（战斗线 W 第 2 条）：**上一条动作的演出没演完 ⇒ 不能出牌**
+                //   —— 原版 `BattleManager__CanPlayCard.c:72` 那道 `WaitingForBlockingAction` 闸。
+                //   ⚠️ 这是个**查询口**（拖拽中每帧都问）⇒ **不出声**；被闸挡下的那一下
+                //     由 `OnIllegalAction` / `OnCardReturned` 两道守卫吞掉（原版也是静默 `return 0`）。
+                if (WaitingForBlockingAction) return false;
                 if (Ctx.Active != _me) return false;                 // 对手回合不能出牌
                 int idx = HandIndexOf(card);
                 if (idx < 0) return false;
@@ -4559,7 +4571,13 @@ namespace CardPresentation
 
         /// <summary>`CardInteraction.OnIllegalAction` 的处理器 —— 只是转一道手，方便自检直接点名调
         /// <see cref="SpeakCantDo"/>（不必真的去模拟一次拖拽）。</summary>
-        void OnIllegalAction(CardView card) { SpeakCantDo(); }
+        void OnIllegalAction(CardView card)
+        {
+            // 🆕 2026-10-19（战斗线 W 第 2 条）：被「演出未收尾」闸挡下的那一下**不许播 cantdo** ——
+            //   原版 `CanPlayCard` 那道闸是 `return 0`（`:72-74`，**一句提示都没有**）⇒ 照抄静默。
+            if (WaitingForBlockingAction) return;
+            SpeakCantDo();
+        }
 
         // ==================================================================
         //  回放条（原版 `ReplayButtons`）
@@ -6033,18 +6051,28 @@ namespace CardPresentation
         /// （实据：`Reconnaissance Mission` = `maxTargets 3` + `inHandFiltered`；`Eternal Servitude` = `3` + `inCemeteryFiltered`）。
         ///
         /// **「3」这个数**：来源 = **原版卡 SO 实读** ——
-        /// `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json`
-        /// （1195 张卡，其中 **1192 张有非 null 的 `choicesDefinition`**），实测分布：
-        /// **`maxTargets = 0` 977 张**（= 这张卡不走这条路，`GetChoiceOptions` 会返空表）·
-        /// **`= 3` 204 张** · **`= 4` 10 张** · **`= 2` 1 张**。
-        /// ⇒ **3 是众数、不是规则**；下面 <see cref="ChooseShowByCardId"/> 就是原版那 11 张非 3 的卡
-        /// （能对上我们 `CardDef.Id` 的 6 张）。
+        /// 🆕 **2026-10-19 现读（`A1959` 的前置数据缺口 `A970` 已不存在）**：
+        /// `d:/4/_tmp_view/allcards_export/cards_raw.json`（`export_allcards.py` 2026-10-18 导出的
+        /// **当前 build**，1351 张 SO）逐卡的 `full_raw.choicesDefinition.maxTargets` **全都有值**，实测分布：
+        /// · **全 1351 张** = `0` **1103** · `3` **224** · `2` **13** · `4` **11**；
+        /// · **我们池内 1127 张** = `0` **979** · `3` **127** · `2` **12** · `4` **9**。
+        /// ⚠️ 本段原来引的是 `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json`
+        /// （1195 张口径：`0` 977 · `3` 204 · `4` 10 · `2` 1）—— **与现读逐档都对不上**
+        /// （旧快照是哪一版**没查明**）⇒ **引用一律用上面这组 2026 现读值**。
+        /// ⇒ **3 是众数、不是规则**；下面 <see cref="ChooseShowByCardId"/> 现读 = **池内
+        /// `maxTargets` ∈ {2,4} 的全部 21 张**（`2` 12 张 + `4` 9 张，逐张来自同一份导出）。
         ///
-        /// ⚠️ **我们还没搬进管线的那一半**：我们自己的卡数据里**没有** `choicesDefinition` 这个字段
-        /// （要搬得动 `数据/游戏数据/cards_engine.json` + 解析层，**不在本文件**）⇒
-        /// 表里没有的卡**一律取众数 3**；而 2022 那版卡表里没有的 **13 张新卡**
-        /// （`Azrael` / `Suppressor` / `Author of the Codex` …）**原值至今未知**，一并按 3 走 ——
-        /// 这两点都是**如实标着的缺口**，不是「原版就是 3」。
+        /// ⚠️ **`maxTargets = 0` 的那 979 张**：原版 `GetChoiceOptions` 返空表（这张卡不走这条路）。
+        /// 我们**这一层没有逐卡数据**能判「该不该开面板」（那在解析层 / `RuleEngine/Core`，不在本文件）
+        /// ⇒ 表里查不到时仍回落众数 3。**这个回落的风险已现核并为零**：现池 1127 张里
+        /// 「`desc` 含一句以 `choose ` 开头的子句」的共 **50** 张，其 `maxTargets` 分布 =
+        /// `3` 48 · `2` 1（`Duelist's Hubris`，走 `choose one`）· `4` 1（`GSC65`）—— **没有一张是 0**。
+        ///
+        /// ⚠️ **仍未搬进管线的那一半**：我们自己的卡数据（`cards_engine.json` / `CardDef`）里
+        /// **仍然没有** `choicesDefinition` 这个字段 ⇒ 下表是**表现层镜像**，不是最终形态。
+        /// 正解 = `工具/gen_cards_engine.py` → `cards_engine.json` → `Core/CardDef.cs`（引擎线数据管线）；
+        /// 那一半本轮**没动**（文件所有权：不碰 `RuleEngine/**` 与工具/数据 JSON）。
+        /// 搬进去之后 <see cref="ChooseShowByCardId"/> 应**整张删掉**、改查 `CardDef`。
         ///
         /// ⚠️ **不作出处的那一份**：`《Warpforge Offline Rulebook》` 英文版 `:475`
         /// （「randomly select 3 cards」）—— 它**自己第 5 行写着 `Not official. Fan project.`**，
@@ -6059,29 +6087,44 @@ namespace CardPresentation
         const int ChooseShowDefault = 3;
 
         /// <summary>
-        /// 原版 `choicesDefinition.maxTargets` **≠ 3** 的那几张卡（键 = `CardDef.Id`）。
-        /// 我们的 `CardDef.Id` 与原版 `uniqueId` **同源**（实测：823 张逐字相同，另 14 张只差撇号/句点）
-        /// ⇒ 这张表可以直接拿原版卡表复查。
-        /// ⚠️ **今天只有 `GSC65` 一张真的走得到这个面板** —— 我们的解析层只对卡面以 `choose …` 开头的句子
-        /// 发 `choosecard`（`RuleEngine/Core/EffectText.cs:5012 TryChooseCard`）；其余几张原版也是
-        /// 「让玩家挑」（`Gain a Dark Pact` 那张的候选正好是 4 张契约），**我们这一层还没接**
-        /// —— 那 4 张契约眼下只喂给卡片详情窗的「相关卡」（`CreatePool.DarkPactContracts`，只有
-        /// `CardPresentation/Core/RelatedCards.cs:163` 一个调用点）⇒ **是记账，别当已实现**。
-        /// 留着这 5 条是因为**它们就是原版的数**，接那一层时不必再查。
-        /// ⚠️ **没进来的 4 张**（`BL57 Helfire Torch` 我们叫 `Hellfire Torch`、`EC60 Tools of Torture`
-        /// 不在我们池里、`Storm of Silence` / `Unhallowed Gifts` 在原版表里是 **GUID 型 `uniqueId`
-        /// 且同名重复**（`Storm of Silence` 三条：`0/2/0` · `Unhallowed Gifts` 两条：`0/4`）
-        /// ⇒ **对不上号，不猜**）—— 要用得先把 id 关系查出来。
+        /// 原版 `choicesDefinition.maxTargets` ∈ **{2, 4}** 的那几张卡（键 = `CardDef.Id`）。
+        /// 🆕 **2026-10-19（`A1959`）：本表从「6 张手工表」换成【完整 21 张】** ——
+        /// 数据源 = `d:/4/_tmp_view/allcards_export/cards_raw.json`（2026-10-18 导出的当前 build 的
+        /// 1351 张卡 SO）里的 `full_raw.choicesDefinition.maxTargets`；**与池内 1127 张逐 id 对上、0 缺**。
+        /// `maxTargets = 3`（池内 127 张）走 <see cref="ChooseShowDefault"/>，不重复列；
+        /// `maxTargets = 0`（池内 979 张）原版**不开这条路**，见 <see cref="ChooseShowDefault"/> 的说明。
+        /// ⚠️ 这是**表现层镜像**（见 `ChooseShowDefault` 那段「仍未搬进管线的那一半」）。
+        /// ⚠️ 原版 `maxTargets` 只说明「**最多摆几张**」；**「开不开面板」是另一件事** ——
+        /// `A1960`（黑团那 5 张 `targetsAffected = 180` 的卡，原版会开、我们解析层还不发 `choosecard`）
+        /// 与这张表**互不相干**。
+        /// ⚠️ `targetsAffected` 只是脚注（180 = `choiceResolution`）：它不是「摆几张」的判据，别拿它替代。
         /// </summary>
         static readonly System.Collections.Generic.Dictionary<string, int> ChooseShowByCardId =
             new System.Collections.Generic.Dictionary<string, int>
             {
-                { "GSC65", 4 },     // Pilfered Supplies —— ✅ **唯一活的一条**：候选 = 4 张 `Sabotage`，原版四张全摆
-                { "BL4",   4 },     // Chaos Sergeant    —— `Rally: Gain a Dark Pact`（候选 = 4 张契约，我们还没接）
-                { "BL13",  4 },     // Chosen            —— 同上
-                { "BL29",  4 },     // Terminator Champion
-                { "BL37",  4 },     // Abaddon's Chosen（2026-10-18 `W28` 改官方显示名；本键是 id，不受影响）
-                { "BL38",  4 },     // Dark Oratory
+                // ---- maxTargets = 2（池内 12 张）----
+                { "4de4fcfb5d7e0554a88b9f419a2cd7c2", 2 },   // Angel's Wrath（tactic · targetsAffected=180）
+                { "6ed51d59b9f8ea24ab0dc7ceaef7956c", 2 },   // Duelist's Hubris（tactic · 180；卡面是 `Choose one:` ⇒ 走 chooseone）
+                { "8482077f309b08943b190f18b5874871", 2 },   // Catechism of Death（tactic · 180）
+                { "851f73daf747eb642934a16429b391db", 2 },   // Storm of Silence（tactic · targetsAffected=0）
+                { "UM109", 2 },                              // Adaptive Strategy（tactic · 180）
+                { "UM110", 2 },                              // Fall Back（tactic · 180）
+                { "UM111", 2 },                              // Shall Know No Fear（tactic · 180）
+                { "UM112", 2 },                              // Champions of Humanity（tactic · 180）
+                { "UM115", 2 },                              // Stormhawk Interception（tactic · 180）
+                { "UM116", 2 },                              // No Mercy（tactic · 180）
+                { "UM117", 2 },                              // No Respite（tactic · 180）
+                { "UM118", 2 },                              // Indomitus Crusade（tactic · 180）
+                // ---- maxTargets = 4（池内 9 张）----
+                { "141c5ed661a9e42bd9a793f0d2a1c682", 4 },   // Unhallowed Gifts（tactic · 180）
+                { "BL13",  4 },                              // Chosen（unit · 180）
+                { "BL29",  4 },                              // Terminator Champion（unit · 180）
+                { "BL37",  4 },                              // Abaddon's Chosen（tactic · 180）
+                { "BL38",  4 },                              // Dark Oratory（tactic · 180）
+                { "BL4",   4 },                              // Chaos Sergeant（unit · 180）
+                { "BL57",  4 },                              // Hellfire Torch（defence · 180）
+                { "EC60",  4 },                              // Armoury of Excess（defence · targetsAffected=0）
+                { "GSC65", 4 },                              // Pilfered Supplies（defence · 180；✅ 今天唯一真走得到这个面板的 4 张卡）
             };
 
         /// <summary>这一张卡这次最多摆几张候选 —— 表里查不到就取众数 <see cref="ChooseShowDefault"/>。</summary>
@@ -6091,6 +6134,50 @@ namespace CardPresentation
             if (c != null && c.Id != null && ChooseShowByCardId.TryGetValue(c.Id, out v)) return v;
             return ChooseShowDefault;
         }
+
+        /// <summary>
+        /// 🔴 **原版 `GetChoiceOptions` 最后那次 `Sort` 的比较函数** ——
+        /// `BattleManager.SortByCostAndName`（`d:/2/tools/decomp_full/BattleManager__SortByCostAndName.c`）。
+        /// 🆕 **2026-10-19（`A1961`）现读解出**（旧账写「比较函数没解出来」；`decomp_full` 里那份
+        /// `BattleManager.__c__DisplayClass486_0___GetChoiceOptions_b__0.c` 是**文件名与内容对不上**的
+        /// 那个坑（`A1962`）——它的内容其实是 `AiScripted.ExecuteAction` 的闭包，**不是**比较函数）：
+        ///
+        /// **判据链**（三处互相独立）：
+        /// ① `BattleManager__GetChoiceOptions.c:110-113`：
+        ///    `if (options.Count <= iVar1 && param_4 == '\0') { System_Comparison___ctor(...); List.Sort(...); }`
+        ///    —— 第 4 个实参 = 「**抑制排序**」；玩家那一路
+        ///    `BattleManager__ChoiceOfCardPlayer.c:27` 传的是 **`0`** ⇒ **玩家看的面板一定排**
+        ///    （敌方那一路 `ChoiceOfCardEnemy.c:31` 传 `bVar5`）。
+        /// ② 传给 `Comparison` 的方法指针 `DAT_18423e6f8` **全库只被 `GetChoiceOptions` 一处引用**
+        ///    （`grep -rl DAT_18423e6f8 decomp_full/` = 1 个文件）；而 `script.json` 里 BattleManager
+        ///    名下**唯一**「收两个 `RawCardScript`、返 `int32_t`」的实例方法就是
+        ///    `BattleManager$$SortByCostAndName`（`script.json` Address=10000432 = RVA `0x989830`，
+        ///    签名 `private int SortByCostAndName(RawCardScript a, RawCardScript b)`，`dump.cs:31897`）。
+        ///    现跑 `disasm_va.py 0x180989830` 复核：函数序言正常，`mov eax,[rbx+0x78] / cmp eax,[rdi+0x78]`
+        ///    正是 `manaCost` 比较那一对指令。
+        /// ③ 它自己的方法体读得出来（下面三段）。
+        ///
+        /// **原版规则（逐字）**：
+        /// · 先 **`manaCost` 升序**（`RawCardScript.manaCost` @0x78，`dump.cs:23249`）；
+        /// · 相等 ⇒ `GetLocalizedCardName().ToLower()` 的 `String.CompareTo`（**当前文化**、升序）；
+        /// · 再相等 ⇒ `uniqueId` 的 `String.CompareTo`（`PlayerItem.uniqueId` @0x38，`dump.cs:18811`）。
+        /// ⚠️ **顺序 ≠ 卡池顺序**：原版是**先随机抽 `min(maxTargets, 池)` 张、再排这 ≤maxTargets 张**
+        ///   （`GetChoiceOptions.c:46-70` 抽 → `:110` 排）⇒ 排序只决定「抽出来的那几张怎么摆」。
+        /// ⚠️ `List.Sort` 是**不稳定**排序；这里三个键（cost / name / id）在池内唯一 ⇒ 无歧义。
+        /// ⚠️ 名字用 <see cref="CardText.Name(CardDef)"/> = **面板上真显示的那一个**
+        ///   （`ToCardData` 的 `title` 走同一处）——原版取的也是「本地化后的卡名」。
+        /// </summary>
+        static int CompareChoiceOptions(CardDef a, CardDef b)
+        {
+            int c = a.Cost.CompareTo(b.Cost);
+            if (c != 0) return c;
+            string an = CardText.Name(a), bn = CardText.Name(b);
+            c = string.Compare((an ?? "").ToLower(), (bn ?? "").ToLower(),
+                               System.StringComparison.CurrentCulture);
+            if (c != 0) return c;
+            return string.Compare(a.Id ?? "", b.Id ?? "", System.StringComparison.CurrentCulture);
+        }
+
 
         /// <summary>从 <paramref name="n"/> 个候选里**随机抽 <paramref name="k"/> 个**（不放回）。
         /// 用 `ctx.ShowRng`（**不是** `ctx.Rng` —— 理由见 `BattleContext.ShowRng` 的注释）。</summary>
@@ -6589,6 +6676,18 @@ namespace CardPresentation
                         //    ✅ 同一天（账 `A1949`）**判据本身也换掉了**：原版 `choicesDefinition.maxTargets`
                         //    （逐卡数据）已写进本文件 `ChooseShowDefault` 那段 —— ⛔ 别再引规则书。
                     }
+                    // 🔴 **2026-10-19（`A1961`）：原版 `GetChoiceOptions` 最后那次 `Sort`** ——
+                    //    判据与规则逐条写在 <see cref="CompareChoiceOptions"/>：
+                    //    玩家那一路 `param_4 == 0` ⇒ **一定排**；顺序 = `manaCost` 升序 → 本地化卡名
+                    //    （`ToLower()`、当前文化）→ `uniqueId`。
+                    //    ⚠️ **只排 `choosecard` 这一族** —— `GetChoiceOptions` 全库只被
+                    //    `ChoiceOfCardPlayer` / `ChoiceOfCardEnemy` 调用；`chooseone` / `chooseeffect`
+                    //    的两组候选是**卡面文字/载荷**，不经过那个函数（⛔ 别顺手把它们也排了）。
+                    //    ⚠️ 排在 `_askCands` 赋值**之前**：`OnChooseDone` 靠 `_askCands[下标]` 把
+                    //    「点了第几张」翻回卡号，两处必须是**同一份顺序**。
+                    //    ⚠️ 先拷一份再排（`ChooseCardCandidates` 是「纯读」口，不就地改它给的列表）。
+                    cands = new List<CardDef>(cands);
+                    cands.Sort(CompareChoiceOptions);
                     _askCands = cands;
                     // ⚠️ 挂在**面板自己**下面 —— `CardChoicePanel` 是按 localPosition 排这一行的
                     foreach (var c in cands)
@@ -8128,6 +8227,14 @@ namespace CardPresentation
         ///    「拖到目标上再松手」，而画面上根本没拖过。</summary>
         void OnCardReturned(CardView card)
         {
+            // 🔴 2026-10-19（战斗线 W 复跑红 #1 就地订正）：**这里【不】按 `WaitingForBlockingAction` 挡。**
+            //   本回调是「这一拖没落成」的**通用**出口（`MissedSlot` / 拖回手牌 / 引擎拒都走它），
+            //   而原版那句 `Battle/Tips/DragToTarget` 正是「拖出去没落到有效目标」的提示 ⇒
+            //   一律吞掉会把**真·拖空**的提示也清掉（自检 §G5「拖空松手」当场红）。
+            //   「被闸挡下」那种情况已经由 `CanDropAtSlot`（落点被拒）+ `OnIllegalAction`（不播 cantdo）
+            //   处理掉了；这里的代价只是「被闸挡下的那一拖**可能**顺带显示这句提示」——
+            //   如实记在 `资料/普查产出_1018/W_战斗线_串行与阻塞.md` §五（要根治得让 `CardInteraction`
+            //   把 `DropRejectKind` 一并带出来，那个文件不在本线所有权里）。
             SetHint(Loc.T(DragToTargetTerm));
         }
 
@@ -8701,11 +8808,17 @@ namespace CardPresentation
                     // 倒计时也走完 → **自动结束回合**，没有额外惩罚（原版 `EndTurnClick(timeOutFlag=true)`）
                     _clockLeft = 0f;
                     UpdateClockLabel();
+                    // 🆕 2026-10-19（战斗线 W 第 2 条）：**演出没演完 ⇒ 这一帧先不结束**。
+                    //   原版 `EndTurnClick` 那道 `WaitingForBlockingAction` 闸对超时这一支同样有效
+                    //   （闸不看 `param_2`）⇒ 照抄。⚠️ 这里**必须先早退再播 cue**：本方法每帧都会
+                    //   被调到（`_clockLeft` 停在 0），放行前播的话 `TimerExpired` 会**每帧响一次**。
+                    if (WaitingForBlockingAction) return;
                     // 🆕 2026-10-15（`T06` · 战斗音响）：**回合计时归零**那一拍（原版 `TimerExpired` cue）。
                     //   判据 = `ClockManager__EndCountdown.c:34` —— 它**先**播 `TimerExpired`、
                     //   **再**调 `EndTurnClick(1)`（`:41`）⇒ 本条排在 `EndPlayerTurn()` 之前是对的顺序。
                     BattleSfx.Play(BattleSfx.TimerExpired);
-                    EndPlayerTurn();
+                    // ⚠️ 传 `fromUi: true`：超时那一支在**原版也是走 `EndTurnClick`**，闸同一条。
+                    EndPlayerTurn(fromUi: true);
                     return;
                 }
             }
@@ -8777,7 +8890,9 @@ namespace CardPresentation
                 if (hot != AttackKind.None && selector.HoverPickReady)
                 {
                     selector.MarkHoverPicked();
-                    CommitCommand(hot);
+                    // 🆕 2026-10-19（战斗线 W 第 2 条）：**玩家这一下**才过 `WaitingForBlockingAction`
+                    //   闸（原版 `ExecuteActiveAbility:39` / `Update:1033,1060`）。
+                    CommitCommand(hot, fromUi: true);
                     return;
                 }
                 // 槽外取消：**保持原样**（原版没有等价物，WA462 §四·3 —— ⛔ 别顺手删/别顺手改沿）
@@ -8830,7 +8945,9 @@ namespace CardPresentation
                 // ③ 结束回合按钮（有原版按钮底图就按图判，没有就按文字判）
                 if (HitEndTurn(world))
                 {
-                    EndPlayerTurn();
+                    // 🆕 2026-10-19（战斗线 W 第 2 条）：**玩家点的这一下**才过 `WaitingForBlockingAction`
+                    //   那道闸（原版 `EndTurnClick` 的 `:47`）。内部那条自动收尾/测试口不走这道闸。
+                    EndPlayerTurn(fromUi: true);
                     return;
                 }
 
@@ -8840,7 +8957,8 @@ namespace CardPresentation
                     // 点的那一侧由 `CommandTargetSide()` 定（替代行动可能点**自己人**）
                     int side = CommandTargetSide();
                     int t = HitSlot(side == _me ? _myUnits : _foeUnits, world);
-                    if (t >= 0) { Resolve(_command, t); return; }
+                    // 🆕 2026-10-19（战斗线 W 第 2 条）：玩家点的这一下才过那道闸（原版 `Update.c:1033/1060`）。
+                    if (t >= 0) { Resolve(_command, t, fromUi: true); return; }
                     ClearSelection();
                     return;
                 }
@@ -9094,8 +9212,14 @@ namespace CardPresentation
         }
 
         /// <summary>定下打法 → 收选择器 → 把合法目标点亮</summary>
-        void CommitCommand(AttackKind kind)
+        /// <param name="fromUi">🆕 2026-10-19（战斗线 W 第 2 条）：玩家那一下才过闸 ——
+        /// 原版 `BattleManager__ExecuteActiveAbility.c:39` / `__Update.c:1033,1060` 的
+        /// `WaitingForBlockingAction`。⚠️ 测试口（`SimulateCommand`）传 `false`（不是玩家手速）。</param>
+        void CommitCommand(AttackKind kind, bool fromUi = false)
         {
+            // 🆕 2026-10-19（战斗线 W 第 2 条）：**演出没演完 ⇒ 这一下选打法不算**（原版那两处闸）。
+            //   静默（原版被闸挡下的两支都是直接跳过、没有提示/音效）。
+            if (fromUi && WaitingForBlockingAction) return;
             // 🔴 🆕 2026-10-18（A938）：**教程白名单闸门 · 第 ⑨⑬ 点** —— 原版
             //   `CanShowPotentialTargets`（点亮合法目标之前那一次）与
             //   `UnitOnBoardAttackTypeSelector__AttackButtonClick`（点三选一那颗钮那一次）。
@@ -9452,8 +9576,13 @@ namespace CardPresentation
         /// （`ChooseCardMethod` 的 4 个调用点之一，紧跟着 `StartCoroutine` + `return 1` 挂起）。
         /// 所以本方法现在可能**只是把这一手收下、把面板开起来**（返回 `OK`），
         /// 真正的引擎调用由 `BeginAsk` 的续跑在面板关掉之后调 `DoResolve`。</summary>
-        int Resolve(AttackKind kind, int targetSlot)
+        int Resolve(AttackKind kind, int targetSlot, bool fromUi = false)
         {
+            // 🆕 2026-10-19（战斗线 W 第 2 条）：**演出没演完 ⇒ 这一下确认目标不算**
+            //   （原版 `BattleManager__Update.c:1033/1060` 那两处 `WaitingForBlockingAction`）。
+            //   ⚠️ 原版那一支是**静默丢弃**（没有返回码这回事）⇒ 借 `ErrNoAction` 表达「这一刻不能行动」；
+            //     玩家那一条调用点不读这个值，测试口（`fromUi = false`）也走不到这里。
+            if (fromUi && WaitingForBlockingAction) return RuleCodes.ErrNoAction;
             int slot = _selectedSlot;
 
             if (kind == AttackKind.Ability && Ctx != null && BoardSpec.IsValid(slot))
@@ -9712,8 +9841,18 @@ namespace CardPresentation
             //   ⚠️ 开局那句现在由**入队一次**承担（见 `BeginBattleAfterSetup` / 无换牌那条路）。
         }
 
-        void EndPlayerTurn()
+        /// <summary>结束我方回合（原版 `ClockManager.EndTurnClick` 的落地那一半）。
+        /// <para>🆕 2026-10-19（战斗线 W 第 2 条）：加了一道 `<paramref name="fromUi"/>` 闸 —— 见下。</para></summary>
+        /// <param name="fromUi">🆕 2026-10-19（战斗线 W 第 2 条）：这一下是不是**玩家点的那一下**。
+        /// `true` ⇒ 先过原版 `BattleManager__EndTurnClick.c:47` 那道 `WaitingForBlockingAction` 闸
+        /// —— 注意那道闸**在播 cue 之前**（`EndTurnButton` 在闸内的 `if` 里才响）⇒ 被挡下时**静默**。
+        /// ⚠️ 测试口（`SimulateEndTurn`）与教程/自动收尾传 `false`：它们不是玩家手速，也不是原版那道闸。
+        /// </param>
+        void EndPlayerTurn(bool fromUi = false)
         {
+            // 🆕 2026-10-19（战斗线 W 第 2 条）：**动作演出没演完 ⇒ 这一下结束回合不算**
+            //   （原版 `BattleManager__EndTurnClick.c:45-48`：`0x245==0 && 0x244!=0 && !WaitingForBlockingAction`）。
+            if (fromUi && WaitingForBlockingAction) return;
             // 🔴 🆕 2026-10-18（A938）：**教程白名单闸门 · 第 ⑩ 点** —— 原版 `EndTurnClick`
             //    （`ClockManager__EndTurnClick.c` 里那一次 `CheckIfPlayerActionPermittedInTutorial`）。
             //    放这儿 = 两个调用点（结束回合按钮 / `AutoEndTurnIfStuck` 那条自动收尾）**一次盖住**；
@@ -11479,6 +11618,9 @@ namespace CardPresentation
                 _aiTimer -= Time.deltaTime;
                 if (_aiTimer > 0f) return;
                 _aiTimer = aiStepDelay;
+                // 🆕 2026-10-19（战斗线 W 第 2 条）：**上一条脚本动作的演出还没收尾 ⇒ 这一步先不推** ——
+                //   教材里每条动作也是「结算完 + 演完」才轮到下一条（同 `WaitingForBlockingAction` 那条串行）。
+                if (WaitingForBlockingAction) return;
                 var step = DriveTutorialScript();
                 if (step == TutorialStep.Advanced) return;
                 // ⚠️ `NotOwned` 在这儿只有一个来源：**回放局**（`_replaySession` ⇒ 执行器不许自驱，
@@ -11502,6 +11644,12 @@ namespace CardPresentation
 
             // 🆕 演出在演 ⇒ 这一步不挑动作（演完 `TickAiTargetingAnim` 会把那条动作执行掉）
             if (_aiAnimAct != null) return;
+
+            // 🆕 2026-10-19（战斗线 W 第 2 条）：**上一条动作的演出没演完 ⇒ AI 不走下一步** ——
+            //   原版动作队列是**串行**的（`WaitingForBlockingAction` 的判据本身就是「队列里还有阻塞动作」）。
+            //   偏差 2 的症状「AI 固定 0.55 s 一步、大步跨过动画」就是缺了这一句。
+            //   ⚠️ `_aiTimer` 照常在上面递减 ⇒ 演出一结束，下一步最多再等 `_aiTimer` 的剩余量。
+            if (WaitingForBlockingAction) return;
 
             // **一步 = 一条动作**（原版 `AI.PlayTurn` 就是「一次调用做一步」，循环在 BattleManager 的协程里）。
             // 挑分最高的那条 → 执行 → 下一帧再挑。
@@ -11918,6 +12066,11 @@ namespace CardPresentation
                     continue;
                 }
 
+                // 🆕 2026-10-19（战斗线 W 第 1 条）：**挨打/治疗的血量差先记在账上** ——
+                //   `SyncBoard` 会把它加回去（显示旧血），事件轮到播时 `CompletePendingHpBeat` 才减掉。
+                //   规则 / 边界 → `NotePendingHp` 的 doc。
+                NotePendingHp(e);
+
                 _timeline.Add(new PendingSignal
                 {
                     evt = e, at = t, drawFromEnd = drawFromEnd,
@@ -11927,6 +12080,13 @@ namespace CardPresentation
                 t += EventTiming.DurationOf(e);   // 带事件的重载：攻击要分远近两档（见那两个重载的注释）
                 prev = e;
             }
+
+            // 🆕 2026-10-19（战斗线 W 第 2 条）：**这一批事件开一个「演出未收尾」窗口** ——
+            //   `t` 此刻 = 最后一条事件「起播时刻 + 它自己的时长」⇒ 正好是原版协程收尾那一刻。
+            //   ⚠️ 必须赶在下面那句 `AdvanceTimeline(0f)` **之前**：那一句会把 `at <= _clock` 的事件
+            //     当场播掉（延迟为 0 的那几条），播放时 `_clock` 可能已经越过末条收尾 ⇒ 闸来不及立。
+            if (_signalBuf.Count > 0) BeginBlockingWindow(t);
+
             AdvanceTimeline(0f);        // 延迟为 0 的那几条**这一帧**就播，不用等下一帧
         }
 
@@ -12122,6 +12282,41 @@ namespace CardPresentation
         readonly List<PendingSignal> _timeline = new List<PendingSignal>();
         float _clock;
 
+        // ==================================================================
+        //  🆕 2026-10-19（战斗线 W · 第 1、2 条）：**可等待的演出流水线**
+        // ==================================================================
+        //  第 2 条 = 原版 `BattleManager.WaitingForBlockingAction` 的等价闸（字段与生命周期见
+        //   `BeginBlockingWindow` / `TickBlockingWindow` 的 doc）。
+        //  第 1 条 = **「引擎已经把血扣了、表现还没演到」那一档先不显示**（`_pendingHp`）——
+        //    `SyncBoard` 会把这份差值加回去（= 显示旧血），事件轮到播的那一刻再减掉并重刷
+        //    （= 血量在受击帧才跳）。判据与边界见 `NotePendingHp` 的 doc。
+        // ------------------------------------------------------------------
+        bool _blocking;
+        float _blockingQuietAt;      // 最后一条已排 cue 的收尾时刻（`_clock` 口径）
+        float _blockingSince;        // 最近一批事件排进来的时刻（安全阀用它量「卡住多久」）
+        const float BlockingMaxSeconds = 20f;
+
+        /// <summary>「引擎已经扣掉、表现还没演到」的血量差（正 = 掉的、负 = 回的）。
+        /// 键 = <see cref="HpKey"/>。见文件里那一段的总注释。</summary>
+        readonly Dictionary<int, int> _pendingHp = new Dictionary<int, int>();
+
+        static int HpKey(int owner, int slot) { return (owner << 8) | (slot & 0xFF); }
+
+        /// <summary>🆕 2026-10-19（战斗线 W 第 2 条）：**动作演出还没收尾 ⇒ 输入要挡**。
+        /// 原版 `BattleManager.WaitingForBlockingAction` 的等价物 —— 判据与实现说明见
+        /// <see cref="BeginBlockingWindow"/> 的 doc。</summary>
+        public bool WaitingForBlockingAction { get { return _blocking; } }
+
+        /// <summary>自检用：某一格上还挂着多少「引擎已扣、表现没演到」的血量差（0 = 没有）。
+        /// 断言用它在两个时刻读出**不同的数**（灭自证：账在 → 账清）。</summary>
+        public int PendingHpForTest(int owner, int slot)
+        {
+            int v; return _pendingHp.TryGetValue(HpKey(owner, slot), out v) ? v : 0;
+        }
+
+        /// <summary>自检用：账上一共几条（收尾断言「没有漏账」）。</summary>
+        public int PendingHpCountForTest { get { return _pendingHp.Count; } }
+
         /// <summary>还没播的事件条数（自检用：推到 0 = 这一段动作演完了）</summary>
         public int TimelinePending { get { return _timeline.Count; } }
 
@@ -12228,6 +12423,133 @@ namespace CardPresentation
                 PlaySignal(p.evt, p.drawFromEnd, p.points, p.pointIndex,
                            p.beat, p.beatVfx, p.beatSp, p.beatEp, p.beatPt, p.beatTail);
             }
+
+            // 🆕 2026-10-19（战斗线 W 第 2 条）：每帧收一次闸 —— 判据与「为什么不能只看队列空」
+            //   全在 `TickBlockingWindow` 的 doc。
+            TickBlockingWindow();
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-19（战斗线 W）：**原版 `BattleManager.WaitingForBlockingAction` 的等价闸**
+        // ==================================================================
+        //  判据（`d:/2/tools/decomp_full/`，逐处读过）：
+        //   · `BattleManager__WaitingForBlockingAction.c` —— 原版问的是「动作队列里还有没有阻塞型动作」
+        //     （它扫 `+0x350 / +0x358 / +0x368` 三个动作表）。消费它的**五处**：
+        //     `BattleManager__CanPlayCard.c:72`（出牌）· `__EndTurnClick.c:47`（结束回合）·
+        //     `__ExecuteActiveAbility.c:39`（主动技）· `__Update.c:1033,1060`（两条「确认攻击/技能」分支）。
+        //   · `__EndTurnClick.c:47` 那道闸**在播 cue 之前**（闸内的 `if` 里才 `Play2D(EndTurnButton)`）
+        //     ⇒ 被闸挡下的那一下**不出声**（我们照抄：静默 return）。
+        //  我们这边没有「动作队列」—— 引擎是同步结算的 ⇒ **等价物 = 事件时间线还没演完**：
+        //    「排进 `_timeline` 的事件一条都没剩」**且**「最后一条 cue 的时长也走完了」才放行。
+        //  ⚠️ **只看「队列空」不够**：`AdvanceTimeline` 把条目弹出来只是**起播**，补间/粒子还在跑
+        //     （`PlaySignal` 是 fire-and-forget）⇒ 必须再等一个 `EventTiming.DurationOf`。
+        //  ⚠️ **安全阀** `BlockingMaxSeconds`：真卡住（事件表出 bug / 回放长时间暂停）时**不许把玩家锁死**；
+        //     超时**出声**（本仓红线：不许静默失败）并放行。
+        // ------------------------------------------------------------------
+
+        /// <summary>开始/延长这一轮「演出未收尾」窗口。<paramref name="quietAt"/> = 这一批事件
+        /// **最后一条 cue 的收尾时刻**（由 `PlaySignals` 按同一套 `EventTiming` 算出来）。</summary>
+        void BeginBlockingWindow(float quietAt)
+        {
+            if (quietAt > _blockingQuietAt) _blockingQuietAt = quietAt;
+            // 安全阀量的是「卡住多久」而不是「这一局动作链多长」⇒ 每来一批新事件就重新起算
+            //（AI 连续出牌 / 教程脚本长链都可能远超 20 s，但那不是卡住）。
+            _blockingSince = _clock;
+            if (_blocking) return;
+            _blocking = true;
+        }
+
+        /// <summary>每帧（`AdvanceTimeline` 末尾）收一次：队列空 **且** 最后一条 cue 走完 ⇒ 放行；
+        /// 超过安全阀 ⇒ 出声并放行。</summary>
+        void TickBlockingWindow()
+        {
+            if (!_blocking) return;
+            if (_clock - _blockingSince > BlockingMaxSeconds)
+            {
+                Debug.LogWarning($"[Battle] `WaitingForBlockingAction` 连续拦了 {_clock - _blockingSince:F1} s"
+                               + $"（> {BlockingMaxSeconds} s 安全阀）⇒ 放行 —— 排着 {_timeline.Count} 条、"
+                               + $"最后一条的收尾时刻 {_blockingQuietAt:F2}（当前 {_clock:F2}）。"
+                               + "这多半是事件表卡住 / 回放长时间暂停 —— 如实报出来，别静默锁死玩家。");
+                _blocking = false;
+                _blockingQuietAt = _clock;
+                return;
+            }
+            if (_timeline.Count == 0 && _clock >= _blockingQuietAt) _blocking = false;
+        }
+
+        // ---- 第 1 条：血量「可见时刻」的账 --------------------------------------------------
+        //
+        //  根因（`资料/普查产出_1018/R_战斗表现链路对拍.md` 偏差 1）：引擎把一次动作**同步**算完
+        //  （血已经是终值），`SyncBoard` 同一帧 `SetData` 就是终值 ⇒ 血条先跳、挨打动作后到。
+        //  原版：`_ResolveMultiDamage…:136-168` 在**每个目标**的受击那一拍才改 HP。
+        //
+        //  我们的等价物 = **把「引擎已扣、还没演到」的差值记在账上**：
+        //   · 排时间线时 `NotePendingHp(e)` 记一笔 `+e.Amount`（`Hit.Amount` 是**扣血前**发的
+        //     `actual`，见 `RuleCore.ApplyDamage` / `EmitHit`）⇒ `SyncBoard` 把差值加回去 = **旧血**；
+        //   · 事件轮到播的那一刻 `CompletePendingHpBeat(e)` 减掉这一笔并重刷视图 = **血量在受击帧才跳**
+        //     （顺带 `CardView.SetData` 自己的 `CaptureStatChanges` 会在这一刻闪红 —— 正是原版
+        //      `CardTextCountersController.DoColorChange` 的可见时刻）。
+        //  ⚠️ **只对「排时间线这一刻还在场上」的单位记账**：阵亡单位的 `Board[slot]` 已是 null（它走
+        //     `PendingExitFor` 的消散），血条随消散走，不打这条账。
+        //  ⚠️ **身份守卫**：棋盘是「连续无洞」模型（插人/补位会挪格号），所以事件里的 `Slot` 可能已经
+        //     换成了别人 ⇒ 用 `e.CardId`（= `UnitState.Name`，与 `EmitUnit` 同源）比一下，不符**不记账**
+        //     （宁可让那一格的血早跳，也不要把别人的血算错 —— 静默算错比早跳糟）。
+        //  ⚠️ **已知边界（如实记）**：同名单位换格后仍可能撞上（本账没有实例 id 可用）—— 记在
+        //     `资料/普查产出_1018/W_战斗线_串行与阻塞.md` §五，等引擎事件补「实例 id」再收口。
+        // ------------------------------------------------------------------
+
+        /// <summary>排时间线时给「挨打/治疗」记一笔账（规则见上面那一段）。</summary>
+        void NotePendingHp(BattleEvent e)
+        {
+            if (e == null || e.Kind != EvtKind.Hit || e.Amount == 0) return;
+            if (Ctx == null || Ctx.Players == null) return;
+            if (e.Player < 0 || e.Player >= Ctx.Players.Length) return;
+            if (!BoardSpec.IsValid(e.Slot)) return;
+            var u = Ctx.Players[e.Player].Board[e.Slot];
+            if (u == null) return;                                        // 阵亡 / 已离场 ⇒ 不打账
+            if (!string.IsNullOrEmpty(e.CardId) && u.Name != e.CardId) return;   // 那一格已经换人了
+            int key = HpKey(e.Player, e.Slot);
+            int cur;
+            _pendingHp.TryGetValue(key, out cur);
+            _pendingHp[key] = cur + e.Amount;
+        }
+
+        /// <summary>事件轮到播的那一刻：把这一笔从账上减掉、并按「剩下的账」重刷那一格的卡面。
+        /// 这就是「血量在受击帧才跳」的落地那一句。</summary>
+        void CompletePendingHpBeat(BattleEvent e)
+        {
+            if (e == null || e.Kind != EvtKind.Hit || e.Amount == 0) return;
+            int key = HpKey(e.Player, e.Slot);
+            int cur;
+            if (!_pendingHp.TryGetValue(key, out cur)) return;
+            cur -= e.Amount;
+            if (cur == 0) _pendingHp.Remove(key);
+            else _pendingHp[key] = cur;
+            RefreshUnitData(e.Player, e.Slot);
+        }
+
+        /// <summary>把某一格按「引擎值 + 账上还没演到的那一笔」刷回卡面。
+        /// 场上没有那一格 / 视图不在 ⇒ 什么都不做（⛔ 不新建视图 —— 那是 `SyncBoard` 的活）。</summary>
+        void RefreshUnitData(int owner, int slot)
+        {
+            if (Ctx == null || Ctx.Players == null) return;
+            if (owner < 0 || owner >= Ctx.Players.Length || !BoardSpec.IsValid(slot)) return;
+            var u = Ctx.Players[owner].Board[slot];
+            if (u == null) return;
+            var views = owner == _me ? _myUnits : _foeUnits;
+            CardView v;
+            if (views == null || !views.TryGetValue(slot, out v) || v == null) return;
+            v.SetData(ToBoardCardData(u, owner, slot));
+        }
+
+        /// <summary>`ToCardData` + 账上那一笔。**场上卡唯一的一份**（⛔ 别在别处再拼一次）。</summary>
+        CardData ToBoardCardData(UnitState u, int owner, int slot)
+        {
+            var d = ToCardData(u, owner == _me ? _myFaction : _foeFaction);
+            int pend;
+            if (_pendingHp.TryGetValue(HpKey(owner, slot), out pend) && pend != 0)
+                d.health += pend;
+            return d;
         }
 
         /// <summary>
@@ -12240,6 +12562,11 @@ namespace CardPresentation
             Ctx.ClearSignals();
             LastSignals.Clear();
             _timeline.Clear();
+            // 🆕 2026-10-19（战斗线 W 第 1、2 条）：丢事件 = 这一段的演出不要了 ⇒ 闸与血量账一起清
+            //   （不清闸的话「一口气跑几百回合」那条脚本推进每步都被拦；不清账的话血会少算）。
+            _blocking = false;
+            _blockingQuietAt = _clock;
+            _pendingHp.Clear();
         }
 
         /// <summary>
@@ -12600,6 +12927,11 @@ namespace CardPresentation
                 PlayAbilityBeat(e, beatVfx, beatSp, beatEp, beatPt);
                 return;
             }
+
+            // 🆕 2026-10-19（战斗线 W 第 1 条）：**轮到这一刻才让血掉下来**（受击帧）。
+            //   在 `PlayFeel` / 飘字**之前** —— 卡面先到新值，挨打反馈与飘字同一拍（原版
+            //   `ReceiveDamage` 协程里也是先改 HP 再播受击动效）。
+            CompletePendingHpBeat(e);
 
             SpeakFor(e);          // 单位语音条（原版 `Unit Chat`）—— 和特效同一个事件流，不另开一条路
             PlayRemnantSfx(e);    // 🆕 2026-09-29：残骸体那三条原版音效（出现 / 收集 / 被打掉）
@@ -13379,6 +13711,9 @@ namespace CardPresentation
 
                 if (u == null)
                 {
+                    // 🆕 2026-10-19（战斗线 W 第 1 条）：这一格空了 ⇒ 账上那一笔**作废**
+                    //   （阵亡单位不打账；这一句防的是「单位挪走/换人」时把旧账留给下一个主人）。
+                    _pendingHp.Remove(HpKey(owner, s));
                     if (v == null) { views.Remove(s); continue; }
                     // 🆕 2026-09-26：这一格空了 ⇒ 「未行动」绿光也要灭。
                     //   ⚠️ **必须在这里关**：下面那条 `continue`（阵亡事件还排在时间线上、视图要再站 0.85 s）
@@ -13414,7 +13749,9 @@ namespace CardPresentation
                     RemoveSlotKeysExcept(views, v, s);
                     if (!views.ContainsKey(s) || views[s] != v) { views[s] = v; moved = true; }
                     // 掉血/疲劳/关键词要反映到卡面（原来这段挂在「这一格本来就有视图」那一支）
-                    v.SetData(ToCardData(u, owner == _me ? _myFaction : _foeFaction));
+                    // 🆕 2026-10-19（战斗线 W 第 1 条）：走 `ToBoardCardData` —— 它会把这轮
+                    //   「引擎已扣、还没演到」的血量加回去（= 显示旧血），事件轮到播时才真跳。
+                    v.SetData(ToBoardCardData(u, owner, s));
                 }
                 else
                 {
@@ -13424,7 +13761,7 @@ namespace CardPresentation
                         && !ViewOwnedByLiveUnit(board, byUnit, at))
                         DetachStaleView(owner, views, s, at);
 
-                    var data = ToCardData(u, owner == _me ? _myFaction : _foeFaction);
+                    var data = ToBoardCardData(u, owner, s);
                     data.frame = u.IsWarlord ? new Color(0.95f, 0.82f, 0.35f) : frame;   // 督军描金
                     // 🔴 **场上用 `CardFace.Board`**：原版在 inPlay 类状态把**整张 `2DCard` 关掉**
                     //    （`Card2DController.Toggle(false)`），只留 `Board Elements` 那棵子树 ——
@@ -18037,6 +18374,10 @@ namespace CardPresentation
         /// <summary>自检用：准星现在开着吗（`reticle` 为空也算 false）</summary>
         public bool ReticleVisible { get { return reticle != null && reticle.Visible; } }
         public void SimulateEndTurn() { EndPlayerTurn(); }
+        /// <summary>🆕 2026-10-19（战斗线 W 第 2 条）：**走玩家那条路**的结束回合（过
+        /// `WaitingForBlockingAction` 闸）。自检用它验「闸真的挡得住 / 放得行」——
+        /// 与 <see cref="SimulateEndTurn"/> 的差别**只有这一道闸**（`fromUi`），别把它当成另一个语义。</summary>
+        public void SimulateEndTurnFromUi() { EndPlayerTurn(fromUi: true); }
         public int SelectedSlot { get { return _selectedSlot; } }
         public AttackKind Command { get { return _command; } }
         public AttackSelector Selector { get { return selector; } }

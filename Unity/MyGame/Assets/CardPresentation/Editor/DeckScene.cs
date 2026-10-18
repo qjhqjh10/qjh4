@@ -760,6 +760,10 @@ public static class DeckScene
             TestFilters();
             TestWarlordGatedPool();
 
+            // 🆕 2026-10-18（卡池排序 + 天赋卡显隐）：原版 4 个稳定 `OrderBy` 与 `showInCollectionOptions` 显示闸
+            Section("状态：卡池排序与显示判据（原版 `DeckEditingWindow.GetCardCollection`）");
+            TestPoolSortAndVisibility();
+
             Section("状态：加牌 / 删牌 / 督军");
             TestEditing();
 
@@ -1327,7 +1331,13 @@ public static class DeckScene
             CheckTrue(hasDef, "该阵营的**防御卡在卡池里**（玩家要从这儿挑防御卡 —— 用户 2026-09-27）");
 
             // 🆕 **2026-09-27（用户拍板）：效果生成的卡（药剂/破坏/秘仪）不进卡池**
-            //   帝王之子有 6 张药剂、暗黑天使有 5 张秘仪 —— 选这两家的督军，池子里一张都不该有。
+            //   🔴 **2026-10-18（卡池排序与显隐）改口径 —— 走的是两条不同的判据，别混**：
+            //     · 帝王之子那 6 张药剂 / 破坏卡：`showInCollectionOptions = 0` ⇒ 被**显示判据**剔掉
+            //       （原版 `DeckEditingWindow.__c___GetCardCollection_b__32_2.c:8`）；
+            //     · 暗黑天使那 5 张秘仪：`inv = 10` **但 `show = 5`** ⇒ 原版卡池里**看得见**，
+            //       原版最后靠 `GetOwnedCount == 0` 拦住；我们单机**全解锁** ⇒ 主对话 2026-10-18 裁定
+            //       **显示且可加**（下面另有逐张断言）。
+            //   ⇒ 两家「卡池里没有**不能进卡组**的卡」这条结论不变，但理由各是各的。
             foreach (var probe in new[] { "EmperorsChildren", "DarkAngels" })
             {
                 CardDef hw = null;
@@ -1341,6 +1351,36 @@ public static class DeckScene
                     if (DeckRules.CannotAddToDeck(c)) { eff++; if (firstEff.Length == 0) firstEff = c.Name; }
                 Check(eff, 0, $"★ {probe} 的卡池里**没有不能进卡组的卡**"
                             + $"—— 现在有 {eff} 张" + (eff > 0 ? $"（如 `{firstEff}`）" : ""));
+            }
+            // 🔴 **2026-10-18（用户全解锁边界 · 判据 = `AUD_卡池排序与天赋卡显隐.md` §五.B.5）**：
+            //   5 张暗黑天使秘仪（`inv=10` **`show=5`**）**显示且可加** —— 旧口径（`A1798` 的 `||`）
+            //   把它们既藏出卡池、又挡在卡组外；那一版是「没有持有数这道闸」的保险，今天按用户边界放开。
+            //   🧨 灭自证：把 `DeckRules.CannotAddToDeck` 改回 `||` ⇒ 第二条当场红（`addable` 变 0）；
+            //      把显示判据改回 `CannotAddToDeck` ⇒ 第一条红（`shown` 变 0）。
+            {
+                var ph = s.Pool;
+                CardDef hw = null;
+                for (int i = 0; i < ph.Count; i++)
+                    if (ph[i].Type == "hero" && ph[i].Faction == "DarkAngels") { hw = ph[i]; break; }
+                if (hw == null) Check(true, false, "卡池里找不到 DarkAngels 的督军（这一节没法验）");
+                else
+                {
+                    s.SetWarlord(hw.Id);
+                    int shown = 0, addable = 0;
+                    var names = new System.Text.StringBuilder();
+                    foreach (var c in s.VisibleCards())
+                        if (c.InventoryOptions == 10 && c.ShowInCollectionOptions == 5)
+                        {
+                            shown++;
+                            if (s.CanAdd(c) == DeckError.None) addable++;
+                            names.Append(" `").Append(c.Name).Append("`");
+                        }
+                    Check(shown, 5, "★ 5 张暗黑天使秘仪（`inv=10` 且 `show=5`）**都在卡池里显示**"
+                                  + "（原版卡池也看得见它们 —— 挡住它们的是 `GetOwnedCount`，我们没有那道闸）"
+                                  + (shown > 0 ? "：" + names : ""));
+                    Check(addable, shown, "★ ……而且**这 5 张都能加进卡组**（用户 2026-10-18 全解锁边界；"
+                                        + "🧨 把 `DeckRules.CannotAddToDeck` 改回 `||` ⇒ 本条 0/5 红）");
+                }
             }
             // 而且**加不进去**（负例：绕开卡池直接 TryAdd 一张药剂）
             {
@@ -1393,13 +1433,16 @@ public static class DeckScene
                 CheckTrue(byId("5a8a11b2a89796f48b34fbec8db6f452") != null && DeckRules.CannotAddToDeck(byId("5a8a11b2a89796f48b34fbec8db6f452")),
                           "★（A1798）`EC72` Antrak Silk（原版 `inventoryOptions=10`）⇒ **不能进卡组**");
                 //   · `DA_Convoke_the_Circle`      真值 `inv=10` **`show=5`**（秘仪）
-                //     🧨 **灭自证②**：原版 `CardDeck__CanAddCard.c:40` 把两条写成 `&&` ——
-                //        照抄那个变体的话，这张 `show=5` 的卡会被**放行** ⇒ 这一条同时钉住
-                //        「用的是 `||` 那一版」与「`show` 那一条也判了」。
+                //     🔴 **2026-10-18 改判（卡池排序与显隐）**：主对话按用户全解锁边界裁定 ——
+                //        这类「`inv=10` 但 `show=5`」的卡 **显示且可加**（原版靠 `GetOwnedCount==0` 拦，
+                //        我们没有持有数那道闸）⇒ 本条期望值从「不能进」翻成「**能进**」。
+                //     🧨 灭自证：`CannotAddToDeck` 改回 `||` ⇒ 本条红；而且它同时钉住
+                //        「`inv=10 & show=0` 的 `UM_Smite` 仍然不能进」（上一条）—— 单改正负任一方向都会有一条红。
                 CheckTrue(byId("3e99603a7b7b2c54c8f1ad40250ee2ae") != null
-                          && DeckRules.CannotAddToDeck(byId("3e99603a7b7b2c54c8f1ad40250ee2ae")),
-                          "★（A1798）`DA_Convoke_the_Circle`（`inv=10` **`show=5`**）⇒ **不能进卡组**"
-                        + "｜🧨 照抄 `CanAddCard` 那个 `&&` 变体会放行它");
+                          && !DeckRules.CannotAddToDeck(byId("3e99603a7b7b2c54c8f1ad40250ee2ae")),
+                          "★（2026-10-18 改判）`DA_Convoke_the_Circle`（`inv=10` **`show=5`**）⇒ **能进卡组**"
+                        + "（用户全解锁边界；原版这条被 `GetOwnedCount==0` 拦住，我们没有那道闸）"
+                        + "｜🧨 改回 `||` ⇒ 本条红");
                 //   · `AM60` Timely Reinforcements 真值 `inv=5`（`CantAddToDeck`）**但它是防御卡**
                 //     ⇒ 原版把它路由给 `CanAddDefensive`、**不吃**这条判据 ⇒ **不拦**（玩家要挑防御卡）
                 CheckTrue(byId("AM60") != null && !DeckRules.CannotAddToDeck(byId("AM60")),
@@ -1411,20 +1454,28 @@ public static class DeckScene
                           "★（A1798）普通卡 `ASH83`（原版 `inv=0 show=5`）⇒ **能进**（判据不是「inv != 5」）");
 
                 // ③ 交叉核：拦下的张数 == 直接从两列 + 卡型现算出来的张数（**不写死数字**）
+                //   🔴 2026-10-18 改口径：判据是 `&&`（两条都坏才拦），⛔ 不是 `||`。
                 int viaPred = 0, viaCols = 0;
                 foreach (var c in s.Pool)
                 {
                     if (DeckRules.CannotAddToDeck(c)) viaPred++;
                     if (c.Type != "hero" && c.Type != "defence" && c.InventoryOptions >= 0
-                        && (c.InventoryOptions != 0 || c.ShowInCollectionOptions != 5)) viaCols++;
+                        && (c.InventoryOptions != 0 && c.ShowInCollectionOptions != 5)) viaCols++;
                 }
                 Check(viaPred, viaCols, $"★（A1798）拦下的张数两条路现算一致（判据 {viaPred} / 两列直算 {viaCols}）");
 
                 // ④ 🧨 **灭自证③（新旧口径的差集）**：新口径必须**严格宽于**旧口径，
                 //    且「旧放行、新拦下」的那些**必须是原版 `NotInInventory(10)`** ——
                 //    ⛔ 下面这段是**旧口径的复刻副本**，只为当变更传感器，**不是判据**（判据只有 `DeckRules` 一处）。
+                //
+                //    🔴 **2026-10-18 改口径后**：反方向那一格（旧拦、新放）**不再要求为空** ——
+                //    按用户全解锁边界放开的，**只许**是「`inv=10` **且** `show=5`」那 5 张暗黑天使秘仪
+                //    （判据 = 原版 `CardDeck__CanAddCard.c:40` 的 `&&` 变体 + `GetOwnedCount==0` 那道我们**没有**的闸）。
+                //    🧨 改坏法：把判据写成 `inv != 0` / `show != 5` 任一单边 ⇒ `legit` 之外会冒出越界卡 ⇒ 红；
+                //       改回 `||` ⇒ `oldOnly` 变 0（下面第二条红）。
                 {
-                    int newOnly = 0, oldOnly = 0; string firstNew = null;
+                    int newOnly = 0, oldOnly = 0, legit = 0;
+                    string firstNew = null, firstBad = null;
                     foreach (var c in s.Pool)
                     {
                         string st = c.Subtype ?? "";
@@ -1432,9 +1483,22 @@ public static class DeckScene
                         bool newRule = DeckRules.CannotAddToDeck(c);
                         if (!oldRule && newRule)
                         { newOnly++; if (firstNew == null) firstNew = c.Id; }
-                        if (oldRule && !newRule) oldOnly++;
+                        if (oldRule && !newRule)
+                        {
+                            oldOnly++;
+                            // 「该放开的」= 原版那个 `&&` 变体会放行的那一类（`inv=10` **且** `show=5`；
+                            //   hero/defence 早被路由走，不参与）—— **从两列原值现算，不看 `CannotAddToDeck`**（免得自证）。
+                            bool isMystic = c.Type != "hero" && c.Type != "defence"
+                                         && c.InventoryOptions == 10 && c.ShowInCollectionOptions == 5;
+                            if (isMystic) legit++;
+                            else if (firstBad == null) firstBad = c.Id + "/" + c.Name;
+                        }
                     }
-                    CheckTrue(oldOnly == 0, $"★（A1798）旧口径拦下的卡，新口径**一张都没漏**（漏 {oldOnly} 张）");
+                    Check(oldOnly, legit, $"★（2026-10-18 改判）旧口径拦、新口径放的**只许是**「`inv=10` 且 `show=5`」的秘仪"
+                                        + $"（实测 {oldOnly} 张 = 合格 {legit} 张"
+                                        + (firstBad == null ? "" : $"；越界如 `{firstBad}`") + "）");
+                    CheckTrue(oldOnly > 0, $"★ ……而且**非空**（真的放开了 {oldOnly} 张；"
+                                         + "⛔ 变 0 ⇒ 那是退回 `||` 的旧口径，不是本口径）");
                     CheckTrue(newOnly > 0, $"★（A1798）新口径**严格宽于**旧口径（多拦 {newOnly} 张，"
                                          + $"如 `{firstNew}`）｜🧨 实现改回「按兵种猜三类」⇒ 这里变 0、红");
                 }
@@ -1456,6 +1520,149 @@ public static class DeckScene
                 }
                 Check(breaks, 0, $"★ 督军**按阵营分组**、没有交错（重复出现的阵营段 = {breaks}；共 {list.Count} 位督军）");
             }
+        }
+
+        /// <summary>🆕 **2026-10-18（卡池排序 + 天赋卡显隐）**：原版判据现读 `d:/2/tools/decomp_full/` ——
+        /// · 排序 = `DeckEditingWindow__GetCardCollection.c:106,121,136,151` 那 4 个**稳定 `OrderBy`**
+        ///   ⇒ 实际主序 **`cardArmy`(10→130) → `cardType != Hero`（战将整段先）→ `manaCost` → 本地化卡名**；
+        /// · 显示 = 同链 `…b__32_2.c:8` 的 `showInCollectionOptions != Hide(0)`（+ 卡组编辑那层 `inv != 5`，防御卡例外）。
+        /// 本节的每一条都**不盯我们自己的常量**：期望值要么是原版那条判据的**字面量**，要么是从卡表两列**现算**。
+        /// ⚠️ 断言只读状态（`VisibleCards` / `CanAdd`），**不跑 Unity 版面**——「显示+变灰」的渲染那一半在
+        /// `TestPoolSortAndVisibilityRender`（要 `_rt`，在版面那一节里跑）。</summary>
+        static void TestPoolSortAndVisibility()
+        {
+            var s = new DeckEditorState(CardDatabase.Load());
+            s.WarlordGatedPool = true;
+
+            int facN = 0, badFirst = 0, badCost = 0, heroAfter = 0, badShow = 0;
+            string firstBadFirst = null, firstBadCost = null;
+            var defShown = new System.Collections.Generic.HashSet<string>();
+            foreach (var fac in DeckEditorState.ArmyOrder)
+            {
+                CardDef hw = null;
+                foreach (var c in s.Pool)
+                    if (c.Type == "hero" && c.Faction == fac) { hw = c; break; }
+                if (hw == null) continue;
+                s.SetWarlord(hw.Id);
+                var vis = s.VisibleCards();
+                facN++;
+
+                // ① 同一阵营内**第一张必须是战将**（原版排序键 `cardType != Hero`，false 先 ⇒ 战将整段排最前）
+                if (vis.Count == 0 || vis[0].Type != "hero")
+                {
+                    badFirst++;
+                    if (firstBadFirst == null)
+                        firstBadFirst = fac + (vis.Count > 0 ? "/" + vis[0].Name + "(" + vis[0].Type + ")" : "/(空)");
+                }
+
+                // ② 战将段之后按 `manaCost` 非减（第三把键）；同时钉「战将段是连续的一段」（不许后面又冒出督军）
+                bool seenNonHero = false;
+                int lastNonHeroCost = int.MinValue;
+                foreach (var c in vis)
+                {
+                    if (c.Type == "hero")
+                    {
+                        if (seenNonHero) heroAfter++;
+                        continue;
+                    }
+                    seenNonHero = true;
+                    if (c.Cost < lastNonHeroCost)
+                    {
+                        badCost++;
+                        if (firstBadCost == null) firstBadCost = fac + "/" + c.Name + "(" + c.Cost + ")";
+                    }
+                    lastNonHeroCost = c.Cost;
+                    if (c.Type == "defence") defShown.Add(c.Id);
+                }
+
+                // ③ 卡池里 `show == 0` 的卡数 = 0（原版 `…b__32_2.c:8`）
+                foreach (var c in vis) if (c.ShowInCollectionOptions == 0) badShow++;
+
+                // 期望张数 = 从卡表两列**现算**（原版卡池链：`show != 0`；卡组编辑再加
+                //   `inv != CantAddToDeck(5)`，防御卡按用户 2026-09-27 口径例外）
+                int want = 0;
+                foreach (var c in s.Pool)
+                    if (DeckRules.SameFaction(c.Faction, fac)
+                        && c.ShowInCollectionOptions != 0
+                        && (c.Type == "defence" || c.InventoryOptions != DeckRules.OptionCantAddToDeck)) want++;
+                Check(vis.Count, want, $"★ {fac}：卡池张数 = 两列现算（该阵营 `show != 0` 共 {want} 张）");
+            }
+            Check(facN, 13, $"★ 逐阵营过了一遍（{facN}/13 —— 少一个阵营这一节就漏一块）");
+            Check(badFirst, 0, "★ ① 每个阵营卡池的**第一张都是战将**（原版 `cardType != Hero` 排序键）"
+                             + (firstBadFirst == null ? "" : $"｜第一个反例：{firstBadFirst}"));
+            Check(heroAfter, 0, "★ ①b 战将段**连续**（战将之后不许再冒出战将 —— 说明排序键没生效）");
+            Check(badCost, 0, "★ ② 战将段之后 `manaCost` **非减**"
+                            + (firstBadCost == null ? "" : $"｜第一个反例：{firstBadCost}"));
+            Check(badShow, 0, "★ ③ 卡组编辑卡池里 `showInCollectionOptions == 0` 的卡数 = **0**"
+                            + "（原版 `DeckEditingWindow.__c___GetCardCollection_b__32_2.c:8`）");
+
+            // ④ 防御卡仍在（用户 2026-09-27 口径：经典模式编辑卡池要列防御卡）
+            int defTotal = 0;
+            foreach (var c in s.Pool) if (c.Type == "defence") defTotal++;
+            Check(defShown.Count, defTotal, $"★ ④ 全池 {defTotal} 张防御卡**一张不少**地出现在各自阵营的卡池里"
+                                          + "（用户 2026-09-27；🧨 去掉 `PassesEditModeInventory` 的防御卡例外 ⇒ 本条掉到 0）");
+            CheckTrue(defTotal > 0, $"……而且（前提）池子里真有防御卡（{defTotal} 张）");
+
+            // ①c 没督军那种跨阵营状态：**每个阵营段的第一张也是战将**、阵营段按 `cardArmy` 升序
+            s.ClearWarlord();
+            var all = s.VisibleCards();
+            int segN = 0, badSeg = 0, badArmyOrder = 0, lastRank = -1;
+            string lastFac = null;
+            foreach (var c in all)
+            {
+                var f = c.Faction ?? "";
+                if (f == lastFac) continue;
+                segN++;
+                if (c.Type != "hero") badSeg++;
+                int rank = System.Array.IndexOf(DeckEditorState.ArmyOrder, f);
+                if (rank <= lastRank) badArmyOrder++;
+                lastRank = rank;
+                lastFac = f;
+            }
+            Check(segN, 13, $"★ ①c 没督军时跨阵营卡池**按阵营分段**（{segN}/13 段）");
+            Check(badSeg, 0, "★ ①c 每个阵营段的**第一张都是战将**");
+            Check(badArmyOrder, 0, "★ ①c 阵营段次序 = `cardArmy` 10→130（`DeckEditorState.ArmyOrder` 的下标）");
+
+            // ---- ③b 收藏卡牌页那份显示闸（`ShowInCollectionOnly`，**不开** `WarlordGatedPool`）----
+            var cs = new DeckEditorState(CardDatabase.Load());
+            cs.ShowInCollectionOnly = true;
+            var csList = cs.VisibleCards();
+            int csShow0 = 0;
+            foreach (var c in csList) if (c.ShowInCollectionOptions == 0) csShow0++;
+            int csWant = 0;
+            foreach (var c in cs.Pool) if (c.ShowInCollectionOptions != 0) csWant++;
+            Check(csList.Count, csWant, $"★ ③b 收藏卡牌页 = `show != 0` 的那批（{csWant} 张，从两列现算）");
+            Check(csShow0, 0, "★ ③b 收藏卡牌页 `show == 0` 的卡数 = **0**（92 天赋 + 30 `Z-NC` 全被剔掉）");
+
+            // ---- ⑤ 收藏卡牌页的排序：阵营 → 战将 → `inventoryOptions` → 费用 → 名 ----
+            var cs2 = new DeckEditorState(CardDatabase.Load());
+            cs2.ShowInCollectionOnly = true;
+            cs2.SortByInventoryOptions = true;
+            var cl = cs2.VisibleCards();
+            CheckTrue(cl.Count > 0, "（前提）收藏序非空");
+            if (cl.Count > 0)
+            {
+                Check(cl[0].Type, "hero", "★ ⑤ 收藏序第 1 张是**战将**（`cardType != Hero` 那把键）");
+                Check(cl[0].Faction, DeckEditorState.ArmyOrder[0],
+                      "★ ⑤ ……而且属于**第一个阵营**（`cardArmy` 10 = Ultramarines，`ArmyOrder[0]`）");
+            }
+            // 同一阵营、同为战将的那一段里 `inventoryOptions` 必须非减（第二把键，只有收藏窗有）
+            int invBad = 0, lastInv = int.MinValue, segStart = 0;
+            for (int i = 1; i <= cl.Count; i++)
+            {
+                bool brk = i == cl.Count || cl[i].Faction != cl[segStart].Faction
+                        || (cl[i].Type == "hero") != (cl[segStart].Type == "hero");
+                if (!brk) continue;
+                lastInv = int.MinValue;
+                for (int j = segStart; j < i; j++)
+                {
+                    if (cl[j].InventoryOptions < lastInv) invBad++;
+                    lastInv = cl[j].InventoryOptions;
+                }
+                segStart = i;
+            }
+            Check(invBad, 0, "★ ⑤ 收藏序里「同阵营 + 同战将档」那一段的 `inventoryOptions` **非减**"
+                           + "（🧨 去掉 `SortByInventoryOptions` 那一层 ⇒ 本条的判别力落在 `CollectionScene` 的同名断言上）");
         }
 
         static void TestFilters()
@@ -1967,21 +2174,25 @@ public static class DeckScene
             //   `风暴守护者`(feng) &lt; `守护者防御小队`(shou) &lt; `织亡者次元蜘蛛`(zhi)
             //   ⇒ **第一张是 `ASH5`、不是 `ASH4`**。
             //   本段早已改成「按 `CanAdd` 挑」、不再依赖「第一张是谁」⇒ **行为不受影响**。
-            //   ⇒ 改成：**从卡池可见前 6 格里挑那张 `CanAdd` 不过的**，腾掉它的**副本**
+            //   ⇒ 改成：**从卡池可见前 18 格里挑那张 `CanAdd` 不过的**，腾掉它的**副本**
             //     （副本数 2→1、总数 30→29 ⇒ 这一张下一拍就 `CanAdd == None`）。
+            //   🔴 **2026-10-18（卡池排序）**：扫的范围 **6 → 18**。原版排序落地后**战将整段排最前**
+            //     （阵营 → 战将 → 费用 → 名），演示卡组那个阵营的督军段就占掉最前面几格
+            //     （最多的一家 7 位督军 + 防御卡），前 6 格里已经不够挑「非 hero / 非 defence」的卡。
+            //     18 = 前三行（视口 924 高、格高 384 ⇒ 第 4 行在屏外，⛔ 别扫到那里去起拖）。
             //   ⚠️ 仍**只挑 hero / defence 之外**的：`TryRemove` 对那两型走的是
             //     `ClearWarlord` / `ClearDefensive`（`Deck/DeckEditorState.cs:315-321`）⇒ 会把
             //     阵营/督军一起清掉、卡池的筛选跟着变（本节后面全按卡池下标在跑）。
             {
                 bool freed = false;
-                for (int i = 0; i < 6 && !freed; i++)
+                for (int i = 0; i < 18 && !freed; i++)
                 {
                     var d = rt.UiPoolCardAt(i);
                     if (d == null || d.Type == "hero" || d.Type == "defence") continue;
                     if (rt.State.CanAdd(d) == DeckError.None) continue;   // 这一张本来就加得进去 ⇒ 不用动它
                     freed = rt.State.TryRemove(d);
                 }
-                CheckTrue(freed, "（夹具）腾掉「卡池前 6 格里**现在加不进去的那一张**」的副本 —— "
+                CheckTrue(freed, "（夹具）腾掉「卡池前 18 格里**现在加不进去的那一张**」的副本 —— "
                                + "`PlayerDeckForDemo` 把卡组填满到 30，不腾就挑不出 `CanAdd` 过得去的卡"
                                + "（那样本节整段等于没跑）");
                 // 张数变了 ⇒ 卡池那几格上的 `x N` 也要跟着刷（本文件后面那条移除也是这么做的：
@@ -1990,12 +2201,12 @@ public static class DeckScene
             }
             {
                 int view = -1;
-                for (int i = 0; i < 6; i++)
+                for (int i = 0; i < 18; i++)
                 {
                     var d = rt.UiPoolCardAt(i);
                     if (d != null && rt.State.CanAdd(d) == DeckError.None) { view = i; break; }
                 }
-                CheckTrue(view >= 0, "（前提）卡池前 6 格里有一张现在加得进去的卡（`CanAdd` 过了才起得了拖）");
+                CheckTrue(view >= 0, "（前提）卡池前 18 格里有一张现在加得进去的卡（`CanAdd` 过了才起得了拖）");
                 if (view >= 0)
                 {
                     float sx, sy, sw, sh;
@@ -2833,6 +3044,89 @@ public static class DeckScene
                         _rt.RefreshAll();
                         Check(_rt.State.Deck.WarlordId, wl, "（把督军放回去 —— 后面的断言仍按原状态跑）");
                     }
+                }
+
+                // 🔴🆕 **2026-10-18（卡池排序与显隐 · 「显示 + 变灰」那一档）**
+                //   判据 = 原版 `DeckEditorCollectionDisplay__DrawCell.c:75-92` 把 `CanAddCard` 的结果当 `canAdd`
+                //   传给 `CollectionCard__UpdateCardVisuals`，后者 `:19-20` 的
+                //   `UIImageGreyscaleController__ToggleGreyScale(controller, param_2 ^ 1, …)`
+                //   （⚠️ 任务书写 `:17`，现读反编译：`:17` 是 `BasicCardUI.SetRawCardData`，
+                //     灰化那一句在 `:19-20`）⇒ **在池里但加不进的卡 = 显示 + 变灰**，⛔ 不是隐藏。
+                //   我们这一侧 2026-10-19（`A2139`）起走**真去饱和**：`CardView.SetGrey(1)` 写原版那个
+                //   材质属性 `_GreyScale`（0 = 原色 / 1 = 全灰；判据 = 原版材质 `Sprite Greyscale`
+                //   与 shader `Everguild/UI/Greyscale Add`，见 `Resources/Shaders/CardSprite.shader` 头部）。
+                //   ⚠️ 原来借 `Unplayable` 的**乘法压暗**（tint 0.55/0.55/0.58）—— 那个口径**已作废**，
+                //   但 `State` 仍保留 `Unplayable`（它是「加不进」的状态标记，别的自检也读它）。
+                //   🧨 **灭自证 = 同一段 `RefreshPool` 上的两个方向**：
+                //     ① 有督军 ⇒ 池里「当前督军」那格 `CanAdd == WarlordAlreadySet` ⇒ **必须灰**
+                //        （读的是**渲染器上真正生效的** `_GreyScale` —— `SetGrey` 改成 no-op 必红）；
+                //     ② 摘掉督军 ⇒ 池里全是督军且**每一张都加得进** ⇒ **一格都不许灰**。
+                //   任何「恒灰」/「恒不灰」的写法必有一条红。
+                {
+                    string wlG = _rt.State.Deck.WarlordId;
+                    CheckTrue(!string.IsNullOrEmpty(wlG), "（前提）此刻卡组有督军（灰卡那一条要有「加不进」的卡）");
+                    _rt.RefreshAll();
+                    int greySlot = -1; CardDef greyDef = null;
+                    for (int i = 0; i < 18; i++)
+                    {
+                        var d = _rt.UiPoolCardAt(i);
+                        if (d == null || _rt.State.CanAdd(d) == DeckError.None) continue;
+                        greySlot = i; greyDef = d; break;
+                    }
+                    CheckTrue(greySlot >= 0, "（前提）有督军时卡池里找得到**加不进**的卡（当前督军那一格就是）");
+                    if (greySlot >= 0)
+                    {
+                        var go = PoolCellGo(greySlot);
+                        var cv = go != null ? go.GetComponent<CardView>() : null;
+                        CheckTrue(cv != null, $"（前提）第 {greySlot} 格上有 `CardView`");
+                        if (cv != null)
+                        {
+                            Check(cv.State, CardHighlightState.Unplayable,
+                                  $"★ 加不进的卡（`{greyDef.Name}` · `{_rt.State.CanAdd(greyDef)}`）在卡池里**显示且灰**"
+                                + "（原版 `ToggleGreyScale(param_2 ^ 1)`；🧨 改回 `Normal` ⇒ 本条红）");
+                            // ①-a **真去饱和通道**：读两个图层的渲染器（MPB 优先）。
+                            //     🧨 灭自证：把 `CardView.SetGrey` 改成 no-op ⇒ MPB 不写 ⇒ 读到材质默认 0 ⇒ 红。
+                            float gArt = cv.LayerGrey("art");
+                            float gFrame = cv.LayerGrey("frame");
+                            CheckTrue(gArt > 0.99f && gFrame > 0.99f,
+                                      "★ ……走的是**真去饱和**（`_GreyScale` = 1，不是乘法压暗）："
+                                    + $"`art`={gArt:F2} / `frame`={gFrame:F2}"
+                                    + "（🧨 `SetGrey` 改 no-op / 只留着色 ⇒ 本条红）");
+                            // ①-b **不再是乘法压暗**：状态色必须是白（原版「灰」不靠变暗）。
+                            CheckNear(cv.Tint.r, 1f, 0.01f,
+                                      "★ ……整卡**不着色**：`Tint.r` = 1（乘法压暗 0.55 那一档已作废；原版是去饱和）");
+                            CheckNear(cv.Tint.g, 1f, 0.01f, "★ ……`Tint.g` = 1");
+                            CheckNear(cv.Tint.b, 1f, 0.01f, "★ ……`Tint.b` = 1");
+                        }
+                    }
+                    // ② 反向控制：摘掉督军 ⇒ 整池全是督军、每一张都 `CanAdd == None` ⇒ 一格都不许灰
+                    _rt.State.ClearWarlord();
+                    _rt.RefreshAll();
+                    int g2 = 0, seen2 = 0, checked2 = 0;
+                    for (int i = 0; i < 18; i++)
+                    {
+                        var d = _rt.UiPoolCardAt(i);
+                        if (d == null) continue;
+                        seen2++;
+                        if (d.Type != "hero" || _rt.State.CanAdd(d) != DeckError.None) continue;   // 只统计「该不灰」的
+                        var cg = PoolCellGo(i);
+                        var cv2 = cg != null ? cg.GetComponent<CardView>() : null;
+                        if (cv2 == null) continue;
+                        checked2++;
+                        // 状态和**渲染器上的灰度**两条一起看 —— 只断状态的话「状态对、灰度没归零」会漏过去
+                        if (cv2.State != CardHighlightState.Playable
+                            || cv2.Grey > 0.01f
+                            || cv2.LayerGrey("art") > 0.01f
+                            || cv2.LayerGrey("frame") > 0.01f) g2++;
+                    }
+                    CheckTrue(seen2 > 0, $"（前提）没督军时卡池里有 {seen2} 格");
+                    // 🧨 挡「探针没读到任何一格 ⇒ `g2` 恒 0」那种假绿
+                    CheckTrue(checked2 > 0, $"（前提）反向控制真的读到 {checked2} 格 `CardView`（读不到 = 本条无意义）");
+                    Check(g2, 0, "★ 反向控制：没督军 ⇒ 池里每一张都加得进 ⇒ **一格都不灰**"
+                              + "（🧨 恒灰的写法 —— 比如把 `Playable` 那一支也改成 `Unplayable` / 灰度不复位 —— 本条红）");
+                    _rt.State.SetWarlord(wlG);
+                    _rt.RefreshAll();
+                    Check(_rt.State.Deck.WarlordId, wlG, "（把督军放回去 —— 后面的断言仍按原状态跑）");
                 }
                 // 🧨 **本节的判别式（每格各挡一种改坏法，⛔ 只断「现在对」= 自证）**：
                 //    ① 有督军 ⇒ 显示            —— 挡「探针落在带口外」/「这一格根本没建」（`null` 也算红）
@@ -6982,14 +7276,35 @@ public static class DeckScene
             }
 
             // 悬停 tooltip（原版触发器挂在**卡面数值容器**上，卡池里的卡是同一批 prefab）
+            //
+            // 🔴 **2026-10-19（批次 D · 红 #1–#3）夹具改成「找一格非战将」**：
+            //   本批卡池改成原版显示序（`DeckEditorState.SortForDisplay`：`hero` 先）后，**每阵营第 0 格恒为战将**；
+            //   而 `CardView.ShowsCost` = `cost >= 0 && type != "hero"`（判据 = 原版 `BasicCardUI__SetRawCardData.c:84`
+            //   把费用控件 `SetActive(false)`）⇒ 战将的 `StatAt` 对费用恒答 `StatNone`、`TickTooltipAt` 返回 false。
+            //   ⇒ **「战将没有费用 tooltip」是正确行为**，过期的是旧夹具「`pool_0` 必有费用」（改前那一版 `pool_0` 是 `Autarch`）。
+            //   ⚠️ ⛔ 别把排序改回去迁就夹具；也⛔ 别退回固定 `pool_0`。
             Tooltip.Hide(); Tooltip.FinishFade();
-            var pool0 = _root.Find("pool_0");
-            CheckTrue(pool0 != null, "卡池第 0 格有视图");
-            if (pool0 != null)
+            int tipSlot = -1;
+            CardView tipView = null;
+            CardDef tipDef = null;
+            for (int i = 0; i < _rt.UiPoolSlotCount; i++)
             {
-                var pv = pool0.GetComponent<CardView>();
+                var d = _rt.UiPoolCardAt(i);
+                if (d == null || string.Equals(d.Type, "hero", StringComparison.Ordinal) || d.Cost < 0) continue;
+                var g = PoolCellGo(i);
+                if (g == null || !g.activeSelf) continue;          // `TickTooltipAt` 只问活着的格（见它那句 `activeSelf`）
+                var cv = g.GetComponent<CardView>();
+                if (cv == null) continue;
+                tipSlot = i; tipView = cv; tipDef = d; break;
+            }
+            CheckTrue(tipView != null,
+                      "卡池里找得到一格**非战将且有费用**的卡来做费用 tooltip 夹具"
+                    + $"（每阵营第 0 格是战将、它没有费用 —— 见 `ShowsCost`；当前 {_rt.UiPoolSlotCount} 个可见槽）");
+            if (tipView != null)
+            {
+                var pv = tipView;
                 CheckTrue(_rt.TickTooltipAt(pv.StatWorld(CardView.StatCost)),
-                          "把指针放到卡池卡的**费用**上 → tooltip 显示");
+                          $"把指针放到卡池卡（第 {tipSlot} 格 `{tipDef.Name}`）的**费用**上 → tooltip 显示");
                 CheckTrue(Tooltip.ShownBody == TipText.Cost, "显示的是费用那一条");
                 Tooltip.FinishFade();
                 CheckTrue(Tooltip.Visible && Tooltip.PanelSizePx.x > 0f,

@@ -542,7 +542,10 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
                 //   这里按本入口的标签风格打成 `Source=[…]`（`null` → 空串，与相邻 `cond=[…]` 同一规则）。
                 //   ⚠️ **标签必须是 `Source=` 而不是 `src=`** —— 本入口上面那条 `ASK …` 行的
                 //     `src=` 打的是 **`ChooseSrc`（另一个字段）**，两个同名会静默看错。
-                + " Source=[" + (op.Source ?? "") + "]");
+                + " Source=[" + (op.Source ?? "") + "]"
+                // 🔴 **`A1561①`（2026-10-19 波 4）：其余公开字段一块打全**（判据/取舍见 `ExtraFields`）。
+                //   ⛔ 不动上面任何既有列 —— 本块只追加在行尾（同 `A1368`/`A1374`/`A1477` 的「只追加」形状）。
+                + ExtraFields(op));
         }
     }
 
@@ -552,6 +555,93 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
     /// ⛔ **不许转义/替换** —— 那会让 dump 的值与引擎字段不同，下一个人照 dump 抄进断言就抄错了。
     /// `scan` 那边靠「只认前两个 `|`」的 `CheckMain` 兜住（见 `Scan.cs` 文件头）。</summary>
     public static string CountRefText(EffectOp op) { return op.CountRef ?? ""; }
+
+    /// <summary>🔴 **`A1561①`（2026-10-19 波 4）：`EffectOp` 其余公开字段的唯一渲染口**（只给 `Dump` 用）。
+    ///
+    /// **判据（本笔定的「该打哪些」—— 原账说这条判据本身没有出处，这里把它写死）**：
+    ///   ① **凡 `EffectOp` 的公开字段，只要由解析器写入、且结算层会读，就必须在 `Dump` 里可见** ——
+    ///      ⛔ 不再按「老 15 列」那张名单挑；新加字段时**照这条判据补**，而不是等下一次被账点到。
+    ///   ② **已被共享渲染口覆盖的不重复打**：`T=` / `T2=` / `DW=`（`EffectTargetSpec` 的 28 列，
+    ///      见 <see cref="TargetCols"/>）、`/{AM:…}` / `/{TAIL:…}` / `/{SRC:…}`（`TargetBlock`，
+    ///      `scan` 用的是同一份）、`atTurn(...)` / `repeat(...)` / `base(...)`（`NestedText` 打嵌套 op 本体）。
+    ///   ③ **只追加**：本块排在既有 `op:` 行的**末尾**，既有列一字不动（同 `A1368`/`A1374`/`A1477`）。
+    ///   ⚠️ `scan` **不**打本块（它只打 `TargetBlock`）⇒ **改这里不会动 `check` 的基线**；
+    ///      反过来说，`scan` 仍看不见 `Instead` / `AltAmount` 这类「顶层 op 自己的布尔/替换值」——
+    ///      其中 `Tail` 已由 `A1877②` 补进 `scan`，`ChooseDeadScope` 仍缺（施工图见 `Scan.cs` 那一行注释）。
+    /// ⚠️ `null` → 空串、布尔 → `0/1`（与 `shared=` 同一条口径）；**原样打、不转义**（同全仓既有取舍）。
+    /// </summary>
+    public static string ExtraFields(EffectOp op)
+    {
+        if (op == null) return " ext={}";
+        var parts = new List<string>();
+        void S(string k, string v) { parts.Add(k + "=" + (v ?? "")); }
+        void B(string k, bool v) { parts.Add(k + "=" + (v ? "1" : "0")); }
+        void N(string k, int v) { parts.Add(k + "=" + v.ToString(System.Globalization.CultureInfo.InvariantCulture)); }
+
+        string Crit(CardCriteria c)
+        {
+            if (c == null) return "null";
+            var xs = new List<string>();
+            if (!string.IsNullOrEmpty(c.KindWord)) xs.Add("kind=" + c.KindWord);
+            if (c.KindAnyOf != null && c.KindAnyOf.Count > 0) xs.Add("any=" + string.Join(",", c.KindAnyOf));
+            if (!string.IsNullOrEmpty(c.Keyword)) xs.Add("trait=" + c.Keyword);
+            if (!string.IsNullOrEmpty(c.Name)) xs.Add("name=" + c.Name);
+            return xs.Count == 0 ? "{}" : "{" + string.Join(";", xs) + "}";
+        }
+
+        string When(WhenEvent w)
+        {
+            if (w == null) return "null";
+            var xs = new List<string>();
+            xs.Add("kind=" + (w.Kind ?? ""));
+            xs.Add("ownerIs=" + w.OwnerIs.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            xs.Add("selfOnly=" + (w.SelfOnly ? "1" : "0"));
+            xs.Add("notEphemeral=" + (w.NotEphemeral ? "1" : "0"));
+            xs.Add("actorSelf=" + (w.ActorSelf ? "1" : "0"));
+            xs.Add("targetOwnerIs=" + w.TargetOwnerIs.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (w.TargetCriteria != null) xs.Add("targetCriteria=" + Crit(w.TargetCriteria));
+            if (w.Criteria != null) xs.Add("criteria=" + Crit(w.Criteria));
+            xs.Add("raw=[" + (w.Raw ?? "") + "]");
+            return "{" + string.Join("|", xs) + "}";
+        }
+
+        // —— 数值 / 区间 / 替换值 ——
+        N("am", op.AmountMax);
+        N("costSetTo", op.CostSetTo);
+        S("amountRef", op.AmountRef);
+        B("instead", op.Instead);
+        N("altAmount", op.AltAmount);
+        S("altCond", op.AltCondition);
+        S("altCondKind", op.AltConditionKind);
+        S("altPayload", op.AltPayload);
+        // —— 部署那一族 ——
+        S("dest", op.Dest);
+        S("deployFrom", op.DeployFrom);
+        B("eachPlayer", op.EachPlayer);
+        N("costMin", op.CostMin);
+        N("costMax", op.CostMax);
+        B("random", op.Random);
+        B("upTo", op.UpTo);
+        // —— 降费那一族 ——
+        B("pickOne", op.PickOne);
+        B("nextOnly", op.NextOnly);
+        // —— 选牌动作的参数 ——
+        N("chooseCostDelta", op.ChooseCostDelta);
+        N("chooseCopies", op.ChooseCopies);
+        B("randomPick", op.RandomPick);
+        // —— 时长 / 常驻 / 筛选 ——
+        S("dur", op.Duration);
+        S("atTurnPhase", op.AtTurnPhase);
+        S("filter", Crit(op.Filter));
+        S("subject", Crit(op.Subject));
+        B("otherThanSelf", op.OtherThanSelf);
+        S("when", When(op.When));
+        // —— for each / repeat ——
+        N("perCount", op.PerCount);
+        N("repeatTimes", op.RepeatTimes);
+
+        return " ext={" + string.Join("|", parts) + "}";
+    }
 
     // ==================================================================================
     //  `A1477`：**目标（`EffectTargetSpec`）在 dump 里的唯一渲染口**

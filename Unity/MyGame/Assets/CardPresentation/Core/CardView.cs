@@ -441,6 +441,54 @@ namespace CardPresentation
             return new Vector2(0.5f + cx / CardUnitW, 0.5f - cy / CardUnitH);
         }
 
+        // ==================================================================================
+        //  🔴 2026-10-18（`A1549`）：费用格的**两档** —— `Cost Container` ↔ `Cost Container Big`
+        //
+        //  **判据（原版一手，逐字段现读）**
+        //    · 控制器 = `CardTextCountersController`（`MonoScript_-1746985122272567298`；预制体实例
+        //      `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MonoBehaviour_6320885271709195200.json`）
+        //      —— `containers[]` 每项带 `activationRules`，枚举在桩 `CardTextCountersController.cs`：
+        //        `Normal = 0 · SmallScreen = 5 · SimplifiedView = 10 · NoSimplifiedView = 15`
+        //      实读（同上 JSON）：
+        //        · `Cost Container`（GO `3506277890724895680`）= **[0, 15]**
+        //        · `Cost Container Big`（GO `-4971020442760602688`）= **[5, 10]**
+        //    · `Toggle(value, simplifiedView)`（`CardTextCountersController__Toggle.c` 逐句读）：
+        //        规则 0 ⇒ 开；规则 5 ⇒ 看静态 `GameStaticData.smallScreenUI`（+0x11c）；
+        //        规则 10 ⇒ 看 `simplifiedView`；规则 15 ⇒ **`!simplifiedView`**。
+        //      `value == false`（整格关掉）⇒ 两个容器都关。
+        //    · `simplifiedView` 的实参：`BasicCardUI.SetRawCardData` / `ToggleStats` **全部传 0**
+        //      （`BasicCardUI__SetRawCardData.c:84,91,96,98,100`），而
+        //      `CardTextCountersController.ToggleSimplifiedView` **在反编译集里没有任何调用者**
+        //      ⇒ **今天真正会切的那一档 = `smallScreenUI`** —— 我们的等价物 =
+        //      `CardPresentation.SmallScreenUI.Enabled`（全工程唯一来源，见那个类）。
+        //  **几何（同包 `RectTransform/` 实读；两档逐项 ×1.2）**
+        //    · 背景 `Cost Background`：0.4891×0.4809 → **0.58692×0.57708**
+        //    · 数字框 `CostText`：0.38×0.35 → 0.456×0.42（同一张图 / 同一个锚点偏移）
+        //    · 容器 apos：**(0.788, 0.666) → (0.788, 0.643)** ⇒ **x 不动、y 下移 0.023 卡单位**
+        //    · 两档背景是**同一张 sprite**（Image MB 逐字段相同：`m_Type=0` · `m_PreserveAspect=0` ·
+        //      `m_Color` 白）⇒ **只放大、不换图**。
+        //  ⚠️ 与 W27（费用贴卡框右缘）的关系：W27 定的是**中心**；原版两档**容器 x 相同** ⇒ 大号档
+        //     就是在同一个中心上放大（右缘会跟着往外），⛔ 别把「可见右缘」再重新贴一次边。
+        // ==================================================================================
+        /// <summary>大号费用格相对普通档的**尺寸倍率**（原版两档逐项实测 = 1.2）。</summary>
+        public const float CostBigScale = 1.2f;
+        /// <summary>大号费用格相对普通档**下移多少卡单位**（原版容器 apos y 0.666 → 0.643）。</summary>
+        public const float CostBigDropUnit = 0.023f;
+        /// <summary>现在用哪一档（= 原版 `GameStaticData.smallScreenUI` 那一路；判据见上面那一段）。</summary>
+        public static bool CostBig { get { return SmallScreenUI.Enabled; } }
+        /// <summary>费用格尺寸倍率（普通档 1.0 / 大号档 1.2）。</summary>
+        static float CostScale { get { return CostBig ? CostBigScale : 1f; } }
+
+        /// <summary>费用格在卡面上的**实际**落点（两档统一走这一个口）：
+        /// `FaceCostAt01`（W27 的贴徽记规则）+ 大号档的**下移**（原版容器 apos 差）。
+        /// ⚠️ 底板层 / 烘进 `_info` 的数字 / 命中区**三处都走它**（与 W27 时同样的「只此一处」口径）。</summary>
+        static Vector2 CostAt01(Texture2D frameTex)
+        {
+            var at = FaceCostAt01(frameTex);
+            if (CostBig) at.y += CostBigDropUnit / CardUnitH;   // 向下 ⇒ at01 的 y（从顶部数）变大
+            return at;
+        }
+
         /// <summary>贴图像素 y（**从顶部数**）→ 卡单位（y 向上）。与 <see cref="FramePxAt01"/> 同一条
         /// 换算链（`FrameUv` + `FrameQuad`），只取纵坐标。UV 退化 ⇒ `NaN`（调用方退回旧常量）。</summary>
         static float FramePxYToCard(Texture2D frameTex, float py)
@@ -582,13 +630,42 @@ namespace CardPresentation
         /// 与 PnP 上量到的宝石中心残差 —— 10 张 **≤3 px**，另 2 张的 PnP 自身偏低 ≈14 px
         /// （那两张的宝石离卡底更近，属印刷品自身差异，不是我们这侧的错）。</para>
         /// <para>⚠️ 尺寸 `RarityGemW/H` 仍是固定卡单位（没有按 uv 缩放）：凹槽在**贴图上**是 67×63 px，
-        /// 换算到卡单位会随 uv 变 ±6%；PnP 上量到的宝石反而比凹槽小 ~20% ⇒ 缩不缩放判据不足，
-        /// 本笔只改**落点**。</para></summary>
+        /// 换算到卡单位会随 uv 变 ±6%。**2026-10-18（卡面侧第二波）复核**：旧记的「PnP 宝石比凹槽小 ~20%」
+        /// **不成立** —— 那个数只对得上宝石的**彩色内核**（common 的彩色区 53 px vs 凹槽 67 px）；
+        /// 把**金属边**算进去后，6 张 PnP 实测「宝石外沿 / 卡框可见宽」= **0.098–0.132**，
+        /// 而**原版 prefab 的绝对尺寸** `Card Rarity Sprite = 0.25796 × 0.23345`（UI `Image`，`PA=0`；
+        /// 子节点 `RectTransform` 逐字段实读）对卡框 `2.2452` 宽 = **0.1149**；其不透明菱形
+        /// （宝石贴图 84×76 里 alpha&gt;128 的 75×73 px）对凹槽 67 px = **1.12×**
+        /// ⇒ **宝石外沿比凹槽略大（≈1.0–1.12×），不是小 20%**。判据全文 → `W_卡牌线_卡面侧2.md` §二·3。
+        /// 🔴 **但这条还不能直接落成绝对尺寸**：我们画框用的是 `FrameUv` 的**不透明块**（611×926 px）
+        /// 拉满 `FrameUnit`，而原版把 **sprite rect（682×998，含透明留白）** 拉满 ⇒ 我们的可见框比原版
+        /// **宽 11.6% / 高 7.8%**；按「相对凹槽」还是「相对卡」缩放，两者差 11.6%
+        /// ⇒ **尺寸判据等主对话裁「画框该按 alpha 块还是 sprite rect」**，本笔**不动数值**。</para>
+        /// <para>🔴 **`A1492` 尾巴「0.042」复核（2026-10-18）**：prefab 里 `Rarity` 与
+        /// `Card Rarity Sprite` 两个 `RectTransform` 的 **`m_AnchoredPosition.x` 都是 0**、`pivot (0.5,0.5)`
+        /// （Rarity apos y = **−1.458**、子件 y = **−0.0055** ⇒ 宝石中心 = **−1.4635** 卡单位，正是旧常量）；
+        /// `CardFrame` 的 Image `PA=0`；frame sprite `m_Rect = (171,11,682,998)` / `pivot (0.5,0.5)`
+        /// （13 军 × 4 档 = 52 条实测）。**按原版映射（sprite rect 拉满矩形）**重算：
+        /// 凹槽中心 = **(−0.0016, −1.4547)**（我们的卡空间，`FrameUnitY = −0.03` 已含「整卡面低 0.08」；
+        /// x 用连续坐标 `(511.5−171)/682`，⛔ 不是 `(511−171)/682`），
+        /// 与 prefab 宝石中心 **(0, −1.4635)** 相差 **(+0.0016, −0.0088)** ⇒ **原版宝石就是基本对齐凹槽的**，
+        /// **推不出 0.042**（疑因原版实拍那张卡带 `AutoCardRotation`（±10°）透视、或量的是屏幕坐标）。
+        /// 🔴 **真正能复算的差异全在【画框映射】**：我们用的是 `FrameUv` 的**不透明块**（x 201..811 =
+        /// 611×926 px）拉满 `FrameUnit`，而原版把 **sprite rect（171..853 = 682×998 px，含透明留白）**
+        /// 拉满 ⇒ 同一个凹槽像素在我们的卡空间落在 **(+0.0147, −1.5126)**（= 现在的 `RarityGemX/Y`），
+        /// 比原版映射**偏 (+0.018, −0.058)**。**旧常量 (0, −1.4635) 与 prefab 一致**；`A1492` 把宝石挪到
+        /// 凹槽上，补偿的其实是这条画框映射差 —— **改画框映射时要连宝石/费用/三围一起回看**，
+        /// ⛔ 别只把宝石改回去（那会让它离开我们的凹槽）。</para></summary>
         const float FrameGemPx = 511.0f, FrameGemPy = 950.0f;
 
         /// <summary>宝石中心的**旧固定值**（卡单位）—— ⚠️ 现在**只在没有卡框（占位卡面）时兜底**。
         /// y = **卡框凹槽实测中心**（旧值 −1.4635 是「容器 −1.458 + 图自己 −0.0055」的推导值，与画出来不符）。
-        /// x = 凹槽中心（旧代码隐含 x=0，但贴图里那个凹槽并不在 x=0 上 ⇒ 代码层原来偏左 0.0147）。</summary>
+        /// x = 凹槽中心（旧代码隐含 x=0，但贴图里那个凹槽并不在 x=0 上 ⇒ 代码层原来偏左 0.0147）。
+        /// 🔴 **2026-10-18 复核（铁律 5）**：−1.4635 **不是推导错** —— 它就是 prefab 两个
+        /// `m_AnchoredPosition` 之和（Rarity −1.458 + 子件 −0.0055）；**在原版映射（sprite rect）下
+        /// 它与凹槽只差 0.0088**。它「与画出来不符」的真因是**我们的画框映射**（alpha 块 vs sprite rect）
+        /// 把凹槽挪到了 −1.5126（x 同理：prefab 的 x 就是 0，+0.0147 是补偿我们的映射）。
+        /// 详见上面 `FrameGemPx` 那一段最后两节 —— ⛔ 别据此把「prefab 值」当成错的。</summary>
         const float RarityGemY = -1.5126f;
         const float RarityGemX = 0.0147f;
 
@@ -908,6 +985,10 @@ namespace CardPresentation
                                  // 小卡档不建（`UseFrontLayer` = false）⇒ 小卡上恒为 null
         MeshRenderer _gem;       // 卡面底部那颗稀有度宝石（原版 `Rarity`）
         MeshRenderer _costBg;    // 费用底板（原版 `Cost Container/Cost Background`，图 `Card_Frame_Cost_Icon`）
+        /// <summary>🆕 2026-10-18（`A1549` 尾巴）**费用格建出来时用的是哪一档**：`0` = 普通、`1` = 大号、
+        /// `-1` = 这张卡**没有**费用格（场上形态 / 督军 / 无底图）。运行时切 `SmallScreenUI` 之后
+        /// 靠它判「已建好的卡要不要重做网格」。见 <see cref="RefreshCostTier"/>。</summary>
+        int _costTierBuilt = -1;
         MeshRenderer _armourIcon;// 护甲盾牌底（原版 `Armour Container/Image`，图 `pedestal_icon_armor`）
         MeshRenderer _info;      // 数值层
         MeshRenderer _rim;       // 状态描边
@@ -930,6 +1011,10 @@ namespace CardPresentation
         // 换算过程写在 `Badges.SlotAt` 上面 —— **不在这里写第二份**。
         readonly List<MeshRenderer> _badgePlates = new List<MeshRenderer>();
         readonly List<MeshRenderer> _badgeIcons = new List<MeshRenderer>();
+        /// <summary>🆕 2026-10-18（`A1676`）**未激活那枚 ✕**（原版 `traitNotActiveIcons[]` / `Trait Not Active`）。
+        /// 与 `_badgeIcons` **同位、同中心**、边长 ×0.64533、z 更靠前 0.0030 —— 判据与出处见
+        /// `Badges.NotActiveScale` 那一段。⚠️ 懒建：这一位从没进过未激活态 ⇒ 这个列表里可能是 `null`。</summary>
+        readonly List<MeshRenderer> _badgeCrosses = new List<MeshRenderer>();
         readonly List<TextMeshPro> _badgeCounters = new List<TextMeshPro>();
         /// <summary>现在画着的那几位（`SetBadges` 进来的那一份）—— 「按关键词脉冲」要拿它配对。</summary>
         readonly List<Badge> _badges = new List<Badge>();
@@ -999,6 +1084,24 @@ namespace CardPresentation
                 if (mr.GetComponent<Label>() != null) continue;   // 点阵文字：走下面那个（它自己实例化）
                 StampQueue(mr);
             }
+            // 🆕 2026-10-18（`A1674`）：**粒子层也盖章**（`ParticleSystemRenderer` 不是 `MeshRenderer`，
+            // 上面那个循环扫不到它）。判据（原版 prefab 逐字段实读，见 `BuildCanAct` 那一段）：
+            //   · `CanActParticles` / `RotatingRing` 的 `m_SortingOrder = 0`、`m_SortingLayerID = 0`、
+            //     `m_SortingFudge = −3 / −2`、材质 `m_CustomRenderQueue = 3000`；
+            //   · Unity 的语义：**负的 `sortingFudge` = 排在同队列其它透明物【之前】（= 后面）** ——
+            //     原版就是靠这个把绿光压在卡面其它透明层之后的；它和卡面**本来就在同一个队列（3000）**。
+            //   ⇒ 我们把这几个粒子也盖成**这张卡的队列号**，复现的是同一件事：
+            //     卡内仍由距离 + fudge 排序（原版值不动），卡间则由队列段隔离（不再盖到邻居卡上）。
+            //   ⛔ **`SpriteRenderer` 不在此列**：① `BlobShadow` 已判「不需要」（卡体 `ZWrite On`、
+            //     影子 `zT=LEqual` ⇒ 深度测试挡掉，与队列无关，见 `资料/普查产出_第二十二会话/W4_场上卡层级.md`）；
+            //     ② 残骸体那圈光（`RemnantLight`）属于**特效 prefab 实例**，`SetQueue` 不能替它重排层序。
+            //   ⚠️ 残骸体子树里的粒子同理**不盖章**：那批 prefab 自带 `m_SortingOrder`（实测 0 / 1 / 155 …）
+            //     与 `m_SortingFudge`（0 / 4.38 / 17.07 …）在排层，硬盖队列会把它的内部层序压平。
+            foreach (var pr in GetComponentsInChildren<ParticleSystemRenderer>(true))
+            {
+                if (_remnantBody != null && pr.transform.IsChildOf(_remnantBody.transform)) continue;
+                StampQueue(pr);
+            }
             foreach (var lb in GetComponentsInChildren<Label>(true)) lb.SetRenderQueue(q);
         }
 
@@ -1007,8 +1110,10 @@ namespace CardPresentation
         /// <para>🔴 **值已经对了就一个字节都不写**：`.material` 会**实例化**共享材质，而 TMP 那几层的
         /// `sharedMaterial` 是**字体资产里那一份**（全卡共用 ⇒ 能合批）⇒ 无脑写会把每张卡的每层文字
         /// 都拆成独立材质（多出几十个 draw call），而且是**白拆**（默认 3000 == 卡片队列段的默认号）。
-        /// 只有布局真给了别的号（`≠ QCard`）时才需要实例化 —— 那时不合批是应该的。</para></summary>
-        void StampQueue(MeshRenderer mr)
+        /// 只有布局真给了别的号（`≠ QCard`）时才需要实例化 —— 那时不合批是应该的。</para>
+        /// <para>⚠️ 形参是 <see cref="Renderer"/>（2026-10-18 `A1674` 起）：`ParticleSystemRenderer`
+        /// 不是 `MeshRenderer`，但要盖的是同一件事（`sharedMaterial.renderQueue`）。</para></summary>
+        void StampQueue(Renderer mr)
         {
             if (mr == null || mr.sharedMaterial == null) return;
             if (mr.sharedMaterial.renderQueue == _queue) return;   // 无操作就别拆材质（见 doc）
@@ -1025,15 +1130,22 @@ namespace CardPresentation
             foreach (var mr in t.GetComponentsInChildren<MeshRenderer>(true)) StampQueue(mr);
         }
 
-        /// <summary>🆕 自检用：这张卡**子树里所有渲染器**的队列号（含 TMP 与其 sprite 子网格、含 `Label`）。
+        /// <summary>🆕 自检用：这张卡**子树里所有渲染器**的队列号（含 TMP 与其 sprite 子网格、含 `Label`、
+        /// 🆕 `A1674` 起还含**卡自己的粒子层**）。
         /// 「前卡整段 &gt; 后卡整段」那条断言用的是它的 `Min`/`Max` —— 用集合而不是单个号，
-        /// 是为了**将来哪天卡内层改成 `q + 偏移`** 时那条断言仍然成立（现在就写死成「一个号」会锁住实现）。</summary>
+        /// 是为了**将来哪天卡内层改成 `q + 偏移`** 时那条断言仍然成立（现在就写死成「一个号」会锁住实现）。
+        /// ⚠️ 残骸体（特效 prefab 实例）的粒子**不进集合** —— 它不由 `SetQueue` 盖章（见 `SetQueue` 的注释）。</summary>
         public int[] SubtreeQueues()
         {
             var all = GetComponentsInChildren<MeshRenderer>(true);
-            var list = new List<int>(all.Length);
+            var list = new List<int>(all.Length + 2);
             foreach (var mr in all)
                 if (mr.sharedMaterial != null) list.Add(mr.sharedMaterial.renderQueue);
+            foreach (var pr in GetComponentsInChildren<ParticleSystemRenderer>(true))
+            {
+                if (_remnantBody != null && pr.transform.IsChildOf(_remnantBody.transform)) continue;
+                if (pr.sharedMaterial != null) list.Add(pr.sharedMaterial.renderQueue);
+            }
             return list.ToArray();
         }
 
@@ -1332,6 +1444,9 @@ namespace CardPresentation
             // 🆕 2026-10-14（`A1863`）：换形态是**第二个入口**（手牌 ↔ 场上），「面朝下」是**按场景分层**
             //    （只有场上那一档才藏数值）⇒ 必须在这儿也重放一次。理由同 `SetData` 末尾那一处。
             ApplyAmbush();
+            // 🆕 2026-10-19（`A2139`）：换形态可能**新建层**（3D 卡体/数值/徽标）⇒ 整卡灰补到新层上
+            //    （铁律 10 第 5 条：多入口各显式设一次；`_grey = 0` 时零成本）。
+            if (_grey > 0f) ApplyGrey();
         }
 
         /// <summary>**场上要不要把四个数值拆成独立图层** —— 判据只有这一处（`Build` 与 `SetFace`
@@ -1359,8 +1474,15 @@ namespace CardPresentation
         /// <para>⚠️ **没填 `type` 的构造点**（`CardData.Simple` / `Placeholder` / 自检夹具）仍走老口径
         /// （只看 `cost >= 0`）—— 与 `SubtypeLine` 对空 `type` 的处理同一个态度：
         /// 判不出来时**不改行为**。</para>
-        /// <para>⚠️ 底板（`_costBg` 图层）与烘进 `_info` 的那个**数字**是**两处**，
-        /// 两处都必须过这一条 —— 只关一处会留下「一块空六边形」或「一颗飘着的数字」。</para></summary>
+        /// <para>⚠️ **底板（`_costBg` 图层）与烘进 `_info` 的那个**数字**是**两处**，
+        /// 两处都必须过这一条 —— 只关一处会留下「一块空六边形」或「一颗飘着的数字」。</para>
+        /// <para>🔴 **2026-10-19（用户裁定）：`cost &lt; 0` = 「**无费用**」的数据表达** —— 不是缺值、
+        /// 更不能拿 `0` 顶。4 张 `Dark Pact of *`（`Fate/Blood/Excess/Resilience`）是战术卡触发生成的
+        /// **契约/附魔模板**，当前 build 的卡 SO 里 `manaCost = -1`（原版「不可直接打出」的哨兵）；
+        /// `工具/gen_cards_engine.py` 把它**原样**落进 `cost`。⇒ 本条 `d.cost >= 0` 就是卡面
+        /// 「**不画费用格**（底板 + 数字都不建）+ 命中区不给 `StatCost`」的唯一判据。
+        /// ⚠️ 引擎侧同一条口径 = `RuleCodes.ErrNotPlayable`（`RuleCore.CanPlayCard` /
+        /// `CanPlayTactic` 的 `card.Cost &lt; 0` 守卫）—— `CostOf` 会把负值 clamp 成 0，不挡就会被当成免费。</para></summary>
         public static bool ShowsCost(CardData d) { return d.cost >= 0 && d.type != "hero"; }
 
         static void Show(MeshRenderer r, bool on) { if (r != null) r.gameObject.SetActive(on); }
@@ -1578,6 +1700,80 @@ namespace CardPresentation
         /// <summary>场上那张 3D 卡体现在可见吗（**手牌打出去之后也必须为 true**）。</summary>
         public bool Body3DVisible { get { return _body3D != null && _body3D.gameObject.activeSelf; } }
 
+        // ==================================================================
+        //  🆕 2026-10-18（`A1549` 尾巴）**运行时切档 → 已建好的卡怎么跟上**
+        // ==================================================================
+        //
+        // **问题**：费用格的两档（`Cost Container` / `Cost Container Big`）在**建层那一刻**
+        //   就烘进了网格（尺寸 ×`CostScale`、落点含 `CostBigDropUnit`），`_info` 里那颗数字也按
+        //   `CostAt01` 烘死了 ⇒ 之后再改 `SmallScreenUI.Enabled`，**已经建出来的卡不会变**。
+        // **原版怎么做的**：`CardTextCountersController.Toggle(...)` 每次被调都按当时的
+        //   `GameStaticData.smallScreenUI` **重新选容器**（`CardTextCountersController__Toggle.c`），
+        //   即「状态变了就重算」。我们这边要补的就是这条刷新链。
+        // **缺什么（如实写）**：`SmallScreenUI.Set(bool)` 是**唯一写入点**，但它在
+        //   `Shell/TransformScalerBySmallScreenUI.cs`（本写手白名单之外）⇒ 这次**没有**在
+        //   设置窗那颗开关后面接线。做到的是：① 每张卡自己能 `RefreshCostTier()`；
+        //   ② 卡在 `SetPose` / `SetData` 这两个**必经过**的口上自动比一次档位（所以切完设置之后，
+        //      下一次布局/刷新就会跟上）；③ `RefreshAllCostTiers()` 供设置窗（或自检）一次性刷全场。
+        //   ✅ **2026-10-19 订正（铁律 5 · `A2139` 顺手核）**：上面那句「⏭ 接线待办」**已经做完了** ——
+        //      界面线在 `Shell/SettingsWindow.cs:4500-4512`（`ToggleSmallScreenUI`）里，
+        //      `SmallScreenUI.Set(...)` 之后已经补了 `CardView.RefreshAllCostTiers()` 并出声报重做张数。
+        // ⚠️ **只重做费用格 + `_info` 里那颗数字**，其它层一概不动（切档只影响这两处；判据见
+        //   `CostAt01` / `InfoTexture` 的注释）。`HitAt` / `StatWorld` 是**调用时**才算 `CostAt01`
+        //   ⇒ 它们自动是当前档，不需要刷。
+
+        /// <summary>🆕 这张卡的**费用格档位建出来时是哪一档**（`0` 普通 / `1` 大号 / `-1` 没建）。
+        /// 自检用；产品侧只看 <see cref="RefreshCostTier"/> 的返回值。</summary>
+        public int CostTierBuilt { get { return _costTierBuilt; } }
+
+        /// <summary>🆕 把这张卡的**费用格重做成当前档**（`CostBig` 变了才动）。
+        /// <para>返回 `true` = 真的重做了（网格 + `_info` 数字）。返回 `false` = 这张卡没有费用格
+        /// （场上形态 / 督军 / 底图取不到）或档位本来就对。</para>
+        /// <para>🔴 **不销毁重建图层**：只换 `MeshFilter.sharedMesh`（`SpriteQuad` 按「卡框名 + 档位」
+        /// 缓存）⇒ 材质的整卡着色/淡出（`ApplyTint`）原样保留，不会闪一帧。</para></summary>
+        public bool RefreshCostTier()
+        {
+            int want = CostBig ? 1 : 0;
+            if (_costTierBuilt < 0 || _costTierBuilt == want) return false;
+            if (_costBg != null)
+            {
+                var mf = _costBg.GetComponent<MeshFilter>();
+                if (mf != null)
+                    mf.sharedMesh = SpriteQuad((_frameTex != null ? "costBg_" + _frameTex.name : "costBg")
+                                               + (CostBig ? "_big" : ""),
+                                               CostAt01(_frameTex),
+                                               CostBgW * CostScale, CostBgH * CostScale);
+            }
+            _costTierBuilt = want;
+            // 数字是烘在 `_info` 那张贴图里的（`InfoTexture` 的缓存键**已经带档位**）⇒ 必须重烘。
+            if (_info != null && _info.sharedMaterial != null)
+                _info.sharedMaterial.mainTexture =
+                    InfoTexture(Data, _faceMode == CardFace.Board, SplitStats(Data), _frameTex);
+            ApplyTint();        // 新网格用的还是原来那份材质 ⇒ 其实不必，但保住「换完和别的层同色」这条不变量
+            return true;
+        }
+
+        /// <summary>🆕 档位变过就刷（`SetPose` / `SetData` 开头调；没变时只是一次 bool 比较）。</summary>
+        void SyncCostTier()
+        {
+            int want = CostBig ? 1 : 0;
+            if (_costTierBuilt >= 0 && _costTierBuilt != want) RefreshCostTier();
+        }
+
+        /// <summary>🆕 把**场上所有**已建好的卡刷到当前档（给设置窗那颗开关 / 自检用）。
+        /// 返回真的重做了几张 —— 0 = 全场没有卡需要改（或一张卡都没有）。</summary>
+        public static int RefreshAllCostTiers()
+        {
+            var all = Object.FindObjectsByType<CardView>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            int n = 0;
+            foreach (var v in all) if (v != null && v.RefreshCostTier()) n++;
+            return n;
+        }
+
+        /// <summary>🆕 自检用：**不重建**、只算「此刻该用哪一档」。与 `RefreshCostTier` 同一条判据。</summary>
+        public static bool CostBigNow { get { return CostBig; } }
+
+
         /// <summary>🆕 2026-09-29：**开关 3D 卡体**（原版 `BattleCardUI.ToggleBody3D(bool)` 那一支）。
         /// 阵亡时第一件事就是把它关掉（`CardScript.UnitDeath`：`battleCardUI.body3D.SetActive(false)`），
         /// 画面上的「卡」随即换成在卡位另生成的那个爆散体 —— 判据 → `CardFeel.DeathExplosion`。</summary>
@@ -1626,6 +1822,9 @@ namespace CardPresentation
             // 🔴 **必须赶在 `Data = d` 之前** —— 之后就看不到旧值了，而「涨了还是落了」要旧值。
             CaptureStatChanges(d);
             Data = d;
+            // 🆕 2026-10-18（`A1549` 尾巴）：档位若被切过，先跟上再刷别的层
+            //   （`InfoTexture` 的缓存键带档位 ⇒ 档位变了必须重烘，见 `RefreshCostTier`）。
+            SyncCostTier();
             // 🔴 **2026-10-03（A87①）换这张兜底卡面的材质要【保留】换之前那份显式分好的 `renderQueue`** ——
             //    做法与 `Battle/ImageQuad.cs` 的 `SetMaterial`（A85 的通用修）**逐字同一条**：先读旧队列、
             //    `q >= 0` 才写回。为什么这里也要有：`FaceMaterial(d)` 是 `new Material(_quadMat)`，基材
@@ -1717,6 +1916,9 @@ namespace CardPresentation
             //   而 `_art` 那层也被上面的 `ArtTexture(d)` 刷回了自己的立绘 ⇒ 不在这儿补一次，
             //   面朝下的单位每刷一次棋盘就「翻开」一次（`SyncBoard` 每轮都调 `SetData`）。
             ApplyAmbush();
+            // 🆕 2026-10-19（`A2139`）：`SetData` 可能**新建层**（徽标/数值/文字）⇒ 整卡灰补到新层上。
+            //    ⚠️ 判 `_grey > 0` 再扫：这一句在「战场每刷新一次」的热路径上，`_grey = 0` 时一个字节都不动。
+            if (_grey > 0f) ApplyGrey();
         }
 
         /// <summary>原版 `CardTextCountersController.DoColorChange(old, new)` 那两下：
@@ -1838,6 +2040,7 @@ namespace CardPresentation
                 _badgeIcons[i].enabled = on;
                 if (!on)
                 {
+                    SetBadgeCross(i, false);
                     if (_badgeCounters[i] != null) _badgeCounters[i].text = "";
                     continue;
                 }
@@ -1845,6 +2048,10 @@ namespace CardPresentation
                 SetBadgeIconTexture(i, CardArt.Trait(b.sprite));
                 // 🆕 2026-09-29 未激活态：**同一张图换材质**（每回合状态会变，所以每次刷新都要重设）
                 SetBadgeGrey(_badgeIcons[i], b.active);
+                // 🔴 2026-10-18（`A1676`）：未激活还有**第二条通道** —— 叠一枚 ✕（原版 `Trait Not Active`）。
+                //    判据 = `BoardTraitIcon.Initialize` 里**同一个 `traitEnabled`** 同时驱动
+                //    「换 disabledMaterial」与「`traitNotActiveIcons[].enabled = !traitEnabled`」⇒ **叠加**。
+                SetBadgeCross(i, !b.active);
                 if (_badgeCounters[i] != null)
                 {
                     // 原版带角标的那一支叫 `With counter`，不带的那支叫 `Without counter`
@@ -2100,6 +2307,71 @@ namespace CardPresentation
             _layers.Add(mr);
             SetBadgeGrey(mr, active);
             return mr;
+        }
+
+        // ── 🆕 2026-10-18（`A1676`）：未激活那枚 ✕──────────────────────────────────────
+        //  原版 `BoardTraitIcon.Initialize` 在 `traitEnabled == false` 时**两条通道一起走**：
+        //    ① `traitIcons` 换 `disabledMaterial`（= `Sprite Greyscale`，我们已在 `SetBadgeGrey` 里做）
+        //    ② `traitNotActiveIcons` 逐个 `enabled = true`  ← **本方法补的是这一条**
+        //  判据原文与几何出处 → `Badges.NotActiveScale` 那一段（⛔ 别在这儿另写一份数）。
+        //  ⚠️ 贴图固定 `Art/ui/40k_Combat_Icon_Cross`：**所有词条共用同一枚 ✕**（预制体里写死）。
+        static bool _crossWarned;
+
+        /// <summary>把第 i 位的 ✕ 打开 / 关掉。`on == true` 时**懒建**那一层（这一位从没未激活过就一个对象都不建）。</summary>
+        void SetBadgeCross(int i, bool on)
+        {
+            if (i < 0 || i >= Badges.MaxSlots) return;
+            if (!on && _badgeCrosses.Count <= i) return;          // 没建过、也不用建
+            if (_badgeCrosses.Count <= i)
+            {
+                while (_badgeCrosses.Count < i) _badgeCrosses.Add(null);   // 中间那些位没建过 ⇒ 占位对齐（⛔ 别让 Add 落到错的索引上）
+                _badgeCrosses.Add(BuildBadgeCross(i));
+            }
+            var mr = _badgeCrosses[i];
+            if (mr != null) mr.enabled = on;
+        }
+
+        /// <summary>建一位的 ✕。取不到图 ⇒ 返回 `null` 并**出声**（不静默：那样未激活态只剩灰化，
+        // 而原版是两条通道都有）。</summary>
+        MeshRenderer BuildBadgeCross(int i)
+        {
+            var tex = CardArt.Ui("40k_Combat_Icon_Cross");
+            if (tex == null)
+            {
+                if (!_crossWarned)
+                {
+                    _crossWarned = true;
+                    Debug.LogWarning("[CardView] `Art/ui/40k_Combat_Icon_Cross` 取不到 ⇒ 未激活的徽标**只灰化、不画 ✕**"
+                                   + "（原版 `BoardTraitIcon` 是两条通道：灰化 + `traitNotActiveIcons[].enabled`）。");
+                }
+                return null;
+            }
+            var at = BadgeIconAt01(i);
+            var go = new GameObject("badgeCross" + i);
+            go.transform.SetParent(FaceRoot, false);          // 徽标是卡面的一层 ⇒ 跟着倾摆
+            go.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height,
+                                                     BadgeIconZ - Badges.NotActiveCrossZOffset);   // z 更负 = 更靠前
+            go.AddComponent<MeshFilter>().sharedMesh =
+                CenteredQuad("badgeCross", Badges.NotActiveCrossSize, Badges.NotActiveCrossSize, tex);
+            var mr = go.AddComponent<MeshRenderer>();
+            // ⚠️ 用**普通**材质（不是 `TraitDisabledMaterial`）：这枚 ✕ 自己**不跟着灰化** ——
+            //    原版那是个独立 SpriteRenderer，`Initialize` 只改 `traitIcons` 的材质。
+            var m = new Material(BaseMaterial());
+            m.mainTexture = tex;
+            mr.sharedMaterial = m;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            StampQueue(mr);          // A1665：徽标也是这张卡的一层
+            _layers.Add(mr);
+            mr.enabled = false;
+            return mr;
+        }
+
+        /// <summary>自检用：第 i 位的 ✕ 现在画不画（原版 `traitNotActiveIcons[i].enabled`）。
+        /// `false` 也可能是「这一位从没未激活过、压根没建」—— 那与「画着但关了」在视觉上等价。</summary>
+        public bool BadgeCrossShown(int i)
+        {
+            return i >= 0 && i < _badgeCrosses.Count && _badgeCrosses[i] != null && _badgeCrosses[i].enabled;
         }
 
         /// <summary>换这一位的图标贴图：**材质 + 网格一起换**（网格是按贴图比例装进方框的，
@@ -2458,12 +2730,22 @@ namespace CardPresentation
                 //      出生就在手牌/池子里的卡**从不走 `SetFace`**（它开头 `if (_faceMode == f) return;` 直接返回）
                 //      ⇒ 只在 `SetFace` 里关**等于没关**（这正是 `A2006` 说的「卡组池 / 收藏 / 详情里督军会印出费用」）。
                 if (!board && costTex != null && ShowsCost(d))
+                {
                     // 🔴 2026-10-18（W15）：位置**跟着这张卡框上的阵营徽记走**（`FaceCostAt01`）。
                     //    ⚠️ `SpriteQuad` 把位置烘进**网格**（不是 transform）⇒ 每种卡框要一份自己的网格
                     //    ⇒ 名字里带卡框名（缓存按名字走）。150 个卡框 = 150 份小网格，可接受。
+                    // 🔴 2026-10-18（`A1549`）：**两档**（`Cost Container` / `Cost Container Big`）——
+                    //    尺寸 ×`CostScale`、落点走 `CostAt01`（含大号档的下移）。
+                    //    ⚠️ 网格名**必须带档位**：`SpriteQuad` 只按名字缓存 ⇒ 两档同名会拿到另一个档的网格
+                    //    （与 `A1940` 那条「键撞车」同一类）。
                     _costBg = AddLayer("costBg", costTex, -0.015f, costTex,
-                                       SpriteQuad(frameTex != null ? "costBg_" + frameTex.name : "costBg",
-                                                  FaceCostAt01(frameTex), CostBgW, CostBgH));
+                                       SpriteQuad((frameTex != null ? "costBg_" + frameTex.name : "costBg")
+                                                  + (CostBig ? "_big" : ""),
+                                                  CostAt01(frameTex), CostBgW * CostScale, CostBgH * CostScale));
+                    // 🆕 `A1549` 尾巴：记下**建出来时的档位** —— 运行时切 `SmallScreenUI` 后
+                    //    `RefreshCostTier()` 靠它判「要不要重做」（见那里的注释）。
+                    _costTierBuilt = CostBig ? 1 : 0;
+                }
                 // ⚠️ 只有**单位卡且有护甲**才画那面盾：战术卡的卡面上没有数值格
                 //    （对照 `D:/2/Warpforge部队卡片/…/4计策/*.png` —— 战术卡只有费用和稀有度）
                 var armourTex = d.isUnit && d.armor > 0 ? CardArt.DeckUi("pedestal_icon_armor") : null;
@@ -4138,6 +4420,16 @@ namespace CardPresentation
             prA.minParticleSize = 0f;
             prA.maxParticleSize = 7f;
             prA.lengthScale = 2f;
+            // 🆕 2026-10-18（`A1674`）：**建出来当场盖一次队列**（同其它层「建完紧跟 StampQueue」的口径）。
+            //   判据（原版 prefab 实读，逐字段）：
+            //     `ParticleSystemRenderer_605582064029899712.json`：`m_SortingOrder = 0` ·
+            //     `m_SortingLayerID = 0` · `m_SortingFudge = −3` · 材质 `Circle_Hoop Additive` 的
+            //     `m_CustomRenderQueue = 3000`；`RotatingRing` 那颗是 `m_SortingFudge = −2` ·
+            //     材质 `Sparks UI Additive Scroll` 同样 **3000** ⇒ **两档都与卡面同队列**。
+            //   Unity 语义：负 `sortingFudge` = 排在同队列其它透明物**之前**（画在它们**后面**）——
+            //     原版就是靠它把绿光压在卡面之后的。我们「一张卡一段队列」把卡间隔开，卡内仍由
+            //     距离 + 这两个 fudge 排（原版值原样保留）。
+            StampQueue(prA);
 
             // ---- RotatingRing（`CanActParticles` 的子节点）----
             var ring = new GameObject("RotatingRing");
@@ -4185,6 +4477,7 @@ namespace CardPresentation
             prB.minParticleSize = 0f;
             prB.maxParticleSize = 5f;
             prB.lengthScale = 2f;
+            StampQueue(prB);          // 🆕 `A1674`：理由见上面 `StampQueue(prA)` 那一段（fudge −2）
 
             root.SetActive(false);                // 由 `SetCanAct` 开关
             return root;
@@ -4271,10 +4564,25 @@ namespace CardPresentation
             return mr;
         }
 
-        /// <summary>`Sprites/Default`：吃 alpha + 有 `_Color` 可以着色（模板，用的时候要 `new Material`）</summary>
+        /// <summary>`CardPresentation/CardSprite`：`Sprites/Default` 的等价物 + **原版去饱和通道**
+        /// `_GreyScale`（默认 0 = 与原来逐像素一致）。见 `Resources/Shaders/CardSprite.shader` 头部。
+        /// <para>🔴 **2026-10-19（`A2139`）**：原来直接用 `Shader.Find("Sprites/Default")` —— 内置 shader
+        /// 没有 `_GreyScale`，卡面就做不了原版那种「去饱和」，只能退成乘法压暗（用户报的那条）。
+        /// 找不到自建 shader 时**退回**内置并把「去饱和不会生效」喊出来（不许静默）。</para></summary>
         static Material BaseMaterial()
         {
-            if (_quadMat == null) _quadMat = new Material(Shader.Find("Sprites/Default"));
+            if (_quadMat == null)
+            {
+                var sh = Shader.Find("CardPresentation/CardSprite");
+                if (sh == null)
+                {
+                    Debug.LogWarning("[CardView] 找不到 `CardPresentation/CardSprite` —— 卡面基材退回 `Sprites/Default`，"
+                                   + "`SetGrey` 的真去饱和**不会生效**"
+                                   + "（`Resources/Shaders/CardSprite.shader` 在不在？）");
+                    sh = Shader.Find("Sprites/Default");
+                }
+                _quadMat = new Material(sh);
+            }
             return _quadMat;
         }
 
@@ -4299,8 +4607,11 @@ namespace CardPresentation
 
         /// <summary>把一个徽标图标层的**灰化程度**设成 `active ? 0 : 1`
         /// —— 原版是同名属性 `_GreyScale`（`disabledMaterial` 那份材质上就是 1.0）。
-        /// ⚠️ 认不出这个属性时**出声**（模板退回 `Sprites/Default` 的那条路）—— 静默退灰不生效很隐蔽。</summary>
-        static void SetBadgeGrey(MeshRenderer layer, bool active)
+        /// ⚠️ 认不出这个属性时**出声**（模板退回 `Sprites/Default` 的那条路）—— 静默退灰不生效很隐蔽。
+        /// <para>🔴 2026-10-19（`A2139`）：改成实例方法 —— 写完材质要立刻重贴一次 MPB
+        /// （整卡灰 = `SetGrey` 会把 MPB 的 `_GreyScale` 设成 max(整卡, 自身)；只改材质会被 MPB 盖住，
+        /// 症状是「未激活徽标在灰卡上变彩 / 在彩卡上不灰」）。</para></summary>
+        void SetBadgeGrey(MeshRenderer layer, bool active)
         {
             if (layer == null || layer.sharedMaterial == null) return;
             var m = layer.sharedMaterial;
@@ -4310,6 +4621,7 @@ namespace CardPresentation
                 return;
             }
             m.SetFloat("_GreyScale", active ? 0f : 1f);
+            ApplyGreyTo(layer);
         }
 
         /// <summary>徽标底板的底色 —— 原版 `IconBackground` 那个 `SpriteRenderer` 的
@@ -4419,13 +4731,15 @@ namespace CardPresentation
             // 它是 `SpriteRenderer.color` 说了算（原版 shader 没有 `_Color`），所以走 `SetCardAlpha`。
             if (_blobShadow != null) _blobShadow.SetCardAlpha(_alpha);
 
-            if (_title != null) _title.color = (Color)InkName * c;
-            if (_keywords != null) _keywords.color = (Color)InkDesc * c;
-            if (_army != null) _army.color = (Color)InkArmy * c;
-            if (_race != null) _race.color = (Color)InkArmy * c;
+            // 🔴 2026-10-19（`A2139`）：TMP 的字**不吃材质 `_GreyScale`**（走顶点色）⇒ 在这里按同一个
+            //     `_grey` 去饱和（`Greyed`）。放在最后：整卡状态色 × 淡出算完之后再降饱和，两张口径不打架。
+            if (_title != null) _title.color = Greyed((Color)InkName * c);
+            if (_keywords != null) _keywords.color = Greyed((Color)InkDesc * c);
+            if (_army != null) _army.color = Greyed((Color)InkArmy * c);
+            if (_race != null) _race.color = Greyed((Color)InkArmy * c);
             // 🆕 2026-10-18（`A985④`）：「由谁造出来的」也一样跟整卡状态色 × 淡出走
             // （它不在 `_layers` 里，上面那个 foreach 刷不到它 —— 同 `_title` 那一族）。
-            if (_createdBy != null) _createdBy.color = (Color)CreatedByInk * c;
+            if (_createdBy != null) _createdBy.color = Greyed((Color)CreatedByInk * c);
 
             // 🆕 2026-09-29：整组徽标自己的那个不透明度（原版 `NestedFadeGroup.alpha`）——
             // 上面那个 foreach 已经把徽标各层刷成「状态色 × 整卡 α」了，这里再乘一层**只属于徽标**的。
@@ -4464,7 +4778,7 @@ namespace CardPresentation
                     //    写成 `c.a *= _badgeAlpha` 会一次次叠乘（补间每帧调一次 ApplyTint）。
                     var c = (Color)BadgeCounterInk;
                     c.a = (BadgeCounterInk.a / 255f) * _alpha * _badgeAlpha;
-                    _badgeCounters[i].color = c;
+                    _badgeCounters[i].color = Greyed(c);   // A2139：整卡灰时角标字也去饱和（TMP 走顶点色）
                 }
             }
         }
@@ -4513,6 +4827,110 @@ namespace CardPresentation
         /// 见 `CardFan.BackTint` 与 `资料/阶段二_卡片详情窗_原版规格.md` §十·2）。</summary>
         public Color Tint { get { return _tint; } }
 
+        // ==================================================================
+        //  🆕 2026-10-19（`A2139`）**真去饱和**（原版 `_GreyScale`）
+        // ==================================================================
+        //
+        // **原版判据**（逐句实读）：
+        //   · `CollectionCard__UpdateCardVisuals.c:19-20`：
+        //       `UIImageGreyscaleController__ToggleGreyScale(controller, canAdd ^ 1, …)`
+        //     —— `canAdd` 为 0 时**打开**灰度（`param_2 ^ 1`）。
+        //   · `UIImageGreyscaleController.ToggleGreyScale(bool option, float time = 0.25f)`（签名桩，
+        //     `d:/2/Warpforge_code/Scripts/Assembly-CSharp/UIImageGreyscaleController.cs:59`）：
+        //     把灰度补间成 0..1，`ImageMaterialPair.Update(greyScaleValue)` 写进材质；
+        //     属性名 = 静态字段 `GREYSCALE_SHADER_PROPERTY`。
+        //   · 属性名 = **`_GreyScale`**：原版材质 `Sprite Greyscale`
+        //     （`bundle_battleprefabs_vfxandmisc_assets_all/Material/Material_-1344813161239158161.json`）
+        //     的属性表只有它一条、值 `1.0`；shader = `Everguild/UI/Greyscale Add`
+        //     （`bundle_menus_assets_all/Shader/Shader_-5597991350116227388.json`，属性表含 `_GreyScale`）。
+        //   · 取值语义 = **0 原色 / 1 全灰**（原版「灰那份材质」上就是 1.0）。
+        //
+        // **落地**：
+        //   · 材质侧：卡面基材 = `CardPresentation/CardSprite`（`Sprites/Default` 的等价物 + `_GreyScale`，
+        //     见 `Resources/Shaders/CardSprite.shader` 头部）；立绘层 `ArtOpaque`、场上 3D 体 `Card3D`
+        //     各补同一个属性（默认 0 ⇒ 画面不变）。
+        //   · 传递走 **MaterialPropertyBlock**：每层材质虽然本来就是我们自己 `new` 的，但 MPB 能保证
+        //     「灰度」这一档永远不落到共享材质上（字体/TMP 是共享资产 —— 同 `SetQueue` 那条教训）。
+        //   · TMP 的字**不吃材质属性**（走顶点色）⇒ 在 `ApplyTint` 里按同一个 `_grey` 去饱和。
+        //   · 徽标图标（`TraitDisabled`）自己的 `_GreyScale` 是「未激活态」的判据 ⇒ 取 **max(整卡灰, 自身灰)**，
+        //     ⛔ 别把它覆盖成整卡的值（否则未激活徽标会变彩）。
+
+        /// <summary>这张卡当前的去饱和度：0 = 原色，1 = 全灰（原版 `_GreyScale` 的语义）。</summary>
+        public float Grey { get { return _grey; } }
+
+        float _grey;
+        MaterialPropertyBlock _greyMpb;
+        DG.Tweening.Tween _greyTween;
+
+        /// <summary>设置去饱和度（0..1）。`time &gt; 0` 时照原版那 0.25s 补间（`ToggleGreyScale` 的 `time`）。
+        /// <para>⚠️ 批处理/自检环境没有帧循环 ⇒ 默认 **0 = 立刻生效**（`DeckRuntime` 的卡池装配走这一档）。</para></summary>
+        public void SetGrey(float g, float time = 0f)
+        {
+            g = Mathf.Clamp01(g);
+            if (_greyTween != null && _greyTween.IsActive()) _greyTween.Kill();
+            if (time <= 0f || !Application.isPlaying)
+            {
+                // 值没变就不扫（`SetHighlight` 每次刷新都会调它；`_grey` 默认 0 ⇒ 建卡那条路零开销）。
+                // ⚠️ 「之后新建的层漏灰」由 `SetData` / `SetFace` 末尾那两处补（多入口各设一次）。
+                if (Mathf.Abs(_grey - g) < 1e-5f) return;
+                _grey = g;
+                ApplyGrey();
+                return;
+            }
+            _greyTween = DOTween.To(() => _grey, v => { _grey = v; ApplyGrey(); }, g, time)
+                                .SetUpdate(CardTween.Mode);
+        }
+
+        /// <summary>把 `_grey` 写进**每一层**能认 `_GreyScale` 的材质（MPB），再让文字颜色跟上。</summary>
+        void ApplyGrey()
+        {
+            if (_greyMpb == null) _greyMpb = new MaterialPropertyBlock();
+            foreach (var r in GetComponentsInChildren<MeshRenderer>(true)) ApplyGreyTo(r);
+            // TMP 字走顶点色（材质属性对它无效）⇒ 颜色在 `ApplyTint` 里按同一个 `_grey` 去饱和
+            ApplyTint();
+        }
+
+        /// <summary>把整卡灰度写进**这一层**（与它自己材质上的 `_GreyScale` 取 max —— 见上面徽标那条）。</summary>
+        void ApplyGreyTo(MeshRenderer r)
+        {
+            if (r == null) return;
+            if (_greyMpb == null) _greyMpb = new MaterialPropertyBlock();
+            var m = r.sharedMaterial;
+            if (m == null || !m.HasProperty("_GreyScale")) return;
+            float own = m.GetFloat("_GreyScale");
+            r.GetPropertyBlock(_greyMpb);
+            _greyMpb.SetFloat("_GreyScale", Mathf.Max(_grey, own));
+            r.SetPropertyBlock(_greyMpb);
+        }
+
+        /// <summary>把颜色按 `_grey` 去饱和（Rec.601 亮度；**只动 RGB、不动 alpha**）。
+        /// TMP 文字/角标走这一支 —— 它们没有 `_GreyScale` 可写。</summary>
+        Color Greyed(Color c)
+        {
+            if (_grey <= 0f) return c;
+            float t = Mathf.Clamp01(_grey);
+            float lum = 0.299f * c.r + 0.587f * c.g + 0.114f * c.b;
+            return new Color(Mathf.Lerp(c.r, lum, t), Mathf.Lerp(c.g, lum, t),
+                             Mathf.Lerp(c.b, lum, t), c.a);
+        }
+
+        /// <summary>自检用：卡面某层（按 `GameObject` 名，如 `"art"` / `"frame"` / `"info"`）
+        /// **渲染器上真正生效**的 `_GreyScale`：先读 `MaterialPropertyBlock`，没设过再读材质；
+        /// 那一层不存在 / 材质没这个属性 ⇒ 返回 `-1`（与「0 = 不灰」区分开）。</summary>
+        public float LayerGrey(string layerName)
+        {
+            foreach (var r in GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (r == null || r.gameObject.name != layerName) continue;
+                var m = r.sharedMaterial;
+                if (m == null || !m.HasProperty("_GreyScale")) return -1f;
+                var mpb = new MaterialPropertyBlock();
+                r.GetPropertyBlock(mpb);
+                return mpb.isEmpty ? m.GetFloat("_GreyScale") : mpb.GetFloat("_GreyScale");
+            }
+            return -1f;
+        }
+
         /// <summary>当前状态色（状态机在 CardInteraction 那边，这里只负责显示）</summary>
         public CardHighlightState State { get; private set; }
 
@@ -4524,7 +4942,21 @@ namespace CardPresentation
         public void SetHighlight(CardHighlightState s)
         {
             State = s;
-            SetTint(CardHighlight.ColorOf(s));
+            // 🔴 **2026-10-19（`A2139`）：`Unplayable` 不再用乘法压暗** —— 原版是**去饱和**：
+            //   判据 = `CollectionCard__UpdateCardVisuals.c:19-20`（`ToggleGreyScale(canAdd ^ 1)`）
+            //   ⇒ 这里把状态色的那一份乘法让给 `_GreyScale`（`ColorOf(Unplayable)` 那个
+            //   `(0.55, 0.55, 0.58)` 从此**不参与**整卡着色；`State` 仍是 `Unplayable`，自检照旧读得到）。
+            //   ⚠️ 别的状态（含 `Normal`）把灰度归零 —— 状态机是「同一时刻一个态」。
+            if (s == CardHighlightState.Unplayable)
+            {
+                SetTint(TintNormal);
+                SetGrey(1f);
+            }
+            else
+            {
+                SetTint(CardHighlight.ColorOf(s));
+                SetGrey(0f);
+            }
             // 原版那一下是 **`CardBodyToScale × ScaleFactor` 的放大 + 补间**（2026-09-19 接上）
             // ⚠️ 原版**同一个色有手牌/棋盘两档**（手牌那档 `potentialTargetInHand` **不缩放**）
             //    ⇒ 要把「这张卡在不在棋盘上」传下去（见 `CardHighlight.ScaleOf` 的参数说明）。
@@ -4537,8 +4969,9 @@ namespace CardPresentation
                 //      而「打得出去」走的是 SDF `_Outline`（`OutlineOf`，**我们已接**）⇒ 原来那层
                 //      **整卡染黄**既不是原版的做法、又和 `_Outline` 重复表达同一件事（判据 → §8b）。
                 //   ② 颜色写进 **`_Outline`** —— 这个 shader **没有 `_Color`**（见 `RimMaterial` 的注释）。
-                //   ⚠️ `Unplayable` 依旧不亮（alpha 0）：置灰靠 `SetTint`，而这圈是块比方大的矩形，
-                //      在卡的透明角/透明边上会露出一圈灰白（用户 2026-09-12 报的「手牌里有白边」就是它）。
+                //   ⚠️ `Unplayable` 依旧不亮（alpha 0）：置灰靠**去饱和**（`SetGrey`，2026-10-19 `A2139`），
+                //      而这圈是块比方大的矩形，在卡的透明角/透明边上会露出一圈灰白
+                //      （用户 2026-09-12 报的「手牌里有白边」就是它）。
                 var fc = CardHighlight.FrameColorOf(s);
                 // 🆕 2026-09-29：残骸体那圈光**跟着状态色走**（原版 `CardHighlight.SetRemnantHighlight` 就是把
                 //   主状态环的 `SpriteRenderer.color` **原样拷**给残骸那具）。⚠️ 传的是**没减过的**状态色。
@@ -5071,7 +5504,7 @@ namespace CardPresentation
             // ⚠️ 判据**只此一处** `ShowsCost`（与 `:901` 的显示口径同一份，铁律 10 第 5 条：两处写同一条规则 = 迟早不一致）。
             //    ⚠️ `!board` 那一半照 `:901` —— 场上那套（`CardFace.Board`）本来就不画费用。
             //    🔴 2026-10-18（W15）：费用格的位置也**跟着卡框走**（`FaceCostAt01`，与画它那一处同一份）。
-            if (!board && ShowsCost(Data) && HitAt(l, FaceCostAt01(_frameTex))) return StatCost;
+            if (!board && ShowsCost(Data) && HitAt(l, CostAt01(_frameTex))) return StatCost;
             return StatNone;
         }
 
@@ -5128,7 +5561,7 @@ namespace CardPresentation
                 case StatRanged: at = board ? BoardRangedAt : FaceStatAt01(StatRanged, _frameTex); break;
                 case StatArmour: at = board ? BoardArmourAt : ArmourAt; break;
                 case StatHealth: at = board ? BoardHealthAt : FaceStatAt01(StatHealth, _frameTex); break;
-                case StatCost:   at = FaceCostAt01(_frameTex); break;
+                case StatCost:   at = CostAt01(_frameTex); break;
                 default: return transform.position;
             }
             // 归一化坐标 y 从**顶部**数（和 `CostAt` 那批同口径）⇒ 局部 y 要翻过来
@@ -5148,6 +5581,9 @@ namespace CardPresentation
         /// 位姿变了要重算，见下面「视口裁切」那一大段）。</param>
         public void SetPose(Vector3 pos, float rotZ, float scale, PxRect? clip = null)
         {
+            // 🆕 2026-10-18（`A1549` 尾巴）：布局每次摆位都顺手比一次费用档位 —— 切完
+            //   `SmallScreenUI` 之后，下一次布局就会把已建好的卡刷到新档（没变时只是一次 bool 比较）。
+            SyncCostTier();
             transform.localPosition = pos;
             transform.localRotation = Quaternion.Euler(0f, 0f, rotZ);
             _baseScale = scale;
@@ -5931,7 +6367,17 @@ namespace CardPresentation
             return m;
         }
 
-        static readonly Dictionary<string, Mesh> _spriteQuads = new Dictionary<string, Mesh>();
+        // 🔴 **2026-10-18（`A1940`）：网格缓存**三族各自一份，防键撞车** ——
+        //   原来这三族共用一个 `_spriteQuads`，键空间是**平铺**的：
+        //     · `SpriteQuad`  键 = 图名（`armourIcon` / `costBg_<卡框名>` / `ephemeral` / `FitQuad` 的 `名字_WxH`）
+        //     · `TextBgQuad`  键 = `textBg` / `textBgSmall`
+        //     · `GemMesh`     键 = `gem_<卡框名>`
+        //   ⇒ 只要有一个 `SpriteQuad` 的图名恰好叫 `textBg*` 或 `gem_*`，就会**静默拿到别族的网格**
+        //   （顶点数都不一样：6 块九宫格 24 顶点 vs 单 quad 4 顶点）。今天调用点没有撞，但那是巧合。
+        //  ⚠️ 拆开后**几何逐字节不变**（每个函数自己算自己的顶点，缓存只影响「要不要重算」）。
+        static readonly Dictionary<string, Mesh> _spriteQuads = new Dictionary<string, Mesh>();   // `SpriteQuad` 一族
+        static readonly Dictionary<string, Mesh> _textBgQuads = new Dictionary<string, Mesh>();   // `TextBgQuad` 一族（文字底板九宫格）
+        static readonly Dictionary<string, Mesh> _gemQuads    = new Dictionary<string, Mesh>();   // `GemMesh` 一族（稀有度宝石）
 
         /// <summary>
         /// 一块**给定中心和尺寸**的 quad（卡单位 → 世界），UV 拉满整张贴图。
@@ -6037,12 +6483,13 @@ namespace CardPresentation
         ///    把 6 块拆成 6 个 GameObject 会让每块各自有一个 z ⇒ 层序就乱了
         ///    （诊断细节 → `资料/普查产出_第二十九会话/A1922_文字底板_诊断.md` §七③）。
         ///    ⇒ 6 块进**同一个** mesh、全部 `z = 0`（层自己的 `localPosition.z` 仍是 `TextBgZ`）。
-        /// ⚠️ 网格按 `name` 缓存（与 `SpriteQuad` 共用 `_spriteQuads`）：只有 `textBg` / `textBgSmall` 两个名字，
+        /// ⚠️ 网格按 `name` 缓存（**2026-10-18 `A1940` 起独占 `_textBgQuads`，⛔ 不再与 `SpriteQuad` 共用**）：
+        ///    只有 `textBg` / `textBgSmall` 两个名字，
         ///    各自的几何是**常量**（不随卡变），所以按名字缓存是安全的。</summary>
         static Mesh TextBgQuad(string name, Vector2 at01, float w, float h)
         {
             Mesh m;
-            if (_spriteQuads.TryGetValue(name, out m) && m != null) return m;
+            if (_textBgQuads.TryGetValue(name, out m) && m != null) return m;
 
             float s = Width / CardUnitW;                          // 卡单位 → 世界（今天 = 1）
             float ww = w * s, hh = h * s;
@@ -6092,7 +6539,7 @@ namespace CardPresentation
             m.uv = uvs.ToArray();
             m.triangles = tris.ToArray();
             m.RecalculateBounds();
-            _spriteQuads[name] = m;
+            _textBgQuads[name] = m;
             return m;
         }
 
@@ -6107,14 +6554,15 @@ namespace CardPresentation
         ///    对照图：`资料/留档_排查证据/卡面组装_0912/gems.png`（上排原版卡面的宝石 / 下排我们四档框的凹槽）。
         ///
         /// 🔴 **2026-10-18**：落点改成**跟着这张卡框的凹槽走**（`FaceGemAt01`）⇒ 网格也随卡框变，
-        ///    按卡框名缓存进 `_spriteQuads`（与 `SpriteQuad` 同一个缓存；150 个卡框 = 150 份小网格）。
+        ///    按卡框名缓存进 `_gemQuads`（**2026-10-18 `A1940` 起独占这一份，⛔ 不再与 `SpriteQuad` 共用**；
+        ///    150 个卡框 = 150 份小网格）。
         ///    ⚠️ 原来这里缓存的是一个**全局唯一**的 `_gemMesh`，那只有在「所有卡框凹槽落到同一处」时才对 —— 不成立。
         /// </summary>
         static Mesh GemMesh(Texture2D frameTex)
         {
             string key = "gem_" + (frameTex != null ? frameTex.name : "none");
             Mesh m;
-            if (_spriteQuads.TryGetValue(key, out m) && m != null) return m;
+            if (_gemQuads.TryGetValue(key, out m) && m != null) return m;
             float s = Width / CardUnitW;
             float w = RarityGemW * s * 0.5f, h = RarityGemH * s * 0.5f;
             var at = FaceGemAt01(frameTex);
@@ -6132,12 +6580,24 @@ namespace CardPresentation
             };
             m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
             m.RecalculateBounds();
-            _spriteQuads[key] = m;
+            _gemQuads[key] = m;
             return m;
         }
 
         /// <summary>稀有度宝石的贴图名（图在 `Resources/Art/ui_deck/`）。
-        /// 取不到就返回 null —— 那颗宝石不画，卡面其余部分照常。</summary>
+        /// 取不到就返回 null —— 那颗宝石不画，卡面其余部分照常。
+        /// <para>🆕 **2026-10-18（`A2136`）判据已查清 ⇒ 色相**不是**缺陷**：
+        ///   · 原版的颜色**只由换 sprite 决定**：`CardRarityHolderController.SetCardRarity` 的方法体
+        ///     里**只有** `UnityEngine_UI_Image__set_sprite`（`d:/2/tools/decomp_full/CardRarityHolderController__SetCardRarity.c`），
+        ///     **没有任何写 `m_Color` 的分支**；预制体里那颗 `Card Rarity Sprite` 是 **UI `Image`**、
+        ///     `m_Color` 恒白（`MonoBehaviour_-1177477944281752640.json`），5 张图 = `rarityLevelSprites[5]`
+        ///     （`MonoBehaviour_857099535673695168.json` 的 5 个 PathID 依次落到
+        ///     `1_40k_cardframe_rarity_common` … `5_…_special`）。
+        ///   · 我们的 5 张图与解包件**逐字节相同**（common 三份导出 + `Resources/` 那份 md5 同为 `a1449a2394`；
+        ///     rare 与 assetripper 导出逐像素同）。
+        ///   · 用户对照的两张卡**稀有度本来就不同**：`司战`（`ASH83`）= **common** ⇒ 青；
+        ///     `伊莱亚克·泽菲尔刃`（`ASH2`）= **legendary** ⇒ 金。「原版偏金」= 那张是传奇。
+        ///   ⇒ **不加任何 tint**；换成正确的稀有度图即可。</para></summary>
         static Texture2D RarityGem(string rarity)
         {
             string r;
@@ -6501,10 +6961,11 @@ namespace CardPresentation
 
         static Material FaceMaterial(CardData d)
         {
-            // `Sprites/Default`：吃 alpha（圆角透明处才不会被画成黑块）+ 有 `_Color` 可以着色
-            //（Unlit/Texture 两样都不行 —— 高亮/置灰全靠这个 _Color）
-            if (_quadMat == null) _quadMat = new Material(Shader.Find("Sprites/Default"));
-            var m = new Material(_quadMat);
+            // 基材走 `BaseMaterial()`（`CardPresentation/CardSprite`）：吃 alpha（圆角透明处才不会被画成黑块）
+            // + 有 `_Color` 可以着色 + 🆕 `_GreyScale` 可以做原版那种去饱和。
+            // ⚠️ 2026-10-19（`A2139`）前这里自己 `Shader.Find("Sprites/Default")`、绕开了基材那一处 ——
+            //    程序生成的卡面（没有原版卡框时）会**灰不了**；现在收口到同一支。
+            var m = new Material(BaseMaterial());
             m.mainTexture = FaceTexture(d);
             return m;
         }
@@ -6532,6 +6993,7 @@ namespace CardPresentation
             // 🔴 2026-10-18（W15）：**卡框要进缓存键** —— 四个数值 / 费用的落点是按这张卡框的
             //    uv 反算的（`FaceStatAt01` / `FaceCostAt01`）⇒ 同一张卡换一种卡框，烘出来的图不一样。
             string key = (statsOnly ? "infoStat|" : "info|") + (skipStats ? "nostat|" : "")
+                       + (CostBig ? "costbig|" : "")
                        + (frameTex != null ? "f" + frameTex.GetInstanceID() + "|" : "")
                        + CacheKey(d);
             Texture2D cached;
@@ -6552,14 +7014,17 @@ namespace CardPresentation
             {
                 // 🔴 2026-10-18（W15）：**跟着卡框上的阵营徽记走**（水平同心、上沿贴徽记底边）——
                 //    判据与实测数字见 `FaceCostAt01` 上面那一段。没有卡框时它退回 `CostAt`。
-                var costAt = FaceCostAt01(frameTex);
+                // 🔴 2026-10-18（`A1549`）：**两档**（`CostBig`）—— 落点走 `CostAt01`、数字与六边形
+                //    半径同乘 `CostScale`（原版 `Cost Container Big` 的数字框也正好是 ×1.2）。
+                var costAt = CostAt01(frameTex);
+                float cs = CostScale;
                 if (CardArt.DeckUi("Card_Frame_Cost_Icon") == null)
                 {
                     // 徽记本身花纹很花，所以要用**不透明的宝石**盖住它 —— 半透明/阵营色都读不出来
                     var rim = new Color32(14, 14, 18, 255);
-                    // 半径：原版费用格是 0.4×0.4 卡单位 → 0.2/2.0927 = 0.0956 卡宽
-                    FillHexagon(px, FaceW, FaceH, costAt.x * FaceW, costAt.y * FaceH, 0.0956f * FaceW, rim);
-                    FillHexagon(px, FaceW, FaceH, costAt.x * FaceW, costAt.y * FaceH, 0.0779f * FaceW, InkCostGem);
+                    // 半径：原版费用格是 0.4×0.4 卡单位 → 0.2/2.0927 = 0.0956 卡宽（大号档 ×1.2）
+                    FillHexagon(px, FaceW, FaceH, costAt.x * FaceW, costAt.y * FaceH, 0.0956f * cs * FaceW, rim);
+                    FillHexagon(px, FaceW, FaceH, costAt.x * FaceW, costAt.y * FaceH, 0.0779f * cs * FaceW, InkCostGem);
                 }
                 // 费用数字：原版是 `Cost Container/CostText`（TMP + Pragati，**Thick 描边**、白字）
                 if (!PragatiDigits.Available)
@@ -6569,8 +7034,8 @@ namespace CardPresentation
                                        Mathf.RoundToInt(costAt.x * FaceW),
                                        Mathf.RoundToInt(costAt.y * FaceH), true,
                                        // 费用六边形半径 0.0956 卡宽（见上面 `FillHexagon` 那两行）
-                                       // ⇒ 净宽 ≈ 2×0.0956×256 ≈ 49 面像素，留边距取 41
-                                       Mathf.RoundToInt(0.0956f * FaceW * 2f * 0.84f));
+                                       // ⇒ 净宽 ≈ 2×0.0956×256 ≈ 49 面像素，留边距取 41（大号档 ×1.2）
+                                       Mathf.RoundToInt(0.0956f * cs * FaceW * 2f * 0.84f));
             }
 
             // ①b 🔴 **2026-09-15 撤掉了原来那层「我们自己加的柔和压暗」**（`DrawTextScrim`）。

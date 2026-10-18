@@ -23,18 +23,42 @@
 #           —— 见 `aura_hit()` / `e2_verdict()` 那一段的长注释（含「只翻机器判据能立住的，其余如实留红」）。
 #        ④ 四个命令行开关 `--scan` / `--out` / `--layers` / `--no-layers`（**一节一验**要不覆盖既有 TSV 地跑）。
 #           ⚠️ `E3`（重跑 `scan` 重生成基线）**不归本件** —— 那会重写 `check` 基线，属主对话。
+#
+# 🔴 **2026-10-19（引擎线波 5 · 账 `A1986` / `A1978` / `A1991`）—— 本文件又动了五处，逐条判据见正文：**
+#   ① **真值源换到【当前 build】**：`TRUTH` = `普查产出_1018/allcards_1350/cards_raw.json`（1,351 张当前
+#      build 的 `RawCardScript` SO），旧 2022 快照只当旁证（`--truth-old` 可切回）。判据：当前 build 的
+#      1,351 个 `uniqueId` **完整覆盖池内 1,127 张（1127/1127）**、且 `hasActiveAbility` 无 `None`
+#      ⇒ 旧口径那 316 行「卡不在池」与 3 张「None 静默按 0」都从源头消失。
+#   ② **`A1986` 补桥**：原版一步带 `targetCriteria.selectFromChooseResolution == 1` 且 `chosenAbility`
+#      属于「造 / 召回 / 置顶 / 召唤 / 抽」那一族时，它的对照物是**我们的 `choosecard`/`chooseone`/
+#      `chooseeffect` op**（`EffectResolver.DoChooseCard`），按 `ChooseAct` **逐动作**比（不是"有 choose 就算"）。
+#      ⚠️ 只对**那一族**补桥 —— `buffOthers`/`playChosenCardAbility` 上的 `selectFromChooseResolution=1`
+#      语义是「目标取自前一次选区」，不是「我们该有 choosecard」，⛔ 别一刀切（会造出假绿）。
+#   ③ **`A1978②` 天赋桥**：`trigger=Talent(46)` + `chosenAbility=createCardInHand(100)` +
+#      `summonCriteria.unitsToSummon` 的 PPtr **按 `path_id` 解析成卡**，再与我们的 `create` op 载荷
+#      逐名比对（显示名取自 `loc_card_names.tsv` —— SO 的 `cardName` 是**内部名**，会与现行印刷名不同：
+#      `Warmaster`↔`Chosen of the Four` · `Exemplar of Hate`↔`Master of Repentance` ·
+#      `Path of the Warrior`↔`Skyborne Deployment`）。⚠️ 这同时是 `A1978②` 的前提验证。
+#   ④ **`A1991`**：`卡id` 列仍印真值 `uniqueId`（下游按它 join 真值），**新追加第 17 列 `我们卡id`**。
+#   ⑤ **新列 12–17 = 「打谁 / 打多少 / 什么触发」的机器化**（追加在末尾，前 11 列一字不动）：
+#      触发 · 原版·打谁 · 原版·多少 · 我们·打谁 · 我们·多少 · 我们卡id。
 # -*- coding: utf-8 -*-
 """A1759/A1772/A1823 —— 原版 cardAbilities[].abilityLogic[] 逐条对账我们的规则引擎。
 
 对账单位 = (卡 id, ability 序号, abilityLogic 序号)
-  原版面：d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json
+  原版面：d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json（**当前 build**，1,351 张；默认）
+         或 d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json（2022 快照，`--truth` 指过去）
   我们面：工具/ruleprobe.sh scan            → `SCAN`（`EffectText.Parse(desc)` 的产物，与 `scan`/`check` 基线同口）
         ＋工具/ruleprobe.sh layers <out.jsonl> → `LAYERS`（`CardDef.AuraSpecs` / `keywords` 层，卡级 —— 见 `E2`）
-  用法：python -I -X utf8 d:/4/Unity/工具/_a1759_reconcile.py [--scan P] [--out P] [--layers P] [--no-layers]
+  用法：python -I -X utf8 d:/4/Unity/工具/_a1759_reconcile.py
+        [--truth P] [--loc P] [--scan P] [--out P] [--layers P] [--no-layers]
+        [--bridge-out P] [--talent-out P] [--all-truth]
 """
 import json, io, re, os, sys, time, hashlib, collections
 
-TRUTH  = r'd:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json'
+TRUTH  = r'd:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json'
+TRUTH_OLD = r'd:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json'
+LOC    = r'd:/4/Unity/资料/普查产出_1018/allcards_1350/loc_card_names.tsv'
 POOL   = r'd:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json'
 # 🔴 账 `A1977`（2026-10-14 第三十会话 · 仪器块 `E0`）：`SCAN` 原来写死 `d:/4/_tmp_view/our_scan.txt`
 #   （**在 `.gitignore` 的暂存目录里**，而且那一份是 `Talent:` 修复【之前】13:20 的）
@@ -54,11 +78,17 @@ POOL   = r'd:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json'
 #   实测基线（2026-10-14 18:06）：`6c0e41d71599bd7a42f078a50e90f614` · 493,866 B · 1120 行 ·
 #   含 `{AM:}` 32 op / `{TAIL:}` 88 op / `SRC:Talent` 86 处（= `Talent:` 修复后的口径）。
 SCAN   = r'd:/4/Unity/工具/ruleprobe/基线/out_baseline.txt'
-LAYERS = r'd:/4/Unity/资料/普查产出_第三十会话/our_layers_1014.jsonl'
+# 🔴 2026-10-19 波 5：光环层换成**当前池**的 dump（旧 `our_layers_1014.jsonl` 是 K06 id 迁移**之前**的
+#   ⇒ 114 张改了 id 的卡按 id join 会整片落空、静默当成「无光环」）。生成方式（不用重编、不碰基线）：
+#     dotnet d:/4/Unity/工具/ruleprobe/bin/Debug/net8.0/wfprobe.dll layers \
+#         d:/4/Unity/资料/普查产出_1018/our_layers_1019.jsonl
+LAYERS = r'd:/4/Unity/资料/普查产出_1018/our_layers_1019.jsonl'
 DICT   = r'd:/4/Unity/资料/普查产出_第二十七会话/abilityLogic_枚举词典.tsv'
 # 🔴 账 `A1977` 同笔：`OUT` **改前** = `…/普查产出_第二十八会话/A1759_逐条对账.tsv`（历史件）——
 #   照默认跑一遍就会把它**静默盖掉**，而 `A1876`/`A1877` 是按它取数的。⇒ 换成本轮新件。
-OUT    = r'd:/4/Unity/资料/普查产出_第三十会话/A1977_对账_E1E2_1014.tsv'
+OUT    = r'd:/4/Unity/资料/普查产出_1018/W5_对账_1019.tsv'
+BRIDGE_OUT = r'd:/4/Unity/资料/普查产出_1018/W5_选区桥_1019.tsv'
+TALENT_OUT = r'd:/4/Unity/资料/普查产出_1018/W5_天赋_1019.tsv'
 
 
 def _opt(name):
@@ -73,9 +103,19 @@ def _opt(name):
 
 _scan, _out, _lay = _opt('--scan'), _opt('--out'), _opt('--layers')
 NO_LAYERS = '--no-layers' in sys.argv
+ALL_TRUTH = '--all-truth' in sys.argv
 if _scan: SCAN = _scan
 if _out: OUT = _out
 if _lay: LAYERS = _lay
+_tr = _opt('--truth'); _lo = _opt('--loc')
+_bo = _opt('--bridge-out'); _to = _opt('--talent-out')
+if _tr:
+    TRUTH = _tr
+    # ⚠️ 旧的 2022 快照是**裸数组**、没有 `loc_card_names` 那套当前显示名 —— 换真值源时自动退回 SO 名，
+    #    并在开头**出声**（⛔ 不静默按两套口径跑）。
+if _lo: LOC = _lo
+if _bo: BRIDGE_OUT = _bo
+if _to: TALENT_OUT = _to
 
 
 def _prov(path):
@@ -111,10 +151,61 @@ for r in rows[1:]:
     if r[1] == 'trait' and r[0] == 'CardEffect@cardAbilities.abilityLogic.buffEffect':
         TRNAME[int(r[2])] = r[3]
 
-truth = json.load(io.open(TRUTH, 'r', encoding='utf-8'))
+# 🔴 2026-10-19 波 5：**trait 名补齐**（否则当前 build 的 `huntMark 1260` / `sentry 1280` / `pack 610` 全是
+#   `trait1260` 这种无名值 ⇒ 十几种「给 Hunt Mark / 给 Sentry」被仪器判成**取值不同**）。
+#   权威 = `DefinedTrait` 枚举本体（反编译签名桩，只读）>`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs`。
+#   ⚠️ 词典 `abilityLogic_枚举词典.tsv` 是**旧快照**生成的、只收了当时出现过的 25 个值 —— 这不是它的错，
+#      但**别拿它当全集**（本行就是踩过的证据）。
+TRAIT_SRC = r'd:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs'
+TRAIT_SRC_OK = False
+if os.path.exists(TRAIT_SRC):
+    _tt = io.open(TRAIT_SRC, 'r', encoding='utf-8', errors='ignore').read()
+    for _m in re.finditer(r'^\s*(\w+)\s*=\s*(\d+)', _tt, re.M):
+        TRNAME[int(_m.group(2))] = _m.group(1)
+    TRAIT_SRC_OK = True
+
+# ------------------------------------------------ 真值（当前 build / 旧快照 两形态）
+# 🔴 2026-10-19 波 5：当前 build 的导出是 `{"bundle":…, "count":1351, "cards":[…]}`；
+#   2022 快照是**裸数组**，且末尾有几条 `uniqueId=None` 的占位（`#HB_*`）。
+#   ⇒ 一个装载口收两种形态；**形态打出来**（同一件上「三套数字并存」的教训见 `A1977`）。
+_raw_truth = json.load(io.open(TRUTH, 'r', encoding='utf-8'))
+TRUTH_SHAPE = 'dict.cards' if isinstance(_raw_truth, dict) and 'cards' in _raw_truth else 'list'
+truth = _raw_truth['cards'] if TRUTH_SHAPE == 'dict.cards' else _raw_truth
 pool = json.load(io.open(POOL, 'r', encoding='utf-8'))['cards']
+POOLIDS = set(c['id'] for c in pool)
 namecnt = collections.Counter(c['name'] for c in pool)
 truthnamecnt = collections.Counter(c.get('cardName') or '' for c in truth)
+
+# 🔴 `A1978②`：`summonCriteria.unitsToSummon` 是 **PPtr**（`{m_FileID, m_PathID}`）。当前 build 的
+#   `cards_raw.json` 每张卡都带 `path_id`（= 它自己的 `m_PathID`）⇒ **PPtr → 卡** 在本机可解。
+#   显示名优先取 `loc_card_names.tsv`（`Card_Name/<id>` 的 en）—— SO 的 `cardName` 是**内部名**，
+#   会用旧名（实测三例：`Warmaster`↔`Chosen of the Four`…），只拿 SO 名比会造出三条**假差异**。
+PATH2CARD = {c.get('path_id'): c for c in truth if c.get('path_id') is not None}
+UID2LOC = {}
+LOC_SHAPE = '(未读)'
+if LOC and os.path.exists(LOC):
+    _lines = [l.rstrip('\n').split('\t') for l in io.open(LOC, 'r', encoding='utf-8')]
+    if _lines and _lines[0][:3] == ['id', 'en', 'zh_CN']:
+        for _r in _lines[1:]:
+            if len(_r) >= 2 and _r[0]: UID2LOC[_r[0]] = _r[1]
+        LOC_SHAPE = '%s  %d 条' % (LOC, len(UID2LOC))
+    else:
+        LOC_SHAPE = '!! 表头不是 id/en/zh_CN（没采用）'
+else:
+    LOC_SHAPE = '!! 文件不存在（显示名退回 SO cardName）'
+
+def card_display(card):
+    """真值卡 → 现行显示名。**先**本地化、**后**SO 内部名（理由见上）。"""
+    if not card: return ''
+    return UID2LOC.get(card.get('uniqueId') or '') or card.get('cardName') or ''
+
+def resolve_summon_names(lg):
+    """`summonCriteria.unitsToSummon` → [(uid, 显示名)]（解不出的 PPtr 如实留 `?`）。"""
+    out2 = []
+    for u in ((lg.get('summonCriteria') or {}).get('unitsToSummon') or []):
+        c = PATH2CARD.get(u.get('m_PathID'))
+        out2.append((c.get('uniqueId'), card_display(c)) if c else (None, '?UNRESOLVED'))
+    return out2
 
 def nz(d):
     return {k: v for k, v in (d or {}).items() if v not in (0, '', None, [], {})}
@@ -213,7 +304,17 @@ def orig_value(lg):
     b = nz(lg.get('buffEffect')); m = nz(lg.get('manaBuff'))
     s = nz(lg.get('summonCriteria')); tc = nz(lg.get('targetCriteria'))
     mult = nz(lg.get('multiplier')); hb = nz(lg.get('handBuff'))
+    tc_raw = lg.get('targetCriteria') or {}
     parts, meta, dyn = [], {}, False
+    # 🔴 2026-10-19（波 5 · `A1986` / `A1978②`）：三样**只进 meta、不改变 `原版取值` 的渲染**
+    #   （前 11 列口径一字不动）：
+    #     · `choose_res` = `targetCriteria.selectFromChooseResolution == 1`（原版：目标取自「选区结果」）
+    #     · `orig_act`   = `chosenAbility` 原值（补桥按它判「该不该有 choosecard」）
+    #     · `summon_ids` = `unitsToSummon` 解析出的卡（PPtr → `path_id` → 显示名）
+    meta['choose_res'] = tc_raw.get('selectFromChooseResolution') == 1
+    meta['orig_act'] = lg.get('chosenAbility')
+    meta['summon_ids'] = resolve_summon_names(lg)
+    meta['tc_raw'] = tc_raw
     if d:
         meta.setdefault('sec', []).append('damage')
         parts.append('dmg%s-%s%s' % (d.get('minDamage', 0), d.get('maxDamage', 0),
@@ -234,7 +335,16 @@ def orig_value(lg):
         else: meta['heal_span'] = (h.get('minValue', 0), h.get('maxValue', 0))   # 同上（`E1`）
     if b:
         bt = b.get('buffType', 0)
-        meta['bt'] = bt
+        # 🔴 2026-10-19 波 5：`chosenAbility == 50`（buffHand，手牌 buff）时，**承载块是 `handBuff`**，
+        #   而 `buffEffect` 里那组数**是序列化残留** —— 实测两张（`TL41` health+3 / `GOF37` ranged+2）
+        #   的卡面都只写「Your … cost 1 less this turn」，`handBuff.cardEffect.costChange = -1`
+        #   与卡面逐字吻合 ⇒ 拿 `buffEffect` 去比会把两张卡判成「取值不同」。
+        #   ⚠️ `原版取值` 的渲染**保留**那块残留（看得见才好核），只把它**排除出 `meta`**。
+        _residue = lg.get('chosenAbility') == 50
+        if not _residue:
+            meta['bt'] = bt
+        else:
+            meta['bt_residue'] = bt
         ch = []; nums = []
         for k, a in (('melee', 'meleeAttackChange'), ('ranged', 'rangeAttackChange'),
                      ('armour', 'armourChange'), ('health', 'healthChange'), ('cost', 'costChange')):
@@ -242,7 +352,10 @@ def orig_value(lg):
                 ch.append('%s%+d' % (k, b[a]))
                 if not b.get(a.replace('Change', 'ValueOptions')): nums.append((k, b[a]))
                 else: dyn = True
-        meta['nums'] = [t for t in nums if t[0] in ('melee', 'ranged', 'armour', 'health')]
+        if not _residue:
+            meta['nums'] = [t for t in nums if t[0] in ('melee', 'ranged', 'armour', 'health')]
+        else:
+            meta['nums_residue'] = nums
         meta.setdefault('sec', []).append('buff_other')
         if bt in (3, 4, 90):
             meta['trait'] = TRNAME.get(b.get('trait', 0), 'trait%s' % b.get('trait', 0))
@@ -261,6 +374,8 @@ def orig_value(lg):
         meta['mana'] = m.get('manaAmount', 0)
     if s:
         meta.setdefault('sec', []).append('summon')
+        meta['summon_n'] = len(s.get('unitsToSummon') or [])
+        meta['summon_enemy'] = bool(s.get('isForEnemy'))
         parts.append('summ:n=%d%s' % (len(s.get('unitsToSummon') or []),
                                       ',enemy' if s.get('isForEnemy') else ''))
     if hb:
@@ -308,6 +423,15 @@ def env_fam(payload):
         if re.search(rx, t): return f
     return 'envelope'
 
+def env_fams(payload):
+    """信封 op 的**全部**候选族（🔴 2026-10-19 波 5）。
+    旧口径 `env_fam()` 只返回**第一个**命中的族 —— 而信封载荷是**整句卡面原文**
+    （`At the start of your turn, destroy this unit and deal 3 damage …`），一句话里可以同时有
+    「destroy + damage」两族 ⇒ 只看第一个 = 另一族永远找不到对照物（实测 `TL37 Spore Mine`
+    的 `destroy` 被报成「我们缺」，其实我们那条 `atturn` op 两个动作都扛了）。"""
+    t = (payload or '').lower()
+    return {f for rx, f in ENV_FAM if re.search(rx, t)}
+
 our = {}
 print('--- 输入现读（账 `A1977`：三套数字并存过，根因就是谁也不记自己吃的是哪一份）---')
 print('   我们面 scan  :', _prov(SCAN))
@@ -342,8 +466,15 @@ for line in io.open(SCAN, 'r', encoding='utf-8'):
                     k, v = kv.split('=', 1); tgt[k] = v
         verb = f[0]
         fam = VFAM.get(verb, 'other')
-        if fam == 'envelope': fam = env_fam(f[5])
-        ops.append({'verb': verb, 'fam': fam, 'amount': f[4], 'payload': f[5], 'cond': f[8],
+        _isfam = fam == 'envelope'
+        if _isfam: fam = env_fam(f[5])
+        # 🔴 2026-10-19 波 5：信封 op 记**全部**候选族（见 `env_fams()` 的说明）。
+        _fams = env_fams(f[5]) if _isfam else {fam}
+        if not _fams: _fams = {'envelope'}
+        ops.append({'verb': verb, 'fam': fam, 'fams': _fams, 'amount': f[4], 'payload': f[5], 'cond': f[8],
+                    # 🔴 2026-10-19（波 5 · `A1986`）：`choosecard` 的**动作**在 `ChooseAct`（第 4 列），
+                    #   补桥要「逐动作」比 ⇒ 必须把它带出来（原来只留了 payload）。
+                    'act': f[3], 'what': f[2], 'src_kind': f[1],
                     'tgt': tgt, 'src': (sb.group(1) if sb else ''), 'raw': raw,
                     'am': (int(amb.group(1)) if amb else 0), 'tail': (tlb.group(1) if tlb else ''),
                     'env': verb in ENV_VERB_SET})
@@ -362,8 +493,13 @@ PAY = re.compile(r'([+-]?\d+)\s*(attack|ranged attack|ranged|melee|might|fist|st
                  r'|(attack|ranged attack|ranged|melee|might|fist|strength|weapon'
                  r'|health|armour|armor|cost)\s*([+-]?\d+)', re.I)
 def our_nums(payload):
+    # 🔴 2026-10-19 波 5：卡面**图标**归一（实测 `EC14 Varius` 的 desc 是 `-1 🗡 and -1 🔫` ——
+    #   图标不换成词，`PAY` 一个都认不出 ⇒ 真实现被报成「取值不同」）。
+    #   映射判据 = `CLAUDE.md` 铁律 7：左圆红剑 = 近战、右圆紫枪 = 远程、银盾 = 护甲。
+    #   ⚠️ 全池只有这 1 张卡用这三个图标（现读扫描：🗡/🔫/🛡 各 1 次）⇒ 影响面可控。
+    t0 = (payload or '').replace('🗡', ' melee ').replace('🔫', ' ranged ').replace('🛡', ' armour ')
     out = []
-    for m in PAY.finditer(payload or ''):
+    for m in PAY.finditer(t0 or ''):
         if m.group(1) is not None: a, n = m.group(2).lower(), int(m.group(1))
         else: a, n = m.group(3).lower(), int(m.group(4))
         a = {'armor': 'armour', 'attack': 'melee', 'might': 'melee', 'fist': 'melee',
@@ -587,18 +723,194 @@ def compare(fam, meta, o):
         if bt in (8, 12, 15, 16, 17, 25, 70, 95, 100): return True, ''
         nums = meta.get('nums') or []
         if not nums: return True, ''
-        if sorted(our_nums(o['payload'])) == sorted(nums): return True, ''
+        ours = sorted(our_nums(o['payload']))
+        want = sorted(nums)
+        if ours == want: return True, ''
+        if all(n in ours for n in want):
+            # 🔴 2026-10-19 波 5：原版把「+1 Attack 和 +1 Health」拆成**两条 abilityLogic**，
+            #   我们解析成**一条** op（payload 同时带两个数）⇒ 逐条比时「我们多一个」是**合并承载**、
+            #   不是多给（实测 `Grisly Feast` / `Hardened Biology` / `Master of the Deathwing`）。
+            #   ⚠️ 判据取「**包含**」而不是「相等」；备注里把两边都打出来（万一真是多给，人读得见）。
+            return True, '原版 %s 我们 %s（我们这条 op 合并承载了原版拆在别步的数值）' % (want, ours)
         return False, '原版 %s，我们 payload=[%s]' % (nums, o['payload'])
     return True, ''
 
 def match_card(c):
     cid = c.get('uniqueId') or ''
     if cid in our: return cid, 'id'
+    # 🔴 2026-10-19 波 5：池里有、但 `scan` 没有这一行 = **`desc` 为空被 `Scan.cs` 跳过**（`A1941`
+    #   收口的那 6 张）。原来与「不在池」共用「卡不在池」⇒ 把「没正文」说成了「没这张卡」。
+    if cid in POOLIDS: return None, 'notext'
     nm = c.get('cardName') or ''
     if nm and namecnt.get(nm, 0) == 1 and truthnamecnt.get(nm, 0) == 1:
         for k, v in our.items():
             if v['name'] == nm: return k, 'name'
     return None, 'none'
+
+# ================================================ `A1986` 选区桥（2026-10-19 波 5）
+# 🔴 **病灶**（判据 → `资料/待办判据_第三十三会话.md` §A1986 · `普查产出_第三十会话/D2_造卡族判定.md` §一）：
+#   原版有些步骤的 `chosenAbility` 叫 `createCardInHand(100)` / `recallToDeck(300)` / `setCardDeckToTop(420)`
+#   / `createCardInDeck(270)` / `summonUnit(70)`，但 `targetCriteria.selectFromChooseResolution == 1`
+#   ⇒ 语义 = **先从候选里挑一张、再对它做那个动作**。我们这一侧是**一个** `choosecard` op
+#   （动作在 `ChooseAct`，结算 = `EffectResolver.DoChooseCard`）⇒ 两条路之间**没桥**时，
+#   这一族在仪器里**结构性恒报「我们缺」**（实测旧口径 32/152 条「我们缺」来自这里）。
+#
+# ⛔ **桥只给【造/召回/置顶/召唤/抽】这一族**（`BRIDGE_ACT` 的键）。理由：
+#   `buffOthers` / `playChosenCardAbility` / `doDamage` 上的 `selectFromChooseResolution=1` 语义是
+#   「**目标取自前一次选区**」（Oath 后续句、Dark Pact 之类），不是「我们该有一个 `choosecard` 动词」——
+#   给它们也架桥 = 把「目标作用域」当成「动作」⇒ **假绿**。这一族的对照物仍是卡上那条同族 op
+#   （`lowercost` / `give` / `deal` …，走既有的「拆条差异 / 承载不同」两支）。
+#
+# ⚠️ **动作要逐条比**（不是「有 choose 就算」）：原版说「造进手里」，我们的 `choosecard` 若做的是
+#   `deploy`，那是**真差异**，不是口径差。
+BRIDGE_ACT = {
+    0:   {'draw'},                               # drawCard
+    70:  {'deploy'},                             # summonUnit
+    75:  {'deploy'},                             # summonBuffedUnit
+    100: {'hand', 'copies', 'enemyhand'},        # createCardInHand
+    101: {'hand', 'copies', 'enemyhand'},        # createCardInHandAndKeepEffects
+    140: {'hand'},                               # recallToOwnerHand
+    150: {'hand'},                               # （同族）
+    250: {'deploy'},                             # autoPlayFromHand
+    270: {'todeck', 'shuffle'},                  # createCardInDeck
+    300: {'return', 'shuffle', 'todeck'},        # recallToDeck
+    420: {'decktop'},                            # setCardDeckToTop
+}
+# `ChooseAct == ''` = **动作在下一句**（`EffectResolver.DoChooseCard` 的 `case ""`：日志明写
+# 「后续句接着结算」）⇒ 这时看**同一张卡上**有没有对应的兄弟 op（`drawref` / `create` / …）。
+BRIDGE_SIBLING = {
+    0:   {'draw', 'drawref'},
+    70:  {'deploy', 'summon', 'create'},
+    75:  {'deploy', 'summon', 'create'},
+    100: {'create'},
+    101: {'create'},
+    140: {'create'},
+    150: {'create'},
+    250: {'deploy', 'summon', 'create'},
+    270: {'create', 'todeck'},
+    300: {'return', 'shuffle'},
+    420: {'decktop'},
+}
+CHOOSE_VERBS = ('choosecard', 'chooseone', 'chooseeffect')
+
+
+def is_bridge_step(meta):
+    """原版这一步是否属于「选区 + 造/召回/…」那一族（= 需要桥）。"""
+    return bool(meta.get('choose_res')) and meta.get('orig_act') in BRIDGE_ACT
+
+
+# 🔴 2026-10-19 波 5：**`buffOthers` ↔ 我们的 `gain`（buff_self）** —— 原版把「Your Warlord gains X」
+#   编码成 `chosenAbility=30 buffOthers` + `targetCriteria.targetsAffected = friendlyHero(120)`（或
+#   `self(20)`），而我们的解析器写的是 `gain/…`（`buff_self`）。旧家族表里两族**互不包含** ⇒
+#   35 条真实现被报成「我们缺」（实测 `EC47`/`SW56`/`GOF72`/`GOF12` 那一族）。
+#   ⚠️ **只在目标确实是「自己 / 己方督军」时才放行**（`targetsAffected ∈ {20, 120}`）——
+#   否则「给一个友方单位」的 buffOthers 也会被 `gain` 蒙混过关（静默假绿）。
+def eq_set(fam, meta):
+    s = set(EQ.get(fam, set()))
+    if fam == 'buff_other':
+        _ta = (meta.get('tc_raw') or {}).get('targetsAffected')
+        if _ta in (20, 120):
+            s.add('buff_self')
+    return s
+
+
+def bridge_match(meta, o, ocard):
+    """`True` = 这条 op 就是原版那一步的对照物；`False` = 是 choose 类但**动作不符**；
+    `None` = 不是桥步骤 / 不是 choose 类（调用方照旧）。"""
+    if not is_bridge_step(meta): return None
+    if o['verb'] not in CHOOSE_VERBS: return None
+    acts = BRIDGE_ACT[meta['orig_act']]
+    if o['act'] in acts: return True
+    if not o['act'] and ocard is not None:
+        want = BRIDGE_SIBLING.get(meta['orig_act'], set())
+        return any(x is not o and x['verb'] in want for x in ocard['ops'])
+    return False
+
+
+# ================================================ 「打谁 / 打多少 / 什么触发」的机器化（新列 12–17）
+# 枚举名表（`TargetCriteria@…targetCriteria` 的字段值）—— 与 `ANAME`/`TNAME` 同一个词典文件，
+# 因此不会出现「仪器一套名字、探针一套名字」。
+TCNAME = collections.defaultdict(dict)
+for _r in rows[1:]:
+    if _r[0].startswith('TargetCriteria@') and _r[0].endswith('targetCriteria'):
+        try: TCNAME[_r[1]][int(_r[2])] = _r[3]
+        except ValueError: pass
+
+
+def _enum_name(table, v):
+    try: return table.get(int(v), str(v))
+    except (TypeError, ValueError): return str(v)
+
+
+def fmt_orig_target(tc):
+    """原版 `targetCriteria` → 一行「打谁」。空 = 原版没写目标块（`targetsAffected=0` 且无过滤器）。"""
+    if not tc: return ''
+    parts = []
+    ta = tc.get('targetsAffected', 0)
+    parts.append('scope=%s(%s)' % (_enum_name(TCNAME.get('targetsAffected', {}), ta), ta))
+    side = []
+    if tc.get('friendlyUnits'): side.append('own')
+    if tc.get('enemyUnits'): side.append('enemy')
+    if side: parts.append('side=' + '+'.join(side))
+    kinds = [lbl for key, lbl in (('includeMinions', 'unit'), ('includeHero', 'hero'),
+                                  ('includeRemnants', 'remnant'), ('includeSelf', 'self'),
+                                  ('includeSpells', 'spell')) if tc.get(key)]
+    if kinds: parts.append('kinds=' + '+'.join(kinds))
+    if tc.get('maxTargets'): parts.append('max=%s' % tc['maxTargets'])
+    for k in ('keywordFilter', 'traitsFilter', 'chosenArmy', 'spellType', 'conditionsFilter'):
+        v = tc.get(k)
+        if v: parts.append('%s=%s(%s)' % (k, _enum_name(TCNAME.get(k, {}), v), v))
+    for k in ('excludeTrait', 'excludeCondition', 'excludeRace'):
+        if tc.get(k): parts.append(k + '=1')
+    fsc = tc.get('filterSpecificCards') or []
+    if fsc: parts.append('specific=%d' % len(fsc))
+    if tc.get('selectFromChooseResolution'): parts.append('fromChoose')
+    return ' '.join(parts)
+
+
+def fmt_orig_amount(meta):
+    """原版这一支的「打多少」（伤害/治疗/属性增减/费用/资源/召唤数）。空 = 这一支不是数值类。"""
+    if not meta: return ''
+    parts = []
+    if 'dmg' in meta: parts.append('dmg=%s' % meta['dmg'])
+    if 'dmg_span' in meta: parts.append('dmg=%s-%s' % meta['dmg_span'])
+    if 'heal' in meta: parts.append('heal=%s' % meta['heal'])
+    if 'heal_span' in meta: parts.append('heal=%s-%s' % meta['heal_span'])
+    nums = meta.get('nums') or []
+    if nums: parts.append('buff=' + ','.join('%s%+d' % (k, v) for k, v in nums))
+    if 'mana' in meta: parts.append('mana=%s' % meta['mana'])
+    if meta.get('summon_n'):
+        parts.append('summon=%s%s' % (meta['summon_n'], '(enemy)' if meta.get('summon_enemy') else ''))
+    if meta.get('bt') in (3, 4, 90) and meta.get('trait'):
+        parts.append('trait=%s' % meta['trait'])
+    return ' '.join(parts)
+
+
+def fmt_our_target(o):
+    """我们这条 op 的 `{T:…}` 目标块 → 一行「打谁」（只挑可读的几格）。"""
+    if not o: return ''
+    t = o.get('tgt') or {}
+    if not t: return ''
+    keys = ['Side', 'Kind', 'Count', 'SubtypeFilter', 'KeywordFilter', 'NameFilter',
+            'Adjacent', 'Anchor', 'Random', 'Auto', 'Each', 'Deployed', 'AttackedBySelf']
+    seg = []
+    for k in keys:
+        v = t.get(k)
+        if v in (None, '', '-'): continue
+        if k in ('Random', 'Auto', 'Each', 'Deployed', 'AttackedBySelf') and v == '0': continue
+        seg.append('%s=%s' % (k, v))
+    return ' '.join(seg)
+
+
+def fmt_our_amount(o):
+    """我们这条 op 的「打多少」：`amount`（含 `{AM:}` 上界）+ 载荷里的属性增减。"""
+    if not o: return ''
+    lo, hi = our_span(o)
+    s = 'amount=%s' % span_txt((lo, hi))
+    nums = our_nums(o.get('payload') or '')
+    if nums: s += ' buff=' + ','.join('%s%+d' % (k, v) for k, v in nums)
+    return s
+
 
 # ------------------------------------------------ 逐卡对账
 out = []
@@ -610,14 +922,51 @@ matchroute = collections.Counter()
 alt_live, alt_content = [], []
 # 🔴 `E2`：被**改判**（🔴 ⇒ ⚠️`光环层承载`）的行，逐条出声（⛔ 改判不许无声）
 aura_flip = []
+# 🔴 2026-10-19 波 5（`A1986`）：被**选区桥**改判的行，逐条出声（⛔ 改判不许无声）
+bridge_flip = []
+bridge_rows = []
 # 🔴 `E2`：与 `out` **等长**的「我们面·光环」列（按**卡**成批补，见下面 `row_aura.extend`）
 row_aura = []
+# 🔴 2026-10-19 波 5：与 `out` **等长**的「打谁 / 打多少 / 什么触发」六列（追加在末尾）。
+#   与 `row_aura` 用**同一个收尾守卫**（见落盘前那段）：长度不等 = 有 `emit` 点漏了 ⇒ 出声。
+row_extra = []
+
+
+def emit(vals, trig, meta, o, ocid):
+    """`out.append` 的**唯一口**（波 5 起）：同时产出第 12–17 列。
+    ⚠️ 新加行时**必须走这里**（`row_extra` 与 `out` 等长的守卫会抓漏，但别故意去踩）。"""
+    out.append(vals)
+    _m = meta or {}
+    row_extra.append([
+        trig or '',
+        fmt_orig_target(_m.get('tc_raw')),
+        fmt_orig_amount(_m),
+        fmt_our_target(o),
+        fmt_our_amount(o),
+        ocid or '',
+    ])
 CARRY_VERB = ('choosecard', 'chooseone', 'chooseeffect', 'lowercost', 'costmore', 'costwhen',
               'costifcontrol', 'paidmod', 'repeat', 'noeffect', 'extratrigger', 'double',
               'sethealth', 'become', 'ferocitystay')
 
+# 🔴 2026-10-19 波 5：`A1978` 的另一半 —— `hasActiveAbility` 为 `None`（旧快照 3 张）时，
+#   下面那句 `c.get(...)` 的真假值判会让它**静默按 0 走**。这里**出声计数**（⛔ 不改判定：
+#   「按 0 走」是旧口径，当前 build 真值 1,351 张全是 0/1，本计数恒 0；留着是为了让旧快照
+#   再被指过来时**看得见**）。
+haa_none = 0
+skipped_not_pool = 0
+TRUTH_TOTAL = len(truth)
+
 for c in truth:
     cid = c.get('uniqueId') or ''
+    # 🔴 2026-10-19 波 5：**对账单位 = 池内卡**。当前 build 真值 1,351 张里有 224 张不在我们的池
+    #   （未来卡 / 不在本 build 卡池的 SO）—— 它们不是「我们的缺陷」，混进表就是 224 行噪声。
+    #   `--all-truth` 可放开（放开后这批走 `卡不在池` 那一支）。
+    if not ALL_TRUTH and cid not in POOLIDS:
+        skipped_not_pool += 1
+        continue
+    if c.get('hasActiveAbility') is None:
+        haa_none += 1
     abilities = [('a%d' % ai, ab.get('trigger'), ab.get('abilityLogic') or [])
                  for ai, ab in enumerate(c.get('cardAbilities') or [])]
     # 🔴 账 `A1915` 的闸（2026-10-14 加）：**`hasActiveAbility == 0` 的卡不加 `ACT` 行**。
@@ -694,8 +1043,22 @@ for c in truth:
         # 于是下面那条「来源加分」启发式**结构上不可能**给它加分（旧写法会给 `ACT` 行一个
         # 假的 `head='talent'`，即给「`src` 以 `talent` 开头」的 op 白送 3 分）。
         head = T2H.get(tname) if trig in TNAME else None
+        # 🔴 2026-10-19 波 5：**多分支卡**（同一 ability 里 N 条 abilityLogic 各给一种 buff，
+        #   例 `Flickerjump` = 手里剑/flying/flank 三支）—— 原版顺序先到先得会把**精确匹配**的那一支
+        #   让给前一支（实测 `67ad…`：l2 的 `flank` 与我们唯一那条 `give flank` 完全对上，
+        #   却被 l0 的 `flying` 先吃掉 ⇒ 假「取值不同」）。⇒ 排序键加一档：**有精确匹配的步骤先走**。
+        #   ⚠️ 只改**遍历顺序**，不改任何判定口径；`follow` 仍排最后。
+        def _step_exact(lg):
+            if ocard is None: return False
+            _v = lg.get('chosenAbility'); _fam = OFAM.get(_v, 'other')
+            _oval, _meta, _dyn = orig_value(lg)
+            for _o in ocard['ops']:
+                if (set(_o.get('fams') or {_o['fam']}) & eq_set(_fam, _meta)) and compare(_fam, _meta, _o)[0]:
+                    return True
+            return False
         order = sorted(range(len(logics)),
-                       key=lambda k: 1 if OFAM.get(logics[k].get('chosenAbility')) == 'follow' else 0)
+                       key=lambda k: (1 if OFAM.get(logics[k].get('chosenAbility')) == 'follow' else 0,
+                                      0 if _step_exact(logics[k]) else 1, k))
         for li in order:
             lg = logics[li]
             v = lg.get('chosenAbility')
@@ -706,60 +1069,132 @@ for c in truth:
             key = (oname, oval)
 
             if ocard is None:
-                out.append(row + ['', '', '❓查不清', '卡不在池',
-                                  '卡按 id 与唯一卡名都不在 d:/4 卡池；trig=' + tname])
-                stat['❓查不清'] += 1; sub['卡不在池'] += 1
-                matrix[(oname, '❓查不清')] += 1; percard[(cid, oname)] += 1
+                if route == 'notext':
+                    # 🔴 2026-10-19 波 5：**在池、但 `desc` 为空**（`Scan.cs:138` 跳过）——
+                    #   与「卡不在池」分开说。这 6 张已由 `A1941` 查实「原版本身没有效果文本」
+                    #   （判据 → `Scan.cs:140-150` 的逐张注释）⇒ 不是我们的缺口，但**别混成没有这张卡**。
+                    emit(row + ['', '', '❓查不清', '卡无正文',
+                                '这张卡在池内、但 `desc` 为空 ⇒ `scan` 没有它的 ops 行（`A1941` 已查实'
+                                '原版本身没有效果文本）；trig=' + tname], tname, meta, None, cid)
+                    stat['❓查不清'] += 1; sub['卡无正文'] += 1
+                    matrix[(oname, '❓查不清')] += 1
+                else:
+                    emit(row + ['', '', '❓查不清', '卡不在池',
+                                '卡按 id 与唯一卡名都不在 d:/4 卡池；trig=' + tname], tname, meta, None, cid)
+                    stat['❓查不清'] += 1; sub['卡不在池'] += 1
+                    matrix[(oname, '❓查不清')] += 1; percard[(cid, oname)] += 1
                 continue
             if key in seen_step:
-                out.append(row + [seen_step[key], '', '⚠️表示不同·语义同', '原版重复N次',
-                                  '同一张卡上同一条 (类型,取值) 步骤重复出现 —— 原版写成 N 条独立 ability，'
-                                  '我们只有一条 op（次数由数量字段承载）· trig=' + tname])
+                emit(row + [seen_step[key], '', '⚠️表示不同·语义同', '原版重复N次',
+                            '同一张卡上同一条 (类型,取值) 步骤重复出现 —— 原版写成 N 条独立 ability，'
+                            '我们只有一条 op（次数由数量字段承载）· trig=' + tname], tname, meta, None, ocid)
                 stat['⚠️表示不同·语义同'] += 1; sub['原版重复N次'] += 1
                 matrix[(oname, '⚠️表示不同·语义同')] += 1
                 continue
 
             sec = [x for x in (meta.get('sec') or []) if x != fam]
             secset = set()
-            for x in sec: secset |= EQ.get(x, set())
+            for x in sec: secset |= eq_set(x, meta)
             best = None
             for i, o in enumerate(ocard['ops']):
                 if i in used: continue
-                prim = o['fam'] in EQ.get(fam, set())
-                if not prim and o['fam'] not in secset: continue
+                prim = bool(set(o.get('fams') or {o['fam']}) & eq_set(fam, meta))
+                # 🔴 `A1986` 选区桥：原版「选区 + 造/召回/…」那一步的对照物是我们的 choose 类 op。
+                #   `False` = 是 choose 类但**动作不符** ⇒ 它不是这一支的对照物（别拿它凑数）；
+                #   `None` = 不是桥步骤 / 不是 choose 类 ⇒ 照旧按家族表判。
+                br = bridge_match(meta, o, ocard)
+                if br is False: continue
+                if br is None and not prim and not (set(o.get('fams') or {o['fam']}) & secset): continue
                 sc = 30 if prim else 0
+                if br: sc = max(sc, 28)
                 # ⚠️ 这是**我们的启发式、不是原版规则**：op 的 SRC 前缀与 trigger 名对得上 ⇒ +3，
                 #    作用是同一张卡有多条触发时，优先挑中「从这个 trigger 那句正文解析出来的」op。
                 #    账 `A1937` 只收窄了它的**适用范围**（非枚举的 `ACT` 行拿不到 `head`），
                 #    没有动它的打分本身 —— 真枚举行照旧（`Strike`/`Pray`/`Rally`… 那批）。
                 if head and o['src'].lower().startswith(head): sc += 3
                 if prim and compare(fam, meta, o)[0]: sc += 1
-                if best is None or sc > best[0]: best = (sc, i, o, prim)
+                if best is None or sc > best[0]: best = (sc, i, o, prim, br)
 
             if best is not None:
-                sc, i, o, prim = best
+                sc, i, o, prim, br = best
                 if not o['env']: used[i] = (fam, oname)
                 oside = op_side(o)
                 same, why = compare(fam, meta, o)
                 seen_step[key] = oside
+                if not same and not br:
+                    # 🔴 2026-10-19 波 5：**先别急着判红** —— 原版可能把同一条效果写成**两步**
+                    #   （实测 `UM64`：`followAfterResolution` 与 `FollowUpResolution` 两步都给
+                    #   `+1 ranged`，我们只有一条 `give +1 ranged`，第一步用掉后第二步只能抓到
+                    #   另一条同族但数值不符的 op ⇒ 假「取值不同」）。若**已用掉**的某条同族 op
+                    #   数值与这一步一致 ⇒ 这是「原版拆条」，不是差异。
+                    _m2 = next((ocard['ops'][i] for i in used
+                                if (set(ocard['ops'][i].get('fams') or {ocard['ops'][i]['fam']}) & eq_set(fam, meta))
+                                and compare(fam, meta, ocard['ops'][i])[0]), None)
+                    if _m2 is not None:
+                        _os2 = op_side(_m2)
+                        emit(row + [_os2, _m2['src'][:100], '⚠️表示不同·语义同', '拆条差异',
+                                    '原版把这一效果写成多条 abilityLogic（本步与已用掉的那条同值：%s）；'
+                                    '我们只有一条 op · trig=%s' % (_os2, tname)], tname, meta, _m2, ocid)
+                        stat['⚠️表示不同·语义同'] += 1; sub['拆条差异'] += 1
+                        matrix[(oname, '⚠️表示不同·语义同')] += 1
+                        continue
+                if br:
+                    # 🔴 `A1986` 选区桥命中：原版 = `chosenAbility + selectFromChooseResolution=1`
+                    #   （先挑一张、再对它做动作）；我们 = 一条 `choose*` op，**动作已逐条比过**
+                    #   （`BRIDGE_ACT`）。⇒ 语义同、编码不同。
+                    _acts = sorted(BRIDGE_ACT.get(meta.get('orig_act'), set()))
+                    emit(row + [oside, o['src'][:100], '⚠️表示不同·语义同', '选区桥',
+                                '原版：`%s(%s)` + `targetCriteria.selectFromChooseResolution=1`'
+                                '（从候选里挑一张再「%s」）↔ 我们：`%s(%s)` —— 动作相符（允许集 %s）· trig=%s'
+                                % (oname, meta.get('orig_act'), '/'.join(_acts), o['verb'], o['act'],
+                                   '/'.join(_acts), tname)], tname, meta, o, ocid)
+                    stat['⚠️表示不同·语义同'] += 1; sub['选区桥'] += 1
+                    matrix[(oname, '⚠️表示不同·语义同')] += 1
+                    bridge_flip.append('%s %-22s %-18s %s ← 我们 %s(%s)'
+                                       % (cid, oname, tname, oval[:40], o['verb'], o['act']))
+                    bridge_rows.append([cid, c.get('cardName') or '', tname,
+                                        '%s(%s)' % (oname, meta.get('orig_act')),
+                                        '; '.join(n for _, n in (meta.get('summon_ids') or [])) or '（无 unitsToSummon）',
+                                        '%s(%s) from=%s what=%s' % (o['verb'], o['act'] or '空',
+                                                                    o['src_kind'], o['what']),
+                                        '⚠️表示不同·语义同',
+                                        '选区桥（动作相符）· 原版取值=' + oval])
+                    continue
                 if not prim:
-                    out.append(row + [oside, o['src'][:100], '⚠️表示不同·语义同', '原版一条含多效果',
-                                      '原版这一条 abilityLogic 同时带多个 criteria 块（%s），我们拆成多条 op'
-                                      '（本条对上的是 %s）· trig=%s' % ('+'.join([fam] + sec), o['verb'], tname)])
+                    emit(row + [oside, o['src'][:100], '⚠️表示不同·语义同', '原版一条含多效果',
+                                '原版这一条 abilityLogic 同时带多个 criteria 块（%s），我们拆成多条 op'
+                                '（本条对上的是 %s）· trig=%s' % ('+'.join([fam] + sec), o['verb'], tname)],
+                         tname, meta, o, ocid)
                     stat['⚠️表示不同·语义同'] += 1; sub['原版一条含多效果'] += 1
                     matrix[(oname, '⚠️表示不同·语义同')] += 1
                     continue
                 if o['env']:
-                    out.append(row + [oside, o['src'][:100], '⚠️表示不同·语义同', '粒度不同',
-                                      '我们把它收在一条「信封」op（%s，payload 即原句文本）里，'
-                                      '与引擎内真实登记粒度不同；原版是独立一条 abilityLogic · trig=%s'
-                                      % (o['verb'], tname)])
+                    emit(row + [oside, o['src'][:100], '⚠️表示不同·语义同', '粒度不同',
+                                '我们把它收在一条「信封」op（%s，payload 即原句文本）里，'
+                                '与引擎内真实登记粒度不同；原版是独立一条 abilityLogic · trig=%s'
+                                % (o['verb'], tname)], tname, meta, o, ocid)
                     stat['⚠️表示不同·语义同'] += 1; sub['粒度不同'] += 1
                     matrix[(oname, '⚠️表示不同·语义同')] += 1
                     continue
                 if same:
                     judge, s2 = '✅一致', ''
                 else:
+                    # 🔴 2026-10-19 波 5（`A1947` 的读数落地）：`hasAlternativeAbility == 1` 的卡，
+                    #   原版按**运行期棋盘**在 `activeAbility` / `alternativeAbility` 两支里挑
+                    #   （`RawCardScript__GetActiveAbility.c:12-20`）。本仪器只读前一支 ⇒ 数值不同时
+                    #   **不能判成我们的缺陷** —— 实测全池 1 张（`SW21 Wulfen Pack Leader`：
+                    #   前一支 = `dmg5`「你没别的部队时」，我们的卡面 = `3, or 5 …` 条件式）。
+                    if abkey == 'ACT' and c.get('hasAlternativeAbility'):
+                        judge, s2 = '❓查不清', '替代分支'
+                        why = ('（原版这张卡 `hasAlternativeAbility=1`：`activeAbility` 与 '
+                               '`alternativeAbility` 是**二选一**，按运行期棋盘挑；静态对账只读了前一支 '
+                               '⇒ 这一行的数值差**不能**判成我们的缺陷）· ' + why)
+                        sub['替代分支'] += 1
+                        percard[(cid, oname)] += 1
+                        stat[judge] += 1; matrix[(oname, judge)] += 1
+                        emit(row + [oside, o['src'][:100], judge, s2,
+                                    why + ' · trig=' + tname], tname, meta, o, ocid)
+                        continue
                     # 🔴 `E2`：改判之前先问一句「原版这一支是不是落在我们的**光环层**」。
                     _ej, _es, _en = e2_verdict(tname, meta, oval, ocid)
                     if _ej:
@@ -777,44 +1212,62 @@ for c in truth:
                         why += _en
                 stat[judge] += 1; matrix[(oname, judge)] += 1
                 if judge == '🔴真差异': percard[(cid, oname)] += 1
-                out.append(row + [oside, o['src'][:100], judge, s2,
-                                  (why + ' · ' if why else '') + 'trig=' + tname])
+                emit(row + [oside, o['src'][:100], judge, s2,
+                            (why + ' · ' if why else '') + 'trig=' + tname], tname, meta, o, ocid)
                 continue
 
             merged = None
             for i in used:
                 o = ocard['ops'][i]
-                if o['fam'] in EQ.get(fam, set()) and compare(fam, meta, o)[0]:
+                if (set(o.get('fams') or {o['fam']}) & eq_set(fam, meta)) and compare(fam, meta, o)[0]:
                     merged = o; break
             if merged is not None:
                 oside = op_side(merged)
                 seen_step[key] = oside
-                out.append(row + [oside, merged['src'][:100], '⚠️表示不同·语义同', '拆条差异',
-                                  '原版把这一效果拆成多条 abilityLogic（或拆在兄弟 ability 里），'
-                                  '我们解析成一条 op（%s）；数值一致 · trig=%s' % (oside, tname)])
+                emit(row + [oside, merged['src'][:100], '⚠️表示不同·语义同', '拆条差异',
+                            '原版把这一效果拆成多条 abilityLogic（或拆在兄弟 ability 里），'
+                            '我们解析成一条 op（%s）；数值一致 · trig=%s' % (oside, tname)],
+                     tname, meta, merged, ocid)
                 stat['⚠️表示不同·语义同'] += 1; sub['拆条差异'] += 1
                 matrix[(oname, '⚠️表示不同·语义同')] += 1
                 continue
+            if is_bridge_step(meta):
+                # 🔴 `A1986` 的第二半（实测 `UM114`）：原版把「制造 2 份复制」写成**两条**
+                #   `createCardInHand` 步骤，我们**一条** `choosecard(copies)` 就表达了（数量在动作里）
+                #   ⇒ 第二条原版步骤走到这里时那个 choose op 已被 `used` 占掉。这不是「动作不符」，
+                #   是**原版重复 N 次**（与上面 `seen_step` 同一支口径，只是键不同）。
+                _br_used = [ocard['ops'][i] for i in used
+                            if i < len(ocard['ops']) and bridge_match(meta, ocard['ops'][i], ocard)]
+                if _br_used:
+                    _u = _br_used[0]
+                    emit(row + [op_side(_u), _u['src'][:100], '⚠️表示不同·语义同', '原版重复N次',
+                                '原版把同一件事拆成多条 abilityLogic（本步是第 N 条）；我们的 `%s(%s)` '
+                                '一条就表达了（数量/次数在动作里）· trig=%s'
+                                % (_u['verb'], _u['act'], tname)], tname, meta, _u, ocid)
+                    stat['⚠️表示不同·语义同'] += 1; sub['原版重复N次'] += 1
+                    matrix[(oname, '⚠️表示不同·语义同')] += 1
+                    continue
             if fam == 'vfxonly':
-                out.append(row + ['', '', '⚠️表示不同·语义同', '纯表现',
-                                  '原版这一支只播特效（无棋局效果），我们的 op 表不为它出 op · trig=' + tname])
+                emit(row + ['', '', '⚠️表示不同·语义同', '纯表现',
+                            '原版这一支只播特效（无棋局效果），我们的 op 表不为它出 op · trig=' + tname],
+                     tname, meta, None, ocid)
                 stat['⚠️表示不同·语义同'] += 1; sub['纯表现'] += 1
                 matrix[(oname, '⚠️表示不同·语义同')] += 1
                 continue
             if fam == 'uionly':
-                out.append(row + ['', '', '⚠️表示不同·语义同', '纯 UI',
-                                  '原版这一支只开一个看牌窗（无棋局效果）· trig=' + tname])
+                emit(row + ['', '', '⚠️表示不同·语义同', '纯 UI',
+                            '原版这一支只开一个看牌窗（无棋局效果）· trig=' + tname], tname, meta, None, ocid)
                 stat['⚠️表示不同·语义同'] += 1; sub['纯 UI'] += 1
                 matrix[(oname, '⚠️表示不同·语义同')] += 1
                 continue
             if fam in ('remove_ench', 'setref'):
-                out.append(row + ['', '', '❓查不清', '判据不足',
-                                  '原版这一支改的是 AbilityLogic 自己的附魔/引用位（记账），'
-                                  '我们这边没有可观测的对应物 · trig=' + tname])
+                emit(row + ['', '', '❓查不清', '判据不足',
+                            '原版这一支改的是 AbilityLogic 自己的附魔/引用位（记账），'
+                            '我们这边没有可观测的对应物 · trig=' + tname], tname, meta, None, ocid)
                 stat['❓查不清'] += 1; sub['判据不足'] += 1
                 matrix[(oname, '❓查不清')] += 1; percard[(cid, oname)] += 1
                 continue
-            anyfam = [o for o in ocard['ops'] if o['fam'] in EQ.get(fam, set())]
+            anyfam = [o for o in ocard['ops'] if set(o.get('fams') or {o['fam']}) & eq_set(fam, meta)]
             mech = famseen.get(PRIM.get(fam, fam), 0)
             # 🔴 `E1`（2026-10-14）：判「我们缺」之前，把**这张卡所有 op 的尾句**（`{TAIL:}`）也看一眼。
             #   为什么只改 `备注`、⛔ 不改判定：现读 1120 张卡里 88 条 op 带尾句，**88 条的那半句
@@ -832,6 +1285,16 @@ for c in truth:
                 why = '原版这张卡有 %d 条同族步骤，我们只有 %d 条同族 op（其余都被别处吃掉了）' % (
                     sum(1 for at in abilities for x in at[2]
                         if OFAM.get(x.get('chosenAbility')) == fam), len(anyfam))
+            elif is_bridge_step(meta) and any(o['verb'] in CHOOSE_VERBS for o in ocard['ops']):
+                # 🔴 2026-10-19 波 5：**有 choose op、但动作不符**（`bridge_match` 判过 False）——
+                #   这是**真差异**，而且肉眼很难从「我们缺」里看出来，单列一个子类点名。
+                _acts_here = sorted(set('%s(%s)' % (o['verb'], o['act'] or '空')
+                                        for o in ocard['ops'] if o['verb'] in CHOOSE_VERBS))
+                s2 = '选区动作不符'
+                why = '原版这一步 = `%s` + `selectFromChooseResolution=1`（允许动作 %s），' \
+                      '我们这边的 choose 类 op 动作是 %s' % (
+                          oname, '/'.join(sorted(BRIDGE_ACT.get(meta.get('orig_act'), set()))),
+                          ' / '.join(_acts_here))
             elif mech:
                 s2 = '我们缺'
                 why = '我们这边有同族机制（%s 全池 %d 条 op），但这张卡没解析出' % (PRIM.get(fam, fam), mech)
@@ -843,6 +1306,8 @@ for c in truth:
             _j, _s = (_ej or '🔴真差异'), (_es or s2)
             out.append(row + ['', '', _j, _s,
                               why + tailnote + _en + '；原版取值=' + oval + ' · trig=' + tname])
+            row_extra.append([tname, fmt_orig_target(meta.get('tc_raw')), fmt_orig_amount(meta),
+                              '', '', ocid])
             stat[_j] += 1; sub[_s] += 1
             matrix[(oname, _j)] += 1
             if _ej:
@@ -856,23 +1321,32 @@ for c in truth:
         ofams = set()
         for _ab in abilities:
             for _lg in _ab[2]:
-                ofams |= EQ.get(OFAM.get(_lg.get('chosenAbility'), 'other'), set())
+                _ov2, _m2, _d2 = orig_value(_lg)
+                ofams |= eq_set(OFAM.get(_lg.get('chosenAbility'), 'other'), _m2)
+                # 🔴 2026-10-19 波 5：**一条 abilityLogic 可以同时带多个 criteria 块**
+                #   （`summonUnit` + `buffEffect{addTrait flank}` = 「部署它并给侧翼」）。
+                #   旧口径的 `ofams` 只收**主块**那一族 ⇒ 我们的 `give flank` 这条 op 找不到归属、
+                #   被记成「我们多」（实测 `AM73` / `AM76` / `GOF43` / `TAU75` 等一整族）。
+                #   ⇒ 把每一步的**次要块**（`meta['sec']`）也并进来 —— 这与上面「原版一条含多效果」
+                #   是同一件事的两面。
+                for _x in (_m2.get('sec') or []):
+                    ofams |= eq_set(_x, _m2)
         for i, o in enumerate(ocard['ops']):
             if i in used or o['env']: continue
             oside = '%s/%s%s' % (o['verb'], o['amount'], ('|' + o['payload']) if o['payload'] else '')
-            if o['fam'] in ofams or o['verb'] in CARRY_VERB:
-                out.append([cid, '-', '-', '', '', oside, o['src'][:100],
-                            '⚠️表示不同·语义同', '承载不同',
-                            '我们这一条 op 是从同一句卡面正文解析出来的机制产物（选牌/改费/重复…）—— '
-                            '原版把这件事编码在同一 abilityLogic 的 targetCriteria / cardEffect 字段里，'
-                            '没有独立的 chosenAbility 步骤与之对齐'])
+            if (set(o.get('fams') or {o['fam']}) & ofams) or o['verb'] in CARRY_VERB:
+                emit([cid, '-', '-', '', '', oside, o['src'][:100],
+                      '⚠️表示不同·语义同', '承载不同',
+                      '我们这一条 op 是从同一句卡面正文解析出来的机制产物（选牌/改费/重复…）—— '
+                      '原版把这件事编码在同一 abilityLogic 的 targetCriteria / cardEffect 字段里，'
+                      '没有独立的 chosenAbility 步骤与之对齐'], '', None, o, ocid)
                 stat['⚠️表示不同·语义同'] += 1; sub['承载不同'] += 1
                 matrix[('(无独立对应步骤)', '⚠️表示不同·语义同')] += 1
             else:
-                out.append([cid, '-', '-', '', '', oside, o['src'][:100],
-                            '🔴真差异', '我们多',
-                            '我们这张卡有这条 op，原版整卡 %d 条步骤里没有同族 counterpart'
-                            % sum(len(at[2]) for at in abilities)])
+                emit([cid, '-', '-', '', '', oside, o['src'][:100],
+                      '🔴真差异', '我们多',
+                      '我们这张卡有这条 op，原版整卡 %d 条步骤里没有同族 counterpart'
+                      % sum(len(at[2]) for at in abilities)], '', None, o, ocid)
                 stat['🔴真差异'] += 1; sub['我们多'] += 1
                 matrix[('(无独立对应步骤)', '🔴真差异')] += 1
                 extra_list.append((ocid, c.get('cardName'), o['verb'], o['payload'], o['src'][:80]))
@@ -889,19 +1363,41 @@ if len(row_aura) != len(out):
     print('!! 「我们面·光环」列与行数不齐（%d vs %d）⇒ 有 `out.append` 点漏了收尾的 `row_aura.extend`。'
           '缺的按 `?` 补齐（⛔ 这是**错位告警**，不是「这些卡没有光环」）。' % (len(row_aura), len(out)))
     row_aura.extend(['?'] * (len(out) - len(row_aura)))
+# 🔴 2026-10-19 波 5：同一道守卫，管第 12–17 列（`emit` 是唯一口，漏了就在这里出声）。
+if len(row_extra) != len(out):
+    print('!! 「打谁/打多少/触发」六列与行数不齐（%d vs %d）⇒ 有 `out.append` 没走 `emit`。'
+          '缺的按空串补齐（⛔ 错位告警，不是「这几列没有值」）。' % (len(row_extra), len(out)))
+    row_extra.extend([['', '', '', '', '', ''] for _ in range(len(out) - len(row_extra))])
 lines = ['\t'.join(['卡id', 'ability序', 'logic序', '原版(类型枚举名)', '原版取值',
-                    '我们(类型)', '我们取值', '判定', '子类', '备注', '我们面 · 光环'])]
+                    '我们(类型)', '我们取值', '判定', '子类', '备注', '我们面 · 光环',
+                    # 🔴 2026-10-19 波 5 追加（⛔ 前 11 列下标一字不动）
+                    '触发', '原版·打谁', '原版·多少', '我们·打谁', '我们·多少', '我们卡id'])]
 for i, r in enumerate(out):
     r = [str(x if x is not None else '').replace('\t', ' ').replace('\n', ' ') for x in r]
-    lines.append('\t'.join(r + [row_aura[i].replace('\t', ' ').replace('\n', ' ')]))
+    ex = [str(x if x is not None else '').replace('\t', ' ').replace('\n', ' ') for x in row_extra[i]]
+    lines.append('\t'.join(r + [row_aura[i].replace('\t', ' ').replace('\n', ' ')] + ex))
 io.open(OUT, 'wb').write(('\r\n'.join(lines) + '\r\n').encode('utf-8'))
 print('wrote', OUT, 'rows=', len(out))
+print('--- 输入现读（2026-10-19 波 5 追加：真值源换了，必须让「吃的是哪一份」看得见）---')
+print('   真值        :', _prov(TRUTH), '· 形态=%s · 卡数=%d' % (TRUTH_SHAPE, TRUTH_TOTAL))
+print('   本地化显示名:', LOC_SHAPE)
+print('   trait 名表  :', ('DefinedTrait.cs 全量 %d 个值' % len(TRNAME)) if TRAIT_SRC_OK
+      else ('⚠️ 没读到 DefinedTrait.cs ⇒ 退回词典 %d 个值（`huntMark/sentry/pack` 那一批会变无名值）' % len(TRNAME)))
+if skipped_not_pool:
+    print('   ⚠️ 真值里有 %d 张**不在我们的池**（真值 %d 张；纳入对账的池内卡 = %d）⇒ 默认**跳过**'
+          '（`--all-truth` 可放开；它们不是我们的缺陷）。'
+          % (skipped_not_pool, TRUTH_TOTAL, TRUTH_TOTAL - skipped_not_pool))
+if haa_none:
+    print('   🔴 `hasActiveAbility` 为 `None` 的卡 = %d 张（旧口径会**静默按 0 走**；`A1978①`）' % haa_none)
 print('stat =', dict(stat))
 print('sub  =', dict(sub))
 print('matchroute =', dict(matchroute))
 print('matrix:')
 for (k, j), n in sorted(matrix.items(), key=lambda x: -x[1])[:12]:
     print('   %-30s %-18s %d' % (k, j, n))
+print('--- `A1986` 选区桥（`create/recall/…` + `selectFromChooseResolution=1` ⇒ `choose*` op）---')
+print('   改判合计 %d 条（逐条见下；动作集见 `BRIDGE_ACT`）：' % len(bridge_flip))
+for x in bridge_flip: print('      ·', x)
 print('--- 我们缺 前 12 ---')
 for m in miss_list[:12]: print('   ', m[0], m[2], '|', m[3][:60], '|', m[5][:80])
 print('--- 取值不同 前 12 ---')
@@ -936,3 +1432,83 @@ else:
     print('      本仪器是**纯静态对账**（不跑引擎、没有局面）⇒ **离线判不了**，⛔ 没有替它挑。')
     for x in alt_live[:12]: print('      · `hasAlternativeAbility` = 1：', x)
     for x in alt_content[:12]: print('      · `alternativeAbility` 有内容：', x)
+
+# ================================================ 选区桥 TSV（`A1986` · 2026-10-19 波 5）
+# 只列**被桥改判**的行（`⚠️`）—— ⛔ 不把「桥没救回来」的也塞进来：那些仍在主表里留红，
+# 主表按下标就能筛（子类 = `我们缺` / `条数不同` / `选区动作不符`）。
+if BRIDGE_OUT:
+    os.makedirs(os.path.dirname(BRIDGE_OUT), exist_ok=True)
+    _bl = ['\t'.join(['卡id', '卡名', '触发', '原版(类型枚举名)', '原版 unitsToSummon(显示名)',
+                      '我们 choose op', '判定', '说明'])]
+    for r in bridge_rows:
+        _bl.append('\t'.join(str(x if x is not None else '').replace('\t', ' ').replace('\n', ' ')
+                             for x in r))
+    io.open(BRIDGE_OUT, 'wb').write(('\r\n'.join(_bl) + '\r\n').encode('utf-8'))
+    print('wrote', BRIDGE_OUT, 'rows=', len(bridge_rows))
+
+# ================================================ `A1978②` 天赋桥（2026-10-19 波 5）
+# 🔴 **为什么单开一段**：原版把「天赋」编码成 `trigger=Talent(46)` + `chosenAbility=createCardInHand(100)`
+#   + `summonCriteria.unitsToSummon=[PPtr]`；我们把它解成**一条 `create` op**（`EffectText.TryTalent`），
+#   payload = 天赋卡名。两条路**不是同一个东西** —— 只按「都有 create」比会看起来一致。
+#   这一段就是把**原版指向哪张卡**解出来，再与我们的 payload **逐名比**。
+#   PPtr → `path_id` → 卡 → **显示名**（`loc_card_names.tsv`；SO 的 `cardName` 是内部名，
+#   实测三处会假红：`Warmaster`↔`Chosen of the Four` 等 —— 见文件头 ③）。
+# ⚠️ `A random …` 那种（`BL23`/`BL36` = 三张 Black Legion Psychic Power 随机一张）机器判不出类别，
+#   如实标 `⚠️随机类别` 并列出候选名（⛔ 不猜它等于哪一张）。
+def _norm_name(s):
+    return re.sub(r'[^a-z0-9]', '', (s or '').lower())
+
+
+talent_rows = []
+for c in truth:
+    cid = c.get('uniqueId') or ''
+    if not ALL_TRUTH and cid not in POOLIDS:
+        continue
+    oc = our.get(cid)
+    for ai, ab in enumerate(c.get('cardAbilities') or []):
+        if ab.get('trigger') != 46:            # AbilityTrigger.Talent
+            continue
+        for li, lg in enumerate(ab.get('abilityLogic') or []):
+            if lg.get('chosenAbility') != 100:  # AbilityEffect.createCardInHand
+                continue
+            names = resolve_summon_names(lg)
+            if not names:
+                continue
+            creates = [o for o in (oc['ops'] if oc else []) if o['verb'] == 'create']
+            payloads = [o['payload'] for o in creates]
+            want = [_norm_name(n) for _, n in names if n and n != '?UNRESOLVED']
+            hit = [p for p in payloads if any(_norm_name(p) == w for w in want)]
+            if hit:
+                verdict, why = '✅一致', 'payload 与 unitsToSummon 的**显示名**逐字相等'
+            elif payloads and any('random' in (p or '').lower() for p in payloads):
+                verdict, why = ('⚠️随机类别',
+                                '我们的 payload 是「随机/类别」写法；原版列出 %d 张具体卡 ⇒ '
+                                '机器判不了类别归属（候选见左列）' % len(names))
+            elif payloads:
+                verdict, why = '🔴真差异', 'payload 与 unitsToSummon 的名字**都对不上**'
+            elif oc is None:
+                verdict, why = '❓查不清', '我们侧没有这张卡的 scan 行（卡无正文）'
+            else:
+                verdict, why = '🔴我们缺', '我们没解析出 create op（desc 缺 `Talent:` 行或解析器没吃下）'
+            talent_rows.append([cid, c.get('cardName') or '', 'a%d' % ai, str(li),
+                                '; '.join('%s %s' % (u or '?', n) for u, n in names),
+                                '; '.join(p for p in payloads) or '（无 create op）',
+                                verdict, why])
+
+if TALENT_OUT:
+    os.makedirs(os.path.dirname(TALENT_OUT), exist_ok=True)
+    _tl = ['\t'.join(['卡id', '卡名', 'ability序', 'logic序', '原版 unitsToSummon（卡id 显示名）',
+                      '我们 create payload', '判定', '说明'])]
+    for r in talent_rows:
+        _tl.append('\t'.join(str(x if x is not None else '').replace('\t', ' ').replace('\n', ' ')
+                             for x in r))
+    io.open(TALENT_OUT, 'wb').write(('\r\n'.join(_tl) + '\r\n').encode('utf-8'))
+    print('wrote', TALENT_OUT, 'rows=', len(talent_rows))
+
+_tstat = collections.Counter(r[6] for r in talent_rows)
+print('--- `A1978②` 天赋桥（`Talent(46)` + `createCardInHand(100)` + `unitsToSummon` PPtr → 显示名）---')
+print('   步骤数 = %d · 判定 = %s' % (len(talent_rows), dict(_tstat)))
+for r in talent_rows:
+    if r[6] != '✅一致':
+        print('      · %-8s %-26s 原版=%s 我们=%s [%s] %s'
+              % (r[0], r[1][:26], r[4][:60], r[5][:40], r[6], r[7][:70]))

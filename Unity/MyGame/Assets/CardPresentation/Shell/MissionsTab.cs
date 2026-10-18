@@ -896,6 +896,8 @@ namespace CardPresentation
         {
             parent = NodeD(parent, "Daily Login Container", card);
             Draw(parent, "40K_missions_display_Daily_vertical", card, "Daily Login Bonus Container", RewardsWindow.QPanel);
+            // 🔴 **2026-10-18（音效线转来的界面缺口）：`raycast target` 命中区**（原来整张卡点了什么都不发生）。
+            AddContainerHit(parent, card, "Daily Login Container");
             BuildCardHeader(parent, card, "Daily Login Bonus", DailyData.LoginTitle(), 30f, false);
 
             // `body.image`  N(3, 0,0, 1,1, .5,0, **0,−29**, 0,0)  → `40K_missions_icon_login bonus`
@@ -1056,6 +1058,8 @@ namespace CardPresentation
         {
             parent = NodeD(parent, "Daily Skulls Mission Container", card);
             Draw(parent, "40K_missions_display_Daily_vertical", card, "Daily Skulls Mission Container", RewardsWindow.QPanel);
+            // 🔴 **2026-10-18（音效线转来的界面缺口）：`raycast target` 命中区**（同上）
+            AddContainerHit(parent, card, "Daily Skulls Mission Container");
             // 🔴 **2026-10-18（W2 · A1232）字号档裁定：骷髅卡改用【基础命名的独立 prefab】**
             //    `Daily Skulls Mission Container`（全尺寸，Addressables GUID `c4be7a6f…`）。
             //    判据 = `AssetBundle_1.json` 的 `m_Container`（**有 GUID** 的候选；页内副本没有 GUID、
@@ -1243,6 +1247,8 @@ namespace CardPresentation
         public void BuildWeekly(Transform parent, PxRect card)
         {
             Draw(parent, "40K_missions_display_Weekly", card, "Weekly Mission", RewardsWindow.QPanel);
+            // 🔴 **2026-10-18（音效线转来的界面缺口）：`raycast target` 命中区**（同上）
+            AddContainerHit(parent, card, "Weekly Mission");
 
             // `header`  N(2, 0,1, 0.25,1, .5,1, 0,0, 0,55) → `name` 'Weekly Challenge' fs36
             // 🔴 **2026-09-23 补**：`header` 自带 **`Gradient2`（灰蓝那套，5 个 alpha 键）** —— 见 `HeaderGradient`
@@ -1546,6 +1552,35 @@ namespace CardPresentation
             if (wb == null) return;
             wb.onEnter = () => Tooltip.Show(" ", LayoutSpace.FromPixel(r.CX, r.CY), 25, Vector3.zero);
             wb.onExit = Tooltip.Hide;
+        }
+
+        /// <summary>🆕 **2026-10-18（音效线转来的界面缺口）**：任务卡容器主体的命中区
+        /// = 原版那三颗 **`raycast target`**（`Daily Login Container` / `Daily Skulls Mission Container` /
+        /// `Weekly Mission` 的**第一个子件**）。
+        /// <para>判据（prefab 逐字段现读，`bundle_menus_assets_all`）：
+        /// · 节点铺满容器（anchors `(0,0)-(1,1)` · `m_SizeDelta = (0,0)`），`Image.m_RaycastTarget = 1` ·
+        ///   `m_Sprite = 0`（**隐形**）—— 而兄弟 `background` 那颗 `m_RaycastTarget = 0`
+        ///   ⇒ 点在卡面任何地方都落到它身上；
+        /// · `EverguildButton.m_onClickSound` = pid **8111810622317061932** = **`Purchase Click`**
+        ///   （clip `UI PurchaseClick`；R3 表 `资料/普查产出_1017/UI/R3_S01按钮cue映射.md:64`）。
+        /// · 动作 = `MissionContainer.SetChallenge` 里挂的 lambda（`MissionContainer.__c__DisplayClass9_0___SetChallenge_b__0.c`）：
+        ///   `AssetLocator.GetAsset<…>` 取**远端配置**里的任务信息窗 prefab → `UIGenericEventCatcher` 开窗。
+        ///   ⇒ **那份配置/prefab 本地没有** ⇒ 命中与音照原版接，动作**留空并出声**。</para>
+        /// <para>🔴 **档取 `QContent − 1`（3009）**：高于页底板（`QPanel` 3005）、低于所有内容命中区（3010+）
+        /// ⇒ `Collect` / 重摇那些钮仍然先吃（同档时谁赢不可控 —— 本工程踩过，见 `CLAUDE.md` §三）。
+        /// 命中图按原版是**隐形**（`m_Sprite = 0`）⇒ `art` / `target` 都不传。</para></summary>
+        void AddContainerHit(Transform parent, PxRect designCard, string who)
+        {
+            _win.AddHit(parent, "raycast target", R(designCard), RewardsWindow.QContent - 1,
+                        () => OnMissionContainerClick(who), clickCue: WindowSounds.PurchaseCue);
+        }
+
+        /// <summary>点任务卡容器主体 —— 原版打开远端配置里的任务信息窗；本地没有那份数据 ⇒ 如实出声。</summary>
+        void OnMissionContainerClick(string who)
+        {
+            Debug.Log("[Missions] `" + who + "/raycast target` 点了 ⇒ **没有画面变化**"
+                    + "（原版这一跳 = `MissionContainer.SetChallenge` 里 `AssetLocator.GetAsset<…>` 取**远端配置**里的"
+                    + "任务信息窗 prefab 再开窗；本地没有那份配置/窗 —— 红线：如实出声）");
         }
 
         /// <summary>进度条：两张图都是**九宫格 `(4,4,4,4)`**、12×12（正本 §九）。底色 `(1,0.59,0,1)` · 填充 `(1,0.77,0.33,1)`。

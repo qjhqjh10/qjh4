@@ -87,6 +87,24 @@ namespace CardPresentation
         /// 🔴 **默认 false 是故意的**：`DeckScene` 有一条断言「不设筛选时命中全部」，
         ///   而它用的 state 不是运行时那个 ⇒ 默认一开就会把那条打红。</summary>
         public bool WarlordGatedPool;
+
+        /// <summary>🆕 **2026-10-18（卡池排序与显隐 · 原版 `showInCollectionOptions`）**：
+        /// 卡池 / 收藏共用的**显示判据开关**（<see cref="PassesShowInCollection"/>）。
+        /// `true` ⇒ 按原版那条 `Where(showInCollectionOptions != Hide(0))` 把**122 张 `show=0`**
+        /// （92 张天赋卡 + 30 张 `Z-NC` 效果卡）剔掉 —— 收藏卡牌页由 `CollectionWindow.CardsState` 打开。
+        /// 卡组编辑那条路（<see cref="WarlordGatedPool"/>）**自带同一条**（原版两条链都有）。
+        /// 🔴 **默认 false 是故意的**：纯逻辑用例（`DeckScene.TestFilters` 等）要「不设筛选时命中全部」；
+        /// 而且 `Core` 层的「能不能进卡组」（`DeckRules.CannotAddToDeck`）是**另一条判据**，别混死
+        /// （原版：显示 = `showInCollectionOptions`，准入 = `inventoryOptions` + `showInCollectionOptions`）。</summary>
+        public bool ShowInCollectionOnly;
+
+        /// <summary>🆕 **2026-10-18**：排序要不要**多夹一层 `inventoryOptions`**。
+        /// 原版**只有收藏卡牌页**那条链夹（`CardCollectionTab__GetCollection.c:99` 的
+        /// `OrderBy&lt;CardInventoryOptions&gt;`，夹在「战将优先」与「费用」之间）；卡组编辑卡池没有这一层
+        /// （`DeckEditingWindow__GetCardCollection.c` 只有 4 个 `OrderBy`）⇒ 收藏窗（`CollectionWindow.CardsState`）
+        /// 打开它。次序见 <see cref="SortForDisplay"/>。</summary>
+        public bool SortByInventoryOptions;
+
         readonly Dictionary<string, CardDef> _byId = new Dictionary<string, CardDef>();
 
         public DeckEditorState(IEnumerable<CardDef> pool)
@@ -361,8 +379,19 @@ namespace CardPresentation
             return cost;
         }
 
-        /// <summary>按当前筛选条件过一遍卡池。顺序保持卡池原序 —— **不排序**，
-        /// 原版有没有排序规则没查到（见方案文档；`DeckCollectionDisplay.SaveDeckOrder` 只管卡组列表的拖拽序）。</summary>
+        /// <summary>按当前筛选条件过一遍卡池 —— 出来的就是**界面上的显示序**（原版那串 `OrderBy`，见 <see cref="SortForDisplay"/>）。
+        ///
+        /// <para>🔴 **2026-10-18（卡池排序与天赋卡显隐）就地订正（铁律 5）**：本方法原来写
+        /// 「顺序保持卡池原序 —— **不排序**，原版有没有排序规则没查到」。**现在查到了**（判据 = `d:/2/tools/decomp_full/`，现读）：
+        /// `DeckEditingWindow__GetCardCollection.c:106,121,136,151` 是 **4 个稳定 `OrderBy`**
+        /// （实际主序 = 最后一个键）⇒ **`cardArmy`(10→130) → `cardType != Hero`（同阵营战将整段先）→ `manaCost` → 本地化卡名**；
+        /// 收藏卡牌页 `CardCollectionTab__GetCollection.c:69,84,99,114,129` 多夹一层 `inventoryOptions`
+        /// ⇒ **阵营 → 战将 → inventory → 费用 → 名**。实现见 <see cref="SortForDisplay"/>。</para>
+        ///
+        /// <para>🔴 同时把**显示判据**从 `DeckRules.CannotAddToDeck` 换回原版卡池那条链
+        /// （`PassesShowInCollection` + 卡组编辑额外来的一层 `PassesEditModeInventory`）——
+        /// 「显不显示」与「能不能进卡组」在原版是**两条判据**；混用会让「可见但加不进」的卡静默消失
+        /// （5 张暗黑天使秘仪就是被混死的那一类；原版对它们的表现是**显示 + 变灰**）。</para></summary>
         public List<CardDef> VisibleCards()
         {
             var outList = new List<CardDef>();
@@ -377,16 +406,22 @@ namespace CardPresentation
             //     收藏窗复用同一个类、`DeckScene` 的纯逻辑自检也复用 ⇒ 一改全局就会把「不设筛选时命中全部」那条断言打红。
             CardDef wl = (WarlordGatedPool && !string.IsNullOrEmpty(Deck.WarlordId)) ? Find(Deck.WarlordId) : null;
 
+            // 🆕 **2026-10-18**：显示闸在两处宿主上都生效 ——
+            //   · 卡组编辑（`WarlordGatedPool`）：原版 `DeckEditingWindow.GetCardCollection` 那条链；
+            //   · 收藏卡牌页（`ShowInCollectionOnly`）：原版 `CardCollectionTab.GetCollection` 同一条 `Where`。
+            bool showGate = WarlordGatedPool || ShowInCollectionOnly;
+
             foreach (var c in _pool)
             {
+                if (showGate && !PassesShowInCollection(c)) continue;       // 原版 `showInCollectionOptions != Hide(0)`
                 if (WarlordGatedPool)
                 {
                     if (wl == null) { if (c.Type != "hero") continue; }                 // 还没督军 ⇒ 只列督军
                     else if (!DeckRules.SameFaction(c.Faction, wl.Faction)) continue;   // 定了 ⇒ 只列该阵营
-                    // 🔴 **2026-10-14（`A1798`）改口径**：原来按兵种猜的「效果生成的卡」三类，现在走
-                    //    **原版真值**（`inventoryOptions` / `showInCollectionOptions`）。判据 = `DeckRules.CannotAddToDeck`
-                    //    —— 它内部照原版把 hero / 防御卡路由走 ⇒ **防御卡照旧留在卡池里**（用户 2026-09-27 指出的那条）。
-                    if (DeckRules.CannotAddToDeck(c)) continue;
+                    // 🔴 **2026-10-18**：这一行原来是 `DeckRules.CannotAddToDeck(c)`（准入判据），
+                    //   现换成**原版卡池的 `inventoryOptions` 层**（防御卡例外 —— 用户 2026-09-27 口径）。
+                    //   ⛔ 别再退回准入判据：那会把「可见但加不进」的卡藏起来（原版是显示+变灰）。
+                    if (!PassesEditModeInventory(c)) continue;
                 }
                 if (needle != null && !NameSearchMatch(c, needle))
                     continue;
@@ -435,13 +470,12 @@ namespace CardPresentation
                 outList.Add(c);
             }
 
-            // 🆕 **2026-09-28：按阵营【分组】**（用户 2026-09-27：「总不能全部阵营的督军不按照一定的顺序全部混乱地排列吧」）。
-            //   🔴 **卡池原序确实会交错** —— 实测 56 位督军里有一个掉队的：
-            //     `EmperorsChildren/Lord Kaphrael` 排在第 **56** 位，而它同阵营的两位在第 17/18 位（隔了 37 位）。
-            //   做法 = **稳定分组**：**阵营的先后顺序取「首次出现」的顺序**（= 卡池自己的阵营次序，
-            //     不另发明一套排序），**组内保持卡池原序**。⇒ 只把掉队那位挪回它自己的阵营段，其余一个不动。
-            //   ⚠️ 只在「还没督军」时做（那是唯一会列出跨阵营督军的状态）；定了督军之后只剩一个阵营，无所谓。
-            if (WarlordGatedPool && wl == null) outList = StableGroupByFaction(outList);
+            // 🆕 **2026-10-18：显示序**（原版那 4 个稳定 `OrderBy` ⇒ 阵营 → 战将 → 费用 → 名；收藏窗多夹 inventory）。
+            //   🔴 本笔**替换**了原来那一步 `StableGroupByFaction`（「阵营按首次出现、组内保持原序」）——
+            //   那一步只是「把掉队的战将挪回自己阵营段」的权宜之计（用户 2026-09-27：「总不能混乱地排吧」），
+            //   而原版真值是**按 `cardArmy` 枚举值整表排**（10→130），比「首次出现序」更确定，也顺带解决了掉队那位。
+            //   判据见 `SortForDisplay` 的 doc。
+            SortForDisplay(outList);
             return outList;
         }
 
@@ -487,16 +521,90 @@ namespace CardPresentation
                    hay.ToLowerInvariant().IndexOf(needle, StringComparison.Ordinal) >= 0;
         }
 
-        /// <summary>按阵营**稳定分组**：阵营次序 = 首次出现的次序，组内保持原序。见 `VisibleCards` 里那段说明。</summary>
-        static List<CardDef> StableGroupByFaction(List<CardDef> src)
+        /// <summary>原版「这张卡该不该出现在**卡池 / 收藏**里」的显示闸 —— **两条链共用这一份**
+        /// （卡组编辑 `DeckEditingWindow__GetCardCollection` 与收藏卡牌页 `CardCollectionTab__GetCollection`）。
+        /// 逐条落地状态（判据全部现读 `d:/2/tools/decomp_full/`）：
+        /// <list type="bullet">
+        /// <item>✅ **`showInCollectionOptions != Hide(0)`** —— 判据 = `DeckEditingWindow.__c___GetCardCollection_b__32_2.c:8`
+        ///   （`return *(int*)(param_2 + 0x48) != 0;`）与 `CardCollectionTab.__c___GetCollection_b__8_0.c:19-30`。
+        ///   取值表见 `CardDef.ShowInCollectionOptions`（`Hide=0 / Show=5 / OnlyIfOwned=10`）。
+        ///   现读卡表：**122 张 `show=0`**（92 天赋 + 30 `Z-NC`）⇒ 这一条把它们全挡在外面。</item>
+        /// <item>✅ **（恒过）`show != OnlyIfOwned(10) || owned`** —— 判据 = 同族 `b__32_0.c`：
+        ///   `if (*(int*)(param_2+0x48) != 10) return 1; return HasItem(card);`。
+        ///   我们单机**全解锁** ⇒ `owned` 恒真 ⇒ 这一条恒过。⚠️ **如实标**：这是**边界**（用户「资源 9999 / 全解锁」），
+        ///   ⛔ 不是判据算出来的；现读卡表 `show=10` 的卡 = **0 张**，今天它连边界都用不上。</item>
+        /// <item>⛔ **`!IsHidden()`（不做）** —— 判据 = `b__32_3.c` 的 vtable `0x2A8`，落到
+        ///   `PlayerItem.IsHidden()` → `FeatureConfig.IsItemHidden(item)`（`FeatureConfig__IsItemHidden.c:20-40`，
+        ///   读服务端下发的两张隐藏表 `+0x20` / `+0x28`）。**这份配置本地没有** ⇒ 这一条**不做**
+        ///   （铁律 11 例外①：判据本身取不到；⛔ 别静默当成 `false`，也别按卡名猜一个隐藏集）。</item>
+        /// </list>
+        /// ⚠️ 真值缺失（`-1`）**不隐藏** —— 不猜（与 `DeckRules.CannotAddToDeck` 对 `-1` 的口径一致）。</summary>
+        static bool PassesShowInCollection(CardDef c)
         {
-            var order = new List<string>();
-            var seen = new HashSet<string>();
-            foreach (var c in src) { var f = c.Faction ?? ""; if (seen.Add(f)) order.Add(f); }
-            var res = new List<CardDef>(src.Count);
-            foreach (var f in order)
-                foreach (var c in src) if ((c.Faction ?? "") == f) res.Add(c);
-            return res;
+            return c != null && c.ShowInCollectionOptions != 0;       // `Hide(0)`
+        }
+
+        /// <summary>卡组编辑卡池**额外来的一层**：`inventoryOptions != CantAddToDeck(5)`
+        /// （判据 = `DeckEditingWindow___GetCardCollection_b__32_1.c:28-35` 现读：
+        /// `if (*(int*)(param_2 + 0x4c) != 5) return 1;`，`inv==5` 的防御卡再看
+        /// `assignDefensiveCardsInEditMode`）。
+        /// <para>🔴 **防御卡例外**：用户 **2026-09-27** 明确要求「经典模式编辑卡池要列防御卡、玩家从这儿挑」
+        /// ⇒ 防御卡**整类放行**。⚠️ 实测池内 `inv==5` 的 **39 张全是 `type == "defence"`**
+        /// ⇒ 这一条例外等于把那 39 张全留下，没有别的卡被顺带放进来。</para>
+        /// <para>⚠️ 收藏卡牌页**不走这一条**（原版 `CardCollectionTab` 只看 `showInCollectionOptions`）——
+        /// 那 39 张防御卡在收藏里照旧显示（现读卡表它们 `show=5`）。</para></summary>
+        static bool PassesEditModeInventory(CardDef c)
+        {
+            if (c == null) return false;
+            if (c.Type == "defence") return true;                  // 用户 2026-09-27 口径
+            if (c.InventoryOptions < 0) return true;               // 真值缺失 ⇒ 不猜、不隐藏
+            return c.InventoryOptions != DeckRules.OptionCantAddToDeck;
+        }
+
+        /// <summary>原版卡池 / 收藏卡牌页的**显示序**（判据见 <see cref="VisibleCards"/> 的 doc）。
+        /// <para>键按**目标次序直接比**（⛔ 不靠「链式 `OrderBy` 最后一个键才是主序」那种隐式行为）：</para>
+        /// <list type="number">
+        /// <item>**`cardArmy`**：枚举值 **10→130**（本工程那一份 = <see cref="ArmyOrder"/> 的下标；
+        ///   不在表里的排最后 —— 与 <see cref="Factions"/> 的兜底同一条口径）；</item>
+        /// <item>**`cardType != Hero`**：bool 升序 ⇒ `false` 先 ⇒ **同阵营的战将整段排最前**（不是「单独插一张」）；</item>
+        /// <item>🆕 **仅收藏窗**（<see cref="SortByInventoryOptions"/>）：`inventoryOptions` 升序
+        ///   （`InInventory(0)` → `CantAddToDeck(5)` → `NotInInventory(10)`）；</item>
+        /// <item>**`manaCost` 升序** → **本地化卡名**（复用现成那一把尺 <see cref="DeckRuntime.CompareDisplayName"/>，
+        ///   与左侧卡组列表 `DeckEntries` **同一个比较器**，⛔ 别新写第二套）→ **`Id` 序数兜底**
+        ///   （`List.Sort` 不稳定，原版 `OrderBy` 稳定；现读池内「同阵营同名」= 0 张 ⇒ 这一档实际不参与）。</item>
+        /// </list>
+        /// <para>⚠️ 名字**先算一次**再排：`CardText.Name` 要吃词条表，放在比较器里就是 O(n log n) 次查表。</para></summary>
+        void SortForDisplay(List<CardDef> list)
+        {
+            if (list == null || list.Count < 2) return;
+            var nameOf = new Dictionary<CardDef, string>(list.Count);
+            foreach (var c in list) nameOf[c] = CardText.Name(c) ?? "";
+            bool byInv = SortByInventoryOptions;
+            list.Sort((a, b) =>
+            {
+                int k = ArmyRank(a.Faction).CompareTo(ArmyRank(b.Faction));
+                if (k != 0) return k;
+                k = (a.Type == "hero" ? 0 : 1).CompareTo(b.Type == "hero" ? 0 : 1);
+                if (k != 0) return k;
+                if (byInv)
+                {
+                    k = a.InventoryOptions.CompareTo(b.InventoryOptions);
+                    if (k != 0) return k;
+                }
+                k = a.Cost.CompareTo(b.Cost);
+                if (k != 0) return k;
+                k = DeckRuntime.CompareDisplayName(nameOf[a], nameOf[b]);
+                if (k != 0) return k;
+                return string.CompareOrdinal(a.Id, b.Id);
+            });
+        }
+
+        /// <summary>`cardArmy` 的排序秩 = <see cref="ArmyOrder"/> 的下标。
+        /// 那张表**就是原版 13 个 option 的 10→130 序号**（判据见它自己的 doc）⇒ 直接当下标用，⛔ 别另建一份枚举表。</summary>
+        static int ArmyRank(string faction)
+        {
+            int i = Array.IndexOf(ArmyOrder, faction ?? "");
+            return i < 0 ? int.MaxValue : i;
         }
 
         /// <summary>卡池里出现过的阵营（给筛选下拉用），按出现顺序。</summary>

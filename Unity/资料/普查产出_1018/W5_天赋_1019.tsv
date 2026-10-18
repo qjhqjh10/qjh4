@@ -1,0 +1,97 @@
+卡id	卡名	ability序	logic序	原版 unitsToSummon（卡id 显示名）	我们 create payload	判定	说明
+SAU37	Orikan the Diviner	a0	0	cbabeb234380634479feab1a1b4c733a Master Chronomancer	Master Chronomancer	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SOR3	Morvenn Vahl	a0	0	f104d4c21abe84546abc9365d9eda8dd Righteous Repugnance	Righteous Repugnance	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GOF87	Zodgrod Wortsnagga	a0	0	d19e8b68aaa9a884781d06697ad237a6 Speshul Dose	（无 create op）	🔴我们缺	我们没解析出 create op（desc 缺 `Talent:` 行或解析器没吃下）
+ASH34	Avatar of Khaine	a0	0	33eabec155f628440a426a4ba480ec24 Wrath of Khaine	Wrath of Khaine	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+BL23	Sorcerer	a0	0	7bf8ce67fb6be4744ae44345a5b465fd Diabolic Strength; 453b0e8f88e094a17866a6979f389ef5 Infernal Gaze; 141c5ed661a9e42bd9a793f0d2a1c682 Unhallowed Gifts	A random Black Legion Psychic Power	⚠️随机类别	我们的 payload 是「随机/类别」写法；原版列出 3 张具体卡 ⇒ 机器判不了类别归属（候选见左列）
+ASH29	Wave Serpent	a0	0	e59ac9e46f4ea804784e954c3b820e77 Skyborne Deployment	Skyborne Deployment	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GOF27	Boss Zagstruk	a0	0	8425b809e9e64e24f9035f709f5aaee4 Worst Temper	Worst Temper	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TAU38	Stormsurge	a0	0	507f79fa60945d04e93fe806aca912b7 Deploy Anchors	Deploy Anchors	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TAU19	Honoured Ethereal	a0	0	f2b80d575cbf8f64597b991022beaf35 Serene Unifier	Serene Unifier	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+ASH74	Jain Zar	a0	0	851f73daf747eb642934a16429b391db Storm of Silence	Storm of Silence	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+UM76	Lieutenant Titus	a0	0	cc1400347b15ee3449bc18bbdb9ddec9 Exemplary Warrior	Exemplary Warrior	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+DA3	Asmodai, Master Interrogator	a1	0	4cdc1b5f965f99945b685bca7660e9fa Master of Repentance	Master of Repentance	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TL25	Hive Tyrant	a0	0	a58e05916eb5e994daa0349cbe237001 Synaptic Imperative	Synaptic Imperative	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+UM88	Valius Paxor	a0	0	4de4fcfb5d7e0554a88b9f419a2cd7c2 Angel's Wrath	Angel's Wrath	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SAU36	Nemesor Zahndrekh	a0	0	d8a14171b08b54144ba9dbf324b0a042 Relentless March	Relentless March	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SW1	Logan Grimnar	a0	0	b3dce3f10cc118541910156ec8da1d9b High King of Fenris	（无 create op）	🔴我们缺	我们没解析出 create op（desc 缺 `Talent:` 行或解析器没吃下）
+SAU66	Ramatekh the Cruel	a0	0	461354d98aa5e3142afa4eb4922e5456 Hardwired Destruction	Hardwired Destruction	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+BL35	Haarken Worldclaimer	a0	0	61046837c330b48978b4af5201230b6e Helspear Assault	Helspear Assault	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+DA2	Belial, Master of the Deathwing	a1	0	9e0eecf8cb9a8df49bf18cc5d9051109 Master of the Deathwing	Master of the Deathwing	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SOR9	Preacher	a0	0	4d348cff71208c24d8e39252d913ff9d Hymn of Battle	Hymn of Battle	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SW2	Njal Stormcaller	a0	0	a51adc8f5c311584385c3117cfd919e9 High Rune Priest	High Rune Priest	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TAU2	Aun'Va	a0	0	f8260229254a09746af6d9ff7a9b0b54 Ethereal Supreme	Ethereal Supreme	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+UM87	Roboute Guilliman	a0	0	40667e346ae58a84dbda1033dff70ccb Author of the Codex	Author of the Codex	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TL35	Swarmlord	a0	0	5b5425f6e2848b449807bd1643d0d936 Hive Commander	Hive Commander	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+BL34	Abaddon the Despoiler	a0	0	97e959444b53f424ea4285e2ca02c7e6 Chosen of the Four	Chosen of the Four	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TAU21	Stealth Battlesuit	a0	0	1688c6146abb1e04f98e540b4cbbabd7 Homing Beacon	Homing Beacon	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SAU29	Necron Lord	a0	0	65b2be828179515458a282cf1b027182 Indomitable Will	Indomitable Will	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+BL65	Ghallaron the Pious	a0	0	9176318eaf469354e858f51af2333aa3 Litany of Despair	Litany of Despair	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SAU35	Imotekh the Stormlord	a0	0	30007162b68992e41a422f2061705b65 Lord of the Storm	Lord of the Storm	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GSC10	Biophagus	a0	0	4959cd9e99597f74ca9af0bd65ae6307 Experimental Bio-Horrors	poisoned supplies; Experimental Bio-Horrors	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GSC21	Clamavus	a0	0	e9952f50921d2844a94d39ce883430f4 Vox-Hacker	Vox-Hacker	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+ASH19	Witchblade Warlock	a0	0	d3e99cb18b8cbba4081486f57f510f75 Witchfire	Witchfire	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+DA1	Azrael, Grand Master	a1	0	dd535f7a54bcf6241b24ca6d0e81bbb4 Supreme Grand Master	（无 create op）	🔴我们缺	我们没解析出 create op（desc 缺 `Talent:` 行或解析器没吃下）
+DA75	Master Zacharial	a1	0	38871853fabb5244d8148766829230cd Refuse to Yield	Refuse to Yield	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+EC55	Lucius the Eternal	a0	0	6ed51d59b9f8ea24ab0dc7ceaef7956c Duelist's Hubris	Duelist's Hubris	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+BL36	Sylar Hexscorn	a0	0	7bf8ce67fb6be4744ae44345a5b465fd Diabolic Strength; 453b0e8f88e094a17866a6979f389ef5 Infernal Gaze; 141c5ed661a9e42bd9a793f0d2a1c682 Unhallowed Gifts	A random Black Legion Psychic Power	⚠️随机类别	我们的 payload 是「随机/类别」写法；原版列出 3 张具体卡 ⇒ 机器判不了类别归属（候选见左列）
+TAU12	Darkstrider	a0	0	f279c5cf1c3e16e4db6b9df4d941ad11 Structural Analyzer	Structural Analyzer	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GOF23	'Ardshell Gurk	a0	0	6ba4b132d24528844a86304f8ce67833 Follower of Gork	Follower of Gork	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TAU65	War Shaper	a0	0	b3735ef3d1408d544b0947e31f898e20 Grisly Feast	Grisly Feast	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+UM48	Varro Tigurius	a0	0	f923701f207d23a4f81d6ff5891b4a0c Master of Arcana	Master of Arcana	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SAU24	Command Barge	a0	0	27a4b748a7bf358499f038aa09895ead Reanimate	Reanimate	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+BL67	Ghallaron's Champion	a1	0	36892cd906b0e5e4c9bbbe249db009b8 Bitter Blows	Bitter Blows	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GOF75	Warboss Gordrang	a0	0	6899b199f5e36144ebbdd7ed9d9e7afe ’Uge Choppa	'Uge Choppa	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GOF77	Beastboss Morgrim	a0	0	84d4d192e0f57a34a90ac0f6172c3358 Ferocious Rage	（无 create op）	🔴我们缺	我们没解析出 create op（desc 缺 `Talent:` 行或解析器没吃下）
+UM65	Chaplain Letharius	a0	0	315d9f293e4f56d4f813584b43f0511c Exhortation of Rage	Exhortation of Rage	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+UM29	Captain Sicarius	a0	0	0544047df88d2ba4cad9c17ff080c0eb Greatest Deeds	Greatest Deeds	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TAU3	Commander O'Maisos	a0	0	c4f5c920744030c4e84428dc5a0f1bf2 Drone Companion	Drone Companion	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GOF94	Painboss	a0	0	8f35df0536e4f7e4d86f3885e2597404 Dok’s Toolz	Dok's Toolz	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GOF29	Grukk Face-Rippa	a0	0	20d0f4451f16fc441836a02f99bf77da Da Red Waaagh	Da Red Waaagh	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GOF28	GhazghkullThraka	a0	0	3ebb159036778d14ebd1c48451aa6ca0 Greatest Warboss	Greatest Warboss	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+BL22	Master of Possession	a0	0	3f38d2e2c83df4b4c9052ef4a510cfbb Rites of Possession	Rites of Possession	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+ASH1	Anvirr Keltoc	a0	0	09bcb1b3b8794c4429d82d4b2e68fa1f Path of the Seer	Path of the Seer	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SAU34	Monolith	a0	0	eb17cd22c6a5d7941a7456838d927ab1 Particle Whip	Particle Whip	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+ASH76	Lhykhis	a0	0	dc7e575c0a328f446be1521c23ec850b Empyric Ambush	Empyric Ambush	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+AM3	Commissar Denkler	a0	0	cc11838649ff68a40b7d5d2b9fccd2bc Lead by Example	Lead by Example	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TL34	Tervigon	a0	0	cbc9d98e39cc7fb4fa6f94c7e69bda18 Brood Progenitor	Brood Progenitor	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GOF18	Painboy Sniklaw	a1	0	b4d6d186eb95a3f468013c5be649ee3b Sawbonez	Sawbonez	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+AM66	Tempestor Prime	a0	0	1ff4815a506d2f34e94ec2f50900d352 Efficiency and Excellence	Efficiency and Excellence	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TL68	Psychophage	a0	0	468db99b4b10d0745bab346df37d3fb2 Feeding Frenzy	Feeding Frenzy	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+UM100	Chaplain Cassius	a0	0	8482077f309b08943b190f18b5874871 Catechism of Death	Catechism of Death	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+UM47	Uriel Ventris	a0	0	9238c27730a0c424288d46ed0f4a742c Master of the Fleet	Master of the Fleet	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SOR1	Erika Luminas	a0	0	8901e35c5de30eb48804da6651cfb132 Fury of the Righteous	Fury of the Righteous	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SOR2	Junith Eruita	a0	0	65cfec7d2bc719040b3b4b88622931b2 Lead the Righteous	Lead the Righteous	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GOF21	Mekboy Gazmek	a0	0	9dcbe3d0c04b02f4fbb19974ae0e37b2 Mekaniak	Mekaniak	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+ASH2	Eliac Zephyrblade	a0	0	1bfe0893592c9dd40bed8d68d5d2b516 Path of the Warrior	Path of the Warrior	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GSC66	Shanus Daskovian	a0	0	c433e3dde4952cc448220908226127ae Master Outrider	Master Outrider	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+DA36	Sammael	a1	0	7c45a641ec845994097d185af58715f6 Master of Manoeuvre	random dark angels vehicle; Master of Manoeuvre	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GSC3	Iconward Malak Vorenth	a0	0	7831725387c8a774dbdf5b6492d928e0 Nexus of Devotion	Nexus of Devotion	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TAU32	Aun'Shi	a0	0	f2b80d575cbf8f64597b991022beaf35 Serene Unifier	Serene Unifier	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+AM1	Lord Solar Leontus	a0	0	c06453b330af61745beb5fa567ba863e Lord Commander	Lord Commander	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+UM12	Antaro Chronus	a0	0	d94f91051ecfe014f97577ff573571aa Spear of Macragge	Spear of Macragge	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GSC1	Primus Saffa Rhiannor	a0	0	d01a5ba5865ded4418194ea50e333b21 Inscrutable Cunning	Inscrutable Cunning	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SAU28	Ghost Ark	a1	0	27a4b748a7bf358499f038aa09895ead Reanimate	Reanimate	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TL74	Terror of Vardenghast	a0	0	8f2da557fe484ee4bbf427c13eccd4cb Alpha Warrior	Alpha Warrior	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SOR65	Celestian Sacresant Aveline	a0	0	e01f4d54e8a474d96b5a1167cc28eebf Daemonbreaker	Daemonbreaker	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GOF92	Weirdboy	a1	0	e3d67d86f73f7564eb0bf886ec848af6 Waaagh! Energy	Waaagh! Energy	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SAU19	Canoptek Reanimator	a0	0	27a4b748a7bf358499f038aa09895ead Reanimate	Reanimate	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+AM2	Ursula Creed	a0	0	af98d423c7279a14c84c0d0382c53541 Legendary Commandant	Legendary Commandant	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SW3	Ragnar Blackmane	a0	0	e3b5735d801fcbd49aa8d3975a5b0c31 War Howl	War Howl	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+AM15	Minka Lesk	a0	0	3a52026b99bb56f40aa9dc130fc66f34 Cadian Honour	（无 create op）	🔴我们缺	我们没解析出 create op（desc 缺 `Talent:` 行或解析器没吃下）
+DA31	Ezekiel	a0	0	a84a5b49f0ca9144585058db6987c2a0 Master Interromancer	Master Interromancer	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GSC37	Patriarch	a0	0	f45dd53721b645b4ab45d334edb986af Deadliest Killer	Deadliest Killer	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+EC56	Lord Kaphrael	a0	0	b9665eadf1207ff49bcf0a730b0b7f9d Euphoric Strike	Euphoric Strike	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TAU36	Riptide Battlesuit	a0	0	684196db974ab254090f39ef6e89868c Shield Generator	Shield Generator	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SAU20	Chronomancer	a0	0	27a4b748a7bf358499f038aa09895ead Reanimate	Reanimate	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GSC2	Magus Uthrel Naas	a0	0	fd67b47572987b84cb2990ea1ecfe982 Brood Prophet	Brood Prophet	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+ASH3	Medreyal Ghaelyn	a0	0	9c3562ffa183ede41b1626d9c9dc1e2f Path of Command	Path of Command	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+UM46	Marneus Calgar	a0	0	dcbd28525888ce54aaa93a47ba4de1e6 Master Tactician	Master Tactician	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TL36	Neurothrope	a0	0	760bd3afde513774d96d6492f995fd37 Spirit Leech	Spirit Leech	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TAU1	Shadowsun	a0	0	9f75a6fe11922eb409ffbad4ecdeb405 Hero of the Empire	Hero of the Empire	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+EC57	Xarahan Daemon Prince	a0	0	2621d4280735baf4c952e6afea8d0686 Excessive Vigour	Excessive Vigour	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+GOF76	Mozrog Skragbad	a0	0	64a657fc5ed5bbb4fa7b585cf29c1e95 Da Bigger Dey Iz...	Da Bigger Dey Iz	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+SOR16	Missionary	a0	0	4d348cff71208c24d8e39252d913ff9d Hymn of Battle	Hymn of Battle	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+AM27	Nork Deddog	a0	0	98cd4c021d615174aba88df6012219c4 Renowned Bodyguard	Renowned Bodyguard	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+ASH79	Orian Laratharjos	a0	0	67adbc7f7bce2bd4c8f6937fab3134e5 Flickerjump	Flickerjump	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等
+TL23	Tyrannocyte	a0	0	c0ddba6cc45944f46a65f4fd93bcc0a5 Aerial Seeding	Aerial Seeding	✅一致	payload 与 unitsToSummon 的**显示名**逐字相等

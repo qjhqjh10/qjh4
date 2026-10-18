@@ -2901,11 +2901,33 @@ public static class MainMenuScene
                                 CheckNear(pw.DeckScroll.MaxOffset, 657f - (803.43f - 262.64f), 0.6f,
                                           "★ ㉒④ **可滚范围**也跟着收 = 657 − (视口下沿 803.43 − 内容顶 262.64) = **116.21**"
                                           + "（这是「内容高不重算」最直接的症状：剩 4 行却还能拖出 275px 的空白）");
-                                awb.Click();                       // 再点一次 = 取消筛选（`PickArmy` 是 toggle）
-                                Check(pw.ArmyIndex, -1, "再点一次 ⇒ 取消筛选");
-                                CheckNear(pw.DeckScrollContentH, 816f, 0.6f, "…内容高回到 **816**（同一份实现两个方向都对）");
+                                // 🔴 **2026-10-18 就地订正（铁律 5）**：练习窗的阵营格是 **`EverguildButton`（不是 Toggle）**，
+                                //   判据 = `PracticeModePopup__ChangeSelectedArmy.c:30-33` **同阵营早返回** ⇒ 已选中再点 = 不取消筛选。
+                                //   ⚠️ `allowClickWhenAlreadySelected = 0` 是**排名窗 `Ranked Army Selector Container V2`** 的判据，⛔ 别混用。
+                                //   改前这里断的「再点一次 ⇒ 取消筛选 / 回到 816」是我们自设计的语义，已从 `PickArmy` 删除。
+                                awb.Click();
+                                Check(pw.ArmyIndex, 0, "再点同一格 ⇒ **筛选保持不变**（原版 `ChangeSelectedArmy.c:30-33` 同阵营早返回；原期望 −1 已按原版订正）");
+                                CheckNear(pw.DeckScrollContentH, 657f, 0.6f, "…内容高保持 **657**（不是 816 —— 「取消」语义已删）");
                             }
                         }
+
+                        // ---- 🔴 **2026-10-19（批次 E · 夹具复位）**：把阵营筛选**显式清回「不限」** ----
+                        //   背景：`PracticeModePopup.PickArmy` 已按原版 `ChangeSelectedArmy.c:30-33`
+                        //        「同阵营再点 ⇒ 早返回」删掉了我们自设计的「再点取消」⇒ 上面那次点击之后，
+                        //        筛选**停在 `Factions()[0]`**（不是回到 -1）。而下面几节（滚 140px / 名字条进
+                        //        渐隐带 / 恢复 4 套夹具后的 339）全部按**不过滤**写 —— 不复位的话它们的前提全塌
+                        //        （实测：140 被夹成 116.21、`DeckRow_0` 根本不存在、`DeckIndex` 停在 3）。
+                        //   写法：直接改字段 + 走重建口（同本文件 :2472/:2478 的先例；⛔ 不是把 toggle 改回来）。
+                        //   ⛔ 不要把 `pw.DeckScroll.SetOffset(140f)` 那一行改成 116.21 来「修」—— 滚到底时
+                        //        名字条中心 300.33 落在渐隐带（262.64..285.64）之外，下面那条「削 alpha」
+                        //        会**永远没有鉴别力**（它自己的文案就写着「等于没查」）。
+                        //   ⛔ 也不许顺手回滚 `Shell/PracticeModePopup.cs` 的早返回 —— 那是原版行为。
+                        pw.ArmyIndex = -1;
+                        pw.RebuildDeckListForTest();          // 9 套 ⇒ 5 行 ⇒ 内容高 816 / MaxOffset 275.21
+                        CheckNear(pw.DeckScrollContentH, 816f, 0.6f,
+                                  "（夹具复位）阵营筛选清回「不限」⇒ 9 套 ⇒ 5 行 ⇒ **816**"
+                                  + "（= 上面 ㉒④ 那一条的前提值；不复位 ⇒ 这里会是 657）");
+                        pw.ArmyScroll.OnChanged();            // `Highlight` 回到「一格都不亮」（同 :2478）
 
                         // ---- 文字吃软边：把**第 1 格**的名字条滚进上渐隐带再验 ----
                         // 名字条 = 格内 y **138.60..169.20**（原版锚点）；第 1 格 = 262.64..442.64
@@ -3690,11 +3712,15 @@ public static class MainMenuScene
                             //    里那句 `if (!d.complete) continue;` = 原版 `!HasHiddenCards` 的位置）。
                             //    而**替身表是【生成侧】的性质、记在全部 103 副上**，与「预组页列不列这一副」无关
                             //    ⇒ 拿 `Tab` 当遍历源，会把「某一副因为拼不齐而掉出列表」**误报成「替身表少了一副」**。
-                            //    现读实据：`Resources/prebuilt_decks.json` 里 `OrksDeck2` 的 `complete = false`
-                            //    （`missing = ["GOF20 x2 (miss-known)"]` · `problems = ["size:28/30"]`）
-                            //    ⇒ 它不在 `Tab` 里，但**在 `All` 里、且 `cardbackFrom == "substitute"` 照旧**。
+                            //    🔴 **2026-10-18 就地订正（铁律 5）**：本行原来写「`OrksDeck2` 的 `complete = false`
+                            //    （`missing = ["GOF20 x2 (miss-known)"]` · `problems = ["size:28/30"]`）⇒ 它不在 `Tab` 里」——
+                            //    **实际是 `complete = true` · `cardIds` **30 张** · `missing = []` · `problems = []`**
+                            //    （`RuleEngine/Resources/prebuilt_decks.json` 2026-10-18 现读：103/103 副全 `complete`）。
+                            //    **错因 = 数据侧已关账**（那一轮之后这套预组被补齐），这句注释没跟着走。
+                            //    结构结论**不变**：仍然必须用 `All` —— 替身表记在「生成侧」、与页面列不列无关。
                             // ⛔ **不是**「把期望值从 4 副改成 3 副」—— 那会把「少一副」当成正常、从此看不见替身表漂移。
-                            // 🧨 **改坏法**：把这里换回 `tab` ⇒ **这一条红**（实得只剩 3 副：`ASH_SK_2` / `SpaceWolvesDeck5` / `SW_SK_3`）。
+                            // 🧨 **改坏法**：把这里换回 `tab` ⇒ ⚠️ **今天暂时不红了**（103 副全 complete ⇒ `Tab == All`，
+                            //    这条的鉴别力只在数据里**存在不全的副**时成立）；⛔ 别因此改回 `tab` —— 结构理由照旧。
                             var allSub = PrebuiltDecks.All;
                             for (int i = 0; i < allSub.Count; i++)
                                 if (allSub[i] != null && allSub[i].cardbackFrom == "substitute") subs.Add(allSub[i].deckId);
@@ -6863,15 +6889,22 @@ public static class MainMenuScene
                           "点它 ⇒ 开 `RankedClassicLeaderboardPopup Variant`");
                 CheckTrue(lb0 != null && lb0.CurrentState == WindowState.Open, "那一扇是**开着**的");
                 Check(lb0 != null ? lb0.TabCount : -1, 2, "经典榜 **2 个页签**（没有 Alliances —— 三条独立证据）");
-                // 🆕 **2026-10-17（`N29` / `N46⑤`）**：排行榜两处滚动灵敏度（原版字面量，⛔ 不读缺省常量）——
-                //   `…/Ranking Display/Content/Scroll View` = **50** · `…/Content/Army Selector` = **1.0**
-                //   （判据 → `D_N29_滚动灵敏度逐视图.md`；三扇排行榜同值）。
+                // 🆕 **2026-10-17（`N29` / `N46⑤`）**：排行榜两处滚动灵敏度（⛔ 不读缺省常量）——
+                //   `…/Ranking Display/Content/Scroll View` = **50**（原版 `m_ScrollSensitivity` 字段值）·
+                //   `…/Content/Army Selector` = **120**（见下，**不是原版值**）。
+                //   判据 → `D_N29_滚动灵敏度逐视图.md`；三扇排行榜同值。
+                // 🔴 **2026-10-18（用户拍板）**：阵营选择那台传 **120 px/格 —— 这是我们挑的、不是原版值**
+                //   （原版 `m_ScrollSensitivity` = **1.0** ⇒ 照抄的话一格滚轮只走 **1 px**，实际滚不动）。
+                //   用户 2026-10-18 明确**保留 120**；按铁律 11 记为「**待将来评估的偏离**」
+                //   （⛔ 别把它写成原版值；判据 → `W16_横向滚轮步长.md` + `MenuScroll.NotchPx` 的 doc）。
                 if (lb0 != null)
                 {
                     CheckNear(lb0.RowsScroll != null ? lb0.RowsScroll.NotchPx : -1f, 50f, 0.001f,
                               "排行榜·榜单列表 滚动灵敏度 = 原版 **50** px/格");
-                    CheckNear(lb0.ArmyScroll != null ? lb0.ArmyScroll.NotchPx : -1f, 1f, 0.001f,
-                              "排行榜·阵营选择 滚动灵敏度 = 原版 **1.0** px/格");
+                    // 🔴 期望 120 = **2026-10-18 用户拍板保留的步长**（原版 1.0 —— 见上，铁律 11 记偏离）
+                    CheckNear(lb0.ArmyScroll != null ? lb0.ArmyScroll.NotchPx : -1f, 120f, 0.001f,
+                              "排行榜·阵营选择 滚动灵敏度 = **120** px/格（**我们挑的**；原版 `m_ScrollSensitivity` = 1.0，"
+                            + "2026-10-18 用户拍板保留 120）");
                 }
                 if (lb0 != null)
                 {

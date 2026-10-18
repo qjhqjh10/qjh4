@@ -177,10 +177,12 @@ namespace CardPresentation
 
             var btns = Node(win, "Buttons", BtnsR);
             DuelButton(btns, "Button Skirmish", "Skirmish image", "40k_gamemode_icon_skirmish",
-                       SkirmishR, SkirmishTxR, SkirmishIcR, "Skirmish", () => OnMode("Skirmish"));
+                       SkirmishR, SkirmishTxR, SkirmishIcR, "Skirmish", () => OnMode("Skirmish"),
+                       null);   // 原版空 cue + `useDefault=1` ⇒ 默认 `ButtonClick`（`AUD` §三 B13）
             SkirmishHit = btns.Find("Button Skirmish/Hit");
             DuelButton(btns, "Button Classic", "Classic Image", "40k_gamemode_icon_classic",
-                       ClassicR, ClassicTxR, ClassicIcR, "Continue", () => OnMode("Classic"));
+                       ClassicR, ClassicTxR, ClassicIcR, "Continue", () => OnMode("Classic"),
+                       WindowSounds.PositiveCue);
             ClassicHit = btns.Find("Button Classic/Hit");
 
             // 右上那颗绿圆钮 = **关闭钮**（节点名没写 Close，图标是关闭 ⇒ 普查 §B 判为 closeButton）
@@ -227,7 +229,7 @@ namespace CardPresentation
 
         /// <summary>一个模式钮：底 `40K_button`（绿）+ 文案 + **溢出的**模式图标（判据 ⑤）。</summary>
         void DuelButton(Transform parent, string name, string iconName, string icon, PxRect r, PxRect txR,
-                        PxRect icR, string text, System.Action onClick)
+                        PxRect icR, string text, System.Action onClick, string clickCue)
         {
             var b = Node(parent, name, r);
             Nine(b, "40K_button", r, BtnBorder, "Image", QBg, BtnTint);
@@ -244,8 +246,11 @@ namespace CardPresentation
             //   --depth 8 --substr "Button Skirmish"`（实读 `350.00 x 100.00`）；
             //   ⚠️ 我们画的那两颗与它**逐位同矩形**（`SkirmishR` 350×76 · `SkirmishIcR` 100×100 且相对偏移 −13.8 相同）
             //   ⇒ 直接取「按钮的 x 两边 + 图标的 y 两边」就是并集。
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B13）**：原版
+            //   `MessagePopupWindowDuel/Window/Buttons/Button Skirmish` = 空 cue + `useDefault=1` ⇒ **默认**；
+            //   `Button Classic` = **`ButtonClick Positive`**。改前两颗都传了 Positive（Skirmish 响错）。
             MenuDraw.Hit(b, "Hit", new PxRect(r.x1, icR.y1, r.x2, icR.y2), QHit, onClick,
-                         clickCue: WindowSounds.PositiveCue);
+                         clickCue: clickCue);
         }
 
         /// <summary>原版 `OnSkirmishButtonPressed` / `OnClassicButtonPressed` —— 两个方法**逐行同构**，

@@ -214,6 +214,28 @@ namespace RuleEngine
         public string DeployFrom = "pool";
 
         /// <summary>
+        /// 🔴 **2026-10-19（`A1571`）：`from your deck` 那一档是原版的 `autoPlayFromHand(250)`。**
+        ///
+        /// 判据（第一权威 = 原版 SO，2026-10-18 在本地找到的 `allcards`）：
+        ///   · `BL55 Black Crusade` 的 SO = **`autoPlayFromHand(250)` ×4**
+        ///     （`AbilityEffect.cs:50` 的枚举值；`K06` 的 `allcards` 里那 1,351 张 SO）；
+        ///   · `AbilityLogic__PlayAbility.c` 的 `0xFA` 支 → `BattleManager__AddAutoPlayFromHand`
+        ///     → `_ResolveCardAutoSummoned_d__511__MoveNext.c`：卡**必须先在手里**
+        ///     （`CardScript.IsInHand` 或 `cardState == 0x10 inDeckDrawing`）⇒ 这条效果是
+        ///     「**把牌从牌库拿进手、再免费打出**」，不是「凭空召唤」；
+        ///   · 该协程 `MinionPlayedIntoField(..., 1 /*shouldTriggerSummon*/)` ⇒ 会触发
+        ///     `ThisUnitSummoned(195)`（= 我们的 `Rally`）；而普通的召唤路
+        ///     （`_ResolveSummonUnit_d__510`）传的是 `0` ⇒ **不触发 Rally**。这就是两者**唯一**
+        ///     在我们引擎里可观测的差别（其余如 `OtherUnitSummoned` / 信仰 605 两条路都一样）。
+        ///
+        /// ⚠️ **今天全池只有这一种写法**（`Deploy … from your deck` / `Each player deploys … from
+        ///    their deck`），两张卡（`BL55` / `SW57`）在 SO 里都落在 `autoPlayFromHand` 族。
+        ///    ⇒ 文本层按「来源 = deck」置位；将来若有**不是** autoPlay 的 `from deck` 卡，
+        ///    要按 SO 分流（⛔ 别默认它一定等于 autoPlay）。
+        /// </summary>
+        public bool AutoPlay;
+
+        /// <summary>
         /// `Each **player** deploys N …` —— **双方各部署一次**（2026-09-13 A4 批 1）。
         ///
         /// 出处：`Birth of a Saga`（SpaceWolves）「`Each player deploys 3 troops from their deck.
@@ -347,6 +369,21 @@ namespace RuleEngine
         /// <summary>`ChooseAct == "copies"` 时复制几张。实测只有 1 处：`create two copies`。
         /// 别的动作恒为 0。</summary>
         public int ChooseCopies;
+
+        /// <summary>
+        /// 🆕 **2026-10-19（`A1960`）**：`ChooseSrc == "specific"` 时的**候选卡 id 表**
+        /// —— 原版 `RawCardScript.choicesDefinition.filterSpecificCards`（`TargetCriteria` @0x2A0，
+        /// 经 `工具/gen_cards_engine.py` 把 PPtr 的 `m_PathID` 解成 `uniqueId` 落盘）。
+        ///
+        /// 判据：`BattleManager__GetChoiceFullPool.c:36-49` ——
+        /// `targetsAffected == 0xb4(180 = choiceResolution)` ⇒ 候选池**就是** `filterSpecificCards`
+        /// （为空回落 `BattleManager+0x308` —— 我们**没有**那一格）。
+        ///
+        /// ⚠️ 这张表里的 id **未必都在卡池里**（实测有变体卡 SO / 附魔模板）——
+        /// `EffectResolver.ChooseCardCandidates` 的 `specific` 支会**如实跳过池外的**、
+        /// 并把「命中几张 / 池外几张」写进 `detail`（⛔ 不静默）。
+        /// </summary>
+        public List<string> ChooseSpecificIds;
 
         // ==================================================================
         //  「二选一但**不问玩家**」——`X or Y` 且卡面**没有** `choose` 字样
@@ -1137,12 +1174,29 @@ namespace RuleEngine
         /// （见 <see cref="FillAdjacentAnchors"/> ⑤·二 —— 定成**事件宾语**，而不是「自己」）。
         ///
         /// ⚠️ **只传「事件确实有宾语」那一种**，不是「这段是 When 正文」就传 ——
-        ///    没有宾语的那种（`When a friendly troop dies, …adjacent…`）锚点仍然**认不出**
-        ///    （宁可打 `*`，也别拿「自己」去顶）。
+        ///    没有宾语的那种（`When a friendly troop dies, …adjacent…`）锚点**按原版 100 = 自己**
+        ///    （`A1690` 的裁定；由 <paramref name="whenBody"/> 那一支落，见下）。
+        /// </param>
+        /// <param name="whenBody">
+        /// 🔴 **2026-10-19（`A1690`）：这段话是「`When …` 正文」（事件层已经认出事件、正文只是冒号后那半段）。**
+        /// 与 <paramref name="eventHasTarget"/> **同一形状、两条闸共用一份判据**：
+        ///   · 事件**带宾语** ⇒ 裸 `adjacent` 锚 = `TargetIfMeetsCriteria`（110，`Long Fang` 那一档）；
+        ///   · 事件**不带宾语** ⇒ 锚 = `Self`（**原版 100**）—— 原版全量真值里
+        ///     `adjacentToSelfIfMeetsCriteria = 100` 那 17 处**全是「卡自己拥有的触发式/常驻式 ability」**，
+        ///     而「事件宾语」那一档是现成的 110；原版**没有**第三种「事件参数」锚点，⛔ 别新造。
+        ///     判据 → `资料/任务线/引擎线/任务/T02_条件替代与落位锚点.md` §二 `A1690`
+        ///     （`AbilityLogic__GetTargets.c:1001` / `:1046`）。
+        ///   · **这条路上不再置 `AdjacentFailed`** —— 锚点已经定得下来，不再算「认不出」。
+        ///
+        /// ⚠️ **只由「When 正文」的产出点传 `true`**（`CardDef.FinishWhenSentence` /
+        ///    `CollectHandTrapWhens` / `EffectText.TryWhenSuffix` / `TryParseAfterDarkPact`）。
+        ///    `Parse(Desc)` 那种**整条 desc 的覆盖率解析**不传 —— 那里一句 `When …` 若
+        ///    既没被事件层认领、又带裸 `adjacent`，仍然要按 ⑤ 判「认不出」（`F1` 的回归点）。
         /// </param>
         /// <returns>解析出来的操作；**空表不等于失败**（可能整句都是关键词声明）</returns>
         public static List<EffectOp> Parse(string desc, out List<string> unparsed, out List<string> partial,
-                                           bool eventHasTarget = false)
+                                           bool eventHasTarget = false, bool whenBody = false,
+                                           CardDef card = null)
         {
             unparsed = new List<string>();
             partial = new List<string>();
@@ -1297,7 +1351,7 @@ namespace RuleEngine
             // ---- 「相邻」锚点回填（2026-09-13 候选 F）----
             // 逐句解析看不到「前面点过谁」，所以等整条 desc 拼完再统一定锚点 ——
             // 和下面 `Repeat this effect` 的回填同一个道理。定不下来的**如实降级成半懂**。
-            FillAdjacentAnchors(segText, segOps, segKind, unparsed, partial, eventHasTarget);
+            FillAdjacentAnchors(segText, segOps, segKind, unparsed, partial, eventHasTarget, whenBody);
 
             // `Repeat this effect` = **把本句之前的效果原样再来一遍**。
             // 逐句解析时看不到「之前」，所以在整条 desc 拼完之后统一回填
@@ -1331,7 +1385,83 @@ namespace RuleEngine
             //   所以和上面 `repeat` / `paidmod` 同一个道理：**整条 desc 拼完再统一回填**。
             //   判据与用途见 <see cref="EffectTargetSpec.PrevAntecedent"/>。
             LinkPrevAntecedent(ops);
+            // 🆕 2026-10-19（`A1960`）：原版 `choicesDefinition` 要求选牌、而**正文没写 choose** 的卡
+            //   —— 补一条 `choosecard`（候选域 = `specific`）。判据与闸门见那个函数。
+            //   ⚠️ **必须在上面那几轮回填之后插**：`repeat` / `paidmod` 的 `BaseOps` 已按原 op 排好，
+            //   插在最前面不会把它们卷进来（`Repeat this effect` 不该重放「选哪份契约」）。
+            InjectChoicesDefinitionOp(ops, card);
             return ops;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-19（`A1960`）**：给「原版 `choicesDefinition` 要求选牌、正文却没写 `choose`」的卡
+        /// **补一条 `choosecard`**（候选 = `filterSpecificCards`，`ChooseSrc = "specific"`）。
+        ///
+        /// <para>**原版判据**：`BattleManager__GetChoiceFullPool.c:36-49` —— 若卡 SO 的
+        /// `choicesDefinition.targetsAffected == 0xb4(180 = TargetsAffected.choiceResolution)`，
+        /// 选牌的候选池 = `filterSpecificCards`（@0x70）；为空才回落 `BattleManager+0x308`
+        /// （`pooledAbilityData`，我们**没有**那一格）。</para>
+        ///
+        /// <para>🔴 **四道闸（缺一不可，全部是「不许开了面板却没人消费」）**：
+        /// ① 数据齐：<see cref="CardDef.HasSpecificCardChoice"/>（180 + `maxTargets>0` + 候选非空）；
+        /// ② 正文**没有** choose 子句（`choosecard`/`chooseone`/`chooseeffect`）——
+        ///    有就说明这一族已经由文本解析自己问了，再插一条 = **问两遍**；
+        /// ③ 这一族**真的会消费选中那张**：今天只有「**授予一份没写种类的 Dark Pact**」
+        ///    （`Give a [Chaos] Dark Pact to a friendly troop` 那 6 张）接上了消费点
+        ///    （`EffectResolver.GrantDarkPact` 读 `ctx.LastChosenCard`）。
+        ///    其余 `targetsAffected=180` 的卡（`Drone Companion` 的造牌、`Adaptive Strategy` 的
+        ///    变体卡选项、`GSC29` 的空 filter…）**下游动作还没接** ⇒ 插一条也没人读，
+        ///    那会变成一个「选了不生效」的面板 —— 本工程红线（假装有作用）⇒ 如实不做。
+        ///    逐张范围与理由 → `资料/普查产出_1018/W_引擎线_波2b.md` §二/§六；
+        /// ④ `ops` 里确实有那条契约授予（③ 在代码里就查它）。</para>
+        ///
+        /// <para>⚠️ **`Source` 必须是固定串**（<see cref="ChoiceResolutionSource"/>）——
+        /// `BattleDriver.AskOwners` 按「`Verb` + 归一化 `Source`」把面板上的 ask 认领到
+        /// `TriggerOps`/`SpiritOps` 那几档；整条 `desc` 的解析与触发正文（`Rally:` 那半句）的解析
+        /// 是**两次不同的 Parse 调用**，`Source` 不逐字相同就认领不上（那一格答案会被下一个 ask 吃掉）。</para>
+        /// </summary>
+        static void InjectChoicesDefinitionOp(List<EffectOp> ops, CardDef card)
+        {
+            if (ops == null || card == null || !card.HasSpecificCardChoice) return;
+            foreach (var op in ops)
+                if (op != null && (op.Verb == "choosecard" || op.Verb == "chooseone" || op.Verb == "chooseeffect"))
+                    return;
+            if (!HasUnspecifiedDarkPactGrant(ops)) return;
+            ops.Insert(0, new EffectOp
+            {
+                Verb = "choosecard",
+                Source = ChoiceResolutionSource,
+                ChooseSrc = "specific",
+                ChooseWhat = "",
+                ChooseAct = "",
+                ChooseSpecificIds = new List<string>(card.ChoicesSpecificCardIds),
+            });
+        }
+
+        /// <summary>`choicesDefinition` 注入那条 op 的固定 `Source`（见 `InjectChoicesDefinitionOp` 的 ④）。
+        /// ⚠️ **别改成带卡名/带正文的串** —— 那会让整条 `desc` 与触发正文两次解析的 `Source` 不一致。</summary>
+        public const string ChoiceResolutionSource = "choicesDefinition: 选一张牌";
+
+        /// <summary>`ops` 里有没有「授予一份**没写种类**的 Dark Pact」——
+        /// 格式：`give`/`gain`/`lose` 的 `Payload` 经 <see cref="GivePayload.Parse"/> 后出现
+        /// `darkpact` 关键词且**种类未指定**（`Variant` 是 `"random"` 或空 ——
+        /// `GivePayload.ExtractVariant:637-649`：没写 `of X` 时**返回 `"random"`**，
+        /// 不是 null；`GrantDarkPact` 也是按 `k == "random"` 走随机那一支）。
+        /// 判据 = `GivePayload`（载荷文法只此一份）。</summary>
+        static bool HasUnspecifiedDarkPactGrant(List<EffectOp> ops)
+        {
+            foreach (var op in ops)
+            {
+                if (op == null || string.IsNullOrEmpty(op.Payload)) continue;
+                if (op.Verb != "give" && op.Verb != "gain" && op.Verb != "lose") continue;
+                var ps = GivePayload.Parse(op.Payload);
+                if (ps == null) continue;
+                foreach (var p in ps)
+                    if (p != null && p.IsKeyword && p.Keyword == KeywordTable.DarkPact
+                        && (string.IsNullOrEmpty(p.Variant) || p.Variant == "random"))
+                        return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -1425,13 +1555,16 @@ namespace RuleEngine
         ///      定成 <see cref="AdjacentAnchor.TargetIfMeetsCriteria"/> = **相对被攻击的那个**。
         ///      依据：原版 `TargetsAffected.target = 30` 就是「事件的目标」，
         ///      而 `adjacentToTargetIfMeetsCriteria = 110` 是它配套的相邻锚点。
-        ///      ⚠️ **只在「事件有宾语」时走这一支**（卡池实测只有 `Long Fang` 一张是这个形状）——
-        ///        没有宾语的事件（`When a friendly troop dies, …adjacent…`）继续按 ⑤ 认不出。
+        ///      ⚠️ **只在「事件有宾语」时走这一支**（卡池实测只有 `Long Fang` 一张是这个形状）。
+        ///   ⑤·二·二 🔴 **2026-10-19（`A1690`）：`whenBody == true`（这段是事件层已认领的 `When` 正文）**
+        ///      时**不再走 ⑤**：事件带宾语 ⇒ 110（同 ⑤·二）；不带宾语 ⇒ **`Self`（原版 100）**。
+        ///      判据与「原版没有第三种事件参数锚点」的说明 → `Parse` 的 `whenBody` 参数 doc。
+        ///      ⑤（`AdjacentFailed`）保留给**未被事件层认领**的 `When …` 句子（覆盖率解析那一层）。
         /// </summary>
         static void FillAdjacentAnchors(List<string> segText, List<List<EffectOp>> segOps,
                                         List<SegKind> segKind,
                                         List<string> unparsed, List<string> partial,
-                                        bool eventHasTarget = false)
+                                        bool eventHasTarget = false, bool whenBody = false)
         {
             EffectTargetSpec prevSegNamed = null;      // 上一句**点名**的那个目标（用来分辨「督军」那一支）
             for (int i = 0; i < segText.Count; i++)
@@ -1476,6 +1609,19 @@ namespace RuleEngine
                             }
                             else if (low.Contains("the target"))
                                 t.Anchor = AdjacentAnchor.PreviousTarget;              // ③
+                            // 🔴 **2026-10-19（`A1690`）：这一段是【已认出来的 `When …` 正文】**
+                            //   （事件层已经把事件拆走、正文只是冒号后那半段）⇒ 锚点**定得下来**：
+                            //   · 事件带宾语 ⇒ 相对**那个宾语**（110，`TargetIfMeetsCriteria`）；
+                            //   · 事件不带宾语 ⇒ 原版 **100 = 相对自己**（`Self`）。
+                            //   判据 = `AbilityLogic__GetTargets.c:1001`（`==100` → `GetAdjacentUnits(board, param_3)`，
+                            //   `param_3` = 拥有这条 ability 的牌）/ `:1046`（`==110` 且 `param_5 != 0`）；
+                            //   全量真值 38 处相邻锚点的分布见 `T02` §二 `A1690`（17 Self / 17 TargetIfMeets / 4 FriendWarlord）。
+                            //   🔴 **这条路上不再置 `AdjacentFailed`**（那是给「认不出」的 `When` 句用的 ——
+                            //   下面那一支仍然保留：整条 `desc` 的覆盖率解析里，一句没被事件层认领的
+                            //   `When … adjacent …` 还是必须判半懂，`F1` 的回归点在那儿）。
+                            else if (whenBody)
+                                t.Anchor = eventHasTarget ? AdjacentAnchor.TargetIfMeetsCriteria
+                                                          : AdjacentAnchor.Self;
                             else if (low.StartsWith("when ") || low.StartsWith("whenever "))
                             {
                                 t.AdjacentFailed = true;                               // ⑤
@@ -1512,7 +1658,7 @@ namespace RuleEngine
                     //      事件**带宾语**时锚点定得下来（⑤·二，`Long Fang`），不带宾语才认不出。
                     //   ⚠️ `EffectTargetSpec.AdjacentFailed` 这一支**打不了**（标记 op 没有 `Target`）
                     //      ⇒ 只置段级的 `adjFailed`（降级那一步在 `:1449` 按段走，够用）。
-                    else if (op.Verb == "whenclause" && !eventHasTarget
+                    else if (op.Verb == "whenclause" && !eventHasTarget && !whenBody
                              && HasBareAdjacent(op.Payload))
                         adjFailed = true;
                     if (op.AtTurnOps != null) foreach (var o in op.AtTurnOps) FillOne(o);
@@ -7155,9 +7301,19 @@ namespace RuleEngine
             if (head.Length == 0 || tail.Length == 0) return false;
             if (head.ToLowerInvariant().IndexOf(sep, System.StringComparison.Ordinal) >= 0) return false;
 
+            // ② 效果那半要解析得出（**原顺序：先判效果、再判事件** —— 事件认不出时的
+            //    `UnknownPhrases` 记账点不能提前到这里，否则「效果那半都解不出」的句子
+            //    会开始灌全局报表桶）
             var headOps = Parse(head, out _, out _);
             if (headOps == null || headOps.Count == 0) return false;   // ② 效果那半要解析得出
-            if (WhenEvents.ParseAll(tail).Count == 0) return false;    // ③ 事件短语要解析得出
+            var evs = WhenEvents.ParseAll(tail);
+            if (evs.Count == 0) return false;    // ③ 事件短语要解析得出（原记账点）
+            // 🔴 **2026-10-19（`A1690`）**：这是**后缀形**的 `When` 正文（`<效果> when <事件>`）——
+            //   事件**带宾语**时裸 `adjacent` 要锚 **110**（`TargetIfMeetsCriteria`）⇒ 必须重解析一份。
+            //   事件**不带宾语**时旧那一份已经落在 `Self`（正文不带 `when ` 前缀 ⇒ 走 ④）⇒ 不重解析。
+            //   ⚠️ `AnyHasTarget` 与 `CardDef.FinishWhenSentence` / `CollectHandTrapWhens` **共用一处**。
+            if (WhenEvents.AnyHasTarget(evs))
+                headOps = Parse(head, out _, out _, true, whenBody: true);
 
             evPhrase = tail; body = head; ops = headOps;
             return true;
@@ -7399,6 +7555,9 @@ namespace RuleEngine
             if (body.EndsWith(" from your deck"))
             {
                 op.DeployFrom = "deck";
+                // 🔴 2026-10-19（`A1571`）：`from your deck` 这一档 = 原版 `autoPlayFromHand(250)`
+                //    （SO 与 `PlayAbility.c` 的 `0xFA` 支 → `_d__511` 协程，逐条见 `EffectOp.AutoPlay` 的 doc）。
+                op.AutoPlay = true;
                 body = body.Substring(0, body.Length - " from your deck".Length).Trim();
             }
             else if (body.EndsWith(" that died this game"))

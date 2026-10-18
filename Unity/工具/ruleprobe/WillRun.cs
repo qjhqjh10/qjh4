@@ -1010,6 +1010,11 @@ class WillRun
             //      按通道比会让**整族**无头段一律落进「没有通道」⇒ ⑤ 那一档**全体误报**。
             //      ⇒ 它继续用**全卡并集**（`rawGot`），并且**只是下界**（同签名在别处出现过就算
             //      「收到了」）。⚠️ 也就是说 **⑤ 与 ④ 的严格程度不同**，别把两者的条数放在一起比。
+            //      🔴 **`A1598①` 结论（2026-10-19 波 4 · 只改措辞、不改判据）**：原版**有**权威口径
+            //      （`RawCardScript.cardAbilities` / `HasAbilityType` / `GetAbilitiesForTrigger`），
+            //      但它在**远端 `allcards`**、本地 13 个 `<阵营>cardassets` 包下**没有 MonoBehaviour**
+            //      ⇒ **我们只能取下界**（出处 → `资料/普查产出_第二十五会话/R1_引擎判据收集.md` §5）。
+            //      ⛔ 别再试图把 ⑤ 抬成「相等」口径；**报 0 条 ≠ 证明没有漏**。
             var segsAll = EffectText.Split(c.Desc);
             for (int i = 0; i < segsAll.Count; i++)
                 AddHeadless(row.Headless, c, segsAll[i], "desc 第" + (i + 1) + "句");

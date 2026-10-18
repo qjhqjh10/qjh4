@@ -26,6 +26,11 @@
 
 | A | 要做的事 | 判据（出处） | 做得到吗 |
 |---|---|---|---|
+> 🔴 **2026-10-18 订正（`A1777` · 换 id 残留）**：下表是 **`K06` 之前**写的 —— 池内 **114 张旧 id 已重编号为真 id**
+> （判据 = `数据/游戏数据/card_ids.json` 的 `poolTrueIds`【历史迁移表，旧 id → 真 id】）。
+> ⇒ **本表出现的短 id 一律按【当时的旧 id】读**，⛔ 别拿它去今天的 `cards_engine.json` 里按 id 找。举三例：
+> `SW4`（旧）→ 今天那张卡 = `b3dce3f1…`（High King of Fenris）· `SW13`（旧）→ `SW8`（Blackmane Reiver）·
+> `DA83`（旧）→ `DA66`（Ballistus Dreadnought）。**要查「这张卡现在是几号」→ 按卡名在池里反查**。
 | `A2068` | **「卡 → 立绘」改走真值链** —— `工具/import_original_art.py` 现在**按卡名在 bundle 里找图**，而 `cardImageReference` 的 **1,171 条 AssetGUID 已解成 assetName**、就在 `数据/游戏数据/card_vfx_by_card.json` 的 `_assetRefs` 里 | `普查产出_第三十三会话/R1_远端包数据使用现状.md` §4 | ✅ **判据齐、可立刻做** —— 特效与语音**都已改走真值链**，只有立绘没改 |
 | `A1779` | **11 条督军 join 错配**：`AM3`/`AM66` **一直在我们池里**（`AM_Commissar_Elan` / `AM_Hektor_Thenmann`），只是卡名与真值 `cardName` 不一致 ⇒ `pick_id`（`工具/gen_cards_engine.py:1020`）**按名换 id 落空** ⇒ 走自造 id ⇒ **两头都查不到**。**真缺的只有 3 条** = `Marneus Calgar`/`Uriel Ventris`/`Sylar Hexscorn` 的 **`(tutorial)` 专用副本 SO**（我们一律只收正式那张） | `普查产出_第三十会话/乙档六笔_判据查证.md` §A1779 | ✅ **判据齐、⛔ 未动手** —— 最小方向 = 把**已有的**官方两级表 `load_official_cardname().by_en` 接进 `:1020` 作第二路 ⇒ **零数据改动救 5 条**（`DA1/2/3` · `GSC66` · `AM66`）+ 3 条显式别名（`AM3` / `BL36` 拼错 / `GSC3`）。⚠️ **`AM3` 数值冲突**（真值 `35/0` vs **PnP 与 `card_stats.json` 都是 `30/护甲 2`**）⇒ 按**铁律 7 以 PnP 成品卡图为尺**；⚠️ `AM3` 卡名要不要换成官方 `Commissar Denkler` 是**口径决定** |
 | `A2074` | **督军 id 真值**（本机可解）：钥匙 = **卡组 SO 的 `deckAvatar` PPtr** → `cosmeticsso` 的 **`Avatar_<阵营>_<督军名>`**。**硬结论**：`SW1`=Logan Grimnar · `SW2`=Njal Stormcaller · `SW3`=Ragnar Blackmane（**我们错放成 SW1/SW4/SW9 = 照 PnP 文件号排的**）· `DA75`=Master Zacharial（确证）· `cardArmy 130 = SpaceWolves` | `R9_卡牌id真值挖掘.md` §二 · 真值表 = `普查产出_第三十三会话/_heroId_truth.json` | ◐ **只有一部分能做**：🔴 `A2078` 已订正 —— 那「9 条不一致」里**只有 3 条是真错**；`GOF75`/`UM65`/`ASH76` **不是卡名错**，是**原版 presale/异画【变体号】占了那些数字** ⇒ **改法需要原版完整编号表**（**没拿到**）。⚠️ 另 2 条不算错（`SAU36` 原版与 PnP 拼写不一致 · `SOR65` 立绘用职业名）、1 条待复核（`TL74`） |

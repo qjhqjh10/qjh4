@@ -308,7 +308,36 @@ public static class CardFaceProbe
             Object.DestroyImmediate(root);
         }
 
-        // ---------------------------------------------------------------- A1661
+        // ---------------------------------------------------------------- A1674
+        // `SetQueue` 必须也盖 **`ParticleSystemRenderer`**（它不是 `MeshRenderer` ⇒ 2026-10-18 前的
+        // 实现扫不到它）。判据（原版 prefab 逐字段实读）：`CanActParticles` / `RotatingRing` 的
+        // `m_SortingOrder = 0` · `m_SortingLayerID = 0` · `m_SortingFudge = −3 / −2` ·
+        // 材质 `m_CustomRenderQueue = 3000` ⇒ **它们与卡面同队列、只靠负 fudge 压在同队列透明物之后**
+        // ⇒ 我们必须让它们跟着**这张卡的队列段**走，否则卡重叠时绿光会盖到邻居卡上。
+        // 判据全文 → `资料/普查产出_1018/W_卡牌线_卡面侧2.md` §一·1；代码注释 → `CardView.SetQueue`。
+        {
+            var root = new GameObject("chk_a1674");
+            var v = CardView.Create(root.transform, data, "chk_a1674_card", CardFace.Hand);
+            v.SetQueue(2971);
+            // 造一颗**假的**粒子层（不依赖随包 shader / 贴图）：材质初始 3000 = 原版 `m_CustomRenderQueue`
+            var fx = new GameObject("chk_a1674_particles");
+            fx.transform.SetParent(v.transform, false);
+            fx.AddComponent<ParticleSystem>();
+            var pr = fx.GetComponent<ParticleSystemRenderer>();
+            pr.sharedMaterial = new Material(Shader.Find("Sprites/Default")) { renderQueue = 3000 };
+            v.SetQueue(2971);       // 新挂的层在第一次 `SetQueue` 之后才出现 —— 与 `SyncBoard` 同一顺序
+            int gotQ = pr.sharedMaterial != null ? pr.sharedMaterial.renderQueue : -999;
+            Check(gotQ == 2971,
+                  $"A1674 `SetQueue` 也盖 `ParticleSystemRenderer`（实际 {gotQ}，应为 2971）"
+                + "｜🧨 删掉 `SetQueue` 里那段粒子循环 ⇒ 退回 3000 ⇒ 本条红"
+                + "（真机上表现为「卡重叠时绿光盖住邻居卡」）");
+            int mn = MinOf(v.SubtreeQueues()), mx = MaxOf(v.SubtreeQueues());
+            Check(mn == 2971 && mx == 2971,
+                  $"A1674 粒子也进 `SubtreeQueues` 的同一段（实际 [{mn}..{mx}]）"
+                + "｜🧨 少算粒子 ⇒ A1672 那条「整段相等」盯不住粒子层");
+            Object.DestroyImmediate(root);
+        }
+
         // 徽标底板 = 原版 `IconBackground`（一个 **Sliced** 的 `SpriteRenderer`）。三条判据**锚在三个
         // 不同来源**上，所以**没有哪一处「改回去」能让三条一起变绿**（灭自证）：
         //   ① 色  ← 原版 `m_Color` = (0.32298, 0.34305, 0.35849)（深灰）
@@ -443,6 +472,38 @@ public static class CardFaceProbe
                 Check(Mathf.Abs(pinned - 0.0401f) < 0.005f,
                       $"A1661 ⑥ 图标外缘距卡边 0.0401 卡单位（原版那套几何常量定的），实际 {pinned:F4}");
             }
+            Object.DestroyImmediate(root);
+        }
+
+        // ---------------------------------------------------------------- A1676
+        //  🔴 2026-10-18：徽标「未激活」= **两条通道叠加**，⛔ 不是二选一。
+        //  判据 = 反编译**同一个方法体**里两条一起做（`d:/2/tools/decomp_full/BoardTraitIcon__Initialize.c`）：
+        //    `traitIcons`         → `SetMaterial(r, enabled ? originalMaterial : disabledMaterial)`（灰化）
+        //    `traitNotActiveIcons`→ `set_enabled(r, !enabled)`（那枚 ✕）
+        //  逐条改坏法：
+        //    · 删掉 `CardView.SetBadgeCross` 的调用 ⇒ ② 的 ✕ 那条红（灰化仍绿）——两条各管一件事；
+        //    · 把 ✕ 改成「激活时才画」或把它并进灰化那条 ⇒ ① 红（激活位不该有 ✕）。
+        {
+            var root = new GameObject("chk_a1676");
+            var bd = CardData.Simple("TraitCrossProbe", 3, 3, 4);
+            bd.badges = new List<Badge>
+            {
+                new Badge { sprite = "armour", counter = 0, active = true  },
+                new Badge { sprite = "blast",  counter = 0, active = false },
+            };
+            var v = CardView.Create(root.transform, bd, "chk_a1676_card");
+            Check(v.BadgesShown == 2,
+                  $"A1676 前提：两位徽标都建出来了（实际 {v.BadgesShown}）—— 建不出来下面**没验到**");
+            bool crossTex = CardArt.Ui("40k_Combat_Icon_Cross") != null;
+            Check(crossTex, "A1676 前提：`Art/ui/40k_Combat_Icon_Cross` 在盘上（缺图 ⇒ ✕ 那条没验到）");
+            Check(!v.BadgeGreyed(0) && !v.BadgeCrossShown(0),
+                  "A1676 ① 激活位：**不灰、不画 ✕**（原版 true 档只给 originalMaterial、`enabled=false`）");
+            Check(v.BadgeGreyed(1),
+                  "A1676 ② 未激活位：**灰化**（原版 `disabledMaterial` = `Sprite Greyscale`）");
+            if (crossTex)
+                Check(v.BadgeCrossShown(1),
+                      "A1676 ② 未激活位：**同时**画 ✕（原版 `traitNotActiveIcons[].enabled`）"
+                    + "｜⚖️ 与上一条**并存**才是原版 —— 判据 `BoardTraitIcon__Initialize.c` 同一个 if 分支里两条都做");
             Object.DestroyImmediate(root);
         }
 

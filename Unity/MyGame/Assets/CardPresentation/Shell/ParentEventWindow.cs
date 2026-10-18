@@ -506,10 +506,18 @@ namespace CardPresentation
                 var t = BuildTabButton(PageNames[i], TabTop + TabH * i, PageNames[i], false);
                 int idx = i;
                 _tabButtonsList.Add(t);
-                MenuDraw.Hit(t, "Hit", new PxRect(TabButtonsR.x1, TabTop + TabH * i, TabButtonsR.x2,
+                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版页签是 `EverguildToggle` +
+                //   **`allowClickWhenAlreadySelected = 0`** ⇒ 再点当前页时连按钮音一起跳过。
+                var tabHit = MenuDraw.Hit(t, "Hit", new PxRect(TabButtonsR.x1, TabTop + TabH * i, TabButtonsR.x2,
                                                   TabTop + TabH * (i + 1)),
                              QHit, () => SwitchPage(idx), null, null, null, null, null,
                              clickCue: WindowSounds.DefaultButtonCue);
+                var tabWb = tabHit != null ? tabHit.GetComponent<WindowButton>() : null;
+                if (tabWb != null)
+                {
+                    tabWb.allowClickWhenAlreadySelected = false;
+                    tabWb.isOn = () => CurrentPageIndex == idx;
+                }
             }
 
             // 页签栏底板 / 压暗层之间的吸收：`Tab Buttons` 的 `Image.m_RaycastTarget = 1`、父链上没有点击处理器
@@ -662,8 +670,11 @@ namespace CardPresentation
                 MenuDraw.AlignLeft(backTx, Scr(P1BackTextR));
                 MenuDraw.SetVAlign(backTx, Label.VAlign.Middle, Scr(P1BackTextR));
             }
-            MenuDraw.Hit(back, "Hit", Scr(P1BackR), QHit, () => Close(), null, null, null, null, null,
-                         clickCue: WindowSounds.DefaultButtonCue);
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C3）**：原版 `Two Sides Event Window/Select Team Tab/Back button`
+            //   = 空 cue + **`useDefaultAudioClipIfNull = 0`** ⇒ **静音**（点了只关窗，只有关窗音那一声）。
+            var p1BackHit = MenuDraw.Hit(back, "Hit", Scr(P1BackR), QHit, () => Close());
+            var p1BackWb = p1BackHit != null ? p1BackHit.GetComponent<WindowButton>() : null;
+            if (p1BackWb != null) p1BackWb.playClickSound = false;
         }
 
         void BuildTeamCard(Transform page, PxRect card, PxRect noise, PxRect glow, PxRect bottomText,
@@ -761,8 +772,11 @@ namespace CardPresentation
             var back = MenuDraw.Node(header, "Header Back Button", Scr(P2HeaderBackR));
             _p2Back = back;
             MenuDraw.Rect(back, Tex(ArtMenuBack, "返回钮"), Scr(P2HeaderBackR), "Image", QPageArt1);
-            MenuDraw.Hit(back, "Hit", Scr(P2HeaderBackR), QHit, () => Close(), null, null, null, null, null,
-                         clickCue: WindowSounds.DefaultCloseCue);
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B5）**：原版
+            //   `Two Sides Event Window/Event On Going Tab/Game Mode Header With Back Button/Header Back Button`
+            //   = 空 cue + **`useDefaultAudioClipIfNull = 1`** ⇒ **默认 `ButtonClick`**
+            //   （改前我们传了 `DefaultCloseCue` = `ButtonClick Back`，是错的 ⇒ 现在不传）。
+            MenuDraw.Hit(back, "Hit", Scr(P2HeaderBackR), QHit, () => Close());
 
             // `Battle Background`（`m_Sprite = null` ⇒ 只建容器）
             MenuDraw.Node(page, "Battle Background", Scr(P2BattleBgR));
@@ -887,7 +901,10 @@ namespace CardPresentation
                          () => Debug.LogWarning("[ParentEvent] 领奖（Collect）需要服务器：原版走 "
                                               + "`TwoSidesEvent_OnGoingTab.CollectClicked` → `TwoSidesEvent.TryCollect` → "
                                               + "PlayFab；本地没有 LiveOps 后端 ⇒ **不假装领取**。"),
-                         null, null, null, null, null, clickCue: WindowSounds.DefaultButtonCue);
+                         // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B6）**：原版
+                         //   `Two Sides Event Window/Event On Going Tab/Reward Display/Scoring Bar Event Score Info/
+                         //   Generic Simplified UI Button` → **`ButtonClick Positive`**（pid 8549838806721213354）。
+                         null, null, null, null, null, clickCue: WindowSounds.PositiveCue);
 
             // `Reward Tile` / `Reward Help`
             _p2RewardTile = MenuDraw.TextBox(rp, Scr(P2RewardTileR), P2RewardTile, Color.white, "Reward Tile",

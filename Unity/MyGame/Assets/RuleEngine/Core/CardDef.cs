@@ -194,6 +194,63 @@ namespace RuleEngine
         /// </summary>
         public int ArmourFromPool { get; }
 
+        // ==================================================================
+        //  🆕 2026-10-19（引擎线波 2b · `A1959` 数据管线 ＋ `A1960`）：
+        //  **原版 `RawCardScript.choicesDefinition`（`TargetCriteria` @0x2A0）** 三列
+        // ==================================================================
+        //
+        // 🔴 **判据**（全量反编译，逐条）：
+        //   · `dump.cs:23341` —— `public TargetCriteria choicesDefinition; // 0x2A0`（`RawCardScript`）；
+        //   · `BattleManager__GetChoiceFullPool.c:36-49` —— 选牌的候选池：
+        //     `if (targetsAffected == 0xb4 /*180 = TargetsAffected.choiceResolution*/)`
+        //     ⇒ 用 `filterSpecificCards`（@0x70 的 `List<RawCardScript>`）；
+        //     **为空时回落 `BattleManager+0x308`**（那是 `pooledAbilityData`，我们**没有**那一格）。
+        //     `maxTargets`（@0x40）在 `GetChoiceOptions.c:40-45` 里被夹到候选张数 —— 面板**摆几张**。
+        //   · `TargetsAffected` 枚举 → `dump.cs:20777`（`choiceResolution = 180`）。
+        //
+        // 🔴 **数据口径**（`工具/gen_cards_engine.py` 的 `choices*` 三列，v10）：
+        //   · `ChoicesTargetsAffected` ← `targetsAffected`；`-1` = 真值里没有这张卡（⛔ 别当 0）。
+        //   · `ChoicesMaxTargets`      ← `maxTargets`；`-1` = 缺值、`0` = 合法（不摆）。
+        //   · `ChoicesSpecificCardIds` ← `filterSpecificCards`（PPtr → `path_id` → `uniqueId`）。
+        //     ⚠️ 解出来的 id **未必在我们卡池里**（实测：`Adaptive Strategy` 指向 `_normal`/`_oath`
+        //     两张变体卡 SO）⇒ 消费侧要**如实跳过错过的**，⛔ 别在这里过滤（那样看不出原版给了什么）。
+        //
+        // 🔴 **消费者只有一处**：`EffectText.Parse(…, card)` 在「本卡确实要发 `choosecard` 且正文
+        // 没有 choose 子句」时插一条 `choosecard`（`EffectOp.ChooseSpecificIds`）＋
+        // `EffectResolver.ChooseCardCandidates` 的 `specific` 候选域。
+        // ⚠️ **今天只给「要授予一份未指定 Dark Pact」的卡注入**（`A1960` 的黑暗契约族）——
+        // 其余 `targetsAffected=180` 卡要么正文自己已有 choose、要么选项指向池外变体卡、
+        // 要么下游动作还没接「消费选中那张」⇒ 注入一个**选了也不生效**的面板是本工程红线
+        // （假装有作用）。逐张范围与理由见 `资料/普查产出_1018/W_引擎线_波2b.md` §二/§六。
+        /// <summary>原版 `choicesDefinition.targetsAffected` 原值（`TargetsAffected` 枚举；
+        /// **`180` = `choiceResolution`**）。`-1` = 真值快照里没有这张卡 —— ⛔ 别当成 `0`（`any`）。</summary>
+        public int ChoicesTargetsAffected { get; }
+
+        /// <summary>原版 `choicesDefinition.maxTargets`（面板**摆几张**）。`-1` = 缺值；`0` = 合法（不摆）。
+        /// ⚠️ 消费侧读的是 `EffectOp.ChooseShowLimit` 那条路（表现层），引擎结算不读它。</summary>
+        public int ChoicesMaxTargets { get; }
+
+        /// <summary>原版 `choicesDefinition.filterSpecificCards` 解出来的卡 id 表（顺序照原版）。
+        /// 空表 = 原版那一格空（回落 `BattleManager+0x308`，我们**没有** ⇒ 不猜）。</summary>
+        public IReadOnlyList<string> ChoicesSpecificCardIds { get { return _choicesSpecificCardIds; } }
+        readonly List<string> _choicesSpecificCardIds = new List<string>();
+
+        /// <summary>
+        /// 这张卡**是否带一个「按 `filterSpecificCards` 选牌」的定义**（`A1960` 的注入闸之一）。
+        /// 🔴 **三个条件全中才算**：`targetsAffected == 180`（`choiceResolution`）· `maxTargets &gt; 0` ·
+        /// `filterSpecificCards` 至少有一项。⚠️ **它不是「该不该开面板」的最终判据** ——
+        /// 最终判据在 `EffectText.InjectChoicesDefinitionOp`（还要求正文没有 choose 子句、
+        /// 且这张卡的效果**真的会消费**选中那张）。本属性只回答「数据在不在」。
+        /// </summary>
+        public bool HasSpecificCardChoice
+        {
+            get
+            {
+                return ChoicesTargetsAffected == 180 && ChoicesMaxTargets > 0
+                       && _choicesSpecificCardIds.Count > 0;
+            }
+        }
+
         /// <summary>
         /// 🆕 **2026-10-15（接线批）**：**旧口径**算出来的护甲值 —— `keywords` 里那条 `Armour N`
         /// 字符串经 `KeywordTable.Parse` 抠出来的数（裸 `Armour` 按「存在即真」取 1）。
@@ -241,7 +298,9 @@ namespace RuleEngine
                        string subtype = null, string goesSecondId = null,
                        int inventoryOptions = -1, int showInCollectionOptions = -1,
                        int initiative = -1,
-                       int armour = 0)
+                       int armour = 0,
+                       int choicesTargetsAffected = -1, int choicesMaxTargets = -1,
+                       IEnumerable<string> choicesSpecificCardIds = null)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -251,6 +310,14 @@ namespace RuleEngine
             ShowInCollectionOptions = showInCollectionOptions;
             // 🆕 2026-10-14（`A1775`）：先攻值同一条规矩 —— **原样收下、缺了就是 -1**。
             Initiative = initiative;
+            // 🆕 2026-10-19（`A1959`/`A1960`）：原版 `choicesDefinition` 三列 —— 同样**原样收下、缺了就是 -1**。
+            //    ⚠️ 这里**只落值**；「该不该发 `choosecard`」的判据在 `EffectText.Parse(…, card)`
+            //    （见 `HasSpecificCardChoice` 的 doc：本属性只回答「数据在不在」）。
+            ChoicesTargetsAffected = choicesTargetsAffected;
+            ChoicesMaxTargets = choicesMaxTargets;
+            if (choicesSpecificCardIds != null)
+                foreach (string _chId in choicesSpecificCardIds)
+                    if (!string.IsNullOrEmpty(_chId)) _choicesSpecificCardIds.Add(_chId);
             // 督军后手那张防御卡：这里只收**数据里的 id**；对象引用由 `CardDatabase.Parse`
             // 建完卡表之后按 id 反查置上（见 `GoesSecondCard` 的说明）。
             GoesSecondId = goesSecondId ?? "";
@@ -673,6 +740,13 @@ namespace RuleEngine
             //    ✅ 实测口径（不是抄文档）：`cards_engine.json` 里声明 `Codex` 的 20 张中，
             //    `desc` **无前缀**的正好 10 张（其余 10 张写的是 `Codex:` / `[Codex]` 前缀，
             //    走 `AddTriggerOp` 那条路）。⚠️ 文档原写「9 张」**漏了 `Sergeant Allectius`**（已更正）。
+            //    🔴 **2026-10-18（`A1976`）现读订正（铁律 5）—— 上面两个数都已过期**：
+            //    `desc` 含 `\bCodex\b` 的 **29 张**（现算，判据 = 上面的 grep）；其中 `desc`
+            //    **无 `Codex:` / `[Codex]` 前缀**的 **5 张** = `40667e34…` / `UM40` / `UM35` /
+            //    `UM113` / `UM73`（其余 24 张带前缀）。⇒ **本条要兜的是这 5 张**（不再是最初那 10 张）；
+            //    另 `keywords` 列含 `Codex` 的 31 张（那是 `RoutableTriggers` 那条路，与本条不冲突）。
+            //    ⛔ 这两个数别写死成判据 —— 现读口径：`re.search(r'\bCodex\b', desc)` 与
+            //    `not re.search(r'(?i)(codex\s*:|\[codex\])', desc)`。
             KeywordTable.Codex,
             // ✅ 狂喜（2026-09-14）：`Chaos Rhino` 那种**正文裸写在 `desc` 里**的写法靠这一条收
             //    （它的 `keywords` 里只有 `Ecstasy 5`，没有 `Ecstasy:` 前缀的正文）。
@@ -961,7 +1035,8 @@ namespace RuleEngine
             string bare = BareBodyText();
 
             // 正文交给战术卡那个解析器；解析不出来就**不收**（保持「卡面标 `*`」的诚实）
-            var ops = EffectText.Parse(bare ?? Desc, out _, out _);
+            // 🆕 2026-10-19（`A1960`）：`card: this` —— 与触发前缀那一路同口径（见 `AddTriggerOp` 那段）。
+            var ops = EffectText.Parse(bare ?? Desc, out _, out _, card: this);
             if (ops == null || ops.Count == 0) return;
             // 🔴 **`codex` 的正文必须带上「你的能量为 0」那个条件**（2026-09-14 A5）——
             //    判据**转调** `EffectText.MarkCodexCondition`（全仓只此一处），
@@ -2045,7 +2120,11 @@ namespace RuleEngine
             //    「整条都不懂」（`ops` 为空 ⇒ 本函数直接 return、`_triggerOps` 里没有这一格）
             //    是**另一档**，它本来就被 `TriggerOps(...) == null` 如实反映（卡面打 `*`）。
             List<string> unparsedSegs, partialSegs;
-            var ops = EffectText.Parse(body, out unparsedSegs, out partialSegs);
+            // 🆕 2026-10-19（`A1960`）：`card: this` —— 触发正文这一路和整条 `desc` 那一路
+            //   （`EffectResolver.PlayerChooseOps` / 结算）必须用**同一份注入判据**，否则
+            //   「面板问了 / 结算没消费」或反过来。注入的 `choosecard` 的 `Source` 是固定串
+            //   （`EffectText.ChoiceResolutionSource`）⇒ 两路的 `AskKey` 逐字相同，`AskOwners` 认领得上。
+            var ops = EffectText.Parse(body, out unparsedSegs, out partialSegs, card: this);
             if (ops == null || ops.Count == 0) return;
 
             _triggerOps[key] = ops;      // 🆕 `A1566`：**规范键**（见上面那一段），不是 `head`
@@ -2268,10 +2347,10 @@ namespace RuleEngine
             if (split == null) return;
 
             var evs = WhenEvents.ParseAll(split[0]);
-            bool evHasTarget = false;
-            foreach (var e in evs)
-                if (e.TargetCriteria != null || e.TargetOwnerIs != -1) { evHasTarget = true; break; }
-            var ops = EffectText.Parse(split[1], out _, out _, evHasTarget);
+            // 🔴 2026-10-19（`A1690`）：`evHasTarget` 走共用判据；`whenBody: true` 同
+            // `FinishWhenSentence`（这是一条已认领的 `When …` 正文）。
+            bool evHasTarget = WhenEvents.AnyHasTarget(evs);
+            var ops = EffectText.Parse(split[1], out _, out _, evHasTarget, whenBody: true);
             // ⚠️ **两边都要成功才收**（理由同 `WhenEvent.cs` 文件头 ⚠️①）：
             //    注册一条永远不会被消费、或者认错时机的效果 = 骗玩家。
             if (evs.Count == 0 || ops == null || ops.Count == 0) return;
@@ -2613,10 +2692,12 @@ namespace RuleEngine
             // 🆕 2026-09-13 A3：事件**带宾语**时告诉解析器一句 —— 正文里**裸写的 `adjacent`**
             //    锚点要定成**那个宾语**（`Long Fang` 的 `deal 3 damage to adjacent enemies`），
             //    不是「自己」。不传的话它会走 `FillAdjacentAnchors` 的 ④ = 相对自己 ⇒ **静默错打**。
-            bool evHasTarget = false;
-            foreach (var e in evs)
-                if (e.TargetCriteria != null || e.TargetOwnerIs != -1) { evHasTarget = true; break; }
-            ops = body.Length > 0 ? EffectText.Parse(body, out _, out _, evHasTarget) : null;
+            // 🔴 **2026-10-19（`A1690`）**：`whenBody: true` 也一起传 —— 这段**确认**是
+            //    `When …` 正文 ⇒ 事件**不带宾语**时锚点按原版 100 = `Self`、**不再降级成「认不出」**
+            //    （判据与「原版没有第三种事件参数锚点」→ `EffectText.Parse` 的 `whenBody` 参数 doc）。
+            //    ⚠️ `evHasTarget` 的算式**收进 `WhenEvents.AnyHasTarget` 一处**（别在这里再抄一份）。
+            bool evHasTarget = WhenEvents.AnyHasTarget(evs);
+            ops = body.Length > 0 ? EffectText.Parse(body, out _, out _, evHasTarget, whenBody: true) : null;
 
             if (evs.Count == 0 || ops == null || ops.Count == 0) { evs = null; body = null; ops = null; return false; }
             return true;
@@ -2650,7 +2731,9 @@ namespace RuleEngine
             if (rest.Length == 0) return false;
 
             body = rest;
-            ops = EffectText.Parse(body, out _, out _);
+            // 🔴 2026-10-19（`A1690`）：这也是「事件层已认领的正文」（`After receiving a Dark Pact, …`），
+            //   事件没有单位宾语 ⇒ 裸 `adjacent` 按原版 100 = `Self`（见 `EffectText.Parse` 的 `whenBody`）。
+            ops = EffectText.Parse(body, out _, out _, whenBody: true);
             if (ops == null || ops.Count == 0) { ev = null; body = null; ops = null; return false; }
             ev = new WhenEvent { Kind = WhenEvent.GetsDarkPact, SelfOnly = true };
             return true;

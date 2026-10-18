@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "generatedBy": "d:/4/Unity/工具/gen_anim_address_map.py",
- "generatedAt": "2026-10-03 22:49:34",
+ "generatedAt": "2026-10-19 01:33:58",
  "sources": {
   "assetsFull": "d:/2/新解包资源/assets_full",
   "bundleSrc": "d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64",
@@ -74,12 +74,20 @@
  "howToJoin": "m_Container[guid].asset.m_PathID 就是该 bundle 内对象的 path_id（实测 13448 条 m_FileID 全为 0）；UnityPy 重读原 .bundle 建 {path_id: obj} 反解出 (type, name)。dump 路径按 extract_full.py 命名规则在磁盘上反查：先 `{safeName}_{pathId}.<ext>`，再 `{safeName}.<ext>`。",
  "stats": {
   "bundles": 84,
-  "containerEntries": 13448,
-  "containerEntriesGuidKey": 13103,
+  "containerEntries": 13693,
+  "containerEntriesGuidKey": 13348,
   "containerEntriesNonGuidKey": 345,
+  "containerEntriesGuidViaCatalog": 245,
+  "containerEntriesGuidUpgradeSkipped": {
+   "旧表 exact=False（目录键被截断，catalog 的 iid 取到别的对象）": 23,
+   "非旧表条目 && 类型不符": 6
+  },
+  "catalogJson": "C:/Users/qjh36/AppData/LocalLow/Everguild/Warpforge/com.unity.addressables/catalog_main.json",
+  "catalogJsonError": null,
+  "oldGuidMapError": null,
   "nonGuidUniqueKeys": 221,
-  "uniqueGuids": 10104,
-  "guidsWithMultipleObjects": 2490,
+  "uniqueGuids": 10287,
+  "guidsWithMultipleObjects": 2552,
   "pathIdResolved": 13432,
   "pathIdMissing": 16,
   "pathIdZero": 16,
@@ -101,15 +109,15 @@
    "bundle_scenes_scenes_simpletransition": 1,
    "bundle_tweenandshakes_assets_all": 1
   },
-  "dumpPathComputed": 13429,
+  "dumpPathComputed": 13674,
   "dumpHitKind": {
-   "命中: 裸名（同名里的第一个 / fix_exports 的写法）": 12843,
-   "命中: 名+pathId 后缀（同名重复）": 233,
+   "命中: 裸名（同名里的第一个 / fix_exports 的写法）": 13083,
+   "命中: 名+pathId 后缀（同名重复）": 238,
    "命中: 兜底名 {Type}_{pathId}": 353,
    "磁盘上没有对应 dump 文件": 3
   },
   "catalogHexStrings": 11891,
-  "catalogGuidOverlap": 10102,
+  "catalogGuidOverlap": 10285,
   "extractStatsBundleFailures": {},
   "extractStatsReadError": null,
   "bundleLoadErrors": [],
@@ -18202,7 +18210,7 @@
      "pathId": 3414812902697254396,
      "type": "Mesh",
      "name": "Floor",
-     "dump": "bundle_battlesharedresources_assets_all/Mesh/Floor.obj"
+     "dump": "bundle_battlesharedresources_assets_all/Mesh/Floor_3414812902697254396.obj"
     },
     {
      "bundle": "bundle_battlesharedresources_assets_all",
@@ -19714,7 +19722,7 @@
      "pathId": -1270352426397582246,
      "type": "Mesh",
      "name": "Sphere",
-     "dump": "bundle_battlesharedresources_assets_all/Mesh/Sphere.obj"
+     "dump": "bundle_battlesharedresources_assets_all/Mesh/Sphere_-1270352426397582246.obj"
     }
    ]
   },
@@ -39540,7 +39548,7 @@
    "pathId": -2931647423715446835,
    "type": "Texture2D",
    "name": "Avatar_UM_Chaplain Cassius",
-   "dump": "bundle_cosmeticavatarsimages_assets_all/Texture2D/Avatar_UM_Chaplain Cassius.png",
+   "dump": "bundle_cosmeticavatarsimages_assets_all/Texture2D/Avatar_UM_Chaplain Cassius_-2931647423715446835.png",
    "also": [
     {
      "bundle": "bundle_cosmeticavatarsimages_assets_all",
@@ -76664,7 +76672,7 @@
    "pathId": -5381432846605824660,
    "type": "Texture2D",
    "name": "Necron_Sautekh_inf_Immortals Phalanx",
-   "dump": "bundle_necronssautekhcardassets_assets_all/Texture2D/Necron_Sautekh_inf_Immortals Phalanx.png",
+   "dump": "bundle_necronssautekhcardassets_assets_all/Texture2D/Necron_Sautekh_inf_Immortals Phalanx_-5381432846605824660.png",
    "also": [
     {
      "bundle": "bundle_necronssautekhcardassets_assets_all",
@@ -76946,7 +76954,7 @@
    "pathId": -8614432028123467792,
    "type": "Texture2D",
    "name": "Necron_Sautekh_warlord_Ramatekh The Cruel",
-   "dump": "bundle_necronssautekhcardassets_assets_all/Texture2D/Necron_Sautekh_warlord_Ramatekh The Cruel.png",
+   "dump": "bundle_necronssautekhcardassets_assets_all/Texture2D/Necron_Sautekh_warlord_Ramatekh The Cruel_-8614432028123467792.png",
    "also": [
     {
      "bundle": "bundle_necronssautekhcardassets_assets_all",
@@ -113048,6 +113056,2090 @@
    "type": "VideoClip",
    "name": "Defeat Video",
    "dump": "bundle_videos_assets_all/VideoClip/Defeat Video.mp4"
+  },
+  "0382f1d5314158c4cac220cf140993fc": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 6322794832449334025,
+   "type": "MonoBehaviour",
+   "name": "CreateCard_EC Pink",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/CreateCard_EC Pink.json"
+  },
+  "0c6daeacbfd2cb440bd39b5c972b9f09": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 1757441878626486249,
+   "type": "MonoBehaviour",
+   "name": "Cut EC 7x",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Cut EC 7x.json"
+  },
+  "1cec996d31ba440ad8eda15e99eb0213": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -5624336274801189797,
+   "type": "MonoBehaviour",
+   "name": "Emperors Children Scenario Bombardment",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Emperors Children Scenario Bombardment.json"
+  },
+  "1bd4282c46a4bef4a90cbb5455231fc1": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 5334142001171432135,
+   "type": "MonoBehaviour",
+   "name": "Whip Attack EC Daemon Warlord",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Whip Attack EC Daemon Warlord.json"
+  },
+  "261e3f33c82c4ef489d6a7e63a413f7b": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 3662822227459523001,
+   "type": "MonoBehaviour",
+   "name": "EC Target User Warlord",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Target User Warlord.json"
+  },
+  "3439f089e50ab0d47a243610cf3e4c44": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -3437111976472927073,
+   "type": "MonoBehaviour",
+   "name": "Atk_BulletImpact_SonicWeapon 2 Pistol",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Atk_BulletImpact_SonicWeapon 2 Pistol.json"
+  },
+  "32ae96be082b7224da8f4a885ce961b2": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 6273636381192364605,
+   "type": "MonoBehaviour",
+   "name": "Whip Attack EC Cut Warlord",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Whip Attack EC Cut Warlord.json"
+  },
+  "349bdf48a60f4c149a7cffd9d4200b35": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 1134672024521621670,
+   "type": "MonoBehaviour",
+   "name": "Cut EC 1x target",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Cut EC 1x target.json"
+  },
+  "351caf28d23cd4c9fb18b0587c61b3e1": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -6793918215484781026,
+   "type": "MonoBehaviour",
+   "name": "Buff EC Dark",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Dark.json"
+  },
+  "47e38ffe8e13f734bace1cd7a8d1bfaf": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 8918343307737897062,
+   "type": "MonoBehaviour",
+   "name": "EC Target",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Target.json"
+  },
+  "534106c6864974b4cbaef5939c8d93e1": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -8756916997595948729,
+   "type": "MonoBehaviour",
+   "name": "Atk_BulletImpact_SonicWeapon 1 Dual Pistol",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Atk_BulletImpact_SonicWeapon 1 Dual Pistol.json"
+  },
+  "564af14f7004445469e0424bcce41d1d": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 8267393584198781881,
+   "type": "MonoBehaviour",
+   "name": "EC Heldrake Attack",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Heldrake Attack.json"
+  },
+  "5c68754319cf13943b8fc6e53e32b04e": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 7260052412042334081,
+   "type": "MonoBehaviour",
+   "name": "Buff EC Pink Intense",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Pink Intense.json"
+  },
+  "6002f3e8ca980e64a803f00ec0d7ad1f": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 9122212481960886676,
+   "type": "MonoBehaviour",
+   "name": "Atk_BulletImpact_SonicWeapon 2 Twinlink",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Atk_BulletImpact_SonicWeapon 2 Twinlink.json"
+  },
+  "6bac34bef8280bc449963780b0474cb5": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 604429154682375051,
+   "type": "MonoBehaviour",
+   "name": "Emperors Children Summon 3rd",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Emperors Children Summon 3rd.json"
+  },
+  "6cb2e4eec4fd7af4296fe97a913ee246": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -1979290387676064109,
+   "type": "MonoBehaviour",
+   "name": "EC Sonic Shock Troop",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Sonic Shock Troop.json"
+  },
+  "6de1ad23980855f42b05cb4dabd4ca37": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -2695939061612456140,
+   "type": "MonoBehaviour",
+   "name": "Buff EC Pink",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Pink.json"
+  },
+  "7b5ec237a6cb40245a247411a9d41f45": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 2531260516884448482,
+   "type": "MonoBehaviour",
+   "name": "Buff EC Pink Intense Warlord delayed",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Pink Intense Warlord delayed.json"
+  },
+  "71265f99d047b48488e0bac448f27dbb": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -5540791296244422959,
+   "type": "MonoBehaviour",
+   "name": "Environmental Condition Emperor's Children 1 Green",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Environmental Condition Emperor's Children 1 Green.json"
+  },
+  "8e985dddb5cda45468fa1a52d9f1cfa3": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 7670436275272671772,
+   "type": "MonoBehaviour",
+   "name": "Emperors Children Generic Buff 2",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Emperors Children Generic Buff 2.json"
+  },
+  "9205fb8b47ef9934fb114f7c40b4f14f": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -4088158105427472433,
+   "type": "MonoBehaviour",
+   "name": "Buff EC Dark Icon",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Dark Icon.json"
+  },
+  "93755d3c9836a8140b2d55f02e40687b": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 872648346340926567,
+   "type": "MonoBehaviour",
+   "name": "Buff EC Stimulate target",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Stimulate target.json"
+  },
+  "9343b47bd9b414db6ad64a584d78b688": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 5091573947419383454,
+   "type": "MonoBehaviour",
+   "name": "Emperors Children Swords",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Emperors Children Swords.json"
+  },
+  "94cb4512e7705d449a154a08b1c77411": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 5571516903742650789,
+   "type": "MonoBehaviour",
+   "name": "Debuff EC Lower Stats",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Debuff EC Lower Stats.json"
+  },
+  "96f456472e6af4d4c8574daffe0fdc89": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 5131985141188050113,
+   "type": "MonoBehaviour",
+   "name": "Emperors Children Summon",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Emperors Children Summon.json"
+  },
+  "9ab619f0927d6cc4291d32949cb5de25": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 4601797600418908940,
+   "type": "MonoBehaviour",
+   "name": "Whip Attack EC Normal",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Whip Attack EC Normal.json"
+  },
+  "9cce271029a95cc4a859c9943aaab20b": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 7933704050148677471,
+   "type": "MonoBehaviour",
+   "name": "Buff EC Pink Intense Warlord",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Pink Intense Warlord.json"
+  },
+  "a14e7548c7e0d0e418a55ead57507727": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 4848404600293448895,
+   "type": "MonoBehaviour",
+   "name": "Atk_BulletImpact_SonicWeapon 2 Variant",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Atk_BulletImpact_SonicWeapon 2 Variant.json"
+  },
+  "a0eaf77b37e8a5845ad9fd47192e6a3f": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 6054851974733724446,
+   "type": "MonoBehaviour",
+   "name": "Buff EC Stimulate self",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Stimulate self.json"
+  },
+  "a6cf91c341658fa4588ac2368811e4ad": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -327019851807017245,
+   "type": "MonoBehaviour",
+   "name": "Buff EC Stimulate warlord passive",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Stimulate warlord passive.json"
+  },
+  "a671f72c16936cf458d28dfd9e80f742": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 1001352924290699388,
+   "type": "MonoBehaviour",
+   "name": "EC Sonic Destroy",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Sonic Destroy.json"
+  },
+  "ae2bea90106370c4aab87c5e93861961": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -7304761038044932166,
+   "type": "MonoBehaviour",
+   "name": "Cut EC 1x Reverse target",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Cut EC 1x Reverse target.json"
+  },
+  "ae3492fb2fe93ba42b7366c361e6ce95": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 3688021879660163166,
+   "type": "MonoBehaviour",
+   "name": "Rapturous Ruination",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Rapturous Ruination.json"
+  },
+  "bdad63d4d5e24b5419ccef6039444d9b": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 8234781820215113647,
+   "type": "MonoBehaviour",
+   "name": "Buff EC Creating Card Warlord",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Creating Card Warlord.json"
+  },
+  "b0ea89cc389a6b141b2709313975b628": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 8181965771609626823,
+   "type": "MonoBehaviour",
+   "name": "Emperor's Children Default Condition",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Emperor's Children Default Condition.json"
+  },
+  "b69392fdc8b1ff44c8907f62ea941d65": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 4108177578166272571,
+   "type": "MonoBehaviour",
+   "name": "CreateCard_EC Elixir",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/CreateCard_EC Elixir.json"
+  },
+  "b95f5be64cda68944adfcfa363efaaf5": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 8855885282486267837,
+   "type": "MonoBehaviour",
+   "name": "Whip Attack EC Cut",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Whip Attack EC Cut.json"
+  },
+  "ba5000a5d2e6a15429d73a4a5267db16": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -8951183152993456369,
+   "type": "MonoBehaviour",
+   "name": "Cut EC 3x target",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Cut EC 3x target.json"
+  },
+  "bc43540f679144d81b72a2c599c5cb63": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -8331695411056196666,
+   "type": "MonoBehaviour",
+   "name": "Rally EC Heldrake",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Rally EC Heldrake.json"
+  },
+  "bd6894e537c2fea41a21712093cb1dc6": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 3954420879809535667,
+   "type": "MonoBehaviour",
+   "name": "EC Target Delayed",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Target Delayed.json"
+  },
+  "c4f6bf5ac51a3ed46a29301c6f645eed": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 8663794873693342098,
+   "type": "MonoBehaviour",
+   "name": "Buff_HideousMutation_EC",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff_HideousMutation_EC.json"
+  },
+  "c66285cfc8c285243a9f398f92237a25": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 5020581694837296025,
+   "type": "MonoBehaviour",
+   "name": "EC Target User Self",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Target User Self.json"
+  },
+  "d375d35c1babbbd4faa95b309186eb1e": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 4692373294497670102,
+   "type": "MonoBehaviour",
+   "name": "Atk_BulletImpact_SonicWeapon 2",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Atk_BulletImpact_SonicWeapon 2.json"
+  },
+  "dba07ead0b0e00f488e99b2aeebc83b5": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 915105711769566228,
+   "type": "MonoBehaviour",
+   "name": "Environmental Condition Emperor's Children Empyric Rift",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Environmental Condition Emperor's Children Empyric Rift.json"
+  },
+  "df0725a0508dd394e934e0464401f1fd": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 149445950738103497,
+   "type": "MonoBehaviour",
+   "name": "Environmental Condition Emperor's Children 1 Pink REJECTED",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Environmental Condition Emperor's Children 1 Pink REJECTED.json"
+  },
+  "ef64ec7ae62fb3747baacec933cabf8f": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -9120646649028336885,
+   "type": "MonoBehaviour",
+   "name": "Atk_BulletImpact_SonicWeapon 1",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Atk_BulletImpact_SonicWeapon 1.json"
+  },
+  "e0f9e1f0f34165e4eaa22a8d6ff965c6": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -3757835989391621450,
+   "type": "MonoBehaviour",
+   "name": "Emperors Children Summon 2nd",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Emperors Children Summon 2nd.json"
+  },
+  "e93a9290ec1b2684484d81c940bdd0b0": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -153168551098149886,
+   "type": "MonoBehaviour",
+   "name": "EC Sword Cut 7x Board",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Sword Cut 7x Board.json"
+  },
+  "eb054878461017e43ab0bb9a9f93dcd3": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -5981127836617044738,
+   "type": "MonoBehaviour",
+   "name": "Debuff EC Lower Stats delay",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Debuff EC Lower Stats delay.json"
+  },
+  "eb40a866a8724004ba5655a6e9d7b307": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 7553110519254585437,
+   "type": "MonoBehaviour",
+   "name": "Environmental Condition Emperor's Children 2 Fumes",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Environmental Condition Emperor's Children 2 Fumes.json"
+  },
+  "f29faf43ce378774d8a9e8448761f1ab": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": 7780814868711225885,
+   "type": "MonoBehaviour",
+   "name": "Buff EC Dark Self",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Dark Self.json"
+  },
+  "f3b1ebc2c8192bb4ba05811fb0213214": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
+   "bundleFile": "1680f124994b0cc00633e9983314cecb.bundle",
+   "pathId": -2658355105490726459,
+   "type": "MonoBehaviour",
+   "name": "Whip Attack EC Maulerfiend",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Whip Attack EC Maulerfiend.json"
+  },
+  "00355ddffae5598478802bbac6f05399": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -7812109021213147451,
+   "type": "Texture2D",
+   "name": "40k_Cardframes_Troop_Emperor Children_SDF_tier1",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/40k_Cardframes_Troop_Emperor Children_SDF_tier1.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -5108775053998539067,
+     "type": "Sprite",
+     "name": "40k_Cardframes_Troop_Emperor Children_SDF_tier1",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/40k_Cardframes_Troop_Emperor Children_SDF_tier1.json"
+    }
+   ]
+  },
+  "0122283e2d9a6f144b4f4688e3e1fda1": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -6907949772238916028,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Thrill Seekers",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Thrill Seekers.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -4948359705760401852,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Thrill Seekers",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Thrill Seekers.png"
+    }
+   ]
+  },
+  "02a6194fd9a969d4085d9d9b92339c0f": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -5914216806572069754,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Exquisite Swordsmanship",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Exquisite Swordsmanship.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -2258138011947012986,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Exquisite Swordsmanship",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Exquisite Swordsmanship.png"
+    }
+   ]
+  },
+  "04933827442aea04699689297842b8ce": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 7235303867147488532,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_strat_Mechanised Murder",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Mechanised Murder.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 7321622800906652948,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_strat_Mechanised Murder",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Mechanised Murder.json"
+    }
+   ]
+  },
+  "07f4c87c76c13430aa399641e23d4906": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -6385051283868245750,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_inf_Slaanesh Sorcerer",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Slaanesh Sorcerer.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -5476287674587766518,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_inf_Slaanesh Sorcerer",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Slaanesh Sorcerer.png"
+    }
+   ]
+  },
+  "073eaa5fc6f0add4a98ab0204d6cdcbf": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -589226063795904838,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Threnodic Choir Flawless",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Threnodic Choir Flawless.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 6249186600467373754,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Threnodic Choir Flawless",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Threnodic Choir Flawless.json"
+    }
+   ]
+  },
+  "07a81f9f3f1f18d4faabffe4a267021e": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 568183918107662751,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Excessive Vigour (Daemon Prince's Talent)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Excessive Vigour (Daemon Prince's Talent).json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 8395063198063958431,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Excessive Vigour (Daemon Prince's Talent)",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Excessive Vigour (Daemon Prince's Talent).png"
+    }
+   ]
+  },
+  "083237318b2ea34479418d17925164b9": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -6493903009325250627,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_intro",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_intro.ogg"
+  },
+  "09b2c11304ea87a41b03abf7955419b1": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -7924422331222357710,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_strat_Elixir_Shivversplint",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Elixir_Shivversplint.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -2377482002889012942,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_strat_Elixir_Shivversplint",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Elixir_Shivversplint.json"
+    }
+   ]
+  },
+  "0a0e79b803b0ed747b2e71ca15e0e864": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -8245760150899565131,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_gen4",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_gen4.ogg"
+  },
+  "0df509c9a1b1ce7448eae7a045401739": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -6789829702490054680,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Terrifying Crescendo",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Terrifying Crescendo.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 883599288231993320,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Terrifying Crescendo",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Terrifying Crescendo.png"
+    }
+   ]
+  },
+  "0d720e0b656de4d03b16abc5c5c9652a": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -310177128274990829,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_veh_Heldrake",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_veh_Heldrake.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 8632648092035574035,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_veh_Heldrake",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_veh_Heldrake.json"
+    }
+   ]
+  },
+  "11005653fecaf44df9126b3372030524": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -3620330455837655013,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_inf_Tormentor Obsessionist",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Tormentor Obsessionist.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 4806170130139103259,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_inf_Tormentor Obsessionist",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Tormentor Obsessionist.png"
+    }
+   ]
+  },
+  "122e5f435ba5eda48a447926cb816157": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 850010296124231685,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_Backup3",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_Backup3.ogg"
+  },
+  "1382f658773b5c24a8cee5cec4af3959": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 1043927301780004261,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Sonic Blaster Noise Marine",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Sonic Blaster Noise Marine.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 4721953136620461477,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Sonic Blaster Noise Marine",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Sonic Blaster Noise Marine.json"
+    }
+   ]
+  },
+  "17ef5d054b8edcc439ed723fcd3f8afa": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -8057459016753202414,
+   "type": "Sprite",
+   "name": "40k_Cardframes_stratagem_Emperor Children_SDF_tier3",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/40k_Cardframes_stratagem_Emperor Children_SDF_tier3.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 3697538389782051602,
+     "type": "Texture2D",
+     "name": "40k_Cardframes_stratagem_Emperor Children_SDF_tier3",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/40k_Cardframes_stratagem_Emperor Children_SDF_tier3.png"
+    }
+   ]
+  },
+  "17362814423c74068943cd1e57f0d56d": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 3040230516292459852,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lord Exultant (Kevin)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lord Exultant (Kevin).ogg"
+  },
+  "19e56d3903f60da438faf912d48b2752": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -4830087151949481362,
+   "type": "Texture2D",
+   "name": "40k_Cardframes_Troop_Emperor Children_tier2",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/40k_Cardframes_Troop_Emperor Children_tier2.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 5473693212387867246,
+     "type": "Sprite",
+     "name": "40k_Cardframes_Troop_Emperor Children_tier2",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/40k_Cardframes_Troop_Emperor Children_tier2.json"
+    }
+   ]
+  },
+  "1b14231da60a75f41ae5e9ebea5c1bba": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -3011978463200588761,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_vsBile",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_vsBile.ogg"
+  },
+  "1ddfd3f33eb1b401dae55f042fffd3e4": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 4472954105933972295,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Infractor",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Infractor.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 5981850902772368199,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Infractor",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Infractor.json"
+    }
+   ]
+  },
+  "1e1748a522b1a4b4cbe3aa5cd58056f6": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -2940897859263884390,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Flawless Blade (Joey)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Flawless Blade (Joey).ogg"
+  },
+  "220256eb551a73b488b0f356bde6e847": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 919589678500014213,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_attack",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_attack.ogg"
+  },
+  "25bc025fd1bae41498725bb514ed035c": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -4992884366490908294,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_gen1",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_gen1.ogg"
+  },
+  "27945f4097cfabd458974cbc974a3dad": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 3892466490900943648,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lord Kaphrael_hurry",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lord Kaphrael_hurry.ogg"
+  },
+  "2c3f6dc4fbb811340bea15ff3dd8a3bc": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -7324524931236509167,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_veh_Chaos Rhino",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_veh_Chaos Rhino.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -3647911695534667247,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_veh_Chaos Rhino",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_veh_Chaos Rhino.png"
+    }
+   ]
+  },
+  "2ced70db5d5414dc2b28a5770e8c1d1f": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -6831982509240262107,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_warlord_Xarahan Daemon Prince",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_warlord_Xarahan Daemon Prince.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 4078424355860013605,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_warlord_Xarahan Daemon Prince",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_warlord_Xarahan Daemon Prince.png"
+    }
+   ]
+  },
+  "2efbe6ce80a0e40a4a9d0b0f83821753": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 54440535717565946,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lord Kakophonist (Joey)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lord Kakophonist (Joey).ogg"
+  },
+  "2eea72470b2644fbba0924769a23b17a": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -3121662842415288163,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Threnodic Choir Flawless Blade (Andrew Dennis)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Threnodic Choir Flawless Blade (Andrew Dennis).ogg"
+  },
+  "312326868cfa05846ac0eb444d4ba6b7": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -2520510328976072407,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_strat_Vengeful Surge",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Vengeful Surge.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 6466371915615871273,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_strat_Vengeful Surge",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Vengeful Surge.json"
+    }
+   ]
+  },
+  "32b045ffb572df2408864f993abdb948": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 5930213189163357328,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lord Kaphrael_mirror",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lord Kaphrael_mirror.ogg"
+  },
+  "3495423506ceb4cd393955b6152d4b0a": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -7201260220433664029,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Threnodic Choir Noise Marine (Joey)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Threnodic Choir Noise Marine (Joey).ogg"
+  },
+  "35f78afa31e22484ea8f3dafa5449007": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -1711611024904505218,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Konstrictus Tormentor",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Konstrictus Tormentor.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 5050294103536744574,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Konstrictus Tormentor",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Konstrictus Tormentor.json"
+    }
+   ]
+  },
+  "351f6ba3c26574a26a4f07ac57dbbad1": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -130393400929047159,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Mercurial Host",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Mercurial Host.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 336525004281982345,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Mercurial Host",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Mercurial Host.png"
+    }
+   ]
+  },
+  "35741517ff0dc4920ad74fd7395bf7bc": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -4225388404961661627,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_strat_Dark Apparitions",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Dark Apparitions.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 3300105036002471237,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_strat_Dark Apparitions",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Dark Apparitions.json"
+    }
+   ]
+  },
+  "399710fd0d7e1b54f90166dabef5f130": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -7699840907182870596,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_wp",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_wp.ogg"
+  },
+  "3bad56f68c2fc2c49997443fc9100d90": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 2460189032281926191,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_mirror",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_mirror.ogg"
+  },
+  "3bbce2957c4f942ceae1739c30f81c08": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 8506457708127941541,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Terminator Champion (Andrew)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Terminator Champion (Andrew).ogg"
+  },
+  "3d8e718ada1b7864ab159a055bf7d339": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -2578030451509215046,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Internal Rivalry",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Internal Rivalry.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 3779090407217643706,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Internal Rivalry",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Internal Rivalry.png"
+    }
+   ]
+  },
+  "3e6e18b33886d4c30810c4526f9a78e1": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -7496535745352082665,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Threnodic Choir Noise Marine",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Threnodic Choir Noise Marine.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -4396557355733001449,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Threnodic Choir Noise Marine",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Threnodic Choir Noise Marine.json"
+    }
+   ]
+  },
+  "3f9c68340df189344849bf2873abede0": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -3582236196847542942,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_gen4",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_gen4.ogg"
+  },
+  "416961b839cbf674ba2ca335911387a9": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 3610011445456930184,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_greet",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_greet.ogg"
+  },
+  "41935bbcd6ec14fb6bf2570dca28a7a8": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -3113450461302071135,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Plasma Gun Tormentor (Andrew)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Plasma Gun Tormentor (Andrew).ogg"
+  },
+  "459fb762763eda14bb2274aac3fa8aec": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 7591221517049586968,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_gen3",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_gen3.ogg"
+  },
+  "46cc17176797bdc438d65f556ba2c549": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 2577929128432830777,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_vsAbaddon",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_vsAbaddon.ogg"
+  },
+  "49a871661c04d6f49b6b479dce126723": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -146253229100483042,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_death",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_death.ogg"
+  },
+  "4ad8d3f261744455dac98d88a27068cb": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -3364602797746244572,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Glittering Myriad Terminator (Joey)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Glittering Myriad Terminator (Joey).ogg"
+  },
+  "4b37d31f99070974db408154d96bcb73": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -6990129631688626168,
+   "type": "Texture2D",
+   "name": "40k_Cardframes_stratagem_Emperor Children_tier3",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/40k_Cardframes_stratagem_Emperor Children_tier3.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 8963284818524139528,
+     "type": "Sprite",
+     "name": "40k_Cardframes_stratagem_Emperor Children_tier3",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/40k_Cardframes_stratagem_Emperor Children_tier3.json"
+    }
+   ]
+  },
+  "4d0e34ab6212cef44bda22053fa9514e": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 7950001747513969321,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_vsCSM",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_vsCSM.ogg"
+  },
+  "4d8ffdbb9ab8c42e5ae91e1ab44ec847": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -3195554753629375233,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Chaos Land Raider (Andrew Dennis)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Chaos Land Raider (Andrew Dennis).ogg"
+  },
+  "5085911a9fd8fa64690d28cce59133d3": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -3648530809975971604,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_gen6",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_gen6.ogg"
+  },
+  "536c58c491862314891c5d2ca76285ce": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -5433716708686790267,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_concede",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_concede.ogg"
+  },
+  "5495fb0e6392bc24c9fea78b3d0fe82c": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -2623750060811430820,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_inf_Infractor Obsessionist",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Infractor Obsessionist.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 318384584861013084,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_inf_Infractor Obsessionist",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Infractor Obsessionist.png"
+    }
+   ]
+  },
+  "563059bb38c8c4c57924bde465e7c02c": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -7343478744381757882,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Veteran Noise Marine (Andrew)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Veteran Noise Marine (Andrew).ogg"
+  },
+  "5a6da3153cbdeeb4aaffda01d5bb1f8e": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 5924594630490928960,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lord Kaphrael_gen7",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lord Kaphrael_gen7.ogg"
+  },
+  "5ae594a65cbc64be1890087f254ea450": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 3890231817800027276,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Terminator (Andrew)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Terminator (Andrew).ogg"
+  },
+  "5bad277cd0944b8449dacf1be9e62174": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 3506531471464983533,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_veh_Chaos Land Raider",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_veh_Chaos Land Raider.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 8392503062875597805,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_veh_Chaos Land Raider",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_veh_Chaos Land Raider.json"
+    }
+   ]
+  },
+  "5d63cecc4bd84412395939df1fa7833e": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 894981324123122603,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Sonic Blaster Noise Marine (Andrew Dennis)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Sonic Blaster Noise Marine (Andrew Dennis).ogg"
+  },
+  "6062734f50e7b694c86b750bfe0cdcbf": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -4952212748788728625,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_strat_Normal",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Normal.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 1721458168168938703,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_strat_Normal",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Normal.json"
+    }
+   ]
+  },
+  "615ef5c6b1f214ee4a027fba01998910": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 4609152125893163188,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Slaanesh Sorcerer (Andrew Dennis)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Slaanesh Sorcerer (Andrew Dennis).ogg"
+  },
+  "697d6273df4013d4e953c00ab82718cf": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -4721626588429037107,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Terminator Champion",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Terminator Champion.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 7331006813985558989,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Terminator Champion",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Terminator Champion.json"
+    }
+   ]
+  },
+  "699c0508720be224ab62d51e642eb986": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -6134380440096461471,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_strat_Quicksilver Grace",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Quicksilver Grace.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -2516925268306088607,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_strat_Quicksilver Grace",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Quicksilver Grace.json"
+    }
+   ]
+  },
+  "6e8b14fceb8043d4abfc69161ddb3548": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -7914788751776368597,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Plasma Gun Tormentor",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Plasma Gun Tormentor.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 5610515657454368811,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Plasma Gun Tormentor",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Plasma Gun Tormentor.json"
+    }
+   ]
+  },
+  "6ea7885c2914d4b53bed6901843535de": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -6227335823207290765,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Threnodic Choir Flawless Blade",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Threnodic Choir Flawless Blade.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 6614165769291114611,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Threnodic Choir Flawless Blade",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Threnodic Choir Flawless Blade.json"
+    }
+   ]
+  },
+  "732493137cc929844a532e7321c270cc": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -4489468046442798468,
+   "type": "Texture2D",
+   "name": "40k_Cardframes_Troop_Emperor Children_SDF_tier3",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/40k_Cardframes_Troop_Emperor Children_SDF_tier3.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 6329439794958197372,
+     "type": "Sprite",
+     "name": "40k_Cardframes_Troop_Emperor Children_SDF_tier3",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/40k_Cardframes_Troop_Emperor Children_SDF_tier3.json"
+    }
+   ]
+  },
+  "775a6d5b2b146487995d3b5e7e2cda3e": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 5580153486650509149,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Infractor (Andrew Dennis)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Infractor (Andrew Dennis).ogg"
+  },
+  "7d41790c20d7ed344ab2dd9e0c22fc66": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -2840532656619629279,
+   "type": "Sprite",
+   "name": "40k_Cardframes_Troop_Emperor Children_tier3",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/40k_Cardframes_Troop_Emperor Children_tier3.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 7311204715005891873,
+     "type": "Texture2D",
+     "name": "40k_Cardframes_Troop_Emperor Children_tier3",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/40k_Cardframes_Troop_Emperor Children_tier3.png"
+    }
+   ]
+  },
+  "802a95d733455214aacf13f14d190959": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -1653054672852485301,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Tormentor",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Tormentor.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 1597519486788565835,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Tormentor",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Tormentor.json"
+    }
+   ]
+  },
+  "830cfbb5a05673740aaef9318a048a37": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 4522321954766888379,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_gen2",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_gen2.ogg"
+  },
+  "8466d87d491d7de49b6ef8e33e627ad5": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -5146461038216930461,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lord Kaphrael_gen6",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lord Kaphrael_gen6.ogg"
+  },
+  "868f7cde0e28b4cb1b5ea1882a17b721": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 6216726930702615524,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Maulerfiend_Roaring_Bellow",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Maulerfiend_Roaring_Bellow.ogg"
+  },
+  "886f7d4657a4c0b4e83d73b4926d19eb": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -8542441064568108859,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_concede",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_concede.ogg"
+  },
+  "882a597ed0508f64ea161c52e8b6bc8a": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 5076204889948917019,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_intro",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_intro.ogg"
+  },
+  "8930fe13444130442a7c9e9e65cdc72d": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 8759855630473331291,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_cantDo",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_cantDo.ogg"
+  },
+  "893da7204a7ec4a869c97924b11d2009": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 1786085066841817014,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Disharmonist (Andrew Dennis)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Disharmonist (Andrew Dennis).ogg"
+  },
+  "8a6722d7ce852d442b25899fc537b662": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -2558115228598614060,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_strat_Vial Tanks",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Vial Tanks.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 8642115869525723092,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_strat_Vial Tanks",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Vial Tanks.json"
+    }
+   ]
+  },
+  "8b0ce1e348be13e47b196f84b5f7bf09": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 8016290937461756779,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lord Kaphrael_gen2",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lord Kaphrael_gen2.ogg"
+  },
+  "8c3458c061660f344a2608c23cd6ef89": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 4057260588233156656,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemonette (Emily)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemonette (Emily).ogg"
+  },
+  "8ef8f22544bb048fa90ad3116920df74": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -7106277890530859872,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Fiend_High-pitch_Screech",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Fiend_High-pitch_Screech.ogg"
+  },
+  "9029c2f2da463624eae6d2c83965ca05": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -9085617327859757411,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_veh_Maulerfiend",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_veh_Maulerfiend.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -517272706180641123,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_veh_Maulerfiend",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_veh_Maulerfiend.png"
+    }
+   ]
+  },
+  "92ba9ee361ae8a24ba31d08714b47671": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 2398271378684803355,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_gen5",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_gen5.ogg"
+  },
+  "9a251ec5d0a393441b3792f4df213a21": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 6808798261470528523,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_vsUM",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_vsUM.ogg"
+  },
+  "9ff44733f00ed4936b200d9b6448571c": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 2902666565731583375,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Eternal Servitude",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Eternal Servitude.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 6076051335094764943,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Eternal Servitude",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Eternal Servitude.png"
+    }
+   ]
+  },
+  "a062d6b02506b2342b1c9bcb2b0a0201": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 3221281266590475067,
+   "type": "Texture2D",
+   "name": "40k_Cardframes_stratagem_Emperor Children_tier4",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/40k_Cardframes_stratagem_Emperor Children_tier4.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 5463072084180656955,
+     "type": "Sprite",
+     "name": "40k_Cardframes_stratagem_Emperor Children_tier4",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/40k_Cardframes_stratagem_Emperor Children_tier4.json"
+    }
+   ]
+  },
+  "a0ed8c31829174f959f380a40e8cd465": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 6087384277422854921,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Tormentor (Kevin)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Tormentor (Kevin).ogg"
+  },
+  "a17cb7ceac665e746a88e1699423de08": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -5174111302673774764,
+   "type": "Sprite",
+   "name": "40k_Cardframes_Troop_Emperor Children_SDF_tier2",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/40k_Cardframes_Troop_Emperor Children_SDF_tier2.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -3149598424114608300,
+     "type": "Texture2D",
+     "name": "40k_Cardframes_Troop_Emperor Children_SDF_tier2",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/40k_Cardframes_Troop_Emperor Children_SDF_tier2.png"
+    }
+   ]
+  },
+  "a12d5a601515a4ed4a9bb84cfee7f714": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -1730474099303708577,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Chaos Rhino (Andrew Dennis)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Chaos Rhino (Andrew Dennis).ogg"
+  },
+  "a6ce1cef2294d484e815973728958d4e": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -2404820151126496593,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_hurry",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_hurry.ogg"
+  },
+  "a7d97a61acd42d24d9eed0b19ce7e1f6": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 1800981740878461092,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_gen1",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_gen1.ogg"
+  },
+  "a94cf7486e39c4d84930fccee043de66": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -6737550081637950939,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_inf_Terminator",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Terminator.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 4033198711673969189,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_inf_Terminator",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Terminator.png"
+    }
+   ]
+  },
+  "ad93b47f3d8fe62438f11b7b12b14619": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 4795728883323370379,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Blastmaster Noise Marine (Kevin)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Blastmaster Noise Marine (Kevin).ogg"
+  },
+  "af227e9a13e0c4e9e9971dbcb19478f2": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -1556136000119437562,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Glittering Myriad Infractor (Joey)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Glittering Myriad Infractor (Joey).ogg"
+  },
+  "b0f1e4fdde1b58f4595c067f48a6b891": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -8922203200096179222,
+   "type": "Sprite",
+   "name": "40k_Cardframes_stratagem_Emperor Children_tier2",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/40k_Cardframes_stratagem_Emperor Children_tier2.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 7272710384172329962,
+     "type": "Texture2D",
+     "name": "40k_Cardframes_stratagem_Emperor Children_tier2",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/40k_Cardframes_stratagem_Emperor Children_tier2.png"
+    }
+   ]
+  },
+  "b1853c92340027041a324df1b1617f08": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -3912575861398001989,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Turyan Ghauze",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Turyan Ghauze.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 557159565653026491,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Turyan Ghauze",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Turyan Ghauze.json"
+    }
+   ]
+  },
+  "b2ea32119fba3fa4bb5adfcb8bef85f1": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -5800024202087659297,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_gen7",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_gen7.ogg"
+  },
+  "b3462cd7212ddc343a12b580d814da48": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -8758500580576407614,
+   "type": "Sprite",
+   "name": "40k_Cardframes_stratagem_Emperor Children_tier1",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/40k_Cardframes_stratagem_Emperor Children_tier1.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -1102642374129299518,
+     "type": "Texture2D",
+     "name": "40k_Cardframes_stratagem_Emperor Children_tier1",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/40k_Cardframes_stratagem_Emperor Children_tier1.png"
+    }
+   ]
+  },
+  "b473a26898925481e8f3450978b4d300": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -1041254738205935287,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Carnival of Excess",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Carnival of Excess.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 4610881929897113929,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Carnival of Excess",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Carnival of Excess.png"
+    }
+   ]
+  },
+  "b57b095cc55da9c45bb236674204fe0f": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 1714428992929815996,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Lord Exultant",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Lord Exultant.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 8296101850142694844,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Lord Exultant",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Lord Exultant.json"
+    }
+   ]
+  },
+  "b8d397019b05c924eb17d1aa79dff491": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 376892278236353807,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_offensive_Stimm-Vents Leak",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_offensive_Stimm-Vents Leak.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 3345390846513878287,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_offensive_Stimm-Vents Leak",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_offensive_Stimm-Vents Leak.json"
+    }
+   ]
+  },
+  "b8bd4bdfe2a39c34eacfff373ae4f5b0": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -5450317625921202407,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Rapturous Ruination",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Rapturous Ruination.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -4909357397900093671,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Rapturous Ruination",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Rapturous Ruination.png"
+    }
+   ]
+  },
+  "bd5909221df260441a32daee0edbc32c": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 7271930209976816214,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_gen3",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_gen3.ogg"
+  },
+  "c19ade40b26032148ad29f8006c6a956": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 4109269693458796054,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_cantDo",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_cantDo.ogg"
+  },
+  "c2975eafd546ac1429a83342b7a1277b": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 2961794153007796210,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_strat_Plains of Excess",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Plains of Excess.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 4839569177951064050,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_strat_Plains of Excess",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Plains of Excess.json"
+    }
+   ]
+  },
+  "c3244a98b92ed7b41a9e6f0dd8687e7b": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -5093753001358291863,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Icon of Excess Infractor (Andrew Dennis)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Icon of Excess Infractor (Andrew Dennis).ogg"
+  },
+  "c6bb19dd848ad4c8fb2de98c9e5c96df": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -943000654910641360,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Icon of Excess Infractor",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Icon of Excess Infractor.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 2536788944719719216,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Icon of Excess Infractor",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Icon of Excess Infractor.json"
+    }
+   ]
+  },
+  "c714dae7324b2450b9e7f0ea5d1fdc23": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 408030651239036365,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Alluress (Emily)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Alluress (Emily).ogg"
+  },
+  "c84cbd7e7ecb3564d9427e75fd863eec": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 6996830086821668372,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_threat",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_threat.ogg"
+  },
+  "ca312710eda025043a69e1b07d6f6a4b": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 9105023111304418026,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_Backup1",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_Backup1.ogg"
+  },
+  "cd6f936882e0941f7ba32ad030a45057": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -4763628186236303652,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Winged Daemon Prince (Andrew Dennis)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Winged Daemon Prince (Andrew Dennis).ogg"
+  },
+  "d299258fa7bdbf647998018e4c07dc59": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -8596103128315453740,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Elixir_Antrak Silk",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Elixir_Antrak Silk.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 8166534696312250068,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Elixir_Antrak Silk",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Elixir_Antrak Silk.png"
+    }
+   ]
+  },
+  "d3d89aee1186e4e2ab25c3f3f559d073": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 4709206452777199125,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Rapid Evisceration",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Rapid Evisceration.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 9076511678645413397,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Rapid Evisceration",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Rapid Evisceration.png"
+    }
+   ]
+  },
+  "d6b5461196795f840b7b514b5f94a63e": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -4294258139815333600,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Beautiful Death",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Beautiful Death.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": -2945647181451284192,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Beautiful Death",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Beautiful Death.png"
+    }
+   ]
+  },
+  "daef5ad2a45c04e4b8de0d38316f96b1": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -1246117858815921131,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Konstrictus Sorcerer (Joey)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Konstrictus Sorcerer (Joey).ogg"
+  },
+  "dbc383ba8ac44004a96926a9e0754156": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 1262285078389787643,
+   "type": "Texture2D",
+   "name": "40k_Cardframes_Troop_Emperor Children_SDF_tier4",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/40k_Cardframes_Troop_Emperor Children_SDF_tier4.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 7880986792902003707,
+     "type": "Sprite",
+     "name": "40k_Cardframes_Troop_Emperor Children_SDF_tier4",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/40k_Cardframes_Troop_Emperor Children_SDF_tier4.json"
+    }
+   ]
+  },
+  "dce0c121e49f172468c7cce622a7e096": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 2915843017540525988,
+   "type": "Texture2D",
+   "name": "40k_Cardframes_stratagem_Emperor Children_SDF_tier4",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/40k_Cardframes_stratagem_Emperor Children_SDF_tier4.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 3680167714820022180,
+     "type": "Sprite",
+     "name": "40k_Cardframes_stratagem_Emperor Children_SDF_tier4",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/40k_Cardframes_stratagem_Emperor Children_SDF_tier4.json"
+    }
+   ]
+  },
+  "de42af94e94ff4a37ad075d62c4282cc": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 4296637445149435037,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Rugged Disharmonist (Andrew Dennis)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Rugged Disharmonist (Andrew Dennis).ogg"
+  },
+  "e1bbd4eba66ae12499606f74d5bb13f7": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -5522270605208229357,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Disharmonist",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Disharmonist.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 1345741336933001747,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Disharmonist",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Disharmonist.json"
+    }
+   ]
+  },
+  "e12d6e887f47541c788022bae4c278fb": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 509666163791607082,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_strat_Peerless Bladesmen",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Peerless Bladesmen.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 6915983762990347562,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_strat_Peerless Bladesmen",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Peerless Bladesmen.json"
+    }
+   ]
+  },
+  "e175e716f09bb4c5eb1be8d14b5294a8": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -929876557771981277,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Coterie of the Conceited",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Coterie of the Conceited.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 5321032366014250531,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Coterie of the Conceited",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Coterie of the Conceited.png"
+    }
+   ]
+  },
+  "e799834853a0011498d69b06ad0bfd64": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 5848001296336398359,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_offensive_Empyric Rift",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_offensive_Empyric Rift.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 6389641811594225687,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_offensive_Empyric Rift",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_offensive_Empyric Rift.png"
+    }
+   ]
+  },
+  "ea9d8fd093e3d05478905bebef58f0b2": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -5534124971660500609,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_Backup2",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_Backup2.ogg"
+  },
+  "eac200e117a174124a97893837c26ff1": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 3488309542164674275,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Heldrake_Roaring_Bellow",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Heldrake_Roaring_Bellow.ogg"
+  },
+  "eb3a26a9057504f8a929522cbaf0159e": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 2647295759784749158,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Dual Screamer Kakophonist (Joey)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Dual Screamer Kakophonist (Joey).ogg"
+  },
+  "ee91a40feaf67964ab704da776fa5bfa": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -4999830915710514378,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Flawless Blade Champion",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Flawless Blade Champion.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 2553275687069813558,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Flawless Blade Champion",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Flawless Blade Champion.json"
+    }
+   ]
+  },
+  "f0a86ec5e49d1464eaae7c24036e5c56": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -7072611494346558091,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_dae_Blissbringer",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_dae_Blissbringer.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 8174504500606727541,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_dae_Blissbringer",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_dae_Blissbringer.png"
+    }
+   ]
+  },
+  "f2a2257ec052b4e3f9d786f68cd6af3c": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 559019125352673805,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_KonstrictusTormentor (Andrew)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_KonstrictusTormentor (Andrew).ogg"
+  },
+  "f5ed56cf3f5a28e42b1f92413c4700eb": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -3364145759206988235,
+   "type": "Sprite",
+   "name": "CSM_EmperorsChildren_strat_Elixir_Heliotrophos",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_strat_Elixir_Heliotrophos.json",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 1062399225079244341,
+     "type": "Texture2D",
+     "name": "CSM_EmperorsChildren_strat_Elixir_Heliotrophos",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_strat_Elixir_Heliotrophos.png"
+    }
+   ]
+  },
+  "f814e1216c8f41346af44ee921d5bd74": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 1575729974684319185,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Lucius_wp",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Lucius_wp.ogg"
+  },
+  "f815f9d91b81c49f99d0e7ac9d75442b": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -2636568543724173285,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Blissbringer_High-pitch_Screech",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Blissbringer_High-pitch_Screech.ogg"
+  },
+  "f89316aad7f458744a4d2012fd67213f": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -644318431007630617,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Daemon Prince Xarahan_greet",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Daemon Prince Xarahan_greet.ogg"
+  },
+  "fd1f8f9262e184fad92d92ef113e7eca": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": -8424612268786189267,
+   "type": "Texture2D",
+   "name": "CSM_EmperorsChildren_inf_Veteran Noise Marine",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Texture2D/CSM_EmperorsChildren_inf_Veteran Noise Marine.png",
+   "also": [
+    {
+     "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+     "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+     "pathId": 2232529551851387949,
+     "type": "Sprite",
+     "name": "CSM_EmperorsChildren_inf_Veteran Noise Marine",
+     "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/Sprite/CSM_EmperorsChildren_inf_Veteran Noise Marine.json"
+    }
+   ]
+  },
+  "ff1cdd627bcc947ed9e1cad6f0e251a3": {
+   "bundle": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all",
+   "bundleFile": "6a1cf1bfe3434b4bbbafebf27ab6d32a.bundle",
+   "pathId": 8728129145079951433,
+   "type": "AudioClip",
+   "name": "VO_CSM_EC_Infractor Obsessionist (Andrew)",
+   "dump": "bundle_chaosspacemarinesemperorschildrencardassets_assets_all/AudioClip/VO_CSM_EC_Infractor Obsessionist (Andrew).ogg"
   }
  },
  "cardanim_to_asset": {
@@ -126970,53 +129062,53 @@
   "b1d2181894460744e9a4a2126c19db13": "Traitors' Hate Target",
   "147d9db2e72d38e438d7df9094cd2f9d": "UnholySmite_random",
   "236d4e22a84c78b47a9443d938c33f9e": "Vanguard Onslaught Board",
-  "5": "Atk_BulletImpact_SonicWeapon 1 Dual Pistol",
-  "e": "Atk_BulletImpact_SonicWeapon 1",
-  "3": "Atk_BulletImpact_SonicWeapon 2 Pistol",
-  "6": "Atk_BulletImpact_SonicWeapon 2 Twinlink",
-  "a": "Atk_BulletImpact_SonicWeapon 2 Variant",
-  "d": "Atk_BulletImpact_SonicWeapon 2",
-  "b": "Buff EC Creating Card Warlord",
-  "9": "Buff EC Dark Icon",
-  "f": "Buff EC Dark Self",
-  "35": "Buff EC Dark",
-  "7": "Buff EC Pink Intense Warlord delayed",
-  "9c": "Buff EC Pink Intense Warlord",
-  "5c": "Buff EC Pink Intense",
-  "6d": "Buff EC Pink",
-  "a0": "Buff EC Stimulate self",
-  "93": "Buff EC Stimulate target",
-  "a6": "Buff EC Stimulate warlord passive",
-  "c": "Buff_HideousMutation_EC",
-  "b6": "CreateCard_EC Elixir",
-  "0": "CreateCard_EC Pink",
-  "ae": "Cut EC 1x Reverse target",
-  "34": "Cut EC 1x target",
-  "ba": "Cut EC 3x target",
-  "0c": "Cut EC 7x",
-  "eb": "Debuff EC Lower Stats delay",
-  "94": "Debuff EC Lower Stats",
-  "56": "EC Heldrake Attack",
-  "a67": "EC Sonic Destroy",
-  "6c": "EC Sonic Shock Troop",
-  "e9": "EC Sword Cut 7x Board",
-  "bd": "EC Target Delayed",
-  "c6": "EC Target User Self",
-  "2": "EC Target User Warlord",
-  "4": "EC Target",
-  "8": "Emperors Children Generic Buff 2",
-  "1": "Emperors Children Scenario Bombardment",
-  "e0": "Emperors Children Summon 2nd",
-  "6b": "Emperors Children Summon 3rd",
-  "96": "Emperors Children Summon",
-  "934": "Emperors Children Swords",
-  "bc": "Rally EC Heldrake",
-  "ae3": "Rapturous Ruination",
-  "32": "Whip Attack EC Cut Warlord",
-  "b9": "Whip Attack EC Cut",
-  "1b": "Whip Attack EC Daemon Warlord",
-  "f3": "Whip Attack EC Maulerfiend",
-  "9a": "Whip Attack EC Normal",
+  "534106c6864974b4cbaef5939c8d93e1": "Atk_BulletImpact_SonicWeapon 1 Dual Pistol",
+  "ef64ec7ae62fb3747baacec933cabf8f": "Atk_BulletImpact_SonicWeapon 1",
+  "3439f089e50ab0d47a243610cf3e4c44": "Atk_BulletImpact_SonicWeapon 2 Pistol",
+  "6002f3e8ca980e64a803f00ec0d7ad1f": "Atk_BulletImpact_SonicWeapon 2 Twinlink",
+  "a14e7548c7e0d0e418a55ead57507727": "Atk_BulletImpact_SonicWeapon 2 Variant",
+  "d375d35c1babbbd4faa95b309186eb1e": "Atk_BulletImpact_SonicWeapon 2",
+  "bdad63d4d5e24b5419ccef6039444d9b": "Buff EC Creating Card Warlord",
+  "9205fb8b47ef9934fb114f7c40b4f14f": "Buff EC Dark Icon",
+  "f29faf43ce378774d8a9e8448761f1ab": "Buff EC Dark Self",
+  "351caf28d23cd4c9fb18b0587c61b3e1": "Buff EC Dark",
+  "7b5ec237a6cb40245a247411a9d41f45": "Buff EC Pink Intense Warlord delayed",
+  "9cce271029a95cc4a859c9943aaab20b": "Buff EC Pink Intense Warlord",
+  "5c68754319cf13943b8fc6e53e32b04e": "Buff EC Pink Intense",
+  "6de1ad23980855f42b05cb4dabd4ca37": "Buff EC Pink",
+  "a0eaf77b37e8a5845ad9fd47192e6a3f": "Buff EC Stimulate self",
+  "93755d3c9836a8140b2d55f02e40687b": "Buff EC Stimulate target",
+  "a6cf91c341658fa4588ac2368811e4ad": "Buff EC Stimulate warlord passive",
+  "c4f6bf5ac51a3ed46a29301c6f645eed": "Buff_HideousMutation_EC",
+  "b69392fdc8b1ff44c8907f62ea941d65": "CreateCard_EC Elixir",
+  "0382f1d5314158c4cac220cf140993fc": "CreateCard_EC Pink",
+  "ae2bea90106370c4aab87c5e93861961": "Cut EC 1x Reverse target",
+  "349bdf48a60f4c149a7cffd9d4200b35": "Cut EC 1x target",
+  "ba5000a5d2e6a15429d73a4a5267db16": "Cut EC 3x target",
+  "0c6daeacbfd2cb440bd39b5c972b9f09": "Cut EC 7x",
+  "eb054878461017e43ab0bb9a9f93dcd3": "Debuff EC Lower Stats delay",
+  "94cb4512e7705d449a154a08b1c77411": "Debuff EC Lower Stats",
+  "564af14f7004445469e0424bcce41d1d": "EC Heldrake Attack",
+  "a671f72c16936cf458d28dfd9e80f742": "EC Sonic Destroy",
+  "6cb2e4eec4fd7af4296fe97a913ee246": "EC Sonic Shock Troop",
+  "e93a9290ec1b2684484d81c940bdd0b0": "EC Sword Cut 7x Board",
+  "bd6894e537c2fea41a21712093cb1dc6": "EC Target Delayed",
+  "c66285cfc8c285243a9f398f92237a25": "EC Target User Self",
+  "261e3f33c82c4ef489d6a7e63a413f7b": "EC Target User Warlord",
+  "47e38ffe8e13f734bace1cd7a8d1bfaf": "EC Target",
+  "8e985dddb5cda45468fa1a52d9f1cfa3": "Emperors Children Generic Buff 2",
+  "1cec996d31ba440ad8eda15e99eb0213": "Emperors Children Scenario Bombardment",
+  "e0f9e1f0f34165e4eaa22a8d6ff965c6": "Emperors Children Summon 2nd",
+  "6bac34bef8280bc449963780b0474cb5": "Emperors Children Summon 3rd",
+  "96f456472e6af4d4c8574daffe0fdc89": "Emperors Children Summon",
+  "9343b47bd9b414db6ad64a584d78b688": "Emperors Children Swords",
+  "bc43540f679144d81b72a2c599c5cb63": "Rally EC Heldrake",
+  "ae3492fb2fe93ba42b7366c361e6ce95": "Rapturous Ruination",
+  "32ae96be082b7224da8f4a885ce961b2": "Whip Attack EC Cut Warlord",
+  "b95f5be64cda68944adfcfa363efaaf5": "Whip Attack EC Cut",
+  "1bd4282c46a4bef4a90cbb5455231fc1": "Whip Attack EC Daemon Warlord",
+  "f3b1ebc2c8192bb4ba05811fb0213214": "Whip Attack EC Maulerfiend",
+  "9ab619f0927d6cc4291d32949cb5de25": "Whip Attack EC Normal",
   "4ae02eb9e870e964db52a85ed290696a": "Ambush Effect",
   "f90fffe24b0ff674e8ad8083aa68c38f": "Atk_ChemVial_throw",
   "4d86592ed6f05994aa4652f9795ac056": "Basic_army_GSC_intense_warlord",

@@ -464,6 +464,15 @@ namespace CardPresentation
                          clickCue: WindowSounds.PositiveCue);
         }
 
+        /// <summary>点第 `level` 档（1..5）的宝箱 —— 原版 lambda = `RewardService.Preview(reward)`
+        /// （`GenericScoreBarLine.__c__DisplayClass6_0___Initialize_b__0.c`）。本地没有奖励对象/预览窗 ⇒ 出声。</summary>
+        void OnChestClick(int level)
+        {
+            Debug.Log($"[Energy] `Score Bar Line Level {level}/Chest` 点了 ⇒ **无奖励预览**"
+                    + "（原版这一跳 = `RewardService.Preview(该档奖励)`，奖励对象来自远端 LiveOps；"
+                    + "本地没有那份数据、也没有「奖励预览」窗 —— 照边界③不静默）。");
+        }
+
         void OnCollectClick()
         {
             Debug.Log("[Energy] `Collect` 点了 ⇒ **如实提示「暂无服务器」**"
@@ -532,8 +541,22 @@ namespace CardPresentation
                               CenterRect(CrateHiCx, CrateHiCy + dy, CrateHiW, CrateHiH),
                               "Highlight Crate", QArt1, CrateHiTint);
                 // `Chest`（自带 scl **0.8696**）· `Skull`（同）—— 中心随行一起走
-                MenuDraw.Rect(row, Art(CrateArt[i]), CenterRect(ChestCx, ChestCy + dy, ChestW, ChestH),
-                              "Chest", QArt);
+                // 🔴 **2026-10-18（音效线转来的界面缺口）：补命中区 + 点击音**（原来**只有视觉**，点了什么都不发生）。
+                //   判据（原版 prefab 逐字段现读 + 反编译）：
+                //   · 这颗是 `Button`/`EverguildButton`（GO `Chest*`，MB 五件一组：RT/Image/Button/
+                //     EverguildButton/EverguildButtonMaterialModifier）；`m_onClickSound` = **空 PPtr** +
+                //     `useDefaultAudioClipIfNull = 1` ⇒ 播**默认 `ButtonClick`**（≠ Positive，⛔ 别顺手改）。
+                //   · 点击动作 = `GenericScoreBarLine.Initialize` 里给 Chest 挂的 lambda：
+                //     `RewardService.Preview(reward)`（`GenericScoreBarLine.__c__DisplayClass6_0___Initialize_b__0.c`）
+                //     —— 打开该档奖励的**预览**。
+                //   ⚠️ **本地没有“奖励预览”的窗口/数据**（`RewardService` 走远端 LiveOps 奖励对象）⇒
+                //     命中区与音照原版接，动作**留空并出声**（同本窗 `Collect` 的口径：边界③不静默）。
+                var chestRect = CenterRect(ChestCx, ChestCy + dy, ChestW, ChestH);
+                MenuDraw.Rect(row, Art(CrateArt[i]), chestRect, "Chest", QArt);
+                //   原版这颗是 **`m_Transition = 1 (ColorTint)`**（不是 SpriteSwap）⇒ **不传 `target`**：
+                //   `WindowButton.Bind` 在 `art == null` 时会把 `" → "` 记进 `MissingSwapArt`（假缺口），
+                //   而这里没有图要换 —— 命中 quad 自己那颗透明件就够（同 `MissionsTab.AddInfoTooltip` 的写法）。
+                MenuDraw.Hit(row, "ChestHit", chestRect, QHit, () => OnChestClick(i + 1));
                 MenuDraw.Rect(row, Art(ArtSkull), CenterRect(SkullCx, SkullCy + dy, SkullSide, SkullSide),
                               "Skull", QArt);
                 // `Score`：原版 hAlign = **Right**（现读 `对齐=Right/Midline · 折行=1`）⇒ 右对齐到那一格

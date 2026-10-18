@@ -225,6 +225,11 @@ public static class IconSetup
     ///    🔴 `A1425` 起是**逐字节**、`File.ReadAllBytes`）。
     /// ⑦ **生产那一行真在传 `c.NumericKeywords`**（`A1417`）—— 钉的是
     ///    `BattleDriver.FaceTextFull` 那个**调用点**，⛔ 不是 `Badges.CarriesValue` 自己那一侧（那一侧早有断言）。
+    /// ⑧ **官方源换代（`A1771`，2026-10-19）**：`[Attack]` 的答案来源从「卡图 OCR 逐张猜」换成
+    ///    **官方 `Card_Description` EN** ⇒ 这里钉**产物侧**四条：每条 `[Attack]` 都是 `Melee` ·
+    ///    显示快照等价（全池 `Rewrite` 无残留、Melee 枚数逐卡相等）· `工具/ruleprobe/` 0 引用
+    ///    （`PinnedPlayMd5` 不受影响）· 幂等。**官方覆盖率/逐卡序列一致/`desc` 未被写**在生成器里闸
+    ///    （`gen_icon_plan.py` 的 `bad` ⇒ `rc≠0`、零落盘）。
     /// ③ 是给人看的 —— 断言测不出「渲出来是空方块」。
     /// </summary>
     [MenuItem("Warpforge/图标自检")]
@@ -271,8 +276,9 @@ public static class IconSetup
         //
         //   **为什么**：原来喂的是一句硬编码的串
         //   `"Give +3 [Attack], +3 [Armor] or +3 Health to a friendly troop"`，
-        //   而 `[Armor]` / `[Armour]` 这个写法**当前卡池 1126 张里一处都没有**
-        //   （2026-10-20 实扫 `cards_engine.json` 的 `desc` + `descZh`：**0 处**）。
+        //   而 `[Armor]` / `[Armour]` 这个写法**在卡池里一处都没有**
+        //   （**口径**：扫 `cards_engine.json` 的 `desc` + `descZh` 找这两个 token；2026-10-20 当轮实测 **0 处**
+        //    —— ⛔ 卡池张数与处数一律**现读**（`count` / 现扫），别把当轮数字写死，见 `A1451`）。
         //   这条断言要卡面上**同时**出现 Melee 与 Ranged 两枚图标 ⇒ 它测的是一个
         //   **已经不存在的 token** ⇒ **夹具过时**，不是实现缺陷。
         //   🔴 **2026-10-21 更正（`A1361` · 铁律 5）**：这一句原来还引着「`工具/gen_icon_plan.py:187`
@@ -519,7 +525,8 @@ public static class IconSetup
         // **判据（一句话）**：**英文卡面画出来的每一枚徽记，中文卡面也必须画。**
         //   · 「画出来」= 计划表里该卡 `desc` / `descZh` 子表里出现过那个 `sprite`
         //     （那就是 `CardPresentation.CardIcons.Rewrite` 会插进卡面文字里的那一枚）。
-        //   · 方向**只有这一个**（`desc` 的 sprite 集合 ⊆ `descZh` 的）。反方向今天有 40 张不成立，
+        //   · 方向**只有这一个**（`desc` 的 sprite 集合 ⊆ `descZh` 的）。反方向当时实测有一批不成立
+        //     （当轮读数 **40 张**，⛔ `A1451`：那是读数不是基线，池一变就会漂），
         //     那些是「**中文侧多画的**」（例：`TAU42` 的中文写了「短距」+「护盾」）—— **不是缺陷**，
         //     ⛔ 所以**不要**加反过来那一条（加了就是 40 条假红）。
         //
@@ -573,7 +580,8 @@ public static class IconSetup
                 // ④b 【灭自证】：把「**今天两边都画着**」的每一枚**从 `descZh` 侧抽掉** ⇒ ④a 必须**全部**认出来。
                 //   🔴 **2026-10-15（第三十二会话）改：控制集从【手写 19 条】改成【从现计划表推导】** ——
                 //   原来那 19 条（`A1360` 5 + `A1400` 14）的注释自陈「这 19 条今天**都在**真计划表的 `descZh` 里」，
-                //   而 2026-10-15 起 `gen_icon_plan.py` 对**带官方记号**的字段**整字段跳过** ⇒ 现读只剩 **5 条**在表里
+                //   而 2026-10-15 起 `gen_icon_plan.py` 对**带官方记号**的字段**整字段跳过** ⇒ 当时实测只剩 **5 条**在表里
+                //   （⛔ 那是当轮读数、别当基线；现在还剩几条以 ④b 打出来的「控制集 N 条」为准）
                 //   ⇒ 抽掉那 5 条之外**等于没抽** ⇒ 这条灭自证**退化成空转**（改动前同池就已经是 5/19）。
                 //   ✅ **判据形式没变**：仍是「抽掉 ⇒ ④a 每一条都得认出来」＋「抽掉的条数 == 控制集长度」（**前提检查**）。
                 //   出处 = `资料/普查产出_第三十二会话/D3_IconSetup五条红.md` §一·5。
@@ -581,8 +589,9 @@ public static class IconSetup
                 var control = RevertControlFor(broke);
                 var controlSet = new HashSet<string>(control);
                 // ⚠️ **按【去重后的 (卡,sprite) 对】计数**，不是按抽掉的条目数 —— 同一张卡可能
-                //   `descZh` 里**重复**同一枚 sprite（现读抽掉 831 条、去重后正好 815 对）
-                //   ⇒ 拿条目数去比控制集长度会**假红**。
+                //   `descZh` 里**重复**同一枚 sprite（同一张卡可以有 N 条条目、却只有 M 个不同的 (卡,sprite) 对）
+                //   ⇒ 拿条目数去比控制集长度会**假红**。⛔ 别在这里写死「抽掉几条」（`A1451`：读数会漂），
+                //   真读数看 ④b 那一行打出来的「控制集 N 条（去重后）· 实际抽掉 M 条」。
                 var removedPairs = new HashSet<string>();
                 if (broke != null && broke.cards != null)
                     foreach (var c in broke.cards)
@@ -663,8 +672,8 @@ public static class IconSetup
         // 🔴 **为什么单开这一条**：本工程**原来没有任何一处**在看「盘上有哪些图、它们有没有被用上」——
         //   `②` 只查【计划表名 → 资产】、`工具/gen_icon_doc.py` 只把计划表原样铺开
         //   ⇒ 一个**整类**的缝：**素材盘上明明有图，而计划表一条都没用**。
-        //   `A1366` 的 `stun` 正是从这个缝漏的（`traits/stun.png` 在盘上、30 张卡的正文里都写着 `Stun`，
-        //   而计划表里 `stun` **0 条** ⇒ 那 30 张卡的卡面一枚徽记都没画）。
+        //   `A1366` 的 `stun` 正是从这个缝漏的（当轮读数：`traits/stun.png` 在盘上、30 张卡的正文里都写着 `Stun`，
+        //   而计划表里 `stun` **0 条** ⇒ 那 30 张卡的卡面一枚徽记都没画；⛔ 别当基线）。
         //
         // **这一条做什么**：
         //   · ⑤a 盘上图的**张数**（原版图集 78 个切片）与计划表用到的**图名个数**——两条「还在量」的断言；
@@ -750,14 +759,12 @@ public static class IconSetup
         // **判据（`A1421` 原文）**：两份的 **`cards` 数组逐字节相同**。
         //   ⛔ **不比整个文件** —— 两份的 `note` 头**本来就不同**（`Resources` 那份自己写着
         //   「运行时那一份」）。⇒ 判据取「**从 `"cards"` 这一键起、比到文件尾**」。
-        //   ⚠️ **下面这几个数字别照抄**（本仓的老坑：读数写死 = 「当时对、隔天烂」，见 `A1372`）——
-        //   **生成器每重跑一次就会变**；真读数以这一条打出来的 `⑥ 读数` 那一行为准。
-        //   本条落地时的现读（2026-10-10，**字符数 = C# `.Length` 那个单位**）：
-        //   文件 **666037 / 665985** 字符（UTF-8 字节分别是 **902181 / 902117**）、
-        //   **头部 133 / 81 字符**（那 52 个字符就是全部差异）、
-        //   `cards` 体 **各 665904 字符且逐字节相同**（FNV-1a64 都是 `a4580070c903191b`）。
-        //   🔴 **2026-10-11（`A1425`）就地订正：上面那组读数是【字符】口径，本条已改成【字节】**
-        //     （`File.ReadAllBytes`）⇒ **长度与指纹都不再可比**，别拿旧数当基线；
+        //   ⚠️ **⛔ 这里不写死读数**（本仓的老坑：读数写死 = 「当时对、隔天烂」，见 `A1372`；
+        //   `A1451` 起统一改成「**口径 + 指针**」）—— 生成器每重跑一次读数就会变。
+        //   **口径**（`A1425` 起）：**字节**（`File.ReadAllBytes`），不是字符；BOM 会算进去。
+        //   **指针**：真读数看这一条跑出来的 `⑥ 读数` 那一行（两份长度 / 头部长度 / `cards` 体长度 / FNV-1a64）。
+        //   📌 历史留痕：`A1421` 落地时（2026-10-10）曾按**字符**口径记过一组读数
+        //     （文件 666037 / 665985 字符）—— 已被 `A1425` 的字节口径取代、**不再可比**，⛔ 别当基线。
         //     `A1425` 的缘由：判据原文写「**逐字节**相同」而实现走 `File.ReadAllText`（**吃 BOM**）
         //     ⇒ 「其中一份被加了 BOM」这件事**看不见**（今天两份都无 BOM、所以今天不假）。
         //
@@ -917,7 +924,8 @@ public static class IconSetup
             //    （那 = `KeywordTable.Parse` 的插入序 = 数组序；.NET `Dictionary` 无删除时枚举序 = 插入序）。
             //    🔑 **夹具为什么要挑这一对**：`["Vanguard","Shield"]` 的**字母序是反的**
             //    （`Shield` < `Vanguard`）⇒ 谁把那个 `Sort` 加回去、或枚举序哪天变了，**这里必红**。
-            //    判据出处：卡面声明行的次序实测（69 张可比卡：数组序对 67、字母序只对 21）。
+            //    判据出处：卡面声明行的次序逐张实测（2026-10-11 当轮读数：69 张可比卡，数组序对 67、字母序只对 21）。
+            //    ⛔ 那是**当轮读数**、不是基线（池一变就会漂）；本条钉的是**次序来源**（数组序 ≻ 字母序），不钉某个具体张数。
             var orderProbe = new RuleEngine.CardDef(
                 id: "Z_PROBE_ORDER", name: "Z Probe Order", type: "unit",
                 desc: ProbeBody, rarity: "common", faction: "Ultramarines",
@@ -943,6 +951,152 @@ public static class IconSetup
                   "（字母序是反的 ⇒ 谁把 `KeywordSegment` 里那个 `Sort` 加回去，这里必红）。" +
                   "⚠️ 「夹具到底有没有走到 `KeywordSegment`」由上面那条 `⑦b·前提` **单独报**（`A1627`）。" +
                   "实测输出 = `" + orderGot + "`", ref bad);
+        }
+
+        // ═════════════════ ⑧ 官方源换代（`A1771`，2026-10-19）═════════════════
+        //
+        //  🔴 **背景**：`[Attack]` 画拳还是枪，原来是「卡图 OCR + 还原表逐张猜」的证据层
+        //    （`工具/gen_icon_plan.py` 的 `TOKEN_BY_CARD` 里 119 条逐卡条目）。2026-10-19 起
+        //    **来源正本 = 官方 `Card_Description` 的 EN 列**；`[Attack]` 升成 `TOKEN_BY_RULE`
+        //    的官方 EN 规则（→ `Melee`），那 119 条逐卡条目**已整批删除**。
+        //    判据 → `资料/普查产出_1018/AUD_A1771_A1945_可行性.md` §四·4·1 / §五。
+        //
+        //  **分工（⛔ 别在这里重做生成器那条判据 —— 两处写同一条规则迟早不一致）**：
+        //   · **生成器**里做：官方覆盖率（A1）· 逐卡图标序列一致（A2）· `[Attack]` 官方直证（A3）·
+        //     `desc` 未被写（A4）—— 全是 `gen_icon_plan.py` 的 `bad` 机制：不过就 `rc≠0`、**零落盘**。
+        //   · **这里（产物侧）**：⑧a `[Attack]` 在计划表里全部 = `Melee` · ⑧b【灭自证】·
+        //     ⑧c 显示快照等价（全池 `Rewrite` 后无残留、Melee 枚数与计划表逐卡相等）·
+        //     ⑧d `PinnedPlayMd5` 不受影响（`工具/ruleprobe/` **0 引用**，结构性证明）·
+        //     ⑧e 幂等（②i 已全池覆盖，这里补一条走官方规则、有两处 `[Attack]` 的定点）。
+        {
+            var doc8 = LoadPlanDoc();
+            int atkItems = 0, atkCards = 0;
+            if (doc8 != null && doc8.cards != null)
+                foreach (var c in doc8.cards)
+                {
+                    if (c == null || c.fields == null) continue;
+                    bool has = false;
+                    foreach (var f in c.fields)
+                    {
+                        if (f == null || f.items == null) continue;
+                        foreach (var it in f.items)
+                            if (it != null && it.token == "[Attack]") { atkItems++; has = true; }
+                    }
+                    if (has) atkCards++;
+                }
+            var notMelee = AtkNotMelee(doc8);
+            Check(atkItems > 0 && atkCards > 0 && notMelee.Count == 0,
+                  "★ ⑧a **计划表里每一处 `[Attack]` 都画 `Melee`**（`A1771`：来源 = 官方 " +
+                  "`Card_Description` EN，123/123 处 = melee）：" + atkItems + " 条 / " + atkCards + " 张卡；" +
+                  "非 Melee **" + notMelee.Count + "** 条" +
+                  (notMelee.Count == 0 ? "" : " → " + string.Join(" / ", notMelee.ToArray())) +
+                  "。改坏法：把计划表里任一条 `[Attack]` 的 `sprite` 改成 `Ranged` ⇒ 红。", ref bad);
+
+            // ⑧b【灭自证】：同一份纯函数 `AtkNotMelee` 必须认得出「改坏」的副本。
+            //   ⚠️ 用 `LoadPlanDoc()` **重新读一份**再改 —— 改的是独立对象，不污染 `doc8`。
+            var brokeAtk = LoadPlanDoc();
+            bool flipped = false;
+            if (brokeAtk != null && brokeAtk.cards != null)
+                foreach (var c in brokeAtk.cards)
+                {
+                    if (flipped) break;
+                    if (c == null || c.fields == null) continue;
+                    foreach (var f in c.fields)
+                    {
+                        if (flipped) break;
+                        if (f == null || f.items == null) continue;
+                        foreach (var it in f.items)
+                            if (it != null && it.token == "[Attack]") { it.sprite = "Ranged"; flipped = true; break; }
+                    }
+                }
+            var ctrlBad = AtkNotMelee(brokeAtk);
+            Check(flipped && ctrlBad.Count == 1 && AtkNotMelee(doc8).Count == 0,
+                  "★ ⑧b【灭自证】⑧a 的谓词**结构上不可能恒绿**：真表 ⇒ 0 条；翻掉一条 `[Attack]` ⇒ " +
+                  "必须正好 1 条（实得 " + ctrlBad.Count + " 条）。", ref bad);
+
+            // ⑧c **显示快照等价**：换代前后运行时的显示串必须**逐字节相同**。
+            //   机械证明：计划表里 `[Attack]` 全是 `Melee`（⑧a）+ 运行时按同一份计划表替换
+            //   ⇒ 对全池 `desc` 跑 `Rewrite`：`[Attack]` 一处都不许残留、且每张卡画出的
+            //   `Melee` 枚数 == 计划表 `desc` 子表里 `sprite=Melee` 的条目数（条目是**按处**的）。
+            var cards8 = RuleEngine.CardDatabase.Load();
+            int snapCards = 0, snapMismatch = 0;
+            var snapSample = new List<string>();
+            foreach (var c in cards8)
+            {
+                if (c == null || string.IsNullOrEmpty(c.Id)) continue;
+                if (c.Desc == null || c.Desc.IndexOf("[Attack]", System.StringComparison.Ordinal) < 0) continue;
+                snapCards++;
+                string r8 = CardPresentation.CardIcons.Rewrite(c.Id, "desc", c.Desc);
+                int want = 0;
+                if (doc8 != null && doc8.cards != null)
+                    foreach (var pcard in doc8.cards)
+                    {
+                        if (pcard == null || pcard.id != c.Id || pcard.fields == null) continue;
+                        foreach (var f in pcard.fields)
+                        {
+                            if (f == null || f.name != "desc" || f.items == null) continue;
+                            foreach (var it in f.items)
+                                if (it != null && it.sprite == "Melee") want++;
+                        }
+                    }
+                int got = CountOf(r8, "<sprite name=\"Melee\">");
+                bool residual = CardPresentation.CardIcons.StripTags(r8)
+                    .IndexOf("[Attack]", System.StringComparison.Ordinal) >= 0;
+                if (got != want || residual)
+                {
+                    snapMismatch++;
+                    if (snapSample.Count < 5)
+                        snapSample.Add(c.Id + " got=" + got + "/want=" + want + (residual ? " **残留**" : ""));
+                }
+            }
+            Check(snapCards > 0 && snapMismatch == 0,
+                  "★ ⑧c **显示快照等价**（`A1771`，零可见变化）：全池 " + snapCards + " 张带 `[Attack]` 的卡，" +
+                  "`Rewrite` 后无残留、Melee 枚数与计划表逐卡相等；不一致 **" + snapMismatch + "** 张" +
+                  (snapMismatch == 0 ? "" : " → " + string.Join(" / ", snapSample.ToArray())) +
+                  "。改坏法：把任一条 `[Attack]` 的 sprite 改成 `Ranged` ⇒ 枚数对不上 ⇒ 红。", ref bad);
+            // ⑧c【灭自证】：不存在的卡 id ⇒ 计划表查不到 ⇒ `[Attack]` 必须**原样残留**
+            //   ⇒ 证明上面那个「残留」谓词**能看见坏态**（不是恒绿）。
+            string missRes = CardPresentation.CardIcons.Rewrite("Z_NO_SUCH_CARD_A1771", "desc", "Give +1 [Attack]");
+            Check(CardPresentation.CardIcons.StripTags(missRes)
+                      .IndexOf("[Attack]", System.StringComparison.Ordinal) >= 0,
+                  "★ ⑧c【灭自证】「计划表查不到 ⇒ `[Attack]` 原样残留」必须为真（谓词能看见坏态）；" +
+                  "实测 = `" + missRes + "`", ref bad);
+
+            // ⑧d **`PinnedPlayMd5` 不受影响**（`A1771` 判据 R1）：`工具/ruleprobe/`（含 `PlayProbe.cs` 的
+            //   `PinnedPlayMd5` 哨兵）**不许**引用图标计划链 —— 0 引用 ⇒ 换代对它**结构上不可能有影响**。
+            //   ⚠️ 不钉 md5 的具体值（⛔ `A2137`：别为了抹红去重钉哨兵）。
+            const string probeDirAbs = @"d:/4/Unity/工具/ruleprobe";
+            var refs = new List<string>();
+            if (Directory.Exists(probeDirAbs))
+                foreach (var p in Directory.GetFiles(probeDirAbs, "*.cs", SearchOption.AllDirectories))
+                    if (HasPlanRef(File.ReadAllText(p))) refs.Add(Path.GetFileName(p));
+            Check(Directory.Exists(probeDirAbs) && refs.Count == 0 && HasPlanRef("// 用了 CardIcons.Rewrite"),
+                  "★ ⑧d **`工具/ruleprobe/` 对图标计划链 0 引用**（⇒ `PinnedPlayMd5` 不可能被 `A1771` 影响）：" +
+                  (Directory.Exists(probeDirAbs) ? "扫到 " + refs.Count + " 个引用文件" : "**目录不存在**") +
+                  (refs.Count == 0 ? "" : " → " + string.Join(" / ", refs.ToArray())) +
+                  "；灭自证（合成串必须被同一谓词认出）= " + HasPlanRef("// 用了 CardIcons.Rewrite") +
+                  "。改坏法：在 `ruleprobe` 任一 `.cs` 里加一句 `CardIcons` ⇒ 红。", ref bad);
+
+            // ⑧e 幂等（②i 已全池覆盖）：补一条**走官方规则**、`desc` 里有**两处** `[Attack]` 的定点 ——
+            //   `SOR60 Holy Fire`：`Give +2 [Attack] to your Warlord and +1 [Attack] to adjacent troops …`
+            RuleEngine.CardDef fire = null;
+            foreach (var c in cards8)
+                if (c != null && c.Id == "SOR60") { fire = c; break; }
+            Check(fire != null && !string.IsNullOrEmpty(fire.Desc),
+                  "⑧e·前提 从卡池取得到 `SOR60` 的真 `desc`（夹具不自己抄）", ref bad);
+            string fire1 = fire == null ? "" : CardPresentation.CardIcons.Rewrite("SOR60", "desc", fire.Desc);
+            string fire2 = CardPresentation.CardIcons.Rewrite("SOR60", "desc", fire1);
+            // ⑧e【灭自证】：先给每一处 `[Attack]` **预塞**一枚 Melee 图标再跑（模拟「不幂等」的坏态）
+            //   ⇒ 枚数必须变成 4（每处多画一枚）⇒ 与判据要求的「正好 2」不等。
+            string fireBroken = fire == null ? "" : fire.Desc.Replace("[Attack]", "<sprite name=\"Melee\">[Attack]");
+            int fireBrokenN = CountOf(CardPresentation.CardIcons.Rewrite("SOR60", "desc", fireBroken),
+                                      "<sprite name=\"Melee\">");
+            Check(fire != null && CountOf(fire1, "<sprite name=\"Melee\">") == 2 && fire1 == fire2
+                  && fireBrokenN != 2,
+                  "★ ⑧e 幂等（`[Attack]` 走官方规则那一支）：`SOR60` **正好 2 处** `[Attack]` 都换成 Melee" +
+                  "（实得 " + CountOf(fire1, "<sprite name=\"Melee\">") + " 枚）、且换两遍 == 换一遍；" +
+                  "【灭自证】预塞一枚图标再跑 ⇒ 枚数必须 ≠ 2（实得 " + fireBrokenN + " 枚）。" +
+                  "改坏法：让规则条目在已替换的串上再命中一次 ⇒ 枚数翻倍 / 串不等 ⇒ 红。实测 = `" + fire1 + "`", ref bad);
         }
 
         // ③ 真渲一张：一行字 + 三种图标
@@ -1007,6 +1161,42 @@ public static class IconSetup
     }
 
     /// <summary>
+    /// ⑧a 的谓词本体：计划表里**不是 `Melee` 的 `[Attack]` 条目**（`"卡id→sprite"` 列表）。
+    /// 纯函数（只读传入的 doc）⇒ ⑧b 的灭自证拿**改坏的副本**跑同一个函数。
+    /// 判据 = `A1771`：`[Attack]` 的答案**只**来自官方 `Card_Description` EN（123/123 处 = melee），
+    /// 所以计划表里每一条 `[Attack]` 都必须是 `Melee`。出处 →
+    /// `资料/普查产出_1018/AUD_A1771_A1945_可行性.md` §四·4·1 步 3。
+    /// </summary>
+    static List<string> AtkNotMelee(PlanDoc doc)
+    {
+        var badItems = new List<string>();
+        if (doc == null || doc.cards == null) return badItems;
+        foreach (var c in doc.cards)
+        {
+            if (c == null || c.fields == null) continue;
+            foreach (var f in c.fields)
+            {
+                if (f == null || f.items == null) continue;
+                foreach (var it in f.items)
+                    if (it != null && it.token == "[Attack]" && it.sprite != "Melee")
+                        badItems.Add(c.id + "→" + it.sprite);
+            }
+        }
+        return badItems;
+    }
+
+    /// <summary>
+    /// ⑧d 的谓词本体：一段源码里有没有引用**图标计划链**（`CardIcons` / `card_icon_plan`）。
+    /// 纯函数（`工具/ruleprobe/` 那一侧用它证明 `PinnedPlayMd5` **结构上不可能**被 `A1771` 影响）。
+    /// </summary>
+    static bool HasPlanRef(string src)
+    {
+        if (string.IsNullOrEmpty(src)) return false;
+        return src.IndexOf("CardIcons", System.StringComparison.Ordinal) >= 0
+            || src.IndexOf("card_icon_plan", System.StringComparison.Ordinal) >= 0;
+    }
+
+    /// <summary>
     /// ④a 的谓词本体：返回 `"卡id|sprite"` 列表 —— **英文 `desc` 画了、中文 `descZh` 没画**的徽记。
     /// 纯函数（只读传入的 doc），⇒ ④b 能拿同一份函数去跑「改回去」的合成表。
     /// </summary>
@@ -1033,8 +1223,8 @@ public static class IconSetup
             //   为什么：2026-10-15 起 `工具/gen_icon_plan.py` 对**带官方记号**（`[[…]]`/`((…))`/`$$…$$`）的字段
             //   **整字段跳过** —— 那批文本运行时走 `CardIcons.Rewrite` 的 `HasOfficialMarks` 分流、
             //   **根本不查这张计划表**（判据 = `Core/CardIcons.cs:227` / `:448-453`），图标由 `RewriteMarks` 自己画。
-            //   旧判据把「计划表里没有」当成「中文没画」⇒ 现池会报 **769 条假缺口**
-            //   （改动前同池 752 条 —— 两条都是假阳）。
+            //   旧判据把「计划表里没有」当成「中文没画」⇒ 当轮实测会报 **769 条假缺口**
+            //   （改动前同池 752 条 —— 两条都是假阳；⛔ 两个都是**当轮读数**、别当基线）。
             //   ⚠️ **与 `gen_icon_plan.py` 那 4 处自检面同一条口径**（「不是改期望值，是载体不适用」），
             //   出处 = `资料/普查产出_第三十二会话/R5_gen_icon_plan.md`。
             //   ⚠️ `descZh` 本来就空的那种卡也走这一支 —— 那也是对的：`FaceTextFull` 那时回落印 `desc`，
@@ -1126,8 +1316,9 @@ public static class IconSetup
     ///   结构上不可能同时成立（第三个变体挡的是「把常量写成 `KnownZhGaps.Length`」那种自引用写法）。
     ///
     /// ⛔ **别把它改成软告警**（`Log` / `LogWarning`）—— 那就等于退回「只有注释在挡」。
-    /// 🔴 现读（2026-10-10；`A1473` 删掉最后那 1 条之后）：表 **0** 条、
-    ///    `ZhGaps(今天的计划表)` 也正好 **0** 条、**无陈旧条目**。
+    /// 🔴 **口径（`A1451`：不写死读数）**：表 `KnownZhGaps` 必须**恒为空**、且本常量 = **0**，
+    ///    两处由 ④c 一起钉住（改任一处都会红）；`A1473` 删掉最后那 1 条之后就是这个状态。
+    ///    ⛔ 别把「现在 0 条」抄成一条会过期的读数 —— 判据是「表长度 === 本常量」，不是某个历史数字。
     ///    🔵 **变更史（两次兑现，都走「删表项 + 常量一起改」）**：`A1442` 删 14 条 ⇒ `15 → 1`；
     ///    `A1473` 删最后 1 条（`BL19|markOfSlaanesh`）⇒ **`1 → 0`**。
     ///    ⚠️ 表为空**不是**「守卫可以退休」：它照样钉着「⛔ 别往里加」——
@@ -1184,7 +1375,7 @@ public static class IconSetup
     ///   `A1400`（同目录 `W_图标族8词.md` §四 1，`Invulnerable` 那 14 张）—— 它当时自陈「这 19 条今天都在真计划表的 `descZh` 里」。
     ///   ⚠️ 2026-10-15 起 `gen_icon_plan.py` 对**带官方记号**（`[[…]]`/`((…))`/`$$…$$`）的字段**整字段跳过**
     ///   （那批文本运行时走 `CardIcons.RewriteMarks`、**不查本表**）⇒ `descZh` 换代之后一大批卡落进那一支
-    ///   ⇒ 手写那 19 条现读**只剩 5 条**在表里 ⇒ 抽掉那 5 条之外**等于没抽** ⇒ 这条灭自证**退化成空转**。
+    ///   ⇒ 手写那 19 条当时（2026-10-15）实测**只剩 5 条**在表里 ⇒ 抽掉那 5 条之外**等于没抽** ⇒ 这条灭自证**退化成空转**。
     ///   （⚠️ 改动前同池就已经是 5/19，**不是**那次改动引入的。）</para>
     ///
     /// <para>✅ **判据形式没变**：仍是「抽掉 ⇒ ④a 必须每一条都认出来」＋「实际抽掉的条数 == 控制集长度」（前提检查）。

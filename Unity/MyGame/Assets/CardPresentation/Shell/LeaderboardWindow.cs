@@ -653,9 +653,18 @@ namespace CardPresentation
                 bool wired = specs[i].Wired;
                 // 🆕 A17：原版 `Tab Buttons>{RankedSkirmish…}` 是 Toggle，`m_SpriteState` 的**悬停图 = `…_selected`**
                 //（`onSprite` 的 `_hover` 是**选中态**，见 §一；`WindowButton` 那张表里就是这个映射）
-                MenuDraw.Hit(node, "Hit", r, QHit,
+                var tabHit = MenuDraw.Hit(node, "Hit", r, QHit,
                              () => { if (wired) SelectTab(tab); else OnDeadTab(tab); }, bgQ, ArtTabOff,
                              clickCue: WindowSounds.SelectToggleCue);
+                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版 `RankedSkirmish/ClassicLeaderboardPopup`
+                //   的页签是 `EverguildToggle` + **`allowClickWhenAlreadySelected = 0`** ⇒
+                //   再点当前页时连按钮音一起跳过。
+                var tabWb = tabHit != null ? tabHit.GetComponent<WindowButton>() : null;
+                if (tabWb != null)
+                {
+                    tabWb.allowClickWhenAlreadySelected = false;
+                    tabWb.isOn = () => CurrentTab == tab;
+                }
                 TabCount++;
             }
         }

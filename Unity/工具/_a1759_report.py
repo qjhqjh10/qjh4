@@ -13,8 +13,10 @@ import io, json, collections, re
 #   现读同族只有 22）⇒ 本汇总器与仪器读**两份不同的表**，正是「同一件上三套数字并存」的成因。
 #   现在与 `工具/_a1759_reconcile.py` 的 `OUT` **对齐**（账 `A1977`）。
 #   ⚠️ 列下标没变：`E2` 那一列是**追加在最末尾**（index 10）⇒ `r[3]/r[4]/r[5]/r[8]/r[9]` 照旧可用。
-TSV = r'd:/4/Unity/资料/普查产出_第三十会话/A1977_对账_E1E2_1014.tsv'
-TRUTH = r'd:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json'
+TSV = r'd:/4/Unity/资料/普查产出_1018/W5_对账_1019.tsv'
+# 🔴 2026-10-19（波 5 · `A1978` 的另一半）：真值源换成**当前 build**（与仪器同一个口）——
+#   旧 2022 快照与仪器读两份不同的表，正是「同一件上三套数字并存」的成因（`A1977` 的教训）。
+TRUTH = r'd:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json'
 DICT = r'd:/4/Unity/资料/普查产出_第二十七会话/abilityLogic_枚举词典.tsv'
 rows = [l.rstrip('\n').split('\t') for l in io.open(TSV, 'r', encoding='utf-8')][1:]
 D = [l.rstrip('\n').split('\t') for l in io.open(DICT, 'r', encoding='utf-8')]
@@ -22,15 +24,26 @@ TNAME = {int(r[2]): r[3] for r in D[1:] if r[1] == 'trigger' and r[0] == 'CardAb
 ANAME = {int(r[2]): r[3] for r in D[1:] if r[1] == 'chosenAbility' and r[0].startswith('AbilityLogic@')}
 
 trg = {}
-truth = json.load(io.open(TRUTH, 'r', encoding='utf-8'))
+_raw = json.load(io.open(TRUTH, 'r', encoding='utf-8'))
+truth = _raw['cards'] if isinstance(_raw, dict) and 'cards' in _raw else _raw
+# 🔴 `A1978` 的「3 张 `hasActiveAbility = None` 静默按 0 走」：**显式计数并出声**。
+#   当前 build 真值 1,351 张全是 0/1（本计数恒 0）；这段是给「旧快照再被指过来」时看的。
+haa_none = 0
 for c in truth:
     cid = c.get('uniqueId') or ''
     for ai, ab in enumerate(c.get('cardAbilities') or []):
         for li in range(len(ab.get('abilityLogic') or [])):
             trg[(cid, 'a%d' % ai, str(li))] = TNAME.get(ab.get('trigger'), str(ab.get('trigger')))
     aa = c.get('activeAbility') or {}
-    for li in range(len(aa.get('activeAbilityLogic') or [])):
-        trg[(cid, 'ACT', str(li))] = 'Activated'
+    # ⚠️ 与 `_a1759_reconcile.py` 同一道闸（`A1915`）：`hasActiveAbility` 为假/`None` 的卡**不产 ACT 行**。
+    #   原来这里不看这个字段 ⇒ 汇总器会把仪器挡掉的那批 `ACT` 行算进来（两份口径打架）。
+    haa = c.get('hasActiveAbility')
+    if haa is None: haa_none += 1
+    if aa.get('activeAbilityLogic') and haa:
+        for li in range(len(aa.get('activeAbilityLogic') or [])):
+            trg[(cid, 'ACT', str(li))] = 'Activated'
+if haa_none:
+    print('!! `hasActiveAbility` 为 None 的卡 = %d 张（按 0 走、不产 ACT 行 —— `A1978①`）' % haa_none)
 
 print('## 我们缺 by (类型, trigger) 前 20')
 mc = collections.Counter()
@@ -64,7 +77,7 @@ for r in rows:
     if r[3] == 'doDamage' and r[8] == '我们缺': dc[r[0]] += 1
 print('  ', dc.most_common(20))
 
-print('\n## 我们多（全 37 条）')
+print('\n## 我们多（全 %d 条）' % sum(1 for r in rows if r[8] == '我们多'))
 for r in rows:
     if r[8] == '我们多':
         print('   %-10s %-28s %s' % (r[0], r[5][:34], r[6][:70]))

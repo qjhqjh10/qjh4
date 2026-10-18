@@ -599,6 +599,12 @@ namespace CardPresentation
             //    （同 `资料/阶段二_战斗入口_原版规格.md` 开头那条「别按 placement 去猜它挂哪」）。
             win.placement = WindowsPlacement.Popup;
             win.closeOnEsc = true;                       // 实证 closeOnESC=1
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B1）**：原版根 MB（`CardDisplayWindow`，pid **2033**）
+            // `closeSound = PPtr(fileID 6, pid 3524674544779823761)` = cue **`Close Card Display`**
+            // （FX 组）。我们的 `GameWindow.closeSound` 是 `AudioClip`、而 cue 带 `timeToPlayAgain`
+            // 参数 ⇒ 走 `WindowSounds` 那张 cue 表（同 FTUE 开窗音的先例），并**关掉基类默认关窗音**
+            // （否则会多叠一声 `ButtonClick Back` —— 原版只响 `Close Card Display` 这一条）。
+            win.useDefaultCloseSoundIfNull = false;      // 原版字段实读 = 1；1 只在 closeSound 为空时兜底
             win.extraScaleSmallScreen = 1f;
             win.Manager = mgr;
             WindowsManager.AttachToAnchor(win);
@@ -646,7 +652,16 @@ namespace CardPresentation
             LastOpened = this;
         }
 
-        public override void Open() { Build(); }
+        public override void Open()
+        {
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 A1）**：原版 `Card Displayer Menu For Menu` 根 MB
+            // （`CardDisplayWindow : GameWindow`，pid **2033**）`openSound = PPtr(fileID 6,
+            // pid 4006604330728631164)` = cue **`CardExpand`**（clip `CardExpand`，pitch 0.8–1.1）。
+            // 消费点 = 继承来的 `GameWindow.TryOpen`（`SoundManager.Play2D(..., MixerType 0 = FX)`）。
+            // ⚠️ 我们的 `openSound` 是 `AudioClip`、cue 带 pitch 区间与节流 ⇒ 走 `WindowSounds`。
+            WindowSounds.PlayFx(WindowSounds.CardExpandCue, "[CardDetail] `Card Displayer Menu For Menu` 开窗音");
+            Build();
+        }
 
         // ============================================================ 关窗（🆕 2026-10-18 · 账 `N115` · 写手 W19）
         //
@@ -674,6 +689,13 @@ namespace CardPresentation
         public override void Close()
         {
             ResetFanState("Close");
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B1）**：原版关窗音 = cue **`Close Card Display`**
+            //（根 MB pid 2033 的 `closeSound = PPtr(fileID 6, pid 3524674544779823761)`）。
+            // ⚠️ 闸 = `gameObject.activeSelf`：原版 `GameWindow.Close` 首句是
+            //   `!gameObject.activeSelf ⇒ return`（那一刻**不播音**）⇒ 关一扇本来就关着的窗别出声。
+            // ⚠️ 基类那一侧 `useDefaultCloseSoundIfNull` 已在 `Create()` 里置 false（防叠默认音）。
+            if (gameObject.activeSelf)
+                WindowSounds.PlayFx(WindowSounds.CloseCardDisplayCue, "[CardDetail] `Card Displayer Menu For Menu` 关窗音");
             base.Close();
         }
 
@@ -750,8 +772,12 @@ namespace CardPresentation
                           new PxRect(vx, vy, vx + BtnS, vy + BtnS), "Image", QCdRow, null, true);
             // 🆕 A17：原版 `Card Displayer Menu For Menu>…>Voice Over Button` 是 SpriteSwap
             //（高亮 `40k_UI_bt_voicelines_hover`，普查 §块 1 那两条 ❌ 之一）
-            Hit(_voiceBox, "VoiceHit", new PxRect(vx, vy, vx + BtnS, vy + BtnS), () => PlayVoice(), QCdHit,
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C4）**：原版 `Voice Over Button` = 空 cue +
+            // **`useDefaultAudioClipIfNull = 0`** ⇒ **静音**（它只播语音本身）⇒ 关掉按钮音。
+            var voiceHit = Hit(_voiceBox, "VoiceHit", new PxRect(vx, vy, vx + BtnS, vy + BtnS), () => PlayVoice(), QCdHit,
                 voiceQ, "40k_UI_bt_voicelines");
+            var voiceWb = voiceHit != null ? voiceHit.GetComponent<WindowButton>() : null;
+            if (voiceWb != null) voiceWb.playClickSound = false;
             _eyeBox = MenuDraw.Node(lower, "Show Card Text", new PxRect(ex, vy, ex + BtnS, vy + BtnS));
             // 🔴 **2026-10-03 就地更正**：这里**不变**常态图 —— 直接读原版 prefab
             //（`bundle_scenes_scenes_mainmenuwarpforge` → `Card Displayer Menu For Menu`）：
@@ -760,8 +786,12 @@ namespace CardPresentation
             // ⚠️ 别和 **`40k_bt_eye`（88×87，另一张）** 混 —— 那张是 `LiveOpsEventWindow` 卡组四圆钮用的。
             var eyeQ = MenuDraw.Rect(_eyeBox, CardArt.Ui("40k_UI_bt_eye"),
                           new PxRect(ex, vy, ex + BtnS, vy + BtnS), "Image", QCdRow, null, true);
-            Hit(_eyeBox, "ShowTextHit", new PxRect(ex, vy, ex + BtnS, vy + BtnS), ToggleLore, QCdHit,
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C5）**：原版 `Show Card Text`（眼睛）= 空 cue +
+            // **`useDefaultAudioClipIfNull = 0`** ⇒ **静音** ⇒ 关掉按钮音。
+            var eyeHit = Hit(_eyeBox, "ShowTextHit", new PxRect(ex, vy, ex + BtnS, vy + BtnS), ToggleLore, QCdHit,
                 eyeQ, "40k_UI_bt_eye");
+            var eyeWb = eyeHit != null ? eyeHit.GetComponent<WindowButton>() : null;
+            if (eyeWb != null) eyeWb.playClickSound = false;
             RefreshLore();
             RefreshButtons();
             if (CardArt.Ui("40k_UI_bt_voicelines") == null)
@@ -1148,9 +1178,13 @@ namespace CardPresentation
             //      ③ 钮**保持可点外观**（`Interactable` 恒 `true`，⛔ 别按库存变灰 ——
             //      用户要的是「点击但不起作用」，不是「点不动」）。
             //   `DoCraft()` 那套**真扣减机制代码保留**（见该方法），只是**不再从 UI 调**。
-            //   🔴 **同日用户追加（第二次口径）**：「**这个继续保留音效啊**」⇒ 点击**要出按钮音**
-            //      （上一版把它关掉了，已按用户口径改回；`playClickSound` 保持 `true` = 默认按钮音）。
-            var craftHit = Hit(p, "CraftHit", b, () => { OnCraftClicked(); }, QCdHit, craftBg, "UI_Button_Mulligan");
+            //   🔴 **同日用户追加（第二次口径）**：「**这个继续保留音效啊**」⇒ 点击**要出按钮音**。
+            //      🆕 **2026-10-18（音效线缺口 `AUD` §三 B2）**：cue 归真 —— 原版
+            //      `Card Displayer Menu For Menu/Card Options Panel/Panel/Crafting Panel/Content/Craft` 的
+            //      `m_onClickSound = 8549838806721213354` = **`ButtonClick Positive`**（同面板 `Upgrade` 同值）
+            //      ⇒ `clickCue: PositiveCue`（⛔ 不是默认 `ButtonClick`）。
+            var craftHit = Hit(p, "CraftHit", b, () => { OnCraftClicked(); }, QCdHit, craftBg, "UI_Button_Mulligan",
+                              clickCue: WindowSounds.PositiveCue);
             var craftWb = craftHit != null ? craftHit.GetComponent<WindowButton>() : null;
             if (craftWb != null)
             {

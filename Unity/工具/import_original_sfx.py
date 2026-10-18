@@ -115,7 +115,24 @@ EXTRA_CUES = ["Reward open item by item", "CardStartDrag",
               #   第 2 实参 `r9d = 0`；`AudioCue` 资产本身**没有混音组字段**（组只由调用点给）。
               # 判据 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-3133570412519170200.json`
               # 的 `openSound` 字段 + 素材库文件名 `Draft Mode Progress Jingle_-1332049501696130703.json`。
-              "Draft Mode Progress Jingle"]
+              "Draft Mode Progress Jingle",
+              # —— 音效线缺口修复（2026-10-18 · `W_音效线_缺口修复`）——
+              # 判据 → `资料/普查产出_1018/AUD_音效线_完整性复核.md` §三 A1/A2/B1/D：
+              #   · `CardExpand`         —— 场景 `bundle_scenes_scenes_mainmenuwarpforge` 的
+              #     `Card Displayer Menu For Menu` 根 MB（`CardDisplayWindow : GameWindow`，pid **2033**）
+              #     `openSound = PPtr(fileID 6, pid 4006604330728631164)`；消费点 = 继承来的
+              #     `GameWindow.TryOpen`（`SoundManager.Play2D(..., MixerType 0 = FX)`）。
+              #     cue 包装 `bundle_soundcollection_assets_all/MonoBehaviour/CardExpand.json`
+              #     （clip `CardExpand`，pitch 0.8–1.1，vol 1–1，ttp 0.1）。
+              #   · `Close Card Display` —— 同一根 MB 的 `closeSound = PPtr(fileID 6, pid 3524674544779823761)`；
+              #     消费点 = `GameWindow.Close`（`GameWindow__Close.c`）。clip 同名，ttp 0.1。
+              #   · `Division Change`    —— `bundle_menus_assets_all` MB `-4938671765695524530`
+              #     （`RankedEventDivisionChangeWindowNewSystem : GameWindow`，prefab `Ranked Division Change Window`）
+              #     的 `soundOnOpen = PPtr(fileID 6, pid -2236843390636958589)`；消费点 =
+              #     `RankedEventDivisionChangeWindowNewSystem._DoPromoteAnimations_d__22.MoveNext.c:32-33`
+              #     `AudioCue__Play2D(cue, 3)` ⇒ **MixerType 3 = Jingles**（⛔ 不是 FX）。
+              #     clip `Division Increase`，ttp 0.01。
+              "CardExpand", "Close Card Display", "Division Change"]
 
 # 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**
 #   `AnimFXModuleCollisions` 的 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent`

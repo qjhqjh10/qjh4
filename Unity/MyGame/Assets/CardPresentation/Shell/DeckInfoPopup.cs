@@ -1363,9 +1363,14 @@ namespace CardPresentation
             //       `validRect = xMax > xMin && yMax > yMin`（正 padding 能把遮罩算成空）只有「缩」才可能触发。
             //    ⇒ 走公共件 `MenuDraw.PaddedHitRect`（**同一个符号约定，别在这里再抄一遍算式**），
             //      全 0 时它原样返回 ⇒ 对没 padding 的节点零影响。
-            Hit(root, root, "WarlordHit",
+            var warlordHit = Hit(root, root, "WarlordHit",
                 MenuDraw.PaddedHitRect(new PxRect(WarlordL, WarlordT, WarlordR, WarlordB), WarlordPad),
                 OpenWarlordDetail);
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C8）**：原版
+            //   `Deck info Popup/Info Panel/Deck List/Content/Deck Selector Hero Card Info button`
+            //   = 空 cue + **`useDefaultAudioClipIfNull = 0`** ⇒ **静音**（改前我们播默认 `ButtonClick` = 多响）。
+            var warlordWb = warlordHit != null ? warlordHit.GetComponent<WindowButton>() : null;
+            if (warlordWb != null) warlordWb.playClickSound = false;
 
             // 4) `Deck Details`（**跑后真值**，见常量那段的订正）
             //    HLG{align=MiddleLeft} ⇒ 视觉顺序 = 树序：`Game Mode Icon` → `Separator` → `Deck Details`(内层)
@@ -1974,11 +1979,18 @@ namespace CardPresentation
                     //      `SetAutoFitBox` 把 `x2` 压到 ≈22.5px 宽确实收进了 22.87 的框里）。
                     //      修好第 1 条（稀有度 tint ⇒ 行底变暗）之后这颗 `x2` 自然就看得见了。
                     //    ⛔ **不许**为了「让它看见」去把框加宽 —— 22.87 是原版 `m_SizeDelta.x`。
+                    //   🔴 **2026-10-18（`A2133` · 铁律 5 就地补上「高」那一半）**：本颗原版 RT
+                    //     （`-327133057421637208`）的 anchors y = **0.07 → 0.93**（跨度 **0.86**）·
+                    //     `m_SizeDelta.y = 0` ⇒ 框高 = 父行高 **58 × 0.86 = 49.88**（⛔ 不是整行 58）。
+                    //     它是 `Text fill` 的布局子件（`childControlHeight = 1 · childForceExpandHeight = 1`）
+                    //     ⇒ 高由父内高给。改前传整行 58（差 8.12px），自检那条「框高 = 58」是**假绿**。
+                    //     ⚠️ 节点仍居行心（锚跨度中心 = (0.07+0.93)/2 = 0.5），所以只补 `boxH`、不动摆位。
+                    //     判据 → `Editor/CollectionScene.cs` 的 `A2133` 那一段（含 RT 逐字段实读）。
                     {
                         var cntLb = Txt(node.transform, node.transform, "x" + n,
                             x1 + 351.60f - 22.87f, y1, x1 + 351.60f, y1 + RowH, 32f,
                             Align.Right, "Count", QDIText, autoMinPx: 2f, autoMaxPx: 32f, autoBasePx: 36f,
-                            vAlign: Label.VAlign.Midline, face: TmpFont.Face.LatinCardBody);
+                            boxH: 49.88f, vAlign: Label.VAlign.Midline, face: TmpFont.Face.LatinCardBody);
                         if (cntLb != null) cntLb.SetColor(new Color(0.933f, 0.933f, 0.933f, 1f));
                     }
                 // ⑦ **`checkOwnership` 那道闸**（见 `CheckOwnership` 的 doc；本地恒不触发）

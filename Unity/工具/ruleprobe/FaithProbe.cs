@@ -15,7 +15,11 @@ using RuleEngine;
 ///     `PaidCost &gt; 0 &amp;&amp; CostKindOf(PaidKind) == "faith"` 的段。**全池口径**（1126 张、四种卡型都算）。
 ///   · **尺子 Q（探针 ④「付费段」档）** = <see cref="WillRun"/> 腿 B ∪ `Classify` ②：
 ///     **只对 `unit`/`hero`**、段必须**有 `Head:` 冒号**、**冒号后正文解得出 op**、
-///     且 <see cref="CardDef.HandledByOtherLayer"/> **没认领**、且头形状过 `WillRun.IsPaidHead`。
+///     且 <see cref="CardDef.HandledByOtherLayer"/> **没认领**、且**引擎 `<see cref="EffectText.ParseSegment"/>`
+///     给的 `PaidCost &gt; 0`**（= `Classify` ② 的判据）。
+///     🔴 **2026-10-19（`A1681`）就地订正**：这里原来写的是「头形状过 `WillRun.IsPaidHead`」——
+///     **与它自己声称「逐条照抄 `Classify` ②」脱节**：② 早在 `A1593` 就改判引擎的 `PaidCost &gt; 0`
+///     （`IsPaidHead` 只认 `N &lt;货币&gt;:` 那半截、**漏 `Oath N:`**）⇒ 本文件现在与 ② 同源。
 ///
 ///   ⇒ 两把尺子的**分母根本不同**（卡型范围 / 冒号要求 / 解不解得开 / 谁接手）。
 ///     `A1452` 的射程原来写「11 条 / 9 张」用的是**尺子 Q**，而 `E5` 复核 `SOR71` 用的是**尺子 P**
@@ -76,7 +80,11 @@ class FaithProbe
         foreach (var r in P)
         {
             if (LegB(r.C, r.Raw) == null) continue;             // 卡型 / 冒号 / 正文解得开 / 无别层认领 四闸
-            if (!WillRun.IsPaidHead(HeadOf(r.Raw))) continue;   // `Classify` ② 的形状闸
+            // 🔴 `A1681`（2026-10-19）：`Classify` ② 的形状闸 = **引擎 `ParseSegment` 的 `PaidCost > 0`**，
+            //   ⛔ 不是头正则 `IsPaidHead`。`Row.Cost` 就是那一刻 `ParseSegment` 给的 `PaidCost`
+            //   （`Consider` 只收 `Cost > 0 && faith`）⇒ 这一行对 P 恒真，保留它是**自证**：
+            //   将来谁把 P 的准入放宽，这里会立刻收紧回 ② 的口径。
+            if (!(r.Cost > 0)) continue;
             Q.Add(r);
         }
 
@@ -404,9 +412,14 @@ class FaithProbe
                 return "冒号后正文 `" + body0 + "` **主解析器解不出 op** ⇒ 不算「可执行正文段」";
             return "头或正文为空";
         }
-        if (!WillRun.IsPaidHead(HeadOf(seg)))
-            return "头 `" + HeadOf(seg) + "` **不过 `WillRun.IsPaidHead`**"
-                 + "（正则 `^\\d+\\s*[\\[\\(]?\\s*[a-z☀]`）";
+        // 🔴 `A1681`（2026-10-19）：`Classify` ② 的形状闸 = **引擎 `ParseSegment` 的 `PaidCost > 0`**
+        //   （`A1593` 起；⛔ 不是 `WillRun.IsPaidHead` 那条漏 `Oath N:` 的头正则）。
+        //   `Consider` 只把 `PaidCost > 0 && faith` 的段放进 P ⇒ 这一支对 P 恒真；
+        //   这里重算一次当**自证**（将来 P 的准入被放宽时，它会把口径拉回 ②）。
+        var pr = EffectText.ParseSegment(seg);
+        if (pr == null || pr.PaidCost <= 0)
+            return "引擎 `ParseSegment` 给的 `PaidCost` ≤ 0 ⇒ 不过 `Classify` ②"
+                 + "（与 `WillRun.Classify` 同源；`IsPaidHead` 只认 `N <货币>:`、**漏 `Oath N:`**）";
         return "";   // 尺子 Q 也收得到
     }
 

@@ -20,10 +20,15 @@
 // 指向 `Inbox Menu` 根 pid）。**点名 `InboxWindow` 的代码一处都没有** —— 原版是 Addressables 加载 + 虚函数派发。
 //
 // ---- ⚠️ 我们挑的 / 不建的 ----
-//   · **`Reset Button` 不建**：它出厂就 `active`，但**是死的** —— `m_OnClick` 持久调用表**是空的**、
-//     全量反编译里 `DebugReset` **零调用者**、而且 `Open()` 每次把它 `SetActive(false)`（`资料/日常_调用链_三窗.md` §三·B；⚠️ 更正：原来指 `日常_调用链_Inbox.md`，2026-10-10 已并入）。
-//   · **`Message Display` 的正文几件（`Header`/`Message`/`Claim Button`）不建**：它们的内容由**消息对象**驱动，
-//     单机没有消息（而且空态下 `MessageDisplay` 整块是关的）。**框架照建、内容缺就说**（红线：不许静默失败）。
+//   · **`Reset Button`：✅ 2026-10-18 起建壳、并由 `Build()` 末尾 `SetActive(false)` 关着**（照原版运行态）——
+//     它出厂就 `active`，但**是死的** —— `m_OnClick` 持久调用表**是空的**、
+//     全量反编译里 `DebugReset` **零调用者**、而且 `Open()` **首句**把它 `SetActive(false)`（`InboxWindow__Open.c:28-29`；
+//     另见 `资料/日常_调用链_三窗.md` §三·B）。🔴 **2026-10-19（批次 D）就地订正（铁律 5）**：这里原来写「**不建**」，
+//     已过期（实现建了壳并隐藏；`RewardsScene` 那条断言也已改成「建了但关着」）。
+//     ⛔ 别改成 `SetActive(true)` —— 那会多出一颗原版运行时看不到的钮。
+//   · **`Message Display` 的正文几件（`Header`/`Message`）不建**；**`Claim Button` ✅ 2026-10-18 起建壳**
+//     （见 `BuildMessageDisplay`；空态下整块 `Message Display` 是关的 ⇒ 平时看不见）。正文内容由**消息对象**驱动，
+//     单机没有消息。**框架照建、内容缺就说**（红线：不许静默失败）。
 //   · **列表条目（`Message Container`）**：✅ **2026-10-08（A182）建了**（几何/字号/色/对齐逐条照 dump）——
 //     ⚠️ **点击那半仍未做**：原版点条目 = 右侧 `Message Display` 显示正文，而正文那几件没建
 //     ⇒ 命中区上的 `onClick` **如实出声**说「没有画面变化」（⛔ 不挂空 lambda）。
@@ -58,6 +63,20 @@ namespace CardPresentation
         public static readonly PxRect CloseBtn = new PxRect(1785.54f, 33.03f, 1859.92f, 108.63f);
         public static readonly PxRect CloseBg = new PxRect(1793.69f, 41.01f, 1850.55f, 99.13f);
         public static readonly PxRect NoNews = new PxRect(249.66f, 520f, 1670.34f, 600f);
+        // ---- 🆕 **2026-10-18（音效线转来的界面缺口）**：`Reset Button` 与 `Claim Button` 的矩形 ----
+        // 判据 = `工具/menu_dump.py bundle_menus_assets_all "Inbox Menu" --depth 9` 的树（读数逐字抄）：
+        //   · `Inbox Menu/Content/Reset Button`            = **(399,126) 142×71** ⇒ 399..541 / 126..197
+        //   · `…/Reset Button/Button Text`                 = **(407,133) 125×57** ⇒ 407..532 / 133..190（'DEBUG RESET'）
+        //   · `…/Message Display/Content/Scroll View/Viewport/Content/Claim Button`（容器） = **(306,883) 959×216**
+        //   · `…/Claim Button`（里那颗钮）                  = **(663,910) 245×68** ⇒ 663..908 / 910..978
+        //   · `…/Claim Button/Button Text`                 = **(675,917) 221×54** ⇒ 675..896 / 917..971（'Claim'）
+        // ⚠️ 树里 `Viewport` 那几层的框是 **0×0 / 2×0**（布局组跑之前的作者态）——见 `ClaimChain*` 那几个的注释。
+        public static readonly PxRect ResetBtn  = new PxRect(399f, 126f, 541f, 197f);
+        public static readonly PxRect ResetTx   = new PxRect(407f, 133f, 532f, 190f);
+        public static readonly PxRect MdContent = new PxRect(786f, 215f, 1776f, 991f);
+        public static readonly PxRect ClaimBox  = new PxRect(306f, 883f, 1265f, 1099f);
+        public static readonly PxRect ClaimBtn  = new PxRect(663f, 910f, 908f, 978f);
+        public static readonly PxRect ClaimTx   = new PxRect(675f, 917f, 896f, 971f);
 
         public const string ArtRedBg = "UI_Deck_Information_Back";
         public const string ArtDisplayBg = "UI_Deck_Information_submenu_Back";
@@ -311,6 +330,34 @@ namespace CardPresentation
             //   ⚠️ 必须排在**上面那句 `SetWrapping(false)` 之后**（理由同 `TitleLeft`）。
             TitleLeft(mdTitleLb, MdTitle);
             MenuDraw.Rect(_display, Art(ArtScrollbar), MdScrollbar, "Scrollbar Vertical", QContent);
+            // 🔴 **2026-10-18（音效线转来的界面缺口）：`Claim Button` 建壳。**
+            //   原版层级（树实读）：`Message Display ▸ Content ▸ Scroll View ▸ Viewport ▸ Content ▸ Claim Button`（容器）
+            //   ▸ `Claim Button`（钮）▸ `Button Text`（'Claim'）。内容由**消息对象**驱动
+            //   （`MessageDisplay.Initialize(message)` / `InboxWindow.GetCurrentMessage`），单机没有消息
+            //   ⇒ 整块 `Message Display` 空态下是**关着的**（`ApplyEmptyState`）⇒ 这几件建出来也**看不见**。
+            //   `EverguildButton` 原版值（MB `8813341034201514802`）：`m_onClickSound` = pid **8549838806721213354**
+            //   = **`ButtonClick Positive`** · `useDefaultAudioClipIfNull = 1` · `m_OnClick.m_Calls` **空**（动作在代码里）。
+            //   ⚠️ 树里 `Viewport` = **0×0**、`Content` = **2×0**（布局组跑之前的作者态）——
+            //     我们按 `Scroll View` 的框给 `Viewport`、给 `Content` 一个零高（`MsgContent` 的 y1=y2），
+            //     **如实记：这两层的尺寸是「照形状」不是原版数值**（原版运行时由布局组撑）。
+            var mdContent = MenuDraw.Node(_display, "Content", MdContent);
+            var mdScroll = MenuDraw.Node(mdContent, "Scroll View", MdContent);
+            var mdVp = MenuDraw.Node(mdScroll, "Viewport", MdContent);
+            var mdVpContent = MenuDraw.Node(mdVp, "Content",
+                                            new PxRect(MdContent.x1, MdContent.y1, MdContent.x2, MdContent.y1));
+            var claimBox = MenuDraw.Node(mdVpContent, "Claim Button", ClaimBox);
+            var claimBtn = MenuDraw.Node(claimBox, "Claim Button", ClaimBtn);
+            var claimBg = MenuDraw.Nine(claimBtn, Art("UI_Button_Mulligan"), ClaimBtn,
+                                        new Vector4(333f, 96f, 333f, 96f), 410f, 124f, QContent, null, true, "Image");
+            var claimTxt = MenuDraw.Text(claimBtn, ClaimTx, Loc.T("MainMenu/General/Claim"),
+                                         Color.white, "Button Text", 40f, QText,
+                                         ClaimTx.W, 10f, 40f, 12f, face: TmpFont.Face.LatinCardBody);
+            if (claimTxt != null) claimTxt.SetWrapping(false);
+            // 原版 `Button Text` 的 `m_VerticalAlignment = 8192 (Capline)`（TMP 字段实读）
+            if (claimTxt != null) MenuDraw.SetVAlign(claimTxt, Label.VAlign.Capline, ClaimTx);
+            MenuDraw.Hit(claimBtn, "Hit", ClaimBtn, QOverlay, OnClaimClick,
+                         claimBg != null ? claimBg.GetComponentInChildren<ImageQuad>() : null,
+                         "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
 
             // `No News Warning`（空态文案）
             // 🆕 **2026-10-12（A468）**：原版 `auto[12.0~50.0]` · `基准=36.0` · `折行=0`（判据 → `TitleAutoMin`）
@@ -329,6 +376,29 @@ namespace CardPresentation
                 _warn.ForceRelayout();
             }
             ApplyEmptyState();        // 🆕 A182：这条分支原来写在 `Build()` 里，现在收成一份（`Initialize` 也要用）
+
+            // ---- 🔴 **2026-10-18（音效线转来的界面缺口）：`Reset Button` 建壳** ----
+            //   原版：`Inbox Menu/Content/Reset Button`（[399,126] 142×71 · 图 `UI_Button_Mulligan` 九宫 333,96,333,96 ·
+            //   `Button Text` = 字面量 **'DEBUG RESET'**，fs 23.2 · auto[10~40] · base 12 · Center/Capline · 折行 0）。
+            //   `EverguildButton`（MB `7902057683169346354`）：`m_onClickSound` = pid **8549838806721213354**
+            //   = **`ButtonClick Positive`** · `useDefaultAudioClipIfNull = 1` · `m_OnClick.m_Calls` **空**。
+            //   🔴 **它是一颗死钮**（两条独立判据，都现核过）：
+            //     ① `InboxWindow__Open.c` **首句**就是 `resetButton(0x90).SetActive(false)`（字段偏移现读 `dump.cs:129414`）
+            //        ⇒ 运行时**永远不显示**；
+            //     ② `InboxWindow__DebugReset` 全量反编译**零调用者**（`grep -rn DebugReset decomp_full/` 只有它自己）。
+            //   ⇒ 我们照原版的**运行态**建好再藏（⛔ 不激活 —— 那会多出一颗原版看不到的钮），
+            //     命中 + 音先接好（将来原版那条路若要放开，一句 `SetActive(true)` 即可）。
+            var resetGo = MenuDraw.Node(c, "Reset Button", ResetBtn);
+            var resetBg = MenuDraw.Nine(resetGo, Art("UI_Button_Mulligan"), ResetBtn,
+                                        new Vector4(333f, 96f, 333f, 96f), 410f, 124f, QOverlay, null, true, "Image");
+            var resetTx = MenuDraw.Text(resetGo, ResetTx, "DEBUG RESET", Color.white, "Button Text", 23.2f, QText,
+                                        ResetTx.W, 10f, 40f, 12f, face: TmpFont.Face.LatinCardBody);
+            if (resetTx != null) resetTx.SetWrapping(false);
+            if (resetTx != null) MenuDraw.SetVAlign(resetTx, Label.VAlign.Capline, ResetTx);
+            MenuDraw.Hit(resetGo, "Hit", ResetBtn, QOverlay, OnResetClick,
+                         resetBg != null ? resetBg.GetComponentInChildren<ImageQuad>() : null,
+                         "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
+            resetGo.gameObject.SetActive(false);
 
             // 关闭钮
             // 🔴🔴 **2026-10-18（B3）节点名与内容【归位】—— 改前三个名字整体错开一格、是一处真偏离。**
@@ -438,7 +508,7 @@ namespace CardPresentation
                                    + " ⇒ **点它关不了窗**（只能点窗外或 ESC）。");
             }
 
-            // ⚠️ `Reset Button` **不建**（原版是死的，见文件头）
+            // ✅ `Reset Button` 已在本函数前段**建壳并 `SetActive(false)`**（原版运行态；⛔ 不是不建、也不是显示）
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[Inbox] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
@@ -459,6 +529,28 @@ namespace CardPresentation
                           + "`Message List` 的**结构/裁切/滚动照原版建全**（`Viewport` + `RectMask2D` 等效物 "
                           + "(0,25) + `MenuScroll`），只是**没有条目**（单机没有服务端数据源 ⇒ "
                           + "`Content` 与原版 prefab 出厂一样是空的；一旦 `Initialize(messages)` 有数据就照原版铺）");
+        }
+
+        // ============================================================ 🆕 2026-10-18：两颗「原版有、我们刚建」的钮
+
+        /// <summary>`Reset Button` 的点击 —— **原版这颗是死钮**（`m_OnClick.m_Calls` 空 +
+        /// `InboxWindow__DebugReset` 零调用者 + `Open()` 首句就把它 `SetActive(false)`）。
+        /// 我们照原版**不接任何行为**，但**不静默**：点得到的话把「为什么什么都不发生」说出来。</summary>
+        void OnResetClick()
+        {
+            Debug.Log("[Inbox] `Reset Button` 点了 ⇒ **什么都不做**（原版这颗钮：`m_OnClick.m_Calls` 空 · "
+                    + "`InboxWindow__DebugReset` 全量反编译零调用者 · `Open()` 首句 `SetActive(false)` ⇒ "
+                    + "运行时根本不该看得见它；本地也没有 `LiveOpsManager` 的事件可重置）");
+        }
+
+        /// <summary>`Claim Button` 的点击 —— 原版走 `MessageDisplay` 对**当前消息**的领奖
+        /// （`Everguild.LiveOps.MessageDisplay` / `InboxMessage.HasRewards`）。
+        /// 单机**没有任何消息**（`_messages` 恒空、`DailyData.InboxCount` 恒 0）⇒ 没有可领的东西；
+        /// 不静默，如实出声。</summary>
+        void OnClaimClick()
+        {
+            Debug.Log("[Inbox] `Claim Button` 点了 ⇒ **无可领奖励**（原版这一路要 `MessageDisplay` 持有一条"
+                    + "带 `HasRewards` 的消息 + 服务端发奖；单机没有消息源、也没有服务器 —— 照边界③如实说）");
         }
 
         // ============================================================ 消息列表（`Message List`）
@@ -532,8 +624,8 @@ namespace CardPresentation
         /// 的**悬停那一档**，所以它是一条**真的缺漏**（A273）。现在：底图接上悬停换图
         /// （`Bind` 挂在**底图那颗 quad** 上、命中区是另一颗透明 quad，见下），**点击仍如实出声**。
         /// <para>⚠️ **点击这一半仍未做**：原版点条目 = 选中它、右侧 `Message Display` 显示正文 ——
-        /// 而本窗正文那几件（`Header`/`Message`/`Claim Button`）**没建**（服务端数据驱动）⇒
-        /// 这一下**没有画面变化**。按本仓对「没做的功能」的既有做法（先例：主菜单的 `ReplayButton`
+        /// 而本窗正文的 `Header`/`Message` **没建**（服务端数据驱动；`Claim Button` 自 2026-10-18 起已建壳，
+        /// 但没有消息 ⇒ 空态下整块关着）⇒ 这一下**没有画面变化**。按本仓对「没做的功能」的既有做法（先例：主菜单的 `ReplayButton`
         /// = 「点了会**出声说回放没做**」）挂一句 `Debug.LogWarning` —— ⛔ **不挂空 lambda**
         /// （那才是「假件」：点了什么都没发生、也不出声）。</para></summary>
         Transform BuildRow(Transform parent, PxRect row, int idx, Message m)
@@ -565,8 +657,8 @@ namespace CardPresentation
                 AddHit(e, "RowHit", OR(RowBg), QRowHit,
                        () => Debug.LogWarning(
                            "[Inbox] 点了消息条目 `" + (m.Title ?? "") + "` —— 原版这一下 = **选中它**、"
-                           + "右侧 `Message Display` **显示正文**；而正文那几件（`Header`/`Message`/"
-                           + "`Claim Button`）由服务端消息驱动、本机没建 ⇒ **没有画面变化**（如实出声，不静默）。"),
+                           + "右侧 `Message Display` **显示正文**；而正文的 `Header`/`Message` 由服务端消息驱动、"
+                           + "本机没建（`Claim Button` 已建壳、空态下整块关着）⇒ **没有画面变化**（如实出声，不静默）。"),
                        bg, ArtRowBg, ArtRowHover, ArtRowPressed);
             }
             // `bg == null` 有**两种**来路，只有一种要出声：

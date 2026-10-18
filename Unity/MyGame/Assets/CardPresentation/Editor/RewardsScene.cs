@@ -2223,9 +2223,14 @@ public static class RewardsScene
                           "★ …数量 = **300**（`_daily[0].RewardText` 的出厂字面量 · A2070③ 照实拍）");
                     Check(rcA64 != null ? rcA64.OnCollect : null, (System.Action<CampaignData.RewardSpec[]>)null,
                           "…`onCollect` = **null**（原版 `Collect` 那一支传的就是 null ⇒ `Collect Button` 不建）");
-                    // 🆕 2026-10-17（N29）：原版 `Reward Window/Content/Scroll View` = **1.0**
-                    CheckNear(rwA64.Scroll != null ? rwA64.Scroll.NotchPx : -1f, 1f, 0.001f,
-                              "领奖窗：灵敏度 = 原版 `m_ScrollSensitivity` 的 **1.0** px/格（D_N29）");
+                    // 🔴 **2026-10-18（用户拍板）**：领奖窗灵敏度传 **120 px/格 —— 我们挑的、不是原版值**
+                    //   （原版 `Reward Window > Content > Scroll View` 的 `m_ScrollSensitivity` = **1.0**，
+                    //     照抄 = 一格只滚 1px、实际滚不动）。用户 2026-10-18 明确**保留 120**；
+                    //   按铁律 11 记为「**待将来评估的偏离**」（判据 → `D_N29_滚动灵敏度逐视图.md:49` ·
+                    //   `W16_横向滚轮步长.md`；⛔ 别写成原版值）。
+                    CheckNear(rwA64.Scroll != null ? rwA64.Scroll.NotchPx : -1f, 120f, 0.001f,
+                              "领奖窗：灵敏度 = **120** px/格（**我们挑的**；原版 `m_ScrollSensitivity` = 1.0，"
+                            + "2026-10-18 用户拍板保留 120）");
                 }
                 Check(RewardWindowFixture.DismissRewardWindows(), rwA64 != null ? 1 : 0,
                       "★ …而且**关得掉**（关窗后壳从 `Background` 回 `Open` —— 后面每一颗钮才点得到）");
@@ -3452,14 +3457,17 @@ public static class RewardsScene
                 //    去量屏幕位置**（那是偏移 0 时的值，本轮断言被自检自己抓出来过）。改成量这三件事：
                 var ftArmy = forge.GetComponent<ForgeTab>();
                 CheckTrue(ftArmy != null && ftArmy.ArmyScroll != null, "阵营条的滚动区建了（`MenuScroll`）");
-                // 🆕 2026-10-17（N29）：滚轮灵敏度 = 原版 prefab 逐台实读的 `m_ScrollSensitivity`
-                //   （判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`）。⛔ 别断 `DefaultNotchPx`（自证）。
+                // 🔴 **2026-10-18（用户拍板）**：这两台都传 **120 px/格 —— 我们挑的、不是原版值**
+                //   （原版 `Forge Army Selector` / `Rewards Scroll View` 的 `m_ScrollSensitivity` 都是 **1.0**，
+                //     照抄 = 一格只滚 1px、实际滚不动）。用户 2026-10-18 明确**保留 120**；
+                //   按铁律 11 记为「**待将来评估的偏离**」（判据 → `D_N29_滚动灵敏度逐视图.md:48` ·
+                //   `W16_横向滚轮步长.md`；⛔ 别断 `DefaultNotchPx`（自证）、也别写成原版值）。
                 if (ftArmy != null)
                 {
-                    CheckNear(ftArmy.ArmyScroll != null ? ftArmy.ArmyScroll.NotchPx : -1f, 1f, 0.001f,
-                              "锻造页·阵营条：灵敏度 = 原版 `Forge Army Selector` 的 **1.0** px/格");
-                    CheckNear(ftArmy.TrackScroll != null ? ftArmy.TrackScroll.NotchPx : -1f, 1f, 0.001f,
-                              "锻造页·奖励轨道：灵敏度 = 原版 `Rewards Scroll View` 的 **1.0** px/格");
+                    CheckNear(ftArmy.ArmyScroll != null ? ftArmy.ArmyScroll.NotchPx : -1f, 120f, 0.001f,
+                              "锻造页·阵营条：灵敏度 = **120** px/格（**我们挑的**；原版 `Forge Army Selector` = 1.0）");
+                    CheckNear(ftArmy.TrackScroll != null ? ftArmy.TrackScroll.NotchPx : -1f, 120f, 0.001f,
+                              "锻造页·奖励轨道：灵敏度 = **120** px/格（**我们挑的**；原版 `Rewards Scroll View` = 1.0）");
                 }
                 CheckTrue(n >= 8, $"`Army Content` 下建了 **{n} 条**（≈ 视口里放得下的那些；越界的不建）");
                 var selNow = FindChild(fArmy, "ForgeArmyItem_1");
@@ -5242,13 +5250,17 @@ public static class RewardsScene
                           "`Army Content` 的中心 x = **选择条中心 1333.13**（745.92..1920.34）");
                 var ctab = camp.GetComponent<CampaignTab>();
                 CheckTrue(ctab != null && ctab.ArmyScroll != null, "战役页阵营条的滚动区建了（与锻造页共用 `MenuScroll`）");
-                // 🆕 2026-10-17（N29）：原版 `Campaign Army Selector` / `Campaign Track` 都是 **1.0**
+                // 🔴 **2026-10-18（用户拍板）**：这两台都传 **120 px/格 —— 我们挑的、不是原版值**
+                //   （原版 `Campaign Army Selector` / `Campaign Track` 的 `m_ScrollSensitivity` 都是 **1.0**，
+                //     照抄 = 一格只滚 1px、实际滚不动）。用户 2026-10-18 明确**保留 120**；
+                //   按铁律 11 记为「**待将来评估的偏离**」（判据 → `D_N29_滚动灵敏度逐视图.md:47` ·
+                //   `W16_横向滚轮步长.md`；⛔ 别写成原版值）。
                 if (ctab != null)
                 {
-                    CheckNear(ctab.ArmyScroll != null ? ctab.ArmyScroll.NotchPx : -1f, 1f, 0.001f,
-                              "战役页·阵营条：灵敏度 = 原版 `Campaign Army Selector` 的 **1.0** px/格（D_N29）");
-                    CheckNear(ctab.TrackScroll != null ? ctab.TrackScroll.NotchPx : -1f, 1f, 0.001f,
-                              "战役页·轨迹：灵敏度 = 原版 `Campaign Track` 的 **1.0** px/格（D_N29）");
+                    CheckNear(ctab.ArmyScroll != null ? ctab.ArmyScroll.NotchPx : -1f, 120f, 0.001f,
+                              "战役页·阵营条：灵敏度 = **120** px/格（**我们挑的**；原版 `Campaign Army Selector` = 1.0）");
+                    CheckNear(ctab.TrackScroll != null ? ctab.TrackScroll.NotchPx : -1f, 120f, 0.001f,
+                              "战役页·轨迹：灵敏度 = **120** px/格（**我们挑的**；原版 `Campaign Track` = 1.0）");
                 }
                 if (ctab != null && ctab.ArmyScroll != null)
                 {
@@ -9931,8 +9943,14 @@ public static class RewardsScene
                   "**0 子件**的是 `Viewport` 底下那颗 `Content`（原版出厂就是 0 ——"
                   + " `menu_dump.py … Inbox Menu --depth 6` 里 `Content` 那一行底下一条都没有；"
                   + "条目由服务端事件数据决定）");
-        CheckTrue(FindChild(inbox.transform, "Reset Button") == null,
-                  "**不建** `Reset Button`（原版 `m_OnClick` 空 + `DebugReset` 零调用者 + `Open()` 每次关它）");
+        // 🔴 **2026-10-19（批次 D · 红 #6）**：旧断言「**不建** `Reset Button`」已过期 —— 本批**照原版 prefab 建了壳**，
+        //   并由 `Shell/InboxWindow.cs:396` 立即 `SetActive(false)`（判据 = 原版 `InboxWindow__Open.c:28-29` **首句**就关它）。
+        //   `MenuCheck.FindChild` 走 `GetComponentsInChildren<Transform>(true)` ⇒ **关着的也找得到**，所以旧断言变红。
+        //   原版运行时这节点**在树里、只是不显示** ⇒ 断言改成「**建了但关着**」（⛔ 不是删钮、也不是建了不关）。
+        var resetBtnRewards = FindChild(inbox.transform, "Reset Button");
+        CheckTrue(resetBtnRewards != null && !resetBtnRewards.gameObject.activeSelf,
+                  "`Reset Button` **按原版建好、且由 Open() 那一档关着**（死钮：`m_OnClick` 空 + `DebugReset` 零调用者）"
+                + " —— 改坏法：① 不建 ⇒ 红；② `SetActive(true)` ⇒ 多出一颗原版运行时看不到的钮 ⇒ 红");
         Check(inbox.MissingArt.Count, 0, "收件箱没有取不到的图");
         CheckHoverSwap(inbox.transform, "收件箱");
         // ============================================================ 🆕 **2026-10-12（A352）**

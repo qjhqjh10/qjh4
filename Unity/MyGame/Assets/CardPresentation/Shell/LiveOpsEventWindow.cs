@@ -579,8 +579,11 @@ namespace CardPresentation
                           Loc.T("MainMenu/Ranked/GoToCreateDeck"),
                           Color.white, "Button Text", 55f, QText, face: TmpFont.Face.LatinCardBody);      // 原版 hAlign = Center ⇒ 不调 Align*
             // 🆕 A17：原版 `Ranked Deck Selection>No Deck Text>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 4 第 16 行）
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B10）**：原版
+            //   `RankedEventWindowV2/Ranked Deck Selection/No Deck Text/Generic Simplified UI Button`（`SkirmishModeEventWindow`
+            //   同名节点同 cue）= **`ButtonClick Positive`** ⇒ 补 `clickCue`（改前不传 = 默认 `ButtonClick`）。
             MenuDraw.Hit(none, "CreateDeckHit", new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB), QHit,
-                         CreateDeckInMode, cbtnBg, ArtMulligan);
+                         CreateDeckInMode, cbtnBg, ArtMulligan, clickCue: WindowSounds.PositiveCue);
             none.gameObject.SetActive(!hasDeck);
         }
 
@@ -801,9 +804,18 @@ namespace CardPresentation
                 //    也由那颗 `Viewport` 节点给（`MenuDraw.Hit` 内部 `Resolve`）。⚠️ 软边**故意不传**
                 //    （`Hit` 也不收这个形参）：原版 `m_Softness` 只改渲染，射线那一面只看矩形。
                 int idx = i;
-                MenuDraw.Hit(cell, "Hit", rr, QHit, () => PickArmy(idx), bgQ,
+                // 🆕 **2026-10-18（主对话裁定 · 按原版订正）**：原版 `Ranked Army Selector Container V2`
+                //   是 `EverguildToggle` + **`allowClickWhenAlreadySelected = 0`** ⇒ 已选中再点 = 什么都不做
+                //   （连按钮音一起跳过；我们原来「再点 = 取消筛选」的语义已删，见 `PickArmy`）。
+                var armyHit = MenuDraw.Hit(cell, "Hit", rr, QHit, () => PickArmy(idx), bgQ,
                              sel ? ArtArmyOn : ArtArmyBack, ArtArmyHover, ArtArmyOn, null,
                              clickCue: WindowSounds.SelectAvatarCue);
+                var armyWb = armyHit != null ? armyHit.GetComponent<WindowButton>() : null;
+                if (armyWb != null)
+                {
+                    armyWb.allowClickWhenAlreadySelected = false;
+                    armyWb.isOn = () => ArmyIndex == idx;
+                }
                 ArmyCells.Add(cell);
             }
             if (!_armyDataNoteShown)
@@ -1236,7 +1248,16 @@ namespace CardPresentation
         // ============================================================ 交互
         void PickArmy(int i)
         {
-            ArmyIndex = (ArmyIndex == i) ? -1 : i;
+            // 🔴 **2026-10-18（主对话裁定 · 按原版 `allowClickWhenAlreadySelected = 0` 订正）**：
+            //   原版 `Ranked Army Selector Container V2` 已选中再点 = **什么都不做**（不播音、不取消筛选）。
+            //   改前这里是 `ArmyIndex = (ArmyIndex == i) ? -1 : i`（「再点一次 = 取消筛选」）——
+            //   那是**我们自设计的语义**，已删。同格再点现在由命中件的
+            //   `allowClickWhenAlreadySelected = false` 守卫挡在派发之前（连声音一起，见 `BuildArmySelector`）。
+            //   ⚠️ 「不限」仍然是**开窗初值**（`Open()` 里 `ArmyIndex = -1`）；原版 prefab 里
+            //   **没有**单独的清除/All 入口（本轮 `menu_dump` 现读 `SkirmishModeEventWindow` 整棵树：
+            //   `Army Selector` 下只有 `Factions Title` + `Army Content`（ToggleGroup + GridLayoutGroup），
+            //   没有任何 Clear/Reset/All 节点）⇒ **不自己补一个入口**。
+            ArmyIndex = i;
             // 选了阵营 ⇒ 跳到该阵营的第一套（没选 ⇒ 保持）
             // 🆕 2026-09-26：**外加「模式要对」** —— 否则会跳进一套不能用的牌（下了阵营筛选反而更糟）
             if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count)

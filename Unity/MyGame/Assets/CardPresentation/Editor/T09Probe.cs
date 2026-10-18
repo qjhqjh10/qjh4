@@ -88,5 +88,44 @@ public static class T09Probe
             }
             UnityEngine.Debug.Log($"[T09] B pass{pass}: n={n} total={total:F1} ms · avg={(n > 0 ? total / n : 0):F2} ms · max={max:F1} ms ({maxId})");
         }
+
+        // ---------- 阶段 C（2026-10-18 补）：把 `ToCardData` 按【三段】拆开量 ----------
+        // 为什么要拆：`N79` 已把主因 `CardDatabase.Load` 缓存掉，但 `ToCardData` 里还有三条**重腿**
+        //   —— ① `CardText.Name`（本地化键查表）② `FaceTextFull`（卡面正文 + 图标改写）
+        //   ③ `ArtKey`（立绘键）—— 真机上到底哪条还贵，只有分开量才知道。
+        // ⚠️ **纯插桩**：三段的调用次序/实参与 `ToCardData` 内部逐字相同（同一份判据：`Battle/BattleDriver.cs:14113-14134`），
+        //   ⛔ 不改任何行为；这里**不**重写 `ToCardData` 本身（那会造出第二份逻辑）。
+        //   「三段之和」与上面 B 的「整段」之差 = 没被这三条覆盖的标量读取（应为 0 附近）。
+        {
+            double sName = 0, sFace = 0, sArt = 0, sAll = 0, mxName = 0, mxFace = 0, mxArt = 0;
+            string mxNameId = "", mxFaceId = "", mxArtId = "";
+            int n = 0;
+            foreach (var c in pool)
+            {
+                var swS = Stopwatch.StartNew();
+                CardPresentation.CardText.Name(c);
+                double d1 = swS.Elapsed.TotalMilliseconds;
+                swS.Restart();
+                CardPresentation.BattleDriver.FaceTextFull(c);
+                double d2 = swS.Elapsed.TotalMilliseconds;
+                swS.Restart();
+                CardPresentation.BattleDriver.ArtKey(c);
+                double d3 = swS.Elapsed.TotalMilliseconds;
+                swS.Restart();
+                CardPresentation.BattleDriver.ToCardData(c, c.Faction);
+                double dAll = swS.Elapsed.TotalMilliseconds;
+                sName += d1; sFace += d2; sArt += d3; sAll += dAll;
+                if (d1 > mxName) { mxName = d1; mxNameId = c.Id; }
+                if (d2 > mxFace) { mxFace = d2; mxFaceId = c.Id; }
+                if (d3 > mxArt) { mxArt = d3; mxArtId = c.Id; }
+                n++;
+                if (n >= 100) break;
+            }
+            UnityEngine.Debug.Log($"[T09] C n={n} · ToCardData(整段) total={sAll:F1} ms");
+            UnityEngine.Debug.Log($"[T09] C ① Name            total={sName:F1} ms · avg={(n > 0 ? sName / n : 0):F3} · max={mxName:F2} ({mxNameId})");
+            UnityEngine.Debug.Log($"[T09] C ② FaceTextFull    total={sFace:F1} ms · avg={(n > 0 ? sFace / n : 0):F3} · max={mxFace:F2} ({mxFaceId})");
+            UnityEngine.Debug.Log($"[T09] C ③ ArtKey          total={sArt:F1} ms · avg={(n > 0 ? sArt / n : 0):F3} · max={mxArt:F2} ({mxArtId})");
+            UnityEngine.Debug.Log($"[T09] C 三段之和={sName + sFace + sArt:F1} ms · 未归因(整段−三段)={sAll - (sName + sFace + sArt):F1} ms");
+        }
     }
 }

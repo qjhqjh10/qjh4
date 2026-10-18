@@ -807,13 +807,25 @@ namespace CardPresentation
         /// <summary>万能卡计数条那 4 个数字（筛选变了要重算）。⚠️ 语义**与原生不同** —— 见 `项目任务.md` §三 第 15 条 第 29 项。</summary>
         readonly Label[] _wcCount = new Label[4];
 
-        /// <summary>Cards 页的筛选状态（**复用卡组编辑那套** `DeckEditorState.Filter` —— 别写第二套）。</summary>
+        /// <summary>Cards 页的筛选状态（**复用卡组编辑那套** `DeckEditorState.Filter` —— 别写第二套）。
+        /// 🔴 **2026-10-18（卡池排序与显隐）**：这一份要两个开关，**卡组编辑那条路不跟着变**（它自带同一条显示闸）：
+        /// · <see cref="DeckEditorState.ShowInCollectionOnly"/> = `true` ⇒ 套原版
+        ///   `CardCollectionTab__c__GetCollection_b__8_0.c:19-30` 的 `showInCollectionOptions != Hide(0)`
+        ///   —— 剔掉 **122 张 `show=0`**（92 天赋 + 30 `Z-NC`）；
+        /// · <see cref="DeckEditorState.SortByInventoryOptions"/> = `true` ⇒ 排序多夹一层 `inventoryOptions`
+        ///   （`CardCollectionTab__GetCollection.c:99`；卡组编辑卡池没有这一层）。
+        /// ⛔ 别把这两条写进 `DeckEditorState` 的默认值 —— 纯逻辑用例要「不设筛选命中全部」。</summary>
         static DeckEditorState _cardsState;
         public static DeckEditorState CardsState
         {
             get
             {
-                if (_cardsState == null) _cardsState = new DeckEditorState(CardDatabase.Load());
+                if (_cardsState == null)
+                {
+                    _cardsState = new DeckEditorState(CardDatabase.Load());
+                    _cardsState.ShowInCollectionOnly = true;
+                    _cardsState.SortByInventoryOptions = true;
+                }
                 return _cardsState;
             }
         }
@@ -3924,6 +3936,22 @@ namespace CardPresentation
             {
                 Debug.LogWarning("[Collection] 没有 `WindowsManager`，开不了卡片详情窗");
                 return null;
+            }
+            // 🔴 **2026-10-18（`N116`）：这里每开一次都新建一扇，而 `Close()` 只做「置灰 + 摘表」**
+            //   —— 旧的那扇**从不销毁** ⇒ 连续开关 N 次 = 场上 N 具残骸（原版 `CloseWindowCO` 的收尾是
+            //   **Hide → `List.Remove` → `Destroy` + 释放**，判据 → `d:/2/tools/decomp_full/WindowsManager__CloseWindowCO.c`，
+            //   另见 `Shell/GameWindow.cs` 的 `Close()` 里 A1709 那段逐句注释；我们这条链的「Destroy」没人做）。
+            //   ⇒ 在**新建之前**把上一扇收掉：先 `Close()`（走记账：摘表 + `ShowPreviousWindow`；
+            //   已经 `Closed` 的会按原版 `GameWindow.Close` 首句早退、**不再重复记账**），再 `DestroySafe`
+            //   （批处理下没有帧循环 ⇒ 必须 `DestroyImmediate`，`MainMenuSubmenuWindow.DestroySafe` 就是那口）。
+            //   ⇒ 任意次开关之后，场上最多剩 **1 扇**（最后那扇、按原版保留「关掉后只是不显示」那一态）。
+            //   ⛔ 别改成「复用单实例」：`CardDetailPopup` 还有别的宿主（`DeckInfoPopup.OpenWarlordDetail` /
+            //   `BoosterPackOpenWindow` / 战斗侧），它们的生命周期不归本文件管 —— 这里只收拾**本文件开的**那扇。
+            if (LastCardDetail != null)
+            {
+                if (LastCardDetail.CurrentState != WindowState.Closed) LastCardDetail.Close();
+                DestroySafe(LastCardDetail.gameObject);
+                LastCardDetail = null;
             }
             var w = CardDetailPopup.Create(Manager);
             Manager.OpenWindow(w);

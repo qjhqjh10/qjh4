@@ -23,6 +23,7 @@
 // 🔴 **两个记账口**（本仓铁律）：本文件里凡**改棋盘 / 直接调 `RuleCore.*`** 的，**都是夹具直调**，
 //    不是走 `BattleDriver.LocalAct` / `SimpleAI.ExecuteAction` 那两个记账口 ⇒ **不会被录进本地录像**。
 //    本批全程如此（这是断言不是对局），不逐条重复标注。
+using System.Collections.Generic;
 using RuleEngine;
 
 public static partial class RuleEngineTest
@@ -398,6 +399,188 @@ public static partial class RuleEngineTest
                 + "（或把 `OpenDropPod` 的返回值固定成 `true`）⇒ 本行实得 **9**"
                 + "（一个「只带 landing」的单位会永远打不出伤害 —— 原版没有这条）" + LogTail(ctx, 4));
         }
+    }
+
+    // ==================================================================
+    //  🆕 波 1（2026-10-19）：`RuleEngine/Core` 小改那一批的回归点
+    //  `A1426`（DoGive 的在场上判据）· `T01 §六·6`（护甲两种表示）·
+    //  `A1692`（DeployFree 不覆盖）· `A1690`（When 正文的相邻锚点）
+    //
+    //  ⚠️ 期望值的判据（逐条写在断言文案里）：
+    //   · `A1426` → `资料/普查产出_第二十五会话/R1_引擎判据收集.md` §`A1426`；
+    //   · 护甲 → `A2015` 那一条（`EffectResolver.ApplyOneGain` 的 `case "armour"`）；
+    //   · `A1692` → `T02` §二（**原版没有这一档**，这一闸是补我们表示法的洞）；
+    //   · `A1690` → `T02` §二（`AbilityLogic__GetTargets.c:1001/:1046`：100 = Self · 110 = 事件宾语）。
+    // ==================================================================
+
+    /// <summary>
+    /// **`A1426`**：`Sacrifice:` / `Backlash:` 触发那一刻单位 `Health <= 0` 但**还在场上**
+    /// （`cardState` 仍是 `2 inPlay`）⇒ 原版会加、我们改前静默丢掉。
+    /// 🔴 判别式：**不是「删闸」** —— 已经离场的（`{5,6,11}`）仍然不许给；
+    ///    `Give +N Health` 会因为这条复活尸体的话就是歪路。
+    /// </summary>
+    static void TestS23ResolveA1426GiveToDyingOnBoard()
+    {
+        var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctx, 2);
+        int p = ctx.Active;
+        var u = Place(ctx, p, 3, Unit("S23R_DYING", 1, 1, 5));
+        u.Health = -1;                      // 死了、但还没来得及离场（Sacrifice 那一刻的形状）
+
+        var ops = EffectText.Parse("Gain +1 Attack", out _, out _);
+        List<string> un;
+        int n = RuleCore.ResolveOps(ctx, p, u, ops, null, out un);
+        Check(n, 1, "（前提）无主语 `Gain +1 Attack` 结算了一条");
+        Check(u.Attack, 2,
+              "★★ `A1426`：**血 ≤ 0、但还在场上**的施放者拿到 +1（改前 `DoGive` 的 `!IsAlive` 把它丢掉）"
+            + "｜🧨 把 `DoGive` 的判据改回 `!t.IsAlive` ⇒ 本行实得 1" + LogTail(ctx, 4));
+
+        // 🧨 反例（判别式的另一半）：**已经不在棋盘上**的（`cardState = 5/6/11`）不许给 ——
+        //    放开成「只要对象存在」会让 `Give +N Health` 复活墓地里的牌。
+        var gone = new UnitState(ctx.NewInstance(Unit("S23R_GONE", 1, 1, 5)), false);
+        gone.Health = -1;
+        var ops2 = EffectText.Parse("Gain +1 Attack", out _, out _);
+        RuleCore.ResolveOps(ctx, p, gone, ops2, null, out un);
+        Check(gone.Attack, 1,
+              "★★ 灭自证：**不在任何棋盘上**的施放者拿不到（原版 `cardState ∈ {5,6,11} ⇒ return 0`）"
+            + "｜🧨 把判据换成 `Health > 0 || 对象非空` ⇒ 本行实得 2（= 复活一条歪路）");
+    }
+
+    /// <summary>
+    /// **`T01 §六·6`**：护甲只有**一份判据**（`_keywords["armour"]`），`Armor` 字段必须跟它逐值相等。
+    /// 三处写点：`AddKeyword`（本来就同步）· `RemoveKeyword`（改前**不同步**）·
+    /// `ApplyGrant`（黑暗契约 / 光环的授甲路，改前**只写字段**）。
+    /// </summary>
+    static void TestS23ResolveArmourTwoRepresentations()
+    {
+        var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctx, 2);
+        var u = Place(ctx, ctx.Active, 3, Unit("S23R_ARMOUR", 1, 1, 5));
+
+        u.AddKeyword(KeywordTable.Armour, 2);
+        Check(u.Armor, 2, "（前提）`AddKeyword(armour,2)` ⇒ `Armor` = 2");
+        u.RemoveKeyword(KeywordTable.Armour, 1);
+        Check(u.KwValue(KeywordTable.Armour), 1,
+              "★ `A1426` 同族：`RemoveKeyword(armour,1)` 后关键词还剩 1");
+        Check(u.Armor, 1,
+              "★★ `T01 §六·6`②：**减一层也要同步 `Armor`**（改前它停在 2 —— 减伤照旧按 2 算）"
+            + "｜🧨 把 `RemoveKeyword` 的同步那一句删掉 ⇒ 本行实得 2");
+
+        u.RecordGrant("armour", 3, "S23R_PACT");
+        Check(u.KwValue(KeywordTable.Armour), 4, "（前提）黑暗契约授甲：关键词 1 → 4");
+        Check(u.Armor, 4,
+              "★★ `T01 §六·6`①：`ApplyGrant` 的 `case \"armour\"` 也要同步关键词（改前关键词仍是 1）"
+            + "｜🧨 把那个 case 改回裸写 `Armor` ⇒ 本行实得 4 但 `KwValue` 仍是 1（下一行会红）");
+        u.RevertGrantsFrom("S23R_PACT");
+        Check(u.Armor, 1, "★ 整份收回：`Armor` 回到 1");
+        Check(u.KwValue(KeywordTable.Armour), 1, "★ 整份收回：关键词也回到 1（两边逐值相等）");
+    }
+
+    /// <summary>
+    /// **`A1692`**：`DeployFree` 的目标格被占时**不许静默覆盖**。
+    /// 🔴 原版**没有这一档**（两侧是连续 `List`，`GetNextSlotWithoutDisplacing` 不做占用检查）
+    /// ⇒ 这一闸是**补我们定长数组表示法的洞**，⛔ 别写成「照原版」。
+    /// </summary>
+    static void TestS23ResolveA1692DeployFreeNoOverwrite()
+    {
+        var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctx, 2);
+        int p = ctx.Active;
+        // 造「有洞」局面：右侧只有 **6 号格**（右 index 1）有人、5 号格空着；
+        // 左侧 3 号格有人（让两侧人数打平 ⇒ `NextWithoutDisplacing` 选右）。
+        var hole = Place(ctx, p, 6, Unit("S23R_HOLE", 1, 1, 5));
+        Place(ctx, p, 3, Unit("S23R_LEFT", 1, 1, 5));
+
+        int slot;
+        int logFrom = ctx.Events.Count;
+        bool ok = RuleCore.DeployFree(ctx, p, Unit("S23R_SUMMON", 1, 1, 5), out slot);
+        string logs = S23RTail(ctx, logFrom);
+        CheckTrue(ok, "（前提）免费部署成功（该侧还有空格）" + logs);
+        Check(slot, 8,
+              "★★ `A1692`：目标格 6 被占 ⇒ **换到该侧最外的空格 8**"
+            + "｜🧨 删掉 `DeployFree` 里那道 `ps.Board[dst] != null` 闸 ⇒ 本行实得 6" + logs);
+        CheckTrue(Board(ctx, p, 6) == hole && hole.Name == "S23R_HOLE",
+                  "★★ 灭自证：原来那一格的人**还在**（没有被覆盖、没有换对象）" + logs);
+        CheckTrue(HasLog(ctx, "不覆盖"),
+                  "★ 而且**出声**（本仓红线：不许静默失败）" + logs);
+    }
+
+    /// <summary>
+    /// **`A1690`**：`When …` 正文里裸写的 `adjacent` 锚点。
+    /// 判据 = `AbilityLogic__GetTargets.c:1001`（100 → 相对 `thisCard`）/ `:1046`（110 → 事件宾语）。
+    /// 🔴 **两层口径要分清**：事件层（真正执行的那批 op）现在定得下来；
+    ///    而 `IsFullyParsed(整条 desc)` 的**覆盖率层**仍要把没被事件层认领的 `When … adjacent …`
+    ///    判成半懂（`F1` 的回归点）—— 它故意不是同一个答案。
+    /// </summary>
+    static void TestS23ResolveA1690WhenBodyAdjacentAnchor()
+    {
+        // ① 事件**不带宾语** ⇒ 原版 100 = Self
+        var noObj = new CardDef("S23R_WHEN", "S23R When", "unit",
+                                "When a friendly troop dies, give +1 Attack to an adjacent friendly troop",
+                                "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+        S23RAnchorCheck(noObj, AdjacentAnchor.Self,
+            "★★ `A1690`：事件不带宾语 ⇒ 裸 `adjacent` 锚 = **Self**（原版 `adjacentToSelfIfMeetsCriteria = 100`）"
+          + "｜🧨 删掉 `FillAdjacentAnchors` 的 `whenBody` 分支 ⇒ 锚点退回 `Unset`（本行红）");
+        CheckTrue(!EffectText.IsFullyParsed(noObj.Desc),
+                  "★★ 覆盖率层**仍判半懂**（`F1` 的回归点：没被事件层接管的那句不冒充干净）"
+                + "｜🧨 顺手把 ⑤ 那一支也删掉 ⇒ 本行红");
+
+        // ② 事件**带宾语** ⇒ 原版 110 = 事件宾语（`Long Fang` 的同族形状）
+        var withObj = new CardDef("S23R_WHEN2", "S23R When2", "unit",
+                                  "When this unit attacks an enemy with Hunt Mark, deal 3 damage to adjacent enemies",
+                                  "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+        S23RAnchorCheck(withObj, AdjacentAnchor.TargetIfMeetsCriteria,
+            "★★ `A1690`：事件带宾语 ⇒ 裸 `adjacent` 锚 = **TargetIfMeetsCriteria**（110）");
+    }
+
+    /// <summary>取这张卡**事件层那批 op** 里第一个相邻锚点，断言它的 `<see cref="AdjacentAnchor"/>`。</summary>
+    static void S23RAnchorCheck(CardDef card, AdjacentAnchor want, string msg)
+    {
+        CheckTrue(card.WhenTriggers != null && card.WhenTriggers.Count > 0,
+                  "（前提）事件层收下了这张卡的监听器：" + card.Desc);
+        EffectTargetSpec spec = null;
+        if (card.WhenTriggers != null)
+            foreach (var t in card.WhenTriggers)
+                if (t.Ops != null)
+                    foreach (var o in t.Ops)
+                        if (o.Target != null && o.Target.Adjacent) spec = o.Target;
+        CheckTrue(spec != null, "（前提）正文里解出了一个裸 `adjacent` 目标：" + card.Desc);
+        Check(spec == null ? AdjacentAnchor.Unset : spec.Anchor, want, msg);
+    }
+
+    /// <summary>
+    /// **`A1312`（残半）**：`ApplyDeployTurnState` 的两个位要**跟着 `+0x58` 走**。
+    /// 判据 = `CardScript__ActivateMinion.c:14-42`（`canAct = canAttack = !displaySummonSickness`）＋
+    /// `EntityScript__get_displaySummonSickness.c`（`+0x58 && !fast && !flank`）＋
+    /// `ActivateTraitsOnSummonOrEnchantment.c:86-99`（`ferocity`/`oath` 只抬 `canAct`）。
+    /// ⚠️ 今天**没有调用点传 `keepStatus = true`** ⇒ 本格是「形状补齐」的护栏，不是现有行为变化。
+    /// </summary>
+    static void TestS23ResolveA1312KeepStatusTurnState()
+    {
+        var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctx, 2);
+
+        // ① `keepStatus = false`（今天所有调用点）⇒ 召唤病真 ⇒ 两位都是「不能」
+        var sick = new UnitState(ctx.NewInstance(Unit("S23R_SICK", 1, 1, 5)), false);
+        RuleCore.ApplyDeployTurnState(sick, false);
+        CheckTrue(sick.SummonSickness && sick.Exhausted && sick.CannotAttackThisTurn,
+                  "★ `keepStatus=false`：召唤病真 ⇒ `Exhausted` / `CannotAttackThisTurn` 都是真（老行为）");
+
+        // ② `keepStatus = true` 且 `+0x58` 保持假 ⇒ 原版 `canAct = canAttack = true`
+        var keep = new UnitState(ctx.NewInstance(Unit("S23R_KEEP", 1, 1, 5)), false);
+        RuleCore.ApplyDeployTurnState(keep, true);
+        CheckTrue(!keep.SummonSickness && !keep.Exhausted && !keep.CannotAttackThisTurn,
+                  "★★ `A1312`：`keepStatus=true` 且 `+0x58` 为假 ⇒ **两位都是假**（改前仍按关键词谓词写成真）"
+                + "｜🧨 把那两句改回 `!HasDeployExemption` / `!HasAttackDeployExemption` ⇒ 本行实得真");
+
+        // ③ `ferocity` 只抬 `canAct`（`Exhausted` 假）、`canAttack` 不动（真）
+        var fer = new UnitState(ctx.NewInstance(
+            new CardDef("S23R_FER", "S23R Fer", "unit", "", "common", "Test", 1, 1, 5, 0,
+                        new[] { "Ferocity" }, subtype: "Infantry")), false);
+        RuleCore.ApplyDeployTurnState(fer, false);
+        CheckTrue(!fer.Exhausted && fer.CannotAttackThisTurn,
+                  "★★ `ferocity`：**能动、不能攻击**（原版 `ActivateTraitsOnSummonOrEnchantment.c:86-99` 只抬 `canAct`）"
+                + "｜🧨 把 `Exhausted` 那半也写成 `displaySummonSickness` ⇒ 本行实得「不能动」");
     }
 
     // ==================================================================

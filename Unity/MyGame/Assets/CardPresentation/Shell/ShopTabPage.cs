@@ -555,7 +555,12 @@ namespace CardPresentation
             //    只画抽屉、不开窗**（2026-10-03 查实；判据 → `阶段二_商店_原版规格.md` §五·二 末尾）。
             //    只在卡包上接：那扇窗的内容是**卡包保底进度**，非卡包商品套不上。
             if (o.Type == "Booster Pack")
-                MenuDraw.Hit(cell, "InfoHit", Rect(r, CellArtBox), QCellInfoHit, () => OpenBoosterInfo(idx));
+                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B12）**：原版
+                //   `Shop Menu Variant/…/Comsetic Item Shop Container/raycast target` = **`Purchase Click`**
+                //   ⇒ cue 落 `PurchaseCue`。⚠️ 语义差异（我们这颗是「开 `BoosterInfoPopup`」、原版是
+                //   `OpenContainer`）属界面线既有账，本次只归音。
+                MenuDraw.Hit(cell, "InfoHit", Rect(r, CellArtBox), QCellInfoHit, () => OpenBoosterInfo(idx),
+                             clickCue: WindowSounds.PurchaseCue);
 
             // 🆕 **2026-10-18（第五十一会话 · 真机「中英混排」）**：类型行原来直接印 `o.Type`（英文）。
             //   官方表有 `MenuShop/ShopItemType/<去空格的类型>` 那一族 ⇒ 有键就走词条，没键原样。
