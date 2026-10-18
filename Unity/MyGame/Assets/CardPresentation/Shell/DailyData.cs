@@ -41,7 +41,12 @@ namespace CardPresentation
 
         public sealed class Task
         {
-            public string Desc;          // ⚠️ 我们挑的文案
+            public string Desc;          // 英文原文/兜底文案（`Term` 为空时直接用它）
+            /// <summary>🆕 **2026-10-18（第五十一会话）**：官方词条键（含 `{0}` 的那一族）。
+            /// 有它 ⇒ 显示文案 = `Loc.T(Term)` 按 `Arg` 填参 + `CardIcons.RewriteMarks`（`[[ranged]]` 这类记号）。
+            /// 值逐字来自官方表（见 `Loc.cs` 里那几条 `Missions/Daily_*`）。</summary>
+            public string Term;
+            public int Arg;              // 填进 `{0}` 的那个数（进度目标）
             public int Progress, Target; // 照原版：显示成 `{Progress}/{Target}`
             public string RewardArt, RewardText;
             public State St;
@@ -60,10 +65,13 @@ namespace CardPresentation
         static readonly Task[] _daily =
         {
             new Task { Desc = "Deal 45 damage to enemy warlords", Progress = 0, Target = 45,
+                       Term = "Missions/Daily_5",         Arg = 45,
                        RewardArt = "40K_genearl_icon_Campaign_points_big", RewardText = "300" },
             new Task { Desc = "Attack with units 15 times",       Progress = 0, Target = 15,
+                       Term = "Missions/Daily_Generic_8", Arg = 15,
                        RewardArt = "40K_genearl_icon_Campaign_points_big", RewardText = "300" },
             new Task { Desc = "Attack with ranged units 15 times", Progress = 0, Target = 15,
+                       Term = "Missions/Daily_10",        Arg = 15,
                        RewardArt = "40K_genearl_icon_Campaign_points_big", RewardText = "300" },
         };
 
@@ -151,7 +159,28 @@ namespace CardPresentation
 
         // ============================================================ 任务页
 
-        public static string DailyDesc(int i) { return At(i).Desc; }
+        public static string DailyDesc(int i)
+        {
+            var t = At(i);
+            // 🆕 **2026-10-18（第五十一会话 · 修「中文档里日常文案是英文」）**：
+            //   有官方键 ⇒ `Loc.T(键)` 按 `Arg` 填 `{0}`，再把 `[[ranged]]` 这类记号换掉
+            //   （`CardIcons.RewriteMarks` = 卡面同一条渲染路，⛔ 别另写替换）。
+            if (!string.IsNullOrEmpty(t.Term))
+            {
+                string s = Loc.T(t.Term);
+                if (!string.IsNullOrEmpty(s) && s != t.Term)
+                {
+                    s = s.Replace("{0}", t.Arg.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    // 🔴 **2026-10-18**：官方那两条带 `[[ranged]]` / `[[melee]]` 记号（原版卡面渲染成图标）。
+                    //   任务行不是卡面、图标资源不保证在 ⇒ 先换成**当前语言的词**（`Card_Trait/*` 那一族），
+                    //   剩下的记号再交给 `RewriteMarks`（它认不出的会原样留下 = 「ranged」那种半英文）。
+                    s = s.Replace("[[ranged]]", CardText.Keyword("ranged"))
+                         .Replace("[[melee]]", CardText.Keyword("melee"));
+                    return CardIcons.RewriteMarks(s, CardText.Zh);
+                }
+            }
+            return t.Desc;
+        }
         public static string DailyCounter(int i) { var t = At(i); return t.Progress + "/" + t.Target; }
         public static float DailyProgress01(int i) { var t = At(i); return t.Target <= 0 ? 0f : Mathf.Clamp01(t.Progress / (float)t.Target); }
         /// <summary>`timer` 那一格（原版是 `MissionTimerDisplay` · 文案由 `Missions/CollectCounter` /
@@ -161,7 +190,7 @@ namespace CardPresentation
         /// 我们的三条任务数据里没有这个字段 ⇒ 用「我们的日界」代替（**我们挑的**，已在报告记账）。
         /// 前缀保留 prefab 出厂串 `Available in `（原版运行期按词条本地化，本地 `Loc` 没有那两条键）。</summary>
         public static string DailyTimer(int i)
-        { return TimerDisplay.TextFor(NextResetAt, "Available in ", "每日任务行 Timer", null); }
+        { return TimerDisplay.TextFor(NextResetAt, Loc.T("Missions/CollectCounter"), "每日任务行 Timer", null); }
 
         /// <summary>🆕 **A63**：画在 `progress` 那一节点上的**最终文本** —— 原版
         /// `MissionCounterDisplay__Setup` 就是**两支**（`d:/2/tools/decomp_full/MissionCounterDisplay__Setup.c:23-79`，
@@ -272,10 +301,17 @@ namespace CardPresentation
             => At(i).St == State.Collectable ? new Color(1.0f, 0.6667f, 0.3451f, 1f)
                                              : new Color(0.4941f, 0.5686f, 0.9176f, 1f);
 
-        public static string RefillText() { return "0 Disponible"; }            // 原版的占位串（正本 §三·6）
+        public static string RefillText()
+        {
+            // 🔴 **2026-10-18（第五十一会话 · 对参考图）**：这里是「**N 可用**」= 当前还能做、还没领的日常条数
+            //   （参考图 `奖励—布道所（每日任务）参考图.png`：三条都没领 ⇒ 印 **3 可用**）。原来写死 `0`。
+            int n = 0;
+            for (int i = 0; i < _daily.Length; i++) if (_daily[i].St == State.InProgress) n++;
+            return Loc.T("Missions/RefillCount").Replace("{0}", n.ToString());
+        }   // 原版占位串是 `0 Disponible`（葡语残留）；有官方键 `Missions/RefillCount` ⇒ 按词条印
 
-        public static string LoginTitle() { return "Daily Login Bonus"; }
-        public static string SkullsTitle() { return "Daily Skulls"; }
+        public static string LoginTitle() { return Loc.T("Missions/Title/LoginBonus"); }
+        public static string SkullsTitle() { return Loc.T("Missions/Title/DailySkulls"); }
         public static string SkullsCounter() { return "x" + _skullsCount; }
 
         /// <summary>🆕 2026-10-03：每日骷髅任务那条 `counter/icons/Army` 格子要挂的**阵营**
@@ -679,13 +715,13 @@ namespace CardPresentation
         /// 原版由服务端下发）⇒ 按用户口径**不编日期**：出声一次 + 稳定显示 `Ends in --`。</summary>
         public static string WeeklyEndsIn()
         {
-            return TimerDisplay.TextFor(null, "Ends in ", "周常 Timer",
+            return TimerDisplay.TextFor(null, Loc.T("Missions/CollectCounter"), "周常 Timer",
                                         "周常刷新时刻在本地数据模型里不存在（原版由服务端下发；`TryDailyReset` 不碰周常）");
         }
         /// <summary>`Timer`（`Resets in 12h 34 m` 那一族：每日行 / 登录卡 / 骷髅卡 / 每日奖励窗）。
         /// 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时，目标 = 自建日界 `NextResetAt`（本机时间，无服务器）。</summary>
         public static string ResetIn()
-        { return TimerDisplay.TextFor(NextResetAt, "Resets in ", "日常 Timer", null); }
+        { return TimerDisplay.TextFor(NextResetAt, Loc.T("Missions/CollectCounter"), "日常 Timer", null); }
 
         // ============================================================ 每日奖励（`Daily Reward Popup`）
         //

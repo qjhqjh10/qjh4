@@ -1313,8 +1313,12 @@ namespace CardPresentation
                 if (BlockingOverlay.IsBlocking) return true;         // 降级件也接上（改前零消费者）
                 var rt = ShellRuntime.Instance;
                 var loading = rt != null && rt.Loading != null ? rt.Loading : LoadingMenu.Current;
-                return loading != null && loading.Panel != null
-                       && loading.Panel.gameObject.activeInHierarchy;
+                if (loading == null) return false;
+                // 🆕 **2026-10-18（`N27`）**：转圈件（原版 `MenuLoadingController`）**同样要挡指针** ——
+                //   判据 = 原版那颗暗底 `Image.m_RaycastTarget = 1`（`R4_黑场挡点击诊断.md` §四）。
+                //   它今天零生产调用点（唯一原版调用点 = 公会搜索 `JoinAllianceMenu`），**现在是给将来那一档提前接好**。
+                if (loading.Controller != null && loading.Controller.IsShowing) return true;
+                return loading.Panel != null && loading.Panel.gameObject.activeInHierarchy;
             }
         }
 

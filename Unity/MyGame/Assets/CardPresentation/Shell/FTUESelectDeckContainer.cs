@@ -227,7 +227,7 @@ namespace CardPresentation
             _selBgQ = MenuDraw.Rect(_selected, bgTex, Abs(card, SelBgL, SelBgT, SelBgW, SelBgH),
                                     "SelectedTextBg", FTUESelectDeckWindow.QCardArt, SelBgTint);
             _selLabel = MenuDraw.TextBox(_selected, Abs(card, SelTextL, SelTextT, SelTextW, SelTextH),
-                                         FTUESelectDeckWindow.SelectedText, Color.white, "SelectedText",
+                                         Loc.T(FTUESelectDeckWindow.SelectedTerm), Color.white, "SelectedText",
                                          SelFont, SelFontMin, FTUESelectDeckWindow.QCardText,
                                          SelFontMax, SelFontBase, face: TmpFont.Face.LatinCardBody);
             _selected.gameObject.SetActive(false);      // 出厂 `m_IsActive = false`（dump 的 `INACT`）

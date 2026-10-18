@@ -635,22 +635,18 @@ namespace CardPresentation
 
         /// <summary>🆕 **2026-10-19（`A1186` 裁定 ②）**：`Online` 页那颗**入口钮**（在 `General` 页上）的矩形。
         /// <para>🔴 **这是我们自加的、原版没有**（原版那一栏只有 5 个键，`Online` 页也是我们自加的）
-        /// ⇒ 这四个数**不是原版判据**，是**我们挑的**。**为什么挑这里**：现读 `General Tab` 的节点矩形
-        /// （原版 `menu_rect` dump + 本文件 `Gen*` 那一段）之后，本页只有三片空地 ——
-        /// ① 勾选行底（`GenChkT + 2×ChkRowStep + ChkRowH` = **683.03**）到 `Bottom Buttons` 顶（`GenBtnT`）
-        /// 那条横带；② `Close Game Button` 右沿（`GenBtn2L + GenBtnW` = **1236.52**）到本页内容列右沿
-        /// `GenR` 这一格；③ 两颗钮底下到页底。**取 ②**，理由：①③ 都落在**语言下拉列表**
-        /// （原版 `LanguagesDropdown > Template` = 596.52…992.18 × 390.65…964.61）那一块的**范围内/下方**，
-        /// 列表一开就压住它；② 在 `x > 992.18` 之外、**任何时候都不被压**，而且它落在原版
-        /// `Bottom Buttons` 那一行**本来就没用到的余量**里（原版那颗 HLG 从左起排两颗 300 宽
-        /// ⇒ `x > 1236.52` 一直是空的），既不压任何原版元素、也不动它们的矩形。</para>
-        /// <para>⚠️ **左沿留了 `GenBtnGap`(40)** —— 与 `Bottom Buttons` 的 `m_Spacing 40` 同值，
-        /// 免得贴在 `Close Game Button` 上像那颗钮的一部分；**右沿取 `GenR`**（本页内容列的右沿 ——
-        /// 勾选行 / 语言行都是它，⛔ 不是 `TabsR`：那是 `Bottom Buttons` 那一行自己的右沿）。</para>
-        /// <para>⚠️ 顶 / 高**照抄那一行**（`GenBtnT` / `GenBtnH`）⇒ 与两颗原版钮齐平；宽 = `GenOnlineR − GenOnlineL`
-        /// = **154.81**（= `GenR − 1276.52`；⛔ 别按「1236.**56**」那档旧注释推 —— 见上面那条更正）。</para></summary>
-        public const float GenOnlineL = GenBtn2L + GenBtnW + GenBtnGap,   // 1276.52
-                           GenOnlineR = GenR;                             // 1431.33
+        /// ⇒ 这四个数**不是原版判据**，是**我们挑的**。</para>
+        /// <para>🔴 **2026-10-18（第五十一会话 · 用户点名「联机钮远窄于同排两颗」）就地改**：
+        ///   原来取空地 ②（`GenBtn2L + GenBtnW + Gap … GenR` = **154.81 宽**），确实比同排两颗 300 窄一大截。
+        ///   现在取**空地 ① 的右半**：`y` 落在勾选行底（683.03）↔ `Bottom Buttons` 顶（779.56）那条横带里，
+        ///   `x` 右对齐到 `GenR`、**宽 = `GenBtnW`(300) · 高 = `GenBtnH`(90)`** —— 与同排两颗逐值同尺寸。
+        ///   ✅ **仍然不被语言下拉列表压**：原版列表矩形 = `596.52…992.18 × 390.65…964.61`，
+        ///   本钮左沿 = `GenR − 300 = 1131.33` **在 992.18 之外**（旧注释说「只有 ② 不被压」，
+        ///   指的是**整条横带**；右半这一段与 ② 同样安全）。
+        ///   ⚠️ 它**不压**任何原版元素：横带 ① 在原版里本来就是空的（`GenChkT` 三行之下、`Bottom Buttons` 之上）。</para></summary>
+        public const float GenOnlineT = 686.26f;                          // 横带 ① 里垂直居中（683.03 底 + 3.23）
+        public const float GenOnlineL = GenR - GenBtnW,                    // 1131.33（右对齐 `GenR`）
+                           GenOnlineR = GenR;                              // 1431.33
         /// <summary>那颗钮上的字号 —— **我们挑的**（同族那两颗原版是 40 / 38；取 38 = 它右手边那颗
         /// `Close Game Button` 那一档）。⚠️ 它同时是自适应上限（`autoMaxPx`），下限 / `base` 照同族那两颗
         /// 的 `12 / fs / 12 · 折行 0`。</summary>
@@ -3222,7 +3218,7 @@ namespace CardPresentation
         /// （`OpenTab` 是切页的唯一口：切 `activeSelf` + 收语言列表 / 登录浮层 + 刷文字）。</para></summary>
         void GenOnlineEntry(Transform page)
         {
-            float x1 = GenOnlineL, x2 = GenOnlineR, y1 = GenBtnT, y2 = GenBtnT + GenBtnH;
+            float x1 = GenOnlineL, x2 = GenOnlineR, y1 = GenOnlineT, y2 = GenOnlineT + GenBtnH;
             var n = Node(page, "Online Button", x1, y1, x2, y2);
             var aq = Rect(n, "bg", x1, y1, x2, y2, ArtButton, QContent, GenBtnTint, true);
             // 🔴 **2026-10-17（`A1230`）用户拍板：按同族 ARF 框** —— 原版无此件（是我们自加的），

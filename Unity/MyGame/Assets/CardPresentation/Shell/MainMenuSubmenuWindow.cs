@@ -56,6 +56,18 @@ namespace CardPresentation
         //    **弹窗必须再高一档**（`PromptPopup` 3140+ · `CampaignRewardWindow` 3110+）。
         //    `RewardsScene` 里有一条断言钉住「弹窗 > 页 > 窗」这个次序。
         public const int QPanel = 3005, QContent = 3010, QText = 3011, QOverlay = 3014;
+        /// <summary>🔴 **2026-10-18（第五十一会话 · 用户点名「很多地方是黑底色」）**：整窗**渐变背景**单独一档。
+        /// 原来它与页内容/任务行底图**同用 `QPanel`(3005)** ⇒ 同队列 + 同 z，谁盖谁不可靠；
+        /// 实测**渐变把 `40K_missions_display_Daily_horizontal` 行底图整块盖掉**
+        /// （行内采样 (19,1,4) vs 参考图 (50,41,62) 蓝紫）。
+        /// 取 `QPanel − 1`：整窗背景永远在**所有页内容之下**（且仍在左栏底板之下）。
+        /// ⚠️ 3004 也是 `DeckRuntime.QPanel`，但卡组编辑窗与本族子窗**不会同屏**（不同壳内页），无冲突。</summary>
+        public const int QBackground = QPanel - 1;
+        /// <summary>🔴 **2026-10-18（第五十一会话 · 真机对参考图）**：左栏选中态高亮**单独一档**。
+        /// 原来它与左栏底板同用 `QPanel`(3005) ⇒ 同队列 + 同 z，谁盖谁不可靠 —— 实测**红底整块看不见**
+        /// （参考图 `奖励—布道所（每日任务）参考图.png`：选中项是**整格红底**）。
+        /// 取 `QPanel + 1`：高于底板、低于 `Icon`(`QContent` 3010) ⇒ 红底在图标之下、底板之上。</summary>
+        public const int QHighlight = QPanel + 1;
 
         // ============================================================ 裁切状态（`Clip` / `ClipSoftness` / `ClipPad`）
         //
@@ -397,7 +409,7 @@ namespace CardPresentation
                 var q = ImageQuad.Create(area, CardArt.Gradient(GradC1, GradC2, 82f),
                                          Local(area, areaRect.x1, areaRect.y1, areaRect.x2, areaRect.y2),
                                          LayoutSpace.Px(h), new Vector2(0.5f, 0.5f), "Background");
-                if (q != null) { q.SetAspect(w / h); q.SetRenderQueue(QPanel); }
+                if (q != null) { q.SetAspect(w / h); q.SetRenderQueue(QBackground); }   // 🆕 见 `QBackground`
             }
 
             var res = new BarResult();
@@ -521,7 +533,7 @@ namespace CardPresentation
             //    别把它改成本类的 `Nine()`（那会吃的 `Clip` 是**别人**留下的）。
             var hlRoot = MenuDraw.Nine(b, Art(ArtSelHighlight),
                                        new PxRect(ContentL, y1, ContentL + BarW, y2),
-                                       new Vector4(30f, 30f, 30f, 30f), 71f, 71f, QPanel,
+                                       new Vector4(30f, 30f, 30f, 30f), 71f, 71f, QHighlight,
                                        new Color(1f, 0f, 0f, 1f), true, "Highlight",
                                        new Vector4(30f / 0.92f, 30f / 0.92f, 30f / 0.92f, 30f / 0.92f));
             res.highlightRoot[idx] = hlRoot;

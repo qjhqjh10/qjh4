@@ -129,7 +129,7 @@ namespace CardPresentation
             {
                 WarnUnknownOnce(_what, _unknownReason);
                 _expired = false;
-                SetText(_prefix + "--");
+                SetText(Compose(_prefix, "--"));   // 🆕 2026-10-18：同 `TextFor` —— 带 `{0}` 的词条要填参
                 return;
             }
 
@@ -258,7 +258,11 @@ namespace CardPresentation
             if (!target.HasValue)
             {
                 WarnUnknownOnce(what, unknownReason);
-                return (prefix ?? "") + "--";
+                // 🔴 **2026-10-18（第五十一会话 · 真机抓到 `在 {0} 结束--`）**：
+                //   这一支原来直接 `prefix + "--"`，**没走 `Compose`** ⇒ 带 `{0}` 的词条
+                //   （例 `Missions/ActiveCounter` =「在 {0} 结束」）会把 `{0}` 原样印出来。
+                //   ⇒ 与有目标时刻那一支同一条路。
+                return Compose(prefix, "--");
             }
             var remain = target.Value - System.DateTime.Now;
             if (remain <= System.TimeSpan.Zero) return "";

@@ -1613,7 +1613,7 @@ public static class SettingsScene
                 // ⑥ 🆕 **2026-10-19（`A1186` 裁定 ②）**：`Online` 页那颗**入口钮** ——
                 //    页签栏里已经没有 `Online` 那一格了（裁定 ①）⇒ **这是进联机页的唯一 UI 入口**。
                 //    🔴 **判据分两半**：几何那半是**我们挑的**（`Shell/SettingsWindow.cs` 的 `GenOnlineL`
-                //    那条 doc 里写了「为什么摆这一格」、还列了被否掉的两处空地）⇒ 期望值照本窗对
+                //    那条 doc 记了它为什么在空地 ① 的右半、以及 2026-10-18 为什么从 154.81 加宽到 300）⇒ 期望值照本窗对
                 //    **自加元素**的既有写法走 `SettingsWindow.GenOnline*`（⛔ 原版没有这一颗，没有原版字段值可抄）；
                 //    **而「不压原版元素」那半用【渲出来的矩形】断**（下面第二条）—— 那才是「为什么能放这里」的判据。
                 //    ⚠️ 「点它切页」那一条必须放在**本节最后**：它会切到 `Online` 页，而本节上面几条都要留在
@@ -1625,10 +1625,10 @@ public static class SettingsScene
                         CheckTrue(false, "`Online` 入口钮**没建出来** ⇒ 下面「点它切页」那条等于没验（⛔ 不是忽略）");
                     else
                     {
-                        CheckAtS(onBtn, SettingsWindow.GenOnlineL, SettingsWindow.GenBtnT,
-                                 SettingsWindow.GenOnlineR, SettingsWindow.GenBtnT + SettingsWindow.GenBtnH,
-                                 "`Online Button` 的矩形（**我们挑的** —— 顶/高照抄原版 `Bottom Buttons` 那一行、"
-                               + "左沿留 `GenBtnGap` 40、右沿取本页内容列右沿 `GenR`，见 `GenOnlineL` 那条 doc）");
+                        CheckAtS(onBtn, SettingsWindow.GenOnlineL, SettingsWindow.GenOnlineT,
+                                 SettingsWindow.GenOnlineR, SettingsWindow.GenOnlineT + SettingsWindow.GenBtnH,
+                                 "`Online Button` 的矩形（**我们挑的** —— 2026-10-18 按用户「远窄于同排」改到"
+                               + "空地 ① 右半：宽/高 = 同排两颗的 300×90、右对齐 `GenR`，见 `GenOnlineT` 那条 doc）");
                         // 🔴 **「不压原版任何元素」**：量**渲出来的**矩形，与原版那颗钮的**渲染**矩形比
                         //   —— 判据是**不相交**，⛔ 不是拿我们自己的常量比（拿常量比 = 自证）。
                         float eLx, eTy, eRx, eBy, cLx, cTy, cRx, cBy;

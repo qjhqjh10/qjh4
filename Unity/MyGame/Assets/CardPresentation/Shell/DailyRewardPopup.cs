@@ -559,7 +559,7 @@ namespace CardPresentation
             //   这里挂上全工程唯一的倒计时口径 `TimerDisplay` ⇒ 每秒重算一次。
             //   目标 = 我们自建的**日界** `DailyData.NextResetAt`（本机时间；原版这颗由 `TimerDisplay` 运行时填，
             //   我们没有服务器 —— 见 `DailyData.ResetIn` 那条注释）。前缀与 `RewardTimerText()` 同一格（`Resets in `）。
-            TimerDisplay.Attach(tm, () => DailyData.NextResetAt, "Resets in ", "每日奖励窗 Timer", null);
+            TimerDisplay.Attach(tm, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "每日奖励窗 Timer", null);
         }
 
         // ============================================================ 工具

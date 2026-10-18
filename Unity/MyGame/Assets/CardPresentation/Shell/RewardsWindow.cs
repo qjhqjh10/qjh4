@@ -104,9 +104,12 @@ namespace CardPresentation
         public static readonly TabBtnSpec[] Buttons =
         {
             // 图标出处：Campaign 用的是**主菜单那张导航图** —— `40K_rewards_bt_campaign` 不存在（正本 §〇·3）
-            new TabBtnSpec("40K_rewards_bt_missions",   "Missions",       36.0f,  5f, 36f, "RewardsMenu_MissionsButton"),
-            new TabBtnSpec("40k_main_bt_campaign",      "Campaign",       36.0f,  5f, 36f, "RewardsMenu_CampaignButton"),
-            new TabBtnSpec("40K_rewards_bt_forge",      "Forge",          36.0f,  5f, 36f, "RewardsMenu_ForgeButton"),
+            new TabBtnSpec("40K_rewards_bt_missions",   "Missions",       36.0f,  5f, 36f, "RewardsMenu_MissionsButton",
+                           term: "Rewards Menu/Missions"),
+            new TabBtnSpec("40k_main_bt_campaign",      "Campaign",       36.0f,  5f, 36f, "RewardsMenu_CampaignButton",
+                           term: "MainMenu/General/Campaign"),
+            new TabBtnSpec("40K_rewards_bt_forge",      "Forge",          36.0f,  5f, 36f, "RewardsMenu_ForgeButton",
+                           term: "MainMenu/General/Forge"),
             // 🆕 **第 4 项 = 自建的「每日连胜」页**（A815 · **用户 2026-10-15 拍板**）。
             //   🔴 **原版这一格是母版按钮、不是页签**（见本表最后一项与文件头纪律③）⇒ 这一项**整个是我们加进来的**：
             //     · **图标 `40k_main_bt_rewards`（126×126）= 我们挑的**。原版「每日连胜」那枚
@@ -122,7 +125,8 @@ namespace CardPresentation
             //       `TabButtons.AddTabButton`），克隆件继承的正是母版这几个值 ⇒ 我们这一格与母版同格、照它取。
             //       ⚠️ 这一条是**推断**（本地没有 live-ops 资产可读它的运行时值），如实标、⛔ 不写成「照原版」。
             //     · **实例 ID 空**：原版只有那三颗真页签有实例 ID（正本 §二·2），母版没有。
-            new TabBtnSpec("40k_main_bt_rewards",       "Daily Streak",   25.65f, 12f, 33f, "", 47.9f),
+            new TabBtnSpec("40k_main_bt_rewards",       "Daily Streak",   25.65f, 12f, 33f, "", 47.9f,
+                           term: "Rewards Menu/DailyStreak/Title"),
             // 🔴 **第 5 项 = 原版的母版按钮**（`Menu Navigation Panel Button`；`TabButtons.tabButtonPrefab`）。
             //   **它不是页签**，出场即被 `TabButtons.Initialize` 关掉 ⇒ 屏幕上没有这一格。
             //   ⚠️ **2026-10-16（A815）就地改口径（铁律 5）**：这一项**原来排在第 4 项**（= 左栏第 4 格），

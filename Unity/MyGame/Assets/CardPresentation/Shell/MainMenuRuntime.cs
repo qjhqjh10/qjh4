@@ -278,7 +278,15 @@ namespace CardPresentation
         /// ⚠️ **诚实标注**：改这一档是照「兄弟序 + 同队列不确定」推的，**改完没有跑过 Unity、没法当场验收**
         /// （执行代理不许跑批处理）—— 请把这条记成「已改、待实拍复核」。</para></summary>
         const int QNavHighlight = QPanel + 1;
-
+        /// <summary>🔴 **2026-10-18（第五十一会话 · 真机「商店开着就点不动左栏」）**：**导航命中区**的队列。
+        /// 判据（`_tmp_view/click_log.txt` 点击 #3 实证）：这一点上候选命中是
+        /// `q=3130 BackgroundHit`（当前窗口的整屏压暗命中靶）与 `q=2910 Hit/Navigation Panel/…`，
+        /// **前者吃掉后者** ⇒ 打开任何一扇子窗后，左栏五颗全点不动（退出商店的唯一路径断了；
+        /// 原版 `Shop Menu Variant` **没有** `Shared/Close Button` —— 全库只有收藏窗有，所以只能靠左栏）。
+        /// ⇒ 导航命中区单独抬到 **3156**（现读空闲槽；**3160 是 `PlayerProfileWindow.QPageBase`**，⛔ 别用）：
+        /// 高于窗口那族压暗命中（3002–3140），低于档案窗页内容（3160+）、弹窗/提示层与加载黑场（4071）。
+        /// ⚠️ 只抬**透明命中区**（`Hit`），可见图标/文字/高亮的队列一律不动 ⇒ 画面逐像素不变。</summary>
+        const int QNavHit = 3156;
         // ============================================================ 顶栏那一档（2026-10-11：降回**窗口之下**）
         // 🔴 **用户 2026-10-11 裁定：照原版 ⇒ 顶栏整条降到【所有窗 / 弹窗之下】**。
         //    这条**推翻了 2026-09-28 那次拍板**（那次照的是一张**二手实拍**：顶栏盖在窗上）。
@@ -568,6 +576,17 @@ namespace CardPresentation
                 }
                 OpenCollection().ChangeTab(tab);
             }
+
+            // ============================================================ 🆕 2026-10-18（E01 · 新手引导线）
+            // **菜单侧 FTUE（原版 `TutorialManager` 的 7 个 `FlowTutorialStage`）** 的挂载点。
+            // 判据（第一权威 = 反编译）：`TutorialManager.Initialize` 在主菜单那一层初始化之后
+            //   `PlayTutorial()` → `DelayedPLayTutorial` 找**第一个未完成且未满足**的 stage → `Execute()`。
+            // ⇒ 我们这一跳放在**主菜单整棵树建完之后**（= 原版「主菜单初始化完成」那一刻）。
+            // 🔴 **只在运行时挂**（`Attach` 内部判 `Application.isPlaying`）—— 自检是编辑器非播放跑同一份
+            //   `Build()`，多挂一个带指针/聚光灯的节点会污染既有断言，而且会写 `PlayerPrefs`。
+            // ⚠️ 指针对准的是**控件节点**（`Navigation Panel/…` / 奖励窗左栏页签 / 模式卡），⛔ 不是坐标 ——
+            //   目标窗会动（阶段表 `MenuTutorialStageDef` 的 `Target/TargetInWindow` 就是这两个口）。
+            MenuTutorialFlow.Attach(this);
         }
 
         /// <summary>🆕 **2026-10-12（`A1629`）**：**常驻主菜单那一扇**（= 原版 `MainMenuWindow`）。
@@ -997,7 +1016,7 @@ namespace CardPresentation
             {
                 hq.SetAspect((164f) / (y2 - y1));
                 hq.SetTint(new Color(0f, 0f, 0f, 0f));
-                hq.SetRenderQueue(QPanel);
+                hq.SetRenderQueue(QNavHit);     // 🆕 2026-10-18：见 `QNavHit` —— 子窗开着时左栏也要能点
             }
             int captured = idx;
             var wb = hitGo.gameObject.AddComponent<WindowButton>();

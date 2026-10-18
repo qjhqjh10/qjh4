@@ -9568,11 +9568,12 @@ public static class RewardsScene
         Check(DailyData.DailyCounter(0), "0/45", "初值：第 1 条 = **0/45**（A2070③ 照用户实拍）");
         Check(DailyData.DailyCounter(1), "0/15", "初值：第 2 条 = **0/15**");
         Check(DailyData.DailyCounter(2), "0/15", "初值：第 3 条 = **0/15**");
-        Check(DailyData.DailyDesc(0), "Deal 45 damage to enemy warlords",
-              "文案：第 1 条 =「对敌方战将造成 45 伤害」");
-        Check(DailyData.DailyDesc(1), "Attack with units 15 times", "文案：第 2 条 =「攻击单位 15 次」");
-        Check(DailyData.DailyDesc(2), "Attack with ranged units 15 times",
-              "文案：第 3 条 =「远程攻击 15 次」");
+        Check(DailyData.DailyDesc(0), Loc.T("Missions/Daily_5").Replace("{0}", "45"),
+              "文案：第 1 条 = 官方 `Missions/Daily_5`（对敌方战将造成 45 点伤害）");
+        Check(DailyData.DailyDesc(1), Loc.T("Missions/Daily_Generic_8").Replace("{0}", "15"),
+              "文案：第 2 条 = 官方 `Missions/Daily_Generic_8`（攻击单位 15 次）");
+        Check(DailyData.DailyDesc(2), CardIcons.RewriteMarks(Loc.T("Missions/Daily_10").Replace("{0}", "15"), CardText.Zh),
+              "文案：第 3 条 = 官方 `Missions/Daily_10`（[[ranged]] 攻击 15 次）");
         Check(DailyData.DailyRewardText(0), "300", "奖励数量：三条都是 **300**（活动点）｜第 1 条");
         Check(DailyData.DailyRewardText(1), "300", "…第 2 条");
         Check(DailyData.DailyRewardText(2), "300", "…第 3 条");

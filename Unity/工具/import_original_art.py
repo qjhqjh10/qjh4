@@ -874,6 +874,19 @@ MENU_IMAGES = [
     ('Tutorial Background',                       'atlasindividual_assets_0_mainmenu'),  # 教程窗格子横幅（512×144）
 ]
 
+# ---- 🆕 2026-10-18（E01 菜单侧新手引导）：三张指针件**只有 `Texture2D/`，`ui_extract` 里没有 Sprite PNG** ----
+# 判据 = 新账 `E01`（`Shell/TutorialPointerUi.cs:47-49, 80-82` 如实登记着「这三张不在 Resources ⇒ 不画手指」）。
+#   · `Cursor_Space Marine_01` / `…01Glow` —— 原版 `TutorialPointerMenu ▸ Pointer[ /light]`
+#     （`bundle_armycursors_assets_all/Texture2D/`；`Sprite/*.json` 的 `m_Rect` = 整张 **128²** ⇒ 直接整张拷，不用裁）
+#   · `Border Circles FX` —— 原版 `Glow (1)` 那圈光（`bundle_generalgamewindows_assets_all/Texture2D/`，同样 128² 整张）
+# ⚠️ 三条都**不走 `MENU_SRC`**（`ui_extract` 全库 `find -iname "Cursor_*"` = 0 命中）——
+#   所以单独一张表、源直接取 `UNPACK/bundle_<bundle>/Texture2D/`；落盘名仍按本文件惯例「空格→下划线」。
+MENU_TEXTURE_IMAGES = [
+    ('Cursor_Space Marine_01',     'armycursors_assets_all'),         # 手指本体
+    ('Cursor_Space Marine_01Glow', 'armycursors_assets_all'),         # 手指外发光
+    ('Border Circles FX',          'generalgamewindows_assets_all'),  # 光圈
+]
+
 # ---- 🔴 上面那批里**还差 4 张没登记**（A808 未清的那一格，2026-10-14 实读）--------------------
 #
 # `Resources/Art/ui_menu/` 里仍有 **4 张「盘上有、本表产出不了」**的图（同日逐张 md5 核过）：
@@ -1620,6 +1633,13 @@ def main() -> int:
                  for name, bundle in MENU_IMAGES]
     print(f'菜单 UI 图：源 {len(menu_jobs)} 张（来自 {len(set(b for _n, b in MENU_IMAGES))} 个 bundle 目录）')
     jobs += menu_jobs
+
+    # 🆕 2026-10-18（E01）：三张指针件直接取 `assets_full/.../Texture2D/`（表与理由见 `MENU_TEXTURE_IMAGES`）
+    menu_tex_jobs = [(os.path.join(UNPACK, 'bundle_' + bundle, 'Texture2D', name + '.png'),
+                      os.path.join(MENU_OUT, name.replace(' ', '_') + '.png'), False)
+                     for name, bundle in MENU_TEXTURE_IMAGES]
+    print(f'菜单 UI 图（Texture2D 直拷）：{len(menu_tex_jobs)} 张')
+    jobs += menu_tex_jobs
 
     # 战役阵营背景（13 张，另一个 bundle）—— 空格→下划线、落到 `ui_campaign/`
     bg_jobs = [(os.path.join(CAMPAIGN_BG_SRC, n + '.png'),

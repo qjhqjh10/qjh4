@@ -40,6 +40,13 @@ public class PlayerBoot : MonoBehaviour
     const string FlagWatch = "-wfwatch";     // 看门狗 + 面包屑（`Watch.cs`，**绕开 Unity 日志**写自己的文件）
     const string FlagWatchFile = "-wfwatchfile";   // 看门狗文件路径（默认 <当前目录>/watch.log）
     const string FlagStall = "-wfstall";     // 主线程几秒没出帧就**自杀**（默认 0 = 不判，留现场给采样）
+    // 🆕 2026-10-18（菜单侧新手引导 E01）—— **调试口，⛔ 不是原版件**：
+    //   原版 `TutorialManager.ForceCompleteAll` / `FlowTutorialStage.TryForceComplete` 的**调用方
+    //   不在可读语料里**（`decomp_full` 只有定义、0 引用）⇒ 不发明原版没有的设置项；只留命令行口。
+    //   `-wfskipftue`  = 整链标记为已跳过（写 `PlayerPrefs`，以后进主菜单都不再启动）
+    //   `-wfresetftue` = 清掉进度/跳过标记，下次进主菜单从第 1 段重来
+    const string FlagSkipFtue = "-wfskipftue";
+    const string FlagResetFtue = "-wfresetftue";
 
     /// <summary>0 = 还没动 · 1 = 已建 runner（收工）</summary>
     static int _state;
@@ -118,6 +125,11 @@ public class PlayerBoot : MonoBehaviour
 
     IEnumerator Run()
     {
+        // ---- 🆕 2026-10-18：菜单侧新手引导的调试开关（说明见 `MenuTutorialFlow.SetSkippedForDebug`）----
+        //   ⚠️ 放在切场景之前：主菜单 `Build()` 里会 `MenuTutorialFlow.Attach`，晚设就来不及。
+        if (HasFlag(FlagSkipFtue)) CardPresentation.MenuTutorialFlow.SetSkippedForDebug(true);
+        else if (HasFlag(FlagResetFtue)) CardPresentation.MenuTutorialFlow.SetSkippedForDebug(false);
+
         string want = Arg(FlagScene);
         if (!string.IsNullOrEmpty(want) && !CurrentSceneMatches(want))
         {

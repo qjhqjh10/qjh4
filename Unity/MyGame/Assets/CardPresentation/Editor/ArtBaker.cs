@@ -130,7 +130,13 @@ public static class ArtBaker
             var ti = AssetImporter.GetAtPath(path) as TextureImporter;
             if (ti == null) continue;
 
-            bool isFrame = path.Contains("/cards/");
+            // 🔴 **2026-10-18（`A1655④` 同族 · T09）**：只给**卡框**开 Read/Write —— 立绘不再可读。
+            //   判据：`CardView.FrameUv` 的兜底（`GetPixels32` 扫不透明 bbox）只对**卡框**有意义；
+            //   立绘（`art_*.png`）与卡背（`back_*.png`）运行期**没有任何人读像素**
+            //   （`CardArt.Portrait` / `CardBack` 只把贴图交给材质采样）。
+            //   ⚠️ 改前是 `path.Contains("/cards/")` ⇒ **2336 张立绘也各留一份 CPU 侧副本**（现读 cards/ 下 300 张 `frame_*`）。
+            //   ⚠️ 卡框命名 = `frame_*`；`frame_uv.json` 查不到的那几张仍要能回读 ⇒ 这一支保持 `true`。
+            bool isFrame = path.Contains("/cards/frame_");
             bool isBackdrop = path.EndsWith("arena1_bg.png");
 
             ti.textureType = TextureImporterType.Default;      // 我们自己按 UV 摆，不要 Sprite

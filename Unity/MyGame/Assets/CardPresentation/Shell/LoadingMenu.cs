@@ -169,6 +169,14 @@ namespace CardPresentation
             gameObject.SetActive(true);                 // 见文件头「根节点的出厂 active」那条取舍
             Panel.gameObject.SetActive(true);
             _show = show;
+            // 🔴 **2026-10-18（`N28`）**：本类只有**一个** `_onDone` 槽 —— 上一次补间还没收尾就再调一次，
+            //   旧回调会被**静默覆盖**（改前就如此，今天两个调用点都在「点一次 `Battle!`」之后、没有重复触发路径）。
+            //   按「不许静默失败」补一条出声：覆盖照旧发生（⛔ 不擅自把两条回调串起来 —— 旧那条多半是切场景，
+            //   串起来会切两次），但至少留下证据（判据 → `资料/任务线/界面线/任务总表.md` 的 `N28`）。
+            if (_fadeT >= 0f && _onDone != null)
+                Debug.LogError("[LoadingMenu] 上一次 `LoadingFade` 的收尾回调还没跑完就又被调了一次 —— "
+                             + "旧回调**已被覆盖**（单槽限制，`N28`；新回调=" + (onComplete != null ? "有" : "null") + "）。"
+                             + " 若真出现这条日志，说明有两条并发的加载/切场景链，先查调用方。");
             _onDone = onComplete;
             _alpha = show ? 0f : 1f;                    // 原作：**立刻**设成与目标相反那个值
             Apply();

@@ -391,6 +391,47 @@ namespace CardPresentation
             { "MenuShop/ShopItemType/Cards",                  new Entry("张牌",     "Cards") },
             { "MenuDeck/HUD/DeckDescription/DeckInfo",        new Entry("卡组信息", "Deck info") },
             { "MenuShop/ShopItemType/Cosmetics",              new Entry("美容品",   "Cosmetics") },
+            // 🔴 **2026-10-18（第五十一会话 · 真机抽查抓到的回归）**：商店左栏页签在 `N59` 改成官方键后，
+            //   `BoosterPacks` / `Gold` **没登记进本表** ⇒ `Loc.T` 缺键时把**键名**印在页签上
+            //   （真机实测：`MENUSHOP…BOOSTERPACKS` / `MENUSHOP…GOLD`，只有 `Cosmetics` 是中文）。
+            //   值逐字照官方表（`数据/游戏数据/官方本地化_en+zh-CN.json`：
+            //   `BoosterPacks = Booster Packs / 增强包` · `Gold = Gold / 金币`）。
+            { "MenuShop/ShopItemType/BoosterPacks",           new Entry("增强包",   "Booster Packs") },
+            { "MenuShop/ShopItemType/BoosterPack",            new Entry("增强群体", "Booster Pack") },
+            { "MenuShop/ShopItemType/Gold",                   new Entry("金币",     "Gold") },
+            // 🔴 **2026-10-18（第五十一会话 · 真机抽查）**：FTUE「选军队」窗的 `Selected Text`
+            //   预制体上挂着 `Localize.mTerm = MainMenu/General/Selected`（MB `1188082097155858280`），
+            //   而我们的标签当时用的是字面量 `"Selected"` ⇒ 中文档下印英文。
+            //   值逐字照官方表（`Selected / 已选中`）。
+            { "MainMenu/General/Selected",                    new Entry("已选中",   "Selected") },
+            // 🔴 **2026-10-18（第五十一会话 · 真机抽查「中英混排」）**：奖励/布道所页的标题与三条日常
+            //   在中文档里全是英文（`Daily Missions` / `Weekly Challenge` / `Daily Login Bonus` /
+            //   `0 Disponible` / `Deal 45 damage…`）。这些**官方表里都有键**，只是没进本表 ⇒ `Loc.T` 拿不到。
+            //   值逐字照 `数据/游戏数据/官方本地化_en+zh-CN.json`（括号里是官方英文原文）。
+            { "Missions/Title/LoginBonus",                    new Entry("每日奖励",     "Daily Bonus") },
+            { "Missions/Title/DailyMissions",                 new Entry("每日布道所",   "Daily Missions") },
+            { "Missions/Title/DailySkulls",                   new Entry("每日骷髅头",   "Daily Skulls") },
+            { "Missions/Title/WeeklyChallenge",               new Entry("每周挑战",     "Weekly Challenge") },
+            { "Missions/RefillCount",                         new Entry("{0} 可用",     "{0} Available") },
+            { "Missions/CollectCounter",                      new Entry("准备在 {0} 收集", "Ready to collect in {0}") },
+            { "Missions/ActiveCounter",                       new Entry("在 {0} 结束",  "Ends in {0}") },
+            { "Missions/Daily_5",                             new Entry("对敌方战将造成 {0} 伤害", "Deal {0} damage to the enemy Warlord") },
+            { "Missions/Daily_Generic_8",                     new Entry("攻击单位 {0} 次", "Attack with units {0} times") },
+            { "Missions/Daily_10",                            new Entry("[[ranged]]攻击 {0} 次", "Attack [[ranged]] {0} times") },
+            // 🔴 **2026-10-18（同批普查：这些键只在官方全表里、`Table`/bulk 都取不到 ⇒ 界面会印键名）**
+            { "Demo/FriendsMenu/SearchPlayer",                new Entry("搜索玩家", "Search player") },
+            { "SocialMenu/Alliances/Invitations",             new Entry("联盟邀请：", "Alliances invitations:") },
+            { "Demo/Feedback/Thanks",                         new Entry("您的意见对我们非常重要。感谢您的反馈！", "Your opinion is really important to us. Thanks for your feedback!") },
+            // 🔴 **2026-10-18**：官方标记 `[[ranged]]` / `[[melee]]` 在卡面上是**图标**（无词条）；
+            //   任务行那两条要用「词」⇒ 补两条概念词（与 `Battle/Tips/RangeAttack`「远程攻击」同一族口径）。
+            { "Card_Trait/ranged",                            new Entry("远程", "Ranged") },
+            { "Card_Trait/melee",                             new Entry("近战", "Melee") },
+            // 🔴 **2026-10-18**：奖励窗左栏四颗页签（原版 TMP 装成 `MISSIONS/CAMPAIGN/FORGE/DAILY STREAK`）
+            //   —— 官方表都有键，之前没用 ⇒ 中文档印英文。值逐字照官方表。
+            { "Rewards Menu/Missions",                        new Entry("布道所", "Missions") },
+            { "MainMenu/General/Campaign",                    new Entry("活动", "Campaign") },
+            { "MainMenu/General/Forge",                       new Entry("锻造厂", "Forge") },
+            { "Rewards Menu/DailyStreak/Title",               new Entry("每日连胜", "Daily Streak") },
             // ------------- D4 左栏底部钮（`…/Sidebar/Footer/Done/Button Text`，那颗上面**两颗** `Localize`，
             //   本条取**第一颗** `MenuDeck/MenuButtons/Done`；第二颗 `MenuLogin/Login/DoneButton` 是登录页共用的）-------------
             { "MenuDeck/MenuButtons/Done",                    new Entry("完成",     "Done") },
@@ -3208,6 +3249,23 @@ namespace CardPresentation
 
             if (!inTable)
             {
+                // 🆕 **2026-10-18（第五十一会话 · 真机抓到「模式卡底部印键名」）**：
+                //   `Table` 没登记、但**官方数据面表（bulk）里有**这条键 ⇒ 用 bulk 的当前语言列。
+                //   触发实例：`Event_Description/General/EndsIn`（`N61` 接到模式卡倒计时行；
+                //   本函数**不查 bulk**，`N6` 早就记过这条）⇒ 界面上印的是键名。
+                //   ⛔ 不是自拟：值逐字来自 `Resources/official_names.json`（官方表）。
+                //   ⚠️ 这一步只接住「本来会返回键名」的那一档 ⇒ 对已登记的词条零影响。
+                LoadBulk();
+                BulkRow br;
+                if (_bulk != null && _bulk.TryGetValue(key, out br))
+                {
+                    string bv = cur == AvailableLanguages.Chinese ? br.zh
+                              : cur == AvailableLanguages.English ? br.en
+                              : Lang13Text(key, cur);
+                    if (string.IsNullOrEmpty(bv)) bv = br.en;
+                    if (!string.IsNullOrEmpty(bv)) return bv;
+                }
+
                 // 非中英档：官方表里**有这条键**、只是这一列是空的（13 列各 9,438–9,441/9,447 非空）
                 // ⇒ 回退英文（同一条词条的其他列），⛔ **不许把键名印到界面上**
                 if (cur != AvailableLanguages.Chinese && cur != AvailableLanguages.English)

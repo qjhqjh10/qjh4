@@ -62,6 +62,16 @@ namespace CardPresentation
         public void SetHost(MainMenuSubmenuWindow win, Transform root, int page)
         { _win = win; _root = root; _page = page; }
 
+        /// <summary>🆕 **2026-10-18**：商品「类型」行（原版 `type`，例 `Booster Pack`）的显示文案。
+        /// 官方表有 `MenuShop/ShopItemType/&lt;去空格的类型&gt;` 这一族 ⇒ 有键走词条，没键原样
+        /// （⛔ 先 `HasEntry` 守一道：`Loc.T` 缺键会把键名印出来）。</summary>
+        static string TypeText(string type)
+        {
+            if (string.IsNullOrEmpty(type)) return type;
+            string key = "MenuShop/ShopItemType/" + type.Replace(" ", "");
+            return Loc.HasEntry(key) ? Loc.T(key) : type;
+        }
+
         // ============================================================ 矩形（原版实测）
 
         /// <summary>页根 = `Tabs` 的整矩形（三页的根都是 `aMin(0,0)/aMax(1,1)/pos(0,0)/sizeDelta(0,0)` ⇒ 撑满父）。</summary>
@@ -547,6 +557,10 @@ namespace CardPresentation
             if (o.Type == "Booster Pack")
                 MenuDraw.Hit(cell, "InfoHit", Rect(r, CellArtBox), QCellInfoHit, () => OpenBoosterInfo(idx));
 
+            // 🆕 **2026-10-18（第五十一会话 · 真机「中英混排」）**：类型行原来直接印 `o.Type`（英文）。
+            //   官方表有 `MenuShop/ShopItemType/<去空格的类型>` 那一族 ⇒ 有键就走词条，没键原样。
+            //   ⚠️ 先 `HasEntry` 守一道：`Loc.T` 缺键会把**键名**印出来（本会话商店页签就栽过一次）。
+
             // 我们加的两行字（**标明是我们加的**；各自一条带，谁也不压谁）
             // 🔴 **必须开自适应字号**：`Ultramarines Booster` 在 fs30 下实测宽 **328px**，
             //    而名字带只有 **316.6px** ⇒ `AlignRight` 之后**左边越出格子 2.8px**
@@ -556,7 +570,7 @@ namespace CardPresentation
             //      （漏斗里那两步排在返回之前 ⇒ 仍早于下面这句 `AlignRight`）。
             {
                 var tyR = Rect(r, CellTypeBand);
-                var ty = _win.Text(cell, o.Type, tyR.x1, tyR.x2, tyR.y1, tyR.y2, 5,
+                var ty = _win.Text(cell, TypeText(o.Type), tyR.x1, tyR.x2, tyR.y1, tyR.y2, 5,
                                    new Color(0.717f, 0.717f, 0.717f, 1f), "Type", 26f,
                                    wrapPx: tyR.W, autoMinPx: 16f, autoMaxPx: 26f, face: TmpFont.Face.LatinCardBody);
                 if (ty != null)

@@ -2681,11 +2681,38 @@ namespace CardPresentation
         ///    改成在 `[nominal×0.05, nominal]` 上二分「仍然装得下的最大字号」，与 TMP 自带
         ///    auto-size 的语义一致，8 次量测就收敛。
         /// </summary>
+        // 🔴 **2026-10-18（T09 · 首次开窗性能）**：`FitToBox` 的**量测结果缓存**。
+        //   为什么要它：一次 fit 会跑 **1 + 最多 8 + 1 次 `ForceMeshUpdate`**（`FitsBox` 每次都重排 + 生成网格）；
+        //   卡面在**战场每刷新一次 `SetData`**、收藏窗重建、详情窗重开时都会重走 `BuildTextLayers`
+        //   ⇒ 同一段文本被反复量。缓存键 = 文本 + 字体资产 + 名义字号 + 框 + 折行 + 行距/段距
+        //   ⇒ **只跳过「量」，不跳过排版**：命中时把字号设回去，后面的 `PlaceAt` / `PlaceBottomAt`
+        //   那一次 `ForceMeshUpdate` 照常把网格排出来（所以命中时**不要**在这里再量一次）。
+        //   ⚠️ 键里**必须带文本与字体资产**：换语言 / 换卡 / 换字体面都会让结果不同。
+        //   ⚠️ 浮点按 1e-3 取整：同一个框/字号两次调用可能差 1e-7，不该漏命中。
+        static readonly Dictionary<string, float> _fitCache = new Dictionary<string, float>();
+
+        static string FitKey(TextMeshPro t, float maxWidth, float maxHeight, bool wrap, float nominal)
+        {
+            return (wrap ? "w" : "n") + "|" + (t.font != null ? t.font.GetInstanceID() : 0) + "|"
+                 + Mathf.RoundToInt(nominal * 1000f) + "|"
+                 + Mathf.RoundToInt(maxWidth * 1000f) + "|" + Mathf.RoundToInt(maxHeight * 1000f) + "|"
+                 + Mathf.RoundToInt(t.lineSpacing * 1000f) + "|" + Mathf.RoundToInt(t.paragraphSpacing * 1000f) + "|"
+                 + (t.text ?? "");
+        }
+
         static void FitToBox(TextMeshPro t, float maxWidth, float maxHeight, bool wrap)
         {
             if (t == null) return;
             float nominal = t.fontSize;
-            if (FitsBox(t, maxWidth, maxHeight, wrap)) return;      // 装得下就别缩
+            string key = FitKey(t, maxWidth, maxHeight, wrap, nominal);
+            float hit;
+            if (_fitCache.TryGetValue(key, out hit)) { t.fontSize = hit; return; }   // 见上面那段：排版交给调用方那次更新
+
+            if (FitsBox(t, maxWidth, maxHeight, wrap))              // 装得下就别缩
+            {
+                _fitCache[key] = nominal;
+                return;
+            }
 
             float lo = nominal * 0.05f, hi = nominal;               // lo = 已知能装下（极小），hi = 装不下
             for (int i = 0; i < 8; i++)
@@ -2696,6 +2723,7 @@ namespace CardPresentation
             }
             t.fontSize = lo;
             FitsBox(t, maxWidth, maxHeight, wrap);                  // 把字号定下来的那次量测留下
+            _fitCache[key] = lo;
         }
 
         /// <summary>量一次：当前字号装得进框吗？（顺带把折行宽度和网格更新做掉）</summary>

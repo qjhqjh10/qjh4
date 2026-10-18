@@ -665,7 +665,7 @@ namespace CardPresentation
                 var tv = Txt(parent, tim, DailyData.DailyTimer(index), new Color(1f, 1f, 1f, 0.59f), "timer", 35f, 15f, 0f, 36f);
                 // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时（目标 = 自建日界 `NextResetAt`）。
                 //   先挂组件再对齐 —— 组件会**当场**把文本写成真值，对齐要按最终宽度算。
-                TimerDisplay.Attach(tv, () => DailyData.NextResetAt, "Available in ", "每日任务行 Timer", null);
+                TimerDisplay.Attach(tv, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "每日任务行 Timer", null);
                 AlignL(tv, tim);
             }
 
@@ -980,7 +980,7 @@ namespace CardPresentation
                     // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时（目标 = 自建日界 `NextResetAt`，本机时间）。
                     //   ⚠️ `Editor/RewardsScene.cs:2209` 那条断言还把文案钉在出厂串 `Resets in 12h 34 m` 上
                     //   —— 本件只改实现、**没动 Editor**（不在白名单）⇒ 那条断言**会红**，需主对话另行更新。
-                    TimerDisplay.Attach(tl, () => DailyData.NextResetAt, "Resets in ", "登录卡 Timer", null);
+                    TimerDisplay.Attach(tl, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "登录卡 Timer", null);
             }
         }
 
@@ -1184,7 +1184,7 @@ namespace CardPresentation
             if (tm == null) Debug.LogWarning("[Rewards] 骷髅卡的 `Timer` 没建出来（红线：不许静默失败）");
             else
                 // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时（目标 = 自建日界 `NextResetAt`，本机时间）。
-                TimerDisplay.Attach(tm, () => DailyData.NextResetAt, "Resets in ", "骷髅卡 Timer", null);
+                TimerDisplay.Attach(tm, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "骷髅卡 Timer", null);
         }
 
         /// <summary>`Weekly Mission`（1518.99×227.51）· **6** 个 70² 里程碑 + 进度条 + `Ends in`。
@@ -1223,7 +1223,7 @@ namespace CardPresentation
             // 🆕 **A1205 接上**（`R5` §2·J #57：原版 `Weekly Mission Holder ▸ Weekly Mission ▸ background ▸
             //    header ▸ name` = `auto[10~36] · base 46 · **折行 0**`）⇒ `wrapOff: true`
             //    （`TextBox` 默认折行、原版这一颗是 `NoWrap`）。
-            var wkNameLb = Txt(parent, wkNameR, "Weekly Challenge", Color.white, "name", 36f, 10f, 36f, 46f,
+            var wkNameLb = Txt(parent, wkNameR, Loc.T("Missions/Title/WeeklyChallenge"), Color.white, "name", 36f, 10f, 36f, 46f,
                                wrapOff: true, face: TmpFont.Face.LatinUi);
             AlignL(wkNameLb, wkNameR);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版周常 `name`（`'Weekly Challenge'`）
@@ -1331,7 +1331,7 @@ namespace CardPresentation
                               15f, 38f, 36f);
             // 🆕 **2026-10-17（W_A_TimerDisplay）**：周常的刷新时刻**不在我们的数据模型里**
             //   ⇒ 目标传 `null`：`TimerDisplay` 出一声 + 稳定显示 `Ends in --`（⛔ 不编日期）。
-            TimerDisplay.Attach(wkTimer, null, "Ends in ", "周常 Timer",
+            TimerDisplay.Attach(wkTimer, null, Loc.T("Missions/CollectCounter"), "周常 Timer",
                                 "周常刷新时刻在本地数据模型里不存在（原版由服务端下发；`TryDailyReset` 不碰周常）");
         }
 
@@ -1356,7 +1356,7 @@ namespace CardPresentation
             //    ⚠️ 只动 min：`max` 走 `Txt` 的 `autoMaxPx = 0` ⇒ 代标称 36（= 原版 max）· `base` 46 已对。
             // 🆕 **2026-10-17（`A1753` #1）**：原版 `Mission Header ▸ name` 挂 `Asar-Regular Mission cream w outline`
             //   （`_FaceColor = (1, 0.931, 0.703)`、顶点白）⇒ 屏上就是奶油色，**不是白**。
-            var hdrNameLb = Txt(parent, nm, isSkulls ? "Daily Skulls" : "Daily Missions", MissionCreamInk,
+            var hdrNameLb = Txt(parent, nm, Loc.T(isSkulls ? "Missions/Title/DailySkulls" : "Missions/Title/DailyMissions"), MissionCreamInk,
                        "name (Mission Header)", 36f, 20f, 0f, 46f, face: TmpFont.Face.LatinUi);   // 🆕 A336③：base 46（见下条注释）
             AlignL(hdrNameLb, nm);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— `name (Mission Header)` = `Left/**Capline**`
