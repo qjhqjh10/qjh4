@@ -97,6 +97,24 @@ namespace CardPresentation
                 if (measured > maxW) scale = (float)maxW / measured;
             }
             int x = cx - Mathf.RoundToInt(Measure(s, thick) * scale * 0.5f);
+            // 🔴 **2026-10-18（`N109` 收尾）：按【墨迹包围框】居中，而不是按【步进盒】居中。**
+            //   旧写法只减 `Measure()*0.5`（步进盒），而 `bearingX` 一直存着没用 ⇒ 数字墨迹**固定偏左 ≈1.4 面像素**
+            //   （`W15_卡面数值与费用图标.md` §5.2 · `R_卡面元素对账A_6阵营.md` §二）。
+            //   现在先扫一遍算出墨迹左右界（`bearingX` + 字宽），再以它居中；单字符/多字符都成立。
+            {
+                float inkL = 0f, inkR = 0f, pen = 0f; bool firstInk = true;
+                foreach (var ch2 in s)
+                {
+                    var g2 = Find(ch2, thick);
+                    if (g2.h == 0) { pen += Mathf.RoundToInt(DigitH * scale * 0.5f); continue; }
+                    float gl = pen + g2.bearingX * scale;
+                    float gr = gl + g2.w * scale;
+                    if (firstInk) { inkL = gl; inkR = gr; firstInk = false; }
+                    else { if (gl < inkL) inkL = gl; if (gr > inkR) inkR = gr; }
+                    pen += Mathf.RoundToInt(g2.adv * scale);
+                }
+                if (!firstInk) x = cx - Mathf.RoundToInt((inkL + inkR) * 0.5f);
+            }
             int top = cy - Mathf.RoundToInt(DigitH * scale * 0.5f);
             foreach (var c in s)
             {

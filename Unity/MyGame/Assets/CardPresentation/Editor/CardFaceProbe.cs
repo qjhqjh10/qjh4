@@ -86,7 +86,7 @@ public static class CardFaceProbe
         "Devastator Marine",     // `UM80` —— `W5e`① 卡面：`〔紫尖刺〕Blast 2. 〔蓝圆盘+白袍人形〕Oath 4: Deal 5 damage to an enemy troop`
         "Phobos Librarian",      // `UM81` —— `W5e`② 卡面：`〔兜帽〕Camouflage. 〔同一枚〕Oath 3: Deal 2-4 damage to an enemy. If target dies, gain 〔盾〕Shield`
         "Scout Sniper",          // `UM94` —— `W5e`③ 卡面：`〔兜帽〕Camouflage. 〔准星〕Sniper. 〔同一枚〕Oath 1: Deal 1 damage`
-        "Firestrike Servo Turret", // `UM74` —— `W5e`④ 卡面：`〔导弹〕Long Range. 〔哨戒〕Sentry 2. 〔同一枚〕Oath 3: Gain 〔哨戒〕Sentry 2`
+        "Firestrike Servo-Turret", // `UM74` —— `W5e`④ 卡面：`〔导弹〕Long Range. 〔哨戒〕Sentry 2. 〔同一枚〕Oath 3: Gain 〔哨戒〕Sentry 2`（2026-10-18 `W28` 改官方名）
         "Dominion Superior",     // `SOR28` —— `W7`① 卡面：`⚡Rally: Deal 1 damage.` ／ `2 ⟨金太阳⟩: Deal 1 additional damage`
         "Devout Warriors",       // `SOR43` —— `W7`② 卡面：`Draw a troop.` ／ `2 ⟨金太阳⟩: Draw an additional troop`
         "Beacon of Faith",       // `SOR44` —— `W7`③ 卡面：`4 ⟨金太阳⟩: …`（**图标与冒号之间没有空格**）／ `7 ⟨金太阳⟩ : …`（**有空格、句尾无句号**）
@@ -94,10 +94,10 @@ public static class CardFaceProbe
         "Imperial Creed",        // `SOR59` —— `W7`⑤ 卡面：`⟨螺旋⟩Stun three random enemies.` ／ `4 ⟨金太阳⟩: Refill 3 Energy`
         // ── 🆕 2026-10-12（第二十三会话 · `A1687`）加：**「正文为空、只有关键词」那一格** ──
         //    来由：`BattleDriver.FaceTextFull` 原来在【正文为空】时**提前 return**，把关键词段整段吞掉。
-        //    原版卡面确实有这种卡 —— 现扫全池 1126 张只有 `GOF12 Hornhelmz Boy` 是这样
+        //    原版卡面确实有这种卡 —— 现扫全池 1127 张只有 `GOF8 Hornhelmz' Boy` 是这样
         //    （`desc`/`descZh` 双空、`keywords:["Tide 2"]`）。PnP 成品卡 `Orks/3部队/Warpforge_12_Hornhelmz-Boy.png`
         //    的效果区**只有 `Tide 2` + 图标** ⇒ 这张就是「关键词段有没有画出来」的尺子（与 `Howling Banshee` 同一类）。
-        "Hornhelmz Boy",         // `GOF12`
+        "Hornhelmz' Boy",        // `GOF8`（2026-10-18 `W28` 改官方名；旧 id 注释写的 `GOF12` 是**代 1 之前的旧 id**）
         // ── 🆕 2026-10-15（第三十二会话 · 铁律 10 第 6 条）：**官方记号那一代进卡面后的第一批并排比** ──
         //    来由：`Z_卡牌P3` 把 656 张官方 `descZh` 真灌进了池、`AC` 拆了记号闸 ⇒
         //    `[[…]]` / `((…))` / `$$…$$` **第一次真进卡面**，而整链**至今没有端到端证据**

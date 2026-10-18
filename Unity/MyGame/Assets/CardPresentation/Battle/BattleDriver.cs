@@ -6080,7 +6080,7 @@ namespace CardPresentation
                 { "BL4",   4 },     // Chaos Sergeant    —— `Rally: Gain a Dark Pact`（候选 = 4 张契约，我们还没接）
                 { "BL13",  4 },     // Chosen            —— 同上
                 { "BL29",  4 },     // Terminator Champion
-                { "BL37",  4 },     // Abaddons Chosen
+                { "BL37",  4 },     // Abaddon's Chosen（2026-10-18 `W28` 改官方显示名；本键是 id，不受影响）
                 { "BL38",  4 },     // Dark Oratory
             };
 
@@ -14181,9 +14181,9 @@ namespace CardPresentation
             string notes = string.Join(" ", UnimplementedNotes(c).ToArray());
             // 🔴 **2026-10-12（第二十三会话新立 `A1687`）：关键词段必须在【空正文早退】之前算。**
             //   原来这一行排在上面 ⇒ **正文为空的卡整段关键词行被吞掉**（`KeywordSegment` 在它下面）。
-            //   **原版卡面确实有这种卡**：`GOF12 Hornhelmz Boy`（`desc`/`descZh` 双空、`keywords:["Tide 2"]`；
+            //   **原版卡面确实有这种卡**：`GOF8 Hornhelmz' Boy`（`desc`/`descZh` 双空、`keywords:["Tide 2"]`；
             //   卡面**主对话 2026-10-12 亲读**（`d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_12_Hornhelmz-Boy.png`，900×1200）：效果区**只有 `〔骷髅〕Tide 2`**、没有别的效果文字
-            //   （⚠️ 那张印刷卡把卡名印成 `Hornhelmz' Boy`、带撇号 —— **不改我们的卡名**：授权键表 `数据/本地化/i18n/zh_CN.csv:1693` 写的是 `Hornhelmz Boy`，先例见 `资料/卡牌数据源对账_0912.md` 那条「PnP 是印刷品」。）
+            //   （⚠️ 那张印刷卡把卡名印成 `Hornhelmz' Boy`、带撇号。**2026-10-18（`W28`）起我们的卡名也照官方显示名改成 `Hornhelmz' Boy`** —— 用户当天改判：「卡名一个字不动」那条 PnP 时代口径**作废**；授权键表 `数据/本地化/i18n/zh_CN.csv:1693` 仍写 `Hornhelmz Boy`（**键表不改**）。）
             //   现扫全池 1126 张：`desc`/`descZh` 双空 **6 张**（`ASH12` `BL11` `BL43` `GOF12` `TL12` `UM14`），
             //   **只有 `GOF12` 带关键词** ⇒ 今天影响面 = 1 张，但形状是坏的（铁律 11 要做）。
             //   ⚠️ **其余 1125 张输出一字不变**：关键词为空的卡 `seg == ""` ⇒ 与改前逐字相同；

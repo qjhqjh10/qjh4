@@ -444,6 +444,8 @@ namespace RuleEngine
         ///   `Gauss Warrior`         ↔ `**Gauss Reaper** Warrior`
         ///   `Tesla Immortal`        ↔ `**Tesla Carbine** Immortal`
         ///   `Threnodic Noise Marine` ↔ `**Threnodic Choir** Noise Marine`
+        /// ⚠️ **2026-10-18（`W28`）**：卡池已改用官方显示名 —— **上面三对现在逐字相同**。
+        ///    这三行保留的是**为什么需要这一档**的历史实据（当时池里的名字比实体表长一个词）。
         /// ⚠️ **只用来在报错里说一句人话**，绝不拿它顶替查不到的那张卡（见 `FindNearMiss`）。
         /// </summary>
         static bool WordsSubset(string a, string b)
@@ -481,8 +483,11 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 一张具名卡按**归一化名字**查（原版数据里 `Abaddon's Chosen` 写成 `Abaddons Chosen`、
-        /// 中文卡面 `Saim-Hann` 写成 `SaimHann` —— 撇号/连字符全被剥了）。
+        /// 一张具名卡按**归一化名字**查（卡面 / 外部表与池里的写法可能不同：撇号/连字符/空格全被剥掉再比，
+        /// 例：中文卡面 `Saim-Hann` 写成 `SaimHann`）。
+        /// ⚠️ **2026-10-18（`W28`）起池内卡名 = 官方显示名**（`Abaddon's Chosen` 不再写作 `Abaddons Chosen`、
+        /// `Von Ryan's Leaper` 不再写作 `Von Ryans Leaper`）—— 但**归一化这一步仍然必要**：
+        /// 卡面正文 / 外部数据表 / 录像里的写法不受卡池改名约束。
         /// **查不到返回 null**（调用方要知道是哪一张缺了，好如实报）。
         /// </summary>
         public static CardDef FindByName(IReadOnlyList<CardDef> pool, string name)
@@ -529,7 +534,9 @@ namespace RuleEngine
 
         /// <summary>名字归一化：小写 + 只留字母数字。
         /// 原版数据里 `Abaddon's Chosen` → `Abaddons Chosen`、`Von Ryan's Leaper` → `Von Ryans Leaper`，
-        /// 而卡面写的是带撇号的原名 —— 不归一化就永远查不到。</summary>
+        /// 而卡面写的是带撇号的原名 —— 不归一化就永远查不到。
+        /// ⚠️ **2026-10-18（`W28`）起池内卡名已改回官方显示名**（上面两例已逐字相同）；这条归一化
+        /// **仍然保留**，因为卡面正文 / 录像 / 外部表的写法不一定跟着卡池改。</summary>
         public static string Norm(string s)
         {
             if (string.IsNullOrEmpty(s)) return "";
@@ -1597,15 +1604,22 @@ namespace RuleEngine
                     "Jackal Outrider", "Acolyte Heavy", "Acolyte Specialist", "Sanctus",
                     "Aberrant", "Hulking Aberrant", "Abominant", "Patriarch" },
             //  狂野宿主·灵族载具（1d20）—— 背后：`Create two random Saim-Hann Vehicles in your hand`
+            //  🔴 2026-10-18（`W28` 卡名改官方显示名）：`ASH16` 由 `Nuadhu Fireheart` 改成
+            //     `Nuadhu 'Fireheart'` —— 本表这一格同步改成官方显示名。
+            //     ⚠️ **判据澄清（铁律 5，别当运行期缺陷）**：本表**不是运行时数据源**（只做对账，
+            //     见文件头 `:14`）；而对账时两侧都过 `CreatePool.Norm`（**只留 a-z0-9**）⇒
+            //     撇号被剥掉，`Nuadhu Fireheart` 与 `Nuadhu 'Fireheart'` 归一化后**相同**，
+            //     改与不改**对账结果一样**。改它只是让「表里的字 = 卡池里的字」。
             new[] { "狂野宿主(1d20)",
                     "Weapons Platform", "Windrider", "Shroud Runner", "Shining Spear", "Vyper",
-                    "Nuadhu Fireheart", "Shining Spear Exarch", "Bright Lance Vyper", "Warlock Skyrunner",
+                    "Nuadhu 'Fireheart'", "Shining Spear Exarch", "Bright Lance Vyper", "Warlock Skyrunner",
                     "War Walker", "Hornet", "Farseer Skyrunner", "Crimson Hunter", "Falcon",
                     "Fire Prism", "Wave Serpent", "Night Spinner", "Hemlock Wraithfighter",
                     "Wraithlord", "Wraithknight" },
             //  次元裂隙（1d6）—— 背后：`Deploy 3 random 2-cost Sautekh troops`
-            //  ⚠️ 书里的 `Gauss Warrior` / `Tesla Immortal` 在卡池里叫
-            //     `Gauss Reaper Warrior` / `Tesla Carbine Immortal`（中间多一个词）—— 名字对不上，如实报
+            //  ✅ **2026-10-18（`W28`）**：书里的 `Gauss Warrior` / `Tesla Immortal` 现在与卡池**逐字相同**
+            //     （卡池原叫 `Gauss Reaper Warrior` / `Tesla Carbine Immortal`，W28 已改回官方显示名）
+            //     ⇒ 本表这两个名字**无需再改**。
             new[] { "次元裂隙(1d6)",
                     "Flayed One", "Gauss Warrior", "Necron Warrior", "Canoptek Plasmacyte",
                     "Tesla Immortal", "Damaged Plasmacyte" },
@@ -1628,5 +1642,9 @@ namespace RuleEngine
         //    错因和上一轮那张「原版数据里没有这张卡」的名单**一模一样**：拿短名字做精确匹配，
         //    对不上就当成「没有」。**手写的缺口清单一定会漂** —— 所以删掉，
         //    改成每次自检**算**出来（`RuleEngineTest.CheckDiceTables`，差集两个方向都报）。
+        // ✅ **2026-10-18（`W28` 卡名改官方显示名）就地复核**：那四条**现在全部与卡池逐字相同**
+        //    —— `Icon of Excess` / `Gauss Warrior` / `Tesla Immortal` / `Threnodic Noise Marine`
+        //    （卡池那一侧已改回官方短名，见 `普查产出_1018/W28_卡名改官方.md` §2）。
+        //    ⚠️ 上面那段「名字更长」的记述是**当时的事实**，保留它是因为它记的是**错因**（拿短名做精确匹配）。
     }
 }

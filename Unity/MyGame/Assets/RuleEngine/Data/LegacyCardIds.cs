@@ -77,7 +77,7 @@ namespace RuleEngine
             { "AM16", "AM15" },   // Minka Lesk · AstraMilitarum
             { "AM17", "3a52026b99bb56f40aa9dc130fc66f34" },   // Cadian Honour · AstraMilitarum
             { "AM18", "AM13" },   // Ogryn · AstraMilitarum
-            { "AM19", "AM11" },   // Shock Trooper Sgt · AstraMilitarum
+            { "AM19", "AM11" },   // Shock Trooper Sgt. · AstraMilitarum
             { "AM2", "cc11838649ff68a40b7d5d2b9fccd2bc" },   // Lead by Example · AstraMilitarum
             { "AM20", "AM59" },   // Astropath · AstraMilitarum
             { "AM21", "AM19" },   // Attilan Rough Rider · AstraMilitarum
@@ -87,7 +87,7 @@ namespace RuleEngine
             { "AM25", "AM21" },   // Tech-Priest Enginseer · AstraMilitarum
             { "AM26", "AM25" },   // Armoured Sentinel · AstraMilitarum
             { "AM27", "AM23" },   // Bombast Field Gun · AstraMilitarum
-            { "AM28", "AM24" },   // Bullgryn Bone’ead · AstraMilitarum
+            { "AM28", "AM24" },   // Bullgryn Bone'ead · AstraMilitarum
             { "AM29", "AM22" },   // Primaris Psyker · AstraMilitarum
             { "AM3", "AM1" },   // Lord Solar Leontus · AstraMilitarum
             { "AM30", "AM26" },   // Taurox · AstraMilitarum
@@ -97,7 +97,7 @@ namespace RuleEngine
             { "AM35", "AM27" },   // Nork Deddog · AstraMilitarum
             { "AM36", "98cd4c021d615174aba88df6012219c4" },   // Renowned Bodyguard · AstraMilitarum
             { "AM37", "AM33" },   // Basilisk · AstraMilitarum
-            { "AM38", "AM32" },   // Leman Russ · AstraMilitarum
+            { "AM38", "AM32" },   // Leman Russ Tank · AstraMilitarum
             { "AM39", "AM34" },   // Valkyrie · AstraMilitarum
             { "AM40", "AM35" },   // Leman Russ Vanquisher · AstraMilitarum
             { "AM41", "AM36" },   // Maelon Dhrost · AstraMilitarum
@@ -133,7 +133,7 @@ namespace RuleEngine
             { "AM69", "AM68" },   // Tempestus Scion · AstraMilitarum
             { "AM7", "AM4" },   // Faeburn Vanquisher · AstraMilitarum
             { "AM70", "AM69" },   // Tempestor Sergeant · AstraMilitarum
-            { "AM71", "AM70" },   // Medic Scion · AstraMilitarum
+            { "AM71", "AM70" },   // Scion Medic · AstraMilitarum
             { "AM72", "AM71" },   // Tempestus Aquilon · AstraMilitarum
             { "AM73", "AM72" },   // Vitus Gryf · AstraMilitarum
             { "AM74", "AM73" },   // Taurox Prime · AstraMilitarum
@@ -155,7 +155,7 @@ namespace RuleEngine
             { "ASH19", "ASH62" },   // Dire Avenger · SaimHann
             { "ASH2", "09bcb1b3b8794c4429d82d4b2e68fa1f" },   // Path of the Seer · SaimHann
             { "ASH20", "ASH15" },   // Howling Banshee · SaimHann
-            { "ASH21", "ASH16" },   // Nuadhu Fireheart · SaimHann
+            { "ASH21", "ASH16" },   // Nuadhu 'Fireheart' · SaimHann
             { "ASH22", "ASH18" },   // Vyper · SaimHann
             { "ASH23", "ASH19" },   // Witchblade Warlock · SaimHann
             { "ASH24", "d3e99cb18b8cbba4081486f57f510f75" },   // Witchfire · SaimHann
@@ -171,7 +171,7 @@ namespace RuleEngine
             { "ASH33", "ASH27" },   // Falcon · SaimHann
             { "ASH34", "ASH22" },   // Fire Dragon · SaimHann
             { "ASH35", "ASH28" },   // Spiritseer Qelenaris · SaimHann
-            { "ASH36", "ASH30" },   // Fire prism · SaimHann
+            { "ASH36", "ASH30" },   // Fire Prism · SaimHann
             { "ASH37", "ASH29" },   // Wave Serpent · SaimHann
             { "ASH38", "e59ac9e46f4ea804784e954c3b820e77" },   // Skyborne Deployment · SaimHann
             { "ASH39", "ASH31" },   // Winged Autarch · SaimHann
@@ -257,7 +257,7 @@ namespace RuleEngine
             { "BL29", "BL16" },   // Possessed Champion · BlackLegion
             { "BL3", "BL35" },   // Haarken Worldclaimer · BlackLegion
             { "BL30", "BL17" },   // Warp Talon · BlackLegion
-            { "BL31", "BL18" },   // Bringer of decay · BlackLegion
+            { "BL31", "BL18" },   // Bringer of Decay · BlackLegion
             { "BL32", "BL63" },   // Havoc · BlackLegion
             { "BL33", "BL21" },   // Lheorvine Ukris · BlackLegion
             { "BL34", "BL22" },   // Master of Possession · BlackLegion
@@ -276,12 +276,12 @@ namespace RuleEngine
             { "BL46", "BL31" },   // Maulerfiend · BlackLegion
             { "BL47", "BL32" },   // Iskandar Khayon · BlackLegion
             { "BL48", "BL33" },   // Vex Machinator · BlackLegion
-            { "BL49", "BL37" },   // Abaddons Chosen · BlackLegion
+            { "BL49", "BL37" },   // Abaddon's Chosen · BlackLegion
             { "BL5", "BL36" },   // Sylar Hexscorn · BlackLegion  ← 改名：Warpforge_5_Sylar-Hexscorn.png
             { "BL50", "BL39" },   // Hideous Mutation · BlackLegion
             { "BL51", "BL38" },   // Dark Oratory · BlackLegion
             { "BL52", "BL40" },   // Legacy of Vengeance · BlackLegion
-            { "BL53", "BL42" },   // Traitors Hate · BlackLegion
+            { "BL53", "BL42" },   // Traitors' Hate · BlackLegion
             { "BL54", "BL43" },   // Daemonic Frenzy · BlackLegion
             { "BL55", "BL47" },   // Disgustingly Resilient · BlackLegion
             { "BL56", "BL46" },   // Gifts of Chaos · BlackLegion
@@ -293,7 +293,7 @@ namespace RuleEngine
             { "BL61", "BL49" },   // Delightful Agonies · BlackLegion
             { "BL62", "BL50" },   // Execution · BlackLegion
             { "BL63", "BL64" },   // Murderous Desires · BlackLegion
-            { "BL64", "BL54" },   // Drachnyen · BlackLegion
+            { "BL64", "BL54" },   // Drach'nyen · BlackLegion
             { "BL65", "BL53" },   // Heldrake Strike · BlackLegion
             { "BL66", "BL52" },   // Unholy Smite · BlackLegion
             { "BL67", "BL41" },   // Possession · BlackLegion
@@ -389,7 +389,7 @@ namespace RuleEngine
             { "DA80", "DA68" },   // Vengeful Brethren Bladeguard · DarkAngels
             { "DA81", "DA67" },   // Assault Terminator · DarkAngels
             { "DA82", "DA65" },   // Chaplain Gabutheron · DarkAngels
-            { "DA83", "DA66" },   // Ravenwing Ballistus Dreadnought · DarkAngels
+            { "DA83", "DA66" },   // Ballistus Dreadnought · DarkAngels
             { "DA84", "DA72" },   // Vengeful Brethren · DarkAngels
             { "DA85", "DA73" },   // Relic Munitions · DarkAngels
             { "DA86", "DA74" },   // Hunters of Heretics · DarkAngels
@@ -404,13 +404,13 @@ namespace RuleEngine
             { "EC11", "EC17" },   // Konstrictus Tormentor · EmperorsChildren
             { "EC12", "EC5" },   // Tormentor · EmperorsChildren
             { "EC13", "EC11" },   // Flawless Blade · EmperorsChildren
-            { "EC14", "EC9" },   // Icon of Excess Infractor · EmperorsChildren
+            { "EC14", "EC9" },   // Icon of Excess · EmperorsChildren
             { "EC15", "EC6" },   // Plasma Gun Tormentor · EmperorsChildren
             { "EC16", "EC24" },   // Slaanesh's Spawn · EmperorsChildren
             { "EC17", "EC1" },   // Sonic Blaster Noise Marine · EmperorsChildren
-            { "EC18", "EC19" },   // Threnodic Choir Noise Marine · EmperorsChildren
+            { "EC18", "EC19" },   // Threnodic Noise Marine · EmperorsChildren
             { "EC19", "EC2" },   // Blastmaster Noise Marine · EmperorsChildren
-            { "EC2", "b9665eadf1207ff49bcf0a730b0b7f9d" },   // Euphoric Strike (Lord Exultant's Talent) · EmperorsChildren
+            { "EC2", "b9665eadf1207ff49bcf0a730b0b7f9d" },   // Euphoric Strike · EmperorsChildren
             { "EC20", "EC34" },   // Fiend · EmperorsChildren
             { "EC21", "EC10" },   // Infractor Obsessionist · EmperorsChildren
             { "EC22", "EC25" },   // Terminator · EmperorsChildren
@@ -423,15 +423,15 @@ namespace RuleEngine
             { "EC29", "EC21" },   // Malgarash the Adamant · EmperorsChildren
             { "EC3", "EC55" },   // Lucius The Eternal · EmperorsChildren
             { "EC30", "EC23" },   // Slaanesh Sorcerer · EmperorsChildren
-            { "EC32", "EC16" },   // Dual Screamer Kakophonist · EmperorsChildren
+            { "EC32", "EC16" },   // Screamer Kakophonist · EmperorsChildren
             { "EC33", "EC26" },   // Terminator Champion · EmperorsChildren
             { "EC34", "EC20" },   // Turyan Ghauze · EmperorsChildren
             { "EC35", "EC13" },   // Lord Exultant · EmperorsChildren
             { "EC36", "EC27" },   // Rugged Disharmonist · EmperorsChildren
-            { "EC37", "EC14" },   // Lord Kakophonist · EmperorsChildren
+            { "EC37", "EC14" },   // Varius, Lord Kakophonist · EmperorsChildren
             { "EC38", "EC29" },   // Heldrake · EmperorsChildren
             { "EC39", "EC30" },   // Maulerfiend · EmperorsChildren
-            { "EC4", "6ed51d59b9f8ea24ab0dc7ceaef7956c" },   // Duelist's Hubris (Lucius' Talent) · EmperorsChildren
+            { "EC4", "6ed51d59b9f8ea24ab0dc7ceaef7956c" },   // Duelist's Hubris · EmperorsChildren
             { "EC40", "EC15" },   // Winged Daemon Prince · EmperorsChildren
             { "EC41", "EC28" },   // Chaos Land Raider · EmperorsChildren
             { "EC42", "EC36" },   // Chosen of Slaanesh · EmperorsChildren
@@ -442,7 +442,7 @@ namespace RuleEngine
             { "EC47", "EC39" },   // Eternal Servitude · EmperorsChildren
             { "EC48", "EC44" },   // Quicksilver Grace · EmperorsChildren
             { "EC49", "EC50" },   // Rapid Evisceration · EmperorsChildren
-            { "EC5", "EC57" },   // Xarahan Daemon Prince · EmperorsChildren
+            { "EC5", "EC57" },   // Xarahan, Daemon Prince · EmperorsChildren
             { "EC50", "EC41" },   // Internal Rivalry · EmperorsChildren
             { "EC51", "EC45" },   // Mechanised Murder · EmperorsChildren
             { "EC52", "EC38" },   // Pledge to the Dark Prince · EmperorsChildren
@@ -453,7 +453,7 @@ namespace RuleEngine
             { "EC57", "EC58" },   // Vengeful Surge · EmperorsChildren
             { "EC58", "EC47" },   // Exquisite Swordsmanship · EmperorsChildren
             { "EC59", "EC48" },   // Carnival of Excess · EmperorsChildren
-            { "EC6", "2621d4280735baf4c952e6afea8d0686" },   // Excessive Vigour (Daemon Prince's Talent) · EmperorsChildren
+            { "EC6", "2621d4280735baf4c952e6afea8d0686" },   // Excessive Vigour · EmperorsChildren
             { "EC60", "EC53" },   // Rapturous Ruination · EmperorsChildren
             { "EC61", "EC42" },   // Beautiful Death · EmperorsChildren
             { "EC62", "EC60" },   // Armoury of Excess · EmperorsChildren
@@ -477,9 +477,9 @@ namespace RuleEngine
             { "GOF104", "GOF102" },   // Thundering Stampede · Goff
             { "GOF106", "GOF107" },   // Fasta Than Yooz · Goff
             { "GOF11", "GOF10" },   // Grot Tank · Goff
-            { "GOF12", "GOF8" },   // Hornhelmz Boy · Goff
+            { "GOF12", "GOF8" },   // Hornhelmz' Boy · Goff
             { "GOF13", "GOF9" },   // Shoota Boy · Goff
-            { "GOF14", "GOF12" },   // Ork Spanner · Goff
+            { "GOF14", "GOF12" },   // Spanner · Goff
             { "GOF15", "GOF7" },   // Warbiker · Goff
             { "GOF16", "GOF11" },   // Banner Nob · Goff
             { "GOF17", "GOF15" },   // Burna Boy · Goff
@@ -492,14 +492,14 @@ namespace RuleEngine
             { "GOF23", "GOF58" },   // Boomdakka Snazzwagon · Goff
             { "GOF24", "GOF17" },   // Killa Kan · Goff
             { "GOF25", "GOF21" },   // Mekboy Gazmek · Goff
-            { "GOF26", "GOF18" },   // PainBoy Sniklaw · Goff
+            { "GOF26", "GOF18" },   // Painboy Sniklaw · Goff
             { "GOF27", "GOF59" },   // Big Shoota Boy · Goff
             { "GOF28", "GOF19" },   // Meganob Ugrak · Goff
             { "GOF29", "GOF61" },   // Rukkatrukk Squigbuggy · Goff
             { "GOF3", "GOF28" },   // Ghazghkull Thraka · Goff
             { "GOF30", "GOF60" },   // Tankbusta · Goff
-            { "GOF31", "GOF20" },   // Veteran Flyboy · Goff
-            { "GOF32", "GOF23" },   // Ardshell Gurk · Goff
+            { "GOF31", "GOF20" },   // Veteran Stormboy · Goff
+            { "GOF32", "GOF23" },   // 'Ardshell Gurk · Goff
             { "GOF33", "GOF22" },   // Deff Dread · Goff
             { "GOF34", "GOF62" },   // Kommando · Goff
             { "GOF35", "GOF24" },   // Battlewagon · Goff
@@ -509,10 +509,10 @@ namespace RuleEngine
             { "GOF4", "GOF1" },   // Grot · Goff
             { "GOF40", "GOF30" },   // Attack Squig · Goff
             { "GOF41", "GOF32" },   // Grot Bomb · Goff
-            { "GOF42", "GOF33" },   // Ard As Nails · Goff
-            { "GOF43", "GOF31" },   // Cloud Of Smoke · Goff
+            { "GOF42", "GOF33" },   // Ard as Nails · Goff
+            { "GOF43", "GOF31" },   // Cloud of Smoke · Goff
             { "GOF44", "GOF35" },   // Ork Encampment · Goff
-            { "GOF45", "GOF34" },   // Prophet of the Waaagh · Goff
+            { "GOF45", "GOF34" },   // Prophet of the Waaagh! · Goff
             { "GOF46", "GOF36" },   // Scrag ’Em · Goff
             { "GOF47", "GOF43" },   // Gretchin Mob · Goff
             { "GOF48", "GOF38" },   // Proper Killy · Goff
@@ -522,7 +522,7 @@ namespace RuleEngine
             { "GOF51", "GOF37" },   // Da Green Horde · Goff
             { "GOF52", "GOF42" },   // Da Irongob · Goff
             { "GOF53", "GOF45" },   // Get'em ladz! · Goff
-            { "GOF54", "GOF40" },   // No Mukkin About · Goff
+            { "GOF54", "GOF40" },   // No Mukkin' About · Goff
             { "GOF55", "GOF44" },   // Skorcha Assault · Goff
             { "GOF56", "GOF41" },   // Unbridled Carnage · Goff
             { "GOF57", "GOF46" },   // Stormboyz Strike · Goff
@@ -543,7 +543,7 @@ namespace RuleEngine
             { "GOF82", "GOF83" },   // Grot on Bombsquig · Goff
             { "GOF83", "GOF84" },   // Runtherd · Goff
             { "GOF84", "GOF85" },   // Snakebite Nob · Goff
-            { "GOF85", "GOF86" },   // Unleashed TramplaSquig · Goff
+            { "GOF85", "GOF86" },   // Unleashed Tramplasquig · Goff
             { "GOF86", "GOF87" },   // Zodgrod Wortsnagga · Goff
             { "GOF87", "GOF88" },   // Nob on Smasha Squig · Goff
             { "GOF88", "GOF89" },   // Squighog Boyz · Goff
@@ -561,31 +561,31 @@ namespace RuleEngine
             { "GOF99", "GOF100" },   // Cyber‑augmentation · Goff
             { "GOF_Big_Choppa_Nob", "GOF68" },   // Big Choppa Nob · Goff
             { "GOF_Boss_Nob", "GOF67" },   // Boss Nob · Goff
-            { "GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent", "64a657fc5ed5bbb4fa7b585cf29c1e95" },   // Da Bigger Dey Iz... (Mozrog's Talent) · Goff
+            { "GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent", "64a657fc5ed5bbb4fa7b585cf29c1e95" },   // Da Bigger Dey Iz... · Goff
             { "GOF_Da_Red_Waaagh", "20d0f4451f16fc441836a02f99bf77da" },   // Da Red Waaagh · Goff
             { "GOF_Dead_Choppy", "GOF72" },   // Dead Choppy · Goff
-            { "GOF_Dok_s_Toolz_Painboss_talent", "8f35df0536e4f7e4d86f3885e2597404" },   // Dok’s Toolz (Painboss' talent) · Goff
-            { "GOF_Ferocious_Rage_Beastboss_Talent", "84d4d192e0f57a34a90ac0f6172c3358" },   // Ferocious Rage (Beastboss' Talent) · Goff
+            { "GOF_Dok_s_Toolz_Painboss_talent", "8f35df0536e4f7e4d86f3885e2597404" },   // Dok’s Toolz · Goff
+            { "GOF_Ferocious_Rage_Beastboss_Talent", "84d4d192e0f57a34a90ac0f6172c3358" },   // Ferocious Rage · Goff
             { "GOF_Follower_of_Gork", "6ba4b132d24528844a86304f8ce67833" },   // Follower of Gork · Goff
             { "GOF_Greatest_Warboss", "3ebb159036778d14ebd1c48451aa6ca0" },   // Greatest Warboss · Goff
             { "GOF_Grizzled_Skarboy", "GOF74" },   // Grizzled Skarboy · Goff
             { "GOF_Krump_da_Gitz", "GOF71" },   // Krump da Gitz · Goff
             { "GOF_Krumpaklaw", "GOF70" },   // Krumpaklaw · Goff
-            { "GOF_Mega_Blasta_Deffkopta", "GOF69" },   // Mega Blasta Deffkopta · Goff
+            { "GOF_Mega_Blasta_Deffkopta", "GOF69" },   // Mega-Blasta Deffkopta · Goff
             { "GOF_Mekaniak", "9dcbe3d0c04b02f4fbb19974ae0e37b2" },   // Mekaniak · Goff
             { "GOF_More_Dakka", "9f4e1b7ea9f00da458c6a859a4e958c8" },   // More Dakka · Goff
             { "GOF_Ramshackle", "98d3c65702746b04baf7f5ead1a9e507" },   // Ramshackle · Goff
             { "GOF_Rokkit_Boy", "GOF66" },   // Rokkit Boy · Goff
             { "GOF_Sawbonez", "b4d6d186eb95a3f468013c5be649ee3b" },   // Sawbonez · Goff
-            { "GOF_Special_Dose_Zodgrod_Wortsnagga_Talent", "d19e8b68aaa9a884781d06697ad237a6" },   // Special Dose (Zodgrod Wortsnagga Talent) · Goff
+            { "GOF_Special_Dose_Zodgrod_Wortsnagga_Talent", "d19e8b68aaa9a884781d06697ad237a6" },   // Speshul Dose · Goff
             { "GOF_Stikkbomb_Boy", "GOF65" },   // Stikkbomb Boy · Goff
-            { "GOF_Stomp_Em", "GOF73" },   // Stomp Em · Goff
-            { "GOF_Uge_Choppa", "6899b199f5e36144ebbdd7ed9d9e7afe" },   // Uge Choppa · Goff
-            { "GOF_Waaagh_Energy_Weirdboy_Talent", "e3d67d86f73f7564eb0bf886ec848af6" },   // Waaagh! Energy (Weirdboy Talent) · Goff
+            { "GOF_Stomp_Em", "GOF73" },   // Stomp 'Em · Goff
+            { "GOF_Uge_Choppa", "6899b199f5e36144ebbdd7ed9d9e7afe" },   // ’Uge Choppa · Goff
+            { "GOF_Waaagh_Energy_Weirdboy_Talent", "e3d67d86f73f7564eb0bf886ec848af6" },   // Waaagh! Energy · Goff
             { "GOF_Warboss_Gordrang", "GOF75" },   // Warboss Gordrang · Goff
             { "GOF_Worst_Temper", "8425b809e9e64e24f9035f709f5aaee4" },   // Worst Temper · Goff
-            { "GOF_Wreckin_Ball", "508002f5d7ee54f4686aefa2e6adce41" },   // Wreckin Ball · Goff
-            { "GSC1", "GSC3" },   // Acolyte Iconward · Genestealers
+            { "GOF_Wreckin_Ball", "508002f5d7ee54f4686aefa2e6adce41" },   // Wreckin' Ball · Goff
+            { "GSC1", "GSC3" },   // Iconward Malak Vorenth · Genestealers
             { "GSC10", "GSC7" },   // Neophyte Hybrid · Genestealers
             { "GSC11", "GSC13" },   // Neophyte Specialist · Genestealers
             { "GSC12", "GSC8" },   // Neophyte Trooper · Genestealers
@@ -666,11 +666,11 @@ namespace RuleEngine
             { "GSC_Lhaska_Szenari", "GSC66" },   // Lhaska Szenari · Genestealers
             { "GSC_Master_Outrider", "c433e3dde4952cc448220908226127ae" },   // Master Outrider · Genestealers
             { "SAU1", "SAU35" },   // Imotekh the Stormlord · Sautekh
-            { "SAU10", "SAU4" },   // Gauss Reaper Warrior · Sautekh
+            { "SAU10", "SAU4" },   // Gauss Warrior · Sautekh
             { "SAU11", "SAU5" },   // Necron Warrior · Sautekh
-            { "SAU12", "SAU6" },   // Tesla Carbine Immortal · Sautekh
+            { "SAU12", "SAU6" },   // Tesla Immortal · Sautekh
             { "SAU13", "SAU7" },   // Canoptek Wraith · Sautekh
-            { "SAU14", "SAU8" },   // Gauss Blaster Immortal · Sautekh
+            { "SAU14", "SAU8" },   // Gauss Immortal · Sautekh
             { "SAU15", "SAU9" },   // Ophydian Destroyer · Sautekh
             { "SAU16", "SAU11" },   // Technomancer · Sautekh
             { "SAU17", "SAU12" },   // Tomb Blade · Sautekh
@@ -741,7 +741,7 @@ namespace RuleEngine
             { "SAU9", "SAU3" },   // Flayed One · Sautekh
             { "SAU_Hardwired_Destruction", "461354d98aa5e3142afa4eb4922e5456" },   // Hardwired Destruction · Sautekh
             { "SAU_Lychguard", "SAU23" },   // Lychguard · Sautekh
-            { "SAU_Ramatekh_The_Cruel", "SAU66" },   // Ramatekh The Cruel · Sautekh
+            { "SAU_Ramatekh_The_Cruel", "SAU66" },   // Ramatekh the Cruel · Sautekh
             { "SOR10", "SOR6" },   // Battle Sister Gunner · Sororitas
             { "SOR11", "SOR7" },   // Crusader · Sororitas
             { "SOR12", "SOR9" },   // Preacher · Sororitas
@@ -761,9 +761,9 @@ namespace RuleEngine
             { "SOR28", "SOR22" },   // Dominion Superior · Sororitas
             { "SOR29", "SOR25" },   // Imagifier · Sororitas
             { "SOR3", "SOR2" },   // Junith Eruita · Sororitas
-            { "SOR30", "SOR24" },   // Simulacrum Imperialis · Sororitas
+            { "SOR30", "SOR24" },   // Simulacrum Celestian · Sororitas
             { "SOR31", "SOR30" },   // Celestian Sacresant · Sororitas
-            { "SOR32", "SOR31" },   // Sister Dogmata · Sororitas
+            { "SOR32", "SOR31" },   // Dogmata · Sororitas
             { "SOR33", "SOR29" },   // Ephrael Stern · Sororitas
             { "SOR34", "SOR27" },   // Penitent Engine · Sororitas
             { "SOR35", "SOR28" },   // Zephyrim · Sororitas
@@ -810,8 +810,8 @@ namespace RuleEngine
             { "SOR76", "SOR74" },   // Emperor's Judgement · Sororitas
             { "SOR9", "SOR5" },   // Battle Sister · Sororitas
             { "SOR_Celestian_Sacresant_Aveline", "SOR65" },   // Celestian Sacresant Aveline · Sororitas
-            { "SOR_Relics_of_Saint_Katherine", "SOR50" },   // Relics of Saint Katherine · Sororitas
-            { "SOR_Triumph_of_Saint_Katherine", "SOR37" },   // Triumph of Saint Katherine · Sororitas
+            { "SOR_Relics_of_Saint_Katherine", "SOR50" },   // Relics of St. Katherine · Sororitas
+            { "SOR_Triumph_of_Saint_Katherine", "SOR37" },   // Triumph of St. Katherine · Sororitas
             { "SW10", "e3b5735d801fcbd49aa8d3975a5b0c31" },   // War Howl · SpaceWolves
             { "SW11", "SW4" },   // Blood Claw · SpaceWolves
             { "SW12", "SW5" },   // Hunting Wolf · SpaceWolves
@@ -840,7 +840,7 @@ namespace RuleEngine
             { "SW33", "SW25" },   // Wolf Guard Battle Leader · SpaceWolves
             { "SW34", "SW27" },   // Wolf Guard Terminator Pack Leader · SpaceWolves
             { "SW35", "SW28" },   // Blackmane Aggressor · SpaceWolves
-            { "SW36", "SW29" },   // Morkai Eliminator · SpaceWolves
+            { "SW36", "SW29" },   // Sons of Morkai Eliminator · SpaceWolves
             { "SW37", "SW30" },   // Terminator Rune Priest · SpaceWolves
             { "SW38", "SW31" },   // Wolf Guard Terminator · SpaceWolves
             { "SW39", "SW34" },   // Murderfang · SpaceWolves
@@ -850,7 +850,7 @@ namespace RuleEngine
             { "SW42", "SW36" },   // Bjorn the Fell-Handed · SpaceWolves
             { "SW43", "SW35" },   // Venerable Dreadnought · SpaceWolves
             { "SW44", "SW37" },   // Wulfen Dreadnought · SpaceWolves
-            { "SW45", "SW38" },   // Land Rider · SpaceWolves
+            { "SW45", "SW38" },   // Land Raider · SpaceWolves
             { "SW46", "SW40" },   // Bjorn's Shrine · SpaceWolves
             { "SW47", "SW39" },   // Canis Helix · SpaceWolves
             { "SW48", "SW44" },   // Death Shun · SpaceWolves
@@ -889,7 +889,7 @@ namespace RuleEngine
             { "TAU16", "TAU12" },   // Darkstrider · TauEmpire
             { "TAU17", "f279c5cf1c3e16e4db6b9df4d941ad11" },   // Structural Analyzer · TauEmpire
             { "TAU18", "TAU13" },   // DS8 Support Turret · TauEmpire
-            { "TAU19", "TAU14" },   // Breacher Fire Warrior · TauEmpire
+            { "TAU19", "TAU14" },   // Fire Warrior Breacher · TauEmpire
             { "TAU2", "f8260229254a09746af6d9ff7a9b0b54" },   // Ethereal Supreme · TauEmpire
             { "TAU20", "TAU15" },   // Sniper Drone · TauEmpire
             { "TAU21", "TAU16" },   // Vespid Stingwings · TauEmpire
@@ -900,31 +900,31 @@ namespace RuleEngine
             { "TAU26", "TAU21" },   // Stealth Battlesuit · TauEmpire
             { "TAU27", "1688c6146abb1e04f98e540b4cbbabd7" },   // Homing Beacon · TauEmpire
             { "TAU28", "TAU22" },   // Strike Team · TauEmpire
-            { "TAU29", "TAU23" },   // Breacher ShasUi · TauEmpire
+            { "TAU29", "TAU23" },   // Breacher Shas'ui · TauEmpire
             { "TAU3", "f2b80d575cbf8f64597b991022beaf35" },   // Serene Unifier · TauEmpire
             { "TAU30", "TAU27" },   // Broadside Battlesuit · TauEmpire
             { "TAU31", "TAU24" },   // Devilfish · TauEmpire
             { "TAU32", "TAU25" },   // Firesight Marksman · TauEmpire
-            { "TAU33", "TAU26" },   // Stealth Shas’ui · TauEmpire
-            { "TAU34", "TAU32" },   // Aunshi Ethereal · TauEmpire
+            { "TAU33", "TAU26" },   // Stealth Shas'ui · TauEmpire
+            { "TAU34", "TAU32" },   // Aun'Shi · TauEmpire
             { "TAU35", "TAU29" },   // Cadre Fireblade · TauEmpire
             { "TAU36", "TAU28" },   // Enforcer Battlesuit · TauEmpire
             { "TAU37", "TAU31" },   // Hammerhead · TauEmpire
             { "TAU38", "TAU34" },   // Coldstar Battlesuit · TauEmpire
-            { "TAU39", "TAU33" },   // Razorshark · TauEmpire
+            { "TAU39", "TAU33" },   // Razorshark Fighter · TauEmpire
             { "TAU4", "TAU3" },   // Commander O'Maisos · TauEmpire
             { "TAU40", "TAU30" },   // Sky Ray Gunship · TauEmpire
             { "TAU41", "TAU35" },   // Longstrike · TauEmpire
             { "TAU42", "TAU36" },   // Riptide Battlesuit · TauEmpire
             { "TAU43", "684196db974ab254090f39ef6e89868c" },   // Shield Generator · TauEmpire
             { "TAU44", "TAU37" },   // Sun Shark Bomber · TauEmpire
-            { "TAU45", "TAU38" },   // Stormsurge Battlesuit · TauEmpire
+            { "TAU45", "TAU38" },   // Stormsurge · TauEmpire
             { "TAU46", "507f79fa60945d04e93fe806aca912b7" },   // Deploy Anchors · TauEmpire
             { "TAU47", "TAU39" },   // Kauyon Tactics · TauEmpire
             { "TAU48", "TAU40" },   // Technological Supremacy · TauEmpire
             { "TAU49", "TAU41" },   // Zephyr's Grace · TauEmpire
             { "TAU5", "c4f5c920744030c4e84428dc5a0f1bf2" },   // Drone Companion · TauEmpire
-            { "TAU50", "TAU43" },   // For the Greater Good · TauEmpire
+            { "TAU50", "TAU43" },   // For The Greater Good · TauEmpire
             { "TAU51", "TAU44" },   // Pulse Onslaught · TauEmpire
             { "TAU52", "TAU46" },   // Sense of Stone · TauEmpire
             { "TAU53", "TAU58" },   // Coordinated Engagement · TauEmpire
@@ -951,7 +951,7 @@ namespace RuleEngine
             { "TAU73", "TAU72" },   // Lone-spear · TauEmpire
             { "TAU74", "TAU73" },   // Hidden Hunters · TauEmpire
             { "TAU75", "TAU74" },   // Thundering Rampage · TauEmpire
-            { "TAU76", "TAU75" },   // Hunters Instincts · TauEmpire
+            { "TAU76", "TAU75" },   // Hunter's Instincts · TauEmpire
             { "TAU8", "TAU4" },   // Guardian Drone · TauEmpire
             { "TAU9", "TAU5" },   // Fire Warrior · TauEmpire
             { "TAU_Grisly_Feast", "b3735ef3d1408d544b0947e31f898e20" },   // Grisly Feast · TauEmpire
@@ -976,13 +976,13 @@ namespace RuleEngine
             { "TL21", "TL14" },   // Sporocyst · Leviathan
             { "TL22", "TL15" },   // Tyranid Prime · Leviathan
             { "TL23", "TL11" },   // Venomthrope · Leviathan
-            { "TL24", "TL10" },   // Von Ryans Leaper · Leviathan
+            { "TL24", "TL10" },   // Von Ryan's Leaper · Leviathan
             { "TL25", "TL20" },   // Carnifex · Leviathan
             { "TL26", "TL17" },   // Deathleaper · Leviathan
             { "TL27", "TL16" },   // Mawloc · Leviathan
             { "TL28", "TL12" },   // Tyrant Guard · Leviathan
             { "TL29", "TL18" },   // Zoanthrope · Leviathan
-            { "TL3", "TL35" },   // SwarmLord · Leviathan
+            { "TL3", "TL35" },   // Swarmlord · Leviathan
             { "TL30", "TL19" },   // Broodlord · Leviathan
             { "TL31", "TL22" },   // Hive Crone · Leviathan
             { "TL32", "TL38" },   // Hive Guard · Leviathan
@@ -1010,7 +1010,7 @@ namespace RuleEngine
             { "TL53", "TL50" },   // Infinite Biomorphologies · Leviathan
             { "TL54", "TL43" },   // Augmented Ferocity · Leviathan
             { "TL55", "TL44" },   // Hardened Biology · Leviathan
-            { "TL56", "TL52" },   // Leviathans Tendrils · Leviathan
+            { "TL56", "TL52" },   // Leviathan's Tendrils · Leviathan
             { "TL57", "TL41" },   // Overwhelming Swarm · Leviathan
             { "TL58", "TL51" },   // Toxic Miasma · Leviathan
             { "TL59", "TL64" },   // Ravenous Hunter · Leviathan
@@ -1082,7 +1082,7 @@ namespace RuleEngine
             { "UM71", "UM89" },   // Incursor · Ultramarines
             { "UM72", "UM71" },   // Storm Speeder Hailstrike · Ultramarines
             { "UM73", "UM91" },   // Tactical Marine · Ultramarines
-            { "UM74", "UM92" },   // Firestrike Servo Turret · Ultramarines
+            { "UM74", "UM92" },   // Firestrike Servo-Turret · Ultramarines
             { "UM75", "UM74" },   // Rapid Deployment · Ultramarines
             { "UM76", "UM75" },   // Armoured Offensive · Ultramarines
             { "UM77", "UM95" },   // Attack Bike · Ultramarines
@@ -1091,7 +1091,7 @@ namespace RuleEngine
             { "UM80", "UM98" },   // Devastator Marine · Ultramarines
             { "UM81", "UM99" },   // Phobos Librarian · Ultramarines
             { "UM82", "UM103" },   // Terminator · Ultramarines
-            { "UM83", "UM101" },   // 2nd Company Terminator · Ultramarines
+            { "UM83", "UM101" },   // 1st Company Terminator · Ultramarines
             { "UM84", "UM100" },   // Chaplain Cassius · Ultramarines
             { "UM85", "8482077f309b08943b190f18b5874871" },   // Catechism of Death · Ultramarines
             { "UM86", "UM105" },   // Dreadnought · Ultramarines
@@ -1158,7 +1158,7 @@ namespace RuleEngine
             { "UM_Righteous_Fury", "26d4ded12b28a3742b5c8fc155e29803" },   // Righteous Fury · Ultramarines
             { "UM_Roboute_Guilliman", "UM87" },   // Roboute Guilliman · Ultramarines
             { "UM_Scout_Sniper", "UM94" },   // Scout Sniper · Ultramarines
-            { "UM_Scout_bike", "UM66" },   // Scout bike · Ultramarines
+            { "UM_Scout_bike", "UM66" },   // Scout Bike · Ultramarines
             { "UM_Scryer_s_Gaze", "c4ff279078605aa42942c8dd16b77147" },   // Scryer's Gaze · Ultramarines
             { "UM_Sergeant_Gadriel", "UM82" },   // Sergeant Gadriel · Ultramarines
             { "UM_Sergeant_Telion", "UM20" },   // Sergeant Telion · Ultramarines

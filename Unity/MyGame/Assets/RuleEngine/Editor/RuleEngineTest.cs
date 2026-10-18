@@ -1083,7 +1083,7 @@ public static partial class RuleEngineTest
 
             // ⑤ 图标词污染**嵌入关键词头**：`' [skull] Slay: Draw a Beast'`（`Ferocious Rage`）
             //    方括号在 `ParseSegment` 入口就被剥掉 ⇒ 头成了 `skull slay` ⇒ 整段嵌入效果静默丢。
-            var fr = CardDatabase.Find(CardDatabase.Load(), "Ferocious Rage (Beastboss' Talent)");
+            var fr = CardDatabase.Find(CardDatabase.Load(), "Ferocious Rage");
             CheckTrue(fr != null, "卡池里有 `Ferocious Rage`");
             if (fr != null)
             {
@@ -6097,12 +6097,13 @@ public static partial class RuleEngineTest
             r = PoolOf(pool, "Create in your hand a Gun Drone, Guardian Drone or Marker Drone", "TauEmpire");
             Check(r.Cards.Count, 3, "`Gun Drone / Guardian Drone / Marker Drone` 三张都在卡池里");
 
-            // 具名卡：原版数据里撇号被剥掉了（`Abaddon's Chosen` → `Abaddons Chosen`）
+            // 具名卡：✅ 2026-10-18（`W28` 卡名改官方显示名）起卡池里**也是** `Abaddon's Chosen`（带撇号）；
+            //   改名前原版数据把撇号剥掉了（`Abaddons Chosen`），靠 `CreatePool.Norm` 才配得上。
             r = PoolOf(pool, "Create a copy of Ahnakh-Yth Shrine in your hand", "SaimHann");
             Check(r.Cards.Count, 1, "`Create a copy of <卡名>` → 池子里就那一张");
             r = PoolOf(pool, "For each troop drawn, create a copy of Abaddon's Chosen in your hand", "BlackLegion");
-            CheckTrue(r.Ok, "卡面写 `Abaddon's Chosen`、数据里写 `Abaddons Chosen` —— 归一化后查得到");
-            Check(r.Cards[0].Name, "Abaddons Chosen", "查到的就是数据里那张");
+            CheckTrue(r.Ok, "卡面与卡池现在都是 `Abaddon's Chosen`（`W28` 起；改名前数据里没撇号）—— 查得到");
+            Check(r.Cards[0].Name, "Abaddon's Chosen", "查到的就是数据里那张");
 
             // ⚠️ **查不到的卡必须如实报**，不许造效果（本工程红线）。
             //    而且要把「到底是没有，还是名字写岔了」分清楚 —— 2026-09-12 之前计划文档
@@ -6586,7 +6587,7 @@ public static partial class RuleEngineTest
         var hexscorn = CreatePool.FindByName(pool, "Sylar Hexscorn");
         CheckTrue(hexscorn != null && hexscorn.StartWithInHand.Contains("Abaddon's Chosen"),
                   "★ `Sylar Hexscorn` → `Abaddon's Chosen`"
-                  + "（卡池里那张写作 `Abaddons Chosen`、**没有撇号** —— 靠 `CreatePool.Norm` 才配得上）"
+                  + "（2026-10-18 `W28` 起卡池里那张也叫 `Abaddon's Chosen`；改名前写作 `Abaddons Chosen`、没撇号，靠 `CreatePool.Norm` 才配得上）"
                   + "｜🧨 卡名改回 `Sylar Hexcorn` ⇒ `FindByName` 精确匹配落空 ⇒ 本行红");
         {
             var tyrnak = CreatePool.FindByName(pool, "Tyrnak and Fenrir");
@@ -7109,7 +7110,7 @@ public static partial class RuleEngineTest
         // 🔴 **两个坑都在这一条上**：① `Other` = 主语里要**排掉施放者自己**
         //    （`Deffkopta` 自己就是 Deffkopta）；② `friendly Deffkopta` 是**卡名**不是兵种
         //    （卡池里没有这个 subtype、原版也没有这个 trait），而且卡名**必须全等** ——
-        //    `Mega Blasta Deffkopta` 名字里也有 `Deffkopta`。
+        //    `Mega-Blasta Deffkopta` 名字里也有 `Deffkopta`。
         {
             var r = EffectText.ParseSegment("Other friendly Deffkopta deal 2 damage to a random enemy");
             Check(r.Kind, EffectText.SegKind.Ok, "`Other friendly …` 那句认得出");
@@ -8998,10 +8999,10 @@ public static partial class RuleEngineTest
 
         // ---- ③ 结算层：真打一次**真卡面原文** ----
         var pool = CardDatabase.Load();
-        // ⚠️ 卡**名**带括号后缀（`id` 是 `EC_Excessive_Vigour_Daemon_Prince_s_Talent`）——
-        //    `FindCard` 比的是 `Name`，写成 `Excessive Vigour` 会找不到。
-        var real = FindCard(pool, "Excessive Vigour (Daemon Prince's Talent)");
-        CheckTrue(real != null, "卡池里找得到 `Excessive Vigour (Daemon Prince's Talent)`（帝皇之子督军天赋）");
+        // ⚠️ 卡**名**：`id` 是 `EC_Excessive_Vigour_Daemon_Prince_s_Talent`（**id 不随显示名改**）。
+        //    ✅ 2026-10-18（`W28` 卡名改官方显示名）：卡名已是 `Excessive Vigour`（括号后缀去掉了）。
+        var real = FindCard(pool, "Excessive Vigour");
+        CheckTrue(real != null, "卡池里找得到 `Excessive Vigour`（帝皇之子督军天赋）");
         if (real != null)
         {
             // ⚠️ `desc` 取**真卡面原文**，不在这儿手写一句「差不多」的英文 ——
@@ -10084,7 +10085,7 @@ public static partial class RuleEngineTest
     ///   卡面把触发关键词印成图标（`⚡ Rally: …`）时，不剥字形 `head` 会变成 `⚡ rally`。
     ///
     /// 🔴 **必须先问一句「这一句是不是已经由别的层接手了」**（转调 `CardDef.HandledByOtherLayer`）——
-    ///   否则有**假警报**：`Talent: Deploy Anchors`（`TAU45 Stormsurge Battlesuit`）里
+    ///   否则有**假警报**：`Talent: Deploy Anchors`（`TAU38 Stormsurge`）里
     ///   `Deploy Anchors` **恰好解得出一条 `deploy` op**，而它是**天赋名**、归
     ///   `TalentName` + `RuleCore.SpawnTalents` 那一层，**根本不是正文**（探针实测被误报过）。
     ///   同族还有 `Companion N: <卡名>` / 光环 / 开局上手 —— 引擎自己有「谁接手」的判据，
@@ -11237,7 +11238,7 @@ public static partial class RuleEngineTest
     /// <summary>
     /// 🔴 **2026-09-16：原来记成「终态」的 6 张，逐张开图查完 —— **6 张全都能修、0 张真终态**。**
     ///
-    /// 这一节钉住其中 **4 张证据确凿的**；另 2 张（`Mekaniak` 的 Kustom Job 池 · `Ork Spanner` 的
+    /// 这一节钉住其中 **4 张证据确凿的**；另 2 张（`Mekaniak` 的 Kustom Job 池 · `Spanner` 的
     /// `a random bonus`）的池子是**结构推断**、不是文本直证 ⇒ **不猜**，留给用户裁决（见文档 §四）。
     ///
     /// · **`Awakened Obelisk`（`SAU65`）** —— 卡面 `add **Extermination Protocol** to your hand`（**单数**），
@@ -11318,10 +11319,10 @@ public static partial class RuleEngineTest
             }
         }
 
-        // ---- ⑥ `Ork Spanner` 的 `a random bonus` —— **用户 2026-09-16 拍板**按 `Carnifex` 卡面的定义 ----
+        // ---- ⑥ `Spanner`（`GOF12`；2026-10-18 `W28` 前叫 `Ork Spanner`）的 `a random bonus` —— **用户 2026-09-16 拍板**按 `Carnifex` 卡面的定义 ----
         {
-            var sp = FindCard(pool, "Ork Spanner");
-            CheckTrue(sp != null, "卡池里找得到 `Ork Spanner`（`GOF14`）");
+            var sp = FindCard(pool, "Spanner");
+            CheckTrue(sp != null, "卡池里找得到 `Spanner`（`GOF12`；2026-10-18 `W28` 由 `Ork Spanner` 改成官方名）");
             if (sp != null)
             {
                 var ops = EffectText.Parse(sp.Desc, out _, out _);
@@ -12628,7 +12629,7 @@ public static partial class RuleEngineTest
                 var cases = new[] {
                     new[] { "Chronomancer",         "turn_end",   "you",  "pre" },
                     new[] { "Aquilon Servo-Sentry", "turn_end",   "each", "pre" },
-                    new[] { "Unleashed TramplaSquig","turn_start","each", "pre" },
+                    new[] { "Unleashed Tramplasquig","turn_start","each", "pre" },
                     new[] { "Concealed Explosives", "turn_start", "you",  "suf" },
                 };
                 int ok = 0; string bad = "";
@@ -15055,7 +15056,7 @@ public static partial class RuleEngineTest
                                   new[] { "Rally", "Ferocity" }, subtype: "Infantry");
             CheckTrue(amb.TriggerOps("rally") == null && amb.TriggerOps("ferocity") == null,
                       "★ 两个带正文的关键词、又没写 `X:` 前缀 ⇒ **歧义，不认**"
-                      + "（`Morkai Eliminator` 那种；猜错就是在**错的时机**放效果）");
+                      + "（`Sons of Morkai Eliminator` 那种；猜错就是在**错的时机**放效果）");
         }
     }
 
@@ -15077,7 +15078,7 @@ public static partial class RuleEngineTest
     ///   · **两个兵种词**（`Devilfish` 的 `Infantry **and** Drones` ⇒ 并集）
     ///   · **关键词筛**（`Winged Autarch` 的 `Flying units`）
     ///   · **卡名筛**（`Alluress` 的 `Daemonette` —— 它是一张卡的卡名，不是兵种）
-    ///   · **敌方**（`Bringer of decay` 的 `Enemies have Vulnerable 1`，**主语是空的**）
+    ///   · **敌方**（`Bringer of Decay` 的 `Enemies have Vulnerable 1`，**主语是空的**）
     ///   · **时长限定**（`Fyrri Askar` 的 `Invulnerable during your turn`）
     ///   · **费用 + 属性合体**（`Winged Daemon Prince`）
     ///   · **反例**：裸 `+N` 的两张**故意不收**（`Genestealer Familiar` / `Cadre Fireblade`）
@@ -15139,7 +15140,7 @@ public static partial class RuleEngineTest
         //    —— 那张卡要是将来多出一条别的光环，这条断言不该跟着红。
         foreach (var nm in new[]
                  {
-                     "Minka Lesk", "Piranha", "Venomcrawler", "Aunshi Ethereal",
+                     "Minka Lesk", "Piranha", "Venomcrawler", "Aun'Shi",
                      "Hrolf the Ironhowl", "Atalan Leader", "Metamorph Leader",
                  })
         {
@@ -17108,7 +17109,7 @@ public static partial class RuleEngineTest
             foreach (var o in Walk(many))
                 if (o.Target != null && o.Target.Adjacent) spec2 = o.Target;
             CheckTrue(spec2 != null && spec2.AdjacentAll,
-                      "★ `adjacent troops`（复数） ⇒ **一圈全要**（`Nuadhu Fireheart`）");
+                      "★ `adjacent troops`（复数） ⇒ **一圈全要**（`Nuadhu 'Fireheart'`）");
         }
 
         // ---- ⑤ 光环族**不走「一次性给己方全体」那条路**，由**光环层**认领 ----
@@ -18289,7 +18290,7 @@ public static partial class RuleEngineTest
         // ==================================================================
         //   ① `this unit attacks an enemy with Hunt Mark`（`Long Fang`）
         //   ② `this unit kills an enemy`（`Sister Repentia`）
-        //   ③ `you create **or play** a secret`（`Ravenwing Ballistus Dreadnought`，见上面那条断言）
+        //   ③ `you create **or play** a secret`（`Ballistus Dreadnought`，见上面那条断言）
         //   ④ `you trigger a Spirit Stone ability`（`Bright Lance Vyper`）
         // 四条原本都落在「认不出的事件短语」那一栏（`_tmp_view/when_unparsed.md`）。
         // 这一节钉**两层**：解析层（事件长什么样）+ 端到端（局面真的变了 + **反例**）。
@@ -18354,9 +18355,9 @@ public static partial class RuleEngineTest
                       "★ 真卡 `Sister Repentia`：监听器注册上了（`When this unit kills an enemy, gain 1 ☀`）"
                       + "｜🧨 卡名改回复数 ⇒ 精确匹配落空 ⇒ 本行红");
 
-            var rb = CardDatabase.Find(pool, "Ravenwing Ballistus Dreadnought");
+            var rb = CardDatabase.Find(pool, "Ballistus Dreadnought");
             CheckTrue(rb != null && rb.WhenTriggers.Count == 2,
-                      "★ 真卡 `Ravenwing Ballistus Dreadnought`：**两条**监听器（create + play）——"
+                      "★ 真卡 `Ballistus Dreadnought`（2026-10-18 `W28` 由 `Ravenwing Ballistus Dreadnought` 改官方名）：**两条**监听器（create + play）——"
                       + " 只接半边时这里会是 1，而那正是「漏触发且不报错」");
 
             var bl = CardDatabase.Find(pool, "Bright Lance Vyper");
@@ -19280,11 +19281,11 @@ public static partial class RuleEngineTest
                 Check(n, int.Parse(t[1]), $"★ 被点名的次数 `{t[0]}`（= 正本 §9·3 的实测数）");
             }
             // ② **规则①的证据**：正本记「`Chosen` 5 次」—— 子串确实是 5 处，**但 5 处全在更长的卡名里**
-            //    （`Abaddons Chosen` ×3 · `Chosen of the Four` · `Chosen of Slaanesh`）
+            //    （`Abaddon's Chosen` ×3 · `Chosen of the Four` · `Chosen of Slaanesh`）
             //    ⇒ 规则①（长名优先）把这 5 处**判给了那三个更长的名字**，`Chosen` 本身该是 **0**。
             //    ⚠️ `1 + 3 + 1 = 5` **正好**等于正本那个数 ⇒ 这条差**不是漏，是口径**。
             {
-                var want = new[] { new[] { "Chosen", "0" }, new[] { "Abaddons Chosen", "3" },
+                var want = new[] { new[] { "Chosen", "0" }, new[] { "Abaddon's Chosen", "3" },
                                    new[] { "Chosen of the Four", "0" }, new[] { "Chosen of Slaanesh", "1" } };
                 foreach (var t in want)
                 {
@@ -19849,10 +19850,16 @@ public static partial class RuleEngineTest
 
             var pool = CardDatabase.Load();
             // ---- 灭自证：名字那条路**在这一格必然失败** ----
-            CheckTrue(CreatePool.FindByName(pool, "Duelist's Hubris") == null,
-                      "🧨 **灭自证**：`Duelist's Hubris` 这个名字**在池子里查不到任何卡**"
-                      + "（池子里那张叫 `Duelist's Hubris (Lucius' Talent)`）"
-                      + " ⇒ 上面 `EC55` 那一条**不可能是**按名字查出来的");
+            // 🔴 2026-10-18（`W28` 卡名改官方显示名）就地订正：卡名已改成 `Duelist's Hubris`
+            //   （原 `Duelist's Hubris (Lucius' Talent)`）⇒ 原断言「这个名字在池子里查不到任何卡」
+            //   **不再成立**（现在查得到），这一格因此**不再承担灭自证**。改成两条：
+            //   ① 名字查到的必须是**真值那张卡**（id 一致）—— 防「名字与 id 指向两张卡」；
+            //   ② 灭自证改由上面 `BL23` 那条承担（卡面写 `A random Black Legion Psychic Power`，
+            //      **不是任何卡名** ⇒ 按名字查必然落空 ⇒ 换掉 `TalentCardData.Get` 就会被它抓住）。
+            var dh = CreatePool.FindByName(pool, "Duelist's Hubris");
+            CheckTrue(dh != null && dh.Id == "6ed51d59b9f8ea24ab0dc7ceaef7956c",
+                      "★ `Duelist's Hubris` 按名查到的就是真值那张卡（id 一致）"
+                      + "｜🧨 灭自证已移到 `BL23`（它的卡面原文不是卡名）");
             int multi = 0;
             foreach (var c in pool)
             {
@@ -29022,7 +29029,7 @@ public static partial class RuleEngineTest
     /// **病**：`BeginTurn` 的 `ResolveAtTurn(ctx,"turn_start")` 原来排在【解疲劳】
     ///   `RefreshForNewTurn` **之前** ⇒ 那一刻攻方还带着上一回合的「已行动」标记
     ///   ⇒ `RuleCodes.ErrExhausted` ⇒ 凡「回合开始时攻击…」那一族**一条都打不出去**
-    ///   （真卡 = `GOF85 Unleashed TramplaSquig`：`At the start of each turn attack a random non Flying enemy`）。
+    ///   （真卡 = `GOF86 Unleashed Tramplasquig`：`At the start of each turn attack a random non Flying enemy`）。
     ///   连带第二个症状：**打完不疲劳**（`RefreshForNewTurn` 随后把 `AttacksThisTurn` 清 0）。
     ///
     /// **判据（第一权威 · 逐行读过）**= `d:/2/tools/decomp_full/CardScript__OnTurnStart.c`：
@@ -29050,8 +29057,8 @@ public static partial class RuleEngineTest
                         "At the start of your turn attack a random enemy", "common", "Test",
                         1, 4, 9, 0, null, subtype: "Infantry"),
         };
-        var real = CardDatabase.Find(CardDatabase.Load(), "Unleashed TramplaSquig");
-        CheckTrue(real != null, "（前提）卡池里有真卡 `GOF85 Unleashed TramplaSquig`");
+        var real = CardDatabase.Find(CardDatabase.Load(), "Unleashed Tramplasquig");
+        CheckTrue(real != null, "（前提）卡池里有真卡 `GOF86 Unleashed Tramplasquig`");
         if (real != null) cases.Add(real);
 
         foreach (var card in cases) A1606Run(card);

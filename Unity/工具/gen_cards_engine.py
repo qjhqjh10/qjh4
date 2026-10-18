@@ -1532,9 +1532,13 @@ def load_official_cardname():
                ⚠️ **同名卡（Terminator Champion / Maulerfiend / Terminator）会有多条候选** ——
                现读那 5 组候选的**中文值逐组相同**，故取哪条都一样；仍然**按阵营前缀优先**取，
                并把「候选值不一致」报出来（`bad`），⛔ 不许静默挑一条。
-    `bad`    = **官方表自身坏掉的条目**（值不成立）—— 现读只有 `AM24`（中文 = `"u"`）。
-               ⛔ 这一条**绝不能进卡表**（会把卡名印成一个字母），故**整个键丢弃**、
-               让它退回我们自译并出声。
+    `bad`    = **官方表自身坏掉的条目**（**连英文都没有**）—— **现读 0 条**。
+               ⛔ 这一族**绝不能进卡表**，故**整个键丢弃**、让它退回自译并出声。
+               🔴 **2026-10-18 就地订正（铁律 5）**：这里原来写着「现读只有 `AM24`（中文 = `"u"`）」——
+                   **那是读法错**：`Card_Name/AM24` 的值是**裸字符串**（官方表里那张卡只有英文列），
+                   `v[0]`/`v[1]` 取成了字符串第 0/1 个字符 ⇒ 才有 `"B"`/`"u"`。
+                   **「官方没有中文」≠「值坏了」**：现读 13 条（`AM24` + `EC65..EC75` + 1 条 GUID，
+                   **池内只有 `AM24`**）⇒ 现在按「**保持英文原文**」正式收下（⛔ 不自译）。
 
     🔴 **为什么不能只按 id 整批换**（铁律 5·c）：官方表是 2025-07-30 快照，之后原版还出过新卡
        ⇒ 现池 1126 张里有一批**在快照里根本没有** ⇒ 走英文名桥补回 137 张，最后 152 张
@@ -1544,25 +1548,38 @@ def load_official_cardname():
         print(f"⚠️ 找不到官方中文表 {OFFICIAL_LOC_SRC} —— 卡中文名将退回 `zh_cards.json`（我们自译）")
         return {}, {}, [], None
     terms = json.load(open(OFFICIAL_LOC_SRC, encoding="utf-8")).get("terms") or {}
-    by_id, by_en, bad = {}, {}, []
+    by_id, by_en, bad, no_cn = {}, {}, [], []
     for k, v in terms.items():
         if not k.startswith("Card_Name/"):
             continue
         _id = k[len("Card_Name/"):]
-        en = (v[0] if len(v) > 0 else "") or ""
-        zh = (v[1] if len(v) > 1 else "") or ""
-        zh = zh.strip()
-        # 「值不成立」= 空白 / 只有一个字符 / 一个汉字都没有（现读 `AM24` = `"u"` 是唯一一条）
-        if len(zh) < 2 or not re.search(r"[一-鿿]", zh):
-            bad.append((_id, en, zh))
-            continue
+        if isinstance(v, list):
+            en = (v[0] if len(v) > 0 else "") or ""
+            zh = (v[1] if len(v) > 1 else "") or ""
+        else:
+            en = zh = str(v or "")      # 裸字符串 = 快照里只有一列（现读只有 `AM24`）
+        en, zh = en.strip(), zh.strip()
+        # 🔴 **2026-10-18 就地订正（铁律 5）**：原来这里只有一条谓词「空白 / 单字符 / 没汉字 ⇒ `bad`」，
+        #    于是把「**官方没有中文**」和「**官方值坏了**」混成了一档 —— 前者现读 **13 条**
+        #    （`AM24` 裸字符串 + `EC65`/`EC66`…`EC75`/一条 GUID 的「只有英文列」数组；**池内只命中 `AM24`**）。
+        #    更糟的是裸字符串那条被当成了 `AM24 = "u"`（`v[0]`/`v[1]` 取的是字符串的第 0/1 个**字符**）。
+        #    ⇒ 现在分开：**没中文 ⇒ 保持英文原文**（⛔ 不自译，与 `load_official_display_names` 同一条口径）；
+        #       **真空值**（连英文都没有）才进 `bad` 并出声。
+        _no_cn = not (len(zh) >= 2 and re.search(r"[一-鿿]", zh))
+        if _no_cn:
+            if en:
+                zh = en
+                no_cn.append((_id, en))
+            else:
+                bad.append((_id, en, zh))
+                continue
         by_id[_id] = zh
         by_en.setdefault(en, []).append((_id, zh))
     stats = {"terms": sum(1 for k in terms if k.startswith("Card_Name/")),
-             "ok": len(by_id), "bad": len(bad),
+             "ok": len(by_id), "bad": len(bad), "nocn": len(no_cn),
              "guid": sum(1 for k in by_id if re.fullmatch(r"[0-9a-f]{32}", k))}
     print(f"官方中文表   `Card_Name/*` {stats['terms']} 条（可用 {stats['ok']} · GUID 键 {stats['guid']} ·"
-          f" 值不成立丢弃 {stats['bad']}）")
+          f" 官方没中文、保持英文 {stats['nocn']} · 真空值丢弃 {stats['bad']}）")
     for _id, _en, _zh in bad:
         print(f"            ⚠️ 官方值不成立、**丢弃**：`Card_Name/{_id}` = ({_en!r}, {_zh!r})"
               f" —— 这张卡退回我们自译（理由见 `load_official_cardname` 的 docstring）")
@@ -1594,6 +1611,45 @@ def official_name(by_id, by_en, cid, name, faction, conflicts):
     return cands[0][1], "en", cands[0][0]
 
 
+def load_official_display_names():
+    """原版**官方显示名**（`name` 英文 + `nameZh` 中文）→ `(by_id, stats)`。见 `OFFICIAL_LOC_SRC`。
+
+    🔴 **2026-10-18（用户改判）**：此前「**卡名一个字不动**」的口径**作废** —— 那是 PnP 时代定的
+    （当时卡名以 PnP 印刷品 / 卡图资产名为准）。现在改为**官方显示名**（原版客户端里真正显示的那串字）。
+    判据 = `资料/普查产出_1018/R_卡牌线_完整ID与SO后的调整评估.md` §3 `N3`（「32 张卡名 ≠ 当前官方显示名」）。
+    **现读（2026-10-18）= 64 张**：32 张是**词/语义不同**（`Ork Spanner` → `Spanner` 这一类），
+    另 32 张只差**大小写 / 撇号 / 连字符 / 句点**（`Fire prism` → `Fire Prism` 这一类）——
+    两批**都换**（显示名逐字符照官方，大小写也是显示的一部分）。
+
+    与 `load_official_cardname()` 的分工：那个只管**中文**（`nameZh`），本函数**两列一起**取。
+    两者现在对「官方没有中文」**同一口径**：`AM24` 的官方条目是**裸字符串**（en+zh 快照里只有英文列；
+    `官方本地化_13lang.json` 的 `zh` 列也是英文）⇒ 按「**保持英文原文**」处理（⛔ 不自译）。
+    （⚠️ 2026-10-18 之前 `load_official_cardname` 把这条误判成「值坏了」整条丢弃；已就地订正。）
+    """
+    if not os.path.exists(OFFICIAL_LOC_SRC):
+        print(f"⚠️ 找不到官方表 {OFFICIAL_LOC_SRC} —— 卡名保持源表写法（`name`）/ 自译（`nameZh`）")
+        return {}, None
+    terms = json.load(open(OFFICIAL_LOC_SRC, encoding="utf-8")).get("terms") or {}
+    by_id = {}
+    for k, v in terms.items():
+        if not k.startswith("Card_Name/"):
+            continue
+        _id = k[len("Card_Name/"):]
+        if isinstance(v, list):
+            en = (v[0] if len(v) > 0 else "") or ""
+            zh = (v[1] if len(v) > 1 else "") or ""
+        else:                      # 裸字符串 = 只有英文列（现读只有 `AM24` 一条）
+            en = zh = v or ""
+        en, zh = en.strip(), zh.strip()
+        if not en:                 # 英文都没有 ⇒ 这条没用（⛔ 不拿中文顶英文）
+            continue
+        by_id[_id] = (en, zh or en)
+    stats = {"keys": sum(1 for k in terms if k.startswith("Card_Name/")), "ok": len(by_id)}
+    print(f"官方显示名   `Card_Name/*` {stats['keys']} 条（可用 {stats['ok']} · "
+          f"裸字符串 {stats['keys'] - stats['ok'] if stats['keys'] > stats['ok'] else 0}）")
+    return by_id, stats
+
+
 def load_official_desc():
     """原版**官方中文卡面描述**（`A1763` 的数据层）→ `(by_id, bad, stats)`。见 `OFFICIAL_LOC_SRC`。
 
@@ -1602,7 +1658,8 @@ def load_official_desc():
     全部也在 `Card_Name` 里）⇒ 取值的钥匙一律先用 `official_name()` 解出来的**官方键**，
     再拿它查这张表（`build()` 里那一段）。
 
-    🔴 **那 181 条必须挑出来**（与 `load_official_cardname` 的 `AM24 = "u"` 同一条纪律）。
+    🔴 **那 181 条必须挑出来**（与 `load_official_cardname` 里「值不成立就丢弃」同一条纪律 ——
+       ⚠️ 那条纪律原来举的 `AM24 = "u"` 是**读法错**，2026-10-18 已订正，见那个函数的 docstring）。
     ⚠️ **2026-10-15（第三十二会话）就地订正（铁律 5）**：本段原来写的是
     「官方表里有一批**被截断的**条目 —— 现读全表 1098 条里 **181** 条的值**就是单个字符**：
     `(` 91 条 · `[` 89 条 · `N`/`o` 1 条」—— 🔴 **那是读错了**：真因 = 原表里 **en == zh**
@@ -2484,6 +2541,36 @@ def build():
         sys.exit("❌ 卡 id 层自检失败（池内 id_made 必须 = 0、且每个 id 必须 ∈ 真值 SO 的 uniqueId 集合）"
                  " —— 见 `gen_cards_engine.py` 末尾「生成期自检」那段；一个字节都没写。")
 
+    # ---- 🔴 2026-10-18（用户改判）：`name` / `nameZh` 换**官方显示名** ----------------------------
+    # 为什么放在【这里】（`cards` 全部算完、所有守卫跑完之后）：
+    #   本文件里有一整族表**按源表卡名做键** —— `cardface_fixes.json`（`subtype`/`keywords`/
+    #   `desc`/`descZh` 四列）、`STAT_FIXES`、`ZH_NAME_ALIAS`、`RARITY_UNLISTED`、
+    #   `RARITY_BY_FACTION`，外加 `official_name()` 的**英文名桥**。
+    #   在它们**之前**改名 = 那 40+ 个键**当场变死键**（静默、无报错；2026-09-18 / 09-24 各踩过一次）。
+    #   ⇒ 顺序钉死：**所有按名查表的层先跑完（用源表名），最后一步才把显示名换掉**。
+    #   ⚠️ 推论：`cardface_fixes.json` 的键**继续用源表名**（= 卡图资产名）—— 那不是缺陷，
+    #      它是「上游表的键」；**要按显示名查表的地方必须走 id**（`CardDef.Id` / `CardDatabase.FindById`）。
+    _off_names, off_names_stats = load_official_display_names()
+    offname_hit, offname_same, offname_miss = [], [], []
+    for _c in cards:
+        _pair = _off_names.get(_c["id"])
+        if not _pair:
+            offname_miss.append((_c["id"], _c["name"], _c.get("nameZh") or ""))
+            continue
+        _en, _zh = _pair
+        _old_en, _old_zh = _c["name"], _c.get("nameZh") or ""
+        _bits = []
+        if _en != _old_en:
+            _bits.append(("name", _old_en, _en))
+            _c["name"] = _en
+        if _zh != _old_zh:
+            _bits.append(("nameZh", _old_zh, _zh))
+            _c["nameZh"] = _zh
+        if _bits:
+            offname_hit.append((_c["id"], _bits))
+        else:
+            offname_same.append(_c["id"])
+
     return {
         "version": 9,          # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
@@ -2496,7 +2583,9 @@ def build():
                                #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声），
                                #       否则新列会被静默读成 `0`/`null`（`施工设计 §五·3`）
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
-                  "中文名以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
+                  "英文名 / 中文名都以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
+                  "（🔴 2026-10-18 用户改判：**`name` 也换官方显示名** —— 此前「卡名一个字不动」的 PnP 时代口径作废；"
+                  "⛔ 只换显示名、**不换 id**；名字只作显示，引擎一律按 id 走）"
                   "（2025-07-30 远端包快照；官方表里没有的卡才用 数据/卡牌翻译/zh_cards.json 那份自译），"
                   "中文效果 2026-10-15（P3 相 `A1763`）起**同样以该表的 `Card_Description/*` 为准**"
                   "（键空间与 `Card_Name/*` 同源；官方表里没有、或原表里 en == zh的那批才用 zh_cards.json 的自译）"
@@ -2522,6 +2611,7 @@ def build():
         "note": "由 工具/gen_cards_engine.py 生成，不要手改。"
                 "改数据请改 card_stats.json / 数据/游戏数据/官方本地化_en+zh-CN.json / "
                 "数据/卡牌翻译/zh_cards.json / 数据/游戏数据/cardface_fixes.json 后重跑。"
+                "name 与 nameZh 都以原版官方表的 `Card_Name/*` 为显示名（2026-10-18 起；`name` 此前取源表写法）；"
                 "nameZh 与 descZh 都优先取原版官方中文表（`Card_Name/*` / `Card_Description/*`；"
                 "查不到、或原表里 en == zh的才回 数据/卡牌翻译/zh_cards.json 那份自译，见 source）；"
                 "🔴 `descZh` 一列有 3 个写手，权威序（低→高）= zh_cards.json（自译）→ 官方 `Card_Description/*` → "
@@ -2576,7 +2666,8 @@ def build():
         so_stat_changed, so_stat_skipped), \
        (rarity_guard_bad, _rarity_truth_n, _rarity_truth_skip_n,
         rarity_truth_filled, rarity_src_truth, rarity_src_table, rarity_src_source,
-        orphan_rarity_key)
+        orphan_rarity_key), \
+       (offname_hit, offname_same, offname_miss, off_names_stats)
 
 
 def fix_own_armour(entry):
@@ -2632,7 +2723,8 @@ def main():
     (doc, skipped, total, filled, still_missing, stat_fixed, face_fixed,
      id_orig, id_made, id_truth, id_new, orphan_face_fix, orphan_stat_fix, armor_family_bad, key_conflicts,
      goes_second, off, off_desc,
-     inv, init, truth, rarity_guard) = build()
+     inv, init, truth, rarity_guard, offname) = build()
+    offname_hit, offname_same, offname_miss, off_names_stats = offname
     id_direct, id_cascade, id_cross_mismatch, direct_ambiguous = id_new
     def_report, _gs_n, _gs_hero, _gs_missing_fac = goes_second
     off_hit, off_same, off_miss, off_conflict, off_bad, off_stats = off
@@ -2899,6 +2991,27 @@ def main():
             print(f"  ⚠️ 官方值不成立已丢弃：`Card_Name/{_id}` = ({_en!r}, {_zh!r}) ⇒ 该卡保持自译")
     else:
         print("\n官方中文名   ⚠️ 没读到官方表 ⇒ 卡名仍是我们自译（见 `OFFICIAL_LOC_SRC`）")
+
+    # 🆕 2026-10-18（用户改判）：**英文卡名也换官方显示名**（`name` + `nameZh` 两列一起；
+    #    见 `load_official_display_names` 那段的长注释）。⛔ 不许把「官方表里没有这张卡」写成「换过了」。
+    if off_names_stats:
+        _n_en = sum(1 for _cid, _bits in offname_hit if any(b[0] == "name" for b in _bits))
+        _n_zh = sum(1 for _cid, _bits in offname_hit if any(b[0] == "nameZh" for b in _bits))
+        print()
+        print(f"官方显示名   `Card_Name/*` {off_names_stats['keys']} 条（可用 {off_names_stats['ok']}）"
+              f" → 命中 {len(offname_hit) + len(offname_same)}/{doc['count']} 张")
+        print(f"            与官方**逐字相同** {len(offname_same)} 张 · **换掉** {len(offname_hit)} 张"
+              f"（其中 `name` {_n_en} · `nameZh` {_n_zh}） · 官方表查不到、保持源表名 {len(offname_miss)} 张")
+        for _cid, _bits in offname_hit[:10]:
+            print(f"            · {_cid:<26} " + " · ".join(f"`{c}`「{o}」→「{n}」" for c, o, n in _bits))
+        if len(offname_hit) > 10:
+            print(f"            … 其余 {len(offname_hit) - 10} 张同理")
+        if offname_miss:
+            print("  ⚠️ 官方表里**没有**这些 id ⇒ 保持源表名："
+                  + " · ".join(f"{c}={n}" for c, n, _z in offname_miss))
+    else:
+        print()
+        print("官方显示名   ⚠️ 没读到官方表 ⇒ 卡名保持源表写法（见 `OFFICIAL_LOC_SRC`）")
 
     # 🆕 2026-10-15（P3 相 · `A1763` 数据层）：**官方中文效果文字**逐档如实报（与上面那一段同形）。
     #    ⛔ 不许把「官方表里没有这张卡 / 原表里 en == zh」写成「换过了」—— 那 122 + 181 张仍是我们自译，

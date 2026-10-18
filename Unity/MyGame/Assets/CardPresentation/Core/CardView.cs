@@ -295,17 +295,19 @@ namespace CardPresentation
         const float FrameRangedPx = 335.0f, FrameRangedPy = 929.5f;
         const float FrameHealthPx = 734.0f, FrameHealthPy = 916.0f;
         /// <summary>阵营徽记圆（**13 个阵营各拟合一次的均值**：各阵营半径 69～83、底边 225～248）。
-        /// <para>⚠️ **2026-10-18：费用八边形不再拿它当锚点** —— 它是**均值**，逐阵营本来就有偏差
+        /// <para>⚠️ **2026-10-18：费用八边形不拿它当锚点** —— 它是**均值**，逐阵营本来就有偏差
         /// （半径就跨 69～83），拿均值去定位 = **逐阵营系统性偏**（正是
         /// `资料/普查产出_1018/R_卡面元素对账A_6阵营.md` / `…B_7阵营.md` 里「费用 x 逐阵营 −14…−37」那条）。
-        /// 现在它只作对照/存档，费用改用固定贴图坐标 <see cref="FrameCostPx"/>。</para></summary>
+        /// 🔴 **2026-10-18（W27）更正**：本行原来写「费用改用固定贴图坐标 `FrameCostPx`」——
+        /// **已过期**。现行 = **逐帧实测徽记下缘**（`frame_uv.json` 的 `bb`，见 <see cref="FaceCostAt01"/>）；
+        /// `FrameCostPx` 已降级为「量不出徽记」时的兜底。这组均值**只作对照/存档**。</para></summary>
         const float FrameBadgePx  = 723.5f, FrameBadgePy  = 158.0f, FrameBadgeRad = 77.5f;
 
-        /// <summary>费用八边形（底板 + 里面那个数字）**网格中心**在【卡框贴图】上的位置
-        /// （贴图像素，y 从顶部数）。
-        /// <para>🔴 **2026-10-18 定案：固定贴图坐标**，不再按徽记圆 + `CostBadgeGap` 推
-        /// （那两个常量已删/只存档，理由见 `FrameBadgePx` 那段）。</para>
-        /// <para>**判据（PnP 成品卡 12 张逐张反算，12 个阵营各 1 张）**：
+        /// <summary>费用八边形（底板 + 里面那个数字）在【卡框贴图】上的**旧落点**（贴图像素，y 从顶部数）。
+        /// <para>🔴 **2026-10-18（W27）：降级为兜底** —— 正常路径改成「**可见右缘贴卡框 alpha 右缘 +
+        /// 可见上缘贴阵营徽记下缘**」（判据与公式见 <see cref="FaceCostAt01"/>）。只有这张卡框
+        /// **在 `frame_uv.json` 里没有徽记测量值**时才退回这里（并 `Debug.LogWarning`）。</para>
+        /// <para>**旧推导（存档）**：PnP 成品卡 12 张（12 个阵营各 1 张）逐张反算 ——
         ///   ① 每张 PnP 取「近战红圆 / 远程紫圈 / 生命绿框」三个凹槽的 **bbox 中心**，
         ///      与卡框贴图上同名的三处（257.5,862.5 / 335,929.5 / 734,916）配准，
         ///      求**各向同性相似变换**（scale + 平移，无旋转 —— 印刷品就是同一张画的等比缩放）；
@@ -314,18 +316,14 @@ namespace CardPresentation
         ///      当尺子引入的：那矩形被立绘外溢撑大、逐张不同，不是版式差）；
         ///   ③ 再用这个变换把 PnP 上量到的**费用八边形可见中心**反算回贴图像素：
         ///      **x = 750.0 ± 1.0、y = 304.6 ± 2.3**（12 张的均值±标准差）。
-        ///      我们原来那套在同一批卡上是 **(723.5, 309.4±0.8)** ⇒ **右移 ≈28、上移 ≈4 贴图像素**
-        ///      （换回 PnP 像素 ≈ +30 / −5；A 报的 Δ 是 −23/+11 —— 同号，量级也同一档）。</para>
+        ///      我们原来那套在同一批卡上是 **(723.5, 309.4±0.8)** ⇒ **右移 ≈28、上移 ≈4 贴图像素**。</para>
         /// <para>⚠️ 这里写的是**网格中心**，不是**可见中心**：`Card_Frame_Cost_Icon.png`（248×244）
         ///   的不透明 bbox 是 x3..238 / y3..238 ⇒ 可见内容比贴图中心**左 3 px、上 1 px**
-        ///   （= 左 1.7 / 上 0.6 贴图像素）⇒ 网格中心要比目标可见中心**右 1.7、下 0.6**。
-        ///   PnP 那边量的是可见八边形，两边必须同口径。</para>
-        /// <para>⚠️ 为什么不能继续用徽记：PnP 12 张反算出来的费用 x 离散度只有 **1.0 px**
-        ///   ⇒ 费用相对**卡框本身**是**固定**的；而徽记圆心逐阵营不同 ⇒ 拿它当锚只会把
-        ///   「逐阵营偏差」灌进费用里。</para>
-        /// <para>⚠️ 未复刻的部分：PnP 的八边形可见宽度比我们小约 6%
-        ///   （我们 236/248×0.4891 = 0.4654 卡单位 ≈ 132 贴图 px，PnP 量到 ≈128±5）——
-        ///   本笔只改**落点**，尺寸没动。</para>
+        ///   （= 左 1.7 / 上 0.6 贴图像素）⇒ 网格中心要比目标可见中心**右 1.7、下 0.6**。</para>
+        /// <para>⚠️ 为什么不能继续用徽记均值 `FrameBadgePx/Py/Rad`：PnP 12 张反算出来的费用 x
+        ///   离散度只有 **1.0 px** ⇒ 费用相对**卡框本身**是**固定**的；而徽记圆心逐阵营不同
+        ///   ⇒ 拿均值当锚只会把「逐阵营偏差」灌进费用里。**逐帧实测**（W27）同理：150 张卡框的
+        ///   徽记下缘跨 **177..280** 贴图像素，固定值必然逐帧偏。</para></summary>
         const float FrameCostPx = 751.7f, FrameCostPy = 305.2f;
 
         /// <summary>卡框贴图上任意一点（**贴图像素**，y 从顶部数）→ **卡面归一化坐标**（x 左、y 顶）。
@@ -381,16 +379,87 @@ namespace CardPresentation
             return at;
         }
 
-        /// <summary>费用八边形（底板 + 里面那个数）的**中心**（卡面归一化）：
-        /// 取卡框贴图上的**固定点** <see cref="FrameCostPx"/>（判据 PnP 12 张反算，见那个常量的说明）。
-        /// 没有卡框时退回原版 `Cost Container` 的位置。
+        /// <summary>费用八边形（底板 + 里面那个数）的**中心**（卡面归一化）。
+        ///
+        /// <para>🔴 **2026-10-18（W27）定案 —— 用户给的规则**（判据 = 原版实拍
+        /// `C:\Users\qjh36\Desktop\warpforge参考图\战斗—替换手卡参考图（后手）.png`，
+        /// 4 张泰伦卡的右上角逐像素核过：费用八边形在徽记**正下方**、**右缘压在卡框右边缘上**、
+        /// 中心比徽记中心**偏右**）：
+        ///   ① **横向：可见右缘 = 当前卡框的 alpha 右缘**；
+        ///   ② **纵向：可见上缘 = 阵营徽记的下缘**（徽记**按当前这张卡框实测**，
+        ///      不再用 13 阵营均值 `FrameBadgePx/Py/Rad`）；
+        ///   ③ 徽记量不出来 ⇒ 退回 <see cref="FrameCostPx"/>（旧固定点）+ `Debug.LogWarning`；
+        ///      连卡框都没有 ⇒ 退回原版 `CostAt`。</para>
+        ///
+        /// <para>**横向为什么能写成常量**：画框那一层（`FrameMesh`）恒把贴图**不透明块**
+        /// `uv.xMin..xMax` 铺满 `FrameUnitW` 宽、且**以 0 为心**（顶点 ±w）⇒
+        /// **alpha 右缘在卡单位里恒是 +FrameUnitW/2**，与哪张卡框无关。</para>
+        ///
+        /// <para>**纵向为什么必须逐帧量**：徽记是**画在卡框贴图里**的，每个 tier 的框缩放/位置都不同
+        /// （W27 实测 150 张：徽记中心 x **733..761**、下缘 **177..280** 贴图像素）
+        /// ⇒ 任何固定值都会逐帧偏，这正是旧实现（固定贴图点）的根。</para>
+        ///
+        /// <para>**数据来源**：`Resources/frame_uv.json` 的 `bx/by/br/bb`（贴图像素，y 从顶部数），
+        /// 由 `工具/gen_frame_uv.py` 离线量：alpha&gt;200 的距离变换求「最厚处」= 徽记圆心 + 内切半径，
+        /// 再沿圆心列向下打到第一个透明缺口 = 徽记下缘；徽记与下方装饰**连成一片**时（下缘 &gt; 2.4×r）
+        /// 改用「徽记核心区里最连贯的那条竖向色差边」= 徽记自身的下轮廓。逐块判据 → `W27` 报告。</para>
+        ///
         /// <para>⚠️ 底板层（`Build` 的 `_costBg`）、数字（`InfoTexture`）、命中区（`HitFace`）**都走这一个函数**
         /// ⇒ 三者天然同源（画面/点击/烘焙不会各偏一套）。</para></summary>
         static Vector2 FaceCostAt01(Texture2D frameTex)
         {
-            var at = FramePxAt01(frameTex, FrameCostPx, FrameCostPy);
-            return float.IsNaN(at.x) ? CostAt : at;
+            if (frameTex == null) return CostAt;
+
+            float byPx;
+            float badgeBottom = TryBadgeBottomPx(frameTex, out byPx)
+                ? FramePxYToCard(frameTex, byPx) : float.NaN;
+            if (float.IsNaN(badgeBottom))
+            {
+                // 量不出徽记（表里没有 / UV 退化）：退回旧固定点，**出声**（每张贴图只喊一次）
+                if (_badgeWarned.Add(frameTex.name))
+                    Debug.LogWarning("[CardView] 卡框 \"" + frameTex.name + "\" 没有徽记测量值"
+                                   + "（Resources/frame_uv.json 的 bx/by/br/bb）⇒ 费用八边形退回旧固定点 "
+                                   + FrameCostPx + "/" + FrameCostPy + "，横向不会贴卡框右缘。");
+                var old = FramePxAt01(frameTex, FrameCostPx, FrameCostPy);
+                return float.IsNaN(old.x) ? CostAt : old;
+            }
+
+            // ① 横向：可见右缘 = 卡框 alpha 右缘（+FrameUnitW/2）⇒ 折回【网格中心】
+            //    （CostBgW 是**整张 sprite**的网格宽，可见右边在网格右侧内 9/248 处）
+            float cx = 0.5f * FrameUnitW - (CostVisRightFrac - 0.5f) * CostBgW;
+            // ② 纵向：可见上缘 = 徽记下缘 ⇒ 折回【网格中心】（可见上边在网格上边内 3/244 处）
+            float cy = badgeBottom - CostVisTopFromCenter * CostBgH;
+            return new Vector2(0.5f + cx / CardUnitW, 0.5f - cy / CardUnitH);
         }
+
+        /// <summary>贴图像素 y（**从顶部数**）→ 卡单位（y 向上）。与 <see cref="FramePxAt01"/> 同一条
+        /// 换算链（`FrameUv` + `FrameQuad`），只取纵坐标。UV 退化 ⇒ `NaN`（调用方退回旧常量）。</summary>
+        static float FramePxYToCard(Texture2D frameTex, float py)
+        {
+            if (frameTex == null || frameTex.width <= 0 || frameTex.height <= 0) return float.NaN;
+            Rect uv = FrameUv(frameTex);
+            if (uv.height <= 1e-5f) return float.NaN;
+            float v = 1f - (py + 0.5f) / frameTex.height;
+            float fv = (v - uv.yMin) / uv.height;
+            return (fv - 0.5f) * FrameUnitH + FrameUnitY;
+        }
+
+        /// <summary>这张卡框的**阵营徽记下缘**（贴图像素，y 从顶部数），数据 = `frame_uv.json`。
+        /// 表里没有 / 数值不合理（≤0 或 ≥贴图高）⇒ `false`（调用方走兜底）。</summary>
+        static bool TryBadgeBottomPx(Texture2D frameTex, out float py)
+        {
+            py = 0f;
+            if (frameTex == null) return false;
+            EnsureUvTable();
+            Vector4 b;
+            if (_badgeTable == null || !_badgeTable.TryGetValue(frameTex.name, out b)) return false;
+            if (b.w <= 0f || b.w >= frameTex.height) return false;
+            py = b.w;
+            return true;
+        }
+
+        /// <summary>已经为哪几张卡框打过「没有徽记测量值」的警告（避免每帧刷屏）。</summary>
+        static readonly HashSet<string> _badgeWarned = new HashSet<string>();
 
         // ---- 卡名 / 效果文字的位置：**单位卡和战术卡不是同一套**（A3 表）----
         // 原版的文字都挂在 `Name and description` 这个块（1.3×0.68 @(0,−0.7745) 卡单位）底下，
@@ -544,6 +613,19 @@ namespace CardPresentation
         //    护甲干脆只有数字、没有那面盾。两张图当时就躺在 `Resources/Art/ui_deck/` 里。
         const float CostBgW = 0.4891f, CostBgH = 0.4809f;
         const float ArmourIconW = 0.3067f, ArmourIconH = 0.3784f;
+
+        /// <summary>费用底板贴图 `Card_Frame_Cost_Icon.png` 的**不透明 bbox**（实测 alpha&gt;8：
+        /// x 3..238 / y 3..238，贴图 248×244）。⇒ 四边留白 = 左 3 / 右 9 / 上 3 / 下 5 贴图像素。
+        /// <para>🔴 **2026-10-18（W27）**：<see cref="FaceCostAt01"/> 用它把「可见边」折回
+        /// **网格中心**（`CostBgW/H` 是**整张 sprite 的网格尺寸**，不是可见宽 —— 直接拿可见边
+        /// 去对网格边会内缩 9 像素 ≈ 0.018 卡单位）。</para></summary>
+        const float CostIconW = 248f, CostIconH = 244f;
+        const float CostIconPadL = 3f, CostIconPadT = 3f;
+        const float CostIconPadR = 9f;                 // 248 − 1 − 238
+        // 可见右边在网格里的归一位置（0..1）= (238+1)/248 = 0.96371
+        const float CostVisRightFrac = (CostIconW - CostIconPadR) / CostIconW;
+        // 可见上边离网格上边 = 3/244 ⇒ 中心到可见上边 = (0.5 − 3/244) × CostBgH
+        const float CostVisTopFromCenter = 0.5f - CostIconPadT / CostIconH;
 
         // ==================================================================
         //  🆕 卡面**文字底板**（原版 `Front/Textbackgrounds/TextBackground Big|Small UI`）
@@ -5570,9 +5652,17 @@ namespace CardPresentation
         //   `(x0+0.5)/W, (y0+0.5)/H, (x1-x0+1)/W, (y1-y0+1)/H`）。
         //   有它 ⇒ 运行时**不再 `GetPixels32()` + 全图扫描**（实测 ≈55 ms/格，见
         //   `资料/普查产出_1017/UI/PERF_T09_收藏窗性能诊断.md` §4）；表里没有的贴图**退回原扫描**。
-        [System.Serializable] class FrameUvRow { public string t; public int w, h; public float u, v, sw, sh; }
+        [System.Serializable] class FrameUvRow
+        {
+            public string t; public int w, h; public float u, v, sw, sh;
+            // 🆕 2026-10-18（W27）：阵营徽记（贴图像素，y 从顶部数）—— bx/by = 圆心、br = 内切半径、
+            //   bb = **下缘**（费用八边形上缘贴它）。没有这四项的旧表 ⇒ 全 0 ⇒ `TryBadgeBottomPx` 返回 false。
+            public float bx, by, br, bb;
+        }
         [System.Serializable] class FrameUvFile { public int count; public FrameUvRow[] entries; }
         static Dictionary<string, Rect> _uvTable;
+        /// <summary>贴图名 → (bx, by, br, bb)。与 `_uvTable` 同一次解析填好。</summary>
+        static Dictionary<string, Vector4> _badgeTable;
         static bool _uvTableTried;
         const string FrameUvResource = "frame_uv";
 
@@ -5585,9 +5675,13 @@ namespace CardPresentation
             var f = JsonUtility.FromJson<FrameUvFile>(ta.text);
             if (f == null || f.entries == null) return;
             _uvTable = new Dictionary<string, Rect>(f.entries.Length);
+            _badgeTable = new Dictionary<string, Vector4>(f.entries.Length);
             foreach (var e in f.entries)
-                if (e != null && !string.IsNullOrEmpty(e.t))
-                    _uvTable[e.t] = new Rect(e.u, e.v, e.sw, e.sh);
+            {
+                if (e == null || string.IsNullOrEmpty(e.t)) continue;
+                _uvTable[e.t] = new Rect(e.u, e.v, e.sw, e.sh);
+                if (e.bb > 0f) _badgeTable[e.t] = new Vector4(e.bx, e.by, e.br, e.bb);
+            }
         }
 
         /// <summary>卡外框在贴图里的 UV 矩形 (uMin, vMin, uMax, vMax)。量不出来的话退回整张贴图。</summary>
