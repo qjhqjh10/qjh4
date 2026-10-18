@@ -5284,7 +5284,7 @@ namespace RuleEngine
         ///      · 两支**都以 `jmp 0x1805ec100` 回循环顶**（`0x1805ec255` / `0x1805ec266`）
         ///        ⇒ 原版是 **`if / else`**：走池子的那一轮 **⛔ 不落进幸存者/堡垒**。
         ///    ⇒ 现在本函数**这一层有了**（下面循环里那一段）。
-        /// ⚠️ **全池今天 0 张**卡**声明** `dropPod`（唯一含这个词的是 `SW31 Fenrisian Drop Pod` ——
+        /// ⚠️ **全池今天 0 张**卡**声明** `dropPod`（唯一含这个词的是 `SW23 Fenrisian Drop Pod` ——
         ///    那是**卡名**，它 `keywords` 只有 `Flying` / `Armour 1`）⇒ 暂时**不可观测**，
         ///    但按**铁律 11**（复刻有缺漏就补，只有先后之分）**仍要做**。
         /// </summary>
@@ -5680,7 +5680,7 @@ namespace RuleEngine
         ///    `desc` 里出现这四个头的卡共 **55 张**，其中 **21 张**的 `keywords` 数组**不含**该词 ——
         ///    `AM32` `AM39` · `DA9` `DA18` `DA30` · `SOR9` `SOR10` `SOR15` `SOR21` `SOR26` `SOR29`
         ///    `SOR31` `SOR33` `SOR36` `SOR39` `SOR71` `SOR1` `SOR5` `SOR_Celestian_Sacresant_Aveline` ·
-        ///    `SW13` `SW31`。
+        ///    `SW8` `SW23`。
         ///    🔴 **其中真被 `Has` 拦掉的 = 20 张**（不是 21）—— `DA9` 的 `keywords` 里写的是**原文条目**
         ///    `Agenda: Gain 1 Quest Point`，`CardDef` 会把它规范化成 `agenda` ⇒ 它**改前就能用**
         ///    （离线实测：`u.Has("agenda") == true`）。⇒ 别照「21」写结论。

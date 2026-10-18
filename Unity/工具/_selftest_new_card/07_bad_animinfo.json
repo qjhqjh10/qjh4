@@ -1,0 +1,23 @@
+{
+  "_fixture": "07_bad_animinfo —— animInfo 不可解析（timeAtStartPos 是字符串；期望：ANIMINFO 红）",
+  "id": "UM994",
+  "name": "Bad AnimInfo",
+  "faction": "Ultramarines",
+  "type": "unit",
+  "cost": 2,
+  "attack": 1,
+  "ranged": 1,
+  "health": 3,
+  "armour": 0,
+  "rarity": "common",
+  "subtype": "Infantry",
+  "refNameId": "EC29",
+  "cardDescriptionTextReferenceId": "EC29",
+  "animInfo": {
+    "vfxDelayTime": 0.5,
+    "startDelay": 0.0,
+    "timeAtStartPos": "fast",
+    "timeMoving": 1.0,
+    "timeAtEndPos": 0.0
+  }
+}

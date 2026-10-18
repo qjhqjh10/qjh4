@@ -1,0 +1,17 @@
+{
+  "_fixture": "01_bad_id —— 错 id 形态（期望：ID_FORMAT 红）",
+  "id": "123bad!",
+  "name": "Bad Id Card",
+  "faction": "Ultramarines",
+  "type": "unit",
+  "cost": 3,
+  "attack": 2,
+  "ranged": 1,
+  "health": 4,
+  "armour": 0,
+  "rarity": "common",
+  "subtype": "Infantry",
+  "desc": "Selftest fixture.",
+  "refNameId": "EC29",
+  "cardDescriptionTextReferenceId": "EC29"
+}

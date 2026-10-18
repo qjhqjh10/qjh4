@@ -217,7 +217,7 @@ namespace RuleEngine
         /// ⚠️ **「一次」和「本回合」两个修饰都要**（`Exhausted` 那套按回合清，表达不了「下一次」）：
         ///    消费点在 `RuleCore.UseAlternative` 的狂暴那一段（**用掉就清**），
         ///    兜底复位在 <see cref="RefreshForNewTurn"/>（「本回合」过了就没了）。
-        /// ⚠️ 别和 `SW42 Bjorn the Fell-Handed` 的 `When a friendly unit uses Ferocity, it stays in play`
+        /// ⚠️ 别和 `SW36 Bjorn the Fell-Handed` 的 `When a friendly unit uses Ferocity, it stays in play`
         ///    （**常驻、无 `next time`、无 `this turn`**）搞混 —— 那是**另一张卡、另一条语义**。
         /// </summary>
         public bool FerocityStay;

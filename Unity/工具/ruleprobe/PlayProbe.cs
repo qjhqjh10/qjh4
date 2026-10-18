@@ -354,7 +354,7 @@ class PlayProbe
             var u = ctx.Players[0].Board[s];
             if (u != null && !u.IsWarlord) RuleCore.ApplyDamage(ctx, u, FixtureChip, "夹具扣血");
         }
-        // 🔴 **我方督军也扣 2 点** —— 不扣的话 `Heal 4 to your Warlord`（`SW66`）/`Heal N to your Warlord`
+        // 🔴 **我方督军也扣 2 点** —— 不扣的话 `Heal 4 to your Warlord`（`SW60`）/`Heal N to your Warlord`
         //    那一族**满血治疗 = 什么都不发生**，会被整族误列成候选（与上面三张同一个道理）。
         RuleCore.ApplyDamage(ctx, ctx.Players[0].Warlord, FixtureChip, "夹具扣血");
         handIdx = target == null ? -1 : HandIdx(ctx, 0, target);

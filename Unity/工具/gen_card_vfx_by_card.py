@@ -8,7 +8,7 @@ gen_card_vfx_by_card.py — 「逐卡 VFX 表」生成器（卡 id → 事件 �
     # 可选 --quiet   不打明细
 
 只读（绝不写 d:/2/）：
-  ① d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json    —— 我们的卡池（1126 张，id 就是原版 id）
+  ① d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json    —— 我们的卡池（**现读 1,127 张**，id 就是原版 id；⛔ 别写死张数）
   ② d:/4/Unity/数据/索引/anim_address_map.json                          —— CardAnim → (AssetGUID →) 本地 prefab
         （由 `工具/gen_anim_address_map.py` 生成；本脚本**不重建**它，只消费）
   ③ d:/4/Unity/数据/游戏数据/offensive_cards.json                       —— 进攻卡（= 环境效果卡）→ CardAnim → prefab
@@ -23,11 +23,20 @@ gen_card_vfx_by_card.py — 「逐卡 VFX 表」生成器（卡 id → 事件 �
       **只当旁证**：有行就在那条 entry 上带 `ledgerCategory`/`ledgerTrigger`，**不参与任何判定**。
   ⑥ 原 bundle 二进制（UnityPy 重读，只为了把 PPtr 的 m_PathID 反解成名字）
   ⑦ 🔴 **权威档（2026-10-14 新增，`conf = authoritative`，优先级最高）**：
-        · d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json
-             —— **原版 `RawCardScript` 全字段**（1,195 张卡 SO；Unity 2022.3.38f1 / 缓存 2025-07-30）
-        · d:/4/Unity/资料/普查产出_第二十七会话/guid_map.tsv
-             —— 卡 SO 的 `AssetGUID` → 束名 / 容器键 / **资产原名**（4,985 行 / 2,372 GUID / 26 束）
-               由 `工具/_guid_resolve_probe.py map` 重建（约 8 秒）。本脚本**不重建**它，只消费。
+        · d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json
+             —— **当前 build 的 `allcards` 解析产物**：1,351 张 `RawCardScript` 全字段
+               （形状 `{bundle,count,cards:[{…,full_raw}]}`；判据 → 同目录 `报告.md`）。
+             ⚠️ **2026-10-18（`T14`）换的**：原来用 2022 时代快照（1,195 张），我们池子里
+               **168 张比它新、查不到**；换后只剩 **1 张**池内卡不在快照里。
+        · d:/4/Unity/资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv
+             —— 卡 SO 的 `AssetGUID` → 束名 / 容器键 / **资产原名**（**6,140 个 GUID**）
+               由 `工具/gen_guid_map_from_bundles.py` **直接枚举本地束的 `m_Container`** 重建。
+             ⚠️ **2026-10-18（`T14`）换的**：旧表 `资料/普查产出_第二十七会话/guid_map.tsv`
+               （4,985 行 / 2,372 GUID）是从 **Addressables 目录**出发的 —— 目录（2025-07-30 快照）
+               里没有的 GUID **根本没被查过**，哪怕资产就在束里。实测 276 个缺口里 **272 个**
+               直接枚举就解出了（SW cardassets 一处中 114 个）。
+               **旧表别删**：它保留了目录「退键」那一族的解。
+             本脚本**不重建**这两份，只消费。
      这两份 + `anim_address_map.json` 的 `cardanim_to_asset` = **逐卡那一跳的原版真值**
      （链路与覆盖率见下面「第 2 跳」那段更正文 + `资料/普查产出_第二十七会话/逐卡VFX_改用真值_报告.md`）。
   ⑧ `d:/2/Warpforge_code/Scripts/Assembly-CSharp/{AbilityTrigger,AbilityEffect}.cs`
@@ -67,9 +76,11 @@ gen_card_vfx_by_card.py — 「逐卡 VFX 表」生成器（卡 id → 事件 �
   ⇒ **所以这份表现在是四层拼起来的**，每一条都带 `conf`，**按 `conf` 过滤，别混用**
     （`_conventions.confPriority` 给了优先级顺序）：
     · `byCard[*]` conf=**`authoritative`** —— 🔴 **原版真值**：卡 SO 字段（GUID）→ 束 → 资产原名 → VFX prefab。
-      **不是推断**。但 ⚠️ **两个限定**：① 真值快照是 2022 时代（1,195 张），**我们卡池 1,126 张里有 168 张比它新**
-      ⇒ 那些卡在这一档下**查不到**（如实标，不猜）；② `cardAnimations` 那一路的**事件名归到 `ability` 是我们拍的**
-      （原版给的是 `CardAbility.trigger` 枚举，已逐条带在条目上的 `abilityTrigger`/`chosenAbility` 里）。
+      **不是推断**。但 ⚠️ **两个限定**：① ~~真值快照是 2022 时代（1,195 张），**我们卡池 1,126 张里有 168 张比它新**
+      ⇒ 那些卡在这一档下**查不到**（如实标，不猜）~~ 🔴 **2026-10-18（`T14`）已换源**：改用当前 build 的
+      `allcards`（**1,351 张**）⇒ 只剩 **1 张**池内卡不在快照里；② `cardAnimations` 那一路的**事件名**
+      自 **T21 / 2026-10-18** 起按原版 `CardAbility.trigger` 枚举归口（见 `TRIGGER_EVENT`），
+      归不了口的仍保持 `ability`（= 当前不可达，宁可少播、不可错播）。
     · `byCard[*]` conf=`inferred-name`    —— 卡名 → 同名 CardAnim（**推断**，覆盖很少）。
     · `byCard[*]` conf=`inferred-keyword` —— 卡的关键词 → `<关键词>TraitStart/TraitTrigger/…`（**推断**；原版天赋命名的
       构词法，但「哪个关键词配哪个 anim」这一步本地判不了）。
@@ -119,9 +130,21 @@ OUT_JSON = r"d:/4/Unity/数据/游戏数据/card_vfx_by_card.json"
 #      全量那份（含 `_assetRefs` 的立绘/语音引用、`soField`、`guid` 等）留在 `数据/` 下给工具用。
 OUT_RUNTIME = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/card_vfx_by_card.json"
 
-# ---- 🔴 权威档（原版真值）的两份输入（2026-10-14 新增；**只读，不重建**）
-CARD_SO_TRUTH = r"d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json"
-GUID_MAP_TSV = r"d:/4/Unity/资料/普查产出_第二十七会话/guid_map.tsv"
+# ---- 🔴 权威档（原版真值）的两份输入（**只读，不重建**）
+# 🔴 **2026-10-18（`T14`）换源**：原来是 **2022 时代快照**（1,195 张）⇒ 我们池子里
+#   **168 张比快照新、在这档查不到**；当前 build 的 `allcards` 已在本地找到（**1,351 张**）
+#   ⇒ 只剩 **1 张**池内卡不在快照里（覆盖面 959/1,127 → **1,126/1,127**）。
+#   判据 → `资料/普查产出_1018/allcards_1350/报告.md`（`CAB-fb8f0144…`）。
+#   ⚠️ 这个文件的形状是 `{bundle,count,cards:[{…,full_raw}]}`（**卡 SO 全字段在 `full_raw`**），
+#   `build_authoritative` 会自己展平（见那里的注释）。
+CARD_SO_TRUTH = r"d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json"
+# 🔴 **2026-10-18（`T14`）新表**：旧的 `资料/普查产出_第二十七会话/guid_map.tsv`（4,985 行 / 2,372 GUID）
+#   是 `_guid_resolve_probe.py map` 建的，而**它从 Addressables 目录出发** —— 目录（2025-07-30 快照）
+#   里没有的 GUID **根本没被查过**，哪怕资产就在本地束里。实测：当前 build 引用的 276 个缺口 GUID，
+#   **直接把束的 `m_Container` 枚举一遍就解出 272 个**（SW cardassets 一处中 114 个）。
+#   ⇒ 新表 = `工具/gen_guid_map_from_bundles.py` 的产物（**6,140 个 GUID**；旧表只按缺口回填了 148 行）。
+#   ⚠️ **旧表别删** —— 它保留了目录「退键」那一族的解（有些 GUID 只能走目录才解得出来）。
+GUID_MAP_TSV = r"d:/4/Unity/资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv"
 # 枚举名字表（签名桩；读不到就只记数字，不猜）
 ENUM_STUBS = r"d:/2/Warpforge_code/Scripts/Assembly-CSharp"
 
@@ -791,7 +814,7 @@ def load_guid_map(path):
     """
     import csv
     if not os.path.isfile(path):
-        return {}, ("guid_map.tsv 不存在: %s（重建：`python -I -X utf8 工具/_guid_resolve_probe.py map`）"
+        return {}, ("guid_map 不存在: %s（重建：`python -I -X utf8 工具/gen_guid_map_from_bundles.py --cards-only`）"
                     % rel(path))
     out = collections.defaultdict(list)
     with io.open(path, encoding="utf-8") as fh:
@@ -905,6 +928,12 @@ def build_authoritative(cards, idx, stats, problems, truth_path, guid_map_path, 
         problems.append("权威档：真值快照不存在 %s ⇒ 整档跳过" % rel(truth_path))
         return {}, {"skipped": "truth snapshot missing"}
     truth = read_json(truth_path)
+    # 🆕 **2026-10-18（T14）**：兼容当前 build 的 `allcards` 解析产物
+    #   （`资料/普查产出_1018/allcards_1350/cards_raw.json` = `{bundle,count,cards:[{…,full_raw}]}`）。
+    #   那种形态里**卡 SO 的全字段在 `full_raw`**（顶层是解析器抽出来的常用字段，不含
+    #   `summonAnimDelayed` / `targetedSpellAnim` 这一族）⇒ 一律取 `full_raw`。
+    if isinstance(truth, dict) and isinstance(truth.get("cards"), list):
+        truth = [c.get("full_raw") or c for c in truth["cards"]]
     guid_map, err = load_guid_map(guid_map_path)
     if err:
         problems.append("权威档：" + err)
@@ -1330,7 +1359,7 @@ def main():
     #   而本表的键一直是 **id** ⇒ 消费端 `VfxMap.Resolve(evt, faction, e.CardId)` 的**逐卡分支
     #   恒不命中**（2026-10-15 实测两份：运行时表 1017 个键 **1017/1017 命中卡池 id、0/1017 命中卡名**）。
     #   ⇒ 把 `name` / `faction` 一起写进运行时那份，由 `VfxMap` 在载入时建 name→id 索引。
-    #   ⚠️ **`faction` 是必需的、不是装饰**：全池有 **3 组重名** —— `Terminator`（EC25 / UM_Terminator）·
+    #   ⚠️ **`faction` 是必需的、不是装饰**：全池有 **3 组重名** —— `Terminator`（EC25 / UM103）·
     #      `Terminator Champion`（BL29 / EC26）· `Maulerfiend`（BL31 / EC30），**各跨两个阵营**
     #      ⇒ 只有 `name + faction` 唯一。少了它就只能猜，而猜错 = 静默给错特效（红线）。
     #   ⚠️ 卡池里那 103 个 32 位十六进制 id 也在 `cards_engine.json` 里，同一套查法。

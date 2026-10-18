@@ -104,9 +104,13 @@ def main():
     mapping = ids_doc["mapping"]
     # 🔴 **2026-10-18**：`card_ids.json` 带 `poolTrueIds`（我们池 id → 真 id）。
     #   原版预组里的卡号是**真 id**，而我们池里 114 张卡仍用旧的池 id（重编号是另一笔大迁移）
-    #   ⇒ t0 直查必须先翻成池 id，否则 `SW4` 会命中池里那张**旧的 SW4**（High King of Fenris），
+    #   ⇒ t0 直查必须先翻成池 id，否则 `b3dce3f10cc118541910156ec8da1d9b` 会命中池里那张**旧的 b3dce3f10cc118541910156ec8da1d9b**（High King of Fenris），
     #   把 Blood Claw 认成别人。没有 `poolTrueIds` 的旧表 ⇒ 退化为原行为（空表）。
-    true_to_pool = {v: k for k, v in (ids_doc.get("poolTrueIds") or {}).items()}
+    #   🔴 **2026-10-18（`K06`）之后**：池内 114 张旧 id 已全部重编号为真 id ⇒ `poolIdsAreTrue = true`，
+    #     此时 **⛔ 不能再反转 `poolTrueIds`**（它只是历史迁移表；反转会把真 id 映回旧 id、认成另一张卡）。
+    #     `true_to_pool = None` 表示「真 id 就是池 id」。
+    true_to_pool = None if ids_doc.get("poolIdsAreTrue") \
+        else {v: k for k, v in (ids_doc.get("poolTrueIds") or {}).items()}
     warlords = load(os.path.join(D, "warlord_ids.json"))
     pool = load(POOL)["cards"]
 
@@ -137,7 +141,7 @@ def main():
         nm = mapping.get(cid)
         # 🔴 t0：先按原版卡号直查 —— **必须先翻成池 id**（`poolTrueIds`）；不在表里的真 id
         #    （= 我们池里没有那张卡）**不做直查**，交给名字阶梯，避免撞上旧的同号卡。
-        pool_id = true_to_pool.get(cid)
+        pool_id = cid if true_to_pool is None else true_to_pool.get(cid)
         c = by_id.get(pool_id) if pool_id else None
         if c is not None:
             res = ("t0", (c["faction"], c["name"]), nm)

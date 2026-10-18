@@ -24,7 +24,7 @@ using RuleEngine;
 ///     **如实标出来**（本仓红线：不许静默），⛔ 不判它是缺陷还是正常。
 ///
 /// 🔴 **但 ①②③ 四档【全部以 `Head:` 为锚】**（`A1459` 实测）⇒ 「**卡面没有头、又没被消费**」的句子
-///   只会掉进 ①/③、**永远不会被点名**。最要紧的后果：`SW23` / `GSC71` / `GSC30` 三张**真缺陷**
+///   只会掉进 ①/③、**永远不会被点名**。最要紧的后果：`SW18` / `GSC71` / `GSC30` 三张**真缺陷**
 ///   正因为这道缝躲开了清单 —— 它们各**还有一条别的 op**（`Rally` / `Strike` / `Uprising`）
 ///   ⇒ **腿 A ≠ 0** ⇒ 连「③ 未归因」都进不去（③ 的判据是「腿 A 收到 0 条」）。
 ///   ⇒ **第五档 `⑤「无头正文」逐句报账`**（见 <see cref="AddHeadless"/> / <see cref="ClassifyHeadless"/>）：
@@ -111,7 +111,7 @@ class WillRun
     /// <summary>🆕 **无头档**（`A1459`）的三档 —— 判据见 <see cref="ClassifyHeadless"/>。
     ///   这一档治的是：**卡面没有 `Head:` 的句子，腿 B 结构上抽不到**（`AddFaceBody` 里 `col &lt;= 0` 直接 return）
     ///   ⇒ 凡是「没头的句子又没被消费」，它只会掉进 ①「本来没正文」/ ③「未归因」，
-    ///   **永远不会被点名**（`SW23` / `GSC71` / `GSC30` 就是这么躲开清单的）。</summary>
+    ///   **永远不会被点名**（`SW18` / `GSC71` / `GSC30` 就是这么躲开清单的）。</summary>
     const string KHNone = "无消费点";    // 🔴 腿 A 没收到、**也没有任何别的层认领** ⇒ 这句永不发生。**计入 rc**
     const string KHAtTurn = "回合起止";  // ⚠️ `EffectText.AtTurnClauses` 认领（`ResolveAtTurn:4792` 扫 `u.Card.Desc` 吃它）。**不计入 rc**
     const string KHCostWhen = "降费触发器"; // ⚠️ `CardDef.CostWhens` 认领（`FireCostWhen` 吃它）。**不计入 rc**
@@ -323,7 +323,7 @@ class WillRun
         Console.WriteLine("  --- ⑤ 🔴 「无头正文」逐句报账（`A1459`）—— 腿 B **结构上抽不到**的那一半 ---");
         Console.WriteLine("    🔴 **这一档为什么必须单开**：腿 B 只抽 `Head: body`（`AddFaceBody` 里 `col <= 0` 直接 return）");
         Console.WriteLine("       ⇒ 「**卡面没有头、又没被消费**」的句子只会掉进 ①「本来没正文」/ ③「未归因」，");
-        Console.WriteLine("         **永远不会被点名**。实测后果（`A1459` 出处 §④㈡）：`SW23` / `GSC71` / `GSC30`");
+        Console.WriteLine("         **永远不会被点名**。实测后果（`A1459` 出处 §④㈡）：`SW18` / `GSC71` / `GSC30`");
         Console.WriteLine("         三张真缺陷**正是因为这道缝**躲开清单 —— 它们各有一条别的 op（`Rally`/`Strike`/`Uprising`）");
         Console.WriteLine("         ⇒ **腿 A ≠ 0** ⇒ 连「③ 未归因」也进不去；而**那句无头的**在腿 B 里结构上不成段"
                           + "（`faceBodies` 是 1，是它那条有头的 `Rally:`）⇒ 段级那一趟（④）也照不到。");
@@ -342,7 +342,7 @@ class WillRun
         Console.WriteLine("       探针里**一行新文法都没写** —— 这正是它不会误报的原因。");
         Console.WriteLine("    ⚠️ 与 ③「未归因」**不是两笔账** —— 同一件事的两种粒度（③ 按卡、⑤ 按句）："
                           + "「整张卡空表」的卡会同时出现在两边，⛔ **别把两个数相加**；");
-        Console.WriteLine("       而**卡上还有别的 op** 的那一批（`SW23` / `GSC71` / `GSC30`）**只有 ⑤ 看得见**。");
+        Console.WriteLine("       而**卡上还有别的 op** 的那一批（`SW18` / `GSC71` / `GSC30`）**只有 ⑤ 看得见**。");
         if (headNone.Count > 0)
         {
             Console.WriteLine("    🔴 「" + KHNone + "」逐条（⛔ **候选**，判决归调度台/引擎侧）：");
@@ -1085,7 +1085,7 @@ class WillRun
     ///
     /// 🔴 **它补的是哪道缝**：<see cref="AddFaceBody"/> 在 `col &lt;= 0`（= 这一句没有 `Head:`）时**直接 return**
     ///    ⇒ 「卡面没有头、又没被消费」的句子**永远不可能是腿 B 的段**、也就**永远不会进任何一档**。
-    ///    实测后果（出处 `资料/普查产出_第十四会话/诊断_未归因24张.md` §④㈡）：`SW23 Hrolf the Ironhowl`
+    ///    实测后果（出处 `资料/普查产出_第十四会话/诊断_未归因24张.md` §④㈡）：`SW18 Hrolf the Ironhowl`
     ///    （`Friendly Beasts cost 1 less.`）/ `GSC71 Atalan Leader`（`Friendly Vehicles cost 1 less.`）/
     ///    `GSC30 Metamorph Leader`（`Your troops cost 1 less.`）**三张真缺陷**正是**因为这道缝**躲开了清单
     ///    —— 它们**有一条别的 op**（`Rally` / `Strike` / `Uprising`）⇒ 腿 A ≠ 0 ⇒ 连「③ 未归因」也进不去。

@@ -1,0 +1,15 @@
+{
+  "_fixture": "04_missing_loc —— 缺本地化键（新 id 且没有 refNameId 指向已有键；期望：LOC_NAME/LOC_DESC 红）",
+  "id": "UM996",
+  "name": "No Localization",
+  "faction": "Ultramarines",
+  "type": "unit",
+  "cost": 1,
+  "attack": 1,
+  "ranged": 0,
+  "health": 1,
+  "armour": 0,
+  "rarity": "common",
+  "subtype": "Infantry",
+  "desc": "Selftest fixture."
+}

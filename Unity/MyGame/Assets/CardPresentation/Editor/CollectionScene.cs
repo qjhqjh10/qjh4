@@ -4494,6 +4494,38 @@ public static class CollectionScene
                 win.CardsScroll.ScrollBy(-win.CardsScroll.MaxOffset);
             }
 
+            // ================================================================
+            // 🆕 **2026-10-18（T09 / `A1628`）：滚动不再整屏重建** —— 池化的**行为**断言。
+            //   原来 `CardsScroll.OnChanged` 的阈值只有 **0.01 px**（`MenuScroll.SetOffset`），而回调体
+            //   `RebuildCardsCells` 首句把视口下**所有孩子销毁**、逐格重新 `CardView.Create`
+            //   ⇒ 拖一下 = 整屏重建（≈2.2 s/格 → 一屏 18 张 ≈ 40 s）。
+            //   判据与实测 → `资料/普查产出_1017/UI/PERF_T09_收藏窗性能诊断.md`
+            //   改坏法（灭自证）：把池命中支改回「`DestroySafe` + `CardView.Create`」⇒ ①② 当场红（18 张）。
+            Section("T09：收藏窗滚动池化（滚一格不再整屏 `DestroySafe` + `CardView.Create`）");
+            if (win.CardsScroll != null && win.CardsCells.Count > 0)
+            {
+                win.CardsScroll.SetOffset(0f);
+                var beforeCell = win.CardsCells[0];
+                int beforeCount = win.CardsCells.Count;
+                // ① 小滚（100 < 一格高 384）⇒ 可见集合不变 ⇒ **一张都不该新建**
+                win.CardsScroll.ScrollBy(100f);
+                CheckTrue(win.CardsCellCreatedLastRefresh == 0,
+                          $"★ 滚 100px（< 一格 384）⇒ 新建 `CardView` **{win.CardsCellCreatedLastRefresh}** 张（期望 **0**）"
+                          + " —— 整屏重建那条旧路会在这里建 " + beforeCount + " 张 ⇒ 本条当场红");
+                // ② 同一格还是**同一个实例**（池 = 搬实例；「重建后长得一样」不算）
+                CheckTrue(beforeCell != null && win.CardsCells.Count > 0
+                          && object.ReferenceEquals(win.CardsCells[0], beforeCell),
+                          "★ …滚过之后第 1 格仍是**同一个 `CardView` 实例**（`object.ReferenceEquals`）"
+                          + " —— 池化 = 搬实例，不是「销毁后重建出一张长得一样的」");
+                // ③ 跨一整行（再 +400 > 384）⇒ **只补新露出的那一行**（≤ 6 张），⛔ 不是整屏 18
+                win.CardsScroll.ScrollBy(400f);
+                int created = win.CardsCellCreatedLastRefresh;
+                CheckTrue(created > 0 && created <= CollectionWindow.CardsCols,
+                          $"★ 再滚 400px（跨一行）⇒ 只新建 **{created}** 张（期望 1…{CollectionWindow.CardsCols} = "
+                          + "只补新滚进来的那一行）—— 整屏重建会是 " + beforeCount + " 张");
+                win.CardsScroll.SetOffset(0f);      // 还原（后面几段都按滚动量 0 量落位）
+            }
+
             // ---------------- 🆕 2026-10-17（B10）：卡位**底下那条「张数」**（原版 `Collection Card/Content/Counter`）----------------
             // 判据逐条现读（原始出处写在 `CollectionWindow` 那组 `CardsCnt*` 常量上）：
             //   · 框：`m_AnchorMin = (0.2857143, 0.002)` · `m_AnchorMax = (0.7142857, 0.09966714)` · `pivot (0.5,0)` · `sd (0,0)`
@@ -7706,6 +7738,27 @@ public static class CollectionScene
                 CheckTrue(altTex != null,
                           $"格里的立绘贴图 = **{altTex ?? "(一个 alt_* 都没有)"}**（**必须出现 `alt_*`** —— "
                           + "异画页画的就是它；一个都没有就说明 `CardData.artOverride` 没接上、退回了普通立绘）");
+            }
+            // 🆕 **2026-10-18（T09 / `A1813`）：异画页也池化了** —— 本页**滚不动**
+            //   （7 张 = 2 行 × 384 = **768 < 视口 792.33**，`MaxOffset` 恒 0），所以直接调
+            //   **滚动回调那一趟的同一个函数**（`RebuildStyleCellsForTest`）验「池命中」。
+            //   改坏法：把 `RebuildStyleCells` 首句「只清 `AltArtHit_*`」改回「清 `parent` 下全部孩子」
+            //   （并走 `CardView.Create`）⇒ ①② 当场红（7 张）。
+            if (win.StyleCells.Count > 0)
+            {
+                int styleBuiltFirst = win.StyleCellCreatedLastRefresh;
+                Check(styleBuiltFirst, win.StyleCells.Count,
+                      $"（前提）异画页**起手那一趟确实新建了** {win.StyleCells.Count} 张 —— 计数器本身是活的"
+                    + "（⛔ 少了这条，下面「新建 0」就是 0 vs 0 的假绿）");
+                var stBefore = win.StyleCells[0];
+                win.RebuildStyleCellsForTest();
+                CheckTrue(win.StyleCellCreatedLastRefresh == 0,
+                          $"★ 重画异画页一趟 ⇒ 新建 `CardView` **{win.StyleCellCreatedLastRefresh}** 张（期望 **0**）"
+                        + " —— 旧路（`DestroySafe` 整屏 + `Create`）会重建 " + styleBuiltFirst + " 张 ⇒ 本条当场红");
+                CheckTrue(win.StyleCells.Count > 0 && object.ReferenceEquals(win.StyleCells[0], stBefore),
+                          "★ …第 1 格还是**同一个 `CardView` 实例**（`object.ReferenceEquals`）—— 池化 = 搬实例");
+                Check(win.StyleCells.Count, win.StyleVisibleCount,
+                      $"重画后仍是 {win.StyleVisibleCount} 格（池化没把格子数弄丢、也没裂成两份）");
             }
             // 左抽屉：**起手收起**。
             // ⚠️ **2026-10-05 更正（铁律 5）**：原文写「出厂展开（实证 act=T —— ⚠️ 与 Cosmetics 页相反）」

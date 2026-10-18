@@ -150,7 +150,7 @@ namespace RuleEngine
             if (wi > 0) { withWord = what.Substring(wi + 6).Trim(); what = what.Substring(0, wi).Trim(); }
 
             // 🆕 **2026-09-16：尾部通称 `card` / `cards` 要剥掉。**
-            //   出处：`Phobos Lieutenant`（`UM_Phobos_Lieutenant`）的 `Slay:` ——
+            //   出处：`Phobos Lieutenant`（`UM90`）的 `Slay:` ——
             //   `Create a random Ultramarines card in hand`。`card` **不是兵种词**，
             //   `MatchKindWord` 认不出 ⇒ 整段落进「具名查」⇒ 报「既不是卡名也不是兵种词」，
             //   那张卡**一张都造不出来**。

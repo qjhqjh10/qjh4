@@ -6,6 +6,11 @@ _mine_allcards_fields.py  ——  原版 allcards（1195 张卡 SO 全字段）�
 用途：把 `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json` 里
       **每一个键**收全、统计非空张数、给取值样例，产出一张可复算的总表。
 
+> ⚠️ **2026-10-18（第五十会话）现读订正**：上面的 1,195 张是**旧快照**。当前 build 的 allcards 已找到，
+> 解析产物 = `Unity/资料/普查产出_1018/allcards_1350/cards_raw.json`（**1,351 张**，形状
+> `{bundle,count,cards:[{…,full_raw}]}`）。本脚本接 `<cards.json>` 参数 ⇒ 直接传那一份即可；
+> 若要研究「我们池子里这 1,127 张」，用 `cards.tsv`（同目录）。
+
 用法：
     python -I -X utf8 d:/4/Unity/工具/_mine_allcards_fields.py <cards.json> [--used used.txt] [--tsv out.tsv]
 

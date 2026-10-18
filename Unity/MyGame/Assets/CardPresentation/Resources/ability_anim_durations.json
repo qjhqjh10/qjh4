@@ -1,6 +1,6 @@
 {
- "_headline": "`A1767`：逐卡「发动能力」时长 = 该卡 `activeAbility` 各 CardAnim 的 `AnimInfo.GetAnimDuration()` 之和。62 张卡 · 中位 1.0 · 表里没有这张卡 ⇒ 退回 `fallbackSeconds` 并**出声**。判据长文 / 未覆盖名单 → `数据/游戏数据/ability_anim_durations.json` 的 `_headline` 与 `uncovered`。",
- "count": 62,
+ "_headline": "`A1767`：逐卡「发动能力」时长 = 该卡 `activeAbility` 各 CardAnim 的 `AnimInfo.GetAnimDuration()` 之和。93 张卡 · 中位 1.0 · 表里没有这张卡 ⇒ 退回 `fallbackSeconds` 并**出声**。判据长文 / 未覆盖名单 → `数据/游戏数据/ability_anim_durations.json` 的 `_headline` 与 `uncovered`。",
+ "count": 93,
  "fallbackSeconds": 1.0,
  "generatedBy": "d:/4/Unity/工具/gen_ability_anim_durations.py",
  "items": [
@@ -67,7 +67,7 @@
   {
    "id": "AM3",
    "n": 3,
-   "name": "Commissar Elan",
+   "name": "Commissar Denkler",
    "s": 1.5
   },
   {
@@ -197,9 +197,27 @@
    "s": 0.2
   },
   {
+   "id": "DA65",
+   "n": 2,
+   "name": "Chaplain Gabutheron",
+   "s": 1.7
+  },
+  {
    "id": "DA7",
    "n": 2,
    "name": "Ravenwing Bikes",
+   "s": 0.9
+  },
+  {
+   "id": "DA71",
+   "n": 3,
+   "name": "Watcher in the Dark",
+   "s": 3.7
+  },
+  {
+   "id": "DA75",
+   "n": 2,
+   "name": "Master Zacharial",
    "s": 0.9
   },
   {
@@ -234,9 +252,9 @@
   },
   {
    "id": "SOR13",
-   "n": 2,
+   "n": 4,
    "name": "Simulacrum Bearer",
-   "s": 2.0
+   "s": 4.0
   },
   {
    "id": "SOR15",
@@ -375,6 +393,174 @@
    "n": 1,
    "name": "Castigator",
    "s": 0.2
+  },
+  {
+   "id": "SW1",
+   "n": 2,
+   "name": "Logan Grimnar",
+   "s": 1.2
+  },
+  {
+   "id": "SW11",
+   "n": 1,
+   "name": "Grey Hunter Pack Leader",
+   "s": 0.5
+  },
+  {
+   "id": "SW21",
+   "n": 2,
+   "name": "Wulfen Pack Leader",
+   "s": 0.4
+  },
+  {
+   "id": "SW23",
+   "n": 2,
+   "name": "Fenrisian Drop Pod",
+   "s": 2.8
+  },
+  {
+   "id": "SW29",
+   "n": 1,
+   "name": "Morkai Eliminator",
+   "s": 0.5
+  },
+  {
+   "id": "SW3",
+   "n": 1,
+   "name": "Ragnar Blackmane",
+   "s": 0.2
+  },
+  {
+   "id": "SW36",
+   "n": 2,
+   "name": "Bjorn the Fell-Handed",
+   "s": 1.5
+  },
+  {
+   "id": "SW4",
+   "n": 1,
+   "name": "Blood Claw",
+   "s": 0.75
+  },
+  {
+   "id": "SW5",
+   "n": 1,
+   "name": "Hunting Wolf",
+   "s": 0.4
+  },
+  {
+   "id": "SW8",
+   "n": 2,
+   "name": "Blackmane Reiver",
+   "s": 1.2
+  },
+  {
+   "id": "UM101",
+   "n": 2,
+   "name": "2nd Company Terminator",
+   "s": 0.95
+  },
+  {
+   "id": "UM102",
+   "n": 1,
+   "name": "Terminator Captain",
+   "s": 0.2
+  },
+  {
+   "id": "UM103",
+   "n": 2,
+   "name": "Terminator",
+   "s": 2.0
+  },
+  {
+   "id": "UM104",
+   "n": 2,
+   "name": "Bladeguard Ancient",
+   "s": 2.0
+  },
+  {
+   "id": "UM105",
+   "n": 3,
+   "name": "Dreadnought",
+   "s": 1.4
+  },
+  {
+   "id": "UM106",
+   "n": 2,
+   "name": "Ferren Areios",
+   "s": 0.4
+  },
+  {
+   "id": "UM108",
+   "n": 2,
+   "name": "Brutalis Dreadnought",
+   "s": 1.2
+  },
+  {
+   "id": "UM89",
+   "n": 4,
+   "name": "Incursor",
+   "s": 3.2
+  },
+  {
+   "id": "UM90",
+   "n": 2,
+   "name": "Phobos Lieutenant",
+   "s": 0.7
+  },
+  {
+   "id": "UM91",
+   "n": 2,
+   "name": "Tactical Marine",
+   "s": 1.2
+  },
+  {
+   "id": "UM92",
+   "n": 1,
+   "name": "Firestrike Servo Turret",
+   "s": 0.2
+  },
+  {
+   "id": "UM93",
+   "n": 2,
+   "name": "Vico Therbeus",
+   "s": 0.7
+  },
+  {
+   "id": "UM94",
+   "n": 2,
+   "name": "Scout Sniper",
+   "s": 0.95
+  },
+  {
+   "id": "UM95",
+   "n": 2,
+   "name": "Attack Bike",
+   "s": 1.2
+  },
+  {
+   "id": "UM96",
+   "n": 2,
+   "name": "Chapter Champion",
+   "s": 2.0
+  },
+  {
+   "id": "UM97",
+   "n": 2,
+   "name": "Suppressor",
+   "s": 2.7
+  },
+  {
+   "id": "UM98",
+   "n": 2,
+   "name": "Devastator Marine",
+   "s": 2.0
+  },
+  {
+   "id": "UM99",
+   "n": 2,
+   "name": "Phobos Librarian",
+   "s": 0.85
   }
  ],
  "schema": "ability_anim_durations/v1+rt"

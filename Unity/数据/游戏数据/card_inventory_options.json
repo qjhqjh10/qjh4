@@ -1,28 +1,28 @@
 {
  "note": "原版 `RawCardScript.inventoryOptions` / `showInCollectionOptions` 真值，键 = **我们卡池的 id**。消费点 = `工具/gen_cards_engine.py` 的 `load_inventory_options()`。",
- "source": "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json（原版远端包 allcards_assets_all，1195 张卡 SO，全字段）",
- "provenance": "抢救来源 = 旧 Windows 用户目录的 Unity 缓存（按哈希命名）里的原版远端包 allcards_assets_all；原件与全部导出 → d:/2/远端缓存_旧profile_1013/（含 README）。⚠️ 年代限制：该包是 Unity 2022.3.38f1 / 2025-07-30 的快照（1195 张 vs 现池 1126 张）—— 整个 SpaceWolves 阵营与暗黑天使 DA75..DA86 等新卡快照里没有 ⇒ 那些 `inv`/`show` = -1（未知）。",
+ "source": "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json（原版 allcards，**当前 build 1,351 张**卡 SO 全字段；2026-10-18 `K06` 换源）",
+ "provenance": "抢救来源 = 旧 Windows 用户目录的 Unity 缓存（按哈希命名）里的原版远端包 allcards_assets_all；原件与全部导出 → d:/2/远端缓存_旧profile_1013/（含 README）。⚠️ 年代限制：该包是 Unity 2022.3.38f1 / 2025-07-30 的快照（1195 张 vs 现池 1126 张）—— 整个 SpaceWolves 阵营与暗黑天使 DA75..DA74 等新卡快照里没有 ⇒ 那些 `inv`/`show` = -1（未知）。",
  "usage": "`DeckUtility__ValidateDeckCards.c:68-72`（`inventoryOptions != 0` ⇒ 非法）· :73-77（`showInCollectionOptions != 5` ⇒ 非法）· `DeckUtility__TryRemoveInvalidCards.c:39-43` · ⚠️ `CardDeck__CanAddCard.c:40` 写的是 `&&`（与前三处不一致，差集 77 张）—— 解释见本文件生成器头部注释；我们按 `||` 那一版做（单机全解锁、没有持有数那道闸）。",
  "invariant": "① `inv` 非 -1 时取自真值行、一字不改；② `-1` = 真值里查不到（四级定位全落空），**不是 0**（⛔ 别把 -1 当 InInventory）；③ 259 张 32 位 hex 键的卡**全部** `inv=10`（本会话现核 259/259）；④ `type` = 我们卡池里那张卡的卡型，用来复现原版「hero 走 CanAddHero / 防御卡走 CanAddDefensive、都不吃这两个字段」那两条路由。",
  "counts": {
-  "truthRows": 1195,
+  "truthRows": 1351,
   "poolCards": 1127,
-  "resolved": 1009,
-  "unresolvedTruthRows": 186,
-  "poolUnknown": 118,
+  "resolved": 1127,
+  "unresolvedTruthRows": 224,
+  "poolUnknown": 0,
   "byVia": {
-   "id": 1009
+   "id": 1127
   },
   "inv": {
-   "0": 860,
-   "5": 36,
-   "10": 113
+   "0": 961,
+   "5": 39,
+   "10": 127
   },
   "show": {
-   "5": 901,
-   "0": 108
+   "5": 1005,
+   "0": 122
   },
-  "blockedNonHeroDefence": 113
+  "blockedNonHeroDefence": 127
  },
  "map": {
   "ASH83": {
@@ -2236,6 +2236,90 @@
    "type": "hero",
    "via": "id",
    "ref": "DA2"
+  },
+  "38871853fabb5244d8148766829230cd": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "38871853fabb5244d8148766829230cd"
+  },
+  "DA67": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA67"
+  },
+  "DA65": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA65"
+  },
+  "DA68": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA68"
+  },
+  "DA69": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA69"
+  },
+  "DA70": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA70"
+  },
+  "DA71": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA71"
+  },
+  "DA74": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA74"
+  },
+  "DA73": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA73"
+  },
+  "DA72": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "DA72"
+  },
+  "DA66": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "DA66"
+  },
+  "DA75": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "DA75"
   },
   "EC33": {
    "inv": 0,
@@ -5184,6 +5268,482 @@
    "via": "id",
    "ref": "SOR3"
   },
+  "SW1": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "SW1"
+  },
+  "SW19": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW19"
+  },
+  "SW26": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW26"
+  },
+  "SW28": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW28"
+  },
+  "SW8": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW8"
+  },
+  "SW6": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW6"
+  },
+  "SW4": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW4"
+  },
+  "SW7": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW7"
+  },
+  "SW9": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW9"
+  },
+  "SW24": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW24"
+  },
+  "SW15": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW15"
+  },
+  "SW11": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW11"
+  },
+  "SW10": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW10"
+  },
+  "SW18": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW18"
+  },
+  "SW5": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW5"
+  },
+  "SW16": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW16"
+  },
+  "SW29": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW29"
+  },
+  "SW30": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW30"
+  },
+  "SW20": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW20"
+  },
+  "SW12": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW12"
+  },
+  "6e4f9040e8cc59641a32f29e33ea4cbc": {
+   "inv": 10,
+   "show": 0,
+   "type": "unit",
+   "via": "id",
+   "ref": "6e4f9040e8cc59641a32f29e33ea4cbc"
+  },
+  "SW25": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW25"
+  },
+  "SW13": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW13"
+  },
+  "SW27": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW27"
+  },
+  "SW31": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW31"
+  },
+  "SW14": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW14"
+  },
+  "SW21": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW21"
+  },
+  "SW17": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW17"
+  },
+  "SW43": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW43"
+  },
+  "SW57": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW57"
+  },
+  "SW40": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW40"
+  },
+  "SW39": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW39"
+  },
+  "SW44": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW44"
+  },
+  "SW53": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW53"
+  },
+  "SW49": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW49"
+  },
+  "SW54": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW54"
+  },
+  "SW60": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "SW60"
+  },
+  "SW58": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW58"
+  },
+  "SW61": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "SW61"
+  },
+  "b3dce3f10cc118541910156ec8da1d9b": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "b3dce3f10cc118541910156ec8da1d9b"
+  },
+  "a51adc8f5c311584385c3117cfd919e9": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "a51adc8f5c311584385c3117cfd919e9"
+  },
+  "SW50": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW50"
+  },
+  "SW51": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW51"
+  },
+  "SW55": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW55"
+  },
+  "SW56": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW56"
+  },
+  "7a01882fe4610244292d16b15f4b873e": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "7a01882fe4610244292d16b15f4b873e"
+  },
+  "4d4b9170663891f488c0e96ee8e55ba1": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "4d4b9170663891f488c0e96ee8e55ba1"
+  },
+  "SW59": {
+   "inv": 5,
+   "show": 5,
+   "type": "defence",
+   "via": "id",
+   "ref": "SW59"
+  },
+  "SW41": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW41"
+  },
+  "SW52": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW52"
+  },
+  "SW46": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW46"
+  },
+  "SW47": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW47"
+  },
+  "SW42": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW42"
+  },
+  "b551c8351ebe5784faf9912b573eaf93": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "b551c8351ebe5784faf9912b573eaf93"
+  },
+  "SW48": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW48"
+  },
+  "SW45": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "SW45"
+  },
+  "e3b5735d801fcbd49aa8d3975a5b0c31": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "e3b5735d801fcbd49aa8d3975a5b0c31"
+  },
+  "SW36": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW36"
+  },
+  "SW22": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW22"
+  },
+  "SW23": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW23"
+  },
+  "SW38": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW38"
+  },
+  "SW34": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW34"
+  },
+  "SW32": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW32"
+  },
+  "SW35": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW35"
+  },
+  "SW33": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW33"
+  },
+  "SW37": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "SW37"
+  },
+  "SW2": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "SW2"
+  },
+  "SW3": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "SW3"
+  },
   "TAU27": {
    "inv": 0,
    "show": 5,
@@ -6311,6 +6871,13 @@
    "via": "id",
    "ref": "UM58"
   },
+  "UM101": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM101"
+  },
   "UM19": {
    "inv": 0,
    "show": 5,
@@ -6346,6 +6913,13 @@
    "via": "id",
    "ref": "UM4"
   },
+  "UM104": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM104"
+  },
   "UM23": {
    "inv": 0,
    "show": 5,
@@ -6374,6 +6948,20 @@
    "via": "id",
    "ref": "UM77"
   },
+  "UM100": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM100"
+  },
+  "UM96": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM96"
+  },
   "UM18": {
    "inv": 0,
    "show": 5,
@@ -6387,6 +6975,13 @@
    "type": "unit",
    "via": "id",
    "ref": "UM25"
+  },
+  "UM98": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM98"
   },
   "UM81": {
    "inv": 0,
@@ -6408,6 +7003,13 @@
    "type": "unit",
    "via": "id",
    "ref": "UM26"
+  },
+  "UM106": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM106"
   },
   "UM3": {
    "inv": 0,
@@ -6444,6 +7046,13 @@
    "via": "id",
    "ref": "UM22"
   },
+  "UM89": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM89"
+  },
   "UM56": {
    "inv": 0,
    "show": 5,
@@ -6464,6 +7073,20 @@
    "type": "unit",
    "via": "id",
    "ref": "UM2"
+  },
+  "UM99": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM99"
+  },
+  "UM90": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM90"
   },
   "UM13": {
    "inv": 0,
@@ -6514,6 +7137,13 @@
    "via": "id",
    "ref": "UM68"
   },
+  "UM94": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM94"
+  },
   "UM1": {
    "inv": 0,
    "show": 5,
@@ -6549,12 +7179,61 @@
    "via": "id",
    "ref": "UM55"
   },
+  "UM97": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM97"
+  },
+  "UM91": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM91"
+  },
+  "UM102": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM102"
+  },
+  "UM103": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM103"
+  },
   "UM7": {
    "inv": 0,
    "show": 5,
    "type": "unit",
    "via": "id",
    "ref": "UM7"
+  },
+  "UM93": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM93"
+  },
+  "UM109": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM109"
+  },
+  "4de4fcfb5d7e0554a88b9f419a2cd7c2": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "4de4fcfb5d7e0554a88b9f419a2cd7c2"
   },
   "UM64": {
    "inv": 0,
@@ -6584,6 +7263,13 @@
    "via": "id",
    "ref": "UM44"
   },
+  "40667e346ae58a84dbda1033dff70ccb": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "40667e346ae58a84dbda1033dff70ccb"
+  },
   "UM40": {
    "inv": 0,
    "show": 5,
@@ -6597,6 +7283,20 @@
    "type": "tactic",
    "via": "id",
    "ref": "UM62"
+  },
+  "8482077f309b08943b190f18b5874871": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "8482077f309b08943b190f18b5874871"
+  },
+  "UM112": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM112"
   },
   "UM63": {
    "inv": 0,
@@ -6619,12 +7319,26 @@
    "via": "id",
    "ref": "UM37"
   },
+  "UM113": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM113"
+  },
   "315d9f293e4f56d4f813584b43f0511c": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
    "via": "id",
    "ref": "315d9f293e4f56d4f813584b43f0511c"
+  },
+  "UM110": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM110"
   },
   "UM52": {
    "inv": 5,
@@ -6675,6 +7389,13 @@
    "via": "id",
    "ref": "UM60"
   },
+  "UM118": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM118"
+  },
   "UM39": {
    "inv": 0,
    "show": 5,
@@ -6688,6 +7409,13 @@
    "type": "tactic",
    "via": "id",
    "ref": "UM43"
+  },
+  "UM114": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM114"
   },
   "UM54": {
    "inv": 5,
@@ -6717,12 +7445,33 @@
    "via": "id",
    "ref": "55b8e3d2040f86d4190ffb1a91abb5ed"
   },
+  "b14d1db2b0730d649b3bec35af100363": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "b14d1db2b0730d649b3bec35af100363"
+  },
   "9238c27730a0c424288d46ed0f4a742c": {
    "inv": 10,
    "show": 0,
    "type": "tactic",
    "via": "id",
    "ref": "9238c27730a0c424288d46ed0f4a742c"
+  },
+  "UM116": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM116"
+  },
+  "UM117": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM117"
   },
   "UM73": {
    "inv": 0,
@@ -6752,6 +7501,13 @@
    "via": "id",
    "ref": "UM34"
   },
+  "e874c2bd84895e64694daa44bd5fd5c2": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "e874c2bd84895e64694daa44bd5fd5c2"
+  },
   "UM74": {
    "inv": 0,
    "show": 5,
@@ -6780,6 +7536,13 @@
    "via": "id",
    "ref": "c4ff279078605aa42942c8dd16b77147"
   },
+  "UM111": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM111"
+  },
   "UM31": {
    "inv": 0,
    "show": 5,
@@ -6801,12 +7564,26 @@
    "via": "id",
    "ref": "d94f91051ecfe014f97577ff573571aa"
   },
+  "UM115": {
+   "inv": 0,
+   "show": 5,
+   "type": "tactic",
+   "via": "id",
+   "ref": "UM115"
+  },
   "UM38": {
    "inv": 0,
    "show": 5,
    "type": "tactic",
    "via": "id",
    "ref": "UM38"
+  },
+  "ef596edae1828bd46bfc4348535a3acc": {
+   "inv": 10,
+   "show": 0,
+   "type": "tactic",
+   "via": "id",
+   "ref": "ef596edae1828bd46bfc4348535a3acc"
   },
   "UM32": {
    "inv": 0,
@@ -6828,6 +7605,34 @@
    "type": "unit",
    "via": "id",
    "ref": "UM11"
+  },
+  "UM95": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM95"
+  },
+  "UM108": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM108"
+  },
+  "UM105": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM105"
+  },
+  "UM92": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM92"
   },
   "UM70": {
    "inv": 0,
@@ -6906,6 +7711,13 @@
    "via": "id",
    "ref": "UM83"
   },
+  "UM107": {
+   "inv": 0,
+   "show": 5,
+   "type": "unit",
+   "via": "id",
+   "ref": "UM107"
+  },
   "UM65": {
    "inv": 0,
    "show": 5,
@@ -6920,12 +7732,26 @@
    "via": "id",
    "ref": "UM46"
   },
+  "UM87": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "UM87"
+  },
   "UM47": {
    "inv": 0,
    "show": 5,
    "type": "hero",
    "via": "id",
    "ref": "UM47"
+  },
+  "UM88": {
+   "inv": 0,
+   "show": 5,
+   "type": "hero",
+   "via": "id",
+   "ref": "UM88"
   },
   "UM48": {
    "inv": 0,
@@ -7089,598 +7915,7 @@
    "ref": "97e959444b53f424ea4285e2ca02c7e6"
   }
  },
- "unknown": {
-  "DA76": {
-   "name": "Refuse to Yield",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "DA81": {
-   "name": "Assault Terminator",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "DA82": {
-   "name": "Chaplain Gabutheron",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "DA80": {
-   "name": "Vengeful Brethren Bladeguard",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "DA79": {
-   "name": "Vengeful Brethren Hellblaster",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "DA78": {
-   "name": "Vengeful Brethren Intercessor",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "DA77": {
-   "name": "Watcher in the Dark",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "DA86": {
-   "name": "Hunters of Heretics",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "DA85": {
-   "name": "Relic Munitions",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "DA84": {
-   "name": "Vengeful Brethren",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "DA83": {
-   "name": "Ravenwing Ballistus Dreadnought",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "DA75": {
-   "name": "Master Zacharial",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
-  "SW1": {
-   "name": "Logan Grimnar",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
-  "SW24": {
-   "name": "Iron Priest",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW29": {
-   "name": "Arjac Rockfist",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW35": {
-   "name": "Blackmane Aggressor",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW13": {
-   "name": "Blackmane Reiver",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW14": {
-   "name": "Blood Claw Pack Leader",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW11": {
-   "name": "Blood Claw",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW15": {
-   "name": "Deathwolf Scout",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW16": {
-   "name": "Fenrisian Wolf",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW32": {
-   "name": "Frost Claw Wulfen",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW18": {
-   "name": "Fyrri Askar",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW19": {
-   "name": "Grey Hunter Pack Leader",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW17": {
-   "name": "Grey Hunter",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW23": {
-   "name": "Hrolf the Ironhowl",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW12": {
-   "name": "Hunting Wolf",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW25": {
-   "name": "Long Fang",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW36": {
-   "name": "Morkai Eliminator",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW37": {
-   "name": "Terminator Rune Priest",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW26": {
-   "name": "Thunderwolf Cavalry Pack Leader",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW20": {
-   "name": "Thunderwolf Cavalry",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW3": {
-   "name": "Tyrnak and Fenrir",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW33": {
-   "name": "Wolf Guard Battle Leader",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW21": {
-   "name": "Wolf Guard Headtaker",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW34": {
-   "name": "Wolf Guard Terminator Pack Leader",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW38": {
-   "name": "Wolf Guard Terminator",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW22": {
-   "name": "Wolf Priest",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW28": {
-   "name": "Wulfen Pack Leader",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW27": {
-   "name": "Wulfen",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW51": {
-   "name": "Anvil of Endurance",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW64": {
-   "name": "Birth of a Saga",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW46": {
-   "name": "Bjorn's Shrine",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW47": {
-   "name": "Canis Helix",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW48": {
-   "name": "Death Shun",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW55": {
-   "name": "Embers of Prospero",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW56": {
-   "name": "Fenrisian Blizzard",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW60": {
-   "name": "Fenrisian Monstrosities",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW66": {
-   "name": "Fenrisian Runestones",
-   "type": "defence",
-   "why": "no-truth-row"
-  },
-  "SW65": {
-   "name": "Fenrisian Wolfpack",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW68": {
-   "name": "Halls of Legend",
-   "type": "defence",
-   "why": "no-truth-row"
-  },
-  "SW2": {
-   "name": "High King of Fenris",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW5": {
-   "name": "High Rune Priest",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW61": {
-   "name": "Hordeslayer",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW57": {
-   "name": "Hunter's Guile",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW62": {
-   "name": "Legendary Tenacity",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW63": {
-   "name": "Let Loose",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW8": {
-   "name": "Living Lightning",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW7": {
-   "name": "Murderous Hurricane",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW67": {
-   "name": "Orbital Defences",
-   "type": "defence",
-   "why": "no-truth-row"
-  },
-  "SW49": {
-   "name": "Pack of One",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW58": {
-   "name": "Proper Hunt",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW59": {
-   "name": "Raid Tactics",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW52": {
-   "name": "Saga of the Bold",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW50": {
-   "name": "Savage Legacy",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW6": {
-   "name": "Tempest's Wrath",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW53": {
-   "name": "The Fang",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW54": {
-   "name": "Unbridled Fury",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW10": {
-   "name": "War Howl",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "SW42": {
-   "name": "Bjorn the Fell-Handed",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW30": {
-   "name": "Blackmane Inceptor",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW31": {
-   "name": "Fenrisian Drop Pod",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW45": {
-   "name": "Land Rider",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW39": {
-   "name": "Murderfang",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW40": {
-   "name": "Stormwolf",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW43": {
-   "name": "Venerable Dreadnought",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW41": {
-   "name": "Vindicator",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW44": {
-   "name": "Wulfen Dreadnought",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "SW4": {
-   "name": "Njal Stormcaller",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
-  "SW9": {
-   "name": "Ragnar Blackmane",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
-  "UM_2nd_Company_Terminator": {
-   "name": "2nd Company Terminator",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM87": {
-   "name": "Bladeguard Ancient",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Chaplain_Cassius": {
-   "name": "Chaplain Cassius",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Chapter_Champion": {
-   "name": "Chapter Champion",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Devastator_Marine": {
-   "name": "Devastator Marine",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM89": {
-   "name": "Ferren Areios",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Incursor": {
-   "name": "Incursor",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Phobos_Librarian": {
-   "name": "Phobos Librarian",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Phobos_Lieutenant": {
-   "name": "Phobos Lieutenant",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Scout_Sniper": {
-   "name": "Scout Sniper",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Suppressor": {
-   "name": "Suppressor",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Tactical_Marine": {
-   "name": "Tactical Marine",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM88": {
-   "name": "Terminator Captain",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Terminator": {
-   "name": "Terminator",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Vico_Therbeus": {
-   "name": "Vico Therbeus",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM92": {
-   "name": "Adaptive Strategy",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM_Angel_s_Wrath": {
-   "name": "Angel's Wrath",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM_Author_of_the_Codex": {
-   "name": "Author of the Codex",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM_Catechism_of_Death": {
-   "name": "Catechism of Death",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM94": {
-   "name": "Champions of Humanity",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM95": {
-   "name": "Duty's End",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM93": {
-   "name": "Fall Back",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM101": {
-   "name": "Indomitus Crusade",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM97": {
-   "name": "Lead From the Front",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM_Master_of_Battle": {
-   "name": "Master of Battle",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM99": {
-   "name": "No Mercy",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM100": {
-   "name": "No Respite",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM_Primarch_of_the_XIII": {
-   "name": "Primarch of the XIII",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM96": {
-   "name": "Shall Know No Fear",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM98": {
-   "name": "Stormhawk Interception",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM_Supreme_Strategist": {
-   "name": "Supreme Strategist",
-   "type": "tactic",
-   "why": "no-truth-row"
-  },
-  "UM_Attack_Bike": {
-   "name": "Attack Bike",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM91": {
-   "name": "Brutalis Dreadnought",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Dreadnought": {
-   "name": "Dreadnought",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Firestrike_Servo_Turret": {
-   "name": "Firestrike Servo Turret",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM90": {
-   "name": "Whirlwind",
-   "type": "unit",
-   "why": "no-truth-row"
-  },
-  "UM_Roboute_Guilliman": {
-   "name": "Roboute Guilliman",
-   "type": "hero",
-   "why": "no-truth-row"
-  },
-  "UM_Valius_Paxor": {
-   "name": "Valius Paxor",
-   "type": "hero",
-   "why": "no-truth-row"
-  }
- },
+ "unknown": {},
  "unmatchedTruthRows": [
   {
    "ref": "8a028d3771c60014aa35c7269d38159e",
@@ -7708,7 +7943,7 @@
    "name": "Infinity Circuit Overload",
    "army": 30,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "4604f2deaa3fad6418e2d8f4b3dc36e4",
@@ -7739,6 +7974,13 @@
    "show": 0
   },
   {
+   "ref": "57bfef8500ae0d84186f713561c16bcc",
+   "name": "Stormhawk Interception",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "d7255ddd4822c954c9f4cc0826ea1d47",
    "name": "Inscrutable Cunning 3",
    "army": 90,
@@ -7756,6 +7998,13 @@
    "ref": "da8a1ba85a045484eb90f55394873119",
    "name": "Infinite Biomorphologies",
    "army": 60,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "6ea114bce68bc714e8f0a4587dbbafe1",
+   "name": "No Mercy",
+   "army": 10,
    "inv": 10,
    "show": 0
   },
@@ -7795,9 +8044,23 @@
    "show": 0
   },
   {
+   "ref": "fe6fde3df4104374092a642460dadf03",
+   "name": "Fall Back",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "d4ed3be9de80b00469a9cd255df63f35",
    "name": "Graceful Avoidance",
    "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "8f0302f1603cc954392d90d5dabd22d5",
+   "name": "Tyrnak and Fenrir",
+   "army": 130,
    "inv": 10,
    "show": 0
   },
@@ -7813,7 +8076,14 @@
    "name": "Dawn Attack",
    "army": 100,
    "inv": 5,
-   "show": 5
+   "show": 0
+  },
+  {
+   "ref": "cd053fb3b46dc4d4c93762a20fa3c7e1",
+   "name": "Fall Back",
+   "army": 10,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "ea971f5e838a9c14aa3790af44e42e19",
@@ -7875,6 +8145,20 @@
    "ref": "76d59d92d5d2d4ec89b2e441b1d18548",
    "name": "Immortal Beams",
    "army": 40,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "d32332a368c7919469dfa0d5d4df7d03",
+   "name": "No Respite",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "7210fc3a4509b3649969609a1fa822ea",
+   "name": "The Fang",
+   "army": 130,
    "inv": 10,
    "show": 0
   },
@@ -7970,6 +8254,20 @@
    "show": 0
   },
   {
+   "ref": "SW63",
+   "name": "Full Moon",
+   "army": 130,
+   "inv": 5,
+   "show": 0
+  },
+  {
+   "ref": "16c804b7e1b10b542a8b1dbc5decec9e",
+   "name": "Shall Know No Fear",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "1c7892a2816a53d4388d6dc5272853b6",
    "name": "Warp Storm",
    "army": 50,
@@ -7988,7 +8286,14 @@
    "name": "Solar Storm",
    "army": 40,
    "inv": 5,
-   "show": 5
+   "show": 0
+  },
+  {
+   "ref": "7a02359776e89f243b8cf41642dc44c9",
+   "name": "Witchblade Warlock (tutorial)",
+   "army": 30,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "e4bb5208917e50248b1913c0f0daa691",
@@ -7998,11 +8303,18 @@
    "show": 0
   },
   {
+   "ref": "74480125107476f498ab284871b20401",
+   "name": "Catechism of Death",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "BL59",
    "name": "Helfire Outburst",
    "army": 50,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "744e35eddd8fa0a489902221ed82a733",
@@ -8023,14 +8335,14 @@
    "name": "Aural Hijack",
    "army": 120,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "GOF51",
    "name": "Night Attack",
    "army": 20,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "8204f59a011f94d5c9ea1bed18ae9c57",
@@ -8065,7 +8377,7 @@
    "name": "Mining Tremors",
    "army": 90,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "1a647ea39bbb0154b9673c5194e51a46",
@@ -8075,11 +8387,18 @@
    "show": 0
   },
   {
+   "ref": "41e94f2d95a5b6143b44d5356a486213",
+   "name": "Raid Tactics",
+   "army": 130,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "BL61",
    "name": "Warp Storm",
    "army": 50,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "6e2399fed068fd3409bd2c1cf4b5bbd0",
@@ -8135,21 +8454,28 @@
    "name": "Shrine Bombardment",
    "army": 80,
    "inv": 5,
-   "show": 5
+   "show": 0
+  },
+  {
+   "ref": "d05168153d48a004a98397101dc4954f",
+   "name": "Angel's Wrath",
+   "army": 10,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "UM49",
    "name": "Aerial Clash",
    "army": 10,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "GSC61",
    "name": "Sump Overspill",
    "army": 90,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "5b8d4332867628448a3b0e66882f8f1b",
@@ -8163,7 +8489,7 @@
    "name": "Radiation Storm",
    "army": 70,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "5a790d31393197845a833476a455c598",
@@ -8205,14 +8531,7 @@
    "name": "Disrupted Sanctuary",
    "army": 80,
    "inv": 5,
-   "show": 5
-  },
-  {
-   "ref": null,
-   "name": null,
-   "army": null,
-   "inv": null,
-   "show": null
+   "show": 0
   },
   {
    "ref": "cde6b147d68431341a6408b7720ca460",
@@ -8236,6 +8555,13 @@
    "show": 0
   },
   {
+   "ref": "070f7594d50c74944b3e86ebae80bde1",
+   "name": "Hunters of Heretics",
+   "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "4cc68a0d541c4364e937d77d0838fb0d",
    "name": "Electro-Static Interference",
    "army": 70,
@@ -8254,7 +8580,21 @@
    "name": "Blazing Biomass",
    "army": 60,
    "inv": 5,
-   "show": 5
+   "show": 0
+  },
+  {
+   "ref": "ac6aa9739f7773e449347e1e79ea0e83",
+   "name": "Indomitus Crusade",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "fb248c0fdddc5ec4da1ffcc0a8ab603a",
+   "name": "Stormhawk Interception",
+   "army": 10,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "2f00dde3a303fe34b99399c8bf987140",
@@ -8299,6 +8639,13 @@
    "show": 0
   },
   {
+   "ref": "f3df0cfc57695654cb31a72b65470522",
+   "name": "Abaddon's Chosen",
+   "army": 50,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "bd6baa4e586791244a25861a52dfab02",
    "name": "Tervigon",
    "army": 60,
@@ -8306,8 +8653,22 @@
    "show": 0
   },
   {
+   "ref": "b5036545b0241504f96efdc00cf4ce01",
+   "name": "Normal Conditions (SW)",
+   "army": 130,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "e9b45df57f8a55d49a5083327af8377b",
    "name": "Normal Conditions (Ultramarines)",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "b34ec9176268dca4db0b975d1f9028ea",
+   "name": "Adaptive Strategy",
    "army": 10,
    "inv": 10,
    "show": 0
@@ -8341,6 +8702,13 @@
    "show": 0
   },
   {
+   "ref": "29ee7b2dcd0d13e43a7065d3194a59b4",
+   "name": "First Light",
+   "army": 130,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "3d012092ba60a2f49acbf766ab556600",
    "name": "Armoured Support",
    "army": 10,
@@ -8355,18 +8723,32 @@
    "show": 0
   },
   {
+   "ref": "69bf10fe198146b4bb8aec3f8dd3fe4e",
+   "name": "The Fang",
+   "army": 130,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "a20b3a843b961c04bb1b6dde3850859b",
+   "name": "Champions of Humanity",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "TL58",
    "name": "Sweeping Infestation",
    "army": 60,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "AM65",
    "name": "Manufactorum Overdrive",
    "army": 100,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "59e47125a7f5b36448bd1f71fd17b4cf",
@@ -8404,6 +8786,13 @@
    "show": 0
   },
   {
+   "ref": "6bce17171773ce044ac88728f5ea1d33",
+   "name": "Indomitus Crusade",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "3852c4775eacc5b4da2e6099e2bffff7",
    "name": "Blackout",
    "army": 30,
@@ -8422,7 +8811,7 @@
    "name": "Empyric Rift",
    "army": 120,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "6b945ed622dee0e479d44e0bfd2273c5",
@@ -8457,12 +8846,26 @@
    "name": "Toxic Fumes",
    "army": 90,
    "inv": 5,
-   "show": 5
+   "show": 0
+  },
+  {
+   "ref": "ed8105674efc55e4185a5c74d5abf844",
+   "name": "Duty's End",
+   "army": 10,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "0474b16360827b6408fb02b6820e7e63",
    "name": "Living Icon",
    "army": 90,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "f240bc73f2297494c9baf3784cc23a5e",
+   "name": "Full Moon",
+   "army": 130,
    "inv": 10,
    "show": 0
   },
@@ -8492,7 +8895,14 @@
    "name": "Solar Eclipse",
    "army": 70,
    "inv": 5,
-   "show": 5
+   "show": 0
+  },
+  {
+   "ref": "SW64",
+   "name": "Everstorm",
+   "army": 130,
+   "inv": 5,
+   "show": 0
   },
   {
    "ref": "d1a037ffd7c538c4aae209e1708aef13",
@@ -8513,7 +8923,14 @@
    "name": "Earthquake",
    "army": 40,
    "inv": 5,
-   "show": 5
+   "show": 0
+  },
+  {
+   "ref": "2bee2e8f8b3f8bc47981084f14495088",
+   "name": "Champions of Humanity",
+   "army": 10,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "fae4ef61e87b2ee44b8e52fc705c2030",
@@ -8523,11 +8940,18 @@
    "show": 0
   },
   {
+   "ref": "6b18f49379aca9742894111f7ed409c7",
+   "name": "Duelist's Hubris",
+   "army": 120,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "ASH60",
    "name": "Webway Rift",
    "army": 30,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "d0ac7c259308ab540aabb5123d0c1633",
@@ -8537,9 +8961,23 @@
    "show": 0
   },
   {
+   "ref": "a424ea66742166b4999fe97e07d61ac7",
+   "name": "Adaptive Strategy",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "0cc4533fc0bee374196e55fb1569e63b",
    "name": "The Rock",
    "army": 110,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "c988c599275dcdb449a5d5a46af0d27b",
+   "name": "The Fang",
+   "army": 130,
    "inv": 10,
    "show": 0
   },
@@ -8555,14 +8993,28 @@
    "name": "Stimm-Vents Leak",
    "army": 120,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "ASH58",
    "name": "Blackout",
    "army": 30,
    "inv": 5,
-   "show": 5
+   "show": 0
+  },
+  {
+   "ref": "91992b401487b494596d42098b8ec9ee",
+   "name": "Indomitus Crusade",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "SW62",
+   "name": "First Light",
+   "army": 130,
+   "inv": 5,
+   "show": 0
   },
   {
    "ref": "340fad5472405bf4296618152c4f003b",
@@ -8572,11 +9024,11 @@
    "show": 0
   },
   {
-   "ref": "#HB_DA1",
-   "name": null,
-   "army": 110,
-   "inv": null,
-   "show": null
+   "ref": "0d2874f3b124db2408e2c52ae47e5e0e",
+   "name": "Catechism of Death",
+   "army": 10,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "f8ba395632901b84397bd14282472c35",
@@ -8604,7 +9056,7 @@
    "name": "Void Combat",
    "army": 110,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "e9f33f1a8acbc3949a99f3ad69078d4d",
@@ -8614,9 +9066,30 @@
    "show": 0
   },
   {
+   "ref": "97a4b83aa9331d5489bcd837fd4be8e8",
+   "name": "Angel's Wrath",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "7c06b8117fe86e74dbc454139da8653b",
+   "name": "Everstorm",
+   "army": 130,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "e8711efdd74a2a544a3ff12c729c230c",
    "name": "Craftworld Convergence",
    "army": 30,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "79fe758082cb0a548ba235d45bb26ca8",
+   "name": "No Respite",
+   "army": 10,
    "inv": 10,
    "show": 0
   },
@@ -8639,7 +9112,7 @@
    "name": "Thunderstorm",
    "army": 10,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "bf538271ab431244399a01e3ba3a103f",
@@ -8712,11 +9185,18 @@
    "show": 0
   },
   {
+   "ref": "f16df0b3a3bf1974db565107bda33847",
+   "name": "Let Loose",
+   "army": 130,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "TAU60",
    "name": "Electro-Static Interference",
    "army": 70,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "b12d246ee426d0f48861a5842b7b0ba5",
@@ -8744,7 +9224,7 @@
    "name": "Asteroid Zone",
    "army": 110,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "9be8bfe7063f14345966de388c7ba3ec",
@@ -8782,18 +9262,32 @@
    "show": 0
   },
   {
+   "ref": "2c2866efa62a21a49bbd4691eff428ec",
+   "name": "The Fang",
+   "army": 130,
+   "inv": 10,
+   "show": 0
+  },
+  {
+   "ref": "7b703582937f4c444bbda8fb6a1710b1",
+   "name": "No Mercy",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "GOF50",
    "name": "Dust Storm",
    "army": 20,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "SAU63",
    "name": "Immortal Beams",
    "army": 40,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "b888bfd3849c4da48973f8217e41129c",
@@ -8807,21 +9301,28 @@
    "name": "Daemonic Feast",
    "army": 50,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "TL57",
    "name": "Acid Rain",
    "army": 60,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "GOF54",
    "name": "Spore Cloud",
    "army": 20,
    "inv": 5,
-   "show": 5
+   "show": 0
+  },
+  {
+   "ref": "7710974b1e108d243a399ed127674ad4",
+   "name": "Duelist's Hubris",
+   "army": 120,
+   "inv": 10,
+   "show": 0
   },
   {
    "ref": "1d9ff6a401bba1f44a65bf843c21a586",
@@ -8849,7 +9350,7 @@
    "name": "Planetary Invasion",
    "army": 100,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "77fd626140a8c164fbb708a46956898d",
@@ -8894,6 +9395,13 @@
    "show": 0
   },
   {
+   "ref": "481a554f4bcaf124681916a2854e775d",
+   "name": "Shall Know No Fear",
+   "army": 10,
+   "inv": 10,
+   "show": 0
+  },
+  {
    "ref": "711ec03391d6f46a3a07de5ffb409d6b",
    "name": "Devastator Centurion (tutorial)",
    "army": 10,
@@ -8926,21 +9434,21 @@
    "name": "Raging Storm",
    "army": 80,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "UM50",
    "name": "Orbital Bombardment",
    "army": 10,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "DA64",
    "name": "Star Orbit",
    "army": 110,
    "inv": 5,
-   "show": 5
+   "show": 0
   },
   {
    "ref": "e9d68c658708e7149b6ddefa492e7357",
@@ -8948,13 +9456,6 @@
    "army": 120,
    "inv": 10,
    "show": 0
-  },
-  {
-   "ref": "#HB_BL34",
-   "name": null,
-   "army": 50,
-   "inv": null,
-   "show": null
   },
   {
    "ref": "cb29b9bcde7995948a3c373401e67e3c",

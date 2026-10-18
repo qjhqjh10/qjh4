@@ -646,7 +646,11 @@ def main():
     mapping = ids_doc["mapping"]
     # 🔴 **2026-10-18**：真 id → 池 id（`card_ids.json` 的 `poolTrueIds` 反转）。
     #   原版预组给的是真 id，池里 114 张仍是旧 id ⇒ 直查前先翻；旧表没有这个键 ⇒ 空表、行为不变。
-    true_to_pool = {v: k for k, v in (ids_doc.get("poolTrueIds") or {}).items()}
+    # 🔴 **2026-10-18（`K06`）之后**：池内旧 id 已全部重编号为真 id ⇒ **`poolIdsAreTrue = true`**，
+    #   此时 **⛔ 不能再反转 `poolTrueIds`** —— 它现在只是历史迁移表，反转会把真 id 映射回旧 id，
+    #   于是 `SW24` 被认成旧 SW24（= 另一张卡）。⇒ 传 `None`，`id_direct` 直接用 `cid` 查。
+    true_to_pool = None if ids_doc.get("poolIdsAreTrue") \
+        else {v: k for k, v in (ids_doc.get("poolTrueIds") or {}).items()}
     pool = load(POOL)["cards"]
     zh_names = load(ZH)["names"]
     gmap = load_cardback_guid_map()

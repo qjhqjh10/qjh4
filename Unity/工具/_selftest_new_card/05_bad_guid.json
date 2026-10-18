@@ -1,0 +1,18 @@
+{
+  "_fixture": "05_bad_guid —— 立绘 GUID 在 guid_map_bundles.tsv 里解不出（期望：GUID_cardImageReference 红；语音那条应为绿）",
+  "id": "UM995",
+  "name": "Bad Guid",
+  "faction": "Ultramarines",
+  "type": "unit",
+  "cost": 2,
+  "attack": 1,
+  "ranged": 1,
+  "health": 3,
+  "armour": 0,
+  "rarity": "common",
+  "subtype": "Infantry",
+  "refNameId": "EC29",
+  "cardDescriptionTextReferenceId": "EC29",
+  "cardImageReference": { "m_AssetGUID": "ffffffffffffffffffffffffffffffff" },
+  "summonAudio": { "m_AssetGUID": "eac200e117a174124a97893837c26ff1" }
+}

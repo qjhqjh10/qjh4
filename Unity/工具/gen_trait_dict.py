@@ -63,8 +63,8 @@ A1748_NAME = [
     ('SOR39', 'Immolator',                   'pray'),
     ('SOR71', 'Zephyrim Superior',           'pray'),
     ('SOR_Celestian_Sacresant_Aveline', 'Celestian Sacresant Aveline', 'pray'),
-    ('SW13',  'Blackmane Reiver',            'ferocity'),
-    ('SW31',  'Fenrisian Drop Pod',          'ferocity'),
+    ('SW8',  'Blackmane Reiver',            'ferocity'),
+    ('SW23',  'Fenrisian Drop Pod',          'ferocity'),
 ]
 ALT_WORDS = ('pray', 'duty', 'agenda', 'ferocity')
 
@@ -303,7 +303,7 @@ def main():
     w('')
     w('## 6. 还没查清的 / 还差什么')
     w('')
-    w('- 🔴 **`ferocity`（1265）0 判据** —— 这份 2025-07 快照里 **一次都没出现**（含 SW13/SW31 那两张）。'
+    w('- 🔴 **`ferocity`（1265）0 判据** —— 这份 2025-07 快照里 **一次都没出现**（含 SW8/SW23 那两张）。'
       '原版给 `Blackmane Reiver` / `Fenrisian Drop Pod` 挂没挂 `ferocity`，**本地核不了**'
       '（要更晚的 `allcards` 快照）。')
     w('- ⚠️ **快照年代**：Unity **2022.3.38f1 / 缓存 2025-07-30**，比当前客户端老；'

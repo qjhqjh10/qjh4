@@ -3959,20 +3959,30 @@ namespace CardPresentation
         /// 原版做法（现读反编译）：`DeckListDrawer__Initialize.c` 遍历卡表时先问
         /// `_list.Any(行 ⇒ 行.CurrentCard == 这张)`，命中就 `UICardInfoItem__SetCount(行, 行.Count + 1)`
         /// （**把份数加在同一行上**），没命中才 `SpawnCardInfo` 建新行。</para>
-        /// <para>**② 卡按「费用 → 显示名」排序**。原版 `DeckListDrawer__Reorder.c` 是
-        /// `list.OrderBy(键1).ThenBy(键2)`（两把键 = `<>9` 缓存委托那一格的 `+0x10` / `+0x18`），
-        /// 但**两个匿名函数的方法体没反编译出来** ⇒ 键只能拿**用户参考图**反推：<br/>
-        /// · 第一把 = **费用**：参考图 10 行 = `2,2,3,3,3,4,4,4,4,5`（**单调不减**）。<br/>
-        /// · 第二把 = **显示名（本地化名）的序数比较**：同费用内逐组按**中文字的码点**升序 ——
-        /// 费用 2 组 `游 U+6E38 &lt; 驭 U+9A6D`；费用 3 组 `女 U+5973 &lt; 帷 U+5E37 &lt; 突 U+7A81`；
-        /// 费用 4 组 `努 U+52AA &lt; 灵 U+7075 &lt; 狂 U+72C2 &lt; 邪 U+90AA`（三组共 9 张逐张对过码点）。<br/>
-        /// ⚠️ **英文名序数不成立**：费用 4 组按英文该是 `Howling Banshee` 打头，实拍不是
-        /// ⇒ 这一把**不是猜的**。（我们自己的中文若与原版不同，同一副牌的可见顺序会跟着不同 ——
-        /// 那是**译文数据**差，不是排序规则差。）</para>
-        /// <para>🔴 **督军 / 防御卡不进排序**：原版 `Reorder` 排完之后**又显式钉回去** ——
-        /// `SetSiblingIndex(hero, 0)` · `SetSiblingIndex(?, 1)` · `SetSiblingIndex(defensive, 2 或 1)`
-        /// ⇒ 这两行**恒在最前**，与费用无关（参考图第 0 行就是督军行：
-        /// **无费用圆、无份数条、字更大**）。</para>
+        /// <para>**② 排序 = 照原版：`费用 → 本地化名的【当前文化】比较 → Id`。**
+        /// 🔴 **2026-10-18（铁律 5 就地订正）**：本节旧记录写「`Reorder` 的两个匿名函数方法体
+        /// **没反编译出来**、键只能拿用户参考图反推」—— 这条【不成立】。全量反编译里两个方法体各有文件：
+        /// `d:/2/tools/decomp_full/DeckListDrawer.__c___Reorder_b__22_0.c` / `…_b__22_1.c`。现读：<br/>
+        /// · 键1 = `*(int*)(*(longlong*)(行 + 0x78) + 0x78)` = **`RawCardScript.manaCost`**（费用；
+        ///   `+0x78` 偏移的出处 = `资料/AI_原版反编译_0917.md:42`）⇒ 与当时从参考图反推的「费用」一致；<br/>
+        /// · 键2 = `RawCardScript__GetLocalizedCardName(…)` = **本地化卡名** ⇒ 与反推的「显示名」一致。<br/>
+        /// ⚠️ **关键在于比较器**：`OrderBy/ThenBy` 调用点**没传 `IComparer`** ⇒ 键2 用的是
+        /// `Comparer&lt;string&gt;.Default` = `string.CompareTo` = **文化相关**比较
+        /// （= `string.Compare(a, b, StringComparison.CurrentCulture)`）。
+        /// 🔴 **旧实现用的是 `CompareOrdinal`（码点序）—— 那是一条偏离**；用户 2026-10-18 拍板「照原版」，
+        /// 本笔已改回文化比较。⚠️ **文化相关的意思**：中文 Windows（zh-CN）下汉字按**拼音**排；
+        /// 换一种 OS 语言顺序会变 —— 这正是原版行为（复刻它，而不是挑一个固定的码点序）。
+        /// 实测证据 / 与参考图的对照 → `资料/普查产出_1018/R_卡组排序_照原版.md`。</para>
+        /// <para>完整键（**全序** —— `List.Sort` 不稳定，末尾必须落到唯一的 `Id`）：
+        /// <list type="number">
+        /// <item>**督军（`WarlordId`）恒第 0 行**、**防御卡（`DefensiveId`）恒紧随其后**（有督军 ⇒ 第 1 行；
+        /// 没有督军 ⇒ 防御卡就是第 0 行）—— 这两行**不进排序**；
+        ///   判据 = 原版 `DeckListDrawer__Reorder.c` 末尾那三句 `SetSiblingIndex`：督军 `0`、
+        ///   防御卡 `hero 存在 ? 1 : 0`。我们这两行本来就在排序**之外**显式 `Add` 在最前。</item>
+        /// <item>其余卡：**费用升序**（`CardDef.Cost`）→ **显示名**（`CardText.Name(c)`）的
+        ///   `StringComparison.CurrentCulture` 比较 → `Id` 的**序数**比较（兜底）。</item>
+        /// </list>
+        /// `Id` 在池里唯一（1,127 条无重复）⇒ 第三档保证任意两张都能分出先后，排序结果逐拍一致。</para>
         /// <para>⚠️ **本函数是「卡组行」唯一的数据源**（画 / 命中 / 拖拽 / 悬停 / 滚动全长在它上面）
         /// ⇒ 去重与排序**只能放这里**；放在 `RefreshDeckList` 里会让**命中与画面对不上**。</para></summary>
         public List<CardDef> DeckEntries()
@@ -3983,7 +3993,12 @@ namespace CardPresentation
 
             // ① 按卡去重 —— 同一张卡只留一行（份数照旧由 `RefreshDeckList` 印 `CountOf`）。
             //   按 `Id` 认同一张卡（与 `State.Deck.CountOf` / `TryRemove` 同一把尺）。
+            //   ⚠️ 督军 / 防御卡那两个 id 也先记进 `seen`：它们已经占着最前面两行了，
+            //     万一 `CardIds` 里也混进同一条（旧存档 / 手改），不再出第二行
+            //     （`DeckScene` ⑧ 的「`ASH83` 只出现 1 次」那条断言管这个）。
             var seen = new HashSet<string>();
+            if (!string.IsNullOrEmpty(State.Deck.WarlordId)) seen.Add(State.Deck.WarlordId);
+            if (!string.IsNullOrEmpty(State.Deck.DefensiveId)) seen.Add(State.Deck.DefensiveId);
             var cards = new List<CardDef>();
             foreach (var id in State.Deck.CardIds)
             {
@@ -3992,15 +4007,19 @@ namespace CardPresentation
                 if (d != null) cards.Add(d);
             }
 
-            // ② 费用升序 → 显示名（序数）→ `Id`。
-            //   最后那一档 `Id` 是为了**全序**：`List.Sort` 是**不稳定**排序，
+            // ② 照原版：费用升序 → 显示名（**当前文化**比较）→ `Id`。
+            //   🔴 第二把键**必须是文化相关比较**：原版 `OrderBy/ThenBy` 没传 `IComparer` ⇒
+            //   `Comparer<string>.Default` ⇒ `string.CompareTo`（= `StringComparison.CurrentCulture`）。
+            //   ⛔ 不许换回 `CompareOrdinal`（码点序）—— 那是造成「同费用内顺序看着毫无规律」的那条偏离
+            //   （用户 2026-10-18 拍板照原版；实测证据见 `资料/普查产出_1018/R_卡组排序_照原版.md`）。
+            //   最后那一档 `Id`（**序数**）是为了**全序**：`List.Sort` 是**不稳定**排序，
             //   没有它，同费用同名的两张会随实现抖动（`CardDef` 按 `Id` 建 ⇒ 这一档恒真）。
             cards.Sort((a, b) =>
             {
                 int c = a.Cost.CompareTo(b.Cost);
                 if (c != 0) return c;
-                c = string.CompareOrdinal(CardText.Name(a),
-                                          CardText.Name(b));
+                c = string.Compare(CardText.Name(a), CardText.Name(b),
+                                   System.StringComparison.CurrentCulture);
                 if (c != 0) return c;
                 return string.CompareOrdinal(a.Id, b.Id);
             });

@@ -221,10 +221,10 @@ ART_ID_ALIAS = {
     #    插图区指纹 2/256 vs 无关对照 90/256，2026-09-15 实测）
     'cc1400347b15ee3449bc18bbdb9ddec9': 'SM_UM_strat_Righteous Fury',
     'UM72': 'SM_UM_veh_Predator Destructor',
-    # ⚠️ 它的图在两个**重复行**之间抢：**极限战士**那张 `Terminator`（现 id = `UM_Terminator`；
+    # ⚠️ 它的图在两个**重复行**之间抢：**极限战士**那张 `Terminator`（现 id = `UM103`；
     #    ⛔ 别与**帝王之子**那张 `EC_Terminator` 混 —— 新池里叫 `Terminator` 的有两张）的子串也命中 `2nd Company Terminator`，
     #    按 id 钉死才稳（卡表把 2nd 改名成了 1st，贴图名留的还是 2nd）
-    'UM_2nd_Company_Terminator': 'SM_UM_inf_2nd Company Terminator',
+    'UM101': 'SM_UM_inf_2nd Company Terminator',
     'c06453b330af61745beb5fa567ba863e': 'AstraMilitarum_strat_Righteous Gaze',
     '4cdc1b5f965f99945b685bca7660e9fa': 'DarkAngels_strat_Exemplar of Hate',
     # ---- 帝皇之子：4 张全是原版旧名 ----

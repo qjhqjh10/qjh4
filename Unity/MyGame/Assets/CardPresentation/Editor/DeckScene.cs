@@ -576,7 +576,7 @@ public static class DeckScene
         //   ① `A1527` 督军行**不印费用圆** —— `SetOn(_deckRowCost[i], on && !heroRow)`
         //      与 `SetOn(_deckRowCostText[i], on && !heroRow)`（**两颗一起**，本工程它们是两颗独立物体；
         //      ⚠️ `_deckRowCostText` 原名 `_deckRowCount` —— `A2007` 纯改名，它盛的是**费用**）；
-        //   ② `A1525` 卡组列表三件 —— 按 `Id` 去重 / `Cost → 显示名(序数)` 排序 / 行名左对齐到 **68**。
+        //   ② `A1525` 卡组列表三件 —— 按 `Id` 去重 / **费用 → 本地化名（当前文化比较）**排序 / 行名左对齐到 **68**。
         // 判据（⛔ 一律**不是我们自己的常量**）：
         //   · **行名左沿 68** = 参考图（`桌面/warpforge参考图/卡组编辑界面参考.png`）量出来的 ——
         //     参考图 px 56…61 × 1.21442（= 1920/1581）= 画布 **68.0…74.1**；
@@ -584,9 +584,15 @@ public static class DeckScene
         //   · 督军行那两颗的判据 = `资料/说明书/04_界面UI/菜单全树.md:9321-9329`（Hero 族**没有** `Cost Image`）
         //     与 `:9337` / `:9348`（Defensive / Card Info 两族**都有**）
         //     + `UICardInfoItem__Initialize.c:76`（值闸 `Coin >= 0`）；
-        //   · 排序第二把键 = `DeckListDrawer__Reorder.c` 的 `OrderBy(键1).ThenBy(键2)`，
-        //     第二把键的方法体本地读不到 ⇒ 拿参考图三组逐张对码点反推出「显示名序数比较」
-        //     （详情 → `DeckRuntime.DeckEntries()` 的 doc 与 `资料/普查产出_第十七会话/T_卡组列表.md`）。
+        //   · 排序键 = **照原版：费用 → 本地化名的【当前文化】比较 → Id**（督军 / 防御卡钉在最前）。
+        //     🔴 **2026-10-18（铁律 5 就地订正）**：这里原来写「原版 `Reorder` 第二把键的方法体本地读不到、
+        //     只能拿参考图反推」—— **不成立**：两个 lambda 体在
+        //     `d:/2/tools/decomp_full/DeckListDrawer.__c___Reorder_b__22_{0,1}.c`。现读 =
+        //     键1 `*(… + 0x78)`（`RawCardScript.manaCost`）、键2 `RawCardScript__GetLocalizedCardName`；
+        //     且 `OrderBy/ThenBy` **没传 `IComparer`** ⇒ 第二把键 = `Comparer<string>.Default`
+        //     = **`StringComparison.CurrentCulture`**（⛔ **不是** `CompareOrdinal` —— 码点序是旧实现的一条偏离，
+        //     用户 2026-10-18 拍板「照原版」）。记录 → `资料/普查产出_1018/R_卡组排序_照原版.md`
+        //     与 `DeckRuntime.DeckEntries()` 的 doc。
 
         // ============================================================ 🔴 2026-10-21（`A1145`）
         // **「自证结构」断言 —— 普查（本文件逐族扫过一遍；这一段是【结果】，不是待办）。**
@@ -633,6 +639,18 @@ public static class DeckScene
             float cx = DeckRuntime.PxOfWorld(lb.transform.position).x;
             left = cx - w * 0.5f; right = cx + w * 0.5f;
             return true;
+        }
+
+        /// <summary>断言用：显示名的**当前文化**比较 —— 就是原版 `OrderBy/ThenBy` 没传 comparer 时
+        /// 落到的那把键（`Comparer&lt;string&gt;.Default` = `string.CompareTo` = `CurrentCulture`）。
+        /// <para>🔴 **它本身不是「独立腿」**（与实现同一个 API）—— 独立性来自 ⑥ 里与
+        /// `CompareOrdinal` 的**对照**：同一费用段里找一对「两把键方向相反」的相邻名字，
+        /// 实现若用回码点序，那一对必然不按文化序排（断言红）。⛔ 那一条**不是恒真**：
+        /// 找不出这种对时它会**明说无鉴别力**（本机 zh-CN 下这副牌确实找得出）。</para>
+        /// <para>⚠️ 名字取自 `CardText.Name(c)`（显示口径本身是规格的一部分）。</para></summary>
+        static int NameCultureCmp(string a, string b)
+        {
+            return string.Compare(a, b, StringComparison.CurrentCulture);
         }
 
         // ============================================================ 自检
@@ -1940,6 +1958,13 @@ public static class DeckScene
             //   **错因**：`DeckEntries()` 按「费用 → 显示名」排（`DeckRuntime.cs:4018-4029`）、
             //   卡池按**卡表原序**排（`DeckEditorState.VisibleCards` 明写「不排序」）⇒
             //   两个「第一张」根本不是同一张。
+            //   ⚠️ **2026-10-18（铁律 5 就地订正）**：上面那句「`DeckEntries()` 按费用 → 显示名排」**仍然成立**，
+            //   但**第二把键的口径变了**：原版 `ThenBy` 没传 comparer ⇒ `Comparer<string>.Default`
+            //   = `StringComparison.CurrentCulture`（旧实现用的是 `CompareOrdinal` 码点序，已按用户口径改回文化比较）。
+            //   ⇒ 「第一张 unit 是谁」这个结论**要重新对**：本机 zh-CN 下汉字按拼音排，费用 1 段是
+            //   `风暴守护者`(feng) &lt; `守护者防御小队`(shou) &lt; `织亡者次元蜘蛛`(zhi)
+            //   ⇒ **第一张是 `ASH5`、不是 `ASH4`**。
+            //   本段早已改成「按 `CanAdd` 挑」、不再依赖「第一张是谁」⇒ **行为不受影响**。
             //   ⇒ 改成：**从卡池可见前 6 格里挑那张 `CanAdd` 不过的**，腾掉它的**副本**
             //     （副本数 2→1、总数 30→29 ⇒ 这一张下一拍就 `CanAdd == None`）。
             //   ⚠️ 仍**只挑 hero / defence 之外**的：`TryRemove` 对那两型走的是
@@ -4198,7 +4223,7 @@ public static class DeckScene
             // 🔴 本节**全部读「画面」或「刚量出来的数」**，不读 `DeckRuntime` 里那几个常量
             //   （`RowNameX` 那一类）也不读它自己的排序函数 —— 读了就是自证。
             {
-                Section("★ A1527 / A1525：卡组列表 —— 督军行无费用圆 · 一卡一行 · 费用→显示名 序 · 行名左对齐 68");
+                Section("★ A1527 / A1525：卡组列表 —— 督军行无费用圆 · 一卡一行 · 费用→本地化名（文化比较）· 行名左对齐 68");
                 _rt.UiSetTab(0);
                 _rt.UiScrollDeck(-9999f);          // 摆回基线：列表滚回顶（上一节量悬浮 / 页签，可能动过滚动）
 
@@ -4302,7 +4327,8 @@ public static class DeckScene
                             + "｜🧨 去重那一刀被摘掉 ⇒ 份数印两遍 / 错位 ⇒ 红");
                 }
 
-                // ---- ⑤ A1525②：普通卡那一段**费用单调不减** ----
+                // ---- ⑤ 普通卡那一段**费用单调不减**（原版第一把键）----
+                //  ⚠️ 排序口径 = **照原版**（用户 2026-10-18 拍板）：费用 → 本地化名的当前文化比较 → Id。
                 int seg = 2;   // 前两行 = 督军 / 防御卡（与费用无关、钉在最前）⇒ 不进这一段
                 {
                     string bad = null;
@@ -4311,101 +4337,81 @@ public static class DeckScene
                         if (entries[i] == null || entries[i - 1] == null) continue;
                         if (entries[i].Cost < entries[i - 1].Cost)
                         {
-                            bad = "第 " + (i - 1) + " 行「" + CardText.Name(entries[i - 1].Name, entries[i - 1].NameZh)
-                                + "」费用 " + entries[i - 1].Cost + " > 第 " + i + " 行「"
-                                + CardText.Name(entries[i].Name, entries[i].NameZh) + "」费用 " + entries[i].Cost;
+                            bad = "第 " + (i - 1) + " 行「" + CardText.Name(entries[i - 1]) + "」费用 " + entries[i - 1].Cost
+                                + " > 第 " + i + " 行「" + CardText.Name(entries[i]) + "」费用 " + entries[i].Cost;
                             break;
                         }
                     }
                     CheckTrue(entries.Count > seg + 1, "（前提）排序段（第 2 行起）至少 2 行（实测 " + (entries.Count - seg) + "）");
                     CheckTrue(bad == null,
-                              "★ 普通卡那一段**费用单调不减**（" + (entries.Count - seg) + " 行）—— 判据 = 参考图 10 行 `2,2,3,3,3,4,4,4,4,5`"
-                            + "｜🧨 摘掉 `cards.Sort(…)` ⇒ 顺序退回 `CardIds`（开工前那副牌实测 `6,6,1,1,6,6,4,4,3…`）⇒ 红"
+                              "★ 普通卡那一段**费用单调不减**（" + (entries.Count - seg) + " 行）—— 原版第一把键 = "
+                            + "`RawCardScript.manaCost`（`DeckListDrawer.__c___Reorder_b__22_0.c`）"
+                            + "｜🧨 摘掉 `cards.Sort(…)` ⇒ 顺序退回 `CardIds` 的插入序 ⇒ 红"
                             + (bad == null ? "" : "｜实得：" + bad));
                 }
 
-                // ---- ⑥ A1525②：**同费用按显示名码点升序** + 一条钉死的期望值 ----
+                // ---- ⑥ 同费用段：按**显示名的当前文化比较**升序 + 「文化序 vs 码点序」判别式 ----
+                //  ⛔ 期望值不是从 `DeckRuntime` 的常量/函数读回来的：这里**逐段重算**（参考实现），
+                //    用的是**规格里的那把键** —— `StringComparison.CurrentCulture`（原版 `ThenBy` 没传 comparer）
+                //    + `Id` 序数兜底。数据 = `cards_engine.json`（`PlayerDeckForDemo` 那 30 张 SaimHann 单位）。
                 {
-                    string bad = null; int costPairs = 0;
+                    // ① 参考实现：每个费用段各自按「名字文化比较 → Id」重排，逐张对 id。
+                    string bad = null; int runs = 0;
+                    for (int i = seg; i < entries.Count; )
+                    {
+                        if (entries[i] == null) { i++; continue; }
+                        int j = i + 1;
+                        while (j < entries.Count && entries[j] != null && entries[j].Cost == entries[i].Cost) j++;
+                        runs++;
+                        var got = new List<CardDef>();
+                        for (int k = i; k < j; k++) got.Add(entries[k]);
+                        var want = new List<CardDef>(got);
+                        want.Sort((a, b) =>
+                        {
+                            int c = NameCultureCmp(CardText.Name(a), CardText.Name(b));
+                            return c != 0 ? c : string.CompareOrdinal(a.Id, b.Id);
+                        });
+                        for (int k = 0; k < got.Count; k++)
+                            if (got[k].Id != want[k].Id)
+                            {
+                                bad = "第 " + (i + k) + " 行「" + CardText.Name(got[k]) + "」(" + got[k].Id + ")"
+                                    + " 应为「" + CardText.Name(want[k]) + "」(" + want[k].Id + ")";
+                                break;
+                            }
+                        if (bad != null) break;
+                        i = j;
+                    }
+                    CheckTrue(runs >= 2, "（前提）排序段里至少 2 个费用档（实测 " + runs + "）");
+                    CheckTrue(bad == null,
+                              "★ 每个费用段内 = **显示名的【当前文化】比较升序**（" + runs + " 段）—— 原版 `ThenBy` "
+                            + "没传 `IComparer` ⇒ `Comparer<string>.Default` ⇒ `string.CompareTo`"
+                            + "｜🧨 换回 `CompareOrdinal`（码点序）⇒ 本段红、下一条判别式也红"
+                            + (bad == null ? "" : "｜实得：" + bad));
+
+                    // ② **判别式（⛔ 不是恒真）**：同一费用段的相邻对里找一对「文化序与码点序**方向相反**」的名字；
+                    //    实现若用回码点序，这一对不可能按现在这个顺序相邻。
+                    //    ⚠️ 换一个文化可能一对都找不出来 ⇒ 那时本条会红并明说「无鉴别力」，不静默放过。
+                    int discAt = -1, dOrd = 0, dCul = 0; string da = null, db = null;
                     for (int i = seg; i + 1 < entries.Count; i++)
                     {
                         if (entries[i] == null || entries[i + 1] == null) continue;
                         if (entries[i].Cost != entries[i + 1].Cost) continue;
-                        costPairs++;
-                        string a = CardText.Name(entries[i].Name, entries[i].NameZh);
-                        string b = CardText.Name(entries[i + 1].Name, entries[i + 1].NameZh);
-                        if (string.CompareOrdinal(a, b) > 0 && bad == null)
-                            bad = "「" + a + "」(U+" + ((int)a[0]).ToString("X4") + ") 排在了「" + b
-                                + "」(U+" + ((int)b[0]).ToString("X4") + ") 前面";
+                        string x = CardText.Name(entries[i]), y = CardText.Name(entries[i + 1]);
+                        int o = Math.Sign(string.CompareOrdinal(x, y));
+                        int c2 = Math.Sign(NameCultureCmp(x, y));
+                        if (o != 0 && c2 != 0 && o != c2) { discAt = i; da = x; db = y; dOrd = o; dCul = c2; break; }
                     }
-                    CheckTrue(costPairs > 0, "（鉴别力）排序段里**同费用的相邻对 ≥ 1**（实测 " + costPairs + "对）"
-                                       + " —— 一副牌里没有同费用对 ⇒ 下面那条是空转");
-                    CheckTrue(bad == null,
-                              "★ 同费用内按**显示名（码点序）**升序 —— 判据 = `DeckListDrawer__Reorder.c` 的 `OrderBy(键1).ThenBy(键2)`，"
-                            + "第二把键拿逐张对码点反推（**2026-10-14 现读本节实际跑的这份 `entries`，逐张核**："
-                            + "费用 3 `先知 U+5148 < 突击蝎 U+7A81` · "
-                            + "费用 4 `凶暴复仇者 U+51F6 < 奥里安·拉拉塔乔斯 U+5965 < 狂嚎女妖 U+72C2` · "
-                            + "费用 5 `灵魂先知 U+7075 < 狂嚎女妖神官 U+72C2 < 突击战蝎神官 U+7A81`）"
-                            + "｜🧨 `ThenBy` 换成**英文名**或 `Id` ⇒ 红"
-                            + (bad == null ? "" : "｜实得：" + bad));
-                    // ⚠️ **2026-10-14（铁律 5 订正）**：上面这一段原来抄的三组名字（费用 2 `游/驭` ·
-                    //   费用 3 `女/帷/突` · 费用 4 `努/灵/狂/邪`）是 **`W2 卡名换官方` 之前**的写法，
-                    //   现在**与本节实际跑的这份 `entries` 对不上**（连组内张数都不一样）⇒
-                    //   **判据一个字没变，但那段文字成了误导源** ⇒ 已换成上列现值（现读 `cards_engine.json`）。
-
-                    // 🔴 **一条钉死的期望值**（⛔ 不是从实现读回来的）：演示牌里费用 6 那五张的**显示名码点序** ——
-                    //   司战 U+53F8 · 恶狠狠的复仇者主宰 U+6076 · 火龙 U+706B · 灵魂先知凯伦纳瑞斯 U+7075 · 翔鹰神官 U+7FD4。
-                    //   ⚠️ **2026-10-14（铁律 5 订正）**：这一行原来写的是换名前那五个名字
-                    //   （俯冲猎鹰长老 U+4FEF · 复仇者长老 U+590D · 总督 U+603B · 火龙 U+706B · 灵先知·奎莱纳里斯 U+7075），
-                    //   照它读会以为期望值是那一串 ⇒ 已换成现值（现读 `cards_engine.json` 的 `nameZh`，逐位核过）。
-                    //   此举的用处 = 给上一条**加固**：三条候选键在这一组上**互相分得开** ——
-                    //     · 英文名序：`Autarch < Dire Avenger Exarch < Fire Dragon < Spiritseer Qelenaris < Swooping Hawk Exarch`（总督打头）
-                    //     · `Id` 序：`ASH32 < ASH34 < ASH35 < ASH80 < ASH_Autarch`（复仇者长老打头）
-                    //   两条都与下面这个序**不同** ⇒ 任一把键换错都红（而上一条只能管「不升序」）。
-                    //   ⚠️ **2026-10-14（铁律 5 订正 · 对应红 7）**：上面那 6 行（名字与那两条「分得开」的论据）
-                    //   全是 **`W2 卡名换官方` 之前**的 —— 换名后**期望值本身过期**（实测值 = 新的中文码点序，
-                    //   排序实现**是对的**），而且 **`Id` 序那一行也早就过期了**（写的是 `ASH32…ASH_Autarch`，
-                    //   现读是 `ASH22 < ASH28 < ASH63 < ASH70 < ASH83`）。现值逐条写在下面。
-                    //   🔴🔴 **换名之后这一组【失去了鉴别力】**（诊断顺手点出）：它原来靠「三条候选键互相分得开」
-                    //   立得住，现在**英文名序与中文码点序给出同一个序列**
-                    //   （`Autarch < Dire Avenger Exarch < Fire Dragon < Spiritseer Qelenaris < Swooping Hawk Exarch`）
-                    //   ⇒ 它只剩「挡 `Id` 键」这半边。⛔ **不许只把期望值改绿就算完**（那就是自证）
-                    //   ⇒ **下面另钉一组补回来**（费用 4）：三把键**两两不同**。
-                    string[] want6 = { "ASH83", "ASH63", "ASH22", "ASH28", "ASH70" };
-                    var got6 = new List<string>();
-                    for (int i = seg; i < entries.Count; i++)
-                        if (entries[i] != null && entries[i].Cost == 6) got6.Add(entries[i].Id);
-                    bool same6 = got6.Count == want6.Length;
-                    for (int i = 0; same6 && i < want6.Length; i++) same6 = got6[i] == want6[i];
-                    CheckTrue(same6,
-                              "★ 费用 6 那一组**逐张对得上**：司战 → 恶狠狠的复仇者主宰 → 火龙 → 灵魂先知凯伦纳瑞斯 → 翔鹰神官"
-                            + "（码点 U+53F8 < U+6076 < U+706B < U+7075 < U+7FD4）"
-                            + "｜🧨 `Id` 序（火龙打头）⇒ 红 —— ⚠️ 换官方名之后**中/英两把键在这一组上同序** ⇒"
-                            + "「`ThenBy` 用了英文名」这一条**本组已照不出来**，由下面费用 4 那一组负责"
-                            + "｜实得：" + string.Join(", ", got6.ToArray()));
-
-                    // 🔴 **2026-10-14（红 7 补的鉴别力 · ⛔ 不是「把期望值改绿」）**：费用 6 那一组换名后
-                    //   **中/英两把键同序** ⇒ 它挡不住「`ThenBy` 用了**英文名**」。这里另钉**费用 4**那一组
-                    //   （演示牌 3 张，三把键**两两不同**）——任一把换错都红：
-                    //     · 中文码点序（**唯一正确的那把键**）：`ASH62` 凶 U+51F6 < `ASH79` 奥 U+5965 < `ASH15` 狂 U+72C2
-                    //     · 英文名序：`ASH62` Dire Avenger < `ASH15` Howling Banshee < `ASH79` Orian Laratharjos
-                    //     · `Id` 序：`ASH15` < `ASH62` < `ASH79`
-                    //   ⇒ 三把两两不同 ⇒ 任一把换错都照得出来。⚠️ **两组要合起来看**：
-                    //     费用 6 那组管 `Id` 键、这一组管**英文名**键（今天单靠费用 6 那组只剩一半鉴别力）。
-                    string[] want4 = { "ASH62", "ASH79", "ASH15" };
-                    var got4 = new List<string>();
-                    for (int i = seg; i < entries.Count; i++)
-                        if (entries[i] != null && entries[i].Cost == 4) got4.Add(entries[i].Id);
-                    bool same4 = got4.Count == want4.Length;
-                    for (int i = 0; same4 && i < want4.Length; i++) same4 = got4[i] == want4[i];
-                    CheckTrue(same4,
-                              "★ 费用 4 那一组**逐张对得上**（红 7 补的鉴别力）：凶暴复仇者 → 奥里安·拉拉塔乔斯 → 狂嚎女妖"
-                            + "（码点 U+51F6 < U+5965 < U+72C2）"
-                            + "｜🧨 英文名序（`Dire Avenger` → `Howling Banshee` → `Orian Laratharjos`）"
-                            + " / `Id` 序（狂嚎女妖打头）⇒ 红"
-                            + "｜⛔ 这一组是**专门为此挑的**：换名后费用 6 那一组的中/英两把键**同序**，"
-                            + "只有这一组能把「`ThenBy` 用了英文名」照出来"
-                            + "｜实得：" + string.Join(", ", got4.ToArray()));
+                    CheckTrue(discAt >= 0,
+                              "★ **文化序 vs 码点序的判别式**：同费用相邻对里有一对「两把键方向相反」的名字"
+                            + "（本机文化 = `" + System.Globalization.CultureInfo.CurrentCulture.Name + "`）"
+                            + "｜🧨 本条若红：本机文化下这副牌照不出两把键的差别（换语言环境会这样）"
+                            + " ⇒ 下面那条会空转，所以先红在这里（⛔ 别删）");
+                    if (discAt >= 0)
+                        CheckTrue(dCul < 0,
+                                  "★ ……且实际顺序是**文化序**：「" + da + "」（第 " + discAt + " 行）排在「" + db
+                                + "」（第 " + (discAt + 1) + " 行）之前（文化序 " + dCul + " · 码点序 " + dOrd
+                                + " —— 两把键**方向相反**）"
+                                + "｜🧨 实现换回 `CompareOrdinal` ⇒ 这一对的次序会反过来 ⇒ 红");
                 }
 
                 // ---- ⑦ A1525③：行名**左对齐**（左沿 = 68 · 与名字长短无关）----
@@ -4441,36 +4447,46 @@ public static class DeckScene
                             + "会比 68 大 (190−宽度)/2 > 10 px ⇒ 上两条才有鉴别力（⛔ 本条若红 = 夹具变了，先看这一条）");
                 }
 
-                // ---- ⑧ 督军 / 防御卡**钉在最前**、与费用无关 ----
+                // ---- ⑧ 督军 / 防御卡**钉在最前**、与排序键无关 ----
                 //  判据（三条）：① 参考图第 0 行 = 督军行（无费用圆、无 `x2`、字更大）② prefab `Content` 子件序
                 //  Hero → Defensive → 一串 Card Info（`菜单全树.md:9320-9343`）③ `DeckListDrawer__Reorder.c` 排完序
-                //  **又显式钉回去**：`SetSiblingIndex(hero,0)` / `(…,1)` / `(defensive,2 或 1)`。
+                //  **又显式钉回去**：`SetSiblingIndex(hero,0)` / `(…,1)` / `(defensive, hero?1:0)`。
                 //  🔴 **为什么这一格要造局面**：拿今天这副演示牌**直断前两行是什么，鉴别力是 0** ——
-                //    督军费用 0（最小）、防御卡 `支派圣殿` 费用 1 且名字「支 U+652F」在费用 1 那一组里**也排第一**
-                //    ⇒ 「把这两行也丢进 `cards.Sort`」这个**错法**照样能让前两行是 hero / defence，**绿**。
-                //    所以白盒把两张**贵**的卡摆进这两个位（督军位放费用 6 的 `ASH83`、防御位放费用 3 的 `DA61`）
-                //    —— 钉住的话前两行仍是他俩（且与后面的费用序**反着**），丢进排序的话他们会被排到费用 3 / 6 各自那一段去 ⇒ 前两行立刻变。
-                //  ⚠️ `ASH_Autarch` 与开局督军**同阵营**（SaimHann）⇒ 卡池 / 页头那两条筛选不受影响；
-                //     刷新**只走 `UiScrollDeck`**（它只调 `RefreshDeckList`），⛔ 不走 `RefreshAll`。
+                //    开局督军 `ASH1`（费用 2）/ 防御卡 `ASH55`（费用 1）本来就排得很前
+                //    ⇒ 「把这两行也丢进 `cards.Sort`」这个**错法**也能让前两行是它们，**绿**。
+                //    所以白盒换成两张**贵**的卡：督军位放 `ASH83`（费用 6）、防御位放 `DA61`（费用 3）——
+                //    钉住的话前两行仍是他俩、第 2 行起费用**又从小开始**（1 < 3 < 6）；
+                //    丢进排序的话他们会被排到费用 3 / 6 各自的段里 ⇒ 前两行立刻变。
+                //  ⚠️ `ASH83` **本来也在演示牌的 `CardIds` 里**（`PlayerDeckForDemo` 的第一张）⇒ 这一格顺带验去重：
+                //     `DeckEntries` 必须先把 `WarlordId` / `DefensiveId` 记进 `seen`，否则同一张卡会占两行。
+                //  ⚠️ 刷新**只走 `UiScrollDeck`**（它只调 `RefreshDeckList`），⛔ 不走 `RefreshAll`。
                 {
                     string wlProbe = state.Deck.WarlordId, dfProbe = state.Deck.DefensiveId;
-                    state.Deck.WarlordId = "ASH83";      // 费用 6 · SaimHann
-                    state.Deck.DefensiveId = "DA61";           // 费用 3 · `Plasma Generator`
+                    state.Deck.WarlordId = "ASH83";      // 费用 6（它同时也在 CardIds 里）
+                    state.Deck.DefensiveId = "DA61";     // 费用 3
                     _rt.UiScrollDeck(-9999f);
                     var pr = _rt.DeckEntries();
                     string p0 = (pr.Count > 0 && pr[0] != null) ? pr[0].Id : "<空>";
                     string p1 = (pr.Count > 1 && pr[1] != null) ? pr[1].Id : "<空>";
                     Check(p0, "ASH83",
-                          "★ 探针：**督军位那张（费用 6）钉在第 0 行**（`DeckEntries` 前两行按 `WarlordId` / `DefensiveId` 取卡、不进排序）"
-                        + "｜🧨 把它也丢进 `cards.Sort` ⇒ 它按费用 6 被排到后面去 ⇒ 红");
+                          "★ 探针：**督军位那张（费用 6）钉在第 0 行**"
+                        + "（`DeckEntries` 前两行按 `WarlordId` / `DefensiveId` 取卡、不进排序）"
+                        + "｜🧨 把它也丢进 `cards.Sort` ⇒ 它被排到费用 6 那一段去 ⇒ 红");
                     Check(p1, "DA61",
                           "★ 探针：**防御位那张（费用 3）钉在第 1 行**｜🧨 同上 ⇒ 红");
                     bool tail = pr.Count > 2 && pr[2] != null;
                     int c2 = tail ? pr[2].Cost : -1;
-                    CheckTrue(tail && pr[0] != null && pr[1] != null && pr[0].Cost == 6 && pr[1].Cost == 3 && c2 < 3,
+                    CheckTrue(tail && pr[2].Cost < 3,
                               "★ ……而且第 2 行起**费用又从小开始**（第 2 行费用 " + c2 + " < 3 < 6）"
                             + "—— 这一段**反着**的费用序只可能来自「前两行被钉住」"
                             + "｜🧨 排序把三行一起吃掉 ⇒ 整列单调 ⇒ 红");
+                    // 去重腿：ASH83 同时占着「督军位」和「CardIds 里的一张」⇒ 全列只许一行。
+                    int n83 = 0;
+                    foreach (var e in pr) if (e != null && e.Id == "ASH83") n83++;
+                    CheckTrue(n83 == 1,
+                              "★ ……`ASH83`（督军位 + `CardIds` 各有一条）在列表里**只出现 1 次**（实测 " + n83 + " 次）"
+                            + "—— 判据 = 一卡一行（③ 那条）；去重 `seen` 必须**先把 `WarlordId` / `DefensiveId` 记进去**"
+                            + "｜🧨 只去重 `CardIds` ⇒ 第 0 行与排序段各占一行 ⇒ 红");
                     // 还原（后面的节都按开局那副牌在跑）
                     state.Deck.WarlordId = wlProbe; state.Deck.DefensiveId = dfProbe;
                     _rt.UiScrollDeck(-9999f);

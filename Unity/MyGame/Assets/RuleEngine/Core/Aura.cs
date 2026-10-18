@@ -170,7 +170,7 @@ namespace RuleEngine
         /// 见 `资料/普查产出_第二十一会话/E3_A1458.md`「那一族句子今天为什么一句都不发生」）：
         ///   `AM16 Minka Lesk`（`Friendly Infantry costs 1 less`）· `TAU25 Piranha`（`… Drones …`）·
         ///   `BL41 Venomcrawler`（`Your Stratagems cost 1 less`）· `TAU34 Aunshi Ethereal`（`… troops …`）·
-        ///   `SW23 Hrolf the Ironhowl`（`… Beasts …`）· `GSC71 Atalan Leader`（`… Vehicles …`）·
+        ///   `SW18 Hrolf the Ironhowl`（`… Beasts …`）· `GSC71 Atalan Leader`（`… Vehicles …`）·
         ///   `GSC36 Metamorph Leader`（`Your troops cost 1 less`）。
         ///
         /// 🔴 **它们原来一句都不发生**：`desc` 里解得出 `lowercost` op，而 `lowercost` 唯一的消费点

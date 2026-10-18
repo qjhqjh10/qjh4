@@ -1002,6 +1002,24 @@ namespace CardPresentation
         readonly List<string> _cellKeyOrder = new List<string>();
         readonly List<CardView> _cellUsed = new List<CardView>();
         const int CellPoolCap = 48;
+        // 🔴 **2026-10-18（本批 · T09 / `A1813`）：异画页（Alternate Art Tab）视图池** ——
+        //   与上面那颗**同一套做法**（按「这张卡」复用、屏外 park、上限 48），但**单独一份池**：
+        //   同一张卡在异画页带 `CardData.artOverride`（异画立绘）、在卡池页没有 ⇒ view 不能跨页共用。
+        //   键 = `AltArtCard.CardId + 语档`（异画立绘由 `CardArt.AltArt(CardId)` 定 ⇒ 同 id 必然同图；
+        //   语档变了卡面文字要重排 ⇒ 不跨语档复用，理由同卡池页那一颗）。
+        //   为什么要有它：这一页原来 `RebuildStyleCells` 首句把 `Viewport` 下**全部孩子销毁**、
+        //   逐格重新 `CardView.Create`（≈2.2 s/格），而 `StyleScroll.OnChanged` 的阈值只有 0.01 px
+        //   ⇒ 拖一下 = 整屏重建（账 `A1813` 的「Alternate Art Tab Setup 17.3 s」就是这条路）。
+        //   判据/实测 → `资料/普查产出_1017/UI/PERF_T09_收藏窗性能诊断.md`
+        readonly Dictionary<string, CardView> _stylePool = new Dictionary<string, CardView>();
+        readonly List<string> _styleKeyOrder = new List<string>();
+        readonly List<CardView> _styleUsed = new List<CardView>();
+        const int StylePoolCap = 48;
+        /// <summary>Cards 页上一趟 `RebuildCardsCells` **真正 `Create`** 了几张视图（自检读数：
+        /// 滚动一格应当为 **0** —— 池命中 = 搬实例，不新建）。</summary>
+        public int CardsCellCreatedLastRefresh { get; private set; }
+        /// <summary>异画页上一趟 `RebuildStyleCells` **真正 `Create`** 了几张视图（自检读数：滚动一格 = 0）。</summary>
+        public int StyleCellCreatedLastRefresh { get; private set; }
         /// <summary>Cards 页的「过滤后为空」提示（判据与 Styles 页**同一条**：`VisibleCards().Count &lt;= 0`）。</summary>
         void RefreshCardsEmpty()
         {
@@ -1035,6 +1053,7 @@ namespace CardPresentation
             }
             CardsCells.Clear();
             _cellUsed.Clear();
+            CardsCellCreatedLastRefresh = 0;      // 自检读数：本趟真正建了几张（池命中不计）
 
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A15）**：这里原来是一对「`Clip = CardsViewport;` →
             //   循环 → `Clip = prevClip;`」—— 迁移后**整对删掉**：裁切状态长在 `holder/Viewport` 那颗
@@ -1072,6 +1091,7 @@ namespace CardPresentation
                     v.gameObject.SetActive(true);
                     _cellPool[key] = v;
                     _cellKeyOrder.Add(key);
+                    CardsCellCreatedLastRefresh++;
                 }
                 BuildWatch.CellPhase(reused
                     ? "① `CardView` **复用**（池命中，无新建）"
@@ -1847,6 +1867,9 @@ namespace CardPresentation
         {
             var page = PageRoot(3);
             if (page == null) return;
+            // 🔴 **2026-10-18（T09 / `A1813`）**：池里的视图挂在**将要被销毁的页树**下 ⇒ 先清池，别留悬空引用
+            //   （与 `RebuildCardsPage` 那一句同由）。
+            _stylePool.Clear(); _styleKeyOrder.Clear(); _styleUsed.Clear();
             for (int i = page.childCount - 1; i >= 0; i--) DestroySafe(page.GetChild(i).gameObject);
             _styleEmpty = null;
             _styleLogo = null;
@@ -1944,8 +1967,19 @@ namespace CardPresentation
         {
             var vp = holder.Find("Viewport");
             var parent = vp != null ? vp : holder;
-            for (int i = parent.childCount - 1; i >= 0; i--) DestroySafe(parent.GetChild(i).gameObject);
+            // 🔴 **2026-10-18（本批 · T09 / `A1813`）：池化** —— 只清「每趟重建」的命中区（`AltArtHit_*`）；
+            //    `CardView` 留在 `_stylePool` 里复用。原来这里把 `parent` 下**所有孩子**（含一屏异画卡）
+            //   `DestroySafe` 再逐格 `CardView.Create`，而 `StyleScroll.OnChanged` 的阈值只有 **0.01 px**
+            //   ⇒ 拖一下 = 整屏重建（≈2.2 s/格）。修法与卡池页（`RebuildCardsCells`）同一套；
+            //   判据与实测 → `资料/普查产出_1017/UI/PERF_T09_收藏窗性能诊断.md`
+            for (int i = parent.childCount - 1; i >= 0; i--)
+            {
+                var ch = parent.GetChild(i);
+                if (ch.name.StartsWith("AltArtHit_")) DestroySafe(ch.gameObject);
+            }
             StyleCells.Clear();
+            _styleUsed.Clear();
+            StyleCellCreatedLastRefresh = 0;      // 自检读数：本趟真正建了几张（池命中不计）
 
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A17）**：原来这里是一对「`Clip = StyleView;` → 循环 →
             //   `Clip = prevClip;`」—— **整对删掉**（裁切状态长在 `holder/Viewport` 那颗 `ViewportClip` 上，
@@ -1963,16 +1997,36 @@ namespace CardPresentation
                 if (!StyleScroll.Intersects(r)) continue;
                 BuildWatch.CellBegin();                      // 🆕 A1628 第二轮：逐格相位（只在真 Play 出声）
 
-                var d = BattleDriver.ToCardData(card, card.Faction);
-                // 🔴 **立绘换成异画**（`CardData.artOverride`）—— 卡框/数值/名字照旧用原卡
-                d.artOverride = CardArt.AltArt(a.CardId);
-                if (d.artOverride == null)
-                    Debug.LogWarning("[Collection] 异画立绘取不到（卡面会退回普通立绘）：" + a.CardId);
+                // 🔴 **2026-10-18（T09 / `A1813`）**：**按 `CardId + 语档` 复用**。
+                //   同一个 id + 同一份语档 ⇒ `ToCardData(card, card.Faction)` 与
+                //   `CardArt.AltArt(CardId)` 的产物逐字段相同 ⇒ 复用不必重算、不必 `SetData`
+                //   （理由同 `RebuildCardsCells` 那一句，⛔ 别在这里再抄一份）。
+                string key = a.CardId + "|" + (int)Loc.Current;
+                CardView v;
+                bool reused = _stylePool.TryGetValue(key, out v) && v != null;
+                if (reused)
+                {
+                    v.gameObject.name = "CollectionAltArt_" + a.CardId;   // 停过的视图改回原名（自检按名找）
+                    v.gameObject.SetActive(true);                          // ⚠️ 先激活：TMP 在未激活对象上量不出尺寸
+                }
+                else
+                {
+                    var d = BattleDriver.ToCardData(card, card.Faction);
+                    // 🔴 **立绘换成异画**（`CardData.artOverride`）—— 卡框/数值/名字照旧用原卡
+                    d.artOverride = CardArt.AltArt(a.CardId);
+                    if (d.artOverride == null)
+                        Debug.LogWarning("[Collection] 异画立绘取不到（卡面会退回普通立绘）：" + a.CardId);
 
-                var v = CardView.Create(parent, d, "CollectionAltArt_" + a.CardId);
-                if (v == null) continue;
-                v.gameObject.SetActive(true);
-                BuildWatch.CellPhase("① `CardView.Create`（建整张卡：各层 + TMP + `FitToBox` 二分 + `FitToWidth`）");
+                    v = CardView.Create(parent, d, "CollectionAltArt_" + a.CardId);
+                    if (v == null) continue;
+                    v.gameObject.SetActive(true);
+                    _stylePool[key] = v;
+                    _styleKeyOrder.Add(key);
+                    StyleCellCreatedLastRefresh++;
+                }
+                BuildWatch.CellPhase(reused
+                    ? "① `CardView` **复用**（池命中，无新建）"
+                    : "① `CardView.Create`（建整张卡：各层 + TMP + `FitToBox` 二分 + `FitToWidth`）");
                 // 🔴 **2026-10-08（A181）**：异画页同样要给卡带上裁切 —— 判据与卡池页那条逐字相同
                 //   （原版 `Alternate Art Tab/Collection Display/Scroll View/Viewport` 的 `RectMask2D`
                 //   `m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`；视口 = 330.22,287.67 → 1920.01,1080）。
@@ -1993,10 +2047,43 @@ namespace CardPresentation
                 v.SetHighlight(CardHighlightState.Normal);
                 BuildWatch.CellPhase("④ `SetFace` + `SetHighlight`（`SetFace` 是空操作）");
                 StyleCells.Add(v.transform);
+                _styleUsed.Add(v);
                 AddHit(parent, "AltArtHit_" + a.CardId, r, QPageRow, () => OpenCardDetail(card));
                 BuildWatch.CellPhase("⑤ 命中区（`AddHit`；本页**没有**张数条）");
                 BuildWatch.CellEnd();
             }
+
+            // 🔴 **2026-10-18（T09 / `A1813`）**：本趟没露头的视图 —— **只关不删**（滚回来零成本），
+            //   并改名成 `CollectionAltArt_parked`：⛔ 别留着原来的 `CollectionAltArt_<卡 id>`，
+            //   否则自检按 `Find` 找「这一格」时会先撞上屏外那颗（假绿/假红）。与卡池页那条同由。
+            foreach (var kv in _stylePool)
+            {
+                var v = kv.Value;
+                if (v == null || _styleUsed.Contains(v)) continue;
+                if (v.gameObject.activeSelf) v.gameObject.SetActive(false);
+                v.gameObject.name = "CollectionAltArt_parked";
+            }
+            // 上限回收：**最老且本趟没露头**的那个直接销毁（切风格/筛选来回切不会把整张异画表都建出来）。
+            for (int k = 0; k < _styleKeyOrder.Count && _stylePool.Count > StylePoolCap; )
+            {
+                string key = _styleKeyOrder[k];
+                CardView v;
+                if (!_stylePool.TryGetValue(key, out v)) { _styleKeyOrder.RemoveAt(k); continue; }
+                if (v != null && _styleUsed.Contains(v)) { k++; continue; }
+                _stylePool.Remove(key);
+                _styleKeyOrder.RemoveAt(k);
+                if (v != null) DestroySafe(v.gameObject);
+            }
+        }
+
+        /// <summary>自检用：重画异画页卡格一趟（**与 `StyleScroll.OnChanged` 调的是同一个函数**）。
+        /// 用途 = 验「池化之后重画一趟**不新建任何 `CardView`**」（账 `A1813`）。
+        /// ⚠️ 本页只有 7 张异画、2 行总高 768 &lt; 视口 792 ⇒ **滚不动**，所以自检不能靠滚动来触发。</summary>
+        public void RebuildStyleCellsForTest()
+        {
+            var page = PageRoot(3);
+            var holder = page != null ? page.Find("Scroll View") : null;
+            if (holder != null) RebuildStyleCells(holder);
         }
 
         // ============================================================ 筛选栏：建 / 刷 / 点

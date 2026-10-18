@@ -1,0 +1,27 @@
+{
+  "_fixture": "02_bad_enums —— 错枚举（cardType/spellType/cardRarity/keyword/trigger/chosenAbility；期望：ENUM_* 全红）",
+  "uniqueId": "UM998",
+  "cardName": "Bad Enums",
+  "cardArmy": 10,
+  "cardType": 99,
+  "spellType": 999,
+  "cardRarity": 9,
+  "keyword": 7,
+  "manaCost": 1,
+  "meleeAttack": 0,
+  "rangeAttack": 0,
+  "maxHealth": 1,
+  "armour": 0,
+  "refNameId": "EC29",
+  "cardDescriptionTextReferenceId": "EC29",
+  "cardAbilities": [
+    {
+      "trigger": 999,
+      "abilityContext": 77,
+      "priority": 9,
+      "abilityLogic": [
+        { "chosenAbility": 999 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "_fixture": "08_good_engine_shape —— 我们卡池形态（id/type/cost/attack/ranged/health/armour/rarity/subtype），期望 0 错误",
+  "id": "UM993",
+  "name": "K10 Engine Shape",
+  "type": "unit",
+  "cost": 3,
+  "attack": 2,
+  "health": 4,
+  "ranged": 0,
+  "armour": 0,
+  "keywords": [],
+  "desc": "Selftest fixture.",
+  "faction": "Ultramarines",
+  "rarity": "common",
+  "subtype": "Infantry",
+  "refNameId": "EC29",
+  "cardDescriptionTextReferenceId": "EC29"
+}

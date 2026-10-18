@@ -148,7 +148,7 @@ namespace RuleEngine
         /// → `工具/gen_card_inventory_options.py` → `工具/gen_cards_engine.py` → `CardDatabase.Parse`。
         ///
         /// ⚠️ **`-1` = 真值里查不到这张卡**（真值快照 = 2025-07-30，比现池旧；整个 SpaceWolves 阵营与
-        /// 暗黑天使 `DA75..DA86` 等新卡快照里没有）—— ⛔ **别把 `-1` 当成 0（InInventory）**。
+        /// 暗黑天使 `DA75..DA74` 等新卡快照里没有）—— ⛔ **别把 `-1` 当成 0（InInventory）**。
         /// 取值与含义见那个 JSON 的 `invariant` 段；⛔ 别在别处另写一份判定。</summary>
         public int InventoryOptions { get; }
 
@@ -201,7 +201,7 @@ namespace RuleEngine
         /// 它**只在对账时读**（自检那条断言 + `CardDatabase.Parse` 装载时的出声）。
         /// ⛔ **别拿它当结算判据** —— 结算那一份是 <see cref="KwValue"/>`(KeywordTable.Armour)`，
         /// 两份值只在「列与旧口径都 > 0 且相等」时才必然相同（现读全池 1127 张：**80 张相同 ·
-        /// 1 张只有旧口径有（`DA83`）· 0 张只有列有 · 0 张值不等**）。
+        /// 1 张只有旧口径有（`DA66`）· 0 张只有列有 · 0 张值不等**）。
         /// </summary>
         public int ArmourFromKeywords { get; }
 
@@ -273,7 +273,7 @@ namespace RuleEngine
             // 🔴 **取值口径（两处对账过，2026-10-15 用离线演算台逐张量过全池 1127 张）**：
             //   · **列 > 0 ⇒ 用列**（它是生成器那一侧算好的：PnP 那一层优先、真值兜底）。
             //   · **列 = 0、而 `keywords` 抠出 > 0 ⇒ 用 `keywords` 那一份**（兜底）——
-            //     ⛔ 不是「列说没有就没有」：**实测正好差了 1 张**（`DA83 Ravenwing Ballistus Dreadnought`），
+            //     ⛔ 不是「列说没有就没有」：**实测正好差了 1 张**（`DA66 Ravenwing Ballistus Dreadnought`），
             //     它的 `keywords` 是**裸 `Armour`**（没数字）、`desc` 却写着 `Armour 1.`，
             //     而 **PnP 成品卡图 `d:/2/Warpforge部队卡片/Dark Angels/3部队/Warpforge_09_Ballistus-Dreadnought.png`
             //     右下银盾印 `1`、关键词行印 `Armour 1.`**（2026-10-15 亲读）⇒ 真值 = 1，
@@ -283,13 +283,13 @@ namespace RuleEngine
             //     （原句**照留**）。**原写 X ⇒ 实际 Y**：上面说「那一张是**列的缺陷**、生成器那一侧
             //     漏了这张，**已另立账**」⇒ **那一笔账当天就结了**：生成器 `工具/gen_cards_engine.py`
             //     的 `fix_own_armour` 已把**裸 `Armour`** 那一格原地升级成 `Armour N`
-            //     ⇒ 现读 `DA83` 的 `keywords` = `['Armour 1']`、`armour` 列 = **1**
+            //     ⇒ 现读 `DA66` 的 `keywords` = `['Armour 1']`、`armour` 列 = **1**
             //     ⇒ **「列 = 0 而 keywords 抠出 > 0」这一档今天已经是空集**
             //     （自检那一格现读 `onlyKw.Count == 0`，`RuleEngineTest.cs` 的护甲块）。
             //     🔑 **结论照旧、理由要换**：兜底那一支**仍然不能删** —— 但今天的理由是
             //     「**列的覆盖面是生成器算出来的，它会不会再漏一张不由这里保证**」，
-            //     ⛔ **不再是**「`DA83` 今天正靠它」。
-            //     ⚠️ 同段那句「`>0` 共 **80** 张」现读 = **81**（`DA83` 补上之后）。
+            //     ⛔ **不再是**「`DA66` 今天正靠它」。
+            //     ⚠️ 同段那句「`>0` 共 **80** 张」现读 = **81**（`DA66` 补上之后）。
             //   · **两处都 > 0 且不相等** ⇒ 🔴 **出声**（`ArmourFromPool` vs `ArmourFromKeywords`，
             //     `CardDatabase.Parse` 会在装载时把差异逐张打出来，自检里也有一条断言盯着）。
             //   · ⛔ **列 = 0 不等于「缺值」**：`0` = **卡底没有银盾**（真值），与
@@ -1296,8 +1296,8 @@ namespace RuleEngine
         //
         //  卡面（三句，逐字）：
         //    · `Friendly [Oath] abilities apply an additional time.`（`UM84 Chaplain Cassius`）
-        //    · `Oath abilities of friendly troops can be activated up to 3 times each turn.`（`UM89 Ferren Areios`）
-        //    · `Oath abilities of friendly troops may be activated on later turns.`（`UM_Vico_Therbeus`）
+        //    · `Oath abilities of friendly troops can be activated up to 3 times each turn.`（`UM106 Ferren Areios`）
+        //    · `Oath abilities of friendly troops may be activated on later turns.`（`UM93`）
         //
         //  **原版出处**：三个 `DefinedTrait` —— `oathDouble = 1277`(0x4fd) ·
         //  `oathTripleActivation = 1278`(0x4fe) · `oathInAllTurns = 1276`(0x4fc)
@@ -3023,7 +3023,7 @@ namespace RuleEngine
         ///
         /// 🔴 **2026-10-15（接线批）—— 值的【来源】有两条腿，判据只此一处**：
         ///   `CardDef` 构造函数里「**卡池 v9 的 `armour` 列优先、`keywords` 字符串旧口径兜底**」那一段
-        ///   （现读全池 1127 张：**80 张取列 · 1 张取旧口径**（`DA83`，列的缺陷，已立账）·
+        ///   （现读全池 1127 张：**80 张取列 · 1 张取旧口径**（`DA66`，列的缺陷，已立账）·
         ///   两套口径**值不等的 0 张**）。⛔ 别在别处再写第二份「护甲从哪来」。
         /// </summary>
         public const string Armour = "armour";
@@ -3291,7 +3291,7 @@ namespace RuleEngine
         ///   **照常打**；**带** ⇒ `CancelAttack` ＋ 两次 `ClearPendingDamage`（双方）＋
         ///   `OnTrigger(0x1b8)`（= `AbilityTrigger.Landing = 440`）⇒ **这一下不打**。
         ///
-        /// **可达性**：全池 1126 张 **0 张**带它（`SW31 Fenrisian Drop Pod` 只是卡名里带 `Drop Pod`，
+        /// **可达性**：全池 1126 张 **0 张**带它（`SW23 Fenrisian Drop Pod` 只是卡名里带 `Drop Pod`，
         /// 它的 `keywords` 是 `Flying` / `Armour 1`）⇒ 同上，铁律 11 补课。
         /// </summary>
         public const string DropPod = "droppod";

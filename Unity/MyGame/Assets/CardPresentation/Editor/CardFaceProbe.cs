@@ -85,7 +85,7 @@ public static class CardFaceProbe
         //      **版式与显隐规则不许当尺子**（铁律 10 第 3 条：PnP 是印刷品，不是数字版规格）。
         "Devastator Marine",     // `UM80` —— `W5e`① 卡面：`〔紫尖刺〕Blast 2. 〔蓝圆盘+白袍人形〕Oath 4: Deal 5 damage to an enemy troop`
         "Phobos Librarian",      // `UM81` —— `W5e`② 卡面：`〔兜帽〕Camouflage. 〔同一枚〕Oath 3: Deal 2-4 damage to an enemy. If target dies, gain 〔盾〕Shield`
-        "Scout Sniper",          // `UM_Scout_Sniper` —— `W5e`③ 卡面：`〔兜帽〕Camouflage. 〔准星〕Sniper. 〔同一枚〕Oath 1: Deal 1 damage`
+        "Scout Sniper",          // `UM94` —— `W5e`③ 卡面：`〔兜帽〕Camouflage. 〔准星〕Sniper. 〔同一枚〕Oath 1: Deal 1 damage`
         "Firestrike Servo Turret", // `UM74` —— `W5e`④ 卡面：`〔导弹〕Long Range. 〔哨戒〕Sentry 2. 〔同一枚〕Oath 3: Gain 〔哨戒〕Sentry 2`
         "Dominion Superior",     // `SOR28` —— `W7`① 卡面：`⚡Rally: Deal 1 damage.` ／ `2 ⟨金太阳⟩: Deal 1 additional damage`
         "Devout Warriors",       // `SOR43` —— `W7`② 卡面：`Draw a troop.` ／ `2 ⟨金太阳⟩: Draw an additional troop`

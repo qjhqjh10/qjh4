@@ -138,7 +138,7 @@ namespace RuleEngine
         /// **一次激活只调一次 `PlayerManager.UseMana`**。我们的解析层却是「**一个付费前缀 →
         /// 贴到本段产出的每条 op**」（`ParseSegment` 末段 ＋ `Finish` 会把 `op.Tail` 递归解成
         /// 第二条 op）⇒ 一条前缀会同时盖住 2 条 op，而 `EffectResolver.ResolveOneCore` 的付费支
-        /// 是**逐 op 收**的 ⇒ **扣两倍**（`UM93 Fall Back` / `SOR6 Righteous Repugnance` 实测）。
+        /// 是**逐 op 收**的 ⇒ **扣两倍**（`UM110 Fall Back` / `SOR6 Righteous Repugnance` 实测）。
         ///
         /// **判据（谁付）**：**组里第一条**（`CostShared == false`）= **付钱那条**，
         /// 它后面的一串（`CostShared == true`）**不查余额、不再扣**，也**不再重复广播**
@@ -1254,7 +1254,7 @@ namespace RuleEngine
             //     —— 它们的目标是 `TryDeal` 那条「按原版规则自动选敌方生命最低的单位」的补底
             //     （`Auto = true`、**不是** `Subjectless`）⇒ 被下面第一道闸挡掉；
             //   · **5 条**目标明写（`it` / `them`）或**没有同动词前驱**（`GOF100` / `SOR49` /
-            //     `SW55` / `TAU53` / `DA37` 的 `gain`）⇒ 挡在「不是 `Subjectless`」或「前驱找不到」；
+            //     `SW53` / `TAU53` / `DA37` 的 `gain`）⇒ 挡在「不是 `Subjectless`」或「前驱找不到」；
             //   ⇒ **吃到这一趟的只有 `SOR6` 那 1 条**（改前 → 改后的目标规格见本笔报告 §3）。
             for (int i = 0; i < ops.Count; i++)
             {
@@ -2449,7 +2449,7 @@ namespace RuleEngine
             //    **组里第一条付钱**、其余挂 `CostShared`。原来这里是「每条都贴同一个 `Cost`」，
             //    而 `Finish` 会把 `op.Tail` 递归解成**第二条 op**（`:2490` 的 `r.Ops.AddRange`）
             //    ⇒ 两条各带一份同样的 `Cost`，结算层逐条收 ⇒ **同一次激活收两次钱**
-            //    （实测 `UM93 Fall Back` `Oath 2: Lower its cost by 2 and give it Flank`、
+            //    （实测 `UM110 Fall Back` `Oath 2: Lower its cost by 2 and give it Flank`、
             //      `SOR6 Righteous Repugnance` 的 `4 Energy:`）。原版只付一次
             //    （`BattleManager__PayActiveAbilityCostOath.c:22` 一次激活一次 `UseMana`）。
             StampPaidCost(r.Ops, paidCost2, paidKind2);
@@ -5196,7 +5196,7 @@ namespace RuleEngine
         ///
         /// **做法**：把动作词组之后剩下的那截**原样送进 `ParseSegment`** ——
         ///   · 它前面若还挂着**本动作的目的地**（`in your hand`）先剥掉（`ChooseActDests`）；
-        ///   · 剥完为空 ⇒ **一个字都不动**（今天的行为，例如 `UM97` 的
+        ///   · 剥完为空 ⇒ **一个字都不动**（今天的行为，例如 `UM114` 的
         ///     `… create two copies in your hand`）；
         ///   · 非空则要求**以效果动词开头**（判据 = `IsVerbWord` —— **管线自己那一份**，
         ///     与 `SplitAndTail` 判「`and` 后面算不算新效果」**同一个口**，⛔ 不另写动词表）；
@@ -6182,7 +6182,7 @@ namespace RuleEngine
         /// —— 🆕 2026-09-14 A4 批 3。组 1 = 主语（`it` = 上一句那个友方单位）。
         ///
         /// ⚠️ **判据要卡住 `the next time … this turn` 这个整句式** ——
-        ///    同阵营另有一张 `Bjorn the Fell-Handed`（`SW42`）写的是
+        ///    同阵营另有一张 `Bjorn the Fell-Handed`（`SW36`）写的是
         ///    `When a friendly unit uses Ferocity, it stays in play`：**常驻、无 `next time`、无 `this turn`**，
         ///    和这张**不是同一条语义**（那条归事件层）。收宽了就会把那张也按「一次性」处理。
         /// </summary>
@@ -6266,7 +6266,7 @@ namespace RuleEngine
                 return new EffectOp { Verb = "ferocitystay", Source = src, Target = spec };
             }
 
-            // ---- 🆕 2026-09-16：**常驻版**（上面那条注释里点名的 `SW42 Bjorn the Fell-Handed`）----
+            // ---- 🆕 2026-09-16：**常驻版**（上面那条注释里点名的 `SW36 Bjorn the Fell-Handed`）----
             // 卡面：`When a friendly unit uses Ferocity, it stays in play` —— 由 `TryPersistent` 收成
             // `persist` op，**正文就是这一句**（没有 `the next time … this turn`）。
             // 🔴 和上面那条**不是同一条语义**，别合并：
@@ -6289,7 +6289,7 @@ namespace RuleEngine
             return null;
         }
 
-        /// <summary>🆕 2026-09-16 **常驻版**：`it stays in play`（`SW42 Bjorn the Fell-Handed` 的事件正文）。
+        /// <summary>🆕 2026-09-16 **常驻版**：`it stays in play`（`SW36 Bjorn the Fell-Handed` 的事件正文）。
         /// ⚠️ **只认这一句、全等**：宽一点就会把别的「留在场上」写法（例如 `Remnants do not disappear`
         /// 那类）也吞进来 —— 语义不同（那个是 `remnantstay` 光环，另有一套）。</summary>
         static readonly Regex ReFerocityStayAlways = new Regex(
@@ -8310,7 +8310,7 @@ namespace RuleEngine
             //     · **只认单个词**（`non flying`）—— `non Hunt Mark` 这种**多词关键词**今天收不到
             //       （正则只吃一个词；放宽成「贪婪多吃一个词」会把 `non flying enemy troop` 里的
             //       `enemy` 也吃进去 ⇒ 目标整个变样，**比不收更糟**）。今天全池 `non <词>` **只有 2 处**，
-            //       两处都是单词（`GOF85` / `SW12`，现读 `cards_engine.json`）。
+            //       两处都是单词（`GOF85` / `SW5`，现读 `cards_engine.json`）。
             //     · **只认空白分隔的 `non X`**；`non-flying`（连字符）那种今天池里 0 处，**没收**。
             {
                 var mn = ReTargetNon.Match(t);

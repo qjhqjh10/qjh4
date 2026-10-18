@@ -32,7 +32,7 @@
     = 旧 Windows 用户缓存里抢救出的原版远端包 `allcards_assets_all`（1195 张卡 SO，全字段）。
     同源同批的兄弟件：`warlord_goes_second.json`（`A1070`）· `related_cards.json`（`A1796`）。
     ⚠️ 年代限制：该包是 Unity 2022.3.38f1 / 2025-07-30 的快照 ⇒ **比现池旧**
-    （实测：整个 **SpaceWolves** 阵营 + 暗黑天使 `DA75..DA86` 等新卡**快照里没有**）。
+    （实测：整个 **SpaceWolves** 阵营 + 暗黑天使 `DA75..DA74` 等新卡**快照里没有**）。
 
 **产出**：`d:/4/Unity/数据/游戏数据/card_inventory_options.json`（键 = **我们卡池的 id**）
     消费点 = `工具/gen_cards_engine.py` 的 `load_inventory_options()` → `cards_engine.json` 两列
@@ -52,7 +52,9 @@ import sys
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-TRUTH = r"d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json"
+# 🔴 **2026-10-18（`K06`）换源**：原来是 2025-07-30 快照（1,195 张）；当前 build 的 `allcards`
+#   已找到（1,351 张）⇒ 换过来。形状 `{bundle,count,cards:[{…,full_raw}]}`，`build()` 里展平。
+TRUTH = r"d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json"
 POOL = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
 DST = r"d:/4/Unity/数据/游戏数据/card_inventory_options.json"
 
@@ -101,6 +103,9 @@ def fac_to_army(truth, pool):
 
 def build():
     truth = load_json(TRUTH)
+    # 🆕 **2026-10-18（`K06`）**：当前 build 的解析产物是 `{cards:[{…,full_raw}]}` ⇒ 展平。
+    if isinstance(truth, dict) and isinstance(truth.get("cards"), list):
+        truth = [c.get("full_raw") or c for c in truth["cards"]]
     pool = load_json(POOL)["cards"]
     fac2army = fac_to_army(truth, pool)
 
@@ -214,11 +219,11 @@ def main():
     doc = {
         "note": "原版 `RawCardScript.inventoryOptions` / `showInCollectionOptions` 真值，"
                 "键 = **我们卡池的 id**。消费点 = `工具/gen_cards_engine.py` 的 `load_inventory_options()`。",
-        "source": TRUTH + "（原版远端包 allcards_assets_all，1195 张卡 SO，全字段）",
+        "source": TRUTH + "（原版 allcards，**当前 build 1,351 张**卡 SO 全字段；2026-10-18 `K06` 换源）",
         "provenance": "抢救来源 = 旧 Windows 用户目录的 Unity 缓存（按哈希命名）里的原版远端包 "
                       "allcards_assets_all；原件与全部导出 → d:/2/远端缓存_旧profile_1013/（含 README）。"
                       "⚠️ 年代限制：该包是 Unity 2022.3.38f1 / 2025-07-30 的快照（1195 张 vs 现池 1126 张）"
-                      "—— 整个 SpaceWolves 阵营与暗黑天使 DA75..DA86 等新卡快照里没有 ⇒ 那些 `inv`/`show` = -1（未知）。",
+                      "—— 整个 SpaceWolves 阵营与暗黑天使 DA75..DA74 等新卡快照里没有 ⇒ 那些 `inv`/`show` = -1（未知）。",
         "usage": "`DeckUtility__ValidateDeckCards.c:68-72`（`inventoryOptions != 0` ⇒ 非法）· "
                  ":73-77（`showInCollectionOptions != 5` ⇒ 非法）· `DeckUtility__TryRemoveInvalidCards.c:39-43` · "
                  "⚠️ `CardDeck__CanAddCard.c:40` 写的是 `&&`（与前三处不一致，差集 77 张）—— "

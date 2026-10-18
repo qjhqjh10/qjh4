@@ -2077,7 +2077,7 @@ public static partial class RuleEngineTest
         var kwFallback = new CardDef("t6", "T6", "unit", "", null, null, 1, 1, 1, 0, new[] { "Armour" },
                                      null, null, true, null, null, -1, -1, -1, 0);
         Check(kwFallback.KwValue("armour"), 1, "★ 列 = 0 而 `keywords` 有裸 `Armour` ⇒ 旧口径兜底 = 1"
-                                             + "（`DA83` 就是这一支；**删掉兜底会让它静默少 1 点护甲**）");
+                                             + "（`DA66` 就是这一支；**删掉兜底会让它静默少 1 点护甲**）");
 
         // ---- 🆕 2026-10-15（接线批）：三个**原版 trait 枚举名**写进 `keywords` 必须读得到 ----
         //   改前实测（2026-10-15）：`KeywordTable.Normalize` 对这三个词**全部返回 null**
@@ -2123,7 +2123,7 @@ public static partial class RuleEngineTest
         //   「列优先、`keywords` 旧口径兜底」那一段）。这条断言盯的是**分叉**：
         //     · **两处都 > 0 且值不等** ⇒ 红（列被改 / 旧口径被改，两边都会露）
         //     · **只有列有值** ⇒ 红（那张卡的 `keywords` 里没有 `Armour N` —— 列多写还是漏了关键词，要人判）
-        //     · **只有旧口径有值** ⇒ 只放行**已知那一张**（`DA83`：列写 0 是**列的缺陷**、旧口径 1 才是真值
+        //     · **只有旧口径有值** ⇒ 只放行**已知那一张**（`DA66`：列写 0 是**列的缺陷**、旧口径 1 才是真值
         //       —— 判据 = PnP 成品卡图 `Dark Angels/3部队/Warpforge_09_Ballistus-Dreadnought.png`
         //       右下银盾印 **1**，2026-10-15 亲读）。⛔ 白名单只放这一张：新出现的任何一张都会红。
         {
@@ -2150,16 +2150,16 @@ public static partial class RuleEngineTest
             Check(onlyPool.Count, 0, "★ 护甲：**只有 `armour` 列**有值的卡 0 张"
                 + "（多出来说明那张卡的 `keywords` 缺了 `Armour N`）"
                 + (onlyPool.Count > 0 ? " —— 还有：" + string.Join(" / ", onlyPool.ToArray()) : ""));
-            CheckTrue(onlyKw.Count == 0 || (onlyKw.Count == 1 && onlyKw[0] == "DA83"),
+            CheckTrue(onlyKw.Count == 0 || (onlyKw.Count == 1 && onlyKw[0] == "DA66"),
                 onlyKw.Count == 0
                     ? "护甲：旧口径兜底那一支今天没触发（说明 `armour` 列已补齐）"
                     : $"★ 护甲：**只有旧 `keywords` 口径**有值的卡 = 1 张且是 {onlyKw[0]}"
                       + "（列的缺陷 · PnP 卡图银盾印 1 ⇒ 兜底那一支**不能删**）");
             // 兜底那一支的**值锁**（判别式：删掉兜底 / 列被改成别的数，这两件事不可能同时让下面这条绿）
-            var da83 = CardDatabase.FindById(pool, "DA83");
+            var da83 = CardDatabase.FindById(pool, "DA66");
             if (da83 != null)
                 Check(da83.KwValue("armour"), 1,
-                      "★ `DA83` 的有效护甲 = 1（列写 0 · 旧口径给 1 · PnP 卡图银盾印 1）"
+                      "★ `DA66` 的有效护甲 = 1（列写 0 · 旧口径给 1 · PnP 卡图银盾印 1）"
                     + " ⚠️ **它测的是【有效值】** —— 列那一半的回退它测不出，见下面那两格");
 
             // 🔴 🆕 2026-10-15（源 = `AD_descZh两代.md` §四·1）：**列的锁** —— 上面那条测的是
@@ -2168,18 +2168,18 @@ public static partial class RuleEngineTest
             //   **测不出列的回退**。本格把**列本身**钉住。
             //   判别式（**结构上不可能同时满足**）：把 `工具/gen_cards_engine.py` 的 `fix_own_armour`
             //   闸写回**宽**那一版（`any(re.search(r"armou?r", k) for k in keywords)` —— 裸 `Armour`
-            //   也算「已经有值」）⇒ `DA83` 的 `armour` 列回落 **0**、`keywords` 那条 `Armour 1` 消失
+            //   也算「已经有值」）⇒ `DA66` 的 `armour` 列回落 **0**、`keywords` 那条 `Armour 1` 消失
             //   ⇒ **本格红**，而上面那条有效值断言**照旧绿** —— 这正是要补它的理由。
             //   判据 = PnP 成品卡图 `d:/2/Warpforge部队卡片/Dark Angels/3部队/Warpforge_09_Ballistus-Dreadnought.png`
             //   右下银盾印 1、关键词行印 `Armour 1.`（2026-10-15 亲读）。
             if (da83 != null)
                 Check(da83.ArmourFromPool, 1,
-                      "★ `DA83` 的 `armour` **列** = 1（PnP 卡图银盾印 1 —— 列是生成器那一侧的产物，"
+                      "★ `DA66` 的 `armour` **列** = 1（PnP 卡图银盾印 1 —— 列是生成器那一侧的产物，"
                     + "⛔ 不许靠旧口径兜底把它蒙过去）");
 
             // 🔴 🆕 2026-10-15（源 = `AD_descZh两代.md` §四·2）：**全池 `armour` 列 > 0 的张数**。
             //   判别式：① 列的读点被改窄（`armour > 0` 那半句被删 / 换成别的字段）⇒ 这个数掉下去；
-            //   ② `fix_own_armour` 被回退（闸写回宽的版本）⇒ `DA83` 那一张掉出这一档 ⇒ **81 → 80**。
+            //   ② `fix_own_armour` 被回退（闸写回宽的版本）⇒ `DA66` 那一张掉出这一档 ⇒ **81 → 80**。
             //   ⚠️ 用 **`==`** 不用 `>= 80`：`>= 80` 对 ② 这一种回退**不敏感**（而 ② 正是要挡的那一种）。
             //   现读（2026-10-15）= **81**。改这个数之前先看它为什么变 —— 列是生成器那一侧
             //   （PnP 那一层优先、真值兜底）算出来的，摘要行的原话见 `gen_cards_engine.py`。
@@ -2187,7 +2187,7 @@ public static partial class RuleEngineTest
                 int armourCol = 0;
                 foreach (var c in pool) if (c != null && c.ArmourFromPool > 0) armourCol++;
                 Check(armourCol, 81, "★ 全池 `armour` 列 > 0 = 81 张（2026-10-15 现读；"
-                                   + "`fix_own_armour` 被回退会使 `DA83` 掉出这一档 ⇒ 80）");
+                                   + "`fix_own_armour` 被回退会使 `DA66` 掉出这一档 ⇒ 80）");
             }
         }
 
@@ -2295,7 +2295,7 @@ public static partial class RuleEngineTest
                     + "`Card_Trait/frenzied` / `Card_Trait/rage`）"
                     + (badTrait.Count > 0 ? " —— 还有：" + string.Join(" / ", badTrait.ToArray()) : ""));
 
-                // ② `DA83` 的 `keywords` 原文里那条**已经是 `Armour 1`**（源 = §四·1 的原文那一半）。
+                // ② `DA66` 的 `keywords` 原文里那条**已经是 `Armour 1`**（源 = §四·1 的原文那一半）。
                 //    判别式：`fix_own_armour` 的闸写回**宽**那一版 ⇒ 裸词那一格**不再升级**
                 //      ⇒ 原文停在裸 `Armour` ⇒ 本格红（而「有效护甲 = 1」那条**照旧绿** ——
                 //      裸词按「存在即真」也是 1）⇒ 两格看的不是同一件事。
@@ -2307,11 +2307,11 @@ public static partial class RuleEngineTest
                 {
                     if (c == null) continue;
                     string rawId = string.IsNullOrEmpty(c.id) ? c.name : c.id;
-                    if (rawId != "DA83" || c.keywords == null) continue;
+                    if (rawId != "DA66" || c.keywords == null) continue;
                     da83Kws = string.Join(" / ", c.keywords);
                     foreach (var k in c.keywords) if (k != null && k.Trim() == "Armour 1") da83Armour1++;
                 }
-                Check(da83Armour1, 1, "★ `DA83` 的 `keywords` 原文里 **`Armour 1` 恰好 1 条**"
+                Check(da83Armour1, 1, "★ `DA66` 的 `keywords` 原文里 **`Armour 1` 恰好 1 条**"
                     + "（裸词那一格是**原地升级**、⛔ 不是追加第二条）—— 现读该列 = " + da83Kws);
             }
         }
@@ -8837,7 +8837,7 @@ public static partial class RuleEngineTest
         //        `Dark Angels\Core\Warpforge_12_Aggressor.png`、语音是 `VO_DA_Aggressor`
         //      · 原版 bundle 里 SW 阵营**没有**独立的 Aggressor ——
         //        `bundle_spacemarinesspacewolvescardassets_assets_all/` 里只有
-        //        `SM_SpaceWolves_inf_Blackmane Aggressor`（= 另一张卡 `SW35`），
+        //        `SM_SpaceWolves_inf_Blackmane Aggressor`（= 另一张卡 `SW28`），
         //        而 DA 那边有 `DarkAngels_inf_Aggressor`。
         //    ⇒ 同名跨阵营的**自造 id** 那条路现在没有样本了；以后再出现自造 id 要另立断言。
         var pairs = new[]
@@ -8850,7 +8850,7 @@ public static partial class RuleEngineTest
             //    （判据见 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①）。三条断言虽然还绿
             //    （找得到 / id 不同 / 按 id 反查），但**前提没了** ⇒ 整组删掉，别留着凑数
             //    （留着的话，下一个人会以为「UM34 和它同名」）。撤回后同名组 4 → 3，就是下面三行。
-            new[] { "Terminator",          "EmperorsChildren","UM_Terminator" },
+            new[] { "Terminator",          "EmperorsChildren","UM103" },
         };
         foreach (var p in pairs)
         {
@@ -9271,7 +9271,7 @@ public static partial class RuleEngineTest
     /// |---|---|---|
     /// | `controlcount` | 只实现了「控制 **0 个部队**吗」，且带数字一律判不了 | **5 张判错 + 1 张判不了**，走**正常分支**（连「判不了」都不报）——全池最静的一档 |
     /// | `energycheck` | 恒 `return false` | 1 张，而且是**单位卡**（`BattleDriver` 只给战术卡打 `*`）⇒ 报表/卡面**双侧看不见** |
-    /// | `alreadyhas` | `Hunt Mark` 的规范名是 `huntmark`（无空格），`Contains` **永远假** | 1 张（`SW55`）「改为摧毁」从来不发生 |
+    /// | `alreadyhas` | `Hunt Mark` 的规范名是 `huntmark`（无空格），`Contains` **永远假** | 1 张（`SW53`）「改为摧毁」从来不发生 |
     /// | `targethaskw` 的 `A or B` | `IsClauseWord` **只取第一个词** | 1 张（`TAU48`）后半静默丢，报表还显示「完全解析」 |
     ///
     /// ⚠️ 断言**两层**：① 每个种类现在**判得了**（`CanJudgeCondition`）；
@@ -9312,7 +9312,7 @@ public static partial class RuleEngineTest
         //    判据在 `EffectResolver.ExtractKeywordFromCondition`（私有）——
         //    这里钉的是**归一化后的种类**，结算行为由上游 ① 那条 `CanJudgeCondition` 兜住。
         Check(EffectCondition.Normalize("if it already had hunt mark"), "alreadyhas",
-              "★ `If it already had Hunt Mark` 归 `alreadyhas`（`SW55` 的那半句）");
+              "★ `If it already had Hunt Mark` 归 `alreadyhas`（`SW53` 的那半句）");
 
         // ---- ④ `controlcount` 真打一次 ----
         //    卡面写 `If you control a Beast` —— 用**真卡面的条件原文**，效果那半句是夹具
@@ -9711,7 +9711,7 @@ public static partial class RuleEngineTest
         sb.AppendLine();
         sb.AppendLine("🔴 **这一档为什么必须单开**：腿 B 只抽 `Head: body`（`AddWillRunFace` 里 `col <= 0` 直接 return）");
         sb.AppendLine("⇒ 「**卡面没有头、又没被消费**」的句子只会掉进 ①「本来没正文」/ ③「未归因」，**永远不会被点名**。");
-        sb.AppendLine("实测后果（`A1459`）：`SW23` / `GSC71` / `GSC36` 三张真缺陷**正是因为这道缝**躲开清单 ——");
+        sb.AppendLine("实测后果（`A1459`）：`SW18` / `GSC71` / `GSC36` 三张真缺陷**正是因为这道缝**躲开清单 ——");
         sb.AppendLine("它们各**还有一条别的 op**（`Rally` / `Strike` / `Uprising`）⇒ **腿 A ≠ 0** ⇒ 连「③ 未归因」都进不去。");
         sb.AppendLine();
         sb.AppendLine($"无头段（卡面没有 `Head:`、**主解析器**解得出 op、且**腿 A 一条都没收到**）共 **{headAll}** 条：");
@@ -10122,7 +10122,7 @@ public static partial class RuleEngineTest
     ///
     /// 🔴 **它补的是哪道缝**：<see cref="AddWillRunFace"/> 在 `col &lt;= 0`（= 这一句没有 `Head:`）时
     ///   **直接 return** ⇒ 「卡面没有头、又没被消费」的句子**永远不可能是腿 B 的段**、也就**永远不会进任何一档**。
-    ///   实测后果（探针 `A1459`）：`SW23 Hrolf the Ironhowl`（`Friendly Beasts cost 1 less.`）/
+    ///   实测后果（探针 `A1459`）：`SW18 Hrolf the Ironhowl`（`Friendly Beasts cost 1 less.`）/
     ///   `GSC71 Atalan Leader`（`Friendly Vehicles cost 1 less.`）/ `GSC36 Metamorph Leader`
     ///   （`Your troops cost 1 less.`）**三张真缺陷**正是**因为这道缝**躲开了清单。
     ///
@@ -11001,12 +11001,12 @@ public static partial class RuleEngineTest
         //       ⇒ 「ops 里同一 Keyword 出现几次」**区分不出**加没加这一条归一化。
         //       唯一会变的就是 `PayloadOp.Source` ⇒ 它才是这条归一化的判别式。
         {
-            // `SW68 Halls of Legend` 的卡面原文片段（逐字取自 `cards_engine.json` 的 `desc`：
+            // `SW61 Halls of Legend` 的卡面原文片段（逐字取自 `cards_engine.json` 的 `desc`：
             // `Give [Shield] Shield to a friendly unit. Draw a card`）
             var sw = GivePayload.Parse("[Shield] Shield");
             CheckTrue(sw != null && sw.Count == 1
                       && sw[0].Keyword == "shield" && sw[0].Value == 1 && !sw[0].Unresolved,
-                      "★ `SW68` 的 `[Shield] Shield` ⇒ **一项 `shield`、值 1**（语义没变）。实得 "
+                      "★ `SW61` 的 `[Shield] Shield` ⇒ **一项 `shield`、值 1**（语义没变）。实得 "
                       + (sw == null ? "null" : sw.Count + " 项 " + sw[0].Keyword + "=" + sw[0].Value));
             Check(sw[0].Source, "Shield",
                   "★ **记号被压掉、原文里不叠词**。🧨 改坏法：把 `ParseInto` 里 "
@@ -11038,7 +11038,7 @@ public static partial class RuleEngineTest
             //      `Payload`/`AltPayload` 里含方括号的 = 0**。详见交付报告。）
             //    这一格断的是**「载荷层不再有方括号」这条不变量本身**（比钉死某一个字符串稳）。
             var swCard = FindCard(pool, "Halls of Legend");
-            CheckTrue(swCard != null, "卡池里找得到 `Halls of Legend`（`SW68`）");
+            CheckTrue(swCard != null, "卡池里找得到 `Halls of Legend`（`SW61`）");
             if (swCard != null)
             {
                 var swOps = EffectText.Parse(swCard.Desc, out _, out _);
@@ -11051,7 +11051,7 @@ public static partial class RuleEngineTest
                     if (o.Payload.IndexOf('[') >= 0 || o.Payload.IndexOf(']') >= 0) bracketed = true;
                 }
                 CheckTrue(!bracketed,
-                          "★ `SW68` 走生产路径出来的载荷**一律不含方括号**（实得 " + seen + "）"
+                          "★ `SW61` 走生产路径出来的载荷**一律不含方括号**（实得 " + seen + "）"
                           + " —— 这就是 `ReDupMarker`（要 `[…]`）在真卡上碰不到的原因；"
                           + "上面的 `Source` 那两格是拿**卡面原文**直接喂的，才会命中");
             }
@@ -12134,7 +12134,7 @@ public static partial class RuleEngineTest
                 CheckTrue(ops[1].Target != null && ops[1].Target.Side == "prev",
                           "★ 主语 `it` 指**上一句那个友方单位**（不指代的话会标错人）");
             }
-            // ★ 反例：`Bjorn the Fell-Handed`（SW42）写的是
+            // ★ 反例：`Bjorn the Fell-Handed`（SW36）写的是
             //   `When a friendly unit uses Ferocity, it stays in play` —— **常驻版**
             //   （无 `next time`、无 `this turn`），**另一张卡另一条语义**，归事件层。
             //   判据收宽了就会把它也按「一次性」处理。
@@ -12145,7 +12145,7 @@ public static partial class RuleEngineTest
                 CheckTrue(!got, "★ 反例：`Bjorn the Fell-Handed` 的**常驻版**没被 `ferocitystay` 收走");
             }
 
-            // 🆕 2026-09-16：常驻版的**正文那半句**现在收得下了（`SW42 Bjorn the Fell-Handed` 落地）。
+            // 🆕 2026-09-16：常驻版的**正文那半句**现在收得下了（`SW36 Bjorn the Fell-Handed` 落地）。
             //   整句 `When <事件>, <正文>` 走**事件层**（`CardDef.AddWhenTrigger`），它只解析**正文**；
             //   而报表那关（`CardDef.HandledByOtherLayer`）要求**两边都成立** ⇒ 正文收不下来的话，
             //   那张卡会一直挂在「单位卡 ① 栏」（实测就是这样，见 `_tmp_view/unit_desc_unparsed.txt` 的历史）。
@@ -15849,7 +15849,7 @@ public static partial class RuleEngineTest
     /// `RoutableTriggers`、也不在 `BodyKeywords` ⇒ `TriggerOps("oath")` 恒为 null），
     /// 那 12 张 Ultramarines 单位的能力**既不报错、卡面也不打 `*`** —— 标准的静默失败
     /// （`CardDef.OathOps` 的注释里有完整来龙去脉）。三条「改规则」的句子
-    /// （`UM84` / `UM89` / `UM_Vico_Therbeus`）则一直挂在「完全不认识」那一栏。
+    /// （`UM84` / `UM106` / `UM93`）则一直挂在「完全不认识」那一栏。
     ///
     /// 分四层钉（照 `TestSpiritStone` 的规矩：光「解析得出」不算数）：
     ///   ① 三条修饰句**认得出**，而且**只认那三种写法**
@@ -19534,8 +19534,8 @@ public static partial class RuleEngineTest
                           $"★ 每张有中文名的卡，用**它的中文名**都**查得回某一张卡**（键非空 ⇒ 中文索引不是空表）；"
                           + $"查不回来的 {noKey} 张；⛔ 把 `NormCjk` 改回 `Norm` 会让这里变成 1126");
                 // ② 重名那几张：**数据侧**事实（`nameZh` 重名 6 组 / 12 张，其中 3 组两张卡的**英文名也不同**）：
-                //     `复仇者` = `Dire Avenger`(ASH19) / `Vindicator`(SW41) · `剑卫老兵` = `Bladeguard Veteran`(DA26)
-                //     / `Bladeguard Ancient`(UM87) · `连队老兵` = `Company Veteran`(DA15) / `Company Ancient`(UM35)
+                //     `复仇者` = `Dire Avenger`(ASH19) / `Vindicator`(SW33) · `剑卫老兵` = `Bladeguard Veteran`(DA26)
+                //     / `Bladeguard Ancient`(UM104) · `连队老兵` = `Company Veteran`(DA15) / `Company Ancient`(UM35)
                 //     （另 3 组两组卡片的**英文名也相同**：`终结者冠军` · `蹂躏魔` · `终结者` ⇒ 那 3 组不算「查不回自己」）。
                 Check(notSelf, 4,
                       "★ 中文名重名、查回来的不是它自己的有 **4** 张"
@@ -28273,7 +28273,7 @@ public static partial class RuleEngineTest
                     + "（`non` 出现在别的语境里会被**静默**当成筛选）");
         }
 
-        // ---- ③ 真卡那两张（卡面亲读的那两张；`SW16` 是探针 §① 现读出来的第三处）----
+        // ---- ③ 真卡那两张（卡面亲读的那两张；`SW9` 是探针 §① 现读出来的第三处）----
         {
             var pool = CardDatabase.Load();
             foreach (string nm in new[] { "Hunting Wolf", "Fenrisian Wolf" })

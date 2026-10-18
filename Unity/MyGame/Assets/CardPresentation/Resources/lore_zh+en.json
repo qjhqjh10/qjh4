@@ -2,7 +2,7 @@
  "version": 1,
  "note": "官方 I2 词条表里的两族风味文本（Lore）。`Warlord_Lore/<卡 id>` 1042 条（键 = 我们 `cards_engine.json` 的 `id`）；`Cosmetic_Lore/<uniqueId>` 154 条（键 = `Resources/Cardbacks.json` 的 `uniqueId`）。⚠️ 年代 = 2025-07-30 的远端快照 ⇒ 快照之后新增的卡**没有键**；那些卡按原版「无 lore ⇒ 关掉 loreObjectBG」处理，⛔ 不拿效果文字回填。生成器 = `工具/gen_lore.py`；消费口 = `Core/Loc.cs` 的 `Loc.Lore` / `Loc.LoreByUniqueId`。",
  "source": "d:/4/Unity\\数据\\游戏数据\\官方本地化_en+zh-CN.json",
- "count": 1196,
+ "count": 1336,
  "entries": [
   {
    "k": "Cosmetic_Lore/88c832eac9c7c2c41825e7595eda7ce9",
@@ -773,6 +773,131 @@
    "k": "Cosmetic_Lore/c699844f5ce03db488bfaa998d2e1bad",
    "en": "The proud warriors of the Dark Angels stubbornly refuse to accept defeat. Descendants of the First Legion, they stand foremost amongst the Space Marine Chapters.",
    "zh": "黑暗天使的骄傲战士们坚决拒绝接受失败。作为第一军团的后裔，他们在星际战士战团中处于最前沿。"
+  },
+  {
+   "k": "Cosmetic_Lore/f8cfa01b815472a449fbaa8a533e52f5",
+   "en": "Imotekh did not awaken from the Great Sleep as the phaeron of the Sautekh Dynasty. Compelled to reclaim the glorious Necron empire of old, he took upon himself that mantle.",
+   "zh": "伊莫泰克并未作为索泰克王朝的法皇从大休眠中苏醒。他被迫重拾昔日辉煌的太空死灵帝国，自我承担起这个角色。"
+  },
+  {
+   "k": "Cosmetic_Lore/f74994f4d3363d24abd73118f34b7456",
+   "en": "Since returning from his near death, Ghazghkull has roused entire populations of Orks into a conquest frenzy. He is the single most influential Ork currently threatening the Imperium.",
+   "zh": "自从死里逃生后，碎骨者激发了整个欧克蛮人的人口，使他们陷入征服的狂热中。他是目前对帝国构成威胁的最有影响力的欧克蛮人。"
+  },
+  {
+   "k": "Cosmetic_Lore/07b44a359d4e74a87aa0ba04070c4079",
+   "en": "Led by Ragnar Blackmane and renowned for their ferocious planetary drop assaults, the Blackmanes’ headstrong aggression is symbolic of their Chapter.",
+   "zh": "由拉格纳·黑鬃领导，以他们凶猛的行星空降突击而闻名，黑鬃的头脑冲动的侵略性是他们战团的象征。"
+  },
+  {
+   "k": "Cosmetic_Lore/84b39adf4d0d74d59b78e5afffccde59",
+   "en": "All Space Wolves call Fenris their home. Born and raised amongst the nomadic tribes of this volatile world, they clad themselves in the hides of monstrous beasts.",
+   "zh": "所有的太空野狼都称芬里斯为他们的家。他们在这个动荡世界的游牧部落中出生和成长，身披巨兽的皮毛。"
+  },
+  {
+   "k": "Cosmetic_Lore/4088e116129d248f5b409efa3a1a2ec2",
+   "en": "Deeds achieved by each member of the pack are told and retold cementing the pack’s fellowship, tales recalled with laughter and rivalry sealing the legend of the pack as a whole.",
+   "zh": "群体中每个成员的功绩都被反复讲述，巩固了群体的友谊，笑声和竞争记忆中的故事封印了整个群体的传奇。"
+  },
+  {
+   "k": "Cosmetic_Lore/45e298fc4f7ce4770a8a0e9de700bb37",
+   "en": "Wearing tribal furs and talismans, the Space Wolves hound their foes, howling their battle cries before fearlessly charging the most monstrous enemies with bestial aggression",
+   "zh": "身穿部落的皮毛和护身符，太空野狼追逐他们的敌人，在无畏地冲向最可怕的敌人之前，他们会吼出他们的战斗口号，展现出野兽般的侵略性。"
+  },
+  {
+   "k": "Cosmetic_Lore/7086582de64f34feb814755b7b7d4934",
+   "en": "The grand feasting halls of Fenris echo with the sagas of the Chapter’s greatest heroes, every son of Russ hoping one day to forge their own tale of heroism.",
+   "zh": "芬里斯的盛大宴会大厅回荡着战团最伟大英雄的传说，每一个罗斯的儿子都希望有一天能锻造他们自己的英雄故事。"
+  },
+  {
+   "k": "Cosmetic_Lore/ae0c3eb7796f64868b6044648fa539cc",
+   "en": "In Fenrisian legend, Blackmane was the most fearsome of the fell lieutenants of the wolf-god, Morkai. It is said Blackmane’s howl called the souls of dead warriors from their resting places.",
+   "zh": "在芬瑞斯传说中，黑鬃是狼神莫尔凯的最可怕的副官之一。据说黑鬃的嚎叫能唤醒死去战士的灵魂，使他们从安息之地起来。"
+  },
+  {
+   "k": "Cosmetic_Lore/Cardback_AM_Ursula_AA_HB",
+   "en": "Over her broad shoulders, Ursula wears her father’s greatcoat. With the smell of Cadia’s final hours saturating the heavy fabric, it fires hope in her that her father yet lives.",
+   "zh": "乌苏拉把父亲的大衣披在宽大的肩膀上。这件沉重的大衣充满了卡迪亚最后时刻的气息，这让她心中燃起希望，她的父亲还活着。"
+  },
+  {
+   "k": "Cosmetic_Lore/Cardback_UM_Titus_AA_HB",
+   "en": "Showing an unnatural resistance to the powers of the Warp, Titus was taken into custody by the Inquisition, yet returned to the Ultramarines in the Era Indomitus almost a century later.",
+   "zh": "提图斯对亚空间的力量表现出了不自然的抵抗力，他被审判庭拘留，但在不屈纪元的近一个世纪后，他又回到了极限战士的队伍中。"
+  },
+  {
+   "k": "Cosmetic_Lore/726d7d52a962d754286aa79ee1b5cf0c",
+   "en": "Terror is at its sharpest when the certainty of death is first revealed, when the blade is drawn and the fangs are bared. The fear in the eyes of a heretic is a most joyous sight.",
+   "zh": "当死亡的确定性首次被揭示，当剑被拔出，獠牙被裸露，恐惧达到了最尖锐。异端者眼中的恐惧是最欢乐的景象。"
+  },
+  {
+   "k": "Cosmetic_Lore/3b893dbcd55450745b1340b528ed39d5",
+   "en": "For ten thousand years, the Space Wolves have loyally served the Emperor of Mankind. They are a noble Chapter of Space Marines, their coordinated savagery unequalled.",
+   "zh": "一万年来，太空野狼忠诚地为人类帝皇服务。他们是星际战士的贵族战团，他们的协同野蛮无人能敌。"
+  },
+  {
+   "k": "Cosmetic_Lore/575d9d8c807bf3e48acbe591ed6cd029",
+   "en": "Prior to his departure after the Horus Heresy, Russ promised to return in the final apocalyptic battle, the Wolftime, prophesied by the Chapter’s Rune Priests.",
+   "zh": "在荷鲁斯之乱后离开之前，Russ承诺在最后的世界末日战斗，即战团的符文祭司预言的狼时代，回归。"
+  },
+  {
+   "k": "Cosmetic_Lore/b28ef6a407793104783268382954b8b8",
+   "en": "Hailing from the icy death world of Fenris, the Space Wolves are savage, merciless hunters who strive to emulate the strength, cunning and howling ferocity of their Primarch",
+   "zh": "来自冰冷的死亡世界芬里斯的太空野狼是野蛮的，无情的猎手，他们努力模仿他们的基因原体的力量，狡猾和咆哮的凶残。"
+  },
+  {
+   "k": "Cosmetic_Lore/2043c75840e7c405fa690ec85a9ab5b4",
+   "en": "Fellclaw haunted the northern plains of Asaheim. Unarmed, Logan battled the wolf, eventually ripping out its throat with his own fangs and taking its pelt on his shoulders.",
+   "zh": "费尔克劳在阿萨海姆的北部平原上游荡。洛根赤手空拳地与狼战斗，最终用自己的獠牙撕开了它的喉咙，并把它的皮毛披在了肩上。"
+  },
+  {
+   "k": "Cosmetic_Lore/85b08dbb359fe5045955359071f81c55",
+   "en": "Showing an unnatural resistance to the powers of the Warp, Titus was taken into custody by the Inquisition, yet returned to the Ultramarines in the Era Indomitus almost a century later.",
+   "zh": "展现出对亚空间力量的非自然抵抗，Titus被审判庭带走，然而在不屈纪元的近一个世纪后，他又回到了极限战士的队伍中。"
+  },
+  {
+   "k": "Cosmetic_Lore/c9c33f3a7c6af3f47b038b406fdfa758",
+   "en": "Over her broad shoulders, Ursula wears her father’s greatcoat. With the smell of Cadia’s final hours saturating the heavy fabric, it fires hope in her that her father yet lives.",
+   "zh": "Ursula把她父亲的大衣披在宽大的肩膀上。这件沉重的布料充满了卡迪亚最后时刻的气息，这让她怀有希望，她的父亲还活着。"
+  },
+  {
+   "k": "Cosmetic_Lore/9c61223848da65e4e8cb16e1f11e0c30",
+   "en": "The Emperor found Roboute Guilliman upon Macragge, recognising him as one of the lost Primarchs and marvelling at the well-ordered realm he had established after seizing control.",
+   "zh": "帝皇在马库拉格找到了罗保特·基利曼，认出他是失落的基因原体之一，并对他夺取控制权后建立的井然有序的领域感到惊奇。"
+  },
+  {
+   "k": "Cosmetic_Lore/c5d16b15736502047af8361e2d33acdc",
+   "en": "The Ultramarines are the exemplars of everything it means to be Adeptus Astartes. Noble, honourable and utterly dedicated to the defence of Humanity and the Emperor’s realm.",
+   "zh": "极限战士是阿斯塔特修会的典范。他们贵族般的，荣誉的，完全致力于保卫人类和帝皇的领域。"
+  },
+  {
+   "k": "Cosmetic_Lore/f6f8902bba963d6499a2e62b69699372",
+   "en": "The Victrix Honour Guard is composed of 1st Company veterans chosen for their selflessness and skills in battle who serve as bodyguards for the Chapter’s senior officers.",
+   "zh": "常胜荣誉卫队由第一连队的老兵组成，他们因无私和战斗技巧而被选为战团高级军官的护卫。"
+  },
+  {
+   "k": "Cosmetic_Lore/18378d932b9c0eb448ee15717b5abb6c",
+   "en": "In the waning years of the 41st Millennium, the Ultramarines boast one of the greatest assemblages of truly remarkable and valiant figures of any Space Marine Chapter.",
+   "zh": "在第41千年的衰退年代，极限战士拥有的真正杰出和英勇的人物集合是所有星际战士战团中最伟大的之一。"
+  },
+  {
+   "k": "Cosmetic_Lore/7f160465123037d47976f9d0f50f641a",
+   "en": "After his legendary victory in the Recidious System and Bastior, Titus became the clear candidate to succeed Acheran as Master of the Watch and Captain of the Second Company",
+   "zh": "在Recidious系统和Bastior的传奇胜利后，Titus成为接替Acheran成为守望之主和第二连队连长的明显候选人。"
+  },
+  {
+   "k": "Cosmetic_Lore/615456a25302c44c8b8bcd6052cb8f43",
+   "en": "Often employed in boarding actions or where the fighting is sure to be close and bloody, few foes that can withstand the brutal onslaught of Assault Terminators' lightning claws.",
+   "zh": "常被用于登船行动或肯定会进行近战和血腥战斗的地方，很少有敌人能抵挡住突击终结者闪电爪的残暴攻击。"
+  },
+  {
+   "k": "Cosmetic_Lore/6b41f7c0618bd4bc89945f548ec8ee22",
+   "en": "Asmodai ordered the orbital bombardment of the city of Hostengard, stating without regret that the death of fifty thousand innocents was preferable to one traitor escaping.",
+   "zh": "阿斯莫德下令对霍斯滕加德城进行轨道轰炸，毫不后悔地声称，五万无辜者的死亡，比一个叛徒逃脱更可取。"
+  },
+  {
+   "k": "Cosmetic_Lore/a71060d3468654007bdfb886df841bf3",
+   "en": "Ten thousand years ago a great many of the Dark Angels Legiones Astartes turned against the Imperium, led in their heresy by Luther, the Primarch Lion El’Jonson’s once greatest ally.",
+   "zh": "一万年前，许多黑暗天使阿斯塔特军团背叛了帝国，他们的异端由卢瑟领导，他曾是基因原体狮子艾尔·琼森最大的盟友。"
   },
   {
    "k": "Warlord_Lore/GOF28",
@@ -5983,6 +6108,581 @@
    "k": "Warlord_Lore/ASH86",
    "en": "Farseers deliver prophetic orders, guiding their warriors to strike at crucial junctures of fate and causality. Their every pronouncement spells the doom of their foes.",
    "zh": "先知们发出预言性的命令，引导他们的战士在命运和因果关系的关键节点进行攻击。他们的每一次宣告都预示着他们敌人的灭亡。"
+  },
+  {
+   "k": "Warlord_Lore/SW1",
+   "en": "In contrast to the leaders of other Chapters, Logan Grimnar is a charismatic and likeable figure; He honours all who do battle at his side and all who feast and drink in his halls.",
+   "zh": "与其他战团的领导者相比，洛根·格里姆纳尔是一个富有魅力且讨人喜欢的人物；他尊重所有在他身边战斗的人，以及所有在他的大厅里宴饮的人。"
+  },
+  {
+   "k": "Warlord_Lore/b3dce3f10cc118541910156ec8da1d9b",
+   "en": "Logan Grimnar has guided his warriors to victory countless times, scouring traitors from Imperial worlds and ending the empire-building ambitions of xenos warlords.",
+   "zh": "洛根·格里姆纳尔已经无数次引导他的战士们取得胜利，从帝国世界中清除叛徒，结束异形战将的帝国建设野心。"
+  },
+  {
+   "k": "Warlord_Lore/6e4f9040e8cc59641a32f29e33ea4cbc",
+   "en": "After defeating Fellclaw, Logan took with him a pair of cubs from its lair. They grew into powerful thunderwolves, and have remained loyal to their master for hundreds of years.",
+   "zh": "在击败Fellclaw后，洛根从其巢穴中带走了一对幼崽。他们长成了强大的雷神狼，并且在数百年间一直忠诚于他们的主人。"
+  },
+  {
+   "k": "Warlord_Lore/SW2",
+   "en": "Njal Stormcaller is the Space Wolves' greatest living psyker. He commands the skies as his own, conjuring forth howling gales and icy blizzards to scatter and destroy his foes.",
+   "zh": "风暴召唤者纳吉奥是太空野狼中最伟大的在世灵能者。他掌控着天空，召唤狂风和冰雪暴风来驱散和摧毁他的敌人。"
+  },
+  {
+   "k": "Warlord_Lore/a51adc8f5c311584385c3117cfd919e9",
+   "en": "An unparalleled psyker and High Rune Priest of the Space Wolves, Njal Stormcaller wields a crackling staff by which he channels his psychic fury to bend the elements to his will.",
+   "zh": "作为太空野狼中无与伦比的灵能者和高级符文祭司，风暴召唤者纳吉奥挥舞着一个噼啪作响的法杖，通过它将他的心灵之怒引导到元素之力。"
+  },
+  {
+   "k": "Warlord_Lore/SW3",
+   "en": "Supremely confident and always eager to be first into the fray, Wolf Lord Ragnar Blackmane regularly leads his Great Company in devastating planetary invasions.",
+   "zh": "极度自信且总是渴望首先冲入战斗的野狼领主拉格纳·黑鬃，经常带领他的大型连队进行毁灭性的行星入侵。"
+  },
+  {
+   "k": "Warlord_Lore/e3b5735d801fcbd49aa8d3975a5b0c31",
+   "en": "Though now tempered by his veterancy, Ragnar’s berserk rages are still furious hurricanes of violence, and his terrifying howls freeze the blood of his foes.",
+   "zh": "尽管现在他的狂暴已经被他的老练所抑制，但拉格纳的狂暴仍然是猛烈的暴风，他可怕的嚎叫使他的敌人的血液凝固。"
+  },
+  {
+   "k": "Warlord_Lore/SW4",
+   "en": "Young and fiery warriors full of belligerent enthusiasm, Blood Claws hunger to prove themselves in savage battle, relentlessly plunging headlong into the foe.",
+   "zh": "年轻且热血的战士充满了好战的热情，血爪渴望在野蛮的战斗中证明自己，他们不断地冲向敌人。"
+  },
+  {
+   "k": "Warlord_Lore/SW5",
+   "en": "The bond between Headtakers and their lupine companions is exceptionally strong. They can read each other's movements and signal intent through gestures, whistles, barks and howls.",
+   "zh": "夺头者与他们的狼伙伴之间的关系非常强大。他们可以通过手势、口哨、吠叫和嚎叫来读取彼此的动作和传递意图。"
+  },
+  {
+   "k": "Warlord_Lore/SW6",
+   "en": "The youngest and most impetuous of the Space Wolves, Blood Claws are formed into packs led by a Pack Leader, where their raw savagery and hunger for battle are put to best use.",
+   "zh": "太空野狼中最年轻且最冲动的血爪被组成群体，由群体领导者领导，他们的原始野性和渴望战斗被最好地利用。"
+  },
+  {
+   "k": "Warlord_Lore/SW7",
+   "en": "Stealthy and taciturn packs of Wolf Scouts infiltrate enemy positions, clear potential drop zones, set ambushes and perform all manner of other missions to aid the main force.",
+   "zh": "狼哨兵的隐秘和沉默的群体渗透敌人的阵地，清理潜在的空降区，设定伏击，并执行所有其他任务以帮助主力部队。"
+  },
+  {
+   "k": "Warlord_Lore/SW8",
+   "en": "Rapid-insertion terror troops, Reiver Squads often deploy using grav-chutes and directional fins to land with pinpoint accuracy to reach the optimum location to strike from.",
+   "zh": "快速插入的恐怖军队，劫掠者小队经常使用重力伞和定向鳍片进行部署，以精确落地到达最佳的攻击位置。"
+  },
+  {
+   "k": "Warlord_Lore/SW9",
+   "en": "Amongst the most vicious and intelligent predators in the galaxy, Fenrisian Wolves prowl silently before pouncing in a swift and coordinated flurry of razor-sharp teeth and claws.",
+   "zh": "芬里斯狼是银河系中最凶猛和最聪明的掠食者，他们在猛然扑向敌人之前会悄无声息地潜行，他们的锐利牙齿和爪子会进行快速和协调的攻击。"
+  },
+  {
+   "k": "Warlord_Lore/SW10",
+   "en": "With their instinctive raw aggression tempered, Grey Hunters are patient and cunning. They take and hold ground with disciplined firepower, setting up traps to leap in for the kill.",
+   "zh": "灰色猎手的本能原始侵略性得到了抑制，他们耐心且狡猾。他们以有纪律的火力占据和保持地面，设置陷阱以跳入杀戮。"
+  },
+  {
+   "k": "Warlord_Lore/SW11",
+   "en": "Those who survive the rigours of the Blood Claw packs learn to rein in their reckless natures and become Grey Hunters, the infantry that form the main body of each Great Company.",
+   "zh": "那些在血爪群体的严酷中生存下来的人学会了控制他们的鲁莽本性，成为灰色猎手，他们是每个大型连队的主要步兵。"
+  },
+  {
+   "k": "Warlord_Lore/SW12",
+   "en": "The thunderwolf is the largest subspecies of wolf on Fenris. Thunderwolves and riders are fielded in cavalry units capable of shattering shield walls and chasing fleeing foes.",
+   "zh": "雷神狼是芬里斯狼的最大亚种。雷神狼和骑士们被编入骑兵单位，能够破坏盾牌墙并追赶逃跑的敌人。"
+  },
+  {
+   "k": "Warlord_Lore/SW13",
+   "en": "Wolf Guard Headtakers hunt down opposing warlords, champions and rampaging beasts, tracking down and slaying the most potent enemies, aided by packs of Fenrisian wolves.",
+   "zh": "野狼守卫夺头者猎杀对立的战将，冠军和狂暴的野兽，追踪并杀死最强大的敌人，得到芬里斯狼群体的帮助。"
+  },
+  {
+   "k": "Warlord_Lore/SW14",
+   "en": "Clad in black and bedecked with shamanistic totems and macabre wolf-skull helms, Wolf Priests are elder sages who tend to their battle-brothers' spiritual and physical well-being.",
+   "zh": "穿着黑色装备，装饰着萨满图腾和恐怖的狼头骷髅头盔，野狼祭司是照顾他们的战斗修士的精神和身体健康的长者智者。"
+  },
+  {
+   "k": "Warlord_Lore/SW15",
+   "en": "As a veteran of the Wolf Guard, Fyrri Askar has participated in countless battles, now utilising his experience to lead his warriors in expertly set ambush missions.",
+   "zh": "作为野狼守卫的老兵，菲瑞·阿斯卡参与过无数的战斗，现在他利用自己的经验，带领他的战士们在布道所中精心设定的伏击。"
+  },
+  {
+   "k": "Warlord_Lore/SW16",
+   "en": "Dour and grizzled veterans, Long Fangs are steady of hand and temperament, carrying some of the most devastating ranged weapons to hunt the monstrous beasts and tanks of the foe.",
+   "zh": "严肃且经验丰富的老兵，长牙手稳心静，携带着一些最具破坏力的远程武器去狩猎敌人的巨兽和坦克。"
+  },
+  {
+   "k": "Warlord_Lore/SW17",
+   "en": "Wulfen are bestial warriors, altered by the Curse lying in the blood of all scions of the Wolf King. They bound forward with fangs bared and claws outstretched, ripping foes apart.",
+   "zh": "狼人是兽性的战士，被狼王的血脉中的诅咒改变。他们张牙舞爪，向前冲去，撕裂敌人。"
+  },
+  {
+   "k": "Warlord_Lore/SW18",
+   "en": "Hrolf has ridden Skarn into battle for millennia. Once badly wounded, Skarn was tended by a veteran Iron Priest who augmetically enhanced the giant beast to an even deadlier form.",
+   "zh": "赫罗夫骑着斯卡恩战斗了千年。斯卡恩曾经受伤严重，后来被一位老兵钢铁祭司照顾，他用机械增强了这只巨兽，使其变得更加致命。"
+  },
+  {
+   "k": "Warlord_Lore/SW19",
+   "en": "Iron Priests are holders of arcane technological lore that they use to repair the Chapter’s damaged war engines and soothe their affronted machine spirits.",
+   "zh": "钢铁祭司是奥秘技术知识的持有者，他们用这些知识修复战团的战争机器，安抚受到冒犯的机魂。"
+  },
+  {
+   "k": "Warlord_Lore/SW20",
+   "en": "The eldest thunderwolves can grow to become truly colossal, approaching Rhino transports in size, and can only be tamed by the toughest and most experienced of the Space Wolves.",
+   "zh": "最老的雷狼可以长到真正的巨大，接近犀牛战车的大小，只有最坚韧和最有经验的太空野狼才能驯服它们。"
+  },
+  {
+   "k": "Warlord_Lore/SW21",
+   "en": "The 13th Great Company, known as the Wulfenkind pursued the Thousand Sons through a portal and disappeared. They resurfaced millennia later, with the Canis Helix awoken within them.",
+   "zh": "第13大型连队，被称为狼人连队，追踪千子穿过一个传送门并消失。他们在千年后重新出现，狼之螺旋在他们体内觉醒。"
+  },
+  {
+   "k": "Warlord_Lore/SW22",
+   "en": "Space Wolves Inceptors drive off their foes through sheer animal fury, sometimes even charging heedlessly into their enemy and using their firearms as brutal makeshift bludgeons.",
+   "zh": "太空野狼的先驱者通过纯粹的动物狂怒驱赶他们的敌人，有时甚至毫不犹豫地冲向他们的敌人，用他们的火器作为残酷的临时棍棒。"
+  },
+  {
+   "k": "Warlord_Lore/SW23",
+   "en": "Launched from ships in low orbit, Drop Pods full of Space Marines slam into the battlefield, their hatches blowing open upon the violent impact as squads burst out.",
+   "zh": "从低轨道的船只上发射，装满星际战士的空降舱猛然撞入战场，他们的舱门在猛烈的冲击中爆开，小队冲出。"
+  },
+  {
+   "k": "Warlord_Lore/SW24",
+   "en": "Wulfen exist on the brink of constant berserk rages, and their chilling howls unleash the inner beast in sons of Russ nearby.",
+   "zh": "狼人处于持续狂暴的边缘，他们的冷酷的嚎叫释放出附近的罗斯之子的内在野兽。"
+  },
+  {
+   "k": "Warlord_Lore/SW25",
+   "en": "Wolf Lords may appoint members of their Wolf Guard to serve as Battle Leaders to marshal their forces. Those appointed can wield the most ancient and powerful relic weapons.",
+   "zh": "野狼领主可以任命他们的野狼守卫的成员作为战斗领导者来指挥他们的部队。被任命的人可以挥舞最古老和最强大的圣物武器。"
+  },
+  {
+   "k": "Warlord_Lore/SW26",
+   "en": "Arjac Rockfist is a towering mass of muscle and a taciturn anvil of endurance. Wielding the enormous Foehammer, Arjac crushes his foes with pulverising strength.",
+   "zh": "阿贾克·洛克菲斯特是一座肌肉的山，是一座沉默的耐力砧。阿贾克挥舞着巨大的敌者之锤，用碾压的力量击碎他的敌人。"
+  },
+  {
+   "k": "Warlord_Lore/SW27",
+   "en": "Some Wolf Guard choose to don Terminator armour, turning them into walking tanks capable of holding positions so their battle-brothers can hunt elsewhere.",
+   "zh": "一些野狼守卫选择穿上终结者装甲，将他们变成能够保持位置的步行坦克，这样他们的战斗修士就可以在其他地方狩猎。"
+  },
+  {
+   "k": "Warlord_Lore/SW28",
+   "en": "Though famed for their agile hunters and wild fury in close combat, Space Wolves are no strangers to the brutal volleys and cover fire an Aggressor Squad can provide.",
+   "zh": "虽然以他们的敏捷猎人和近战的野性狂怒而闻名，但太空野狼并不陌生侵略者小队可以提供的残酷的齐射和掩护火力。"
+  },
+  {
+   "k": "Warlord_Lore/SW29",
+   "en": "Famed for their ruthlessness and expertise in stealth, Eliminators from the Sons of Morkai Great Company hunt from afar, eliminating enemy champions and commanders from vantage points.",
+   "zh": "以他们的无情和隐身技术而闻名，来自默尔凯之子大型连队的歼灭者从远处狩猎，从有利的位置消灭敌人的冠军和指挥官。"
+  },
+  {
+   "k": "Warlord_Lore/SW30",
+   "en": "Rune Priests in Terminator armour are able to deploy amidst battle and blast at the foe with their powerful psychic energies, lending a lethal edge to their infantry spearheads.",
+   "zh": "穿着终结者装甲的符文祭司能够在战斗中部署，用他们强大的心灵能量向敌人发射，为他们的步兵先锋提供致命的优势。"
+  },
+  {
+   "k": "Warlord_Lore/SW31",
+   "en": "Wolf Guard bedeck their Terminator armour with totems and trophies gained over their years of battle. They fight at the spearhead of assaults, eagerly seeking glory.",
+   "zh": "野狼守卫用他们多年战斗获得的图腾和奖杯装饰他们的终结者装甲。他们在突击的前沿战斗，热切地寻求荣耀。"
+  },
+  {
+   "k": "Warlord_Lore/SW32",
+   "en": "Within Stormwolves' wide hold, packs of warriors are borne with incredible speed into the foe’s midst while supporting the assault with an array of heavy fire.",
+   "zh": "在风暴之狼的宽大保持中，战士的群体以惊人的速度进入敌人的中间，同时用重火力支持突击。"
+  },
+  {
+   "k": "Warlord_Lore/SW33",
+   "en": "A dedicated siege tank, the Vindicator can smash obstacles aside with its massive shield, rumbling into the perfect firing position to unleash its demolisher cannon.",
+   "zh": "作为专门的围攻坦克，复仇者可以用它的巨大盾牌推开障碍，轰鸣进入完美的射击位置，释放它的破坏者臼炮。"
+  },
+  {
+   "k": "Warlord_Lore/SW34",
+   "en": "Frozen in stasis after every battle, this raging Dreadnought is unleashed from the Fang in times of need, its massively brutal claws tearing its foes limb from bloody limb.",
+   "zh": "每场战斗结束后，这个狂怒的无畏机甲被冻结在静态中，只有在需要时才从獠牙中释放出来，它巨大而残暴的爪子将敌人从血腥的肢体中撕裂。"
+  },
+  {
+   "k": "Warlord_Lore/SW35",
+   "en": "Venerable Dreadnoughts are relics steeped in centuries of battle. Awoken from dormancy, they fight as lords of battle, seemingly stepping from the sagas to kill in the name of Russ.",
+   "zh": "神圣无畏机甲是浸透了数世纪战斗的遗物。从休眠中唤醒，他们像战争之主一样战斗，仿佛从传说中走出来，以Russ的名义杀戮。"
+  },
+  {
+   "k": "Warlord_Lore/SW36",
+   "en": "Bjorn the Fell-Handed has fought for millennia within a Dreadnought’s sarcophagus. Awaken only in times of dire need, he still fights as furiously as he did at Russ’ side.",
+   "zh": "比约恩·风暴狼在无畏机甲的棺柩中战斗了数千年。只有在极度需要的时候才唤醒，他仍然像在Russ身边一样猛烈地战斗。"
+  },
+  {
+   "k": "Warlord_Lore/SW37",
+   "en": "Those interred within Dreadnoughts still bear the genetic heritage of Russ. Rarely, dormant mutagenic effects awake within them, leaving them subjected to the Curse of the Wulfen.",
+   "zh": "被安葬在无畏机甲中的人仍然带有Russ的基因遗产。很少有时候，他们体内的休眠突变效应会唤醒，使他们受到狼人诅咒的影响。"
+  },
+  {
+   "k": "Warlord_Lore/SW38",
+   "en": "Mobile fortresses with a design dating back to times of myth and legend, Land Raiders feature formidable weaponry, nigh-impenetrable armour and potent machine spirits.",
+   "zh": "兰德掠袭者是移动的堡垒，其设计可以追溯到神话和传说的时代，配备了强大的武器，几乎无法穿透的盔甲和强大的机魂。"
+  },
+  {
+   "k": "Warlord_Lore/SW39",
+   "en": "The Canis Helix –the unique and potent strand within all Space Wolves gene-seed–  has prominent side effects. With age, hair greys, fangs grow, and skin becomes hard and leathery.",
+   "zh": "狼之螺旋——所有太空野狼基因种子中独特而强大的一条——有显著的副作用。随着年龄的增长，头发变灰，獠牙生长，皮肤变得硬而皮革般。"
+  },
+  {
+   "k": "Warlord_Lore/SW40",
+   "en": "Bjorn is a living link to the Space Wolves’ deep past, revered not only for his millennia of selfless service but for the fact that he actually fought alongside the Wolf King.",
+   "zh": "比约恩是太空野狼深远过去的活链接，不仅因为他千年的无私服务，而且因为他实际上与狼王并肩作战。"
+  },
+  {
+   "k": "Warlord_Lore/SW41",
+   "en": "Thunderwolves are not pursuit hunters. Solitary by nature, they rely on ambush and high-speed charges to reach their prey and snatch, dismember and devour it in a burst of violence.",
+   "zh": "雷狼不是追逐猎人。他们天性独立，依赖伏击和高速冲锋来接近猎物，然后在暴力的爆发中抓住它，撕碎它，吞噬它。"
+  },
+  {
+   "k": "Warlord_Lore/SW42",
+   "en": "The Space Wolves are the sons of Russ. Inheritors of his savage legacy, they are the fury of the storm and the pitiless wrath of endless winter.",
+   "zh": "太空野狼是Russ的儿子。他们是风暴的狂怒和无尽冬天的无情愤怒的继承者。"
+  },
+  {
+   "k": "Warlord_Lore/SW43",
+   "en": "In the face of withering firepower and overwhelming numbers of foes, the Space Wolves hold their ground with grim determination.",
+   "zh": "面对猛烈的火力和压倒性的敌人数量，太空野狼们以冷酷的决心坚守阵地。"
+  },
+  {
+   "k": "Warlord_Lore/SW44",
+   "en": "The Space Wolves are a Chapter of heroes who wage war without fear or doubt, each seeking to forge a saga worthy of immortalisation",
+   "zh": "太空野狼是一支英雄战团，他们毫无恐惧或疑虑地进行战争，每个人都在寻求铸造一个值得永生的传说。"
+  },
+  {
+   "k": "Warlord_Lore/SW45",
+   "en": "Space Wolves officers rein in their warriors’ impulsive fury, who take impetuous risks amidst joyful roars and wage war without fear or doubt.",
+   "zh": "太空野狼的军官们控制着他们战士们的冲动狂怒，他们在欢乐的咆哮中冒着鲁莽的风险，毫无恐惧或疑虑地进行战争。"
+  },
+  {
+   "k": "Warlord_Lore/SW46",
+   "en": "Every Space Wolves warrior seeks to forge a saga worthy of retelling. They view the many dangers they face as opportunities to demonstrate courage and daring.",
+   "zh": "每个太空野狼战士都寻求铸造一个值得重述的传说。他们把面临的许多危险视为展示勇气和大胆的机会。"
+  },
+  {
+   "k": "Warlord_Lore/SW47",
+   "en": "Situated atop the highest of Asaheim’s soaring peaks, the fortress monastery of the Space Wolves is a formidable bastion, second only to the Imperial Palace on Holy Terra.",
+   "zh": "位于阿萨海姆最高峰顶部的太空野狼的修道院要塞是一座强大的堡垒，仅次于神圣泰拉的帝国皇宫。"
+  },
+  {
+   "k": "Warlord_Lore/SW48",
+   "en": "The most successful hunts are those where the prey doesn’t know they are being hunted. Having stalked their prey, they go for the enemy’s weakest points and rip them out.",
+   "zh": "最成功的狩猎是猎物不知道自己正在被狩猎的狩猎。他们潜伏猎物，然后攻击敌人的最弱点并撕裂它们。"
+  },
+  {
+   "k": "Warlord_Lore/SW49",
+   "en": "Fenrisian tempests are as deadly as the beasts that dwell in them. Roaring winds and furious blizzards rage in a vortex of ice and snow that obscures those within from sight.",
+   "zh": "芬里斯的暴风雪就像其中的野兽一样致命。咆哮的风和狂怒的暴风雪在冰雪的漩涡中狂怒，使其中的人看不见。"
+  },
+  {
+   "k": "Warlord_Lore/SW50",
+   "en": "Seeking to take a terrible tally of lives, Space Wolves' boldest warriors hurl themselves into the heart of the fight, with nothing in mind but the prey they were appointed to hunt.",
+   "zh": "太空野狼的最勇敢的战士们试图取得可怕的生命损失，他们将自己投入战斗的中心，脑海中只有他们被指定去猎的猎物。"
+  },
+  {
+   "k": "Warlord_Lore/SW51",
+   "en": "There is nowhere the sons of Russ would rather be than fighting alongside the greatest warriors of the age, and they push to their limits in the hope there are enemies left to slay.",
+   "zh": "Russ的儿子们最愿意的地方就是与这个时代最伟大的战士并肩作战，他们尽力希望还有敌人可以杀。"
+  },
+  {
+   "k": "Warlord_Lore/SW52",
+   "en": "The Space Wolves cleave to oaths sworn ten thousand years ago. Still, and until the Primarch may one day walk again among them, they hunt. For the Allfather. For Fenris. For Russ.",
+   "zh": "太空野狼坚守一万年前的誓言。然而，直到基因原体有一天可能再次在他们中间行走，他们都在狩猎。为了全能之父。为了芬里斯。为了Russ。"
+  },
+  {
+   "k": "Warlord_Lore/SW53",
+   "en": "After the events of the Burning of Prospero, the Thousand Sons took refuge in the Eye of Terror. Yet the Space Wolves had no intention of allowing the traitors to escape justice.",
+   "zh": "在普罗斯佩的火焰事件后，千子们在恐惧之眼中寻找庇护。然而，太空野狼并无意让这些叛徒逃脱正义的制裁。"
+  },
+  {
+   "k": "Warlord_Lore/SW54",
+   "en": "Many terrible beasts stalk Fenris’ tundra or dwell within the depths of its frothing seas, and its people possess many tales of the slaying of such terrors",
+   "zh": "芬里斯的冻土上或泡沫海洋深处，都潜伏着许多恐怖的野兽，而其人民也有许多关于屠杀这些恐怖生物的故事。"
+  },
+  {
+   "k": "Warlord_Lore/SW55",
+   "en": "The Space Wolves fight with a savage fury that enables them to overcome even the most resilient targets.",
+   "zh": "太空野狼以野蛮的狂怒战斗，使他们能够克服甚至最坚韧的目标。"
+  },
+  {
+   "k": "Warlord_Lore/SW56",
+   "en": "The Fenrisian beasts' ferocity has no equal. When these lupine companions are set loose, a single barked command can inspire frothing rage and raw aggression.",
+   "zh": "芬里斯的野兽凶残无比。当这些狼形的伙伴被放出时，一个狂吠的指挥官就能激发出疯狂的愤怒和原始的侵略性。"
+  },
+  {
+   "k": "Warlord_Lore/SW57",
+   "en": "Heroes are forged in the heat of battle. Amidst bellowing oaths and outlandish boasts, champions seek to outdo one another hoping to forge their own tales of heroism and glory.",
+   "zh": "英雄在战斗的热火中锻造出来。在吼叫的誓言和夸大的吹嘘中，冠军们寻求超越彼此，希望锻造出他们自己的英雄事迹和荣耀。"
+  },
+  {
+   "k": "Warlord_Lore/SW58",
+   "en": "Fenrisian wolves are canid predators that are as cunning as they are deadly. Trained for war, these creatures stride to battle with entire packs with feral coordination.",
+   "zh": "芬里斯的狼是狡猾而致命的猛犬掠食者。这些为战争训练的生物，以群体的野性协调进入战斗。"
+  },
+  {
+   "k": "Warlord_Lore/SW59",
+   "en": "With the fury of a star’s heart, the Chapter’s orbiting starships unleash precision lance strikes against invaders like a spiteful glance from a wolf’s eye.",
+   "zh": "以星心的狂怒，战团的轨道星舰像狼眼的恶意一样，对入侵者发动精准的光束攻击。"
+  },
+  {
+   "k": "Warlord_Lore/SW60",
+   "en": "Imbued with the cunning psychic might of the Rune Priests and radiating with eldritch force, rune-etched stones are a potent shield against foul sorceries and foes.",
+   "zh": "符文祭司的狡猾精神力量赋予，散发出奇异的力量，刻有符文的石头是对抗邪恶魔法和敌人的强大盾牌。"
+  },
+  {
+   "k": "Warlord_Lore/SW61",
+   "en": "The Space Wolves often feast in the firelit and trophy-hung halls of the Chapter. During battles, these fortresses are key strongholds in which to regroup and launch new strikes.",
+   "zh": "太空野狼经常在战团的火光照亮和挂满战利品的大厅中宴会。在战斗中，这些堡垒是重组和发动新攻击的关键据点。"
+  },
+  {
+   "k": "Warlord_Lore/SW62",
+   "en": "At the end of every summer, rampant volcanic and tectonic activity sinks hard-won territories, and an age of adventure and warfare dawns as tribes journey to secure new lands.",
+   "zh": "每个夏天结束时，猖獗的火山和地壳活动会使辛苦夺取的领土沉没，部落开始新的冒险和战争，以确保新的土地。"
+  },
+  {
+   "k": "Warlord_Lore/SW63",
+   "en": "Fenris is amongst the most forbidding planets in the Imperium. Subject to punishing seasons of fire and ice, it is home to thick nights where predators and hunters thrive.",
+   "zh": "芬里斯是帝国中最令人生畏的星球之一。受到烈火和冰冷季节的严酷考验，它是掠食者和猎手防空导弹车繁衍生息的地方，夜晚浓厚。"
+  },
+  {
+   "k": "Warlord_Lore/SW64",
+   "en": "Fenris’ orbital passage takes it far from the system’s star, causing its oceans to freeze and ushering in long and lethally cold winters where ceaseless storms proliferate.",
+   "zh": "芬里斯的轨道经过使其远离系统的恒星，导致其海洋冻结，引发漫长且致命寒冷的冬季，无休止的风暴在此繁衍。"
+  },
+  {
+   "k": "Warlord_Lore/UM87",
+   "en": "Resurrected after Abaddon's Thirteenth Black Crusade, the Primarch of the Ultramarines now bears the Emperor's blade and once again leads the Imperium as its Lord Commander.",
+   "zh": "在阿巴顿的第十三次黑色远征后复活，极限战士的基因原体现在挥舞着帝皇的剑，再次作为指挥官领主领导帝国。"
+  },
+  {
+   "k": "Warlord_Lore/40667e346ae58a84dbda1033dff70ccb",
+   "en": "First composed ten thousand years ago by Roboute Guilliman, the Codex Astartes is considered a holy book and is revered by many Chapters for its age, provenance and authorship.",
+   "zh": "罗保特·基利曼在一万年前首次编写的阿斯塔特圣典，被视为一本神圣的书，许多战团因其年代久远，出处和作者而尊崇。"
+  },
+  {
+   "k": "Warlord_Lore/UM88",
+   "en": "A superlative warrior and inspiring leader, Valius Paxor has no place but at the very forefront of battle. With a jump pack, he can lead his warriors as speartip for his assaults.",
+   "zh": "作为卓越的战士和鼓舞人心的领导者，瓦利乌斯·帕克索尔只能在战斗的最前线。有了跳跃背包，他可以领导他的战士作为他的攻击尖端。"
+  },
+  {
+   "k": "Warlord_Lore/4de4fcfb5d7e0554a88b9f419a2cd7c2",
+   "en": "Valius favours fury and speed, and devises ingenious strategies to use these to devastating effect against their enemies leaving him and his forces unscathed.",
+   "zh": "瓦利乌斯喜欢狂怒和速度，并设计出巧妙的策略，利用这些对敌人产生毁灭性的效果，使他和他的部队毫发无伤。"
+  },
+  {
+   "k": "Warlord_Lore/UM89",
+   "en": "With a formidable array sensory equipment, Incursors can see their enemies through walls and predict their movements, storming enemy defences and destroying essential assets.",
+   "zh": "凭借强大的感应设备阵列，突袭者可以通过墙壁看到他们的敌人并预测他们的动作，冲击敌人的防御并摧毁关键资产。"
+  },
+  {
+   "k": "Warlord_Lore/UM90",
+   "en": "Lieutenants in Phobos armour are independent reconnaissance and assassination forces. These deadly warriors' knives have claimed countless unsuspecting foes.",
+   "zh": "穿着福波斯装甲的副官是独立的侦察和刺杀部队。这些致命的战士的刀已经夺去了无数毫无戒心的敌人。"
+  },
+  {
+   "k": "Warlord_Lore/UM91",
+   "en": "With access to a wide range of weapons, Tactical Marines can purge swathes of enemy infantry or punch burning holes through tanks and heavily armoured foes.",
+   "zh": "战术兵可以使用各种武器，可以清除大片的敌人步兵，或者在坦克和重装敌人中打出燃烧的洞。"
+  },
+  {
+   "k": "Warlord_Lore/UM92",
+   "en": "Mounted on gravitic ventral plates, the Firestrike Servo-turret lays down withering volleys of fire to secure flanks or the Space Marines’ base of operations.",
+   "zh": "火力伺服炮塔安装在重力腹板上，发射猛烈的火力覆盖，保护侧翼或星际战士的基地。"
+  },
+  {
+   "k": "Warlord_Lore/UM93",
+   "en": "Often operating behind enemy lines, Vico is a skilled assassin and intelligence gatherer. By the time the Ultramarines forces arrive, the enemy has already been cast into disarray.",
+   "zh": "维科经常在敌人的背后行动，他是一位熟练的刺客和情报收集者。当极限战士的部队到达时，敌人已经陷入混乱。"
+  },
+  {
+   "k": "Warlord_Lore/UM94",
+   "en": "Combining their skills in infiltration with advanced marksmanship Scout Snipers can kill opposing commanders or detonate vehicle fuel cells to wreak havoc amongst the enemy.",
+   "zh": "侦察兵狙击手将潜入技巧和高级射击技巧相结合，可以杀死对方的指挥官或引爆载具的燃料电池，对敌人造成混乱。"
+  },
+  {
+   "k": "Warlord_Lore/UM95",
+   "en": "Capable of mauling infantry squads or reducing tanks to molten ruin, Attack Bikes rendering bike formations all the more deadly.",
+   "zh": "攻击摩托能够撕裂步兵小队或将坦克化为熔融的废墟，使摩托车队更加致命。"
+  },
+  {
+   "k": "Warlord_Lore/UM96",
+   "en": "Chapter Champions are veteran combatants and peerless duelists, cleaving apart lesser foes to reach the enemy’s greatest champions face to face, there to humble them.",
+   "zh": "战团勇士是老兵战士和无与伦比的决斗者，他们斩杀次等的敌人，直接面对敌方最强的勇士，以此来羞辱他们。"
+  },
+  {
+   "k": "Warlord_Lore/UM97",
+   "en": "Girded in armour that can tolerate the vicious recoil of their weapons and the stresses of grav-drops, Suppressors unleash armour-piercing rounds that decimate enemy infantry.",
+   "zh": "压制者穿着可以承受武器剧烈反冲和重力投放压力的盔甲，他们释放穿甲弹，摧毁敌人的步兵。"
+  },
+  {
+   "k": "Warlord_Lore/UM98",
+   "en": "Devastator Marines pound the enemy at long range with overwhelming heavy weapons fire, annihilating any caught in the ferocious blasts.",
+   "zh": "破坏者在远距离用压倒性的重型武器火力轰击敌人，任何被凶猛爆炸击中的人都会被消灭。"
+  },
+  {
+   "k": "Warlord_Lore/UM99",
+   "en": "Donning Phobos armour, Librarians learn the arcane arts of obscuration and illusion to fog the minds of their enemies, prise vital battle plans and turn their shadows against them.",
+   "zh": "穿着福波斯装甲的智库学习了空渺和幻觉的奥秘艺术，以迷惑敌人的思想，获取重要的战斗计划，并将他们的影子反对他们。"
+  },
+  {
+   "k": "Warlord_Lore/UM100",
+   "en": "Ortan Cassius rules over the Ultramarines Reclusiam. His fiery zeal has inspired many Ultramarines to victory, though he is mostly dedicated to his vendetta against the Tyranids.",
+   "zh": "奥坦·卡修斯统治着极限战士的隐修堂。他的炽热热情激励了许多极限战士取得胜利，尽管他主要致力于对泰伦虫族的复仇。"
+  },
+  {
+   "k": "Warlord_Lore/UM101",
+   "en": "Formally known as Tactical Dreadnought armour, Terminator armour is the most impervious plate in current use by the Imperium.",
+   "zh": "正式称为战术恐怖装甲的终结者装甲，是帝国目前使用的最坚固的盔甲。"
+  },
+  {
+   "k": "Warlord_Lore/UM102",
+   "en": "Formidably resilient, Terminator armour protects Captains against all but the most devastating enemy fire and enables them to deploy right into the heart of battle.",
+   "zh": "终结者装甲极其坚韧，可以保护连长免受除最具破坏力的敌火以外的所有攻击，并使他们能够直接部署到战斗的中心。"
+  },
+  {
+   "k": "Warlord_Lore/UM103",
+   "en": "Terminator armour is a marvel of technology that enables its wearer to survive anything, from the stresses of teleportation to earth-shaking artillery bombardments.",
+   "zh": "终结者装甲是一项技术奇迹，使穿戴者能够在任何情况下生存下来，从传送的压力到地震般的炮击。"
+  },
+  {
+   "k": "Warlord_Lore/UM104",
+   "en": "Bladeguard Ancients bear the honour of carrying their Chapter’s precious standards into battle. In their presence, battle-brothers are inspired to perform legendary deeds.",
+   "zh": "剑卫旗手承担着将他们战团珍贵的旗帜带入战斗的荣誉。在他们的存在下，战斗修士受到鼓舞，进行传奇的行为。"
+  },
+  {
+   "k": "Warlord_Lore/UM105",
+   "en": "Dreadnoughts are combat walkers piloted by centuries-old fallen heroes of the Chapter, kept alive by esoteric technologies in an ancient sarcophagus at the Dreadnought’s heart.",
+   "zh": "无畏机甲是由战团的几个世纪老的堕天英雄驾驶的战斗步行者，他们被保存在无畏机甲心脏的古老棺柩中，通过神秘的技术保持生命。"
+  },
+  {
+   "k": "Warlord_Lore/UM106",
+   "en": "As Master of the Rites of the Ultramarines, Areios records the martial traditions of his brothers, accompanied by a servo skull with an autoquill and a hefty thunder hammer.",
+   "zh": "作为极限战士的仪式之主，Areios记录了他的兄弟们的武术传统，由一只带有自动羽毛笔和一把重雷霆锤的机械骷髅陪伴。"
+  },
+  {
+   "k": "Warlord_Lore/UM107",
+   "en": "The Whirlwind fires hails of missiles from concealed positions in support of Space Marine attacks, saturating the ground with a carpet of explosions and scorching flames.",
+   "zh": "旋风火箭炮从隐蔽的位置发射导弹，支持星际战士的攻击，用爆炸和炽热的火焰覆盖地面。"
+  },
+  {
+   "k": "Warlord_Lore/UM108",
+   "en": "As it storms towards the enemy lines, it lays down a hail of anti-personnel fire. Brutalis Dreadnoughts are line breakers and terror weapons with massive ceramite-sheathed talons.",
+   "zh": "当它冲向敌人的阵线时，它发射出一阵阵的反人员火力。Brutalis无畏机甲是线路破坏者和恐怖武器，拥有巨大的陶钢包覆的利爪。"
+  },
+  {
+   "k": "Warlord_Lore/8482077f309b08943b190f18b5874871",
+   "en": "Ortan Cassius is the oldest living Space Marine in the Ultramarines. His impassioned words have carried the Ultramarines into battle on thousands of worlds.",
+   "zh": "奥坦·卡修斯是极限战士中最老的活星际战士。他的激昂言辞已经带领极限战士在数千个世界上进行战斗。"
+  },
+  {
+   "k": "Warlord_Lore/UM109",
+   "en": "The tenets of the Codex Astartes allow for unorthodox use of combat tactics and the employment of divergent strategic doctrines if doing so will lead to victory.",
+   "zh": "阿斯塔特圣典的教义允许非正统的战斗策略的使用和采用不同的战略教条，如果这样做将导致胜利。"
+  },
+  {
+   "k": "Warlord_Lore/UM110",
+   "en": "Excellent application of combat fundamentals is what makes these warriors sublimely adept for combat, applying effective combat tactics with surgical precision leaving no opening.",
+   "zh": "出色的战斗基本功的应用是这些战士极其适合战斗的原因，他们以外科精确度应用有效的战斗策略，不留任何破绽。"
+  },
+  {
+   "k": "Warlord_Lore/UM111",
+   "en": "The Space Marines know no fear. Superhuman courage in the face of terrifying horrors and overwhelming odds are expected from each and every battle-brother.",
+   "zh": "星际战士无所畏惧。每一个战斗修士都期望在面对恐怖的惧妖和压倒性的优势时表现出超人的勇气。"
+  },
+  {
+   "k": "Warlord_Lore/UM112",
+   "en": "Genetically enhanced super-soldiers forged using the arcane artifices created by the Emperor, the Space Marines are Humanity's champions in front of the horrors that beset it.",
+   "zh": "星际战士是由帝皇创造的神秘工匠技艺锻造的基因增强超级士兵，他们是人类在面对困扰它的恐怖的冠军。"
+  },
+  {
+   "k": "Warlord_Lore/UM113",
+   "en": "Before battle, Space Marines take all manner of oaths. They swear to never falter, to never give up, to never yield and to fight until their last breath.",
+   "zh": "战斗前，星际战士会做出各种誓言。他们发誓永不动摇，永不放弃，永不屈服，直到最后一口气。"
+  },
+  {
+   "k": "Warlord_Lore/UM114",
+   "en": "Some Space Marines vow to secure victory no matter the cost, and inspire his brethren to take a similar oath.",
+   "zh": "有些星际战士发誓无论代价如何都要取得胜利，并激励他的兄弟们也做出类似的誓言。"
+  },
+  {
+   "k": "Warlord_Lore/UM115",
+   "en": "Dropped from mag-cradles aboard orbiting craft, Stormhawk Interceptors are high-altitude ceramite-plated fighter craft designed solely for achieving aerial supremacy.",
+   "zh": "风暴隼拦截机从轨道飞船的磁悬挂中投下，是专为取得空中优势而设计的高空陶钢镀层战斗机。"
+  },
+  {
+   "k": "Warlord_Lore/UM116",
+   "en": "The Space Marines are the Emperor’s finest shock troops. In their lightning assaults, they smash aside the enemy, slaughtering them without mercy, to achieve their goals.",
+   "zh": "星际战士是帝皇最优秀的突击部队。在他们的闪电突击中，他们猛然击退敌人，毫不留情地屠杀他们，以实现他们的目标。"
+  },
+  {
+   "k": "Warlord_Lore/UM117",
+   "en": "Psycho-indoctrinated from youth, Space Marines are relentless, determined warriors who will stop at nothing to achieve victories nigh on impossible for unaugmented soldiery.",
+   "zh": "从年轻时就接受心理灌输的星际战士是无情的，决心的战士，他们会不惜一切代价取得几乎不可能的胜利。"
+  },
+  {
+   "k": "Warlord_Lore/UM118",
+   "en": "After centuries fighting for the defence of the Imperium, the Indomitus Crusade launched from Terra led by Roboute Guilliman a to take the fight to the foe.",
+   "zh": "经过几个世纪为帝国的防卫而战，由罗保特·基利曼领导的不屈远征从泰拉发起，向敌人发起攻击。"
+  },
+  {
+   "k": "Warlord_Lore/DA65",
+   "en": "Every Space Marine is roused to war by the litanies of Gabutheron, and never is this spiritual fortification more vital than amidst the blood and horror of battle.",
+   "zh": "每一个星际战士都被Gabutheron的圣歌激发战意，而在血与惧妖的战斗中，这种精神的坚固更是至关重要。"
+  },
+  {
+   "k": "Warlord_Lore/DA66",
+   "en": "Ballistus Dreadnoughts are walking gun emplacements. Through webs of neural links, the interred  pilot decimates enemy armour or elite infantry with banks of devastating heavy weapons.",
+   "zh": "无畏机甲就像行走的炮台。通过神经链接网，被埋葬的驾驶员用一排排毁灭性的重武器摧毁敌人的盔甲或精英步兵。"
+  },
+  {
+   "k": "Warlord_Lore/DA67",
+   "en": "Assault Terminators are armed with devastating close-combat weaponry perfect for ferocious boarding actions. They rush to engage the enemy shredding the foe with lightning claws.",
+   "zh": "突击终结者装备了破坏性极强的近战武器，非常适合猛烈的登舰行动。他们冲向敌人，用闪电爪撕碎敌人。"
+  },
+  {
+   "k": "Warlord_Lore/DA68",
+   "en": "Members of their Chapter’s elite 1st Company of Veterans, each of these vastly experienced Space Marines has fought to preserve the Imperium across uncounted worlds.",
+   "zh": "他们是战团精英第一公司的成员，每一个经验丰富的星际战士都在无数的世界上为保护帝国而战。"
+  },
+  {
+   "k": "Warlord_Lore/DA69",
+   "en": "Few foes can survive the incandescent fury of a Hellblaster. All are reduced to ash and slag by the searing, well-aimed plasma fire pouring from the Hellblasters’ ferocious weapons.",
+   "zh": "很少有敌人能够在地狱轰击者的炽热怒火中生存下来。所有的敌人都被地狱轰击者猛烈的等离子火焰烧成灰烬和熔渣。"
+  },
+  {
+   "k": "Warlord_Lore/DA70",
+   "en": "Having access to a range of weaponry suited to varied battle assignments, Intercessors are capable of laying down punishing fire while advancing or holding ground against the enemy.",
+   "zh": "仲裁者有各种适合不同战斗任务的武器，他们能在前进或对抗敌人时发射惩罚性的火力。"
+  },
+  {
+   "k": "Warlord_Lore/DA71",
+   "en": "None can say for certain what manner of creature lies beneath the robes of these strange figures. Their presence is solemnly accepted, if rarely acknowledged, by the Dark Angels.",
+   "zh": "没有人能确定这些奇怪的人物的长袍下隐藏着什么样的生物。他们的存在被黑暗天使庄重地接受，虽然很少被承认。"
+  },
+  {
+   "k": "Warlord_Lore/DA72",
+   "en": "Cutting down the last of their foes and giving no mind to their own hurts, the Unforgiven press relentlessly on toward victory.",
+   "zh": "戴罪者们在割下最后一个敌人，不顾自己的伤痛，无情地向胜利前进。"
+  },
+  {
+   "k": "Warlord_Lore/DA73",
+   "en": "Drawn from the deep vaults of the Rock, these ancient and invaluable rounds contain destabilised plasmic cores reserved for cutting down the worthiest and most terrible of foes.",
+   "zh": "这些古老而宝贵的弹药是从巨石的深海库房中取出的，它们包含不稳定的等离子核心，专门用来割下最有价值和最可怕的敌人。"
+  },
+  {
+   "k": "Warlord_Lore/DA74",
+   "en": "Not only does cutting down their foes’ greatest champions do honour to the Emperor and the Primarch, but it also serves to shatter enemy morale and cement the Dark Angels’ victory.",
+   "zh": "割下敌人的最大冠军不仅对帝皇和基因原体表示荣誉，而且也有助于打破敌人的士气，巩固黑暗天使的胜利。"
+  },
+  {
+   "k": "Warlord_Lore/DA75",
+   "en": "Clad in his mighty suit of Gravis armour and utterly dedicated to his martial duties, Zacharial shrugs off his foes’ attacks with contemptuous ease.",
+   "zh": "Zacharial身穿重甲，完全致力于他的战斗职责，他轻蔑地抵挡住敌人的攻击。"
+  },
+  {
+   "k": "Warlord_Lore/38871853fabb5244d8148766829230cd",
+   "en": "An exemplar of the Dark Angels’ dedication to duty, once Zacharial has set his mind to taking and holding a location his squad and him strike down any who oppose with cold fury.",
+   "zh": "Zacharial是黑暗天使对职责的奉献的典范，一旦他决定占领和守住一个地方，他和他的小队会冷酷地击败任何反对者。"
   }
  ]
 }

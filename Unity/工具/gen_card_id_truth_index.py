@@ -38,7 +38,10 @@ import re
 import sys
 import collections
 
-TRUTH = "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json"
+# 🔴 **2026-10-18（`K06`）换源**：原来是 2022 时代快照（1,195 张）。
+#   当前 build 的 `allcards` 已找到（1,351 张）⇒ 换过去以后，池内卡不再有「快照里没有」的一族。
+#   形状 = `{bundle,count,cards:[{…,full_raw}]}`，下面 `main()` 里展平。
+TRUTH = "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json"
 OFFICIAL = "d:/4/Unity/数据/游戏数据/官方本地化_en+zh-CN.json"
 OUT = "d:/4/Unity/数据/游戏数据/card_id_truth_index.json"
 
@@ -57,6 +60,10 @@ def main():
         if not os.path.exists(p):
             sys.exit("❌ 找不到判据文件：%s" % p)
     truth = json.load(io.open(TRUTH, 'r', encoding='utf-8'))
+    # 🆕 **2026-10-18（`K06`）**：当前 build 的解析产物是 `{bundle,count,cards:[{…,full_raw}]}`，
+    #   卡 SO 的全字段在 `full_raw`（顶层只有解析器抽出来的常用列）⇒ 统一展平成「卡 SO 列表」。
+    if isinstance(truth, dict) and isinstance(truth.get('cards'), list):
+        truth = [c.get('full_raw') or c for c in truth['cards']]
     off = json.load(io.open(OFFICIAL, 'r', encoding='utf-8'))['terms']
 
     rows = []

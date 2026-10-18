@@ -1,18 +1,17 @@
 {
  "note": "【我们卡池 ↔ 原版真值卡 id 的 join 索引】2026-10-14（第三十一会话 · P1 id 置换批）生成。生成器 = `工具/gen_card_id_truth_index.py`，消费者 = `工具/gen_cards_engine.py`。真值 = `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json`（原版 `allcards` 包 1,195 个 `RawCardScript`，Unity 2022.3.38f1 / 缓存 2025-07-30 老快照）+ 官方本地化 `Card_Name/*`（`Unity/数据/游戏数据/官方本地化_en+zh-CN.json`）。级联 join = ①官方英文名 → 键（键 = 真值 `uniqueId`）②真值 `m_Name` 尾巴 ③真值 `cardName`；取名字时先我方 `name`、再退 `card_stats.json` 的 `ocrName`（消费侧做）。`base` = **基准卡**（`m_Name` 归一化以 `cardName` 归一化结尾）—— 同名组里只有它允许被池内卡取用，这是为了不把「附魔/教程副本」当成本体（例：`Uge Choppa` 有本体 + `_enchantment` 副本两条）。`army` = 真值 `cardArmy`（与 `card_stats.json` 的 `factionId` 同口径）—— 消费侧按它过滤阵营。判据原文 → `Unity/资料/普查产出_第三十会话/乙档六笔_判据查证.md` §`A1800`；涉及账 `A1782` / `A1778` / `A1783` / `A1800`。⚠️ 年代限制：快照里没有 2025-07-30 之后新增的内容（SpaceWolves / Ultramarines 等）⇒ 那些卡查不到，属预期。",
  "source": {
-  "truth": "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json",
+  "truth": "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json",
   "official": "d:/4/Unity/数据/游戏数据/官方本地化_en+zh-CN.json"
  },
  "counts": {
-  "truth_rows": 1194,
-  "official_keys": 1048,
-  "official_keys_in_truth": 1050,
-  "official_keys_not_in_truth": 15,
-  "base_rows": 1060,
-  "multi_name_groups": 88,
+  "truth_rows": 1351,
+  "official_keys": 1168,
+  "official_keys_in_truth": 1171,
+  "official_keys_not_in_truth": 27,
+  "base_rows": 1180,
+  "multi_name_groups": 108,
   "base_exceptions": [
-   "(rows=2,bases=0)",
    "markofslaaneshenchantment(rows=2,bases=2)",
    "normalconditionsblacklegion(rows=2,bases=0)",
    "normalconditionsgsc(rows=2,bases=0)",
@@ -23,6 +22,7 @@
   "EC29": 120,
   "BL27": 50,
   "GSC6": 90,
+  "SW4": 130,
   "EC16": 120,
   "GOF73": 20,
   "SOR36": 80,
@@ -33,6 +33,8 @@
   "TAU10": 70,
   "DA42": 110,
   "30007162b68992e41a422f2061705b65": 40,
+  "SW52": 130,
+  "DA68": 110,
   "SOR3": 80,
   "ASH73": 30,
   "SAU53": 40,
@@ -42,7 +44,9 @@
   "AM36": 100,
   "TL66": 60,
   "TAU47": 70,
+  "SW57": 130,
   "8a028d3771c60014aa35c7269d38159e": 110,
+  "ef596edae1828bd46bfc4348535a3acc": 10,
   "TAU26": 70,
   "EC58": 120,
   "GOF62": 20,
@@ -54,19 +58,24 @@
   "TL40": 60,
   "ASH34": 30,
   "TL41": 60,
+  "UM107": 10,
   "UM35": 10,
   "SAU3": 40,
   "BL23": 50,
   "DA23": 110,
   "UM64": 10,
+  "SW16": 130,
   "fbdc291f3a847a846905c46fe98de618": 90,
   "ASH29": 30,
   "ASH59": 30,
   "GOF27": 20,
   "4604f2deaa3fad6418e2d8f4b3dc36e4": 60,
+  "SW9": 130,
   "b8e81b2fe85cda747a68c4d6326b669c": 50,
+  "UM105": 10,
   "35b64a8458fc60745b2f49204081c1cb": 60,
   "8d1fbc34ac945c547b61bc9627a77fda": 120,
+  "SW44": 130,
   "TAU38": 70,
   "SAU9": 40,
   "SOR34": 80,
@@ -76,6 +85,7 @@
   "GOF104": 20,
   "SAU46": 40,
   "SOR5": 80,
+  "SW23": 130,
   "SAU23": 40,
   "SOR49": 80,
   "UM31": 10,
@@ -84,6 +94,7 @@
   "GOF47": 20,
   "TL46": 60,
   "c69c3f3a38002844ca8e3324850df22a": 60,
+  "SW53": 130,
   "SAU74": 40,
   "EC53": 120,
   "33eabec155f628440a426a4ba480ec24": 30,
@@ -93,9 +104,11 @@
   "GSC56": 90,
   "1dfc9bc738bfc4f4d93d48f165aee510": 50,
   "508002f5d7ee54f4686aefa2e6adce41": 20,
+  "57bfef8500ae0d84186f713561c16bcc": 10,
   "DA19": 110,
   "ASH39": 30,
   "3f38d2e2c83df4b4c9052ef4a510cfbb": 50,
+  "b3dce3f10cc118541910156ec8da1d9b": 130,
   "SAU71": 40,
   "BL56": 50,
   "AM73": 100,
@@ -121,6 +134,7 @@
   "AM21": 100,
   "AM76": 100,
   "AM72": 100,
+  "UM98": 10,
   "AM25": 100,
   "GOF56": 20,
   "9e0eecf8cb9a8df49bf18cc5d9051109": 110,
@@ -129,7 +143,9 @@
   "EC41": 120,
   "da8a1ba85a045484eb90f55394873119": 60,
   "SOR24": 80,
+  "6ea114bce68bc714e8f0a4587dbbafe1": 10,
   "AM9": 100,
+  "DA66": 110,
   "BL17": 50,
   "BL62": 50,
   "ASH26": 30,
@@ -153,49 +169,63 @@
   "TL12": 60,
   "GOF100": 20,
   "BL71": 50,
+  "UM88": 10,
   "ASH69": 30,
   "DA61": 110,
   "c8d33688d555809488ea506274e5927b": 40,
   "BL54": 50,
   "4b8214d3b5e589f42beab20e56ca21b0": 30,
   "AM50": 100,
+  "DA67": 110,
   "TAU33": 70,
   "c06453b330af61745beb5fa567ba863e": 100,
   "BL19": 50,
   "SAU36": 40,
   "UM14": 10,
+  "fe6fde3df4104374092a642460dadf03": 10,
   "TAU28": 70,
   "GOF3": 20,
+  "UM102": 10,
+  "UM114": 10,
   "DA18": 110,
   "TL26": 60,
+  "DA73": 110,
   "TL1": 60,
   "TL64": 60,
   "ASH38": 30,
   "AM12": 100,
+  "UM110": 10,
   "EC61": 120,
   "fd67b47572987b84cb2990ea1ecfe982": 90,
   "GOF44": 20,
+  "SW35": 130,
   "DA43": 110,
+  "SW1": 130,
   "SAU51": 40,
   "d4ed3be9de80b00469a9cd255df63f35": 30,
   "GSC39": 90,
   "ASH85": 30,
+  "SW11": 130,
   "GOF30": 20,
   "SOR38": 80,
   "GOF46": 20,
+  "8f0302f1603cc954392d90d5dabd22d5": 130,
   "GSC51": 90,
   "EC34": 120,
   "TL28": 60,
   "BL18": 50,
   "UM67": 10,
   "648c492fa988aba44ad9a4507bd43ee4": 20,
+  "SW59": 130,
   "1688c6146abb1e04f98e540b4cbbabd7": 70,
   "GOF40": 20,
   "AM63": 100,
   "DA5": 110,
+  "cd053fb3b46dc4d4c93762a20fa3c7e1": 10,
   "UM79": 10,
   "ea971f5e838a9c14aa3790af44e42e19": 60,
   "28a3c2e48250bd247b793ae1c80daa92": 70,
+  "UM112": 10,
   "TL6": 60,
   "GOF102": 20,
   "f8260229254a09746af6d9ff7a9b0b54": 70,
@@ -203,6 +233,7 @@
   "7bf8ce67fb6be4744ae44345a5b465fd": 50,
   "TL49": 60,
   "2882d40f009bf8c46a89e975c37d00ab": 110,
+  "SW21": 130,
   "ASH30": 30,
   "bfd9797b5365aa0429914f12ec4d6df2": 70,
   "AM54": 100,
@@ -210,6 +241,7 @@
   "TAU37": 70,
   "SAU66": 40,
   "TAU9": 70,
+  "DA72": 110,
   "AM41": 100,
   "70199b6f183ec364082ca16e62f3d0cb": 120,
   "GSC71": 90,
@@ -233,6 +265,7 @@
   "UM60": 10,
   "EC25": 120,
   "SOR48": 80,
+  "SW40": 130,
   "AM39": 100,
   "ASH57": 30,
   "8901e35c5de30eb48804da6651cfb132": 80,
@@ -245,11 +278,14 @@
   "AM35": 100,
   "AM7": 100,
   "SOR39": 80,
+  "SW8": 130,
   "76d59d92d5d2d4ec89b2e441b1d18548": 40,
   "27a4b748a7bf358499f038aa09895ead": 40,
   "65cfec7d2bc719040b3b4b88622931b2": 80,
   "TL70": 60,
+  "d32332a368c7919469dfa0d5d4df7d03": 10,
   "BL72": 50,
+  "7210fc3a4509b3649969609a1fa822ea": 130,
   "cea9ccf7dae74b240a4c514608f256a1": 80,
   "UM19": 10,
   "ASH82": 30,
@@ -259,8 +295,10 @@
   "UM39": 10,
   "BL11": 50,
   "DA55": 110,
+  "DA69": 110,
   "ef42ad6c970ec5f49804b1f9f9ad5685": 20,
   "cbabeb234380634479feab1a1b4c733a": 40,
+  "SW2": 130,
   "SOR26": 80,
   "GSC38": 90,
   "GSC25": 90,
@@ -272,6 +310,7 @@
   "DA44": 110,
   "66486b3f61682ab42ba2ce0fa921002f": 100,
   "TAU13": 70,
+  "a51adc8f5c311584385c3117cfd919e9": 130,
   "TAU70": 70,
   "BL39": 50,
   "TL69": 60,
@@ -281,6 +320,7 @@
   "af98d423c7279a14c84c0d0382c53541": 100,
   "edb0fd16ad0760e47b4b37737f3e60bd": 30,
   "0fca8843c85ec1148b3bb77cc834a010": 10,
+  "UM87": 10,
   "461354d98aa5e3142afa4eb4922e5456": 40,
   "DA10": 110,
   "ba33eab5a0587d34d8809cfae2f14058": 50,
@@ -301,6 +341,7 @@
   "e3d67d86f73f7564eb0bf886ec848af6": 20,
   "BL6": 50,
   "EC4": 120,
+  "8482077f309b08943b190f18b5874871": 10,
   "TL16": 60,
   "ASH51": 30,
   "TL71": 60,
@@ -314,6 +355,7 @@
   "SAU68": 40,
   "SAU13": 40,
   "SOR70": 80,
+  "b14d1db2b0730d649b3bec35af100363": 10,
   "BL34": 50,
   "cd9b6eaafe52865409cbb239abb00525": 30,
   "ASH77": 30,
@@ -321,9 +363,11 @@
   "7552fe029df141946b0f813e28bfac98": 90,
   "DA40": 110,
   "334a32d196d46ed4387bf3740cce069b": 90,
+  "SW63": 130,
   "BL49": 50,
   "GOF10": 20,
   "b4d6d186eb95a3f468013c5be649ee3b": 20,
+  "16c804b7e1b10b542a8b1dbc5decec9e": 10,
   "TAU16": 70,
   "BL70": 50,
   "SAU76": 40,
@@ -338,10 +382,13 @@
   "SAU64": 40,
   "TAU21": 70,
   "UM74": 10,
+  "7a02359776e89f243b8cf41642dc44c9": 30,
   "e4bb5208917e50248b1913c0f0daa691": 60,
   "TAU68": 70,
+  "74480125107476f498ab284871b20401": 10,
   "SAU29": 40,
   "SAU72": 40,
+  "SW28": 130,
   "ASH45": 30,
   "BL59": 50,
   "744e35eddd8fa0a489902221ed82a733": 30,
@@ -359,6 +406,7 @@
   "EC13": 120,
   "aa3b6aa4741556e4998c300975b15230": 60,
   "ASH52": 30,
+  "SW60": 130,
   "UM53": 10,
   "GOF64": 20,
   "SOR42": 80,
@@ -373,6 +421,7 @@
   "1a647ea39bbb0154b9673c5194e51a46": 90,
   "EC15": 120,
   "SAU17": 40,
+  "41e94f2d95a5b6143b44d5356a486213": 130,
   "GSC29": 90,
   "UM58": 10,
   "BL61": 50,
@@ -407,6 +456,7 @@
   "BL13": 50,
   "GSC10": 90,
   "GSC65": 90,
+  "SW10": 130,
   "DA30": 110,
   "c40a06616a2968240b1f765d0f919b69": 20,
   "UM56": 10,
@@ -420,22 +470,27 @@
   "SOR33": 80,
   "AM4": 100,
   "eb815e1e93912d24394c7fca6d3558f4": 10,
+  "e3b5735d801fcbd49aa8d3975a5b0c31": 130,
   "EC6": 120,
   "GOF96": 20,
   "GSC50": 90,
   "AM42": 100,
+  "UM89": 10,
   "BL46": 50,
   "BL32": 50,
   "TL18": 60,
   "SOR63": 80,
+  "d05168153d48a004a98397101dc4954f": 10,
   "TAU57": 70,
   "GSC63": 90,
   "TAU22": 70,
   "AM32": 100,
   "GOF107": 20,
   "TAU45": 70,
+  "SW13": 130,
   "UM49": 10,
   "TAU4": 70,
+  "SW14": 130,
   "TAU41": 70,
   "EC44": 120,
   "TL2": 60,
@@ -443,13 +498,16 @@
   "BL74": 50,
   "GSC61": 90,
   "5b8d4332867628448a3b0e66882f8f1b": 60,
+  "SW48": 130,
   "BL20": 50,
   "GOF7": 20,
+  "SW26": 130,
   "TL45": 60,
   "TL31": 60,
   "BL7": 50,
   "EC1": 120,
   "TAU61": 70,
+  "SW31": 130,
   "TAU55": 70,
   "SOR56": 80,
   "5a790d31393197845a833476a455c598": 60,
@@ -467,6 +525,7 @@
   "TL73": 60,
   "DA27": 110,
   "GSC4": 90,
+  "DA75": 110,
   "GSC49": 90,
   "UM9": 10,
   "dcbd28525888ce54aaa93a47ba4de1e6": 10,
@@ -495,8 +554,11 @@
   "EC12": 120,
   "ASH63": 30,
   "d0549600681827a42963bd24a46f297a": 120,
+  "UM106": 10,
   "SOR64": 80,
   "UM5": 10,
+  "SW30": 130,
+  "UM109": 10,
   "dc7e575c0a328f446be1521c23ec850b": 30,
   "GOF5": 20,
   "cde6b147d68431341a6408b7720ca460": 20,
@@ -507,10 +569,12 @@
   "GSC73": 90,
   "DA28": 110,
   "59a4d20eed92a624c9512a392b163bf3": 60,
+  "070f7594d50c74944b3e86ebae80bde1": 110,
   "f279c5cf1c3e16e4db6b9df4d941ad11": 70,
   "4cc68a0d541c4364e937d77d0838fb0d": 70,
   "TAU65": 70,
   "EC31": 120,
+  "UM91": 10,
   "SOR40": 80,
   "TL60": 60,
   "SAU47": 40,
@@ -531,16 +595,21 @@
   "TAU73": 70,
   "507f79fa60945d04e93fe806aca912b7": 70,
   "ASH36": 30,
+  "SW6": 130,
   "TL59": 60,
   "AM61": 100,
+  "ac6aa9739f7773e449347e1e79ea0e83": 10,
   "ASH22": 30,
   "EC32": 120,
   "GSC20": 90,
+  "fb248c0fdddc5ec4da1ffcc0a8ab603a": 10,
   "2f00dde3a303fe34b99399c8bf987140": 100,
   "GSC26": 90,
   "UM48": 10,
   "ASH66": 30,
+  "SW18": 130,
   "UM18": 10,
+  "SW32": 130,
   "9a13583b689e99c43b33020d7dac6e2f": 60,
   "851f73daf747eb642934a16429b391db": 30,
   "EC18": 120,
@@ -551,16 +620,21 @@
   "GOF48": 20,
   "SAU31": 40,
   "BL67": 50,
+  "SW36": 130,
   "4889d3ae002db2d4785cb2286a84e48e": 60,
   "319bfeba880818c4690067f2596cd6f9": 50,
+  "b551c8351ebe5784faf9912b573eaf93": 130,
   "ASH53": 30,
   "ASH75": 30,
   "DA38": 110,
+  "4de4fcfb5d7e0554a88b9f419a2cd7c2": 10,
   "AM47": 100,
+  "SW45": 130,
   "SOR11": 80,
   "BL75": 50,
   "GOF85": 20,
   "GOF61": 20,
+  "SW54": 130,
   "DA58": 110,
   "GSC46": 90,
   "ASH21": 30,
@@ -570,6 +644,7 @@
   "ASH46": 30,
   "ASH20": 30,
   "AM26": 100,
+  "SW15": 130,
   "TAU44": 70,
   "SOR41": 80,
   "UM8": 10,
@@ -592,11 +667,13 @@
   "GOF80": 20,
   "BL2": 50,
   "cd155c09a88e15c428b29ef000bd8954": 120,
+  "UM113": 10,
   "GOF101": 20,
   "GOF13": 20,
   "875eedc90a1608d49a95b34a863ca104": 50,
   "SOR43": 80,
   "GOF77": 20,
+  "f3df0cfc57695654cb31a72b65470522": 50,
   "SAU50": 40,
   "TAU17": 70,
   "UM34": 10,
@@ -617,9 +694,11 @@
   "TL38": 60,
   "SOR52": 80,
   "UM65": 10,
+  "b5036545b0241504f96efdc00cf4ce01": 130,
   "ASH61": 30,
   "GSC16": 90,
   "e9b45df57f8a55d49a5083327af8377b": 10,
+  "b34ec9176268dca4db0b975d1f9028ea": 10,
   "GSC18": 90,
   "GOF57": 20,
   "BL12": 50,
@@ -632,6 +711,7 @@
   "TAU14": 70,
   "b5cdf76897db0a84ca518725d20168a7": 110,
   "UM54": 10,
+  "29ee7b2dcd0d13e43a7065d3194a59b4": 130,
   "TAU31": 70,
   "EC10": 120,
   "TAU3": 70,
@@ -644,9 +724,11 @@
   "ASH49": 30,
   "ASH32": 30,
   "db34f054e134c094aaf92e7a6ae124c0": 110,
+  "SW58": 130,
   "GOF29": 20,
   "dd535f7a54bcf6241b24ca6d0e81bbb4": 110,
   "GOF38": 20,
+  "UM94": 10,
   "GOF33": 20,
   "UM1": 10,
   "SAU5": 40,
@@ -658,8 +740,11 @@
   "BL57": 50,
   "BL48": 50,
   "SOR28": 80,
+  "69bf10fe198146b4bb8aec3f8dd3fe4e": 130,
   "TL53": 60,
+  "a20b3a843b961c04bb1b6dde3850859b": 10,
   "AM75": 100,
+  "SW5": 130,
   "GSC15": 90,
   "SOR23": 80,
   "TL58": 60,
@@ -671,6 +756,7 @@
   "DA32": 110,
   "BL68": 50,
   "GOF65": 20,
+  "DA71": 110,
   "EC60": 120,
   "AM49": 100,
   "DA34": 110,
@@ -689,6 +775,7 @@
   "847acecf682cb0748bc4445b52125cb4": 40,
   "ASH37": 30,
   "BL63": 50,
+  "SW61": 130,
   "DA41": 110,
   "c433e3dde4952cc448220908226127ae": 90,
   "SAU57": 40,
@@ -700,10 +787,12 @@
   "AM59": 100,
   "77a7253295da8234f8c04de2ad5e2d59": 20,
   "9218576fd3e26554db5b4c239a36dbc7": 80,
+  "6bce17171773ce044ac88728f5ea1d33": 10,
   "ASH31": 30,
   "ASH56": 30,
   "GSC11": 90,
   "ASH25": 30,
+  "SW24": 130,
   "3852c4775eacc5b4da2e6099e2bffff7": 30,
   "SAU34": 40,
   "GSC32": 90,
@@ -717,13 +806,16 @@
   "DA6": 110,
   "AM3": 100,
   "e01e8e933ad574b44bce5473ae486667": 110,
+  "SW20": 130,
   "UM63": 10,
   "AM18": 100,
   "TL34": 60,
   "51e88ac3d55f7d947bee19f8eb02c06a": 60,
   "GOF20": 20,
   "GOF18": 20,
+  "40667e346ae58a84dbda1033dff70ccb": 10,
   "GSC35": 90,
+  "SW38": 130,
   "AM66": 100,
   "GOF35": 20,
   "AM38": 100,
@@ -743,21 +835,28 @@
   "UM61": 10,
   "GOF98": 20,
   "AM37": 100,
+  "ed8105674efc55e4185a5c74d5abf844": 10,
   "UM59": 10,
   "0474b16360827b6408fb02b6820e7e63": 90,
   "BL44": 50,
   "ASH11": 30,
   "BL16": 50,
+  "f240bc73f2297494c9baf3784cc23a5e": 130,
   "DA29": 110,
   "98efedc81da043a48ba219d1aaed8965": 30,
+  "DA70": 110,
   "5c4d9e7824bf8d941b69eeb2589e30aa": 20,
   "GOF53": 20,
   "c4ff279078605aa42942c8dd16b77147": 10,
   "fdacb4e306ae79547883557cce46f557": 70,
   "SOR61": 80,
   "SAU12": 40,
+  "UM90": 10,
   "TAU59": 70,
   "c4f5c920744030c4e84428dc5a0f1bf2": 70,
+  "UM116": 10,
+  "UM117": 10,
+  "SW64": 130,
   "d1a037ffd7c538c4aae209e1708aef13": 10,
   "cdc015de8cecdc74fa0aaa2bbeb29d8f": 80,
   "SOR18": 80,
@@ -768,10 +867,13 @@
   "AM14": 100,
   "SAU62": 40,
   "EC33": 120,
+  "2bee2e8f8b3f8bc47981084f14495088": 10,
   "fae4ef61e87b2ee44b8e52fc705c2030": 20,
+  "UM115": 10,
   "AM70": 100,
   "SAU26": 40,
   "GOF17": 20,
+  "UM100": 10,
   "SOR32": 80,
   "2621d4280735baf4c952e6afea8d0686": 120,
   "ASH17": 30,
@@ -784,8 +886,10 @@
   "EC35": 120,
   "GOF86": 20,
   "SOR1": 80,
+  "e874c2bd84895e64694daa44bd5fd5c2": 10,
   "SOR2": 80,
   "SOR44": 80,
+  "6b18f49379aca9742894111f7ed409c7": 120,
   "TL19": 60,
   "6899b199f5e36144ebbdd7ed9d9e7afe": 20,
   "SOR45": 80,
@@ -806,7 +910,10 @@
   "GSC70": 90,
   "9238c27730a0c424288d46ed0f4a742c": 10,
   "d0ac7c259308ab540aabb5123d0c1633": 10,
+  "DA74": 110,
+  "a424ea66742166b4999fe97e07d61ac7": 10,
   "GOF14": 20,
+  "UM101": 10,
   "BL1": 50,
   "0cc4533fc0bee374196e55fb1569e63b": 110,
   "UM62": 10,
@@ -816,6 +923,7 @@
   "GSC33": 90,
   "SAU65": 40,
   "EC51": 120,
+  "c988c599275dcdb449a5d5a46af0d27b": 130,
   "GSC53": 90,
   "52520927841c93c4785d2690edb9fb1f": 20,
   "TAU51": 70,
@@ -824,12 +932,14 @@
   "SOR13": 80,
   "EC63": 120,
   "TL42": 60,
+  "UM97": 10,
   "BL41": 50,
   "EC49": 120,
   "TAU75": 70,
   "TAU48": 70,
   "DA50": 110,
   "SOR73": 80,
+  "SW37": 130,
   "SAU1": 40,
   "ASH58": 30,
   "GSC28": 90,
@@ -838,8 +948,11 @@
   "TAU54": 70,
   "AM6": 100,
   "TL44": 60,
+  "91992b401487b494596d42098b8ec9ee": 10,
   "3ebb159036778d14ebd1c48451aa6ca0": 20,
+  "SW43": 130,
   "DA51": 110,
+  "SW62": 130,
   "UM69": 10,
   "GSC66": 90,
   "BL50": 50,
@@ -853,14 +966,17 @@
   "TAU72": 70,
   "AM10": 100,
   "BL45": 50,
+  "SW42": 130,
+  "SW25": 130,
   "760bd3afde513774d96d6492f995fd37": 60,
   "SAU54": 40,
   "340fad5472405bf4296618152c4f003b": 60,
+  "SW12": 130,
   "AM5": 100,
   "GSC44": 90,
   "TAU15": 70,
   "GSC13": 90,
-  "#HB_DA1": 110,
+  "0d2874f3b124db2408e2c52ae47e5e0e": 10,
   "9176318eaf469354e858f51af2333aa3": 50,
   "GSC59": 90,
   "ASH65": 30,
@@ -890,6 +1006,7 @@
   "AM62": 100,
   "TL67": 60,
   "UM57": 10,
+  "SW50": 130,
   "GOF24": 20,
   "ASH72": 30,
   "d8a14171b08b54144ba9dbf324b0a042": 40,
@@ -898,18 +1015,26 @@
   "AM48": 100,
   "UM10": 10,
   "BL42": 50,
+  "UM95": 10,
   "BL25": 50,
   "SAU69": 40,
+  "SW56": 130,
   "SAU30": 40,
   "e9f33f1a8acbc3949a99f3ad69078d4d": 80,
+  "UM92": 10,
+  "UM111": 10,
   "BL31": 50,
   "GSC45": 90,
   "GOF103": 20,
+  "97a4b83aa9331d5489bcd837fd4be8e8": 10,
+  "7c06b8117fe86e74dbc454139da8653b": 130,
   "e8711efdd74a2a544a3ff12c729c230c": 30,
   "GOF42": 20,
+  "SW17": 130,
   "EC45": 120,
   "GOF58": 20,
   "cc1400347b15ee3449bc18bbdb9ddec9": 10,
+  "79fe758082cb0a548ba235d45bb26ca8": 10,
   "GSC52": 90,
   "202fb454856a2b04d904c4ff7bc2410f": 90,
   "ASH41": 30,
@@ -920,6 +1045,7 @@
   "GOF92": 20,
   "SAU19": 40,
   "GSC58": 90,
+  "UM93": 10,
   "TAU50": 70,
   "20d0f4451f16fc441836a02f99bf77da": 20,
   "SOR54": 80,
@@ -927,8 +1053,10 @@
   "AM2": 100,
   "9b1a9b14d290b4d07a575e0af8ffdf9b": 50,
   "SOR17": 80,
+  "SW3": 130,
   "SAU44": 40,
   "UM51": 10,
+  "SW22": 130,
   "TAU46": 70,
   "GOF74": 20,
   "GSC5": 90,
@@ -938,6 +1066,7 @@
   "EC39": 120,
   "AM15": 100,
   "2aa8026988b605d40874798f3992bc81": 60,
+  "SW39": 130,
   "DA54": 110,
   "7693f2b21b2f85644b739da990bc2216": 10,
   "TL17": 60,
@@ -952,6 +1081,7 @@
   "DA31": 110,
   "TL7": 60,
   "EC36": 120,
+  "7a01882fe4610244292d16b15f4b873e": 130,
   "BL24": 50,
   "8425b809e9e64e24f9035f709f5aaee4": 20,
   "SOR27": 80,
@@ -963,6 +1093,7 @@
   "TAU43": 70,
   "f2b80d575cbf8f64597b991022beaf35": 70,
   "TL22": 60,
+  "SW7": 130,
   "GOF68": 20,
   "TAU63": 70,
   "ASH81": 30,
@@ -983,11 +1114,14 @@
   "EC56": 120,
   "AM68": 100,
   "GSC69": 90,
+  "DA65": 110,
   "SAU48": 40,
+  "SW49": 130,
   "SOR71": 80,
   "2ece07942d1524d2e8856cfa94d21db1": 30,
   "GOF9": 20,
   "SAU2": 40,
+  "f16df0b3a3bf1974db565107bda33847": 130,
   "GOF106": 20,
   "BL26": 50,
   "SAU14": 40,
@@ -995,15 +1129,20 @@
   "TAU8": 70,
   "TAU60": 70,
   "TAU36": 70,
+  "4d4b9170663891f488c0e96ee8e55ba1": 130,
   "TAU66": 70,
   "TL43": 60,
   "GSC14": 90,
   "b12d246ee426d0f48861a5842b7b0ba5": 110,
+  "SW41": 130,
   "c0ddba6cc45944f46a65f4fd93bcc0a5": 60,
   "13fc6dfbba030b643a1e8893a611c88e": 110,
   "UM44": 10,
+  "SW27": 130,
   "SOR20": 80,
   "DA17": 110,
+  "SW34": 130,
+  "SW47": 130,
   "a7bb23355a30d344e9d2decf976d91e1": 90,
   "f923701f207d23a4f81d6ff5891b4a0c": 10,
   "9215799995ff7a941b14737e27021032": 120,
@@ -1017,6 +1156,7 @@
   "SAU20": 40,
   "9be8bfe7063f14345966de388c7ba3ec": 10,
   "3e99603a7b7b2c54c8f1ad40250ee2ae": 110,
+  "38871853fabb5244d8148766829230cd": 110,
   "571aa5da2842f49478c6cccb3cf369b9": 90,
   "26d4ded12b28a3742b5c8fc155e29803": 10,
   "TL52": 60,
@@ -1033,8 +1173,12 @@
   "a84a5b49f0ca9144585058db6987c2a0": 110,
   "EC11": 120,
   "GSC2": 90,
+  "2c2866efa62a21a49bbd4691eff428ec": 130,
   "UM7": 10,
+  "7b703582937f4c444bbda8fb6a1710b1": 10,
+  "SW46": 130,
   "d19e8b68aaa9a884781d06697ad237a6": 20,
+  "SW29": 130,
   "GOF50": 20,
   "315d9f293e4f56d4f813584b43f0511c": 10,
   "TL5": 60,
@@ -1066,6 +1210,7 @@
   "UM70": 10,
   "AM31": 100,
   "AM11": 100,
+  "7710974b1e108d243a399ed127674ad4": 120,
   "TAU35": 70,
   "GOF36": 20,
   "DA14": 110,
@@ -1081,8 +1226,10 @@
   "ASH67": 30,
   "DA22": 110,
   "GOF67": 20,
+  "SW19": 130,
   "SAU4": 40,
   "AM17": 100,
+  "SW51": 130,
   "5b427f1ad98e8534f8590dad5bd560af": 10,
   "DA8": 110,
   "ASH43": 30,
@@ -1095,17 +1242,21 @@
   "UM3": 10,
   "SOR12": 80,
   "UM20": 10,
+  "6e4f9040e8cc59641a32f29e33ea4cbc": 130,
   "SAU70": 40,
   "SAU59": 40,
+  "SW55": 130,
   "GSC40": 90,
   "77fd626140a8c164fbb708a46956898d": 10,
   "BL4": 50,
   "84d4d192e0f57a34a90ac0f6172c3358": 20,
+  "UM108": 10,
   "ASH28": 30,
   "TAU74": 70,
   "DA35": 110,
   "UM4": 10,
   "GSC24": 90,
+  "UM99": 10,
   "GSC43": 90,
   "AM67": 100,
   "UM45": 10,
@@ -1133,6 +1284,8 @@
   "AM33": 100,
   "cf0b346f70e748c4bbfc4dc03ab39ead": 10,
   "6ffe2680a560aa94496080a025f561a1": 110,
+  "UM96": 10,
+  "481a554f4bcaf124681916a2854e775d": 10,
   "AM28": 100,
   "GOF59": 20,
   "SAU73": 40,
@@ -1143,6 +1296,8 @@
   "8d04a976efd628e43ad37d67e57140a0": 10,
   "SOR16": 80,
   "68909cf02f472734ea391665e0d28e15": 90,
+  "UM118": 10,
+  "SW33": 130,
   "TL27": 60,
   "1dd9a2768507ae6429409c4eec54b422": 20,
   "DA24": 110,
@@ -1164,6 +1319,7 @@
   "TAU7": 70,
   "SOR62": 80,
   "SOR31": 80,
+  "UM103": 10,
   "SAU15": 40,
   "GOF6": 20,
   "AM44": 100,
@@ -1185,7 +1341,6 @@
   "BL14": 50,
   "GOF105": 20,
   "ASH10": 30,
-  "#HB_BL34": 50,
   "b9665eadf1207ff49bcf0a730b0b7f9d": 120,
   "EC59": 120,
   "TAU64": 70,
@@ -1194,6 +1349,7 @@
   "SOR8": 80,
   "AM19": 100,
   "EC21": 120,
+  "UM104": 10,
   "GOF45": 20,
   "cb29b9bcde7995948a3c373401e67e3c": 40,
   "7c45a641ec845994097d185af58715f6": 110,
@@ -1237,10 +1393,12 @@
   "33eabec155f628440a426a4ba480ec24",
   "340fad5472405bf4296618152c4f003b",
   "36892cd906b0e5e4c9bbbe249db009b8",
+  "38871853fabb5244d8148766829230cd",
   "3a52026b99bb56f40aa9dc130fc66f34",
   "3e99603a7b7b2c54c8f1ad40250ee2ae",
   "3ebb159036778d14ebd1c48451aa6ca0",
   "3f38d2e2c83df4b4c9052ef4a510cfbb",
+  "40667e346ae58a84dbda1033dff70ccb",
   "453b0e8f88e094a17866a6979f389ef5",
   "461354d98aa5e3142afa4eb4922e5456",
   "468db99b4b10d0745bab346df37d3fb2",
@@ -1248,6 +1406,8 @@
   "4a48457c24877f345be2e96f867c1e94",
   "4cdc1b5f965f99945b685bca7660e9fa",
   "4d348cff71208c24d8e39252d913ff9d",
+  "4d4b9170663891f488c0e96ee8e55ba1",
+  "4de4fcfb5d7e0554a88b9f419a2cd7c2",
   "4eec3b13d157dae48b14ed412169e692",
   "507f79fa60945d04e93fe806aca912b7",
   "508002f5d7ee54f4686aefa2e6adce41",
@@ -1265,6 +1425,7 @@
   "68909cf02f472734ea391665e0d28e15",
   "6899b199f5e36144ebbdd7ed9d9e7afe",
   "6ba4b132d24528844a86304f8ce67833",
+  "6e4f9040e8cc59641a32f29e33ea4cbc",
   "6e6d14006d8e9514b83a6c99e572081c",
   "6ed51d59b9f8ea24ab0dc7ceaef7956c",
   "70199b6f183ec364082ca16e62f3d0cb",
@@ -1274,12 +1435,15 @@
   "7693f2b21b2f85644b739da990bc2216",
   "77fd626140a8c164fbb708a46956898d",
   "7831725387c8a774dbdf5b6492d928e0",
+  "7a01882fe4610244292d16b15f4b873e",
+  "7a02359776e89f243b8cf41642dc44c9",
   "7bf8ce67fb6be4744ae44345a5b465fd",
   "7c45a641ec845994097d185af58715f6",
   "7c666a04c1b9e8b4e9a96247e9fe115a",
   "8204f59a011f94d5c9ea1bed18ae9c57",
   "8425b809e9e64e24f9035f709f5aaee4",
   "847acecf682cb0748bc4445b52125cb4",
+  "8482077f309b08943b190f18b5874871",
   "84d4d192e0f57a34a90ac0f6172c3358",
   "851f73daf747eb642934a16429b391db",
   "8901e35c5de30eb48804da6651cfb132",
@@ -1593,7 +1757,18 @@
   "DA62",
   "DA63",
   "DA64",
+  "DA65",
+  "DA66",
+  "DA67",
+  "DA68",
+  "DA69",
   "DA7",
+  "DA70",
+  "DA71",
+  "DA72",
+  "DA73",
+  "DA74",
+  "DA75",
   "DA8",
   "DA9",
   "EC1",
@@ -1991,6 +2166,69 @@
   "SOR75",
   "SOR8",
   "SOR9",
+  "SW1",
+  "SW10",
+  "SW11",
+  "SW12",
+  "SW13",
+  "SW14",
+  "SW15",
+  "SW16",
+  "SW17",
+  "SW18",
+  "SW19",
+  "SW2",
+  "SW20",
+  "SW21",
+  "SW22",
+  "SW23",
+  "SW24",
+  "SW25",
+  "SW26",
+  "SW27",
+  "SW28",
+  "SW29",
+  "SW3",
+  "SW30",
+  "SW31",
+  "SW32",
+  "SW33",
+  "SW34",
+  "SW35",
+  "SW36",
+  "SW37",
+  "SW39",
+  "SW4",
+  "SW40",
+  "SW41",
+  "SW42",
+  "SW43",
+  "SW44",
+  "SW45",
+  "SW46",
+  "SW47",
+  "SW48",
+  "SW49",
+  "SW5",
+  "SW50",
+  "SW51",
+  "SW52",
+  "SW53",
+  "SW54",
+  "SW55",
+  "SW56",
+  "SW57",
+  "SW58",
+  "SW59",
+  "SW6",
+  "SW60",
+  "SW61",
+  "SW62",
+  "SW63",
+  "SW64",
+  "SW7",
+  "SW8",
+  "SW9",
   "TAU1",
   "TAU10",
   "TAU11",
@@ -2143,7 +2381,25 @@
   "TL9",
   "UM1",
   "UM10",
+  "UM100",
+  "UM102",
+  "UM103",
+  "UM104",
+  "UM105",
+  "UM106",
+  "UM107",
+  "UM108",
+  "UM109",
   "UM11",
+  "UM110",
+  "UM111",
+  "UM112",
+  "UM113",
+  "UM114",
+  "UM115",
+  "UM116",
+  "UM117",
+  "UM118",
   "UM12",
   "UM13",
   "UM14",
@@ -2226,16 +2482,33 @@
   "UM84",
   "UM85",
   "UM86",
+  "UM87",
+  "UM88",
+  "UM89",
   "UM9",
+  "UM90",
+  "UM91",
+  "UM92",
+  "UM93",
+  "UM94",
+  "UM95",
+  "UM96",
+  "UM97",
+  "UM98",
+  "UM99",
+  "a51adc8f5c311584385c3117cfd919e9",
   "a58e05916eb5e994daa0349cbe237001",
   "a7bb23355a30d344e9d2decf976d91e1",
   "a84a5b49f0ca9144585058db6987c2a0",
   "aa3b6aa4741556e4998c300975b15230",
   "aa45079b714e3ff498549e533c5954a1",
   "af98d423c7279a14c84c0d0382c53541",
+  "b14d1db2b0730d649b3bec35af100363",
   "b3364cdc54882b04e8a931e86700ac23",
   "b3735ef3d1408d544b0947e31f898e20",
+  "b3dce3f10cc118541910156ec8da1d9b",
   "b4d6d186eb95a3f468013c5be649ee3b",
+  "b551c8351ebe5784faf9912b573eaf93",
   "b5ee585c2678220478c4aed4893f4cc4",
   "b888bfd3849c4da48973f8217e41129c",
   "b8e81b2fe85cda747a68c4d6326b669c",
@@ -2264,10 +2537,13 @@
   "dd535f7a54bcf6241b24ca6d0e81bbb4",
   "e01e8e933ad574b44bce5473ae486667",
   "e01f4d54e8a474d96b5a1167cc28eebf",
+  "e3b5735d801fcbd49aa8d3975a5b0c31",
   "e3d67d86f73f7564eb0bf886ec848af6",
+  "e874c2bd84895e64694daa44bd5fd5c2",
   "e9952f50921d2844a94d39ce883430f4",
   "eb17cd22c6a5d7941a7456838d927ab1",
   "eb815e1e93912d24394c7fca6d3558f4",
+  "ef596edae1828bd46bfc4348535a3acc",
   "f104d4c21abe84546abc9365d9eda8dd",
   "f279c5cf1c3e16e4db6b9df4d941ad11",
   "f2b80d575cbf8f64597b991022beaf35",
@@ -2278,6 +2554,9 @@
   "fd67b47572987b84cb2990ea1ecfe982"
  ],
  "by_official_en": {
+  "1stcompanyterminator": [
+   "UM101"
+  ],
   "7thcompanybike": [
    "UM11"
   ],
@@ -2316,6 +2595,9 @@
   ],
   "acolytespecialist": [
    "GSC15"
+  ],
+  "adaptivestrategy": [
+   "UM109"
   ],
   "adelaidetheserene": [
    "SOR71"
@@ -2365,6 +2647,9 @@
   "angelsofdeath": [
    "UM64"
   ],
+  "angelswrath": [
+   "4de4fcfb5d7e0554a88b9f419a2cd7c2"
+  ],
   "annihilationbarge": [
    "SAU73"
   ],
@@ -2373,6 +2658,9 @@
   ],
   "antraksilk": [
    "5a8a11b2a89796f48b34fbec8db6f452"
+  ],
+  "anvilofendurance": [
+   "SW43"
   ],
   "anvirrkeltoc": [
    "ASH1"
@@ -2397,6 +2685,9 @@
   ],
   "ardshellgurk": [
    "GOF23"
+  ],
+  "arjacrockfist": [
+   "SW26"
   ],
   "armoriumcherub": [
    "SOR66"
@@ -2443,6 +2734,9 @@
   "assaultintercessor": [
    "UM4"
   ],
+  "assaultterminator": [
+   "DA67"
+  ],
   "asteroidzone": [
    "DA62"
   ],
@@ -2464,6 +2758,9 @@
   "atrapsprung": [
    "GSC56"
   ],
+  "attackbike": [
+   "UM95"
+  ],
   "attacksquig": [
    "GOF30"
   ],
@@ -2481,6 +2778,9 @@
   ],
   "autarch": [
    "ASH83"
+  ],
+  "authorofthecodex": [
+   "40667e346ae58a84dbda1033dff70ccb"
   ],
   "autocannonsquad": [
    "AM14"
@@ -2505,6 +2805,9 @@
   ],
   "backstab": [
    "GSC40"
+  ],
+  "ballistusdreadnought": [
+   "DA66"
   ],
   "banebladetank": [
    "AM38"
@@ -2575,8 +2878,17 @@
   "biovore": [
    "TL6"
   ],
+  "birthofasaga": [
+   "SW57"
+  ],
   "bitterblows": [
    "36892cd906b0e5e4c9bbbe249db009b8"
+  ],
+  "bjornsshrine": [
+   "SW40"
+  ],
+  "bjornthefellhanded": [
+   "SW36"
   ],
   "blackcrusade": [
    "BL55"
@@ -2587,11 +2899,23 @@
   "blacklegionary": [
    "BL2"
   ],
+  "blackmaneaggressor": [
+   "SW28"
+  ],
+  "blackmaneinceptor": [
+   "SW22"
+  ],
+  "blackmanereiver": [
+   "SW8"
+  ],
   "blackout": [
    "ASH58"
   ],
   "blackswordmissiles": [
    "DA47"
+  ],
+  "bladeguardancient": [
+   "UM104"
   ],
   "bladeguardlieutenant": [
    "UM23"
@@ -2616,6 +2940,12 @@
   ],
   "blissbringer": [
    "EC35"
+  ],
+  "bloodclaw": [
+   "SW4"
+  ],
+  "bloodclawpackleader": [
+   "SW6"
   ],
   "bombastfieldgun": [
    "AM23"
@@ -2662,6 +2992,9 @@
   "broodprophet": [
    "fd67b47572987b84cb2990ea1ecfe982"
   ],
+  "brutalisdreadnought": [
+   "UM108"
+  ],
   "burgeoningempire": [
    "TAU57"
   ],
@@ -2688,6 +3021,9 @@
   ],
   "cadrefireblade": [
    "TAU29"
+  ],
+  "canishelix": [
+   "SW39"
   ],
   "canoness": [
    "SOR23"
@@ -2722,6 +3058,9 @@
   "castigator": [
    "SOR72"
   ],
+  "catechismofdeath": [
+   "8482077f309b08943b190f18b5874871"
+  ],
   "celestian": [
    "SOR15"
   ],
@@ -2736,6 +3075,9 @@
   ],
   "chairon": [
    "UM77"
+  ],
+  "championsofhumanity": [
+   "UM112"
   ],
   "chaoslandraider": [
    "EC28"
@@ -2761,8 +3103,17 @@
   "chaplain": [
    "DA11"
   ],
+  "chaplaincassius": [
+   "UM100"
+  ],
+  "chaplaingabutheron": [
+   "DA65"
+  ],
   "chaplainletharius": [
    "UM65"
+  ],
+  "chapterchampion": [
+   "UM96"
   ],
   "chaptercouncil": [
    "UM63"
@@ -3004,6 +3355,9 @@
   "deathmark": [
    "SAU15"
   ],
+  "deathshun": [
+   "SW44"
+  ],
   "deathspinnerwarpspider": [
    "ASH77"
   ],
@@ -3024,6 +3378,9 @@
   ],
   "deathwingterminator": [
    "DA17"
+  ],
+  "deathwolfscout": [
+   "SW7"
   ],
   "decadentthrone": [
    "EC61"
@@ -3063,6 +3420,9 @@
   ],
   "devastatordoctrine": [
    "UM84"
+  ],
+  "devastatormarine": [
+   "UM98"
   ],
   "devilfish": [
    "TAU24"
@@ -3145,6 +3505,9 @@
   "dragitdown": [
    "GOF104"
   ],
+  "dreadnought": [
+   "UM105"
+  ],
   "dronecompanion": [
    "c4f5c920744030c4e84428dc5a0f1bf2"
   ],
@@ -3156,6 +3519,9 @@
   ],
   "duststorm": [
    "GOF50"
+  ],
+  "dutysend": [
+   "UM113"
   ],
   "dynamicoffensive": [
    "TAU47"
@@ -3180,6 +3546,9 @@
   ],
   "eliminatorsergeant": [
    "UM81"
+  ],
+  "embersofprospero": [
+   "SW53"
   ],
   "embracethepain": [
    "EC40"
@@ -3241,6 +3610,9 @@
   "eveoftheuprising": [
    "GSC55"
   ],
+  "everstorm": [
+   "SW64"
+  ],
   "excessivevigour": [
    "2621d4280735baf4c952e6afea8d0686"
   ],
@@ -3283,6 +3655,9 @@
   "falcon": [
    "ASH27"
   ],
+  "fallback": [
+   "UM110"
+  ],
   "farseer": [
    "ASH80"
   ],
@@ -3298,8 +3673,29 @@
   "feedingfrenzy": [
    "468db99b4b10d0745bab346df37d3fb2"
   ],
+  "fenrisianblizzard": [
+   "SW49"
+  ],
+  "fenrisiandroppod": [
+   "SW23"
+  ],
+  "fenrisianmonstrosities": [
+   "SW54"
+  ],
+  "fenrisianrunestones": [
+   "SW60"
+  ],
+  "fenrisianwolf": [
+   "SW9"
+  ],
+  "fenrisianwolfpack": [
+   "SW58"
+  ],
   "ferociousrage": [
    "84d4d192e0f57a34a90ac0f6172c3358"
+  ],
+  "ferrenareios": [
+   "UM106"
   ],
   "fiend": [
    "EC34"
@@ -3319,6 +3715,9 @@
   "firesightmarksman": [
    "TAU25"
   ],
+  "firestrikeservoturret": [
+   "UM92"
+  ],
   "firestriketurrets": [
    "UM52"
   ],
@@ -3333,6 +3732,9 @@
   ],
   "firstborn": [
    "UM3"
+  ],
+  "firstlight": [
+   "SW62"
   ],
   "flamertrooper": [
    "AM12"
@@ -3373,6 +3775,12 @@
   "forwarddeployment": [
    "UM42"
   ],
+  "frostclawwulfen": [
+   "SW24"
+  ],
+  "fullmoon": [
+   "SW63"
+  ],
   "fullthrottle": [
    "AM40"
   ],
@@ -3384,6 +3792,9 @@
   ],
   "furyoftheunforgiven": [
    "DA58"
+  ],
+  "fyrriaskar": [
+   "SW15"
   ],
   "gargantuansquiggoth": [
    "GOF97"
@@ -3463,6 +3874,12 @@
   "gretchintower": [
    "GOF49"
   ],
+  "greyhunter": [
+   "SW10"
+  ],
+  "greyhunterpackleader": [
+   "SW11"
+  ],
   "grimeffigy": [
    "DA59"
   ],
@@ -3513,6 +3930,9 @@
   ],
   "hallowedmartyrs": [
    "SOR57"
+  ],
+  "hallsoflegend": [
+   "SW61"
   ],
   "hammerhead": [
    "TAU31"
@@ -3589,6 +4009,12 @@
   "highcommand": [
    "AM46"
   ],
+  "highkingoffenris": [
+   "b3dce3f10cc118541910156ec8da1d9b"
+  ],
+  "highrunepriest": [
+   "a51adc8f5c311584385c3117cfd919e9"
+  ],
   "hivecommander": [
    "5b5425f6e2848b449807bd1643d0d936"
   ],
@@ -3619,6 +4045,9 @@
   "honourguard": [
    "UM14"
   ],
+  "hordeslayer": [
+   "SW50"
+  ],
   "hormagaunt": [
    "TL2"
   ],
@@ -3646,6 +4075,9 @@
   "howlingbansheeexarch": [
    "ASH69"
   ],
+  "hrolftheironhowl": [
+   "SW18"
+  ],
   "hulkingaberrant": [
    "GSC28"
   ],
@@ -3655,8 +4087,17 @@
   "huntarig": [
    "GOF93"
   ],
+  "huntersguile": [
+   "SW51"
+  ],
   "huntersinstincts": [
    "TAU75"
+  ],
+  "huntersofheretics": [
+   "DA74"
+  ],
+  "huntingwolf": [
+   "SW5"
   ],
   "huntthefallen": [
    "DA49"
@@ -3712,8 +4153,14 @@
   "inceptorsergeant": [
    "UM22"
   ],
+  "incursor": [
+   "UM89"
+  ],
   "indomitablewill": [
    "65b2be828179515458a282cf1b027182"
+  ],
+  "indomituscrusade": [
+   "UM118"
   ],
   "inescapableretribution": [
    "SAU76"
@@ -3774,6 +4221,9 @@
   ],
   "invictorwarsuit": [
    "UM70"
+  ],
+  "ironpriest": [
+   "SW19"
   ],
   "iskandarkhayon": [
    "BL32"
@@ -3841,6 +4291,9 @@
   "krumpdagitz": [
    "GOF71"
   ],
+  "landraider": [
+   "SW38"
+  ],
   "landspeeder": [
    "UM69"
   ],
@@ -3849,6 +4302,9 @@
   ],
   "leadbyexample": [
    "cc11838649ff68a40b7d5d2b9fccd2bc"
+  ],
+  "leadfromthefront": [
+   "UM114"
   ],
   "leadtherighteous": [
    "65cfec7d2bc719040b3b4b88622931b2"
@@ -3859,11 +4315,17 @@
   "legendarycommandant": [
    "af98d423c7279a14c84c0d0382c53541"
   ],
+  "legendarytenacity": [
+   "SW55"
+  ],
   "lemanrusstank": [
    "AM32"
   ],
   "lemanrussvanquisher": [
    "AM35"
+  ],
+  "letloose": [
+   "SW56"
   ],
   "leviathanstendrils": [
    "TL52"
@@ -3898,8 +4360,14 @@
   "livingicon": [
    "GSC51"
   ],
+  "livinglightning": [
+   "7a01882fe4610244292d16b15f4b873e"
+  ],
   "locus": [
    "GSC17"
+  ],
+  "logangrimnar": [
+   "SW1"
   ],
   "lokhustdestroyer": [
    "SAU68"
@@ -3912,6 +4380,9 @@
   ],
   "lonespear": [
    "TAU72"
+  ],
+  "longfang": [
+   "SW16"
   ],
   "longstrike": [
    "TAU35"
@@ -3991,6 +4462,9 @@
   "masterofarms": [
    "55b8e3d2040f86d4190ffb1a91abb5ed"
   ],
+  "masterofbattle": [
+   "b14d1db2b0730d649b3bec35af100363"
+  ],
   "masterofexecutions": [
    "BL15"
   ],
@@ -4017,6 +4491,9 @@
   ],
   "mastertactician": [
    "dcbd28525888ce54aaa93a47ba4de1e6"
+  ],
+  "masterzacharial": [
+   "DA75"
   ],
   "maulerfiend": [
    "BL31",
@@ -4112,8 +4589,14 @@
   "munitorumsupplies": [
    "AM62"
   ],
+  "murderfang": [
+   "SW34"
+  ],
   "murderousdesires": [
    "BL64"
+  ],
+  "murderoushurricane": [
+   "4d4b9170663891f488c0e96ee8e55ba1"
   ],
   "necronlord": [
    "SAU29"
@@ -4181,11 +4664,17 @@
   "nightspinner": [
    "ASH68"
   ],
+  "njalstormcaller": [
+   "SW2"
+  ],
   "nobonsmashasquig": [
    "GOF88"
   ],
   "noisemarine": [
    "BL8"
+  ],
+  "nomercy": [
+   "UM116"
   ],
   "nomukkinabout": [
    "GOF40"
@@ -4195,6 +4684,9 @@
   ],
   "nooffensive": [
    "5c4d9e7824bf8d941b69eeb2589e30aa"
+  ],
+  "norespite": [
+   "UM117"
   ],
   "norkdeddog": [
    "AM27"
@@ -4229,6 +4721,9 @@
   "orbitalbombardment": [
    "UM50"
   ],
+  "orbitaldefences": [
+   "SW59"
+  ],
   "orianlaratharjos": [
    "ASH79"
   ],
@@ -4249,6 +4744,9 @@
   ],
   "overwhelmingswarm": [
    "TL41"
+  ],
+  "packofone": [
+   "SW41"
   ],
   "painboss": [
    "GOF94"
@@ -4294,6 +4792,12 @@
   ],
   "perfecthosts": [
    "GSC47"
+  ],
+  "phoboslibrarian": [
+   "UM99"
+  ],
+  "phoboslieutenant": [
+   "UM90"
   ],
   "pilferedsupplies": [
    "GSC65"
@@ -4358,6 +4862,9 @@
   "presstheattack": [
    "AM47"
   ],
+  "primarchofthexiii": [
+   "e874c2bd84895e64694daa44bd5fd5c2"
+  ],
   "primarischaplain": [
    "UM13"
   ],
@@ -4393,6 +4900,9 @@
   ],
   "prioritytarget": [
    "TAU50"
+  ],
+  "properhunt": [
+   "SW52"
   ],
   "properkilly": [
    "GOF38"
@@ -4435,6 +4945,12 @@
   ],
   "ragingstorm": [
    "SOR62"
+  ],
+  "ragnarblackmane": [
+   "SW3"
+  ],
+  "raidtactics": [
+   "SW46"
   ],
   "ramatekhthecruel": [
    "SAU66"
@@ -4517,6 +5033,9 @@
   "reductussaboteur": [
    "GSC31"
   ],
+  "refusetoyield": [
+   "38871853fabb5244d8148766829230cd"
+  ],
   "regimentaldoctrine": [
    "AM48"
   ],
@@ -4531,6 +5050,9 @@
   ],
   "relentlessmarch": [
    "d8a14171b08b54144ba9dbf324b0a042"
+  ],
+  "relicmunitions": [
+   "DA73"
   ],
   "relicsofstkatherine": [
    "SOR50"
@@ -4577,6 +5099,9 @@
   "roamingoutriders": [
    "GSC75"
   ],
+  "robouteguilliman": [
+   "UM87"
+  ],
   "rogaldorntank": [
    "AM37"
   ],
@@ -4622,6 +5147,9 @@
   "sacredstandard": [
    "DA50"
   ],
+  "sagaofthebold": [
+   "SW47"
+  ],
   "saintcelestine": [
    "SOR33"
   ],
@@ -4630,6 +5158,9 @@
   ],
   "sanctus": [
    "GSC25"
+  ],
+  "savagelegacy": [
+   "SW42"
   ],
   "saviourprotocols": [
    "TAU51"
@@ -4651,6 +5182,9 @@
   ],
   "scoutsentinel": [
    "AM16"
+  ],
+  "scoutsniper": [
+   "UM94"
   ],
   "scragem": [
    "GOF36"
@@ -4696,6 +5230,9 @@
   ],
   "shadowsun": [
    "TAU1"
+  ],
+  "shallknownofear": [
+   "UM111"
   ],
   "shelteredlocation": [
    "UM31"
@@ -4817,6 +5354,9 @@
   "sonicblasternoisemarine": [
    "EC1"
   ],
+  "sonsofmorkaieliminator": [
+   "SW29"
+  ],
   "sorcerer": [
    "BL23"
   ],
@@ -4907,6 +5447,9 @@
   "stormguardian": [
    "ASH5"
   ],
+  "stormhawkinterception": [
+   "UM115"
+  ],
   "stormoffire": [
    "TAU52"
   ],
@@ -4924,6 +5467,9 @@
   ],
   "stormtalon": [
    "UM59"
+  ],
+  "stormwolf": [
+   "SW32"
   ],
   "strandedtermagant": [
    "TL61"
@@ -4961,8 +5507,14 @@
   "sunsharkbomber": [
    "TAU37"
   ],
+  "suppressor": [
+   "UM97"
+  ],
   "supremegrandmaster": [
    "dd535f7a54bcf6241b24ca6d0e81bbb4"
+  ],
+  "supremestrategist": [
+   "ef596edae1828bd46bfc4348535a3acc"
   ],
   "swarmingmasses": [
    "TL53"
@@ -4991,6 +5543,9 @@
   "tacticalinsight": [
    "UM32"
   ],
+  "tacticalmarine": [
+   "UM91"
+  ],
   "tankbusta": [
    "GOF60"
   ],
@@ -5018,6 +5573,9 @@
   "tempestorsergeant": [
    "AM69"
   ],
+  "tempestswrath": [
+   "b551c8351ebe5784faf9912b573eaf93"
+  ],
   "tempestusaquilon": [
    "AM71"
   ],
@@ -5031,11 +5589,18 @@
    "TL75"
   ],
   "terminator": [
-   "EC25"
+   "EC25",
+   "UM103"
+  ],
+  "terminatorcaptain": [
+   "UM102"
   ],
   "terminatorchampion": [
    "BL29",
    "EC26"
+  ],
+  "terminatorrunepriest": [
+   "SW30"
   ],
   "terrifyingcrescendo": [
    "EC49"
@@ -5051,6 +5616,9 @@
   ],
   "thechaptersdue": [
    "UM61"
+  ],
+  "thefang": [
+   "SW48"
   ],
   "thermalweaponry": [
    "AM50"
@@ -5081,6 +5649,12 @@
   ],
   "thunderstorm": [
    "UM51"
+  ],
+  "thunderwolfcavalry": [
+   "SW12"
+  ],
+  "thunderwolfcavalrypackleader": [
+   "SW20"
   ],
   "tideofmuscle": [
    "GOF39"
@@ -5166,11 +5740,17 @@
   "tyrantguard": [
    "TL12"
   ],
+  "tyrnakandfenrir": [
+   "6e4f9040e8cc59641a32f29e33ea4cbc"
+  ],
   "ugechoppa": [
    "6899b199f5e36144ebbdd7ed9d9e7afe"
   ],
   "unbridledcarnage": [
    "GOF41"
+  ],
+  "unbridledfury": [
+   "SW45"
   ],
   "undergroundnetwork": [
    "GSC45"
@@ -5199,6 +5779,9 @@
   "ursulacreed": [
    "AM2"
   ],
+  "valiuspaxor": [
+   "UM88"
+  ],
   "valkyrie": [
    "AM34"
   ],
@@ -5223,8 +5806,23 @@
   "veldrasthesublime": [
    "EC22"
   ],
+  "venerabledreadnought": [
+   "SW35"
+  ],
   "vengeanceforcadia": [
    "AM56"
+  ],
+  "vengefulbrethren": [
+   "DA72"
+  ],
+  "vengefulbrethrenbladeguard": [
+   "DA68"
+  ],
+  "vengefulbrethrenhellblaster": [
+   "DA69"
+  ],
+  "vengefulbrethrenintercessor": [
+   "DA70"
   ],
   "vengefulsurge": [
    "EC58"
@@ -5262,6 +5860,12 @@
   "vialtanks": [
    "EC59"
   ],
+  "vicotherbeus": [
+   "UM93"
+  ],
+  "vindicator": [
+   "SW33"
+  ],
   "vitusgryf": [
    "AM72"
   ],
@@ -5295,6 +5899,9 @@
   "warbossgordrang": [
    "GOF75"
   ],
+  "warhowl": [
+   "e3b5735d801fcbd49aa8d3975a5b0c31"
+  ],
   "warlock": [
    "ASH8"
   ],
@@ -5318,6 +5925,9 @@
   ],
   "warwalker": [
    "ASH26"
+  ],
+  "watcherinthedark": [
+   "DA71"
   ],
   "watchtower": [
    "TAU62"
@@ -5346,6 +5956,9 @@
   "whirlingdeath": [
    "ASH73"
   ],
+  "whirlwind": [
+   "UM107"
+  ],
   "wildhost": [
    "ASH44"
   ],
@@ -5373,6 +5986,21 @@
   "witchfire": [
    "d3e99cb18b8cbba4081486f57f510f75"
   ],
+  "wolfguardbattleleader": [
+   "SW25"
+  ],
+  "wolfguardheadtaker": [
+   "SW13"
+  ],
+  "wolfguardterminator": [
+   "SW31"
+  ],
+  "wolfguardterminatorpackleader": [
+   "SW27"
+  ],
+  "wolfpriest": [
+   "SW14"
+  ],
   "worsttemper": [
    "8425b809e9e64e24f9035f709f5aaee4"
   ],
@@ -5393,6 +6021,15 @@
   ],
   "wreckinball": [
    "508002f5d7ee54f4686aefa2e6adce41"
+  ],
+  "wulfen": [
+   "SW17"
+  ],
+  "wulfendreadnought": [
+   "SW37"
+  ],
+  "wulfenpackleader": [
+   "SW21"
   ],
   "wurrboy": [
    "GOF90"
@@ -5426,6 +6063,9 @@
   ]
  },
  "by_tail": {
+  "2ndcompanyterminator": [
+   "UM101"
+  ],
   "7thcompanybike": [
    "UM11"
   ],
@@ -5433,8 +6073,7 @@
    "BL37"
   ],
   "abaddonthedespoiler": [
-   "BL34",
-   "#HB_BL34"
+   "BL34"
   ],
   "aberrant": [
    "GSC20"
@@ -5468,6 +6107,9 @@
   ],
   "adaptation": [
    "TL49"
+  ],
+  "adaptivestrategy": [
+   "UM109"
   ],
   "adelaidetheserene": [
    "SOR71"
@@ -5508,6 +6150,9 @@
   "ancientreliquary": [
    "DA39"
   ],
+  "angelswrath": [
+   "4de4fcfb5d7e0554a88b9f419a2cd7c2"
+  ],
   "annihilationbarge": [
    "SAU73"
   ],
@@ -5516,6 +6161,9 @@
   ],
   "antraksilk": [
    "5a8a11b2a89796f48b34fbec8db6f452"
+  ],
+  "anvilofendurance": [
+   "SW43"
   ],
   "anvirrkeltoc": [
    "ASH1"
@@ -5534,6 +6182,9 @@
   ],
   "ardshellgurk": [
    "GOF23"
+  ],
+  "arjacrockfist": [
+   "SW26"
   ],
   "armoriumcherub": [
    "SOR66"
@@ -5574,6 +6225,9 @@
   "assaultintercessor": [
    "UM4"
   ],
+  "assaultterminator": [
+   "DA67"
+  ],
   "asteroidzone": [
    "DA62"
   ],
@@ -5595,6 +6249,9 @@
   "atrapsprung": [
    "GSC56"
   ],
+  "attackbike": [
+   "UM95"
+  ],
   "attacksquig": [
    "GOF30"
   ],
@@ -5613,6 +6270,9 @@
   "autarch": [
    "ASH83"
   ],
+  "authorofthecodex": [
+   "40667e346ae58a84dbda1033dff70ccb"
+  ],
   "autocannonsquad": [
    "AM14"
   ],
@@ -5626,8 +6286,7 @@
    "SAU59"
   ],
   "azrael": [
-   "DA1",
-   "#HB_DA1"
+   "DA1"
   ],
   "backstab": [
    "GSC40"
@@ -5698,8 +6357,14 @@
   "biovore": [
    "TL6"
   ],
+  "birthofasaga": [
+   "SW57"
+  ],
   "bitterblows": [
    "36892cd906b0e5e4c9bbbe249db009b8"
+  ],
+  "bjornsshrine": [
+   "SW40"
   ],
   "blackcrusade": [
    "BL55"
@@ -5710,11 +6375,23 @@
   "blacklegionary": [
    "BL2"
   ],
+  "blackmaneaggressor": [
+   "SW28"
+  ],
+  "blackmaneinceptor": [
+   "SW22"
+  ],
+  "blackmanereiver": [
+   "SW8"
+  ],
   "blackout": [
    "ASH58"
   ],
   "blackswordmissiles": [
    "DA47"
+  ],
+  "bladeguardancient": [
+   "UM104"
   ],
   "bladeguardlieutenant": [
    "UM23"
@@ -5742,6 +6419,12 @@
   ],
   "blissbringer": [
    "EC35"
+  ],
+  "bloodclaw": [
+   "SW4"
+  ],
+  "bloodclawpackleader": [
+   "SW6"
   ],
   "bombastfieldgun": [
    "AM23"
@@ -5788,6 +6471,9 @@
   "broodprophet": [
    "fd67b47572987b84cb2990ea1ecfe982"
   ],
+  "brutalisdreadnought": [
+   "UM108"
+  ],
   "bullgrynboneead": [
    "AM24"
   ],
@@ -5818,6 +6504,9 @@
   "cadrefireblade": [
    "TAU29"
   ],
+  "canishelix": [
+   "SW39"
+  ],
   "canoness": [
    "SOR23"
   ],
@@ -5842,6 +6531,9 @@
   "captainsicarius": [
    "UM29"
   ],
+  "card": [
+   "2c2866efa62a21a49bbd4691eff428ec"
+  ],
   "carnifex": [
    "TL20"
   ],
@@ -5850,6 +6542,9 @@
   ],
   "castigator": [
    "SOR72"
+  ],
+  "catechismofdeath": [
+   "8482077f309b08943b190f18b5874871"
   ],
   "celestian": [
    "SOR15"
@@ -5865,6 +6560,9 @@
   ],
   "chairon": [
    "UM77"
+  ],
+  "championsofhumanity": [
+   "UM112"
   ],
   "chaoslandraider": [
    "EC28"
@@ -5890,8 +6588,17 @@
   "chaplain": [
    "DA11"
   ],
+  "chaplaincassius": [
+   "UM100"
+  ],
+  "chaplaingabutheron": [
+   "DA65"
+  ],
   "chaplainletharius": [
    "UM65"
+  ],
+  "chapterchampion": [
+   "UM96"
   ],
   "childoftorment": [
    "BL20"
@@ -6112,6 +6819,9 @@
   "deathmark": [
    "SAU15"
   ],
+  "deathshun": [
+   "SW44"
+  ],
   "deathspinnerwarpspider": [
    "ASH77"
   ],
@@ -6132,6 +6842,9 @@
   ],
   "deathwingterminator": [
    "DA17"
+  ],
+  "deathwolfscout": [
+   "SW7"
   ],
   "defencebatteries": [
    "AM61"
@@ -6171,6 +6884,9 @@
   ],
   "devastatordoctrine": [
    "UM84"
+  ],
+  "devastatormarine": [
+   "UM98"
   ],
   "devilfish": [
    "TAU24"
@@ -6253,6 +6969,9 @@
   "dragitdown": [
    "GOF104"
   ],
+  "dreadnought": [
+   "UM105"
+  ],
   "dronecompanion": [
    "c4f5c920744030c4e84428dc5a0f1bf2"
   ],
@@ -6264,6 +6983,9 @@
   ],
   "duststorm": [
    "GOF50"
+  ],
+  "dutysend": [
+   "UM113"
   ],
   "dynamicoffensive": [
    "TAU47"
@@ -6294,6 +7016,9 @@
   "eliminatorsergeant": [
    "UM81"
   ],
+  "embersofprospero": [
+   "SW53"
+  ],
   "embracethepain": [
    "EC40"
   ],
@@ -6308,6 +7033,15 @@
   ],
   "empyricrift": [
    "EC64"
+  ],
+  "enchanatment1": [
+   "7210fc3a4509b3649969609a1fa822ea"
+  ],
+  "enchanatment2": [
+   "c988c599275dcdb449a5d5a46af0d27b"
+  ],
+  "enchanatment3": [
+   "69bf10fe198146b4bb8aec3f8dd3fe4e"
   ],
   "enchantment": [
    "b2f3624dc0fdad84d9eacd4a3a3ff8ea",
@@ -6337,6 +7071,7 @@
    "d4ef67e300a56834f9cef7715118362f",
    "a5960475756bec144a1d6d8a9d141fc9",
    "1a647ea39bbb0154b9673c5194e51a46",
+   "41e94f2d95a5b6143b44d5356a486213",
    "6e2399fed068fd3409bd2c1cf4b5bbd0",
    "77af39fae01dff044ac948424e5479c1",
    "0fbe7282202537b4aad103e73cc20223",
@@ -6348,14 +7083,17 @@
    "d0549600681827a42963bd24a46f297a",
    "cde6b147d68431341a6408b7720ca460",
    "e09280c7545371941b57dc0cc813012f",
+   "070f7594d50c74944b3e86ebae80bde1",
    "4cc68a0d541c4364e937d77d0838fb0d",
    "e8cf1eb55ca41534abe38efc90b302e9",
+   "ac6aa9739f7773e449347e1e79ea0e83",
    "2f00dde3a303fe34b99399c8bf987140",
    "4889d3ae002db2d4785cb2286a84e48e",
    "cd155c09a88e15c428b29ef000bd8954",
    "875eedc90a1608d49a95b34a863ca104",
    "3df005b0c8973d5419eb1a4981f777b0",
    "61ef8171ef572ac4b98e33c25fbefc70",
+   "29ee7b2dcd0d13e43a7065d3194a59b4",
    "3d012092ba60a2f49acbf766ab556600",
    "db34f054e134c094aaf92e7a6ae124c0",
    "70ce5448c46c2c34d80192472e976a67",
@@ -6365,11 +7103,14 @@
    "6b945ed622dee0e479d44e0bfd2273c5",
    "364bf7f669176924eab7fbb1a477e3a4",
    "44761bc257d1f1243ac5f6058459ede6",
+   "ed8105674efc55e4185a5c74d5abf844",
    "0474b16360827b6408fb02b6820e7e63",
+   "f240bc73f2297494c9baf3784cc23a5e",
    "fdacb4e306ae79547883557cce46f557",
    "fae4ef61e87b2ee44b8e52fc705c2030",
    "03b4f1012b03fbe4193b68c99d9a7129",
    "752141bbf0543314987e3b9afed938af",
+   "7c06b8117fe86e74dbc454139da8653b",
    "202fb454856a2b04d904c4ff7bc2410f",
    "9b1a9b14d290b4d07a575e0af8ffdf9b",
    "9a2cadc64c80a6b42912441105bb1cee",
@@ -6378,6 +7119,7 @@
    "41642ef512a2dbf42889c51fff3a8aaa",
    "a3f0dda16acf35140add842152477c94",
    "2ece07942d1524d2e8856cfa94d21db1",
+   "f16df0b3a3bf1974db565107bda33847",
    "b12d246ee426d0f48861a5842b7b0ba5",
    "13fc6dfbba030b643a1e8893a611c88e",
    "430c733f7e6de72489e2f0586ccc8d3d",
@@ -6391,6 +7133,7 @@
   "enchantment1": [
    "4604f2deaa3fad6418e2d8f4b3dc36e4",
    "ae8e1ca230ab7714e87b50e5cfe47db5",
+   "6b18f49379aca9742894111f7ed409c7",
    "e9f33f1a8acbc3949a99f3ad69078d4d",
    "e8711efdd74a2a544a3ff12c729c230c",
    "571aa5da2842f49478c6cccb3cf369b9",
@@ -6405,7 +7148,8 @@
    "9a13583b689e99c43b33020d7dac6e2f",
    "b5cdf76897db0a84ca518725d20168a7",
    "59e47125a7f5b36448bd1f71fd17b4cf",
-   "98efedc81da043a48ba219d1aaed8965"
+   "98efedc81da043a48ba219d1aaed8965",
+   "7710974b1e108d243a399ed127674ad4"
   ],
   "enchantment3": [
    "d7255ddd4822c954c9f4cc0826ea1d47",
@@ -6470,6 +7214,9 @@
   "eveoftheuprising": [
    "GSC55"
   ],
+  "everstorm": [
+   "SW64"
+  ],
   "excessivevigour": [
    "2621d4280735baf4c952e6afea8d0686"
   ],
@@ -6512,6 +7259,9 @@
   "falcon": [
    "ASH27"
   ],
+  "fallback": [
+   "UM110"
+  ],
   "farseer": [
    "ASH80"
   ],
@@ -6527,8 +7277,29 @@
   "feedingfrenzy": [
    "468db99b4b10d0745bab346df37d3fb2"
   ],
+  "fenrisianblizzard": [
+   "SW49"
+  ],
+  "fenrisiandroppod": [
+   "SW23"
+  ],
+  "fenrisianmonstrosities": [
+   "SW54"
+  ],
+  "fenrisianrunestones": [
+   "SW60"
+  ],
+  "fenrisianwolf": [
+   "SW9"
+  ],
+  "fenrisianwolfpack": [
+   "SW58"
+  ],
   "ferociousrage": [
    "84d4d192e0f57a34a90ac0f6172c3358"
+  ],
+  "ferrenareios": [
+   "UM106"
   ],
   "fiend": [
    "EC34"
@@ -6548,6 +7319,9 @@
   "firesightmarksman": [
    "TAU25"
   ],
+  "firestrikeservoturret": [
+   "UM92"
+  ],
   "firestriketurrets": [
    "UM52"
   ],
@@ -6562,6 +7336,9 @@
   ],
   "firstborn": [
    "UM3"
+  ],
+  "firstlight": [
+   "SW62"
   ],
   "flagellant": [
    "SOR8"
@@ -6602,6 +7379,12 @@
   "fortifiedpositions": [
    "TAU53"
   ],
+  "frostclawwulfen": [
+   "SW24"
+  ],
+  "fullmoon": [
+   "SW63"
+  ],
   "fullthrottle": [
    "AM40"
   ],
@@ -6613,6 +7396,9 @@
   ],
   "furyoftheunforgiven": [
    "DA58"
+  ],
+  "fyrriaskar": [
+   "SW15"
   ],
   "gargantuansquiggoth": [
    "GOF97"
@@ -6689,6 +7475,12 @@
   "gretchintower": [
    "GOF49"
   ],
+  "greyhunter": [
+   "SW10"
+  ],
+  "greyhunterpackleader": [
+   "SW11"
+  ],
   "grimeffigy": [
    "DA59"
   ],
@@ -6740,8 +7532,14 @@
   "hallowedmartyrs": [
    "SOR57"
   ],
+  "hallsoflegend": [
+   "SW61"
+  ],
   "hammerhead": [
    "TAU31"
+  ],
+  "handed": [
+   "SW36"
   ],
   "hardenedbiology": [
    "TL44"
@@ -6815,6 +7613,12 @@
   "highcommand": [
    "AM46"
   ],
+  "highkingoffenris": [
+   "b3dce3f10cc118541910156ec8da1d9b"
+  ],
+  "highrunepriest": [
+   "a51adc8f5c311584385c3117cfd919e9"
+  ],
   "hivecommander": [
    "5b5425f6e2848b449807bd1643d0d936"
   ],
@@ -6844,6 +7648,9 @@
   ],
   "honourguard": [
    "UM14"
+  ],
+  "hordeslayer": [
+   "SW50"
   ],
   "hormagaunt": [
    "TL2"
@@ -6875,14 +7682,26 @@
   "howlingbansheeexarch": [
    "ASH69"
   ],
+  "hrolftheironhowl": [
+   "SW18"
+  ],
   "hulkingaberrant": [
    "GSC28"
   ],
   "huntarig": [
    "GOF93"
   ],
+  "huntersguile": [
+   "SW51"
+  ],
   "huntersinstincts": [
    "TAU75"
+  ],
+  "huntersofheretics": [
+   "DA74"
+  ],
+  "huntingwolf": [
+   "SW5"
   ],
   "huntthefallen": [
    "DA49"
@@ -6938,8 +7757,14 @@
   "inceptorsergeant": [
    "UM22"
   ],
+  "incursor": [
+   "UM89"
+  ],
   "indomitablewill": [
    "65b2be828179515458a282cf1b027182"
+  ],
+  "indomituscrusade": [
+   "UM118"
   ],
   "inescapableretribution": [
    "SAU76"
@@ -6997,6 +7822,9 @@
   ],
   "invictorwarsuit": [
    "UM70"
+  ],
+  "ironpriest": [
+   "SW19"
   ],
   "iskandarkhayon": [
    "BL32"
@@ -7067,6 +7895,9 @@
   "krumpdagitz": [
    "GOF71"
   ],
+  "landrider": [
+   "SW38"
+  ],
   "landspeeder": [
    "UM69"
   ],
@@ -7075,6 +7906,9 @@
   ],
   "leadbyexample": [
    "cc11838649ff68a40b7d5d2b9fccd2bc"
+  ],
+  "leadfromthefront": [
+   "UM114"
   ],
   "leadtherighteous": [
    "65cfec7d2bc719040b3b4b88622931b2"
@@ -7085,11 +7919,17 @@
   "legendarycommandant": [
    "af98d423c7279a14c84c0d0382c53541"
   ],
+  "legendarytenacity": [
+   "SW55"
+  ],
   "lemanrusstank": [
    "AM32"
   ],
   "lemanrussvanquisher": [
    "AM35"
+  ],
+  "letloose": [
+   "SW56"
   ],
   "leviathanstendrils": [
    "TL52"
@@ -7124,8 +7964,14 @@
   "livingicon": [
    "GSC51"
   ],
+  "livinglightning": [
+   "7a01882fe4610244292d16b15f4b873e"
+  ],
   "locus": [
    "GSC17"
+  ],
+  "logangrimnar": [
+   "SW1"
   ],
   "lokhustdestroyer": [
    "SAU68"
@@ -7135,6 +7981,9 @@
   ],
   "lokhustlord": [
    "SAU72"
+  ],
+  "longfang": [
+   "SW16"
   ],
   "longstrike": [
    "TAU35"
@@ -7214,6 +8063,9 @@
   "masterofarms": [
    "55b8e3d2040f86d4190ffb1a91abb5ed"
   ],
+  "masterofbattle": [
+   "b14d1db2b0730d649b3bec35af100363"
+  ],
   "masterofexecutions": [
    "BL15"
   ],
@@ -7237,6 +8089,9 @@
   ],
   "mastertactician": [
    "dcbd28525888ce54aaa93a47ba4de1e6"
+  ],
+  "masterzacharial": [
+   "DA75"
   ],
   "maulerfiend": [
    "BL31",
@@ -7317,6 +8172,9 @@
   "moredakka": [
    "9f4e1b7ea9f00da458c6a859a4e958c8"
   ],
+  "morkaieliminator": [
+   "SW29"
+  ],
   "mortifier": [
    "SOR32"
   ],
@@ -7335,8 +8193,14 @@
   "munitorumsupplies": [
    "AM62"
   ],
+  "murderfang": [
+   "SW34"
+  ],
   "murderousdesires": [
    "BL64"
+  ],
+  "murderoushurricane": [
+   "4d4b9170663891f488c0e96ee8e55ba1"
   ],
   "necronlord": [
    "SAU29"
@@ -7404,11 +8268,17 @@
   "nightspinner": [
    "ASH68"
   ],
+  "njalstormcaller": [
+   "SW2"
+  ],
   "nobonsmashasquig": [
    "GOF88"
   ],
   "noisemarine": [
    "BL8"
+  ],
+  "nomercy": [
+   "UM116"
   ],
   "nomukkinabout": [
    "GOF40"
@@ -7416,8 +8286,23 @@
   "nonemustknow": [
    "24fcaf45556573549b922c06cad3aa2c"
   ],
+  "norespite": [
+   "UM117"
+  ],
   "norkdeddog": [
    "AM27"
+  ],
+  "normal": [
+   "cd053fb3b46dc4d4c93762a20fa3c7e1",
+   "d32332a368c7919469dfa0d5d4df7d03",
+   "16c804b7e1b10b542a8b1dbc5decec9e",
+   "74480125107476f498ab284871b20401",
+   "d05168153d48a004a98397101dc4954f",
+   "fb248c0fdddc5ec4da1ffcc0a8ab603a",
+   "b34ec9176268dca4db0b975d1f9028ea",
+   "a20b3a843b961c04bb1b6dde3850859b",
+   "6bce17171773ce044ac88728f5ea1d33",
+   "7b703582937f4c444bbda8fb6a1710b1"
   ],
   "normalconditions": [
    "8d1fbc34ac945c547b61bc9627a77fda",
@@ -7426,6 +8311,7 @@
    "e4bb5208917e50248b1913c0f0daa691",
    "744e35eddd8fa0a489902221ed82a733",
    "0360bbe6c59d84b4aaf03454a7e0e4ff",
+   "b5036545b0241504f96efdc00cf4ce01",
    "e9b45df57f8a55d49a5083327af8377b",
    "5c4d9e7824bf8d941b69eeb2589e30aa",
    "bf538271ab431244399a01e3ba3a103f",
@@ -7441,6 +8327,18 @@
   ],
   "nurgle": [
    "7ae784e51720db24985842a91f91ad6d"
+  ],
+  "oath": [
+   "57bfef8500ae0d84186f713561c16bcc",
+   "6ea114bce68bc714e8f0a4587dbbafe1",
+   "fe6fde3df4104374092a642460dadf03",
+   "2bee2e8f8b3f8bc47981084f14495088",
+   "a424ea66742166b4999fe97e07d61ac7",
+   "91992b401487b494596d42098b8ec9ee",
+   "0d2874f3b124db2408e2c52ae47e5e0e",
+   "97a4b83aa9331d5489bcd837fd4be8e8",
+   "79fe758082cb0a548ba235d45bb26ca8",
+   "481a554f4bcaf124681916a2854e775d"
   ],
   "oathofmoment": [
    "UM73"
@@ -7466,6 +8364,9 @@
   "orbitalbombardment": [
    "UM50"
   ],
+  "orbitaldefences": [
+   "SW59"
+  ],
   "orianlaratharjos": [
    "ASH79"
   ],
@@ -7486,6 +8387,9 @@
   ],
   "overwhelmingswarm": [
    "TL41"
+  ],
+  "packofone": [
+   "SW41"
   ],
   "painboss": [
    "GOF94"
@@ -7528,6 +8432,12 @@
   ],
   "perfecthosts": [
    "GSC47"
+  ],
+  "phoboslibrarian": [
+   "UM99"
+  ],
+  "phoboslieutenant": [
+   "UM90"
   ],
   "pilferedsupplies": [
    "GSC65"
@@ -7592,6 +8502,9 @@
   "priestenginseer": [
    "AM21"
   ],
+  "primarchofthexiii": [
+   "e874c2bd84895e64694daa44bd5fd5c2"
+  ],
   "primarischaplain": [
    "UM13"
   ],
@@ -7627,6 +8540,9 @@
   ],
   "prioritytarget": [
    "TAU50"
+  ],
+  "properhunt": [
+   "SW52"
   ],
   "properkilly": [
    "GOF38"
@@ -7667,6 +8583,12 @@
   "ragingstorm": [
    "SOR62"
   ],
+  "ragnarblackmane": [
+   "SW3"
+  ],
+  "raidtactics": [
+   "SW46"
+  ],
   "ramatekhthecruel": [
    "SAU66"
   ],
@@ -7702,6 +8624,9 @@
   ],
   "ravenwingancient": [
    "DA26"
+  ],
+  "ravenwingballistusdreadnought": [
+   "DA66"
   ],
   "ravenwingbikes": [
    "DA7"
@@ -7748,6 +8673,9 @@
   "reductussaboteur": [
    "GSC31"
   ],
+  "refusetoyield": [
+   "38871853fabb5244d8148766829230cd"
+  ],
   "regimentaldoctrine": [
    "AM48"
   ],
@@ -7762,6 +8690,9 @@
   ],
   "relentlessmarch": [
    "d8a14171b08b54144ba9dbf324b0a042"
+  ],
+  "relicmunitions": [
+   "DA73"
   ],
   "relicsofsaintkatherine": [
    "SOR50"
@@ -7811,6 +8742,9 @@
   "roamingoutriders": [
    "GSC75"
   ],
+  "robouteguilliman": [
+   "UM87"
+  ],
   "rogaldorntank": [
    "AM37"
   ],
@@ -7853,6 +8787,9 @@
   "sacredstandard": [
    "DA50"
   ],
+  "sagaofthebold": [
+   "SW47"
+  ],
   "saintcelestine": [
    "SOR33"
   ],
@@ -7861,6 +8798,9 @@
   ],
   "sanctus": [
    "GSC25"
+  ],
+  "savagelegacy": [
+   "SW42"
   ],
   "saviourprotocols": [
    "TAU51"
@@ -7879,6 +8819,9 @@
   ],
   "scoutsentinel": [
    "AM16"
+  ],
+  "scoutsniper": [
+   "UM94"
   ],
   "scragem": [
    "GOF36"
@@ -7921,6 +8864,9 @@
   ],
   "shadowsun": [
    "TAU1"
+  ],
+  "shallknownofear": [
+   "UM111"
   ],
   "shieldgenerator": [
    "684196db974ab254090f39ef6e89868c"
@@ -8099,6 +9045,10 @@
   "starorbit": [
    "DA64"
   ],
+  "startinghand": [
+   "8f0302f1603cc954392d90d5dabd22d5",
+   "f3df0cfc57695654cb31a72b65470522"
+  ],
   "staticinterference": [
    "TAU60"
   ],
@@ -8135,6 +9085,9 @@
   "stormguardian": [
    "ASH5"
   ],
+  "stormhawkinterception": [
+   "UM115"
+  ],
   "stormoffire": [
    "TAU52"
   ],
@@ -8149,6 +9102,9 @@
   ],
   "stormtalon": [
    "UM59"
+  ],
+  "stormwolf": [
+   "SW32"
   ],
   "strandedtermagant": [
    "TL61"
@@ -8189,8 +9145,14 @@
   "sunsharkbomber": [
    "TAU37"
   ],
+  "suppressor": [
+   "UM97"
+  ],
   "supremegrandmaster": [
    "dd535f7a54bcf6241b24ca6d0e81bbb4"
+  ],
+  "supremestrategist": [
+   "ef596edae1828bd46bfc4348535a3acc"
   ],
   "swarmingmasses": [
    "TL53"
@@ -8273,6 +9235,9 @@
   "tacticaldoctrine": [
    "UM85"
   ],
+  "tacticalmarine": [
+   "UM91"
+  ],
   "tankbusta": [
    "GOF60"
   ],
@@ -8297,6 +9262,9 @@
   "tempestorsergeant": [
    "AM69"
   ],
+  "tempestswrath": [
+   "b551c8351ebe5784faf9912b573eaf93"
+  ],
   "tempestusaquilon": [
    "AM71"
   ],
@@ -8310,11 +9278,18 @@
    "TL75"
   ],
   "terminator": [
-   "EC25"
+   "EC25",
+   "UM103"
+  ],
+  "terminatorcaptain": [
+   "UM102"
   ],
   "terminatorchampion": [
    "EC26",
    "BL29"
+  ],
+  "terminatorrunepriest": [
+   "SW30"
   ],
   "terrifyingcrescendo": [
    "EC49"
@@ -8327,6 +9302,9 @@
   ],
   "teslaimmortal": [
    "SAU6"
+  ],
+  "thefang": [
+   "SW48"
   ],
   "thermalweaponry": [
    "AM50"
@@ -8357,6 +9335,12 @@
   ],
   "thunderstorm": [
    "UM51"
+  ],
+  "thunderwolfcavalry": [
+   "SW12"
+  ],
+  "thunderwolfcavalrypackleader": [
+   "SW20"
   ],
   "thurga": [
    "SOR26"
@@ -8429,6 +9413,7 @@
   ],
   "tutorial": [
    "0fca8843c85ec1148b3bb77cc834a010",
+   "7a02359776e89f243b8cf41642dc44c9",
    "8204f59a011f94d5c9ea1bed18ae9c57",
    "eb815e1e93912d24394c7fca6d3558f4",
    "ef547f829b6491f45a8ad371f492278e",
@@ -8471,11 +9456,17 @@
   "tyrantguard": [
    "TL12"
   ],
+  "tyrnakandfenrir": [
+   "6e4f9040e8cc59641a32f29e33ea4cbc"
+  ],
   "ugechoppa": [
    "6899b199f5e36144ebbdd7ed9d9e7afe"
   ],
   "unbridledcarnage": [
    "GOF41"
+  ],
+  "unbridledfury": [
+   "SW45"
   ],
   "undergroundnetwork": [
    "GSC45"
@@ -8504,6 +9495,9 @@
   "ursulacreed": [
    "AM2"
   ],
+  "valiuspaxor": [
+   "UM88"
+  ],
   "valkyrie": [
    "AM34"
   ],
@@ -8528,8 +9522,23 @@
   "veldrasthesublime": [
    "EC22"
   ],
+  "venerabledreadnought": [
+   "SW35"
+  ],
   "vengeanceforcadia": [
    "AM56"
+  ],
+  "vengefulbrethren": [
+   "DA72"
+  ],
+  "vengefulbrethrenbladeguard": [
+   "DA68"
+  ],
+  "vengefulbrethrenhellblaster": [
+   "DA69"
+  ],
+  "vengefulbrethrenintercessor": [
+   "DA70"
   ],
   "vengefulsurge": [
    "EC58"
@@ -8570,6 +9579,12 @@
   "vialtanks": [
    "EC59"
   ],
+  "vicotherbeus": [
+   "UM93"
+  ],
+  "vindicator": [
+   "SW33"
+  ],
   "vitusgryf": [
    "AM72"
   ],
@@ -8600,6 +9615,9 @@
   "warbossgordrang": [
    "GOF75"
   ],
+  "warhowl": [
+   "e3b5735d801fcbd49aa8d3975a5b0c31"
+  ],
   "warlock": [
    "ASH8"
   ],
@@ -8627,6 +9645,9 @@
   "warwalker": [
    "ASH26"
   ],
+  "watcherinthedark": [
+   "DA71"
+  ],
   "watchtower": [
    "TAU62"
   ],
@@ -8653,6 +9674,9 @@
   ],
   "whirlingdeath": [
    "ASH73"
+  ],
+  "whirlwind": [
+   "UM107"
   ],
   "wildhost": [
    "ASH44"
@@ -8684,6 +9708,21 @@
   "withvanguard": [
    "66486b3f61682ab42ba2ce0fa921002f"
   ],
+  "wolfguardbattleleader": [
+   "SW25"
+  ],
+  "wolfguardheadtaker": [
+   "SW13"
+  ],
+  "wolfguardterminator": [
+   "SW31"
+  ],
+  "wolfguardterminatorpackleader": [
+   "SW27"
+  ],
+  "wolfpriest": [
+   "SW14"
+  ],
   "worsttemper": [
    "8425b809e9e64e24f9035f709f5aaee4"
   ],
@@ -8704,6 +9743,15 @@
   ],
   "wreckinball": [
    "508002f5d7ee54f4686aefa2e6adce41"
+  ],
+  "wulfen": [
+   "SW17"
+  ],
+  "wulfendreadnought": [
+   "SW37"
+  ],
+  "wulfenpackleader": [
+   "SW21"
   ],
   "wurrboy": [
    "GOF90"
@@ -8740,15 +9788,12 @@
   ]
  },
  "by_name": {
-  "": [
-   "#HB_DA1",
-   "#HB_BL34"
-  ],
   "7thcompanybike": [
    "UM11"
   ],
   "abaddonschosen": [
-   "BL37"
+   "BL37",
+   "f3df0cfc57695654cb31a72b65470522"
   ],
   "abaddonschosentutortial": [
    "7ae784e51720db24985842a91f91ad6d"
@@ -8786,6 +9831,11 @@
   ],
   "acolytespecialist": [
    "GSC15"
+  ],
+  "adaptivestrategy": [
+   "UM109",
+   "b34ec9176268dca4db0b975d1f9028ea",
+   "a424ea66742166b4999fe97e07d61ac7"
   ],
   "adelaidetheserene": [
    "SOR71"
@@ -8843,6 +9893,11 @@
   "angelsofdeath": [
    "UM64"
   ],
+  "angelswrath": [
+   "d05168153d48a004a98397101dc4954f",
+   "4de4fcfb5d7e0554a88b9f419a2cd7c2",
+   "97a4b83aa9331d5489bcd837fd4be8e8"
+  ],
   "annihilationbarge": [
    "SAU73"
   ],
@@ -8851,6 +9906,9 @@
   ],
   "antraksilk": [
    "5a8a11b2a89796f48b34fbec8db6f452"
+  ],
+  "anvilofendurance": [
+   "SW43"
   ],
   "anvirrkeltoc": [
    "ASH1"
@@ -8875,6 +9933,9 @@
   ],
   "ardshellgurk": [
    "GOF23"
+  ],
+  "arjacrockfist": [
+   "SW26"
   ],
   "armoriumcherub": [
    "SOR66"
@@ -8919,6 +9980,9 @@
   "assaultintercessor": [
    "UM4"
   ],
+  "assaultterminator": [
+   "DA67"
+  ],
   "asteroidzone": [
    "db34f054e134c094aaf92e7a6ae124c0",
    "DA62"
@@ -8941,6 +10005,9 @@
   "atrapsprung": [
    "GSC56"
   ],
+  "attackbike": [
+   "UM95"
+  ],
   "attacksquig": [
    "GOF30"
   ],
@@ -8961,6 +10028,9 @@
   ],
   "autarch": [
    "ASH83"
+  ],
+  "authorofthecodex": [
+   "40667e346ae58a84dbda1033dff70ccb"
   ],
   "autocannonsquad": [
    "AM14"
@@ -9053,8 +10123,17 @@
   "biovore": [
    "TL6"
   ],
+  "birthofasaga": [
+   "SW57"
+  ],
   "bitterblows": [
    "36892cd906b0e5e4c9bbbe249db009b8"
+  ],
+  "bjornsshrine": [
+   "SW40"
+  ],
+  "bjornthefellhanded": [
+   "SW36"
   ],
   "blackcrusade": [
    "BL55"
@@ -9065,12 +10144,24 @@
   "blacklegionary": [
    "BL2"
   ],
+  "blackmaneaggressor": [
+   "SW28"
+  ],
+  "blackmaneinceptor": [
+   "SW22"
+  ],
+  "blackmanereiver": [
+   "SW8"
+  ],
   "blackout": [
    "3852c4775eacc5b4da2e6099e2bffff7",
    "ASH58"
   ],
   "blackswordmissiles": [
    "DA47"
+  ],
+  "bladeguardancient": [
+   "UM104"
   ],
   "bladeguardlieutenant": [
    "UM23"
@@ -9096,6 +10187,12 @@
   ],
   "blissbringer": [
    "EC35"
+  ],
+  "bloodclaw": [
+   "SW4"
+  ],
+  "bloodclawpackleader": [
+   "SW6"
   ],
   "bombastfieldgun": [
    "AM23"
@@ -9142,6 +10239,9 @@
   "broodprophet": [
    "fd67b47572987b84cb2990ea1ecfe982"
   ],
+  "brutalisdreadnought": [
+   "UM108"
+  ],
   "bullgrynboneead": [
    "AM24"
   ],
@@ -9172,6 +10272,9 @@
   ],
   "cadrefireblade": [
    "TAU29"
+  ],
+  "canishelix": [
+   "SW39"
   ],
   "canoness": [
    "SOR23"
@@ -9206,6 +10309,11 @@
   "castigator": [
    "SOR72"
   ],
+  "catechismofdeath": [
+   "8482077f309b08943b190f18b5874871",
+   "74480125107476f498ab284871b20401",
+   "0d2874f3b124db2408e2c52ae47e5e0e"
+  ],
   "celestian": [
    "SOR15"
   ],
@@ -9220,6 +10328,11 @@
   ],
   "chairon": [
    "UM77"
+  ],
+  "championsofhumanity": [
+   "UM112",
+   "a20b3a843b961c04bb1b6dde3850859b",
+   "2bee2e8f8b3f8bc47981084f14495088"
   ],
   "chaoslandraider": [
    "EC28"
@@ -9245,8 +10358,17 @@
   "chaplain": [
    "DA11"
   ],
+  "chaplaincassius": [
+   "UM100"
+  ],
+  "chaplaingabutheron": [
+   "DA65"
+  ],
   "chaplainletharius": [
    "UM65"
+  ],
+  "chapterchampion": [
+   "UM96"
   ],
   "chaptercouncil": [
    "UM63"
@@ -9482,6 +10604,9 @@
   "deathmark": [
    "SAU15"
   ],
+  "deathshun": [
+   "SW44"
+  ],
   "deathspinnerwarpspider": [
    "ASH77"
   ],
@@ -9502,6 +10627,9 @@
   ],
   "deathwingterminator": [
    "DA17"
+  ],
+  "deathwolfscout": [
+   "SW7"
   ],
   "defencebatteries": [
    "AM61"
@@ -9543,6 +10671,9 @@
   ],
   "devastatordoctrine": [
    "UM84"
+  ],
+  "devastatormarine": [
+   "UM98"
   ],
   "devilfish": [
    "TAU24"
@@ -9629,6 +10760,9 @@
    "b2f3624dc0fdad84d9eacd4a3a3ff8ea",
    "GOF104"
   ],
+  "dreadnought": [
+   "UM105"
+  ],
   "dronecompanion": [
    "c4f5c920744030c4e84428dc5a0f1bf2"
   ],
@@ -9636,11 +10770,17 @@
    "TAU13"
   ],
   "duelistshubris": [
-   "6ed51d59b9f8ea24ab0dc7ceaef7956c"
+   "6ed51d59b9f8ea24ab0dc7ceaef7956c",
+   "6b18f49379aca9742894111f7ed409c7",
+   "7710974b1e108d243a399ed127674ad4"
   ],
   "duststorm": [
    "ef42ad6c970ec5f49804b1f9f9ad5685",
    "GOF50"
+  ],
+  "dutysend": [
+   "UM113",
+   "ed8105674efc55e4185a5c74d5abf844"
   ],
   "dynamicoffensive": [
    "TAU47"
@@ -9667,6 +10807,9 @@
   ],
   "eliminatorsergeant": [
    "UM81"
+  ],
+  "embersofprospero": [
+   "SW53"
   ],
   "embracethepain": [
    "EC40"
@@ -9739,6 +10882,10 @@
   "eveoftheuprising": [
    "GSC55"
   ],
+  "everstorm": [
+   "SW64",
+   "7c06b8117fe86e74dbc454139da8653b"
+  ],
   "excessivevigour": [
    "2621d4280735baf4c952e6afea8d0686"
   ],
@@ -9788,6 +10935,11 @@
   "falcon": [
    "ASH27"
   ],
+  "fallback": [
+   "fe6fde3df4104374092a642460dadf03",
+   "UM110",
+   "cd053fb3b46dc4d4c93762a20fa3c7e1"
+  ],
   "farseer": [
    "ASH80"
   ],
@@ -9803,9 +10955,30 @@
   "feedingfrenzy": [
    "468db99b4b10d0745bab346df37d3fb2"
   ],
+  "fenrisianblizzard": [
+   "SW49"
+  ],
+  "fenrisiandroppod": [
+   "SW23"
+  ],
+  "fenrisianmonstrosities": [
+   "SW54"
+  ],
+  "fenrisianrunestones": [
+   "SW60"
+  ],
+  "fenrisianwolf": [
+   "SW9"
+  ],
+  "fenrisianwolfpack": [
+   "SW58"
+  ],
   "ferociousrage": [
    "0078441d07f6d604db6c6cfb1c1fa46f",
    "84d4d192e0f57a34a90ac0f6172c3358"
+  ],
+  "ferrenareios": [
+   "UM106"
   ],
   "fiend": [
    "EC34"
@@ -9825,6 +10998,9 @@
   "firesightmarksman": [
    "TAU25"
   ],
+  "firestrikeservoturret": [
+   "UM92"
+  ],
   "firestriketurrets": [
    "UM52"
   ],
@@ -9842,6 +11018,10 @@
   ],
   "firstborntutorial": [
    "0fca8843c85ec1148b3bb77cc834a010"
+  ],
+  "firstlight": [
+   "29ee7b2dcd0d13e43a7065d3194a59b4",
+   "SW62"
   ],
   "flamertrooper": [
    "AM12"
@@ -9882,6 +11062,13 @@
   "forwarddeployment": [
    "UM42"
   ],
+  "frostclawwulfen": [
+   "SW24"
+  ],
+  "fullmoon": [
+   "SW63",
+   "f240bc73f2297494c9baf3784cc23a5e"
+  ],
   "fullthrottle": [
    "AM40"
   ],
@@ -9893,6 +11080,9 @@
   ],
   "furyoftheunforgiven": [
    "DA58"
+  ],
+  "fyrriaskar": [
+   "SW15"
   ],
   "gargantuansquiggoth": [
    "GOF97"
@@ -9976,6 +11166,12 @@
   "gretchintower": [
    "GOF49"
   ],
+  "greyhunter": [
+   "SW10"
+  ],
+  "greyhunterpackleader": [
+   "SW11"
+  ],
   "grimeffigy": [
    "DA59"
   ],
@@ -10029,6 +11225,9 @@
   "hallowedmartyrs": [
    "752141bbf0543314987e3b9afed938af",
    "SOR57"
+  ],
+  "hallsoflegend": [
+   "SW61"
   ],
   "hammerhead": [
    "TAU31"
@@ -10107,6 +11306,12 @@
   "highcommand": [
    "AM46"
   ],
+  "highkingoffenris": [
+   "b3dce3f10cc118541910156ec8da1d9b"
+  ],
+  "highrunepriest": [
+   "a51adc8f5c311584385c3117cfd919e9"
+  ],
   "hivecommander": [
    "5b5425f6e2848b449807bd1643d0d936"
   ],
@@ -10141,6 +11346,9 @@
   "honourguardtutorial": [
    "5b427f1ad98e8534f8590dad5bd560af"
   ],
+  "hordeslayer": [
+   "SW50"
+  ],
   "hormagaunt": [
    "TL2"
   ],
@@ -10168,6 +11376,9 @@
   "howlingbansheeexarch": [
    "ASH69"
   ],
+  "hrolftheironhowl": [
+   "SW18"
+  ],
   "hulkingaberrant": [
    "GSC28"
   ],
@@ -10177,8 +11388,18 @@
   "huntarig": [
    "GOF93"
   ],
+  "huntersguile": [
+   "SW51"
+  ],
   "huntersinstincts": [
    "TAU75"
+  ],
+  "huntersofheretics": [
+   "070f7594d50c74944b3e86ebae80bde1",
+   "DA74"
+  ],
+  "huntingwolf": [
+   "SW5"
   ],
   "huntthefallen": [
    "DA49"
@@ -10245,8 +11466,17 @@
   "inceptorsergeant": [
    "UM22"
   ],
+  "incursor": [
+   "UM89"
+  ],
   "indomitablewill": [
    "65b2be828179515458a282cf1b027182"
+  ],
+  "indomituscrusade": [
+   "ac6aa9739f7773e449347e1e79ea0e83",
+   "6bce17171773ce044ac88728f5ea1d33",
+   "91992b401487b494596d42098b8ec9ee",
+   "UM118"
   ],
   "inescapableretribution": [
    "SAU76"
@@ -10324,6 +11554,9 @@
   "invictorwarsuit": [
    "UM70"
   ],
+  "ironpriest": [
+   "SW19"
+  ],
   "iskandarkhayon": [
    "BL32"
   ],
@@ -10391,6 +11624,9 @@
    "GOF71",
    "91fed153a7ef8734b89b7892c67201ef"
   ],
+  "landraider": [
+   "SW38"
+  ],
   "landspeeder": [
    "UM69"
   ],
@@ -10399,6 +11635,9 @@
   ],
   "leadbyexample": [
    "cc11838649ff68a40b7d5d2b9fccd2bc"
+  ],
+  "leadfromthefront": [
+   "UM114"
   ],
   "leadtherighteous": [
    "65cfec7d2bc719040b3b4b88622931b2"
@@ -10409,11 +11648,18 @@
   "legendarycommandant": [
    "af98d423c7279a14c84c0d0382c53541"
   ],
+  "legendarytenacity": [
+   "SW55"
+  ],
   "lemanrusstank": [
    "AM32"
   ],
   "lemanrussvanquisher": [
    "AM35"
+  ],
+  "letloose": [
+   "SW56",
+   "f16df0b3a3bf1974db565107bda33847"
   ],
   "leviathanstendrils": [
    "TL52"
@@ -10450,8 +11696,14 @@
    "GSC51",
    "0474b16360827b6408fb02b6820e7e63"
   ],
+  "livinglightning": [
+   "7a01882fe4610244292d16b15f4b873e"
+  ],
   "locus": [
    "GSC17"
+  ],
+  "logangrimnar": [
+   "SW1"
   ],
   "lokhustdestroyer": [
    "SAU68"
@@ -10464,6 +11716,9 @@
   ],
   "lonespear": [
    "TAU72"
+  ],
+  "longfang": [
+   "SW16"
   ],
   "longstrike": [
    "TAU35"
@@ -10560,6 +11815,9 @@
   "masterofarms": [
    "55b8e3d2040f86d4190ffb1a91abb5ed"
   ],
+  "masterofbattle": [
+   "b14d1db2b0730d649b3bec35af100363"
+  ],
   "masterofexecutions": [
    "BL15"
   ],
@@ -10584,6 +11842,9 @@
   ],
   "mastertactician": [
    "dcbd28525888ce54aaa93a47ba4de1e6"
+  ],
+  "masterzacharial": [
+   "DA75"
   ],
   "maulerfiend": [
    "BL31"
@@ -10665,6 +11926,9 @@
   "moredakka": [
    "9f4e1b7ea9f00da458c6a859a4e958c8"
   ],
+  "morkaieliminator": [
+   "SW29"
+  ],
   "mortifier": [
    "SOR32"
   ],
@@ -10683,8 +11947,14 @@
   "munitorumsupplies": [
    "AM62"
   ],
+  "murderfang": [
+   "SW34"
+  ],
   "murderousdesires": [
    "BL64"
+  ],
+  "murderoushurricane": [
+   "4d4b9170663891f488c0e96ee8e55ba1"
   ],
   "necronlord": [
    "SAU29"
@@ -10757,17 +12027,30 @@
   "nightspinner": [
    "ASH68"
   ],
+  "njalstormcaller": [
+   "SW2"
+  ],
   "nobonsmashasquig": [
    "GOF88"
   ],
   "noisemarine": [
    "BL8"
   ],
+  "nomercy": [
+   "6ea114bce68bc714e8f0a4587dbbafe1",
+   "UM116",
+   "7b703582937f4c444bbda8fb6a1710b1"
+  ],
   "nomukkinabout": [
    "GOF40"
   ],
   "nonemustknow": [
    "24fcaf45556573549b922c06cad3aa2c"
+  ],
+  "norespite": [
+   "d32332a368c7919469dfa0d5d4df7d03",
+   "UM117",
+   "79fe758082cb0a548ba235d45bb26ca8"
   ],
   "norkdeddog": [
    "AM27"
@@ -10797,6 +12080,9 @@
   ],
   "normalconditionssororitas": [
    "0360bbe6c59d84b4aaf03454a7e0e4ff"
+  ],
+  "normalconditionssw": [
+   "b5036545b0241504f96efdc00cf4ce01"
   ],
   "normalconditionstauempire": [
    "592d08f237a69e14cb738607af3da0d1"
@@ -10836,6 +12122,9 @@
    "b432e12e60e66a94fa032cd62011d2e1",
    "UM50"
   ],
+  "orbitaldefences": [
+   "SW59"
+  ],
   "orianlaratharjos": [
    "ASH79"
   ],
@@ -10856,6 +12145,9 @@
   ],
   "overwhelmingswarm": [
    "TL41"
+  ],
+  "packofone": [
+   "SW41"
   ],
   "painboss": [
    "GOF94"
@@ -10902,6 +12194,12 @@
   ],
   "perfecthosts": [
    "GSC47"
+  ],
+  "phoboslibrarian": [
+   "UM99"
+  ],
+  "phoboslieutenant": [
+   "UM90"
   ],
   "pilferedsupplies": [
    "GSC65"
@@ -10972,6 +12270,9 @@
   "presstheattack": [
    "AM47"
   ],
+  "primarchofthexiii": [
+   "e874c2bd84895e64694daa44bd5fd5c2"
+  ],
   "primarischaplain": [
    "UM13"
   ],
@@ -11023,6 +12324,9 @@
   "prioritytarget": [
    "TAU50"
   ],
+  "properhunt": [
+   "SW52"
+  ],
   "properkilly": [
    "GOF38"
   ],
@@ -11065,6 +12369,13 @@
    "2ef404c4fa412f840b8b6fa5ea6469a2",
    "SOR62"
   ],
+  "ragnarblackmane": [
+   "SW3"
+  ],
+  "raidtactics": [
+   "41e94f2d95a5b6143b44d5356a486213",
+   "SW46"
+  ],
   "ramatekhthecruel": [
    "SAU66"
   ],
@@ -11100,6 +12411,9 @@
   ],
   "ravenwingancient": [
    "DA26"
+  ],
+  "ravenwingballistusdreadnought": [
+   "DA66"
   ],
   "ravenwingbikes": [
    "DA7"
@@ -11147,6 +12461,9 @@
   "reductussaboteur": [
    "GSC31"
   ],
+  "refusetoyield": [
+   "38871853fabb5244d8148766829230cd"
+  ],
   "regimentaldoctrine": [
    "AM48"
   ],
@@ -11161,6 +12478,9 @@
   ],
   "relentlessmarch": [
    "d8a14171b08b54144ba9dbf324b0a042"
+  ],
+  "relicmunitions": [
+   "DA73"
   ],
   "relicsofsaintkatherine": [
    "SOR50"
@@ -11207,6 +12527,9 @@
   "roamingoutriders": [
    "GSC75"
   ],
+  "robouteguilliman": [
+   "UM87"
+  ],
   "rogaldorntank": [
    "AM37"
   ],
@@ -11252,6 +12575,9 @@
   "sacredstandard": [
    "DA50"
   ],
+  "sagaofthebold": [
+   "SW47"
+  ],
   "saintcelestine": [
    "SOR33"
   ],
@@ -11260,6 +12586,9 @@
   ],
   "sanctus": [
    "GSC25"
+  ],
+  "savagelegacy": [
+   "SW42"
   ],
   "saviourprotocols": [
    "fdacb4e306ae79547883557cce46f557",
@@ -11279,6 +12608,9 @@
   ],
   "scoutsentinel": [
    "AM16"
+  ],
+  "scoutsniper": [
+   "UM94"
   ],
   "scragem": [
    "GOF36"
@@ -11326,6 +12658,11 @@
   ],
   "shadowsun": [
    "TAU1"
+  ],
+  "shallknownofear": [
+   "16c804b7e1b10b542a8b1dbc5decec9e",
+   "UM111",
+   "481a554f4bcaf124681916a2854e775d"
   ],
   "shanusdaskovian": [
    "GSC66"
@@ -11547,6 +12884,11 @@
   "stormguardian": [
    "ASH5"
   ],
+  "stormhawkinterception": [
+   "57bfef8500ae0d84186f713561c16bcc",
+   "fb248c0fdddc5ec4da1ffcc0a8ab603a",
+   "UM115"
+  ],
   "stormoffire": [
    "TAU52"
   ],
@@ -11566,6 +12908,9 @@
   ],
   "stormtalon": [
    "UM59"
+  ],
+  "stormwolf": [
+   "SW32"
   ],
   "strandedtermagant": [
    "TL61"
@@ -11605,8 +12950,14 @@
   "sunsharkbomber": [
    "TAU37"
   ],
+  "suppressor": [
+   "UM97"
+  ],
   "supremegrandmaster": [
    "dd535f7a54bcf6241b24ca6d0e81bbb4"
+  ],
+  "supremestrategist": [
+   "ef596edae1828bd46bfc4348535a3acc"
   ],
   "swarmingmasses": [
    "TL53"
@@ -11641,6 +12992,9 @@
   ],
   "tacticalinsight": [
    "UM32"
+  ],
+  "tacticalmarine": [
+   "UM91"
   ],
   "taleofthefaithful": [
    "59e47125a7f5b36448bd1f71fd17b4cf",
@@ -11678,6 +13032,9 @@
   "tempestorsergeant": [
    "AM69"
   ],
+  "tempestswrath": [
+   "b551c8351ebe5784faf9912b573eaf93"
+  ],
   "tempestusaquilon": [
    "AM71"
   ],
@@ -11691,8 +13048,20 @@
   "termagantbrood": [
    "TL75"
   ],
+  "terminator": [
+   "UM103"
+  ],
+  "terminatorcaptain": [
+   "UM102"
+  ],
   "terminatorchampion": [
    "BL29"
+  ],
+  "terminatorrunepriest": [
+   "SW30"
+  ],
+  "terminatorsergeant": [
+   "UM101"
   ],
   "terrifyingcrescendo": [
    "EC49"
@@ -11709,6 +13078,13 @@
   ],
   "thechaptersdue": [
    "UM61"
+  ],
+  "thefang": [
+   "7210fc3a4509b3649969609a1fa822ea",
+   "SW48",
+   "69bf10fe198146b4bb8aec3f8dd3fe4e",
+   "c988c599275dcdb449a5d5a46af0d27b",
+   "2c2866efa62a21a49bbd4691eff428ec"
   ],
   "thermalweaponry": [
    "AM50"
@@ -11743,6 +13119,12 @@
   "thunderstorm": [
    "d722e8df0e8bbb944b5d6d1fc80e2cb5",
    "UM51"
+  ],
+  "thunderwolfcavalry": [
+   "SW12"
+  ],
+  "thunderwolfcavalrypackleader": [
+   "SW20"
   ],
   "tideofmuscle": [
    "GOF39"
@@ -11832,6 +13214,10 @@
   "tyrantguard": [
    "TL12"
   ],
+  "tyrnakandfenrir": [
+   "8f0302f1603cc954392d90d5dabd22d5",
+   "6e4f9040e8cc59641a32f29e33ea4cbc"
+  ],
   "ugechoppa": [
    "6b945ed622dee0e479d44e0bfd2273c5",
    "6899b199f5e36144ebbdd7ed9d9e7afe"
@@ -11839,6 +13225,9 @@
   "unbridledcarnage": [
    "fae4ef61e87b2ee44b8e52fc705c2030",
    "GOF41"
+  ],
+  "unbridledfury": [
+   "SW45"
   ],
   "undergroundnetwork": [
    "GSC45"
@@ -11873,6 +13262,9 @@
   "ursulacreed": [
    "AM2"
   ],
+  "valiuspaxor": [
+   "UM88"
+  ],
   "valkyrie": [
    "AM34"
   ],
@@ -11897,8 +13289,23 @@
   "veldrasthesublime": [
    "EC22"
   ],
+  "venerabledreadnought": [
+   "SW35"
+  ],
   "vengeanceforcadia": [
    "AM56"
+  ],
+  "vengefulbrethren": [
+   "DA72"
+  ],
+  "vengefulbrethrenbladeguard": [
+   "DA68"
+  ],
+  "vengefulbrethrenhellblaster": [
+   "DA69"
+  ],
+  "vengefulbrethrenintercessor": [
+   "DA70"
   ],
   "vengefulsurge": [
    "EC58"
@@ -11936,6 +13343,12 @@
   "vialtanks": [
    "EC59"
   ],
+  "vicotherbeus": [
+   "UM93"
+  ],
+  "vindicator": [
+   "SW33"
+  ],
   "vitusgryf": [
    "AM72"
   ],
@@ -11971,6 +13384,9 @@
   "warbossgordrang": [
    "GOF75"
   ],
+  "warhowl": [
+   "e3b5735d801fcbd49aa8d3975a5b0c31"
+  ],
   "warlock": [
    "ASH8"
   ],
@@ -11998,6 +13414,9 @@
   ],
   "warwalker": [
    "ASH26"
+  ],
+  "watcherinthedark": [
+   "DA71"
   ],
   "watchtower": [
    "TAU62"
@@ -12027,6 +13446,9 @@
   "whirlingdeath": [
    "ASH73"
   ],
+  "whirlwind": [
+   "UM107"
+  ],
   "wildhost": [
    "ASH44"
   ],
@@ -12051,8 +13473,26 @@
   "witchbladewarlock": [
    "ASH19"
   ],
+  "witchbladewarlocktutorial": [
+   "7a02359776e89f243b8cf41642dc44c9"
+  ],
   "witchfire": [
    "d3e99cb18b8cbba4081486f57f510f75"
+  ],
+  "wolfguardbattleleader": [
+   "SW25"
+  ],
+  "wolfguardheadtaker": [
+   "SW13"
+  ],
+  "wolfguardterminator": [
+   "SW31"
+  ],
+  "wolfguardterminatorpackleader": [
+   "SW27"
+  ],
+  "wolfpriest": [
+   "SW14"
   ],
   "worsttemper": [
    "8425b809e9e64e24f9035f709f5aaee4"
@@ -12074,6 +13514,15 @@
   ],
   "wreckinball": [
    "508002f5d7ee54f4686aefa2e6adce41"
+  ],
+  "wulfen": [
+   "SW17"
+  ],
+  "wulfendreadnought": [
+   "SW37"
+  ],
+  "wulfenpackleader": [
+   "SW21"
   ],
   "wurrboy": [
    "648c492fa988aba44ad9a4507bd43ee4",

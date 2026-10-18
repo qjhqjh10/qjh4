@@ -438,7 +438,7 @@ public static class IconSetup
         //     `…/Warpforge_25_Ferren-Areios.png` 与 `…/Warpforge_12_Vico-Therbeus.png` 各 **2 枚**）。
         //   我们这边两处会把它弄坏：① `desc` 里写成**方括号** `[Oath]` ⇒ `Rewrite` 走「整串换掉」那支
         //   ⇒ **词被吃掉**（`UM84` 原来就是这样，`Talent` 同病）；② 徽记那一条**不在计划表里**
-        //   ⇒ **整枚不画**（`UM89` / `UM_Vico_Therbeus` 的首句原来就是，因为 `Oath abilities`
+        //   ⇒ **整枚不画**（`UM106` / `UM93` 的首句原来就是，因为 `Oath abilities`
         //   没有数字没有冒号、句首关键词正则扫不到）。
         //
         //   ⚠️ **判别式写成下面 (a) + (b) 这两条**，**别拿整串全等去比**（②e / ②f / ②f2 / ②f3 就是
@@ -456,7 +456,7 @@ public static class IconSetup
         //   🧨 **改坏哪里会让它红**：
         //      · `desc` 改回 `[Oath]` 写法（计划表跟着重跑）⇒ (b) 拿不到那个词 ⇒ 红；
         //      · 把 `gen_icon_plan.py` 的 `BARE_TOKEN_BY_CARD` 里对应那条删掉 ⇒ 次数少 1 ⇒ 红；
-        //      · 把 token 写成短的 `"Oath"`（`UM89` / `UM_Vico_Therbeus`）⇒ 被同卡更长的
+        //      · 把 token 写成短的 `"Oath"`（`UM106` / `UM93`）⇒ 被同卡更长的
         //        `"Oath 1:"` 那条按**长度降序 + 幂等守卫**挡掉 ⇒ 次数回到 1 ⇒ 红。
         {
             // `want` = 这张卡的卡面上那枚徽记应该出现几次（= 亲读读数）
@@ -464,9 +464,9 @@ public static class IconSetup
             //    （对全池每张卡都成立）⇒ 这张逐卡表**只剩**「钉得更死的那几条」（枚数 / 词序 / 幂等），
             //    ⛔ **别再往这里加卡**（加了也盖不住新卡 —— 那正是 `A1409` 要治的）。
             string[,] oathCards = {
-                { "UM_Chaplain_Cassius",             "Oath abilities", "誓言能力", "1" },
-                { "UM89",             "Oath abilities", "誓言能力", "2" },
-                { "UM_Vico_Therbeus", "Oath abilities", "誓言能力", "2" },
+                { "UM100",             "Oath abilities", "誓言能力", "1" },
+                { "UM106",             "Oath abilities", "誓言能力", "2" },
+                { "UM93", "Oath abilities", "誓言能力", "2" },
             };
             for (int i = 0; i < oathCards.GetLength(0); i++)
             {
@@ -499,8 +499,8 @@ public static class IconSetup
             {
                 RuleEngine.CardDef cd = null;
                 foreach (var c in RuleEngine.CardDatabase.Load())
-                    if (c != null && c.Id == "UM_Chaplain_Cassius") { cd = c; break; }
-                string d = cd == null ? "" : CardPresentation.CardIcons.Rewrite("UM_Chaplain_Cassius", "desc", cd.Desc);
+                    if (c != null && c.Id == "UM100") { cd = c; break; }
+                string d = cd == null ? "" : CardPresentation.CardIcons.Rewrite("UM100", "desc", cd.Desc);
                 Check(d.IndexOf("<sprite name=\"talent\">", System.StringComparison.Ordinal) >= 0
                       && CardPresentation.CardIcons.StripTags(d).Contains("Talent:"),
                       "★ ②j `UM84` 的 `Talent:` 同样是「**纸卷 + 词**」（改回 `[Talent]` ⇒ 词没了 ⇒ 红）—— "
@@ -511,8 +511,8 @@ public static class IconSetup
         // ═════════════════ ④ 徽记链的【通用】护栏（`A1409`）═════════════════
         //
         // 🔴 **为什么要单开这一条**（判据原文 → `项目任务.md` §29·b 的 `A1409`）：
-        //   「中文卡面徽记在不在」原来只有上面 ②i 那张**逐卡表**（3 张：`UM84` / `UM89` /
-        //   `UM_Vico_Therbeus`）⇒ `A1360` 补的 5 张（`UM74` `GOF8` `GOF21` `DA16` `EC35`）与
+        //   「中文卡面徽记在不在」原来只有上面 ②i 那张**逐卡表**（3 张：`UM84` / `UM106` /
+        //   `UM93`）⇒ `A1360` 补的 5 张（`UM74` `GOF8` `GOF21` `DA16` `EC35`）与
         //   `A1400` 补的 14 张（`Invulnerable`）**一张都不在表里** ⇒ **把那两笔改回去也不会红**。
         //   ⇒ 这里改成**对全池每张卡都成立的一条通用判据**（⛔ 别再一张一张往表里挤）。
         //
@@ -1074,7 +1074,7 @@ public static class IconSetup
         //      —— 根因是中文写「爆破 / 装甲」而词表那两格是「爆裂 / 护甲」；修法是词表加 2 行中文别名。
         //    · ② 中文那一段整段丢（7 条）：`ASH_Death_Spinner_Warp_Spider|SpiritStone_1` ·
         //      `ASH_Death_Spinner_Warp_Spider|stealth` · `ASH42|SpiritStone_2` ·
-        //      `ASH_Bright_Lance_Vyper|sniper` · `DA16|shield` · `GOF8|tide` · `UM_Phobos_Lieutenant|stealth`
+        //      `ASH_Bright_Lance_Vyper|sniper` · `DA16|shield` · `GOF8|tide` · `UM90|stealth`
         //      —— 修法是补数据侧 `数据/游戏数据/cardface_fixes.json` 的 `descZh` 列。
         //    ⛔ **别再往本表里加任何一条**（往里加 = 把新缺口当基线）—— 判据 = `④c`。
 

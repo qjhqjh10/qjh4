@@ -1,0 +1,11 @@
+{
+  "_fixture": "03_missing_numbers —— 缺必填数值（期望：REQ_NUMERIC 红）",
+  "id": "UM997",
+  "name": "Missing Numbers",
+  "faction": "Ultramarines",
+  "type": "tactic",
+  "rarity": "rare",
+  "subtype": "Tactic",
+  "refNameId": "EC29",
+  "cardDescriptionTextReferenceId": "EC29"
+}

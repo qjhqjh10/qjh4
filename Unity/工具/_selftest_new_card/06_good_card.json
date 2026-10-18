@@ -1,0 +1,41 @@
+{
+  "_fixture": "06_good_card —— 好卡（期望：0 错误；立绘/语音/特效/动画 GUID 全解得出，animInfo 可解析）",
+  "uniqueId": "UM999",
+  "cardName": "K10 Selftest Warden",
+  "cardArmy": 10,
+  "cardType": 0,
+  "spellType": 0,
+  "cardRarity": 2,
+  "keyword": 5,
+  "manaCost": 4,
+  "meleeAttack": 3,
+  "rangeAttack": 2,
+  "maxHealth": 5,
+  "armour": 1,
+  "initiative": 20,
+  "attackDamageType": 4,
+  "expansionPack": 0,
+  "inventoryOptions": 0,
+  "showInCollectionOptions": 5,
+  "refNameId": "EC29",
+  "cardDescriptionTextReferenceId": "EC29",
+  "cardImageReference": { "m_AssetGUID": "0d720e0b656de4d03b16abc5c5c9652a" },
+  "summonAudio": { "m_AssetGUID": "eac200e117a174124a97893837c26ff1" },
+  "customRangedAttackParticles": { "m_AssetGUID": "564af14f7004445469e0424bcce41d1d" },
+  "cardAbilities": [
+    {
+      "trigger": 0,
+      "abilityContext": 0,
+      "priority": 1,
+      "playIcon": 0,
+      "triggerValue": 0,
+      "abilityLogic": [
+        {
+          "chosenAbility": 10,
+          "chanceOfHappening": 100,
+          "cardAnimations": [ { "m_AssetGUID": "bc43540f679144d81b72a2c599c5cb63" } ]
+        }
+      ]
+    }
+  ]
+}

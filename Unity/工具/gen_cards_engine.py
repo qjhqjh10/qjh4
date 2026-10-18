@@ -113,6 +113,16 @@ RARITIES = ("common", "rare", "epic", "legendary", "special")
 #      真值够不到的那 **122 张照旧走** ②宝石表 → ③`RARITY_BY_FACTION` → ④`RARITY_UNLISTED`。
 TRUTH_RARITY = {1: "common", 2: "rare", 3: "epic", 4: "legendary", 5: "special"}
 
+# 🔴 **2026-10-18（`K06`）换快照后核过的 1 条真值差异** —— 不是把守卫拔掉，是**显式放行已核过的**：
+#   · `e59ac9e46f4ea804784e954c3b820e77` / `Skyborne Deployment`（`m_Name` = `Z-NC SaimHann-Skyborne Deployment`）
+#     旧快照（2025-07-30）`cardRarity = 2`（rare）· 当前 build **`= 1`（common）**。
+#     ⇒ **游戏侧真的改了这张的稀有度**，不是映射错、也不是 join 错（两个快照里 `uniqueId`/`m_Name` 逐字相同）。
+#     按「第 1 层 = 游戏自己的枚举」的口径**取新值**；其余任何新变化照旧进 `_bad`（fuse 仍然有效）。
+#   ⚠️ 键 = `(uniqueId, cardName)`，值 = `(旧值, 新值)`；**值也要对上**才放行（防止它再变一次还静默放行）。
+RARITY_TRUTH_ACCEPTED = {
+    ("e59ac9e46f4ea804784e954c3b820e77", "Skyborne Deployment"): ("rare", "common"),
+}
+
 
 # 宝石表里**同名不同卡**的行 —— 查表若只按卡名建键，两行会互相覆盖（**后写的赢**）。
 # 2026-09-12 实测：1118 行里有 5 个卡名重复，其中 **3 个两行的稀有度不同**，不特判就会取错。
@@ -322,8 +332,8 @@ STAT_FIXES = {
     #      `Avatar_SOR_Forge2_Sister Dogmata` · 头像贴图 `Avatar_SOR_Sister Dogmata` ·
     #      头像 SO 的 `nameTextReference` 就是 `Sister Dogmata`（**4 条一致**）
     #    · `2nd Company Terminator`（UM83）：卡图资产 · 语音 · 头像 SO · 头像贴图 **4/4 全指向 2nd**
-    #    · `Morkai Eliminator`（SW36）：卡图资产名 = `SM_SpaceWolves_inf_Morkai Eliminator`
-    #    · `Land Rider`（SW45）：卡图资产名 = `SM_SpaceWolves_veh_Land Rider`
+    #    · `Morkai Eliminator`（SW29）：卡图资产名 = `SM_SpaceWolves_inf_Morkai Eliminator`
+    #    · `Land Rider`（SW38）：卡图资产名 = `SM_SpaceWolves_veh_Land Rider`
     #      （⚠️ 与同一美术管线里的 `CSM_EmperorsChildren_veh_Chaos Land Raider` 只差一个字母 ——
     #       残留不确定性见报告 §⑤，**这条是本批最弱的一张**）
     # ⚠️ 撤回后 **id 不变**：`card_ids.json` 那 4 行的值已同步回改；不改会掉成自造 id，
@@ -804,7 +814,11 @@ TRUTH_IDX_SRC = r"d:/4/Unity/数据/游戏数据/card_id_truth_index.json"
 #   ⇒ **本相真正从快照取的，只有「PnP 不印」的那几样**：**督军 `cost`**（PnP 56/56 不印费用格 ——
 #     右上角是**阵营徽记**，`Anvirr Keltoc` 那张亲开图核过）、**`CardTraits`**（补空那一层）、
 #     **`armour` 数值兜底**、以及 **A1799 那 10 个 SO 字段**（PnP 上根本没有的东西）。
-TRUTH_CARDS_SRC = r"d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json"
+# 🔴 **2026-10-18（`K06`）换源**：原来是 2022 时代快照（`cards_1195_2022时代.json`，1,195 张）——
+#   池子里 118 张比它新的卡在真值列上全是缺值。当前 build 的 `allcards` 已找到（**1,351 张**）
+#   ⇒ 换过去；形状 `{bundle,count,cards:[{…,full_raw}]}` 由 `load_truth_cards` 展平。
+#   判据 → `资料/普查产出_1018/allcards_1350/报告.md`。
+TRUTH_CARDS_SRC = r"d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json"
 
 # id 前缀 → 我们卡表里的阵营名。**来源是 decklists.json 的实测统计**（见上面那张表）。
 # 别的阵营名一律不许出现在这里 —— 加阵营要连证据一起补。
@@ -928,6 +942,10 @@ def load_truth_cards():
         return {}, {}
     with open(TRUTH_CARDS_SRC, encoding="utf-8") as f:
         rows = json.load(f)
+    # 🆕 **2026-10-18（`K06`）**：当前 build 的解析产物是 `{bundle,count,cards:[{…,full_raw}]}`，
+    #   卡 SO 全字段在 `full_raw` ⇒ 统一展平（与 `gen_card_id_truth_index.py` 同口径）。
+    if isinstance(rows, dict) and isinstance(rows.get("cards"), list):
+        rows = [c.get("full_raw") or c for c in rows["cards"]]
     by_id, by_name = {}, {}
     for r in rows:
         uid = r.get("uniqueId")
@@ -1929,7 +1947,7 @@ def build():
         }
         # ---- 卡能不能进卡组（原版 `inventoryOptions` / `showInCollectionOptions`，`A1798` 2026-10-14）----
         # 🔴 **原版真值直搬**（`工具/gen_card_inventory_options.py` 四级定位出来的），本处**一个字不推**。
-        #    `-1` = 真值里查不到这张卡（快照比现池旧：整个 SpaceWolves + DA75..DA86 等）⇒ 引擎**不拦**，
+        #    `-1` = 真值里查不到这张卡（快照比现池旧：整个 SpaceWolves + DA75..DA74 等）⇒ 引擎**不拦**，
         #    但跑完的摘要会把条数与原因**打出来**（不许静默 —— 见 `main()` 那一段）。
         _inv, _show = raw_inv.get(cid, (-1, -1))
         entry["inventoryOptions"] = -1 if _inv is None else _inv
@@ -2360,10 +2378,10 @@ def fix_own_armour(entry):
       · `Gain Armour 2` / `Give Armour 1 to a friendly troop` → 是**效果给的**，不是自己的 ✗
     这样只补该补的，不会把「给别人加护甲」的卡也变成有护甲。
 
-    🔴 **2026-10-15（`AD` 笔 · `DA83`）：上面那道「已有就不补」的闸原来写宽了，已收窄（铁律 5）。**
+    🔴 **2026-10-15（`AD` 笔 · `DA66`）：上面那道「已有就不补」的闸原来写宽了，已收窄（铁律 5）。**
       · **原写法** = `any(re.search(r"armou?r", k, ...) for k in keywords)` ⇒ **裸词 `Armour` 也算「已有」**
         ⇒ 直接 `return`。而裸词**恰恰是「OCR 没读到数字」的形态**，不是「已经有护甲值了」。
-      · **实测代价**（`AB` 亲开 PnP 成品卡图核过）：`DA83 Ravenwing Ballistus Dreadnought`
+      · **实测代价**（`AB` 亲开 PnP 成品卡图核过）：`DA66 Ravenwing Ballistus Dreadnought`
         —— `keywords` = `['Armour']`（裸词）· `desc` = `Armour 1. When you create or play a Secret, …`
         ⇒ 被那道闸挡下 ⇒ `armour` 列写 **0**，而卡面关键词行印 `Armour 1.`、右下银盾印 **1**。
         （全池**只此一张**：现扫「关键词里有裸 `Armour` 且 `desc` 以 `Armour N` 开头」= 1 张。）
@@ -2372,7 +2390,7 @@ def fix_own_armour(entry):
         ⓑ 裸词那一格**原地升级**成 `Armour N`（保序、不追加第二条）——
            追加会让卡面印两遍（`护甲。护甲 1。`，`CardText.KeywordSegment` 逐条比字面）。
       ⚠️ **旧口径那一支不受影响**：`CardDef.KwValue(armour)` 对裸词本来就走 `FirstNumber` 兜底 = 1
-        ⇒ 改前改后**都是 1**（`AD` 离线逐张量过：全池只有 `DA83` 这一张落到本分支）。
+        ⇒ 改前改后**都是 1**（`AD` 离线逐张量过：全池只有 `DA66` 这一张落到本分支）。
     """
     if not entry.get("desc"):
         return
@@ -2531,10 +2549,18 @@ def main():
           f" · ③**吃 `card_stats.json` 原值** **{len(rarity_src_source)}** 张"
           f"（另有 {_rarity_truth_skip_n} 张快照 `cardRarity` 是 `0`/缺字段 ⇒ 按「无值」跳过）")
     if rarity_truth_filled:
-        print(f"            ⚠️ 第 1 层**改掉了** {len(rarity_truth_filled)} 张的值（预期 0 —— "
-              "`A2062` 实测 1005/1005 一致）：")
-        for _cid, _nm, _old, _new in rarity_truth_filled[:10]:
-            print(f"            · {_cid}/{_nm}：`{_old or '(空)'}` → `{_new}`")
+        _acc = [x for x in rarity_truth_filled
+                if RARITY_TRUTH_ACCEPTED.get((x[0], x[1])) == (x[2], x[3])]
+        _unacc = [x for x in rarity_truth_filled if x not in _acc]
+        if _acc:
+            print(f"            ✅ 第 1 层改掉 {len(_acc)} 张 —— **已核过的快照差异**（放行，见 `RARITY_TRUTH_ACCEPTED`）：")
+            for _cid, _nm, _old, _new in _acc[:10]:
+                print(f"            · {_cid}/{_nm}：`{_old or '(空)'}` → `{_new}`")
+        if _unacc:
+            print(f"            ⚠️ 第 1 层**改掉了** {len(_unacc)} 张的值（预期 0 —— "
+                  "`A2062` 实测 1005/1005 一致）：")
+            for _cid, _nm, _old, _new in _unacc[:10]:
+                print(f"            · {_cid}/{_nm}：`{_old or '(空)'}` → `{_new}`")
     if rarity_src_source:
         print(f"            ⚠️ 这 {len(rarity_src_source)} 张**既没真值、也没表命中** ⇒ 稀有度直接吃了"
               " `card_stats.json` 的 `rarity` 列（**OCR 读出来的**）：")
@@ -2916,8 +2942,10 @@ def main():
     #    实测基线 = **0 处**（`A2062` 的「一个值都不会变」）。
     #    ⇒ 一旦不为 0：要么**真值映射表被改错**、要么**快照换了**（两边必有一个过时）——
     #      两种都**要人看**，所以进 `_bad`（⛔ 别静默写出去）；核完照下面那句说明处置。
+    _rarity_unexpected = [x for x in rarity_truth_filled
+                          if RARITY_TRUTH_ACCEPTED.get((x[0], x[1])) != (x[2], x[3])]
     _bad = bool(bare_ambiguous) or bool(kw_order_violations) or bool(desc_zh_order_violations) \
-        or bool(armor_family_bad) or bool(rarity_guard_bad) or bool(rarity_truth_filled)
+        or bool(armor_family_bad) or bool(rarity_guard_bad) or bool(_rarity_unexpected)
 
     if args.check:
         if os.path.exists(DST):
@@ -2943,8 +2971,8 @@ def main():
         if rarity_guard_bad:
             _why.append(f"「稀有度这一层 {len(rarity_guard_bad)} 处对不上"
                         "（别名能查到却落成空串 / 与游戏侧真值不一致）」")
-        if rarity_truth_filled:
-            _why.append(f"「稀有度第 1 层（真值 `cardRarity`）改掉了 {len(rarity_truth_filled)} 张的值"
+        if _rarity_unexpected:
+            _why.append(f"「稀有度第 1 层（真值 `cardRarity`）改掉了 {len(_rarity_unexpected)} 张的值"
                         "（基线 0 —— 见 `_bad` 那段：要么真值映射表被改错、要么快照换了，"
                         "两边必有一个过时，核完再决定改哪边）」")
         print(f"\n🔴 退出码 1、**一个字节都不写**（{' ＋ '.join(_why)} 没解决之前"

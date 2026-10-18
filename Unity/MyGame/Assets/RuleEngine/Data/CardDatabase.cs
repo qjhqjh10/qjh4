@@ -96,7 +96,7 @@ namespace RuleEngine
             /// （`KwValue` / `Has` / `UnitState.Armor` / 表现层卡面显示全走它）。
             /// 两套口径的对账口 = `CardDatabase.ReportArmourDisagreements`（装载时出声）
             /// + `RuleEngineTest.TestCardDatabase` 那条断言；⛔ 别在别处再写第二份「护甲从哪来」。
-            /// ⚠️ **实测那 1 张例外**：`DA83 Ravenwing Ballistus Dreadnought` 本列写 `0`，
+            /// ⚠️ **实测那 1 张例外**：`DA66 Ravenwing Ballistus Dreadnought` 本列写 `0`，
             /// 而它的 `keywords` 是**裸 `Armour`**、`desc` 写着 `Armour 1.`、
             /// PnP 成品卡图（`Dark Angels/3部队/Warpforge_09_Ballistus-Dreadnought.png`，
             /// 2026-10-15 亲读）右下银盾印 **1** ⇒ **真值 = 1、错的是本列**（生成器那一侧已另立账）。
@@ -287,7 +287,7 @@ namespace RuleEngine
             // 🔴 🆕 2026-10-15（接线批）：**护甲两套口径一旦分叉就出声** ——
             //   引擎读的那一份（`CardDef` 构造里定下来的 `_keywords[armour]`）由
             //   「v9 `armour` 列优先、`keywords` 旧口径兜底」合成，两条腿**在正常数据上必须一致**。
-            //   实测（2026-10-15）全池 1127 张只有 **1 张**分叉：`DA83 Ravenwing Ballistus Dreadnought`
+            //   实测（2026-10-15）全池 1127 张只有 **1 张**分叉：`DA66 Ravenwing Ballistus Dreadnought`
             //   （列写 0、`keywords` 写裸 `Armour` ⇒ 旧口径 1，而 PnP 卡图银盾印 1 ⇒ **列是错的那一侧**，
             //   已另立账）⇒ 这里出声是为了**下一张**再出现时不必靠人肉比对。
             //   ⚠️ `RuleEngineTest.TestCardDatabase` 里有一条断言盯着同一件事（这里出声、那里断红）。
@@ -321,7 +321,7 @@ namespace RuleEngine
         ///   · **只有列**有值 ⇒ 🔴 出声（那张卡的 `keywords` 里没有 `Armour N` —— 是列多写还是数据反了要人判）；
         ///   · **只有旧口径**有值 ⇒ ⚠️ 出声（**列的缺陷**：引擎这次按旧口径兜底，所以**不丢护甲**）。
         ///
-        /// 正常数据上三类都应当是 0 条（2026-10-15 现读：**只有 `DA83` 一条**，属第三类）。
+        /// 正常数据上三类都应当是 0 条（2026-10-15 现读：**只有 `DA66` 一条**，属第三类）。
         /// ⛔ 只出声，**不抛异常、不改任何值**（本项目红线：静默失败比报错更贵）。
         /// </summary>
         static void ReportArmourDisagreements(List<CardDef> pool)

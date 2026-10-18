@@ -839,7 +839,7 @@ public static class BattleScene
                       $"★ **灭自证**：两张卡的值必然不同（{am35:F2} vs {am2v:F2}）—— "
                     + "退回常数／退回「只按 `EvtKind` 查表」都会让这条**与上面两条同时**变红");
                 // **灭自证 ②**：表里**没有**的卡要**退回兜底并出声**（`TryGet` 自己打 warning + 计数）
-                //   `Terminator`（池里 `UM_Terminator` 的卡名）—— 21 张 UM 誓约卡**一张都不在 2022 快照里**
+                //   `Terminator`（池里 `UM103` 的卡名）—— 21 张 UM 誓约卡**一张都不在 2022 快照里**
                 int beforeFallback = AbilityAnimDurations.FallbackHits;
                 float noTruth = EventTiming.DurationOf(new BattleEvent { Kind = EvtKind.Ability, CardId = "Terminator" });
                 Check(AbilityAnimDurations.FallbackHits == beforeFallback + 1
@@ -1441,7 +1441,7 @@ public static class BattleScene
             // TODO(待裁 · `A1367③` / 合并规格 #67)：**关键词段里【带正文的关键词】该以 `:` 结尾**。
             //   卡面印 `⟳Flying. ⚡Rally: ⟳Stun an enemy`（`DA39` 亲读），而 `KeywordSegment` 的末句
             //   用 `". "` 收尾 ⇒ 我们印 `Rally.`。凡走 `CardDef.CollectBareKeywordBody` 那条路的卡
-            //   **都差这个冒号**（`CardDef` 那颗注释实测 **~200 张**；例 `SW11 Blood Claw` 卡面是
+            //   **都差这个冒号**（`CardDef` 那颗注释实测 **~200 张**；例 `SW4 Blood Claw` 卡面是
             //   `⟳Ferocity: …`、我们印 `Ferocity. …`）。⚠️ 那一半**没逐张核**（`R7` 只核了 3 张）。
             //   期望值**追得到判据**（PnP 成品卡面 + `资料/卡表核对_卡图提取/_还原效果文字.md`），
             //   落点 = `Core/CardText.cs` 里 `KeywordSegment` 的末句 `string.Join(...)`。

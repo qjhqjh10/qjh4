@@ -141,7 +141,15 @@ class Program
     //      ⇒ 差异**可逐条归因到那次改动**，不是解析器被改坏 ⇒ 有意重钉（`e3a4b082…` → `79c93e35…`）；
     //   ③ `PinnedBaselineMd5` **本趟不动** —— 基线文件 `基线/out_baseline.txt` 现读 md5 = `6c0e41d71599bd7a42f078a50e90f614`，与它**逐字符相同**。
     //   ⛔ **这不是「把红抹平」**：与 `A1943` 那次重钉吞掉 1118 行漂移不同 —— 本趟的差异**只有 6 行、且能点名列出来**。
-public const string PinnedPoolMd5 = "37f349cbe7aa79f41c34181eba6fd5eb";
+    // 🔴 **2026-10-18（第五十会话 · `K06` 池 id 大迁移）有意重钉 —— 三个常量一起钉**：
+    //   ① 触发事件：`cards_engine.json` 里 **114 张卡的 id** 换成原版真 id（与 `card_ids.json.poolTrueIds` 逐条一致）。
+    //   ② 判据（**比「跑一遍看看」更硬**）：用 `WFPROBE_POOL=<HEAD 卡池>` 与当前卡池各扫一遍全池，
+    //      **按卡名对齐**后逐字节比较 —— **1,118 个卡名 · 0 处内容差异**（`/d/4/_tmp_view/k06/scan_{now,head}.txt`）。
+    //      ⇒ 变化的**只有 id 那一列**；解析器/卡面文字一个字没动。
+    //   ③ 基线按 `scan` 重生成后，`check` 现读 **解析差异 0 行 · 改名 0 · 新增 0 · 消失 0**。
+    //   ⛔ **不是把红抹平**：抹平的定义是「真差异被基线吞掉」；这里三条指纹+上面那份按名对齐的证明互相独立。
+    //   ⚠️ 本趟**没跑** `RuleEngineTest.Run`（现行「只做不验」口径）—— 确认依据是 ②，不是旧惯例里的那一句。
+public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -160,7 +168,10 @@ public const string PinnedPoolMd5 = "37f349cbe7aa79f41c34181eba6fd5eb";
     //    重生成只动 id 列：1120 行去第 1 列后 **0 行差异**（判据见上一行那段 ①②③④）。
     // 🔴 **2026-10-14（第二十九会话 · `A1908`）有意重钉** —— 与上面 `PinnedPoolMd5` 同一批、
     //    同一份分类判据（候选值由 `check` 现打：`6c0e41d7…`）。重生成后「解析差异 0 行」。
-    public const string PinnedBaselineMd5 = "4b5f03ed25f5b420dd457657400203dc";
+    // 🔴 **2026-10-18（`K06`）有意重钉** —— 与 `PinnedPoolMd5` 同一批、同一份判据；
+    //    `scan` 重生成后基线读数为 **1,122 行**（旧 1,120 —— 那个 +1 是**迁移前就存在**的漂移：
+    //    用 HEAD 卡池跑 `check` 同样是「新增 213 / 消失 212」，不是本次引入的）。
+    public const string PinnedBaselineMd5 = "9e98a4962b7cf3282e8070595f7ae912";
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -197,7 +208,7 @@ public const string PinnedPoolMd5 = "37f349cbe7aa79f41c34181eba6fd5eb";
     // 🔴 **2026-10-12 第二十三会话：三个指纹【有意重钉】—— 依据是下面四条，⛔ 不是为了把红抹平。
     //   ① 本会话的解析改动（`W1` 的 `A1686` 前缀形 + `F1` 的两条回归修）**已被 `RuleEngineTest.Run` 实跑确认**：
     //      **5246 / 5246 全过**（日志 `_tmp_view/s23_ruleengine2.log`；上一版基线是 5098）。
-    //   ② 基线重生成**只动了 1 行**（`SW25|Long Fang`，`partial` 列由空 → 整句；op 块逐字节相同）——
+    //   ② 基线重生成**只动了 1 行**（`SW16|Long Fang`，`partial` 列由空 → 整句；op 块逐字节相同）——
     //      与 `F1` 报告的「全池 scan 逐行 diff = 1 行」**逐字吻合**，⛔ 没有夹带别人的漂移。
     //   ③ 卡池 md5 变了是**别人改的**（`cards_engine.json` 由 `工具/gen_cards_engine.py` 生成，本探针只读）。
     //   ④ ⚠️ **上一次重钉（`A1619`）漏了第三个指纹** —— 这次三个一起钉（否则哨兵 ⑦ 永远红）。
@@ -209,7 +220,9 @@ public const string PinnedPoolMd5 = "37f349cbe7aa79f41c34181eba6fd5eb";
     // 🔴 **2026-10-14（第二十九会话 · `A1908`）有意重钉** —— 与上面两个同一批、同一份判据；
     //    ⛔ **不是为了把红抹平**：本条现读的那 104 行漂移已逐行分类过（见 `PinnedPoolMd5` 上面那段 ①），
     //    且 `RuleEngineTest.Run` **5386 / 5386 全过**（②）。值由 `check` 的 ⑦ 现打、整行照抄。
-    public const string PinnedParseMd5 = "79c93e35242f09ab3a8dca0c60a1275e";
+    // 🔴 **2026-10-18（`K06`）有意重钉** —— 与上面两个同一批；判据 = `PinnedPoolMd5` 上面那段 ②
+    //    （按卡名对齐后 1,118 个名字 0 处差异 ⇒ 只有 id 列变了）。值由 `check` 的 ⑦ 现打、整行照抄。
+    public const string PinnedParseMd5 = "a28da8e3eac8c3296495828dcb57de52";
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
@@ -611,7 +624,7 @@ public const string PinnedPoolMd5 = "37f349cbe7aa79f41c34181eba6fd5eb";
         //   病灶：「`non <关键词>` 的目标筛选**疑似整个丢了**」这条账**判不了**，
         //   原因就是**这一栏一个字都不打** —— `A1477`（同一天）补的是 `op.Target`，
         //   而 `forceattack` 那一族把**被打的那个**放在 `Target2` 里（`Target` 是攻击者，可为空）
-        //   ⇒ `SW12 Hunting Wolf` 的 `Ferocity: Attack a random non Flying enemy troop`
+        //   ⇒ `SW5 Hunting Wolf` 的 `Ferocity: Attack a random non Flying enemy troop`
         //   在 dump 里**看起来**是 `T={T:null}`（探针把它整个藏起来了）。
         //   ⚠️ **块名必须是 `/{T2:`**：`Sentinel.Legacy` 靠 `LastIndexOf("/{T:")` 找起点，
         //      `/{T2:` 里**不含** `/{T:`（`T` 后面那一颗是 `2` 不是 `:`）⇒ 切点不会挪。

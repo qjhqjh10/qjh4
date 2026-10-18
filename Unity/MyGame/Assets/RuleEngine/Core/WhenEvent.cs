@@ -616,7 +616,7 @@ namespace RuleEngine
             //   ⚠️ **只对「名字以词 ` icon` 结尾」的记号**（`[Codex icon]` / `[eye icon]` /
             //      `[faith icon]` / `[icon]`）——`[Shield]` / `[Attack]` / `[Ranged]` / `[Mob]`
             //      那些**括号里本身就是词**，照旧只脱括号、留内容（全池实测 `[X icon]` 只有
-            //      **2 处**：本卡的 `[Codex icon] Codex` 与 `UM_Phobos_Lieutenant` 的
+            //      **2 处**：本卡的 `[Codex icon] Codex` 与 `UM90` 的
             //      `[eye icon] Stealth`）。
             //   ⚠️ 判据用**结构**（内容以 ` icon` 结尾）而不是一张名字表 —— 那张表在
             //      `GivePayload` 里、`WhenEvent` 读不到，**抄第二份 = 迟早不一致**。
@@ -1106,7 +1106,7 @@ namespace RuleEngine
             //   ⚠️ 排在**带 s 的两条之后**（先到先得）—— 顺序反了也不会错，但保持一致更好读。
             //   ⚠️ 全池实测**没有副作用**：`desc` 里含裸 `trigger` 的一共 8 张，其中会走到本函数的
             //     只有本卡这一句（另 6 张是 `trigger their X abilities`，走 `EffectText` 的
-            //      `TriggerAbilityOf` 那一路；`SW4` 的 `When you trigger Ferocity` 是**行首**形态，
+            //      `TriggerAbilityOf` 那一路；`b3dce3f10cc118541910156ec8da1d9b` 的 `When you trigger Ferocity` 是**行首**形态，
             //      `Clean` 之后是 `trigger ferocity`、**前面没有空格** ⇒ 中缀匹配不到它）。
             //      `desc` 里含裸 `use` 的 **0 张**。
             if (at < 0) { at = s.IndexOf(" trigger ", System.StringComparison.Ordinal); len = 9; }
@@ -1210,7 +1210,7 @@ namespace RuleEngine
         ///    **那条待办早就做完了**（2026-09-13 第三十四轮）：<see cref="WhenEvent.SelfOnly"/> +
         ///    <see cref="WhenEvents.Matches"/> 里那句 `ReferenceEquals(listenerUnit, subject)`，
         ///    广播侧 `EffectResolver.BroadcastWhen` 也早就把 `subject` 传下去了
-        ///    ⇒ `When deployed`（`SW17 Grey Hunter`）· `When Reanimated`（Sautekh 4 张）
+        ///    ⇒ `When deployed`（`SW10 Grey Hunter`）· `When Reanimated`（Sautekh 4 张）
         ///    现在是**精确**触发，**不是近似**（两条各有正反断言钉着）。
         ///    ⚠️ 但**这一支本身仍然按「任何单位」处理** —— 走到这里的写法**没有**自指标记，
         ///       所以「省主语 ⇒ 自动自指」是**不成立**的推论：自指只能由各自的分支**显式**设置

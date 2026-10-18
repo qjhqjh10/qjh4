@@ -365,7 +365,7 @@ static class NonKwProbe
             var withKw = Fix("FIX_" + kw.ToUpperInvariant(), 6, "Infantry", kw);
             var plain = Fix("FIX_PLAIN", 6, "Infantry");
             var target = h.Card;
-            // 夹具要求：被测卡得能落场 / 打出去（`GOF86`/`SW12` 都是单位卡）
+            // 夹具要求：被测卡得能落场 / 打出去（`GOF86`/`SW5` 都是单位卡）
             UnitState kwU, plU, selfU;
             BattleContext ctx;
             try

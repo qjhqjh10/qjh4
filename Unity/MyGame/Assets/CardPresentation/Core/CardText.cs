@@ -289,7 +289,7 @@ namespace CardPresentation
                 //    带正文的印 `X:`（中文档 `X：`），其余仍印 `X.`（中文档 `X。`）。
                 //    判据表 = `RuleEngine.CardDef.BodyKeywords`（**只此一份**，走本文件末尾的 `IsBodyKeyword`，
                 //    ⛔ 别在这儿另写一张词表）。
-                //    · **卡面实证**：`Rally: …`（`DA39 Dark Talon` 亲读）· `Ferocity: …`（`SW11 Blood Claw`）·
+                //    · **卡面实证**：`Rally: …`（`DA39 Dark Talon` 亲读）· `Ferocity: …`（`SW4 Blood Claw`）·
                 //      **同一个词段里一个带正文、一个不带**：`Armour 1. Strike: …`（`BL46 Maulerfiend`，
                 //      `资料/卡表核对_卡图提取/Chaos__1.md:72`）—— 带正文的换冒号、不带的仍是句号。
                 //      逐张对卡面 **84/85 张带正文的关键词印的都是 `X:`** → `资料/普查产出_第十四会话/查证_A1355与A1367.md` §二。

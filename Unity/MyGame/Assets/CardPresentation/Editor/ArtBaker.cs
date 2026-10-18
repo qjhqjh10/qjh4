@@ -153,8 +153,22 @@ public static class ArtBaker
             ti.npotScale = TextureImporterNPOTScale.None;
             // 卡框：`CardView` 要在运行时量「不透明包围盒」来裁 UV，所以必须可读
             ti.isReadable = isFrame;
-            ti.textureCompression = isBackdrop ? TextureImporterCompression.CompressedHQ
-                                               : TextureImporterCompression.Uncompressed;
+            // 🔴 **2026-10-18（T09 / `A1655④`）：非背景图不再用 `Uncompressed`** ——
+            //   原来这一行是 `isBackdrop ? CompressedHQ : Uncompressed`，于是**卡框 + 立绘**
+            //   （`Resources/Art/cards/*.png`；现读 1478 张里 **1306 张 `isReadable:1`**）全按
+            //   RGBA32 **未压缩**进包 —— 单张 1024² = **4 MB** 常驻内存。
+            //   判据（**这是「我们怎么打包」，不是原版外观参数**）：原版 bundle 里这批确实是
+            //   `m_TextureFormat = 4`(RGBA32)（`资料/普查产出_第二十一会话/N4_收藏窗50秒.md`），
+            //   但那不要求我们照抄打包格式；账 `A1655④` 的原话就是「`ArtBaker` 仍 Uncompressed → 改压缩」
+            //   （→ `资料/待办判据_第三十三会话.md` 的 `A1655`）。
+            //   选 **`CompressedHQ`（BC7）而不是 `Compressed`（DXT）**：这批图带 alpha，而且
+            //   `ArtOpaque` **要用透明区的 RGB**（见上面 `alphaIsTransparency=false` 那段）——
+            //   BC1/DXT1 丢 alpha、DXT5 在渐变色带上出块状伪影；BC7 是本工程保真度最高的一档
+            //   （同用法先例 = 本文件 `ApplyArenaImportSettings`：原版那批战场图是 BC7(fmt=29) ⇒ `CompressedHQ`）。
+            //   ⚠️ `isReadable` 那一行**不动**：`CardView.FrameUv` 对 `frame_uv.json` 里查不到的卡框
+            //   仍要退回 `GetPixels32()`（运行时回读），关掉 Read/Write 会让那条兜底静默失效。
+            //   ⚠️ **本行只改「以后导入」**：现存的 `.meta` 要重跑本方法（菜单 / `-executeMethod`）才生效。
+            ti.textureCompression = TextureImporterCompression.CompressedHQ;
             ti.SaveAndReimport();
         }
         Debug.Log(P + "导入设置已重设");

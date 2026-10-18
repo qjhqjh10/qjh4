@@ -45,7 +45,10 @@ import sys
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-TRUTH = r"d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json"
+# 🔴 **2026-10-18（`K06`）换源**：原来是 2022/2025-07-30 快照（1,195 张），池内 SW/UM/DA 一族查不到；
+#   当前 build 的 `allcards` 已找到（1,351 张）⇒ 换过来。形状 `{bundle,count,cards:[{…,full_raw}]}`，
+#   `load_truth()` 里展平。
+TRUTH = r"d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json"
 POOL = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
 INV = r"d:/4/Unity/数据/游戏数据/card_inventory_options.json"
 DST = r"d:/4/Unity/数据/游戏数据/card_initiative.json"
@@ -53,7 +56,8 @@ DST = r"d:/4/Unity/数据/游戏数据/card_initiative.json"
 NOTE = (
     "原版 `RawCardScript.initiative`（`Initiative` 枚举：Undefined=0 / Low=10 / Medium=20 / "
     "High=30 / VeryHigh=40）按【我们卡池的 id】落成的一张表，供先后手判据用（账 `A1775`）。"
-    "真值源 = 2025-07-30 的 `allcards_assets_all` 快照；id 匹配直接复用 "
+    "真值源 = **当前 build** 的 `allcards`（1,351 张，2026-10-18 `K06` 换源；此前是 2025-07-30 的 1,195 张快照）；"
+    "id 匹配直接复用 "
     "`card_inventory_options.json` 的 `map`（那里已经做过四级定位），本件不另写一套。"
 )
 INVARIANT = (
@@ -65,6 +69,9 @@ INVARIANT = (
 
 def load_truth():
     rows = json.load(io.open(TRUTH, encoding="utf-8"))
+    # 🆕 **2026-10-18（`K06`）**：当前 build 的解析产物是 `{cards:[{…,full_raw}]}` ⇒ 展平。
+    if isinstance(rows, dict) and isinstance(rows.get("cards"), list):
+        rows = [c.get("full_raw") or c for c in rows["cards"]]
     return {r.get("uniqueId"): r for r in rows if r.get("uniqueId")}
 
 

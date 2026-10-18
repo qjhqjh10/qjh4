@@ -514,7 +514,7 @@ namespace RuleEngine
         /// 一份付费前缀 = 一条 `Cost &gt; 0 &amp;&amp; !CostShared` 的 op（**付钱那条**）
         /// ＋ 紧跟的一串 `Cost &gt; 0 &amp;&amp; CostShared`。
         /// 实测口径（`ruleprobe` 全池 dump）：付费 op **89** 条、其中 `shared=1` **3** 条
-        /// （`UM81` / `UM93` / `SOR6`）；**带 ≥2 个付费组的卡只有 3 张、全是 `faith`**
+        /// （`UM81` / `UM110` / `SOR6`）；**带 ≥2 个付费组的卡只有 3 张、全是 `faith`**
         /// （`SOR27 Canoness` 2/4 · `SOR68 Sacred Rose Sister` 2/4 · `SOR44 Beacon of Faith` 4/7）
         /// ⇒ **按组**收是必须的：信仰那一格是**逐条门槛**，把整批合成「一个数」会静默答错另一半
         /// （`CardDef.FaithOps` 的 doc 里写了同一件事）。
@@ -663,7 +663,7 @@ namespace RuleEngine
                 //      （`EffectText.StampPaidCost` 上一版是裸 `foreach`），而一条前缀会盖住 2 条 op
                 //      （跨句承接的第二句、或 `Finish` 把 `op.Tail` 递归解出来的那一条）
                 //      ⇒ 这里**逐 op 收** ⇒ **同一次激活扣两倍**。
-                //      实据（离线探针 `工具/ruleprobe`，全池跑过）：`UM93 Fall Back`
+                //      实据（离线探针 `工具/ruleprobe`，全池跑过）：`UM110 Fall Back`
                 //      `Oath 2: Lower its cost by 2 and give it Flank`（2 条各 `Cost=2` ⇒ 扣 4）、
                 //      `SOR6 Righteous Repugnance` 的 `4 Energy:`（2 条各 4 ⇒ 扣 8）。
                 //
@@ -3360,7 +3360,7 @@ namespace RuleEngine
                     //    （`A1989`）作为**独立 op** 排在 `choosecard` 之后产出 —— 它的
                     //    `Payload = (指代上一张)` 读的就是本槽。⛔ 别把这两行删了又指望它生效。
                     //    ⚠️ 影响面：`ChooseAct == "copies"` 的卡全池**只有 2 张**
-                    //    （`GSC29` / `UM97`），后者**没有后续句** ⇒ 本笔只对 `GSC29` 可观测。
+                    //    （`GSC29` / `UM114`），后者**没有后续句** ⇒ 本笔只对 `GSC29` 可观测。
                     ctx.LastCreated.Clear();
                     ctx.LastCreated.AddRange(made);
                     EnforceHandLimit(ctx, owner);
@@ -7550,7 +7550,7 @@ namespace RuleEngine
                     //   · `a Vehicle`（`AM76` / `DA49` / `GOF10`）
                     //   · `a Beast`（`GOF78` / `GOF_Dok_s_Toolz_Painboss_talent`）
                     //   · `a Spanner or Mekboy Gazmek`（`GOF17` —— 兵种词**或卡名**）
-                    //   · `3 or more troops`（`SW52`）
+                    //   · `3 or more troops`（`SW47`）
                     //   ⚠️ `no other troops` 那一族**不在这里** —— `Normalize` 归的是
                     //      `ownnoothertroops`（那条排在本条前面）。
                     // 🔴 **2026-09-16 修**：原来只实现了「控制 **0 个部队**吗」，而且**带数字的一律
@@ -8047,7 +8047,7 @@ namespace RuleEngine
                 if (t == null || !t.IsAlive) continue;
                 t.FerocityStay = true;
                 n++;
-                // 🆕 2026-09-16：常驻版（`SW42 Bjorn the Fell-Handed` 的 `it stays in play`）走同一个标记，
+                // 🆕 2026-09-16：常驻版（`SW36 Bjorn the Fell-Handed` 的 `it stays in play`）走同一个标记，
                 // 但措辞不能再说「本回合下一次」—— 它每次用狂暴都会重新标一次（事件层），
                 // 日志照实说，免得下一个会话看日志以为是一次性。
                 ctx.Log(op.Payload == "always"
@@ -8737,7 +8737,7 @@ namespace RuleEngine
                 // ⚠️ **可观测性**：全池**今天 0 处可达** —— 本笔用**活的工作区解析器**逐条跑过
                 //   `cards_engine.json` 的 1126 张（desc ＋ keywords 共 2147 条文本）：
                 //   `repeat` op 共 **16** 个，其 `RepeatOps` 里带 `Cost > 0 && !CostShared` 的
-                //   **0 个**（带价的 7 处 —— 6 张 `N [货币]:` ＋ `UM98` 的 `Oath 3:` ——
+                //   **0 个**（带价的 7 处 —— 6 张 `N [货币]:` ＋ `UM115` 的 `Oath 3:` ——
                 //   价都贴在 `repeat` op **自己**身上，它重复的那条 `cost = 0`）
                 //   ⇒ 本行今天不改任何真卡读数，是**堵形状**（`A1369` 报告 §五·2）。
                 //   真读数见本笔报告的离线驱动。
@@ -8769,7 +8769,7 @@ namespace RuleEngine
             // 🔴 **2026-09-16 补：多词关键词的卡面写法** —— `Hunt Mark` 在 `KeywordTable` 里的
             //    规范名是 **`huntmark`（没有空格）**，而条件原文写的是 `hunt mark`
             //    ⇒ 上面那一轮 `c.Contains("huntmark")` **永远是假** ⇒
-            //    `If it already had Hunt Mark, destroy it instead`（`SW55 Embers of Prospero`）
+            //    `If it already had Hunt Mark, destroy it instead`（`SW53 Embers of Prospero`）
             //    **整条判不了**、「改为摧毁」从来不发生（而且卡面不打 `*`）。
             //    做法：把文里的空格去掉再比一次 —— 判据仍是**同一张 `Implemented` 表**，
             //    不另写一份词表（那正是两处迟早不一致的来源）。
@@ -8784,7 +8784,7 @@ namespace RuleEngine
         ///
         /// 卡面实测（2026-09-16 全池普查，`controlcount` 共 7 处）：
         ///   · `a Vehicle` / `a Beast` / `a Spanner or Mekboy Gazmek` —— 阈值 1；
-        ///   · `3 or more troops`（`SW52`）—— 阈值 3。
+        ///   · `3 or more troops`（`SW47`）—— 阈值 3。
         /// ⚠️ `no other troops` 那一族**不该到这儿**（`Normalize` 归的是 `ownnoothertroops`），
         ///    这里再排一次是**保险**：万一有人改了 `Normalize` 的顺序，别把它静默当成「≥1」。
         /// 拆不出来返回 **false = 判不了**（如实报，别猜）。

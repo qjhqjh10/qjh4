@@ -38,7 +38,7 @@
      归属一律用 `card_index.json`，脚本只对**孤儿**（索引没收录的）才按名字猜，并标出来。
      🔴 **2026-10-14 更正（账 A1832）**：原来写「归属一律用 `card_index.json`」—— **已降为兜底**。
        实测 `card_index.json` 的 `cards[].voice` **归属本身就错**（**34 条** clip 记在别的卡名下：
-       `BL4`「Chaos Sergeant」→ 记在 `BL46`「Gifts of Chaos」· `DA34` → `DA83` ·
+       `BL4`「Chaos Sergeant」→ 记在 `BL46`「Gifts of Chaos」· `DA34` → `DA66` ·
        `EC21` → `EC_Terminator` …；成因见坑 6），而**卡 SO 是对的** ⇒
        改成 **卡 SO 权威 → index 兜底 → 孤儿按名字猜** 三级。逐级条数由脚本运行输出打印。
   🔴 **5.（2026-09-18 更正第 4 条的后半句）「只对孤儿才按名字猜」这个设计漏了 70 条。**

@@ -1159,7 +1159,7 @@ public static partial class RuleEngineTest
     /// `Parse("Draw a troop and give it +1 [Attack]")` ⇒ `ops[1].Target.Side == "prev"`
     /// **且 `PrevSide` 是「判不出来」**。
     ///
-    /// 全池同形还有 `SW13` / `UM23` / `TAU54` / `GOF50`（真卡 `GOF_Da_Red_Waaagh` 即这一句）。
+    /// 全池同形还有 `SW8` / `UM23` / `TAU54` / `GOF50`（真卡 `GOF_Da_Red_Waaagh` 即这一句）。
     /// ⚠️ **实测**：`PrevSide` 与 `ResolvedSide` 都是 **`null`**（不是空串、更不是某个侧）——
     ///   断言用 `string.IsNullOrEmpty` 兜住两种「没值」的写法，消息里写明实测是 `null`。
     /// 🔴 与 `#33` **并排**：「一切代词都填 `own`」的实现在这一行红。
@@ -1218,7 +1218,7 @@ public static partial class RuleEngineTest
     /// **第二次解析的结果就和第一次不同**，而这件事**不报错、不自检红**（静默）。
     /// 规格表标着「灭自证：报告未给（一红就是**静默错**）」，本次实测这 5 条全池形状都幂等。
     ///
-    /// 取样的 5 条：`#33`/`#34`/`#35` 那三条 ＋ `UM81` 的跨句承接 ＋ `UM93` 的付费前缀。
+    /// 取样的 5 条：`#33`/`#34`/`#35` 那三条 ＋ `UM81` 的跨句承接 ＋ `UM110` 的付费前缀。
     /// </summary>
     static void TestS14ParseIsIdempotent()
     {
@@ -1361,7 +1361,7 @@ public static partial class RuleEngineTest
     /// **`#44` 真卡 `UM81 Phobos Librarian`** —— `Parse(desc)` 恰好 **2 条 op**；
     /// 两条 `Cost == 3`、`CostKindOf` 归一后都是 **`"oath"`**；
     /// **第一条 `CostShared == false`、第二条 `true`**；`CardDef.OathCost == 3`。
-    /// **`#45`/`#46` 两条反向沙包**（`UM_Phobos_Lieutenant` 与 `SOR7` 的原文）⇒ **第二条 `Cost == 0`**。
+    /// **`#45`/`#46` 两条反向沙包**（`UM90` 与 `SOR7` 的原文）⇒ **第二条 `Cost == 0`**。
     ///
     /// 判据 = 原版「**一条 ability = 一个 cost ＋ 一串 logic**」：
     ///   `CardAbility.cs` = `{ AbilityTrigger trigger; …; List&lt;AbilityLogic&gt; abilityLogic }`；
@@ -1380,7 +1380,7 @@ public static partial class RuleEngineTest
     static void TestS14PaidPrefixCarry()
     {
         // ---- #44 真卡 UM81 ----
-        var um81 = new CardDef("UM_Phobos_Librarian", "Phobos Librarian", "unit",
+        var um81 = new CardDef("UM99", "Phobos Librarian", "unit",
                                "Oath 3: Deal 2-4 damage to an enemy. If target dies, gain Shield",
                                "common", "Ultramarines", 3, 3, 3, 0,
                                new[] { "Camouflage", "Oath" }, subtype: "Infantry");
@@ -1437,7 +1437,7 @@ public static partial class RuleEngineTest
     /// </summary>
     static void TestS14OathActivationChargesOnce()
     {
-        var um81 = new CardDef("UM_Phobos_Librarian", "Phobos Librarian", "unit",
+        var um81 = new CardDef("UM99", "Phobos Librarian", "unit",
                                "Oath 3: Deal 2-4 damage to an enemy. If target dies, gain Shield",
                                "common", "Ultramarines", 3, 3, 3, 0,
                                new[] { "Camouflage", "Oath" }, subtype: "Infantry");
@@ -1458,7 +1458,7 @@ public static partial class RuleEngineTest
 
         Check(ctx.Players[0].Energy, e0 - 3,
               "★ `#47` **能量恰好 −3**（`Oath 3` 只扣一次）——"
-            + " 不是 −6（那是「两条 op 各收一遍」的旧缺陷：`UM93` 实测扣 4、`SOR6` 实测扣 8）"
+            + " 不是 −6（那是「两条 op 各收一遍」的旧缺陷：`UM110` 实测扣 4、`SOR6` 实测扣 8）"
             + $"｜🧨 把 `ResolveOneCore` 的 `if (op.CostShared)` 支去掉 ⇒ 本行实得 −6{LogTail(ctx, 8)}");
         CheckTrue(S14Log(ctx, "不再收"),
                   "★ 而且日志里**明说**第二条那 3 点「不再收」（不许静默 —— 本工程红线）");
@@ -1476,17 +1476,17 @@ public static partial class RuleEngineTest
     // ==================================================================
 
     /// <summary>
-    /// **`#49`**：`UM93 Fall Back` / `SOR6 Righteous Repugnance` 的**付费组**各解析出 **2 条 op**、
+    /// **`#49`**：`UM110 Fall Back` / `SOR6 Righteous Repugnance` 的**付费组**各解析出 **2 条 op**、
     /// **同价同货币**、其中**第一条 `CostShared == false`、后面 `true`**。
     /// **`#50`**：结算时 `Energy` **只掉一次**，而且**两条效果都发生**。
     ///
     /// ⚠️ **实测口径（与规格表说法对齐后）**：这两张卡的 `Parse` 结果**整体**是 3 条
-    ///   （`UM93` = 裸 `return` + 付费组 2 条；`SOR6` = 裸 `give` + 付费组 2 条），
+    ///   （`UM110` = 裸 `return` + 付费组 2 条；`SOR6` = 裸 `give` + 付费组 2 条），
     ///   规格表说的「2 条」= **付费组那两条**（下面按 `Cost > 0` 取组，⛔ 不是按总条数）。
     ///
-    /// 🔴 **灭自证是反向那一条**：把 `CostShared` 抹掉 ⇒ `Energy` **必须掉两次**（`UM93` −5 / `SOR6` −10）。
+    /// 🔴 **灭自证是反向那一条**：把 `CostShared` 抹掉 ⇒ `Energy` **必须掉两次**（`UM110` −5 / `SOR6` −10）。
     ///   单断「只扣一次」可以被「干脆不扣」蒙过 —— 所以这里**同时**断「付费组的两条效果都发生了」
-    ///   （`UM93`：部队真回手 **且** `Flank` 真给了；`SOR6`：增益真加上）。
+    ///   （`UM110`：部队真回手 **且** `Flank` 真给了；`SOR6`：增益真加上）。
     /// </summary>
     static void TestS14CostSharedChargesOnce()
     {
@@ -1498,7 +1498,7 @@ public static partial class RuleEngineTest
             out un, out pa);
         var paid93 = new List<EffectOp>();
         foreach (var op in um93) if (op.Cost > 0) paid93.Add(op);
-        Check(paid93.Count, 2, "★ `UM93` 的**付费组**恰好 2 条 op（`lowercost` + `give flank`）");
+        Check(paid93.Count, 2, "★ `UM110` 的**付费组**恰好 2 条 op（`lowercost` + `give flank`）");
         Check(paid93[0].Cost, 2, "★ 两条同价：2");
         Check(paid93[1].Cost, 2, "★ ……第二条也是 2");
         Check(EffectText.CostKindOf(paid93[0].CostKind), "oath", "★ 两条同货币：`oath`");
@@ -1519,7 +1519,7 @@ public static partial class RuleEngineTest
 
         // ---- #50 结算：真打出去，能量只掉一次 ----
         {
-            var um93Card = new CardDef("UM93", "Fall Back", "tactic",
+            var um93Card = new CardDef("UM110", "Fall Back", "tactic",
                                        "Return a friendly troop to your hand. Oath 2: Lower its cost by 2 and give it Flank.",
                                        "common", "Ultramarines", 1, 0, 0, 0, new[] { "Oath" });
             var ctx = ProbeBattle(new[] { um93Card }, new[] { Unit("S14_FoeA", 1, 0, 9) });
@@ -1529,7 +1529,7 @@ public static partial class RuleEngineTest
             int e0 = ctx.Players[0].Energy;
             ctx.ClearSignals();
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Fall Back"), 3), RuleCodes.OK,
-                      "打出 `UM93`（费用 1 + 誓约 2）");
+                      "打出 `UM110`（费用 1 + 誓约 2）");
             Check(ctx.Players[0].Energy, e0 - 3,
                   "★ **能量只掉 3**（1 卡费 + 2 誓约）—— ⛔ 不是 −5（付费组各收一遍的旧缺陷）"
                 + $"｜🧨 抹掉 `CostShared` ⇒ 本行实得 −5{LogTail(ctx, 8)}");
@@ -1581,7 +1581,7 @@ public static partial class RuleEngineTest
         // ==================================================================
 
         // ---- 🆕 `A1412`：收费抬到 ability 层 ⇒ 付不起时**整组一条都不结算**（能力层那条路；
-        //      形状 = `UM93` 那句的组形状，但挂在**单位**上 ⇒ 走 `UseOathAbility` 那条重载）----
+        //      形状 = `UM110` 那句的组形状，但挂在**单位**上 ⇒ 走 `UseOathAbility` 那条重载）----
         {
             var oathProbe = new CardDef("W11_OATH", "W11 Oath Probe", "unit", "Oath 2: Lower its cost by 2 and give it Flank.",
                                         "common", "Ultramarines", 1, 1, 5, 0, new[] { "Oath" });
@@ -1974,7 +1974,7 @@ public static partial class RuleEngineTest
     /// 我们这一口 = `RuleCore.WouldKillByEntries` 循环里那一段（`u.Has(DropPod) &amp;&amp; !podSpent`）。
     ///
     /// 🔴 **手工夹具（⚠️ 不是真卡）**：全池 **1126 张卡 0 张声明 `dropPod`**
-    ///    （唯一含这个词的是 **卡名** `SW31 Fenrisian Drop Pod` —— 它 `keywords` 只有 `Flying` / `Armour 1`）
+    ///    （唯一含这个词的是 **卡名** `SW23 Fenrisian Drop Pod` —— 它 `keywords` 只有 `Flying` / `Armour 1`）
     ///    ⇒ 下面那个 `CardDef` 是**手工构造**的、血池靠 `AddKeyword` 挂上去。
     ///    今天**不可观测**，但按**铁律 11**（复刻有缺漏就补、只有先后之分）照样断言。
     ///

@@ -304,7 +304,7 @@ namespace RuleEngine
                                                     RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>`N energy` / `[N] energy` / **`+N energy`**（方括号是付费标记，我们上一版复刻 `rule_core.gd:2519` 会剥掉）。
-        /// 🔴 **2026-09-16 补 `\+?`**：`Chaplain Gabutheron`（`DA82`）卡面写的是 **`gain +1 Energy`**
+        /// 🔴 **2026-09-16 补 `\+?`**：`Chaplain Gabutheron`（`DA65`）卡面写的是 **`gain +1 Energy`**
         /// —— 带正号，原来这条正则**整段失配** ⇒ 那半句从来不给（`Agenda: Heal 4 … and gain +1 Energy`）。
         /// ⚠️ 正号在这里**没有**别的含义（能量只会加），所以放宽是安全的。</summary>
         static readonly Regex ReEnergy = new Regex(@"^\+?(\d+)\s*energy$", RegexOptions.Compiled);
@@ -362,7 +362,7 @@ namespace RuleEngine
             //        （ops 层按关键词合并会**误并合法的重复授予** —— 同一张卡真的给两次、值不同的那种）。
             //     🔴 **必须在脱 `[]` 之前**做：脱完就只剩 `Shield Shield`、分不出哪个是记号了。
             //     📌 **实测影响面**（全池 1126 张逐张跑过）：**只碰 11 张** —— `ASH44` · `BL51` · `GOF100` ·
-            //        `GOF_Stomp_Em` · `GOF_Uge_Choppa` · `SOR52` · `SW68` · `TAU47` · `TAU49` · `TAU65` ·
+            //        `GOF_Stomp_Em` · `GOF_Uge_Choppa` · `SOR52` · `SW61` · `TAU47` · `TAU49` · `TAU65` ·
             //        `UM_Death_from_Above`（含跨行那处）；而 `[Spirit Stone]` / `[Attack]` / `[Energy]`
             //        这些**后面没跟同一个词的一个都没被碰**。
             //     🔴 **两条都要**（2026-10-09 现核订正）：**上游已把方括号换成关键词名**，所以进到这里的 payload
