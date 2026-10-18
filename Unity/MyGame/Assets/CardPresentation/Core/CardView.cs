@@ -427,8 +427,17 @@ namespace CardPresentation
             // ① 横向：可见右缘 = 卡框 alpha 右缘（+FrameUnitW/2）⇒ 折回【网格中心】
             //    （CostBgW 是**整张 sprite**的网格宽，可见右边在网格右侧内 9/248 处）
             float cx = 0.5f * FrameUnitW - (CostVisRightFrac - 0.5f) * CostBgW;
-            // ② 纵向：可见上缘 = 徽记下缘 ⇒ 折回【网格中心】（可见上边在网格上边内 3/244 处）
-            float cy = badgeBottom - CostVisTopFromCenter * CostBgH;
+            // ② 纵向：可见上缘 = 徽记下缘 **再往下留一条常量缝**
+            //    🔴 **2026-10-18（用户定）：要精确复现实拍** —— 用户给的 `战斗—替换手卡参考图（后手）.png` 里，
+            //    徽记亮部下缘与八边形外沿上缘之间还有 **≈8 屏幕 px ≈ 19 贴图像素 ≈0.069 卡单位**的缝；
+            //    `W27` 第一版做成了「贴死」，这里补回这条缝。⛔ 别把它当成可调的自由参数去改版式。
+            float gapUnit = 0f;
+            {
+                Rect uvG = FrameUv(frameTex);
+                if (uvG.height > 1e-5f && frameTex.height > 0)
+                    gapUnit = CostBadgeGapPx / (uvG.height * frameTex.height) * FrameUnitH;
+            }
+            float cy = badgeBottom - gapUnit - CostVisTopFromCenter * CostBgH;
             return new Vector2(0.5f + cx / CardUnitW, 0.5f - cy / CardUnitH);
         }
 
@@ -626,6 +635,13 @@ namespace CardPresentation
         const float CostVisRightFrac = (CostIconW - CostIconPadR) / CostIconW;
         // 可见上边离网格上边 = 3/244 ⇒ 中心到可见上边 = (0.5 − 3/244) × CostBgH
         const float CostVisTopFromCenter = 0.5f - CostIconPadT / CostIconH;
+
+        /// <summary>费用八边形**可见上缘**与**阵营徽记下缘**之间的常量缝（**贴图像素**）。
+        /// <para>🔴 **2026-10-18 用户定：要精确复现实拍** —— 判据 = `桌面/warpforge参考图/战斗—替换手卡参考图（后手）.png`
+        /// （泰伦 4 张逐张量：徽记亮部下缘 y=269、八边形外沿上缘 ≈277，卡高 391px ⇒ **≈8 屏幕 px**）。
+        /// 折算到我们 1024² 卡框贴图 ≈ **19 px ≈ 0.069 卡单位**（`W27` 第一版做成贴死，这里补回这条缝）。
+        /// ⛔ 这是「实拍 → 贴图」的换算常量，**不是可自由调版式的参数**。</para></summary>
+        const float CostBadgeGapPx = 19f;
 
         // ==================================================================
         //  🆕 卡面**文字底板**（原版 `Front/Textbackgrounds/TextBackground Big|Small UI`）
