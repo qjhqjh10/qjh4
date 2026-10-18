@@ -2855,13 +2855,27 @@ namespace CardPresentation
         /// <summary>🔴 **2026-10-11（`A1530①`）就地订正**：这一格**不是** `Deck Image` 自己，而是
         /// 原版 `Deck Image(mask)`（`RectMask2D`）那一格 —— `228×306 @ (11,26.1)`。
         /// 卡格主图（`Deck Image`）**拉伸画在 `347.7×346.4 @ (−49.4,6.2)`**（= `DcImgX/Y/W/H`）再被它裁 ⇒
-        /// 可见 = 大方框正中的这一块。调用处照这个等价复现（见 `DeckCell` 里那段）。</summary>
+        /// 可见 = 大方框正中的这一块。调用处照这个等价复现（见 `DeckCell` 里那段）。
+        /// ⚠️ **2026-10-18**：这个「大方框」只对**整张 1024² 纹理**成立；已裁成插图的 `art_&lt;id&gt;.png`（671×1024）
+        /// 等价画框 = **本行这一格**（x 11 · w 228）—— 见 `DcImgX` 那条的补注。</summary>
         public const float DcBackX = 11f, DcBackY = 26.1f, DcBackW = 228f, DcBackH = 306f;
         /// <summary>🔴 **2026-10-11（A1507）**：卡格主图（原版叫 `Deck Image`）**没被遮罩裁之前**的尺寸
         /// —— **347.7×346.4 @ (−49.4, 6.2)**，被 `Deck Image(mask)` 的 `RectMask2D` 裁到上面那 228×305.97。
         /// ⇒ 我们画的时候**只取图正中 `DcBackW/DcImgW × DcBackH/DcImgH` 那一块**（等价复现，同模式卡那条 UV 路）。
-        /// 出处 = 只读代理 2026-10-11 现读 `bundle_menus_assets_all` 的卡组格 prefab（`A2_Deck页.md` §2·2 同值）。</summary>
+        /// 出处 = 只读代理 2026-10-11 现读 `bundle_menus_assets_all` 的卡组格 prefab（`A2_Deck页.md` §2·2 同值）。
+        /// <para>🔴 **2026-10-18 就地补注（铁律 5）**：这个**方**框对应的是**整张 1024² 卡面纹理**
+        /// （`RawCardScript.cardImageReference` 指向的那张 sprite）。它裁出来的可见区 =
+        /// 纹理 **x 17.4%..83.0% × y 5.75%..94.1%**，而卡面插图在那张纹理里正好占 **x 176.5..847**
+        /// （= `textureRect`）⇒ **可见区 = 插图整幅**（左右各多 1.4px 余量）。
+        /// 而我们的 `art_&lt;id&gt;.png` 多数**已经裁到插图那一条**（671×1024）⇒ 那些图**不能再按这个方框画**
+        /// （那会把插图再横向截掉三分之一 —— 就是「战将立绘残缺」那个症状），要按 **x 11 · w 228** 画；
+        /// 折算与判据见 `DeckCell` 里那段。整张 1024² 的兜底图（缺 `textureRect` 的那 495 张）才用本行这组。</para></summary>
         public const float DcImgX = -49.4f, DcImgY = 6.2f, DcImgW = 347.7f, DcImgH = 346.4f;
+        /// <summary>原版 1024² 卡面纹理里**插图占的横向比例**（`textureRect` = **x 176.5 · w 670.5**，
+        /// 裁法见 `工具/import_original_art.py` 文件头）⇒ `670.5/1024`。**只作推导记录/交叉核对**（不是运行时参数）：
+        /// `DcBackW / DcArtBand = 228/0.6548 = 348.2` ≈ 原版那个方框宽 **347.7**（差 0.5px）
+        /// ⇒ 印证「遮罩 228 宽 ≈ 插图整条（670.5）被画进方框后占的那一段」。见 `DeckCell` 的「画框折算」。</summary>
+        public const float DcArtBand = 670.5f / 1024f;
         /// <summary>「取不到督军立绘、退回画卡背」那条警告**限流**用的计数（不是缺陷计数）。</summary>
         static int NoWarlordArtLog;
         /// <summary>`Deck Name`（fs32 · 基准30 · auto[8~32] · 居中 · Capline · 字距 −2，@ (20,344.2) 宽 210）。
@@ -3046,17 +3060,33 @@ namespace CardPresentation
             //     （阵营图标）· `+0x88 ← GetGameModeIcon(CardDeck.GameMode)`（模式图标，见 `A1503①`）。
             //   🔴 **我们原来画的是 `CardArt.DeckCardback(...)`（卡背）** —— 旧注释拿
             //     `CardDeck.GetDeckCardback()` 当判据，**那一位是卡片背面的来源，不是这一格的主图**。
-            //   用户给的参考图 `收藏—卡组的参考图.png` 也是**一幅督军立绘**（四格四张不同角色）⇒ 两边一致。
+            //   用户给的参考图 `收藏—卡组的参考图.png` 四格都是**一张卡面插图**（四格四张不同角色）⇒ 与反编译一致。
             //   ⚠️ 几何照原版：图**画在 347.7×346.4**（比遮罩大）再被 `RectMask2D` 裁到 **228×305.97 @(11,26.1)**
-            //     ⇒ 等价复现 = 画在遮罩那一格、**只取图正中的 `228/347.7 × 305.97/346.4`**（同模式卡那条 UV 路的做法）。
-            // 🔴🔴 **2026-10-18（用户报「战将立绘残缺」· 就地改对）**：原版这一格 = `CardArt.DeckHero` ——
-            //   独立的 **`UI_Deck_Warlord_<督军名>`** 方形立绘族（2048²，本机现读 63 张，`bundle_uiwarlords_assets_all`）。
-            //   原来取的是**卡面插图**（668×1024）再拉进 347.7×346.4 的方形框 + 遮罩 ⇒ 变形且只露中间一块。
-            //   取不到（快照之后新增的 16 位督军没有这张图）⇒ 退回卡面插图，并按**非方形图**等比内接（见下）。
-            var front = CardArt.DeckHero(info.WarlordId);
+            //     ⇒ 等价复现 = 把画框交给 `Rect`、由遮罩取它框住的那一块（同模式卡那条 UV 路的做法）。
+            //   🔴 **2026-10-18 就地订正（铁律 5）**：上面这两句里
+            //     · 「一幅督军立绘」当时被理解成 `UI_Deck_Warlord_*` 方形立绘 —— **错了**（那是透明底抠图、
+            //       没有背景，与参考图对不上）；正确读法是**卡面插图**。
+            //     · 「只取图正中的 228/347.7 × 305.97/346.4」只对**整张 1024² 纹理**成立 ——
+            //       我们的 `art_<id>.png` 已经裁到插图那一条，再按方框取正中就会把插图横向截掉三分之一。
+            //     正确做法见紧接的 2026-10-18 那一段。
+            // 🔴🔴 **2026-10-18（用户报「卡组选择界面：卡组上面的战将卡图用错了」· 就地改判）**：
+            //   用户原话：「这里好像应该是**卡牌里的插图**，你使用了**卡组详情上面战将立绘**。」
+            //   ① **用户参考图** = `桌面/warpforge参考图/收藏—卡组的参考图.png`（收藏·卡组页四格）：
+            //      四格主图都是**带背景的卡面插图**。逐格与 `Resources/Art/cards/art_<id>.png` 做模板匹配
+            //      （归一化互相关）：`GSC66` = **0.845**、`DA3` = **0.806**，而换成
+            //      `UI_Deck_Warlord_*`（2048² **透明底抠图、没有背景**）对不上 ⇒ 参考图用的就是**卡面插图**。
+            //   ② **反编译同一条链**（`d:/2/tools/decomp_full/CollectionDeck__Config.c:69-74`）取的是
+            //      `deckHero.cardImageReference`，而 `RawCardScript.cardImageReference` 的类型是
+            //      `AssetReferenceTyped<Sprite>` = **卡面那张图**（不是 `UI_Deck_Warlord_*` 那一族 UI 立绘）。
+            //   ⇒ 主图 = `CardArt.Portrait(WarlordId)`（卡面插图）。
+            //   ⚠️ **旧记忆 `warpforge-deck-warlord-art` 的适用范围已改判**：`UI_Deck_Warlord_<名>`（2048² 方形立绘）
+            //      **只**用于**卡组详情窗**（`DeckInfoPopup` 左侧那张大立绘，⛔ 本次没动）与其同族窗；
+            //      **卡组格不算**。`CardArt.DeckHero` 的 doc 已同步改口径。
+            //   ⚠️ 2026-10-18 当天早些时候「改成 `DeckHero`」那一版**是错的**，本条把它推翻（铁律 5：保留痕迹）。
+            var front = CardArt.Portrait(info.WarlordId);
             if (front != null)
             {
-                // 🔴🔴 **2026-10-11（`A1530①` · 第十七会话代理 `X` 现读 prefab · 本会话落盘）：原版这一颗
+                // 🔴 **2026-10-11（`A1530①` · 第十七会话代理 `X` 现读 prefab · 本会话落盘）：原版这一颗
                 //   【没有 `preserveAspect`】，我们原来传的是 `keepAspect: true`。**
                 //   判据（`工具/menu_dump.py bundle_menus_assets_all -2024334647938937812 --depth 4` 现读）：
                 //     `Deck Image` 那一行 **不带 `preserveAspect`**（同表里 `Faction Icon` / `Game Mode Icon`
@@ -3065,27 +3095,38 @@ namespace CardPresentation
                 //     `Deck Image(mask)`（`11,26.1 → 239,332.1` · 挂 **`RectMask2D`**）
                 //       └ `Deck Image` —— **拉伸**画在 **`347.70×346.35 @ (−49.4, 6.2)`**（= `DcImgW/H` / `DcImgX/Y`）
                 //   ⇒ 可见区 = 那个大方框**正中**的 228×306 那一块（**不是**「等比缩到 200 宽」）。
-                //   🔴 **等价复现（不引入遮罩机制）**：把**大方框**交给 `Rect(…, clip: 遮罩格 ∩ 视口)` ——
-                //     `Rect` 自己那条 uv 算式（本文件 `:1578`）算出来的正好是「大方框里被遮罩框住的那一块」，
+                //   🔴 **等价复现（不引入遮罩机制）**：把**画框**交给 `Rect(…, clip: 遮罩格 ∩ 视口)` ——
+                //     `Rect` 自己那条 uv 算式（本文件 `:1578`）算出来的正好是「画框里被遮罩框住的那一块」，
                 //     而**几何矩形仍然是 `遮罩格 ∩ 视口`**（与改前**逐位相同** ⇒ 位置/尺寸不受本次改动影响）。
-                //   ⛔ **别退回 `keepAspect: true`**（那是原版没有的一档；旧注释里「画宽 200 vs 227、差 12%」
-                //      那句话就是在记这个偏离）。
+                //   ⛔ **别退回 `keepAspect: true`**（那是原版没有的一档）。
                 //   ⛔ **也别在 `Rect` 之后自己补一句 `SetUvRect`** —— 那会**盖掉** `Rect` 按视口裁切算好的
                 //      uv（部分滚出视口的格子会画错）；2026-10-11 有一版就是那么写的，症状 = 「整格只剩
-                //      左边一小条」，⛔ 别再走一遍（唯一正确的做法就是上面把**大方框**当 `r` 交给 `Rect`）。
+                //      左边一小条」，⛔ 别再走一遍（唯一正确的做法就是上面把**画框**当 `r` 交给 `Rect`）。
+                // ----------------------------------------------
+                // 🔴 **2026-10-18 画框折算**（改主图之后必须跟着改，否则插图会被再截掉三分之一）：
+                //   原版那个 **347.7 宽的方框**对应的是**整张 1024² 卡面纹理**；可见区 = 纹理
+                //   x `17.4%..83.0%` × y `5.75%..94.1%`，而插图在那张纹理里正好占 x `176.5..847`
+                //   （= `textureRect`）⇒ **可见区 ≈ 插图整幅**。
+                //   我们的 `art_<id>.png` 有两种形状（`工具/import_original_art.py`）：
+                //     · **671×1024** = 已经裁到插图那一条（1168 张里 672 张）⇒ 横向**整幅**画进遮罩那格：
+                //       画框 = **x 11 · w 228**（`DcBackX/Width`）—— 此时可见 u = 0..1，与参考图吻合；
+                //     · **1024×1024** = 整张纹理（缺 `textureRect` 的兜底档，495 张）⇒ 仍按原版方框
+                //       `347.7 @ −49.4` 画、由遮罩取正中。
+                //   纵向两档**一样**：y 6.2 · h 346.4（⇒ 可见 v `0.0575..0.9408`）。
+                //   ⚠️ 两档的画框宽高比与各自贴图相差都 <0.5% ⇒ 不会变形。
+                bool wholeTexture = Mathf.Abs(front.width - front.height) <= Mathf.Max(16f, front.width * 0.05f);
+                float boxX = wholeTexture ? DcImgX : DcBackX;
+                float boxW = wholeTexture ? DcImgW : DcBackW;
                 var maskCell = new PxRect(r.x1 + DcBackX * K, r.y1 + DcBackY * K,
                                           r.x1 + (DcBackX + DcBackW) * K, r.y1 + (DcBackY + DcBackH) * K);
                 PxRect visMask;
                 // 整块（遮罩格）在视口外 ⇒ 原版 `RectMask2D` **一个像素都不画** ⇒ 不建这颗（同 `Rect` 的语义）
                 if (ClipRect(maskCell, clipR, out visMask))
                 {
-                    // 🔴 **2026-10-18**：`UI_Deck_Warlord_*` 是 2048² 方形 ⇒ `keepAspect:false`（原版也是拉伸到方形框、
-                    //   比例恰好不变）；**退回卡面插图那一档**（非方形）才用 `keepAspect:true` 等比内接，避免变形。
-                    bool square = Mathf.Abs(front.width - front.height) <= 1;
                     var fq = Rect(cell, front,
-                         new PxRect(r.x1 + DcImgX * K, r.y1 + DcImgY * K,
-                                    r.x1 + (DcImgX + DcImgW) * K, r.y1 + (DcImgY + DcImgH) * K),
-                         "Deck Image", q, null, !square, visMask);
+                         new PxRect(r.x1 + boxX * K, r.y1 + DcImgY * K,
+                                    r.x1 + (boxX + boxW) * K, r.y1 + (DcImgY + DcImgH) * K),
+                         "Deck Image", q, null, false, visMask);
                     // 🔴 **必须换成「忽略贴图 alpha」那一档** —— 见 `CardView.MakeOpaqueQuad` 的注释：
                     //   原版 668 张卡的立绘是**抠图**（全透明 > 5%），普通 `Sprites/Default` 会把它们画成
                     //   「一个淡淡的人影 + 近乎空的格子」（2026-10-11 实测），而**卡面**一直是按忽略 alpha 画的。
@@ -3094,7 +3135,7 @@ namespace CardPresentation
             }
             else
             {
-                // 取不到督军立绘（这副牌没督军 / 图没导出）⇒ **退回卡背**，并且**出声**（红线的「不许静默」）。
+                // 取不到卡面插图（这副牌没督军 / 图没导出）⇒ **退回卡背**，并且**出声**（红线的「不许静默」）。
                 var back = CardArt.DeckCardback(info.CardbackId, info.Faction);
                 if (back != null)
                     Rect(cell, back,
@@ -3102,7 +3143,7 @@ namespace CardPresentation
                                     r.x1 + (DcBackX + DcBackW) * K, r.y1 + (DcBackY + DcBackH) * K),
                          "CardBack", q, null, false, clipR);
                 if (NoWarlordArtLog++ < 3)
-                    Debug.LogWarning("[MenuDraw] 卡格 `" + name + "` 取不到督军立绘（`WarlordId`=\""
+                    Debug.LogWarning("[MenuDraw] 卡格 `" + name + "` 取不到督军**卡面插图**（`WarlordId`=\""
                                      + info.WarlordId + "\"）⇒ **退回画卡背**。"
                                      + "⚠️ 原版这一格画的是 `deckHero.cardImageReference`（`CollectionDeck__Config.c:69-74`）");
             }

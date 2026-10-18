@@ -1572,9 +1572,12 @@ public static class MainMenuScene
                     {
                         // ⚠️ `FontSizeMin/Max` 是 **TMP 的 fontSize 口径**（不是 px）⇒ 要比 42/10 得先换算
                         //    （`Label.FontSizeToPx` = 全工程唯一那份 px 口径）。
-                        CheckNear(Label.FontSizeToPx(tlb.FontSizeMax), 42f, 0.05f,
+                        // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace` —— 本颗
+                        //    （`TopBar.Resource QuantityText`）是 `LatinCardBody`；`EmPerFontSize` 自本日起
+                        //    按面分两支（CJK 0.0948 / 拉丁 0.1），静态口量它会恒差 5.2%。判据 → R4 §五·B。
+                        CheckNear(tlb.FontSizeToPxNow(tlb.FontSizeMax, tlb.ActualFace), 42f, 0.05f,
                                   "★ 文字字号**上限** = **42px**（原版 TMP `m_fontSizeMax = 42`）");
-                        CheckNear(Label.FontSizeToPx(tlb.FontSizeMin), 10f, 0.05f,
+                        CheckNear(tlb.FontSizeToPxNow(tlb.FontSizeMin, tlb.ActualFace), 10f, 0.05f,
                                   "★ 文字字号**下限** = **10px**（原版 TMP `m_fontSizeMin = 10`）");
                         CheckNear(tlb.CharSpacing, -1f, 0.01f,
                                   "★ 字距 = **−1**（原版 `m_characterSpacing = −1`）");
@@ -3567,11 +3570,13 @@ public static class MainMenuScene
                                     CheckTrue(lb.AutoSizing, $"★ {what}：**自适应开着**"
                                               + "（原版 `m_enableAutoSizing = 1`）"
                                               + " —— 旧写法只传 `autoMinPx` 不传 `wrapPx` ⇒ 停在 TMP 出厂 `false`");
-                                    CheckNear(Label.FontSizeToPx(lb.FontSizeMin), minPx, 0.05f,
+                                    // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace`
+                                    //   （`EmPerFontSize` 按面分两支：CJK 0.0948 / 拉丁 0.1；CJK 标签值逐位不变）。
+                                    CheckNear(lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace), minPx, 0.05f,
                                               $"★ {what}：**下限** = 原版 `m_fontSizeMin` **{minPx}px**");
-                                    CheckNear(Label.FontSizeToPx(lb.FontSizeMax), maxPx, 0.05f,
+                                    CheckNear(lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace), maxPx, 0.05f,
                                               $"★ {what}：**上限** = 原版 `m_fontSizeMax` **{maxPx}px**");
-                                    CheckNear(Label.FontSizeToPx(lb.FontSizeBase), basePx, 0.05f,
+                                    CheckNear(lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace), basePx, 0.05f,
                                               $"★ {what}：**基准** = 原版 `m_fontSizeBase` **{basePx}px**");
                                     CheckTrue(lb.WrappingMode == 0, $"★ {what}：**折行档 = 0**"
                                               + "（原版 `m_TextWrappingMode = 0`；`SetAutoFitBox` 内部一句"
@@ -4132,11 +4137,12 @@ public static class MainMenuScene
                     {
                         CheckTrue(compLb.AutoSizing, "★ `Completed Text`：**自适应开着**"
                                   + "（原版 `m_enableAutoSizing = 1`）");
-                        CheckNear(Label.FontSizeToPx(compLb.FontSizeMin), 10f, 0.05f,
+                        // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace`（同族理由见上）
+                        CheckNear(compLb.FontSizeToPxNow(compLb.FontSizeMin, compLb.ActualFace), 10f, 0.05f,
                                   "★ …**下限** = 原版 `m_fontSizeMin` **10px**（旧写法停在 TMP 出厂 `0`）");
-                        CheckNear(Label.FontSizeToPx(compLb.FontSizeMax), 54f, 0.05f,
+                        CheckNear(compLb.FontSizeToPxNow(compLb.FontSizeMax, compLb.ActualFace), 54f, 0.05f,
                                   "★ …**上限** = 原版 `m_fontSizeMax` **54px**");
-                        CheckNear(Label.FontSizeToPx(compLb.FontSizeBase), 12f, 0.05f,
+                        CheckNear(compLb.FontSizeToPxNow(compLb.FontSizeBase, compLb.ActualFace), 12f, 0.05f,
                                   "★ …**基准** = 原版 `m_fontSizeBase` **12px**"
                                   + "（≠ 标称 54、也 ≠ TMP 序列化默认 36 ⇒ 这一条最有鉴别力）");
                         CheckTrue(compLb.WrappingMode == 0, "★ …**折行档 = 0**"
@@ -4607,9 +4613,10 @@ public static class MainMenuScene
                         //   两个 `c`）。⇒ **本颗的判据是空的**（铁律 11 的例外①：原版本身没有）⇒
                         //   照现状**不接词条**（若哪天要接，落点是 `Shell/TitleTab.cs:66` / `Shell/AvatarTab.cs:83`
                         //   那两个 `BtnLabel = "Select"`，⛔ 不在 A891 的续那批的文件白名单里）。
-                        CheckText(TextOf(FindChild(sel, "Button Text")), "Select",
-                                  "按钮文案 = `Select`（⚠️ **我们挑的**：原版那条是**葡语占位串 `Selecionar`**、还没挂 `Localize` —— "
-                                + "2026-10-18 逐颗按 pid 复查过，见上面那条留痕）");
+                        CheckText(TextOf(FindChild(sel, "Button Text")), Loc.T("Demo/AvatarMenu/SelectAvatarButton"),
+                                  "按钮文案 = `Loc.T(\"Demo/AvatarMenu/SelectAvatarButton\")`（随语档：中文「选择」/ 英文 `Select`）"
+                                + "（⚠️ 原版那条是**葡语占位串 `Selecionar`**、prefab 上**没挂 `Localize`** ⇒ 键是照同族同节点推的，"
+                                + "2026-10-18 `W22` 逐颗按 pid 复查过，见上面那条留痕；铁律 11 例外①）");
                         CheckTrue(FindChild(sel, "Toggle borde") == null,
                                   "`Toggle borde` **不建**（出厂 act=F + 全包无 MonoBehaviour 指向它 + 无 Animation ⇒ 死节点）");
 
@@ -4679,7 +4686,20 @@ public static class MainMenuScene
                             CheckTrue(Mathf.Abs(ttl.position.y - wantCy) < 0.02f,
                                       $"`Select Item` 垂直居中在 y 147.51..210.70（实得 {(540f - ttl.position.y * 108f):F2}px）");
                         }
-                        CheckText(TextOf(ttl), "Select your title", "小标题文案");
+                        // 🔴 **2026-10-18（`W18` §二）就地改期望值**：`TitleTab` 上屏那句已从写死英文 `TtlLabel`
+                        //   改成 `Loc.T(TtlLabelTerm)` —— 键 = **`PlayerProfile/SelectTitleTip`**（原版那颗 `Localize.mTerm`，
+                        //   判据见 `资料/普查产出_1018/W18_玩家账户四问题.md` §二；官方两列 `Select your title` / `选择你的头衔`）。
+                        //   期望值**随语档**取（⛔ 不再写死英文字面量 —— 中文档下必红，且等于把实现钉在英文上）。
+                        //   🧨 鉴别式：实现改回写死英文 ⇒ 中文档读到英文 ≠ `Loc.T(键)` ⇒ 下面这条红。
+                        //   ⚠️ 前提那条**不是 `Loc.HasEntry`**：这条键**不在**手写 `Table`、也不在数据面 bulk
+                        //   （`HasEntry` / `HasBulk` 现读都是 false），只存在于官方 13 语言全表
+                        //   （`Resources/official_loc_13lang.json`；`Loc.T` 2026-10-18 起中英两档也查那一份）
+                        //   ⇒ 用 `Loc.Lang13Of(键, "en")`（**无视当前语档**，任何语档下都成立；同文件先例 `:12611`）。
+                        CheckTrue(!string.IsNullOrEmpty(Loc.Lang13Of("PlayerProfile/SelectTitleTip", "en")),
+                                  "（前提）词条 `PlayerProfile/SelectTitleTip` 在官方 13 语言表里");
+                        CheckText(TextOf(ttl), Loc.T("PlayerProfile/SelectTitleTip"),
+                                  "小标题文案 = `Loc.T(\"PlayerProfile/SelectTitleTip\")`（随语档 · 官方两列 "
+                                + "`Select your title` / `选择你的头衔`）");
                         CheckTrue(ttl != null && bgBig != null && ttl.position.y > bgBig.position.y,
                                   "🔴 `Select Item` **溢在面板之上**（真值：它顶边 147.51 比面板顶 210.69 还高）—— 别「修正」成对齐");
                         var scr = FindChild(disp, "Scroll Rect");
@@ -4798,8 +4818,10 @@ public static class MainMenuScene
                                      "`Select Avatar Button`");
                         CheckText(TextOf(FindChild(sel2, "Toggle borde") != null
                                          ? FindChild(FindChild(sel2, "Toggle borde"), "Button Text") : null),
-                                  "Toggle Border",
-                                  "`Toggle borde` 在**这一页是活的**（⚠️ 同一名字在 Title 页是死节点）—— 文案 `Toggle Border`");
+                                  Loc.T("Demo/AvatarMenu/ToggleBorder"),
+                                  "`Toggle borde` 在**这一页是活的**（⚠️ 同一名字在 Title 页是死节点）—— 文案 = "
+                                + "`Loc.T(\"Demo/AvatarMenu/ToggleBorder\")`（随语档：中文「切换边框」/ 英文 `Toggle Border`；"
+                                + "键 = prefab 三颗 `Toggle borde` 的 `Localize.mTerm` 逐颗现读，2026-10-18 `W22`）");
 
                         var disp2 = FindChild(pg, "Item Display Panel");
                         CheckAtWorld(disp2, 632.79f, 1701.49f, 210.69f, 868.61f, "`Avatar Tab/Item Display Panel`");
@@ -5950,11 +5972,12 @@ public static class MainMenuScene
                         if (lb == null) return;
                         CheckTrue(lb.AutoSizing, $"★ {what}：**自适应开着**（原版 `m_enableAutoSizing = 1`）"
                                   + " —— 旧写法一个 autosize 实参都没传 ⇒ 停在 TMP 出厂 `false`");
-                        CheckNear(Label.FontSizeToPx(lb.FontSizeMin), 18f, 0.05f,
+                        // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace`（同族理由见上）
+                        CheckNear(lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace), 18f, 0.05f,
                                   $"★ {what}：**下限** = 原版 `m_fontSizeMin` **18px**");
-                        CheckNear(Label.FontSizeToPx(lb.FontSizeMax), 72f, 0.05f,
+                        CheckNear(lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace), 72f, 0.05f,
                                   $"★ {what}：**上限** = 原版 `m_fontSizeMax` **72px**");
-                        CheckNear(Label.FontSizeToPx(lb.FontSizeBase), 36f, 0.05f,
+                        CheckNear(lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace), 36f, 0.05f,
                                   $"★ {what}：**基准** = 原版 `m_fontSizeBase` **36px**"
                                   + "（⚠️ 恰好 = TMP 序列化默认 ⇒ 这一格鉴别力弱）");
                         CheckTrue(lb.WrappingMode == 1, $"★ {what}：**折行档 = 1**"
@@ -13509,8 +13532,12 @@ public static class MainMenuScene
     {
         var lb = t != null ? t.GetComponentInChildren<Label>() : null;
         if (lb == null) { CheckTrue(false, what + "（节点不在）"); return; }
-        CheckNear(Label.FontSizeToPx(lb.FontSizeMin), minPx, 0.6f, what + "：窗口**下界**");
-        CheckNear(Label.FontSizeToPx(lb.FontSizeMax), maxPx, 0.6f, what + "：窗口**上界**");
+        // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成**按这颗标签实际生效的面**
+        //   （`EmPerFontSize` 自本日起按面分两支：CJK 汉字墨高 0.0948 / 拉丁面原版真 em 0.1）。
+        //   本窗有多颗 `LatinUi` / `LatinCardBody`（如 `MenuWindowBase` 的标题）⇒ 静态口会恒差 5.2%。
+        //   CJK 标签的读数逐位不变。判据 → `R4_Rewards残差.md` §五·B ＋ `D1` §四 方案 B(b)。
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace), minPx, 0.6f, what + "：窗口**下界**");
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace), maxPx, 0.6f, what + "：窗口**上界**");
     }
 
     /// <summary>🆕 **2026-10-12（A336 · F1 §三 #5）**：一段文字的 **`m_fontSizeBase`**（自适应的**二分起点**）。
@@ -13528,7 +13555,8 @@ public static class MainMenuScene
     {
         var lb = t != null ? t.GetComponentInChildren<Label>(true) : null;
         if (lb == null) { CheckTrue(false, what + "（节点不在）"); return; }
-        float got = Label.FontSizeToPx(lb.FontSizeBase);
+        // 🔴 **2026-10-18（`N55`）**：口径按 `ActualFace`（同 `CheckFontWindow` 那条；CJK 读数逐位不变）
+        float got = lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace);
         CheckNear(got, wantPx, 0.6f, what + $"：`m_fontSizeBase`（实得 {got:F2}px）");
     }
 

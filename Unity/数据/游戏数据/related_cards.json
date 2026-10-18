@@ -1,18 +1,18 @@
 {
  "note": "**全量真值**（给工具/人看）：原版每张卡的 relatedCard1..4 逐槽一条不落，含「落不进我们卡池」的那些（`id: null` + `via` 写原因）。游戏读的是 CardPresentation/Resources/related_cards.json（同一次运行产出，不会分叉）。",
- "source": "d:/2/远端缓存_旧profile_1013/Unity缓存_按哈希/54bdb7b1…/…/__data （RawCardScript × 1195）",
- "provenance": "同包内按 m_PathID 反查裸 PPtr（m_FileID 全 0）；快照 = Unity 2022.3.38f1 / 2025-07-30，比现池旧 ⇒ 部分原版卡我们池子里没有（含 `_EASY`/`_tutorial`/`_enchantment` 那些另形态），那些边**没猜、丢在 skipped 里**。落 id 两级：① 原版 uniqueId 直命中卡池 id；② 归一化卡名（砍尾部括号）+ 同阵营、且候选只限「我们自造 id」的卡、唯一命中。全量真值（含落不下的每一条）→ 数据/游戏数据/related_cards.json，同一次运行产出。",
+ "source": "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json（当前 build allcards，RawCardScript × 1351）",
+ "provenance": "同包内按 m_PathID 反查裸 PPtr（m_FileID 全 0）；语料 = 当前 build（2026-10-18 换，旧的是 2025-07-30 的 1,195 张快照）。池外仍有约 224 张原版卡（含 `_EASY`/`_tutorial`/`_enchantment` 那些另形态）⇒ 那些边**没猜、丢在 skipped 里**。落 id 两级：① 原版 uniqueId 直命中卡池 id（当前池 1127/1127 都是真 uniqueId，命中率见 stats）；② 归一化卡名（砍尾部括号）+ 同阵营、且候选只限「池内 id 不在真值集里」的卡、唯一命中（当前 build 下池内 id 全在真值集 ⇒ 这一级实际命中 0，仅作防御）。全量真值（含落不下的每一条）→ 数据/游戏数据/related_cards.json，同一次运行产出。",
  "invariant": "① 每个 related 的 `uid` 是原版 `uniqueId`；② `id` 非 null 时它一定是 cards_engine.json 里现用的 id；③ 槽序 = relatedCard1..4。",
- "truthCards": 196,
- "truthEdges": 240,
+ "truthCards": 212,
+ "truthEdges": 266,
  "perSlot": [
-  196,
-  31,
-  9,
-  4
+  212,
+  36,
+  12,
+  6
  ],
- "mappedCards": 176,
- "mappedEdges": 214,
+ "mappedCards": 191,
+ "mappedEdges": 239,
  "cards": [
   {
    "srcUid": "1688c6146abb1e04f98e540b4cbbabd7",
@@ -124,6 +124,21 @@
      "uid": "GOF1",
      "name": "Grot",
      "id": "GOF1",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "7a02359776e89f243b8cf41642dc44c9",
+   "srcName": "Witchblade Warlock (tutorial)",
+   "srcMName": "16 SaimHann-Witchblade Warlock_tutorial",
+   "srcId": null,
+   "srcVia": "查不到「Witchblade Warlock (tutorial)」（阵营 SaimHann）",
+   "related": [
+    {
+     "uid": "d3e99cb18b8cbba4081486f57f510f75",
+     "name": "Witchfire",
+     "id": "d3e99cb18b8cbba4081486f57f510f75",
      "via": "id"
     }
    ]
@@ -972,6 +987,20 @@
      "uid": "DA10",
      "name": "Black Knight",
      "id": "DA10",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "DA75",
+   "srcName": "Master Zacharial",
+   "srcMName": "DarkAngels_war_Master Zacharial",
+   "srcId": "DA75",
+   "related": [
+    {
+     "uid": "38871853fabb5244d8148766829230cd",
+     "name": "Refuse to Yield",
+     "id": "38871853fabb5244d8148766829230cd",
      "via": "id"
     }
    ]
@@ -2133,6 +2162,176 @@
    ]
   },
   {
+   "srcUid": "SW1",
+   "srcName": "Logan Grimnar",
+   "srcMName": "SpaceWolves_war_Logan Grimnar",
+   "srcId": "SW1",
+   "related": [
+    {
+     "uid": "b3dce3f10cc118541910156ec8da1d9b",
+     "name": "High King of Fenris",
+     "id": "b3dce3f10cc118541910156ec8da1d9b",
+     "via": "id"
+    },
+    {
+     "uid": "6e4f9040e8cc59641a32f29e33ea4cbc",
+     "name": "Tyrnak and Fenrir",
+     "id": "6e4f9040e8cc59641a32f29e33ea4cbc",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "SW13",
+   "srcName": "Wolf Guard Headtaker",
+   "srcMName": "10 SpaceWolves-Wolf Guard Headtaker",
+   "srcId": "SW13",
+   "related": [
+    {
+     "uid": "SW5",
+     "name": "Hunting Wolf",
+     "id": "SW5",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "SW18",
+   "srcName": "Hrolf the Ironhowl",
+   "srcMName": "15 SpaceWolves-Hrolf the Ironhowl",
+   "srcId": "SW18",
+   "related": [
+    {
+     "uid": "SW5",
+     "name": "Hunting Wolf",
+     "id": "SW5",
+     "via": "id"
+    },
+    {
+     "uid": "SW9",
+     "name": "Fenrisian Wolf",
+     "id": "SW9",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "SW2",
+   "srcName": "Njal Stormcaller",
+   "srcMName": "SpaceWolves_war_Njal Stormcaller",
+   "srcId": "SW2",
+   "related": [
+    {
+     "uid": "a51adc8f5c311584385c3117cfd919e9",
+     "name": "High Rune Priest",
+     "id": "a51adc8f5c311584385c3117cfd919e9",
+     "via": "id"
+    },
+    {
+     "uid": "b551c8351ebe5784faf9912b573eaf93",
+     "name": "Tempest's Wrath",
+     "id": "b551c8351ebe5784faf9912b573eaf93",
+     "via": "id"
+    },
+    {
+     "uid": "4d4b9170663891f488c0e96ee8e55ba1",
+     "name": "Murderous Hurricane",
+     "id": "4d4b9170663891f488c0e96ee8e55ba1",
+     "via": "id"
+    },
+    {
+     "uid": "7a01882fe4610244292d16b15f4b873e",
+     "name": "Living Lightning",
+     "id": "7a01882fe4610244292d16b15f4b873e",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "SW23",
+   "srcName": "Fenrisian Drop Pod",
+   "srcMName": "20 SpaceWolves-Fenrisian Drop Pod",
+   "srcId": "SW23",
+   "related": [
+    {
+     "uid": "SW10",
+     "name": "Grey Hunter",
+     "id": "SW10",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "SW3",
+   "srcName": "Ragnar Blackmane",
+   "srcMName": "SpaceWolves_war_Ragnar Blackmane",
+   "srcId": "SW3",
+   "related": [
+    {
+     "uid": "e3b5735d801fcbd49aa8d3975a5b0c31",
+     "name": "War Howl",
+     "id": "e3b5735d801fcbd49aa8d3975a5b0c31",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "SW32",
+   "srcName": "Stormwolf",
+   "srcMName": "29 SpaceWolves-Stormwolf",
+   "srcId": "SW32",
+   "related": [
+    {
+     "uid": "SW10",
+     "name": "Grey Hunter",
+     "id": "SW10",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "SW42",
+   "srcName": "Savage Legacy",
+   "srcMName": "T4 SpaceWolves-Savage Legacy",
+   "srcId": "SW42",
+   "related": [
+    {
+     "uid": "SW10",
+     "name": "Grey Hunter",
+     "id": "SW10",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "SW48",
+   "srcName": "The Fang",
+   "srcMName": "T10 SpaceWolves-The Fang",
+   "srcId": "SW48",
+   "related": [
+    {
+     "uid": "SW10",
+     "name": "Grey Hunter",
+     "id": "SW10",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "SW58",
+   "srcName": "Fenrisian Wolfpack",
+   "srcMName": "T20 SpaceWolves-Fenrisian Wolfpack",
+   "srcId": "SW58",
+   "related": [
+    {
+     "uid": "SW9",
+     "name": "Fenrisian Wolf",
+     "id": "SW9",
+     "via": "id"
+    }
+   ]
+  },
+  {
    "srcUid": "TAU1",
    "srcName": "Shadowsun",
    "srcMName": "TauEmpire_war_Shadowsun",
@@ -2589,6 +2788,20 @@
    ]
   },
   {
+   "srcUid": "UM100",
+   "srcName": "Chaplain Cassius",
+   "srcMName": "12 Ultramarines-Chaplain Cassius",
+   "srcId": "UM100",
+   "related": [
+    {
+     "uid": "8482077f309b08943b190f18b5874871",
+     "name": "Catechism of Death",
+     "id": "8482077f309b08943b190f18b5874871",
+     "via": "id"
+    }
+   ]
+  },
+  {
    "srcUid": "UM12",
    "srcName": "Antaro Chronus",
    "srcMName": "12 UM-Antaro Chronus",
@@ -2760,6 +2973,78 @@
      "uid": "UM8",
      "name": "Eliminator",
      "id": "UM8",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "UM87",
+   "srcName": "Roboute Guilliman",
+   "srcMName": "Ultramarines_war_Roboute Guilliman",
+   "srcId": "UM87",
+   "related": [
+    {
+     "uid": "40667e346ae58a84dbda1033dff70ccb",
+     "name": "Author of the Codex",
+     "id": "40667e346ae58a84dbda1033dff70ccb",
+     "via": "id"
+    },
+    {
+     "uid": "e874c2bd84895e64694daa44bd5fd5c2",
+     "name": "Primarch of the XIII",
+     "id": "e874c2bd84895e64694daa44bd5fd5c2",
+     "via": "id"
+    },
+    {
+     "uid": "b14d1db2b0730d649b3bec35af100363",
+     "name": "Master of Battle",
+     "id": "b14d1db2b0730d649b3bec35af100363",
+     "via": "id"
+    },
+    {
+     "uid": "ef596edae1828bd46bfc4348535a3acc",
+     "name": "Supreme Strategist",
+     "id": "ef596edae1828bd46bfc4348535a3acc",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "UM88",
+   "srcName": "Valius Paxor",
+   "srcMName": "Ultramarines_war_Valius Paxor",
+   "srcId": "UM88",
+   "related": [
+    {
+     "uid": "4de4fcfb5d7e0554a88b9f419a2cd7c2",
+     "name": "Angel's Wrath",
+     "id": "4de4fcfb5d7e0554a88b9f419a2cd7c2",
+     "via": "id"
+    }
+   ]
+  },
+  {
+   "srcUid": "a51adc8f5c311584385c3117cfd919e9",
+   "srcName": "High Rune Priest",
+   "srcMName": "Z-NC SpaceWolves-High Rune Priest",
+   "srcId": "a51adc8f5c311584385c3117cfd919e9",
+   "related": [
+    {
+     "uid": "b551c8351ebe5784faf9912b573eaf93",
+     "name": "Tempest's Wrath",
+     "id": "b551c8351ebe5784faf9912b573eaf93",
+     "via": "id"
+    },
+    {
+     "uid": "4d4b9170663891f488c0e96ee8e55ba1",
+     "name": "Murderous Hurricane",
+     "id": "4d4b9170663891f488c0e96ee8e55ba1",
+     "via": "id"
+    },
+    {
+     "uid": "7a01882fe4610244292d16b15f4b873e",
+     "name": "Living Lightning",
+     "id": "7a01882fe4610244292d16b15f4b873e",
      "via": "id"
     }
    ]

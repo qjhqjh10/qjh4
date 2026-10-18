@@ -39,14 +39,17 @@
 //     （= `项目任务.md` §三 第 13-E 条第 8 项那条老账的同一件事），**如实标**。
 //   · **升级表数值是我们编的**（原版在服务端 `CardTierConfig`）—— 照实拍那个数据点
 //     （等级 3 = 4 张 + 2000 + 500 锻造点）做梯度，见 `CardProgress`。**用户 2026-09-22 已裁决照办。**
-//   · **不扣货币**：单机资源固定 9999（同上裁决）⇒ 货币那一格**永不动**。
-//     🔴 **2026-10-12（A1699）就地订正**：本行原文写「⇒ 升级/创建副本只改**本地拥有数与等级**」——
-//     **两块面板恢复后，那两颗钮本版都不改任何数**：**升级**钮 = `Interactable = false`（不可交互，
-//     用户 2026-10-12 口径「默认最高级」）；**创建副本**钮 = 点了只出声、**什么都不做**
-//     （见 `OnCraftClicked`；原口径下它走 `DoCraft` 加副本 —— 那一支**保留但没接线**）。
-//     🆕 **2026-10-12（第二笔 · 用户同日第二条裁定）**：**「默认最高级」已落到取数口** ——
-//     `CardProgress.Level` 的缺省 **1 → `MaxLevel`**（见那个方法的 doc），同一裁定下
-//     「创建副本」那块面板的消费文案**已按红线缀上 `*` 标识本版未实现**（见 `BuildCrafting`）。
+//   · **不扣货币**：单机资源固定 9999（同上裁决）⇒ 升级面板里那一格金币**永不动**。
+//     🔴 **2026-10-18 就地订正（铁律 5）**：这一段原来记着「两块面板恢复后，那两颗钮本版都不改任何数
+//     （升级钮 `Interactable=false`、创建副本只出声）」——**那一整段已过期**，用户当天拍板
+//     「照参考图那样布置…并且**通过升级按钮进行不同等级的卡框切换**」⇒ 两颗钮**都接了真机制**：
+//       · **创建副本** = 扣 1 张同稀有度通配符（本地库存，初始 99/档、可扣减、落盘）+ `owned +1`；
+//       · **升级** = 多余副本够就升一级，**等级 = 卡框档**（`CardView` 把 `CardProgress.Level` 喂给
+//         `CardArt.Frame/Sdf` 的 `tier`）⇒ 重画后卡框换成新档；满级 ⇒ `Content` 关 + `No Upgrade Warning` 露。
+//     ⇒ 判据与落地见 `CardProgress`（存档段 / `Level` / `Wildcards`）与 `BuildCrafting` / `BuildUpgrade`。
+//     ⚠️ **仍然保留的两处「我们编的」**：升级消耗表（`NeedCopies/NeedGold/Points`，原版在服务端
+//     `CardTierConfig`；照实拍那个数据点做的梯度，用户 2026-09-22 已裁决照办）· 通配符的**初始**库存
+//     （原版是服务端发放，没有本地发放源）。
 //   · `Debug Add cards`（开发用）· `Item Information Panel`(act=F) · `Game Mode Icon` 那类 **不建**。
 //   · `Alternate Art Panel`：**本地只有 7 张督军异画**（2 种风格）⇒ 不是这张卡就**没有异画可切**
 //     （如实说，不给别的督军换 —— 异画**绑死在那张卡上**，见 `CardArt.AltArt` 的注释）。
@@ -73,6 +76,25 @@ using RuleEngine;
 
 namespace CardPresentation
 {
+    /// <summary>🆕 2026-10-18：`CardProgress` 存档的**一条**（`id` → 值）。`JsonUtility` 不支持字典 ⇒ 用数组。</summary>
+    [System.Serializable]
+    public class CardProgressEntry
+    {
+        public string id;
+        public int v;
+    }
+
+    /// <summary>🆕 2026-10-18：`CardProgress` 的存档根（`Application.persistentDataPath/WarpforgeCardLevels.json`）。
+    /// 形状与为什么这么存 → `CardProgress` 里「存档」那一段的注释。</summary>
+    [System.Serializable]
+    public class CardProgressSave
+    {
+        public int version = 1;
+        public List<CardProgressEntry> levels = new List<CardProgressEntry>();
+        public List<CardProgressEntry> owned = new List<CardProgressEntry>();
+        public List<CardProgressEntry> wildcards = new List<CardProgressEntry>();
+    }
+
     /// <summary>单机口径的卡牌进度（拥有数 / 等级）。**升级表数值是我们编的**，见文件头。</summary>
     public static class CardProgress
     {
@@ -99,6 +121,81 @@ namespace CardPresentation
 
         static readonly Dictionary<string, int> _owned = new Dictionary<string, int>();
         static readonly Dictionary<string, int> _lvl = new Dictionary<string, int>();
+        /// <summary>通配符库存（键 = **小写稀有度**：`common` / `rare` / `epic` / `legendary`）。
+        /// 缺省 = <see cref="WildcardsPerRarity"/>。🆕 2026-10-18（见下面「存档」那一段）。</summary>
+        static readonly Dictionary<string, int> _wild = new Dictionary<string, int>();
+
+        // ============================================================ 🆕 2026-10-18：**存档**（等级 / 拥有数 / 通配符）
+        //
+        // 🔴 **起因**：用户当天拍板「照参考图那样布置『创建副本 / 升级』两块面板」+
+        //   「**通过升级按钮进行不同等级的卡框切换**」⇒ 等级与通配符库存必须有落盘，
+        //   否则「升了一级 / 扣了一张通配符」**关掉游戏就没了**（静默丢数据，红线）。
+        //
+        // 文件：`Application.persistentDataPath/WarpforgeCardLevels.json`（**玩家存档位**，不进 git）。
+        // 形状（`version` 留给以后迁移；读档时只认三个数组）：
+        //   { "version": 1,
+        //     "levels":    [ { "id": "UM82", "v": 2 } ],
+        //     "owned":     [ { "id": "UM82", "v": 12 } ],
+        //     "wildcards": [ { "id": "epic", "v": 98 } ] }
+        // ⚠️ **不用字典**：`JsonUtility` 不支持 `Dictionary` ⇒ 落成 `id/v` 数组（这是它的既有约束，不是我们挑的）。
+        // ⚠️ **`owned` 也一起存** —— 不存的话「创建副本 +1」重开游戏就回滚，那条链等于没做。
+        //   它只在**首次**由 `Owned()` 按「给足」口径算出初值，之后以存档为准。
+        // ⚠️ 读写失败**不抛**：`LogWarning` 出声 + 用缺省值继续（同 `CardArt` 那套「没有美术也照跑」）。
+        // 🔴 **自检里关掉落盘**：`ResetForTest()` 会把 `_persist` 置 false 并跳过读盘 —— 否则跑一次
+        //   自检就会改写开发机上的玩家存档，而且下一次自检会被上一次的值污染（不可复现）。
+        // ⚠️ 两个容器类放在**文件级**（不是嵌在 `CardProgress` 里）—— `JsonUtility` 对**嵌套类型**
+        //   的支持在各 Unity 版本上不一致，放平最保险（它们不是 `MonoBehaviour`，不需要同名文件）。
+
+        /// <summary>存档文件名（**只此一处**；路径 = `Application.persistentDataPath`）。</summary>
+        public const string SaveFileName = "WarpforgeCardLevels.json";
+
+        static bool _loaded;        // 懒加载过没有（无论读盘成功与否）
+        static bool _persist = true; // 自检里置 false（见上面那一段）
+
+        static string SavePath { get { return System.IO.Path.Combine(Application.persistentDataPath, SaveFileName); } }
+
+        static void EnsureLoaded()
+        {
+            if (_loaded) return;
+            _loaded = true;
+            if (!_persist) return;
+            try
+            {
+                var path = SavePath;
+                if (!System.IO.File.Exists(path)) return;
+                var d = JsonUtility.FromJson<CardProgressSave>(System.IO.File.ReadAllText(path));
+                if (d == null) return;
+                if (d.levels != null) foreach (var e in d.levels) if (e != null && !string.IsNullOrEmpty(e.id)) _lvl[e.id] = e.v;
+                if (d.owned != null) foreach (var e in d.owned) if (e != null && !string.IsNullOrEmpty(e.id)) _owned[e.id] = e.v;
+                if (d.wildcards != null) foreach (var e in d.wildcards) if (e != null && !string.IsNullOrEmpty(e.id)) _wild[e.id] = e.v;
+                Debug.Log("[CardProgress] 读档成功：" + path + "（等级 " + _lvl.Count + " 条 · 拥有数 " + _owned.Count
+                        + " 条 · 通配符 " + _wild.Count + " 条）");
+            }
+            catch (System.Exception ex)
+            {
+                // 文件坏了 / 权限不够 ⇒ **不崩**，按缺省走，并且出声（不静默）
+                Debug.LogWarning("[CardProgress] 等级存档读不出（" + SavePath + "）：" + ex.Message
+                               + " ⇒ 按缺省（等级 1 / 拥有数给足 / 通配符 " + WildcardsPerRarity + "）继续");
+            }
+        }
+
+        static void Save()
+        {
+            if (!_persist) return;
+            try
+            {
+                var d = new CardProgressSave();
+                foreach (var kv in _lvl) d.levels.Add(new CardProgressEntry { id = kv.Key, v = kv.Value });
+                foreach (var kv in _owned) d.owned.Add(new CardProgressEntry { id = kv.Key, v = kv.Value });
+                foreach (var kv in _wild) d.wildcards.Add(new CardProgressEntry { id = kv.Key, v = kv.Value });
+                System.IO.File.WriteAllText(SavePath, JsonUtility.ToJson(d, true));
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[CardProgress] 等级存档写不出（" + SavePath + "）：" + ex.Message
+                               + " ⇒ 本次改动只在内存里（关掉游戏会丢）");
+            }
+        }
 
         /// <summary>拥有数。**口径「给足」**（用户 2026-09-22 裁决）：够 `卡组上限 + 升满所需`。
         /// <para>🔴 **2026-10-17（A894）卡型那一档的残留（如实标注，别当成已做）**：本函数**吃不到
@@ -110,6 +207,7 @@ namespace CardPresentation
         /// （`min(拥有, 卡组上限)`）是对的** —— 它的**上限**那一项已经走 `DeckCap(rarity, type)`。</para></summary>
         public static int Owned(string id, string rarity)
         {
+            EnsureLoaded();
             int v;
             if (_owned.TryGetValue(id, out v)) return v;
             v = DeckCap(rarity) + (NeedCopies[MaxLevel] - NeedCopies[1]);
@@ -119,31 +217,70 @@ namespace CardPresentation
         public static void AddOwned(string id, string rarity, int n)
         {
             _owned[id] = Owned(id, rarity) + n;
+            Save();                                   // 🆕 2026-10-18：落盘（见「存档」那一段）
         }
-        /// <summary>这张卡的等级 —— **等价于原版 `RawCardScript.get_CardTier()` 的 1 基写法**。
-        /// 🔴 **缺省 = `MaxLevel`（2026-10-12 用户裁定「默认最高级」）。**
+        /// <summary>这张卡的等级 —— **等价于原版 `RawCardScript.get_CardTier()` 的 1 基写法**（1..`MaxLevel`）。
         ///
-        /// <para>**改动前后**：缺省原来是 `1` ⇒ 详情窗的 `Upgrade Panel` 印成「升级到第 **2** 级」
-        /// （`BuildUpgrade` 的 `Title` = `Min(Level + 1, MaxLevel)`），而卡框那一路早就**一律最高档**
-        /// （`CardArt.TierOf` 恒返 `CardArt.MaxTier`，用户 2026-09-27 拍板「所有卡一律取最高档卡框」）
-        /// ⇒ **同一个数在两处打架**，正是下面这条原版事实要消掉的东西。</para>
+        /// <para>🔴 **2026-10-18 改判：缺省 = 1（不再是 `MaxLevel`）。** 用户当天拍板
+        /// 「照参考图布置『创建副本 / 升级』两块面板」+「**通过升级按钮进行不同等级的卡框切换**」——
+        /// 缺省若仍是 4，**每张卡一上来就满级** ⇒ `CanUpgrade` 恒假 ⇒ 升级钮永远是灰的、
+        /// 卡框也永远只有 tier4 一档，「升级换框」这条链**根本走不到**。
+        /// ⇒ 按原版口径定案：**新卡一律 Tier1**（`CardTier{Tier1=0..Tier4=3}`，显示等级 = 内部值 + 1；
+        /// 判据 `UpgradePanel__CheckUpgradeRequirements.c` 的 `CardTier + 2` = 「升到第 N 级」）。</para>
+        /// <para>**历史（保留是为了别再翻回去）**：2026-10-12 用户曾裁定「默认最高级」⇒ 缺省 1 → `MaxLevel`，
+        /// 理由是当时**不做升级机制**、不想让面板印出「升级到第 2 级」而后面的卡框却永远是最高档 ——
+        /// 那是「两处数打架」的权宜之计。2026-10-18 升级真做了、卡框也真跟着等级走了 ⇒ **那个前提消失**，
+        /// 两处现在是**同一个数**（`CardView` 直接把本函数喂给 `CardArt.Frame/Sdf` 的 `tier` 形参）。</para>
         ///
-        /// <para>🔴 **原版里这两处本来就是【同一个数】**（本笔亲读判据）：
-        /// 卡框走 `CardFramesSO.GetClanFrame(army, **tier**, cardType)`、
-        /// 升级面板走 `CardTierConfig.GetNextTierInfo(**tier**, rarity)` ——
-        /// 两个入参都取自同一句 `RawCardScript__get_CardTier(lVar7, 0)`
-        /// （`d:/2/tools/decomp_full/UpgradePanel__CheckUpgradeRequirements.c:57-60`）；
-        /// 我们这边把它拆成了 `CardArt.TierOf`（画框）与 <see cref="Level"/>（升级面板）两条路
-        /// ⇒ **`Level` 必须跟着 `TierOf` 走**，不能各表一套。</para>
+        /// <para>⚠️ **存档**：2026-10-18 起有落盘（`WarpforgeCardLevels.json`，见上面「存档」那一段）。
+        /// 读档失败 / 没有存档 ⇒ 回这个缺省 1。写入点 = `SetLevel`（唯一调用方 `DoUpgrade`）。</para>
         ///
-        /// <para>⚠️ **没有存档，也没有第二个写入点**：`_lvl` 是纯内存静态字典（`ResetForTest` 只清它）；
-        /// 全仓唯一的 `SetLevel` 调用 = `DoUpgrade()`，而那颗钮自 2026-10-12 起
-        /// `Interactable = false` ⇒ **本版实际永远取这个缺省值**。
-        /// 连带后果（逐处现核，都被如实订正过）：`CanUpgrade` 恒假 ⇒
-        /// `BoosterPackOpenWindow.ReadyForLevelUp`（开包那枚「可升级」角标）**由恒真变恒假**
-        /// —— 那才是「默认最高级」该有的答案。</para></summary>
-        public static int Level(string id) { int v; return _lvl.TryGetValue(id, out v) ? v : MaxLevel; }
-        public static void SetLevel(string id, int l) { _lvl[id] = l; }
+        /// <para>⚠️ **连带后果（都已核实过）**：缺省 1 之后 `CanUpgrade` 在「给足」口径下（`Spares` = 9）
+        /// **恒真** ⇒ `BoosterPackOpenWindow.ReadyForLevelUp`（开包那枚「可升级」角标）**由恒假变回可按**。</para></summary>
+        public static int Level(string id)
+        {
+            EnsureLoaded();
+            int v;
+            if (string.IsNullOrEmpty(id)) return 1;
+            return _lvl.TryGetValue(id, out v) ? Mathf.Clamp(v, 1, MaxLevel) : 1;
+        }
+        public static void SetLevel(string id, int l)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            _lvl[id] = Mathf.Clamp(l, 1, MaxLevel);
+            Save();                                   // 🆕 2026-10-18：落盘
+        }
+
+        // ============================================================ 🆕 2026-10-18：**通配符库存**
+        //
+        // 原版：创建副本消耗**同阵营同稀有度 1 张通配符**（`CardServices__CheckForCardCrafting.c`：
+        //   按 army+rarity 找通配符且数量 > 0；`CraftingPanel__CheckButtons.c`：有价但没通配符 ⇒ 钮 `interactable=false`）。
+        // 我们：**没有发放源**（原版那套走服务端）⇒ 给每档一个**初始库存**、之后**可扣减**并落盘。
+        //   ⛔ 这不是「伪造服务端」：初始值是我们挑的（= 本工程「资源给足」那条单机口径的同一档做法），
+        //   扣减是真扣、扣到 0 钮就灰（与原版同一支）。
+
+        /// <summary>每档稀有度的**初始**通配符库存（= 2026-09-28 用户拍板那个 `99` 的口径）。
+        /// 只作「没有存档时的初值」，之后以 <see cref="Wildcards"/> 的实读为准。</summary>
+        public const int WildcardsPerRarity = 99;
+
+        /// <summary>这张卡那种稀有度的通配符还有几张（**只此一处**）。稀有度大小写不敏感。</summary>
+        public static int Wildcards(string rarity)
+        {
+            EnsureLoaded();
+            int v;
+            var k = (rarity ?? "").ToLowerInvariant();
+            return _wild.TryGetValue(k, out v) ? Mathf.Max(0, v) : WildcardsPerRarity;
+        }
+
+        /// <summary>扣 1 张通配符；不够返回 false（**不改任何数**）。点了「创建副本」成功时才调。</summary>
+        public static bool TrySpendWildcard(string rarity)
+        {
+            int have = Wildcards(rarity);
+            if (have <= 0) return false;
+            _wild[(rarity ?? "").ToLowerInvariant()] = have - 1;
+            Save();
+            return true;
+        }
 
         /// <summary>多余副本数 = 拥有 − min(拥有, 卡组上限)（**原版 `CardCounterDisplay.Initialize` 的判据**）。</summary>
         public static int Spares(string id, string rarity)
@@ -158,7 +295,15 @@ namespace CardPresentation
             return l < MaxLevel && Spares(id, rarity) >= NeedCopies[l + 1];
         }
 
-        public static void ResetForTest() { _owned.Clear(); _lvl.Clear(); }
+        /// <summary>自检用：清空内存态，**并且从此不读盘、不落盘**（见上面「存档」那一段 ——
+        /// 自检绝不能改写开发机上的玩家存档，也不能被上一次的值污染）。
+        /// 🆕 2026-10-18：`_wild` 一起清；`_loaded = true` 表示「已按出厂态处理、不必再读盘」。</summary>
+        public static void ResetForTest()
+        {
+            _owned.Clear(); _lvl.Clear(); _wild.Clear();
+            _persist = false;      // 本进程后续所有 `Save()` 变成空操作
+            _loaded = true;        // 跳过 `EnsureLoaded()` 的读盘
+        }
     }
 
     /// <summary>`CardDetailPopup : GameWindow` —— 点一张卡开的那扇详情窗（原版菜单版 `CardDisplayWindow`）。</summary>
@@ -214,6 +359,25 @@ namespace CardPresentation
         public const float CraftT = 146.71f, CraftB = 410.44f;
         public const float UpgT = 411.12f, UpgB = 672.74f;
         public const float AltT = 673.42f, AltB = 903.01f;
+        /// <summary>🆕 **2026-10-18（用户拍板）**：右栏三块面板之间的**统一间距**（设计 px）。
+        ///
+        /// <para>用户原话：「**创建副本和升级那两个方框，应该保持一定的距离。对于有异画的战将那里
+        /// 有三个方框，它们的距离也要保持好。**」⇒ 三块**两两同距**，顺序/高度都不动。</para>
+        ///
+        /// <para>**判据来源（两路都量过，取哪一路写在下面）**：
+        /// ① **参考图**（`C:/Users/qjh36/Desktop/warpforge参考图/点击卡片查看详情的参考.png`，1577×887，
+        ///    设计 1920×1080 ⇒ 系数 1920/1577 = **1.2175**）—— 逐行扫「面板色」得到**可见边框**：
+        ///    上面那块 `y 186..382` 图像 px、下面那块 `y 469..678` ⇒ 可见空隙 **87 图像 px ≈ 106 设计 px**
+        ///    （≈ 面板高的 0.43 倍；两块可见高 196/210 图像 px = 239/256 设计 px）。
+        /// ② **prefab 三组 rect**（`Crafting Panel 146.71..410.44` · `Upgrade 411.12..672.74` ·
+        ///    `Alternate Art 673.42..903.01`）—— 两两只差 **0.68 px** ⇒ 那三组是**外框（含阴影/边饰）**，
+        ///    可见框在外框之内、彼此**贴着**（就是用户看到的「两个方框黏在一起」）。
+        /// 🔴 **为什么不直接取 106**：用户同一条要求里还有「**高度不变**」，三个高度和 = **754.94**，
+        ///    再塞两条 106 ⇒ 第三块底部 = 146.71 + 754.94 + 212 = **1113.65 > 1080**（出血到屏幕外）。
+        /// ⚠️ **本值 40 是折中（如实标注，⛔ 不冒充原版）**：第三块底部 = **983.01**，
+        ///    离屏顶 146.71 · 离屏底 **97**（上下留白接近）；两两间距都是 **40.68**（= 40 + 原来那 0.68 外框差）。
+        ///    真要做到参考图那一档，得先允许压面板高度（那是另一条用户口径，⛔ 本笔不擅自改）。</para></summary>
+        public const float PanelGap = 40f;
         /// <summary>🆕 **2026-10-12（A1699）异画面板那两颗换画圆钮**（`Select Art Button Left/Right`）。
         ///
         /// <para>🔴 **尺寸与位置取自【运行时实况 dump】**（`资料/原版实拍/menu_forge_1016/runtime_ui_dump_menu_forge.tsv:154,157`）——
@@ -375,6 +539,10 @@ namespace CardPresentation
         public Transform EyeHit { get { return Find(transform, "ShowTextHit"); } }
         public Transform CraftHit { get { return Find(transform, "CraftHit"); } }
         public Transform UpgradeHit { get { return Find(transform, "UpgradeHit"); } }
+        /// <summary>🆕 **2026-10-18**：升级面板拆成两颗并列钮之后的**「降级」那颗**的命中区（自检用）。
+        /// ⚠️ `UpgradeHit` 那个名字**没改**（`Editor/CollectionScene.cs` 既有断言按它取节点）——
+        /// 它现在指的是**「升级」那颗**（= 原来那颗钮的语义位置）。</summary>
+        public Transform DowngradeHit { get { return Find(transform, "DowngradeHit"); } }
         /// <summary>🆕 异画面板那两颗换画圆钮的命中区（自检用；`side` = `"Left"` / `"Right"`）。
         /// ⚠️ 名字**必须带左右** —— 两颗各有一个，同名的话 `Find` 只会拿到第一颗。</summary>
         public Transform AltArrowHit(string side) { return Find(transform, "ArrowHit " + side); }
@@ -479,6 +647,65 @@ namespace CardPresentation
         }
 
         public override void Open() { Build(); }
+
+        // ============================================================ 关窗（🆕 2026-10-18 · 账 `N115` · 写手 W19）
+        //
+        // 🔴 **为什么要覆写 `Close()` / `Hide()`**（两条，都是本窗自己的事）：
+        //
+        // ① **出声** —— 本窗原来**不覆写**这两条，于是「关窗到底跑没跑」在日志里**一个字都没有**。
+        //    真机那次能看到的只有紧随其后的 `WindowsManager.ShowPreviousWindow` 那一句
+        //    `[Win] \`Collection Menu Variant\`：TryOpen 命中 Background 支`（`Shell/WindowsManager.cs` 的
+        //    `ShowPreviousWindow` ⑥），而**那句话是「关窗【成功】之后的必然结果」**（= 底下的收藏窗从
+        //    `Background` 回 `Open`）—— 同一句在关 `Deck info Popup` 时也会出现（实据：
+        //    `_tmp_view/click_log.txt` 18:35:04 那一下命中 `CloseHit`/`Deck info Popup`，随后的日志**逐字相同**）。
+        //    ⇒ `N115` 把它读成了「点击只把收藏窗提回前台」= **把成功读成了失败**。
+        //    这一条只加日志（红线：不许静默失败），**不改任何行为**：关窗之后下一次真机日志里，
+        //    `[CardDetail] Close/Hide …` 在不在，一眼就能分开「关窗跑了」与「关窗根本没跑」。
+        //
+        // ② **把「相关卡扇形」的临时状态收干净**（任务书第 4 条）。换位那一叠补间是
+        //    `CardTween.ToPose(tr, …)` / `CardFan.TweenTint(v, …)`，两者的 `CardTween.Use(..., link)` 默认带
+        //    `SetLink(link.gameObject)`（`Core/CardTween.cs:57-60`）⇒ **正常情况下**物体 `SetActive(false)` 时
+        //    DOTween 自己会杀。但 `LinkEnabled` **可以**被 `WF_NO_SETLINK=1` 关掉（那是 `CardTween` 的 A/B 开关，
+        //    见 `CardTween.LinkEnabled` 的注释）—— 那一档下补间**活得比窗长**：0.25 s 后的 `OnComplete`
+        //    （`SwapToFront` 里那一段）会去写 `_slotDefs` / `Find(transform, …)` / `RefreshButtons()`；
+        //    玩家若在那一刻已经重开（`Build()` 把整棵子树销毁重建），那些引用就是**已销毁对象**
+        //    ⇒ `MissingReferenceException` + 前台指针错乱。⇒ 关窗/藏窗那一拍**显式**杀掉 + 复位 `_swapping`
+        //    （否则关了窗之后 `IsSwapping` 还报 `true`，自检与上层读到的都是一个假状态）。
+        public override void Close()
+        {
+            ResetFanState("Close");
+            base.Close();
+        }
+
+        public override void Hide()
+        {
+            ResetFanState("Hide");
+            base.Hide();
+        }
+
+        /// <summary>关窗 / 藏窗那一拍把「相关卡扇形」的临时状态收干净（判据见上面那两段）。
+        /// ⚠️ **不销毁子件** —— 下一次 `Build()` 本来就会把整棵子树销毁重建（本窗的既定做法），
+        /// 这里只收**补间 + 记账**，所以关窗那一帧的画面不受影响。</summary>
+        void ResetFanState(string why)
+        {
+            bool wasUp = gameObject.activeSelf;          // = 这一次是「真的关掉一扇开着的窗」还是空转（见下面那句日志的闸）
+            bool wasSwapping = _swapping;
+            for (int i = 0; i < Slots; i++)
+            {
+                var v = SlotViews[i];
+                if (v == null) continue;                    // 空槽 / 已销毁（Unity 假 null）
+                v.transform.DOKill();                       // 位姿补间（`CardTween.ToPose` 的 target = Transform）
+                DOTween.Kill(v);                            // 着色补间（`CardFan.TweenTint` 的 target = CardView）
+            }
+            _swapping = false;
+            // ⚠️ **窗口本来就不活 ⇒ 不出声**（照 `GameWindow.Close` / `Hide` 首句那道守卫的口径：
+            //    `CloseAllWindows()` 逐扇 `Close()` 撞上已藏起来的窗是**正常路径**，原版那一刻也静默早退）。
+            if (!wasUp) return;
+            Debug.Log($"[CardDetail] {why}：关窗清理 —— "
+                      + (wasSwapping ? "**杀掉了还在播的换位补间**" : "没有在播的换位补间")
+                      + $" · `_swapping` 复位 · 扇形 {SlotCount} 格的临时状态收掉"
+                      + "（子件不在这里销毁：下次 `Build()` 整棵重建，所以不留残影）");
+        }
 
         // ============================================================ 建
 
@@ -828,11 +1055,21 @@ namespace CardPresentation
             "40k_general_wildcard_epic_small",   "40k_general_wildcard_legendary_small",
         };
 
+        /// <summary>🆕 **2026-10-18**：与 <see cref="WildcardIcons"/> **逐下标对应**的稀有度键
+        /// （计数条那 4 格的数字现在读**真库存** `CardProgress.Wildcards(rarity)`，不再是写死的 `99`）。
+        /// ⚠️ 两个数组的次序**必须同序** —— 改一个就要改另一个（下面 `BuildWildcards` 按下标同时用）。</summary>
+        static readonly string[] WildcardRarities = { "common", "rare", "epic", "legendary" };
+
         /// <summary>按稀有度取万能卡图标。**认不出时返回原版 prefab 的默认那张** ——
         /// 原版 `Craft/WC icon` 的 `m_Sprite` 存的就是 `40k_general_wildcard_epic_small`，
         /// 而 `CraftingPanel` 上有 `wildcardIcon` / `wildcardSprites` 两个字段
         /// ⇒ **运行时是脚本按卡换的**；**防御卡那 39 张运行时画哪张，关服查不到**
-        /// ⇒ 不猜，用 prefab 的原值，并如实说出来。</summary>
+        /// ⇒ 不猜，用 prefab 的原值，并如实说出来。
+        /// <para>🔴 **2026-10-18：本函数当前【没有生产调用点】**（出声、不静默）—— 用户当天拍板
+        /// 「创建副本按钮去掉数字，只留『创建副本』四个字」⇒ `BuildCrafting` 里那颗 `Craft Icon` 不建了。
+        /// **留着而不是删掉**：它是「按卡的稀有度选万能卡图标」这**一条判据的唯一一份**（连同
+        /// <see cref="WildcardIcons"/> 的同序约定），原版那颗钮将来若要恢复（判据 rect 记在
+        /// `资料/普查产出_1018/W5_升级与副本_落地.md` §4）就照它建回来；⛔ 别再另写一份 switch。</para></summary>
         static string WildcardIconFor(string rarity)
         {
             switch ((rarity ?? "").ToLowerInvariant())
@@ -848,22 +1085,30 @@ namespace CardPresentation
         void BuildCrafting(Transform panel)
         {
             var p = PanelBox(panel, "Crafting Panel", CraftT, CraftB);
-            Title(p, "Crafting Title", "Create a copy of this card", 1307.5f, 165.17f, 1726f, 244.29f, 42f);
+            // 🔴 **2026-10-18 用户拍板：这一块的两句英文改中文** —— 走**官方本地化表**那两条（⛔ 不写死字面量）：
+            //   `MenuDeck/Craft/CraftDescription` = **「创建这张牌的副本」** ·
+            //   `MenuDeck/Craft/CraftCost` = **「这将消耗一个通配符」**（判据 = `Resources/official_loc_13lang.json`
+            //   的 `zh` 列，2026-10-18 现读；`Loc.T` 那三档兜底的最后一段就是这张表）。
+            //   ⚠️ 中文串传 `Face.Cjk`（同本文件「将此张牌降级或升级」那一处）—— 混排兜底虽然也画得出汉字，
+            //   但字号是按 `ActualFace` 的 em 换算的 ⇒ 纯中文串走 CJK 面才与本仓其它中文同一档。
+            Title(p, "Crafting Title", Loc.T("MenuDeck/Craft/CraftDescription"),
+                  1307.5f, 165.17f, 1726f, 244.29f, 42f, TmpFont.Face.Cjk);
             var b = new PxRect(1384f, 244.29f, 1654f, 304.95f);
             // ⚠️ `UI_Button_Mulligan` **不是九宫格图**（实读 `Sprite/UI_Button_Mulligan.json`：`m_Border = None`，
             //    图 410×124）—— 原版标 `type=Sliced` 但**没有 border 就等于拉伸** ⇒ 我们直接走 `Rect`。
             //    （走 `Nine` 会吐一串「border 比图还大，退回单块」的警告，而结果一样。）
             var craftBg = MenuDraw.Rect(p, CardArt.MenuUi("UI_Button_Mulligan"), b, "Craft Bg", QCdRow);
-            MenuDraw.Text(p, new PxRect(b.x1, b.y1, b.x1 + 122.88f, b.y2), "1", Color.white, "Craft Text", 40f, QCdText, face: TmpFont.Face.LatinCardBody);
-            // 图标原版 `scl=1.5`、落在 1506.88..1654
-            // 🔴 **2026-09-27 修：这里原来画的是 `40k_main_collection_icon`（卡池/收藏图标）—— 取错图了。**
-            //    原版那颗叫 **`WC icon`**（万能卡图标），`menu_dump` 实读：
-            //      `…/Crafting Panel/…/Craft/WC icon` = `40k_general_wildcard_epic_small` 41×51
-            //      · **Simple + preserveAspect** · 框 135×50.66 · pivot(0,0.5) ⇒ 实绘 40.7×50.66
-            //    同格下面那行字就是 `This will consume a wildcard`（消耗一张万能卡）⇒ 画万能卡图标才对。
-            float ix = 1506.88f, iy = b.y1 + 10f, iw = 147.12f, ih = b.y2 - b.y1 - 20f;
-            MenuDraw.Rect(p, CardArt.MenuUi(WildcardIconFor(Card.Rarity)), new PxRect(ix, iy, ix + iw, iy + ih),
-                          "Craft Icon", QCdRow, null, true);
+            // 🔴🔴 **2026-10-18 用户拍板（逐字）：「创建副本按钮去掉数字，只留『创建副本』四个字」**
+            //   ⇒ 原来那颗钮上的两件**不再建**：
+            //     ① `Craft Text`（「1」，原版 `Button Text`，rect `1383.96,249.22→1506.84,299.88` @ 40px）；
+            //     ② `Craft Icon`（原版 `WC icon` = `40k_general_wildcard_<稀有度>_small`，
+            //        rect `1506.88,249.22→1653.99,299.88`，`Simple + preserveAspect` ⇒ 实绘 40.7×50.66）。
+            //   ⚠️ **文案是【用户指定】的，不是原版词条**（原版那颗钮上只有 `1` + 通配符图标、没有字）
+            //      ⇒ 用**字面量**「创建副本」（用户 2026-10-18 指定）；⛔ 别往 `official_loc` 里塞这条键。
+            //   ⚠️ 字号 **36** = 与同一列那两颗用户同一天定的「降级 / 升级」同一档（⛔ 别另挑一个数）。
+            //   ⚠️ 那两件原版的 rect 判据留着（上面两段注释已删，出处另存 → `普查产出_1018/W5_升级与副本_落地.md` §4）：
+            //      将来若要恢复，照那两组 rect + `WildcardIconFor(rarity)` 建回来即可。
+            MenuDraw.Text(p, b, "创建副本", Color.white, "Craft Label", 36f, QCdText);
             // 🔴 **2026-10-18（A1126 · A1 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 40px。
             //   判据 = 逐颗现读原版那一颗（`bundle_scenes_scenes_mainmenuwarpforge`，按 `m_text` 认人：
             //   `MonoBehaviour_1830.json` ← `RectTransform_1501` ← GO `Explanation`，本窗是**场景对象**、不是 prefab）：
@@ -878,176 +1123,155 @@ namespace CardPresentation
             //   `Editor/ShellScene.cs` 那条「读源码文本」的静态断言之外，本处现在也走得通了。
             //   📌 也一并销掉那句「『要恢复：把下面那两行注释掉的条件去掉即可』与现状不符」——
             //   恢复**已经做完**，那句话（连同它指出的事实）都不必再留。
-            // 🆕 **2026-10-12（第二笔 · 用户裁定：「只出声、不做机制」）**：这一行**必须让玩家看出
-            //   「这块本版没实现」** —— 因为上面那颗钮点下去**什么都不改**（`OnCraftClicked` 只 `Debug.Log`）。
-            //   ⛔ 原样印 `This will consume a wildcard` 就是**文案与行为对不上、且毫无标识**（红色线：不许静默失败）。
-            //
-            //   🔴 **记号用本工程现成的那一个 —— 末尾缀 `*`，⛔ 没有发明新记号。**
-            //     同族先例（唯一的一处，全仓就这一族）：
-            //       · `Battle/BattleDriver.cs:12064-12097` `UnimplementedNotes(CardDef)` ——
-            //         `list.Add("效果本版结算不了*")` / `list.Add("效果本版没作用*")`；
-            //         纯名字那一形 = `CardText.Keyword(kw) + "*"`（同文件 `:12040/12046`）。
-            //       ⇒ 形状 = **「文案自己把状态说清楚」+ 末尾一个 `*`**，`*` 就是「本版未实现 / 没作用」。
-            //       · 拼接形状（原句 + 两个空格 + 缀注）照 `BattleDriver.FaceTextFull`（`:11974`）
-            //         那句 `string.IsNullOrEmpty(notes) ? body : body + "  " + notes`。
-            //   ⚠️ **语言选英文**：本窗**每一句都是原版 prefab 的英文原文**（我方**没有** I2 词条表，
-            //     见 `资料/…` 那几条老账），往英文面板里插一句中文会更难读 ⇒ 缀注也写英文。
-            //     （中文先例 `效果本版没作用*` 是卡面那一路，它走 `CardText`，本来就按语档切。）
-            //   ✅ **行为一字未改**：那颗钮照旧可点、照旧 `OnCraftClicked` 出声（本笔**没**动 `Hit(...)` 那一句）。
-            //   ⚠️ **`"1 〔万能卡图标〕"` 那两件【没有】加记号**（理由）：`Craft Text` 就是一格**数字**
-            //     （原版 `Button Text` = `"1"`），它是「价格」槽不是「承诺」句 —— 往数字后面缀 `*`
-            //     会被读成「价格是 1\*」（另一件事）。**承诺那一句是这一行**，记号落在这里。
-            //   ⚠️ **字号未在真机/批处理里量过**（本笔红线：不跑 Unity）：这一格是 autosize
-            //     `[10~40] base 36`、折行开、框 418.5×63.29 ⇒ 63 个字符估下来落在 fs≈25 / 2 行
-            //     （**是估算，不是量出来的**；要复核就量渲染后的 `fontSize` 与块高，⛔ 别只比字号）。
+            // 🔴 **2026-10-18 就地订正（铁律 5 · 用户当天拍板「照参考图那样布置两块面板」）**：
+            //   本行原来印的是 `This will consume a wildcard  Not implemented in this build*`
+            //   （2026-10-12「只出声、不做机制」那版留下的标识）。**那个前提已经不成立**：
+            //   创建副本现在是**真做**的（扣通配符 + 拥有数 +1 + 落盘，见 `DoCraft`）⇒ **原样印回原版文案**。
+            //   判据：原版 TMP `MonoBehaviour_1830.json`（GO `Explanation`）= `'This will consume a wildcard'` ·
+            //   `fs 40 · auto[10~40] · base 36 · 折行 1`；本地化键 `MenuDeck/Craft/CraftCost` 同文。
+            //   ⛔ 别再把 `*` 缀回来 —— 那个记号是「本版未实现」，现在实现了还缀着就是**反向的谎**。
+            //   ⚠️ 框宽 `1307.5 → 1726`（418.5）**是我们摆的**（原版那一颗 `m_SizeDelta=(0,0)` +
+            //   祖先链 `m_LocalScale=(0,0)` ⇒ **原版框宽量不到**，铁律 3：查不到就说查不到）。
+            // 🆕 **2026-10-18（用户拍板）：文案改中文** —— 走**官方本地化键** `MenuDeck/Craft/CraftCost`
+            //   （zh 列 = **「这将消耗一个通配符」**；与上面那条 title 同一张表、同一套取法）。
+            //   ⚠️ **四档 TMP 实参逐值不动**（`wrap 418.5 · min 10 · max 40 · base 36` —— 判据仍是原版那一颗
+            //   `MonoBehaviour_1830.json`，见上）；只把 `face` 换成 `Cjk`（中文串，理由同 title 那一处）。
             MenuDraw.Text(p, new PxRect(1307.5f, 315.5f, 1726f, 378.79f),
-                          "This will consume a wildcard  Not implemented in this build*",
+                          Loc.T("MenuDeck/Craft/CraftCost"),
                           Color.white, "Craft Explanation", 40f, QCdText,
-                          1726f - 1307.5f, 10f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
+                          1726f - 1307.5f, 10f, 40f, 36f, face: TmpFont.Face.Cjk);
             MenuDraw.Rect(p, CardArt.MenuUi("40K_generic_bt_info"), new PxRect(1740.65f, 161.91f, 1782f, 203.26f),
                           "Craft Info Icon", QCdRow, null, true);
-            // 🆕 **2026-10-12（A1699）命中区归真**：原来这一句是 `Hit(p, "CraftHit", b, DoCraft, QCdHit)`
-            //   （只传 5 个实参 ⇒ `WindowButton` 的 `target` 是空的）。现在①把**画出来那颗黄底**传进去当
-            //   `target`（口径 = 原版那颗 `EverguildButton.m_TargetGraphic` 就是它自己的底图，
-            //   `m_Transition = 2 (SpriteSwap)` · `m_HighlightedSprite` / `m_PressedSprite` 都非空），
-            //   ②点下去走 `OnCraftClicked()`（**本版不实现真机制，出声**）—— 不是 `DoCraft()`。
-            Hit(p, "CraftHit", b, () => { OnCraftClicked(); }, QCdHit, craftBg, "UI_Button_Mulligan",
-                clickCue: WindowSounds.PositiveCue);
+            // 🔴🔴 **2026-10-18 用户拍板（逐字）：「点击副本，但是不起作用」** —— 本条【推翻】上面 W5 那一段
+            //   「接上真机制」的口径（铁律 5：就地改掉，别留两份说法）：
+            //   ① 面板与按钮**外观照旧**（照参考图）；② 点下去**不改数据** —— 不扣通配符、不动拥有数；
+            //      ③ 钮**保持可点外观**（`Interactable` 恒 `true`，⛔ 别按库存变灰 ——
+            //      用户要的是「点击但不起作用」，不是「点不动」）。
+            //   `DoCraft()` 那套**真扣减机制代码保留**（见该方法），只是**不再从 UI 调**。
+            //   🔴 **同日用户追加（第二次口径）**：「**这个继续保留音效啊**」⇒ 点击**要出按钮音**
+            //      （上一版把它关掉了，已按用户口径改回；`playClickSound` 保持 `true` = 默认按钮音）。
+            var craftHit = Hit(p, "CraftHit", b, () => { OnCraftClicked(); }, QCdHit, craftBg, "UI_Button_Mulligan");
+            var craftWb = craftHit != null ? craftHit.GetComponent<WindowButton>() : null;
+            if (craftWb != null)
+            {
+                craftWb.Interactable = true;      // 用户 2026-10-18：保持可点外观，⛔ 别按库存变灰
+                craftWb.playClickSound = true;    // 用户 2026-10-18 追加：**保留按钮音**（⛔ 别再关掉）
+            }
+            else Debug.LogWarning("[CardDetail] 「创建副本」那颗钮的 `WindowButton` 拿不到 ⇒ "
+                                + "**「点击但不起作用」没落地**（不静默）");
         }
 
         // ---- ② 升级 ----
         void BuildUpgrade(Transform panel)
         {
             var p = PanelBox(panel, "Upgrade Panel", UpgT, UpgB);
-            Title(p, "Upgrade Title", "Upgrade this card\nto level " + Mathf.Min(CardProgress.Level(Card.Id) + 1, CardProgress.MaxLevel),
-                  1307.5f, 437.28f, 1726f, 515.77f, 41.4f);
+            // 🆕 **2026-10-18（用户拍板「照参考图那样布置两块面板」）**：内容照原版装进 `Content` 节点。
+            //   原版字段表（`d:/2/tools/decomp_full/UpgradePanel__CheckUpgradeRequirements.c`）：
+            //     `+0x30 Content` · `+0x38 No Upgrade Warning` · `+0x40` 那颗钮；`:113-119` 三行 =
+            //     `SetActive(Content, next != null)` / `SetActive(No Upgrade Warning, next == null)` / 满级 return。
+            //   🔴 **2026-10-18 当天第二轮改判（见本函数末尾那一大段）**：用户把一颗钮改成「降级 / 升级」两颗
+            //   ⇒ **`Content` 改为常显**（满级时还得点得到「降级」），**`No Upgrade Warning` 仍只在满级露**
+            //   但文字挪到空出来的 `Explanation` 那一行。⛔ 别再照原版那条「满级 ⇒ `Content` 整组关」改回去。
+            var content = MenuDraw.Node(p, "Content", new PxRect(PanL, UpgT, PanR, UpgB));
+            int lv = CardProgress.Level(Card.Id);
+            bool maxed = lv >= CardProgress.MaxLevel;
+            bool minned = lv <= 1;
+            // 🆕 **2026-10-18（用户当天拍板，逐字）**：「**上面的文字『将此张牌升级至等级x』改为『将此张牌降级或升级』**」。
+            //   ⚠️ 这句**是用户指定的文案、原版没有** ⇒ 用**字面量**（⛔ 不往 `official_loc` 里塞键，也别再去
+            //   `MenuDeck/Craft/Upgrade` 那条链里取 —— 那条原版词条已被这句话**取代**，不是「暂时没本地化」）。
+            //   `face: Face.Cjk` = 纯中文串走本仓默认那一面（见 `Title` 的 `face` 形参注释）。
+            Title(content, "Upgrade Title", "将此张牌降级或升级",
+                  1307.5f, 437.28f, 1726f, 515.77f, 41.4f, TmpFont.Face.Cjk);
+            // ============================================================ 🆕 2026-10-18：**一颗钮 → 两颗并列**
+            //
+            // 用户原话：「下面的按钮从**一个按钮改为两个『降级』『升级』并列**，可以点击这两个按钮实现卡框的
+            //   降级和升级」。
+            // 几何：**原单颗 `Upgrade` 钮那一条带**原样让给这两颗 —— `1384 .. 1654.38 × 524.96 .. 585.31`
+            //   （判据 = 运行时 dump `runtime_ui_dump_menu_forge.tsv`，见 `W5` 报告 §4.3）。两颗**等宽**，
+            //   中间留 `gap = 36`（= 本壳「一排并列两三颗钮」的既有值，`Shell/DeckInfoPopup.cs:281` 的
+            //   `BtnGap`；⚠️ 原版**没有**这一对钮 ⇒ 间距只能沿用本壳既有档，⛔ 别另挑一个数）。
             var b = new PxRect(1384f, 524.96f, 1654.38f, 585.31f);
-            var upBg = MenuDraw.Rect(p, CardArt.MenuUi("UI_Button_Mulligan"), b, "Upgrade Bg", QCdRow);
-            // `Upgrade` 里那条：副本数（`cards` HLG）+ 金币（`cost` HLG）
-            bool can = CardProgress.CanUpgrade(Card.Id, Card.Rarity);
-            int need = CardProgress.NeedCopies[Mathf.Min(CardProgress.Level(Card.Id) + 1, CardProgress.MaxLevel)];
-            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 40px。
-            //   判据 = 原版那一颗（`bundle_scenes_scenes_mainmenuwarpforge` ▸ `Upgrade Panel/Content/
-            //   Upgrade/cards/quantity`，逐颗现读 TMP 组件字段）：**`m_enableAutoSizing = 1`** ·
-            //   `m_fontSizeMin = **10**` · `m_fontSizeMax = **40**` · `m_fontSizeBase = **12**` · **折行 = 0**。
-            //   ⚠️ **刻度 = 原版刻度**（本窗 `Title` 那一族的实参就是原版原值 —— `auto[10~42] base36`
-            //   与 `Explanations` 三颗逐值吻合，见 `Title` 的头注）⇒ **不做任何比例换算**，四格照抄。
-            //   ⚠️ 折行 0 ⇒ `SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**开成 `Normal`
-            //   ⇒ 紧跟一句 `SetWrapping(false)` 还原自己那一档。
-            var upNeed = MenuDraw.Text(p, new PxRect(b.x1, b.y1, 1443.83f, b.y2), need.ToString(), Color.white,
-                                       "Upgrade Need", 40f, QCdText, 1443.83f - b.x1, 10f, 40f, 12f, face: TmpFont.Face.LatinCardBody);
-            if (upNeed != null) upNeed.SetWrapping(false);          // 原版折行=0（A205：关这一下顺带推版面）
-            MenuDraw.Rect(p, CardArt.MenuUi("40k_general_icon_card_amount"), new PxRect(1450f, b.y1 + 8f, 1490f, b.y2 - 8f),
-                          "Upgrade Card Icon", QCdRow, null, true);
-            // 同 `Upgrade Need`：原版 `Upgrade Panel/Content/Upgrade/cost/quantity` =
-            // `auto[10~40] · base 12 · 折行 0`（见上面那一段的判据）。
-            var upCost = MenuDraw.Text(p, new PxRect(1499.72f, b.y1, 1570f, b.y2),
-                          CardProgress.NeedGold[Mathf.Min(CardProgress.Level(Card.Id) + 1, CardProgress.MaxLevel)].ToString(),
-                          Color.white, "Upgrade Cost", 40f, QCdText, 1570f - 1499.72f, 10f, 40f, 12f, face: TmpFont.Face.LatinCardBody);
-            if (upCost != null) upCost.SetWrapping(false);          // 原版折行=0
-            MenuDraw.Rect(p, CardArt.MenuUi("40k_topmarquee_currency_gold"), new PxRect(1578f, b.y1 + 8f, 1643f, b.y2 - 8f),
-                          "Upgrade Gold Icon", QCdRow, null, true);
-            // 同族：原版 `Upgrade Panel/Content/Upgrade/Explanation/Text Explanation` =
-            // `auto[10~40] · **base 36** · 折行 0`（base 与上面两颗不同，⛔ 别一刀切）。
-            var upExpl = MenuDraw.Text(p, new PxRect(1309f, 594.53f, 1729f, 659.33f),
-                          "Will get: +" + CardProgress.Points[Mathf.Min(CardProgress.Level(Card.Id) + 1, CardProgress.MaxLevel)],
-                          Color.white, "Upgrade Explanation", 40f, QCdText, 1729f - 1309f, 10f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
-            if (upExpl != null) upExpl.SetWrapping(false);          // 原版折行=0
-            MenuDraw.Rect(p, CardArt.MenuUi("40K_generic_bt_info"), new PxRect(1740.65f, 426.42f, 1782f, 467.77f),
-                          "Upgrade Info Icon", QCdRow, null, true);
-            // ============================================================ 🔴 「升级」那颗钮：**显示、但不可交互**
+            const float gap = 36f;
+            float halfW = (b.W - gap) * 0.5f;                       // 117.19
+            var bd = new PxRect(b.x1, b.y1, b.x1 + halfW, b.y2);    // 降级：1384.00 .. 1501.19
+            var bu = new PxRect(b.x2 - halfW, b.y1, b.x2, b.y2);    // 升级：1537.19 .. 1654.38
+            // ⚠️ **`Interactable` 必须排在 `Hit(...)` 之后**（`Hit` 内部才 `Bind` 那颗画出来的底图）：
+            //   `GrayTargets()` = 四组去重（`_nine` + `target` + 本钮子树 + `TintOn`），而 `target` 是 `Bind` 才设的
+            //   ⇒ 排在前面，头一次 `RefreshGray()` 只灰到那颗**透明的命中区 quad**、`GrayedForTest` 随即为真
+            //   ⇒ 后面再设都早退 ⇒ **画面上一像素都不变**（静默）。同族先例 `Shell/CampaignRewardWindow.cs:820-849`。
             //
-            // **用户 2026-10-12 原话**：「不需要升级卡牌系统，**默认最高级就是不能点击升级卡牌按钮**」。
-            //
-            // 🔴 **「不可交互」用的是本仓同族现成的那一个口 —— `WindowButton.Interactable`**（**没有发明新机制**）。
-            //   它就是原版那一句的等价物：`UpgradePanel__CheckUpgradeRequirements.c`（本笔亲读）末尾那三行
-            //     `UnityEngine_UI_Selectable__set_interactable(*(param_1 + 0x40), uVar2)` —— `+0x40` 正是
-            //     `Upgrade` 那颗钮（`UpgradePanel` 的字段序：0x20 currentCardUI · 0x28 options · 0x30 Content ·
-            //     0x38 No Upgrade Warning · **0x40 那颗钮**）。
-            //   本仓那一份的**两半**都落地（`Shell/WindowButton.cs`）：setter → `RefreshGray()`
-            //   （把子树图形件换成原版灰化 shader `Everguild/UI/Greyscale`）+ `Click()` 头一句
-            //   `if (!_interactable) { 出声; return; }`（= 原版 `Selectable.OnPointerClick` 的第一句）。
-            //   同族先例（**逐字照它的两条纪律**）：`Shell/CampaignRewardWindow.cs:820-849` ——
-            //     ① 存量实现只有一处（`SoftDisabled` 与 `Interactable` 共用 `RefreshGray`），我们转调它；
-            //     ② 🔴 **必须排在 `Bind` 【之后】**：`GrayTargets()` = **四组去重**（`_nine` + `target`
-            //        + 本钮子树 + `TintOn` 那几颗；现读出处 `Shell/WindowButton.cs` 的 `GrayTargets()`），
-            //        而 `target` 是 `Bind` 才设成那颗**画出来的**底图的 —— 排在 `Bind` 之前，头一次 `RefreshGray()`
-            //        只灰到那颗**透明的命中区 quad**，而 `GrayedForTest` 随即为真 ⇒ 后面再设都早退
-            //        ⇒ **画面上一像素都不变**（静默）。`Hit(...)` 内部就 `Bind`，所以这一句放在它后面即可。
-            //        ⚠️ **2026-10-13 更正（铁律 5）**：本行原来写「`GrayTargets()` = `target` + 子树」——
-            //        **不成立**：`A1719`（2026-10-13）加了第三组 `_nine`（九宫格那 9 块）、`A1725` 加了
-            //        第四组 `_tqExtra`（`TintOn` 指定的那几颗）⇒ 现读口径 = 上面那**四组**。
-            //        ⚠️ 本窗这几颗钮只走 `Bind`（**一组**）⇒ **行为一个字没变**，改的只是措辞。
-            //   ✅ 顺带正确：`Shell/PointerLayer.cs` 的命中收集读的是 `WindowButton`，
-            //      而 `Click()` 自己挡在派发之前 ⇒ 点上去**连派发都没有**（并出声，见 `Click()`）。
-            //
-            // ⚠️ **一处仍开着的如实标注（铁律 3）+ 一处已销（铁律 5）**：
-            //   ① 🔴 **仍开着，交调度台裁**：原版**满级时走的是另一支**：`GetNextTierInfo` 给出空 ⇒
-            //      **`Content` 整组 `SetActive(false)` + `No Upgrade Warning` 露出**
-            //      （`CheckUpgradeRequirements.c:113-119` 那三行），**不是**「停在场上、变灰」。
-            //      用户这次要的是「面板恢复 + **显示**但不可交互」⇒ 本笔**照用户口径**（面板在、钮灰着）。
-            //      🔴 它**不是可有可无的版式选择，是硬约束**：那两件**同 rect**（见下面 `No Upgrade Warning`
-            //      那一段），同时 active 就是**两行字叠在同一处** ⇒ 本版只能「`Content` 在 ⇒ warning 不露」。
-            //   ② ✅ **2026-10-12（第二笔 · 铁律 5 就地订正）**：本行原来写「`CardProgress.Level` 的缺省是
-            //      **1**（不是 `MaxLevel`）⇒ 上面那颗 `Title` 会印 "Upgrade this card to level **2**"、
-            //      `No Upgrade Warning` 也不露 —— 与「默认最高级」**不完全自洽**。本笔**不动**，已报回。」
-            //      —— **已经改掉了**：用户裁定「**改成默认最高级**」⇒ `CardProgress.Level` 的缺省
-            //      **1 → `MaxLevel`**（见那个方法的 doc）。现在这一格的读数变成：
-            //        · `Title` 印 `Min(4 + 1, 4)` = **「Upgrade this card to level 4」**（`Mathf.Min` 那一下
-            //          就是为「已经满级」写的钳位，⛔ 别删 —— 删了 `NeedCopies[Level + 1]` 会越界）；
-            //        · `need` / `cost` / `points` 三格同样钳到**第 4 级那一行**（9 张 · 2000 金 · +500 点）；
-            //        · `CanUpgrade` 恒假 ⇒ 满级那一支成立（下一句 `No Upgrade Warning` 见下面那一段）。
-            //      ⚠️ **如实标（本笔没改，⛔ 不发明文案）**：原版**满级时根本不写这颗 `Title`**
-            //      （`CheckUpgradeRequirements.c:117-118` 在写 Title 之前就 `return` 了）⇒ 原版没有
-            //      「满级时 Title 该印什么」的判据 ⇒ 我们这里印的是钳位后的数（读起来像「还要升到 4 级」）。
-            //      要改成「满级就不印」= 落乙 §6·3·1 第 1 条那条待裁（`Content` 整组关），见下面那一段。
-            var upHit = Hit(p, "UpgradeHit", b, () => { DoUpgrade(); }, QCdHit, upBg, "UI_Button_Mulligan",
-                            clickCue: WindowSounds.PositiveCue);
+            // ① **降级**：`SetLevel(level−1)`（下限 1）⇒ 重画 ⇒ 卡框降一档；**等级 = 1 时置灰**（用户口径）。
+            var downBg = MenuDraw.Rect(content, CardArt.MenuUi("UI_Button_Mulligan"), bd, "Downgrade Bg", QCdRow);
+            var downHit = Hit(content, "DowngradeHit", bd, () => { DoDowngrade(); }, QCdHit, downBg,
+                              "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
+            MenuDraw.Text(downHit, bd, "降级", Color.white, "Downgrade Text", 36f, QCdText);
+            var downWb = downHit != null ? downHit.GetComponent<WindowButton>() : null;
+            if (downWb != null)
+            {
+                downWb.Interactable = !minned;
+                if (minned)
+                    Debug.Log("[CardDetail] 「降级」那颗钮 = **不可交互**（已经是 1 级 = 最低档；"
+                            + "用户 2026-10-18 口径：最低级**不提示**、只把钮灰掉）");
+            }
+            else Debug.LogWarning("[CardDetail] 「降级」那颗钮的 `WindowButton` 拿不到 ⇒ **『到底了就点不动』没落地**（不静默）");
+
+            // ② **升级**：`SetLevel(level+1)`（上限 4）⇒ 重画 ⇒ 卡框升一档；**等级 = 4 时置灰**（用户口径）。
+            var upBg = MenuDraw.Rect(content, CardArt.MenuUi("UI_Button_Mulligan"), bu, "Upgrade Bg", QCdRow);
+            var upHit = Hit(content, "UpgradeHit", bu, () => { DoUpgrade(); }, QCdHit, upBg,
+                            "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
+            MenuDraw.Text(upHit, bu, "升级", Color.white, "Upgrade Text", 36f, QCdText);
             var upWb = upHit != null ? upHit.GetComponent<WindowButton>() : null;
             if (upWb != null)
             {
-                upWb.Interactable = false;
-                Debug.Log("[CardDetail] 「升级」那颗钮 = **不可交互**（`WindowButton.Interactable = false`；"
-                        + "用户 2026-10-12 口径：「默认最高级就是不能点击升级卡牌按钮」）"
-                        + " —— 原版同一位：`UpgradePanel__CheckUpgradeRequirements.c` 的 "
-                        + "`Selectable.set_interactable(+0x40, …)`。"
-                        + "⚠️ 变灰要 `Everguild/UI/Greyscale` 那张原版 shader（取不到则**只有行为、没有灰**，见 `RefreshGray`）；"
-                        + "⚠️ 面板版式仍是「升级到下一级」那一副（`CardProgress.Level` 缺省 = `MaxLevel` ⇒ 上面"
-                        + "三格钳在第 4 级那一行；原版满级支其实是把 `Content` 整块关掉、换 `No Upgrade Warning`）"
-                        + "—— 见本段的如实标注①：那两件**同 rect**、本版按用户口径让 `Content` 常显 ⇒ warning 只能关着");
+                upWb.Interactable = !maxed;
+                if (maxed)
+                    Debug.Log("[CardDetail] 「升级」那颗钮 = **不可交互**（已经是 " + CardProgress.MaxLevel + " 级 = 最高档）");
             }
-            else Debug.LogWarning("[CardDetail] 「升级」那颗钮的 `WindowButton` 拿不到 ⇒ **『不可交互』没落地**（不静默）");
+            else Debug.LogWarning("[CardDetail] 「升级」那颗钮的 `WindowButton` 拿不到 ⇒ **『满级就点不动』没落地**（不静默）");
 
-            // `No Upgrade Warning`：**满级才露**（原版那件与 `Content` 同级、同 rect）
+            // 🔴 **2026-10-18 用户拍板（逐字）：「在下面的文字『你将获得……』这个去掉」** ——
+            //   整条 `Explanation/Text Explanation`（`You will obtain: +N`）**不建**，`W5` 刚补的那颗
+            //   `Icon Forge Points Drawer Variant`（锻造点图标）**一并去掉**（用户原话点名「含锻造点图标那一组」）。
+            //   ⛔ 别再把这两件建回来；`CardProgress.Points` 那一列仍在（别处与以后可能还要用）。
+            //
+            // 🔴 **同批附带的一处让位（如实标注，见报告 §3）**：原单颗钮**按钮内部**那四件
+            //   （`cards/quantity` + `cards/icon` + `cost/quantity` + `cost/icon`，rect 全落在
+            //   `1405.70 .. 1643.25 × 527.54 .. 579.54`）**随那颗钮的内容一起不建** ——
+            //   用户要求「一个按钮改为两个并列按钮」占的正是那一条带，四件的 rect 与新两颗钮
+            //   **几何上不可共存**（会直接压在『降级』『升级』两个字上）。⛔ 不是「顺手删的」。
+            MenuDraw.Rect(content, CardArt.MenuUi("40K_generic_bt_info"), new PxRect(1740.65f, 426.42f, 1782f, 467.77f),
+                          "Upgrade Info Icon", QCdRow, null, true);
+
+            // `No Upgrade Warning`：**满级才露**（原版那件与 `Content` 同级；⚠️ **rect 已挪**，见下）
             var w = MenuDraw.Node(p, "No Upgrade Warning", new PxRect(PanL, UpgT, PanR, UpgB));
             // 🆕 **2026-10-12（A333 + A336③）**：上限 = 原版 `m_fontSizeMax` = **40**（= 标称，本来就对）·
             //   base = **36.0**。判据 = `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1867.json`
             //   （`m_text = 'Maximum card tier reached'` · `fs 40.0 · auto[25.0~40.0] · base 36.0 · 折行 1`
             //   —— 全库唯一一颗，与我们的文案逐字相同 ⇒ 就是它）。
-            MenuDraw.Text(w, new PxRect(1314f, 430.62f, 1724f, 644.92f), "Maximum card tier reached",
+            // 🆕 **2026-10-18**：rect 从原版的 `1314,430.62 → 1724,644.92` 挪到**原来 `Explanation` 那一行**
+            //   （`1309 .. 1729 × 594.57 .. 659.37`）—— 理由见下面那一大段（两颗钮常显，原 rect 会压住它们）。
+            //   TMP 那四档（`40 · auto[25~40] · base 36 · 折行 1`）**逐值不动**，只换框。
+            MenuDraw.Text(w, new PxRect(1309f, 594.57f, 1729f, 659.37f), "Maximum card tier reached",
                           Color.white, "No Upgrade Title", 40f, QCdText, 410f, 25f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
-            // 🔴 **2026-10-12（第二笔）现读：本版它【恒不露】，而且这是【几何上的必然】**，不是漏做。
+            // 🔴 **2026-10-18 再改（铁律 5 · 用户当天拍板「一个按钮改为两个……可以点击这两个按钮实现卡框的
+            //   降级和升级」）⇒ 这一对【不再互斥】**（上一个版本那两句 `content.SetActive(!maxed)` /
+            //   `w.SetActive(maxed)` 已作废）：
             //
-            //   判据（本笔亲读）—— 原版这两件**互斥**，靠的是同一个布尔的两面：
-            //     `UpgradePanel__CheckUpgradeRequirements.c:113-119`
-            //       `SetActive(+0x30 /*Content*/, next != null);`
-            //       `SetActive(+0x38 /*No Upgrade Warning*/, next == null);`
-            //       `if (next == null) return;`          // ← 满级就到此为止
-            //   而我们这两件**同 rect、同子树、同渲染队列**：
-            //     · 本文件的这两句摆在**原版逐值相同**的位置（`No Upgrade Title` @ `1314,430.62,1724,644.92`，
-            //       `Label` 出厂对齐 = Center/Middle ⇒ 单行落在 y≈537）；
-            //     · `Upgrade Bg` / `Upgrade Need` / `Upgrade Cost` 就在 `524.96..585.31`
-            //     ⇒ 同时 active = `Maximum card tier reached` **正好压在 `Upgrade` 那颗钮上**（两行字重叠）。
-            //
-            //   ⚠️ 本笔**照用户 2026-10-12 口径让 `Content` 常显**（那句是「**显示**但不可交互」，
-            //      ⛔ 不是「面板整组关」）⇒ 就只能让 warning 关着。
-            //   🔴 **要它露，必须先落那条待裁**（→ 乙 §6·3·1 第 1 条 / 账 `A1699`）：口径改成
-            //      「满级 ⇒ `Content` 整组关」时，把下面这一句换成 `w.gameObject.SetActive(maxed);`
-            //      并把上面那 7 件（`Title`/`Bg`/`Need`/`Card Icon`/`Cost`/`Gold Icon`/`Explanation`）
-            //      一起 `SetActive(false)` 即可 —— **一处改，别分两处写**。
-            bool contentShown = true;   // = 本版口径（用户 2026-10-12）：升级面板的 `Content` 常显
-            bool maxed = CardProgress.Level(Card.Id) >= CardProgress.MaxLevel;
-            w.gameObject.SetActive(!contentShown && !can && maxed);
+            //   ① `Content` **常显**（`active = true`）—— 满级（4 级）时「**降级**」还得点得到，
+            //      把整组关掉就等于「满级之后再也回不去」= 用户要求的「降级」在最高档失效（功能缺口）。
+            //   ② `No Upgrade Warning` 照旧**只在满级露**（用户口径：「按现在逻辑保留『满级提示』那一支」），
+            //      但它的**文字位置挪到原来 `Explanation` 那一行**（`1309 .. 1729 × 594.57 .. 659.37`，
+            //      判据 = `W5` 报告 §4.3 的 `Explanation` 行 rect）—— 那一行按用户要求**已经去掉了**
+            //      （见上面「你将获得」那段），正好空出来；不挪的话它会**压在『降级』『升级』两颗钮上**
+            //      （原 rect `1314,430.62 → 1724,644.92`，单行落在 y≈537，而两颗钮就在 `524.96 .. 585.31`）。
+            //   ⚠️ 原版这两件互斥的口径**只在「只有一颗升级钮」时成立** —— 用户的改法（两颗钮）让
+            //      「满级 ⇒ 只能看不能动」不再成立 ⇒ 这一处按**用户口径**覆盖原版，如实标注在报告里。
+            content.gameObject.SetActive(true);
+            w.gameObject.SetActive(maxed);
+            // 🆕 **2026-10-18（用户拍板：三块面板之间要留一致的间距）**：整块下移一个 `PanelGap`。
+            //   ⚠️ 必须排在**所有子件建完之后**（见 `ShiftPanelDown` 的注释）；⛔ 别改成「建的时候就把 rect 逐个 +gap」——
+            //   那样要改十几处绝对 y，漏一处就是错位。
+            ShiftPanelDown(p, UpgT, UpgB, PanelGap);
         }
 
         // ---- ③ 异画（Alternate Art）----
@@ -1282,6 +1506,11 @@ namespace CardPresentation
             //      那几句「没有异画」的文案**现在都是死支**（面板被关掉，谁也看不见），**留着**是因为
             //      `has` 只有两个取值、不值得为它拆一遍版面。
             p.gameObject.SetActive(has);
+            // 🆕 **2026-10-18（用户拍板：有异画的战将那里三块方框的间距也要一致）**：
+            //   第三块（异画）下移 **两个** `PanelGap` ⇒ 三块两两同距（与上面 `BuildUpgrade` 那一处成对）。
+            //   ⚠️ 排在 `SetActive` 之后：显隐与几何两件事互不影响，但**几何必须与是否显示无关**
+            //   （否则「只有两张卡有异画」时那一次的位姿会飘）。
+            ShiftPanelDown(p, AltT, AltB, PanelGap * 2f);
         }
 
         /// <summary>异画面板上一颗换画圆钮（`left` = 左钮）。三层**各占一个递增的渲染队列**（见 `QCdIcon`）。
@@ -1435,23 +1664,40 @@ namespace CardPresentation
         // ---- 通配符条（`Wildcard Segment` + `WIldcard Counter`）----
         void BuildWildcards(Transform panel)
         {
-            MenuDraw.Rect(panel, CardArt.MenuUi("40k_topmarquee_currency_display_BW"),
-                          new PxRect(WcBgL, WcBgT, WcBgR, WcBgB), "Wildcard Bg", QCdRow);
+            // 🔴 **2026-10-18（用户报「万能卡图标消失 / 数字外方框形制不对」· 写手 W12 查实）**：
+            //   原来这条底板走 `Rect`（`Image.Type = Simple` 拉伸、**无 tint = 白**）⇒ 画成一条**亮白弧**；
+            //   原版是 **Sliced 九宫 `m_Border 15,15,15,15`** + **`m_Color (0.462,0.462,0.462,1)` 灰**
+            //   （判据 = `WIldcard Display/Background` 的 prefab 值；同族已按这条改过的两处 =
+            //    `Deck/DeckRuntime.cs:1595`（`N57`）与 `Shell/CollectionWindow.cs:900`，⛔ 三处口径必须同一份）。
+            //   贴图 44×39（= 九宫 UV 的源尺寸），框 320×44。
+            //   🔴 **同时修的一处真缺陷**：底板与那 4 颗图标原来**同为 `QCdRow`(3116) + 同一平面**
+            //   ⇒ 「谁盖谁」不可控（本仓既有坑）—— 实际表现就是**图标被底板盖掉**、而数字在
+            //   `QCdText`(3117) 高于底板所以活着。⇒ 底板留在 `QCdRow`、**图标抬到 `QCdText`**（下一处）。
+            MenuDraw.Nine(panel, CardArt.MenuUi("40k_topmarquee_currency_display_BW"),
+                          new PxRect(WcBgL, WcBgT, WcBgR, WcBgB), new Vector4(15f, 15f, 15f, 15f),
+                          44f, 39f, QCdRow, new Color(0.462f, 0.462f, 0.462f, 1f), true, "Wildcard Bg");
             for (int i = 0; i < WildcardIcons.Length; i++)
             {
                 float x = WcX0 + WcStep * i;
+                // 🔴 队列 `QCdRow` → **`QCdText`(3117)**：必须**严格高于**底板那条（3116），否则又会被它盖掉。
+                //   ⚠️ 与数字同一档（3117）**不冲突**：几何上不重叠 —— 图标占 `x .. x+30`，
+                //      数字框从 `x+30` 起（`WcCountWrapPx = 41` 宽，下一格在 `x+75`）⇒ 两者**边界相接、零重叠**。
                 MenuDraw.Rect(panel, CardArt.MenuUi(WildcardIcons[i]), new PxRect(x, WcBgT, x + 30f, WcBgB),
-                              "Wildcard Icon " + i, QCdRow, null, true);
+                              "Wildcard Icon " + i, QCdText, null, true);
                 // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版 `WIldcard Counter/Counters/*/Icon`
                 //   4 件全是 PA=1 + Simple（RT1211/1354/1344/1583），贴图 **42×51 / 41×51** 塞进 30×44
                 //   ⇒ 原版实绘 **30×36.4（37.3）**，我们拉伸成 30×**44** ⇒ **高 ×1.18~1.21**。
                 //   ⚠️ 同一件在收藏窗（`Shell/CollectionWindow.cs` 里那处 `keepAspect` 补）与卡组编辑（`Deck/DeckRuntime.cs` 里那处 `keepAspect` 补）也是同一错，三处一起修。
-                // 🔴 **2026-09-28 用户拍板：万能卡数字一律恒定 `99`**（原来这里写 `9999`）。
-                //    原版这四个数是 `WildcardDisplay` 的库存直出、跟着**指针悬停那张卡**的阵营走；
-                //    单机没有发放源 ⇒ 三处（详情窗 / 收藏窗 / 卡组编辑）统一写 99。
-                //    判据 → `项目任务.md` §三 第 15 条 第 29 项。
+                // 🔴 **2026-10-18 改判（铁律 5）**：这里原来写死 `DeckRuntime.WcCountText`（= `"99"` 常量）。
+                //   **那条口径作废** —— 用户当天拍板「照参考图布置两块面板」⇒ 创建副本会**真扣**通配符
+                //   （`DoCraft` → `TrySpendWildcard`），数字还钉在 99 就是**画的和用的对不上**。
+                //   ⇒ 本窗 4 格改读**真库存** `CardProgress.Wildcards(rarity)`（落盘，见「存档」那一段）。
+                //   ⚠️ **本窗之外还欠两处**：`Shell/CollectionWindow.cs` 与 `Deck/DeckRuntime.cs` 里
+                //   那两条计数仍读 `DeckRuntime.WcCountText`（同一个 `"99"` 常量；**不在本笔白名单**）
+                //   ⇒ 扣过之后那两处会与本窗**不一致**，已报回调度台。
+                //   原版语义：那 4 个数是 `WildcardDisplay` 的库存直出、跟着**指针悬停那张卡**的阵营走。
                 MenuDraw.Text(panel, new PxRect(x + 30f, WcBgT, x + 30f + DeckRuntime.WcCountWrapPx, WcBgB),
-                              DeckRuntime.WcCountText, Color.white,
+                              CardProgress.Wildcards(WildcardRarities[i]).ToString(), Color.white,
                               "Wildcard Count " + i, WcPx, QCdText,
                               // 🔴 **2026-10-17（`A1229`）**：这一处原来**没传四格**（另两个宿主传了）——
                               //   现按同一份共用常量补上。判据 = 原版
@@ -1529,26 +1775,56 @@ namespace CardPresentation
             RebuildKeepingState();
         }
 
-        /// <summary>🆕 **2026-10-12（A1699）**：点「创建副本」那颗钮 —— **点了什么都不改，只出声**。
+        /// <summary>点「创建副本」那颗钮 —— 🔴 **2026-10-18 用户拍板：点击但【不起作用】**。
         ///
-        /// <para>🔴 **口径：用户 2026-10-12 裁定「只出声、不做机制」**（= 当时列的候选 **②**，已定案；
-        /// ⛔ **不要去接 `DoCraft` / 不要去实现扣通配符**）。理由（逐条）：扣万能卡那半边原版走
-        /// `MenuDeck/Craft/*` + 服务端，**本地没有万能卡发放源** —— 真做出来只会是「凭空加副本」。</para>
-        /// <para>🔴 **配套（同一裁定）**：`BuildCrafting` 那一行消费文案**必须让玩家看出这块没实现**
-        /// ⇒ 已把 `Craft Explanation` 改成
-        /// `This will consume a wildcard  Not implemented in this build*`（记号 = 本工程现成的末尾 `*`，
-        /// 判据/同族先例 → 那一行的注释）。⇒ **改这一句文案之前先读那条注释**，两者是一件事。</para>
-        /// <para>⚠️ **不许静默**：本方法**必须**打成一句日志（下面那句），它是这一条链的「出声」落点，
-        /// 也是 `Editor/CollectionScene.cs` 那条「点了不影响拥有数」断言的配对。</para></summary>
+        /// <para>用户原话：「关于右边的副本和升级按钮，我的建议是：**点击副本，但是不起作用**」。
+        /// ⇒ 本方法**不改任何数**（拥有数 / 通配符 / 存档一律不动）。
+        /// 🔴 **同日用户追加（第二次口径）**：「**这个继续保留音效啊**」⇒ 点击**有按钮音**
+        /// （`BuildCrafting` 里 `playClickSound = true`）；本方法体只打一行日志，⛔ 别再写成「没声音」。</para>
+        ///
+        /// <para>📌 `DoCraft()`（真扣减：扣 1 张通配符 + 拥有数 +1 + 落盘）**代码保留**，只是**不再从 UI 调** ——
+        /// 用户 2026-10-18 的口径：**按钮保留、点击不生效；真扣减机制留作以后**。
+        /// 将来要恢复，就把本方法体换成 `DoCraft();`（别另写第三份扣减）。</para>
+        ///
+        /// <para>🔴 **改判记录（铁律 5）**：2026-10-18 早些时候（`W5`）这里转发给 `DoCraft()` 真扣减，
+        /// **当天被用户这句推翻**；2026-10-12 那版「只出声、不做机制」也不是现在这个口径
+        /// —— 现在是「**外观可点、点了不改数据、但有按钮音**」（用户同日两次口径的合成）。</para></summary>
         public void OnCraftClicked()
         {
-            Debug.Log("[CardDetail] **本版未实现：创建副本** —— 那颗钮点了**什么都不做**"
-                    + "（「" + (Card != null ? Card.Name : "?") + "」的拥有数仍是 "
-                    + CardProgress.Owned(Card.Id, Card.Rarity) + "、万能卡一张没扣）。"
-                    + "用户 2026-10-12 裁定「只出声、不做机制」；引擎里那份半成品实现是 "
-                    + "`DoCraft()`（加副本、**不扣**万能卡），本版**没有**接它。"
-                    + "⚠️ 面板上那句文案已按红线「不许静默失败」缀上 `Not implemented in this build*`"
-                    + "（记号同卡面的 `*`）—— 改文案与本方法是一件事，别只改一半。");
+            Debug.Log("[CardDetail] 「创建副本」点击：用户 2026-10-18 拍板「点击但不起作用」⇒ **什么都不做**"
+                    + "（拥有数 / 通配符 / 存档都不动；真扣减 `DoCraft()` 保留但不由 UI 调用）");
+        }
+
+        /// <summary>创建副本：**扣 1 张同稀有度通配符 + 拥有数 +1 + 落盘 + 重画**（= 原版 `CardServices.CraftCard` 的一半）。
+        ///
+        /// <para>🔴 **2026-10-18 用户拍板：本方法【不再从 UI 调用】**（原来的调用点 `OnCraftClicked` 已改成空操作，
+        /// 见那里）。用户原话「点击副本，但是不起作用」⇒「**按钮保留、点击不生效；真扣减机制留作以后**」。
+        /// 方法体**原样保留**（通配符库存、扣减、落盘都还是好的），将来要恢复只改调用点，⛔ 别把这段删了重写。</para>
+        ///
+        /// <para>原版那一支（`CardServices__CheckForCardCrafting.c` / `CraftingPanel__TryCrafting.c`）：
+        /// 按 **army + rarity** 找通配符且数量 &gt; 0 ⇒ 扣 1、`owned +1`（拥有数无上限）。
+        /// ⚠️ **我们的等价物少一个维度**：通配符库存只按 **稀有度** 记（4 档），**不区分阵营** ——
+        /// 因为详情窗底下那条通配符计数条本来就只画 4 格（原版那 4 格跟着**指针悬停那张卡**的阵营走，
+        /// 单机没有发放源）。⇒ **如实标注为一处偏离**，⛔ 别当成原版语义。
+        /// ⚠️ 原版「传奇且 `owned==1` 先弹确认窗」那一支**没做**（我们没有那扇确认窗）—— 同样如实标注。</para></summary>
+        public bool DoCraft()
+        {
+            if (Card == null) return false;
+            if (CardProgress.Wildcards(Card.Rarity) <= 0)
+            {
+                Debug.Log("[CardDetail] 创建副本**失败**：「" + Card.Name + "」那种稀有度（" + Card.Rarity
+                        + "）的通配符 = 0 —— 原版 `CraftingPanel__CheckButtons.c` 同支：没通配符 ⇒ 钮 `interactable=false`");
+                return false;
+            }
+            CardProgress.TrySpendWildcard(Card.Rarity);
+            CardProgress.AddOwned(Card.Id, Card.Rarity, 1);
+            Debug.Log("[CardDetail] 创建副本：「" + Card.Name + "」拥有数 → "
+                      + CardProgress.Owned(Card.Id, Card.Rarity)
+                      + "；扣 1 张「" + Card.Rarity + "」通配符（剩 " + CardProgress.Wildcards(Card.Rarity) + "）"
+                      + " —— 原版 `CardServices.CraftCard`：同阵营同稀有度 1 张通配符 ⇒ owned +1；"
+                      + "⚠️ 我们只按稀有度记库存（不分阵营），以本地库存等价服务端那半");
+            RebuildKeepingState();
+            return true;
         }
 
         /// <summary>🆕 **2026-10-12（A1699）**：点异画面板那颗价签（`Buy Original Card`）。
@@ -1564,33 +1840,46 @@ namespace CardPresentation
                     + "`ItemsConfig.GetOriginalArtPrice`（LiveOps 配置，本地取不到））。");
         }
 
-        /// <summary>创建副本：**拥有数 +1**。⚠️ 单机资源固定 9999 ⇒ **不扣万能卡**，出声。
+        /// <summary>**降级**：等级 −1（下限 1）⇒ 重画 ⇒ 卡框降一档。
         ///
-        /// <para>🆕 **2026-10-12（A1699）：本版【没有】把这一支接到那颗钮上**（钮走 `OnCraftClicked`）。
-        /// **保留不删** —— 它是「真扣通配符并加副本」那一条候选里**已有的一半**：
-        /// 要接回去只需把 `BuildCrafting` 末尾那句的 lambda 换回 `DoCraft`，
-        /// 另一半（扣通配符）本地**没有发放源**（正本 §六·7 那几条老账）⇒ 得先裁「万能卡是不是也走『给足』那套口径」。
-        /// 🔴 **2026-10-12 当天的第二条裁定已定了另一条**：用户选了「**只出声、不做机制**」⇒
-        /// 本方法**本版不会被执行**，也**不要去接**；上面那段只是留给出账时看的回退路。</para></summary>
-        public void DoCraft()
+        /// <para>🆕 **2026-10-18 用户拍板**（逐字：「下面的按钮从一个按钮改为两个『降级』『升级』并列，
+        /// 可以点击这两个按钮实现卡框的**降级和升级**」）。判据与「升级」完全对称：
+        /// 卡框档 = 等级（1 基），重算点只在 `CardView.Build()` 里那句 `CardProgress.Level(d.artId)`。</para>
+        ///
+        /// <para>⚠️ **不消耗任何东西**（副本 / 金币都不退也不扣）：升级那一路本来就只做「够不够」的检查、
+        /// 不真扣（单机资源固定 9999），降级自然也**只改等级**。⛔ 别为降级加一套退款逻辑（原版没有这一支）。</para></summary>
+        public bool DoDowngrade()
         {
-            CardProgress.AddOwned(Card.Id, Card.Rarity, 1);
-            Debug.Log("[CardDetail] 创建副本：「" + Card.Name + "」拥有数 → "
-                      + CardProgress.Owned(Card.Id, Card.Rarity)
-                      + "（单机版**不扣万能卡**，出声；原版 `MenuDeck/Craft/*` 那套走服务端）");
+            if (Card == null) return false;
+            int before = CardProgress.Level(Card.Id);
+            if (before <= 1)
+            {
+                Debug.Log("[CardDetail] 已经是最低档（1 级）⇒ 降不了（用户口径：最低级**不提示**、只把钮灰掉）");
+                return false;
+            }
+            CardProgress.SetLevel(Card.Id, before - 1);
+            int after = CardProgress.Level(Card.Id);
+            Debug.Log("[CardDetail] " + Card.Name + " 等级 → Lv" + after + "（卡框档 = tier" + after + "）"
+                    + " —— 「降级」那颗钮：Lv" + before + "→Lv" + after + "，不扣也不退任何资源");
             RebuildKeepingState();
+            return true;
         }
 
         /// <summary>升级：够副本才升（**只吃多余副本**，同原版 `拥有数 >= 卡组上限 + 需要张数`）。
         ///
-        /// <para>🆕 **2026-10-12（A1699）**：那颗钮现在是 `Interactable = false`（用户口径「默认最高级」）
-        /// ⇒ **本方法从那颗钮上到不了**（`WindowButton.Click()` 在派发之前就返回了）。
-        /// 保留它是因为它是一条**真实现**（等级 +1 会走 `RebuildKeepingState` 重画），
-        /// 且 `UpgradePanel` 那套「够不够 / 满级」的判据本来就写在 `CardProgress` 里 ——
-        /// 将来口径若改成「可升级」，只需把 `BuildUpgrade` 里那一句 `Interactable = false` 去掉。</para></summary>
+        /// <para>🆕 **2026-10-18**：那颗钮不再写死不可交互（改判见 `BuildUpgrade` 里那段）——
+        /// 本方法的调用链现在是**活的**：`UpgradeHit` → `DoUpgrade` → `SetLevel +1`（落盘）
+        /// → `RebuildKeepingState()` 重画 ⇒ **卡框换到新档**（`CardView` 按 `CardProgress.Level` 取 `CardArt.Frame/Sdf` 的 `tier`）。
+        /// ⚠️ 卡框档 = 等级（1 基），重算点在 `CardView.Build()` 里那一句
+        /// `int frameTier = … CardProgress.Level(d.artId)` —— **不在这里另算一份**。</para>
+        ///
+        /// <para>🆕 **2026-10-18（同一天第二轮）**：升级钮现在与「降级」**并列**，置灰判据按用户口径
+        /// = **只看等级上限**（`lv == 4` ⇒ 灰）——「多余副本够不够」仍在本方法里把着（不够就出声、不升级），
+        /// 只是**不再拿它决定钮灰不灰**（用户点名的是等级那一档）。</para></summary>
         public bool DoUpgrade()
         {
-            if (CardProgress.Level(Card.Id) >= CardProgress.MaxLevel)
+            int before = CardProgress.Level(Card.Id);
+            if (before >= CardProgress.MaxLevel)
             {
                 Debug.Log("[CardDetail] 已经满级（" + CardProgress.MaxLevel + " 级）⇒ 升不了");
                 return false;
@@ -1599,11 +1888,16 @@ namespace CardPresentation
             {
                 Debug.Log("[CardDetail] 副本不够 ⇒ 升不了（多余副本 "
                           + CardProgress.Spares(Card.Id, Card.Rarity) + " < 需要 "
-                          + CardProgress.NeedCopies[CardProgress.Level(Card.Id) + 1] + "）");
+                          + CardProgress.NeedCopies[before + 1] + "）");
                 return false;
             }
-            CardProgress.SetLevel(Card.Id, CardProgress.Level(Card.Id) + 1);
-            Debug.Log("[CardDetail] 升级：「" + Card.Name + "」→ 等级 " + CardProgress.Level(Card.Id)
+            CardProgress.SetLevel(Card.Id, before + 1);
+            int after = CardProgress.Level(Card.Id);
+            // 🆕 2026-10-18（用户要求「升级要有可见反馈」）：这一行是落点 —— 重画之后卡框会换成新档。
+            //   日志格式按用户 2026-10-18 指定：`[CardDetail] <卡名> 等级 → Lv{N}（卡框档 = tierK）`。
+            Debug.Log("[CardDetail] " + (Card != null ? Card.Name : "?") + " 等级 → Lv" + after
+                      + "（卡框档 = tier" + after + "）"
+                      + " —— 「升级」那颗钮：Lv" + before + "→Lv" + after
                       + "（**不扣货币**：单机资源固定 9999；升级表数值**是我们编的**）");
             RebuildKeepingState();
             return true;
@@ -1636,6 +1930,47 @@ namespace CardPresentation
         {
             Build();
             LastOpened = this;
+            LogRebuildPanels();          // 🆕 2026-10-18：防回归（用户真机报过「点升级后两颗按钮底图消失」）
+        }
+
+        /// <summary>🆕 **2026-10-18 防回归日志** —— 每次**整窗重建**之后打一行三块面板的在/缺。
+        ///
+        /// <para>用户当天真机报：「点『升级』之后，升级面板里**两颗按钮的底图不见了、只剩『降级』『升级』四个字**」。
+        /// 根因 = 面板底板与面板内容**同渲染队列（3116）+ 同一平面** ⇒ 谁盖谁不可控（详见 `PanelBox` 那一处注释）；
+        /// 已把底板降到 `QCd`(3115)。这一行日志的价值：**底图/命中区一旦又没建出来，日志里当场看得见**
+        /// （`Downgrade/Upgrade = 无`），⛔ 不必再靠「用户看截图发现」。</para>
+        ///
+        /// <para>第二行顺带把**两颗底图**的**渲染队列与贴图**打出来 —— 队列掉到面板底板那一档（或贴图空）
+        /// 就是同一族缺陷复发；⛔ 别把它当噪音删掉。</para></summary>
+        void LogRebuildPanels()
+        {
+            string crafting = FindNewest("Crafting Panel") != null ? "有" : "无";
+            string down = FindNewest("DowngradeHit") != null ? "有" : "无";
+            string up = FindNewest("UpgradeHit") != null ? "有" : "无";
+            Debug.Log("[CardDetail] 面板重建：Crafting=" + crafting + " · Downgrade=" + down + " · Upgrade=" + up);
+            Debug.Log("[CardDetail] 面板重建·按钮底图：" + BgInfo("Downgrade Bg") + " · " + BgInfo("Upgrade Bg"));
+        }
+
+        /// <summary>在**最新那一棵**子树里按名找节点。
+        /// 🔴 **为什么不能用 `Find`**：运行时 `Build()` 用的是 `Object.Destroy`（**帧末才真销毁**）⇒
+        /// 重建后的**同一帧里新旧两棵树并存**，`GetComponentsInChildren` 会先撞上**旧的那颗**（同名）。
+        /// `Build()` 是「先销毁旧子件、再按序新建」⇒ **新那棵一定排在后面** ⇒ 从最后一个子件往前找即可。</summary>
+        Transform FindNewest(string name)
+        {
+            for (int i = transform.childCount - 1; i >= 0; i--)
+                foreach (var t in transform.GetChild(i).GetComponentsInChildren<Transform>(true))
+                    if (t.name == name) return t;
+            return null;
+        }
+
+        /// <summary>`LogRebuildPanels` 用：一颗底图节点的「在不在 + 渲染队列 + 贴图名」。</summary>
+        string BgInfo(string nodeName)
+        {
+            var t = FindNewest(nodeName);
+            var q = t != null ? t.GetComponent<ImageQuad>() : null;
+            if (q == null) return nodeName + "=**无**";
+            return nodeName + "=有（q" + q.RenderQueue + " · tex="
+                   + (q.Texture != null ? q.Texture.name : "**空**") + "）";
         }
 
         // ============================================================ 小工具
@@ -1651,11 +1986,38 @@ namespace CardPresentation
             //    见 `项目资料` 那边的 §三 第 15 条。
             var tex = CardArt.MenuUi("UI_Deck_Information_Back");
             if (tex == null) Debug.LogWarning("[CardDetail] 面板底图取不到：UI_Deck_Information_Back");
-            else MenuDraw.Rect(p, tex, new PxRect(PanL, y1, PanR, y2), "Background", QCdRow);
+            // 🔴 **2026-10-18 修（用户真机报「点『升级』后两颗按钮底图消失、只剩字」）**：
+            //   这块**面板底板**原来画在 `QCdRow`(3116) —— **和面板里所有内容同一个队列**
+            //   （按钮底图 / 图标 / 计数条底 … 全是 3116），而本工程**同队列 + 同一平面（z 全 0）时
+            //   「谁盖谁」不可控**（`CLAUDE.md` §三「分层要用渲染队列，不能用 z」· `资料/已知的坑.md` 那条
+            //   「同一条渲染队列里故意重叠的两件 = 谁盖谁不定」；本文件 `BuildWildcards` 的万能卡图标
+            //   被同队列底板盖掉就是同一族的现行实例）。
+            //   ⇒ 重建整窗之后渲染件重新注册，先后一翻 ⇒ **底板盖住了按钮底图**；文字在 `QCdText`(3117)
+            //   高于底板，所以「只剩字浮着」—— 与用户描述的现场逐条吻合。
+            //   办法 = **底板降到 `QCd`(3115)**：它本来就是「面板」那一档（见上面那几个常量的注释
+            //   「3115 本窗的钮 / 字 / 面板」），面板里**任何**内容都在它之上 ⇒ 与重建次数/注册顺序无关。
+            //   ⛔ 别改回 `QCdRow`；也⛔ 别去抬每一颗内容（要抬的地方太多，且以后新加一件又会踩）。
+            else MenuDraw.Rect(p, tex, new PxRect(PanL, y1, PanR, y2), "Background", QCd);
             return p;
         }
 
-        void Title(Transform p, string nodeName, string text, float x1, float y1, float x2, float y2, float px)
+        /// <summary>🆕 **2026-10-18**：把**一整块面板**（底板 + 全部子件）整体下移 `dy` 设计 px
+        /// （用户口径：三块面板之间要留出**一致**的间距 —— 见 `PanelGap`）。
+        ///
+        /// <para>🔴 **为什么挪父节点就够**：本壳的件是**绝对设计坐标**建的（`MenuDraw.Local` 在**建的那一刻**
+        /// 就把「绝对矩形 − 父节点位置」写进 `localPosition`）⇒ 子件的相对位置已经定死，
+        /// **挪父节点 = 整块一起挪**，⛔ 不用去逐个改 rect（那才会漏、会与建站点的常量打架）。</para>
+        ///
+        /// <para>⚠️ 必须在**这一块的所有子件都建完之后**调 —— 建的过程中父节点还在原位，先挪会把后半截建歪。
+        /// ⚠️ 尺寸不变（`y2 − y1` 一个字节没动），只改中心 ⇒ 面板自身的高宽仍是 prefab 值。</para></summary>
+        static void ShiftPanelDown(Transform p, float y1, float y2, float dy)
+        {
+            if (p == null || Mathf.Approximately(dy, 0f)) return;
+            MenuDraw.ApplyPxRect(p, p.parent, new PxRect(PanL, y1 + dy, PanR, y2 + dy));
+        }
+
+        void Title(Transform p, string nodeName, string text, float x1, float y1, float x2, float y2, float px,
+                   TmpFont.Face face = TmpFont.Face.LatinCardBody)
         {
             // 限宽换行 + 自适应（原版这几处都是 `auto(min-max)` 的 TMP）
             // 🆕 **2026-10-12（A333 + A336③）**：三处面板标题的原版读数**逐值相同** ——
@@ -1665,8 +2027,12 @@ namespace CardPresentation
             //     `'Create a copy of this card'` → `MonoBehaviour_1772.json` = `fs 42.0 · auto[10~42] · base 36.0`
             //     `'Upgrade this card\nto level {'` → `MonoBehaviour_1883.json` = `fs 41.4 · auto[10~42] · base 36.0`
             //     （另一份 `MonoBehaviour_1776.json` 是 `fs 31.7 · auto[10~42] · base 36.0` = **异画面板那一颗**）
+            // 🆕 **2026-10-18**：`face` 形参是为「升级面板那句**用户指定的中文标题**」加的（默认仍是
+            //   `LatinCardBody` ⇒ 另外两处标题**逐位不变**）。中文那一处传 `Face.Cjk` —— 混排兜底虽然
+            //   能画汉字，但字号换算是按 `ActualFace` 的 em 走的（`Label.TmpFontSize`），纯中文串走
+            //   CJK 面才与本仓其它中文（默认面）同一档。⛔ 别改成「一律 Cjk」：那会动另外两处英文标题的行盒。
             MenuDraw.Text(p, new PxRect(x1, y1, x2, y2), text, Color.white, nodeName, px, QCdText, x2 - x1, 10f,
-                          42f, 36f, face: TmpFont.Face.LatinCardBody);
+                          42f, 36f, face: face);
         }
 
         Transform Hit(Transform parent, string name, PxRect r, System.Action onClick, int q = QCdHit,

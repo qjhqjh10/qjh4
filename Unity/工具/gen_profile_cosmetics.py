@@ -21,7 +21,8 @@
     python 工具/gen_profile_cosmetics.py --check    # 只统计，不写
 
 产出：`MyGame/Assets/CardPresentation/Resources/profile_cosmetics.json`
-      （短键：`id` / `n` 名字 / `a` 阵营 id / `art` 头像图名）
+      （短键：`id` / `n` 名字 / `a` 阵营 id / `art` 头像图名 / `r` 头像的 `nameTextReference` 原文
+        = 原版本地化键 `Avatars/<r>`，见下面 `load()` 里那段 🔴）
 """
 import argparse
 import io
@@ -129,6 +130,14 @@ def load(kind, prefix, g2n=None):
             nm = base
         e = {'id': uid, 'n': nm, 'a': d.get('cardArmy', 0)}
         if kind == 'avatar':
+            # 🔴 **2026-10-18（W18）：把 `nameTextReference` 原文也存下来** —— 它才是原版的
+            #    **本地化键**（原版 `GetTranslation("Avatars/" + nameTextReference)`）。
+            #    上面 `nm` 是**剥掉前缀后的显示名**，用它当键只能命中「老一批」的头像
+            #    （实测 469 条里 234 命中 / 235 落空）；而 `Avatar_UM_Attack Bike` 这批 SO 的
+            #    `nameTextReference` **本身带 `Avatar_<阵营>_` 前缀**，官方表里的键也是这个形态
+            #    ⇒ 用原文当键，命中 468/469（只剩 `Terminator Sergeant` 官方表里没有）。
+            #    ⚠️ `ref` 可能是空串（老数据）⇒ `ProfileData` 那边按「空则退显示名」处理。
+            e['r'] = ref
             # 🔴 图名**优先走 `imageReference.m_AssetGUID` 反查**（变体头像的 SO 名与图名不同名，
             #    实测 469 条里 188 条对不上）—— 反查不到才退回 SO 名。
             g = (d.get('imageReference') or {}).get('m_AssetGUID') or ''

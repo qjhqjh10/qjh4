@@ -95,6 +95,25 @@ namespace CardPresentation
         /// `SetAlignLeft`」这一档**不计入** —— 那两个方法**自己就会重排一次**（先 `RefreshBounds()` 再挪）。</para></summary>
         bool _defLayoutPushed;
 
+        // ============================================================================================
+        // 🆕 **2026-10-18（账 `N55` · D1 §四 方案 B(a)）—— 自适应四格的【写入实参 + 写入时的字体面】。**
+        //
+        // **为什么要有它**：`SetAutoFitBox` 的 min/max/base 是**按写入那一刻的 `ActualFace`** 折成
+        // `fontSize` 单位的（`cur = TmpFontSize()`、`nomPx = FontSizeToPxNow(cur, ActualFace)`）。
+        // 而 `ActualFace` **会随文本翻**（空串/拉丁 → 拉丁面；一旦文本里有汉字 → 回 CJK）。
+        // 战斗 HUD 那一族正是「**先按拉丁面建 + 写四格、之后才填汉字**」（D1 §2·3 的 27 条）
+        // ⇒ 不重放的话，四格仍按拉丁面的 em（0.1）折算，而实渲按 CJK 的墨高（0.0948）
+        // ⇒ 实渲字号**整体小 5.2%**（原版 `m_fontSize` 那一档的对不齐；静默、不报错）。
+        //
+        // 做法 = 记下实参与面；`SetTextTmp`（`SyncFace()` 之后）发现面变了就**按记下的实参重放一次**
+        // `SetAutoFitBox`（重放会按新面重新折算，并把记录刷新成新面）。
+        // ⚠️ 只在「真写过一次成功的四格」之后才重放（`_fitValid`）；⛔ 点阵后端没有这一档。
+        // ============================================================================================
+        float _fitW, _fitH, _fitMinPx, _fitMaxPx, _fitBasePx;
+        TmpFont.Face _fitFace;
+        bool _fitValid;
+        bool _fitReplaying;
+
         /// <summary>🔴 **2026-10-15（A546②）**：<see cref="SetAlignLeft"/> 是在**某条「定版面」的路之后**被调用的
         /// **次数**（只增不减；**只记账、不改行为** —— 与 <see cref="PendingWrapAppliedCount"/> 同形）。
         /// <para>**判据**：调用那一刻 <see cref="_defLayoutPushed"/> 为真 = `SetAutoFitBox` / `SetWrapWidth` /
@@ -375,9 +394,17 @@ namespace CardPresentation
         /// <para>`0.72` 现在只剩「字体资产缺失、两个量都读不出来」时那一档兜底。</para>
         /// <para>🔴 **2026-10-17（第四十八会话 · 桶 A 顺手项）：改成【按实际字体面】取。**
         /// 原来这一支恒用 CJK 的 `WorldCapPerFontSize / WorldGlyphPerFontSize = 0.8217`，
-        /// 而拉丁面的大写只有 **0.0656（Pragati）/ 0.0685（Asar）** ⇒ 真实比值是 **0.692 / 0.7226**。
-        /// 对「显式 `SetFace(拉丁)`、随后 `SetScriptHeight`」的件（`Battle/ErrorMessageBanner`），
-        /// 拿 0.8217 会让字号大 **≈19%**（0.8217 ÷ 0.692）。CJK 面仍逐位 = 0.8217。</para></summary>
+        /// 而拉丁面的大写只有 **0.0656（Pragati）/ 0.0685（Asar）** ⇒ 当时（拉丁面 em 也取 0.0948）
+        /// 比值是 **0.692 / 0.7226**。对「显式 `SetFace(拉丁)`、随后 `SetScriptHeight`」的件
+        /// （`Battle/ErrorMessageBanner`），拿 0.8217 会让字号大 **≈19%**（0.8217 ÷ 0.692）。
+        /// CJK 面仍逐位 = 0.8217。</para>
+        /// <para>🔴 **2026-10-18（`N55`）就地订正（铁律 5）**：`TmpFont.EmPerFontSize` 改成**按面分两支**
+        /// （CJK 汉字墨高 0.0948 / 拉丁面**原版真 em 0.1**）⇒ 本比值在拉丁面上变成
+        /// `Cap ÷ em` = **0.656（Pragati）/ 0.685（Asar）**（不再是 0.692 / 0.7226）。
+        /// **语义随之要说清**：`SetScriptHeight` 的拉丁路喂给 `SetCapHeight` 的那个高度
+        /// （`px × 本比值`）保证的是「**em = px**」（= 原版 `m_fontSize` 的口径）；CJK 路保证的是
+        /// 「**汉字墨高 = px**」（本工程既有基线）。两条路各自经**同一个面**的
+        /// `FontSizeToPxNow` 读回都等于 `px` —— 这正是那两条 `SetScriptHeight` 断言要的性质。</para></summary>
         float CapOverGlyph
         {
             get
@@ -436,12 +463,16 @@ namespace CardPresentation
         /// 现在两条路都经 `CapOverGlyph`（运行时实测 `Wcap/Wglyph` ≈ 0.8217）⇒
         /// **同一个 `px` 下 `FontSizeToPxNow` 两档相等**。断言（含「改回 0.72 就红」的灭自证）→
         /// `Editor/BattleScene.cs` 的 §4.6c。</para>
+        /// <para>🔴 **2026-10-18（`N55`）**：`CapOverGlyph` 的**分母**在拉丁面上换成原版真 em（0.1）
+        /// ⇒ 拉丁路喂的是「**em = px**」、CJK 路仍是「**汉字墨高 = px**」；两条路各自用**自己的面**
+        /// 经 `FontSizeToPxNow` 读回都 = `px`（§4.6c 那两条断言的性质**不变**、数值也不变）。
+        /// 判据 → `R4_Rewards残差.md` §五·B ＋ `D1_桶A字号换算链.md`。</para>
         /// </summary>
         public void SetScriptHeight(string text, float px, float pxPerUnit)
         {
             if (pxPerUnit <= 0f) return;
             if (Loc.HasCjk(text)) SetGlyphHeight(px / pxPerUnit);
-            else SetCapHeight(px * CapOverGlyph / pxPerUnit);   // 大写高 = 汉字墨高 × Wcap/Wglyph（实测 0.8217）—— 见 `CapOverGlyph`
+            else SetCapHeight(px * CapOverGlyph / pxPerUnit);   // 大写高 = px × Wcap/Em（CJK 面 = 汉字墨高口径；拉丁面 = 真 em）—— 见 `CapOverGlyph`
         }
 
         /// <summary>
@@ -485,6 +516,10 @@ namespace CardPresentation
                                     "没生效、这段文字仍然不折行");
                 return;
             }
+            // 🆕 2026-10-18（`N55`）：折行宽被单独改过 ⇒ 上一次四格记的那对实参（含 `worldW`）**不再代表当前框**
+            //   ⇒ 作废，别再拿它去「翻面重放」（重放会把框宽也拨回旧值）。`SetAutoFitBox` 内部也会走这里，
+            //   但它在末句会重新置 `_fitValid = true`（那一趟的实参就是最新的）。
+            _fitValid = false;
             TmpFont.SetWrapWidthRect(_tmp, worldWidth);      // 模式 + 宽度：**立刻写**（与旧版逐字相同）
             if (_tmp.isActiveAndEnabled)
             {
@@ -843,7 +878,11 @@ namespace CardPresentation
         /// <summary>🔴 **「TMP 的 `fontSize`」↔「画布像素」只此一份换算**：`fontSize × 本式 = 画布 px`。
         /// 判据 = `TmpFont` 实测的「字形世界高 ÷ fontSize」（≈0.0948）× **108 px / 世界单位**
         /// （`LayoutSpace.DesignPxH / DesignHeight`）。
-        /// ⚠️ 与本文件顶部那个**点阵后端**的私有 `PixelsPerUnit = 100f` **无关**（那个管字块贴图的整数档）。</summary>
+        /// ⚠️ 与本文件顶部那个**点阵后端**的私有 `PixelsPerUnit = 100f` **无关**（那个管字块贴图的整数档）。
+        /// 🔴 **2026-10-18（`N55`）**：本口用的是 **CJK 那一支**（汉字墨高 0.0948）。`TmpFont.EmPerFontSize`
+        ///   自本日起**按面分两支**（CJK 0.0948 / 拉丁面原版真 em 0.1）⇒ **量拉丁面标签必须改用
+        ///   `lb.FontSizeToPxNow(x, lb.ActualFace)`**（或下面那个双实参静态口），否则恒差 5.2%。
+        ///   判据 → `资料/普查产出_1017/诊断_第四十八会话/R4_Rewards残差.md` §五·B。</summary>
         public static float FontSizeToPx(float fontSize)
         {
             return fontSize * TmpFont.WorldGlyphPerFontSize * PxPerWorld;
@@ -876,8 +915,10 @@ namespace CardPresentation
             return FontSizeToPxNow(fontSize, TmpFont.Face.Cjk);
         }
 
-        /// <summary>当前**实际生效**的字号换算成「像素」口径（= `fontSize × WorldGlyphPerFontSize × 108`）。
+        /// <summary>当前**实际生效**的字号换算成「像素」口径（= `fontSize × EmPerFontSize(ActualFace) × 本档尺`）。
         /// **自检拿它跟原版的 `m_fontSize` 比**（原版那也是画布像素）。
+        /// 🔴 **2026-10-18（`N55`）**：`EmPerFontSize` 按面分两支（CJK 汉字墨高 0.0948 / 拉丁面原版真 em 0.1）
+        /// ⇒ 本口**自动按 `ActualFace`** 折算（拉丁面标签那 5.2% 的差在这一处收口）。
         /// ⚠️ 别用 `CapHeightWorld` / `GlyphHeightWorld` 去量 —— 那两个是**回读传入值**的伪测量（见 `已知的坑.md`）。</summary>
         public float FontPxNow { get { return _tmp != null ? FontSizeToPxNow(_tmp.fontSize, ActualFace) : 0f; } }
 
@@ -1167,6 +1208,26 @@ namespace CardPresentation
             _tmp.ForceMeshUpdate();
             RefreshBounds();     // 🔴 字号变了 ⇒ 尺寸/摆位都要重算（不然 `WorldW` 还是缩之前的值）
             _defLayoutPushed = true;    // 🆕 A546②：本条是「定版面」那三条之一（见 `AlignAfterLayoutCount`）
+            // 🆕 2026-10-18（`N55`）：记下这一趟的实参与【写入时的面】—— 文本翻面后要按新面重放（见字段区那段）。
+            _fitW = worldW; _fitH = worldH;
+            _fitMinPx = minPx; _fitMaxPx = maxPx; _fitBasePx = basePx;
+            _fitFace = ActualFace;
+            _fitValid = true;
+        }
+
+        /// <summary>🆕 **2026-10-18（`N55`）**：`ActualFace` 翻了 ⇒ 按**写入时的实参**重放一次 `SetAutoFitBox`
+        /// （用**当前**这一面重新折算 min/max/base）。判据与后果 → 上面那组 `_fit*` 字段的注释。
+        /// <para>⚠️ **先清标记再干活**（同 `TryApplyPendingWrap` 的写法）：重放那一趟若又走早退分支，
+        /// 记录必须停在「无效」而不是「旧的、已经不符的面」。</para>
+        /// <para>⚠️ 重放会再进 `SetWrapWidth` / `RefreshBounds` —— 那是**必要**的：折行宽与墨迹框都按字号来，
+        /// 只改四格不重排，量出来仍是旧面的尺寸。</para></summary>
+        void ReplayFitForFace()
+        {
+            float w = _fitW, h = _fitH, lo = _fitMinPx, hi = _fitMaxPx, bc = _fitBasePx;
+            _fitValid = false;
+            _fitReplaying = true;
+            try { SetAutoFitBox(w, h, lo, hi, bc); }
+            finally { _fitReplaying = false; }
         }
 
         /// <summary>`cur`（= <see cref="TmpFontSize"/> 那一档）折算成**画布像素** —— 也就是调用方要的那个字号，
@@ -1353,6 +1414,10 @@ namespace CardPresentation
         {
             SyncFace();                              // 🆕 文本里有汉字而本 Label 被指了拉丁面 ⇒ 这里换回 CJK
             _tmp.text = text;
+            // 🔴 **2026-10-18（`N55`）**：面翻了（拉丁 ⇄ CJK）⇒ 自适应四格要按**新面**重放一次 ——
+            //    四格是按「写的那一刻的面」折成 fontSize 的（em：CJK 0.0948 / 拉丁 0.1），
+            //    不重放的话实渲字号会差 5.2%（判据 → `_fit*` 那组字段的注释 / D1 §四 方案 B(a)）。
+            if (_fitValid && !_fitReplaying && _fitFace != ActualFace) ReplayFitForFace();
             _tmp.fontSize = TmpFontSize();
             _tmp.ForceMeshUpdate();                  // 批处理没有帧循环，尺寸得手动推
             RefreshBounds();

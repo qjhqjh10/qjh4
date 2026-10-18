@@ -747,7 +747,12 @@ def make_rarity_lookup(tbl):
 #   ① 费用修正按卡名匹配（`RuleCore.CostOf`）→ 同名卡**一起降价**
 #   ② 临时卡 / 复制品与原件是**同一个 CardDef 对象**，分不出「哪一张」
 #   ③ 卡组存档存的是**卡名**，跨阵营重名时解析到错的那张
-# ⇒ 这一层给每张卡发一个**唯一且稳定**的 id。做法是**优先用原版 id**，对不上的自造。
+# ⇒ 这一层给每张卡发一个**唯一且稳定**的 id。
+# 🔴 **2026-10-18（`W25`）现行做法 = 按原版 `uniqueId` 直取**（`load_direct_ids` / `pick_direct_id`）：
+#    `card_stats.json` 的 `id` 列 1,213/1,213 全是 `null`（⛔ 不许改源表）⇒ 只能拿
+#    **(阵营, 卡名)** 去真值侧反查 `uniqueId`；落位唯一就**直取**。
+#    **名级联（`pick_truth_id` / `pick_id`）降为交叉校验**：直取与它不一致必须出声（见 `build()`）。
+#    现池 **1127/1127 直取成功、自造 0 张**（`build()` 末尾有硬断言，见「生成期自检」那段）。
 #
 # **原版 id 从哪来、可信到什么程度**（都实测过，别重新挖）：
 #   · `数据/游戏数据/decklists.json`（236 副原版预组牌）里**真的带 id** ——
@@ -811,6 +816,11 @@ TRUTH_IDX_SRC = r"d:/4/Unity/数据/游戏数据/card_id_truth_index.json"
 #      `Skyborne Deployment` 费 1 · `Witchfire` 费 0 · `Waaagh! Energy` 费 0 · `Tactical Insight` 费 0 ·
 #      `Abominant` 盾 1 · `Hulking Aberrant` 盾 1 · `Rukkatrukk Squigbuggy` 盾 1），
 #     **13/13 = 「我们 == PnP」且「快照 ≠ PnP」** ⇒ **三围/费用/护甲一律保留我们的值**（那就是 PnP 的值）。
+#   🔴 **2026-10-18（`W` 笔）就地补注（铁律 5）**：上面那条「三围/费用保留我们的值」**只适用于
+#     2022 时代快照那一版**（那次核的 13 张用的就是它）。**当前 build（`allcards_1350`）的 SO 已被裁定为真值** ——
+#     2026 build 把督军生命统一下调（35→25 ×39 · 40→30 ×11 · 30→20 · 35→30），那是**版本变化、不是我们抄错**
+#     ⇒ `health` / `cost` / `attack` 三列改按本快照覆盖（见 `build()` 里「SO 数值真值覆盖层」那段）。
+#     判据 → `资料/普查产出_1018/R_督军10血成因.md` §1 结论 A。`ranged` / `desc` / `keywords` 仍照 PnP。
 #   ⇒ **本相真正从快照取的，只有「PnP 不印」的那几样**：**督军 `cost`**（PnP 56/56 不印费用格 ——
 #     右上角是**阵营徽记**，`Anvirr Keltoc` 那张亲开图核过）、**`CardTraits`**（补空那一层）、
 #     **`armour` 数值兜底**、以及 **A1799 那 10 个 SO 字段**（PnP 上根本没有的东西）。
@@ -859,6 +869,20 @@ def load_ids():
     for cid, nm in m.items():
         by_name.setdefault(_norm_name(nm), []).append((cid, nm))
     return by_name
+
+
+def load_id_mapping():
+    """读 `card_ids.json` 的 `mapping`（`{uniqueId: 卡名}`）**原样**返回。
+
+    🔴 2026-10-18（`W25`）：直取表的**名字来源之一**（见 `load_direct_ids`）——
+    这一层的值里有 54 条与 SO `cardName` 写法不同（`DA1` → `Azrael` vs `Azrael, Grand Master`），
+    正好补上「SO 名和我们池里的名字不是一个写法」那批。⛔ **不要**拿它单独当身份：
+    它只有名字、没有阵营，跨阵营同名（`Terminator` 那 3 组）分不开。
+    """
+    if not os.path.exists(IDS_SRC):
+        print(f"⚠️ 找不到 {IDS_SRC} —— 直取表少一路名字来源（SO `cardName` / `m_Name` 尾巴仍然可用）")
+        return {}
+    return json.load(open(IDS_SRC, encoding="utf-8")).get("mapping") or {}
 
 
 def pick_id(cands, faction):
@@ -919,6 +943,89 @@ def pick_truth_id(ix, faction, faction_id, name, ocrname):
         return sh[0]
     if len(same) == 1:
         return same[0]
+    return None
+
+
+# ---- 🔴 2026-10-18（`W25`）：按 `uniqueId` **直取**的 id 表 --------------------------------
+# 判据 → `资料/普查产出_1018/R_引擎线_完整ID与SO后的调整评估.md` §4 第 4、5 行。
+#
+# **为什么改成直取**：上面那条名级联是**启发式**（官方英文名 → `m_Name` 尾巴 → `cardName`，
+# 再按 `base`/短 id 挑），它能挑对，但「挑对」和「判据唯一」是两件事 —— 任何一环改了次序，
+# 挑出来的 id 会**静默换一张卡**。现行口径：**身份 = 原版 `uniqueId`**，落位必须唯一。
+#
+# **落位表怎么建**（`(阵营码, 归一化卡名) → uniqueId`）：名字取**三处真值侧写法**——
+#   ① SO `cardName`（`cards_raw.json`）
+#   ② SO `m_Name` 尾段（`Z-NC BlackLegion-Warmaster` → `Warmaster`；分隔符 `-` / `_` 都用）
+#   ③ `card_ids.json.mapping` 的值（54 条与 ① 写法不同，补的是「SO 名 ≠ 我们的名」那批）
+# 同一键落位到多个 `uniqueId` 时，用**基准卡**消歧（`m_Name` 归一化后以 `cardName` 归一化结尾，
+# 与 `工具/gen_card_id_truth_index.py` 的 `is_base` **同一条规则**）；仍不唯一 ⇒ **这个键不收**，
+# 记进 `ambiguous` 由调用方报告（⛔ 不猜）。
+#
+# **实测（2026-10-18 现读）**：池内 1127 张里 **1125 张**按我方卡名唯一落位；
+# 另外 2 张（`SAU35 Imotekh the Stormlord` / `SAU37 Orikan the Diviner`）在源表里的名字是
+# 短名（`stormlord` / `Diviner`，由 `STAT_FIXES` 改名）⇒ 只有源表的 **`ocrName`** 能落位
+# （那两行的 `ocrName` 正是全名）⇒ `pick_direct_id` 第二跳查 `ocrName`，合计 **1127/1127**。
+
+
+def _is_base_row(r):
+    """基准卡 = `m_Name` 归一化后以 `cardName` 归一化结尾（与真值索引生成器同一条规则）。
+    同名组里「本体 vs 附魔/教程副本」靠它分开（例：`Uge Choppa` 本体 + `_enchantment` 副本）。"""
+    cn = _norm_name(r.get("cardName"))
+    return bool(cn) and _norm_name(r.get("m_Name")).endswith(cn)
+
+
+def load_direct_ids(truth_rows, name_map):
+    """建 `(阵营码, 归一化名) → uniqueId` 的唯一落位表 → `(direct, ambiguous)`。
+
+    `truth_rows` = `load_truth_cards()` 的第一个返回值（`{uniqueId: SO 原始行}`）
+    `name_map`   = `load_id_mapping()` 的返回值（`{uniqueId: 卡名}`）
+
+    `ambiguous` = 落位不唯一、**没进表**的键：`[(阵营码, 归一化名, [uniqueId…]), …]`
+    —— 调用方**必须**报出来（别静默丢）。
+    """
+    if not truth_rows:
+        print("⚠️ 真值卡 SO 快照为空 ⇒ **直取表建不出来** —— 卡 id 会退回名级联（要出声的那个老路）")
+        return {}, []
+    cand = {}
+
+    def _add(army, nm, uid):
+        if army is None or not nm or not uid:
+            return
+        cand.setdefault((army, nm), set()).add(uid)
+
+    for uid, r in truth_rows.items():
+        army = r.get("cardArmy")
+        _add(army, _norm_name(r.get("cardName")), uid)
+        _add(army, _norm_name(re.split(r"[-_]", r.get("m_Name") or "")[-1]), uid)
+        _add(army, _norm_name(name_map.get(uid)), uid)
+    direct, ambiguous = {}, []
+    for k, uids in cand.items():
+        if len(uids) == 1:
+            direct[k] = next(iter(uids))
+            continue
+        bs = [u for u in uids if _is_base_row(truth_rows[u])]
+        if len(bs) == 1:
+            direct[k] = bs[0]
+        else:
+            ambiguous.append((k[0], k[1], sorted(uids)))
+    print(f"直取 id 表    `(阵营, 卡名) → uniqueId` 唯一落位 {len(direct)} 键"
+          f"（真值 {len(truth_rows)} 行 · 落位不唯一、**不收** {len(ambiguous)} 键）")
+    return direct, ambiguous
+
+
+def pick_direct_id(direct, faction_id, name, ocrname):
+    """按 `(阵营码, 归一化名)` 直取 `uniqueId`；落不了位返回 `None`（**不猜**）。
+
+    两跳：①我方卡名 ②源表 `ocrName`（`SAU35`/`SAU37` 那两张督军在源表里是短名，只有 `ocrName` 能落位）。
+    """
+    if not direct or faction_id is None:
+        return None
+    for k in (name, ocrname):
+        if not k:
+            continue
+        hit = direct.get((faction_id, _norm_name(k)))
+        if hit:
+            return hit
     return None
 
 
@@ -1647,6 +1754,9 @@ def build():
     # 键只认 `uniqueId` —— 与我们卡池 id 是**同一套**（P1 相换过一次），所以 `truth_cards.get(cid)`
     # 就是那份**已裁过的 join**，本相不另开第二条。
     truth_cards, truth_by_name = load_truth_cards()
+    # 🔴 2026-10-18（`W25`）：**按 `uniqueId` 直取**的落位表（见 `load_direct_ids` 那段）。
+    #    ⚠️ 它必须在主循环**之前**建好 —— 主循环里 `cid` 的第一来源就是它。
+    id_direct_tbl, direct_ambiguous = load_direct_ids(truth_cards, load_id_mapping())
     truth_hit = 0                           # 能在快照里按 id 找到的卡（跑完打出来 —— 它是各列的覆盖率分母）
     kw_truth_filled = []                    # (卡id, 追加了哪些 trait) —— **真值铺底**那一层的读数
     kw_truth_skipped = []                   # (卡id, 卡名, 跳过了哪些) —— 引擎 Prefixes 不认的那三个 trait
@@ -1658,8 +1768,15 @@ def build():
     armour_src_truth = []                   # `armour > 0` 且值来自 **真值兜底**（PnP 那一层没读到）
     hero_cost_from_truth = []               # 督军 `cost` 被真值改掉的（`A1773` + 已裁④）
     hero_cost_kept = []                     # 督军 `cost` 没真值可依、保持现状的（要出声）
+    # 🆕 2026-10-18（`W` 笔）：**SO 数值真值覆盖层**的两个记账口（见下面那段长注释）
+    so_stat_changed = []                    # (cid, 卡名, 类型, 字段, 改前, 改后) —— 本层真改掉的每一处
+    so_stat_skipped = []                    # (cid, 卡名, 类型, 字段, 现值, SO值, SO卡名) —— 有 SO 值但**没敢覆盖**的
     discarded_hasstats = []                 # 被 `hasStats=false` 整批丢的那批 → 跑完按真值归类
-    id_orig, id_made = [], []               # 用上原版 id 的 / 自造 id 的（跑完打出来给人看）
+    # 🆕 2026-10-18（`W25`）：id 层的三个新记账口（见主循环「稳定 id」那段）。
+    id_direct = []                          # 直取命中（`uniqueId` 表唯一落位）—— 现读 = 全池
+    id_cascade = []                         # 直取没落位、退回**名级联**的（要出声；现读 0）
+    id_cross_mismatch = []                  # (直取, 级联, 级联来源, 卡名, 阵营) —— 交叉校验不一致（要出声）
+    id_orig, id_made = [], []               # 名级联/card_ids.json 命中的 / 自造 id 的（跑完打出来给人看）
     # 🆕 2026-10-14（P1 相 · `A1782`/`A1800`）：走【真值索引】那一层拿到 id 的（见 `TRUTH_IDX_SRC` 那段）。
     # 单列一份只为把「这一层救回多少张」打在摘要里 —— 它是 id 置换那批账的验收读数。
     id_truth = []
@@ -1781,26 +1898,40 @@ def build():
             if "health" in fix: health = fix["health"]
             if "ranged" in fix: ranged = fix["ranged"]
 
-        # ---- 稳定 id（2026-09-13 第三十三轮 · 2026-10-14 P1 相加了真值索引那一层）----
-        # **① 先查真值索引**（`TRUTH_IDX_SRC` 那段长注释 —— 它管三类老路查不到的卡：
-        #    美术名 ≠ 原版名 / GUID 形 id / 同名组里的副本）。判据只有真值侧有，所以那一层是索引。
-        # **② 再走老路**：按「归一化卡名」查 `card_ids.json`，再按**本卡的阵营**在前缀上挑一个。
-        #    这一步仍然解决跨阵营重名 —— `Aggressor` / `Terminator` / `Terminator Champion` /
-        #    `Maulerfiend` 四组同名卡各有各的 id。
-        # **③ 两条都挑不出**（快照之后的新卡 / 表里没有这张 / 同名候选 >1 个）就**自造**，并记进
-        #    `id_made` 由跑完的报告列出 —— **不许静默**：自造意味着「这张卡没有原版 id」。
+        # ---- 稳定 id（2026-09-13 第三十三轮 · 🔴 2026-10-18 `W25` 改成**按 uniqueId 直取**）----
+        # **① 直取**（`load_direct_ids` 那段）：`(阵营码, 归一化卡名) → uniqueId` **唯一落位**表。
+        #    这是**唯一的身份判据** —— 落位唯一才认，⛔ 不猜。
+        # **② 名级联只作交叉校验**（`pick_truth_id` 真值索引 → `pick_id` 老路）：
+        #    它与直取**不一致就必须出声**（`id_cross_mismatch`，跑完在摘要里逐条打出来）。
+        #    ⚠️ 为什么会不一致：级联是启发式（官方英文名 → `m_Name` 尾巴 → `cardName`，再按
+        #    `base`/短 id 挑）—— 次序一变就可能挑到**另一张卡**的 id，这正是本笔要根除的那类静默。
+        # **③ 直取落不了位**（快照之后的新卡 / 同一个名字在同阵营有多条且没有唯一基准卡）⇒ 退回名级联，
+        #    记进 `id_cascade` **并出声**；级联也挑不出才**自造**（`id_made`，由跑完的报告列出）。
+        #    🔴 现读 = 直取 1127/1127、级联兜底 0、自造 0（`build()` 末尾有硬断言，退回自造直接非零退出）。
         faction = norm_str(c.get("faction"))
-        cid = pick_truth_id(truth_idx, faction, norm_int(c.get("factionId")),
-                            name, norm_str(c.get("ocrName")))
+        faction_id = norm_int(c.get("factionId"))
+        ocr_name = norm_str(c.get("ocrName"))
+        cid = pick_direct_id(id_direct_tbl, faction_id, name, ocr_name)
+        # 名级联（老路）—— 现在只为**交叉校验**跑；直取没落位时才真的用它。
+        cid_cascade = pick_truth_id(truth_idx, faction, faction_id, name, ocr_name)
+        cascade_how = "真值索引"
+        if not cid_cascade:
+            cid_cascade = pick_id(id_by_name.get(_norm_name(name), []), faction)
+            cascade_how = "card_ids.json"
         if cid:
-            id_truth.append((cid, name, faction))
-        else:
-            cid = pick_id(id_by_name.get(_norm_name(name), []), faction)
-            if cid:
-                id_orig.append((cid, name, faction))
+            id_direct.append((cid, name, faction))
+            if cid_cascade and cid_cascade != cid:
+                id_cross_mismatch.append((cid, cid_cascade, cascade_how, name, faction))
+        elif cid_cascade:
+            cid = cid_cascade
+            id_cascade.append((cid, name, faction, cascade_how))
+            if cascade_how == "真值索引":
+                id_truth.append((cid, name, faction))
             else:
-                cid = make_id(faction, name)
-                id_made.append((cid, name, faction))
+                id_orig.append((cid, name, faction))
+        else:
+            cid = make_id(faction, name)
+            id_made.append((cid, name, faction))
         if cid in _seen_ids:
             # id 撞了 = 稳定 id 这件事本身就塌了，**当场炸**，别生成一份带重复 id 的卡表
             sys.exit(f"❌ id 撞车：{cid}（{name} / {faction}）—— 自造规则要改，不能把重复 id 写进卡表")
@@ -1866,6 +1997,49 @@ def build():
                     cost = _mc
             else:
                 hero_cost_kept.append((cid, name, faction, cost))
+
+        # ---- 🆕 2026-10-18（`W` 笔）：**SO 数值真值覆盖层**（`health` / `cost` / `attack`）---------
+        # 🔴 判据 → `资料/普查产出_1018/R_督军10血成因.md` §1 **结论 A：当前 build 的 SO 就是真值**。
+        #    2026 build 把督军生命统一下调（35→25 ×39 · 40→30 ×11 · 30→20 · 35→30），
+        #    `allcards_1350/报告.md:101` 原话「**这不是我们抄错，是版本变化**」；
+        #    运行时 `warlordLifeChange` 是**每局/每 event 的同一全局增量**（经典 0 / 冲突 −10），
+        #    对 56 张督军同加同减，**产生不出** −5（AM3）/ −15（TL35）/ 0（9 张）这种逐卡差异
+        #    （反编译证据 → 报告 §2：`BattleManager__SetupWarlordsLifeAndEnchantment.c:29,53,72`）。
+        # ⇒ 本层把**这三列**换成 SO 的对应字段（⛔ `ranged` / `desc` / `keywords` / `art` 一律不动 —— 刀口另有人管）。
+        #    字段口径（**2026-10-18 现核，不是猜的**）：
+        #      · `health` ← `maxHealth`（1127 张里 1078 张本来就相等；差 49 项 = 47 督军 + BL71/SW13）
+        #      · `attack` ← `meleeAttack` —— **现表 `attack` 就是近战攻击**：1126/1127 逐张相等，
+        #        唯一例外 `TAU12 Darkstrider`（我们 3 / SO 2）**正是本层要改的那 1 项**；
+        #        `rangeAttack` 对应现表 `ranged`，**本层不动它**。
+        #      · `cost`   ← `manaCost`，**仅 `>= 0` 时**。`-1` = 原版「不可直接打出」的哨兵
+        #        （全快照 105 张；落进我们池的只有 4 张，而且那 4 行的 SO 名是
+        #        `Mark of Tzeentch/Khorne/Slaanesh/Nurgle (enchantment)`（`cardType=20` 附魔模板），
+        #        **不是**我们池里的实体卡 `Dark Pact of Fate/Blood/Excess/Resilience`）——
+        #        现表也没有「不可打出」这一档表达 ⇒ **保持原值、逐条出声**（`so_stat_skipped`）。
+        #      · **督军 `cost` 跳过**：上面 `A1773` 那一段已经从同一个 `manaCost` 取过值了，
+        #        本层再写一次只会让两个记账口重复计数。
+        #    ⚠️ 本层**盖过 `STAT_FIXES`**（那些是 OCR 修正、曾按 PnP 核过）—— 这正是本轮裁定的方向：
+        #       **当前 build 的 SO 优先于 PnP 印刷值**（报告 §1）。改前→改后逐条打在 `main()` 摘要里。
+        if trow is not None:
+            _so_h = truth_int(trow, "maxHealth")
+            if _so_h < 0:
+                so_stat_skipped.append((cid, name, ctype, "health", health, _so_h, norm_str(trow.get("cardName"))))
+            elif _so_h != health:
+                so_stat_changed.append((cid, name, ctype, "health", health, _so_h))
+                health = _so_h
+            _so_a = truth_int(trow, "meleeAttack")
+            if _so_a < 0:
+                so_stat_skipped.append((cid, name, ctype, "attack", attack, _so_a, norm_str(trow.get("cardName"))))
+            elif _so_a != attack:
+                so_stat_changed.append((cid, name, ctype, "attack", attack, _so_a))
+                attack = _so_a
+            if ctype != "hero":
+                _so_c = truth_int(trow, "manaCost")
+                if _so_c < 0:
+                    so_stat_skipped.append((cid, name, ctype, "cost", cost, _so_c, norm_str(trow.get("cardName"))))
+                elif _so_c != cost:
+                    so_stat_changed.append((cid, name, ctype, "cost", cost, _so_c))
+                    cost = _so_c
 
         # ---- 🆕 `A1776`：`keywords` 那一列的落位（**权威序抄在这里，别再另写一份**）----------
         # 主对话已裁③（`施工设计 §七`）—— **从低到高，后面的赢**：
@@ -2281,8 +2455,38 @@ def build():
             orphan_rarity_key.append(
                 f"`RARITY_BY_FACTION` 的键 `{_rf2}/{_rn2}` —— 卡池里**没有这张卡**（阵营或卡名对不上了）")
 
+    # ---- 🔴🔴 生成期自检（`W25`，2026-10-18）：**id 层不许静默退回「自造」** -------------------
+    # 判据 → `资料/普查产出_1018/R_引擎线_完整ID与SO后的调整评估.md` §4 第 4、5 行 +
+    #        `R_卡牌线_…` §4 第 2 行（「加断言：池内 `id_made == 0`，且每个 id ∈ SO 集合」）。
+    # 为什么要有它：上面那一整条 id 链（直取 → 名级联 → 自造）里，**「自造」是静默的兜底** ——
+    # 一旦 SO/索引换版本、卡名改一个字，某张卡就会悄悄拿回 `XX_Card_Name` 自造 id，
+    # 而引擎/存档/回放全都按 id 走 ⇒ 那才是「身份塌了还没人知道」。所以这里**硬失败**：
+    # 非零退出 = 一个字节都不写（与 `A1626` 同一条口径），补好判据再重跑。
+    _so_ids = set(truth_cards or {})
+    _id_bad = []
+    if id_made:
+        _id_bad.append(f"池内有 **{len(id_made)} 张自造 id**（原版 `uniqueId` 表里落不了位）："
+                       + " · ".join(f"{cid}={nm}({fac})" for cid, nm, fac in id_made[:10])
+                       + (f" … 其余 {len(id_made) - 10} 张" if len(id_made) > 10 else ""))
+    if not _so_ids:
+        _id_bad.append("真值卡 SO 快照**为空**（`TRUTH_CARDS_SRC` 读不到）⇒ 无法证明池内 id ∈ 原版 `uniqueId` 集合")
+    else:
+        _not_in_so = [(c["id"], c["name"], c["faction"]) for c in cards
+                      if c.get("id") not in _so_ids]
+        if _not_in_so:
+            _id_bad.append(f"池内 **{len(_not_in_so)} 张 id 不在真值 SO 的 `uniqueId` 集合里**："
+                           + " · ".join(f"{cid}={nm}({fac})" for cid, nm, fac in _not_in_so[:10])
+                           + (f" … 其余 {len(_not_in_so) - 10} 张" if len(_not_in_so) > 10 else ""))
+    if _id_bad:
+        print("\n🔴 id 层生成期自检**失败**：")
+        for _line in _id_bad:
+            print(f"   · {_line}")
+        sys.exit("❌ 卡 id 层自检失败（池内 id_made 必须 = 0、且每个 id 必须 ∈ 真值 SO 的 uniqueId 集合）"
+                 " —— 见 `gen_cards_engine.py` 末尾「生成期自检」那段；一个字节都没写。")
+
     return {
-        "version": 9,          # v6: 每张卡带稳定 id（原版 id 优先，对不上的自造 —— 见 IDS_SRC 那段）
+        "version": 9,          # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+                               #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
                                # v9（2026-10-15 P2 相 `A1776`/`A1799`）：加 `armour` / `cardTraits` 两列，
@@ -2298,7 +2502,10 @@ def build():
                   "（键空间与 `Card_Name/*` 同源；官方表里没有、或原表里 en == zh的那批才用 zh_cards.json 的自译）"
                   "—— 🔴 口径：**只换 `descZh`、`desc` 不动**（`资料/任务_卡组卡牌战斗.md` 的 `A1763` 那一行）；"
                   "subtype/keywords 另按 数据/游戏数据/cardface_fixes.json 修正；"
-                  "id 另取 数据/游戏数据/card_ids.json，对不上的自造；"
+                  "id 按**原版 `uniqueId` 直取**（`(阵营码, 卡名) → uniqueId` 唯一落位表，名字取自"
+                  " 资料/普查产出_1018/allcards_1350/cards_raw.json 的 `cardName`/`m_Name` 尾巴 +"
+                  " 数据/游戏数据/card_ids.json 的 `mapping`；名级联只作交叉校验 ——"
+                  " 2026-10-18 `W25`，现读池内 1127/1127 真 id、自造 0）；"
                   "督军的 goesSecond 另取 数据/游戏数据/warlord_goes_second.json —— **原版真值**，"
                   "来源 = 抢救出的原版远端包 allcards（见该文件里的 provenance）；"
                   "inventoryOptions / showInCollectionOptions 另取 数据/游戏数据/card_inventory_options.json"
@@ -2306,9 +2513,12 @@ def build():
                   "initiative 另取 数据/游戏数据/card_initiative.json"
                   "—— 同为**原版真值**（同包），由 工具/gen_card_initiative.py 落到我们卡池的 id 上；"
                   "cardTraits / armour（兜底那半）/ A1799 那 10 列另取**原版 allcards 快照本体**"
-                  " d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json（2025-07-30 · 比现池旧）"
-                  "—— 🔴 **它只在 PnP 成品卡图【不印】的地方生效**（闸 = `施工设计 §七 已裁⑥`）："
-                  "三围/费用/护甲的值一律**以 PnP 为准**，而**督军的 cost** PnP 56/56 不印 ⇒ 取真值的 2）",
+                  " 资料/普查产出_1018/allcards_1350/cards_raw.json（**当前 build** · 1,351 张卡 SO）"
+                  "—— 🔴 那些列只在 PnP 成品卡图【不印】的地方生效（闸 = `施工设计 §七 已裁⑥`）；"
+                  "🔴 **2026-10-18 起 `health` / `cost` / `attack` 三列改以该快照为真值**"
+                  "（`health←maxHealth` · `cost←manaCost`（仅 >=0）· `attack←meleeAttack`；"
+                  "判据 = `资料/普查产出_1018/R_督军10血成因.md` §1 结论 A：当前 build 的 SO 就是真值）；"
+                  "`ranged` / `desc` / `keywords` / `art` 不动",
         "note": "由 工具/gen_cards_engine.py 生成，不要手改。"
                 "改数据请改 card_stats.json / 数据/游戏数据/官方本地化_en+zh-CN.json / "
                 "数据/卡牌翻译/zh_cards.json / 数据/游戏数据/cardface_fixes.json 后重跑。"
@@ -2321,7 +2531,9 @@ def build():
                 "subtype 是**卡面那行橙字**（部队卡=兵种 Infantry/Vehicle/…；防御卡=Defence；"
                 "督军=Warlord；有些计策=Dark Pact/Overlord Power/Combat Elixir…），空串=卡面没这行。"
                 "id 是**稳定身份**：原版 id 形如 `AM12`（字母前缀+纯数字）；"
-                "**自造 id 形如 `AM_Some_Card`（带下划线）** —— 一眼能分出「原版有 id」和「我们补的」。"
+                "🔴 2026-10-18（`W25`）起按原版 `uniqueId` **直取**（现读池内 1127/1127 真 id、**自造 0**）；"
+                "`AM_Some_Card`（带下划线）那种**自造形态只在判据缺失时才会出现**，"
+                "而生成器末尾有硬断言（自造 ⇒ 非零退出、一个字节都不写）。"
                 "goesSecond = 原版 `RawCardScript.goSecondCardInHand`（只写在督军卡上）："
                 "该督军后手那一局会拿到的防御卡 id；空串 = 真值里没有这个阵营的督军。"
                 "inventoryOptions / showInCollectionOptions = 原版同名字段（`CardInventoryOptions` /"
@@ -2350,6 +2562,7 @@ def build():
         "count": len(cards),
         "cards": cards,
     }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, id_truth, \
+       (id_direct, id_cascade, id_cross_mismatch, direct_ambiguous), \
        orphan_face_fix, orphan_stat_fix, armor_family_bad, \
        key_conflicts, (def_report, _gs_n, _gs_hero, _gs_missing_fac), \
        (off_hit, off_same, off_miss, off_conflict, off_bad, off_stats), \
@@ -2359,7 +2572,8 @@ def build():
        (init_unknown, raw_init), \
        (truth_hit, kw_truth_filled, kw_truth_skipped, kw_truth_wiped,
         armour_src_pnp, armour_src_truth, hero_cost_from_truth, hero_cost_kept,
-        discarded_hasstats, truth_cards, truth_by_name, kw_order_violations), \
+        discarded_hasstats, truth_cards, truth_by_name, kw_order_violations,
+        so_stat_changed, so_stat_skipped), \
        (rarity_guard_bad, _rarity_truth_n, _rarity_truth_skip_n,
         rarity_truth_filled, rarity_src_truth, rarity_src_table, rarity_src_source,
         orphan_rarity_key)
@@ -2416,9 +2630,10 @@ def main():
     args = ap.parse_args()
 
     (doc, skipped, total, filled, still_missing, stat_fixed, face_fixed,
-     id_orig, id_made, id_truth, orphan_face_fix, orphan_stat_fix, armor_family_bad, key_conflicts,
+     id_orig, id_made, id_truth, id_new, orphan_face_fix, orphan_stat_fix, armor_family_bad, key_conflicts,
      goes_second, off, off_desc,
      inv, init, truth, rarity_guard) = build()
+    id_direct, id_cascade, id_cross_mismatch, direct_ambiguous = id_new
     def_report, _gs_n, _gs_hero, _gs_missing_fac = goes_second
     off_hit, off_same, off_miss, off_conflict, off_bad, off_stats = off
     (off_desc_hit, off_desc_same, off_desc_miss, off_desc_bad, off_desc_stats,
@@ -2427,7 +2642,7 @@ def main():
     init_unknown, raw_init = init
     (truth_hit, kw_truth_filled, kw_truth_skipped, kw_truth_wiped, armour_src_pnp, armour_src_truth,
      hero_cost_from_truth, hero_cost_kept, discarded_hasstats, truth_rows, truth_by_name,
-     kw_order_violations) = truth
+     kw_order_violations, so_stat_changed, so_stat_skipped) = truth
     rarity_guard_bad, _rarity_truth_n, _rarity_truth_skip_n = rarity_guard[:3]
     (rarity_truth_filled, rarity_src_truth, rarity_src_table, rarity_src_source,
      orphan_rarity_key) = rarity_guard[3:]
@@ -2815,8 +3030,25 @@ def main():
             print(f"            · {cid:<34} {nm:<24} cost={cst}")
         if len(hero_cost_kept) > 4:
             print(f"            … 其余 {len(hero_cost_kept) - 4} 张同理")
-    print("             ⚠️ **三围（近战/远程/生命）与护甲一律没动** —— 那几项 PnP 都印，"
-          "2026-10-15 逐张开图核过 13 张，**13/13 是我们 == PnP、快照 ≠ PnP**（见 `TRUTH_CARDS_SRC` 那段）")
+    # ---- 🆕 2026-10-18（`W` 笔）：**SO 数值真值覆盖层** --------------------------------------
+    #   判据 → `资料/普查产出_1018/R_督军10血成因.md` §1 **结论 A（当前 build 的 SO 就是真值）**。
+    #   🔴 与上面 `A1773` **同源、不同列**：`A1773` 管 hero 的 `cost`；本层管**全池** `health` +
+    #      **非 hero** 的 `cost` + **全池** `attack`（三段都是同一份 `cards_raw.json`）。
+    _so_by = {}
+    for _x in so_stat_changed:
+        _so_by[_x[3]] = _so_by.get(_x[3], 0) + 1
+    print(f"\nSO 覆盖：health **{_so_by.get('health', 0)}** 张 / cost **{_so_by.get('cost', 0)}** 张"
+          f" / attack **{_so_by.get('attack', 0)}** 张（合计改 **{len(so_stat_changed)}** 处）")
+    print("             源 = `cards_raw.json` 的 `maxHealth` / `manaCost`（仅 >=0）/ `meleeAttack`；"
+          "判据 → `资料/普查产出_1018/R_督军10血成因.md` §1 结论 A")
+    for cid, nm, ty, col, old, new in so_stat_changed:
+        print(f"            · {cid:<34} {nm:<30} [{col}] {old} → {new}")
+    if so_stat_skipped:
+        print(f"  ⚠️ 有 **{len(so_stat_skipped)}** 处**没敢覆盖**（`manaCost=-1` 哨兵 / 缺值）⇒ 保持原值：")
+        for cid, nm, ty, col, cur, sov, sonm in so_stat_skipped:
+            _why = (f"（SO 行名 = `{sonm}`，与我们的卡不是同一张）" if sonm and sonm != nm else "")
+            print(f"            · {cid:<34} {nm:<26} [{col}] 我们 {cur} / SO {sov}{_why}")
+    print("             ⚠️ `ranged` / `desc` / `keywords` / `art` 一律**没动**（本层只管这三列）")
 
     # ---- `A1776`：`keywords` 的「真值铺底」那一层 -------------------------------------
     print(f"\n关键词铺底   `A1776`：真值 `CardTraits` **只补空**（已裁③ 权威序第 1 层）"
@@ -2911,9 +3143,29 @@ def main():
     print("             ⚠️ 缺值 = `-1`（整数）/ `\"\"`（字符串）—— ⛔ **别把 `-1` 当成 `0`**"
           "（`attackDamageType=0` 是 `Normal`、`useOverDraw=0` 是「不溢出」，都是合法取值）")
 
-    # 稳定 id（2026-09-13 第三十三轮 · 2026-10-14 P1 相加了真值索引那一层）—— **自造的必须报出来**，不许静默
-    print(f"\n卡 id        用原版 {len(id_orig) + len(id_truth)} 张"
-          f"（其中**真值索引**那一层 {len(id_truth)} 张）· 自造 {len(id_made)} 张（共 {doc['count']}）")
+    # 稳定 id（2026-09-13 第三十三轮 · 🔴 2026-10-18 `W25`：按 `uniqueId` 直取，名级联降为交叉校验）
+    # —— **自造的必须报出来**，不许静默。
+    print(f"\n卡 id        直取（`uniqueId` 唯一落位表）{len(id_direct)} 张 · "
+          f"名级联兜底 {len(id_cascade)} 张 · 自造 {len(id_made)} 张（共 {doc['count']}）")
+    print(f"             交叉校验：{len(id_direct)} 张直取里与名级联**不一致 {len(id_cross_mismatch)} 处**"
+          + ("  ✅" if not id_cross_mismatch else "  🔴 见下"))
+    for cid, alt, how, nm, fac in id_cross_mismatch[:20]:
+        print(f"            🔴 {fac} / {nm}：直取 `{cid}` ≠ 名级联（{how}）`{alt}`"
+              " —— 两条路的判据打架，先查名字表，⛔ 别直接选一个")
+    if len(id_cross_mismatch) > 20:
+        print(f"            … 其余 {len(id_cross_mismatch) - 20} 处同理")
+    if id_cascade:
+        print(f"  ⚠️ **直取没落位、退回名级联** {len(id_cascade)} 张（落位表缺键 ⇒ 这一批的身份不是「唯一判据」定的）：")
+        for cid, nm, fac, how in id_cascade[:10]:
+            print(f"            · {cid:<34} {fac} / {nm}（{how}）")
+        if len(id_cascade) > 10:
+            print(f"            … 其余 {len(id_cascade) - 10} 张")
+    if direct_ambiguous:
+        print(f"  ℹ️ 直取表里**落位不唯一、没有收**的键 {len(direct_ambiguous)} 个"
+              "（同名多候选且没有唯一基准卡 —— 池内卡若靠这些键会落到「名级联兜底」那一档）：")
+        for army, nm, uids in direct_ambiguous[:8]:
+            print(f"            · 阵营码 {army} · `{nm}` → {', '.join(uids[:4])}"
+                  + (" …" if len(uids) > 4 else ""))
     if id_made:
         by_fac = {}
         for cid, nm, fac in id_made:

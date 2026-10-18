@@ -48,12 +48,21 @@
 //         · **仍未做的是「按用途选字体」那一半**：`NewText` 里 `t.font = Font` 仍写死 CJK
 //           （`Font` 属性 / `ResourcePath` 没改）⇒ 今天全仓仍然是「一个 Noto 打天下」，
 //           `Face.LatinUi / LatinCardBody / LatinNarrow` **零消费者**（仓规：逐件换、逐件验收）。
+//           🔴 **2026-10-18（`N55`）就地订正（铁律 5）**：这两句**已过期** —— 现读
+//           `grep -rn "Face\.Latin" --include=*.cs` = **486 处 / 24 处在 `Editor/`**（生产侧 462 处、85 个文件）
+//           ⇒ 「零消费者」「一个 Noto 打天下」**都不成立**。`NewText` 的默认仍是 CJK（逐位不变），
+//           但调用点可以 `SetFace` / `MenuDraw.Text(..., face:)` 显式换面。
 //         · `TMP Settings` 那条**全局** fallback 路没走：`TMP_Settings.fallbackFontAssets` 没有公开
 //           setter（只有 getter 直通序列化字段），反射硬改会绕过「别弄脏资产」那条纪律。
 //      ⇒ 今天全仓仍然是「**一个 Noto 打天下**」。
+//      🔴 **2026-10-18（`N55`）**：本句同属**已过期**（现读 462 处生产站点显式换面）——
+//         见上面 `③` 那条订正，⛔ 别按这句判断现状。
 //      ⚠️ **换的时候必须一起重量**：下面「字形高度 ÷ fontSize」那套换算
 //         （`WorldGlyphPerFontSize` / `WorldCapPerFontSize`，是**按字体标定**的）⇒ 换字体会**牵动全仓版面**
 //         （页签、按钮、卡面都会位移）⇒ 已裁：**逐件换、逐件验收**，别一次全开。
+//         🔴 **2026-10-18（`N55`）补**：`EmPerFontSize` 自本日起**按面分两支**
+//         （`Face.Cjk` = 汉字墨高 0.0948 逐位不变 / 拉丁面 = 原版真 em 0.1）——
+//         换面的版面后果从「随面变 9–11%」收紧到「拉丁面按原版 em、CJK 基线不动」。
 //         ⚠️ 中文那一侧**判据本来就空**（原版客户端没有中文表）⇒ **只有拉丁这一侧可逐字对**。
 //            🔴 **2026-10-14 更正（铁律 5）**：这句的**前提不成立** —— 原版**有**官方中文表（9,440/9,447
 //               条非空），由**远端 Addressables 包 `localization_assets_all`** 下发，**2026-10-14 已解开**
@@ -225,21 +234,35 @@ namespace CardPresentation
         /// <summary>「**1 em** 在世界空间里有多高」÷「fontSize」—— 这是本工程 px 口径的基准
         /// （`Label.FontSizeToPx` = `fontSize × 本值 × 108`）。
         ///
-        /// 🔴 **2026-10-17（第四十八会话 · 桶 A）：本值【与字体面无关】，恒返回 `WorldGlyphPerFontSize`。**
-        ///   2026-10-17 的 `A1024③` 换面曾让这一支**按面实测「1 em」**（`'M' ÷ capLine/pointSize`：
-        ///   Pragati 0.103906 / Asar 0.105507），而 `Face.Cjk` 支返回的是「国」字**墨高 0.0948
-        ///   （= 0.898 em，不是 1 em）** ⇒ 同一把 px 尺随面变 9–11%
-        ///   （**0.9122 = 0.0948 ÷ 0.103906** · 0.8983 = 0.0948 ÷ 0.105507）。
-        ///   后果：`SetAutoFitBox` 的 min/max/base 与所有「按面取尺」的断言整体缩水
-        ///   （实得 42→38.31 · 35→31.44 · 36→32.84 …）。
-        ///   🔑 **判据**：本工程的 px 口径是按 CJK **标定**的（原版 `m_fontSize` 也不随字体面变），
-        ///   换面只该换字形与行盒，**不该换 px↔fontSize 这把尺**。
-        ///   ⚠️ `CapPerFontSize` **仍然按面**（它量的是拉丁大写，换面确实会变）。
-        /// ⚠️ 历史注释保留：不能直接量 `'国'` 给拉丁面（那三份量出来是 `.notdef` 方框 0.0622）。</summary>
+        /// 🔴🔴 **2026-10-18（账 `N55` · 用户 2026-10-17 拍板的方案 B）：按面分两支 ——
+        ///   `Face.Cjk` 仍走汉字墨高（**逐位不变**），三个拉丁面走【原版真 em = 0.1 × fontSize】。**
+        ///   · **为什么拉丁面是 0.1**：TMP 的 3D 换算 `fontScale = fontSize / pointSize × scale × 0.1`
+        ///     （`TMP_Text.cs:7183`；本机 4 份字体资产 `m_FaceInfo.m_Scale` **全是 1**，2026-10-18 现读）
+        ///     ⇒ **1 em = 0.1 × fontSize，与字体无关**。原来拿汉字墨高 0.0948 当拉丁面的 em
+        ///     ⇒ 实渲 em = `0.1 ÷ 0.0948` = **1.052 × 名义 px**（实测 42.19 vs 原版 `m_fontSize 40`）。
+        ///   · **`Face.Cjk` 逐位不变**（= `WorldGlyphPerFontSize` 0.0948 —— 全仓 510+ 站点的版面基线）。
+        ///   · ⚠️ `CapPerFontSize` **仍然按面**（它量的是拉丁大写：Asar 0.0685 / Pragati 0.0656 / Noto 0.0779）。
+        ///   · 判据全文 → `资料/普查产出_1017/诊断_第四十八会话/R4_Rewards残差.md` §五·B ＋
+        ///     `D1_桶A字号换算链.md` §五·2。
+        ///
+        /// 📌 **历史（⛔ 别照旧口径办事）**：2026-10-17 第四十八会话「桶 A」曾把这一支改成
+        ///   **与面无关**（恒 0.0948），用来修 `ActualFace` 翻面引起的 ×0.912/×0.898 —— 那是**当时**的修法；
+        ///   用户 2026-10-17 已改判「拉丁面按原版真 em」，2026-10-18 再次点名先做 `T07`。
+        ///   ⚠️ 那次历史里量到的 `'M' ÷ capLine/pointSize`（Pragati 0.103906 / Asar 0.105507）是
+        ///   **大写墨高 ÷ em**，**不是 em** ⇒ ⛔ 别再拿它当 em。
+        /// ⚠️ 不能直接量 `'国'` 给拉丁面（那三份量出来是 `.notdef` 方框 0.0622）。</summary>
         public static float EmPerFontSize(Face f)
         {
-            return WorldGlyphPerFontSize;      // 与面无关；`Face.Cjk` 逐位不变，拉丁面回到换面前的口径
+            if (f == Face.Cjk) return WorldGlyphPerFontSize;   // 汉字墨高口径（全仓基线，逐位不变）
+            return TrueEmPerFontSize;                          // 拉丁面：原版真 em
         }
+
+        /// <summary>**原版真 em ÷ fontSize** = `0.1 × faceInfo.scale`。
+        /// 本机 4 份字体资产（Noto / Asar / Pragati / RobotoCondensed，`Resources/Fonts/*.asset`
+        /// 的 `m_FaceInfo.m_Scale`）**全是 1**（2026-10-18 现读）⇒ 恒 0.1。
+        /// 判据 = TMP 的 `fontScale = fontSize / pointSize × scale × 0.1`（`TMP_Text.cs:7183`）。
+        /// ⚠️ 只有 `Face.Cjk` 不走它（Cjk 那一支的「px」是**汉字墨高** = 0.0948，不是 em）。</summary>
+        public const float TrueEmPerFontSize = 0.1f;
 
         /// <summary>要让 1 em 占 `worldHeight` 个世界单位高，fontSize 该给多少（按面折算）。</summary>
         public static float FontSizeForEm(Face f, float worldHeight)
@@ -253,7 +276,10 @@ namespace CardPresentation
         /// <summary>「一个**拉丁大写字母**有多高 ÷ fontSize」，**按面**。`Face.Cjk` 这一支返回既有缓存值
         /// （`WorldCapPerFontSize`）⇒ 零行为变化。
         /// ⚠️ 三份拉丁字体这一项实测**很接近**（`Pragati 0.0656` · `Asar 0.0685` · `Noto 0.0779（2026-10-17 订正：原写 ≈0.0683 是 em 口径推算、非实测）`）
-        ///   ⇒ **换面本身几乎不改变字形大小**；真正会变的量在**行盒**（见 `EmPerFontSize` 上面那段）。</summary>
+        ///   ⇒ **换面本身几乎不改变字形大小**；真正会变的量在**行盒**。
+        /// 🔴 **2026-10-18（`N55`）就地补注**：这句说的是**本函数（大写墨高）**，⛔ 别当成 `EmPerFontSize` ——
+        ///   `EmPerFontSize` 从 2026-10-18 起**按面分两支**（Cjk 汉字墨高 0.0948 / 拉丁面原版真 em 0.1），
+        ///   那一支**确实随面变**（判据 → `EmPerFontSize` 的 doc）。</summary>
         public static float CapPerFontSize(Face f)
         {
             if (f == Face.Cjk) return WorldCapPerFontSize;

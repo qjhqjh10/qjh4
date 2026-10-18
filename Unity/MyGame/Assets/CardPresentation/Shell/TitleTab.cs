@@ -58,11 +58,25 @@ namespace CardPresentation
         public const string ArtButton = "UI_Button_Mulligan";
         /// <summary>`Select Avatar Button/Button Text`：`354.25,676.90 → 550.74,730.01` ·
         /// 字号 **36** · auto **[10~36]** · **不折行** · 对齐 `Center/Capline` · 白。
-        /// 🔴 原版这条 `m_text` 是 **`Selecionar`（葡语占位串）**、**没挂 `Localize`** ⇒ 没人会替换它。
-        /// **我们写 `Select`**（与同一页的 `Select your title` / `Select your avatar` 一致）—— **这是我们的选择**，
+        /// 🔴 原版这条 `m_text` 是 **`Selecionar`（葡语占位串）**、**没挂 `Localize`** ⇒ 没人会替换它
+        /// （2026-10-18 `W22` 按 pid 逐颗复查：`Title Tab` 这颗 = `MonoBehaviour_-1034895004042421383.json`
+        /// / `MonoBehaviour_6233035307625970226.json` 两份实例，组件表里**都没有 `Localize`**
+        /// —— 同 `Avatar Tab`/`Profile Cosmetic Tab` 那两颗，三颗 TMP 全是 `Selecionar`）。
+        /// **我们上屏 `Select`**（与同一页的 `Select your title` / `Select your avatar` 一致）—— **这是我们的选择**，
         /// 原版那串照记在上面备查（同商店页 `Atualiza em:` 那条的处理口径）。</summary>
         const float BtnTxtL = 354.25f, BtnTxtT = 676.90f, BtnTxtR = 550.74f, BtnTxtB = 730.01f;
         const float BtnTxtPx = 36f, BtnTxtAutoMin = 10f;
+        /// <summary>🔴 **2026-10-18（`W22`）**：本颗的上屏词条键。
+        /// <para>**prefab 侧判据是空的**（上面那条：原版这颗没有 `Localize`/`mTerm`，铁律 11 例外①）。
+        /// 用**同族同一颗节点**的键：`Avatar Tab/Selected Item Panel/Select Avatar Button/Button Text`
+        /// 与本页这颗**节点名逐字相同**（原版是同一份 prefab 的两种实例），而头像页那颗当前就按
+        /// `Demo/AvatarMenu/SelectAvatarButton` 上屏（`Shell/AvatarTab.cs` 的 `BtnLabelTerm`）——
+        /// 官方表（索引 **5906**）= `Select` / **`选择`**（13 列全非空）⇒ 两页这颗钮**同一个词**，
+        /// 也是用户点名的口径（「头像页那颗已经是中文『选择』，称号页这颗还是英文」）。</para>
+        /// <para>⚠️ **「原版用的是这条键」是【推断】**：本页 prefab 无 `mTerm` 可依 —— ⛔ 别写成原版证据
+        /// （判据只能记到「节点同一族 + 官方表有这条同值键」）。</para></summary>
+        public const string BtnLabelTerm = "Demo/AvatarMenu/SelectAvatarButton";
+        /// <summary>我们挑的英文原文（= 官方英文列）—— ⛔ 不上屏，只留作判据（上屏走 `Loc.T(BtnLabelTerm)`）。</summary>
         public const string BtnLabel = "Select";
 
         /// <summary>`Item Display Panel`：`632.79,210.69 → 1701.49,868.61`（1068.70×657.92）。</summary>
@@ -72,7 +86,17 @@ namespace CardPresentation
         /// 🔴 它的 **y 在父容器之上**（父顶 210.69、它顶 147.51）—— **溢出父级**，真值，别「修正」。</summary>
         const float TtlL = 654.16f, TtlT = 147.51f, TtlR = 1166.61f, TtlB = 210.70f;
         const float TtlPx = 35f, TtlAutoMin = 18f;
+        /// <summary>原版 prefab 这颗粒子 TMP 的 `m_text`（出厂英文原文）—— ⛔ 不上屏，只留作判据。</summary>
         public const string TtlLabel = "Select your title";
+        /// <summary>🔴 **2026-10-18（W18）**：这颗 `Select Item` 的官方词条键 —— **判据是 prefab 自己**
+        /// （不是猜的）：`Title Tab/Item Display Panel/Select Item` 那件 GameObject 上挂的
+        /// `Localize` 组件 `mTerm = "PlayerProfile/SelectTitleTip"`
+        /// （读法 = `d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/`
+        ///  里 `m_text = 'Select your title'` 的那颗 MB ⇒ 取它的 `m_GameObject.m_PathID` ⇒
+        ///  在同一包里找 `mTerm` 非空、`m_GameObject` 同 pid 的那条 = `MonoBehaviour_6068214396443195954.json`）。
+        /// 官方两列 = `Select your title` / **`选择你的头衔`**（`Resources/official_loc_13lang.json`）。
+        /// ⚠️ 改前这里直接印 `TtlLabel` 字面量 ⇒ **中文档下整页标题是英文**（用户 2026-10-18 真机点名）。</summary>
+        public const string TtlLabelTerm = "PlayerProfile/SelectTitleTip";
         /// <summary>`Item Display Panel/Background`：整块 `632.79,210.69 → 1701.49,868.61` ·
         /// `UI_Deck_Information_submenu_Back`（69×63）· **Sliced · 九宫 18,18,18,18** · 白。</summary>
         public const string ArtPanel = "UI_Deck_Information_submenu_Back";
@@ -161,7 +185,7 @@ namespace CardPresentation
             // 🔴 **A1024③（2026-10-17）换面**：本页只有**选中项那颗** `Avatar Name` 是 `Asar-Regular SDF`
             //    （判据 = `menu_dump … "Player Profile Window"` 的 `Title Tab ▸ Selected Item Panel ▸ Avatar Name`，
             //    样本 `'Warrior of the Raging Winds'`）；`Select Item` / `Button Text` / 格子里的 `Name` 都是 **Pragati**。
-            Text(disp, TtlLabel, new PxRect(TtlL, TtlT, TtlR, TtlB), Color.white, "Select Item",
+            Text(disp, Loc.T(TtlLabelTerm), new PxRect(TtlL, TtlT, TtlR, TtlB), Color.white, "Select Item",
                  TtlPx, 3, autoFit: true, autoMinPx: TtlAutoMin, alignLeft: true, wrap: true,
                  autoMaxPx: 35f, basePx: 26.1f, face: TmpFont.Face.LatinCardBody);
 
@@ -189,7 +213,10 @@ namespace CardPresentation
             //    `字号=36.0 auto[10.0~36.0] 对齐=Center/Capline` · **`折行=0`** —— 与本文件头那句「不折行」一致。
             // 🔴 **A406**：`Title Tab/Selected Item Panel/Select Avatar Button/Button Text`
             //   原版 `auto[10.0~36.0] 基准=12.0` ⇒ 上限 36（= 标称）· base **12.0**。
-            var lbBtn = Text(btn, BtnLabel, new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB), Color.white, "Button Text",
+            // 🔴 **2026-10-18（`W22`）**：文案**走官方词条**（`Demo/AvatarMenu/SelectAvatarButton`
+            //   = `Select` / `选择`，与头像页那颗同键 —— 见 `BtnLabelTerm` 那段）。改前写死 `BtnLabel` 英文
+            //   ⇒ **中文档下这颗仍是英文**（用户 2026-10-18 第六轮真机截图点名）。⛔ 别再直接印常量。
+            var lbBtn = Text(btn, Loc.T(BtnLabelTerm), new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB), Color.white, "Button Text",
                  BtnTxtPx, 7, autoFit: true, autoMinPx: BtnTxtAutoMin, alignLeft: false, wrap: false,
                  autoMaxPx: 36f, basePx: 12f, face: TmpFont.Face.LatinCardBody);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版

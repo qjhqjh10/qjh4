@@ -39,8 +39,11 @@ namespace CardPresentation
         public bool isUnit;      // 单位还是战术（战术不上战场）
         public Color frame;      // 阵营色 —— 占位卡面的边框、费用框用它
         public string faction;   // 阵营 key，用来找 `Art/cards/frame_<faction>[_tierN].png`
-        /// <summary>稀有度（`common` / `rare` / `epic` / `legendary` / `special`）——
-        /// **卡框按稀有度分四档**（原版就是），空的按 common 处理。见 `CardArt.Frame`。</summary>
+        /// <summary>稀有度（`common` / `rare` / `epic` / `legendary` / `special`）。
+        /// 🔴 **2026-10-18 就地更正（铁律 5）**：本行原来写「**卡框按稀有度分四档**（原版就是）」——
+        /// **不成立**：原版卡框按**升级档 `CardTier`** 取（`CardFramesSO.GetClanFrame(army, tier, cardType)`，
+        /// 入参里没有稀有度）；稀有度只驱动底部那颗菱形宝石。判据全文 → `CardArt.TierOf` 的注释。
+        /// 本字段现在只给**宝石**用（卡框档走 `CardProgress.Level(artId)` → `CardArt.Frame(…, tier)`）。</summary>
         public string rarity;
         /// <summary>兵种（`Infantry` / `Vehicle` / `Drone`…）—— 卡面下方那一行（原版 `RaceText`）。
         /// ⚠️ **不是所有卡都印这一行**，判据见 `SubtypeLine`。
@@ -260,6 +263,135 @@ namespace CardPresentation
         static readonly Vector2 BoardHealthAt = new Vector2(0.7705f, 0.8928f);
         static readonly Vector2 BoardArmourAt = new Vector2(0.8240f, 0.7683f);
 
+        // ==================================================================
+        // 🔴 **2026-10-18（W15）—— 2D 卡面上那三个数 / 费用六边形【跟着卡框凹槽走】，⛔ 不再用固定常量。**
+        //    用户点名两条：① 近战/远程/血量三个圈里的数字**不在图标中央**；
+        //                  ② 费用图标**太靠下**、没贴住右上角的阵营徽记。
+        //
+        // **根因（实测，不是猜的）**：`MeleeAt/RangedAt/HealthAt/CostAt` 取的是**原版 prefab 里四个容器**
+        //   的位置（容器固定不动），而我们的卡框是**按贴图 alpha bbox 拉伸进固定矩形**画出来的
+        //   （`FrameMesh` + `FrameUv` + `FrameQuad`）。凹槽（红圆/紫圈/绿框/阵营徽记）是**卡框贴图里画着的**，
+        //   于是它的**卡单位落点 = f(这张卡框的 uv)**。
+        //    · 15 个阵营的卡框都画在同一张 **1024² 画布**、凹槽**像素位置完全一致**（逐张实测）；
+        //    · 但每个 tier 的 alpha bbox 宽窄不同（`frame_uv.json` 里 `sw` 0.594～0.659）⇒ 拉伸比不同；
+        //    · ⇒ 同一个凹槽在不同卡框上落到**不同的卡单位**：x01 跨 0.021～0.132（= **11% 卡宽**）。
+        //    ⇒ 固定常量只可能对一种卡框正确。原来那组常量对 `frame_ultramarines_tier3` 也偏
+        //      「上 7～12 贴图像素」，对 tier1/2 偏得更多。
+        //
+        // **判据（2026-10-18 逐张实测；脚本口径与全表 → `资料/普查产出_1018/W15_卡面数值与费用图标.md`）**：
+        //   · 凹槽圆心（**贴图像素**，y 从贴图顶部数；15 个阵营 tier3 各测一次，括号里是极差）：
+        //       近战红圆 **(257.5, 862.5)**（±2）· 远程紫圈 **(335.0, 929.5)**（±3）·
+        //       生命绿框 **(734.0, 916.0)**（±1）
+        //     （测量法：红=亮红环最小二乘圆拟合；紫=品红环拟合；绿=绿光连通域 bbox 中心。）
+        //   · 阵营徽记圆：**中心 (723.5, 158.0)、半径 77.5** ⇒ **底边 y = 235.5**
+        //     （13 个阵营各拟合一次；各阵营画形不同、半径 69～83，底边 225～248，均值 235）。
+        //   · 原版实拍（`C:\Users\qjh36\Desktop\warpforge参考图\点击卡片查看详情的参考.png`）：
+        //       费用八边形 **上沿贴着徽记底边**（1577×887 里徽记底 ≈195、八边形上沿 ≈200）、
+        //       **水平中心与徽记同心**（两者 x 都是 ≈950）。
+        //   · 三个圈里的数字**原版就是居中的**（同一张实拍：红圈 (537.5,617.5) vs 数字 (536,615)；
+        //       PnP 成品卡 `Ultramarines/3部队/Warpforge_02_Heavy-Intercessor-2.png` 同结论）。
+        // ==================================================================
+        const float FrameMeleePx  = 257.5f, FrameMeleePy  = 862.5f;
+        const float FrameRangedPx = 335.0f, FrameRangedPy = 929.5f;
+        const float FrameHealthPx = 734.0f, FrameHealthPy = 916.0f;
+        /// <summary>阵营徽记圆（**13 个阵营各拟合一次的均值**：各阵营半径 69～83、底边 225～248）。
+        /// <para>⚠️ **2026-10-18：费用八边形不再拿它当锚点** —— 它是**均值**，逐阵营本来就有偏差
+        /// （半径就跨 69～83），拿均值去定位 = **逐阵营系统性偏**（正是
+        /// `资料/普查产出_1018/R_卡面元素对账A_6阵营.md` / `…B_7阵营.md` 里「费用 x 逐阵营 −14…−37」那条）。
+        /// 现在它只作对照/存档，费用改用固定贴图坐标 <see cref="FrameCostPx"/>。</para></summary>
+        const float FrameBadgePx  = 723.5f, FrameBadgePy  = 158.0f, FrameBadgeRad = 77.5f;
+
+        /// <summary>费用八边形（底板 + 里面那个数字）**网格中心**在【卡框贴图】上的位置
+        /// （贴图像素，y 从顶部数）。
+        /// <para>🔴 **2026-10-18 定案：固定贴图坐标**，不再按徽记圆 + `CostBadgeGap` 推
+        /// （那两个常量已删/只存档，理由见 `FrameBadgePx` 那段）。</para>
+        /// <para>**判据（PnP 成品卡 12 张逐张反算，12 个阵营各 1 张）**：
+        ///   ① 每张 PnP 取「近战红圆 / 远程紫圈 / 生命绿框」三个凹槽的 **bbox 中心**，
+        ///      与卡框贴图上同名的三处（257.5,862.5 / 335,929.5 / 734,916）配准，
+        ///      求**各向同性相似变换**（scale + 平移，无旋转 —— 印刷品就是同一张画的等比缩放）；
+        ///   ② 拟合优度：三个凹槽残差 **≤3.5 px**、第 4 处（宝石凹槽 511,950）**≤3 px**
+        ///      ⇒ 模型站得住（`R_卡面元素对账B` 说的「纵向 6% 压缩」是它拿**卡体 alpha 矩形**
+        ///      当尺子引入的：那矩形被立绘外溢撑大、逐张不同，不是版式差）；
+        ///   ③ 再用这个变换把 PnP 上量到的**费用八边形可见中心**反算回贴图像素：
+        ///      **x = 750.0 ± 1.0、y = 304.6 ± 2.3**（12 张的均值±标准差）。
+        ///      我们原来那套在同一批卡上是 **(723.5, 309.4±0.8)** ⇒ **右移 ≈28、上移 ≈4 贴图像素**
+        ///      （换回 PnP 像素 ≈ +30 / −5；A 报的 Δ 是 −23/+11 —— 同号，量级也同一档）。</para>
+        /// <para>⚠️ 这里写的是**网格中心**，不是**可见中心**：`Card_Frame_Cost_Icon.png`（248×244）
+        ///   的不透明 bbox 是 x3..238 / y3..238 ⇒ 可见内容比贴图中心**左 3 px、上 1 px**
+        ///   （= 左 1.7 / 上 0.6 贴图像素）⇒ 网格中心要比目标可见中心**右 1.7、下 0.6**。
+        ///   PnP 那边量的是可见八边形，两边必须同口径。</para>
+        /// <para>⚠️ 为什么不能继续用徽记：PnP 12 张反算出来的费用 x 离散度只有 **1.0 px**
+        ///   ⇒ 费用相对**卡框本身**是**固定**的；而徽记圆心逐阵营不同 ⇒ 拿它当锚只会把
+        ///   「逐阵营偏差」灌进费用里。</para>
+        /// <para>⚠️ 未复刻的部分：PnP 的八边形可见宽度比我们小约 6%
+        ///   （我们 236/248×0.4891 = 0.4654 卡单位 ≈ 132 贴图 px，PnP 量到 ≈128±5）——
+        ///   本笔只改**落点**，尺寸没动。</para>
+        const float FrameCostPx = 751.7f, FrameCostPy = 305.2f;
+
+        /// <summary>卡框贴图上任意一点（**贴图像素**，y 从顶部数）→ **卡面归一化坐标**（x 左、y 顶）。
+        /// 走的就是画框那一条链：`FrameUv`（贴图不透明块）→ `FrameQuad`（固定矩形）——
+        /// 与 `FrameMesh` 逐字同一套，别在这儿另写一份换算。
+        /// <para>`frameTex == null` / uv 退化 ⇒ 返回 **(NaN, NaN)**，调用方退回固定常量
+        /// （⛔ 不静默给一个假的点）。</para></summary>
+        static Vector2 FramePxAt01(Texture2D frameTex, float px, float py)
+        {
+            if (frameTex == null || frameTex.width <= 0 || frameTex.height <= 0)
+                return new Vector2(float.NaN, float.NaN);
+            Rect uv = FrameUv(frameTex);
+            if (uv.width <= 1e-5f || uv.height <= 1e-5f) return new Vector2(float.NaN, float.NaN);
+            float u = (px + 0.5f) / frameTex.width;
+            float v = 1f - (py + 0.5f) / frameTex.height;
+            float fu = (u - uv.xMin) / uv.width;        // 0..1 = 画出来的那块贴在固定矩形里的位置
+            float fv = (v - uv.yMin) / uv.height;
+            float x = (fu - 0.5f) * FrameUnitW;         // 卡单位（中心原点）
+            float y = (fv - 0.5f) * FrameUnitH + FrameUnitY;
+            return new Vector2(0.5f + x / CardUnitW, 0.5f - y / CardUnitH);
+        }
+
+        /// <summary>2D 卡面上第 `s` 个数值**该画在哪**（卡面归一化，x 左 / y 顶）。
+        /// 红圆/紫圈/绿框取卡框贴图里的凹槽圆心（见上面那一段）；**护甲不跟着走** ——
+        /// 那面盾是**我们自己的图**（`pedestal_icon_armor`），卡框里没有它的凹槽 ⇒ 仍用原版容器位置。</summary>
+        static Vector2 FaceStatAt01(int s, Texture2D frameTex)
+        {
+            float px, py;
+            switch (s)
+            {
+                case StatMelee:  px = FrameMeleePx;  py = FrameMeleePy;  break;
+                case StatRanged: px = FrameRangedPx; py = FrameRangedPy; break;
+                case StatArmour: return ArmourAt;
+                default:         px = FrameHealthPx; py = FrameHealthPy; break;
+            }
+            var at = FramePxAt01(frameTex, px, py);
+            if (float.IsNaN(at.x))
+            {
+                // 没有卡框（占位卡面）：退回原版容器常量
+                return s == StatMelee ? MeleeAt : s == StatRanged ? RangedAt : HealthAt;
+            }
+            return at;
+        }
+
+        /// <summary>卡面底部那颗**稀有度宝石**该画在哪（卡面归一化，x 左 / y 顶）。
+        /// **跟着当前卡框的宝石凹槽走**（与 `FaceStatAt01` 同一套：贴图凹槽像素 → 卡面归一化）；
+        /// 没有卡框（占位卡面）时退回旧固定常量（那组只对 `frame_saimhann_tier3` 一档准）。</summary>
+        static Vector2 FaceGemAt01(Texture2D frameTex)
+        {
+            var at = FramePxAt01(frameTex, FrameGemPx, FrameGemPy);
+            if (float.IsNaN(at.x))
+                return new Vector2(0.5f + RarityGemX / CardUnitW, 0.5f - RarityGemY / CardUnitH);
+            return at;
+        }
+
+        /// <summary>费用八边形（底板 + 里面那个数）的**中心**（卡面归一化）：
+        /// 取卡框贴图上的**固定点** <see cref="FrameCostPx"/>（判据 PnP 12 张反算，见那个常量的说明）。
+        /// 没有卡框时退回原版 `Cost Container` 的位置。
+        /// <para>⚠️ 底板层（`Build` 的 `_costBg`）、数字（`InfoTexture`）、命中区（`HitFace`）**都走这一个函数**
+        /// ⇒ 三者天然同源（画面/点击/烘焙不会各偏一套）。</para></summary>
+        static Vector2 FaceCostAt01(Texture2D frameTex)
+        {
+            var at = FramePxAt01(frameTex, FrameCostPx, FrameCostPy);
+            return float.IsNaN(at.x) ? CostAt : at;
+        }
+
         // ---- 卡名 / 效果文字的位置：**单位卡和战术卡不是同一套**（A3 表）----
         // 原版的文字都挂在 `Name and description` 这个块（1.3×0.68 @(0,−0.7745) 卡单位）底下，
         // 子节点自己的 pos 是相对**那个块**的、且都带 scale 0.01。把两者相加再用
@@ -360,10 +492,26 @@ namespace CardPresentation
         //    经 `FrameUv` + `FrameQuad` 换算回卡单位 ⇒ **中心 (+0.0147, −1.5126)、尺寸 0.24620 × 0.22159**。
         //    旧值 0.258×0.2335 @ y −1.4635 ⇒ **偏高 0.0491、宽高各超 4.8% / 5.4%** = 实拍里「超出凹槽」。
         const float RarityGemW = 0.24620f, RarityGemH = 0.22159f;
-        /// <summary>宝石中心 y = **卡框凹槽实测中心**（判据见上）。⚠️ 旧值 −1.4635 是「容器 −1.458 + 图自己 −0.0055」的推导值，**与画出来不符**。</summary>
+
+        /// <summary>宝石凹槽中心在【卡框贴图】上的位置（贴图像素，y 从顶部数）。
+        /// <para>🔴 **2026-10-18 改**：宝石**不再用固定卡单位常量**（那组是按
+        /// `frame_saimhann_tier3` 一张量出来的，卡框换个 uv 就落错）——改成**跟着当前卡框的凹槽走**，
+        /// 与 `FrameMeleePx/RangedPx/HealthPx` 那三个**同一套做法**（贴图像素 → `FramePxAt01` → 卡面归一化）。</para>
+        /// <para>**一个常量对 150 个卡框都成立，因为凹槽本身就画在同一处**：15 个阵营的卡框都画在同一张
+        /// 1024² 画布、凹槽像素位置完全一致（逐张实测）⇒ (511,950) 对所有卡框都对。
+        /// 判据：`frame_saimhann_tier3.png` 黑菱形连通域 x478..544 / y919..981 ⇒ (511,950)。
+        /// 2026-10-18 又拿 **12 张 PnP** 复核：把 (511,950) 经「三凹槽配准」的相似变换投到 PnP，
+        /// 与 PnP 上量到的宝石中心残差 —— 10 张 **≤3 px**，另 2 张的 PnP 自身偏低 ≈14 px
+        /// （那两张的宝石离卡底更近，属印刷品自身差异，不是我们这侧的错）。</para>
+        /// <para>⚠️ 尺寸 `RarityGemW/H` 仍是固定卡单位（没有按 uv 缩放）：凹槽在**贴图上**是 67×63 px，
+        /// 换算到卡单位会随 uv 变 ±6%；PnP 上量到的宝石反而比凹槽小 ~20% ⇒ 缩不缩放判据不足，
+        /// 本笔只改**落点**。</para></summary>
+        const float FrameGemPx = 511.0f, FrameGemPy = 950.0f;
+
+        /// <summary>宝石中心的**旧固定值**（卡单位）—— ⚠️ 现在**只在没有卡框（占位卡面）时兜底**。
+        /// y = **卡框凹槽实测中心**（旧值 −1.4635 是「容器 −1.458 + 图自己 −0.0055」的推导值，与画出来不符）。
+        /// x = 凹槽中心（旧代码隐含 x=0，但贴图里那个凹槽并不在 x=0 上 ⇒ 代码层原来偏左 0.0147）。</summary>
         const float RarityGemY = -1.5126f;
-        /// <summary>宝石中心 x = **凹槽实测中心**。⚠️ 旧代码隐含 x=0（原版 prefab 两个节点 x 都是 0），
-        /// 但贴图里那个凹槽**并不在 x=0 上**（贴图 alpha bbox 中心 506 ≠ 凹槽 511）⇒ 代码层原来偏左 0.0147。</summary>
         const float RarityGemX = 0.0147f;
 
         // ---- 原版立绘区（`CardImage`，A1 表）----
@@ -461,8 +609,10 @@ namespace CardPresentation
         ///   **仍然画在底板之上**，被盖住的是底板、不是它。当年那条大概是按「+0.015 比 −0.008 大 ⇒ 更靠前」
         ///   读反了方向（本仓是**越小越靠前**）。
         ///   ⇒ 现在两条并存且自洽：**出厂**（`_artFront` 不建）= 原版子序；**opt-in 开** = 抠图在最前。
-        /// ⚠️ **`_artFront` 出厂仍是关的**（`UseFrontLayer == false`）⇒ 这条差异今天不可观测；
-        ///   要开它时按铁律 10 第 6 条**并排渲一张**核一眼（命令见 `Editor/CardFaceProbe.cs` 文件头）。
+        /// ⚠️ **2026-10-18 订正**：`_artFront` 现在**不再是「出厂都不建」** —— 大图档（卡片详情窗扇形，
+        ///   见 `BigCardOverdraw`）默认就建它，所以「抠图在底板之上」这条**从今天起可观测**，
+        ///   层级表按上面那句读（立绘底板 → 卡框 → 数值 → 文字，抠图层落在卡框之上、数值之下）。
+        ///   小卡档仍然不建（`UseFrontLayer == false`）⇒ 那条差异对小卡依旧不可观测。
         /// ⚠️ 顺序判据只此一处（`TextBgLayer` / `TextBgZ` 两个 accessor 给自检读）—— 别在别处再写一份。</summary>
         const float TextBgZ = 0.015f;
         /// <summary>护甲盾的中心：容器 (0.899,−0.991) + 图自己的 (−0.005,−0.032)，换算成 x01/y01</summary>
@@ -574,8 +724,9 @@ namespace CardPresentation
                 return t != null ? FrameUv(t) : new Rect(0f, 0f, 1f, 1f);
             }
         }
-        /// <summary>自检用：前景层（角色抠图）用的贴图 —— **没有那一层就是 null**
-        /// （⚠️ 出厂态**恒为 null**：`UseFrontLayer` = false ⇒ 那一层根本不建，见它那段注释）</summary>
+        /// <summary>自检用：前景层（角色抠图）用的贴图 —— **没有那一层就是 null**。
+        /// ⚠️ 小卡档**恒为 null**（`UseFrontLayer` = false 且不是大图档 ⇒ 那一层根本不建）；
+        /// 大图档（详情窗扇形）的抠图卡才有它 —— 见 <see cref="BigCardOverdraw"/>。</summary>
         public Texture2D ArtFrontTexture
         {
             get
@@ -647,10 +798,16 @@ namespace CardPresentation
                                  // 那条兜底支路才非 null** ⇒ `SetData` 里换它材质那一段为什么要保留 `renderQueue`、
                                  // 以及「今天谁走得到这条支路」，都写在 `SetData` 那一段的注释里）
         MeshRenderer _frame;     // 原版卡框
+        /// <summary>这张卡用的**卡框贴图**（`Build` 里挑的那一张）。🆕 2026-10-18（W15）：
+        /// 2D 卡面上的**四个数值 / 费用六边形**要按它的 uv 反算落点（凹槽在哪，数就画在哪）——
+        /// 见 `FramePxAt01` 那一段。占位卡面（`frameTex == null`）⇒ null。
+        /// ⚠️ 与 `_frame` 不是一回事：`_frame` **只在占位卡面那条兜底支路**才非 null。</summary>
+        Texture2D _frameTex;
         MeshRenderer _textBg;    // 🆕 文字底板（原版 `Front/Textbackgrounds/TextBackground * UI`）
         MeshRenderer _art;       // 立绘：**完整插图**（忽略 alpha，垫在卡框下）
         MeshRenderer _artFront;  // 立绘：**角色抠图**（真 alpha，盖在卡框上 ⇒ 越出卡框）
-                                 // ⚠️ **出厂不建**（`UseFrontLayer` = false，原版默认也不越出）—— 恒为 null
+                                 // 🆕 2026-10-18：**大图档**（卡片详情窗扇形，`BigCardOverdraw` 默认开）会建它；
+                                 // 小卡档不建（`UseFrontLayer` = false）⇒ 小卡上恒为 null
         MeshRenderer _gem;       // 卡面底部那颗稀有度宝石（原版 `Rarity`）
         MeshRenderer _costBg;    // 费用底板（原版 `Cost Container/Cost Background`，图 `Card_Frame_Cost_Icon`）
         MeshRenderer _armourIcon;// 护甲盾牌底（原版 `Armour Container/Image`，图 `pedestal_icon_armor`）
@@ -868,9 +1025,36 @@ namespace CardPresentation
             var v = go.AddComponent<CardView>();
             v._faceMode = face;
             v._use = use;                     // ⚠️ 必须在 `Build` **之前** —— 卡名字号与阴影色都在 `Build` 里定
+            // 🆕 2026-10-18：「大图档」的判定（立绘越出卡框 + ×1.27 只在这一档生效）——
+            //   必须在 `Build` 之前定，`Build` 那一趟就按它选立绘网格。判据见 `BigCardOverdraw`。
+            v._bigImage = IsBigCardView(parent, go.name, use);
             v.Build(d);
             if (clip.HasValue) v.SetClip(clip);
             return v;
+        }
+
+        /// <summary>
+        /// 这张卡是不是**大图档**（= 卡片详情窗那一叠扇形里的一格）—— **判据只此一处**。
+        ///
+        /// 两支成立其一：
+        ///  ① `use == CardUse.ZoomWindow` —— 战斗那扇详情窗显式传（`Battle/CardDisplayWindow.cs:1092`）；
+        ///  ② 卡名是原版 prefab 的扇形槽名（`CardUI` / `CardUI (1..8)`，判据 = `Core/CardFan.SlotName`）
+        ///     **且父链上有一级叫 `Card Display`** —— 菜单那扇详情窗
+        ///     （`Shell/CardDetailPopup.cs:766`）不传 `use`（走默认 `Standard`），只能靠这条认；
+        ///     两级条件缺一不可：**抽卡包**那扇窗也把自己的卡格命名为 `CardUI`
+        ///     （`Shell/BoosterPackOpenWindow.cs:607`），但它挂在 `Booster Animation Parent/Cards` 下、
+        ///     **没有 `Card Display` 祖先** ⇒ 不会被误判成大图档。
+        ///
+        /// ⚠️ 小卡（手牌 `Hand_*` / 卡池 `pool_*` / 收藏 `CollectionCard_*` / 多卡窗 `mcd_card*` /
+        ///    卡组格）两条都不满足 ⇒ **零影响**。判不出来一律当小卡（宁可不出效果，也不能让小卡出血）。
+        /// </summary>
+        static bool IsBigCardView(Transform parent, string name, CardUse use)
+        {
+            if (use == CardUse.ZoomWindow) return true;
+            if (name != "CardUI" && (name == null || !name.StartsWith("CardUI ("))) return false;
+            for (var t = parent; t != null; t = t.parent)
+                if (t.name == "Card Display") return true;
+            return false;
         }
 
         /// <summary>这张卡的展示场景。</summary>
@@ -881,6 +1065,12 @@ namespace CardPresentation
         /// 只由 `Create(..., use:)` 赋值 —— ⛔ 别做成属性在运行期改（字号/阴影都是**建层时**定的）。</summary>
         public CardUse Use { get { return _use; } }
         CardUse _use = CardUse.Standard;
+
+        /// <summary>🆕 2026-10-18：这张卡是不是**大图档**（= 卡片详情窗那一叠扇形里的一格）。
+        /// 只有大图档吃「立绘越出卡框」与「立绘 ×1.27」，小卡（手牌/卡池/收藏/卡组格）**零影响**。
+        /// 判定在 <see cref="Create"/> 里一次定死（`Build` 选网格要用），判据 → <see cref="IsBigCardView"/>。</summary>
+        public bool BigImage { get { return _bigImage; } }
+        bool _bigImage;
 
         /// <summary>**这个展示场景印不印阵营行** —— 判据只有这一处：
         /// 建层那处（`BuildTextLayers` ③）与开关层那处（`SetFace`）都调它。
@@ -1030,7 +1220,8 @@ namespace CardPresentation
             }
             // 徽标的三个层 z 是常量（`BadgePlateZ`/`BadgeIconZ`/`BadgeCounterZ`）——
             // 徽标**只在场上出现**，那些常量本身已经改到卡体正面之前了。
-            if (_info != null) _info.sharedMaterial.mainTexture = InfoTexture(Data, board, SplitStats(Data));
+            // 🔴 2026-10-18（W15）：把**这张卡的卡框**传进去 —— 四个数值/费用的落点按它的 uv 反算。
+            if (_info != null) _info.sharedMaterial.mainTexture = InfoTexture(Data, board, SplitStats(Data), _frameTex);
 
             // 🆕 2026-09-29：四个数值层跟着形态一起开关。🔴 **这里的 `skipStats` 与 `Build` 那条
             //   必须是同一个判据**（`SplitStats`）—— 不然手牌→场上那一步会把数字**画两遍**
@@ -1389,8 +1580,11 @@ namespace CardPresentation
                 //    同时四个独立数值层又在**板位**（`BoardMeleeAt…`）再画一遍 ⇒ **数字画两遍**（截图里“散在卡框内”的就是多出来那一份）。
                 //    判据就在本文件：`SetFace` 那句 `InfoTexture(Data, board, SplitStats(Data))` 是写对的，
                 //    且它下一段注释**逐字**写着这个坑（「必须是同一个判据 —— 不然会把数字画两遍」）。
-                _info.sharedMaterial.mainTexture = InfoTexture(d, _faceMode == CardFace.Board, SplitStats(d));
+                _info.sharedMaterial.mainTexture = InfoTexture(d, _faceMode == CardFace.Board, SplitStats(d), _frameTex);
                 if (_art != null) _art.sharedMaterial.mainTexture = ArtTexture(d);
+                // 🆕 2026-10-18：大图档那层**真 alpha 角色抠图**也要跟着换（异画切风格 / 换卡走的就是这条路）。
+                //    漏了它 = 前景层停在**上一张的立绘**上（静默：看起来只是「角色没换」）。
+                if (_artFront != null) _artFront.sharedMaterial.mainTexture = ArtTexture(d);
                 // 场上那份立绘在 **3D 卡体**上（材质的 `_CardImage`），不是 `_art` 那块 quad ⇒ 单独跟一遍
                 SetCardImageTo3DBase();
             }
@@ -2028,7 +2222,19 @@ namespace CardPresentation
 
             CardArt.Load();
             // 战术卡用**另一套框**（原版 troop / stratagem 分开）—— `isUnit=false` 就是战术卡
-            var frameTex = CardArt.Frame(d.faction, d.rarity, !d.isUnit);
+            // 🆕 **2026-10-18（用户拍板「通过升级按钮进行不同等级的卡框切换」）**：卡框档 = **这张卡的等级**。
+            //   判据（原版一手）：`UpgradePanel.ChangeFrameOnLevelUp` → `CardTierUIController.SetTier`
+            //   → `CardFramesSO.GetClanFrame(army, **tier**, cardType)` —— **等级就是卡框档**（1 基，1..4）。
+            //   ⇒ 取数口 = `CardProgress.Level(artId)`（`Core/CardArt` 的 `Frame/Sdf` 新增了 `tier` 形参；
+            //      `TierOf` 那条「一律最高档」的老路**只留给不带 tier 的调用点**，两处不打架）。
+            //   ⚠️ `artId` 为空（演示卡 / 没有引擎 id 的占位卡）⇒ **退回老行为 `MaxTier`**：
+            //      那种卡不在 `CardProgress` 的表里，按「缺省等级 1」画会把演示卡框无故降档。
+            int frameTier = string.IsNullOrEmpty(d.artId) ? CardArt.MaxTier : CardProgress.Level(d.artId);
+            var frameTex = CardArt.Frame(d.faction, d.rarity, !d.isUnit, frameTier);
+            // 🔴 2026-10-18（W15）：记下来 —— `SetFace` / `SetData` 重烘 `_info` 时要按**同一张卡框**
+            //    的 uv 反算四个数值/费用的落点（`FaceStatAt01` / `FaceCostAt01`）。
+            //    占位卡面那条支路 `frameTex == null` ⇒ 两处都退回原版容器常量。
+            _frameTex = frameTex;
 
             if (frameTex != null)
             {
@@ -2037,16 +2243,21 @@ namespace CardPresentation
                 GetComponent<MeshRenderer>().enabled = false;
                 var artTex = ArtTexture(d);
                 if (bt) m0 = _buildWatch.ElapsedMilliseconds;      // 图加载（CardArt.Load + Frame + ArtTexture）到此
-                var artMesh = ArtMeshInFrame(artTex, FrameQuad(frameTex));
-                // ---- 立绘：**画在框下、由框的 alpha 剪出来**（原版默认就是这个，**不越出**）----
+                // 🔴 **2026-10-18（用户点名「卡片详情大图立绘要超出卡框」）**：
+                //   大图档把立绘放大 ×1.27（原版 `CardImageController.bigSizeMultiplier`，见 `BigArtScale`），
+                //   小卡照旧 1.0 —— **放大发生在「收边到卡体」之前**（`ArtMeshInFrame` 里裁），
+                //   所以放多大都不会画到卡体外面（原版也是「卡体矩形收边」）。
+                float artScale = (_bigImage && BigCardOverdraw) ? BigArtScale : 1f;
+                var artMesh = ArtMeshInFrame(artTex, FrameQuad(frameTex), artScale);
+                // ---- 立绘：**画在框下、由框的 alpha 剪出来**（原版小卡档就是这个，**不越出**）----
                 //   ① 底层「完整插图」：**忽略贴图的 alpha**（那张图的 alpha 是角色抠图，不是不透明信息），
                 //      垫在卡框下面 —— 卡框拱窗自己也是透明的（实测 alpha=0），窗里的背景就靠这一层。
-                //   ⛔ **没有 ②**：原版**不**在框上再重画一层角色 ⇒ 出厂**不越出**。
-                //      我们原来自己加过一层 `_artFront`（同一张贴图 + **真 alpha**、盖在卡框上面），
-                //      **2026-10-10 改成默认关** —— 用户点名「最严重的还是插图超出卡框」，真因就是它。
-                //      判据/出处 → `UseFrontLayer` 的注释；**⛔ 别改回 true**。
+                //   🔴 **2026-10-18 订正**：本行原来写「⛔ 没有 ②：原版**不**在框上再重画一层角色」——
+                //      **对【小卡档】成立，对【大图档】不成立**：原版大图态（`CardImageController` 状态 1）
+                //      会用立绘 alpha 给卡框挖洞（`SoftMaskScript` + `FlipAlphaMask=1`）+ 立绘 ×1.27，
+                //      效果就是「角色压在金属框上」。我们用 ②（`_artFront`）近似它，**只在大图档建**（见下）。
                 //   判据是**清单**（`card_cutouts.json`，张数看该文件的 `count` —— ⚠️ 2026-10-06 更正：原写 665 张，实际 **668 张**）：单位卡基本都有、战术卡基本都没有；
-                //   ⚠️ 这张清单现在**只决定「要不要给这张卡开 opt-in 的前景层」**（默认关）——
+                //   ⚠️ 这张清单现在决定「要不要给这张卡建前景层（抠图）」——
                 //      对底层立绘与卡框那两层没有任何影响（那两层每张卡都照画）。
                 //   没有立绘（回退占位图）的卡不在清单里 —— 给它加前景层会把卡框整个盖住。
                 bool cut = d.artOverride != null
@@ -2059,7 +2270,7 @@ namespace CardPresentation
                 // ---- 最底层：软光/影（原版 `Card Highlight And Shadow`，4.4281² @ y −0.0126）----
                 // 「落地感」全靠它；原版 shader + 原版 SDF 贴图，取不到就整层不画（见上面那一节注释）。
                 var sdfMat = SdfMaterial();
-                var sdfTex = CardArt.Sdf(d.faction, d.rarity, !d.isUnit);
+                var sdfTex = CardArt.Sdf(d.faction, d.rarity, !d.isUnit, frameTier);
                 if (sdfMat != null && sdfTex != null)
                 {
                     _shadowLayer = AddLayer("shadow", sdfTex, ShadowZ, sdfTex, ShadowMesh(), mat: sdfMat);
@@ -2089,12 +2300,18 @@ namespace CardPresentation
                     //    （**既有断言**「场上 3D 体与 2D 立绘不同时出现」当场抓到）。
                     Show(_art, false);
                 }
-                // 🔴 **2026-10-10 改：默认【不建】前景层**（`UseFrontLayer` 出厂 false）——
+                // 🔴 **2026-10-10：小卡档【不建】前景层**（`UseFrontLayer` 出厂 false）——
                 //    这一层就是「插图超出卡框」的真因：它在框上**重画同一张立绘、带真 alpha**
                 //    ⇒ 整条角色轮廓盖住卡框（剑尖/肩甲出拱顶），再叠一层 `ArtCoverMargin`(1.04)。
-                //    原版默认**不**这么画（立绘在框下、由框的 alpha 剪出来）；越出是**逐卡 opt-in**、
-                //    值在服务器（`RawCardScript.useOverDraw`，我们拿不到）⇒ 判据与出处全在 `UseFrontLayer`。
-                if (!board && cut && UseFrontLayer)
+                //    ⚠️ 2026-10-18 订正上面那句「原版默认不这么画」：**原版确实会**，只是**只在大图档**
+                //    （`CardImageController` 状态 1：`frameMask` 用立绘 alpha 给卡框挖洞 + 立绘 ×1.27）。
+                //    小卡档（手牌/卡池/收藏/卡组格）原版仍是「立绘在框下、由框的 alpha 剪出来」⇒ 不越出。
+                //    ⇒ 两条并存的判据都收在 `BigCardOverdraw`（大图档，默认开）与 `UseFrontLayer`（小卡档，
+                //      默认关、只为「将来按 `card_cutouts.json` 做每卡实参」留的口子）。
+                //    ⚠️ **`cut` 是硬前提**：非抠图立绘（战术卡那种满幅方图）在框上重画会把整块框盖死
+                //      ⇒ 那种卡**不建**前景层（原版对非抠图卡也有 `frameMask`，我们这条近似做不到，如实标注）。
+                bool bigFront = !board && cut && _bigImage && BigCardOverdraw;
+                if (bigFront || (!board && cut && UseFrontLayer))
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artMesh);
                 if (!board) _frame = AddLayer("frame", frameTex, 0f, null);
                 // 🆕 文字底板（原版 `Front/Textbackgrounds`）—— 让卡名/效果文字在黑底上读得清。
@@ -2133,7 +2350,7 @@ namespace CardPresentation
                 //    `CheckCutoutWiring` 一并不要了。要复活它：先渲一张并排图，⛔ 别只凭静态读字段。
                 // UV 裁到卡外框；**uv2 = 立绘的 UV**（破框 shader 靠它采立绘的 alpha —— 现在没有 shader
                 // 采了，但 `CheckCutoutUvAlignment` 仍在守这条对齐判据，**留着**，见那一段注释）
-                if (_frame != null) _frame.GetComponent<MeshFilter>().sharedMesh = FrameMesh(frameTex, artTex);
+                if (_frame != null) _frame.GetComponent<MeshFilter>().sharedMesh = FrameMesh(frameTex, artTex, artScale);
                 if (bt) m1 = _buildWatch.ElapsedMilliseconds;      // FrameMesh（含 uv2 遮罩对齐）到此
                 // 费用底板 / 护甲盾：原版的**两张真图**（A2 表），垫在数值底下 ——
                 // z 比 `_info`(−0.02) 远、比卡框(0) 近，所以数字盖在它们上面，和原版层级一致。
@@ -2143,8 +2360,12 @@ namespace CardPresentation
                 //      出生就在手牌/池子里的卡**从不走 `SetFace`**（它开头 `if (_faceMode == f) return;` 直接返回）
                 //      ⇒ 只在 `SetFace` 里关**等于没关**（这正是 `A2006` 说的「卡组池 / 收藏 / 详情里督军会印出费用」）。
                 if (!board && costTex != null && ShowsCost(d))
+                    // 🔴 2026-10-18（W15）：位置**跟着这张卡框上的阵营徽记走**（`FaceCostAt01`）。
+                    //    ⚠️ `SpriteQuad` 把位置烘进**网格**（不是 transform）⇒ 每种卡框要一份自己的网格
+                    //    ⇒ 名字里带卡框名（缓存按名字走）。150 个卡框 = 150 份小网格，可接受。
                     _costBg = AddLayer("costBg", costTex, -0.015f, costTex,
-                                       SpriteQuad("costBg", CostAt, CostBgW, CostBgH));
+                                       SpriteQuad(frameTex != null ? "costBg_" + frameTex.name : "costBg",
+                                                  FaceCostAt01(frameTex), CostBgW, CostBgH));
                 // ⚠️ 只有**单位卡且有护甲**才画那面盾：战术卡的卡面上没有数值格
                 //    （对照 `D:/2/Warpforge部队卡片/…/4计策/*.png` —— 战术卡只有费用和稀有度）
                 var armourTex = d.isUnit && d.armor > 0 ? CardArt.DeckUi("pedestal_icon_armor") : null;
@@ -2174,13 +2395,13 @@ namespace CardPresentation
                 //    quad**，而场上它烘出来的是**全透明**（`skipStats` 那两条跳过）⇒ 挪不挪都不改变
                 //    画面；这里跟着挪只为「两个入口同一个值」+ 免得它与四个数值层**同 z 共面**。
                 _info = AddLayer("info", frameTex, board ? BoardInfoZ : InfoZ,
-                                 InfoTexture(d, board, SplitStats(d)));
+                                 InfoTexture(d, board, SplitStats(d), frameTex));
                 if (SplitStats(d)) { BuildStatLayers(); SyncStatLayers(); }
                 // 稀有度宝石：叠在卡框那颗**暗色凹槽**上（原版 `Rarity` 节点）。
                 // 卡框分档改的是框的形制，**光靠它看不出稀有度** —— 颜色在这颗宝石上。
                 // 图取不到就不画（不静默失败：卡框和数值照常）。
                 var gemTex = RarityGem(d.rarity);
-                if (!board && gemTex != null) _gem = AddLayer("gem", gemTex, -0.01f, gemTex, GemMesh());
+                if (!board && gemTex != null) _gem = AddLayer("gem", gemTex, -0.01f, gemTex, GemMesh(frameTex));
 
                 // ---- 🆕 「临时卡」角标（默认关掉，由 `ShowEphemeral` 打开）----
                 // z 取 −0.03：**在数值层(−0.02)前面**（更靠近相机）—— 它在左上角，
@@ -2260,12 +2481,22 @@ namespace CardPresentation
             if (bt)
             {
                 long end = _buildWatch.ElapsedMilliseconds;
-                if (m0 > 0)
-                    Debug.Log($"[CardView.Build] {(string.IsNullOrEmpty(d.artId) ? "?" : d.artId)} 总 {end} ms · "
-                            + $"图加载 {m0} · FrameMesh {m1 - m0} · 其他建层 {m2 - m1} · rim {m3 - m2} · "
-                            + $"文字 {m4 - m3} · 收尾 {end - m4}");
-                else
-                    Debug.Log($"[CardView.Build] {(string.IsNullOrEmpty(d.artId) ? "?" : d.artId)} 总 {end} ms（无卡框，走占位路径）");
+                // 🔴 **2026-10-18（`W10`）：判「有没有卡框」只能看 `frameTex != null`，⛔ 不是 `m0 > 0`。**
+                //   原来那句拿**计时**当判据：`m0` = `_buildWatch.ElapsedMilliseconds`，贴图全命中缓存时
+                //   它就是 **0 ms** ⇒ 真机上**每张有框的卡**都会打「（无卡框，走占位路径）」。
+                //   实证（2026-10-18 第四轮真机，`Player.log`）：`ASH83` 在收藏页首建是
+                //   `图加载 4 · FrameMesh 11`，同一个窗里重建两次却都打「无卡框」—— 而卡框其实**一直在**，
+                //   而且**确实跟着等级换了档**（`03_carddetail` = tier1、`05_after_upgrade` = tier2，
+                //   逐档模板比对 22.65 / 24.55 的残差，另一档是 ~48）。这条错日志把排查引到了
+                //   「框丢了」那条错路上 ⇒ 就地改准，并把**档位/贴图名/阵营/稀有度/兵种**一并印出来
+                //   （升级换框那条链的唯一真值就是这几个值）。⚠️ `m0` 的计时语义**一个字没动**。
+                string frame = frameTex == null
+                    ? "无卡框，走占位路径"
+                    : $"卡框 {frameTex.name} · tier{frameTier}"
+                      + $"（{d.faction}/{d.rarity}/{(d.isUnit ? "unit" : "tactic")}）";
+                Debug.Log($"[CardView.Build] {(string.IsNullOrEmpty(d.artId) ? "?" : d.artId)} 总 {end} ms · {frame} · "
+                        + $"图加载 {m0} · FrameMesh {m1 - m0} · 其他建层 {m2 - m1} · rim {m3 - m2} · "
+                        + $"文字 {m4 - m3} · 收尾 {end - m4}");
             }
         }
 
@@ -3181,7 +3412,9 @@ namespace CardPresentation
         //  ⚠️ **不能拿整卡 `SetAlpha` 顶替** —— 那个会连 3D 体和数值层一起淡（原版只淡 2D 那一层）。
         float _artAlpha = 1f;
 
-        /// <summary>2D 立绘层自己的不透明度（0 = 全透明）。**只影响 `_art` 那一层**。</summary>
+        /// <summary>2D 立绘层自己的不透明度（0 = 全透明）。**只影响 `_art` 那一层**。
+        /// ⚠️ 2026-10-18：大图档那层 `_artFront`（角色抠图）**不跟它** —— 它只在「非场上」的详情窗里有，
+        /// 而本函数只被「手牌 ↔ 场上」那条动作用（`CardFeel.ReturnToHand`），两者不可能同时存在。</summary>
         public void SetArtAlpha(float a)
         {
             _artAlpha = Mathf.Clamp01(a);
@@ -4513,8 +4746,12 @@ namespace CardPresentation
             //    ⚠️ 底光只在**场上**点亮：唯一的调用点 `BattleDriver.HighlightTargets` 只遍历
             //       `_myUnits` / `_foeUnits`（场卡视图）⇒ 按形态取即可，不必再跟 `SetFace` 同步。
             bool board = _faceMode == CardFace.Board;
-            _glowMelee = MakeGlow("40K_melee_glow", board ? BoardMeleeAt : MeleeAt, dia, "glow_melee");
-            _glowRanged = MakeGlow("40K_ranged_glow", board ? BoardRangedAt : RangedAt, dia, "glow_ranged");
+            // 🔴 2026-10-18（W15）：2D 那一档也跟 `FaceStatAt01` 走 —— 与数字/命中区**同一份判据**
+            //    （底光锚点就是「那颗数值格」，三处各写一套迟早分家）。
+            _glowMelee = MakeGlow("40K_melee_glow",
+                                  board ? BoardMeleeAt : FaceStatAt01(StatMelee, _frameTex), dia, "glow_melee");
+            _glowRanged = MakeGlow("40K_ranged_glow",
+                                   board ? BoardRangedAt : FaceStatAt01(StatRanged, _frameTex), dia, "glow_ranged");
         }
 
         ImageQuad MakeGlow(string artName, Vector2 at, float dia, string name)
@@ -4721,18 +4958,22 @@ namespace CardPresentation
         {
             var l = transform.InverseTransformPoint(world);
             bool board = _faceMode == CardFace.Board;
-            if (HitAt(l, board ? BoardMeleeAt  : MeleeAt))  return StatMelee;
-            if (HitAt(l, board ? BoardRangedAt : RangedAt)) return StatRanged;
-            if (HitAt(l, board ? BoardArmourAt : ArmourAt)) return StatArmour;
-            if (HitAt(l, board ? BoardHealthAt : HealthAt)) return StatHealth;
+            // 🔴 2026-10-18（W15）：**2D 卡面那一档要跟「数字画在哪」同一份判据**
+            //    （`FaceStatAt01`）—— 数字现在跟着卡框凹槽走，命中区还停在原版容器常量上的话，
+            //    就会出现「看着在这颗圈里、点上去弹出隔壁那颗的说明」。
+            if (HitAt(l, board ? BoardMeleeAt  : FaceStatAt01(StatMelee,  _frameTex))) return StatMelee;
+            if (HitAt(l, board ? BoardRangedAt : FaceStatAt01(StatRanged, _frameTex))) return StatRanged;
+            if (HitAt(l, board ? BoardArmourAt : ArmourAt))                            return StatArmour;
+            if (HitAt(l, board ? BoardHealthAt : FaceStatAt01(StatHealth, _frameTex))) return StatHealth;
             // 🔴 **费用那一格要跟「画不画」走同一份判据**（2026-10-14 第三十一会话 · `A2006` 顺手发现）：
             //    原版对督军是 `Toggle(costCtrl, bVar6)`（`d:/2/tools/decomp_full/BasicCardUI__SetRawCardData.c:84`，
             //    督军 `bVar6` 恒 0）⇒ **容器整个 `SetActive(false)`**，挂在它上面的触发器**也不响应射线**。
             //    我们这套没有 uGUI 射线靶，是按「点到数值中心的距离」判的 ⇒ 不加这道门，
             //    督军卡上那块**空白**仍会弹出费用 tooltip（消费者：`BattleDriver.cs:15252` / `DeckRuntime.cs:1181`）。
-            //    ⚠️ 判据**只此一处** `ShowsCost`（与 `:901` 的显示口径同一份，铁律 10 第 5 条：两处写同一条规则 = 迟早不一致）。
+            // ⚠️ 判据**只此一处** `ShowsCost`（与 `:901` 的显示口径同一份，铁律 10 第 5 条：两处写同一条规则 = 迟早不一致）。
             //    ⚠️ `!board` 那一半照 `:901` —— 场上那套（`CardFace.Board`）本来就不画费用。
-            if (!board && ShowsCost(Data) && HitAt(l, CostAt)) return StatCost;
+            //    🔴 2026-10-18（W15）：费用格的位置也**跟着卡框走**（`FaceCostAt01`，与画它那一处同一份）。
+            if (!board && ShowsCost(Data) && HitAt(l, FaceCostAt01(_frameTex))) return StatCost;
             return StatNone;
         }
 
@@ -4785,11 +5026,11 @@ namespace CardPresentation
             Vector2 at;
             switch (stat)
             {
-                case StatMelee:  at = board ? BoardMeleeAt  : MeleeAt;  break;
-                case StatRanged: at = board ? BoardRangedAt : RangedAt; break;
+                case StatMelee:  at = board ? BoardMeleeAt  : FaceStatAt01(StatMelee,  _frameTex);  break;
+                case StatRanged: at = board ? BoardRangedAt : FaceStatAt01(StatRanged, _frameTex); break;
                 case StatArmour: at = board ? BoardArmourAt : ArmourAt; break;
-                case StatHealth: at = board ? BoardHealthAt : HealthAt; break;
-                case StatCost:   at = CostAt; break;
+                case StatHealth: at = board ? BoardHealthAt : FaceStatAt01(StatHealth, _frameTex); break;
+                case StatCost:   at = FaceCostAt01(_frameTex); break;
                 default: return transform.position;
             }
             // 归一化坐标 y 从**顶部**数（和 `CostAt` 那批同口径）⇒ 局部 y 要翻过来
@@ -5435,12 +5676,17 @@ namespace CardPresentation
         }
 
         /// <summary>立绘**实际画出来**的那块板（含 `ArtCoverMargin`）：宽 w、高 h、中心 y = cy（world 单位）。
-        /// ⚠️ 这两个数**必须成对读**：`ArtMeshInFrame` 用它们摆网格，破框 shader 的 `uv2` 用它们算 UV
-        /// —— 各读各的就会差一个 1.04（<see cref="ArtUvAt"/>）。</summary>
-        static void ArtBoard(Texture2D art, out float w, out float h, out float cy)
+        /// ⚠️ 这两个数**必须成对读**：`ArtMeshInFrame` 用它们摆网格，卡框 `uv2` 用它们算 UV
+        /// —— 各读各的就会差一个 1.04（<see cref="ArtUvAt"/>）。
+        /// <para>🆕 2026-10-18：`artScale` = 大图档的 ×1.27（原版 `CardImageController.bigSizeMultiplier`），
+        /// 小卡一律 **1**。它乘在 `ArtCoverMargin` **之后**（等价于把整块立绘板连同留白一起放大，
+        /// 与原版「缩放 `CardImage` 那个 RectTransform」一致）；中心 `cy` **不动**（pivot 居中 ⇒ 绕中心放大）。</para></summary>
+        static void ArtBoard(Texture2D art, float artScale, out float w, out float h, out float cy)
         {
             ArtExtent(art, out float aw, out float ah, out float acy);
-            w = aw * ArtCoverMargin; h = ah * ArtCoverMargin; cy = acy;
+            w = aw * ArtCoverMargin * artScale;
+            h = ah * ArtCoverMargin * artScale;
+            cy = acy;
         }
 
         /// <summary>
@@ -5454,13 +5700,13 @@ namespace CardPresentation
         ///     **框边缘处 u 差 16.1 纹素 / v 差 23.5 纹素**（0.024 / 0.023 UV），
         ///     表现是角色轮廓外多一圈被挖掉的卡框。改完两边共用本函数 ⇒ 偏差 0.0。
         /// </summary>
-        static Vector2 ArtUvAt(Texture2D art, float x, float y)
+        static Vector2 ArtUvAt(Texture2D art, float x, float y, float artScale = 1f)
         {
-            ArtBoard(art, out float w, out float h, out float cy);
+            ArtBoard(art, artScale, out float w, out float h, out float cy);
             return new Vector2(0.5f + x / w, (y - (cy - h * 0.5f)) / h);
         }
 
-        static Mesh ArtMeshInFrame(Texture2D art, Vector3 frameQuad)
+        static Mesh ArtMeshInFrame(Texture2D art, Vector3 frameQuad, float artScale = 1f)
         {
             float s = Width / CardUnitW;
             float aw, ah, acy;
@@ -5469,9 +5715,13 @@ namespace CardPresentation
             if (art != null && art.height > 0)
                 aspectKey = Mathf.RoundToInt(art.width / (float)art.height * 1000f);
 
-            int key = aspectKey * 1000
-                    + Mathf.RoundToInt(aw * 100f) * 10
-                    + Mathf.RoundToInt(ah * 100f);
+            // 🔴 键要把 `artScale` 也算进去：`aw/ah` 是**没放大前**的范围，
+            //    小卡(1.0)与大图档(1.27)会算出同一组 aw/ah ⇒ 不带它就会**共用同一份网格**
+            //    （大图拿到小卡那块板 = 放大静默失效，而且 card pool 先建就先赢，随机）。
+            int key = aspectKey * 10000
+                    + Mathf.RoundToInt(aw * 10f) * 100
+                    + Mathf.RoundToInt(ah * 10f);
+            key = key * 100 + Mathf.RoundToInt(artScale * 100f);
             Mesh cached;
             if (_artMeshCache.TryGetValue(key, out cached) && cached != null) return cached;
 
@@ -5480,33 +5730,36 @@ namespace CardPresentation
             //    贴图导入是 `Clamp` —— 立绘**最外圈像素被拉到卡片四边**，手牌上看起来就是
             //    「卡片四周多了一圈白边」（用户报的）。板 = 立绘自己那块，就没有出界的采样了。
             //    卡框的金属本来就盖在两侧，立绘不需要铺到框边。
-            // 🔴 这块板的**宽/高/中心**只从 `ArtBoard` 取一份 —— 破框 shader 的 `uv2`（`ArtUvAt`）
+            // 🔴 这块板的**宽/高/中心**只从 `ArtBoard` 取一份 —— 卡框的 `uv2`（`ArtUvAt`）
             //    读的是同一份，两处各算一遍就会「遮罩和立绘差 4%」（2026-10-07 修，见 `ArtUvAt`）。
-            ArtBoard(art, out float w, out float h, out float cy);
+            ArtBoard(art, artScale, out float w, out float h, out float cy);
             float u0 = 0f, u1 = 1f, v0 = 0f, v1 = 1f;
 
-            // **裁到卡本体那块矩形** —— 原版卡根上有 RectMask2D：卡图 2.7484² 比卡大，
-            // 溢出部分先被卡的矩形裁掉、再被卡框 alpha 遮罩（D2）。
+            // **裁到卡本体那块矩形** —— 原版卡图 2.7484² 比卡大，溢出部分先被卡的矩形收边、
+            //  再被卡框 alpha 遮罩（判据 → `资料/普查产出_1018/R_卡片详情大图三问.md` §二）。
             // 我们等价地做：板超出卡本体的部分直接不画，UV 跟着裁（裁的是画面，不是拉伸）。
             // ⚠️ 方形立绘（战术卡那种 1024² 的图）一定会比卡宽，非裁不可，
             //    否则立绘会**画到卡框外面**去（和手牌那圈白边是同一类毛病）。
-            if (w > Width)
+            // 🔴 **2026-10-18 重写这段**（原来横竖各一套、竖的还有一条潜在 bug）：大图档 ×1.27 之后
+            //    立绘**纵向**也会超出卡体（4:5 立绘放大后 3.63 > 卡高 3.33），旧写法在「上下都要裁」时
+            //    用**改过之后的** cy 去算 v1 ⇒ UV 错 ~0.016（画面整体下移）。
+            //    现在统一成「先把板夹进卡体矩形、再由两条边的**原始**位置反算 UV」——几何与 UV 一一对应，
+            //    不再分横竖两套，也不可能出现 h>Height 时 cy 被推错的组合。
+            //    ⚠️ 对**没触发放大**的卡（小卡 / 非大图档）结果与旧写法逐位一致（只裁宽那种情形算出来同一个数）。
             {
-                u0 = 0.5f - Width * 0.5f / w;
-                u1 = 0.5f + Width * 0.5f / w;
-                w = Width;
-            }
-            if (cy - h * 0.5f < -Height * 0.5f)
-            {
-                v0 = (-Height * 0.5f - (cy - h * 0.5f)) / h;
-                cy = -Height * 0.5f + h * 0.5f;
-                h = Mathf.Min(h, Height);
-            }
-            if (cy + h * 0.5f > Height * 0.5f)
-            {
-                v1 = (Height * 0.5f - (cy - h * 0.5f)) / h;
-                cy = Height * 0.5f - h * 0.5f;
-                h = Mathf.Min(h, Height);
+                float xL0 = -w * 0.5f, xR0 = w * 0.5f;
+                float yB0 = cy - h * 0.5f, yT0 = cy + h * 0.5f;
+                float hw = Width * 0.5f, hh = Height * 0.5f;
+                float xL = Mathf.Max(xL0, -hw), xR = Mathf.Min(xR0, hw);
+                float yB = Mathf.Max(yB0, -hh), yT = Mathf.Min(yT0, hh);
+                if (xR <= xL || yT <= yB)
+                {
+                    // 理论上不会发生（板总有交集）；真发生了就退回整张图，别画出负尺寸的网格
+                    xL = xL0; xR = xR0; yB = yB0; yT = yT0;
+                }
+                u0 = (xL - xL0) / w; u1 = (xR - xL0) / w;
+                v0 = (yB - yB0) / h; v1 = (yT - yB0) / h;
+                w = xR - xL; h = yT - yB; cy = (yB + yT) * 0.5f;
             }
 
             var m = new Mesh { name = "CardArtQuad" };
@@ -5742,29 +5995,36 @@ namespace CardPresentation
         ///    而卡框纹理上那颗菱形是个**空的暗色凹槽**（四档都一样）；稀有度还要靠**另外叠一张彩色宝石**
         ///    才看得出来（common 浅蓝 / rare 绿 / epic 紫 / legendary 金 / special 橙红）。
         ///    对照图：`资料/留档_排查证据/卡面组装_0912/gems.png`（上排原版卡面的宝石 / 下排我们四档框的凹槽）。
+        ///
+        /// 🔴 **2026-10-18**：落点改成**跟着这张卡框的凹槽走**（`FaceGemAt01`）⇒ 网格也随卡框变，
+        ///    按卡框名缓存进 `_spriteQuads`（与 `SpriteQuad` 同一个缓存；150 个卡框 = 150 份小网格）。
+        ///    ⚠️ 原来这里缓存的是一个**全局唯一**的 `_gemMesh`，那只有在「所有卡框凹槽落到同一处」时才对 —— 不成立。
         /// </summary>
-        static Mesh GemMesh()
+        static Mesh GemMesh(Texture2D frameTex)
         {
-            if (_gemMesh != null) return _gemMesh;
+            string key = "gem_" + (frameTex != null ? frameTex.name : "none");
+            Mesh m;
+            if (_spriteQuads.TryGetValue(key, out m) && m != null) return m;
             float s = Width / CardUnitW;
             float w = RarityGemW * s * 0.5f, h = RarityGemH * s * 0.5f;
-            float cx = RarityGemX * s, cy = RarityGemY * s;
-            _gemMesh = new Mesh { name = "CardRarityGemQuad" };
-            _gemMesh.vertices = new[]
+            var at = FaceGemAt01(frameTex);
+            float cx = (at.x - 0.5f) * Width, cy = (0.5f - at.y) * Height;
+            m = new Mesh { name = "CardRarityGemQuad_" + key };
+            m.vertices = new[]
             {
-                new Vector3(-w, -h + cy, 0f), new Vector3(w, -h + cy, 0f),
-                new Vector3(w, h + cy, 0f),   new Vector3(-w, h + cy, 0f),
+                new Vector3(cx - w, cy - h, 0f), new Vector3(cx + w, cy - h, 0f),
+                new Vector3(cx + w, cy + h, 0f), new Vector3(cx - w, cy + h, 0f),
             };
-            _gemMesh.uv = new[]
+            m.uv = new[]
             {
                 new Vector2(0f, 0f), new Vector2(1f, 0f),
                 new Vector2(1f, 1f), new Vector2(0f, 1f),
             };
-            _gemMesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
-            _gemMesh.RecalculateBounds();
-            return _gemMesh;
+            m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            m.RecalculateBounds();
+            _spriteQuads[key] = m;
+            return m;
         }
-        static Mesh _gemMesh;
 
         /// <summary>稀有度宝石的贴图名（图在 `Resources/Art/ui_deck/`）。
         /// 取不到就返回 null —— 那颗宝石不画，卡面其余部分照常。</summary>
@@ -5807,8 +6067,49 @@ namespace CardPresentation
         ///
         /// 📌 `false` 这一档（原来是「`FrameCutout`：卡框按遮罩挖洞」）**已随 2026-10-10 那次改动删掉**
         ///    —— 它是我们自造的近似、非原版机制、且至今没人渲图看过（见那条建层处的注释）。
+        /// 🆕 2026-10-18：本开关**现在只管【小卡档】**。「大图档越出」已经由 <see cref="BigCardOverdraw"/>
+        ///    单独接管（默认开），两者互不影响 —— 别为了让详情窗出血而把这里改成 `true`
+        ///    （那会把**所有**小卡一起变成出血，正是 2026-10-10 用户报的那个缺陷）。
         /// </summary>
         public static bool UseFrontLayer = false;
+
+        // ==================================================================
+        //  🆕 2026-10-18 **大图档：立绘越出卡框 + 立绘 ×1.27**
+        // ==================================================================
+        //
+        // 🔴 用户 2026-10-18 点名：「**卡片详情大图的立绘应该超出卡框**」
+        //    （像 PnP 成品卡 `d:/2/Warpforge部队卡片/Aeldari/1督军/Warpforge_1_Anvirr-Keltoc.png`
+        //     那样：头冠/剑/闪电压在金属框上）。
+        //    判据（现核，整份读）→ `资料/普查产出_1018/R_卡片详情大图三问.md` §二（Q1 证据）· §五 第 1 条：
+        //      · 原版卡图 rect **2.7484 × 2.7484 @ y=−0.044**、卡框 **2.2452 × 3.2572 @ y=−0.030**；
+        //        卡框上挂 `SoftMaskScript`（`MaskArea` = 卡图、`FlipAlphaMask=1`）⇒ **用立绘 alpha 给卡框挖洞**
+        //        ⇒ 角色从框下透出（立绘比框宽 **1.31×**）。
+        //      · 大图态 `CardImageController.ChangeState`（状态 1）还会把立绘**放大 ×1.27**
+        //        （`bigSizeMultiplier`）—— 框不动。
+        //      · 最终可见范围 = **卡体矩形收边（2.0927 × 3.3313）+ 卡框 alpha 像素级挖洞**。
+        //
+        // 🔑 实现取 A（`_artFront`：真 alpha 盖在框上），不走 B（给卡框做 alpha 挖洞）：
+        //    B 要在本工程渲染管线下写一个「按立绘 alpha 挖卡框」的 shader —— 2026-10-10 曾有一条
+        //    `FrameCutout` 支路，**从没人渲图看过**就删了（见下面那条注释），且 shader 与 SoftMask
+        //    的翻转语义都没在实况里验过。A 用的是**现成的、已接好的那一层**（`_artFront`，z=−0.008，
+        //    本来就在框之上、数值/文字之下），立绘是抠图（84.4% 像素 alpha=0）⇒ 天然只把角色轮廓画到框上。
+        //    ⚠️ 如实标注：A 与 SoftMask **不完全等价**（SoftMask 在**半透明像素**处是「框被部分抠掉」，
+        //    A 是「立绘半透明地压在框上」）—— 逐像素差在边框处，肉眼是同一件事。
+        //
+        // ⛔ **只在大图档生效**（`_bigImage`：`CardUse.ZoomWindow` 或详情窗扇形槽名 `CardUI` / `CardUI (n)`，
+        //    判据 → `IsBigCardView`）—— 小卡（手牌 / 卡池 / 收藏 / 卡组格 / 多卡窗）**一个字节都不动**：
+        //    它们既不是大图档、也不传 `use: ZoomWindow`，且 `UseFrontLayer` 仍是 false。
+        //
+        // 🔴 **默认开**。回退：`CardView.BigCardOverdraw = false;`（**必须在新卡建出来之前**设 ——
+        //    网格/层都在 `Build` 那一趟定死；已建好的卡不会跟着变）。一键回到 2026-10-18 之前的画法
+        //    （不放大、不建前景层），便于并排比。
+        /// <summary>大图档「角色压框」总开关（默认 **true**）。判据与取舍 → 上面那一段。</summary>
+        public static bool BigCardOverdraw = true;
+
+        /// <summary>大图档立绘的放大倍率 = 原版 `CardImageController.bigSizeMultiplier`（**1.27**）。
+        /// 只乘**立绘**（`_art` 与 `_artFront` 共用同一块网格），**卡框不动**；
+        /// 放大发生在「收边到卡体」之前 ⇒ 放多大都不会画到卡体外面（原版也是卡体矩形收边）。</summary>
+        public const float BigArtScale = 1.27f;
 
         // 🔴 **2026-10-10 删掉了 `FrameCutoutMaterial()` / `_frameCutMat`** —— 它们只服务于
         //    `UseFrontLayer = false` 那条「卡框挖洞」支路，而那支路已删（理由见建层处的注释）。
@@ -5885,20 +6186,25 @@ namespace CardPresentation
 
         // 🔴 **2026-10-10 删掉了 `CheckCutoutWiring`** —— 它断的是「`UseFrontLayer = false` 那条路上
         //    卡框材质接成了 `CardPresentation/FrameCutout` + `_CutMask`」；那条支路已删（见建层处注释），
-        //    这个判据**没有对象了**。新的判据（出厂不建前景层 / opt-in 那条路仍然接得通）落在
+        //    这个判据**没有对象了**。新的判据（小卡档不建前景层 / opt-in 那条路仍然接得通）落在
         //    `Editor/CardBaseDemo.cs` 的 `AssertFrameCutout` 里。
+        // ⚠️ 2026-10-18：那里断的是**小卡档**（探针卡名 `cutout_probe`，不是大图档）⇒ 仍然成立；
+        //    大图档建 `_artFront` 是另一条路，判据见 `BigCardOverdraw`。
 
         /// <summary>
         /// 卡框网格。`art` 只用来写 **uv2**（= 立绘那套 UV）—— 破框 shader 靠它采立绘的 alpha 遮罩。
         /// ⚠️ 缓存键要把 art 也算进去：同一张卡框配不同立绘，uv2 不一样。
+        /// 🆕 2026-10-18：`artScale` 也要进键 —— 大图档立绘 ×1.27，它的 uv2 与小卡那份**不是同一个映射**
+        /// （判据：`ArtUvAt` 走 `ArtBoard(art, artScale, …)`，同一份判据 ⇒ 这里也必须传同一个倍率）。
         /// </summary>
-        static Mesh FrameMesh(Texture2D tex, Texture2D art = null)
+        static Mesh FrameMesh(Texture2D tex, Texture2D art = null, float artScale = 1f)
         {
             Mesh m;
             // ⚠️ 缓存键**必须把立绘也算进去**：uv2 是「立绘那套 UV」，同一张卡框配不同立绘就不一样。
             //    只按卡框缓存的话，所有卡都会拿到**第一张卡的 uv2** —— 破框遮罩就切花了
             //    （2026-09-13 踩过：整张卡的插图变成一片彩色马赛克）。
             int cacheKey = tex.GetInstanceID() * 397 ^ (art != null ? art.GetInstanceID() : 0);
+            cacheKey = cacheKey * 397 ^ Mathf.RoundToInt(artScale * 1000f);
             if (_frameMeshCache.TryGetValue(cacheKey, out m) && m != null
                 && (art == null || m.uv2 != null && m.uv2.Length == 4)) return m;
 
@@ -5936,7 +6242,7 @@ namespace CardPresentation
             {
                 var uv2 = new Vector2[4];
                 for (int i = 0; i < 4; i++)
-                    uv2[i] = ArtUvAt(art, m.vertices[i].x, m.vertices[i].y);
+                    uv2[i] = ArtUvAt(art, m.vertices[i].x, m.vertices[i].y, artScale);
                 m.uv2 = uv2;
             }
 
@@ -6110,9 +6416,14 @@ namespace CardPresentation
         /// <param name="statsOnly">**只烘「四个数值」**（攻/远/甲/血），不烘费用 / 卡名 / 效果文字。
         /// 场上用（原版在 inPlay 把整张 `2DCard` 关掉，只留 `Board Elements` 那棵子树里的数值）——
         /// 见 `CardFace` 的注释。⚠️ 缓存键要带上这一位，否则场上和手牌会互相拿到对方的贴图。</param>
-        static Texture2D InfoTexture(CardData d, bool statsOnly = false, bool skipStats = false)
+        static Texture2D InfoTexture(CardData d, bool statsOnly = false, bool skipStats = false,
+                                     Texture2D frameTex = null)
         {
-            string key = (statsOnly ? "infoStat|" : "info|") + (skipStats ? "nostat|" : "") + CacheKey(d);
+            // 🔴 2026-10-18（W15）：**卡框要进缓存键** —— 四个数值 / 费用的落点是按这张卡框的
+            //    uv 反算的（`FaceStatAt01` / `FaceCostAt01`）⇒ 同一张卡换一种卡框，烘出来的图不一样。
+            string key = (statsOnly ? "infoStat|" : "info|") + (skipStats ? "nostat|" : "")
+                       + (frameTex != null ? "f" + frameTex.GetInstanceID() + "|" : "")
+                       + CacheKey(d);
             Texture2D cached;
             if (InfoCache.TryGetValue(key, out cached) && cached != null) return cached;
 
@@ -6129,21 +6440,24 @@ namespace CardPresentation
             //    ⚠️ 底板那一层（`Build` 的 `_costBg`）是**另一处**，两处都要过这一条 —— 见 `ShowsCost` 末段。
             if (ShowsCost(d))
             {
+                // 🔴 2026-10-18（W15）：**跟着卡框上的阵营徽记走**（水平同心、上沿贴徽记底边）——
+                //    判据与实测数字见 `FaceCostAt01` 上面那一段。没有卡框时它退回 `CostAt`。
+                var costAt = FaceCostAt01(frameTex);
                 if (CardArt.DeckUi("Card_Frame_Cost_Icon") == null)
                 {
                     // 徽记本身花纹很花，所以要用**不透明的宝石**盖住它 —— 半透明/阵营色都读不出来
                     var rim = new Color32(14, 14, 18, 255);
                     // 半径：原版费用格是 0.4×0.4 卡单位 → 0.2/2.0927 = 0.0956 卡宽
-                    FillHexagon(px, FaceW, FaceH, CostAt.x * FaceW, CostAt.y * FaceH, 0.0956f * FaceW, rim);
-                    FillHexagon(px, FaceW, FaceH, CostAt.x * FaceW, CostAt.y * FaceH, 0.0779f * FaceW, InkCostGem);
+                    FillHexagon(px, FaceW, FaceH, costAt.x * FaceW, costAt.y * FaceH, 0.0956f * FaceW, rim);
+                    FillHexagon(px, FaceW, FaceH, costAt.x * FaceW, costAt.y * FaceH, 0.0779f * FaceW, InkCostGem);
                 }
                 // 费用数字：原版是 `Cost Container/CostText`（TMP + Pragati，**Thick 描边**、白字）
                 if (!PragatiDigits.Available)
-                    DrawCenteredAt(px, CostAt, d.cost.ToString(), 4, InkCost);
+                    DrawCenteredAt(px, costAt, d.cost.ToString(), 4, InkCost);
                 else
                     PragatiDigits.Draw(px, FaceW, FaceH, d.cost.ToString(),
-                                       Mathf.RoundToInt(CostAt.x * FaceW),
-                                       Mathf.RoundToInt(CostAt.y * FaceH), true,
+                                       Mathf.RoundToInt(costAt.x * FaceW),
+                                       Mathf.RoundToInt(costAt.y * FaceH), true,
                                        // 费用六边形半径 0.0956 卡宽（见上面 `FillHexagon` 那两行）
                                        // ⇒ 净宽 ≈ 2×0.0956×256 ≈ 49 面像素，留边距取 41
                                        Mathf.RoundToInt(0.0956f * FaceW * 2f * 0.84f));
@@ -6205,10 +6519,14 @@ namespace CardPresentation
             if (d.isUnit && !skipStats)
             {
                 //    （`BoardMeleeAt/…`）—— 混用会让数值浮在卡体外面（2026-09-20 修的就是这个）。
-                var meleeAt  = statsOnly ? BoardMeleeAt  : MeleeAt;
-                var rangedAt = statsOnly ? BoardRangedAt : RangedAt;
+                //    🔴 **2026-10-18（W15）：2D 卡面那三个改成「跟着卡框凹槽走」**（`FaceStatAt01`）——
+                //    原来写死 `MeleeAt/RangedAt/HealthAt`（= 原版容器位置），而卡框是按各档自己的
+                //    alpha bbox 拉伸的 ⇒ 凹槽落点随卡框变，数字就偏出圈了（判据与实测见 `FramePxAt01` 那一段）。
+                //    场上（`statsOnly`）那套**不动**：3D 卡体没有这张卡框图。
+                var meleeAt  = statsOnly ? BoardMeleeAt  : FaceStatAt01(StatMelee,  frameTex);
+                var rangedAt = statsOnly ? BoardRangedAt : FaceStatAt01(StatRanged, frameTex);
                 var armourAt = statsOnly ? BoardArmourAt : ArmourAt;
-                var healthAt = statsOnly ? BoardHealthAt : HealthAt;
+                var healthAt = statsOnly ? BoardHealthAt : FaceStatAt01(StatHealth, frameTex);
                 DrawStatAt(px, meleeAt, d.melee, false);
                 DrawStatAt(px, rangedAt, d.ranged, false);
                 if (d.armor > 0) DrawStatAt(px, armourAt, d.armor, true);   // 护甲 = 原版 Thick 描边
@@ -6250,15 +6568,16 @@ namespace CardPresentation
         static readonly System.Collections.Generic.Dictionary<string, Texture2D> StatCache =
             new System.Collections.Generic.Dictionary<string, Texture2D>();
 
-        /// <summary>第 `s` 个数值格用哪一套坐标（两套位置见 `MeleeAt` 那一段的注释）。</summary>
-        static Vector2 StatAt01(int s, bool board)
+        /// <summary>第 `s` 个数值格用哪一套坐标（两套位置见 `MeleeAt` 那一段的注释）。
+        /// 🔴 2026-10-18（W15）：2D 那一档走 `FaceStatAt01`（跟着卡框凹槽），与画数字/命中区同一份。</summary>
+        static Vector2 StatAt01(int s, bool board, Texture2D frameTex = null)
         {
             switch (s)
             {
-                case StatMelee:  return board ? BoardMeleeAt  : MeleeAt;
-                case StatRanged: return board ? BoardRangedAt : RangedAt;
+                case StatMelee:  return board ? BoardMeleeAt  : FaceStatAt01(StatMelee,  frameTex);
+                case StatRanged: return board ? BoardRangedAt : FaceStatAt01(StatRanged, frameTex);
                 case StatArmour: return board ? BoardArmourAt : ArmourAt;
-                default:         return board ? BoardHealthAt : HealthAt;
+                default:         return board ? BoardHealthAt : FaceStatAt01(StatHealth, frameTex);
             }
         }
 
@@ -6403,7 +6722,7 @@ namespace CardPresentation
         {
             var mr = _stats[s];
             if (mr != null) return mr.transform.position;
-            var at = StatAt01(s, _faceMode == CardFace.Board);
+            var at = StatAt01(s, _faceMode == CardFace.Board, _frameTex);
             return transform.TransformPoint(new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height,
                                                         _faceMode == CardFace.Board ? BoardInfoZ : InfoZ));
         }

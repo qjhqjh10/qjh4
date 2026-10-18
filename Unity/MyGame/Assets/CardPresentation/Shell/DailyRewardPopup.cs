@@ -254,7 +254,7 @@ namespace CardPresentation
             vc.padding = Vector4.zero;
             vc.softness = Vector2Int.zero;
             vc.CaptureNow();                    // 同 `AvatarTab`：必须在写矩形之后、建子件之前
-            _scroll = MenuScroll.LeftAligned(ScrollView, scrollContentW, 1f);
+            _scroll = MenuScroll.LeftAligned(ScrollView, scrollContentW, 120f);   // 滚轮 120px/格（2026-10-18 主对话定；原版 `Daily Reward Popup > Tracks > Rewards Scroll View` 的 `m_ScrollSensitivity = 1.0`（D_N29）实测一格 1px=纹丝不动；同 `MainMenuRuntime._modeScroll` 的 N66 口径 —— ⛔ 不是原版值，是我们挑的）
             _scroll.Owner = gameObject;
             _scroll.Elastic = true;             // 原版 `m_MovementType = 1`
             _scroll.ClipNode = vc;              // ⚠️ `MenuScroll.ClipNode` 只能宿主显式赋值（`Owner` 反查永远 null）

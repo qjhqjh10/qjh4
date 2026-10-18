@@ -29,8 +29,11 @@ namespace RuleEngine
         [Serializable]
         public class CardDto
         {
-            /// <summary>**稳定 id**（`AM12` 这样的原版 id，或 `AM_Some_Card` 这样的自造 id）。
-            /// 见 `gen_cards_engine.py` 里 `IDS_SRC` 那段 —— 原版 id 取不到时自造，两种形态一眼可分。</summary>
+            /// <summary>**稳定 id = 原版 `uniqueId`**（`AM12` 这种短码，或 32 位 GUID 形态）。
+            /// 🔴 **2026-10-18（`W25`）订正**：原来这里写「或 `AM_Some_Card` 这样的自造 id」——
+            /// **现已不成立**：池内 **1127/1127 全是真 id、自造 0 张**（`gen_cards_engine.py` 按
+            /// `(阵营码, 卡名) → uniqueId` 唯一落位直取；生成器末尾有硬断言，自造 ⇒ 非零退出、不落盘）。
+            /// ⛔ **卡名不再是身份**：`id` 为空的那张卡会被 `Parse()` **报错并跳过**（见那里的注释）。</summary>
             public string id;
             public string name;
             public string type;
@@ -224,10 +227,11 @@ namespace RuleEngine
             if (dto == null || dto.cards == null) return list;
 
             // ⚠️ 卡表 < v6 就没有 `id` 字段（v6 = 2026-09-13 第三十三轮开始，每张卡带稳定 id）。
-            //    读旧表**不报错**，但 `Id` 会退回卡名 —— 那是老毛病，得说出来，别让人以为身份是稳的。
+            //    🔴 **2026-10-18（`W25`）起缺 id 的卡会被【跳过】**（卡名不再当身份，见下面那段的注释）
+            //    ⇒ 读旧表得到的是**空池**（每张卡各报一条错），不是「能跑但身份不稳」。
             if (dto.version < 6)
                 Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 6 —— 没有稳定 id，"
-                               + "`CardDef.Id` 退回**卡名**（同名卡会串）。跑一下 gen_cards_engine.py 重生成。");
+                               + "**整份卡表都会被跳过**（卡名不再当身份）。跑一下 gen_cards_engine.py 重生成。");
             // 🆕 2026-10-14（`A1775`）：v8 起才有 `initiative`。**旧表读进来会全是 `0`**，
             //   而 `0` = `Initiative.Undefined` —— 那会让 `FirstSeatRules.ByInitiative` 把
             //   **「没有这个字段」读成「先攻值 = 0」**（静默把「没数据」当数据）。
@@ -277,9 +281,22 @@ namespace RuleEngine
             {
                 if (c == null || string.IsNullOrEmpty(c.name)) continue;
                 string cid = c.id;
-                if (string.IsNullOrEmpty(cid)) { cid = c.name; noId++; }
+                // 🔴 **2026-10-18（`W25`）：缺 id 不再拿卡名顶 —— 报错并【跳过这张卡】。**
+                //   为什么：卡名**不是身份**。跨阵营 3 组同名（`Terminator` / `Terminator Champion` /
+                //   `Maulerfiend`）会把两张不同的卡并成同一个 `CardDef.Id` ⇒ 费用修正（按 id）、
+                //   复制品/临时卡、卡组存档全部**串在一起**，而且是**静默**的。
+                //   身份 = 原版 `uniqueId`（现池 1127/1127 真 id、0 自造；生成器末尾有硬断言）。
+                //   判据 → `资料/普查产出_1018/R_引擎线_完整ID与SO后的调整评估.md` §4 第 5 行。
+                if (string.IsNullOrEmpty(cid))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.faction}）**缺 id** —— 已跳过该卡"
+                                 + "（卡名不再当身份：同名卡会串）。重跑工具/gen_cards_engine.py"
+                                 + "（它会断言 id_made == 0 且每个 id ∈ 原版 uniqueId 集合）。");
+                    noId++;
+                    continue;
+                }
                 list.Add(new CardDef(
-                    id: cid,                    // 稳定 id（v6 起）；缺了才退回卡名，并在下面报数
+                    id: cid,                    // 稳定 id = 原版 uniqueId（v6 起有该列；W25 起缺 id 直接跳过）
                     name: c.name,
                     type: c.type,
                     desc: c.desc,
@@ -314,8 +331,9 @@ namespace RuleEngine
             //    （`Terminator` / `Terminator Champion` / `Maulerfiend`）。
             //    判据 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①。
             if (noId > 0)
-                Debug.LogWarning($"[RuleEngine] 卡表里有 {noId} 张卡**没有 id**，已退回卡名当身份 —— "
-                               + "同名卡（跨阵营那 3 组）会串在一起。重跑 gen_cards_engine.py。");
+                Debug.LogError($"[RuleEngine] 卡表里有 {noId} 张卡**没有 id**，**已跳过**（卡名不再当身份）—— "
+                             + "这几张卡在对局/卡组里不存在了。重跑工具/gen_cards_engine.py"
+                             + "（生成期断言：id_made 必须 = 0、每个 id 必须 ∈ 原版 uniqueId 集合）。");
             // 卡名索引（2026-09-16）：「按卡名指目标」那条路的判据 —— `ParseTarget` 要问
             // 「卡面写的那个名词是不是一张卡的名字」。**只此一处建**，见 `CreatePool.BuildNameIndex`。
             CreatePool.BuildNameIndex(list);

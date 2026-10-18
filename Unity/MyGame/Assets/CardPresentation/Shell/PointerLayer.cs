@@ -391,8 +391,14 @@ namespace CardPresentation
             // ③ 滚轮（拖拽中不吃 —— 同 UGUI：拖的时候不响应滚轮）
             if (!_dragging)
             {
-                float dy = mouse.scroll.ReadValue().y;
-                if (Mathf.Abs(dy) >= 1f) { WheelAt(px.x, px.y, dy); scrollMoved = true; }
+                // 🆕 **2026-10-18（W16）**：取整个 `Vector2`（原来是 `.y`）—— 触控板/倾斜滚轮的
+                //   **横向分量**要能驱动横向滚动区（见下面那条私有重载）。普通鼠标滚轮 `x` 恒 0
+                //   ⇒ 与旧的 `float dy = ….y` 逐位相同。
+                Vector2 sc = mouse.scroll.ReadValue();
+                if (Mathf.Abs(sc.y) >= 1f || Mathf.Abs(sc.x) >= 1f)
+                {
+                    if (WheelAt(px.x, px.y, sc)) scrollMoved = true;
+                }
             }
 
             // ④ 推一帧惯性/回弹（照 UGUI `LateUpdate`；用 `unscaledDeltaTime` 与 UGUI 一致）
@@ -1174,6 +1180,29 @@ namespace CardPresentation
             var s = HitScroll(px, py);
             if (s == null) return false;
             s.Wheel(dy);
+            return true;
+        }
+
+        /// <summary>🆕 **2026-10-18（W16）**：把整个 `scroll` 向量喂进来 —— 照 uGUI `ScrollRect.OnScroll`
+        /// 的「只允许一根轴」那两支（`MyGame/Library/PackageCache/com.unity.ugui@…/UI/Core/ScrollRect.cs:659-670`：
+        /// **另一根轴的分量更大时就用它**）。
+        ///
+        /// <para>本处**只做横向区那一支**：`!Vertical` 且 `|dx| &gt;= |dy|` ⇒ 用原始 `dx`（触控板横向滑）。
+        /// ⛔ **纵向区一个字都不改**（仍只用 `sc.y`）—— 原版纵向那支（`:659-664`）的符号换算、
+        /// 以及「`dx` 占优」这条落在纵向列表上的观感，**都没验过**；不在这件里顺手改（要对齐另开一件）。</para>
+        ///
+        /// <para>⚠️ **符号**：`MenuScroll.Wheel` 现在收的是**原始 `dy`**（`Offset -= dy·NotchK`；往下滚 = 看后项），
+        /// 横向这条支路给 `-sc.x`（与我们横向现有方向口径同号）。
+        /// 🔴 **若把 `MenuScroll.Wheel` 改成 uGUI 原式（`Offset += dy`），这里必须同步改成 `+sc.x`** ——
+        /// 两处是同一个口径（`W13_横向滚动.md` §五·2）。</para></summary>
+        bool WheelAt(float px, float py, Vector2 sc)
+        {
+            var s = HitScroll(px, py);
+            if (s == null) return false;
+            float f = sc.y;
+            if (!s.Vertical && Mathf.Abs(sc.x) >= Mathf.Abs(sc.y)) f = -sc.x;
+            if (Mathf.Abs(f) < 1f) return false;
+            s.Wheel(f);
             return true;
         }
 

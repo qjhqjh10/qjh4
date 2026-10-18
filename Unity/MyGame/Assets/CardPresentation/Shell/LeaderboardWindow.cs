@@ -458,7 +458,7 @@ namespace CardPresentation
             //    ⇒ 我们取「左对齐 + 可横向滚动 182.66」，**这一条是我们挑的**（记在 §三第29条 A3）。
             if (_armyScroll == null)
             {
-                _armyScroll = MenuScroll.LeftAligned(ArmySelR, contentW, 1f);   // 原版 `…/Content/Army Selector` = 1.0（D_N29）
+                _armyScroll = MenuScroll.LeftAligned(ArmySelR, contentW, 120f);   // 滚轮 120px/格（2026-10-18 主对话定；原版 `…/Content/Army Selector` 的 `m_ScrollSensitivity = 1.0`（D_N29）实测一格 1px=纹丝不动；同 `MainMenuRuntime._modeScroll` 的 N66 口径 —— ⛔ 不是原版值，是我们挑的）
                 // 🔴 **2026-10-13（A435 阶段 2 · 庚 · W-A435庚 / A768①）就地订正（铁律 5）**：这里原来留着 W-A435己
                 //   的一段「**这处没接、只报不改**」的说明（当时那颗 `Viewport` 上还没有 `ViewportClip`）
                 //   —— **那段已经不成立**：组件已由上面那句 `ViewportClip.Hang` 挂上。保留下来的判断只有一条：

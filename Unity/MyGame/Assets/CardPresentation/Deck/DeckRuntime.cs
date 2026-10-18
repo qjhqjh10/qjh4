@@ -798,6 +798,12 @@ namespace CardPresentation
                 m.PadX = (PoolW - m.Cols * m.CellW) * 0.5f;
                 m.CounterH = PoolCounterH0 * k;
                 m.CardH = m.CellH - m.CounterH;
+                // 🔴 **2026-10-18（`W11`）就地复核（铁律 5，无需改动）**：卡心 `cellTop + CardH/2`、缩放
+                //   `CardH ÷ (CardView.Height × 108)` ⇒ **卡底正好落在张数条上沿**（桌面 501.73 = 条顶 501.73，
+                //   条的可见顶 503.0、卡框可见底 494.75）—— 与原版实拍**同一条间距**（参考图：卡框底 510.1 /
+                //   条顶 511.3 ⇒ 1.2px；我们 1.3px）⇒ **本窗卡池没有「张数与卡重叠」**。
+                //   同族的**收藏窗 Cards 页**当时漏了这条（按整格 384 反解）⇒ 已在
+                //   `Shell/CollectionWindow.CardsCardRect` 收口成同一条式子；⛔ 别只改一处。
                 // 卡缩到多大 —— 按**卡位高减去底下张数条**反解（我们的卡 `CardView.Height × 108 = 359.7px`
                 //   是**卡图**不是卡位）。⚠️ 原版卡位的宽高比与我们的卡不是同一个 ⇒ 取「**高度对齐**」。
                 //   🔴 原来按 **384** 反解（卡顶满格子）—— 2026-09-28 订正，理由见 `PoolCounterH0` 那段。
@@ -4224,7 +4230,7 @@ namespace CardPresentation
                     //   为什么不是 `SetAlignRight`（`Battle/Label.cs` 没这个口）→ 见 `BuildDeckList` 那段。
                     _deckRowCountText[i].AlignRightOn(LayoutSpace.FromPixel(RowCountRight, 0f).x);
                 }
-                // 🆕 **2026-10-17（附加条）**：行上那**两件**都按 `CardRarityColorsSO` 上色 ——
+                // 🆕 **2026-10-17（附加条）**：行上那**两件**都按稀有度色上色（2026-10-18 `N102` 起 = `CardUIDisplayColorsSO`，见 `Core/RarityColors.cs`） ——
                 //   原版 `UICardInfoItem.imagesToChangeColorByRarity` 那两颗数组元素**逐颗解出来就是**
                 //   `Rarity Gradient`（= `_deckRowGrad`）与 `Background Border`（= `_deckRowBorder`）。
                 //   ⇒ 原来只给色条上了色、边框没上，**两件一起才对**（判据 → `RarityTint` 的 doc ③）。
@@ -4690,7 +4696,7 @@ namespace CardPresentation
 
         /// <summary>🆕 **2026-10-17（附加条）**：自检口 —— 第 `i` 行**那两件**现在染的是什么色
         /// （色条 `Rarity Gradient` + 边框 `Background Border`；原版 `imagesToChangeColorByRarity` 那两颗）。
-        /// `false` = 这一行没建出来。⛔ 期望值不许从这里读回来 —— 判据是 `CardRarityColorsSO.json` 那六个字面量。</summary>
+        /// `false` = 这一行没建出来。⛔ 期望值不许从这里读回来 —— 判据是 `Core/RarityColors.cs` 里那张 `CardUIDisplayColorsSO` 的六个字面量。</summary>
         public bool UiRowRarityTint(int i, out Color grad, out Color border)
         {
             grad = border = Color.white;
@@ -8334,60 +8340,20 @@ namespace CardPresentation
         //   原版那三颗 `Text` 的 `m_fontColor` 恒为白（判据见 `RefreshHeader` 里 `SetColor(Color.white)`
         //   那一段），而它只被页签那一处用过 ⇒ 留着就是一段「与原版不符的死代码」。
 
-        /// <summary>稀有色条 / 行边框的颜色 —— 🆕 **2026-10-17：色值表查到了，改成照原版那张 SO 上色**
-        /// （原来这是一张「**我们挑的**」表：注释写着「染色值没查到」）。
+        /// <summary>稀有色条 / 行边框的颜色 —— **转调 `Core/RarityColors`（全工程唯一一份表）**。
         ///
-        /// <para>🔴 **判据（三步全部现读，⛔ 没有一处是猜的）**：
-        /// ① **色值表本身就在本地**：`d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/
-        ///    CardRarityColorsSO.json` —— `m_Name = CardRarityColorsSO`，`colors[]` **六档** `rarity 0..5`
-        ///    （逐条可读，见下面 `RarityColorsBySo`）。
-        /// ② **档号 ↔ 名字**：`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardRarity.cs` =
-        ///    `None = 0 · Common = 1 · Rare = 2 · Epic = 3 · Legendary = 4 · Special = 5`
-        ///    —— 与 SO 那六档**一一对应**（0..5）。
-        /// ③ 🔑 **消费侧就是【卡组列表那一行】**：`decomp_full/UICardInfoItem__Initialize.c:139-156`（逐句）——
-        ///    `CardRarityColorsSO.GetColor(颜色 SO, PlayerItem.get_Rarity(card))` 然后
-        ///    **`foreach (img in imagesToChangeColorByRarity) img.set_color(color)`**。
-        ///    而全包 `UICardInfoItem` 的实例**逐颗解出来都是** `Deck Selector Card Info button` /
-        ///    `Deck Selector Hero Card Info button` / `Deck Selector Defensive Card Slot`
-        ///    （= **本窗卡组列表的那些行**），`imagesToChangeColorByRarity` 那两颗**逐颗解出来是**
-        ///    **`Rarity Gradient`** 与 **`Background Border`** —— 前者就是我们这条 `_deckRowGrad`、
-        ///    后者是 `_deckRowBorder`。⇒ **两件都要按这张表上色**（原来只给色条上了、而且色是自选的）。</para>
-        ///
-        /// <para>⚠️ **`Common`（档 1）的 `a = 0`** —— 原版表里就是这样 ⇒ 普通卡那两件**是透明的**。
-        ///   这不是漏值，⛔ 别「补」一个 alpha 上去。
-        /// ⚠️ `Legendary`（档 4）的 `r = 1.28216 > 1` —— 原版就是超白（HDR 味道）的颜色，原样搬。</para>
-        /// <para>⚠️ 认不出的档（含空串）⇒ 落 **`None`（档 0）那一格**（白）。
-        ///   原版那条 fallback 是 `DAT_1834b2e50` 那四个字节（**没解出**）——
-        ///   这里**如实按「查不到就落到表里第 0 档」**写，并把这一句记在账上。</para></summary>
-        static readonly Color[] RarityColorsBySo =
-        {
-            /* 0 None      */ new Color(1f, 1f, 1f, 1f),
-            /* 1 Common    */ new Color(0.036712352f, 0.260706663f, 0.311320782f, 0.0f),
-            /* 2 Rare      */ new Color(0.071761042f, 0.566037774f, 0.056069776f, 0.666666687f),
-            /* 3 Epic      */ new Color(0.564705908f, 0.054901958f, 0.525894821f, 0.666666687f),
-            /* 4 Legendary */ new Color(1.282163382f, 0.470490038f, 0.0f, 0.666666687f),
-            /* 5 Special   */ new Color(0.823529422f, 0.160784319f, 0.0f, 0.639215708f),
-        };
-
-        /// <summary>卡面 `rarity` 串 → 原版 `CardRarity` 档号（见 `RarityColorsBySo` 的 ②）。
-        /// ⛔ 别按字母排或开关乱猜 —— 这张表逐条对着 `CardRarity.cs` 抄。</summary>
-        static int RarityTier(string rarity)
-        {
-            switch ((rarity ?? "").ToLowerInvariant())
-            {
-                case "common": return 1;
-                case "rare": return 2;
-                case "epic": return 3;
-                case "legendary": return 4;
-                case "special": return 5;
-                default: return 0;          // `None`（含空串）
-            }
-        }
-
-        /// <summary>行上那两件（色条 + 边框）该上的色 = 原版 `CardRarityColorsSO.GetColor(card.rarity)`。</summary>
+        /// <para>🔴 **2026-10-18（`N102` 收口）：这一份原来抄的是 `CardRarityColorsSO.json`，【SO 用错了】**。
+        /// 本窗这一批行就是原版 `UICardInfoItem`（`Deck Editing Menu / … / Deck List drawer / Content` 里
+        /// 那颗 + 督军那颗 + 防御卡槽那颗，逐颗现核），而 `bundle_menus_assets_all` 里**全部 15 颗**
+        /// `UICardInfoItem` 的 `colorsByRarity` **逐颗都是 `CardUIDisplayColorsSO`**
+        /// （pid `-2272266055686004801`）。
+        /// `CardRarityColorsSO`（pid `764426219195092032`）的消费侧是
+        /// **`CardInBoosterPack.cardRarityColors`**（`Booster Pack Open Window / … / CardInBoosterPack UI 1..5`），
+        /// **不是一个用途** ⇒ ⛔ 别把那份表合回来。
+        /// 判据全链（谁上色 / 哪两颗 / 哪张表 / 色值 / 15 颗实例现核）+ 两个保留项 → `Core/RarityColors.cs` 的文件头注。</para></summary>
         public static Color RarityTint(string rarity)
         {
-            return RarityColorsBySo[RarityTier(rarity)];
+            return RarityColors.Tint(rarity);
         }
 
         /// <summary>当前卡组的阵营（督军决定）。</summary>
@@ -8457,8 +8423,29 @@ namespace CardPresentation
             foreach (var c in state.Pool) if (c.Type == "hero") { warlord = c; break; }
             if (warlord == null) return deck;
             deck.WarlordId = warlord.Id;
+            // 🔴 **2026-10-18：防御卡改成与 `工具/gen_prebuilt_decks.py:pick_defensive` 同一规则**
+            //    （本阵营 `type == "defence"` 里 **cost 最低 → id 最小**）。
+            //    原来取的是「池里第一张 defence」—— **结果随卡池顺序变**，而卡池在
+            //    2026-10-14（`601005b`，955 张换 id）与 10-18（`K06`）两次换号里顺序都动过
+            //    ⇒ 旧存档里那张 `ASH67` 就是这么写下来的（当时是 `Aspect Shrine`，
+            //    换号后同一个 id 变成了 `Hornet`(unit)）。判据与口径 → `资料/预组卡组_原版规格.md` §五之七。
+            //    ⚠️ 我们的 `CardDef` **没有 `spellType` 字段** ⇒ **`Type == "defence"` 是唯一等价判据**
+            //      （落库前那一句 `dfc.Type != "defence"` 是断言，不是筛选）。
+            CardDef dfc = null;
             foreach (var c in state.Pool)
-                if (c.Type == "defence" && DeckRules.SameFaction(c.Faction, warlord.Faction)) { deck.DefensiveId = c.Id; break; }
+            {
+                if (c == null || c.Type != "defence") continue;
+                if (!DeckRules.SameFaction(c.Faction, warlord.Faction)) continue;
+                if (dfc == null || c.Cost < dfc.Cost
+                    || (c.Cost == dfc.Cost && string.CompareOrdinal(c.Id, dfc.Id) < 0)) dfc = c;
+            }
+            if (dfc != null)
+            {
+                if (dfc.Type != "defence")
+                    UnityEngine.Debug.LogError("[DeckRuntime] 演示卡组的防御卡挑到了非防御卡 `" + dfc.Id + "`（" + dfc.Type + "）"
+                                             + " —— 不写进卡组（这不该发生，挑法见上一段注释）");
+                else deck.DefensiveId = dfc.Id;
+            }
             foreach (var c in state.Pool)
             {
                 if (deck.CardIds.Count >= DeckRules.ClassicCards) break;

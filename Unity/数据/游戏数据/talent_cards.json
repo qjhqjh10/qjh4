@@ -1,24 +1,24 @@
 {
  "note": "**原版「天赋造哪一张」全量真值**（`trigger==46` 的 ability，`abilityLogic[0].summonCriteria.unitsToSummon[*]` —— **候选表，不止第一条**）。含落不下的那些（`candidates: []` + `why`）。游戏读的是 RuleEngine/Resources/talent_cards.json（同一次运行产出，不会分叉）。",
- "source": "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json（只读） ＋ d:/4/Unity/数据/游戏数据/related_cards.json（PathID→我们 id 的翻译表）",
+ "source": "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json（当前 build allcards，1,351 张；只读） ＋ d:/4/Unity/数据/游戏数据/related_cards.json（PathID→我们 id 的翻译表，同源）",
  "judge": "CardScript__GetTalentCard.c（取 trigger==46 的 abilityLogic[0].summonCriteria.unitsToSummon） · AbilityLogic__GetCardToSummon.c（N>1 且非 summonAllTargets ⇒ 随机挑一张） · CardScript__OnTurnStart.c:166（回合开始发 AbilityTrigger.Talent） · AbilityLogic__PlayAbility.c:1110/1141（createCardInHand → AddNewCardToHand）",
  "slots": {
-  "1": 93,
+  "1": 101,
   "2": 6,
   "3": 4
  },
  "candidateCounts": {
-  "1": 94,
+  "1": 102,
   "3": 3
  },
  "srcResolution": {
-  "related_cards.json": 89,
+  "related_cards.json": 96,
   "名字": 7,
-  "认不出（名字对不上，且 related_cards.json 里这张没落 id）": 1
+  "认不出（名字对不上，且 related_cards.json 里这张没落 id）": 2
  },
- "truthCards": 97,
- "mapped": 96,
- "unmapped": 1,
+ "truthCards": 105,
+ "mapped": 103,
+ "unmapped": 2,
  "cards": [
   {
    "uid": "SAU37",
@@ -166,12 +166,34 @@
    "why": null
   },
   {
+   "uid": "UM88",
+   "name": "Valius Paxor",
+   "ourId": "UM88",
+   "srcVia": "related_cards.json",
+   "candidates": [
+    "4de4fcfb5d7e0554a88b9f419a2cd7c2"
+   ],
+   "n": 1,
+   "why": null
+  },
+  {
    "uid": "SAU36",
    "name": "Nemesor Zahndrekh",
    "ourId": "SAU36",
    "srcVia": "related_cards.json",
    "candidates": [
     "d8a14171b08b54144ba9dbf324b0a042"
+   ],
+   "n": 1,
+   "why": null
+  },
+  {
+   "uid": "SW1",
+   "name": "Logan Grimnar",
+   "ourId": "SW1",
+   "srcVia": "related_cards.json",
+   "candidates": [
+    "b3dce3f10cc118541910156ec8da1d9b"
    ],
    "n": 1,
    "why": null
@@ -221,6 +243,17 @@
    "why": null
   },
   {
+   "uid": "SW2",
+   "name": "Njal Stormcaller",
+   "ourId": "SW2",
+   "srcVia": "related_cards.json",
+   "candidates": [
+    "a51adc8f5c311584385c3117cfd919e9"
+   ],
+   "n": 1,
+   "why": null
+  },
+  {
    "uid": "TAU2",
    "name": "Aun'Va",
    "ourId": "TAU2",
@@ -238,6 +271,17 @@
    "srcVia": "名字",
    "candidates": [
     "9c3562ffa183ede41b1626d9c9dc1e2f"
+   ],
+   "n": 1,
+   "why": null
+  },
+  {
+   "uid": "UM87",
+   "name": "Roboute Guilliman",
+   "ourId": "UM87",
+   "srcVia": "related_cards.json",
+   "candidates": [
+    "40667e346ae58a84dbda1033dff70ccb"
    ],
    "n": 1,
    "why": null
@@ -274,6 +318,17 @@
    ],
    "n": 1,
    "why": null
+  },
+  {
+   "uid": "7a02359776e89f243b8cf41642dc44c9",
+   "name": "Witchblade Warlock (tutorial)",
+   "ourId": null,
+   "srcVia": "认不出（名字对不上，且 related_cards.json 里这张没落 id）",
+   "candidates": [
+    "d3e99cb18b8cbba4081486f57f510f75"
+   ],
+   "n": 1,
+   "why": "认不出（名字对不上，且 related_cards.json 里这张没落 id）"
   },
   {
    "uid": "SAU29",
@@ -370,6 +425,17 @@
    "srcVia": "名字",
    "candidates": [
     "d8a14171b08b54144ba9dbf324b0a042"
+   ],
+   "n": 1,
+   "why": null
+  },
+  {
+   "uid": "DA75",
+   "name": "Master Zacharial",
+   "ourId": "DA75",
+   "srcVia": "related_cards.json",
+   "candidates": [
+    "38871853fabb5244d8148766829230cd"
    ],
    "n": 1,
    "why": null
@@ -663,6 +729,17 @@
    "why": null
   },
   {
+   "uid": "UM100",
+   "name": "Chaplain Cassius",
+   "ourId": "UM100",
+   "srcVia": "related_cards.json",
+   "candidates": [
+    "8482077f309b08943b190f18b5874871"
+   ],
+   "n": 1,
+   "why": null
+  },
+  {
    "uid": "UM47",
    "name": "Uriel Ventris",
    "ourId": "UM47",
@@ -867,6 +944,17 @@
    "srcVia": "related_cards.json",
    "candidates": [
     "af98d423c7279a14c84c0d0382c53541"
+   ],
+   "n": 1,
+   "why": null
+  },
+  {
+   "uid": "SW3",
+   "name": "Ragnar Blackmane",
+   "ourId": "SW3",
+   "srcVia": "related_cards.json",
+   "candidates": [
+    "e3b5735d801fcbd49aa8d3975a5b0c31"
    ],
    "n": 1,
    "why": null

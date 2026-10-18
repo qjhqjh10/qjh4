@@ -1,7 +1,7 @@
 {
  "note": "天赋造哪一张（原版 unitsToSummon 候选表；n>1 = 随机挑一张）。键 = 我们卡池 id。由 工具/gen_talent_cards.py 生成，⛔ 别手改。",
- "source": "原版 cards_1195_2022时代.json 的 cardAbilities[trigger==46].abilityLogic[0].summonCriteria.unitsToSummon",
- "count": 89,
+ "source": "当前 build allcards（cards_raw.json）的 cardAbilities[trigger==46].abilityLogic[0].summonCriteria.unitsToSummon",
+ "count": 96,
  "entries": [
   {
    "id": "AM1",
@@ -167,6 +167,12 @@
    "id": "DA36",
    "talents": [
     "7c45a641ec845994097d185af58715f6"
+   ]
+  },
+  {
+   "id": "DA75",
+   "talents": [
+    "38871853fabb5244d8148766829230cd"
    ]
   },
   {
@@ -398,6 +404,24 @@
    ]
   },
   {
+   "id": "SW1",
+   "talents": [
+    "b3dce3f10cc118541910156ec8da1d9b"
+   ]
+  },
+  {
+   "id": "SW2",
+   "talents": [
+    "a51adc8f5c311584385c3117cfd919e9"
+   ]
+  },
+  {
+   "id": "SW3",
+   "talents": [
+    "e3b5735d801fcbd49aa8d3975a5b0c31"
+   ]
+  },
+  {
    "id": "TAU1",
    "talents": [
     "9f75a6fe11922eb409ffbad4ecdeb405"
@@ -500,6 +524,12 @@
    ]
   },
   {
+   "id": "UM100",
+   "talents": [
+    "8482077f309b08943b190f18b5874871"
+   ]
+  },
+  {
    "id": "UM12",
    "talents": [
     "d94f91051ecfe014f97577ff573571aa"
@@ -539,6 +569,18 @@
    "id": "UM76",
    "talents": [
     "cc1400347b15ee3449bc18bbdb9ddec9"
+   ]
+  },
+  {
+   "id": "UM87",
+   "talents": [
+    "40667e346ae58a84dbda1033dff70ccb"
+   ]
+  },
+  {
+   "id": "UM88",
+   "talents": [
+    "4de4fcfb5d7e0554a88b9f419a2cd7c2"
    ]
   }
  ]

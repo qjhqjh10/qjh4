@@ -398,7 +398,9 @@ namespace CardPresentation
             // 🔴 没有它 ⇒ 第 5 格中心在 2209px（屏幕外）⇒ **领完第 4 格就再也领不动**（第 21 条）
             _trackScroll = MenuScroll.LeftAligned(_trackR,
                 UguiLayout.HorizontalContentW(FixedWs(ForgeData.MaxLevel, CellW), TrackPadL, 0f, TrackSpacing),
-                1f);   // 原版 `Forge Tab/Rewards Scroll View` 的 `m_ScrollSensitivity = 1.0`（D_N29）
+                120f);   // 滚轮 120px/格（2026-10-18 主对话定；原版 `Forge Tab/Rewards Scroll View` 的
+                         //   `m_ScrollSensitivity = 1.0`（D_N29）实测一格 1px=纹丝不动；
+                         //   同 `MainMenuRuntime._modeScroll` 的 N66 口径 —— ⛔ 不是原版值，是我们挑的）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildCell` 里
             //   `if (_trackScroll != null && !_trackScroll.Intersects(r)) return;`）从今天起读**同一颗节点**的
             //   状态（`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗
@@ -438,7 +440,7 @@ namespace CardPresentation
             // 🔴 **阵营条也能横向滚**（原版 `Forge Army Selector` 就是一个 `ScrollRect(横)` + `RectMask2D`）：
             //    13 个条目 1604.68 宽 > 视口 1074.36 ⇒ 两端各 2 个够不着；**居中内容的范围是【两侧都有】的**
             //    （`MenuScroll` 那两个极值由内容两端算出来）⇒ 往右滚能看被左柱盖住的前两个、往左滚能看后两个。
-            _armyScroll = new MenuScroll(_selR, _armyContentR.x1, _armyContentR.x2, 1f);   // 原版 `Forge Army Selector` = 1.0（D_N29）
+            _armyScroll = new MenuScroll(_selR, _armyContentR.x1, _armyContentR.x2, 120f);   // 滚轮 120px/格（2026-10-18 主对话定；原版 `Forge Army Selector` 的 `m_ScrollSensitivity = 1.0`（D_N29）实测一格 1px=纹丝不动；同 `MainMenuRuntime._modeScroll` 的 N66 口径 —— ⛔ 不是原版值，是我们挑的）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildArmyItems` 里
             //   `if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的
             //   状态（`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗

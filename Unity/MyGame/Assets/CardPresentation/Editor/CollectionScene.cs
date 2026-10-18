@@ -1910,13 +1910,21 @@ public static class CollectionScene
                     CheckText(TextOf(FindChild(pr, "Deck Name")), dn.Name, "`Deck Name` = 被点的那套卡组的名字");
                     var wlc = CollectionData.Warlord(0);
                     // 🔴 **2026-10-18（波 2a · W2）改「随语档」**：空战将位那一支的实现从波 1b 起走词条
-                    //   （`Shell/DeckInfoPopup.cs:846` 的 `wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord")`）
+                    //   （`Shell/DeckInfoPopup.cs:1228` 的 `wl != null ? CardText.Name(wl) : Loc.T("MenuDeck/Error/NoWarlord")`
+                    //   —— ⚠️ 2026-10-18（P1）就地订正：这一句原来写 `:846`、且那一半写的是 `wl.Name`，
+                    //   本轮督军名改走本地化后两处都变了，行号换成现读的 `:1228`）
                     //   ⇒ 原来写死的 `"未选督军"` 是**两代前**的字面量（表里 ZH 列已换成「还没有选战将」，
                     //   见 `Core/Loc.cs:927`）⇒ 一旦走到那一支，**两语档都会红**。期望值换成 `Loc.T(键)`。
                     //   ⚠️ 如实记：本件夹具里 `Warlord(0)` 非空 ⇒ 那一支**今天走不到**，本条是为将来兜底。
+                    // 🔴 **2026-10-18（P1 · 报告第 5 条）改期望**：这一栏现在印 **`CardText.Name(wlc)`**（本地化卡名），
+                    //   不再是英文 `wlc.Name` —— 判据 = 原版运行期喂的是 `RawCardScript.GetLocalizedCardName(督军卡)`
+                    //   （`资料/普查产出_1018/R_DeckInfoPopup_对账.md`「Warlord Name」行；实现 →
+                    //   `Shell/DeckInfoPopup.cs:1228` 的 `wl != null ? CardText.Name(wl) : …`）。
+                    //   ⚠️ `CardText.Name(CardDef)` 里面带 `Zh` 那道语档闸 ⇒ **中文档印中文、英文档仍印英文**
+                    //   （两档都对，⛔ 不是把断言放宽成「随便什么串都过」：期望值仍逐字相等比）。
                     CheckText(TextOf(FindChild(pr, "Warlord Name")),
-                              wlc != null ? wlc.Name : Loc.T("MenuDeck/Error/NoWarlord"),
-                              "`Warlord Name` = 该卡组的督军名"
+                              wlc != null ? CardText.Name(wlc) : Loc.T("MenuDeck/Error/NoWarlord"),
+                              "`Warlord Name` = 该卡组的督军名（**本地化卡名** = `CardText.Name(CardDef)`）"
                             + "（空战将位那一支随语档 = `Loc.T(\"MenuDeck/Error/NoWarlord\")`）");
                     CheckTrue(pop.Btn("Practice Deck") != null && pop.Btn("Edit Deck") != null
                               && pop.Btn("Select Deck") != null, "`Buttons` 三个钮**都建了**（在不在 ≠ 露不露，见下）");
@@ -1928,16 +1936,22 @@ public static class CollectionScene
                     // 我们这一侧 = `WindowButton.SetSoftDisabled`（`Shell/PromptPopup.cs`），实现只有一份。
                     // 🔴 **要核的是「可见的那张底图」**：这颗钮的 `WindowButton` 挂在**透明命中区** `Btn_Edit Deck`
                     //    上，可见的底是**兄弟节点** `Bg Edit Deck`（原版 `Selectable.m_TargetGraphic` 就指向它）
-                    //    ⇒ 只灰命中区 = 一个像素都不变（静默）。`CanImportDeck` 恒 `false`（判据见它的注释）
-                    //    ⇒ 这颗钮**应当**一直是灰的。
+                    //    ⇒ 只灰命中区 = 一个像素都不变（静默）。
+                    //    🔴 **2026-10-18 就地订正（铁律 5）**：本行原来写「`CanImportDeck` 恒 `false` ⇒ 这颗钮**应当**
+                    //       一直是灰的」—— **不成立**：原版参照图（`选择卡组出现的界面参考.png`）里它与 `练习` **同为橙金**
+                    //       ⇒ `CanImportDeck` 在原版实况里是 `true`（两道闸的归位见 `Shell/DeckInfoPopup.cs` 的同名方法）。
+                    //       ⇒ 这条断言**反过来**：可见底图必须**不是**灰化材质（读回 `Greyscale` 就是改回去了）。
                     {
                         var bgEdit = FindChild(FindChild(pr, "Buttons"), "Bg Edit Deck");
                         var bgq = bgEdit != null ? bgEdit.GetComponent<ImageQuad>() : null;
                         var bmr = bgq != null ? bgq.GetComponent<MeshRenderer>() : null;
                         CheckText(bmr != null && bmr.sharedMaterial != null && bmr.sharedMaterial.shader != null
                                   ? bmr.sharedMaterial.shader.name : "<没有材质>",
-                                  "Everguild/UI/Greyscale",
-                                  "`Edit Deck` 的**可见底图**换成了原版灰化 shader（不是只灰了那个透明命中区）");
+                                  "Sprites/Default",
+                                  "`Edit Deck` 的**可见底图**保持出厂材质（**不是** `Everguild/UI/Greyscale`）"
+                                + " —— 🔴 **2026-10-18 改判**：`CanImportDeck` 恒 `true`（原版参照图里这颗与 `练习` 同为橙金），"
+                                + "`SetSoftDisabled(false)` ⇒ `RefreshGray` 不换材质。"
+                                + "**改坏法**：把 `CanImportDeck` 改回 `false`（或让 `SoftDisabled` 恒 true）⇒ 这里读回 `Greyscale`、红");
                         // ⚠️ **上面这一条只核「换没换 shader」（弱断言）** —— 它分不出「换了材质、但队列掉了」。
                         //    🔴 **2026-10-05（A85）：换材质不许把显式分层抹掉。** 变灰走 `ImageQuad.SetMaterial`，
                         //    而 `new Material(Everguild/UI/Greyscale)` 的队列是 shader 自带的
@@ -2015,11 +2029,22 @@ public static class CollectionScene
                     CheckTrue(!pop.IsItemShown("Btn:Select Deck"),
                               "state 0 ⇒ `Select Deck` **不露**（原版 `context.SelectButton != null`，而 6 个调用点全传 null）");
                     var pb = pop.Btn("Practice Deck");
-                    CheckNear(pb != null ? PxOf(pb.position.x) : -1f, 887.45f, 1f,
-                              "`Practice Deck` 中心 x = **887.45**（三个钮右缘到 1770.70、spacing 36）");
+                    // 🔴 **2026-10-18（第四轮 P1）就地订正（铁律 5）**：期望值 `887.45`（= 三格全露时的中间那格）
+                    //   —— **不成立**。原版那三颗在一个 `HorizontalLayoutGroup(spacing 36 · MiddleRight)` 里，
+                    //   而 uGUI **只排 active 子件**；本夹具是 `state 0` 且 `SelectButtonProvided = false`
+                    //   ⇒ `Select Deck` 藏 ⇒ **只剩两颗，整体右移**：容器内容盒 `669.3..1770.7`（宽 1101.4），
+                    //   内容宽 `2×324.5 + 36 = 685` ⇒ 起点 = `669.3 + (1101.4−685) = 1085.70`
+                    //   ⇒ `Practice Deck` 中心 = `1085.70 + 162.25 = **1247.95**`（真机参照图：练习从 0.57 屏宽起）。
+                    //   实现 = `Shell/DeckInfoPopup.LayoutButtonRow()`（按可见集合重排，判据写在那个方法上）。
+                    CheckNear(pb != null ? PxOf(pb.position.x) : -1f, 1247.95f, 1f,
+                              "`Practice Deck` 中心 x = **1247.95**（`Select Deck` 藏着 ⇒ 布局组只排两颗 ⇒ "
+                            + "右对齐到 1770.70：1085.70…1410.20）");
                     var sb = pop.Btn("Select Deck");
-                    // ⚠️ 量的是**关着的**那颗（`Transform.Find` 找得到关着的节点）—— 位置不因显隐而变
-                    CheckNear(sb != null ? PxOf(sb.position.x) : -1f, 1608.45f, 1f, "`Select Deck` 中心 x = **1608.45**");
+                    // ⚠️ 量的是**关着的**那颗（`Transform.Find` 找得到关着的节点）—— `LayoutButtonRow()` 把
+                    //    **藏起来的复位到基线**（原三格里的第三格）⇒ 它停在 `1446.20…1770.70`、中心仍是 1608.45。
+                    //    🔴 别把这个数当成「布局排出来的」：它是**基线**，不看它在画面上有没有出现。
+                    CheckNear(sb != null ? PxOf(sb.position.x) : -1f, 1608.45f, 1f,
+                              "`Select Deck`（藏着）复位在**基线** = 三格里的第三格 ⇒ 中心 x = **1608.45**");
                     CheckTrue(pop.Opt("Delete") != null && pop.Opt("Switch Deck Info") != null
                               && pop.Opt("Share") != null && pop.Opt("Share On Chat") != null
                               && pop.Opt("Duplicate") != null, "`Deck Options` 五个圆钮都在");
@@ -2419,10 +2444,22 @@ public static class CollectionScene
                     Section("`Deck info Popup` A10：游戏模式图标 / `Deck Info` 抽屉 / 两个抽屉切换 / 两处订正");
                     {
                         // ① `Deck Details` 跑后真值（原来那套是模板位 ⇒ Army Icon 画到容器外）
-                        CheckAt(FindChild(pr, "Army Icon"), 767.9f, 867.9f, 106.7f, 216.7f,
-                                "`Army Icon`（**跑后**真值 —— 原来那个 363.10 落在 `Deck Details` 容器之外）");
-                        CheckAt(FindChild(pr, "Game Mode Separator"), 759.0f, 767.9f, 106.7f, 216.7f,
-                                "`Game Mode Separator`（跑后真值）");
+                        // 🔴 **2026-10-18（`Game Mode Icon` 改成两态）**：`Game Mode Icon` 现在是「有图才画」，
+                        //   **隐藏态**下原版 HLG 把后面几颗**整体左移 108.87**（= 图标 100 + 斜线 8.87）
+                        //   ⇒ `Army Icon` 767.9/867.9 → **659.03/759.03**、两行名的左沿 872.9 → **764.03**。
+                        //   判据 → `资料/普查产出_1018/R_DeckInfoPopup_对账.md`（`Game Mode Icon` / `Army Icon` 两行）；
+                        //   实现 → `Shell/DeckInfoPopup.cs:1168-1201` 的 `showGmIcon` / `ddShift`。
+                        //   ⚠️ 夹具 `CollectionData.DeckAt(0)` 是 **classic(0)** ⇒ 本节先断**隐藏态**；
+                        //   有图标那一态在下面 **②′** 原地重建再断一次 —— **两态都断**，⛔ 别只断一边。
+                        CheckAt(FindChild(pr, "Army Icon"), 659.03f, 759.03f, 106.7f, 216.7f,
+                                "`Army Icon`（**隐藏态** · 2026-10-18：`Game Mode Icon` 按原版机制隐藏"
+                              + "（判据 → `R_DeckInfoPopup_对账.md`）；位置随之左移 108.87 ⇒ 767.9/867.9 → 659.03/759.03）");
+                        // 2026-10-18：`Game Mode Separator` 的显隐**随** `Game Mode Icon`（原版 `act` 联动；
+                        //   我们这侧 `Build()` 里那个 `if (showGmIcon)` 把它整颗包住）⇒ classic 下**整颗不建**
+                        //   （⛔ 不是「建了但关着」——判据同 `R_DeckInfoPopup_对账.md` 的 Separator 行）。
+                        CheckTrue(FindChild(pr, "Game Mode Separator") == null,
+                                  "`Game Mode Separator` 在 classic（无图标）下**整颗不建**"
+                                + "（2026-10-18：`Game Mode Icon` 按原版机制隐藏（判据 → `R_DeckInfoPopup_对账.md`）；位置随之左移 108.87）");
                         // ⚠️ `Deck Name` / `Warlord Name` 是 **`Align.Left`** ⇒ `AlignLeftOn` **会把 Label 的节点挪走**
                         //    ⇒ 拿节点中心去比 `CheckAt` 会差 100+px（第一版就是这么红的）。
                         //    **量它渲出来的左缘**（同 `已知的 MainMenuScene` 那两句的写法）。
@@ -2431,23 +2468,75 @@ public static class CollectionScene
                             var dnl = dnT != null ? dnT.GetComponentInChildren<Label>() : null;
                             // 🆕 **2026-10-16（A796′）换口**：半宽（`WorldW × 54`）→ `LabelRenderedPx`（TMP `textBounds`）；
                             //    中心仍是**节点位置**（`AlignLeft` 把 Label 节点挪走那一档没动）。
+                            // 🆕 **2026-10-18**：左缘 872.9 → **764.03**（隐藏态左移 108.87；判据同上）。
+                            // 🔴 先断「量得到 `Label`」—— 原来那个 `if (dnl != null)` 没有 `else`
+                            //    ⇒ 取不到时整条**静默空转**（同 A52-F10 那个坑）。
+                            CheckTrue(dnl != null, "（前提）`Deck Name` 底下量得到 `Label`（量不到 ⇒ 下面那条等于没验）");
                             if (dnl != null)
-                                CheckNear(PxOf(dnl.transform.position.x) - LabelRenderedPx(dnl).x * 0.5f, 872.9f, 2f,
-                                          "`Deck Name` 左缘 = **872.9**（跑后真值 · 原版 hAlign=Left）");
+                                CheckNear(PxOf(dnl.transform.position.x) - LabelRenderedPx(dnl).x * 0.5f, 764.03f, 2f,
+                                          "`Deck Name` 左缘 = **764.03**（隐藏态；2026-10-18：`Game Mode Icon` 按原版机制隐藏"
+                                        + "（判据 → `R_DeckInfoPopup_对账.md`）；位置随之左移 108.87 ⇒ 872.9 → 764.03）");
                             var wnT = FindChild(pr, "Warlord Name");
                             var wnl = wnT != null ? wnT.GetComponentInChildren<Label>() : null;
+                            CheckTrue(wnl != null, "（前提）`Warlord Name` 底下量得到 `Label`（同上）");
                             if (wnl != null)
-                                CheckNear(PxOf(wnl.transform.position.x) - LabelRenderedPx(wnl).x * 0.5f, 872.9f, 2f,
-                                          "`Warlord Name` 左缘 = **872.9**（同上）");
+                                CheckNear(PxOf(wnl.transform.position.x) - LabelRenderedPx(wnl).x * 0.5f, 764.03f, 2f,
+                                          "`Warlord Name` 左缘 = **764.03**（隐藏态 · 同 `Deck Name`）");
                         }
-                        // ② `Game Mode Icon`（A10 补的第一件）
-                        var gm = FindChild(pr, "Game Mode Icon");
-                        var gmq = gm != null ? gm.GetComponentInChildren<ImageQuad>() : null;
-                        CheckTrue(gmq != null && gmq.Texture != null
-                                  && gmq.Texture.name == "40k_gamemode_icon_classic",
-                                  "`Game Mode Icon` = `40k_gamemode_icon_classic`（这副是经典模式；"
-                                  + "原来记的「本地没图」是**过期**的 —— 两张图本来就在工程里）");
-                        CheckAt(gm, 659.0f, 759.0f, 106.7f, 216.7f, "`Game Mode Icon` 的矩形（跑后真值）");
+                        // ② `Game Mode Icon`（A10 补的第一件）—— **classic 态：不建**
+                        //   原版 `sprite = 0`、运行期 `GameModesIconCollection.GetIcon(deck.GameMode)`，
+                        //   无匹配项返回 0 ⇒ 整颗 `SetActive(false)`；我们这侧 `showGmIcon = GameMode == Skirmish`。
+                        //   2026-10-18：`Game Mode Icon` 按原版机制隐藏（判据 → `R_DeckInfoPopup_对账.md`）；
+                        //   位置随之左移 108.87。
+                        CheckTrue(FindChild(pr, "Game Mode Icon") == null,
+                                  "`Game Mode Icon` 在 **classic(0)** 下**不建**"
+                                + "（2026-10-18：`Game Mode Icon` 按原版机制隐藏（判据 → `R_DeckInfoPopup_对账.md`）；位置随之左移 108.87）");
+
+                        // ②′ **另一态 = skirmish(13)**：有图标（`40k_gamemode_icon_skirmish`）、位置回到 767.9 / 872.9。
+                        //   做法照本文件既有写法（`Practice Deck` 那一段的 `flipSaved/flipIdx`：**只改内存、验完还原**），
+                        //   重建走 `pop.Open()`（= `Build()`，与生产 `WindowsManager.OpenWindow → TryOpen → Open`
+                        //   同一条；先例 → `Editor/MainMenuScene.cs:4067` 的「原地重建」）。
+                        //   ⚠️ 断完**必须**改回原值再重建一次 —— 下面几小节（两个抽屉 / 立绘 / 队列）用的还是这棵树。
+                        //   ⚠️ 不走 `win.OpenDeckInfo(0)` 另开一扇：那会把这一扇 `ToBackground()`（`SetActive(false)`），
+                        //      后面那些 `GetComponentInChildren<Label>()`（默认跳过关着的）就全量不到了 ⇒ 会变成静默空转。
+                        {
+                            var raw0 = CollectionData.Raw(0);
+                            CheckTrue(raw0 != null, "（前提）第 1 套卡组取得到（②′ 要临时改它的 `GameMode`）");
+                            if (raw0 != null)
+                            {
+                                int gmSaved = raw0.GameMode;
+                                raw0.GameMode = (int)GameMode.Skirmish;
+                                pop.Open();                       // 原地重建（只改内存，没写盘）
+                                var sr = pop.transform;
+                                var sgmi = FindChild(sr, "Game Mode Icon");
+                                var sgq = sgmi != null ? sgmi.GetComponentInChildren<ImageQuad>() : null;
+                                CheckTrue(sgq != null && sgq.Texture != null
+                                          && sgq.Texture.name == "40k_gamemode_icon_skirmish",
+                                          "②′ `Game Mode Icon`（**skirmish 态**）= `40k_gamemode_icon_skirmish`"
+                                        + "（实得 " + (sgq == null || sgq.Texture == null
+                                                        ? "**没有图 / 没建出来**" : "`" + sgq.Texture.name + "`") + "）");
+                                CheckAt(sgmi, 659.0f, 759.0f, 106.7f, 216.7f,
+                                        "②′ `Game Mode Icon` 的矩形（有图标态 = 跑后真值 659.0→759.0）");
+                                CheckAt(FindChild(sr, "Game Mode Separator"), 759.0f, 767.9f, 106.7f, 216.7f,
+                                        "②′ `Game Mode Separator` **建出来了**（显隐随 `Game Mode Icon`）且位置 = 跑后真值");
+                                CheckAt(FindChild(sr, "Army Icon"), 767.9f, 867.9f, 106.7f, 216.7f,
+                                        "②′ `Army Icon`（**有图标态**：不左移，仍是 767.9→867.9）");
+                                var sdnT = FindChild(sr, "Deck Name");
+                                var sdnl = sdnT != null ? sdnT.GetComponentInChildren<Label>() : null;
+                                CheckTrue(sdnl != null, "（前提）②′ `Deck Name` 底下量得到 `Label`");
+                                if (sdnl != null)
+                                    CheckNear(PxOf(sdnl.transform.position.x) - LabelRenderedPx(sdnl).x * 0.5f, 872.9f, 2f,
+                                              "②′ `Deck Name` 左缘 = **872.9**（有图标态不左移）");
+                                var swnT = FindChild(sr, "Warlord Name");
+                                var swnl = swnT != null ? swnT.GetComponentInChildren<Label>() : null;
+                                CheckTrue(swnl != null, "（前提）②′ `Warlord Name` 底下量得到 `Label`");
+                                if (swnl != null)
+                                    CheckNear(PxOf(swnl.transform.position.x) - LabelRenderedPx(swnl).x * 0.5f, 872.9f, 2f,
+                                              "②′ `Warlord Name` 左缘 = **872.9**（同上）");
+                                raw0.GameMode = gmSaved;          // 还原（夹具是 classic）
+                                pop.Open();                       // 把树建回 classic 那一版给后面几小节用
+                            }
+                        }
                         // ③ 两个抽屉：出厂只有 `Deck List` 开
                         var dlist = FindChild(pr, "Deck List");
                         var dinfo = FindChild(pr, "Deck Info");
@@ -6886,15 +6975,34 @@ public static class CollectionScene
                         //     原话「直接全部卡都是最高级别的卡框，这样就不用升级了。也不需要合成卡牌了。」）
                         //     —— **那一条已被 2026-10-12 的裁定取代**（原话：「……还是恢复？**请你恢复**。
                         //     我说的是不需要升级卡牌系统，**默认最高级就是不能点击升级卡牌按钮**」）。
-                        //   ⇒ 现在断「**两块都在**且标题是原版文案**」；「升级」那颗钮的**不可交互**由上面
-                        //     那一节（`升级面板那一块`）单独钉（`Interactable == false`）—— 两件事分开验。
-                        CheckTrue(cd.TitleOf("Crafting") == "Create a copy of this card",
-                                  $"★「创建副本」那一块**在**且标题是原版文案（实测「{cd.TitleOf("Crafting")}」）"
-                                + " —— 用户 2026-10-12 裁定恢复");
+                        //   ⇒ 现在断「**两块都在**」；「升级」那颗钮的**可交互度**由下面「三块面板的动作」
+                        //     那一节（`:7301` 附近）单独钉 —— 两件事分开验。
+                        //   🔴 **2026-10-18 再改判（铁律 5 · 就地订正上面「原版文案」那句）**：用户当天把
+                        //     「升级」那块**一颗钮改成『降级 / 升级』两颗**、标题也改成他指定的字面量
+                        //     「将此张牌降级或升级」（判据 → `资料/普查产出_1018/W8_副本升级面板_按用户口径.md`）
+                        //     ⇒ 标题**不再是原版文案**（⛔ 别再断 `StartsWith("Upgrade this card")`）。
+                        // 🔴 **2026-10-18 用户口径（判据 → `资料/普查产出_1018/W14_详情窗按钮与副本文案.md` §二·3）**：
+                        //   这一格的标题已从**写死的英文**改成走**官方本地化键** `MenuDeck/Craft/CraftDescription`
+                        //   （zh 列 = **创建这张牌的副本** · en 列 = `Create a copy of this card`）⇒ **随语档**。
+                        //   ⛔ 别再写死英文 `"Create a copy of this card"` —— 出厂语言 = 中文时必红。
+                        //   ⚠️ 中 / 英两档用**字面量**（⛔ 不从 `Loc.T(键)` 反读，那是自证）；
+                        //      其余 10 语档才回落 `Loc.T(键)`（同一个键、同一张官方 13 语表）。
+                        string wantCraftTitle = Loc.Current == AvailableLanguages.Chinese ? "创建这张牌的副本"
+                                              : Loc.Current == AvailableLanguages.English ? "Create a copy of this card"
+                                              : Loc.T("MenuDeck/Craft/CraftDescription");
+                        CheckTrue(cd.TitleOf("Crafting") == wantCraftTitle,
+                                  $"★「创建副本」那一块**在**且标题 = 官方词条 `MenuDeck/Craft/CraftDescription`"
+                                + $"（实测「{cd.TitleOf("Crafting")}」，期望「{wantCraftTitle}」）"
+                                + " —— 用户 2026-10-18 口径：两句英文改中文（W14 §二·3）");
                         var upTitleTxt = cd.TitleOf("Upgrade");
-                        CheckTrue(upTitleTxt != null && upTitleTxt.StartsWith("Upgrade this card"),
-                                  $"★「升级」那一块**在**（标题实测「{upTitleTxt}」）—— 恢复"
-                                + "；**钮不可交互**由上面那一节单独钉（`Interactable == false`）");
+                        // 2026-10-18：用户拍板改法（判据 → `W8_副本升级面板_按用户口径.md`）：
+                        //   标题从原版文案 `Upgrade this card\nto level N` 改成**用户指定的字面量**
+                        //   「将此张牌降级或升级」——用户原话：「上面的文字『将此张牌升级至等级x』
+                        //   改为『将此张牌降级或升级』」。一颗钮改两颗之后，本来也没有「升到第 N 级」这个说法了。
+                        //   ⛔ 别断回 `StartsWith("Upgrade this card")`，也别把这句往 `official_loc` 里塞键。
+                        CheckText(upTitleTxt, "将此张牌降级或升级",
+                                  $"★「升级」那一块**在**且标题 = 用户 2026-10-18 指定的字面量（实测「{upTitleTxt}」）"
+                                + " —— 判据 → `资料/普查产出_1018/W8_副本升级面板_按用户口径.md`");
                         CheckText(cd.TitleOf("AltArt"), "Alternate art",
                                   "异画面板标题 —— ⚠️ 原版这一格印的是**升级文案**（复制粘贴 bug），**我们不抄那个 bug**（出声）");
                         // 计数条：格式 = `x{min(拥有,卡组上限)}` + `"/ "` + `{拥有−该数}`
@@ -6955,9 +7063,12 @@ public static class CollectionScene
                                 CheckTrue(flb.AutoSizing,
                                           $"★ `{fc.Name}` **真的开了自适应**（原版 `m_enableAutoSizing = 1`）"
                                         + " —— 改坏法：`CardDetailPopup` 那三处 `wrapPx` 传回 `0f` ⇒ 这一段永不执行、本行红");
-                                CheckNear(Label.FontSizeToPx(flb.FontSizeMin), fc.Min, 0.05f,
+                                // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace` ——
+                                //   `CardDetailPopup` 这些字段是 `LatinCardBody`（`Shell/CardDetailPopup.cs:1398-1424`）；
+                                //   `EmPerFontSize` 自本日起按面分两支（CJK 0.0948 / 拉丁 0.1）⇒ 静态口恒差 5.2%。
+                                CheckNear(flb.FontSizeToPxNow(flb.FontSizeMin, flb.ActualFace), fc.Min, 0.05f,
                                           $"`{fc.Name}` 自适应下限 = 原版 `m_fontSizeMin` **{fc.Min:F1}px**");
-                                CheckNear(Label.FontSizeToPx(flb.FontSizeMax), fc.Max, 0.05f,
+                                CheckNear(flb.FontSizeToPxNow(flb.FontSizeMax, flb.ActualFace), fc.Max, 0.05f,
                                           $"`{fc.Name}` 自适应上限 = 原版 `m_fontSizeMax` **{fc.Max:F1}px**"
                                         + "（= 原版 `m_fontSize`；⛔ 不是我们那一侧的字号常量）");
                                 Check(flb.WrappingMode, 0,
@@ -7014,7 +7125,8 @@ public static class CollectionScene
                                 CheckTrue(alb != null, $"`{ac.Name}` 上找得到 `Label`（A574/A575 要量 base 与落位）");
                                 if (alb == null) continue;
                                 // ---- A574：`m_fontSizeBase`（自适应起点；`Label.FontSizeBase` 反射读 TMP 那个 protected 字段）
-                                CheckNear(Label.FontSizeToPx(alb.FontSizeBase), ac.BasePx, 0.5f,
+                                // 🔴 **2026-10-18（`N55`）**：口径按 `ActualFace`（本件字段 = `LatinCardBody`，理由同上）
+                                CheckNear(alb.FontSizeToPxNow(alb.FontSizeBase, alb.ActualFace), ac.BasePx, 0.5f,
                                           $"`{ac.Name}` 的自适应 **base = 原版 `m_fontSizeBase` {ac.BasePx:F0}px**"
                                         + " —— 改坏法：`CardDetailPopup` 那三处不传第 10 参 ⇒ 落到标称档 52.6/57/52.6");
                                 // ---- A575：整块的落位。块宽是**渲出来的**真测量（TMP 自己那块 `textBounds`
@@ -7165,11 +7277,12 @@ public static class CollectionScene
                                     CheckTrue(sgLb.AutoSizing,
                                               "★ …**真的开了自适应**（原版 MB `1893` 的 `m_enableAutoSizing = 1`）"
                                             + " —— 改坏法：`wrapPx` 传 `0f` ⇒ 自适应那一段整段不执行、本条红");
-                                    CheckNear(Label.FontSizeToPx(sgLb.FontSizeMax), 35f, 0.05f,
+                                    // 🔴 **2026-10-18（`N55`）**：口径按 `ActualFace`（同族理由见 `fitCases` 之前那条）
+                                    CheckNear(sgLb.FontSizeToPxNow(sgLb.FontSizeMax, sgLb.ActualFace), 35f, 0.05f,
                                               "★ …自适应上限 = 原版 `m_fontSizeMax` **35px**（= `m_fontSize`；⛔ 不是 dup 那颗的 52.6）");
-                                    CheckNear(Label.FontSizeToPx(sgLb.FontSizeMin), 25f, 0.05f,
+                                    CheckNear(sgLb.FontSizeToPxNow(sgLb.FontSizeMin, sgLb.ActualFace), 25f, 0.05f,
                                               "…自适应下限 = 原版 `m_fontSizeMin` **25px**（⛔ 不是 `Duplicates text` 那个 18）");
-                                    CheckNear(Label.FontSizeToPx(sgLb.FontSizeBase), 36f, 0.5f,
+                                    CheckNear(sgLb.FontSizeToPxNow(sgLb.FontSizeBase, sgLb.ActualFace), 36f, 0.5f,
                                               "…自适应 base = 原版 `m_fontSizeBase` **36px**"
                                             + " —— 改坏法：不传第 10 参 ⇒ base 落到字号本身（35）⇒ 本条红");
                                     Check(sgLb.WrappingMode, 0,
@@ -7204,27 +7317,205 @@ public static class CollectionScene
                             CheckTrue(FindChild(cnt4, "Duplicate Counter") != null && FindChild(cnt4, "Single Counter") == null,
                                       "★ 还原后又**切回 `Duplicate Counter`**（两支来回都走得通 —— 不是只搭了个壳）");
                         }
-                        // 三块面板的动作：🔴 2026-10-12 起 —— **创建副本只出声（不改拥有数）** · **升级那颗钮不可交互**
-                        //   判据与两条待裁候选 → 账 `A1699`；⛔ 这里不许再断「点了会 +1」那种旧行为。
+                        // 三块面板的动作：🔴 **2026-10-18 用户当天第二轮拍板**
+                        //   （判据 → `资料/普查产出_1018/W8_副本升级面板_按用户口径.md`）：
+                        //   · 「创建副本」= **点击但不起作用**（用户原话：「点击副本，但是不起作用」）：
+                        //     `CraftHit` → `OnCraftClicked()` **只打日志** ⇒ 钮**恒可交互**、
+                        //     拥有数 / 通配符 / **存档**都不变。真扣减 `DoCraft()` 的代码保留，但**不再从 UI 调**。
+                        //     🔴 **同日用户追加**：「**这个继续保留音效啊**」⇒ 点下去**有按钮音**
+                        //     （实现 = `CardDetailPopup.BuildCrafting` 里 `playClickSound = true`）。
+                        //     ⚠️ **音效本身不写成断言**：批处理没有音频输出，能断的只有
+                        //     `WindowButton.playClickSound` 这个**实现里的字段**（拿被测实现当检测器 = 自证），
+                        //     而且它证明不了「真响了」⇒ 这里只断「数据一个都不动」，音效请真机听。
+                        //   · 「升级 / 降级」= **两颗并列钮**：置灰**只看等级上下限**（1 级灰降级、4 级灰升级），
+                        //     点一下等级 ±1 ⇒ 卡框换档（判据 = 「卡框档 = 等级」那条链）。
+                        //   ⚠️ **旧口径已作废**（2026-10-12「Craft 只出声」；同日早些时候 W5「Craft 真扣、
+                        //     Upgrade 可交互度 = `CanUpgrade`」）—— ⛔ 别再断回
+                        //     「Craft 按通配符库存变灰 / 点了 owned+1 且通配符−1 / Upgrade == CanUpgrade」。
                         int cap = CardProgress.DeckCap(cd.Card.Rarity);
                         int owned0 = CardProgress.Owned(cd.Card.Id, cd.Card.Rarity);
+                        int wc0 = CardProgress.Wildcards(cd.Card.Rarity);
+                        // 存档快照（点之前）：比的是**玩家真存档文件的字节**。
+                        //   `CardProgress.ResetForTest()` 已把落盘关掉（`_persist = false`）⇒ 这份文件
+                        //   本来就不该被本进程碰过；「点完前后逐字节相同（含两边都不存在）」就是
+                        //   「点了不起作用、不落盘」的直接读数。⛔ 别拿 `CardProgress` 的内存值顶替它
+                        //   —— 那两份（拥有数 / 通配符）下面各有一条，三条互补、一条都不能省。
+                        string craftSavePath = System.IO.Path.Combine(Application.persistentDataPath, CardProgress.SaveFileName);
+                        byte[] craftSave0 = System.IO.File.Exists(craftSavePath)
+                                          ? System.IO.File.ReadAllBytes(craftSavePath) : null;
                         var ch = cd.CraftHit; var chb = ch != null ? ch.GetComponent<WindowButton>() : null;
+                        // （前提·不静默）拿不到那颗钮**不许静默跳过**下面三条 —— 只有「`special` 空价 ⇒ 整块不建」
+                        //   这一档允许（判据 = 原版 `CraftingPanel__CheckButtons.c`）。本节取的是卡池第 1 格，
+                        //   真拿到一颗非 `special` 的卡却少了钮，那就是缺陷，红在这里。
+                        if (chb == null)
+                            CheckTrue(cd.Card.Rarity == "special",
+                                      $"（前提·不静默）`CraftHit` 拿不到 ⇒ 只允许出现在 `special`（空价整块不建）那一档；"
+                                    + $"本节的卡是 `{cd.Card.Rarity}`（{cd.Card.Name}）");
                         if (chb != null)
                         {
+                            // 🔴 2026-10-18：**恒可点**（`CardDetailPopup.BuildCrafting` 的 `Interactable = true`
+                            //   + `playClickSound = true` —— 用户追加「这个继续保留音效啊」，⛔ 别再关掉）。
+                            //   用户要的是「点击**但不起作用**」，不是「点不动」
+                            //   ⇒ 判据**不再是**「这种稀有度还有没有通配符」（那里现在恒 `true`）。
+                            CheckTrue(chb.Interactable,
+                                      $"`Craft` 那颗钮**恒可交互**（现有 {wc0} 张通配符也不影响）"
+                                    + " —— 用户 2026-10-18：「点击副本，但是不起作用」⇒ 保持可点外观，⛔ 别按库存变灰");
                             chb.Click();
                             Check(CardProgress.Owned(cd.Card.Id, cd.Card.Rarity), owned0,
-                                  $"点 `Craft` ⇒ 拥有数**不变**（仍是 {owned0}）—— 本版**只出声**、"
-                                  + "不实现真机制（⛔ 不许静默：出声在 `OnCraftClicked`）");
+                                  $"点 `Craft` ⇒ 拥有数**不变**（仍是 {owned0}）"
+                                + " —— `OnCraftClicked` 是空操作（只打日志），`DoCraft()` 不由 UI 调用");
+                            Check(CardProgress.Wildcards(cd.Card.Rarity), wc0,
+                                  $"★ …而且**一张通配符都不扣**（仍是 {wc0}）"
+                                + " —— 多扣/没扣都红；并直接咬住「别把调用点改回 `DoCraft()`」");
+                            // 🆕 **2026-10-18 用户口径（判据 → `资料/普查产出_1018/W14_详情窗按钮与副本文案.md`）**：
+                            //   「点击副本，但是不起作用」⇒ **存档也不动**（前两条只断内存里的两个数）。
+                            byte[] craftSave1 = System.IO.File.Exists(craftSavePath)
+                                              ? System.IO.File.ReadAllBytes(craftSavePath) : null;
+                            bool saveSame = craftSave0 == null ? craftSave1 == null
+                                                              : (craftSave1 != null && craftSave0.Length == craftSave1.Length);
+                            if (saveSame && craftSave0 != null)
+                                for (int bi = 0; bi < craftSave0.Length; bi++)
+                                    if (craftSave0[bi] != craftSave1[bi]) { saveSame = false; break; }
+                            CheckTrue(saveSame,
+                                      $"★ 点 `Craft` ⇒ **存档文件一个字节都没动**（`{CardProgress.SaveFileName}`："
+                                    + (craftSave0 == null ? "点前不存在" : $"点前 {craftSave0.Length} 字节")
+                                    + " → "
+                                    + (craftSave1 == null ? "点后不存在" : $"点后 {craftSave1.Length} 字节")
+                                    + "）—— `OnCraftClicked` 是空操作；⛔ 别让它回头调 `DoCraft()` / `Save()`");
                         }
                         int lv0 = CardProgress.Level(cd.Card.Id);
+                        bool canUp = CardProgress.CanUpgrade(cd.Card.Id, cd.Card.Rarity);
+                        // ============================================================ 🆕 2026-10-18：「降级」钮
+                        // 用户拍板改法（判据 → `资料/普查产出_1018/W8_副本升级面板_按用户口径.md` §二）：
+                        //   一颗钮改**两颗并列**（『降级』`DowngradeHit` / 『升级』`UpgradeHit`）；
+                        //   **等级 = 1 时「降级」不可交互、> 1 时可交互**，点一下等级 −1 ⇒ 卡框降一档
+                        //   （`DoDowngrade`，与「升级」完全对称）。
+                        // ⚠️ 这里**用 `SetLevel` 摆出两档再逐档断**，不依赖夹具进来时的等级
+                        //   （铁律 5·c：一种情况 ≠ 全部；且两档都要真断到）。
+                        // ⚠️ `RebuildKeepingState()` / `ShowCard()` 会**整棵重建** ⇒ 每次重建后都要重新取
+                        //   `DowngradeHit` / `SlotView(0)`，⛔ 不能缓存重建前的 Transform。
+                        {
+                            int lvSave = CardProgress.Level(cd.Card.Id);
+                            CheckTrue(cd.DowngradeHit != null,
+                                      "★「降级」那颗钮**存在**（`CardDetailPopup.DowngradeHit`）"
+                                    + " —— 用户 2026-10-18：一颗钮改两颗并列");
+                            // ① 等级 1 ⇒ 钮灰（用户口径：最低级**不提示**，只把钮灰掉）
+                            CardProgress.SetLevel(cd.Card.Id, 1);
+                            cd.ShowCard(cd.Card);
+                            var d1 = cd.DowngradeHit != null ? cd.DowngradeHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(d1 != null && !d1.Interactable,
+                                      "★ 等级 **1** ⇒「降级」钮**不可交互**"
+                                    + " —— 判据 = `BuildUpgrade` 的 `downWb.Interactable = !minned`（用户 2026-10-18 口径）");
+                            // ② 等级 2 ⇒ 钮可点；点一下 ⇒ 回到 1，且卡框回到 `_tier1`
+                            CardProgress.SetLevel(cd.Card.Id, 2);
+                            cd.ShowCard(cd.Card);
+                            var d2 = cd.DowngradeHit != null ? cd.DowngradeHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(d2 != null && d2.Interactable,
+                                      "★ 等级 **2** ⇒「降级」钮**可交互**（等级 > 1 就不再灰）");
+                            if (d2 != null)
+                            {
+                                var dvBefore = cd.SlotView(0);
+                                string dtierBefore = dvBefore != null && dvBefore.FrameTexture != null
+                                                   ? dvBefore.FrameTexture.name : null;
+                                d2.Click();
+                                Check(CardProgress.Level(cd.Card.Id), 1,
+                                      "★ 点 `Downgrade` ⇒ 等级 **2 → 1**（`DoDowngrade` 的 `SetLevel(before − 1)`）");
+                                var dvAfter = cd.SlotView(0);
+                                string dtierAfter = dvAfter != null && dvAfter.FrameTexture != null
+                                                  ? dvAfter.FrameTexture.name : null;
+                                CheckTrue(dtierAfter != null && dtierAfter.Contains("_tier1"),
+                                          $"★ …而且**卡框降到第 1 档**（`{dtierBefore}` → `{dtierAfter}`）"
+                                        + " —— 判据与「升级」同一条链（`CardView.Build` 里读 `CardProgress.Level(d.artId)`；"
+                                        + "⛔ 别在 `DoDowngrade` 里另算一份卡框档）");
+                            }
+                            // ③ 收尾：等级还原成进这一块之前的值（后面的断言与 `Shoot` 都按原状态走）
+                            CardProgress.SetLevel(cd.Card.Id, lvSave);
+                            cd.ShowCard(cd.Card);
+                            Check(CardProgress.Level(cd.Card.Id), lvSave,
+                                  $"（收尾）等级还原成 {lvSave}（后面的断言与 `Shoot` 都按原状态走）");
+                        }
+                        // ⚠️ 上面那一块重建过整棵树 ⇒ `UpgradeHit` 必须**现在**取（下面的 `uhb` 是新树上的）
                         var uh = cd.UpgradeHit; var uhb = uh != null ? uh.GetComponent<WindowButton>() : null;
                         if (uhb != null)
                         {
-                            CheckTrue(!uhb.Interactable,
-                                      "`Upgrade` 那颗钮 `Interactable == false`（默认最高级 ⇒ 点不动）");
+                            // 🔴 2026-10-18：可交互度**只看等级上限**（`lv == MaxLevel` ⇒ 灰），
+                            //   判据 = `BuildUpgrade` 的 `upWb.Interactable = !maxed`（用户点名的就是等级那一档）。
+                            //   ⚠️ 「多余副本够不够」仍由 `DoUpgrade()` 自己把着（不够就出声、不升级）——
+                            //   只是**不再拿它决定钮灰不灰**。⛔ 别改回 `uhb.Interactable == canUp`。
+                            bool belowMax = lv0 < CardProgress.MaxLevel;
+                            CheckTrue(uhb.Interactable == belowMax,
+                                      $"`Upgrade` 那颗钮的可交互度 = 「等级 < {CardProgress.MaxLevel}」（{belowMax}；等级 {lv0}）"
+                                    + " —— 用户 2026-10-18：两颗钮并列，置灰只看等级上下限（⛔ 不是 `CanUpgrade`）");
+                            var viewBefore = cd.SlotView(0);
+                            string tierBefore = viewBefore != null && viewBefore.FrameTexture != null
+                                              ? viewBefore.FrameTexture.name : null;
                             uhb.Click();
-                            Check(CardProgress.Level(cd.Card.Id), lv0,
-                                  $"点了 `Upgrade` ⇒ 等级**不变**（仍是 {lv0}）—— 不可交互 ⇒ `Click()` 应当什么都没做");
+                            if (canUp)
+                            {
+                                Check(CardProgress.Level(cd.Card.Id), lv0 + 1,
+                                      $"★ 点 `Upgrade` ⇒ 等级 **{lv0} → {lv0 + 1}**（`DoUpgrade` 的 `SetLevel(before + 1)`）");
+                                var viewAfter = cd.SlotView(0);
+                                string tierAfter = viewAfter != null && viewAfter.FrameTexture != null
+                                                 ? viewAfter.FrameTexture.name : null;
+                                CheckTrue(tierAfter != null && tierAfter.Contains("_tier" + (lv0 + 1)),
+                                          $"★ …而且**卡框换到第 {lv0 + 1} 档**（`{tierBefore}` → `{tierAfter}`）"
+                                        + " —— 判据 = 原版 `UpgradePanel.ChangeFrameOnLevelUp` → "
+                                        + "`CardFramesSO.GetClanFrame(army, tier, cardType)`（等级就是卡框档）");
+                            }
+                            else if (belowMax)
+                            {
+                                // 到了这里 = 等级没满但**多余副本不够**（`DoUpgrade` 的第二道闸）——
+                                // 钮是可点的（置灰只看等级），点下去方法自己拒绝 ⇒ 等级不变。
+                                Check(CardProgress.Level(cd.Card.Id), lv0,
+                                      $"点了 `Upgrade` ⇒ 等级**不变**（仍是 {lv0}）—— 等级没满（钮可点），"
+                                    + $"但 `DoUpgrade` 的 `CanUpgrade` 闸拦下了（多余副本 "
+                                    + $"{CardProgress.Spares(cd.Card.Id, cd.Card.Rarity)} < 需要 "
+                                    + $"{CardProgress.NeedCopies[lv0 + 1]}）");
+                            }
+                            else
+                            {
+                                Check(CardProgress.Level(cd.Card.Id), lv0,
+                                      $"点了 `Upgrade` ⇒ 等级**不变**（仍是 {lv0}）—— 已满级 ⇒ 钮灰着、`Click()` 被挡");
+                            }
+                        }
+                        // ============================================================ 🆕 2026-10-18：`Content` / 满级提示
+                        // 用户拍板改法（判据 → `资料/普查产出_1018/W8_副本升级面板_按用户口径.md` §三·2）：
+                        //   ① `Content` **常显**（满级也常显 —— 否则满级后「降级」钮跟着消失，
+                        //      用户要的「降级」在最高档直接失效）；
+                        //   ② `No Upgrade Warning` **仍只在满级露**（用户口径：「保留满级提示那一支」）。
+                        //   ⚠️ 原版那两句 `content.SetActive(!maxed)` / `w.SetActive(maxed)` 的互斥口径
+                        //      **只在「只有一颗升级钮」时成立** ⇒ 这里按用户改法断，别照原版改回去。
+                        {
+                            int lvBak = CardProgress.Level(cd.Card.Id);
+                            // 先摆到**未满级**那一档再断（`lvBak` 可能正好是满级 —— 铁律 5·c：别只测一种情况）
+                            CardProgress.SetLevel(cd.Card.Id, 1);
+                            cd.ShowCard(cd.Card);
+                            // ⚠️ `ShowCard` 整棵重建 ⇒ `Find` 必须在重建**之后**（旧 Transform 已销毁）
+                            var upPanel = cd.transform.Find("Card Options Panel/Panel/Upgrade Panel");
+                            CheckTrue(upPanel != null, "（前提）找得到 `Card Options Panel/Panel/Upgrade Panel`");
+                            var contentNow = upPanel != null ? upPanel.Find("Content") : null;
+                            CheckTrue(contentNow != null && contentNow.gameObject.activeSelf,
+                                      "★ 等级 1（未满级）⇒ `Upgrade Panel/Content` **常显**");
+                            var warnNow = cd.NoUpgradeWarn;
+                            CheckTrue(warnNow != null && !warnNow.gameObject.activeSelf,
+                                      "…此时 `No Upgrade Warning` **不露**（只在满级露）");
+                            // 满级：`Content` 仍显 + 警告露出 + 「升级」钮灰
+                            CardProgress.SetLevel(cd.Card.Id, CardProgress.MaxLevel);
+                            cd.ShowCard(cd.Card);
+                            var contentMax = cd.transform.Find("Card Options Panel/Panel/Upgrade Panel/Content");
+                            CheckTrue(contentMax != null && contentMax.gameObject.activeSelf,
+                                      $"★ **满级（{CardProgress.MaxLevel}）**时 `Content` 仍**常显**"
+                                    + " —— ⛔ 别照原版「满级 ⇒ 整组关」改回去（那样「降级」在最高档失效）");
+                            var warnMax = cd.NoUpgradeWarn;
+                            CheckTrue(warnMax != null && warnMax.gameObject.activeSelf,
+                                      "★ **满级** ⇒ `No Upgrade Warning` **露出来**（用户口径：保留满级提示那一支）");
+                            var upMax = cd.UpgradeHit != null ? cd.UpgradeHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(upMax != null && !upMax.Interactable,
+                                      $"★ 满级（{CardProgress.MaxLevel}）⇒「升级」钮**不可交互**（可交互度 = 等级上下限）");
+                            CardProgress.SetLevel(cd.Card.Id, lvBak);
+                            cd.ShowCard(cd.Card);
+                            Check(CardProgress.Level(cd.Card.Id), lvBak,
+                                  $"（收尾）等级还原成 {lvBak}（后面的断言按原状态走）");
                         }
                         // `Show Card Text` 切效果文字条；语音钮「没有就出声」
                         var ehit = cd.EyeHit; var ehb = ehit != null ? ehit.GetComponent<WindowButton>() : null;
@@ -8437,7 +8728,13 @@ public static class CollectionScene
             //        **判据与两条待裁候选 → 账 `A1699`**。
             //   ⚠️ **旧口径留痕（铁律 5）**：本节原来断的是「两块面板**都不建**」（2026-09-27 用户拍板
             //     「直接全部卡都是最高级别的卡框…也不需要合成卡牌了」）—— **那一条已被 2026-10-12 的裁定取代**。
-            Section("卡片详情窗 · 「创建副本」/「升级」两块面板已恢复（升级钮不可交互）");
+            //   🔴 **2026-10-18 再改判（就地订正上面 ②③ 两条）**：用户当天先拍板「照参考图布置两块面板」+
+            //     「**通过升级按钮进行不同等级的卡框切换**」（判据 → `资料/普查产出_1018/W5_升级与副本_落地.md`），
+            //     **同日第二轮又改**（判据 → `资料/普查产出_1018/W8_副本升级面板_按用户口径.md`）：
+            //     「创建副本」= **点击但不起作用**（钮恒可点、点了什么都不变）；
+            //     「升级 / 降级」= **两颗并列钮**，置灰只看等级上下限。
+            //     ⇒ 本节只断「面板 / 两颗钮建没建 + 升级钮的可交互度」；**行为**由上面那一节（`:7310` 附近）逐条钉。
+            Section("卡片详情窗 · 「创建副本」/「升级」两块面板已恢复（行为：2026-10-18 起接真机制）");
             foreach (var want in new[] { "common", "rare", "epic", "legendary", "special" })
             {
                 CardDef cd = null;
@@ -8450,18 +8747,54 @@ public static class CollectionScene
                 // 「创建副本」那一块：**可合成的稀有度才建**（`special` 空价 ⇒ 整块不建；判据 = 原版
                 //   `CraftingPanel__CheckButtons.c`：空价 ⇒ `SetActive(0)`，**不是变灰**）
                 bool craftable = want != "special";
-                CheckTrue((FindChild(dw.transform, "Craft Icon") != null) == craftable,
-                          $"★ `{want}`：`Craft Icon` {(craftable ? "**要建**" : "**不许建**")}"
-                          + $"（本作不做合成 ⇒ `special` 那档整块不建）—— 拿 `{cd.Name}` 试的");
+                // 🔴 **2026-10-18 用户口径（判据 → `资料/普查产出_1018/W14_详情窗按钮与副本文案.md` §二）**：
+                //   用户原话「创建副本按钮**去掉数字，只留『创建副本』四个字**」⇒ 钮上原来那两件**不再建**：
+                //   ① `Craft Text`（原版那颗「1」）· ② `Craft Icon`（原版 `WC icon` 通配符小图）；
+                //   换成一个 `Craft Label`（文本 = 字面量 **创建副本**，36px）。
+                //   ⚠️ **旧断言 `(Craft Icon 存在) == craftable` 已过期** —— 该节点现在**哪一档都不建**，
+                //      所以改成「三件逐件断」：图标/数字恒无 · 四个字可合成档才有、且文本逐字相等。
+                //      ⛔ 别改回「按稀有度建图标」。
+                CheckTrue(FindChild(dw.transform, "Craft Icon") == null,
+                          $"★ `{want}`：`Craft Icon` **哪一档都不建**（用户 2026-10-18：钮上只留四个字）"
+                          + $"—— 拿 `{cd.Name}` 试的");
+                CheckTrue(FindChild(dw.transform, "Craft Text") == null,
+                          $"★ `{want}`：`Craft Text`（原版那颗「1」）**也不建**（同一条口径：去掉数字）"
+                          + $"—— 拿 `{cd.Name}` 试的");
+                var craftLb = FindChild(dw.transform, "Craft Label");
+                if (craftable)
+                {
+                    CheckTrue(craftLb != null,
+                              $"★ `{want}`：`Craft Label` **建出来了**（顶替原来的 `Craft Text` + `Craft Icon`）"
+                              + $"—— 拿 `{cd.Name}` 试的");
+                    CheckText(TextOf(craftLb), "创建副本",
+                              $"★ `{want}`：`Craft Label` 的文本 = **创建副本**"
+                            + "（用户 2026-10-18 指定的字面量，**不是**原版词条 —— 原版那颗钮上没有字）");
+                }
+                else
+                {
+                    // `special` 空价 ⇒ 整块不建（原版 `SetActive(0)`）⇒ 新加的 `Craft Label` 也不许在
+                    CheckTrue(craftLb == null,
+                              $"★ `{want}`：整块不建 ⇒ `Craft Label` 也**不许建**"
+                            + $"（判据 = 原版 `CraftingPanel__CheckButtons.c` 空价 `SetActive(0)`）—— 拿 `{cd.Name}` 试的");
+                }
                 // 「升级」那一块：**一律建**（用户 2026-10-12：面板要回来）
                 CheckTrue(FindChild(dw.transform, "Upgrade Title") != null,
                           $"★ `{want}`：`Upgrade Title` **建出来了**（面板不许再被停掉）—— 拿 `{cd.Name}` 试的");
-                // 🔴 那颗钮**不可交互**（默认最高级）—— 判据 = 用户 2026-10-12 原话；
-                //   实现落点 = `CardDetailPopup` 的 `upWb.Interactable = false`（必须排在 `Bind`/`Hit` 之后，见那个文件）
+                // 🔴 **2026-10-18 第二轮（判据 → `资料/普查产出_1018/W8_副本升级面板_按用户口径.md`）**：
+                //   升级钮的可交互度**只看等级上限**（`lv == MaxLevel` ⇒ 灰），实现落点 =
+                //   `CardDetailPopup.BuildUpgrade` 的 `upWb.Interactable = !maxed`。
+                //   ⚠️ 同日早些时候那一版「可交互度 = `CanUpgrade`」**已作废**（⛔ 别断回来）；
+                //   更早的「恒不可交互（默认最高级）」也在 2026-10-18 作废。
                 var upb1 = dw.UpgradeHit != null ? dw.UpgradeHit.GetComponent<WindowButton>() : null;
-                CheckTrue(upb1 != null && !upb1.Interactable,
-                          $"★ `{want}`：`Upgrade` 那颗钮**不可交互**（`Interactable == false`；"
-                          + $"默认最高级 ⇒ 点不动，⛔ 不是把面板删掉）—— 拿 `{cd.Name}` 试的");
+                int lv1 = CardProgress.Level(cd.Id);
+                bool belowMax1 = lv1 < CardProgress.MaxLevel;
+                CheckTrue(upb1 != null && upb1.Interactable == belowMax1,
+                          $"★ `{want}`：`Upgrade` 那颗钮的可交互度 = 「等级 < {CardProgress.MaxLevel}」（{belowMax1}；"
+                          + $"等级 {lv1}、多余副本 {CardProgress.Spares(cd.Id, cd.Rarity)}）"
+                          + $"—— 拿 `{cd.Name}` 试的");
+                // 同一处：用户 2026-10-18 把一颗钮改成两颗 ⇒「降级」那颗**必须也在**（缺了就是改法没落地）
+                CheckTrue(dw.DowngradeHit != null,
+                          $"★ `{want}`：「降级」那颗钮**在**（`CardDetailPopup.DowngradeHit`）—— 拿 `{cd.Name}` 试的");
                 // 🆕 A17：卡片详情窗的两颗圆钮（语音 / 显示卡面文字）
                 if (want == "common") CheckHoverSwap(dw.transform, "卡片详情窗");
                 dw.Close();

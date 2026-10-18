@@ -107,6 +107,22 @@ namespace CardPresentation
         public const string BtnLabelTerm = "Demo/AvatarMenu/SelectAvatarButton";
         /// <summary>原版 prefab 出厂原文（葡语占位 `Selecionar`）—— ⛔ 不上屏，只留作判据。</summary>
         public const string BtnLabelFactory = "Selecionar";
+        /// <summary>🔴 **2026-10-18（`W22`）**：`Toggle borde/Button Text` 的**官方词条键** ——
+        /// **判据是 prefab 自己**（不是猜的）：`Avatar Tab/Selected Item Panel/Toggle borde/Button Text`
+        /// 那件 GameObject 上挂的 `Localize` 组件 `mTerm = "Demo/AvatarMenu/ToggleBorder"`。
+        /// <para>读法/实例（三颗同族 `Toggle borde` 逐颗按 pid 现读，`mTerm` **全同**）：
+        /// `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-6561044466830837198.json`（**Avatar Tab** · 本页用的这颗）·
+        /// `MonoBehaviour_-2955158983638475911.json`（`Profile Cosmetic Tab`）·
+        /// `MonoBehaviour_-9170721748395918798.json`（`Title Tab` —— 那页的 `Toggle borde` 是**死节点**，我们不建）。
+        /// 三颗的 `m_Script.m_PathID = 8610481073976370760`（= `Localize`），组件表里与 TMP 并列。</para>
+        /// <para>官方 13 语言表（`Resources/official_loc_13lang.json` 现读，键在索引 **5907**）=
+        /// `Toggle Border` / **`切换边框`**（13 列**全非空**：es `Alternar Borde` · ru `Переключить рамку` · …）。</para>
+        /// <para>⚠️ 这条键**不在手写 `Loc.Table` 里**（`Loc.HasEntry` = false，本批白名单也不允许动 `Core/**`），
+        /// 但 `Loc.T` 自 **2026-10-18（`N71`）** 起在「`Table` → bulk → **官方全表**」的第三档会兜到它
+        /// ⇒ 中/英/其余 10 语言**四档都能取到**（⛔ 别写死中文、⛔ 别在本文件再抄一份本地兜底）。</para></summary>
+        public const string ToggleBorderTerm = "Demo/AvatarMenu/ToggleBorder";
+        /// <summary>原版 prefab 那颗 TMP 的**出厂原文**（`'Toggle Border'`）—— ⛔ 不上屏，只留作判据
+        /// （与 `TtlLabelFactory` / `BtnLabelFactory` 同口径；上屏走 `Loc.T(ToggleBorderTerm)`）。</summary>
         public const string ToggleBorderLabel = "Toggle Border";
 
         /// <summary>`Item Display Panel` + 它的三件（与 `Title Tab` 逐位相同 —— 同一套壳）。</summary>
@@ -116,7 +132,10 @@ namespace CardPresentation
         /// <summary>`Select Item` 的**出厂原文**（原版 prefab 那颗 TMP 的 `m_text = "Select your avatar"`）。
         /// 🔴 **2026-10-17（`A1756`）起上屏走词条** `Demo/AvatarMenu/SelectAvatar`
         /// （官方两列 = `Select your avatar` / `选择你的头像`；同值键还有 `PlayerProfile/SelectAvatarTip`）
-        /// ⇒ ⛔ 别再把这个常量直接印到界面上。</summary>
+        /// ⇒ ⛔ 别再把这个常量直接印到界面上。
+        /// ✅ **2026-10-18（W18）判据已坐实**（不再是「同值推断」）：该件 GameObject 上的 `Localize`
+        /// 组件 `mTerm = "Demo/AvatarMenu/SelectAvatar"`（读法同 `TitleTab.TtlLabelTerm` 那段注释；
+        /// 文件 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_3351280201059105330.json`）。</summary>
         public const string TtlLabelFactory = "Select your avatar";
         public const string ArtPanel = "UI_Deck_Information_submenu_Back";
         public static readonly Vector4 PanelBorder = new Vector4(18f, 18f, 18f, 18f);
@@ -235,8 +254,15 @@ namespace CardPresentation
             if (_bigHighlight != null) _bigHighlight.gameObject.SetActive(false);
             // ⚠️ **别用 `Rect(ic, null, …)`** —— `CardArt.Solid()` 是**不透明白块**，会变成面板正中一大块白。
             //    没有图就**不建**（`CosmeticRect` 取不到时返回 null）。
+            // 🔴🔴 **2026-10-18（W18）画序订正（铁律 5）**：原来是 `Highlight 4 → Image 4 → Border 5`
+            //    —— **立绘被边框压住**，而 `Player_Profile_Border` 的中心是**不透明黑**
+            //    （实测 RGBA `(0,0,0,255)`）⇒ 大图那块整片黑、头像一张看不见（用户 2026-10-18 真机点名）。
+            //    原版兄弟序 = **`Highlight → Border → Image`**（`Image` 最后 = 画在最上面）
+            //    ⇒ 队列必须是 `Highlight 4 < Border 5 < Image 6`。同族先例（已收口）：
+            //    `ProfileTab.L_ArtOverFrame` / `RankedTab.L_ArtOverFrame` / `TopBar.QBarAvatarFrame<QBarAvatar`。
+            WarnIfAvatarMissing(Avatars.Count > 0 ? Avatars[Selected].Art : null);
             _bigArt = CosmeticRect(ic, Avatars.Count > 0 ? Avatars[Selected].Art : null,
-                                   new PxRect(ImL, ImT, ImR, ImB), "Image", 4);
+                                   new PxRect(ImL, ImT, ImR, ImB), "Image", 6);
             Rect(ic, ArtBorder, new PxRect(BdL, BdT, BdR, BdB), "Border", 5, null, true);
             // 🔴 **2026-10-07（A62 子表 A · A28）**：原版 `Avatar Tab > Selected Item Panel > Avatar Name`
             //   （`'TEST NAME'`）是 **`折行=0 auto[15~35]`**（判据 = `md "Player Profile Window" --depth 25 --md`）
@@ -267,7 +293,10 @@ namespace CardPresentation
             // 🔴 **A62 · A30**：原版 `Toggle borde > Button Text`（`'Toggle Border'`）**`折行=0 auto[10~36]`** ⇒ 关掉。
             // 🔴 **A406**：`Avatar Tab/Selected Item Panel/Toggle borde/Button Text`
             //   原版 `auto[10.0~36.0] 基准=12.0` ⇒ 上限 36 · base **12.0**（与上面那颗**同值但是两棵、各读过一次**）。
-            var tbTx = Text(tbn, ToggleBorderLabel, new PxRect(TbtL, TbtT, TbtR, TbtB), Color.white, "Button Text",
+            // 🔴 **2026-10-18（`W22`）**：文案**走官方词条**（原版这颗 `Localize.mTerm = "Demo/AvatarMenu/ToggleBorder"`，
+            //   官方两列 `Toggle Border` / `切换边框`）—— 改前写死 `ToggleBorderLabel` 英文 ⇒ **中文档下这颗仍是英文**
+            //   （用户 2026-10-18 第六轮真机截图点名）。⛔ 别再直接印常量。
+            var tbTx = Text(tbn, Loc.T(ToggleBorderTerm), new PxRect(TbtL, TbtT, TbtR, TbtB), Color.white, "Button Text",
                             CNmPx, 7, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false,
                             autoMaxPx: 36f, basePx: 12f, face: TmpFont.Face.LatinCardBody);
             if (tbTx != null) tbTx.SetWrapping(false);
@@ -306,9 +335,18 @@ namespace CardPresentation
                 var hl = Rect(ic, ArtHighlight, new PxRect(ox + CHlL, oy + CHlT, ox + CHlR, oy + CHlB),
                               "Highlight", 1, null, true);
                 if (hl != null) hl.gameObject.SetActive(i == Selected);   // 出厂 F，选中的那一格才亮
+                // 🔴🔴 **2026-10-18（W18）画序订正（铁律 5）** —— **这一页 469 格全黑**的根因：
+                //   原来 `Highlight 1 → Image 2 → Border 3` ⇒ **边框压在立绘上面**，而
+                //   `Player_Profile_Border` 的中心是**不透明黑**（实测中心像素 `(0,0,0,255)`，
+                //   透明只占 15.5%）⇒ 每格的立绘被一整块黑盖死（用户 2026-10-18 只看到 469 个空盾）。
+                //   原版兄弟序 = **`Highlight → Border → Image`**（`Image` 最后 = 画在最上面；
+                //   判据 = `资料/普查产出_0927/档案窗_Avatar与Title页.md` §A1 第 41–43 行，
+                //   同族先例 = `ProfileTab.L_ArtOverFrame` 那段注释，2026-09-27 已在别的页修过同一条病）。
+                //   ⇒ 队列改成 `Highlight 1 < Border 2 < Image 3`（Name 4 / Hit 5 顺延，互不重叠）。
+                Rect(ic, ArtBorder, new PxRect(ox + CBdL, oy + CBdT, ox + CBdR, oy + CBdB), "Border", 2, null, true);
+                WarnIfAvatarMissing(items[i].Art);     // ⛔ 取不到图必须出声（不许静默留白）
                 var art = CosmeticRect(ic, items[i].Art,
-                                       new PxRect(ox + CArtL, oy + CArtT, ox + CArtR, oy + CArtB), "Image", 2);
-                Rect(ic, ArtBorder, new PxRect(ox + CBdL, oy + CBdT, ox + CBdR, oy + CBdB), "Border", 3, null, true);
+                                       new PxRect(ox + CArtL, oy + CArtT, ox + CArtR, oy + CArtB), "Image", 3);
                 // `Avatar Name` 在**格子外**（oy+CNmT..oy+CNmB），落在行距里 —— 真值
                 // 🔴 **2026-10-07（A62 子表 A · A31 / 判据 §③「碰巧对」）**：原版这一件是 **`折行=1`**，
                 //   我们原来**没显式声明**（靠 `SetAutoFitBox` 顺带打开）⇒ 补 `wrap: true` 钉死。
@@ -316,13 +354,29 @@ namespace CardPresentation
                 //   Avatar Item Small_Ref/Avatar Name` 原版 `auto[12.0~36.0] 基准=36.0`
                 //   ⇒ 上限 36（= 标称）· base **36.0**（⚠️ 与上面大图那份的 base 同、上限同，但**两棵各读一次**）。
                 Text(cell, items[i].Name, new PxRect(ox + CNmL, oy + CNmT, ox + CNmR, oy + CNmB),
-                     Color.white, "Avatar Name", CNmPx, 2, autoFit: true, autoMinPx: CNmAutoMin, alignLeft: false, wrap: true,
+                     Color.white, "Avatar Name", CNmPx, 4, autoFit: true, autoMinPx: CNmAutoMin, alignLeft: false, wrap: true,
                      autoMaxPx: 36f, basePx: 36f, face: TmpFont.Face.LatinCardBody);
                 int captured = i;
-                Hit(cell, "Hit", r, 4, () => Select(captured));
+                Hit(cell, "Hit", r, 5, () => Select(captured));
                 _cellArt.Add(art); _cellHl.Add(hl); _cellIdx.Add(i);
             }
         }
+
+        /// <summary>🆕 **2026-10-18（W18）**：头像贴图取不到时**出声**（⛔ 不许静默留白 —— 上一版整页
+        /// 469 格全黑，运行期连一行日志都没有，只能靠真机截图发现）。
+        /// 每个图名只报一次（469 格 × 每次滚动重建，不设闸会刷屏）。
+        /// ⚠️ 这里**只是探一下**（`CardArt.Cosmetics` 内部有缓存，第二次是字典命中，不重复 IO）；
+        /// 真正的绘制仍走 `CosmeticRect`（它取不到会记进宿主的 `MissingArt`，自检读那份）。</summary>
+        static void WarnIfAvatarMissing(string art)
+        {
+            if (string.IsNullOrEmpty(art)) return;
+            if (CardArt.Cosmetics(art) != null) return;
+            if (!_warnedMissingArt.Add(art)) return;
+            Debug.LogWarning("[Profile] 头像图**取不到**：`Resources/Art/avatars/" + art + "` ⇒ 这一格只剩盾框。"
+                           + "清单来自 `Resources/profile_cosmetics.json`（生成器 `工具/gen_profile_cosmetics.py`），"
+                           + "图的导入器 = `工具/import_original_art.py` 的 `COSMETIC_AVATAR_SRC`。");
+        }
+        static readonly HashSet<string> _warnedMissingArt = new HashSet<string>();
 
         /// <summary>这一屏建出来的格子数（自检用：469 条全建会卡，必须只建看得见的）。</summary>
         public int BuiltCells { get { return _cellArt.Count; } }

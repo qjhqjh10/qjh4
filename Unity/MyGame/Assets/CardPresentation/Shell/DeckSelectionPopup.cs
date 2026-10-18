@@ -129,6 +129,14 @@ namespace CardPresentation
         //   `QDsHit` 2 处（`CheckShadeRule` · `CheckAbsorbRule`）；`QDsRow`/`QDsText` **外部引用 = 0** ⇒ 回 `const`。
         //   ⚠️ 另核过：同文件里的另一个类 `DeckPick` 不用它们；`class X : DeckSelectionPopup` 全 0。
         public const int QDs = 3125;        // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（3 处）
+        /// <summary>🔴 **2026-10-18（底纹红黑根因，`R_底纹红黑_根因.md` §五·2）：压暗层单独一档，压到 `QDs` 之下。**
+        /// <para>改前：压暗层（视觉 + 命中区）与红底板 `UI_Deck_Information_Back` **同为 `QDs`(3125) 且 z 都是 0**
+        /// ⇒ Unity 同队列按「到相机距离」排序 ⇒ **谁压谁不确定**（子件大小不同 ⇒ 距离不同 ⇒ 可能整块压暗层盖住红底
+        /// = 画面上「该红的地方发黑」）。</para>
+        /// <para>⚠️ **只下沉压暗层**（它本来就该在整窗最底），内容四档（`QDsHi`–`QDsHit`）一个都不动 ——
+        /// 不动 `QDs` 本身是因为 `Editor/MainMenuScene.cs` 有 3 处按 `QDs` 比较「弹窗压顶栏」。</para>
+        /// <para>⚠️ 3124 与 `Shell/BaseEventPopup.cs` 的 `QShade` 撞号 —— **两窗不同屏**（仓内已有同类撞号注释的先例）。</para></summary>
+        const int QDsShade = QDs - 1;       // 3124 压暗层（视觉 + ShadeHit）
         // 🔴 **2026-10-17（A1529①）**：新开 `QDsHi` = 卡组格选中金环那一档 —— 原版 `Highlight` 是
         //    `Deck` 的 child[0]（**最底**，`menu_dump --rt -1941218197625697718 --depth 3` 实读）
         //    ⇒ 必须**高于压暗层 `QDs`、低于卡组行 `QDsRow`**。原来行/字/命中三档顺延 +1（3127/3128/3129），
@@ -475,14 +483,17 @@ namespace CardPresentation
             _emptyNode = null; _emptyLabel = null;      // 旧的那件随子件一起没了 ⇒ 引用也要清（同 `CardDetailPopup.Build`）
 
             // 1) 压暗 + 点背景关窗（原版 `backgroundCloseButton`）
-            var shade = MenuDraw.Rect(root, CardArt.Solid(), ShadeRect, "Menu Dark Background", QDs, ShadeColor);
+            //    🔴 **2026-10-18**：视觉与命中区都走新档 `QDsShade`(3124) —— 它必须**严格低于红底板那一档 `QDs`**，
+            //    否则同队列同 z 时压暗层会盖住红底（判据 → `资料/普查产出_1018/R_底纹红黑_根因.md` §五·2）。
+            var shade = MenuDraw.Rect(root, CardArt.Solid(), ShadeRect, "Menu Dark Background", QDsShade, ShadeColor);
             if (shade == null)
-                MenuDraw.Rect(root, CardArt.Solid(), new PxRect(0f, 0f, 1920f, 1080f), "Menu Dark Background", QDs, ShadeColor);
+                MenuDraw.Rect(root, CardArt.Solid(), new PxRect(0f, 0f, 1920f, 1080f), "Menu Dark Background", QDsShade, ShadeColor);
             // 🔴 **2026-10-04（A47 接线批）订正档号：`QDsHit − 1`(3127) → `QDs`(3125)** ——
             //   规矩 = 「压暗层的命中区落在**压暗层自己那一档**，且严格低于本窗任何内容命中区档」
             //   （判据 → `MenuDraw.ShadeHit` 的注释 · `资料/待办判据_阶段二与联机.md` §A25·补（一））。
             //   ⚠️ 3127 恰好是 `QDsText`（文字那一档）。
-            MenuDraw.ShadeHit(root, ShadeRect, QDs, QDsHit, () => Close(), "BackgroundHit");
+            //   🔴 **2026-10-18**：再下沉到 `QDsShade` —— 与上面视觉层同一档（「命中区跟着自己那层走」）。
+            MenuDraw.ShadeHit(root, ShadeRect, QDsShade, QDsHit, () => Close(), "BackgroundHit");
 
             // 2) 两个页签（HLG spacing 12.45 ⇒ 第 2 个从 196.30 + 260 + 12.45 起）
             //    容器高 **68.50**、键高 **67.6421** ⇒ 竖直居中（`align=MiddleLeft`）

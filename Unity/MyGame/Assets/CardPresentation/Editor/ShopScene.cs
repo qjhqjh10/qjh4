@@ -628,8 +628,12 @@ public static class ShopScene
     /// 源码注释明写「**不含自适应结果**」）。
     /// ⇒ 用它当读口，并**用同一个读口建一条参考 label**，把「原版 `m_fontSize` 的字面量」翻成同一个量纲。
     /// ⚠️ 参考条摆在**屏外**（不会进实拍），文字/框与原版 `Timer Text` 一致。
+    /// 🔴 **2026-10-18（`N55`）**：标尺**必须与目标标签同一个字体面** —— `TmpFontSize()` 读的是
+    /// `EmPerFontSize(ActualFace)`（CJK 墨高 0.0948 / 拉丁面原版真 em 0.1，判据 → `TmpFont.EmPerFontSize`），
+    /// 拿 CJK 标尺去量拉丁面标签会**恒差 5.2%**。本族（`OfferContainer` 的 name/type/Available/Timer/Badge）
+    /// 全是 `LatinCardBody` ⇒ 调用点显式传 `face`。
     /// 返回值 &lt;= 0 ⇒ 读口坏了 / label 没建出来（**下面那些断言会红，不会静默**）。</summary>
-    static float RulerFontSize(Transform host, float fontPx)
+    static float RulerFontSize(Transform host, float fontPx, TmpFont.Face face = TmpFont.Face.Cjk)
     {
         if (host == null) return -1f;
         var r = new PxRect(-9000f, -5000f, -8778.44f, -4971f);      // 宽 = 原版 `Timer Text` 的 221.56
@@ -639,7 +643,7 @@ public static class ShopScene
         //   `_offerRuler = new GameObject("OfferRulers_A34F4").transform`（6 个调用点一律 `RulerFontSize(_offerRuler, …)`）
         //   ⇒ **独立根、父链上不可能有 `ViewportClip`** ⇒ A781 那一刀落 `Resolve` 第 3 支 ⇒ **逐位不变**
         //   （标尺要的正是「建出来就量」，多一刀反而会动它的 `textBounds`）。
-        var lb = MenuDraw.Text(host, r, "5d 20h 15m", Color.white, "FontRuler_" + fontPx, fontPx, 3000);
+        var lb = MenuDraw.Text(host, r, "5d 20h 15m", Color.white, "FontRuler_" + fontPx, fontPx, 3000, face: face);
         return lb != null ? NominalFontSize(lb) : -1f;
     }
 
@@ -2087,11 +2091,14 @@ public static class ShopScene
                     CheckTrue(priceLb != null && priceLb.AutoSizing,
                               "★ `Button Text` 的**自适应开着**（原版 `m_enableAutoSizing = 1`）"
                               + " —— 旧写法只传 `autoMinPx` 不传 `wrapPx` ⇒ 那段不执行、停在 TMP 出厂 `false`");
-                    CheckNear(Label.FontSizeToPx(priceLb != null ? priceLb.FontSizeMin : 0f), 13.46f, 0.05f,
+                    // 🔴 **2026-10-18（`N55`）**：口径由**静态 Cjk 口**改成**按这颗标签实际生效的面**
+                    //   （`LatinCardBody`）折 px —— `EmPerFontSize` 自本日起按面分两支（CJK 0.0948 / 拉丁 0.1），
+                    //   拿 Cjk 口量拉丁面标签会恒差 5.2%。判据 → `R4_Rewards残差.md` §五·B。
+                    CheckNear(priceLb != null ? priceLb.FontSizeToPxNow(priceLb.FontSizeMin, priceLb.ActualFace) : 0f, 13.46f, 0.05f,
                               "★ …**下限** = 原版 `m_fontSizeMin` **13.46px**（旧写法停在 TMP 出厂 `0`）");
-                    CheckNear(Label.FontSizeToPx(priceLb != null ? priceLb.FontSizeMax : 0f), 40f, 0.05f,
+                    CheckNear(priceLb != null ? priceLb.FontSizeToPxNow(priceLb.FontSizeMax, priceLb.ActualFace) : 0f, 40f, 0.05f,
                               "★ …**上限** = 原版 `m_fontSizeMax` **40px**");
-                    CheckNear(priceLb != null ? Label.FontSizeToPx(priceLb.FontSizeBase) : -1f, 39f,
+                    CheckNear(priceLb != null ? priceLb.FontSizeToPxNow(priceLb.FontSizeBase, priceLb.ActualFace) : -1f, 39f,
                               0.6f, "★ …**基准** = 原版 `m_fontSizeBase` **39px**"
                               + "（≠ 标称 40、也 ≠ TMP 序列化默认 36 ⇒ 这一条最有鉴别力）");
                     CheckTrue(priceLb != null && priceLb.WrappingMode == 0,
@@ -2160,10 +2167,11 @@ public static class ShopScene
                 {
                     var wtLb = FindChild(wsB, "Button Text") != null
                              ? FindChild(wsB, "Button Text").GetComponentInChildren<Label>() : null;
-                    CheckNear(Label.FontSizeToPx(wtLb != null ? wtLb.FontSizeMax : 0f), 38f, 0.05f,
+                    // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace`（本颗 = `LatinCardBody`）
+                    CheckNear(wtLb != null ? wtLb.FontSizeToPxNow(wtLb.FontSizeMax, wtLb.ActualFace) : 0f, 38f, 0.05f,
                               "`WebShop Button/Button Text` 的**自适应上限** = 原版 `m_fontSizeMax` **38px**"
                               + "（⚠️ 它 ≠ 本件字号 34.2 —— 这一格就是「两种换算会给出相反答案」那处）");
-                    CheckNear(Label.FontSizeToPx(wtLb != null ? wtLb.FontSizeMin : 0f), 12f, 0.05f,
+                    CheckNear(wtLb != null ? wtLb.FontSizeToPxNow(wtLb.FontSizeMin, wtLb.ActualFace) : 0f, 12f, 0.05f,
                               "…**下限** = 原版 `m_fontSizeMin` **12px**（别按 `字号×min/max` 算，那是旧写法 = 10.8）");
                 }
 
@@ -2932,10 +2940,15 @@ public static class ShopScene
             //    ⇒ 抓到 `FontRuler_42`（**一个后代都没有**）⇒ `CheckTrue(qA != null && qC != null, …)` 必红，
             //    而且外层 `if` 不成立 ⇒ 它下面那两条队列断言被**整块跳过**。
             _offerRuler = new GameObject("OfferRulers_A34F4").transform;
-            float R42 = RulerFontSize(_offerRuler, 42f), R367 = RulerFontSize(_offerRuler, 36.7f);
-            float R36 = RulerFontSize(_offerRuler, 36f);
-            float R34 = RulerFontSize(_offerRuler, 34f), R306 = RulerFontSize(_offerRuler, 30.6f);
-            float R30 = RulerFontSize(_offerRuler, 30f), R28 = RulerFontSize(_offerRuler, 28f);
+            // 🔴 2026-10-18（`N55`）：标尺按**目标标签的同一面**建（`OfferContainer` 那 6 颗全是 `LatinCardBody`）
+            //   —— 拿 CJK 标尺量拉丁面标签会恒差 5.2%（判据 → `RulerFontSize` 的 doc）。
+            float R42 = RulerFontSize(_offerRuler, 42f, TmpFont.Face.LatinCardBody),
+                  R367 = RulerFontSize(_offerRuler, 36.7f, TmpFont.Face.LatinCardBody);
+            float R36 = RulerFontSize(_offerRuler, 36f, TmpFont.Face.LatinCardBody);
+            float R34 = RulerFontSize(_offerRuler, 34f, TmpFont.Face.LatinCardBody),
+                  R306 = RulerFontSize(_offerRuler, 30.6f, TmpFont.Face.LatinCardBody);
+            float R30 = RulerFontSize(_offerRuler, 30f, TmpFont.Face.LatinCardBody),
+                  R28 = RulerFontSize(_offerRuler, 28f, TmpFont.Face.LatinCardBody);
             CheckTrue(R42 > R367 && R367 > R36 && R36 > R34 && R34 > R306 && R306 > R30 && R30 > R28,
                       "字号标尺**单调**（42 > 36.7 > 36 > 34 > 30.6 > 30 > 28）—— 不然下面那一批字号断言等于没查"
                       + $"（实测 {R42:F4} / {R367:F4} / {R36:F4} / {R34:F4} / {R306:F4} / {R30:F4} / {R28:F4}）");
@@ -3056,7 +3069,8 @@ public static class ShopScene
                 //   改坏法：把 `Shell/OfferContainer.cs` 里那处 `maxPx`（42f, 46f）实参 那两个实参（`42f, 46f`）去掉 ⇒ `LabelFit` 里 `maxPx` 退回
                 //      `fontPx`（= 标称 `g.NameFs`）⇒ `Geo778`/`GeoSmall` 那 **16 份**量出 **36.7** ≠ 42 ⇒ 红
                 //      （三份 `Geo391` 标称本来就是 42 ⇒ 它们那三条照样绿，判据的牙口在这 16 份上）。
-                float nMaxPx = Label.FontSizeToPx(lbName != null ? lbName.FontSizeMax : 0f);
+                // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace`（本颗 = `LatinCardBody`）
+                float nMaxPx = lbName != null ? lbName.FontSizeToPxNow(lbName.FontSizeMax, lbName.ActualFace) : 0f;
                 CheckNear(nMaxPx, 42f, 0.35f,
                           $"[{i + 1}] `name` 的**自适应上限** = 原版 `m_fontSizeMax` **42px**（实得 {nMaxPx:F2}）"
                           + "—— 在**生产调用点**那个 label 上量的（`label==null` ⇒ 读出 0 ⇒ 照红，不静默）");
@@ -3075,8 +3089,9 @@ public static class ShopScene
                 //      —— ⛔ **不读 `OfferContainer.TimerTextFit` 的返回值**（被测实现，读它 = 自证）。
                 //   🔴 牙口（改坏就红）：`TimerTextFit` 的 34 支退回 `28/18/28` ⇒ 那 9 份量成 28≠32、18≠10；
                 //      `LabelFit` 那一格漏传 `tmax` ⇒ 上限量成 30.6≠32。
-                float tMaxPx = Label.FontSizeToPx(lbTimer != null ? lbTimer.FontSizeMax : 0f);
-                float tMinPx = Label.FontSizeToPx(lbTimer != null ? lbTimer.FontSizeMin : 0f);
+                // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace`（本颗 = `LatinCardBody`）
+                float tMaxPx = lbTimer != null ? lbTimer.FontSizeToPxNow(lbTimer.FontSizeMax, lbTimer.ActualFace) : 0f;
+                float tMinPx = lbTimer != null ? lbTimer.FontSizeToPxNow(lbTimer.FontSizeMin, lbTimer.ActualFace) : 0f;
                 CheckNear(tMaxPx, e.TimerMax, 0.05f,
                           $"[{i + 1}] `Timer Text` 的**自适应上限** = 原版 `m_fontSizeMax` **{e.TimerMax}px**"
                           + $"（在**生产调用点**那个 label 上量的；`TypeFs={e.TypeFs}` 那一档）");

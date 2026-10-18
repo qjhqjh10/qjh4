@@ -13156,8 +13156,11 @@ namespace CardPresentation
 
             // 伤害 0 = 被挡下（原版也发事件）—— 那一条不飘字，免得屏幕上冒出「-0」
             // 🔴 **2026-10-17（`A1213②`）**：伤害 / 治疗走**两条独立路径**（原版是两颗不同的 TMP 组件，
-            //    四格与自己的 RT 缩放都不同 ⇒ 有效字号比 12.1 : 1）。实现在 `Battle/PopNumber.cs`，
-            //    判据（两颗 MB 的 pid 与逐字段读数）在它的文件头。⛔ 别再并回「一颗函数 + 一个 bool」。
+            //    四格、自己的 RT 缩放、`m_isOrthographic`（0 / 1）都不同 ⇒ 有效字号比 **1.21 : 1**）。
+            //    ⚠️ **2026-10-18（`N54②`）订正**：这里原来写「12.1 : 1」—— 那是漏了 3D TMP 的
+            //    `isOrthographic` ×0.1 那一跳（两颗都是 3D `TextMeshPro`，不是 UGUI）。实现在 `Battle/PopNumber.cs`，
+            //    判据（两颗 MB 的 pid 与逐字段读数 + 绝对字号的换算链）在它的文件头。
+            //    ⛔ 别再并回「一颗函数 + 一个 bool」。
             if (e.Amount != 0)
                 LastPop = e.Amount < 0
                         ? PopNumber.PopHeal(transform, at + PopOffset, e.Amount)

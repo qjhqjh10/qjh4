@@ -358,16 +358,20 @@ public static class SettingsScene
                   $"{what}：**真的开了自适应**（原版 `m_enableAutoSizing = 1`）"
                 + " —— 🧨 改坏法：把 `SettingsWindow.Text` 里那次 `MenuDraw.Text(…, fitW * RootScale, …)`"
                 + " 的四个实参传回 `0`（= 本笔之前的写法）⇒ `AutoSizing` 恒 false ⇒ 本行红");
-        CheckNear(Label.FontSizeToPx(lb.FontSizeMin), minPx * RS, 0.2f,
+        // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成**按这颗标签实际生效的面** ——
+        //   `EmPerFontSize` 自本日起按面分两支（CJK 汉字墨高 0.0948 / 拉丁面原版真 em 0.1），
+        //   本窗的输入框（`EmailText` / `PasswordText` 等）是 `LatinCardBody` ⇒ 拿 Cjk 口量会恒差 5.2%。
+        //   判据 → `R4_Rewards残差.md` §五·B ＋ `D1_桶A字号换算链.md` §四 方案 B(b)。
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace), minPx * RS, 0.2f,
                   $"{what}：自适应**下限** = 原版 `m_fontSizeMin` **{minPx:F2}px** × 0.9 = {minPx * RS:F2}"
-                + $"（实得 {Label.FontSizeToPx(lb.FontSizeMin):F2}）—— ⛔ 不是我们那一侧的实参");
-        CheckNear(Label.FontSizeToPx(lb.FontSizeMax), maxPx * RS, 0.2f,
+                + $"（实得 {lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace):F2}）—— ⛔ 不是我们那一侧的实参");
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace), maxPx * RS, 0.2f,
                   $"{what}：自适应**上限** = 原版 `m_fontSizeMax` **{maxPx:F2}px** × 0.9 = {maxPx * RS:F2}"
-                + $"（实得 {Label.FontSizeToPx(lb.FontSizeMax):F2}）—— 🧨 改坏法：上限按 `fs` 推（原版有几颗"
+                + $"（实得 {lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace):F2}）—— 🧨 改坏法：上限按 `fs` 推（原版有几颗"
                 + " `max ≠ fs`）⇒ 本行红");
-        CheckNear(Label.FontSizeToPx(lb.FontSizeBase), basePx * RS, 0.2f,
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace), basePx * RS, 0.2f,
                   $"{what}：二分起点 = 原版 `m_fontSizeBase` **{basePx:F2}px** × 0.9 = {basePx * RS:F2}"
-                + $"（实得 {Label.FontSizeToPx(lb.FontSizeBase):F2}）");
+                + $"（实得 {lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace):F2}）");
         Check(lb.WrappingMode, wrapMode,
               $"{what}：折行档 = **原版 `m_TextWrappingMode = {wrapMode}`**"
             + (wrapMode == 0 ? "（`NoWrap`）" : "（`Normal` = 折行开）")
@@ -4614,7 +4618,9 @@ public static class SettingsScene
                 {
                     var lb = allLb[i];
                     // ★ 读的是【字段】`m_fontSizeBase`（⛔ 不是收敛值 `FontPxNow`）—— 见本节头部 2026-10-09 那条
-                    float px = Label.FontSizeToPx(lb.FontSizeBase);
+                    // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成**按这颗标签实际生效的面**
+                    //   （本窗全树含输入框那几颗 `LatinCardBody`；CJK 标签的值逐位不变）。
+                    float px = lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace);
                     bool ok = false;
                     for (int k = 0; k < wantPx.Length; k++)
                         if (Mathf.Abs(px - wantPx[k]) <= TolPx) { ok = true; break; }
@@ -4640,8 +4646,9 @@ public static class SettingsScene
                     if (lb.AutoSizing && px > 0f)
                     {
                         float now = lb.FontPxNow;
-                        float lo = Label.FontSizeToPx(lb.FontSizeMin) - TolPx;
-                        float hi = Label.FontSizeToPx(lb.FontSizeMax) + TolPx;
+                        // 🔴 **2026-10-18（`N55`）**：区间两端同样按 `ActualFace` 折（理由见上面那条）
+                        float lo = lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace) - TolPx;
+                        float hi = lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace) + TolPx;
                         // 🔴 **2026-10-10（第十会话 · 收口复跑抓到）**：**先给它一次「手动推版面」的机会** ——
                         //   批处理**没有帧循环** ⇒ TMP 不会自己重排，字段可能停在「上一次写入的残留」上。
                         //   `ForceRelayout()` 是**幂等**的（按当前的折行模式与 `[min,max]` 重新收敛一次），

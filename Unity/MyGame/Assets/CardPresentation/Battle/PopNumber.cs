@@ -8,22 +8,43 @@
 //   · DamageText = `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MonoBehaviour_5890981294211439552`
 //       `autoSizing=1 · m_fontSize=5.5 · m_fontSizeMin=0.35 · m_fontSizeMax=5.5 · m_fontSizeBase=36`
 //       `m_TextWrappingMode=0（NoWrap）· HAlign=2（Center）· VAlign=512（Middle）· m_fontColor=白`
+//       `m_isOrthographic = 0` ⇒ **TMP 渲染系数 ×0.1**（`TMP_Text.cs:7183`；见下面那条订正）
 //       它的 **RectTransform 自己** `m_LocalScale = 1.54`
 //       （`RectTransform/RectTransform_5482325324160211904.json`）
 //   · HealText  = `…/MonoBehaviour_-7677963611639080000`
 //       `autoSizing=0 · m_fontSize=0.7 · m_fontSizeMin=0.35 · m_fontSizeMax=1.4 · m_fontSizeBase=36`
 //       `m_TextWrappingMode=0 · Center/Middle · 白`
+//       `m_isOrthographic = 1` ⇒ ×1.0
 //       它的 RectTransform（`…_-4069981099246511168.json`）`m_LocalScale = 1.0`
 //
-// 🔴 **两档的有效字号比 = `5.5 × 1.54 : 0.7` = 12.1 : 1** —— 旧账记的 7.86 : 1 **漏了 Damage 自己那 1.54**。
-//    两者父链其余层级全是 1.0（`Transform/Transform_1008882827660663744.json` = 1.0）⇒ 1.54 是唯一的那一跳。
+// 🔴 **2026-10-18（`N54②`）就地订正（铁律 5）—— 旧账写的「12.1 : 1」是【错的】。**
+//    错因：那两颗是 **3D `TextMeshPro`**（不是 UGUI 的 `TextMeshProUGUI`），
+//    而 TMP 的渲染系数里还有一跳 **`m_isOrthographic`**：
+//      `fontScale = fontSize/pointSize × scale × (m_isOrthographic ? 1 : 0.1)`（`TMP_Text.cs:7183`）
+//    ⇒ Damage 的 1 em（卡局部）= `5.5 × 0.1 × 1.54` = **0.847**（不是 `5.5 × 1.54` = 8.47）；
+//       Heal 的 1 em = `0.7 × 1.0 × 1.0` = **0.700**
+//    ⇒ **有效字号比 = 0.847 : 0.700 = 1.21 : 1** —— 旧账丢的正是那 10 倍。
+//    ⚠️ 旧版的 `HealCapWorld = Damage × 0.7 ÷ (5.5 × 1.54)` 是同一个错的第二个受害者：
+//      少了 `isOrthographic` 那一跳 ⇒ 治疗飘字被算成 **小 10 倍**（屏幕 2.67 px，原版 30.1 px）。
+//    判据全文 → `资料/普查产出_1018/N54_飘字绝对字号_判据.md` §一~§五。
 //
-// 我们这一侧的锚
-// --------------
-// 原版 `m_fontSize` 是 TMP 的世界单位，与本工程 `Label` 的世界单位不同源（旧注释已登记「搬不过来」）
-// ⇒ **Damage 沿用旧实现的 `SetCapHeight(0.30f)` 当基准**，Heal 由**同一个比值**反算：
-//     `HealCapWorld = 0.30 × 0.7 ÷ (5.5 × 1.54) = 0.024756…`
-// ⇒ 两档的**实绘高度比仍是 12.1 : 1**（断言 → `Editor/BattleScene.cs` 的 `A1213②` 那一节）。
+// 我们这一侧的锚（`N54②` 起：**绝对字号也照原版**，不再是「我们挑一个基准」）
+// ------------------------------------------------------------------------
+// 换算链（判据 §三，逐跳都有出处；本文件 §「原版字面量」那一段把它写成了可核的常量式）：
+//   ① 1 em（卡局部）= 两颗各自的 `fontSize × isOrtho 系数 × 自己 RT 的 localScale`
+//        ⇒ Damage **0.847**（5.5×0.1×1.54） · Heal **0.700**（0.7×1.0×1.0）
+//   ② × **大写墨高 ÷ em = 0.656**（原版 Pragati-Regular SDF；与本工程 `Label.SetCapHeight` 同一口径）
+//        ⇒ 大写高 = 0.556 / 0.459 卡局部单位
+//   ③ × 【卡局部 → 我们世界单位】的桥 = **0.6071** = 场卡 `desiredScale` 0.36 × `UnitsToOurs`（182.14/108）
+//        （判据 §三·5：我方场卡行 0.36 × 182.14 = 65.57 px/卡单位 = 0.6071 × 108 px/世界单位）
+//   ⇒ **DamageCapWorld = 0.3374**（原版我方场卡 36.4 px）· **HealCapWorld = 0.2788**（30.1 px）
+//
+// 🔴 **口径选择：用【墨高口径】(0.337)，⛔ 不用 `faceInfo.capLine` 那一档 (0.325)。**
+//    理由：我们这一侧 `Label.SetCapHeight(h)` 的实现是 `fontSize = h / TmpFont.CapPerFontSize(face)`，
+//    而 `CapPerFontSize` 量的是 `glyph.metrics.height + padding × 2`（**字形墨高**，不是 `capLine`）
+//    ⇒ 只有喂【墨高】才能让屏幕上的墨高与原版相等。喂 capLine 那一档（0.325）实绘墨高会小
+//    `1 − 0.6316/0.656` = **3.7%**（旧 0.30 那一版比原版小 11.0%）。
+//    ⚠️ 两个口径的**比值完全相同**（都是 0.847 : 0.700）⇒ 上面那条 1.21 : 1 不受这个选择影响。
 //
 // ⚠️ **原版 Heal 的 min/max/base（0.35 / 1.4 / 36）是 `autoSizing=0` 下的死值**（从不参与收敛）
 //    ⇒ 这里**不写**：写它们就得先把自适应打开，反而**改掉**原版行为（渲染结果会变）。
@@ -55,6 +76,10 @@ namespace CardPresentation
         public const bool DamageAutoSizing = true;
         /// <summary>DamageText **自己**那颗 RectTransform 的 `m_LocalScale`（§二·7「旧账漏了的那一跳」）。</summary>
         public const float DamageLocalScale = 1.54f;
+        /// <summary>DamageText 的 `m_isOrthographic`（原版 = **0**）⇒ TMP 渲染系数 **×0.1**
+        /// （`TMP_Text.cs:7183` 的 `(m_isOrthographic ? 1 : 0.1f)`）。
+        /// 🔴 `N54②` 之前**漏了这一跳** ⇒ 治疗被反算成小 10 倍，见文件头「就地订正」。</summary>
+        public const float DamageOrthoScale = 0.1f;
         /// <summary>DamageText 的 `m_TextWrappingMode`（0 = NoWrap）。</summary>
         public const int DamageWrappingMode = 0;
 
@@ -70,29 +95,61 @@ namespace CardPresentation
         public const bool HealAutoSizing = false;
         /// <summary>HealText 的 RectTransform `m_LocalScale`（= 1.0）。</summary>
         public const float HealLocalScale = 1f;
+        /// <summary>HealText 的 `m_isOrthographic`（原版 = **1**）⇒ TMP 渲染系数 ×1.0。</summary>
+        public const float HealOrthoScale = 1f;
         /// <summary>HealText 的 `m_TextWrappingMode`（0 = NoWrap）。</summary>
         public const int HealWrappingMode = 0;
 
         /// <summary>两颗 RT 的 `m_SizeDelta`（同一份：`0.800961… × 0.683734…`）。
-        /// Damage 用之前还要乘它自己的 1.54；再过 `CardFeel.UnitsToOurs` 折成我们的世界单位。</summary>
+        /// Damage 用之前还要乘它自己的 1.54；再过 `CardFeel.UnitsToOurs` 折成我们的世界单位。
+        /// 🔴 **2026-10-18（`N54②`）已知偏离（⛔ 本批未改，已记账）**：`BoxW/BoxH` 是**卡局部**单位，
+        /// 而 `UnitsToOurs` 是**棋盘层**单位 → 我们的世界（182.14/108）⇒ 还少乘了 `desiredScale` 0.36。
+        /// 现在 `Pop()` 里那两行算出来的框是原版的 **2.78 倍**（224.7 × 191.8 px vs 80.9 × 69.0 px），
+        /// 后果 = 伤害那档的自适应**永不收缩**（判据 §六·4：原版 ≥3 位数会往 0.35 压）。
+        /// 修法：那两行改用本文件的 `CardLocalToOurs`（= 0.36 × `UnitsToOurs`）并配「3 位数会缩」的断言。</summary>
         public const float BoxW = 0.8009615f, BoxH = 0.6837339f;
 
         // ================= 我们这一侧 =================
 
-        /// <summary>伤害飘字的**大写高**（我们这侧的基准；旧实现就是它，别改成「按原版 fontSize 换算」——
-        /// 那两个 fontSize 不同源，见文件头）。</summary>
-        public const float DamageCapWorld = 0.30f;
+        /// <summary>1 em 的**卡局部单位**值 = `fontSize × (isOrthographic ? 1 : 0.1) × 自己 RT 的 localScale`
+        /// （原版 TMP 渲染链，判据 §三·2~3）。
+        /// Damage = `5.5 × 0.1 × 1.54` = **0.847** · Heal = `0.7 × 1.0 × 1.0` = **0.700**。
+        /// 🔑 **那个 ×0.1 就是我们没有的概念**：我们的 `Label` 是世界空间的 3D `TextMeshPro`
+        /// （`TmpFont` 的字形标定就是拿 3D `TextMeshPro` 量的）⇒ **等价于原版 `isOrthographic = 1`**，
+        /// 所以原版 Damage 那 0.1 必须在**折成我们世界单位之前**乘进来 —— 就落在下面这两个常量里。</summary>
+        public const float DamageEmLocal = DamageFontSize * DamageOrthoScale * DamageLocalScale;
+        /// <summary>同上，Heal 那一路（`0.7 × 1.0 × 1.0` = 0.700）。</summary>
+        public const float HealEmLocal = HealFontSize * HealOrthoScale * HealLocalScale;
 
-        /// <summary>治疗档的大写高 = `0.30 × 0.7 ÷ (5.5 × 1.54)` = **0.024756…**。
-        /// ⚠️ 它是**从原版比值反算**出来的，⛔ 不是又一个「我们挑的数」。</summary>
-        public static readonly float HealCapWorld =
-            DamageCapWorld * (HealFontSize / (DamageFontSize * DamageLocalScale));
+        /// <summary>原版字体（Pragati-Regular SDF）的**大写墨高 ÷ em** = **0.656**。
+        /// 判据 = `N54` §三·7「本工程实测 M 墨高/em 0.656」，与 `TmpFont.CapPerFontSize / EmPerFontSize`
+        /// 同一口径（字形墨高，含 SDF padding）。⚠️ `faceInfo.capLine / pointSize` 那一口径是 **0.6316**
+        /// —— ⛔ 不用它，理由见文件头「口径选择」。</summary>
+        public const float InkOverEm = 0.656f;
 
-        /// <summary>两档的**有效**高度比 = `(5.5 × 1.54) ÷ 0.7` = **12.1**。
-        /// 断言拿它当靶（`A1213②`）；🧨 把两档改回同一套参数 ⇒ 这里算出来还是 12.1，
-        /// 但**两件建出来的实绘字号相等** ⇒ 那条灭自证当场红（见的断言写法）。</summary>
-        public static readonly float EffectiveScaleRatio =
-            (DamageFontSize * DamageLocalScale) / HealFontSize;
+        /// <summary>卡局部单位 → 我们世界单位的桥 = 场卡 `desiredScale` **0.36** × `CardFeel.UnitsToOurs`（182.14/108）
+        /// = **0.6071**（判据 §三·5：我方场卡行 65.57 px/卡单位 ÷ 108 px/世界单位）。
+        /// ⚠️ 取的是**我方场卡**那一档；原版敌方行是 `0.69 × 86.2 = 59.48 px/卡单位`。我们这颗飘字是
+        ///    HUD 上的**单档**、不按敌我行分（原版是挂在卡上的子件 ⇒ 天然跟着各行走）—— 已记进「没查清」。</summary>
+        public const float CardLocalToOurs = ArenaSlots.PlayerCardScale * CardFeel.UnitsToOurs;
+
+        /// <summary>伤害飘字的**大写墨高**（我们这侧的世界单位）= `0.847 × 0.656 × 0.6071` = **0.3374**。
+        /// 原版我方场卡 = **36.4 px**（= 55.5 px/em × 0.656）；旧值 0.30 = 32.4 px（小 11.0%）。
+        /// ⚠️ 它**不再是我们挑的基准**（旧版是从旧实现沿用 0.30 再反推治疗）—— 两档现在**各自**从原版字面量算。</summary>
+        public const float DamageCapWorld = DamageEmLocal * InkOverEm * CardLocalToOurs;
+
+        /// <summary>治疗飘字的**大写墨高** = `0.700 × 0.656 × 0.6071` = **0.2788**。
+        /// 原版 = **30.1 px**（= 45.9 px/em × 0.656）；旧值 `0.024756` = 2.67 px —— 小 11.3 倍，
+        /// 根因是旧式 `Damage × 0.7 ÷ (5.5 × 1.54)` **漏了 `isOrthographic` 的 ×0.1**（见文件头）。</summary>
+        public const float HealCapWorld = HealEmLocal * InkOverEm * CardLocalToOurs;
+
+        /// <summary>两档的**有效**高度比 = `0.847 ÷ 0.700` = **1.21**。
+        /// 断言拿它当靶（`A1213②`）；🧨 把两档改回同一套参数 ⇒ 这里仍是 1.21，而**两件建出来的
+        /// 实绘字号相等**（比 = 1.00）⇒ 那条灭自证当场红（差 0.21 ≫ 容差 0.05）。
+        /// ⚠️ `N54` §五 写的是 **1.213** —— 那是拿 **capLine 口径**两位近似值反算的
+        /// （0.325 ÷ 0.268 = 1.2127）；**按原版字面量精确算是 1.21 整**（0.847/0.700），
+        /// 且两个口径的比值本来就相同 ⇒ 本常量由原版字面量算（⛔ 不写死字面量）。</summary>
+        public static readonly float EffectiveScaleRatio = DamageEmLocal / HealEmLocal;
 
         /// <summary>最近一次飘字的补间（自检核对总时长用；原在 `CardFeel.LastPopTween`）。</summary>
         public static Tween LastPopTween;

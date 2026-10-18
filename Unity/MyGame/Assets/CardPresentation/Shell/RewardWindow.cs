@@ -1119,7 +1119,9 @@ namespace CardPresentation
             //    ⚠️ 顺序：必须在 `new MenuScroll(…)` **之前**（撤的是**上一轮**那一份；新手这一份随后才登记）。
             PointerLayer.UnregisterOwnedBy(gameObject);
             _scroll = new MenuScroll(ScrollView, ScrollView.CX - MinContentW * 0.5f, ScrollView.CX + MinContentW * 0.5f,
-                                     1f)   // 原版 `Reward Window/Content/Scroll View` 的 `m_ScrollSensitivity = 1.0`（D_N29）
+                                     120f)   // 滚轮 120px/格（2026-10-18 主对话定；原版 `Reward Window/Content/Scroll View` 的
+                                              //   `m_ScrollSensitivity = 1.0`（D_N29）实测一格 1px=纹丝不动；
+                                              //   同 `MainMenuRuntime._modeScroll` 的 N66 口径 —— ⛔ 不是原版值，是我们挑的）
             { Elastic = true, Inertia = true, Owner = gameObject };
             _scroll.OnChanged = BuildItems;                 // 滚动 ⇒ 内容按新偏移重建（同锻造/战役轨道那条规矩）
             PointerLayer.RegisterScroll(_scroll);           // ⚠️ 本窗**能滚**（内容比视口宽时；`AdjustBounds` 已管住两头）

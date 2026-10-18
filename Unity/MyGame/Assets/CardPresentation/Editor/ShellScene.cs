@@ -7157,12 +7157,17 @@ public static class ShellScene
         //   「字号字段对、字却溢出框」照样全绿。量的东西 = TMP 自己那块 `textBounds`（`ShellLabelRenderedPx`），
         //   ⛔ 不是 `Label.WorldW/H`（**被测实现自己写的字段缓存** ⇒ 拿它当检测器 = 自证）。
         // ⚠️ **本节只覆盖 5 处运行时 + 1 处源码文本**：第 6 处（`Shell/CardDetailPopup.cs` 的 `Craft Explanation`）
-        //   **没有生产路径** —— 「创建副本 / 升级」两块面板按用户 2026-09-27 拍板整块不建，
-        //   `CardDetailPopup.BuildCrafting` **全库零调用点** ⇒ 现有夹具够不到那颗 `Label`（见 ④）。
+        //   走**源码文本断言**（见 ④）。
+        //   🔴 **2026-10-18 就地订正（铁律 5）**：本行原来写的「两块面板按用户 2026-09-27 拍板整块不建 ·
+        //   `BuildCrafting` **全库零调用点** ⇒ 现有夹具够不到那颗 `Label`」**已过期** —— 2026-10-12 用户裁定
+        //   「请你恢复」，`Build()` 现在对可合成的稀有度会调 `BuildCrafting`；运行时那一侧由
+        //   `Editor/CollectionScene.cs` 的「卡片详情窗」那节直接断节点与文案。
         // 🆕 **2026-10-20（A1192）**：本块又接了 **1 处运行时** —— `Shell/CardDetailPopup.cs` 的
         //   `Buy Original Card`（`Alternate Art Panel` 那颗价签）= `P4` §7·2 登记的那 4 处里**唯一活在
-        //   生产路径上**的那一处 ⇒ 见 ⑤（同族另 3 处在 `BuildUpgrade` 里、**全库零调用点**，
+        //   生产路径上**的那一处 ⇒ 见 ⑤（同族另 3 处在 `BuildUpgrade` 里，
         //   按 `A1181` 那条先例**如实登记、不为它造测试路径**）。
+        //   🔴 **2026-10-18 就地订正（铁律 5）**：本段原来给那 3 处标的「**全库零调用点**」**已过期** ——
+        //   2026-10-12 用户裁定恢复两块面板后，`BuildUpgrade` 也**活在路径上**（每一张卡的详情窗都会建它）。
         // 🔴 **改坏法（逐条）**：把任一处末尾那串 autosize 实参删回默认（或 `wrapPx` 删回 `0f`）⇒ 该处的
         //   `AutoSizing` / `m_fontSizeMin/Max` / `m_fontSizeBase` 那几条红；删掉两颗 `折行=0` 处紧随的
         //   `SetWrapping(false)` ⇒ 折行档那条红；把字号调大到框外 ⇒ 「渲出来 ≤ 框」那条红。
@@ -7180,13 +7185,17 @@ public static class ShellScene
                 CheckTrue(lb.AutoSizing,
                           $"★ A1126 · {host}：**真的开了自适应**（原版 `m_enableAutoSizing = 1`；{evidence}）"
                         + "｜改坏法：把那处调用末尾那串 autosize 实参删回默认（或 `wrapPx` 删回 `0f`）⇒ 本行红");
-                CheckNear(Label.FontSizeToPx(lb.FontSizeMin), minPx, 0.05f,
+                // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成**按这颗标签实际生效的面** ——
+                //   `EmPerFontSize` 自本日起按面分两支（CJK 汉字墨高 0.0948 / 拉丁面原版真 em 0.1），
+                //   本助手横扫全壳窗口（含 `LatinUi`/`LatinCardBody` 的站）⇒ 静态口会恒差 5.2%。
+                //   CJK 标签的读数逐位不变。判据 → `R4_Rewards残差.md` §五·B ＋ `D1` §四 方案 B(b)。
+                CheckNear(lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace), minPx, 0.05f,
                           $"A1126 · {host}：自适应下限 = 原版 `m_fontSizeMin` **{minPx}px**"
                         + "（⛔ 不是我们那一侧的字号常量）");
-                CheckNear(Label.FontSizeToPx(lb.FontSizeMax), maxPx, 0.05f,
+                CheckNear(lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace), maxPx, 0.05f,
                           $"A1126 · {host}：自适应上限 = 原版 `m_fontSizeMax` **{maxPx}px**"
                         + "｜改坏法：第 10 参不传 ⇒ 退回旧行为「上限 = 标称字号」那一档（本处两者同值，故本条咬的是 min/传参那两处）");
-                CheckNear(Label.FontSizeToPx(lb.FontSizeBase), basePx, 0.05f,
+                CheckNear(lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace), basePx, 0.05f,
                           $"A1126 · {host}：`m_fontSizeBase`（自适应二分起点）= 原版 **{basePx}px**"
                         + "（`Label.FontSizeBase` 直读 TMP 的 `m_fontSizeBase`）");
                 Check(lb.WrappingMode, wrapMode,
@@ -7486,14 +7495,15 @@ public static class ShellScene
 
             // ---------------- ④ `Shell/CardDetailPopup.cs` 的 `Craft Explanation`（源码文本断言）----------------
             //
-            // 🔴 **为什么不是运行时断言**：那一处**没有生产路径** —— 「创建副本 / 升级」两块面板按用户
-            //  2026-09-27 拍板整块不建，`CardDetailPopup.BuildCrafting` **全库零调用点**（`grep -rn "BuildCrafting"`）
-            //  ⇒ 现有夹具够不到那颗 `Label`。要真跑得在 `Build()` 之后**反射调私有 `BuildCrafting`** ——
-            //  本件**不做**：那是一条**新造的**、批处理里**没法现场自验**的路径（本件红线不许跑 Unity），
-            //  引一条没人验证过的新路比少一条断言更糟。
-            // ⚠️ **如实标注判别力**：这一条是**静态**的（读源码文本）—— 它只证明「那一行的实参写全了」，
-            //  **证明不了运行时生效**（其余 5 条是运行时量 TMP 的 `textBounds`）⇒ ⛔ 别当强度相同的第 6 条；
-            //  要升级成运行时断言，得先给那两块面板一条生产/夹具路径（那是另一笔账）。
+            // 🔴 **为什么这里是静态断言（并且仍然留着）**：本节的职责是「TMP 那 5 个实参逐值对账」，
+            //  静态读数最直接、不重开一扇窗。
+            //  🔴 **2026-10-18 就地订正（铁律 5）**：本段原来写的「两块面板按用户 2026-09-27 拍板整块不建
+            //  / `BuildCrafting` **全库零调用点** / 那一处**没有生产路径**」**已过期** —— 2026-10-12 用户裁定
+            //  「请你恢复」两块面板，`CardDetailPopup.Build()` 现在对**可合成的稀有度**会调 `BuildCrafting`
+            //  ⇒ 那一处**活在路径上**。运行时是否真的生效，另由 `Editor/CollectionScene.cs` 的
+            //  「卡片详情窗」那两条直接断节点与文案（`Crafting` 标题 · `Craft Label` = 创建副本）。
+            //  ⚠️ **如实标注判别力**：这一条仍是**静态**的（读源码文本）—— 它只证明「那一行的实参写全了」，
+            //  **证明不了运行时生效**（其余 5 条是运行时量 TMP 的 `textBounds`）⇒ ⛔ 别当强度相同的第 6 条。
             {
                 const string cdPath = "Assets/CardPresentation/Shell/CardDetailPopup.cs";
                 string cdSrc = File.Exists(cdPath) ? File.ReadAllText(cdPath) : "";
@@ -7502,13 +7512,21 @@ public static class ShellScene
                 // 期望值 = 原版 `Explanation`（`bundle_scenes_scenes_mainmenuwarpforge`，按 `m_text` 认人：
                 //   `MonoBehaviour_1830.json`）实读：`m_enableAutoSizing 1` · min **10** · max **40** · base **36** · 折行 **1**。
                 // 🔴 **2026-10-17（R1 现核）**：源码那一行在 `A1024③` 之后多了一个 `face:` 实参
-                //   （`…, 36f, face: TmpFont.Face.LatinCardBody);`）—— 旧期望 `"36f);"` 已过期。
-                const string wantArgs = "1726f - 1307.5f, 10f, 40f, 36f, face: TmpFont.Face.LatinCardBody);";
+                //   （当时是 `…, 36f, face: TmpFont.Face.LatinCardBody);`）—— 旧期望 `"36f);"` 已过期。
+                // 🔴 **2026-10-18 用户口径（判据 → `资料/普查产出_1018/W14_详情窗按钮与副本文案.md` §二·3）**：
+                //   这一句的文案改中文（`Loc.T("MenuDeck/Craft/CraftCost")` = 「这将消耗一个通配符」）⇒
+                //   `face` 从 `LatinCardBody` 换成 **`Cjk`**（纯中文串必须走 CJK 面：字号按 `ActualFace`
+                //   的 em 换算，拉丁面下中文的实绘尺寸与本仓其它中文不是一档）。
+                //   四档 autosize 实参（`wrapPx` / min 10 / max 40 / base 36）**逐值不动**。
+                //   ⛔ 别改回 `LatinCardBody`（那是英文串那一档）。
+                const string wantArgs = "1726f - 1307.5f, 10f, 40f, 36f, face: TmpFont.Face.Cjk);";
                 CheckTrue(cdSrc.Contains(wantArgs),
                           "★ A1126 · `Shell/CardDetailPopup.cs` 的 `Craft Explanation`：那一行**带上了 autosize 实参**"
-                        + $"（`wrapPx` / min 10 / max 40 / base 36 —— 原版 `Explanation` 实读 `auto[10.0~40.0]` · `m_fontSizeBase 36`）"
+                        + $"（`wrapPx` / min 10 / max 40 / base 36 + `face: Cjk` —— 原版 `Explanation` 实读 `auto[10.0~40.0]` · `m_fontSizeBase 36`；"
+                        + "中文串走 CJK 面 = 用户 2026-10-18 口径 W14 §二·3）"
                         + $"｜改坏法：把那 4 个实参删回默认（`Text(…, 40f, QCdText);`）⇒ 本行红"
-                        + "｜⚠️ **静态断言**：证明不了运行时生效（那处没有生产路径，理由见上）");
+                        + "｜⚠️ **静态断言**：证明不了运行时生效（运行时那一侧另由 `Editor/CollectionScene.cs`"
+                        + "「创建副本」那两条直接断节点与文案）");
             }
 
             // ---------------- ⑤ 🆕 2026-10-20（A1192 · `A1126`「`A2` 档」残余）：

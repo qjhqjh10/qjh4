@@ -1,10 +1,10 @@
 {
  "note": "原版卡 SO 的 relatedCard1..4（卡牌详情窗那几格 + Companion 词条要造的那张）—— 键 = 我们卡池的 id，值 = 相关卡 id（按槽 1..4 顺序，最多 4；缺键 = 这张卡没有相关卡）。由 工具/gen_related_cards.py 生成，⛔ 不手改。",
- "source": "d:/2/远端缓存_旧profile_1013/Unity缓存_按哈希/54bdb7b1…/…/__data （RawCardScript × 1195）",
- "provenance": "同包内按 m_PathID 反查裸 PPtr（m_FileID 全 0）；快照 = Unity 2022.3.38f1 / 2025-07-30，比现池旧 ⇒ 部分原版卡我们池子里没有（含 `_EASY`/`_tutorial`/`_enchantment` 那些另形态），那些边**没猜、丢在 skipped 里**。落 id 两级：① 原版 uniqueId 直命中卡池 id；② 归一化卡名（砍尾部括号）+ 同阵营、且候选只限「我们自造 id」的卡、唯一命中。全量真值（含落不下的每一条）→ 数据/游戏数据/related_cards.json，同一次运行产出。",
+ "source": "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json（当前 build allcards，RawCardScript × 1351）",
+ "provenance": "同包内按 m_PathID 反查裸 PPtr（m_FileID 全 0）；语料 = 当前 build（2026-10-18 换，旧的是 2025-07-30 的 1,195 张快照）。池外仍有约 224 张原版卡（含 `_EASY`/`_tutorial`/`_enchantment` 那些另形态）⇒ 那些边**没猜、丢在 skipped 里**。落 id 两级：① 原版 uniqueId 直命中卡池 id（当前池 1127/1127 都是真 uniqueId，命中率见 stats）；② 归一化卡名（砍尾部括号）+ 同阵营、且候选只限「池内 id 不在真值集里」的卡、唯一命中（当前 build 下池内 id 全在真值集 ⇒ 这一级实际命中 0，仅作防御）。全量真值（含落不下的每一条）→ 数据/游戏数据/related_cards.json，同一次运行产出。",
  "invariant": "① entries 里每个 related 至多 4 条、顺序 = relatedCard1..4；② 同一卡内无重复；③ 源/目标 id 一律是 cards_engine.json 里现用的 id；④ 真值里没有「空槽后还有非空槽」的卡。",
- "count": 176,
- "edges": 214,
+ "count": 191,
+ "edges": 239,
  "skipped": 14,
  "entries": [
   {
@@ -378,6 +378,12 @@
    "id": "DA57",
    "related": [
     "DA10"
+   ]
+  },
+  {
+   "id": "DA75",
+   "related": [
+    "38871853fabb5244d8148766829230cd"
    ]
   },
   {
@@ -820,6 +826,71 @@
    ]
   },
   {
+   "id": "SW1",
+   "related": [
+    "b3dce3f10cc118541910156ec8da1d9b",
+    "6e4f9040e8cc59641a32f29e33ea4cbc"
+   ]
+  },
+  {
+   "id": "SW13",
+   "related": [
+    "SW5"
+   ]
+  },
+  {
+   "id": "SW18",
+   "related": [
+    "SW5",
+    "SW9"
+   ]
+  },
+  {
+   "id": "SW2",
+   "related": [
+    "a51adc8f5c311584385c3117cfd919e9",
+    "b551c8351ebe5784faf9912b573eaf93",
+    "4d4b9170663891f488c0e96ee8e55ba1",
+    "7a01882fe4610244292d16b15f4b873e"
+   ]
+  },
+  {
+   "id": "SW23",
+   "related": [
+    "SW10"
+   ]
+  },
+  {
+   "id": "SW3",
+   "related": [
+    "e3b5735d801fcbd49aa8d3975a5b0c31"
+   ]
+  },
+  {
+   "id": "SW32",
+   "related": [
+    "SW10"
+   ]
+  },
+  {
+   "id": "SW42",
+   "related": [
+    "SW10"
+   ]
+  },
+  {
+   "id": "SW48",
+   "related": [
+    "SW10"
+   ]
+  },
+  {
+   "id": "SW58",
+   "related": [
+    "SW9"
+   ]
+  },
+  {
    "id": "TAU1",
    "related": [
     "9f75a6fe11922eb409ffbad4ecdeb405"
@@ -1006,6 +1077,12 @@
    ]
   },
   {
+   "id": "UM100",
+   "related": [
+    "8482077f309b08943b190f18b5874871"
+   ]
+  },
+  {
    "id": "UM12",
    "related": [
     "d94f91051ecfe014f97577ff573571aa"
@@ -1069,6 +1146,29 @@
    "id": "UM81",
    "related": [
     "UM8"
+   ]
+  },
+  {
+   "id": "UM87",
+   "related": [
+    "40667e346ae58a84dbda1033dff70ccb",
+    "e874c2bd84895e64694daa44bd5fd5c2",
+    "b14d1db2b0730d649b3bec35af100363",
+    "ef596edae1828bd46bfc4348535a3acc"
+   ]
+  },
+  {
+   "id": "UM88",
+   "related": [
+    "4de4fcfb5d7e0554a88b9f419a2cd7c2"
+   ]
+  },
+  {
+   "id": "a51adc8f5c311584385c3117cfd919e9",
+   "related": [
+    "b551c8351ebe5784faf9912b573eaf93",
+    "4d4b9170663891f488c0e96ee8e55ba1",
+    "7a01882fe4610244292d16b15f4b873e"
    ]
   },
   {

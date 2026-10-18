@@ -219,6 +219,31 @@ namespace CardPresentation
                               cell.x1 + CardsCntMaxX * CardsCellW, cell.y2 - CardsCntMinY * CardsCellH);
         }
 
+        /// <summary>🆕 **2026-10-18（`W11`）**：那条张数在**格内**占掉的高度 = `CardsCntMaxY × CardsCellH`
+        /// = **38.272**（原版 `/Counter` 的上锚点 ⇒ ⛔ 不是我们另挑的数）。
+        /// 卡只许占**它上面那一段**：`CardsCellH − 这个` = **345.728**。</summary>
+        public static float CardsCounterH { get { return CardsCntMaxY * CardsCellH; } }
+
+        /// <summary>🆕 **2026-10-18（`W11`）**：一格里**卡本身**那块矩形（相对格左上角；输入 = 这一格**滚动之后**的画布矩形）。
+        ///
+        /// <para>🔴 **为什么要有它（真缺陷，用户 2026-10-18 报「张数与卡牌重叠」）**：本页原来按**整格 384**
+        /// 反解卡的缩放（`scale = CardsCellH ÷ (CardView.Height × 108)`）并让卡在**整格**里居中 ⇒
+        /// **卡底 = 格底**，而张数条压在格底往上 38.272 那一条上（`CardsCounterRect`）⇒
+        /// **卡的下沿整条被张数条盖住**。真机实测（`_tmp_view/shots/2026-10-18_卡组选择弹窗_第四轮/02_cards_tab.png`，
+        /// 2560×1440 → 设计 px ÷ 1.3333）：卡框底边 ≈ **527**、张数条从 **504** 起 ⇒ **重叠 ≈ 23px**；
+        /// 而张数条的矩形与我们算的 **414…522.8 / 504…537** 逐位吻合 ⇒ 错的是卡那一侧。
+        /// 判据与全过程 → `资料/普查产出_1018/W11_卡组编辑计数重叠.md`。</para>
+        ///
+        /// <para>🔴 **卡组编辑窗的卡池早就按「格高 − 张数条」反解**（`DeckRuntime.Pool.CardH`，
+        /// 2026-09-28 那一修），本页当时**漏改** ⇒ 同一个家族两个口径。现在收口成同一条式子：
+        /// 卡高 = `CardsCellH − CardsCounterH` = 345.728（与卡池的 `Pool.CardH` 逐位相同）。
+        /// ⚠️ 原版两边用的是**同一件** `Collection Card` 原型（`A3_Cards页.md:102`：卡组编辑的 `Card Display`
+        /// 与收藏的 `CardsTab` 都是它）⇒ 同一个口径不是巧合，是同一条规格。</para></summary>
+        public static PxRect CardsCardRect(PxRect cell)
+        {
+            return new PxRect(cell.x1, cell.y1, cell.x2, cell.y2 - CardsCounterH);
+        }
+
         /// <summary>`/Counter/Text (TMP)` 的矩形（相对**画布**；输入 = 上面那条的矩形）。</summary>
         public static PxRect CardsCounterTextRect(PxRect bar)
         {
@@ -1060,7 +1085,10 @@ namespace CardPresentation
             //   `ViewportClip` 上（`BuildCardsPage` 里 `ViewportClip.Hang` 建的），本循环里所有件
             //   （`CardView` 的 `SetPose` 实参、`AddHit` 转发的裸 `Clip`）都挂在它下面 ⇒ 沿父链解析得到同一份。
             var list = CardsState.VisibleCards();
-            float scale = CardsCellH / (CardView.Height * 108f);      // 按**卡位高 384** 反解（同卡组编辑）
+            // 🔴 **2026-10-18（`W11`）**：卡的缩放按「**格高 − 张数条**」反解（原来是整格 384 ⇒ 卡底压住张数条，
+            //   见 `CardsCardRect` 的 doc）。式子与卡组编辑窗 `DeckRuntime.Pool.CardH` **同一条**：
+            //   345.728 ÷ (`CardView.Height` × 108) = **0.9609**。
+            float scale = (CardsCellH - CardsCounterH) / (CardView.Height * 108f);
             for (int i = 0; i < list.Count; i++)
             {
                 var content = CardsCellRect(i);
@@ -1104,7 +1132,10 @@ namespace CardPresentation
                 // 📌 走 `SetPose` 定完位姿、**再**让卡去解析裁切边界 —— 顺序不能反：
                 //   位姿是「画布矩形 → 卡的局部系」那个换算的输入，先裁再摆 = 按旧位姿裁的一刀。
                 //   （这两句 = **一次调用**的等价物：`CardView` 自己就在 `SetPose` 之后立刻重裁。）
-                v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale);
+                // 🔴 **2026-10-18（`W11`）**：位姿按**卡那块矩形**（= 格上沿到张数条上沿），⛔ 不是整格 ——
+                //   整格居中 + 整格高反解 = 卡底压在张数条下面（见 `CardsCardRect`）。
+                var cardR = CardsCardRect(r);
+                v.SetPose(Local(parent, cardR.x1, cardR.y1, cardR.x2, cardR.y2), 0f, scale);
                 BuildWatch.CellPhase("② `SetPose`（摆位姿 —— 首次无裁切 ⇒ 这一句里的重裁是空转）");
                 // 🔴 **2026-10-13（A435 辛 · A774）**：裁切边界**沿父链解析**（就是上面那颗
                 //   `holder/Viewport` 上的 `ViewportClip`）—— 原来是把 `CardsViewport` 这个**常量矩形**

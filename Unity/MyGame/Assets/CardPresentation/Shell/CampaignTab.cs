@@ -205,7 +205,7 @@ namespace CardPresentation
             _armyContent = RewardsWindow.Node(selVp, "Army Content", _armyContentR);
             // 🔴 阵营条**横向可滚**（原版 `Campaign Army Selector` 也是 `ScrollRect(横)` + `RectMask2D`）；
             //    居中内容的范围**两侧都有** ⇒ 两端各 2 个够不着的都能滚出来（`MenuScroll` 自己算极值）。
-            _armyScroll = new MenuScroll(_selR, _armyContentR.x1, _armyContentR.x2, 1f);   // 原版 `Campaign Army Selector` = 1.0（D_N29）
+            _armyScroll = new MenuScroll(_selR, _armyContentR.x1, _armyContentR.x2, 120f);   // 滚轮 120px/格（2026-10-18 主对话定；原版 `Campaign Army Selector` 的 `m_ScrollSensitivity = 1.0`（D_N29）实测一格 1px=纹丝不动；同 `MainMenuRuntime._modeScroll` 的 N66 口径 —— ⛔ 不是原版值，是我们挑的）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildArmyItems` 里
             //   `if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的
             //   状态（`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗
@@ -369,7 +369,7 @@ namespace CardPresentation
             ContentSpan(out cx1, out cx2);
             if (_trackScroll == null)
             {
-                _trackScroll = new MenuScroll(_vpR, cx1, cx2, 1f);   // 原版 `Campaign Track` = 1.0（D_N29）
+                _trackScroll = new MenuScroll(_vpR, cx1, cx2, 120f);   // 滚轮 120px/格（2026-10-18 主对话定；原版 `Campaign Track` 的 `m_ScrollSensitivity = 1.0`（D_N29）实测一格 1px=纹丝不动；同 `MainMenuRuntime._modeScroll` 的 N66 口径 —— ⛔ 不是原版值，是我们挑的）
                 _trackScroll.Owner = _root != null ? _root.gameObject : null;
                 _trackScroll.OnChanged = RefreshNodes;
                 PointerLayer.RegisterScroll(_trackScroll);

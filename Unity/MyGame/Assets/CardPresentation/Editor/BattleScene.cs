@@ -9859,8 +9859,18 @@ public static class BattleScene
             Check(ft != null && ft.name.Contains("strat") && ft != f1,
                   $"战术卡用的是**另一套框**（`{ft?.name}` ≠ `{f1?.name}`）");
 
-            // 真造一张卡，验**卡面确实按最高档取了框**（不是只有 `CardArt` 会取）
-            var probe = CardView.Create(cam.transform, new CardData
+            // 真造一张卡，验**卡面确实取了「这张卡那一档」框**（不是只有 `CardArt` 会取）
+            //
+            // 🔴 **2026-10-18：升级/副本已接真机制（判据 → `资料/普查产出_1018/W5_升级与副本_落地.md`）**
+            //   卡框档 = **这张卡的等级**（`CardView.Build` 里那句 `frameTier = CardProgress.Level(d.artId)`），
+            //   而 `CardProgress.Level` 的**缺省从 `MaxLevel` 改成了 1** ⇒ `artId = "UM19"` 的新卡是 **tier1**。
+            //   旧断言（「卡面一律最高档 `tier4`」）断的是 2026-09-27「不做升级」那版口径 ⇒ **已过期**。
+            //   ⚠️ 上面那三条 `CardArt.Frame(...)`（**不传 `tier`** ⇒ 仍走 `TierOf` = `MaxTier`）**不受影响、照旧成立**。
+            //   🔴 `CardProgress.ResetForTest()` = 该类的**既有自检保护口**（清内存表 + 此后不读盘、不落盘，
+            //      见 `CardProgress` 的「存档」那一段）：自检绝不能改写开发机上的玩家存档，
+            //      也不能被上一次跑剩下的值污染（不可复现）。
+            CardProgress.ResetForTest();
+            var probeData = new CardData
             {
                 id = "Aggressor Sergeant", title = "TEST", cost = 1, melee = 1, ranged = 0,
                 // ⚠️ 立绘按**引擎卡 id** 取名（2026-09-15 起）—— 这里必须给 artId，
@@ -9869,9 +9879,13 @@ public static class BattleScene
                 health = 1, armor = 0, keywords = "", isUnit = true,
                 frame = BattleDriver.FactionColor("Ultramarines"), faction = "Ultramarines",
                 rarity = "legendary",     // ⚠️ 与下面那颗 `GemTierProbe`(common) 成对，用来验「宝石按稀有度变」
-            }, "FrameTierProbe");
-            Check(probe.FrameTexture != null && probe.FrameTexture.name.Contains("tier" + CardArt.MaxTier),
-                  $"★ **legendary** 的卡面用了最高档框（{probe.FrameTexture?.name}）");
+            };
+            Check(CardProgress.Level("UM19") == 1,
+                  "（前提）`UM19` 的**缺省等级 = 1**（2026-10-18 起；旧缺省是 `MaxLevel` ⇒ 这套断言的前提换了）");
+            var probe = CardView.Create(cam.transform, probeData, "FrameTierProbe");
+            Check(probe != null && probe.FrameTexture != null && probe.FrameTexture.name.Contains("_tier1"),
+                  $"★ **legendary** 的卡面用**第 1 档**框（{probe?.FrameTexture?.name}）—— 等级缺省 1 ⇒ 框档 1"
+                + "（判据 = `UpgradePanel.ChangeFrameOnLevelUp` → `CardFramesSO.GetClanFrame(army, tier, cardType)`：等级就是框档）");
             Check(probe.ArtLayerTexture != null && probe.ArtLayerTexture.name.StartsWith("art_"),
                   $"立绘那层用的是**真插图**（{probe.ArtLayerTexture?.name}）");
             // 底部那颗**稀有度宝石**：卡框档改的是框的形制，**稀有度只在这颗宝石上**（原版 `Rarity` 节点）
@@ -9887,14 +9901,42 @@ public static class BattleScene
             Check(probe2.GemTexture != null && probe2.GemTexture.name.Contains("common")
                   && probe2.GemTexture != probe.GemTexture,
                   $"common 用的是另一张（{probe2.GemTexture?.name}）");
-            // 🔴 **新增（2026-09-27）**：`probe2` 的稀有度是 **common** —— 它的**框**也必须是最**高档**
-            //    （「框按升级档、稀有度只管宝石」这条新判据，拿一张 common 的卡来钉）。
+            // 🔴 **新增（2026-09-27）**：`probe2` 的稀有度是 **common** —— 它的**框**也取「那一档」
+            //    （「框按升级档、稀有度只管宝石」这条判据，拿一张 common 的卡来钉）。
+            //    🔴 **2026-10-18 就地订正（铁律 5）**：本行原来写「与 legendary **同档**」—— 那句**已不成立**：
+            //    `probe2` **没有 `artId`** ⇒ `CardView` 走「`artId` 为空 ⇒ `MaxTier`」那条兜底
+            //    （见 `Core/CardView.cs:2041` 的 `string.IsNullOrEmpty(d.artId) ? CardArt.MaxTier : …`），
+            //    而 `probe`（`artId="UM19"`）现在是 `tier1` ⇒ 两张**本来就不同档**、这正是有意的兜底口径。
+            //    ⚠️ 本条断言本身**不变**（仍断 `probe2` = `MaxTier` 档）。
             Check(probe2.FrameTexture != null && probe2.FrameTexture.name.Contains("tier" + CardArt.MaxTier),
-                  $"★ **common** 的卡面也用了最高档框（{probe2.FrameTexture?.name}）—— 与 legendary **同档**，稀有度不影响框");
+                  $"★ **common** 的卡面用了最高档框（{probe2.FrameTexture?.name}）—— 它**没有 `artId`** ⇒ "
+                + "走「`artId` 为空 ⇒ `MaxTier`」那条兜底（⛔ 不是「稀有度决定框」；稀有度只管底部宝石）");
             if (Application.isPlaying) Object.Destroy(probe2.gameObject);
             else Object.DestroyImmediate(probe2.gameObject);
             if (Application.isPlaying) Object.Destroy(probe.gameObject);
             else Object.DestroyImmediate(probe.gameObject);
+
+            // ============================================================ 🔴 **2026-10-18 新增**
+            // 等级 → 卡框档**真的会跟着换**（「升级换框」那条链的另一半；判据 → `W5_升级与副本_落地.md`）。
+            // 🔴 **为什么只断 tier1 不够**：把 `CardView.Build` 那句 `frameTier = CardProgress.Level(d.artId)`
+            //    写死成 `1`，上面那条 tier1 断言**照样绿** —— 那是「断言与实现同义」的自证。
+            //    加这一条之后，「读等级」这条链断了就必红。
+            // ⚠️ 与 `DoUpgrade` 同一条路：`SetLevel(artId, 2)` 之后**重画**（重新 `CardView.Create`）⇒ 取第 2 档框。
+            CardProgress.SetLevel("UM19", 2);
+            var probeLv2 = CardView.Create(cam.transform, probeData, "FrameTierProbeLv2");
+            Check(probeLv2 != null && probeLv2.FrameTexture != null
+                  && probeLv2.FrameTexture.name.Contains("_tier2"),
+                  $"★ `CardProgress.SetLevel(\"UM19\", 2)` 之后重画 ⇒ 卡框换成**第 2 档**"
+                + $"（{probeLv2?.FrameTexture?.name}）—— 改坏法：`frameTier` 写死 1 ⇒ 本条红（上面 tier1 那条仍绿）");
+            if (probeLv2 != null)
+            {
+                if (Application.isPlaying) Object.Destroy(probeLv2.gameObject);
+                else Object.DestroyImmediate(probeLv2.gameObject);
+            }
+            // 收尾：等级还原（`ResetForTest` 已把落盘关掉 ⇒ 只在内存里，不会污染开发机存档）
+            CardProgress.SetLevel("UM19", 1);
+            Check(CardProgress.Level("UM19") == 1,
+                  "（收尾）`UM19` 的等级还原成 1 —— 不给后面那些节留怪状态");
         }
 
         // ---- 9. 卡组编辑器编的那套牌 → 对战（2026-09-12 接的最后一环）----
@@ -13562,42 +13604,72 @@ public static class BattleScene
                           $"飘字序列 {dPop:F3}s == {CardFeel.PopOut:F3}s（`InBattleDamageCounter Variation 1`）");
 
                     // ===== `A1213②` 两档拆分（判据 = 原版两颗 TMP 组件，见 `Battle/PopNumber.cs` 文件头） =====
-                    // ① 字面量：Damage `5.5 / 0.35 / 5.5 / 36 · auto 1 · RT 1.54`；Heal `0.7 / 0.35 / 1.4 / 36 · auto 0 · RT 1.0`
+                    // ① 字面量：Damage `5.5 / 0.35 / 5.5 / 36 · auto 1 · RT 1.54 · isOrtho 0`；
+                    //    Heal `0.7 / 0.35 / 1.4 / 36 · auto 0 · RT 1.0 · isOrtho 1`
                     Check(Mathf.Abs(PopNumber.DamageFontSize - 5.5f) < 1e-4f
                           && Mathf.Abs(PopNumber.DamageFontSizeMin - 0.35f) < 1e-4f
                           && Mathf.Abs(PopNumber.DamageFontSizeMax - 5.5f) < 1e-4f
                           && Mathf.Abs(PopNumber.DamageFontSizeBase - 36f) < 1e-4f
                           && Mathf.Abs(PopNumber.DamageLocalScale - 1.54f) < 1e-4f
+                          && Mathf.Abs(PopNumber.DamageOrthoScale - 0.1f) < 1e-6f
                           && PopNumber.DamageAutoSizing
                           && Mathf.Abs(PopNumber.HealFontSize - 0.7f) < 1e-4f
                           && Mathf.Abs(PopNumber.HealFontSizeMax - 1.4f) < 1e-4f
+                          && Mathf.Abs(PopNumber.HealOrthoScale - 1f) < 1e-6f
                           && !PopNumber.HealAutoSizing,
-                          "★ 飘字两档四格 = 原版字面量（Damage 5.5/0.35/5.5/36 · auto 1 · 自己的 RT 1.54；"
-                        + "Heal 0.7/1.4 · auto 0）");
+                          "★ 飘字两档四格 = 原版字面量（Damage 5.5/0.35/5.5/36 · auto 1 · 自己的 RT 1.54 · "
+                        + "isOrtho 0 ⇒ TMP 渲染 ×0.1；Heal 0.7/1.4 · auto 0 · RT 1.0 · isOrtho 1）");
 
                     var popHeal = PopNumber.PopHeal(driver.transform, Vector3.zero, 1);
                     var twHeal = PopNumber.LastPopTween;
                     if (popDmg != null && popHeal != null)
                     {
-                        // ② 灭自证：**实绘**字号比 = 原版 `(5.5 × 1.54) : 0.7` = 12.1。
+                        // ② 绝对字号（`N54②`，2026-10-18）：两档的**实绘大写墨高**（px）逐档对上原版。
+                        //    期望值**全部由原版字面量算**（⛔ 不拿我们自己的 Cap 常量当靶）：
+                        //      Damage 1 em = 5.5 × 0.1 × 1.54 = 0.847 卡局部 ⇒ × (0.36 × 182.14) = 55.5 px/em
+                        //                              ⇒ × 墨高/em 0.656 = **36.4 px**
+                        //      Heal   1 em = 0.7 × 1.0 × 1.0  = 0.700 卡局部 ⇒ × (0.36 × 182.14) = 45.9 px/em
+                        //                              ⇒ × 0.656 = **30.1 px**
+                        //    我们这侧：`FontPxNow`（TMP **实际** fontSize 折成的 em px，按本标签的字体面）
+                        //              × `CapPerFontSize / EmPerFontSize`（本标签那一面的墨高/em）= 实绘墨高 px。
+                        //    ⚠️ 这条量的是「**TMP 实际 fontSize**」那一档（所以能抓到自适应把字号夹小）；
+                        //       本工程**没有真实墨迹高度**的读数口（`CapHeightWorld` 是回读入参的伪测量，
+                        //       `资料/已知的坑.md` 有记）⇒ ⛔ 别用 `CapHeightWorld` 顶替这里。
+                        //    🧨 改坏法 ①（本账要修的那个）：漏掉 `isOrthographic` 的 ×0.1 ⇒ 治疗落到 ~2.7 px；
+                        //    🧨 改坏法 ②：Damage 退回旧 0.30 ⇒ 32.4 px（差 4 px）。
+                        float kCapDmg = TmpFont.CapPerFontSize(popDmg.ActualFace) / TmpFont.EmPerFontSize(popDmg.ActualFace);
+                        float kCapHeal = TmpFont.CapPerFontSize(popHeal.ActualFace) / TmpFont.EmPerFontSize(popHeal.ActualFace);
+                        float capPxDmg = popDmg.FontPxNow * kCapDmg;
+                        float capPxHeal = popHeal.FontPxNow * kCapHeal;
+                        const float dmgEmPx = 5.5f * 0.1f * 1.54f * (0.36f * 182.14f);    // 55.5 px/em（原版字面量）
+                        const float healEmPx = 0.7f * 1.0f * 1.0f * (0.36f * 182.14f);    // 45.9 px/em
+                        Check(Mathf.Abs(capPxDmg - dmgEmPx * 0.656f) < 0.8f
+                              && Mathf.Abs(capPxHeal - healEmPx * 0.656f) < 0.8f,
+                              $"★ 飘字两档的实绘大写墨高 = 原版（伤害 {capPxDmg:F1}px / 治疗 {capPxHeal:F1}px；"
+                            + $"原版 {dmgEmPx * 0.656f:F1} / {healEmPx * 0.656f:F1}px）"
+                            + "｜🧨 改坏法：漏掉 `isOrthographic` 的 ×0.1 ⇒ 治疗落到 ~2.7px");
+                        // ③ 灭自证：**实绘**字号比 = 原版 `(5.5 × 0.1 × 1.54) : (0.7 × 1.0)` = 1.21。
+                        //    🔴 2026-10-18（`N54②`）：这里原来写死成 `(5.5 × 1.54) / 0.7` = **12.1，那是错的** ——
+                        //    两颗是 **3D `TextMeshPro`**（非 UGUI），`m_isOrthographic` Damage=0 ⇒ ×0.1 / Heal=1 ⇒ ×1.0
+                        //    （`TMP_Text.cs:7183`；判据 → `资料/普查产出_1018/N54_飘字绝对字号_判据.md` §二/§三）。
                         //    🧨 改坏法：两档并回同一套参数（旧实现那样，一个 `SetCapHeight` 走两档）
-                        //    ⇒ 两个 `FontPxNow` 相等、这里恒 1.00 ⇒ 当场红。
-                        //    （判据里刻意写**原版字面量** `5.5f * 1.54f / 0.7f`，⛔ 不用我们自己的常量当靶。）
+                        //    ⇒ 两个 `FontPxNow` 相等、这里恒 1.00 ⇒ 当场红（差 0.21 ≫ 容差 0.05）。
+                        //    （判据里刻意写**原版字面量** `5.5f * 0.1f * 1.54f / 0.7f`，⛔ 不用我们自己的常量当靶。）
                         float rDmg = popDmg.FontPxNow, rHeal = popHeal.FontPxNow;
                         float ratio = rHeal > 0f ? rDmg / rHeal : 0f;
-                        Check(Mathf.Abs(ratio - (5.5f * 1.54f) / 0.7f) < 0.05f,
-                              $"★ 伤害 : 治疗 的实绘字号比 = {ratio:F2} : 1 == 原版 (5.5×1.54) : 0.7 = 12.10"
+                        Check(Mathf.Abs(ratio - (5.5f * 0.1f * 1.54f) / (0.7f * 1.0f)) < 0.05f,
+                              $"★ 伤害 : 治疗 的实绘字号比 = {ratio:F2} : 1 == 原版 (5.5×0.1×1.54) : (0.7×1.0) = 1.21"
                             + $"（实测 {rDmg:F2}px / {rHeal:F2}px）"
                             + "｜🧨 改坏法：两档并回同一套参数 ⇒ 这里恒 1.00");
-                        // ③ 自适应档：原版 Damage `auto=1`、Heal `auto=0`
+                        // ④ 自适应档：原版 Damage `auto=1`、Heal `auto=0`
                         Check(popDmg.AutoSizing && !popHeal.AutoSizing,
                               $"★ 自适应档照原版：伤害 auto=1（实测 {popDmg.AutoSizing}）· "
                             + $"治疗 auto=0（实测 {popHeal.AutoSizing}）"
                             + "｜🧨 改坏法：两档共用一条 ⇒ 治疗也被打开自适应");
-                        // ④ 折行：原版两颗都是 0（`SetAutoFitBox` 内部会顺带开成 1 ⇒ 必须还原）
+                        // ⑤ 折行：原版两颗都是 0（`SetAutoFitBox` 内部会顺带开成 1 ⇒ 必须还原）
                         Check(popDmg.WrappingMode == 0 && popHeal.WrappingMode == 0,
                               $"★ 折行照原版 = 0（实测 {popDmg.WrappingMode} / {popHeal.WrappingMode}）");
-                        // ⑤ 自适应四格的**比值**（我们这边是 fontSize 单位，绝对值随标称字号走）：
+                        // ⑥ 自适应四格的**比值**（我们这边是 fontSize 单位，绝对值随标称字号走）：
                         //    min/max = 0.35/5.5 · base/max = 36/5.5。
                         float dMin = popDmg.FontSizeMin, dMax = popDmg.FontSizeMax, dBase = popDmg.FontSizeBase;
                         Check(dMax > 0f
@@ -23416,9 +23488,13 @@ public static class BattleScene
                                 //   `FontSizeToPxNow` 按 `IsUgui` 取尺（uGUI 档 `×PxPerUnit(1)×UguiFontScale(10)`）；
                                 //   世界档两者逐位相同 ⇒ 换口对世界档零影响。判据 = `Label.cs:807-810` 的 doc（那条 doc
                                 //   明写「这族必须改用本口」）+ 同文件 `RW1192`（`W52` 已按 `IsUgui` 分档）。
-                                float fMin1192 = lb1192.FontSizeToPxNow(lb1192.FontSizeMin);   // 期望 14.4
-                                float fMax1192 = lb1192.FontSizeToPxNow(lb1192.FontSizeMax);   // 期望 28 / 32
-                                float fBas1192 = lb1192.FontSizeToPxNow(lb1192.FontSizeBase);  // 期望 28.8
+                                // 🔴 **2026-10-18（`N55`）**：单实参口内部写死 `Face.Cjk`（`Label.cs:874-877`）——
+                                //   本族是 `LatinUi` 面的标签，而 `EmPerFontSize` 自本日起按面分两支
+                                //   （CJK 0.0948 / 拉丁面原版真 em 0.1）⇒ 必须显式传 `ActualFace`，否则恒差 5.2%。
+                                //   判据 → `R4_Rewards残差.md` §五·B ＋ `D1_桶A字号换算链.md` §四 方案 B(b)。
+                                float fMin1192 = lb1192.FontSizeToPxNow(lb1192.FontSizeMin, lb1192.ActualFace);   // 期望 14.4
+                                float fMax1192 = lb1192.FontSizeToPxNow(lb1192.FontSizeMax, lb1192.ActualFace);   // 期望 28 / 32
+                                float fBas1192 = lb1192.FontSizeToPxNow(lb1192.FontSizeBase, lb1192.ActualFace);  // 期望 28.8
                                 Check(lb1192.AutoSizing,
                                       $"★ A1192：`{s1192.P}` 的**自适应开着**（原版 `m_enableAutoSizing = 1`）"
                                     + "；🧨 改坏法：把 `Txt` 那个 `AutoMinPx` 实参去掉（或 `wrapPx` 只传一半）⇒"

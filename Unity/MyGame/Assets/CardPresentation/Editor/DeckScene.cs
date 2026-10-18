@@ -4119,6 +4119,10 @@ public static class DeckScene
                         //   从 4.45 涨到 **4.88**，于是它从「撞上限」变成「被框轻压」**4.65 / 4.88**（差 4.7%）。
                         //   ⇒ 判据改成「**停在 max 的一个自适应步长以内**」—— 仍能咬住「框改小把字压下去」
                         //   （例如压到 2.0 ⇒ 红），但不再要求逐位撞墙。
+                        //   🔴 **2026-10-18（`N55`）**：`EmPerFontSize` 再次改口径（拉丁面 0.0948 → 原版真 em 0.1）
+                        //   ⇒ 这一颗（`LatinCardBody`）的 `fontSizeMax` 收到 **≈4.63**、实得 **≈4.41**（差 ≈4.7%）
+                        //   —— 「一个自适应步长」这条关系式**含义不变**、余量 ≈0.03（**只剩这一点**，见报告 §3）。
+                        //   判据 → `R4_Rewards残差.md` §五·B ＋ `D1_桶A字号换算链.md` §四 方案 B。
                         CheckTrue(tmp.fontSizeMax > 0f && tmp.fontSize >= tmp.fontSizeMax - 0.25f,
                                   $"★ A1735⑥ 灭自证②：字号**没有被框压小**（实得 {tmp.fontSize:F2} / 上限 {tmp.fontSizeMax:F2}；"
                                 + "容差 0.25 = 一个自适应步长）"
@@ -7091,7 +7095,10 @@ public static class DeckScene
                     //   那条同一条口径）—— ⛔ **不是**读我们传进去的常量（那是自证：常量被改坏时断言跟着变、恒绿）。
                     //   改坏法：把 `Deck/DeckRuntime.cs` 那处 `SetAutoFitBox` 改回只传 4 参
                     //   ⇒ 上限 = `c.LabelPx` = **23.2**（= 标称）⇒ 这条红。
-                    CheckNear(Label.FontSizeToPx(typeLb.FontSizeMax), 27f, 0.6f,
+                    // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace` —— 本族（筛选单元格）
+                    //   在 `Deck/DeckRuntime.cs:7243/7494` 显式 `SetFace(LatinCardBody)`；`EmPerFontSize`
+                    //   自本日起按面分两支（CJK 0.0948 / 拉丁 0.1），静态口量它会恒差 5.2%。判据 → R4 §五·B。
+                    CheckNear(typeLb.FontSizeToPxNow(typeLb.FontSizeMax, typeLb.ActualFace), 27f, 0.6f,
                               "★ A407：类型族自适应**上限 = 原版 27**（`auto[10~27]`）—— 拿标称 23.2 当上限 = 矮 3.8px");
                 }
                 var costLb = _rt.UiFilterCellLabel("$cost:" + FilterPanelModel.CostBuckets[0].Lo);
@@ -7119,9 +7126,9 @@ public static class DeckScene
                     //   ⛔ 期望值取自**原版读数**（27 / 36），不是我们传进去的那个常量。
                     //   改坏法：`Deck/DeckRuntime.cs` 那处回到只传 4 参 ⇒ 上限读成 **23.2**、base 读成
                     //   「调用方那一档」（也 = 23.2：`basePx = 0` ⇒ `baseCur = cur`）⇒ **下面两条都红**。
-                    CheckNear(Label.FontSizeToPx(rarLb.FontSizeMax), 27f, 0.6f,
+                    CheckNear(rarLb.FontSizeToPxNow(rarLb.FontSizeMax, rarLb.ActualFace), 27f, 0.6f,
                               "★ A407：稀有度族自适应**上限 = 原版 27**（`auto[10~27]`；旧写法 = 标称 23.2 ⇒ 矮 3.8px）");
-                    CheckNear(Label.FontSizeToPx(rarLb.FontSizeBase), 36f, 0.6f,
+                    CheckNear(rarLb.FontSizeToPxNow(rarLb.FontSizeBase, rarLb.ActualFace), 36f, 0.6f,
                               "★ A407：……而且 `m_fontSizeBase` = **原版 36**（不是标称 23.2）—— 反射读的真字段"
                             + "（删掉 `SetAutoFitBox` 第 5 个实参 `c.LabelBase` ⇒ 起点退回标称 ⇒ 这条红）");
                 }
@@ -7158,10 +7165,11 @@ public static class DeckScene
                     //   ⛔ **不是**读我们传进去的那个常量（那是自证：常量被改坏时断言跟着变、永远绿）。
                     //   🔴 改坏法：把 `Deck/DeckRuntime.cs` 那处 `BuildCosmetics(…)` 的第 5 个实参删掉
                     //   （退回缺省 = 共用常量 `ToggleFontAutoMin` = 18）⇒ **下界读成 18** ⇒ 下面第一条红。
-                    CheckNear(Label.FontSizeToPx(cosmoLb.FontSizeMin), 26f, 0.6f,
+                    // 🔴 **2026-10-18（`N55`）**：口径按 `ActualFace`（卡背筛选格也是 `LatinCardBody`，判据同上）
+                    CheckNear(cosmoLb.FontSizeToPxNow(cosmoLb.FontSizeMin, cosmoLb.ActualFace), 26f, 0.6f,
                               "★ 卡背页 `'Owned only'` 自适应**下界 = 原版 26**（`auto[26~32]`；"
                               + "⛔ 不是收藏窗那份 18 —— 退回共用常量这里必红）");
-                    CheckNear(Label.FontSizeToPx(cosmoLb.FontSizeMax), 32f, 0.6f,
+                    CheckNear(cosmoLb.FontSizeToPxNow(cosmoLb.FontSizeMax, cosmoLb.ActualFace), 32f, 0.6f,
                               "★ ……**上界 = 原版 32**（= `ToggleFontPx`）⇒ 窗口是 `[26,32]`，不是 `[18,32]`");
                 }
                 // 🔴 **2026-10-09（A247）对照**：**同一份模型的另一扇窗** —— `BuildCosmetics` 的**缺省**
@@ -7601,10 +7609,14 @@ public static class DeckScene
                             + "原版 TMP 原文 `There are no cards in your collection for the selected filters`）");
                 }
 
-                // ---- ⑫ 附加条：行上那**两件**按 `CardRarityColorsSO` 上色 ----
+                // ---- ⑫ 附加条：行上那**两件**按 `CardUIDisplayColorsSO` 上色 ----
                 //   判据 = `UICardInfoItem__Initialize.c:139-156`（`GetColor(rarity)` 后逐颗 `set_color`）+
                 //   `imagesToChangeColorByRarity` 逐颗解出来是 `Rarity Gradient` / `Background Border`。
-                //   色值**直接写字面量**（= `CardRarityColorsSO.json` 那六档），⛔ 不从 `DeckRuntime` 读回来。
+                //   🔴 **2026-10-18（`N102`）就地订正**：原来这里写死的是 **`CardRarityColorsSO`** 那六档，
+                //     而 prefab 里 **15 颗** `UICardInfoItem` 的 `colorsByRarity` **逐颗**都指向
+                //     **`CardUIDisplayColorsSO`**（pid `-2272266055686004801`）⇒ 期望值换成它。
+                //     判据 → `资料/普查产出_1018/W3_稀有度色收口.md` §1。
+                //   色值**直接写字面量**（= `CardUIDisplayColorsSO` 那六档），⛔ 不从 `RarityColors` 读回来。
                 {
                     _rt.UiSetTab(0);
                     var g1RowDef = _rt.UiDeckRowAt(0);
@@ -7614,17 +7626,17 @@ public static class DeckScene
                         Color want;
                         switch ((g1RowDef.Rarity ?? "").ToLowerInvariant())
                         {
-                            case "common": want = new Color(0.036712352f, 0.260706663f, 0.311320782f, 0f); break;
-                            case "rare": want = new Color(0.071761042f, 0.566037774f, 0.056069776f, 0.666666687f); break;
-                            case "epic": want = new Color(0.564705908f, 0.054901958f, 0.525894821f, 0.666666687f); break;
-                            case "legendary": want = new Color(1.282163382f, 0.470490038f, 0f, 0.666666687f); break;
-                            case "special": want = new Color(0.823529422f, 0.160784319f, 0f, 0.639215708f); break;
-                            default: want = new Color(1f, 1f, 1f, 1f); break;
+                            case "common": want = new Color(0.158419371f, 0.281238854f, 0.377358496f, 1f); break;
+                            case "rare": want = new Color(0.188660726f, 0.349056602f, 0.074092217f, 1f); break;
+                            case "epic": want = new Color(0.415094316f, 0.178177282f, 0.395884871f, 1f); break;
+                            case "legendary": want = new Color(0.792452812f, 0.438179821f, 0f, 1f); break;
+                            case "special": want = new Color(0.622641504f, 0.072625607f, 0.055802763f, 0.639215708f); break;
+                            default: want = new Color(0.509433985f, 0.509433985f, 0.509433985f, 1f); break;
                         }
                         CheckNear(grad.r, want.r, 0.002f,
-                                  "★ 附加条：第 0 行色条的 r = `CardRarityColorsSO` 里 `" + g1RowDef.Rarity + "` 那一档（"
-                                + want.r.ToString("F5") + "）—— 用我们自选的那张表 ⇒ 红");
-                        CheckNear(grad.a, want.a, 0.002f, "★ 附加条：……alpha 也照 SO（`common` 那档是 **0**）");
+                                  "★ 附加条：第 0 行色条的 r = `CardUIDisplayColorsSO` 里 `" + g1RowDef.Rarity + "` 那一档（"
+                                + want.r.ToString("F5") + "）—— 用错 SO（`CardRarityColorsSO`）⇒ 红");
+                        CheckNear(grad.a, want.a, 0.002f, "★ 附加条：……alpha 也照 SO（`common` / `rare` / `epic` / `legendary` 那几档都是 **1**，只有 `special` 是 0.639）");
                         CheckNear(border.r, want.r, 0.002f,
                                   "★ 附加条：**边框那件也上了同一个色**"
                                 + "（原版 `imagesToChangeColorByRarity` 那两颗数组元素 = 色条 + 边框；只染色条 ⇒ 红）");

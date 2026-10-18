@@ -479,9 +479,56 @@ namespace CardPresentation
                     return null;
                 }
                 if (rec.actions == null) rec.actions = new List<MsgAction>();
+                // 🔴 🆕 2026-10-18：**旧卡 id 的读时迁移闸**（卡池换过两代：`601005b` 一次性换 955 张 +
+                //   `K06` 换掉最后那批自造 token，两次都没迁玩家存档）。
+                //   录像里三处会带卡 id：`MsgStart.hostDeckJson/clientDeckJson`（`JsonUtility` 化的
+                //   `PlayerDeck`）· `MsgAction.pickIds` · `MsgAction.defId`。
+                //   不迁的话：那副牌在 `DeckBuilder.FromDeck` 里查不到 ⇒ 只 `LogError` 后 continue
+                //   （静默少牌），而 `finalHash` 是按**满 30 张**那个局面算的 ⇒ 这份录像**必然报「不是同一局」**。
+                // ⚠️ **只改内存里的这一份 `ReplayRecord`，录像文件一个字都不碰**；
+                //    **幂等**靠 `LegacyCardIds` 的**整副双解**闸门（迁完现代解合法 ⇒ 再进一次第一步就返回）
+                //    —— 🔴 **不是**「真 id 不可能是映射表的 key」（那句已不成立：890/1102 个值本身又是 key）。
+                //    ⚠️ 干净的录像（不含任何旧 token）走的是 `ContainsAny` 短路 ⇒ **零改动**。
+                //    映射表与逐条判据 → `RuleEngine/Data/LegacyCardIds.cs`。
+                MigrateLegacyIds(rec, fileName);
                 return rec;
             }
             catch (Exception e) { Debug.LogError("[Replay] 读盘失败：" + e.Message); return null; }
+        }
+
+        /// <summary>旧卡 id 的读时迁移（调用点 = <see cref="Load"/>；判据与映射表 → `RuleEngine/Data/LegacyCardIds.cs`）。
+        /// <para>**两份牌**（`MsgStart.hostDeckJson` / `clientDeckJson`）各走一次**双解验证**
+        /// （`MigrateDeckJson`：现代解不合法 ∧ 旧代解合法才迁）；**动作里的 id**
+        /// （`MsgAction.pickIds` / `MsgAction.defId`）**只有在那份牌真的被判成旧代时**才按同一张表迁
+        /// —— 一整份录像是一代到底的，牌是旧代 ⇒ 动作里的 id 也一定是旧代。</para>
+        /// <para>⚠️ 为什么动作**不能**无条件查表：卡池换过两代、且新表**不是单射**
+        /// （890/1102 个值本身又是 key、最长链 31 跳）⇒ 对一份**现代**录像盲套表会把它改成另一局。
+        /// 空的 / 干净的（不含旧 token）一律**原样不动**（`ContainsAny` 短路 + 双解第一步就返回）。</para></summary>
+        static void MigrateLegacyIds(ReplayRecord rec, string fileName)
+        {
+            string where = "回放 `" + fileName + "`";
+            var lookup = RuleEngine.LegacyCardIds.PoolLookup();     // 池子没加载 ⇒ null ⇒ 下面整段跳过
+            bool oldGen = false;
+            if (rec.start != null)
+            {
+                bool a, b;
+                rec.start.hostDeckJson = RuleEngine.LegacyCardIds.MigrateDeckJson(
+                    rec.start.hostDeckJson, lookup, where + " · hostDeckJson", out a);
+                rec.start.clientDeckJson = RuleEngine.LegacyCardIds.MigrateDeckJson(
+                    rec.start.clientDeckJson, lookup, where + " · clientDeckJson", out b);
+                oldGen = a || b;
+            }
+            if (!oldGen || rec.actions == null) return;             // 现代局 ⇒ 动作里的 id 原样不动
+            for (int i = 0; i < rec.actions.Count; i++)
+            {
+                var m = rec.actions[i];
+                if (m == null) continue;
+                if (m.pickIds != null && m.pickIds.Length > 0)
+                    m.pickIds = RuleEngine.LegacyCardIds.MigrateArray(
+                        m.pickIds, where + " · actions[" + i + "].pickIds");
+                m.defId = RuleEngine.LegacyCardIds.Migrate(
+                    m.defId, where + " · actions[" + i + "].defId");
+            }
         }
 
         /// <summary>超过 `keep` 局就**删最旧的**。返回删掉了几个。

@@ -6725,7 +6725,10 @@ public static class RewardsScene
                 CheckTrue(rwTitleLb != null, "★ A459：（前提）标题那颗挂得到 `Label`（下一条要反射读它的 `m_fontSizeBase`）");
                 CheckTrue(rwTitleLb == null || rwTitleLb.FontSizeBase > 0f,
                           "★ …（前提）走的是 TMP 后端 —— `Label.FontSizeBase` 在**点阵后端**返回 **−1**（如实报、不是 0）");
-                CheckNear(rwTitleLb != null ? Label.FontSizeToPx(rwTitleLb.FontSizeBase) : -1f, 36f, 0.6f,
+                // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace`
+                //   （`EmPerFontSize` 按面分两支：CJK 0.0948 / 拉丁面原版真 em 0.1；CJK 标签读数逐位不变）。
+                //   本颗标题来自 `MenuWindowBase`（`LatinUi`）⇒ 静态口会恒差 5.2%。判据 → R4 §五·B。
+                CheckNear(rwTitleLb != null ? rwTitleLb.FontSizeToPxNow(rwTitleLb.FontSizeBase, rwTitleLb.ActualFace) : -1f, 36f, 0.6f,
                           "★★ A459：`Glow Get reward/Text Get Reward` 的 `m_fontSizeBase` = 原版 **36.0**"
                           + "（画布 px 口径；判据 = 上面那条 `menu_dump` 实读）"
                           + " —— 删掉 `autoBasePx: TitleAutoBase` ⇒ 读到 `fontPx` = 50 ⇒ 红");
@@ -7483,12 +7486,13 @@ public static class RewardsScene
                     if (lb == null) return;
                     CheckTrue(lb.AutoSizing, $"★ {what}：**自适应开着**（原版 `m_enableAutoSizing = 1`）"
                               + " —— 旧写法「只传 `autoMinPx` 不传 `wrapPx`」= 死实参、停在 TMP 出厂 `false`");
-                    CheckNear(Label.FontSizeToPx(lb.FontSizeMin), minPx, 0.05f,
+                    // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace`（理由同 A459 那一处）
+                    CheckNear(lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace), minPx, 0.05f,
                               $"★ {what}：**下限** = 原版 `m_fontSizeMin` **{minPx}px**"
                               + "（⚠️ 已按本族 `localScale 0.8` 折算，见上面那段）");
-                    CheckNear(Label.FontSizeToPx(lb.FontSizeMax), maxPx, 0.05f,
+                    CheckNear(lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace), maxPx, 0.05f,
                               $"★ {what}：**上限** = 原版 `m_fontSizeMax` **{maxPx}px**");
-                    CheckNear(Label.FontSizeToPx(lb.FontSizeBase), basePx, 0.05f,
+                    CheckNear(lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace), basePx, 0.05f,
                               $"★ {what}：**基准** = 原版 `m_fontSizeBase` **{basePx}px**");
                     Check(lb.WrappingMode, wrap, $"★ {what}：**折行档** = 原版 `m_TextWrappingMode`**{wrap}**"
                           + "（`SetAutoFitBox` 内部一句 `SetWrapWidth` 会**无条件**开成 `Normal(1)`"
@@ -7716,11 +7720,13 @@ public static class RewardsScene
             {
                 CheckTrue(fResetLb.AutoSizing, "★ `Streak Failed/Button Text`：**自适应开着**"
                           + "（原版 `m_enableAutoSizing = 1`）—— 旧写法 `wrapPx` 缺省 = 0 ⇒ 那段不执行、停在 false");
-                CheckNear(Label.FontSizeToPx(fResetLb.FontSizeMin), 10f, 0.05f,
+                // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace`（本颗 = `LatinCardBody`；
+                //   CJK 标签读数逐位不变）。判据 → R4 §五·B。
+                CheckNear(fResetLb.FontSizeToPxNow(fResetLb.FontSizeMin, fResetLb.ActualFace), 10f, 0.05f,
                           "★ …**下限** = 原版 `m_fontSizeMin` **10px**（旧写法停在 TMP 出厂 `0`）");
-                CheckNear(Label.FontSizeToPx(fResetLb.FontSizeMax), 55f, 0.05f,
+                CheckNear(fResetLb.FontSizeToPxNow(fResetLb.FontSizeMax, fResetLb.ActualFace), 55f, 0.05f,
                           "★ …**上限** = 原版 `m_fontSizeMax` **55px**");
-                CheckNear(Label.FontSizeToPx(fResetLb.FontSizeBase), 12f, 0.05f,
+                CheckNear(fResetLb.FontSizeToPxNow(fResetLb.FontSizeBase, fResetLb.ActualFace), 12f, 0.05f,
                           "★ …**基准** = 原版 `m_fontSizeBase` **12px**（≠ 标称 55、也 ≠ TMP 默认 36 ⇒ 最有鉴别力）");
                 Check(fResetLb.WrappingMode, 0, "★ …**折行档 = 0**（原版 `m_TextWrappingMode = 0`；"
                       + "`SetAutoFitBox` 内部会无条件开成 `Normal(1)` ⇒ 必须显式关回去）");
@@ -7931,7 +7937,8 @@ public static class RewardsScene
             var a968lb = a968t != null ? a968t.GetComponentInChildren<Label>() : null;
             CheckTrue(a968lb == null || a968lb.FontSizeBase > 0f,
                       "（前提 · A968）走的是 TMP 后端 —— `Label.FontSizeBase` 在**点阵后端**返回 **−1**（如实报、不是 0）");
-            CheckNear(a968lb != null ? Label.FontSizeToPx(a968lb.FontSizeBase) : -1f, 36f, 0.6f,
+            // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace`（本颗 = `LatinUi`；CJK 读数逐位不变）
+            CheckNear(a968lb != null ? a968lb.FontSizeToPxNow(a968lb.FontSizeBase, a968lb.ActualFace) : -1f, 36f, 0.6f,
                       "★ A968：`Window Title` 的自适应**起点** = 原版 `m_fontSizeBase` **36.0**"
                     + "（⚠️ 单独没有鉴别力：TMP 的序列化默认值也是 36 —— 见上面那条注释）");
 
@@ -9809,7 +9816,8 @@ public static class RewardsScene
             CheckTrue(lbb != null, $"★ A468：（前提）`{nodeName}` 那颗挂得到 `Label`（下一条要读它的 `m_fontSizeBase`）");
             CheckTrue(lbb == null || lbb.FontSizeBase > 0f,
                       $"★ A468：（前提）`{nodeName}` 走的是 TMP 后端 —— `Label.FontSizeBase` 在**点阵后端**返回 **−1**");
-            CheckNear(lbb != null ? Label.FontSizeToPx(lbb.FontSizeBase) : -1f, wantBasePx, 0.6f,
+            // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace`（同族理由见 A459 那处）
+            CheckNear(lbb != null ? lbb.FontSizeToPxNow(lbb.FontSizeBase, lbb.ActualFace) : -1f, wantBasePx, 0.6f,
                       $"★★ A468：`{nodeName}` 的 `m_fontSizeBase` = 原版 **{wantBasePx:F0}**（画布 px 口径；"
                       + "判据 = `Inbox Menu` prefab 的 `基准=36.0` 那一列，TMP 出厂默认值）"
                       + " —— 删掉那一处的 `autoBasePx: WindowLabelAutoBase` ⇒ 退回 `fontPx` ⇒ 红");
@@ -10095,7 +10103,8 @@ public static class RewardsScene
                               $"★ A459：（前提）`{nodeName}` 那颗挂得到 `Label`（下一条要反射读它的 `m_fontSizeBase`）");
                     CheckTrue(lb2 == null || lb2.FontSizeBase > 0f,
                               $"★ …（前提）`{nodeName}` 走的是 TMP 后端 —— `Label.FontSizeBase` 在**点阵后端**返回 **−1**");
-                    CheckNear(lb2 != null ? Label.FontSizeToPx(lb2.FontSizeBase) : -1f, wantPx, 0.6f,
+                    // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace`（同族理由见 A459 那处）
+                    CheckNear(lb2 != null ? lb2.FontSizeToPxNow(lb2.FontSizeBase, lb2.ActualFace) : -1f, wantPx, 0.6f,
                               $"★★ A459：`{nodeName}` 的 `m_fontSizeBase` = 原版 **{wantPx:F0}**（画布 px 口径；"
                               + "判据 = `Message Container` prefab 的 `m_fontSizeBase` 原文）"
                               + " —— 删掉 `Shell/InboxWindow.cs` 那一处的 `autoBasePx` ⇒ 退回 `fontPx`（50/40）⇒ 红");
@@ -11559,11 +11568,14 @@ public static class RewardsScene
             CheckTrue(false, $"{what}：**这条没查成** —— `{nodeName}` 没建出来 / 上面没有 `Label`");
             return;
         }
-        CheckNear(Label.FontSizeToPx(lb.FontSizeMin), wantMinPx, 0.5f, what + " 自适应**下界**");
-        CheckNear(Label.FontSizeToPx(lb.FontSizeMax), wantMaxPx, 0.5f, what + " 自适应**上界**");
+        // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成**按这颗标签实际生效的面**
+        //   （`EmPerFontSize` 按面分两支：CJK 汉字墨高 0.0948 / 拉丁面原版真 em 0.1；CJK 标签读数逐位不变）。
+        //   判据 → `R4_Rewards残差.md` §五·B ＋ `D1_桶A字号换算链.md` §四 方案 B(b)。
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace), wantMinPx, 0.5f, what + " 自适应**下界**");
+        CheckNear(lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace), wantMaxPx, 0.5f, what + " 自适应**上界**");
         // 🆕 **2026-10-10（A1226/A1219）补的两格 + 可选的 base 那一格** —— 见本方法 summary 的最后三段。
         if (wantBasePx > 0f)
-            CheckNear(Label.FontSizeToPx(lb.FontSizeBase), wantBasePx, 0.6f,
+            CheckNear(lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace), wantBasePx, 0.6f,
                       what + " 自适应**起点**（= 原版 `m_fontSizeBase` × `localScale`；容差 0.6 同本文件"
                       + " A459/A468 那两处 —— ⛔ 别精确比浮点）");
         // 🔴 **`guards` 缺省 2026-10-10 收口时【已从 `false` 翻成 `true`】**：`F3` 交件时只对
@@ -11577,8 +11589,9 @@ public static class RewardsScene
                   + " —— 改坏法：为了让「收敛值」对上某个字面量而把自适应**关掉/放宽**，"
                   + "那是**往回退复刻**，不是修好（`D1` §共同纪律；这条专门挡它）");
         float nowPx = lb.FontPxNow;
-        float loPx = Label.FontSizeToPx(lb.FontSizeMin);
-        float hiPx = Label.FontSizeToPx(lb.FontSizeMax);
+        // 🔴 **2026-10-18（`N55`）**：区间两端也按 `ActualFace` 折（同本方法上面那两条）
+        float loPx = lb.FontSizeToPxNow(lb.FontSizeMin, lb.ActualFace);
+        float hiPx = lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace);
         // ⚠️ **关系式，不是字面量** —— 收敛值由「框 ÷ 字体行盒」决定（我们那份 CJK 字体行盒 ≈ 1.52 em，
         //    原版 ~1.17 em ⇒ **同一个框上我们收敛得更小**，这是**字体资产**的系统性差异，不是缺陷）。
         CheckTrue(nowPx >= loPx - 0.5f && nowPx <= hiPx + 0.5f,

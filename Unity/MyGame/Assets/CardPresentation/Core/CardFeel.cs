@@ -1506,7 +1506,10 @@ namespace CardPresentation
 
         /// <summary>🆕 **2026-10-17（`A1213②`）**：原 `CardFeel.PopNumber` / `LastPopTween` **已删**（全仓 0 消费者）。
         /// 真实现 = `Battle/PopNumber.cs` 的 `PopDamage` / `PopHeal` 两条路径（判据 = 原版两颗 TMP 组件，
-        /// 有效字号比 12.1:1）。⛔ 别在这里补回来 —— 两处写同一条规则 = 迟早不一致。</summary>
+        /// 有效字号比 **1.21 : 1**）。⛔ 别在这里补回来 —— 两处写同一条规则 = 迟早不一致。
+        /// ⚠️ **2026-10-18（`N54②`）就地订正（铁律 5）**：本行原来写「12.1:1」—— **错的**。两颗都是
+        /// 3D `TextMeshPro`，`m_isOrthographic` Damage=0 ⇒ 渲染 ×0.1 / Heal=1 ⇒ ×1.0，有效比 = 0.847:0.70 =
+        /// 1.21:1（判据 → `资料/普查产出_1018/N54_飘字绝对字号_判据.md`）。</summary>
 
         /// <summary>发牌入场：从 `from`（牌堆）飞到手里的位置。
         /// 出处：`CardScript.DrawCard` —— 它用 `DOScale + DORotate + DOMove` 三条补间把牌抽进来

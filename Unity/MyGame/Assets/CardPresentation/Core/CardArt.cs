@@ -34,14 +34,18 @@ namespace CardPresentation
             Available = Backdrop != null || Ui("40k_battle_energy_full") != null;
         }
 
-        /// <summary>阵营卡框（**不分稀有度**，取 tier1）。阵营名大小写不敏感（"Ember" → frame_ember）。</summary>
+        /// <summary>阵营卡框 —— **只按阵营取**（稀有度传 null ⇒ 走 `TierOf` = 最高档 `MaxTier`，
+        /// ⚠️ 2026-10-18 更正：本行原写「取 tier1」，与 `TierOf` 恒返 `MaxTier` 打架）。
+        /// 阵营名大小写不敏感（"Ember" → frame_ember）。</summary>
         public static Texture2D Frame(string faction)
         {
             return Frame(faction, null, false);
         }
 
         /// <summary>
-        /// 阵营卡框 —— **本作所有卡一律取该阵营的【最高档】**（`MaxTier`），**战术卡另有一套框**。
+        /// 阵营卡框 —— **不传 `tier` 时取该阵营的【最高档】**（`MaxTier`），**战术卡另有一套框**。
+        /// 🆕 **2026-10-18**：卡面那一路现在**传 `tier`**（= `CardProgress.Level(artId)`，「升级 → 换卡框」）；
+        /// 本段「一律最高档」只描述**缺省档**，见下面 `<param name="tier">`。
         ///
         /// 🔴 **2026-09-27 整段作废原来那句「按稀有度取对应 tier（原版就是分四档的）」** ——
         ///   原版里**「升级档」就是「卡框档」**（`CardFramesSO.GetClanFrame(army, tier, cardType)`，
@@ -56,12 +60,21 @@ namespace CardPresentation
         /// 取不到（没导那一档 / 稀有度不认识）**逐级退回**：本类型的 tier1 → 另一类型的 tier1 →
         /// 不带 tier 的老名字 —— 美术目录缺档也不至于变成没框的占位卡。
         /// </summary>
-        public static Texture2D Frame(string faction, string rarity, bool tactic = false)
+        /// <param name="tier">🆕 **2026-10-18（用户拍板「通过升级按钮进行不同等级的卡框切换」）**：
+        /// 卡框档位（1..4，= 原版 `CardTier` 的 1 基写法，显示等级与它同值）。
+        /// **0（缺省）= 走 <see cref="TierOf"/>**（那一路恒返 `MaxTier`）⇒ **老调用点行为一字不变**。
+        /// 传了就用它 —— 这是「升级 → 换卡框」那条链的落点：`CardView` 传 `CardProgress.Level(artId)`。
+        /// 判据（原版一手）：`UpgradePanel.ChangeFrameOnLevelUp` → `BasicCardUI.RefreshCardVisualEffects(cardUI, newTier)`
+        /// → `CardTierUIController.SetTier` → `CardFramesSO.GetClanFrame(army, **tier**, cardType)`
+        /// （入参里没有稀有度）；全量说明 → `资料/普查产出_1018/R_卡片详情大图三问.md` §4.2。
+        /// ⚠️ 档位越界按 `[1, MaxTier]` 夹（存档被手改坏也不至于取不到图）。</param>
+        public static Texture2D Frame(string faction, string rarity, bool tactic = false, int tier = 0)
         {
             if (string.IsNullOrEmpty(faction)) return null;
             string fac = faction.ToLowerInvariant();
             string kind = tactic ? "_strat" : "";
-            int tier = TierOf(rarity, faction);
+            if (tier <= 0) tier = TierOf(rarity, faction);
+            tier = Mathf.Clamp(tier, 1, MaxTier);
             if (tier > 1)
             {
                 var t = Get(Root + "cards/frame_" + fac + kind + "_tier" + tier);
@@ -72,7 +85,7 @@ namespace CardPresentation
             var def = Get(Root + "cards/frame_" + fac + kind);
             if (def != null) return def;
             // 战术卡框整批没有（老版本只导了 troop）→ 退回 troop 的，别让卡变空白
-            return kind.Length > 0 ? Frame(faction, rarity, false) : null;
+            return kind.Length > 0 ? Frame(faction, rarity, false, tier) : null;
         }
 
         /// <summary>
@@ -93,11 +106,15 @@ namespace CardPresentation
         /// 用途 = 原版 `MinionLight` 上那个 `FrameHighlight`（6 态状态环）。</summary>
         public static Texture2D CardFrameSdf() { return Get(Root + "card_sdf/Card_board_frame_SDF"); }
 
-        public static Texture2D Sdf(string faction, string rarity, bool tactic = false)        {
+        public static Texture2D Sdf(string faction, string rarity, bool tactic = false, int tier = 0)
+        {
             if (string.IsNullOrEmpty(faction)) return null;
             string fac = faction.ToLowerInvariant();
             string kind = tactic ? "_strat" : "";
-            int tier = TierOf(rarity, faction);
+            // 🆕 2026-10-18：档位与 `Frame` **同一份口径**（0 = 走 `TierOf`，否则夹到 1..MaxTier）——
+            //   判据与说明只写在 `Frame` 的 `<param name="tier">` 上，⛔ 别在这里再写一套。
+            if (tier <= 0) tier = TierOf(rarity, faction);
+            tier = Mathf.Clamp(tier, 1, MaxTier);
             if (tier > 1)
             {
                 var t = Get(Root + "card_sdf/" + fac + kind + "_tier" + tier);
@@ -107,7 +124,7 @@ namespace CardPresentation
             if (one != null) return one;
             if (kind.Length > 0)                                  // 战术卡那套没有 → 退回 troop 的
             {
-                var other = Sdf(faction, rarity, false);
+                var other = Sdf(faction, rarity, false, tier);
                 if (other != null) return other;
             }
             // 最后兜底：原版那张**通用**的 `Card board frame SDF`（我们存成 `generic.png`）
@@ -265,6 +282,12 @@ namespace CardPresentation
             // **用户 2026-09-27 的决定**：本作全解锁、不做升级/合成 ⇒ **一律按最高档画**（= 原版的「满级状态」）。
             // ⚠️ **这是一处【有意】的偏离**：原版初见一张新卡是 **Tier1** 的框。要退回「按升级档画」，
             //   把这里换成 `Mathf.Clamp(CardProgress.Level(id), 1, MaxTier)` 那条路即可（升级档本来就存在）。
+            // 🔴 **2026-10-18 就地更新（铁律 5 · 用户当天拍板「通过升级按钮进行不同等级的卡框切换」）**：
+            //   **那条「按升级档画」的路【已经接通了】** —— 走的是 `Frame/Sdf` 新增的 `tier` 形参
+            //   （`CardView` 把 `CardProgress.Level(artId)` 传进去），**本函数保持 `MaxTier` 不动**
+            //   ⇒ 好处是：① 所有**没有**卡 id 的调用点（演示卡、`BattleScene` 那几条直接调 `CardArt.Frame` 的断言）
+            //   行为一字不变；② 「框档从哪来」只有 `CardView` 一条链说了算，这里不再有第二个判据。
+            //   ⇒ ⛔ 别把本函数改成读 `CardProgress`（那会让「缺省 1」把无 id 的占位卡也拖成 tier1）。
             // ⚠️ 两个入参保留是为了**调用点不动**（`Frame` / `Sdf` 都按 (rarity, faction) 调）。
             return MaxTier;
         }
@@ -362,12 +385,18 @@ namespace CardPresentation
             return Get(Root + "cards/art_" + Slug(artKey));
         }
 
-        /// <summary>🔴 **2026-10-18**：卡组格的**督军方形立绘** —— 原版 `deckHero.cardImageReference` 指向的
-        /// 不是卡面插图，而是独立一族 **`UI_Deck_Warlord_&lt;督军名&gt;`**（`bundle_uiwarlords_assets_all`，
-        /// **2048×2048 方形**、白底抠图、构图居中；本机现读 63 张）。
-        /// <para>判据：该族 2048² 正好对上卡组格 `Deck Image` 的 **347.70×346.35**（方形）画框；而卡面插图
-        /// （668×1024）拉进方形框会**变形**、再被 `RectMask2D` 裁掉大半 ⇒ 就是用户 2026-10-18 报的
-        /// 「战将立绘残缺」。同族先例 = `FTUESelectDeckWindow.HeroArt`（同一套取法 + 同一档兜底）。</para>
+        /// <summary>督军的**方形整身立绘**（`UI_Deck_Warlord_&lt;督军名&gt;`，`bundle_uiwarlords_assets_all`，
+        /// **2048×2048 方形**、透明底抠图、构图居中；本机现读 63 张）。
+        /// <para>🔴🔴 **2026-10-18 适用范围改判（铁律 5）—— 本函数【只】给卡组详情窗那一档用**：
+        /// 现在唯一的调用点是 `Shell/DeckInfoPopup.cs` 的 `Warlord Image`（详情窗**左侧那张大立绘**）。
+        /// **卡组格（`MenuDraw.DeckCell`）不用它** —— 用户 2026-10-18 明确纠正：卡格上要的是
+        /// **卡牌里的插图**（卡面那张图），不是这张立绘；判据 + 参考图逐格模板匹配 →
+        /// `Shell/MenuDraw.cs` 的 `DeckCell` 里「2026-10-18 改判」那一段。⛔ 别再把本函数接回卡格。</para>
+        /// <para>⚠️ 旧的这条注释写着「原版 `deckHero.cardImageReference` 指向的就是这一族」—— **那句不成立**
+        /// （同一天就地推翻了）：`RawCardScript.cardImageReference` 是 `AssetReferenceTyped&lt;Sprite&gt;`
+        /// = **卡面那张 sprite**；这一族是 UI 立绘，两者不是同一样东西。
+        /// 旧注释里「卡面插图（668×1024）拉进方框会裁掉大半」说的**其实是画框折算错了**（已经修）——
+        /// 那个 347.7 方框对应的是**整张 1024² 纹理**，可见区正好是插图整幅，见 `MenuDraw.DcImgX` 的补注。</para>
         /// <para>取不到（快照之后新增的 16 位督军没有这张图）⇒ 退回 <see cref="Portrait"/>（卡面插图），
         /// 调用点会按**非方形图**走等比内接 —— **这一档是我们挑的兜底**，不是原版做法。</para></summary>
         public static Texture2D DeckHero(string warlordId)

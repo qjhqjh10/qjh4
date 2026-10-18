@@ -29,8 +29,10 @@ gen_ability_anim_durations.py — 账 `A1767`：把「发动效果的时长」�
     是**别的时机**播的（我们的 `EvtKind.Trigger` / `Play`），**不进这张表** —— 全量件里留在
     `cards[*].otherAbilityAnims` 里备查。
 
-⚠️ **本表只覆盖「快照里有的卡」**：真值源是 `cards_1195_2022时代.json`（2022 年代，12 个阵营），
-   我们池子里 UM / SW 那两批**不在这份快照里** ⇒ 判据为空（铁律 11 例外①）。逐张名单见 `uncovered`。
+⚠️ **本表覆盖到当前 build 的卡 SO**：真值源 = `资料/普查产出_1018/allcards_1350/cards_raw.json`
+   （**2026-10-18 换**；旧的是 2025-07-30 的 `cards_1195_2022时代.json` 快照，⛔ 别改回去）。
+   仍有少量「会发 Ability 事件」的卡没有真值 —— 原因**不是快照年代**，而是它们的卡 SO
+   `activeAbility` 本身**一条 CardAnim 都没有**（铁律 11 例外①）。逐张名单见 `uncovered`。
 
 用法：
   python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py            # 重出两份产物
@@ -48,6 +50,14 @@ ROOT2 = "d:/2"
 VFX_TABLE = ROOT4 + "/数据/游戏数据/card_vfx_by_card.json"
 CARDS_ENGINE = ROOT4 + "/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
 ASSETS_FULL = ROOT2 + "/新解包资源/assets_full"
+
+# 🔴 **真值源 = 当前 build 的 allcards 卡 SO 语料**（2026-10-18 换）。
+#   ⛔ 旧路径 `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json` 是 **2025-07-30 的旧快照**
+#   （1,195 张，UM/SW 那几批不在里面）—— **别改回去**。
+#   判据 → `资料/普查产出_1018/R_卡牌线_完整ID与SO后的调整评估.md` §4。
+#   ⚠️ 它不是本表时长的来源（时长来自下面的 card_vfx_by_card → CardAnim dump 那条链）——
+#      它只用来**如实判定**「这张卡在不在真值里」「SO 的 activeAbility 到底有没有 CardAnim」。
+CARD_SO_TRUTH = ROOT4 + "/资料/普查产出_1018/allcards_1350/cards_raw.json"
 
 OUT_FULL = ROOT4 + "/数据/游戏数据/ability_anim_durations.json"
 OUT_RT = ROOT4 + "/MyGame/Assets/CardPresentation/Resources/ability_anim_durations.json"
@@ -137,26 +147,37 @@ def build():
         return any(kw in (k or "").lower() for k in (c.get("keywords") or []))
 
     covered_ids = set(c["id"] for c in withtruth)
-    # 「这张卡在原版真值里出现过没有」—— 出现过 = 它的卡 SO 至少有一条 authoritative 条目
-    known_ids = set()
-    for cid, e in vfx["byCard"].items():
-        for grp in e.values():
-            if isinstance(grp, list) and any(isinstance(x, dict) and x.get("conf") == "authoritative"
-                                             for x in grp):
-                known_ids.add(cid)
-                break
+    # 「这张卡在当前 build 的卡 SO 里有没有 / 它的 activeAbility 有几条 CardAnim」——
+    # 🔴 判据**直接读 SO**，不再拿 vfx 表反推（vfx 是下游，用下游反推上游 = 自证）。
+    so = {c["uniqueId"]: c for c in load(CARD_SO_TRUTH)["cards"]}
+
+    def so_active_anims(cid):
+        s = so.get(cid)
+        if s is None:
+            return None
+        return sum(len((l or {}).get("cardAnimations") or [])
+                   for l in ((s.get("activeAbility") or {}).get("activeAbilityLogic") or []))
+
     want = [c for c in ce if any(kw_has(c, k) for k in ("duty", "ferocity", "oath", "pray", "agenda"))]
     uncovered = []
     for c in want:
         if c["id"] in covered_ids:
             continue
+        n_so = so_active_anims(c["id"])
+        if n_so is None:
+            why = "**当前 build 的卡 SO 里根本没有这张卡** ⇒ 判据为空（铁律 11 例外①）"
+        elif n_so == 0:
+            why = ("卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**"
+                   "（原版这条路不放东西；`hasActiveAbility = %d`）—— 判据不足以定「该等 0 还是等一拍」"
+                   " ⇒ 退回兜底值并**出声**" % int((so[c["id"]] or {}).get("hasActiveAbility") or 0))
+        else:
+            why = ("卡 SO 的 `activeAbility` 有 **%d 条 CardAnim**，但 `card_vfx_by_card.json` 没覆盖到"
+                   "（映射缺口，**该修**）⇒ 暂退回兜底值并**出声**" % n_so)
         uncovered.append({
             "id": c["id"], "name": c.get("name"), "faction": c.get("faction"),
-            "inTruthSnapshot": c["id"] in known_ids,
-            "why": ("快照里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**"
-                    "（原版这条路不放东西）—— 判据不足以定「该等 0 还是等一拍」⇒ 退回兜底值并**出声**"
-                    if c["id"] in known_ids else
-                    "**2022 快照里根本没有这张卡**（真值源年代，UM/SW 是后来的扩军）⇒ 判据为空"),
+            "inTruthSnapshot": c["id"] in so,
+            "soActiveAnims": n_so,
+            "why": why,
         })
 
     stats = {
@@ -178,8 +199,9 @@ def build():
         "（`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；原版 `AnimInfo__GetAnimDuration.c`）。"
         f"覆盖 **{stats['cardsWithTruth']} 张卡 / {stats['activeAnims']} 条 CardAnim**，"
         f"min {stats['min']} / 中位 **{stats['median']}** / max {stats['max']}。"
-        "⚠️ **三处如实标注**：① **只覆盖 2022 快照里有的卡** —— 池子里 UM/SW 那批"
-        f"（会发 Ability 事件的 21 张 UM 誓约 + 7 张 SW 凶暴）**一张都没有真值** ⇒ 判据为空（铁律 11 例外①）；"
+        "⚠️ **三处如实标注**：① 仍有 " + str(len(uncovered)) + " 张「会发 Ability 事件」的卡没有真值 ——"
+        " **不是快照年代**（2026-10-18 起真值 = 当前 build 的卡 SO），而是它们的卡 SO "
+        "`activeAbility` 本身一条 CardAnim 都没有** ⇒ 判据为空（铁律 11 例外①）；"
         "② 原版 `_ResolveAnim` 里 tween 那一段（`animInfo.tweenAnim != null && waitAnimation != 0` 时 "
         "`WaitForCompletion(BuildSequence)`）**本表没算**（`UnitTweenSO` 的长度本地没接）；"
         "③ `cardAbilities[*]`（`ThisCardPlayed` / `Slay` / … 那一族）是**别的时机**播的，"
@@ -203,7 +225,8 @@ def build():
             "cardVfxByCard": VFX_TABLE,
             "cardsEngine": CARDS_ENGINE,
             "cardAnimDumps": ASSETS_FULL + "/bundle_*cardanims*/MonoBehaviour/*.json",
-            "cardSoTruth": ROOT2 + "/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json",
+            # 当前 build 的卡 SO 语料（2026-10-18 换；旧的是 2025-07-30 的 cards_1195_2022时代.json）
+            "cardSoTruth": CARD_SO_TRUTH,
             "splitter": ROOT2 + "/tools/decomp_full/AbilityLogic__PlayAnim.c",
             "resolver": ROOT2 + "/tools/decomp_full/BattleManager._ResolveAnim_d__466__MoveNext.c",
             "duration": ROOT2 + "/tools/decomp_full/AnimInfo__GetAnimDuration.c",
@@ -273,7 +296,7 @@ def main():
     print("[运行时] %s  (%d 字节)" % (OUT_RT, os.path.getsize(OUT_RT)))
     print("覆盖 %d 张卡 / %d 条 CardAnim · min %s / 中位 %s / max %s · 解不出 %d"
           % (s["cardsWithTruth"], s["activeAnims"], s["min"], s["median"], s["max"], s["unresolved"]))
-    print("会发 Ability 事件的关键词族 %d 张里，没真值的 %d 张（UM/SW 那批，快照年代）"
+    print("会发 Ability 事件的关键词族 %d 张里，没真值的 %d 张（它们的卡 SO `activeAbility` 一条 CardAnim 都没有）"
           % (s["wantedCards"], s["uncoveredCards"]))
     print("另有 %d 张卡在真值里有键、但 `activeAbility` 一条动画都没有（原版就不放东西）"
           % s["cardsMatchedButNoActiveAnim"])

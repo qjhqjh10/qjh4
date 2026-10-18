@@ -246,6 +246,23 @@ namespace RuleEngine
             var list = new List<CardDef>();
             if (deck == null) return list;
 
+            // 🔴 🆕 2026-10-18：**最后一道旧 id 闸**（幂等、命中才出声）。
+            //   上游两个读入口已经迁过了（存档 = `DeckStore.LoadAll` · 回放 = `ReplayStore.Load`），
+            //   这里再兜一次是因为 `PlayerDeck` 还能从**别的路**构造出来（联机对端下发的
+            //   `hostDeckJson` / 导入的卡组串 / 自检夹具）—— 而下面这一圈遇到查不到的 id
+            //   **只会 `LogError` 然后丢牌**（静默少牌 = 这一局打的不是玩家那副牌）。
+            //   ⚠️ 原地迁 `deck`：迁完之后**同一局里所有消费者**看到的都是真 id。
+            //   ⚠️ 已是真 id 时它什么也不做（不刷日志）。映射表 → `LegacyCardIds.cs`。
+            //   🔴 **2026-10-18 改口径**：原来这里走的是「无条件查表」。卡池换过**两代**、且新表
+            //     **不是单射**（890/1102 个值本身又是 key、最长链 31 跳）⇒ 无条件替换会把一副
+            //     **新卡组**再迁一次、静默换成第三张卡。现在走 `MigrateDeckVerified`：
+            //     **只有「现代解不合法 ∧ 旧代解合法」才落**（判据 = `DeckRules.Validate` 双解）。
+            //     卡池查表口用**这个函数自己的 `index`**（按 id；本函数的 `Lookup` 本来就不认卡名）。
+            //     ⚠️ 于是「按卡名」的旧存档在这里会走到 `MigrateDefensive` 的**无法判定 ⇒ 原样保留**那一支
+            //     （⛔ 不因为查不到就清空 —— 清空是不可逆的）。
+            LegacyCardIds.MigrateDeckVerified(deck, id => Lookup(index, id),
+                                              "卡组「" + deck.Name + "」(DeckBuilder.FromDeck)");
+
             var warlord = Lookup(index, deck.WarlordId);
             if (warlord == null || warlord.Type != "hero")
                 UnityEngine.Debug.LogError($"[RuleEngine] 卡组的督军 `{deck.WarlordId}` 在卡池里找不到"

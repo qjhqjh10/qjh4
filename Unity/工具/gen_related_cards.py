@@ -16,14 +16,19 @@
 
 ## 真值从哪来
 
-`d:/2/远端缓存_旧profile_1013/Unity缓存_按哈希/54bdb7b1…/…/__data`（UnityPy 读；**只读**）
-—— 1,195 张卡（`RawCardScript` × 1195 + 3 个 MonoScript + 1 个 AssetBundle）。
+`d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json` —— **当前 build（2026-10-18）的
+allcards 卡 SO 语料**：1,351 张 `RawCardScript`（纯 JSON，只读；116 个序列化字段在 `full_raw` 里）。
 四槽是**同包内的裸 PPtr**（`m_FileID = 0`、`m_PathID` 非零才是真引用）
-⇒ 在同一包的对象表里按 `m_PathID` 反查那一张卡，取它的 `uniqueId`。
+⇒ 在同一包的对象表里按 `m_PathID` 反查那一张卡，取它的 `uniqueId`（`path_id` 就是那张卡的键）。
 
-⚠️ **年代限制**：该包是 **Unity 2022.3.38f1 / 缓存时间 2025-07-30** 的快照，
-里面 1,195 张 vs 我们现池（`RuleEngine/Resources/cards_engine.json`）**张数以现读为准**
-⇒ 真值里的卡**我们池子里不一定有**（反之亦然）。逐条对不上的**打印出来**，⛔ 不硬塞。
+🔴 **换源记录**：2026-10-18 之前这里读的是
+`d:/2/远端缓存_旧profile_1013/Unity缓存_按哈希/54bdb7b1…/…/__data`（UnityPy，**Unity 2022.3.38f1 /
+缓存时间 2025-07-30 的旧快照**，1,195 张）⇒ 只出 196 张 / 240 条边。
+当前包 `relatedCard1` 非空 = **212 张**、四槽边合计 **266 条**。⛔ **别改回旧快照**
+（判据 → `资料/普查产出_1018/R_卡牌线_完整ID与SO后的调整评估.md` §4）。
+
+⚠️ 当前包里仍有 **224 张卡不在我们池子**（计策 195 / 单位 19 / 英雄 10），其中含
+`_EASY` / `_tutorial` / `_enchantment*` 那些**另形态** ⇒ 它们的边/源**照旧不猜、丢掉并打印**。
 
 ## 怎么把真值 id 落到我们池子
 
@@ -38,7 +43,9 @@
    · **候选只许是「我们自造 id」的卡**（`id ∉ 真值的 uniqueId 全集`）—— 满池都算候选的话，
      原版那些 `..._enchantment2` **派生形态**（`cardName` 就是底盘卡的名字）会搭到**可收集底盘卡**上，
      等于把「另一张卡」画进相关卡格子里。加了这条以后，派生形态一律**认不出**（红线：宁可认不出）。
-   阵营映射 = `数据/游戏数据/factions.json` 的 `id→name`，与 `cardArmy` **837/837 逐张吻合**（本脚本自检，见下）。
+   🔴 **2026-10-18 现状**：K06 已把池内 id 全换成真 `uniqueId`（池 1127/1127 ∈ 当前真值集）
+   ⇒ **候选集为空、这一级实际命中 0**。保留它只作防御（万一将来又出现自造 id）。
+   阵营映射 = `数据/游戏数据/factions.json` 的 `id→name`，与 `cardArmy` **1,127/1,127 逐张吻合**（本脚本自检，见下）。
 3. 三条都落空 ⇒ 那条边**丢掉**、记进 `skipped`（⛔ 不猜、不填占位）。
 
 🔴 **没有「模糊匹配」那一档**（与 `resolve_warlord_defence` 不同，别照抄）。实测把它打开会**造出假边**：
@@ -52,7 +59,7 @@
 
 1. `d:/4/Unity/数据/游戏数据/related_cards.json` —— **全量真值（给工具/人看）**：
    原版 id / 原版卡名 / 落成我们哪个 id / 用的哪一级 / **落不下的那些也在里面**（`id: null` + 原因）。
-   240 条边一条不落地全在这份里 ⇒ 想核真值不必再跑 UnityPy。
+   每条边一条不落地全在这份里（当前 build：266 条）⇒ 想核真值不必再解包。
 2. `MyGame/Assets/CardPresentation/Resources/related_cards.json` —— **运行时件**（游戏读的就是它）：
    只收**两个端点都落进我们卡池**的边，键 = **我们池子的 id**。形状用**数组**
    —— `JsonUtility` 不支持字典。
@@ -73,7 +80,11 @@ import sys
 from collections import defaultdict
 
 # ---- 路径 ----------------------------------------------------------------
-CACHE = r"d:/2/远端缓存_旧profile_1013/Unity缓存_按哈希/54bdb7b1114a2de41519cac560a4bce4/dca75913f60923172e82862460139ede/__data"
+# 🔴 **真值源 = 当前 build 的 allcards 卡 SO 语料**（2026-10-18 换）。
+#   ⛔ 旧路径 `d:/2/远端缓存_旧profile_1013/Unity缓存_按哈希/54bdb7b1…/…/__data` 是
+#   **2025-07-30 的旧快照**（UnityPy，1,195 张）—— **别改回去**。
+#   判据 → `资料/普查产出_1018/R_卡牌线_完整ID与SO后的调整评估.md` §4。
+CARDS_RAW = r"d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json"
 FACTIONS = r"d:/4/Unity/数据/游戏数据/factions.json"
 POOL = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
 DST = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/related_cards.json"
@@ -96,22 +107,51 @@ def norm(s):
     return s
 
 
-def load_truth():
-    import UnityPy
+class _Ref:
+    """假装成 UnityPy 的 PPtr —— 下游只用到 `.m_PathID`。"""
+    __slots__ = ("m_PathID",)
 
-    env = UnityPy.load(CACHE)
+    def __init__(self, pid):
+        self.m_PathID = pid or 0
+
+
+class _CardSo:
+    """把 `cards_raw.json` 的一条卡 SO 适配成下游 `getattr` 期望的形状。
+
+    ⚠️ 当前 build 的语料把 116 个原始序列化字段放在 **`full_raw`** 下（`relatedCard1..4` 在那一层）；
+       这里两种形状都认，免得换语料时静默取空。
+    """
+
+    __slots__ = ("uniqueId", "cardName", "cardArmy", "m_Name",
+                 "relatedCard1", "relatedCard2", "relatedCard3", "relatedCard4")
+
+    def __init__(self, raw):
+        fr = raw.get("full_raw") or {}
+        self.uniqueId = raw.get("uniqueId") or ""
+        self.cardName = raw.get("cardName") or ""
+        self.cardArmy = raw.get("cardArmy")
+        self.m_Name = raw.get("m_Name") or ""
+        for i in SLOTS:
+            p = fr.get("relatedCard%d" % i)
+            if p is None:
+                p = raw.get("relatedCard%d" % i)
+            setattr(self, "relatedCard%d" % i, _Ref((p or {}).get("m_PathID")))
+
+
+def load_truth():
+    """→ `{path_id: _CardSo}`。同包内按 `m_PathID` 反查四槽目标就靠这张表。"""
+    doc = json.load(io.open(CARDS_RAW, encoding="utf-8"))
+    raw = doc["cards"] if isinstance(doc, dict) else doc
     by_path = {}
-    for o in env.objects:
-        if o.type.name != "MonoBehaviour":
-            continue
-        by_path[o.path_id] = o.read()
+    for c in raw:
+        by_path[c["path_id"]] = _CardSo(c)
     return by_path
 
 
 def read_edges(by_path):
     """→ `[(源卡原文, 槽1..槽4 的【真值 uniqueId 或 None】)]`，槽序保持 1..4。
 
-    原版 `InitializeRelatedCards` **遇到第一个 null 就 break**；实测 1,195 张里
+    原版 `InitializeRelatedCards` **遇到第一个 null 就 break**；实测 1,351 张里
     **没有一张是「空槽后面还有非空槽」**（本脚本自检，见 `holes`）⇒ 丢掉 null 之后的列表
     与原版显示的那几格逐格一致。
     """
@@ -255,7 +295,7 @@ def main():
         elif row["targets"]:
             skipped.append((sid, "-", "（四个槽一条都没落地）", "全部落空"))
 
-    # ---- 全量真值那份（**240 条边一条不落**，含落不下的；给工具/人看）----
+    # ---- 全量真值那份（**每条边一条不落**，含落不下的；给工具/人看）----
     #   每个**代表行**一行（同 id 的多形态归并掉，与运行时件同一套归并规则）；
     #   `related` 逐槽保留：原版 id + 原版卡名 + 落成我们哪个 id + 用的哪一级。
     full = []
@@ -268,7 +308,7 @@ def main():
             "related": [{"uid": u, "name": getattr(truth.get(u), "cardName", "?") if truth.get(u) else "?",
                          "id": tid, "via": thow} for u, tid, thow in rep["targets"]],
         })
-    for m in missed:      # 源认不出的那些也进全量那份（`srcId: null`）—— 240 条边一条不落
+    for m in missed:      # 源认不出的那些也进全量那份（`srcId: null`）—— 每条边一条不落
         row = next(r for r in rows if r["uid"] == m[1])
         full.append({
             "srcUid": row["uid"], "srcName": m[2], "srcMName": m[3], "srcId": None, "srcVia": m[4],
@@ -321,11 +361,14 @@ def main():
         "note": "原版卡 SO 的 relatedCard1..4（卡牌详情窗那几格 + Companion 词条要造的那张）—— "
                 "键 = 我们卡池的 id，值 = 相关卡 id（按槽 1..4 顺序，最多 4；缺键 = 这张卡没有相关卡）。"
                 "由 工具/gen_related_cards.py 生成，⛔ 不手改。",
-        "source": "d:/2/远端缓存_旧profile_1013/Unity缓存_按哈希/54bdb7b1…/…/__data （RawCardScript × 1195）",
-        "provenance": "同包内按 m_PathID 反查裸 PPtr（m_FileID 全 0）；快照 = Unity 2022.3.38f1 / 2025-07-30，"
-                      "比现池旧 ⇒ 部分原版卡我们池子里没有（含 `_EASY`/`_tutorial`/`_enchantment` 那些另形态），"
-                      "那些边**没猜、丢在 skipped 里**。落 id 两级：① 原版 uniqueId 直命中卡池 id；"
-                      "② 归一化卡名（砍尾部括号）+ 同阵营、且候选只限「我们自造 id」的卡、唯一命中。"
+        "source": "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json（当前 build allcards，"
+                  "RawCardScript × 1351）",
+        "provenance": "同包内按 m_PathID 反查裸 PPtr（m_FileID 全 0）；语料 = 当前 build（2026-10-18 换，"
+                      "旧的是 2025-07-30 的 1,195 张快照）。池外仍有约 224 张原版卡"
+                      "（含 `_EASY`/`_tutorial`/`_enchantment` 那些另形态）⇒ 那些边**没猜、丢在 skipped 里**。"
+                      "落 id 两级：① 原版 uniqueId 直命中卡池 id（当前池 1127/1127 都是真 uniqueId，命中率见 stats）；"
+                      "② 归一化卡名（砍尾部括号）+ 同阵营、且候选只限「池内 id 不在真值集里」的卡、唯一命中"
+                      "（当前 build 下池内 id 全在真值集 ⇒ 这一级实际命中 0，仅作防御）。"
                       "全量真值（含落不下的每一条）→ 数据/游戏数据/related_cards.json，同一次运行产出。",
         "invariant": "① entries 里每个 related 至多 4 条、顺序 = relatedCard1..4；② 同一卡内无重复；"
                      "③ 源/目标 id 一律是 cards_engine.json 里现用的 id；④ 真值里没有「空槽后还有非空槽」的卡。",

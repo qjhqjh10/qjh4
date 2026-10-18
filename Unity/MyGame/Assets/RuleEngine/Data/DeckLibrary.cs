@@ -407,24 +407,67 @@ namespace RuleEngine
             var parts = head.Split(':');
             string name = parts.Length > 0 ? parts[0].Replace(ColonEscape, ":") : "";
 
+            // 裸 id 列表（**先不迁移**：代际要看整串的双解才能定，见下）
+            var rawIds = new List<string>();
+            for (int i = 1; i < parts.Length; i++)
+                if (!string.IsNullOrEmpty(parts[i])) rawIds.Add(parts[i]);
+
+            string deckName = string.IsNullOrEmpty(name) ? "导入的卡组" : name;
+            if (lookup == null)
+                return new PlayerDeck(deckName, null, null, rawIds, gameMode);
+
+            // ① **现代解**：按卡的类型摘（原版 `DeserializeDeckString.c:147,155` —— 按类型不按位置）
+            List<string> modernDropped;
+            var modern = SplitByType(deckName, rawIds, lookup, gameMode, out modernDropped);
+            if (DeckRules.Validate(modern, lookup, modern.IsSkirmish) == DeckError.None)
+            {
+                LastDroppedIds = modernDropped;
+                return modern;
+            }
+
+            // ② **旧代解**：整串按代际表迁一次（**一次遍历、只看原始值**），再按类型摘。
+            //    🔴 判据 = 双解（现代不合法 ∧ 旧代合法才采）；两解都非法 ⇒ 按现代解返回并出声。
+            //    ⚠️ 表**不是单射**（见 `LegacyCardIds.cs` 文件头）⇒ 只许这样整串迁一次，
+            //       ⛔ 别在下面的循环里逐条 `Migrate`（那会边迁边查、链式 id 会静默改成第三张卡）。
+            var legacyIds = new List<string>(rawIds);
+            int changed = LegacyCardIds.MigrateIds(legacyIds);
+            if (changed > 0)
+            {
+                List<string> legacyDropped;
+                var legacy = SplitByType(deckName, legacyIds, lookup, gameMode, out legacyDropped);
+                if (DeckRules.Validate(legacy, lookup, legacy.IsSkirmish) == DeckError.None)
+                {
+                    UnityEngine.Debug.Log("[LegacyCardIds] 导入的卡组串「" + name + "」：现代解不合法、旧代解合法"
+                                        + " ⇒ 按**双解**判定迁移 " + changed + " 处（⛔ 只改内存）");
+                    LastDroppedIds = legacyDropped;
+                    return legacy;
+                }
+                UnityEngine.Debug.LogWarning("[LegacyCardIds] 导入的卡组串「" + name + "」：现代解与旧代解**都不合法**"
+                                           + " ⇒ **按现代解返回、不迁移**（⛔ 不猜）");
+            }
+            LastDroppedIds = modernDropped;
+            return modern;
+        }
+
+        /// <summary>把一串裸 id 按**卡的类型**摘成 `PlayerDeck` —— 照原版 `DeserializeDeckString.c:147,155`
+        /// （**按类型摘，不按位置**；同名多张时第一张当专属卡、其余当普通卡，不丢）。
+        /// 卡池里查不到的按原版**丢掉**，但记在 <paramref name="dropped"/> 里（→ `LastDroppedIds`）。</summary>
+        static PlayerDeck SplitByType(string name, List<string> ids, Func<string, CardDef> lookup,
+                                      int gameMode, out List<string> dropped)
+        {
+            dropped = new List<string>();
             string hero = null, def = null;
             var rest = new List<string>();
-            for (int i = 1; i < parts.Length; i++)
+            foreach (var id in ids)
             {
-                string id = parts[i];
                 if (string.IsNullOrEmpty(id)) continue;
-                if (lookup == null) { rest.Add(id); continue; }
-
                 var c = lookup(id);
-                if (c == null) { LastDroppedIds.Add(id); continue; }     // 原版也丢，但我们要看得见
-                // ⚠️ **按类型摘，不按位置**（原版 `DeserializeDeckString.c:147,155`）——
-                //    位置换了照样读得对；同名多张时第一张当专属卡、其余当普通卡（不丢）
+                if (c == null) { dropped.Add(id); continue; }
                 if (c.Type == "defence") { if (def == null) def = id; else rest.Add(id); }
                 else if (c.Type == "hero") { if (hero == null) hero = id; else rest.Add(id); }
                 else rest.Add(id);
             }
-
-            return new PlayerDeck(string.IsNullOrEmpty(name) ? "导入的卡组" : name, hero, def, rest, gameMode);
+            return new PlayerDeck(name, hero, def, rest, gameMode);
         }
 
         /// <summary>加一套外部来的卡组（导入用）。名字重了自动加序号。</summary>

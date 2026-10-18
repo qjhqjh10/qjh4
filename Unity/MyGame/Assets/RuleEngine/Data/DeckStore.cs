@@ -171,6 +171,18 @@ namespace RuleEngine
                     detail = "save file has no decks";
                     return new List<PlayerDeck>();
                 }
+                // 🔴 🆕 2026-10-18：**旧卡 id 的读时迁移闸**（卡池换过两代：`601005b` 一次性换 955 张 +
+                //    `K06` 换掉最后那批自造 token，两次都没迁玩家存档）。
+                //    为什么必须在【读档】这一处：`CardIds` 的真正来源只有这一个口
+                //    （卡组列表 / 卡组编辑 / 开局 `BattleDriver.PickSavedDeck` 全经 `DeckLibrary.Load` → 这里）。
+                //    ⚠️ 卡池查表口**只建一次**（`CardDatabase.DeckLookup`：① 稳定 id ② **卡名** ——
+                //      第 ② 条是给 2026-09-13 之前**按卡名**存的旧存档留的，⛔ 别去掉；
+                //      判**代际**看的是那张映射表，不看这个口）；
+                //      池子没加载时它是 null ⇒ `MigrateDeckVerified` 会**整个跳过**（⛔ 不拿空池判「查不到」去清数据）。
+                //    ⚠️ **只改内存、不改文件**（⛔ 不许动玩家存档）；**幂等**靠 `LegacyCardIds` 的**整副双解**闸门
+                //      （不是靠「表里的值不是 key」—— 表里 890/1102 个值本身就是 key，见那个文件头）。
+                //    逐条判据 / 表 → `RuleEngine/Data/LegacyCardIds.cs`。
+                var cardLookup = LegacyCardIds.PoolLookup();
                 // 归一化：JsonUtility 会把缺字段的字符串写成 null，UI 不想到处判空
                 foreach (var d in dto.decks)
                 {
@@ -187,6 +199,8 @@ namespace RuleEngine
                     // ⚠️ 别在这里把「未知模式」改成 0 —— 原版是**原样存原样读**（`CardDeck__Serialize.c:68-75`），
                     //    「认不认识某个模式」由消费者（`GameplayVariables.For`）决定。
                     if (d.CardIds == null) d.CardIds = new List<string>();
+                    // 🔴 旧卡 id 的读时迁移（两代换号；**只改内存**、幂等）。判据 → `LegacyCardIds.cs`。
+                    LegacyCardIds.MigrateDeckVerified(d, cardLookup, "存档「" + d.Name + "」");
                 }
                 current = dto.current;
                 if (current < 0 || (dto.decks.Count > 0 && current >= dto.decks.Count)) current = 0;

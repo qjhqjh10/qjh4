@@ -346,7 +346,18 @@ namespace CardPresentation
                 int captured = i;
                 // 🆕 A17：原版 `Tab Buttons>Menu Area>Player Profile Window` 是 Toggle，悬停换 `…_selected`
                 //（`onSprite` 的 `_hover` 是选中态，见普查 §一）
-                var tabHit = MenuDraw.Hit(b, "Hit", new PxRect(KeyL, top, KeyR, bot), QHit,
+                // 🔴🔴 **2026-10-18（W18）命中区补满 10px 间隙**：六个键是 `VerticalLayoutGroup`
+                //   `spacing 10` 摆出来的（`KeyStep 119.252 − KeyH 109.252 = 10`），原来每键的 `Hit`
+                //   **只盖自己的键框** ⇒ 那 10px 空档落到窗根的 `BackgroundHit`（= **关窗**）。
+                //   实测（`_tmp_view/click_log.txt` 第五轮）：画布 `(189,297)` 与 `(201,768.8)` 两点正好落在
+                //   键 0/1 与键 4/5 的空档里 ⇒ 日志是 `BackgroundHit … Player Profile Window` + 窗被关掉；
+                //   而同一次点在键内的 `(201,300.8)` 正常切到 Avatar 页。
+                //   ⇒ 每键的命中区**上下各吃半个间隙**（首键上沿 = 条顶、末键下沿 = 条底，正好铺满整条，
+                //   相邻两键的命中区**相接不重叠**）。⛔ 别去改键框本身（那是布局真值 165×109.252）。
+                const float KeyGapHalf = (KeyStep - KeyH) * 0.5f;
+                float hitTop = top - (i == 0 ? 0f : KeyGapHalf);
+                float hitBot = bot + (i == Tabs.Length - 1 ? 0f : KeyGapHalf);
+                var tabHit = MenuDraw.Hit(b, "Hit", new PxRect(KeyL, hitTop, KeyR, hitBot), QHit,
                              () => { if (tabButtons != null) tabButtons.Click(captured); }, _btnBg[i], ArtTabOff,
                              clickCue: WindowSounds.SelectToggleCue);
                 if (tabHit != null) _btnWb[i] = tabHit.GetComponent<WindowButton>();

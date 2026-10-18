@@ -18,12 +18,18 @@
 
 ## 真值从哪来（**纯离线**，不再解包）
 
-  ① `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json` —— 原版 1195 张卡（只读）。
-     取 `trigger==46` 的 ability，读 `abilityLogic[0].summonCriteria.unitsToSummon[0].m_PathID`。
+  ① `d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json` —— **当前 build（2026-10-18）的
+     allcards 卡 SO 语料**，1,351 张 `RawCardScript`（只读）。
+     取 `trigger==46` 的 ability，读 `abilityLogic[0].summonCriteria.unitsToSummon[*].m_PathID`。
+     🔴 **换源记录**：2026-10-18 之前这里指的是
+     `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json`（**2025-07-30 的旧快照**，
+     1,195 张，缺 UM/SW 那几批）⇒ 只出 89 条。⛔ **别改回旧快照**（判据 → `资料/普查产出_1018/R_卡牌线_完整ID与SO后的调整评估.md` §4）。
+     当前包里 `trigger == 46` 的卡 = **105 张**。
   ② `d:/4/Unity/数据/游戏数据/related_cards.json` —— `工具/gen_related_cards.py` 的产物：
      它就是**按 `m_PathID` 反查 + 落成我们卡池 id** 的翻译表（`related` 数组的**槽序 = relatedCard1..4**）。
-  ③ 判据：`unitsToSummon[0]` 的 PathID **一定落在** relatedCard1..4 的某一条里（本脚本自检这条）。
-     实测 97 张：槽 1 = 93 · 槽 2 = 3 · 槽 3 = 1 · 槽 4 = 0 ⇒ **不能只取 relatedCard1**（那会静默错 4 张）。
+     ⚠️ 它现在已经**同源**（也读 `cards_raw.json`）⇒ 两份不会再分叉。
+  ③ 判据：`unitsToSummon[*]` 的 PathID **一定落在** relatedCard1..4 的某一条里（本脚本自检这条）。
+     旧快照实测 97 张：槽 1 = 93 · 槽 2 = 3 · 槽 3 = 1 · 槽 4 = 0 ⇒ **不能只取 relatedCard1**（那会静默错 4 张）。
 
 ## 输出（**两份**，同一次运行产出 ⇒ 不会分叉；照 `gen_related_cards.py` 的先例）
 
@@ -37,7 +43,11 @@
 """
 import io, json, os, re, sys
 
-TRUTH = r'd:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json'
+# 🔴 **真值源 = 当前 build 的 allcards 卡 SO 语料**（2026-10-18 换）。
+#   ⛔ 旧路径 `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json` 是 **2025-07-30 的旧快照**
+#   （1,195 张，缺 UM/SW 那几批 ⇒ 只出 89 条）—— **别改回去**。
+#   判据 → `资料/普查产出_1018/R_卡牌线_完整ID与SO后的调整评估.md` §4。
+TRUTH = r'd:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json'
 REL   = r'd:/4/Unity/数据/游戏数据/related_cards.json'
 POOL  = r'd:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json'
 OUT_FULL = r'd:/4/Unity/数据/游戏数据/talent_cards.json'
@@ -50,6 +60,17 @@ def norm(s):
 def load(p):
     return json.load(io.open(p, 'r', encoding='utf-8'))
 
+def rc_path(c, i):
+    """卡 SO 的 `relatedCard<i>` 的 `m_PathID`（0 = 空）。
+
+    ⚠️ 当前 build 的 `cards_raw.json` 把 116 个原始序列化字段放在 **`full_raw`** 下，
+       `relatedCard1..4` 在那一层（不是顶层）；两种形状都认，免得换语料时静默取空。
+    """
+    p = (c.get('full_raw') or {}).get('relatedCard%d' % i)
+    if p is None:
+        p = c.get('relatedCard%d' % i)
+    return (p or {}).get('m_PathID')
+
 def write(p, obj):
     s = json.dumps(obj, ensure_ascii=False, indent=1)
     io.open(p, 'w', encoding='utf-8', newline='\n').write(s)
@@ -57,6 +78,11 @@ def write(p, obj):
 
 def main():
     truth = load(TRUTH)
+    # 当前 build 的语料是 `{bundle, count, cards:[…]}`；老快照是裸数组 —— 两种都认。
+    if isinstance(truth, dict):
+        truth = truth['cards']
+    if not isinstance(truth, list):
+        raise SystemExit('❌ 真值语料形状不认识：%s' % TRUTH)
     rel   = load(REL)
     pool  = load(POOL)['cards']
     poolids = set(c['id'] for c in pool)
@@ -93,7 +119,7 @@ def main():
             us = [u.get('m_PathID') for u in (sc.get('unitsToSummon') or [])]
             if not us:
                 row = (None, [], 'trigger46 没有 unitsToSummon（动态造牌，不走本表）'); break
-            rcs = [(c.get('relatedCard%d' % i) or {}).get('m_PathID') for i in range(1, 5)]
+            rcs = [rc_path(c, i) for i in range(1, 5)]
             e = relby.get(uid)
             if e is None:
                 row = (None, [], 'related_cards.json 里没有这张卡（%s）' % uid); break
@@ -143,8 +169,8 @@ def main():
                 '`abilityLogic[0].summonCriteria.unitsToSummon[*]` —— **候选表，不止第一条**）。'
                 '含落不下的那些（`candidates: []` + `why`）。'
                 '游戏读的是 RuleEngine/Resources/talent_cards.json（同一次运行产出，不会分叉）。',
-        'source': 'd:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json（只读）'
-                  ' ＋ d:/4/Unity/数据/游戏数据/related_cards.json（PathID→我们 id 的翻译表）',
+        'source': 'd:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json（当前 build allcards，1,351 张；只读）'
+                  ' ＋ d:/4/Unity/数据/游戏数据/related_cards.json（PathID→我们 id 的翻译表，同源）',
         'judge': 'CardScript__GetTalentCard.c（取 trigger==46 的 abilityLogic[0].summonCriteria.unitsToSummon）'
                  ' · AbilityLogic__GetCardToSummon.c（N>1 且非 summonAllTargets ⇒ 随机挑一张）'
                  ' · CardScript__OnTurnStart.c:166（回合开始发 AbilityTrigger.Talent）'
@@ -171,7 +197,8 @@ def main():
     run = {
         'note': '天赋造哪一张（原版 unitsToSummon 候选表；n>1 = 随机挑一张）。键 = 我们卡池 id。'
                 '由 工具/gen_talent_cards.py 生成，⛔ 别手改。',
-        'source': '原版 cards_1195_2022时代.json 的 cardAbilities[trigger==46].abilityLogic[0].summonCriteria.unitsToSummon',
+        'source': '当前 build allcards（cards_raw.json）的 '
+                  'cardAbilities[trigger==46].abilityLogic[0].summonCriteria.unitsToSummon',
         'count': len(uniq), 'entries': uniq,
     }
     write(OUT_RUN, run)

@@ -125,7 +125,16 @@ namespace RuleEngine
         public int slotsPerSide = 9;
 
         // ---- 5~6：督军与卡组 ---------------------------------------------------
-        /// <summary>【文案】督军生命增减：经典 0 · 遭遇 **−10**（`Warlords start with 10 less Health`）。</summary>
+        /// <summary>【文案】督军生命增减：经典 0 · 遭遇 **−10**（`Warlords start with 10 less Health`）。
+        /// <para>🔴 **2026-10-18（`W` 笔）：SO 是当前数字 build 的基准；经典 0 / 冲突 −10 是运行时全局增量**
+        /// （判据 → `资料/普查产出_1018/R_督军10血成因.md` §2）。卡表里那 49 项 `health` 差异
+        /// （47 张督军 + `BL71`/`SW13`）是 **2026 build 把 SO 统一下调**（35→25 ×39 · 40→30 ×11 ·
+        /// 30→20 · 35→30），**不是**本字段造成的：原版
+        /// `BattleManager__SetupWarlordsLifeAndEnchantment.c:29,53,72` 只在
+        /// `GameplayData.warlordLifeChange != 0` 时走
+        /// `ForceChangeMaxHealth(督军, 当前最大生命 + warlordLifeChange)` —— 每局敌我**同加同减**，
+        /// 产生不出逐卡 −5（`AM3`）/ −15（`TL35`）/ 0（9 张）这种差异。
+        /// ⇒ ⛔ **别拿本字段去解释单张卡的 `health`**；卡面/结算的基准值来自卡表 `cards_engine.json`。</para></summary>
         public int warlordLifeChange = ClassicWarlordLifeChange;
         /// <summary>【文案】卡组张数：经典 30 · 遭遇 **12**（`12-card decks`）。</summary>
         public int deckSize = ClassicDeckSize;

@@ -22,6 +22,12 @@
 //    （键的拼法 = 原版 `GetTranslation("…")` 的拼法，见 `工具/_loc_official/gen_official_names.py` 文件头）。
 //    现读命中：**Titles 368/462 · Avatars 234/469 · 成就名 95/102 · 成就描述 95/102**
 //    （命中不到的 = 2025-07-30 快照之后新增的，**保留资源名反推、⛔ 不填占位**）。
+//    🔴 **2026-10-18（W18）就地订正**：上面那个 **Avatars 234/469** 是「**只拿反推显示名当键**」时的数 ——
+//       原版的键其实是 `Avatars/<nameTextReference 原文>`：老一批 SO 的原文**不带前缀**
+//       （`Aggressor Sergeant`）、新一批**带**（`Avatar_UM_Attack Bike`）⇒ 拿原文当键才两批都命中。
+//       `gen_profile_cosmetics.py` 已把原文存成 `r` 字段，本文件按 `r → n → art` 的顺序取键
+//       ⇒ **现读 Avatars 468/469**（只剩 `Terminator Sergeant`——官方表里确实没有，**保持英文原文**）。
+//       ⚠️ 这个 234 不是「官方表缺 235 条」，是**键拼错**；这行旧读数留着只当更正痕迹。
 //    ⚠️ **反推名仍是兜底**，别整段删掉（剩下那些要靠它）。
 //    （为什么走 `Loc.BulkOr` 而不是手写进 `Loc.cs` 那张表：键是 368 个 GUID，见 `Loc.BulkOr` 的 doc。）
 //
@@ -66,6 +72,12 @@ namespace CardPresentation
             public string n;       // 显示名（**我们拼的**，见文件头）
             public int a;          // `cardArmy`（0 = 全阵营通用；其余是阵营 id，与 `FactionId` 同一套）
             public string art;     // 头像图名 = SO 的 `m_Name`，原样交给 `CardArt.Cosmetics`（**含空格**）
+            /// <summary>🆕 **2026-10-18（W18）**：头像 SO 的 `nameTextReference` **原文**
+            /// —— 原版的本地化键就是 `Avatars/&lt;它>`（`GetTranslation("Avatars/" + nameTextReference)`）。
+            /// 老一批 SO 的这个值**不带** `Avatar_&lt;阵营>_` 前缀（`Aggressor Sergeant`），
+            /// 新一批**带**（`Avatar_UM_Attack Bike`）⇒ 拿它当键才两批都命中。
+            /// 现读：**469/469 条都有值**、命中官方表 **468/469**（只剩 `Terminator Sergeant`）。</summary>
+            public string r;
         }
 
         /// <summary>一条装饰品。`Art` 只有头像有（称号的 `imageReference` 是空的）。</summary>
@@ -75,6 +87,9 @@ namespace CardPresentation
             public string Name;
             public int Army;
             public string Art;
+            /// <summary>头像的 `nameTextReference` 原文（= 本地化键 `Avatars/&lt;NameRef>`）。
+            /// 称号这条恒空（它们的键是 32 位 GUID，走 `Id`）。</summary>
+            public string NameRef;
             public override string ToString() { return Name; }
         }
 
@@ -134,6 +149,10 @@ namespace CardPresentation
         static List<Item> _avatars, _titles;
         static List<Achievement> _ach;        static bool _loaded, _failed;
         static string _nameOverride;
+        /// <summary>🆕 2026-10-18（W18）：官方表里**没有中文名**的头像条数 / 前 10 个例子
+        /// （`Fill` 里记账，`EnsureLoad` 末尾**汇总出声一次** —— 逐条 warning 会刷 235 行）。</summary>
+        static int _nameFallback;
+        static readonly List<string> _nameFallbackSample = new List<string>();
 
         /// <summary>🔴 **玩家显示名 —— 全工程唯一一份**（档案窗的 `Player Name` 与联机层握手报的名字读的都是它）。
         /// · **原版这个名字来自服务器**（`PlayerInfo` 的玩家名），本地没有 ⇒ **默认取机器名**，
@@ -264,6 +283,15 @@ namespace CardPresentation
             if (d == null) { _failed = true; return; }
             Fill(d.avatars, _avatars, "Avatars/", true);
             Fill(d.titles, _titles, "Titles/", false);
+            // 🆕 2026-10-18（W18）：**汇总出声一次**（不逐条刷屏）。⛔ 不静默 ——
+            //    玩家看到的英文条目必须有出处可查（是「官方表没有」而不是「我们没接」）。
+            if (_nameFallback > 0)
+                Debug.LogWarning("[Profile] 头像名：**官方中文名缺 " + _nameFallback + " 条**（共 "
+                               + _avatars.Count + " 条）⇒ 这些**保留英文原文**（⛔ 我们不自译）。前 "
+                               + _nameFallbackSample.Count + " 条："
+                               + string.Join(" / ", _nameFallbackSample.ToArray())
+                               + "。搜过：`Avatars/<nameTextReference>` → `Avatars/<显示名>` → `Avatars/<图名>`"
+                               + "（表 = `Resources/official_names.json`，由生成器 `工具/_loc_official/gen_official_names.py` 产出）");
             if (d.achievements != null)
                 for (int i = 0; i < d.achievements.Length; i++)
                 {
@@ -283,15 +311,49 @@ namespace CardPresentation
             _loaded = true;
         }
 
-        /// <summary>把 DTO 灌成清单。`prefix` = 官方词条键的前缀；`keyFromName` = true 时**子键取反推出来的显示名**
-        /// （头像那一族的官方键就是显示名），false 时取 `id`（称号那一族的官方键 = 32 位 GUID，与 `id` 同源）。</summary>
+        /// <summary>把 DTO 灌成清单。`prefix` = 官方词条键的前缀；`keyFromName` = true 时是**头像那一族**
+        /// （键 = `nameTextReference` 原文，见下面 🆕 那段），false 时是**称号那一族**（键 = 32 位 GUID，与 `id` 同源）。
+        ///
+        /// <para>🆕 **2026-10-18（W18）头像的键改按【原文】取**：原版是
+        /// `GetTranslation("Avatars/" + nameTextReference)`；老一批 SO 的原文不带 `Avatar_<阵营>_`
+        /// （`Aggressor Sergeant`）、新一批**带**（`Avatar_UM_Attack Bike`）。
+        /// 以前我们拿「剥掉前缀的显示名」当键 ⇒ 新一批 **235 条全部落空**（界面上就是中英混排）。
+        /// 现在三级兜底：**`r`（原文）→ `n`（显示名）→ `art`（图名）**，每级都先 `Loc.HasBulk` 探一下
+        /// （⛔ 不用「先 BulkOr 再看返回值」—— 那会给每条缺键都打一条 warning，235 条刷屏）。
+        /// 三级都没有 ⇒ **保留英文原文**（⛔ 不自己译），并在 `EnsureLoad` 末尾**汇总出声一次**。</para></summary>
         static void Fill(CosmeticDto[] src, List<Item> dst, string prefix, bool keyFromName)
         {
             if (src == null) return;
             for (int i = 0; i < src.Length; i++)
-                dst.Add(new Item { Id = src[i].id,
-                                   Name = Loc.BulkOr(prefix + (keyFromName ? src[i].n : src[i].id), src[i].n),
-                                   Army = src[i].a, Art = src[i].art });
+            {
+                string key, name;
+                if (keyFromName)
+                {
+                    key = prefix + (string.IsNullOrEmpty(src[i].r) ? src[i].n : src[i].r);
+                    if (!Loc.HasBulk(key))
+                    {
+                        string k2 = prefix + src[i].n;
+                        string k3 = string.IsNullOrEmpty(src[i].art) ? null : prefix + src[i].art;
+                        if (Loc.HasBulk(k2)) key = k2;
+                        else if (k3 != null && Loc.HasBulk(k3)) key = k3;
+                    }
+                    bool hasZh = Loc.HasBulk(key);
+                    if (!hasZh)
+                    {
+                        // 官方表三级都没命中 ⇒ 保留英文原文（⛔ 不自己译）；这里只记账，汇总在 `EnsureLoad` 末尾出声一次
+                        _nameFallback++;
+                        if (_nameFallbackSample.Count < 10) _nameFallbackSample.Add(src[i].n);
+                    }
+                    name = hasZh ? Loc.BulkOr(key, src[i].n) : src[i].n;
+                }
+                else
+                {
+                    key = prefix + src[i].id;
+                    name = Loc.BulkOr(key, src[i].n);
+                }
+                dst.Add(new Item { Id = src[i].id, Name = name, Army = src[i].a,
+                                   Art = src[i].art, NameRef = src[i].r });
+            }
         }
 
         /// <summary>按阵营筛（`0` = 全阵营通用，**任何阵营都算它**；`army &lt;= 0` = 不筛）。</summary>

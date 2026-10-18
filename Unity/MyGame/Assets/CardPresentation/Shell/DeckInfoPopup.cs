@@ -94,9 +94,14 @@
 //      「**变灰但点得动**」观感接上了 —— 唯一实现在 `ApplyControlStates()` 的第 ④ 条，判据与核验见
 //      那里 + `CanImportDeck` 的注释。⚠️ **这条观感是真·照抄，但后果要说清**：
 //      原版那句 `SoftDisable` **没有 state 守卫**（`DeckInfoControls__Initialize.c:79-83` 在 `SetActive` 之后
-//      无条件调），而我们 `CanImportDeck` **恒 false** ⇒ **state 0/1 下这颗钮一直是灰的**
-//      （原版在「该 deck 的 game mode 没有正在跑的活动」时**也是**这样；我们根本没有活动系统）。
-//      ⛔ 别为了「让钮亮着」把 `CanImportDeck` 改成 `true` —— 那是编一个原版没有的判据（铁律 3）。
+//      无条件调）——
+//      🔴 **2026-10-18 就地订正（铁律 5）**：本行原来接着写「而我们 `CanImportDeck` **恒 false** ⇒
+//      **state 0/1 下这颗钮一直是灰的**（原版在「该 deck 的 game mode 没有正在跑的活动」时**也是**这样）」，
+//      并叮嘱「⛔ 别为了『让钮亮着』把 `CanImportDeck` 改成 `true`」—— **那两句都已被真机实况推翻**：
+//      原版参照图（`桌面\warpforge参考图\选择卡组出现的界面参考.png`）里 `编辑卡组` 与 `练习` **同为橙金**。
+//      错因 = 把「我们这个工程没有 LiveOps」当成了「原版当时没有活动」（详情与两道闸的归位见 `CanImportDeck`）。
+//      ⇒ 现在 `CanImportDeck` 恒 **true**（原版实况那一档），这颗钮**不灰**。
+
 //     🔴 **原来这里是那句「仍欠一件…`WindowButton` 没有 disabled 态 ⇒ 如实记着」** —— 留着更正痕（铁律 5）。
 //     ✅ **2026-10-04 就地订正**：这里原来还写着「⚠️ 仍欠两件 …① `PracticeModePopup.ShowDeckContent()`
 //        还没把它那一态（View/2）传进来」—— **那一行已经接上了**（**A65①**：
@@ -166,25 +171,65 @@ namespace CardPresentation
     {
         // 层：**必须高于收藏窗那一整片**（它最高到 `CollectionWindow.QFltHit = 3043`）。
         // ⚠️ 但**低于** `PromptPopup`（3140+）—— 提示窗要能压在这扇窗之上。
-        public const int QDI = 3120, QDIRow = 3121, QDIText = 3122, QDIHit = 3123;
+        //
+        // 🔴🔴 **2026-10-18（P1 · 判据 = `资料/普查产出_1018/R_底纹红黑_根因.md` §五·1）—— 队列【一档一层】。**
+        //   改前 `QDI`/`QDIRow`/`QDIText`/`QDIHit` 只有四档，而**压暗层 / 红底 / Info Panel 三层全挤在 `QDI`(3120)、z 又都是 0**
+        //   ⇒ 同队列同 z 时 Unity 按「每个 quad 到相机的距离」排序（**不是**按树序）⇒ 四张同窗实拍出现**四种次序**：
+        //   `Info Panel` 被红底盖住 / 黑压暗层反盖红底 / 中段右段穿插 / 正确 —— 用户看到的「该红的地方发黑」就是它。
+        //   同一根因还解释了「五颗圆钮只剩金环」「关窗钮没有脸」：`Bg`(74.4²) / `Face`(56.9²) / `Icon`(56.9²)
+        //   **三层也全在 `QDIRow`**，谁盖谁是随机的。
+        //   ⇒ 现在**每一层一个号**（下面的号只准加、不准再合并）：
+        //
+        //     `QDI`(3120)      压暗 `Menu Dark Background`（+ 点窗外关窗的命中区）
+        //     `QDIBg`(3121)    红底 `UI_Deck_Information_Back`（**不透明** α254）
+        //     `QDIWarlord`(3122) 督军立绘 —— 🔴 **必须夹在红底与面板之间**：
+        //                       · 高于红底：红底是**不透明**的，立绘在它下面会被整块吃掉
+        //                         （2026-10-18 真机「立绘只剩左下角一条」= 立绘排到了红底之下）；
+        //                       · 低于面板：原版根子件序 = `Menu Dark → Red Bg → **Warlord** → Deck Details →
+        //                         Buttons → Deck Options → Info Panel → Close`（`R_DeckInfoPopup_对账.md`「兄弟序」行）；
+        //                         面板贴图 `UI_Deck_Information_submenu_Back` **自带 α≈0.52**（中心 `(27,3,5,133)`，
+        //                         2026-10-18 直接读 PNG 像素核过，我们这侧**没有**任何 `ApplyTint`/`SetAlpha` 去改它
+        //                         ⇒ alpha 原样保留）⇒ 立绘在面板下**看得见、被压暗一半**，正是原版的样子。
+        //                         ⚠️ 账 `N100`（`任务总表.md:283`）那次「把立绘抬到面板之上」是**当时面板不透明的权宜**，
+        //                         不是原版层序；本条按透明确认后的原版层序改回。
+        //     `QDIPanel`(3123) `Info Panel`（**半透明** α0.52）
+        //     `QDIRow`(3124)    行底 / 大钮底 / 圆钮底 / 三颗徽记（Game Mode / Army / Separator）
+        //     `QDIRowArt`(3125) 行 `Rarity Gradient` / 圆钮 `Face`（黄盘）
+        //     `QDIRowEdge`(3126) 行 `Background Border` / 圆钮 `Icon`（黄盘上的字形）
+        //     `QDIRowIcon`(3127) 行费用圈（**压在行边框与行底之上**）
+        //     `QDIText`(3128)   全部文字
+        //     `QDIHit`(3129)    全部命中区（+ 吸收层 = `QDIHit − 1`）
+        //
+        //   🔴 **与施工单给的那组号（QDIText=3124 / QDIHit=3125）差两档的原因**：那一组把「行内那三张图 + 费用圈」
+        //   当成同一层了，而它们**互相重叠**（渐变压行底、边框压渐变、费用圈压在行底左端并上下探出）
+        //   ⇒ 同号仍然是「谁盖谁随机」，只是把撞档从面板搬到了行内。这里按**实际层数**顺延，
+        //   整条梯子仍落在 **3120–3129**（`QBase + 9` = 3139 < `PromptPopup` 3140+，也 < `QDIOver + 10`）。
+        public const int QDI = 3120, QDIBg = 3121, QDIWarlord = 3122, QDIPanel = 3123,
+                         QDIRow = 3124, QDIRowArt = 3125, QDIRowEdge = 3126, QDIRowIcon = 3127,
+                         QDIText = 3128, QDIHit = 3129;
 
         // ============================================================ 🆕 2026-10-17（T24）：本窗的**队列基档**
         // 原版 `DeckSelectionPopup.UpdateInfo` 会把**这扇窗开在选卡组弹窗之上**（`WindowsManager.OpenWindow`，
         // 判据 → `decomp_full/DeckSelectionPopup__UpdateInfo.c` 末尾那一句）。而我们的 `DeckSelectionPopup`
-        // 整片内容在 **3125–3129**（压暗 3125 / 金环 3126 / 行 3127 / 字 3128 / 命中 3129）——
-        // 本窗若还用默认的 3120–3123，会被它**整块盖死**（那块红底板 134..1839 × 82..1032 把本窗完全遮住）。
+        // 整片内容在 **3124–3129**（压暗 3124 / 金环 3126 / 行 3127 / 字 3128 / 命中 3129）——
+        // 本窗若还用默认的 3120–3129，会被它**整块盖死**（那块红底板 134..1839 × 82..1032 把本窗完全遮住）。
         // ⇒ 「从选卡组弹窗里开出来」这一支把基档抬到 **`QDIOver`**；其余调用点（收藏窗 / 练习窗 / 自检）
         //   仍然用 `QDI`，**行为逐位不变**。
         // 🔴 3170 / 3140 那两档都在上面（`PromptPopup` 3140+ 必须仍能压住本窗）⇒ 抬档**只抬到 3130**，
-        //    不碰 3140 以上的号。
-        // ⚠️ **数值撞档（如实记）**：3130–3133 与 `ImportDeckPopup.QImp..QImpHit`(3130–3133) **同号** ——
+        //    不碰 3140 以上的号。⚠️ 2026-10-18 拆档后本窗有 **10 档** ⇒ 抬档那支占 **3130–3139**
+        //    （`QBase + (QDIHit − QDI)` = 3130 + 9），仍严格低于 3140。
+        // ⚠️ **数值撞档（如实记）**：3130–3139 与 `ImportDeckPopup.QImp..QImpHit`(3130–3133) **同号** ——
         //    **两窗不同屏**（那扇在卡组编辑场景、这条抬档只发生在主菜单的选卡组弹窗里）⇒ **今天无影响**；
         //    但这与 `N14` 记的是同一类坑（同一工程两扇窗各用一套号）：将来谁把 3130 挪作他用、或把这两扇
         //    窗同时开出来，就是「同档时谁盖谁不可控」—— 下一个动这两个文件的人先看这一行。
         public const int QDIOver = 3130;
         /// <summary>本扇的**队列基档**（默认 `QDI`）。只由 `CreateForPicked()` 在「从选卡组弹窗打开」那一支设成 `QDIOver`。</summary>
         public int QBase = QDI;
-        /// <summary>把本文件里那四个固定档（`QDI`/`QDIRow`/`QDIText`/`QDIHit`）换算成本扇实际用的档。</summary>
+        /// <summary>「Game Mode Icon 按 classic 无图标隐藏」那条出声**只说一次**（别每次 `Build()` 都刷屏）。
+        /// 判据与它为什么是「推的、不是查到的」→ `Build()` 第 4) 段那段注释。</summary>
+        static bool _gmIconHiddenLogged;
+        /// <summary>把本文件里那十个固定档（`QDI`…`QDIHit`）换算成本扇实际用的档。
+        /// ⚠️ **只做整体平移**（`QBase − QDI`）⇒ 一档一层的相对次序在任何基档下都保持不变。</summary>
         int Q(int q) { return QBase + (q - QDI); }
 
         // ---- 几何（A1 §2 逐条）----
@@ -361,7 +406,7 @@ namespace CardPresentation
         /// <summary>🆕 **2026-10-11（A180）**：关窗钮命中区**往前挪的 z**（相对量，见 `Build()` 第 8) 节那两句）。
         /// <para>它**不是渲染分层**（那张 quad 全透明、本来就在本窗最上面）—— 它是**命中优先级**的那把尺子：
         /// `Shell/PointerLayer.cs` 的 `HitButton` = **队列大的先**，**同队列再比 z、越小越靠前**。
-        /// 本窗 9 颗命中区全在 `QDIHit`(3123)，**必须**有一个 z 才能分出「原版里谁是最深那个子件」。</para>
+        /// 本窗 9 颗命中区全在 `QDIHit`(3129)，**必须**有一个 z 才能分出「原版里谁是最深那个子件」。</para>
         /// ⚠️ 只在**同窗同队列**内比较 ⇒ 任何值都行，取一个远小于相邻层的量（不碰渲染、不碰别的窗）。
         /// <para>🆕 **2026-10-11（A299）**：那 **5 颗 `Deck Options`** 用的是**同一把尺子**、但**往后**挪
         /// （`+ HitZFront × (n−1−i)`，i = 原版树序下标）—— 因为原版里关窗钮是窗根**最后一个**子件、
@@ -580,6 +625,29 @@ namespace CardPresentation
         /// 留着就是一堆 fake-null）。</summary>
         readonly Dictionary<string, WindowButton> _wbs = new Dictionary<string, WindowButton>();
 
+        /// <summary>🆕 **2026-10-18（拆档配套）**：每颗钮**「可见那一张」建窗时用的队列档**
+        /// （大钮 = `QDIRow` · 五颗圆钮 = `QDIRowArt`）—— `ReassertButtonQueues()` 按它重钉。
+        /// 🔴 **为什么要记**：变灰（`RefreshGray`）是**换材质**，新材质只剩 shader 自带的 `Transparent(3000)`
+        /// ⇒ 重钉时必须**钉回这颗钮自己的那一档**；原来硬写 `QDIRow` 是「当时五颗钮与底同档」的巧合，
+        /// 拆档后那样钉会把 `Face` 从 `QDIRowArt` 打回 `QDIRow`，**与 `Bg` 重新撞档**（圆钮又变空环）。
+        /// 🔴 与 `_wbs` / `_parts` **同生共死**：`Build()` 重建时一起 `Clear`。</summary>
+        readonly Dictionary<string, int> _wbTargetQ = new Dictionary<string, int>();
+
+        /// <summary>🆕 **2026-10-18（第四轮 P1 · 底部三颗钮右对齐）**：`Buttons` 那一行**每颗钮的组成节点
+        /// 建窗时的 `localPosition`**（底 / 字 / 命中区，顺序与 `_parts` 一致）。
+        /// <para>🔴 **为什么要有它**：原版那三颗在一个 **`HorizontalLayoutGroup`（spacing 36 · `align MiddleRight`）**
+        /// 里，而 uGUI 的布局组**只排 `active` 子件**（`HorizontalOrVerticalLayoutGroup.cs` 的
+        /// `GetChildList` 只收 active 的）⇒ 藏掉一颗（`Select Deck` 在 `context.SelectButton == null` 时
+        /// 恒藏，`DeckInfoControls__Initialize.c` 的 `SetActive`）之后，**剩下两颗整体右移**：
+        /// 容器 `669.3..1770.7`（宽 1101.4）− 内容宽 `2×324.5 + 36 = 685` = 余 416.4，
+        /// `GetStartOffset = padding.left + 余量 × align(1) = 416.4` ⇒ 内容落在 **1085.7..1770.7**。
+        /// 我们原来是**按下标写死三格**（725.2 / 1085.7 / 1446.2）⇒ 藏掉第三颗后整行停在 **1410.2** 收尾，
+        /// 比原版左 360.5px（真机实拍 = 右缘 0.73 屏宽，原版 0.92）。
+        /// ⇒ 建窗时记下基线，`LayoutButtonRow()` 按**当前可见的那几颗**重新右对齐；这里存基线是为了
+        /// **可重复调用**（每次都从基线算、不做增量，`ApplyStateVisibility` 翻转几次都不会漂）。</para>
+        /// 🔴 与 `_parts` / `_wbs` **同生共死**：`Build()` 重建时一起 `Clear`。</summary>
+        readonly Dictionary<string, Vector3[]> _btnBasePos = new Dictionary<string, Vector3[]>();
+
         /// <summary>登记一颗钮的组成节点（`Build()` 里建的时候调）。</summary>
         void Track(string key, params Component[] parts)
         {
@@ -619,6 +687,8 @@ namespace CardPresentation
             ShowItem("Opt:Duplicate", st == 0 && mine);
             ShowItem("Btn:Practice Deck", mine && (st == 0 || st == 2));          // 原版 :105-112
             ShowItem("Opt:Switch Deck Info", true);                               // 原版没看到 SetActive ⇒ 常显
+            // 🆕 **2026-10-18（第四轮 P1）**：藏/露变了 ⇒ 底部那一行要**重新右对齐**（布局组只排 active 子件）。
+            LayoutButtonRow();
 
             // 出声（别静默）：这一窗现在是哪一态、藏了哪几颗、以及判据里**我们做不到**的那两处
             var hidden = new List<string>();
@@ -629,6 +699,79 @@ namespace CardPresentation
                       + (hidden.Count == 0 ? "（一颗都不藏）" : string.Join(" / ", hidden.ToArray()))
                       + "；判据 = `DeckInfoControls__Initialize.c` 的 SetActive（表 → 本文件头）");
             NoteUnimplementedLayers();
+        }
+
+        /// <summary>🆕 **2026-10-18（第四轮 P1 · 真机第三轮）：`Buttons` 那一行按【当前可见的那几颗】右对齐到 1770.70。**
+        ///
+        /// <para>**判据 = 原版那个 `HorizontalLayoutGroup`**：`spacing 36` · `m_ChildAlignment = MiddleRight(5)` ·
+        /// 容器 `669.3,885.8 → 1770.7,965.9`（宽 **1101.4**）· 三颗各 **324.5×80.1**。
+        /// uGUI 的布局组**只把 `active` 子件收进 `m_RectChildren`**（`HorizontalOrVerticalLayoutGroup`
+        /// → `LayoutGroup.CalculateLayoutInput…` / `GetChildList` 只收 active）⇒ **藏掉一颗不是留空位，
+        /// 而是剩下的整体右移**：内容宽 `n×324.5 + (n−1)×36`，起点 = 容器左 + (容器宽 − 内容宽) × align(1)。
+        /// · n=3 ⇒ 内容宽 1045.5、起点 = 669.3 + 55.9 = **725.2**（= 改前写死的那三格，逐位相同）
+        /// · **n=2 ⇒ 内容宽 685、起点 = 669.3 + 416.4 = 1085.7 ⇒ 1085.7 … 1770.7**
+        ///   （真机参照图：`练习` 从 0.57 屏宽起、`编辑卡组` 右缘 0.92 ⇒ 1094.4 / 1766.4，与本式同档）。
+        /// · n=1 ⇒ 1446.2 … 1770.7。</para>
+        ///
+        /// <para>🔴 **改前的错**：三颗按**固定下标**摆在 725.2 / 1085.7 / 1446.2，**不管显隐**。
+        /// 真机（`state = 0`、`context.SelectButton == null` ⇒ `Select Deck` 藏）两颗只到 **1410.2** 收尾，
+        /// 比原版左 **360.5px**（截图 = 右缘 0.73 屏宽，原版 0.92）。</para>
+        ///
+        /// <para>⚠️ **量纲**：位移按**设计 px** 算，写进 `localPosition` 前必须过 `LayoutSpace.Px()`
+        /// （1px = 1/108 世界单位；⛔ 直接加 px 会偏 108 倍 —— 见 `LayoutSpace.DesignHeight` 那条警告）。
+        /// 每颗钮的「底 / 字 / 命中区」是**兄弟**、且都以这颗钮的中心为中心建 ⇒ 位移量相同，一起平移。</para>
+        /// <para>✅ **可重复调用**：每次都从 `_btnBasePos` 那条基线重算（不做增量）⇒ 状态翻转几次都不会漂。</para></summary>
+        public void LayoutButtonRow()
+        {
+            if (_btnBasePos.Count == 0) return;          // 还没建（或已重建）⇒ 无事可做
+            bool mine = IsPlayerDeck;
+            int st = (int)State;
+            string[] order = { "Btn:Practice Deck", "Btn:Edit Deck", "Btn:Select Deck" };
+            // ⚠️ 可见判据**逐字照抄 `ApplyStateVisibility`**（同一份规则，⛔ 别在这里另写一套）
+            var shown = new List<string>();
+            for (int i = 0; i < order.Length; i++)
+            {
+                string k = order[i];
+                bool on = k == "Btn:Practice Deck" ? (mine && (st == 0 || st == 2))
+                        : k == "Btn:Edit Deck" ? (st < 2)
+                        : SelectButtonProvided;
+                if (on && _parts.ContainsKey(k)) shown.Add(k);
+            }
+
+            const float contentW = 3f * BtnW + 2f * BtnGap;     // 1045.5（三条全露时的内容宽）
+            float right = BtnL + contentW;                      // 1770.70
+            float x1Min = float.MaxValue, x2Max = float.MinValue;
+            for (int j = 0; j < shown.Count; j++)
+            {
+                string k = shown[j];
+                int slot = System.Array.IndexOf(order, k);      // 原三格里的下标（基线就是它）
+                float baseX1 = BtnL + slot * (BtnW + BtnGap);
+                float newX1 = right - (shown.Count - j) * BtnW - (shown.Count - 1 - j) * BtnGap;
+                MoveButton(k, newX1 - baseX1);
+                if (newX1 < x1Min) x1Min = newX1;
+                if (newX1 + BtnW > x2Max) x2Max = newX1 + BtnW;
+            }
+            // 藏起来的那几颗**复位到基线** —— 否则下次露出来会停在别人头上（原版布局组也是每次重排全部 active 件）
+            for (int i = 0; i < order.Length; i++) if (!shown.Contains(order[i])) MoveButton(order[i], 0f);
+
+            // 出声：把**实际右缘**打出来（设计 px）—— 真机验收就核这一条（原版 1770.70）
+            if (shown.Count > 0)
+                Debug.Log("[DeckInfo] `Buttons` 行：可见 " + shown.Count + " 颗（" + string.Join(" / ", shown.ToArray())
+                          + "）⇒ 右对齐后 **" + x1Min.ToString("F2") + " … " + x2Max.ToString("F2")
+                          + "**（设计 px · 原版容器右缘 1770.70；三条全露 = 725.20…1770.70，"
+                          + "两颗 = 1085.70…1770.70 —— 判据 = 原版 HLG `spacing 36 / MiddleRight` + uGUI 只排 active 子件）");
+        }
+
+        /// <summary>把一颗钮的组成节点（底 / 字 / 命中区）整体平移 `dxPx` 设计像素（从基线算，非增量）。</summary>
+        void MoveButton(string key, float dxPx)
+        {
+            List<GameObject> parts;
+            Vector3[] baseP;
+            if (!_parts.TryGetValue(key, out parts) || !_btnBasePos.TryGetValue(key, out baseP)) return;
+            float dx = LayoutSpace.Px(dxPx);                 // px → 世界单位（1px = 1/108）
+            int n = Mathf.Min(parts.Count, baseP.Length);
+            for (int i = 0; i < n; i++)
+                if (parts[i] != null) parts[i].transform.localPosition = baseP[i] + new Vector3(dx, 0f, 0f);
         }
 
         /// <summary>判据里有、我们**做不到 / 判不出**的那一处 —— 每次显隐都出声（铁律 11：先记录，别静默）。
@@ -659,27 +802,39 @@ namespace CardPresentation
         /// `deck.gameMode` 是 `Nullable&lt;PlayModes&gt;` @0x70（value @0x74，`dump.cs` 字段序坐实），
         /// 而 `GameModes.GetActiveEvent` 是「在配置表里筛出**该模式当下正在跑的活动**，`FirstOrDefault`」
         /// ⇒ **没有正在跑的活动时它是 null**。
-        /// ⇒ **我们恒 `false`**：本工程**没有 LiveOps / 活动系统**（配置表在远端 CCD，且我们不做真实经济）
-        /// ⇒ 第一条就返回 false。**这不是猜的**，是判据的第一句照抄。
-        /// ⛔ **不许**改成 `true` / 或者「返回 DeckRules.Validate」之类 —— 那是编一个原版没有的判据（铁律 3）；
-        /// `ValidateDeck` 是 `Practice Deck` 那颗的判据（`ApplyControlStates` 第 ① 条），**不是这条**。
+        /// ⛔ **不许**拿 `DeckRules.Validate` 之类顶替 —— `ValidateDeck` 是 `Practice Deck` 那颗的判据
+        /// （`ApplyControlStates` 第 ① 条），**不是这条**。
         ///
-        /// 🔴 **连带后果（照实说）**：`SoftDisable(!CanImportDeck(...))` **没有 state 守卫**
-        /// （`DeckInfoControls__Initialize.c:76-83`：`SetActive(state&lt;2)` 之后**无条件**调），
-        /// 而 `editButton` 的 `colorTintGreyOnDisable`（`EverguildButton` 的 `0x17A`）= **1**
-        /// （真包实读 MB `-8697463422759302744`，真包 GO `Edit Deck`，父链 `Edit Deck/Buttons/Deck info Popup`）
-        /// ⇒ **原版在 state 0/1 下确实会把它画成灰的**（灰＝子树图形件的材质换成 `Everguild/UI/Greyscale`，
-        /// 见 `Shell/PromptPopup.cs` 的 `WindowButton` 头部）。我们照抄 ⇒ **这颗钮一直是灰的、但点得动**
-        /// （`SoftDisable` **不**改 `interactable`，`DF:EverguildButton__SoftDisable.c` 亲读）。</summary>
+        /// 🔴🔴 **2026-10-18（第四轮 · 真机第三轮）就地订正（铁律 5）—— 原来这里写「我们恒 false ⇒ 这颗钮一直是灰的、
+        /// 原版也如此」，【错】**。改判据与错因：
+        /// <para>**实况（判据优先于静态推导，铁律 4）**：用户 2026-10-18 的原版参照图
+        /// `C:\Users\qjh36\Desktop\warpforge参考图\选择卡组出现的界面参考.png` 与第三轮对比图
+        /// `_tmp_view/shots/2026-10-18_卡组选择弹窗_第三轮/98_按钮区对比.png` 里，
+        /// 原版的 `编辑卡组` 与 `练习` **同为橙金**（正常态、没变灰）。所以原版实况 = `CanImportDeck == true`。</para>
+        /// <para>**错因**：把「**我们这个工程没有 LiveOps 系统**」当成了「**原版当时没有活动**」——
+        /// 这两件事不是一回事。`CustomGameModeEvent` 读的是**服务端下发的活动配置**；原版实况里它是非空的
+        /// （那款游戏的活动常驻），而我们离线复刻**根本没有这一层**。把运行环境的差异当成卡组属性
+        /// ⇒ 第一道闸在我们的等价物里恒假 ⇒ 整颗钮恒灰（截图里那一格 `softDisabled = True`）。</para>
+        /// <para>**改后的等价物 = `true`**，两道闸逐条归位（不是「编一个原版没有的判据」）：
+        /// ① 活动配置：本地**没有这套系统**（≠「没有活动」）⇒ 不拿它当否定证据；
+        /// ② 拥有度（`:39-72` 那一段）：本工程按用户口径**卡池全解锁**（项目边界「卡池/锻造厂/卡牌/头像全解锁」）
+        ///    ⇒ 「件数够 + 每条要求都有」必然通过。
+        /// ⇒ 合起来 = **原版实况那一档**。`deck == null` 仍返回 `false`（原版 `context.Deck` 恒非空，我们可能查不到）。</para>
+        /// <para>**连带（如实记）**：state 1（Import）下那条「无法导入卡组」提示在本地**不再可达**（拥有度恒过）。
+        /// 我们本来也没有 state 1 的调用点；`DeckInfoPopup.EditDeck` 的那道闸**保留原样**（判据链不变）。
+        /// ⚠️ **灰化机制本身没被推翻**：`SoftDisable` 仍按原版无条件调（`DeckInfoControls__Initialize.c:79-83`），
+        /// 只是它的实参现在恒为「不灰」—— 将来若真接了 LiveOps/拥有度，只需改这一个方法。</para></summary>
         public static bool CanImportDeck(RuleEngine.PlayerDeck deck)
         {
-            // 判据第一句：`CustomGameModeEvent == null ⇒ false`；我们这边**没有任何**带活动模式的卡组。
-            if (deck == null) return false;
-            Debug.Log("[DeckInfo] `CanImportDeck` = **false**（判据 = 原版那一句 "
-                      + "`deck.CustomGameModeEvent == null ⇒ return 0`；我们的等价物 = 「没有任何活动模式的卡组」"
-                      + "，因为我们**没有 LiveOps 活动系统** —— 见本方法的注释）");
-            return false;
+            // 判据（改后）：原版头一句 `CustomGameModeEvent == null ⇒ 0` 那道闸在我们的离线等价物里**不成立**
+            // （我们没有 LiveOps，不是「没有活动」）；拥有度那道闸在「全解锁」下必然通过 ⇒ true。
+            // 判据与错因的全文见上面那段订正（2026-10-18）。
+            if (deck == null) return false;      // 原版 `context.Deck` 恒非空；我们查不到时保守取 false
+            Debug.Log("[DeckInfo] `CanImportDeck` = **true**（2026-10-18 改判：原版实况里 `编辑卡组` 是橙金 —— "
+                      + "见本方法注释的订正段。两道闸：活动配置本地没有这套系统（≠没有活动）· 拥有度在「全解锁」下必过）");
+            return true;
         }
+
 
         /// <summary>原版「导入失败」提示的**唯一**拼装处（`DeckInfoPopup.EditDeck` 那条闸）。
         /// <para>官方模板 = `MenuDeck/CantImportDeck`：EN `Can't import deck. You don't have enough {0} cards.` /
@@ -788,6 +943,8 @@ namespace CardPresentation
             // ④ 🆕 **A65②：`Edit Deck` 那颗的 `SoftDisable`** —— 原版 `:79-83`（**无 state 守卫**）：
             //    `cVar3 = CanImportDeck(popup, context.Deck);  EverguildButton__SoftDisable(editButton, cVar3 == '\0');`
             //    🔴 语义 = **只变灰、不改 `interactable`** ⇒ **灰着也照样点得动**（判据见 `CanImportDeck` 的注释）。
+            //    ⚠️ **2026-10-18 改判后**：`CanImportDeck` 恒 `true`（原版实况里这颗是橙金）⇒ 这一句**仍照原版调**，
+            //       只是实参恒为 `false`（不灰）。机制与调用点不变，⛔ 别把这一句删掉 —— 将来接了 LiveOps 还要靠它。
             //    ⚠️ 前提：那颗钮的 `colorTintGreyOnDisable`（`EverguildButton` 的 `0x17A`）= **1**（真包实读）
             //       —— 不为真时原版这一段**什么都不做**，那就成了「照抄一个不生效的调用」，所以这一条必须核。
             bool canImport = CanImportDeck(deck);
@@ -808,7 +965,8 @@ namespace CardPresentation
             //      ② 它建的是 `new Material(sh)` ⇒ 队列退回 **shader 自带的那一个**，而
             //         `Everguild/UI/Greyscale` 的 SubShader 标签是 `QUEUE: Transparent` = **3000**
             //         （`工具/dump_shader.py "Everguild/UI/Greyscale"` 实读，2026-10-05）；
-            //      ③ 本窗红底 `UI_Deck_Information_Back` 在 **`QDI = 3120`**、这几颗钮在 `QDIRow = 3121`
+            //      ③ 本窗红底 `UI_Deck_Information_Back` 在 **`QDIBg = 3121`**、这几颗钮在 **`QDIRow = 3124`**
+            //         （2026-10-18 拆档前的旧号是 `QDI 3120` / `QDIRow 3121`，相对次序不变）
             //         ⇒ 不补这一句，变灰那几颗会**掉到红底之下** = 画面上「按钮没了」，
             //         而 `WindowButton.AuditGrayLook` 只核 **shader 名** ⇒ **照样全绿**（弱断言分不出两种状态）。
             //    ⚠️ **与 `Shell/MissionsTab.cs` 那 6 颗（`q.SetRenderQueue(RewardsWindow.QContent)` 那一处）是同一做法**，但那一处的注释写着「通用修法 = 让
@@ -824,7 +982,115 @@ namespace CardPresentation
                       + " · `Duplicate` 可点 = " + DuplicateInteractable + "（卡组数 " + n + " < 上限 " + MaxCustomDecks + "）"
                       + " · `Switch Deck Info` 的 `isOn` = " + DrawerToggleIsOn + "（`SetIsOnWithoutNotify(true)`）"
                       + " · `Edit Deck` 的 `softDisabled` = " + (!canImport)
-                      + "（`!CanImportDeck(deck)`，判据见 `CanImportDeck` —— **这颗灰着也点得动**）");
+                      + "（`!CanImportDeck(deck)`，判据见 `CanImportDeck` —— "
+                      + (canImport ? "**不灰**：2026-10-18 按原版实况改判（原版参照图里这颗是橙金）"
+                                   : "**灰着也点得动**：`SoftDisable` 不改 `interactable`") + "）");
+
+            // ⑦ 🆕 **2026-10-18（第六轮真机）**：把「三颗大钮的命中区矩形 + 队列」与「吸收层那一档」一起打出来。
+            //    放在**这一步**（而不是 `Build()` 里）是因为它是**最后**一个动队列的地方（上面第 ⑥ 段的
+            //    `ReassertButtonQueues()` 刚把绝对档钉回去）⇒ 打出来的就是**玩家真点那一刻**生效的值。
+            LogHitGeometry();
+        }
+
+        /// <summary>🆕 **2026-10-18（第六轮真机）：`Buttons` 那三颗大钮的命中区 / 队列一览**（一行）。
+        ///
+        /// <para>🔴 **为什么要有这个口**：真机上点「编辑卡组」时，`_tmp_view/click_log.txt` 只报
+        /// 「命中 `AbsorbHit` … 队列 3128」——**光看那一行分不出两种情况**：
+        /// ① 按钮命中区**被吸收层压住**（真缺陷）② **那一点本来就不在按钮的矩形里**（点偏了）。
+        /// 这两种在点击记录里长得一模一样（都是「命中 AbsorbHit」），而修法**完全相反**。</para>
+        ///
+        /// <para>⇒ 每次应用状态（建窗 + 之后任何一次改 `State` 再 apply）都打一行，把三件事摆在一起：
+        /// **按钮命中区矩形 / 它的渲染队列 / 吸收层队列**，最后给一句「在之上 / 不在之上」的判词。</para>
+        ///
+        /// <para>📌 **量法与 `PointerLayer.HitBoxPx` 同源**：上面 `MenuDraw.QuadRectPx`（设计 px · 左上原点 ·
+        /// y **向下**）—— 与点击记录里的「画布」是**同一帧同一向**，可以直接拿点击记录里的坐标来对。
+        /// ⚠️ 它读的是 `q.WorldW/WorldH`（**不含父链缩放**）⇒ 小屏缩放开关打开时（`M ≠ 1`）这里打的是
+        /// **设计帧**的矩形，而指针那一帧 = 设计 px × M（`PointerLayer.HitBoxPx` 的 A167 那一段）。
+        /// 本行是**给人看的诊断**，出厂态（`M == 1`）两者逐位相同；⛔ 别拿它当缩放态的判据。</para>
+        ///
+        /// <para>⚠️ **命中区 == 视觉底**是这几颗钮的**原版语义**（`m_RaycastPadding = (0,0,0,0)`，
+        /// 见 `MenuDraw.Hit` 的判据段）⇒ 两者一旦量出不一致，本行会**当场点名**（那才是「看着在钮上、点不动」）。</para></summary>
+        void LogHitGeometry()
+        {
+            string[] keys = { "Btn:Practice Deck", "Btn:Edit Deck", "Btn:Select Deck" };
+            string[] names = { "练习", "编辑", "选择" };
+            var sb = new System.Text.StringBuilder("[DeckInfo] 按钮命中区：");
+            int hitQ = int.MinValue;
+            bool anyHit = false, mismatch = false;
+            for (int i = 0; i < keys.Length; i++)
+            {
+                if (i > 0) sb.Append(" · ");
+                sb.Append(names[i]).Append('=');
+                List<GameObject> parts;
+                if (!_parts.TryGetValue(keys[i], out parts) || parts.Count == 0)
+                { sb.Append("（**没建**）"); continue; }
+
+                // 命中区 = 那颗 `Btn_*` 节点（`Track` 里排最后）—— 认它的判据是**挂了 `WindowButton`**
+                Transform hitNode = null;
+                for (int k = parts.Count - 1; k >= 0 && hitNode == null; k--)
+                    if (parts[k] != null && parts[k].GetComponent<WindowButton>() != null)
+                        hitNode = parts[k].transform;
+                ImageQuad hq = null;
+                if (hitNode != null)
+                {
+                    // ⚠️ 用 `true`：藏起来的那颗（`Select Deck`）也要能量到 —— 它正是「露出来才生效」的那种
+                    var qs = hitNode.GetComponentsInChildren<ImageQuad>(true);
+                    for (int k = 0; k < qs.Length; k++) if (qs[k] != null && qs[k].name == "Hit") { hq = qs[k]; break; }
+                }
+                if (hq == null)
+                {
+                    sb.Append("🔴 **没有命中 quad**（`PointerLayer` 只认 `ImageQuad` ⇒ 这颗真鼠标点不动）");
+                    mismatch = true;
+                    continue;
+                }
+                var r = MenuDraw.QuadRectPx(hq);
+                sb.Append('(').Append(r.x1.ToString("F2")).Append("..").Append(r.x2.ToString("F2"))
+                  .Append(", ").Append(r.y1.ToString("F2")).Append("..").Append(r.y2.ToString("F2")).Append(')')
+                  .Append(" q=").Append(hq.RenderQueue);
+                if (hitNode != null && !hitNode.gameObject.activeSelf) sb.Append("（藏着）");
+                if (anyHit && hq.RenderQueue != hitQ) sb.Append("⚠三颗不同档");
+                hitQ = hq.RenderQueue; anyHit = true;
+
+                // 视觉底（`Bg *`）与命中区必须**同一块** —— 不一致就是 A1814/A167 那一族（看着在钮上、点不动）
+                var bg = parts[0] != null ? parts[0].GetComponent<ImageQuad>() : null;
+                if (bg != null)
+                {
+                    var b = MenuDraw.QuadRectPx(bg);
+                    if (Mathf.Abs(b.x1 - r.x1) > 0.5f || Mathf.Abs(b.y1 - r.y1) > 0.5f
+                        || Mathf.Abs(b.x2 - r.x2) > 0.5f || Mathf.Abs(b.y2 - r.y2) > 0.5f)
+                    {
+                        sb.Append(" 🔴 视觉底=(").Append(b.x1.ToString("F2")).Append("..").Append(b.x2.ToString("F2"))
+                          .Append(", ").Append(b.y1.ToString("F2")).Append("..").Append(b.y2.ToString("F2"))
+                          .Append(") **与命中区不一致**");
+                        mismatch = true;
+                    }
+                }
+            }
+
+            // 吸收层：`MenuDraw.Absorb(root, "AbsorbHit", …)` 建在窗根下（见 `Build()` 第 2 段）
+            var ab = transform.Find("AbsorbHit");
+            ImageQuad aq = null;
+            if (ab != null)
+            {
+                var aqs = ab.GetComponentsInChildren<ImageQuad>(true);
+                if (aqs.Length > 0) aq = aqs[0];
+            }
+            int absorbQ = aq != null ? aq.RenderQueue : int.MinValue;
+            if (aq != null)
+            {
+                var ar = MenuDraw.QuadRectPx(aq);
+                sb.Append(" · 吸收层=(").Append(ar.x1.ToString("F2")).Append("..").Append(ar.x2.ToString("F2"))
+                  .Append(", ").Append(ar.y1.ToString("F2")).Append("..").Append(ar.y2.ToString("F2"))
+                  .Append(") q=").Append(absorbQ);
+            }
+            else sb.Append(" · 吸收层=**没有**（这一扇窗不吸收空白处 —— 与原版不符，出声）");
+
+            if (anyHit)
+                sb.Append(hitQ > absorbQ
+                    ? " ⇒ **按钮区在吸收层之上（点得到）**"
+                    : " ⇒ 🔴 **按钮区【不高于】吸收层 ⇒ 真鼠标点不到**（改 `QDIHit` 或吸收层档，见 `MenuDraw.Absorb`）");
+            if (mismatch) sb.Append(" —— 本行有 🔴 ⇒ **别急着怪点击记录**，先修上面点名的那一处");
+            Debug.Log(sb.ToString());
         }
 
         /// <summary>按建窗时登记的名字取那颗 `WindowButton`（🔴 没建出来/名字拼错 ⇒ **出声**，别静默）。</summary>
@@ -862,7 +1128,11 @@ namespace CardPresentation
             {
                 var wb = kv.Value;
                 if (wb == null) continue;
-                if (wb.target != null) wb.target.SetRenderQueue(Q(QDIRow));
+                // 🔴 **2026-10-18 拆档**：钉回**这颗钮自己的那一档**（建窗时记在 `_wbTargetQ` 里），
+                //   不再硬写 `QDIRow` —— 五颗圆钮的 `Face` 现在在 `QDIRowArt`（见 `_wbTargetQ` 的 doc）。
+                int tq;
+                if (!_wbTargetQ.TryGetValue(kv.Key, out tq)) tq = QDIRow;
+                if (wb.target != null) wb.target.SetRenderQueue(Q(tq));
                 foreach (var q in wb.GetComponentsInChildren<ImageQuad>(true))
                     if (q != null && q != wb.target) q.SetRenderQueue(Q(QDIHit));
             }
@@ -945,7 +1215,7 @@ namespace CardPresentation
         /// **预组卡组**传一份现造的 `PlayerDeck`（它不在 `CollectionData` 里），此时 `DeckIndex = −1`。
         /// 两个分支的 `State` / `SelectButton` / `CheckOwnership` 规则**逐位相同**。</para>
         ///
-        /// <para>🔴 **队列基档 = `QDIOver`(3130)**：本窗会开在选卡组弹窗（3125–3129）之上，不抬档会被它整块盖死
+        /// <para>🔴 **队列基档 = `QDIOver`(3130)**：本窗会开在选卡组弹窗（3124–3129）之上，不抬档会被它整块盖死
         /// —— 判据与撞档说明 → `QDIOver` 那段注释。</para>
         ///
         /// <para>⚠️ `isPlayerDeck` = 原版 `InventoryManager.HasItem(context.Deck)`（`DeckInfoPopup__Open.c:43-48`）：
@@ -983,6 +1253,8 @@ namespace CardPresentation
             Rows.Clear();
             _parts.Clear();          // 🆕 A31：重建 ⇒ 旧的「哪几颗钮」记录一并作废（别留着指已销毁的节点）
             _wbs.Clear();            // 🆕 A65②：同上（这两个表必须同生共死，见 `_wbs` 的注释）
+            _wbTargetQ.Clear();      // 🆕 2026-10-18：拆档配套表（见 `_wbTargetQ` 的注释）
+            _btnBasePos.Clear();     // 🆕 2026-10-18：底部三颗钮的基线（见 `_btnBasePos` 的注释）
 
             var info = CurInfo;      // 🆕 T24：预组那一支从 `OverrideInfo` 来（见 `CurInfo`）
 
@@ -993,7 +1265,7 @@ namespace CardPresentation
             //   判据：原版这一层不是独立节点，而是压在 `Menu Dark Background` **自身节点**上的
             //   `BackgroundCloseButton`；挂/摘在窗口类自己身上（`DeckInfoPopup__Open.c:135-146` 挂 ·
             //   `OnDisable.c:32-42` 摘 —— 预制体里 `window` 的 pid 恒 0、`onClick` 持久调用表全空）。
-            //   档 = **压暗层自己那一档 `QDI`(3120)**，**严格低于**本窗内容命中区档 `QDIHit`(3123)
+            //   档 = **压暗层自己那一档 `QDI`(3120)**，**严格低于**本窗内容命中区档 `QDIHit`(3129)
             //   （同档时谁吃到命中退化成枚举顺序 ⇒ 症状是「点不动的钮看着像正常工作」）。
             //   ⚠️ 它与 **`:847`** 那颗 `CloseHit` **不是一件事**：那是**带按钮脸的关窗钮**，两颗都要有。
             //      （`:847` 是 **2026-10-07（波 4 件① A126）**实读订正的行号 —— 这里与上面 `ShadeHit`
@@ -1002,13 +1274,16 @@ namespace CardPresentation
             MenuDraw.ShadeHit(root, ShadeRect, Q(QDI), Q(QDIHit), () => Close(), "BackgroundHit");
 
             // 2) 红底（Sliced）
+            // 🔴 **2026-10-18 拆档**：原来这一层与压暗层 / `Info Panel` **同为 `QDI`(3120)** ⇒ 排序不稳
+            //   （判据 → 顶部那段「一档一层」）。现落到 `QDIBg`(3121) —— **它是不透明底**（`#0C..` 系，
+            //   采样 α254），必须**严格高于压暗层、低于立绘**。
             Nine(root, root, "UI_Deck_Information_Back", RedBorder, RedTexW, RedTexH,
-                 RedL, RedT, RedR, RedB, QDI, "Generic Window Red Background Big");
+                 RedL, RedT, RedR, RedB, QDIBg, "Generic Window Red Background Big");
             // 🆕 **2026-10-06（A94）：红底那块面板吸收点击**。判据 = 原版 prefab
             //   `Deck info Popup > Generic Window Red Background Big` 那颗 `Image` 的
             //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）—— 射线打到它自己、
             //   父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 挂在压暗层上）⇒ 原版**什么都不做**。
-            //   ⚠️ 本窗是调度台点名的那一例：**压暗底 / 红底 / `Info Panel` 全在 `QDI`(3120)**，
+            //   ⚠️ 本窗是调度台点名的那一例（**改前**）：**压暗底 / 红底 / `Info Panel` 全在 `QDI`(3120)**，
             //   而「点窗外关窗」也传 `QDI` ⇒ 压低档时赢家退化成枚举顺序；吸收层因此**不能**沿用
             //   面板那一档，必须由公共件算（`qContentMin − 1`）。红底盖住了 `Info Panel` ⇒ 一块就够。
             MenuDraw.Absorb(root, "AbsorbHit", new PxRect(RedL, RedT, RedR, RedB), Q(QDI), Q(QDIHit));
@@ -1042,10 +1317,23 @@ namespace CardPresentation
                 //   🔴 **这一行只改【渲染】**（`Img` 的 `keepAspect`）—— **命中区与它无关**（由下一段的
                 //      `WarlordPad` 决定，⛔ 别把两者写进同一条断言；自检那边是两条分开的）。
                 // 🔴 **2026-10-18（真机验收发现）**：原来这颗与 `Info Panel` **同为 `QDI`(3120)** ⇒
-                //   同队列 + 同 z 时谁盖谁退化成渲染器排序；换贴图（方形立绘）后排到了面板**下面**，
-                //   真机表现 =「立绘只剩左下角一条」。原版立绘是**压在面板背景之上**的 ⇒ 抬到
-                //   `QDIRow`(3121)（面板之上、文字/行之下；行/文字都在右半，不与立绘相交）。
-                Img(root, root, wlTex, WarlordL, WarlordT, WarlordR, WarlordB, "Warlord Image", QDIRow,
+                //   同队列 + 同 z 时谁盖谁退化成渲染器排序；换贴图（方形立绘）后排到了红底**下面**，
+                //   真机表现 =「立绘只剩左下角一条」（红底不透明、只有它左沿 134.50 之外那条露出来）。
+                // 🔴🔴 **2026-10-18（P1 · 第二次订正：落回【原版层序】）** —— 两颗都拆档之后位置是：
+                //   `QDIBg`(3121 红底) < **`QDIWarlord`(3122 立绘)** < `QDIPanel`(3123 面板)。
+                //   判据：原版根子件序 = `Menu Dark → Red Bg → **Warlord Image** → Deck Details → Buttons
+                //   → Deck Options → Info Panel → Close`（`R_DeckInfoPopup_对账.md`「兄弟序」行）
+                //   ⇒ 立绘**在面板之下**。它之所以仍看得见，是因为 `Info Panel` 那张
+                //   `UI_Deck_Information_submenu_Back` **自带 α≈0.52**（中心 `(27,3,5,133)`；2026-10-18
+                //   直读 PNG 像素核过），而本仓**没有**任何 `ApplyTint`/`SetAlpha` 去把它改成不透明。
+                //   ⚠️ 账 `N100`（`任务总表.md:283`）记的「抬到 `QDIRow` 修好」是**当时面板不透明的权宜**：
+                //   那时立绘与红底/面板同档、被排到了**不透明的红底**之下 —— 现在拆档后红底(3121)严格在立绘之下，
+                //   不需要再压过面板。⛔ 别再因为「看不见了」把立绘抬到 `QDIRow`（那会盖住半透明面板、偏离原版）。
+                // ⚠️ **拉伸那一半本来就已经对了**：`keepAspect` 传的是 `!(方形)`，而 `CardArt.DeckHero` 这一族
+                //   63 张**逐张量过全是 2048²** ⇒ 方形 ⇒ `keepAspect = false` ⇒ **按 1108² 框拉满**（= 原版
+                //   `m_PreserveAspect = 0`）。只有「取不到立绘、退回卡面插图（671×1024）」那条**我们自己的兜底**
+                //   仍按非方形等比内接 —— 原版没有这条路，兜底保形比保「拉伸」更重要。
+                Img(root, root, wlTex, WarlordL, WarlordT, WarlordR, WarlordB, "Warlord Image", QDIWarlord,
                     !(Mathf.Abs(wlTex.width - wlTex.height) <= 1));   // 方形立绘=拉伸(恒等)；退回卡面插图=等比
             }
             else
@@ -1081,23 +1369,54 @@ namespace CardPresentation
 
             // 4) `Deck Details`（**跑后真值**，见常量那段的订正）
             //    HLG{align=MiddleLeft} ⇒ 视觉顺序 = 树序：`Game Mode Icon` → `Separator` → `Deck Details`(内层)
-            // 🆕 A10：`Game Mode Icon` 补上了（原版 `sprite=0`、运行期按 `gameModeDeckIcon` 喂；
-            //    两张图 `40k_gamemode_icon_{classic,skirmish}` **本来就在工程里** —— 原来记的「本地没图」是**过期**的）
+            //
+            // 🔴🔴 **2026-10-18（P1 · 报告第 4 条）：`Game Mode Icon` 与 `Separator` 改成【有图才画】。**
+            //   判据（全是 2026-10-18 现核）：
+            //     · 原版这一颗 `sprite = 0`、运行期喂 `GameModesIconCollection.GetIcon(deck.GameMode)`，
+            //       而 `GetIcon` **无匹配项返回 0、把整颗 `SetActive(false)`**（`R_DeckInfoPopup_对账.md`「Game Mode Icon」行）；
+            //     · 用户给的那张实拍 `选择卡组出现的界面参考.png` **正是隐藏态** —— 只显一颗阵营徽记、
+            //       标题整体左移；模板匹配：阵营图标 corr **0.88**、`gamemode_classic` corr **≈0.2**
+            //       （= 图上根本没有那颗）。
+            //   🔴 **判不准的那一半（如实记，⛔ 别当已复刻）**：`GameModesIconCollection` 这个 SO **本地没有**
+            //      —— `assets_full` 全盘 grep `gameModesIcon` = **0 命中**，`bundle_armyicons_assets_all` 只有
+            //      Sprite/Texture2D、无 MonoBehaviour ⇒ **「哪些 PlayMode 有图标」不可知**；只坐实了**机制**
+            //      （无匹配 ⇒ 隐藏）与两个 sprite 名（`40k_gamemode_icon_{classic,skirmish}`）。
+            //      ⇒ 今天按实拍取「**classic 无图标 / skirmish 有**」（自定映射，与 `13→skirmish` 同源）。
+            //      等 SO 到手，把 `showGmIcon` 这一句换成真查表即可，别处不用动。
+            bool showGmIcon = info.GameMode == (int)GameMode.Skirmish;
+            if (showGmIcon)
             {
-                string gmArt = info.GameMode == 13 ? "40k_gamemode_icon_skirmish" : "40k_gamemode_icon_classic";
-                Img(root, root, CardArt.MenuUi(gmArt), DdGmL, DdGmT, DdGmR, DdGmB, "Game Mode Icon", QDIRow, true);
+                Img(root, root, CardArt.MenuUi("40k_gamemode_icon_skirmish"), DdGmL, DdGmT, DdGmR, DdGmB,
+                    "Game Mode Icon", QDIRow, true);
             }
+            else if (!_gmIconHiddenLogged)
+            {
+                // 「不许静默」：这一态是**按实拍 + 机制推的**，不是从 SO 查出来的 —— 说一次就够（别每次 Build 刷屏）。
+                _gmIconHiddenLogged = true;
+                Debug.Log("[DeckInfo] Game Mode Icon 按「classic 无图标」隐藏（`GameModesIconCollection` 不在本地，"
+                          + "判据只到机制「无匹配⇒隐藏」+ 用户实拍；见 `R_DeckInfoPopup_对账.md`）");
+            }
+            //   ⇒ 隐藏态下原版 HLG 会把**后面那几颗整体左移**：`Game Mode Icon`(100) + `Separator`(8.87) = **108.87**。
+            //      · `Army Icon` **767.9 → 659**（整颗左移，宽 100 不变）
+            //      · `Deck Name` / `Warlord Name` 的 **x 872.9 → 764**，宽度相应 **+108.87**、**右沿不动**
+            //      ⚠️ 文本那两颗按施工单「右沿不动」；原版 HLG 真实行为是「左沿移到 764、宽度保持」，
+            //         两者对**左对齐**的文字渲染**同效**（框只影响自适应排布），差别只在那 108.87px 的排布余量。
+            float ddShift = showGmIcon ? 0f : -108.87f;
             // 🔴 **2026-10-18（P1 §2·2 · 报告第 6 条）**：原版这一颗带 **`↻ -10.60°`** 的 z 旋转
             //   （`menu_dump … "Deck info Popup" --depth 12` 的 `↻-10.60°`；AABB 748.9,107.6→777.8,217.4）。
             //   改前我们画的是**正**的竖条。`MenuDraw.Nine` 没有 rotation 形参 ⇒ 拿回节点自己设
             //   （先例 = `Shell/CampaignTab.cs` 的 `q.transform.localRotation = Quaternion.Euler(0,0,θ)`）。
             //   ⚠️ 旋转中心 = 枢轴（节点中心）；表里那个 759.0..767.9 是**未旋转帧**的布局框。
-            var gmSep = Nine(root, root, "40k_Generic_Smooth_line", new Vector4(55f, 15f, 55f, 15f), 113f, 32f,
-                 SepL, SepT, SepR, SepB, QDIRow, "Game Mode Separator", new Color(0.42f, 0.157f, 0.137f, 1f));
-            if (gmSep != null) gmSep.transform.localRotation = Quaternion.Euler(0f, 0f, GmSepRotDeg);
+            //   🔴 显隐**随 Game Mode Icon**（原版 `act` 联动）⇒ 隐藏态整颗不建（别再画一根孤零零的斜线）。
+            if (showGmIcon)
+            {
+                var gmSep = Nine(root, root, "40k_Generic_Smooth_line", new Vector4(55f, 15f, 55f, 15f), 113f, 32f,
+                     SepL, SepT, SepR, SepB, QDIRow, "Game Mode Separator", new Color(0.42f, 0.157f, 0.137f, 1f));
+                if (gmSep != null) gmSep.transform.localRotation = Quaternion.Euler(0f, 0f, GmSepRotDeg);
+            }
             var facTex = string.IsNullOrEmpty(info.Faction) ? null : CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction));
             if (facTex != null)
-                Img(root, root, facTex, DdIconL, DdIconT, DdIconR, DdIconB, "Army Icon", QDIRow, true);
+                Img(root, root, facTex, DdIconL + ddShift, DdIconT, DdIconR + ddShift, DdIconB, "Army Icon", QDIRow, true);
             // 🆕 **A1205 接上**（四格出处 = `R5_包装层菜单族.md` §2·F #35：原版
             //    `Deck Details ▸ Deck Details ▸ Deck Name` = `auto[10~45] · base 42 · 折行 0`）
             // 🔴 **A1024③（2026-10-17）换面**：`Deck info Popup` 里**只有 `Deck Name` 是 Asar**
@@ -1112,20 +1431,31 @@ namespace CardPresentation
             //   `RefreshBounds()` 会按 anchor 重新居中 ⇒ 排后面会把横向对齐抹掉 —— 见 `Txt` 的 doc）。
             //   ⚠️ `face` 档走 `MenuDraw.SetVAlign` 的缺省 `Pragati`（与全仓其它 `SetVAlign` 调用点同一档），
             //   本处只补「哪一档」，不改度量面。
-            Txt(root, root, info.Name, DdNameL, DdNameT, DdNameR, DdNameB, 44.5f, Align.Left, "Deck Name", QDIText,
+            Txt(root, root, info.Name, DdNameL + ddShift, DdNameT, DdNameR, DdNameB, 44.5f, Align.Left, "Deck Name", QDIText,
                 autoMinPx: 10f, autoMaxPx: 45f, autoBasePx: 42f, vAlign: Label.VAlign.Bottom,
                 face: TmpFont.Face.LatinUi);      // `wrapPx` 缺省 0 = 原版 `折行 = 0`
             // 空战将位那行字走词条（键 `MenuDeck/Error/NoWarlord`）。
             // ⚠️ 中文列是「还没有选战将」—— 与改前写死的「未选战将」**不同字**，这是**有意的**：
             //    施工单 §附_Shell #1 判「语义一致 ⇒ 复用，别新造」（铁律 6：同义两键迟早不一致）。
             // 🆕 **A1205 接上**（`R5` §2·F #36：`Deck Details ▸ Warlord Name` = `auto[10~40] · base 38 · 折行 0`）
-            Txt(root, root, wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"), DdWlL, DdWlT, DdWlR, DdWlB, 40f, Align.Left,
+            // 🔴 **2026-10-18（P1 · 报告第 5 条）：督军名走【本地化】** —— 原版这一栏运行期喂的是
+            //   `RawCardScript.GetLocalizedCardName(督军卡)`（`R_DeckInfoPopup_对账.md`「Warlord Name」行），
+            //   改前我们印的是 `wl.Name`（英文）⇒ 截图 `Anvir Keltoc` vs 参考图 `安维尔·凯尔托克`。
+            //   取口 = `Core/CardText.cs` 的 `Name(CardDef)`（**现成的**、本仓唯一的卡名中英口径，
+            //   与 `BuildDeckList` 的键2 / `DeckRuntime` 左栏同源，⛔ 别另造一套）。
+            Txt(root, root, wl != null ? CardText.Name(wl) : Loc.T("MenuDeck/Error/NoWarlord"),
+                DdWlL + ddShift, DdWlT, DdWlR, DdWlB, 40f, Align.Left,
                 "Warlord Name", QDIText, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 38f,
                 face: TmpFont.Face.LatinCardBody);
 
             // 5) `Info Panel` + 两个抽屉（`Deck List` 出厂在前、`Deck Info` 出厂 **INACT** ⇒ 建了关着）
+            // 🔴 **2026-10-18 拆档**：这一层原来也在 `QDI`(3120)（与红底/压暗同档 ⇒ 谁盖谁随机，
+            //   用户看到「该红的地方发黑」就是它）。现落到 `QDIPanel`(3123)。
+            //   ⚠️ 这张图**自带 α≈0.52**（中心 `(27,3,5,133)`，2026-10-18 直读 PNG 像素核过），
+            //   而本文件/本仓**没有**任何 `ApplyTint`/`SetAlpha` 去改它（`MenuDraw.Nine` 的 `tint` 传 null
+            //   ⇒ 一句都不设，材质色 = 出厂白）⇒ **半透明原样保留**。这条是下面「立绘压在面板之下」的前提。
             Nine(root, root, "UI_Deck_Information_submenu_Back", PanelBorder, PanelTexW, PanelTexH,
-                 PanelL, PanelT, PanelR, PanelB, QDI, "Info Panel");
+                 PanelL, PanelT, PanelR, PanelB, QDIPanel, "Info Panel");
             BuildDeckList(root);
             BuildDeckInfoDrawer(root);
 
@@ -1135,6 +1465,15 @@ namespace CardPresentation
                 holder.transform.SetParent(root, false);
                 holder.transform.localPosition = Local3(root, BtnL, BtnT, BtnL + 3f * BtnW + 2f * BtnGap, BtnT + BtnH);
                 string[] btns = { "Practice Deck", "Edit Deck", "Select Deck" };
+                // 🔴 **2026-10-18（P1 · 报告第 3 条）：三颗文案【走词条】，别写死英文。**
+                //   判据 = 原版 prefab 那三颗 `Button Text` 的 `Localize.mTerm`（2026-10-18 现核）：
+                //     `Practice Deck` → **`MenuDeck/HUD/Practice`**
+                //     `Edit Deck`     → **`MenuDeck/MenuButtons/EditDeck`**
+                //     `Select Deck`   → **`MenuDeck/MenuButtons/Select`**
+                //   键在中英两档表里都有（`Resources/official_loc_13lang.json` 现查三条全在）⇒ 中文档出中文、英文档出英文。
+                //   ⚠️ `btns[]` 那三个串**不是文案**、是**内部键**（`Track("Btn:"+key)` / `OnButton(key)` 认它）
+                //   —— ⛔ 别把 `btns[]` 换成译文，那会把显隐表与动作分派一起打断。
+                string[] btnTerms = { "MenuDeck/HUD/Practice", "MenuDeck/MenuButtons/EditDeck", "MenuDeck/MenuButtons/Select" };
                 for (int i = 0; i < btns.Length; i++)
                 {
                     // ⚠️ **坐标一律是「页面绝对 px」、basis 给【实际父节点】** ——
@@ -1161,8 +1500,14 @@ namespace CardPresentation
                     //    ⇒ 抄进 `selectButton` 的 TMP；`context+0x20 == 0` 时抄的是空串）。
                     //   ⚠️ 原版 6 个老调用点全传 null ⇒ 那条链在它们那几扇窗里从不触发；我们照原样摆着。
                     //   🆕 T24：第 7 个构造点（`DeckSelectionPopup.UpdateInfo`）**传非空** ⇒ 那里有字。
-                    string labelText = (btns[i] == "Select Deck" && SelectButtonProvided)
-                                       ? (SelectButtonText ?? "") : btns[i];
+                    // 🔴 **2026-10-18（P1 · 报告第 3 条）**：三颗**改走词条**；`Select Deck` 那一支
+                    //   **保留 `SelectButtonText` 覆盖口**（原版就是用调用方那颗钮的文本盖掉预制体文本）——
+                    //   只有「没给覆盖串」时才落到词条（改前是落到**空串**，那会印出一颗没有字的钮）。
+                    string labelText;
+                    if (btns[i] == "Select Deck" && SelectButtonProvided && !string.IsNullOrEmpty(SelectButtonText))
+                        labelText = SelectButtonText;
+                    else
+                        labelText = Loc.T(btnTerms[i]);
                     // 🆕 **A1205 接上**（`R5` §2·F #37：`Buttons ▸ {Practice,Edit,Select} Deck ▸ Button Text`
                     //    三颗逐值相同 = `auto[10~40] · base 12 · 折行 0`）
                     //   🔴 **2026-10-17（`A1207`）就地核到原版 MB**：`Deck info Popup/Buttons/
@@ -1193,6 +1538,16 @@ namespace CardPresentation
                     // 🆕 A65②：登记这颗的 `WindowButton`（`Edit Deck` 的 `SoftDisabled` / `Practice Deck` 的
                     //   `interactable` 都要落到它身上）
                     _wbs["Btn:" + key] = hitq != null ? hitq.GetComponent<WindowButton>() : null;
+                    // 🔴 **2026-10-18 拆档**：大钮的「可见那张」= `Bg …`，在 `QDIRow`（见 `_wbTargetQ` 的 doc）。
+                    _wbTargetQ["Btn:" + key] = QDIRow;
+                    // 🆕 **2026-10-18（第四轮 P1）**：记下这三颗的**基线局部坐标**（顺序与 `_parts[key]` 一致），
+                    //   供 `LayoutButtonRow()` 按「当前可见的那几颗」重新右对齐 —— 见 `_btnBasePos` 的 doc。
+                    {
+                        var l = _parts["Btn:" + key];
+                        var bp = new Vector3[l.Count];
+                        for (int k = 0; k < l.Count; k++) bp[k] = l[k].transform.localPosition;
+                        _btnBasePos["Btn:" + key] = bp;
+                    }
                 }
             }
 
@@ -1234,7 +1589,10 @@ namespace CardPresentation
                     new[] { "Switch Deck Info", "40k_general_bt_yellow_seedeck" },
                     new[] { "Duplicate",        "40k_general_bt_yellow_duplicate" },
                     new[] { "Share",            "40k_general_bt_yellow_share" },
-                    new[] { "Share On Chat",    "40k_general_bt_yellow_share in chat" },
+                    // 🔴 **2026-10-18（P1 · 报告第 6 条）**：工程里那张图叫 **`…_share_in_chat.png`**（空格已换成下划线，
+                    //   `CardArt.MenuUi` 的命名约定），原来写的是**带空格的原版名** ⇒ `Resources.Load` 必 null
+                    //   ⇒ 这一颗只剩金环。判据 = `Resources/Art/ui_menu/40k_general_bt_yellow_share_in_chat.png` 现核存在。
+                    new[] { "Share On Chat",    "40k_general_bt_yellow_share_in_chat" },
                     new[] { "Delete",           "40k_general_bt_yellow_delete" },
                 };
                 float optX0 = OptR - total;                              // 1333.33
@@ -1243,6 +1601,10 @@ namespace CardPresentation
                     // 🔴 倒排：树序第 `i` 个落在**第 (n−1−i) 格**（原版 `m_ReverseArrangement = 1`）。
                     float x1 = optX0 + (opts.Length - 1 - i) * OptStep;
                     var r = new PxRect(x1, OptT, x1 + OptW, OptT + OptH);
+                    // 🔴 **2026-10-18 拆档（判据 → 文件顶「一档一层」那段）**：这三层原来**全在 `QDIRow`**
+                    //   ⇒ 同队列同 z 时谁盖谁是随机的 —— 这就是真机上「五颗圆钮只剩金环、脸和字都没了」的根因
+                    //   （`Bg` 74.386² 与 `Face` 56.86² 重叠、`Face` 又与 `Icon` 完全同框）。
+                    //   ⇒ `Bg` → `QDIRow` · `Face` → `QDIRowArt` · `Icon` → `QDIRowEdge`（uGUI 序 Bg→Face→Icon 逐层往上）。
                     var obg = Img(holder.transform, holder.transform, CardArt.MenuUi("UI_Button_Round_background"),
                         r.x1, r.y1, r.x2, r.y2, "Bg " + opts[i][0], QDIRow, true);
                     // 🔴 **2026-10-11（A308）**：子件矩形的**四个内缩逐字段实读**、**不是**「居中」——
@@ -1254,10 +1616,18 @@ namespace CardPresentation
                     //      两条（相对量、容差 0.3）与命中区四边那几条（容差 0.3）一起红。
                     float fx1 = r.x1 + OptInL;
                     float fy1 = OptT + OptInT;
-                    var face = Img(holder.transform, holder.transform, CardArt.MenuUi("40k_general_bt_yellow"),
-                        fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Face " + opts[i][0], QDIRow, true);
-                    var oicon = Img(holder.transform, holder.transform, CardArt.MenuUi(opts[i][1]),
-                        fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Icon " + opts[i][0], QDIRow, true);
+                    var faceTex = CardArt.MenuUi("40k_general_bt_yellow");
+                    if (faceTex == null)
+                        Debug.LogWarning("[DeckInfo] 图取不到：Face `40k_general_bt_yellow`（" + opts[i][0] + "）");
+                    var face = Img(holder.transform, holder.transform, faceTex,
+                        fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Face " + opts[i][0], QDIRowArt, true);
+                    // 🔴 **2026-10-18（P1 · 报告第 6 条）**：把「取不到的图名」**打出来**（供真机定位）。
+                    //   五颗的图名逐颗报，别只报一次 —— 缺的可能是其中任意一张。
+                    var iconTex = CardArt.MenuUi(opts[i][1]);
+                    if (iconTex == null)
+                        Debug.LogWarning("[DeckInfo] 图取不到：Icon `" + opts[i][1] + "`（" + opts[i][0] + "）");
+                    var oicon = Img(holder.transform, holder.transform, iconTex,
+                        fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Icon " + opts[i][0], QDIRowEdge, true);
                     string key = opts[i][0];
                     // A17：`Deck Options>…` 五颗都是 SpriteSwap（普查 §块 3 第 7 行）
                     // 🔴 **2026-10-11（A299）**：命中区按原版**外扩** —— 带 `m_RaycastPadding = (−20,…)` 的是
@@ -1292,6 +1662,10 @@ namespace CardPresentation
                     Track("Opt:" + key, obg, face, oicon, ohit);
                     // 🆕 A65②：`Delete` / `Duplicate` 的 `interactable` 要落到按钮身上（见 `ApplyControlStates` 第 ⑤ 段）
                     _wbs["Opt:" + key] = ohit != null ? ohit.GetComponent<WindowButton>() : null;
+                    // 🔴 **2026-10-18 拆档**：这颗钮的「可见那张」（`WindowButton.target` = `Face …`）
+                    //   在 `QDIRowArt`（不是 `QDIRow`）—— `ReassertButtonQueues` 按这里记下的档重钉
+                    //   （变灰换材质会把队列打回 shader 的 3000，见那段注释）。
+                    _wbTargetQ["Opt:" + key] = QDIRowArt;
                 }
             }
 
@@ -1315,10 +1689,16 @@ namespace CardPresentation
                 //    = A308 解出的上内缩，两边自洽）⇒ ⛔ 别顺手「一起改成居中/一起改 `OptInT`」。
                 //    **改坏法**：把这一句退回 `r.x1 + (r.W - OptIconW) * 0.5f` ⇒
                 //      `Editor/CollectionScene.cs` 关窗钮命中区那四条边（容差 0.3）**四条一起红**。
-                var closeFace = Img(root, root, CardArt.MenuUi("40k_general_bt_yellow"),
-                    fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Close Face", QDIRow, true);
-                Img(root, root, CardArt.MenuUi("40k_general_bt_yellow_close"),
-                    fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Close Icon", QDIRow, true);
+                var closeFaceTex = CardArt.MenuUi("40k_general_bt_yellow");
+                if (closeFaceTex == null)
+                    Debug.LogWarning("[DeckInfo] 图取不到：Face `40k_general_bt_yellow`（Generic Close Button Orange）");
+                var closeFace = Img(root, root, closeFaceTex,
+                    fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Close Face", QDIRowArt, true);   // 🔴 2026-10-18 拆档：Bg(QDIRow) → Face → Icon
+                var closeIconTex = CardArt.MenuUi("40k_general_bt_yellow_close");
+                if (closeIconTex == null)
+                    Debug.LogWarning("[DeckInfo] 图取不到：Icon `40k_general_bt_yellow_close`（Generic Close Button Orange）");
+                Img(root, root, closeIconTex,
+                    fx1, fy1, fx1 + OptIconW, fy1 + OptIconH, "Close Icon", QDIRowEdge, true);
                 // A17：`Generic Close Button Orange` 是 SpriteSwap（普查 §块 3 第 8 行）
                 // 🔴 **2026-10-11（A180）**：命中区按原版**外扩** —— 带 `m_RaycastPadding = (−20,…)` 的是
                 //    **两个子件**（`Background`/`Icon`），原版那颗按钮**自己的 `Image` 不吃射线**
@@ -1473,10 +1853,52 @@ namespace CardPresentation
                 node.transform.SetParent(holder.transform, false);
                 node.transform.localPosition = Local3(root, x1, y1, x1 + RowW, y1 + RowH);
 
-                Solid(node.transform, node.transform, x1 + RowW * 0.5f, y1 + RowH * 0.5f, RowW, RowH,
-                      new Color(1f, 1f, 1f, 0.08f), QDIRow, "Row Bg");
+                // 🔴🔴 **2026-10-18（P1 · 报告第 1 条）：行底板换成原版那【三张图】。**
+                //   判据 = `资料/普查产出_1018/R_DeckInfoPopup_对账.md` 的「行 Background / Rarity Gradient /
+                //   Background Border」三行（全部 2026-10-18 现核）：
+                //     · `Background`        = `40k_deck_cardlist_bg`                318×54 · 九宫 **(150,0,150,0)** · Sliced · 白 · **x+20.10 → x+360**, y 0→58
+                //     · `Rarity Gradient`   = `40k_deck_cardlist_bg_rarityColorGradient` 114×54 · Simple · 白 · **x+225.54 → x+360**（压在 bg 之上）
+                //     · `Background Border` = `40k_deck_cardlist_border`            11×11 · 九宫 **(5,5,5,5)**   · Sliced · 白 · **x+22.74 → x+360**
+                //   改前 = `Solid(1,1,1,0.08)` 铺满 360 宽 ⇒ 线性空间下渲染成**中性灰 `#515050`**（实拍量过），
+                //   而原版行底是**近黑 `#0C0C0A` α254 + 右侧稀有度渐变 + 一圈红边**（`R_底纹红黑_根因.md` §二）。
+                //   🔴 三层各占一档（`QDIRow` → `QDIRowArt` → `QDIRowEdge`）：它们**互相重叠**，同档时谁盖谁随机。
+                //
+                // 🔴🔴 **2026-10-18（W2）稀有度 tint —— 判据 = 反编译 + prefab 字段，不是参考图采样。**
+                //   ① **谁上色**：`decomp_full/UICardInfoItem__Initialize.c:139-156` 逐句 ——
+                //      `CardRarityColorsSO.GetColor(colorsByRarity, PlayerItem.get_Rarity(card))` 拿到一个 Color，
+                //      然后 `foreach (img in imagesToChangeColorByRarity) img.color = color`（vtable `+0x2a8` = `set_color`）。
+                //   ② **哪两颗**：`_probe_deckinfo.py bundle_menus_assets_all "Deck Selector Card Info button"
+                //      --class UICardInfoItem --pid 2994867481076140456`（= `Deck info Popup ▸ Info Panel ▸ Deck List ▸ Content`
+                //      那一颗，⛔ 不是同名的另外 7 颗）现读 =
+                //      **`imagesToChangeColorByRarity` = [`Rarity Gradient`, `Background Border`]**
+                //      ⇒ **`Background`（行底）不在名单里** ⇒ 它保持 `m_Color = (1,1,1,1)` 白（原版就是这么写的）。
+                //   ③ **哪张表**：同一颗 prefab 的 `colorsByRarity` = `m_FileID 0 / m_PathID -2272266055686004801`，
+                //      在真包 `menus_assets_all.bundle` 里按 pid 解出来 **m_Name = `CardUIDisplayColorsSO`**
+                //      （⚠️ **不是** `bundle_menus_assets_all/MonoBehaviour/CardRarityColorsSO.json` 那一份 ——
+                //       那是**同一类的另一个实例**（pid 764426219195092032），数值完全不同，见 `Core/RarityColors.cs` 的文件头注）。
+                //   ④ **色值**：`bundle_menus_assets_all/MonoBehaviour/CardUIDisplayColorsSO.json` 的 `colors[]` 六档逐条现读。
+                //   ⚠️ 三张图**各自的白不是一回事**：`40k_deck_cardlist_bg` 贴图本身是**近黑**（中心 `#0C0C0A` α254，
+                //      python 读 PNG 核过）⇒ 白 tint 出来就是原版的暗行底；而 `…_rarityColorGradient` 与
+                //      `…_border` 两张贴图是**纯白 + alpha 渐变/描边**（渐变贴图 mean RGB 255/255/255、alpha 均值 60.8）
+                //      ⇒ **白 tint 出来就是白条**（这就是本轮「行右段 #F9F9F8」的直接原因）。
+                //
+                //   🔴 **本轮真机采样目标色（供下一轮并排比）**：行左段 `#100C0B`、行右段 `#6B181D`（2026-10-18 第二轮）。
+                //      按本表算出来：`Special` 档（α0.639）在渐变峰值（贴图 alpha ≈ 0.5）处 ≈ `(74,25,22)` = `#4A1916`，
+                //      与采样值同量级；其余四档的色相各自不同（见 `Core/RarityColors.cs`）。
+                var rarityTint = RarityTint(card.Rarity);
+                Nine(node.transform, node.transform, "40k_deck_cardlist_bg", new Vector4(150f, 0f, 150f, 0f), 318f, 54f,
+                     x1 + 20.10f, y1, x1 + RowW, y1 + RowH, QDIRow, "Row Bg");
+                var gradQ = Img(node.transform, node.transform, CardArt.MenuUi("40k_deck_cardlist_bg_rarityColorGradient"),
+                    x1 + 225.54f, y1, x1 + RowW, y1 + RowH, "Row Rarity Gradient", QDIRowArt, false);
+                if (gradQ != null) gradQ.SetTint(rarityTint);
+                Nine(node.transform, node.transform, "40k_deck_cardlist_border", new Vector4(5f, 5f, 5f, 5f), 11f, 11f,
+                     x1 + 22.74f, y1, x1 + RowW, y1 + RowH, QDIRowEdge, "Row Border", rarityTint);
+                // 🔴 **2026-10-18（P1 · 报告第 2 条）：费用圈 40×40 → 【64×64】**（原版 `Card Frame Cost Icon` 248×244
+                //   挂 `AspectRatioFitter` **1:1 高控宽** ⇒ 行内实画 **64×64**、中心 **(x+30.12, y+29)**
+                //   ⇒ 四边 = `x−1.88 → x+62.12` · `y−3 → y+61`（**左右上下都探出**行格 —— 原版就这样）。
+                //   改前 40×40 @ `x+6..46` ⇒ 小了 24px（37.5%），参考图里费用圈明显比行文字大。
                 Img(node.transform, node.transform, CardArt.MenuUi("Card_Frame_Cost_Icon"),
-                    x1 + 6f, y1 + 9f, x1 + 46f, y1 + 49f, "Cost", QDIRow, true);
+                    x1 - 1.88f, y1 - 3f, x1 + 62.12f, y1 + 61f, "Cost", QDIRowIcon, true);
                 // 🆕 **A1205 接上**（`R5` §2·F #38–#40：原版 `Deck Selector Card Info button ▸ Content ▸
                 //    Background ▸ Cost Image ▸ Cost` = `auto[18~50] · base 32 · 折行 1` ·
                 //    `… ▸ banned Icon ▸ Card Name` = `auto[2~38] · base 27.69 · 折行 0` ·
@@ -1503,18 +1925,31 @@ namespace CardPresentation
                 //      自算是 49.66 —— 两者都 > `Pragati` 行盒 `0.9474 × 50 = 47.37` ⇒ 字号都停在 50，
                 //      画面同值；取 RM 那一格并在报告里登记这条 1.8px 的差）。
                 //   · 纵向：`m_VerticalAlignment = 8192 (Capline)` · `HorizontalAlignment = 2 (Center)` · 字体 Pragati。
-                Txt(node.transform, node.transform, card.Cost.ToString(), x1 + 6f, y1 + 9f, x1 + 46f, y1 + 49f, 50f, Align.Center,
+                //   · 🔴 **2026-10-18（P1 · 报告第 2 条）：框与中心一起对齐费用圈** ——
+                //     框 **48.82 × 49.66**、**中心 x+30.12**（= 上面那颗 64×64 费用圈的中心；y 中心 = 29）。
+                //     改前框 40 宽、中心 x+26 ⇒ 整段字左偏 4.12。
+                //     ⚠️ 高度取 **49.66**（= `GridLayoutGroup.cellSize.y 58 × 锚跨度`那一路，报告口径），
+                //        改前写 47.88（RM 表 B）—— 两者都 > `Pragati` 行盒 `0.9474 × 50 = 47.37`
+                //        ⇒ 字号都停在 50，**画面同值**，这里按报告口径统一。
+                Txt(node.transform, node.transform, card.Cost.ToString(),
+                    x1 + 30.12f - 24.41f, y1 + 29f - 24.83f, x1 + 30.12f + 24.41f, y1 + 29f + 24.83f, 50f, Align.Center,
                     "Cost Text", QDIText, wrapPx: 48.819f, autoMinPx: 18f, autoMaxPx: 50f, autoBasePx: 32f,
-                    boxH: 47.88f, vAlign: Label.VAlign.Capline, face: TmpFont.Face.LatinCardBody);
+                    boxH: 49.66f, vAlign: Label.VAlign.Capline, face: TmpFont.Face.LatinCardBody);
                 // ④ **卡名 = 本地化名**：原版那一栏喂的就是 `GetLocalizedCardName`（见 ② 的键2），
                 //    而左栏 `DeckRuntime.cs:3189` 用的是 `CardText.Name(def.Name, def.NameZh)`。
                 //    🔴 原来写 `card.Name`（英文）⇒ **同一副牌弹窗英文、编辑窗中文**。
                 // 🆕 **2026-10-17（`N33`）**：原版 `…/Text fill/Card Name` = `HorizontalAlignment 1 (Left)` ·
                 //    `VerticalAlignment 8192 (Capline)` · 字体 Pragati（`MonoBehaviour_-679054392775177816` 亲读）。
                 //    ⚠️ 纵向档必须在本函数内部先于 `AlignLeftOn` 落（见 `Txt` 的 `vAlign` doc）。
-                Txt(node.transform, node.transform, CardText.Name(card.Name, card.NameZh), x1 + 52f, y1, x1 + RowW - 52f, y1 + RowH, 38f, Align.Left,
+                // 🔴 **2026-10-18（P1 · 报告表「行 Card Name」行）：框与颜色**
+                //    · 框 **x+64.29 → x+328.73**（改前 `x+52 → x+308` ⇒ 左沿 −12.29 / 右沿 −20.73，两边都窄）；
+                //    · 颜色 **(.934,.934,.934)**（改前纯白；原版那颗 TMP 的 `m_fontColor` 实读值）。
+                //    框宽变化会让 `SetWrapWidth`/自适应多出 264.44 的排布余量（原版就这么多）。
+                var nameLb = Txt(node.transform, node.transform, CardText.Name(card.Name, card.NameZh),
+                    x1 + 64.29f, y1, x1 + 328.73f, y1 + RowH, 38f, Align.Left,
                     "Name", QDIText, autoMinPx: 2f, autoMaxPx: 38f, autoBasePx: 27.69f,
                     vAlign: Label.VAlign.Capline, face: TmpFont.Face.LatinCardBody);
+                if (nameLb != null) nameLb.SetColor(new Color(0.934f, 0.934f, 0.934f, 1f));
                 // ⑥ **份数那颗只在 >1 张时才建**（A1531⑥ 同族第二条）：原版
                 //    `UICardInfoItem__SetCount.c:34` = `SetActive(countLabel, 1 < count)`，
                 //    而 `SpawnCardInfo.c:76` 建行时喂的 count 恒 **1** ⇒ **单张的行不印 `x1`**。
@@ -1525,9 +1960,27 @@ namespace CardPresentation
                     // 🆕 **2026-10-17（`N33`）**：原版 `…/Text fill/Count` = `HorizontalAlignment 4 (Right)` ·
                     //    **`VerticalAlignment 4096 (Midline)`**（⛔ 不是 Capline —— 四颗里只有这一颗是 Midline）·
                     //    字体 Pragati（`MonoBehaviour_-4940484093667014232` 亲读）。
-                    Txt(node.transform, node.transform, "x" + n, x1 + RowW - 52f, y1, x1 + RowW - 8f, y1 + RowH, 32f,
-                        Align.Right, "Count", QDIText, autoMinPx: 2f, autoMaxPx: 32f, autoBasePx: 36f,
-                        vAlign: Label.VAlign.Midline, face: TmpFont.Face.LatinCardBody);
+                    // 🔴 **2026-10-18（P1 · 报告表「行 Count」行）：框宽与颜色**
+                    //    · 框宽 **22.87**、**右沿 x+351.60**（改前 `x+308 → x+352` = 44 宽）；
+                    //    · 颜色 **(.933,.933,.933)**（改前纯白）。字号 fs32 本来就对，没动。
+                    // 🔴 **2026-10-18（W2 · 第二轮实机验收第 2 条「`x2` 被裁掉」—— 复核实为**没被裁**，是**对比度**）**：
+                    //    把 `shots/2026-10-18_卡组选择弹窗_第二轮/02_deckinfo.png` 按 3× 放大读像素：
+                    //    `x` 与 `2` **两笔都在、笔画完整、没有任何一刀切边**；之所以「只看见 ×」是因为
+                    //    他脚下那条 `Rarity Gradient` 当时被染成**近白 `#F9F9F8`**，白字压白底 ⇒ **`2` 溶进背景**。
+                    //    实测量到的墨迹：右沿 ≈ **x+348.0**（右对齐到 351.60 之后扣掉字形右侧留白）、
+                    //    行底右沿 x+360 ⇒ **离行右缘还有 ~12px，装得下**；纵向 = `Midline` 档、
+                    //    墨迹中心与行心重合（行 400→468，字墨 425→443）。
+                    //    ⇒ **本笔不改几何**（原版就是 22.87 宽 + 自适应 2~32/base36，我们的 `Txt` 已按它设；
+                    //      `SetAutoFitBox` 把 `x2` 压到 ≈22.5px 宽确实收进了 22.87 的框里）。
+                    //      修好第 1 条（稀有度 tint ⇒ 行底变暗）之后这颗 `x2` 自然就看得见了。
+                    //    ⛔ **不许**为了「让它看见」去把框加宽 —— 22.87 是原版 `m_SizeDelta.x`。
+                    {
+                        var cntLb = Txt(node.transform, node.transform, "x" + n,
+                            x1 + 351.60f - 22.87f, y1, x1 + 351.60f, y1 + RowH, 32f,
+                            Align.Right, "Count", QDIText, autoMinPx: 2f, autoMaxPx: 32f, autoBasePx: 36f,
+                            vAlign: Label.VAlign.Midline, face: TmpFont.Face.LatinCardBody);
+                        if (cntLb != null) cntLb.SetColor(new Color(0.933f, 0.933f, 0.933f, 1f));
+                    }
                 // ⑦ **`checkOwnership` 那道闸**（见 `CheckOwnership` 的 doc；本地恒不触发）
                 if (CheckOwnership && n > CardProgress.Owned(card.Id, card.Rarity))
                     DimRow(node.transform, OwnershipDimAlpha);
@@ -1563,6 +2016,17 @@ namespace CardPresentation
         /// <para>用途只有一处：`BuildDeckList` 用它决定那张防御卡**钉不钉第 0 格**
         /// （`Shell/PracticeModePopup.cs` 的卡列表也转调这一支 —— **判据不抄第二份**）。</para></summary>
         public static bool IsDefensiveRow(CardDef c) { return c != null && c.Type == "defence"; }
+
+        // ============================================================ 🆕 2026-10-18（W2）：行上那两颗的**稀有度色**
+
+        /// <summary>行上那两颗（`Rarity Gradient` + `Background Border`）该上的色
+        /// = 原版 `CardUIDisplayColorsSO.GetColor(card.cardRarity)`。
+        ///
+        /// <para>🔴 **2026-10-18（`N102`）收口：表已搬进 `Core/RarityColors`（全工程唯一一份）** ——
+        /// 本类与 `Deck/DeckRuntime.cs` 都只**转调**它，⛔ 别再往这里抄第二份。
+        /// 判据全链（谁上色 / 哪两颗 / 哪张表 / 色值 / 全包 15 颗 `UICardInfoItem` 的 `colorsByRarity`
+        /// 逐颗现核）+ 两个保留项（量纲 gamma/linear、fallback 常量没解出）→ `Core/RarityColors.cs` 的文件头注。</para></summary>
+        public static Color RarityTint(string rarity) { return RarityColors.Tint(rarity); }
 
         /// <summary>原版 `UICardInfoItem__SetCount.c:42-56` 用来压暗整行的那个 alpha
         /// （`GameAssembly.dll` RVA `0x34B2BB4` 读 4 字节 = `0x3F000000`）；够数那一档是 RVA `0x34B2BB8`
@@ -2373,6 +2837,16 @@ namespace CardPresentation
                 q.SetAspect(r.W / Mathf.Max(1e-6f, r.H));
                 q.SetTint(new Color(0f, 0f, 0f, 0f));
                 q.SetRenderQueue(Q(QDIHit));    // 🆕 T24：按本扇的基档换算（默认基档 = QDI ⇒ 逐位不变）
+            }
+            else
+            {
+                // 🆕 **2026-10-18（第六轮真机）**：`ImageQuad.Create` 拿不到 `CardArt.Solid()` 时返回 null，
+                //   而 `PointerLayer` **只认 `ImageQuad`**（`CollectHits` → `HitQuad`）⇒ 这颗钮**真鼠标点不动**，
+                //   而节点、`WindowButton`、`onClick` 全都在（自检直调 `wb.Click()` 照样过）。
+                //   ⇒ 这条**必须出声**（红线：不许静默失败；同族先例 = `MenuDraw.MakeHitQuad` 的告警）。
+                Debug.LogWarning("[DeckInfo] `" + name + "` 的**命中 quad 没建出来**（`CardArt.Solid()` 取不到？）"
+                                 + " —— `PointerLayer` 只认 `ImageQuad` ⇒ 这一颗**真鼠标点不动**"
+                                 + "（`Btn:*` 那一族「看着是钮、点哪都没反应」的典型症状）。");
             }
             var wb = hit.AddComponent<WindowButton>();
             wb.onClick = onClick;
