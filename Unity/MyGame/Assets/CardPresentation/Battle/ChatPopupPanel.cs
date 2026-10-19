@@ -64,16 +64,40 @@
 //    ⚠️ **那一级（`ChatButtons`/`Buttons` 容器）我们不建**：它的作用只是「排布」+「给子件当锚」，
 //    而我们直接按排完的绝对 px 摆 ⇒ 等价（`ChatButton` 行本身是 `anchor (0,1)` + `piv (.5,.5)`
 //    + `ap.x 278.655` + `ap.y −24 − 49.48k` + `sd 603.6×48`，逐行现读；见 `Button0` 那条）。
-//  · 🔴 **本面板有可点件**，两条与第 4 步（输入）有关的、**现在还没做**的：
+//  · 🔴 **本面板有可点件**。**2026-10-20（W57 · 战斗线 `T09` 步骤 A3-e）已把输入层切成 uGUI**：
 //    ① **`raycastTarget`**：原版这 6 颗钮的每一层（透明命中条 `MB 4947` · 可见底图 `MB 5202`）与
-//       `CloseChatPopup`（`MB 4409`）都是 **`m_RaycastTarget = 1`**；而 `HudCanvas.MakeImageInParent`
-//       出厂**写死 `false`** ⇒ 第 4 步要一起翻（`T09` §八·11 同族）。
-//    ② 命中判定**本轮仍是手搓**（`Hit`）—— uGUI 档把世界点经**本节点**的 `InverseTransformPoint`
+//       `CloseChatPopup`（`MB 4409`）都是 **`m_RaycastTarget = 1`**；我们现在照原版建 **6 条透明命中条**
+//       （`ChatButton{1..6}_Hit`，rect = 整行 `603.6 × 48`、`m_RaycastPadding` 全 0）+ 把 `_close` 置 true。
+//    ② 🔴 **事件口径（逐组件现读，不是照计划抄）**：
+//       · **6 颗钮 = `IPointerClickHandler`（松手那一帧）** —— 原版 GO 940 上是
+//         `UnityEngine.UI.Button`（`MB 4112`，`m_Transition=2`）+ `ChatPopupButton : EverguildButton`
+//         （`MB 4652`），而 `ChatPopupButton.Initialize` 把 `ClickButtonChat` 加到**那颗 `Button` 的
+//         `m_OnClick`** 上（`d:/2/tools/decomp_full/ChatPopupButton__Initialize.c`：取 `buttonConfig` 的
+//         `+0x100` = `m_OnClick` → `UnityEvent.AddListener`）⇒ **onClick / 松手**。
+//       · **条外关闭 = `EventTrigger` + `PointerDown`（按下那一帧）** —— `GameObject/CloseChatPopup.json`
+//         → `MonoBehaviour_4913`：`m_Script` = `EventTrigger`（`UnityEngine.EventSystems`）、
+//         `m_Delegates[0].eventID = **2**`（= `EventTriggerType.PointerDown`）→ `VoiceLinesPopupSelector.Hide`。
+//       · 原版点中台词之后 **`ClickChat` 先 `Hide()` 再发 `OnVoiceLinePressed`**
+//         （`VoiceLinesPopupSelector__ClickChat.c`）。
+//    ③ **本轮是【加输入路径】、⛔ 不动既有行为**：手搓的 `PointerDownAt` / `PointerUpAt` 仍由
+//       `BattleDriver.HandleChatPopup` 每帧喂（那是**驱动层**的活，不在本文件白名单）⇒ uGUI 这一侧
+//       **只发事件**（`ButtonClicked` / `CloseRequested`）+ **条外关闭延到 `LateUpdate`**（避免与驱动
+//       抢同一帧、让驱动先吃掉这一下）。合并配方写在报告 `W57_战斗线_T09_A3e1.md` §三。
+//    ④ 命中判定**世界档仍走手搓**（`Hit`）—— uGUI 档把世界点经**本节点**的 `InverseTransformPoint`
 //       折成设计 px 再比绝对矩形（与 `MulliganPanel.PxOf` 同一套；⛔ 不是 `LayoutSpace.ToPixel` 那一族
 //       —— 那是**世界帧**的逆，非 16:9 下与画布帧差 1.333 倍 ⇒ 「看得见的地方点不到」）。
+//    ⑤ ✅ **悬停 / 按下视觉**（2026-10-20 · `T09` 步骤 **A3-e1** 补；改之前这一档**零反馈**）——
+//       原版是**两套并存、各打各的图形**（逐组件现读，判据全文 → 字段区 `_fxBtnBg` 那条 doc）：
+//       **底图 `ColorTint`**（`MB 4112`：`0.9607843` / `0.7843137` / `0.1 s`）
+//       ＋ **图标 `SpriteSwap`**（`ChatPopupButton.LateUpdate` 在 `leftButtonNormal/Hover/Pressed` 之间换图；
+//       ⚠️ `MB 4652` 的 `m_SpriteState` **四个全 null** ⇒ ⛔ 别按 `m_SpriteState` 抄）。
+//       ⇒ 每颗钮两个 `BattleButtonFx`（`_fxBtnBg` / `_fxBtnIcon`），状态由命中条上的
+//       `EventTrigger`（Enter/Exit/Down/Up）喂。⛔ 只改外观：点击 / 关闭那两条路一个字没动。
 // ═════════════════════════════════════════════════════════════════════════════
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace CardPresentation
 {
@@ -226,10 +250,22 @@ namespace CardPresentation
         const float UZClose = 6f, UZPanelBg = 5f, UZFrame = 4f,
                     UZBtnBg = 3f, UZBtnText = 2f, UZBtnIcon = 1f;
 
+        /// <summary>🔴 **2026-10-20（`T09` 步骤 A3-e）：6 条【透明命中条】的兄弟序键**。
+        /// <para>判据 = 原版 `ChatButton` 行**根节点**上那颗 `Image`（`MB 4660`：`sprite = null`、
+        /// `m_Color.a = 0`、**`m_RaycastTarget = 1`**、`m_RaycastPadding = (0,0,0,0)`；`RT_2861`
+        /// = **603.6 × 48**）—— 原版那一行**整条**都是命中面（可见底图 `MB 5043` 只是它的一部分）。</para>
+        /// <para>**取 0.5**：本组现有键是 `1..6`（1 = 图标最上、6 = 关闭区最下）⇒ 取比 1 小 ⇒ **排最上**
+        /// （`HudCanvas.Group.Add`：z 小的插在后面 = 画在上面）。命中条**不画**（alpha 0），
+        /// 它只需要在**射线**上压过 `_close`（否则点钮会先撞上全屏关闭区）。</para></summary>
+        const float UZBtnHit = 0.5f;
+
         class Btn
         {
             /// <summary>🔴 **2026-10-16（`T09` 批 3）：类型 `ImageQuad` → `HudPiece`**（世界 quad 或 uGUI 件，二选一）。</summary>
             public HudPiece bg, icon;
+            /// <summary>🆕 **2026-10-20（`T09` A3-e）**：uGUI 档那一条**透明命中条**（= 原版 `MB 4660`
+            /// 那一颗；世界档恒 `null` —— 世界档的命中仍走 `Hit` 的手搓矩形）。</summary>
+            public HudPiece hit;
             public Label text;
             public Rect rect;                 // 绝对矩形（每次 RefreshLayout 重算）
         }
@@ -238,6 +274,46 @@ namespace CardPresentation
         HudPiece _bg, _frameTop, _frameBottom, _frameLeft, _frameRight;
         HudPiece _close;                      // 全屏关闭区（等效 `NonDrawingGraphic`）
         bool _built;
+
+        // ── 🆕 2026-10-20（W57 · 战斗线 `T09` 步骤 A3-e）：uGUI 输入层 ────────────────────────
+        //  判据与事件口径 → 文件头「本面板有可点件」那一段（逐组件现读）。
+        //  ⛔ 这一层**只发事件**，不做动作：「说哪句话」归 `BattleDriver`（它才有 `RuleCore` 与语音表）。
+        BattleHudButton[] _btnButtons;        // 6 颗钮的点击适配器（`IPointerClickHandler`）
+        EventTrigger _closeTrigger;           // 全屏关闭区（原版 `EventTrigger` + `PointerDown`）
+        bool _closePending;                   // 挂起的关闭（见 `LateUpdate` 的 doc）
+        int _uguiButtonClicks;                // 6 颗钮收到几次 uGUI 点击（灭自证）
+        int _uguiCloseCount;                  // 条外关闭落了几次
+        int _lastUguiButton = -1;             // 最近一次 uGUI 点中的钮（-1 = 没点过）
+
+        // ── 🆕 2026-10-20（W57 · 战斗线 `T09` 步骤 A3-e1）：6 颗钮的**悬停 / 按下**反馈 ──────────
+        //  原版是**两套并存、各打各的图形**（逐组件现读 `bundle_scenes_scenes_battlearena1`；
+        //  arena2 同名件逐值相同）：
+        //   · **ColorTint** —— `MB 4112` = 行根 GO 940 上的 `UnityEngine.UI.Button`，`m_Transition = 2`；
+        //     `m_TargetGraphic` → `MB 5043` = 可见底图 `40k_voicelines_bt_R`（那颗不在行根上、
+        //     是行根的子件）。`m_Colors` = 白 / `0.9607843` / `0.7843137` / α`0.5019608`、
+        //     `m_FadeDuration = 0.1` —— 与 `BattleButtonFx` 的默认四格**逐值相同**（⛔ 别另抄一份）。
+        //   · **SpriteSwap** —— `MB 4652` = `ChatPopupButton : EverguildButton`，`m_Transition = 1`，
+        //     但它的 **`m_SpriteState` 四个全 null**（⛔ 别照「四张 leftButton* 就是 SpriteState」写）。
+        //     真正的换图在 `ChatPopupButton.LateUpdate` 里：读 `buttonConfig`（= `MB 4112`）的选中态，
+        //     给 `buttonImage`（`MB 4270` = 图标 `40k_voicelines_bt_L`）`set_sprite` 成
+        //     `leftButtonNormal / Hover / Pressed / Disable`（四个字段就在 `MB 4652` 上，
+        //     Normal 那张 pid `-1396804370094666590` 与 `MB 4270.m_Sprite` 是**同一张**）。
+        //     ⇒ 我们用 `BattleButtonFx.Swap` 挂**图标**，四张图按名字取
+        //     `40k_voicelines_bt_L` / `_hover` / `_pressed`（Disable 那张 `_blocked` 本件用不到：
+        //     原版这 6 颗 `m_Interactable = 1`，冷却在**开面板那颗** `ChatButton` 上、不在这里）。
+        //  ⚠️ **两套必须各写各的件**：ColorTint 打底图、SpriteSwap 打图标 —— 对同一件写两遍 = 后写盖前写。
+        //  ⚠️ **淡入淡出与 ColorTint 会抢同一个 `Image.color`**：见 `ApplyButtonFadeAlpha` 那条 doc。
+        BattleButtonFx[] _fxBtnBg, _fxBtnIcon;
+
+        /// <summary>🆕 **2026-10-20（`T09` A3-e）**：uGUI 那条路上「第 `i` 颗台词钮被点了」
+        /// （松手那一帧；原版 `ChatPopupButton : EverguildButton` ⇒ `Button.onClick`）。
+        /// <para>⚠️ **订阅者要做的是** `SpeakChatAt(i)`（驱动层现成的口）；**本轮没有订阅者**（白名单只到本文件），
+        /// 真实点击仍由 `BattleDriver.HandleChatPopup` 那条手搓路处理 —— 合并配方 → 报告 §三。</para></summary>
+        public event Action<int> ButtonClicked;
+
+        /// <summary>🆕 **2026-10-20（`T09` A3-e）**：条外关闭**已经落下**（面板已 `Hide()`）。
+        /// 目前没有订阅者 —— 留这个口是给驱动层合并时收尾（原版这一路只调 `Hide`，没有别的副作用）。</summary>
+        public event Action CloseRequested;
 
         float _alpha;
         /// <summary>面板**开着**没有 —— **不是**「alpha > 0」。</summary>
@@ -395,8 +471,225 @@ namespace CardPresentation
                 _btns.Add(b);
             }
 
+            // 🆕 **2026-10-20（`T09` 步骤 A3-e）**：uGUI 档装输入层（6 条命中条 + 条外关闭区）。
+            //    ⚠️ 必须排在 `RefreshLayout()` **之前**建出来 —— 那一次会把 6 条命中条摆到钮矩形上。
+            //    世界档不建（世界档的命中仍走 `Hit` 的手搓矩形，⛔ `ImageQuad` 没有 `raycastTarget` 这个概念）。
+            if (_ugui) SetupUguiInput();
+
             HideImmediate();
             RefreshLayout();
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🔴 **2026-10-20（W57 · 战斗线 `T09` 步骤 A3-e）：uGUI 输入层**
+        //  判据逐条 → 文件头「本面板有可点件」②（`MB 4112/4652` 的 `Button.onClick` 与 `MB 4913` 的
+        //  `EventTrigger eventID=2 = PointerDown`）。**两件事分开**（原版就是两种触发沿，见 `PointerDownAt`）：
+        //    · 6 颗钮 = **松手**（`IPointerClickHandler`，挂 `BattleHudButton`）
+        //    · 条外关闭 = **按下**（`EventTrigger.PointerDown`）
+        //  ⛔ 本层**不改既有行为**：手搓的 `PointerDownAt`/`PointerUpAt` 仍由驱动每帧喂（合并配方 → 报告 §三）。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>建 6 条透明命中条 + 把全屏关闭区变成射线靶。**只在 uGUI 档调一次**（`Build` 里）。
+        /// <para>取不到任何一件都 **`LogError`**（⛔ 不许静默半迁移 —— 那会让「看得见的钮点不动」）。</para></summary>
+        void SetupUguiInput()
+        {
+            _btnButtons = new BattleHudButton[ButtonCount];
+            _fxBtnBg = new BattleButtonFx[ButtonCount];
+            _fxBtnIcon = new BattleButtonFx[ButtonCount];
+            // 图标换图那三张（原版 `MB 4652` 的 `leftButtonNormal/Hover/Pressed`；见字段区那条 doc）
+            var iconNormal = CardArt.Ui("40k_voicelines_bt_L");
+            var iconHover = CardArt.Ui("40k_voicelines_bt_L_hover");
+            var iconPressed = CardArt.Ui("40k_voicelines_bt_L_pressed");
+            for (int i = 0; i < ButtonCount && i < _btns.Count; i++)
+            {
+                int idx = i;                       // ⚠️ 闭包捕获：⛔ 别直接捕 `i`
+
+                // ① 视觉反馈（**两套各自打各自的图形**，判据见字段区那条 doc）——
+                //    与命中条无关，先建：命中条建不起来时这两套照样该有（钮点不动 ≠ 钮不该有反馈）。
+                _fxBtnBg[i] = BattleButtonFx.Tint(_btns[i].bg, "ChatButton" + (i + 1) + "_bg");
+                _fxBtnIcon[i] = BattleButtonFx.Swap(
+                        _btns[i].icon, "ChatButton" + (i + 1) + "_icon",
+                        _btns[i].icon != null ? _btns[i].icon.Texture as Texture2D : iconNormal,
+                        iconHover, iconPressed);
+                if (_fxBtnBg[i] == null || _fxBtnIcon[i] == null)
+                    Debug.LogError("[ChatPopup] 第 " + (i + 1) + " 颗钮的**悬停/按下反馈**没建起来"
+                                 + "（底图或图标缺失）⇒ 这一颗悬停/按下时**不变色也不换图**");
+
+                var hit = HudCanvas.MakeImageInParent(
+                        transform, Solid(), "ChatButton" + (i + 1) + "_Hit",
+                        0f, 0f,           // 先给 0（`RefreshLayout` 会按 `ButtonRect(i)` 重摆）
+                        1f, 1f,
+                        UZBtnHit, new Color(1f, 1f, 1f, 0f));   // alpha 0 = 原版那颗 `sprite = null` 的隐形条
+                if (hit == null)
+                {
+                    Debug.LogError("[ChatPopup] 第 " + (i + 1) + " 颗钮的**命中条**没建起来"
+                                 + "（`HudCanvas.MakeImageInParent` 返回 null）⇒ **这颗钮在 uGUI 上点不动**");
+                    continue;
+                }
+                _btns[i].hit = hit;
+                var btn = BattleHudButton.Attach(hit, () => OnUguiButtonClicked(idx));
+                if (btn == null)
+                {
+                    Debug.LogError("[ChatPopup] 第 " + (i + 1) + " 颗钮的**点击适配器**挂不上"
+                                 + "（见 `BattleHudButton.Attach` 自己那条日志）⇒ **这颗钮在 uGUI 上点不动**");
+                    continue;
+                }
+                _btnButtons[i] = btn;
+
+                // ② 悬停/按下的事件（原版 `Selectable` 的 enter/exit/down/up 四个口；
+                //    挂在**整行命中条**上 —— 原版的射线靶就是行根那颗透明 `Image`，见文件头 ①）。
+                //    · Exit 把 pressed 一起清掉：原版 `Selectable.OnPointerExit` 回到 Normal（不是 Pressed）。
+                //    · Up 只清 pressed（指针仍在这颗钮上 ⇒ 保持 Highlighted）。
+                AddTrigger(hit, EventTriggerType.PointerEnter, _ => { if (Interactable) SetButtonHover(idx, true); });
+                AddTrigger(hit, EventTriggerType.PointerExit, _ => { SetButtonHover(idx, false); SetButtonPressed(idx, false); });
+                AddTrigger(hit, EventTriggerType.PointerDown, _ => { if (Interactable) SetButtonPressed(idx, true); });
+                AddTrigger(hit, EventTriggerType.PointerUp, _ => SetButtonPressed(idx, false));
+            }
+
+            if (_close == null)
+            {
+                Debug.LogError("[ChatPopup] 全屏关闭区 `CloseChatPopup` 没建起来 ⇒ **条外关闭在 uGUI 上失效**"
+                             + "（手搓那条路仍在，见 `PointerDownAt`）");
+                return;
+            }
+            if (!_close.SetRaycastTarget(true))
+                Debug.LogError("[ChatPopup] 全屏关闭区 `CloseChatPopup` 置射线靶**失败** ⇒ 条外关闭在 uGUI 上失效");
+            _closeTrigger = AddPointerDown(_close, OnClosePointerDown);
+            if (_closeTrigger == null)
+                Debug.LogError("[ChatPopup] 全屏关闭区的 `EventTrigger` **挂不上** ⇒ 条外关闭在 uGUI 上失效");
+        }
+
+        /// <summary>给一件 uGUI 图挂 **`EventTrigger` + 指定事件**（原版 `MB 4913` 的同形）。
+        /// <para>⚠️ **不新写 `MonoBehaviour`**：本仓硬规矩「类名 == 文件名」（`!u!115` 根治）——
+        /// 在本文件里再声明一个 `MonoBehaviour` 会破坏它；`EventTrigger` 是 uGUI 自带组件、不新增脚本资产
+        /// （同 `BattleLogPanel` A3-c 的配方）。</para>
+        /// <para>⚠️ 同一个 GO 上已有 `EventTrigger` 就**复用**（再 `AddComponent` 会得到两个实例、
+        /// 两个都收事件 ⇒ 一次悬停写两遍）。</para></summary>
+        static EventTrigger AddTrigger(HudPiece piece, EventTriggerType type,
+                                       UnityEngine.Events.UnityAction<BaseEventData> cb)
+        {
+            if (piece == null || piece.gameObject == null) return null;
+            var go = piece.gameObject;
+            var trig = go.GetComponent<EventTrigger>();
+            if (trig == null) trig = go.AddComponent<EventTrigger>();
+            var entry = new EventTrigger.Entry { eventID = type };
+            entry.callback.AddListener(cb);
+            trig.triggers.Add(entry);
+            return trig;
+        }
+
+        /// <summary>原版全屏关闭区那一条（`MB 4913` 的 `eventID = 2 = PointerDown`）。</summary>
+        static EventTrigger AddPointerDown(HudPiece piece, UnityEngine.Events.UnityAction<BaseEventData> cb)
+        {
+            return AddTrigger(piece, EventTriggerType.PointerDown, cb);
+        }
+
+        // ── 🆕 2026-10-20（`T09` A3-e1）：悬停 / 按下状态（**只改外观，⛔ 不碰点击/关闭**）──────
+
+        /// <summary>第 `i` 颗钮的悬停态（`BattleButtonFx` 自带「值没变就早退」）。</summary>
+        void SetButtonHover(int i, bool on)
+        {
+            if (_fxBtnBg != null && i >= 0 && i < _fxBtnBg.Length && _fxBtnBg[i] != null) _fxBtnBg[i].SetHover(on);
+            if (_fxBtnIcon != null && i >= 0 && i < _fxBtnIcon.Length && _fxBtnIcon[i] != null) _fxBtnIcon[i].SetHover(on);
+            ApplyButtonFadeAlpha();      // fx 写的是 RGB（α 恒 1）⇒ 当场把淡入淡出那一档 α 补回去
+        }
+
+        /// <summary>第 `i` 颗钮的按下态（原版 `Selectable.Pressed` = 指针在件上并按着）。</summary>
+        void SetButtonPressed(int i, bool on)
+        {
+            if (_fxBtnBg != null && i >= 0 && i < _fxBtnBg.Length && _fxBtnBg[i] != null) _fxBtnBg[i].SetPressed(on);
+            if (_fxBtnIcon != null && i >= 0 && i < _fxBtnIcon.Length && _fxBtnIcon[i] != null) _fxBtnIcon[i].SetPressed(on);
+            ApplyButtonFadeAlpha();
+        }
+
+        /// <summary>把 6 颗钮的反馈**全部复位**（面板收起时用；否则指针停在某颗上再关面板，
+        /// 下次打开它还挂着 Highlighted —— 原版 `SetActive(false)` 会一并清掉 `Selectable` 的状态）。</summary>
+        void ResetButtonFeedback()
+        {
+            if (_fxBtnBg == null && _fxBtnIcon == null) return;      // 世界档：没建过
+            for (int i = 0; i < ButtonCount; i++) { SetButtonHover(i, false); SetButtonPressed(i, false); }
+        }
+
+        /// <summary>推进 0.1 s 的颜色渐变（`BattleButtonFx` 的 `ColorTint` 那一半）。
+        /// <para>🔴 **Play 里由 `LateUpdate` 每帧调**；**批处理没有帧循环** ⇒ 自检要推进时手动调。
+        /// ⚠️ `!Application.isPlaying` 时 `BattleButtonFx` 本来就是**立刻到位**（`Retarget` 里那一条），
+        /// 所以批处理不调它也不会「停在旧色」。</para></summary>
+        public void TickButtonFeedback()
+        {
+            if (_fxBtnBg != null)
+                for (int i = 0; i < _fxBtnBg.Length; i++) if (_fxBtnBg[i] != null) _fxBtnBg[i].Tick();
+            if (_fxBtnIcon != null)
+                for (int i = 0; i < _fxBtnIcon.Length; i++) if (_fxBtnIcon[i] != null) _fxBtnIcon[i].Tick();
+        }
+
+        /// <summary>🔴 **把淡入淡出的 `alpha` 补回 6 张钮底** —— `BattleButtonFx.Tint` 只写 RGB 那一半
+        /// （它写的是「自己的基准色 × 状态色」，基准色是建件时的白、α 恒 1）。
+        /// <para>**为什么必须补**：本面板的淡入淡出（`SetAlphaOn`）与 ColorTint **写的是同一个
+        /// `Image.color`**，而 `LateUpdate` 跑在 `BattleDriver.Update`（`Advance` 那一跳）之后
+        /// ⇒ 不补的话，`TickButtonFeedback` 会把 `alpha` 顶回 1，**面板收起时 6 颗钮的底图不跟着淡出**
+        /// （画面上剩 6 条亮着的长条，静默）。</para>
+        /// <para>⚠️ 只碰这 6 张底图（⛔ 别顺手调 `SetAlpha(_alpha)`：那会把 6 行字与整个面板重写一遍，
+        /// 点阵后端还会每帧重烘贴图）。</para></summary>
+        void ApplyButtonFadeAlpha()
+        {
+            if (_fxBtnBg == null) return;                              // 世界档：没有 fx，`SetAlpha` 已是对的
+            for (int i = 0; i < _btns.Count && i < _fxBtnBg.Length; i++)
+            {
+                var q = _btns[i].bg;
+                if (q == null) continue;
+                var c = q.Tint;                                        // fx 刚写进去的 RGB（= 基准 × 状态）
+                c.a = _alpha;
+                q.SetTint(c);
+            }
+        }
+
+        /// <summary>6 颗钮的 uGUI 点击（**松手那一帧**，与 `Button.onClick` 同一条链）。
+        /// <para>⛔ **不做动作**（说话归驱动）：只记计数 + 发 <see cref="ButtonClicked"/>。</para>
+        /// <para>闸 = <see cref="Interactable"/>：原版 `Hide()` **一开头**就把 `CanvasGroup.interactable` 置 0，
+        /// 淡出途中收不到点击 ⇒ 与本件 `Interactable` 逐字同义。</para></summary>
+        void OnUguiButtonClicked(int i)
+        {
+            if (!Interactable) return;
+            _uguiButtonClicks++;
+            _lastUguiButton = i;
+            if (ButtonClicked != null) ButtonClicked(i);
+        }
+
+        /// <summary>条外关闭区的 **按下**（原版 `CloseChatPopup` 的 `EventTrigger.PointerDown` → `Hide`）。
+        /// <para>🔴 **不在这里当场 `Hide()`** —— 见 <see cref="LateUpdate"/> 的 doc（与驱动抢同一帧 = 点一下做两件事）。</para></summary>
+        void OnClosePointerDown(BaseEventData _)
+        {
+            if (!Interactable) return;
+            _closePending = true;
+        }
+
+        /// <summary>🔴 **为什么关闭要晚到 `LateUpdate`**（与 `BattleLogPanel` A3-c 同一条，判据逐字相同）：
+        /// `EventSystem.Update` 与 `BattleDriver.Update` **都是默认执行顺序**（本工程没有给这两者写
+        /// `[DefaultExecutionOrder]`）。若在 `EventSystem` 的回调里**当场** `Hide()`：
+        /// 驱动先跑 ⇒ 没影响（它自己已经关了）；驱动后跑 ⇒ `HandleChatPopup` 看到 `Visible == false`
+        /// ⇒ **不再吃掉这一下** ⇒ 同一次按下继续落到棋盘/手牌 = **静默的「点一下做两件事」**。
+        /// Unity 保证**所有 `Update` 跑完**才跑 `LateUpdate` ⇒ 两种顺序都安全：
+        /// 驱动先跑 ⇒ 它自己 `Hide()`（我们的挂起项随后空转/幂等重放）；驱动后跑 ⇒ 它照旧吃掉这一下，
+        /// 我们随后关（幂等）。且 `LateUpdate` 与 `Update` **同帧**，不是「延迟一帧」。</summary>
+        void LateUpdate()
+        {
+            if (_closePending) ApplyPendingClose();
+            // 🆕 2026-10-20（`T09` A3-e1）：① 推进悬停/按下那 0.1 s 的颜色渐变（Play 里才真的在动）
+            // ② 把淡入淡出的 alpha 补回 6 张钮底（`BattleButtonFx` 只写 RGB 那一半，见它那条 doc）。
+            TickButtonFeedback();
+            ApplyButtonFadeAlpha();
+        }
+
+        /// <summary>落下挂起的关闭（**批处理没有帧循环 ⇒ `LateUpdate` 不跑**，自检/批处理里手动调一次）。
+        /// 返回 true = 这一次真的落了（`false` = 没有挂起的关闭）。</summary>
+        public bool ApplyPendingClose()
+        {
+            if (!_closePending) return false;
+            _closePending = false;
+            _uguiCloseCount++;
+            Hide();                              // 幂等：驱动已经关过时只是把同一个淡出再写一遍
+            if (CloseRequested != null) CloseRequested();
+            return true;
         }
 
         /// <summary>建一片图（位置/尺寸由 <see cref="Put"/> 给；这里只定名字、贴图与**画布上的兄弟序键**）。
@@ -563,6 +856,9 @@ namespace CardPresentation
                 // 🔴 位置按**布局组排完之后**算（`Button0.y + i × 49.48`），**不是**序列化的 (0,0)
                 var r = new Rect(Button0.x, Button0.y + i * ButtonPitch, Button0.width, Button0.height);
                 b.rect = r;
+                // 🆕 2026-10-20（`T09` A3-e）：命中条 = **整行** `603.6 × 48`（原版 `RT_2861`），
+                //    ⛔ 不是可见底图那个 `550.4 × 44.5` 的内缩框。`Put` 对 `null` 直接返回 ⇒ 世界档零影响。
+                Put(b.hit, r, UZBtnHit);
                 Put(b.bg, new Rect(r.x + BtnBg.x, r.y + BtnBg.y, BtnBg.width, BtnBg.height), ZBtnBg);
                 Put(b.icon, new Rect(r.x + BtnIcon.x, r.y + BtnIcon.y, BtnIcon.width, BtnIcon.height), ZBtnIcon);
                 if (b.text != null)
@@ -617,6 +913,15 @@ namespace CardPresentation
         {
             _open = false;                    // **立刻**算关（原版一开头就把 `interactable` 置 0）
             _fadingOut = true;
+            // 🔴 **2026-10-20（W57 · `T09-FIX5` · P2-8）：照原版【不撤射线靶】。**
+            //   原版 `VoiceLinesPopupSelector.Hide()` 只做一句 `CanvasGroup.set_interactable(0, 0)`
+            //   （判据 = `d:/2/tools/decomp_full/VoiceLinesPopupSelector__Hide.c` 第 5 行），
+            //   全屏关闭区 `CloseChatPopup` 的 `Graphic` 在整个 0.5 s 淡出期间**仍吃得掉射线**
+            //   （`EventSystem` 只看 `raycastTarget`，不看 `CanvasGroup.interactable`）——
+            //   即「原版淡出期间仍吃点击，但 `interactable=0` ⇒ 什么都不发生」。
+            //   ⛔ 别再在这里加 `raycastTarget = false`：那是 `T09-FIX3` 的「手感优先」**有意偏离**，
+            //   `T09-FIX5` 按原版回滚（审查 `W57_战斗线_T09_审查.md` §一 P2-8）。
+            ResetButtonFeedback();            // 🆕 2026-10-20（A3-e1）：收起时清掉悬停/按下态
             if (!gameObject.activeSelf) { _fading = false; _fadingOut = false; SetAlpha(0f); return; }
             _fading = true; _fadeTarget = 0f;
         }
@@ -627,6 +932,7 @@ namespace CardPresentation
             _open = false;
             _fadingOut = false;
             _fading = false;
+            ResetButtonFeedback();            // 🆕 2026-10-20（A3-e1）：同上
             gameObject.SetActive(false);
             SetAlpha(0f);
         }
@@ -870,6 +1176,134 @@ namespace CardPresentation
             LastClicked = LastHit;
             return LastHit;
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-20（W57 · 战斗线 `T09` 步骤 A3-e）：**Editor-only 只读探针**
+        //  只读：不改状态、不派事件。播放器里**不存在**这些成员（#if 包住）⇒ 零运行时开销。
+        //  断言侧（`Editor/BattleScene.cs`）用它们读「命中条在不在 / 射线靶开了没 / 点了几次」。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+#if UNITY_EDITOR
+        /// <summary>uGUI 输入层是不是**整组装好**了（6 条命中条 + 6 个适配器 + 关闭区射线靶 + 触发器）。
+        /// 世界档恒 `false`（那一档不装输入层）。</summary>
+        public bool UguiInputReadyForTest
+        {
+            get
+            {
+                if (!_ugui || _closeTrigger == null) return false;
+                if (_btnButtons == null || _btnButtons.Length != ButtonCount) return false;
+                for (int i = 0; i < _btnButtons.Length; i++)
+                    if (_btnButtons[i] == null) return false;
+                return true;
+            }
+        }
+
+        /// <summary>第 `i` 颗钮的透明命中条（`null` = 世界档 / 没建出来）。</summary>
+        public HudPiece ButtonHitForTest(int i)
+        {
+            return (i >= 0 && i < _btns.Count) ? _btns[i].hit : null;
+        }
+
+        /// <summary>第 `i` 颗钮的点击适配器（`null` = 没挂上）。</summary>
+        public BattleHudButton ButtonClickComponentForTest(int i)
+        {
+            return (_btnButtons != null && i >= 0 && i < _btnButtons.Length) ? _btnButtons[i] : null;
+        }
+
+        /// <summary>第 `i` 颗钮的命中条是不是射线靶（原版 `MB 4660.m_RaycastTarget = 1`）。</summary>
+        public bool ButtonHitRaycastTargetForTest(int i)
+        {
+            var p = ButtonHitForTest(i);
+            if (p == null || p.Rect == null) return false;
+            var img = p.Rect.GetComponent<UnityEngine.UI.Image>();
+            return img != null && img.raycastTarget;
+        }
+
+        /// <summary>第 `i` 颗钮命中条的 `raycastPadding`（L,B,R,T；原版 `MB 4660` 是 **(0,0,0,0)**）。
+        /// 拿不到 ⇒ 全 `NaN`（⛔ 不返 0 —— 那与「真的全是 0」分不开）。</summary>
+        public Vector4 ButtonHitRaycastPaddingForTest(int i)
+        {
+            var p = ButtonHitForTest(i);
+            if (p == null || p.Rect == null) return new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+            var img = p.Rect.GetComponent<UnityEngine.UI.Image>();
+            return img != null ? img.raycastPadding : new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+        }
+
+        /// <summary>全屏关闭区的 `EventTrigger`（`null` = 没挂上）。</summary>
+        public EventTrigger CloseTriggerForTest { get { return _closeTrigger; } }
+
+        /// <summary>全屏关闭区当前是不是射线靶（原版 `NonDrawingGraphic.m_RaycastTarget = 1`）。</summary>
+        public bool CloseRaycastTargetForTest
+        {
+            get
+            {
+                if (_close == null || _close.Rect == null) return false;
+                var img = _close.Rect.GetComponent<UnityEngine.UI.Image>();
+                return img != null && img.raycastTarget;
+            }
+        }
+
+        /// <summary>6 颗钮一共收到几次 uGUI 点击（灭自证：点一次 = 1）。</summary>
+        public int UguiButtonClickCountForTest { get { return _uguiButtonClicks; } }
+        /// <summary>条外关闭落了几次。</summary>
+        public int UguiCloseCountForTest { get { return _uguiCloseCount; } }
+        /// <summary>最近一次 uGUI 点中的钮（-1 = 没点过）。</summary>
+        public int LastUguiButtonForTest { get { return _lastUguiButton; } }
+        /// <summary>有没有「挂起的关闭」还没落（见 `ApplyPendingClose`）。</summary>
+        public bool ClosePendingForTest { get { return _closePending; } }
+
+        // ── 🆕 2026-10-20（`T09` 步骤 A3-e1）：悬停/按下反馈的只读探针 ─────────────────────
+        /// <summary>6 颗钮的**两套反馈**都建起来了没有（ColorTint 打底图 + SpriteSwap 打图标）。
+        /// 世界档恒 `false`（那一档不建输入层、也不建反馈 —— 与改本件之前逐位相同）。</summary>
+        public bool ButtonFeedbackReadyForTest
+        {
+            get
+            {
+                if (!_ugui || _fxBtnBg == null || _fxBtnIcon == null) return false;
+                if (_fxBtnBg.Length != ButtonCount || _fxBtnIcon.Length != ButtonCount) return false;
+                for (int i = 0; i < ButtonCount; i++)
+                    if (_fxBtnBg[i] == null || _fxBtnIcon[i] == null) return false;
+                return true;
+            }
+        }
+
+        /// <summary>第 `i` 颗钮**底图**的 ColorTint 目标色键（原版 `MB 4112.m_Colors`：
+        /// 悬停 `0.9607843` · 按下 `0.7843137` · 常态白）。`null` 反馈 ⇒ `Color.clear`。</summary>
+        public Color ButtonBgFeedbackKeyForTest(int i)
+        {
+            return (_fxBtnBg != null && i >= 0 && i < _fxBtnBg.Length && _fxBtnBg[i] != null)
+                 ? _fxBtnBg[i].KeyForTest : Color.clear;
+        }
+
+        /// <summary>第 `i` 颗钮**图标**当前那张图的名字（原版 `leftButtonNormal/Hover/Pressed` 三档）。
+        /// 期望：常态 `40k_voicelines_bt_L` · 悬停 `..._hover` · 按下 `..._pressed`。</summary>
+        public string ButtonIconTextureForTest(int i)
+        {
+            return (_fxBtnIcon != null && i >= 0 && i < _fxBtnIcon.Length && _fxBtnIcon[i] != null)
+                 ? _fxBtnIcon[i].TextureNameForTest : null;
+        }
+
+        /// <summary>第 `i` 颗钮的命中条上**有没有挂某个事件的 `EventTrigger` 条目**
+        /// （`eventId`：`PointerEnter=0 · PointerExit=1 · PointerDown=2 · PointerUp=3`）。
+        /// 原版这四个口都在 `Selectable` 上（enter/exit/down/up），我们显式挂。</summary>
+        public bool ButtonTriggerBoundForTest(int i, int eventId)
+        {
+            var p = ButtonHitForTest(i);
+            if (p == null || p.gameObject == null) return false;
+            var trig = p.gameObject.GetComponent<EventTrigger>();
+            if (trig == null) return false;
+            for (int k = 0; k < trig.triggers.Count; k++)
+                if (trig.triggers[k] != null && (int)trig.triggers[k].eventID == eventId) return true;
+            return false;
+        }
+
+        /// <summary>自检口：**直接喂一次悬停/按下状态**（⛔ 不走 `EventSystem` —— 批处理里没有它）。
+        /// 语义与 `EventTrigger` 那四条逐字相同（`SetButtonHover` / `SetButtonPressed` 同一份）。</summary>
+        public void SimulateButtonFeedbackForTest(int i, bool hover, bool pressed)
+        {
+            SetButtonHover(i, hover);
+            SetButtonPressed(i, pressed);
+        }
+#endif
 
         /// <summary>自检打印用。</summary>
         public string Describe()

@@ -182,7 +182,7 @@ namespace CardPresentation
             _scroll.Owner = gameObject;                       // 关着的宿主 ⇒ 指针层跳过（页签/窗口切走那套）
             _scroll.OnChanged = BuildRows;   // 🔴 滚轮只改 `Offset`、**画是调用方的事**：不接 = 滚了什么都不动
             // 🔴 **2026-10-04（A35⑦）：走 `SocialPage.RegisterScroll` 那一份，别直调 `PointerLayer.RegisterScroll`**
-            //   —— 直调那份在 `PointerLayer.Instance == null` 时是 **`return`（静默空转）**（`PointerLayer.cs:183-187`），
+            //   —— 直调那份在 `PointerLayer.Instance == null` 时是 **`return`（静默空转）**（`PointerLayer.cs` 的 `Instance == null`），
             //   登记表都没建 ⇒ 滚轮永远落不到这一格上，而**画面看着完全正常**（正是本批要治的那类缺陷）；
             //   `SocialPage.RegisterScroll`（`Shell/SocialWindow.cs` 的 `SocialPage.RegisterScroll`）先判这一条、**会 `Debug.LogWarning` 出声**。
             //   ⚠️ 同批那三处社交的滚动区走的都是会出声的那条 ⇒ 这里原来是**全批唯一一处可诊断性不一致**。

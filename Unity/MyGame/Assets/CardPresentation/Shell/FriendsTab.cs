@@ -169,7 +169,7 @@ namespace CardPresentation
                  autoMaxPx: 40f, autoBasePx: 26f);   // A323：原版 `Left/Midline`；A414（表 #1）`auto[18~40] 基准=26.0`
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版
             //   `Friends Tab/…/Search Field/Text Area/Placeholder`（`Enter player name`）= `Left/**Midline**`
-            //  （判据 = 本文件 `:70` 那行 summary + A323/A414 引的同一条 dump）。
+            //  （判据 = 本文件 `本文件` 那行 summary + A323/A414 引的同一条 dump）。
             MenuDraw.SetVAlign(lbPh, Label.VAlign.Midline, PlaceholderR);
             // 🔴 **2026-10-08（波 C3 · A213 的 17 处收尾）**：本行的原版（`Friends Tab/…/Search Field/
             //   Text Area/Placeholder`，`Enter player name`，fs40 auto[18~40]）是 **`折行=0`**，
@@ -177,7 +177,7 @@ namespace CardPresentation
             //   **无条件**把模式开成 `Normal`）⇒ 显式关掉。
             //   判据与四窗那张真值表只写一处：`Shell/SocialWindow.cs` 的 `SocialPage.Text` 文档头；
             //   逐条真值的来源 = `资料/普查产出_1008/波C3_A212其余_A213_A214.md` §A213 表 B①。
-            //   ⛔ 本文件**另外 3 处**（`:167` `Search Player` / `:170` `Friends Title` / `:317` 行 `Friend name`）
+            //   ⛔ 本文件**另外 3 处**（`本文件` `Search Player` / `本文件` `Friends Title` / `本文件` 行 `Friend name`）
             //   原版都是 **`折行=1`** ⇒ **不许跟着传 `false`**。
             //   🔴 **2026-10-11（A258）**：那 3 处**显式传 `wrap: true`**（与当时的缺省值逐字等价）。
             //   ✅ **2026-10-12（A323）订正**：下一句「缺省值本批没删成」**已经过期** —— `wrap` 的缺省

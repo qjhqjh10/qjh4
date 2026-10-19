@@ -10753,6 +10753,21 @@
    ]
   },
   {
+   "id": "GOF87",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "GOF100",
    "fields": [
     {
@@ -10948,6 +10963,11 @@
     {
      "name": "desc",
      "items": [
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
       {
        "token": "[Attack]",
        "sprite": "Melee",
@@ -14618,6 +14638,21 @@
    ]
   },
   {
+   "id": "SW1",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SW19",
    "fields": [
     {
@@ -15889,7 +15924,7 @@
      "name": "desc",
      "items": [
       {
-       "token": "Vanguard",
+       "token": "Vanguard.",
        "sprite": "vanguard",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }

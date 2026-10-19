@@ -128,10 +128,38 @@
 //     那条建件路的真逆，非 16:9 下也咬合；`A2092` 的战斗侧残余随之清零）。
 //     ⇒ 本窗今天**一条 `ToPixel` 读回都没有**（全文件只剩注释里提到它）。
 // ═══════════════════════════════════════════════════════════════════════════════════════
+// 🔴 **2026-10-20（`W57` · 战斗线 `T09` 步骤 A3-e）：本窗的【输入层】换成 uGUI**
+//   判据（本波现读 `bundle_scenes_scenes_battlearena1`：`Card Display Window` = GO **419** / `RT 3030`）——
+//   整棵子树里**只有三类可点件**（其余 TMP / Image 的 `m_RaycastTarget` 全是 0）：
+//     ① **`Voice Over Button`**（GO 874 / `RT 3221`）：`Image` `MB_4775` —— **`m_RaycastTarget = 1` ·
+//        `m_RaycastPadding = (0,0,0,0)` · `m_PreserveAspect = 1`**（sprite = `40k_UI_bt_voicelines`，128²）；
+//        节点 rect **88.655 × 88.655** · `ap (734.33, 0.0001833)`（相对 `LowerSection` 中心）；
+//        身上是 **`EverguildButton`**（`MB_4852`，`m_Transition = 2` = SpriteSwap）⇒ **点击（抬起）**。
+//        `CardDisplayWindow.SetCardVoiceOver` 往 `voiceOverButton.onClick` 上 `AddListener` 播语音。
+//     ② **`Menu Dark Background`**（GO 631 / `RT 3078`）：`Image` `MB_4682` —— `m_RaycastTarget = 1` ·
+//        pad `(0,0,0,0)` · sprite **null** · 色 (0,0,0,0.7725)；rect **4574.6 × 2572.36**；
+//        身上 **`BackgroundCloseButton`**（`MB_4809`）实现 `IPointerClickHandler`
+//        （`BackgroundCloseButton__…OnPointerClick.c`：`window.Close()` → `onClick.Invoke()`），
+//        而 `CardDisplayWindow__Open.c` 把 `OnBackgroundClick` 挂进它的 `onClick` ⇒ **点空白 = 关窗**（抬起）。
+//     ③ 5 个 `CardUI (n)` 的 **`2DCard/UI Collider`**（`UIGenericEventCatcher` + `NonDrawingGraphic`，
+//        `m_RaycastTarget = 1`）⇒ 卡格点击 = 换位（`CardDisplayWindow.CardUIClicked`）。
+//   ⇒ 本波落地：① 走 `BattleHudButton`（= `IPointerClickHandler`，与 `EverguildButton` 同一条链）；
+//     ② 建一块**全屏透明** uGUI 件承载（🔴 世界空间那块 `_mask` **有意不迁**、一个字节不动，
+//        见上面「没迁的两样 ②」）；③ **不动** —— 卡体 `CardView` 仍是世界空间（`T09` 第 5/6 步；
+//        `Core/CardView.cs` 不在本波白名单）。
+//   🔴 **过渡期两条路并存（如实记，⛔ 别读成「已收口」）**：`BattleDriver.HandleDisplayWindowClick`
+//     那条手搓链**还在跑**（它把 `HitVoice` / `HitSlot` / 背景当成「点击落点」）——本波只许改本文件、
+//     动不了它 ⇒ · 背景：两条路都调 `Hide()` ⇒ **幂等**；
+//     · 语音：两条路都调 `PlayVoice()` ⇒ 会**播两遍** ⇒ `PlayVoice` 里加了**同帧去重**
+//       （只在 `Application.isPlaying` 生效 —— 批处理自检是编辑模式，不受影响）；
+//       驱动那条链退场后它自然失效（可删）。
+//   ⏭ `T09` A4（退手搓沿）+ D 收口时：删 `HandleDisplayWindowClick` 的这三支，本窗只剩 uGUI。
+// ═══════════════════════════════════════════════════════════════════════════════════════
 using System.Collections.Generic;
 using DG.Tweening;          // `OnComplete` 是它的扩展方法（换位收尾那一步）
 using RuleEngine;
 using UnityEngine;
+using UnityEngine.UI;       // 🆕 2026-10-20（A3-e）：探针读 `Image.raycastTarget / raycastPadding / preserveAspect`
 
 namespace CardPresentation
 {
@@ -160,6 +188,14 @@ namespace CardPresentation
         /// 与各自的**内容同档**；提示行再小 0.02 ⇒ 排最后 = 画在最上（它与风味底图那条带重叠）。</para>
         /// <para>⚠️ 整屏遮罩**不在画布上**（有意，见文件头）⇒ 它不参与这一档的账。</para></summary>
         const float ZGroup = ZContent;
+
+        /// <summary>🔴 **2026-10-20（`T09` A3-e）：背景关闭件（全屏透明）那一档兄弟序** ——
+        /// 必须**比本窗任何画布件都靠底**（`HudCanvas.Add` 按 z **降序**排兄弟序 ⇒ 值越大 = 越先画 = 射线越靠后）。
+        /// 本窗画布件最低那档是 `ZContent - 0.02`（提示行），取 `ZContent + 0.5` 留足余量。
+        /// <para>⚠️ 它**不是原版量**：原版那块 `Menu Dark Background` 本身就是**画出来的**压暗层
+        /// （带 `BackgroundCloseButton`）；我们那一块**有意留在世界空间**（见文件头「没迁的两样 ②」），
+        /// 画布上只放一层**看不见的**同尺寸关闭区。</para></summary>
+        const float ZBackdrop = ZContent + 0.5f;
 
         // ---- 🔴 **2026-10-16（`T09` 批 3）**：本窗各容器的【绝对中心】px（左上原点 y 向下）------
         //   ⚠️ **建件与读回共用这一份**（⛔ 别在两处各推一次）：它就是「整屏绝对矩形 → 父件局部坐标」
@@ -204,6 +240,29 @@ namespace CardPresentation
         HudPiece _voiceBtn;
         // 🆕 2026-10-19（B4 · `N70` P0-2）：语音钮反馈（原版 `Voice Over Button` = t=2 SpriteSwap）
         BattleButtonFx _fxVoice;
+
+        // ── 🆕 2026-10-20（`W57` · `T09` A3-e）：本窗的 uGUI 输入（判据 → 文件头那一段）────────────
+        /// <summary>语音钮上的 `BattleHudButton`（`null` = 没挂上 / 这颗钮没建出来）。</summary>
+        BattleHudButton _voiceBtnClick;
+        /// <summary>背景关闭区（**全屏透明** uGUI 件）—— 原版 `Menu Dark Background` 上那颗
+        /// `BackgroundCloseButton` 的等价物。⚠️ 它是**画布上的输入件**，不是那块世界空间压暗层
+        /// （`_mask` 有意不迁，见文件头）。</summary>
+        HudPiece _backdrop;
+        /// <summary>背景关闭区上的 `BattleHudButton`（`null` = 没建出来 / 没挂上）。</summary>
+        BattleHudButton _backdropBtn;
+        /// <summary>🔴 **2026-10-20（W57 · `T09-FIX3` · P1-3）：uGUI 关窗只记「待关」**，
+        /// 由 <see cref="LateUpdate"/> 在本帧末尾落账（同 `ChatPopupPanel` / `BattleLogPanel` / `AlliancePanelWindow`）。
+        /// <para>为什么不当场 `Hide()`：`EventSystem.Update` 与 `BattleDriver.Update` 都是默认执行顺序 ——
+        /// 当场关掉会让驱动那一帧看到「窗本来就关着」（`TickCardDisplayClick` 的 `if (!Visible) return false`）
+        /// ⇒ **同一次松手继续落到 `DrivePlayerTurn`**（全屏 backdrop 覆盖整块棋盘 ⇒ 点空白会顺带
+        /// 点掉目标 / 牌堆）。挂起到 `LateUpdate`（所有 `Update` 之后）⇒ 两种顺序都安全。</para></summary>
+        bool _closePending;
+        /// <summary>uGUI 关闭被**请求**了几次 / 真**落账**了几次（自检用；落账幂等）。</summary>
+        int _uguiCloseClicks, _uguiCloseApplied;
+        /// <summary>`PlayVoice` 的同帧去重（过渡期两条路并存：uGUI 点击 + `BattleDriver` 手搓命中）。
+        /// 只在 `Application.isPlaying` 生效；驱动那条链退场后本对字段可删（见文件头「过渡期」）。</summary>
+        int _voiceFrame = int.MinValue;
+        bool _voiceFrameOk;
         Label _lore, _hint;
         AudioSource _voiceAudio;
 
@@ -284,6 +343,14 @@ namespace CardPresentation
         /// <summary>开窗那一拍（`CardFan.OpenTime`，原版 legacy clip `Card Display Open`）还在播没有
         /// —— 我们这套的 `displayAnimation.isPlaying`（原版 `ChangeCardPosition` 的**闸③**）。</summary>
         public bool IsOpening { get { return _opening; } }
+
+        /// <summary>主卡（槽 0）现在露的是**正面**吗。（原版 `Card2DController.CardVisibility`：
+        /// `Front = 0` / `Back = 1`，判据见 <see cref="SetFrontVisible"/>。）自检用。
+        /// ⚠️ 原版那扇放大窗**永远显示正面**（`CardDisplayWindow__InitializeCardForDisplay.c` 全篇零
+        /// `SetCardVisibility`）—— 本属性默认 `true`；只有显式调 <see cref="SetFrontVisible"/>(false)
+        /// 或 `Show(..., faceDown: true)` 才为 `false`。</summary>
+        public bool FrontVisible { get; private set; } = true;
+
         /// <summary>位姿槽 `i` 上的卡（越界返回 null）。</summary>
         public CardView SlotView(int i) { return (i >= 0 && i < CardFan.Slots) ? SlotViews[i] : null; }
         /// <summary>位姿槽 `i` 上那张卡的卡表项（越界返回 null）。</summary>
@@ -500,6 +567,31 @@ namespace CardPresentation
                          0f, 0f, 0f, 0f, 0f, ZContent - 0.02f,
                          new Color(0.7f, 0.7f, 0.75f), new Vector2(0.5f, 0.5f));
 
+            // ── 🆕 2026-10-20（W57 · `T09` A3-e）：**背景关闭区**（原版 `Menu Dark Background` 上的
+            //    `BackgroundCloseButton`）────────────────────────────────────────────────────
+            //  判据 → 文件头 ②。原版那颗 `Image` 是「画出来的压暗层 + 射线靶」二合一；我们那块压暗层
+            //  `_mask` **有意留在世界空间**（必须画在卡体【下面】，见文件头「没迁的两样 ②」）
+            //  ⇒ 画布上只放一层**看不见的同功能件**。
+            //  ⚠️ `Color.clear` 不影响射线（`GraphicRaycaster` 不看 alpha；`Image.alphaHitTestMinimumThreshold`
+            //     保持默认 0）—— 同批 `MultiCardDisplay._bgClose` 用的就是这一做法。
+            //  ⚠️ 矩形：原版是 4574.6×2572.36（比屏还大），屏幕外那段本来就点不到 ⇒ 铺满子画布等价；
+            //     ⛔ 别写死 1920×1080（`Expand` 档下画布可能比 1080 高/比 1920 宽）。
+            //  ⚠️ 层序：`ZBackdrop` = 本窗**最底**那一档 ⇒ 语音钮 / 卡格（世界）都排在它**上面**。
+            _backdrop = HudCanvas.MakeImageInParent(_root, SolidTexFor(1f), "cdw_background_close",
+                                                    0f, 0f, 1f, 1f, ZBackdrop, Color.clear);
+            if (_backdrop == null)
+            {
+                Debug.LogError("[展示窗] 背景关闭区（`cdw_background_close`）没建起来（纯色图取不到？）"
+                             + " ⇒ **点空白不会关窗**（不静默）");
+            }
+            else
+            {
+                HudCanvas.FillParent(_backdrop.Rect);          // 铺满 = 全屏（⛔ 不写死尺寸）
+                _backdropBtn = BattleHudButton.Attach(_backdrop, RequestCloseByUgui);
+                if (_backdropBtn == null)
+                    Debug.LogError("[展示窗] 背景关闭区没挂上 uGUI 点击 ⇒ **点空白不会关窗**（不静默）");
+            }
+
             // 结构照原版那棵树：`Card Display` → { `Cards`(5 个卡槽), `LowerSection` → `FlavourTextBG` → `LoreText` }
             // 🔴 **2026-10-16（`T09` 批 3）**：`Cards` **不在这棵树里**了 —— 它装的是**卡体**（世界空间那一族，
             //    见文件头「没迁的那一件」）⇒ 它挂在**世界壳**下（下面那一段），矩形/原点与迁之前逐位相同。
@@ -544,6 +636,22 @@ namespace CardPresentation
             }
             else
                 Debug.Log("[展示窗] `40k_UI_bt_voicelines` 不在 `Resources/Art/ui/` ⇒ **语音钮不建**（不摆白方块）");
+
+            // ── 🆕 2026-10-20（W57 · `T09` A3-e）：语音钮的 uGUI 输入（判据 → 文件头 ①）────────────
+            //  原版节点 rect **88.655×88.655**（`RT_3221`）+ `Image.m_RaycastPadding = (0,0,0,0)` +
+            //  `m_PreserveAspect = 1`；组件是 `EverguildButton`，`SetCardVoiceOver` 往它的 `onClick` 上挂播语音。
+            //  ⚠️ 我们这颗建出来的 `sizeDelta` 本来就是这个数（128² 方图 ⇒ `FitHeight` 内接后 88.655²），
+            //     `SetNodeRect` 只是把「节点 rect + PA=1」写成**语义判据**（画面逐位不变）。
+            if (_voiceBtn != null)
+            {
+                if (!_voiceBtn.SetNodeRect(CardWinBox.BtnS, CardWinBox.BtnS, true))
+                    Debug.LogError("[展示窗] 语音钮的节点 rect 没写进去（不静默）");
+                if (!_voiceBtn.SetRaycastPadding(0f, 0f, 0f, 0f))
+                    Debug.LogError("[展示窗] 语音钮的 `raycastPadding` 没写进去（不静默）");
+                _voiceBtnClick = BattleHudButton.Attach(_voiceBtn, ClickVoiceButton);
+                if (_voiceBtnClick == null)
+                    Debug.LogError("[展示窗] 语音钮没挂上 uGUI 点击 ⇒ **这颗钮点不动**（不静默）");
+            }
 
             // 🆕 2026-10-19（B4 · `N70` P0-2）：`Voice Over Button` = t=2 SpriteSwap（两张都在 `Art/ui_menu/`）
             var vh = CardArt.MenuUi("40k_UI_bt_voicelines_hover");
@@ -849,6 +957,9 @@ namespace CardPresentation
             if (_mask != null) _mask.gameObject.SetActive(on);
             if (_hint != null) _hint.gameObject.SetActive(on);
             if (_voiceBtn != null) _voiceBtn.gameObject.SetActive(on);
+            // 🆕 2026-10-20（A3-e）：背景关闭区**必须跟着开关** —— 漏了它 = 一块全屏射线靶在窗关着时
+            //   继续挡着整个屏幕（`SetActive(false)` 会把它移出 `GraphicRegistry`，同 `MultiCardDisplay` 那条）。
+            if (_backdrop != null) _backdrop.gameObject.SetActive(on);
         }
 
         // ============================================================ 命中（战斗侧不走 PointerLayer）
@@ -990,12 +1101,35 @@ namespace CardPresentation
             return Mathf.Abs(px.x - cx) <= h && Mathf.Abs(px.y - CardWinBox.BtnCy) <= h;
         }
 
+        /// <summary>🆕 2026-10-20（`T09` A3-e）：**语音钮的 uGUI 点击动作**（原版 `EverguildButton.onClick`
+        /// → `SetCardVoiceOver` 挂上去的那条链）。⚠️ 过渡期它与驱动层手搓命中并存 ——
+        /// 去重与退场时机见 <see cref="PlayVoice"/> 与文件头「过渡期两条路并存」那一段。</summary>
+        void ClickVoiceButton()
+        {
+            if (!PlayVoice())
+                Debug.Log("[展示窗] 「放大窗·语音」这张卡没有单位语音 —— **没播**（不静默失败）");
+        }
+
         /// <summary>
         /// 点语音按钮 → 播**正在展示的那张卡**的单位语音（原版 `voiceOverButton` + `voiceOverAudioSource`）。
         /// 判据（哪条语音）复用 `VoiceLines.TryPick` —— **只此一处**，不另写一张后缀表。
         /// ⚠️ 这张卡没有语音时**说出来**（红线：不许静默失败），返回 false。
+        /// <para>🔴 **2026-10-20（`T09` A3-e）同帧去重**：过渡期「uGUI 点击」与
+        /// `BattleDriver.HandleDisplayWindowClick` 那条手搓命中会在**同一帧**各调一次
+        /// （一次点击 = 两次 `PlayOneShot`，听感上是重音）⇒ 同帧的第二次**直接返回上一次的结果**。
+        /// ⚠️ 只在 `Application.isPlaying` 生效（批处理自检是编辑模式，连调两次仍各播一次）；
+        /// 驱动那条链退场（`T09` A4）后这两行可删。真正的判据仍只在 <see cref="PlayVoiceCore"/> 一份。</para>
         /// </summary>
         public bool PlayVoice()
+        {
+            if (Application.isPlaying && _voiceFrame == Time.frameCount) return _voiceFrameOk;
+            _voiceFrame = Time.frameCount;
+            _voiceFrameOk = PlayVoiceCore();
+            return _voiceFrameOk;
+        }
+
+        /// <summary><see cref="PlayVoice"/> 的本体（两路调用共用这一份判据）。</summary>
+        bool PlayVoiceCore()
         {
             LastVoiceFile = null;
             if (!_hasShown) return false;      // 窗里没有卡（`CardData` 是 struct，用它判「有没有」）
@@ -1042,6 +1176,21 @@ namespace CardPresentation
         /// <summary>开窗 + 那块「谁给我加的 buff」（原版 `ShowBattleCard` → `DisplayCardEffects` 一条链）。</summary>
         public void Show(CardData d, CardDef def, IReadOnlyList<EffectRow> effects)
         {
+            Show(d, def, effects, false);
+        }
+
+        /// <summary>开窗（可指定**主卡开场时露卡背**）。
+        ///
+        /// <para>🔴 **2026-10-19（`W57` · `T04` #1）：`faceDown` 是「窗里显示一张不该露的卡」的口子。**
+        /// 判据：原版 `Card2DController.SetCardVisibility(CardVisibility)` 在 **`cardFront` ↔ `cardBackContainer`**
+        /// 之间**瞬时**切换（`Card2DController__SetCardVisibility.c`；`CardVisibility { Front = 0, Back = 1 }`，
+        /// 字段 `cardFront` @+0x28 / `cardBackContainer` @+0x30 —— `dump.cs` 的签名桩逐字段序核过）。
+        /// ⚠️ **原版那扇放大窗自己从不切**（`CardDisplayWindow__InitializeCardForDisplay.c` 全篇零
+        /// `SetCardVisibility`）⇒ 那个参数**不是**「照原版窗的行为」加的，而是把战斗里那条
+        /// `CardScript._DisplayEnemyCardInCenter` 的「先露背、翻面、收尾翻回背」搬到我们的载体上
+        /// （消费者 → `BattleDriver.DisplayEnemyCardInCenter`）。⛔ 别在窗里自行按卡的状态推该不该露背。</para></summary>
+        public void Show(CardData d, CardDef def, IReadOnlyList<EffectRow> effects, bool faceDown)
+        {
             Hide();                       // 先把上一次那一叠拆干净（换阵营要换卡框贴图，原地改不换图）
 
             ShownTitle = d.title;
@@ -1059,7 +1208,52 @@ namespace CardPresentation
             SetChrome(true);
             Visible = true;
             gameObject.SetActive(true);
+            _closePending = false;      // 🔴 P1-3：重开 ⇒ 丢掉上一帧还没落的待关（否则本帧末尾会把新窗关掉）
             SetEffectRows(effects);      // ⚠️ 放在最后 —— 它要先把那块亮起来再改字（TMP 未激活量不出尺寸）
+            // 卡背必须放在 `SetActive(true)` **之后**（同 TMP 那条顺序纪律；卡背层是懒建的网格，不读 TMP）
+            SetFrontVisible(!faceDown);
+        }
+
+        /// <summary>主卡（槽 0）**露正面 ↔ 露卡背** —— 原版 `Card2DController.SetCardVisibility` 的等价物。
+        ///
+        /// <para>🔴 **判据（2026-10-19 · `W57` 现核，铁律 5 就地补上 T04 §六 的 ⏳B）**：
+        /// · `Card2DController.CardVisibility { Front = 0, Back = 1 }`（`Card2DController.cs` 签名桩）；
+        /// · `Card2DController__SetCardVisibility.c`：`param == 0` ⇒ `cardFront(0x28).SetActive(1)` +
+        ///   `cardBackContainer(0x30).SetActive(0)`；`param == 1` ⇒ 反之；
+        /// · 字段序 `effectAnchor(0x20) / cardFront(0x28) / cardBackContainer(0x30)`（同一份签名桩）
+        ///   ⇒ **0 = 正面、1 = 卡背**（T04 §六·B 的两种可能取第一种）。
+        /// · **瞬时、无补间** —— 原版就是两次 `GameObject.SetActive`，别自己编一个淡入淡出。</para>
+        ///
+        /// <para>⚠️ 只用**主卡**：原版每张 `BasicCardUI` 各有一份 `Card2DController`，相关卡要不要翻由调用方定
+        /// （`InitializeRelatedCards` 不动可见性）。我们这里没有「呼叫方要求相关卡也翻」的判据 ⇒ 只动槽 0。
+        /// ⚠️ 卡背贴图走**与牌堆/敌方手牌同一个口** `CardArt.CardBack(阵营)`（`CardBackSprite` 就是拿它生成的）；
+        /// 取不到时 `CardView.SetBackVisible` 自己会出声（⛔ 不静默造白块）。</para></summary>
+        public void SetFrontVisible(bool on)
+        {
+            FrontVisible = on;
+            var v = SlotViews[0];
+            if (v == null)
+            {
+                // 没有主卡（窗没开 / 建失败）⇒ 只记账不画；调用方要知道这一点就看 `FrontVisible`
+                if (!on) Debug.LogWarning("[展示窗] 要把主卡翻到背面，但**槽 0 没有卡** ⇒ 没画（不静默）");
+                return;
+            }
+            if (on)
+            {
+                v.SetBackVisible(false, null);
+                return;
+            }
+            var tex = CardArt.CardBack(_hasShown ? _shown.faction : null);
+            v.SetBackVisible(true, tex);   // tex == null 时 `CardView` 出声并不画（红线：不造白块）
+            if (!v.BackVisible)
+            {
+                // 没画成（缺图）⇒ **记账回到正面** —— 别让 `FrontVisible` 说一件画面上没发生的事
+                FrontVisible = true;
+                Debug.LogWarning("[展示窗] 卡背**没画出来**（贴图缺）⇒ `FrontVisible` 保持 true（不静默）");
+                return;
+            }
+            Debug.Log($"[展示窗] 主卡翻到**卡背**（阵营 {(_hasShown ? _shown.faction : "?")}；"
+                    + $"贴图 {(tex != null ? tex.name : "<缺>")}）—— 原版 `SetCardVisibility(Back)`，瞬时");
         }
 
         public void Hide()
@@ -1072,6 +1266,7 @@ namespace CardPresentation
             LastVoiceFile = null;
             _swapping = false;
             _opening = false;            // 关窗 = 那 5 条补间随之死掉（`SetLink`），闸③ 也一并清
+            FrontVisible = true;         // 主卡没了 ⇒ 记账复位（下一次 `Show` 由 `faceDown` 重新决定）
             SlotCount = 0;
             for (int i = 0; i < CardFan.Slots; i++) { SlotViews[i] = null; _slotDefs[i] = null; }
             if (_cards != null) MenuDraw.ClearChildren(_cards);
@@ -1079,6 +1274,39 @@ namespace CardPresentation
             _lore = null;
             SetChrome(false);
             SetEffectRows(null);         // 那块也跟着收（原版 `DisplayCardEffects` 每次重算）
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🔴 2026-10-20（W57 · 战斗线 `T09-FIX3` · P1-3）：uGUI 关闭**挂起到 `LateUpdate`**
+        //  判据与理由逐字同 `ChatPopupPanel.OnClosePointerDown` / `BattleLogPanel.ApplyPendingClose` /
+        //  `AlliancePanelWindow.OnUguiCloseClick`（三处先例）：`EventSystem.Update` 与 `BattleDriver.Update`
+        //  都是默认执行顺序，当场 `Hide()` 会让驱动那一帧看到「窗已经关着」⇒ 同一次松手继续落到
+        //  `DrivePlayerTurn`（本窗的 backdrop 是**整屏** ⇒ 点它关窗的同时会顺带点掉底下的目标 / 牌堆）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>uGUI（全屏背景关闭件 `cdw_background_close`）被点 —— **只记「待关」**，⛔ 不当场 `Hide()`。</summary>
+        void RequestCloseByUgui()
+        {
+            if (!Visible) return;              // 窗关着 ⇒ 这一下不算（件本来也收不到射线，双保险）
+            _uguiCloseClicks++;
+            _closePending = true;
+        }
+
+        /// <summary>把挂起的「关窗」落账（**幂等**）。批处理没有帧循环 ⇒ 自检手动调；
+        /// 真机由 <see cref="LateUpdate"/> 每帧调。
+        /// <returns>true = 这一次确实落了一次挂起的关闭。</returns></summary>
+        public bool ApplyPendingClose()
+        {
+            if (!_closePending) return false;
+            _closePending = false;
+            _uguiCloseApplied++;
+            if (Visible) Hide();               // 驱动那条手搓路可能已经在同一帧关过 ⇒ 不再重复
+            return true;
+        }
+
+        void LateUpdate()
+        {
+            ApplyPendingClose();
         }
 
         // ============================================================ 卡片那一叠（1 主卡 + 8 相关卡）
@@ -1408,5 +1636,55 @@ namespace CardPresentation
                 if (voice) SetZ(_voiceBtn, ZContent);
             }
         }
+
+        // ============================================================ 🔬 Editor-only 只读探针（A3-e）
+        //
+        //  ⚠️ **只读**（没有 setter、不触发任何副作用）；播放器构建里整段不存在。
+        //  判据（原版真值）→ 文件头那段：语音钮 `RT_3221` 88.655² / `m_RaycastTarget=1` /
+        //  `m_RaycastPadding=(0,0,0,0)` / `m_PreserveAspect=1`；背景 `MB_4682` `m_RaycastTarget=1`。
+#if UNITY_EDITOR
+        /// <summary>自检用：语音钮那件（`null` = 贴图缺、没建出来）。</summary>
+        public HudPiece VoicePieceForTest { get { return _voiceBtn; } }
+        /// <summary>自检用：语音钮上的 `BattleHudButton`（`null` = 没挂上 ⇒ 这颗钮点不动）。</summary>
+        public BattleHudButton VoiceButtonForTest { get { return _voiceBtnClick; } }
+        /// <summary>自检用：语音钮 `Image.raycastTarget`（原版 `m_RaycastTarget = 1`）。</summary>
+        public bool VoiceRaycastTargetForTest { get { var im = ImageOf(_voiceBtn); return im != null && im.raycastTarget; } }
+        /// <summary>自检用：语音钮 `Image.preserveAspect`（原版 `m_PreserveAspect = 1`）。</summary>
+        public bool VoicePreserveAspectForTest { get { var im = ImageOf(_voiceBtn); return im != null && im.preserveAspect; } }
+        /// <summary>自检用：语音钮 `Image.raycastPadding`（原版 `(0,0,0,0)`；分量序 **L,B,R,T**）。</summary>
+        public Vector4 VoiceRaycastPaddingForTest { get { var im = ImageOf(_voiceBtn); return im != null ? im.raycastPadding : Vector4.zero; } }
+        /// <summary>自检用：语音钮的**节点 rect**（原版 `RT_3221` = **88.655 × 88.655**）。</summary>
+        public Vector2 VoiceNodeSizeForTest
+        {
+            get { return _voiceBtn != null && _voiceBtn.Rect != null ? HudCanvas.SizePx(_voiceBtn.Rect) : Vector2.zero; }
+        }
+        /// <summary>自检用：背景关闭区那件（`null` = 没建出来 ⇒ 点空白不会关窗）。</summary>
+        public HudPiece BackgroundClosePieceForTest { get { return _backdrop; } }
+        /// <summary>自检用：背景关闭区上的 `BattleHudButton`（`null` = 没挂上）。</summary>
+        public BattleHudButton BackgroundCloseButtonForTest { get { return _backdropBtn; } }
+        /// <summary>自检用：背景关闭区 `Image.raycastTarget`（原版 `Menu Dark Background` = **1**）。</summary>
+        public bool BackgroundCloseRaycastTargetForTest { get { var im = ImageOf(_backdrop); return im != null && im.raycastTarget; } }
+        /// <summary>🆕 2026-10-20（`T09-FIX3` · P1-3）：有没有「挂起的关闭」还没落（真机由 `LateUpdate` 落）。</summary>
+        public bool ClosePendingForTest { get { return _closePending; } }
+        /// <summary>uGUI 关闭被**请求**了几次（点一次 = 1；`Hide()` 直接调不走这里）。</summary>
+        public int UguiCloseClickCountForTest { get { return _uguiCloseClicks; } }
+        /// <summary>挂起的关闭**真落账**了几次（灭自证：点一次 = 1，⛔ 不是「点了就关」）。</summary>
+        public int UguiCloseAppliedCountForTest { get { return _uguiCloseApplied; } }
+        /// <summary>🆕 `T09-FIX3` P1-3：**批处理**落账口（那里没有帧循环 ⇒ `LateUpdate` 不跑）。</summary>
+        public bool ApplyPendingCloseForTest() { return ApplyPendingClose(); }
+        /// <summary>自检用：背景关闭区是不是**铺满父件**（stretch 锚 + `sizeDelta (0,0)`；原版那块是 4574.6×2572.36）。</summary>
+        public bool BackgroundCloseFillsParentForTest
+        {
+            get
+            {
+                var rt = _backdrop != null ? _backdrop.Rect : null;
+                return rt != null && rt.anchorMin == Vector2.zero && rt.anchorMax == Vector2.one && rt.sizeDelta == Vector2.zero;
+            }
+        }
+        static Image ImageOf(HudPiece p)
+        {
+            return p != null && p.IsUgui && p.Rect != null ? p.Rect.GetComponent<Image>() : null;
+        }
+#endif
     }
 }

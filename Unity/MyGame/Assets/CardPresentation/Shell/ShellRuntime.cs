@@ -114,7 +114,7 @@ namespace CardPresentation
         ///    （**不永久黑屏**）。</para>
         /// <para>⚠️ **批处理/编辑模式**：`LoadingFade` 内部 `!Application.isPlaying ⇒ Complete()`
         /// ⇒ 回调**当场**执行、`LoadScene` 照旧立即切 —— 自检行为不变（且现读两个生产调用点
-        /// `PracticeModePopup.cs:2075` / `LiveOpsEventWindow.cs:1152` 在批处理里**都提前 return**，
+        /// `PracticeModePopup.cs` / `LiveOpsEventWindow.cs` 在批处理里**都提前 return**，
         /// 全仓**没有任何自检**直调本方法）。</para></summary>
         public static void LoadSceneWithFade(string scene)
         {

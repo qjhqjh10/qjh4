@@ -223,7 +223,7 @@ namespace CardPresentation
         /// `d:/2/tools/il2cpp_out/stringliteral.json`（26,507 条 `{value, address}`，`address` 是 **RVA**）——
         /// `address 0x42BFC18` → **`MainMenu/MainButtons/ButtonLabel/Back`**（= `0x1842bfc18 − 0x180000000`）·
         /// `address 0x42532B0` → `SocialMenu/Alliances/Join`（同上一条）。错因 = 当年**没查那张表就断定「远端才有」**。
-        /// ⇒ 现在**照 `LabelJoin` 同款接上词条**（本表 `:379` 早就有这条键：中文「返回」= `zh_CN.csv:5`）。
+        /// ⇒ 现在**照 `LabelJoin` 同款接上词条**（本表 `本文件` 早就有这条键：中文「返回」= `zh_CN.csv:5`）。
         /// 🔑 **可复用的读法**：`_DAT_xxxxxxxx` 常量**别急着判「远端才有」** —— 先拿
         /// `RVA = 地址 − 0x180000000` 去 `stringliteral.json` 查一次（UI 词条名基本都在里面）。</para>
         /// <para>🔴 **为什么做成【属性】而不是 `const`**：理由同 <see cref="LabelJoin"/> —— 它也在
@@ -540,7 +540,7 @@ namespace CardPresentation
             // 🔴 **2026-10-18（第六轮）认过树才接的**（`Text(row, …, "Members:", …, **"Members Header"**, …)`）：
             //   键 = 原版那颗 `Members Header` 的 `Localize.mTerm` 原文 `SocialMenu/Alliances/Members`（3 颗）。
             //   **配对判据（三条一起）**：① 我们的**节点名就是 `"Members Header"`**；② 本文件头那张 A414 表
-            //   （`:100`）早就把这一格标成 `…/{Invitation List Entry,Entry}/Members Header` —— 与原版那颗的
+            //   （`本文件`）早就把这一格标成 `…/{Invitation List Entry,Entry}/Members Header` —— 与原版那颗的
             //   父链 `Members Header < {Entry | Invitation List Entry | Alliance List Entry}` **逐节同名**；
             //   ③ 原版两列行族（`Invitations` / `Open Alliances`）**共用这一条键**，我们也一样（同一条键覆盖两列）。
             //   英文列 = TMP 原文 `Members:`（**带冒号**）；中文列 = `zh_CN.csv:273`「成员」+ 全角冒号。
@@ -552,7 +552,7 @@ namespace CardPresentation
             Text(row, new PxRect(r.x1 + 639.04f, r.y1 + 55.31f + dy, r.x1 + 816.15f, r.y1 + 107.70f + dy),
                  members + "/" + max, Color.white, "Member Count", 50f, L_Text, 18f, alignLeft: false, wrap: true,
                  autoMaxPx: 50f, autoBasePx: 36f);   // A414（表 #8）原版 `auto[18~50] 基准=36.0`
-            // 🔴 **2026-10-18（第六轮）**：同上（节点 = `"Ranking Header"`，判据表 = 本文件头 `:102`）——
+            // 🔴 **2026-10-18（第六轮）**：同上（节点 = `"Ranking Header"`，判据表 = 本文件头 `本文件`）——
             //   键 = `SocialMenu/Alliances/Ranking`（4 颗）。英文列 = TMP 原文 `Ranking:`（带冒号）；
             //   中文列「排名：」**是我们自拟的**（`zh_CN.csv` 里没有 `Ranking` 这个英文串）。
             Text(row, new PxRect(r.x1 + 847.45f, r.y1 + 12.82f + dy, r.x1 + 1024.55f, r.y1 + 49.18f + dy),

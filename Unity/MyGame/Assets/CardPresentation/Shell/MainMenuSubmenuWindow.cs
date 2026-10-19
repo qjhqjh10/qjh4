@@ -48,10 +48,10 @@ namespace CardPresentation
         /// <para>判据 = `bundle_menus_assets_all` 里 **5 扇窗**的 `Tab Buttons` 那颗 `Gradient2` **逐位相同**
         /// （RT `6015769152683513599`(Rewards) · `-5136901115363047300`(Shop) · `-3625937570430197597`(Social) ·
         /// `-1995773233925987627`(Collection) · `6575864103241236067`(Base Submenu)）。
-        /// 与 `ParentEventWindow.cs:179-186` 那份是**同一组 prefab 值**（那边 2026-10-17 已落地）；
+        /// 与 `ParentEventWindow.cs` 那份是**同一组 prefab 值**（那边 2026-10-17 已落地）；
         /// ⚠️ 本批**不许改 `MenuDraw.cs`**（别的代理在用）⇒ 没有提到公共件，两处各留一份、值逐位相同。</para>
         /// <para>🔴 **2026-10-18（T29 · D2）**：左栏底板此前**根本没画这条渐变** ⇒ 整条左栏是一条**均匀亮度的红带**
-        /// （实拍：下沿 y=860 原版 (8,1,2)、我们≈(70,13,21)）。改法照 `ParentEventWindow.cs:492` 的 `MenuDraw.GradientV`。</para></summary>
+        /// （实拍：下沿 y=860 原版 (8,1,2)、我们≈(70,13,21)）。改法照 `ParentEventWindow.cs` 的 `MenuDraw.GradientV` 的 `MenuDraw.GradientV`。</para></summary>
         public static readonly float[] TabGradT = { 0f, 21974f / 65535f, 47995f / 65535f, 1f };
         public static readonly Color[] TabGradC =
         {
@@ -73,7 +73,7 @@ namespace CardPresentation
         /// `m_TargetGraphic` = 子件 **`Icon`**（白、`m_RaycastTarget = 0`）；`m_PressedColor` = 0.7843137 灰
         /// （= 全库默认，见 `WindowButton.PressedK`）· `m_SelectedColor` = 0.9607843 · `m_FadeDuration = 0.1`。
         /// ⚠️ `colorTintOnValueChange = 0` 说的是「**值变化**不改色」，**不是**「没有 ColorTint」——
-        /// 旧注释就是把这句读反了（`Shell/MainMenuSubmenuWindow.cs:663` 那条已就地订正）。</para></summary>
+        /// 旧注释就是把这句读反了（`Shell/MainMenuSubmenuWindow.cs` 那条已就地订正）。</para></summary>
         public static readonly Color TabHoverKey = new Color(0.6084906f, 0.9426194f, 1f, 1f);
 
         /// <summary>`Content Area/Background` 的 `UIGradient`：c1 **#390305** · c2 **#0C0004** · angle **82**（原版坐标系）。
@@ -332,7 +332,7 @@ namespace CardPresentation
         /// —— 本方法此前**一个 autosize 形参都没有** ⇒ 走本层的窗（`CollectionWindow` / `ShopWindow` /
         /// `CampaignTab` …）**不是「忘了传」，是「没地方传」**，只能各自在调用点手工补 `SetAutoFitBox`
         /// （**实读 11 处**，见下面那条 🔴）。形参表与内部接线**照同文件的兄弟方法
-        /// <see cref="TextBox"/>（本文件 `:325`）与 `MenuDraw.TextCore` 抄**，量纲/命中条件逐条对齐：
+        /// <see cref="TextBox"/>（本文件 `本文件`）与 `MenuDraw.TextCore` 抄**，量纲/命中条件逐条对齐：
         /// **`wrapPx &gt; 0` ∧ `autoMinPx &gt; 0` ∧ `fontPx &gt; autoMinPx` 三条全真**才真调
         /// `SetAutoFitBox`（`autoMaxPx &lt;= 0` 时上限退回 `fontPx` = 旧行为）——
         /// ⚠️ **只传 `autoMinPx` 不传 `wrapPx` = 死实参**（判据 = `Shell/MenuDraw.cs` 的 `TextCore`，⛔ 别抄第二份）。
@@ -488,7 +488,7 @@ namespace CardPresentation
         /// <item>`Social Submenu Variant`：TabButtons `-5311503351116210013` → `tabButtonPrefab` = **`0`（null）**，
         /// 两个孩子 `Alliances` / `Friends` 都是真页签 ⇒ 末项也**不是**母版。
         /// 🔴 **2026-10-11 就地订正（铁律 5 · 代理 `G` 现核）**：本行原写「`Shell/SocialWindow.cs` 那一扇**今天还在按旧口径建**
-        /// （传缺省 `true`）」—— **已不成立**：`Shell/SocialWindow.cs:178` 当天已改成 `lastIsMaster: false`（同批 `A1498`）。
+        /// （传缺省 `true`）」—— **已不成立**：`Shell/SocialWindow.cs` 的 `lastIsMaster` 当天已改成 `lastIsMaster: false`（同批 `A1498`）。
         /// 一并改掉的是上面那句「缺省 `true` 逐位保留」：**缺省值已删**（见下）。</item>
         /// </list>
         /// 🔴 **2026-10-11（`A1498` 收口 · 代理 `G` 的建议 ③ 已采纳）：`lastIsMaster` 【没有缺省值】。**
@@ -503,7 +503,7 @@ namespace CardPresentation
             var bar = Node(area, "Tab Buttons", barRect);
             // 底板：`40k_main_tab_background` + 原版那颗 `Gradient2`（竖 · 4 色标 · Override）。
             // 🔴 **2026-10-18（T29 · D2）**：原来只画底图（单块 `Rect`）⇒ 一条均匀红带；实拍是「中段全亮 /
-            //    下沿约 20% 渐到黑 / 上沿压到 0.283 灰」。写法照 `ParentEventWindow.cs:492`（同一组键值）。
+            //    下沿约 20% 渐到黑 / 上沿压到 0.283 灰」。写法照 `ParentEventWindow.cs`（同一组键值）。
             //    ⚠️ `GradientV` 的 `t=0` 在**下**（Unity 顶点 y 向上 ⇒ 本层已翻）—— 键值 0→黑 正对「下沿渐黑」。
             MenuDraw.GradientV(bar, Art(ArtBarBg), barRect, QPanel, "Background", TabGradT, TabGradC);
             // `Shadow`：**宽 0 就不建**（社交窗那条原版自己就是 0 高/0 宽，见 `BarShadowW` 的注释）

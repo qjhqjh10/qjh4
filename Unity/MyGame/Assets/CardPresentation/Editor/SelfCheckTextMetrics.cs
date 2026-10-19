@@ -32,15 +32,37 @@ public static class SelfCheckTextMetrics
     /// <para>⚠️ 量不到（`lb == null` / 点阵后端 / 底下没有 TMP）⇒ **退回旧口** `Label.WorldW/H`
     /// （点阵那条路本来就没有 `textBounds`）—— 与各宿主原来的行为逐字一致，⛔ 不是「静默吞掉新口」。</para>
     /// <para>⚠️ **它只给宽高**：调用方拿它算边缘时，**中心仍是节点位置**（`AlignLeft/Right` 把节点挪走那一档
-    /// 一个字没动）。</para></summary>
+    /// 一个字没动）。</para>
+    /// <para>🆕 **2026-10-20（`A1350` 第一批）**：本体已搬进 <see cref="TryRenderedPx"/>（多给一个
+    /// 「走没走退路」的 `bool`，供 `RewardsScene.LabelRenderedWH` 那条**带 bool 的同族口**转调）；
+    /// 本函数 = 只要宽高的那一版，**行为逐字不变**。</para></summary>
     public static Vector2 RenderedPx(Label lb)
     {
-        if (lb == null) return Vector2.zero;
-        var tmp = lb.GetComponentInChildren<TMPro.TextMeshPro>(true);
-        if (tmp == null) return new Vector2(lb.WorldW * 108f, lb.WorldH * 108f);
+        Vector2 size;
+        TryRenderedPx(lb, out size);
+        return size;
+    }
+
+    /// <summary>🆕 **2026-10-20（`A1350` 第一批）**：量一段文字 **TMP 自己渲出来那块**的像素矩形
+    /// （1920×1080 · 左上原点 · y 向下）。
+    /// <para>🔴 **函数体逐字搬自四份 `TmpRenderedRect`**（`MainMenuScene` / `CollectionScene` /
+    /// `RewardsScene` / `ShopScene` —— 本批机核四份归一化后**逐字相同**）。四份宿主现在只留
+    /// **同名一行转发** ⇒ 全仓这一条量法**唯一一份实现**（文件头那条「别长第 6 份」的同一纪律）。</para>
+    /// <para>⚠️ **契约与那四份逐字一致**：`t` 不在 / 底下没有 TMP ⇒ 返回 `false`、四个 `out` 全 0
+    /// （调用方必须先判它）；取组件带 `true`（含 inactive）；TMP 在、但字是**空串**时 `textBounds`
+    /// 是 TMP 的未定义哨兵（4.29e9）⇒ 那是「量法没生效」，⛔ 别照它改实现。</para>
+    /// <para>⚠️ **量的是世界帧**（`localToWorldMatrix` + `LayoutSpace.PxX/PxY`，**不除**父链缩放）——
+    /// 这是 `TmpRenderedRect` 那一族**有意保留**的口径（`A1350` §一·2 的甲式）；设计帧/尺寸帧那一条
+    /// 是另一笔账（§二·3 `RenderedRectDesign`），⛔ **别在本函数里改**。</para></summary>
+    public static bool RenderedRect(Transform t, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        if (t == null) return false;
+        var tmp = t.GetComponentInChildren<TMPro.TextMeshPro>(true);
+        if (tmp == null) return false;
         var b = tmp.textBounds;                       // 局部空间的行盒（`Bounds`）
         var M = tmp.transform.localToWorldMatrix;
-        float x1 = float.MaxValue, y1 = float.MaxValue, x2 = float.MinValue, y2 = float.MinValue;
+        x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
         for (int c = 0; c < 4; c++)
         {
             var corner = M.MultiplyPoint3x4(new Vector3((c % 2 == 0) ? b.min.x : b.max.x,
@@ -49,7 +71,26 @@ public static class SelfCheckTextMetrics
             x1 = Mathf.Min(x1, px); x2 = Mathf.Max(x2, px);
             y1 = Mathf.Min(y1, py); y2 = Mathf.Max(y2, py);
         }
-        return new Vector2(x2 - x1, y2 - y1);
+        return true;
+    }
+
+    /// <summary>🆕 **2026-10-20（`A1350` 第一批）**：`RenderedPx` 的**带 `bool` 版** —— 返回 `false`
+    /// 表示**这一趟走的是退路**（`lb == null` / 点阵后端 / 底下没有 TMP）。
+    /// <para>契约照 `RewardsScene.LabelRenderedWH`（本批转调这里的那一份）**逐字**：
+    /// `lb == null` ⇒ `size = zero`、`false`；量不到 ⇒ `size = Label.WorldW/H × 108`、`false`；
+    /// 量到 ⇒ `size = 渲出宽高`、`true`。</para></summary>
+    public static bool TryRenderedPx(Label lb, out Vector2 size)
+    {
+        size = Vector2.zero;
+        if (lb == null) return false;
+        float x1, y1, x2, y2;
+        if (RenderedRect(lb.transform, out x1, out y1, out x2, out y2))
+        {
+            size = new Vector2(x2 - x1, y2 - y1);
+            return true;
+        }
+        size = new Vector2(lb.WorldW * 108f, lb.WorldH * 108f);   // 退回旧口（点阵后端 / 底下没有 TMP）
+        return false;                                             // false = **这一趟走的是退路**
     }
 
     /// <summary>一颗 `Label` **写进去的那个框**（TMP 的 `rectTransform.rect`）换到**画布 px**。

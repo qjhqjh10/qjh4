@@ -39,9 +39,15 @@
 //
 //    🔴 **现状（**现读口径 · 2026-10-19**）—— ⚠️ 原来这里那组「官方表有键 266 / 换掉 100 / 逐字相同 127 /
 //       官方没键 245」是 2026-10-14 那一轮的**历史快照**（当时表里条目更少），⛔ 别当现值引用**：
-//      · 本表共 **775 条**（复算：`grep -c 'new Entry(' MyGame/Assets/CardPresentation/Core/Loc.cs`）；
-//      · 其中**官方表 `terms` 里有同名键的 440 条**、官方表没有这个键的 334 条；
-//        其中 **ZH 值仍与官方不同的 45 条**（EN 值不同 6 条）—— 下面「暂缓换回」那一族就在这 45 条里。
+//      · 本表共 **780 条**（复算：`grep -c 'new Entry(' MyGame/Assets/CardPresentation/Core/Loc.cs`
+//        现读 **782** —— 其中 **2 行是注释里引用的这个字样**（本行与下面那行复算说明），实际条目 = **780**；
+//        逐条解析表行（`{ "键", … }` 那种）也是 780）；
+//      · 其中**官方表 `terms` 里有同名键的 446 条**、官方表没有这个键的 334 条；
+//        其中 **ZH 值仍与官方不同的 46 条**（EN 值不同 7 条）—— 下面「暂缓换回」那一族就在这 46 条里。
+//        🔴 **2026-10-19（`W57` 界面线 UI-8）现核订正（铁律 5）**：上一版写「775 / 440 / 45 / 6」——
+//        **四个数全部过期**，现读 **780 / 446 / 46 / 7**（本表后来加过条目，官方键也随之增加）。
+//        复算口径未变：逐条取键比对 `官方本地化_en+zh-CN.json` 的 `terms`（`[0]`=en · `[1]`=zh-CN；
+//        值为**纯字符串**的条目按「en = zh = 该串」比对 —— 那 14 条是语言名等语言中立值）。
 //      · 复算口径：逐条取 `new Entry(` 前的键去
 //        `数据/游戏数据/官方本地化_en+zh-CN.json` 的 `terms[键]`（`[0]`=en · `[1]`=zh-CN）比对；
 //        该表当前 = **10,854 条**（2026 build；见文件自己的 `_count`，⛔ 别再引用 2025-07-30 旧快照的 9,447）。
@@ -80,7 +86,7 @@
 //         （`Español`/`Français`…，那就是原版的做法），⛔ 不再是枚举名）；
 //       · **两列都换的 1 条**（`MenuShop/ExtraLegendaryWarning`）。
 //       ⇒ 换完之后 `Loc` 里「官方有这个键」的 **382 条**（⚠️ **2026-10-14 当时的历史快照**；现值见文件头 →
-//         现读 **440** 条）中，**只剩 33 条 ZH + 1 条 EN 与官方不同**，
+//         现读 **446** 条）中，**只剩 33 条 ZH + 1 条 EN 与官方不同**，
 //         而那 33 条**就是文件头说的那批「暂缓换回」**（`Card_Trait` 25 · `Armies` 4 · `Card_Race` 2
 //         · `MenuDeck/HUD/DeckDescription/Minions`）+ 那条要改调用点的 `MenuDeck/CantImportDeck`。
 //         判据脚本（可复算）：`工具/_loc_official/w4_verify.py`。
@@ -926,9 +932,14 @@ namespace CardPresentation
             // 英文那一列 = **原版 `+600` 那个原始种族串**（也就是我们数据里 `subtype` 的原值）。
             //   🔴 **2026-10-17（`A1951`）就地订正**：原写「原版英文 TMP 文案在远端 I2 表里、本地拿不到」——
             //   官方表 2026-10-14 已在本机（`Card_Race/*` 21 条），本族两列与官方逐字相同。
+            //   🔴 **2026-10-19（`W57` 界面线 UI-8）现读订正**：官方 `Card_Race/*` 现为 **23 条**
+            //   （2026-10-18 并入当前 build 后 +2）；「21 条」是 2026-10-14 旧快照的读数。
+            //   ⚠️ 「本族两列与官方逐字相同」**只对大部分键成立**：现核有 3 条 ZH 不同
+            //   （`Battlesuit` 战甲/战斗服 · `Secret` 隐秘/秘密 · `Codicil` 法典/附则，都是保留下来的旧译）。
             //
             // ⚠️ 下面 43 条 = `RuleEngine/Resources/cards_engine.json` 里**出现过的全部非空 `subtype`**
-            //    （1126 张卡；其中**只有 19 个会真的印到卡面上**、共 722 张 —— 判据 `CardView.SubtypeLine`
+            //    （🔴 2026-10-19 现读：全池 **1,127** 张卡、其中 **1,116** 张有非空 `subtype` —— 原写
+            //     「1126 张卡」已过期。其中**只有 19 个会真的印到卡面上**、共 722 张 —— 判据 `CardView.SubtypeLine`
             //     与 `CardView.TacticSubtypeShown`）。剩下 24 个**现在不印**，列在这里是为了
             //     「哪天白名单长一条，卡面不会突然掉回英文」。⛔ 这张表**不是**「引擎支持的 subtype 列表」。
             // ------------- 会印到卡面上的 19 个（★ = 实拍读到的那 3 个）-------------
@@ -1323,6 +1334,7 @@ namespace CardPresentation
             //   语言表（本地 84 个本地 bundle 里没有 `localization_assets_all`；`assets_full` 全库 `mTerm`
             //   488 条里一条 `Tips/` 都没有）⇒ 只证到键名、没证到值」—— 官方表 2026-10-14 已在本机：
             //   `Tips/*` 22 条、`Tips/Hud/*` 若干条，**本族凡官方表里有的键，两列都与官方逐字相同**
+            //   （🔴 **2026-10-19 现读**：官方 `Tips/*` 现为 **23 条**；「22 条」是 2026-10-14 快照的读数）
             //   （下列各条已逐条核对；官方表里没有的键仍自拟，见各条行尾注）。
             //   · **ZH 列 / EN 列** = 官方两列（原「ZH = `Core/Tooltip.cs` 写死那句、EN 照 ZH 译」的说法作废）。
             //   ✅ **`Tips/Hud/*Count` 原版敌我【各一条键】已照原版拆开**（2026-10-09 · `A1086②`）：
@@ -1621,7 +1633,9 @@ namespace CardPresentation
             { "MenuDeck/Error/WarlordAlreadySet",       new Entry("已经选过战将了（换战将要先把原来的撤掉）", "A warlord is already selected (remove the old one to swap)") },
             { "MenuDeck/Error/DefensiveAlreadySet",     new Entry("已经有防御卡了（不能带两张）", "A defence card is already assigned (only one is allowed)") },
             // 🔴🔴 **2026-10-17（`A1868` + `A1872`）就地订正（铁律 5）**：这一段原来有**两条自造的东西**，现已删除：
-            //   ① `MenuDeck/Error/EffectOnlyCard` —— **原版没有这个键**（官方 `MenuDeck/Error/*` 只有 9 条具名键，
+            //   ① `MenuDeck/Error/EffectOnlyCard` —— **原版没有这个键**（官方 `MenuDeck/Error/*` 现读 **15 条**
+            //      = 13 条具名 + 2 条 `/Short`；原写「只有 9 条具名键」是 2026-10-14 快照的读数，
+            //      🔴 2026-10-19 现核订正（铁律 5）），
             //      见 `数据/游戏数据/官方本地化_en+zh-CN.json` 现读）。按 `A1872` 的对位表它归**原版 catch-all
             //      `InvalidDeck`** ⇒ 原版显示的是「所选卡组无效，请编辑或选择其他卡组。」（⛔ 不是「这是效果卡」）。
             //      ⚠️ **消费侧还差一半**：`RuleEngine/Core/DeckRules.cs` 的 `Describe` 仍拼
@@ -2224,7 +2238,8 @@ namespace CardPresentation
             //     🔴 **2026-10-17 订正**：这条原来举的例子 `MenuDeck/Error/EffectOnlyCard` 已按 `A1868` 删除
             //     ⇒ **例子作废**；同句里的「本表既有 14 条同款」本轮**没复核**（照抄时以调用点原文为准）。
             //
-            //  ---------------------------------------------------------- ⑬·A `Settings/Online/St/*` · 45 条
+            //  ---------------------------------------------------------- ⑬·A `Settings/Online/St/*` · **46 条**
+            //  🔴 2026-10-19 现核订正（铁律 5）：原写「45 条」，现读块内 **46 条**（本块后续有增补）。
             //  出处：`NetSession.cs` `:102/:573` `:133` `:143` `:177` `:181/:354` `:210/:294` `:211/:295` `:256`
             //    `:289` `:311/:315/:319` `:361/:363/:367/:380` `:387/:391` `:405/:478/:420/:424/:454/:464` `:435/:443` `:550`
             //    · `NetTransport.cs` `:420/:422/:424/:425` `:210/:226/:282` `:307/:308/:311/:315/:316/:319/:372/:393` `:176/:182`
@@ -2310,7 +2325,8 @@ namespace CardPresentation
             { "Settings/Online/St/StackDual",               new Entry("（双栈）", "(dual stack)") },
             { "Settings/Online/St/StackV4Only",             new Entry("（仅 IPv4）", "(IPv4 only)") },
 
-            //  ---------------------------------------------------------- ⑬·B `Settings/Online/Lobby/*` · 17 条
+            //  ---------------------------------------------------------- ⑬·B `Settings/Online/Lobby/*` · **19 条**
+            //  🔴 2026-10-19 现核订正（铁律 5）：原写「17 条」，现读块内 **19 条**（与下面「这 19 处」一致）。
             //  出处：`NetMatchmaking.cs` `:197`(+`:198-200`) · `:212`(+`:213-215`) · `:249` · `:233` · `:360/:362/:363`
             //    · `:402-406` · `:427` · `:466-467` · `:502-503` · `:509-510` · `:539-540` · `:587`
             //  ⚠️ 这 19 处里 `PeerLostHint`/`PeerLeftHint` 是**提示行**（尺子 = `Shell/SearchingMatchPopup` 的
@@ -2483,6 +2499,7 @@ namespace CardPresentation
             //     （`Seleccionar Calidad` / `Aumentar tamaño de UI` / `Sobremuestreo` / `Límite de FPS` / `Ilimitado`）。
             //     🔴 **2026-10-17（`A1951`）就地订正**：原写「英文原文在远端 I2 表 ⇒ EN 取我们界面写死的那串、
             //     ⛔ 不是原版原文」—— 官方表已在本地（`Settings/Graphics/*` 14 条），下列各条两列与官方逐字相同。
+            //     🔴 **2026-10-19 现读**：官方 `Settings/Graphics/*` 现为 **17 条**（「14 条」是 2026-10-14 快照读数）。
             //     🔴 **唯一一条例外 = `Settings/Graphics/Vsync`**：原版那颗 TMP 的 `m_text` 就是英文 `VSync`
             //     （本包唯一一条非西语）⇒ 它的 EN 列**是原版原文**。
             //  ⚠️ **⑭·B 的 ZH 列 = `Shell/SettingsWindow.cs` 调用点的原话逐字**（⇒ 接上之后**中文档零变化**）；
@@ -2601,9 +2618,11 @@ namespace CardPresentation
             //   · `Card_Trait/*`：**族 = 原版**（`GameStaticData.TraitNameToString` 拼的就是 `"Card_Trait/" + 枚举名`，
             //     转述见 `资料/普查产出_1018/V-OATH_Oath徽记与记号.md:130-136`；**裸前缀 `Card_Trait/` 在表②**）。
             //     🔴 **2026-10-17（`A1951`）就地订正**：原写「值取不到（原版 I2 词条在远端 CCD；`Card_Trait/`
-            //     在 `assets_full` 全库 0 命中）」—— 官方表已在本地（`Card_Trait/*` 77 条）。⚠️ 我们的值
-            //     **仍是我们自己的写法**：其中 `Card_Trait` 那 25 条属于文件头那批「**暂缓换回**」
-            //     （旧值还出现在卡面 `descZh` 里）⇒ 不是「取不到」。
+            //     在 `assets_full` 全库 0 命中）」—— 官方表已在本地（`Card_Trait/*` 77 条；🔴 **2026-10-19
+            //     现读 = 83 条**，77 是 2026-10-14 快照的读数）。⚠️ 我们的值
+            //     **仍是我们自己的写法**：其中 `Card_Trait` 那 **28** 条属于文件头那批「**暂缓换回**」
+            //     （🔴 2026-10-19 现核：与官方 ZH 不同的 `Card_Trait` 共 28 条、逐条等于换官方前的旧值；
+            //       原写「25 条」已过期；旧值还出现在卡面 `descZh` 里）⇒ 不是「取不到」。
             //   · `Armies/*`：**族 = 原版**（那 14 条 `mTerm` 在表① 全在；`Ember`/`Tide`/`Neutral` 原版无 ⇒ 自拟）。
             //     ⚠️ **载体没核**（普查 §⑦·2）：那 14 颗 `Localize` 挂在**主菜单阵营选择页**，
             //        **不一定是卡面那行阵营字**（卡面那行按 `CardText.cs:459` 的注释来自 `factions.json` 的 `cn`）
@@ -2774,8 +2793,21 @@ namespace CardPresentation
             //       **一个运行期取值点都没有**（`grep '"<键>"' Assets --include=*.cs` 逐条现读）。
             //   ⇒ 本块的口径 = **「值备好」**：键与两列都照官方表逐字录入，⛔ **不是「已接」**
             //     （接线要动上面那些文件，⛔ 不在本笔白名单）。
-            //   ⚠️ 副作用：其中 `ForgeTab.HelpTipBody = " "`（**故意留空**，配一条 `ShownBody.Trim() == ""` 的断言）
-            //     一旦改成读本表，那条断言会红 —— 接线时一起办。
+            //   🔴 **2026-10-19（`W57`·TOOL-6 就地订正，铁律 5）**：本段原文写
+            //     「⚠️ 副作用：其中 `ForgeTab.HelpTipBody = " "`（**故意留空**，配一条 `ShownBody.Trim() == ""` 的断言）
+            //     一旦改成读本表，那条断言会红 —— 接线时一起办」——**已过期**：
+            //     两个属性都已改读本表（`Loc.T` 取官方词条，见下一条 UI-4 订正），
+            //     `Editor/RewardsScene.cs` 那两条「正文空」断言也**同日（`W57`·TOOL-5）改成「非空 + == 官方词条值」**。
+            //   🔴 **2026-10-19（`W57` 界面线 UI-4 · 铁律 5）就地订正**：上面那段**原文**（`HelpTipBody = " "` 那两行）**前半已过期** ——
+            //     · `ForgeTab.HelpTipBody` 自 **2026-10-19（`N73`，UI-3）** 起 = `Loc.T("MainMenu/Forge/Help")`
+            //       （`Shell/ForgeTab.cs:568`，**不再是空格**）；`BoosterInfoPopup.TipBody` 同日同笔 =
+            //       `Loc.T("MenuShop/BoosterInfo/LegendaryTooltip")`（`Shell/BoosterInfoPopup.cs:524`）。
+            //       ⇒ 上面那份「只出现在文档注释里」的 10 条**现为 8 条**（划掉的就是这两个文件的旧行号）。
+            //     · **后半**：`Editor/RewardsScene.cs` 那两条锻造 tooltip 断言（旧行号 `:4412` 的 `Trim() == ""` /
+            //       `:4427` 的「正文为空」）当时本会红 —— 🔴 **2026-10-19（`W57`·TOOL-5）已办**：已改成
+            //       「`Loc.HasEntry` 前提 + 正文非空 + == 官方词条值（测试侧独立取 `Loc.T`，不是同义反复）」。
+            //     其余 8 条（`TutorialModePopup` / `CampaignRewardWindow` / `ForgeData` ×2 / `ItemDrawer` /
+            //     `ReferralPopupWindow` ×2 / `DailyData`）**未核现状**，引用条数一律以现读为准（⛔ 别抄本条）。
             // 判据逐条 → `资料/普查产出_第二十八会话/W4_官方文案族.md`。
             { "Demo/Tutorial",                          new Entry("教程", "Tutorial") },   // 原版 `String.Format(词条, 完成数, 总关数)`
             { "MainMenu/Forge/Help",                    new Entry("在你的收藏中升级张牌，通过每个军队的锻造厂轨迹进行进步并获得大奖。", "Upgrade cards in your Collection to progress through the Forge track for each faction and earn great rewards.") },
@@ -2825,8 +2857,8 @@ namespace CardPresentation
             //   六个变体各自的 `Tap To continue` **逐颗实读、mTerm 全同** —— 一条键、六处共用）。
             // 两列 = 官方本地化表（`d:/4/Unity/数据/游戏数据/官方本地化_en+zh-CN.json` 的
             //   `Demo/Welcome/TapToContinue` = `["Click to continue", "点击以继续"]`，2026-10-17 实读）。
-            // 🔴 **为什么必须进 `Table`**：`Loc.BulkOr` 走的是 `Resources/official_names.json` 那 6 族
-            //   （`Event_Description/*` 等），`Demo/Welcome/*` **不在里面**；而 `Loc.T` 对缺键是「返回键名本身 + 出声」
+            // 🔴 **为什么必须进 `Table`**：`Loc.BulkOr` 走的是 `Resources/official_names.json` 那 **9** 族
+            //   （2026-10-19 现读 = 9 族 / 3,156 条；原文写「6 族」是 `A1803` 时的口径），`Demo/Welcome/*` **不在里面**；而 `Loc.T` 对缺键是「返回键名本身 + 出声」
             //   ⇒ 不补这一条，弹窗底部会**在界面上真的印出 `Demo/Welcome/TapToContinue`**（静默坏掉的样子）。
             // 消费侧 = `Shell/BaseEventPopup.cs` 的 `BuildTexts`（唯一调用点）。
             { "Demo/Welcome/TapToContinue",              new Entry("点击以继续", "Click to continue") },
@@ -3033,11 +3065,18 @@ namespace CardPresentation
         //
         // 🔴 **为什么单开这一层，⛔ 不写进上面那张 `Table`**：下面这几族的键**太多、而且键是数据面的**
         //   （GUID / SO 名，不是手写词条）—— 手写进 `Table` 会把那份文件变成一片 GUID：
-        //     `Titles/*` 368（**键 = 32 位 GUID**）· `Avatars/*` 419 · `Achievements/*` 198 ·
-        //     `Cardbacks/*` 157 · `PrebuiltDecks/*` 74 · `Event_Description/*` 111。
+        //     `Titles/*` **459**（**键 = 32 位 GUID**）· `Avatars/*` **498** · `Achievements/*` **212** ·
+        //     `Cardbacks/*` **181** · `PrebuiltDecks/*` **95** · `Event_Description/*` **144**。
         //     🔴 **2026-10-17（`A2029`）就地订正**：`PrebuiltDecks` 原来写 **97**，现读
         //     `Resources/official_names.json` = **74**（其余五族 368 / 419 / 198 / 157 / 111 逐个复核**全对**；
         //     那一份表共 2,758 条）。行尾数只是注释、零行为。
+        //     🔴 **2026-10-19（`W57` 界面线 UI-8）就地现核订正（铁律 5）**：上面那一组**全部过期** ——
+        //     现读 `Resources/official_names.json` = **3,156 条 / 9 族**（键唯一；文件自己的 `count` 也是 3,156）：
+        //     `Card_Name/*` **1198** · `Avatars/*` **498** · `Titles/*` **459** · `Modular_Description/*` **342** ·
+        //     `Achievements/*` **212** · `Cardbacks/*` **181** · `PrebuiltDecks/*` **95** ·
+        //     `Event_Description/*` **144** · `Card_Trait/*` **27**（合计 3,156）。
+        //     2026-10-17 那组 368 / 419 / 198 / 157 / 74 / 111 与 2,758 是**当时快照**，⛔ 别当现值引用。
+        //     复算 = 按 `entries[].k` 的 `/` 前缀分组计数（`d:/4/Unity/MyGame/Assets/CardPresentation/Resources/official_names.json`）。
         //   ✅ 也⛔ **别让各 `Shell/*Data.cs` 各抄一份** —— 「两处写同一条规则 = 迟早不一致」（工程红线）。
         // 产物 = `Resources/official_names.json`，生成器 = `工具/_loc_official/gen_official_names.py`
         //   （**键 = 原版词条键原样**，拼法逐族写在那个脚本的文件头）。
@@ -3188,10 +3227,11 @@ namespace CardPresentation
         //
         // 数据 = `Resources/lore_zh+en.json`（生成器 `工具/gen_lore.py`，只从官方表**抽取**、不造词）：
         //   · `Warlord_Lore/<卡 id>` —— 键**就是**我们 `cards_engine.json` 的 `id`（样本 `Warlord_Lore/GOF28`）。
-        //     2026-10-17 现读 **1042 条**；覆盖我们卡池 **999 / 1127**（逐类：unit 523/586 · tactic 390/446 ·
-        //     hero 50/56 · defence 36/39）—— 缺的 128 张是**2025-07-30 快照之后**的新卡 ⇒ 按原版「无 lore」处理。
+        //     2026-10-17 写 **1042 条**；🔴 **2026-10-19 现读 = 1,157 条**；覆盖我们卡池 **1,111 / 1,127**
+        //     （逐类：unit 586/586 · tactic 430/446 · hero 56/56 · defence 39/39）—— 缺的 **16** 张全是 tactic
+        //     （id 为 32 位哈希的那批），官方 `Warlord_Lore` 表里没有它们的键 ⇒ 按原版「无 lore」处理。
         //   · `Cosmetic_Lore/<uniqueId>` —— 键 = `Resources/Cardbacks.json` 每条的 `uniqueId`；
-        //     现读 **154 条**，233 张卡背里命中 **138**。✅ **首个消费点 = `Shell/ItemDisplayWindow.ForCardback`**
+        //     现读 **179 条**，233 张卡背里命中 **160**（🔴 2026-10-19 现核；原写「154 条 / 138」已过期）。✅ **首个消费点 = `Shell/ItemDisplayWindow.ForCardback`**
         //     （2026-10-17 界面线 T18/T25：卡背展示窗的 `FlavourTextBG/LoreText`；没有 lore ⇒ 整块关）。
         //     ⚠️ 卡背**格**（收藏页）仍然不显示它（那两格只有图、没有文字位）—— ⛔ 别顺手塞进格子里。
         //
@@ -3324,6 +3364,10 @@ namespace CardPresentation
 
             // 🆕 2026-10-17（`A1812`）：其余 10 种语言 ⇒ 官方 13 语言表**各取各的列**；
             //   中/英档里「`Table` 有键但那一列是空」的条目也从这里兜一下（官方表有就用官方的）。
+            // 🔴 **2026-10-19（`N71` 现核 · 铁律 5）就地订正**：上一行那半句**不成立** —— 下面这个 `if`
+            //   **排除了中/英档**；中/英档在「`Table` 有键但那一列是空」时走**函数末尾的「回退英文」**
+            //   （`e.En`，必要时再 `Lang13Text(英文)`）⇒ **不查官方表的当前语档列**。
+            //   这是 `N80` 的刻意口径（「已有键的返回值逐字节不变」），⛔ 本波不改逻辑，只把注释改准。
             if (cur != AvailableLanguages.Chinese && cur != AvailableLanguages.English)
             {
                 string v13 = Lang13Text(key, cur);
@@ -3367,7 +3411,8 @@ namespace CardPresentation
                     string voff = OfficialCurrent(key);
                     if (!string.IsNullOrEmpty(voff))
                     {
-                        // 中文列是空的那 21 条（13 列各 8–21 条空列）⇒ `OfficialCurrent` 已回退英文列；
+                        // 中文列是空的那 21 条（13 列各 **8–23** 条空列；🔴 2026-10-19 现读，原文「8–21」已过期）
+                        // ⇒ `OfficialCurrent` 已回退英文列；
                         // 这里照旧记一次「回退英文」+ 出声（与 `T()` 对「`Table` 有键但 Zh 空」的记账口径一致）。
                         // 仍空（官方表也没有这条键）⇒ 落到下面的缺键档（返回键名 + 出声，⛔ 不静默）
                         if (cur == AvailableLanguages.Chinese
@@ -3384,7 +3429,8 @@ namespace CardPresentation
                     }
                 }
 
-                // 非中英档：官方表里**有这条键**、只是这一列是空的（13 列各 9,438–9,441/9,447 非空）
+                // 非中英档：官方表里**有这条键**、只是这一列是空的（13 列各 **10,839–10,854 / 10,862** 非空；
+                // 🔴 2026-10-19 现读订正：原文「9,438–9,441/9,447」是 2025-07-30 旧快照的读数）
                 // ⇒ 回退英文（同一条词条的其他列），⛔ **不许把键名印到界面上**
                 if (cur != AvailableLanguages.Chinese && cur != AvailableLanguages.English)
                 {

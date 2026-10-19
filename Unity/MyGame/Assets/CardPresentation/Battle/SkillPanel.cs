@@ -77,11 +77,74 @@
 //    （差 ≤ 0.02 px：残差全部来自 `PanelCvRect` 现算（锚点全精度）与旧那对 2 位小数常量 `PanelPxW/H` 的舍入）。
 //  · ⚠️ **本件没有「整屏压暗层」**（`T09` §八·5 那个选择题在这扇上**不成立**）：原版 `HideAbilityButton`
 //    是一块**远大于面板的透明点击捕获区**，我们等价的语义是「点面板外 ⇒ `ClearSelection()` ⇒ 收起」
-//    （由 `BattleDriver` 那条通用路走，**不在这扇面板里**）⇒ 本扇**零射线件**，`raycastTarget` 一条都不用改。
+//    （由 `BattleDriver` 那条通用路走，**不在这扇面板里**）。
+//    🔴 **2026-10-20（W57 · `T09` 步骤 A3-e）就地订正（铁律 5）**：本行原来写「本扇**零射线件**，
+//    `raycastTarget` 一条都不用改」—— **已过期**：那一天只做到「图与字迁画布」，**输入那一档押后**；
+//    A3-e 已按原版把 `AbilityContainer` + `HideAbilityButton` 两口补上（判据与缺口 → 下一段）。
+//
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//  🔴 **2026-10-20（W57 · 战斗线 `T09` 步骤 A3-e）：输入层换 uGUI**（判据 = 原版 prefab 逐组件现读，
+//   ⛔ 不是照迁移计划抄；⛔ 手搓路一个字没动）
+//
+//  · **原版面板那一级的组件**（`bundle_scenes_scenes_battlearena1` 与 `…arena2` 逐值相同，2026-10-20 现读）：
+//    `ActiveSkillDesc`（GO 673）**只有** `RectTransform`(2911) + `CanvasRenderer`(2218) +
+//    `ActiveSkillDisplay`(4368) —— **零 `Image`、零 `Button`** ⇒ 面板根自己不吃射线。
+//  · **技能点击 / 按住 / 悬停 / 拖拽 = `AbilityContainer` 上的 `Image` + `EventTrigger`**
+//    （GO `AbilityContainer` 组件 3128/2258/**4864**/**5084**）：
+//      · `Image`（`MonoBehaviour_4864`）：`m_RaycastTarget = 1` · `m_RaycastPadding = (0,0,0,0)` ·
+//        `m_Sprite = null`（纯白）· `m_Type = 0`（Simple）· `m_PreserveAspect = 0`
+//      · `EventTrigger`（`MonoBehaviour_5084.m_Delegates`，**5 条，逐条照抄**）：
+//        `eventID 2 PointerDown → ActiveSkillDisplay.ClickDown` ·
+//        `eventID 3 PointerUp   → ClickUp` · `eventID 5 Drag → Drag` ·
+//        `eventID 1 PointerExit → PointerExit` · `eventID 0 PointerEnter → **PointerExit**`（原版就这么接的）
+//      · 反编译语义（`dump.cs` 字段偏移 × `decomp_full` 逐个方法体）：
+//        `ClickDown` → `pressingLight`(0x40) `SetActive(true)` + 播 `AbilityBoxClick`；
+//        `ClickUp` → `OnTouchUpAsButton` → 先熄 `pressingLight`，再 `BattleManager.TryUsingActiveAbility()`
+//        （**面板本体 = 释放技能的那颗钮**）；`Drag` → `OnTouchDrag`（拖到合法目标也走释放）；
+//        `PointerExit` → `pressingLight` `SetActive(false)`。
+//  · **关闭 = `HideAbilityButton` 上的 `Image` + `EventTrigger{ PointerDown → StopDisplayingSkillFromManager }`**
+//    （GO `HideAbilityButton` 组件 2860/**4207**/**4854**）：
+//      · `Image`：`m_RaycastTarget = 1` · pad `(0,0,0,0)` · `m_Color.a = 0` · `m_Type = 1`（Sliced）·
+//        `m_PreserveAspect = 0` · sprite PathID `1660267235368898380`
+//      · `RectTransform`(2860)：`aMin = aMax = (1,0)` · `pivot = (1,0)` · `sd = (3707.830078125, 1985.3199462890625)` ·
+//        `ap = (220.3900146484375, −146.0101776123047)` ⇒ **远大于屏幕的捕获区**（1920×1080 下 x[−1567.4, 2140.4]、
+//        y[−146.0, 1839.3]），**按底右锚定** ⇒ 别的宽高比下仍铺满。
+//      · 反编译：`StopDisplayingSkillFromManager` → `BattleManager.StopDisplayingActiveAbility` →
+//        `ActiveSkillDisplay.FadeOut()` + `CardScript.StopDisplayingActiveAbility()`（= `CardHighlight.ChangeState(0)`）。
+//  · 🔴 **我们这一侧怎么落**（`BuildInput` / `PlaceHideButton` / `SetInputEnabled`）：
+//    `_bg` 挂**同形 `EventTrigger` + 同 5 个 eventID**；新建 `_hideBtn`（全屏透明）+ **同形 PointerDown**。
+//    动作按「谁的状态归谁」拆：**pressingLight 是面板自己的** ⇒ `PointerDown/Up/Enter/Exit` 直接写 `_pressed`；
+//    **释放技能 / 清选择是 `BattleDriver` 的** ⇒ 只发事件（`AbilityPressed/Clicked/Dragged` / `CloseRequested`）。
+//    🔴 **2026-10-20（W57 `T09` WIRE）就地订正**：本行原写「驱动那一侧**没有订阅者**」—— **已过期**：
+//    `BattleDriver.BuildHud` 已订阅 `AbilityClicked→SkillPanelConfirmRelease` /
+//    `AbilityDragged→SkillPanelDragToTarget` / `CloseRequested→OnSkillPanelCloseRequested`。
+//    ⚠️ **关闭那一条是例外**：原版 `FadeOut` 就是面板自己的事 ⇒ `OnHidePointerDown` **当场 `Hide()`**
+//    （+ 发 `CloseRequested` 给驱动补 `ClearSelection`）。同一次物理点击的世界侧那条路仍会
+//    `ClearSelection()`（`BattleDriver` 不经过 EventSystem）⇒ 状态照样收干净。
+//    🔴 **2026-10-20（W57 · `T09-FIX3` · P0-1）**：捕获区按下时**先问宿主** `LeavePointerToWorld(屏幕点)` ——
+//    点在**任何棋盘卡**上（目标 / 自己人 / 非目标 —— `T09-FIX5` 起按原版证据放宽）⇒ **不关面板、不发 `CloseRequested`**，
+//    把这一下留给世界侧；原版等价物 = 棋盘卡自己的 `CardCollider` 先吃掉这一下（判据 → `LeavePointerToWorld` 的 doc）。
+//  · ⚠️ **如实记的三条差异**（⛔ 本波没做、要等驱动侧接线）：
+//    ① **「点面板 = 释放技能」只有事件、没有动作**（原版 `TryUsingActiveAbility`；我们驱动还没订阅 `AbilityClicked`）；
+//    ② **拖拽释放**同理（原版 `OnTouchDrag` → `StartTargetedActiveAbility`）；
+//    ③ **按下音效** `AbilityBoxClick`：本工程音效表里**查不到这个 cue**（`grep -rn AbilityBox` 全仓 0 命中，
+//       `SoundAssetCollection.get_AbilityBoxClick` 的资产也不在本地 91 个包里）⇒ ⛔ 不接、不猜一个近似的。
+//  · ⚠️ **两条结构性差异**（我们保持扁平层级、⛔ 不为此改框/加中间层 —— 那样会动 4 颗自适应字吃的框宽）：
+//    ① 原版 `NameText`/`DescText` 是 `AbilityContainer` 的**子件**（TMP `m_RaycastTarget = 1` ⇒ 点击沿父链冒泡到
+//       容器那颗 `EventTrigger`）；我们三颗字是子画布的**平级子件**（`TmpFont.NewTextUgui` 默认 rt=0）。
+//       等效性：`NameRect`/`DescRect` 的整块都落在 `BgRect` 内（逐格核过）⇒ 点在字上时射线直接落到 `_bg` 上，
+//       **结果相同**（原版靠冒泡、我们靠下落）。
+//    ② 原版 `TargetsAvailableText` 也是 `rt = 1`、但它的父链上**没有任何 handler**（`ActiveSkillDesc` 零组件）
+//       ⇒ 那一小条在原版里是「**吃点击但什么都不做**」。我们为同构把 `_targets` 的 TMP `raycastTarget` 也置 true
+//       （面板收起时必须关掉，见 `SetInputEnabled`）。
+//  · ⚠️ **`Lights` 三层色片原版 `rt = 0`**（逐个核过）⇒ 我们的 `_light` 继续 `raycastTarget = false`，⛔ 别打开
+//    （它盖在字上面，打开会把面板本体的点击全吞掉）。
+// ─────────────────────────────────────────────────────────────────────────────────────────────
 // ═════════════════════════════════════════════════════════════════════════════
 using DG.Tweening;
 using RuleEngine;
 using UnityEngine;
+using UnityEngine.EventSystems;   // 🆕 2026-10-20（`T09` A3-e）：`EventTrigger` / `BaseEventData` / `EventTriggerType`
 
 namespace CardPresentation
 {
@@ -131,6 +194,21 @@ namespace CardPresentation
         /// ⇒ 画在最底下 ✓ —— 与旧那套「`_light` 最靠前、`_bg` 最靠后」逐件一致。
         /// ⛔ **别把它们写进画布件的 `localPosition.z`**（那会把件推离画布平面）。</summary>
         const float ZBg = 0.02f, ZText = 0f, ZLight = -0.02f;
+        /// <summary>🆕 **2026-10-20（`T09` A3-e）：原版 `HideAbilityButton` 那块全屏透明捕获区的兄弟序**。
+        /// **比 `_bg` 再大 0.02** ⇒ 排在它**后面**（`HudCanvas.Group.Add`：z 大的排前面 = 画在**底下**）——
+        /// ⇒ 射线排序上面板本体先收、面板外才轮到捕获区（与原版「`AbilityContainer` 是 `HideAbilityButton`
+        /// 的后置兄弟」同构）。⛔ 别把它调到 `ZBg` 以下 —— 那会让捕获区盖住整块面板、点哪都关窗。</summary>
+        const float ZHideBtn = ZBg + 0.02f;
+
+        // ── 🆕 2026-10-20（`T09` A3-e）：原版 `HideAbilityButton`（`RectTransform_2860` / arena2 `3053`）──
+        //  逐字段现读（`bundle_scenes_scenes_battlearena1` 与 `…arena2` **逐值相同**）：
+        //    `aMin = aMax = (1, 0)` · `pivot = (1, 0)` · `m_AnchoredPosition = (220.3900146484375, −146.0101776123047)`
+        //    `m_SizeDelta = (3707.830078125, 1985.3199462890625)` · `m_LocalScale = (1,1,1)`
+        //  ⇒ 它的**右下角**锚在画布右下角外 220.39 / 下 146.01，矩形向左上铺开 3707.83 × 1985.32。
+        //  ⛔ 别把 `sd` 改成「铺满画布」（`FillParent`）：原版底右锚定 + 固定尺寸在 21:9 / 4:3 下
+        //    都是**覆盖整屏且有余**（1920×1080 时 y 顶到 1839 > 1440），改锚定会改变非 16:9 的覆盖形状。
+        const float HideBtnW = 3707.830078125f, HideBtnH = 1985.3199462890625f;
+        const float HideBtnAnchoredX = 220.3900146484375f, HideBtnAnchoredY = -146.0101776123047f;
 
         /// <summary>本工程 1 世界单位 = 108 px（**世界档那一套尺**）—— 和 `AttackSelector` / `TargetReticle` 同口径。
         /// 🔴 画布档**不用它**（canvas 单位就是设计 px ⇒ 不除 108）—— 见 `BoxW/BoxH` / `MakeLabel`。</summary>
@@ -303,6 +381,56 @@ namespace CardPresentation
         /// ⇒ **它的中心 = 画布中心、局部单位 = 设计 px**（`T09` §五·补③ 一）。</para></summary>
         RectTransform _cv;
 
+        // ── 🆕 2026-10-20（W57 · `T09` 步骤 A3-e）：uGUI 输入层（判据 → 文件头「输入层换 uGUI」那一段）──
+        //  ⚠️ **只有画布档建这一组**（世界档用不了 uGUI 射线 —— 件是 `ImageQuad`，`SetRaycastTarget` 会出声拒绝）。
+        /// <summary>原版 `HideAbilityButton`：一块**远大于屏幕的透明点击捕获区**（`m_Color.a = 0`、`rt = 1`）。
+        /// `null` = 世界档 / 没建起来（见 `BuildInput` 的出声）。</summary>
+        HudPiece _hideBtn;
+        /// <summary>原版 `AbilityContainer` 上那颗 `EventTrigger`（自检 / 诊断用）。</summary>
+        EventTrigger _abilityTrigger;
+        /// <summary>原版 `HideAbilityButton` 上那颗 `EventTrigger`。</summary>
+        EventTrigger _hideBtnTrigger;
+        /// <summary>输入层现在是不是**开着**（跟着显隐走，见 `SetInputEnabled`）。</summary>
+        bool _inputEnabled;
+
+        /// <summary>🆕 **2026-10-20（`T09` A3-e）**：原版 `ClickDown`（按下 `AbilityContainer`）。
+        /// ⚠️ `pressingLight`（蓝层）**已经由本面板自己点亮**（那是面板的视觉状态）；本事件只给宿主
+        /// 做「按下」那一档的副作用（原版还播 `AbilityBoxClick`，本工程没有那个 cue，见文件头差异③）。</summary>
+        public event System.Action AbilityPressed;
+        /// <summary>🆕 **2026-10-20（`T09` A3-e）**：原版 `ClickUp` → `TryUsingActiveAbility`。
+        /// <para>⚠️ **订阅者要做的是「用掉这个技能」**（驱动侧对应 `Resolve(AttackKind.Ability, …)` 那条链）。
+        /// 🔴 **2026-10-20（`T09` WIRE）就地订正**：本行原写「本轮没有订阅者」—— **已过期**：
+        /// 驱动已订阅成 `SkillPanelConfirmRelease`（只亮 acting 层、**不结算**；释放仍发生在「点目标」那一下）。</para></summary>
+        public event System.Action AbilityClicked;
+        /// <summary>🆕 **2026-10-20（`T09` A3-e）**：原版 `Drag` → `OnTouchDrag`（拖到合法目标也释放技能）。
+        /// 🔴 **2026-10-20（`T09` WIRE）就地订正**：本行原写「没有订阅者」—— **已过期**：
+        /// 驱动已订阅成 `SkillPanelDragToTarget`（重进选目标，**幂等、不结算**）。</summary>
+        public event System.Action AbilityDragged;
+        /// <summary>🆕 **2026-10-20（`T09` A3-e）**：原版 `HideAbilityButton` 的 `PointerDown` →
+        /// `StopDisplayingSkillFromManager`。本面板**已经在 `PointerDown` 那一下 `Hide()`**（= 原版 `FadeOut`）；
+        /// 本事件给宿主补另一半 —— `CardScript.StopDisplayingActiveAbility()` 的等价物 = `ClearSelection()`
+        /// 里那几行（单位高亮 / 选择器 / 准星）。
+        /// <para>🔴 **2026-10-20（`T09` WIRE / `T09-FIX3`）就地订正**：本行原写「本轮没有订阅者」—— **已过期**：
+        /// 驱动已订阅成 `OnSkillPanelCloseRequested`（`ClearSelection`）。⚠️ **点任何棋盘卡那一下都不会发本事件**
+        /// （P0-1 / `T09-FIX5`：`LeavePointerToWorld` 对任何棋盘卡放行 ⇒ `OnHidePointerDown` 直接 return）。</para></summary>
+        public event System.Action CloseRequested;
+
+        /// <summary>🔴 **2026-10-20（W57 · 战斗线 `T09-FIX5` · P0-1）：捕获区这一下**该不该让给世界侧**。
+        /// <para>入参 = 屏幕点（`PointerEventData.position`）；返回 **true** ⇒ 这一下**不关面板**，
+        /// 留给棋盘那条世界射线。`null`（没人登记）= 退回原行为「点哪都关」。</para>
+        /// <para>🔑 **判据是「任何一张棋盘卡」，不是「目标侧那张」**（`T09-FIX3` 的「只放行目标侧」在这里修）：
+        /// 原版棋盘卡自带 `CardCollider`（`IPointerDownHandler` / `IPointerClickHandler`），点**任何**一张
+        /// 都先被那张卡吃掉；点亮目标时原版**只改高亮、不关非目标卡的 collider**
+        /// （`BattleManager__ShowPotentialTargets.c` / `__StartChoosingAbilityTargetByClick.c`）⇒
+        /// 点自己人 / 非目标也不会关面板。判据 → `资料/普查产出_1019/W57_战斗线_T09_审查.md` §三·1。</para>
+        /// <para>🔴 **为什么需要它**：本面板那块 `HideAbilityButton` 是**远大于屏幕**的透明捕获区，
+        /// 而我们的棋盘卡**仍是 3D 网格**（没有 uGUI 射线靶）⇒ `EventSystem` 整屏唯一能命中的就是它。
+        /// 原版不会这样：原版棋盘卡自带 `CardCollider`
+        /// + 相机上挂着 `EverguildPhysics2DRaycaster`（`Physics2DRaycaster` 子类，13/13 战场都有）
+        /// ⇒ 点棋盘卡那一下**先被卡吃掉**（`CardCollider.OnPointerClick → CardScript.OnTouchUpAsButton`），
+        /// 捕获区收不到。我们这一侧由驱动登记「这个屏幕点是不是落在棋盘卡上」把等价性补回来。</para></summary>
+        public System.Func<Vector2, bool> LeavePointerToWorld;
+
         /// <summary>本面板那块子画布的名字（= 原版宿主名 + `" Canvas"`，见 `T09` §五·补⑩ 第 1 步）。
         /// 判据 = `T09c` §一 我这一行：`ActiveSkillDesc` @ `…/Safe area FrontCanvas`，
         /// **`OverHand` / order 0 / 兄弟序 1/14**。⛔ **只此一份**（建它、自检找它都取这里）。</summary>
@@ -375,8 +503,13 @@ namespace CardPresentation
             KillGo(_cost != null ? _cost.gameObject : null);
             KillGo(_desc != null ? _desc.gameObject : null);
             KillGo(_targets != null ? _targets.gameObject : null);
+            // 🆕 2026-10-20（`T09` A3-e）：输入层那两件也要拆（否则换档之后盘着一块**旧画布**的捕获区）
+            KillGo(_hideBtn != null ? _hideBtn.gameObject : null);
             _bg = _light = _manaIcon = null;
             _name = _cost = _desc = _targets = null;
+            _hideBtn = null;
+            _abilityTrigger = _hideBtnTrigger = null;   // 它们是挂在上面那些 GO 上的，随 GO 一起销毁
+            _inputEnabled = false;
             if (_fade != null) { _fade.Kill(); _fade = null; }
             _pressed = _acting = false;
             ShownName = null;
@@ -515,6 +648,10 @@ namespace CardPresentation
             if (_manaIcon == null)
                 Debug.LogWarning("[Battle] 技能面板：费用图标那张图 `UI_Energy_Eldar` 取不到"
                                + " ⇒ 那一格**不画**（照旧出声，不静默；⛔ 也不为此退回世界空间 quad）");
+
+            // 🆕 2026-10-20（`T09` A3-e）：输入层（原版 `AbilityContainer` + `HideAbilityButton` 两口）。
+            //   ⚠️ 必须排在件建完之后（它要用 `_bg` / `_targets`）；显隐由 `SetInputEnabled` 跟着走。
+            BuildInput();
         }
 
         /// <summary>画布档建一块**纯色/贴图**件（尺寸随后由 `RefreshLayout` 的 `PlaceQuad` 写 ——
@@ -524,6 +661,225 @@ namespace CardPresentation
             if (tex == null) return null;
             // 出厂尺寸 = 贴图本身那一档（立刻会被 `PlaceQuad` 按面板内矩形覆盖）
             return HudCanvas.MakeImageInParent(_cv, tex, name, 0f, 0f, tex.width, tex.height, z, Color.white);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-20（W57 · `T09` 步骤 A3-e）：uGUI 输入层
+        //  判据逐条 → 文件头「输入层换 uGUI」那一段（原版 `MB_4864` / `MB_5084` / `MB_4207` / `MB_4854`）。
+        //  ⛔ 只发事件、不做宿主那一半动作（释放技能 / 清选择归 `BattleDriver`）；
+        //     **例外** = 捕获区按下那一下的 `Hide()`（原版 `FadeOut` 本来就是面板自己的事）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        // 自检计数（灭自证：uGUI 各事件来一次 = 1；世界侧那条手搓路**不经过这里**）
+        int _downCount, _upCount, _enterCount, _exitCount, _dragCount, _closeDownCount;
+        /// <summary>🆕 2026-10-20（`T09-FIX3` · P0-1）：捕获区按下后被**让给世界侧**（没关面板）的次数。
+        /// 与 `_closeDownCount` 配对 = 「来了几下 / 其中几下落给了目标射线」。</summary>
+        int _closePassCount;
+
+        /// <summary>建输入层（**只在画布档**；`BuildCanvas` 的最后一句调它）。</summary>
+        void BuildInput()
+        {
+            if (_cv == null) return;                       // 世界档：没有 uGUI 件，整段不适用
+
+            // ① 技能本体：原版 `AbilityContainer` = `Image(rt=1, pad=0)` + `EventTrigger`（5 条）
+            _abilityTrigger = AttachSkillTrigger(_bg, "AbilityContainer");
+            if (_abilityTrigger == null)
+                Debug.LogError("[Battle] 技能面板：`AbilityContainer` 挂不上 `EventTrigger`"
+                             + " ⇒ **点面板放不了技能 / 按压不亮灯**（不静默）");
+
+            // ② 关闭捕获区：原版 `HideAbilityButton` —— 全屏、透明、`rt=1`、pad 0
+            _hideBtn = HudCanvas.MakeImageInParent(_cv, Solid(), "HideAbilityButton",
+                                                   0f, 0f, 1f, 1f, ZHideBtn, new Color(1f, 1f, 1f, 0f));
+            if (_hideBtn == null)
+            {
+                Debug.LogError("[Battle] 技能面板：`HideAbilityButton`（全屏捕获区）没建起来"
+                             + " ⇒ **点面板外关不掉技能面板**（不静默）");
+            }
+            else
+            {
+                _hideBtnTrigger = AttachHideTrigger(_hideBtn);
+                if (_hideBtnTrigger == null)
+                    Debug.LogError("[Battle] 技能面板：`HideAbilityButton` 挂不上 `EventTrigger`"
+                                 + " ⇒ **点面板外关不掉技能面板**（不静默）");
+            }
+
+            // ③ 原版 `TargetsAvailableText` 的 TMP 是 `rt = 1`（父链上无 handler ⇒ 那一小条**吃点击但什么都不做**）。
+            //    我们保持同构：目标数那一行也吃射线（收起时由 `SetInputEnabled(false)` 关掉）。
+            if (_targets != null && !SetLabelRaycast(_targets, true))
+                Debug.LogError("[Battle] 技能面板：`TargetsAvailableText` 的 `raycastTarget` 置不上"
+                             + " ⇒ 与原版不同构（那条会漏到捕获区）");
+
+            // 刚建出来时射线是**开**的（`AttachSkillTrigger` 已把它置 true）⇒ 记账要跟上。
+            // ⚠️ 别省这一句：`Build()` 的收尾 `HideImmediate()` 靠它把整组关掉；账不对会**跳过关闭**
+            //    （`SetInputEnabled` 的幂等短路）⇒ 一块看不见的全屏捕获区从第一帧起就吃点击。
+            _inputEnabled = true;
+        }
+
+        /// <summary>原版 `AbilityContainer` 的五条 `EventTrigger`（`MonoBehaviour_5084.m_Delegates`）——
+        /// **事件号逐条照抄**。⚠️ `PointerEnter(0)` 原版接的也是 `PointerExit`（同一个方法）—— 照抄，
+        /// ⛔ 别「修」成空实现（那会让按下后滑出再滑回时蓝层不熄）。</summary>
+        EventTrigger AttachSkillTrigger(HudPiece piece, string originalNode)
+        {
+            if (piece == null) return null;
+            if (!piece.SetRaycastTarget(true)) return null;              // 世界空间件会在那边出声
+            if (!piece.SetRaycastPadding(0f, 0f, 0f, 0f))
+                Debug.LogError("[Battle] 技能面板：`" + originalNode + "` 的 `raycastPadding` 没写成（件不是 uGUI？）");
+            var et = GetOrAddTrigger(piece.gameObject);
+            if (et == null) return null;
+            AddTrigger(et, EventTriggerType.PointerDown, OnSkillPointerDown);
+            AddTrigger(et, EventTriggerType.PointerUp, OnSkillPointerUp);
+            AddTrigger(et, EventTriggerType.Drag, OnSkillDrag);
+            AddTrigger(et, EventTriggerType.PointerExit, OnSkillPointerExit);
+            AddTrigger(et, EventTriggerType.PointerEnter, OnSkillPointerEnter);
+            return et;
+        }
+
+        /// <summary>原版 `HideAbilityButton` 的那一条 `EventTrigger{ PointerDown }`（`MB_4854`）。</summary>
+        EventTrigger AttachHideTrigger(HudPiece piece)
+        {
+            if (piece == null) return null;
+            if (!piece.SetRaycastTarget(true)) return null;
+            if (!piece.SetRaycastPadding(0f, 0f, 0f, 0f))
+                Debug.LogError("[Battle] 技能面板：`HideAbilityButton` 的 `raycastPadding` 没写成（件不是 uGUI？）");
+            var et = GetOrAddTrigger(piece.gameObject);
+            if (et == null) return null;
+            AddTrigger(et, EventTriggerType.PointerDown, OnHidePointerDown);
+            return et;
+        }
+
+        static EventTrigger GetOrAddTrigger(GameObject go)
+        {
+            if (go == null) return null;
+            var et = go.GetComponent<EventTrigger>();
+            if (et == null) et = go.AddComponent<EventTrigger>();
+            return et;
+        }
+
+        /// <summary>挂一条 `EventTrigger.Entry`（原版序列化里就是 `m_Delegates[]` 的 `eventID` + 持久回调）。</summary>
+        static void AddTrigger(EventTrigger et, EventTriggerType type,
+                               UnityEngine.Events.UnityAction<BaseEventData> action)
+        {
+            var e = new EventTrigger.Entry { eventID = type };
+            e.callback.AddListener(action);
+            et.triggers.Add(e);
+        }
+
+        /// <summary>原版 `ClickDown`：`pressingLight`(0x40) 亮 + 播 `AbilityBoxClick`。
+        /// 我们只做**亮灯**（音效 cue 本地没有，见文件头差异③）+ 发事件。</summary>
+        void OnSkillPointerDown(BaseEventData _)
+        {
+            _downCount++;
+            if (!Visible) return;                     // 原版 `ClickDown` 先查 `beingDisplayed`
+            if (!_pressed) { _pressed = true; ApplyColors(); }
+            if (AbilityPressed != null) AbilityPressed();
+        }
+
+        /// <summary>原版 `ClickUp` → `OnTouchUpAsButton`：**先熄 `pressingLight`**，再 `TryUsingActiveAbility`。
+        /// 我们熄灯 + 发事件（「释放」是宿主的事，见 `AbilityClicked` 的 doc）。</summary>
+        void OnSkillPointerUp(BaseEventData _)
+        {
+            _upCount++;
+            if (!Visible) return;
+            ExtinguishPressed();
+            if (AbilityClicked != null) AbilityClicked();
+        }
+
+        /// <summary>原版 `PointerExit`（`eventID 1`）：熄 `pressingLight`。</summary>
+        void OnSkillPointerExit(BaseEventData _) { _exitCount++; if (Visible) ExtinguishPressed(); }
+
+        /// <summary>原版 `PointerEnter`（`eventID 0`）接的**也是** `PointerExit` ⇒ 同样熄灯（逐条照抄）。</summary>
+        void OnSkillPointerEnter(BaseEventData _) { _enterCount++; if (Visible) ExtinguishPressed(); }
+
+        void ExtinguishPressed()
+        {
+            if (!_pressed) return;
+            _pressed = false;
+            ApplyColors();
+        }
+
+        /// <summary>原版 `Drag` → `OnTouchDrag`（拖到合法目标也走释放）。同 `AbilityClicked`：只发事件。</summary>
+        void OnSkillDrag(BaseEventData _)
+        {
+            _dragCount++;
+            if (!Visible) return;
+            ExtinguishPressed();
+            if (AbilityDragged != null) AbilityDragged();
+        }
+
+        /// <summary>原版 `HideAbilityButton` 的 `PointerDown` → `StopDisplayingSkillFromManager`：
+        /// `ActiveSkillDisplay.FadeOut()`（面板自己收）+ `CardScript.StopDisplayingActiveAbility()`
+        /// （宿主那半 = `ClearSelection()`；驱动已订阅 `CloseRequested`，见那个事件的 doc）。
+        /// <para>🔴 **2026-10-20（W57 · `T09-FIX5` · P0-1）：先问「这一下是不是落在任何一张棋盘卡上」。**
+        /// 是（目标 / 自己人 / 非目标都算）⇒ **不关面板、不发 `CloseRequested`**，把这一下留给世界侧
+        /// （原版是卡自己的 `CardCollider.OnPointerClick` 先吃掉这一下 —— 判据见 `LeavePointerToWorld` 的 doc）。
+        /// 不关的话，目标型主动技能在真机上**每一次点目标都会先把面板关掉**、松手那一帧
+        /// `_selectedSlot` 已 −1 ⇒ 技能永远放不出来。</para></summary>
+        void OnHidePointerDown(BaseEventData data)
+        {
+            _closeDownCount++;
+            if (!Visible) return;
+            var ped = data as PointerEventData;
+            if (ped != null && LeavePointerToWorld != null && LeavePointerToWorld(ped.position))
+            {
+                _closePassCount++;
+                return;                    // 🔴 P0-1：这一下归世界侧（点目标 / 释放技能），面板不关
+            }
+            Hide();                                   // 原版 `FadeOut`
+            if (CloseRequested != null) CloseRequested();
+        }
+
+        /// <summary>把捕获区按**原版 `RT_2860` 的锚点五元组**摆进当前画布（每次 `RefreshLayout` 重跑）。
+        /// <para>算式：`anchorMin = anchorMax = (1,0)`、`pivot = (1,0)` ⇒
+        /// `rect.xMax = 画布宽 + apX`、`rect.yMin = apY`（= −146.01）、`size = sd`。
+        /// 本工程的画布件用**中心锚**（`MakeImageInParent`）⇒ 换成「相对画布中心」：
+        /// `cx = (rect.xMax − sd.x/2) − 画布宽/2`、`cy = (rect.yMin + sd.y/2) − 画布高/2`。</para>
+        /// <para>⚠️ 用 `CanvasPx`（= `PanelCvRect` 同一个「现算画布尺寸」口）⇒ 非 16:9 下也跟着画布走。</para></summary>
+        void PlaceHideButton()
+        {
+            if (_hideBtn == null || !UguiMode || _hideBtn.Rect == null) return;
+            var c = CanvasPx;
+            float cx = (c.x + HideBtnAnchoredX - HideBtnW * 0.5f) - c.x * 0.5f;
+            float cy = (HideBtnAnchoredY + HideBtnH * 0.5f) - c.y * 0.5f;
+            var rt = _hideBtn.Rect;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);   // 中心锚（见 doc）
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(HideBtnW, HideBtnH);
+            rt.anchoredPosition = new Vector2(cx, cy);
+        }
+
+        /// <summary>输入层跟着显隐开关（**必须**：我们的件收起时**不 `SetActive(false)`**，只把 alpha 压到 0
+        /// —— 见 `HideImmediate` 那段踩坑记录）。不关的话，一块**看不见**的全屏捕获区会一直吃点击
+        /// （`Graphic.raycastTarget` 不看 alpha）。
+        /// <para>原版同构：`FadeOut` / `InitialSetup` 把 `hideSkillBtn` `SetActive(false)`、
+        /// `FadeIn` 再 `SetActive(true)`（`ActiveSkillDisplay__FadeIn.c:15-18`）。</para></summary>
+        void SetInputEnabled(bool on)
+        {
+            if (!UguiMode) return;                    // 世界档没有射线件（`SetRaycastTarget` 会出声拒绝）
+            if (_inputEnabled == on) return;
+            _inputEnabled = on;
+            if (_bg != null) _bg.SetRaycastTarget(on);
+            if (_targets != null) SetLabelRaycast(_targets, on);
+            if (_hideBtn != null && _hideBtn.gameObject != null) _hideBtn.gameObject.SetActive(on);
+        }
+
+        /// <summary>给一颗 `Label` 的 TMP 写 `raycastTarget`（`Label` 自己没有这个口 ——
+        /// `TmpFont.NewTextUgui` 建出来默认 **false**）。
+        /// <para>⚠️ **TMP 不在 `Label` 自己的 GO 上**：`Label.BuildTmp()` 把它建在**子节点 `text`**
+        /// （`TmpFont.NewTextUgui` 是 `new GameObject(...)` 再 `SetParent`）⇒ 必须 `GetComponentInChildren`。
+        /// 拿 `l.GetComponent<Graphic>()` 会永远 null（静默差一个件）。返回 false = 找不到那个 TMP。</para></summary>
+        static bool SetLabelRaycast(Label l, bool on)
+        {
+            var g = LabelGraphic(l);
+            if (g == null) return false;
+            g.raycastTarget = on;
+            return true;
+        }
+
+        /// <summary>`Label` 底下那颗 TMP 的 `Graphic`（见 `SetLabelRaycast` 的 doc）。没有 ⇒ `null`。</summary>
+        static UnityEngine.UI.Graphic LabelGraphic(Label l)
+        {
+            if (l == null || l.transform == null) return null;
+            return l.transform.GetComponentInChildren<UnityEngine.UI.Graphic>(true);
         }
 
         /// <summary>建一颗字。两档的字号**数不同**（世界档 = px ÷ 108、画布档 = px）——
@@ -658,6 +1014,8 @@ namespace CardPresentation
             //    （连调两次 `RefreshLayout` ⇒ 四颗的 `FontPxNow` 逐位不变）。
 
             PlaceManaIcon();
+            // 🆕 2026-10-20（`T09` A3-e）：全屏捕获区也跟着画布尺寸走（原版底右锚定 + 固定 sd）
+            PlaceHideButton();
             ApplyColors();
         }
 
@@ -965,6 +1323,8 @@ namespace CardPresentation
             if (_cost != null) _cost.SetText("0");
 
             Visible = true;
+            // 🆕 2026-10-20（`T09` A3-e）：原版 `FadeIn` 会在显示时把捕获区 `SetActive(true)` —— 同构
+            SetInputEnabled(true);
             RefreshLayout();
             FadeTo(1f);
         }
@@ -1035,6 +1395,9 @@ namespace CardPresentation
             if (!Visible && Alpha <= 0f) { HideImmediate(); return; }
             Visible = false;
             ShownName = null;
+            // 🆕 2026-10-20（`T09` A3-e）：原版 `FadeOut` 一进来就把捕获区 `SetActive(false)`（`FadeOut.c` 0x20），
+            //   而且 `beingDisplayed = false` ⇒ 淡出期间的点击**不算**。同构：这里就把输入层整组关掉。
+            SetInputEnabled(false);
             FadeTo(0f);
         }
 
@@ -1049,6 +1412,8 @@ namespace CardPresentation
         void HideImmediate()
         {
             Visible = false;
+            // 🆕 2026-10-20（`T09` A3-e）：收起 = 射线全关（件仍然 active，见上面那段踩坑记录）
+            SetInputEnabled(false);
             ShownName = null;
             ShownTargets = 0;
             _pressed = _acting = false;
@@ -1147,5 +1512,122 @@ namespace CardPresentation
                  + " [" + l.DumpSizes() + "]"
                  + " active=" + l.gameObject.activeInHierarchy + "/" + l.gameObject.activeSelf;
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-20（W57 · `T09` 步骤 A3-e）：**Editor-only 只读探针**
+        //  只读：不改状态、不派事件。播放器构建里**不存在**这些成员（`#if` 包住）⇒ 零运行时开销。
+        //  ⚠️ 断言写在 `Editor/BattleScene.cs`（本波口径 = **只做不验** ⇒ 本件不写断言）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+#if UNITY_EDITOR
+        /// <summary>输入层是不是**整组装好**了（画布档：容器 EventTrigger 5 条 + 捕获区 + 捕获区 EventTrigger）。
+        /// 世界档 ⇒ `false`（那一档本来就不该有射线件）。</summary>
+        public bool UguiInputReadyForTest
+        {
+            get
+            {
+                if (!UguiMode || _abilityTrigger == null || _hideBtn == null || _hideBtnTrigger == null) return false;
+                return _abilityTrigger.triggers.Count == 5 && _hideBtnTrigger.triggers.Count == 1;
+            }
+        }
+
+        /// <summary>输入层现在开着吗（跟着显隐走；收起时应为 `false`）。</summary>
+        public bool InputEnabledForTest { get { return _inputEnabled; } }
+
+        /// <summary>原版 `AbilityContainer` 上那颗 `EventTrigger`（`null` = 没建 / 世界档）。</summary>
+        public EventTrigger AbilityTriggerForTest { get { return _abilityTrigger; } }
+        /// <summary>原版 `HideAbilityButton` 上那颗 `EventTrigger`（`null` = 没建 / 世界档）。</summary>
+        public EventTrigger HideButtonTriggerForTest { get { return _hideBtnTrigger; } }
+        /// <summary>原版 `HideAbilityButton` 那一件（`null` = 世界档 / 没建起来）。</summary>
+        public HudPiece HideButtonForTest { get { return _hideBtn; } }
+
+        /// <summary>`AbilityContainer` 吃不吃射线。**原版判据 = `MB_4864.m_RaycastTarget = 1`** ⇒ 开着时应 `true`。</summary>
+        public bool AbilityRaycastTargetForTest { get { return GraphicRaycastTarget(_bg); } }
+        /// <summary>捕获区吃不吃射线。**原版判据 = `MB_4207.m_RaycastTarget = 1`** ⇒ 开着时应 `true`。</summary>
+        public bool HideButtonRaycastTargetForTest { get { return GraphicRaycastTarget(_hideBtn); } }
+        /// <summary>`TargetsAvailableText` 的 TMP 吃不吃射线（原版 `rt = 1`；收起时应 `false`）。
+        /// ⚠️ TMP 在 `Label` 的**子节点**上（见 `SetLabelRaycast` 的 doc）。</summary>
+        public bool TargetsRaycastTargetForTest
+        {
+            get
+            {
+                var g = LabelGraphic(_targets);
+                return g != null && g.raycastTarget;
+            }
+        }
+
+        /// <summary>`AbilityContainer` 的 `raycastPadding`（L,B,R,T；原版 `(0,0,0,0)`）。没有那件 ⇒ 四个 `NaN`。</summary>
+        public Vector4 AbilityRaycastPaddingForTest { get { return GraphicRaycastPadding(_bg); } }
+        /// <summary>捕获区的 `raycastPadding`（原版 `(0,0,0,0)`；没有那件 ⇒ 四个 `NaN`）。</summary>
+        public Vector4 HideButtonRaycastPaddingForTest { get { return GraphicRaycastPadding(_hideBtn); } }
+
+        /// <summary>捕获区**实读的矩形**（`RectTransform.rect`；原版 `sd` = 3707.8301 × 1985.3199，
+        /// 任何画布尺寸下都不变 —— 变的是它相对画布中心的位置）。没有那件 ⇒ `(NaN,NaN,NaN,NaN)`。</summary>
+        public Rect HideButtonRectForTest
+        {
+            get
+            {
+                if (_hideBtn == null || _hideBtn.Rect == null) return new Rect(float.NaN, float.NaN, float.NaN, float.NaN);
+                return _hideBtn.Rect.rect;
+            }
+        }
+
+        /// <summary>捕获区**相对画布中心**的 `anchoredPosition`（原版底右锚 + `ap` 换算出来的那一格）。</summary>
+        public Vector2 HideButtonAnchoredPosForTest
+        {
+            get
+            {
+                var rt = _hideBtn != null ? _hideBtn.Rect : null;
+                return rt != null ? rt.anchoredPosition : new Vector2(float.NaN, float.NaN);
+            }
+        }
+
+        /// <summary>uGUI 各事件的到达次数（灭自证：喂一次 uGUI = 1；世界侧手搓路**不经过这里**）。</summary>
+        public int SkillPointerDownCountForTest { get { return _downCount; } }
+        /// <inheritdoc cref="SkillPointerDownCountForTest"/>
+        public int SkillPointerUpCountForTest { get { return _upCount; } }
+        /// <inheritdoc cref="SkillPointerDownCountForTest"/>
+        public int SkillPointerEnterCountForTest { get { return _enterCount; } }
+        /// <inheritdoc cref="SkillPointerDownCountForTest"/>
+        public int SkillPointerExitCountForTest { get { return _exitCount; } }
+        /// <inheritdoc cref="SkillPointerDownCountForTest"/>
+        public int SkillDragCountForTest { get { return _dragCount; } }
+        /// <inheritdoc cref="SkillPointerDownCountForTest"/>
+        public int HidePointerDownCountForTest { get { return _closeDownCount; } }
+        /// <summary>🆕 2026-10-20（`T09-FIX3` · P0-1）：捕获区按下后被**让给世界侧**的次数
+        /// （= 点在棋盘卡上的那一下；与 `HidePointerDownCountForTest` 配对，证明「这一下没关面板」）。</summary>
+        public int HidePointerPassCountForTest { get { return _closePassCount; } }
+
+        /// <summary>🆕 2026-10-20（`T09-FIX3` · P0-1）：宿主有没有登记「让给世界侧」的判据。</summary>
+        public bool LeavePointerToWorldWiredForTest { get { return LeavePointerToWorld != null; } }
+
+        /// <summary>🆕 2026-10-20（`T09-FIX3` · P0-1）：**自检用** —— 喂一次捕获区的 `PointerDown`
+        /// （屏幕点，与 `EventSystem` 派发时同一个字段）。返回 **true = 这一下把面板关掉了**。
+        /// <para>⚠️ 走的是**真 handler**（`OnHidePointerDown`）⇒ 与生产同一条判据；
+        /// ⛔ 别在自检里另写一份「是不是目标」的判定（那就是自证）。</para></summary>
+        public bool SimulateHidePointerDownForTest(Vector2 screenPoint)
+        {
+            bool wasVisible = Visible;
+            var ped = new PointerEventData(EventSystem.current);
+            ped.position = screenPoint;
+            OnHidePointerDown(ped);
+            return wasVisible && !Visible;
+        }
+
+        static bool GraphicRaycastTarget(HudPiece p)
+        {
+            var g = GraphicOf(p);
+            return g != null && g.raycastTarget;
+        }
+        static Vector4 GraphicRaycastPadding(HudPiece p)
+        {
+            var g = GraphicOf(p);
+            return g != null ? g.raycastPadding : new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+        }
+        static UnityEngine.UI.Graphic GraphicOf(HudPiece p)
+        {
+            if (p == null || p.Rect == null) return null;
+            return p.Rect.GetComponent<UnityEngine.UI.Graphic>();
+        }
+#endif
     }
 }

@@ -490,7 +490,7 @@ namespace CardPresentation
         /// （`MenuDraw.ShadeRuleOk(darkHit, darkVisual, qContentMin, out why)` 的 `darkHit`；断言入口 =
         /// `MenuDraw.CheckShadeRule`。⚠️ **2026-10-08（A221③）签名订正**：原写第二参 `qShade`（调用方传的常量），
         /// A77⑬③ 起已换成**视觉压暗层** `darkVisual` —— 量的是那颗 quad 的 `RenderQueue`，不是传进来的常量）。
-        /// ⚠️ 它是 `BackgroundHit`、**不是** `CloseHit` —— 后者是 **`:847`** 那颗带按钮脸的关窗钮。
+        /// ⚠️ 它是 `BackgroundHit`、**不是** `CloseHit` —— 后者是 **`本文件`** 那颗带按钮脸的关窗钮。
         /// 🔴 **2026-10-07（波 4 件① A126）行号订正**：这里原来引的是**两轮之前的旧行号**
         /// （旧号 `701` → `780` → 现 **`:847`**）；那颗节点被同批别的改动推下去过两次，注释没跟着走。
         /// 订正当天实读确认过（`grep -n '"CloseHit"' Shell/DeckInfoPopup.cs`）⇒ ⛔ 别再照抄旧号。</summary>
@@ -780,11 +780,16 @@ namespace CardPresentation
         void NoteUnimplementedLayers()
         {
             // `state == 1` 时 `Edit Deck` 的文案换成**另一条本地化键**（原版 :84-95，两条键
-            //    `DAT_1842d05e0` / `DAT_1842d04e0`）。词条表在**远端 CCD**（本地无 I2 表）⇒ **文案读不到**；
-            //    而且我们**没有任何 state==1 的调用点**（原版那条是 `ChatMessageUI.OnMessageClicked`）⇒ 保持英文标签。
+            //    `DAT_1842d05e0` / `DAT_1842d04e0`）。🔴 **2026-10-19（`W57`）就地订正（铁律 5）**：
+            //    这里原来写「词条表在**远端 CCD**（本地无 I2 表）」—— **已过期**：官方 13 语言表自
+            //    2026-10-14 起就在本地（`Resources/official_loc_13lang.json`，现读 10,862 键）。
+            //    今天仍做不到的真正原因是 **那两条键还没解出来**（反编译里是 `_DAT_…` 常量，未换成字面量）
+            //    + 我们**没有 state==1 的生产调用点**（只有 `Editor/CollectionScene.cs` 自检造这一态）
+            //    ⇒ 保持英文标签。
             if (State == DeckInfoState.Import)
                 Debug.LogWarning("[DeckInfo] state==1（Import）时原版把 `Edit Deck` 的**文案**换成另一条本地化键 —— "
-                                 + "本地无 I2 词条表（在远端 CCD）⇒ **文案取不到**，这扇窗仍显示我们那句英文（不许静默）");
+                                 + "那两条词条键还没解出来（反编译是 `_DAT_…` 常量）⇒ **文案取不到**，"
+                                 + "这扇窗仍显示我们那句英文（不许静默）");
         }
 
         /// <summary>🆕 2026-10-05（§三第29条 A65②）——
@@ -1267,7 +1272,7 @@ namespace CardPresentation
             //   `OnDisable.c:32-42` 摘 —— 预制体里 `window` 的 pid 恒 0、`onClick` 持久调用表全空）。
             //   档 = **压暗层自己那一档 `QDI`(3120)**，**严格低于**本窗内容命中区档 `QDIHit`(3129)
             //   （同档时谁吃到命中退化成枚举顺序 ⇒ 症状是「点不动的钮看着像正常工作」）。
-            //   ⚠️ 它与 **`:847`** 那颗 `CloseHit` **不是一件事**：那是**带按钮脸的关窗钮**，两颗都要有。
+            //   ⚠️ 它与 **`本文件`** 那颗 `CloseHit` **不是一件事**：那是**带按钮脸的关窗钮**，两颗都要有。
             //      （`:847` 是 **2026-10-07（波 4 件① A126）**实读订正的行号 —— 这里与上面 `ShadeHit`
             //       那处原来都引旧号 `701`，那颗节点已被推下去过两次。）
             //   出处 → `资料/待办判据_阶段二与联机.md` §A81 · 公共件规矩 → `MenuDraw.ShadeHit` 的注释。
@@ -1796,7 +1801,7 @@ namespace CardPresentation
             //        `UICardInfoItem__SetCost.c` 拿**同一个** `card+0x78` 印费用文本并按其符号位开关费用圆
             //        ⇒ **字节码直读 = `CardDef.Cost`**。
             //      · **键2 = `RawCardScript.GetLocalizedCardName(card)` = 本地化卡名**
-            //        ⇒ 我们喂 `CardText.Name(Name, NameZh)`，与左栏 `DeckRuntime.cs:3119` **逐字同一句**。
+            //        ⇒ 我们喂 `CardText.Name(Name, NameZh)`，与左栏 `DeckRuntime.cs` **逐字同一句**。
             //    ⚠️ 末档 `Id` 只为**全序**：`List.Sort` **不稳定**，没有它、同费用同名的两张会随实现抖动
             //      （`CardDef` 按 `Id` 建 ⇒ 这一档恒定）。
             //    🔴 **原来这一路完全没有排序**（`order` = `deck.CardIds` 的出现序 —— 观感上「像按英文名排」，
@@ -1822,7 +1827,7 @@ namespace CardPresentation
             //      **不是**「防御卡」；「防御卡」是 **`SpellType.DefensiveCard = 210`** 那一截
             //      （两截的字段名读法 + 数据缺口 → `IsDefensiveRow` 的 doc）。
             //    🔴 **在我们这份数据上两条判据【恒同义】**（`IsDefensiveRow` = `Type == "defence"`，而
-            //      `DeckEditorState.cs:282` 只把 `Type == "defence"` 的卡写进 `DefensiveId` 槽
+            //      `DeckEditorState.cs` 的 `DefensiveId` 只把 `Type == "defence"` 的卡写进 `DefensiveId` 槽
             //      ⇒ 「在槽里」蕴涵「是防御卡」），所以 (甲) 里那个 `!IsDefensiveRow` 分支**当前不可达** ——
             //      照原版的形状留着，⛔ 别删（数据换了就是它挡着）。
             // ⑤（丙） `DeckListDrawer__SpawnCardInfo.c:40-51`：本窗 `defensiveCardInfoItem = null`
@@ -1941,7 +1946,7 @@ namespace CardPresentation
                     "Cost Text", QDIText, wrapPx: 48.819f, autoMinPx: 18f, autoMaxPx: 50f, autoBasePx: 32f,
                     boxH: 49.66f, vAlign: Label.VAlign.Capline, face: TmpFont.Face.LatinCardBody);
                 // ④ **卡名 = 本地化名**：原版那一栏喂的就是 `GetLocalizedCardName`（见 ② 的键2），
-                //    而左栏 `DeckRuntime.cs:3189` 用的是 `CardText.Name(def.Name, def.NameZh)`。
+                //    而左栏 `DeckRuntime.cs` 用的是 `CardText.Name(def.Name, def.NameZh)`。
                 //    🔴 原来写 `card.Name`（英文）⇒ **同一副牌弹窗英文、编辑窗中文**。
                 // 🆕 **2026-10-17（`N33`）**：原版 `…/Text fill/Card Name` = `HorizontalAlignment 1 (Left)` ·
                 //    `VerticalAlignment 8192 (Capline)` · 字体 Pragati（`MonoBehaviour_-679054392775177816` 亲读）。
@@ -1958,7 +1963,7 @@ namespace CardPresentation
                 // ⑥ **份数那颗只在 >1 张时才建**（A1531⑥ 同族第二条）：原版
                 //    `UICardInfoItem__SetCount.c:34` = `SetActive(countLabel, 1 < count)`，
                 //    而 `SpawnCardInfo.c:76` 建行时喂的 count 恒 **1** ⇒ **单张的行不印 `x1`**。
-                //    左栏已按同一条规则做（`DeckRuntime.cs:3207` `bool showX = n > 1;`）——
+                //    左栏已按同一条规则做（`DeckRuntime.cs` 的 `bool showX = n > 1;`）——
                 //    ⚠️ 那边是「建了再 `SetOn`」（它有一排复用的标签池）；本窗每次 `Build` 重画、
                 //      没有池 ⇒ **不建** 与 `SetActive(false)` 等价。**规则同一条，机制不同**。
                 if (n > 1)
@@ -2050,7 +2055,7 @@ namespace CardPresentation
         /// （`UICardInfoItem__SetCount.c:43` 那个字段）；我们这侧 `Battle/ImageQuad.cs` / `Battle/Label.cs`
         /// 都是**世界空间 `MeshRenderer`**（ImageQuad 文件头：没有 uGUI）⇒ `CanvasGroup` 传不下去
         /// ⇒ 用本工程既有的着色口（`ImageQuad.SetTint` / `Label.SetColor`）把同一个数落下去。
-        /// ⚠️ `Label` 的**点阵后端** `SetColor` 只重烘贴图（`Battle/Label.cs:173-182`）——
+        /// ⚠️ `Label` 的**点阵后端** `SetColor` 只重烘贴图（`Battle/Label.cs` 的 `SetColor`）——
         /// 那条路上 alpha 会不会真变**没验过**（本闸本地恒不触发 ⇒ 没有触发的画面可看）。如实记，不吹。</para></summary>
         static void DimRow(Transform t, float a)
         {
@@ -2459,7 +2464,7 @@ namespace CardPresentation
 
         // ============================================================ 🆕 2026-10-12（`A1045`）：`Share On Chat`
         //  原版 = `DeckInfoPopup.ShareDeckOnChat(Transform optionsMountPoint)`（签名桩
-        //  `d:/2/Warpforge_code/Scripts/Assembly-CSharp/DeckInfoPopup.cs:112`）；四份证据逐句实读：
+        //  `d:/2/Warpforge_code/Scripts/Assembly-CSharp/DeckInfoPopup.cs`）；四份证据逐句实读：
         //   · `DeckInfoPopup__ShareDeckOnChat.c`（**建面板**：三道门 + 两颗钮 + `Context` + `OpenWindow`）
         //   · `DeckInfoPopup___ShareDeckOnChat_b__30_1.c` = **第 0 颗（群组）**的回调
         //     ⇒ `HandleShare(this, AlliancesManager.CurrentGroupId, 1 /*Alliance*/)`
@@ -2551,7 +2556,7 @@ namespace CardPresentation
             {
                 // 键 = 原版**字符串常量表**实读（不是自拟）—— 见下面那三个常量的 doc。
                 Title = Loc.T(ShareChatTitleTerm),
-                LocalizeText = true,          // 原版字面量 `1`（⇒ `GenericOptionsPanel.Apply` 那条「远端 I2 取不到」照旧出声）
+                LocalizeText = true,          // 原版字面量 `1`（⇒ `GenericOptionsPanel` 对 `LocalizeText=true` 仍只出声、不查词条表）
                 Buttons = new[]
                 {
                     // 第 0 颗 = **群组**（原版先建它 ⇒ 界面上在上/在前）。
@@ -2721,7 +2726,7 @@ namespace CardPresentation
             //        🆕 2026-10-11（A306②）起两边都走 `MenuDraw.PosInDesignSpace`，
             //        旧注释里那句「`− 基准.position`」是**改前**的写法）⇒ 收口只在 `basis == parent`
             //       时才等价 —— 公共件**只认 `parent` 一个基准**（树父与坐标基准是同一个参数）。
-            //       本文件 3 个调用点**全都传同一个对象**（`:622` / `:644` / `:654` 的 `Nine(root, root, …)`），
+            //       本文件 3 个调用点**全都传同一个对象**（`本文件` / `本文件` / `本文件` 的 `Nine(root, root, …)`），
             //       而这不等于「以后也一定」⇒ 不等就**是位置画错**，⛔ 不许静默（下面出声）。
             //    ③ **队列 = `q`** + **tint 传 `tint`**（旧代码建完逐块设的就是这两样，公共件会替我们设；
             //       `tint` 没传时两边**都不设**，同一条退化）。九宫格切边不用我们管：块数与每块的

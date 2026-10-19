@@ -823,7 +823,7 @@ namespace CardPresentation
         ///    `ItemTypeSets`，「本表还没抄这一档」这个状态不再出现；
         /// ② **「行为一字未改」不成立** —— 同一处已照**原版**换成「按键找不到 ⇒ **回落主档**」
         ///    （`GetDrawer.c:23-33` / `GetReference.c:62-72`；原来是返回 `null` + 出声）= 那几档的**返回值变了**；
-        /// ③ **断言也改了**，不是「一个字都不用改」 —— `Editor/ShopScene.cs:2024` 那条「`…(Icon) == null`」
+        /// ③ **断言也改了**，不是「一个字都不用改」 —— `Editor/ShopScene.cs` 那条「`…(Icon) == null`」
         ///    已**翻成正値**（期望 `TitleIconDrawer`），并加了 **16 条**逐格覆盖（`Editor/ShopScene.cs` 的 `Run` 里那 16 条逐格覆盖（`DrawerAtOv`））。
         /// ⚠️ **别把这三句照着旧口径再抄回来** —— 它们当时的理由（「守卫还在」）已经不成立。</para>
         /// <para>⛔ **别在本文件重新实现它**（`CLAUDE.md` §三：两处写同一条规则 = 迟早不一致）。
@@ -1202,7 +1202,7 @@ namespace CardPresentation
                     var timerLb = LabelFit(timer, R(tt.x1, tt.y1, tt.x2, tt.y2), c.TimerText, LightCreamInk, NTimerText,
                              tfs, tmin, qBase + QoText, true, true, tmax, 30f, TmpFont.Face.LatinCardBody);
                     // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Timer/Timer Text`
-                    //   = `Left/**Midline**`（判据 = 本文件头 `:71` / `:84` 两条，**19 份逐份实读**同档
+                    //   = `Left/**Midline**`（判据 = 本文件头 `本文件` / `本文件` 两条，**19 份逐份实读**同档
                     //   —— 逐份变的是字号与自适应范围，纵向档**不是**逐份的）。
                     MenuDraw.SetVAlign(timerLb, Label.VAlign.Midline, R(tt.x1, tt.y1, tt.x2, tt.y2));
                     // 🔴 **2026-10-17（N1）**：出厂串 `5d 20h 15m` **不是倒计时**（原版由服务端 LiveOps
@@ -1299,7 +1299,7 @@ namespace CardPresentation
                 var priceLb = LabelFit(inner, R(pr.x1, pr.y1, pr.x2, pr.y2), c.Price, LightCreamInk, NPriceText, 38.15f, 13.46f,
                          qBase + QoText, false, false, 40f, 39f, TmpFont.Face.LatinCardBody);
                 // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 本容器里**唯一一颗非 `Left` 的横对齐**
-                //   就是它：原版 `…/Price Display/text` = `Center/**Capline**`（判据 = 本文件头 `:84`
+                //   就是它：原版 `…/Price Display/text` = `Center/**Capline**`（判据 = 本文件头 `本文件`
                 //   那句「横对齐**除价签那个 `text`（`Center/Capline`）外全是 `Left`**」）。
                 //   ⚠️ 上面那句「按按钮整框居中画（**我们挑的**）」说的是**框**；**档位**来自原版字段。
                 MenuDraw.SetVAlign(priceLb, Label.VAlign.Capline, R(pr.x1, pr.y1, pr.x2, pr.y2));
@@ -1398,7 +1398,7 @@ namespace CardPresentation
                 lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), minPx, maxPx > 0f ? maxPx : fontPx, basePx);
                 // 🔴 **2026-10-04（首跑红了，就地补）**：`SetAutoFitBox` 内部的 `SetWrapWidth` 会**无条件**
                 //   把换行模式设成 `Normal` ⇒ 「自适应 + 不折行」的件会被悄悄打开折行。
-                //   原版这几件全是 `折行=0`（文件头 :80 那张实读表）⇒ 这里按 `wrap` 参数**还原**。
+                //   原版这几件全是 `折行=0`（文件头 本文件 那张实读表）⇒ 这里按 `wrap` 参数**还原**。
                 lb.SetWrapping(wrap);
             }
             if (left) MenuDraw.AlignLeft(lb, r);

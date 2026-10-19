@@ -558,7 +558,7 @@ namespace CardPresentation
 
         // ---- 订/摘 `NetMatchmaking.OnHint`（**只在真的显示着的时候**订）----
         //  🔴 为什么挂在 `OnEnable`/`OnDisable` 而不是 `Show()`/`Hide()`：`Show()` 可以**重复调**
-        //     （实测 `Editor/MainMenuScene.cs:4713,4733` 就是 `BeginNetWait()` 之后再 `Show()` 一次），
+        //     （实测 `Editor/MainMenuScene.cs` 的 `BeginNetWait()` 就是 `BeginNetWait()` 之后再 `Show()` 一次），
         //     挂在 `Show()` 上会**订两次**（`OnHint` 是多播委托 ⇒ 同一条提示画两遍、还要摘两次）。
         //     ⛔ `OnDestroy` 也必须摘（不摘的话，窗销毁之后提示一来就 `MissingReferenceException`）。
         void OnEnable() { NetMatchmaking.OnHint += ShowHint; }

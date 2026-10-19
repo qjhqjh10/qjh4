@@ -21,7 +21,10 @@
 `资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv`
 列 = `uniqueId / cardName / field / assetGuid / bundle / containerKey / type / className / name /
       internalId / exact / source`
-· 前 3 列在新枚举行里为空（那是旧表的「这条引用出自哪张卡的哪个字段」注解，本工具不重建）；
+· 前 3 列在新枚举行里为空（那是旧表的「这条引用出自哪张卡的哪个字段」注解，本工具**只按当前 build 重算**）；
+  🆕 2026-10-19：回填完成后，用 `资料/普查产出_1018/allcards_1350/cards_raw.json`（1,351 张）把
+  **148 行 old-map 注解**重算一遍 —— 只改「当前 build 已经不这么引用」的行（实测 2 行：
+  `47e38f…` / `261e3f…`）。找不到引用的行**保持原样**并计数，⛔ 不猜。
 · `source = bundle-container`（本工具枚举）或 `old-map`（旧表回填，仅当新枚举没覆盖该 GUID）；
 · 旧表回填**保留**：有些 GUID 只能走目录的「退键」逻辑才解得出来，直接枚举看不到。
 
@@ -33,6 +36,7 @@ import argparse
 import collections
 import csv
 import io
+import json
 import os
 import sys
 
@@ -40,6 +44,12 @@ BUNDLES = r"d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/Stand
 OLD_MAP = r"d:/4/Unity/资料/普查产出_第二十七会话/guid_map.tsv"
 OUT_DIR = r"d:/4/Unity/资料/普查产出_1018/cardanim_guid_map"
 OUT_TSV = os.path.join(OUT_DIR, "guid_map_bundles.tsv")
+
+# 🆕 2026-10-19（T15 残余）：**当前 build 的 1,351 张卡**快照。
+# 旧表回填那 148 行的前 3 列（uniqueId / cardName / field）是 2025-07-30 快照的注解；
+# 本 build 有两行归属变了（`47e38f…` / `261e3f…`，见 `W57_特效线_T15_V1_T02静态.md`）。
+# 生成器收工时按这份快照**重算注解**；文件不在 ⇒ 保留旧注解并出声（不编理由）。
+CARDS_RAW = r"d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json"
 
 # 卡相关束的前缀/关键字（`--cards-only` 用）
 CARD_BUNDLE_HINTS = ("cardassets", "cardanims", "battleprefabs_vfxandmisc",
@@ -99,10 +109,98 @@ def scan_bundle(path, scripts):
     return rows
 
 
+def load_card_refs(path=CARDS_RAW):
+    """当前 build 的卡快照 → `{guid: [(uniqueId, cardName, field)]}`（按卡文件顺序、去重）。
+
+    · 走 `full_raw`（完整 SO 记录；顶层是挖出来的子集，`summonAudio` 那类只在 full_raw 里）；
+    · `field` 统一成旧表写法：`cardAbilities[0].abilityLogic[0].cardAnimations[1]`
+      （去掉 `m_AssetGUID` 尾、`/` → `.`、去掉 `full_raw.` 前缀）；
+    · 只收 32 位 hex 的 `m_AssetGUID`（空引用 / PPtr 不算）。
+
+    实测（2026-10-19，1,351 张）：旧表 148 行**全部**能在这里找到引用；
+    与旧注解逐字相同 **146** 行，过期 **2** 行（`47e38f…` / `261e3f…`）。
+    """
+    if not os.path.isfile(path):
+        return {}, "卡快照不存在: %s" % path
+    try:
+        doc = json.load(io.open(path, encoding="utf-8"))
+    except Exception as e:                  # noqa: BLE001
+        return {}, "卡快照读不动（%s）: %s" % (path, e)
+    cards = doc.get("cards") or []
+
+    def walk(o, prefix=""):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                yield from walk(v, prefix + "/" + k)
+        elif isinstance(o, list):
+            for i, v in enumerate(o):
+                yield from walk(v, prefix + "[%d]" % i)
+        else:
+            yield prefix, o
+
+    def norm_field(p):
+        p = p.lstrip("/")
+        if p.startswith("full_raw/"):
+            p = p[len("full_raw/"):]
+        if p.endswith("/m_AssetGUID"):
+            p = p[:-len("/m_AssetGUID")]
+        return p.replace("/", ".")
+
+    out = {}
+    for c in cards:
+        uid, cname = c.get("uniqueId") or "", c.get("cardName") or ""
+        root = c.get("full_raw") or c
+        seen = set()
+        for p, v in walk(root):
+            if not p.endswith("/m_AssetGUID"):
+                continue
+            g = (v or "").lower() if isinstance(v, str) else ""
+            if len(g) != 32 or not all(ch in "0123456789abcdef" for ch in g):
+                continue
+            ref = (uid, cname, norm_field(p))
+            if ref in seen:
+                continue
+            seen.add(ref)
+            out.setdefault(g, []).append(ref)
+    return out, None
+
+
+def refresh_annotations(rows, refs):
+    """把 `source=old-map` 那 148 行的前 3 列按**当前 build** 重算。
+
+    规则（保守、只动过期的）：
+      ① 旧注解仍然出现在当前引用里 ⇒ 一位不动；
+      ② 同一 `uniqueId` 仍引用这个 GUID ⇒ 只更新 cardName / field（卡改名 / 字段挪位）；
+      ③ 否则取**卡快照顺序里的第一条**引用（稳定：cards_raw.json 的卡顺序）。
+    找不到任何引用的行**保持原样**并计数 —— ⛔ 不凭猜测改。
+
+    返回 `(changed, no_ref)`：`changed = [(guid, old, new)]`。
+    """
+    changed = []
+    no_ref = 0
+    for r in rows:
+        if r.get("source") != "old-map":
+            continue
+        rs = refs.get((r.get("assetGuid") or "").lower()) or []
+        if not rs:
+            no_ref += 1
+            continue
+        old = (r.get("uniqueId", ""), r.get("cardName", ""), r.get("field", ""))
+        if old in rs:
+            continue
+        same = [x for x in rs if x[0] == old[0]]
+        pick = (same or rs)[0]
+        changed.append((r.get("assetGuid"), old, pick))
+        r["uniqueId"], r["cardName"], r["field"] = pick
+    return changed, no_ref
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cards-only", action="store_true", help="只扫卡相关的束")
     ap.add_argument("--out", default=OUT_TSV)
+    ap.add_argument("--cards-raw", default=CARDS_RAW,
+                    help="当前 build 卡快照（重算旧表注解用；默认 %s）" % CARDS_RAW)
     ap.add_argument("--dry", action="store_true",
                     help="只打印统计，不落盘（`A1648` 同族）")
     args = ap.parse_args()
@@ -165,6 +263,18 @@ def main():
                 })
     else:
         print("⚠️ 旧表不存在，跳过回填: %s" % OLD_MAP)
+
+    # 旧表注解按**当前 build** 重算（T15 残余：2 行归属过期）
+    refs, refs_err = load_card_refs(args.cards_raw)
+    if refs_err:
+        print("⚠️ %s（旧表注解保持原样）" % refs_err)
+        changed, no_ref = [], None
+    else:
+        changed, no_ref = refresh_annotations(rows, refs)
+        print("旧表注解重算：改动 %d 行 / 无当前引用 %d 行（参考 %s，%d 个 GUID 有引用）"
+              % (len(changed), no_ref, os.path.basename(args.cards_raw), len(refs)))
+        for g, old, new in changed:
+            print("   %s\n      旧: %s\n      新: %s" % (g, old, new))
 
     if args.dry:
         print("\n干跑（--dry）：不写 %s" % args.out)

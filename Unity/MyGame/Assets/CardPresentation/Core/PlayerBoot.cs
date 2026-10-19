@@ -7,7 +7,10 @@
 // 用法（在 **player** 的命令行上，不是 Unity 的）：
 //   WarpforgePlayer.exe -wfscene Battle
 //   WarpforgePlayer.exe -wfscene DeckEditor -wfshot d:/4/_tmp_view/player/deck.png -wfquit 25
-//   WarpforgePlayer.exe                                   # 不带 = 停在 build list 第一个场景（白板）
+//   WarpforgePlayer.exe                                   # 不带 = 停在 build list 第一个场景（现为 `Shell`）
+//                                                         #   ⚠️ 2026-10-20 更正：原来写「白板」，错了两轮 ——
+//                                                         #   `PlayerBuild.Scenes` 2026-10-19（`A1483`）改成 Shell 打头；
+//                                                         #   `EditorBuildSettings.asset` 2026-10-20（`TOOL-12`）也挪成 Shell 打头。
 //
 // 🔴 三条纪律：
 //  ① **`Application.isEditor` 直接返回** —— 这个入口绝不能影响编辑器里的四条自检。

@@ -387,14 +387,14 @@ namespace CardPresentation
             // 🔴 **2026-10-18（A867 · S1）**：**首句**就把本窗名下的旧滚动区撤掉 —— 下一句就把 `root` 的子件
             //   全清掉，而下面 `BuildArmySelector` 会登记一颗**新**的 `MenuScroll`（`Owner = gameObject`）。
             //   ⛔ **兜不住**，所以非补不可（`PointerLayer` 的两道自动清理**都判不出这里已死**）：
-            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类**（`Shell/MenuScroll.cs:79`）
+            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类**（`Shell/MenuScroll.cs`）
             //       ⇒ 节点被销毁**不会**让它变 null ⇒ **恒假**；
             //     · `s.Owner == null` —— `Owner` 指的是**活下来的窗根**（本方法只删**子件**，`transform` 本身还在，
-            //       而且我们关窗是 `SetActive(false)`、**不销毁**）⇒ 也**恒假**（`Shell/PointerLayer.cs:223-231`）。
+            //       而且我们关窗是 `SetActive(false)`、**不销毁**）⇒ 也**恒假**（`Shell/PointerLayer.cs` 的 `SetActive(false)`）。
             //   ⇒ 少了这一句 = **每重建一次净涨 1 条**，而且旧条目**还能被滚轮命中**（`OnChanged` 指向已销毁的节点）。
-            //   ✅ 形状照抄 `Shell/InboxWindow.cs:405`。⚠️ 本窗这个 `Build()` 会被**同一实例**再走一遍
-            //   （`Open()` 调的：`TryOpen` 从 `Closed` 支 ⇒ `Open()`，`Shell/WindowsManager.cs:513-519`；
-            //    生产侧到达它的是 `ShowPreviousWindow` ⑥ 那句 `prev.TryOpen()`，`:1147`）。
+            //   ✅ 形状照抄 `Shell/InboxWindow.cs`。⚠️ 本窗这个 `Build()` 会被**同一实例**再走一遍
+            //   （`Open()` 调的：`TryOpen` 从 `Closed` 支 ⇒ `Open()`，`Shell/WindowsManager.cs`；
+            //    生产侧到达它的是 `ShowPreviousWindow` ⑥ 那句 `prev.TryOpen()`，`CardPresentation/Shell/WindowsManager.cs`）。
             PointerLayer.UnregisterOwnedBy(gameObject);
             var root = transform;
             MissingArt.Clear();
@@ -665,7 +665,7 @@ namespace CardPresentation
             //   （实时反推 + `LiveDerivations`）：本窗整棵树重建时节点或它的祖先被挪过，框与被比矩形就**不在同一帧**。
             //   ⚠️ **必须在这里调**（`AddComponent` 之后、`RebuildArmyCells` 之前）：`MenuDraw.ApplyPxRect` 写矩形时
             //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾）—— 同 `ViewportClip.Hang` 里那句
-            //   `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
+            //   `vc.SetBaseRect(r)` 的位置理由（`CardPresentation/Shell/ViewportClip.cs`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `CardPresentation/Shell/ViewportClip.cs` 明令）。
             vc.CaptureNow();
             _facs = CollectionWindow.CardsState.Factions();
 
@@ -924,7 +924,7 @@ namespace CardPresentation
                           "Bg", QArt, null, true);
             // 原版 hAlign = **Center** ⇒ 不调 `Align*`（原来右对齐了）
             // 🔴 **2026-10-17（`A1511(b)`）**：文案改走词条 —— 原版这颗 `Button Text` 挂 `Localize`，
-            //   `mTerm = Demo/ToBattle`（en `Battle` · zh `战斗`；键与中文出处 → `Core/Loc.cs:471`）。
+            //   `mTerm = Demo/ToBattle`（en `Battle` · zh `战斗`；键与中文出处 → `Core/Loc.cs`）。
             //   原来写死的 `"Battle!"` 是 prefab 出厂占位串，⛔ 别按它保留英文。
             MenuDraw.Text(btn, new PxRect(BattleTxL, BattleTxT, BattleTxR, BattleTxB), Loc.T("Demo/ToBattle"),
                           Color.white, "Button Text", 74.25f, QText, face: TmpFont.Face.LatinCardBody);
@@ -1160,7 +1160,7 @@ namespace CardPresentation
         /// —— 语义上够近，但**是间接的**（且每加一个子类都要记得补那句）。
         /// 改成 `public virtual` 后，子类可以覆写本方法、在 `base.StartBotBattle()` **之前**做
         /// 「切场景前的最后一件事」（例如写模式号）。⚠️ **今天没有任何子类覆写它** ⇒ 行为**逐位不变**
-        /// （只多一个 vtable 槽：`:920` 那个委托里的 `StartBotBattle()` 仍落到同一个方法体）。</para>
+        /// （只多一个 vtable 槽：`本文件` 那个委托里的 `StartBotBattle()` 仍落到同一个方法体）。</para>
         ///
         /// <para>⛔ **为什么不走「基类加一个 `protected virtual GameMode PlayModeForWindow` 口」那条**：
         /// 今天**没有子类能覆写它**（两扇子类在 `Shell/SkirmishEventWindow.cs` 与
@@ -1362,7 +1362,7 @@ namespace CardPresentation
 
         // 🔴 **2026-10-17（`N5`）已删**：原来这里有个 `protected void NotBuilt(string what)`（只打一行
         //    `LogWarning`）。全仓 `grep "NotBuilt("` 现读 **0 个调用点**（唯一那个 `BuildHelp` 已改成真开窗，
-        //    见本文件 `:950` 那段）⇒ 死代码。⛔ 别为了「以后可能用」把它加回来 —— 新的「没实现」走
+        //    见本文件 `本文件` 那段）⇒ 死代码。⛔ 别为了「以后可能用」把它加回来 —— 新的「没实现」走
         //    `RuleEngine` 那套 `ErrUnimplemented` 或就地 `Debug.LogWarning`，不留一个没人调的空壳。
     }
 }

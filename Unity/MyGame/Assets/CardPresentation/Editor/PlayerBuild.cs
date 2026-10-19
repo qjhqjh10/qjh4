@@ -1,16 +1,25 @@
 // PlayerBuild.cs — 「构建后 player 验证」的构建入口
 //
-// 为什么需要它：本工程**从来没有构建过 player**。2026-09-16 全仓 grep 的结论 ——
+// 为什么需要它：本工程**从来没有构建过 player**（🔴 **2026-10-19 就地订正（铁律 5 · `A1484②`）**：
+//   「从来没有」只对 **2026-09-16 当天**成立 —— 此后**已经构建过多次**（最近一次 2026-10-18 19:37，
+//   产物在 `_tmp_view/player/`）。原句留着只为交代来历，⛔ 别再当现状读）。2026-09-16 全仓 grep 的结论 ——
 // `BuildPipeline` / `BuildPlayer` / `-buildWindowsPlayer` **0 命中**，
 // `ProjectSettings/EditorBuildSettings.asset` 里只登记了模板自带的 `SampleScene.unity`。
 // 🔴 **2026-10-11 就地订正**：上面这半句「`EditorBuildSettings.asset` 里只登记了 `SampleScene.unity`」
 //   **已过期** —— 现读**5 个场景**（`SampleScene` / `MainMenu` / `DeckEditor` / `Battle` / **`Shell`**
-//   ← 最后一个是 2026-10-11 追加的）。⚠️ 但**下面「三条设计取舍」①**（⛔ 本类不动那个文件）**仍然成立**：
+//   ← 最后一个是 2026-10-11 追加的）。
+//   🔴 **2026-10-20 就地订正（`TOOL-13`）**：`SampleScene`（工程模板残留）已从该文件移除 ⇒ 现读**4 个场景**
+//   （`Shell` 0 / `MainMenu` 1 / `DeckEditor` 2 / `Battle` 3；`Shell` 打头见 `TOOL-12`）。上面「5 个」是当时口径。
+//   ⚠️ 但**下面「三条设计取舍」①**（⛔ 本类不动那个文件）**仍然成立**：
 //   本类**按设计**只拿自己的 `Scenes` 数组塞进 `BuildPlayerOptions.scenes` ⇒
 //   **两个清单是两份、各服务一条路**（`EditorBuildSettings` = 真包；本类 `Scenes` = 验证构建）。
 //   2026-10-11 起两边**都**登记了 `MainMenu` + `Shell`（判据 = `资料/交接_第十一会话.md` §2·2 波 3）。
 // 而「构建后 player 验证」是 `项目任务.md` 顶部待办表的**第 1 行**（用户 2026-09-16 拍板）：
-// **三条线都欠它 —— 到现在所有绿灯都来自编辑器**，而本工程最贵的一类 bug 恰恰是
+// 🔴 **2026-10-19 就地订正（铁律 5 · `A1484②`）**：**这个指针现在指空** —— 现读 `d:/4/项目任务.md`
+//   顶部没有这一行（`grep "构建后 player"` **0 命中**）。下一句「三条线都欠它 / 所有绿灯都来自编辑器」
+//   也**已过期**（此后多次构建 + 真机验收）。原文保留只为交代来历；**现行账**
+//   → `资料/任务线/工具文档线/任务/T02_打包与player.md`（`A1481`–`A1484`）。
+// **本类存在的理由没变**：本工程最贵的一类 bug 恰恰是
 // 「编辑器里好、进真包坏」（运行时从 bundle 加载 shader · `StreamingAssets` 路径 ·
 // TMP 动态中文字体 · 1.6 G `Resources`）。
 //
@@ -51,11 +60,22 @@ public static class PlayerBuild
 {
     const string P = "PBLD ";
 
-    /// <summary>要验的三个场景。**顺序 = 构建顺序，第一个是启动场景**（白板，因为它最独立）。
-    /// 名字要和 `PlayerBoot -wfscene &lt;子串>` 对得上。</summary>
+    /// <summary>要验的场景。**顺序 = 构建顺序，第一个是启动场景**。
+    /// 名字要和 `PlayerBoot -wfscene &lt;子串&gt;` 对得上。
+    ///
+    /// 🔴 **2026-10-19（`A1483` · `TOOL-11`）：启动场景从「白板」改成 `Shell`。**
+    ///   理由：**指针层只有从壳启动才有人建** —— `MainMenu.unity` 里 `WindowsManager` / `PointerLayer`
+    ///   都是 0 处，`Shell.unity` 自带（判据 → `资料/任务线/界面线/任务/T02_主菜单与外壳.md` §2·1
+    ///   「单独 `-wfscene MainMenu` 时没有任何人建指针层」）；壳起来后自己会建主菜单窗
+    ///   ⇒ **双击 exe = 壳 → 主菜单 → 点得动**。
+    ///   ⛔ **没有选 `MainMenu` 打头**，就因为它没有指针层。
+    ///   ⚠️ 白板挪到表尾（仍留在 build list 里，用 `-wfscene VFXWhiteboard` 单跑）；
+    ///   只交换 `Shell` 与白板的位置 ⇒ `Battle` / `DeckEditor` / `MainMenu` 的 build index **不变**。
+    ///   `PlayerBoot` 按**名字子串**切场景、不吃 build index（见 `LoadSceneMatching`）。</summary>
     public static readonly string[] Scenes =
     {
-        "Assets/WarpforgeArena1/Scenes/VFXWhiteboard.unity",
+        // 🔴 启动场景（= 构建顺序第一个）：双击 exe 就落在壳里。
+        "Assets/CardPresentation/Scenes/Shell.unity",
         "Assets/CardPresentation/Scenes/Battle.unity",
         "Assets/CardPresentation/Scenes/DeckEditor.unity",
         // 🆕 **2026-10-11（第十二会话）追加这两个** —— 判据 = `资料/交接_第十一会话.md` §2·2
@@ -65,9 +85,10 @@ public static class PlayerBuild
         //     ⇒ **只登记 `EditorBuildSettings` 对这个入口【没有用】**，打出来的包里压根没有那两景。
         //   ✅ **两边都登记**（`EditorBuildSettings.asset` 也已追加 `Shell.unity`；`MainMenu` 原本就在）：
         //     那条路给**真包**用、这条给**验证构建**用 —— 都要能走「主界面 → 外壳 → 战斗」。
-        //   ⛔ **追加在表尾、不动启动场景**（启动场景仍是白板 ⇒ `PlayerBoot` 那套参数入口逐字不变）。
+        //   ⚠️ 2026-10-19：`Shell` 已按 `A1483` 挪到**表首**（见上），这段追加说明仍有效。
         "Assets/CardPresentation/Scenes/MainMenu.unity",
-        "Assets/CardPresentation/Scenes/Shell.unity",
+        // 白板：2026-10-19 从表首挪到表尾（`A1483`）—— 它仍然打进来，供 `-wfscene VFXWhiteboard` 单跑。
+        "Assets/WarpforgeArena1/Scenes/VFXWhiteboard.unity",
     };
 
     const string ExePath = "d:/4/_tmp_view/player/WarpforgePlayer.exe";
@@ -223,15 +244,38 @@ public static class PlayerBuild
             return false;
         }
 
-        // 复现「跑起来看什么」那一步用到的命令，免得到时候又去翻文档。
-        // ⚠️ Battle 多一个 `-wfdrive`（自动打一局，见 `BattleAutoDrive`）—— 它要跑完整局，
-        //    所以 `-wfquit` 给得比另外两个大得多；跑完的截图在 `auto_*.png`。
+        // ── 「跑起来看什么」的命令 —— 🔴 **本构建【不会】执行它们** ──────────────────────
+        // 🔴 **2026-10-19（`A1484②` · `TOOL-11`）**：这一段原来只把 5 条 `-wfscene` 命令 `Debug.Log`
+        //   出来、正文却写成「复现…那一步用到的命令」⇒ 日志里**看着像已经跑过了**（曾经真的骗到人：
+        //   `资料/待办判据_第三十三会话.md` 的 `A1481` 行记着「已用全新文件名复测」那次才发现
+        //   所谓「产出 3 份日志」其实是 09-22 的旧文件）。判据原文要求：**要么真跑、要么别写成跑过**。
+        //   ⇒ 这里按后者处置：每行显式标 **「未执行 · 手动复制」**，并写明参数语义与落点。
+        //   ⚠️ **为什么不在构建里真跑**：① 本类是 `-batchmode` 构建入口，起 player 是**另一个验收动作**
+        //   （现行口径「先复刻、别检查」）；② 五条合计 ≈ 6 分钟（Battle 一条 240 s），而且
+        //   「批处理构建里起 GUI player」这件事**本身没有验过** ⇒ 不把未验的行为塞进构建脚本（铁律 2）。
+        //
+        //   参数语义（判据 = `Core/PlayerBoot.cs` 顶部常量表 + `Run()` / `Auto()`）：
+        //     · `-wfscene <子串>` 切到「场景名含该子串」的 build-list 场景（**名字匹配**，⛔ 不是 build index）
+        //     · `-wfshot <文件>`   `ScreenCapture.CaptureScreenshot` 截图落盘（帧末才写，见 `PlayerBoot` 纪律③）
+        //     · `-wfshotat <秒>`   第几秒拍（默认 8）
+        //     · `-wfquit <秒>`     第几秒退出（默认 = shotat + 5）
+        //     · `-wfdrive`         **只对 Battle 有意义**：`BattleAutoDrive` 自动打一局；额外截图落在
+        //                          `-wfshot` 的**目录**里（`auto_*.png`）
+        //     · `-logFile <文件>`  Unity player 内置参数：日志写到这里（否则落
+        //                          `%USERPROFILE%/AppData/LocalLow/<company>/<product>/Player.log`）
+        //
+        //   落点（都在 `_tmp_view/player/`，与 `ExePath` 同目录）：
+        //     `<name>.png` = 截图 · `<name>.log` = player 日志 · Battle 另有 `auto_*.png`。
+        //   ⚠️ 真机点击验收（`wf_click.py`）时 **Shell 要显式全屏**：再补
+        //     `-screen-fullscreen 1 -screen-width 2560 -screen-height 1440`
+        //     （判据 → `资料/交接_第五十一~五十三会话.md` 的「启动必须显式全屏」那一行）。
         var dir = Path.GetDirectoryName(ExePath).Replace('\\', '/');
+        var exe = ExePath.Replace('\\', '/');
         foreach (var sc in Scenes)
         {
             var name = Path.GetFileNameWithoutExtension(sc);
             bool isBattle = name.IndexOf("Battle", StringComparison.OrdinalIgnoreCase) >= 0;
-            Debug.Log(P + $"  跑「{name}」：" + Path.GetFileName(ExePath)
+            Debug.Log(P + $"  【未执行 · 手动复制】跑「{name}」：" + exe
                       + $" -wfscene {name}"
                       + (isBattle ? " -wfdrive" : "")
                       + $" -wfshot {dir}/{name}.png"

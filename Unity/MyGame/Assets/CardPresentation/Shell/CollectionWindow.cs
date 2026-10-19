@@ -97,7 +97,7 @@ namespace CardPresentation
         /// **`m_text = 'Deck'`**、`m_fontStyle = 16`(UpperCase)、`m_fontSize 36`、`m_TextWrappingMode 0`
         /// ⇒ 屏上是 **`DECK`**。**错因**：`Decks` 是照页节点名（`DeckCollectionTab` 那一族的复数叫法）写的，
         /// 没回 prefab 读那串 `m_text`。⚠️ **2026-10-17 现核**：`Editor/CollectionScene.cs` 的 `wantLabels[0]`
-        /// 现在**不是**写死的 `"DECKS"` —— 它走 `Loc.T(term).ToUpperInvariant()`（`:985`）⇒ **本条不用再跟改**
+        /// 现在**不是**写死的 `"DECKS"` —— 它走 `Loc.T(term).ToUpperInvariant()`（`CardPresentation/Editor/CollectionScene.cs`）⇒ **本条不用再跟改**
         /// （旧注释说「那一条要跟着改」已过期，就地订正）。</item>
         /// <item><b>四颗都补上 <c>term</c></b>（= 原版 `TabButtonLabel ▸ Localize.mTerm` 原文，本轮现读
         /// `…/Tab Buttons/{Deck,Cards,CardBacks,Alternate Art}/Label/TabButtonLabel`）——
@@ -723,7 +723,7 @@ namespace CardPresentation
         ///    （`Shell/PointerLayer.cs` 的 `CollectHits`）⇒ 把这一栏底下的按钮 `enabled = false` 就够了；
         ///    而且它们的 quad 是**跟着面板一起挪**的（位置不用管）。
         /// ② **滚轮**：`PointerLayer.HitScroll` 判的是 `MenuScroll.Owner.activeInHierarchy`
-        ///    （`:514`）—— 滑动中节点**是活着的**（要画），那条判据不够用
+        ///    （`CardPresentation/Shell/MenuScroll.cs`）—— 滑动中节点**是活着的**（要画），那条判据不够用
         ///    ⇒ 滑动期间**把登记撤掉**、到位再登记回来
         ///    （`RegisterScroll` 自带去重、`UnregisterOwnedBy` 按宿主撤，两下配对不会漏也不会重复）。
         ///    这正是 `BuildFilterPanel` 里那条老注释说的语义：「面板收起时整块 SetActive(false)，
@@ -933,15 +933,46 @@ namespace CardPresentation
             // 本页字号 = **42 / 42**（原版逐页不同，见 `BuildFilterHeader` 的注释）
             BuildFilterHeader(page, 1, 42f, 42f, ClearCardFilters, ToggleFilters);
 
+            // 🔴 **2026-10-19（第五十七会话 · 树形尾巴）**：补 `Header Filters ▸ WIldcard Display` / `▸ Counters`
+            //   **两层容器**，把下面那四件（底图 / 4 图标 / 4 数字 / 阵营徽记）按原版父链重挂进去。
+            //   判据 = **原版 prefab 现读**（`python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "CardsTab" --depth 7`，
+            //   2026-10-19）：
+            //     · `CardsTab ▸ Header Filters ▸ WIldcard Display` = **1470.0,70.9 → 1870.0,155.9**（400×85，
+            //       组件 `WildcardDisplay`，字段 `armyIcon/commonCount/epicCount/legendaryCount/rareCount/shinyEffect`）；
+            //       孩子序 = **`Background` → `Counters` → `Army Icon`**；
+            //     · `WIldcard Display ▸ Counters` = **1555.0,91.4 → 1870.0,135.4**（315×44，`HorizontalLayoutGroup`
+            //       spacing=5 align=0 pad=10,10,0,0）。
+            //   🔴 **容器是纯结构节点**（`Node` = 只有 `RectTransform`、没有 quad）⇒ **不改渲染队列、不改命中**：
+            //     孩子仍按**绝对设计 px** 落位（`MenuDraw.Local(parent, …)` 会按父链换算）⇒ 视觉逐位不变。
+            //   ⚠️ 原版 `Counters` 底下还有四组 `Common/Rare/Epic/Legendary`（每组 `Icon` + `Counter`）——
+            //     🆕 **2026-10-19（续）：四组已按原版建出**（`Counters ▸ {组} ▸ Icon/Counter`，见下面那个循环）。
+            var wcHeader = page.Find("Header Filters");
+            if (wcHeader == null)
+                Debug.LogWarning("[Collection] `CardsTab ▸ Header Filters` 没找到 ⇒ `WIldcard Display` 退回建在页节点上（树形不对）");
+            var wcDisplay = Node(wcHeader != null ? wcHeader : page, "WIldcard Display",
+                                 new PxRect(1470f, 70.9f, 1870f, 155.9f));
+
             // 万能卡计数：4 个稀有度图标 + 各自的数字（**复用卡组编辑那条几何**，别抄第二份）
             // 🔴 **2026-10-18（N57）**：原版 `WIldcard Display/Background` 是 **Sliced 九宫 15**、
             //   `m_Color = (0.462,0.462,0.462,1)`（判据 = `Collection Menu Variant` dump；`Deck Editing Menu`
             //   的同名件逐值相同）。我们原来走 `Rect`（Simple 拉伸）+ **无 tint（白）** ⇒ 画成一条亮白边。
-            Nine(page, "40k_topmarquee_currency_display_BW",
-                 new PxRect(1550f, 91.5f, 1870f, 135.5f), new Vector4(15f, 15f, 15f, 15f), QPagePanel,
-                 new Color(0.462f, 0.462f, 0.462f, 1f), true, "Wildcard Bg", null, 44f, 39f);
+            // 🔴 **2026-10-19（续 · 原版现读）**：`Background` 的 y 由 **91.5→135.5** 改成 **91.4→135.4**
+            //   （判据 = `menu_dump.py bundle_menus_assets_all "CardsTab" --depth 7 --no-layout` 现读：
+            //    `Background` 1550.0,**91.4**→1870.0,**135.4**，高 44；同一批 `Counters`/四组/`Icon`/`Counter` 全是这两个 y）。
+            //   节点名也按原版：`Wildcard Bg` → **`Background`**（全仓只有本行建它，⛔ 不留两套名字）。
+            Nine(wcDisplay, "40k_topmarquee_currency_display_BW",
+                 new PxRect(1550f, 91.4f, 1870f, 135.4f), new Vector4(15f, 15f, 15f, 15f), QPagePanel,
+                 new Color(0.462f, 0.462f, 0.462f, 1f), true, "Background", null, 44f, 39f);
+            // `WIldcard Display ▸ Counters`（原版 1555,91.4→1870,135.4 · 315×44）—— 纯容器，孩子仍是绝对设计 px。
+            var wcCounters = Node(wcDisplay, "Counters", new PxRect(1555f, 91.4f, 1870f, 135.4f));
             string[] wcIc = { "40k_general_wildcard_common_small", "40k_general_wildcard_rare_small",
                               "40k_general_wildcard_epic_small", "40k_general_wildcard_legendary_small" };
+            // 🆕 **2026-10-19（续 · 原版现读）**：`Counters` 底下是**四组** `Common/Rare/Epic/Legendary`，
+            //   每组 = `HorizontalLayoutGroup`（65×44；孩子 `Icon` 30×44 + `Counter` 41×44）。
+            //   判据 = `menu_dump.py … "CardsTab" --depth 7 --no-layout` 现读（2026-10-19）：
+            //     Common 1565→1630 · Rare 1640→1705 · Epic 1715→1780 · Legendary 1790→1855（y 全 91.4→135.4）。
+            //   ⚠️ 组宽 **65**、而 `Counter` 右沿到 `x+71` —— 原版孩子**溢出组框 6px**（dump 实读），照抄。
+            string[] wcGroup = { "Common", "Rare", "Epic", "Legendary" };
             // 🔴 **2026-09-28 用户拍板：万能卡数字一律恒定 `99`**（原版这 4 个数是 `WildcardDisplay`
             //    的库存直出；我们缺的是**发放源** ⇒ 数字不自己算）。
             //    🆕 **2026-10-19（界面线尾巴 · 铁律 5）**：原文那句「我们既没有 hover 也没有发放源」里
@@ -951,14 +982,18 @@ namespace CardPresentation
             for (int i = 0; i < 4; i++)
             {
                 float x = 1565f + 75f * i;
+                // 四组容器（原版名字逐字：`Common/Rare/Epic/Legendary`；纯结构节点、无 quad）。
+                var wcGrp = Node(wcCounters, wcGroup[i], new PxRect(x, 91.4f, x + 65f, 135.4f));
                 // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版这 4 个图标 `m_PreserveAspect = 1`、
                 //   `m_Type=0`（Simple），贴图 42×51 塞进 30×44 的框 ⇒ 原版只画 **30×36.4**（按框居中）。
                 //   我们原来拉伸 ⇒ 画满 30×**44**，**高 ×1.21**。同为 PA=1 的另三张（41×51）同理。
-                Rect(page, wcIc[i], new PxRect(x, 91.5f, x + 30f, 135.5f), "Wildcard Icon " + i, QPageRow,
+                //   节点名按原版 = **`Icon`**（原来是 `Wildcard Icon i`；全仓只有本处建它）。
+                Rect(wcGrp, wcIc[i], new PxRect(x, 91.4f, x + 30f, 135.4f), "Icon", QPageRow,
                      null, true);
-                var t = Text(page, DeckRuntime.WcCountText, x + 30f, x + 30f + DeckRuntime.WcCountWrapPx,
-                             91.5f, 91.5f + DeckRuntime.WcCountBoxH, 5, PageInk,
-                             "Wildcard Count " + i, DeckRuntime.WcCountFontPx,
+                var t = Text(wcGrp, DeckRuntime.WcCountText, x + 30f, x + 30f + DeckRuntime.WcCountWrapPx,
+                             91.4f, 91.4f + DeckRuntime.WcCountBoxH, 5, PageInk,
+                             // 节点名按原版 = **`Counter`**（原来是 `Wildcard Count i`）。
+                             "Counter", DeckRuntime.WcCountFontPx,
                              // 🔴 **2026-10-10（A1212 · 块 3 #1）**：接上原版那颗的 `m_enableAutoSizing`
                              //   （四格 = **10 / 38 / 45 / 1**）。判据 = `R5_包装层菜单族.md` §2 #1
                              //   （`Collection Menu Variant ▸ … ▸ WIldcard Display ▸ Counters ▸ {…} ▸ Counter`，
@@ -986,7 +1021,7 @@ namespace CardPresentation
             //   ⚠️ 图走 `Core/ArmyIcons.cs`（13 阵营，唯一一份；`IconsByArmySO` 逐字节解出）—— ⛔ 别在这写第二份映射。
             var wcArmyR = new PxRect(1470f, 70.94f, 1550f, 155.94f);
             _wcArmyArt = ArmyIcons.IconName(_wcArmy) ?? WcArmyDefaultArt;
-            _wcArmyQuad = Rect(page, _wcArmyArt, wcArmyR, "Army Icon", QPageRow, null, true);
+            _wcArmyQuad = Rect(wcDisplay, _wcArmyArt, wcArmyR, "Army Icon", QPageRow, null, true);
 
             var holder = Node(page, "Scroll View", CardsViewport);
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A15）**：裁切状态**长在视口节点上**（= 原版 `Viewport` 上
@@ -1188,13 +1223,13 @@ namespace CardPresentation
                 BuildWatch.CellPhase("③ `SetClipFromTree`（解析裁切 + 第一刀真裁：逐层切网格 + 逐字重排）");
                 // 🔴 **2026-10-12（`A1628` 第二轮）就把这一句 `v.SetData(data)` 删掉了** —— 它与上面
                 //   那句 `Create(parent, data, …)` **做的是同一件事**，逐条核过（`Core/CardView.cs`）：
-                //    · `Create` = `AddComponent` + `Build(d)`；`Build` 头一句就是 `Data = d`（`:1584`），
-                //      尾三句是 `BuildTextLayers(d)`（`:1791`）· `SetBadges(d.badges)`（`:1794`）·
-                //      `BuildStatLayers(); SyncStatLayers();`（`:1801-1802`）。
-                //    · `SetData(d)` 里那几段：`CaptureStatChanges` 非 `Board` 直接 `return`（`:1195`）·
+                //    · `Create` = `AddComponent` + `Build(d)`；`Build` 头一句就是 `Data = d`（`CardPresentation/Core/CardView.cs`），
+                //      尾三句是 `BuildTextLayers(d)`（`CardPresentation/Core/CardView.cs`）· `SetBadges(d.badges)`（`CardPresentation/Core/CardView.cs`）·
+                //      `BuildStatLayers(); SyncStatLayers();`（`CardPresentation/Core/CardView.cs`）。
+                //    · `SetData(d)` 里那几段：`CaptureStatChanges` 非 `Board` 直接 `return`（`CardPresentation/Core/CardView.cs`）·
                 //      `_face != null` 那支只在**没有卡框**的兜底路上才非空（真卡走 `_frame`）·
                 //      `_info` / `_art` 重新赋的是**同一个缓存键算出来的同一张贴图**·
-                //      `SetCardImageTo3DBase()` 在 `_body3D == null` 时 `return`（`:2781`）·
+                //      `SetCardImageTo3DBase()` 在 `_body3D == null` 时 `return`（`CardPresentation/Core/CardView.cs`）·
                 //      末尾 `if (Clipping) ApplyClip()` 与上面那句 `SetClipFromTree` 的产物同值 ⇒ **幂等**。
                 //      ⇒ 净效果只剩一件：**把 5 段 TMP 整个重排第二遍**（`BuildTextLayers`，
                 //      其中效果文字要走 `FitToBox` 的 8 步二分 ⇒ 每段最多 9 次 `ForceMeshUpdate`）。
@@ -1315,6 +1350,15 @@ namespace CardPresentation
             // ---- 页头 = **四页共用的那一行**（2026-09-24 收口；本页字号 35 / 33，逐页不同）----
             BuildFilterHeader(page, 2, 35f, 33f, ClearCosmoFilters, ToggleCosmoFilters);
 
+            // 🔴 **2026-10-19（第五十七会话 · `N52③` 的同族尾巴）**：原版这颗标题挂在 **`Header` 之下** ——
+            //   `Cardback Tab ▸ Header` 的孩子序 = `Filter Toggle` → `Separator Line` → **`label`** → `Filters`
+            //   （判据 = `python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Cardback Tab" --depth 3` 现读）。
+            //   我们原来把它建在 `page` 上（树形差一层）⇒ 本批换成 `Header` 的孩子、并把兄弟序挪到第 2 位。
+            //   ⚠️ **换父不动一个像素**：`Text/Node/Rect` 走的是 `Local(parent, 世界矩形)`（同 `BuildDeckHeader` 那段说明）。
+            var cosmoHdr = page.Find("Header");        // `BuildFilterHeader` 刚建出来的**直接孩子**
+            if (cosmoHdr == null)
+                Debug.LogWarning("[Collection] 卡背页 `Header` 容器取不到 ⇒ 标题 `Header Label` 退回挂页节点（如实出声）");
+
             // 标题那条 rect **宽是 0**（实测 `sd=(0,60)`、`m_HorizontalAlignment=4` = **Right**）
             // ⇒ **右对齐到 1821.01** 才是它的真值（A4 表里写「hFlush」**是错的**，已就地更正）。
             // y 真值 = **80.94 .. 140.94**（2026-09-24 订正；原来写的 10..70 是 `Content Area` 局部值）。
@@ -1322,9 +1366,17 @@ namespace CardPresentation
             //   `Localize.mTerm` 原文 `MenuCollection/Label/Cosmetics`（全库只 1 颗，就是本页这一点：
             //   `… > Cardback Tab > Header > label`）。英文列 = TMP 原文 `Your cosmetics collection`；
             //   中文列 = 「你的化妆品收藏」（2026-10-14 官方 zh-CN 表；原「你的装饰收藏」= `zh_CN.csv:25` 精确命中）。⛔ 节点名 `"Header Label"` 不动（自检按名找）。
-            var title = Text(page, Loc.T("MenuCollection/Label/Cosmetics"), 1200f, 1821.01f, 80.94f, 140.94f, 5, PageInk,
+            var title = Text(cosmoHdr != null ? cosmoHdr : page, Loc.T("MenuCollection/Label/Cosmetics"),
+                             1200f, 1821.01f, 80.94f, 140.94f, 5, PageInk,
                              "Header Label", 38f);
-            if (title != null) { title.SetRenderQueue(QPageText); title.AlignRightOn(LayoutSpace.FromPixel(1821.01f, 0f).x); }
+            if (title != null)
+            {
+                title.SetRenderQueue(QPageText);
+                title.AlignRightOn(LayoutSpace.FromPixel(1821.01f, 0f).x);
+                // 原版序 = `Filter Toggle`(0) → `Separator Line`(1) → **`label`**(2) → `Filters`(3)；
+                //   `BuildFilterHeader` 先把后三件建好了 ⇒ 新加的孩子停在末尾（index 3）⇒ 挪到 `Filters` 之前。
+                if (cosmoHdr != null) title.transform.SetSiblingIndex(2);
+            }
 
             // ---- 卡背网格 ----
             var holder = Node(page, "Scroll View", CosmoView);
@@ -1888,7 +1940,7 @@ namespace CardPresentation
             // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P6）。
             //   ⚠️ **它不是关窗钮** —— 是「换风格」圆钮；`A1149` 那一行把它记成
             //   `Shell/CollectionWindow.cs:1524`（挂在子件 `Background Round`），**行号是旧的、类别也标错了**：
-            //   本文件里唯一「圆底盘画在子件上」的就是**这一处**（`:1534`，现读）。
+            //   本文件里唯一「圆底盘画在子件上」的就是**这一处**（`本文件`，现读）。
             //   **改前**：圆底盘画在一颗**自造子件 `Background Round`** 上、节点 `Select Art Button {L,R}` 是裸节点。
             //   **原版实读**（`资料/普查产出_0923/A4_装饰页与驱动链.md:129`，逐字段）：
             //   `/Header/Select Art Button Right` 自己带 `Image[UI_Button_Round_background]` ·
@@ -2176,7 +2228,7 @@ namespace CardPresentation
         public int CosmoFilterCellCount { get { return _fltCosmo != null ? _fltCosmo.Cells.Count : 0; } }
         /// <summary>**Styles 页**的抽屉开着没有（自检用）。**起手收起**。
         /// ⚠️ **2026-10-05 更正（铁律 5）**：原文写「出厂就展开（实证 act=T）」—— 读数对、推论错
-        /// （`act=T` ≠ 抽屉展开）⇒ 改成与其余三页一致；判据链见 `:1150` 那段。</summary>
+        /// （`act=T` ≠ 抽屉展开）⇒ 改成与其余三页一致；判据链见 `本文件` 那段。</summary>
         public bool StyleFiltersOpen { get { return _fltStyles != null && _fltStyles.Open; } }
 
         /// <summary>建一页的左侧筛选栏。**起手收起**（原版靠 `hiddenPosition` 滑出去；
@@ -2185,7 +2237,7 @@ namespace CardPresentation
         /// <paramref name="openAtStart"/> = 建出来就让抽屉停在**展开**那一头（`Slide = 1`）。
         /// ⚠️ **2026-10-05 更正（铁律 5）**：原文写「= 出厂就展开（**异画页是 act=T**）」—— 半句误读、
         /// 半句不成立：`act=T` 推不出展开，且**原版四页起手一律收起**（判据见 `:1150`）。
-        /// 本文件现在**两个调用点都传 `false`**（`:620` Cards · `:1151` Styles；Cosmo/Deck 各建各的）。
+        /// 本文件现在**两个调用点都传 `false`**（`本文件` Cards · `本文件` Styles；Cosmo/Deck 各建各的）。
         /// 形参留着 = 「将来真有哪一页要起手展开」时的**唯一**下手处 —— ⛔ 不是给异画页的。
         /// 返回这一页那份 <see cref="FilterPanel"/>。</summary>
         FilterPanel BuildFilterPanel(Transform page, DeckEditorState state, System.Action onChanged,
@@ -2357,7 +2409,7 @@ namespace CardPresentation
         ///
         /// <para>**为什么这样修而不是「按节点记设计矩形」**：本工程对「父件被挪 + 子件按绝对矩形落位」
         /// 这一类**已有两种在用的解法**，本条用的是**最省的那种**（同类现成写法 =
-        /// `Deck/DeckRuntime.DrawerHome`（`:1602` 起）与它旁边那句 `PrepareDrawerForBuild`，调用点 `:4993` / `:5280`；
+        /// `Deck/DeckRuntime.DrawerHome`（`CardPresentation/Deck/DeckRuntime.cs` 起）与它旁边那句 `PrepareDrawerForBuild`，调用点 `CardPresentation/Deck/DeckRuntime.cs` / `CardPresentation/Deck/DeckRuntime.cs`；
         /// 另两处「先摆父件、再建子件」= `Shell/FriendsTab.cs` / `Shell/AllianceMemberTab.cs`）。
         /// 记矩形那条（要动 `Shell/MenuDraw.cs` **与** `Battle/Label.cs`）改动面跨到战斗侧共用件，
         /// 见 `资料/普查产出_1018/Q-A834_裁定取证.md` §6/§7（本条的取证与三个候选都在那儿）。</para>
@@ -2736,7 +2788,7 @@ namespace CardPresentation
             // 🔴 **2026-10-18（A891 的续 · 续做 A）：只换【显示文案】那一个实参** ——
             //   `FilterPanelModel.TitleText(text)`（= `Loc.T(键)`，键见那边的 `TitleTerm`）。
             //   ⛔ **节点名那半句 `"Title " + text` 一个字没动**：`Editor/CollectionScene.cs` 的 `TitleLeftPx`
-            //   （`:392`）与两条 `FindChild(fltPanel, "Title " + ttl)` 都**按名找**（名里还是英文原名）。
+            //   （`CardPresentation/Editor/CollectionScene.cs`）与两条 `FindChild(fltPanel, "Title " + ttl)` 都**按名找**（名里还是英文原名）。
             //   ⚠️ `Energy Cost` 那一行**原版没有 `Localize`** ⇒ `TitleText` 原样返回英文。
             var lb = Text(parent, FilterPanelModel.TitleText(text), r.x1, r.x2, r.y1, r.y2, 5, PageInk, "Title " + text, fontPx);
             if (lb == null) return;
@@ -4037,7 +4089,7 @@ namespace CardPresentation
             //     遭遇 = `40k_gamemode_icon_skirmish`（**青绿双箭头圆徽**）· 经典 = `40k_gamemode_icon_classic`（红枪）。
             //   🔴 **为什么现在才接**：`MenuDraw.DeckCell` 那一支**早就写好了**（`if (gameMode.HasValue) Rect(… "Game Mode Icon")`），
             //     只是**本调用点从来没传**（形参默认 `null` ⇒ 那一层静默不画）。**字段也早就有了**
-            //     （`Shell/CollectionData.cs:53` 的 `DeckInfo.GameMode` ← `:113` 抄自 `PlayerDeck.GameMode`）。
+            //     （`Shell/CollectionData.cs:53` 的 `DeckInfo.GameMode` ← `CardPresentation/Shell/CollectionData.cs` 抄自 `PlayerDeck.GameMode`）。
             //   ⚠️ `0` 是**有意义的值**（`GameMode.Classic`），不是「没设」—— 映射表在
             //     `MenuDraw.GameModeIconFile`（0→classic · 13→skirmish · 其余→null ⇒ 整层不建，与原版同）。
             // 🔴🔴 **2026-10-11（第十七会话 · `A1525⑥`）：`selected` 恒传 `false` —— 收藏窗的卡组格原版【不画】金高亮。**
@@ -4446,7 +4498,7 @@ namespace CardPresentation
             // ============================================================ 🆕 2026-10-12（`A1628` 第二轮）
             // **逐格相位累计器** —— 上面那 8 个格子只分开了「**哪一页**」，于是第二轮实测把根因从
             // 「整池 1126 张」改成了「**每建一张卡 ≈ 2.2 秒**」（页 1 = 18 格 41531.6ms · 页 3 = 6 格 13011.7ms；
-            // 两页**都已经**只建视口内的格，自检 `Editor/CollectionScene.cs:3883` / `:6870` 逐条断着 18 / 6）。
+            // 两页**都已经**只建视口内的格，自检 `Editor/CollectionScene.cs:3883` / `CardPresentation/Editor/CollectionScene.cs` 逐条断着 18 / 6）。
             // 本器接着往下切一层：把**一格**拆成 5 段累计（18 格 × 5 段 ⇒ 压成 5 行），
             // 下一趟真机就能指名「那 2.2 秒在 `CardView.Create` / 两次重裁 / 宿主那两件」里的哪一段。
             // ⚠️ **与 `Mark` 共用 `Application.isPlaying` 那道闸** ⇒ 批处理自检的日志一字不变。

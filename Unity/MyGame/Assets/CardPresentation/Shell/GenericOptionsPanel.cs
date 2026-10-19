@@ -515,7 +515,7 @@ namespace CardPresentation
                         //       · `m_DisabledColor` 逐位 = 我们 `RebuildButtons` 里那个常量（**这一格原版也真采**
                         //         —— `DoStateTransition.c` 头那句 `if (m_Transition == 1 ‖ …) goto skip` 对
                         //         `m_Transition = 2` **不成立** ⇒ 那个按状态上色的块**会跑**，Disabled 取 `+0x94` 那一格）。
-                        //    ⚠️ **必须排在 `BindNine` 【之后】**（同 `Shell/CampaignRewardWindow.cs:844` 那条纪律）：
+                        //    ⚠️ **必须排在 `BindNine` 【之后】**（同 `Shell/CampaignRewardWindow.cs` 那条纪律）：
                         //       `GrayTargets()` 里的 `target` 是 `Bind` 才设成 `_nine[0]` 的，排在前面的话
                         //       头一次 `RefreshGray()` 会灰错一组、而 `GrayedForTest` 随即为真 ⇒ 后面再设也早退。
                         //    ✅ **原来本扇「故意不接」**（那时 `GrayTargets()` 只认「命中区子树 + 一颗 `target`」

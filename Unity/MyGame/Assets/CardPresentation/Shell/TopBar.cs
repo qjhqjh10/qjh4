@@ -66,7 +66,7 @@ namespace CardPresentation
         //
         // 🔴 **2026-10-17（F5）已落地：带子放宽 + 顶栏内部按【原版兄弟序】分 8 档**（F2 开的单，F5 做的）。
         //   · 症状（`DeckScene.Run` 红）：`同一层的 UI 图没有互相压住（实测 8 处）` —— **8 对全在本件内部**
-        //     （那条通用检查全库只有卡组编辑宿主有：`Editor/DeckScene.cs:1141-1164` 的 `TestLayout`）。
+        //     （那条通用检查全库只有卡组编辑宿主有：`Editor/DeckScene.cs` 的 `TestLayout`）。
         //   · **根因（算得出来，逐对量过）**：本件有 **6 张两两相交**的图，而队列是 `int`、
         //     旧带子 `[2994,2998]` **只有 5 个整数档** ⇒ **鸽笼原理，装不下**：
         //       A 条底 `Upper bar/Background` [-11.7,1920]×[0,71.3] ·
@@ -133,7 +133,7 @@ namespace CardPresentation
         //   都在那份 doc 里），再经 `PointerLayer.RegisterHitRect` 登记（⛔ 那 4 颗钮的 `WindowButton`
         //   **必须留在画出来那颗 quad 上**，别改成在子树里另挂一颗命中 quad）。
         // ⚠️ pad 分量序 = **(L, B, R, T)**、**负值 = 外扩**（`PaddedRect`：`x1+pad.x · y1+pad.w · x2−pad.z · y2−pad.y`；
-        //   上式那对 y 在「y 向下」的框里正好把**上沿往上、下沿往下**推）。样板 → `Battle/BattleDriver.cs:3596-3636`。
+        //   上式那对 y 在「y 向下」的框里正好把**上沿往上、下沿往下**推）。样板 → `Battle/BattleDriver.cs`。
         // ⚠️ **`Challenge button` / `Feedback Button` 出厂关着**（见 `Build` 里那两句 `SetActive(false)`），
         //   但**结构与命中区照原版照样登记**（原版那两颗的 `Image` 同样带 pad）—— 开着的都是原版值。
         static readonly PxRect GearBox = new PxRect(1803.1f, 4.6f, 1890.9f, 66.4f);

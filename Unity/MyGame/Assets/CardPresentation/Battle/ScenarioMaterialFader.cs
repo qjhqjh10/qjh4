@@ -28,6 +28,13 @@ namespace CardPresentation
         public bool disableOnFadeOut;
 
         Material[] _orig;
+        /// <summary>🆕 **2026-10-19（`A1967` 残尾 · SC-4）**：每个渲染器**私有**的那份补间材质
+        /// （`new Material(sharedMaterial)` 之后赋回 `sharedMaterial`）。
+        /// ⛔ 原版/我们原来都走 `renderer.material` —— 编辑模式下每调一次就实例化一份并打
+        /// `Instantiating material due to calling renderer.material during edit mode …`；
+        /// ⛔ 直接写 `sharedMaterial` 又会把 **prefab 上的资产**改脏（`_orig` 正是为了还原它）。
+        /// 缓存起来 = 只复制一次、逐帧复用（`.material` getter 也是同样的缓存语义）。</summary>
+        Material[] _inst;
         float _fromA = 1f;
         float _toA = 1f;
 
@@ -53,12 +60,26 @@ namespace CardPresentation
         {
             if (renderers == null) return;
             float a = Mathf.Lerp(_fromA, _toA, t);
+            if (_inst == null || _inst.Length != renderers.Length) _inst = new Material[renderers.Length];
             for (int i = 0; i < renderers.Length; i++)
             {
                 var r = renderers[i];
                 if (r == null) continue;
-                var m = r.material;                 // 取实例（改的是我们自己的那份）
-                if (m == null) continue;
+                // 🔴 **2026-10-19（`A1967` 残尾 · SC-4）**：原来这里是 `r.material` ——
+                //    编辑模式下 getter 会实例化一份并打 `Instantiating material due to calling
+                //    renderer.material during edit mode …`。改成显式 `new Material(sharedMaterial)`
+                //    并赋回：语义与 `.material` 逐字等价（一份逐渲染器私有实例），但不触发警告；
+                //    同时**绝不能直接写 `sharedMaterial`** —— 那是 prefab 上的资产，`_orig` 要还原它。
+                //    `_inst[i]` 缓存住，逐帧复用（否则每帧都复制一份，材质数量会涨）。
+                var src = r.sharedMaterial;
+                if (src == null) continue;
+                var m = _inst[i];
+                if (m == null || m != src)
+                {
+                    m = new Material(src) { name = src.name + " (ScenarioMaterialFader fade)" };
+                    _inst[i] = m;
+                    r.sharedMaterial = m;
+                }
                 var c = m.color;
                 c.a = a;
                 m.color = c;
@@ -105,6 +126,8 @@ namespace CardPresentation
                 {
                     if (Application.isPlaying) Destroy(inst); else DestroyImmediate(inst);
                 }
+                // 🆕 2026-10-19（SC-4）：实例已销毁 ⇒ 清掉缓存，下一次淡入重新复制一份。
+                if (_inst != null && i < _inst.Length) _inst[i] = null;
                 if (_orig[i] != null) r.sharedMaterial = _orig[i];
             }
         }

@@ -333,7 +333,16 @@ namespace CardPresentation
             _screen = sgo.AddComponent<RawImage>();
             _screen.texture = _rt;
             _screen.color = Color.white;
-            _screen.raycastTarget = false;           // 装饰件不吃射线（第 4 步的可点件才吃）
+            // 🔴 **2026-10-20（W57 · 战斗侧 `T09` 步骤 A3-d）：`raycastTarget` 由 `false` 改成 `true`。**
+            //   判据（**原版 prefab 现读**，`bundle_scenes_scenes_battlearena1` 的 MB 4961 与
+            //   `…battlearena2` 的 MB 5177 两份同值）：`EndBattlePanel/**Video Image**` 那颗 `RawImage`：
+            //     `m_RaycastTarget = 1` · `m_RaycastPadding = (0,0,0,0)` · 无 `Button` / `EventTrigger`。
+            //   （原版那颗是默认值没关 —— uGUI 新建 Graphic 时 `raycastTarget` 默认就是 true。）
+            //   ⚠️ **不挂点击处理器**：原版这一层只是吃射线（模态闸的一部分，压在压暗层之上）；
+            //   「点任意处离开」走的是 `BattleManager.Update` 的裸输入，**不经过 uGUI**（见 `EndPanel.Build` 压暗那段）。
+            //   ⚠️ 对时序/回调**零影响**：`Playing` / `_finished` / `Advance` / `DropFrame` 全不读它。
+            //   ⚠️ 这张图只在 `SetupDoor` 取到片时才建 ⇒ **没有视频那一档只有压暗层在挡**（原版同样没有这一层）。
+            _screen.raycastTarget = true;
             HudCanvas.Add(_screenRt, ZVideo);        // 兄弟序按 z 排（见文件头「分层」那段）
 
             var sh = Shader.Find(ShaderName);
@@ -492,5 +501,30 @@ namespace CardPresentation
         /// ⚠️ 它和 `Playing` 是两回事：`Playing` 是**我们的时序**（按片长算），
         ///    这个是**解码器**的真实进度 —— 批处理里只有把主线程还给编辑器环路它才动。</summary>
         public int DecodedFrames { get { return _player == null ? -1 : (int)_player.frame; } }
+
+        // ── 🆕 2026-10-20（W57 · `T09` 步骤 A3-d）：**Editor-only 只读探针** ────────────────────
+        //  ⚠️ 只读、且**播放器构建里不存在**（`#if UNITY_EDITOR`）。断言写在 `Editor/BattleScene.cs`
+        //     （本波口径 = **只做不验** ⇒ 本件不写断言）。
+        //  🔑 这一层**没有按钮**（原版 `Video Image` 上零 `Button` / 零 `EventTrigger`）⇒ 探针读的是
+        //     「它吃不吃射线」这一件事：原版 `m_RaycastTarget = 1`（判据见 `SetupDoor` 里那一段）。
+        //  ⚠️ 显示层**只在 `SetupDoor` 取到片时才建**、`Stop()` 里会销毁 ⇒ 没视频那一档这里全是「没有」。
+#if UNITY_EDITOR
+        /// <summary>视频层那颗 `RawImage`（`null` = 这一轮没建：没视频 / 已 `Stop()`）。Editor-only 只读探针。</summary>
+        public RawImage ScreenGraphicForTest { get { return _screen; } }
+
+        /// <summary>视频层吃不吃射线（原版 `Video Image.m_RaycastTarget = 1`）。Editor-only 只读探针。</summary>
+        public bool ScreenRaycastTargetForTest { get { return _screen != null && _screen.raycastTarget; } }
+
+        /// <summary>视频层的 `raycastPadding`（**L,B,R,T**；原版 `(0,0,0,0)`）。Editor-only 只读探针；
+        /// 没有那件时返回 **四个 `NaN`**（⛔ 不拿 0 冒充「查过」）。</summary>
+        public Vector4 ScreenRaycastPaddingForTest
+        {
+            get
+            {
+                return _screen != null ? _screen.raycastPadding
+                                       : new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+            }
+        }
+#endif
     }
 }

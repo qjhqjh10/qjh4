@@ -748,25 +748,52 @@ namespace CardPresentation
         /// 逐卡表里没有 ⇒ 返回空数组。</param>
         /// <param name="keyword">🆕 2026-10-19（W · `T21` 缺口 B/G）：**这一拍是哪个原版 trigger**
         /// （`BattleEvent.Keyword`，trait 规范键或 `AbilityTrigger` 枚举名）。
-        /// 只有 `evt == Trigger` 时起作用，且**只对 <see cref="IsRoutedTriggerName"/> 认的两条**
-        /// （`Ambush` / `TriggerEnchantment`）生效 —— 见 <see cref="TryResolveTriggerPicks"/>。
-        /// ⚠️ **生产路径今天传的是 `null`**（`BattleDriver.PlaySignal` 没有把 `e.Keyword` 交下来，
-        /// 那是 T11 正在改的文件）⇒ 走「整卡只有一种 trigger 名」的保守推断档；
-        /// 把 `e.Keyword` 接进来是**已写进报告的接口需求**（混 trigger 的卡如 `GSC16` 靠它才能接上）。</param>
+        /// 只有 `evt == Trigger` 时起作用，且**只对 <see cref="IsRoutedTriggerName"/> 认的那一批**
+        /// （`Ambush` / `TriggerEnchantment` + 缺口 A/E/F 那两条发射口拍出来的名字）生效
+        /// —— 见 <see cref="TryResolveTriggerPicks"/>。
+        /// ✅ **2026-10-19（战斗线 `T21`）就地更新**：生产路径**已经接上** ——
+        /// `BattleDriver.PlaySignal` 把 `e.Kind == Trigger ? e.Keyword : null` 传下来
+        /// （`FireEventAll` 的 `keyword` 形参）。原来那两句「生产路径今天传的是 `null` /
+        /// 把 `e.Keyword` 接进来是接口需求」**已经不成立**（铁律 5）。
+        /// 剩下的保守档只对「`keyword` 为空」的旧事件有效。
+        /// <para>🆕 **2026-10-20（`FACTION-DOUBLE605`）**：`keyword` 可能带 **`#&lt;i&gt;` 后缀** ——
+        /// `BattleEvent.KeywordWithAbility` 拼的「能力序号传输形态」（`BattleEvent.AbilityIndex` 的 doc）。
+        /// 本方法**先拆后缀**再当 trigger 名用（<see cref="BattleEvent.SplitKeywordAbility"/>，
+        /// 拆法与拼法同一处）；`abilityIndex` 形参给了（≥0）就以形参为准、不再看后缀。</para></param>
+        /// <param name="abilityIndex">🆕 2026-10-20（`FACTION-DOUBLE605`）：**只看这一条原版
+        /// `cardAbilities[i]` 的动画行**（0 基；`-1` = 不筛 = 改前行为）。
+        /// 判据 = `CardDef.CardAnimTime.Order` 的第一段（原版字段路径 `i.j.k`）；
+        /// 钉行用 <see cref="FindAnimTimeIndex"/> 的**顺序消费**（同一张卡里同名 `CardAnim`
+        /// 可以出现多次 —— 今天这 3 张卡里 `Faith_trigger_*` 就各出现两次，⛔ 不能按名字取第一条）。
+        /// 解析不到 `Order` 的候选**不算**这一条能力（`AbilityIndex &gt;= 0` 时宁可留白，⛔ 不多播）。</param>
         public static ResolvedVfx[] ResolveAllTimed(string evt, string faction, string cardIdOrName,
                                                    IReadOnlyList<CardDef.CardAnimTime> times,
                                                    System.Random rng = null,
                                                    bool perCardOnly = false,
-                                                   string keyword = null)
+                                                   string keyword = null,
+                                                   int abilityIndex = -1)
         {
             if (string.IsNullOrEmpty(evt)) return NoEffectTimes;
+
+            // 🆕 2026-10-20（`FACTION-DOUBLE605`）：`BattleDriver` 只转 `Keyword`（不转
+            //   `BattleEvent.AbilityIndex`）⇒ 生产路径的能力序号在 `Keyword` 的 `#i` 后缀里。
+            //   显式给了 `abilityIndex`（≥0）的调用方以形参为准（keyword 仍会剥后缀，防御重复拼）。
+            int evtAbility = abilityIndex;
+            string triggerName = keyword;
+            if (triggerName != null
+                && (evtAbility < 0 || triggerName.IndexOf(BattleEvent.AbilityKeywordSeparator) >= 0))
+            {
+                int parsed;
+                triggerName = BattleEvent.SplitKeywordAbility(triggerName, out parsed);
+                if (evtAbility < 0) evtAbility = parsed;    // 形参优先（见 param doc）
+            }
 
             List<CardPick> picks;
             // 🆕 2026-10-19（W · `T21` 缺口 B/G）：`Trigger` 那一档要**按原版 trigger 名归口**
             //   （`Ambush` / `TriggerEnchantment` 的动画行落在 `ability` 桶里 —— 见 `TryResolveTriggerPicks`）。
             //   其余事件仍然只查自己那个桶（行为不变）。
             bool hit = evt == Trigger
-                     ? TryResolveTriggerPicks(faction, cardIdOrName, times, keyword, out picks)
+                     ? TryResolveTriggerPicks(faction, cardIdOrName, times, triggerName, evtAbility, out picks)
                      : TryResolvePerCardPicks(evt, faction, cardIdOrName, out picks);
             if (!hit || picks == null || picks.Count == 0)
             {
@@ -785,7 +812,16 @@ namespace CardPresentation
             //   ⚠️ `TryResolvePerCardPicks` 给的是**表里那一份**（约定只读）⇒ 过滤产出**新 list**，
             //       ⛔ 别原地 `Remove`（那会把下一条事件的候选也删掉）。
             bool filtered = false;
-            if (rng != null && picks.Count > 1)
+            // 🔴 **2026-10-19（W57 · FX-3）就地订正（铁律 5）：闸不能写成 `picks.Count > 1`。**
+            //   判据 = 原版 `RawCardScript__TriggerAbility.c:82-93`：`randomAbilityChoice` 为真且
+            //   `abilityLogic.Count > 1` ⇒ **一定** `GetRandomInt(0, Count)` 抽一组，**哪怕只有一组
+            //   带 `cardAnimations[]`**（抽中没动画的那组 = 这一下没有特效也是合法结果）。
+            //   我们的表只收「有 prefab 的候选」⇒ 那种卡折叠后 `picks.Count == 1`；旧闸会让它
+            //   **100% 播**（原版是 1/gn）。现读全池唯一 `rc == 1` 的 `GOF12 Spanner` 五组全有件，
+            //   所以今天**没有任何可观测变化** —— 这是给数据侧将来出现「部分组无动画」时兜底。
+            //   ⚠️ 没有 `rc == 1` 的候选时 `FilterRandomAbilityChoice` 原样返回**同一个引用** ⇒
+            //   `filtered` 仍为 false，「单候选 ⇒ T=0」的回归口径（B6 §三·2）一个字不变。
+            if (rng != null)
             {
                 var fp = FilterRandomAbilityChoice(picks, rng);
                 // ⚠️ 只有**真的抽过**（返回了新 list）才改口径 —— 没有 `rc == 1` 的候选时
@@ -824,6 +860,12 @@ namespace CardPresentation
             //    先 `WaitForSeconds(animInfo.vfxDelayTime)` —— `BattleManager._DelayedVFXPlay_d__469__MoveNext.c:17-27`）。
             bool onlyOne = n <= 1;                  // 组偏移为 0 的那一档
             bool regression = onlyOne && !filtered; // `Duration` 也保持 0 的那一档（队尾由事件自己负责）
+            // 🆕 2026-10-20（`FACTION-DOUBLE605`）：**按能力序号发的事件里，单候选也要保留 `Offset`**。
+            //   理由：那时 `Offset` 是「这条能力在整张卡动画序列里的绝对位置」（前一条能力的行演完
+            //   才轮到它）—— 同一张卡的第二条能力往往只有 1 条动画行（SOR67 能力 2、SOR23 能力 1），
+            //   掉回 0 会跟第一条**同时播**（原版是接着演）。⚠️ 只影响 `abilityIndex >= 0` 那一档；
+            //   `regression`（`Duration = 0`）**不动** —— 队尾口径保持原样。
+            bool keepOffset = evtAbility >= 0;
             int keep = 0;
             for (int i = 0; i < n; i++) if (drop == null || !drop[i]) keep++;
             var res = new ResolvedVfx[keep];
@@ -838,13 +880,19 @@ namespace CardPresentation
                 {
                     delay = times[idx].Delay > 0f ? times[idx].Delay : 0f;
                     dur = times[idx].Duration > 0f ? times[idx].Duration : 0f;
-                    t = onlyOne ? 0f : (times[idx].Offset > 0f ? times[idx].Offset : 0f);
+                    t = (onlyOne && !keepOffset) ? 0f : (times[idx].Offset > 0f ? times[idx].Offset : 0f);
                 }
-                if (picks[i].rc != 0)
+                if (picks[i].rc != 0 && filtered)
                 {
                     // 🔴 **抽中的那一组是【单独】进队列的** ⇒ 组内从 0 重新累计。
                     //   数据里的 `t` 是「全部 `abilityLogic` 按序全播」的累计
                     //   （`anim_times_of` 的 cursor 不分组）⇒ 直接用它会把抽中的第 4 组延到 0.9 s。
+                    //   ⚠️ **`filtered` 这个条件要留**（2026-10-19 · W57 · FX-3）：没有传 `rng`
+                    //   （= 探测 / 自检口径，生产恒传）时**没有抽组**，此时应保持「按序全播」的
+                    //   原时间线 —— 直接用数据里的 `t`（0 / 0.3 / 0.6 / …）。少了它，5 组会
+                    //   各自从 0 累计 ⇒ **同时播**（`ResolveAllTimed` 的 doc 写的「不传 = 旧行为：
+                    //   按序全播」就不成立了）。现读唯一 `rc == 1` 的 `GOF12 Spanner` 5 组同 prefab，
+                    //   生产（传 rng）只播抽中的 1 组 ⇒ 这个条件对生产**零影响**。
                     if (groupAcc == null) groupAcc = new Dictionary<long, float>();
                     long gk = ((long)picks[i].ai << 32) ^ (uint)picks[i].gj;
                     float at;
@@ -1096,20 +1144,69 @@ namespace CardPresentation
         //      （E12 落的 `tn`，逐候选、来自 `cardAnimations[]` 的 outer `CardAbility.trigger`）。
         //  ==================================================================
 
-        /// <summary>🆕 2026-10-19（W · `T21`）：**允许归口的原版 trigger 名**（只有这两条，⛔ 别扩）。
+        /// <summary>🆕 2026-10-19（W · `T21`）：**允许归口的原版 trigger 名**。
         ///
         /// <para>`Ambush`(670)：引擎在伏击翻开发 `EvtKind.Trigger`（`RuleCore.RevealAmbush` 的
         /// `FireTriggerAt(..., KeywordTable.Ambush, ...)`）。</para>
         /// <para>`TriggerEnchantment`(500)：`RuleCore.GrantDarkPact` 照原版
         /// `RawCardScript__TriggerEnchantment.c:7-13` 发的就是它。</para>
         ///
-        /// <para>⚠️ **别的 trigger（Strike/Slay/Mob/Regiment/…）一律不动** —— 它们今天怎么播就怎么播。
-        /// 报告 §五·6 的「多播」正是「把引擎已会发的 trigger 全塞进同一个桶」造成的 ⇒ 先只接这两条，
-        /// 其余的要等 keyword 维度真的从事件里传下来（接口需求见 `ResolveAllTimed` 的 `keyword` 参数）。</para></summary>
+        /// <para>🆕 **2026-10-19（战斗线 `T21` · 引擎事件缺口 A/E/F）：再放行下面这一组。**
+        /// 判据 = **引擎现在会带着一个明确的 `BattleEvent.Keyword` 发出来**（不是推断的）：
+        ///   · A：`FollowUpResolution`(410) —— `CardScript__FollowUpResolutionPlayed.c:7`
+        ///     （`OnTrigger(0x19a)`）；发射口 `EffectResolver.EmitFollowUpResolution`。
+        ///   · E：`OtherCardPlayed`(10) · `TriggeredFerocity`(726) · `UnitReceivesMarkOfChaos`(510)
+        ///     —— `RawCardScript__OnCardPlayedWithTarget.c:96` / `CardScript__TriggeredFerocity.c:7` /
+        ///     `CardScript__ReactToUnitMarked.c:7`；其余几个（`OtherUnitSummoned` / `OtherUnitDeath` /
+        ///     `UnitAttack` / `UnitDamaged` / `OtherCardDrawn` / `Reanimated` / `TriggeredPray` /
+        ///     `TriggeredDuty` / `TriggeredSwarm` / `OtherCardSpiritStone`）= `AbilityTrigger` 枚举名，
+        ///     发射口 `EffectResolver.EmitListenerTrigger`。
+        ///   · F：`TurnStart`(30) · `TurnStartPlayer`(31) · `TurnEnd`(40) · `TurnBeforeEnd`(41)
+        ///     —— 发射口 `EffectResolver.EmitTurnTrigger`。
+        /// ⚠️ **只放行「引擎按名字发出来的那一批」**；`Strike` / `Slay` / `Mob` / `Regiment` 这些
+        /// 走旧路的**一律不动**（它们今天怎么播就怎么播）—— 报告 §五·6 的「多播」正是
+        /// 「把引擎已会发的 trigger 全塞进同一个桶」造成的。新增一条必须**有一个真正的发射口**。</para></summary>
         static bool IsRoutedTriggerName(string triggerName)
         {
-            return string.Equals(triggerName, KeywordTable.Ambush, System.StringComparison.OrdinalIgnoreCase)
-                || string.Equals(triggerName, KeywordTable.TriggerEnchantment, System.StringComparison.OrdinalIgnoreCase);
+            if (string.IsNullOrEmpty(triggerName)) return false;
+            if (string.Equals(triggerName, KeywordTable.Ambush, System.StringComparison.OrdinalIgnoreCase)
+                || string.Equals(triggerName, KeywordTable.TriggerEnchantment, System.StringComparison.OrdinalIgnoreCase))
+                return true;
+            switch (triggerName)
+            {
+                // ---- A · followAfterResolution ----
+                case "FollowUpResolution":
+                // ---- E · 监听者 / 自发反应 ----
+                case "OtherCardPlayed":
+                case "OtherCardDrawn":
+                case "OtherCardSpiritStone":
+                case "OtherUnitSummoned":
+                case "OtherUnitDeath":
+                case "UnitAttack":
+                case "UnitDamaged":
+                case "UnitReceivesMarkOfChaos":
+                case "Reanimated":
+                case "TriggeredFerocity":
+                case "TriggeredPray":
+                case "TriggeredDuty":
+                case "TriggeredSwarm":
+                // ---- F · 回合起止 ----
+                case "TurnStart":
+                case "TurnStartPlayer":
+                case "TurnEnd":
+                case "TurnBeforeEnd":
+                // ---- 🆕 2026-10-19（第五十七会话 `W57` · T21 C/D）：阵营能力自己那一拍 ----
+                //   `AbilityTrigger.UseFaith = 605` / `UseSpiritStone = 600`。
+                //   发射口 = `EffectResolver.ResolveFaithAbility` / `ResolveSpiritAbility`
+                //   （经 `EmitAbilityUseTrigger`；闸 = `CardDef.HasAnimTrigger`）。
+                //   ⚠️ 这一族以前**没有引擎事件**，`card_vfx_by_card.json` 的
+                //   `abilityEventWhy` 逐行写着「未归口（保持 `ability`）」—— 加进来之后
+                //   `TryResolveTriggerPicks` 就能按名字从两张桶里挑出这三条候选。
+                case "UseFaith":
+                case "UseSpiritStone":
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>🆕 2026-10-19（W · `T21`）：一条候选**自己那条** `CardAnimTime` 的原版 trigger 名
@@ -1152,18 +1249,27 @@ namespace CardPresentation
         /// ④ 定不出来（同一张卡混着多种 trigger 动画，典型 = `GSC16` 的 `Ambush` + `Strike`）⇒
         ///    **原样回 `trigger` 桶**（= 今天的行为）并如实留白 —— ⛔ 不猜（多播比不播更糟）。</para>
         ///
-        /// <para>**目标怎么定**：`keyword` 非空且是 <see cref="IsRoutedTriggerName"/> 认的那两条 ⇒ 用它；
-        /// 否则**只在「整张卡只标出一种 trigger 名、且它是那两条之一」时**推断。
-        /// ⚠️ 保守档的理由：`keyword` 今天生产路径传不进来（`BattleDriver` 是 T11 在改的文件），
-        /// 而「整卡只有一种」时推断不会多播；混 trigger 的卡留给接口接上之后走 `<paramref name="keyword"/>`。</para>
+        /// <para>**目标怎么定**：`keyword` 非空且是 <see cref="IsRoutedTriggerName"/> 认的那一批 ⇒ 用它；
+        /// 否则**只在「整张卡只标出一种 trigger 名、且它是那一批之一」时**推断。
+        /// ✅ **2026-10-19（战斗线 `T21`）就地更新**：`keyword` **生产路径已经传得进来了**
+        /// （`BattleDriver.PlaySignal` → `FireEventAll(keyword:)`）。保守推断档只剩给
+        /// 「`keyword` 为空」的旧事件 / 自检直调。</para>
         ///
         /// <para>⚠️ **未标名的候选**（`TriggerNameOf` 回 null：顶层字段 / 我们的 `inferred-*` 档）：
         /// 归口生效时**两张桶都丢掉**（它们证明不了自己属于这个 trigger）。今天受影响的只有
         /// `GSC32`/`GSC28`/`GSC37` 那几条 `inferred-keyword` 行（Concussive/Armour/Talent —— 这几个
-        /// 关键词在我们引擎里**根本不触发**，报告 §3·2），丢掉它们 = 不再在伏击那一拍乱播。</para></summary>
+        /// 关键词在我们引擎里**根本不触发**，报告 §3·2），丢掉它们 = 不再在伏击那一拍乱播。</para>
+        ///
+        /// <para>🆕 **2026-10-20（`FACTION-DOUBLE605`）`abilityIndex`**（≥0 = 原版 `cardAbilities[i]`
+        /// 的 0 基下标；`-1` = 不筛 = 改前行为）：第 ③ 步之后再按 <see cref="FilterPicksByAbilityIndex"/>
+        /// 筛一次 —— 同一张卡两条 605 能力各发一条事件时，靠它各播各的动画行。
+        /// 带序号时**判不出目标 trigger（第 ②/④ 档）⇒ 留白**（⛔ 不掉回粗桶：那会把整批候选再播一遍）。
+        /// ⚠️ **它依赖「候选顺序 == `times` 里 `cardAnimations` 的顺序」**（钉行用顺序消费）：
+        /// 现读这 3 张卡的全部 `UseFaith` 行都落在**同一张桶**（`ability`）里 = 成立；
+        /// 将来若出现「跨两张桶、且同名重复」的卡，钉行会错位 ⇒ 那时要按 `Order` 落数据（见报告「没查清」）。</para></summary>
         static bool TryResolveTriggerPicks(string faction, string cardIdOrName,
                                            IReadOnlyList<CardDef.CardAnimTime> times,
-                                           string keyword, out List<CardPick> picks)
+                                           string keyword, int abilityIndex, out List<CardPick> picks)
         {
             picks = null;
             var m = FindCardRow(cardIdOrName, faction);
@@ -1178,6 +1284,9 @@ namespace CardPresentation
             // ② 没有逐候选时间 ⇒ 分不出 trigger 组 ⇒ 保持改前的行为（只 `trigger` 桶）
             if (times == null || times.Count == 0)
             {
+                // 🆕 2026-10-20（`FACTION-DOUBLE605`）：带能力序号的拍**证明不了**是哪几条动画
+                //   ⇒ 宁可留白（多发一条事件时「全播」= 两遍，那正是本件要修的缺陷）。
+                if (abilityIndex >= 0) return false;
                 picks = trig;
                 return hasTrig;
             }
@@ -1194,6 +1303,9 @@ namespace CardPresentation
                 target = names[0];
             if (target == null)
             {
+                // 🆕 2026-10-20（`FACTION-DOUBLE605`）：带能力序号的拍**判不出目标 trigger 就留白**
+                //   —— 掉回 `trigger` 粗桶会把整批候选再播一遍（同一张卡发两条事件时 = 播两遍）。
+                if (abilityIndex >= 0) return false;
                 picks = trig;                     // ④ 判不出 ⇒ 原样（今天的行为）
                 return hasTrig;
             }
@@ -1202,8 +1314,40 @@ namespace CardPresentation
             var merged = new List<CardPick>();
             if (hasTrig) foreach (var p in trig) if (NameIs(TriggerNameOf(times, p), target)) merged.Add(p);
             if (hasAbil) foreach (var p in abil) if (NameIs(TriggerNameOf(times, p), target)) merged.Add(p);
+            // 🆕 2026-10-20（`FACTION-DOUBLE605`）：再按**原版 `cardAbilities[i]` 下标**筛一次
+            //   （同一张卡两条 605 能力各发一条事件时，靠它各播各的行）。
+            if (abilityIndex >= 0) merged = FilterPicksByAbilityIndex(times, merged, abilityIndex);
             picks = merged;
             return merged.Count > 0;
+        }
+
+        /// <summary>🆕 **2026-10-20（`FACTION-DOUBLE605`）**：只留 `CardAnimTime.Order` 第一段
+        /// == <paramref name="abilityIndex"/> 的候选（原版字段路径 `i.j.k` 的 `i`）。
+        ///
+        /// <para>**为什么不能按名字取第一条**：同一张卡里同名 `CardAnim` 可以出现多次
+        /// （`CardAnimTime.Order` 的 doc：现读 59 行同名重复）—— 本件这 3 张卡里
+        /// `Faith_trigger_*` 就各出现两次（SOR56 的 4 条 `UseFaith` 里 2 条同名、2 条同 prefab）。
+        /// 按名字取第一条会把第 2 条能力的行全判成第 1 条 ⇒ 「各播一条」变成「一条播 4 件」。
+        /// ⇒ 用 <see cref="FindAnimTimeIndex"/> 的**顺序消费**（游标只前进）逐条钉行，再读那一行的 `Order`。</para>
+        ///
+        /// <para>钉不上 / `Order` 解不出（`-.j.k` 的 `activeAbility`、空串）⇒ **不算这一条能力**
+        /// （`AbilityIndex &gt;= 0` 时宁可留白，⛔ 不多播）。</para></summary>
+        static List<CardPick> FilterPicksByAbilityIndex(IReadOnlyList<CardDef.CardAnimTime> times,
+                                                        List<CardPick> picks, int abilityIndex)
+        {
+            var outp = new List<CardPick>();
+            if (picks == null || times == null || times.Count == 0) return outp;
+            int cursor = 0;
+            for (int i = 0; i < picks.Count; i++)
+            {
+                var p = picks[i];
+                int idx = FindAnimTimeIndex(times, cursor, p);
+                if (idx >= 0) cursor = idx + 1;
+                int ai;
+                if (idx < 0 || !CardDef.TryParseAbilityIndexOfOrder(times[idx].Order, out ai)) continue;
+                if (ai == abilityIndex) outp.Add(p);
+            }
+            return outp;
         }
 
         /// <summary>`names` 里加一个（大小写不敏感去重）。<see cref="TryResolveTriggerPicks"/> 专用。</summary>

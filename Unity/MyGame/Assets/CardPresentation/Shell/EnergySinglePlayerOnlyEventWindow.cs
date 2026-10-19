@@ -60,7 +60,7 @@
 //   · 原版 `window` 字段在 prefab 里确实是 `{0,0}`、`onClick` 的 `m_Calls` 确实是空 ——
 //     **这两条都属实**，它们只是**推不出**「点了不关」（接线在运行时、不在序列化里）。
 //   · 我们的处置 = `Build()` 末尾那句 `MenuDraw.ShadeHit(transform, RootR, QShade, QHit, () => Close(), "BackgroundHit")`
-//     —— 形状照同族范本（`Shell/RankedEventWindow.cs:64` · `Shell/SkirmishEventWindow.cs:74`）。
+//     —— 形状照同族范本（`Shell/RankedEventWindow.cs` · `Shell/SkirmishEventWindow.cs`）。
 //   · 面板那一块（`Reward Background Get Reward` / `Noise`）另建一颗 `MenuDraw.Absorb` 吸收层
 //     （`rayscan` 实读：两颗 `ray=1 en=1`，矩形 0,112.3 → 1920,1003.2 = 本窗 `GenRedR`）
 //     ⇒ 原版点面板**什么都不发生**，只有面板**之外**那两条窄边才是「点外面关窗」。
@@ -334,7 +334,7 @@ namespace CardPresentation
             // ① **压暗层那颗（含「点它关窗」）** —— 原版 `__OnEnable.c:13-18` 给
             //    `backgroundCloseButton.onClick` 挂的监听与表头返回钮是**同一个 delegate**
             //    ⇒ 点压暗层 = 点返回钮 = `Close()`。
-            //    形状照同族范本 `Shell/RankedEventWindow.cs:64` / `Shell/SkirmishEventWindow.cs:74`：
+            //    形状照同族范本 `Shell/RankedEventWindow.cs` / `Shell/SkirmishEventWindow.cs`：
             //      `ShadeHit(dark, rect, qShade, qContentMin, onClick, name)`
             //    ⚠️ `name` 在**最后一个**位置 —— 与 `Absorb(parent, name, rect, …)` 的**参数顺序不一样**，
             //       别照 `Absorb` 那一行抄（照抄会把 `name` 当 rect 传、编不过）。
@@ -443,6 +443,9 @@ namespace CardPresentation
             //   判据 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·2 #12（同族另一站 `SkirmishEventWindow` 由别的写手改）。
             // 🔴 **2026-10-17（第四十八会话 · `N47`）**：这一颗原版 `Button Text` 的 `Localize.mTerm` =
             //   **`MainMenu/General/Collect`**（整包普查 26 颗里 24 颗是这个键、`m_Enabled = 1`）⇒ 接词条。
+            //   ✅ **2026-10-19（`W57`）独立复核**：本颗 = `EnergySinglePlayerOnlyEventWindow/Reward Progress Panel/
+            //   Scoring Bar Event Score Info/Generic Simplified UI Button/Button Text` ⇒ `mTerm` 同键 · `m_Enabled = 1`
+            //   （按 `m_GameObject` 认领，⛔ 不是照 Skirmish 那颗互推）。
             var ct = MenuDraw.Text(_collect, CollectTxR, Loc.T("MainMenu/General/Collect"),
                                    new Color(0.912f, 0.981f, 0.961f, 1f), "Button Text",
                                    55f * SBarFontScale, QText, CollectTxR.W,
@@ -454,7 +457,7 @@ namespace CardPresentation
             //   基准 **12.0** · **`auto[10.0~55.0]`**（`m_enableAutoSizing = 1`）·
             //   对齐 `Center/Capline` · 🔴 **折行 = 0** · 框 **280.88 × 73.17**（= `CollectTxR` 逐位同值）。
             //   ⚠️ **折行 0**：`SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**把模式开成 `Normal`
-            //   ⇒ 紧跟着关掉（同族先例 = `Shell/AlliancePanelWindow.cs:373` 的 `lb.SetWrapping(false)`）。
+            //   ⇒ 紧跟着关掉（同族先例 = `Shell/AlliancePanelWindow.cs` 的 `lb.SetWrapping(false)`）。
             //   ⚠️ 关得越早越好（`SetWrapping` 会推版面）—— 本颗后面**没有** `Align*`，所以排在这里就够。
             // 🔴 **2026-10-19（A1197）**：四格字号 **全部 × `SBarFontScale`（1.32）** —— 本颗在
             //   `Scoring Bar Event Score Info`（`m_LocalScale = 1.32`）那棵子树里，而原版 prefab 里的
@@ -783,7 +786,7 @@ namespace CardPresentation
                 //   **折行 = 0** ⇒ 紧跟着还原（成对写法同 A404 / A205 / A34-F4 那一族，这里与上面那次同源）。
                 tx.SetWrapping(false);
             }
-            // 🔴 **2026-10-17（N2）**：接上全工程唯一的倒计时口径 `TimerDisplay`（本文件头 `:34` 自己写着
+            // 🔴 **2026-10-17（N2）**：接上全工程唯一的倒计时口径 `TimerDisplay`（本文件头 `本文件` 自己写着
             //   原版是 `TimerDisplay.Initialize(endTime)`）。那个 `endTime` = LiveOps 事件的截止时刻，
             //   **由服务端下发、本地没有** ⇒ 目标传 `null`：出声一次 + 官方词条（`Ends in:` / `结束于：`）+ `--`（⛔ 不编日期）。
             //   ⚠️ **挂的时机必须在 `PreferredWidthPx` 之后** —— 那一格量的是 prefab 出厂串的 preferred 宽

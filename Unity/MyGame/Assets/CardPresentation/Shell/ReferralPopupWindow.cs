@@ -456,7 +456,7 @@ namespace CardPresentation
             //    · 现在：位移 = `原版 Top 那一格(框高 140) − 我们那一行的墨心 − 块心到首行那一截`
             //      ⇒ **首行的字墨**落在 `框上角 − ascent` 该在的地方（= 原版 `Top` 的语义），整串随行数自己折。
             //    · ⛔ 别把这一行删了退回「居中」；也别给它传别的档 —— 判据是 prefab 里的
-            //      `m_VerticalAlignment = 256`（= `Top`，见本文件 `:427` 与 `W16` §二）。
+            //      `m_VerticalAlignment = 256`（= `Top`，见本文件 `本文件` 与 `W16` §二）。
             _descr = MenuDraw.TextBox(_content, DescrR, TxtDescr, Color.white, "Descripton",
                                       DescrFont, DescrMin, QText, DescrMax, DescrBase, face: TmpFont.Face.LatinCardBody);
             // ⚠️ 排在 `TextBox` **之后**：`SetWrapWidth` / `SetAutoFitBox` 各自会重排一次，

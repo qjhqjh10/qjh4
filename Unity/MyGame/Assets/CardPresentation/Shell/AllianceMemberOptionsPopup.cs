@@ -65,7 +65,7 @@ namespace CardPresentation
     /// 聊天窗 3300 / 挑战弹窗 3400 之间 —— 层带不许重叠）。</para>
     /// <para>⚠️ **本地走不到这条路**：八个按钮的显隐**全要服务器**（`GroupMember` / `FriendsData` 都在
     /// PlayFab 那侧）⇒ 这扇窗在正常路径上开不出来（`Open()` 里数据为空时原版直接抛）。
-    /// 详见 `Shell/AllianceMemberTab.cs:1357` 那条记账。</para></summary>
+    /// 详见 `Shell/AllianceMemberTab.cs` 那条记账。</para></summary>
     public class AllianceMemberOptionsPopup : GameWindow
     {
         // ============================================================ 队列档（本窗自成一档 · 3340–3347）
@@ -105,7 +105,7 @@ namespace CardPresentation
 
         public const string ArtShadow = "OctagonUI_Filled_SDF";                  // 128×128 · 九宫 52,52,52,52 · **Sliced**（图在 `Resources/Art/ui_menu/`）
         // ⚠️ **2026-10-18（W3）就地订正（铁律 5）**：本行原来接着写「工程里没有 ⇒ 出声、不画」——
-        //   **该图早已在盘上**（`Resources/Art/ui_menu/OctagonUI_Filled_SDF.png`，同 `Editor/ShopScene.cs:4453` 的订正），
+        //   **该图早已在盘上**（`Resources/Art/ui_menu/OctagonUI_Filled_SDF.png`，同 `Editor/ShopScene.cs` 的 `OctagonUI_Filled_SDF` 的订正），
         //   `Tex()` 取得到 ⇒ 这一件**会画**（判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §16）。
         public const string ArtBg = "40k_topmarquee_currency_display_BW";
         public const string ArtBtn = "UI_Button_Mulligan",
@@ -474,7 +474,7 @@ namespace CardPresentation
 
         /// <summary>点了某一颗。原版八条各是一个服务器调用（`PlayFabWrapper…`）＋ 两条 `ShowConfirmation`。
         /// 🔴 我们**没有服务器** ⇒ **只出声、不改任何状态**（红线：不许静默失败 / 不许假装成功）。
-        /// ⚠️ 与 `AllianceMemberTab.cs:1357` 那条记账同源（「8 个钮全要服务器」）。</summary>
+        /// ⚠️ 与 `AllianceMemberTab.cs` 那条记账同源（「8 个钮全要服务器」）。</summary>
         void OnClicked(int i)
         {
             var bt = Buttons[i];

@@ -277,7 +277,8 @@ namespace CardPresentation.Net
                 }
                 // 🔴 **A943 读侧闭环（2026-10-18）**：`_t.AcceptedCount == _lastAccepted` 这半句**不能删**。
                 //   两个连接事实（连接位 / 接受计数）在 `TcpTransport` 里**已经同处一个字、由一次 CAS 发布**
-                //   （`_state`，见那边的注释），但**读侧是两次读**：上面那一支（`:213`）读计数、这里读连接位。
+                //   （`_state`，见那边的注释），但**读侧是两次读**：上面那一支（`Pump` 的**握手边沿**：
+                //   `Role == NetRole.Host && _t.AcceptedCount != _lastAccepted`）读计数、这里读连接位。
                 //   一次新发布**夹在这两次读之间**时，这里就会拿「旧计数（⇒ 上面那支没走、`_lastRecvMs`
                 //   没跟着刷新）+ 新连接位（⇒ 真）」去判静默 ⇒ **掐掉一条刚连上、一条包都还没发的好连接**
                 //   （同族的日志实证见 `资料/普查产出_1017/D4_联机诊断.md` §②）。
@@ -287,7 +288,7 @@ namespace CardPresentation.Net
                 //      客机的计数由**主线程自己**在 `Connect()` 里加（`Setup` 是两边共用的一支），
                 //      而 `_lastAccepted` 在客机侧**没人写**（停在 `-1`）⇒ 少了这半句，客机的静默超时
                 //      会被**永久关掉**（`1 == -1` 恒假 ⇒ 对面拔网线再也判不出来）。自检 P⑫ 钉这一点。
-                //   ⚠️ 不是死循环、不会饿死：`Pump()` 每帧重来，**下一帧 `:213` 那支就把边沿补上并刷新基线**
+                //   ⚠️ 不是死循环、不会饿死：`Pump()` 每帧重来，**下一帧 `Pump` 的握手边沿那一支就把边沿补上并刷新基线**
                 //      （自检 §P 的 P⑤/P⑥ 钉这一点）；真有连接不停进来的话，基线本来也在被不停刷新。
                 //   ⚠️ 判据仍然只此一处：`_lastAccepted` 只在 `StartHost` 与上面那支里被写。
                 if (_t.IsConnected && (Role != NetRole.Host || _t.AcceptedCount == _lastAccepted)
@@ -300,7 +301,7 @@ namespace CardPresentation.Net
                     LastError = string.Format(Loc.T("Settings/Online/St/SilentTimeout"), SilentTimeoutMs / 1000);
                     // 🆕 2026-10-17（B23·A902）：这行字**要按在不在对局里分开说** —— 原来无条件是
                     //   「对局已暂停」，而大厅阶段（还没进对局）根本不是那么回事（**说错话** = 另一种静默）。
-                    //   同一个文件上面那条（`PeerLost` 那一支，`:176`）本来就是这么分的 ⇒ 两处对齐。
+                    //   同一个文件上面那条（`Pump` 里 `_t.PeerLost` 那一支）本来就是这么分的 ⇒ 两处对齐。
                     SetState(NetState.WaitingReconnect,
                              _wasInBattle ? Loc.T("Settings/Online/St/PeerLostInBattle")
                                           : string.Format(Loc.T("Settings/Online/St/Disconnected"), LastError));
@@ -403,7 +404,7 @@ namespace CardPresentation.Net
                     string why = whyKey == null ? null
                                : (whyArgs == null ? Loc.T(whyKey) : string.Format(Loc.T(whyKey), whyArgs));
                     // 🔴 **A961（2026-10-18）**：`MsgProof.name` **是对端可控的**，而它会被拼进 `StatusText`
-                    //   （本文件 `:348` · `:352` · `:411`，设置→联机页那一行字）⇒ **进界面前先钳**。
+                    //   （本文件 `SetState` 那几处，设置→联机页那一行字）⇒ **进界面前先钳**。
                     //   口径与取值 → `NetProtocol.MaxPeerTextChars`（⚠️ 是**我们自拟的**，原版把玩家名的长度
                     //   校验放在 PlayFab 服务端，客户端一次都不查）。
                     PeerName = ClampPeerText(m != null ? m.name : null, NetProtocol.MaxPeerNameChars);
@@ -480,18 +481,21 @@ namespace CardPresentation.Net
                     {
                         // 🔴 **P6d（A1038）**：线上发**词条键**，⛔ 不发中文整句（那会把本机语言灌到对面屏幕上）。
                         //   收侧 `NetWireText.Unpack` 按**它自己**的语言取词；旧端收到键名则原样印（≤40 字、不被钳）。
-                        Send(NetKind.Bye, new MsgBye { reason = NetWireText.Pack("Settings/Online/Wire/BadKey") });
+                        // 🔴 **2026-10-19（`A1264` X2 · T05）**：这一支原来也走「发完 `bye` 立刻 `_t.Close()`」
+                        //   —— 那是 X2 里被点名的旧形状（同一族两处都改成优雅收尾）⇒ 走唯一收口点。
+                        bool sentBye = Send(NetKind.Bye, new MsgBye { reason = NetWireText.Pack("Settings/Online/Wire/BadKey") });
                         LastError = Loc.T("Settings/Online/St/RejectBadKey");
                         SetState(NetState.Closed, LastError);
-                        _t.Close();
+                        CloseTransportAfterBye(sentBye);
                         return;
                     }
                     if (ResumeProvider == null)
                     {
-                        Send(NetKind.Bye, new MsgBye { reason = NetWireText.Pack("Settings/Online/Wire/NoRecord") });
+                        // 🔴 **2026-10-19（`A1264` X2 · T05）**：同上（`Wire/NoRecord` 那一支）。
+                        bool sentBye = Send(NetKind.Bye, new MsgBye { reason = NetWireText.Pack("Settings/Online/Wire/NoRecord") });
                         LastError = Loc.T("Settings/Online/St/RejectNoLog");
                         SetState(NetState.Closed, LastError);
-                        _t.Close();
+                        CloseTransportAfterBye(sentBye);
                         return;
                     }
                     var (start, actions) = ResumeProvider();
@@ -534,6 +538,13 @@ namespace CardPresentation.Net
                     //   （或自检那种自定义串）时 `HasEntry` 为假 ⇒ **原样回显**（白赚的兼容）。
                     string why = m != null && !string.IsNullOrEmpty(m.reason)
                                ? NetWireText.Unpack(ClampPeerText(m.reason)) : Loc.T("Settings/Online/St/PeerLeft");
+                    // 🔴 **2026-10-19（T05 判别器）**：收到这一帧**留一条**（与发送侧那条成对）。
+                    //   排查「`bye` 丢在哪一跳」时：这一行出现 = **对端的 `bye` 真的到了本机应用层**
+                    //   （与下面 `SetState(Closed, …)` 那条自动打的 `[Net] Closed：…` **不是同一个观测口** ——
+                    //    `Closed` 也可能是 `Ack` 被拒 / 重连被拒，理由不同）。
+                    //   ⚠️ 打的是**钳过**的原串（`MsgBye.reason` 是对端可控的）—— ⛔ 别把钳去掉。
+                    Debug.Log("[Net] 收到 `bye`（reason = "
+                            + (m != null && m.reason != null ? ClampPeerText(m.reason) : "<null>") + "）");
                     SetState(NetState.Closed, why);
                     _t.Close();
                     if (OnClosed != null) OnClosed(why);
@@ -637,26 +648,24 @@ namespace CardPresentation.Net
                                    + $"—— 但**这一刻没有活的连接**（会话 {State}）⇒ 这句话**没发出去**，"
                                    + "对面**不会收到任何通知**（它那边只能靠心跳超时发现）。如实说出来（红线）");
                 else
+                {
                     sentBye = Send(NetKind.Bye, new MsgBye { reason = key });
+                    // 🔴 **2026-10-19（T05 判别器）**：**成功那一刻也留一条** —— 排查「`bye` 丢在哪一跳」
+                    //   时，这一行 = 「**发送侧真把它交给传输层了**」（`Send` 已按「调用前后各读一次
+                    //   `_lastError`、变了才算失败」判过写失败）；它**不**代表对面收到（那要看对端的
+                    //   「收到 `bye`」那一行）。
+                    //   ⛔ 别把它并进下面那条失败告警里 —— 两条是不同的观测口。
+                    if (sentBye)
+                        Debug.Log("[Net] 已给对面捎一句 `bye`（" + NetWireText.Unpack(key) + "）"
+                                + " ⇒ 走有界优雅关闭（发送侧：**已交给传输层**）");
+                }
             }
             // 🆕 关台时**把要来的那条映射撤掉**（别在玩家路由器上留一条没人用的转发规则）。
             //    端口要在 `Close()` 之前抓 —— 关完就取不到了。
             if (Role == NetRole.Host && _t != null) UpnpPortMapper.UnmapAsync(_t.Port);
-            if (_t != null)
-            {
-                // 🆕 2026-10-19（`A1264` X2「`bye` 丢在哪一跳」）：**说完 `bye` 再走有界优雅关闭** ——
-                //   先 `Shutdown(Send)`、有界排空（≤ `TcpTransport.GracefulCloseDrainMs`），最后才真正 `Close()`。
-                //   为什么：原来 `Send`（同步 `Write + Flush`）之后**立刻** `_t.Close()`，没有
-                //   `Shutdown(Send)` / 排空 / linger ⇒ 刚写出的 `bye` 有可能在拆连接时被丢掉。
-                //   ⚠️ 只有「这一趟**真的把 `bye` 写出去了**」才需要排空（`sentBye`）；没发出去 /
-                //      `Close(false)` 都照旧直接关（自检里大量 `Close(false)`，别让每条都白等 200ms）。
-                //   ⚠️ 只有真 TCP 有这一档：`INetTransport` 接口**没加**这个方法（那要改
-                //      `Editor/BattleScene.cs` 的 `RecordingTransport`，不在本笔白名单）⇒ 按类型分派，
-                //      自检里的假 transport 照旧 `Close()`。⛔ 别把接口改成「必须实现」。
-                var tcp = _t as TcpTransport;
-                if (tcp != null && sentBye) tcp.CloseGracefully();
-                else _t.Close();
-            }
+            // 🔴 说完 `bye` 之后的收尾 = **有界优雅关闭**（理由 / 次序 / 边界 → `CloseTransportAfterBye` 的注释；
+            //    ⛔ 别在这里再写一份「`Shutdown` + 排空」的规则 —— 「两处写同一条规则迟早不一致」）。
+            CloseTransportAfterBye(sentBye);
             // ⚠️ **本机那一句与线上那句【兜底不同】**：`reason == null` 时线上捎 `Wire/PeerDone`，
             //    而**本机状态字仍是** `St/Off`（「未连接」）—— 与接线前逐字一致。
             //    ⛔ 别把这两半并成一个 `key`（那会让 `Close(false)` 这条常用路上状态字变成「对面结束了这一局」）。
@@ -665,7 +674,7 @@ namespace CardPresentation.Net
             _wasInBattle = false;
             // 🔴 **为什么这里【故意不清】`SessionToken`**（2026-10-18 第五轮 · 账 ③，现核过全仓读者）：
             //   ① 它的**两个写点都在「新连接的开头」** —— `StartHost`（新一把 `NewToken()`）与
-            //      收 `Ack` 时（`:413 SessionToken = m.sessionToken`）⇒ **不存在「把陈旧钥匙带到下一局」的路径**
+            //      收 `Ack` 时（`Handle` 的 `NetKind.Ack` 那一支：`SessionToken = m.sessionToken`）⇒ **不存在「把陈旧钥匙带到下一局」的路径**
             //      （`NetRuntime.Reset()` 更是直接**换一台新会话对象**）。自检 §Q⑦ 把这条**钉住**了。
             //   ② 反过来，**清掉它是有风险的**：重连鉴权那一句写成
             //      `if (m == null || (SessionToken != null && m.sessionToken != SessionToken))` ——
@@ -675,6 +684,33 @@ namespace CardPresentation.Net
             //      它另有两道闸（`State == WaitingReconnect`、`_wasInBattle`），`Close` 把 `State` 置 `Off`
             //      ⇒ 那一条**本来就已经死了**。
             //   ⇒ **结论：不该清**（不是漏做）。⛔ 下一个人别把它当漏项补上。
+        }
+
+        /// <summary>🆕 🔴 **2026-10-19（`A1264` X2「`bye` 丢在哪一跳」· T05）**：**说完 `bye` 之后的收尾** ——
+        /// 真 TCP 走**有界优雅关闭**（`Shutdown(Send)` + ≤ `TcpTransport.GracefulCloseDrainMs` 排空），
+        /// 其余照旧 `Close()`。
+        ///
+        /// <para>为什么要有它：原来 `Send`（同步 `Write + Flush`）之后**立刻** `_t.Close()` —— 没有
+        /// `Shutdown(Send)`、没有排空、没有 linger ⇒ 刚写出的 `bye` 可能在拆连接时被丢掉
+        /// （带了未读数据的拆除在 Windows 上还可能走 abortive 路径，把发送队列一起丢）。
+        /// 这与 `NetSession.Close` 头一次被修的那条**是同一个危险形状**（`A1264` 候选 ②）。</para>
+        ///
+        /// <para>⚠️ 只有「这一趟**真的把 `bye` 写出去了**」才需要排空（`sentBye`）；没发出去 /
+        /// `Close(false)` 都照旧直接关（自检里大量 `Close(false)`，别让每条都白等 200ms）。</para>
+        ///
+        /// <para>⚠️ 只有真 TCP 有这一档：`INetTransport` 接口**没加**这个方法（那要改
+        /// `Editor/BattleScene.cs` 的 `RecordingTransport`，不在本笔白名单）⇒ 按类型分派，
+        /// 自检里的假 transport 照旧 `Close()`。⛔ 别把接口改成「必须实现」。</para>
+        ///
+        /// <para>🔴 **唯一收口点**：`Close()` 与 `Handle` 的 `case NetKind.Reconnect` 两条拒绝支
+        /// （`Wire/BadKey` / `Wire/NoRecord` —— 那里也是「发完 `bye` 立刻 `_t.Close()`」的旧形状）
+        /// **都走这里**。⛔ 别再在别处手写 `Shutdown` / `CloseGracefully` / `_t.Close()` 三件套。</para></summary>
+        void CloseTransportAfterBye(bool sentBye)
+        {
+            if (_t == null) return;
+            var tcp = _t as TcpTransport;
+            if (tcp != null && sentBye) tcp.CloseGracefully();
+            else _t.Close();
         }
 
         /// <summary>🆕 🔴 **A914 / 独立审查 R3（2026-10-18）**：**停掉客机那条「每 2 秒重连一次」的退避**，
@@ -691,9 +727,14 @@ namespace CardPresentation.Net
         /// 而这里**故意不改状态**。</para>
         ///
         /// <para>⚠️ **状态仍然是 `WaitingReconnect`**（我们**不新造状态**）⇒ 心跳块与静默超时块在这一端
-        /// 仍被跳过（它们都要求状态不是它）。**如实记着**，别以为这一端已经收干净。
-        /// ⚠️ 这一端**还欠「判本机负」**（原版 `DeadHero(我,3)`）—— 那要给 `INetBattleHost` 加一个口
-        /// （`BattleDriver` 实现），**不在本笔白名单**，见交件报告 §11。</para></summary>
+        /// 仍被跳过（它们都要求状态不是它）。**如实记着**，别以为这一端已经收干净。</para>
+        ///
+        /// <para>🔴 **2026-10-19（铁律 5）就地订正：本段原来写着「这一端**还欠『判本机负』**」—— 已过期。**
+        /// 「判本机负」早在 **2026-10-18 第四续（`A914`）** 就补上了：`INetBattleHost.NetSelfResign()`
+        /// （`BattleDriver` 那一份 = `RecRaw(RecKindForfeit)` + `RuleCore.Forfeit(Ctx, _me)`，**仍走既有记账口**），
+        /// 调用点 = `NetBattle.ReconnectCountdownExpired` 的本机那一支：`_d.NetSelfResign(BattleResult.Disconnect)`
+        /// 那一句，紧接着才是本方法 `_s.StopReconnecting()`）⇒ **本方法只负责停循环**，「判谁负」在**调用方**。
+        /// ⛔ 别在这里再判一次（那会绕过调用方那一支的 `_d == null` 闸，也会让两端判负各写一份）。</para></summary>
         public void StopReconnecting()
         {
             if (!_wasInBattle) return;                 // 幂等：本来就没在重连 ⇒ 不重复出声

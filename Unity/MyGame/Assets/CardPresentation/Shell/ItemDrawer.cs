@@ -342,7 +342,7 @@ namespace CardPresentation
         /// 「**按键找不到 ⇒ 回落主档**」（`GetDrawer.c:23-33` / `GetReference.c:62-72`）
         /// ⇒ 没写变体的那几档**返回值变了**；搬家保住的只有**签名与转调关系**。
         /// **错因**：这句是照**搬迁**写的（搬的只有住址），却把「住址没变」写成了「行为没变」；
-        /// 而同一个文件 `:545-547`（`&lt;/remarks>` 里那条「`noov` 随守卫一起删掉」）/ `:601-607`（下面 `pick`
+        /// 而同一个文件 `:545-547`（`&lt;/remarks>` 里那条「`noov` 随守卫一起删掉」）/ `本文件`（下面 `pick`
         /// 那段回落主档的订正痕迹）本来就写着「那条守卫已删」⇒ 前后自相矛盾。
         /// 逐条订正与断言那半边见 <see cref="GetDrawerClass"/> 的同名订正。</para></summary>
         public struct ItemTypeSet
@@ -638,7 +638,7 @@ namespace CardPresentation
         /// `Editor/ShopScene.cs` 的 `Run` 里那条 `TitleIconDrawer` 断言 那条「`…(Icon) == null`」已**翻成正値**（期望 `TitleIconDrawer`），
         /// 并加了 **16 条**逐格覆盖（`Editor/ShopScene.cs` 的 `Run` 里那 16 条逐格覆盖（`DrawerAtOv`），`DrawerAtOv.Length == 16`）。
         /// **错因**：这句抄的是 A43/A68② 那时的口径，A79② 换掉守卫之后**没人回来改它**
-        /// （同一个文件 `:545-547` / `:601-607` 自己已经写着「守卫已删」）。搬的四条理由：
+        /// （同一个文件 `CardPresentation/Editor/ShopScene.cs` / `CardPresentation/Editor/ShopScene.cs` 自己已经写着「守卫已删」）。搬的四条理由：
         /// ① 它复刻的 `ItemDrawerConfig` 是 **`ItemDrawer` 族自己的配置**，而那张表（`ItemTypeSets`）
         ///    A68② 就已经住在本类 ⇒ 表与读表的人分居两个文件 = 「两处写同一条规则」的温床（`CLAUDE.md` §三）；
         /// ② <see cref="PickDrawer"/>（住本类）现在**必须**调它，留在 `OfferContainer` 会**反向依赖**；
@@ -1068,7 +1068,7 @@ namespace CardPresentation
                 //   原来那句 `if (st.Clip.HasValue)` 守卫在生产上**恒假**：`ItemDrawerStyle.Clip` 缺省 `null`
                 //   （见 `Default`），三处派生写入（`CampaignRewardWindow` / `RewardWindow` / `CampaignTab`）
                 //   已在甲块 B8/B9/B10 删掉 ⇒ **没有任何生产调用点会设它** ⇒ 这一段字**一个顶点都不裁**、
-                //   压在视口边上整段画出去（**静默**）。同一函数里 `:996` 的 `VisibleAbove`（粗筛）与
+                //   压在视口边上整段画出去（**静默**）。同一函数里 `本文件` 的 `VisibleAbove`（粗筛）与
                 //   `SetConverted` 里 `Already Owned` 那条（走 `ClippedText`）**都已改** ⇒ 只剩这一处。
                 //   ⚠️ 受影响的是这两段字：`SetEphemeral` 的 `24 hours` 那串 · `SetConverted` 的数量数字。
                 //   🔴 **可见影响面（哪一格会露出视口、露多少）没跑过 Unity 量过** ——
@@ -1199,17 +1199,17 @@ namespace CardPresentation
                 //   `资料/普查产出_第十一会话/RA1212_切块表.md` 块 11。
                 //   ⚠️ **三格一起乘 `k`** —— 本文件 `ClippedText` 的 doc 写着「三者都是**原版设计空间的原文**，
                 //   调用方自己按该族的**刻度**换算（见 `AlreadyOwned` 那一处）」，而同族已接的那一站
-                //   （`:970`）用的正是 `k = box.H / DecorRefH`（`DecorRefH = 1080` = 抽屉的参考高）
+                //   （`本文件`）用的正是 `k = box.H / DecorRefH`（`DecorRefH = 1080` = 抽屉的参考高）
                 //   ⇒ 照抄同族写法，⛔ 不自己发明系数。
                 float k = box.H / DecorRefH;
                 // 🆕 **2026-10-10（`A1242③`）：`wrapPx = box.W − 20f` 的【量纲】已查实 —— 它是「我们这一档的
                 //   **框 px**」，⛔ 不是设计 px、**不需要乘 `k`**，本处与 `:1280` 用的是【同一把尺】**不存在混用**：
                 //   · `wrapPx` 必须与本行的 `r` 同量纲 —— `ClippedText` 把 `r` 与 `wrapPx` **原样**交给
-                //     `MenuDraw.Text`，而后者对两者都走 `LayoutSpace.Px(...)`（`MenuDraw.cs:1846,1850,1853,1856`）
+                //     `MenuDraw.Text`，而后者对两者都走 `LayoutSpace.Px(...)`（`MenuDraw.cs` 的 `MenuDraw.Text`）
                 //     ⇒ `wrapPx` = 那个 TMP 矩形的**宽**，量纲只能是框 px。
                 //   · 数值上也**正好**是矩形宽：`NameStrip(box, st.NamePx)` 的左右各内缩 `side = 10f`
                 //     （`NameStrip` 里那两个是**未乘 `k` 的字面量**）⇒ 它的 `W` ≡ `box.W − 20f`；
-                //     `:1280` 的 `Quantity` 更直接 —— 传的是 `qr.W` 本身（`qr` 同样 `side = 10f`）。
+                //     `本文件` 的 `Quantity` 更直接 —— 传的是 `qr.W` 本身（`qr` 同样 `side = 10f`）。
                 //   · 乘 `k` 的只有 `12f/75f/36f` 这三个**原版 `m_fontSizeMin/Max/Base`**（设计 px ⇒ 框 px），
                 //     而 `fontPx = st.NamePx` 本来就是框 px（`Label.SetAutoFitBox` 的 `minPx/maxPx/basePx`
                 //     与调用方的 nominal 同量纲）⇒ 两边**同尺**。
@@ -1349,7 +1349,7 @@ namespace CardPresentation
         /// ⇒「关折行」要做在 `ClipText` **之前**（在这里做最省事、一次做对）。
         /// 🔴 **2026-10-17（`A1228`）就地订正（铁律 5）**：本行原来写「**调用方拿到返回值再关就晚了**」
         /// —— **不成立**：`SetWrappingMode → ForceRelayout → RefreshBounds`，而 `RefreshBounds` 的末句
-        /// 就是 `ReclipNow()`（`Battle/Label.cs:1325`）⇒ **调用方那条路也会重裁**、结果一样。
+        /// 就是 `ReclipNow()`（`Battle/Label.cs` 的 `ReclipNow()`）⇒ **调用方那条路也会重裁**、结果一样。
         /// （判据 = 本仓现读；⛔ 别据此再给调用方加顺序限制。）</param>
         static Label ClippedText(Transform node, PxRect r, string s, Color color, string name,
                                  float fontPx, int q, float wrapPx, ItemDrawerStyle st, int align = 0,

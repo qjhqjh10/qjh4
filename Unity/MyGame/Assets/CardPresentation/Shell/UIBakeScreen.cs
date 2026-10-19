@@ -70,7 +70,7 @@ namespace CardPresentation
         /// <summary>RT 名字 —— **原版实读** `"RT Background bake"`。
         /// 判据：`UIBakeScreen__CreateRT.c:16,54` 的 `DAT_1842a4768`，RVA = `0x1842a4768 − 0x180000000 = 0x42A4768`；
         /// `d:/2/tools/il2cpp_out/stringliteral.json` 里该地址 = `"RT Background bake"`
-        /// （同一手法解过 `"Everguild/UI/Greyscale" @0x42AB248`，见 `Shell/MissionsTab.cs:1973` 附近）。</summary>
+        /// （同一手法解过 `"Everguild/UI/Greyscale" @0x42AB248`，见 `Shell/MissionsTab.cs` 的 `x42AB248` 附近）。</summary>
         public const string RTName = "RT Background bake";
 
         // ---- 原版字段（名字逐字照抄）----

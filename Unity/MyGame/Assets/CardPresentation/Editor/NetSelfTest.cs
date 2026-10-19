@@ -25,7 +25,7 @@ public static class NetSelfTest
     static int _pass, _fail, _warn;
 
     /// <summary>🆕 2026-10-19（P6 · 双语）：取词条**从开头到第一个 `{0}` 之前**那一段 —— 本文件断言的锚。
-    /// 形状与 `Editor/SettingsScene.cs:240` 的 `TermHead` 逐字相同。
+    /// 形状与 `Editor/SettingsScene.cs` 的 `TermHead` 逐字相同。
     /// <para>🔴 为什么要有它：P6 把 `Net/` 那 6 份里**玩家可见**的中文直传换成了 `Loc.T(键)` ⇒
     /// 旧那些**写死中文子串**的断言在**英文档**下必红（本工程那条系统性毛病：只在一种语言下看着对）。</para>
     /// <para>⛔ 别拿它当第二条取值路 —— 它只服务断言；`{0}` 起的运行期参数不参与比较。</para></summary>
@@ -99,7 +99,7 @@ public static class NetSelfTest
     /// ② 英文列**一个汉字都没有**（C1）③ 两语档的取值**真的不同且都非空**（灭自证主判据）。</para>
     ///
     /// <para>⚠️ 只切**内存里**的语言（`Loc.PersistOverride` 挡住写盘 —— 本工程规矩：自检不许动玩家的真设置），
-    /// 收尾**逐值放回**（写法同 `Editor/SettingsScene.cs:1544` 那一族）。</para>
+    /// 收尾**逐值放回**（写法同 `Editor/SettingsScene.cs` 那一族）。</para>
     ///
     /// <para>⚠️ 这是**静态**判据（表本身 + 两档取值）；「界面上那行字真跟着换」那一半由
     /// `ShellScene.Run` / `MainMenuScene.Run` / `SettingsScene.Run` 那几个宿主覆盖（不在本文件）。</para></summary>
@@ -935,9 +935,9 @@ public static class NetSelfTest
     /// ⇒ 后果 = 黑匣子**永远抓不到** `[BattleResult]` 那一行（= `V1` 报告 §5 第 2 条）。
     ///
     /// <para>🔴 **2026-10-11 现读后判：有意设计，不是缺陷。** 三条判据（都在仓库里、逐处现读）：
-    /// ① `Battle/ReplayStore.cs:190` 把那格就定义成「每条动作落地后 **`ActionLog`** 尾那一句」；
-    /// ② `Battle/BattleDriver.cs:440` 的 `EvtTail` 摘要同样写的是 `ActionLog`，`:745` 打的那行字也叫「log 尾」；
-    /// ③ `RuleCore/Core/RuleCore.cs:6587-6589` 把两条通道的分工写死了 —— 理由码只进 `ctx.Events`
+    /// ① `Battle/ReplayStore.cs` 的 `ActionLog` 把那格就定义成「每条动作落地后 **`ActionLog`** 尾那一句」；
+    /// ② `Battle/BattleDriver.cs` 的 `ActionLog` 的 `EvtTail` 摘要同样写的是 `ActionLog`，`Battle/BattleDriver.cs` 打的那行字也叫「log 尾」；
+    /// ③ `RuleCore/Core/RuleCore.cs` 的 `ctx.Events` 把两条通道的分工写死了 —— 理由码只进 `ctx.Events`
     /// 那条（**我们自己的诊断**日志），**不是** `ctx.ActionLog` 那本**给玩家看的战斗日志**。
     /// ⇒ 两边各按自己的用途读自己的表，「抓不到」是**它的定义**，不是漏接线。</para>
     ///
@@ -1473,7 +1473,7 @@ public static class NetSelfTest
                 pop.Show();
                 // 🔴 **2026-10-17（F4·RC3）：这一格原来是 N⑤「`Show()` ⇒ **消费方挂上了**（订阅者 +1）」。**
                 //   判据链（→ `资料/普查产出_1017/D4_联机诊断.md` §③）：窗的订/摘**只挂在
-                //   `OnEnable`/`OnDisable`**（`Shell/SearchingMatchPopup.cs:438-440` —— 设计上是对的：
+                //   `OnEnable`/`OnDisable`**（`Shell/SearchingMatchPopup.cs` 的 `OnDisable` —— 设计上是对的：
                 //   `Show()` 会重复调，挂 `Show()` 会订两次），而本自检跑在**编辑模式**
                 //   ⇒ **编辑器不派生命周期消息** ⇒ `Attach()`（`AddComponent`+`SetActive(false)`）与
                 //   `Show()`（`SetActive(true)`）**两条路都一次都不派** ⇒ 窗从来没订上
@@ -1489,7 +1489,7 @@ public static class NetSelfTest
                                + "（订阅者数原封不动）；真那一跳 = 真 Play ⇒ `资料/真Play待验清单.md` D43。");
                 Ok(HintSubs() == subs0,
                    $"★（提示行）N⑤【本宿主的环境事实】`Show()` **不会**把消费方挂上（订阅者 {subs0} → {HintSubs()}）"
-                 + " —— 编辑模式不派 `OnEnable`（`SearchingMatchPopup.cs:438`）⇒ 这一跳在本宿主里验不了"
+                 + " —— 编辑模式不派 `OnEnable`（`SearchingMatchPopup.cs`）⇒ 这一跳在本宿主里验不了"
                  + "（真那一跳 = 真 Play，D43）"
                  + "；🧨 改坏法：给窗加 `[ExecuteAlways]`（或改由 `Show()` 订）⇒ 订阅者 +1 ⇒ 本条红"
                  + " —— 那是「环境变了、好消息」，把这一档换成「订阅者 +1」那条断言即可");
@@ -1680,17 +1680,18 @@ public static class NetSelfTest
     // ==================================================================
     //  O. 🆕 2026-10-18（A943）：`TcpTransport` 的两个连接事实**由同一次写发布**
     // ==================================================================
-    /// <summary>账 `A943`：`Setup` 原来先 `_connected = true;`（`NetTransport.cs:219`）**再**
-    /// `AcceptedCount++`（`:220`）—— 两条**独立的**写。写它的是**接受线程**（`AcceptLoop` → `Setup`），
+    /// <summary>账 `A943`：`Setup` 原来先 `_connected = true;`（`NetTransport.cs` 的 `_connected`）**再**
+    /// `AcceptedCount++`（`Setup` 里那两句）—— 两条**独立的**写。写它的是**接受线程**（`AcceptLoop` → `Setup`），
     /// 读它的是**主线程**（`NetSession.Pump`，每帧 / 自检里显式调）⇒ 存在一个
-    /// 「**已连接、但计数还没加**」的中间态：读侧若在 `Pump:213` 读到旧计数（⇒ 不刷新静默基线）、
-    /// 又在 `Pump:232` 读到连接位已立（⇒ 拿 `now - _lastRecvMs >= SilentTimeoutMs` 去判）
+    /// 「**已连接、但计数还没加**」的中间态：读侧若在 `Pump` 的**握手边沿**那一支
+    /// （`Role == NetRole.Host` 且 `_t.AcceptedCount != _lastAccepted`）读到旧计数（⇒ 不刷新静默基线）、
+    /// 又在同一轮 `Pump` 的**静默超时**条件里读到 `IsConnected` 已立（⇒ 拿 `now - _lastRecvMs >= SilentTimeoutMs` 去判）
     /// ⇒ **把一条刚连上、一条包都还没发的连接掐掉**。
     ///
     /// <para>现在两个事实**同处一个 32 位字、由一次 CAS 一起翻**（`TcpTransport._state`：
     /// bit0 = 连接位、bit1..31 = 接受计数）⇒ **不存在半次发布**。
     /// 🔴 **顺序不能反**（把 `AcceptedCount++` 挪到前面**更糟**）：上层是**边沿触发**
-    /// （`Pump:213-215` 看到计数变了就 `_lastAccepted = …` 并**立刻**发 `Challenge`），
+    /// （`Pump` 的握手边沿那一支：看到计数变了就 `_lastAccepted = …` 并**立刻**发 `Challenge`），
     /// 那一刻 `Send` 会看到「还没连上」⇒ **握手包发不出去、边沿却被消费掉了** ⇒ 永久握不上。</para>
     ///
     /// <para>🔴 **为什么这条断言是【结构性】的**（反射读那个私有状态字）：那个中间态只有
@@ -1751,10 +1752,10 @@ public static class NetSelfTest
     //  P. 🆕 2026-10-18（A943 读侧）：静默超时判据**不许把连接位与计数分两次读下结论**
     // ==================================================================
     /// <summary>账 `A943` 的**读侧闭环**：`NetSession.Pump` 里那个判据是**两次读**
-    /// （`:213` 读计数、`:247` 读连接位）。写侧虽然已经「一个字 + 一次 CAS」（§O），
+    /// （`Pump` 里读 `AcceptedCount` 那一次、读 `IsConnected` 那一次）。写侧虽然已经「一个字 + 一次 CAS」（§O），
     /// 但一次新发布**夹在这两次读之间**时，判据仍会凑出「**旧计数**（⇒ 上面那支没走、`_lastRecvMs`
     /// 没跟着刷新）**+ 新连接位**（⇒ 真）」⇒ **掐掉一条刚连上、一条包都还没发的好连接**。
-    /// `:247` 补了「`Role != NetRole.Host ||` + `_t.AcceptedCount == _lastAccepted`」之后，这种夹缝
+    /// `Pump` 的 `IsConnected` 那一读补了「`Role != NetRole.Host ||` + `_t.AcceptedCount == _lastAccepted`」之后，这种夹缝
     /// **必须判不出超时** —— 而**客机**那侧（确认对它不适用）的超时**必须照旧判**。
     ///
     /// <para>🔴 **为什么用可注入的传输**：那个窗口在真 socket 上**量级是纳秒**，跑一万次也撞不上
@@ -1763,9 +1764,9 @@ public static class NetSelfTest
     /// 两个**负例**（P⑨ 计数两次读一样 / P⑫ 客机）各挡一头：
     /// 前者挡「**永远不超时**」也能把 P③ 蒙绿，后者挡「确认把**客机**的超时永久关掉」
     /// —— 客机的 `_lastAccepted` 停在 `-1`、而它的计数是 **1**（`Setup` 在客机侧也跑）⇒ `1 == -1` 恒假。</para>
-    /// 🧨 改坏法：删 `NetSession.cs:247` 里的 `_t.AcceptedCount == _lastAccepted` ⇒ **P④/P⑦ 红**
+    /// 🧨 改坏法：删 `NetSession.cs` 的 `_t.AcceptedCount == _lastAccepted` 里的 `_t.AcceptedCount == _lastAccepted` ⇒ **P④/P⑦ 红**
     ///   （⚠️ **2026-10-18 订正**：原写「P③/P④ 红」—— **本夹具下 P③/P⑥ 是假断言**：它们断 `ClosePeerCalls==0`，
-    ///   而 `:247` **第一个合取项** `_t.IsConnected` 一假就短路 ⇒ 把那半句整段删掉它们照样绿。
+    ///   而 `Pump` 那个判据的**第一个合取项** `_t.IsConnected` 一假就短路 ⇒ 把那半句整段删掉它们照样绿。
     ///   这是「**假断言掩护真断言**」的样本 —— 已随夹具一起修，判据见 `ScriptedTransport.Listen` 那段注释）；
     /// 删同一行的 `Role != NetRole.Host ||` ⇒ **P⑫ 红**（那半边**确实**被测到了）。</summary>
     static void TestSilentTimeoutReadSideA943()
@@ -1785,14 +1786,14 @@ public static class NetSelfTest
             clock = NetSession.SilentTimeoutMs + 5000;          // 开台设的那条基线这时**已经算超时**
             s1.Pump();
             Eq(t1.CountOf(NetKind.Challenge), 0,
-               "P② 这一次 `Pump` 没发 `Challenge` ⇒ `:213` 那支确实没认到边沿（**夹缝成立**）");
+               "P② 这一次 `Pump` 没发 `Challenge` ⇒ 读计数那一支确实没认到边沿（**夹缝成立**）");
             Eq(t1.ClosePeerCalls, 0, "P③ 计数在两次读之间变了 ⇒ **不许**拿旧基线掐这条连接");
             Ok(s1.State == NetState.Listening, $"P④ 连接还在、状态没被改成等重连（实际 {s1.State}）");
 
             // ---- ② 下一帧：边沿那支必须把这次连接补上（是「推迟一帧」，不是「永远不判」）----
             s1.Pump();
             Ok(s1.State == NetState.Handshaking, $"P⑤ 下一帧认到新连接 ⇒ 走握手（实际 {s1.State}）");
-            Eq(t1.ClosePeerCalls, 0, "P⑥ 而且仍然没掐（`:213` 那支已把静默基线刷新）");
+            Eq(t1.ClosePeerCalls, 0, "P⑥ 而且仍然没掐（读计数那一支已把静默基线刷新）");
             Eq(t1.CountOf(NetKind.Challenge), 1, "P⑦ 而且 `Challenge` 真发出去了（边沿没被白白吃掉）");
 
             // ---- ③ 负例（灭自证）：计数两次读都一样 ⇒ 超时**照旧要判** ----
@@ -1842,7 +1843,7 @@ public static class NetSelfTest
     /// `MsgReject.reason`（→ `NetBattle.Abort` → 提示行 + 弹窗）与 `MsgStart.myName/foeName`
     /// （→ `NetPendingBattle.FromStart`）⇒ `Q⑪~Q⑭`（⑤ 那一段）。
     /// 🆕 **2026-10-18 再续（裁定「封口」）**：**玩家看得见的那条路**也补上了 ——
-    /// `NetMatchmaking.FoeName`（`NetMatchmaking.cs:487` 的 `MsgStart.myName`）⇒ `Q⑮/Q⑯`（⑥ 那一段）。
+    /// `NetMatchmaking.FoeName`（`NetMatchmaking.cs` 的 `MsgStart.myName`）⇒ `Q⑮/Q⑯`（⑥ 那一段）。
     /// 🆕 **2026-10-18 第三续（独立审查 R5）**：`Close(say:true)` 发不出 `bye` 时的**残留静默**也补出声 ⇒ `Q⑰/Q⑱`。
     /// ⚠️ ①~⑤ 那五段**不建 socket、不碰端口**（桩 `Port` 恒 0 ⇒ `UpnpPortMapper` 第一句就返回）；
     /// **⑥ 那一段要两个真 socket**（它走的是大厅那条真路 `PumpLobby`），所以它接一个 `port` 参数
@@ -1952,13 +1953,13 @@ public static class NetSelfTest
         }
 
         // ---- ⑤ 🆕 2026-10-18（主对话裁定「接着做完」）：`A961` **另两个同族入口** ----
-        //   · `MsgReject.reason`（2026-10-19 现核 `NetProtocol.cs:157` 的 `MsgReject`）→ `NetBattle.Abort(...)` → **提示行 + 弹窗**；
-        //   · `MsgStart.myName / foeName`（2026-10-19 现核 `NetProtocol.cs:77`）→ `NetPendingBattle.FromStart`。
+        //   · `MsgReject.reason`（2026-10-19 现核 `NetProtocol.cs` 的 `MsgReject.reason`）→ `NetBattle.Abort(...)` → **提示行 + 弹窗**；
+        //   · `MsgStart.myName / foeName`（2026-10-19 现核 `NetProtocol.cs` 的 `NetPendingBattle.FromStart`）→ `NetPendingBattle.FromStart`。
         //   🧨 判别式：删掉 `NetBattle.cs` 里那两处的 `ClampPeerText(...)`（`case NetKind.Reject` 与
         //      `FromStart`）⇒ Q⑪~Q⑭ 立刻红。
         //   ⚠️ Q⑪/Q⑫ 走的是**整条真路**（`Dispatch` → `Abort`），而 `Abort` **一定会 `Debug.LogError`**
-        //      （「联机对局中止…」，`NetBattle.Abort`，2026-10-19 现核 `NetBattle.cs:237`）—— 那是**被测的负例本身**，不是自检失败
-        //      （同族先例：`Editor/NetBattleTest.cs:473` 那条指纹负例）。判绿红看本文件末的「断言合计」。
+        //      （「联机对局中止…」，`NetBattle.Abort`，2026-10-19 现核 `NetBattle.cs`）—— 那是**被测的负例本身**，不是自检失败
+        //      （同族先例：`Editor/NetBattleTest.cs` 那条指纹负例）。判绿红看本文件末的「断言合计」。
         {
             // ⑤-a `MsgReject.reason`
             var t = new ScriptedTransport { Connected = true };
@@ -2005,13 +2006,13 @@ public static class NetSelfTest
 
         // ---- ⑥ 🆕 2026-10-18（主对话裁定「封口」）：`FoeName` —— **玩家看得见的那条路** ----
         //   `NetMatchmaking.FoeName` 落地两处、**来源不同**：
-        //     · `NetMatchmaking.cs:453` **主机侧** = `s.PeerName`（**已经钳过** —— `NetSession` 收
+        //     · `NetMatchmaking.cs` 的 `s.PeerName` **主机侧** = `s.PeerName`（**已经钳过** —— `NetSession` 收
         //       `MsgProof` 那一刻就钳了，见 `Q④`）；
-        //     · `NetMatchmaking.cs:487` **客机侧** = `MsgStart.myName`（**本笔新钳**）。
-        //   往下它走两条**真在界面上**的路：`Shell/SearchingOpponentWindow.cs:83`（「找到对手」那扇窗）
-        //   与 `Battle/BattleDriver.cs:10303` / `:10530`（对局里的敌方名）—— ⛔ 那两份文件都**不在白名单**，
+        //     · `NetMatchmaking.cs` 的 `MsgStart.myName` **客机侧** = `MsgStart.myName`（**本笔新钳**）。
+        //   往下它走两条**真在界面上**的路：`Shell/SearchingOpponentWindow.cs`（「找到对手」那扇窗）
+        //   与 `Battle/BattleDriver.cs`（对局里的敌方名）—— ⛔ 那两份文件都**不在白名单**，
         //   我只**读**过、断言写在自己这个宿主里（本段）。
-        //   🧨 判别式：删掉 `NetMatchmaking.cs:487` 那一行的 `ClampPeerText(...)` ⇒ **只有 Q⑯ 红**
+        //   🧨 判别式：删掉 `NetMatchmaking.cs` 的 `ClampPeerText` 那一行的 `ClampPeerText(...)` ⇒ **只有 Q⑯ 红**
         //      （Q⑮ 仍绿 —— 它走的是另一条来源，靠 `NetSession` 那次钳）。
         //   ⚠️ **2026-10-18 订正（独立审查 R2）**：原文写「反过来删 `NetSession.cs` 里 `PeerName` 那次钳
         //      ⇒ 两条一起红」—— **不成立**：`Q⑯` 读的 `FoeName` **不经过 `PeerName`**（客机侧
@@ -2057,7 +2058,7 @@ public static class NetSelfTest
                    "（Q⑮ 夹具）主机收齐两副 ⇒ 这一刻真的开局了（下面那句 `start` 才发得出去）");
                 Ok(NetMatchmaking.FoeName != null && !NetMatchmaking.FoeName.Contains(TAIL)
                    && NetMatchmaking.FoeName.Length <= NetProtocol.MaxPeerNameChars + 1,
-                   "Q⑮ ★ **主机那一路**（`NetMatchmaking.cs:453` 的 `s.PeerName`）端到端也被钳"
+                   "Q⑮ ★ **主机那一路**（`NetMatchmaking.cs` 的 `s.PeerName`）端到端也被钳"
                  + $"（实得 {NetMatchmaking.FoeName?.Length ?? -1} 字）"
                  + " —— 它靠的是 `NetSession` 收 `MsgProof` 时那一次钳（`Q④` 那条）；"
                  + "🧨 删掉 `NetSession.cs` 里 `PeerName` 那次 `ClampPeerText` ⇒ **只红这一条**"
@@ -2069,10 +2070,10 @@ public static class NetSelfTest
                 NetMatchmaking.PumpLobby();          // 客机收 `start` ⇒ `FoeName = st.myName`（本笔新钳那一行）
                 Ok(NetMatchmaking.FoeName != null && !NetMatchmaking.FoeName.Contains(TAIL)
                    && NetMatchmaking.FoeName.Length <= NetProtocol.MaxPeerNameChars + 1,
-                   "Q⑯ ★★ **客机那一路**（`NetMatchmaking.cs:487` 的 `MsgStart.myName`）也钳过了 ——"
+                   "Q⑯ ★★ **客机那一路**（`NetMatchmaking.cs` 的 `MsgStart.myName`）也钳过了 ——"
                  + " 而 `FoeName` 就是**玩家看得见**的那一份（「找到对手」那扇窗 + 对局里的敌方名）"
                  + $"（实得 {NetMatchmaking.FoeName?.Length ?? -1} 字）"
-                 + " —— 🧨 改坏法：删掉 `NetMatchmaking.cs:487` 那一行的 `ClampPeerText(...)` ⇒ **只有这一条**红");
+                 + " —— 🧨 改坏法：删掉 `NetMatchmaking.cs` 的 `ClampPeerText` 那一行的 `ClampPeerText(...)` ⇒ **只有这一条**红");
             }
             finally
             {
@@ -2409,13 +2410,20 @@ public static class NetSelfTest
            && tran.IndexOf("drainMs = GracefulCloseDrainMs", iMethod) > iMethod,
            "R㉜ ★ 上限值存在且默认接上（`GracefulCloseDrainMs = 200` ⇒ 主线程最多等 200ms）");
 
-        // 调用点：`NetSession.Close` 在 **`say`** 那一档真的走它
+        // 调用点：`NetSession.Close` 在 **`say`** 那一档真的走它，且**唯一收口点** = `CloseTransportAfterBye`
+        // 🔴 2026-10-19（T05）：`Close` 不再内联「Shutdown + 排空 + Close」三件套 —— 它调
+        //   `CloseTransportAfterBye(sentBye)`，那里面才是 `CloseGracefully()`（同族两处拒绝支也走它）。
+        //   断言跟着**结构**走；⛔ 别再绑死「`Close` 体内必须出现 `CloseGracefully()`」那种旧形状。
         int iSesClose = ses.IndexOf("public void Close(bool say");
         int iSesOff = iSesClose >= 0 ? ses.IndexOf("SetState(NetState.Off", iSesClose) : -1;
         string closeBody = iSesClose >= 0 && iSesOff > iSesClose ? ses.Substring(iSesClose, iSesOff - iSesClose) : "";
-        Ok(closeBody.Contains("CloseGracefully()"),
-           "R㉝ ★★ `NetSession.Close` 在发过 `bye` 时**真的调** `CloseGracefully()`"
+        Ok(closeBody.Contains("CloseTransportAfterBye(sentBye)"),
+           "R㉝ ★★ `NetSession.Close` 在发过 `bye` 时**真的走**优雅收尾（`CloseTransportAfterBye(sentBye)`）"
          + "｜🧨 把它改回 `_t.Close()` ⇒ 本条红（只在 `TcpTransport` 里加方法、没人调 = 修了个寂寞）");
+        int iHelper = ses.IndexOf("void CloseTransportAfterBye(");
+        Ok(iHelper > 0 && ses.IndexOf("CloseGracefully()", iHelper) > iHelper,
+           "R㉝-b ★★ 那个**唯一收口点**里确实调了 `CloseGracefully()`"
+         + "｜🧨 把 helper 体改回 `_t.Close()` ⇒ 本条红（`Close` 那半边照样绿 = 弱断言，所以两条要分开）");
     }
 
     /// <summary>🆕 2026-10-18（A961 续）：`§Q⑤-a` 用的**最小联机宿主** —— 只把「说给玩家听的那句话」记下来。
@@ -2471,7 +2479,7 @@ public static class NetSelfTest
 
         /// <summary>主机侧唯一入口。🔴 **2026-10-18 修（§P 三条红的根因）**：`StartHost` 内部会先调 `Close(false)`
         /// ⇒ 桩那时被置成 `Connected = false`；而 `Listen` 原来**没把它置回来** ⇒ 夹具进入 `Pump` 时 `IsConnected` 恒假，
-        /// 于是 `NetSession.Send` 的守卫（`NetSession.cs:450`，**静默丢**）吞掉 `Challenge`、`:247` 的第一个合取项
+        /// 于是 `NetSession.Send` 的守卫（`NetSession.cs`，**静默丢**）吞掉 `Challenge`、`Net/NetSession.cs` 的第一个合取项
         /// 短路掉整条超时判据 ⇒ **P⑦/P⑨/P⑩ 三条红**（而客机侧因为 `Connect()` 会置回 true，P⑫/P⑬ 是绿的 ——
         /// 红绿分界**只由这一位决定**）。桩的语义就是「**这条链路一直活着**」，故在 `Listen` 里恢复它。</summary>
         public void Listen(int port) { _listening = true; Connected = true; }

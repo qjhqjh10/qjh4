@@ -285,7 +285,7 @@ public static class IconSetup
         //     那条 `("DA39","[Armor]")` 因此**匹配不上任何 token**」—— **那个行号与键名都已失效**：
         //     逐卡表现读 `gen_icon_plan.py:194` = **`("DA39","[Ranged]")`**（该行自己的注释写着
         //     「键 2026-10-18 由 `[Armor]` 订正过来」）；全脚本**再无** `("DA39","[Armor]")` 这条
-        //     （`[Armor]` 只剩文件头 `:10` 那段描述旧 OCR 数据的老注释里还提得到）。
+        //     （`[Armor]` 只剩文件头 `本文件` 那段描述旧 OCR 数据的老注释里还提得到）。
         //     ⚠️ **连带「匹配不上任何 token」这个论断也翻了**：`DA44` 的 `desc` 现读 =
         //     `Give +3 [Attack], +3 [Ranged] or +3 Health to a friendly troop`（第二枚是**带方括号的**
         //     `[Ranged]`、不是裸词），计划表那份也逐字对得上 ⇒ 那条 `("DA39","[Ranged]")` 今天**匹配得到**。
@@ -311,7 +311,7 @@ public static class IconSetup
         //     **裸词 `Ranged`**、计划表里也没有对应项 ⇒ 卡面印成 `+3 Ranged`」「**这一条现在就是红的**」
         //     —— **两条前提都已不成立**：`desc` 现读是**带方括号的** `[Ranged]`、计划表 `DA44/desc`
         //     现读有 `[Ranged] → Ranged` 这一条，而 `CardIcons` 对方括号那一支发的正是
-        //     `<sprite name="{sprite}">`（`Core/CardIcons.cs:238`）⇒ **这条今天应当绿**。
+        //     `<sprite name="{sprite}">`（`Core/CardIcons.cs`）⇒ **这条今天应当绿**。
         //   ⚠️ **本批禁 Unity、没有实跑读数** ⇒ 绿没绿以收口时 `-executeMethod IconSetup.Verify` 为准；
         //     若它仍红，那是**另一条判据**在起作用，⛔ 别照本段旧话去改 `desc`。
         Check(CountOf(da44, "<sprite name=\"Ranged\">") == 1,
@@ -861,13 +861,13 @@ public static class IconSetup
         //   · **实况**（收口验证实跑）：`probe=` / `ctrl=` / ⑦b 的 `orderGot` **全是空串** ⇒ ⑦ / ⑦b 两条都红。
         //   · **根因**（现读代码，`文件:行号` 见下）：三张合成卡原来 `desc: ""`、`descZh: ""`，而
         //     `BattleDriver.FaceTextFull` 有一条**空正文早退**
-        //     （`BattleDriver.cs:11959`：`if (string.IsNullOrEmpty(body)) return new FaceBody(notes, "desc");`
+        //     （`BattleDriver.cs` 的 `IsNullOrEmpty`：`if (string.IsNullOrEmpty(body)) return new FaceBody(notes, "desc");`
         //      —— 那一行 2026-09-15 的 `720df56` 就在，**比这两条断言早**）
-        //     ⇒ 探针**根本走不到** `KeywordSegment`（`BattleDriver.cs:11975`）那一行
+        //     ⇒ 探针**根本走不到** `KeywordSegment`（`BattleDriver.cs` 的 `KeywordSegment`）那一行
         //     ⇒ ⑦ 自称钉的 `c.NumericKeywords`、⑦b 自称钉的「数组序」，**一条都没被覆盖过**。
         //   · ⚠️ **不是「batchmode / 空场景拿不到卡面文本」**（那是交件时的猜测）：`FaceTextFull` 是
         //     **纯静态函数**（只碰 `CardText` / `Badges` / `CardIcons` 那几个静态口），
-        //     **不碰 `CardView`、不要战斗场景、不要 Canvas** —— 空串是**这一条早退**造成的，实据就是 `:11959`。
+        //     **不碰 `CardView`、不要战斗场景、不要 Canvas** —— 空串是**这一条早退**造成的，实据就是 `本文件`。
         //   · **修法（两件一起做）**：① 补一句**不含任何关键词声明**的 `desc`（下面 `ProbeBody`），
         //     让探针真走到那一行；② 加一条**前提断言**（`⑦·前提` / `⑦b·前提`）——
         //     前提一破就**明确报「夹具没走到 `KeywordSegment`」**，而不是像原来那样
@@ -876,7 +876,7 @@ public static class IconSetup
         {
             // ⛔ 这句 `desc` **不许**出现 `Vanguard` / `Shield` / `先锋` / `盾牌` 这些词：
             //    `CardText.KeywordSegment:248` 的 `DeclaredInBody` 会把「正文里已声明」的那一项**整段跳掉**，
-            //    `:251` 连**中文写法**也判一次（英文档下 `other` 取的就是 `KeywordZh`），
+            //    `本文件` 连**中文写法**也判一次（英文档下 `other` 取的就是 `KeywordZh`），
             //    而 `IsDeclarationAt(c)` **把段首也算成声明** ⇒ 一次失手，探针的关键词段又变空。
             const string ProbeBody = "Probe body text.";
             var probe = new RuleEngine.CardDef(
@@ -898,8 +898,8 @@ public static class IconSetup
             bool noNum = gotCtrl.Contains("Vanguard 1") || gotCtrl.Contains("先锋 1");
 
             // 🔴 **`A1627` 前提断言（⛔ 别删。这一条就是「不许静默失败」那根红线在夹具上的落实）**：
-            //   两张探针**必须真的走到** `CardText.KeywordSegment`（`BattleDriver.cs:11975`）——
-            //   判据 = 卡面段**非空**。`FaceTextFull` 在 `:11959` 有一条**空正文早退**
+            //   两张探针**必须真的走到** `CardText.KeywordSegment`（`BattleDriver.cs` 的 `CardText.KeywordSegment`）——
+            //   判据 = 卡面段**非空**。`FaceTextFull` 在 `CardPresentation/Battle/BattleDriver.cs` 有一条**空正文早退**
             //   （`if (string.IsNullOrEmpty(body)) return new FaceBody(notes, "desc");`）：
             //   夹具的 `desc` 一旦被改回空串（`A1627` 修之前就是这样）⇒ **下面那条 ⑦ 会红**，
             //   而它打的是「`Vanguard 1` 没印出来」——**读起来像生产代码坏了**（`A1417` 那笔账的假象）。
@@ -908,7 +908,7 @@ public static class IconSetup
             Check(premiseOk,
                   "★ ⑦·前提 **夹具必须真的走到 `CardText.KeywordSegment`**（`A1627`）：两张探针的卡面段" +
                   "**都非空**（= `" + premiseOk + "`）—— 空正文会被 `BattleDriver.FaceTextFull:11959`" +
-                  "**提前返回**、根本到不了 `:11975` 那一行（那时 ⑦ 会以「没印出数字」的形状红，**是假象**）。" +
+                  "**提前返回**、根本到不了 `CardPresentation/Battle/BattleDriver.cs` 那一行（那时 ⑦ 会以「没印出数字」的形状红，**是假象**）。" +
                   "⚠️ 要探针产出文本，`desc` 必须是**非空且不含关键词声明**的一句（见头上 `ProbeBody`）。" +
                   "实测：`probe=`" + got + "` / `ctrl=`" + gotCtrl + "`", ref bad);
 
@@ -1237,7 +1237,7 @@ public static class IconSetup
             // 🔴 **2026-10-15（第三十二会话）：`descZh` 那半边【整字段缺席】= 「载体不适用」⇒ 本条跳过。**
             //   为什么：2026-10-15 起 `工具/gen_icon_plan.py` 对**带官方记号**（`[[…]]`/`((…))`/`$$…$$`）的字段
             //   **整字段跳过** —— 那批文本运行时走 `CardIcons.Rewrite` 的 `HasOfficialMarks` 分流、
-            //   **根本不查这张计划表**（判据 = `Core/CardIcons.cs:227` / `:448-453`），图标由 `RewriteMarks` 自己画。
+            //   **根本不查这张计划表**（判据 = `Core/CardIcons.cs` 的 `RewriteMarks` / `_rxFaithCostZh`），图标由 `RewriteMarks` 自己画。
             //   旧判据把「计划表里没有」当成「中文没画」⇒ 当轮实测会报 **769 条假缺口**
             //   （改动前同池 752 条 —— 两条都是假阳；⛔ 两个都是**当轮读数**、别当基线）。
             //   ⚠️ **与 `gen_icon_plan.py` 那 4 处自检面同一条口径**（「不是改期望值，是载体不适用」），

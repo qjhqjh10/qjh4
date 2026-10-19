@@ -2,7 +2,7 @@
 //
 // ============================ 为什么这个文件现在才出现 ============================
 // 它一直属于「阶段二**第 4 层**及以后，还没开」。后果是：**主菜单右上角那颗齿轮点了没反应**
-//   （`MainMenuRuntime.cs:359` 只建了图、没接点击）= **静默失败**（本工程红线）。
+//   （`MainMenuRuntime.cs` 只建了图、没接点击）= **静默失败**（本工程红线）。
 // 2026-09-26 联机线开工，用户拍板「**联机页挂在设置窗里**，设置窗照原版建，先做 图像 / 音频 / 联机 三页」
 //   ⇒ 连同窗壳一起建。判据全文 → `资料/联机P2P_设计与交接.md` §3·5。
 //
@@ -843,7 +843,7 @@ namespace CardPresentation
         //   · `Graphics Tab > Quality  Selector > Quality DropDown`（本笔：**点一下换下一个 → 真下拉**）
         //   · `Graphics Tab > Text In Hand  Selector > Text in Hand DropDown`（本笔：**整行补建**）
         //   · `Media Tab > Visual Settings > WindowMode Selector > Dropdown`（本笔：**整行补建**）
-        // 语言那颗的列表实现带着**自检钉死的几何**（面板恒 573.96 高，见 `Editor/SettingsScene.cs:1593`）
+        // 语言那颗的列表实现带着**自检钉死的几何**（面板恒 573.96 高，见 `Editor/SettingsScene.cs`）
         // ⇒ 本笔**不动它**、另建一份**通用**实现给后三颗共用（行为逐句照 A862 与 `TMP_Dropdown`）。
         //
         // 🔴 三颗新下拉的几何（**未缩放设计 px**，逐条出处 = `menu_dump` 实读）：
@@ -855,7 +855,7 @@ namespace CardPresentation
         //   · 🔴 **面板会缩到内容高**（`TMP_Dropdown.Show():929-931`：`extraSpace > 0` ⇒ `sizeDelta.y -= extraSpace`）
         //     ⇒ 2 项列表的实际面板只有 **82.59** 高，不是 573.96。
         //     ⚠️ **语言那颗 12 项 = 491.30 < 573.96、既有实现却画 573.96** —— 那是一处**已知偏离**，
-        //     本笔不碰（它的 `bg` 矩形被自检 `SettingsScene.cs:1593` 钉死了），记在报告里。
+        //     本笔不碰（它的 `bg` 矩形被自检 `SettingsScene.cs` 钉死了），记在报告里。
         //   · `Item Checkmark` / `Item Label` / 行四态图 / 滚动条两根 —— 与语言那颗**同一个模板**，
         //     ⇒ 直接复用 `LstChk*` / `LstLbl*` / `ArtLst*` / `LstHandleH`（⛔ 别各抄一份）。
         /// <summary>`Content` 模板高（41.7226）− `Item` 高（40.8707）= **0.8519** —— `Show():926` 那条
@@ -1348,7 +1348,7 @@ namespace CardPresentation
         /// <summary>页签红点那一层（**压在图标之上**）。🆕 **2026-10-17（A1251）**：`Support` 键的
         /// `Badge Highlight` 与 `Icon`（`QOverlay`）在键的右上角**真的重叠** ⇒ 必须单独一档
         /// （同队列 = 谁盖谁不可控，见 `CLAUDE.md` §三「分层要用渲染队列」）。先例 = `ForgeTab` 的
-        /// `QArmyBadge = QArmyIcon + 1`（`Shell/ForgeTab.cs:98`）。</summary>
+        /// `QArmyBadge = QArmyIcon + 1`（`Shell/ForgeTab.cs` 的 `QArmyIcon`）。</summary>
         public const int QBadge = 3136;
 
         // ============================================================ 状态
@@ -1544,7 +1544,7 @@ namespace CardPresentation
         ///   量的是**代码值**，不是渲染。**真正的渲染**走 Unity 的层级世界矩阵 —— 同一个矩阵既然把位置挪了 0.9
         ///   （本注后半句自己观察到了），就**也**会把网格乘 0.9（网格是**局部空间**的：`RebuildMesh` 写的顶点是 ±WorldW/2）。
         ///   **旁证（本仓自己的代码就靠这条）**：`Battle/WfSlider.cs` 里**两处**都在给 `localScale` —— 主路径是 `LayoutFill` → `FillPlace` 给**填条那三块子 quad** 设 `localScale.x`，后备路才是原来那句 `_fillRoot.transform.localScale = …`（现读 `:428`）（🔴 **2026-10-21 更正（`A1365` · 铁律 5）**：这里原来**只引了根那一处** —— `A1359` 把填条改成原版的「改锚点」之后，**根那一处已从常规路径退成后备路**（`Layout` 的 `_fillAnchorMode == false` 那一支，只在那三块子 quad 没按名字取到时才走，那一刻 `Create` 已经出声 + `LogWarning`）⇒ 它**不是空指针，但已不是常规路径**，单引它容易被读成「填条还是靠根缩放」。**论断（`localScale` 会缩渲染网格）本身仍然成立**）；
-        ///   `Battle/SkillPanel.cs:248` 直接写 `q.transform.localScale = W01(宽) / q.WorldW`（= 「让这颗 quad 的世界宽 = 目标」）；
+        ///   `Battle/SkillPanel.cs` 直接写 `q.transform.localScale = W01(宽) / q.WorldW`（= 「让这颗 quad 的世界宽 = 目标」）；
         ///   `Battle/AttackSelector.cs` 里那句 `_icons[i].transform.localScale = …` 的图标也是 `localScale = s`。
         ///   ⇒ **结论（烘进矩形、根保持 1）仍然照做**，但换一条站得住的理由：**我们的量测与命中都活在「scale = 1」那一帧**
         ///   （`ImageQuad.WorldW`、`LayoutSpace.PxX/PxY`、`PointerLayer.HitBoxPx` 都只读代码值/世界坐标、**不除也不乘
@@ -1677,12 +1677,12 @@ namespace CardPresentation
                  960f + ShadeW * 0.5f, 540f + ShadeH * 0.5f);
             Solid(root, "Menu Dark Background", 960f, 540f, ShadeW, ShadeH, ShadeColor, QShade);
             // 🔴 **2026-10-05（A81）**：压暗层的**点击区**（「点窗外关窗」）—— **原来零 `ShadeHit(`**
-            //   （`:219-221` 只建了 4574.60×2572.36 的那层压暗底，点了什么也不发生）。
+            //   （`本文件` 只建了 4574.60×2572.36 的那层压暗底，点了什么也不发生）。
             //   判据：原版是压在 `Menu Dark Background` **自身节点**上的 `BackgroundCloseButton`，
             //   由窗口类自己挂/摘 —— `SettingsMenu__Awake.c` 的**同一段**给 `param_1[0x14]`
             //   （关窗钮的 `Button.m_OnClick`，`+0x100`）与 `param_1[0x15]`（`BackgroundCloseButton.onClick`，
             //   `+0x28`）**挂的是同一个处理函数**（虚表 `*(*param_1+0x1c0)`）；`SettingsMenu__OnDestroy.c`
-            //   把背景那条摘掉。⇒ 动作照抄本窗那颗关窗钮（`:238-242` 的 `Close()`），两颗行为**必须一致**。
+            //   把背景那条摘掉。⇒ 动作照抄本窗那颗关窗钮（`本文件` 的 `Close()`），两颗行为**必须一致**。
             //   档 = **压暗层自己那一档 `QShade`(3130)**，**严格低于**本窗内容命中区档 `QOverlay`(3135)
             //   （本窗全部内容命中区 —— 关窗钮 / 页签 / 画质下拉 / 三颗开关 / 校准钮 / 联机页各钮 /
             //   两个输入框 —— 都在 `QOverlay`）。
@@ -1723,7 +1723,7 @@ namespace CardPresentation
             //   ⚠️ 该 prefab 根 `m_LocalScale = 0.9`，`pa.py` 印的是**已缩放**的 `67.50×67.50`
             //   ⇒ **设计 px = 75×75**（= 我们那对 `CloseL..CloseB` 常量）。贴图 `m_Rect` = **237×237 正方**
             //   ⇒ 实绘 **75×75**（框本身即正方）。
-            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs:386-387` 的形状（`Rect` 画在根节点上、
+            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs` 的形状（`Rect` 画在根节点上、
             //   图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**。
             var closeBgQ = Rect(area, "Generic Close Button", CloseL, CloseT, CloseR, CloseB, ArtCloseBg, QContent);   // ⛔ 只画，**不做换图目标**
             var closeN = closeBgQ != null
@@ -1848,7 +1848,7 @@ namespace CardPresentation
             // ⇒ **它也被那层遮罩裁**：矩形 `[505.07,103.11] – [507.97,986.19]` 撞上遮罩框
             //   ⇒ **上端被切 29.44 / 下端被切 29.80 设计 px**（屏上 ×0.9 = 26.50 / 26.82）——
             //   改前我们画满了 883.08 高，改后是 **823.84**。
-            //   ⚠️ **既有断言会因此变红**（`Editor/SettingsScene.cs:702` 那条 `CheckRectS(…, BarSepT/BarSepB)`，
+            //   ⚠️ **既有断言会因此变红**（`Editor/SettingsScene.cs` 的 `BarSepT` 那条 `CheckRectS(…, BarSepT/BarSepB)`，
             //   它的期望值还是**未裁**的那一对）—— 那一条要由**断言宿主那一波**改成裁切后的值，
             //   本件只把「该改成什么」写进报告（`Editor/` 不在本件白名单）。
             // 🔴 **2026-10-17（A1252）画法改成原版的 `Sliced`** —— 原来走 `Rect(...)`（= `Image.Type = Simple`、
@@ -1859,7 +1859,7 @@ namespace CardPresentation
             //     · `sharedassets0/Sprite/40k_Separator Fade Sides Vertical.json`：
             //       `m_Border = (0,63,0,63)` · `m_Rect = 4×128`（本仓 `Resources/Art/ui_menu/…Vertical.png` 实测 4×128）。
             //   `ppuMul = 1` ⇒ **不用 `NineOut`**（那个口只服务 ppuMul ≠ 1 的两张 FPS 轨道图）。
-            //   ⚠️ **矩形一个字不动**（`BarSep*` 不变）：`Editor/SettingsScene.cs:702` 那条断言只断矩形。
+            //   ⚠️ **矩形一个字不动**（`BarSep*` 不变）：`Editor/SettingsScene.cs` 的 `BarSep` 那条断言只断矩形。
             Nine(bar, "Separators", BarSepL, BarSepT, BarSepR, BarSepB, ArtSep,
                  4f, 128f, new Vector4(0f, 63f, 0f, 63f), QPanel, null);
 
@@ -1936,10 +1936,10 @@ namespace CardPresentation
                 //       子件 `OneText`（TMP，**空串**）fs **34** · 基准 **36** · `auto[18,34]` · Center/Middle · **折行 1**；
                 //     · 显隐：`SettingsMenu__Awake.c:37-58` 只 `UiBadgeNotification.AddNotificationType(...)`
                 //       （匿名通知定义，`:40` 建、`:57` 注册）—— **通知内容在服务端**，本地判不了；
-                //       原版这一族走的是 `Show()/Hide()` 的 **alpha 补间**（`MainMenuRuntime.cs:1507-1509` 的判据），
+                //       原版这一族走的是 `Show()/Hide()` 的 **alpha 补间**（判据 = `MainMenuRuntime.cs` 的 `Show()/Hide()`），
                 //       ⛔ **不是 `SetActive`**。
-                //   ⇒ 本工程按「**无通知 ⇒ alpha 0**」建（同 `Shell/MainMenuSubmenuWindow.cs:626-632`、
-                //     `Shell/TopBar.cs:197` 那两处），并**出声**（红线：不许静默「画了但其实永远不亮」）。
+                //   ⇒ 本工程按「**无通知 ⇒ alpha 0**」建（同 `Shell/MainMenuSubmenuWindow.cs`、
+                //     `Shell/TopBar.cs` 那两处），并**出声**（红线：不许静默「画了但其实永远不亮」）。
                 //   ⚠️ `OneText` 走本窗那个 `Text` 漏斗（字号/上下限一律 × `RootScale` 0.9 ⇒ 屏上 30.6/32.4/16.2/30.6）。
                 if (specs[i].Tab == SettingsTab.Support)
                 {
@@ -2110,8 +2110,8 @@ namespace CardPresentation
         //    `"Auto zoom"`）⇒ 属「**未接键**」、不是刷新链问题（判据 = `交件_换语言刷新链.md` §④·2/§④·4）。
         // ⚠️ **接上会改中文档的字**（现值是英文 ⇒ 中文档由 `Music`/`Sound effects`/… 变 音乐/音效/语音/自动缩放）——
         //    调度台 2026-10-18 **已放行**，理由：① 中文档现在印的本来就是英文、接上键才是对的（不是「改文案」）
-        //    ② **同四条键今天已经在【战斗侧】接上了**（`Battle/SettingsPanel.cs:123-143`（W6：原写死的英文
-        //    `const string[] SliderNames` 换键）· `:610-625`（P4：`Loc.T(AutoZoomTermKey)`））⇒ ⛔ 不接就是
+        //    ② **同四条键今天已经在【战斗侧】接上了**（`Battle/SettingsPanel.cs`（W6：原写死的英文
+        //    `const string[] SliderNames` 换键）· `CardPresentation/Battle/SettingsPanel.cs`（P4：`Loc.T(AutoZoomTermKey)`））⇒ ⛔ 不接就是
         //    「**同一条键两扇窗两种表现**」（本仓规矩：一条规则只有一处）。
         // 🔴 `AutoZoom` 那条的【中文列】来自 `zh_CN.csv:57`（`Auto Zoom` 大写 Z ⇒ **近邻**）、另两条音量键的中文
         //    是 `Loc.cs` 自己标「自拟」的（真值在远端 I2 表）—— 拿到 I2 之后要先改那两列。
@@ -2378,7 +2378,7 @@ namespace CardPresentation
         /// **同一条规矩**（表里有就用表、没有退**原版英文原文**并**出声一次**），只是日志里换个「哪一页」。
         /// <para>⚠️ 那 6 条键（`Settings/Media/WindowMode*` · `Settings/CardTextInHand/*` ·
         /// `Settings/Graphics/SelectTextOfCardsInHand`）**2026-10-17 现读还不在 `Core/Loc.cs` 里**
-        /// （`Loc.cs:257` 那条只是注释、不是词条）—— 而 `Core/Loc.cs` **不在本件白名单**
+        /// （`Loc.cs` 那条只是注释、不是词条）—— 而 `Core/Loc.cs` **不在本件白名单**
         /// ⇒ 本笔只保证「缺键不静默、不把键名印到屏上」，补键由调度台另派。</para></summary>
         const string WinTermWhere = "设置窗媒体页（WindowMode）";
         const string TihTermWhere = "设置窗图像页（Text In Hand）";

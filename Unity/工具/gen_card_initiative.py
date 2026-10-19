@@ -17,10 +17,17 @@
       `Undefined = 0` · `Low = 10` · `Medium = 20` · `High = 30` · `VeryHigh = 40`。
 
 **真值源（本机唯一一份，只读）**：
-  `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json`
+  🔴 **2026-10-19 订正（铁律 5 · 账 `A2004`）：下面这段原文写于 `K06` 换源之前，已过期 —— 保留原文留痕。**
+  原文 = 「`d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json`
   （原版远端包 `allcards_assets_all`，1195 张卡 SO，全字段；快照 **2025-07-30** —— **比现池旧**）。
   实测分布：`20`(Medium) **1190 行** · `30`(High) **2 行**（`Marneus Calgar (tutorial)` /
-  `Uriel Ventris (tutorial)` 两张教程督军）· 缺这个键 **3 行** ⇒ 共 1192 行有值。
+  `Uriel Ventris (tutorial)` 两张教程督军）· 缺这个键 **3 行** ⇒ 共 1192 行有值。」
+  **现在（K06 之后）**：真值源 = `资料/普查产出_1018/allcards_1350/cards_raw.json`
+  （**当前 build** · 1,351 张卡 SO —— 见下面 `TRUTH` 那一行与它上方的 `K06` 换源说明）。
+  现读分布：`20`(Medium) **1349 行** · `30`(High) **2 行** · **缺这个键 0 行**（1,351 行全有值）。
+  ⚠️ 旧快照里那「缺这个键 **3 行**」**不是卡**：`AddressablesBuildNumber` 那条根本不是卡，
+  另两条 `AA_HB_*` 是 `AlternateArtCard`（那个类没有这个字段）—— 与 `gen_cards_engine.py` 的
+  `load_truth_cards` 同一口径（现核：旧快照 1,195 条 = 1,190×20 + 2×30 + 那 3 条）。
 
 **id 匹配：本脚本【不】自己写一套**
   —— 直接读兄弟件 `数据/游戏数据/card_inventory_options.json` 的 `map`

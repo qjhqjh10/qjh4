@@ -67,6 +67,15 @@ namespace CardPresentation
 
             bool _isInitialized;
             bool _warned;
+            /// <summary>🆕 **2026-10-19（`A1967` 残尾 · SC-4）**：这个渲染器**私有**的补间材质实例。
+            /// <para>⚠️ 原版 `Update` 走 `renderer.material.GetFloat/SetFloat` —— 编辑模式下
+            /// `.material` getter 会实例化一份并打 `Instantiating material due to calling
+            /// renderer.material during edit mode …`。这里显式 `new Material(sharedMaterial)` 并赋回
+            /// `sharedMaterial`（语义逐字等价 = 一份逐渲染器私有实例），同时缓存住**只复制一次**
+            /// （`.material` getter 也是同样的缓存语义，逐帧再复制会让材质数量一直涨）。</para>
+            /// <para>⛔ **不能直接写 `sharedMaterial`**：那会把 arena 的共享材质改脏（`customMaterial == null`
+            /// 时我们改的就是场景里那件渲染器的现有材质）。</para></summary>
+            Material _inst;
 
             /// <summary>判据 = `…RendererMaterialBlender__Init.c` + 反汇编 RVA 0x62C950：
             /// `if (customMaterial != null) { renderer.material = customMaterial; foreach (p) customMaterial.SetFloat(p, startValue); }`
@@ -77,7 +86,17 @@ namespace CardPresentation
             {
                 if (customMaterial != null && renderer != null)
                 {
-                    renderer.material = customMaterial;
+                    // 原版是 `renderer.material = customMaterial`；这里赋给 `sharedMaterial` ——
+                    // 语义就是「换成这件 Material 资产」。
+                    // 🔴 **2026-10-19 更正（原文→实际）**：原来写「`.material` setter 在编辑模式下同样会
+                    //   触发实例化警告（`A1967` 同族）」—— **不成立**。SC-5 用 IL 现核
+                    //   `UnityEngine.CoreModule.dll`：`set_material` 与 `set_sharedMaterial` **都只调
+                    //   `SetMaterial`**，实例化警告只在 **getter**（`get_material`）里。
+                    //   判据 → `资料/普查产出_1019/W57_自检线_VAT材质残留.md` §二。
+                    // ⚠️ 本工程 `customMaterial` 恒 null（见类注释偏离 ②），
+                    // 这一支实际不跑；保留它是为了**语义完整**，不是死代码清理对象。
+                    renderer.sharedMaterial = customMaterial;
+                    _inst = customMaterial;
                     for (int i = 0; i < (propertiesToBlend != null ? propertiesToBlend.Length : 0); i++)
                         customMaterial.SetFloat(propertiesToBlend[i], startValue);
                 }
@@ -89,8 +108,20 @@ namespace CardPresentation
             {
                 if (!_isInitialized) Init(0f);
                 if (renderer == null || propertiesToBlend == null) return;
-                var m = renderer.material;
-                if (m == null) return;
+                // 🔴 **2026-10-19（`A1967` 残尾 · SC-4）**：原来这里是 `renderer.material` ——
+                //    编辑模式下 getter 会实例化一份并打 `Instantiating material due to calling
+                //    renderer.material during edit mode …`（`A1967` 残留的生产源之一）。
+                //    改成显式复制一份私有实例并赋回 `sharedMaterial`（`.material` 的等价语义）；
+                //    ⛔ 不直接写 `sharedMaterial`：那是 arena 的共享材质，改了会污染别的场景实例。
+                var src = renderer.sharedMaterial;
+                if (src == null) return;
+                var m = _inst;
+                if (m == null || m != src)
+                {
+                    m = new Material(src) { name = src.name + " (EnvBlend)" };
+                    _inst = m;
+                    renderer.sharedMaterial = m;
+                }
                 for (int i = 0; i < propertiesToBlend.Length; i++)
                 {
                     string p = propertiesToBlend[i];

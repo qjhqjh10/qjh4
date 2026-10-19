@@ -191,8 +191,8 @@ namespace CardPresentation
             if (!MenuDraw.ClipRectAbove(p, r, c.Clip, out _)) return null;
             // 🔴 **2026-10-16（A799 · 生产 8/9）：这一句【会新裁】= 目的，⛔ 别「修」。**
             //   本口是 `Match Log` **每一行所有字段**共用的 builder，两个调用点**都在视口节点之下**：
-            //   ① `BattleLogPopup.cs:238` 传 `_content`（该文件 `:177`，VC @`:163`）
-            //   ② `BattleLogTab.cs:215` 传 `_content`（该文件 `:111`，VC @`:89`）。
+            //   ① `BattleLogPopup.cs` 的 `_content` 传 `_content`（该文件 `Shell/BattleLogPopup.cs`，VC @`Shell/BattleLogPopup.cs`）
+            //   ② `BattleLogTab.cs` 的 `_content` 传 `_content`（该文件 `Shell/BattleLogTab.cs`，VC @`Shell/BattleLogTab.cs` 的 `Build`）。
             //   ⇒ `MenuDraw.Text` 这一句没传 `clip`（恒 `null`）⇒ A781 起由**调用方那一棵**的节点接管
             //   ⇒ 压在视口边上的那一行文字第一次被夹到视口沿。
             //   ⚠️ 与上面那句 `ClipRectAbove`（A435 阶段 2 · 丙）**不是同一件事**：那条只挡「**整块**在框外

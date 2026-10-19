@@ -48,7 +48,7 @@ namespace CardPresentation
         /// 而 **`SocialView : MonoBehaviour`**（与 `SocialPage.cs` 的 `SocialPage : WindowTabBase` **没有继承关系**）——
         /// ⚠️ **2026-10-13 就地订正（铁律 5）**：原写「与**本文件** `:208` 的 `SocialPage : WindowTabBase`」——
         ///   ① 2026-10-13 拆出 `SocialPage.cs` 之后「本文件」已不成立 ⇒ 改指**文件名**；
-        ///   ② 那个 `:208` **原本就是错的**（拆出前的真值 = `SocialWindow.cs:257`）⇒ 一并去掉，本注释不再留行号。
+        ///   ② 那个 `:208` **原本就是错的**（拆出前的真值 = `SocialWindow.cs`）⇒ 一并去掉，本注释不再留行号。
         /// ⇒ 那 4 处解析到的是**本函数（`SocialView.Text`）**、不是 `SocialPage.Text`。
         /// **行为上无差别**（两个口的签名与转调逐字同形），改成正确说法只为「文档 = 事实」。
         /// 🔴 **2026-10-11（A317）**：`autoMinPx` / `wrap` 的缺省值**已与 `SocialPage.Text` 同步删掉**

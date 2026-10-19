@@ -362,6 +362,66 @@ namespace RuleEngine
         public string Effect;
 
         /// <summary>
+        /// 🆕 **2026-10-20（第五十七会话 `FACTION-DOUBLE605`）：这一拍是哪一条原版 `CardAbility`**
+        /// （= `cardAbilities[i]` 的 **0 基下标**；`-1` = 没写）。
+        ///
+        /// <para>**判据（原版）**：`RawCardScript__TriggerAbilities.c:59-88,207-265` —— 它**逐条**
+        /// 遍历这张卡的 `cardAbilities`，对每一条调 `CardAbility__CanTriggerAbility`，通过就
+        /// `TriggerAbility/PlayAbility` **那一条**（每条各播自己的 `abilityLogic[].cardAnimations[]`）。
+        /// 605 那一条在 `CanTriggerAbility.c:114-126` 收口到同一段：
+        /// `GetCurrentFaith(...) >= ability.triggerValue`（`param_1 + 0x20`）。
+        /// ⇒ **同一张卡有两条 `trigger = 605` 的能力、且门槛都过时，原版各发一次**。</para>
+        ///
+        /// <para>现读全池只有 3 张（`资料/普查产出_1018/allcards_1350/cards_raw.json` 逐张核过）：
+        /// `SOR23 Canoness`（能力 0/1，门槛 2/4）· `SOR67 Sacred Rose Sister`（能力 1/2，门槛 2/4）·
+        /// `SOR56 Beacon of Faith`（能力 1/2，门槛 4/7）。</para>
+        ///
+        /// <para>⚠️ **今天只有 605（`UseFaith`）填这一位**；其余事件保持 `-1`。
+        /// ⚠️ **`Keyword` 里同时带一个 `#&lt;i&gt;` 后缀**（<see cref="KeywordWithAbility"/>）——
+        /// 那是**同一条信息的传输副本**：`BattleDriver` 只把 `Keyword` 转给表现层
+        /// （`PlaySignal` → `FireEventAll(keyword:)`），不加新字段就过不去。</para>
+        ///
+        /// <para>🔴 **2026-10-20 复核后就地订正（铁律 5）**：本段原来写「**读判据一律读这一位**
+        /// （`VfxMap` 也先看它，接口里没给才解析后缀）」—— **前半句不成立**：生产路径
+        /// `BattleDriver.PlaySignal` **不转这个字段**（它在 T09-WIRE 手里，本笔不许改），
+        /// `VfxMap.ResolveAllTimed` 拿到的只有 `Keyword` ⇒ **生产实际只解析 `#i` 后缀**。
+        /// `VfxMap` 的同名形参（`abilityIndex`）今天**只有自检/探针在用**，是给
+        /// 「将来 `BattleDriver` 肯把这一位传下来」留的入口（两条入口同一条判据，见 `VfxMap` 的 doc）。
+        /// ⇒ 真正的**数据源**仍是这一位；`Keyword` 后缀是**它在今天唯一能过河的形态**，
+        /// 两者在 `EmitCardTrigger` 一处同时写（⛔ 别在别处再拼一份）。</para>
+        /// </summary>
+        public int AbilityIndex = -1;
+
+        /// <summary>🆕 `Keyword` 里「trigger 名 + 能力序号」用的分隔符（见 <see cref="AbilityIndex"/>）。</summary>
+        public const char AbilityKeywordSeparator = '#';
+
+        /// <summary>🆕 把 `触发名` + `能力序号` 拼成**事件 `Keyword` 的传输形态**：
+        /// `AbilityIndex &lt; 0` ⇒ **原样返回 `triggerName`**（= 改前的字节，⛔ 别给单能力卡加后缀）。
+        /// 解码在 <see cref="SplitKeywordAbility"/>（**同一处**，⛔ 别在表现层另写一份解析）。</summary>
+        public static string KeywordWithAbility(string triggerName, int abilityIndex)
+        {
+            if (string.IsNullOrEmpty(triggerName) || abilityIndex < 0) return triggerName;
+            return triggerName + AbilityKeywordSeparator
+                 + abilityIndex.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>🆕 <see cref="KeywordWithAbility"/> 的反向：拆出 trigger 名与能力序号。
+        /// 没有后缀 / 后缀不是非负整数 ⇒ **`abilityIndex = -1`、原样返回**（旧事件的字节不变）。</summary>
+        public static string SplitKeywordAbility(string keyword, out int abilityIndex)
+        {
+            abilityIndex = -1;
+            if (string.IsNullOrEmpty(keyword)) return keyword;
+            int at = keyword.LastIndexOf(AbilityKeywordSeparator);
+            if (at <= 0 || at >= keyword.Length - 1) return keyword;
+            int idx;
+            if (!int.TryParse(keyword.Substring(at + 1), System.Globalization.NumberStyles.None,
+                              System.Globalization.CultureInfo.InvariantCulture, out idx))
+                return keyword;
+            abilityIndex = idx;
+            return keyword.Substring(0, at);
+        }
+
+        /// <summary>
         /// 伤害 / 治疗的数值。护盾挡下 = 0。
         /// ⚠️ **负数 = 治疗**（`Regeneration` 回合结束回血走这条）——
         ///    表现层据此把反馈画成绿的。卡面效果造成的治疗走 `heal` 那条 op，不发这个事件。

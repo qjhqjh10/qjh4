@@ -312,7 +312,7 @@ namespace CardPresentation
             //     `UI_Button_Round_background` · `m_Type=0`(Simple) · **`m_PreserveAspect=1`** ·
             //     `m_PixelsPerUnitMultiplier=1.0` · `m_RaycastTarget=0` · 矩形 **74.39×75.61**；
             //     贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **74.39×74.39**。
-            //     ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs:386-387` / `Shell/ChatPanel.cs:307-308` 的形状
+            //     ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs` / `Shell/ChatPanel.cs` 的形状
             //     （`Rect` 画在根节点上、图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**。
             var closeBg = MenuDraw.Rect(win, Tex("UI_Button_Round_background"), CloseR,
                                         "Generic Close Button Orange", QClose, null, true);
@@ -401,7 +401,7 @@ namespace CardPresentation
             //        照样捞得到、量的矩形也照样对（正是 `MainMenuScene.cs` 那条「`FindChild` 走整棵子树
             //        ⇒ 那样写恒真」的同一个坑）；
             //     ② `MenuDraw.Local`（现读其实现已收口到 `MenuDraw.PosInDesignSpace`）= 「原来写的 `RectCenter − parent.position`」，
-            //        而 `Label.AlignLeftOn`（`Battle/Label.cs:519-527`）也是「**世界 x − 父的世界 x**」
+            //        而 `Label.AlignLeftOn`（`Battle/Label.cs` 的 `AlignLeftOn`）也是「**世界 x − 父的世界 x**」
             //        ⇒ 换父时局部坐标**按新父重算** ⇒ **世界矩形逐位不变**。
             //   ⇒ 只有**层级**是错的：`FindChild(<RightSide 的子树>, "Next Tier")` 恒非 null，
             //      `NthChild(<RightSide>, "Next Tier", 0)`（**直系子**）才分得出来。

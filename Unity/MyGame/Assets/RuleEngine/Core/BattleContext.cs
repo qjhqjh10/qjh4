@@ -1131,6 +1131,58 @@ namespace RuleEngine
         /// </summary>
         public CardDef PlayingCard;
 
+        /// <summary>
+        /// 🆕 **2026-10-19（第五十七会话 `W57FIX2` · P3）：当前这次【出牌结算】的来源卡**；
+        /// `null` = **不在任何一次出牌结算里**（事件触发 / 常驻效果 / 回合起止 …）。
+        ///
+        /// <para>**为什么不能拿 `PlayingCard` 顶替**：那个字段**从不清空**（写点只有
+        /// `NotePlayed` 与 `ResolveOps` 的出牌重载）⇒ 在**事件触发**那条路上它停在
+        /// 「本局最后打出的一张牌」上。拿它当来源卡会让 `When … obtains Quest Point`
+        /// 的监听器**按很久以前那张牌**误触发（`DA55` 常驻路径 · 审计 P3）。</para>
+        ///
+        /// <para>**写点（全部 save/restore，别在别处写）**：
+        /// ① `EffectResolver.PlayTactic` —— 战术卡整条结算（含突触重复）；
+        /// ② `EffectResolver.BroadcastPersistentWhen` —— 事件型常驻效果，来源卡 =
+        ///    `PersistentEffect.Source`（原版那条 ability 的来源卡就是写出这张常驻效果的卡）。
+        /// ⛔ 别在别处写它 —— 写宽了就回到「陈旧来源卡」的老毛病。</para>
+        ///
+        /// <para>⚠️ **和 <see cref="FactionSourceCard"/> 的分工**：这一条是「**这次出牌**的卡」；
+        /// 那一条是「**常驻作业**的真实来源卡」，且**优先级更高**（见那边的 doc）。
+        /// 两条都只喂 `EffectResolver.DoFactionResource`，不参与代词/kill credit。</para>
+        /// </summary>
+        public CardDef CardPlaySource;
+
+        /// <summary>
+        /// 🆕 **2026-10-20（`W57FIX2` 续 · 审计 P3 的两条旁路）：常驻作业的【真实来源卡】覆写。**
+        ///
+        /// <para>**为什么不能靠 `ActingUnit`**：`ResolveDeploy` 把「刚部署的那个单位」当 `source`
+        /// 传给 `ResolveOne`（那是本工程的结构选择，服务代词/相邻锚点/kill credit），
+        /// 但**原版那条 ability 的属主不是它**：
+        /// `ProcessManaBuff.c` 的 `param_4` = `BattleAction.casterCard`
+        /// （偏移已核：`BattleAction` 结构体 +0xD8 = `casterCard`，用 `manaBuff`(+0x78→拷贝 +0x90)
+        /// 与 `isPlayer`(+0x04→拷贝 +0x1c) 两格交叉验证过）；
+        /// 而 `AbilityLogic__PlayAbility.c:713` 建 mana 动作时传的 `casterCard` =
+        /// `AbilityData.thisCard`（`*(param_3 + 0x10)`）= **能力属主那张卡**
+        /// （`RawCardScript__TriggerAbility.c:33` 的 `SetNewData(thisCard=param_4, …)`）。
+        /// ⇒ 常驻效果（部署型 / 回合型 / 手牌陷阱）的阵营资源来源卡 =
+        /// **写出这条效果的那张卡**（`PersistentEffect.Source` / 手牌那份 `CardDef`），
+        /// **不是**被部署的单位、也不是「没有」。</para>
+        ///
+        /// <para>**写点（全部 save/restore）**：
+        /// ① `EffectResolver.ResolveDeploy` —— 部署型常驻作业（`pe.Source`）；
+        /// ② `EffectResolver.ResolveAtTurn` 的 persistJobs（`j.Card` = `pe.Source`）与
+        ///    handJobs（`j.Card` = 那张手牌陷阱）。**unitJobs 不写** —— 那里 `ActingUnit`
+        ///    本来就是能力属主。</para>
+        ///
+        /// <para>**优先级**：`DoFactionResource` 里它 **&gt; `ActingUnit` &gt; `CardPlaySource`**。
+        /// 只有这里能压过 `ActingUnit`，因为只有这三条路的 `ActingUnit` 是「事件宾语」而非「能力属主」。</para>
+        ///
+        /// <para>⚠️ **今天零可观测差异**：全池 10 张「For the rest of this battle」里
+        /// 没有一张的常驻正文产阵营资源（`AM51`/`BL75`/`DA55`/`GSC45`/`SAU55`/`SW46`/
+        /// `TAU42`/`TAU51`/`TL47`/`SAU53` 逐张看过）—— 补它是为了「机制按原版站住」（铁律 11）。</para>
+        /// </summary>
+        public CardDef FactionSourceCard;
+
         // ==================================================================
         //  🆕 2026-09-14：**玩家在面板上的选择**（选牌 / 选效果 / 三选一）
         // ==================================================================
@@ -1493,13 +1545,17 @@ namespace RuleEngine
         /// <param name="instanceId">🆕 **单位事件的稳定实例号**（= `UnitState.Instance.Id`；`0` = 没写）。
         /// 判据与「为什么不能用座位 + 格号」见 <see cref="BattleEvent.InstanceId"/>。</param>
         /// <param name="targetInstanceId">🆕 **被指向那一份牌**的实例号（今天只有 `Attack` 填；`0` = 没写）。</param>
+        /// <param name="abilityIndex">🆕 **这一拍是哪一条原版 `CardAbility`**（`cardAbilities[i]` 的 0 基下标；
+        /// `-1` = 没写）。判据与「为什么需要它」见 <see cref="BattleEvent.AbilityIndex"/>；
+        /// 今天只有 605（`UseFaith`）那条路填。</param>
         public void Emit(EvtKind kind, int player, int slot, string cardId,
                          string keyword = null, string effect = null,
                          int amount = 0, bool ranged = false,
                          int targetPlayer = -1, int targetSlot = -1,
                          string targetCardId = null,
                          DeploySource deployFrom = DeploySource.Unknown,
-                         int instanceId = 0, int targetInstanceId = 0)
+                         int instanceId = 0, int targetInstanceId = 0,
+                         int abilityIndex = -1)
         {
             Emit(new BattleEvent
             {
@@ -1517,6 +1573,7 @@ namespace RuleEngine
                 DeployFrom = deployFrom,
                 InstanceId = instanceId,
                 TargetInstanceId = targetInstanceId,
+                AbilityIndex = abilityIndex,
             });
         }
 

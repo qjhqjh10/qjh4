@@ -16,7 +16,7 @@
 //     → `xor r9d, r9d` → `call 0x1806FA6F0`；而 `0x1806FA6F0` = **`SoundManager.Play2D(AudioCue, MixerType)`**
 //     （`d:/2/tools/il2cpp_out/dump.cs:17901`）⇒ **`MixerType = 0 = FX`**（`MixerType.cs`）。
 //     ⚠️ `工具/import_original_sfx.py:112` 那句注释写「（Jingles 组）」—— **与本指令流不符**，见报告；
-//     我们按**指令流**接 FX（`WindowSounds.PlayFx`），与 `GameWindow.cs:488` 那条既有口径一致。
+//     我们按**指令流**接 FX（`WindowSounds.PlayFx`），与 `GameWindow.cs` 的 `WindowSounds.PlayFx` 那条既有口径一致。
 // · `starterDecks`（4 副，逐个字段实读；`deck` PPtr 指向的 PrebuiltDeck 在同包的 prebuiltdecks 包里，
 //   `UnityPy` 现读四份 SO）：
 //     | # | `deckInfo.mTerm` | PrebuiltDeck | 督军卡 | glowColor |

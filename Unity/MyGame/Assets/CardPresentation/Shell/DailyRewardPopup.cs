@@ -180,7 +180,7 @@ namespace CardPresentation
         //    要让 `CloseAllWindows()` 改走「只关不收」的那个口 ⇒ **必须改 `Shell/WindowsManager.cs`**
         //    —— **它不在本件白名单**（跨文件撞车面）⇒ 本件改用**同族惯例**：
         //    **每条生产路径自己调 `CloseCollecting()`，`Close()` 保持纯关**
-        //    （同族先例 = `Shell/DailyStreakPopup.cs`：返回钮 `:536` 与背景遮罩 `:270-271` 各自
+        //    （同族先例 = `Shell/DailyStreakPopup.cs`：返回钮 `CardPresentation/Shell/DailyStreakPopup.cs` 与背景遮罩 `CardPresentation/Shell/DailyStreakPopup.cs` 各自
         //      `StreakAutoCollect(); Close();`，`Close()` 一个字没覆写）。
         //    ⇒ **可观测语义与裁定一致**：ESC / 返回钮 / 点窗外都「先收再关」；`CloseAllWindows()` **不收**。
         //    📌 若日后要把裁定落成字面形状，改动面 = `Shell/WindowsManager.cs` 的
@@ -249,7 +249,7 @@ namespace CardPresentation
             //     · `DailyRewardPopup` 类里也没有 `backgroundCloseButton` 字段（`dump.cs:68853-68868`），
             //       它的 `Start` 只给 `closeButton`（偏移 `0x90`，那颗圆形 X 钮）挂监听。
             //   ⇒ **原版点这一下什么都不发生**（**不关窗**）⇒ 我们按「吃射线」接（`MenuDraw.Absorb`），
-            //     ⛔ **不是** `ShadeHit`（那是「点背景关窗」那一族的工具，同族先例 = `Shell/PopUpGameWindow.cs:26-32`）。
+            //     ⛔ **不是** `ShadeHit`（那是「点背景关窗」那一族的工具，同族先例 = `Shell/PopUpGameWindow.cs` 的 `ShadeHit`）。
             //   ⚠️ 与 A495 那条裁定的关系：裁定里的「点窗外 ⇒ 要收」以「原版有这条生产路径」为前提；
             //     本窗原版**没有**这一条 ⇒ 这里**不收**（`CloseCollecting()` 只服务 ESC 与返回钮）。
             //   ⚠️ 档由公共件算（`qContentMin − 1` = 3009，严格夹在压暗档 3002 与内容命中区 3010 之间）。
@@ -268,6 +268,30 @@ namespace CardPresentation
             //    ⇒ bg 必须在分隔线(QPanel)/页内容(QContent)之下，又高于压暗层(QShade)。
             MenuDraw.Rect(tracks, CardArt.Gradient(MainMenuSubmenuWindow.GradC1, MainMenuSubmenuWindow.GradC2, 188f),
                           TrackBg, "bg", QPanel - 1);
+            // 🔴 **2026-10-19（第五十七会话 · `N81`）**：给 `Tracks/bg` 补**吸收层**
+            //   （原版那颗 `Image` 是射线靶、父链上没有点击处理器 ⇒ **点它什么都不发生**：不关窗、不播音、不改状态）。
+            //   判据 = **本轮亲读 prefab 原件**（`bundle_menus_assets_all`；对象路径 `Daily Reward Popup/Tracks/bg`）：
+            //     · `GameObject/bg_5183763081869680591.json`：`m_Name="bg"` · `m_IsActive=1`；
+            //       组件 = `RectTransform` + `CanvasRenderer`（`m_CullTransparentMesh=1`）+ **`Image`** + **`UIGradient`**；
+            //     · `RectTransform_3779684725085265871.json`：`m_AnchorMin = m_AnchorMax = (0.5,0.5)` ·
+            //       `m_Pivot=(0.5,0.5)` · `m_AnchoredPosition=(-8.7007, +199.77)` · `m_SizeDelta=(1676.4014, 399.55)`
+            //       ⇒ 绝对矩形 **242.37,159.34 → 1918.78,558.89**（= 现成常量 `TrackBg`）。
+            //     · `MonoBehaviour_4004800252594839503.json`（= `Image`）：`m_Sprite = null` · `m_Type=0`(Simple) ·
+            //       `m_Color=(1,1,1,1)` · **`m_RaycastTarget = 1`** · `m_RaycastPadding=(0,0,0,0)` · `m_Maskable=1` ·
+            //       `m_PreserveAspect=0` · `m_PixelsPerUnitMultiplier=1`。
+            //     · `MonoBehaviour_8521710320608567247.json`（= `UIGradient`）：`m_color1=(0.22352943,0.01176471,0.01960784)` ·
+            //       `m_color2=(0.04705883,0,0.01568628)` · `m_angle=82` · `m_ignoreRatio=1`（→ 视觉件传 188，换算见上一条）。
+            //   🔴 **renderQueue**：原版**没有显式值**（UGUI 由 Canvas 排序）—— 我们的判据是**兄弟序**：
+            //     `Tracks.m_Children` = `bg` → `Separator Line Top` → `Separator Line Bottom` → `Rewards Scroll View`
+            //     ⇒ 视觉件 `bg` 用 `QPanel − 1`(3005)（上一条）；**吸收件用公共件算出来的档**（`Absorb` 一律取
+            //       `qContentMin − 1` = **3009**，严格低于内容命中区 3010、高于压暗层 3002）。
+            //   ⚠️ **与 `N117`（本文件 `Build()` 第 1 步那颗整屏 `AbsorbHit`）的关系**：那颗已经把整屏（含这条轨道底）
+            //     吃掉了 —— 今天**可观测行为已经正确**；本条补的是**节点级 1:1**（原版这颗 `bg` 自己就是射线靶）。
+            //     两者**同族、同档 3009**，点哪一颗都是 `absorbOnly`（四个事件入口 + `Click` 全直接返回 ⇒
+            //     零悬停色偏、零按下告警、无按钮音）。⛔ 没有另开第三套吸收机制 —— 走的就是 `MenuDraw.Absorb`。
+            //   ⚠️ 兄弟序会多出这一层（原版 4 个孩子 / 我们 5 个）—— 那是「命中层必须是独立 quad」这套实现的代价，
+            //     与全工程 30+ 扇窗同族（`ItemDisplayWindow` 三颗 · `PracticeModePopup` 三颗）。
+            MenuDraw.Absorb(tracks, "TrackBgAbsorbHit", TrackBg, QShade, QContent);
             MenuDraw.Rect(tracks, Art(ArtSepLine), SepTop, "Separator Line Top", QPanel);
             MenuDraw.Rect(tracks, Art(ArtSepLine), SepBottom, "Separator Line Bottom", QPanel);
             var view = MenuDraw.Node(tracks, "Rewards Scroll View", ScrollView);
@@ -380,7 +404,7 @@ namespace CardPresentation
             //   🔴 **四格要按本窗刻度换算**：这一组的节点带 `localScale = 0.8`（见上面 `R()` / `45f * 0.8f`
             //   那两处），而 `m_fontSizeMin/Max/Base` 是**未缩放的设计空间原值** ⇒ **三者一样乘 0.8**
             //   （判据 = 本仓既有先例 `Shell/MissionsTab.cs` 的 `FS()`：**「自适应上下限也要一起乘」**，
-            //     `Editor/…` 那条注释在 `:345` / `:380` / `:1302`）。⇒ 18/45/36 → **14.4 / 36 / 28.8**。
+            //     `Editor/…` 那条注释在 `CardPresentation/Editor/RewardsScene.cs` / `CardPresentation/Editor/RewardsScene.cs` / `CardPresentation/Editor/RewardsScene.cs`）。⇒ 18/45/36 → **14.4 / 36 / 28.8**。
             var nm = MenuDraw.Text(node, R(D_Name), DailyData.RewardName(day, prem), Color.white,
                                    "Name", 45f * 0.8f, QText, R(D_Name).W, 18f * 0.8f, 45f * 0.8f, 36f * 0.8f, face: TmpFont.Face.LatinCardBody);
             if (nm != null) nm.AlignLeftOn(LayoutSpace.FromPixel(R(D_Name).x1, 0f).x);
@@ -403,7 +427,7 @@ namespace CardPresentation
             //   **`对齐=Left/Midline`** —— `python 工具/menu_dump.py bundle_menus_assets_all "Daily Reward Popup"
             //   --depth 12 --no-sprite` 实读，**8 份实例逐值相同**（`255.1 244.2 428.1 276.0` / `255.1 638.7 428.1 670.5` …）。
             //   ⚠️ 不显式对齐 ⇒ `Label` 默认把文字块**居中**摆在框心（原版贴左）。
-            //   本文件已有同款先例（`:252` 的 `Name` 也是这个口径）。
+            //   本文件已有同款先例（`本文件` 的 `Name` 也是这个口径）。
             // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 33.56px。
             //   判据 = 原版 `…/NormalReward/Gacha Reward Claimed/Claimed Tex`：**`m_enableAutoSizing = 1`** ·
             //   `m_fontSizeMin = **15**` · `m_fontSizeMax = **200**` · `m_fontSizeBase = **36**` · 折行 = 1。
@@ -508,7 +532,7 @@ namespace CardPresentation
                 //   **落地形状**（为什么不照裁定那句「覆写 `Close()` + 另给一个只关不收的口」的字面形状）→
                 //   见本文件 `CloseCollecting()` 上面那一整段：那个形状**必须改 `Shell/WindowsManager.cs`**，
                 //   而它不在本件白名单 ⇒ 改走**同族惯例**（每条生产路径自己调 `CloseCollecting()`，
-                //   `Close()` 保持纯关 —— `Shell/DailyStreakPopup.cs` 里那句 `StreakAutoCollect(); Close();` / `:270-271` 就是这个形状）。
+                //   `Close()` 保持纯关 —— `Shell/DailyStreakPopup.cs` 里那句 `StreakAutoCollect(); Close();` / `CardPresentation/Shell/DailyStreakPopup.cs` 就是这个形状）。
                 //   ⛔ **仍然不许把那两句搬进 `Close()` 覆写**：原版那边程序性关窗走的是 `Hide()`
                 //   （`Close → manager.CloseWindow → CloseWindowCO` 先调 Slot 9，见 `Shell/WindowsManager.cs` 的
                 //   `Hide()` 注释），而**我们的 `CloseAllWindows()` 是逐扇调虚方法 `Close()`** ⇒ 覆写它会把

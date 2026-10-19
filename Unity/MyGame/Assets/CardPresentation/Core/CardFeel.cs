@@ -1474,7 +1474,18 @@ namespace CardPresentation
             var matcap = CardArt.Card3DMatcap();
             foreach (var r in p.GetComponentsInChildren<MeshRenderer>(true))
             {
-                var m = r.material;
+                // 🔴 **2026-10-19（`A1967` 残尾）**：这里原来写的是 `r.material` ——
+                //   编辑模式下每调一次，Unity 就实例化一份材质并打一条
+                //   `Instantiating material due to calling renderer.material during edit mode …`
+                //   （2026-10-14 的 `BattleScene.Run` 日志里这一族 162 条；每趟自检 3~4 条，
+                //    是 `A1967` 普查里**唯一剩下的生产源** —— 分布表见
+                //    `资料/普查产出_1019/W_自检断言线_A1967_1019b.md` §一）。
+                //   ⇒ 走 `WritableMaterial`：显式 `new Material(sharedMaterial)` 再赋给 `sharedMaterial`，
+                //     语义与 `.material` 逐字等价（一份逐渲染器私有实例），但不触发那条警告。
+                //   ⛔ **不能**用 `CardView` 那个 `(源材质, 队列)` 共享缓存：这一路要按**这一张卡**写
+                //     `_CardImage` / `_MatCap` / 随机偏移 —— 共享一份会把上一张阵亡卡的脸留在下一张上
+                //     （与 `BattleDriver.StartRevealFlight` 必须独占一份是同一条理由）。
+                var m = WritableMaterial(r);
                 if (m == null) continue;
                 if (art != null && m.HasProperty("_CardImage")) m.SetTexture("_CardImage", art);
                 if (matcap != null && m.HasProperty("_MatCap")) m.SetTexture("_MatCap", matcap);
@@ -1483,6 +1494,116 @@ namespace CardPresentation
             }
             return true;
         }
+
+        /// <summary>把这一层的材质**复制一份私有实例**再返回（⛔ 不走 `Renderer.material`）。
+        /// <para>🔴 **为什么不是 `.material`**（`A1967`）：编辑模式下 `Renderer.material` 每次实例化
+        /// 都会打一条 `Instantiating material due to calling renderer.material during edit mode …`
+        /// （14–16 行托管栈）。`BattleScene.Run` 2026-10-14 实测这一族 **10,642 条 = 全文 52.6%**；
+        /// `CardView.StampQueue` / `BattleDriver.StartRevealFlight` 已在 2026-10-19 修掉
+        /// （判据 → `资料/普查产出_1019/W_自检断言线_A1967_1019b.md`），
+        /// 本函数收的是**最后一个生产源**（同一份报告：`CardFeel.SpawnDeathBody`，162 条）。</para>
+        /// <para>🔴 **为什么不并进 `CardView` 的 `(源材质, 队列)` 共享缓存**：那套缓存的前提是
+        /// 「同源同队列的消费者**不写**逐实例属性」；这里每一个爆散体都要按**这一张卡**写
+        /// `_CardImage` / `_MatCap` / `_ExplosionTextureOffsetModifier` ⇒ 共享会把上一张阵亡卡的
+        /// 脸留在下一张上。显式 `new Material(...)` 与 `.material` 的语义**逐字等价**
+        /// （一份逐渲染器私有实例），只是不触发那条警告、也不去写 prefab 上的共享材质。</para>
+        /// <para>⚠️ 返回 `null` = 这个渲染器没有材质（与 `.material` 一样什么都不做）。</para></summary>
+        static Material WritableMaterial(Renderer r)
+        {
+            var src = r.sharedMaterial;
+            if (src == null) return null;
+            var m = new Material(src) { name = src.name + " (CardFeel death)" };
+            r.sharedMaterial = m;
+            return m;
+        }
+
+#if UNITY_EDITOR
+        /// <summary>🆕 2026-10-19（`A1967` 残尾）**只给 Editor 自检用**的探针（产品路径不调用）。
+        /// <para>判据不是「我们自己说没走 `.material`」，而是 **Unity 自己那条警告**：
+        /// ① 负例（**灭自证**）故意调一次 `.material` ⇒ 必须抓到 ≥1 条；
+        /// ② 正例调 <see cref="WritableMaterial"/> ⇒ 必须 **0 条**；
+        /// ③ 在副本上写贴图 ⇒ 源材质一个字节都不许变（`renderQueue` / `mainTexture` 都不变）；
+        /// ④ 拿到的是独立实例、并已赋给 `sharedMaterial`。
+        /// ① 抓不到 ⇒ 检测器失效，② 的 0 条没有意义（所以两条必须一起断）。</para>
+        /// <para>宿主 = `Editor/RewardsScene.cs`（`A2038` 那段旁）；`Editor/BattleScene.cs` 里的
+        /// `miCounter` 是**全程闸**，但它不在本批白名单 ⇒ 这里给一个不依赖战斗场景的独立口。</para></summary>
+        public static MaterialWriteProbe ProbeWritableMaterial()
+        {
+            var result = new MaterialWriteProbe();
+            var sh = Shader.Find("Sprites/Default");
+            if (sh == null) { result.Error = "Shader.Find(\"Sprites/Default\") 取不到"; return result; }
+
+            var src = new Material(sh) { name = "A1967 Probe Source", renderQueue = 3000 };
+            src.mainTexture = Texture2D.whiteTexture;
+            var goNeg = new GameObject("A1967 Probe Negative");
+            var goPos = new GameObject("A1967 Probe Positive");
+            var mrNeg = goNeg.AddComponent<MeshRenderer>();
+            var mrPos = goPos.AddComponent<MeshRenderer>();
+            mrNeg.sharedMaterial = src;
+            mrPos.sharedMaterial = src;
+
+            int warns = 0;
+            Application.LogCallback h = (cond, stack, type) =>
+            {
+                if (type == LogType.Warning && cond != null
+                    && cond.Contains("Instantiating material due to calling renderer.material")) warns++;
+            };
+            Material matNeg = null, matPos = null;
+            Application.logMessageReceived += h;
+            try
+            {
+                // ① 负例：**故意**走一次 `.material`（只在本探针里；产品代码禁止）——
+                //    抓不到警告 = 「编辑模式警告」这条检测器坏了 ⇒ ② 的 0 条是假绿。
+                matNeg = mrNeg.material;
+                result.NegativeCaught = warns;
+                result.NegativeWasDistinct = matNeg != null && matNeg != src;
+                warns = 0;
+
+                // ② / ④ 正例：被测件
+                matPos = WritableMaterial(mrPos);
+                result.WritableCaught = warns;
+                result.CopyIsDistinct = matPos != null && matPos != src && mrPos.sharedMaterial == matPos;
+
+                // ③ 源材质不许被写脏（在副本上写，源必须原样）
+                var texBefore = src.mainTexture;
+                if (matPos != null) matPos.mainTexture = Texture2D.blackTexture;
+                result.SourceDirty = src.mainTexture != texBefore;
+                result.SourceQueueDirty = src.renderQueue != 3000;
+                result.SourceName = src.name;
+            }
+            finally
+            {
+                Application.logMessageReceived -= h;
+                Object.DestroyImmediate(goNeg);
+                Object.DestroyImmediate(goPos);
+                if (matNeg != null && matNeg != src) Object.DestroyImmediate(matNeg);
+                if (matPos != null && matPos != src) Object.DestroyImmediate(matPos);
+                Object.DestroyImmediate(src);
+            }
+            return result;
+        }
+
+        /// <summary><see cref="ProbeWritableMaterial"/> 的读数（调用方用宿主自己的 `Check` 逐项断）。</summary>
+        public struct MaterialWriteProbe
+        {
+            /// <summary>`null` = 跑起来了；非空 = 探针自己起不来（调用方要断它为空）。</summary>
+            public string Error;
+            /// <summary>负例抓到的警告条数（**期望 ≥1**；0 = 检测器失效）。</summary>
+            public int NegativeCaught;
+            /// <summary>负例拿到的是一份独立实例（`.material` 的语义）。</summary>
+            public bool NegativeWasDistinct;
+            /// <summary>正例抓到的警告条数（**期望 0**）。</summary>
+            public int WritableCaught;
+            /// <summary>正例拿到的是一份独立实例、并已挂到 `sharedMaterial` 上。</summary>
+            public bool CopyIsDistinct;
+            /// <summary>在副本上写过贴图之后，**源材质**的 `mainTexture` 变了（**期望 false**）。</summary>
+            public bool SourceDirty;
+            /// <summary>源材质的 `renderQueue` 变了（**期望 false**）。</summary>
+            public bool SourceQueueDirty;
+            /// <summary>探针源的材质名（出错时好定位）。</summary>
+            public string SourceName;
+        }
+#endif
 
         /// <summary>阵亡消散（**旧表现 —— 只在取不到原版那件爆散体时用**）。原版是**材质 `_DissolveAmount`** 从 1 溶到 0
         /// （见 `Card Hand To Board` clip 里 `Card 3D` 那条曲线）。

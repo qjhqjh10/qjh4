@@ -71,8 +71,8 @@
 //     `d:/2/tools/decomp_full/UnityEngine.UI.Extensions.Gradient2__ModifyMesh.c`。
 // · **`UICornersGradient`（两张队伍卡底，MB 实读）**：四角色值逐条照抄（A 红 / B 蓝）。
 //   🔴 **2026-10-18 就地订正（铁律 5）**：本行原来写「SkewedImage 的 `skewVector = 0.09` 没做」——
-//   **已过期**：`MenuDraw.Rect(..., skewX: 0.09f)` 在 `:674`（`Background`）与 `:703`（`General Red Background`）
-//   **都已接**（`N53②` 落地）。`Mask` **不接**：本壳用 `ViewportClip` 等价，而这两件**没有裁切需求**（`:671`）。
+//   **已过期**：`MenuDraw.Rect(..., skewX: 0.09f)` 在 `本文件`（`Background`）与 `本文件`（`General Red Background`）
+//   **都已接**（`N53②` 落地）。`Mask` **不接**：本壳用 `ViewportClip` 等价，而这两件**没有裁切需求**（`本文件`）。
 // · **`EverguildToggle` 的选中态**：原版靠 `m_IsOn` 换 on/off 色与 sprite；本窗只有**两颗页签**，
 //   选中态 = **只显示当前页那颗的 `Highlight`**（红 `40k_main_bt_selected_BW`，MB 实读 `m_Color = (1,0,0,1)`）。
 // · **`UIAnchorAvoidSafeArea`**（`Background` / `General Red Background` 各一颗）：本壳**没有**逐节点的安全区组件

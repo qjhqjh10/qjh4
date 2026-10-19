@@ -93,7 +93,7 @@ public static class T09Probe
         // 为什么要拆：`N79` 已把主因 `CardDatabase.Load` 缓存掉，但 `ToCardData` 里还有三条**重腿**
         //   —— ① `CardText.Name`（本地化键查表）② `FaceTextFull`（卡面正文 + 图标改写）
         //   ③ `ArtKey`（立绘键）—— 真机上到底哪条还贵，只有分开量才知道。
-        // ⚠️ **纯插桩**：三段的调用次序/实参与 `ToCardData` 内部逐字相同（同一份判据：`Battle/BattleDriver.cs:14113-14134`），
+        // ⚠️ **纯插桩**：三段的调用次序/实参与 `ToCardData` 内部逐字相同（同一份判据：`Battle/BattleDriver.cs` 的 `ToCardData`），
         //   ⛔ 不改任何行为；这里**不**重写 `ToCardData` 本身（那会造出第二份逻辑）。
         //   「三段之和」与上面 B 的「整段」之差 = 没被这三条覆盖的标量读取（应为 0 附近）。
         {

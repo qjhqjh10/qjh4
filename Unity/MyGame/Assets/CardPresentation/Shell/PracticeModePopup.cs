@@ -367,8 +367,8 @@ namespace CardPresentation
         //   `com.unity.ugui` 的 guid 去 grep 解包目录**命中 0**；② **必须限定 `MonoBehaviour/`**
         //   （整包 grep 会逐包多算 1）。逐包数字只留一处 → `MenuWindowBase.ClipSoftness` 的注释。
         //   下面那两条值取自本窗 prefab，**不受这次标签订正影响**：
-        //   · `Practice Mode Menu/Deck Selector/Army Selector/Viewport`                    = **(0,50)**（:136-137）
-        //   · `Practice Mode Menu/Deck Selector/Deck Buttons/Decks Scroll view/Viewport`   = **(0,23)**（:208-209）
+        //   · `Practice Mode Menu/Deck Selector/Army Selector/Viewport`                    = **(0,50)**（本文件）
+        //   · `Practice Mode Menu/Deck Selector/Deck Buttons/Decks Scroll view/Viewport`   = **(0,23)**（本文件）
         // 🔴 **同一扇窗里两个视口就是两个值** —— ⛔ 别互推、别拿一个去顶另一个（铁律 5·c）。
         // ⚠️ **渐隐带按【我们这一格实际裁到的那条边】摆**（带宽 = 原版那个分量）——
         //    ✅ **2026-10-05 起两处的裁切矩形都＝原版 `Viewport` 的矩形**了：
@@ -516,7 +516,7 @@ namespace CardPresentation
         /// —— 只写位置、**不写 `sizeDelta`** ⇒「空节点 + 原版像素矩形」的宽高**验收不了**
         /// （与 A218 修掉的是同一个缺陷）。
         /// ⚠️ **本次收口对位置是零行为变化**：`Local3(basis, …)` 的定义就是
-        /// `LayoutSpace.RectCenter(…) − MenuDraw.PosInDesignSpace(basis)`（本文件 `Local3`，`:1618`），
+        /// `LayoutSpace.RectCenter(…) − MenuDraw.PosInDesignSpace(basis)`（本文件 `Local3`，`本文件`），
         /// 与 `MenuDraw.Local` **逐字同式**。
         /// ⚠️ **只收 `(parent, name)` 的那个重载已删**（不是漏写）：留着它 = 留一条**不写尺寸**的入口，
         /// 下一个人照它写就又回到旧路。9 个调用点全部改成收 `PxRect` 那一版（逐个核过，见
@@ -570,8 +570,8 @@ namespace CardPresentation
             //    ⚠️ **2026-10-19（界面线 P05）就地订正**：这里原来写「`Lore Text` 本扇**不建** ⇒ 两颗 Asar 有落点」
             //    —— **已过期**：`Lore Text` 已建（见 `BuildGeneralContainer`）且**就是** Asar（`LatinUi`）
             //    ⇒ 本窗三颗 Asar **全部有落点**（`Selected Army Title` / `Lore Text` / `Deck Name`）。
-            //    ⚠️ **同名不同字**：`Deck Selector Menu Item ▸ Deck Name`（`:1416`）是 **Pragati**，
-            //    只有 `Deck info ▸ Deck Name`（`:606`）是 Asar —— 逐站判过，⛔ 别按名统一。
+            //    ⚠️ **同名不同字**：`Deck Selector Menu Item ▸ Deck Name`（`本文件`）是 **Pragati**，
+            //    只有 `Deck info ▸ Deck Name`（`本文件`）是 Asar —— 逐站判过，⛔ 别按名统一。
             _txtArmy = Txt(root, SelectedArmyName(), ArmyTxL, ArmyTxR, ArmyTxT, ArmyTxB, 36f, Align.Center, "Selected Army Title", QPrText,
                            wrapPx: ArmyTxR - ArmyTxL, autoMinPx: 1f, autoMaxPx: 36f, autoBasePx: 23f,
                            vAlign: Label.VAlign.Midline, face: TmpFont.Face.LatinUi);   // 🆕 N11：原版 `Center/**Midline**`（现读 dump）
@@ -1024,7 +1024,7 @@ namespace CardPresentation
                 "Label Background", QPrItemHL, false);
 
             // ⑤ `Label` —— 🔴 原版节点名就叫 `Label`；我们沿用**既有名 `Toggle Label`**
-            //    （`Editor/MainMenuScene.cs:2240` 的文案断言按这个名字取件 ⇒ 改名会红）。
+            //    （`Editor/MainMenuScene.cs` 的文案断言按这个名字取件 ⇒ 改名会红）。
             //    原版字段：`m_fontSize 36 / m_fontSizeBase 36`（**无自适应**）、`Center/Capline`、`折行 = 1`。
             //    文案走 `Loc.T`（`mTerm = Event_Description/Generic/GameMode`，既有那条不动）。
             Txt(tog, Loc.T("Event_Description/Generic/GameMode"), GmLabelL, GmLabelR, GmLabelT, GmLabelB,
@@ -1035,7 +1035,7 @@ namespace CardPresentation
             // 四颗 `m_RaycastTarget = 1` 的 `Image` —— 图标那一份是本轮从 prefab MB 实读的，
             // `m_RaycastTarget = 1`、`m_RaycastPadding = 0`）。四块都指向同一个动作：
             // `PointerLayer` 要「按下与抬起落在同一个 `WindowButton` 上」才派发 ⇒ 重叠处不会双触发。
-            // ⚠️ 主命中区沿用既有节点名 `ToggleHit`（`Editor/CollectionScene.cs:4043` 按这个名字断类型）。
+            // ⚠️ 主命中区沿用既有节点名 `ToggleHit`（`Editor/CollectionScene.cs` 的 `ToggleHit` 按这个名字断类型）。
             HitOn(tog, tog, "ToggleHit", new PxRect(TogL, TogT, TogR, TogB), ToggleGameMode);
             HitOn(tog, tog, "ToggleSkirmishHit", new PxRect(GmSkL, GmSkT, GmSkR, GmSkB), ToggleGameMode);
             HitOn(tog, tog, "ToggleClassicHit", new PxRect(GmClL, GmClT, GmClR, GmClB), ToggleGameMode);
@@ -1185,7 +1185,7 @@ namespace CardPresentation
             //   （实时反推 + `LiveDerivations`）：本窗每开一次整棵树重建，框与被比矩形就可能**不在同一帧**。
             //   ⚠️ **必须在这里调**（`AddComponent` 之后、`RebuildArmyCells` 之前）：`MenuDraw.ApplyPxRect` 写矩形时
             //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾）—— 同 `ViewportClip.Hang` 里那句
-            //   `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
+            //   `vc.SetBaseRect(r)` 的位置理由（`CardPresentation/Shell/ViewportClip.cs`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `CardPresentation/Shell/ViewportClip.cs` 明令）。
             armyVc.CaptureNow();
 
             var filters = New(vp, "Filters", view);               // 原版格容器（`GridLayoutGroup`）
@@ -2457,7 +2457,7 @@ namespace CardPresentation
             //   ⚠️ **本文件没有带 `basis` 的 `Txt`**（那个 `Txt` 只有 `parent` 一个基准、`Local3(parent, …)`，
             //      结构上不可能不等）—— A229 在本文件的真身就是这两个带 `basis` 的 helper 里的**没守卫的那个**
             //      （`Nine` 早已有；`Hit` 只是转调 `HitOn` ⇒ 守卫只写在 `HitOn` 一处）。
-            //   本文件自己的约定（`:1453-1454`）：「**坐标一律页面绝对 px；`parent` 与 `basis` 给同一个节点**
+            //   本文件自己的约定（`本文件`）：「**坐标一律页面绝对 px；`parent` 与 `basis` 给同一个节点**
             //   （第三种错法见 `已知的坑.md`）」⇒ 不等就是那个错法。
             //   今天 9 个调用点**全部**传同一个对象（`HitOn(root, root, …)` / `(cell.transform, cell.transform, …)`
             //   / `(_general, _general, …)` / `(_cardHolder, _cardHolder, …)`）⇒ **零行为变化**；⛔ 不许静默。

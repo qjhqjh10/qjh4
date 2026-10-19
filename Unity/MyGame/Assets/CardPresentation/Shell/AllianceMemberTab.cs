@@ -396,15 +396,15 @@ namespace CardPresentation
             //    真值逐条现读的判据只写一处：`Shell/SocialWindow.cs` 的 `SocialPage.Text` 文档头
             //    （§A213 那张表在 `资料/普查产出_1008/波C3_A212其余_A213_A214.md`）。本文件这 6 处是：
             //      · 本行（页签键 `Button Text`，原版 `Generic Tab UI Button {General,Trophies}/Button Text` = **0**）
-            //      · `:345` 关注徽标 `CurrentActiveBadge Name > Text`（`Featured: Trophy Name`）= **0**
-            //      · `:349` 同族 `CurrentActiveBadge Count > Text`（`45 Trophies Achieved!`）= **0**
+            //      · `本文件` 关注徽标 `CurrentActiveBadge Name > Text`（`Featured: Trophy Name`）= **0**
+            //      · `本文件` 同族 `CurrentActiveBadge Count > Text`（`45 Trophies Achieved!`）= **0**
             //      · `:711` 聊天行 `MsgRow > text`（`…/Message Preview > text`，fs23）= **0**
             //      · `:877` 概览 `GeneralDetails/Content/Alliance name text > Text` = **0**
             //      · `:1182` 名次 `member index > Text` = **0**
             //   ⛔ 其余 7 处（`:899`/`:944`/`:952`/`:1029`/`:1200`/`:1202`/`:1220`）原版都是 **1**
             //   ⇒ **不许一刀切**把它们也关掉（那 7 处改了就是**新的**偏离）。
             //   🔴 **2026-10-11（A258）**：上面那 6 处（已显式传 `false`）**一个字没动**，而**那 7 处现在各自显式传
-            //   `wrap: true`**（与缺省值逐字等价）。⚠️ **缺省值本批没删成**（阻塞点 = `Editor/MainMenuScene.cs:4675`
+            //   `wrap: true`**（与缺省值逐字等价）。⚠️ **缺省值本批没删成**（阻塞点 = `Editor/MainMenuScene.cs`
             //   一条 7 实参的 `Clip` 探针，那文件不在白名单）⇒ 判据与最小改法只写在
             //   `Shell/SocialWindow.cs` 的 `SocialPage.Text` 文档头，**别在这儿抄第二份**。
             //   ⛔ **行号那一串会漂** —— 认节点名，别认行号。
@@ -803,7 +803,7 @@ namespace CardPresentation
         /// —— 与 A323（`SocialPage.Text` / `SocialView.Text` / `ProfilePage.Text`）**同一套口径**：
         /// 缺省值**不是原版概念**（原版只有**逐个节点**的真值）⇒ 去掉它才能**倒逼逐处现读**。
         /// · **`alignLeft` 那一个原本就是【死的】**：本口**只有两个调用点**（本文件 `BuildTrophyCell` 里
-        ///   `title` 与 `counter` 各一处，现读 `:612` / `:667`），**两处都显式传了 `alignLeft: false`**
+        ///   `title` 与 `counter` 各一处，现读 `本文件` / `本文件`），**两处都显式传了 `alignLeft: false`**
         ///   ⇒ 删它**零行为变化**（判据 = `grep -n "TextSoft(" Shell/AllianceMemberTab.cs` ⇒ 只有那两处）。
         /// · **`autoMinPx` 是被 C# 一起拽下来的**：`CS1737`（必填形参不许排在可选形参后面）⇒ 要删
         ///   `alignLeft` 的缺省就得连它前面那个一起定。**同样是零行为变化** —— 那两个调用点今天
@@ -917,9 +917,9 @@ namespace CardPresentation
         /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-69344794122919773.json` 与
         /// `…_-7031947786318323549.json`，`len(m_text) = 7` 用 python 逐字节数过）。
         /// <para>**为什么用「资产里的字面串」而不是留空串**（本件改的就是这一点）：与本文件同族已有的两处**同一口径**
-        /// —— `extra_info` 的 `English / Private`（`:187`）与 `members label` 的 `Members: --/20`，
+        /// —— `extra_info` 的 `English / Private`（`本文件`）与 `members label` 的 `Members: --/20`，
         /// 那两格与这两格的共同点 = **运行期那个值在服务器上、本地没有源**（铁律 11：缺的部分照原版补，
-        /// ⛔ 不自己发明、也不留一个原版没有的空白）。**同族先例** = `Shell/RankedTab.cs:149` 的 `ScoreEmpty`
+        /// ⛔ 不自己发明、也不留一个原版没有的空白）。**同族先例** = `Shell/RankedTab.cs` 的 `ScoreEmpty`
         /// —— 同一类节点（`AllianceRatingDisplay>Individual rating value`）、同样是「照预制体自己在值那一格写的」；
         /// ⚠️ **那颗是 6 个连字符、本处是 7 个** ⇒ **各取各的，别互相套用**。</para>
         /// <para>🔴 **一处如实标注（读过分编译方法体，⛔ 不是猜）**：原版**运行期**会把这一格**覆盖成数字** ——

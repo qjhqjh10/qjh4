@@ -1469,6 +1469,13 @@ namespace CardPresentation
             _faceMode = f;
             bool board = f == CardFace.Board;
 
+            // 🆕 2026-10-19（`T09` 步骤 B 前半，`W57`）：**换形态 = 换命中档** —— 真 collider 的
+            //   `size/offset` 跟着 `HitRect()` 走（in-hand `1.97 × 3.0502 @ y −0.0151` / 其余 `1.97 × 3.02 @ 0`）。
+            //   🔴 铁律 10 第 5 条：换形态的入口**只有这一处**（手牌 → 场上），出生那一档在 `Build`
+            //   （`EnsureHitCollider`）⇒ **两个入口各显式刷一次**；漏了这里就是「形态切了、collider
+            //   还停在 in-hand 档」—— 静默（下沿多 0.0151 的命中高，画面上完全看不出来）。
+            SyncHitCollider();
+
             // 🔴 整卡倾摆跟着形态开关（原版：场上把 `2DCard` 整个 `Toggle(false)` ⇒ 倾摆也停）。
             //    入口**只有这一处**（铁律 10 第 5 条）—— 手牌打出去走的就是这里。
             if (_tilt != null) _tilt.enabled = !board;
@@ -2697,6 +2704,12 @@ namespace CardPresentation
                 // 它一歪就和卡体**对不上**。⇒ 等价地关掉组件（不是关节点：数值层还挂在它底下）。
                 _tilt.enabled = _faceMode != CardFace.Board;
             }
+
+            // 🆕 2026-10-19（`T09` 步骤 B 前半，`W57`）：真 collider 挂在 `_tiltRoot`（原版 `2DCard` 那一级）
+            //   —— 出生入口（另一个入口 = `SetFace` 换形态，两处各显式刷一次，铁律 10 第 5 条）。
+            //   ⚠️ 放在 `_tiltRoot` 建好**之后**、且**不嵌在 `if (_tiltRoot == null)` 里**：
+            //   `Build` 重入时也要保证 collider 在（`EnsureHitCollider` 幂等）。
+            EnsureHitCollider();
 
             var mf = GetComponent<MeshFilter>();
             mf.sharedMesh = Quad();
@@ -5483,6 +5496,86 @@ namespace CardPresentation
         public const float HitCenterDyInHand = -(HitHalfHInHand - HitHalfH);
 
         // ------------------------------------------------------------------
+        //  真 collider（`Physics2D`）—— 2026-10-19（`T09` 步骤 B 前半，`W57`）
+        // ------------------------------------------------------------------
+        // 🔴 **口径**：几何判据从「手算矩形」（`Contains`）搬到**真 `BoxCollider2D`** ——
+        //    `Contains` 本身**不动**（它继续当一致性断言的对照物，灭自证要靠两份独立来源）。
+        //    原版依据 = `2DCard` 上那两颗 `BoxCollider2D`（尺寸/偏移见上面那一段），
+        //    这里只建**主面那一颗**（第二面 = 悬停放大那第三档，仍没落，见文件头）。
+
+        /// <summary>原版 `2DCard` 所在的层 = **5（Unity 内置 `UI`）**。
+        /// 判据（一手）：`d:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/GameObject/2DCard.json`
+        /// 的 `m_Layer: 5` —— 同一份 JSON 的组件表里就挂着那两颗 `BoxCollider2D`
+        /// （`7520353667969031104` / `2582590304383179712`，尺寸见上面）。
+        /// <para>⚠️ **这个值只作【原版判据记录】，⛔ 不拿来给 GameObject 赋层。** 本仓 `SetLayer`
+        /// 把整张卡**递归**设成 **0**（手牌 / 卡池 / 换牌）或 `ArenaSlots.ArenaLayer = 8`（场上），
+        /// 两台相机的 `cullingMask` 就按这两层分（`Editor/BattleScene.cs:28821/29200`）。
+        /// 把 `2DCard` 改挂 5 会连带改掉 `EffectAnchorHand`（= `FaceRoot` = `2DCard`）的层，
+        /// 破坏 `BattleDriver.cs:15510` 记的那条不变量「手牌 = 层 0 / 场上 = ArenaLayer」。
+        /// ⇒ 物理查询走 <see cref="CardHitLayerMask"/>。</para></summary>
+        public const int CardHitLayer = 5;
+
+        /// <summary>`Physics2D` 查询用的层掩码。
+        /// <para>卡实际会落在两层：**0**（手牌 / 卡池 / 换牌）与 **`ArenaSlots.ArenaLayer` = 8**
+        /// （场上 —— `SetLayer` 递归改的那一档），而**出牌途中也会切层**
+        /// （`BattleDriver` 飞行中先留在 0、落地才 `SetLayer(ArenaLayer)`）⇒ 掩码必须同时盖住两层。</para>
+        /// <para>⚠️ 取 `Physics2D.DefaultRaycastLayers`（= 除 `Ignore Raycast` 外全部）而**不是**写死
+        /// `(1 &lt;&lt; 0) | (1 &lt;&lt; 8)`：卡的层是**运行时**改的，写死一个掩码在换层那一帧就会
+        /// **漏掉自己**（静默）。目标碰撞体由 `HitByCollider` **逐颗比对**（必须是本卡那颗），
+        /// 别的层上的 collider 不会造成误判。</para></summary>
+        public static int CardHitLayerMask { get { return Physics2D.DefaultRaycastLayers; } }
+
+        /// <summary>本卡的**真 `BoxCollider2D`**（挂在 `_tiltRoot` = 原版 `2DCard` 那一级）。
+        /// `Build` 里建（`EnsureHitCollider`），in-hand 档切换时由 `SyncHitCollider` 刷 `size/offset`。
+        /// ⚠️ 只有一颗（主面）；第二面（悬停放大那档）还没落，见上面文件头的说明。</summary>
+        BoxCollider2D _hitCollider;
+
+        /// <summary>`OverlapPoint` 的结果缓冲。64 张卡叠在同一点的上限远高于实际
+        /// （手牌最多十来张、场上最多十来张）—— 满了只影响**更靠后**的 collider；
+        /// 本方法只关心**本卡那一颗**，所以正常情况无影响，但真撞到上限会在下面出声。</summary>
+        static readonly Collider2D[] _hitQueryBuf = new Collider2D[64];
+        static bool _hitBufFullWarned;
+
+        /// <summary>`Physics2D.OverlapPoint` 的过滤器：**不采触发器**（原版 `m_IsTrigger: false`）、
+        /// 层掩码 = <see cref="CardHitLayerMask"/>。深度（z）不参与 —— `Physics2D` 本来就没有 z，
+        /// 「谁压谁」由调用方按 z 自己排（见 <see cref="HitByCollider"/> 的警告）。</summary>
+        static readonly ContactFilter2D _hitFilter = MakeHitFilter();
+
+        static ContactFilter2D MakeHitFilter()
+        {
+            var f = new ContactFilter2D();
+            f.useTriggers = false;     // 原版 `BoxCollider2D.m_IsTrigger = false`
+            f.useLayerMask = true;
+            f.layerMask = CardHitLayerMask;
+            return f;
+        }
+
+        /// <summary>把真 collider 建到 `_tiltRoot` 上（原版 `2DCard` 那一级；标架与 `Contains` 相同）。
+        /// 幂等：已有就复用（`Build` 可能重入）。`isTrigger` 照原版设 `false`。</summary>
+        void EnsureHitCollider()
+        {
+            var frame = HitFrame();                 // `_tiltRoot` 没建时它会出声一次并退回卡根
+            var col = frame.GetComponent<BoxCollider2D>();
+            if (col == null) col = frame.gameObject.AddComponent<BoxCollider2D>();
+            col.isTrigger = false;
+            _hitCollider = col;
+            SyncHitCollider();
+        }
+
+        /// <summary>把 `HitRect()` 那一档写进真 collider（**判据只有 `HitRect` 一处**）。
+        /// 常态 `size = 1.97 × 3.02`、`offset = (0, 0)`；
+        /// in-hand `size = 1.97 × 3.0502`、`offset = (0, −0.0151)`（= 原版 `SetColliderInHand` 那一步：
+        /// `size.y ×= colliderHeightMultiplierInHand(1.01)`、`offset.y −= (newH − origH) × 0.5`；
+        /// 反编译实证 → `CardCollider2D__SetColliderInHand.c`，常数 `0.5` 在 `GameAssembly.dll +0x34b07b4`）。</summary>
+        void SyncHitCollider()
+        {
+            if (_hitCollider == null) return;
+            HitRect(out float halfH, out float centerDy);
+            _hitCollider.size   = new Vector2(HitHalfW * 2f, halfH * 2f);
+            _hitCollider.offset = new Vector2(0f, centerDy);
+        }
+
+        // ------------------------------------------------------------------
         //  第二套矩形：原版 uGUI 那颗 `UI Collider`（**只给战斗展示窗**用）—— 2026-10-17（`BSC62·W16`）
         // ------------------------------------------------------------------
         // 🔴 **为什么需要第二套**：上面那套 `BoxCollider2D` 是原版**手牌/棋盘**的送达路径
@@ -5511,6 +5604,9 @@ namespace CardPresentation
         public const float UiColliderCenterDy = -0.02f;
 
         bool _hitFrameWarned;
+        /// <summary>`HitByCollider` 那条警告的「只出声一次」闩 —— **与 `_hitFrameWarned` 分开**：
+        /// 两条警告的成因不同（一个是标架退回卡根、一个是 collider 没建），共用一个闩会吞掉后一条。</summary>
+        bool _hitColliderWarned;
 
         /// <summary>可点矩形所在的那一级节点 = 内层 `2DCard`（`_tiltRoot`，`Build` 里建；
         /// `AutoCardRotation` 挂在它身上 ⇒ 它转 = 倾摆）。
@@ -5538,6 +5634,86 @@ namespace CardPresentation
             halfH   = inHand ? HitHalfHInHand     : HitHalfH;
             centerDy = inHand ? HitCenterDyInHand : HitCenterDy;
         }
+
+        // ------------------------------------------------------------------
+        //  真 collider 版的命中查询 —— 2026-10-19（`T09` 步骤 B 前半，`W57`）
+        // ------------------------------------------------------------------
+        // 🔴 **`HitByCollider` 与 `Contains` 的关系**：两条**独立**的判据，同一个矩形。
+        //    · `Contains`  = 手算（`InverseTransformPoint` + 三个字面量）；
+        //    · `HitByCollider` = 问物理世界（真 `BoxCollider2D`）。
+        //    断言要求两者在**0° 倾摆**下逐点一致（采样网格见 `W57` 计划 §步骤 B 断言②）；
+        //    ⇒ 两边都写错成同一个值才会「一起绿」—— 所以断言还必须有灭自证那条
+        //    （把 collider 临时放大 1.2 倍必须红）。
+        // ⚠️ **已知偏离（与原版同构，⛔ 不是偷懒）**：`BoxCollider2D` 只支持 **Z 轴旋转**，
+        //    而卡面的 `AutoCardRotation` 是 **X/Y 两轴 ±10° 的 3D 倾摆**（`Core/AutoCardRotation.cs`）
+        //    ⇒ 倾摆起来时 collider **不跟**（`Contains` 跟）。实测差最大 ~2.6% 卡高。
+        //    原版的卡也挂在 `2DCard` 上、同样的限制 ⇒ 这是「照原版」；断言要在 0° / ±10° 两档各测一次
+        //    并**把差异记下来**（⛔ 别试图用 3D collider —— 原版没有，且会引入 z 排序）。
+        // ⚠️ `Physics2D` **没有 z**：`OverlapPoint` 会同时命中前后叠着的所有卡
+        //    ⇒ 「谁最上面」必须由调用方按 z 取最前（`Hand/CardInteraction.Frontmost` 那一侧，W2 的活）。
+        //    ⛔ 别指望查询顺序 —— 它是物理世界的内部顺序，不是渲染顺序。
+
+        /// <summary>世界坐标在不在这张卡的**真 collider** 上（= `Physics2D` 版 <see cref="Contains"/>）。
+        /// <para>标架/矩形与 `Contains` **同一个**（`_tiltRoot` + `HitRect()`）—— 区别只是判据来自
+        /// 真 `BoxCollider2D`，不是手算。</para>
+        /// <para>🔴 **查询前必须 `Physics2D.SyncTransforms()`**：卡的位移/旋转是**每帧直接写
+        /// `transform`** 的（`SetPose` / 布局 / 飞行 / 出牌），而 `Physics2D` 只在
+        /// `FixedUpdate` 或显式同步时把 transform 灌进物理世界
+        /// （`Physics2D.autoSyncTransforms` 默认 `false`）⇒ 不同步就会读到**上一帧**的 collider。
+        /// 这是本步骤的**头号静默坑**：画面完全正常、命中差一帧。
+        /// ⚠️ 代价 = 一次**全局**同步（把所有脏 transform 刷进物理世界）⇒ W2 在每帧循环里
+        /// 多张卡连续查询时，**每帧调一次**即可（本方法内部仍照调，幂等）。</para>
+        /// <para>实现 = `Physics2D.OverlapPoint` + `ContactFilter2D` + 预分配缓冲，然后**逐颗比对
+        /// 是不是本卡那一颗** —— 不能只看「有没有命中」，因为叠着的别的卡也会被返回。</para>
+        /// <returns>`_hitCollider` 没建起来（`Build` 没跑过）时**退回 `Contains` 并出声一次**；
+        /// 正常路径永远走 collider。</returns></summary>
+        public bool HitByCollider(Vector3 world)
+        {
+            var col = _hitCollider;
+            if (col == null)
+            {
+                if (!_hitColliderWarned)
+                {
+                    _hitColliderWarned = true;
+                    Debug.LogWarning("[CardPresentation] " + name + "：`BoxCollider2D` 还没建 ⇒ "
+                                   + "`HitByCollider` 退回手算 `Contains`（几何相同，但**不是**真 collider）；"
+                                   + "唯一成因 = `Build()` 没跑过（正常路径 `Create` 就建）");
+                }
+                return Contains(world);
+            }
+            Physics2D.SyncTransforms();
+            int n = Physics2D.OverlapPoint(world, _hitFilter, _hitQueryBuf);
+            if (n >= _hitQueryBuf.Length && !_hitBufFullWarned)
+            {
+                _hitBufFullWarned = true;
+                Debug.LogWarning("[CardPresentation] `HitByCollider` 结果缓冲已满（" + _hitQueryBuf.Length
+                               + " 颗）⇒ 更靠后的 collider 没被检查到；实际场景不该有这么多卡叠在一点。");
+            }
+            for (int i = 0; i < n; i++)
+                if (_hitQueryBuf[i] == col) return true;
+            return false;
+        }
+
+#if UNITY_EDITOR
+        // ---- 只读探针（只给自检；生产零调用）—— 2026-10-19（`T09` 步骤 B 前半，`W57`）----
+        //  后续断言（`Editor/BattleScene.cs`，由 T 写）要靠它们**直接量真 collider**，
+        //  而不是拿本文件的常量反推（那样就是自证）。⛔ 不要在这里开写口。
+
+        /// <summary>自检用：本卡的真 `BoxCollider2D`（`_tiltRoot` 上那颗；没建 ⇒ `null`）。
+        /// 断言「存在 + `isTrigger == false` + 层 == 卡当前 `SetLayer` 层」用它。</summary>
+        public BoxCollider2D ColliderForTest { get { return _hitCollider; } }
+
+        /// <summary>自检用：真 collider 的 `size`（卡局部单位）。期望值从**原版字面量**来
+        /// （常态 `1.97 × 3.02` / in-hand `1.97 × 3.0502`），⛔ 不从 `HitHalfW` 反推。</summary>
+        public Vector2 ColliderSizeForTest { get { return _hitCollider != null ? _hitCollider.size : Vector2.zero; } }
+
+        /// <summary>自检用：真 collider 的 `offset`（卡局部单位）。常态 `(0, 0)` / in-hand `(0, −0.0151)`。</summary>
+        public Vector2 ColliderOffsetForTest { get { return _hitCollider != null ? _hitCollider.offset : Vector2.zero; } }
+
+        /// <summary>自检用：真 collider 所在 GameObject 的层（手牌 0 / 场上 `ArenaSlots.ArenaLayer`；
+        /// 没建 ⇒ `−1`）。用途 = 钉住「换层跟着 `SetLayer` 走、⛔ 不是被常量写死」。</summary>
+        public int ColliderLayerForTest { get { return _hitCollider != null ? _hitCollider.gameObject.layer : -1; } }
+#endif
 
         /// <summary>世界坐标在不在这张卡上。
         /// 🔴 **2026-10-17（`T09` 卡体批 ②）起底矩形 = 原版 `2DCard` 的 `BoxCollider2D`**：标架 = 内层

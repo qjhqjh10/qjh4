@@ -343,7 +343,7 @@ namespace CardPresentation
             var tR = UguiRect.Child(r, TxA, TxB, TxP, TitlePos, TitleSz);
             var tLb = Text(cell, a.Name + " " + tier + "/" + total, tR, Color.white, "title", CellPx, L_Text,
                  autoFit: true, autoMinPx: CellAutoMin, alignLeft: true, wrap: true);
-            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 本文件 `:101` 那条 summary 写的是
+            // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 本文件 `本文件` 那条 summary 写的是
             //   「格子里的字：fs 12 · auto[12~35] · **Left/Midline** · 折行=1」⇒ 格子内 `title`/`description`/`rewards`
             //   **三颗同档 `Midline`**（该 summary 只核了横向那一半）。
             MenuDraw.SetVAlign(tLb, Label.VAlign.Midline, tR);

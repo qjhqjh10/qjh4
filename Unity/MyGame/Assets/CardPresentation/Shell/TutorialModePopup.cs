@@ -329,16 +329,16 @@ namespace CardPresentation
             // 🔴 **2026-10-18（A867 · S1）**：**首句**就把本窗名下的旧滚动区撤掉 —— 下面 `ClearChildren(root)`
             //   把整棵树清掉，而 `BuildArmySelector` 会登记一颗**新**的 `MenuScroll`（`_scroll.Owner = gameObject`）。
             //   ⛔ **兜不住**，所以非补不可（`PointerLayer` 的两道自动清理**都判不出这里已死**）：
-            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类**（`Shell/MenuScroll.cs:79`）
+            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类**（`Shell/MenuScroll.cs`）
             //       ⇒ 节点被销毁**不会**让它变 null ⇒ **恒假**；
             //     · `s.Owner == null` —— `Owner` 指的是**活下来的窗根**（本方法只删**子件**，`transform` 本身还在，
-            //       而且我们关窗是 `SetActive(false)`、**不销毁**）⇒ 也**恒假**（`Shell/PointerLayer.cs:223-231`）。
+            //       而且我们关窗是 `SetActive(false)`、**不销毁**）⇒ 也**恒假**（`Shell/PointerLayer.cs` 的 `SetActive(false)`）。
             //   ⇒ 少了这一句 = **每重建一次净涨 1 条**，而且旧条目**还能被滚轮命中**（`OnChanged` 指向已销毁的节点）。
             //   ⚠️ **本条与 A867 账上那两扇同形、但不是同一扇**：`Build()` 只有 `Open()` 一个调用者
-            //   （`TutorialModePopup.cs:293-298`），所以够得着它的**只有「同一实例被再开一次」**这一条路
-            //   （`TryOpen` 从 `Closed` 支 ⇒ `Open()`，`Shell/WindowsManager.cs:513-519`；生产侧到达它的是
-            //    `ShowPreviousWindow` ⑥ 那句 `prev.TryOpen()`，`:1147`）—— 判据同 `PracticeModePopup`，未经实跑。
-            //   ✅ 形状照抄 `Shell/InboxWindow.cs:405`。
+            //   （`TutorialModePopup.cs`），所以够得着它的**只有「同一实例被再开一次」**这一条路
+            //   （`TryOpen` 从 `Closed` 支 ⇒ `Open()`，`Shell/WindowsManager.cs`；生产侧到达它的是
+            //    `ShowPreviousWindow` ⑥ 那句 `prev.TryOpen()`，`CardPresentation/Shell/WindowsManager.cs`）—— 判据同 `PracticeModePopup`，未经实跑。
+            //   ✅ 形状照抄 `Shell/InboxWindow.cs`。
             PointerLayer.UnregisterOwnedBy(gameObject);
             var root = transform;
             MissingArt.Clear();
@@ -376,7 +376,7 @@ namespace CardPresentation
         {
             // `Generic Window Red Background Big` —— 九宫底板（原版 `Sliced`）。
             // ⚠️ `m_PixelsPerUnitMultiplier = 0.62`：本工程的口径（`MenuDraw.Nine` 的 `borderOutPx`）
-            //    在**同族同图**的既有调用点上一律**不传**（`Shell/BoosterInfoPopup.cs:316` 与
+            //    在**同族同图**的既有调用点上一律**不传**（`Shell/BoosterInfoPopup.cs` 与
             //    `Shell/BaseOfferPopup.cs` 都是同一张 `UI_Deck_Information_Back` + 同一个九宫 (42,363,655,81)、
             //    都只传 `border`）⇒ 本处照那一份办，保持全工程同一处理。**不是**「算过 ppuMul」。
             MenuDraw.Nine(root, Tex(ArtPaneBg), new PxRect(BgL, BgT, BgR, BgB),
@@ -514,11 +514,11 @@ namespace CardPresentation
             vc.softness = Vector2Int.zero;
             // 🔴 **2026-10-18（A840 · S1）**：补一句 `CaptureNow()` —— 把**刚写进这个节点的那个矩形**记成基准
             //   （= 框的中心那一帧，口径 → `ViewportClip` 文件头 §①）。🔴 **本处是 RS 清单漏掉的第 7 处**
-            //   （`Shell/ViewportClip.cs:69-73` 那份文件头只列了 6 处）⇒ 靠 `grep -rn "AddComponent<ViewportClip>"`
+            //   （`Shell/ViewportClip.cs` 的 `grep -rn "AddComponent<ViewportClip>"` 那份文件头只列了 6 处）⇒ 靠 `grep -rn "AddComponent<ViewportClip>"`
             //   现扫才看得见。⛔ 少了它，这颗视口**逐位回落到旧写法**（实时反推 + `LiveDerivations`）。
             //   ⚠️ **必须在这里调**（`AddComponent` 之后、`RebuildStageCells` 之前）：`MenuDraw.ApplyPxRect` 写矩形时
             //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾）—— 同 `ViewportClip.Hang` 里那句
-            //   `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
+            //   `vc.SetBaseRect(r)` 的位置理由（`CardPresentation/Shell/ViewportClip.cs`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `CardPresentation/Shell/ViewportClip.cs` 明令）。
             vc.CaptureNow();
 
             float contentH = Rows.Length * ItemH + (Rows.Length - 1) * ArmGap;   // 6×200 + 5×7.31 = 1236.55
@@ -619,7 +619,7 @@ namespace CardPresentation
             //   349.85×56.08 逐个对上）⇒ **直接对这几件取并集**就是原版那个数（⛔ 不写死 624.75 那个字面量）。
             // 🔴🔴 **2026-10-09 就地修（真缺陷，收口自检抓到的 6 条红；铁律 5）**：
             //   下面这一串原来**漏了 `InCell(cell, …)`** —— 那几个 `ItemXxx` 是**格内局部**矩形
-            //   （见 `:199-201` 与上面 `:603-611`：**画图每一处都套了 `InCell`**），只有命中区没套
+            //   （见 `:199-201` 与上面 `本文件`：**画图每一处都套了 `InCell`**），只有命中区没套
             //   ⇒ `hitR` 落在**画布左上角**、与本格毫无交集 ⇒ `MenuDraw.Hit` 连节点都不建
             //   ⇒ **6 关在真游戏里【全部点不动】**（不只是自检红：`SelectStage` 从不被调 ⇒
             //     `SetPendingTutorialStage(StageIndex)` 放进通道的恒是 0）。

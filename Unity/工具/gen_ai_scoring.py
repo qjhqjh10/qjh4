@@ -65,6 +65,69 @@ def norm_criteria(tc):
     return out
 
 
+# `HandEffect` 里 AI 真正会读的 `cardEffect` 字段 —— `AI__ScoreFromHandBuff.c:78-80` 读
+# `criteria.handEffect(+0x50) → cardEffect(+0x10) → costChange(+0x68)`；`:103-105` 读
+# `cardEffect.untilEndOfTurn(+0x32)`；`:480-484`（`AiScoring.HandBuffValue`）还读
+# `limitedUses / numberOfUses`。其余键（`effectName` / PPtr / `costValueOptions` …）不进 DTO。
+# ⚠️ `untilEndOfTurn` / `limitedUses` 在 SO 导出里是 **1/0 数字**，而 Unity `JsonUtility`
+#   **不把数字转 bool**（同 `BOOL_TARGET_KEYS` 那条坑：1 会静默读成 false）⇒ 这里统一归一。
+HAND_EFFECT_CARD_KEYS = (
+    'buffType', 'trait', 'traitValue', 'newRace',
+    'meleeAttackChange', 'meleeAttackValueOptions', 'rangeAttackChange', 'rangeAttackValueOptions',
+    'armourChange', 'healthChange', 'costChange', 'randomValueChange', 'untilEndOfTurn',
+)
+
+
+def compact_defaults(d):
+    """丢掉默认值（`0` / `False` / `''` / `None` / 空 dict / 空 list），其余原样。
+    口径与 `cards_truth.json` 的 `compact_*`（`gen_cards_truth.py:149-181`）一致 ——
+    那个文件把**全默认对象整个省略**，本脚本补回时也照这个口径写，避免体积膨胀。"""
+    if not isinstance(d, dict):
+        return d
+    out = {}
+    for k, v in d.items():
+        if isinstance(v, dict):
+            v = compact_defaults(v)
+        if v in (0, 0.0, False, '', None) or v == {} or v == []:
+            continue
+        out[k] = v
+    return out
+
+
+def norm_hand_effect(he):
+    """`HandEffect` → 只留 AI 会读的字段 ＋ bool 归一（**非默认内容一个都不丢**）。
+
+    🔴 2026-10-20（W57 EN-3 现核 · 铁律 5 订正）：本函数原来那条支路只补 `{}`。现核后：
+      · `cards_truth.json` 的 `handEffect` 是 `compact_hand_buff()` 压过的（全默认就整个省略，
+        有内容就按 `cardEffect`/用量/`targetCriteria` 落）⇒ **有内容的对象不会在 truth 里丢**，
+        `norm_entry` 原本也会原样带走 ⇒ 之前并不存在「把内容丢了」的路径；
+      · 但补 `{}` 这条路确实只补了「存在性」、没能力承载内容 ⇒ 改成**按 SO 原对象补**
+        （继续用全默认省略的压缩口径），并在这里统一把 1/0 归一成 bool。
+      · ⛔ 判据边界：原版 `ScoreFromHandBuff` 读的是**评分 entry 自己的** `handEffect`
+        （`AI__ScoreFromHandBuff.c:28` 判 `criteria+0x50` 非 null）—— **不是**卡牌
+        `abilityLogic[].handBuff`（那一条是卡自己的出牌效果；`GSC54` 的 `costChange=-3`
+        在那里，评分 entry 的 `handEffect` 是全默认）。
+    """
+    if not isinstance(he, dict):
+        return he
+    out = {}
+    ce = he.get('cardEffect')
+    if isinstance(ce, dict):
+        ce = {k: ce[k] for k in HAND_EFFECT_CARD_KEYS if k in ce}
+        if 'untilEndOfTurn' in ce:
+            ce['untilEndOfTurn'] = bool(ce['untilEndOfTurn'])
+        out['cardEffect'] = compact_defaults(ce)
+    for k in ('playersAffected', 'numberOfUses'):
+        if k in he:
+            out[k] = he[k]
+    if 'limitedUses' in he:
+        out['limitedUses'] = bool(he['limitedUses'])
+    tc = he.get('targetCriteria')
+    if isinstance(tc, dict):
+        out['targetCriteria'] = compact_defaults(norm_criteria(tc))
+    return compact_defaults(out)
+
+
 def norm_entry(e):
     d = {k: e[k] for k in ENTRY_KEYS if k in e}
     if 'targetCriteria' in d:
@@ -73,6 +136,8 @@ def norm_entry(e):
         d['multiplierCriteria'] = norm_criteria(d['multiplierCriteria'])
     if 'codexEffect' in d:
         d['codexEffect'] = bool(d['codexEffect'])
+    if 'handEffect' in d:
+        d['handEffect'] = norm_hand_effect(d['handEffect'])
     return d
 
 
@@ -111,9 +176,11 @@ def build():
                 ne = norm_entry(e)
                 # `handEffect` 在 SO 里是**非 null 的默认对象**、但 truth 会把它省略
                 # （`compact_hand_buff` 全默认 ⇒ 不落）。存在性必须从 raw 补回来。
+                # 🔴 2026-10-20（W57 EN-3）：原来这里只补 `{}` —— 改成**按 SO 原对象补**
+                #   （`norm_hand_effect`：非默认内容全保留 + bool 归一；全默认仍落成 `{}`）。
                 if ('handEffect' not in ne and aligned
                         and rawcol[i].get('handEffect') is not None):
-                    ne['handEffect'] = {}
+                    ne['handEffect'] = norm_hand_effect(rawcol[i]['handEffect'])
                 out.append(ne)
             d[col] = out
 

@@ -18,6 +18,11 @@
 //     ② `NetProtocol.Seat()` **不在任何运行路径上**（只剩 `NetSelfTest` I①~I③ 在测它自己）；
 //     ③ `NetPendingBattle.DeckOrder` **这个字段根本不存在**，`shuffle` 门也早没了 ——
 //        现在是「两端同种子 + 同输入 ⇒ 各洗各的必然一致」（`NetPendingBattle.NoShuffle` 只是保留开关）。
+//        🔴 **2026-10-19（T04 复核 · 铁律 5）：那个「主机下发的顺序」现在【存在哪】写清楚** ——
+//        它**不是**一个独立字段，而是**跟着两副牌本身走**：`NetPendingBattle.Seat0Deck` / `Seat1Deck`
+//        （类型 `PlayerDeck`，牌序 = `PlayerDeck.CardIds` 这个 `List<string>`；来源 = 开局包的
+//        `MsgStart.hostDeckJson / clientDeckJson` 反序列化，见 `NetBattle.cs` 的 `FromStart`）。
+//        ⛔ 别再去搜 `DeckOrder`（全仓只剩下面这一句历史引用）。
 //   ⛔ 别再把这四行改回镜像口径；同一族的第三处 = `BattleDriver.NetReplay` 的 `<summary>`（那份文件不在本批白名单）。
 //
 // 🔴 **不做回滚**（引擎没有快照）：本地动作**乐观落地**（自己那一回合只有自己在动 ⇒
@@ -1103,8 +1108,11 @@ namespace CardPresentation.Net
                     var m = NetProtocol.Unpack<MsgAction>(f.payload);
                     // 🔴 **2026-10-18（账：「`Send()` 静默丢」的同族静默失败）**：原来这两句是
                     //   **光秃秃的 `return`** —— 对面发来一条解不出来的 `action`，本机**一点痕迹都没有**
-                    //   （对照：同一段 `:829` 不认识的 kind **有** `LogWarning`；`NetSession.cs:334`
-                    //    那个「没设密码」也有 ⇒ 同文件里原来两种口径）。⇒ 全部改成出声。
+                    //   （对照：同一段 `Dispatch()` 末尾「不认识的联机消息」**有** `LogWarning`；
+                    //    `NetSession.cs` 里「没有设密码」那句也有 ⇒ 同文件里原来两种口径）。⇒ 全部改成出声。
+                    //   ⚠️ **2026-10-19 订正（原文→实际）**：原写死行号 `:829` / `NetSession.cs:334`，
+                    //   两处都已漂（现分别在 `NetBattle.cs` 的 `Dispatch()` 末尾、`NetSession.cs` 的
+                    //   「没有设密码」那一支）⇒ 改成**符号锚点**：行号会漂、锚点不会（TOOL-6 报告）。
                     if (m == null)
                     {
                         Debug.LogWarning("[Net] 对面发来的 `action` **解不出来**（payload 坏了 / 版本对不上）"

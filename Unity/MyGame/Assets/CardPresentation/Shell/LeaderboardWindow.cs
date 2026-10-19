@@ -140,8 +140,8 @@ namespace CardPresentation
         /// `com.unity.ugui` 的 guid 去 grep 解包目录**命中 0**；② **必须限定 `MonoBehaviour/`**
         /// （整包 grep 会逐包多算 1）。逐包数字只留一处 → `MenuWindowBase.ClipSoftness` 的注释。
         /// 下面的值取自本窗 prefab，**不受这次标签订正影响**：
-        /// `RankedClassicLeaderboardPopup Variant/Ranking Display/Content/Army Selector/Viewport`（:14-15）；
-        /// 同族另两扇榜（`RankedSkirmishLeaderboardPopup` :206-207 · `DraftLeaderboardPopup` :40-41）**同一个值**。
+        /// `RankedClassicLeaderboardPopup Variant/Ranking Display/Content/Army Selector/Viewport`（本文件）；
+        /// 同族另两扇榜（`RankedSkirmishLeaderboardPopup` 本文件 · `DraftLeaderboardPopup` 本文件）**同一个值**。
         /// ⚠️ 同一扇窗里 `…/Content/Scroll View/Viewport` 是 **(0,0)**（硬边）⇒ **只接军种条这一处**（别顺手给榜单列表加）。
         /// ⚠️ 渐隐带按**我们这一格实际裁到的那条边**摆（本窗的 `Viewport` 与 `Army Selector` 同矩形 ——
         /// `menu_dump.py` 实读 `Army Selector` 与子件 `Viewport` 都是 249.0,147.6→1671.0,258.6 ⇒ 两个矩形一致）。
@@ -447,7 +447,7 @@ namespace CardPresentation
             //   ⛔ 别再退回「逐件显式传 `ArmySelR, ArmyClipSoft`」—— 形参非空 ⇒ `Resolve` 第 1 支 ⇒
             //      节点一个像素都不生效（`NodeShadowedByParam`，静默；迁移表 §二 通则那一句）。
             //  ⚠️ 软边那个数**只此一处**：`ArmyClipSoft` 既是节点字段的来源、也是回落那一档的实参
-            //      （同 `Shell/PracticeModePopup.cs:852` 那条口径）。
+            //      （同 `Shell/PracticeModePopup.cs` 那条口径）。
             var vpVc = ViewportClip.Hang(sel, "Viewport", ArmySelR, Vector4.zero,
                                          new Vector2Int((int)ArmyClipSoft.x, (int)ArmyClipSoft.y));
 
@@ -570,7 +570,7 @@ namespace CardPresentation
                 //   ⛔ 外扩走 `MenuDraw.PaddedRect`（全工程唯一那一份口径），别另写一份。
                 //   ⚠️ 连带撤销 E3 的一条前提：按真值算相邻两颗**恒叠 15.00px**（步进 122.36 = `ArmyBtnW + ArmyBtnSpacing`）
                 //   —— **原版本来就叠** ⇒ 缺陷只在「可点区算错」，不在「重叠」本身。
-                //   ⛔ `ArmyBtnSpacing = -14f`（本文件 :177）**一个字不改**：相邻两颗**版面**叠 14px 是原版
+                //   ⛔ `ArmyBtnSpacing = -14f`（本文件 本文件）**一个字不改**：相邻两颗**版面**叠 14px 是原版
                 //   （`Army Content` 的 `HorizontalLayoutGroup.spacing = -14.0`）⇒ 画出来的叠法照旧。
                 var armyHit = MenuDraw.Hit(node, "Hit", MenuDraw.PaddedRect(iconR, ArmyIconPad), QHit, () => SelectArmy(army));
                 // 🆕 **2026-10-19（`N70` P1-8）**：原版这颗 `Army Item Button` 是 **`m_Transition = 1`(ColorTint)**；
@@ -683,7 +683,7 @@ namespace CardPresentation
             //   根 `Generic Close Button Orange` 自己带 `Image`：`UI_Button_Round_background` ·
             //   `m_Type=0`(Simple) · **`m_PreserveAspect=1`** · `m_PixelsPerUnitMultiplier=1.0` ·
             //   `m_RaycastTarget=0` · 矩形 **74.38×75.61**；贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **74.38×74.38**。
-            //   ⇒ 照兄弟窗先例 `Shell/BaseOfferPopup.cs:742-743` / `Shell/ReferralPopupWindow.cs:386-387` 的形状
+            //   ⇒ 照兄弟窗先例 `Shell/BaseOfferPopup.cs` / `Shell/ReferralPopupWindow.cs` 的形状
             //   （`Rect` 画在根节点上、图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**（本处只改挂点）。
             // 三件**都是 `preserveAspect`**（正本 §A·4·7）；`Image` 自己的底图 **m_Enabled 是开的**
             //（与 `BattleLogPopup` 那颗不同 —— 那边底图 m_Enabled=0、只画两个子件）。
@@ -700,7 +700,7 @@ namespace CardPresentation
             //      `"40k_general_bt_yellow_hover"`，注释写「原版 `trans=2` 换的是它自己的 Image」——
             //      **那句是错的**。症状 = 悬停时**圆底盘**被换成黄圆图、**黄圆本身不变**（看着像「换了个底座」）。
             //      错因 = 只读了 `m_Transition`、**没读 `m_TargetGraphic`** ⇒ 见 `A1058`。
-            //   ⛔ 本仓同族先例（写法照它）：`Editor/CollectionScene.cs:2054-2077` —— 换图那一层必须是
+            //   ⛔ 本仓同族先例（写法照它）：`Editor/CollectionScene.cs` —— 换图那一层必须是
             //      「按钮脸」那张，断言 `wb.target.Texture.name == "40k_general_bt_yellow"`。
             //   ⛔ **`art` 实参传的是【常态图名】**（= 换图那一层的图）：`Bind` 由它推高亮/按下图
             //      （表外后备 `+_hover`、`PressedNames` 里 `40k_general_bt_yellow → …_pressed`）
@@ -790,7 +790,7 @@ namespace CardPresentation
             //    第 7 行起就从「画到框外（至少看得见）」变成「**完全不存在**」⇒ 不修就是**丢数据**。
             //    判据 = 原版这一格是 `ScrollRect h=0 v=1 mode=1` + 内层 `Content` 挂 `ContentSizeFitter VerticalFit=1`
             //    （实据 → `资料/普查产出_0927/排行榜_嵌入版与行族.md:38,40,61`）⇒ 可滚范围 = **内容高 − 视口高**。
-            //    形状照别的同类页（`BattleLogTab.cs:164` · `RankedTab.cs:317` · `CollectionWindow.cs:1788` …）。
+            //    形状照别的同类页（`BattleLogTab.cs` · `RankedTab.cs` · `CollectionWindow.cs` …）。
             //    ⚠️ 空数据那一支也要写（写成 0 高）—— 否则上一次的内容高会留在区里，是个静默的脏值。
             if (_scroll != null)
                 _scroll.ContentX2 = top + (rows.Count == 0 ? 0f
@@ -819,7 +819,7 @@ namespace CardPresentation
                 // 🆕 2026-10-03：**整行滚出视口 ⇒ 连节点一起不建**。
                 // 🔴 这才是「榜单行会画到视口外」的**根因** —— `RowCtx.Clip` 只管「压在视口边上」那一档
                 //    （截矩形/截 uv），整行在外的那一档得在这里挡掉（顺带它的点击区也不存在）。
-                // 形状照 `CollectionWindow` 卡组页那一份（`CollectionWindow.cs:1834`）：`_scroll` **可空** ⇒ 判空 + `Intersects`。
+                // 形状照 `CollectionWindow` 卡组页那一份（`CollectionWindow.cs`）：`_scroll` **可空** ⇒ 判空 + `Intersects`。
                 // ⚠️ **2026-10-07 更正（铁律 5 / A12①）**：原文写「`Intersects` 只判**滚动轴**（纵向 = y），
                 //    横向不判 —— 与其它页逐字一致，**别在这里加第二条判据**」—— **已过期**：`Intersects` 现在
                 //    就是 `MenuDraw.Visible` 的转发（**两轴都判**，判据 = 原版 `RectMask2D` 四边都裁）。

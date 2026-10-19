@@ -135,6 +135,26 @@
 //    ⇒ **做法 = 开「档位」而不是改常量**：随场景变的那六项收进 `LayoutPreset`
 //      （`BattlePreset` = 本文件原来那一组、`MenuPreset` = 主菜单那一组）。
 //      不传档的 `Create(parent)` 行为与加档之前**逐位相同**（`BattleDriver` 那条路不传）。
+//
+// ⑫ 🔴 **这件【没有】「点击关闭」—— 2026-10-20（W57 · 战斗线 `T09` 步骤 A3-a）现核，⛔ 别再按「有」去改**：
+//    A3-a 的任务书假设「它的关闭行为在 `BattleDriver` 里，改成 `Button` 最简单」。**假设不成立**，五条判据：
+//    · 模板 `Error Mensage_Ref`（GO 632）的组件 = **`RectTransform` 2823 + `CanvasGroup` 3577 +
+//      `UIErrorMessageItem` 4710**；`Background`（GO 477）= RT + CanvasRenderer + `Image` 5101 +
+//      HorizontalLayoutGroup 4467 + ContentSizeFitter 4344 ⇒ **没有 `Button` / `EventTrigger` /
+//      任何 Pointer 接口**（`bundle_scenes_scenes_battlearena1/GameObject/*.json` 逐份读过）。
+//    · **两层都不是射线靶**：`Background` 的 `Image`（MB 5101）`m_RaycastTarget = 0`，
+//      `ErrorMesage Text` 的 TMP（MB 3740）`m_RaycastTarget = 0` ⇒ **原版点它什么都不发生**。
+//    · 反编译方法表（`d:/2/tools/decomp_full/`）：`UIMessageController` 只有 `Awake` / `ShowMessage` /
+//      `ShowError`；`UIErrorMessageItem` 只有 `Show` / `LayoutRefresh` / `Toggle(bool)`
+//      （`Toggle` 的体是 `SetActive(参数)`，不是点击回调）。
+//    · 运行时 dump（`runtime_ui_dump_Battle_Arena_1.tsv:1172-1191`）整棵树的组件列 = `RT` / `IMG` / `TXT`，
+//      没有交互件；5 个克隆与模板同构（`Awake` 从模板 `Instantiate` 五份）。
+//    · 唯一的「关」= fade tween 的 `OnComplete` → `SetActive(false)`（文件头 ⑦）——
+//      我们的等价物 = `Advance(dt)`，由 `BattleDriver.AdvanceTimeline` 泵推；`BattleDriver.cs` 里
+//      `_errorBanner` 只有 `Create` / `ShowError` / `Advance` 三个生产调用点，**没有命中、也没有沿**。
+//    ⇒ **A3-a 无可迁的手搓点击路**。给它补一个「点一下关掉」= **原版没有的新行为**（⛔ 不做）。
+//    自检口 `BarRaycastTargetOf` / `TextAnyRaycastTargetOf` / `ClickHandlerCountInHierarchy` 把这条事实钉死
+//    （宿主 `Editor/BattleScene.cs` 的 `W57/T09-A3a` 组）。
 
 // ============================ 我们做的三处「等价物」（⛔ 不当原版） ============================
 // A. **`ContentSizeFitter` 那一跳**：原版底条是 **Hug**（ContentSizeFitter PreferredSize + 内层
@@ -168,6 +188,8 @@
 //    ⚠️ 生产路径今天**没有**任何地方调它（原版也没有「换局清横幅」这一句）。
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;   // 🆕 2026-10-20（T09 A3-a）：自检口数「点击处理器」用
+using UnityEngine.UI;             // 🆕 同上：`Image.raycastTarget` / `Graphic`
 
 namespace CardPresentation
 {
@@ -926,6 +948,45 @@ namespace CardPresentation
         }
         /// <summary>第 i 条的底条/文字是不是**被关着的时候也留着**（自检要能分辨「藏了」与「根本没建」）。</summary>
         public bool BarBuiltOf(int i) { return i >= 0 && i < _items.Count && _items[i].barRoot != null; }
+
+        // ---- 🆕 2026-10-20（W57 · 战斗线 `T09` 步骤 A3-a）：「这件没有点击关闭」的只读口 ----
+        //   判据与结论 → 文件头 ⑫。⛔ 生产路径不碰；它们**不改变任何行为**。
+
+        /// <summary>第 i 条**底条**的 `Image.raycastTarget` 真值（uGUI 档；原版 `MB 5101` = **0**）。
+        /// 世界档没有「射线靶」这个概念 ⇒ 恒 `false`。</summary>
+        public bool BarRaycastTargetOf(int i)
+        {
+            if (i < 0 || i >= _items.Count || _items[i].barParts == null || _items[i].barParts.Count == 0)
+                return false;
+            var p = _items[i].barParts[0];
+            if (p == null || !p.IsUgui || p.Rect == null) return false;
+            var img = p.Rect.GetComponent<Image>();
+            return img != null && img.raycastTarget;
+        }
+
+        /// <summary>第 i 条**文字**（含 TMP 子节点）里有没有任何 `Graphic` 是射线靶。
+        /// 原版 `MB 3740` 的 `m_RaycastTarget = 0` ⇒ 期望恒 `false`（文件头 ⑫）。</summary>
+        public bool TextAnyRaycastTargetOf(int i)
+        {
+            if (i < 0 || i >= _items.Count || _items[i].text == null) return false;
+            var gs = _items[i].text.GetComponentsInChildren<Graphic>(true);
+            for (int k = 0; k < gs.Length; k++) if (gs[k] != null && gs[k].raycastTarget) return true;
+            return false;
+        }
+
+        /// <summary>本件层级里**点击处理器**的个数（含 inactive）。
+        /// 口径 = `MonoBehaviour` 里实现了 `IPointerClickHandler` 的（`Button` / `EventTrigger` 也实现它
+        /// ⇒ 一并被数进来）。原版这一棵**一个都没有**（文件头 ⑫）⇒ 期望 `0`。
+        /// <para>🔴 它同时是「⛔ 别把 `BattleHudButton` 挂到横幅上」的灭自证：
+        /// 那一步的第一步就是把这个接口挂上来 + 把 `raycastTarget` 置 true。</para></summary>
+        public int ClickHandlerCountInHierarchy()
+        {
+            int n = 0;
+            var mbs = GetComponentsInChildren<MonoBehaviour>(true);
+            for (int k = 0; k < mbs.Length; k++)
+                if (mbs[k] != null && mbs[k] is IPointerClickHandler) n++;
+            return n;
+        }
 
         /// <summary>把池里所有条收干净（= 原版 `OnKill` 那一支的等价物，文件头 E）。
         /// ⚠️ 生产路径今天没有调用点（原版也没有「换局清横幅」这一句）。</summary>

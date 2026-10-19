@@ -284,7 +284,7 @@ namespace CardPresentation
             //   给 `param_1[0x11]`（关窗钮的 `Button.m_OnClick`，`+0x100`）与 `param_1[0x14]`
             //   （`BackgroundCloseButton.onClick`，`+0x28`）**挂的是同一个处理函数**（虚表 `*(*param_1+0x1c0)`）；
             //   `InboxWindow__Close.c:15-25` 又把这两条**成对摘掉**。
-            //   ⇒ 动作照抄本窗那颗关窗钮（`:121` 的 `Close()`），两颗行为**必须一致**。
+            //   ⇒ 动作照抄本窗那颗关窗钮（`本文件` 的 `Close()`），两颗行为**必须一致**。
             //   档 = **压暗层自己那一档 `QShade`(3002)**，**严格低于**本窗内容命中区档 `QOverlay`(3014)
             //   （本窗唯一的内容命中区 = `Generic Close Button Orange` 那颗，在 `QOverlay`）。
             //   出处 → `资料/待办判据_阶段二与联机.md` §A81 · 公共件规矩 → `MenuDraw.ShadeHit` 的注释。
@@ -447,10 +447,10 @@ namespace CardPresentation
             //       ⇒ `PA=1` 实绘 = **正方形内接**：圆底盘 **74.39×74.39**、黄面/叉 **56.86×56.86**
             //       （改前我们画 56.86×58.13 ⇒ 高多 ≈2.2%）。
             //   · **挂点归真**：原版这颗圆底盘长在**根节点 `Generic Close Button Orange` 自己**身上（**无独立子件名**）
-            //     ⇒ 照**兄弟窗先例** `Shell/BaseOfferPopup.cs:742-743` 与 `Shell/ReferralPopupWindow.cs:386-387`
+            //     ⇒ 照**兄弟窗先例** `Shell/BaseOfferPopup.cs` 与 `Shell/ReferralPopupWindow.cs`
             //     **抄形状**：`Rect(parent, …)` **直接画在根节点上**、图取不到时才退回 `MenuDraw.Node`
             //     （两处**都是** `Rect` 在前、`Node` 作兜底）。⇒ 自造名 `Base` **随之取消**。
-            //     ⛔ **别照 `Shell/BoosterInfoPopup.cs:342` 那颗子件 `Base`** —— B4 现读：`Booster Info Popup`
+            //     ⛔ **别照 `Shell/BoosterInfoPopup.cs` 那颗子件 `Base`** —— B4 现读：`Booster Info Popup`
             //     与 `Base Offer Popup` 的**原版结构逐字相同**（圆底盘都在根节点上）⇒ 那颗 `Base` 是**它自己**
             //     偏离原版，不是可抄的先例（它不在本件白名单内、本件没动它）。
             //   🔴 三颗**都传 `keepAspect: true`**（= 原版三颗一致的 `m_PreserveAspect=1`）。
@@ -710,7 +710,7 @@ namespace CardPresentation
         /// <para>🔴 **必须排在 `SetAutoFitBox` / `SetWrapping(false)` 【之后】**：`MenuDraw.AlignLeft` 走
         /// `Label.AlignLeftOn`，它按**当时的 `WorldW`**（刚量到的渲染宽）反推整块的位置，而
         /// `SetAutoFitBox` / `SetWrapping` 都会改字号与量到的宽度 ⇒ 先对齐、后改折行 = 左缘被推走
-        /// （同族坑与判据：`Battle/Label.cs:786-805` · `LiveOpsEventWindow` 那处注释「顺序不能反」·
+        /// （同族坑与判据：`Battle/Label.cs` · `LiveOpsEventWindow` 那处注释「顺序不能反」·
         /// 本文件 `RowText` 的同一段推理）。垂直那一半（`Middle`）**本来就是对的** —— `RefreshBounds`
         /// 会把整块**居中**摆进矩形（`Battle/Label.cs` 的 `RefreshBounds`）⇒ 这里只管水平。</para>
         /// <para>⚠️ 走的是**现成的口**（`Shell/MenuDraw.cs` 的 `AlignLeft` 的 `MenuDraw.AlignLeft`），⛔ 没有就地重写一份；

@@ -939,7 +939,7 @@ namespace CardPresentation
             //   现在给 **`RenderClip`**（= 视口矩形按 `ClipPad` 内缩；本处 pad = 0 ⇒ 就是视口）——
             //   抽屉里那四层（卡面底/阵营徽记/阵营名条/数量）里凡是整块落在视口外的**不建**、压在边上的**截**。
             //   🆕 **2026-10-11（A238）：软边也接上了** —— `ItemDrawerStyle` 加了 `ClipSoftness`，
-            //   抽屉那四条画路（`Shell/ItemDrawer.cs` 的 `:793/:816/:831/:843`）逐条透传给
+            //   抽屉那四条画路（`Shell/ItemDrawer.cs`）逐条透传给
             //   `MenuDraw.Rect` 的 `clipSoftness`。原来只有 `Clip` ⇒ **同一个视口里列底/按钮是 `(200,0)` 渐隐、
             //   抽屉四层却是硬边截**（波 C1 报告 §四·1）。这里给的就是本窗那一份 `ClipSoftness`
             //   （`BuildColumn` 拿捏期间 = `ScrollSoft` = **(200,0)**，原版 `RectMask2D.m_Softness` 实读值）

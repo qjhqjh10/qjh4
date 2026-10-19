@@ -67,11 +67,11 @@ namespace CardPresentation
         /// <summary>🆕 **2026-10-18（A855）作废进程级那份卡组库缓存**（下次读 <c>Lib</c> 会**重读存档**）。
         ///
         /// <para>🔴 **为什么必须有这个口**：本类的 `Lib` 是 **`static DeckLibrary _lib`** —— 一份**进程级缓存**；
-        /// 而**卡组编辑窗写盘走的是另一个实例**（`RuleEngine/Data/DeckLibrary.cs:117-119` 的
-        /// `DeckLibrary.Load()` **每次 `new`**；编辑器那条路 → `Deck/DeckRuntime.cs:726`）。
+        /// 而**卡组编辑窗写盘走的是另一个实例**（`RuleEngine/Data/DeckLibrary.cs` 的
+        /// `DeckLibrary.Load()` **每次 `new`**；编辑器那条路 → `Deck/DeckRuntime.cs` 的 `DeckLibrary.Load()`）。
         /// 那份缓存此前**没有任何生产侧作废口**（`_lib = null` 只在 <see cref="ResetForTest"/> 里，
         /// 而它只被 `Editor/*` 调）⇒ **玩家在编辑窗存完、回壳，收藏页画的还是编辑前那一份**：
-        /// 列表 = `Shell/CollectionWindow.cs:3032` 的 `MenuDraw.DeckCell(…, CollectionData.DeckAt(i), …)`
+        /// 列表 = `Shell/CollectionWindow.cs` 的 `CollectionData` 的 `MenuDraw.DeckCell(…, CollectionData.DeckAt(i), …)`
         /// → <see cref="Raw"/> → `Lib.Decks[i]`。</para>
         ///
         /// <para>**原版对位**（这条链**一处场景切换都没有**）：开编辑 = 在收藏窗之上**开一扇窗**
@@ -82,7 +82,7 @@ namespace CardPresentation
         /// （清空 dest `+0x58` 那个 `List` 再 `AddRange`）⇒ **原版收藏页根本不需要刷新**。
         /// 我们这份缓存是**另一份拷贝**，所以要在**消费端**补上这一跳
         /// （⚠️ **不是**把编辑器改成持有本类的实例 —— 那与 A397/A363 定过的口径相反，
-        /// 见 `Deck/DeckRuntime.cs:5941-5952` 那段「维持现状、不加守卫」的裁定）。</para>
+        /// 见 `Deck/DeckRuntime.cs` 那段「维持现状、不加守卫」的裁定）。</para>
         ///
         /// <para>🔴 **调用时机 = 「刚离开卡组编辑」那一跳**，唯一调用点 = `Shell/MainMenuRuntime.cs` 的 `Build`
         /// 里消费 `TakePendingReturn` 那里（**两个来源都调**：`Collection` 与 `LiveOpsEvent` 都能改卡组、都写盘）。
@@ -269,7 +269,7 @@ namespace CardPresentation
             why = "";
             // 🔴 **2026-10-18（波 1b）**：三句全部走词条 —— 键名由调度台在波 0b 一次定死
             //   （`MenuDeck/Error/Import{Empty,BadString,NotPersisted}`，表里有），
-            //   **与 P1 的 `Deck/DeckRuntime.cs:3950/3951/3982` 共用同一批键**（施工单 §③ 要求逐字一致）。
+            //   **与 P1 的 `Deck/DeckRuntime.cs` 共用同一批键**（施工单 §③ 要求逐字一致）。
             //   ⚠️ 前两句 ZH 与改前写死串**逐字相同** ⇒ 中文档零变化。
             if (string.IsNullOrWhiteSpace(s)) { why = Loc.T("MenuDeck/Error/ImportEmpty"); return ""; }
             var deck = DeckLibrary.ImportString(s, Card);
@@ -461,8 +461,8 @@ namespace CardPresentation
             // 🆕 2026-10-18 之后 · 第五会话（`A1068`，W2 顺手查出）：**三个 sticky 错误串也必须清**。
             //   它们是「上一次失败的文案」：各自的操作开头会清（`Select`/`Delete`/`Duplicate` 那句 `= ""`）、
             //   失败时赋新值 —— 但**跨夹具**时，前一个夹具失败留下的串会漏进后一个夹具：
-            //     · `Editor/CollectionScene.cs:6780` / `:6891` 断「成功 ⇒ `Length == 0`」⇒ **假红**
-            //     · `:6965` 那类断「有话说」⇒ **假绿**
+            //     · `Editor/CollectionScene.cs` 的 `Length == 0` / `Editor/CollectionScene.cs` 断「成功 ⇒ `Length == 0`」⇒ **假红**
+            //     · `CardPresentation/Editor/CollectionScene.cs` 那类断「有话说」⇒ **假绿**
             //   ⇒ 一处清三格，自检之间才**真隔离**。（`A1068`）
             LastSelectError = ""; LastDeleteError = ""; LastDuplicateError = "";
         }

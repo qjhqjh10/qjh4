@@ -41,11 +41,11 @@ public static class NetBattleTest
         public int MySeat;      // 绝对座位：本机是几号
         /// <summary>🆕 2026-10-17（B27·A912）：**判负入口被调过几次**。
         /// 🔴 为什么要数它、而不是只看 `Ctx.Winner`：`RuleCore.Forfeit` 自己那条「已经判过就不再判」的早退
-        ///    （`RuleCore.cs:3685`）会把「**已经打完的局又判了一次**」这个错**完全吃掉**
+        ///    （`RuleCore.cs`）会把「**已经打完的局又判了一次**」这个错**完全吃掉**
         ///    ⇒ 只盯 `Winner` 的话，把 `Ctx.IsOver` 那道闸删掉也一样绿（两边一起变）。</summary>
         /// <summary>🆕 2026-10-17（B27·A912）：**判负入口被调过几次**。
         /// 🔴 为什么要数它、而不是只看 `Ctx.Winner`：`RuleCore.Forfeit` 自己那条「已经判过就不再判」的早退
-        ///    （`RuleCore.cs:3685`）会把「**已经打完的局又判了一次**」这个错**完全吃掉**
+        ///    （`RuleCore.cs`）会把「**已经打完的局又判了一次**」这个错**完全吃掉**
         ///    ⇒ 只盯 `Winner` 的话，把 `Ctx.IsOver` 那道闸删掉也一样绿（两边一起变）。</summary>
         public int ResignCalls;
         /// <summary>🆕 **2026-10-18（A914 第四续）**：**`NetSelfResign`（判本机负）被调过几次**。
@@ -639,8 +639,8 @@ public static class NetBattleTest
 
                 // ---- ② 对面**回来了** ⇒ 提示行说一句（原版那一刻是 `CloseAllWindows`）----
                 // 🔴 **2026-10-10（F5）：这一格的等待条件原来只查【主机】一台** —— 而 `PumpUntil2`
-                //   的循环体是 `hs.Pump(); cs.Pump(); cond()`（本文件 `:1423`），主机那台在**同一次
-                //   `Pump` 里**就把 `Resume` 发出去并自己转 `InBattle`（`NetSession.cs:487-494`）⇒
+                //   的循环体是 `hs.Pump(); cs.Pump(); cond()`（本文件 `本文件`），主机那台在**同一次
+                //   `Pump` 里**就把 `Resume` 发出去并自己转 `InBattle`（`NetSession.cs`）⇒
                 //   **客机那一侧还没读到 `Resume` 帧，`cond()` 就已经为真**，循环当轮就退出。
                 //   ⇒ 之后第 ③ 步是在「客机仍 `WaitingReconnect`」这个**没验证过的状态**下关会话。
                 //   实证（5 跑 5 对，`资料/普查产出_第十一会话/F5_NetBattle夹具.md` §一）：
@@ -662,7 +662,7 @@ public static class NetBattleTest
                 Ok(bothBack9,
                    $"（对面回来）客机自动重连、**两边**回到对局（主机 {hs9.State} / 客机 {cs9.State}）"
                  + " —— 🧨 改坏法：把条件退回「只查主机」⇒ 客机没追上时这一格照样绿，而第 ③ 步会假红"
-                 + "（`NetSession.cs:487-494`：主机转 `InBattle` 与发 `Resume` 是同一次 `Pump`）");
+                 + "（`NetSession.cs`：主机转 `InBattle` 与发 `Resume` 是同一次 `Pump`）");
                 Ok(hb9.LastSay != null && hb9.LastSay.Contains("回来"),
                    $"★（对面回来）提示行改成「回来了」（实得「{hb9.LastSay}」）—— 与上面那条**不同源**："
                  + "上面验的是那一下说不说，这条验的是**恢复之后会不会改口**（不说的话玩家一直以为对面还没回来）");
@@ -674,7 +674,7 @@ public static class NetBattleTest
                 //      写出去之后，**客机这一侧没有任何事要做**（它在 `Close` 里已经 `Off`）。
                 //   ② ⚠️ **2026-10-19 更正：这条理由的【判据】已经不成立了**（结论不变，见下）。
                 //      原文写：「客机此刻 `State == Off`，而 `NetSession.Pump()` 里「掉线检测」
-                //      那道闸（`NetSession.cs:205`）**只挡 `Closed` / `WaitingReconnect`、不挡 `Off`**
+                //      那道闸（`NetSession.cs` 的 `WaitingReconnect`）**只挡 `Closed` / `WaitingReconnect`、不挡 `Off`**
                 //      ⇒ 它这一侧只要 `_t.PeerLost` 为真就会**再报一次** `OnPeerLost`」。
                 //      🔴 **那是当时的一个真缺陷（账 `A1269`，出处 `F5_NetBattle夹具.md` §七·3），
                 //      2026-10-19 已经修掉**：那道闸现在补了 `State != NetState.Off`
@@ -724,11 +724,11 @@ public static class NetBattleTest
                        "（OnDestroy）夹具：这台驱动**挂着联机层**（`_net != null` 就是「联机局」那个判据）");
                     // 🔴 **2026-10-17（F4·RC2）：这一格按 `Application.isPlaying` 分两档。**
                     //   判据链（→ `资料/普查产出_1017/D4_联机诊断.md` §③）：`BattleDriver` **不带
-                    //   `[ExecuteAlways]`**（`Battle/BattleDriver.cs:22`），而本自检跑在**编辑模式** ⇒
+                    //   `[ExecuteAlways]`**（`Battle/BattleDriver.cs`），而本自检跑在**编辑模式** ⇒
                     //   **编辑器不派生命周期消息** ⇒ `DestroyImmediate(组件)` **不会**调 `OnDestroy`
                     //   ⇒ `LeaveNetRoom()` 压根没执行（本轮日志实证：全篇 `离开房间` = 0、`离开战场` = 0，
-                    //   本机会话停在 `InBattle`）。项目已实测记过两次：`Editor/BattleScene.cs:12976-12986`
-                    //   （A388(b)）+ `Shell/WindowsManager.cs:65-70`。
+                    //   本机会话停在 `InBattle`）。项目已实测记过两次：`Editor/BattleScene.cs` 的 `InBattle`
+                    //   （A388(b)）+ `Shell/WindowsManager.cs`。
                     //   ⛔ **不写成绿、也不许删**（铁律 11 + 「弱断言分不出两种状态 = 没断」）：
                     //      编辑模式这半分**改断「环境事实」**（组件真没了 ∧ 两台会话状态**原封不动**，
                     //      两件都实读）+ `_warn++` 出声。
@@ -1030,7 +1030,7 @@ public static class NetBattleTest
                         //   🧨 **判别式（两条不同源，删任一端的分支必红对的那条）**：
                         //     · 删掉主机那一支的 `Close` ⇒ **`hsC.State == Off` 那条红**；
                         //     · 删掉客机那一支的 `StopReconnecting()` ⇒ **`!csC.WasInBattleForTest` 那条红**。
-                        //   ⚠️ **`:886` 上面那条 `WaitingReconnect` 断言【不红】**（求值在 `Tick()` **之前**）。
+                        //   ⚠️ **`本文件` 上面那条 `WaitingReconnect` 断言【不红】**（求值在 `Tick()` **之前**）。
                         Ok(hsC.State == NetState.Off,
                            "★★（A914·**对面掉线那一端** = 本机是主机）会话**真的离开了房间**"
                          + $"（`Close` ⇒ `SetState(Off)`；实际 {hsC.State}）"
@@ -1203,7 +1203,7 @@ public static class NetBattleTest
             //     ③ 把这一档并回 `HandlePeerLost`（= `bye` 也去起倒计时）⇒ 12④ 红。
             //   ⚠️ **12① 与 12③ 是【不同源】的一对**：① 看 `Ctx.Winner`（该判的判了）；
             //      ③ 看 `ResignCalls`（**已经打完的局不许再判一次**）—— 只盯 `Winner` 是**测不出**的：
-            //      `RuleCore.Forfeit` 自己会早退（`RuleCore.cs:3685`）⇒ 两边一起改坏也照样绿。
+            //      `RuleCore.Forfeit` 自己会早退（`RuleCore.cs` 的 `RuleCore.Forfeit`）⇒ 两边一起改坏也照样绿。
             {
                 int savedPort12 = NetConfig.Current.port;
                 var rt12 = NetRuntime.Ensure();

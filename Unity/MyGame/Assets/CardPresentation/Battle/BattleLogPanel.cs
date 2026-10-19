@@ -48,6 +48,7 @@
 using System.Collections.Generic;
 using CardPresentation;
 using UnityEngine;
+using UnityEngine.EventSystems;   // 🆕 2026-10-20（`T09` A3-c）：`EventTrigger` / `PointerEventData` / `BaseEventData`
 
 namespace CardPresentation
 {
@@ -330,6 +331,14 @@ namespace CardPresentation
         HudPiece[] _rowBgs;
         Label[] _rowTexts;
         HudPiece _shade;
+        // ---- 🆕 2026-10-20（第五十七会话 · `T09` 步骤 A3-c）：uGUI 输入 ----
+        // 形状照原版：**`Image`（`m_RaycastTarget = 1`）+ `EventTrigger{ eventID 2 = PointerDown }`**。
+        // 判据（逐组件原文）见下面「🆕 2026-10-20 … 本扇的输入层换成 uGUI」那整段。
+        EventTrigger _shadeTrigger, _bgTrigger;
+        int _shadeDownCount, _bgDownCount;
+        int _lastBgRow = -1;
+        string _lastBgKey;
+        bool _closePending;
         /// <summary>最近一次喂进来的内容（`Show()` 里要拿它重刷一遍 —— 见 `SetEntries` 的注释）</summary>
         readonly List<Entry> _last = new List<Entry>();
         bool _visible;
@@ -495,6 +504,173 @@ namespace CardPresentation
             return true;
         }
 
+        // ============================================================================================
+        //  🆕 2026-10-20（第五十七会话 · `T09` 步骤 A3-c）：**本扇的输入层换成 uGUI**
+        //
+        //  🔴 **原版判据（本波亲读 `d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/`，
+        //     不是转抄旧报告）**：
+        //    · `GameObject/shade.json`（PathID 548）的五个组件里，两个关键件是：
+        //      **`MonoBehaviour_4611` = `UnityEngine.UI.Image`（`m_Script` PathID `350208831926335389` ·
+        //      `m_RaycastTarget: 1` · 无 sprite · `m_Color` 黑 a = **0.5529412**）；**
+        //      **`MonoBehaviour_4625` = `UnityEngine.EventSystems.EventTrigger`（`m_Script` PathID
+        //      `-78715595128852713`）**，`m_Delegates[0].eventID = **2**`（= `EventTriggerType.PointerDown`）
+        //      → `m_Target` 4491（`CemeteryManager`）· `MethodName = "HideCemeteryLogBtn"`。
+        //      ⇒ **关闭这一手是「按下」，不是「抬起」**（先前那条口径这次给出了逐组件原文）。
+        //    · `GameObject/BG_622.json`（PathID 622）的关键件：
+        //      **`MonoBehaviour_4620` = `Image`（`m_RaycastTarget: 1` · 色 (0, 0.07547, 0.00820, 1)）** ·
+        //      **`MonoBehaviour_4070` = `EventTrigger`**，`eventID = **2**`（PointerDown）→
+        //      `CemeteryManager.ClickCardLink` —— 那个方法的职责就是逐行做
+        //      `TMP_TextUtilities.FindIntersectingLink` → 取链接 → `DisplayCard` + `HideCemeteryLogBtn`
+        //      （反编译全文 → `d:/2/tools/decomp_full/CemeteryManager__ClickCardLink.c`）。
+        //    · **行本身不是射线靶**：10 颗 `CemeterySliderUI` 的 `Image.m_RaycastTarget` **全是 0**；
+        //      它们的 `EventTrigger` 只有 `EndDrag(14)/PointerEnter(0)/BeginDrag(13)` → `OnDragEnd`/
+        //      `OnSliderChanged`/`OnDragStart`，而那三个方法在元数据里**不存在**（残留链，见本文件
+        //      `Z2`/`Z3` 那一段）⇒ **行上没有任何活的点击组件**。⇒ 行点击在原版里是**由 `BG` 那块
+        //      底板接的**（`ClickCardLink` 挂在 `BG` 上，不是挂在行上）。
+        //    · **没有关闭钮**：`RectTransform_2936` 的 `m_Children` 只有 5 个（`shade` / `BG` / `Frame` /
+        //      `CemeteryActions` / `CardUI (1)`），整棵子树逐节点扫过（`Frame` 那 5 个节点 + 10 行 + `ActionText`），
+        //      除了上面那两颗**再没有任何 `Image.m_RaycastTarget = 1`、也没有任何按钮** ⇒ 关闭入口**只有
+        //      `shade` 的 `PointerDown` 一条**。
+        //  ⇒ 我们照抄这个形状：`shade` / `BG` 各挂 **`EventTrigger` + `PointerDown`**（⛔ **不是**
+        //    `IPointerClickHandler` —— 原版这两处都不是「抬起」；`T09` A3-c 的派工单里写「行点击用
+        //    `IPointerClickHandler`（或 Button，按原版）」，本波按原版核出来**两条都不成立**，如实记在报告里）。
+        //
+        //  🔴 **与「手搓路径」的并存关系（如实记，⛔ 别读成「已收口」）**：
+        //    `BattleDriver.HandleBattleLog()`（`BattleDriver.cs`）这一波**仍然在跑**它那条手搓链
+        //    （`ClickedThisFrame()` → `TryClickLogRow()` → `Hide()`）。本波的派工单**只许改本文件**、
+        //    动不了它 ⇒ 现状 =「两条路并存，但**动作幂等**」：
+        //      · **行**：uGUI 这边只把行号发出去（`RowClicked`），**不** `SelectRow`、**不**弹卡 ——
+        //        那两件事仍在驱动里（`CemeteryRowClickAllowed` 的 `hideCemetery` 闸也在那边，跨过来
+        //        就等于在这里另立一份判据）。重复触发只是同一个 `SelectRow` / 同一个 key 的
+        //        `ShowLogCard`（后者同 key 直接早退）。
+        //      · **关**：uGUI 的关闭**推到本帧 `LateUpdate`**（理由 → `ApplyPendingClose` 的 doc）——
+        //        两种执行顺序都不会出现「面板先关 ⇒ 驱动不再吃这一下 ⇒ 同一次按下打到棋盘」。
+        //    ⏭ 驱动那条手搓链退场（`T09` A4 / W3 合并）之后：把 `RowClicked` / `CloseRequested` 接上即可。
+        // ============================================================================================
+
+        /// <summary>行被点中（uGUI 那条路交出来的**行号**；`-1` 不会进这里）。
+        /// ⚠️ 面板**不**自己 `SelectRow` / 不弹卡 —— 那两件事与 `hideCemetery` 闸都在宿主（`BattleDriver`）。</summary>
+        public event System.Action<int> RowClicked;
+
+        /// <summary>压暗层被按下（= 原版 `shade` 的 `EventTrigger PointerDown → HideCemeteryLogBtn`）。
+        /// 面板**自己会关**（`LateUpdate`），本事件只给宿主收尾用 —— 原版那一跳还会
+        /// `showingCardUI.SetActive(false)`，我们那张悬停卡归驱动（`HideLogCard()`）。</summary>
+        public event System.Action CloseRequested;
+
+        /// <summary>自检用：`shade` 的 `PointerDown` 一共来了几次（灭自证：uGUI 点一次 = 1）。</summary>
+        public int ShadePointerDownCountForTest { get { return _shadeDownCount; } }
+        /// <summary>自检用：`BG` 的 `PointerDown` 一共来了几次。</summary>
+        public int BgPointerDownCountForTest { get { return _bgDownCount; } }
+        /// <summary>自检用：最近一次 `BG` 按下命中的行号（`-1` = 没落在任何一行上）。</summary>
+        public int LastBgRowForTest { get { return _lastBgRow; } }
+        /// <summary>自检用：最近一次 `BG` 按下命中的那一行提到的**卡 key**（`RowCardKey` 的口径）。</summary>
+        public string LastBgRowKeyForTest { get { return _lastBgKey; } }
+        /// <summary>自检用：有没有「挂起的关闭」还没落（`LateUpdate` 跑完就清）。</summary>
+        public bool ClosePendingForTest { get { return _closePending; } }
+        /// <summary>自检用：压暗层 / 底板上的那颗 `EventTrigger`（`null` = 没挂上）。</summary>
+        public EventTrigger ShadeEventTriggerForTest { get { return _shadeTrigger; } }
+        /// <inheritdoc cref="ShadeEventTriggerForTest"/>
+        public EventTrigger BgEventTriggerForTest { get { return _bgTrigger; } }
+        /// <summary>自检用：压暗层的 `Image.raycastTarget`（原版 = **1**）。</summary>
+        public bool ShadeRaycastTargetForTest { get { return RaycastTargetOf(_shade); } }
+        /// <summary>自检用：底板的 `Image.raycastTarget`（原版 = **1**）。</summary>
+        public bool BgRaycastTargetForTest { get { return RaycastTargetOf(_bg); } }
+        /// <summary>自检用：第 `i` 行底板的 `Image.raycastTarget`（原版 10 行**全是 0** —— 行不挡射线）。</summary>
+        public bool RowRaycastTargetForTest(int i) { return RaycastTargetOf(RowBg(i)); }
+
+        static bool RaycastTargetOf(HudPiece p)
+        {
+            if (p == null || !p.IsUgui || p.Rect == null) return false;
+            var img = p.Rect.GetComponent<UnityEngine.UI.Image>();
+            return img != null && img.raycastTarget;
+        }
+
+        /// <summary>给一件 uGUI 件挂一条 `EventTrigger` 的 **`PointerDown`**（原版这两处就是
+        /// 「`Image` 射线靶 + `EventTrigger`」的形状，判据见上面那整段）。**同批置 `raycastTarget = true`**
+        /// —— 原版 `shade` / `BG` 的 `m_RaycastTarget` **都是 1**。
+        /// <returns>`null` = 没挂上（件是 null / 还在世界空间 / 拿不到 `Image`）——
+        /// 调用点**必须出声**，⛔ 不许静默半迁移。</returns></summary>
+        static EventTrigger AddPointerDown(HudPiece piece, UnityEngine.Events.UnityAction<BaseEventData> action)
+        {
+            if (piece == null || action == null) return null;
+            if (!piece.SetRaycastTarget(true)) return null;       // 世界空间件会在那边 `LogError`
+            var go = piece.gameObject;
+            if (go == null) return null;
+            var et = go.GetComponent<EventTrigger>();
+            if (et == null) et = go.AddComponent<EventTrigger>();
+            var e = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
+            e.callback.AddListener(action);
+            et.triggers.Add(e);
+            return et;
+        }
+
+        /// <summary>`shade` 的 `PointerDown`（原版 `EventTrigger` eventID **2** → `CemeteryManager.HideCemeteryLogBtn`）。
+        /// ⚠️ 关闭**不在这里当场做** —— 挂起到本帧 `LateUpdate`（理由见 `ApplyPendingClose`）。</summary>
+        void OnShadePointerDown(BaseEventData _)
+        {
+            _shadeDownCount++;
+            _closePending = true;
+        }
+
+        /// <summary>`BG` 的 `PointerDown`（原版 `EventTrigger` eventID **2** → `CemeteryManager.ClickCardLink`）。
+        /// 命中判据沿用本类既有的 <see cref="RowAt"/>（**与 `BattleDriver.TryClickLogRow` 同一个口**）——
+        /// 原版认的是「行内文字上的 TMP 链接」，我们这边是**整行底板矩形**（那是 `G9` 已如实记下的、
+        /// 比原版宽的一处；本波不动它，见本文件 `Z2`/`Z3` 那段）。</summary>
+        void OnBgPointerDown(BaseEventData data)
+        {
+            _bgDownCount++;
+            var ped = data as PointerEventData;
+            int row = ped != null ? RowAtScreen(ped.position, ped.pressEventCamera) : -1;
+            _lastBgRow = row;
+            _lastBgKey = row >= 0 ? RowCardKey(row) : null;
+            if (row < 0) return;      // 原版 `ClickCardLink` 没扫到链接 ⇒ 直接 return（**不**关面板）
+            var cb = RowClicked;
+            if (cb != null) cb(row);
+        }
+
+        /// <summary>屏幕点落在第几行（`-1` = 不在任何一行上）—— uGUI 那条路的换算口。
+        /// 🔴 **坐标只用画布口**（`RectTransformUtility`）：`PointerEventData.position` 是**屏幕 px**；
+        /// ⛔ 别拿 `LayoutSpace.ToPixel` / `ToDesignPixel` 去混 —— 那一族是「世界坐标 ↔ **设计 px**」的
+        /// **读回**口（`LayoutSpace` 的 `A990②`），和「屏幕 px → 世界」不是同一件事。</summary>
+        public int RowAtScreen(Vector2 screen, Camera cam)
+        {
+            if (!_visible || _rowBgs == null) return -1;
+            RectTransform rect = _bg != null ? _bg.Rect : _root as RectTransform;
+            if (rect == null) return -1;
+            if (cam == null)          // Overlay 档 cam 本来就该是 null；Camera 档才需要兜底
+            {
+                var cv = SubCanvas;
+                if (cv != null) cam = cv.worldCamera;
+            }
+            Vector3 wp;
+            if (!RectTransformUtility.ScreenPointToWorldPointInRectangle(rect, screen, cam, out wp)) return -1;
+            return RowAt(wp);
+        }
+
+        /// <summary>把「挂起的关闭」落一次（`LateUpdate` 与自检口共用**这一个**实现）。
+        /// <para>🔴 **为什么关闭要挂起到 `LateUpdate`**：`EventSystem.Update` 与 `BattleDriver.Update`
+        /// 都是**默认执行顺序**（谁先谁后没有契约）。若 `EventSystem` 先跑、在它的回调里当场 `Hide()`，
+        /// 驱动里的 `HandleBattleLog()` 会看到 `Visible == false` ⇒ **它不再吃这一下**，同一次按下会继续
+        /// 落到 `DrivePlayerTurn()`（棋盘 / 手牌）—— 静默的「点一下做了两件事」。
+        /// Unity 保证**所有 `Update` 跑完**才跑 `LateUpdate` ⇒ 两种顺序都安全：
+        /// 驱动先跑 ⇒ 它自己已经关了（本函数空转）；驱动后跑 ⇒ 它照旧吃掉这一下，本函数随后关掉（幂等）。</para>
+        /// <para>⏭ 驱动那条手搓链退场之后，这里就是**唯一**的关闭入口，而且仍是**同一帧**
+        /// （`LateUpdate` 不是下一帧）。</para></summary>
+        void ApplyPendingClose()
+        {
+            if (!_closePending) return;
+            _closePending = false;
+            if (!_visible) return;    // 宿主那条手搓链已经关了它（也收了卡）⇒ 不重复
+            Hide();
+            var cb = CloseRequested;
+            if (cb != null) cb();     // 放在关完之后：订阅方（驱动）在同帧安全位置收尾（`HideLogCard`）
+        }
+
+        /// <summary>自检用：手动落一次「挂起的关闭」（批处理没有帧循环 ⇒ `LateUpdate` 不跑）。</summary>
+        public void ApplyPendingCloseForTest() { ApplyPendingClose(); }
+
+        void LateUpdate() { ApplyPendingClose(); }
+
         /// <summary>最近一次**真的点中**的那一行（原版死类 `CemeteryLogManager.cemeterySliderActionDisplayed`，`+0x70`）。
         /// `-1` = 还没点过。⚠️ 只记账，⛔ 不画 —— 🔴 **2026-10-18（`G9`）订正**：原注写「原版靠 `cemeteryGroup`
         /// 挪位表示，我们没有那一件」，那句把「发行版的做法」说错了：`cemeteryGroup` 只活在**没有实例的死类**里
@@ -653,6 +829,16 @@ namespace CardPresentation
                 // ⚠️ `MakeImage` 出厂已把它登记在 `DefaultZ`（0.3）那一档 ⇒ 这里**改成**压暗层那一档
                 //    （用 `Reorder`、**不是** `Add` —— `Add` 不去重，同一个件会占两行账）。
                 HudCanvas.Reorder(_shade.Rect, ZShade);
+                // 🆕 2026-10-20（`T09` A3-c）：原版 `shade` 的输入 = `Image(m_RaycastTarget = 1)` +
+                //   `EventTrigger{ eventID 2 = PointerDown → CemeteryManager.HideCemeteryLogBtn }`
+                //   （判据 → `GameObject/shade.json` 的组件 4611 / 4625，见本文件上面那整段）。
+                //   ⇒ 挂**同一个类、同一个事件号**；⛔ 不是 `IPointerClickHandler`（原版不是「抬起」）。
+                //   ⚠️ 记在**压暗层自己身上**：它铺满屏幕且是 `PopUps` 层 ⇒ 面板开着时它挡住底下一切
+                //     （原版同构；这也是 `HudButtonsBlocked` 在 uGUI 那一侧的对应物）。
+                _shadeTrigger = AddPointerDown(_shade, OnShadePointerDown);
+                if (_shadeTrigger == null)
+                    Debug.LogError("[BattleLogPanel] 压暗层挂不上 `EventTrigger PointerDown`"
+                                 + " ⇒ **按下它关不了面板**（不静默）");
                 _shade.gameObject.SetActive(false);
             }
             else Debug.LogError("[BattleLogPanel] 压暗层没建起来（`CardArt.Solid()` 取不到？）");
@@ -687,6 +873,15 @@ namespace CardPresentation
                 // ⚠️ 比例要**自己盖**：白图是 1:1，`QuadFromTopPx` 按它算出来的宽 = 高 = 454.4
                 //    （与旧那句 `ImageQuad.Create(..., Px(BgH), ...)` + `SetAspect` 逐位同一个做法）。
                 bg.SetAspect(BgW / BgH);
+                // 🆕 2026-10-20（`T09` A3-c）：原版 `BG` 的输入 = `Image(m_RaycastTarget = 1)` +
+                //   `EventTrigger{ eventID 2 = PointerDown → CemeteryManager.ClickCardLink }`
+                //   （判据 → `GameObject/BG_622.json` 的组件 4620 / 4070）。
+                //   行底板本身在原版里 `m_RaycastTarget = 0`（10 行逐颗核过）⇒ 点击命中的是这块**底板**，
+                //   再由它转给行（原版 `ClickCardLink` 也是这么写的：挂在 `BG` 上、里面逐行找链接）。
+                _bgTrigger = AddPointerDown(bg, OnBgPointerDown);
+                if (_bgTrigger == null)
+                    Debug.LogError("[BattleLogPanel] 底板挂不上 `EventTrigger PointerDown`"
+                                 + " ⇒ **点行不弹卡**（不静默）");
             }
 
             // 四条边框 —— **逐值照原版**（框 + 中心逐条来自 prefab 字段链，见上面那整段字段链注释）。

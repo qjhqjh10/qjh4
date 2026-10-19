@@ -50,15 +50,31 @@ namespace CardPresentation
         ///
         /// <para>判据（`资料/任务线/战斗线/任务总表.md` 残余① + `资料/普查产出_1018/R_战斗表现链路对拍.md`）：原版
         /// `_ResolvePlayCardFromHand` 是**入动作队列**之后才一步步演，`WaitingForBlockingAction`
-        /// 从「这张牌离开手牌」那一刻就已经为真 —— 也就是说**0.55 s 飞行本身也在闸里**。
+        /// 从「这张牌离开手牌」那一刻就已经为真 —— 也就是说**0.65 s 飞行本身也在闸里**。
         /// 我们这边引擎要等飞行跑完（`DeploySequence.Play` 的 `onDone` → `OnDeployed` → `DoPlay`）才被调用，
-        /// 所以在飞行的这 0.55 s 里 `WaitingForBlockingAction` 还是假的 ⇒ 手牌还能再抓一张、回合钮还能点。</para>
+        /// 所以在飞行的这 0.65 s 里 `WaitingForBlockingAction` 还是假的 ⇒ 手牌还能再抓一张、回合钮还能点。</para>
         ///
         /// <para>⇒ 这个事件就是给驱动层的**起手回调接口**：接上之后由 `BattleDriver` 把这段飞行
         /// 也纳入 `WaitingForBlockingAction`（并播原版「起飞」那两条 cue）。
         /// ⚠️ 不接也能跑（表现层自己的自检照样过）；接不接**不改**本组件的任何行为。</para>
         /// </summary>
         public event Action<CardView, BoardLayout, int, float> OnDeployFlightStart;
+        /// <summary>🔴🆕 2026-10-19（`W57` · `T05(c)(d)`）：**出牌飞行到 0.4 s 那一刻的交接**。
+        ///
+        /// <para>实参 = (这张卡, 落向哪块棋盘, 真正落点格号)；返回 <see cref="DeploySequence.Handoff"/>
+        /// （0.4 s 执行的动作 + 落体 transform + 竞技场局部坐标的落点）。</para>
+        ///
+        /// <para>判据：原版 `CardScript._MinionPlayedIntoField_d__314__MoveNext.c` 在
+        /// `WaitForSeconds(timeToScaleIntoMoving = 0.1)` 之后（= 飞行 0.3 + 等待 0.1 = **0.4 s** 处）
+        /// 做 `SetUnitInPlayLayer()`（手牌卡面 → 场上 3D 体）+ `DefaultScale` + `HideCardShadow`，
+        /// **之后**那 0.2 s 的 `DOLocalMove` 是在**竞技场空间**里落的（见 `Board/DeploySequence.cs` 文件头）。</para>
+        ///
+        /// <para>🔴 **判据只留一处**：真正「怎么换」由驱动层一处给出（`BattleDriver.OnDeployHandoff`），
+        /// 本组件只负责在正确时刻调用。⛔ 别在这里拼 `SetFace/SetParent/SetLayer`。
+        /// ⚠️ 不接也能跑（表现层自检 / `CardBaseDemo` 没有驱动层）⇒ `default` = 退回旧的三段
+        /// （HUD 平面直落；总长仍是 0.65 —— 那 0.1 的等待对单位卡恒定存在）。</para>
+        /// </summary>
+        public Func<CardView, BoardLayout, int, DeploySequence.Handoff> DeployHandoff;
         /// <summary>🔴 **落点落在格位上、但被拒了**（= 玩家做了一次非法操作）。
         /// 和 <see cref="OnReturned"/> 的区别：**拖回手牌/拖到空白处不算**（那是正常取消）。
         /// 原版在这个时机播 `cantdo`（"我不能这么做"）—— 见 `资料/语音线_原版规格与ASR管道.md` §1.3。
@@ -290,7 +306,7 @@ namespace CardPresentation
                     //   也会亮它 ⇒ 日志会误导后面查问题的人。
                     Debug.LogWarning("[Hand] 手牌这一层**暂时禁操作** —— 两种来源（见 `Frozen`）："
                         + "① 对手掉线 / 等重连（原版 `BattleManager__Update.c:104-115` 那道整帧闸）；"
-                        + "② 上一条动作的演出还没演完 / 自己打出的牌还在 0.55 s 飞行里"
+                        + "② 上一条动作的演出还没演完 / 自己打出的牌还在 0.65 s 飞行里"
                         + "（等价原版 `WaitingForBlockingAction`）。—— 这一档结束会自动恢复。");
                 }
                 return;
@@ -361,8 +377,12 @@ namespace CardPresentation
             _pressWorld = world;
             _travel = 0f;
             // 🆕 2026-10-19（T16）：按下那一刻 = 原版 `CardCollider.OnPointerDown` ⇒ `allowClick = 1`
-            //   （`HitTest` 刚判过这张卡，所以这里恒 true；写成 `Contains` 是为了**同一判据**、不另立口径）。
-            _pressInside = card.Contains(world);
+            //   （`HitTest` 刚判过这张卡，所以这里恒 true；写成 `HitByCollider` 是为了**同一判据**、不另立口径）。
+            //   🔴 **2026-10-19（`T09` 步骤 B · `W57` · B2a）就地换口（铁律 5）**：原来这里走
+            //   `card.Contains`（手算矩形）。`Frontmost` 已改走真 collider ⇒ 锁存必须**同一个口**，
+            //   否则「按在卡上」与「这一按还在卡上」会变成两套判据（原版两处都来自同一颗 `Collider2D`
+            //   的 `OnPointerDown` / `OnPointerExit`）。
+            _pressInside = card.HitByCollider(world);
         }
 
         /// <summary>候选态每帧推进：过两道阈值 ⇒ 真 `PickUp`（用**当前**指针位，见上面那条判据）。</summary>
@@ -381,7 +401,8 @@ namespace CardPresentation
             if (d > _travel) _travel = d;
             // 🆕 2026-10-19（T16）：原版 `CardCollider.OnPointerExit` ⇒ `allowClick = 0`（**锁存**）。
             //   候选态卡片原地不动 ⇒ 指针一旦出框就是真出框；回到卡上也不恢复（与反编译一致）。
-            if (_pressInside && !card.Contains(world)) _pressInside = false;
+            //   🔴 `T09` 步骤 B · B2a：判据 = 真 collider（与 `Frontmost`/按下那一处**同一个口**）。
+            if (_pressInside && !card.HitByCollider(world)) _pressInside = false;
             if (!HandDragPastThreshold(_pressWorld, world)) return;
 
             _pressPending = false;
@@ -427,7 +448,8 @@ namespace CardPresentation
             // 🆕 2026-10-19（T16）：PC 档「按下即抓」= 原版 `OnPointerDown` ⇒ `allowClick = 1`。
             //   从候选态转过来时（`freshPress = false`）**不许重设** —— 候选期已经锁存过
             //   `OnPointerExit` 的清零（原版只有新的 `OnPointerDown` 才会把它置回 1）。
-            if (freshPress) _pressInside = card.Contains(world);
+            //   🔴 `T09` 步骤 B · B2a：判据 = 真 collider（同上，两处同一个口）。
+            if (freshPress) _pressInside = card.HitByCollider(world);
 
             // 空位先落在它自己原来的位置 —— 之后跟手往哪拖，空位就跟到哪
             _insertIndex = Mathf.Clamp(_cards.IndexOf(card), 0, Mathf.Max(0, _cards.Count - 1));
@@ -751,21 +773,30 @@ namespace CardPresentation
                 //    「拖拽落点 == 补间终点」变成**结构上成立**。⛔ 别在这里再算一次投影。
                 //    🧨 **改坏法**：换回 `which.SlotPosition(land)` ⇒ 3D 下终点与真落位差 **0.73 世界单位**
                 //    （≈79 px）⇒ `Editor/BattleScene.cs` 那条「卡到格位那一刻**真的被检测到**」当场红。
-                // 🆕 2026-10-16：补上原版「手牌→棋盘」三段里的**前两段**
-                //   （先飞到**槽位正上方** → 再**垂直落下**），第三段（落地的扬尘/震镜头）在
+                // 🆕 2026-10-16：补上原版「手牌→棋盘」那几段里的**前两段**
+                //   （先飞到**槽位正上方** → 再**垂直落下**），落地的扬尘/震镜头在
                 //   `BattleDriver` 那一侧（跟着 `Deploy` 引擎事件走）。
-                //   逐值出处、时长与「为什么 `onDone` 现在挂在整条序列的末尾（0.55s 处）」
+                //   逐值出处、时长与「为什么 `onDone` 现在挂在整条序列的末尾（0.65 s 处）」
                 //   → `Board/DeploySequence.cs` 文件头。
+                //   🆕 2026-10-19（`W57` · `T05(c)(d)`）：中间还多了 **0.1 s 的纯等待 + 0.4 s 的交接**
+                //   （手牌卡面 → 场上 3D 体，之后在竞技场空间落下）—— 判据与改法见同一份文件头。
                 // 🔴🆕 2026-10-19（战斗线 B2 · 偏差 1/2 的残余①）：**先报「起飞」，再起飞** ——
-                //   驱动层用这一个回调把这段 0.55 s 飞行纳入 `WaitingForBlockingAction`
+                //   驱动层用这一个回调把这段 0.65 s 飞行纳入 `WaitingForBlockingAction`
                 //   （原版从「牌离开手牌」那一刻闸就是真的；我们这边引擎要等 `onDone` 才被调）。
                 //   ⚠️ 必须排在 `DeploySequence.Play` **之前**：那条序列**创建即开跑**，晚一步就漏掉第一帧。
                 if (OnDeployFlightStart != null)
                     OnDeployFlightStart(card, which, land, DeploySequence.DurationFor(card));
+                // 🆕 2026-10-19（`W57` · `T05(c)(d)`）：**0.4 s 那一次的交接** —— 由驱动层给出
+                //   「手牌卡面 → 场上 3D 体」那一跳（判据见 `DeployHandoff` 的 doc）。
+                //   没接（表现层自检 / `CardBaseDemo`）⇒ `default` = 退回旧的三段（HUD 平面直落）。
+                var handoff = DeployHandoff != null
+                    ? DeployHandoff(card, which, land)
+                    : default(DeploySequence.Handoff);
                 var tw = DeploySequence.Play(card,
                                              which.DropTargetWorldAtHeight(land, which.MinionConversionHeight),
                                              which.DropTargetWorld(land),
                                              which.placedScale * LayoutSpace.Scale,
+                                             handoff,
                                              () => { if (OnDeployed != null) OnDeployed(card, slot); });
                 tw.SetUpdate(CardTween.Mode);
                 // 🔴 **出牌那个特效不在这里播**（2026-09-15 修）—— 驱动层收引擎的 `EvtKind.Play`
@@ -847,8 +878,22 @@ namespace CardPresentation
         /// <para>判据 = 原版 `BattleManager__GetTargetInPos.c:104-130`：
         /// `Physics2D.GetRayIntersectionNonAlloc(...)` 之后**只取返回数组的第 [0] 项**，
         /// **没有任何排序/比较** ⇒ 原版把「谁在最上面」交给物理层（`CardCollider2D` 那条）。
-        /// 我们这套手算命中没有 collider / 射线层（`C3` 结构差异 #5 的已知偏离）⇒
-        /// 「z 最小」是它的对应物（离相机最近 = 最先被射线打到）。</para>
+        /// `Physics2D` 的 `OverlapPoint` **没有 z**（前后叠着的卡会同时命中、顺序也不保证）⇒
+        /// 「z 最小」仍是原版那条语义的对应物（离相机最近 = 最先被射线打到），必须自己排。</para>
+        /// <para>🔴🔴 **2026-10-19（`T09` 步骤 B · `W57` · B2a）起命中口 = 真 collider**：逐张问
+        /// <see cref="CardView.HitByCollider"/>（= 原版 `2DCard` 上那颗 `BoxCollider2D`，
+        /// 尺寸/偏移判据见 `CardView.HitRect`），**不再手算矩形**（旧实现是 `CardView.Contains`）。
+        /// 换牌区那条 `MulliganPanel.CardAt` 是**转发本方法**的 ⇒ 一起换掉，判据仍只此一份。</para>
+        /// <para>🔴 **查询前必须 `Physics2D.SyncTransforms()`**（每帧一次；`HitByCollider` 内部也调，幂等）：
+        /// 卡的位移是每帧**直接写 `transform`** 的（布局 / 飞行 / 出牌 / 自检摆位），而 `Physics2D`
+        /// 只在 `FixedUpdate` 或显式同步时把 transform 灌进物理世界（`autoSyncTransforms` 默认 `false`）
+        /// ⇒ 不同步就会读到**上一帧**的 collider（画面完全正常、命中差一帧 = 静默）。
+        /// ⚠️ 批处理（无帧循环）与「同一帧内改完卡位立刻查询」（自检把两张卡摆重叠再 `CardAt`）
+        /// **必须**靠这一句。</para>
+        /// <para>⚠️ **与 `Contains` 的语义差**（逐条记在 `CardView.HitByCollider` 的 doc 里）：
+        /// ① 卡根 `SetActive(false)` 后 `Physics2D` 不收它（`Contains` 仍 true）—— 藏起来的卡本来就不该可点；
+        /// ② `BoxCollider2D` 只跟 **Z 旋转**、不跟 X/Y ±10° 倾摆（**原版同构**，不是偷懒）；
+        /// ③ collider 没建（`Build` 没跑过）⇒ `HitByCollider` 退回 `Contains` 并**出声一次**（⛔ 不静默）。</para>
         /// <para>🔴 **只此一处**：`CardInteraction.HitTest`（手牌）与 `MulliganPanel.CardAt`（换牌区）
         /// 都调它 —— 以前一处按下标序、一处按 z 序，扇形重叠区会选到不同的卡（`A1668`）。</para>
         /// <para>⚠️ 换牌那一行**本来就不重叠**（`m_useRotation=0`、平直横排、间距 &gt; 卡宽）⇒
@@ -856,17 +901,41 @@ namespace CardPresentation
         public static CardView Frontmost(IReadOnlyList<CardView> cards, Vector3 world)
         {
             if (cards == null) return null;
+            // 🔴 查询前同步物理世界（见上面 doc）：每帧一次即可；`HitByCollider` 内部也调一次（幂等）。
+            Physics2D.SyncTransforms();
             CardView best = null;
             float bestZ = float.MaxValue;
             for (int i = 0; i < cards.Count; i++)
             {
                 var c = cards[i];
-                if (c == null || !c.Contains(world)) continue;
+                // 真 `BoxCollider2D`（逐颗比对本卡那一颗）；collider 没建时它自己退回 `Contains` 并出声一次。
+                if (c == null || !c.HitByCollider(world)) continue;
                 float z = c.transform.position.z;
-                if (z < bestZ) { bestZ = z; best = c; }     // z 越小越靠前
+                if (z < bestZ) { bestZ = z; best = c; }     // z 越小越靠前（顺序与平局规则同旧实现）
             }
             return best;
         }
+
+#if UNITY_EDITOR
+        /// <summary>🆕 **2026-10-19（`T09` 步骤 B · `W57` · B2a）自检用**：这个点上有**几张**候选卡的
+        /// **真 collider** 命中（0 = 一张都没有）。
+        /// <para>用途 = 「重叠区取 z 最小」那条断言的**前提探针**：先证明两张**都**命中
+        /// （否则那条断言退化成一个候选、验不出排序），再断 `Frontmost` 取的是 z 小的那张。
+        /// 判据走生产 API <see cref="CardView.HitByCollider"/>（与 `Frontmost` 同一个口），
+        /// ⛔ 不在这里重算矩形（否则「实现与检测器一起改回去」仍然全绿）。</para></summary>
+        public static int FrontmostHitCountForTest(IReadOnlyList<CardView> cards, Vector3 world)
+        {
+            if (cards == null) return 0;
+            Physics2D.SyncTransforms();
+            int n = 0;
+            for (int i = 0; i < cards.Count; i++)
+            {
+                var c = cards[i];
+                if (c != null && c.HitByCollider(world)) n++;
+            }
+            return n;
+        }
+#endif
 
         /// <summary>命中哪张手牌。**从最前面往后测**，不然会选中被压住的那张。
         /// 🔴 判据本体 = <see cref="Frontmost"/>（与换牌区共用，`A1668`）。</summary>

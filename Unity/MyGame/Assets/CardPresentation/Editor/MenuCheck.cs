@@ -6,13 +6,13 @@
 // 收口前 = 7 份逐字重复（`CollectionScene` / `DeckScene` / `MainMenuScene` / `RewardsScene` /
 // `SettingsScene` / `ShellScene` / `ShopScene`），**≈ 5,534 个调用点 · 0 处跨文件调用**。
 //
-// 🔴 **为什么计数器不能是一份全局 `static`**：`Editor/RewardWindowFixture.cs:12-14` 已经踩过并写下判据
+// 🔴 **为什么计数器不能是一份全局 `static`**：`Editor/RewardWindowFixture.cs` 的 `static` 已经踩过并写下判据
 //    —— 「`ClickCollectAndDismiss` 留在 `RewardsScene`：它要靠那个宿主的 `Check`/`CheckTrue`（**前两个
 //    是逐宿主的计数器：拿别处的 `Check` 去断，失败会记进别人的合计里 ⇒ 静默**）」。
 //    ⇒ 计数器住在 `CheckSink`（**一个宿主一个实例**），宿主保留**同名的一行转发**。
 //
 // 🔴 **为什么每个宿主【必须】仍留名叫 `CheckTrue` / `CheckNear` 的符号**：
-//    `Shell/MenuDraw.cs:2284` 的 `CheckShadeRule(MenuCheck chk, …)`（32 个调用点）与 `:2454` 的
+//    `Shell/MenuDraw.cs` 的 `CheckShadeRule(MenuCheck chk, …)`（32 个调用点）与 `Shell/MenuDraw.cs` 的 `ShadeRuleOk` 的
 //    `CheckAbsorbRule(MenuCheck chk, MenuNear near, …)`（33 个调用点）**把宿主的方法组当参数吃进去**
 //    ⇒ 这 65 个调用点 + `MenuDraw` 的公开签名**一个字都不用改**。
 //
@@ -20,11 +20,11 @@
 //    `CheckNear` 有 **3** 个变体、`Shoot` 有 **6** 个变体，差别都在**日志文案**；而本活的回归判据是
 //    **stdout 逐字节相同**（含 `✓` 行文本，以及 `SettingsScene.CaptureLogs` 那一族**按文本**判的断言）。
 //
-// 🔴 **类名与 `MenuDraw` 里那个同名委托**：`Shell/MenuDraw.cs:2274` 声明了嵌套委托
+// 🔴 **类名与 `MenuDraw` 里那个同名委托**：`Shell/MenuDraw.cs` 声明了嵌套委托
 //    `MenuDraw.MenuCheck`（= `CardPresentation.MenuDraw.MenuCheck`），与本全局类**不是同一个类型**。
 //    **2026-10-18 零风险探针实测**：先只建一个空类 `MenuCheck` → 跑秒级类型检查 ⇒ 运行时/编辑器两个
 //    程序集**均 0 错**，且 `CS0433` / `CS0436`（同名类型冲突）**0 条** ⇒ 照账用 `MenuCheck`
-//    （`Editor/RewardWindowFixture.cs:8` 明写**这个文件名是留给本族**的）。
+//    （`Editor/RewardWindowFixture.cs` 明写**这个文件名是留给本族**的）。
 
 using System.Collections.Generic;
 using System.IO;
@@ -136,7 +136,7 @@ public static class MenuCheck
 
     /// <summary>按名字递归找一个节点（含 inactive）—— 5 份逐字相同的那一份（Collection / MainMenu /
     /// Rewards / Settings / Shop）。
-    /// ⚠️ **它不认识 `A/B/C` 这种路径写法**（`RewardsScene.cs:124` 上面那条注释踩过）——
+    /// ⚠️ **它不认识 `A/B/C` 这种路径写法**（`RewardsScene.cs` 上面那条注释踩过）——
     /// 要路径用各宿主自己的 `FindPath` 那一族。</summary>
     public static Transform FindChild(Transform parent, string name)
     {
@@ -144,6 +144,83 @@ public static class MenuCheck
         foreach (var t in parent.GetComponentsInChildren<Transform>(true))
             if (t.name == name) return t;
         return null;
+    }
+
+    // ============================================================ 矩形读口（唯一一份 · `A1350` 第一批）
+
+    /// <summary>🆕 **2026-10-20（`A1350` 第一批）**：**设计帧点**（乙式）—— 节点的中心，
+    /// 比的是**原版 prefab 的设计 px**。
+    /// <para>🔴 唯一实现 = 生产侧 `MenuDraw.PixelOfDesign(PosInDesignSpace(t))`
+    /// （`QuadRectPx` / 三份 `RectOf` 用的就是这一式，`A298` / `A1004` 收的口）—— 本函数只是给它一个
+    /// **自检侧的公共名字**，⛔ 别再在宿主里手写第三份。</para>
+    /// <para>⚠️ `t == null` ⇒ 返回 `(-99999,-99999)`：⛔ **不许**落回 `(960,540)`（那会让「节点不在」
+    /// 静默变成「在画面中心」，同 `RectOf` 那条「量不到返回 `false`」的纪律）。</para>
+    /// <para>⚠️ 与甲式 `LayoutSpace.PxX/PxY(裸 position)` 的差：16:9 + 父链单位缩放下 ≤ 2.5e-4 px；
+    /// 父链带缩放 M ⇒ 甲式报 M 倍；非 16:9 ⇒ x 差 `VisibleWidth / DesignWidth` 倍
+    /// （判据 / 两式对照 → `资料/普查产出_1019/W57_自检线_A1350读口统一计划.md` §一·2）。</para></summary>
+    public static Vector2 DesignPx(Transform t)
+        => t == null ? new Vector2(-99999f, -99999f)
+                     : MenuDraw.PixelOfDesign(MenuDraw.PosInDesignSpace(t));
+
+    /// <summary>🆕 **2026-10-20（`A1350` 第一批）**：`NodeRectPx` 的**中心语义**（⚠️ 显式枚举、
+    /// **没有默认值** —— 让编译期拦住「没想清楚该量哪一颗」的调用点）。
+    /// <list type="bullet">
+    /// <item><c>Node</c> = 中心**恒在传入节点** `t`（`MainMenuScene.RenderedRect` 那一档，`A668` 有意：
+    ///   `t` 可能是容器，而宽高取自子树里的 `Label`/`ImageQuad`）。</item>
+    /// <item><c>LabelNode</c> = 中心**挪到 Label / quad 自己的节点**（`Collection` / `Rewards` / `Shop`
+    ///   三份 `RectOf` 那一档，`A796′` 定的 —— `AlignLeft/Right` 会把 `Label` 的节点挪走）。</item>
+    /// </list>
+    /// ⚠️ 名字**不叫** `RectCenter`：`LayoutSpace.RectCenter(…)` 是同族里已有的方法名。</summary>
+    public enum RectCenterMode
+    {
+        /// <summary>中心恒在【传入节点】（宽高仍取自子树里的 `Label` / `ImageQuad`）。</summary>
+        Node,
+        /// <summary>中心挪到 `Label`（或 `ImageQuad`）自己的节点 —— 三份 `RectOf` 的口径。</summary>
+        LabelNode,
+    }
+
+    /// <summary>🆕 **2026-10-20（`A1350` 第一批）**：一个件**渲出来**的像素矩形（画布 px · 左上原点 · y 向下）
+    /// —— 自检侧**唯一一份**节点矩形读口。
+    /// <para>🔴 **算法逐句搬自**三份 `RectOf`（`CollectionScene` / `RewardsScene` / `ShopScene`，本批机核
+    /// 中心已是乙式、尺寸口径逐字相同）：字走 `SelfCheckTextMetrics.RenderedPx`（TMP `textBounds` 的活值，
+    /// 量不到时退回 `Label.WorldW/H × 108`）；图走 `ImageQuad.WorldW/H × 108`（材质的真测量）；
+    /// 中心走 <see cref="DesignPx"/>（乙式）。**调用点一个字没动**（三份宿主各留同名一行转发）。</para>
+    /// <para>🔴 **两种中心语义见 <see cref="RectCenterMode"/>** —— ⛔ 别偷偷统一：`LabelNode` 是三份
+    /// `RectOf` 的口径（`A796′`），`Node` 是 `MainMenuScene.RenderedRect` 的口径（`A668` 明确「中心不随
+    /// Label 节点走」；那一份**本批未迁** —— `MainMenuScene.cs` 不在白名单）。</para>
+    /// <para>⚠️ `t == null` / 子树里既没有 `Label` 也没有 `ImageQuad` ⇒ 返回 `false`、四个 `out` 全 0
+    /// （契约与三份 `RectOf` 逐字一致 —— 调用方必须先判它，否则 `0 ≤ 期望值` 会假绿）。</para>
+    /// <para>⚠️ **尺寸项与中心在「父链带缩放」时不同帧**（这是 `A1350` §二·3 已登记的既有缺陷，
+    /// **本批未修** —— 不在第一批那两件里）：字走 `SelfCheckTextMetrics.RenderedPx`，它的 TMP 路径是
+    /// **世界帧**（`localToWorldMatrix` ⇒ 父链缩放会乘进来）；而**量不到时的退路** `Label.WorldW/H × 108`
+    /// 与**图那一支** `ImageQuad.WorldW/H × 108` 是**设计长度**。⇒ 16:9 + 父链单位缩放下两半自洽
+    /// （逐位不变）；父链带 M 时会分家。⛔ 别在本函数里改尺寸帧 —— 那是 `RenderedRectDesign` 那笔账。</para></summary>
+    public static bool NodeRectPx(Transform t, RectCenterMode center,
+                                  out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        if (t == null) return false;
+        const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;   // 108 px / 世界单位
+        Transform node = t;
+        float w, h;
+        var lb = t.GetComponentInChildren<Label>();
+        if (lb != null)
+        {
+            if (center == RectCenterMode.LabelNode) node = lb.transform;
+            var sz = SelfCheckTextMetrics.RenderedPx(lb);
+            w = sz.x; h = sz.y;
+        }
+        else
+        {
+            var q = t.GetComponentInChildren<ImageQuad>();
+            if (q == null) return false;
+            if (center == RectCenterMode.LabelNode) node = q.transform;
+            w = q.WorldW * K; h = q.WorldH * K;
+        }
+        var c = DesignPx(node);
+        x1 = c.x - w * 0.5f; x2 = c.x + w * 0.5f;
+        y1 = c.y - h * 0.5f; y2 = c.y + h * 0.5f;
+        return true;
     }
 
     // ============================================================ 截图（6 个变体）

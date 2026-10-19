@@ -1,0 +1,578 @@
+卡id	卡名	列	序	scoringOption	实现分支	备注
+ASH46	Aerial Dominion	nonTargetScoringCriteria	0	1	Count	
+ASH84	Ahnakh-Yth Shrine	cardTargetScoringCriteria	0	2	SumValueInPlay	
+ASH55	Aspect Shrine	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+ASH55	Aspect Shrine	cardTargetScoringCriteria	0	2	SumValueInPlay	
+ASH45	Banshee Mask	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+ASH47	Bladestorm	nonTargetScoringCriteria	0	1	Count	
+ASH48	Cosmic Serpent	nonTargetScoringCriteria	0	0	FixedValue	
+ASH71	Craftworld Convergence	nonTargetScoringCriteria	0	0	FixedValue	
+ASH42	Dance of Death	cardTargetScoringCriteria	0	2	SumValueInPlay	
+ASH39	Deadly Ambush	cardTargetScoringCriteria	0	14	SumValueOfStun	
+ASH64	Devoted of Khaine	nonTargetScoringCriteria	0	1	Count	
+dc7e575c0a328f446be1521c23ec850b	Empyric Ambush	nonTargetScoringCriteria	0	1	Count	
+dc7e575c0a328f446be1521c23ec850b	Empyric Ambush	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+ASH50	Evasive Manoeuvre	cardTargetScoringCriteria	0	4	SumValueOfHealing	
+ASH85	Fate Inescapable	cardTargetScoringCriteria	0	2	SumValueInPlay	
+ASH36	Fire and Fade	cardTargetScoringCriteria	0	25	SumValueToHand	
+67adbc7f7bce2bd4c8f6937fab3134e5	Flickerjump	nonTargetScoringCriteria	0	1	Count	
+67adbc7f7bce2bd4c8f6937fab3134e5	Flickerjump	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+ASH86	Forewarned	cardTargetScoringCriteria	0	2	SumValueInPlay	
+ASH72	Graceful Avoidance	cardTargetScoringCriteria	0	2	SumValueInPlay	
+ASH52	Hosts of the Dead	nonTargetScoringCriteria	0	1	Count	
+ASH51	Infinity Circuit	nonTargetScoringCriteria	0	0	FixedValue	
+ASH56	Inspiring Legacy	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+ASH56	Inspiring Legacy	cardTargetScoringCriteria	0	2	SumValueInPlay	
+ASH40	Nightshade Interceptors	nonTargetScoringCriteria	0	1	Count	
+9c3562ffa183ede41b1626d9c9dc1e2f	Path of Command	nonTargetScoringCriteria	0	1	Count	
+9c3562ffa183ede41b1626d9c9dc1e2f	Path of Command	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+09bcb1b3b8794c4429d82d4b2e68fa1f	Path of the Seer	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+09bcb1b3b8794c4429d82d4b2e68fa1f	Path of the Seer	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+1bfe0893592c9dd40bed8d68d5d2b516	Path of the Warrior	cardTargetScoringCriteria	0	5	ValueOfBuffingAttack	
+ASH53	Reclaim the Stars	nonTargetScoringCriteria	0	1	Count	
+e59ac9e46f4ea804784e954c3b820e77	Skyborne Deployment	nonTargetScoringCriteria	0	1	Count	
+e59ac9e46f4ea804784e954c3b820e77	Skyborne Deployment	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+851f73daf747eb642934a16429b391db	Storm of Silence	nonTargetScoringCriteria	0	0	FixedValue	
+851f73daf747eb642934a16429b391db	Storm of Silence	cardTargetScoringCriteria	0	2	SumValueInPlay	
+ASH54	Wailing Doom	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+ASH57	Webway Entrance	nonTargetScoringCriteria	0	2	SumValueInPlay	
+ASH57	Webway Entrance	cardTargetScoringCriteria	0	35	ValueOfDrawingCard	
+ASH41	Webway Gate	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+ASH37	Webway Incursion	cardTargetScoringCriteria	0	2	SumValueInPlay	
+ASH73	Whirling Death	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+ASH44	Wild Host	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+ASH38	Will of Asuryan	cardTargetScoringCriteria	0	2	SumValueInPlay	
+d3e99cb18b8cbba4081486f57f510f75	Witchfire	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+33eabec155f628440a426a4ba480ec24	Wrath of Khaine	nonTargetScoringCriteria	0	1	Count	
+33eabec155f628440a426a4ba480ec24	Wrath of Khaine	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+ASH30	Fire Prism	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+AM61	Defence Batteries	nonTargetScoringCriteria	0	3	SumValueOfDamage	
+AM61	Defence Batteries	cardTargetScoringCriteria	0	2	SumValueInPlay	
+AM62	Munitorum Supplies	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+AM62	Munitorum Supplies	cardTargetScoringCriteria	0	2	SumValueInPlay	
+AM60	Timely Reinforcements	nonTargetScoringCriteria	0	1	Count	
+AM60	Timely Reinforcements	cardTargetScoringCriteria	0	2	SumValueInPlay	
+AM76	Armoured Lightning	nonTargetScoringCriteria	0	1	Count	
+AM52	Armoured Squadron	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+AM53	Artillery Strike	nonTargetScoringCriteria	0	1	Count	
+AM54	At All Costs	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+AM39	Born Soldier	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+AM51	Cadia Stands	nonTargetScoringCriteria	0	0	FixedValue	
+3a52026b99bb56f40aa9dc130fc66f34	Cadian Honour	nonTargetScoringCriteria	0	1	Count	
+1ff4815a506d2f34e94ec2f50900d352	Efficiency and Excellence	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+AM74	Forged Killers	cardTargetScoringCriteria	0	2	SumValueInPlay	
+AM40	Full Throttle	nonTargetScoringCriteria	0	1	Count	
+AM57	Godspear Warhead	nonTargetScoringCriteria	0	3	SumValueOfDamage	
+AM46	High Command	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+cc11838649ff68a40b7d5d2b9fccd2bc	Lead by Example	cardTargetScoringCriteria	0	2	SumValueInPlay	
+af98d423c7279a14c84c0d0382c53541	Legendary Commandant	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+AM55	Mechanised Infantry	nonTargetScoringCriteria	0	1	Count	
+AM41	Move! Move! Move!	nonTargetScoringCriteria	0	1	Count	
+AM42	Pinning Fire	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+AM47	Press the Attack	nonTargetScoringCriteria	0	1	Count	
+AM43	Recon Operation	nonTargetScoringCriteria	0	0	FixedValue	
+AM48	Regimental Doctrine	nonTargetScoringCriteria	0	1	Count	
+98cd4c021d615174aba88df6012219c4	Renowned Bodyguard	nonTargetScoringCriteria	0	0	FixedValue	
+AM44	Shock Troops	nonTargetScoringCriteria	0	1	Count	
+AM58	Siege Warfare	nonTargetScoringCriteria	0	1	Count	
+AM49	Summary Execution	nonTargetScoringCriteria	0	2	SumValueInPlay	
+AM45	Thunderous Charge	cardTargetScoringCriteria	0	2	SumValueInPlay	
+AM75	Valkyrie Drop	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+AM56	Vengeance for Cadia	nonTargetScoringCriteria	0	1	Count	
+BL4	Chaos Sergeant	nonTargetScoringCriteria	0	0	FixedValue	
+BL13	Chosen	nonTargetScoringCriteria	0	0	FixedValue	
+BL70	Veteran Havoc	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+BL68	Zealot Legionary	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+BL37	Abaddon's Chosen	cardTargetScoringCriteria	0	2	SumValueInPlay	
+36892cd906b0e5e4c9bbbe249db009b8	Bitter Blows	cardTargetScoringCriteria	0	2	SumValueInPlay	
+BL55	Black Crusade	nonTargetScoringCriteria	0	1	Count	
+BL43	Daemonic Frenzy	cardTargetScoringCriteria	0	5	ValueOfBuffingAttack	
+BL44	Daemonic Pact	nonTargetScoringCriteria	0	1	Count	
+BL38	Dark Oratory	nonTargetScoringCriteria	0	1	Count	
+BL49	Delightful Agonies	cardTargetScoringCriteria	0	4	SumValueOfHealing	
+BL49	Delightful Agonies	cardTargetScoringCriteria	1	1	Count	
+7bf8ce67fb6be4744ae44345a5b465fd	Diabolic Strength	nonTargetScoringCriteria	0	1	Count	
+7bf8ce67fb6be4744ae44345a5b465fd	Diabolic Strength	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+BL47	Disgustingly Resilient	cardTargetScoringCriteria	0	2	SumValueInPlay	
+BL54	Drach'nyen	cardTargetScoringCriteria	0	5	ValueOfBuffingAttack	
+BL50	Execution	cardTargetScoringCriteria	0	2	SumValueInPlay	
+BL46	Gifts of Chaos	cardTargetScoringCriteria	0	2	SumValueInPlay	
+BL53	Heldrake Strike	nonTargetScoringCriteria	0	3	SumValueOfDamage	valueOptions=90
+61046837c330b48978b4af5201230b6e	Helspear Assault	nonTargetScoringCriteria	0	1	Count	
+61046837c330b48978b4af5201230b6e	Helspear Assault	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+BL39	Hideous Mutation	cardTargetScoringCriteria	0	2	SumValueInPlay	
+BL51	Hosts of Chaos	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+BL75	Idolatrous Despoilers	nonTargetScoringCriteria	0	0	FixedValue	
+453b0e8f88e094a17866a6979f389ef5	Infernal Gaze	nonTargetScoringCriteria	0	0	FixedValue	
+453b0e8f88e094a17866a6979f389ef5	Infernal Gaze	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+BL40	Legacy of Vengeance	nonTargetScoringCriteria	0	1	Count	
+9176318eaf469354e858f51af2333aa3	Litany of Despair	cardTargetScoringCriteria	0	2	SumValueInPlay	
+BL73	Malicious Volleys	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+BL64	Murderous Desires	nonTargetScoringCriteria	0	0	FixedValue	
+BL41	Possession	cardTargetScoringCriteria	0	2	SumValueInPlay	
+3f38d2e2c83df4b4c9052ef4a510cfbb	Rites of Possession	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+BL48	Skeins of Fate	cardTargetScoringCriteria	0	2	SumValueInPlay	
+BL45	Spawndom	nonTargetScoringCriteria	0	1	Count	
+BL74	Spreading Corruption	nonTargetScoringCriteria	0	1	Count	
+BL56	Throne of the Heretic	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+BL56	Throne of the Heretic	cardTargetScoringCriteria	0	2	SumValueInPlay	
+BL42	Traitors' Hate	nonTargetScoringCriteria	0	3	SumValueOfDamage	
+141c5ed661a9e42bd9a793f0d2a1c682	Unhallowed Gifts	cardTargetScoringCriteria	0	2	SumValueInPlay	
+BL52	Unholy Smite	nonTargetScoringCriteria	0	0	FixedValue	
+BL33	Vex Machinator	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+DA5	Apothecary	cardTargetScoringCriteria	0	4	SumValueOfHealing	
+DA11	Chaplain	nonTargetScoringCriteria	0	0	FixedValue	
+DA4	Intercessor	nonTargetScoringCriteria	0	0	FixedValue	
+DA39	Ancient Reliquary	cardTargetScoringCriteria	0	2	SumValueInPlay	
+DA47	Blacksword Missiles	nonTargetScoringCriteria	0	1	Count	
+3e99603a7b7b2c54c8f1ad40250ee2ae	Convoke the Circle	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+DA51	Covert Operation	cardTargetScoringCriteria	0	25	SumValueToHand	
+DA57	Deadly Hunters	nonTargetScoringCriteria	0	1	Count	
+DA48	Deathwing Assault	nonTargetScoringCriteria	0	1	Count	
+DA60	Defensive Turrets	nonTargetScoringCriteria	0	1	Count	
+DA60	Defensive Turrets	cardTargetScoringCriteria	0	2	SumValueInPlay	
+DA56	Desperate Mission	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+DA58	Fury of the Unforgiven	cardTargetScoringCriteria	0	2	SumValueInPlay	
+DA59	Grim Effigy	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+DA59	Grim Effigy	cardTargetScoringCriteria	0	0	FixedValue	
+DA43	Grim Resolve	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+DA49	Hunt the Fallen	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+DA40	Inner Circle	nonTargetScoringCriteria	0	1	Count	
+DA52	March of Vengeance	cardTargetScoringCriteria	0	2	SumValueInPlay	
+DA41	Martial Superiority	cardTargetScoringCriteria	0	4	SumValueOfHealing	
+a84a5b49f0ca9144585058db6987c2a0	Master Interromancer	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+7c45a641ec845994097d185af58715f6	Master of Manoeuvre	cardTargetScoringCriteria	0	25	SumValueToHand	
+9e0eecf8cb9a8df49bf18cc5d9051109	Master of the Deathwing	nonTargetScoringCriteria	0	0	FixedValue	
+9e0eecf8cb9a8df49bf18cc5d9051109	Master of the Deathwing	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+24fcaf45556573549b922c06cad3aa2c	None Must Know	cardTargetScoringCriteria	0	2	SumValueInPlay	
+b3364cdc54882b04e8a931e86700ac23	Obscure Ritual	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+DA61	Plasma Generator	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+DA61	Plasma Generator	cardTargetScoringCriteria	0	2	SumValueInPlay	
+DA42	Reconnaissance Mission	nonTargetScoringCriteria	0	1	Count	
+e01e8e933ad574b44bce5473ae486667	Rites of Penance	cardTargetScoringCriteria	0	2	SumValueInPlay	
+DA50	Sacred Standard	nonTargetScoringCriteria	0	1	Count	
+DA44	Secret Agenda	nonTargetScoringCriteria	0	0	FixedValue	
+708c0306e73fd494eb0f718ddaeea48a	Smothering Decree	nonTargetScoringCriteria	0	3	SumValueOfDamage	
+708c0306e73fd494eb0f718ddaeea48a	Smothering Decree	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+DA53	Steadfast Warriors	nonTargetScoringCriteria	0	1	Count	
+DA45	Stubborn Defiance	nonTargetScoringCriteria	0	1	Count	
+DA45	Stubborn Defiance	cardTargetScoringCriteria	0	2	SumValueInPlay	
+dd535f7a54bcf6241b24ca6d0e81bbb4	Supreme Grand Master	nonTargetScoringCriteria	0	1	Count	
+dd535f7a54bcf6241b24ca6d0e81bbb4	Supreme Grand Master	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+DA46	The Rock	nonTargetScoringCriteria	0	0	FixedValue	
+DA54	Unwavering Zeal	nonTargetScoringCriteria	0	1	Count	
+DA55	Wages of Retribution	nonTargetScoringCriteria	0	0	FixedValue	
+DA35	Dark Talon	cardTargetScoringCriteria	0	14	SumValueOfStun	
+DA33	Nephilim Jetfighter	cardTargetScoringCriteria	0	2	SumValueInPlay	
+DA15	Ravenwing Champion	nonTargetScoringCriteria	0	0	FixedValue	
+DA38	Repulsor	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+38871853fabb5244d8148766829230cd	Refuse to Yield	cardTargetScoringCriteria	0	4	SumValueOfHealing	
+DA74	Hunters of Heretics	cardTargetScoringCriteria	0	2	SumValueInPlay	
+DA73	Relic Munitions	nonTargetScoringCriteria	0	1	Count	
+DA72	Vengeful Brethren	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC33	Alluress	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC32	Daemonette	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC16	Screamer Kakophonist	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC42	Beautiful Death	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+EC48	Carnival of Excess	nonTargetScoringCriteria	0	1	Count	
+EC36	Chosen of Slaanesh	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC51	Coterie of the Conceited	nonTargetScoringCriteria	0	0	FixedValue	
+EC54	Dark Apparitions	nonTargetScoringCriteria	0	0	FixedValue	
+6ed51d59b9f8ea24ab0dc7ceaef7956c	Duelist's Hubris	nonTargetScoringCriteria	0	0	FixedValue	
+5a8a11b2a89796f48b34fbec8db6f452	Antrak Silk	cardTargetScoringCriteria	0	2	SumValueInPlay	
+70199b6f183ec364082ca16e62f3d0cb	Heliotrophos	cardTargetScoringCriteria	0	2	SumValueInPlay	
+6e6d14006d8e9514b83a6c99e572081c	Quail	cardTargetScoringCriteria	0	4	SumValueOfHealing	
+9215799995ff7a941b14737e27021032	Shivversplint	cardTargetScoringCriteria	0	2	SumValueInPlay	
+4eec3b13d157dae48b14ed412169e692	Skorflense	cardTargetScoringCriteria	0	2	SumValueInPlay	
+aa45079b714e3ff498549e533c5954a1	Xylocil	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC40	Embrace the Pain	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC39	Eternal Servitude	nonTargetScoringCriteria	0	1	Count	
+b9665eadf1207ff49bcf0a730b0b7f9d	Euphoric Strike	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+2621d4280735baf4c952e6afea8d0686	Excessive Vigour	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC47	Exquisite Swordsmanship	nonTargetScoringCriteria	0	0	FixedValue	
+EC41	Internal Rivalry	nonTargetScoringCriteria	0	1	Count	
+EC45	Mechanised Murder	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+EC52	Mercurial Host	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+EC46	Peerless Bladesmen	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC43	Plains of Excess	nonTargetScoringCriteria	0	1	Count	
+EC38	Pledge to the Dark Prince	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC44	Quicksilver Grace	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+EC50	Rapid Evisceration	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+EC53	Rapturous Ruination	nonTargetScoringCriteria	0	1	Count	
+EC49	Terrifying Crescendo	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC37	Thrill Seekers	nonTargetScoringCriteria	0	0	FixedValue	
+EC59	Vial Tanks	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+EC59	Vial Tanks	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC29	Heldrake	nonTargetScoringCriteria	0	1	Count	
+GSC63	Alien Idol	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+GSC63	Alien Idol	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GSC65	Pilfered Supplies	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+GSC65	Pilfered Supplies	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GSC64	Rusted Vent	nonTargetScoringCriteria	0	2	SumValueInPlay	
+GSC64	Rusted Vent	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GSC56	A Trap Sprung	nonTargetScoringCriteria	0	3	SumValueOfDamage	
+GSC40	Backstab	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+GSC46	Bore Through	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+fd67b47572987b84cb2990ea1ecfe982	Brood Prophet	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+GSC50	Clandestine Operation	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+7c666a04c1b9e8b4e9a96247e9fe115a	Cult Propaganda	nonTargetScoringCriteria	0	0	FixedValue	
+GSC76	Cut Them Off	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+GSC59	Day of Ascension	nonTargetScoringCriteria	0	3	SumValueOfDamage	valueOptions=80
+f45dd53721b645b4ab45d334edb986af	Deadliest Killer	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+GSC42	Enhanced Musculature	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GSC43	Enhanced Resilience	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GSC55	Eve of the Uprising	nonTargetScoringCriteria	0	1	Count	
+4959cd9e99597f74ca9af0bd65ae6307	Experimental Bio-Horrors	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+GSC58	Gestalt Energy	nonTargetScoringCriteria	0	1	Count	
+334a32d196d46ed4387bf3740cce069b	Improvised Barricade	nonTargetScoringCriteria	0	0	FixedValue	
+d01a5ba5865ded4418194ea50e333b21	Inscrutable Cunning	nonTargetScoringCriteria	0	0	FixedValue	
+68909cf02f472734ea391665e0d28e15	Jammed Communications	nonTargetScoringCriteria	0	0	FixedValue	
+GSC51	Living Icon	nonTargetScoringCriteria	0	0	FixedValue	
+GSC39	Lying in Wait	cardTargetScoringCriteria	0	25	SumValueToHand	
+c433e3dde4952cc448220908226127ae	Master Outrider	nonTargetScoringCriteria	0	0	FixedValue	
+7831725387c8a774dbdf5b6492d928e0	Nexus of Devotion	nonTargetScoringCriteria	0	5	ValueOfBuffingAttack	
+7831725387c8a774dbdf5b6492d928e0	Nexus of Devotion	nonTargetScoringCriteria	1	4	SumValueOfHealing	
+GSC41	Open Insurrection	nonTargetScoringCriteria	0	1	Count	
+GSC57	Perfect Ambush	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GSC47	Perfect Hosts	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+a7bb23355a30d344e9d2decf976d91e1	Poisoned Supplies	nonTargetScoringCriteria	0	3	SumValueOfDamage	
+GSC54	Rampant Infestation	nonTargetScoringCriteria	0	12	ValueOfBuffingCost	🔴 handEffect.cardEffect 内容被生成器丢掉：原版 costChange=-3 untilEndOfTurn=1
+GSC75	Roaming Outriders	nonTargetScoringCriteria	0	1	Count	
+GSC74	Rogue Informant	nonTargetScoringCriteria	0	1	Count	
+GSC44	Subterranean Ambush	nonTargetScoringCriteria	0	1	Count	
+GSC52	Summon the Cult	nonTargetScoringCriteria	0	1	Count	
+GSC49	Telepathic Domination	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GSC45	Underground Network	nonTargetScoringCriteria	0	0	FixedValue	
+e9952f50921d2844a94d39ce883430f4	Vox-Hacker	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+GSC72	Atalan Wolfquad	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+GSC67	Jackal Scout	nonTargetScoringCriteria	0	1	Count	
+SAU65	Royal Warden	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+SAU75	Awakened Dynasty	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+SAU54	Conquering Tyrant	nonTargetScoringCriteria	0	0	FixedValue	
+SAU47	Curse of the Phaeron	nonTargetScoringCriteria	0	2	SumValueInPlay	
+SAU50	Dimensional Breach	nonTargetScoringCriteria	0	1	Count	
+SAU74	Dimensional Corridor	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+SAU44	Disruption Blades	nonTargetScoringCriteria	0	1	Count	
+SAU60	Divination Menhir	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+SAU60	Divination Menhir	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SAU38	Extermination Protocol	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SAU45	Hyperlogical Strategist	nonTargetScoringCriteria	0	0	FixedValue	
+SAU55	Immortal Pride	nonTargetScoringCriteria	0	1	Count	
+SAU58	Implacable Conqueror	nonTargetScoringCriteria	0	1	Count	
+65b2be828179515458a282cf1b027182	Indomitable Will	nonTargetScoringCriteria	0	0	FixedValue	
+SAU76	Inescapable Retribution	nonTargetScoringCriteria	0	1	Count	
+30007162b68992e41a422f2061705b65	Lord of the Storm	nonTargetScoringCriteria	0	3	SumValueOfDamage	
+cbabeb234380634479feab1a1b4c733a	Master Chronomancer	nonTargetScoringCriteria	0	0	FixedValue	
+SAU56	Methodical Destruction	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SAU56	Methodical Destruction	cardTargetScoringCriteria	1	3	SumValueOfDamage	
+eb17cd22c6a5d7941a7456838d927ab1	Particle Whip	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+eb17cd22c6a5d7941a7456838d927ab1	Particle Whip	cardTargetScoringCriteria	1	3	SumValueOfDamage	
+SAU40	Protection Protocol	cardTargetScoringCriteria	0	2	SumValueInPlay	
+27a4b748a7bf358499f038aa09895ead	Reanimate	cardTargetScoringCriteria	0	0	FixedValue	
+SAU41	Reanimation Protocol	cardTargetScoringCriteria	0	0	FixedValue	
+SAU39	Reconstitution Protocol	nonTargetScoringCriteria	0	1	Count	
+SAU42	Relentless Advance	nonTargetScoringCriteria	0	4	SumValueOfHealing	
+d8a14171b08b54144ba9dbf324b0a042	Relentless March	nonTargetScoringCriteria	0	1	Count	
+SAU49	Resurrection Orb	nonTargetScoringCriteria	0	1	Count	
+SAU61	Resurrection Vault	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+SAU61	Resurrection Vault	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SAU51	Scythe Assault	nonTargetScoringCriteria	0	3	SumValueOfDamage	
+SAU52	Self-Destruction	nonTargetScoringCriteria	0	1	Count	
+SAU43	Solar Pulse	nonTargetScoringCriteria	0	1	Count	
+SAU46	Spyder Nest	nonTargetScoringCriteria	0	1	Count	
+SAU57	Tomb World	nonTargetScoringCriteria	0	1	Count	
+SAU24	Command Barge	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+GOF80	Grot Orderly	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GOF100	Cyber‑augmentation	nonTargetScoringCriteria	0	1	Count	
+GOF103	Da Hunt is On	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+GOF101	Da Old Ways	cardTargetScoringCriteria	0	2	SumValueInPlay	
+8f35df0536e4f7e4d86f3885e2597404	Dok’s Toolz	nonTargetScoringCriteria	0	1	Count	
+GOF104	Drag it Down	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+GOF107	Fasta Than Yooz	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+84d4d192e0f57a34a90ac0f6172c3358	Ferocious Rage	nonTargetScoringCriteria	0	0	FixedValue	
+GOF98	Gnarled and Rugged	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GOF105	Monster Hunters	nonTargetScoringCriteria	0	1	Count	
+GOF106	Power of the Waaagh!	nonTargetScoringCriteria	0	0	FixedValue	
+GOF99	Skrag Every Stash!	nonTargetScoringCriteria	0	1	Count	
+GOF102	Thundering Stampede	nonTargetScoringCriteria	0	1	Count	
+64a657fc5ed5bbb4fa7b585cf29c1e95	Da Bigger Dey Iz...	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+d19e8b68aaa9a884781d06697ad237a6	Speshul Dose	cardTargetScoringCriteria	0	2	SumValueInPlay	
+e3d67d86f73f7564eb0bf886ec848af6	Waaagh! Energy	nonTargetScoringCriteria	0	1	Count	
+GOF33	Ard as Nails	nonTargetScoringCriteria	0	1	Count	
+GOF30	Attack Squig	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+GOF31	Cloud of Smoke	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GOF37	Da Green Horde	nonTargetScoringCriteria	0	1	Count	
+GOF42	Da Irongob	nonTargetScoringCriteria	0	0	FixedValue	
+20d0f4451f16fc441836a02f99bf77da	Da Red Waaagh	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+GOF72	Dead Choppy	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GOF53	Extractor Rig	nonTargetScoringCriteria	0	1	Count	
+GOF53	Extractor Rig	cardTargetScoringCriteria	0	2	SumValueInPlay	
+6ba4b132d24528844a86304f8ce67833	Follower of Gork	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GOF45	Get'em ladz!	nonTargetScoringCriteria	0	1	Count	
+3ebb159036778d14ebd1c48451aa6ca0	Greatest Warboss	nonTargetScoringCriteria	0	1	Count	
+GOF43	Gretchin Mob	nonTargetScoringCriteria	0	1	Count	
+GOF43	Gretchin Mob	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GOF49	Gretchin Tower	nonTargetScoringCriteria	0	1	Count	
+GOF49	Gretchin Tower	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GOF74	Grizzled Skarboy	nonTargetScoringCriteria	0	1	Count	
+GOF32	Grot Bomb	nonTargetScoringCriteria	0	0	FixedValue	
+GOF32	Grot Bomb	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+GOF71	Krump da Gitz	nonTargetScoringCriteria	0	0	FixedValue	
+9dcbe3d0c04b02f4fbb19974ae0e37b2	Mekaniak	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+9f4e1b7ea9f00da458c6a859a4e958c8	More Dakka	nonTargetScoringCriteria	0	1	Count	
+GOF40	No Mukkin' About	nonTargetScoringCriteria	0	1	Count	
+GOF35	Ork Encampment	nonTargetScoringCriteria	0	1	Count	
+GOF35	Ork Encampment	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+GOF38	Proper Killy	nonTargetScoringCriteria	0	1	Count	
+GOF34	Prophet of the Waaagh!	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+GOF64	Pyromaniaks	nonTargetScoringCriteria	0	1	Count	
+98d3c65702746b04baf7f5ead1a9e507	Ramshackle	nonTargetScoringCriteria	0	1	Count	
+GOF48	Rok Invasion	nonTargetScoringCriteria	0	1	Count	
+b4d6d186eb95a3f468013c5be649ee3b	Sawbonez	nonTargetScoringCriteria	0	1	Count	
+GOF36	Scrag ’Em	cardTargetScoringCriteria	0	2	SumValueInPlay	
+GOF44	Skorcha Assault	nonTargetScoringCriteria	0	1	Count	
+GOF73	Stomp 'Em	nonTargetScoringCriteria	0	1	Count	
+GOF46	Stormboyz Strike	nonTargetScoringCriteria	0	1	Count	
+GOF39	Tide of Muscle	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+GOF52	Toxic Bonfire	nonTargetScoringCriteria	0	1	Count	
+GOF52	Toxic Bonfire	cardTargetScoringCriteria	0	2	SumValueInPlay	
+6899b199f5e36144ebbdd7ed9d9e7afe	’Uge Choppa	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+GOF41	Unbridled Carnage	nonTargetScoringCriteria	0	1	Count	
+GOF47	Will of Gork	nonTargetScoringCriteria	0	2	SumValueInPlay	
+8425b809e9e64e24f9035f709f5aaee4	Worst Temper	nonTargetScoringCriteria	0	1	Count	
+508002f5d7ee54f4686aefa2e6adce41	Wreckin' Ball	nonTargetScoringCriteria	0	1	Count	
+SOR14	Amalia Novena	cardTargetScoringCriteria	0	3	SumValueOfDamage	valueOptions=204
+SOR22	Dominion Superior	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+SOR33	Saint Celestine	nonTargetScoringCriteria	0	0	FixedValue	
+SOR31	Dogmata	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+SOR56	Beacon of Faith	nonTargetScoringCriteria	0	1	Count	
+SOR53	Blade of Faith	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+SOR43	Cleansing Flames	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+SOR43	Cleansing Flames	cardTargetScoringCriteria	1	3	SumValueOfDamage	
+SOR41	Conviction of Faith	nonTargetScoringCriteria	0	1	Count	
+e01f4d54e8a474d96b5a1167cc28eebf	Daemonbreaker	nonTargetScoringCriteria	0	1	Count	
+e01f4d54e8a474d96b5a1167cc28eebf	Daemonbreaker	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SOR45	Defenders of the Faith	nonTargetScoringCriteria	0	1	Count	
+SOR75	Devout Serenity	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+SOR58	Devout Warriors	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+SOR51	Divine Intervention	nonTargetScoringCriteria	0	2	SumValueInPlay	
+SOR74	Emperor's Judgement	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SOR54	Fiery Conviction	nonTargetScoringCriteria	0	5	ValueOfBuffingAttack	
+SOR46	Furious Reprisal	cardTargetScoringCriteria	0	2	SumValueInPlay	
+8901e35c5de30eb48804da6651cfb132	Fury of the Righteous	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+SOR61	Guidance of the Saints	nonTargetScoringCriteria	0	0	FixedValue	
+SOR61	Guidance of the Saints	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SOR57	Hallowed Martyrs	nonTargetScoringCriteria	0	0	FixedValue	
+SOR60	Holy Fire	nonTargetScoringCriteria	0	5	ValueOfBuffingAttack	
+SOR60	Holy Fire	nonTargetScoringCriteria	1	5	ValueOfBuffingAttack	
+SOR60	Holy Fire	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+4d348cff71208c24d8e39252d913ff9d	Hymn of Battle	nonTargetScoringCriteria	0	0	FixedValue	
+SOR48	Imperial Creed	nonTargetScoringCriteria	0	14	SumValueOfStun	
+SOR40	Inspiring Oratory	cardTargetScoringCriteria	0	2	SumValueInPlay	
+65cfec7d2bc719040b3b4b88622931b2	Lead the Righteous	nonTargetScoringCriteria	0	1	Count	
+65cfec7d2bc719040b3b4b88622931b2	Lead the Righteous	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SOR47	Miraculous Feat	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SOR39	Prayer	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SOR50	Relics of St. Katherine	nonTargetScoringCriteria	0	0	FixedValue	
+f104d4c21abe84546abc9365d9eda8dd	Righteous Repugnance	nonTargetScoringCriteria	0	5	ValueOfBuffingAttack	
+SOR42	Rite of Restoration	nonTargetScoringCriteria	0	1	Count	
+SOR59	Sacred Altar	nonTargetScoringCriteria	0	1	Count	
+SOR59	Sacred Altar	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SOR73	Sacred Rose	nonTargetScoringCriteria	0	1	Count	
+SOR49	Shrineworld	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+SOR52	Spirit of the Martyr	nonTargetScoringCriteria	0	3	SumValueOfDamage	
+SOR55	Trial of Suffering	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+SOR55	Trial of Suffering	cardTargetScoringCriteria	1	2	SumValueInPlay	
+6e4f9040e8cc59641a32f29e33ea4cbc	Tyrnak and Fenrir	nonTargetScoringCriteria	0	1	Count	
+6e4f9040e8cc59641a32f29e33ea4cbc	Tyrnak and Fenrir	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+SW43	Anvil of Endurance	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SW57	Birth of a Saga	nonTargetScoringCriteria	0	1	Count	
+SW40	Bjorn's Shrine	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SW39	Canis Helix	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SW44	Death Shun	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SW53	Embers of Prospero	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SW49	Fenrisian Blizzard	nonTargetScoringCriteria	0	1	Count	
+SW54	Fenrisian Monstrosities	nonTargetScoringCriteria	0	1	Count	
+SW60	Fenrisian Runestones	nonTargetScoringCriteria	0	4	SumValueOfHealing	
+SW60	Fenrisian Runestones	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SW61	Halls of Legend	cardTargetScoringCriteria	0	2	SumValueInPlay	
+b3dce3f10cc118541910156ec8da1d9b	High King of Fenris	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+b3dce3f10cc118541910156ec8da1d9b	High King of Fenris	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+a51adc8f5c311584385c3117cfd919e9	High Rune Priest	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+a51adc8f5c311584385c3117cfd919e9	High Rune Priest	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+SW50	Hordeslayer	nonTargetScoringCriteria	0	1	Count	
+SW51	Hunter's Guile	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+SW55	Legendary Tenacity	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SW56	Let Loose	nonTargetScoringCriteria	0	1	Count	
+7a01882fe4610244292d16b15f4b873e	Living Lightning	nonTargetScoringCriteria	0	1	Count	
+7a01882fe4610244292d16b15f4b873e	Living Lightning	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+4d4b9170663891f488c0e96ee8e55ba1	Murderous Hurricane	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SW59	Orbital Defences	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+SW59	Orbital Defences	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SW52	Proper Hunt	nonTargetScoringCriteria	0	0	FixedValue	
+SW46	Raid Tactics	nonTargetScoringCriteria	0	0	FixedValue	
+SW47	Saga of the Bold	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SW42	Savage Legacy	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+b551c8351ebe5784faf9912b573eaf93	Tempest's Wrath	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SW48	The Fang	nonTargetScoringCriteria	0	0	FixedValue	
+SW45	Unbridled Fury	nonTargetScoringCriteria	0	1	Count	
+e3b5735d801fcbd49aa8d3975a5b0c31	War Howl	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+TAU66	Kroot Carnivore	nonTargetScoringCriteria	0	0	FixedValue	
+TAU67	Kroot Hound	nonTargetScoringCriteria	0	1	Count	
+TAU71	Krootox Rampager	nonTargetScoringCriteria	0	0	FixedValue	
+TAU69	Krootox Rider	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+TAU72	Lone-spear	nonTargetScoringCriteria	0	0	FixedValue	
+TAU68	Trail Shaper	cardTargetScoringCriteria	0	25	SumValueToHand	
+TAU57	Burgeoning Empire	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+TAU58	Coordinated Engagement	cardTargetScoringCriteria	0	2	SumValueInPlay	
+507f79fa60945d04e93fe806aca912b7	Deploy Anchors	cardTargetScoringCriteria	0	2	SumValueInPlay	
+c4f5c920744030c4e84428dc5a0f1bf2	Drone Companion	nonTargetScoringCriteria	0	1	Count	
+TAU47	Dynamic Offensive	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+TAU48	Emergency Dispensation	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+f8260229254a09746af6d9ff7a9b0b54	Ethereal Supreme	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+TAU42	Experimental Drones	nonTargetScoringCriteria	0	0	FixedValue	
+TAU43	For The Greater Good	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TAU53	Fortified Positions	nonTargetScoringCriteria	0	1	Count	
+b3735ef3d1408d544b0947e31f898e20	Grisly Feast	nonTargetScoringCriteria	0	1	Count	
+9f75a6fe11922eb409ffbad4ecdeb405	Hero of the Empire	nonTargetScoringCriteria	0	1	Count	
+TAU73	Hidden Hunters	nonTargetScoringCriteria	0	1	Count	
+1688c6146abb1e04f98e540b4cbbabd7	Homing Beacon	nonTargetScoringCriteria	0	1	Count	
+TAU75	Hunter's Instincts	nonTargetScoringCriteria	0	1	Count	
+TAU49	Inspired to Greatness	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TAU39	Kauyon Tactics	nonTargetScoringCriteria	0	1	Count	
+TAU50	Priority Target	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TAU44	Pulse Onslaught	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+TAU54	Razorshark Strike	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+TAU45	Recon Sweep	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TAU55	Relentless Fusillade	nonTargetScoringCriteria	0	3	SumValueOfDamage	
+TAU55	Relentless Fusillade	nonTargetScoringCriteria	1	3	SumValueOfDamage	
+TAU51	Saviour Protocols	nonTargetScoringCriteria	0	1	Count	
+TAU46	Sense of Stone	nonTargetScoringCriteria	0	1	Count	
+f2b80d575cbf8f64597b991022beaf35	Serene Unifier	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+684196db974ab254090f39ef6e89868c	Shield Generator	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TAU52	Storm of Fire	nonTargetScoringCriteria	0	1	Count	
+f279c5cf1c3e16e4db6b9df4d941ad11	Structural Analyzer	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TAU40	Technological Supremacy	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TAU74	Thundering Rampage	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TAU64	Tidewall Droneport	nonTargetScoringCriteria	0	1	Count	
+TAU64	Tidewall Droneport	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TAU63	Tidewall Gunrig	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+TAU56	Valued Sacrifice	nonTargetScoringCriteria	0	1	Count	
+TAU62	Watch Tower	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TAU41	Zephyr's Grace	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TAU33	Razorshark Fighter	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+TL22	Hive Crone	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+TL33	Adrenal Surge	cardTargetScoringCriteria	0	2	SumValueInPlay	
+c0ddba6cc45944f46a65f4fd93bcc0a5	Aerial Seeding	nonTargetScoringCriteria	0	1	Count	
+c0ddba6cc45944f46a65f4fd93bcc0a5	Aerial Seeding	cardTargetScoringCriteria	0	2	SumValueInPlay	
+8f2da557fe484ee4bbf427c13eccd4cb	Alpha Warrior	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+TL39	Ambush Predator	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TL45	Apex Predator	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TL43	Augmented Ferocity	cardTargetScoringCriteria	0	4	SumValueOfHealing	
+TL73	Bestial Rage	nonTargetScoringCriteria	0	1	Count	
+TL73	Bestial Rage	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TL63	Bounding Leap	cardTargetScoringCriteria	0	2	SumValueInPlay	
+cbc9d98e39cc7fb4fa6f94c7e69bda18	Brood Progenitor	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+TL42	Darkened Skies	nonTargetScoringCriteria	0	1	Count	
+TL54	Digestion Pool	nonTargetScoringCriteria	0	1	Count	
+TL54	Digestion Pool	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TL32	Encircle the Prey	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TL31	Enhanced Organism	cardTargetScoringCriteria	0	2	SumValueInPlay	
+468db99b4b10d0745bab346df37d3fb2	Feeding Frenzy	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+TL44	Hardened Biology	cardTargetScoringCriteria	0	2	SumValueInPlay	
+5b5425f6e2848b449807bd1643d0d936	Hive Commander	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TL47	Hive Fleet Leviathan	nonTargetScoringCriteria	0	1	Count	
+TL49	Hyper-adaptation	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TL40	Infestation Node	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TL50	Infinite Biomorphologies	nonTargetScoringCriteria	0	1	Count	
+TL41	Overwhelming Swarm	nonTargetScoringCriteria	0	1	Count	
+TL46	Rapacious Hunger	nonTargetScoringCriteria	0	3	SumValueOfDamage	
+TL64	Ravenous Hunter	cardTargetScoringCriteria	0	2	SumValueInPlay	
+760bd3afde513774d96d6492f995fd37	Spirit Leech	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+a58e05916eb5e994daa0349cbe237001	Synaptic Imperative	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TL51	Toxic Miasma	nonTargetScoringCriteria	0	1	Count	
+TL56	Toxic Vapours	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+TL56	Toxic Vapours	cardTargetScoringCriteria	0	2	SumValueInPlay	
+TL72	Tyranid Invasion	nonTargetScoringCriteria	0	1	Count	
+UM2	Octavio Infiltrator	cardTargetScoringCriteria	0	2	SumValueInPlay	
+UM1	Scout	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+UM109	Adaptive Strategy	nonTargetScoringCriteria	0	1	Count	
+4de4fcfb5d7e0554a88b9f419a2cd7c2	Angel's Wrath	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+UM64	Angels of Death	nonTargetScoringCriteria	0	1	Count	
+0740581c2c0523745a42dbec1b2ef82a	Might of Heroes	cardTargetScoringCriteria	0	2	SumValueInPlay	
+UM75	Armoured Offensive	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+UM44	Armoured Support	nonTargetScoringCriteria	0	0	FixedValue	
+40667e346ae58a84dbda1033dff70ccb	Author of the Codex	nonTargetScoringCriteria	0	4	SumValueOfHealing	
+UM40	Avenging Zeal	nonTargetScoringCriteria	0	1	Count	
+UM62	Battlefield Supremacy	nonTargetScoringCriteria	0	1	Count	
+8482077f309b08943b190f18b5874871	Catechism of Death	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+8482077f309b08943b190f18b5874871	Catechism of Death	cardTargetScoringCriteria	0	2	SumValueInPlay	
+UM112	Champions of Humanity	nonTargetScoringCriteria	0	1	Count	
+UM63	Chapter Council	nonTargetScoringCriteria	0	1	Count	
+UM35	Codex Discipline	nonTargetScoringCriteria	0	1	Count	
+UM37	Death from Above	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+UM113	Duty's End	cardTargetScoringCriteria	0	2	SumValueInPlay	
+315d9f293e4f56d4f813584b43f0511c	Exhortation of Rage	nonTargetScoringCriteria	0	1	Count	
+315d9f293e4f56d4f813584b43f0511c	Exhortation of Rage	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+UM110	Fall Back	cardTargetScoringCriteria	0	25	SumValueToHand	
+UM52	Firestrike Turrets	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+UM52	Firestrike Turrets	cardTargetScoringCriteria	0	2	SumValueInPlay	
+UM42	Forward Deployment	cardTargetScoringCriteria	0	6	CurrentAttack	
+UM45	Gather the Company	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+0544047df88d2ba4cad9c17ff080c0eb	Greatest Deeds	cardTargetScoringCriteria	0	12	ValueOfBuffingCost	原版 cardEffect 全默认（costChange=0）⇒ 空对象正确
+UM36	Hero's Respite	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+UM53	Hive Factory	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+UM53	Hive Factory	cardTargetScoringCriteria	0	2	SumValueInPlay	
+UM60	Humanity's Shield	nonTargetScoringCriteria	0	0	FixedValue	
+UM118	Indomitus Crusade	nonTargetScoringCriteria	0	1	Count	
+UM39	Inspired Retribution	cardTargetScoringCriteria	0	2	SumValueInPlay	
+UM43	Knights of Macragge	nonTargetScoringCriteria	0	1	Count	
+UM54	Light Cover	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+UM54	Light Cover	cardTargetScoringCriteria	0	2	SumValueInPlay	
+dcbd28525888ce54aaa93a47ba4de1e6	Master Tactician	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+f923701f207d23a4f81d6ff5891b4a0c	Master of Arcana	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+55b8e3d2040f86d4190ffb1a91abb5ed	Master of Arms	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+b14d1db2b0730d649b3bec35af100363	Master of Battle	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+9238c27730a0c424288d46ed0f4a742c	Master of the Fleet	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+9238c27730a0c424288d46ed0f4a742c	Master of the Fleet	cardTargetScoringCriteria	1	3	SumValueOfDamage	
+UM116	No Mercy	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+UM73	Oath of Moment	cardTargetScoringCriteria	0	2	SumValueInPlay	
+7693f2b21b2f85644b739da990bc2216	Paragon of Ultramar	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+UM33	Pariah Vanguard	cardTargetScoringCriteria	0	2	SumValueInPlay	
+UM34	Point-Blank Shot	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+e874c2bd84895e64694daa44bd5fd5c2	Primarch of the XIII	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+UM74	Rapid Deployment	nonTargetScoringCriteria	0	1	Count	
+26d4ded12b28a3742b5c8fc155e29803	Righteous Fury	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+UM41	Sacred Bolter	cardTargetScoringCriteria	0	2	SumValueInPlay	
+c4ff279078605aa42942c8dd16b77147	Scryer's Gaze	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+UM111	Shall Know No Fear	cardTargetScoringCriteria	0	2	SumValueInPlay	
+UM31	Sheltered Location	nonTargetScoringCriteria	0	1	Count	
+cf0b346f70e748c4bbfc4dc03ab39ead	Smite	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+d94f91051ecfe014f97577ff573571aa	Spear of Macragge	cardTargetScoringCriteria	0	2	SumValueInPlay	
+UM115	Stormhawk Interception	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+UM38	Stormraven	nonTargetScoringCriteria	0	3	SumValueOfDamage	
+ef596edae1828bd46bfc4348535a3acc	Supreme Strategist	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+UM32	Tactical Insight	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	costChange=0（结果0，与原版同）
+UM61	The Chapter's Due	nonTargetScoringCriteria	0	1	Count	
+UM11	7th Company Bike	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+UM30	Repulsor Executioner	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+UM86	Assault Doctrine	cardTargetScoringCriteria	0	2	SumValueInPlay	
+UM84	Devastator Doctrine	cardTargetScoringCriteria	0	2	SumValueInPlay	
+UM85	Tactical Doctrine	nonTargetScoringCriteria	0	1	Count	
+c06453b330af61745beb5fa567ba863e	Lord Commander	nonTargetScoringCriteria	0	1	Count	
+4cdc1b5f965f99945b685bca7660e9fa	Master of Repentance	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+EC60	Armoury of Excess	nonTargetScoringCriteria	0	2	SumValueInPlay	
+EC60	Armoury of Excess	cardTargetScoringCriteria	0	2	SumValueInPlay	
+EC61	Decadent Throne	nonTargetScoringCriteria	0	35	ValueOfDrawingCard	
+EC61	Decadent Throne	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SAU53	Undying Legions	nonTargetScoringCriteria	0	0	FixedValue	
+SOR44	Moment of Grace	cardTargetScoringCriteria	0	2	SumValueInPlay	
+cc1400347b15ee3449bc18bbdb9ddec9	Exemplary Warrior	nonTargetScoringCriteria	0	4	SumValueOfHealing	
+BL57	Hellfire Torch	nonTargetScoringCriteria	0	2	SumValueInPlay	
+BL57	Hellfire Torch	cardTargetScoringCriteria	0	2	SumValueInPlay	
+BL58	Hellfire Pit	nonTargetScoringCriteria	0	13	ValueOfBuffingMana	
+BL58	Hellfire Pit	cardTargetScoringCriteria	0	2	SumValueInPlay	
+SAU59	Awakened Obelisk	cardTargetScoringCriteria	0	3	SumValueOfDamage	
+TL55	Protective Bio-structure	cardTargetScoringCriteria	0	2	SumValueInPlay	
+97e959444b53f424ea4285e2ca02c7e6	Chosen of the Four	cardTargetScoringCriteria	0	2	SumValueInPlay	

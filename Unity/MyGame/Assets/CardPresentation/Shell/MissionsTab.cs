@@ -224,7 +224,7 @@ namespace CardPresentation
         //           ⚠️ **判据缺**（不是没查）：搜过 `decomp_full/MissionsTab__CreateMissions.c` ·
         //           `__InstantiateNormalMissions.c` · `__OnOpen.c`（方法体是大量 `FUN_` + `ContainerHolder__TryAdd`，
         //           没有可读的 `SetActive` / 登录卡闸）；`MissionsTab` 24 个方法全列出、**没有 `LoginBonus` 闸**。
-        //           `DailyData.CanCollectLogin()`（`Shell/DailyData.cs:1165`）能让「当天已领 ⇒ 不建登录卡」，
+        //           `DailyData.CanCollectLogin()`（`Shell/DailyData.cs` 的 `CanCollectLogin()`）能让「当天已领 ⇒ 不建登录卡」，
         //           但「**原版领过之后是否隐藏登录卡**」反编译查不到 ⇒ **那是推断，本页不拿它当闸门**。
         //           ⇒ 落地的口径：**我们的默认档 = 2 张**（登录卡 + 骷髅卡，就是 `Build()` 里那两次 `Build*Card`），
         //             对应 `DM_Sz.x = 609.500`。⛔ 别因为实机截图多半只有骷髅卡（= n=1 的 965.186）就改宽度常量 ——
@@ -460,7 +460,7 @@ namespace CardPresentation
             //    不会把裁切抹掉。
             //    🔴 **2026-10-17（`A1234` 结案）就地订正**：原文写「将来若给本页挂视口裁切，要改成『先还原、再裁』」
             //    —— **不必了**：`Label.SetWrapping → SetWrappingMode → ForceRelayout → RefreshBounds`
-            //    的**末句**就是 `ReclipNow()`（`Battle/Label.cs:1325`，A225-②/2026-10-08 起）⇒
+            //    的**末句**就是 `ReclipNow()`（`Battle/Label.cs` 的 `ReclipNow()`，A225-②/2026-10-08 起）⇒
             //    **任何重排都会当场重新裁一刀**，顺序不再是承重条件。保留这句只为说明「今天无裁切」。
             if (lb != null && wrapOff) lb.SetWrapping(false);
             return lb;
@@ -505,7 +505,7 @@ namespace CardPresentation
         /// ⚠️ `fontPx` 同 `Txt`：**设计空间**字号，过 `FS()`。
         /// <para>🆕 **2026-10-19（A1205）：补上 `wrapPx` / `autoMinPx` / `autoMaxPx` / `autoBasePx` 四个形参**
         /// —— 本方法此前**一个 autosize 形参都没有** ⇒ 本表里属于它的**「该接」不是「忘了传」是「没地方传」**
-        /// （`R5` §2·J #60–#62；真实站点在 `:553` `progress` / `:854` `counter text` / `:940` `counter`）。
+        /// （`R5` §2·J #60–#62；真实站点在 `本文件` `progress` / `本文件` `counter text` / `本文件` `counter`）。
         /// 四个新形参**全默认 `0`** ⇒ **既有 3 个调用点一字不改、行为逐位不变**（`wrapPx = 0` 与
         /// 本方法「不换行」的出厂语义一致 —— 这一点与 `Txt` 的 `wrapOff` 恰好相反，见它那段说明）。</para>
         /// <para>🔴 **契约取哪一档 —— 照 `A1195`「从原版那颗 TMP 真有的组合倒推」**：本方法 3 个站点里
@@ -522,7 +522,7 @@ namespace CardPresentation
         /// <para>🔴 **本方法是【带闸】的一档（转调 `MenuWindowBase.Text`，不是裸 `Label.SetAutoFitBox`）**
         /// —— 那条闸是 `wrapPx &gt; 0` **∧** `autoMinPx &gt; 0` **∧** `fontPx &gt; autoMinPx` **三条全真**
         /// ⇒ 某一站若 `autoMinPx &gt;= fontPx`，自适应**会被静默挡在门外**（那是**值**的问题、不是闸的问题：
-        /// 同 `A1208` 的口径 —— 先查实那一站是不是标称抄错）。今天 `:854 counter text` 就是这一档。</para></summary>
+        /// 同 `A1208` 的口径 —— 先查实那一站是不是标称抄错）。今天 `本文件 counter text` 就是这一档。</para></summary>
         Label Txt1(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                    float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
                    TmpFont.Face face = TmpFont.Face.Cjk)
@@ -783,6 +783,12 @@ namespace CardPresentation
             // 显示条件 = **`!IsComplete`**（`MissionInfoDisplay`、实例 `displayRule = 1`）⇒ **已领取才藏 `Collect`**。
             // ✅ 于是「藏了 Collect ⇒ 玩家领不了奖」**不成立**：领不到奖那一态（`Collectable`）它是**在**的
             //    （`CollectDaily` 只在 `St == Collectable` 时才真的发奖 —— 见 `DailyData.CollectDaily`）。
+            // 🆕 **2026-10-19（`N47①` 现核）**：本页四颗 `Collect` 的词条键 = **`MainMenu/General/Collect`**。
+            //   判据 = `bundle_menus_assets_all` 整包 `Localize` 普查（逐颗按 `m_GameObject` 认领，⛔ 不互推）：
+            //   `Missions Tab/Normal Missions/Daily Missions/Daily Missions Holder/Daily Mission Container (1)/(2)`
+            //   · `…/Special Missions/Daily Login Container/…` · `…/Daily Skulls Mission Container/…`
+            //   · `Missions Tab/Weekly Mission Holder/Weekly Mission/…` —— **四颗全 `mTerm=MainMenu/General/Collect`
+            //   · `m_Enabled = 1`** ⇒ 四颗都接（官方值 `Collect` / `收集`）。
             if (!claimed)
                 BuildButton(parent, btn, "40K_button", new Color(1f, 0.53f, 0f, 1f), Loc.T("MainMenu/General/Collect"), 35f, "Generic UI Button",
                             () => CollectThenRebuild(index), DailyData.CanCollectDaily(index),
@@ -928,7 +934,9 @@ namespace CardPresentation
             Draw(parent, "40K_missions_display_Daily_vertical", card, "Daily Login Bonus Container", RewardsWindow.QPanel);
             // 🔴 **2026-10-18（音效线转来的界面缺口）：`raycast target` 命中区**（原来整张卡点了什么都不发生）。
             AddContainerHit(parent, card, "Daily Login Container");
-            BuildCardHeader(parent, card, "Daily Login Bonus", DailyData.LoginTitle(), 30f, false);
+            BuildCardHeader(parent, card, "Daily Login Bonus", DailyData.LoginTitle(), 30f, false, null);
+            // ⚠️ 上面最后那个 `null` = **原版 `localize = 0` 的写死英文**（`LoginTipLiteral`）——
+            //    ⛔ 别「修正」成 `Missions/Info/DailyLogin`（原版没有任何触发器用那条键，见 `LoginTipLiteral` 的 doc）。
 
             // `body.image`  N(3, 0,0, 1,1, .5,0, **0,−29**, 0,0)  → `40K_missions_icon_login bonus`
             var body = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
@@ -980,6 +988,7 @@ namespace CardPresentation
             var btn = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                      new Vector2(3.1692f, -24.0231f), new Vector2(255.992f, 74.6201f));
             // 🆕 **A75①**：这一颗也走 `OnCollect` ⇒ **领到就重建整页**（判据见 `CollectThenRebuild(string,…)`）。
+            // （`N47①`：本颗 = 登录卡，原版 `mTerm = MainMenu/General/Collect` · enabled=1，普查见日任务那一段）
             BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), Loc.T("MainMenu/General/Collect"), 35f, "Generic UI Button",
                         () => CollectThenRebuild("登录卡", () => DailyData.CollectLogin()), DailyData.CanCollectLogin(),
                         12f, 35f, 12f);
@@ -1035,7 +1044,7 @@ namespace CardPresentation
                 if (tl == null) Debug.LogWarning("[Rewards] 登录卡的 `Timer` 没建出来（红线：不许静默失败）");
                 else
                     // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时（目标 = 自建日界 `NextResetAt`，本机时间）。
-                    //   ⚠️ `Editor/RewardsScene.cs:2209` 那条断言还把文案钉在出厂串 `Resets in 12h 34 m` 上
+                    //   ⚠️ `Editor/RewardsScene.cs` 那条断言还把文案钉在出厂串 `Resets in 12h 34 m` 上
                     //   —— 本件只改实现、**没动 Editor**（不在白名单）⇒ 那条断言**会红**，需主对话另行更新。
                     TimerDisplay.Attach(tl, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "登录卡 Timer", null);
             }
@@ -1109,7 +1118,8 @@ namespace CardPresentation
             //    本卡（全尺寸 `Daily Skulls Mission Container`）那一份的 `holder/text` 实读
             //    = **fs 32.0 · base 36.0 · auto[15.0~32.0]** ⇒ 已按它改（见 `BuildMilestone` 里那一句）。
             //    全文 → `资料/普查产出_1018/W2_A1232_任务卡字号.md`。
-            BuildCardHeader(parent, card, "Daily Skulls", DailyData.SkullsTitle(), 30f, false);
+            BuildCardHeader(parent, card, "Daily Skulls", DailyData.SkullsTitle(), 30f, false,
+                            "Missions/Info/DailySkulls");
 
             // ==================== `background/body`（全尺寸那一份才有）============================
             // 页内实例 raw（`RectTransform/RectTransform_1733095348392145593.json`）：
@@ -1242,6 +1252,7 @@ namespace CardPresentation
             //     🔴 **2026-10-18（`A1232`）**：上面是**页内作者态**；基础命名独立 prefab
             //     （MB 8596436757323545804）是 **`fs 35 · base 12 · auto[12~35]`** ⇒ 本行改 35/[12~35]/12。
             //     （⚠️ 设计字号改前是 34.05 = **Small 那一份**的 `m_fontSize`；窗口 12/44 两处同值）。
+            // （`N47①`：本颗 = 骷髅卡，原版 `…/Daily Skulls Mission Container/…/Button Text` ⇒ `mTerm = MainMenu/General/Collect` · enabled=1）
             BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), Loc.T("MainMenu/General/Collect"), 35f, "Generic UI Button",
                         () => CollectThenRebuild("骷髅卡", () => DailyData.CollectSkulls()), DailyData.CanCollectSkulls(),
                         // 🆕 **A336③**：第三格 = 原版 `Generic UI Button/Button Text` 的 `m_fontSizeBase` = **12.0**
@@ -1322,6 +1333,22 @@ namespace CardPresentation
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版周常 `name`（`'Weekly Challenge'`）
             //   = `Left/**Capline**`（判据 = 上面 :896-899 引的 `H37` §四·1 那张逐颗 dump，与同族另 3 颗同档）。
             MenuDraw.SetVAlign(wkNameLb, Label.VAlign.Capline, wkNameR);
+
+            // `info`  N(2, 1,0.5, 1,0.5, 1,0.5, -10,0, 41,41)   `40K_generic_bt_info` 41²
+            // 🔴 **2026-10-19（`W57` UI-4 · `N73` · 本笔补建）**：原版 `Weekly Mission ▸ background ▸ header`
+            //   下面**有**这颗 ⓘ，我们的树里**缺这个节点**（原来只画了 `name`）。
+            //   判据 = 页内副本的 RT 亲读（`2280378286135161529`）：anchor `(1,0.5)→(1,0.5)` ·
+            //   pivot `(1,0.5)` · `m_AnchoredPosition = (−10, 0)` · `m_SizeDelta = 41×41` ·
+            //   sprite `40K_generic_bt_info`（128×128）· `Image` = **Simple + preserveAspect** ·
+            //   色白 · `m_RaycastTarget = 1` —— 与三颗卡头那颗**逐字段同形**（只有父框不同）。
+            //   ⚠️ 队列 `QContent`（= 卡头那颗的档；本卡另有一颗整卡命中区在 `QContent − 1`，
+            //   ⓘ 的命中区在 `QOverlay` ⇒ 仍然先吃 ⓘ）。
+            var wkInfo = UguiRect.Child(head, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                                        new Vector2(-10f, 0f), new Vector2(41f, 41f));
+            Draw(parent, "40K_generic_bt_info", wkInfo, "info", RewardsWindow.QContent);
+            // 原版触发器（`MonoBehaviour_9017879901012800185.json` · 页内副本）= `Missions/Info/WeeklyChallenge` ·
+            // `localize = 1` · anchor **10** · offset **(40,0,0)**（独立 prefab 那颗是 55，铁律 5·c）。
+            AddInfoTooltip(parent, wkInfo, "info", "Missions/Info/WeeklyChallenge", 10, 40f);
 
             // `progress.Mission Progress Bar`  N(3, 0,0.5, 1,0.5, 0,0.5, 30,-9.6, -60,22.766)
             var prog = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
@@ -1408,6 +1435,7 @@ namespace CardPresentation
                                         new Vector2(582.18f, -29.3f), new Vector2(300.631f, 102.049f));
             var btn = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                      new Vector2(3.1692f, 0f), new Vector2(294.29f, 74.62f));
+            // （`N47①`：本颗 = 周常卡，原版 `Missions Tab/Weekly Mission Holder/Weekly Mission/…` ⇒ `mTerm = MainMenu/General/Collect` · enabled=1）
             BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), Loc.T("MainMenu/General/Collect"), 44f, "Generic UI Button",
                         () => CollectThenRebuild("周常卡", () => DailyData.CollectWeekly()), DailyData.CanCollectWeekly(),
                         12f, 44f, 12f);
@@ -1457,10 +1485,15 @@ namespace CardPresentation
             //   （同一张 `H37` dump；与三张卡的 `name` 同族同档）。
             MenuDraw.SetVAlign(hdrNameLb, Label.VAlign.Capline, nm);
             // `info`  N(3, 1,0.5, 1,0.5, 1,0.5, -10,0, 41,41)   `40K_generic_bt_info` 41²
+            // 🔴 **2026-10-19（`W57` UI-4 · 铁律 5）就地订正**：原文写 `pos = (−10, 0)` —— **不成立**。
+            //   页内 `Mission Header ▸ info` 的 RT 亲读（`-5415657724664630599`）是
+            //   `m_AnchoredPosition = (−6.1e−05, 0)` ⇒ **贴着自己的 header 右沿、不留右间距**
+            //   （三张卡的 `header ▸ info` 才是 −10；⛔ 别把卡头那档抄到页头）。
             var inf = UguiRect.Child(h, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
-                                     new Vector2(-10f, 0f), new Vector2(41f, 41f));
+                                     Vector2.zero, new Vector2(41f, 41f));
             Draw(parent, "40K_generic_bt_info", inf, "info", RewardsWindow.QContent);
-            AddInfoTooltip(parent, inf, "info");
+            // 🔴 **2026-10-19（`N73`）**：原版 `text = Missions/Info/DailyMissionsHelp` · anchor **15** · offset **−100**。
+            AddInfoTooltip(parent, inf, "info", "Missions/Info/DailyMissionsHelp", 15, -100f);
             // `Refill Counter`  N(3, 0,0.5, 1,0.5, .5,.5, -26.93,0, -53.86,50)   '0 Disponible' fs36
             var rc = UguiRect.Child(h, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), UguiRect.P50c,
                                     new Vector2(-26.93f, 0f), new Vector2(-53.86f, 50f));
@@ -1514,8 +1547,14 @@ namespace CardPresentation
             quad.SetRenderQueue(q);
         }
 
-        /// <summary>卡头：`header` 渐变条 + `40K_generic_bt_info`（42×42 在右）+ `name`。</summary>
-        void BuildCardHeader(Transform parent, PxRect card, string what, string title, float fontPx, bool greyBlue)
+        /// <summary>卡头：`header` 渐变条 + `40K_generic_bt_info`（**41×41** 在右；原写 42×42 ——
+        /// 2026-10-19 现读 RT `m_SizeDelta = 41×41`，见 `AddInfoTooltip` 那段）+ `name`。
+        /// <para>🔴 **2026-10-19（`W57` UI-4 · `N73`）**：第 7 个形参 `tipTerm` = 卡头 ⓘ 的官方词条键；
+        /// **传 `null` = 原版 `localize = 0` 的写死英文**（登录卡，见 <see cref="LoginTipLiteral"/>）。
+        /// 两颗的 `tooltipAnchor` / `offset` 原版实读**同值**（anchor `10` · offset `(55,0,0)`）
+        /// ⇒ 由本方法统一传，⛔ 别在调用点各写一份。</para></summary>
+        void BuildCardHeader(Transform parent, PxRect card, string what, string title, float fontPx, bool greyBlue,
+                             string tipTerm)
         {
             // N(2, 0,1, 1,1, .5,1, 1.34,-2.2287, -2.6799,52.7713)
             var h = UguiRect.Child(card, new Vector2(0f, 1f), UguiRect.A11, new Vector2(0.5f, 1f),
@@ -1563,31 +1602,76 @@ namespace CardPresentation
                                  face: TmpFont.Face.LatinUi);   // 🆕 A336③：base 46 · 2026-10-17 A1024③：原版三颗 `name` 同族全 Asar
             AlignL(cardNameLb, nm);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 三张卡的 `name` 与 `Mission Header` 那 1 颗
-            //   **同为 `Left/Capline`**（判据 = 上面 :899 那句「同族另 3 颗 `name` 全是 `Left`/`Capline`」+ `H37` §四·1）。
+            //   **同为 `Left/Capline`**（判据 = 上面 本文件 那句「同族另 3 颗 `name` 全是 `Left`/`Capline`」+ `H37` §四·1）。
             MenuDraw.SetVAlign(cardNameLb, Label.VAlign.Capline, nm);
             var inf = UguiRect.Child(h, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                                      new Vector2(-10f, 0f), new Vector2(41f, 41f));
             Draw(parent, "40K_generic_bt_info", inf, what + " info", RewardsWindow.QContent);
-            AddInfoTooltip(parent, inf, what + " info");
+            // 🔴 **2026-10-19（`N73`）**：原版两颗卡头 ⓘ 都是 anchor **10** · offset **(55,0,0)**（RT
+            //   `8160267197398037177` / `-7167416217645567303` 亲读）；正文由 `tipTerm` 决定
+            //   （`null` = 登录卡那句原版写死的英文）。
+            AddInfoTooltip(parent, inf, what + " info", tipTerm, 10, 55f);
         }
 
         /// <summary>🔴 **2026-10-17（界面线 T25）**：`40K_generic_bt_info` 那颗圆钮的 **tooltip 触发**。
         /// 判据：原版每颗 info 都挂 `EverguildTooltipTrigger`（`U2` 普查 §二 日常那两行；先例 =
         /// 锻造页 `Help Icon` 的 `BuildHelpTip`，那一颗已接）。我们原来**只画图、没有触发**。
-        /// <para>⚠️ **正文在远端词条**（那族 `mTerm` 的 value 本地没有）⇒ **面板照原版的时机弹、里面是空的**
-        /// （同 `ForgeTab.HelpTipBody = " "`：`Tooltip.Show` 的契约是「空串 = 不显示」⇒ 用一个空格让它照弹）。
-        /// ⛔ 不许自己编文案。</para>
-        /// <para>⚠️ 这两颗的 `tooltipAnchor` / `offset` **没有现读**（锻造那颗实读是 `25 / (0,0,0)`）
-        /// ⇒ 照同族默认 `25`（右上）+ 零偏移 —— **我们照同族挑的**，如实标。</para></summary>
-        void AddInfoTooltip(Transform parent, PxRect r, string name)
+        /// <para>🔴 **2026-10-19（`W57` 界面线 UI-4 · `N73` 收口，铁律 5 就地订正）**：本段原文写
+        /// 「正文在远端词条（`mTerm` 的 value 本地没有）⇒ 面板照弹、里面是空的」+「`tooltipAnchor` /
+        /// `offset` 没有现读 ⇒ 照同族默认 `25` + 零偏移」—— **两半都已过期**。现读
+        /// （`bundle_menus_assets_all` 的四颗 `EverguildTooltipTrigger`，父链逐级核过、四颗都在**页内副本**
+        /// `Missions Tab` 那棵树里；RT pid 见每条）：
+        /// · 页头 `Mission Header ▸ info`（RT `-5415657724664630599`）：`text = Missions/Info/DailyMissionsHelp` ·
+        ///   `localize = 1` · `tooltipAnchor = **15**（右中）` · `offset = **(−100, 0, 0)**`；
+        /// · 登录卡 `header ▸ info`（RT `8160267197398037177`）：⚠️ **原版写死一句英文、`localize = 0`**
+        ///   —— 见 <see cref="LoginTipLiteral"/>（内容其实是骷髅卡那段；**这就是原版行为**）·
+        ///   `tooltipAnchor = **10**（左中）` · `offset = **(55, 0, 0)**`；
+        /// · 骷髅卡 `header ▸ info`（RT `-7167416217645567303`）：`text = Missions/Info/DailySkulls` ·
+        ///   `localize = 1` · `tooltipAnchor = **10**` · `offset = **(55, 0, 0)**`；
+        /// · 周常卡 `header ▸ info`（RT `2280378286135161529`）：`text = Missions/Info/WeeklyChallenge` ·
+        ///   `localize = 1` · `tooltipAnchor = **10**` · `offset = **(40, 0, 0)**`
+        ///   —— ⚠️ 铁律 5·c：**页内副本 40 / 独立 prefab `Weekly Mission Container` 55**（两颗都现读过；
+        ///   独立那颗的父链根 = `Weekly Mission Container`）⇒ 本页建的是**页内那一份** ⇒ 取 **40**。
+        /// 正文走 `Loc.T`（`Table` 没登记 ⇒ 由官方 13 语言全表的兜底那一档接住，`Core/Loc.cs` 的 `T` 三档；
+        /// 三键现读都有中英值：`Resources/official_loc_13lang.json` 的 idx 6904 / 6901 / 6900）。</para>
+        /// <para>⚠️ **`offset` 的量纲 = 世界单位**（`Tooltip.Show` 的 `_pos = worldPos + offset`，
+        /// 与 `worldPos` 同量纲）⇒ 原版 prefab 的**画布 px** 必须过 `LayoutSpace.Px`。
+        /// 先例 = `Shell/CampaignTab.cs` 的 `AddInfoTooltip`（`LayoutSpace.Px(-80f)`）。</para>
+        /// <para>🔴 **2026-10-19（本笔顺手修）**：命中区与 tooltip 落点原来直接用**设计空间**矩形 `r` ——
+        /// 而卡片那两颗在 `Daily Missions` 的 `localScale = 1.15` 子树里（见 <see cref="R"/> 的约定）
+        /// ⇒ 命中区比画出来的图标小 15%、并偏向子树 pivot。现在统一过 <see cref="R"/>（同 `AddContainerHit`）。</para></summary>
+        /// <param name="term">官方词条键；**传 `null` = 原版 `localize = 0` 的写死英文**（登录卡，见
+        /// <see cref="LoginTipLiteral"/>）。</param>
+        /// <param name="anchor">原版 `EverguildTooltipTrigger.tooltipAnchor`（表见 `Core/Tooltip.cs` 的 `Show`）。</param>
+        /// <param name="offsetPx">原版 `offset.x`（**画布 px**；本方法内部过 `LayoutSpace.Px` 折世界单位）。</param>
+        void AddInfoTooltip(Transform parent, PxRect r, string name, string term, int anchor, float offsetPx)
         {
-            var hit = _win.AddHit(parent, name + " Hit", r, RewardsWindow.QOverlay, null);
+            var f = R(r);   // 设计空间 → 已缩放（`Daily Missions` 子树 ×1.15）
+            var hit = _win.AddHit(parent, name + " Hit", f, RewardsWindow.QOverlay, null);
             if (hit == null) return;
             var wb = hit.GetComponent<WindowButton>();
             if (wb == null) return;
-            wb.onEnter = () => Tooltip.Show(" ", LayoutSpace.FromPixel(r.CX, r.CY), 25, Vector3.zero);
+            wb.onEnter = () =>
+            {
+                // 正文在**悬停那一刻**取（`Loc.T` 跟随 `Loc.Current`：切语言后拿到的是新语档）。
+                string body = term == null ? LoginTipLiteral : Loc.T(term);
+                Tooltip.Show(body, LayoutSpace.FromPixel(f.CX, f.CY), anchor,
+                             new Vector3(LayoutSpace.Px(offsetPx), 0f, 0f));
+            };
             wb.onExit = Tooltip.Hide;
         }
+
+        /// <summary>原版 `Daily Login Container ▸ background ▸ header ▸ info` 的 tooltip 正文 ——
+        /// **原版就是写死一句英文（`localize = 0`、`mTerm` 为空）**，逐字如下（含原版的大小写与标点）：
+        /// 「Get Skulls By damaging the enemy warlord in battle. You will get a reward for every milestone you complete!」
+        /// 判据 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-5685391229968600391.json`
+        /// （页内副本那颗；另 5 颗同文本 —— **3 颗 offset 55 / 2 颗 offset 25**，后者其一属
+        /// `Expansion Pass Missions Tab`、另一颗的根未解）。⛔ **不要自译、也不要换成 `Missions/Info/DailyLogin`**：那条官方词条确实存在
+        /// （键 idx 6902，内容是「每天登录领免费奖励」），但**原版没有任何触发器用它**
+        /// （全 `assets_full` 枚举 `Missions/Info` 只出现 DailyMissionsHelp(2) / DailySkulls(6) /
+        /// WeeklyChallenge(3)）⇒ 按原版复刻 = **保持这句写死的英文**（铁律 11；2026-10-19 UI-4 裁定）。</summary>
+        const string LoginTipLiteral =
+            "Get Skulls By damaging the enemy warlord in battle. You will get a reward for every milestone you complete!";
 
         /// <summary>🆕 **2026-10-18（音效线转来的界面缺口）**：任务卡容器主体的命中区
         /// = 原版那三颗 **`raycast target`**（`Daily Login Container` / `Daily Skulls Mission Container` /
@@ -2124,7 +2208,7 @@ namespace CardPresentation
                         artQ.transform.localPosition = MenuDraw.Local(parent, f2.x1, f2.y1, f2.x2, f2.y2);
                     }
                     // 重设字框：🔴 **2026-10-17（R2 现核）**：`SetWrapWidth` 会把 TMP `sizeDelta` 写成
-                    //   `(w, 0)`（`TmpFont.cs:498-503`）⇒ **框高变 0**（断言 `count 框高 89.29` 就是这么红的）。
+                    //   `(w, 0)`（`TmpFont.cs`）⇒ **框高变 0**（断言 `count 框高 89.29` 就是这么红的）。
                     //   ⇒ 改走 `FitWindow`（`SetAutoFitBox` 会同时写回框宽/框高），再还原折行（原版折行 0）。
                     // ⚠️ 这两句都会重排 mesh，所以**必须排在最后那次 `AlignL` 之前**（否则对齐被抹掉）。
                     FitWindow(cLb, c2, autoMinPx, autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);

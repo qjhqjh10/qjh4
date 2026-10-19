@@ -76,8 +76,37 @@
 //
 // ⚠️ 遮罩与标题**建一次就留着**，开关只切 `activeSelf`（照 `CardDisplayWindow` 的教训：
 //    每次重建、`Hide` 又销毁的话，第二次打开只剩一张光卡）。
+// ═════════════════════════════════════════════════════════════════════════════
+//  🔴 **2026-10-20（W57 · `T09` 步骤 A3-e2）：点击/关闭整批换成 uGUI**（判据 = 原版 prefab 现读）
+//  · 原版 `UIMultiCardDisplay`（`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4182`）的
+//    序列化字段：`closeButton` = `MB_5115`（`EverguildButton`，挂在 `BattleContinueButton/Button`）·
+//    `backgroundCloseButton` = `MB_4604`（`BackgroundCloseButton`，挂在 `Menu Dark Background`）·
+//    `headerText` = `MB_3753` · `mask` = **null** · `closeOnESC = 1` · `enableCardTooltips = 1`。
+//  · `UIMultiCardDisplay__Open.c`：`GameWindow.Open()` 之后把 `CloseButtonOnClick` **同时**挂到
+//    `closeButton.onClick` 与 `backgroundCloseButton.onClick` 上（`__Close.c` 关窗时 `RemoveAllListeners`）
+//    ⇒ **两个入口都关窗**。
+//  · `BackgroundCloseButton__…OnPointerClick.c`：`window != null` ⇒ 调它的虚方法（关窗），随后 `onClick.Invoke()`。
+//  · Continue 条那颗 `Image`（`MB_4202`）：`m_RaycastTarget = 1` · `m_RaycastPadding = (0,−40,0,−40)`
+//    （**上下各外扩 40 px、横向不动**，与 `ContinuePad` 逐值同）；圆钮 `CircleButton` 的 `Image`
+//    `m_RaycastTarget = **0**`（不吃射线）。
+//  · `Header Text` 的 TMP `m_RaycastTarget = 1`（零处理器 ⇒ 挡射线但不响应）。
+//  · **翻页 = `ScrollRect`**（根上 `MB_4823`：`m_Horizontal=1` · `m_Vertical=0` ·
+//    `m_MovementType=1(Elastic)` · `Elasticity=0.1` · `Inertia=1` · `DecelerationRate=0.135` ·
+//    `m_ScrollSensitivity=1` · viewport `RT_3176` / content `RT_3174`）+ `RectMask2D`；
+//    卡片 prefab 的 `CardCollider.sendEventsToScrollRect` 把拖拽转给 ScrollRect。
+//    🔴 **我们这一档没做滚动**（文件头 ③：卡片是世界物件、装不下时等比缩）⇒ **没有可迁的拖拽口**；
+//    ⛔ 本波不新造「假滚动」（那会改展示顺序/行为）。
+//  · 🔴 `_mask` **仍然留在世界空间**（必须画在卡片【后面】，见上面三条）—— 世界 `ImageQuad` 没有
+//    `raycastTarget`、uGUI 打不到它 ⇒ 背景关闭的输入由一块**全屏透明 uGUI 件**（`_bgClose`）承担：
+//    `color = clear`、不画像素、只吃射线；⛔ `_mask` 的 z / 渲染队列 / 排序**一个字节不动**。
+//  · ⚠️ **没有**改 `Show`/`Hide` 的次序、卡片顺序、`TickFeedback` 的悬停反馈判据 —— 本波只加输入口。
+//  · ⏭ **仍欠**（如实记）：`closeOnESC = 1`（原版 ESC 关窗；我们的 `BattleDriver` 只在结算屏处理 ESC）·
+//    `enableCardTooltips = 1`（卡片 tooltip）—— 两条都要动 `BattleDriver` 或卡片，**本波白名单外**。
+// ═════════════════════════════════════════════════════════════════════════════
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace CardPresentation
 {
@@ -228,11 +257,37 @@ namespace CardPresentation
         /// 的先后一致 ✓ —— **不靠建序**（标题比条先建这件事只是巧合，⛔ 别拿它当判据）。
         /// （底部提示行 `mcd_hint` 仍是 `ZContent`，在整组**之下**；两者不重叠，无画面后果。）</summary>
         const float ZBtnBar = ZContent - 0.01f, ZBtnText = ZContent - 0.02f, ZBtnCircle = ZContent - 0.03f;
+        /// <summary>🆕 2026-10-20（A3-e2）：背景关闭件（`mcd_background_close`）在**子画布**里的 z 档。
+        /// 必须**大于 `ZBody`** —— `HudCanvas.Add` 按 z **降序**排兄弟序（z 大 ⇒ 前面 ⇒ 画在底下）
+        /// ⇒ 它排在面板本体**之后**（= 面板里的标题 / 继续条 / 圆钮 / 字都盖在它上面）。
+        /// ⚠️ 只登记这一块的兄弟序；⛔ **不碰 `_mask` 的 z / 渲染队列 / 排序**（它在世界空间、见文件头）。
+        /// </summary>
+        const float ZBgClose = ZBody + 0.1f;
 
         Transform _root;          // 世界壳：卡片 + 整屏压暗（见文件头那张「两个节点」的说明）
         Transform _panel;         // 画布本体：标题 / 继续条 / 圆钮 / 两个字 / 提示
         ImageQuad _mask;          // 🔴 有意**留在世界空间**（必须压在卡片后面，见文件头那三条）
         HudPiece _bar, _circle;
+        /// <summary>🆕 2026-10-20（W57 · `T09` A3-e2）：`_bar` 的 uGUI 点击 —— 原版
+        /// `UIMultiCardDisplay.closeButton`（那颗 `EverguildButton`，`Open()` 时挂 `CloseButtonOnClick`）。
+        /// `null` = 没挂上（建件缺贴图 / 不是 uGUI 件）—— 调用点已出声。</summary>
+        BattleHudButton _continueBtn;
+        /// <summary>🆕 2026-10-20（A3-e2）：原版 `backgroundCloseButton` 的 uGUI 承载件 ——
+        /// **全屏透明**、只吃射线、点它关窗。⚠️ 我们的压暗层 `_mask` **有意留在世界空间**
+        /// （必须画在卡片【后面】，见文件头）⇒ 世界 `ImageQuad` 不能当 uGUI 射线靶 ⇒ 输入走这一块。
+        /// ⛔ 这**不是**第二张压暗图：`color = clear`、一个像素都不画，只影响命中。</summary>
+        HudPiece _bgClose;
+        /// <summary>🆕 2026-10-20（A3-e2）：`_bgClose` 上的点击（= 原版 `BackgroundCloseButton`）。</summary>
+        BattleHudButton _bgCloseBtn;
+        /// <summary>🔴 **2026-10-20（W57 · `T09-FIX3` · P1-3）：uGUI 关窗只记「待关」**，
+        /// 由 <see cref="LateUpdate"/> 在本帧末尾落账（同 `ChatPopupPanel` / `BattleLogPanel` / `AlliancePanelWindow`）。
+        /// <para>为什么不当场 `Hide()`：`EventSystem.Update` 与 `BattleDriver.Update` 都是默认执行顺序 ——
+        /// 当场关掉会让驱动那一帧看到「窗本来就关着」（`TickMultiCards` 的 `if (!Visible) return false`）
+        /// ⇒ **同一次松手继续落到 `DrivePlayerTurn`**（Continue 条与牌堆命中区大面积重叠 ⇒ 点「继续」反而
+        /// 又把牌库窗打开）。挂起到 `LateUpdate`（所有 `Update` 跑完之后）⇒ 两种顺序都安全。</para></summary>
+        bool _closePending;
+        /// <summary>uGUI 关闭被**请求**了几次 / 真**落账**了几次（自检用；落账幂等）。</summary>
+        int _uguiCloseClicks, _uguiCloseApplied;
         // 🆕 2026-10-19（B4 · `N70` P0-2）：继续钮的反馈（原版那一族 `Continue Button` t=1 ColorTint +
         //   `CircleButton` t=2 SpriteSwap `40k_UI_bt_play_hover/_pressed`；本地缺那两张 ⇒ 圆钮退回 tint 并出声）。
         BattleButtonFx _fxBar, _fxCircle;
@@ -364,6 +419,14 @@ namespace CardPresentation
             _header = HudCanvas.MakeText(_panel, "", tp.x, tp.y, ChromeFontScale, Color.white,
                                          new Vector2(0.5f, 0.5f), ZContent, "mcd_header", face: TmpFont.Face.LatinCardBody);
             if (_header != null) _header.SetScriptHeight("", ChromeFontPx, 1f);
+            // 🆕 2026-10-20（A3-e2）：原版 `Header Text` 的 TMP `m_RaycastTarget = 1`（**零处理器**）
+            //   ⇒ 它挡射线但**不响应**（点标题不关窗，点标题以外的暗底才关）。
+            //   我们的 `Label` 出厂 `raycastTarget = false`（`TmpFont.NewText` 那条装修约定）⇒ 这里显式打开。
+            //   ⚠️ 如实记：原版那个节点的 rect 是 1192.37×63.204（整条），我们的 TMP 只占**文字自身**的
+            //   bbox（`Label.RefreshBounds` 写的是文字尺寸）⇒ 挡射线的那块比原版小；无处理器、无视觉差。
+            var headerTmp = _header != null ? _header.GetComponentInChildren<TMP_Text>(true) : null;
+            if (headerTmp != null) headerTmp.raycastTarget = true;
+            else Debug.LogWarning("[多卡展示窗] 标题的 TMP 取不到 ⇒ 它不吃射线（原版 RT=1；无处理器、无视觉差）");
 
             // Continue：**贴图用原版那两张**（`40k_bt_underbutton` / `40k_UI_bt_play`），
             // 图不在工程里时退回纯色（颜色仍是原版那个绿 —— 不静默、也不假装）
@@ -411,6 +474,35 @@ namespace CardPresentation
                                                   CircleD, CircleH, ZBtnCircle, Color.white);
             if (_circle == null) Debug.LogError("[多卡展示窗] 「继续」那颗圆钮没建起来");
 
+            // ── 🆕 2026-10-20（W57 · `T09` A3-e2）：背景关闭的 uGUI 输入 ─────────────────────────
+            // 原版 = `Menu Dark Background` 上的 `BackgroundCloseButton`（`MB_4604`；
+            //   `IPointerClickHandler.OnPointerClick` → `window.Close()` + `onClick.Invoke()`），
+            //   `UIMultiCardDisplay.Open()` 把 `CloseButtonOnClick` 挂进它的 `onClick`。
+            // 🔴 我们那颗压暗层 `_mask` **有意留在世界空间**（见文件头三条：必须画在卡片【后面】）——
+            //   世界 `ImageQuad` 没有 `raycastTarget`、uGUI 打不到它 ⇒ 用**一块全屏透明件**承载同一条输入路径。
+            //   ⛔ `_mask` 的 z / 渲染队列 / 排序**一个字节不动**（那正是本步的硬约束）。
+            var cvRt = _panel != null ? _panel.parent as RectTransform : null;
+            if (cvRt == null)
+            {
+                Debug.LogError("[多卡展示窗] 拿不到子画布节点 ⇒ **背景关闭**建不出来（点空白不会关）");
+            }
+            else
+            {
+                _bgClose = HudCanvas.MakeImageInParent(cvRt, CardDisplayWindow.SolidTexFor(1f),
+                                                       "mcd_background_close", 0f, 0f, 1f, 1f,
+                                                       ZBgClose, Color.clear);
+                if (_bgClose == null)
+                {
+                    Debug.LogError("[多卡展示窗] 背景关闭件（`mcd_background_close`）没建起来（纯色图取不到？）");
+                }
+                else
+                {
+                    HudCanvas.FillParent(_bgClose.Rect);   // 铺满子画布 = 全屏；⛔ 别写死 1920×1080
+                    _bgCloseBtn = BattleHudButton.Attach(_bgClose, RequestCloseByUgui);
+                    if (_bgCloseBtn == null) Debug.LogError("[多卡展示窗] 背景关闭件没挂上 uGUI 点击");
+                }
+            }
+
             // 文字**右对齐**在条内右侧（原版 `H=4(Right)`）—— 我们这块 `Label` 只有居中
             // ⇒ 用「中心点右移」近似（**我们挑的**，见文件头 ④）
             // 🔴 **2026-10-16（修波 `FB` · 账 `F11`）就地订正**：那个「右移 60」的**基准**原来是**条的右沿**
@@ -434,6 +526,21 @@ namespace CardPresentation
             AnchorBottomRight(_circle != null ? _circle.Rect : null, BtnCircleCx, BtnChromeCy);
             AnchorBottomRight(_barText != null ? (RectTransform)_barText.transform : null,
                               BtnTextCx, BtnTextCy);
+
+            // 🆕 2026-10-20（A3-e2）：`_bar` = 原版 `UIMultiCardDisplay.closeButton`（`EverguildButton` `MB_5115`，
+            //   `m_TargetGraphic` = `MB_4202` 那颗 `40k_bt_underbutton`）—— `Open()` 时把 `CloseButtonOnClick`
+            //   挂上 ⇒ **点它关窗**（与背景同一个回调，判据 → 文件头「点击/关闭」那段）。
+            //   它的 `Image`：`m_RaycastTarget = 1` · `m_RaycastPadding = (0,−40,0,−40)`
+            //   ⇒ **上下各外扩 40 px、横向不动**；两条都在这里照抄（rect 本来就是原版节点 rect 577.5×63.84）。
+            _continueBtn = BattleHudButton.Attach(_bar, RequestCloseByUgui);
+            if (_continueBtn == null)
+            {
+                Debug.LogError("[多卡展示窗] 「继续」条没挂上 uGUI 点击（点它不会关）");
+            }
+            else if (!_bar.SetRaycastPadding(ContinuePad.x, ContinuePad.y, ContinuePad.z, ContinuePad.w))
+            {
+                Debug.LogWarning("[多卡展示窗] 「继续」条的 `raycastPadding` 没写进去 ⇒ 命中框少了上下各 40 px");
+            }
 
             // ⚠️ **这行提示是我们自加的**：原版 `Generic Multi Card Display Combat` 下只有
             //    `Header Text`（TMP = `Header Text`、**无 `Localize`**）· `BattleContinueButton` ·
@@ -481,6 +588,9 @@ namespace CardPresentation
             if (_barText != null) _barText.gameObject.SetActive(on);
             if (_hint != null) _hint.gameObject.SetActive(on);
             if (_header != null) _header.gameObject.SetActive(on);
+            // 🆕 2026-10-20（A3-e2）：背景关闭件**必须跟着开关** —— 漏了它 = 一块全屏射线靶
+            //   在窗口关着时继续挡着整个屏幕（`SetActive(false)` 会把它移出 `GraphicRegistry`）。
+            if (_bgClose != null) _bgClose.gameObject.SetActive(on);
         }
 
         /// <summary>把一件**已经建好**的画布件改成原版 `BattleContinueButton` 那一级的**右-下点锚**：
@@ -580,6 +690,7 @@ namespace CardPresentation
             SetChrome(true);
             Visible = true;
             gameObject.SetActive(true);
+            _closePending = false;      // 🔴 P1-3：重开 ⇒ 丢掉上一帧还没落的待关（否则本帧末尾会把新窗关掉）
 
             // 标题的文字 + 字号（见本方法开头那条：必须在 chrome **点亮之后**做）
             if (_header != null)
@@ -601,6 +712,40 @@ namespace CardPresentation
                 if (_cards[i] != null) Kill(_cards[i].gameObject);
             _cards.Clear();
             SetChrome(false);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🔴 2026-10-20（W57 · 战斗线 `T09-FIX3` · P1-3）：uGUI 关闭**挂起到 `LateUpdate`**
+        //  判据与理由逐字同 `ChatPopupPanel.OnClosePointerDown` / `BattleLogPanel.ApplyPendingClose` /
+        //  `AlliancePanelWindow.OnUguiCloseClick`（三处先例）：`EventSystem.Update` 与 `BattleDriver.Update`
+        //  都是默认执行顺序，当场 `Hide()` 会让驱动那一帧看到「窗已经关着」⇒ 同一次松手继续落到
+        //  `DrivePlayerTurn`（Continue 条 x[1322.7,1900.2] y[937.3,1016.9] 与牌堆命中区
+        //  x[1615,1845] y[850,1080] **大面积重叠**）⇒ 点「继续」反而开回牌库窗。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>uGUI（`Continue` 条 / 全屏背景关闭件）被点 —— **只记「待关」**，⛔ 不当场 `Hide()`。</summary>
+        void RequestCloseByUgui()
+        {
+            if (!Visible) return;              // 窗关着 ⇒ 这一下不算（件本来也收不到射线，双保险）
+            _uguiCloseClicks++;
+            _closePending = true;
+        }
+
+        /// <summary>把挂起的「关窗」落账（**幂等**）。批处理没有帧循环 ⇒ 自检手动调；
+        /// 真机由 <see cref="LateUpdate"/> 每帧调。
+        /// <returns>true = 这一次确实落了一次挂起的关闭。</returns></summary>
+        public bool ApplyPendingClose()
+        {
+            if (!_closePending) return false;
+            _closePending = false;
+            _uguiCloseApplied++;
+            if (Visible) Hide();               // 驱动那条手搓路可能已经在同一帧关过 ⇒ 不再重复
+            return true;
+        }
+
+        void LateUpdate()
+        {
+            ApplyPendingClose();
         }
 
         /// <summary>「继续」那一块（横条）被点到了没有 —— **判据只此一处**。
@@ -638,9 +783,12 @@ namespace CardPresentation
         /// ⇒ **画到哪就判到哪**；且在 16:9 下与改之前**逐点同结论**（`BarW/BarH` 本来就是那两颗 quad 的
         /// `sizeDelta`）。</para>
         /// <para>⚠️ **顺手现读（不是本函数的口径问题）**：生产路径 `BattleDriver.TickMultiCards`
-        /// **不调本函数** —— 那一支按「多卡窗开着时**松手即关**」处理（原版对应的是整屏
-        /// `Menu Dark Background` 上的 `BackgroundCloseButton`）⇒ 本函数今天**只有自检在用**
-        /// （`Editor/BattleScene.cs` 的 `A964/E2④`）。留给将来「按条/圆钮判」那天照这里算。</para></summary>
+        /// **不拿本函数当点击判据** —— 那一支按「多卡窗开着时**松手即关**」处理（原版对应的是整屏
+        /// `Menu Dark Background` 上的 `BackgroundCloseButton`）。
+        /// 🔴 **2026-10-20（A3-e2）就地订正（铁律 5）**：本行原写「本函数今天**只有自检在用**」——
+        /// **不成立**：`TickFeedback`（每帧由驱动层调）用它对条/圆钮做**悬停/按下反馈**。
+        /// 本波起**点击**由 uGUI 派发（`_bar` 与 `_bgClose` 上各一颗 `BattleHudButton`，见 `Build`），
+        /// 本函数只留作**反馈几何**与自检（`Editor/BattleScene.cs` 的 `A964/E2④`）。</para></summary>
         public bool HitContinue(Vector3 world)
         {
             if (_bar != null && _bar.IsUgui && _bar.Rect != null)
@@ -726,6 +874,59 @@ namespace CardPresentation
         //  ⇒ 留着它就是留一个「喂进去会缩成 1/108、且**不报错**」的口（`T09` §五·补⑩ 那道硬关卡一）。
         //  ⚠️ 兄弟件的同款助手仍各自留着（`Battle/CardChoicePanel.cs` 的 `U` · `Battle/MulliganPanel.cs`
         //     的 `U` · `Battle/EndPanel.cs` 那个私有的）—— 它们各自还有世界档的调用点，**别一起删**。
+
+        // ── 🆕 2026-10-20（W57 · `T09` A3-e2）：uGUI 输入口的 Editor-only 只读探针 ─────────────────
+        //  ⚠️ 只读、且**播放器构建里不存在**（`#if UNITY_EDITOR`）。断言写在 `Editor/BattleScene.cs`
+        //     （本波口径 = 只做不验 ⇒ 本件不写断言）。
+        //  ⚠️ 期望值（断言侧独立写死，⛔ 别读我们自己的常量）：Continue 条 `RT=1` · pad `(0,−40,0,−40)`；
+        //     背景关闭件 `RT=1`；Header TMP `RT=1`（判据 → 文件头「点击/关闭」那段）。
+#if UNITY_EDITOR
+        /// <summary>「继续」横条那一件（`null` = 没建出来）。Editor-only 只读探针。</summary>
+        public HudPiece ContinuePieceForTest { get { return _bar; } }
+        /// <summary>「继续」条上的 uGUI 点击器（`null` = 没挂上）。</summary>
+        public BattleHudButton ContinueButtonForTest { get { return _continueBtn; } }
+        /// <summary>`_bar` 的 `Image.raycastTarget`（原版 = 1；读不到 ⇒ false）。</summary>
+        public bool ContinueRaycastTargetForTest { get { return RaycastTargetOf(_bar); } }
+        /// <summary>`_bar` 的 `Image.raycastPadding`（原版 `(0,−40,0,−40)`；读不到 ⇒ zero）。</summary>
+        public Vector4 ContinueRaycastPaddingForTest { get { return RaycastPaddingOf(_bar); } }
+
+        /// <summary>背景关闭件（全屏透明、uGUI 射线靶；原版的 `BackgroundCloseButton` 承载）。`null` = 没建出来。</summary>
+        public HudPiece BackgroundClosePieceForTest { get { return _bgClose; } }
+        /// <summary>背景关闭件上的点击器（`null` = 没挂上）。</summary>
+        public BattleHudButton BackgroundCloseButtonForTest { get { return _bgCloseBtn; } }
+        /// <summary>背景关闭件的 `Image.raycastTarget`（原版 = 1）。</summary>
+        public bool BackgroundCloseRaycastTargetForTest { get { return RaycastTargetOf(_bgClose); } }
+
+        /// <summary>🆕 2026-10-20（`T09-FIX3` · P1-3）：有没有「挂起的关闭」还没落（真机由 `LateUpdate` 落）。</summary>
+        public bool ClosePendingForTest { get { return _closePending; } }
+        /// <summary>uGUI 关闭被**请求**了几次（点一次 = 1；`Hide()` 直接调不走这里）。</summary>
+        public int UguiCloseClickCountForTest { get { return _uguiCloseClicks; } }
+        /// <summary>挂起的关闭**真落账**了几次（灭自证：点一次 = 1，⛔ 不是「点了就关」）。</summary>
+        public int UguiCloseAppliedCountForTest { get { return _uguiCloseApplied; } }
+        /// <summary>🆕 `T09-FIX3` P1-3：**批处理**落账口（那里没有帧循环 ⇒ `LateUpdate` 不跑）。</summary>
+        public bool ApplyPendingCloseForTest() { return ApplyPendingClose(); }
+
+        /// <summary>标题 TMP 的 `raycastTarget`（原版 = 1；TMP 取不到 ⇒ false）。</summary>
+        public bool HeaderRaycastTargetForTest
+        {
+            get
+            {
+                var t = _header != null ? _header.GetComponentInChildren<TMP_Text>(true) : null;
+                return t != null && t.raycastTarget;
+            }
+        }
+
+        static bool RaycastTargetOf(HudPiece p)
+        {
+            var img = p != null && p.IsUgui && p.gameObject != null ? p.gameObject.GetComponent<Image>() : null;
+            return img != null && img.raycastTarget;
+        }
+        static Vector4 RaycastPaddingOf(HudPiece p)
+        {
+            var img = p != null && p.IsUgui && p.gameObject != null ? p.gameObject.GetComponent<Image>() : null;
+            return img != null ? img.raycastPadding : Vector4.zero;
+        }
+#endif
 
         static void Kill(GameObject o)
         {

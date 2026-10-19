@@ -53,8 +53,37 @@
 //    在本件里有四处：`RefreshLayout` 的摆位、`EnterOffset`、`UpdatePointer` 的圆半径、
 //    `ButtonWorld` 的读回 —— 逐处都按模式换过（见各自的 doc）。
 // ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// 🔴 **2026-10-20（`W57` · 战斗线 `T09` 步骤 A3-e）：本件的【输入层】换成 uGUI**
+//   判据（本波现读 `bundle_scenes_scenes_battlearena1` 的 `Drag Attack Selector` = GO **172** /
+//   `RT 2973`，子树逐组件）：
+//     · 根上**自带 `Canvas`（`MB_2566`）+ `EverguildGraphicRaycaster`（`MB_4391`）** ⇒ 原版这条选择器
+//       本来就是一块**能收射线的画布**；
+//     · 三颗钮（`Select Melee / Range / Active Skill Button`，GO **867 / 1005 / 760** ·
+//       `RT 3368 / 2804 / 2626`）：**节点 rect 118.372 × 118.806** · `Image.m_RaycastTarget = 1` ·
+//       `m_RaycastPadding = (0,0,0,0)` · `m_PreserveAspect = 0`；上面挂
+//       **`EverguildButton`（`m_Transition = 1` ColorTint）+ `CardDisplayAttackTypeButton`**；
+//     · 🔴 **选中是「悬停」，不是点击**：`CardDisplayAttackTypeButton` 只实现 `IPointerEnter/ExitHandler`
+//       （`__…OnPointerEnter.c`：`+0x92 = 1`；`__…OnPointerExit.c`：清 `+0x91` 并给兄弟钮 `DisableTemporary`），
+//       `AttackTypesButtonsController__Update.c` 拿「`inputOverButton && sendInput && !isInputOverSent`」
+//       发指令 —— 这一套我们 2026-10-13（`A462`）已按原版实现，**本波不改语义**；
+//     · 每颗钮的子件 **`Highlight`**（GO **112 / 396 / 180** · `RT 3028 / 2776 / 3512` · 176.23 × 176.875）
+//       的 `Image.m_RaycastTarget` **也是 1** ⇒ **原版悬停区 = 钮 ∪ 高亮圈**（圈更大 ⇒ 实际就是那一圈）；
+//     · `Select Attack Background`（GO 951 · `MB_4492`）`m_RaycastTarget = 1`（无 sprite、纯色、无动作）。
+//   ⇒ 本波落地（**只换输入路径，不动排布 / 跟随 / `RefreshLayout`**）：
+//     · uGUI 档把 **`Highlight` 那件**置 `raycastTarget = true` 并挂 `EventTrigger` 的
+//       `PointerEnter / PointerExit`（= 原版 `IPointerEnter/ExitHandler` 的等价送达）⇒ 驱动 `Hovered`；
+//     · `UpdatePointer` 在 uGUI 档**不再做手搓圆判定**（否则两条路抢同一个 `Hovered` = 半迁移），
+//       只保留 `Tick()`（入场动画 / 安全窗）+ 返回 `Hovered`；**世界档逐位不变**（`_frame == null` 走原式）。
+//     · `ContainsBar`（「点槽外取消」）**原版没有等价物**（`A462` §四·3 已记）⇒ 本波不动它 ——
+//       它仍在 `BattleDriver` 那条链上，归 `T09` A4 与手搓沿一起收。
+//   ⚠️ **悬停区与今天不同（如实记，⛔ 不是回归）**：今天 = 以图标中心为圆心、直径 118.8 px 的**圆**；
+//     本波起 = `Highlight` 的 **176.2 × 176.2 矩形**（含圆外四角、相邻两格会重叠 —— 原版同样重叠）。
+//     `HoverPickReady` / 安全窗 / `_hoverSent` 的语义**一个字没动**（`TickHover` 仍是唯一判据）。
+// ═══════════════════════════════════════════════════════════════════════════════════════
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;   // 🆕 2026-10-20（A3-e）：`EventTrigger` 的 `PointerEnter/Exit`
 
 namespace CardPresentation
 {
@@ -419,6 +448,15 @@ namespace CardPresentation
         /// <summary>画布上的帧节点（= 原版 `Drag Attack Selector`）。**世界档恒 `null`**。</summary>
         RectTransform _frame;
 
+        /// <summary>🆕 **2026-10-20（`T09` A3-e）**：三颗 `Highlight` 上的 `EventTrigger`
+        /// （`PointerEnter / PointerExit` = 原版 `CardDisplayAttackTypeButton` 那两个接口）。
+        /// 下标 = `Order` 下标（同 `SlotOf`）；世界档恒 `null`；`null` = 那一格没挂上。</summary>
+        readonly EventTrigger[] _hoverTriggers = new EventTrigger[3];
+        /// <summary>自检计数：`PointerEnter` 各来过几次（只增）。</summary>
+        readonly int[] _hoverEnterCount = new int[3];
+        /// <summary>自检计数：`PointerExit` 各来过几次（只增）。</summary>
+        readonly int[] _hoverExitCount = new int[3];
+
         /// <summary>诊断/断言用：本件现在是不是**画布档**。**判据只此一处** = 「帧节点在不在」。
         /// ⚠️ 不另设一个 bool —— 两份状态迟早不一致（本工程血规：两处写同一条规则 = 迟早不一致）。
         /// 用 `!= null` 是 Unity 的重载比较（销毁过的对象也算 null）。
@@ -499,7 +537,7 @@ namespace CardPresentation
             _background = null;
             _title = null;
             _note = null;
-            for (int i = 0; i < Order.Length; i++) { _icons[i] = null; _rings[i] = null; _captions[i] = null; }
+            for (int i = 0; i < Order.Length; i++) { _icons[i] = null; _rings[i] = null; _captions[i] = null; _hoverTriggers[i] = null; }
             _frame = null;
         }
 
@@ -581,6 +619,10 @@ namespace CardPresentation
             // 中心 = **帧原点**（= 锚点）：原版那格是 pivot `(0.5,1)` + `ap (0,−18.375)` ⇒ 顶端挂在锚点那一级。
             _background = HudCanvas.MakeImageInParent(P, Solid(), "SelectorBackground",
                                                       0f, 0f, BgW, BgH, ZBg, new Color(1f, 1f, 1f, 1f));
+            // 🆕 2026-10-20（`T09` A3-e）：原版 `Select Attack Background` 的 `Image.m_RaycastTarget = 1`
+            //   （`MB_4492`；无 sprite、纯色）⇒ 照抄成射线靶。**不挂处理器** —— 原版那块也没有动作。
+            if (_background != null && !_background.SetRaycastTarget(true))
+                Debug.LogWarning("[Battle] 攻击方式选择器：底板没设成射线靶（不静默）");
 
             // 标题上面那行小字（技能效果）**不能塞在中场的提示行上** —— 提示行 y=532 正好是按钮的位置，
             // 会被按钮压住（踩过）。这条与两档无关，照旧。
@@ -612,6 +654,26 @@ namespace CardPresentation
                     _rings[i] = HudCanvas.MakeImageInParent(P, rtex, "Highlight_" + k, 0f, 0f,
                                                             RingSize * AspectOf(rtex), RingSize,
                                                             ZRing, Color.white);
+                // 🆕 2026-10-20（`T09` A3-e）：**悬停即选中**的 uGUI 送达 —— 原版三颗钮各挂
+                //   `CardDisplayAttackTypeButton`（`IPointerEnter/ExitHandler`），而那颗子件 `Highlight`
+                //   的 `Image.m_RaycastTarget = 1` ⇒ 拿**圈**当受体，命中区就是原版那一圈（176.2²）。
+                //   ⚠️ 圈只在 `SetSlotActive` 的 `on && opt.Enabled` 时为真 —— 关掉/灰掉的格子自动收不到
+                //      悬停（与今天 `UpdatePointer` 跳过 `!opt.Enabled` 同义）。
+                //   ⚠️ 圈没建出来（`Attack_type_button_highlight` 贴图缺）⇒ **退回图标本体**当受体
+                //      （原版那颗按钮 `Image` 也是 `m_RaycastTarget = 1`）—— ⛔ 不让这一格静默变成点不中。
+                var hoverPiece = _rings[i] != null ? _rings[i] : _icons[i];
+                if (hoverPiece != null)
+                {
+                    _hoverTriggers[i] = AddHoverTrigger(hoverPiece, k);
+                    if (_hoverTriggers[i] == null)
+                        Debug.LogError("[Battle] 攻击方式选择器：`" + k + "` 那一格的悬停件没挂上"
+                                     + " ⇒ 这一格**悬停选不中**（不静默）");
+                }
+                else
+                {
+                    Debug.LogWarning("[Battle] 攻击方式选择器：`" + k + "` 那一格**既没有圈也没有图标**"
+                                   + " ⇒ 这一格悬停选不中（贴图缺；不静默）");
+                }
 
                 // 按钮上的数字角标（原版 `Select Active Skill Button/ValueText`）。
                 // 原版字号很大（base 36 / max 89），配上它那个半透明底图，数字是按钮的主视觉
@@ -923,10 +985,70 @@ namespace CardPresentation
         }
 
         // ==================================================================
+        //  🆕 2026-10-20（`T09` A3-e）：uGUI 悬停（原版 `CardDisplayAttackTypeButton` 那两个接口）
+        // ==================================================================
+
+        /// <summary>给一件 uGUI 件挂 `PointerEnter / PointerExit`（形状同 `BattleLogPanel.AddPointerDown`；
+        /// 原版这两处就是「`Image` 射线靶 + 指针接口」）。**同批置 `raycastTarget = true`** ——
+        /// 原版 `Highlight` 那颗 `Image` 就是 `m_RaycastTarget = 1`。
+        /// <returns>`null` = 没挂上（件 null / 世界空间件 / 拿不到 GameObject）—— 调用点已出声。</returns></summary>
+        EventTrigger AddHoverTrigger(HudPiece piece, AttackKind kind)
+        {
+            if (piece == null) return null;
+            if (!piece.SetRaycastTarget(true)) return null;      // 世界空间件会在那边 `LogError`
+            var go = piece.gameObject;
+            if (go == null) return null;
+            var et = go.GetComponent<EventTrigger>();
+            if (et == null) et = go.AddComponent<EventTrigger>();
+            var enter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+            enter.callback.AddListener(_ => OnHoverEnter(kind));
+            et.triggers.Add(enter);
+            var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+            exit.callback.AddListener(_ => OnHoverExit(kind));
+            et.triggers.Add(exit);
+            return et;
+        }
+
+        /// <summary>指针进入某一格 —— 原版 `CardDisplayAttackTypeButton.OnPointerEnter`（置 `inputOverButton`）。
+        /// ⚠️ 只写 `Hovered`；「换格 ⇒ 重开安全窗 / 清 `_hoverSent`」仍由 <see cref="TickHover"/> 按
+        /// `Hovered` 的变化统一做（⛔ 不在这里另写一份 —— 判据只此一处）。</summary>
+        void OnHoverEnter(AttackKind kind)
+        {
+            int i = SlotOf(kind);
+            if (i >= 0) _hoverEnterCount[i]++;
+            if (!Visible) return;                  // 关着时圈已 `SetActive(false)`（收不到）；这里是双保险
+            // 🔴 **可选中性判据只此一处**（与原 `UpdatePointer` 的 `if (opt == null || !opt.Enabled) continue;`
+            //    同义）：灰掉/没这一项的格子一律不吃悬停 —— 圈虽然会 `SetActive(false)`，
+            //    但**退回图标当受体**那一档（圈贴图缺）图标仍在 ⇒ 不写这句就会「灰格也能选中」。
+            var opt = Find(kind);
+            if (opt == null || !opt.Enabled) return;
+            if (Hovered == kind) return;
+            Hovered = kind;
+            RefreshPicked();
+        }
+
+        /// <summary>指针离开某一格 —— 原版 `OnPointerExit`（清 `isInputOverSent`；给兄弟钮 `DisableTemporary`）。
+        /// ⚠️ **只在 `Hovered` 还停在这一格时才清**：相邻两圈的矩形会重叠，A→B 的切换里
+        /// 若「先 Enter B、后 Exit A」，无脑清会把刚进入的 B 抹掉。</summary>
+        void OnHoverExit(AttackKind kind)
+        {
+            int i = SlotOf(kind);
+            if (i >= 0) _hoverExitCount[i]++;
+            if (Hovered != kind) return;
+            Hovered = AttackKind.None;
+            RefreshPicked();
+        }
+
+        // ==================================================================
         //  指针
         // ==================================================================
 
-        /// <summary>喂指针世界坐标（每帧）。返回压着的那个按钮。</summary>
+        /// <summary>喂指针世界坐标（每帧）。返回压着的那个按钮。
+        /// <para>🔴 **2026-10-20（`T09` A3-e）**：uGUI 档的 `Hovered` 由
+        /// `EventSystem` 的 `PointerEnter/Exit` 驱动（原版就是那两个接口，见文件头）——
+        /// 本方法在那一档**只推进 `Tick()` 并回读 `Hovered`**，⛔ 不再做手搓圆判定
+        /// （两条路抢同一个 `Hovered` = 半迁移；面板挡住射线时两边还会给出不同答案）。
+        /// **世界档（`_frame == null`）逐位不变。**</para></summary>
         public AttackKind UpdatePointer(Vector3 world)
         {
             if (!Visible) return AttackKind.None;
@@ -935,17 +1057,17 @@ namespace CardPresentation
             // （原版也是这个顺序：`Update` 里先 `MoveButtons`，输入事件是另外进的）。
             Tick(Time.deltaTime);
 
-            // 🔴 **2026-10-16（`T09` 批 3）：命中一律按【世界点】算**（两档都对，见 `T09` §五·补④）：
-            //   · 世界档：`transform.position` 与原来的 `localPosition` **逐位相同**（选择器根在世界原点，
-            //     `Editor/BattleScene.cs` 的 A964 那条前提钉着）⇒ 这一支的行为一个字没变；
-            //   · uGUI 档：`localPosition` 是**画布单位**、不是世界点 ⇒ **只能用 `position`**。
-            //   半径：世界档 = `W(ButtonSize)/2 × Scale`（原样）；uGUI 档 = **画布单位 → 世界单位**的系数
-            //   （`_frame.lossyScale`）× 按钮半径。⛔ 拿 px 去比世界点 = 命中框**大 108 倍**、而画面完全正常。
-            //   ⚠️ 取两个轴的 **min**：批处理下画布两轴系数不同（1/108 vs 1/144），取小的那一档是**保守**方向
-            //     （「还没碰上就选中」正是圆判据要躲的那个错）；真机两轴相等 ⇒ 与旧值逐位一致。
-            float half = _frame != null
-                       ? Mathf.Min(_frame.lossyScale.x, _frame.lossyScale.y) * (ButtonSize * 0.5f)
-                       : W(ButtonSize) * 0.5f * LayoutSpace.Scale;
+            // 🆕 2026-10-20（`T09` A3-e）：uGUI 档 —— 命中已由 `Highlight` 上的 `EventTrigger` 送达，
+            //   这里**只回读**（`Tick` 仍要跑：入场动画与 0.1s 安全窗都靠它）。
+            if (_frame != null) return Hovered;
+
+            // 🔴 **2026-10-16（`T09` 批 3）：世界档的命中按【世界点】算** ——
+            //   `transform.position` 与原来的 `localPosition` **逐位相同**（选择器根在世界原点，
+            //   `Editor/BattleScene.cs` 的 A964 那条前提钉着）⇒ 这一支的行为一个字没变。
+            //   半径 = `W(ButtonSize)/2 × Scale`（原样）；⛔ 拿 px 去比世界点 = 命中框**大 108 倍**、画面却完全正常。
+            // 🔴 **2026-10-20（`T09` A3-e）**：uGUI 档那条「用 `_frame.lossyScale` 把 px 折成世界单位的圆判据」
+            //   **已整段退场**（命中改由 `EventSystem` 送达，见上面的早退）—— ⛔ 别把它加回来（= 两条路抢 `Hovered`）。
+            float half = W(ButtonSize) * 0.5f * LayoutSpace.Scale;
 
             var hit = AttackKind.None;
             for (int i = 0; i < Order.Length; i++)
@@ -1053,5 +1175,42 @@ namespace CardPresentation
             }
             return _solid;
         }
+
+        // ============================================================ 🔬 Editor-only 只读探针（A3-e）
+        //
+        //  ⚠️ **只读**（无 setter、不触发副作用）；播放器构建里整段不存在。
+        //  判据（原版真值）→ 文件头：三颗 `Highlight` 的 `Image.m_RaycastTarget = 1`；底板 `MB_4492` 也是 1；
+        //  `Highlight` 节点 rect 176.23 × 176.875（我们 = `RingSize` 176.2²）。
+#if UNITY_EDITOR
+        /// <summary>自检用：第 `i` 格（`Order` 下标）的 `Highlight` 件（世界档 / 没建出来 = `null`）。</summary>
+        public HudPiece HighlightPieceForTest(int i) { return (i >= 0 && i < _rings.Length) ? _rings[i] : null; }
+        /// <summary>自检用：第 `i` 格 `Highlight` 的 `Image.raycastTarget`（原版 = **1**）。</summary>
+        public bool HighlightRaycastTargetForTest(int i)
+        {
+            var im = ImageOf(HighlightPieceForTest(i));
+            return im != null && im.raycastTarget;
+        }
+        /// <summary>自检用：第 `i` 格的 `EventTrigger`（`PointerEnter/Exit`；`null` = 没挂上）。</summary>
+        public EventTrigger HighlightTriggerForTest(int i) { return (i >= 0 && i < _hoverTriggers.Length) ? _hoverTriggers[i] : null; }
+        /// <summary>自检用：第 `i` 格 `PointerEnter` 来过几次（只增）。</summary>
+        public int HighlightEnterCountForTest(int i) { return (i >= 0 && i < _hoverEnterCount.Length) ? _hoverEnterCount[i] : -1; }
+        /// <summary>自检用：第 `i` 格 `PointerExit` 来过几次（只增）。</summary>
+        public int HighlightExitCountForTest(int i) { return (i >= 0 && i < _hoverExitCount.Length) ? _hoverExitCount[i] : -1; }
+        /// <summary>自检用：第 `i` 格 `Highlight` 的**节点 rect**（原版 176.23 × 176.875；我们 176.2²）。</summary>
+        public Vector2 HighlightSizeForTest(int i)
+        {
+            var p = HighlightPieceForTest(i);
+            return p != null && p.Rect != null ? HudCanvas.SizePx(p.Rect) : Vector2.zero;
+        }
+        /// <summary>自检用：底板 `Image.raycastTarget`（原版 `Select Attack Background` = **1**）。</summary>
+        public bool BackgroundRaycastTargetForTest
+        {
+            get { var im = ImageOf(_background); return im != null && im.raycastTarget; }
+        }
+        static UnityEngine.UI.Image ImageOf(HudPiece p)
+        {
+            return p != null && p.IsUgui && p.Rect != null ? p.Rect.GetComponent<UnityEngine.UI.Image>() : null;
+        }
+#endif
     }
 }

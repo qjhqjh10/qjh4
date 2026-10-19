@@ -196,11 +196,11 @@ namespace CardPresentation
         /// 本类的 `Rect` 早就传了 `Clip`，**只有这里漏了**；本页确实会真给 `Clip` 赋值
         ///   （⚠️ **2026-10-13**：原写「本页的 `Rect`（:487）」—— 本类搬出 `PlayerProfileWindow.cs` 之后
         ///    「本文件/本页 `:N`」这类行号**必然失效** ⇒ 按口径只写**成员名**，不留行号。）
-        /// （`AvatarTab` 那种纵向滚动网格：`AvatarTab.cs:147` / `:239`）。
+        /// （`AvatarTab` 那种纵向滚动网格：`AvatarTab.cs` / `Shell/AvatarTab.cs`）。
         /// ⚠️ 现存的症状**不是**「滚出视口的格子还能点」—— 那些格子本来就因 `MenuScroll.Intersects`
-        /// （`AvatarTab.cs:205`）没建；这里补的是**压在视口边上那一格**：它的命中区原来按整格算、
+        /// （`AvatarTab.cs`）没建；这里补的是**压在视口边上那一格**：它的命中区原来按整格算、
         /// **伸出视口外**，点在视口外那条带子上照样会命中（可能还压着别的件）。
-        /// 这一处走的就是它（`AvatarTab.cs:224` 那颗格子的命中区）。</summary>
+        /// 这一处走的就是它（`AvatarTab.cs` 那颗格子的命中区）。</summary>
         protected Transform Hit(Transform parent, string name, PxRect r, int qOff, System.Action onClick,
                                 ImageQuad target = null, string art = null,
                                 string hoverArt = null, string pressedArt = null, string clickCue = null)

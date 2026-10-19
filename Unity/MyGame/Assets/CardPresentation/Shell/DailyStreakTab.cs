@@ -24,7 +24,9 @@ namespace CardPresentation
     /// 点下去开的是**另一扇全屏窗**（不是本窗的一页）。我们**没有**那套数据 ⇒ 按用户拍板做成**本窗的第 4 页**。</para>
     ///
     /// <para>⚠️ **凡本页里的数字/文案，出处都写在各处注释里**：矩形与字号**全是我们挑的**
-    /// （原版没有这一页 ⇒ 没有可照的尺子），文案复用 `DailyData` 里那两条**已经标着「我们挑的」**的串。</para></summary>
+    /// （原版没有这一页 ⇒ 没有可照的尺子）；文案复用 `DailyData` 里的两条 —— `StreakCurrentLabel` 仍是
+    /// **我们挑的**，`StreakInfoText` **2026-10-19（W57 · UI-6）起 = 官方词条** `Rewards Menu/DailyStreak/Help`
+    /// （🔴 本行原文写「两条都已经标着『我们挑的』」—— 对后一条**已过期**，2026-10-19 UI-7 就地订正，铁律 5）。</para></summary>
     public class DailyStreakTab : WindowTabBase
     {
         public override WindowTabType Type { get { return WindowTabType.DailyStreak; } }
@@ -100,9 +102,16 @@ namespace CardPresentation
             // 数值 —— **本页唯一的数据件**，值 = `DailyData.StreakLoggedDays`
             _value = _win.Text(_root, ValueText(), ValueR.x1, ValueR.x2, ValueR.y1, ValueR.y2,
                                6, Gold, "Daily Streak Value", 90f, face: TmpFont.Face.LatinUi);
-            // 说明句（复用 `DailyData.StreakInfoText()`，同样「我们挑的」）
+            // 说明句（复用 `DailyData.StreakInfoText()`）。
+            // 🔴 **2026-10-19（W57 · UI-7）就地订正（铁律 5）**：本行原来写「同样『我们挑的』」—— **已过期**：
+            //   该串自 UI-6 起 = **官方词条** `Rewards Menu/DailyStreak/Help`
+            //   （判据 / 更正痕迹 → `DailyData.StreakInfoText()` 的 doc）。
+            // 🔴 **`wrapPx` 不能省**：官方英文句约 103 字符，而本页框只有 `InfoR.W` = **1050px**（字号 36）
+            //   —— `Label.BuildTmp` 对单行标签硬写 `NoWrap`（`Battle/Label.cs` 的 `SetWrapWidth` doc）
+            //   ⇒ 不传就一路画出框外。折行宽取**本框宽**，与连登弹窗那两颗原版 TMP 同口径
+            //   （原版 `m_TextWrappingMode = 1`（Normal）⇒ `DailyStreakPopup` 传 `S_Info.W` / `F_Info.W`）。
             _win.Text(_root, DailyData.StreakInfoText(), InfoR.x1, InfoR.x2, InfoR.y1, InfoR.y2,
-                      6, Grey, "Daily Streak Info", 36f, face: TmpFont.Face.LatinCardBody);
+                      6, Grey, "Daily Streak Info", 36f, wrapPx: InfoR.W, face: TmpFont.Face.LatinCardBody);
         }
     }
 }

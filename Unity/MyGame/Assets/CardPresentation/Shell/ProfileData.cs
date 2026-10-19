@@ -201,8 +201,47 @@ namespace CardPresentation
         //   而那个常量字符串在 `.rdata` 里**没解出来** ⇒ 本地复刻不了那一条。
         //   列表是按「阵营 → 名字」排好序的 ⇒ 第 0 张 = 第一个阵营的第一张。**别当成原版行为。**
 
-        /// <summary>当前选中头像的**下标**（档案窗 `Avatar` 页写、顶栏/`Profile` 页/`Ranked` 页读）。</summary>
-        public static int AvatarIndex = 0;
+        /// <summary>当前选中头像的**下标**（档案窗 `Avatar` 页写、顶栏/`Profile` 页/`Ranked` 页读）。
+        ///
+        /// <para>🔴 **2026-10-19（`A1519`）就地硬化**：这里原来是一个 **`public static` 可变字段**
+        /// `public static int AvatarIndex = 0;` —— 任何自检都能改它，而改了不还原就会**漏到后面每一节**
+        /// （本类是全工程唯一一份选中态：`TopBar` / `BattleDriver` / `DeckRuntime` 全读它）。
+        /// 现在收成**属性 + 私有后备字段**：写口只剩这一个，将来要加审计 / 夹取只改这一处。</para>
+        ///
+        /// <para>🔴 **「谁改谁还原」—— 已知写点逐个列在这里**（新加写点请补进来，铁律 6：清单只留一处）：
+        /// · **生产**：`Shell/AvatarTab.cs` 的 `Selected` setter（玩家在档案窗真选头像）——
+        ///   这是**正常状态变更**，⛔ 别把它当成「漏状态」去治。
+        /// · **自检**：`Editor/MainMenuScene.cs`（顶栏立绘跟着换那一格）、
+        ///   `Editor/BattleScene.cs`（`A1502②` 立绘跟随 + 同 seed 引擎输出）。
+        ///   ⇒ 自检一律用 <see cref="SetAvatarIndexForTest"/>(返回原值) + <see cref="RestoreAvatarIndexForTest"/>，
+        ///   ⛔ 别直接 `AvatarIndex = x`（那样「改完漏没漏」只能靠人记，正是 `A1519` 的病灶）。</para>
+        ///
+        /// <para>⚠️ 为什么 setter 还留 **public**（⛔ 别改成 `private` / `internal`）：生产侧 `Shell/AvatarTab.cs`
+        /// 与 `Editor/*` 的自检分属两个程序集，而它们**都要写**；C# 做不到「这个 setter 只给自检可见」。
+        /// ⇒ 硬化落在「**唯一写口 + 成对的测试 API + 写点清单**」这三件上。</para>
+        /// <para>⚠️ setter **不夹取**（与原来的字段逐位同语义）：越界值由下面两个读口各自 `Mathf.Clamp`。</para></summary>
+        public static int AvatarIndex
+        {
+            get { return _avatarIndex; }
+            set { _avatarIndex = value; }
+        }
+        static int _avatarIndex = 0;
+
+        /// <summary>🆕 **2026-10-19（`A1519`）自检专用** —— 改头像下标并**返回原值**。
+        /// 收尾必须把返回值交给 <see cref="RestoreAvatarIndexForTest"/>。
+        /// <para>为什么要有这个口：`AvatarIndex` 是全工程唯一一份选中态，自检改了不还原会**跨节漏状态**
+        /// （`A1519`）。返回值把「原值是什么」固定成**一次数据传递** ⇒ 调用方不用自己再存一份
+        /// （省掉「存了但存错了时机」那一类坑）。</para></summary>
+        public static int SetAvatarIndexForTest(int index)
+        {
+            int prev = _avatarIndex;
+            _avatarIndex = index;
+            return prev;
+        }
+
+        /// <summary>🆕 **2026-10-19（`A1519`）自检专用** —— 把 <see cref="SetAvatarIndexForTest"/> 交回的原值放回去。
+        /// ⚠️ 只做赋值、**不夹取**（原值本来就来自这个字段）。</summary>
+        public static void RestoreAvatarIndexForTest(int saved) { _avatarIndex = saved; }
 
         /// <summary>当前选中头像的**图名**（喂给 `CardArt.Cosmetics`）。清单没读进来时返回 null。</summary>
         public static string AvatarArt

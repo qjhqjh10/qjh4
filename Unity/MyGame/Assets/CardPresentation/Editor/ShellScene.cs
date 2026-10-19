@@ -22,7 +22,7 @@ public static class ShellScene
     /// <summary>🆕 2026-10-18（第四会话）：断言计数器 + 输出口径**收口到共用件 `Editor/MenuCheck.cs`**
     /// （唯一实现处；本文件只剩同名的一行转发 ⇒ 5,534 个调用点一个字没动）。
     /// 🔴 **逐宿主一份 `CheckSink`**（⛔ 不是全局 static）—— 「拿别处的 `Check` 去断，失败会
-    /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs:12-14`。</summary>
+    /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs`。</summary>
     static readonly CheckSink _sink = new CheckSink(P)
     {
         Near = MenuNearStyle.Compact3,             // 本文件原来是 `（{got:F3} ≈ {want:F3}±{tol:F3}）`
@@ -94,14 +94,14 @@ public static class ShellScene
     /// <summary>🆕 **2026-10-13（A497）**：比**一个经「px → 设计世界 → px」往返反推回来的** px 值时用的谓词
     /// —— 逐字段容差 **0.05px**。
     ///
-    /// <para>🔴 **为什么不能直接用 `MenuDraw.SameRect`**：它是**四个字段逐位 `==`**（`Shell/MenuDraw.cs:241-242`），
-    /// 而 `ViewportClip.ClipPx`（`Shell/ViewportClip.cs:169-191`）与 `MenuDraw.QuadRectPx` 这类值**不是存下来的**
+    /// <para>🔴 **为什么不能直接用 `MenuDraw.SameRect`**：它是**四个字段逐位 `==`**（`Shell/MenuDraw.cs`），
+    /// 而 `ViewportClip.ClipPx`（`Shell/ViewportClip.cs` 的 `MenuDraw.QuadRectPx`）与 `MenuDraw.QuadRectPx` 这类值**不是存下来的**
     /// —— 它们是「`ApplyPxRect` 写进去的那个 rect」经 `PosInDesignSpace` + `LayoutSpace.ToPixel` **反推**回来的
     /// ⇒ 写进去与读回来是两条路，中间隔着一次 float32 往返（残差 ~1e-4 px 量级，A497 实测 **−6.1e-5 px**）
     /// ⇒ 逐位比**恒不等**（假阴）。0.05px 对画面无意义，但足以把往返误差挡在外面
     /// （与 `MenuDraw.SameRectNear` 同一口径；判据 → `资料/普查产出_1012/D8_ShellScene五红诊断.md` §1.2）。</para>
     ///
-    /// <para>⚠️ **`MenuDraw.SameRectNear` 是私有**（`MenuDraw.cs:249`，无访问修饰符）且它服务的
+    /// <para>⚠️ **`MenuDraw.SameRectNear` 是私有**（`MenuDraw.cs` 的 `SameRectNear`，无访问修饰符）且它服务的
     /// `SameRect` 有 **7 处生产调用点**（语义 =「一个字都不动」那种精确判据）⇒ 本件**就地**复制这一份口径，
     /// ⛔ 不去动 `MenuDraw` 那一份（改宽 = 静默改生产行为）。</para>
     ///
@@ -294,7 +294,7 @@ public static class ShellScene
 
     /// <summary>🆕 **2026-10-15（A464 · B2b）**：一段 TMP 文字**渲出来的顶点**（画布 px、左上原点）与
     /// **那一份顶点色的 alpha**（0..1），**按同一个序**（逐点对得上）。
-    /// 形状照抄 `Editor/RewardsScene.cs` 的 `TmpVertsAndAlpha`（A302 那一条、现读 `:403-426`）——
+    /// 形状照抄 `Editor/RewardsScene.cs` 的 `TmpVertsAndAlpha`（A302 那一条、现读 `CardPresentation/Editor/RewardsScene.cs`）——
     /// 两个宿主**刻意各留一份**（分属不同场景，各自的 `-executeMethod` 是新进程；两份的判据同源，
     /// 逐句都是同一套 `isVisible` 过滤 + `LayoutSpace.ToPixel`）。
     /// <para>🔴 与 `RewardsScene` 那一份的**两处有意差别**（都为了让「位置 ↔ alpha」配得准）：
@@ -651,8 +651,8 @@ public static class ShellScene
     // 🔴 **2026-10-11（FX3）三处订正 —— 上一版夹具【自己把这条恒等式砸了】**（Shell 4 + Collection 4 条红；
     //   判据全文 → `资料/普查产出_1011/DIAG-A_Shell与Collection八条红.md`）：
     //   ① **M 加在【基准的父级】那一级**，⛔ **不是基准自己** —— `PosInDesignSpace` 除的正是
-    //      `t.parent.lossyScale`（`Shell/MenuDraw.cs:74-78`），而 `p2 == M × p1` **只在「基准的父级就是
-    //      那个被乘 M 的根、且那个根在世界原点」时成立**（`Shell/MenuDraw.cs:57-61` 自己写着适用范围）。
+    //      `t.parent.lossyScale`（`Shell/MenuDraw.cs` 的 `t.parent.lossyScale`），而 `p2 == M × p1` **只在「基准的父级就是
+    //      那个被乘 M 的根、且那个根在世界原点」时成立**（`Shell/MenuDraw.cs` 自己写着适用范围）。
     //      上一版把 M 加在**窗根自己**身上、又把**窗根**挪到 (2,1.5) ⇒ 恒等式被夹具亲手破坏：
     //      偏差逐条 = `(1−M)×(2,1.5)` = **(−0.400, −0.300)**，与实现无关（日志里 8 条逐条对到小数点后 3 位）。
     //   ② **可观测余量** = 「**基准相对被乘那一级的位移** ≥1 设计单位」（⛔ 不是「离**世界原点**」——
@@ -692,7 +692,7 @@ public static class ShellScene
         // （= 上一版那种塞法）⇒ 这条红。
         CheckNear(basis.parent != null ? basis.parent.lossyScale.x : 1f, m, 1e-3f,
                   "（前提）" + what + "：**基准的【父级】在态二被乘了 M**（`PosInDesignSpace` 除的正是这一级，"
-                + "`Shell/MenuDraw.cs:74-78`）—— 父级单位缩放时新旧两式**恒等**，这条断言就等于没查");
+                + "`Shell/MenuDraw.cs`）—— 父级单位缩放时新旧两式**恒等**，这条断言就等于没查");
         Vector3 p2 = measure();
         CheckNear(p2.x, m * p1.x, 0.02f,
                   $"★ {what}：**态二 == M × 态一**（x：{p2.x:F3} vs {m:F2}×{p1.x:F3}）"
@@ -949,7 +949,7 @@ public static class ShellScene
         // 🔴 **2026-10-19（`A1534` 尾巴 · 铁律 11）**：批处理自检**不出声** —— `WFSoundPlayer.Enabled = false`
         //   时那个开关自己的契约是「**只记账不发声**：不建对象、不出声，但 `Played` 照样涨」
         //   ⇒「音效调度算对了没有」那一族断言**照旧有效**，而这一趟**不白建一堆 `AudioSource`、不白播**。
-        //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs:341-366`（同一个开关、同一个 `finally` 还原）。
+        //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs`（同一个开关、同一个 `finally` 还原）。
         //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
         bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
         WarpforgeVFX.WFSoundPlayer.Enabled = false;
@@ -1518,7 +1518,7 @@ public static class ShellScene
             //   ① **宽** = 原版 prefab 的两个字面量 —— `Window sz=(900,·)` + `Generic Popup Background sz=(100,100)`
             //      且四边锚点全 stretch ⇒ 左右各外扩 50 ⇒ **900 + 2×50 = 1000 px**（正本 §七 的节点表）；
             //   ② **高** = 面板高 + 上下各 50；`pp.PanelH` 唯一取自实现的那一项**已被上面那条独立断言钉住**
-            //      （`ShellScene.cs:620`：`PanelH` = `MessageText` **实测**渲染高与 100 取大 + 110），不是拿本条算式反推。
+            //      （`ShellScene.cs` 的 `MessageText`：`PanelH` = `MessageText` **实测**渲染高与 100 取大 + 110），不是拿本条算式反推。
             // ⚠️ 量的是**九块的并集**（`CreateNineSlice` 建的是「根 + 9 块」，只取第一块会量成某个角块 ——
             //   `Editor/SettingsScene.cs` 里那条「弹窗底量成 182×173」注 那条注释记的「弹窗底量成 182×173」当场踩的就是这个）。
             // ⚠️ 换算：**本处这一段仍是甲式**（下面那段内联循环走 `LayoutSpace.ToPixel(q.transform.position)`
@@ -1528,12 +1528,12 @@ public static class ShellScene
             //   ⚠️ 本窗那棵树的缩放恒为 1（下面两条理由）⇒ **今天甲乙两式逐位相同、读数不变**；
             //   本处这一份**不在 `A1003` 的收口清单里**（判据只列了 6 份宿主函数 + `ShellScene` 那三处）⇒ 如实记一笔。
             //   它假设窗口那棵树**没有缩放** —— `WindowsManager.AttachToAnchor` 把窗口摆成 `localScale = one`
-            //   （`Shell/WindowsManager.cs` 的 `AttachToAnchor`，`localScale = Vector3.one` 在 `:958`）。
+            //   （`Shell/WindowsManager.cs` 的 `AttachToAnchor`，`localScale = Vector3.one` 在 `CardPresentation/Shell/WindowsManager.cs`）。
             //   🔴 **2026-10-12 就地订正（铁律 5 · A430）**：这一段原来还写着「`extraScaleSmallScreen` 在我们这套里
             //   **没有消费者**」+「小屏缩放器**没实现**」（引的 `:292-300` / `:76-82` 两处行号也已漂）——
             //   **两条都不成立了**：A165（2026-10-06）把缩放器做了出来（`Shell/TransformScalerBySmallScreenUI.cs`；
             //   开关 = 同文件的 `SmallScreenUI`，**出厂关**），它的消费者 = `GameWindow.ApplySmallScreenScale()`
-            //   （`Shell/WindowsManager.cs` 的 `GameWindow.ApplySmallScreenScale`，由 `OpenByState` 在 `:466` 调 —— 就是「播音→激活→`Open()`」之后紧接的那句）。
+            //   （`Shell/WindowsManager.cs` 的 `GameWindow.ApplySmallScreenScale`，由 `OpenByState` 在 `CardPresentation/Shell/WindowsManager.cs` 调 —— 就是「播音→激活→`Open()`」之后紧接的那句）。
             //   ✅ **本条断言的结论照旧成立**（本窗那棵树缩放恒为 1），只是**理由换了**（两条各自独立成立）：
             //   ① 本窗 `extraScaleSmallScreen = 1.0`（`Shell/PromptPopup.cs` 里 `win.extraScaleSmallScreen = 1f;` 那一句）= 原版「**不覆盖**」语义 ⇒
             //      `ApplySmallScreenScale` 走 `Initialize()` 那一支（`Shell/WindowsManager.cs` 的 `GameWindow.ApplySmallScreenScale` 里 `Initialize()` 那一支）；
@@ -1934,7 +1934,7 @@ public static class ShellScene
         {
             // 🔴 **2026-10-16（A799 · 夹具现核）：本节（含 ⑤·d-3 那两处）这 3 个 `MenuDraw.Text` 探针
             //   【不会】新裁 —— ⛔ 别把它们当成「漏补的 A799 站点」。** R2 全量表逐条解过父链
-            //   （→ `资料/普查产出_1015/R2_A799全量表.md` §二 的三行 `Editor/ShellScene.cs:1327/1369/1477` ——
+            //   （→ `资料/普查产出_1015/R2_A799全量表.md` §二 的三行 `Editor/ShellScene.cs` 的 `R2_A799` ——
             //   那是 R2 的读数，行号已往下漂；**锚点 = 三个 `new GameObject("ClipTextProbe" /
             //   "ReclipAfterPlaceProbe" / "ZeroSoftTextProbe")`**）⇒ 三处全判 **不会**；本写手现核同结论：
             //   三处的第一实参恒是**独立根** `new GameObject(...)` 的 `transform`（各自 `DestroyImmediate` 收尾、
@@ -2445,10 +2445,10 @@ public static class ShellScene
                     float cE1 = softBox.y1 + 6f - gH * 0.5f - gOff;     // 下沿落在带内 **6px** 处
                     float cE2 = softBox.y1 + 18f - gH * 0.5f - gOff;    // 下沿落在带内 **18px** 处（比上一条深 12px）
                     // 🔴 **2026-10-15 订正（只读诊断 D · 铁律 5）**：下面三行的四个矩形实参**原来传错了顺序** ——
-                    //   签名是 `Text(parent, text, x1, x2, y1, y2, …)`（`Shell/MenuWindowBase.cs:284`），
+                    //   签名是 `Text(parent, text, x1, x2, y1, y2, …)`（`Shell/MenuWindowBase.cs` 的 `parent`），
                     //   而原写 `(Fx1, c∓60f, Fx2, c±60f)`（第 2、3 个实参互换）⇒ 三条实验字被摆到**不是**夹具算出来的落点上
                     //   （y 整体下移 78~138px、x 被挤到左边）⇒ B2b 那 6 条全红（**δ 夹具前提不成立、非实现缺陷**）。
-                    //   同文件传对的先例：`:1705` / `:1710` / `:1758`。
+                    //   同文件传对的先例：`本文件` / `本文件` / `本文件`。
                     lbIn = vpWin.Text(vcSoft.transform, Short, Fx1, Fx2, cIn - 60f, cIn + 60f, 5, Color.white, "TInB2b", 60f);
                     lbE1 = vpWin.Text(vcSoft.transform, Short, Fx1, Fx2, cE1 - 60f, cE1 + 60f, 5, Color.white, "TE1B2b", 60f);
                     lbE2 = vpWin.Text(vcSoft.transform, Short, Fx1, Fx2, cE2 - 60f, cE2 + 60f, 5, Color.white, "TE2B2b", 60f);
@@ -2948,11 +2948,11 @@ public static class ShellScene
             //   ⚠️ 本段**用探针自造**这个处境（不改生产数据），所以它不依赖 `MainMenuWindow` 那一套树。
             //
             // ⚠️ 本段**只**摆「常驻主菜单 + 最后一扇」这一格；端到端那一格（开社交窗 ⇒ 主菜单被藏 ⇒ 关社交窗
-            //    ⇒ 主菜单回来）在 `Editor/MainMenuScene.cs:10406-10443`（A1629 那两条）里。
+            //    ⇒ 主菜单回来）在 `Editor/MainMenuScene.cs`（A1629 那两条）里。
             {
                 var baseGo = new GameObject("A1709 baseMenu probe");
                 var baseW = baseGo.AddComponent<GameWindow>();
-                baseW.type = WindowType.Fullscreen;              // 与真那一扇同档（`MainMenuRuntime.cs:509` 实读 = 0）
+                baseW.type = WindowType.Fullscreen;              // 与真那一扇同档（`MainMenuRuntime.cs` 的 `WindowType` 实读 = 0）
                 baseW.placement = WindowsPlacement.Canvas;
                 WindowsManager.AttachToAnchor(baseW);
                 shell.Windows.SetBaseMenu(baseW);                // = 原版 `MainMenuWindow.Initialize` 那两句的前一句
@@ -3681,7 +3681,7 @@ public static class ShellScene
         //      ⛔ 反向那几态都要断（只断一态 = 弱断言，分不出「接上了」与「恰好没接」）；
         //      ⛔ 别拿 `MenuDraw.PaddedHitRect` 自己算出来的值当期望（那就是同义反复）。
         // 🔴 **本件是「搬家」**：既有断言证明「零行为变化」——`MenuWindowBase` 家族那几条在下面 ⑤·b
-        //   （`RenderClip` = `Clip` 按 `ClipPad` 内缩 · 左沿 1010 · 反向右移那位）与 `Editor/RewardsScene.cs:1511,1513,1520,2817`
+        //   （`RenderClip` = `Clip` 按 `ClipPad` 内缩 · 左沿 1010 · 反向右移那位）与 `Editor/RewardsScene.cs` 的 `RenderClip`
         //   （锻造轨道命中宽 190.762 = 200.762 − 10 / 战役轨道不许被缩）；`AddHit` 那条转发路的调用点
         //   （`CollectionWindow` / `ForgeTab` / `CampaignTab` / `MissionsTab`）签名逐字未动 ⇒ 解析到同一份实现。
         Section("共用件：裁切状态（`hitPad` / 软边）长在共同基类 `GameWindow` 上（A78②）");
@@ -4158,7 +4158,7 @@ public static class ShellScene
 
             // 🆕 **2026-10-13（A1719）**：**九宫格按钮的「一组」要认对**（正文 → `Shell/WindowButton.cs`
             //   的 `GrayTargets()` 那一段）。形状：可见底图被切成 9 块放在**一颗节点**上，而 `WindowButton`
-            //   挂在【另一颗】透明命中区上、两者**互为兄弟**（真实站点 = `Shell/GenericOptionsPanel.cs:462-492`：
+            //   挂在【另一颗】透明命中区上、两者**互为兄弟**（真实站点 = `Shell/GenericOptionsPanel.cs`：
             //   `bgo = MenuDraw.Nine(bn, …)` 与 `Hit(bn, "Hit", …)` 都挂在 `bn` 下；`Shell/AllianceMemberOptionsPopup.cs`
             //   同形）。改前 `GrayTargets()` = 「`target` + 本钮子树」⇒ 只看得到那 9 块里的**第 1 块**；
             //   而换图那一路（`BindNine` 记下的 `_nine` → `SwapTo`）认的是**全部 9 块** ⇒ 灰/亮**不对称**。
@@ -4355,7 +4355,7 @@ public static class ShellScene
                 //   `lw2 != null && lw2 != lw1` 变**假红**（A516 那条踩过的坑就是「一下都没点」）。重抓两种情形都对。
                 //   ⚠️ 今天这一处**恰好**不炸的原因（读出来的，不是猜的）：`WindowButton.onClick` 是**裸字段**
                 //   （`Shell/WindowButton.cs` 的 `WindowButton.onClick`；⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）⇒ 解引用不抛；而委托体 `BattleLogTab.OpenPopup`
-                //   （`Shell/BattleLogTab.cs:172-177`）**一句实例状态都没读**（只有静态的 `WindowsManager.OpenByRef`
+                //   （`Shell/BattleLogTab.cs` 的 `WindowsManager.OpenByRef`）**一句实例状态都没读**（只有静态的 `WindowsManager.OpenByRef`
                 //   + 常量串 `Debug.Log`）⇒ 即便宿主已销毁也照旧开窗、不抛。**这是巧合、不是保证** ——
                 //   哪天 `OpenPopup` 读一个实例字段就会抛 `MissingReferenceException`。
                 var lbN2 = FindChildIn(profA.transform, "Open Log Popup Button");
@@ -4463,7 +4463,7 @@ public static class ShellScene
         //   （同一文件里那句 `SetParent(anchor, false)` + `localPosition = zero`）⇒ 新旧两式在**该调用形状下永远逐位相同**（⛔ 不是「今天观测不到」）
         //   ⇒ A306①②③④ 那四处码的改动在生产里**是 no-op**（留着只因口径更对 / 防御性）。
         //   ⛔ **别再说成「修好了一个带电的潜伏缺陷」**；真带电的是**非根基准**那一族
-        //   （`Shell/PracticeModePopup.cs:494/502/792/796/853/924/1238`）。
+        //   （`Shell/PracticeModePopup.cs`）。
         //   ⚠️ 本夹具（M 加在**窗根的父级** + 态二**重建**）照的正是**那一族**的形状（判据 → 文件头 ①②③）。
         SmallScreenUI.PersistOverride = true;      // ⛔ 自检不许动玩家的真设置
         Section("A327 · A306①：`PromptPopup.Local` 的落位（关 = 逐值不变 / 开 = 设计点 × M）");
@@ -4827,10 +4827,10 @@ public static class ShellScene
                 {
                     // 🔴 **2026-10-14（清单 #14 / D2 #1）**：`GetComponentsInChildren(true)` 连**关掉的**件一起捞，
                     //   而 `MenuDraw.ClipNineChildren` 对「整块在框外」的九宫子块的处理是 **`SetActive(false)`、
-                    //   ⛔ 不删节点**（`Shell/MenuDraw.cs:1409` 那一句；函数体 `:1393`，「不删节点」写在 `:1386`）
+                    //   ⛔ 不删节点**（`Shell/MenuDraw.cs` 那一句；函数体与「不删节点」的写法都在同一文件）
                     //   ⇒ 不判这一下就会把**画面上不画**的底边条算进「画出来的下沿」
                     //   （实测 = 第 9 行的 856.00，而不是视口下沿 811.00）。
-                    //   口径照**同文件**的 `GUnion`（下面 `:4516`）抄 —— 那一条本来就写着
+                    //   口径照**同文件**的 `GUnion`（下面 `本文件`）抄 —— 那一条本来就写着
                     //   「⚠️ 跳过 `!activeInHierarchy` 的件（画面上没有的东西不算「画出来的并集」）」。
                     //   ⇒ 两份同类读数器从这一刻起同口径（D2 §五·3 提的「建议收口成一份」仍开着，另立账）。
                     if (q == null || !q.gameObject.activeInHierarchy) continue;
@@ -5203,7 +5203,7 @@ public static class ShellScene
 
             // 🔴 **2026-10-14（清单 #12 的**断言半边**）**：态一**本来就压边** —— 它**不是**「未切值」。
             //    `MsgList` 的右沿是 728.28，而这段字（`InboxWindow` 的 42 个 `W`）的**自然右沿比它宽**
-            //    ⇒ 态一量到的右沿就是**被夹在框沿上**的那个值。判据：`Shell/InboxWindow.cs:54` 的 `MsgList`。
+            //    ⇒ 态一量到的右沿就是**被夹在框沿上**的那个值。判据：`Shell/InboxWindow.cs` 的 `MsgList`。
             //    ⚠️ **更正痕迹（铁律 5）**：原来下面态三/态四把本条读数当「未切值」用（「态一未切时是 {aMaxX}」/
             //    「右沿回到未切值 aMaxX」）—— **那是错的**。**错因** = A804（`Label.AlignLeftOn`/`AlignRightOn`
             //    平移完**不重裁** ⇒ 裁切框被整块推走 `+123.16px`）把这个读数**伪装成了「未切值」**
@@ -5329,7 +5329,7 @@ public static class ShellScene
                          : "（⛔ 节点没找到，本条按上一条的红一起看）"));
 
             // 🆕 **2026-10-18（A840）**：这颗视口**记过自己的设计矩形** —— 记录点 = `BuildArmySelector` 里
-            //   `AddComponent<ViewportClip>()` 之后那句 `vc.CaptureNow();`（`Shell/LiveOpsEventWindow.cs:614`）。
+            //   `AddComponent<ViewportClip>()` 之后那句 `vc.CaptureNow();`（`Shell/LiveOpsEventWindow.cs` 的 `vc.CaptureNow();`）。
             //   口径 → `Shell/ViewportClip.cs` 文件头 §①；现场 → `资料/普查产出_1018/S1_A840与A867.md` §1/§2.1。
             //   🔴 **为什么非断不可**：本窗 `Open()` 每次都**整棵树重建**，而 `CaptureNow()` 抓的是「建树那一刻、
             //   `MenuDraw.Node` 刚写进这个节点的那个矩形」= 框的中心那一帧。⛔ 少了它 ⇒ 本节点**逐位回落到旧写法**
@@ -5337,7 +5337,7 @@ public static class ShellScene
             //   —— 那正是 A811 根治掉的那个病灶（`Shell/ViewportClip.cs` 文件头「A811 根治」那一节）。
             CheckTrue(armVc != null && armVc.HasBaseRect,
                       "★ A840：这颗视口**记过设计矩形**（`ViewportClip.HasBaseRect`）"
-                    + "｜**改坏法**：删掉 `Shell/LiveOpsEventWindow.cs:614` 那句 `vc.CaptureNow();` ⇒ 本条红"
+                    + "｜**改坏法**：删掉 `Shell/LiveOpsEventWindow.cs` 那句 `vc.CaptureNow();` ⇒ 本条红"
                     + (armVc != null ? "" : "（⛔ 节点没找到，本条按上面 A745 那条的红一起看）"));
             // 期望值 = **原版 prefab 字面量**（`Ranked Army Selector/Army Selector/Viewport`：
             // 1323.16,218.94 → 1870.28,882.03）—— ⛔ 不拿 `LiveOpsEventWindow.ArmView*` 当期望值：
@@ -5393,7 +5393,7 @@ public static class ShellScene
             }
 
             // ============================================================ 🆕 A867：同一实例再 `Open()` ⇒ 登记表不涨
-            //   （先例逐字同形的写法 → `Editor/RewardsScene.cs:8126-8141` 的 A510 那一条；
+            //   （先例逐字同形的写法 → `Editor/RewardsScene.cs` 的 A510 那一条；
             //    现场 / 改坏法 → `资料/普查产出_1018/S1_A840与A867.md` §2.2 / §4.1）
             //   🔴 口径：本窗 `Open()` 每次都 `Build()`，而 `Build()` 是「把 `root` 的子件全清掉再重建」、
             //     会登记一颗**新**的 `MenuScroll`（`_armyScroll.Owner = gameObject`）—— 「关窗只 `SetActive(false)`、
@@ -5410,7 +5410,7 @@ public static class ShellScene
             Check(PointerLayer.ScrollCountForTest, nScrollSk,
                   $"★★ A867：同一实例再 `Open()` 一次（= `Build()` 再跑一遍）⇒ 滚动登记表**一条都不涨**"
                 + $"（{nScrollSk} → {PointerLayer.ScrollCountForTest}）"
-                + "｜**改坏法**：删掉 `Shell/LiveOpsEventWindow.cs:378` 那句 "
+                + "｜**改坏法**：删掉 `Shell/LiveOpsEventWindow.cs` 那句 "
                 + "`PointerLayer.UnregisterOwnedBy(gameObject);` ⇒ 每重建一次**净涨 1 条**（本窗只有阵营条那一颗登记），"
                 + "而且旧条目**还能被滚轮命中**（`OnChanged` 指向已销毁的节点）⇒ 本条红");
             sk.Close();
@@ -5543,17 +5543,17 @@ public static class ShellScene
                       + " —— 改坏法：改任一格 ⇒ 红");
 
             // 🆕 **2026-10-18（A840）**：这两颗视口**各记过自己的设计矩形** —— 记录点 = `BuildArmySelector` 里
-            //   `armyVc.CaptureNow();` 与 `BuildDeckRows` 里 `deckVc.CaptureNow();`（`Shell/PracticeModePopup.cs:883/:1051`）。
+            //   `armyVc.CaptureNow();` 与 `BuildDeckRows` 里 `deckVc.CaptureNow();`（两处都在 `Shell/PracticeModePopup.cs`）。
             //   口径 → `Shell/ViewportClip.cs` 文件头 §①；现场 → `资料/普查产出_1018/S1_A840与A867.md` §1/§2.1。
             //   🔴 **两处必须逐颗各一条**：取状态那一路（`ViewportClip.Resolve` 第 2 步）是**沿父链找最近的那一颗**
             //   ⇒ **一处漏补 = 那一处静默回落到旧写法**（实时反推 + `LiveDerivations`），另一处补了也**管不到它**。
             //   ⛔ 所以 ⛔ **不写成「至少有一颗对」**那种弱断言。
             CheckTrue(armyVc != null && armyVc.HasBaseRect,
                       "★ A840：**阵营**视口（`Army Selector/Viewport`）记过设计矩形（`ViewportClip.HasBaseRect`）"
-                    + "｜**改坏法**：删掉 `Shell/PracticeModePopup.cs:883` 那句 `armyVc.CaptureNow();` ⇒ 本条红");
+                    + "｜**改坏法**：删掉 `Shell/PracticeModePopup.cs` 那句 `armyVc.CaptureNow();` ⇒ 本条红");
             CheckTrue(deckVc != null && deckVc.HasBaseRect,
                       "★ A840：**卡组**视口（`Decks Scroll view/Viewport`）记过设计矩形（同上）"
-                    + "｜**改坏法**：删掉 `Shell/PracticeModePopup.cs:1051` 那句 `deckVc.CaptureNow();` ⇒ 本条红"
+                    + "｜**改坏法**：删掉 `Shell/PracticeModePopup.cs` 那句 `deckVc.CaptureNow();` ⇒ 本条红"
                     + "（⛔ 上面那条绿**管不到它** —— `Resolve` 找的是**最近**的那一颗）");
             // 期望值 = **原版字面量**（本段顶上那四个 `const float ArmVp*/DkVp*`，它们的出处逐条写在各常量注释里）
             // —— ⛔ 不读 `PracticeModePopup.ArmVp*` / `DecksVp*`：那是**被测实现传进 `Node(...)` 的实参**（= 自证）。
@@ -5583,7 +5583,7 @@ public static class ShellScene
             }
             // 🔴 **第三个观测轴**（S1 §4.2 点名的那一个）：`ViewportClip.LiveDerivations` = 走「实时反推」那一支的计数。
             //   修后这两颗**一次都不该走那一支**。⚠️ 它是**全局静态、跨窗累计** ⇒ **只能在本段里前后差分**
-            //   （⛔ 别横向比绝对值）；判据用法 `Shell/ViewportClip.cs:433-440` 自己就是这么写的。
+            //   （⛔ 别横向比绝对值）；判据用法 `Shell/ViewportClip.cs` 自己就是这么写的。
             //   ⚠️ 与上面那两条**不是同一件事**：那两条看**状态**（`HasBaseRect` / 记下来的值），本条看**代码路径**
             //   （读框时到底进了哪一支）—— 两条都断了才排除「状态对、但取用那一趟仍走旧路」这一档。
             if (armyVc != null)
@@ -5594,7 +5594,7 @@ public static class ShellScene
                 Check(ViewportClip.LiveDerivations, ld0,
                       $"★ A840：读一次 `ClipPx` ⇒ **`LiveDerivations` 一条都不涨**（{ld0} → {ViewportClip.LiveDerivations}）"
                     + " —— 涨了 = 这颗节点**没有** `BaseRect`、又走回了实时反推那一支（A811 那个病灶）"
-                    + "｜**改坏法**：删掉 `Shell/PracticeModePopup.cs:883` 那句 `armyVc.CaptureNow();` ⇒ 本条红");
+                    + "｜**改坏法**：删掉 `Shell/PracticeModePopup.cs` 那句 `armyVc.CaptureNow();` ⇒ 本条红");
             }
             CheckTrue(armyVc != null && deckVc != null && !ReferenceEquals(armyVc, deckVc),
                       "★ 两处是**两颗不同的节点**（一扇窗里两个视口各自一份状态 —— 这正是 `ViewportClip` 相对"
@@ -5820,7 +5820,7 @@ public static class ShellScene
             }
 
             // ============================================================ 🆕 A867：同一实例再 `Open()` ⇒ 登记表不涨
-            //   （先例 / 口径逐字同上：`Editor/RewardsScene.cs:8126-8141` 的 A510 那一条 ·
+            //   （先例 / 口径逐字同上：`Editor/RewardsScene.cs` 的 A510 那一条 ·
             //    现场 / 改坏法 → `资料/普查产出_1018/S1_A840与A867.md` §2.2 / §4.1）
             //   🔴 本窗**一处漏补 = 每次重建净涨 2 条**（它窗内**两处**登记：阵营条 + 卡组条）。
             //   ⚠️ 先重建一次**取基线**（那一次顺手把待清的死条目吸掉）⇒ 基线之后那次才只反映「本窗重建涨不涨」。
@@ -5832,7 +5832,7 @@ public static class ShellScene
             Check(PointerLayer.ScrollCountForTest, nScrollPw,
                   $"★★ A867：同一实例再 `Open()` 一次 ⇒ 滚动登记表**一条都不涨**"
                 + $"（{nScrollPw} → {PointerLayer.ScrollCountForTest}）"
-                + "｜**改坏法**：删掉 `Shell/PracticeModePopup.cs:754` 那句 "
+                + "｜**改坏法**：删掉 `Shell/PracticeModePopup.cs` 那句 "
                 + "`PointerLayer.UnregisterOwnedBy(gameObject);` ⇒ 每重建一次**净涨 2 条**（本窗两处视口）⇒ 本条红");
 
             // ============================================================ 收尾
@@ -5860,9 +5860,9 @@ public static class ShellScene
             CheckTrue(tutW != null && tutW.CurrentState == WindowState.Open,
                       "（前提）教程模式窗开起来了（本段末尾关掉）");
 
-            // ---- A840：`Army Selector/Viewport` 那一颗记过自己的设计矩形（`Shell/TutorialModePopup.cs:510`）----
+            // ---- A840：`Army Selector/Viewport` 那一颗记过自己的设计矩形（`Shell/TutorialModePopup.cs`）----
             //   矩形 = 原版 `Army Selector` 那一格（60,244.89 → 649.68,902.69）—— 期望值写的是**原版字面量**
-            //   （出处 = `Shell/TutorialModePopup.cs:170` 那行注释里的实读值），⛔ 不读它自己的
+            //   （出处 = `Shell/TutorialModePopup.cs` 那行注释里的实读值），⛔ 不读它自己的
             //   `ArmL/ArmT/ArmR/ArmB`（那是**被测实现传进 `Node(...)` 的实参** = 自证）。
             var tVpNode = tutW.transform.Find("Army Selector/Viewport");
             var tVp = tVpNode != null ? tVpNode.GetComponent<ViewportClip>() : null;
@@ -5872,7 +5872,7 @@ public static class ShellScene
             CheckTrue(tVp != null && tVp.HasBaseRect,
                       "★ A840：这颗视口**记过设计矩形**（`ViewportClip.HasBaseRect`）—— 记录点 = `BuildArmySelector` 里"
                     + " `AddComponent<ViewportClip>()` 之后那句 `vc.CaptureNow();`"
-                    + "｜**改坏法**：删掉 `Shell/TutorialModePopup.cs:510` 那一句 ⇒ 本条红"
+                    + "｜**改坏法**：删掉 `Shell/TutorialModePopup.cs` 那一句 ⇒ 本条红"
                     + "（该颗逐位回落到实时反推 + `LiveDerivations`）");
             if (tVp != null && tVp.HasBaseRect)
             {
@@ -5887,8 +5887,8 @@ public static class ShellScene
                         + "（`HasBaseRect` 仍 true ⇒ 上面那条抓不到它，只有本条抓得住）");
             }
 
-            // ---- A867：同一实例再 `Open()` ⇒ 滚动登记表不涨（`Shell/TutorialModePopup.cs:324`）----
-            //   口径逐字同上（先例 → `Editor/RewardsScene.cs:8126-8141`）：`Build()` 只清子件、窗根不死，
+            // ---- A867：同一实例再 `Open()` ⇒ 滚动登记表不涨（`Shell/TutorialModePopup.cs` 的 `Open()`）----
+            //   口径逐字同上（先例 → `Editor/RewardsScene.cs`）：`Build()` 只清子件、窗根不死，
             //   而 `MenuScroll` 是普通 C# 类 ⇒ `PointerLayer` 那两道自动清理**都判不出旧条目已死**。
             tutW.Open();                                // 吸基线（开窗那一次已经建过一遍）
             int nScrollTut = PointerLayer.ScrollCountForTest;
@@ -5898,7 +5898,7 @@ public static class ShellScene
             Check(PointerLayer.ScrollCountForTest, nScrollTut,
                   $"★★ A867：同一实例再 `Open()` 一次 ⇒ 滚动登记表**一条都不涨**"
                 + $"（{nScrollTut} → {PointerLayer.ScrollCountForTest}）"
-                + "｜**改坏法**：删掉 `Shell/TutorialModePopup.cs:324` 那句 "
+                + "｜**改坏法**：删掉 `Shell/TutorialModePopup.cs` 那句 "
                 + "`PointerLayer.UnregisterOwnedBy(gameObject);` ⇒ 每重建一次**净涨 1 条**（本窗只有关卡条那一颗登记）"
                 + "⇒ 本条红");
             // ⚠️ 本窗**不 `DestroyImmediate`**（同族纪律：它进过 `WindowsManager` 的窗表 ⇒ 那会留一个 Unity 假 null，
@@ -5995,9 +5995,9 @@ public static class ShellScene
                 Vp4("RankedTab（`Ranking Tab/AllFactions/scroll rect/viewport`）",
                     pgRk2.RowsScroll,
                     // 🔴 **2026-10-14（清单 #16 / D2 #5）**：本页有**两颗**叫 `content` 的节点 ——
-                    //    `Shell/RankedTab.cs:285` 的 `Top4/content` 与 `:417` 的
+                    //    `Shell/RankedTab.cs` 的 `Top4/content` 与
                     //    `AllFactions/scroll rect/viewport/content`（`_content`，**要找的就是它**）。
-                    //    而 `FindChildIn`（`:229-235`）是 `GetComponentsInChildren` **取第一个**、`Top4` 先建
+                    //    而 `FindChildIn`（`CardPresentation/Shell/RankedTab.cs`）是 `GetComponentsInChildren` **取第一个**、`Top4` 先建
                     //    ⇒ 原来命中的是 `Top4/content`、它的父链上没有 `ViewportClip` ⇒ `FindAbove` 恒 null ⇒ 假红。
                     //    ⇒ 按内容限定到 `AllFactions` 那一支（该子树里 `content` 唯一）。
                     FindChildIn(FindChildIn(pgRk2.transform, "AllFactions"), "content"), "viewport");
@@ -6021,7 +6021,7 @@ public static class ShellScene
             //   `mgr.OpenWindow`）⇒ 少了这一句 `CurrentState` 恒 `Closed`、`Open()` 从不跑、**树是空的**
             //   ⇒ `Tabs` / `Campaign Tab` / `Forge Tab` 全取不到 ⇒ 本段那条「（前提）`RewardsWindow` 的页
             //     都建出来了」红的根因（下面两条 `Vp4` 有 `if (ct2 != null)` / `if (ft2 != null)` 守着 ⇒ 不再级联）。
-            //   对照：同段 ①（档案窗 `:4388`）/ ②（榜单 `:4422`）都是 `Create` **+ `OpenWindow`**，只这一处漏了。
+            //   对照：同段 ①（档案窗 `本文件`）/ ②（榜单 `本文件`）都是 `Create` **+ `OpenWindow`**，只这一处漏了。
             //   ⚠️ 纪律（D2 §五·2）：**`Create` 到底开不开窗 —— 逐窗现读、别按族推**
             //   （`LeaderboardWindow` / `RewardsWindow` / `InboxWindow` 不自开；走 `WindowsManager.OpenXxx`
             //    那一族与 `PurchasePremiumWindow.Create` 会开）。
@@ -6220,12 +6220,12 @@ public static class ShellScene
             //     ⇒ **原版是父子**（`Army Selector/{Separator Line, Viewport/Army Content}`）—— A769 那条结构缺口的判据。
             var lbG = LeaderboardWindow.Create(shell.Windows, LeaderboardKind.Skirmish);
             // 🔴 **2026-10-14（清单 #18 / D2 #7）**：`LeaderboardWindow.Create` **不自开窗**
-            //   （`Shell/LeaderboardWindow.cs:210-224` 只 `AttachToAnchor` 就 `return`）⇒ 少了这一句
+            //   （`Shell/LeaderboardWindow.cs` 的 `AttachToAnchor` 只 `AttachToAnchor` 就 `return`）⇒ 少了这一句
             //   `Build()` 从不跑、`Army Selector` / `Army Content` / 那颗 `Viewport` 全是 null
             //   ⇒ 本段 **#18–#23 六条**（A769 结构 / 条目吃节点 / 命中区 / A768①）一起红。
-            //   对照：本文件 ② 那一处**同一个窗口**是 `Create` **+ `OpenWindow(lb2)`**（`:4421-4423`）⇒ 那边全绿。
-            //   ⚠️ 判「实现侧有没有错」别被这一句盖住：`LeaderboardWindow.cs:488` 的
-            //   `_armyContent = Node(vpVc.transform, "Army Content", …)` 与 `:498` 的 `_armyScroll.ClipNode = vpVc;`
+            //   对照：本文件 ② 那一处**同一个窗口**是 `Create` **+ `OpenWindow(lb2)`**（`本文件`）⇒ 那边全绿。
+            //   ⚠️ 判「实现侧有没有错」别被这一句盖住：`LeaderboardWindow.cs` 的
+            //   `_armyContent = Node(vpVc.transform, "Army Content", …)` 与 `CardPresentation/Shell/LeaderboardWindow.cs` 的 `_armyScroll.ClipNode = vpVc;`
             //   **本来就在**（D2 #10 明说），只是从没执行过。
             shell.Windows.OpenWindow(lbG);
             var armSelG = FindChildIn(lbG.transform, "Army Selector");
@@ -6761,14 +6761,14 @@ public static class ShellScene
         //
         // 判据（`资料/待办判据_1018.md` §A964 的一句话）：**凡参与点击命中的节点，
         //   它的【命中区矩形】必须覆盖它【画出来的矩形】。**
-        //   · ⚠️ **量 quad、不量节点** —— 本仓**没有 UGUI `EventSystem`**（`Battle/CombatCameraZoom.cs:85` 实证），
+        //   · ⚠️ **量 quad、不量节点** —— 本仓**没有 UGUI `EventSystem`**（`Battle/CombatCameraZoom.cs` 的 `EventSystem` 实证），
         //     命中是 `Shell/PointerLayer.cs` 自己算世界坐标/矩形的；节点的 rect 与真正画出来的四边形**可以不一致**。
         //   · ⚠️ **要命中就必须带 `ImageQuad`**（`HitQuad` 走 `GetComponentInChildren<ImageQuad>`）。
         //   · ⚠️ **分层别靠 z**（用 `RenderQueue`）—— 与命中无关，但同一次普查里顺带核 E3。
         //
         // 🔴 **本段是【报告式】探针**（A964 续 ② 的裁定）：E1 / E3 **只列候选 + 落点/实绘证据、不做普适断言**
         //   —— 「画出来的矩形」在场景树里**没有唯一答案**：装饰件会**叠在同一矩形**上
-        //   （实据 = `Shell/CampaignTab.cs:459` 的 `Premium Mark` 用 `localScale=(2,2,1)` 画在同一个 `r` 上）
+        //   （实据 = `Shell/CampaignTab.cs` 的 `localScale` 的 `Premium Mark` 用 `localScale=(2,2,1)` 画在同一个 `r` 上）
         //   ⇒ 硬套「覆盖」判据会**假红**。逐条判由调度台做，确认下来的才补结构性断言。
         //
         // 🔴 **E2（`vis ≠ hr` 那一族）本段【故意不上】**：`MenuDraw.Hit` 那 46 处调用点里 `vis ≠ hr` 的
@@ -6938,7 +6938,7 @@ public static class ShellScene
             // 🔴 **为什么不能只标「抽样」**（方案 C，已否）：22 个窗类永远是「没扫过」⇒ 账清不掉。
             //
             // ⚠️ **建法一律照生产那条路**：能走 `WindowsManager` 那 7 个 `Open*` 帮助函数的走它
-            //   （`Shell/WindowsManager.cs:1342-1460`，= 原版菜单那几条开窗路的收编点），其余走各类自己的
+            //   （`Shell/WindowsManager.cs`，= 原版菜单那几条开窗路的收编点），其余走各类自己的
             //   `Create(mgr)`；3 个带必填参的给**小夹具**（逐条判据与出处 → 那份查证 §1·3）。
             // ⚠️ **用完必须 `DestroyImmediate`**（批处理没有帧循环 ⇒ `Destroy` 不生效），而且只能在
             //   **本段扫描跑完之后**销毁 —— 它们要靠下面那条 `FindObjectsByType` 现扫进 `wins`。
@@ -6977,7 +6977,7 @@ public static class ShellScene
                 ("TrophyInfoPopup",      m => TrophyInfoPopup.Open(m)),
                 // ---- 3 扇要小夹具 ----
                 //  `DeckInfoPopup`：`(mgr, deckIndex, state)` ⇒ 索引给 0、态给 `Edit`（出厂值）
-                //  `SearchingOpponentWindow`：`(mgr, deckIndex)` ⇒ 0（官方样例 → `RankedEventWindow.cs:243`）
+                //  `SearchingOpponentWindow`：`(mgr, deckIndex)` ⇒ 0（官方样例 → `RankedEventWindow.cs` 的 `SearchingOpponentWindow`）
                 //  `DuelPopupWindow`：`(mgr, opponent)` ⇒ 对手名给 `"Goff"`（同族样例里的那一串）
                 ("DeckInfoPopup",           m => DeckInfoPopup.Create(m, 0, DeckInfoPopup.DeckInfoState.Edit)),
                 ("SearchingOpponentWindow", m => SearchingOpponentWindow.Create(m, 0)),
@@ -7441,9 +7441,9 @@ public static class ShellScene
         //   `Label` 调过 `SetAutoFitBox`」—— ⛔ **不是**旧说法「调用方没传 `autoMinPx` 就不接 autosize」
         //   （那条**只是必要条件、已被现核推翻**：全仓有一批是「调用后另调 `SetAutoFitBox`」这一形态
         //   ——简报口径 **45 处**，本件**未自己数过**；**我逐字核过的那一条**是
-        //   `Shell/LiveOpsEventWindow.cs:536` 一个 autosize 实参都没传、`:549` 却调了 ⇒ 它是**接上的**）。
+        //   `Shell/LiveOpsEventWindow.cs` 一个 autosize 实参都没传、却调了 ⇒ 它是**接上的**）。
         //   两条关键事实（都在 `Shell/MenuDraw.cs`）：
-        //     ① `TextCore` 里 `SetAutoFitBox` **关在 `if (wrapPx > 0f)` 里面**（`:1851` 是那道闸、`:1856` 才调）
+        //     ① `TextCore` 里 `SetAutoFitBox` **关在 `if (wrapPx > 0f)` 里面**（`CardPresentation/Shell/MenuDraw.cs` 是那道闸、`CardPresentation/Shell/MenuDraw.cs` 才调）
         //        ⇒ **传了 `autoMinPx` 但没传 `wrapPx` 照样不生效**（死实参）；
         //     ② `SetWrapWidth` **无条件**把折行模式写成 `Normal(1)` ⇒ 原版 `折行=0` 的件必须紧跟 `SetWrapping(false)`。
         // 🔴 **期望值全是原版那一颗的实读字段**（`m_enableAutoSizing` / `m_fontSizeMin` / `m_fontSizeMax` /
@@ -7502,7 +7502,7 @@ public static class ShellScene
                 var sz = ShellLabelRenderedPx(lb);
                 // ⚠️ **2026-10-20（A1192）：「量得到吗」那道闸补上【上界】**—— TMP 在**未重排 / 空串 /
                 //    从没生成过字形**时给的是**哨兵天文数字**（`Battle/Label.cs` 的 `HasMeasuredWidth`
-                //    文件头实测 4.29e9 一档；`Editor/BattleScene.cs:17694` 那条 A1192 上界闸记的是 4.6e11）
+                //    文件头实测 4.29e9 一档；`Editor/BattleScene.cs` 那条 A1192 上界闸记的是 4.6e11）
                 //    ⇒ 那种读数**不是「字太宽」**，是**量法没生效**：分开报，⛔ 别让它冒充「溢出」
                 //    （冒充会把下一个会话引到错方向 —— 同 `资料/已知的坑.md` 那条「量法没生效别当成缺陷」）。
                 bool szOk = sz.x > 0.5f && sz.x < 100000f && sz.y > 0.5f && sz.y < 100000f;
@@ -7653,7 +7653,7 @@ public static class ShellScene
                 //   **原形态是错的**（本件现核 · `A1178` 那两条红 = (α) 断言错）：它断的是
                 //   「**收敛字号 ≈ 窗口上限**」=「字没被缩」，**前提只覆盖了一半** —— 它默认
                 //   「框已按 preferred 撑开 ⇒ 宽度不再是约束 ⇒ TMP 只剩上限可撞」。而 `A1178`
-                //   撑开的**只有宽**（`Shell/EnergySinglePlayerOnlyEventWindow.cs:694-700` 的 `txFit`
+                //   撑开的**只有宽**（`Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `txFit`
                 //   只改左沿 + 宽度，`y1/y2` 原样）⇒ **紧的其实是【高度】**。
                 //   机制（判据 = 工程自带的包源码）：TMP 有**两条**降字号的闸 ——
                 //   **竖界** `TextMeshProUGUI.cs:3393` `if (textHeight > marginHeight + 0.0001f)`
@@ -7858,8 +7858,8 @@ public static class ShellScene
             //
             // 🔴 **为什么放在 `ShellScene.Run`**：`P4` §7·2 已经把话说全了 —— 它登记的那 4 处里
             //  `:776` 是**唯一活在路径上**的一处，而那扇窗**只有本宿主建**（`CardDetailPopup.Create`
-            //  全库只在两处出现：本文件 `:6113` 的 A1001 建窗表，与 `Shell/CollectionWindow.cs` 里
-            //  `OpenCardDetail` 的 `:3102`；后者是 `Shell/**`、不在本件白名单内）。
+            //  全库只在两处出现：本文件 `本文件` 的 A1001 建窗表，与 `Shell/CollectionWindow.cs` 里
+            //  `OpenCardDetail` 的 `CardPresentation/Shell/CollectionWindow.cs`；后者是 `Shell/**`、不在本件白名单内）。
             // 🔴 **期望值全是原版字面量**（判据 = `P4` §2 #5 / `R2` §3 注① 的逐颗现读）：
             //  原版 `mainmenuwarpforge ▸ Alternate Art Panel/Buy Original Card Button/Generic UI Button/
             //  Price Display/text` = `m_enableAutoSizing 1` · min **12** · max **54** · base **39** · 折行 **0**；
@@ -7870,7 +7870,7 @@ public static class ShellScene
             // ⚠️ **必须喂一张「有异画」的卡**：`BuildAltArt` 的末句是 `p.gameObject.SetActive(has)`
             //  （`has = HasAltArtStyle(Card.Id)`，判据 → `AlternateArtPanel__Initialize.c:22-38`）——
             //  拿一张**没有异画**的卡进这一节，整块是关的、TMP 不给它重排 ⇒ 那条守卫量到的是**哨兵**。
-            //  取卡的写法**逐字照** `Editor/CollectionScene.cs:6144` 那一节的先例（那份不在本件白名单内，
+            //  取卡的写法**逐字照** `Editor/CollectionScene.cs` 那一节的先例（那份不在本件白名单内，
             //  只当样张；⛔ 没改它一个字）。
             // **改坏法**：把 `Shell/CardDetailPopup.cs` 那一行末尾的 4 个实参删回缺省（`wrapPx` 缺省 = 0
             //  ⇒ `MenuDraw.TextCore` 里 `if (wrapPx > 0f)` 整段不执行）⇒ 前四条红；删掉紧随的
@@ -8000,7 +8000,7 @@ public static class ShellScene
                     //      （`资料/普查产出_第二十四会话/D10_prefab树.md` §结论 1）；
                     //   ② 本窗 `placement = World(10)` = `1 - Below Upper Bar Holder`
                     //      （`任务/T01_卡组编辑窗.md` §2·1）⇒ 原版的顶栏是**外壳那一条**
-                    //      （`Shell/MainMenuRuntime.cs:496`，它是主菜单窗的兄弟、`HideAllWindows` 藏不到）。
+                    //      （`Shell/MainMenuRuntime.cs`，它是主菜单窗的兄弟、`HideAllWindows` 藏不到）。
                     //   我们再建一条（同 `TopBar.Build`、同 localPosition=0、同队列 2986–2997）= **双画**。
                     //   🧨 改坏法：删掉 `DeckRuntime.BuildTopBar` 开头那句 `if (HostWindow != null) return;`
                     //   ⇒ 本格红（`UiTopBar` 非 null）。
@@ -8158,7 +8158,7 @@ public static class ShellScene
                           "RT 宽 = ceil(屏宽 × **0.25**（原版 `RENDER_TEXTURE_MULTIPLIER`）)");
                     Check(bake.RT.height, Mathf.CeilToInt(Screen.height * 0.25f),
                           "RT 高 = ceil(屏高 × 0.25)");
-                    // 🔴 **2026-10-17（R1 现核）**：代码传的就是 24（`UIBakeScreen.cs:59/179`），
+                    // 🔴 **2026-10-17（R1 现核）**：代码传的就是 24（`UIBakeScreen.cs`），
                     //   而 `RenderTexture.depth` 在 D24S8 平台上**回报实际分配 = 32**（24 深度 + 8 模板）
                     //   ⇒ 断「常量 = 24」+「实际分配 ≥ 24」，⛔ 别拿平台回报值当原版字段。
                     Check(UIBakeScreen.RTDepthBits, 24,

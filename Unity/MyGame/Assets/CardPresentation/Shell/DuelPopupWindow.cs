@@ -194,7 +194,7 @@ namespace CardPresentation
             //   （下面只列了它一行、子件只有 `Icon`）：`UI_Button_Round_background` · `m_Type=0`(Simple) ·
             //   **`m_PreserveAspect=1`** · `m_RaycastTarget=0` · 矩形 **75.00×75.00**；
             //   贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **75×75**（框本身即正方）。
-            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs:386-387` / `Shell/ChatPanel.cs:307-308` 的形状
+            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs` / `Shell/ChatPanel.cs` 的形状
             //   （`Rect` 画在根节点上、图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**。
             var closeBase = Rect(win, "UI_Button_Round_background", CloseR,
                                  "Generic Rounded Button Green", QBg, null, true);

@@ -10,7 +10,7 @@
 //      筛法 = 同时含 `availableCount` + `previewButton` + `badgeText` ⇒ 命中 21 份，与 prefab 数一致）：
 //      `type = 1 (Popup)` · `windowsPlacement = **15 (Popup)**` · `closeOnESC = 1` ·
 //      `updateNavPanel = 0` · `useDefaultCloseSoundIfNull = 1` · `extraScaleSmallScreen = **1.2**`（21/21 同值）。
-//    （`extraScaleSmallScreen = 1.2` 与 `Editor/SettingsScene.cs:488` 的旁证一致 —— 那一行把它列进
+//    （`extraScaleSmallScreen = 1.2` 与 `Editor/SettingsScene.cs` 的 `extraScaleSmallScreen = 1.2` 的旁证一致 —— 那一行把它列进
 //      「1.2 家族：`BaseOfferPopup`×21」。）
 //  · 出厂显隐（**21 份逐个核过**，只有两处不是 21/21 同值，见 `Variant.ArtworkOn` / `Variant.ForegroundOn`）：
 //      `Menu Dark Background` / `window` / `Generic Window Red Background Big` / `Generic Close Button Orange` /
@@ -181,7 +181,7 @@ namespace CardPresentation
         /// （原版实读 `(-20,-20,-20,-20)`；分量序 L,B,R,T · **负 = 外扩** ⇒ 命中区每边大 20）。
         /// **命中区必须按它外扩** —— 判据 = `GraphicRaycaster.cs:327`（图形自己的 rect + 图形自己的 pad）；
         /// 算式**只有一份**（`MenuDraw.PaddedRect`），⛔ 别在这儿再写一遍。口径 → `资料/普查产出_第四会话/
-        /// 普查_全仓命中区与关闭键族.md` §〇-1。⚠️ 同族先例（写法照它）：`Shell/LeaderboardWindow.cs:199`。</summary>
+        /// 普查_全仓命中区与关闭键族.md` §〇-1。⚠️ 同族先例（写法照它）：`Shell/LeaderboardWindow.cs`。</summary>
         static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         const string ArtArtworkBg = "40k_shop_popup_info_bg";          // 🔴 **没进 Resources/** —— 见文件头 ②
         const string ArtOfferBadge = "40k_OfferBadge";                  // 🔴 **没进 Resources/** —— 见文件头 ②
@@ -1092,7 +1092,7 @@ namespace CardPresentation
             AvatarHelpNode = t != null ? t.transform : MenuDraw.Node(transform, "AvatarHelpText", AvatarHelpR);
             if (t != null) t.SetAutoFitBox(LayoutSpace.Px(AvatarHelpR.W), LayoutSpace.Px(AvatarHelpR.H), 12f, 24f);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `AvatarHelpText` = `Left/**Midline**`
-            //   （判据 = 本文件 `:358-360` 那条现读：`fs24 base24 auto[12~24] · Left/Midline · 折行=1`）。
+            //   （判据 = 本文件 `本文件` 那条现读：`fs24 base24 auto[12~24] · Left/Midline · 折行=1`）。
             MenuDraw.SetVAlign(t, Label.VAlign.Midline, AvatarHelpR);
             Debug.Log("[BaseOffer] `AvatarHelpText` 建出来了但**正文是空的** —— 原版那件出厂字串就是空串"
                       + "（正文是 I2 词条、词条表在远端 CCD、本地一个 value 都没有）⇒ 不自己编词。");

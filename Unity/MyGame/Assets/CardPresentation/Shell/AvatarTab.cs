@@ -85,8 +85,10 @@ namespace CardPresentation
         /// **不在 `Core/Loc.cs` 的手写表里**，而本批白名单只允许动 `MenuDeck/CantImportDeck` 那一行
         /// ⇒ 先走本地兜底（中/英两列照官方表；其余 10 语言走 `Loc.Lang13Current` 取官方列）。
         /// 等主对话把这条键补进 `Loc`，本函数**自动改用 `Loc.T`**（判据 = `Loc.HasEntry`）。
-        /// ⚠️ 直接 `Loc.T(键)` 在**中文/英文档**下会因「表里没这条」而**返回键名本身**
-        /// （`Loc.T` 只在非中英档才查 13 语言表）—— 那会把 `Demo/AvatarMenu/SelectAvatarButton` 印上屏。</para></summary>
+        /// ⚠️ **2026-10-19（`N71` 现核）就地订正（铁律 5）**：本段原写「`Loc.T` 只在非中英档才查
+        /// 13 语言表」—— **自 2026-10-18（`N80`）起不成立**：`Loc.T` 的第三档现在对**中/英档**也兜
+        /// 官方全表（`Core/Loc.cs` 现读 = `Table → bulk → 官方全表 → 缺键`）⇒ 直接 `Loc.T(键)` 也能取到。
+        /// 本函数**保留**（缺键时仍有英文兜底；已有调用点行为不变），⛔ 不必改回直接 `Loc.T`。</para></summary>
         static string AvatarButtonTerm(string term, string en, string zh)
         {
             if (Loc.HasEntry(term)) return Loc.T(term);
@@ -101,6 +103,11 @@ namespace CardPresentation
         /// <para>🔴 **原版 prefab 这颗没有 `Localize`/`mTerm`**（2026-10-17 逐组件现读：三个
         /// `m_text = "Selecionar"` 的节点上只有 TMP + `EverguildTextMeshPro` + `EverguildButtonMaterialModifier`，
         /// **没有任何带词条字段的组件**）⇒ 原版 prefab 里占位就是葡语 `Selecionar`、没有本地化接线。</para>
+        /// <para>✅ **2026-10-19（`W57`）全包普查复核（独立重做，铁律 5·c）**：`bundle_menus_assets_all`
+        /// 里 `m_text = 'Selecionar'` 的 TMP 共 **3 颗**（`Player Profile Window/…/Avatar Tab/Selected Item
+        /// Panel/Select Avatar Button/Button Text` · `…/Title Tab/…` 同名节点 · `Profile Cosmetic Tab/…`），
+        /// 三颗的 GameObject 上 `Localize` 组件数 = **0**；同包 `mTerm = Demo/AvatarMenu/SelectAvatarButton`
+        /// 的 `Localize` = **0 条** ⇒ 「prefab 无 mTerm」坐实（不是「翻了一个包没找到」）。</para>
         /// <para>官方表里有键 `Demo/AvatarMenu/SelectAvatarButton` = `Select` / `选择` ⇒ **接它**
         /// （比葡语占位更接近玩家看到的成品）。⚠️ **「原版用的就是这条键」是【推断】**：
         /// prefab 无 `mTerm` 可依 —— ⛔ 别写成「原版就是这条键」。</para></summary>
@@ -212,7 +219,7 @@ namespace CardPresentation
             //   （实时反推 + `LiveDerivations`）：本页整块面板被挪过之后，框与被比矩形就**不在同一帧**。
             //   ⚠️ **必须在这里调**（`AddComponent` 之后、`BuildRows` 之前）：`MenuDraw.ApplyPxRect` 写矩形时
             //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾）—— 同 `ViewportClip.Hang` 里那句
-            //   `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
+            //   `vc.SetBaseRect(r)` 的位置理由（`CardPresentation/Shell/ViewportClip.cs`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `CardPresentation/Shell/ViewportClip.cs` 明令）。
             vc.CaptureNow();
             _scroll = NewScroll(vp, GridW, 0f, true, 50f);   // 原版 `Avatar Tab/Item Display Panel/Scroll Rect` = 50（D_N29）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildRows` 里

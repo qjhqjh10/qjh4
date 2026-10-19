@@ -62,6 +62,9 @@ namespace CardPresentation
         /// （2026-10-18 `W22` 按 pid 逐颗复查：`Title Tab` 这颗 = `MonoBehaviour_-1034895004042421383.json`
         /// / `MonoBehaviour_6233035307625970226.json` 两份实例，组件表里**都没有 `Localize`**
         /// —— 同 `Avatar Tab`/`Profile Cosmetic Tab` 那两颗，三颗 TMP 全是 `Selecionar`）。
+        /// ✅ **2026-10-19（`W57`）全包普查复核（独立重做）**：`bundle_menus_assets_all` 里
+        /// `m_text = 'Selecionar'` 的 TMP 恰好 **3 颗**，三颗的 GameObject 上 `Localize` 组件数 = **0**
+        /// （与 `N37①` / `N47②` 的结论一致；⛔ 不是「只翻了一个包」）。
         /// **我们上屏 `Select`**（与同一页的 `Select your title` / `Select your avatar` 一致）—— **这是我们的选择**，
         /// 原版那串照记在上面备查（同商店页 `Atualiza em:` 那条的处理口径）。</summary>
         const float BtnTxtL = 354.25f, BtnTxtT = 676.90f, BtnTxtR = 550.74f, BtnTxtB = 730.01f;
@@ -160,7 +163,7 @@ namespace CardPresentation
             //   （实时反推 + `LiveDerivations`）：本页整块面板被挪过之后，框与被比矩形就**不在同一帧**。
             //   ⚠️ **必须在这里调**（`AddComponent` 之后、`BuildRows` 之前）：`MenuDraw.ApplyPxRect` 写矩形时
             //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾）—— 同 `ViewportClip.Hang` 里那句
-            //   `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
+            //   `vc.SetBaseRect(r)` 的位置理由（`CardPresentation/Shell/ViewportClip.cs`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `CardPresentation/Shell/ViewportClip.cs` 明令）。
             vc.CaptureNow();
             _scroll = NewScroll(vp, GridW, 0f, true, 50f);      // 纵向；内容高度建完再算；原版 `Title Tab/Item Display Panel/Scroll Rect` = 50（D_N29）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildRows` 里

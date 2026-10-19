@@ -45,7 +45,7 @@ namespace CardPresentation.Net
         /// 🔴 它与 `IsConnected` **由同一次写发布**（A943）—— 见 `TcpTransport` 里 `_state` 那段。
         /// ✅ **读侧也闭环了**（2026-10-18，同一条账 A943）：接口本身仍是两次读（`NetSession.Pump`
         ///    先读这个数、再读 `IsConnected`），但**要「两个事实一致」的那处已经补了确认**
-        ///    —— 落点 `NetSession.cs:247`（`_t.IsConnected &amp;&amp; (Role != NetRole.Host || _t.AcceptedCount == _lastAccepted)`；
+        ///    —— 落点 `NetSession.Pump()` 里那道静默超时判据（`_t.IsConnected &amp;&amp; (Role != NetRole.Host || _t.AcceptedCount == _lastAccepted)`；
         ///    那半句只对主机成立 —— 客机的 `_lastAccepted` 没人写）。
         ///    ⚠️ 新代码要用这两个事实判事，**照那一处抄**，别自己分两次读就下结论。</summary>
         int AcceptedCount { get; }
@@ -100,19 +100,19 @@ namespace CardPresentation.Net
         //    原来 `Setup` 里是 `_connected = true;` 紧接着 `AcceptedCount++;` —— **两条独立的写**，
         //    而写它的是**接受线程**（`AcceptLoop` → `Setup`）、读它的是**主线程**
         //    （`NetSession.Pump`，每帧 / 自检里显式调）⇒ 存在一个「已连接、但计数还没加」的**中间态**。
-        //    读侧恰好撞上那个中间态时（`Pump:213` 读到旧计数 ⇒ 不刷新静默基线；
-        //    `Pump:232` 读到连接位已立 ⇒ 把一条**刚连上、一条包都还没发**的连接判成
+        //    读侧恰好撞上那个中间态时（`NetSession.Pump` 的**握手边沿**那一支读到旧计数 ⇒ 不刷新静默基线；
+        //    同一轮 `Pump` 的**静默超时**判据读到连接位已立 ⇒ 把一条**刚连上、一条包都还没发**的连接判成
         //    「10 秒没收到对面的任何消息」并 `ClosePeer`）——**掐掉一条好连接**
         //    （同一族的日志实证见 `资料/普查产出_1017/D4_联机诊断.md` §②）。
         //    ⇒ 现在两个事实**同处一个字**：要么都看得见、要么都看不见，**不存在半次发布**。
         //    ⚠️ 顺序**不能改成「先加计数、后置连接位」**（那会更糟）：上层是**边沿触发**
-        //       （`NetSession.Pump:213-215` 看到计数变了就 `_lastAccepted = …` 并**立刻**发 `Challenge`），
-        //       那一刻 `Send`（本文件 `:300` 一带）会看到「还没连上」⇒**握手包发不出去、边沿却被消费掉了**
+        //       （`NetSession.Pump` 的**握手边沿**那一支看到计数变了就 `_lastAccepted = …` 并**立刻**发 `Challenge`），
+        //       那一刻 `Send`（本文件 `Send()` 开头 `s == null || !IsConnected` 那一判）会看到「还没连上」⇒**握手包发不出去、边沿却被消费掉了**
         //       ⇒ **永久握不上**。所以「连接位先可见」这条顺序是**必须保持**的 —— 现在由同一个字保证。
         //    ✅ **2026-10-18 读侧也闭环了**（原来这一行写的是「还剩半边、那一段在 `NetSession.cs`、
-        //       不在本案白名单里」—— 这一轮补上了）：`NetSession.cs:247` 那道静默超时判据补了
+        //       不在本案白名单里」—— 这一轮补上了）：`NetSession.Pump()` 那道静默超时判据补了
         //       `(Role != NetRole.Host || _t.AcceptedCount == _lastAccepted)` ⇒「**计数还是我认过的那个**」
-        //       才说明**没有新发布夹在上面那次计数读（`NetSession.cs:213`）与这次连接位读之间**
+        //       才说明**没有新发布夹在上面那次计数读（`Pump` 的握手边沿那一支）与这次连接位读之间**
         //       ⇒ 不会拿「旧基线 + 新连接位」掐掉一条刚连上的连接。
         //       🔴 那个 `Role` 项**不能省**：客机的 `_lastAccepted` 没人写（停在 -1）、而它的计数是 1
         //          （`Setup` 在客机 `Connect()` 里也跑）⇒ `1 == -1` 恒假 ⇒ **客机的静默超时会永久关掉**。
@@ -258,6 +258,15 @@ namespace CardPresentation.Net
                 if ((stateNow & ConnBit) != 0)
                 {
                     // 已经有**活的**对家了 ⇒ 多出来的直接关掉（v1 只支持 1v1，不排队）
+                    // 🔴 **2026-10-19（T05「`bye` 丢在哪一跳」）**：这一支原来**一声不响** —— 而它正是
+                    //   「对面刚重连上来、本机还没发现旧连接已经死了」时的那一跳：新连接上如果捎着
+                    //   `bye`（客机退出时正好走重连分支），它就在这儿被关掉、**对端只看到连接断了**
+                    //   （对端那侧只会出现 `对面关掉了连接` 的 EOF，看起来像传输层丢包）。
+                    //   ⇒ 入队出声。⚠️ 本方法跑在**接受线程**上，⛔ 不能直接 `Debug.Log`（同 `Fail` 的规矩：
+                    //   后台线程只碰 socket 与并发队列，打印由主线程 `Pump()` 做）。
+                    //   判别器：日志里出现这一行 = 「本条连接被本机拒收」⇒ 别再去查读线程 / 对端发送。
+                    _noteWarn.Enqueue("[Net] 已经有一条活连接 ⇒ **拒收了新进来的那条连接**"
+                                    + "（v1 只支持 1v1；这一条上如果捎着 `bye` 等消息，它们**不会**被读到）");
                     try { c.Close(); } catch { }
                     continue;
                 }
@@ -332,6 +341,20 @@ namespace CardPresentation.Net
                 //       —— 先关再 +1 的话，旧线程那次小 `Fail` 会挤在「还没作废」的窗口里，
                 //       照旧打到共享状态（连接位 / `_peerLost` / `_lastError`）上。
                 int gen = Interlocked.Increment(ref _gen);
+                // 🔴 **2026-10-19（T05「`bye` 丢在哪一跳」的同族：**旧代帧串台**）**：换连接前把
+                //   `_inbox` 里**剩下的旧代帧**丢掉。为什么：这些帧属于上一条连接（已经死了），
+                //   而 `NetSession.StartHost / Connect / CheckConnection` 都会在**同一个 transport 对象**上
+                //   复用（`Close(false)` → `_t.Listen/Connect`）—— 不清的话，旧对家的 `bye` 会在
+                //   **新对家/新一局**被当成真的收下（`case Bye` → `SetState(Closed)` + `_t.Close()`
+                //   ⇒ 连刚起来的监听都会被关掉）。
+                //   ⚠️ 读线程那一侧另有一道闸（`ReadLoop` 入队前再核一次 `_gen`）；两道都要：
+                //      那一道管「旧线程晚到的帧」，这一道管「**已经进了队**的帧」。
+                int stale = 0;
+                NetFrame junk;
+                while (_inbox.TryDequeue(out junk)) stale++;
+                if (stale > 0)
+                    _noteWarn.Enqueue("[Net] 换连接时丢弃了上一条连接留下的 " + stale + " 帧"
+                                    + "（它们属于已经被顶替的那一代；最坏的一帧是 `bye` —— 不能拿它当新对家的告别）");
                 var old = _client;                       // 掉线后重连：旧的那条先关掉，别把 socket 漏在那
                 if (old != null && old != c) { try { old.Close(); } catch { } }
                 _client = c;
@@ -394,6 +417,18 @@ namespace CardPresentation.Net
 
                 var env = NetProtocol.Parse(body, len);
                 if (env == null) { Fail(gen, Loc.T("Settings/Online/St/BadEnvelope")); return; }
+                // 🔴 **2026-10-19（T05「`bye` 丢在哪一跳」的同族：**旧代帧**串台**）**：上面那个
+                //   `while` 只在**每轮开头**看代 —— 一次读帧的动作可能横跨换代（`Setup` 是接受线程 /
+                //   主线程写的），于是**旧连接的最后一帧**（最坏就是 `bye`）会被塞进**新连接**的 `_inbox`
+                //   ⇒ 新对家一进来就被当成「刚说了再见」，`case Bye` 还会 `_t.Close()` **把新连接关掉**。
+                //   ⇒ 入队前**再核一次代**（与 `Fail` 里那道闸同源，两道都要：那一道管共享状态，这道管队列）。
+                //   ⚠️ 丢掉是**对的**：这一帧属于已经被顶替的连接，新连接的握手/重放会覆盖它要表达的状态。
+                if (gen != Volatile.Read(ref _gen))
+                {
+                    _noteLog.Enqueue("[Net] 旧连接（第 " + gen + " 代）的最后一帧被丢弃：它已被第 "
+                                   + Volatile.Read(ref _gen) + " 代连接顶替（A1268 / T05）");
+                    return;
+                }
                 _inbox.Enqueue(new NetFrame { kind = env.kind, payload = env.payload });
             }
         }

@@ -8641,6 +8641,15 @@ namespace RuleEngine
                 }
             }
 
+            // 🔴 **2026-10-19（第五十七会话 `W57` · P2）：`alternativeTraitLogic` 的第二个消费点。**
+            //   原版 `CardScript__FinishActiveAbility.c`：**主动能力结束时**，若
+            //   `GameplayVariablesData.alternativeTraitLogic (+0x4B) != 0` 且这张卡带
+            //   `DefinedTrait.pray = 1185` ⇒ 该卡控制者 **信仰 +1** ＋ `BroadcastCollectedFaith(该卡)`。
+            //   判据与「为什么只有 Pray 这一支进得来」全写在 `FinishActiveAbility`（`EffectResolver.cs`，
+            //   同一个 `partial class RuleCore`）的 doc 里。
+            //   ⚠️ 位置 = **能力全部结算完之后**（原版也在协程末尾那一拍）。
+            FinishActiveAbility(ctx, p, u, keyword);
+
             CheckWinner(ctx);
             return RuleCodes.OK;
         }
@@ -8966,6 +8975,23 @@ namespace RuleEngine
             if (ench != null)
                 for (int i = 0; i < ench.Count; i++)
                     FireTriggerAt(ctx, u, keyword, owner, slot, chosen, subject, ench[i]);
+
+            // ---- 🆕 2026-10-19（战斗线 `T21` · 缺口 A）：`followAfterResolution` 的**结算尾部事件** ----
+            //  原版：**调度者**那条能力里带 `AbilityEffect.followAfterResolution = 320` ⇒
+            //    结算完之后队列轮到「后续结算」动作 → `CardScript__FollowUpResolutionPlayed.c:7`
+            //    → `OnTrigger(0x19a = 410)`；410 那条能力才是**动画**所在
+            //    （`AbilityLogic__PlayAbility.c:2474` / `BattleManager__ResolveFollowAfterResolution.c:380`）。
+            //  现读**关键词触发**这一路 5 张：`AM8`/`AM21`（Regiment 301）· `GSC17`（Strike 580）·
+            //    `SAU11`（Artifice 560）· `GOF59`（Mob 300）；另 2 张走**监听者**那一跳
+            //    （`GSC14` / `ASH81`，见 `BroadcastWhen` 棋盘循环）—— 判据/表见
+            //    `EffectResolver.FollowUpSchedulerOf`。⚠️ **只在这一趟是载体自己的触发时发**
+            //    （`only == null`）—— 附魔那几条递归不再各发一次。
+            if (only == null && u != null && u.Card != null)
+            {
+                string sched = FollowUpSchedulerOf(u.Card);
+                if (sched != null && sched == AbilityTriggerNameOfKeyword(keyword))
+                    EmitFollowUpResolution(ctx, u.Card, owner, slot, u.InstanceId);
+            }
 
             return true;
         }

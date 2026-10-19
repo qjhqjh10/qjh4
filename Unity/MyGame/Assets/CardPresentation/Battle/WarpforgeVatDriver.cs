@@ -60,7 +60,10 @@
 //   原版（反编译）                                     本组件
 //   ---------------------------------------------------------------------------
 //   `Awake`：`GetComponent<Renderer>()`                `Awake`：同
-//     → `Renderer.GetMaterialArray()`                    → `renderer.materials`
+//     → `Renderer.GetMaterialArray()`                    → 显式 `new Material(...)` 私有实例
+//                                                          （语义 = `.materials`，但**不触发**编辑模式
+//                                                           实例化警告、且旧实例由我们销毁 —— 见
+//                                                           `BindInstanceMaterials`，SC-5 / `A1967` 同族）
 //     → 11 × `Shader.PropertyToID(名字)`                 → 同 11 个名字
 //   `Update`：`_vatAnimation != null` 才干活            `Update`：同
 //     → 每帧都 `SendDataToRenderer()`                    → 同（**每帧都推**，不只是播放中）
@@ -229,6 +232,9 @@ namespace WarpforgeVFX
 
         // ---- 运行时状态（原版对应 `+0x30`/`+0x38`…`+0x60`/`+0x64`/`+0x68`）----
         Material[] _mats;
+        /// <summary>🆕 2026-10-19（SC-5 · `A1967` 同族）：`_mats` 是不是**我们自己 `new` 出来的私有实例**。
+        /// `true` ⇒ 离场/换材质时要由我们 `Destroy`；`false`（`UpdateMaterials(true)` 那条）⇒ 是别人的资产，不许碰。</summary>
+        bool _ownsMats;
         bool _playing;          // 原版 +0x64
         float _startTime;       // 原版 +0x68
         float _enableTime;      // 本组件自己那条兜底曲线的起点
@@ -251,7 +257,10 @@ namespace WarpforgeVFX
                 return;
             }
 
-            _mats = r.materials;   // 原版 `Renderer.GetMaterialArray()` = `.materials`（**实例材质**，不是 shared）
+            // 🔴 2026-10-19（SC-5 · `A1967` 同族）：原来这里是 `_mats = r.materials;`。
+            //    语义照旧（原版 `Renderer.GetMaterialArray()` = **逐实例**材质），但改成**显式复制**
+            //    —— 理由三条，见 `BindInstanceMaterials` 的注释。
+            BindInstanceMaterials(r);
 
             _idPositionsTex        = Shader.PropertyToID("_PositionsTex");
             _idPositionsTexB       = Shader.PropertyToID("_PositionsTexB");
@@ -311,12 +320,95 @@ namespace WarpforgeVFX
         public bool IsThereAnimation() { return _vatAnimation != null; }
 
         /// <summary>原版 `UpdateMaterials(bool shared)`。`shared = true` 时取 `sharedMaterials`
-        /// （原版那两个分支的差别只在这儿）。</summary>
+        /// （原版那两个分支的差别只在这儿）。
+        /// 🔴 2026-10-19（SC-5 · `A1967` 同族）：两个分支都**不再走 `Renderer.materials`**
+        /// （原 `shared ? r.sharedMaterials : r.materials`）—— 见 `BindInstanceMaterials`。</summary>
         public void UpdateMaterials(bool shared)
         {
             var r = GetComponent<Renderer>();
             if (r == null) { Debug.LogError($"[VatDriver] `{name}` UpdateMaterials：没有 Renderer。"); return; }
-            _mats = shared ? r.sharedMaterials : r.materials;
+            if (shared) BindSharedMaterials(r);
+            else BindInstanceMaterials(r);
+        }
+
+        /// <summary>把「驱动要写的那一份材质」绑成**逐渲染器私有实例**（语义 = `Renderer.materials` /
+        /// 原版 `Renderer.GetMaterialArray()`）。🔴 **2026-10-19（SC-5 · `A1967` 同族）**：原实现是
+        /// `_mats = r.materials`，改掉的三条理由：
+        /// <para>① **编辑模式警告**：`Renderer.materials` 的 getter（IL: `GetMaterialArray()`）在编辑模式
+        /// 会实例化整组材质并打 `Instantiating material due to calling renderer.material during edit mode …`
+        /// （`A1967` 那一族）。⚠️ 反过来说，`renderer.material` 的 **setter** 不会 —— 它和
+        /// `sharedMaterial` setter 一样只调 `SetMaterial`（已用 IL 现核，见
+        /// `资料/普查产出_1019/W57_自检线_VAT材质残留.md` §二），所以 `TargetReticle` 那处只设不读的
+        /// 赋值不用改。</para>
+        /// <para>② **材质泄漏**：`.materials` 造出来的实例**不随 GameObject 销毁**（Unity 文档明说
+        /// 「It is your responsibility to destroy the materials when the game object is being destroyed」）。
+        /// 本组件每次 `WarpforgeEffectBinder.Apply()` 重建材质后都会调 `UpdateMaterials(false)`
+        /// ⇒ 原来每重生一组就漏一组。改成显式实例后，`ReleaseOwned()` 在换材质与 `OnDestroy` 时销毁。</para>
+        /// <para>③ **逐实例是必须的**：`SendDataToRenderer` 每帧往 `_mats` 写 `_State` / 两张顶点贴图；
+        /// 直接写 `sharedMaterials` 会串到 `WarpforgeEffectBinder.Cache` 里**全效果共用**的那一份
+        /// （binder 的注释 `WarpforgeEffectBinder.cs:218-223` 专门警告过）。</para>
+        /// <para>⛔ **不要改成直接写 `sharedMaterials`**（上面 ③）；也不要每次调用都无脑 `new` ——
+        /// 渲染器上已经是我们这一组时直接复用（否则每次 Apply 都再生一代）。</para></summary>
+        void BindInstanceMaterials(Renderer r)
+        {
+            var cur = r.sharedMaterials;
+            // 已经是我们的私有实例（同一组引用）⇒ 复用，⛔ 别再生一代。
+            // ⚠️ 比的是**元素引用**不是数组引用：Unity 的 `sharedMaterials` getter 每次都返回一个新数组。
+            if (_ownsMats && SameRefs(cur, _mats)) return;
+
+            // 渲染器上的材质已经被换掉（binder `Apply()` 重建）⇒ 上一代没人引用了，销毁。
+            ReleaseOwned();
+
+            if (cur.Length == 0) { _mats = cur; return; }
+
+            var inst = new Material[cur.Length];
+            for (int i = 0; i < cur.Length; i++)
+            {
+                var src = cur[i];
+                inst[i] = src != null ? new Material(src) { name = src.name + " (VatDriver)" } : null;
+            }
+            _mats = inst;
+            _ownsMats = true;
+            r.sharedMaterials = inst;
+        }
+
+        /// <summary>`UpdateMaterials(true)` 那一支：直接用 `sharedMaterials`（原版语义 —— 写属性会落到
+        /// 共享材质上，本组件只在原版那个事件真的传 `true` 时才会走）。
+        /// ⚠️ 若当前渲染器上就是我们自己那份实例（`BindInstanceMaterials` 刚赋回去的），
+        /// `sharedMaterials` 读到的就是它 ⇒ **保持所有权**，别把它记成「别人的」。</summary>
+        void BindSharedMaterials(Renderer r)
+        {
+            var cur = r.sharedMaterials;
+            if (_ownsMats && SameRefs(cur, _mats)) return;
+            ReleaseOwned();
+            _mats = cur;
+        }
+
+        /// <summary>销毁我们造出来的私有材质（不碰 `UpdateMaterials(true)` 拿到的别人的资产）。</summary>
+        void ReleaseOwned()
+        {
+            if (_ownsMats && _mats != null)
+            {
+                for (int i = 0; i < _mats.Length; i++)
+                {
+                    var m = _mats[i];
+                    if (m == null) continue;
+                    if (Application.isPlaying) Destroy(m); else DestroyImmediate(m);
+                }
+            }
+            _mats = null;
+            _ownsMats = false;
+        }
+
+        void OnDestroy() { ReleaseOwned(); }
+
+        static bool SameRefs(Material[] a, Material[] b)
+        {
+            if (ReferenceEquals(a, b)) return true;
+            if (a == null || b == null || a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++)
+                if (!ReferenceEquals(a[i], b[i])) return false;
+            return true;
         }
 
         /// <summary>原版 `UpdateAnimation()` —— 逐行照抄反编译（`StoryProgramming.VATGPUPlayer__UpdateAnimation.c:6-25`）。</summary>
@@ -406,5 +498,126 @@ namespace WarpforgeVFX
                 m.SetVector(_idStartBoundsExtents, new Vector4(se.x, se.y, se.z, 0f));
             }
         }
+
+#if UNITY_EDITOR
+        /// <summary>🆕 2026-10-19（SC-5 · `A1967` 同族）**只给 Editor 自检用**的探针（产品路径不调用）。
+        /// 判据不是「我们自己说改了」，而是 **Unity 自己那条警告** + **源材质不许被写脏** + **旧实例真被销毁**：
+        /// ① 负例（**灭自证**）故意走一次 `.material` ⇒ 必须抓到 ≥1 条（抓不到 = 检测器失效）；
+        /// ② 被测的 <see cref="BindInstanceMaterials"/> ⇒ **0 条**警告；
+        /// ③ 拿到的是独立实例、已赋回 `sharedMaterials`，写它不脏源材质；
+        /// ④ 同一份渲染器材质上再绑一次 ⇒ **复用**同一实例（不再生一代）；
+        /// ⑤ 渲染器材质被换掉（= binder `Apply()` 重建）⇒ 新一代实例 + **上一代被销毁**（不再泄漏）。
+        /// 宿主 = `Editor/RewardsScene.cs`（SC-4 的 `A1967` 残尾块之后）。</summary>
+        public static VatMaterialProbe ProbeMaterialBinding()
+        {
+            var result = new VatMaterialProbe();
+            var sh = Shader.Find("Sprites/Default");
+            if (sh == null) { result.Error = "Shader.Find(\"Sprites/Default\") 取不到"; return result; }
+
+            int warns = 0;
+            Application.LogCallback h = (cond, stack, type) =>
+            {
+                if (type == LogType.Warning && cond != null
+                    && cond.Contains("Instantiating material due to calling renderer.material")) warns++;
+            };
+
+            var goNeg = new GameObject("VatDriver probe (negative)");
+            var go    = new GameObject("VatDriver probe (driver)");
+            var mrNeg = goNeg.AddComponent<MeshRenderer>();
+            var mr    = go.AddComponent<MeshRenderer>();
+            var src   = new Material(sh) { name = "VatDriver probe source", renderQueue = 3000 };
+            var src2  = new Material(sh) { name = "VatDriver probe source 2", renderQueue = 3100 };
+            mrNeg.sharedMaterial = src;
+            mr.sharedMaterial = src;
+            var drv = go.AddComponent<WarpforgeVatDriver>();
+
+            Material neg = null;
+            Material firstInst = null;
+            try
+            {
+                // ① 灭自证：**故意**走一次 `.material`（只在本探针里；产品代码禁止）
+                Application.logMessageReceived += h;
+                try { neg = mrNeg.material; }
+                finally { Application.logMessageReceived -= h; }
+                result.NegativeCaught = warns;
+                result.NegativeWasDistinct = neg != null && neg != src;
+
+                // ② 产品路径：`Awake` 里那一次绑定（显式调用 —— 编辑模式下普通 MonoBehaviour 的
+                //   `Awake` 不会自动跑，这正是它能被自检单独测的前提）
+                warns = 0;
+                Application.logMessageReceived += h;
+                try { drv.Awake(); }
+                finally { Application.logMessageReceived -= h; }
+                result.BoundCaught = warns;
+
+                var mats = drv._mats;
+                firstInst = (mats != null && mats.Length == 1) ? mats[0] : null;
+                result.InstancesDistinct = firstInst != null && firstInst != src;
+                result.AssignedBackToRenderer = firstInst != null && mr.sharedMaterial == firstInst;
+
+                // ③ 源材质不许被写脏（用 `renderQueue`：`Sprites/Default` 上没有 `_State` 那种属性，
+                //   拿它比会恒 equals 默认值 ⇒ 假绿）
+                if (firstInst != null) firstInst.renderQueue = 4000;
+                result.SourceDirty = src.renderQueue != 3000;
+
+                // ④ 幂等：同一组材质上再调一次 ⇒ 复用同一实例
+                drv.UpdateMaterials(false);
+                var again = (drv._mats != null && drv._mats.Length == 1) ? drv._mats[0] : null;
+                result.ReusedOnSecondCall = ReferenceEquals(again, firstInst);
+
+                // ⑤ 渲染器材质被换掉（= binder `Apply()` 重建）⇒ 新一代，旧一代销毁
+                mr.sharedMaterials = new Material[] { src2 };
+                drv.UpdateMaterials(false);
+                var second = (drv._mats != null && drv._mats.Length == 1) ? drv._mats[0] : null;
+                result.RebuiltOnSwap = second != null && second != src2 && !ReferenceEquals(second, firstInst);
+                result.OldReleased = firstInst == null;      // DestroyImmediate 之后 Unity 的假 null
+                if (second != null) second.renderQueue = 4100;
+                result.Source2Dirty = src2.renderQueue != 3100;
+            }
+            finally
+            {
+                Application.logMessageReceived -= h;
+                // 先销毁宿主 ⇒ `OnDestroy` 收掉最后一组私有实例；再收探针自己的资产。
+                var last = drv._mats;
+                UnityEngine.Object.DestroyImmediate(go);
+                UnityEngine.Object.DestroyImmediate(goNeg);
+                if (last != null)
+                    for (int i = 0; i < last.Length; i++)
+                        if (last[i] != null && last[i] != src && last[i] != src2)
+                            UnityEngine.Object.DestroyImmediate(last[i]);
+                if (neg != null && neg != src) UnityEngine.Object.DestroyImmediate(neg);
+                UnityEngine.Object.DestroyImmediate(src);
+                UnityEngine.Object.DestroyImmediate(src2);
+            }
+            return result;
+        }
+
+        /// <summary><see cref="ProbeMaterialBinding"/> 的读数（调用方用宿主自己的 `Check` 逐项断）。</summary>
+        public struct VatMaterialProbe
+        {
+            /// <summary>`null` = 跑起来了；非空 = 探针自己起不来（调用方要断它为空）。</summary>
+            public string Error;
+            /// <summary>负例抓到的警告条数（**期望 ≥1**；0 = 检测器失效）。</summary>
+            public int NegativeCaught;
+            /// <summary>负例拿到的是一份独立实例（`.material` 的语义）。</summary>
+            public bool NegativeWasDistinct;
+            /// <summary>产品路径抓到的警告条数（**期望 0**）。</summary>
+            public int BoundCaught;
+            /// <summary>驱动拿到的是一份独立于源材质的私有实例。</summary>
+            public bool InstancesDistinct;
+            /// <summary>那份实例已赋回 `sharedMaterials`（渲染器真的在用它）。</summary>
+            public bool AssignedBackToRenderer;
+            /// <summary>在副本上写 `renderQueue` 之后，**源材质**变了（**期望 false**）。</summary>
+            public bool SourceDirty;
+            /// <summary>同一组材质再绑一次复用了同一实例（**期望 true**；false = 每次调用都再生一代）。</summary>
+            public bool ReusedOnSecondCall;
+            /// <summary>渲染器材质被换掉后生成了新一代私有实例（**期望 true**）。</summary>
+            public bool RebuiltOnSwap;
+            /// <summary>上一代私有实例已被销毁（**期望 true**；false = 每次 `Apply()` 都漏一组）。</summary>
+            public bool OldReleased;
+            /// <summary>第二份源材质没被写脏（**期望 false**）。</summary>
+            public bool Source2Dirty;
+        }
+#endif
     }
 }

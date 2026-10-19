@@ -88,9 +88,25 @@
 //    （`sd` 固定），两者的矩形**逐位相同**（推导见 `HudCanvas.AnchorApPx` 的 doc）。⛔ 没顺手把嵌套倒过来
 //    （`T09` §五·补⑩ 二那条裁定：「只按谁的 canvas 装谁迁、⛔ 不倒嵌套」）。
 //  · 🔴 **本面板【没有】可点件**（全仓 `UnitChatPanel` 上没有 `Contains` / `Hit` / `*Hit`）⇒ 不牵动
-//    `T09` 第 4 步（输入），也**没有 `raycastTarget` 要翻**（对照：`ChatPopupPanel` 那 6 颗钮有）。
+//    `T09` 第 4 步（输入），也**没有 `Hit` 判据要退**（对照：`ChatPopupPanel` 那 6 颗钮有）。
+//    🔴🆕 **2026-10-20（W57 · `T09` A3-e2）就地订正（铁律 5）**：本行原写「**没有 `raycastTarget` 要翻**」——
+//    **不成立**。2026-10-20 现读 `bundle_scenes_scenes_battlearena1` 的 `Unit Chat` 整棵子树：
+//      · 三颗气泡（`PlayerChatDisplay` / `EnemyChatDisplay` / `RadioChat`）**都没有** `Button` /
+//        `EventTrigger` / `IPointer*` 处理器；气泡根上的 `VoiceLineBox` 也**不含任何指针接口**
+//        （`d:/2/tools/decomp_full/` 里 `VoiceLineBox*` 零 `Pointer/Click/Drag` 文件）⇒ **确实没有点击动作**。
+//      · 但原版这些**图与字本身是射线靶**：`Background` 的 `Image.m_RaycastTarget = 1` ·
+//        `Mask/CardImage` 的 `Image.m_RaycastTarget = 1` · `wave` 的 `Image.m_RaycastTarget = **0**` ·
+//        `ChatText` 的 `TextMeshProUGUI.m_RaycastTarget = 1`（三颗气泡逐值同）。
+//        ⇒ 原版「**挡射线但不响应**」（点气泡什么都不发生，也不会落到它后面的东西上）。
+//    ⇒ 本波照原版把这三层的 `raycastTarget` 补上（**只补挡射线、不挂任何处理器**），判据 → `MakeBubble` 那段。
+//    ⚠️ `Unit Chat` 同一份 prefab 里还有 `ChatPopup`（`CloseChatPopup` + 6 颗 `ChatButton`）——
+//    那是 **`ChatPopupPanel.cs` 的范围**（另一份文件、另一批任务），**本文件一个字没碰**。
 // ═════════════════════════════════════════════════════════════════════════════
+using System;
+using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace CardPresentation
 {
@@ -337,6 +353,51 @@ namespace CardPresentation
             return rt.anchorMin;       // `Move` 把 `anchorMin`/`anchorMax` 写成同一个点锚 ⇒ 读一个就够
         }
 
+#if UNITY_EDITOR
+        // ── 🆕 2026-10-20（W57 · `T09` A3-e2）：uGUI 射线靶的 Editor-only 只读探针 ────────────────
+        //  ⚠️ 只读、且**播放器构建里不存在**（`#if UNITY_EDITOR`）；断言写在 `Editor/BattleScene.cs`
+        //     （本波口径 = 只做不验 ⇒ 本件不写断言）。
+        //  ⚠️ 期望值（断言侧独立写死，⛔ 别读我们自己的常量）：
+        //     底图 `RT=1` · 卡图 `RT=1` · 波形 `RT=0` · 台词 TMP `RT=1`（判据 → `MakeBubble` 那段）。
+
+        /// <summary>某一颗气泡的某一件（`part`：**0=底图** · **1=卡图** · **2=波形**；其余值 ⇒ `null`）。
+        /// 没有这一颗 / 这一件没建出来 ⇒ `null`。</summary>
+        public HudPiece BubblePieceForTest(int side, int part)
+        {
+            var b = BubbleFor(side);
+            if (b == null) return null;
+            if (part == 0) return b.bg;
+            if (part == 1) return b.portrait;
+            if (part == 2) return b.wave;
+            return null;
+        }
+
+        /// <summary>某一颗气泡某一件的 `Image.raycastTarget`：**−1 = 没有这件** · `0/1` = 实际值。
+        /// <para>⛔ 别把「没有这件」折成 `false` —— 那与「建出来了但没开射线」分不开（灭自证要求）。</para></summary>
+        public int BubbleRaycastTargetForTest(int side, int part)
+        {
+            var p = BubblePieceForTest(side, part);
+            if (p == null || !p.IsUgui || p.gameObject == null) return -1;
+            var img = p.gameObject.GetComponent<Image>();
+            return img == null ? -1 : (img.raycastTarget ? 1 : 0);
+        }
+
+        /// <summary>某一颗气泡的台词标签（没有这一颗 / 没建出来 ⇒ `null`）。</summary>
+        public Label BubbleTextForTest(int side)
+        {
+            var b = BubbleFor(side);
+            return b != null ? b.text : null;
+        }
+
+        /// <summary>某一颗气泡台词的 TMP `raycastTarget`：**−1 = 没有 TMP** · `0/1` = 实际值。</summary>
+        public int BubbleTextRaycastTargetForTest(int side)
+        {
+            var t = BubbleTextForTest(side);
+            var tmp = t != null ? t.GetComponentInChildren<TMP_Text>(true) : null;
+            return tmp == null ? -1 : (tmp.raycastTarget ? 1 : 0);
+        }
+#endif
+
         /// <summary>🔴 **自检用（`T09` 批 3 的【灭自证】）**：三颗气泡的**图与字是不是都建在 uGUI 画布上**
         /// （而不是有条漏网、退回世界空间 quad）。
         /// <para>它防的是本件**最坏的那一档**：一半在画布、一半在世界 —— 16:9 下逐位相同、全绿，
@@ -460,6 +521,27 @@ namespace CardPresentation
             //   ⛔ 漏了它 ⇒ 画布上的字号只有 **0.3 px**、**一个字都不报**。
             if (t != null) t.SetGlyphHeight(U(OrigFontPx));
             b.text = t;
+
+            // ── 🆕 2026-10-20（W57 · `T09` A3-e2）：uGUI 射线（原版真值，2026-10-20 现读 arena1）──────
+            //  三颗气泡逐值同（`PlayerChatDisplay` / `EnemyChatDisplay` / `RadioChat`）：
+            //   · `Background` 的 `Image.m_RaycastTarget = 1`
+            //   · `Mask/CardImage` 的 `Image.m_RaycastTarget = 1`（原版那张卡图挂在 `RectMask2D` 下、被裁）
+            //   · `wave` 的 `Image.m_RaycastTarget = **0**`（频谱条不吃射线 —— 我们保持出厂 false）
+            //   · `ChatText` 的 `TextMeshProUGUI.m_RaycastTarget = 1`
+            //  ⇒ 原版「**挡射线但不响应**」：整棵气泡子树没有 `Button` / `EventTrigger` / `IPointer*` 处理器
+            //     （`VoiceLineBox` 也没有；判据 → 文件头「A3-e2 就地订正」那段 + 报告 §二）。
+            //  ⚠️ 只对 uGUI 档生效：世界档没有 `raycastTarget` 这回事，且文件头的承诺是
+            //     「世界档与加本档之前**逐位相同**」⇒ ⛔ 别在世界档上调（会连报四条 LogError）。
+            if (_ugui)
+            {
+                if (b.bg != null && !b.bg.SetRaycastTarget(true))
+                    Debug.LogWarning("[UnitChat] 气泡底图 `" + b.bg.name + "` 的 raycastTarget 没写进去（原版 = 1）");
+                if (b.portrait != null && !b.portrait.SetRaycastTarget(true))
+                    Debug.LogWarning("[UnitChat] 卡图 `" + b.portrait.name + "` 的 raycastTarget 没写进去（原版 = 1）");
+                var chatTmp = b.text != null ? b.text.GetComponentInChildren<TMP_Text>(true) : null;
+                if (chatTmp != null) chatTmp.raycastTarget = true;
+                else Debug.LogWarning("[UnitChat] 台词 TMP 取不到 ⇒ 它不吃射线（原版 = 1；无处理器、无视觉差）");
+            }
 
             b.audio = gameObject.AddComponent<AudioSource>();
             b.audio.playOnAwake = false;
@@ -650,9 +732,18 @@ namespace CardPresentation
         public static string OfficialChatText(string cardId, string evt, string overrideSuffix, out string term)
         {
             term = ChatTermKey(cardId, evt, overrideSuffix);
-            if (term == null) return null;
-            string v = Loc.T(term);
-            return string.IsNullOrEmpty(v) || v == term ? null : v;
+            return OfficialChatTextOfTerm(term, out term);
+        }
+
+        /// <summary>🆕 2026-10-19（`W57` · `T17/T18`）：**已知完整官方键**时取文本
+        /// （定制开场白两档拼出来的是 `Chat_Messages/<me>-Chat0-<foe>` 这种，不再走 `cardId + 后缀` 的拼法）。
+        /// 口径与 <see cref="OfficialChatText"/> 完全一致：缺键 / 空 ⇒ `null`（⛔ 不自译）。</summary>
+        public static string OfficialChatTextOfTerm(string fullTerm, out string term)
+        {
+            term = fullTerm;
+            if (string.IsNullOrEmpty(fullTerm)) return null;
+            string v = Loc.T(fullTerm);
+            return string.IsNullOrEmpty(v) || v == fullTerm ? null : v;
         }
 
         /// <summary>
@@ -661,11 +752,15 @@ namespace CardPresentation
         /// <paramref name="text"/> 为空时退回显示 <paramref name="fallbackName"/>（卡名）。
         /// <paramref name="clip"/> 为 null = 这张卡没语音（那就不该调用本方法）。
         /// <paramref name="chatSuffix"/> 非 null 时压过「按事件推的后缀」（只有开场白那档会传，见 <see cref="ChatTermKey"/>）。
+        /// <paramref name="chatTermOverride"/> 🆕 2026-10-19（`W57` · `T17/T18`）：**完整官方键**（非 null 时压过
+        /// 上面那条「`cardId + 后缀`」的拼法）—— 定制开场白两档是 `Chat_Messages/<me>-Chat0-<对手 id 或阵营名>`，
+        /// 后缀里带着对手那一段（见 <see cref="CardChatIntro"/>）。
         /// <para>🆕 2026-10-19（`T17`）：显示文本**官方词条优先**（`Chat_Messages/*`），
         /// `text`（voice_lines 的英文）降为兜底 —— 判据见上面那一大段。</para>
         /// </summary>
         public void Speak(int side, string cardId, string evt, string artKey, string fallbackName,
-                          string text, AudioClip clip, string clipFile = null, string chatSuffix = null)
+                          string text, AudioClip clip, string clipFile = null, string chatSuffix = null,
+                          string chatTermOverride = null)
         {
             var b = BubbleFor(side);
             if (b == null) return;
@@ -676,7 +771,11 @@ namespace CardPresentation
             LastCardId = cardId; LastEvent = evt; LastClipName = clipFile;
             LastClipLoaded = clip != null;
             string chatTerm;
-            string official = OfficialChatText(cardId, evt, chatSuffix, out chatTerm);
+            // 🆕 2026-10-19（`W57` · `T17/T18`）：定制开场白两档拼出来的是**完整键**（带对手/阵营那一段），
+            //   不能再按 `<cardId>+后缀` 拼 ⇒ 这一档直接给整键；其余调用点仍走 `chatSuffix`。
+            string official = chatTermOverride != null
+                ? OfficialChatTextOfTerm(chatTermOverride, out chatTerm)
+                : OfficialChatText(cardId, evt, chatSuffix, out chatTerm);
             LastChatTerm = chatTerm;
             LastChatFromOfficial = official != null;
 
@@ -784,6 +883,432 @@ namespace CardPresentation
             if (_left > 0f) return;
             if (_current.audio != null && _current.audio.isPlaying) _current.audio.Stop();
             HideAll();
+        }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-19（`W57` · `T17/T18`）：**原版定制开场白两档**（精确对局 / 按阵营）
+    // ==================================================================
+    //  判据（`d:/2/tools/decomp_full/` 逐句；全量推导 → `资料/普查产出_1019/W_战斗线_开场白数据_1019b.md` §1·C）：
+    //   · `ChatManager__GetChatMessage.c`：`idx < 2` 且「**不是同督军对局** 或 **isPlayer**」时：
+    //       ① `GetCustomIntro(me, foe)` —— 遍历 `me.customIntroChatData`，
+    //          `entry.opponentWarlord == GetChatId(foe, true)` 命中
+    //          → `Chat_Messages/<GetChatId(me,true)>-Chat0-<GetChatId(foe,true)>`；
+    //       ② 否则 `GetCustomIntroByArmy(me, foe.army)`（`entry.army == foe.army`）
+    //          → `Chat_Messages/<GetChatId(me,true)>-Chat0-<CardArmy 枚举名>`；
+    //       ③ 否则 `RawCardScript.GetLocalizedChatMsg(me, idx)` = `Chat_Messages/<chatId>-Chat0`（兜底）。
+    //   · **同督军对局**：玩家那一侧仍走上面这条链（通常落到 ③）；**AI 那一侧** `param_1 = 1`
+    //     → `Chat_Messages/<id>-Chat1`（`MirrorMatch`），⛔ 不进定制档。
+    //   · `ChatManager__IsPlayerFirstIntro.c`：只看**玩家自己的精确档** —— 命中返回 `entry.talksFirst(+0x20)`；
+    //     未命中（含只命中按阵营档 / 没有数据）⇒ **1（玩家先说）**。
+    //   · `GetChatId(card) = chatMessagesReferenceId(+0x168) ?: customIntroReferenceId(+0x170, 仅 param_2!=0) ?: uniqueId(+0x38)`。
+    //  ⚠️ **数据 = `Resources/card_chat_intro.json`**（49 张运行时卡 · 197 键；生成器 `工具/gen_card_chat_intro.py`）。
+    //     ⛔ **别拿「官方表里有没有这个键」当判据** —— 原版的闸门是 **SO 列表**（这就是那份数据）；
+    //     官方表里多出来的键是**死键**（数据报告 §3·A 逐张裁过）。
+    //  ⚠️ `hasText == false`（官方表缺原文；运行时卡上 5 条）⇒ 调用方回 `voice_lines` 英文兜底 + 出声，⛔ **不自译**。
+    //  ⚠️ `talksFirst` 是**逐对手**的（57 张精确档卡里 31 张逐条不同），顶层那个是「全都一致时才给值」的摘要
+    //     ⇒ 这里只读**逐条**那份（顶层不参与判据）。
+    public static class CardChatIntro
+    {
+        /// <summary>`Resources.Load` 用的名字（文件 = `Resources/card_chat_intro.json`）。</summary>
+        public const string ResourcePath = "card_chat_intro";
+
+        /// <summary>一条开场白（精确档 / 按阵营档都收成这一个形状）。</summary>
+        public struct Entry
+        {
+            /// <summary>完整官方键（`Chat_Messages/…`）。</summary>
+            public string Key;
+            /// <summary>官方表里有没有原文（false ⇒ 回 voice_lines 英文兜底 + 出声，⛔ 不自译）。</summary>
+            public bool HasText;
+            /// <summary>谁先说（原版 `CustomIntroChatData +0x20`）；**-1 = 这一档没有这个字段**（按阵营档）。</summary>
+            public int TalksFirst;
+        }
+
+        sealed class OppEntry { public string key; public bool hasText; public int talksFirst = -1; }
+        sealed class ArmyEntry { public string key; public bool hasText; }
+        sealed class CardEntry
+        {
+            public string id;
+            public string chatId;
+            public Dictionary<string, OppEntry> byOpponent;
+            public Dictionary<string, ArmyEntry> byArmy;
+        }
+
+        static bool _loaded;
+        static Dictionary<string, CardEntry> _byId;
+        static Dictionary<string, string> _chatIdOverrides;
+        static string _lastError;
+        static readonly HashSet<string> _warnedMissing = new HashSet<string>();
+
+        /// <summary>表载进来了没有（没载 = 资源不在；**不静默**：<see cref="LastError"/> 有话说）。</summary>
+        public static bool Loaded { get { EnsureLoaded(); return _byId != null && _byId.Count > 0; } }
+        /// <summary>表里几张卡（运行时件 = 49）。</summary>
+        public static int Count { get { EnsureLoaded(); return _byId != null ? _byId.Count : 0; } }
+        /// <summary>载入 / 解析失败的原因（`null` = 一切正常）。</summary>
+        public static string LastError { get { EnsureLoaded(); return _lastError; } }
+
+        /// <summary>自检用：清掉「缺原文」那条警告的去重表（⛔ 不动已载的表）。</summary>
+        public static void ResetWarningsForTest() { _warnedMissing.Clear(); }
+
+        /// <summary>表里有这张卡（按短 id，例如 `AM1`）。</summary>
+        public static bool HasCard(string id)
+        {
+            EnsureLoaded();
+            return _byId != null && !string.IsNullOrEmpty(id) && _byId.ContainsKey(id);
+        }
+
+        /// <summary>某张卡的**精确档对手数** / 按阵营档数（自检对账用；表里没有这张卡 ⇒ 0）。</summary>
+        public static int OpponentEntries(string id)
+        {
+            EnsureLoaded();
+            CardEntry c;
+            return _byId != null && !string.IsNullOrEmpty(id) && _byId.TryGetValue(id, out c) && c != null && c.byOpponent != null
+                 ? c.byOpponent.Count : 0;
+        }
+        public static int ArmyEntries(string id)
+        {
+            EnsureLoaded();
+            CardEntry c;
+            return _byId != null && !string.IsNullOrEmpty(id) && _byId.TryGetValue(id, out c) && c != null && c.byArmy != null
+                 ? c.byArmy.Count : 0;
+        }
+
+        /// <summary>这张卡的 **chatId**（原版 `GetChatId`：`chatMessagesReferenceId ?: customIntroReferenceId ?: uniqueId`）。
+        /// 运行时件里 49 张的 `chatRef/introRef` 全空 ⇒ 现读恒等于卡 id；`chatIdOverrides` 以后非空时以它为准。</summary>
+        public static string ChatIdOf(string cardId)
+        {
+            EnsureLoaded();
+            if (string.IsNullOrEmpty(cardId)) return cardId;
+            string v;
+            if (_chatIdOverrides != null && _chatIdOverrides.TryGetValue(cardId, out v) && !string.IsNullOrEmpty(v)) return v;
+            CardEntry c;
+            if (_byId != null && _byId.TryGetValue(cardId, out c) && c != null && !string.IsNullOrEmpty(c.chatId)) return c.chatId;
+            return cardId;
+        }
+
+        /// <summary>拼一条官方键：`Chat_Messages/<chatId><suffix>`（`suffix` = `-Chat0` / `-Chat0-<对手>` …）。</summary>
+        public static string TermFor(string cardId, string suffix)
+        {
+            if (string.IsNullOrEmpty(cardId) || suffix == null) return null;
+            string id = ChatIdOf(cardId);
+            return string.IsNullOrEmpty(id) ? null : UnitChatPanel.ChatTermPrefix + id + suffix;
+        }
+
+        /// <summary>原版那一对（说话人 × 对手）的**定制开场白**：① 精确档 → ② 按阵营档。
+        /// 都没命中 ⇒ `false`（调用方用 <see cref="TermFor"/> 拼 ③ 兜底 `-Chat0`）。
+        /// <para>⚠️ <paramref name="foeArmy"/> 是 `CardArmy` 的**枚举名字符串**（`"Ultramarines"` 等）——
+        /// 我们卡池的 `faction` 与它逐一相同（现读 1,127/1,127）⇒ 不需要自带枚举表。</para></summary>
+        public static bool TryResolve(string speakerId, string foeId, string foeArmy, out Entry entry)
+        {
+            EnsureLoaded();
+            entry = default(Entry);
+            CardEntry c;
+            if (_byId == null || string.IsNullOrEmpty(speakerId) || !_byId.TryGetValue(speakerId, out c) || c == null)
+                return false;
+            string foeChatId = ChatIdOf(foeId);
+            if (c.byOpponent != null && !string.IsNullOrEmpty(foeChatId))
+            {
+                OppEntry op;
+                if (c.byOpponent.TryGetValue(foeChatId, out op) && op != null && !string.IsNullOrEmpty(op.key))
+                {
+                    entry = new Entry { Key = op.key, HasText = op.hasText, TalksFirst = op.talksFirst };
+                    return true;
+                }
+            }
+            if (c.byArmy != null && !string.IsNullOrEmpty(foeArmy))
+            {
+                ArmyEntry a;
+                if (c.byArmy.TryGetValue(foeArmy, out a) && a != null && !string.IsNullOrEmpty(a.key))
+                {
+                    entry = new Entry { Key = a.key, HasText = a.hasText, TalksFirst = -1 };
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>原版 `ChatManager.IsPlayerFirstIntro`：**只查玩家自己的精确档**；命中返回 `entry.talksFirst`，
+        /// 未命中（含只命中按阵营档 / 没有数据）⇒ **1 = 玩家先说**。
+        /// @return `1` = 玩家先说 · `0` = 对手先说。</summary>
+        public static int PlayerTalksFirst(string playerId, string foeId)
+        {
+            EnsureLoaded();
+            CardEntry c;
+            if (_byId == null || string.IsNullOrEmpty(playerId) || !_byId.TryGetValue(playerId, out c) || c == null)
+                return 1;
+            if (c.byOpponent != null)
+            {
+                string foeChatId = ChatIdOf(foeId);
+                OppEntry op;
+                if (!string.IsNullOrEmpty(foeChatId)
+                    && c.byOpponent.TryGetValue(foeChatId, out op) && op != null && op.talksFirst >= 0)
+                    return op.talksFirst != 0 ? 1 : 0;
+            }
+            return 1;
+        }
+
+        /// <summary>官方表**缺原文**时喊一声（每条键只喊一次；⛔ 不自译）。</summary>
+        public static void WarnMissingTextOnce(string key)
+        {
+            if (string.IsNullOrEmpty(key) || !_warnedMissing.Add(key)) return;
+            Debug.LogWarning("[Chat] 原版这一对开场白**没有原文**（`" + key + "`）⇒ 按原版缺键处理："
+                           + "回 `voice_lines` 的英文兜底 + 出声（⛔ 不自译；判据 → "
+                           + "`资料/普查产出_1019/W_战斗线_开场白数据_1019b.md` §1·B / §3·C）");
+        }
+
+        // ---- 载入 ------------------------------------------------------
+
+        static void EnsureLoaded()
+        {
+            if (_loaded) return;
+            _loaded = true;
+            var ta = Resources.Load<TextAsset>(ResourcePath);
+            if (ta == null)
+            {
+                _lastError = "`Resources/" + ResourcePath + ".json` 载不到 —— 跑一次 "
+                           + "`python 工具/gen_card_chat_intro.py`；开场白退回旧口径"
+                           + "（`Chat_Messages/<卡 id>-Chat0`，⛔ 不静默）";
+                Debug.LogWarning("[Chat] " + _lastError);
+                return;
+            }
+            try
+            {
+                var root = new Json(ta.text).Read() as Dictionary<string, object>;
+                if (root == null) throw new FormatException("根不是对象");
+                _byId = new Dictionary<string, CardEntry>();
+                _chatIdOverrides = new Dictionary<string, string>();
+
+                object o;
+                if (root.TryGetValue("chatIdOverrides", out o))
+                {
+                    var d = o as Dictionary<string, object>;
+                    if (d != null)
+                        foreach (var kv in d)
+                            if (kv.Value is string && !string.IsNullOrEmpty((string)kv.Value))
+                                _chatIdOverrides[kv.Key] = (string)kv.Value;
+                }
+
+                var cards = root.TryGetValue("cards", out o) ? o as List<object> : null;
+                if (cards != null)
+                {
+                    foreach (var it in cards)
+                    {
+                        var cd = it as Dictionary<string, object>;
+                        if (cd == null) continue;
+                        var card = new CardEntry
+                        {
+                            id = Str(cd, "id"),
+                            chatId = Str(cd, "chatId"),
+                            byOpponent = new Dictionary<string, OppEntry>(),
+                            byArmy = new Dictionary<string, ArmyEntry>(),
+                        };
+                        if (string.IsNullOrEmpty(card.id)) continue;
+
+                        object sub;
+                        var opps = cd.TryGetValue("introByOpponent", out sub) ? sub as Dictionary<string, object> : null;
+                        if (opps != null)
+                            foreach (var kv in opps)
+                            {
+                                var od = kv.Value as Dictionary<string, object>;
+                                if (od == null) continue;
+                                string key = Str(od, "key");
+                                if (string.IsNullOrEmpty(key)) continue;
+                                card.byOpponent[kv.Key] = new OppEntry
+                                {
+                                    key = key,
+                                    hasText = Bool(od, "hasText"),
+                                    talksFirst = Int(od, "talksFirst", -1),
+                                };
+                            }
+
+                        var armies = cd.TryGetValue("introByArmy", out sub) ? sub as Dictionary<string, object> : null;
+                        if (armies != null)
+                            foreach (var kv in armies)
+                            {
+                                var ad = kv.Value as Dictionary<string, object>;
+                                if (ad == null) continue;
+                                string key = Str(ad, "key");
+                                if (string.IsNullOrEmpty(key)) continue;
+                                card.byArmy[kv.Key] = new ArmyEntry { key = key, hasText = Bool(ad, "hasText") };
+                            }
+
+                        _byId[card.id] = card;
+                    }
+                }
+                if (_byId.Count == 0)
+                    _lastError = "`" + ResourcePath + ".json` 里一张卡都没有（生成器跑了没有？）";
+            }
+            catch (Exception e)
+            {
+                _lastError = "`" + ResourcePath + ".json` 解析失败：" + e.Message;
+                _byId = null;
+                Debug.LogWarning("[Chat] " + _lastError);
+            }
+        }
+
+        static string Str(Dictionary<string, object> d, string k)
+        {
+            object o;
+            return d != null && d.TryGetValue(k, out o) ? o as string : null;
+        }
+        static bool Bool(Dictionary<string, object> d, string k)
+        {
+            object o;
+            return d != null && d.TryGetValue(k, out o) && o is bool && (bool)o;
+        }
+        static int Int(Dictionary<string, object> d, string k, int fallback)
+        {
+            object o;
+            if (d == null || !d.TryGetValue(k, out o) || !(o is double)) return fallback;
+            return (int)(double)o;
+        }
+
+        /// <summary>极简 JSON 读取器（只读；对象 → `Dictionary&lt;string,object&gt;`、数组 → `List&lt;object&gt;`）。
+        /// <para>⚠️ 为什么不用 `JsonUtility`：本表的两个档位是**动态键的对象**
+        /// （`introByOpponent` 的键 = 对手 chatId、`introByArmy` 的键 = 阵营枚举名），
+        /// `JsonUtility` **不支持字典**（`Loc` 那份是生成器拆成并行数组才绕过去的）。
+        /// 数据文件已定、⛔ 不许改 ⇒ 只能在这里读。格式由我们自己的生成器产出（`indent=1`、`ensure_ascii=False`）。</para></summary>
+        sealed class Json
+        {
+            readonly string _s; int _i;
+            public Json(string s) { _s = s ?? ""; _i = 0; }
+
+            public object Read()
+            {
+                Skip();
+                var v = Value();
+                Skip();
+                if (_i < _s.Length) throw new FormatException("JSON: 尾部多余内容 @" + _i);
+                return v;
+            }
+
+            void Skip() { while (_i < _s.Length && char.IsWhiteSpace(_s[_i])) _i++; }
+
+            void Lit(string lit)
+            {
+                if (_i + lit.Length > _s.Length
+                    || string.CompareOrdinal(_s, _i, lit, 0, lit.Length) != 0)
+                    throw new FormatException("JSON: 期望 `" + lit + "` @" + _i);
+                _i += lit.Length;
+            }
+
+            object Value()
+            {
+                Skip();
+                if (_i >= _s.Length) throw new FormatException("JSON: 意外结束");
+                char c = _s[_i];
+                if (c == '{') return Obj();
+                if (c == '[') return Arr();
+                if (c == '"') return Str();
+                if (c == 't') { Lit("true"); return true; }
+                if (c == 'f') { Lit("false"); return false; }
+                if (c == 'n') { Lit("null"); return null; }
+                return Num();
+            }
+
+            Dictionary<string, object> Obj()
+            {
+                var d = new Dictionary<string, object>();
+                _i++;                        // '{'
+                Skip();
+                if (_i < _s.Length && _s[_i] == '}') { _i++; return d; }
+                while (true)
+                {
+                    Skip();
+                    string k = Str();
+                    Skip();
+                    if (_i >= _s.Length || _s[_i] != ':') throw new FormatException("JSON: 期望 ':' @" + _i);
+                    _i++;
+                    d[k] = Value();
+                    Skip();
+                    if (_i >= _s.Length) throw new FormatException("JSON: 对象未结束");
+                    if (_s[_i] == ',') { _i++; continue; }
+                    if (_s[_i] == '}') { _i++; return d; }
+                    throw new FormatException("JSON: 期望 ',' 或 '}' @" + _i);
+                }
+            }
+
+            List<object> Arr()
+            {
+                var a = new List<object>();
+                _i++;                        // '['
+                Skip();
+                if (_i < _s.Length && _s[_i] == ']') { _i++; return a; }
+                while (true)
+                {
+                    a.Add(Value());
+                    Skip();
+                    if (_i >= _s.Length) throw new FormatException("JSON: 数组未结束");
+                    if (_s[_i] == ',') { _i++; continue; }
+                    if (_s[_i] == ']') { _i++; return a; }
+                    throw new FormatException("JSON: 期望 ',' 或 ']' @" + _i);
+                }
+            }
+
+            string Str()
+            {
+                Skip();
+                if (_i >= _s.Length || _s[_i] != '"') throw new FormatException("JSON: 期望字符串 @" + _i);
+                _i++;
+                var sb = new System.Text.StringBuilder();
+                while (_i < _s.Length)
+                {
+                    char c = _s[_i++];
+                    if (c == '"') return sb.ToString();
+                    if (c != '\\') { sb.Append(c); continue; }
+                    if (_i >= _s.Length) break;
+                    char e = _s[_i++];
+                    switch (e)
+                    {
+                        case '"': sb.Append('"'); break;
+                        case '\\': sb.Append('\\'); break;
+                        case '/': sb.Append('/'); break;
+                        case 'b': sb.Append('\b'); break;
+                        case 'f': sb.Append('\f'); break;
+                        case 'n': sb.Append('\n'); break;
+                        case 'r': sb.Append('\r'); break;
+                        case 't': sb.Append('\t'); break;
+                        case 'u':
+                            {
+                                if (_i + 4 > _s.Length) throw new FormatException("JSON: \\u 不完整");
+                                int code = 0;
+                                for (int k = 0; k < 4; k++)
+                                {
+                                    char h = _s[_i + k];
+                                    int dv = h >= '0' && h <= '9' ? h - '0'
+                                           : h >= 'a' && h <= 'f' ? h - 'a' + 10
+                                           : h >= 'A' && h <= 'F' ? h - 'A' + 10 : -1;
+                                    if (dv < 0) throw new FormatException("JSON: \\u 十六进制非法");
+                                    code = (code << 4) | dv;
+                                }
+                                _i += 4;
+                                sb.Append((char)code);
+                                break;
+                            }
+                        default: throw new FormatException("JSON: 未知转义 \\" + e);
+                    }
+                }
+                throw new FormatException("JSON: 字符串未结束");
+            }
+
+            object Num()
+            {
+                int start = _i;
+                if (_i < _s.Length && (_s[_i] == '-' || _s[_i] == '+')) _i++;
+                while (_i < _s.Length)
+                {
+                    char c = _s[_i];
+                    if (char.IsDigit(c) || c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-') { _i++; continue; }
+                    break;
+                }
+                double d;
+                if (_i == start
+                    || !double.TryParse(_s.Substring(start, _i - start),
+                                        System.Globalization.NumberStyles.Float,
+                                        System.Globalization.CultureInfo.InvariantCulture, out d))
+                    throw new FormatException("JSON: 数字非法 @" + start);
+                return d;
+            }
         }
     }
 }

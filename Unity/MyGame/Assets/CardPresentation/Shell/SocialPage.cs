@@ -159,7 +159,7 @@ namespace CardPresentation
         /// `MenuDraw` 里那两处 `TakeClipFailMark` 调用点）⇒ **计数不再虚高**
         /// （口径原文 → `资料/已知的坑.md` 的 2026-10-15 §1）。⚠️ `TextCore` 那个内层**照旧拆着** ——
         /// 它免掉的是那一刀**本身**（白做一次 + 被重排冲掉），**不只是计数**
-        /// （同口径 → `Shell/MenuDraw.cs` 的 `TextCore` 头 `:1674-1676`）。
+        /// （同口径 → `Shell/MenuDraw.cs` 的 `TextCore` 头 `CardPresentation/Shell/MenuDraw.cs`）。
         /// 🔴 **它真的带电**：三个使用者（`AllianceMemberTab` / `AlliancesTab` / `FriendsTab`）**各挂一颗**
         /// `ViewportClip`（A435 阶段 2），本口恒传 `clip = null` ⇒ 框由父链那颗节点解析（不是「没人管」）。
         /// 本口第一句 `ClipRectAbove` 那是**另一件事**：**整块**在框外 ⇒ 连节点一起不建
@@ -197,8 +197,8 @@ namespace CardPresentation
             // 🔴 **2026-10-16（A799 · 生产 9/9）：这一句【会新裁】= 目的，⛔ 别「修」。**
             //   本口自己不调 `MenuDraw.ClipText`（A822 的有意选择，理由不在这儿抄第二份 —— 看文档头）
             //   ⇒ `clip` 恒 `null` ⇒ A781 起 `MenuDraw.TextBox` 末句沿父链解析到**使用者那一棵**的节点：
-            //   `AllianceMemberTab` 的 `v.Text(row, …)`（`:1381` / `:1400` / `:1402` / `:1458` 四颗，
-            //   `row` 在 `mcontent`（该文件 `:1137`）之下、VC = 该文件 `:1125` 那颗 `ViewportClip`；
+            //   `AllianceMemberTab` 的 `v.Text(row, …)`（`CardPresentation/Shell/AllianceMemberTab.cs` / `CardPresentation/Shell/AllianceMemberTab.cs` / `CardPresentation/Shell/AllianceMemberTab.cs` / `CardPresentation/Shell/AllianceMemberTab.cs` 四颗，
+            //   `row` 在 `mcontent`（该文件 `CardPresentation/Shell/AllianceMemberTab.cs`）之下、VC = 该文件 `CardPresentation/Shell/AllianceMemberTab.cs` 那颗 `ViewportClip`；
             //   `AlliancesTab` / `FriendsTab` 同形）⇒ 压在视口边上的那一段字第一次被夹到视口沿。
             //   🔴 这一处是 **R2 新查出的第 9 处**（账的「16 组包装器」里只写了本口、没往下解父链，
             //   见 R2 §一② 与 §4·2）——「整族漏了」的意思：A781 顺带把它补上了，**这是好事**。
@@ -210,7 +210,7 @@ namespace CardPresentation
             //    ⚠️ **本文件自己 0 个文本创建点**（只是 `AlliancesTab` / `FriendsTab` / `AllianceMemberTab`
             //    三页共用的漏斗）。社交族唯一一颗 Asar 是 `member index`（判据 = `menu_dump …
             //    bundle_menus_assets_all "Social Submenu Variant"`，整棵只有它一颗 Asar），
-            //    它的落点在 `AllianceMemberTab.cs:1451` —— **不在本批白名单** ⇒ 那一个站点本批【不改】。
+            //    它的落点在 `AllianceMemberTab.cs` —— **不在本批白名单** ⇒ 那一个站点本批【不改】。
             var lb = MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, Q + qOff, autoMaxPx, autoBasePx,
                                       face: face);
             // 🔴 **2026-10-08（A213）**：`wrap: false` ⇒ 按原版把模式显式落成 `0`。

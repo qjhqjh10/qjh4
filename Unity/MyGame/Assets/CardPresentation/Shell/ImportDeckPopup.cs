@@ -464,8 +464,8 @@ namespace CardPresentation
             //       （`LayoutSpace.RectCenter(…) − 基准的**设计空间**位置`，逐字相同 ——
             //        🆕 2026-10-11（A306③）起两边都走 `MenuDraw.PosInDesignSpace`）⇒ 收口只在 `basis == parent`
             //       时才等价 —— 公共件**只认 `parent` 一个基准**（树父与坐标基准是同一个参数）。
-            //       本文件 3 个调用点**全都传同一个对象**（`:109` / `:133` 的 `Nine(win.transform, win.transform, …)`、
-            //       `:146` 的 `Nine(b.transform, b.transform, …)`），而这不等于「以后也一定」
+            //       本文件 3 个调用点**全都传同一个对象**（`本文件` / `本文件` 的 `Nine(win.transform, win.transform, …)`、
+            //       `本文件` 的 `Nine(b.transform, b.transform, …)`），而这不等于「以后也一定」
             //       ⇒ 不等就**是位置画错**，⛔ 不许静默（下面出声）。
             //    ③ **队列 = `q`** + **tint 传 `tint`**（旧代码建完逐块设的就是这两样，公共件会替我们设；
             //       `tint` 没传时两边**都不设**，同一条退化）。九宫格切边不用我们管：块数与每块的

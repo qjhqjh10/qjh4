@@ -36,9 +36,9 @@
 //      第 4 步必须补：`BackToMenu` → 关本窗（`HostWindow.Close()`），并收拾
 //      `MainMenuRuntime` 的 `PendingReturn` / `Editor/DeckScene.cs` 那 5 条 A855 断言。
 //      🔴 **2026-10-17 就地订正（铁律 5 · `U4` 现核）：上面这条【已过期】** —— 第 4 步
-//      （2026-10-14）已落地：`Deck/DeckRuntime.cs:4997` 走 `LeaveByHostWindow()`（关窗不切场景），
-//      `:5027-5062` 收拾了回程。第 3 步（三处入口）也已接（`CollectionWindow.cs:3622/3698`·
-//      `LiveOpsEventWindow.cs:1163`）。⛔ 别再照这三行去「补第 4 步」。
+//      （2026-10-14）已落地：`Deck/DeckRuntime.cs` 的 `LeaveByHostWindow()` 走 `LeaveByHostWindow()`（关窗不切场景），
+//      `CardPresentation/Deck/DeckRuntime.cs` 收拾了回程。第 3 步（三处入口）也已接（`CollectionWindow.cs`·
+//      `LiveOpsEventWindow.cs`）。⛔ 别再照这三行去「补第 4 步」。
 //   ✅ **第 5 步**（遮让）：**已被 `D10 §三` 证伪取消**（`OpenWindow` 全屏支已经 `HideAllWindows`）。
 //   ✅ **第 6 步**：`DeckEditor.unity` 的定位已按 D10 §三 定（它只剩自检/兜底用途）。
 //

@@ -48,6 +48,20 @@ gen_card_anim_order.py — T05 第 3 步（驱动侧按表展开 N 拍）的**�
   **错误演示、而且看着有动画（完全静默）**，比少播更坏。
 
 
+## 为什么**不需要**按 `abilityLogic[j]` 分组（`randomAbilityChoice`）—— 2026-10-19 第五十七会话 FX-3 现核
+原版 `RawCardScript__TriggerAbility.c:82-93`：`CardAbility.randomAbilityChoice`（`+0x48`）为真且
+`abilityLogic`（`+0x50`）的 `Count > 1` 时，`GetRandomInt(0, Count)` **只抽一组**播；为假才按序全播。
+- **当前 build 1,351 张卡的 `activeAbility` 逐张核过：`randomAbilityChoice` 真 = 0**
+  （`资料/普查产出_1018/allcards_1350/cards_raw.json`；`activeAbilityLogic` 组数分布
+  0 组 1,208 / 1 组 90 / 2 组 45 / 3 组 8）。
+- 全库唯一为真的是 **`GOF12 Spanner` 的 `cardAbilities[0]`**（5 组）—— 那一路归 `VfxMap` 的
+  `rc/ai/gj/gn`，**不在本表**（本表只取 `path == activeAbility`）。
+- ⇒ **本生成器把同一张卡的所有 `activeAbility` 组平铺进 `steps[]` 就是原版语义，不需要抽组。**
+- ⚠️ **将来若出现 `activeAbility.randomAbilityChoice = true`**：全量件 `card_anim_order.json` 的
+  `abilities[]` 是「按 `logicIndex` 展开的行」、**没有 `randomAbilityChoice` 字段**（现读 1,112 行
+  0 个带该键）⇒ 要先让全量件生成器补这个字段，再在本生成器 + `Battle/CardAnimOrder.cs` 两处
+  实现「按 `abilityIndex` 抽一组」；否则会把所有组平铺全播（比原版多播）。
+
 ## 幂等
 跑两遍结果逐字节相同（无时间戳、无随机、字典序稳定）。`--check` 只比对不写盘。
 

@@ -659,7 +659,7 @@ namespace CardPresentation
             //   `UI_Button_Round_background` · `m_Type=0`(Simple) · **`m_PreserveAspect=1`** ·
             //   `m_PixelsPerUnitMultiplier=1.0` · `m_RaycastTarget=0` · 矩形 **74.39×75.61**；
             //   贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **74.39×74.39**。
-            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs:386-387` / `Shell/ChatPanel.cs:307-308` 的形状
+            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs` / `Shell/ChatPanel.cs` 的形状
             //   （`Rect` 画在根节点上、图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**。
             var closeTex = Tex(ArtClose, "关窗钮底");
             var closeBg = closeTex != null
@@ -747,9 +747,9 @@ namespace CardPresentation
                 // 而 `MenuDraw.Node/Rect/Hit` 的矩形实参是**绝对画布框**（`MenuDraw.Node → ApplyPxRect →
                 // Local(parent,…)`）⇒ 容器整棵子树差一个根原点 `(167.175, 70.94)`（实测容器节点落在
                 // `(324.495, 111.29)`、应该在 `(491.67, 182.23)`）。**与 `Build()` 里模板那一份
-                // （`:526-527` 走 `Abs(ContainerR)`）对齐**；`Sub` 的基准同步改成 `Abs(ContainerR)` ——
+                // （`本文件` 走 `Abs(ContainerR)`）对齐**；`Sub` 的基准同步改成 `Abs(ContainerR)` ——
                 // **两半必须一起改**，只改一半会把根原点再加一次（见 `BuildContainer` 那段注释）。
-                // ⚠️ 滚动那一档本来就是绝对档（`:606-607` 用的就是 `Abs(ViewportR).y1`）⇒ `Shift` 直接吃绝对框。
+                // ⚠️ 滚动那一档本来就是绝对档（`本文件` 用的就是 `Abs(ViewportR).y1`）⇒ `Shift` 直接吃绝对框。
                 var r = Abs(ContainerRect(i));
                 var on = _scroll != null ? _scroll.Shift(r) : r;
                 if (_scroll != null && !_scroll.Intersects(on)) continue;   // 整块在视口外 ⇒ 不建（同全壳口径）
@@ -884,8 +884,8 @@ namespace CardPresentation
                       : o.Value.ArmyName)
                    : TxtArmyName;
             // 🔴 **2026-10-16（A799 · 生产 1/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
-            //   父链：`cn` ← `_content`（`:517` `Node(vp, "Content", …)`）← `vp`（`:513`）← `vpVc`
-            //   （`:512` `ViewportClip.Hang(sv, "Viewport", …)`）；容器就是 `:633` 那句 `BuildContainer` 建的。
+            //   父链：`cn` ← `_content`（`本文件` `Node(vp, "Content", …)`）← `vp`（`本文件`）← `vpVc`
+            //   （`本文件` `ViewportClip.Hang(sv, "Viewport", …)`）；容器就是 `本文件` 那句 `BuildContainer` 建的。
             //   ⇒ 本处没传 `clip`（恒 `null`）⇒ A781 起 `MenuDraw.TextBox` 的末句
             //   （`if (_st.RenderClip.HasValue) ClipText(lb, clip, clipSoftness);`）会自己解析到那颗节点
             //   ⇒ 压在视口边上的「Army Name」**第一次**被夹到视口沿（此前这一段字一个顶点都不裁）。
@@ -907,9 +907,9 @@ namespace CardPresentation
             var ptex = Tex(ArtPremIcon, "`Premium Unlocked/Premium image`");
             if (ptex != null) MenuDraw.Rect(pi, ptex, Sub(Abs(PremIconR)), "Image", QPremiumIcon);
             // 🔴 **2026-10-16（A799 · 生产 2/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
-            //   父链：`pi` ← `pu` ← `cn` ← `_content`（`:517`）← `vp`（`:513`）← `vpVc`（`:512` 那颗 `ViewportClip`）。
+            //   父链：`pi` ← `pu` ← `cn` ← `_content`（`本文件`）← `vp`（`本文件`）← `vpVc`（`本文件` 那颗 `ViewportClip`）。
             //   ⇒ `clip` 恒 `null` ⇒ A781 起由那颗节点接管 ⇒ 压在视口边上的「Premium Text」第一次被夹到视口沿。
-            //   ✅ 为什么可以：同上一处（`:707`）—— 原版 `RectMask2D` 文字/图片一视同仁，**新裁才是对的**；
+            //   ✅ 为什么可以：同上一处（`本文件`）—— 原版 `RectMask2D` 文字/图片一视同仁，**新裁才是对的**；
             //   且本句**丢弃返回值**（不接 `Label`）⇒ A798 那条「整块在框外 ⇒ 返回 `null`」在这句上无副作用。
             //   ⛔ 别补 `ClipText`。判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #2。
             MenuDraw.TextBox(pi, Sub(Abs(PremTextR)), TxtPremium, PremTextTint, "Premium Text",

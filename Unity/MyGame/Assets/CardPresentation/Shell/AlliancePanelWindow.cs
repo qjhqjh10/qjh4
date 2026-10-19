@@ -61,7 +61,7 @@
 //   · 🔴 **双模式（`uguiHost == null` ⇒ 与改本件之前【逐位相同】）**：`Create(parent, name, uguiHost)` ——
 //     `null` ⇒ 今天的世界档（`MenuDraw.*` + `renderQueue` 阶梯，**那些数一个都没动**）；非 null ⇒ 画布档。
 //     先例 = `Tooltip.UseHost(host)` / `ErrorMessageBanner.Create(…, uguiHost)` / `UnitChatPanel.Create(parent, uguiHost)`。
-//     （上游调用点 = `Battle/BattleDriver.cs` **现核 `:15272-15286`** —— ✅ **收口波 `G1` 已接线**；
+//     （上游调用点 = `Battle/BattleDriver.cs` **现核 `CardPresentation/Battle/BattleDriver.cs`** —— ✅ **收口波 `G1` 已接线**；
 //       本条原写作 `:15084`，那份文件随后被 `G1`/`G3` 改过 ⇒ 行号已漂，⛔ 别照旧号找。）
 //       ⚠️ 本文件末尾「入口」那一节原来写着「待接线」—— ✅ **已就地订正**（见那一节）。
 //   · 🔴🔴 **层深度：队列 → 兄弟序【要取负】** —— 本件最要命的一处换算，⛔ 别「照搬队列值」：
@@ -75,9 +75,11 @@
 //      与 `HitBody` 的 doc 各自自陈一遍）⇒ **画布档不建它们**
 //      ⚠️ 本条原来写的是**本文件行号**（`:370-372`/`:486-488`）—— 本件注释一改就会漂，
 //      ⇒ **改成按内容指路**（判据在本文件里、⛔ 别再补行号）。
-//     （本轮口径：**不建 `EventSystem`、不开 `raycastTarget`** —— 判据 → `Battle/HudCanvas.cs:33-35`）。
+//     （本轮口径：**不建 `EventSystem`、不开 `raycastTarget`** —— 判据 → `Battle/HudCanvas.cs` 的 `EventSystem`）。
 //     战斗里「点窗外关窗」照旧由 `BattleDriver.HandleAlliancePanel` 用本类 `HitBody` 接 ⇒ `HitBody`
 //     **已按档分支**（画布档走 `RectTransform.InverseTransformPoint` + `RootCenterLocal`，任何宽高比都对）。
+//     🆕 **2026-10-20（`T09` A3-e）**：画布档已补**原版的 uGUI 射线靶**（压暗层点击 = 关，见下一节）；
+//     驱动那条手搓路**本波一个字没动**（合并配方见下一节末）。
 //   · ✅ **2026-10-16（`A14` · `T09` 批 3 锚点补正）：原来那一处「如实记的口径分歧」已按【原版】裁掉。**
 //     原版那一级 = `aMin = aMax = (0,1)` **顶左点锚** + `piv(0.13,0.825)` + `ap(-1.0444,−25.2717)` +
 //     `sd(815.044,475.470)`（**不拉伸**）；画布档原先是「中心锚 + 固定设计 px」
@@ -99,7 +101,45 @@
 //     ④ **三个 DOTween 常量已读出**：`0x1834b2bb8 = 1.0`（目标 alpha）· `0x1834b31d4 = 0.35`（共用时长）·
 //        `0x1834b2e84 = 0.75`（起始缩放系数）⇒ **能做，属「欠做」**。
 //     ✅ **只有 ② 两处评级仍归「等远端」**（`eloRating@0x38` / `allianceRating@0x7C` 来自服务端 profile、图标来自 LiveOps）。
+//     🔴 **2026-10-19（`R01` · 第五十七会话）就地订正（铁律 5）**：② 的**布局/图标位那一半已经做掉** ——
+//        `Player Rating Display` / `Alliance Rating Display` 两节点（含 `Main Icon` + `Individual rating value`
+//        + 原版 `HorizontalLayoutGroup`）已建（判据见下面那组 `PlayerRatingR` 的注释）；
+//        **仍然等远端的只剩：数值本身（服务端 profile）＋ LiveOps 活动图标（key=6）的覆盖**。
+//        ⚠️ `Main Icon` 的出厂图 **不是** LiveOps 图标 —— 是 prefab 自带的 `40k_UI_icon_ranked_Skirmish`
+//        （`AllianceRatingDisplay__Initialize` 只在传入非空图标时才覆盖）⇒ 那一格现在显示的就是**原版离线/无活动态**。
 //     判据全文 → `资料/普查产出_1016并行/S11_四件缺口与PlayedThirdCard_报告.md`。
+//     落地报告 → `资料/普查产出_1019/W57_远端线_R01布局与图标位.md`。
+//
+// ============================ 🆕 2026-10-20（W57 · `T09` 步骤 A3-e）：输入层换 uGUI ============
+//  判据 = **2026-10-20 现读** `bundle_scenes_scenes_battlearena1` / `…battlearena2`（UnityPy 直读 typetree，
+//  两场逐字段同值）—— 这扇窗**全场只有一处点击处理器**，其余件分成「射线靶」与「非射线靶」两类：
+//   · **`Close Background`**（GO 377 / Image `MB_5220`）：`m_RaycastTarget = 1` · `m_RaycastPadding = (0,0,0,0)`
+//     ＋ **`BackgroundCloseButton`**（`MB_4577`，`IPointerClickHandler.OnPointerClick`）
+//     —— 事件 = **Click（松手那一帧）**，⛔ 不是 PointerDown。
+//     `BattleAlliancePanel__Awake.c` 把 `CloseButtonClick`（= `SetActive(false)`）加进它的 `onClick`
+//     （`BackgroundCloseButton__…OnPointerClick.c`：`window.Close()` + `onClick.Invoke()`）⇒ **点压暗层 = 关窗**。
+//   · 🔴 **`BG` / `BGFrame` 四块 / `Border` 全是 `m_RaycastTarget = 0`**
+//     （`MB_4162` / `4691` / `5261` / `4301` / `4338` / `4114`）⇒ ⛔ **它们不是射线靶**。
+//     **本文件旧注释与 `BattleDriver.HandleAlliancePanel` 的 doc 都写「BG / BGFrame rt=1 ⇒ 点窗内不关」——
+//     那条前提【是错的】**（2026-10-20 现读推翻；铁律 5 就地订正）。原版真正吃射线的是：
+//       · **7 颗 TMP**（`PlayerLabel` / `Name Text` / `TitleLabel` / `Title Text` / `Alliance Label` /
+//         `Alliance Name` / `NotInaAllianceText` —— 全 `rt=1` · pad `(0,0,0,0)`）；
+//       · **两处评级的 `Main Icon`**（rt=1；`Secondary Icon` 也 rt=1 但 `m_IsActive=false`）；
+//       · **头像 `Image`**（rt=1，但父 `Image Container` 的 `CanvasGroup.m_BlocksRaycasts = false` ⇒ 实际打不到）。
+//       · `Individual rating value` = **rt=0**；`Highlight` / `Badge` / `Frame` = 0。
+//   · ⇒ 原版的「关」**不是只在窗外**：面板底（BG/BGFrame）不吃射线 ⇒ 点**面板空白处**也会落到压暗层 = 关；
+//     只有点在那 7 行字 / 两颗评级图标上才什么都不发生。本波**照这个落地**（⚠️ 与 `BattleDriver` 现有
+//     `!HitBody(...)` 那条手搓路在「点窗内空白」这一格**语义不同** —— 那是**旧偏离**，合并时随手动路一起删）。
+//   · 本波**只加输入路径，世界档一个字节不动**：画布档把压暗层变成射线靶 + `BattleHudButton`
+//     （`IPointerClickHandler`，与 `BackgroundCloseButton` 同一条链）；**关窗动作延迟到 `LateUpdate`**
+//     （`ApplyPendingClose`）—— 理由与 `ChatPopupPanel` 逐字相同：`EventSystem.Update` 与 `BattleDriver.Update`
+//     同序，当场 `Close()` 会让驱动以为窗本来就关着 ⇒ 这一下继续落到棋盘/手牌（**静默的「点一下做两件事」**）。
+//   · ⚠️ **如实记**：我们的 `Label` 的 TMP 只占**文字 bbox**（`Label.RefreshBounds` 写的是文字尺寸），
+//     而原版 TMP 吃射线的矩形是**节点 rect** ⇒ 我们挡射线的那块**比原版小**（同 `MultiCardDisplay` 标题那条）。
+//   · **合并配方（⛔ 本波不执行 —— `BattleDriver` 不在白名单）**：`CloseRequested` / `ApplyPendingClose` 已就位后，
+//     ① `BattleDriver.HandleAlliancePanel` 里 `ReleasedThisFrame() && !HitBody(...)` 整段删掉，只留「窗开着 ⇒
+//     `return true`」的模态闸；② `A985③` 那条「点窗内 ⇒ 不关」的断言改成「点窗内**空白** ⇒ 关 / 点在那 7 行字上 ⇒ 不关」
+//     （判据 = 本文件 `BuildUguiClose` 与 `BlockRaycasts` 的 doc）；③ `HitBody` 若届时无人再用，可一并删。
 //
 // ============================ 🆕 相对原版的**已知缺口**（如实记，⛔ 不静默）============================
 //  ① **头像立绘不画**：`Avatar Item Small/Image Container/Image` 的 `m_Sprite` 是 `0`（运行期由
@@ -112,11 +152,18 @@
 //     · 「我们单机的 bot 也没有头像数据源」**错**：HUD 里 `AvatarImage_Foe` **早就在画**（按本局种子从 `ProfileData.Avatars` 确定性挑）。
 //     · ⇒ **本格【可做】**：把 HUD 那套搬进来即可。唯一真实差异 = 原版 bot 的**允许清单** `AIBotsConfig.GetRandomAvatar`
 //       在 **LiveOps 远端** ⇒ 我们「从本地清单挑」是**已如实标注的近似**。
-//  ② **两处评级不建**：`Player Rating Display` / `Alliance Rating Display` 里的 `Main Icon` /
+//  ② **两处评级**：`Player Rating Display` / `Alliance Rating Display` 里的 `Main Icon` /
 //     `Individual rating value` 序列化都是 **0×0**，尺寸由 `RatingDisplay` 脚本运行时算
 //     （两个节点身上各挂一个 `HorizontalLayoutGroup`、`m_ChildControlWidth/Height = 1`
 //     ⇒ 尺寸 =「TMP/LayoutElement 首选宽」× 容器高，**静态取不到**）；而且我们单机**没有对手评级数据**。
 //     ⇒ 不建那两格（要补：先有一个真评级数据源 + 一次运行期读数）。
+//     🔴 **2026-10-19（`R01`）就地订正（铁律 5）—— 本条已全部作废，两格【已建】**：
+//     · 「静态取不到」只是**尺寸层面**：`HorizontalLayoutGroup` 那套算法（`HorizontalOrVerticalLayoutGroup.cs`
+//       `SetChildrenAlongAxis`）在**容器宽已知**时是**确定**的 —— 图标 = `LayoutElement` 首选宽 60（×0.8 = 48）、
+//       文本 = 剩余宽（`Lerp(0, 5000, (size−48)/5000)` = `size − 48`）⇒ 我们直接按实绘 rect 建、再挂上真布局组，
+//       **不需要运行期读数**。判据见 `PlayerRatingR` 那段注释与落地报告。
+//     · 「没有评级数据」仍然成立 ⇒ 两格显示**原版 prefab 自带的空态串**（7 / 6 个连字符）+ **出声一次**；
+//       图标用 prefab 自带的 `40k_UI_icon_ranked_Skirmish`（LiveOps 只是覆盖）。⛔ 不编数值。
 //  ③ **徽章 `Frame` / `Badge` 不建**：两张 `m_Sprite` 也是 `0`（`AllianceBadgeDrawer.Draw(id)` 运行期灌）
 //     ⇒ 同样是「出厂态就没有」；且我们单机恒走「无联盟」那一支，那两格根本不显。
 //     🔴 **2026-10-17 就地订正（铁律 5）—— 前半句错、后半句对**（`S11` 现核）：
@@ -143,6 +190,7 @@
 //     🔴 **那颗钮【没有贴图】** —— 原版它的 `m_TargetGraphic` 类是 `NonDrawingGraphic`
 //     （`OnPopulateMesh` 方法体为空）、节点就是 `LeftArea/EnemyInfo` **本身** ⇒ 纯命中区。
 //     判据全文（rect / padding / 13 场同构 / 点击沿）**只写在那一处**，本文件不重复。
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -240,6 +288,53 @@ namespace CardPresentation
         static readonly PxRect NotInAllianceR = new PxRect(55.765f, 257.013f, 529.877f, 293.972f);
         const float NotInAllianceAlpha = 0.772549f;             // 实读 `m_fontColor.a`
 
+        // ============================================================ 两处评级（🆕 2026-10-19 · 远端线 `R01`）
+        //  🔴 **判据 = 原版 prefab 逐字段实读**（`bundle_scenes_scenes_battlearena1`）：
+        //   · `Player Rating Display`   RT **3111** / GO 662 · `m_LocalScale = 0.8` · father = `PlayerInfo`(RT 3363)
+        //     的 `VerticalLayoutGroup` **第 2 格**（`m_ChildControlWidth = 1` / `m_ChildControlHeight = 0`
+        //     ⇒ 宽 = PlayerInfo 宽 376.959、高 = 自己 `m_SizeDelta.y` 60.539）。
+        //   · `Alliance Rating Display` RT **3110** / GO 661 · `m_LocalScale = 0.8` · father = `Alliance`(RT 3495)
+        //     的**第 4 个子件**（`m_Children = [2635, 3272, 3503, 3110]`）·
+        //     `m_AnchorMin/Max = (0,0)` · `m_AnchoredPosition = (230.542755, 40.429642)` ·
+        //     `m_SizeDelta = (184.184006, 60.539001)` · `m_Pivot = (0.5, 0.5)`（**不在任何布局组里**，字段即真值）。
+        //   · 两个容器身上各挂一个 **`HorizontalLayoutGroup`**（MB **4788** / **4785**，同类同值）：
+        //     `m_Padding 0` · `m_ChildAlignment 3`(MiddleLeft) · `m_Spacing 0` · `m_ChildForceExpandWidth 0`
+        //     · `m_ChildForceExpandHeight 1` · **`m_ChildControlWidth 1`** · **`m_ChildControlHeight 1`**
+        //     · `m_ChildScaleWidth/Height 0` · `m_ReverseArrangement 0`。
+        //   · 子件（`m_Children` 序 = Secondary Icon(act **F**) → Main Icon → Individual rating value）：
+        //       `Main Icon` = Image（`m_Sprite` 跨包 PPtr → **`40k_UI_icon_ranked_Skirmish`**，`m_PreserveAspect = 1`）
+        //         + `LayoutElement{m_MinWidth 60, m_PreferredWidth 60, m_FlexibleWidth 0}`；
+        //       `Individual rating value` = TMP（`Pragati-Regular SDF` · `m_fontSize 45` · `m_fontSizeBase 31.379999`
+        //         · `auto[18, 45]` · `Left/Midline` · 折行=1）+ `LayoutElement{m_PreferredWidth 5000}`。
+        //   ⚠️ **两条容器都是 `m_LocalScale = 0.8`** ⇒ 本文件照 `NameLabelPx` 那一族的同一条换算**按实绘 px 建**
+        //      （尺寸 ×0.8、位置按枢轴换算；`LayoutElement` 那个 60 也是**局部单位** ⇒ 实绘 48）。
+        //      ⇒ 这里不设 `localScale`，所以 `HorizontalLayoutGroup` 拿到的容器宽/高**就是实绘值**。
+        static readonly PxRect PlayerRatingR   = new PxRect(180.000f, 149.567f, 481.567f, 197.998f);
+        static readonly PxRect AllianceRatingR = new PxRect(179.963f, 291.885f, 327.310f, 340.316f);
+        /// <summary>`Main Icon` 宽 = 原版 `LayoutElement.m_PreferredWidth = 60` × 0.8（实绘 px）。</summary>
+        const float RatingIconW = 48f;
+        // `Individual rating value` 的字号三件套（原版值 × 0.8 —— 见 `NameLabelPx` 那条换算）：
+        const float RatingValuePx = 36f;          // 45    × 0.8
+        const float RatingValueMaxPx = 36f;       // 45    × 0.8（`m_fontSizeMax`）
+        const float RatingValueBasePx = 25.104f;  // 31.38 × 0.8（`m_fontSizeBase`）
+
+        /// <summary>原版 `Main Icon` 的贴图 —— **`m_Sprite` 跨包 PPtr**（`m_FileID 13` / `m_PathID -6552398156213418268`）
+        /// ⇒ UnityPy 现解 `armyicons_assets_all.bundle` = **`40k_UI_icon_ranked_Skirmish`**（128×128）。
+        /// <para>🔴 **它不是「LiveOps 图标」**：`AllianceRatingDisplay__Initialize.c` 只在**传入非空图标**时
+        /// 才 `Image.sprite = icon`（末尾那句 `op_Implicit` 判空）—— LiveOps 的活动资产（key=6）是**覆盖**，
+        /// 本地没有那个资产时**原版就显示这张 prefab 自带的图**（离线/无活动态的逐句等价物）。</para></summary>
+        public const string RatingIconArt = "40k_UI_icon_ranked_Skirmish";
+
+        /// <summary>🆕 **2026-10-19（R01）：两格评级的空态串 = 原版 prefab 自己写在那一格里的字面量**。
+        /// <para>判据 = `MonoBehaviour_5118.json`（GO 958 → RT 3323 → father RT **3111** = `Player Rating Display`）
+        /// 的 `m_text` **`len = 7`**；`MonoBehaviour_5121.json`（GO 955 → RT 3322 → father RT **3110**）的
+        /// `m_text` **`len = 6`** —— 用 python 逐字节数过（⛔ 目测会数错，两格都长这样）。同一次 `menu_dump` 的
+        /// 「文字」列同值（`'-------'` 在上、`'------'` 在下）。</para>
+        /// <para>⚠️ **两格【不同长】**，⛔ 别互相套用；同族先例各取各的 —— `Shell/RankedTab.ScoreEmpty` = **6**、
+        /// `Shell/AllianceMemberTab.RateEmpty` = **7**（那是另一族节点，**不是**同一份判据）。</para></summary>
+        public const string PlayerRateEmpty = "-------";     // 7 个连字符
+        public const string AllianceRateEmpty = "------";    // 6 个连字符
+
         // 字号 = 原版 `m_fontSize` **× 该节点累计 localScale**（这一族全是 0.8）。
         //  ⚠️ 这几颗都 `m_enableAutoSizing = 1`，但序列化 `m_fontSize` **就是**上一次算出来的拟合值
         //     ⇒ 直接用它（`MenuDraw.Text` 走 `SetGlyphHeight`，不做二次 autosize —— 见 `Text` 的注释）。
@@ -259,7 +354,7 @@ namespace CardPresentation
         //   🔴 **三格都要乘本族那个 `localScale = 0.8`** —— 与上面那几个 `*Px` 是**同一条换算**
         //   （原版 `m_fontSizeMin/Max/Base` 是**未缩放的设计空间原值**）。
         //   判据 = 本仓既有先例 `Shell/MissionsTab.cs` 的 `FS()`：**「自适应上下限也要一起乘」**
-        //   （落地在 `:345` `FS(autoMinPx)` 与 `:380` `FS(minPx), FS(maxPx), FS(basePx)`；说明见 `:1302`）。
+        //   （落地在 `CardPresentation/Shell/MissionsTab.cs` `FS(autoMinPx)` 与 `CardPresentation/Shell/MissionsTab.cs` `FS(minPx), FS(maxPx), FS(basePx)`；说明见 `CardPresentation/Shell/MissionsTab.cs`）。
         //   ⛔ **不是我们挑的**：换算是「照原版实绘」，裸传原值反而会让上限比原版高 25%。
         const float AutoMinPx = 18f * 0.8f;       // 14.4（七颗同值）
         const float AutoBasePx = 36f * 0.8f;      // 28.8（七颗同值）
@@ -284,12 +379,35 @@ namespace CardPresentation
 
         // ============================================================ 建出来的东西
         Transform _root, _background, _allianceGo, _titleHolder, _notInAlliance;
+        /// <summary>🆕 2026-10-19（`R01`）：两处评级的容器（原版 `Player Rating Display` / `Alliance Rating Display`）。</summary>
+        Transform _playerRating, _allianceRating;
         Label _nameLb, _titleLb, _allianceLb;
         readonly List<string> _missArt = new List<string>();
         bool _visible;
+        bool _ratingWarned;
         /// <summary>本扇窗是不是建在 **uGUI 子画布**上（`false` = 今天的世界档，逐位不变）。
         /// ⚠️ 必须在 `Build()` **之前**赋值（`Build` 里按它选建件口与单位）。</summary>
         bool _ugui;
+
+        // ============================================================ 🆕 2026-10-20（`T09` A3-e）输入层
+        //  ⚠️ 下面这几个字段**只在画布档有意义**（世界档恒 null / 空表）—— 判据与口径见文件头那一节。
+        HudPiece _shade;                       // `Close Background`（原版 rt=1 + `BackgroundCloseButton`）
+        HudPiece _bg;                          // `BG`（原版 rt=0 —— **只给自检读**，⛔ 别改成射线靶）
+        BattleHudButton _closeBtn;             // 压暗层上的 `IPointerClickHandler`（= 原版 `BackgroundCloseButton`）
+        /// <summary>原版 `m_RaycastTarget = 1` 的那 7 颗 TMP（挡住射线、**零处理器** —— 点它们不关窗）。</summary>
+        readonly List<Label> _blockLabels = new List<Label>();
+        /// <summary>两处评级的 `Main Icon`（原版 rt=1 —— 同上：挡射线、不响应）。</summary>
+        readonly List<HudPiece> _ratingIcons = new List<HudPiece>();
+        /// <summary>两处评级的 `Individual rating value`（原版 **rt=0** —— 保持出厂 false，⛔ 别顺手打开）。</summary>
+        readonly List<Label> _ratingValues = new List<Label>();
+        bool _closePending;
+        int _uguiCloseClicks, _uguiCloseApplied;
+
+        /// <summary>🆕 2026-10-20（`T09` A3-e）：画布档的「压暗层被点 ⇒ 请求关窗」**已落账**时发一次。
+        /// <para>⚠️ **本波没有订阅者**（`BattleDriver` 不在白名单）：关窗动作由本类**自己**在
+        /// `LateUpdate → ApplyPendingClose` 里落（`Close()` 幂等 ⇒ 与驱动那条手搓路并存安全）。</para>
+        /// <para>合并之后（手动路删掉）这个事件仍有意义：联机/壳侧要挂钩「窗关了」的副作用时挂这里。</para></summary>
+        public event Action CloseRequested;
 
         public bool Visible { get { return _visible; } }
         /// <summary>自检用（`T09` 批 3 的【灭自证】）：本扇窗的图与字**是不是都建在 uGUI 子画布上**
@@ -311,9 +429,9 @@ namespace CardPresentation
         ///    里那个重载的 IL：给该形参压的是 `ldc.i4.0`；⚠️ 它的**默认值语义**在本机 XML 文档里
         ///    **查不到** ⇒ **本件不拿它当判据**）⇒ 对**没激活**的件，这个口答的是「此刻可不可见」、
         ///    **不是**「建在哪个空间」。把那三棵一并纳入这条判据，`OnCanvas` 就会在「对手没称号」时变假，
-        ///    而唯一的消费者（`Editor/BattleScene.cs` 里那句 `left985`，现核 `:22040`）正是拿它**选左缘
+        ///    而唯一的消费者（`Editor/BattleScene.cs` 里那句 `left985`，现核 `CardPresentation/Editor/BattleScene.cs`）正是拿它**选左缘
         ///    公式的档**、另有一句拿它当闸决定跑不跑那两条子画布结构断言（`if (panel985.OnCanvas)`，
-        ///    现核 `:21927`；⚠️ 那份文件本会话还在被 `G2` 改 ⇒ 两个号都会漂，**按那两句内容对**）
+        ///    现核 `CardPresentation/Editor/BattleScene.cs`；⚠️ 那份文件本会话还在被 `G2` 改 ⇒ 两个号都会漂，**按那两句内容对**）
         ///    ⇒ 会把**画布档判成世界档**（假红 + 静默跳过）。③ 余下 11 件与这 3 件同父链 ⇒ 见 ①。</para>
         /// <para>⚠️ 任一件**该有的**没建出来（贴图/字体缺失）⇒ 也返 `false`，如实回答「不成立」
         /// （同 `UnitChatPanel.OnCanvas` 的 doc）。两档答得都对：世界档根挂在裸 `GameObject`
@@ -343,6 +461,14 @@ namespace CardPresentation
         public Transform AllianceGroupNode { get { return _allianceGo; } }
         /// <summary>`Title:` 那一组（原版字段 `playerTitleHolder`）。</summary>
         public Transform TitleHolderNode { get { return _titleHolder; } }
+        /// <summary>🆕 2026-10-19（`R01`）：两处评级的容器（`Player Rating Display` / `Alliance Rating Display`）。
+        /// 自检用 —— 逐颗结构断言都从这两个口往下找（⛔ 别从面板根按名字找：两棵子树里同名件有两份）。</summary>
+        public Transform PlayerRatingNode { get { return _playerRating; } }
+        public Transform AllianceRatingNode { get { return _allianceRating; } }
+        /// <summary>🆕 2026-10-19（`R01`）：**空值态出过声**（= 不静默）。
+        /// 数值（服务端 profile）与 LiveOps 活动图标（key=6）本地都没有 ⇒ `Build` 末尾 `LogWarning` 一次；
+        /// 自检拿这一颗判「没静默失败」。</summary>
+        public bool RatingEmptyWarned { get { return _ratingWarned; } }
         /// <summary>名字那一段（原版字段 `playerName`）。</summary>
         public Label NameLabel { get { return _nameLb; } }
 
@@ -440,21 +566,30 @@ namespace CardPresentation
         void Build()
         {
             _missArt.Clear();
+            // 🆕 2026-10-20（A3-e）：重建时把输入层的账也清掉（⛔ 不清 = 老件的探针读到已销毁对象）
+            _blockLabels.Clear();
+            _ratingIcons.Clear();
+            _ratingValues.Clear();
+            _shade = null;
+            _bg = null;
+            _closeBtn = null;
+            _closePending = false;
 
             // ---- ① 熄灯层（`Close Background`）：铺满全屏的黑 + **点它 = 关窗** ----
-            // 原版：那颗 `Image` 的 `m_RaycastTarget = 1`，而「关窗」是 `Awake` 给它的 `Button.m_OnClick`
-            // 挂上 `CloseButtonClick`（`BattleAlliancePanel__Awake.c` 逐句）⇒ 语义 = 「点窗外关」。
-            // ⚠️ 原版那张图挂了贴图，但染色是**纯黑 α0.4627** ⇒ 乘出来 = 「黑，透明度 = 贴图 α × 0.4627」，
-            //    而那张底图的 α 满幅 ⇒ 用**实底**画等价（这是**我们这处的做法**，如实标）。
+            // 原版：那颗 `Image` 的 `m_RaycastTarget = 1`，而「关窗」是 `Awake` 给它的
+            // `BackgroundCloseButton.onClick` 挂上 `CloseButtonClick`（`BattleAlliancePanel__Awake.c` 逐句）
+            // ⇒ 语义 = 「点压暗层就关」。⚠️ 它**不是**「只在窗外」——面板底（`BG`/`BGFrame`）`rt=0`，
+            //    点在面板空白处同样落到这一层（判据 → 文件头那一节，2026-10-20 现读）。
+            // ⚠️ 那张 Image 的 `m_Sprite` 是 **0**（无贴图）、染色**纯黑 α0.4627** ⇒ 用实底画等价。
             if (_ugui)
             {
                 // 画布档：同一块矩形、同一份染色，只是改由 `HudCanvas` 建（设计 px + 兄弟序）。
                 // 🔴 **⛔ 不建 `MenuDraw.ShadeHit` 那颗命中区**：它是 `WindowButton` + 世界空间 quad
-                //    （只有壳侧 `PointerLayer` 派发），而本轮**不建 `EventSystem`、不开 `raycastTarget`**
-                //    （判据 → `Battle/HudCanvas.cs:33-35`）⇒ 「点窗外关窗」在战场里照旧由
-                //    `BattleDriver.HandleAlliancePanel` 用 `HitBody` 接（那条已经按档分支）。
-                Img(_root, CardArt.Solid(), ShadeR, RootR, "Close Background", QShade,
-                    new Color(0f, 0f, 0f, ShadeAlpha));
+                //    （只有壳侧 `PointerLayer` 派发）⇒ 画布档改由**原版那条链**接：这颗 `Image`
+                //    自己 `raycastTarget = true` + `BattleHudButton`（`IPointerClickHandler`）。
+                _shade = Img(_root, CardArt.Solid(), ShadeR, RootR, "Close Background", QShade,
+                             new Color(0f, 0f, 0f, ShadeAlpha));
+                BuildUguiClose();
             }
             else
             {
@@ -467,23 +602,24 @@ namespace CardPresentation
 
             // ---- ② 面板本体：`Background`（空节点）+ `BG`（内容底）+ `BGFrame` 四块 ----
             _background = Node(_root, RootR, "Background", BackgroundR, QBg);
-            Img(_background, Art("40K_shop_offer_bg_Sororitas_0"), BgR, BackgroundR, "BG", QBg, BgTint);
+            // 🔴 **2026-10-20（A3-e）**：原版 `BG` 的 Image `m_RaycastTarget = **0**`（`MB_4162`，arena1/2 同值）
+            //    ⇒ ⛔ **它不是射线靶**（本文件旧注释写 1 是错的，已订正）。`MakeImageInParent` 出厂就是
+            //    `raycastTarget = false` ⇒ 保持默认；`_bg` 只为自检留一个「它确实是 false」的读口。
+            _bg = Img(_background, Art("40K_shop_offer_bg_Sororitas_0"), BgR, BackgroundR, "BG", QBg, BgTint);
             var frame = Node(_background, BackgroundR, "BGFrame", FrameR, QFrame);
             Img(frame, Art("40k_UnitChat_Background_Left"), FrameLeftR, FrameR, "BGFrame Left", QFrame);
             Img(frame, Art("40k_UnitChat_Background_Right"), FrameRightR, FrameR, "BGFrame Right", QFrame);
             Img(frame, Art("40k_UnitChat_Background_Top"), FrameTopR, FrameR, "BGFrame Top", QFrame);
             Img(frame, Art("40k_UnitChat_Background_Bottom"), FrameBottomR, FrameR, "BGFrame Bottom", QFrame);
 
-            // ---- ③ 吸收层：点窗内空白处**什么都不该发生** ----
-            // 原版：`BG` 那张图 `m_RaycastTarget = 1`，而它的父链上没有 `IPointerClickHandler`
-            // （「关窗」那颗挂在**兄弟** `Close Background` 上）⇒ 射线打到面板自己 ⇒ 无事发生。
-            // 我们这边命中候选只收 `WindowButton` ⇒ 不补这一层，鼠标会**穿过面板**落到熄灯层上，
-            // 点窗内任意空白都会关窗。判据与三条红线 → `Shell/MenuDraw.cs` 的 `Absorb` 段。
-            // ⚠️ **吸收的是 `Background` 整块**（不是原版 `BG` 那一张图的框）—— 这是**我们挑的**：
-            //    原版 `BGFrame` 四块各自也是 Image（`m_RaycastTarget` 没逐块核）⇒ 取整块更保守。
-            // 🔴 **2026-10-16（`T09` 批 3）**：画布档**不建**这一层 —— 它与 ① 那颗同属
-            //    「世界空间命中件」（唯一消费者是壳侧 `PointerLayer`），而画布档本轮不建
-            //    `EventSystem`、不开 `raycastTarget`（同 ① 那条）⇒ 「点窗内不关窗」由 `HitBody` 分支承担。
+            // ---- ③ 吸收层（**只有世界档**）：点窗内空白处**什么都不该发生** ----
+            // 🔴 **2026-10-20（A3-e）就地订正（铁律 5）**：本段原写「原版 `BG` 那张图 `m_RaycastTarget = 1`，
+            //    父链上没有处理器 ⇒ 射线打到面板自己 ⇒ 无事发生」—— **前提是错的**：`BG` / `BGFrame` 四块
+            //    在 prefab 里全是 **rt=0**（`MB_4162` / `4691` / `5261` / `4301` / `4338`，arena1/2 同值）
+            //    ⇒ 原版点**面板空白处**会落到压暗层 = **关窗**（这正是文件头那一节的结论）。
+            //    下面这块 `MenuDraw.Absorb` 是**世界档的壳侧口径**（唯一消费者 = 壳 `PointerLayer`，
+            //    它的窗口语义是「点窗内空白不关」）⇒ **世界档照旧保留、逐位不变**；⛔ 别把它当成原版判据。
+            //    画布档不建它：那边的射线语义已由 ① 的压暗层 + 那 7 颗 TMP/两颗图标（rt=1）表达，与原版同构。
             if (!_ugui) MenuDraw.Absorb(_root, "BackgroundAbsorb", BackgroundR, QShade, QContentMin);
 
             // ---- ④ 头像框（`Avatar Item Small` → `Image Container` → `Border`）----
@@ -500,43 +636,181 @@ namespace CardPresentation
             //       `PlayerInfo` 实绘框 = x[180.000, 556.959] y[62.498, 213.723]（RT 3363）
             //       第 0 格 `NameHolder`  高 42.573 ⇒ y[62.498, 105.071]
             //       第 1 格 `TitleHolder` 高 38.442 ⇒ y[105.071, 143.513]
-            //       第 2 格 `Player Rating Display` 高 60.539 ⇒ y[143.513, 204.052]（**不建**，缺口②）
+            //       第 2 格 `Player Rating Display` 高 60.539 ⇒ y[143.513, 204.052]（✅ 2026-10-19 `R01` 已建，见 ⑤b）
             //     ⛔ 别照抄报告里那三个重叠的 y（那是模板位）。
             var nameRow = Node(_root, RootR, "NameHolder", NameRowR, QText);
             // 🔴 **A1024③（2026-10-17）换面**：原版这七颗（`PlayerLabel` / `Name Text` / `TitleLabel` /
             //    `Title Text` / `Alliance Label` / `Alliance Name` / `NotInaAllianceText`）的
             //    `m_fontAsset` **全是 `Asar-Regular SDF`**（判据 = `menu_dump … bundle_scenes_scenes_battlearena1
             //    "Alliance Panel"` 逐颗现读；§2·5 表第一行同结论）⇒ 走 `LatinUi`。
-            //    `Avatar Name` / `Individual rating value` 是 Pragati —— 但那两颗本扇**不建**（见文件头缺口②）。
-            Txt(nameRow, NameRowR, NameLabelR, LocOr(NameLabelTerm, NameLabelEn), Color.white, "PlayerLabel",
-                NameLabelPx, Label.VAlign.Capline, face: TmpFont.Face.LatinUi);
+            //    `Avatar Name` / `Individual rating value` 是 Pragati —— 前者 `m_IsActive=false` 本扇不建；
+            //    后者 ✅ 2026-10-19（`R01`）已建（`RatingDisplay` 里用 `LatinCardBody`）。
+            // 🆕 **2026-10-20（A3-e）**：这七颗在原版是 **`m_RaycastTarget = 1`**（`MB_4073` / `4118` / `4646` /
+            //    `4901` / `4098` / `5236` / `4475`，全部 pad 0）⇒ 画布档显式打开（**零处理器**：挡射线、不响应）。
+            //    ⚠️ 我们的 TMP 只占文字 bbox（见文件头），挡射线的那块比原版节点 rect 小。
+            BlockRaycasts(Txt(nameRow, NameRowR, NameLabelR, LocOr(NameLabelTerm, NameLabelEn), Color.white,
+                              "PlayerLabel", NameLabelPx, Label.VAlign.Capline, face: TmpFont.Face.LatinUi));
             // ⚠️ **只有这一颗**原版 `m_fontSizeMax` 是 **40**（其余六颗都是 35）⇒ 显式给上限，⛔ 别一刀切
             _nameLb = Txt(nameRow, NameRowR, NameTextR, "", Color.white, "Name Text", NameTextPx,
                           Label.VAlign.Capline, AutoMaxNamePx, TmpFont.Face.LatinUi);
+            BlockRaycasts(_nameLb);
 
             _titleHolder = Node(_root, RootR, "TitleHolder", TitleRowR, QText);
-            Txt(_titleHolder, TitleRowR, TitleLabelR, LocOr(TitleLabelTerm, TitleLabelEn), Color.white,
-                "TitleLabel", TitleLabelPx, Label.VAlign.Capline, face: TmpFont.Face.LatinUi);
+            BlockRaycasts(Txt(_titleHolder, TitleRowR, TitleLabelR, LocOr(TitleLabelTerm, TitleLabelEn),
+                              Color.white, "TitleLabel", TitleLabelPx, Label.VAlign.Capline,
+                              face: TmpFont.Face.LatinUi));
             _titleLb = Txt(_titleHolder, TitleRowR, TitleTextR, "", Color.white, "Title Text", TitleTextPx,
                            Label.VAlign.Midline, face: TmpFont.Face.LatinUi);
+            BlockRaycasts(_titleLb);
+
+            // ---- ⑤b 🆕 2026-10-19（`R01`）：`Player Rating Display`（原版 `PlayerInfo` 的 VLG **第 2 格**）----
+            //  判据见上面那一组 `PlayerRatingR` 的注释。⚠️ `PlayerInfo` 这个容器本文件**不建**（同
+            //  `NameHolder` / `TitleHolder` 的先例：VLG 那一层的排版已折进各自的绝对 rect）⇒ 父 = `_root`。
+            _playerRating = RatingDisplay(_root, RootR, "Player Rating Display", PlayerRatingR,
+                                          PlayerRateEmpty);
 
             // ---- ⑥ `Alliance` 组：`Alliance:` / 联盟名 ----
             //  `allianceGO`（原版字段 0x48）—— **无联盟时整组关掉**（`BattleAlliancePanel__Open.c`）。
             //  ⚠️ 组里的 `Alliance Badge Drawer/{Frame,Badge}` 两张图 `m_Sprite` 也是 `0`（`AllianceBadgeDrawer.Draw`
-            //     运行期灌）⇒ 出厂态不画；`Alliance Rating Display` 同缺口② ⇒ 本件只建两行字。
+            //     运行期灌）⇒ 出厂态不画（缺口③）；🆕 2026-10-19（`R01`）`Alliance Rating Display` **已建**（见下）。
             _allianceGo = Node(_root, RootR, "Alliance", AllianceGroupR, QText);
-            Txt(_allianceGo, AllianceGroupR, AllianceLabelR, LocOr(AllianceLabelTerm, AllianceLabelEn),
-                Color.white, "Alliance Label", AllianceLabelPx, Label.VAlign.Capline, face: TmpFont.Face.LatinUi);
+            BlockRaycasts(Txt(_allianceGo, AllianceGroupR, AllianceLabelR, LocOr(AllianceLabelTerm, AllianceLabelEn),
+                              Color.white, "Alliance Label", AllianceLabelPx, Label.VAlign.Capline,
+                              face: TmpFont.Face.LatinUi));
             _allianceLb = Txt(_allianceGo, AllianceGroupR, AllianceNameR, "", Color.white, "Alliance Name",
                               AllianceNamePx, Label.VAlign.Capline, face: TmpFont.Face.LatinUi);
+            BlockRaycasts(_allianceLb);
+            // 🆕 2026-10-19（`R01`）：`Alliance Rating Display` —— 原版 `Alliance` 组的**第 4 个子件**
+            //  （我们的兄弟序 = 第 3，因为 `Alliance Badge Drawer`（缺口③）本文件不建；相对序不变）。
+            //  ⚠️ 原版只在**联盟名非空**时 `Initialize` 这一格（`BattleAlliancePanel__Open.c` 的 `if (bVar9)` 支）
+            //  ⇒ 显隐跟着 `_allianceGo`（本方法 ⑥ 已按 `hasAlliance` 开关它），这里**不再单判一次**。
+            _allianceRating = RatingDisplay(_allianceGo, AllianceGroupR, "Alliance Rating Display",
+                                            AllianceRatingR, AllianceRateEmpty);
 
             // ---- ⑦ `NotInaAllianceText`：无联盟那一行提示（**原文含 `is is` 双 is = 原版笔误，勿改**）----
             var msg = Txt(_root, RootR, NotInAllianceR, LocOr(NotInAllianceTerm, NotInAllianceEn),
                           new Color(1f, 1f, 1f, NotInAllianceAlpha), "NotInaAllianceText",
                           NotInAlliancePx, Label.VAlign.Midline, face: TmpFont.Face.LatinUi);
+            BlockRaycasts(msg);            // 原版 `MB_4475` rt=1（见文件头那一节）
             _notInAlliance = msg != null ? msg.transform : null;
 
+            // 🆕 2026-10-19（`R01`）：两格评级的**数值/活动图标**在远端 ⇒ 出厂空态 + **出声一次**（⛔ 不静默）
+            WarnRatingOnce();
+
             Apply("", "", "");      // 出厂态 = 原版 `Awake` 那一支（`Create` 末尾再关一次）
+        }
+
+        /// <summary>🆕 2026-10-19（`R01`）：两处评级的**空值态出声**（每扇窗一次）。
+        /// <para>为什么必须出声：① 数值是服务端 profile（`DeckAndWarlordData.eloRating@0x38` /
+        /// `allianceRating@0x7C`，经 `BattleHud__AlliancePanelOpenButton.c:25-46` 喂进 `Open`）；
+        /// ② 图标是 LiveOps 活动资产 key=6（`LiveOpsAssetUtility.HasAsset/LoadAsset(ev, 6)`，
+        /// `BattleAlliancePanel__Open.c` 那一段）—— 本地 13 个活动 SO 的 `EventAssets` **都没有 key=6**。
+        /// ⇒ 我们照原版**离线态的逐句等价物**做：空态串取 prefab 自带字面量、图标取 prefab 自带的
+        /// `40k_UI_icon_ranked_Skirmish`（`Initialize` 只在传入非空图标时才覆盖它）—— 但**必须说出来**，
+        /// 别让玩家以为那串破折号是「真的 0 分」。⛔ 不编数值、不自造图标。</para></summary>
+        void WarnRatingOnce()
+        {
+            if (_ratingWarned) return;
+            _ratingWarned = true;
+            Debug.LogWarning("[AlliancePanel] 两处评级的**数值与活动图标都在远端** ⇒ 本窗显示原版 prefab 自带的空态："
+                           + "数值 = `" + PlayerRateEmpty + "` / `" + AllianceRateEmpty + "`（服务端 profile "
+                           + "`DeckAndWarlordData.eloRating@0x38` / `allianceRating@0x7C`，本地无源）；"
+                           + "图标 = prefab 自带的 `" + RatingIconArt + "`（LiveOps 活动资产 key=6 本地没有，原版只在有它时才覆盖）。"
+                           + "⛔ 没有编造数值/图标。");
+        }
+
+        /// <summary>🆕 2026-10-19（`R01`）：建一处评级 —— 原版两格的**结构逐字段相同**：
+        /// 容器（`HorizontalLayoutGroup`）+ `Main Icon`（Image，`preserveAspect`）+ `Individual rating value`（TMP）。
+        /// <para>⚠️ `Secondary Icon`（原版 `m_Children[0]`）**不建** —— 它 `m_IsActive = false`（act **F**），
+        /// 原版出厂态不显示、也不进布局组的 `rectChildren`（同 `AllianceMemberTab` 那颗的处理）。</para>
+        /// <para>子件顺序 = **Main Icon → Individual rating value**（原版 `m_Children` 的 2/3 位，第 1 位那颗不建）
+        /// ⇒ 布局组的「从左到右」与实际渲染顺序一致（`HudCanvas.Add` 对同一 z 档是按创建序追加的）。</para></summary>
+        Transform RatingDisplay(Transform parent, PxRect parentR, string name, PxRect r, string emptyText)
+        {
+            var box = Node(parent, parentR, name, r, QText);
+            if (box == null) return null;
+            var iconR = new PxRect(r.x1, r.y1, r.x1 + RatingIconW, r.y2);
+            var valR = new PxRect(r.x1 + RatingIconW, r.y1, r.x2, r.y2);
+
+            var icon = Img(box, Art(RatingIconArt), iconR, r, "Main Icon", QText, null, keepAspect: true);
+            // 🆕 2026-10-20（A3-e）：原版 `Main Icon` 的 Image `m_RaycastTarget = 1`
+            //   （`MB_4325` / `MB_4327`，pad 0；`Secondary Icon` 那颗 `m_IsActive = false` ⇒ 不参与）
+            //   ⇒ **挡射线、零处理器**：点在这颗图标上不关窗（与那 7 颗 TMP 同一条口径）。
+            if (icon != null) _ratingIcons.Add(icon);
+            if (_ugui && icon != null && !icon.SetRaycastTarget(true))
+                Debug.LogError("[AlliancePanel] `Main Icon` 的 `raycastTarget` **没写进去**（原版 rt=1，见 BuildUguiClose 同族）");
+            if (_ugui && icon != null && icon.Rect != null)
+            {
+                // 原版 `m_PreserveAspect = 1`：贴图 128×128、格子 48×48.43 ⇒ 等比画 48×48（居中）。
+                // ⚠️ 布局组会把格子的 `sizeDelta` 钉成 48×48.43（这正是原版布局跑出来的那一档），
+                //    ⇒ 等比**必须由 `Image.preserveAspect` 表达**，⛔ 不能只靠上面 `keepAspect` 那一下的静态内缩。
+                var img = icon.Rect.GetComponent<UnityEngine.UI.Image>();
+                if (img != null) img.preserveAspect = true;
+                // 原版 `LayoutElement{m_MinWidth 60, m_PreferredWidth 60, m_FlexibleWidth 0}` × 0.8。
+                AddLayoutElement(icon.Rect, RatingIconW, RatingIconW, 0f, -1f, -1f, -1f);
+            }
+
+            var val = Txt(box, r, valR, emptyText, Color.white, "Individual rating value",
+                          RatingValuePx, Label.VAlign.Midline, RatingValueMaxPx,
+                          face: TmpFont.Face.LatinCardBody, wrap: true, autoBasePx: RatingValueBasePx);
+            // 🆕 2026-10-20（A3-e）：原版这一颗的 TMP `m_RaycastTarget = **0**`（`MB_5118` / `MB_5121`）
+            //   ⇒ ⛔ **不要**调 `BlockRaycasts`（保持 `TmpFont.NewText` 的出厂 false）—— 与同组那颗
+            //   `Main Icon`（rt=1）**一开一关**，这是原版逐值，别一刀切。
+            _ratingValues.Add(val);
+            if (_ugui && val != null)
+            {
+                // 🔴 **枢轴必须改成左缘（0, 0.5）** —— 否则布局组一跑，字会从格子的**中心**起笔：
+                //    `Label.RefreshBounds` 把整块字墨摆在**本节点的枢轴**上（`Label.anchor.x = 0` 那条算式），
+                //    而 `LayoutGroup.SetChildAlongAxisWithScale` 只写 anchor / anchoredPosition / sizeDelta、
+                //    **不动 pivot** ⇒ 枢轴留在中心时，布局把格子摆到 `[x1, x2]`，字墨却从 `x1 + W/2` 开始。
+                //    ⚠️ `MakeText` 给的 `localPosition` 语义已经是「左缘」（`r.x1`）⇒ 改枢轴**不用再挪**。
+                ((RectTransform)val.transform).pivot = new Vector2(0f, 0.5f);
+                // 原版 `LayoutElement{m_PreferredWidth 5000}`（其余三格 = -1 照抄）。
+                // ⚠️ 5000 **就是原值**、不乘 0.8：它只起「大过容器 ⇒ 吃掉剩余宽」的作用，
+                //    布局算式 `Lerp(min, preferred, (size − totalMin)/(totalPreferred − totalMin))`
+                //    对剩余宽那一件的**结果与它无关**（= size − 图标宽）。⛔ 别「顺手改成 4000」。
+                AddLayoutElement((RectTransform)val.transform, -1f, 5000f, -1f, -1f, -1f, -1f);
+            }
+
+            AddRatingLayout(box);
+            return box;
+        }
+
+        /// <summary>🆕 2026-10-19（`R01`）：原版 `HorizontalLayoutGroup` 逐字段照抄（MB 4788 / 4785）。
+        /// <para>🔴 **为什么只建在画布档**：世界档整棵树挂在**裸 `Transform`** 下（没有 `Canvas`）——
+        /// 那个 `RectTransform` 只用来带 rect，**uGUI 的布局重建不会跑**（`LayoutRebuilder` 由 canvas 的
+        /// layout 重建驱动）⇒ 挂上去是死件、只会让「字段看着对、版面没动」，比不挂更糟。
+        /// 世界档按算好的实绘 rect 静态摆放（结果逐位相同）。</para>
+        /// <para>⚠️ `childControlWidth/Height = 1` 是**原版真的就是这么摆的**（不是装饰）：
+        /// 宽度由 `LayoutElement` 的首选宽算（图标 48 / 文本吃剩余），高度恒 = 容器高（`ForceExpandHeight = 1`）。
+        /// 自检会把这四个开关读回来 —— 改掉任何一个都会红。</para></summary>
+        void AddRatingLayout(Transform node)
+        {
+            if (!_ugui) return;                       // 世界档没有 uGUI 布局系统（见 doc）
+            var rt = node as RectTransform;
+            if (rt == null) return;
+            var h = rt.gameObject.AddComponent<UnityEngine.UI.HorizontalLayoutGroup>();
+            h.padding = new RectOffset(0, 0, 0, 0);     // m_Padding 0,0,0,0
+            h.childAlignment = TextAnchor.MiddleLeft;  // m_ChildAlignment 3
+            h.spacing = 0f;                            // m_Spacing 0
+            h.childForceExpandWidth = false;           // m_ChildForceExpandWidth 0
+            h.childForceExpandHeight = true;           // m_ChildForceExpandHeight 1
+            h.childControlWidth = true;                // m_ChildControlWidth 1
+            h.childControlHeight = true;               // m_ChildControlHeight 1
+            h.childScaleWidth = false;                 // m_ChildScaleWidth 0
+            h.childScaleHeight = false;                // m_ChildScaleHeight 0
+            h.reverseArrangement = false;              // m_ReverseArrangement 0
+        }
+
+        /// <summary>🆕 2026-10-19（`R01`）：给评级子件补 `LayoutElement`（值照原版，仅 60→48 那一步按实绘换算）。</summary>
+        static void AddLayoutElement(RectTransform rt, float minW, float prefW, float flexW,
+                                     float minH, float prefH, float flexH)
+        {
+            if (rt == null) return;
+            var le = rt.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+            le.minWidth = minW; le.preferredWidth = prefW; le.flexibleWidth = flexW;
+            le.minHeight = minH; le.preferredHeight = prefH; le.flexibleHeight = flexH;
+            le.layoutPriority = 1;                     // m_LayoutPriority 1
         }
 
         // ============================================================ 状态 → 参数（原版 `Open` 的逐句等价物）
@@ -551,6 +825,9 @@ namespace CardPresentation
         /// （`param_7`）—— 本方法逐条照抄，⛔ 别把两者合并成一个「有没有档案」。</summary>
         public void Open(string playerName, string title, string allianceName)
         {
+            // 🆕 2026-10-20（A3-e）：上一扇（或上一次点击）留下的「待关」**不许**落到刚开的这一扇上
+            //   —— 没有这一句时，「关窗点击落账 → 同帧有人又 Open」会让新窗在 `LateUpdate` 立刻被关掉。
+            _closePending = false;
             gameObject.SetActive(true);
             Apply(playerName, title, allianceName);
             _visible = true;
@@ -564,11 +841,91 @@ namespace CardPresentation
             _visible = false;
         }
 
+        // ============================================================ 🆕 2026-10-20（`T09` A3-e）输入层
+        /// <summary>画布档的压暗层输入：`raycastTarget = true` + `BattleHudButton`（= 原版 `BackgroundCloseButton`）。
+        /// <para>判据 → 文件头那一节：原版 `Close Background` 的 Image `rt=1` · pad `(0,0,0,0)`，
+        /// 事件 = `IPointerClickHandler`（**松手**），回调 = `BattleAlliancePanel.CloseButtonClick`（`SetActive(false)`）。</para>
+        /// <para>⚠️ 任一步失败都 `LogError`（⛔ 不静默：那会变成「看得见的压暗层、点不动」）。</para></summary>
+        void BuildUguiClose()
+        {
+            if (!_ugui) return;
+            if (_shade == null)
+            {
+                Debug.LogError("[AlliancePanel] `Close Background` 没建出来 ⇒ **点压暗层关不了窗**"
+                             + "（建件口返回 null —— 贴图/画布问题，见 `Img` 的日志）");
+                return;
+            }
+            _closeBtn = BattleHudButton.Attach(_shade, OnUguiCloseClick);
+            if (_closeBtn == null)
+            {
+                Debug.LogError("[AlliancePanel] 压暗层没挂上 uGUI 点击 ⇒ **点窗外/空白处关不了窗**"
+                             + "（`BattleHudButton.Attach` 已说明原因）");
+                return;
+            }
+            // 原版 `m_RaycastPadding = (0,0,0,0)` —— 显式写一次，⛔ 别让它吃到 `Image` 的出厂别的值。
+            if (!_shade.SetRaycastPadding(0f, 0f, 0f, 0f))
+                Debug.LogError("[AlliancePanel] 压暗层的 `raycastPadding` **没写进去**（原版四边全 0）");
+        }
+
+        /// <summary>🆕 2026-10-20（A3-e）：把一颗文字变成**只挡射线、不响应**的件
+        /// （原版那 7 颗 TMP `m_RaycastTarget = 1` 且**父链零处理器**）。
+        /// <para>⚠️ 只在画布档做（世界档的 `TextMeshPro` 吃不到 uGUI 射线，且世界档承诺逐位不变）。</para>
+        /// <para>⚠️ 我们的 TMP 节点只占**文字 bbox**（`Label.RefreshBounds`），原版吃射线的是**节点 rect**
+        /// ⇒ 我们挡射线的那块比原版小（文件头已如实记）。</para></summary>
+        void BlockRaycasts(Label lb)
+        {
+            if (!_ugui || lb == null) return;
+            _blockLabels.Add(lb);
+            // `Label` 的 TMP 既可能是同节点组件、也可能挂在子节点上（`RefreshBounds` 只搬它的 rect）
+            // ⇒ 用 `GetComponentInChildren(..., includeInactive: true)` 取，与 `MultiCardDisplay` 标题同一条路。
+            var g = lb.GetComponentInChildren<UnityEngine.UI.Graphic>(true);
+            if (g == null)
+            {
+                Debug.LogWarning("[AlliancePanel] `" + lb.name + "` 没有 `Graphic` 可取 ⇒ 这颗字**不吃射线**"
+                               + "（原版 TMP 是 rt=1 —— 点它会把射线漏给压暗层 = 关窗）");
+                return;
+            }
+            g.raycastTarget = true;
+        }
+
+        /// <summary>uGUI 压暗层被点（`BattleHudButton.OnPointerClick`，= 原版 `BackgroundCloseButton`）。
+        /// <para>🔴 **只记「待关」，不当场 `Close()`** —— `EventSystem.Update` 与 `BattleDriver.Update` 同序；
+        /// 当场关掉会让驱动那一帧看到「窗本来就关着」⇒ 这一下继续落到棋盘/手牌（静默的「点一下做两件事」）。
+        /// 实际落账在 `LateUpdate`（Unity 保证所有 `Update` 跑完才跑它 ⇒ 两种顺序都安全，且同帧）。</para></summary>
+        void OnUguiCloseClick()
+        {
+            if (!_visible) return;               // 窗关着 ⇒ 这一下不算（根节点本来也收不到射线，这是双保险）
+            _uguiCloseClicks++;
+            _closePending = true;
+        }
+
+        /// <summary>把挂起的「关窗」落账（幂等）。**批处理没有帧循环** ⇒ 自检手动调它；
+        /// 真机由 `LateUpdate` 每帧调（见 `OnUguiCloseClick` 的理由）。</summary>
+        /// <returns>真 = 这次确实落了一次挂起的关。</returns>
+        public bool ApplyPendingClose()
+        {
+            if (!_closePending) return false;
+            _closePending = false;
+            _uguiCloseApplied++;
+            if (_visible) Close();               // 驱动那条手搓路可能已经在同一帧关过 ⇒ 不再重复
+            if (CloseRequested != null) CloseRequested();
+            return true;
+        }
+
+        void LateUpdate()
+        {
+            ApplyPendingClose();
+        }
+
         /// <summary>世界坐标落在**面板本体**上吗（**不含**那张铺满全屏的熄灯层）。
         /// <para>判据 = `Build` ③ 那层**吸收区**用的**同一个矩形** `BackgroundR`（⛔ 别在这儿另写一份；
-        /// 原版那边是 `BG` / `BGFrame` 几张 Image 的 `m_RaycastTarget = 1` 把它们上面的射线吃掉、
-        /// 传不到底下那颗 `Close Background`；而**吸收范围取整块 `Background` 是我们挑的**，
-        /// 见 `Build` ③ 那条注释）。</para>
+        /// 那块吸收区是**世界档（壳侧）的口径**、范围取整块 `Background` 是**我们挑的**，见 `Build` ③ 的注释）。</para>
+        /// <para>🔴 **2026-10-20（A3-e）就地订正（铁律 5）**：本段原写「原版 `BG` / `BGFrame` 几张 Image 的
+        /// `m_RaycastTarget = 1` 把射线吃掉」—— **前提是错的**：那几张在 prefab 里全是 **rt=0**
+        /// （`MB_4162` / `4691` / `5261` / `4301` / `4338`，arena1/2 同值）⇒ 原版**点面板空白处会落到压暗层 = 关窗**；
+        /// 只有那 7 颗 TMP 与两颗 `Main Icon`（rt=1）吃射线。判据全文 → 文件头那一节。
+        /// ⚠️ 本方法**按任务要求保持原样**（`BattleDriver` 那条手搓路本波不动）⇒ 它与原版有**已知偏离**：
+        /// 「点窗内 ⇒ 什么都不做」比原版多保住了面板空白处。合并时随手动路一起删（配方见文件头）。</para>
         /// <para>用途：战斗侧 `BattleDriver.HandleAlliancePanel` 靠它分「点窗内（什么都不做）」与
         /// 「点窗外（= 原版那颗 `Close Background` ⇒ 关窗）」。⚠️ 那扇窗在 `Build` 里挂的
         /// `MenuDraw.ShadeHit` 上是个 `WindowButton`，**只有外壳那套 `PointerLayer` 会派发它**
@@ -706,10 +1063,15 @@ namespace CardPresentation
         /// `SetWrapping` 会推版面，排在对齐后面会把刚摆好的位置抹掉）。
         /// ⚠️ `wrapPx = r.W` 不只是为了折行：那道闸是
         /// `wrapPx &gt; 0 ∧ autoMinPx &gt; 0 ∧ fontPx &gt; autoMinPx` **三条全真**才调 `SetAutoFitBox`
-        /// ⇒ **只传 `autoMinPx` 不传 `wrapPx` = 死实参**。</remarks>
+        /// ⇒ **只传 `autoMinPx` 不传 `wrapPx` = 死实参**。
+        /// <para>🆕 **2026-10-19（`R01`）**：补两个**仅评级那一格用**的可选实参 —— `wrap`（原版
+        /// `Individual rating value` 是 **`折行=1`**，其余七颗仍是 0）与 `autoBasePx`（原版那一格
+        /// `m_fontSizeBase = 31.379999` × 0.8 = **25.104**，不是本扇窗七颗共用的 `AutoBasePx`）。
+        /// 默认值 = 改本段之前的行为 ⇒ 既有 7 个调用点**零变化**。</para></remarks>
         Label Txt(Transform parent, PxRect parentR, PxRect r, string text, Color col, string name,
                   float px, Label.VAlign v, float autoMaxPx = AutoMaxPx,
-                  TmpFont.Face face = TmpFont.Face.Cjk)
+                  TmpFont.Face face = TmpFont.Face.Cjk, bool wrap = false,
+                  float autoBasePx = AutoBasePx)
         {
             Label lb;
             if (_ugui)
@@ -737,15 +1099,18 @@ namespace CardPresentation
                 // 框：**设计 px** —— ⛔ 不走 `LayoutSpace.Px`（那个 ÷108 ⇒ 框变 1/108、字号收敛到荒谬的小值，不报错）。
                 // ⚠️ 里面那句 `SetWrapWidth` 会**无条件**把折行开成 `Normal` ⇒ 下面紧接 `SetWrapping(false)` 还原。
                 // ⚠️ min/max/base 三个实参**两档都是画布 px**（`Label.NominalPx()` 按档折算）⇒ 原样传。
-                lb.SetAutoFitBox(r.W, r.H, AutoMinPx, autoMaxPx, AutoBasePx);
+                lb.SetAutoFitBox(r.W, r.H, AutoMinPx, autoMaxPx, autoBasePx);
             }
             else
             {
-                lb = MenuDraw.Text(parent, r, text, col, name, px, QText, r.W, AutoMinPx, autoMaxPx, AutoBasePx,
+                lb = MenuDraw.Text(parent, r, text, col, name, px, QText, r.W, AutoMinPx, autoMaxPx, autoBasePx,
                                    face: face);
                 if (lb == null) return null;
             }
-            lb.SetWrapping(false);              // ⓪ 原版折行=0（`SetAutoFitBox` 会无条件开成 Normal）
+            // ⓪ 折行档：本扇窗那七颗字是原版 `m_TextWrappingMode = 0`（`wrap = false`，默认）；
+            //    🆕 2026-10-19（`R01`）两处评级的 `Individual rating value` 原版是 **`折行=1`** ⇒ 传 `wrap: true`。
+            //    ⚠️ `SetAutoFitBox` 内部会**无条件**开成 `Normal` ⇒ 这里必须显式回写调用方那一档。
+            lb.SetWrapping(wrap);               // ⓪ 原版折行档（见上）
             lb.SetAlignLeft();                  // ① 逐行左对齐（真折行时才看得见）
             // ② 垂直档（⚠️ 必须排在 ① 后面：`Left` 自带 V=Middle）。框高两个单位的换算是**两个口**
             //    （世界档走 `MenuDraw.SetVAlign` 折 ÷108；画布档直接给设计 px），⛔ 别互相套用。
@@ -776,6 +1141,74 @@ namespace CardPresentation
             }
             return t;
         }
+
+        // ============================================================ 🆕 2026-10-20（`T09` A3-e）只读探针
+        //  ⚠️ 只在编辑器程序集里存在；播放器里一个都不编。全部**只读**（⛔ 没有一个会改状态）。
+        //  判据 → 文件头那一节（原版 rt 值逐件写在 `BuildUguiClose` / `BlockRaycasts` / `RatingDisplay` 的 doc）。
+#if UNITY_EDITOR
+        /// <summary>压暗层的 `BattleHudButton` 挂上了吗（= 原版 `BackgroundCloseButton` 就位）。</summary>
+        public bool UguiInputReadyForTest { get { return _closeBtn != null; } }
+        /// <summary>压暗层上的点击组件（自检可直接 `ClickForTest()`）。</summary>
+        public BattleHudButton CloseClickComponentForTest { get { return _closeBtn; } }
+        /// <summary>压暗层的 `Image.raycastTarget`（原版 = 1）。</summary>
+        public bool CloseRaycastTargetForTest { get { return RaycastTargetOf(_shade); } }
+        /// <summary>压暗层的 `Image.raycastPadding`（原版 = `(0,0,0,0)`；取不到 ⇒ 返回 `(−1,−1,−1,−1)`）。</summary>
+        public Vector4 CloseRaycastPaddingForTest
+        {
+            get
+            {
+                var img = ImageOf(_shade);
+                return img != null ? img.raycastPadding : new Vector4(-1f, -1f, -1f, -1f);
+            }
+        }
+        /// <summary>uGUI 压暗层被点了几次（`OnPointerClick` / `ClickForTest` 都算）。</summary>
+        public int UguiCloseClickCountForTest { get { return _uguiCloseClicks; } }
+        /// <summary>`ApplyPendingClose` 落了几次账（**灭自证**：点一次 = 1，⛔ 不是「点了就关」）。</summary>
+        public int UguiCloseAppliedCountForTest { get { return _uguiCloseApplied; } }
+        /// <summary>有没有挂起的「待关」（真机由 `LateUpdate` 落，批处理由调用方调 `ApplyPendingClose`）。</summary>
+        public bool ClosePendingForTest { get { return _closePending; } }
+        /// <summary>压暗层的 `HudPiece`（自检读 rect / 父链用）。</summary>
+        public HudPiece ClosePieceForTest { get { return _shade; } }
+        /// <summary>`BG` 的 `HudPiece`（原版 **rt=0** —— 自检断它确实是 false）。</summary>
+        public HudPiece BackgroundPieceForTest { get { return _bg; } }
+        /// <summary>原版 rt=1 的那 7 颗 TMP 的只读名单（顺序 = 建件序）。</summary>
+        public int BlockingLabelCountForTest { get { return _blockLabels.Count; } }
+        public Label BlockingLabelForTest(int i)
+        {
+            return (i >= 0 && i < _blockLabels.Count) ? _blockLabels[i] : null;
+        }
+        public bool BlockingLabelRaycastTargetForTest(int i)
+        {
+            return RaycastTargetOf(BlockingLabelForTest(i));
+        }
+        /// <summary>两处评级的 `Main Icon`（0 = `Player Rating Display`，1 = `Alliance Rating Display`）。</summary>
+        public int RatingIconCountForTest { get { return _ratingIcons.Count; } }
+        public HudPiece RatingIconForTest(int i) { return (i >= 0 && i < _ratingIcons.Count) ? _ratingIcons[i] : null; }
+        /// <summary>两处评级的 `Individual rating value`（原版 **rt=0**）。</summary>
+        public Label RatingValueForTest(int i) { return (i >= 0 && i < _ratingValues.Count) ? _ratingValues[i] : null; }
+
+        /// <summary>一颗 uGUI 件的 `Image.raycastTarget`（世界空间件 / 没建 ⇒ false；⛔ 不抛）。</summary>
+        public bool RaycastTargetOfForTest(HudPiece p) { return RaycastTargetOf(p); }
+        /// <summary>一颗文字的 TMP `raycastTarget`（世界空间 TMP / 没建 ⇒ false）。</summary>
+        public bool RaycastTargetOfForTest(Label l) { return RaycastTargetOf(l); }
+
+        static UnityEngine.UI.Image ImageOf(HudPiece p)
+        {
+            if (p == null || p.Rect == null) return null;
+            return p.Rect.GetComponentInChildren<UnityEngine.UI.Image>(true);
+        }
+        static bool RaycastTargetOf(HudPiece p)
+        {
+            var img = ImageOf(p);
+            return img != null && img.raycastTarget;
+        }
+        static bool RaycastTargetOf(Label l)
+        {
+            if (l == null) return false;
+            var g = l.GetComponentInChildren<UnityEngine.UI.Graphic>(true);
+            return g != null && g.raycastTarget;
+        }
+#endif
     }
 
     // ============================================================ 入口（✅ 2026-10-18 · A985③ 已接）
@@ -791,8 +1224,8 @@ namespace CardPresentation
     //     所以「点窗外关窗」由 `BattleDriver` 那一侧接（它用本类的 `HitBody` 分窗内 / 窗外）。
     //  ✅ **2026-10-16（第四十二会话 · 收口波）：uGUI 档【已接线】—— 🔴 就地订正（铁律 5）**：
     //     本条原来写着「🔴 **待接线**（`T09` 批 3，`BattleDriver.cs` 不在本件白名单）…… 只需在
-    //     建点（`Battle/BattleDriver.cs:15084`）前面加两行」⇒ **那三件今天全办完了**，⛔ 别再照它接一次。
-    //     ① **接线**（`G1` · 台账 `W50`）→ `Battle/BattleDriver.cs` **现核 `:15272-15286`**：
+    //     建点（`Battle/BattleDriver.cs`）前面加两行」⇒ **那三件今天全办完了**，⛔ 别再照它接一次。
+    //     ① **接线**（`G1` · 台账 `W50`）→ `Battle/BattleDriver.cs` **现核 `CardPresentation/Battle/BattleDriver.cs`**：
     //        `HudCanvas.Ensure(LayoutSpace.Cam)` → `EnsureRankedSubCanvas(AlliancePanelWindow.SubCanvasName,
     //        HudCanvas.SortingLayer.OverHand, 0)` → `AlliancePanelWindow.Create(root, uguiHost: allianceCv)`；
     //        `cv == null` 那一支 = **出声 + 本扇窗不建**（⛔ 不退回世界档 —— 与同批
@@ -801,12 +1234,12 @@ namespace CardPresentation
     //        ⚠️ 配方里那句 `HudCanvas.EnsureSubCanvas(null, …)` 也**已被 `G3` 取代**：现在统一走
     //        `BattleDriver` 的私有口 `EnsureRankedSubCanvas`（按名字幂等 + **建完读回来验一次**名字）。
     //     ② **`SubCanvasRank` 补一条** → `Battle/HudCanvas.cs` 的 `SubCanvasRank` 表里那条
-    //        `"Alliance Panel Canvas"`（行尾注 `// 13/14`；**现核 ≈ `:574`** —— ⚠️ 那张表连同表头 doc
+    //        `"Alliance Panel Canvas"`（行尾注 `// 13/14`；**现核 ≈ `CardPresentation/Battle/HudCanvas.cs`** —— ⚠️ 那张表连同表头 doc
     //        本会话被 `G3` 改过，行号会漂，**认「`// 13/14` 那一行」最稳**）。
     //        那条行尾注还写着：将来迁 `DebugButtons`(7)/`PopupAnchor`(9)/`Tutorial`(11)/`LoadingMenu`(12)
     //        时**一律插在它前面**。
-    //     ③ **断言两处改画布档**（`G2` · 台账 `W52`）→ `Editor/BattleScene.cs` **现核 `:22040`**（`left985`
-    //        的左缘：画布档那颗字 `anchor = (0, 0.5)` ⇒ **不再减半个 `WorldW`**）与 **`:22094-22113`**
+    //     ③ **断言两处改画布档**（`G2` · 台账 `W52`）→ `Editor/BattleScene.cs` **现核 `CardPresentation/Editor/BattleScene.cs`**（`left985`
+    //        的左缘：画布档那颗字 `anchor = (0, 0.5)` ⇒ **不再减半个 `WorldW`**）与 **`CardPresentation/Editor/BattleScene.cs`**
     //        （`RW1192` 按 `lb.IsUgui` 取尺 —— 画布档不乘 `lossyScale × 108`）。另加了三条（子画布
     //        `overrideSorting`/层/order + **不带 `CanvasScaler`** + 逐件 `GetComponentInParent<Canvas>()`
     //        灭自证），**现核 `:21927-21980`**。

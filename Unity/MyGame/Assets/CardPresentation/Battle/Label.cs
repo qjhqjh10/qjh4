@@ -225,8 +225,9 @@ namespace CardPresentation
         public string Text { get { return _text; } }
 
         /// <summary>当前渲染队列（**自检 / 诊断用**，2026-09-28 加：分层断言需要读回来）。
-        /// ⚠️ 点阵侧读的是**实例材质** `_mr.material` —— `SetRenderQueue` 走的就是它；
-        /// 读 `sharedMaterial` 会拿到**改之前**的值（那份是共享的、我们没动）。
+        /// ⚠️ 点阵侧读的是 `_mr.sharedMaterial` —— **2026-10-19（`A1967` 残尾 · SC-4）**起
+        /// `SetRenderQueue` 写的就是它（那份材质是 `BuildDot` 给**这一个标签**现建的私有实例，
+        /// 见 `ApplyQueue`）；原来读 `.material` 会在编辑模式下**再实例化一份**并打警告。
         /// 🔴 **2026-10-16（`T09`）：uGUI 档恒返回 `-1`** —— `CanvasRenderer` **没有**独立的渲染队列，
         /// 层级由所在 `Canvas` 的 (排序层, `sortingOrder`, 兄弟序) 决定（见 `T09` §五·补⑨ 一）。
         /// ⛔ 返回 `-1` 是**故意的**：让「以为设过队列」的读法当场看得出不对，而不是悄悄给个假数。</summary>
@@ -236,7 +237,7 @@ namespace CardPresentation
             {
                 if (_ugui) return -1;
                 if (_tmp != null && _tmp.fontMaterial != null) return _tmp.fontMaterial.renderQueue;
-                if (_mr != null && _mr.material != null) return _mr.material.renderQueue;
+                if (_mr != null && _mr.sharedMaterial != null) return _mr.sharedMaterial.renderQueue;
                 return -1;
             }
         }
@@ -277,10 +278,80 @@ namespace CardPresentation
             }
             // 🔴 2026-09-21 补：**点阵后端原来什么都不做** ⇒ 用点阵渲染的文字
             //    **永远留在默认队列 3000**，被队列更大的面板盖住（tooltip 就是这么「面板在、字不在」的）。
-            //    ⚠️ 走 `_mr.material`（**Unity 的 `.material` getter 一定会实例化**），
-            //    别用 `sharedMaterial` —— 那同样是改共享材质（同上面 TMP 那条）。
-            if (_mr != null && _mr.sharedMaterial != null) _mr.material.renderQueue = q;
+            // 🔴 **2026-10-19（`A1967` 残尾 · SC-4）**：这里原来走 `_mr.material` ——
+            //    Unity 的 `.material` getter **一定会实例化一份**，编辑模式下因此打
+            //    `Instantiating material due to calling renderer.material during edit mode …`
+            //    （`A1967` 日志里残留的 3 条生产源之一；与 `CardFeel.WritableMaterial` 同族）。
+            //    ✅ 本处**不需要再复制**：点阵材质是 `BuildDot()` 里 `new Material(Sprites/Default)`
+            //    给**这一个标签**现建的私有实例（全文件只有那一处给 `_mr.sharedMaterial` 赋值），
+            //    直接写 `sharedMaterial` 既不会碰工程资产、也不会污染别的标签 —— 与 `SetColor`
+            //    （`_mr.sharedMaterial.color`）和 `SetTextDot`（`_mr.sharedMaterial.mainTexture`）
+            //    本来就在写同一份的口径一致。
+            if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.renderQueue = q;
         }
+
+#if UNITY_EDITOR
+        /// <summary>🆕 **2026-10-19（SC-4 · `A1967` 残尾）只给 Editor 自检用**的探针（产品路径不调用）。
+        /// <para>判据不是「我们自己说没走 `.material`」，而是 **Unity 自己那条编辑模式警告**
+        /// （与 `CardFeel.ProbeWritableMaterial` 同一套）：点阵后端 `SetRenderQueue` 之后
+        /// ① 必须 **0 条** `Instantiating material due to calling renderer.material …`；
+        /// ② 队列要真写到 `sharedMaterial`（读回来 = 写入值）；③ 不许把材质换成另一份
+        /// （点阵材质本来就是 `BuildDot` 现建的私有实例 ⇒ 这里**不该**再复制）。</para>
+        /// <para>⚠️ 用 `AddComponent&lt;Label&gt;()` + 手工装 `_mr`，**不走 `CreateCore`**：
+        /// 走 `Create()` 时批处理里 TMP 通常可用 ⇒ 测到的是 TMP 那条路，点阵这一支根本不会跑。</para></summary>
+        public static LabelQueueProbe ProbeDotRenderQueue()
+        {
+            var result = new LabelQueueProbe();
+            var sh = Shader.Find("Sprites/Default");
+            if (sh == null) { result.Error = "Shader.Find(\"Sprites/Default\") 取不到"; return result; }
+
+            var go = new GameObject("A1967 Label dot-queue probe");
+            Material src = new Material(sh) { name = "A1967 Label dot-queue probe material", renderQueue = 3000 };
+            try
+            {
+                var mr = go.AddComponent<MeshRenderer>();
+                mr.sharedMaterial = src;
+                var lab = go.AddComponent<Label>();
+                lab._mr = mr;                       // 私有字段；本探针就在类里
+
+                int warns = 0;
+                Application.LogCallback h = (cond, stack, type) =>
+                {
+                    if (type == LogType.Warning && cond != null
+                        && cond.Contains("Instantiating material due to calling renderer.material")) warns++;
+                };
+                Application.logMessageReceived += h;
+                try { lab.SetRenderQueue(4002); }
+                finally { Application.logMessageReceived -= h; }
+
+                result.Warns = warns;
+                result.SharedQueue = mr.sharedMaterial != null ? mr.sharedMaterial.renderQueue : -1;
+                result.ReadBack = lab.RenderQueue;
+                result.SameMaterial = mr.sharedMaterial == src;   // 期望 true（不复制、不换材质）
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                Object.DestroyImmediate(src);
+            }
+            return result;
+        }
+
+        /// <summary><see cref="ProbeDotRenderQueue"/> 的读数（调用方用宿主自己的 `Check` 逐项断）。</summary>
+        public struct LabelQueueProbe
+        {
+            /// <summary>`null` = 跑起来了；非空 = 探针自己起不来（调用方要断它为空）。</summary>
+            public string Error;
+            /// <summary>点阵 `SetRenderQueue` 抓到的材质实例化警告条数（**期望 0**）。</summary>
+            public int Warns;
+            /// <summary>`sharedMaterial.renderQueue` 的读数（**期望 4002**）。</summary>
+            public int SharedQueue;
+            /// <summary><see cref="Label.RenderQueue"/> 的读数（**期望 4002**，且读它不产生警告）。</summary>
+            public int ReadBack;
+            /// <summary>`sharedMaterial` 还是探针建的那一份（**期望 true**：点阵材质本来就是私有的）。</summary>
+            public bool SameMaterial;
+        }
+#endif
 
         public void SetText(string text)
         {

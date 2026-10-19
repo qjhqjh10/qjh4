@@ -229,7 +229,7 @@ public static class ShopScene
                     "Card Drawer", "Dynamic Content",
                     "映射表 :44 —— `RawCardScript` 主档 = `Card Drawer`（类 `CardDrawer`）；"
                     + "🔴 **这一格出厂 INACT**（原版 dump 的 `act` 列 = `*Card Drawer`，本文件 `VExpAll` 里逐字写着）"
-                    + "⇒ 选中时会被 `SetActive(true)` 打开（原版 `:363`）", true),
+                    + "⇒ 选中时会被 `SetActive(true)` 打开（原版 `本文件`）", true),
         new SlotExp("General Basic Offer Container Variant Single Item Type", "CosmeticItemAvatarBorder",
                     "Icon Avatar Border Drawer", "Dynamic Content",
                     "映射表 :71/:72 —— 30 档那三条之一（`Avatar Border Drawer Shop Variant`，类 `AvatarBorderDrawer`）；"
@@ -1067,39 +1067,12 @@ public static class ShopScene
     ///    那种场合要用 <see cref="RectOfUnion"/>（见 <see cref="CheckRectPxUnion"/>）。</summary>
     static bool RectOf(Transform t, out float x1, out float y1, out float x2, out float y2)
     {
-        x1 = y1 = x2 = y2 = 0f;
-        if (t == null) return false;
-        Transform node = t; float w, h;
-        var lb = t.GetComponentInChildren<Label>();
-        var q = t.GetComponentInChildren<ImageQuad>();
-        if (lb != null)
-        {
-            node = lb.transform;
-            // 🔴 **2026-10-15（A796′）换口**：宽/高不再读**字段缓存** `Label.WorldW/H`（= `_tmpW/_tmpH`，
-            //    只有 `RefreshBounds()` 写 —— 也就是**被测实现自己**），改读 TMP 自己渲出来那块
-            //    `textBounds`（= `TmpRenderedRect` 那条口；落地口径 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3）。
-            //    **为什么这是灭自证**：`SetFontSize` / `SetCharSpacing` 这一族（`Battle/Label.cs`，现读 `:601`/`:631`）
-            //    **只重排 mesh、不刷新缓存** ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**、断言照样绿。
-            //    ⛔ **别换成「TMP 网格顶点」那条口**（实测首字左边距 2.22px ⇒ 一批期望值会集体偏 1–2px）。
-            //    ⚠️ **只换「从哪个口读那个数」**：中心仍是**节点位置**（`AlignLeft/Right` 把节点挪走的口径
-            //       一个字没动）。若改成直接用 `textBounds` 那块矩形，矩形会跟着**两项**整体挪 ——
-            //       TMP 子节点上的 `_vOffset`（A712 字墨校正，`Battle/Label.cs` 的 `RefreshBounds` 里那句）
-            //       与 `(0.5 − anchor)` 那一项 —— 两者今天**都不保证为 0** ⇒ 期望值会集体漂（那就不是「换口」了）。
-            //    ⚠️ 量不到（点阵后端 / 底下没有 TMP 网格）⇒ **退回旧口**：那条路**本来就没有** `textBounds`
-            //       （`Label.WorldW` 的点阵支读的是 `_texW`），不是「静默吞掉新口」。
-            float rx1, ry1, rx2, ry2;
-            if (TmpRenderedRect(node, out rx1, out ry1, out rx2, out ry2)) { w = rx2 - rx1; h = ry2 - ry1; }
-            else { w = lb.WorldW * 108f; h = lb.WorldH * 108f; }
-        }
-        else if (q != null) { node = q.transform; w = q.WorldW * 108f; h = q.WorldH * 108f; }
-        else return false;
-        // 🔴 **`A1350` 第 ② 步（2026-10-19 · 第五十五会话 S3）：中心也走【乙式】**
-        //   （原来甲式 `PxOf/PxYOf`；同族 `QuadRectOf` 已是乙式 ⇒ 中心与尺寸不同源，父链缩放 / 非 16:9 会分家）。
-        var pcCtr = MenuDraw.PixelOfDesign(MenuDraw.PosInDesignSpace(node));
-        float cx = pcCtr.x, cy = pcCtr.y;
-        x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
-        y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
-        return true;
+        // 🆕 **2026-10-20（`A1350` 第一批）**：实现转调 `MenuCheck.NodeRectPx(…, LabelNode, …)`
+        // （自检侧**唯一一份**节点矩形读口）。中心本来就是乙式（`A1350` 第 ② 步 · 第五十五会话 S3 已落）
+        // ⇒ 纯搬、**行为零变化**；本函数保留原名与本形参 ⇒ 调用点 0 改动。
+        // ⚠️ 原来 label 支**内联**在体内的那份 `TmpRenderedRect` + 退回 `Label.WorldW/H`（A796′ 换口）
+        //    已随本次转调并入 `SelfCheckTextMetrics.TryRenderedPx` —— 全仓不再有第 6 份。
+        return MenuCheck.NodeRectPx(t, MenuCheck.RectCenterMode.LabelNode, out x1, out y1, out x2, out y2);
     }
 
     /// <summary>两个矩形**有没有重叠**（像素矩形的标准 AABB 判据）。</summary>
@@ -1141,7 +1114,7 @@ public static class ShopScene
     /// 本文件再留一份，是因为四个自检各自一套辅助函数（`CollectionScene` 开头那条注释已经明记这是一笔明账）。</para>
     /// <para>🔴 **为什么要用它（灭自证）**：`Label.WorldW/WorldH` 读的是**字段缓存** `_tmpW/_tmpH`，
     /// 而那份缓存**只有 `RefreshBounds()` 写**（`Battle/Label.cs`）—— 也就是**被测实现自己**；
-    /// 反过来 `SetCharSpacing`（`:524-533`）· `SetFontSize`（`:503-514`）这一族**只重排 mesh、不刷新缓存**
+    /// 反过来 `SetCharSpacing`（`CardPresentation/Battle/Label.cs`）· `SetFontSize`（`CardPresentation/Battle/Label.cs`）这一族**只重排 mesh、不刷新缓存**
     /// ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**（实现与检测器共用一个口 = 自证）。
     /// 本助手读的是 TMP 自己的 `textBounds`（mesh 的**活值**），**不在实现那条链上**。</para>
     /// <para>⚠️ **取组件带 `true`（含 inactive）** —— 左栏第 4 键是**关着的母版**（`tabButtonPrefab`），
@@ -1152,22 +1125,10 @@ public static class ShopScene
     /// **天文数字 = 量法没生效**，⛔ 别照它去改实现。</para></summary>
     static bool TmpRenderedRect(Transform t, out float x1, out float y1, out float x2, out float y2)
     {
-        x1 = y1 = x2 = y2 = 0f;
-        if (t == null) return false;
-        var tmp = t.GetComponentInChildren<TMPro.TextMeshPro>(true);
-        if (tmp == null) return false;
-        var b = tmp.textBounds;                       // 局部空间的行盒（`Bounds`）
-        var M = tmp.transform.localToWorldMatrix;
-        x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
-        for (int c = 0; c < 4; c++)
-        {
-            var corner = M.MultiplyPoint3x4(new Vector3((c % 2 == 0) ? b.min.x : b.max.x,
-                                                        (c < 2) ? b.min.y : b.max.y, 0f));
-            float px = LayoutSpace.PxX(corner.x), py = LayoutSpace.PxY(corner.y);
-            x1 = Mathf.Min(x1, px); x2 = Mathf.Max(x2, px);
-            y1 = Mathf.Min(y1, py); y2 = Mathf.Max(y2, py);
-        }
-        return true;
+        // 🆕 **2026-10-20（`A1350` 第一批）**：实现已收口到 `SelfCheckTextMetrics.RenderedRect`
+        // （`A1265` 的法定唯一实现处；本轮机核四份 `TmpRenderedRect` 归一化后逐字相同 ⇒ 纯搬运）。
+        // 本函数**保留原名与本形参 ⇒ 调用点 0 改动**；行为逐字不变（世界帧四角 → `PxX/PxY` 的 min/max）。
+        return SelfCheckTextMetrics.RenderedRect(t, out x1, out y1, out x2, out y2);
     }
 
     /// <summary>**按路径**找（`FindChild` 是按名字找的、不认识 `A/B/C` —— 见 `RewardsScene` 里那条注释）。</summary>
@@ -1374,7 +1335,7 @@ public static class ShopScene
                 //    —— 与 `Editor/MainMenuScene.cs` 那几处（A709/A714/A715/A718）**同一条口径**；本条 = 这一族的
                 //    **第五处**（第四/六处 = `Editor/RewardsScene.cs` · `Editor/CollectionScene.cs`，同一批改完）。
                 //    **为什么这是灭自证**：`Label.WorldW` 那份缓存**只有 `RefreshBounds()` 写**（`Battle/Label.cs`）——
-                //    也就是**被测实现自己**；而 `SetCharSpacing`（`:524-533`）· `SetFontSize`（`:503-514`）这一族
+                //    也就是**被测实现自己**；而 `SetCharSpacing`（`CardPresentation/Battle/Label.cs`）· `SetFontSize`（`CardPresentation/Battle/Label.cs`）这一族
                 //    **只重排 mesh、不刷新缓存** ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**、这条照样绿。
                 //    新口读的是 TMP 自己的 `textBounds`，**不在实现那条链上**。
                 //    期望值 `155f` / 容差 `+ 0.5f` / 文案全文**一位未动** —— 变的只有「从哪个口读那个数」与缩进。
@@ -1582,6 +1543,15 @@ public static class ShopScene
                               + $"（实测 y {vy1:F0}..{vy2:F0}，格 {y1:F0}..{y1 + ShopTabPage.CellH:F0}）");
                     CheckTrue(vx1 >= x1 - 0.5f && vx2 <= x1 + ShopTabPage.CellW + 0.5f,
                               $"格 {i + 1}：`Available Counter` **横向不越出格子**");
+                    // 🔴 **2026-10-19（`N72`）**：原版横向档 = **Center**（现跑 `menu_dump` 实读 6 份
+                    //   `Catalog Item Shop Container` 变体全为 `Center/Midline`；旧施工图 `:143` 的 `Right`
+                    //   是旧工具 hAlign 错位值）。判据 = 渲出来那块的**中心**落在 `CellAvail` 的中心上。
+                    //   ⚠️ 断的是**原版档位**，不是「我们某个常量」：`AlignRight` 会把中心推到
+                    //   `x1 + 18.87 + w/2`（右边贴框）⇒ 与中心差 (315.33−18.87−w)/2，远大于 2px。
+                    CheckNear((vx1 + vx2) * 0.5f,
+                              x1 + (ShopTabPage.CellAvail.x1 + ShopTabPage.CellAvail.x2) * 0.5f, 2f,
+                              $"格 {i + 1}：`Available Counter` **横向居中**（原版 `Center`；"
+                              + $"分界 = `CellAvail` 中心 {x1 + (ShopTabPage.CellAvail.x1 + ShopTabPage.CellAvail.x2) * 0.5f:F1}）");
                 }
                 // 格内所有件都别横着越界（价格钮 / 名字 / 类型 / 主图 一起过一遍）
                 string[] insideNames = { "Name", "Type", "Art", "ArtPlaceholder", "Generic UI Button" };
@@ -2201,13 +2171,16 @@ public static class ShopScene
                       "Rarity 4 ⇒ `Category` = `Legendary Booster Pack`（原文那档）");
 
                 // ---- 🆕 2026-10-03（A12-P1 欠下的断言）：`Tooltip` 图标的悬停 tooltip ----
-                //   判据 = 原版 `EverguildTooltipTrigger`（`text = "MenuShop/BoosterInfo/LegendaryTooltip"`，
-                //   词条表在远端 CCD ⇒ 本地没有）+ **`m_RaycastPadding = (−15,−15,−15,−15)`**
+                //   判据 = 原版 `EverguildTooltipTrigger`（`text = "MenuShop/BoosterInfo/LegendaryTooltip"`）
+                //   + **`m_RaycastPadding = (−15,−15,−15,−15)`**
                 //   （**负值 = 外扩**，反证写在 `BoosterInfoPopup.BuildTooltipHit` 的注释里）。
+                //   🔴 **2026-10-19（`N73`）就地订正**：本条原写「词条表在远端 CCD ⇒ 本地没有」——**已过期**，
+                //   该键早就在 `Core/Loc.cs:2785` 的 `Table` 里（中英两列都有值）⇒ 正文改由 `Loc.T` 取。
                 Section("`Booster Info Popup` 的 `Tooltip` 图标：悬停出面板 + 命中区外扩 15px");
                 {
-                    CheckTrue(BoosterInfoPopup.TipBody.Trim() == "",
-                              "`BoosterInfoPopup.TipBody` **一个字都没编**（面板照弹、正文空）");
+                    CheckTrue(!string.IsNullOrEmpty(BoosterInfoPopup.TipBody),
+                              "`BoosterInfoPopup.TipBody` **非空** = 官方词条 `MenuShop/BoosterInfo/LegendaryTooltip`"
+                              + "（⛔ 改回空白占位 ⇒ 本行红）");
                     var layerS = PointerLayer.Instance;
                     var tipNode = FindPath(pop.transform, "window/Text/Booster pack guarantee Slider/Tooltip");
                     var tipQ = tipNode != null ? tipNode.GetComponentInChildren<ImageQuad>() : null;
@@ -2245,8 +2218,8 @@ public static class ShopScene
                     //    批处理里没有帧循环 ⇒ 这是唯一入口）—— 这一条**不依赖**上面那次命中，
                     //    所以「同队列不可控」不会把它一起拖红。
                     // 🔴 **2026-10-03 就地更正（铁律 5）**：这里原来少了「**先把指针挪开**」这一步 ——
-                    //    上面 `HoverAt(图标中心)`（`:645`）那次**真悬停**已经派发过一次 `Enter()` 了
-                    //    （`TipHovers` 0→1，面板也正是那一次弹出来的，所以 `:664/:666/:667` 都是绿的），
+                    //    上面 `HoverAt(图标中心)`（`本文件`）那次**真悬停**已经派发过一次 `Enter()` 了
+                    //    （`TipHovers` 0→1，面板也正是那一次弹出来的，所以本文件里那两条断言都是绿的），
                     //    而 `WindowButton.Enter()` 是**幂等**的（`Shell/WindowButton.cs` 的 `WindowButton.Enter`（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）的 `if (Hovered) return;`，
                     //    等价原版 `IPointerEnterHandler`「每次进入只发一次」）⇒ 这里再叫一次计数不涨，
                     //    断言报「期望 2 实得 1」。**实现是对的、是断言少了前提**（不是漏触发）。
@@ -2264,7 +2237,8 @@ public static class ShopScene
                     CheckTrue(Tooltip.ShowCount >= scS + 1,
                               "…`Tooltip.ShowCount` 也涨了（面板**照原版的时机弹出来了**）");
                     CheckTrue(Tooltip.Visible, "…`Tooltip.Visible == true`");
-                    CheckTrue((Tooltip.ShownBody ?? "").Trim() == "", "…面板里的**正文是空的**（一个字都没编）");
+                    CheckTrue((Tooltip.ShownBody ?? "") == (BoosterInfoPopup.TipBody ?? ""),
+                              "…面板里的**正文 = `TipBody`**（官方词条值；⛔ 空白占位 ⇒ 本行红）");
                     // 面板**钉在图标上**：原版这一件 `tooltipAnchor = 0`（None）⇒ pivot (.5,.5)
                     //   ⇒ 面板中心 == 图标中心（**不跟鼠标**）
                     CheckNear(LayoutSpace.PxX(Tooltip.PanelCenter.x), tipCx, 0.5f,
@@ -2398,7 +2372,7 @@ public static class ShopScene
                 //      同族翻车留档 → `Editor/RewardsScene.cs` 的 `Run` 里「探针跑在关闭的窗上」那一段「探针跑在关着的窗上」⇒ ⛔ 别往上挪。
                 //   ⚠️ 上面那组吸收层收尾**已经把 `popA` 点关了** ⇒ 这里先开回来（无参 `TryOpen()`：
                 //      不碰 `Data`；`Closed` 支会重建内容 ⇒ 下面那颗命中区是**现取**的）。
-                //   ⚠️ 本窗那颗命中区的路径是 `Menu Dark Background/CloseHit`（同 `:2125` 的 `darkHitN`）。
+                //   ⚠️ 本窗那颗命中区的路径是 `Menu Dark Background/CloseHit`（同 `本文件` 的 `darkHitN`）。
                 CheckTrue(popA != null && popA.TryOpen(),
                           "（A796 现场）把卡包详情窗开回来 —— 下面那条要在**开着**的窗上点");
                 if (popA != null)
@@ -4743,7 +4717,7 @@ public static class ShopScene
             // 两态：喂一份数据 ⇒ `Quit`（`isSelf`）与 `Challenge`（`!isSelf`）**互斥**（判别式）
             //  ⚠️ **2026-10-14 订正（夹具）**：`MyRole` 原来写 `3` ⇒ `Role(0) < MyRole(3)` **成立** ⇒ `outrank = true`
             //     ⇒ 下面那条「`Promote` 关着」本来就**必红**（实现是对的，是夹具与断言文案的前提不符）。
-            //     判据（原版规则，`Shell/AllianceMemberOptionsPopup.cs` 文件头 `:26` + `:179` + `:396-399`）：
+            //     判据（原版规则，`Shell/AllianceMemberOptionsPopup.cs` 文件头 `CardPresentation/Shell/AllianceMemberOptionsPopup.cs` + `CardPresentation/Shell/AllianceMemberOptionsPopup.cs` + `CardPresentation/Shell/AllianceMemberOptionsPopup.cs`）：
             //       `outrank = sameGroup && role < myRole` · `Promote = outrank && role < 3` ·
             //       `Demote = outrank && role > 0` · `Kick = outrank` · `Quit = isSelf` · `Challenge = !isSelf`
             //     ⇒ 要断「`outrank` 那道闸把 `Promote` 关住」，夹具必须给 `MyRole = 0`（`0 < 0` 为假）。
@@ -4924,7 +4898,7 @@ public static class ShopScene
             // 缺图（⚠️ **2026-10-14 订正**：原来写「`40k_UI_Banner BW` 没进 `Resources/`」—— 那张图已于
             //   2026-10-06 12:31 拷进 `Resources/Art/ui_menu/40k_UI_Banner_BW.png` ⇒ 期望是 **0**。
             //   判据 = ① 图在盘上 ② 本 run 里同一条口（`Shell/RankedRewardEventWindow.cs:558-560`）
-            //   **确有一条**「图取不到」告警，但名字是 `40K_shop_offer_bg_Sororitas_0`（`:46627`，来自 `SetBoost`）
+            //   **确有一条**「图取不到」告警，但名字是 `40K_shop_offer_bg_Sororitas_0`（`CardPresentation/Shell/RankedRewardEventWindow.cs`，来自 `SetBoost`）
             //   —— 口是活的、**没对横幅报缺** ⇒ 横幅**取到了**。
             //   `Tex(ArtBanner, …)`（`Shell/RankedRewardEventWindow.cs:378`）在 `Build()` 路径上**无条件**调
             //   ⇒ 这个 `0` 是**实读数**。⚠️ 原来紧随其后那两行「缺的是哪个名字」**已随之删掉**
@@ -5185,7 +5159,7 @@ public static class ShopScene
                       "★ 关过再开 ⇒ 新建的那一扇回到 `Input View` 开 / `Referred View` 关");
             rp3.Close();
 
-            // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → `:2204` 那一段）。
+            // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → `本文件` 那一段）。
             //   ⚠️ 本窗**是**「只配了几何断言」那一档的一扇（`MenuDraw.CheckShadeRule` 一条 +
             //      **没有** `CheckAbsorbRule`、也没有别的窗那种 ad-hoc 点击）⇒ 本口是本窗**唯一**的
             //      「点了压暗层 ⇒ 关窗」站立点；把 `ShadeHit(…, () => Close())` 换成空动作/吸收层，

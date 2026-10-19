@@ -29,7 +29,7 @@
 //   **现核（2026-10-19）**：当前官方 13 语言表（10,862 键）里 `Demo/FeedbackSurvey/*` **67 条**
 //   （题干 + 选项，zh/en 两列都非空；例 `S1Q1` = `Your age group:` / `你的年龄段：`）。
 //   本窗引用的 **74 条** `Demo/*` / `MenuDeck/*` 词条 **74/74 全部命中**（脚本逐条核对过）。
-//   ⇒ 问卷正文**一律走 `Loc.T`**（`Loc.T` 在 zh/en 两档的最后一级就是这张官方全表，见 `Core/Loc.cs:3365-3385`）；
+//   ⇒ 问卷正文**一律走 `Loc.T`**（`Loc.T` 在 zh/en 两档的最后一级就是这张官方全表，见 `Core/Loc.cs`）；
 //   取不到时才显示**键名** + `LogWarning`（⛔ 不自译、不编文案 —— 本窗 `Term()` 是唯一入口）。
 //
 // ============================ 我们侧的对位（逐件写清，不冒充原版）============================
@@ -893,7 +893,7 @@ namespace CardPresentation
         /// <summary>🆕 **2026-10-19（本批 · `N48②`）**：本窗**唯一**的词条取值口 —— 走 `Loc.T`。
         /// <para>判据：官方 13 语言表（`Resources/official_loc_13lang.json`，10,862 键）里
         /// `Demo/FeedbackSurvey/*` **67 条全在**；本窗引用的 74 条 `Demo/*` / `MenuDeck/*` 键 **74/74 命中**。
-        /// `Loc.T` 在 zh/en 两档的最后一级就是这张表（`Core/Loc.cs:3365-3385` ⇒ `OfficialCurrent`）。</para>
+        /// `Loc.T` 在 zh/en 两档的最后一级就是这张表（`Core/Loc.cs` 的 `OfficialCurrent` ⇒ `OfficialCurrent`）。</para>
         /// <para>⚠️ 取不到（`Loc.T` 原样返回键名）⇒ **显示键名** + 出声一次/键（⛔ 不自译、不编文案；
         /// `fallback` 只在「键为空串」那种非法输入时用，正常路径**永远轮不到**）。</para></summary>
         static string Term(string key, string fallback = null)

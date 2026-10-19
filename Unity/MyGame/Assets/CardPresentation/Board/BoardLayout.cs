@@ -577,12 +577,20 @@ namespace CardPresentation
         ///
         /// ⚠️ **非 3D（2D 兜底布局）时逐位退回 `SlotPosition(slot)`**：2D 平面里没有「战场高度」
         /// 这个概念（卡本来就摆在那条行线上），于是 `above == land`、第二段退化成一记直飞 ——
-        /// 与 `DropTargetWorld` 的兜底同一个口径（那里的 `return SlotPosition(slot)` 就是这么定的）。</summary>
+        /// 与 `DropTargetWorld` 的兜底同一个口径（那里的 `return SlotPosition(slot)` 就是这么定的）。
+        ///
+        /// 🔴 **2026-10-19（`W57` · `T02·补`）：缩放走 `ProjectionScale(slot)`，⛔ 不是恒 `CardScale`。**
+        /// 原来这里写死 `ArenaSlots.CardScale(mirror)`，而 `DropTargetWorld` 走 `ProjectionScale`
+        /// （督军位 `HeroScale`、其余 `CardScale`）⇒ **督军格（槽 4）的两个口不是同一个点**
+        /// （`A359` 普查实测量级 ≈ 9.6 px 我方 / 9.1 px 敌方，只在 y）。
+        /// 两段飞行（「抬到槽位正上方」→「垂直落下」）的**起点与终点必须同源**，否则第二段不是垂直落下。
+        /// 判据 = 同文件 `ProjectionScale` 的 doc（`:527-541`）+ `DropTargetWorld`（`:515-525`）
+        /// + `资料/普查产出_1017/BSC62/W5_PlaceMarkers与卡背.md` §五·2（本笔即那条「顺手发现」的收口）。</summary>
         public Vector3 DropTargetWorldAtHeight(int slot, float upWorld)
         {
             if (use3D && boardCam != null)
             {
-                float sc = ArenaSlots.CardScale(mirror);
+                float sc = ProjectionScale(slot);
                 // `upWorld` 加在**卡心**上 = 「整张卡原地抬高 upWorld」——
                 // 卡是直立站着的（`ArenaSlots` 文件头：世界旋转恒 identity），所以世界 up 就是它的长轴。
                 var world = ArenaSlots.CardCenter(slot, mirror, sc) + Vector3.up * upWorld;

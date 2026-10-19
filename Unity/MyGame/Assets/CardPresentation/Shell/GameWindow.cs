@@ -136,7 +136,7 @@ namespace CardPresentation
         // 🔴 **零行为变化**：原来那一族（`MainMenuSubmenuWindow` 及奖励/商店/社交/收藏/档案窗）的读法**一个字没改**
         //   （`_win.ClipPad` / `_win.ClipSoftness` / `Clip` / `RenderClip` 全靠继承解析到同一份）——
         //   改的只是**声明处**上移了一层。既有断言逐条覆盖它：`Editor/ShellScene.cs` 的
-        //   `RenderClip = Clip 按 ClipPad 内缩`（左沿 1010）· `Editor/RewardsScene.cs:1511,1513,1520,2817`（锻造/战役两条轨道）。
+        //   `RenderClip = Clip 按 ClipPad 内缩`（左沿 1010）· `Editor/RewardsScene.cs` 的 `RenderClip`（锻造/战役两条轨道）。
         // ⚠️ **这管两件事，别只当它是渲染状态**（判据 → `MenuDraw.PaddedClip` 上面那一段·UGUI `Culling/Clipping.cs:26-30`）：
         //   · **渲染那一片** = `RenderClip`（= `Clip` 按 `ClipPad` **内缩**）→ 喂 `Rect` / `Nine` / `Text` / `TextBox`；
         //   · **命中区那一片** = **裸 `Clip` + `ClipPad`** → `AddHit` 转发给 `MenuDraw.Hit`，由它**把 `ClipPad` 缩在
@@ -319,7 +319,7 @@ namespace CardPresentation
         /// （`Shell/ForgeTab.cs` 的 `AddHit` 转调那一处 · `Shell/CampaignTab.cs` 的 `AddHit` 转调那一处）⇒ 那两页现在也吃 `Clip` 与 `ClipPad`；
         /// 端到端断言 → `Editor/RewardsScene.cs` 锻造轨道那一段（居中那三条 + **跨边那一条**，后者是唯一能
         /// 分辨「pad 缩 `clip`」与「pad 被丢掉」的）与战役轨道那一条（`m_Padding = 0` ⇒ 命中区不许被缩）。
-        /// ⚠️ **原文里那句「`RewardsScene.cs:1511,1513`（命中宽 190.762 = 原版 200.762 − pad.L 10、左边缘 +10）」
+        /// ⚠️ **原文里那句「`RewardsScene.cs`（命中宽 190.762 = 原版 200.762 − pad.L 10、左边缘 +10）」
         /// 已过期**（那是旧模型的值；现期望 = **200.762 / 左沿 = 按钮左沿**）。
         /// ⚠️ **`onClick` 传 null 是合法的**（几处自检就是这么用的：只量命中区、不接行为）。</summary>
         public Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick,
@@ -604,7 +604,7 @@ namespace CardPresentation
         //    「这一扇是不是 `WindowsManager.BaseMenu`」当闸门 —— `Shell/MainMenuWindow.cs` **不在本笔白名单**，
         //    所以钩子只能落在共同基类这一处（两处写同一条规则 = 迟早不一致）。
         // ⚠️ `MenuFocusChangeActions(focused)` 那一跳**没接**：本地反编译里**找不到它的调用方**
-        //    （`d:/2/tools/decomp_full/` 只有它自己的方法体；类桩 `MainMenuWindow.cs:175` 是空函数）
+        //    （`d:/2/tools/decomp_full/` 只有它自己的方法体；类桩 `MainMenuWindow.cs` 是空函数）
         //    ⇒ 不知道它到底由「应用窗口失焦」还是「导航焦点」驱动 —— ⛔ 不凭空发明一个信号。
         // ⚠️ 原版 `MainMenuWindow.Close` 与 `Hide` 在「关常驻主菜单」那条路上**都会各烘一次**（两次调用，
         //    第二趟把第一趟的结果再烘一遍）—— 本仓**照原版**保留这两次（`Close` 的 baseMenu 支走 `Hide()`）。
@@ -743,7 +743,7 @@ namespace CardPresentation
             //   ⇒ 原版 = 「物体置灰」排在「摘表 / `ShowPreviousWindow`」**之前**，我们排在**之后**。
             //
             //   🔴 **不改会怎样（本笔要修的那条可见缺陷）**：`NotifyClosed` 那一跳会把**常驻主菜单重新开回来** ——
-            //   关掉列表里**最后一扇**时 `ShowPreviousWindow` 走「列表空了」那一支（本类 `:1209-1222`
+            //   关掉列表里**最后一扇**时 `ShowPreviousWindow` 走「列表空了」那一支（本类 `本文件`
             //   = 原版 `CurrentWindow = baseMenu` + `OpenWindow(baseMenu)`）；而当**被关的正是 `baseMenu` 自己**时
             //   （`CloseAllWindows()` 的下降循环里它在下标 0、**最后**才被关到），那一支把 `this` 重新
             //   `SetActive(true)` + `state = Open`；紧跟着的老尾句又把它摁灰 ⇒ 造出 `(state = Open, activeSelf = false)`
@@ -824,7 +824,7 @@ namespace CardPresentation
         /// ⛔ **别再把它当成「回来」的生产入口** —— 它**不处理 `Closed`**（那一档原版要 `SetActive(true)` +
         /// `state=Open` + **`Open()` 重建内容**），漏掉它 = 藏过的窗回来时是空的（`Editor/ShellScene.cs` 那条
         /// 同名断言将来要一起换）。</para>
-        /// <para>⚠️ **保留它只为既有调用点**：`Editor/ShellScene.cs:1861-1862`（自检直调；A217 那一节）。
+        /// <para>⚠️ **保留它只为既有调用点**：`Editor/ShellScene.cs`（自检直调；A217 那一节）。
         /// （同族先例：`WindowsManager.ShowPreviousWindow` 在 `Warpforge_code` 里也是 `private` ——
         /// 自检**不**直调生产方法、走生产那条路更有鉴别力。）</para>
         /// <para>⚠️ 原版 `TryOpen` 那一支后面还有一句 `ToFocus()`（虚表 Slot 7）—— 本仓**没有这个虚方法**

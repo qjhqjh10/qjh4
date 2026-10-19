@@ -953,7 +953,7 @@ namespace CardPresentation
 
         /// <summary>**记一次登录**（A815 那一页的计数源头）。
         /// <para>🔴 **挂在哪一拍**：`TryDailyReset()` 里、它那句 `if (now &lt; _nextReset) return false;` **之前**
-        /// —— 而 `TryDailyReset()` 是 `MainMenuRuntime.Build()` 调的（`Shell/MainMenuRuntime.cs:254`）
+        /// —— 而 `TryDailyReset()` 是 `MainMenuRuntime.Build()` 调的（`Shell/MainMenuRuntime.cs` 的 `TryDailyReset()`）
         /// ⇒ 也就是**进壳 / 回主菜单那一拍**。⚠️ **不改 `TryDailyReset` 的返回值 / 判据 / 诊断量**
         /// （那一支的语义全在 `DailyResetChecks` / `DailyResetCount` / `_nextReset` 上，见它自己的 doc）。</para>
         /// <para>**规则**（A815 口径 · 用户 2026-10-15 拍板）：从没记过 ⇒ **1** · 与上次相差**恰好 1 天** ⇒ **+1** ·
@@ -1044,11 +1044,36 @@ namespace CardPresentation
         public static string ResetStreakText() { return "Reset Streak"; }            // 原版 prefab 占位串
         /// <summary>连登卡的领取钮文案。🔴 **2026-10-17（`N47` 整包普查）**：原版对应词条 =
         /// `ShopOffers/GeneralClaim`（`Daily Streak Reward Popup Entry / Collect / Collect Text` 的
-        /// `Localize.mTerm`，enabled=1）。⚠️ **该键在本地 13 语言表与 en+zh 表里都不存在**
-        /// （`ShopOffers/*` 130 条无 claim 键）⇒ 属**快照缺口**，`BulkOr` 回退英文并出声（同 `N15` 族）。</summary>
-        public static string StreakClaimText() { return Loc.BulkOr("ShopOffers/GeneralClaim", "Claim"); }
+        /// `Localize.mTerm`，enabled=1）。
+        /// <para>🔴 **2026-10-19（W57 · UI-6）就地订正（铁律 5）**：本段原来写「该键在本地 13 语言表与 en+zh 表里
+        /// 都不存在 ⇒ 属快照缺口」，并因此调 `Loc.BulkOr` —— **两句都不成立**：该键在官方 13 语言表
+        /// `Resources/official_loc_13lang.json` 里**有**（现读 en `Claim` / zh `索取`，13 列全非空）；
+        /// 而 `Loc.BulkOr` **只查** `Resources/official_names.json` 的 bulk 表（八个数据面族 + `Card_Trait`，
+        /// **不含 `ShopOffers/*`**）⇒ 原写法**恒回兜底 `Claim`**（中文档也印英文，且每次打一条缺键警告）。
+        /// 错因 = 当时拿「bulk 表里没有」当成了「本地没有」。</para>
+        /// <para>改走 <see cref="Loc.T"/>（第三档兜官方全表）⇒ 中/英/其余 10 语言都能取到。
+        /// 调用点 = `Shell/DailyStreakPopup.cs` 的 `BuildEntry`（`Collect Text` 那一颗，2026-10-19 同批接回本口
+        /// ⇒ **键字面量只留这一处**）。⛔ 别再退回 `BulkOr`，也⛔ 别在调用点另写一份字面量。</para></summary>
+        public static string StreakClaimText() { return Loc.T("ShopOffers/GeneralClaim"); }
+        /// <summary>连登窗说明句（`Daily Streak Popup/Streak Successful/Info` 与 `Streak Failed/Info` 两态共用）。
+        /// 🔴 **2026-10-19（W57 · UI-6）：回原版词条 `Rewards Menu/DailyStreak/Help`** —— 原来是我们自拟的
+        /// `Log in every day to keep your streak going.`，**既不是 prefab 出厂文本、也不是官方词条**
+        /// （第三种串，铁律 5·b/11）。
+        /// <para>判据（`d:/2/新解包资源/assets_full/bundle_menus_assets_all` 现读）：
+        /// ① 两颗 TMP 各挂 `Localize`：`mTerm = Rewards Menu/DailyStreak/Help` · `m_Enabled = 1` ·
+        ///    `LocalizeOnAwake = 1`（`mLocalizeTargetName = I2.Loc.LocalizeTarget_TextMeshPro_UGUI`）
+        ///    ⇒ 运行期显示的是**官方词条值**（MB `-2550844335809879381` / `4744420865844781739`）；
+        /// ② prefab 出厂 `m_text` 就是官方英文值（`Log in daily and keep your streak going to unlock bigger rewards.
+        ///    Skip a day, and your streak resets.`）；官方 13 列全非空（zh = `每天登录并保持连续登录，以解锁更大的奖励。
+        ///    跳过一天，你的连续登录就会重置。`）；
+        /// ③ TMP 框 = `Streak Successful/Info` `47.47,830 → 1872.53,880`（**1825.06×50**）·
+        ///    `Streak Failed/Info` `47.43,583 → 1872.57,633`（**1825.14×50**）· 字号 36 ·
+        ///    `m_TextWrappingMode = 1`（Normal 折行）· `m_margin = (0,0,0,0)` · `m_overflowMode = 0`（溢出照画、不截断）·
+        ///    **`m_enableAutoSizing = 0`**（不缩字号）⇒ 调用点按原版框宽传 `wrapPx`（见 `DailyStreakPopup`）。
+        /// ⚠️ 本口同时被**自建**「每日连胜」页签使用（`Shell/DailyStreakTab.cs:104`），那一格**没传 `wrapPx`**
+        /// （该文件不在本笔白名单）⇒ 长串会超出它那 1050px 的框；已写进报告，等主对话派活补。</para></summary>
         public static string StreakInfoText()
-        { return "Log in every day to keep your streak going."; }                    // ⚠️ 我们挑的
+        { return Loc.T("Rewards Menu/DailyStreak/Help"); }
 
         public static string StreakRewardName(int i) { return _streakName[SI(i)]; }
         public static string StreakRewardIcon(int i) { return _streakIcon[SI(i)]; }
@@ -1153,7 +1178,7 @@ namespace CardPresentation
         /// <para>**返回值**（与 `CollectDaily` / `CollectStreak` 那一族同口径）：
         /// `true` = 这一下**真收到了**（已置位 + 进 `Wallet` + 弹领奖窗）；`false` = 没有可领的
         /// （= 原版 `FirstOrDefault` 取不到、直接走续作的 `onComplete()` 那一支，**什么都不发**）。
-        /// 两个老调用点都当语句用（`Shell/DailyStreakPopup.cs` 里那两处 `DailyData.CollectStreak(…)` 调用点 / `:378`），换成 `bool` 照样编得过。</para>
+        /// 两个老调用点都当语句用（`Shell/DailyStreakPopup.cs` 里那两处 `DailyData.CollectStreak(…)` 调用点 / `CardPresentation/Shell/DailyStreakPopup.cs`），换成 `bool` 照样编得过。</para>
         /// <para>**改坏法**：① 把末尾那句 `CollectStreak` 删掉（退回空壳）⇒ 自检「关窗 ⇒ 真收到了」那条红；
         /// ② 把 `StreakRewardUnlocked` 那半句删掉改成恒收 ⇒ 「已领过再关一次 ⇒ 一份都没再发」那条红；
         /// ③ 在这里另写一份 `Wallet.Grant` 而不转调 `CollectStreak` ⇒ 「窗里那一条 = 格子里画的那张图」那条红
@@ -1489,7 +1514,7 @@ namespace CardPresentation
         //      **那一条已经不成立了**：整族现在**会落盘**（见本节末尾），重启后进度还在、日界也照旧档算。
         //      ✅ **2026-10-13 订正（铁律 5）：那句话已经改掉了** —— `Editor/MainMenuScene.cs` 那一份由写手 W-E1 一并改完
         //      （**现读在约 `:7742`**，不是这里原来写的 `:7602`）⇒ **本指针已结清，⛔ 别再派一次**。
-        //      （原文：「⚠️ 同一句话在 `Editor/MainMenuScene.cs:7602` 也有一份 ⇒ 调度台要把它一起改掉」。）
+        //      （原文：「⚠️ 同一句话在 `Editor/MainMenuScene.cs` 也有一份 ⇒ 调度台要把它一起改掉」。）
         //   ⛔ **后端那条云脚本 `0x401` 具体重置了什么 —— 本地查不到**（反编译全域 + `dump.cs` + `script.json`
         //      三处都只有上面那 3 行）⇒ **不编**；我们清的就是「客户端侧看得见的那一族」（见 `ResetDailyProgress`）。
         //

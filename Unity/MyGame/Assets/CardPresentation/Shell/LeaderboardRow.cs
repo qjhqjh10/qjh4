@@ -161,11 +161,11 @@ namespace CardPresentation
             //   `bundle_menus_assets_all/MonoBehaviour/*.json`，本件实读；两个行族各 4 颗）。
             //   ⚠️ 于是这里**只补 base（36）、上限照旧传 `RankPx` 那一档**（两者在本题上等价，写死基数更贴近原版字段）。
             // 🔴 **2026-10-16（A799 · 生产 4/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
-            //   父链：`row` ← `parent` = `LeaderboardWindow._listContent`（该文件 `:400` / `:596` 的
+            //   父链：`row` ← `parent` = `LeaderboardWindow._listContent`（该文件 `CardPresentation/Shell/LeaderboardWindow.cs` / `CardPresentation/Shell/LeaderboardWindow.cs` 的
             //   `Node(vp, "Content", …)`）← 两棵 `Scroll View` **各自的**那颗 `ViewportClip`
-            //   （`:383` 弹出棵 / `:586` 嵌入棵）；`Build` 的唯一调用点 = `LeaderboardWindow.cs:738`。
+            //   （`CardPresentation/Shell/LeaderboardWindow.cs` 弹出棵 / `CardPresentation/Shell/LeaderboardWindow.cs` 嵌入棵）；`Build` 的唯一调用点 = `LeaderboardWindow.cs`。
             //   ⇒ 本处 `clip` 恒 `null`（`RowCtx.Clip` 那一对 2026-10-13 已删）⇒ A781 起由那颗节点接管
-            //   ⇒ 压在视口边上的名次「Ranking」**第一次**被夹到视口沿（整行在外那一档早在 `:737`
+            //   ⇒ 压在视口边上的名次「Ranking」**第一次**被夹到视口沿（整行在外那一档早在 `CardPresentation/Shell/LeaderboardWindow.cs`
             //   `_scroll.Intersects` 挡掉、连节点都不建）。
             //   ✅ 为什么可以：判据 = 原版 `RectMask2D` 对文字与图片一视同仁（本行行底 `Nine` 早在裁）⇒ 更贴原版；
             //   本句**丢弃返回值**（居中档不接 `Label`）⇒ A798 的「整块在外 ⇒ `null`」在这句上无副作用。

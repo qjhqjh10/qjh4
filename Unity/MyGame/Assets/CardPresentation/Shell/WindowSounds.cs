@@ -108,7 +108,7 @@ namespace CardPresentation
         /// `mov r8, [rbx+0x28]`（GameWindow 的 `openSound`）→ `xor r9d, r9d` → `call 0x1806FA6F0`，
         /// 而 `0x1806FA6F0` = `SoundManager.Play2D(AudioCue, MixerType)`（`d:/2/tools/il2cpp_out/dump.cs:17901`）
         /// ⇒ `MixerType = 0 = FX`（`MixerType.cs`）。⚠️ `工具/import_original_sfx.py:112` 那句「（Jingles 组）」
-        /// 与指令流不符 —— 以指令流为准（同 `Shell/GameWindow.cs:488` 那条既有口径）。</para>
+        /// 与指令流不符 —— 以指令流为准（同 `Shell/GameWindow.cs` 那条既有口径）。</para>
         /// <para>播放口 = <see cref="PlayFx"/>（`WFSoundPlayer` 挂 FX 组）；`FTUESelectDeckWindow.Open()` 里喊它。</para></summary>
         public const string FtueOpenCue = "Draft Mode Progress Jingle";
 

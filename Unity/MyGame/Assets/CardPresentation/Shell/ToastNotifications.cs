@@ -1174,7 +1174,7 @@ namespace CardPresentation
 
         // ============================================================ 缓动（DOTween `Ease.OutBack` / `InBack`）
         // 判据：`__ShowNotificationInternal.c` 的 `SetEase(0x1b)` / `SetEase(0x1a)`；DOTween 的
-        // `Ease` 枚举 = `InBack 26` / `OutBack 27`（`Battle/BattleCameraSreenSize.cs:38` 那张表的同源）。
+        // `Ease` 枚举 = `InBack 26` / `OutBack 27`（`Battle/BattleCameraSreenSize.cs` 那张表的同源）。
         // 公式 = DOTween 的标准 back 缓动（c1 = 1.70158 · c3 = c1 + 1）。
         const float BackC1 = 1.70158f;
         const float BackC3 = BackC1 + 1f;

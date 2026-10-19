@@ -86,10 +86,15 @@
 //  · 🔴 **有意【不迁】的两样**（⛔ 不是漏迁）：
 //    ① **世界空间那层壳**（`transform`，即 `MulliganPanel` 自己那个 `RectTransform`）—— 它是
 //       **「换牌区那一行」的换算基准**（`RowLocalAt` / `RowWorldPosAt` / `RowLocalPos`）：那几张起手牌
-//       **还留在世界空间**（`T09` 第 5 步才走原版 `Physics2D` 那条），而 `BattleDriver` 正是拿这几个口
+//       **还留在世界空间**，而 `BattleDriver` 正是拿这几个口
 //       给卡定位的（`:13315` `RowWorldPos`）⇒ 保它 ⇒ **卡的世界位逐位不变**（16:9 / 非 16:9 都是）。
+//       🔴 **2026-10-19（`T09` 步骤 B · `W57` · B2a）就地订正**：上面原来写「（`T09` 第 5 步才走原版
+//       `Physics2D` 那条）」—— **命中判定这一半已经做了**（`CardAt` → `CardInteraction.Frontmost` →
+//       `CardView.HitByCollider`，真 `BoxCollider2D` + `Physics2D.SyncTransforms`）；留在世界空间的
+//       是**卡体本身**（它的坐标/缩放/扇形都由世界位驱动）⇒ 这一条**不是「等第 5 步」的欠账**。
 //       它就是「卡体那一族还没迁」这条边界的显式落地点（同 `BattleLogPanel` 那个根节点）。
-//    ② **卡体本身**（`CardView`）—— 同上，属于第 5 步。
+//    ② **卡体本身**（`CardView`）—— 同上：B1/B2a 只把**命中判定**换成真 `BoxCollider2D`
+//       （挂在原版 `2DCard` 那一级），卡体、坐标帧与渲染那一套**一个字没动**。
 //  · ⚠️ **如实记着的中间态**（本次**没做**、也不该在这里做）：非 16:9 下「画布上的钮」与「世界空间的卡」
 //    本来就是**两个帧**（`T09` 正文那条「4:3 下整体偏大 1.333 倍」）⇒ 那颗「替换」钮会与卡错开一点
 //    （4:3 下最多 ≈90 px；算式在报告 §6）。**卡一迁（第 5 步）这一档自然消失** —— 属"只换半边"的已知代价。
@@ -269,6 +274,15 @@ namespace CardPresentation
         //   · `HideMulliganButton`（眼睛）= **t=2 SpriteSwap**：`40k_UI_bt_eye_hover/_pressed`
         //   · 每张牌那颗「替换」钮 = **t=2 SpriteSwap**：`UI_Button_Mulligan_hover/_Pressed`
         //     ⚠️ 它的 **Normal 随「已标记」变**（`UI_Button_Mulligan` ↔ `_Pressed`）⇒ 用 `SetNormal` 同步。
+        //     🔴 **2026-10-20（W57 · `T09` A3-e1c）逐组件现读复核**（`bundle_battlesharedresources_assets_all`）：
+        //        prefab = `CardMulliganButtonFrame` 里的 `Change Card Button`（`MB -3194195439979639558`）：
+        //        `m_Transition = **2**`（Unity 枚举 `None=0/ColorTint=1/**SpriteSwap=2**/Animation=3`，
+        //        见本机 `com.unity.ugui/Runtime/UGUI/UI/Core/Selectable.cs:133-152`）·
+        //        `m_HighlightedSprite = 4884069812420410470`（= `UI_Button_Mulligan_hover`）·
+        //        `m_PressedSprite = 1985575716887326321`（= `UI_Button_Mulligan_Pressed`）·
+        //        `m_Colors` = Unity **默认四格**（t=2 下不生效）· `customColorTintTransitions = 0`
+        //        （⇒ `EverguildButton__DoStateTransition.c` 那段自定义着色也跳过）。
+        //        ⇒ 我们 `BattleButtonFx.Swap(...)` 与选牌面板**同族同图**，⛔ 别改成 ColorTint。
         BattleButtonFx _fxBar, _fxEye;
         readonly List<BattleButtonFx> _fxCardBtns = new List<BattleButtonFx>();
         readonly List<Label> _cardTexts = new List<Label>();
@@ -1037,16 +1051,21 @@ namespace CardPresentation
 
         /// <summary>指针下的**那张手牌**（没有 ⇒ null）。
         /// 🔴 **「点到了哪张卡」的判据只此一处** —— 原版是每张卡自己的 `Collider2D`（换牌期开着），
-        ///   我们这里是 `CardView.Contains` 逐张扫（**删掉的那条标记分支原来就是这段扫描**，本轮只换了
-        ///   命中之后**做什么**：原来 `ToggleMark`，现在回调 `OnCardSeen`）。
+        ///   我们这边转发到 <see cref="CardInteraction.Frontmost"/>（**删掉的那条标记分支原来就是这段扫描**，
+        ///   本轮只换了命中之后**做什么**：原来 `ToggleMark`，现在回调 `OnCardSeen`）。
         /// 🔴🔴 **2026-10-19（战斗线 T10 · `A1668`）就地收口**：原来这里按下标递增取第一张
         ///   （doc 写着「重叠处取下标最小」），而手牌那条 `CardInteraction.HitTest` 取 **z 最小（最前）**
         ///   ⇒ **两条规则在扇形重叠区会选到不同的卡**。现在两处都调
         ///   <see cref="CardInteraction.Frontmost"/> —— **判据只此一份**。
         /// <para>判据 = 原版 `BattleManager__GetTargetInPos.c:104-130`：`Physics2D.GetRayIntersectionNonAlloc`
-        /// 之后**只取数组第 [0] 项、不排序**（「谁在最上面」由物理层定）；我们这套手算命中没有
-        /// collider/射线层（`C3` 结构差异 #5）⇒ 「z 最小」是对应物。
-        /// ⚠️ **换牌那一行本来就不重叠**（`m_useRotation = 0`、平直横排、间距 &gt; 卡宽）⇒
+        /// 之后**只取数组第 [0] 项、不排序**（「谁在最上面」由物理层定）。</para>
+        /// <para>🔴🔴 **2026-10-19（`T09` 步骤 B · `W57` · B2a）命中口也换成真 collider 了**：
+        /// `Frontmost` 现在逐张问 <see cref="CardView.HitByCollider"/>（原版 `2DCard` 那颗
+        /// `BoxCollider2D`）＋ 查询前 `Physics2D.SyncTransforms()`，**不再手算矩形**
+        /// （旧实现 `CardView.Contains` 只留作一致性断言的对照物）。
+        /// ⚠️ 本方法**继续只转发、不另写一份扫描** —— 两份扫描一旦分叉，`A1668` 那条
+        /// 「换牌区与手牌走同一条判据」的灭自证断言就失去意义（⛔ 别把循环抄进来）。</para>
+        /// <para>⚠️ **换牌那一行本来就不重叠**（`m_useRotation = 0`、平直横排、间距 &gt; 卡宽）⇒
         /// 收成一条判据之后，换牌期的行为**零变化**（z 相同 ⇒ 仍取扫到的第一张 = 原来的下标序结果）。</para></summary>
         public CardView CardAt(Vector3 world)
         {
@@ -1219,6 +1238,19 @@ namespace CardPresentation
         // ==================================================================
 
         public int CardButtonCount { get { return _cardBtns.Count; } }
+
+#if UNITY_EDITOR
+        /// <summary>🆕 **2026-10-19（`T09` 步骤 B · `W57` · B2a）自检用**：换牌区这个点上有**几张**卡的
+        /// **真 collider** 命中（0 = 一张都没有）。
+        /// <para>用途 = 「重叠区取 z 最小」那条断言的**前提探针**：先证明两张**都**命中
+        /// （否则 `CardAt` 那条断言退化成一个候选、验不出排序）。判据走的是与 `CardAt` **同一条**
+        /// 生产口（`CardInteraction.FrontmostHitCountForTest` → `CardView.HitByCollider`），
+        /// ⛔ 本件不重算任何矩形。</para></summary>
+        public int CardHitCountForTest(Vector3 world)
+        {
+            return CardInteraction.FrontmostHitCountForTest(_cards, world);
+        }
+#endif
         /// <summary>自检用（**A276**）：第 i 张牌那个「换」按钮那一层的 **z 档**（没有 ⇒ `NaN`）。
         /// 判据 = 它只由本面板的 `Z`（建件口那个形参）决定，**不许跟卡的世界 z 走**。
         /// 🔴 **2026-10-16（`T09` 批 3）就地改一个读法（铁律 5）**：原来是 `transform.localPosition.z`
@@ -1310,6 +1342,30 @@ namespace CardPresentation
             if (i < 0 || i >= _cardBtns.Count || _cardBtns[i] == null) return "<无>";
             return _cardBtns[i].Texture != null ? _cardBtns[i].Texture.name : "<无>";
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-20（W57 · 战斗线 `T09` 步骤 A3-e1c）：**Editor-only 只读探针**
+        //  只读：不改状态、不派事件。播放器里**不存在**这些成员（`#if` 包住）⇒ 零运行时开销。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+#if UNITY_EDITOR
+        /// <summary>第 `i` 张牌那颗「替换」钮的视觉反馈对象（读 `TextureNameForTest` / `KeyForTest`）。
+        /// 原版 = `Change Card Button` 的 `m_Transition = **2**`（`SpriteSwap`，⛔ 不是 ColorTint）+
+        /// `UI_Button_Mulligan_hover/_Pressed` 两张图（判据 → 本类 `_fxCardBtns` 那段注释）。
+        /// `null` ⇒ 没建出来（卡片没摆 / 子画布没立起来）。</summary>
+        public BattleButtonFx CardBtnFxForTest(int i)
+        {
+            return (i >= 0 && i < _fxCardBtns.Count) ? _fxCardBtns[i] : null;
+        }
+
+        /// <summary>第 `i` 张牌那颗钮**当前露着的贴图**（同 `CardBtnTex`，但这个口在没图时返 `null`
+        /// 而不是 `"<无>"` —— 便于 Editor 断言区分「没建」与「建了但贴图为空」）。</summary>
+        public string CardBtnTextureNameForTest(int i)
+        {
+            var p = (i >= 0 && i < _cardBtns.Count) ? _cardBtns[i] : null;
+            return p != null && p.Texture != null ? p.Texture.name : null;
+        }
+#endif
+
         public string Describe()
         {
             return $"换牌面板 开着={Visible} 卡按钮 {_cardBtns.Count} 个 标记 [{string.Join(",", Marked.ConvertAll(x => x.ToString()).ToArray())}]"

@@ -82,6 +82,10 @@ SCAN   = r'd:/4/Unity/工具/ruleprobe/基线/out_baseline.txt'
 #   ⇒ 114 张改了 id 的卡按 id join 会整片落空、静默当成「无光环」）。生成方式（不用重编、不碰基线）：
 #     dotnet d:/4/Unity/工具/ruleprobe/bin/Debug/net8.0/wfprobe.dll layers \
 #         d:/4/Unity/资料/普查产出_1018/our_layers_1019.jsonl
+#   🔴 2026-10-20（W57 EN-3）：**已按上面这条重新生成**（旧文件 2026-10-19 01:14 的 dump 早于
+#      E10/E11 的 `CardDef.OfficialAuraSupplements` ⇒ `SW38` 显示「无光环」= **记录过期**，不是缺陷）。
+#      现文件 md5 `9368fb77d1401fb1ec5f6cbda2c409a0` · 416,116 B · 1,127 行 · 41 条光环；连跑两次逐字节一致。
+#      与旧文件的差 = 11 张卡（SW38 多 `Armour 2` 光环；其余 10 张是 willrun/ch 的解析改进）。
 LAYERS = r'd:/4/Unity/资料/普查产出_1018/our_layers_1019.jsonl'
 DICT   = r'd:/4/Unity/资料/普查产出_第二十七会话/abilityLogic_枚举词典.tsv'
 # 🔴 账 `A1977` 同笔：`OUT` **改前** = `…/普查产出_第二十八会话/A1759_逐条对账.tsv`（历史件）——
@@ -163,6 +167,30 @@ if os.path.exists(TRAIT_SRC):
     for _m in re.finditer(r'^\s*(\w+)\s*=\s*(\d+)', _tt, re.M):
         TRNAME[int(_m.group(2))] = _m.group(1)
     TRAIT_SRC_OK = True
+
+# 🔴 2026-10-20（W57 EN-3 · T07 残红 `SAU44`）：**印刷名映射** —— `DefinedTrait` 枚举名 ≠ 卡面印刷名。
+#   实测 `DefinedTrait.frenzied(680)` 的官方本地化 `Card_Trait/frenzied` = `["Destroyer","毁灭者"]`
+#   （源 = `数据/游戏数据/官方本地化_en+zh-CN.json`，2026-10-18 从原版 I2 表并入）⇒ 卡面写
+#   "Destroyer"，拿枚举名 `frenzied` 去比**永远对不上** —— `SAU44 Disruption Blades` 那条
+#   「条件变体」红就是这么来的（原版 `melee+1` 全体 + `melee+2` 给 `traitsFilter=680` 的高档；
+#   我们一条 `give +1 attack`（`altAmount=3` / `altCond=they are destroyer`），语义同）。
+#   83 个 `Card_Trait/*` 键里 **12 个**印刷名与枚举名不同（另例：`rage→Penitence`、`sneak→Sneak Attack`、
+#   `markOfChaos→Dark Pact`）⇒ 规则③ 的 trait ↔ 卡面文本比对（`_e8b_trait_in`）**两个名字都认**；
+#   枚举名排第一（原有的词边界护栏不变，⛔ 不退化成裸 `in`）。
+#   ⚠️ 只接 `_e8b_trait_in`（规则③ 的 trait↔卡面文本），**不动** `aura_hit()` 的 R1
+#      （trait↔光环载荷）—— 那里换名字会改变另一族判定，本轮无判据、不碰。
+TRAIT_LOC = r'd:/4/Unity/数据/游戏数据/官方本地化_en+zh-CN.json'
+TRAIT_PRINTED = {}
+TRAIT_LOC_OK = False
+if os.path.exists(TRAIT_LOC):
+    _tl = json.load(io.open(TRAIT_LOC, encoding='utf-8'))
+    for _k, _v in (_tl.get('terms') or {}).items():
+        if _k.startswith('Card_Trait/') and isinstance(_v, list) and _v:
+            _names = [s for s in _v if isinstance(s, str) and s]
+            if _names:
+                # ⚠️ 这里还没到 `_letters()` 的定义（`:577`）⇒ 就地压字母（口径与它相同）。
+                TRAIT_PRINTED[re.sub(r'[^a-z]', '', _k.split('/', 1)[1].lower())] = _names
+    TRAIT_LOC_OK = True
 
 # ------------------------------------------------ 真值（当前 build / 旧快照 两形态）
 # 🔴 2026-10-19 波 5：当前 build 的导出是 `{"bundle":…, "count":1351, "cards":[…]}`；
@@ -838,11 +866,18 @@ def _e8b_trait_in(trait, text):
     为什么不直接 `_letters(trait) in _letters(text)`：`vulnerable` 会命中 `invulnerable`
     （与 `aura_hit()` 那条 `R1` 护栏同一个坑）。这里的写法在**原文**上加边界，
     字母之间允许任意非字母分隔 ⇒ `bloodThirst` ↔ `Blood Thirst`、`flank` ↔ `give Flank to …`
-    都认得出，而 `vulnerable` 在 `invulnerable` 里匹配不到（前一个字符 `n` 是字母）。"""
+    都认得出，而 `vulnerable` 在 `invulnerable` 里匹配不到（前一个字符 `n` 是字母）。
+
+    🆕 2026-10-20（W57 EN-3）：**枚举名与印刷名都认**（判据见上面 `TRAIT_PRINTED` 那段）——
+    `frenzied` 卡面印的是 "Destroyer"；只比枚举名会把 `SAU44` 判成真差异。"""
     tw = _letters(trait)
     if not tw: return False
-    pat = r'(?<![a-z])' + r'[^a-z]*'.join(re.escape(c) for c in tw) + r'(?![a-z])'
-    return bool(re.search(pat, (text or '').lower()))
+    low = (text or '').lower()
+    for cand in [tw] + [_letters(p) for p in TRAIT_PRINTED.get(tw, [])]:
+        if not cand: continue
+        pat = r'(?<![a-z])' + r'[^a-z]*'.join(re.escape(c) for c in cand) + r'(?![a-z])'
+        if re.search(pat, low): return True
+    return False
 
 
 def _e8b_branch_value_ok(fam, meta, text):
@@ -1839,7 +1874,9 @@ print('--- 输入现读（2026-10-19 波 5 追加：真值源换了，必须让�
 print('   真值        :', _prov(TRUTH), '· 形态=%s · 卡数=%d' % (TRUTH_SHAPE, TRUTH_TOTAL))
 print('   本地化显示名:', LOC_SHAPE)
 print('   trait 名表  :', ('DefinedTrait.cs 全量 %d 个值' % len(TRNAME)) if TRAIT_SRC_OK
-      else ('⚠️ 没读到 DefinedTrait.cs ⇒ 退回词典 %d 个值（`huntMark/sentry/pack` 那一批会变无名值）' % len(TRNAME)))
+      else ('⚠️ 没读到 DefinedTrait.cs ⇒ 退回词典 %d 个值（`huntMark/sentry/pack` 那一批会变无名值）' % len(TRNAME)),
+      '· 印刷名映射:', ('`Card_Trait/*` %d 个' % len(TRAIT_PRINTED)) if TRAIT_LOC_OK
+      else '⚠️ 没读到官方本地化 ⇒ `frenzied→Destroyer` 那一层缺失（SAU44 会留红）')
 if skipped_not_pool:
     print('   ⚠️ 真值里有 %d 张**不在我们的池**（真值 %d 张；纳入对账的池内卡 = %d）⇒ 默认**跳过**'
           '（`--all-truth` 可放开；它们不是我们的缺陷）。'
@@ -1887,7 +1924,11 @@ for _sb, _lst in _bysub.items():
         if _tag not in _cards: _cards.append(_tag)
     print('     · %-16s %3d 条 · 卡：%s' % (_sb, len(_lst), '、'.join(_cards)))
 print('   ⛔ 反例集（本规则**不吞**的真缺口，仍留红）：`GOF56`/`TL49`/`TL50`/`ASH46`/`GOF41`（260 包装码 β）'
-      ' · `SAU11`（320 β）· `GOF12` 的 health 三条（γ）· `SW38`（判据冲突 β）')
+      ' · `SAU11`（320 β）· `GOF12` 的 health 三条（γ）'
+      # 🔴 2026-10-20（W57 EN-3 · 铁律 5 就地订正）：原来这一行还列着 `SW38`（判据冲突 β）——
+      #   不成立了：`our_layers_1019.jsonl` 重生后 SW38 有 `Armour 2 ← Your Warlord has Armour 2`
+      #   光环行（`W57_引擎线_T07_对账_EN3.tsv` 里是 `⚠️表示不同·语义同 / 光环层承载`）。
+      ' · ⚠️（`SW38` 已于 2026-10-20 随 layers 重生转绿，从本反例集移除）')
 
 # 🔴 账 `A1947`：**替代主动能力**（`alternativeAbility`）—— 这一段**只出声、不产出行**，
 #   理由（`GetActiveAbility` 的二选一 + 为什么⛔不替原版挑）见 `for c in truth:` 里那段长注释。

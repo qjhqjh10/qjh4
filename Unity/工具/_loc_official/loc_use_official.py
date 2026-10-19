@@ -10,8 +10,9 @@
 用法：
   python -I -X utf8 d:/4/_tmp_a1070/loc_use_official.py --check   # 只报不改（默认）
   python -I -X utf8 d:/4/_tmp_a1070/loc_use_official.py --apply
-"""
+
 **落盘位置**：`d:/4/Unity/工具/_loc_official/`（2026-10-14 第二十七会话从 `_tmp_a1070/` 搬进来 —— `_tmp_*` 有被清理的风险，而这几个是**判据脚本**）。
+"""
 import io
 import json
 import re

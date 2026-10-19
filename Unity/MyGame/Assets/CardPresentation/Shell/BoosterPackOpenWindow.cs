@@ -668,7 +668,7 @@ namespace CardPresentation
             //    判据（原版实读）：`/Booster Pack Open Window/…/Ban Icon/Banned Text`
             //    `m_fontSize 0.25` · `auto[0.25~72]` · **`m_fontSizeBase 36.0`**（逐站表 §二·3 #12；
             //    同节 #4 那颗 `Campaign Tab` 的 `Quantity` `base 61.23` 就是「原版也有真设过的」对照）。
-            //    ⚠️ 量纲：本窗的 px 带 `CardK` 缩放（卡节点 `×0.87626`，见 :429 的注释）
+            //    ⚠️ 量纲：本窗的 px 带 `CardK` 缩放（卡节点 `×0.87626`，见 本文件 的注释）
             //    ⇒ 这一格与上面 `min/max` 一样**也要乘 `CardK`**（否则差 1/0.876 ≈ 1.14 倍）。
             if (bt2 != null) bt2.SetAutoFitBox(LayoutSpace.Px(banSide), LayoutSpace.Px(banR.H),
                                                0.25f * CardK, 72f * CardK, 36f * CardK);
@@ -726,7 +726,7 @@ namespace CardPresentation
         ///
         /// <para>🔴 **2026-10-10（A183）就地订正**：这里原来只有一只 `const float HitRatio = 0.8679f`
         /// （那正是 **y** 那个比）**双轴同用** ⇒ x 两沿各多内缩 `276.8961 × (0.90443 − 0.8679) / 2` ≈ **5.06 px**
-        /// （卡体 276.8961 宽）。⛔ **别再退回「一个比例双轴同用」**（同族先例 → `Core/CardFan.cs:104-105`）。</para>
+        /// （卡体 276.8961 宽）。⛔ **别再退回「一个比例双轴同用」**（同族先例 → `Core/CardFan.cs`）。</para>
         ///
         /// <para>⚠️ **没查清的（如实留白）**：原版那颗还有 `m_AnchoredPosition (0, −0.02)` 的**卡单位中心下移**
         /// （战斗侧折算 = 5px @ scale 250）—— **本窗折算成几 px 静态读不出**：本窗卡的渲染尺度是

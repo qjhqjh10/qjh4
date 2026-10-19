@@ -1384,8 +1384,15 @@ namespace CardPresentation
                 MenuDraw.AlignLeft(_mtSkullName, nameR);
                 MenuDraw.SetVAlign(_mtSkullName, Label.VAlign.Capline, nameR);
             }
+            // 🔴 **2026-10-19（`W57` UI-4 · `N73` 顺手发现的那条 `108×` 量纲错，本笔修）**：
+            //   原版 `Daily Skulls Mission Container ▸ background ▸ header ▸ info` 的
+            //   `EverguildTooltipTrigger` 现读 = `tooltipAnchor **10**` · `offset = **(55, 0, 0) 画布 px**`；
+            //   而 `Tooltip.Show` 的 `offset` 与 `worldPos` **同量纲 = 世界单位**（`Core/Tooltip.cs` 的
+            //   `_pos = worldPos + offset`）⇒ 画布 px 必须过 `LayoutSpace.Px`（先例 =
+            //   `Shell/CampaignTab.AddInfoTooltip` 的 `LayoutSpace.Px(-80f)` · `BattleDriver.TickTooltipAt` 的 `/ TipPx`）。
+            //   改前直接传 `55f` ⇒ 面板被推 **55 × 108 = 5940 设计 px**，整块飞出屏幕。
             BuildMissionTooltipIcon(hd, "info", R(836.1f, 158.3f, 877.1f, 199.3f), TermDailySkullsInfo, 10,
-                                    new Vector3(55f, 0f, 0f), true);
+                                    new Vector3(LayoutSpace.Px(55f), 0f, 0f), true);
 
             // `body`：description[INACT] / Image（骷髅图） / counter / image[INACT]
             var body = MenuDraw.Node(bg, "body", R(117.6f, 222.0f, 394.6f, 347.2f));
@@ -1472,7 +1479,9 @@ namespace CardPresentation
                                         new float[] { 1f, 1f, 0.098f, 0.098f });
         }
 
-        /// <summary>Missions 页的 ⓘ（`EverguildTooltipTrigger`）：悬停出 tooltip、点击不发音（与 Raid 那三颗同形）。</summary>
+        /// <summary>Missions 页的 ⓘ（`EverguildTooltipTrigger`）：悬停出 tooltip、点击不发音（与 Raid 那三颗同形）。
+        /// ⚠️ **`offset` 的单位 = 世界单位**（`Tooltip.Show` 里 `_pos = worldPos + offset`，与 `worldPos` 同量纲）
+        /// ⇒ 原版 prefab 的画布 px 要在**调用点**自己过 `LayoutSpace.Px`（见 `BuildDailySkulls` 里那颗的注释）。</summary>
         void BuildMissionTooltipIcon(Transform parent, string name, PxRect r, string term, int anchor,
                                      Vector3 offset, bool active)
         {

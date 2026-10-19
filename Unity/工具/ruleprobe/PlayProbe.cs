@@ -2624,7 +2624,21 @@ class PlayProbe
     //      · `EC17`：夹具督军阵营 `P0/P1` → **被测卡的真实阵营**（原版「按施放者阵营造牌」读
     //        `Warlord.Card.Faction`）⇒ 按阵营造牌那一族第一次造得出牌（`EC17` 净差 0 → 1）。
     //    重生成后 `play check` 现读「当次现算 == 基线文件」、①-a/①-b 差异 0。
-    public const string PinnedPlayMd5 = "3d1f47ef5dd8873fd1c5eb8aed1578ef";
+    // 🔴 **2026-10-20（第五十七会话 · 工具线 `PLAY-1`）有意重钉** —— 与 `Program.PinnedPoolMd5` 同一批；
+    //   主档 6 张 ＋ 电池 3 张，逐条归因见 `资料/普查产出_1019/W57_引擎线_T07工具收口.md` §四：
+    //     · `SOR44` / `f104d4c2`（Righteous Repugnance）= `8f77ff7a` 的 `CostKindOf`/`MentionsFaith`
+    //       把 `5/4 ☀:` 的费用种类从 energy 修成 faith（信仰前缀不再扣能量；旧读数 = 旧 bug）；
+    //     · `DA42` / `DA38` = `8f77ff7a` 的任务点阈值开始扣余数（3 点到阈值立即扣掉 ⇒ 末态 0→0）；
+    //     · `DA44` = 同提交的派生 RNG 流（`QuestInsertSeed`/`QuestAux.InsertRng`）⇒ filler 序号位移、
+    //       语义未变（只是 RNG 流位置变了）；
+    //     · `ASH34`（主档＋电池）= 本会话 W57 的 `Talent:` 解析修复（不再白送 `Wrath of Khaine`，
+    //       天赋由 `RuleCore.SpawnTalents` 回合开始造）；
+    //     · `ASH28`（电池）= 本会话 W57 修掉「收获灵魂石 → 卡级广播 → 自己再触发自己」的无限递归
+    //       （旧 `5 → 22` 是被 `MaxEffectChain=8` 截断的错值，现 `5 → 8` 才对）。
+    //   ⛔ **没有一条是「今天改坏了」**：前 5 张是 `8f77ff7a` 之后基线过期没重钉，后 2 张是 W57 的修复。
+    //   重生成 `play all pf` 连跑两次逐字节一致（718,793 B / md5 `9024dbb2…`；新增 0 / 消失 0），
+    //   重生成后 `play check` 现读 ①-a/①-b 差异 0 · ② 哨兵过。
+    public const string PinnedPlayMd5 = "08d51f6d0b749e511f53088ef7fdd80f";
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，

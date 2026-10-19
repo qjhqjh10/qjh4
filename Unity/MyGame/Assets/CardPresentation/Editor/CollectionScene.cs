@@ -27,7 +27,7 @@ public static class CollectionScene
         /// <summary>🆕 2026-10-18（第四会话）：断言计数器 + 输出口径**收口到共用件 `Editor/MenuCheck.cs`**
         /// （唯一实现处；本文件只剩同名的一行转发 ⇒ 5,534 个调用点一个字没动）。
         /// 🔴 **逐宿主一份 `CheckSink`**（⛔ 不是全局 static）—— 「拿别处的 `Check` 去断，失败会
-        /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs:12-14`。</summary>
+        /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs`。</summary>
         static readonly CheckSink _sink = new CheckSink(P)
         {
             Near = MenuNearStyle.Compact2,
@@ -93,7 +93,7 @@ public static class CollectionScene
         /// <summary>🆕 2026-10-11（F6）：**像素空间 2D** 版的 `CheckAt` —— ⛔ **z 不参与比较**。
         /// <para>为什么单开一条（而不是改 `CheckAt`）：`CheckAt` 比的是 `Vector3.Distance(节点, 期望)`，
         /// **含 z**、容差 **0.01 世界单位 = 1.08px**；而命中区节点可以被**有意**前移 z ——
-        /// `Shell/DeckInfoPopup.cs:213-218` 的 `HitZFront` 就是那把「同队列（`QDIHit` 3129）同 z 打平 ⇒
+        /// `Shell/DeckInfoPopup.cs` 的 `HitZFront` 就是那把「同队列（`QDIHit` 3129）同 z 打平 ⇒
         /// 显式排出谁深谁浅」的尺子（原版靠 `m_Children` 的兄弟序定胜负，我们这侧只能靠 z）。
         /// **那不是「节点没摆对」**，却**一个人就能吃满 `CheckAt` 的容差** ⇒ 那种红是**口径错**，不是缺陷。</para>
         /// <para>口径：容差 **±1.5px**、**逐轴**比（与四条边那组 `CheckNear` 同一个口径；换算尺子仍只此一份
@@ -287,7 +287,7 @@ public static class CollectionScene
         /// 该收口成 `Editor/MenuCheck.cs`）。</para>
         /// <para>🔴 **为什么要用它（灭自证）**：`Label.WorldW/WorldH` 读的是**字段缓存** `_tmpW/_tmpH`，
         /// 而那份缓存**只有 `RefreshBounds()` 写**（`Battle/Label.cs`）—— 也就是**被测实现自己**；
-        /// 反过来 `SetCharSpacing`（`:524-533`）· `SetFontSize`（`:503-514`）这一族**只重排 mesh、不刷新缓存**
+        /// 反过来 `SetCharSpacing`（`CardPresentation/Battle/Label.cs`）· `SetFontSize`（`CardPresentation/Battle/Label.cs`）这一族**只重排 mesh、不刷新缓存**
         /// ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**（实现与检测器共用一个口 = 自证）。
         /// 本助手读的是 TMP 自己的 `textBounds`（mesh 的**活值**），**不在实现那条链上**。
         /// ⚠️ 与本文件既有的 `TextExtentPx`（按**字形顶点**量）**不是同一件事**：那一份不含字距/前进宽，
@@ -300,22 +300,10 @@ public static class CollectionScene
         /// **天文数字 = 量法没生效**，⛔ 别照它去改实现。</para></summary>
         static bool TmpRenderedRect(Transform t, out float x1, out float y1, out float x2, out float y2)
         {
-            x1 = y1 = x2 = y2 = 0f;
-            if (t == null) return false;
-            var tmp = t.GetComponentInChildren<TMPro.TextMeshPro>(true);
-            if (tmp == null) return false;
-            var b = tmp.textBounds;                       // 局部空间的行盒（`Bounds`）
-            var M = tmp.transform.localToWorldMatrix;
-            x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
-            for (int c = 0; c < 4; c++)
-            {
-                var corner = M.MultiplyPoint3x4(new Vector3((c % 2 == 0) ? b.min.x : b.max.x,
-                                                            (c < 2) ? b.min.y : b.max.y, 0f));
-                float px = LayoutSpace.PxX(corner.x), py = LayoutSpace.PxY(corner.y);
-                x1 = Mathf.Min(x1, px); x2 = Mathf.Max(x2, px);
-                y1 = Mathf.Min(y1, py); y2 = Mathf.Max(y2, py);
-            }
-            return true;
+            // 🆕 **2026-10-20（`A1350` 第一批）**：实现已收口到 `SelfCheckTextMetrics.RenderedRect`
+            // （`A1265` 的法定唯一实现处；本轮机核四份 `TmpRenderedRect` 归一化后逐字相同 ⇒ 纯搬运）。
+            // 本函数**保留原名与本形参 ⇒ 调用点 0 改动**；行为逐字不变（世界帧四角 → `PxX/PxY` 的 min/max）。
+            return SelfCheckTextMetrics.RenderedRect(t, out x1, out y1, out x2, out y2);
         }
 
         /// <summary>🆕 **2026-10-16（A796′ 换口）**：一个 `Label` **渲出来**的像素宽高（画布 px · `Vector2(w, h)`）。
@@ -337,11 +325,10 @@ public static class CollectionScene
         /// —— 两者今天**都不保证为 0** ⇒ 期望值会集体漂（那就不是「换口」了）。</para></summary>
         static Vector2 LabelRenderedPx(Label lb)
         {
-            if (lb == null) return Vector2.zero;
-            float x1, y1, x2, y2;
-            if (TmpRenderedRect(lb.transform, out x1, out y1, out x2, out y2))
-                return new Vector2(x2 - x1, y2 - y1);
-            return new Vector2(lb.WorldW * 108f, lb.WorldH * 108f);   // 退回旧口（点阵后端 / 没有 TMP）
+            // 🆕 **2026-10-20（`A1350` 第一批）**：实现转调 `SelfCheckTextMetrics.RenderedPx`
+            // （`A1265` 的法定唯一实现；本函数原来的 `TmpRenderedRect(lb.transform, …)` + 量不到退回
+            // `Label.WorldW/H × 108` 两条支与它逐字相同）⇒ 调用点 0 改动、行为逐字不变。
+            return SelfCheckTextMetrics.RenderedPx(lb);
         }
 
         /// <summary>🆕 2026-10-08（A181）：一个节点子树里**所有启用中的 `MeshRenderer`** 的网格顶点，
@@ -430,15 +417,15 @@ public static class CollectionScene
         /// 「本工程的卡面标签**只有一个字体资产**（`Resources/Fonts/NotoSerifCJK-Regular SDF.asset`，
         /// `m_FallbackFontAssetTable: []`）⇒ **实际恒为 0**」—— **那个前提不成立**：
         /// `Core/TmpFont.cs` 给**全工程每颗 TMP** 都挂了 `CardIcons.SpriteAsset`，
-        /// 而卡面效果文字里**现在就带** `&lt;sprite name=…&gt;`（`Core/CardText.cs:290` /
+        /// 而卡面效果文字里**现在就带** `&lt;sprite name=…&gt;`（`Core/CardText.cs` 的 `sprite` /
         /// `Core/CardIcons.cs` 的 `Rewrite`）⇒ TMP 会**切出第二个材质槽**（sprite asset 自带一份
         /// **独立的材质**）—— `A965` 已证（`资料/普查产出_1018/S6_A965卡面探针取槽.md` §2/§3：
         /// 卡面效果文字那层 `keywords` **就是 2 个槽**）。
         /// <b>⇒ 后果 = 本函数会【跳过】那些字</b>（`&lt;sprite&gt;` 那枚图标本身**不在**返回的下标里）。
         /// **两个调用点各是什么后果，见各自的注释**：`RenderExtentPx`（下面）**不受影响**；
-        /// 本文件 `Run` 里那段「★ 卡上没有一个**字的顶点**画到视口外」（A250 块，约 `:3391`）
+        /// 本文件 `Run` 里那段「★ 卡上没有一个**字的顶点**画到视口外」（A250 块，约 `本文件`）
         /// **量不到图标**。⚠️ 那是**自检覆盖面**的缺口，**不是**产品缺陷 —— 裁切本身走
-        /// `MenuDraw.ClipTmpMesh`（`Shell/MenuDraw.cs:1144-1190` 按**每个字自己的**
+        /// `MenuDraw.ClipTmpMesh`（`Shell/MenuDraw.cs` 的 `ClipTmpMesh` 按**每个字自己的**
         /// `materialReferenceIndex` 取槽、写回 `ti.meshInfo[mi]`），`UpdateVertexData` 再把
         /// **每个槽**都上传（`TextMeshPro.cs:408-446`）⇒ 图标**确实被裁也确实上了屏**。</para>
         /// <returns>字形顶点下标（空表 = 这一段没有可量的字形）。</returns></summary>
@@ -552,34 +539,12 @@ public static class CollectionScene
         /// （本文件开头那条注释已经明记：「四个自检各自一套辅助函数」是**一笔明账**，本轮不动那三个绿着的文件）。</summary>
         static bool RectOf(Transform t, out float x1, out float y1, out float x2, out float y2)
         {
-            x1 = y1 = x2 = y2 = 0f;
-            if (t == null) return false;
-            Transform node = t; float w, h;
-            var lb = t.GetComponentInChildren<Label>();
-            var q = t.GetComponentInChildren<ImageQuad>();
-            if (lb != null)
-            {
-                // 🔴 **2026-10-16（A796′ 换口）**：宽/高改走 `LabelRenderedPx`（= TMP 自己渲出来那块 `textBounds`）
-                //    —— ⛔ 不再读**字段缓存** `Label.WorldW/H`（`_tmpW/_tmpH`，只有 `RefreshBounds()` 写 = 被测实现自己）。
-                //    ⚠️ **只换「从哪个口读那个数」**：`node`（= 中心）仍是 `lb.transform`，**图那一支一字未动**。
-                //    口径与先例 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3 · `Editor/ShopScene.cs` 同名处（W4 同批）。
-                node = lb.transform;
-                var lbSz = LabelRenderedPx(lb);
-                w = lbSz.x; h = lbSz.y;
-            }
-            else if (q != null) { node = q.transform; w = q.WorldW * 108f; h = q.WorldH * 108f; }
-            else return false;
-            // 🔴 **`A1350` 第 ② 步（2026-10-19 · 第五十五会话 S3）：中心也走【乙式】。**
-            //   原来是甲式 `PxOf/PxYOf`（裸 `position`×108），而同族 `QuadRectOf` 早已收口到
-            //   `MenuDraw.QuadRectPx`（乙式：先除父级缩放、x 走实测 `VisibleWidth`）⇒ **中心与尺寸不同源**
-            //   （父链带缩放 / 非 16:9 时会分家；今天两者都被钉死 ⇒ 潜伏）。判据 → 账 `A1350` 第 ② 步。
-            //   ⚠️ **尺寸项 (`w/h`) 不动**：两式在**长度**换算上都用 ×108 / 实测斜率那一对，
-            //      W6c 已逐条核过等价性；本步只收**中心**那一个点（同 `A1350` 的措辞）。
-            var pcCtr = MenuDraw.PixelOfDesign(MenuDraw.PosInDesignSpace(node));
-            float cx = pcCtr.x, cy = pcCtr.y;
-            x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
-            y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
-            return true;
+            // 🆕 **2026-10-20（`A1350` 第一批）**：实现转调 `MenuCheck.NodeRectPx(…, LabelNode, …)`
+            // （自检侧**唯一一份**节点矩形读口）。中心本来就是乙式（`A1350` 第 ② 步 · 第五十五会话 S3 已落）
+            // ⇒ 纯搬、**行为零变化**；本函数保留原名与本形参 ⇒ 调用点 0 改动。
+            // ⚠️ 尺寸项仍是「字走 `SelfCheckTextMetrics.RenderedPx`（TMP 活值）/ 图走 `WorldW×108`」——
+            //    与下面原注释里的换口口径逐字一致；世界帧 vs 设计帧那笔账（§二·3）不在本批。
+            return MenuCheck.NodeRectPx(t, MenuCheck.RectCenterMode.LabelNode, out x1, out y1, out x2, out y2);
         }
         static string TextOf(Transform t)
         {
@@ -717,8 +682,8 @@ public static class CollectionScene
         // 🔴 **2026-10-11（FX3）三处订正 —— 上一版夹具【自己把这条恒等式砸了】**（Shell 4 + Collection 4 条红；
         //   判据全文 → `资料/普查产出_1011/DIAG-A_Shell与Collection八条红.md`）：
         //   ① **M 加在【基准的父级】那一级**，⛔ **不是基准自己** —— `PosInDesignSpace` 除的正是
-        //      `t.parent.lossyScale`（`Shell/MenuDraw.cs:74-78`），而 `p2 == M × p1` **只在「基准的父级就是
-        //      那个被乘 M 的根、且那个根在世界原点」时成立**（`Shell/MenuDraw.cs:57-61` 自己写着适用范围）。
+        //      `t.parent.lossyScale`（`Shell/MenuDraw.cs` 的 `t.parent.lossyScale`），而 `p2 == M × p1` **只在「基准的父级就是
+        //      那个被乘 M 的根、且那个根在世界原点」时成立**（`Shell/MenuDraw.cs` 自己写着适用范围）。
         //      上一版把 M 加在**窗根自己**身上、又把**窗根**挪到 (2,1.5) ⇒ 恒等式被夹具亲手破坏：
         //      偏差逐条 = `(1−M)×(2,1.5)` = **(−0.400, −0.300)**，与实现无关（日志里 8 条逐条对到小数点后 3 位）。
         //   ② **可观测余量** = 「**基准相对被乘那一级的位移** ≥1 设计单位」（⛔ 不是「离**世界原点**」——
@@ -765,7 +730,7 @@ public static class CollectionScene
             // （= 上一版那种塞法）⇒ 这条红。
             CheckNear(basis.parent != null ? basis.parent.lossyScale.x : 1f, m, 1e-3f,
                       "（前提）" + what + "：**基准的【父级】在态二被乘了 M**（`PosInDesignSpace` 除的正是这一级，"
-                    + "`Shell/MenuDraw.cs:74-78`）—— 父级单位缩放时新旧两式**恒等**，这条断言就等于没查");
+                    + "`Shell/MenuDraw.cs`）—— 父级单位缩放时新旧两式**恒等**，这条断言就等于没查");
             Vector3 p2 = measure();
             CheckNear(p2.x, m * p1.x, 0.02f,
                       $"★ {what}：**态二 == M × 态一**（x：{p2.x:F3} vs {m:F2}×{p1.x:F3}）"
@@ -811,7 +776,7 @@ public static class CollectionScene
             //    · `WindowsManager` **没有 `[ExecuteAlways]`**（`Shell/WindowsManager.cs` 里**只有** `WindowHolder` 那颗**有**）
             //      ⇒ `Awake` 不跑 ⇒ **`Instance` 恒 null**（`Instance` 只在 `Awake` 里赋，
             //      **批处理下那句从不执行**）。判据（**四条独立记录**，全是踩过的坑）：
-            //      `Shell/WindowButton.cs` 的 `WindowButton` 类注（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）· `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`
+            //      `Shell/WindowButton.cs` 的 `WindowButton` 类注（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）· `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs` 的 `WindowButton`
             //      · `资料/已知的坑.md:704`（「编辑模式下 `Awake/OnEnable`/`Update` **只对带 `[ExecuteAlways]`
             //      的脚本**才跑」）。
             //    · ⇒ **任何走 `WindowsManager.EnsureHost()` 的开窗路径都会【再建一台】**（它在 `Instance == null`
@@ -921,7 +886,7 @@ public static class CollectionScene
             // 🔴 **2026-10-19（`A1534` 尾巴 · 铁律 11）**：批处理自检**不出声** —— `WFSoundPlayer.Enabled = false`
             //   时那个开关自己的契约是「**只记账不发声**：不建对象、不出声，但 `Played` 照样涨」
             //   ⇒「音效调度算对了没有」那一族断言**照旧有效**，而这一趟**不白建一堆 `AudioSource`、不白播**。
-            //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs:341-366`（同一个开关、同一个 `finally` 还原）。
+            //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs`（同一个开关、同一个 `finally` 还原）。
             //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
             bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
             WarpforgeVFX.WFSoundPlayer.Enabled = false;
@@ -958,7 +923,7 @@ public static class CollectionScene
             //   / 隐藏卡那一支）**全是假红**（点了什么都不发生）。
             //   ⚠️ 「正好 30」的出处：原版 `GameStaticData.deckSize`，我们这一侧住在
             //   `GameplayVariables.Classic.deckSize`（判据入口 `DeckRules.CardCount(false)`）。
-            //   写法与 `Editor/MainMenuScene.cs:416-440`（A65④① 的**阳性对照**那一副）**逐字一致**：
+            //   写法与 `Editor/MainMenuScene.cs`（A65④① 的**阳性对照**那一副）**逐字一致**：
             //   同阵营 + 一张一名（⇒ 不碰⑦同名上限）+ 只取 `unit`（⇒ 不碰⑥督军混入、⑥b 效果卡）。
             {
                 var lib = DeckLibrary.Load();
@@ -1135,7 +1100,7 @@ public static class CollectionScene
                     //    —— 与 `Editor/MainMenuScene.cs` 那几处（A709/A714/A715/A718）**同一条口径**；本条 = 这一族的
                     //    **第六处**（第四/五处 = `Editor/RewardsScene.cs` · `Editor/ShopScene.cs`，同一批改完）。
                     //    **为什么这是灭自证**：`Label.WorldW` 那份缓存**只有 `RefreshBounds()` 写**（`Battle/Label.cs`）——
-                    //    也就是**被测实现自己**；而 `SetCharSpacing`（`:524-533`）· `SetFontSize`（`:503-514`）这一族
+                    //    也就是**被测实现自己**；而 `SetCharSpacing`（`CardPresentation/Battle/Label.cs`）· `SetFontSize`（`CardPresentation/Battle/Label.cs`）这一族
                     //    **只重排 mesh、不刷新缓存** ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**、这条照样绿。
                     //    新口读的是 TMP 自己的 `textBounds`，**不在实现那条链上**。
                     //    期望值 `155f` / 容差 `+ 0.5f` / 文案全文**一位未动** —— 变的只有「从哪个口读那个数」与缩进。
@@ -1143,13 +1108,13 @@ public static class CollectionScene
                     //    `0 ≤ 155.5` 会**假绿**。本条的判据句**没有** `> 0f` 那一半 ⇒ **不能**用 `-1f` 哨兵
                     //    （`-1 ≤ 155.5` 也恒真）—— 只能像 A715/A718 那样把原句包进 `else {}` + 补一条显式红。
                     // ⚠️ 量的是 **`klb.transform`**（上面那句 `FindChild(keys[i], "Text").GetComponentInChildren<Label>()`
-                    //    **一字未动**；TMP 是 `Label` 的子件 —— `Battle/Label.cs:784` `TmpFont.NewText(transform, …)`）。
+                    //    **一字未动**；TMP 是 `Label` 的子件 —— `Battle/Label.cs` 的 `NewText` `TmpFont.NewText(transform, …)`）。
                     //    ⛔ 别改成 `TmpRenderedRect(keys[i], …)`：那会捞 `keys[i]` 子树里**第一颗 TMP（含 inactive）**，
                     //    与「只找激活」的 `Label` **未必是同一颗** ⇒ 会把「节点不在（红）」与「量到了别一颗（绿）」混成一档。
                     // **改坏法（只咬旧口）**：在 `Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton` 里那句 `SetWrapping(false)` 那句
                     //    `if (txt != null) txt.SetWrapping(false);` **之后**插一句 `if (txt != null) txt.SetCharSpacing(5f);`
                     //    ——（那句话是四窗左栏键刷**最后一次**缓存的地方：`SetWrapping` → 模式真的变了 → `ForceRelayout`
-                    //    → `RefreshBounds()`，`Battle/Label.cs:454-464`）⇒ 网格重排了、**缓存不动** ⇒ 两个口读到的数
+                    //    → `RefreshBounds()`，`Battle/Label.cs` 的 `RefreshBounds()`）⇒ 网格重排了、**缓存不动** ⇒ 两个口读到的数
                     //    **必然不同**。⚠️ 三件套里的第三件（新口红 / 旧口绿）**本地证不出来**，见下一条如实标。
                     // ⚠️ **如实标**：这四颗键都开着 **autosize**（`BuildTabButton` 的 `SetAutoFitBox`，
                     //    `enableAutoSizing = true`）⇒ TMP 重排时会把字号缩回去、渲出来的宽**仍 ≤ 框宽**
@@ -1419,7 +1384,7 @@ public static class CollectionScene
                               + " < 0）—— 这才叫「收起」");
                     // ★ **R4 的判据**：关着时那一列的命中区必须**已经是关的**。
                     //   ⚠️ 量的是 `WindowButton.enabled` 的**真值**、不是我们自己那个布尔（那个是自证）——
-                    //   真命中路 `PointerLayer.CollectHits` 只挑 `isActiveAndEnabled`（`Shell/PointerLayer.cs:488`）。
+                    //   真命中路 `PointerLayer.CollectHits` 只挑 `isActiveAndEnabled`（`Shell/PointerLayer.cs` 的 `isActiveAndEnabled`）。
                     //   原来 Deck 这一份**不走** `RebuildFilterRows`（格子自己 `AddHit` 建）⇒ 少了那次 `force: true`，
                     //   建出来的按钮停在默认 `enabled=true`，Play 里第一次滑出来的 0.3 秒真鼠标点得到
                     //   （被 R1 的 108 倍位移掩盖着，R1 修完才现形）。
@@ -1843,7 +1808,7 @@ public static class CollectionScene
 
             // ---- 🆕 2026-10-04（A26）：**卡组格真鼠标点得到**（走真命中路，**不是**直调 `wb.Click()`）----
             //   判据 = `PointerLayer.CollectHits` 取的是「按钮下**第一个 `ImageQuad`**」
-            //   （`Shell/PointerLayer.cs:492`）。`MenuDraw.DeckCell` 的 `Hit` 当年是 `Node()` 建的**裸节点**
+            //   （`Shell/PointerLayer.cs`）。`MenuDraw.DeckCell` 的 `Hit` 当年是 `Node()` 建的**裸节点**
             //   ⇒ 命中表里**恒没有它** ⇒ 真鼠标点不动；而 `WindowButton.onClick` 在着、自检直调 `wb.Click()`
             //   也过 ⇒ **只有这条路能验出来**（这正是 `真Play待验清单` A 鼠标那条的意义）。
             //   ⚠️ 这一段是**会红的**：把 `DeckCell` 改回裸节点它立刻红（不是自证 —— 期望值取自
@@ -1940,16 +1905,16 @@ public static class CollectionScene
                     CheckText(TextOf(FindChild(pr, "Deck Name")), dn.Name, "`Deck Name` = 被点的那套卡组的名字");
                     var wlc = CollectionData.Warlord(0);
                     // 🔴 **2026-10-18（波 2a · W2）改「随语档」**：空战将位那一支的实现从波 1b 起走词条
-                    //   （`Shell/DeckInfoPopup.cs:1228` 的 `wl != null ? CardText.Name(wl) : Loc.T("MenuDeck/Error/NoWarlord")`
+                    //   （`Shell/DeckInfoPopup.cs` 的 `wl != null ? CardText.Name(wl) : Loc.T("MenuDeck/Error/NoWarlord")`
                     //   —— ⚠️ 2026-10-18（P1）就地订正：这一句原来写 `:846`、且那一半写的是 `wl.Name`，
-                    //   本轮督军名改走本地化后两处都变了，行号换成现读的 `:1228`）
+                    //   本轮督军名改走本地化后两处都变了，行号换成现读的 `CardPresentation/Shell/DeckInfoPopup.cs`）
                     //   ⇒ 原来写死的 `"未选督军"` 是**两代前**的字面量（表里 ZH 列已换成「还没有选战将」，
-                    //   见 `Core/Loc.cs:927`）⇒ 一旦走到那一支，**两语档都会红**。期望值换成 `Loc.T(键)`。
+                    //   见 `Core/Loc.cs` 的 `Loc.T(键)`）⇒ 一旦走到那一支，**两语档都会红**。期望值换成 `Loc.T(键)`。
                     //   ⚠️ 如实记：本件夹具里 `Warlord(0)` 非空 ⇒ 那一支**今天走不到**，本条是为将来兜底。
                     // 🔴 **2026-10-18（P1 · 报告第 5 条）改期望**：这一栏现在印 **`CardText.Name(wlc)`**（本地化卡名），
                     //   不再是英文 `wlc.Name` —— 判据 = 原版运行期喂的是 `RawCardScript.GetLocalizedCardName(督军卡)`
                     //   （`资料/普查产出_1018/R_DeckInfoPopup_对账.md`「Warlord Name」行；实现 →
-                    //   `Shell/DeckInfoPopup.cs:1228` 的 `wl != null ? CardText.Name(wl) : …`）。
+                    //   `Shell/DeckInfoPopup.cs` 的 `wl != null ? CardText.Name(wl) : …`）。
                     //   ⚠️ `CardText.Name(CardDef)` 里面带 `Zh` 那道语档闸 ⇒ **中文档印中文、英文档仍印英文**
                     //   （两档都对，⛔ 不是把断言放宽成「随便什么串都过」：期望值仍逐字相等比）。
                     CheckText(TextOf(FindChild(pr, "Warlord Name")),
@@ -2503,7 +2468,7 @@ public static class CollectionScene
                         //   **隐藏态**下原版 HLG 把后面几颗**整体左移 108.87**（= 图标 100 + 斜线 8.87）
                         //   ⇒ `Army Icon` 767.9/867.9 → **659.03/759.03**、两行名的左沿 872.9 → **764.03**。
                         //   判据 → `资料/普查产出_1018/R_DeckInfoPopup_对账.md`（`Game Mode Icon` / `Army Icon` 两行）；
-                        //   实现 → `Shell/DeckInfoPopup.cs:1168-1201` 的 `showGmIcon` / `ddShift`。
+                        //   实现 → `Shell/DeckInfoPopup.cs` 的 `showGmIcon` / `ddShift`。
                         //   ⚠️ 夹具 `CollectionData.DeckAt(0)` 是 **classic(0)** ⇒ 本节先断**隐藏态**；
                         //   有图标那一态在下面 **②′** 原地重建再断一次 —— **两态都断**，⛔ 别只断一边。
                         CheckAt(FindChild(pr, "Army Icon"), 659.03f, 759.03f, 106.7f, 216.7f,
@@ -2550,7 +2515,7 @@ public static class CollectionScene
                         // ②′ **另一态 = skirmish(13)**：有图标（`40k_gamemode_icon_skirmish`）、位置回到 767.9 / 872.9。
                         //   做法照本文件既有写法（`Practice Deck` 那一段的 `flipSaved/flipIdx`：**只改内存、验完还原**），
                         //   重建走 `pop.Open()`（= `Build()`，与生产 `WindowsManager.OpenWindow → TryOpen → Open`
-                        //   同一条；先例 → `Editor/MainMenuScene.cs:4067` 的「原地重建」）。
+                        //   同一条；先例 → `Editor/MainMenuScene.cs` 的「原地重建」）。
                         //   ⚠️ 断完**必须**改回原值再重建一次 —— 下面几小节（两个抽屉 / 立绘 / 队列）用的还是这棵树。
                         //   ⚠️ 不走 `win.OpenDeckInfo(0)` 另开一扇：那会把这一扇 `ToBackground()`（`SetActive(false)`），
                         //      后面那些 `GetComponentInChildren<Label>()`（默认跳过关着的）就全量不到了 ⇒ 会变成静默空转。
@@ -2794,7 +2759,7 @@ public static class CollectionScene
                     //    当时的理由是「0.603px 的亚像素差…」—— A329 把那一处收掉之后这条理由**不存在了**）：
                     //    现在实测残差 = **中心 (0.009, 0.010) · 四边 (0.039, 0.020, 0.021, 0.000)**，
                     //    而**缺陷那一档**是 0.612px（x 侧两条边 0.573 / 0.633）⇒ 0.3 正夹在中间，
-                    //    与同族 A308 那两条（`|Δ| ≤ 0.3`，`:1670`/`:1673`）**同一个口径**。
+                    //    与同族 A308 那两条（`|Δ| ≤ 0.3`，`本文件`/`本文件`）**同一个口径**。
                     //    改坏法（A329 那一行退回「居中」`(r.W − OptIconW) * 0.5f`）⇒ **左/右两条边红**
                     //      （0.573 / 0.633 > 0.3），上/下两条仍绿（y 侧本来就没这个毛病，见 `DeckInfoPopup` 第 8) 节）。
                     CheckAtPx(popCloseHit, ChCx, ChCy, 0.3f,
@@ -2827,7 +2792,7 @@ public static class CollectionScene
                         //     🔴 **2026-10-18 就地订正（铁律 5）**：这里原来钉 `3123`（= 四档梯子时的 `QDIHit`）；
                         //        同批 `DeckInfoPopup` 已把队列重排成**十档**（压暗 3120 / 红底 3121 / 立绘 3122 /
                         //        面板 3123 / 行 3124 / 行图 3125 / 行边 3126 / 费用圈 3127 / 文字 3128 / 命中 3129，
-                        //        见 `Shell/DeckInfoPopup.cs:207-209`）⇒ 命中区现在是 **3129**；
+                        //        见 `Shell/DeckInfoPopup.cs`）⇒ 命中区现在是 **3129**；
                         //        「命中区 > 压暗层 `QDI`(3120)」这一条**语义不变**。
                         Check(chQ.RenderQueue, 3129,
                               "关闭钮命中区的档 = `QDIHit` **3129**（字面量钉死；同档的还有 8 颗钮的命中区与 "
@@ -3217,7 +3182,7 @@ public static class CollectionScene
                                 //    ⇒ 那条会**假红**。**改的是「哪一道闸出声」这个前提**，⛔ **不是把断言改松**：
                                 //    声源换成**第一道闸**那条（`[Button] … 点了不生效`），并**另加两条**——
                                 //    「那颗钮自己的 `WindowButton.Interactable` **真的是 `false`**」+
-                                //    「九宫底**画出来的那几块**全灰（⚠️ 6 块，见 `:2909` 注释）（视觉态）」。三条合起来 = 灭自证的那两条并存
+                                //    「九宫底**画出来的那几块**全灰（⚠️ 6 块，见 `本文件` 注释）（视觉态）」。三条合起来 = 灭自证的那两条并存
                                 //    （只断「动作不生效」的话，把 `Interactable` 全设 true 也可能照样绿）。
                                 ReopenPanel(false, false, false);           // 「群组」那道门关着
                                 var lsOff = ClickPanelButton(0);
@@ -3237,7 +3202,7 @@ public static class CollectionScene
                                         + (wOffLog == null ? "（实得 0 条；那一下的日志共 " + lsOff.Count + " 条）" : ""));
                                 // 🔴 **A1726 的真判据（两半并存）**：① 那颗钮自己那一位布尔**真的**是 `false`
                                 //    （⛔ 上面那条只证明「有出声」—— 第二道闸也会出声，分不出是哪一道拦的）；
-                                //    ② **看得出来被禁用**（九宫底**画出来的那几块**全换灰化 shader（⚠️ 6 块，见 `:2909` 注释））。
+                                //    ② **看得出来被禁用**（九宫底**画出来的那几块**全换灰化 shader（⚠️ 6 块，见 `本文件` 注释））。
                                 var gOffNow = GenericOptionsPanel.LastOpened;
                                 var bnOff = gOffNow != null
                                             ? FindChild(FindChild(gOffNow.transform, "Buttons"), "Button 0") : null;
@@ -3683,10 +3648,10 @@ public static class CollectionScene
                 //   `QDI`(3120)，**严格低于**本窗内容命中区档 `QDIHit`(3129)；并核「这节点确实是
                 //   公共件 `MenuDraw.ShadeHit` 建的」。期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
                 //   ⚠️ 它与本窗那颗**带按钮脸的** `CloseHit`（`Shell/DeckInfoPopup.cs` 的
-                //   `Hit(root, root, "CloseHit", …)`，**现 `:847`**）**不是一件事**（两颗都要有）；
+                //   `Hit(root, root, "CloseHit", …)`，**现 `CardPresentation/Shell/DeckInfoPopup.cs`**）**不是一件事**（两颗都要有）；
                 //   ✅ **2026-10-07（波 4 件① A126）行号订正**：这里原来写的是旧号 `780`、并说源文件那两处注释
                 //   「引的还是旧行号（已漂，本件没动它）」—— **三处都订正了**：源文件那两处注释
-                //   （现在在 `:223` 那一块 / `:629` 那一块）与**本行**一律改成实读出来的 `:847`。
+                //   （现在在 `本文件` 那一块 / `本文件` 那一块）与**本行**一律改成实读出来的 `本文件`。
                 //   错因：那颗节点被同批别的改动推下去过两次（旧号 `701` → `780` → 现 `847`），
                 //   而引用它的注释**没跟着走**。⛔ 下次再引行号，先 `grep -n '"CloseHit"'` 实读一遍
                 //   （⚠️ **本件自己又把它推下去了一次** —— 波 4 件① 在它上面加了注释块 ⇒ 822 → 847）。
@@ -3750,7 +3715,7 @@ public static class CollectionScene
                           "…四颗圆钮藏（`state == 0` 那一半）");
                 CheckTrue(v5.IsItemShown("Opt:Switch Deck Info"),
                           "…`Switch Deck Info` **常显**（三个 state 都一样，原版那件没看到 SetActive）");
-                // ⚠️ **R13（本轮没修，改点在 `Shell/DeckInfoPopup.cs:270-274`）**：`IsItemShown` 读的是
+                // ⚠️ **R13（本轮没修，改点在 `Shell/DeckInfoPopup.cs` 的 `IsItemShown`）**：`IsItemShown` 读的是
                 //    **该节点的 `activeSelf`**、父链不参与 ⇒ 上面这些断言的前提是「窗开着」。
                 //    谁要是关着窗口来断 A31，会**恒绿**（那是本工程第 N 次「弱断言分不出两态」）。
                 v5.Close();
@@ -3984,7 +3949,7 @@ public static class CollectionScene
 
                         sel.SwitchTab(true);                          // 换到「我的卡组」页才看得见模式筛选
                         // ---- 🆕 2026-10-18（A867）：切页 = **整窗重建** ⇒ 滚动登记表**一条都不涨** ----
-                        //   先例（逐字同形）→ `Editor/RewardsScene.cs:8126-8141` 的 A510 那一条；
+                        //   先例（逐字同形）→ `Editor/RewardsScene.cs` 的 A510 那一条；
                         //   现场 / 改坏法 → `资料/普查产出_1018/S1_A840与A867.md` §2.2 / §4.1。
                         //   🔴 本窗这条路**不靠重开窗就够得着**（`SwitchTab` → `RebuildAll()` → `Build()`，
                         //   而页签的命中区就绑在 `SwitchTab` 上）⇒ 它是那 4 扇里**最容易复现**的一扇。
@@ -3999,7 +3964,7 @@ public static class CollectionScene
                         Check(PointerLayer.ScrollCountForTest, nScrollDs,
                               $"★★ A867：切一次页签（= 整窗重建一次）⇒ 滚动登记表**一条都不涨**"
                             + $"（{nScrollDs} → {PointerLayer.ScrollCountForTest}）"
-                            + "｜**改坏法**：删掉 `Shell/DeckSelectionPopup.cs:356` 那句 "
+                            + "｜**改坏法**：删掉 `Shell/DeckSelectionPopup.cs` 那句 "
                             + "`PointerLayer.UnregisterOwnedBy(gameObject);` ⇒ 每切一次**净涨 1 条**"
                             + "（`Build()` 只清**子件**、窗根不死，而 `MenuScroll` 是**普通 C# 类** ⇒ "
                             + "`PruneScrolls` 那两道判断恒假），而且旧条目**还能被滚轮命中**"
@@ -4015,7 +3980,7 @@ public static class CollectionScene
 
                         // 🆕 2026-10-04（A26）：**第二扇窗**（选卡组窗）的卡格也要**真鼠标**点得到 ——
                         //    它与收藏窗共用 `MenuDraw.DeckCell`（同一处裸节点）⇒ 一起修好的，这里也钉一条。
-                        //    判据 = `PointerLayer.CollectHits`（`Shell/PointerLayer.cs:492`），不是 `wb.Click()`。
+                        //    判据 = `PointerLayer.CollectHits`（`Shell/PointerLayer.cs` 的 `CollectHits`），不是 `wb.Click()`。
                         CheckTrue(sel.Cells.Count > 0, "选卡组窗画出了格子（否则下面那条等于没验）");
                         if (sel.Cells.Count > 0)
                         {
@@ -4039,7 +4004,7 @@ public static class CollectionScene
                             //   ⚠️ **2026-10-14 更正（铁律 5 / A786）**：上面这半句**已过期** —— A435 乙块（A21）
                             //   把 `DeckSelectionPopup` 那一对「`Clip = SvRect;` → 循环 → `Clip = prevClip;`」
                             //   **整对删掉**了，裁切状态迁到了 `Deck Scroll View/Viewport` 那颗 `ViewportClip` 上
-                            //   （`Shell/DeckSelectionPopup.cs:357-363` / `:490-493`）⇒ 「本窗的 `Clip`」今天**恒 `null`**，
+                            //   （`Shell/DeckSelectionPopup.cs`）⇒ 「本窗的 `Clip`」今天**恒 `null`**，
                             //   说了算的是**那颗节点**（`DeckCell(win, …)` 内部沿 `parent` 解析，同一条路）。
                             //   ⇒ 钉两条：
                             //    ① **反向对照**：完全落在视口里的那一格**不许被裁**（裁多了 = 命中区比格还小 ⇒
@@ -4052,7 +4017,7 @@ public static class CollectionScene
                             //     是「临时设 → 循环 → 还原」（还原后是 null）」—— **那个理由已经过期**：
                             //     A435 乙块（A21）已把 `DeckSelectionPopup` 里那对
                             //     「`Clip = SvRect;` → 循环 → `Clip = prevClip;`」**整对删掉**
-                            //     （`Shell/DeckSelectionPopup.cs:490-493` 的更正留档）⇒ 那个 `Clip` 现在**恒 `null`**
+                            //     （`Shell/DeckSelectionPopup.cs` 的更正留档）⇒ 那个 `Clip` 现在**恒 `null`**
                             //     （不是「还原之后才是 null」），读它照样恒红。
                             //     ✅ **结论一个字没改**（照样别读它、照样恒红），变的只是理由。
                             //   ⚠️ 反向对照那一格是**现找**的（要求它**整格**在视口里 —— 视口 778.06 > 格高 364.5
@@ -4156,7 +4121,7 @@ public static class CollectionScene
                             //   helper（`Nine` 早就有守卫、`Hit`/`HitOn` 没有）—— 探针造 `basis != parent`
                             //   **真调一次 `HitOn`**，断「**会出声**」（范式同上面 `Txt` 那一段）。
                             //   ⚠️ **如实标注**：A229 原文写的是「`PracticeModePopup` 的 **`Txt`** 缺守卫」，
-                            //   而**现读该文件的 `Txt`（`:1537` 那一行）根本没有 `basis` 参数**
+                            //   而**现读该文件的 `Txt`（`CardPresentation/Shell/PracticeModePopup.cs` 那一行）根本没有 `basis` 参数**
                             //   （签名 = `(Transform parent, string text, …)`、落位用 `Local3(parent, …)`
                             //   ⇒ 结构上不可能不等）⇒ 那句判据在本文件**指向不存在的东西**；
                             //   同一形状的真身 = `HitOn`（位置 `Local3(basis, …)`、树父 `parent`）。
@@ -4255,7 +4220,7 @@ public static class CollectionScene
                     GameWindow hp = wmFixD != null ? wmFixD.popUpWindow : null;
                     var hpTxt = hp != null ? TextOf(FindChild(hp.transform, "MessageText")) : null;
                     // 🔴 **2026-10-18（波 2a · W2）改「随语档」**：提示正文从波 1b 起走词条
-                    //   （`Shell/DeckInfoPopup.cs:1284` 的 `Loc.T("MenuDeck/Error/HiddenCards") + hiddenWhy`）
+                    //   （`Shell/DeckInfoPopup.cs` 的 `Loc.T("MenuDeck/Error/HiddenCards") + hiddenWhy`）
                     //   ⇒ 原来写死的子串「隐藏卡」**只在中文列里出现**（英文列 = `This deck contains hidden cards…`）
                     //   ⇒ 宿主一跑英文档这条必红。期望值换成该词条的**整句**（比原来的子串**更强**，且两语档都成立）。
                     CheckTrue(Loc.HasEntry("MenuDeck/Error/HiddenCards"),
@@ -4331,9 +4296,9 @@ public static class CollectionScene
                         //   **两式只在「父链单位缩放」时逐位相同**（差 ≤2.5e-4 px）⇒「这一处该量到什么」
                         //   依赖这条前提。⚠️ 它红了说明两式在这一处本来就不等价 ⇒ 要改的是**期望值的口径**
                         //   （按**乙式** = 设计矩形重算），⛔ **不是**把实现改回甲式。
-                        // ⚠️ 本处已有 `CheckScaleTwo`（`:719`，**写侧**两态夹具）—— ⛔ **两者不许合并**：
+                        // ⚠️ 本处已有 `CheckScaleTwo`（`本文件`，**写侧**两态夹具）—— ⛔ **两者不许合并**：
                         //   那一条的期望方向是 `p2 == M × p1`（写侧），本族要的是**读侧** `p2 == p1`
-                        //   （判据 → 本文件 `CheckScaleTwo` 的文件头 / `Shell/MenuDraw.cs:57-61`）。
+                        //   （判据 → 本文件 `CheckScaleTwo` 的文件头 / `Shell/MenuDraw.cs`）。
                         CheckNear(bg.lossyScale.x, 1f, 1e-3f,
                                   "（前提·父链缩放）`Army Selector/Background` 的 `lossyScale.x` = 1"
                                 + "（= 该处的**乙式**读口（`MenuDraw.UnionQuadRectPx`，先除回父级缩放）与"
@@ -4362,7 +4327,7 @@ public static class CollectionScene
                         //    **缺省**那一档（只找激活链上的块；传 `true` 会把关掉的块也算进来）。
                         // ⚠️ 改前是**甲式**（`LayoutSpace.ToPixel` + 硬写 `108f`）；`MenuDraw` 那份是**乙式**
                         //    （位置项先 `PosInDesignSpace` 除回父级缩放、再走 `PixelOfDesign` = A298/A1004）
-                        //    ⇒ 本宿主父链单位缩放下两式差 ≤2.5e-4 px（同本文件 `QuadRectOf` `:606-609`
+                        //    ⇒ 本宿主父链单位缩放下两式差 ≤2.5e-4 px（同本文件 `QuadRectOf` `本文件`
                         //    那条 A1003 先例）；父链真带缩放时**乙式才是对的**。
                         // ⚠️ 量不到时四沿**留在哨兵值**（原来是 `MaxValue/MinValue`）—— 与原来逐个累加**同契约**。
                         if (MenuDraw.UnionQuadRectPx(bg, MenuDraw.QuadGate.None, false,
@@ -4527,7 +4492,7 @@ public static class CollectionScene
                     CheckTrue(okBtn != null, "`Confirm` 有点击区");
                     // 🔴 **2026-10-18（波 2a · W2）改「随语档」**：这两句从波 1b 起走词条
                     //   （`Shell/CollectionData.ImportDeck` → `Loc.T("MenuDeck/Error/ImportEmpty")` /
-                    //   `Loc.T("MenuDeck/Error/ImportBadString")`，见 `Core/Loc.cs:1128-1129`）。
+                    //   `Loc.T("MenuDeck/Error/ImportBadString")`，见 `Core/Loc.cs` 的 `ImportBadString`）。
                     //   原来写死的那两句中文**只是中文列的副本** ⇒ 宿主一切英文档这两条必红（**单语档断言**）。
                     //   期望值改成 `Loc.T(键)` ⇒ 两语档都成立（中文档下取到的字与改前**逐字相同**，值不变）。
                     CheckTrue(Loc.HasEntry("MenuDeck/Error/ImportEmpty")
@@ -4571,7 +4536,7 @@ public static class CollectionScene
                     if (shade != null) shade.Click();
                     Check(imp2 != null ? imp2.CurrentState : WindowState.Open, WindowState.Closed, "点背景 ⇒ 关窗");
 
-                    // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据同上，→ `:2298` 那一段）。
+                    // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据同上，→ `本文件` 那一段）。
                     //   ⚠️ 上面那一句是**本窗自己的**「点背景 ⇒ 关」；本块补的是**公共口**那一版
                     //   （`ShadeHit` 属于本窗 + 不是吸收层 + **点之前必须是 `Open`** 三条一起断）。
                     //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后；上面已经关过一次 ⇒ 先开回来。
@@ -4677,9 +4642,9 @@ public static class CollectionScene
                 // 🔴 **2026-10-18 就地订正（铁律 5）**：这条原来钉 **347.9**（= 格心 155.9 + 384/2），
                 //   `W11`（2026-10-18，用户报「张数与卡牌重叠」）之后**卡**不再占满整格 ——
                 //   卡块 = 格高 384 − 底下张数条 **38.272**（原版 `/Counter` 锚 `0.09966714 × 384`，
-                //   见 `Shell/CollectionWindow.cs:225-242` 的 `CardsCounterH` / `CardsCardRect`；
-                //   缩放与 `SetPose` 在 `:1091` / `:1137`），而 `win.CardsCells` 存的是
-                //   **`CardView` 的 transform**（`:1170`）⇒ 这里量到的是**卡块中心**：
+                //   见 `Shell/CollectionWindow.cs` 的 `CardsCounterH` / `CardsCardRect`；
+                //   缩放与 `SetPose` 在 `CardPresentation/Shell/CollectionWindow.cs` / `CardPresentation/Shell/CollectionWindow.cs`），而 `win.CardsCells` 存的是
+                //   **`CardView` 的 transform**（`CardPresentation/Core/CardView.cs`）⇒ 这里量到的是**卡块中心**：
                 //   347.9 − 38.272/2 = **328.764**（实得 328.76 逐位吻合）。
                 //   ⛔ 别再改回 347.9（那是格心，不是卡心）。
                 CheckNear(PxYOf(cc0.position.y), 328.76f, 1.5f,
@@ -5023,6 +4988,99 @@ public static class CollectionScene
                 }
             }
 
+            // ============================================================ 🆕 2026-10-19（第五十七会话 · 树形尾巴）
+            //   Cards 页 `Header Filters` 之下补的**两层容器**。判据 = **原版 prefab 现读**
+            //   （`python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "CardsTab" --depth 7`，2026-10-19）：
+            //     · `CardsTab ▸ Header Filters ▸ WIldcard Display` = **1470.0,70.9 → 1870.0,155.9**（400×85）
+            //       —— 孩子序 = `Background` → `Counters` → `Army Icon`；
+            //     · `WIldcard Display ▸ Counters` = **1555.0,91.4 → 1870.0,135.4**（315×44）。
+            //   🔴 取法一律 `Transform.Find`（**只找直接子件**）—— 换回递归的 `FindChild` 就分不出
+            //     「挂在 `WIldcard Display` 下」与「直接挂在页节点上」，而后者正是补容器**之前的形态**（弱断言）。
+            //   🆕 **2026-10-19（续）**：原版 `Counters` 底下那**四组** `Common/Rare/Epic/Legendary`（每组
+            //     `Icon` + `Counter`）已按原版建出 ⇒ 本段也逐组断父链 / 兄弟序 / rect（判据见段内注释）。
+            //   🧨 改坏法：把 `Shell/CollectionWindow.cs` 的 `BuildCardsPage` 里那两颗 `Node(… , "WIldcard Display"/"Counters", …)`
+            //     或四组 `Node(wcCounters, wcGroup[i], …)` 删掉、件挂回上一层 ⇒ 本段对应格全红。
+            Section("Cards 页：`Header Filters ▸ WIldcard Display ▸ Counters` 两层容器（父链 + 直接子件 + 兄弟序）");
+            {
+                var cp1 = win.PageRoot(1);
+                var hdr1 = cp1 != null ? cp1.Find("Header Filters") : null;
+                CheckTrue(hdr1 != null, "（前提）Cards 页那颗页头 `Header Filters` 是页节点的直接孩子");
+                var wd = hdr1 != null ? hdr1.Find("WIldcard Display") : null;
+                CheckTrue(wd != null,
+                          "★ `Header Filters ▸ WIldcard Display` 是**直接孩子**（原版 1470,70.9→1870,155.9 · 400×85）"
+                        + "｜🧨 退回「四件直接建在页节点上」⇒ 本格红");
+                if (wd != null)
+                {
+                    CheckAt(wd, 1470f, 1870f, 70.9f, 155.9f, "`WIldcard Display` 落在原版矩形（1470,70.9 → 1870,155.9）");
+                    var wrt = wd as RectTransform;
+                    CheckNear(wrt != null ? wrt.sizeDelta.x * 108f : -1f, 400f, 0.5f,
+                              "`WIldcard Display` 宽 = 原版 **400px**");
+                    CheckNear(wrt != null ? wrt.sizeDelta.y * 108f : -1f, 85f, 0.5f,
+                              "`WIldcard Display` 高 = 原版 **85px**");
+                    var wBg = wd.Find("Background");
+                    var wCnt = wd.Find("Counters");
+                    var wArmy = wd.Find("Army Icon");
+                    CheckTrue(wBg != null && wCnt != null && wArmy != null,
+                              "★ `WIldcard Display` 的三个**直接孩子**都挂在这一层（`Background` / `Counters` / `Army Icon`；"
+                            + "底图名按原版 = **`Background`**，⛔ 不是我们以前的 `Wildcard Bg`）"
+                            + "｜🧨 任一颗挂回页节点 ⇒ 本格红");
+                    if (wBg != null && wCnt != null && wArmy != null)
+                        CheckTrue(wBg.GetSiblingIndex() < wCnt.GetSiblingIndex()
+                                  && wCnt.GetSiblingIndex() < wArmy.GetSiblingIndex(),
+                                  "★ 兄弟序 = **Background → Counters → Army Icon**（原版 `WildcardDisplay.m_Children`；实测 "
+                                + $"{wBg.GetSiblingIndex()}/{wCnt.GetSiblingIndex()}/{wArmy.GetSiblingIndex()}）");
+                    if (wCnt != null)
+                    {
+                        CheckAt(wCnt, 1555f, 1870f, 91.4f, 135.4f,
+                                "`Counters` 落在原版矩形（1555,91.4 → 1870,135.4 · 315×44）");
+                        // 🆕 **2026-10-19（续 · 原版现读）**：`Counters ▸ {Common,Rare,Epic,Legendary} ▸ {Icon, Counter}`。
+                        //   判据 = `menu_dump.py bundle_menus_assets_all "CardsTab" --depth 7 --no-layout` 现读：
+                        //     Common 1565→1630 · Rare 1640→1705 · Epic 1715→1780 · Legendary 1790→1855（65×44，y 91.4→135.4）；
+                        //     每组孩子 = `Icon`（x→x+30）· `Counter`（x+30→x+71，⚠️ 溢出组框 6px —— 原版如此）。
+                        string[] grpNames = { "Common", "Rare", "Epic", "Legendary" };
+                        for (int i = 0; i < 4; i++)
+                        {
+                            float gx = 1565f + 75f * i;
+                            var g = wCnt.Find(grpNames[i]);
+                            CheckTrue(g != null,
+                                      $"★ `Counters ▸ {grpNames[i]}` 是**直接孩子**（原版四组之一；🧨 退回 8 颗平铺 ⇒ 本格红）");
+                            if (g == null) continue;
+                            CheckAt(g, gx, gx + 65f, 91.4f, 135.4f,
+                                    $"`{grpNames[i]}` 落在原版矩形（{gx},91.4 → {gx + 65f},135.4 · 65×44）");
+                            var grt = g as RectTransform;
+                            CheckNear(grt != null ? grt.sizeDelta.x * 108f : -1f, 65f, 0.5f,
+                                      $"`{grpNames[i]}` 宽 = 原版 **65px**");
+                            CheckNear(grt != null ? grt.sizeDelta.y * 108f : -1f, 44f, 0.5f,
+                                      $"`{grpNames[i]}` 高 = 原版 **44px**");
+                            var ic = g.Find("Icon");
+                            var ct = g.Find("Counter");
+                            CheckTrue(ic != null && ct != null,
+                                      $"★ `{grpNames[i]}` 的两个**直接孩子** = `Icon` / `Counter`（原版名字逐字）");
+                            if (ic != null && ct != null)
+                            {
+                                CheckTrue(ic.GetSiblingIndex() < ct.GetSiblingIndex(),
+                                          $"`{grpNames[i]}` 兄弟序 = Icon({ic.GetSiblingIndex()}) → "
+                                        + $"Counter({ct.GetSiblingIndex()})（原版 `m_Children`）");
+                                CheckAt(ic, gx, gx + 30f, 91.4f, 135.4f,
+                                        $"`{grpNames[i]} ▸ Icon` 落在原版 30×44 框");
+                                CheckAt(ct, gx + 30f, gx + 71f, 91.4f, 135.4f,
+                                        $"`{grpNames[i]} ▸ Counter` 落在原版 41×44 框");
+                            }
+                        }
+                        var ga = wCnt.Find("Common");
+                        var gb = wCnt.Find("Rare");
+                        var gc = wCnt.Find("Epic");
+                        var gd = wCnt.Find("Legendary");
+                        if (ga != null && gb != null && gc != null && gd != null)
+                            CheckTrue(ga.GetSiblingIndex() < gb.GetSiblingIndex()
+                                      && gb.GetSiblingIndex() < gc.GetSiblingIndex()
+                                      && gc.GetSiblingIndex() < gd.GetSiblingIndex(),
+                                      "★ `Counters` 四组兄弟序 = **Common → Rare → Epic → Legendary**（原版；实测 "
+                                    + $"{ga.GetSiblingIndex()}/{gb.GetSiblingIndex()}/{gc.GetSiblingIndex()}/{gd.GetSiblingIndex()}）");
+                    }
+                }
+            }
+
             // 🆕 2026-10-03（A12 收口）：Cards 页 —— 压在视口下边上的那一格，**命中区 == 露出来的那部分**
             //   （这一页的 `Hit` 走 `AddHit` ⇒ **有 quad** ⇒ 能直接量渲染矩形；判据同 `MenuDraw.ClipRect`）
             if (win.CardsScroll != null)
@@ -5180,7 +5238,7 @@ public static class CollectionScene
                             //     **图标那枚字形没被它看着**。裁切本身是好的（`MenuDraw.ClipTmpMesh`
                             //     按每个字自己的 `materialReferenceIndex` 取槽，`TextMeshPro.UpdateVertexData`
                             //     把**每个槽**都上传到 `m_subTextObjects[i].mesh`）⇒ **画面不会出错**。
-                            //     ⚠️ **不能**照 `Editor/CardFaceProbe.cs:273-296` 那条改成
+                            //     ⚠️ **不能**照 `Editor/CardFaceProbe.cs` 那条改成
                             //     `chr[i].materialReferenceIndex` 取 `textInfo.meshInfo[slot]` —— 那是读**模型**，
                             //     而本块的立身之本正是「读**真上传的那一份**」（上面三条改坏法里第②条
                             //     就是「只写 `textInfo`、不上传」）。要补覆盖面只能**另找那份上传网格**
@@ -5336,7 +5394,7 @@ public static class CollectionScene
                 // 🆕 **2026-10-17（`A1212` 块 11 #69）**：`Quantity` 的四格 —— 原版
                 //   `… Drawer ▸ Content/Label/Quantity` = **`12 / 75 / 36 / 0`**（设计帧 712×1080）。
                 //   本夹具的抽屉高 900 ⇒ 该族刻度 `k = box.H / DecorRefH = 900/1080 = 0.8333`
-                //   （`ItemDrawer` 的 `ClippedText` 三格**乘 `k`** 是**同族已接的那一站**（`:970`）的写法，
+                //   （`ItemDrawer` 的 `ClippedText` 三格**乘 `k`** 是**同族已接的那一站**（`CardPresentation/Shell/ItemDrawer.cs`）的写法，
                 //   文档写明「调用方按该族刻度换算」）⇒ 期望 = `12k / 75k / 36k`，⛔ 不是拿 12/75/36 直接比。
                 //   ⚠️ `Army Name`（#67，同四格但折行 = 1）这一条**没断**：它要求 `fac != null`（阵营图取到才建），
                 //      本夹具的样式没带阵营 ⇒ 如实登记为「本夹具不建这一颗」（⛔ 不写假绿）。
@@ -5932,7 +5990,7 @@ public static class CollectionScene
                     var wbMid = pl3 != null ? pl3.ButtonAt(cx, cy) : null;
                     CheckTrue(wbMid == null,
                               "★ 位移没停稳 ⇒ **真命中路点不到它**（`PointerLayer.CollectHits` 只挑 "
-                              + "`WindowButton.isActiveAndEnabled`，`Shell/PointerLayer.cs:488`）—— 拿到 "
+                              + "`WindowButton.isActiveAndEnabled`，`Shell/PointerLayer.cs` 的 `WindowButton`）—— 拿到 "
                               + (wbMid == null ? "**null** ✓" : "`" + wbMid.name + "` = **还点得到**"));
                     var sMid = pl3 != null ? pl3.ScrollUnder(cx, cy) : null;
                     CheckTrue(sMid != win.FilterScroll,
@@ -6696,7 +6754,7 @@ public static class CollectionScene
             //   ⇒ 只能量队列，量不到「看得见」。
             Section("A1525⑤：卡组格两枚徽章的**队列夹层** + 可见性（「件建了、画面上却没有」那一族）");
             {
-                // 先钉**这条梯子本身**：期望值 = 现读 `Shell/CollectionWindow.cs:128` 那一行常量
+                // 先钉**这条梯子本身**：期望值 = 现读 `Shell/CollectionWindow.cs` 那一行常量
                 //   （`QPagePanel/QPageSdf/QPageRow/QPageText/QPageOverlay` = 3030/3031/3032/3033/3034）。
                 //   🧨 谁把整条梯子抬/降一档（徽章与 `Frame` 一起漂）⇒ 下面那三条红（夹层那条抓不住）。
                 Check(CollectionWindow.QPageOverlay, 3034,
@@ -6824,7 +6882,7 @@ public static class CollectionScene
             // ============================================================ 🆕 **灭自证对**（与上面那条**结构上不可能同时满足**）：
             //   选卡组弹窗那一份变体（`Collection Deck With Highlight`，`useSelectedHighlight = 1`）
             //   选中那一格**必须真画金框**。
-            // ⚠️ 弹窗那份的 `sel` 是**真值**（`Shell/DeckSelectionPopup.cs:731` 的 `pick.OwnIndex == DeckIndex`）
+            // ⚠️ 弹窗那份的 `sel` 是**真值**（`Shell/DeckSelectionPopup.cs` 的 `pick.OwnIndex == DeckIndex`）
             //   ⇒ **别顺手把它也改成 `false`**（那是另一棵树）。本段自开一扇窗，**末尾关掉并清场**
             //   （照本文件 `A1035①` 那一节的收尾三句）。
             {
@@ -7219,7 +7277,7 @@ public static class CollectionScene
                         //     —— **那一条已被 2026-10-12 的裁定取代**（原话：「……还是恢复？**请你恢复**。
                         //     我说的是不需要升级卡牌系统，**默认最高级就是不能点击升级卡牌按钮**」）。
                         //   ⇒ 现在断「**两块都在**」；「升级」那颗钮的**可交互度**由下面「三块面板的动作」
-                        //     那一节（`:7301` 附近）单独钉 —— 两件事分开验。
+                        //     那一节（`本文件` 附近）单独钉 —— 两件事分开验。
                         //   🔴 **2026-10-18 再改判（铁律 5 · 就地订正上面「原版文案」那句）**：用户当天把
                         //     「升级」那块**一颗钮改成『降级 / 升级』两颗**、标题也改成他指定的字面量
                         //     「将此张牌降级或升级」（判据 → `资料/普查产出_1018/W8_副本升级面板_按用户口径.md`）
@@ -7308,7 +7366,7 @@ public static class CollectionScene
                                           $"★ `{fc.Name}` **真的开了自适应**（原版 `m_enableAutoSizing = 1`）"
                                         + " —— 改坏法：`CardDetailPopup` 那三处 `wrapPx` 传回 `0f` ⇒ 这一段永不执行、本行红");
                                 // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace` ——
-                                //   `CardDetailPopup` 这些字段是 `LatinCardBody`（`Shell/CardDetailPopup.cs:1398-1424`）；
+                                //   `CardDetailPopup` 这些字段是 `LatinCardBody`（`Shell/CardDetailPopup.cs` 的 `LatinCardBody`）；
                                 //   `EmPerFontSize` 自本日起按面分两支（CJK 0.0948 / 拉丁 0.1）⇒ 静态口恒差 5.2%。
                                 CheckNear(flb.FontSizeToPxNow(flb.FontSizeMin, flb.ActualFace), fc.Min, 0.05f,
                                           $"`{fc.Name}` 自适应下限 = 原版 `m_fontSizeMin` **{fc.Min:F1}px**");
@@ -8154,7 +8212,7 @@ public static class CollectionScene
             //   —— 同族那个「圆底盘长在子件上」的偏离（判据 = 原版 `/Header/Select Art Button {L,R}` 自己带
             //   `Image[UI_Button_Round_background]` · Simple · `preserveAspect` · `sizeDelta 74.386×75.605`，
             //   → `资料/普查产出_0923/A4_装饰页与驱动链.md:129`）**已归真到根节点自己身上**
-            //   （`Shell/CollectionWindow.cs:1547`）⇒ 第 8 实参不传。期望值 = 正方贴图 237×237 等比内接 ⇒ **74.39×74.39**。
+            //   （`Shell/CollectionWindow.cs`）⇒ 第 8 实参不传。期望值 = 正方贴图 237×237 等比内接 ⇒ **74.39×74.39**。
             //   ⚠️ 只断左钮：两颗走**同一个** `BuildStyleArrow`（⇔ 同一份代码），右侧那颗的矩形是同一支算出来的。
             A1125CloseBase("CollectionWindow/Select Art Button Left", spage,
                            "Select Art Button Left", "UI_Button_Round_background",
@@ -8475,8 +8533,8 @@ public static class CollectionScene
                     //   ① **「闸本身」那一半已经有裁定、不是待办**：同一道「整块在框外 ⇒ 不建」的闸，
                     //      2026-10-14（A798）也加进了 `MenuDraw.Text` / `TextBox` 的**第一句** ——
                     //      就是那两句 `if (!Visible(r, _st.RenderClip)) return null;`
-                    //      （⚠️ 原来这里写 `Shell/MenuDraw.cs:1614` / `:1673`，**行号已漂**；
-                    //        2026-10-16 现读 = **`:1643`（`Text`）/ `:1705`（`TextBox`）**，按语句认别按行号认），
+                    //      （⚠️ 原来这里写 `Shell/MenuDraw.cs` / `:1673`，**行号已漂**；
+                    //        2026-10-16 现读 = **`CardPresentation/Shell/MenuDraw.cs`（`Text`）/ `:1705`（`TextBox`）**，按语句认别按行号认），
                     //      而那段注释自己写着裁定的理由：
                     //      「**「只裁不建」在画面上等价**（整块在框外 ⇒ `ClipText` 今天也会把它夹成零面积、
                     //     画不出像素），收益是与 `Rect`/`Nine`/`Tiled`/`Hit` 同一条判据」⇒
@@ -8488,9 +8546,9 @@ public static class CollectionScene
                     //          而本页那整块面板只有 **335.31px** 宽、视口 `FltView` = x∈[0.25, 335.56]
                     //          （`FltL`/`FltW`）⇒ **面板＋视口整条滑到屏左外**；
                     //        · 那一刻看框的那两路**读的都是节点当下位置** —— 文字那一路 `ViewportClip.ClipPx`
-                    //          （`Shell/ViewportClip.cs:196`，`PosInDesignSpace(transform)`）、
+                    //          （`Shell/ViewportClip.cs` 的 `PosInDesignSpace(transform)`）、
                     //          容器那一路 `_fltScroll.Intersects` → `MenuScroll.ClipNode`（A465 起也转节点、
-                    //          `Shell/MenuScroll.cs:398`）⇒ **两条路都拿到「屏左外那一条」**；
+                    //          `Shell/MenuScroll.cs`）⇒ **两条路都拿到「屏左外那一条」**；
                     //          而被比较的矩形是**页面绝对设计矩形**（`MenuDraw.Local` 按基准位算出来的，
                     //          `Shell/CollectionWindow.cs` 的 `Abs(...)` / `_fltScroll.Shift(...)`）⇒ 恒不相交。
                     //        ⇒ **收起态下发生的任何一次重建**（`Empty Collection Warning` 那一节的
@@ -8541,7 +8599,7 @@ public static class CollectionScene
                     //      实得 **552.905** ⇒ 红）。⚠️ 那一整段**未跑**（本件没跑 Unity）—— 首跑若红，
                     //      先看它自己的前提那三条，⛔ 别直接改期望值。原文列的两条路里**选了前面那条**。
                     //      ✅ **2026-10-16 现核（A843 · 铁律 5 订正）**：`Shell/CollectionWindow.cs` 里那两处同源注
-                    //      **已经改好了**（`:490-501`，用的就是上面这一套「**A843 · 落点段 = 验收口**」的说法）；
+                    //      **已经改好了**（用的就是上面这一套「**A843 · 落点段 = 验收口**」的说法）；
                     //      原文（留痕）写的是「**仍未改**、那文件不在本件白名单、留给调度台」—— 那是**收口之前**的态。
                     win.tabButtons.Click(1);
                     Check(win.CurrentTab, WindowTabType.CollectionCards,
@@ -8657,7 +8715,7 @@ public static class CollectionScene
                     //    · `Cell_owned` 那一行**横跨整个抽屉宽**（`FilterPanelModel.ToggleRowRects` 的
                     //      `row = 0…w`、`w = FltW`）⇒ 它的中心 x = 面板矩形 0.25…335.56 的中点 = **167.905**
                     //      （面板矩形那两条字面量 = 上面那条 `CheckAt(fltPanel, 0.25f, 335.56f, …)`）；
-                    //    · `Title Army` 的渲染左沿 = **0.25**（同 `:3462` 那条）。
+                    //    · `Title Army` 的渲染左沿 = **0.25**（同 `本文件` 那条）。
                     //    ⚠️ 前提：抽屉滚动量此刻是 **0**（下面所有落点值都是「未滚动」那一帧的读数）。
                     if (cDrawer != null && cFltBtn != null)
                     {
@@ -8726,7 +8784,7 @@ public static class CollectionScene
                                           + "④ 今天只是把同一件事**再做一遍**（冗余），删它这条照样绿。");
                                 CheckNear(TitleLeftPx(cDrawer, "Army"), 0.25f, 1f,
                                           "★★ 同一拍、**另一条建法**的件也一样：小标题 `Army` 的**渲染左沿**回到 "
-                                          + "**0.25**（面板内 0；期望值 = `:3462` 那条）"
+                                          + "**0.25**（面板内 0；期望值 = `本文件` 那条）"
                                           + "—— 改坏法同上（删 `DrawerHome(_flt)` ⇒ 落在 **385.25**）");
                                 // 🔴 **灭自证（挡「终点和检测器一起改回去」）**：只断「落点对」不够 ——
                                 //   删掉 ④ 之后，**在夹具里补一条补偿路**（例如「点开之后再
@@ -8971,6 +9029,82 @@ public static class CollectionScene
                 }
             }
 
+            // ============================================================ 🆕 2026-10-19（第五十七会话 · `N52` 收尾）
+            //   **四页页头的容器树 + 兄弟序**。判据 = 本轮 `menu_dump.py bundle_menus_assets_all "<页>" --depth 3` **现读**：
+            //     · `Select Deck Tab ▸ Header`             孩子序 = Filter Toggle → **Control Buttons** → Separator Line → Filters
+            //     · `CardsTab ▸ Header Filters`            孩子序 = Filter Toggle → Separator Line → Filters（→ `WIldcard Display`，另一笔账）
+            //     · `Cardback Tab ▸ Header`                孩子序 = Filter Toggle → Separator Line → **label** → Filters
+            //     · `Alternate Art Tab ▸ Header Filters`   孩子序 = Filter Toggle → Separator Line → Filters
+            //   ⇒ N52① = `Filters`（原版 `GridLayoutGroup` 容器）要在；N52② = `Filter Toggle` 容器要在；
+            //     N52③ = 兄弟序按上表。（①② 是 2026-10-17 落的，本轮只补断言；③ 里卡背页那颗 `label` 的父链 2026-10-19 收口。）
+            //   🔴 四条都用 **`Transform.Find`（只找直接子件）** 取 —— 换回递归的 `FindChild` 就分不出
+            //     「挂在 `Header` 下」与「挂在页节点上」，而后者正是这两条尾巴原来的形态（弱断言）。
+            //   ⚠️ 放在本节（A93 四页循环**之后**）：四页此时都已由测试自己按正常顺序建好 ——
+            //     本段**不**提前触发 `PageRoot(1..3)` 的懒建，免得改掉后续夹具的建页次序。
+            Section("N52：收藏窗四页页头容器树（Header / Filter Toggle / Filters）与兄弟序");
+            {
+                var hdrNames = new[] { "Header", "Header Filters", "Header", "Header Filters" };
+                for (int p = 0; p < 4; p++)
+                {
+                    var pr = win.PageRoot(p);
+                    var hdr = pr != null ? pr.Find(hdrNames[p]) : null;
+                    CheckTrue(hdr != null,
+                              $"N52：第 {p} 页页头容器 **`{hdrNames[p]}`** 是页节点的**直接孩子**"
+                            + "（原版四页逐颗现读：Deck/Cardback = `Header` · Cards/Alternate Art = `Header Filters`）");
+                    if (hdr == null) continue;
+                    var ft = hdr.Find("Filter Toggle");
+                    CheckTrue(ft != null,
+                              $"N52②：`{hdrNames[p]} ▸ Filter Toggle` 是**直接孩子**（原版 50×50 容器；"
+                            + "🧨 退回「直接挂页节点」那一版 ⇒ 本格红）");
+                    var sep = hdr.Find("Separator Line");
+                    CheckTrue(sep != null, $"N52③：`{hdrNames[p]} ▸ Separator Line` 是**直接孩子**");
+                    var grp = hdr.Find("Filters");
+                    CheckTrue(grp != null,
+                              $"N52①：`{hdrNames[p]} ▸ Filters`（原版 `GridLayoutGroup` 容器）是**直接孩子**"
+                            + "｜🧨 退回「不建这一层」⇒ 本格红");
+                    if (grp != null)
+                        CheckTrue(grp.Find("Clear filters") != null,
+                                  $"N52①：`{hdrNames[p]} ▸ Filters ▸ Clear filters`（原版 `Clear Filter Button`）"
+                                + "挂在容器**之下**（原版 `Filters` 的唯一孩子）");
+                    if (ft != null && sep != null && grp != null)
+                        CheckTrue(ft.GetSiblingIndex() < sep.GetSiblingIndex()
+                                  && sep.GetSiblingIndex() < grp.GetSiblingIndex(),
+                                  $"N52③：`{hdrNames[p]}` 的兄弟序 = "
+                                + $"Filter Toggle({ft.GetSiblingIndex()}) → Separator Line({sep.GetSiblingIndex()})"
+                                + $" → Filters({grp.GetSiblingIndex()})（原版现读；⛔ 不许倒排）");
+                }
+
+                // Deck 页多一层 `Control Buttons` —— 原版**夹在 `Filter Toggle` 与 `Separator Line` 之间**。
+                var dpr = win.PageRoot(0);
+                var dh = dpr != null ? dpr.Find("Header") : null;
+                var dft = dh != null ? dh.Find("Filter Toggle") : null;
+                var dctrl = dh != null ? dh.Find("Control Buttons") : null;
+                var dsep = dh != null ? dh.Find("Separator Line") : null;
+                var dgrp = dh != null ? dh.Find("Filters") : null;
+                CheckTrue(dft != null && dctrl != null && dsep != null && dgrp != null,
+                          "N52③（前提·不静默）：Deck 页 `Header` 的四个孩子都取得到"
+                        + "（Filter Toggle / Control Buttons / Separator Line / Filters）");
+                if (dft != null && dctrl != null && dsep != null && dgrp != null)
+                    CheckTrue(dft.GetSiblingIndex() == 0 && dctrl.GetSiblingIndex() == 1
+                              && dsep.GetSiblingIndex() == 2 && dgrp.GetSiblingIndex() == 3,
+                              "N52③：Deck 页 `Header` 的兄弟序 = **Filter Toggle(0) → Control Buttons(1) → "
+                            + "Separator Line(2) → Filters(3)**（原版 `m_Children` 现读；实测 "
+                            + $"{dft.GetSiblingIndex()}/{dctrl.GetSiblingIndex()}/{dsep.GetSiblingIndex()}/{dgrp.GetSiblingIndex()}）"
+                            + "｜🧨 删掉 `BuildDeckHeader` 里 `ctrl.SetSiblingIndex(1)` ⇒ Control Buttons 停在第 3 位 ⇒ 本格红");
+
+                // 卡背页那颗标题：原版在 `Cardback Tab ▸ Header ▸ label`（2026-10-19 同批收口父链与兄弟序）
+                var cpr = win.PageRoot(2);
+                var ch = cpr != null ? cpr.Find("Header") : null;
+                var cLabel = ch != null ? ch.Find("Header Label") : null;
+                CheckTrue(cLabel != null,
+                          "N52③（同族尾巴）：卡背页标题 `Header Label` 在 **`Header` 之下**"
+                        + "（原版 `Cardback Tab ▸ Header ▸ label`）｜🧨 挂回页节点 ⇒ 本格红");
+                if (cLabel != null)
+                    CheckTrue(cLabel.GetSiblingIndex() == 2,
+                              "N52③（同族尾巴）：卡背页 `Header` 兄弟序 = Filter Toggle → Separator Line → "
+                            + $"**label**({cLabel.GetSiblingIndex()}) → Filters（原版现读）");
+            }
+
             // ---- 卡片详情窗 · 「创建副本」/「升级」两块面板 —— 🔴 2026-10-12 起【恢复】----
             // 🔴 用户 2026-10-12 裁定（逐字）：「「创建副本 / 升级」两块面板：维持你 9-27 的停用，还是恢复？**请你恢复**。
             //    我说的是不需要升级卡牌系统，**默认最高级就是不能点击升级卡牌按钮**。」
@@ -8984,7 +9118,7 @@ public static class CollectionScene
             //     **同日第二轮又改**（判据 → `资料/普查产出_1018/W8_副本升级面板_按用户口径.md`）：
             //     「创建副本」= **点击但不起作用**（钮恒可点、点了什么都不变）；
             //     「升级 / 降级」= **两颗并列钮**，置灰只看等级上下限。
-            //     ⇒ 本节只断「面板 / 两颗钮建没建 + 升级钮的可交互度」；**行为**由上面那一节（`:7310` 附近）逐条钉。
+            //     ⇒ 本节只断「面板 / 两颗钮建没建 + 升级钮的可交互度」；**行为**由上面那一节（`本文件` 附近）逐条钉。
             Section("卡片详情窗 · 「创建副本」/「升级」两块面板已恢复（行为：2026-10-18 起接真机制）");
             // 🔴 **2026-10-18（`N116`）**：本段会 5 次 `win.OpenCardDetail` —— 顺手把「开一扇留一具」那笔债
             //   断掉：前后各数一次**含未激活**的 `CardDetailPopup`（默认 `FindObjectsByType` 是
@@ -9192,7 +9326,7 @@ public static class CollectionScene
                 }
 
                 // ---------------- 🆕 2026-10-18（A840）：两页视口**各记过自己的设计矩形** ----------------
-                //   记录点 = `Shell/AvatarTab.cs:167` / `Shell/TitleTab.cs:140` 各补的那一句 `vc.CaptureNow();`。
+                //   记录点 = `Shell/AvatarTab.cs` 的 `vc.CaptureNow();` / `Shell/TitleTab.cs` 的 `vc.CaptureNow();` 各补的那一句。
                 //   口径 → `Shell/ViewportClip.cs` 文件头 §①；现场 → `资料/普查产出_1018/S1_A840与A867.md` §1/§2.1。
                 //   🔴 **为什么非断不可**：`MenuDraw.ApplyPxRect` 往这个节点写矩形**发生在组件存在之前**
                 //   （那一句的穿透只找**已有**的 `ViewportClip`）⇒ ⛔ 少了 `CaptureNow()` 这两颗**逐位回落到
@@ -9222,10 +9356,10 @@ public static class CollectionScene
                             + "｜**改坏法**：把 `CaptureNow()` 挪到节点被改过之后再调（= 记成**错帧**）⇒ 红"
                             + "（`HasBaseRect` 仍 true ⇒ 上面那条抓不住它，只有本条抓得住）");
                 }
-                A840Check("档案窗 `Avatar Tab`（`Shell/AvatarTab.cs:167`）",
+                A840Check("档案窗 `Avatar Tab`（`Shell/AvatarTab.cs`）",
                           FindChild(pp.transform, "Avatar Tab"), "Item Display Panel/Scroll Rect",
                           new PxRect(654.16f, 210.69f, 1680.12f, 855.46f));
-                A840Check("档案窗 `Title Tab`（`Shell/TitleTab.cs:140`）",
+                A840Check("档案窗 `Title Tab`（`Shell/TitleTab.cs`）",
                           FindChild(pp.transform, "Title Tab"), "Item Display Panel/Scroll Rect",
                           new PxRect(654.16f, 210.69f, 1680.12f, 855.46f));
 
@@ -9271,7 +9405,7 @@ public static class CollectionScene
                     //    （`QHit` = 3308）；并且**确实是公共件 `MenuDraw.ShadeHit` 建的**（改回本窗自己那份
                     //    `MenuDraw.Hit` 就红 —— 两条路没有任何可见行为差异，只有这一句分得出来）。
                     //    🔴 A77⑬③：期望值改成**量**本窗那块**视觉**压暗层 —— 它的节点名是 `CloseBackground`
-                    //      （原版语义同族、名字不同；那颗 quad 在它子件 `Image` 上，见 `Shell/ChatPanel.cs:152-153`），
+                    //      （原版语义同族、名字不同；那颗 quad 在它子件 `Image` 上，见 `Shell/ChatPanel.cs`），
                     //      所以这条走 `Holder/CloseBackground` 路径，而**不**按 `Menu Dark Background` 找。
                     MenuDraw.CheckShadeRule(CheckTrue, "聊天窗", FindChild(FindChild(chat.transform, "CloseBackground"), "CloseHit"),
                                             chat.transform.Find("Holder/CloseBackground"), ChatPanel.QHit);
@@ -9402,8 +9536,8 @@ public static class CollectionScene
                     // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → `:2298` 那一段）。
                     //   ⚠️ 本窗那颗命中区的节点名是 **`CloseBackground/CloseHit`**（同族三扇里只有它不叫
                     //      `BackgroundHit`）⇒ 名字照上面 `CheckShadeRule` 那一行现成的实参抄，⛔ 别统一写
-                    //      `BackgroundHit`（`Editor/MainMenuScene.cs:172-174` 记着那次误判）。
-                    //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下面紧接着是 `:5552` 的 ShopWindow 那一段，
+                    //      `BackgroundHit`（`Editor/MainMenuScene.cs` 的 `BackgroundHit` 记着那次误判）。
+                    //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下面紧接着是 `CardPresentation/Editor/MainMenuScene.cs` 的 ShopWindow 那一段，
                     //      与 `chat` 无关）；上面已经关过一次 ⇒ 先开回来。
                     CheckTrue(chat.TryOpen(), "（A796 现场）把聊天窗开回来 —— 下面那条要在**开着**的窗上点");
                     MenuDraw.CheckShadeClickRule(CheckTrue, "聊天窗",
@@ -9451,7 +9585,7 @@ public static class CollectionScene
             //   （同一文件里那句 `SetParent(anchor, false)` + `localPosition = zero`）⇒ 新旧两式在**该调用形状下永远逐位相同**（⛔ 不是「今天观测不到」）
             //   ⇒ A306①②③④ 那四处码的改动在生产里**是 no-op**（留着只因口径更对 / 防御性）。
             //   ⛔ **别再说成「修好了一个带电的潜伏缺陷」**；真带电的是**非根基准**那一族
-            //   （`Shell/PracticeModePopup.cs:494/502/792/796/853/924/1238`）。
+            //   （`Shell/PracticeModePopup.cs`）。
             //   ⚠️ 本夹具（M 加在**窗根的父级** + 态二**重建**）照的正是**那一族**的形状（判据 → 文件头 ①②③）。
             // 🔴 **`A1391`（2026-10-19 · 第五十五会话 S3）**：进场先记下写盘闸的原值，收尾按它放回 ——
             //   ⛔ 不许收尾硬写 `false`（那是把「进场档」当成常量；`Run` 里若另有谁把它设成 `true`，
@@ -9498,7 +9632,7 @@ public static class CollectionScene
                     //      （RT `4517749637251500456`：anchors y 0..1 · `m_SizeDelta.y = 6`）⇒ `Cost` TMP 高
                     //      `0.776 × 64 = **49.664**`（RT `-3142486381871265368`：anchors y `0.112 → 0.888` · sd.y ≈ 0）。
                     //      **47.88 的来源 = `RM_原版TMP框尺寸.md` 表 B 的 55.7 行高那一支**
-                    //      （= `Deck Editing Menu` 的 `DeckRuntime.cs:254` `RowCostS = 61.7 = 55.7 + 6`）
+                    //      （= `Deck Editing Menu` 的 `DeckRuntime.cs` `RowCostS = 61.7 = 55.7 + 6`）
                     //      —— **张冠李戴**：本 popup 的行高是 58，不是 55.7。
                     CheckA1212(dipA.transform, "Cost Text", "Deck List ▸ … ▸ Cost Image ▸ Cost",
                                18f, 50f, 32f, 1, boxW: 48.819f, boxH: 49.66f);
@@ -9770,8 +9904,8 @@ public static class CollectionScene
             //  ⚠️ 这一段**必须留在 `Run()` 最后**（同 A503 那节的理由）：它会把 `OverridePath` 拐走、还会增删内存里的卡组。
             var grabbed = new List<string>();
 
-            // 点一颗钮、抓住这一下产生的**全部**日志（判据范式 = 本文件 `:2111-2135` 的 A229 那一段 +
-            //   `Editor/BattleScene.cs:210`：批处理里 `Debug.Log` 照样走 `Application.logMessageReceived`）。
+            // 点一颗钮、抓住这一下产生的**全部**日志（判据范式 = 本文件 `本文件` 的 A229 那一段 +
+            //   `Editor/BattleScene.cs` 的 `Debug.Log`：批处理里 `Debug.Log` 照样走 `Application.logMessageReceived`）。
             void ClickHit(Transform hit)
             {
                 grabbed.Clear();
@@ -10301,7 +10435,7 @@ public static class CollectionScene
                         CheckTrue(vpcD != null && keepRect.HasValue,
                                   "（前提）那颗视口**有框记录**（`ViewportClip.BaseRect`）—— 根治后毒药的落点");
                         // 🔴 **2026-10-17 订正**：这条毒药**只挪中心** —— 根治后的 `ClipPx` 是「**中心取 `BaseRect`、
-                        //    尺寸仍取活节点自己的 `rect`**」（`Shell/ViewportClip.cs:246-267`）⇒ 上面那对尺寸
+                        //    尺寸仍取活节点自己的 `rect`**」（`Shell/ViewportClip.cs`）⇒ 上面那对尺寸
                         //    **根本不参与**：毒后中心 = (1125.45, 202.95)、半尺寸仍取活的 Deck 视口 (794.55, 462.05)
                         //    ⇒ 毒后框 y = [−259.1, 665.0] **完整罩住** `inVp`=(500,400,700,500) ⇒「不相交」前提假、假红。
                         //    改法 = 把**中心**推到 |cy − [400,500]| > 462.05 之外（⛔ 别只调矩形高度，尺寸本来就不参与）。
@@ -10401,7 +10535,7 @@ public static class CollectionScene
             // 🔴 **Net/ 那批已有等价物**（`Editor/NetSelfTest.cs` 的 `TestNetTermBilingual`）⇒ 本笔不重复覆盖它。
             // 数组 = 本批生产文件里出现的**活键字面量** ∩ `Core/Loc.cs` 的表键（超集无害、且更严）。
             // 本宿主的数组 = 上面 `DeckScene` 那批 ∪ `Shell/{DeckInfoPopup,DeckSelectionPopup,ImportDeckPopup,CollectionData,PracticeModePopup}.cs`。
-            // 🔴 **`MenuDeck/Share/ExportSuccesful` 【不在】本数组**：它在代码里被引（`Shell/DeckInfoPopup.cs:1438`）、表里没有 ——
+            // 🔴 **`MenuDeck/Share/ExportSuccesful` 【不在】本数组**：它在代码里被引（`Shell/DeckInfoPopup.cs` 的 `ExportSuccesful`）、表里没有 ——
             //   但走的是 `ErrorMessageBanner.ShowMessage` 的 `fallback` 支（**界面不印键名、不是缺陷**），正主是 `A1050`。
             // 🧨 改坏法：① `Loc.cs` 删掉本批任一条键 ⇒ ①红；② 某条**英文列**填中文/全角空格 ⇒ ③红；
             //   ③ **中文列**清空 ⇒ ②红；④ 值改成键名本身 ⇒ ②红；⑤ 表删掉一半 ⇒ ④红（`EntryCount` 掉到基线之下）；
@@ -10473,8 +10607,8 @@ public static class CollectionScene
             //   今天跑批有鉴别力，只是因为出厂默认是 Chinese（`Loc.Default`）。
             //
             // ⛔ **不是**「在跑批前钉一次中文档」：本文件实测过 —— 一旦把语档钉成中文并**保持**，
-            //   那些同样「按 `Loc.T` 现取期望值」的断言（`:1275` 空态那行 / `:1342` `Import Deck` /
-            //   `:1344` `Create Deck` / `:1667` `Warlord Name` …）**会一起红**（期望值按钉住的档取，
+            //   那些同样「按 `Loc.T` 现取期望值」的断言（`本文件` 空态那行 / `本文件` `Import Deck` /
+            //   `本文件` `Create Deck` / `本文件` `Warlord Name` …）**会一起红**（期望值按钉住的档取，
             //   而屏上的字是建窗那一刻那一档画上去的）⇒ 那是**假红**，⛔ 别走那条路。
             //
             // ✅ **本段的做法 = 断「切语档之后那颗字的串**跟着变**」**：
@@ -10612,7 +10746,7 @@ public static class CollectionScene
                         // ---- 🆕 顺带把「第 5 步（遮让）到底还要不要做」的**读数**当场量出来（见本批报告 ③）----
                         //   D10 §四 说「收藏窗仍会盖住本窗 ⇒ 第 5 步的 `Hide()` 不能省」，而本窗是 `Fullscreen`
                         //   ⇒ `OpenWindow` 的全屏支第一句 `if (openWindows.Count > 0) HideAllWindows();`
-                        //   （`Shell/WindowsManager.cs:1007`）**应当已经**把收藏窗 `Hide()` 掉了。
+                        //   （`Shell/WindowsManager.cs`）**应当已经**把收藏窗 `Hide()` 掉了。
                         //   ⚠️ **先断前提、再断事实**：前提不成立（收藏窗本来就已经 `Closed` / 不在表里）时
                         //     那一句 `HideAllWindows()` 本来就不会跑到它身上 ⇒ 那**不是缺陷**，出声说明、⛔ 不硬断成红。
                         {
@@ -10620,7 +10754,7 @@ public static class CollectionScene
                             if (!winWasOpen)
                                 Debug.Log(P + "  ⚠️ A1132「第 5 步该不该做」的读数**没量到**：这一刻收藏窗不在"
                                           + " `openWindows` 里（或已经是 `Closed`）⇒ 全屏支那句 `HideAllWindows()`"
-                                          + " 本来就不会跑到它身上（判据 `Shell/WindowsManager.cs:1007,1086` 的 predicate）");
+                                          + " 本来就不会跑到它身上（判据 `Shell/WindowsManager.cs` 的 predicate）");
                             else
                                 CheckTrue(!win.gameObject.activeSelf,
                                           "★ A1132【第 5 步该不该做】的**实测读数**：开编辑窗那一刻，收藏窗"

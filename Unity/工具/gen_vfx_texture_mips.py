@@ -13,7 +13,15 @@ python 表 → TSV → C#（`EffectExporter.FixTextureImportSettings`）读表�
 **`battlesharedresources_assets_all.bundle`** 里。效果 prefab 引用的贴图**散在好几个包里**，
 而工程里 `Assets/WarpforgeVFX/Textures/` 有 **452 张 PNG**（比单个包的 346 张多）。
 
-产出：`数据/游戏数据/vfx_texture_mips.tsv`（列：`name  width  height  mipCount  bundle`）
+产出：`数据/游戏数据/vfx_texture_mips.tsv`（列：`name  width  height  mipCount  bundle`<br>
+      ＋ 2026-10-19 T07 的 `wrapU wrapV filterMode aniso`<br>
+      ＋ 🆕 2026-10-19 V1 的 `npotScale`：**0 = None（原版真值）**、`-1` = 该张是 POT / 无关（别动）。
+      ⚠️ 判据：原版 **runtime `Texture2D.m_Width/m_Height` 是 NPOT**（`Glow UI W40K` 123×123 ·
+      `trait_icon_*` 80×80 等）⇒ 原版导入**没有**做 POT 缩放（否则 runtime 会是 64/128）。
+      player build 里没有 `TextureImporter` 字段（编辑器类不打包；`assets_full` 全库搜
+      `nPOTScale` / `TextureImporter` = 0 命中）⇒ **runtime 尺寸就是唯一真值**。
+      Unity 新导入默认 `nPOTScale: ToNearest(1)` ⇒ 80×80 会被补成 64×64、123×123 补成 128×128
+      （UV/布局全变）。消费侧（`EffectExporter.FixTextureImportSettings`）**本波未接**（需下一次 Unity 导入）。
 
 用法：
   "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_vfx_texture_mips.py [--check]
@@ -107,6 +115,16 @@ def main():
     print(f"扫完：**{len(out)} 张唯一 Texture2D**（读不出的对象 {read_fail}）")
     print(f"m_MipCount 分布 {dict(sorted(dist.items()))}")
     print(f"**无 mip（=1）的 {dist.get(1, 0)} 张** —— 这些在工程里必须是 `mipmapEnabled = false`")
+
+    # 🆕 2026-10-19（V1 / nPOTScale）：原版 runtime 尺寸就是导入后的结果。
+    #   NPOT ⇒ 原版导入没做 POT 缩放 ⇒ 我们必须写 `nPOTScale: 0`（None）。
+    def _pot(n):
+        return n > 0 and (n & (n - 1)) == 0
+    npot = [(n, v[0], v[1]) for n, v in out if not (_pot(v[0]) and _pot(v[1]))]
+    print(f"**NPOT（宽或高非 2 次幂）的 {len(npot)} 张** ⇒ 导入必须 `nPOTScale = None(0)`"
+          f"（Unity 默认 ToNearest 会缩放）")
+    for n, w, h in npot:
+        print(f"    {n}: {w}x{h}")
     if conflicts:
         print(f"🔴 **{len(conflicts)} 张同名贴图在不同包里 mip 层数不一致**（不静默挑一个）：")
         for n, a, b in conflicts[:20]:
@@ -129,9 +147,11 @@ def main():
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with io.open(OUT, "w", encoding="utf-8", newline="\n") as f:
-        f.write("name\twidth\theight\tmipCount\tbundle\twrapU\twrapV\tfilterMode\taniso\n")
+        f.write("name\twidth\theight\tmipCount\tbundle\twrapU\twrapV\tfilterMode\taniso\tnpotScale\n")
         for name, v in out:
-            f.write(f"{name}\t{v[0]}\t{v[1]}\t{v[2]}\t{v[3]}\t{v[4]}\t{v[5]}\t{v[6]}\t{v[7]}\n")
+            # npotScale：NPOT ⇒ 0 (None，原版真值)；POT ⇒ -1（无关，消费侧别动）
+            npv = 0 if not (_pot(v[0]) and _pot(v[1])) else -1
+            f.write(f"{name}\t{v[0]}\t{v[1]}\t{v[2]}\t{v[3]}\t{v[4]}\t{v[5]}\t{v[6]}\t{v[7]}\t{npv}\n")
     print(f"写出 {OUT}（{len(out)} 行）")
     return 0
 

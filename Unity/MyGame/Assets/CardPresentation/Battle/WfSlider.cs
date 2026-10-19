@@ -132,6 +132,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════════════
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;   // 🆕 2026-10-20（`T09` A3-b）：画布档的输入走 uGUI（`EventTrigger` + `PointerEventData`）
 using UnityEngine.UI;     // 🆕 画布档要 `Image`（`ppuMul` / `sprite` 那两个读口）；世界档一个字都不用
 
 namespace CardPresentation
@@ -291,6 +292,53 @@ namespace CardPresentation
         /// 的分母都要它（A169 起那两处写的是「画布 px 的 10」，设置窗因此少 1 画布 px，波 8 修）。
         /// ⛔ 别退回 `SlideRightInsetPx / U`（那就又变成「拿战斗那个数当全部情况」）。</summary>
         float _slideInsetU;
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+        // 🔴 **2026-10-20（W57 · 战斗线 `T09` 步骤 A3-b）：画布档的输入改走 uGUI 事件** ——
+        //   判据 → `资料/普查产出_1019/W57_战斗线_T09迁移计划.md` §2 步骤 A3-b
+        //   （「`WfSlider` 双模式，需要 `IPointerDown/Drag` 走 uGUI（拖动是持续状态，不能只靠 onClick）」）。
+        //
+        //   · **为什么拖动不能只靠 onClick**：拖动是**持续状态** —— 按下 → 每一帧移动 → 抬起。
+        //     原版 `Slider` 就是 `IPointerDownHandler / IDragHandler / IPointerUpHandler` 走 EventSystem 送达。
+        //   · **为什么用 `EventTrigger` 而不是自定义 `MonoBehaviour`**：本波是**单文件白名单**
+        //     （只许改 `WfSlider.cs`），而本仓有一条硬规矩 = **`MonoBehaviour` 的类名必须与文件名相同**
+        //     （2026-10-13 那轮 `!u115` 根治的结论；现读全仓「一文件多 `MonoBehaviour`」= **0**）。
+        //     在 `WfSlider.cs` 里再定义一个 `WfSliderPointerInput` 会破坏那条规矩。
+        //     而 `UnityEngine.EventSystems.EventTrigger` 是 uGUI **自带**的组件，它实现了
+        //     `IPointerDownHandler / IDragHandler / IPointerUpHandler / IPointerEnter/ExitHandler` 整族
+        //     （本机源码 `…/com.unity.ugui/Runtime/UGUI/EventSystem/EventTrigger.cs:143-160`），
+        //     正是「把事件转给委托」的那个口。
+        //   · **挂哪儿**：挂在**滑块根**（`slider_<name>`）上。射线打到三张图里的任意一张 ⇒
+        //     `ExecuteEvents.GetEventHandler<T>` 从命中件**沿父链冒泡** ⇒ 落到根上的 `EventTrigger`
+        //     （所以根自己不需要 `Graphic`）。⛔ 不要在三张图上各挂一个（那就是同一件事三份）。
+        //   · **命中几何照原版**：原版 `Slider` 点得到靠的是子件
+        //     `Background`(MB_4355) / `Fill`(MB_4553) 的 `m_RaycastTarget = 1` + `m_RaycastPadding = 0`，
+        //     以及手柄那颗 `Image`（MB_4502 等）的 `m_RaycastPadding = (−25,−25,−25,−25)`（外扩）。
+        //     我们照抄（见 `SetupUguiInput`）；**手柄那一条要把「节点 rect 差」补进 padding**，
+        //     因为我们的手柄 rect 是「画出来的正方」而不是原版的 `HandleFrameW × 运行期框高`。
+        //   · **数值行为逐位不变**：`PointerDown / Drag` 都走 `SetFromLocal(...)`，
+        //     它与 `SetFromPointer(world)` **共用同一个算式**（`SetFromPointer` 现在只是
+        //     「世界 → 局部」再转调它）⇒ 值域 / 步进（`1e-4` 阈值）/ `OnChanged` 与改之前完全一致。
+        //   · ⚠️ **如实记一条与原版的差异（本步【不改】）**：原版 `Slider.OnPointerDown` 按在**手柄上**时
+        //     记 `m_Offset`（拖起来保持抓取偏移、值**不跳**）；本件一直就是「按下即跳到指针」
+        //     （`SetFromPointer` 的既有语义，`SettingsPanel.PointerFrame` 也按那条注释在做）。
+        //     本步的口径是**保持数值行为逐位不变** ⇒ 不引入抓取偏移。要改成原版那一条是**另一步**
+        //     （那会改数值行为，得单独拍板）。
+        //   · ⚠️ **过渡期两套路径并存是安全的**：宿主（`SettingsPanel.PointerFrame`）现在仍每帧喂
+        //     `Contains` / `SetFromPointer`。两条路对**同一个指针位置**算出**同一个值** ⇒
+        //     `SetFromLocal` 的 `1e-4` 阈值让第二次调用**不会重复触发 `OnChanged`**。
+        //     等 `A2`/`A3` 那批把宿主的手搓口删掉，这里就是唯一入口。⛔ 本步**不改**宿主（不在白名单）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>🔴 **2026-10-20（`T09` A3-b）：画布档的 uGUI 输入组件**（`EventTrigger`）。
+        /// **世界档恒 `null`** —— 那一档仍由宿主（`Shell/SettingsWindow.cs`）喂 `Contains`/`SetFromPointer`。</summary>
+        EventTrigger _pointerTrigger;
+        /// <summary>uGUI 拖动状态（`PointerDown → PointerUp` 之间为 true；**仅画布档会变**，世界档恒 false）。</summary>
+        bool _dragging;
+        /// <summary>uGUI 悬停状态（`PointerEnter/Exit` 维护；**仅画布档会变** —— 世界档的悬停由宿主喂）。</summary>
+        bool _pointerHover;
+        /// <summary>指针换算失败那条警告的限流计数（不许静默失败，但也别每帧刷屏）。</summary>
+        int _pointerConvertWarns;
 
         // ============================ 悬停 / 按下 / 禁用 反馈（`N70` P0-4） ============================
         // 判据 = 原版 uGUI `Slider`（`m_Transition = 1 ColorTint`）：
@@ -653,6 +701,9 @@ namespace CardPresentation
             }
             s.Layout();
             s.FbInit();          // 🆕 2026-10-19（B4）：记基准色 + 立刻写一次 Normal（同 `WindowButton.ApplyTintInstant`）
+            // 🆕 2026-10-20（`T09` A3-b）：**画布档**的 uGUI 输入出口 —— 三张图设为可射线件 + 根上挂 `EventTrigger`。
+            //   世界档**一个字都不做**（那一档的输入仍由宿主的手搓口喂；判据见上面那整段）。
+            if (s._ugui) s.SetupUguiInput();
             return s;
         }
 
@@ -924,6 +975,22 @@ namespace CardPresentation
         {
             if (_root == null) return false;
             var l = _root.transform.InverseTransformPoint(world);
+            // 🔴 **2026-10-20（`T09` A3-b）**：算式搬进 `SetFromLocal`（**唯一一份**）——
+            //    本句只负责「世界 → 本件局部」，转调之后**逐位不变**（`l.x` 同一个数、同一个 `t` 算式）。
+            //    uGUI 那条路（`ApplyUguiPointer`）也是转调它 ⇒ 两条输入口不可能算出不同的值。
+            return SetFromLocal(new Vector2(l.x, l.y));
+        }
+
+        /// <summary>🆕 **2026-10-20（`T09` A3-b）**：按**本件局部坐标**取值（世界档 = 世界单位、
+        /// 画布档 = 设计 px —— 与 `_w/_slideInsetU` 同域，见 <see cref="Create"/> 那个 `u`）。
+        /// 返回**值变了没有**。
+        /// <para>🔴 **算式是唯一一份**：<see cref="SetFromPointer"/>（宿主手搓口）与
+        /// <see cref="ApplyUguiPointer"/>（uGUI 事件口）都调它 —— ⛔ 别在任何一边再写一份
+        /// （两处写同一条规则 = 迟早不一致，`CLAUDE.md` §三）。</para>
+        /// <para>判据 = 原版 `Slider.UpdateDrag`（逐句见 `SetFromPointer` 的 doc）：
+        /// 值的 0 在滑区左沿、1 在滑区右沿，分母 = 滑区宽。</para></summary>
+        bool SetFromLocal(Vector2 l)
+        {
             float t = Mathf.Clamp01((l.x + _w * 0.5f) / (_w - _slideInsetU));
             float v = Mathf.Lerp(Min, Max, t);
             if (Mathf.Abs(v - Value) < 1e-4f) return false;
@@ -931,6 +998,133 @@ namespace CardPresentation
             Layout();
             if (OnChanged != null) OnChanged(Value);
             return true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+        // 🔴 **2026-10-20（`T09` A3-b）：画布档的 uGUI 输入**（判据/为什么这么写 → 文件头 `_pointerTrigger`
+        //   上面那一整段）。本段**只在 `_ugui` 档生效**；世界档的输入仍由宿主喂，一个字都没动。
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>画布档建完收尾：① 三张图 = **可射线件**（原版 `m_RaycastTarget = 1`；我们的建件口默认 false）；
+        /// ② 根上挂 `EventTrigger`，把 `PointerDown/Drag/PointerUp/PointerEnter/PointerExit` 接到本件。
+        /// <para>幂等（已有 `EventTrigger` 就复用、表清空重建）—— `Create` 每根只调一次，但重入也不会叠两份委托。</para>
+        /// <para>⛔ 世界档调用它是**空操作**（`_ugui == false` 直接返回）。</para></summary>
+        void SetupUguiInput()
+        {
+            if (!_ugui || _root == null) return;
+
+            // ① 轨道 / 填条：**原版 `Background`(MB_4355) / `Fill`(MB_4553) 的 `m_RaycastTarget = 1`、padding 0**
+            //    （`bundle_scenes_scenes_battlearena1` 逐颗实读，判据 → `Contains` 的 doc）。
+            //    ⚠️ 图没建起来的那一档 `Create` 已经出声（不在这里重复刷同一条），这里只跳过着色。
+            if (_bgImg != null) { _bgImg.raycastTarget = true; _bgImg.raycastPadding = Vector4.zero; }
+            if (_fillImg != null) { _fillImg.raycastTarget = true; _fillImg.raycastPadding = Vector4.zero; }
+
+            // ② 手柄：原版那颗 `Image` 的 `m_RaycastPadding = (−25,−25,−25,−25)`（外扩，判据 → `HandlePadPx`）。
+            //    🔴 **不能照抄四个 −25**：原版命中框的基准是**节点 rect** `HandleFrameW(46.811) × 运行期框高`，
+            //    而我们这颗节点的 rect 是**画出来的正方** `_handlePx × _handlePx`（见 `HandlePx` 那条）
+            //    ⇒ 横向差的 `(HandleFrameW − _handlePx)/2` 必须补进 padding，才能得到**同一块**命中框
+            //    `96.811 × 84.406`（= `Contains` 的 `HitHandlePadded` 那一块，逐位相同）。
+            //    推导：目标半宽 = `HandleFrameW/2 − HandlePadPx`；我们的半宽 = `_handlePx/2`
+            //    ⇒ 每边外扩 = `(HandleFrameW − _handlePx)/2 − HandlePadPx`（本例 = 6.2025 + 25 = **31.2025**）。
+            //    纵向我们的框高本来就 = 原版运行期框高 ⇒ 直接就是 `HandlePadPx`（本例 −25）。
+            //    ⛔ 别把这条「横向补偿」删掉当成「两个值一样」—— 少补就是每边少 6.2 px，而画面完全正常。
+            var handleImg = _handle != null && _handle.Rect != null ? _handle.Rect.GetComponent<Image>() : null;
+            if (handleImg != null)
+            {
+                handleImg.raycastTarget = true;
+                float padX = HandlePadPx + (_handlePx - HandleFrameW) * 0.5f;
+                handleImg.raycastPadding = new Vector4(padX, HandlePadPx, padX, HandlePadPx);
+            }
+
+            // ③ 根上的事件入口。判据/为什么不是自定义 MonoBehaviour → 文件头 `_pointerTrigger` 那一段。
+            var trig = _root.GetComponent<EventTrigger>();
+            if (trig == null) trig = _root.AddComponent<EventTrigger>();
+            if (trig == null)
+            {
+                // 不许静默失败：加不上 = 画布档**永远收不到按下/拖动**（而画面完全正常）
+                Debug.LogError($"[WfSlider] `{SliderName}` 的 `EventTrigger` 加不上 ⇒ 画布档的拖动/点击**收不到**"
+                             + "（uGUI 输入层没接上；世界档不受影响）");
+                return;
+            }
+            trig.triggers.Clear();
+            AddPointerEntry(trig, EventTriggerType.PointerDown, OnUguiPointerDown);
+            AddPointerEntry(trig, EventTriggerType.Drag, OnUguiDrag);
+            AddPointerEntry(trig, EventTriggerType.PointerUp, OnUguiPointerUp);
+            AddPointerEntry(trig, EventTriggerType.PointerEnter, OnUguiPointerEnter);
+            AddPointerEntry(trig, EventTriggerType.PointerExit, OnUguiPointerExit);
+            _pointerTrigger = trig;
+        }
+
+        /// <summary>往 `EventTrigger` 上挂一条 —— 只认 `PointerEventData`（这五类事件本来就是它）。</summary>
+        static void AddPointerEntry(EventTrigger trig, EventTriggerType type, Action<PointerEventData> handler)
+        {
+            var e = new EventTrigger.Entry { eventID = type };
+            e.callback.AddListener(d =>
+            {
+                var p = d as PointerEventData;
+                if (p != null) handler(p);
+            });
+            trig.triggers.Add(e);
+        }
+
+        /// <summary>画布档：按下。**照原版 `Slider.OnPointerDown` 的两条闸**（`MayDrag`：可交互 + 只认左键），
+        /// 然后 **按下即定位**（值跳到指针 = `SetFromPointer` 的既有语义，见文件头那条差异说明）。</summary>
+        void OnUguiPointerDown(PointerEventData e)
+        {
+            if (e == null || !_fbInteractable) return;
+            if (e.button != PointerEventData.InputButton.Left) return;
+            _dragging = true;
+            SetPressed(true);
+            ApplyUguiPointer(e);
+        }
+
+        /// <summary>画布档：拖动（**持续状态**）。只在 `PointerDown` 之后、`PointerUp` 之前生效
+        /// —— 与 EventSystem 的 `pointerDrag` 语义一致（指针离开矩形后仍继续送）。</summary>
+        void OnUguiDrag(PointerEventData e)
+        {
+            if (e == null || !_dragging || !_fbInteractable) return;
+            if (e.button != PointerEventData.InputButton.Left) return;
+            ApplyUguiPointer(e);
+        }
+
+        /// <summary>画布档：抬起 ⇒ 退出拖动/按下态。**不再改值**（照原版 `Selectable.OnPointerUp` ——
+        /// 原版 `Slider` 没有自己的 `OnPointerUp`，抬起那一帧不重算值）。</summary>
+        void OnUguiPointerUp(PointerEventData e)
+        {
+            if (e == null || !_dragging) return;
+            if (e.button != PointerEventData.InputButton.Left) return;
+            _dragging = false;
+            SetPressed(false);
+        }
+
+        /// <summary>画布档：悬停进/出 ⇒ 喂本件既有的反馈口（`SetHover`，原版 `Selectable` 的
+        /// `Highlighted`）。⛔ 别在这里直接改色 —— 状态优先级（禁用 &gt; 按下 &gt; 悬停）只在 `FbSetTarget` 一份。</summary>
+        void OnUguiPointerEnter(PointerEventData e) { _pointerHover = true; SetHover(true); }
+        void OnUguiPointerExit(PointerEventData e) { _pointerHover = false; SetHover(false); }
+
+        /// <summary>把 uGUI 事件的屏幕点换来本件局部坐标，再走 <see cref="SetFromLocal"/>。
+        /// <para>🔴 换算**只走** `RectTransformUtility.ScreenPointToLocalPointInRectangle`（`T09` A3-b 的硬要求）
+        /// —— ⛔ 不许混用 `LayoutSpace.ToPixel`：那是「世界 px ↔ 世界单位」的旧尺，画布档的局部单位是**设计 px**。
+        /// 相机取 `eventData.pressEventCamera`（= 按下那次射线的模块相机；`ScreenSpaceCamera` 画布 = 该相机、
+        /// Overlay = `null`，判据 → 本机 `PointerEventData.cs:315-323` + `Slider.UpdateDrag` 同一句）。</para>
+        /// <para>⚠️ 与 `Slider.UpdateDrag` 的**一处已知差异（如实记）**：原版先用
+        /// `MultipleDisplayUtilities.GetRelativeMousePositionForDrag` 处理多显示器相对坐标；我们直接吃
+        /// `eventData.position`（单显示器下**逐位同值**）。多显示器不在本项目的验收范围（`资料/真Play待验清单.md`）。</para></summary>
+        void ApplyUguiPointer(PointerEventData e)
+        {
+            if (e == null || _root == null) return;
+            Vector2 local;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    (RectTransform)_root.transform, e.position, e.pressEventCamera, out local))
+            {
+                // 不许静默失败，但限流（拖动时可能每帧都失败）
+                if (_pointerConvertWarns++ < 3)
+                    Debug.LogWarning($"[WfSlider] `{SliderName}` 的 uGUI 指针换算失败"
+                        + $"（screen={e.position}, pressEventCamera={(e.pressEventCamera == null ? "null" : e.pressEventCamera.name)}）"
+                        + " —— 这次按下/拖动**没改值**（⛔ 不猜一个值顶上）");
+                return;
+            }
+            SetFromLocal(local);
         }
 
         public void SetValue(float v, bool fire)
@@ -946,7 +1140,9 @@ namespace CardPresentation
         {
             if (_root != null) _root.SetActive(on);
             // 关着的时候不该留着悬停/按下（否则再打开会先亮一帧旧状态）
-            if (!on) { SetHover(false); SetPressed(false); }
+            // 🔴 2026-10-20（`T09` A3-b）：uGUI 那两个状态也要一并清 —— 窗在拖动中途被关掉时
+            //    `PointerUp` 可能根本到不了（件已失活 ⇒ 不派事件）⇒ 不清就会「下次打开仍是拖动中」。
+            if (!on) { _dragging = false; _pointerHover = false; SetHover(false); SetPressed(false); }
         }
 
         // ---- 自检用 ----
@@ -1198,6 +1394,45 @@ namespace CardPresentation
                 return rt != null ? HudCanvas.OrderZOf(rt) : float.NaN;
             }
         }
+
+        // ── 🆕 2026-10-20（W57 · `T09` A3-b）：**Editor-only 只读探针**（给后续断言用；播放器里不存在）──
+        //   ⛔ 本段**只读** —— 不提供「模拟一次指针事件」的写口（事件要走 `EventSystem`
+        //      / `ExecuteEvents`，见 `T09` 迁移计划 §2 A1·断言③ 的写法；自造写口 = 两条路径）。
+#if UNITY_EDITOR
+        /// <summary>当前值（= <see cref="Value"/> 的探针版）。</summary>
+        public float ValueForTest { get { return Value; } }
+        /// <summary>uGUI 拖动状态（`PointerDown → PointerUp`；**世界档恒 false**）。</summary>
+        public bool DraggingForTest { get { return _dragging; } }
+        /// <summary>uGUI 悬停状态（`PointerEnter/Exit`；**世界档恒 false** —— 那边悬停由宿主喂）。</summary>
+        public bool PointerHoverForTest { get { return _pointerHover; } }
+        /// <summary>反馈层的「按下」状态（= 原版 `Selectable.Pressed`；两种模式同一个值）。</summary>
+        public bool PressedForTest { get { return _fbPressed; } }
+        /// <summary>画布档的 uGUI 输入组件（`EventTrigger`）；**世界档 / 建失败 ⇒ `null`**。</summary>
+        public Component PointerInputForTest { get { return _pointerTrigger; } }
+        /// <summary>轨道那颗 `Image` 的 `raycastTarget`（判据 = 原版 `Background` 的 `m_RaycastTarget = 1`）。</summary>
+        public bool TrackRaycastTargetForTest { get { return _bgImg != null && _bgImg.raycastTarget; } }
+        /// <summary>填条那颗 `Image` 的 `raycastTarget`（判据 = 原版 `Fill` 的 `m_RaycastTarget = 1`）。</summary>
+        public bool FillRaycastTargetForTest { get { return _fillImg != null && _fillImg.raycastTarget; } }
+        /// <summary>手柄那颗 `Image` 的 `raycastTarget`（判据 = 原版 `Handle` 的 `m_RaycastTarget = 1`）。</summary>
+        public bool HandleRaycastTargetForTest
+        {
+            get
+            {
+                var im = _handle != null && _handle.Rect != null ? _handle.Rect.GetComponent<Image>() : null;
+                return im != null && im.raycastTarget;
+            }
+        }
+        /// <summary>手柄那颗 `Image` 实际的 `raycastPadding`（画布档；世界档 / 没建 ⇒ `zero`）。
+        /// 战斗那三根的期望 = **(−31.2025, −25, −31.2025, −25)**（推导见 `SetupUguiInput` 的 ②）。</summary>
+        public Vector4 HandleRaycastPaddingForTest
+        {
+            get
+            {
+                var im = _handle != null && _handle.Rect != null ? _handle.Rect.GetComponent<Image>() : null;
+                return im != null ? im.raycastPadding : Vector4.zero;
+            }
+        }
+#endif
 
         public Vector3 WorldPos { get { return _root != null ? _root.transform.position : Vector3.zero; } }
         public Vector3 HandleWorldPos { get { return _handle != null ? _handle.transform.position : WorldPos; } }

@@ -254,7 +254,7 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-11（A1521⑥）：为什么必须单开一档 —— 它原来是【同队列】，而实测没画出来。**
         /// 档位原来传的是 `QPanel`，**与导航底板 `Navigation Panel/Background` 同一个数（2910）**
         /// （底板在 `BuildNavigationPanel` 里就是 `QPanel`）⇒ 同队列 + 两件 z 都是 0
-        /// ⇒ **谁盖谁完全不确定**（本文件 `QBg` 那段 2026-09-22 的实测结论；`Editor/MainMenuScene.cs:6312`
+        /// ⇒ **谁盖谁完全不确定**（本文件 `QBg` 那段 2026-09-22 的实测结论；`Editor/MainMenuScene.cs`
         /// 也写着同一条：「同队列时谁盖谁由『到相机的距离』定」）。</para>
         ///
         /// <para>🔴 **实测（逐像素量的，不是目测）**：拿真机实拍 `_tmp_view/play17/S1_menu.png`
@@ -274,7 +274,7 @@ namespace CardPresentation
         /// ⇒ `QPanel + 1`（2911）是这一段里唯一的空档。</para>
         ///
         /// <para>⚠️ **工程里同一件事有先例**：`DeckRuntime` 的页签高亮（**同一张图**）也是单开一档压在侧栏底板之上
-        /// —— `QPanel 3004 &gt; QSide 3000`（`Deck/DeckRuntime.cs:1223`）。
+        /// —— `QPanel 3004 &gt; QSide 3000`（`Deck/DeckRuntime.cs`）。
         /// ⚠️ **诚实标注**：改这一档是照「兄弟序 + 同队列不确定」推的，**改完没有跑过 Unity、没法当场验收**
         /// （执行代理不许跑批处理）—— 请把这条记成「已改、待实拍复核」。</para></summary>
         const int QNavHighlight = QPanel + 1;
@@ -334,7 +334,7 @@ namespace CardPresentation
         //    它靠兄弟序 + 排序层，见上面 ①②）—— 这句从第一版起就如实写着，**别改成「照抄原版」**。
         // ⚠️ **只降顶栏这一条带子**：左侧导航、模式卡、以及别处那些 `QPanel/QContent` 一律不动；
         //    尤其 `QOverlay`（2930）那几处**别一起动** —— 模式卡的边框与它的命中区用的是同一档
-        //    （`BuildGameModes` 里 `:1118` / `:1137` 两处），它们要压在**模式卡**之上，与弹窗无关。
+        //    （`BuildGameModes` 里 `本文件` / `本文件` 两处），它们要压在**模式卡**之上，与弹窗无关。
         //    顶栏降到 2994–2998 之后**仍然高于**它们（2930 / 2931）⇒ 菜单内部的相对次序没变
         //    （2026-10-17 F5 把下沿放宽到 2986，高得更多，这条更宽松 —— 见下）。
         // 📌 **保留历史痕迹**（铁律 5 —— 更正痕迹不许抹掉）：2026-09-28 那一轮**是照一张二手实拍**做的
@@ -793,7 +793,7 @@ namespace CardPresentation
             // 🔴 **2026-10-12（第二十三会话 `D-M1` 诊断）：改走 `InstanceOrFind()`**（原来直读 `Instance`）。
             //   为什么：`Instance` 唯一赋值点在 `Awake`，而本类**没有 `[ExecuteAlways]`** ⇒ **编辑模式（自检）里恒 null**
             //   ⇒ `SetNavToggle` 第一句就 `return` ⇒ 自检那条「恰好某一颗亮」永远红的（且是**假红**：实现没坏、是取不到实例）。
-            //   同文件 `EscapePressed`（`:1041` 附近）**早就走 `InstanceOrFind()`**，这里当时漏了 ⇒ 两处写法不一致。
+            //   同文件 `EscapePressed`（`本文件` 附近）**早就走 `InstanceOrFind()`**，这里当时漏了 ⇒ 两处写法不一致。
             //   ⚠️ **运行期零可观测差异**：没有主菜单的场景里 `FindFirstObjectByType` 照样返回 null ⇒ 仍「无事可做」。
             var rt = InstanceOrFind();
             if (rt == null) return;                  // 不在主菜单场景 ⇒ 没有左竖导航可点（正常，不是失败）
@@ -821,8 +821,8 @@ namespace CardPresentation
         // 为什么非改不可（两条，都是实测）：① 原来 `SelectNav` 是「销毁整个面板 → 重新建」；
         //   一旦它被**点击**触发（本次要接的就是这条），面板连同**正在执行 `onClick` 的那颗钮**
         //   一起被 `DestroyImmediate` 掉（自检是批处理、`Application.isPlaying == false` ⇒ 立即销毁）；
-        //   ② 更硬的一条：自检里 `var nav = menu.Find("Navigation Panel")`（`Editor/MainMenuScene.cs:676`）
-        //   那个引用**后面还有 5 处要用**（`:1556` / `:1558` / `:10892` / `:10894` / `:10898`）——
+        //   ② 更硬的一条：自检里 `var nav = menu.Find("Navigation Panel")`（`Editor/MainMenuScene.cs` 的 `var nav = menu.Find("Navigation Panel")`）
+        //   那个引用**后面还有 5 处要用**（`CardPresentation/Editor/MainMenuScene.cs` / `CardPresentation/Editor/MainMenuScene.cs` / `CardPresentation/Editor/MainMenuScene.cs` / `CardPresentation/Editor/MainMenuScene.cs` / `CardPresentation/Editor/MainMenuScene.cs`）——
         //   面板一被销毁，那些断言全变成「节点不在」。⇒ 本方法**只重建高亮那一颗**。
         readonly List<Transform> _navBtns = new List<Transform>();
         readonly List<Vector2> _navBands = new List<Vector2>();
@@ -893,7 +893,7 @@ namespace CardPresentation
         /// <summary>换选中页（左竖导航）。**只有选中的那个画高亮**（语义同原版，见上）。
         /// 🔴 **2026-10-11（`A1522④`）就地改法（⛔ 别退回「销毁整块面板重建」）**：本方法只撤掉旧的高亮那一颗、
         /// 在**新选中的按钮**底下重建一颗 —— 面板本体 / 五颗按钮 / 图标文字**一个都不动**
-        /// （理由见上面那两行；`Editor/MainMenuScene.cs:10902` 还钉着「`Selected highlight` 全树只有 1 个」）。
+        /// （理由见上面那两行；`Editor/MainMenuScene.cs` 还钉着「`Selected highlight` 全树只有 1 个」）。
         /// ⚠️ 与原版**已知的一档差异**（如实记）：原版那颗高亮由 `Toggle.graphic` + `toggleTransition = 1`
         ///    **淡入淡出**驱动、且 5 颗**树里都在**；我们是「**建一颗 / 撤一颗**」的硬开关
         ///    （判据 → `资料/普查产出_第十八会话/B_三条判据挖掘.md` 问题 C 第 2 / 7 条）。</summary>
@@ -1336,7 +1336,7 @@ namespace CardPresentation
         //   `资料/普查产出_1006/甲5_A97_A99_A104_A105.md` §二 A104（五跳证据链）：
         //   ① 缓存字段 = `WindowsManager.automaticallyLoadedWindows`
         //      （`BiDirectionalDictionary<ComponentReference<GameWindow>, GameWindow>`，**键 = prefab 引用**；
-        //      签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs:170`）；
+        //      签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs`）；
         //   ② `WindowsManager.OpenWindow` **第一件事就是查它** —— `TryGetValue` 在 `Instantiate` **之前**，
         //      命中 `jne` 直接跳复用块（实测 VA `0x180875990`）⇒ **同一扇窗点两次只有一个实例**；
         //   ③ 🔴 **命中只在「窗还开着」时发生**：`WindowsManager__CloseWindowCO.c:38-48` 关窗时会
@@ -1398,7 +1398,7 @@ namespace CardPresentation
         ///   secondButton: {Text: "Demo/MainMenu/ExitButton"})`
         ///   （`SettingsMenu__ExitGamePopup.c` 逐句；三个串在 `il2cpp_out/stringliteral.json` 里逐字节实读 =
         ///   `0x4277558` / `0x4277360` / `0x4277460`；重载的形参名 →
-        ///   `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs:327-335` 那三个 `ShowPopUp`）。
+        ///   `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs` 那三个 `ShowPopUp`）。
         ///   ⚠️ 与别的调用点不同：这里 **`closeOnEsc = 1`**（那一族多数传 0）⇒ **这扇弹窗按 ESC 关得掉**。</item>
         /// </list>
         ///
@@ -2782,7 +2782,7 @@ namespace CardPresentation
         //       · `RankedMenuContainer__RefreshContentDisplay.c:16-27` —— `playEvent == null` 那一支
         //         = `SetActive(milestonesStepDisplay, false)` + `ToggleLegendaryRankInfo(false)`
         //         ⇒ **没有活跃 ranked 事件 ⇒ 两支都关**；
-        //       · 同文件 `:29-36` —— `X = rankedEvent.IsLegendaryElo` ⇒
+        //       · 同文件 `本文件` —— `X = rankedEvent.IsLegendaryElo` ⇒
         //         `SetActive(milestonesStepDisplay, X == 0)` **＋** `ToggleLegendaryRankInfo(X)`
         //         ⇒ **一条判据同时决定两支、而且方向相反**；
         //       · `RankedMenuContainer__ToggleLegendaryRankInfo.c:8-24` —— 末句就是
@@ -2951,7 +2951,7 @@ namespace CardPresentation
         /// `41 + 名次串宽 + 81 + 分数串宽` ⇒ **两段字串的宽运行期才知道** ⇒ 走本仓同族那一套
         /// 「**先建、再量 `Label.WorldW`、最后摆**」（先例 = `Shell/TopBar.cs` 的 `BuildResourcesBar`，
         /// 那里同样是「布局组 + 文本宽」这件事）。
-        /// ⚠️ **`Shell/RankedTab.cs:327` 对【同一个组件】取的是「按左对齐摆」那一档**（那里的原话是
+        /// ⚠️ **`Shell/RankedTab.cs` 对【同一个组件】取的是「按左对齐摆」那一档**（那里的原话是
         /// 「居中量要用字体度量 ⇒ 我们按左对齐摆」）—— 本处取**居中**，因为量宽这条路本仓已经有现成的；
         /// ⛔ **两处都别写成「原版是左对齐」**（原版是 `align 4` 居中），差异如实记在这两处。</para>
         ///
@@ -2961,7 +2961,7 @@ namespace CardPresentation
         ///
         /// <para>🔴 **本地拿不到那两段文字**（名次 / 单场 elo 都是玩家数据，原版由
         /// `RankedMenuContainer.RefreshContentDisplay` 灌进去）⇒ 走**全工程唯一那个空值占位**
-        /// `RankedTab.ScoreEmpty`（同族先例 → `Shell/AllianceMemberTab.cs:896`：「⛔ 不自己发明、
+        /// `RankedTab.ScoreEmpty`（同族先例 → `Shell/AllianceMemberTab.cs` 的 `ScoreEmpty`：「⛔ 不自己发明、
         /// 也不留一个原版没有的空白」），并且**出声**（⛔ 不静默 —— 红线）。</para></summary>
         Transform BuildGlobalRating(Transform rating, float x, float y)
         {
@@ -2995,7 +2995,7 @@ namespace CardPresentation
                 // ⛔ **不许静默**：量不出字宽（TMP 不在激活链上 / 没量到）⇒ 退回**左对齐**并说一声。
                 Debug.LogWarning("[Menu] 排位卡 `Rating ▸ Global Rating`：两段数字**量不出宽**（合计 " + total
                                + "px）⇒ 这一行退回**左对齐**摆。⚠️ 原版是按内容**居中**（HLG `align 4`）；"
-                               + "受影响的是**位置**、不是内容（对照 → `Shell/RankedTab.cs:327` 那条左对齐档）。");
+                               + "受影响的是**位置**、不是内容（对照 → `Shell/RankedTab.cs` 那条左对齐档）。");
                 left = stripL;
             }
 

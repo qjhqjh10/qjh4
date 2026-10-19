@@ -305,7 +305,7 @@ namespace CardPresentation
         /// 那句**逐字相同** ⇒ 中文档零变化）；键名有出处 = 原版 `CatalogItemContainer__TryPurchase`
         /// 的 `0x42D24E0`（地址表实读，见 `Core/Loc.cs` 里这条键的留痕）。
         /// ⚠️ **`const` → 属性** ⇒ 不能再当编译期常量用（`case` 标签 / 特性实参 / 别的 `const` 初值）；
-        /// 全仓消费点只有 `Shell/ShopWindow.cs:791` 一个普通实参（现读 `grep`）⇒ 安全。</summary>
+        /// 全仓消费点只有 `Shell/ShopWindow.cs` 一个普通实参（现读 `grep`）⇒ 安全。</summary>
         public static string LegendaryWarnText { get { return Loc.T("MenuShop/ExtraLegendaryWarning"); } }
 
         /// <summary>🆕 **2026-10-12（A439）：这一件买到手要画进【领奖窗】的那几条奖励**

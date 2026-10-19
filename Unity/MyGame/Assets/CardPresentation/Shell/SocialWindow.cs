@@ -183,7 +183,7 @@ namespace CardPresentation
             // 视觉顺序 = 原版 `Tab Buttons` 下两个孩子的顺序（Alliances → Friends），也是 `tabs[]` 的顺序。
             // 🔴 **2026-10-17（`A1511(a)`）就地改序（铁律 5）**：这两句原来排在 `BuildShell` **之后** ——
             //   而 `BuildBar` 建每一颗键时就读 `visualTypes[i]` 写进 `TabButtons.options[i].type`
-            //   （`Shell/MainMenuSubmenuWindow.cs:465`）⇒ 事后替换**不生效**。⇒ **必须排在 `BuildShell` 之前**。
+            //   （`Shell/MainMenuSubmenuWindow.cs` 的 `BuildShell`）⇒ 事后替换**不生效**。⇒ **必须排在 `BuildShell` 之前**。
             visualTypes.Clear();
             visualTypes.Add(WindowTabType.SocialAlliances);
             visualTypes.Add(WindowTabType.SocialFriends);

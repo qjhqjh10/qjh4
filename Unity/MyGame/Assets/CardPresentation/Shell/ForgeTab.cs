@@ -491,7 +491,9 @@ namespace CardPresentation
                       + "冒充原版**（铁律 3）。空态：宿主的名字/层级/矩形照原文各就各位，不报错、不留残留。");
             Debug.Log("[Forge] `Help Icon` 的 tooltip **已接线**（悬停进 `Tooltip` 层、离开收）——"
                       + "原版正文是 I2 词条 `MainMenu/Forge/Help`（`EverguildTooltipTrigger.text` + `localize=1`），"
-                      + "**词条表在远端 CCD、本地一个 value 都没有** ⇒ **正文留空、不自己编一个字**（见 `HelpTipBody`）。");
+                      + "**现取官方词条的值**（`Loc.T`，见 `HelpTipBody`；中英两列都在 `Core/Loc.cs` 的 `Table` 里）。"
+                      + " 🔴 2026-10-19（`W57`·TOOL-6 就地订正，铁律 5）：本行原文写「词条表在远端 CCD、本地一个 value 都没有"
+                      + " ⇒ 正文留空、不自己编一个字」——**已过期**（写于官方本地化并入之前，之后没回来改）。");
         }
 
         // ============================================================ 粒子宿主（正本 §二 :73-78）
@@ -557,13 +559,15 @@ namespace CardPresentation
         /// `text = "MainMenu/Forge/Help"` · `localize = 1` · `title = ""` · `tooltipAnchor = 25 (右上)` ·
         /// `offset = (0,0,0)` · `registerEvents = 1` · `preventPassingClickEventToParent = 0`。
         /// 🔴 `Show()` 里那句是 `I2_Loc_LocalizationManager.GetTranslation(text)`（反编译
-        /// `EverguildTooltipTrigger__Show.c`）—— **词条表在远端 CCD、本地一个 value 都没有**
-        /// ⇒ **正文留空**（同 `ShellRuntime` 那条 `Loading text` 的做法：版式照做、文案留空并说一声）。
-        /// ⚠️ **一个空格不是文案**：`Tooltip.Show` 的契约是「空串 = 不显示」
-        /// （`Core/Tooltip.cs` 的 `Show` 首句 的 `if (string.IsNullOrEmpty(body)) { Hide(); return; }`）
-        /// ⇒ 用空格让**面板照原版的时机弹出来、里面是空的**；
-        /// 断言 `ShownBody.Trim() == ""` 照样成立（即「一个字都没编」）。</summary>
-        public const string HelpTipBody = " ";
+        /// `EverguildTooltipTrigger__Show.c`）⇒ 正文 = **官方词条 `MainMenu/Forge/Help` 的值**。
+        /// 🔴 **2026-10-19（`N73` 就地订正，铁律 5）**：本段原文写「词条表在远端 CCD、本地一个 value 都没有
+        /// ⇒ 正文留空」——**已过期**：该键**早在 `Core/Loc.cs:2745` 的 `Table` 里**（中英两列都有值），
+        /// 错因 = 这句写于官方本地化并入（2026-10-14）之前，之后没有回来改。
+        /// ⇒ 现在直接读词条（`Loc.T`，改动只影响本页 tooltip；缺键时 `Loc.T` 会印键名并出声，不静默）。
+        /// ⚠️ 语档跟随 `Loc.Current` ⇒ 用**属性**而不是 `const`（切语言后悬停拿到的是新语档）。
+        /// ⚠️ 原版面板字体是 Pragati（`Core/Tooltip.cs` 的 `SetFace(LatinCardBody)`）——
+        /// 汉字由 `TmpFont.EnsureCjkFallback` 挂的 CJK 兜底字形渲染（2026-10-17 `A1024③`）。</summary>
+        public static string HelpTipBody { get { return Loc.T("MainMenu/Forge/Help"); } }
 
         /// <summary>自检用/出声用：`Help Icon` 被悬停过几次（批处理里没有输入 ⇒ 见 `PointerLayer.HoverAt`）。</summary>
         public static int HelpTipHovers { get; private set; }
@@ -596,8 +600,7 @@ namespace CardPresentation
         {
             HelpTipHovers++;
             if (HelpTipHovers == 1)
-                Debug.Log("[Forge] `Help Icon` 悬停：原版正文是 I2 词条 `MainMenu/Forge/Help`（本地没有，见 `HelpTipBody`）"
-                          + "⇒ **面板照弹、正文是空的**。要真文案只需把 `HelpTipBody` 换成那份词条值 —— 别再编第二份。");
+                Debug.Log("[Forge] `Help Icon` 悬停：正文 = 官方词条 `MainMenu/Forge/Help`（`Loc.T` 现取，见 `HelpTipBody`）。");
             // 原版 `tooltipAnchor = 25`（右上）· `offset = (0,0,0)` —— 原样传
             Tooltip.Show(HelpTipBody, LayoutSpace.FromPixel(_helpCenterPx.x, _helpCenterPx.y), 25, Vector3.zero);
         }

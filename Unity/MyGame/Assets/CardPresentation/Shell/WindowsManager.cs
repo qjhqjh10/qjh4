@@ -249,7 +249,7 @@ namespace CardPresentation
         ///   那一压把 state 写成 `Background` ⇒ 紧接着的 `TryOpen(...)` 走 **`Background` 支**
         ///   （`state = Open` + 提前台）⇒ 同样盖回 `Open`、同样**不重建内容** ⇒ **仍是零可观测差异**
         ///   （🔴 **2026-10-17 就地订正（铁律 5）**：本行原来写「本仓 `ToBackground` **没有覆写**，
-        ///   见 `grep "override void ToBackground"` 零命中」—— **已过期**：`Shell/MainMenuWindow.cs:77`
+        ///   见 `grep "override void ToBackground"` 零命中」—— **已过期**：`Shell/MainMenuWindow.cs` 的 `override void ToBackground`
         ///   现在**有**覆写（原版 `MainMenuWindow.ToBackground` = 首句幂等 + `base.ToBackground()` +
         ///   `gameObject.SetActive(false)`，`A1629` 落地）⇒ 主菜单被压背景时**整棵关掉**；
         ///   基类那一份仍只写状态、不关物体，与「别的窗」一致）。
@@ -509,7 +509,7 @@ namespace CardPresentation
         /// 又因为 `KeyCancel` 那时也没问 `IsOpen()`，ESC **照样能关它** —— 两处偏离**凑巧抵消**、看着像对的
         /// （这正是那条旧断言 `…它被压到背景态` 在替我们背书的由来）。
         /// ⇒ 本方法 **与 `PointerLayer.KeyCancel` 里那道 `IsOpen()` 门槛必须成对**，⛔ 不许只留一件。</para>
-        /// <para>⚠️ **可见性照原版 = `private`**（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs:305`
+        /// <para>⚠️ **可见性照原版 = `private`**（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs` 的 ``可见性照原版 = `private` ``
         /// 那一行就是 `private void ShowPreviousWindow()`）—— 自检**不直调它**、走生产那条路
         /// （`KeyCancel` → `Close` → `NotifyClosed` → 这里），比直调更有鉴别力。</para></summary>
         void ShowPreviousWindow()
@@ -560,7 +560,7 @@ namespace CardPresentation
             //    A217② 已把 `TryOpen` 按原版改成**按 `CurrentState` 分三档**（`Closed ⇒ 重建内容` /
             //    `Background ⇒ 只提前台` / `Open ⇒ 什么都不做`，判据 → `TryOpen` 那段），
             //    ⇒ **直接调它就逐句等于原版**；那个「只做前两步」的替身（`ReopenFromBackground`）
-            //    **在生产路径上已让位给本行**（方法还留着，只为 `Editor/ShellScene.cs:1861` 那个既有调用点；
+            //    **在生产路径上已让位给本行**（方法还留着，只为 `Editor/ShellScene.cs` 那个既有调用点；
             //    ⛔ 以后别再从生产代码调它）。
             //    ⚠️ **这条今天是可观测的**：A217③ 之后「列表尾是 `Closed`」很常见
             //    （`HideAllWindows` 藏起来的窗就是 `Closed`）⇒ 原版那一刻会走「`SetActive(true)` +
@@ -602,15 +602,15 @@ namespace CardPresentation
             // 🔴 **2026-10-12（`A1709`）就地改（铁律 5）**：本行原来是**无条件** `openWindows.Clear();`。
             //   上面那一圈的**最后一拍**会把常驻主菜单**重新开回来**：关掉 `baseMenu` 自己（它在表里下标 0、
             //   被下降循环**最后**关到）时 `Close()` → `NotifyClosed` → `ShowPreviousWindow` 的「列表空了」支
-            //   （`WindowsManager.cs:1209-1222` = 原版 `OpenWindow(baseMenu)`）⇒ 它又是 `Open` + active、
+            //   （`WindowsManager.cs` 的 `OpenWindow(baseMenu)` = 原版 `OpenWindow(baseMenu)`）⇒ 它又是 `Open` + active、
             //   而且**已经被 `openWindows.Add` 加回表**。无条件清表把这一条摘掉 = **孤儿**（开着的窗不在册）。
             //   🔴 后果**不是记账难看，是真画错**：`OpenWindow` 的全屏支是
-            //   `if (openWindows.Count > 0) HideAllWindows();`（本类 `:981`，逐字照原版 `OpenWindowCO.c:32-37`）
+            //   `if (openWindows.Count > 0) HideAllWindows();`（本类 `本文件`，逐字照原版 `OpenWindowCO.c:32-37`）
             //   ⇒ 表被清空 ⇒ **主菜单那一棵不会被藏** ⇒ 它一直露在新开的那扇全屏窗底下
-            //   （用户 2026-10-12 报的「界面相互重叠」那一族；断言 → `Editor/MainMenuScene.cs:10419-10430`）。
+            //   （用户 2026-10-12 报的「界面相互重叠」那一族；断言 → `Editor/MainMenuScene.cs`）。
             //   ⇒ 只摘**真的已经关掉**的：`null`（Unity 假 null / 已销毁）与 `CurrentState == Closed`。
             //   ⚠️ **故意不摘**「物体不活、但 `state != Closed`」那一档（绕过 `Close()`/`Hide()` 造出来的脏现场）——
-            //   留在册上，`TryOpen` 的早退守卫（本类 `:543-548`）才会**出声**，不静默（铁律：不许静默失败）。
+            //   留在册上，`TryOpen` 的早退守卫（本类 `本文件`）才会**出声**，不静默（铁律：不许静默失败）。
             for (int i = openWindows.Count - 1; i >= 0; i--)
             {
                 var w = openWindows[i];
@@ -643,7 +643,7 @@ namespace CardPresentation
         //   并删掉它自己那份 `_openByRef` / `StillOpen`；**已写进报告**）」—— **那件事已经做完了**
         //   （A177 尾巴，2026-10-11 当天；原文留着更正痕迹，⛔ 别再照它排一次活）。实据（现读）：
         //   `Shell/MainMenuRuntime.cs` 里**已经没有** `_openByRef` 字段，它那 8 条入口的 `OpenByRef`
-        //   只剩一行转调（`Shell/MainMenuRuntime.cs:562-564` = `=> WindowsManager.OpenByRef(prefabRef, create, closeAll);`），
+        //   只剩一行转调（`Shell/MainMenuRuntime.cs` 的 `=> WindowsManager.OpenByRef(prefabRef, create, closeAll);`），
         //   全文只剩讲这段历史的注释；全仓 `_openByRef` 的**字段声明只有本文件这一处** ⇒ 跨入口去重是真的生效了。
         //   ⚠️ 守着它的断言 → `Editor/MainMenuScene.cs` ⑥「两份缓存**已合并成一份**」那一节
         //   （★ 两条：两条入口开出来的是**同一扇** · `openWindows` 里聊天窗只有 **1** 扇）。
@@ -667,7 +667,7 @@ namespace CardPresentation
         /// ⚠️ `MainMenuRuntime` 那边也有几个同形的 `Ref*` 常量 —— 🔴 **2026-10-15（A633）就地订正（铁律 5）**：
         /// 本行原文写「另有一份同名的 `Ref*` 常量（**合并时以这里为准**）」—— 那个「合并」**已经发生**
         /// （A177 尾巴，2026-10-11）。现读实况：与这里**重名的只有 2 个**（`RefChat` / `RefProfile`），
-        /// 它们现在是**直接取这一份**的别名（`Shell/MainMenuRuntime.cs:547-548` = `= WindowsManager.PrefabRefChat;`），
+        /// 它们现在是**直接取这一份**的别名（`Shell/MainMenuRuntime.cs` 的 `= WindowsManager.PrefabRefChat;`），
         /// 字面量只留一个出处；其余几个（`RefInbox` / `RefSettings` / `RefSocial` / `RefRewards` /
         /// `RefCollection` / `RefShop`）是**那边独有**的入口键，这里没有对应物 ⇒ 不存在「以谁为准」的问题。
         /// ⛔ 别再往这一侧抄一份。
@@ -752,7 +752,7 @@ namespace CardPresentation
         /// 是 `Parent Event Window` 里由 liveops 事件列表**动态建出来**的一个 tab
         /// （`BaseParentEventWindow__SetupTabs.c` / `CreateEventTab.c`）。本地没有 liveops 事件列表
         /// ⇒ 我们建的是「**承载窗外壳 + 恰好一个 Pass 页**」的等价形态，根名沿用原版**页** prefab 的
-        /// ``` `Expansion Pass Tab`（如实记录，⛔ 不谎称原版有这扇窗）。判据 → `Shell/ExpansionPassEventWindow.cs` 文件头。</para>
+        /// `Expansion Pass Tab`（如实记录，⛔ 不谎称原版有这扇窗）。判据 → `Shell/ExpansionPassEventWindow.cs` 文件头。</para>
         /// <para>⚠️ 原版还有**第二个 tab** `Expansion Pass Missions Tab`（任务页）；本窗**两页都建**
         /// （页签栏两颗：Pass / Missions），判据与数据缺口 → 同文件头。</para></summary>
         public const string PrefabRefExpansionPassEvent = "Expansion Pass Tab";
@@ -1267,7 +1267,7 @@ namespace CardPresentation
         /// 它们**各自传的都是【明文】**（不是术语键）⇒ 收编时**这些调用点一行都不用改**
         /// （`PopUpGameWindow.Term()` 查不到就原样返回；明文永远不是键 ⇒ 将来往 `Terms` 里填表也不会误伤）。
         /// 🔴 **2026-10-12（A483）就地订正两处（铁律 5）**：① 自检站点的数原写「2 个」，**实际是 4 个**
-        /// —— `Editor/ShellScene.cs` 里 `ShowPopUp` 的自检站点共 **4 处**（本件现读 `:862` · `:903` ·
+        /// —— `Editor/ShellScene.cs` 里 `ShowPopUp` 的自检站点共 **4 处**（本件现读 `CardPresentation/Editor/ShellScene.cs` · `CardPresentation/Editor/ShellScene.cs` ·
         /// `:918` · `:930`，⚠️ 行号会漂 ⇒ **按 `grep -n '\.ShowPopUp(' Editor/ShellScene.cs` 数，数是 4**）。
         /// **错因** = 「2」是 **A416 收编【前】** 的数（`git show HEAD:…/Editor/ShellScene.cs` 那一版只有
         /// `:808` · `:829` 两处）；A416（同一天）为「两钮」与「没给 `onCancel`」两档各补了一处 ⇒ 变成 4。
@@ -1277,7 +1277,7 @@ namespace CardPresentation
         /// 谁再动了调用点，**按 `grep` 重数**，别照抄这里。
         /// ⚠️ 那 11 处里**只有 `ShopWindow:730` 一处分叉**（`okText` + `cancelText` = 2 按钮版），
         /// 其余 10 处都是单钮那一档 ⇒ 两版 prefab 都有生产消费者。</para>
-        /// <para>⚠️ **`DeckInfoPopup` 那 3 处按【现读】是 `:1166` / `:1243` / `:1326`**（上一条已订正；
+        /// <para>⚠️ **`DeckInfoPopup` 那 3 处按【现读】是 `CardPresentation/Shell/DeckInfoPopup.cs` / `CardPresentation/Shell/DeckInfoPopup.cs` / `CardPresentation/Shell/DeckInfoPopup.cs`**（上一条已订正；
         /// 同族的另两份记录也各漂过一版：`资料/普查产出_1012/H5_DeckScene红与ShowPopUp收编.md:139,248`
         /// 与 `H17_ShowPopUp收编.md:145,149` 里的旧行号**是历史快照、本件不改**，只在此说明「以 `grep` 为准」）。</para>
         ///

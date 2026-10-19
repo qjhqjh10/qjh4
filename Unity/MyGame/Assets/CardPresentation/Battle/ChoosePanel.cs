@@ -37,11 +37,17 @@
 //     出处与推导全文：`资料/普查产出_0918/第18行_手感与选牌_规格.md` §三。
 //     （原来那个 526 是「标题下沿到眼睛上沿取中点」挑出来的，已作废。）
 //   · **卡上那颗 `Select` 按钮的纵向偏移**：原版 prefab `CardChooseCardButtonFrame` 是运行时实例化的，
-//     静态 dump 里没有它；**但 prefab 本体在解包里**，实测按钮在卡中心下方 **≈323 px**
-//     （`资料/选牌_数据与规格.md` §丙·三末；⚠️ 更正：原来指 `选牌与选效果面板_原版数值.md`，2026-10-10 已并入）。
-//     ✅ **已经照原版改了**（`CardChoicePanel.cs:407` 现在是 `Lo.CardRowCy + 323f`）——
+//     静态 dump 里没有它；**但 prefab 本体在解包里**，按钮在卡中心下方 **322.618 px**
+//     （🔴 **2026-10-20（W57 · `T09` A3-e1c）判据**：prefab 的 `RectTransform_-9013717219094471892`
+//     `m_AnchoredPosition.y = −1.7589999437332153`（卡本地单位）× `CardsHorizontalLayout.Scale
+//     = 183.41 px/单位` = **322.6182 px** —— 是**节点 rect**，不是布局间距。
+//     ⚠️ 这里原来写「≈323 px（`资料/选牌_数据与规格.md` §丙·三末；…2026-10-10 已并入）」——
+//     那是 2026-09-14 的**估算**，已按 prefab 现读值改，保留更正痕。）
+//     ✅ **已经照原版改了**（实现 = `CardChoicePanel.CardBtnBelowCardPx`，`LayOutCards` 用
+//     `Lo.CardRowCy + CardBtnBelowCardPx`；⚠️ 原来这里写「`CardChoicePanel.cs:407` 现在是
+//     `Lo.CardRowCy + 323f`」—— **行号与数值都已过期**，以那个常量为准）——
 //     原来这里写「用的是卡高×0.30 ≈183 px，是我们排的」，**那句已过期**（2026-09-17 复核）。
-//     🔴 **2026-10-16 现读**：本批迁 uGUI 之后那一格走**设计 px**（`Lo.CardRowCy + 323`），
+//     🔴 **2026-10-16 现读**：本批迁 uGUI 之后那一格走**设计 px**（`Lo.CardRowCy + 322.618`），
 //     原来这个行号指的是 `U(323f)` 那一版**世界单位**写法。
 //   · **压暗层**、**眼睛是开关还是按住**：见共享壳文件头的说明。
 //
@@ -54,6 +60,47 @@
 //     代码在基类 `Battle/CardChoicePanel.cs` 的 `Build()`，**理由与代价逐条写在那个文件头**（⛔ 别只读这一处）。
 //   · 自检读 **`PanelRect`**（画布本体：`FillParent` **铺满画布** = 原版那对 `anchor (0,0)-(1,1)` +
 //     `sizeDelta (0,0)`）与 `transform`（世界壳，1920×1080 世界单位）两个口。
+//
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//  🔴 **2026-10-20（W57 · 战斗线 `T09` 步骤 A3-e）：输入层换 uGUI**（判据 = 原版 prefab 逐组件现读）
+//
+//  ⚠️ **本扇的可点件与 uGUI 接线都住在基类 `Battle/CardChoicePanel.cs`**（换牌与选牌是同一棵树的两份克隆，
+//     见本文件头第 1–5 行）—— 本文件只负责**本扇特有的那一半**：标题词条（已有）、**公开关窗口 `Hide()`**、
+//     以及 **Editor-only 只读探针**。⛔ 别在这里再挂一遍按钮（两条路 = 一次点击触发两次）。
+//
+//  · **原版 `ChooseCardMenu` 的可点件**（`bundle_scenes_scenes_battlearena1`，2026-10-20 现读；
+//    `…arena2` 同构）：
+//      · 根 `ChooseCardMenu`（`GameObject/ChooseCardMenu.json`）= `RectTransform`(3273) + `ChooseCardMenu`(4353)
+//        —— **零 `Image`** ⇒ 面板根自己**不吃射线**，点空白不关窗（原版没有全屏捕获区）。
+//      · **确认 = 三条可射线 `Image` 的并集**（逐条：`m_RaycastTarget = 1`、`m_RaycastPadding = (0,0,0,0)`）：
+//        ① 父 `Continue Button`（RT 3196 · Image `MB_4413`，`m_Color.a = 0` 的**透明命中面** 548.015×75.905；
+//           它身上那颗 `UnityEngine.UI.Button`（`MB_4262`）`m_OnClick` **空** = 运行时 `AddListener`）
+//        ② 子 `BG`（RT 3288 · Image `MB_4210`，**没有 Button** ⇒ 点击沿父链冒泡到 ①）
+//        ③ 子 `ContinueButton`（RT 3324 · Image `MB_5075`；`Button`（`MB_4565`）`m_OnClick` →
+//           **`ChooseCardMenu.ClickChooseDone`** ⇒ 它就是确认本体之一）
+//      · **取消 / 开合 = 眼睛 `HideChooseButton`**（RT 3051 · Image `MB_4921`，rt=1、pad 0）：
+//        节点上有**两颗**按钮 —— `UnityEngine.UI.Button`（`MB_4813`）`m_OnClick` → **`ToogleChooseMenuVisibility`**
+//        （反编译 = `ShowChooseCardElements(activeInHierarchy == false)` 的开合）+ `EverguildButton`（`MB_4387`，空）。
+//      · **选卡 = 每张牌下那颗 `Select`**：prefab `CardChooseCardButtonFrame`（`bundle_battlesharedresources_assets_all`）
+//        → 子件 `Generic Simplified UI Button_updated` 的 `Image`（`m_RaycastTarget = 1`、pad 0）+
+//        **`EverguildButton`**（`selectButton` 指向它；`m_OnClick` 空）⇒ 与 `Button` 同一条 `IPointerClickHandler`
+//        （**松手**那一帧）。
+//      · 标题 `ChooseText`（RT 3465）：Image `MB_4869` **`m_Enabled = 0`**（DISABLED，见本文件头 2026-10-17 订正）；
+//        子 `Text` 的 TMP（`MB_3728`）`rt = 1`，但父链上**没有 Button**（`ChooseCardMenu` 根零组件）⇒
+//        那一块**吃点击但什么都不做**（与 `SkillPanel` 的 `TargetsAvailableText` 同一族形状）。
+//      · `ContinueText`（RT 2741）的 TMP（`MB_3994`）`rt = 1`，父链上是 `Continue Button` 的 `Button`
+//        ⇒ **点它也算确认**（确认区实际有**四块**：①②③ + 这条文字，沿父链冒泡到 ①）。
+//  · **基类怎么落的**（`CardChoicePanel.cs` 的 `BuildUguiInput` / `AttachChoiceButton`；判据注释在那个文件头）：
+//    `_doneParentHit`（原版父 `Continue Button` 的透明命中面）、`_bar`(BG)、`_play`(ContinueButton)、
+//    `_eye`(HideChooseButton) 各挂 `BattleHudButton`（= `raycastTarget = true` + `IPointerClickHandler`），
+//    `raycastPadding` 逐件写 **`(0,0,0,0)`**（原版四个实测值）；卡钮在 `LayOutCards` 里逐张挂。
+//    🔑 基类只 **发事件**（`CardButtonClicked` / `DoneClicked` / `EyeClicked`）—— 本波驱动侧**没有订阅者**，
+//    手搓路（`BattleDriver.HandleChoose` → `CardChoicePanel.HandleClick`）仍是**唯一动作方**。
+//  · 🔴 **本文件新增的公开口 = `Hide()`**（= 基类 `Close()` 的别名）：`CloseAll964` 那一类收窗口的调用点
+//    要一个统一的名字（同族：`SettingsPanel.Hide` / `ChatPopup.Hide` / `MultiCardDisplay.Hide` /
+//    `MulliganPanel.Close`）。**行为逐位不变**：`Close()` 原本就是「`ClearCardDecor()` + `SetVisible(false)`」，
+//    `Hide()` 只转发，⛔ 不碰 `_picked` / `OnDone` / 回调链。
+// ─────────────────────────────────────────────────────────────────────────────────────────────
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -174,8 +221,53 @@ namespace CardPresentation
             base.Open(cards, ResolveTitle(uniqueId, title));
         }
 
+        /// <summary>🆕 **2026-10-20（W57 · `T09` 步骤 A3-e）：公开的关窗口口**（= 基类 <see cref="CardChoicePanel.Close"/> 的别名）。
+        /// <para>**为什么加**：`A2` 报告记了一条「`_choosePanel` 没有公开的 `Visible` / `Hide` ⇒ `CloseAll964` 收不掉它」——
+        /// `Visible` 其实一直是公开的（基类 `CardChoicePanel.Visible`），缺的是**统一命名的写口**
+        /// （同族面板 `SettingsPanel.Hide` / `ChatPopupPanel.Hide` / `MultiCardDisplay.Hide` 都叫 `Hide`，
+        /// 换牌那边叫 `Close`）。本口让收窗口的调用方**不必知道它派生自哪一族**。</para>
+        /// <para>🔴 **行为逐位不变**：只转发 `Close()`（= `ClearCardDecor()` + `SetVisible(false)`）。
+        /// ⛔ 不碰 `_picked` / `OnDone` / `LastUniqueId` —— 选没选、回调怎么走，与加这个口之前**一个字都不差**。</para>
+        /// <para>⚠️ 调用方仍然要自己判 `Visible`（`Close()` 对已关掉的面板是安全的空跑 —— `ClearCardDecor()`
+        /// 的列表那时已经空了 —— 但**没有副作用的重复调用**不值得每帧来一次）。</para></summary>
+        public void Hide() { Close(); }
+
         /// <summary>自检用：**最后一次 `Open` 收到的 `uniqueId`**（原版是拿它拼词条 key 的）。
         /// 三处调用点该分别给 `"offensive"` / `"defensive"` / 那张正在结算的卡的 id。</summary>
         public string LastUniqueId { get; private set; }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-20（W57 · `T09` 步骤 A3-e）：**Editor-only 只读探针**
+        //  只读：不改状态、不派事件。播放器构建里**不存在**这些成员（`#if` 包住）⇒ 零运行时开销。
+        //  ⚠️ 断言的期望值取**原版 prefab**（`rt = 1` / `pad = (0,0,0,0)`）—— ⛔ 别拿本组口自己当判据。
+        //  ⚠️ 真正的件与接线在基类（`CardChoicePanel` 的 `*ForTest` 口）；本组只是**本扇的别名 + 口径**：
+        //     名字里带 `Choose`，免得断言一读 `UguiInputReadyForTest` 分不清是哪一扇（换牌那一族同名）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+#if UNITY_EDITOR
+        /// <summary>本扇的 uGUI 输入层是不是整组就绪（= 基类 `UguiInputReadyForTest`）。</summary>
+        public bool ChooseInputReadyForTest { get { return UguiInputReadyForTest; } }
+
+        /// <summary>原版父 `Continue Button`（透明命中面）吃不吃射线（原版 `MB_4413.m_RaycastTarget = 1`）。</summary>
+        public bool ChooseConfirmParentRaycastTargetForTest { get { return RaycastTargetOfForTest(DoneParentHitForTest); } }
+        /// <summary>原版 `BG`（确认三条之一）吃不吃射线（原版 `MB_4210` = 1）。</summary>
+        public bool ChooseBgRaycastTargetForTest { get { return RaycastTargetOfForTest(BarPieceForTest); } }
+        /// <summary>原版圆钮 `ContinueButton`（确认三条之一）吃不吃射线（原版 `MB_5075` = 1）。</summary>
+        public bool ChoosePlayRaycastTargetForTest { get { return RaycastTargetOfForTest(PlayPieceForTest); } }
+        /// <summary>原版眼睛 `HideChooseButton` 吃不吃射线（原版 `MB_4921` = 1）。</summary>
+        public bool ChooseEyeRaycastTargetForTest { get { return RaycastTargetOfForTest(EyePieceForTest); } }
+
+        /// <summary>确认三条 + 眼睛的 `raycastPadding`（L,B,R,T；原版**四件全是 `(0,0,0,0)`**）。
+        /// 缺失的件 ⇒ 四个 `NaN`（⛔ 不拿 0 冒充「查过」）。</summary>
+        public Vector4 ChooseConfirmParentPaddingForTest { get { return RaycastPaddingOfForTest(DoneParentHitForTest); } }
+        /// <inheritdoc cref="ChooseConfirmParentPaddingForTest"/>
+        public Vector4 ChooseEyePaddingForTest { get { return RaycastPaddingOfForTest(EyePieceForTest); } }
+
+        /// <summary>uGUI 那条路上三项各被点了几次（灭自证：喂一次 = 1；手搓路**不经过这里**）。</summary>
+        public int ChooseUguiCardClicksForTest { get { return UguiCardClickCountForTest; } }
+        /// <inheritdoc cref="ChooseUguiCardClicksForTest"/>
+        public int ChooseUguiDoneClicksForTest { get { return UguiDoneClickCountForTest; } }
+        /// <inheritdoc cref="ChooseUguiCardClicksForTest"/>
+        public int ChooseUguiEyeClicksForTest { get { return UguiEyeClickCountForTest; } }
+#endif
     }
 }

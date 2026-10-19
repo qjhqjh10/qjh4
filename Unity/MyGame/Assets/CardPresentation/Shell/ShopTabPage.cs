@@ -267,7 +267,7 @@ namespace CardPresentation
             //   （实时反推 + `LiveDerivations`）：节点或它的**祖先**被挪过之后，框与被比矩形就**不在同一帧**。
             //   ⚠️ **必须在这里调**（`AddComponent` 之后、`BuildGrid` 之前）：`MenuDraw.ApplyPxRect` 写矩形时
             //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾），所以只能由本行补 —— 同 `ViewportClip.Hang`
-            //   里那句 `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
+            //   里那句 `vc.SetBaseRect(r)` 的位置理由（`CardPresentation/Shell/ViewportClip.cs`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `CardPresentation/Shell/ViewportClip.cs` 明令）。
             _gridVp.CaptureNow();
             var content = MainMenuSubmenuWindow.Node(vp, "Content", ScrollView);
             BuildGrid(content);
@@ -593,7 +593,13 @@ namespace CardPresentation
                 }
             }
 
-            // `Available Counter`：**有限购信息才画**（`AvailableMax > 0`）；原版是 `Available: 1/5`，hAlign Right
+            // `Available Counter`：**有限购信息才画**（`AvailableMax > 0`）；原版是 `Available: 1/5`，hAlign **Center**。
+            // 🔴 **2026-10-19（N72 现核 · 铁律 5 就地订正）**：本行原文写「hAlign Right」——**不成立**。
+            //   现跑 `menu_dump.py bundle_menus_assets_all "Catalog Item Shop Container"`，**6 份同名变体逐个实读**
+            //   全是 `对齐=Center/Midline`（`m_HorizontalAlignment = 2` + `m_VerticalAlignment = 4096`）；
+            //   错因 = `资料/阶段二_商店_原版规格.md:143` 那格 `Right` 是**旧工具 hAlign 错位**留下的值
+            //   （同 `阶段二_战斗入口_原版规格.md` 文件头那条横幅）。⇒ 横向**不调 `Align*`**（`Label` 出厂就是
+            //   按框中心摆整块，见 `Battle/Label.cs` 的 `RefreshBounds`），对齐由框本身（`CellAvail`）给。
             if (o.AvailableMax > 0)
             {
                 var ar = Rect(r, CellAvail);
@@ -620,7 +626,9 @@ namespace CardPresentation
                     //   我们**把整条抬进格子里**（`CellAvail`，见 `:291-295` 那条如实登记的偏离）
                     //   ⇒ 本笔只落**档位**，框仍是我们挑的那个（同 A712 阶段 2 的口径）。
                     MenuDraw.SetVAlign(al, Label.VAlign.Midline, ar);
-                    MenuDraw.AlignRight(al, ar);
+                    // 🔴 **2026-10-19（N72）**：横向 **Center** —— 原版 6 份变体实读 `Center/Midline`，
+                    //   我们原来 `AlignRight` 把整串往右推 ~55px。⛔ **别改回 `AlignRight`**：那条是旧施工图的错值。
+                    //   不调 `Align*` = 整块按 `ar` 的中心摆（`Label.RefreshBounds` 的出厂口径）。
                 }
             }
 

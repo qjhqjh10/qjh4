@@ -96,18 +96,20 @@ namespace CardPresentation
         /// —— 原版 143 台的实测分布是 1.0 / 10 / 30 / 50 / 100，**没有 48**。</summary>
         public const float DefaultNotchPx = 48f;
 
-        /// <summary>一格滚轮滚多少画布像素 = **原版那台 `ScrollRect` 的 `m_ScrollSensitivity`**。
-        /// uGUI `OnScroll`：`position += scrollDelta × scrollSensitivity`，Windows 上一格 `scrollDelta = 1`
-        /// ⇒ 原版值就是「每格像素」（同值口径，`A1543` 已按 100/50 验过）。
+        /// <summary>一格滚轮滚多少画布像素。**这个字段的口径** = 原版那台 `ScrollRect` 的
+        /// `m_ScrollSensitivity`（uGUI `OnScroll`：`position += scrollDelta × scrollSensitivity`，
+        /// Windows 上一格 `scrollDelta = 1` ⇒ 原版值就是「每格像素」；同值口径，`A1543` 已按 100/50 验过）。
+        /// 🔴 **但传进来的值不一定是原版值** —— 见下面那条 2026-10-18 裁定（`120` 是我们挑的，
+        /// ⛔ 别把本行读成「我们每一处传的都是原版值」）。
         /// 判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`。
         /// <para>🔴 **2026-10-18（用户拍板）：`120` 是【我们挑的可用步长】，⛔ 不是原版值。**
         /// 原版这些视图的 `m_ScrollSensitivity` 都是 **1.0**（主菜单模式卡那台还是 horizontal-only，
         /// 纵向滚轮在原版本来就不参与、靠拖拽）；若照 1.0 传，一格滚轮只走 **1 px**，
         /// 几百 px 的行程要滚几百格 = **实际滚不动**。**用户 2026-10-18 明确保留 120**，
         /// 按铁律 11 记为「**待将来评估的偏离**」（判据 → `W16_横向滚轮步长.md`）。
-        /// 现共 **8 处**显式实参：主菜单模式卡 `MainMenuRuntime.cs:2206`（N66）＋
-        /// `LeaderboardWindow.cs:461` · `RewardWindow.cs:1121` · `ForgeTab.cs:399/443` ·
-        /// `CampaignTab.cs:208/372` · `DailyRewardPopup.cs:257`（W16 那 7 处）。
+        /// 现共 **8 处**显式实参：主菜单模式卡 `MainMenuRuntime.cs`（N66）＋
+        /// `LeaderboardWindow.cs` · `RewardWindow.cs` · `ForgeTab.cs` ·
+        /// `CampaignTab.cs` · `DailyRewardPopup.cs`（W16 那 7 处）。
         /// 🔴 上一版这段写「**唯一一处**不是原版值的传参 = 主菜单模式卡」—— **已过期**（铁律 5 就地订正：
         /// 那是 W16 之前的数；W16 把另外 7 处也从 `1f` 改成了 `120f`）。</para></summary>
         public readonly float NotchPx;

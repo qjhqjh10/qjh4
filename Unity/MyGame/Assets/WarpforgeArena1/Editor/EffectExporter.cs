@@ -397,6 +397,8 @@ public static class EffectExporter
     ///
     /// 判据 = 原版 bundle 里那张 `Texture2D` 的 `mipmapCount`、`m_TextureSettings.{m_WrapU,m_WrapV,m_FilterMode,m_Aniso}`
     ///   与 `m_Width/m_Height`（🆕 2026-10-19 T07：wrap/filter/aniso 四格也照抄）。
+    ///   🆕 2026-10-19 FX-2（账 V1）：**`nPOTScale` 也照原版 = `None(0)`**（判据 → FX-1 报告 §B：
+    ///     原版 runtime 尺寸就是 NPOT ⇒ 原版导入器没做 POT 缩放；旁挂表 NPOT 给 `0`、POT 给 `-1` 不动）。
     ///   · 原版 **1 层（无 mip）** ⇒ 我们也**不许开 mip**。实读 346 张里 **64 张**属于这一类，
     ///     而旧代码把它们**全部**硬编码成开 mip ⇒ `Buff_DA_Forest_Self` 那条 2.80×：
     ///     拖尾是**极度拉伸的几何**，GPU 按 UV 导数采到很低的 mip ⇒ 整条拖尾被平均成一团糊
@@ -455,6 +457,14 @@ public static class EffectExporter
             //   Clamp 应只露中段 ~26%，Repeat 把亮带卷到两端 ~57% ⇒ `Buff_DA_Forest_Self` 差 2.8×。
             //   Unity 6000.3 的 `TextureImporter` 有独立的 `wrapModeU/V/W`（本机 DLL 实读确认）。
             int wu = ParseOr(c, 5), wv = ParseOr(c, 6), fm = ParseOr(c, 7), an = ParseOr(c, 8);
+            // 🆕 2026-10-19（本波 FX-2 · 账 V1）：第 10 列 `npotScale` —— 原版真值 = **None(0)**。
+            //   判据：`TextureImporter` 是编辑器类、**不随 player build 打包**（全库 `grep nPOTScale` = 0 文件），
+            //   但原版 **runtime `Texture2D` 的尺寸就是 NPOT**（84 包实读 2,984 张里 53 张真 NPOT；
+            //   例 `Glow UI W40K` **123×123**、12 张 `trait_icon_*` **80×80**）—— 若原版是 `ToNearest`/`ToLarger`，
+            //   runtime 会是 64/128。⇒ **原版 `nPOTScale = None`**。
+            //   旁挂表：NPOT ⇒ `0`；POT ⇒ `-1`（POT 上该字段不生效、**不动**，沿用 `ParseOr` 的 -1 约定）。
+            //   判据全文 → `资料/普查产出_1019/W57_特效线_T15_V1_T02静态.md` §B。
+            int np = ParseOr(c, 9);
             var wantWrapU = (wu >= 0) ? (TextureWrapMode)wu : ti.wrapModeU;
             var wantWrapV = (wv >= 0) ? (TextureWrapMode)wv : ti.wrapModeV;
             var wantFilter = (fm >= 0) ? (FilterMode)fm : ti.filterMode;
@@ -462,7 +472,8 @@ public static class EffectExporter
             bool same = ti.mipmapEnabled == wantMip && ti.maxTextureSize == wantMax
                         && ti.wrapModeU == wantWrapU && ti.wrapModeV == wantWrapV
                         && ti.filterMode == wantFilter
-                        && ti.anisoLevel == wantAniso;
+                        && ti.anisoLevel == wantAniso
+                        && (np < 0 || (int)ti.npotScale == np);   // np=0 ⇒ None；-1 ⇒ 未知/不动
             if (same) { ok++; continue; }
             if (!wantMip) noMip++;
             // 只有一格读得到时**出声**（另一格保持现值，不猜）
@@ -476,9 +487,10 @@ public static class EffectExporter
             ti.wrapModeV = wantWrapV;
             ti.filterMode = wantFilter;
             ti.anisoLevel = wantAniso;
+            if (np >= 0) ti.npotScale = (TextureImporterNPOTScale)np;   // 0 = None（原版真值）
             ti.SaveAndReimport();
             changed++;
-            changedNames.Add($"{c[0]}({w}x{h},原版m{mips},wrap{wu}/{wv},f{fm},a{an})");
+            changedNames.Add($"{c[0]}({w}x{h},原版m{mips},wrap{wu}/{wv},f{fm},a{an},np{np})");
         }
         AssetDatabase.Refresh();
         Debug.Log($"[TEXFIX] 表里 {rows} 行 · **改了 {changed}** · 本来就对 {ok} · " +
@@ -1060,8 +1072,9 @@ public static class EffectExporter
     //    （它们是**手放进** `Textures/` 的，导入设置照原资产手设过：28×41 / 14×41 是 **NPOT** ⇒
     //     `nPOTScale: 0`、`sRGBTexture: 0`（线性数据贴图）、无 mip、RGBA32 不压缩）。
     //    ⇒ 这里**只按路径取、取不到就出声**，⛔ **不拿 `ImportTexture` 重导** ——
-    //      `ImportTexture` 不设 `nPOTScale` / `sRGBTexture`，一导就把那套手设的导入设置冲掉
-    //      （NPOT 默认 `ToNearest` 会把 28×41 缩成 32×64 ⇒ **贴图布局全毁**）。
+    //      `ImportTexture` 写死 `sRGBTexture = true`、mip 照原资产，一导就把那套手设的导入设置冲掉
+    //      （2026-10-19 FX-2 起 `ImportTexture` 也无条件写 `nPOTScale = None`，**这一格不再冲突**；
+    //       但 sRGB / mip / 不压缩那三格仍会被冲 ⇒「别用它重导 VAT」这条**照旧成立**）。
     //
     //  ⚠️ **本支【不管】的另一处**（同一趟重导也会抹掉、但**不是本题**）：`VanguardIdleEffect` 那条
     //    legacy `Animation.m_Animation` / `m_Animations[0]` 的 guid 现在是人手补的（`:59081/59083`），
@@ -2903,6 +2916,14 @@ public static class EffectExporter
             ti.textureType = TextureImporterType.Default;
             ti.sRGBTexture = true;
             ti.alphaIsTransparency = true;
+            // 🔴 2026-10-19（本波 FX-2 · 账 V1）：**无条件 `nPOTScale = None`**（原版真值）。
+            //   判据同 `FixTextureImportSettings`：原版 runtime 的 `Texture2D` 尺寸就是 NPOT
+            //   （`Glow UI W40K` 123×123 · `trait_icon_*` 80×80），⇒ 原版导入器**没做 POT 缩放**；
+            //   本工程这 13 张历史上被 Unity 默认的 `ToNearest(1)` 缩成 64²/128²。
+            //   对 POT 输入是 **no-op**（本来就是 2 的幂）⇒ 无条件写不引入差异。
+            //   ⛔ 方向别弄反：**不是**把 NPOT 补成 POT。
+            //   判据全文 → `资料/普查产出_1019/W57_特效线_T15_V1_T02静态.md` §B。
+            ti.npotScale = TextureImporterNPOTScale.None;
             // 🔴🔴 **2026-10-02：`mipmapEnabled` 原来硬编码 `true` —— 这是错的，纠正为「照原版」。**
             //
             // **代价（实测）**：`Buff_DA_Forest_Self` 的拖尾槽差了 **2.80×**，两边**粒子位置逐位相同 ·

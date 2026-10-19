@@ -60,6 +60,36 @@
 //   🔴 **仍与原版不同的一处（如实记，⛔ 不是漏了）**：这层「世界壳」是**我们自己的**（原版没有中间这一级），
 //      它与 `T09` §五·补⑩ 二 那条「我们的嵌套结构未必等于原版」是同一族 —— **本笔不动它**。
 // ═══════════════════════════════════════════════════════════════════════════════════════
+// 🔴🔴 **2026-10-20（W57 · 战斗线 `T09` 步骤 A3-b）：本面板的【输入】从手搓命中切到 uGUI。**
+//
+//   【改前】所有点击都走「`BattleDriver.SettingsClickAt(world)` 在**松手那一帧**拿世界点做
+//          `HitResign/HitSkipTutorial/HitDifficulty/HitAutoZoom/HitMuteChat/HitClose` 几何判定」，
+//          语言下拉另有一条手搓边沿（`LangPointerFrame`），三根滑块由驱动每帧喂
+//          `PointerFrame → WfSlider.Contains/SetFromPointer`。
+//   【改后】本面板自己持有 uGUI 可点件：
+//     · 五颗钮 = `BattleHudButton`（`IPointerClickHandler`，**松手那一帧**由 `EventSystem` 派发）——
+//       判据 = 原版那五颗全是 uGUI `Selectable`（`EverguildButton` / `EverguildToggle` /
+//       `UnityEngine.UI.Button`/`Toggle`，逐条见 `T09` 迁移计划 §1·4）。
+//     · 语言下拉 = 框 / 每一行各一颗 `BattleHudButton`（原版 `TMP_Dropdown.OnPointerClick` +
+//       `Item` 上的 `Toggle`），**选中行 → `ChooseLanguage(i)` → 末尾 `HideLangList()`**（原版 `OnSelectItem:1247`）。
+//     · 全屏 Blocker = `_shade`（原版 `Dark Shade`：`MB_4739` 的 Image = 全屏 `(0,0,0,0.612)` +
+//       **`m_RaycastTarget = 1`**，挂 `BackgroundCloseButton`（`MB_4927`，`window = null` / `onClick` 空
+//       ⇒ **点了什么也不做**））**置射线靶**；列表开着时另有 TMP `CreateBlocker` 的等价物
+//       （`_langBlocker`：全屏透明 Image + 点击 → 收起列表，判据 =
+//       `com.unity.ugui` 的 `TMP_Dropdown.CreateBlocker`：`Image(Color.clear)` + `Button.onClick → Hide`）。
+//     · 三根滑块 = **不再由本件喂**：`WfSlider` 自己挂 `EventTrigger`（`T09` A3-b 上一批已做完，
+//       报告 `W57_战斗线_T09_A3b_WfSlider.md`）⇒ 本件 `PointerFrame` 里那段手搓拖动/悬停**已删**。
+//   🔴 **灭自证（同一按不许走两条路）**：`PointerFrame` 现在对**每一次按下**都返回 true
+//      ⇒ `BattleDriver.HandleSettings` 的 `_pressCaptured = true` ⇒ 同一按的松手沿不会再生出
+//      `ReleasedThisFrame()`，**`SettingsClickAt` 在产线上不再被调用**（它只剩自检直调那几条）。
+//      ⛔ 别把 `PointerFrame` 改回「只有滑块/语言接住才返回 true」—— 那会让 uGUI 点击与手搓命中**各做一次**
+//      （`T09` §四 R1 的一号风险：画面正常、点一下做两件事）。
+//   ⚠️ `BattleDriver.SettingsClickAt` / 各 `Hit*` **一个字没改**（那份文件不在本白名单）——
+//      它们现在只服务自检；等 D 那批收口时再删。
+//   ⚠️ **跳过教程钮**的语义那一半在 `BattleDriver`（`SkipTutorialFromSettings`，private）⇒ 本件只能
+//      暴露 `OnSkipTutorial` 回调口，**要 D 在 `SettingsPanel.Create` 那一行接上**；没接时点了会 `LogWarning`
+//      （⛔ 不静默）。
+// ═══════════════════════════════════════════════════════════════════════════════════════
 using System;
 using System.Collections.Generic;      // 🆕 2026-10-18（A921）：语言下拉那 12 行（`List<LangRow>`）
 using UnityEngine;
@@ -75,6 +105,13 @@ namespace CardPresentation
         public Action OnResign;
         /// <summary>点「对手难度」时回调（驱动层换下一档，再用 <see cref="SetDifficulty"/> 回写文字）</summary>
         public Action OnCycleDifficulty;
+        /// <summary>🔴 **2026-10-20（W57 · `T09` A3-b）**：点「跳过教程」时回调。
+        /// <para>为什么新开这个口：那颗钮的**语义那一半**在驱动层（`BattleDriver.SkipTutorialFromSettings`，
+        /// `private`；原版 `BattleSettingsWindow__SkipTutorialButtonOnClick`：先关窗、再 `BattleManager.ClickSkip`）——
+        /// 而 `BattleDriver.cs` **不在本件白名单**。⇒ 本件只把它暴露成回调口，**要 D 在
+        /// `SettingsPanel.Create(...)` 那一行接上**（`onSkipTutorial: SkipTutorialFromSettings`）。</para>
+        /// <para>⚠️ 没接上时**不静默**：点了会 `LogWarning`（见 `OnSkipTutorialClicked`）。</para></summary>
+        public Action OnSkipTutorial;
 
         // 🔴 **2026-10-16（`T09` 批 2）**：这一族从 `ImageQuad`（世界空间 quad）换成 `HudPiece`
         //   —— 现在**全是 uGUI 件**（`RectTransform + Image`，建在子画布上）。
@@ -162,6 +199,34 @@ namespace CardPresentation
         }
         BattleButtonFx _muteOnFx;
 
+        // ================= 🔴 2026-10-20（W57 · `T09` A3-b）：本面板的 uGUI 输入句柄 =================
+        // 一颗件 → 一个 `BattleHudButton`（`IPointerClickHandler`）。判据与「为什么必须同批退掉手搓那条路」
+        // 全在文件头那段（R1）。⚠️ 这些**只做动作**，命中由 `EventSystem` 的射线定 —— ⛔ 别在这儿再写几何。
+        BattleHudButton _btnResign, _btnSkip, _btnDifficulty, _btnClose, _btnAutoZoom, _btnMuteChat;
+        BattleHudButton _btnLangField, _btnBlocker, _btnShade;
+        /// <summary>语言下拉那 12 行的可点件（下标 = `_langRows[i].Idx`；只在 `real` 行建）。</summary>
+        readonly List<BattleHudButton> _btnLangRows = new List<BattleHudButton>();
+
+        /// <summary>🔴 **「Auto Zoom」那行的文字格 / 「Mute opponent」那句的透明命中片。**
+        /// 原版那两颗 TMP 的 `m_RaycastTarget = 1`（`AzHitPx` / `MuteHitPx` 的注释里有逐条出处），
+        /// 而我们的 `Label`（TMP）出厂 `raycastTarget = false`（`TmpFont.NewText` 那条装修约定）
+        /// ⇒ 用一张**全透明 `Image`** 盖在**原版那一格的矩形**上，命中几何与 `HitAutoZoom`/`HitMuteChat`
+        /// 的第二块**逐值相同**（⛔ 不是「整行」）。透明片不改变任何画出来的东西。</summary>
+        HudPiece _azLabelHit, _muteLabelHit;
+
+        /// <summary>🔴 **列表开着时的全屏 Blocker**（= 原版 `TMP_Dropdown.CreateBlocker` 的等价物）。
+        /// <para>判据（本机 uGUI 源码 `com.unity.ugui@27635d171b1a/Runtime/TMP/TMP_Dropdown.cs` 的
+        /// `CreateBlocker`）：建一个名为 `"Blocker"` 的 GO → **铺满根 canvas** → `Image`（`Color.clear`）
+        /// → **`Button.onClick → Hide`**（收起列表）+ `CanvasGroup.ignoreParentGroups`。
+        /// 原版那颗的排序 = 「dropdown 的画布 order − 1」⇒ 盖住**列表以外的一切**（含设置面板本身）。</para>
+        /// <para>本件的等价物 = `_panel` 下的一个**透明全屏** `Image`，兄弟序 z 排在「面板其余件之上、
+        /// 那颗语言框（`LangListFrontZ`）之下」（见 `LangBlockerZ`）；只在列表开着时 `SetActive(true)`。</para></summary>
+        HudPiece _langBlocker;
+
+        /// <summary>`_langBlocker` 的兄弟序 z —— 面板各件 z ∈ [`PanelZ − 0.06`, `PanelZ + 0.02`] = [−0.51, −0.43]、
+        /// 语言框开列表时 = `LangListFrontZ`(−0.60) ⇒ 取两者之间 **−0.55**（z 大 = 画在底下，见 `HudCanvas.Add`）。</summary>
+        const float LangBlockerZ = -0.55f;
+
         /// <summary>每帧喂五颗钮（`PointerFrame` 里调；列表开着时全灭 —— 那颗全屏 Blocker 盖住整扇窗）。</summary>
         void UpdateButtonFeedback(Vector3 world, bool allow, bool held)
         {
@@ -225,10 +290,10 @@ namespace CardPresentation
         Label _langCap;
         /// <summary>左边那颗标签（原版 `SelectLanguageText`，`'Select Language'`）。</summary>
         Label _langSelText;
-        /// <summary>上一次 `PointerFrame` 收到的是不是「按住」—— 本面板自己判**抬起**那一帧用（见 `LangPointerFrame`）。</summary>
-        bool _wasDown;
-        /// <summary>这一轮「按住」是**从语言那一行**开始的（抬起时只有它还为真才算点它）。</summary>
-        bool _langArmed;
+        // 🔴 **2026-10-20（W57 · `T09` A3-b）删掉的三格**：`_wasDown` / `_langArmed` / `_langRowArmed` /
+        //   `_langBlankArmed` —— 它们是手搓「按下记起点、抬起判命中」那对边沿的状态（旧 `LangPointerFrame`）。
+        //   现在点击由 uGUI `IPointerClickHandler` 派发（框 / 每一行 / Blocker 各一颗 `BattleHudButton`），
+        //   原版的「抬起才触发」「按下行、抬到别处不选」由 `EventSystem` 的 `pointerPress` 语义天然给出。
 
         // ---- 🆕 2026-10-18（A921）：语言下拉那 12 行列表的状态 ----
         /// <summary>`LanguagesDropdown > Template` 原型（**恒 inactive** —— 原版出厂 `m_IsActive = 0`）。
@@ -241,12 +306,6 @@ namespace CardPresentation
         /// <summary>列表里 12 行那三件 + 行号。</summary>
         readonly List<LangRow> _langRows = new List<LangRow>();
         struct LangRow { public HudPiece Bg, Chk; public Label Lb; public int Idx; }
-        /// <summary>按下那一刻记下「这一下按在哪」：`-1` = 不在行上。抬起来还落在同一行才算点它
-        /// （uGUI `IPointerClickHandler` 的语义，与 `LangPointerFrame` 原有那条同形）。</summary>
-        int _langRowArmed = -1;
-        /// <summary>按下那一刻指针落在**列表的空白处**（列表开着、又不在任何一行上）——
-        /// 原版那颗铺满全屏的透明 `Blocker` 就是干这个的（`CreateBlocker:1009` + `onClick → Hide`）。</summary>
-        bool _langBlankArmed;
         /// <summary>自检专用：把「ESC 按下了」钉死（`null` = 走真实键盘 —— **生产恒为 null**）。
         /// 形状照 `BattleDriver.EscapePressedForTest`（批处理里 `Keyboard.current == null`，见 `ESC` 那段）。</summary>
         public static bool? EscapePressedForTest;
@@ -324,8 +383,10 @@ namespace CardPresentation
             "MainMenu/Settings/SettingLabel/SoundFx",
             "Settings/Media/VoiceOvers",
         };
-        /// <summary>正在被拖动的那根（拖动期间不把指针当点击）。</summary>
-        WfSlider _dragSlider;
+        // 🔴 **2026-10-20（W57 · `T09` A3-b）删掉的一格**：`WfSlider _dragSlider` —— 宿主手搓的「按住哪一根」。
+        //   拖动是**持续状态**，原版 `Slider` 用 `IPointerDown/Drag/PointerUp` 自己维护；`WfSlider` 的 uGUI 档
+        //   （`T09` A3-b 上一批）已经有这一整套（`WfSlider._dragging` + `EventTrigger`）⇒ 宿主这一格与它**重复**。
+        //   ⛔ 别把它加回来跟 `WfSlider` 抢状态（两套各记一份 = `T09` §四 R1 那类半迁移）。
 
         // 面板尺寸（原版 743.2×758.6 px，1080p 下 108 px/世界单位）
         const float PanelW = 743.2f, PanelH = 758.6f;
@@ -675,7 +736,10 @@ namespace CardPresentation
         /// `sortingLayerName` 顶到 `"PopUps"`），等价物 = 渲染队列（`CLAUDE.md` §三：分层要用队列、别靠 z）。
         /// 序：本面板其余件（队列默认档 **3000**）&lt; 列表底 **3141** &lt; 行底 **3142** &lt; 行里的字/勾 **3143**。
         /// ⚠️ 主菜单那扇还有一档 `QBlocker 3140`（那颗铺满全屏的透明 `Blocker`）；本扇的「点空白收起」是
-        /// **几何判定**（见 `HitLangBlank`）⇒ **不建那颗透明块**，但**序照留**（列表仍从 3141 起）。
+        /// ⚠️ **2026-10-20（W57 · `T09` A3-b）就地订正（铁律 5）**：本行原来接着写「**几何判定**（见
+        /// `HitLangBlank`）⇒ **不建那颗透明块**」—— **两句都过期了**：`HitLangBlank` 已删，
+        /// 那颗 `Blocker` **现在真建**（`_langBlocker`，全屏透明 `Image` + `IPointerClickHandler → HideLangList`，
+        /// 判据 = 原版 `TMP_Dropdown.CreateBlocker`）。**序照留**（列表仍从 3141 起）。
         /// 🔴🔴 **2026-10-16（`T09` 批 2）：这三个数在本件里【已经是死值】** —— 本面板整层迁到
         /// **`PopUps` 子画布**之后，谁压谁由**兄弟序**（`HudCanvas.Add` 的 z）+ 子画布的层决定，
         /// **不再看渲染队列**（`ImageQuad.SetRenderQueue` / `Label.SetRenderQueue` 在画布上都是空操作）。
@@ -888,6 +952,11 @@ namespace CardPresentation
                 HudCanvas.Reorder(_shade.Rect, Z + 0.02f);
             }
             else Debug.LogWarning("[Settings] 整屏压暗（`settings_shade`）没建起来");
+            // 🔴 **2026-10-20（W57 · `T09` A3-b）**：这块压暗同时是**全屏 Blocker**（原版 `Dark Shade`：
+            //   `MB_4739` 的 `m_RaycastTarget = 1`；`MB_4927` 的 `BackgroundCloseButton` 两个字段都空
+            //   ⇒ **吃射线、点了不关窗**）。它是「点面板空白不穿透到背后 HUD 钮」的**唯一手段**
+            //   （`T09` §四 R3）—— ⛔ 别把它改回 `raycastTarget = false`。
+            _btnShade = AttachClick(_shade, OnShadeClicked, "Dark Shade");
 
             // 面板底：原版是 `Mask` + `Background fill`（图 `40k_popup_texture`，128×128 的九宫格填充）。
             // ⚠️ **不能直接用那张图**（试过）：它是**半透明填充**，拉大到 743×758 之后板子几乎全透、
@@ -923,6 +992,15 @@ namespace CardPresentation
                          cx, cy, U(ClosePx), Z - 0.01f);
             _closeIcon = Img(_panel, "settings_close_icon", CardArt.Ui("40k_bt_close"),
                              cx, cy, U(ClosePx * 0.42f), Z - 0.02f);
+            // 🔴 **2026-10-20（W57 · `T09` A3-b）**：点击挂**叉图**那一颗 —— 原版 `Generic Close Button`
+            //   圆底那颗的 `Image`（`MB_4346`）**`m_RaycastTarget = 0`**，命中只由叉图
+            //   （`MB_5056`，`m_RaycastTarget = 1` + `m_RaycastPadding = (−20,−20,−20,−20)`）定。
+            //   我们画出来的叉比原版框小（`ClosePx × 0.42`）⇒ 用 `AttachClick` 的 `hitW/hitH` 把命中框
+            //   **补成原版那一格 96.37×94.50**（与 `HitClose` 的 `CloseIconHit` 逐值相同）。
+            //   ⚠️ 叉图取不到时退回圆底那颗（= 旧 `HitClose` 的兜底支），并出声。
+            _btnClose = AttachClick(_closeIcon ?? _close, OnCloseClicked, "Generic Close Button",
+                                    CloseIconRectW + 2f * -CloseIconPadPx,     // 56.37 + 2×20 = 96.37
+                                    CloseIconRectH + 2f * -CloseIconPadPx);    // 54.50 + 2×20 = 94.50
 
             // ---- 投降：原版 `Resign`，面板左下角 ----
             // 🔴 **2026-09-19 照原版真值重做** —— 原来这里是 (0,−U(120)) / 宽 249 / 橙字，
@@ -970,6 +1048,9 @@ namespace CardPresentation
             }
             else Debug.LogWarning("[Settings] 投降钮（`settings_resign`）没建起来"
                                 + "（`40K_button` 取不到？⇒ 本节 `HasArt` 会先红）");
+            // 🔴 **2026-10-20（W57 · `T09` A3-b）**：uGUI 点击（原版 `Resign Button` = `EverguildButton`，
+            //   `MB` 字段 t=2 SpriteSwap）。我们的 rect **就是**原版 300×90 ⇒ 不用补 padding。
+            _btnResign = AttachClick(_resignBtn, OnResignClicked, "Resign Button");
             // 文字：原版 `Resign`（本地化 key `Battle/Settings/ResignButton`）。
             // 🔴 **2026-09-19 用户口径：先用英文**（原版就是英文；中文**查不到** —— 客户端没有 I2 语言表），
             //    之后再做彻底的完全翻译。字号 fs38 按**拉丁大写高度**定（见 `SliderLabel` 那条注释）。
@@ -990,8 +1071,9 @@ namespace CardPresentation
             // 判据（面板内坐标 / 底图 / 染色 / 文字框 / fs）全在文件头那组 `Skip*` 常量的注释里。
             // 🔴 **行为**（原版 `BattleSettingsWindow__SkipTutorialButtonOnClick.c`，方法体亲读）：
             //    `WindowsManager.CloseWindow(<设置窗>)` **然后** `BattleManager.ClickSkip(bm, 0)`
-            //    ⇒ 「**先关设置窗、再跳过**」—— 那一半在驱动层（`BattleDriver.SettingsClickAt`），
-            //    本件只负责**把这颗钮摆出来 + 给命中区**（同 `HitResign` 的分工）。
+            //    ⇒ 「**先关设置窗、再跳过**」—— 那一半在驱动层（`BattleDriver.SkipTutorialFromSettings`），
+            //    本件只负责**把这颗钮摆出来 + 派发点击**（🔴 2026-10-20 `T09` A3-b：走 `OnSkipTutorial` 回调口，
+            //    见 `OnSkipTutorialClicked`；⚠️ 要 D 接线，否则点了会 `LogWarning`）。
             // 🔴 **2026-10-16（`T09` 批 2）**：与 `_resignBtn` **逐字同一条处置**（uGUI 一张 `Image (Sliced)`、
             //    300×90 px、落位 `(+171.7, −310.5)` px、同一个绿染、兄弟序 z = `Z − 0.01`）。
             _skipBtn = HudCanvas.MakeSlicedPiece(_panel, resignTex, "settings_skip_tutorial",
@@ -1004,6 +1086,9 @@ namespace CardPresentation
                 HudCanvas.Add(_skipBtn.Rect, Z - 0.01f);
             }
             else Debug.LogWarning("[Settings] 「跳过教程」那颗钮（`settings_skip_tutorial`）没建起来");
+            // 🔴 **2026-10-20（W57 · `T09` A3-b）**：uGUI 点击（原版 `SkipTutorial Button` 与 `Resign` 同族，
+            //   同为 uGUI `Selectable`）。rect 也是原版 300×90 ⇒ 不补 padding。
+            _btnSkip = AttachClick(_skipBtn, OnSkipTutorialClicked, "SkipTutorial Button");
             // 文字：原版 `Button Text` 的 TMP 原文就是 `Skip tutorial`（`mTerm` 见 `SkipTutorialTerm`）。
             // 🆕 **2026-10-17（`A1753` #16）**：`SkipTutorial ▸ Button Text` 与 `Resign` **同族同材质**
             //   （`Pragati-Regular Off White Cold`）⇒ 同一个屏上颜色。
@@ -1040,6 +1125,9 @@ namespace CardPresentation
             _diffValue = HudCanvas.MakeText(_panel, "", U(70f), diffY,
                                             4, new Color(1f, 0.86f, 0.55f), new Vector2(0.5f, 0.5f),
                                             Z - 0.02f, "settings_diff_value");   // A1024③ 判不出（我们加的 AI 难度值）⇒ 保持 Cjk
+            // 🔴 **2026-10-20（W57 · `T09` A3-b）**：这一行**是我们加的**（原版没有玩家可见的难度开关，见上面那段）
+            //   ⇒ 命中也照我们自己的 `HitDifficulty`（= `_diffBtn` 的**实画矩形**，与 uGUI 的 rect 逐值相同）。
+            _btnDifficulty = AttachClick(_diffBtn, OnDifficultyClicked, "AI Difficulty");
 
             // ---- 🆕 2026-10-12（A424）：`Auto Zoom` 那一行（原版 `Auto Zoom Toggle`）----
             // 为什么要有它：原版**战斗内这一扇**设置窗（`BattleSettingsWindow`）本来就有这一行，
@@ -1063,6 +1151,11 @@ namespace CardPresentation
             // 🔴 **2026-10-16（`T09` 批 2）**：改走 `Img`（uGUI，中心锚、px）—— `FitHeight` 那条**内接**算式
             //    **一个字没改**（它给的就是「按贴图比例内接之后的高」，px；width 由 `Img` 按贴图比例补）。
             _azBox = Img(_panel, "settings_autozoom_box", azBoxTex, U(AzBoxCxPx), U(AzBoxCyPx), azBoxH, Z - 0.01f);
+            // 🔴 **2026-10-20（W57 · `T09` A3-b）**：uGUI 点击。原版这颗 `Toggle` 的命中 = ① 勾选框那格
+            //   （`Toggle` 的 Image，`m_RaycastTarget = 1`，rect 74.0616×57.6656）② 文字那一格
+            //   （TMP `m_RaycastTarget = 1`，rect 229.291×75.641）—— **两块、中间有 4.94 px 的缝**（`AzHitPx`）。
+            //   我们画出来的勾选框按贴图比例内接（比原版那格小）⇒ 用 padding 补成原版那一格。
+            _btnAutoZoom = AttachClick(_azBox, OnAutoZoomClicked, "Auto Zoom Toggle", AzBoxWPx, AzBoxHPx);
             // ⚠️ 那个绿是 `Selectable` 的 `m_NormalColor`（ColorTint 常态档），**不是** Image 自己的 `m_Color`
             //    （那个是白）。`EverguildToggle.colorTintOnValueChange = 0` ⇒ 开关翻动**不**改色。
             if (_azBox != null) _azBox.SetTint(AzBoxTint);
@@ -1096,6 +1189,13 @@ namespace CardPresentation
             // 🆕 **2026-10-17（`A1213③`）**：原版 `Auto Zoom Toggle ▸ Label` 的自适应四格
             //   `42 / 36 / [29, 42] / 折行 1`（折行本来就是 1 ⇒ `SetAutoFitBox` 内部顺带开的正是这一档，不用还原）。
             ApplyAutoFit(_azLabel, AzLabelWPx, AzLabelHPx, AzAutoMin, AzFontPx, AzAutoBase, 1);
+            // 🔴 **2026-10-20（W57 · `T09` A3-b）**：文字那一格的 uGUI 命中（原版那颗 TMP 的
+            //   `m_RaycastTarget = 1`）。我们的 `Label`（TMP）出厂不吃射线 ⇒ 拿一张**全透明 Image**
+            //   盖在 `AzHitPx[1]` 那一格上（中心 = `−203.42 + 229.291/2`、高 = 行高 75.641）。⛔ 别改成整行。
+            _azLabelHit = Img(_panel, "settings_autozoom_label_hit", SolidTex(1f),
+                              U(-203.42f + AzLabelWPx * 0.5f), U(AzLabelCyPx),
+                              U(AzLabelWPx), U(AzRowHPx), Z - 0.021f, 0, Color.clear);
+            AttachClick(_azLabelHit, OnAutoZoomClicked, "Auto Zoom Toggle(label)");
 
             // ---- 🆕 2026-10-16（`T01`）：`ChatToggle`「静音对手」那一行 ----
             // 位置 = `Volume Sliders` 下面那一行（原版父链就是这么挂的：`BattleSettingsPanel/
@@ -1174,6 +1274,252 @@ namespace CardPresentation
             BuildLanguageRow(Z);
         }
 
+        // ==================================================================
+        //  🔴 2026-10-20（W57 · `T09` 步骤 A3-b）：uGUI 输入 —— 挂件 / 动作 / 只读探针
+        //  判据与「为什么必须同批退掉手搓那条路」→ 文件头那一整段。这里只做两件事：
+        //   ① 把一颗 `HudPiece` 变成 `BattleHudButton`（= `raycastTarget = true` + `IPointerClickHandler`）；
+        //   ② 动作 = 原来 `BattleDriver.SettingsClickAt` 那一支**逐字**做的事（关窗 / 回调 / 翻开关）。
+        //  ⛔ 不在这里写任何几何判定 —— 命中归 `EventSystem` 的射线。
+        // ==================================================================
+
+        /// <summary>把一颗件挂成 uGUI 钮。`hitW/hitH > 0` ⇒ 用 `raycastPadding` 把**命中框**补成
+        /// 原版那一格的矩形（我们的件常常画得比原版节点 rect 小，见 `T09` §1·6 / R2）。
+        /// <para>补法：`pad = (我们的 rect − 原版 rect) / 2`（uGUI 语义 = **正值内缩、负值外扩**
+        /// ⇒ 我们的 rect 更小时差值为负 ⇒ 自动外扩）。判据 = 本机 uGUI
+        /// `Graphic.raycastPadding` 的四分量（L,B,R,T）+ `WfSlider.SetupUguiInput` 手柄那一条
+        /// （`HandlePadPx = −25` 外扩 25，同号）。⛔ 别把 pad 写死成某个常数 —— 我们的 rect 由贴图比例算出来，
+        /// 写死就会在换图/换比例时**静默缩水**。</para>
+        /// <returns>`null` = 没挂上（件是 null / 世界空间 / 拿不到 `Image`）—— 已经出声。</returns></summary>
+        static BattleHudButton AttachClick(HudPiece piece, Action action, string node,
+                                           float hitW = -1f, float hitH = -1f)
+        {
+            if (piece == null)
+            {
+                Debug.LogWarning($"[Settings] 可点件 `{node}` **没建出来** ⇒ 这一下点不动（贴图缺？）");
+                return null;
+            }
+            if (hitW > 0f && hitH > 0f)
+            {
+                var s = HudCanvas.SizePx(piece.Rect);
+                // ⚠️ 符号：uGUI **负值 = 外扩**（`HudPiece.SetRaycastPadding` 的 doc）。
+                //   目标比我们大 ⇒ 差值为负 ⇒ 外扩到目标框。写反成 `(hit − s)` 会**内缩**、而画面不报错。
+                float px = (s.x - hitW) * 0.5f, py = (s.y - hitH) * 0.5f;
+                if (!piece.SetRaycastPadding(px, py, px, py))
+                {
+                    Debug.LogWarning($"[Settings] 可点件 `{node}` 的命中框补不上去 ⇒ 保持它自己的矩形");
+                }
+            }
+            var btn = BattleHudButton.Attach(piece, action);
+            if (btn == null) Debug.LogWarning($"[Settings] 可点件 `{node}` **没挂上 uGUI 点击**（见上一行）");
+            return btn;
+        }
+
+        // ---- 动作：与原 `BattleDriver.SettingsClickAt` 的分支逐条对应（判据写在每条上）----
+
+        /// <summary>`Resign Button`：**先关窗、再投降**（原 `SettingsClickAt` 第一支：
+        /// `_settingsPanel.Hide(); Forfeit();` —— 顺序照旧）。</summary>
+        void OnResignClicked()
+        {
+            if (!Visible) return;
+            Hide();
+            var cb = OnResign;
+            if (cb != null) cb();
+            else Debug.LogWarning("[Settings] 「投降」钮被点了，但 `OnResign` **没接**（驱动层应传 `Forfeit`）");
+        }
+
+        /// <summary>`SkipTutorial Button`：**先关窗、再跳过**（原版
+        /// `BattleSettingsWindow__SkipTutorialButtonOnClick` 两行、这个先后；原 `SettingsClickAt` 第二支）。
+        /// ⚠️ 语义那一半在 `BattleDriver.SkipTutorialFromSettings`（private，本件白名单外）⇒ 走回调口。</summary>
+        void OnSkipTutorialClicked()
+        {
+            if (!Visible) return;
+            Hide();
+            var cb = OnSkipTutorial;
+            if (cb != null) cb();
+            else Debug.LogWarning("[Settings] 「跳过教程」钮被点了，但 `OnSkipTutorial` **还没接线**"
+                                + "（`BattleDriver.SettingsPanel.Create` 那一行要补 "
+                                + "`onSkipTutorial: SkipTutorialFromSettings`）—— 这一下**没有效果**");
+        }
+
+        /// <summary>`AI Difficulty`（**我们加的那一行**，原版没有这个入口）：换下一档、**不关窗**
+        /// （原 `SettingsClickAt` 第三支 → `CycleAiDifficulty()`）。</summary>
+        void OnDifficultyClicked()
+        {
+            if (!Visible) return;
+            var cb = OnCycleDifficulty;
+            if (cb != null) cb();
+            else Debug.LogWarning("[Settings] 「对手难度」钮被点了，但 `OnCycleDifficulty` **没接**");
+        }
+
+        /// <summary>`Generic Close Button`：关窗（原 `SettingsClickAt` 最后一支）。</summary>
+        void OnCloseClicked() { if (Visible) Hide(); }
+
+        /// <summary>`Auto Zoom Toggle`：翻开关 + **当场重算**（原 `SettingsClickAt` 那一支 →
+        /// `ToggleAutoZoomFromPanel()`，判据只在那一个方法里）。</summary>
+        void OnAutoZoomClicked() { if (Visible) ToggleAutoZoomFromPanel(); }
+
+        /// <summary>`ChatToggle`：翻「静音对手」（原 `SettingsClickAt` 那一支 → `ToggleMuteChatFromPanel()`）。</summary>
+        void OnMuteChatClicked() { if (Visible) ToggleMuteChatFromPanel(); }
+
+        /// <summary>语言下拉框：**开 / 收**（原版 `TMP_Dropdown.OnPointerClick → Show()`；
+        /// 开着时那颗全屏 `Blocker` 压在框上面 ⇒ 再点一下框 = 收起，见 `ToggleLangList` 的 doc）。</summary>
+        void OnLangFieldClicked() { if (Visible) ToggleLangList(); }
+
+        /// <summary>🔴 **全屏暗底（原版 `Dark Shade`）**。判据（`bundle_scenes_scenes_battlearena1` 亲读）：
+        /// `MB_4739` = 全屏 `Image (0,0,0,0.612)` + **`m_RaycastTarget = 1`**；同 GO 上 `MB_4927` =
+        /// `BackgroundCloseButton`，它的 `window = null`、`onClick` 的 `m_PersistentCalls` **空**
+        /// ⇒ **原版点它什么也不做**（不关设置窗）。⛔ 别在这儿 `Hide()`。
+        /// <para>列表开着时那一下归**原版 `TMP_Dropdown.CreateBlocker`**（它在那颗 `Dark Shade` 之上）——
+        /// 我们的 `_langBlocker` **铺满整块画布**、兄弟序在面板其余件之上 ⇒ 列表开着时它把这一块也盖住；
+        /// 下面那一句只是**兜底**（万一 `Blocker` 没建出来，点外面仍能收起列表）。</para></summary>
+        void OnShadeClicked()
+        {
+            if (!Visible) return;
+            if (LangListOpen) HideLangList();      // = 原版 DropdownBlocker.onClick → Hide()（兜底）
+        }
+
+        /// <summary>TMP `CreateBlocker` 那颗的点击：**收起列表**（`Button.onClick → Hide`）。</summary>
+        void OnLangBlockerClicked() { if (LangListOpen) HideLangList(); }
+
+        /// <summary>建/取列表开着时那颗全屏 `Blocker`（首次 `ShowLangList` 才建，见 `EnsureLangBlocker`）。</summary>
+        void EnsureLangBlocker()
+        {
+            if (_langBlocker != null) return;
+            _langBlocker = Img(_panel, "Blocker", SolidTex(1f), 0f, 0f, PanelW, PanelH, LangBlockerZ, 0, Color.clear);
+            if (_langBlocker == null)
+            {
+                Debug.LogWarning("[Settings] 语言下拉的 `Blocker` **没建出来** ⇒ 列表开着时滑块/别处仍会响应"
+                               + "（原版那颗 `TMP_Dropdown.CreateBlocker` 是透明全屏 `Image` + `onClick → Hide`）");
+                return;
+            }
+            _btnBlocker = AttachClick(_langBlocker, OnLangBlockerClicked, "Blocker");
+        }
+
+        /// <summary>把 `Blocker` 铺满**整块子画布**并排到「面板其余件之上、语言框之下」。
+        /// ⚠️ 尺寸**现读画布 rect**（`Expand` 档下非 16:9 时画布比 1920×1080 大，写死会露出两边 ——
+        /// 同 `HudCanvas.FillParent` 的 doc）；读不到才退回参考分辨率。</summary>
+        void ShowLangBlocker()
+        {
+            EnsureLangBlocker();
+            if (_langBlocker == null) return;
+            Vector2 cv = _cvRt != null ? _cvRt.rect.size : Vector2.zero;
+            if (cv.x <= 1f || cv.y <= 1f) cv = HudCanvas.ReferenceResolution;
+            HudCanvas.SetPxSize(_langBlocker.Rect, cv.x, cv.y);
+            _langBlocker.Rect.localPosition = Vector3.zero;      // 面板中心 = 画布中心（`_panel` 摆在设计中心）
+            HudCanvas.Reorder(_langBlocker.Rect, LangBlockerZ);
+            _langBlocker.gameObject.SetActive(true);
+        }
+
+        // ---- 自检探针（⛔ 只读 / 只走既有动作，不给生产用）----
+        //  形状照 `BattleHudButton.ClickForTest` / `ClickCountForTest`（灭自证：uGUI 点一次 = 1；
+        //  再喂一次**不经过 EventSystem** 的按下/松开 ⇒ 计数不变）。
+        //  🔴 **2026-10-20（`T09` A3-b）**：本段整块 `#if UNITY_EDITOR` —— 播放器里**不存在**
+        //    （同 `WfSlider` 那一族 Editor-only 探针的先例）。
+#if UNITY_EDITOR
+
+        BattleHudButton ButtonByNode(string node)
+        {
+            switch (node)
+            {
+                case "Resign Button": return _btnResign;
+                case "SkipTutorial Button": return _btnSkip;
+                case "AI Difficulty": return _btnDifficulty;
+                case "Generic Close Button": return _btnClose;
+                case "Auto Zoom Toggle": return _btnAutoZoom;
+                case "ChatToggle": return _btnMuteChat;
+                case "Language Selector": return _btnLangField;
+                case "Blocker": return _btnBlocker;
+                case "Dark Shade": return _btnShade;
+            }
+            return null;
+        }
+
+        /// <summary>自检用：某颗 uGUI 钮**被点了几次**。`-1` = 这颗没挂上（名字拼错 / 件没建出来）。</summary>
+        public int ClickCountForTest(string node)
+        {
+            var b = ButtonByNode(node);
+            return b != null ? b.ClickCountForTest : -1;
+        }
+        /// <summary>自检用：直接走那一颗的点击动作（= `Button.onClick` 的等价物，⛔ 不做命中）。</summary>
+        public void ClickForTest(string node)
+        {
+            var b = ButtonByNode(node);
+            if (b == null) { Debug.LogWarning($"[Settings] `ClickForTest(\"{node}\")`：没有这一颗可点件"); return; }
+            b.ClickForTest();
+        }
+        /// <summary>自检用：清计数。</summary>
+        public void ResetClickCountForTest(string node)
+        {
+            var b = ButtonByNode(node);
+            if (b != null) b.ResetClickCountForTest();
+        }
+        /// <summary>自检用：第 `i` 行（`i` = `Loc.Languages` 的下标）被点了几次。</summary>
+        public int LangRowClickCountForTest(int i)
+        {
+            var b = LangRowButton(i);
+            return b != null ? b.ClickCountForTest : -1;
+        }
+        /// <summary>自检用：走第 `i` 行的点击动作（→ `ChooseLanguage(i)`）。</summary>
+        public void LangRowClickForTest(int i)
+        {
+            var b = LangRowButton(i);
+            if (b == null) { Debug.LogWarning($"[Settings] 语言下拉第 {i} 行没有可点件"); return; }
+            b.ClickForTest();
+        }
+        BattleHudButton LangRowButton(int i)
+        {
+            for (int k = 0; k < _btnLangRows.Count; k++)
+                if (_btnLangRows[k] != null && k < _langRows.Count && _langRows[k].Idx == i) return _btnLangRows[k];
+            return null;
+        }
+
+        static bool RaycastTargetOf(HudPiece p)
+        {
+            if (p == null || !p.IsUgui || p.Rect == null) return false;
+            var img = p.Rect.GetComponent<UnityEngine.UI.Image>();
+            return img != null && img.raycastTarget;
+        }
+        /// <summary>自检用：全屏暗底（原版 `Dark Shade`）是不是射线靶（原版 = **1**）。</summary>
+        public bool ShadeRaycastTargetForTest { get { return RaycastTargetOf(_shade); } }
+        /// <summary>自检用：列表 `Blocker` 是不是射线靶（原版 `CreateBlocker` 的 `Image` 默认 = 1）。</summary>
+        public bool LangBlockerRaycastTargetForTest { get { return RaycastTargetOf(_langBlocker); } }
+        /// <summary>自检用：`Blocker` 的节点（没开过列表 ⇒ `null`）。</summary>
+        public HudPiece LangBlockerPieceForTest { get { return _langBlocker; } }
+        /// <summary>自检用：五颗钮 / 语言框的射线靶状态（判据 = 原版逐颗 `m_RaycastTarget`）。
+        /// `Generic Close Button` 取**叉图**那一颗（原版圆底那颗 `MB_4346` 是 **0**）。</summary>
+        public bool ButtonRaycastTargetForTest(string node)
+        {
+            switch (node)
+            {
+                case "Resign Button": return RaycastTargetOf(_resignBtn);
+                case "SkipTutorial Button": return RaycastTargetOf(_skipBtn);
+                case "AI Difficulty": return RaycastTargetOf(_diffBtn);
+                case "Generic Close Button": return RaycastTargetOf(_closeIcon) || RaycastTargetOf(_close);
+                case "Auto Zoom Toggle": return RaycastTargetOf(_azBox) && RaycastTargetOf(_azLabelHit);
+                case "ChatToggle": return RaycastTargetOf(_muteOffBg) && RaycastTargetOf(_muteLabelHit);
+                case "Language Selector": return RaycastTargetOf(_langField);
+            }
+            return false;
+        }
+        /// <summary>自检用：那颗叉图的 `raycastPadding`（**已补成原版 96.37×94.50 命中框**；
+        /// 分量序 L,B,R,T；原版 `MB_5056` 的值是 (−20,−20,−20,−20)，我们的 rect 更小 ⇒ 数值**不同**、**结果相同**）。</summary>
+        public Vector4 CloseRaycastPaddingForTest
+        {
+            get
+            {
+                var img = _closeIcon != null && _closeIcon.IsUgui && _closeIcon.Rect != null
+                        ? _closeIcon.Rect.GetComponent<UnityEngine.UI.Image>() : null;
+                return img != null ? img.raycastPadding : Vector4.zero;
+            }
+        }
+        /// <summary>自检用：语言框 / 第 `i` 行的射线靶（原版那两颗 `Image` 都是 **1**）。</summary>
+        public bool LangRowRaycastTargetForTest(int i)
+        {
+            var bg = LangRowBg(i);
+            return RaycastTargetOf(bg);
+        }
+#endif
+
         /// <summary>🆕 2026-10-17：原版战斗内这扇窗的 **`Language Selector`** 那一行 ——
         /// 下拉框（底图 + 当前语言名 + 箭头）+ 左边的 `Select Language` 标签。
         /// 几何/染色/字号**逐值见本文件那组 `Lang*` 常量**（面板内 px、y 向上）；这一段只讲落地三件：
@@ -1183,8 +1529,10 @@ namespace CardPresentation
         ///   ⇒ 底图 `Z − 0.01`、字/箭头 `Z − 0.02`；</item>
         /// <item>文字只有两颗：框里的**当前语言名**（fs18，走 `Loc.LanguageName`）与左边那颗标签
         ///   （fs42，走 `Loc.T(词条)`）—— **字号按语种选**（`ApplyLangFont`）；</item>
-        /// <item>命中区 = **下拉框那一块**（原版 `TMP_Dropdown` 挂在 `LanguagesDropdown` 上；左边那颗标签
-        ///   点下去原版什么也不发生 ⇒ 不接）。判定 = `HitLanguage`，**真实输入与自检走同一条**。</item>
+        /// <item>命中区 = **下拉框那一块**（原版 `TMP_Dropdown` 挂在 `LanguagesDropdown` 上，那颗 Image
+        ///   `m_RaycastTarget = 1`；左边那颗标签点下去原版什么也不发生 ⇒ 不接）。
+        ///   🔴 **2026-10-20（`T09` A3-b）**：生产输入 = 框上的 `BattleHudButton`（`IPointerClickHandler`）；
+        ///   `HitLanguage` 保留为**几何读口**（自检 / `E2` 探针用），不再参与产品点击。</item>
         /// </list>
         /// ✅ **2026-10-18（A921）订正（铁律 5）**：这里原来写「原版那颗点开是个 12 行的滚动列表 ——
         /// **本批没建**，改成『点一下换下一个』」——**现在建了**：`BuildLangTemplate` / `ShowLangList` /
@@ -1205,6 +1553,10 @@ namespace CardPresentation
             //    全部改走 uGUI 口（`Img` / `HudCanvas.MakeText`）—— 坐标/尺寸/染色**逐值不动**（px）。
             _langField = Img(_panel, "settings_lang_field", CardArt.MenuUi(LangFieldArt), U(cx), U(cy),
                              w, h, LangFieldZ, QPanel, LangFieldTint);   // 原版那颗 `Image` 是 `Simple`（拉伸）⇒ 按框给 (w,h)
+            // 🔴 **2026-10-20（W57 · `T09` A3-b）**：uGUI 点击（原版 `LanguagesDropdown` 的 Image
+            //   `m_RaycastTarget = 1`、挂 `TMP_Dropdown`；点击 = `OnPointerClick → Show()`）。
+            //   我们的 rect 就是原版 250×59.4 ⇒ 不补 padding。
+            _btnLangField = AttachClick(_langField, OnLangFieldClicked, "Language Selector");
 
             // 框内那行当前语言名（原版 `LanguagesDropdown > Label`）—— 左中锚，x = 框左 + 10
             _langCap = HudCanvas.MakeText(_panel, Loc.LanguageName(Loc.Current),
@@ -1479,22 +1831,38 @@ namespace CardPresentation
             //    **按语种选**（汉字 ≈ 1 em / 拉丁大写 ≈ 0.72 em，同 `ApplyLangFont` 那条判据）。
             //    实测最长那条（`Portuguese` ≈ 165px、`葡萄牙语` ≈ 120px）都放得进 198 宽的框（自检有断言）。
             ApplyLangFont(lb, txt, LstLblFontPx);
-            if (real) _langRows.Add(new LangRow { Bg = bg, Chk = chk, Lb = lb, Idx = i });
+            if (real)
+            {
+                _langRows.Add(new LangRow { Bg = bg, Chk = chk, Lb = lb, Idx = i });
+                // 🔴 **2026-10-20（W57 · `T09` A3-b）**：整行可点（原版 `Item` 的 `Toggle` +
+                //   `targetGraphic` = `Item Background`，那颗 Image 的 `m_RaycastTarget = 1`、
+                //   rect 铺满整行 ⇒ 我们的行底图 rect 与它逐值相同，不用补 padding）。
+                //   点中 = 原版 `OnSelectItem:1247`：`value = i` + 末尾 `Hide()`（`ChooseLanguage` 里第一句就 Hide）。
+                //   ⚠️ `i` 要**拷进局部**再进闭包（`for` 变量是共享的，直接捕会全指到最后一行）。
+                int idx = i;
+                _btnLangRows.Add(AttachClick(bg, () => ChooseLanguage(idx), "Language Row " + idx));
+            }
         }
 
         /// <summary>**点开 / 收起**（原版 `TMP_Dropdown.OnPointerClick → Show()` / `Blocker.onClick → Hide()`）。
         /// ⚠️ 原版 `Show()` **不是 toggle**：已经开着再点框会**直接 return**（`m_Dropdown != null`）；
         /// 而框上方那一块此刻被 `Blocker` 盖住 ⇒ 真实交互里「再点一下框 = 收起」。
-        /// 我们没有 UGUI 那套射线优先级，所以这里显式写成 toggle —— **这一处是对齐行为、不是照抄实现**
-        /// （同 `Shell/SettingsWindow.ToggleLangList` 那条）。</summary>
+        /// <para>🔴 **2026-10-20（W57 · `T09` A3-b）就地订正（铁律 5）**：本段原来写「我们没有 UGUI 那套
+        /// 射线优先级，所以这里显式写成 toggle」—— **现在有射线了**，但**仍然保持 toggle**：
+        /// 原版那颗 `Blocker` 在框**之上**（点框 = 点 Blocker = 收起）；本件把**框和它的列表**排到
+        /// Blocker **之上**（`LangListFrontZ` 比 `LangBlockerZ` 更靠前）⇒ 点框落到框自己身上，
+        /// 由这一句 toggle 给出**同一个结果**。⛔ 别改成「开着就 return」—— 那会变成「点框收不起来」。</para></summary>
         public void ToggleLangList() { if (LangListOpen) HideLangList(); else ShowLangList(); }
 
         /// <summary>开列表（= 原版 `Show()`）：首开时**建克隆体**（`Instantiate(Template)` + 改名 `"Dropdown List"`
         /// + 挂到 `Template` 的父下），然后 `SetActive(true)`。
-        /// ⚠️ 原版还会 `AlphaFadeList(0.15, 0→1)` 淡入 + 建那颗全屏 `Blocker`：
-        /// **淡入不做**（本工程的 `ImageQuad`/`Label` 没有 alpha 动画口，批处理下也没有帧循环）；
-        /// **`Blocker` 不建**（原版那颗是 `Color.clear` 的**透明**块，作用只是「吃掉落到别处的点击」
-        /// —— 本件的命中是**几何判定**（`HitLangRow` / `HitLangBlank`），不吃射线 ⇒ 建一块看不见的图没有意义）。</summary>
+        /// ⚠️ 原版还会 `AlphaFadeList(0.15, 0→1)` 淡入：**淡入不做**（本工程的 `ImageQuad`/`Label` 没有 alpha
+        /// 动画口，批处理下也没有帧循环）。
+        /// <para>🔴 **2026-10-20（W57 · `T09` A3-b）就地改（铁律 5）**：原来这里写「**`Blocker` 不建**
+        /// （本件的命中是几何判定 `HitLangRow`/`HitLangBlank`，不吃射线 ⇒ 建一块看不见的图没有意义）」
+        /// —— **那句已过期**：命中现在是 uGUI 射线，**必须**有那颗块，否则列表开着时
+        /// 滑块/五颗钮/背后的 HUD 全都能点到（原版 `TMP_Dropdown.CreateBlocker` 就是干这个的）。
+        /// 现在由 `ShowLangBlocker()` 建/显示（`_langBlocker`，点击 → `HideLangList`，判据见那边的 doc）。</para></summary>
         public void ShowLangList()
         {
             if (_langField == null) return;
@@ -1506,6 +1874,11 @@ namespace CardPresentation
                                                  _langRowsZ, Loc.Languages.Length);
             }
             _langList.gameObject.SetActive(true);
+            // 🔴 **2026-10-20（`T09` A3-b）**：列表开着 ⇒ 三根滑块/五颗钮一律不吃指针（原版那颗
+            //   全屏 `Blocker` 在它们之上）。滑块自己的悬停/按下是 `WfSlider` 的 uGUI 事件维护的
+            //   ⇒ 这里显式清一次，免得「列表弹出来时指针正停在滑轨上」留下一帧悬停亮着。
+            ResetSliderFeedback();
+            ShowLangBlocker();
             // 🔴 **2026-10-16（`T09` 批 2）**：把**那颗框**（连同列表子树）挪到面板子件的**最前面** ——
             //    这是旧那套 `QLangList/QLangItem/QLangText`（3141/3142/3143）三档队列的**等价物**：
             //    那三档的全部作用就是「把整棵列表压在面板其余件之上」（见 `QLangList` 的 doc）。
@@ -1525,15 +1898,18 @@ namespace CardPresentation
         }
 
         /// <summary>收起（= 原版 `Hide()` + `DestroyBlocker`）。⚠️ **不销毁克隆体**（原版会淡出后 `Destroy`）——
-        /// 我们不做淡出 ⇒ 留着复用，不影响任何一个可观察值（它关着、也不在命中里）。</summary>
+        /// 我们不做淡出 ⇒ 留着复用，不影响任何一个可观察值（它关着、也不在命中里）。
+        /// 🔴 **2026-10-20（`T09` A3-b）**：那颗 `Blocker` 也**只关不销毁**（原版 `DestroyBlocker` 销毁 ——
+        /// 同一处等价替换，见 `_langBlocker` 的 doc）。</summary>
         public void HideLangList()
         {
             bool was = LangListOpen;
             if (_langList != null) _langList.gameObject.SetActive(false);
+            if (_langBlocker != null) _langBlocker.gameObject.SetActive(false);
             // 🔴 **2026-10-16（`T09` 批 2）**：把那颗框挪回**它本来的那一档**（开列表时挪到了最前，
             //    见 `ShowLangList` 那段）。幂等 —— 没开过列表时也挪回原位（值本来就相同）。
             if (_langField != null) HudCanvas.Reorder(_langField.Rect, LangFieldZ);
-            _langRowArmed = -1; _langBlankArmed = false; _langHoverRow = -1;
+            _langHoverRow = -1;
             if (was) Debug.Log("[Settings] 语言下拉**收起**（原版 `Hide()` → `AlphaFadeList(0.15, 0)` → "
                              + "`DelayedDestroyDropdownList(0.15)` → `DestroyBlocker`；本件不做淡出）");
         }
@@ -1595,14 +1971,9 @@ namespace CardPresentation
             return false;
         }
 
-        /// <summary>列表开着时，指针落在**空白处**（不在任何一行上）—— 原版那颗全屏 `Blocker` 覆盖的范围。
-        /// ⚠️ 它**也包括那颗框自己**（`Blocker` 在框之上）⇒ 「再点一下框 = 收起」这条行为就是它给的。</summary>
-        bool HitLangBlank(Vector3 world)
-        {
-            if (!LangListOpen) return false;
-            int i;
-            return !HitLangRow(world, out i);
-        }
+        // 🔴 **2026-10-20（W57 · `T09` A3-b）删掉的一条**：`HitLangBlank`（手搓「列表空白区」判定）——
+        //   它的角色现在由两颗**真射线靶**承担：`_langBlocker`（面板内 / 全屏透明，点击 → `HideLangList`）
+        //   ＋ `_shade`（原版 `Dark Shade`，面板外，点击 → 列表开着就收）。
 
         /// <summary>ESC —— **列表开着先收列表**（原版 `TMP_Dropdown.OnCancel:763 → Hide()`：UGUI 把 `Cancel`
         /// 事件按「当前选中对象 → 父链」派发，列表开着时那颗全屏 `Blocker`（内部类 `DropdownBlocker`）先吃到它）。
@@ -1695,7 +2066,7 @@ namespace CardPresentation
             }
             return null;
         }
-        /// <summary>第 `i` 行**底图**的世界中心（自检照着它点 —— 走与真实输入**同一条**判定）。
+        /// <summary>第 `i` 行**底图**的世界中心（自检照着它点 —— 走与 `Hit*` **同一条**几何判定；🔴 生产点击走 uGUI）。
         /// 🔴 为什么给这个口：行节点名是**运行时按语言拼的**（换一次语言就变）⇒ `transform.Find(名字)` 不可靠。</summary>
         public Vector3 LangRowWorldPos(int i)
         {
@@ -1803,6 +2174,18 @@ namespace CardPresentation
             if (_muteLabel != null)
                 _muteLabel.SetAutoFitBox(U(MuteLabelWPx), U(MuteLabelHPx), MuteAutoMin, MuteFontPx, MuteAutoBase);
 
+            // 🔴 **2026-10-20（W57 · `T09` A3-b）**：这一行的 uGUI 命中 = 原版那两块
+            //   （`MuteHitPx`）：① 开关那半（`Background` 的 Image，`m_RaycastTarget = 1`，180.76×56.80）
+            //   ② `'Mute opponent'` 那颗 TMP（`m_RaycastTarget = 1`，346.20×53.00）。
+            //   ① 挂**OFF 那半**：它恒 active，且 ON 那块 `raycastTarget = false`（装饰）⇒ 射线穿过去落在它身上；
+            //     我们画出来的底图按贴图比例内接（比原版那格小）⇒ 用 padding 补成原版矩形。
+            //   ② 我们的 TMP 不吃射线 ⇒ 透明 Image 盖上原版那一格。
+            _btnMuteChat = AttachClick(_muteOffBg, OnMuteChatClicked, "ChatToggle", MuteBgWPx, MuteBgHPx);
+            _muteLabelHit = Img(_panel, "settings_mute_label_hit", SolidTex(1f),
+                                U(MuteLabelLeftPx + MuteLabelWPx * 0.5f), U(MuteLabelCyPx),
+                                U(MuteLabelWPx), U(MuteLabelHPx), z - 0.052f, 0, Color.clear);
+            AttachClick(_muteLabelHit, OnMuteChatClicked, "ChatToggle(label)");
+
             RefreshMuteChat();
         }
 
@@ -1818,7 +2201,7 @@ namespace CardPresentation
         }
 
         /// <summary>这一下点在「静音对手」那一行上吗。判据 = 上面 `MuteHitPx` 那两块**原版矩形**，
-        /// ⛔ 不是「整行框」。真实输入与自检走的是**同一条**判定（自检拿 `MuteChatWorldPos()` 喂进来）。
+        /// ⛔ 不是「整行框」。真实输入与自检走的是**同一条**判定（自检拿 `MuteChatWorldPos()` 喂进来）。🔴 2026-10-20（`T09` A3-b）：生产点击已走 uGUI（两块可点件与这两块矩形逐值相同），本条保留为**几何读口**。
         /// 🔴 **2026-10-16（`T09` 批 2）**：`transform`（世界空间那层壳）→ **`_panel`**（面板帧）——
         /// 只有面板帧的局部单位是 **px**，而那组 `MuteHitPx` 常量就是面板内 px。到命中的那条判定**没变**。</summary>
         public bool HitMuteChat(Vector3 world)
@@ -1930,18 +2313,26 @@ namespace CardPresentation
         }
 
         // ==================================================================
-        //  滑块交互 —— **真实输入与自检走同一条判定**
+        //  每帧指针入口 —— **只剩「模态接管 / 视觉反馈 / ESC」**
+        //  🔴 2026-10-20（W57 · `T09` A3-b）：手搓的滑块拖动 / 语言「按下→抬起」边沿**已删**
+        //     （滑块归 `WfSlider` 自己的 `EventTrigger`；语言归 `BattleHudButton` 的 `IPointerClickHandler`）。
         // ==================================================================
 
-        /// <summary>指针这一帧的状态喂进来。`down` = 按住。返回「**滑块接住了这一下**」
-        /// （驱动层据此决定要不要再把它当点击转给按钮）。
-        /// ⚠️ 「Auto Zoom」那一行**不在这里**（A445 起它走抬起的点击链），见方法体里的注释。</summary>
+        /// <summary>指针这一帧的状态喂进来（驱动层每帧调一次：`BattleDriver.HandleSettings`）。
+        /// `down` = 按住。返回「**这一下归本面板（模态）**」—— 驱动层拿到 true 就把 `_pressCaptured` 置上，
+        /// 同一次按住的**松手沿**不会再变成 `ReleasedThisFrame()`。
+        /// <para>🔴 **2026-10-20（W57 · `T09` A3-b）语义改了（铁律 5，如实记）**：原来返回「滑块 / 语言那一行
+        /// 接住了这一下」。现在点击全部由 uGUI 派发 ⇒ 本方法返回值的唯一用途是**关掉手搓的松手点击链**
+        /// （`BattleDriver.SettingsClickAt`）。面板开着 = 模态窗口占据整屏（原版那颗全屏 `Dark Shade`
+        /// `m_RaycastTarget = 1`）⇒ **任何按下都归它**，一律返回 true。
+        /// ⛔ 别改回「只有点在某个件上才 true」：那会让 `SettingsClickAt` 与 uGUI 各做一次（`T09` §四 R1）。</para>
+        /// <para>⚠️ 自检里 `PointerFrame(pos, true)` 现在**恒为 true** —— 旧的「面板外的点接不住」那条
+        /// 断言要改成打 uGUI 侧（`ClickCountForTest` / `PressCapturedForTest`），见报告。</para></summary>
         public bool PointerFrame(Vector3 world, bool down)
         {
             if (!Visible)
             {
-                _dragSlider = null; _wasDown = false; _langArmed = false;
-                _langRowArmed = -1; _langBlankArmed = false; _langHoverRow = -1;
+                _langHoverRow = -1;
                 ResetSliderFeedback();
                 return false;
             }
@@ -1949,65 +2340,24 @@ namespace CardPresentation
             //   见 `EscPressed` 那段）。🔴 为什么在这条路上读键盘：本件**每帧**都被驱动层调一次
             //   （`BattleDriver.HandleSettings` 里那句 `_settingsPanel.PointerFrame(...)`），而
             //   `BattleDriver.cs` 不在本件的白名单里 ⇒ 这里是本件唯一「每帧必到」的入口。
-            //   ⛔ 别把这句挪进下面那两支（它是**帧级**边沿、与指针无关）。
+            //   ⛔ 别把这句挪进别处（它是**帧级**边沿、与指针无关）。
             if (EscDown()) EscPressed();
+            // 语言行的悬停高亮：**只换贴图、不派发动作**（原版 `Toggle` 的
+            //   `m_SpriteState.m_HighlightedSprite` = `40K_dropdown_item_hover`）。
             RefreshLangHover(world);
-            // 🆕 2026-10-19（B4 · `N70` P0-4）：三根滑条的悬停/按下/禁用反馈（原版 `Slider` = ColorTint，
-            //   `m_TargetGraphic` = 手柄 · HL 0.9608 / PR 0.7843 / DIS α0.502 / fade 0.1）。
-            //   判据与算式只在 `WfSlider` 一份（⛔ 别在宿主里再写一套）。列表开着时那颗全屏 Blocker 盖住整根滑块
-            //   ⇒ 悬停也要关（否则穿透亮起来）。
-            UpdateSliderHover(world, allow: !LangListOpen);
-            // 🆕 2026-10-19（B4 · `N70` P0-2）：本面板五颗钮的悬停/按下/禁用反馈。
+            // 五颗钮的悬停/按下/禁用反馈（`BattleButtonFx`）：同样**只改色/换图**，不派发动作。
+            //   判据与算式只在那一个状态机里。列表开着时那颗全屏 `Blocker` 盖住整扇窗 ⇒ 全灭。
             UpdateButtonFeedback(world, allow: !LangListOpen, held: down);
-            // 🆕 2026-10-17：语言那一行的**按下 → 抬起**这一对边沿（原版那颗 `TMP_Dropdown` 是 `Selectable`
-            //   ⇒ `IPointerClickHandler`，**抬起**那一帧才算点它）。⚠️ 这一段必须在下面那句
-            //   `if (!down) … return false;` **之前** —— 抬起那一帧 `down == false`，走不到底下。
-            bool langClick = LangPointerFrame(world, down);
-            if (!down) { _dragSlider = null; UpdateSliderPress(); return langClick; }
-
-            // 🆕 2026-10-18（A921）：**列表开着** ⇒ 这一帧的按下归那颗全屏 `Blocker`
-            //   （`LangPointerFrame` 已经返回 true）—— ⛔ 别再往下走：原版那颗 `Blocker` 盖住整根滑块，
-            //   按在列表上不该把底下的滑轨拖走。
-            if (LangListOpen) { _dragSlider = null; UpdateSliderPress(); return true; }
-
-            // 🔴 **2026-10-12（A445）：「Auto Zoom」那一行不在本方法里判。**
-            //    原版那颗开关（`BattleSettingsPanel/Auto Zoom Toggle`，组件 `EverguildToggle`）继承
-            //    `Toggle`/`Selectable` ⇒ 它走 `IPointerClickHandler`，**抬起**那一帧才触发。
-            //    所以它的指针入口与 `HitResign/HitDifficulty/HitClose` 同一条链 =
-            //    **`BattleDriver.SettingsClickAt`**（那里现在有那一行）。
-            //    ⚠️ A424 当初把它落在「按下那一帧」是**文件所有权逼出来的权宜**（那时 `BattleDriver.cs`
-            //    不在那件活的白名单里）—— 现在挪回去了，保留这段痕迹免得下一个会话再挪回来。
-            //    本方法仍然只负责**滑块**：拖动是持续状态，必须在**按下**那一帧接住。
-            if (_dragSlider != null) { _dragSlider.SetFromPointer(world); UpdateSliderPress(); return true; }
-
-            foreach (var s in Sliders)
-                if (s != null && s.Contains(world))
-                {
-                    _dragSlider = s;
-                    s.SetFromPointer(world);       // **按下即定位**（🔴 **照原版** —— `Slider.OnPointerDown` 的
-                                                   // else 支就是 `UpdateDrag`；原来这里写「`m_TargetGraphic` 只认手柄、
-                                                   // 这条是我们挑的」= 读错了对象，订正见 `Battle/WfSlider.cs` 文件头）
-                    UpdateSliderPress();
-                    return true;
-                }
-            UpdateSliderPress();
-            return false;
+            // 三根滑块的悬停/按下由 `WfSlider` 的 uGUI 事件维护（`T09` A3-b 上一批已做完）
+            //   ⇒ 本件**不再喂**（旧 `UpdateSliderHover` / `UpdateSliderPress` 已删）。
+            return down;      // 模态接管（灭自证）—— 见 doc
         }
 
-        // ---- 🆕 2026-10-19（B4 · `N70` P0-4）：滑条反馈的三个私有口（判据只在 `WfSlider` 一份）----
+        // ---- 🆕 2026-10-19（B4 · `N70` P0-4）：滑条反馈的**复位**口（判据只在 `WfSlider` 一份）----
+        //   ⚠️ 现在只剩「关窗 / 关列表 / 开列表」三处清状态用；每帧的悬停/按下已归 `WfSlider` 自己。
         void ResetSliderFeedback()
         {
             foreach (var s in Sliders) if (s != null) { s.SetHover(false); s.SetPressed(false); s.TickFeedback(); }
-        }
-        void UpdateSliderHover(Vector3 world, bool allow)
-        {
-            foreach (var s in Sliders)
-                if (s != null) { s.SetHover(allow && s.Contains(world)); s.TickFeedback(); }
-        }
-        void UpdateSliderPress()
-        {
-            foreach (var s in Sliders)
-                if (s != null) { s.SetPressed(s == _dragSlider); s.TickFeedback(); }
         }
 
         WfSlider[] Sliders { get { return new[] { _musicSlider, _fxSlider, _voiceSlider }; } }
@@ -2093,7 +2443,7 @@ namespace CardPresentation
         }
 
         /// <summary>这一下点在「Auto Zoom」那一行上吗。判据 = 上面那两块**原版矩形**（见 <see cref="AzHitPx"/>），
-        /// ⛔ 不是「行框整个」。真实输入与自检走的是同一条判定（自检拿 `AutoZoomRowWorldPos` 喂进来）。
+        /// ⛔ 不是「行框整个」。真实输入与自检走的是同一条判定（自检拿 `AutoZoomRowWorldPos` 喂进来）。🔴 2026-10-20（`T09` A3-b）：生产点击已走 uGUI（勾选框 + 文字格两块可点件与这两块矩形逐值相同），本条保留为**几何读口**。
         /// 🔴 **2026-10-16（`T09` 批 2）**：参考帧 `transform` → **`_panel`**（只有它是 px，见 `HitMuteChat` 那条）。</summary>
         public bool HitAutoZoom(Vector3 world)
         {
@@ -2123,59 +2473,13 @@ namespace CardPresentation
             return RectContains(_langField.transform, world, s.x, s.y);
         }
 
-        /// <summary>语言那一行的**按下 / 抬起**边沿 —— 返回「这一帧这一次抬起算不算点到了它」。
-        ///
-        /// <para>🔴 **为什么在这一层收边沿，而不是并进 `BattleDriver.SettingsClickAt`**：
-        /// 本面板其余四颗（Resign / Difficulty / Auto Zoom / Close）的入口**都在驱动层**那条链上
-        /// （`BattleDriver.SettingsClickAt`，A462/A445 把它们统一到「抬起那一帧」）—— 而**本件（双语这条活）
-        /// 的白名单里没有 `BattleDriver.cs`** ⇒ 在本面板内部自己收**同一对边沿**，行为等价：
-        /// 按下那一帧记「这一下是从哪开始的」、抬起那一帧（且两帧都落在框上）才触发 ——
-        /// 这正是 uGUI `IPointerClickHandler` 的语义。
-        /// 📌 **将来收口**：把它并进 `SettingsClickAt`（与兄弟三颗摆在一起）更整齐，判据也是那一处。
-        /// ⛔ **别改成「按下就触发」**：A445 明确把上一颗（Auto Zoom）从按下挪回了抬起。</para>
-        ///
-        /// <para>⚠️ 自检可以直接喂这一对（`PointerFrame(pos, true)` → `PointerFrame(pos, false)`），
-        /// 走的是**与真实输入同一条**判定（批处理里 `Mouse.current` 是 null、`Update` 也不跑）。</para></summary>
-        bool LangPointerFrame(Vector3 world, bool down)
-        {
-            bool wasDown = _wasDown;
-            _wasDown = down;
-            if (down && !wasDown)
-            {
-                // 按下：记下这一下「从哪开始」。
-                // 🆕 2026-10-18（A921）：**列表开着时**，原版那颗铺满全屏的透明 `Blocker` 在最上层
-                //   （`CreateBlocker:1009`）⇒ 这一帧一律**吃掉**（滑块/别的按钮都不许起拖、不许响应）：
-                //   按在**行**上 = 待会儿选它；按在**别处**（**含那颗框自己** —— `Blocker` 压在它上面）
-                //   = 待会儿收起。这两条合起来就是原版「再点一下框 = 收起」的来路。
-                if (LangListOpen)
-                {
-                    int row; _langArmed = false;
-                    _langRowArmed = HitLangRow(world, out row) ? row : -1;
-                    _langBlankArmed = _langRowArmed < 0;
-                    return true;
-                }
-                _langArmed = HitLanguage(world);
-                return false;
-            }
-            if (!down && wasDown)                                                      // 抬起：原版就是这一帧触发
-            {
-                // ① 点行 ⇒ 选中 + 收起（原版 `OnSelectItem:1247` = `value = i` + 末尾 `Hide()`）
-                if (_langRowArmed >= 0)
-                {
-                    int armed = _langRowArmed; _langRowArmed = -1; _langBlankArmed = false;
-                    int hit;
-                    if (HitLangRow(world, out hit) && hit == armed) { ChooseLanguage(armed); return true; }
-                    return true;      // 按在行上、抬到别处 ⇒ **不选**（但这一下仍归 `Blocker` 吃）
-                }
-                // ② 点空白 ⇒ 收起（原版那颗 `Blocker` 的 `onClick → Hide`）
-                if (_langBlankArmed) { _langBlankArmed = false; HideLangList(); return true; }
-                // ③ 点框 ⇒ 开/收（原版 `OnPointerClick → Show()`；开着时这一下会被 ① 吃掉，见上面）
-                bool fire = _langArmed && HitLanguage(world);
-                _langArmed = false;
-                if (fire) { ToggleLangList(); return true; }
-            }
-            return false;
-        }
+        // 🔴 **2026-10-20（W57 · `T09` A3-b）删掉的一条**：`LangPointerFrame`（手搓「按下记起点 / 抬起判命中」）。
+        //   现在这一段由 uGUI 给出**同一套语义**：
+        //     · 框 = `_btnLangField`（`BattleHudButton`，`IPointerClickHandler`）→ `ToggleLangList`；
+        //     · 行 = 每一行底图上的 `BattleHudButton` → `ChooseLanguage(i)`（内部第一句就是 `HideLangList`）；
+        //     · 行外（含那颗框自己）= 全屏 `Blocker` 的 `Button.onClick → Hide`；
+        //     · 「按下行、抬到别处 ⇒ 不选」= `EventSystem` 的 `pointerPress`（click 只发给按下的那一件）。
+        //   ⛔ 别把这条边沿再加回来：两套并存 = 一次点击选两次 / 开两次列表（§四 R1）。
 
         public void Show() { Visible = true; SetActive(true); }
         public void Hide()
@@ -2203,6 +2507,9 @@ namespace CardPresentation
                                       _muteLabel, _muteOffText, _muteOnText })
                 if (l != null) l.gameObject.SetActive(on);
             if (_azBox != null) _azBox.gameObject.SetActive(on);
+            // 🆕 2026-10-20（`T09` A3-b）：那两块透明命中片（原版 TMP 的射线面）跟面板开关走
+            if (_azLabelHit != null) _azLabelHit.gameObject.SetActive(on);
+            if (_muteLabelHit != null) _muteLabelHit.gameObject.SetActive(on);
             // 🆕 2026-10-16（T01）：静音那一行的三张图（OFF 那半恒显示、ON 那半看开关 —— 见 `RefreshMuteChat`）
             if (_muteOffBg != null) _muteOffBg.gameObject.SetActive(on);
             if (_muteOffChk != null) _muteOffChk.gameObject.SetActive(on);
@@ -2218,7 +2525,6 @@ namespace CardPresentation
             foreach (var s in Sliders) if (s != null) s.SetVisible(on);
             if (!on)
             {
-                _dragSlider = null; _wasDown = false; _langArmed = false;
                 // 🆕 2026-10-18（A921）：关面板时**把列表也收掉** —— 列表挂在**那颗语言框**下面，框停用会让它
                 //   在层级上跟着不显示，可 `_langList.gameObject.activeSelf` **仍是真** ⇒ `LangListOpen` 会
                 //   谎报「开着」（下次开面板一进来列表就露着）。⛔ 别只靠父件的 `SetActive`。
@@ -2248,7 +2554,8 @@ namespace CardPresentation
         /// <summary>🆕 **2026-10-18（A991）**：这一下点在**「跳过教程」**上吗。
         /// 判据与 <see cref="HitResign"/> **逐字同形** —— 同一颗 `Bottom buttons` 下的镜像位、
         /// 同一套九宫格命中算法（`RectContains`，因为根节点不是 `ImageQuad`）。
-        /// 🔴 **真实输入与自检走的就是这一条**（驱动层 `BattleDriver.SettingsClickAt`）。</summary>
+        /// 🔴 **2026-10-20（`T09` A3-b）**：生产点击已走 uGUI（`_btnSkip` = `BattleHudButton`，
+        /// 命中 rect 与这一条**逐值相同**：300×90）⇒ 本条保留为**几何读口**（自检 / `E2` 探针）。</summary>
         public bool HitSkipTutorial(Vector3 world)
         {
             if (!Visible || _skipBtn == null) return false;
@@ -2316,7 +2623,7 @@ namespace CardPresentation
 
         // ---- 自检用 ----
         public string ResignText { get { return _resignText != null ? _resignText.Text : null; } }
-        /// <summary>投降按钮的世界坐标（自检照着它点 —— 走的是和真实点击同一条命中判定）</summary>
+        /// <summary>投降按钮的世界坐标（自检照着它点 —— 走 `HitResign` 那条几何判定；🔴 生产点击走 uGUI）</summary>
         public Vector3 ResignWorldPos { get { return _resignBtn != null ? _resignBtn.transform.position : Vector3.zero; } }
 
         // ---- 🆕 2026-10-18（A964① ③）：关闭钮的只读口（⛔ 只给自检，不给生产用）----
@@ -2324,7 +2631,7 @@ namespace CardPresentation
         //  只有「关闭」这颗没有 ⇒ `E2` 探针（命中区 ⊇ 实绘矩形）量不到它，只能整个跳过。
         //  形状照 `BattleDriver.CameraResetButtonDrawnPx`（中心 + 实绘尺寸一对）。
 
-        /// <summary>关闭钮的世界坐标（自检照着它点 —— 走的是和真实点击同一条 <see cref="HitClose"/>）。
+        /// <summary>关闭钮的世界坐标（自检照着它点 —— 走 `HitClose` 那条几何判定；🔴 生产点击走 uGUI）。
         /// 取**圆底那颗** `_close`（同族的 `Resign/Difficulty/AutoZoom` 也都是取底图那颗，
         /// 字/图标是压在它上面的、中心同一个）。</summary>
         public Vector3 CloseWorldPos { get { return _close != null ? _close.transform.position : Vector3.zero; } }
@@ -2345,7 +2652,7 @@ namespace CardPresentation
         /// <summary>那颗钮**现在画不画**（跟着面板开关走 —— 原版那颗在 `BattleSettingsPanel` 里、
         /// 面板在场景里是 `(inactive)`，运行期由设置按钮打开）。</summary>
         public bool SkipTutorialShown { get { return _skipBtn != null && _skipBtn.gameObject.activeSelf; } }
-        /// <summary>那颗钮（九宫格根）的**世界坐标** —— 自检照着它点（走与真实输入同一条判定）。</summary>
+        /// <summary>那颗钮（九宫格根）的**世界坐标** —— 自检照着它点（走与 `Hit*` 同一条几何判定；🔴 生产点击走 uGUI）。</summary>
         public Vector3 SkipTutorialWorldPos { get { return _skipBtn != null ? _skipBtn.transform.position : Vector3.zero; } }
         /// <summary>那颗字上写的是什么（原版 TMP 原文 `Skip tutorial`）。</summary>
         public string SkipTutorialText { get { return _skipText != null ? _skipText.Text : null; } }
@@ -2386,7 +2693,7 @@ namespace CardPresentation
         public bool AutoZoomCheckShown { get { return _azCheck != null && _azCheck.gameObject.activeSelf; } }
         /// <summary>那行文字上写的是什么（原版 TMP `m_text`）。</summary>
         public string AutoZoomLabelText { get { return _azLabel != null ? _azLabel.Text : null; } }
-        /// <summary>勾选框（`Toggle` 那格）的世界坐标 —— 自检照着它点（走与真实输入同一条判定）。</summary>
+        /// <summary>勾选框（`Toggle` 那格）的世界坐标 —— 自检照着它点（走与 `Hit*` 同一条几何判定；🔴 生产点击走 uGUI）。</summary>
         public Vector3 AutoZoomBoxWorldPos { get { return _azBox != null ? _azBox.transform.position : Vector3.zero; } }
         /// <summary>文字那格的世界坐标（= 原版 `Label` 的**左中**）—— 自检照它点。</summary>
         public Vector3 AutoZoomLabelWorldPos { get { return _azLabel != null ? _azLabel.transform.position : Vector3.zero; } }
@@ -2413,7 +2720,7 @@ namespace CardPresentation
         public string LanguageCaptionText { get { return _langCap != null ? _langCap.Text : null; } }
         /// <summary>左边那颗标签上写的是什么（词条 `MainMenu/Settings/ButtonLabel/SelectLanguage`）。</summary>
         public string LanguageLabelText { get { return _langSelText != null ? _langSelText.Text : null; } }
-        /// <summary>下拉框那颗 quad 的世界坐标（自检照着它点 —— 走与真实输入同一条判定）。</summary>
+        /// <summary>下拉框那颗 quad 的世界坐标（自检照着它点 —— 走 `Hit*` 那条几何判定；🔴 `T09` A3-b 起生产点击走 uGUI 的 `ClickForTest`）。</summary>
         public Vector3 LanguageFieldWorldPos { get { return _langField != null ? _langField.transform.position : Vector3.zero; } }
         /// <summary>框**实画的**宽 × 高（**设计 px**；原版那颗是 `Simple`（拉伸）⇒ 应逐值等于 250×59.4）。
         /// 🔴 **2026-10-16（`T09` 批 2）**：改读 px ⇒ **自检那条要跟着去掉 `× 108f`**。</summary>

@@ -168,7 +168,26 @@ class Program
     //      E8b `§5·2` 已把后 13 张逐张列过）。
     //   ③ **电池 586 行全变** = `A1965` 事件电池新增 6 步（E8）—— 输出格式的有意扩展，不是行为漂移。
     //   ④ 本趟**没有**新增未归因差异：重生成后 `check` 现读 **解析差异 0 行 · 改名 0 · 新增 0 · 消失 0**。
-    public const string PinnedPoolMd5 = "41fc875129bc4d57df976adfe63adc22";
+    // 🔴 **2026-10-19（第五十七会话 · 卡牌线 `CA-2` · `A1995②`/`A2002`）有意重钉 `PinnedPoolMd5`**：
+    //   本批只改了 **18 个卡面字段**（`AM18`/`AM52`/`EC37` 的 `desc` 删句末句点 · 15 张 `descZh` 的
+    //   天赋名换官方 `Card_Name` 中文名）⇒ `cards_engine.json` 内容必变，`41fc8751…` → `9527c129…`。
+    //   ⛔ 不是把红抹平：**另外两个指纹原样不动** —— `PinnedParseMd5` 现跑仍一致（解析差异 0 行），
+    //   `PinnedBaselineMd5` 现读与基线文件逐字符相同（没有重生成过基线）。判据 → `资料/普查产出_1019/W57_卡牌线_T08数据落地.md`。
+    // 🔴 **2026-10-19（第五十七会话 · 卡牌线 `CA-3` · `A2047`）**：本笔先按 PnP 卡面把 5 张 `descZh`
+    //   （`GOF104`/`SW26`/`SW6`/`SW51`/`UM77`）的 `troop` 从官方旧译「单位」改成「部队」、并把卡池钉到 `ecff0724…`；
+    //   随后**调度台裁定「显示层以官方中文表为准」**（`CLAUDE.md` 的官方优先口径 + 用户 `A1945` 拍板）⇒ **5 条已全部回滚**，
+    //   卡池 md5 回到 `CA-2` 钉的 `9527c129…`（本轮两次重生成逐字节一致），**本常量随之改回**。
+    //   ⛔ 另外两个指纹原样不动：`check` 现跑 **解析差异 0 行 · 哨兵失败 0 · rc=0**。判据 → `资料/普查产出_1019/W57_卡牌线_T03中文与官方表.md` §续。
+    // 🔴 **2026-10-19（第五十七会话 · 阵营机制写手 `FACTION-DATA` · 账 `W57 X4`）**：`SOR31` / `SOR44` /
+    //   `Righteous Repugnance` 三张的 `desc` 把 Faith 误抄成 Energy，已改 `cardface_fixes.json` 并重生成
+    //   （两次 `--write` 逐字节一致）⇒ 卡池 `9527c129…` → `e5894c40…`。`descZh` 两张均**保留官方措辞**
+    //   （`SOR31` 的 `((Faith_cost_x,1))` 与 RR 的 `4 能量：` 都由显示层 `RewriteMarks` / `RewriteFaithCost`
+    //   渲染成「数字 + 信仰图标」——后者是调度台 2026-10-19 的裁定）。
+    //   ⛔ 本轮**只**钉这一格（白名单）：
+    //   `check` 现读**解析差异 = 本笔 3 张**（`SOR31` `gainenergy`→`gainfaith` · `SOR44`/RR `cost 5/4` 的 `ck` 空→`faith`）
+    //   ＋并行写手的 `ASH34`（`Talent:` 修复）⇒ `PinnedParseMd5` **应重钉为 `23da247f…`**（由主对话裁定，本轮未动）；
+    //   `PinnedBaselineMd5` 原样不动（基线文件没重生成）。判据 → `资料/普查产出_1019/W57_阵营机制_修女三卡数据.md`。
+    public const string PinnedPoolMd5 = "e5894c4026b6f33ba37755b72209911f";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -192,7 +211,11 @@ class Program
     //    用 HEAD 卡池跑 `check` 同样是「新增 213 / 消失 212」，不是本次引入的）。
     // 🔴 **2026-10-19（`A1973` 收口重钉）** —— 与 `PinnedPoolMd5` 同一批、同一份归因（见那上面那段）；
     //    基线由 `scan` 重生成后现读 md5，逐行照抄。
-    public const string PinnedBaselineMd5 = "16714e8f24ad81c76823d2e05bcb5f42";
+    // 🔴 **2026-10-20（第五十七会话 · 工具线 `PLAY-1`）有意重钉** —— 与下面 `PinnedParseMd5` 同一批：
+    //   那 4 行已逐行核过（`scan` 连跑两次逐字节一致 = 496,525 B / md5 `9d830493…`；
+    //   `git diff` 该基线文件 = **4/4 行**，新增 0 / 消失 0）⇒ 按 `check` 的首条判据
+    //   「先修好解析器，再跑 `scan` 把它定为新基线」重生成，⛔ 不是把红抹平。
+    public const string PinnedBaselineMd5 = "9d8304939112056abdba248776891c01";
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -246,7 +269,15 @@ class Program
     // 🔴 **2026-10-19（`A1973` 收口重钉）** —— 与 `PinnedPoolMd5` 同一批、同一份逐条归因
     //    （18 行解析差异：Talent 桥 5 · choicesDefinition 6 · DeadScope 5 · AmountRef 2 · TL16 1，
     //    另 3 张「改名且解析变」已并进上面那几族）。值由 `check` 的 ⑦ 现打、整行照抄。
-    public const string PinnedParseMd5 = "f06831f4306fcb48e59e05e86ecc81ab";
+    // 🔴 **2026-10-20（第五十七会话 · 工具线 `PLAY-1`）有意重钉** —— 解析差异 4 行、逐行核过
+    //    （现算 dump vs 旧基线逐行 diff：**只有这 4 行变、新增 0 / 消失 0**）：
+    //      · `ASH34` Avatar of Khaine = 本会话 `W57` 的 `Talent:` 修复 —— `create` op 的
+    //        `cost 2→0` · `CostShared 1→0` · `ck spirit→空`（`2 [Spirit Stone]` 的 carry 不再挂到
+    //        天赋上；天赋由 `RuleCore.SpawnTalents` 回合开始造）；
+    //      · `SOR31` / `SOR44` / `Righteous Repugnance` = `FACTION-DATA` 把 Faith 误抄成 Energy 的
+    //        数据修正（`gainenergy→gainfaith` · `cost 5/4` 的 `ck energy→faith`）。
+    //    判据 → `资料/普查产出_1019/W57_引擎线_T07工具收口.md` §四 ＋ `W57_阵营机制_修女三卡数据.md` §六。
+    public const string PinnedParseMd5 = "23da247f2a40a2160b355938a949609d";
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
@@ -302,7 +333,8 @@ class Program
             Console.WriteLine("usage: seg <text...> | card <name> | scan <out> | check [baseline] | filter <kw> | "
                               + "layers <out.jsonl> | "
                               + "willrun [dump <out>] | faith [dump <out>] | play <id|卡名> | play all [dump <out>] [pf <out>] | "
-                              + "play check [<pf.txt>] | nonkw | jackal | emergency | suppressor | played | b19test");
+                              + "play check [<pf.txt>] | nonkw | jackal | emergency | suppressor | played | b19test | "
+                              + "dbparse");
             Environment.Exit(1);
         }
         if (args[0] == "scan")
@@ -319,6 +351,17 @@ class Program
         if (args[0] == "layers")
         {
             Environment.Exit(Layers.Run(args.Length > 1 ? args[1] : "layers.jsonl"));
+        }
+        // 🆕 **`dbparse`**（`E12`，2026-10-19 · 第五十七会话）：`CardDatabase.Parse` 的**形状 + 耗时**。
+        //   为什么需要它：卡表 v12 新增 `animTimes` / `talentNameIds`（+30.8% 字节），
+        //   而本探针的 `LoadPool` 走 `System.Text.Json` 手读、**不经过** `Data/CardDatabase.cs`
+        //   ⇒ 「JsonUtility 形状吃不吃得下 / 装载慢了没有」没有任何读数。
+        //   ⚠️ 它用的是 `Stub.cs` 那份 **Unity 形状的** `JsonUtility`（System.Text.Json + IncludeFields），
+        //   **不是** Unity 原生解析器 ⇒ 原生那一半仍需首跑 Unity（判据 → `DbParse.cs` 头注）。
+        //   ⛔ 只读卡池；不写基线、不动三个指纹。
+        if (args[0] == "dbparse")
+        {
+            Environment.Exit(DbParse.Run());
         }
         if (args[0] == "check" && !File.Exists(PoolPath)) { Console.Error.WriteLine("!! 找不到卡池：" + PoolPath); Environment.Exit(2); }
         int i = 0;

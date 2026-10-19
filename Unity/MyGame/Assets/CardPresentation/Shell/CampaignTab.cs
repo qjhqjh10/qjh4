@@ -1336,7 +1336,7 @@ namespace CardPresentation
         /// `资料/普查产出_1013/WA435甲_迁移.md` §七。</para>
         ///
         /// <para>🔴 **下面这段「反证」是【迁移前】的原话，数字已过期（铁律 5 留痕）**：
-        /// 它列的 `ForgeTab.cs:572/609` · `:658/674` · 本文件 `:326/342` · `:619/656` · `:741/764`
+        /// 它列的 `ForgeTab.cs` · `:658/674` · 本文件 `:326/342` · `:619/656` · `:741/764`
         /// **五处设站点在 2026-10-13 全部删掉了**（改走 `ViewportClip.Hang`）⇒ 「本窗上写它的只有两处文件」
         /// 现在是「**一处都没有**」。判据（那四件原版没有 mask）**仍然成立、仍然有效**。</para>
         ///
@@ -1359,8 +1359,8 @@ namespace CardPresentation
         /// ① `Clip` 的初值是 `null`（`Shell/WindowsManager.cs` 的 `GameWindow.Clip` 声明 声明 `public PxRect? Clip;`，`PxRect?`
         /// 默认值）；
         /// ② **本窗（`RewardsWindow` 实例）上写它的只有两处文件**，且**每一处都成对还原**：
-        /// `Shell/ForgeTab.cs:572/609`（阵营条，存 2 件还原 2 件）· `:658/674`（奖励轨道，存 3 件还原 3 件）；
-        /// 本文件 `:326/342`（`BuildTrack`）· `:619/656`（`BuildArmyItems`）· `:741/764`（`RefreshNodes`）
+        /// `Shell/ForgeTab.cs`（阵营条，存 2 件还原 2 件）· `CardPresentation/Shell/ForgeTab.cs`（奖励轨道，存 3 件还原 3 件）；
+        /// 本文件（`BuildTrack`）· 本文件（`BuildArmyItems`）· 本文件（`RefreshNodes`）
         /// —— 逐段读过：**保存与还原之间没有任何 `return`**（只有循环内的 `continue`）；
         /// ③ `Shell/MissionsTab.cs` · `Shell/RewardsWindow.cs` · `Shell/MenuWindowBase.cs` ·
         /// `Shell/WindowsManager.cs`（`GameWindow` 本体）对这三个字段**一次都不写**
@@ -1412,17 +1412,26 @@ namespace CardPresentation
         /// <summary>🔴 **2026-10-17（界面线 T25）**：`40K_generic_bt_info` 那颗圆钮的 **tooltip 触发**。
         /// 判据 = 原版每颗 info 都挂 `EverguildTooltipTrigger`（`U2` 普查 §二 战役/日常那几行；先例 =
         /// 锻造页 `Help Icon` 与同族的 `MissionsTab.AddInfoTooltip`，两处同一套写法）。
-        /// <para>⚠️ **正文在远端词条**（本地没有 value）⇒ **面板照原版的时机弹、里面是空的**
-        /// （`Tooltip.Show(" ")`：空串 = 不显示，一个空格让它照弹；同 `ForgeTab.HelpTipBody`）。⛔ 不编文案。</para>
-        /// <para>⚠️ 这颗的 `tooltipAnchor` / `offset` **没有现读** ⇒ 照同族默认 `25`（右上）+ 零偏移
-        /// —— **我们照同族挑的**，如实标。</para></summary>
+        /// 🔴 **2026-10-19（`N73` 就地订正，铁律 5）**：本段原文写「正文在远端词条（本地没有 value）⇒ 面板照弹、
+        /// 里面是空的」——**已过期**：官方词条 **`MainMenu/Campaign/Help` 现读有值**
+        /// （`数据/游戏数据/官方本地化_en+zh-CN.json`：EN「Complete Missions to progress through the Campaign
+        /// of your selected faction. You can change which faction to focus on at any time.」/ 中文同条）。
+        /// ⇒ 正文走 `Loc.T`（`Table` 没登记 ⇒ 由它的官方全表兜底那一档接住，`Core/Loc.cs` 的 `T` 三档）。
+        /// 🔴 **2026-10-19（`N73` 现读补全，铁律 5）**：本段原文写「`tooltipAnchor` / `offset` 没有现读 ⇒
+        /// 照同族默认 `25` + 零偏移」——**已过期**：原版触发器实读
+        /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-4150665785838686835.json` 与
+        /// `…_6137946225118746367.json`，两颗同值）= `tooltipAnchor = **5**（居中 · `None/MiddleCenter`）` ·
+        /// `offset = **(0, −80, 0)**` ⇒ 现在照原版传（`Tooltip.Show` 的 `offset` 与 `worldPos` **同量纲 = 世界单位**
+        /// ⇒ 画布 px 走 `LayoutSpace.Px(…)`，同 `BattleDriver.TickTooltipAt` 那一族的 `/ TipPx` 口径）。</summary>
         void AddInfoTooltip(Transform parent, PxRect r, string name)
         {
             var hit = _win.AddHit(parent, name + " TipHit", r, RewardsWindow.QOverlay, null);
             if (hit == null) return;
             var wb = hit.GetComponent<WindowButton>();
             if (wb == null) return;
-            wb.onEnter = () => Tooltip.Show(" ", LayoutSpace.FromPixel(r.CX, r.CY), 25, Vector3.zero);
+            wb.onEnter = () => Tooltip.Show(Loc.T("MainMenu/Campaign/Help"),
+                                            LayoutSpace.FromPixel(r.CX, r.CY), 5,
+                                            new Vector3(0f, LayoutSpace.Px(-80f), 0f));
             wb.onExit = Tooltip.Hide;
         }
 

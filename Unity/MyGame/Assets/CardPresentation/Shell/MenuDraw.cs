@@ -44,7 +44,7 @@ namespace CardPresentation
         /// ⛔ **不是节点自己的** —— 自己的 `localScale` 只影响**它的孩子**、不影响它自己的位置。
         /// 这一条在本工程里**带电**：`Shell/CampaignTab.cs` 里 `Premium Mark` 那颗 `localScale` 那一句 把 `localScale = (2,2,1)` 打在一个节点上
         /// （⚠️ **2026-10-11 就地订正（铁律 5，A298 顺手核出来的）**：这里原来写 `CampaignTab.cs:342`
-        /// —— **行号是旧的**（`342` 今天是 `BuildNode` 的声明行附近，`localScale` 那一句在 `:358`）；
+        /// —— **行号是旧的**（`342` 今天是 `BuildNode` 的声明行附近，`localScale` 那一句在 `CardPresentation/Shell/CampaignTab.cs`）；
         /// 同一句旧行号还抄在 `资料/普查产出_1010/A297_MenuWindowBase副本.md:74` 与
         /// `共用件_A294_A292.md:107` 两处（**资料不在本批白名单 ⇒ 没动，见报告 §六**）。）
         /// （`Premium Mark`，原版 `Image` 的 `localScale=2`）、紧接着拿它当 `parent` 画子件
@@ -609,7 +609,7 @@ namespace CardPresentation
         /// 🔴 判据 = 原版 uGUI 只有**一条** `RectTransform` 的世界↔屏幕换算
         /// —— 「写用实测、读用常量」两套并存就是 A990。
         /// ⚠️ **2026-10-18（A990② · `A1092`）就地订正（铁律 5）**：本句原来还并排引了
-        /// `LayoutSpace.cs:164` 当第二判据 —— 「`LayoutSpace.cs:164` 也把 `ToPixel` 自己声明成
+        /// `LayoutSpace.cs` 的 `ToPixel` 当第二判据 —— 「`LayoutSpace.cs` 的 `ToPixel` 也把 `ToPixel` 自己声明成
         /// 『`FromPixel` 的逆』」。🔴 **那句自述本身就是错的**（`ToPixel`/`PxX` 的 x 斜率写死 108，
         /// **只在 16:9 成立**），已在 `ToPixel` 的 doc 里就地订正（那一段现在明写「真正的逆是
         /// `LayoutSpace.ToDesignPixel`」）⇒ **引一句已被推翻的声明来支撑本函数站不住**，
@@ -637,7 +637,7 @@ namespace CardPresentation
         /// 见 `资料/普查产出_1018第三会话/W_ClipQuad与量法.md:85` 那份「一行方案」）。
         /// **16:9 下与旧读差 ≤ 2.5e-4 px**（`DesignPxW / VisibleWidth` 实得 107.99999）⇒ 12 条自检里把
         /// `cam.aspect` 钉成 `DesignAspect` 的宿主**零回归**；y 那一半 `PixelOfDesign` 直接转调 `LayoutSpace.PxY`，**逐位不变**。
-        /// ⚠️ **`A990①` 那一档（尺寸项 `WorldW × K` 在非 16:9 下不跟位置缩放）【不在本件】** —— 见 `:42`。</para>
+        /// ⚠️ **`A990①` 那一档（尺寸项 `WorldW × K` 在非 16:9 下不跟位置缩放）【不在本件】** —— 见 `本文件`。</para>
         ///
         /// <para>🔴 **2026-10-11（A298）**：**位置项先换算进【设计空间】，再喂 `ToPixel`** ——
         /// 即 `PosInDesignSpace(q.transform)`（除的是**该 quad 的父级那一级** `lossyScale`，
@@ -1880,7 +1880,7 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-12（A336②）：`autoBasePx` = 原版那一颗的 `m_fontSizeBase`**（同量纲）。
         /// **`&lt;= 0` ⇒ 旧行为**（base = 调用方那一档）。它只影响自适应的**二分起点**
         /// （`TextMeshPro.cs:2148-2149` `Clamp(m_fontSizeBase, min, max)`），终点两侧都收敛到
-        /// 「装得下的最大号」⇒ 渲染差 ≤ 0.05 fontSize 单位。判据 = `Battle/Label.cs:549-570` 那段
+        /// 「装得下的最大号」⇒ 渲染差 ≤ 0.05 fontSize 单位。判据 = `Battle/Label.cs` 那段
         /// （`m_fontSizeBase` 全库 200+ 种取值、`36.0` 是 TMP 出厂默认 ⇒ **只能逐站现读**）。</para>
         ///
         /// <para>🔴 **2026-10-13（A781）：补上【裁切】那半边。** 本方法原来**没有 `clip` 形参、
@@ -2231,14 +2231,14 @@ namespace CardPresentation
         //       `RewardsScene:293` · `ShopScene:874`）**现读一条都不是**（其中两个文件里连那个串都没了）。
         //       **错因 = 只有【总数】在滚、【明细】没跟着重数** ⇒ 以后改这段，**两样一起重数**。
         //       ⚠️ **2026-10-07 就地订正（A77⑬①现读）**：这处例外原来写的行号是 `675` —— 那颗节点
-        //       （`Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`）已被后续波次推到 **`:739`**；
+        //       （`Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`）已被后续波次推到 **`CardPresentation/Shell/ProfileTab.cs`**；
         //       判据文件（`资料/待办判据_审查发现_1005.md` ⑬①）里那个数**也是 675**，同属过期行号。
         //       那 21 处的来历（⚠️ **它是 A81 当时那份 `Shell/` 清单** —— 现读 = 这 21 处
         //       **＋ `Shell/RewardWindow.cs`** 1 处 = **22 扇窗**；⚠️ 这个数**不是裸 grep 能直接数的**：
-        //       `CloseHit` 在别的件上是**关窗钮** —— `DeckInfoPopup.cs:625` · `Shell/DeckSelectionPopup.cs` 里那句 `Hit(root, "CloseHit", …)` ·
-        //       `Shell/ImportDeckPopup.cs` 里那句 `Hit(root, "CloseHit", …)` · `TrophyInfoPopup.cs:236`（**四个都带一张按钮脸**）——
+        //       `CloseHit` 在别的件上是**关窗钮** —— `DeckInfoPopup.cs` 的 `CloseHit` · `Shell/DeckSelectionPopup.cs` 里那句 `Hit(root, "CloseHit", …)` ·
+        //       `Shell/ImportDeckPopup.cs` 里那句 `Hit(root, "CloseHit", …)` · `TrophyInfoPopup.cs` 的 `CloseHit`（**四个都带一张按钮脸**）——
         //       别把它们算进来；而 `BoosterPackOpenWindow` 那颗又**不叫这个名**）：
-        //      · **2 处早就在公共件上**：`ImportDeckPopup.cs:103` · `TrophyInfoPopup.cs:202`；
+        //      · **2 处早就在公共件上**：`ImportDeckPopup.cs` · `TrophyInfoPopup.cs`；
         //      · **13 处归 A47 接线批的白名单**：`BattleLogPopup` · `BoosterInfoPopup` · `CardDetailPopup` ·
         //        `DeckSelectionPopup` · `DuelPopupWindow` · `LeaderboardWindow` · `MissionRerollPopup` ·
         //        `PlayerProfileWindow` · `BoosterPackOpenWindow` + R-F 审查补出的一族（全叫 `BackdropHit`）
@@ -2783,7 +2783,7 @@ namespace CardPresentation
             if (pl == null) return;
             // 🔴 **2026-10-19（`A2141`）：候选点必须命中【本窗自己的】吸收层** —— 旧扫描只判
             //    `hb.absorbOnly` ⇒ 别家窗遗留的同名 `AbsorbHit` 只要叠在同一块矩形上，就能让
-            //    `found` 变真、**断言假绿**（`MainMenuScene` 14 条级联时 `:3991` 那条在 #10–#13 全红时仍 ✓）。
+            //    `found` 变真、**断言假绿**（`MainMenuScene` 14 条级联时 `CardPresentation/Editor/MainMenuScene.cs` 那条在 #10–#13 全红时仍 ✓）。
             //    判据收进 `IsOwnAbsorbHit`（与同函数末段那条「(5,5) 命中的必须是**这扇窗自己的**压暗层」
             //    同口径：`IsChildOf(winRoot)` ∧ 公共件标记）。
             bool found = FindOwnAbsorbPoint(winRoot, x1, y1, x2, y2,
@@ -2862,7 +2862,7 @@ namespace CardPresentation
         /// `WindowButton`」冒充）· ③ `IsChildOf(winRoot)` —— **是哪一扇窗的**。</para>
         /// <para>🔴 **`A2141` 漏的就是 ③**：旧扫描只判 ①（连 ② 都没判），而本工程**多扇窗会同时留残骸**
         /// （详情窗每开一次多一具等）⇒ 别家窗遗留的同名 `AbsorbHit` 只要叠在候选点上，`found` 就变真、
-        /// 断言**假绿**（2026-10-19 `MainMenuScene` 14 条级联时暴露：`:3991` 那条在 #10–#13 全红时仍 ✓）。
+        /// 断言**假绿**（2026-10-19 `MainMenuScene` 14 条级联时暴露：`CardPresentation/Editor/MainMenuScene.cs` 那条在 #10–#13 全红时仍 ✓）。
         /// 口径与 `CheckAbsorbRule` 末段那条「(5,5) 命中的必须是**这扇窗自己的**压暗层」逐字同族
         /// （`IsChildOf` ∧ 公共件标记）。</para>
         /// <para>⚠️ 调用点传的 `winRoot` 必须是**吸收层节点的祖先**：本工程 20+ 处 `MenuDraw.Absorb`
@@ -2928,7 +2928,7 @@ namespace CardPresentation
         /// ⚠️ **`Editor/{CollectionScene,RewardsScene,SettingsScene,ShopScene}.cs` 那 4 份已随副本一起删**。
         /// 🔴 **2026-10-19 就地订正（铁律 5）**：本行原文写「`Editor/MainMenuScene.cs` 那一份【还在】、
         /// 它的 `CheckAbsorbRule` 也还没收口」—— **已过期**：`A825` 第 5 份已于 **2026-10-16** 收口
-        /// （`MenuCheck.cs` 文件头与 `MainMenuScene.cs:64` 都记着；`grep EdgeInset Editor/` 现读只剩注释）。
+        /// （`MenuCheck.cs` 文件头与 `MainMenuScene.cs` 的 `EdgeInset` 都记着；`grep EdgeInset Editor/` 现读只剩注释）。
         /// ⛔ 别再照着旧话去删一份已经不存在的常量表。</summary>
         static readonly float[] AbsorbEdgeInset = { 6f, 20f, 40f };
 
@@ -2936,8 +2936,8 @@ namespace CardPresentation
         /// 「窗根的直接子件取不到 ⇒ 再递归找」那一条退路用的。
         /// ⚠️ **这是同一段查找在本文件里的一份实现**。🔴 **2026-10-19 就地订正（铁律 5）**：本行原文写
         /// 「5 个宿主各自那个私有 `FindChild` 的一份副本」—— **已过期**：宿主那 5 份**现在都转调**
-        /// `Editor/MenuCheck.FindChild`（`CollectionScene.cs:143` · `MainMenuScene.cs:13504` ·
-        /// `RewardsScene.cs:115` · `SettingsScene.cs:290` · `ShopScene.cs:1111`）。⛔ **本文件不能借那一份**：
+        /// `Editor/MenuCheck.FindChild`（`CollectionScene.cs` · `MainMenuScene.cs` ·
+        /// `RewardsScene.cs` · `SettingsScene.cs` · `ShopScene.cs`）。⛔ **本文件不能借那一份**：
         /// `MenuCheck` 在 **Editor 程序集**、`MenuDraw` 在运行期程序集 ⇒ 引用方向反了。
         /// 所以这里保留**同语义的一份**（行为与 `MenuCheck.FindChild` 逐字相同），如实记。
         /// ⛔ 别在这上面加「只找直接子件」之类的变体：直接子件那一步是上面 `winRoot.Find(nodeName)`。</summary>
@@ -3222,7 +3222,7 @@ namespace CardPresentation
                 //       └ `Deck Image` —— **拉伸**画在 **`347.70×346.35 @ (−49.4, 6.2)`**（= `DcImgW/H` / `DcImgX/Y`）
                 //   ⇒ 可见区 = 那个大方框**正中**的 228×306 那一块（**不是**「等比缩到 200 宽」）。
                 //   🔴 **等价复现（不引入遮罩机制）**：把**画框**交给 `Rect(…, clip: 遮罩格 ∩ 视口)` ——
-                //     `Rect` 自己那条 uv 算式（本文件 `:1578`）算出来的正好是「画框里被遮罩框住的那一块」，
+                //     `Rect` 自己那条 uv 算式（本文件 `本文件`）算出来的正好是「画框里被遮罩框住的那一块」，
                 //     而**几何矩形仍然是 `遮罩格 ∩ 视口`**（与改前**逐位相同** ⇒ 位置/尺寸不受本次改动影响）。
                 //   ⛔ **别退回 `keepAspect: true`**（那是原版没有的一档）。
                 //   ⛔ **也别在 `Rect` 之后自己补一句 `SetUvRect`** —— 那会**盖掉** `Rect` 按视口裁切算好的

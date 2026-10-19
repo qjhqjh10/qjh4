@@ -27,6 +27,15 @@
     <!-- 🆕 `nonkw`（`A1462`）—— `non <关键词>` 的目标筛选专用探针，见 `NonKwProbe.cs` 头注 -->
     <Compile Include="NonKwProbe.cs" />
     <Compile Include="Program.cs" />
+    <!-- 🆕 `dbparse`（`E12`，2026-10-19 · 第五十七会话）：**`CardDatabase.Parse` 的形状 + 耗时**。
+         🔴 为此**必须**把 `Data/CardDatabase.cs` 也编进来 —— 本 csproj 关了
+         `EnableDefaultCompileItems`，只编显式列出的文件；漏了它，`DbParse.cs` 会在**构建时**报
+         `CS0246 CardDatabase`（不是运行时）。⚠️ 它**只碰** `UnityEngine.Resources` / `TextAsset` /
+         `Debug` / `JsonUtility` 四个成员 —— 全在 `Stub.cs` 里（`CardDatabase.Load` 走 `Resources`，
+         `Parse` 走 `JsonUtility`；探针只调 `Parse`）。
+         ⚠️ `Data/` 下**别的文件不要顺手加进来**：`DeckStore` 要 `persistentDataPath`，探针没有。 -->
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/CardDatabase.cs" />
+    <Compile Include="DbParse.cs" />
     <!-- 被测对象：相对路径（原来写死 D:/4/... 绝对路径 ⇒ 换机器/换盘就编不过）。
          🔴 从 工具/ruleprobe/ 上去两级才是 Unity/ ⇒ ../../MyGame/... -->
     <Compile Include="../../MyGame/Assets/RuleEngine/Core/*.cs" />

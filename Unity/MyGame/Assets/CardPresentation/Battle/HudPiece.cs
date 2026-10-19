@@ -342,6 +342,84 @@ namespace CardPresentation
             if (_img != null) _img.material = m;
         }
 
+        // ── 🆕 2026-10-19（`T09` 步骤 A1）：uGUI 点击 / 节点 rect 两个写口 ──────────────
+
+        /// <summary>🔴 **把这一件变成 uGUI 射线靶**（`Image.raycastTarget`）。
+        /// <para>**返回 false = 没写成**（这一件还在世界空间 / 没有 `Image`）——
+        /// ⛔ **调用点必须出声**：静默返回会让「看着在钮上、点不动」这种缺陷不报错就上线
+        /// （判据 → `CLAUDE.md` §三「不许静默失败」）。</para>
+        /// <para>语义：`true` ⇒ `EventSystem` 的 `GraphicRaycaster` 会把它当候选；
+        /// `false`（默认）⇒ 装饰件，不吃射线（`HudCanvas.MakeAnchored` 建出来就是 false）。</para></summary>
+        public bool SetRaycastTarget(bool on)
+        {
+            if (_quad != null)
+            {
+                // 旧 quad 没有 `raycastTarget` 这个概念（命中一直是手搓 `Contains`）——
+                // 那不是「设成功了」，如实返回 false。
+                Debug.LogError("[HudPiece] `" + name + "` 还在**世界空间**（`ImageQuad`）—— "
+                             + "它没有 `raycastTarget`，uGUI 射线也打不到它 ⇒ 设不了");
+                return false;
+            }
+            if (_img == null)
+            {
+                Debug.LogError("[HudPiece] `" + name + "` 没有 `Image` 组件（uGUI 件应当有）⇒ `raycastTarget` 设不了");
+                return false;
+            }
+            _img.raycastTarget = on;
+            return true;
+        }
+
+        /// <summary>🔴 **2026-10-19（`T09` 步骤 A2）：写 `Image.raycastPadding`**（原版 `m_RaycastPadding` 的等价物）。
+        /// <para>分量序 **L,B,R,T**（Unity 的 `Graphic.raycastPadding` 就是这个序，判据 → `Graphic.cs:188-196`），
+        /// **正值 = 往里缩、负值 = 往外扩**（铁证 = uGUI 自带的
+        /// `GraphicRaycasterUsesGraphicPadding`：`(−50,−50,−50,−50)` 之后 rect **外 60 px** 必须命中）。
+        /// 命中基准是**节点自己的 `rectTransform.rect`**（⛔ 不是画出来的内接矩形，见 `SetNodeRect` 的 doc）。</para>
+        /// <para>**返回 false = 没写成**（世界空间件 / 没有 `Image`）—— 调用点必须出声。</para>
+        /// <para>⚠️ 只在 `raycastTarget = true`（`BattleHudButton.Attach`）之后才有意义 —— 这一项只影响
+        /// `GraphicRaycaster` 的矩形判定，不改任何画出来的东西。</para></summary>
+        public bool SetRaycastPadding(float padL, float padB, float padR, float padT)
+        {
+            if (_quad != null)
+            {
+                Debug.LogError("[HudPiece] `" + name + "` 还在**世界空间**（`ImageQuad`）—— "
+                             + "它没有 `raycastPadding`（uGUI 射线也打不到它）⇒ 设不了");
+                return false;
+            }
+            if (_img == null)
+            {
+                Debug.LogError("[HudPiece] `" + name + "` 没有 `Image` 组件 ⇒ `raycastPadding` 设不了");
+                return false;
+            }
+            _img.raycastPadding = new Vector4(padL, padB, padR, padT);
+            return true;
+        }
+
+        /// <summary>🔴 **2026-10-19（`T09` A1 的「节点 rect 口」）：把 uGUI 件的 `sizeDelta` 改成
+        /// 【原版节点 rect】**（而不是「画出来的尺寸」），并设 `Image.preserveAspect`。
+        /// <para>**为什么要区分**：`T09` §1·6 现核 —— `HudAbs` 把 `RectTransform.sizeDelta` 写成
+        /// **内接后的画面尺寸**（`Offensive` 高 105.60 vs 原版节点 106.943）；原版 `m_RaycastPadding`
+        /// 是加在**节点 rect** 上的 ⇒ 要用 padding 就得先把 rect 改回节点那个（A2 的活）。</para>
+        /// <para>⚠️ `preserveAspect = true` 时图会**内接**进这个 rect（原版 `PA=1` 的语义），
+        /// 与「把 drawn 尺寸写进 rect」画出来的结果**逐位相同**（两轴同系数）——
+        /// 变的只有 `sizeDelta` 这个**判据量**。</para>
+        /// <returns>false = 没写成（世界空间件 / 尺寸非法）；**已经 `LogError`**。</returns></summary>
+        public bool SetNodeRect(float wPx, float hPx, bool preserveAspect)
+        {
+            if (_quad != null)
+            {
+                Debug.LogError("[HudPiece] `" + name + "` 还在**世界空间**（`ImageQuad`）⇒ 节点 rect 口只对 uGUI 件有效");
+                return false;
+            }
+            if (_rt == null || wPx <= 0f || hPx <= 0f)
+            {
+                Debug.LogError("[HudPiece] `" + name + "` 的节点 rect 非法（w=" + wPx + " h=" + hPx + "）");
+                return false;
+            }
+            _rt.sizeDelta = new Vector2(wPx, hPx);
+            if (_img != null) _img.preserveAspect = preserveAspect;
+            return true;
+        }
+
         /// <summary>贴到某个**归一化锚点**（x 从左、y 从**下**算 —— 与 `LayoutSpace` 同口径）。</summary>
         public void SetAnchorPosition(float x01, float y01)
         {

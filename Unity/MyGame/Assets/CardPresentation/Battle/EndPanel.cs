@@ -217,6 +217,23 @@ namespace CardPresentation
             {
                 HudCanvas.FillParent(_dim.Rect);
                 HudCanvas.Reorder(_dim.Rect, BattleDoors.ZDim);
+                // 🔴 **2026-10-20（W57 · 战斗侧 `T09` 步骤 A3-d）：压暗层 = 全屏射线靶（模态闸）。**
+                //   判据（**原版 prefab 现读**，`bundle_scenes_scenes_battlearena1` 与 `…battlearena2`
+                //   两份同值）：`BattleDoors/Canvas/EndBattlePanel/**Background**` 那颗 `Image`（MB 4830 / 5043）：
+                //     `m_RaycastTarget = 1` · `m_RaycastPadding = (0,0,0,0)` · **无 `Button` / `EventTrigger`**。
+                //   ⇒ 对应计划 §2 A3「全屏件（含 `EndPanel._dim`）的 `raycastTarget` 置 true」——
+                //   否则 uGUI 下点面板空白会把**背后的 HUD 钮**点掉（世界空间 quad 那会儿它们本来也收不到射线）。
+                //   ⚠️ **只吃射线、不挂点击处理器**：原版这一屏**零按钮**（`EndPanel` 整棵子树只有
+                //   `Background` / `Video Image` / `AllRewardsHolder`，一个 `m_OnClick` 都没有；2026-10-20 现读），
+                //   而「点任意处离开」是 `BattleManager.Update` 里的**裸输入**
+                //   `Input.GetMouseButtonDown(0)`（`BattleManager__Update.c:116-120`；我们那一条 →
+                //   `BattleDriver.HandleEndBattleExit`）⇒ 它**不经过 uGUI**，⛔ 别在这里加点击动作。
+                //   ⚠️ `m_RaycastPadding` 那 4 个 0 **不用显式写**： Unity 的 `Graphic.m_RaycastPadding`
+                //   默认就是 `Vector4.zero`（现读本机 uGUI `…/com.unity.ugui/Runtime/UGUI/UI/Core/Graphic.cs:188`
+                //   的字段初值 `new Vector4()`）。
+                if (!_dim.SetRaycastTarget(true))
+                    Debug.LogError("[EndPanel] 压暗层置 `raycastTarget` **失败**"
+                                 + " ⇒ 结算面板背后的 HUD 钮会被**点穿**（模态闸失效、而画面完全正常）");
             }
             else Debug.LogError("[EndPanel] 压暗层没建出来（`CardArt.Solid()` 取不到）⇒ 结算界面后面会透出棋盘");
 
@@ -563,5 +580,48 @@ namespace CardPresentation
             HudCanvas.Reorder(rt, z);             // `MakeImagePiece` 先按默认 z 登记，这里挪到本层
             return p;
         }
+
+        // ── 🆕 2026-10-20（W57 · `T09` 步骤 A3-d）：**Editor-only 只读探针** ────────────────────
+        //  ⚠️ 只读、且**播放器构建里不存在**（`#if UNITY_EDITOR`）。断言写在 `Editor/BattleScene.cs`
+        //     （本波口径 = **只做不验** ⇒ 本件不写断言）。
+        //  ⚠️ 这一组存在的理由：本件**一个按钮都没有**（原版该屏零按钮，判据见 `Build()` 里压暗那一段），
+        //     所以没有 `BattleHudButton.ClickCountForTest` 可读 ⇒ 改成读「压暗层到底吃不吃射线」。
+        //     🔑 断言写法（给 `Editor/` 那侧）：用 `EventSystem.RaycastAll` 在屏心/四角各打一次，
+        //     首中必须是 `DimGraphicForTest.gameObject`（= 面板背后的 HUD 收不到）；压暗**关着**时同一批点
+        //     首中不能是它（配对 = 灭自证）。
+#if UNITY_EDITOR
+        /// <summary>压暗层那一件（`null` = 没建出来）。Editor-only 只读探针。</summary>
+        public HudPiece DimPieceForTest { get { return _dim; } }
+
+        /// <summary>压暗层的 uGUI `Image`（`null` = 没建 / 不是 uGUI 件）。Editor-only 只读探针。</summary>
+        public UnityEngine.UI.Graphic DimGraphicForTest
+        {
+            get
+            {
+                if (_dim == null || !_dim.IsUgui) return null;
+                var go = _dim.gameObject;
+                return go != null ? go.GetComponent<UnityEngine.UI.Image>() : null;
+            }
+        }
+
+        /// <summary>压暗层吃不吃射线。**原版判据 = `Background.m_RaycastTarget = 1`** ⇒ 这里应为 `true`。
+        /// Editor-only 只读探针（`false` 也可能是「没建出来」，要用 <see cref="DimGraphicForTest"/> 分清）。</summary>
+        public bool DimRaycastTargetForTest
+        {
+            get { var g = DimGraphicForTest; return g != null && g.raycastTarget; }
+        }
+
+        /// <summary>压暗层的 `raycastPadding`（**L,B,R,T** —— Unity `Graphic.raycastPadding` 的序）。
+        /// 原版 `(0,0,0,0)`。Editor-only 只读探针；没有那件时返回 **四个 `NaN`**（⛔ 不拿 0 冒充「查过」）。</summary>
+        public Vector4 DimRaycastPaddingForTest
+        {
+            get
+            {
+                var g = DimGraphicForTest;
+                return g != null ? g.raycastPadding
+                                 : new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+            }
+        }
+#endif
     }
 }

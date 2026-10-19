@@ -119,7 +119,7 @@ namespace CardPresentation
             _scroll.OnChanged = Rebuild;                  // 🔴 滚轮只改 `Offset`、**画是调用方的事**：不接 = 滚了什么都不动
             // ⚠️ 走 `SocialPage.RegisterScroll` 那一份（**会出声**）——`PointerLayer.RegisterScroll` 在
             //   指针层还不在场景里时是 `return`（登记表都没建）⇒ 滚轮永远落不上来，而画面看着完全正常；
-            //   `SocialPage.RegisterScroll`（`SocialWindow.cs:319-329`）先判这一条、并顺带判 `Owner` 空不空。
+            //   `SocialPage.RegisterScroll`（`SocialWindow.cs`）先判这一条、并顺带判 `Owner` 空不空。
             //   （同 `Shell/BattleLogPopup.cs` 里那句 `SocialPage.RegisterScroll(_scroll)` 那一处的选择；日志前缀是 `[Social]`，那是那个公共件的既有文案。）
             SocialPage.RegisterScroll(_scroll);
 
@@ -167,8 +167,8 @@ namespace CardPresentation
             //    矩形是**调用点自己手里的**，节点（`Viewport`）搬了它不跟 ⇒ 粗筛与渲染可能不同源。
             //    现在粗筛走 **`MenuDraw.VisibleAbove(_content, rr, null)`**（节点态：沿 `_content` 的父链
             //    解析 `ViewportClip`），**一个自持矩形都不留** ⇒ 粗筛与渲染同源。
-            //    判据 / 残差 → 同族那四处（`AllianceMemberTab.cs:532`/`:1346` · `AlliancesTab.cs:531` ·
-            //    `BattleLogPopup.cs:237` · `FriendsTab.cs:338`），它们都已经是这个形状。
+            //    判据 / 残差 → 同族那四处（`AllianceMemberTab.cs`/`Shell/AllianceMemberTab.cs` 的 `PadL` · `AlliancesTab.cs` ·
+            //    `BattleLogPopup.cs` · `FriendsTab.cs`），它们都已经是这个形状。
             //    ⚠️ **留痕（铁律 5）**：本处原来有一句「照旧传 `vpR`」—— **那句话已过期**（见上一段的来龙去脉），
             //    连同局部 `vpR` 一起删掉了（留着它 = 让人以为还有一条自持矩形在用）。
             for (int i = 0; i < all.Count; i++)

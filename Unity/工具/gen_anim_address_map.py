@@ -50,6 +50,13 @@ join 办法（三选一里选了「UnityPy 重读原 bundle」+「文件名后�
     （判据：`资料/普查产出_1018/R_K11_K12_报告.md` §五·1；EC29 全链
     `bc43540f…` → `Rally EC Heldrake` → `67eb257e…` → prefab `EC Heldrake Rally`）。
     找不到那份 catalog 时**如实降级**（stats 里记 `catalogJsonError`），不编理由。
+  · 🆕 **旧表 `exact=False` 的「退键族」（2026-10-19 T15 残余）**：catalog 给这些 GUID 的
+    internalId 是**截断键**（`d`），拿它去束里取会命中别的对象 ⇒ 上面那条升级闸门整族跳过。
+    但它们**不是解不出**：旧表已经用「退键」找到了真正的容器键（`db9`）。本脚本现在补一条
+    **三元组唯一命中**的升级路：按旧表那一行的 `(bundle, containerKey, type, name)` 回到
+    `m_Container` 里找，**恰好 1 个对象**同名同类型才升级（stats:
+    `containerEntriesGuidViaVerifiedRetreat`）。实测 31/31 命中；逐条卡名旁证见
+    `资料/普查产出_1019/W57_特效线_T15_V1_T02静态.md`。
 """
 
 import argparse
@@ -303,6 +310,29 @@ def load_old_guid_map(path=OLD_GUID_MAP):
                 g = (r.get("assetGuid") or "").lower()
                 if g:
                     out[g] = r
+    except Exception as e:
+        return {}, "旧表读不动（%s）: %s" % (rel(path), e)
+    return out, None
+
+
+def load_old_guid_map_multi(path=OLD_GUID_MAP):
+    """旧 `guid_map.tsv` → `{guid: [row, ...]}`（**保留同 GUID 的多行**）。
+
+    为什么需要：`exact=False` 的 56 行里，22 个 GUID 各有 2 行
+    （同一资产的 **Texture2D + Sprite** 两个容器项），8 个音频各 1 行，1 个有 4 行。
+    `load_old_guid_map` 是「后写覆盖」，只留最后一行 —— 退键族升级要**按行逐条核对**，
+    ⛔ 不能只拿最后一条（否则会把 Texture2D 丢掉、只剩 Sprite）。
+    """
+    import csv
+    if not os.path.isfile(path):
+        return {}, "旧表不存在: %s" % rel(path)
+    out = defaultdict(list)
+    try:
+        with io.open(path, encoding="utf-8") as fh:
+            for r in csv.DictReader(fh, delimiter="\t"):
+                g = (r.get("assetGuid") or "").lower()
+                if g:
+                    out[g].append(r)
     except Exception as e:
         return {}, "旧表读不动（%s）: %s" % (rel(path), e)
     return out, None
@@ -716,6 +746,8 @@ def main():
                     help="调试用：只处理前 N 个 bundle")
     ap.add_argument("--dry", action="store_true",
                     help="只打印统计，不落盘（`A1648` 同族：只想看时不许写产物）")
+    ap.add_argument("--stamp", default=None,
+                    help="覆盖 generatedAt（复跑 md5 比对用；默认 = 当前时间）")
     args = ap.parse_args()
 
     t0 = time.time()
@@ -844,6 +876,94 @@ def main():
               % (catalog_json, len(upgraded), sum(up_why.values()), dict(up_why)))
     if old_map_err:
         print("       ! 旧表校验降级：%s（非旧表条目只走类型兜底）" % old_map_err)
+
+    # ---- ①·b·2 旧表 `exact=False`（catalog 键被截断、旧表靠「退键」解出的那一族）
+    #
+    # 背景：EC 的 cardassets / cardanims 束里，catalog 给这些 GUID 的 internalId 是**截断键**
+    # （例 `d`），拿它去束里取会命中**别的对象**（Texture2D 对到 AudioClip）。旧表当时靠
+    # 「退键」到 `db9` 才解出正确资产，因此把 `exact` 记成 False；catalog 升级闸门整族跳过。
+    #
+    # 2026-10-19（T15 残余）实测：这 31 个 GUID / 56 行**有足够判据升级**，判据是**逐行三元组唯一命中** ——
+    #   旧表一行给了 `(bundle, containerKey, type, name)`；在 `m_Container` 里按
+    #   `(bundleDir, containerKey)` 取到该键下的对象，按 `(type, name)` 过滤，**每行必须恰好 1 个**。
+    #   56/56 行命中（Texture2D + Sprite 同名时按 type 分开；AudioClip 独立）。
+    # 独立旁证（一次性逐条，详见 `资料/普查产出_1019/W57_特效线_T15_V1_T02静态.md`）：
+    #   31/31 的资产名与「引用该 GUID 的卡名」逐条相符（30 个全名、2 个关键 token）。
+    # ⇒ 这不是「拿 catalog 的坏 iid 硬升」，而是「按束里真正命中的容器键升」。
+    retreat_entries = []
+    retreat_why = Counter()
+    retreat_guids = set()
+    retreat_rows = 0
+    if old_map_err:
+        print("       ! 退键族升级降级：旧表读不到 ⇒ 0 条")
+    else:
+        old_multi, old_multi_err = load_old_guid_map_multi()
+        if old_multi_err:
+            print("       ! 退键族升级降级：%s ⇒ 0 条" % old_multi_err)
+            old_multi = {}
+        by_bundle_file = {}
+        for b in bundles:
+            # 两种键都收：① AssetBundle 的 m_Name（可能是哈希名）
+            #            ② 目录名反推的友好名 `bundle_<stem>` → `<stem>.bundle`
+            # 旧表的 `bundle` 列是**友好名**（= 本地束文件名），所以要按 ② 匹配。
+            for bf in (os.path.basename(b.get("bundleFile") or ""),
+                       b["dir"][len("bundle_"):] + ".bundle"
+                       if b["dir"].startswith("bundle_") else ""):
+                if bf:
+                    by_bundle_file.setdefault(bf, b["dir"])
+        keyed = defaultdict(list)
+        for e in entries:
+            if e["keyKind"] == "guid":
+                continue
+            keyed[(e["bundleDir"], str(e["guid"]))].append(e)
+        have_guid = set(e["guid"].lower() for e in entries
+                        if GUID_RE.match(str(e["guid"])))
+        for g, o_rows in old_multi.items():
+            rows = [o for o in o_rows if o.get("exact") == "False"]
+            if not rows:
+                continue
+            retreat_rows += len(rows)
+            if g in have_guid:
+                retreat_why["GUID 已有正式容器键（不需要退键）"] += 1
+                continue
+            got, fail = [], None
+            for o in rows:
+                bdir = by_bundle_file.get(os.path.basename(o.get("bundle") or ""))
+                if not bdir:
+                    fail = "束文件不在本地（或 bundleFile 对不上）"
+                    break
+                hits = []
+                for e in keyed.get((bdir, o.get("containerKey") or ""), []):
+                    r = resolved.get((e["bundleDir"], e["pathId"])) or {}
+                    if r.get("type") == o.get("type") and r.get("name") == o.get("name"):
+                        hits.append(e)
+                if len(hits) != 1:
+                    fail = "按 (containerKey, type, name) 命中 %d 个（要恰好 1 个）" % len(hits)
+                    break
+                got.append(hits[0])
+            if fail:
+                retreat_why[fail] += 1
+                continue
+            seen_pid = set()
+            for e in got:
+                sig = (e["bundleDir"], e["pathId"])
+                if sig in seen_pid:
+                    continue
+                seen_pid.add(sig)
+                ne = dict(e)
+                ne["shortKey"] = e["guid"]
+                ne["guid"] = g
+                ne["keyKind"] = "guid"
+                ne["viaVerifiedRetreat"] = True
+                retreat_entries.append(ne)
+            have_guid.add(g)
+            retreat_guids.add(g)
+        entries.extend(retreat_entries)
+        print("       退键族（旧表 exact=False）：升级 **%d 个 GUID**"
+              "（%d 行 old-map 逐行三元组唯一命中 ⇒ %d 条容器项，同对象去重；"
+              "跳过 %d 个 GUID：%s）"
+              % (len(retreat_guids), retreat_rows, len(retreat_entries),
+                 sum(retreat_why.values()), dict(retreat_why)))
 
     # ---- ③ 正向表 + dump 路径
     dump_idx = DumpIndex(ASSETS_FULL, [b["dir"] for b in bundles])
@@ -1091,7 +1211,7 @@ def main():
     out = {
         "schema": 1,
         "generatedBy": "d:/4/Unity/工具/gen_anim_address_map.py",
-        "generatedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "generatedAt": args.stamp or time.strftime("%Y-%m-%d %H:%M:%S"),
         "sources": {
             "assetsFull": rel(ASSETS_FULL),
             "bundleSrc": rel(bundle_src),
@@ -1116,6 +1236,11 @@ def main():
             # 🆕 2026-10-19（T15 / A2131）：由 catalog 的「GUID → 短 internalId」补出来的子集
             "containerEntriesGuidViaCatalog": len(upgraded),
             "containerEntriesGuidUpgradeSkipped": dict(up_why),
+            # 🆕 2026-10-19（T15 残余）：旧表 exact=False 的「退键族」——
+            #   按 (bundle, containerKey, type, name) 三元组唯一命中后升级的子集。
+            "containerEntriesGuidViaVerifiedRetreat": len(retreat_entries),
+            "containerEntriesGuidViaVerifiedRetreatGuids": len(retreat_guids),
+            "containerEntriesVerifiedRetreatSkipped": dict(retreat_why),
             "catalogJson": catalog_json,
             "catalogJsonError": catalog_err,
             "oldGuidMapError": old_map_err,

@@ -76,8 +76,8 @@ namespace CardPresentation
                     //   PointerLayer.Ensure → get_Instance`）。**实测日志** → `_tmp_view/ui_1019/menu_run.log`。
                     //   **错因**：编辑器宿主（`MainMenuScene.Run` 一族）**不在 Play 模式**下跑，
                     //   而 `EnsureHost` 会走这条 getter ⇒ 只要有哪条自检开一次窗就抛。
-                    //   🔑 **本仓早就记过这个坑**：`Battle/RemnantSfx.cs:160` 写着「**绝不要 `DontDestroyOnLoad`
-                    //   —— 它在编辑器 / 批处理里会直接抛**」，正解写法在 `Net/NetRuntime.cs:34`：
+                    //   🔑 **本仓早就记过这个坑**：`Battle/RemnantSfx.cs` 的 `DontDestroyOnLoad` 写着「**绝不要 `DontDestroyOnLoad`
+                    //   —— 它在编辑器 / 批处理里会直接抛**」，正解写法在 `Net/NetRuntime.cs`：
                     //   `if (Application.isPlaying && …) Object.DontDestroyOnLoad(go);`
                     //   ⚠️ 这个坑**第十五会话没被发现**，因为那一会话按口径「一条自检都没跑」——
                     //   正好是「player 里修好了、批处理里全崩」的反向版本（`A1504`）。
@@ -996,7 +996,7 @@ namespace CardPresentation
         //     pointerPosition, eventCamera, **graphic.raycastPadding**)` ⇒ 射线认的是**那件自己的
         //     `RectTransform` 矩形 + 它自己的 `m_RaycastPadding`**；`m_PreserveAspect` **不在这一句里**
         //     （它只改生成的网格 ⇒ **只改画面、不改射线区**）。
-        //   · 样板（本仓已收口）= `Battle/BattleDriver.cs:3596-3636`；算式**只此一份** =
+        //   · 样板（本仓已收口）= `Battle/BattleDriver.cs`；算式**只此一份** =
         //     `MenuDraw.PaddedHitRect`（符号口径 + 退化守卫都在那份 doc 里）。
         // 🔴 **我们原来错在哪**：命中区是从「那一颗 `ImageQuad` 画出来多大」现算的（本函数下面那两行）
         //   ⇒ **「原版布局框」与「画出来那块」被合成一个数**。保宽高比时两者不等 —— 顶栏齿轮那一格：
@@ -1070,7 +1070,7 @@ namespace CardPresentation
             //    `r = VisibleWidth / DesignWidth` 倍（4:3 ⇒ 0.75）⇒ 中心与指针不同帧。
             center = LayoutSpace.ToDesignPixel(p);
             // 🔴 A167：尺寸项乘**父链缩放**（`lossyScale` 一路含自己那一级 ⇒ 连「靠 `localScale` 定宽」
-            //    那种件也对：`Battle/SkillPanel.cs:248` 写的 `localScale = 目标宽 / WorldW` 照样还原成
+            //    那种件也对：`Battle/SkillPanel.cs` 写的 `localScale = 目标宽 / WorldW` 照样还原成
             //    「世界宽 × K」）。`M == 1` 时逐位不变（开关出厂关 ⇒ 零回归）。
             //    **改坏法**：去掉这两个因子 ⇒ 在「开关开 + 窗根 ×1.2」下命中区比画出来的小一圈
             //    ⇒ `Editor/SettingsScene.cs` 的 A167 那两条（远边上的点：修好后点得中、改坏后点不中）立刻红。
@@ -1362,7 +1362,7 @@ namespace CardPresentation
         /// （键盘不走 uGUI 射线），而 `ClickForTest` 是自检/工具直调口（不许被黑场挡掉）。</para>
         ///
         /// <para>⚠️ **批处理/编辑态也要判得对**：`ShellRuntime.Instance` **只在 `Awake` 里赋、批处理下恒 null**
-        /// （判据 → `Editor/ShellScene.cs:6641`）⇒ 取不到实例时退到 `LoadingMenu.Current`（`Build()` 里登记）。
+        /// （判据 → `Editor/ShellScene.cs` 的 `LoadingMenu`）⇒ 取不到实例时退到 `LoadingMenu.Current`（`Build()` 里登记）。
         /// 两条都取不到 ⇒ **不挡**（与改前逐位相同）。</para></summary>
         public static bool InputBlocked
         {

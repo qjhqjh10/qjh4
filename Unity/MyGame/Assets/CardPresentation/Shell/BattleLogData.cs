@@ -22,8 +22,8 @@
 // ❌ **我们挑的 / 没做**：
 //   · **记录怎么产生** —— 原版是服务器在每局结束后写；**我们由结算处自己写**。
 //     ⚠️ **2026-10-18 更正（铁律 5）**：原来这里写「我们**目前没有人在写**（⇒ 列表恒空）……**等用户拍板**」
-//     —— **实际 2026-09-27 就接了**：`Battle/BattleDriver.cs:12807`（结算处）调 `RecordBattleLog()`，
-//     实现在 `BattleDriver.cs:12844`（里面 `BattleLogData.Add(new BattleLogData.Match{…})`）。
+//     —— **实际 2026-09-27 就接了**：`Battle/BattleDriver.cs` 的 `RecordBattleLog()`（结算处）调 `RecordBattleLog()`，
+//     实现在 `BattleDriver.cs` 的 `BattleLogData`（里面 `BattleLogData.Add(new BattleLogData.Match{…})`）。
 //     **错因**：这句是 2026-09-26 建文件时写的，第二天接线后**没人回头改这句**。
 //     ⇒ **列表不再恒空**（本机打过局之后就有记录）。⚠️ 仍成立的那半：**表默认是空的**（不编假数据，见上面用户口径）。
 //   · **`matchType` → 模式文案的映射查不到**（原版那条是服务端本地化键）⇒ 我们直接存字符串。

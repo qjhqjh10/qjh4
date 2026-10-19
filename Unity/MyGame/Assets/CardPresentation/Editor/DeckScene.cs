@@ -43,7 +43,7 @@ public static class DeckScene
         /// <summary>🆕 2026-10-18（第四会话）：断言计数器 + 输出口径**收口到共用件 `Editor/MenuCheck.cs`**
         /// （唯一实现处；本文件只剩同名的一行转发 ⇒ 5,534 个调用点一个字没动）。
         /// 🔴 **逐宿主一份 `CheckSink`**（⛔ 不是全局 static）—— 「拿别处的 `Check` 去断，失败会
-        /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs:12-14`。</summary>
+        /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs`。</summary>
         static readonly CheckSink _sink = new CheckSink(P)
         {
             Near = MenuNearStyle.Labeled4,       // 本文件原来是 `（实测 {got:F4} ≈ 期望 {want:F4} ± {tol:F4}）`
@@ -356,7 +356,7 @@ public static class DeckScene
         /// 本窗的根 = `Build()` 里 `new GameObject("DeckEditor")`（**无父、位置原点**），
         /// 全树唯一的 `localScale` 写入是 `DeckRuntime.NewDrawer()` 那句 `= Vector3.one`；
         /// 而 `TransformScalerBySmallScreenUI` **只由窗根挂**（全仓 grep 该类，`AddComponent` 的**生产**调用点只有两处：
-        /// `Shell/WindowsManager.cs:381` 的 `GameWindow.TryOpen` 那一支，与 `Shell/TrophyInfoPopup.cs:217`
+        /// `Shell/WindowsManager.cs` 的 `GameWindow.TryOpen` 那一支，与 `Shell/TrophyInfoPopup.cs` 的 `GameWindow`
         /// 的「prefab 烤着那一颗」；其余命中全在 `Editor/*Scene.cs` 的自检探针里）
         /// —— **`DeckRuntime` 不是 `GameWindow`**、也不烤任何缩放器 ⇒ 走不到那两条路。
         /// ⇒ `PosInDesignSpace` 除的是 1（`DivByScale(v,1) == v`）⇒ 与改前**逐位相同**。
@@ -593,6 +593,15 @@ public static class DeckScene
         //     = **`StringComparison.CurrentCulture`**（⛔ **不是** `CompareOrdinal` —— 码点序是旧实现的一条偏离，
         //     用户 2026-10-18 拍板「照原版」）。记录 → `资料/普查产出_1018/R_卡组排序_照原版.md`
         //     与 `DeckRuntime.DeckEntries()` 的 doc。
+        //     🔴 **2026-10-19（`A1929` · 铁律 5）把那句「参考图**三组**」的来路查清了**：
+        //     旧注释里的三组（费用 2 `游/驭` · 费用 3 `女/帷/突` · 费用 4 `努/灵/狂/邪`）**取自参考图那副牌**，
+        //     不是本节实际跑的演示牌 —— 2026-10-19 现读 `C:/Users/qjh36/Desktop/warpforge参考图/卡组编辑界面参考.png`：
+        //     那副牌 = **「铺场流」**（督军 **安维尔·凯尔托克** · SaimHann · **30/30**），费用 2/3/4 三档逐行是
+        //     `游侠 / 驭风者摩托`（**2** 张）· `女妖面具 / 帷幕奔行者 / 突击蝎`（**3** 张）·
+        //     `努阿杜'火心' / 灵活机动 / 狂嚎女妖 / 邪术风暴`（**4** 张，每张 `x2`）—— **与旧注释的分组逐张吻合** ⇒ 来源坐实。
+        //     而本节实际跑的 `DeckRuntime.PlayerDeckForDemo` 是**另一副**（只填单位、不填策略卡）：
+        //     费用 2/3/4 只有 **1/2/3** 张不同卡（旧账记的「3 vs 2」「4 vs 3」即由此来 —— **不是抄错，是两副牌**）。
+        //     ⇒ **组内张数本来就对不上**，⛔ 别拿参考图的组数当期望值；第 ⑥ 段现在是**逐段现算**、不依赖任一副牌的名字。
 
         // ============================================================ 🔴 2026-10-21（`A1145`）
         // **「自证结构」断言 —— 普查（本文件逐族扫过一遍；这一段是【结果】，不是待办）。**
@@ -753,7 +762,7 @@ public static class DeckScene
             // 🔴 **2026-10-19（`A1534` 尾巴 · 铁律 11）**：批处理自检**不出声** —— `WFSoundPlayer.Enabled = false`
             //   时那个开关自己的契约是「**只记账不发声**：不建对象、不出声，但 `Played` 照样涨」
             //   ⇒「音效调度算对了没有」那一族断言**照旧有效**，而这一趟**不白建一堆 `AudioSource`、不白播**。
-            //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs:341-366`（同一个开关、同一个 `finally` 还原）。
+            //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs`（同一个开关、同一个 `finally` 还原）。
             //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
             bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
             WarpforgeVFX.WFSoundPlayer.Enabled = false;
@@ -885,8 +894,8 @@ public static class DeckScene
                     // 读完即清（别污染本节后面的用例 —— 同上面 `PendingEditDeck` 那条「读完就清」的口径）
                     //   🔴 **2026-10-18 修（`DeckScene` 11 条红里的 R2）**：这条原来断 `ri.Source == None` ——
                     //     **断错了**。`TakePendingReturn()` 的契约是「**先取后清、返回取到的那份**」
-                    //     （`Shell/CollectionData.cs:317-324`；同族先例 `PrebuiltDecks.cs:261` ·
-                    //      `BattleDriver.cs:2045`；而**生产代码 `MainMenuRuntime.cs:328` 正是靠这个返回值开窗**）
+                    //     （`Shell/CollectionData.cs`；同族先例 `PrebuiltDecks.cs` ·
+                    //      `BattleDriver.cs`；而**生产代码 `MainMenuRuntime.cs` 正是靠这个返回值开窗**）
                     //     ⇒ 取回 `LiveOpsEvent(=2)` **才是对的**。正确的断法是**两条**：取回的是刚写的那份 + **静态口被清空**。
                     var ri = CardPresentation.CollectionData.TakePendingReturn();
                     Check((int)ri.Source, (int)CardPresentation.DeckExitSource.LiveOpsEvent,
@@ -1716,7 +1725,7 @@ public static class DeckScene
             //    `iVar2 = *(int *)(param_2 + 0x78);`   // 这张卡的 `manaCost`
             //    `if (iVar2 < 2) { iVar2 = 1; } else if (7 < iVar2) { iVar2 = 8; }`
             //  —— **夹完才**交给那条筛选谓词（`:22`）⇒ 落点 = `DeckEditorState.VisibleCards()` 里那句
-            //    `int ccost = ClampPoolCost(c.Cost);`（`DeckEditorState.cs:431`）。
+            //    `int ccost = ClampPoolCost(c.Cost);`（`DeckEditorState.cs` 的 `int ccost = ClampPoolCost(c.Cost);`）。
             //  🔑 谓词 = 「**夹过的费用 ∈ 已选档位**」（`CardCostFilter : ToggleCollectionFilter<RawCardScript,int>`
             //     ⇒ `+0x38` 是已选中的 int 档位集）—— 我们那八档（`1-` / `2`…`7` / `8+`，
             //     `FilterPanelModel.CostBucketHi` 实读）的边界卡正是靠夹取才匹配得上。
@@ -2169,7 +2178,7 @@ public static class DeckScene
             //   在这套夹具下**恒不成立** —— `_rt` 的卡组来自 `PlayerDeckForDemo`（`Deck/DeckRuntime.cs`），
             //   它把 `CardIds` **填满到** `DeckRules.ClassicCards = 30`；而 `CanAdd` 的第一条卡位检查是
             //   `if (Deck.CardIds.Count >= MaxDeckCount) return DeckError.TooManyCards;`
-            //   （`Deck/DeckEditorState.cs:248`，`MaxDeckCount = CardCount(Skirmish) = 30`）⇒ **每一张普通卡**
+            //   （`Deck/DeckEditorState.cs` 的 `MaxDeckCount`，`MaxDeckCount = CardCount(Skirmish) = 30`）⇒ **每一张普通卡**
             //   都 `TooManyCards`；hero / defence 又被 `CanAdd` 的前两支回 `WarlordAlreadySet` /
             //   `DefensiveAlreadySet`（演示卡组两者都已设）⇒ 找不到 ⇒ `view < 0` ⇒
             //   **⑥ 整节（起拖 / 跟指针 / 落点投递 / 拖影卡行 287.9×55.7）一条都没跑 = 零覆盖**。
@@ -2177,14 +2186,14 @@ public static class DeckScene
             //   ⇒ **开跑前腾一个空位**。⛔ 别改成「随便挑一张不问 `CanAdd`」—— 那正是原版 `CanAddCard`
             //     挡掉的那条路；也⛔ 别动 `PlayerDeckForDemo`（另有断言按它「满 30 张」的形态在跑）。
             //   ⚠️ 挑的是**普通卡**（`Type == "unit"`）：`TryRemove` 对 hero / defence 走的是
-            //     `ClearWarlord` / `ClearDefensive`（`Deck/DeckEditorState.cs:299-302`）⇒ 那样会把
+            //     `ClearWarlord` / `ClearDefensive`（`Deck/DeckEditorState.cs` 的 `ClearDefensive`）⇒ 那样会把
             //     阵营/督军一起清掉、卡池的筛选跟着变（本节后面全按卡池下标在跑）。
             // 🔴 **2026-10-14（`DIAG_deck七条红.md` ① · 铁律 5 订正）：上面那一版**腾错了卡**。**
             //   原来腾的是 `DeckEntries()` 里**第一张 unit** = 实测 **`ASH4` 守护者防御小队**，
             //   而它在卡池里的**可见下标 = 6**（现读 `cards_engine.json`，`SaimHann` 卡表原序：
             //   `ASH83 ASH77 ASH63 ASH62 ASH80 ASH22 ASH4 …`）—— **正好在被扫的 `0..5` 之外一格**
             //   ⇒ 「腾了等于没腾」，下面那条前提照样红。
-            //   **错因**：`DeckEntries()` 按「费用 → 显示名」排（`DeckRuntime.cs:4018-4029`）、
+            //   **错因**：`DeckEntries()` 按「费用 → 显示名」排（`DeckRuntime.cs` 的 `DeckEntries()`）、
             //   卡池按**卡表原序**排（`DeckEditorState.VisibleCards` 明写「不排序」）⇒
             //   两个「第一张」根本不是同一张。
             //   ⚠️ **2026-10-18（铁律 5 就地订正）**：上面那句「`DeckEntries()` 按费用 → 显示名排」**仍然成立**，
@@ -2201,7 +2210,7 @@ public static class DeckScene
             //     （最多的一家 7 位督军 + 防御卡），前 6 格里已经不够挑「非 hero / 非 defence」的卡。
             //     18 = 前三行（视口 924 高、格高 384 ⇒ 第 4 行在屏外，⛔ 别扫到那里去起拖）。
             //   ⚠️ 仍**只挑 hero / defence 之外**的：`TryRemove` 对那两型走的是
-            //     `ClearWarlord` / `ClearDefensive`（`Deck/DeckEditorState.cs:315-321`）⇒ 会把
+            //     `ClearWarlord` / `ClearDefensive`（`Deck/DeckEditorState.cs` 的 `ClearDefensive`）⇒ 会把
             //     阵营/督军一起清掉、卡池的筛选跟着变（本节后面全按卡池下标在跑）。
             {
                 bool freed = false;
@@ -2297,13 +2306,13 @@ public static class DeckScene
                     //   能不能起拖**取决于这一格在第几列**（`sx` 多大）：
                     //     第 0 列 `sx≈468.85` ⇒ 位移 `(431.15, 451.14)` ⇒ 与水平轴 **46.30°** ⇒ 不是滚动 ⇒ 起拖（绿）；
                     //     第 1 列 `sx≈731.35` ⇒ 位移 `(168.65, 451.14)` ⇒ **69.50°** ⇒ 落进滚动闸 `(60°,120°)`
-                    //       ⇒ `Deck/DeckRuntime.cs:2847` **静默 `return false`**（那一支不弹错、不打日志）⇒ 红。
+                    //       ⇒ `Deck/DeckRuntime.cs` **静默 `return false`**（那一支不弹错、不打日志）⇒ 红。
                     //   ⇒ 这是**夹具判据不牢**，⛔ 不是实现缺陷、⛔ 也不是本批回归：
-                    //     `T`（`DeckRuntime.DeckEntries` 去重+排序，`:3095-3128`）把下面 `:1484` 移除的那张卡
+                    //     `T`（`DeckRuntime.DeckEntries` 去重+排序，`CardPresentation/Deck/DeckRuntime.cs`）把下面 `CardPresentation/Deck/DeckRuntime.cs` 移除的那张卡
                     //     从 `Autarch` 换成了别的 ⇒ 卡池第 0 格不再过 `CanAdd` ⇒ `view` 由第 0 列挪到第 1 列。
                     //   ⇒ 改成**纯水平位移**（`dy = 0`）：与水平轴 0° ⇒ **恒不进滚动闸、与挑到第几列无关**。
-                    //   ⚠️ 同族先例 = 本节卡背那条 `:1334`（`UiCosmeticDragBegin(cx6, cy6, DropX, cy6)`，y 两端相同）。
-                    //   ⚠️ 闸门本身**忠实照原版**（`:2758` = `Vector2.Angle(d, right) ∈ (60°,120°)`，
+                    //   ⚠️ 同族先例 = 本节卡背那条 `本文件`（`UiCosmeticDragBegin(cx6, cy6, DropX, cy6)`，y 两端相同）。
+                    //   ⚠️ 闸门本身**忠实照原版**（`本文件` = `Vector2.Angle(d, right) ∈ (60°,120°)`，
                     //     判据 = `SupportMethods__IsScrollDragThreshold.c`）⇒ ⛔ **别去改闸**、⛔ 别改 `CanAdd` 的次序。
                     //   落点 `(900, 780)` 的 x=900 仍在 `DropField`（0.25..335.56）之外 ⇒ 下面「不投递」的原意不变。
                     bool began2 = rt.UiCardDragBeginAt(view, 900f - sx, 0f);
@@ -2311,7 +2320,7 @@ public static class DeckScene
                     // 🔴 **同一条账的另一半**：下面两条**只在「真起了拖」时才有鉴别力** —— 没起拖时
                     //   `UiCardDragEnd` 当然返 false、拖影当然也是关的 ⇒ **两条一起空转绿**（2026-10-11 实测：
                     //   那条 ✗ 的下一行紧跟的就是 ✓）。⇒ 补一条**正向**断言把这个洞堵死：
-                    //   起拖那一拍拖影**必须显形**（与本节第一次拖的 `:1531` 同形）——
+                    //   起拖那一拍拖影**必须显形**（与本节第一次拖的 `本文件` 同形）——
                     //   它**结构上不可能与「没起拖」同时为真**。
                     CheckTrue(rt.UiCardGhostActive, "★ 第二次起拖那一拍拖影卡行**同样显形**（⛔ 别删：删了下面两条会空转）");
                     CheckTrue(!rt.UiCardDragEnd(900f, 780f), "★ **落在栏外 ⇒ 不投递**（`hovered` 上没有那个 handler）");
@@ -2994,7 +3003,7 @@ public static class DeckScene
                           "（前提）滚到底后 `row_g11` 仍量得到");
                 // 🔴 **2026-10-14（`DIAG_deck七条红.md` ④ · (α) 断言自己用错了量）：**
                 //   原来写的是 `q11y >= vy1 && q11y + q11h <= vy2` —— 把 `UiQuadRect` 的 **中心 y
-                //   当成了上缘**（它的出参是 `(cx, cy, w, h)`，`cy` 是**中心**：`DeckRuntime.cs:6170`
+                //   当成了上缘**（它的出参是 `(cx, cy, w, h)`，`cy` 是**中心**：`DeckRuntime.cs`
                 //   `ToPx(q.transform.position)`；同文件上面那句「中心 x = 162.9」也是这个语义）
                 //   ⇒ 后半条凭空多算了半行高、**几何本来是对的**却报红。**错因**：把「中心 + 高」
                 //   当成了「上缘 + 下缘」两把尺子混用。
@@ -3238,7 +3247,7 @@ public static class DeckScene
                 //       （`$cost:1` 的绝对 y = `FltY 156 + CostTop 1009.02 + CostContentTop 65` = **1230.02**）
                 //       ⇒ 那些格子本来就 `SetActive(false)`（`ClipCellToBand`），拿它们断这条是**假红**。
                 //       🔴 **2026-10-15 就地订正（铁律 5）**：原来写「滚动位 0 时第 2 排（档 5~8）整块在带口外」
-                //          —— 实测是**整行**都在带口外（同文件 `:2962` 那条早就这么写了，两处曾互相打架）。
+                //          —— 实测是**整行**都在带口外（同文件 `本文件` 那条早就这么写了，两处曾互相打架）。
                 {
                     string wlK = _rt.State.Deck.WarlordId;
                     bool wasOpen = _rt.FiltersOpen;
@@ -3294,7 +3303,7 @@ public static class DeckScene
                               "★ N14 ③：督军放回去 ⇒ 费用那一行**显示回来**");
                     Check(_rt.State.Deck.WarlordId, wlK, "（把督军原样放回 —— 后面的断言仍按原状态跑）");
                     // 🔴 **滚动位一并还原**（2026-10-15 · 诊断 `DK-1`/`DK-2`）：本段为了把 `$cost:1`
-                    //    推进带口滚到了 220，而**下面那些节都在滚动位 0 上读抽屉**（`:2962` 那条更直接
+                    //    推进带口滚到了 220，而**下面那些节都在滚动位 0 上读抽屉**（`本文件` 那条更直接
                     //    写着「滚到顶时」）⇒ 不还回去就会把红挪到别人身上（本节的收尾纪律同上一条）。
                     _rt.UiScrollFilters(-1e6f);
                     if (!wasOpen) _rt.UiToggleFilters();     // 收回去：本节不许改后面用例的初态
@@ -3587,7 +3596,7 @@ public static class DeckScene
             // 判据（A298 口径，逐条）：① **期望值全是原版设计 px 字面量**（带口 = 原版 `Card Filters` 的
             //   `pos(2.2,156.0)` 331.7×924.1 —— 就在上面那一节里）⇒ 量出来的必须是**同一个量纲**；
             //   ② 「已缩放的世界坐标 → 设计空间」在全工程**只有一份**换算 = `MenuDraw.PosInDesignSpace`
-            //   （`Shell/MenuDraw.cs:71`；A294 / A297 / A298 三轮把它收口到这一处）；
+            //   （`Shell/MenuDraw.cs`；A294 / A297 / A298 三轮把它收口到这一处）；
             //   ③ 尺寸项**不除**（`q.WorldW/H` 收进去的就是**设计长度** —— 同 A298 那句
             //   「尺寸项本来就在设计量纲上」）。
             //
@@ -4806,6 +4815,8 @@ public static class DeckScene
                 //  ⛔ 期望值不是从 `DeckRuntime` 的常量/函数读回来的：这里**逐段重算**（参考实现），
                 //    用的是**规格里的那把键** —— `StringComparison.CurrentCulture`（原版 `ThenBy` 没传 comparer）
                 //    + `Id` 序数兜底。数据 = `cards_engine.json`（`PlayerDeckForDemo` 那 30 张 SaimHann 单位）。
+                //  ⚠️ **2026-10-19（`A1929`）**：历史注释里那「参考图三组」（= 参考图那副「铺场流」，2/3/4 张）
+                //    与本节的演示牌（1/2/3 张）**不是同一副** ⇒ 本段不拿它们当期望值（来路与判据见文件头那条勘误）。
                 {
                     // ① 参考实现：每个费用段各自按「名字文化比较 → Id」重排，逐张对 id。
                     string bad = null; int runs = 0;
@@ -4958,12 +4969,12 @@ public static class DeckScene
             //      `HandlePoolClick → HandleDeckRowClick → HandleCosmeticClick → HandleButtons`
             //      （上面那条链就在 `DeckRuntime.cs` 里，`HandleButtons` 是**最后一站** —— ⛔ 按【符号】认，别抄行号），而那两片矩形
             //      **整片落在卡组列表里**（x 0.4..325.4 · y 366..1010.1）⇒
-            //        · **Cosmetics 页（必现）**：`_tab==2` ⇒ `HandleDeckRowClick`（`:1634` 要求 `_tab==0`）
-            //          早退、`HandleCosmeticClick`（`:1159` 要求 `_tab==2`）只管 x ≥ `CosmoX` 那一片
+            //        · **Cosmetics 页（必现）**：`_tab==2` ⇒ `HandleDeckRowClick`（`CardPresentation/Deck/DeckRuntime.cs` 要求 `_tab==0`）
+            //          早退、`HandleCosmeticClick`（`CardPresentation/Deck/DeckRuntime.cs` 要求 `_tab==2`）只管 x ≥ `CosmoX` 那一片
             //          ⇒ **谁也拦不住**，直接落到 `HandleButtons`；
             //        · **Cards 页**：只要那一格真有行，`HandleDeckRowClick` 就先把它吃掉（开始行拖拽）
             //          ⇒ **点不到**；只有**那一格是空槽**时才漏得过去（`RefreshDeckList` 的
-            //          `on = cards && (firstRow + i) < shown.Count`，`:1263`）。
+            //          `on = cards && (firstRow + i) < shown.Count`，`CardPresentation/Deck/DeckRuntime.cs`）。
             //   ② **下面这几条走的是 `KeyLive` 那条命中路**（`UiTopKeyAt` → `HitBtn`/`KeyLive`；
             //      `UiClickPx` 直调 `HandleButtons`），**不是**真实鼠标那条完整分派链
             //      ⇒ 只能说「**不被任何按钮**吃到」，不能说「谁都没吃到」（行处理器不在这一层）。
@@ -5192,7 +5203,7 @@ public static class DeckScene
                 //       那行里的 `Sliced (1,0,0,1)`，左边写着 `40k_main_bt_selected BW` = 灰度图）。
                 //   判据 ② 通道语义：`Toggle.PlayEffect` → `CrossFadeAlpha` → `useRGB:false`
                 //     ⇒ **只动 alpha、两个态的 RGB 都是红**。
-                //   同工程早就做对过一次：`Shell/MenuWindowBase.cs:420-424`（同图 + `(1,0,0,1)`）。
+                //   同工程早就做对过一次：`Shell/MenuWindowBase.cs`（同图 + `(1,0,0,1)`）。
                 for (int i = 0; i < 3; i++)
                 {
                     string who = i == 0 ? "Cards" : (i == 1 ? "Deck info" : "Cosmetics");
@@ -6135,7 +6146,7 @@ public static class DeckScene
                 //     有注释的既定契约）。原来这里**在 `_tab==0` 上调它去关卡背抽屉** ⇒ 实际翻的是**卡牌**抽屉
                 //     ⇒ ① 卡背抽屉压根没关（本节的收尾断言红）② `_filtersOpen` 被**反翻成 true** 且此后无人关，
                 //     而 `UiClickPx` 的路由是「`FltStripOn && px.x < FltX+FltW(=333.9)` ⇒ 整条改道 `HandleFilterClick`」
-                //     （`DeckRuntime.cs:4218`，**既有且共用的契约，⛔ 别动它**）⇒ 左侧与页脚那些点**全被筛选抽屉吞掉**
+                //     （`DeckRuntime.cs`，**既有且共用的契约，⛔ 别动它**）⇒ 左侧与页脚那些点**全被筛选抽屉吞掉**
                 //     （`UiTopKeyAt` 直调 `TopKeyAt`、不走这条路由 ⇒ 「**查得到、点不到**」）。
                 //     ⇒ 修法 = **在和抽屉匹配的页签上关它**；这一改同时让 10 条连锁红回绿（⛔ 不单独去改那 10 条 —— 那是给假绿开口子）。
                 _rt.UiSetTab(2);
@@ -6553,7 +6564,7 @@ public static class DeckScene
                     //   「**画出来的就是那个键**」—— `Term()` 转 `Loc` 之后**已经不对了**（印的是**词条**）。
                     //   现在按本文件既有写法（先例 = A891 那一节的 `Loc.HasEntry(键)` + `Loc.T(键)` 一对）拆成：
                     //     ① **画出来的是那条键的词条**（期望值从 `Loc` 表取，⛔ 不是从实现反推）；
-                    //     ② **拿的是哪个键**（那半句原来挂在 `*Shown` 上，归 `*Key` —— 与 `:4571` 那组同形）；
+                    //     ② **拿的是哪个键**（那半句原来挂在 `*Shown` 上，归 `*Key` —— 与 `本文件` 那组同形）；
                     //     ③ **灭自证**：印的**不是键名本身** —— 这正是本缺陷要防的那一半
                     //        （把 `Term()` 末句改回 `return key ?? ""` ⇒ ③ 红）。
                     //   ⚠️ 只有 ① 会「两边一起退化成键名」而假绿（键不在表里时）⇒ ①③ 缺一不可。
@@ -7376,7 +7387,7 @@ public static class DeckScene
             //      而 `WindowsManager__OpenWindowCO.c` 的 `set_CurrentWindow` 写在 if/else **之外**
             //      ⇒ **弹窗一开、`currentWindow` 就是它**（旁证：`HidePopUp` 第一句比的就是这两个字段）。
             //   ② `GameWindow__ESCPressed.c` 第二道门槛 = `+0x39`（`closeOnESC`）；`PopUpGameWindow` 那两扇 prefab
-            //      实读都是 **0**（`Shell/PopUpGameWindow.cs:238`）⇒ 那一刻**什么都不做**。
+            //      实读都是 **0**（`Shell/PopUpGameWindow.cs`）⇒ 那一刻**什么都不做**。
             //  ⇒ 原版此刻 `DeckEditingWindow.ESCPressed`（= 保存）**根本轮不到**。
             //  ⚠️ **硬约束**（⛔ 别一刀切）：判别式必须让「ESC 什么都不做」与「ESC 落到保存」**分岔** ——
             //     只有在**卡组合法 + 脏**时才带电
@@ -7571,7 +7582,7 @@ public static class DeckScene
                     //   改坏法：把 `Deck/DeckRuntime.cs` 那处 `SetAutoFitBox` 改回只传 4 参
                     //   ⇒ 上限 = `c.LabelPx` = **23.2**（= 标称）⇒ 这条红。
                     // 🔴 **2026-10-18（`N55`）**：口径由静态 Cjk 口改成按 `ActualFace` —— 本族（筛选单元格）
-                    //   在 `Deck/DeckRuntime.cs:7243/7494` 显式 `SetFace(LatinCardBody)`；`EmPerFontSize`
+                    //   在 `Deck/DeckRuntime.cs` 的 `LatinCardBody` 显式 `SetFace(LatinCardBody)`；`EmPerFontSize`
                     //   自本日起按面分两支（CJK 0.0948 / 拉丁 0.1），静态口量它会恒差 5.2%。判据 → R4 §五·B。
                     CheckNear(typeLb.FontSizeToPxNow(typeLb.FontSizeMax, typeLb.ActualFace), 27f, 0.6f,
                               "★ A407：类型族自适应**上限 = 原版 27**（`auto[10~27]`）—— 拿标称 23.2 当上限 = 矮 3.8px");
@@ -7682,7 +7693,7 @@ public static class DeckScene
             //  **出【错误码】、不出「给人看的中文」** —— 两语档各断一次
             //
             //  背景（`G3` 交回的那半）：`DeckStore.LoadAll` 的三条出口原来是**写死的整句中文**
-            //  （`DeckStore.cs:55/64/90`），`DeckLibrary` 只能拿 `Contains("失败")` 去猜类型
+            //  （`DeckStore.cs` 的 `Contains("失败")`），`DeckLibrary` 只能拿 `Contains("失败")` 去猜类型
             //  ⇒ 换语言 / 改一次措辞就**静默失效**。本笔把那三条换成 `LoadNote` **错误码** +
             //  一句**诊断串**；给人看的文案走**词条**（`CustomErrors/ErrorLoadDeck` /
             //  `MenuDeck/Error/SaveFailed` —— 两条的载体与出处写在 `Core/Loc.cs` 上）。
@@ -8211,7 +8222,7 @@ public static class DeckScene
                                 + "⛔ 不是静默");
 
                         // ---- 🆕 B25①：点下去**开对了窗**（各自指名道姓；⛔ 不是「点了有反应就算过」）----
-                        //   ⚠️ 宿主先备好（照 `Editor/MainMenuScene.cs:1337` 那条先例 —— 单独打开某个界面场景时
+                        //   ⚠️ 宿主先备好（照 `Editor/MainMenuScene.cs` 那条先例 —— 单独打开某个界面场景时
                         //      `WindowsManager` / 指针层都不在；`EnsureHost()` 幂等，壳在的时候它直接返回那一台）。
                         WindowsManager.EnsureHost();
                         if (hitGear != null && hitGear.onClick != null)
@@ -8619,7 +8630,7 @@ public static class DeckScene
             //   判据 = 原版 `PolyAndCode.UI.VerticalRecyclingSystem.CreateCellPool` 那**两条阈值**（逐字读，
             //   出处见 `DeckRuntime.PoolMinCoverage` 那段 doc）：
             //     ① 覆盖：`ceil(视口高 × MinPoolCoverage(1.5) ÷ 格高)`（`:193` 的循环条件；
-            //        网格档里总高**每换一行加一次** —— `:256-258` + `:271` 的 `goto`）；
+            //        网格档里总高**每换一行加一次** —— `CardPresentation/Deck/DeckRuntime.cs` + `CardPresentation/Deck/DeckRuntime.cs` 的 `goto`）；
             //     ② 池格下限：`ceil(MinPoolSize(20) ÷ 列数)`（`:186-192` 那个格下标阈值换成行）。
             //   ⇒ 桌面 `max(ceil(20÷6), ceil(924.06×1.5÷384))` = **4 行 / 24 格**；
             //      小屏 `max(ceil(20÷4)=5, ceil(924.06×1.5÷576)=3)` = **5 行 / 20 格**

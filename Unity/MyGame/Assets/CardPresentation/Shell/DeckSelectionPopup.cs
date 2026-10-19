@@ -54,7 +54,7 @@
 //       · **连线已验**：它的动作就是闭包 `DisplayClass13_0.<UpdateInfo>b__0` = **本窗 `Close()` + `Callback(那一副)`**
 //         （`DeckInfoControls__OnSelect.c` 先关信息窗、再调这颗钮的动作）⇒ 它**就是**本窗的「选定」口，
 //         而 `UpdateInfo` 开的也正是 `Deck info Popup`。⛔ 不需要再找别的「第 5 条入口」。
-//     逐处实读与偏移表 → `Shell/DeckInfoPopup.cs:66-70` 与 `:109`（**判据只此一份，别抄第二份**）。
+//     逐处实读与偏移表 → `Shell/DeckInfoPopup.cs`（**判据只此一份，别抄第二份**）。
 //
 // ============================ 🆕 2026-10-17：本窗这一轮的四处改动（D11 / D12 / D16 / D18）============================
 //   · **D11 空态**：原版只有 `Deck Scroll View/Empty Collection Warning` **一件**（视口那一格 + 子 TMP `Warning`，
@@ -93,7 +93,7 @@
 //     ⚠️ **难度角标**（原版预组页会画 `easyMark/normalMark/hardMark`）与 **`gameMode` 图标**都**还没画**，
 //     原因写在 `PrebuiltDecks.cs` 文件头 —— **是缺口，不是「原版没有」**。
 //     🔴 **2026-10-17 就地订正（铁律 5 · `U4` 现核）：这一句【已过期】** —— 两颗**都画了**
-//     （`DeckCell` 的 `showDifficulty: !OwnDecks` 那一路，2026-09-26 就落了；见 `:719-737`）。
+//     （`DeckCell` 的 `showDifficulty: !OwnDecks` 那一路，2026-09-26 就落了）。
 //     错因 = 实现落地后没回来改这段文件头。⛔ 别再按它去「补画角标/模式图标」。
 //   · **两个页签的文案是我们定的**：原版两个 `m_text` 都是**空串**、只有 `mTerm`
 //     （`MenuDeck/Button/PresetDeck` / `MenuDeck/Button/OwnDeck`），而**本地没有任何术语表/翻译源**
@@ -352,7 +352,7 @@ namespace CardPresentation
         /// <summary>「这一页列了多少、藏了多少」那句话的文本（自检用）。
         /// 🔴 **2026-10-17（D11）：它已经【不再上屏】** —— 原来画在红底板下沿（节点叫 `Scope Note`），
         /// 而原版空态只有 `Empty Collection Warning` 那一件 ⇒ 节点已按原版删掉，这里只**算字符串 + `Debug.Log` 出声**。
-        /// ⚠️ **这个属性现在只被两处自检读**（`Editor/MainMenuScene.cs:2651` / `:2670`）—— 它们断的是
+        /// ⚠️ **这个属性现在只被两处自检读**（`Editor/MainMenuScene.cs`）—— 它们断的是
         /// **一个不上屏的字符串**了，**必须**在拿到 `MainMenuScene.cs` 时一并改（本批白名单外，已记进报告）。
         /// ⛔ 别把它读成「功能还在」。</summary>
         public string ScopeText { get { return _scope; } }
@@ -468,15 +468,15 @@ namespace CardPresentation
             // 🔴 **2026-10-18（A867 · S1）**：**首句**就把本窗名下的旧滚动区撤掉 —— 下一句就把 `root` 的子件
             //   全清掉，而第 6 步会登记一颗**新**的 `MenuScroll`（`Scroll.Owner = gameObject`）。
             //   ⛔ **兜不住**，所以非补不可（`PointerLayer` 的两道自动清理**都判不出这里已死**）：
-            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类**（`Shell/MenuScroll.cs:79`）
+            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类**（`Shell/MenuScroll.cs`）
             //       ⇒ 节点被销毁**不会**让它变 null ⇒ **恒假**；
             //     · `s.Owner == null` —— `Owner` 指的是**活下来的窗根**（本方法只删**子件**，`transform` 本身还在，
-            //       而且我们关窗是 `SetActive(false)`、**不销毁**）⇒ 也**恒假**（`Shell/PointerLayer.cs:223-231`）。
+            //       而且我们关窗是 `SetActive(false)`、**不销毁**）⇒ 也**恒假**（`Shell/PointerLayer.cs` 的 `SetActive(false)`）。
             //   ⇒ 少了这一句 = **每重建一次净涨 1 条**，而且旧条目**还能被滚轮命中**（`OnChanged` 指向已销毁的节点）。
             //   🔴 **本窗这条路径【不靠重开窗就够得着】**：切页签 = `SwitchTab` → `RebuildAll()` → 本方法
-            //   （`Shell/DeckSelectionPopup.cs:536-544` / `:573-579`），而且**同一扇窗里可以来回切**
-            //   （`Editor/CollectionScene.cs:2418/:2429/:2432` 就是连切三次的现场）⇒ 这是**单次开窗内**就会涨的漏。
-            //   ✅ 形状照抄 `Shell/InboxWindow.cs:405`。
+            //   （`Shell/DeckSelectionPopup.cs`），而且**同一扇窗里可以来回切**
+            //   （`Editor/CollectionScene.cs` 的 `A867` 段就是连切三次的现场）⇒ 这是**单次开窗内**就会涨的漏。
+            //   ✅ 形状照抄 `Shell/InboxWindow.cs`。
             PointerLayer.UnregisterOwnedBy(gameObject);
             var root = transform;
             for (int i = root.childCount - 1; i >= 0; i--) CollectionWindow.DestroySafe(root.GetChild(i).gameObject);
@@ -518,7 +518,8 @@ namespace CardPresentation
             //   （<see cref="TitleTerm"/> = `MenuDeck/Tip/SelectDeckAgainst`）。
             //   ⚠️ 这里原来写「`Instructions 2`(act=Y) 的文案取不到 ⇒ 用同窗 `Instructions` 那句
             //   `Select deck`」—— **「取不到」说的是译文**（那颗 TMP 的 `m_text = ''`），
-            //   **词条名一直在**（`.cs` 那句「`.cs` 说文案取不到**不成立**」指的是这件事）。
+            //   **词条名一直在**（`资料/普查产出_1017/对账_卡组编辑部分_差异与待办.md` 的 D6 行：
+            //   本文件旧注释说「文案取不到」—— 那句**不成立**，指的就是这件事）。
             //   ⇒ 改成按键取词：中文 = **官方 zh-CN 表「选择一个卡组进行对战」**（2026-10-14 换；⚠️ 用户 1017 实拍那颗是「选择卡组」）（`资料/原版参照图/用户实拍_1017/
             //   更换卡组的参考.png` 右上角）、英文 = 我们原来那句 `Select deck`。
             //   🔴 **2026-10-17（F2）就地补记两件（铁律 5 + 11）**：
@@ -626,7 +627,7 @@ namespace CardPresentation
             //     🔴 **2026-10-17（D11）删掉**：原版空态**只有** `Empty Collection Warning` 那**一件**
             //     （判据同上，`DeckCollectionDisplay.emptyWarning`），我们多出来的这一行是**真偏离** ⇒ **节点不建**。
             //     ⚠️ 但 `_scope` 那句话**照算**（+ `Debug.Log` 出声）—— 见 `RefreshScopeNote` 的注释：
-            //     `Editor/MainMenuScene.cs:2651/2670` 两条自检还在读 `ScopeText`，**那个文件不在本批白名单**。
+            //     `Editor/MainMenuScene.cs` 的 `ScopeText` 两条自检还在读 `ScopeText`，**那个文件不在本批白名单**。
             RefreshScopeNote();
 
             // 8) 关闭圆钮
@@ -643,7 +644,7 @@ namespace CardPresentation
             //   **自己带 `Image`**：`UI_Button_Round_background` · `m_Type=0`(Simple) · **`m_PreserveAspect=1`** ·
             //   `m_PixelsPerUnitMultiplier=1.0` · `m_RaycastTarget=0`；它下面唯一的子件 = `Background`(56.86×58.13)
             //   （= 我们那颗 `Close Face`）。贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **74.39×74.39**。
-            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs:386-387` / `Shell/ChatPanel.cs:307-308` 的形状
+            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs` / `Shell/ChatPanel.cs` 的形状
             //   （`Rect` 画在根节点上、图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**。
             var closeBaseQ = MenuDraw.Rect(root, CardArt.MenuUi("UI_Button_Round_background"),
                           new PxRect(CloseL, CloseT, CloseR, CloseB), "Generic Close Button Orange", QDsRow, null, true);
@@ -997,7 +998,7 @@ namespace CardPresentation
         /// 「这一页列了什么、藏了什么」那句话 —— **只算字符串 + `Debug.Log` 出声，不上屏**。
         /// 🔴 **2026-10-17（D11）**：原来它画在红底板下沿（节点 `Scope Note`），但**原版没有这一行**
         /// （空态只有 `Empty Collection Warning` 那一件，判据 → `Build()` 第 7 步那一段）⇒ 节点删掉。
-        /// ⚠️ 为什么**字符串还留着**：`Editor/MainMenuScene.cs:2651` / `:2670` 两条自检在读 `ScopeText`
+        /// ⚠️ 为什么**字符串还留着**：`Editor/MainMenuScene.cs` 的两条自检在读 `ScopeText`
         /// （`ds2.ScopeText.Contains("本页列 " + tab.Count)` / `ds2.ScopeText.Length == 0`），
         /// 而**那个文件不在本批白名单** ⇒ 删属性会让**整个工程编不过**。⇒ 折中：**算**、**出声**、**不画**，
         /// 并在报告里把「那两条断言现在断的是一个不上屏的字符串」记成**欠账**（拿到那个文件就改）。

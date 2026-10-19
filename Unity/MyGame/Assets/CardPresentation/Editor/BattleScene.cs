@@ -32,6 +32,8 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;            // 🆕 2026-10-16（`T09` 批 1）：`CanvasScaler`（子画布不许带它的那条断言）
+using UnityEngine.EventSystems;  // 🆕 2026-10-19（`T09` A1）：`EventSystem` / `IPointerClickHandler` / `RaycastResult`
+using UnityEngine.InputSystem.UI; // 🆕 2026-10-19（`T09` A1）：断言输入模块**必须**是它（New-only）
 
 public static class BattleScene
 {
@@ -4163,6 +4165,35 @@ public static class BattleScene
                         Check(Mathf.Abs(ArenaSlots.HeroScale(pBoard.mirror)
                                         - ArenaSlots.CardScale(pBoard.mirror)) > 0.03f,
                               "★ 两档 scale 确实不同（我方 0.40/0.36 · 敌方 0.77/0.69）—— 所以「用哪一档」是可分辨的");
+                        // ★🆕 **2026-10-19（`W57` · `T02·补`）：`DropTargetWorldAtHeight` 与 `DropTargetWorld` 同源。**
+                        //   「手牌→棋盘」两段飞行的**第一段终点**（抬高 `upWorld` 那个点）与**第二段终点**（落点）
+                        //   必须走**同一档缩放** —— 否则第二段不是「垂直落下」。原来 `AtHeight` 里写死
+                        //   `ArenaSlots.CardScale(mirror)`，而 `DropTargetWorld` 走 `ProjectionScale`
+                        //   （督军 `HeroScale`）⇒ **督军格（槽 4）两个口不是同一个点**（实测 ≈ 9.6 px 我方 / 9.1 px 敌方，只在 y）。
+                        //   判据 = `BoardLayout.cs` 的 `DropTargetWorldAtHeight` doc（本笔已改）
+                        //        + `资料/普查产出_1017/BSC62/W5_PlaceMarkers与卡背.md` §五·2（那条「顺手发现」的收口）。
+                        {
+                            int wSlot = BoardLayout.WarlordSlot;
+                            var landH = pBoard.DropTargetWorld(wSlot);
+                            var above0 = pBoard.DropTargetWorldAtHeight(wSlot, 0f);
+                            Check(Mathf.Abs(landH.x - above0.x) < 1e-3f
+                                  && Mathf.Abs(landH.y - above0.y) < 1e-3f,
+                                  $"★ 督军格 `DropTargetWorldAtHeight(·, 0)` 与 `DropTargetWorld` **同一个点**"
+                                + $"（差 ({above0.x - landH.x:F4}, {above0.y - landH.y:F4}) 世界单位 —— 两个口同走 `ProjectionScale`）");
+                            // ★ **灭自证**：旧写法（恒 `CardScale`）的落点**真的分得开** —— 否则上面那条对
+                            //   「有人把 `AtHeight` 改回 `CardScale`」无感（与 `sep3D` 同型）。
+                            //   ⚠️ 这一句里的 `CardCenter(…, CardScale)` 是**断言侧的旧行为参考值**，
+                            //   ⛔ 不是第二份判据：产品代码里卡心投影仍然只有 `DropTargetWorld` / `AtHeight` 两处。
+                            float oldSc = ArenaSlots.CardScale(pBoard.mirror);
+                            var oldSp = pBoard.boardCam.WorldToScreenPoint(
+                                            ArenaSlots.CardCenter(wSlot, pBoard.mirror, oldSc));
+                            var oldPt = pBoard.transform.InverseTransformPoint(
+                                            LayoutSpace.ScreenToWorld(new Vector2(oldSp.x, oldSp.y)));
+                            float sepW = new Vector2(oldPt.x - above0.x, oldPt.y - above0.y).magnitude;
+                            Check(sepW > 0.01f,
+                                  $"★ 旧写法（恒 `CardScale`）与 `HeroScale` 的投影点**确实分得开**"
+                                + $"（差 {sepW:F4} 世界单位 ≈ {sepW * 108f:F1} px）—— 所以「`AtHeight` 用哪一档」是可分辨的");
+                        }
                     }
                     if (mr != null)
                         Debug.Log(P + $"   [落点指示] 父={mr.transform.parent?.name} · 层={mr.gameObject.layer}"
@@ -4199,12 +4230,26 @@ public static class BattleScene
                 //    ✅ 仍然**只比 x/y**（照抄本文件 `:6880` / `:6955` 已有的正确写法：z 是层次 ——
                 //    补间终点 `DropTargetWorld` 的 z 是 `LayoutSpace.ScreenToWorld` 强制出来的 0，
                 //    而卡一交接就被摆到 `ArenaSlots.RootPosition`（z = −6.655）⇒ 交接前后 z 差 6.655）。
+                //    🔴 **2026-10-19 就地订正（`W57` · `T05(c)(d)`）**：交接从 0.55 s 挪到了 **0.4 s**，
+                //    而且从那一刻起卡**整个进了竞技场空间**（`DOLocalMove`，见 `DeploySequence` 文件头）
+                //    ⇒ 本检测器的靶不再是 HUD 平面的 `DropTargetWorld`，而是 `arriveArena`（见下）。
+                //    `arrivePos` 仍保留给上面那几条「投影点 vs 2D 行线」的结构断言。
                 //    ⚠️ 2026-10-16 就地订正：这里原来举的例子是「补间中段那句
                 //    `lift = tr.position + (0, 0.35, −0.2)` 会把 z 拉到 −0.8」——
-                //    那句**中段抬升已经删掉**了（现在是原版那三段：飞到槽位正上方 → 悬停 0.05 → 垂直落下 0.2）。
+                //    那句**中段抬升已经删掉**了（现在是原版那四段：飞到槽位正上方 → 等 0.1 → 换 3D 体 → 悬停 0.05 → 垂直落下 0.2）。
                 //    ⚠️ `land == freeSlot` 由本用例的前提保证（这一步棋盘上还没有单位 ⇒
                 //    `LandingSlot` 不推人）；真跑出岔子时下面那条新断言会**当场红**（不静默）。
                 var arrivePos = pBoard.DropTargetWorld(freeSlot);
+                // 🆕 2026-10-19（`W57` · `T05(c)(d)`）：**0.4 s 交接之后卡进了竞技场空间** ⇒
+                //    「卡到格位」的检测靶必须跟着换：交接后卡的世界坐标 = `PoseFor` 那个位姿
+                //    （`ArenaSlots.RootPosition`，z 也是透镜层的）。仍是 HUD 平面的 `DropTargetWorld`
+                //    只用于它上面那几条**投影点 vs 2D 行线**的结构断言（那个口一个字节没动）。
+                //    ⚠️ 判据只此一处：产品侧落点由 `BattleDriver.BuildDeployHandoff → PoseFor` 给；
+                //    这里按同一个公式取**期望值**（与 `arrivePos` 当初照 `DropTargetWorld` 取同一性质）。
+                float arriveScale = pBoard.ProjectionScale(freeSlot);   // 督军位 HeroScale / 别的格 CardScale（= PoseFor）
+                Vector3 arriveArena = pBoard.use3D
+                    ? ArenaSlots.RootPosition(freeSlot, pBoard.mirror, arriveScale)
+                    : pBoard.SlotPosition(freeSlot);
                 // 🔴 **A337：两个候选靶在这里【必须真的分得开】，否则下面那条「到达」断言是空断言**
                 //    （弱断言 —— 「有人把终点改回 `SlotPosition`」它也照样绿）。实测差 **0.47~0.74 世界单位**
                 //    （督军位 51 px / 最外格 72 px，两个数都是真的：透视下投影点的 y **逐格不同**，
@@ -4247,20 +4292,20 @@ public static class BattleScene
                     }
                 }
                 // 🔴 **采样步长从 1/30 收到 1/60**（`landSteps` 的换算跟着改成 /60f，`landSec` 语义**不变**）：
-                //    落位补间末段是 `OutCubic`（`DeploySequence.cs:62`）—— 它**在到达前一帧就已经收敛到
-                //    0.02 以内**，而 30Hz 采样下「收敛的那一刻」**贴着补间完成的那一帧**，晚一步就会看见
+                //    落位补间末段是 `OutQuad`（`DeploySequence.Play` 的落体那一句）—— 它**在到达前一帧就已经
+                //    收敛到 0.02 以内**，而 30Hz 采样下「收敛的那一刻」**贴着补间完成的那一帧**，晚一步就会看见
                 //    已经交接完的位姿（`SyncBoard` 在补间 `OnComplete` 里把卡摆到 `ArenaSlots.RootPosition`，
                 //    见 `BattleDriver.cs` 的 `OnCardDeployed`）⇒ 检测器会**时有时无**。
-                //    收到 1/60 之后，到达前至少还有一整帧落在「`DropTargetWorld` 附近、还没交接」的窗口里
+                //    收到 1/60 之后，到达前至少还有一整帧落在「`ArenaSlots.RootPosition` 附近」的窗口里
                 //    （末帧进度 ≈ 99.9% ⇒ 距离 ≈ 0.001 世界单位，阈值 0.02 有 20 倍余量）。
-                //    ⚠️ 只影响本循环的采样密度；`landSec` = 引擎那一格填上的时刻，与步长无关（都是 0.30s）。
+                //    ⚠️ 只影响本循环的采样密度；`landSec` = 引擎那一格填上的时刻，与步长无关（都是 0.65s）。
                 for (int i = 0; i < 180 && ctx.Players[0].Board[freeSlot] == null; i++)
                 {
                     Step(1f / 60f);
                     landSteps++;
                     var pNow = view.transform.position;      // ⚠️ `view` 是 `CardView`（MonoBehaviour）⇒ 走 `.transform`
                     if (atSlotStep < 0
-                        && new Vector2(pNow.x - arrivePos.x, pNow.y - arrivePos.y).magnitude < 0.02f)
+                        && new Vector2(pNow.x - arriveArena.x, pNow.y - arriveArena.y).magnitude < 0.02f)
                     {                                          // 卡**到格位**的那一帧（对比「引擎里那一格填上」的那一帧）
                         atSlotStep = landSteps;
                         arriveXy = new Vector2(pNow.x, pNow.y);   // A337：那一刻的坐标，给下面那条「不在 2D 行线上」用
@@ -4296,20 +4341,22 @@ public static class BattleScene
                         + "实测 0.47~0.74）—— 🧨 改坏法：终点与检测器**一起**改回 `SlotPosition` ⇒ 这里当场红");
                 }
                 Debug.Log(P + $"   落位：卡到格位用了 {atSlotStep / 60f:F2}s，引擎那一格填上用了 {landSec:F2}s"
-                            + $"（60Hz 采样 · 原版三段共 {DeploySequence.TotalTime:F2}s = 飞 {DeploySequence.MoveTime:F2}"
-                            + $" + 悬停 {DeploySequence.HoldTime:F2} + 落下 {DeploySequence.LandTime:F2}，"
+                            + $"（60Hz 采样 · 原版四段共 {DeploySequence.TotalTime:F2}s = 飞 {DeploySequence.MoveTime:F2}"
+                            + $" + 等 {DeploySequence.TimeToScaleIntoMoving:F2} + 悬停 {DeploySequence.HoldTime:F2}"
+                            + $" + 落下 {DeploySequence.LandTime:F2}，"
                             + "差值 = DOTween 起步那一帧 + Step 粒度）");
 
                 Check(ctx.Players[0].Board[freeSlot] != null,
                       $"拖到槽 {freeSlot} 后引擎里那一格有单位了（{ctx.Players[0].Board[freeSlot]?.Name}）");
                 // 🆕 2026-10-16：**引擎那一格现在是「落地之后」才填上的**（原版如此：
                 //    `_ResolvePlayCardFromHand` 要先 yield 完整条 `_MinionPlayedIntoField` 才
-                //    `ResolveCardPlayed`）⇒ 余量要按**三段之和**给，别再按 `minionToConversionPointTime`。
+                //    `ResolveCardPlayed`）⇒ 余量要按**四段之和**给，别再按 `minionToConversionPointTime`。
                 // ⚠️ 2026-09-13 之前这里曾是 **0.92s** —— 那是把 `Card Hand To Board`（「2D 卡→3D 身体」的
                 //    交接动画）的长度当成了「手牌飞到场位」的时长，认错了来源。
                 Check(landSec <= DeploySequence.TotalTime + 0.25f,
-                      $"落位 {landSec:F2}s 完成（原版三段共 {DeploySequence.TotalTime:F2}s"
-                      + $" = 飞 {DeploySequence.MoveTime:F2} + 悬停 {DeploySequence.HoldTime:F2}"
+                      $"落位 {landSec:F2}s 完成（原版四段共 {DeploySequence.TotalTime:F2}s"
+                      + $" = 飞 {DeploySequence.MoveTime:F2} + 等 {DeploySequence.TimeToScaleIntoMoving:F2}"
+                      + $" + 悬停 {DeploySequence.HoldTime:F2}"
                       + $" + 落下 {DeploySequence.LandTime:F2}；卡实际在第 {atSlotStep} 帧（60Hz）到位，"
                       + "余量是 DOTween 起步帧 + Step 粒度）");
                 Check(ctx.Players[0].Board[freeSlot] != null && ctx.Players[0].Board[freeSlot].Name == cardName,
@@ -4356,6 +4403,30 @@ public static class BattleScene
                 //   ⚠️ **必须钉在 `ShowBattleLog()` 之前** —— 文本是在那一下里生成的，
                 //   事后再改语档**不会**把已经建好的行改回来。
                 Loc.RestoreForTest(AvailableLanguages.Chinese);
+                // 🔴 **2026-10-20（W57 · 战斗线 `T09` 步骤 WIRE）**：双能力卡的 `EvtKind.Trigger` 事件把
+                //   能力序号放在 `BattleEvent.Keyword` 的 `#i` 后缀里（`KeywordWithAbility`，例 `UseFaith#1`）
+                //   —— 那是**传输形态**（`VfxMap` 靠它筛行），**日志里只许印 trigger 名**。
+                //   做法：临时塞一条**合成事件** → 刷一次日志读那一行 → **立刻移除**（不留副作用，
+                //   后面那些断言读的仍是真日志）。⛔ 不改事件本体。
+                {
+                    BattleEvent evSuffix = new BattleEvent
+                    {
+                        Kind = EvtKind.Trigger,
+                        Player = drv.MySideForTest,
+                        CardId = "",
+                        Slot = 0,
+                        Keyword = BattleEvent.KeywordWithAbility("UseFaith", 1),
+                    };
+                    drv.Ctx.ActionLog.Add(evSuffix);
+                    drv.ShowBattleLog();
+                    string suffixRow = log != null && log.FilledRows > 0 ? log.RowText(0) : null;
+                    drv.Ctx.ActionLog.Remove(evSuffix);
+                    Check(suffixRow != null && suffixRow.Contains("UseFaith") && suffixRow.IndexOf('#') < 0,
+                          "★ `Keyword` 的 `#i` 后缀**不进战斗日志**（传输形态 `UseFaith#1` ⇒ 只印 `UseFaith`）"
+                        + $" —— 那一行实得「{suffixRow}」"
+                        + "｜🧨 直接印 `e.Keyword` ⇒ 出现 `UseFaith#1` ⇒ 本条红"
+                        + "（判据 = `BattleEvent.SplitKeywordAbility`，⛔ 不改事件本体 —— VfxMap 靠它筛行）");
+                }
                 drv.ShowBattleLog();
                 Check(log != null && log.Visible && log.RootActive, "点开之后面板真的显示出来了");
                 Check(log != null && log.ShadeActive, "压暗层也跟着出来了");
@@ -4574,17 +4645,25 @@ public static class BattleScene
                     Check(log.RowCenterWorld(other, out rp0) && log.RowAt(rp0) == other,
                           $"★ **判别式**：换第 {other} 行的中心 ⇒ 命中改成它（同一函数、两种输入两种答案）");
 
-                    // ② 点一下 ⇒ 面板**不关** + 记下选中的行 + 弹那一行的卡
+                    // ② 点一下 ⇒ 面板**关掉** + 记下选中的行 + 弹那一行的卡
+                    //   🔴 **2026-10-20（W57 · 战斗线 `T09` WIRE）就地订正（铁律 5）**：本条原来断「**面板没被关掉**」
+                    //   —— 那条判据引用的是**死类**（`CemeteryLogManager`，发行版没有实例；四条证据 →
+                    //   `Battle/BattleLogPanel.cs` 的 `Z2`/`Z3`）。**发行版的活判据** =
+                    //   `CemeteryManager__ClickCardLink.c` 末尾：`DisplayCard` 之后紧跟 `HideCemeteryLogBtn`
+                    //   ⇒ 面板正开着（`showingSliders(+0x90)==1`）⇒ **真关**（滑回 + 压暗层关）。
+                    //   ⇒ 现在断的是「**面板关 + 卡还弹着**」（判据 → `W57_战斗线_T09_A3c_BattleLogPanel.md` §五·1）。
                     string wantKey = log.RowLinkKey(linkRow);
                     Check(drv.ClickLogRowForTest(linkRow),
                           "★ 点第 N 行 ⇒ **这一下被行吃掉**（返回 true ⇒ 调用方不会把它当「点面板外」）");
-                    Check(log.Visible,
-                          "★ **面板没被关掉**（原版那 10 颗行按钮在压暗层之上，点击传不到 `shade`）"
-                        + "｜🧨 把 `TryClickLogRow` 那半删掉（或排到关面板之后）⇒ 本条红");
+                    Check(!log.Visible,
+                          "★ **面板被关掉**（原版 `ClickCardLink.c` 末尾 `HideCemeteryLogBtn(…, 0)`；"
+                        + "`showingSliders==1` ⇒ 走真关那一支）"
+                        + "｜🧨 把 `TryClickLogRow` 里那句 `_logPanel.Hide()` 删掉 ⇒ 本条红");
                     Check(drv.LogSelectedRow == linkRow,
                           $"★ 记下了点中的是**第 {linkRow} 行**（原版 `cemeterySliderActionDisplayed = index`）");
                     Check(drv.LogHoverCardKey == wantKey,
-                          $"★ 弹的就是**那一行**的卡（`{drv.LogHoverCardKey}`）");
+                          $"★ 弹的就是**那一行**的卡（`{drv.LogHoverCardKey}`）—— 面板关了、卡还开着"
+                        + "（卡挂在面板壳下、不随 `_root` 滑走；原版收的是**悬停**卡，不是 `DisplayCard` 那张）");
 
                     // ③ 判别式：**同一个点，行外** ⇒ 不接手（那种点击仍旧归「关面板」）
                     Check(log.RowAt(LayoutSpace.FromPixel(1500f, 1000f)) == -1,
@@ -4601,8 +4680,14 @@ public static class BattleScene
                           $"★ 卡跟着行摆：第 {linkRow} 行与第 {other} 行的卡 y 差 "
                         + $"{Mathf.Abs(pA.y - pB.y):F3} 世界单位（> 0.01）"
                         + "｜🧨 把 `RowCardLocalPos` 写成 `HoverCardLocalPos`（钉在面板中线）⇒ 本条红");
+                    // ⚠️ 上一跳已经把面板关掉了（原版同：点行 ⇒ 关面板）⇒ 再点一行之前**必须重开**，
+                    //    否则 `ClickLogRowForTest` 会因「面板没开」直接返回 false（= 假红）。
+                    drv.ShowBattleLog();
+                    Check(log.Visible, "（前提）面板重新打开 —— 下一条要再点一行");
                     Check(drv.ClickLogRowForTest(other) && drv.LogSelectedRow == other,
-                          $"★ 换一行再点 ⇒ 选中的行跟着换（{linkRow} → {other}），不是「只认第一次」");
+                          $"★ 换一行再点 ⇒ 选中的行跟着换（{linkRow} → {other}），不是「只认第一次」"
+                        + "（⚠️ 关不关面板看那一行**有没有卡**：`ClickCardLink` 在取不到卡时直接 return、"
+                        + "不调 `HideCemeteryLogBtn` —— 我们同）");
                     Shot(cam, "02b3_日志点行弹卡");
                 }
 
@@ -5920,7 +6005,16 @@ public static class BattleScene
                 if (rp.HasValue)
                 {
                     var before = driver.Selector.ButtonScale(AttackKind.Ranged);
+                    // 🔴 **2026-10-20（W57 · 战斗线 `T09` WIRE · A3-e4 收口）**：画布档的悬停**已改由 uGUI 送达**
+                    //   （`AttackSelector.UpdatePointer` 只推进画并回读 `Hovered`，不再判圆）⇒
+                    //   这里改喂 `Highlight` 圈上那颗 `EventTrigger` 的 `PointerEnter`（与 `EventSystem` 同一条链）。
+                    //   `SimulatePointerAt` 仍调用（它推进入场动画 / 准星，只是不再改 `Hovered`）。
+                    //   下标 2 = `AttackSelector.Order` = { Melee, Ability, Ranged }（该常量是私有的；
+                    //   判据 → `AttackSelector.cs` 的 `Order` 那一行 + A3-e4 报告 §三·2）。
                     driver.SimulatePointerAt(rp.Value);
+                    var ringR = driver.Selector.HighlightTriggerForTest(2);
+                    Check(ringR != null, "（前提）「远程」那一格的 `Highlight` 挂了 `EventTrigger`（uGUI 悬停的送达口）");
+                    ringR?.OnPointerEnter(NewPointerEventData());
                     Check(driver.HoveredCommand == AttackKind.Ranged,
                           $"指针压到「远程」上 → 就是它（{driver.SelectorDescription}）");
                     Step(0.15f);
@@ -5928,6 +6022,10 @@ public static class BattleScene
                           $"悬停**不再**改变按钮大小（{before:F2} → {driver.Selector.ButtonScale(AttackKind.Ranged):F2}）"
                         + " —— 原版那圈只挂「已选打法」那一格（判据 → `AttackSelector.RefreshPicked`）");
                     Shot(cam, "03c_按钮高亮");
+                    // 判别式（灭自证）：`PointerExit` ⇒ 悬停清掉（「恒命中 / 只进不出」这条就红）
+                    ringR?.OnPointerExit(NewPointerEventData());
+                    Check(driver.HoveredCommand == AttackKind.None,
+                          "★ 判别式：`PointerExit` ⇒ 悬停**清掉**（不是「一直压着」）");
                 }
 
                 driver.SimulateDeselect();
@@ -7904,6 +8002,236 @@ public static class BattleScene
                     Check(sp.CurrentLight == SkillPanel.Light.Available, "松开 → 回到黄绿");
                     Shot(cam, "06c_技能卡面板");
 
+                    // ---- 🔴 2026-10-20（W57 · 战斗线 `T09-FIX5` · P0-1）：全屏捕获区**不许吃掉棋盘上的那一下** ----
+                    //   判据（原版）：棋盘卡自己带 `CardCollider`（`IPointerDownHandler`/`IPointerClickHandler`，
+                    //     `CardCollider__…OnPointerClick.c` → `CardScript.OnTouchUpAsButton`），且 13/13 战场的
+                    //     相机上都挂着 `EverguildPhysics2DRaycaster`（`Physics2DRaycaster` 子类，
+                    //     `EverguildPhysics2DRaycaster.cs`；实例 = 各 arena 的 `MonoBehaviour_4133` 等）⇒
+                    //     `HideAbilityButton` 那块**远大于屏幕**的捕获区在真机上**先被棋盘卡挡住**、收不到 PointerDown。
+                    //   🔴 **是「任何一张棋盘卡」，不是「目标侧那张」**（`T09-FIX3` 的配对面在这里修）：原版点亮目标时
+                    //     只改高亮、**不关非目标卡的 collider**（`BattleManager__ShowPotentialTargets.c` /
+                    //     `__StartChoosingAbilityTargetByClick.c` 里只有 `CardHighlight__ChangeState()`）
+                    //     ⇒ 点**自己人 / 非目标**同样不会关面板（那一手合不合法由 `Resolve` 出声拒绝，
+                    //     与「关不关面板」是两件事）。判据 → `资料/普查产出_1019/W57_战斗线_T09_审查.md` §三·1。
+                    //   我们的卡仍是 3D 网格（没有 uGUI 靶）⇒ 由驱动把「这个屏幕点是不是落在棋盘卡上」登记给面板
+                    //     （`skillPanel.LeavePointerToWorld = IsScreenPointOverCommandTarget`）⇒ 这一下留给卡 / 世界侧。
+                    //   🧨 **灭自证**：把 `LeavePointerToWorld` 摘掉 / 让 handler 不看它（恢复「恒捕获」）⇒ 第 1 条红；
+                    //     把判据缩回「只认目标侧」⇒ 第 2 条（点自己人）红。
+                    Vector2 emptyScreenP0 = Vector2.zero;
+                    bool emptyPointOkP0 = false;
+                    {
+                        Check(driver.IsTargeting,
+                              "★ T09-FIX3/P0-1（前提）：面板开着时驱动处于「选目标」态（`IsTargeting`）");
+                        var preyViewP0 = driver.BoardViewAt(preySlot, false);
+                        Check(preyViewP0 != null && driver.cam != null,
+                              "★ …（前提）目标卡的世界视图 + 相机都取得到（下面几条靠它们算屏幕点）");
+                        if (driver.IsTargeting && preyViewP0 != null && driver.cam != null)
+                        {
+                            Check(sp.LeavePointerToWorldWiredForTest,
+                                  "★ …（前提）`SkillPanel.LeavePointerToWorld` **已由驱动登记**"
+                                + "（判据 = `BuildHud` 里那句 `skillPanel.LeavePointerToWorld = IsScreenPointOverCommandTarget`）");
+                            Vector2 targetScreenP0 = driver.cam.WorldToScreenPoint(preyViewP0.HitLocalToWorldForTest(0f, 0f));
+                            Check(driver.IsScreenPointOverCommandTarget(targetScreenP0),
+                                  $"★ T09-FIX3/P0-1：目标卡中心的屏幕点 ({targetScreenP0.x:F1},{targetScreenP0.y:F1})"
+                                + " 判为「棋盘上的一张卡」（`HitAnyBoardCard`，放行面 = 任何棋盘卡）");
+                            int passP0 = sp.HidePointerPassCountForTest;
+                            int closeP0 = sp.HidePointerDownCountForTest;
+                            bool closedOnTargetP0 = sp.SimulateHidePointerDownForTest(targetScreenP0);
+                            Check(!closedOnTargetP0 && sp.Visible
+                               && sp.HidePointerDownCountForTest == closeP0 + 1
+                               && sp.HidePointerPassCountForTest == passP0 + 1,
+                                  "★ T09-FIX3/P0-1（**核心**）：捕获区在**目标卡**上按下 ⇒ **不关面板 / 不发 `CloseRequested`**"
+                                + $"（`Visible`={sp.Visible} · 到达 {closeP0}→{sp.HidePointerDownCountForTest} ·"
+                                + $" 放行 {passP0}→{sp.HidePointerPassCountForTest}）"
+                                + "｜🧨 改回「恒捕获」⇒ 本条红（真机上每一次点目标都先把面板关掉、技能永远放不出来）");
+                            Check(driver.SelectedSlot == casterSlot && driver.Command == AttackKind.Ability,
+                                  "★ …而且选中槽 / 打法**都没被清**（`CloseRequested` 确实没发）");
+                            // ② **自己人**（不是本技能的目标侧）也照原版放行 —— 原版**所有**棋盘卡都带 collider。
+                            //   判据：`BattleManager__ShowPotentialTargets.c` / `__StartChoosingAbilityTargetByClick.c`
+                            //   里**只有** `CardHighlight__ChangeState()`，没有「关掉非目标卡 collider」的代码
+                            //   ⇒ 点自己人那一下同样先被那张卡吃掉、捕获区收不到 ⇒ **面板不关**。
+                            //   ⚠️ `T09-FIX3` 原来把这一条钉成了「不认它 ⇒ 关」，那是残留偏离（审查 §三·1）。
+                            var ownViewP0 = driver.BoardViewAt(casterSlot, true);
+                            Check(ownViewP0 != null, "★ …（前提）施放者自己的卡视图在（拿它当「非目标棋盘卡」那一点）");
+                            if (ownViewP0 != null)
+                            {
+                                Vector2 ownScreenP0 = driver.cam.WorldToScreenPoint(ownViewP0.HitLocalToWorldForTest(0f, 0f));
+                                Check(driver.IsScreenPointOverCommandTarget(ownScreenP0),
+                                      "★ T09-FIX5/P0-1（**配对面**）：**自己人**那张卡 ⇒ 放行口**也认**"
+                                    + "（原版棋盘卡都带 `CardCollider`、是 EventSystem 的射线靶；点亮目标不会关非目标卡的 collider）"
+                                    + "｜🧨 把判据缩回「只认目标侧」⇒ 本条红");
+                                int passOwnP0 = sp.HidePointerPassCountForTest;
+                                int closeOwnP0 = sp.HidePointerDownCountForTest;
+                                bool closedOnOwnP0 = sp.SimulateHidePointerDownForTest(ownScreenP0);
+                                Check(!closedOnOwnP0 && sp.Visible
+                                   && sp.HidePointerDownCountForTest == closeOwnP0 + 1
+                                   && sp.HidePointerPassCountForTest == passOwnP0 + 1
+                                   && driver.SelectedSlot == casterSlot && driver.Command == AttackKind.Ability,
+                                      "★ T09-FIX5/P0-1：捕获区在**自己人**卡上按下 ⇒ **同样不关面板 / 不发 `CloseRequested`**"
+                                    + $"（`Visible`={sp.Visible} · 到达 {closeOwnP0}→{sp.HidePointerDownCountForTest} ·"
+                                    + $" 放行 {passOwnP0}→{sp.HidePointerPassCountForTest}）"
+                                    + "｜🧨 「点自己人 ⇒ 关」是 `T09-FIX3` 的残留偏离（与原版证据矛盾）");
+                            }
+
+                            // ③ **空棋盘点** ⇒ 放行口不认它 ⇒ 捕获区照旧「按下即关」（下面 WIRE③ 真落一次）。
+                            //   挑一个**空的可部署格**（引擎 + 视图两侧都空，且卡心没压到任何一张卡的 collider），
+                            //   点 = 空槽卡心经板根换算到世界 —— 与生产里
+                            //   `boardRoot.TransformPoint(layout.DropTargetWorld(slot))` 同一个口径。
+                            int emptySlotP0 = -1;
+                            Vector3 emptyWorldP0 = Vector3.zero;
+                            for (int s = 0; s < BoardSpec.Size && emptySlotP0 < 0; s++)
+                            {
+                                if (!BoardSpec.IsDeployable(s)) continue;
+                                if (ctx.Players[0].Board[s] != null || ctx.Players[1].Board[s] != null) continue;
+                                if (driver.BoardViewAt(s, true) != null || driver.BoardViewAt(s, false) != null) continue;
+                                Vector3 localEmpty = driver.playerBoard.DropTargetWorld(s);
+                                Vector3 worldEmpty = driver.boardRoot != null
+                                                   ? driver.boardRoot.TransformPoint(localEmpty) : localEmpty;
+                                if (driver.HitUnitSlotForTest(0, worldEmpty) >= 0) continue;
+                                if (driver.HitUnitSlotForTest(1, worldEmpty) >= 0) continue;
+                                emptySlotP0 = s; emptyWorldP0 = worldEmpty;
+                            }
+                            Check(emptySlotP0 >= 0,
+                                  "★ …（前提）棋盘上找得到一个**空的可部署格**（两侧都没卡、点也没压到卡 collider）"
+                                + " —— 找不到时下面「空点 ⇒ 关」那条等于没验（⛔ 不静默跳过）");
+                            if (emptySlotP0 >= 0)
+                            {
+                                emptyScreenP0 = driver.cam.WorldToScreenPoint(emptyWorldP0);
+                                emptyPointOkP0 = true;
+                                Check(!driver.IsScreenPointOverCommandTarget(emptyScreenP0),
+                                      $"★ T09-FIX5/P0-1（配对）：**空棋盘格** {emptySlotP0} 的屏幕点"
+                                    + $" ({emptyScreenP0.x:F1},{emptyScreenP0.y:F1}) ⇒ 放行口**不认**它"
+                                    + "（原版这一下落到全屏捕获区 ⇒ 关面板）"
+                                    + "｜🧨 放行口写成恒真 / 把「任何棋盘卡」放大成「整块棋盘」⇒ 本条红");
+                            }
+                        }
+                    }
+
+                    // ---- 🔴 2026-10-20（W57 · 战斗线 `T09` 步骤 WIRE · 来源 A3-e3 §三·2）：技能面板 **uGUI 事件接线** ----
+                    //   ① `AbilityClicked` → `SkillPanelConfirmRelease`（原版 `ClickUp → TryUsingActiveAbility`
+                    //      的**目标型**那一支 = `ShowActingLight()`）⇒ 灯变 `Acting`；
+                    //   ② `AbilityDragged` → `SkillPanelDragToTarget`（原版 `OnTouchDrag → StartTargetedActiveAbility`
+                    //      = 重进「选目标」）⇒ **幂等**：选中槽 / 打法不变、**不结算**；
+                    //   ③ `CloseRequested` → `OnSkillPanelCloseRequested`（原版 `HideAbilityButton.PointerDown` 的
+                    //      **宿主那半**）⇒ `ClearSelection()`（面板收 + 选中槽/打法清空）。
+                    //   🔴 **灭自证**：三个 uGUI 跳板**都不结算**（敌人血量不变）；「释放」仍只发生在
+                    //      「点目标」那一下（下面第三步）⇒ 结构上不可能出现「两次释放」。
+                    //   ⚠️ 位置 = 结算**之前**（面板正开着）；③ 会把状态清干净，随后第三步的
+                    //      `SimulateUseAbility(slot, target)` 自己会重新进入并结算 —— 不靠白盒改状态。
+                    {
+                        Check(sp.AbilityTriggerForTest != null && sp.HideButtonTriggerForTest != null,
+                              "★ T09-WIRE：（前提）技能面板两颗 `EventTrigger` 都在"
+                            + "（`AbilityContainer` / `HideAbilityButton`）—— 不在 = 下面三条等于没验");
+                        if (sp.AbilityTriggerForTest != null && sp.HideButtonTriggerForTest != null)
+                        {
+                            int hpW0 = ctx.Players[1].Board[preySlot] != null
+                                     ? ctx.Players[1].Board[preySlot].Health : -1;
+                            var pedW = NewPointerEventData();
+                            // ① ClickUp = 原版 `TryUsingActiveAbility`（目标型 ⇒ ShowActingLight）
+                            int up0 = sp.SkillPointerUpCountForTest;
+                            sp.AbilityTriggerForTest.OnPointerUp(pedW);
+                            Check(sp.SkillPointerUpCountForTest == up0 + 1
+                               && sp.CurrentLight == SkillPanel.Light.Acting
+                               && driver.SelectedSlot == casterSlot && driver.Command == AttackKind.Ability,
+                                  "★ T09-WIRE①：面板 `PointerUp` ⇒ `AbilityClicked` **已订阅**——亮 acting 灯、**不结算**"
+                                + $"（灯 {sp.CurrentLight} · 槽 {driver.SelectedSlot} · 打法 {driver.Command}）"
+                                + "｜🧨 没订阅 ⇒ 灯仍是 `Available` ⇒ 本条红");
+                            // ② Drag = 原版 `OnTouchDrag → StartTargetedActiveAbility`（= 重进选目标；幂等）
+                            int drag0 = sp.SkillDragCountForTest;
+                            sp.AbilityTriggerForTest.OnDrag(pedW);
+                            Check(sp.SkillDragCountForTest == drag0 + 1
+                               && driver.SelectedSlot == casterSlot && driver.Command == AttackKind.Ability
+                               && sp.Visible,
+                                  "★ T09-WIRE②：面板 `Drag` ⇒ 重进「选目标」**幂等**（选中槽/打法不变、面板不关）"
+                                + "（⚠️ 计数由面板自己发；本条同时钉「订阅者没把它做成结算 / 取消」）");
+                            // ③ 关闭捕获区 = 原版 `StopDisplayingSkillFromManager`
+                            //   🔴 **2026-10-20（`T09-FIX5` P0-1）配对面**：这一下点在**空棋盘格**上
+                            //     （不放行 ⇒ 捕获区照旧「按下即关」）。⛔ 原来用的是**自己人**那张卡 ——
+                            //     按原版证据那是「不关」（棋盘卡自己吃射线），见上面 P0-1 ② 那条。
+                            Check(emptyPointOkP0, "★ T09-WIRE③（前提）：上面找到了一个**空棋盘格**的屏幕点");
+                            pedW.position = emptyScreenP0;
+                            Check(!driver.IsScreenPointOverCommandTarget(pedW.position),
+                                  "★ T09-WIRE③（前提）：这一点的屏幕位置**不在任何棋盘卡上** ⇒ 应当走「关面板」那一支");
+                            int close0 = sp.HidePointerDownCountForTest;
+                            int pass0W = sp.HidePointerPassCountForTest;
+                            sp.HideButtonTriggerForTest.OnPointerDown(pedW);
+                            Check(sp.HidePointerDownCountForTest == close0 + 1
+                               && sp.HidePointerPassCountForTest == pass0W
+                               && !sp.Visible
+                               && driver.SelectedSlot < 0 && driver.Command == AttackKind.None,
+                                  "★ T09-WIRE③：关闭捕获区 `PointerDown`（**空棋盘点**）⇒ 面板收 + **宿主那半也接了**（`ClearSelection`）"
+                                + "（选中槽 / 打法都清空；放行计数**不涨** —— 与 P0-1 那条配对）"
+                                + "｜🧨 没订阅 `CloseRequested` ⇒ 面板照样收（面板自己 `Hide`），"
+                                + "但 `SelectedSlot` 仍 ≥ 0 ⇒ 本条红");
+                            int hpW1 = ctx.Players[1].Board[preySlot] != null
+                                     ? ctx.Players[1].Board[preySlot].Health : -1;
+                            Check(hpW1 == hpW0,
+                                  $"★ T09-WIRE（灭自证）：这三跳**都不结算** —— 敌人血量 {hpW0} → {hpW1}（不变）"
+                                + " ⇒ 「释放」仍只发生在「点目标」那一下，结构上不可能两次");
+                        }
+                    }
+
+                    // ---- 🔴 2026-10-20（W57 · 战斗线 `T09-FIX5` · P0-2）：**回放条不可见时不许吃释放沿** ----
+                    //   现读（改前）：`HandleReplayBar()` = `_replayBar == null || !ReleasedThisFrame()` —— 而
+                    //     `_replayBar` 在**普通对局里恒非空**（`BuildHud` 里 `ReplayBar.Create(root)` + `Setup(false)`，
+                    //     `Setup` 只把 `Holder` 关掉）⇒ `Update` 里**第一个** release 分支就把每一下松手消费掉，
+                    //     排在后面的换牌 `Done` / 选牌 `Done` / 点牌堆 / 选目标 / 聊天选台词等分支在真机
+                    //     **一次都收不到沿**（自检从不调 `Update` ⇒ 全绿）。
+                    //   原版判据：那 4 颗只在回放局里存在（`objHolder.SetActive(matchType == 0xA0)`，
+                    //     见 `ReplayBar.cs` 文件头）⇒ 普通对局里 `EventSystem` 根本不会把点击派发给它们 ⇒ **不吃沿**。
+                    //   🧨 **灭自证**：把 `HandleReplayBar` 改回「先消费沿、再看可见性」⇒ 第 2 条红；
+                    //     反过来改成「可见时也不吃沿」⇒ 第 4 条（对照）红。
+                    {
+                        var rbP0 = driver.Replay;
+                        Check(rbP0 != null && !rbP0.HolderVisible,
+                              "★ T09-FIX5/P0-2（前提）：普通对局里回放条 `Holder` 关着（`Setup(false)`）");
+                        if (rbP0 != null)
+                        {
+                            bool? heldWasR = BattleDriver.PointerHeldForTest;
+                            Vector3? worldWasR = BattleDriver.PointerWorldForTest;
+                            try
+                            {
+                                BattleDriver.PointerWorldForTest = Vector3.zero;
+                                // 先把「按住」这一路落定，清掉可能残留的沿
+                                BattleDriver.PointerHeldForTest = false;
+                                driver.PollInputEdgesForTest();
+                                driver.ReleasedThisFrameForTest();
+
+                                BattleDriver.PointerHeldForTest = true;
+                                driver.PollInputEdgesForTest();                    // 第 1 帧：按下
+                                BattleDriver.PointerHeldForTest = false;
+                                driver.PollInputEdgesForTest();                    // 第 2 帧：松手 ⇒ 有释放沿
+                                Check(!driver.TickReplayBarForTest(),
+                                      "★ T09-FIX5/P0-2：回放条**不可见** ⇒ `HandleReplayBar` 返回 false");
+                                Check(driver.ReleasedThisFrameForTest(),
+                                      "★ T09-FIX5/P0-2（**核心**）：…而且**没吃掉释放沿** —— "
+                                    + "换牌 Done / 选牌 Done / 点牌堆 / 选目标 / 聊天选台词那些 release 分支还收得到"
+                                    + "｜🧨 改回「先消费沿、再看 `HolderVisible`」⇒ 本条红（真机上那些分支全是死的）");
+
+                                // 对照：**可见时行为逐位不变** —— 沿照样被它吃掉（即使没点在钮上）。
+                                Check(rbP0.Hit(Vector3.zero) == ReplayBar.Btn.None,
+                                      "★ …（前提）下面喂的世界点**不在回放条任何一颗钮上**（`Hit` = `Btn.None`）");
+                                rbP0.Setup(true);
+                                Check(rbP0.HolderVisible, "★ …（夹具）回放条切到可见");
+                                BattleDriver.PointerHeldForTest = true;
+                                driver.PollInputEdgesForTest();
+                                BattleDriver.PointerHeldForTest = false;
+                                driver.PollInputEdgesForTest();
+                                Check(!driver.TickReplayBarForTest(),
+                                      "★ …（对照）可见但没点在钮上 ⇒ `HandleReplayBar` 返回 false");
+                                Check(!driver.ReleasedThisFrameForTest(),
+                                      "★ T09-FIX5/P0-2（对照·灭自证）：回放条**可见**时沿**照旧被吃掉**"
+                                    + "（可见时的行为逐位不变）｜🧨 写成「可见也不吃」⇒ 本条红");
+                            }
+                            finally
+                            {
+                                rbP0.Setup(false);                                  // 还原成普通对局
+                                BattleDriver.PointerHeldForTest = heldWasR;
+                                BattleDriver.PointerWorldForTest = worldWasR;
+                            }
+                        }
+                    }
+
                     // ================================================================
                     // 🔴 2026-10-16（收口 · 台账 **`W11` + `W58`**）：技能面板迁 uGUI 之后的
                     //   **子画布结构断言（`W11`）** + **面板锚点补正断言（`W58`）**。
@@ -9175,18 +9503,80 @@ public static class BattleScene
                         Step(0.3f);
                         Check(driver.HandleDisplayWindowClick(cdw.SlotView(0).transform.position),
                               "★ 点**前台那张**也被吃掉（原版闸②：什么都不做，但**不能落给遮罩**）");
-                        // 🆕 2026-09-29：**点遮罩空白 = 关窗**（原版 `BackgroundCloseButton.OnPointerClick`
-                        //   → `OnBackgroundClick` → `Close`；这一格原来记的是「我们没接」）。
-                        //   ⚠️ 两条「同帧」守卫（刚开窗那一帧不判遮罩 / 同帧不再开）在**批处理里恒不生效**
-                        //   —— `BattleDriver.SameFrame` 里排除了 `Application.isBatchMode`（`Time.frameCount`
-                        //   在自检里不推进，不排除的话那两条路永远走不到）。
-                        Check(driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)),
-                              "★ 点遮罩空白 ⇒ **被窗吃掉并关窗**（原版 `BackgroundCloseButton`）");
-                        Check(!cdw.Visible, "…窗真的关了（原来这里是「不拦截」）");
+                        // 🆕 2026-09-29 / 🔴 **2026-10-20（W57 · `T09` WIRE · A3-e4 D 收口）**：
+                        //   遮罩空白那一支**已交给 uGUI** —— 全屏透明件 `cdw_background_close` 上的
+                        //   `BattleHudButton` → `Hide()`（原版 `BackgroundCloseButton` 的 `IPointerClickHandler`）。
+                        //   ⇒ 驱动 `HandleDisplayWindowClick` 现在**只做卡格 + 吞掉松手沿**，不再关窗。
+                        Check(driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)) && cdw.Visible,
+                              "★ D 收口：遮罩空白那一支**不在驱动里**了（驱动吃掉这一下、但**不关窗**）"
+                            + "｜🧨 把 `_cardDisplay.Hide()` 加回 `HandleDisplayWindowClick` ⇒ 本条红");
+                        Check(cdw.BackgroundCloseButtonForTest != null && cdw.BackgroundCloseRaycastTargetForTest,
+                              "★ …而它在 uGUI 上：全屏透明件 `cdw_background_close` + `BattleHudButton`"
+                            + "（原版 `BackgroundCloseButton` 的 Image `m_RaycastTarget = 1`）");
+                        // 🔴 **2026-10-20（W57 · `T09-FIX3` · P1-3）：uGUI 关窗**只记「待关」、同一帧 `LateUpdate` 落账**
+                        //   —— ⛔ 不当场 `Hide()`（否则 `EventSystem.Update` 先跑时，驱动那一帧看到「窗已关」，
+                        //   同一次松手继续落到 `DrivePlayerTurn` ⇒ 点空白会顺带点掉底下的目标 / 牌堆）。
+                        //   🧨 **灭自证**：把 `Attach(..., RequestCloseByUgui)` 改回 `Attach(..., Hide)` ⇒ 第一条红。
+                        int cdwClick0 = cdw.UguiCloseClickCountForTest;
+                        int cdwApplied0 = cdw.UguiCloseAppliedCountForTest;
+                        cdw.BackgroundCloseButtonForTest?.ClickForTest();
+                        Check(cdw.Visible && cdw.ClosePendingForTest && cdw.UguiCloseClickCountForTest == cdwClick0 + 1,
+                              "★ T09-FIX3/P1-3：uGUI 点背景 ⇒ **只记「待关」**（`Visible` 仍真、不当场 `Hide`）"
+                            + "｜🧨 回调直接挂 `Hide` ⇒ `Visible=false` ⇒ 本条红");
+                        Check(cdw.ApplyPendingCloseForTest() && !cdw.Visible
+                           && cdw.UguiCloseAppliedCountForTest == cdwApplied0 + 1,
+                              "★ …落账（= 同帧 `LateUpdate`）⇒ 窗真的关了（原版 `BackgroundCloseButton.OnPointerClick` → `Close`）");
+                        Check(!cdw.ApplyPendingCloseForTest(),
+                              "★ …幂等：没有挂起项时再落一次**什么都不做**（驱动可能同一帧已经关过）");
                         Tap();                          // 后面几条还要用窗 ⇒ 再点开
                         Check(cdw.Visible, "（重开）再轻点同一张手牌 → 窗又开了");
 
                         // 🆕 2026-09-29：**指针移开就关**（原版 `CardCollider.OnPointerExit` → `CardScript.OnTouchExit`）
+                        // 🔴 **2026-10-20（`W57` · 战斗线 `T09` 步骤 B2b）：源卡判定已从手算 `Contains` 换成真 collider**
+                        //   （`BattleDriver.TickCardWinPointerExit` → `CardView.HitByCollider`，与 `HitSlot` / 手牌同口径）。
+                        //   下面先断「源卡 = 刚点那张」+ 两判据逐点同判 + **灭自证**，再跑原来那组「移开才关」。
+                        Check(driver.CardWinSourceForTest == view,
+                              "★ B2b④（前提）：展示窗现在盯着的**源卡** = 刚才轻点的那张手牌"
+                            + "（原版 `CardCollider.OnTouchExit` 的守卫对象；`null` = 下面几条全在空跑）");
+                        {
+                            var srcU = driver.CardWinSourceForTest;
+                            Check(srcU != null && srcU.ColliderForTest != null,
+                                  "★ B2b④（前提）：源卡上有一颗真 `BoxCollider2D`（没建 ⇒ 一致/灭自证都退化成手算）");
+                            if (srcU != null && srcU.ColliderForTest != null)
+                            {
+                                // ① 逐点同判（in-hand 档，判据网格 = B1 §3·1 的 0.96 内 / 1.00 外）
+                                var pInS  = srcU.HitLocalToWorldForTest(0.96f, -0.0151f);
+                                var pOutS = srcU.HitLocalToWorldForTest(1.00f, -0.0151f);
+                                bool inOk  = srcU.HitByCollider(pInS)  && srcU.Contains(pInS);
+                                bool outOk = !srcU.HitByCollider(pOutS) && !srcU.Contains(pOutS);
+                                Check(inOk && outOk,
+                                      "★ B2b④：源卡上 `HitByCollider` 与改前那版 `Contains` 在 in-hand 档**逐点同判**"
+                                    + "（(0.96, −0.0151) 都内 · (1.00, −0.0151) 都外）"
+                                    + "｜🧨 两判据任何一方口径漂了 ⇒ 红");
+
+                                // ② 灭自证（真 collider）：放大 1.2× ⇒「正常在外、放大后在内」那点必须算**在源卡上**
+                                //    ⇒ 窗**不关**；复原 ⇒ 同一点**关窗**。
+                                //    🧨 若实现还走 `Contains`（不跟 collider），放大那一步会判「移开源卡」⇒ 关窗 ⇒ 红。
+                                var colS  = srcU.ColliderForTest;
+                                Vector2 size0S = colS.size;
+                                var pEdgeS = srcU.HitLocalToWorldForTest(0f, -1.62f);   // in-hand 下沿 −1.5402 ⇒ 正常在外；1.2× 后 −1.8452 ⇒ 在内
+                                bool outS0 = !srcU.Contains(pEdgeS) && !srcU.HitByCollider(pEdgeS);
+                                colS.size = size0S * 1.2f;
+                                Physics2D.SyncTransforms();                        // 尺寸改了也让查询看到（幂等）
+                                bool inSEnlarged = srcU.HitByCollider(pEdgeS);
+                                bool stayOpenS   = !driver.TickCardWinPointerExit(pEdgeS);
+                                colS.size = size0S;                                // ⛔ 必须复原（同一张卡后面还要用）
+                                Physics2D.SyncTransforms();
+                                bool closesS = driver.TickCardWinPointerExit(pEdgeS);
+                                Check(outS0 && inSEnlarged && stayOpenS && closesS,
+                                      "★ B2b④（**灭自证**）：collider 放大 1.2× 时「正常在外」的那点算**在源卡上** ⇒ 窗不关；"
+                                    + "复原后同一点 ⇒ 窗关"
+                                    + "（量的是真 `BoxCollider2D`，⛔ 不是复制的常量/矩形）"
+                                    + "｜🧨 源卡判定写回 `Contains`、或删掉 collider 的 size 同步 ⇒ 红");
+                                Tap();   // 灭自证把窗关掉了 ⇒ 重开（下面那组「移开才关」要在开着的前提下跑）
+                                Check(cdw.Visible, "（重开）灭自证之后展示窗又开着");
+                            }
+                        }
                         Check(!driver.TickCardWinPointerExit(view.transform.position),
                               "指针**还压在**那张牌上 ⇒ 不关（原版唯一守卫 `displayingCardFlag` 就是它）");
                         Check(!driver.TickCardWinPointerExit(cdw.SlotView(0).transform.position),
@@ -9198,9 +9588,14 @@ public static class BattleScene
                     }
                     else
                     {
-                        Check(driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)),
-                              "★ 只有 1 格时点遮罩空白 ⇒ 同样关窗（这条路和格数无关）");
-                        Check(!cdw.Visible, "…窗关了");
+                        // 同 9244 那一格（D 收口：驱动不关窗，uGUI 的 backdrop 才是关窗那一跳）
+                        Check(driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)) && cdw.Visible,
+                              "★ 只有 1 格时：驱动同样**不关窗**（D 收口与格数无关）");
+                        Check(cdw.BackgroundCloseButtonForTest != null,
+                              "★ …而 uGUI 那颗全屏关闭件在");
+                        cdw.BackgroundCloseButtonForTest?.ClickForTest();
+                        cdw.ApplyPendingCloseForTest();   // 🔴 P1-3：uGUI 关闭挂起到 `LateUpdate`（批处理手动落账）
+                        Check(!cdw.Visible, "…uGUI 点一次 ⇒ 关窗（这条路和格数无关）");
                         Tap();
                     }
                 }
@@ -9248,10 +9643,13 @@ public static class BattleScene
                         var w1 = EndPanel.Pos(660f, 487f, 0f);   // 槽 1 露出前卡之外的那一条
                         Check(cdw.HitSlot(w1) == 1, "★ 点在「槽 1 露出前卡之外」的那一条 ⇒ 判给**槽 1**");
                         Check(cdw.HitSlot(s1.transform.position) == 0, "…点在**重叠区** ⇒ 判给**前台那张**");
-                        // 🆕 2026-09-29：点遮罩空白 = 关窗（同上面那条；同帧守卫在批处理里恒不生效，见 `SameFrame`）
-                        Check(driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)),
-                              "★ 点遮罩空白 ⇒ 关窗");
-                        Check(!cdw.Visible, "…窗关了");
+                        // 🆕 2026-09-29 / 🔴 2026-10-20（W57 · `T09` WIRE · A3-e4 D 收口）：
+                        //   遮罩空白那一支已交给 uGUI（同上面那条）—— 驱动不关窗，uGUI 那颗全屏件才关。
+                        Check(driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)) && cdw.Visible,
+                              "★ 驱动**不关窗**（D 收口：遮罩那一支已迁 uGUI）");
+                        cdw.BackgroundCloseButtonForTest?.ClickForTest();
+                        cdw.ApplyPendingCloseForTest();   // 🔴 P1-3：同上（挂起到 `LateUpdate`）
+                        Check(!cdw.Visible, "…uGUI 点一次 ⇒ 窗关了");
                         // ⚠️ `Show` 会**重建**卡格 ⇒ 上面抓的 `s1` 变成**已销毁对象**
                         //    （实测：这里踩过一次 `MissingReferenceException`）⇒ 重开后**必须重新取一次**。
                         cdw.Show(BattleDriver.ToCardData(moa, moa.Faction), moa);
@@ -9412,6 +9810,77 @@ public static class BattleScene
                     if (keepDef != null) cdw.Show(BattleDriver.ToCardData(keepDef, keepDef.Faction), keepDef);
                 }
 
+                // ══ 🆕 **2026-10-19（`W57` · `T04` #1）：主卡的「正面 ↔ 卡背」** ══
+                //  判据：`Card2DController.CardVisibility { Front = 0, Back = 1 }`（签名桩）+
+                //  `Card2DController__SetCardVisibility.c` 两条分支 ⇒ 0 = `cardFront`(+0x28) 亮 /
+                //  1 = `cardBackContainer`(+0x30) 亮，**瞬时切换、无补间**（原版就是两次 `SetActive`）。
+                //  ⚠️ 原版那扇放大窗**自己从不切**（`CardDisplayWindow__InitializeCardForDisplay.c` 零命中）——
+                //    本组验的是**能力**（战斗中央展示 `DisplayEnemyCardInCenter` 要用它），不是「窗会自己翻」。
+                {
+                    Check(cdw.Visible, "（前提）展示窗开着");
+                    Check(cdw.FrontVisible && cdw.Card != null && !cdw.Card.BackVisible,
+                          "★ 开窗默认露**正面**（原版放大窗从不切卡背）");
+                    cdw.SetFrontVisible(false);
+                    Check(!cdw.FrontVisible && cdw.Card != null && cdw.Card.BackVisible,
+                          "★ `SetFrontVisible(false)` ⇒ 主卡卡背亮（= 原版 `SetCardVisibility(1)` → `cardBackContainer`）");
+                    Check(cdw.Card != null && cdw.Card.BackQueue >= 0,
+                          $"★ 卡背层**真的建出来了**（渲染队列 {(cdw.Card == null ? -1 : cdw.Card.BackQueue)}"
+                        + " —— ⛔ 不许靠一个永远 null 的层空转）");
+                    if (cdw.SlotCount >= 2)
+                        Check(cdw.SlotView(1) == null || !cdw.SlotView(1).BackVisible,
+                              "★ 只翻**主卡**（相关卡的可见性原版由各自的 `BasicCardUI` 管，本窗不动）");
+                    cdw.SetFrontVisible(true);
+                    Check(cdw.FrontVisible && cdw.Card != null && !cdw.Card.BackVisible,
+                          "★ `SetFrontVisible(true)` ⇒ 卡背灭、正面回来（两态**真的翻得动**）");
+
+                    // `Show(..., faceDown: true)`：开窗即卡背（「窗里显示一张不该露的卡」的口子）
+                    cdw.Show(BattleDriver.ToCardData(h0, h0.Faction), h0, null, true);
+                    CardTween.Advance(CardFan.OpenTime + 0.05f);
+                    Check(cdw.Visible && !cdw.FrontVisible && cdw.Card != null && cdw.Card.BackVisible,
+                          "★ `Show(..., faceDown: true)` ⇒ 开窗时主卡是**卡背**（给中央展示用的口子）");
+                    cdw.Hide();
+                    Check(cdw.FrontVisible, "★ 关窗后 `FrontVisible` 复位（下一次 `Show` 由 `faceDown` 重新决定）");
+                }
+
+                // ══ 🆕 **2026-10-19（`W57` · `T04` #1）：中央展示的「卡背 → 正面」时序** ══
+                //  判据（`CardScript._DisplayEnemyCardInCenter_d__263__MoveNext.c` + `CardScript__FinishCardDrawRotation.c`）：
+                //  **第一段 90° 的 OnComplete** 才 `SetObjectVisibility(cardState = 10)` → `SetCardVisibility(Front)`。
+                //  ⇒ 这两条 **就是灭自证**：把换面挪到开场 ⇒ 第一条红；挪到收尾 ⇒ 第二条红。
+                {
+                    CardDef spell = null;
+                    if (driver.Ctx != null && driver.Ctx.CardPool != null)
+                        foreach (var c in driver.Ctx.CardPool) if (c != null && !c.IsUnit) { spell = c; break; }
+                    Check(spell != null, "（前提）卡池里找得到一张**非单位卡**（原版 `cardType != 0` 才走中央展示）");
+                    if (spell != null)
+                    {
+                        var spData = BattleDriver.ToCardData(spell, spell.Faction);
+                        // 敌方那一档（原版：敌方手牌是**卡背** ⇒ 只有这一档看得到「翻面」）
+                        var carrier = driver.DisplayEnemyCardInCenter(spData, spell, 1 - driver.MyIndex,
+                                                                      false, 0.12f * 0.6f, 0.12f);
+                        Check(carrier != null, "★ 中央展示的载体建出来了（临时 `CardView`）");
+                        if (carrier != null)
+                        {
+                            Check(carrier.BackVisible,
+                                  "★ 0 s：载体是**卡背**（原版 state 0 **不动**可见性 —— 敌方手里那张本来就是背）");
+                            CardTween.Advance(0.09f);
+                            Check(carrier != null && carrier.BackVisible,
+                                  "★ 0.09 s（DOMove/摆正/等 0.1 还没走完）：**仍然是卡背**"
+                                + " —— 原版这一段不换面（🧨 开场就写正面 ⇒ 这条红）");
+                            // 第一段 90° = 0.25 × 0.072 = 0.018 s ⇒ 0.1 + 0.018 = 0.118 s 处换面
+                            CardTween.Advance(0.05f);   // 累计 0.14 s > 0.118 s
+                            Check(carrier != null && !carrier.BackVisible,
+                                  "★ 0.14 s（第一段 90° 之后）：**已翻到正面**（原版 `FinishCardDrawRotation` → "
+                                + "`SetObjectVisibility(10)` → `SetCardVisibility(Front)`；🧨 换面挪到收尾 ⇒ 这条红）");
+                            CardTween.Advance(1.5f);    // 走完整条（≈0.49 s）+ 收摊
+                            Check(carrier == null, "★ 演出收尾后载体**已销毁**（不留孤儿卡）");
+                        }
+                    }
+                }
+
+                // 把窗恢复成「开着」—— 下面那一下 `Tap()` 要靠它验「再轻点一次 → 关掉」
+                cdw.Show(BattleDriver.ToCardData(h0, h0.Faction), h0);
+                CardTween.Advance(CardFan.OpenTime + 0.05f);
+
                 Tap();
                 Check(!cdw.Visible, "再轻点一次 → 关掉");
             }
@@ -9462,6 +9931,25 @@ public static class BattleScene
                     Check(mcd.CardCypx > MultiCardDisplay.BandTopPx + 63f && mcd.CardCypx < MultiCardDisplay.BandBottomPx,
                           $"卡中心 y = {mcd.CardCypx:F0} px（窗口带 [{MultiCardDisplay.BandTopPx:F0},{MultiCardDisplay.BandBottomPx:F0}] 之内）");
                     Shot(cam, "11b_多张展示窗");
+                    // 🔴 **2026-10-20（W57 · `T09-FIX3` · P1-3）：uGUI 关窗只记「待关」、同一帧 `LateUpdate` 落账**
+                    //   —— Continue 条 x[1322.7,1900.2] y[937.3,1016.9] 与牌堆命中区 x[1615,1845] y[850,1080]
+                    //   **大面积重叠**：当场 `Hide()` 会让同一次松手继续落到 `DrivePlayerTurn` ⇒ 点「继续」反而开回牌库窗。
+                    //   🧨 **灭自证**：把 `Attach(..., RequestCloseByUgui)` 改回 `Attach(..., Hide)` ⇒ 第一条红。
+                    {
+                        Check(mcd.ContinueButtonForTest != null && mcd.BackgroundCloseButtonForTest != null,
+                              "★ …（前提）「继续」条与背景关闭件的 uGUI 点击器都在");
+                        int mcdClick0 = mcd.UguiCloseClickCountForTest;
+                        int mcdApplied0 = mcd.UguiCloseAppliedCountForTest;
+                        mcd.ContinueButtonForTest?.ClickForTest();
+                        Check(mcd.Visible && mcd.ClosePendingForTest && mcd.UguiCloseClickCountForTest == mcdClick0 + 1,
+                              "★ T09-FIX3/P1-3：uGUI 点「继续」⇒ **只记「待关」**（窗还开着、不当场 `Hide`）"
+                            + "｜🧨 回调直接挂 `Hide` ⇒ `Visible=false` ⇒ 本条红（同一次松手会落到牌堆上）");
+                        Check(mcd.ApplyPendingCloseForTest() && !mcd.Visible
+                           && mcd.UguiCloseAppliedCountForTest == mcdApplied0 + 1,
+                              "★ …落账（= 同帧 `LateUpdate`）⇒ 窗关掉一次");
+                        Check(!mcd.ApplyPendingCloseForTest(),
+                              "★ …幂等：没有挂起项时再落一次**什么都不做**（驱动可能同一帧已经关过）");
+                    }
                     driver.ShowMyDeck(false);
                     Check(!mcd.Visible, "关掉");
                 }
@@ -11890,6 +12378,50 @@ public static class BattleScene
 
                 Check(drv.SettingsBtnReady, "右上角设置按钮：贴图是 `UI_Settings_Icon`、命中矩形认自己");
                 Check(drv.SimulateOpenSettings() && sp.Visible, "点设置按钮 → 面板打开");
+                // 🔴 **2026-10-20（W57 · 战斗线 `T09` WIRE）**：把「世界点」喂进 **uGUI 事件链**
+                //   （只走 `ExecuteEvents`，**不经过** `EventSystem` 的射线 / click 派发）。
+                //   屏幕点用 `RectTransformUtility.WorldToScreenPoint` 现算；`pressEventCamera` **是只读属性**
+                //   （uGUI 从 `pointerPressRaycast.module.eventCamera` 现算）⇒ 把那条射线记录填成根画布的
+                //   `GraphicRaycaster`（`eventCamera == HudCanvas.WorldCamera`，与算屏幕点同一台）
+                //   ⇒ `ScreenPointToLocalPointInRectangle` 是它的精确逆（`WfSlider.ApplyUguiPointer` 就吃这两个字段）。
+                //   ⛔ 它不是「第二条点击判据」：只把事件送进**生产组件**（`BattleHudButton` / `WfSlider` 的
+                //   `EventTrigger`），动作仍由那些组件自己派发。
+                void UguiFeed(Transform node, Vector3 world, EventTriggerType type)
+                {
+                    if (node == null) return;
+                    var esU = EventSystem.current != null ? EventSystem.current : BattleEventSystem.Instance;
+                    var camU = HudCanvas.WorldCamera;
+                    var goU = node.gameObject;
+                    // ⚠️ `PointerEventData.pressEventCamera` **是只读属性**（uGUI 从
+                    //    `pointerPressRaycast.module.eventCamera` 现算）⇒ 只能把那条**射线记录**填上。
+                    //    用根画布那颗 `GraphicRaycaster`（`ScreenSpaceCamera` + `worldCamera` 已设
+                    //    ⇒ `eventCamera == HudCanvas.WorldCamera`，与下面算屏幕点用的是同一台）。
+                    var rayU = HudCanvas.Root != null ? HudCanvas.Root.GetComponent<GraphicRaycaster>() : null;
+                    var pedU = new PointerEventData(esU)
+                    {
+                        position = RectTransformUtility.WorldToScreenPoint(camU, world),
+                        button = PointerEventData.InputButton.Left,
+                        pointerPressRaycast = new RaycastResult { gameObject = goU, module = rayU },
+                    };
+                    switch (type)
+                    {
+                        case EventTriggerType.PointerDown:
+                            ExecuteEvents.Execute<IPointerDownHandler>(goU, pedU, ExecuteEvents.pointerDownHandler); break;
+                        case EventTriggerType.PointerUp:
+                            ExecuteEvents.Execute<IPointerUpHandler>(goU, pedU, ExecuteEvents.pointerUpHandler); break;
+                        case EventTriggerType.Drag:
+                            ExecuteEvents.Execute<IDragHandler>(goU, pedU, ExecuteEvents.dragHandler); break;
+                        default:
+                            Debug.LogWarning($"[BT] `UguiFeed` 没实现的档：{type}"); break;
+                    }
+                }
+                // 🔴 **2026-10-20（W57 · `T09` WIRE）**：跳过教程那颗钮的回调**必须接上**（A3-b2 的 D 半）。
+                //   没接线时 `SettingsPanel.OnSkipTutorialClicked` 只 `LogWarning` ⇒ 玩家点那颗钮**没有任何效果**。
+                //   ⛔ 别在这里真点它（那会走 `SkipTutorialFromSettings` ⇒ 教程局判负 / 非教程局只出声）——
+                //   断的是「接线」这一件（`null` = 没接）。
+                Check(sp.OnSkipTutorial != null,
+                      "★ `T09` A3-b2：`SkipTutorial Button` 的 `OnSkipTutorial` 回调**已接线**"
+                    + "（`BattleDriver.BuildHud` 建完面板那一句；⛔ 没接时点了只 `LogWarning` = 静默无效果）");
                 // 🆕 **2026-10-17（`A1212` 块 9）**：三颗音量滑条标签对原版四格 `10 / 42 / 36 / 1`
                 //   （判据 = 原版 `… ▸ Sliders ▸ {Music,Sound Effects,Voice-overs}`，三颗逐值相同）。
                 CheckA1212Label(sp.SliderLabelForTest(0), "`Music`", "…/Sliders/Music", 10f, 42f, 36f, 1);
@@ -11975,13 +12507,15 @@ public static class BattleScene
                 //   `_5032`（I2 `mTerm = "Settings/Graphics/AutoZoom"`）。
                 //   **期望值全是原版字面量**（面板内 px，见 `Battle/SettingsPanel.cs` 那组 `Az*` 常量），⛔ 不读被测实现。
                 // 🧨 改坏法：① 勾选框中心少乘/多乘一个偏移 ⇒ 第 2 条红；② 命中区写成「整行」⇒ 第 4 条的**缝**那条红；
-                //   ③ **`SettingsClickAt` 里不接这一行 ⇒ 第 6 条红（翻不动）**
-                //      —— 🔴 **2026-10-12（A460）改过这里**：原来写的是「`PointerFrame` 里不接这一行」，
-                //      而 A445 之后那一行**根本不走 `PointerFrame`**（它的指针入口在 `BattleDriver.SettingsClickAt`，
-                //      与 Resign/Difficulty/Close 同一条）⇒ 照旧文改坏，第 6 条**不会红**（那正是 A460 修的假断言）；
+                //   ③ **那颗 `BattleHudButton` 没挂上 / 动作接错 ⇒ 第 6 条红（翻不动、uGUI 计数不动）**
+                //      —— 🔴 **2026-10-20（W57 · `T09` A3-b2 收口）就地订正（铁律 5）**：本行原来写
+                //      「`SettingsClickAt` 里不接这一行 ⇒ 第 6 条红」；A3-b2 之后 `SettingsClickAt` 那条**手搓链
+                //      在产线上不可达**（按下被 `PointerFrame` 的模态接管吃掉）⇒ 断言已改走 uGUI 的
+                //      `sp.ClickForTest("Auto Zoom Toggle")`（= `IPointerClickHandler` 那一跳）；
                 //   ④ 那一行不走 `ForceRefresh()`（只写值、不重算）⇒ 第 7 条红（= A424 的**命门**：
                 //      原版战斗内这一颗是「点了立刻重算」那条路的家）；
-                //   ⑤ 把那一行搬回 `SettingsPanel.PointerFrame` ⇒ 第 5 条（A445 形状那条负向断言）红。
+                //   ⑤ 把那一颗的动作接回 `SettingsPanel.PointerFrame` ⇒ 第 5 条（A445 形状那条负向断言）红
+                //      （现在那条断的是「喂 `PointerFrame` 按下+松开 ⇒ 不翻值、uGUI 计数也不动」）。
                 {
                     var azComp = drv.AutoZoom;
                     bool azWasOn424 = AutoZoom.Enabled, azWasChosen424 = AutoZoom.ChosenManually;
@@ -12037,26 +12571,44 @@ public static class BattleScene
                         + " —— 把命中区写成「整行」就会红");
 
                     // ⑤ 点一下 ⇒ 翻值 + 勾跟着亮/灭 + **当场重算**（= A424 的命门）。
-                    //    🔴 **2026-10-12（A445/A460）**：那一行的指针入口已挪到**抬起**那条链
-                    //    （`BattleDriver.SettingsClickAt`，与 Resign / Difficulty / Close 同一条；
-                    //      原版那颗 `Auto Zoom Toggle` 是 `EverguildToggle`（继承 `Toggle`/`Selectable`）
-                    //      ⇒ 走 `IPointerClickHandler`，**抬起**那一帧才触发）
-                    //    ⇒ 这三条改走 `drv.SettingsClickAt(...)`（**真路**，与真鼠标同一条判定）。
-                    //    ⚠️ **原来这里用 `sp.PointerFrame(…, true)` 点它 —— A445 之后那条路不再认这一行
-                    //    ⇒ `capA/capB` 恒 `false` ⇒ 这条当场红**（这正是 A460 修的那条）。
+                    //    🔴 **2026-10-12（A445/A460）**：那一行的指针入口在**抬起**那条链
+                    //    （原版那颗 `Auto Zoom Toggle` 是 `EverguildToggle`（继承 `Toggle`/`Selectable`）
+                    //      ⇒ 走 `IPointerClickHandler`，**抬起**那一帧才触发）。
+                    //    🔴 **2026-10-20（W57 · `T09` A3-b2 收口）就地订正（铁律 5）**：本段原来写
+                    //    「这三条改走 `drv.SettingsClickAt(...)`（**真路**，与真鼠标同一条判定）」——
+                    //    那**已经不成立**：A3-b2 之后 `SettingsClickAt` 是**手搓几何链**、产线上不可达
+                    //    （按下被 `PointerFrame` 的模态接管吃掉 ⇒ 松手沿恒不成立）。
+                    //    ⇒ 改成走 **`sp.ClickForTest("Auto Zoom Toggle")`**（= `BattleHudButton` 的
+                    //    `IPointerClickHandler`，与 `EventSystem` 派发的是同一跳），并用 `ClickCountForTest`
+                    //    灭自证（点一次 = 1）。
                     AutoZoom.RestoreForTest(false, false);          // 开关关（内存态，⛔ 不落盘）
                     sp.Hide(); sp.Show();                           // 让勾那一层按新状态重算一次
                     Check(!sp.AutoZoomCheckShown, "（前提）开关关着 ⇒ 勾那一层不画（= 原版 `Toggle.graphic` 的显隐）");
                     int applyBefore424 = azComp != null ? azComp.FramingApplyCount : -1;
-                    // ⚠️ **A445 的「形状」负向断言**：那一行**已经不归** `PointerFrame`（滑块那条）管。
-                    //    把那一行搬回 `PointerFrame` ⇒ 这一条红。
-                    Check(!sp.PointerFrame(sp.AutoZoomBoxWorldPos, true),
+                    // ⚠️ **A445 的「形状」负向断言**：那一行的指针入口**不在** `PointerFrame`（滑块那条）管。
+                    //    🔴 **2026-10-20（W57 · 战斗线 `T09` A3-b2 收口）就地换判据（铁律 5）**：
+                    //    `PointerFrame` 自 A3-b2 起只剩「**模态接管**」（面板开着时**任何**按下都返回 true）
+                    //    ⇒ 旧写法 `!sp.PointerFrame(…, true)` **必红**、而且再也分不出「那一行归不归它管」。
+                    //    改成**行为判别式**：喂它按下 + 松开 ⇒ **不翻值**、uGUI 计数也不动
+                    //    （那一行的动作只由 `BattleHudButton` 的 `IPointerClickHandler` 派发）。
+                    sp.ResetClickCountForTest("Auto Zoom Toggle");
+                    int azClicks0 = sp.ClickCountForTest("Auto Zoom Toggle");
+                    sp.PointerFrame(sp.AutoZoomBoxWorldPos, true);
+                    sp.PointerFrame(sp.AutoZoomBoxWorldPos, false);
+                    Check(!AutoZoom.Enabled && azClicks0 == 0
+                       && sp.ClickCountForTest("Auto Zoom Toggle") == 0,
                           "★ A445：`Auto Zoom` 那一行的指针入口**不在** `SettingsPanel.PointerFrame` 里"
-                        + "（它走抬起的 `BattleDriver.SettingsClickAt`，与 Resign/Difficulty/Close 同一条）"
-                        + " —— 搬回 `PointerFrame` 就红");
-                    bool hitA = drv.SettingsClickAt(sp.AutoZoomBoxWorldPos);   // ← 抬起那一下（一次点击 = 一次调用）
-                    Check(hitA && AutoZoom.Enabled,
-                          $"★ A424：点那一行 ⇒ 开关翻成**开**（指针被接住 {hitA}；实得 {AutoZoom.Enabled}）");
+                        + "（喂它按下 + 松开 ⇒ **不翻值**、uGUI 计数仍 0；`PointerFrame` 自 `T09` A3-b2 起只做模态接管）"
+                        + " —— 把那颗钮的动作搬回 `PointerFrame` 就红");
+                    // ⑤-b **产线唯一入口**：`BattleHudButton` 的点击动作（= `Button.onClick` / `IPointerClickHandler`）。
+                    //    🔴 **2026-10-20（`T09` A3-b2）**：旧写法是 `drv.SettingsClickAt(...)` —— 那是**手搓几何链**，
+                    //    自 A3-b2 起在产线上**不可达**（按下被 `PointerFrame` 的模态接管吃掉 ⇒ 松手沿恒不成立）。
+                    //    自检改走 uGUI 那一跳，与真鼠标同一条链。
+                    sp.ClickForTest("Auto Zoom Toggle");
+                    int azClicks1 = sp.ClickCountForTest("Auto Zoom Toggle");
+                    Check(azClicks1 == azClicks0 + 1 && AutoZoom.Enabled,
+                          $"★ A424：uGUI **点一次** ⇒ 开关翻成**开**（uGUI 计数 {azClicks0} → {azClicks1}；实得 {AutoZoom.Enabled}）"
+                        + "｜🧨 `Build` 里那颗钮没挂 `BattleHudButton`（或动作接错）⇒ 计数不动 + 不翻 ⇒ 红");
                     Check(sp.AutoZoomCheckShown, "★ A424：……勾跟着亮起来");
                     Check(azComp != null && azComp.FramingApplyCount > applyBefore424,
                           "★ A424：……**并且当场重算了一次**（`FindFirstObjectByType<CombatAutoZoom>().ForceRefresh()`，"
@@ -12064,9 +12616,11 @@ public static class BattleScene
                         + $"{(azComp == null ? "无组件" : azComp.FramingApplyCount.ToString())}）"
                         + " —— 只写值不重算 ⇒ 这条红");
                     // 点第二下 ⇒ 翻回去（两态真的翻得动）
-                    drv.SettingsClickAt(sp.AutoZoomBoxWorldPos);
-                    Check(!AutoZoom.Enabled && !sp.AutoZoomCheckShown,
-                          "★ A424：再点一下 ⇒ 翻回**关**、勾跟着灭（两态真的翻得动）");
+                    sp.ClickForTest("Auto Zoom Toggle");
+                    Check(sp.ClickCountForTest("Auto Zoom Toggle") == azClicks0 + 2
+                       && !AutoZoom.Enabled && !sp.AutoZoomCheckShown,
+                          "★ A424：再点一下 ⇒ 翻回**关**、勾跟着灭（两态真的翻得动）"
+                        + $"（uGUI 计数 = {sp.ClickCountForTest("Auto Zoom Toggle")}，期望 {azClicks0 + 2}）");
                     // 🔴 **A445 之后「按住不放不重复翻」那半从这一层【断不出来】—— 如实记，不假称验过**：
                     //    旧断言用两次 `PointerFrame(…, true)` 模拟「按住不放」，而那一半的语义已经搬到
                     //    **驱动层的 latch** 上：`BattleDriver.HandleSettings` 是
@@ -12095,7 +12649,8 @@ public static class BattleScene
                 //   · 两个半边的底图**同 rect**：+190.0（面板内 x 188.002）、180.76×56.80，图 301×120 ⇒ **高受限内接**
                 //   · `Background` 出厂 active、`Background On` 出厂 **inactive**
                 // 🧨 改坏法：① 行心写回旧注释那个 −174.94 ⇒ 第 2 条红；② 底图按框拉满（不内接）⇒ 第 3 条红；
-                //   ③ `SettingsClickAt` 里不接这一行 ⇒ 第 6 条红（翻不动）；④ 把 ON 那半当常显 ⇒ 第 4/5 条红。
+                //   ③ `ChatToggle` 没挂 `BattleHudButton` / 动作接错 ⇒ 第 6 条红（翻不动，uGUI 计数也不动）；
+                //   ④ 把 ON 那半当常显 ⇒ 第 4/5 条红。
                 {
                     float mcx, mcy, mw, mh;
                     Check(sp.MuteChatRectPx(out mcx, out mcy, out mw, out mh),
@@ -12127,14 +12682,21 @@ public static class BattleScene
                     Check(sp.HitMuteChat(mLabelPt),
                           "★ ……而**左边那句 `Mute opponent`** 也打得中（TMP 同样 `m_RaycastTarget = 1`；"
                         + "uGUI 会从它往上冒泡到行根那颗 `Toggle`）");
-                    // 点一下（走**真路**：`BattleDriver.SettingsClickAt`，与 Resign/Difficulty/AutoZoom 同一条抬起链）
-                    bool hitM = drv.SettingsClickAt(sp.MuteChatWorldPos());
-                    Check(hitM && sp.MuteChatOn && sp.MuteChatOnHalfVisible,
-                          $"★ 点那颗开关 ⇒ 状态翻到 ON，**ON 那半亮起来**（指针被接住 {hitM}；"
+                    // 点一下（走 **uGUI**：`BattleHudButton` 的 `IPointerClickHandler` —— 与 `EventSystem`
+                    // 派给 `ChatToggle` 的是同一跳。🔴 `T09` A3-b2 之后 `SettingsClickAt` 是**手搓几何链**、
+                    // 产线上不可达 ⇒ 自检改走真路。）
+                    sp.ResetClickCountForTest("ChatToggle");
+                    int muteClicks0 = sp.ClickCountForTest("ChatToggle");
+                    sp.ClickForTest("ChatToggle");
+                    Check(muteClicks0 == 0 && sp.ClickCountForTest("ChatToggle") == muteClicks0 + 1
+                       && sp.MuteChatOn && sp.MuteChatOnHalfVisible,
+                          $"★ 点那颗开关 ⇒ 状态翻到 ON，**ON 那半亮起来**"
+                        + $"（uGUI 计数 {muteClicks0} → {sp.ClickCountForTest("ChatToggle")}；"
                         + $"实得 on={sp.MuteChatOn} 半亮={sp.MuteChatOnHalfVisible}）"
-                        + "｜🧨 `SettingsClickAt` 里不接 `HitMuteChat` ⇒ 本条红");
-                    drv.SettingsClickAt(sp.MuteChatWorldPos());
-                    Check(!sp.MuteChatOn && !sp.MuteChatOnHalfVisible,
+                        + "｜🧨 `ChatToggle` 没挂 `BattleHudButton` / 动作接错 ⇒ 本条红");
+                    sp.ClickForTest("ChatToggle");
+                    Check(sp.ClickCountForTest("ChatToggle") == muteClicks0 + 2
+                       && !sp.MuteChatOn && !sp.MuteChatOnHalfVisible,
                           "★ 再点一下 ⇒ 回 OFF、ON 那半灭（两态真的翻得动）");
                     // ⚠️ **如实记一条测不到的**：原版这个开关只挡「对手 `ChatPopup` 那 6 句」那条链，
                     //    而**我们还没有那条链** ⇒ 「点了有没有可见效果」这一层**本自检断不出来**，
@@ -12194,23 +12756,36 @@ public static class BattleScene
                               $"★ 先落 `Chinese` ⇒ 框里那颗语言名 = 「{sp.LanguageCaptionText}」"
                             + "（词条 = 原版 `ResetLanguagesDropdown` 拼的 `MainMenu/Settings/LanguageName/Chinese`）");
 
-                        // ③ 点击链：**按下 / 抬起**一对边沿才动。判别式 = 只喂按下那一帧**什么都不发生**。
-                        // 🔴 **2026-10-18（A921）改**：这一下现在**开的是那 12 行的列表**（原版 `TMP_Dropdown`
-                        //   `OnPointerClick → Show()`），⛔ **不再**「点一下换下一个」——语言要**选中某一行**才换
-                        //   （那几条在下一节 **14b5**）。本节的「抬起来 / 边沿」那两条**形状没变**，只是换了观察量。
+                        // ③ 点击链：**只有 uGUI 的 click 才触发**（原版那颗 = `Selectable` / `TMP_Dropdown`，
+                        //   `IPointerClickHandler` 在**抬起**那一帧由 `EventSystem` 派发）。
+                        //   🔴 **2026-10-20（W57 · 战斗线 `T09` A3-b2 收口）就地换判据（铁律 5）**：
+                        //   `PointerFrame` 自 A3-b2 起只剩「**模态接管**」（面板开着时任何按下都 true、
+                        //   松开都 false）⇒ 旧的「`PointerFrame(按下) == false` / `PointerFrame(松开) == true`」
+                        //   **必红、而且再也分不出「这一下归不归语言框管」**。改成两态：
+                        //   ① 只喂**按下 + 松开**（不经过 `EventSystem` 的 click）⇒ 什么都不发生；
+                        //   ② 喂一次 uGUI click（= `BattleHudButton` 的 `IPointerClickHandler` 那一跳）⇒ 列表开。
                         var lfp = sp.LanguageFieldWorldPos;
                         int langBefore = (int)Loc.Current;
-                        Check(sp.PointerFrame(lfp, true) == false && (int)Loc.Current == langBefore && !sp.LangListOpen,
-                              $"★ 判别式：只喂**按下**那一帧 ⇒ 语言**不换**、列表**也不开**（还是 `{Loc.Current}`）"
+                        sp.HideLangList();                               // 基线：列表关着（下一跳要验「点一下 ⇒ 开」）
+                        sp.ResetClickCountForTest("Language Selector");
+                        int lfClicks0 = sp.ClickCountForTest("Language Selector");
+                        UguiFeed(sp.LangFieldNode, lfp, EventTriggerType.PointerDown);
+                        UguiFeed(sp.LangFieldNode, lfp, EventTriggerType.PointerUp);
+                        Check((int)Loc.Current == langBefore && !sp.LangListOpen
+                           && sp.ClickCountForTest("Language Selector") == lfClicks0,
+                              $"★ 判别式：只喂**按下 / 松开**（不经过 `EventSystem` 的 click）⇒ "
+                            + $"语言**不换**、列表**也不开**（还是 `{Loc.Current}`；uGUI 计数仍 {lfClicks0}）"
                             + " —— 改成「按下就触发」这条就红（原版那颗是 `Selectable`，走 `IPointerClickHandler`，**抬起**才触发）");
-                        bool langCaught = sp.PointerFrame(lfp, false);
-                        Check(langCaught,
-                              "★ 抬起那一帧 ⇒ 这一下被语言那一行**接住**（`PointerFrame` 返回 true）");
-                        Check(sp.LangListOpen && (int)Loc.Current == langBefore,
-                              $"★ …而这一下**只是把列表开出来**：`LangListOpen = {sp.LangListOpen}`、语言仍 `{Loc.Current}`"
+                        sp.ClickForTest("Language Selector");            // uGUI 的 click（= `Button.onClick` 那一跳）
+                        Check(lfClicks0 == 0 && sp.ClickCountForTest("Language Selector") == lfClicks0 + 1
+                           && sp.LangListOpen,
+                              $"★ uGUI **点一次** ⇒ 列表开（计数 {lfClicks0} → {sp.ClickCountForTest("Language Selector")}；"
+                            + $"`LangListOpen = {sp.LangListOpen}`）"
+                            + "｜🧨 框上没挂 `BattleHudButton` / 动作接错 ⇒ 计数不动 + 列表不开 ⇒ 红");
+                        Check((int)Loc.Current == langBefore && sp.LanguageCaptionText == "中文",
+                              $"★ …而这一下**只是把列表开出来**：语言仍 `{Loc.Current}`、框里那颗语言名仍是"
+                            + $"「{sp.LanguageCaptionText}」"
                             + " —— 旧的「点一下换下一个」写法在这一条必红（它会顺手换成下一项）");
-                        Check(sp.LanguageCaptionText == "中文",
-                              $"★ …框里那颗语言名**没变**（仍是「{sp.LanguageCaptionText}」；换语言要选中一行，见 14b5）");
                         sp.HideLangList();       // ⑤ 的前提 = 列表关着（不然那一下按下会被列表的 `Blocker` 吃掉）
 
                         // ④ 左边那颗标签的文案 —— **英文那一态就是原版 TMP 印的那句**
@@ -12224,12 +12799,15 @@ public static class BattleScene
                         Check(SettingsPanel.LangLabelTermKey == "MainMenu/Settings/ButtonLabel/SelectLanguage",
                               $"★ …而它的词条键 = 原版那颗 `Localize.mTerm`（实得 `{SettingsPanel.LangLabelTermKey}`）");
 
-                        // ⑤ 判别式：按下在框内、**抬起跑到框外** ⇒ 不触发（命中区写成「整个面板」这条就红）
+                        // ⑤ 判别式：框的命中区**有界** —— 框外那一点不在框里（命中区写成「整个面板」这条就红）。
+                        //   🔴 **2026-10-20（W57 · `T09` A3-b2）**：旧写法喂的是 `PointerFrame` 的按下/松开
+                        //   —— 那两条现在**什么都不驱动**（语义见 ③）；改成量**几何命中口** `HitLanguage`
+                        //   （`_langField` 自己的 rect、`raycastPadding = 0` ⇒ 与 uGUI 射线靶同一块矩形）。
+                        //   点击派发那一条由 ③ 的 uGUI click 断言覆盖。
                         int langNow = (int)Loc.Current;
-                        sp.PointerFrame(lfp, true);
-                        sp.PointerFrame(EndPanel.Pos(120f, 120f, 0f), false);
-                        Check((int)Loc.Current == langNow,
-                              $"★ 按下在框内、抬起跑到框外 ⇒ **不触发**（语言仍是 `{Loc.Current}`）"
+                        Check(sp.HitLanguage(lfp) && !sp.HitLanguage(EndPanel.Pos(120f, 120f, 0f))
+                           && (int)Loc.Current == langNow && !sp.LangListOpen,
+                              $"★ 框的命中区**有界**：框外那一点 ⇒ **不触发**（语言仍是 `{Loc.Current}`、列表仍关）"
                             + " —— 命中区写成「面板任意处」这条就红");
 
                         // ⑥ 收尾：语言放回去（后面还有一大堆断言，别让这一节改掉全局状态）
@@ -12383,11 +12961,17 @@ public static class BattleScene
                         sp.HideLangList();
 
                         // ---- ① 开（原版 `Show()`）----
+                        // 🔴 **2026-10-20（W57 · 战斗线 `T09` A3-b2 收口）**：点框那条**手搓边沿链**已删
+                        //   （`LangPointerFrame` / `_langArmed`）⇒ 改走 `BattleHudButton` 的点击动作
+                        //   （与 `EventSystem` 派发的 `IPointerClickHandler` **同一跳**）。
                         var f5 = sp.LanguageFieldWorldPos;
                         int lgBefore = (int)Loc.Current;
-                        sp.PointerFrame(f5, true);                       // 按下：只记「这一下从框上开始」
-                        Check(sp.PointerFrame(f5, false) && sp.LangListOpen,
-                              "★ A921：**点框那一对边沿 ⇒ 列表开**（原版 `TMP_Dropdown.OnPointerClick → Show()`）");
+                        sp.ResetClickCountForTest("Language Selector");
+                        int lf5a = sp.ClickCountForTest("Language Selector");
+                        sp.ClickForTest("Language Selector");
+                        Check(sp.LangListOpen && sp.ClickCountForTest("Language Selector") == lf5a + 1,
+                              "★ A921：**uGUI 点一次 ⇒ 列表开**（原版 `TMP_Dropdown.OnPointerClick → Show()`）"
+                            + $"（计数 {lf5a} → {sp.ClickCountForTest("Language Selector")}、`LangListOpen = {sp.LangListOpen}`）");
                         Check((int)Loc.Current == lgBefore,
                               $"★ A921 判别式：**开列表这一下不许换语言**（仍 `{Loc.Current}`）——"
                             + " 旧的「点一下换下一个」写法在这一条必红（它会顺手换成下一项）");
@@ -12439,13 +13023,23 @@ public static class BattleScene
                               $"★ A921：第 12 行的字 = **那一项自己的语言名**（「{lastLbl?.Text}」= `Loc.Languages[11]`）");
 
                         // ---- ② 点行 ⇒ 选中 + 收起（原版 `OnSelectItem:1247`）----
+                        // 🔴 **2026-10-20（W57 · `T09` A3-b2 收口）**：行点击 = 每行一颗 `BattleHudButton`
+                        //   （原版 `Item` 上的 `Toggle` → `OnSelectItem`）；`PointerFrame` 那条手搓边沿已删。
                         var row0 = sp.LangRowWorldPos(0);          // 第 1 行 = `Loc.Languages[0]`（English）
-                        Check(sp.PointerFrame(row0, true),
-                              "★ A921：列表开着时按在行上 ⇒ 这一帧**被吃掉**（原版那颗铺满全屏的 `Blocker`"
-                            + " 盖住整屏 ⇒ 底下的滑块/按钮都不许响应）");
-                        bool rowCaught = sp.PointerFrame(row0, false);
-                        Check(rowCaught && !sp.LangListOpen,
-                              "★ A921：**点某一行 ⇒ 选中并收起**（原版 `OnSelectItem`：`value = i` + 末尾 `Hide()`）");
+                        Check(sp.HitLangRow(row0, out int hitR0) && hitR0 == 0
+                           && !sp.HitLangRow(EndPanel.Pos(120f, 120f, 0f), out _),
+                              "★ A921：行命中区**有界** —— 第 1 行的中心判回第 1 行、面板空白处判不中任何一行");
+                        // 「列表开着时整屏由 Blocker 接管」的那一件（原版 `CreateBlocker` 的 Image 默认 rt=1）
+                        Check(sp.LangBlockerPieceForTest != null && sp.LangBlockerRaycastTargetForTest,
+                              "★ A921：列表开着时那颗**全屏 Blocker** 在、且是射线靶（原版 `CreateBlocker:1009` 的"
+                            + " `Image` 默认 `raycastTarget = 1` ⇒ 底下的滑块/按钮都不许响应）"
+                            + $"（件在={sp.LangBlockerPieceForTest != null} · 射线靶={sp.LangBlockerRaycastTargetForTest}）");
+                        int rowClicks0 = sp.LangRowClickCountForTest(0);
+                        sp.LangRowClickForTest(0);                 // = 行上那颗 `BattleHudButton` 的点击动作
+                        Check(rowClicks0 == 0 && sp.LangRowClickCountForTest(0) == rowClicks0 + 1 && !sp.LangListOpen,
+                              "★ A921：**点某一行 ⇒ 选中并收起**（原版 `OnSelectItem`：`value = i` + 末尾 `Hide()`）"
+                            + $"（行点击计数 {rowClicks0} → {sp.LangRowClickCountForTest(0)}、`LangListOpen = {sp.LangListOpen}`）"
+                            + "｜🧨 行上没挂 `BattleHudButton` / `ChooseLanguage` 末尾不 `HideLangList` ⇒ 红");
                         Check(Loc.Current == Loc.Languages[0],
                               $"★ A921：…语言 = **那一行的值** `{Loc.Current}`（= `Loc.Languages[0]`）"
                             + " —— 行号 ↔ 语言的映射 = `Loc.Languages` 的**声明序**（原版那个静态数组的下标）");
@@ -12463,19 +13057,31 @@ public static class BattleScene
                             + " —— 勾画在所有行上 / 一行都不画 ⇒ 这条红");
                         var row1 = sp.LangRowWorldPos(1);
                         int lgNow = (int)Loc.Current;
-                        sp.PointerFrame(row1, true);
-                        sp.PointerFrame(f5, false);                      // 抬到框上（不在任何一行）
-                        Check((int)Loc.Current == lgNow && sp.LangListOpen,
-                              $"★ A921：按下在第 2 行、抬起跑到别处 ⇒ **不选**（语言仍 `{Loc.Current}`、列表仍开着）"
-                            + " —— 命中判定写成「按下就选」这条就红");
+                        int row1Clicks0 = sp.LangRowClickCountForTest(1);
+                        // 🔴 **2026-10-20（W57 · `T09` A3-b2 收口）**：旧写法喂的是 `PointerFrame` 的按下/松开
+                        //   —— 那两条现在**什么都不驱动**。改成把原样按下 / 松开喂给**行自己那颗钮**：
+                        //   我们的行只实现 `IPointerClickHandler`（与 `Selectable` 同一条链），原生按下/松开
+                        //   **不派发动作**（「按下就选」这种写法会红）。
+                        var row1Node = sp.LangRowBg(1) != null ? sp.LangRowBg(1).transform : null;
+                        UguiFeed(row1Node, row1, EventTriggerType.PointerDown);
+                        UguiFeed(row1Node, f5, EventTriggerType.PointerUp);   // 抬到框上（不在任何一行）
+                        Check((int)Loc.Current == lgNow && sp.LangListOpen
+                           && sp.LangRowClickCountForTest(1) == row1Clicks0,
+                              $"★ A921：按下在第 2 行、抬起跑到别处 ⇒ **不选**（语言仍 `{Loc.Current}`、列表仍开着；"
+                            + $"行点击计数仍 {row1Clicks0}）"
+                            + " —— 命中判定写成「按下就选」这条就红（uGUI 的 click 只发给按下时命中的那一件）");
 
                         // ---- ③ 点空白 ⇒ 收起（原版那颗全屏透明 `Blocker` 的 `onClick`）----
-                        var blank = EndPanel.Pos(960f, 900f, 0f);        // 面板上的空白处（不在任何一行、也不在框上）
+                        // 🔴 **2026-10-20（W57 · `T09` A3-b2 收口）**：`HitLangBlank` 已删 ⇒ 收列表走
+                        //   `_langBlocker` 上那颗 `BattleHudButton`（原版 `CreateBlocker` 的 `Button.onClick → Hide`）。
                         int lg3 = (int)Loc.Current;
-                        sp.PointerFrame(blank, true);
-                        Check(sp.PointerFrame(blank, false) && !sp.LangListOpen && sp.Visible,
+                        int blkClicks0 = sp.ClickCountForTest("Blocker");
+                        sp.ClickForTest("Blocker");
+                        Check(blkClicks0 == 0 && sp.ClickCountForTest("Blocker") == blkClicks0 + 1
+                           && !sp.LangListOpen && sp.Visible,
                               "★ A921：**点空白 ⇒ 列表收起**（原版 `CreateBlocker:1009` 那颗铺满全屏的透明 `Blocker`"
-                            + " 的 `onClick → Hide`）—— **窗不关**");
+                            + " 的 `onClick → Hide`）—— **窗不关**"
+                            + $"（Blocker 点击计数 {blkClicks0} → {sp.ClickCountForTest("Blocker")}）");
                         Check((int)Loc.Current == lg3, $"★ A921：…而且不顺手换语言（仍 `{Loc.Current}`）");
 
                         // ---- ④ ESC ⇒ **先收列表、窗不关**（原版 `TMP_Dropdown.OnCancel:763 → Hide()`）----
@@ -12817,36 +13423,55 @@ public static class BattleScene
                             + " —— 原版 96.811×84.406 = 46.811×34.406 四边各外扩 25；"
                             + "⛔ 别把实例测量那段删掉只比静态口（那正是改前那个**假绿**检测器）");
                     }
-                    bool cap = sp.PointerFrame(s0.HandleWorldPos, true);
-                    Check(cap, "★ 滑块**接住了**这一下（驱动层就不会再把它当点击转给按钮）");
-
-                    sp.PointerFrame(s0.LeftWorld, true);
+                    // 🔴 **2026-10-20（W57 · 战斗线 `T09` A3-b2 收口）**：旧写法 `sp.PointerFrame(...)` 自 A3-b2 起
+                    //   只剩「**模态接管**」（面板开着时任何按下都返回 true）⇒ 既验不到滑块、**也不再驱动值**
+                    //   （宿主到 `SetFromPointer` 的调用点已清零）。改成喂 **`WfSlider` 自己的 uGUI 事件**
+                    //   （`EventTrigger` 的 `PointerDown / Drag / PointerUp` —— 与 `EventSystem` 派给它的同一条链）：
+                    //   ① 按下 ⇒ 进入拖动态；② 拖动 ⇒ 改值；③ 抬起 ⇒ 退出拖动态（原版 `Slider.UpdateDrag` /
+                    //   `Selectable.OnPointerUp` 的语义）。
+                    Check(s0.PointerInputForTest != null
+                       && s0.TrackRaycastTargetForTest && s0.FillRaycastTargetForTest && s0.HandleRaycastTargetForTest,
+                          "★ 滑块挂上了 uGUI 输入：根上有 `EventTrigger`、三张图都是**射线靶**"
+                        + "（原版 `Background` / `Fill` 的 `m_RaycastTarget = 1`，手柄那颗 `Image` 也是 1）"
+                        + "｜🧨 `SetupUguiInput` 没跑 / 删掉 `raycastTarget = true` ⇒ 本条红");
+                    UguiFeed(s0.Node, s0.HandleWorldPos, EventTriggerType.PointerDown);
+                    Check(s0.DraggingForTest,
+                          "★ 按在手柄上 ⇒ 滑块进入**拖动态**（uGUI `PointerDown`；原版 `Slider.OnPointerDown` 同一条）");
+                    UguiFeed(s0.Node, s0.LeftWorld, EventTriggerType.Drag);
                     Check(s0.Value <= 0.02f, $"★ 拖到最左 → 值 = {s0.Value:F3}（≈0）");
-                    sp.PointerFrame(s0.RightWorld, true);
+                    UguiFeed(s0.Node, s0.RightWorld, EventTriggerType.Drag);
                     Check(s0.Value >= 0.98f, $"★ 拖到最右 → 值 = {s0.Value:F3}（≈1）");
                     Check(Mathf.Abs(WarpforgeAudio.Music - s0.Value) < 0.02f,
                           $"★ 滑块的改动**进了总线**（`WarpforgeAudio.Music` = {WarpforgeAudio.Music:F3}）");
-                    sp.PointerFrame(Vector3.zero, false);        // ⚠️ **松手**再换下一根 —— 不松的话
-                                                                 //    `PointerFrame` 会继续喂给**上一根**（第一次就是这么写错的）
+                    UguiFeed(s0.Node, s0.RightWorld, EventTriggerType.PointerUp);   // 松手再换下一根
+                    Check(!s0.DraggingForTest, "★ 抬起 ⇒ 退出拖动态（原版 `Selectable.OnPointerUp`）");
 
                     // 中间一根（音效）拉一半 —— 顺带验「三根是各自独立的」
                     var s1 = sp.SliderAt(1);
                     float fxBefore = s1.Value;
                     float musicBefore = s0.Value;        // ⚠️ 先记下来 —— 拿 `s0.Value` 跟它自己比是**恒真**的
-                    sp.PointerFrame(Vector3.Lerp(s1.LeftWorld, s1.RightWorld, 0.5f), true);
+                    UguiFeed(s1.Node, Vector3.Lerp(s1.LeftWorld, s1.RightWorld, 0.5f), EventTriggerType.PointerDown);
                     Check(Mathf.Abs(s1.Value - 0.5f) < 0.05f, $"★ 音效滑块拉到中间 → 值 = {s1.Value:F3}（≈0.5）");
                     Check(Mathf.Abs(s0.Value - musicBefore) < 1e-3f, "三根**各自独立**（动音效不影响音乐）");
-                    sp.PointerFrame(Vector3.zero, false);        // 松手
+                    UguiFeed(s1.Node, Vector3.Lerp(s1.LeftWorld, s1.RightWorld, 0.5f), EventTriggerType.PointerUp);   // 松手
                     // ⚠️ 别写 `Check(x || true, …)` 这种**恒真**的断言 —— 一直绿的断言等于没有断言。
-                    //    这里要验的是「松手之后回到没在拖的状态」：拿一个**面板外**的点按下，应当接不住。
-                    Check(!sp.PointerFrame(new Vector3(100f, 100f, 0f), true),
-                          "松手之后不再处于拖动状态（面板外的点接不住）");
+                    //    这里要验的是「松手之后回到没在拖的状态」：①状态位为假；②**没按下**时喂 Drag ⇒ 值不变
+                    //    （原版 `Slider.UpdateDrag` 只在 `dragging` 时跑 —— 「按下才拖」那条闸）。
+                    Check(!s1.DraggingForTest, "松手之后不再处于拖动状态");
+                    float vNoPress = s1.Value;
+                    UguiFeed(s1.Node, new Vector3(100f, 100f, 0f), EventTriggerType.Drag);
+                    Check(Mathf.Abs(s1.Value - vNoPress) < 1e-4f,
+                          "★ 判别式：**没按下**时喂 `Drag`（面板外那一点）⇒ 值**不变**（`dragging` 闸）"
+                        + " —— 去掉 `if (!_dragging) return;` 这条就红");
 
                     // 还原（自检不该改玩家的存档 —— 音乐是唯一落盘的那个）
                     sp.SliderAt(0).SetValue(1f, true);
                     s1.SetValue(fxBefore, true);
                     sp.SliderAt(2).SetValue(1f, true);
-                    sp.PointerFrame(Vector3.zero, false);
+                    // 🔴 **2026-10-20（W57 · `T09` A3-b2 收口）**：旧写法这里喂一次 `PointerFrame(松手)`（清拖动）。
+                    //   现在拖动状态归 `WfSlider` 自己的 uGUI 事件 ⇒ 收尾改断「**没有残留的拖动**」。
+                    Check(!sp.SliderAt(0).DraggingForTest && !s1.DraggingForTest && !sp.SliderAt(2).DraggingForTest,
+                          "（收尾）三根滑块**都不在拖动态**（没有残留的 `PointerDown`）");
                     Check(Mathf.Abs(WarpforgeAudio.Music - 1f) < 0.01f && Mathf.Abs(WarpforgeAudio.SoundFx - 1f) < 0.01f,
                           "自检结束把三档还原成满音量（不污染存档）");
 
@@ -12879,15 +13504,16 @@ public static class BattleScene
                                 + " `m_AnchoredPosition.x` 11.99988 —— 滑区左沿**就是**轨道左沿，⛔ 不是 +17）");
                             // 起点与分母**一起**钉住：探针放在「滑区左沿 + 1/4 滑区宽」，值应**恰为 0.25**
                             //（起点若挪成 +5 ⇒ 0.2409；分母若换成整根轨道 561.08 ⇒ 0.2455 —— 都 > 0.002 ⇒ 红）
-                            sp.PointerFrame(ms.LeftWorld + perPx * (0.25f * 551.08f), true);
+                            // 🔴 **2026-10-20（W57 · `T09` A3-b2 收口）**：改喂 `WfSlider` 的 uGUI 事件
+                            //   （按下 → 拖动 → 抬起）；值与算式一个字没改（`SetFromLocal` 是两条口共用的那一份）。
+                            UguiFeed(ms.Node, ms.LeftWorld + perPx * (0.25f * 551.08f), EventTriggerType.PointerDown);
                             Check(Mathf.Abs(ms.Value - 0.25f) <= 0.002f,
                                   $"★ 点在滑区 **1/4** 处 ⇒ 值 = {ms.Value:F4}（原版 `Slider.UpdateDrag`："
                                 + "起点 = 滑区左沿、分母 = **滑区宽 551.08**；⛔ 不是整根轨道）");
-                            sp.PointerFrame(Vector3.zero, false);                    // 松手（不松 = 下一帧还在拖它）
-                            sp.PointerFrame(ms.LeftWorld + perPx * 551.08f, true);    // 滑区**右沿**
+                            UguiFeed(ms.Node, ms.LeftWorld + perPx * 551.08f, EventTriggerType.Drag);   // 拖到滑区**右沿**
                             Check(Mathf.Abs(ms.Value - 1f) <= 0.002f,
-                                  $"★ 点在滑区**右沿**（= 轨道右端 − 10 画布 px）⇒ 值 = {ms.Value:F4}（≈1）");
-                            sp.PointerFrame(Vector3.zero, false);
+                                  $"★ 拖到滑区**右沿**（= 轨道右端 − 10 画布 px）⇒ 值 = {ms.Value:F4}（≈1）");
+                            UguiFeed(ms.Node, ms.LeftWorld + perPx * 551.08f, EventTriggerType.PointerUp);   // 松手
                             ms.SetValue(before, false);                              // 还原（不 fire）
                             Check(Mathf.Abs(ms.Value - before) < 1e-4f,
                                   "（本组收尾）音乐滑块的值还原成进这一组之前的值");
@@ -13996,6 +14622,36 @@ public static class BattleScene
                           "★ `ForMirror` = `mirror` → 回落 `default`（`GetChatSound` **内部**那一跳就是 `defaultChatSound`，"
                         + "⛔ 不是 `intro` —— `intro` 只是**上位**那条 Intro 链的末跳；同督军对局用它替换 intro）");
 
+                    // 🆕 2026-10-19（`W57` · `T17/T18`）：**定制开场白两档**（纯查表，不解一局）——
+                    //   判据 = `ChatManager__GetChatMessage.c` 的三档链（① 精确档 → ② 按阵营档 → ③ 兜底），
+                    //   数据 = `Resources/card_chat_intro.json`（生成器 `工具/gen_card_chat_intro.py`）。
+                    //   ⚠️ 期望值全部写**字面量**（⛔ 不拿同一个 API 证它自己）。
+                    {
+                        Check(CardChatIntro.Loaded && CardChatIntro.Count == 49,
+                              $"★ 定制开场白表载进来了（{CardChatIntro.Count} 张，预期 49）"
+                            + (CardChatIntro.LastError != null ? $" —— `LastError`：{CardChatIntro.LastError}" : ""));
+                        CardChatIntro.Entry ie1;
+                        Check(CardChatIntro.TryResolve("AM1", "BL34", "BlackLegion", out ie1)
+                              && ie1.Key == "Chat_Messages/AM1-Chat0-BL34" && ie1.HasText && ie1.TalksFirst == 1,
+                              $"★ ① 精确档优先：AM1 vs BL34 → `Chat_Messages/AM1-Chat0-BL34`"
+                            + $"（实得 `{ie1.Key}` / hasText={ie1.HasText} / talksFirst={ie1.TalksFirst}）");
+                        CardChatIntro.Entry ie2;
+                        Check(CardChatIntro.TryResolve("AM2", "UM46", "Ultramarines", out ie2)
+                              && ie2.Key == "Chat_Messages/AM2-Chat0-Ultramarines",
+                              "★ ② 精确档没有 ⇒ **按阵营档兜底**：AM2 vs UM46（Ultramarines）→ "
+                            + $"`Chat_Messages/AM2-Chat0-Ultramarines`（实得 `{ie2.Key}`）");
+                        CardChatIntro.Entry ie3;
+                        Check(!CardChatIntro.TryResolve("AM1", "UM46", "Ultramarines", out ie3),
+                              "★ ② 的反面：AM1 对 Ultramarines **两档都没有** ⇒ `false`（调用方走 ③ 兜底 `-Chat0`）");
+                        Check(CardChatIntro.TermFor("AM1", "-Chat0") == "Chat_Messages/AM1-Chat0",
+                              $"★ ③ 兜底键拼法（实得 `{CardChatIntro.TermFor("AM1", "-Chat0")}`）");
+                        Check(CardChatIntro.PlayerTalksFirst("UM46", "GOF28") == 1
+                              && CardChatIntro.PlayerTalksFirst("GOF27", "BL35") == 0
+                              && CardChatIntro.PlayerTalksFirst("AM1", "UM46") == 1,
+                              "★ 先手 `talksFirst`：UM46→GOF28 = 1（玩家先说）· GOF27→BL35 = 0（对手先说）· "
+                            + "AM1→UM46 没有精确档 ⇒ **默认 1**（原版 `IsPlayerFirstIntro` **只**在精确档取值）");
+                    }
+
                     // 🔴 **先把上一节还挂着的气泡放完**（气泡有**最短 2 秒**）。
                     //    不排空的话，下面的 1 秒预算会整段花在「等上一条说完」上，
                     //    测出来是「先手没开口」—— 那是**假红**（独白没坏，是前一节还没收尾）。
@@ -14003,7 +14659,19 @@ public static class BattleScene
                     for (float t = 0f; t < 10f && (chat.IsSpeaking || chat.ShownSide != -1); t += 1f / 30f)
                         Step(1f / 30f);
                     drv.StartIntroMonologue();
-                    int firstSide = drv.Ctx.Active;
+                    // 🆕 2026-10-19（`W57` · `T17/T18`）：先手不再取 `Ctx.Active`（谁先手谁先说 = **我们挑的**），
+                    //   改照原版 `ChatManager.IsPlayerFirstIntro`：**玩家自己的精确档 `talksFirst`**，
+                    //   未命中（含只命中按阵营档 / 没有数据）⇒ 1 = **玩家先说**。
+                    //   ⚠️ 这里用**数据口**独立算一遍期望，再与驱动层实际定的那一侧对账（不是拿实现证实现）。
+                    var pw0 = drv.Ctx.Players[drv.MySeat].Warlord.Card;
+                    var fw0 = drv.Ctx.Players[1 - drv.MySeat].Warlord.Card;
+                    int wantFirst = CardChatIntro.PlayerTalksFirst(pw0.Id, fw0.Id) != 0
+                                  ? drv.MySeat : 1 - drv.MySeat;
+                    Check(drv.IntroFirstForTest == wantFirst,
+                          $"★ 先手 = 原版 `IsPlayerFirstIntro`（玩家精确档 talksFirst；未命中 ⇒ 玩家先说）—— "
+                        + $"期望 {wantFirst}（{drv.Ctx.Players[wantFirst].Warlord.Card.Name}）"
+                        + $" / 实得 {drv.IntroFirstForTest}（本局双方 {pw0.Id} vs {fw0.Id}）");
+                    int firstSide = drv.IntroFirstForTest;
                     Check(drv.IntroStage == 0,
                           $"★ 触发后状态机在「该先手说」（实得 {drv.IntroStage}）");
 
@@ -14081,11 +14749,16 @@ public static class BattleScene
                         }
 
                         // ② 6 个钮点得动
+                        // 🔴 **2026-10-20（W57 · 战斗线 `T09` WIRE）：点中台词之后原版会【先关掉气泡】**
+                        //   （`VoiceLinesPopupSelector__ClickChat.c` = `Hide()` → `OnVoiceLinePressed(index)`；
+                        //   判据 → `W57_战斗线_T09_A3e1.md` §六·1）⇒ 每颗点之前要重新 `Show()`，
+                        //   否则从第 2 颗起 `ChatClickAt` 会因「面板已关」直接返回 false（= 假的 1/6）。
                         pop.Show();
                         Check(pop.Visible, "开得起来");
                         int spoke = 0; var evs = new System.Text.StringBuilder();
                         for (int i = 0; i < 6; i++)
                         {
+                            if (i > 0) pop.Show();      // 上一颗点完已经被关掉了（原版 `ClickChat` 先 Hide）
                             // 🔴 **2026-10-16（收口 · 台账 `W45`）**：改走 `ChatPopupPanel.ButtonWorldPos(i)` ——
                             //   `LayoutSpace.ToWorld((x)/1920, …)` 是**世界帧**的换算，画布档下与面板真正摆的地方
                             //   差 1.333 倍（y）；`ButtonWorldPos` 两档都从**面板自己的 `rect`** 算（判据只此一处）。
@@ -14100,6 +14773,19 @@ public static class BattleScene
                             //     （`UnitChatPanel.Speak` 收的是合成事件名 `"Chat"+idx`，不是 ev）
                             //     ⇒ 补一个只读口才做得到，⛔ 不在断言里重写一遍 `TryPick` 那条链（= 第二份写法）。
                             if (pdrv.ChatClickAt(pop.ButtonWorldPos(i))) { spoke++; evs.Append($"#{i + 1}={VoiceLines.ForChatButton[i]}").Append(' '); }
+                            if (i == 0)
+                            {
+                                // 🔴 **2026-10-20（W57 · `T09` WIRE）补的判据**：点中这一下
+                                //   ①**台词那一句生效了**（`LastClicked` = 0、4 秒冷却已起）
+                                //   ②**气泡当场关掉**（原版 `ClickChat` 先 `Hide()` 再发语音）。
+                                //   🧨 改坏法：把 `SpeakChatAt` 里那句 `_chatPopup.Hide()` 删掉 ⇒ ②红；
+                                //      把 `PointerUpAt` 那半拆掉 ⇒ ①红（两者代价不同，分开断）。
+                                Check(pop.LastClicked == 0 && pdrv.ChatCooldownLeft > 3.9f && !pop.Visible,
+                                      "★ 点中第 1 句 ⇒ **那句话生效**（`LastClicked` = 0 · 冷却已起 "
+                                    + $"{pdrv.ChatCooldownLeft:F2}s）+ **气泡当场关掉**"
+                                    + "（原版 `VoiceLinesPopupSelector__ClickChat.c`：`Hide()` → `OnVoiceLinePressed(index)`）"
+                                    + "｜🧨 删掉 `SpeakChatAt` 里那句 `_chatPopup.Hide()` ⇒ 本条红");
+                            }
                         }
                         Check(spoke == 6, $"★ 6 个钮都收下了点击（实得 {spoke}/6）—— 逐钮主 token：{evs}"
                                         + "（⚠️ 印的是**钮 → `VoiceLines.ForChatButton` 那个主 token**，"
@@ -14112,10 +14798,45 @@ public static class BattleScene
                               $"★ 说完进 4 秒冷却（实得 {pdrv.ChatCooldownLeft:F2}s）");
 
                         // ④ 点面板外 → 关（0.5 s 淡出之后才不可见）
+                        // ⚠️ 必须先 `Show()`：上面最后一颗点完气泡已经关了（原版 `ClickChat` 先 Hide）
+                        //    ⇒ 不重开的话 `ChatClickAt` 直接返回 false，「点外面会关」这一条就成了空转绿。
+                        pop.Show();
+                        // 🔴 **2026-10-20（W57 · `T09-FIX5` · P2-8）：照原版 —— 淡出期间**仍然吃射线**。**
+                        //   原版 `VoiceLinesPopupSelector.Hide()` 只置 `CanvasGroup.interactable = 0`
+                        //   （判据 = `d:/2/tools/decomp_full/VoiceLinesPopupSelector__Hide.c` 第 5 行），
+                        //   Graphic 的 `raycastTarget` **不动** ⇒ 0.5 s 淡出期间全屏关闭区**仍吃得掉点击**
+                        //   （只是 `Interactable == false`，吃下去什么也不发生；`EventSystem` 不看 `interactable`）。
+                        //   ⛔ `T09-FIX3` 的「一关就撤射线」是手感优先的**有意偏离**，`T09-FIX5` 已按原版回滚。
+                        //   🧨 **灭自证**：再在 `Hide()` 里加回 `raycastTarget = false`（或 `SetActive(false)`）⇒ 本条红。
+                        if (pop.IsUgui)
+                        {
+                            Check(pop.CloseRaycastTargetForTest,
+                                  "★ T09-FIX5/P2-8（前提）：气泡**开着**时全屏关闭区是射线靶（原版 `m_RaycastTarget = 1`）");
+                            Check(pop.CloseTriggerForTest != null,
+                                  "★ …（前提）关闭区那颗 `EventTrigger` 在（原版 `CloseChatPopup` 的 `PointerDown`）");
+                            pop.Hide();
+                            Check(pop.CloseRaycastTargetForTest && !pop.Interactable,
+                                  "★ T09-FIX5/P2-8：`Hide()` 之后**射线靶仍在**、`Interactable` 已是 false"
+                                + "（原版只置 `CanvasGroup.interactable = 0`；`EventSystem` 不看它 ⇒ 淡出期间仍吃点击，但什么也不做）"
+                                + "｜🧨 改成「一关就撤射线」= 原版没有的行为 ⇒ 本条红");
+                            if (pop.CloseTriggerForTest != null)
+                            {
+                                // 原版期望的**行为面**：淡出期间那一按照样进得来，但被 `interactable=0` 吃掉。
+                                int closeWasD = pop.UguiCloseCountForTest;
+                                bool pendingWasD = pop.ClosePendingForTest;
+                                pop.CloseTriggerForTest.OnPointerDown(NewPointerEventData());
+                                Check(pop.UguiCloseCountForTest == closeWasD
+                                   && pop.ClosePendingForTest == pendingWasD,
+                                      "★ …而且淡出期间那一按**进得来、但什么都不做**"
+                                    + "（`Interactable == false` ⇒ 不挂起关闭、不落账）"
+                                    + "｜🧨 把 `OnClosePointerDown` 的 `Interactable` 闸删掉 ⇒ 本条红（淡出里又关一次）");
+                            }
+                            pop.Show();                       // 还原下面那条要的前提
+                        }
                         var outside = LayoutSpace.ToWorld(0.9f, 0.5f);
-                        pdrv.ChatClickAt(outside);
+                        bool outsideAte = pdrv.ChatClickAt(outside);
                         for (float t = 0f; t < 2f && pop.Visible; t += 1f / 30f) Step(1f / 30f);
-                        Check(!pop.Visible,
+                        Check(outsideAte && !pop.Visible,
                               $"★ 点面板外 → 面板关掉（原版那条全屏关闭区；淡出 {ChatPopupPanel.FadeTime}s）");
                     }
                 }
@@ -14205,23 +14926,26 @@ public static class BattleScene
             {
                 // 🔴 **2026-10-19（战斗线 B1 · 偏差 5）**：探针**固定用一张单位卡**（原来是「手牌第一张」）——
                 //   那张要是战术卡，`DeploySequence.Play` 改后会走「非单位 ⇒ 立即完成」那一支（长度 1 ms），
-                //   下面这条断言的语义就不再是「落位三段」了。
+                //   下面这条断言的语义就不再是「落位四段」了。
                 CardData probeData = CardData.Placeholder(1);
                 var probe = CardView.Create(driver.transform, probeData, "ProbeFeel");
                 if (probe == null) Debug.Log(P + "   （建不出探针卡，跳过序列长度检查）");
                 else
                 {
-                    // 🆕 2026-10-16：现在是**三段**（飞 + 悬停 + 落下）⇒ 这条断的是**三段之和**；
-                    //    两个落点都给 `Vector3.zero`（三段照样都在：`AppendInterval` 与第二记 `DOMove` 不因距离为 0 而消失）。
+                    // 🆕 2026-10-16：现在是**四段**（飞 + **0.1 等** + 悬停 + 落下）⇒ 这条断的是**四段之和**；
+                    //    两个落点都给 `Vector3.zero`（四段照样都在：两个 `AppendInterval` 与第二记移动不因距离为 0 而消失）。
+                    //    🆕 2026-10-19（`W57` · `T05(d)`）：中间那 0.1 是原版 state 0 末尾的
+                    //    `WaitForSeconds(timeToScaleIntoMoving)`（判据 → `DeploySequence` 文件头）。
                     float dDeploy = Dur(DeploySequence.Play(probe, Vector3.zero, Vector3.zero, 1f));
                     Check(Mathf.Abs(dDeploy - DeploySequence.TotalTime) < 1e-3f,
-                          $"落位序列真实长度 {dDeploy:F3}s == 三段之和 {DeploySequence.TotalTime:F2}s"
+                          $"落位序列真实长度 {dDeploy:F3}s == 四段之和 {DeploySequence.TotalTime:F2}s"
                         + $"（`minionToConversionPointTime` {DeploySequence.MoveTime:F2}"
+                        + $" + `timeToScaleIntoMoving` {DeploySequence.TimeToScaleIntoMoving:F2}"
                         + $" + `timeBeforeLand` {DeploySequence.HoldTime:F2}"
                         + $" + `timeToLand` {DeploySequence.LandTime:F2}）");
                     // 🆕 2026-10-19（偏差 5）：**战术卡不走这段飞行** —— 原版那一支是
                     //   `NonTargetSpellPlayed` + `DissolveWholeCard`（没有 `MinionPlayedIntoField`）。
-                    //   🧨 把 `Play` 开头那条 `!card.Data.isUnit` 分支删掉 ⇒ 本条红（会回到 0.55 s）。
+                    //   🧨 把 `Play` 开头那条 `!card.Data.isUnit` 分支删掉 ⇒ 本条红（会回到 0.65 s）。
                     //   （断言放在这一节末尾 —— `probe` 那一段还活着。）
                     // 🔴 2026-09-18 改口径：阵亡消散**照原版分档**（小兵 0.2 / 督军 0.5），
                     //    不再是「从出战 clip 对称借来的 0.5333」（那条老断言把错口径钉死了 —— 见下）
@@ -14469,7 +15193,7 @@ public static class BattleScene
                     // 🆕 2026-10-19（战斗线 B1 · 偏差 5）：**战术卡不走这段飞行** —— 原版那一支是
                     //   `NonTargetSpellPlayed` + `DissolveWholeCard`（`_ResolvePlayCardFromHand…:633,638`），
                     //   没有 `MinionPlayedIntoField` ⇒ 序列应当「立即完成」。
-                    //   🧨 把 `DeploySequence.Play` 开头那条 `!card.Data.isUnit` 分支删掉 ⇒ 本条红（回到 0.55 s）。
+                    //   🧨 把 `DeploySequence.Play` 开头那条 `!card.Data.isUnit` 分支删掉 ⇒ 本条红（回到 0.65 s）。
                     {
                         var tacticData = CardData.Placeholder(1); tacticData.isUnit = false;
                         var tacticProbe = CardView.Create(driver.transform, tacticData, "ProbeTactic");
@@ -14481,8 +15205,8 @@ public static class BattleScene
                             Check(Mathf.Abs(dTactic - DeploySequence.InlineCompleteEpsilon) < 1e-4f,
                                   $"★ B1·偏差5：**战术卡不飞向格位** —— 序列长度 {dTactic:F4}s"
                                 + $"（= 立即完成 {DeploySequence.InlineCompleteEpsilon:F3}s），"
-                                + $"不是落位三段 {DeploySequence.TotalTime:F2}s");
-                            // ★ 灭自证：同一段代码对**单位卡**就是三段（上面那条），两个状态分得开。
+                                + $"不是落位四段 {DeploySequence.TotalTime:F2}s");
+                            // ★ 灭自证：同一段代码对**单位卡**就是四段（上面那条），两个状态分得开。
                             float dUnit = Dur(DeploySequence.Play(probe, Vector3.zero, Vector3.zero, 1f));
                             Check(Mathf.Abs(dUnit - dTactic) > 0.4f,
                                   $"★ B1·偏差5（灭自证）：单位卡 {dUnit:F2}s ≠ 战术卡 {dTactic:F3}s"
@@ -16361,24 +17085,59 @@ public static class BattleScene
                 //   ⛔ **世界档的件不受影响**（quad 支照旧 `WorldW/H × 108`，读数逐个位不变）。
                 {
                     var dOff = drv.HudExtraDrawnPx("OffensiveButton");
+                    // 🔴🔴 **2026-10-19（`T09` A2）就地订正**：相机复位钮的 `sizeDelta` 已按原版改回
+                    //   **节点 rect 64.443×61.846**（A2 要照抄 `m_RaycastPadding`，pad 的基准是节点 rect
+                    //   —— 判据 → `T09` 计划 §1·6 / R2）。⇒ `SizePx` 读回的是**节点 rect**、不再等于画出来的 61.846²；
+                    //   要量「画出来多大」得**按 `Image` 自己的内接算法现算**（⛔ 别拿 `sizeDelta` 当画面尺寸）。
+                    // 🔴 **2026-10-20（W57 · `T09-FIX3` · P2-6）**：进攻卡钮**同一档**改了（A2 漏做、本波补
+                    //   `SetNodeRect(109.008003…, 106.943000…, preserveAspect: true)`）⇒ `HudExtraDrawnPx`
+                    //   现在读回的是**节点 rect 109.008×106.943**；「画出来多大」同样要按 `Image` 现算
+                    //   （仍是内接的 109.008×105.601）。**两个数分别断**，⛔ 别混。
+                    var rtOff = HudCanvas.RootRect != null ? HudCanvas.RootRect.Find("OffensiveButton") as RectTransform : null;
+                    var rtCam = HudCanvas.RootRect != null ? HudCanvas.RootRect.Find("CenterCameraButton") as RectTransform : null;
+                    var sxOff = HudCanvas.SizePx(rtOff);      // uGUI 支：`sizeDelta` 就是**真设计 px**
+                    var sxCam = HudCanvas.SizePx(rtCam);
+                    var dCam = drv.HudExtraDrawnPx("CenterCameraButton");   // = 节点 rect（见上）
+                    // `Image` 的内接算法（`preserveAspect=1` ⇒ 两轴同系数 `min(rect/tex)`）—— 现算「画出来多大」。
+                    var imgCamA2 = rtCam != null ? rtCam.GetComponent<Image>() : null;
+                    Vector2 drawnCamA2 = sxCam;
+                    if (imgCamA2 != null && imgCamA2.preserveAspect && imgCamA2.sprite != null)
+                    {
+                        var sprA2 = imgCamA2.sprite.rect.size;
+                        if (sprA2.x > 0f && sprA2.y > 0f)
+                            drawnCamA2 = sprA2 * Mathf.Min(sxCam.x / sprA2.x, sxCam.y / sprA2.y);
+                    }
+                    var imgOffA2 = rtOff != null ? rtOff.GetComponent<Image>() : null;
+                    Vector2 drawnOffA2 = sxOff;
+                    if (imgOffA2 != null && imgOffA2.preserveAspect && imgOffA2.sprite != null)
+                    {
+                        var sprOffA2 = imgOffA2.sprite.rect.size;
+                        if (sprOffA2.x > 0f && sprOffA2.y > 0f)
+                            drawnOffA2 = sprOffA2 * Mathf.Min(sxOff.x / sprOffA2.x, sxOff.y / sprOffA2.y);
+                    }
                     // ⚠️ 下面那个 0.05 的容差**同时就是量纲哨兵**：按 0.75 倍读出来偏 27.25 px ⇒ 必红。
-                    Check(Mathf.Abs(dOff.x - 109.008f) < 0.05f && Mathf.Abs(dOff.y - 105.601f) < 0.05f,
+                    Check(Mathf.Abs(drawnOffA2.x - 109.008f) < 0.05f && Mathf.Abs(drawnOffA2.y - 105.601f) < 0.05f,
                           $"★ A1302：进攻卡钮**画出来的** = 原版的 **109.008×105.601**（= 内接进 109.008×106.943，**宽受限**）"
-                        + $" —— 实得 {dOff.x:F3}×{dOff.y:F3}"
+                        + $" —— 实得 {drawnOffA2.x:F3}×{drawnOffA2.y:F3}（节点 rect {sxOff.x:F3}×{sxOff.y:F3}）"
                         + "｜🧨 改回「按高摆」（把传进来的 h=106.943 直接当画面高）⇒ 变成 110.394×106.943，本条红");
-                    var dCam = drv.HudExtraDrawnPx("CenterCameraButton");
-                    Check(Mathf.Abs(dCam.x - 61.846f) < 0.05f && Mathf.Abs(dCam.y - 61.846f) < 0.05f,
-                          $"★ A1302 **判别式**（另一侧）：相机复位钮是**方图进方框** ⇒ **高受限**、结果**不是「一律缩」**"
-                        + $"（原版 61.846²）—— 实得 {dCam.x:F3}×{dCam.y:F3}");
+                    // 🔴 **2026-10-20（`T09-FIX3` · P2-6）：节点 rect 本身也要对**（P2-6 修的正是这一格）。
+                    Check(Mathf.Abs(dOff.x - 109.00800323486328f) < 0.01f
+                       && Mathf.Abs(dOff.y - 106.94300079345703f) < 0.01f,
+                          $"★ A1302/P2-6：进攻卡钮的**节点 rect** = 原版 `RectTransform_3161.m_SizeDelta` "
+                        + $"**109.008×106.943**（实得 {dOff.x:F3}×{dOff.y:F3}）"
+                        + "｜🧨 漏 `SetNodeRect`（留内接高 105.601）⇒ uGUI 命中区比原版矮 1.343 px ⇒ 本条红");
+                    Check(Mathf.Abs(drawnCamA2.x - 61.846f) < 0.05f && Mathf.Abs(drawnCamA2.y - 61.846f) < 0.05f
+                       && Mathf.Abs(dCam.x - 64.4429931640625f) < 0.01f
+                       && Mathf.Abs(dCam.y - 61.84600830078125f) < 0.01f,
+                          $"★ A1302 **判别式**（另一侧）：相机复位钮是**方图进方框** ⇒ **高受限**、画出来 = 61.846²"
+                        + $"（原版 `m_PreserveAspect = 1`；节点 rect 64.443×61.846）—— 实得节点 {dCam.x:F3}×{dCam.y:F3} ·"
+                        + $" 内接后 {drawnCamA2.x:F3}×{drawnCamA2.y:F3}"
+                        + "｜🧨 改坏法：把 `preserveAspect` 关掉（按 rect 拉伸）⇒ 内接后变成 64.443×61.846 ⇒ 红");
                     // 🔴 **灭自证**（2026-10-16 `EW11`）：上面那两条读的是 `BattleDriver` 的自检口，
                     //    这两条**绕过它**、直接从画布上的 `RectTransform` 再量一遍 —— 两条**独立读法**
                     //    必须给同一个数。⇒ ⛔ 「把自检口与画面一起改回 0.75 倍那把尺」不会全绿。
                     //    ⚠️ 这两件都是**根画布的直接子件**（`HudAbs` → `HudImageTex`：`root` 是裸
                     //    `Transform` 的 `hudRoot` ⇒ 落在 `HudCanvas.Ensure(cam)` 那个根画布下）。
-                    var rtOff = HudCanvas.RootRect != null ? HudCanvas.RootRect.Find("OffensiveButton") as RectTransform : null;
-                    var rtCam = HudCanvas.RootRect != null ? HudCanvas.RootRect.Find("CenterCameraButton") as RectTransform : null;
-                    var sxOff = HudCanvas.SizePx(rtOff);      // uGUI 支：`sizeDelta` 就是**真设计 px**
-                    var sxCam = HudCanvas.SizePx(rtCam);
                     Check(rtOff != null && Mathf.Abs(sxOff.x - dOff.x) < 1e-3f && Mathf.Abs(sxOff.y - dOff.y) < 1e-3f,
                           $"★ A1302（**灭自证**）：同一个件用**两条独立读法**量出来的尺寸必须一致 —— "
                         + $"`HudExtraDrawnPx`（= `HudPiece.SizePx`）={dOff.x:F3}×{dOff.y:F3} vs "
@@ -17327,6 +18086,179 @@ public static class BattleScene
                               && !viaFallback.Contains("Battle/"),
                               $"★ 键**不在表里** ⇒ 走**兜底句**（「{viaFallback}」）：⛔ 既不印键名、也不留 `{{0}}`"
                             + "（`Battle/Tips/*` 本地无 value ⇒ 今天实际走的就是这一档）");
+
+                        // ============================================================
+                        //  🆕 2026-10-20（W57 · 战斗线 `T09` 步骤 A3-a）：错误横幅的「关闭」输入
+                        //
+                        //  🔴 **A3-a 的任务书假设「关闭行为在 `BattleDriver` 里，改成 `Button` 最简单」——
+                        //  现核【不成立】**。原版这一棵**没有任何点击件**：
+                        //    · 模板 `Error Mensage_Ref`（GO 632）= `RectTransform` + `CanvasGroup` + `UIErrorMessageItem`；
+                        //      `Background`（GO 477）= RT + CanvasRenderer + Image + HorizontalLayoutGroup + ContentSizeFitter
+                        //      ⇒ **没有 Button / EventTrigger / Pointer 接口**；
+                        //    · `Background` 的 Image（`MB 5101`）与文字的 TMP（`MB 3740`）`m_RaycastTarget` **都是 0**；
+                        //    · `UIErrorMessageItem` 的方法表只有 `Show / LayoutRefresh / Toggle(bool)`（`Toggle` = `SetActive(参数)`）；
+                        //    · 运行时 dump（`runtime_ui_dump_Battle_Arena_1.tsv:1172-1191`）整棵树只有 `RT/IMG/TXT`。
+                        //  ⇒ 唯一的「关」= 时间轴 `OnComplete → SetActive(false)`（我们的等价物 = `Advance`，
+                        //     由 `BattleDriver.AdvanceTimeline` 泵推；`_errorBanner` 只有 Create / ShowError / Advance 三个调用点）。
+                        //  ⇒ 给它补「点一下关掉」= **原版没有的新行为**（⛔ 不做；判据 → `ErrorMessageBanner.cs` 文件头 ⑫）。
+                        //  本组钉的就是这条事实；⛔ 它**不是**「uGUI 点击关闭」，因为那条在原版不存在。
+                        // ============================================================
+                        Debug.Log(P + "   --- W57/T09-A3a：错误横幅的关闭输入（原版无点击）---");
+                        {
+                            // ① 前提：真的是 uGUI 件、父链就是 `PopUps`/1 那块子画布、而且画布有射线面。
+                            Check(errBan.IsUgui && cvErr != null && errBan.transform.parent == cvErr.transform
+                                  && cvErr.GetComponent<GraphicRaycaster>() != null,
+                                  "★ T09-A3a①：横幅是 **uGUI 件**、父链 = `UI Error Message Controller Canvas`、"
+                                + "那块画布有 `GraphicRaycaster`"
+                                + $"（IsUgui={errBan.IsUgui} · 父={(errBan.transform.parent != null ? errBan.transform.parent.name : "<null>")}"
+                                + $" · 射线器={(cvErr != null && cvErr.GetComponent<GraphicRaycaster>() != null)})"
+                                + "｜🧨 `BuildErrorBanner` 退回世界档 / 子画布没建 ⇒ 红");
+
+                            // ② 原版没有点击件：两层都不是射线靶、整棵层级没有点击处理器。
+                            errBan.HideAll();
+                            int idxA3 = errBan.CurrentIndex;
+                            errBan.ShowError("T09-A3a 点击不关闭");
+                            var tmplBgA3 = tmplRef != null ? tmplRef.Find("Background") : null;
+                            var tmplBgImgA3 = tmplBgA3 != null ? tmplBgA3.GetComponent<Image>() : null;
+                            var tmplTxtA3 = tmplRef != null ? tmplRef.Find("ErrorMesage Text") : null;
+                            bool tmplTextRtA3 = false;
+                            if (tmplTxtA3 != null)
+                            {
+                                var tgA3 = tmplTxtA3.GetComponentsInChildren<Graphic>(true);
+                                for (int k = 0; k < tgA3.Length; k++)
+                                    if (tgA3[k] != null && tgA3[k].raycastTarget) tmplTextRtA3 = true;
+                            }
+                            Check(tmplBgImgA3 != null && !tmplBgImgA3.raycastTarget && !tmplTextRtA3,
+                                  "★ T09-A3a②：模板的**底条 `Image`** 与**文字 TMP** 都不是射线靶"
+                                + "（原版 `MB 5101` / `MB 3740` 的 `m_RaycastTarget = 0`）"
+                                + $"（Image.raycastTarget={(tmplBgImgA3 != null ? tmplBgImgA3.raycastTarget.ToString() : "<无>")}"
+                                + $" · 文字={tmplTextRtA3}）"
+                                + "｜🧨 把它置 true（= 挂 `BattleHudButton` 的第一步）⇒ 本条 + ③ + ④ 一起红");
+                            Check(!errBan.BarRaycastTargetOf(idxA3) && !errBan.TextAnyRaycastTargetOf(idxA3),
+                                  "★ T09-A3a②：**亮着的那一条**同样不是射线靶（底条 / 文字）"
+                                + $"（底条={errBan.BarRaycastTargetOf(idxA3)} · 文字={errBan.TextAnyRaycastTargetOf(idxA3)}）");
+                            Check(errBan.ClickHandlerCountInHierarchy() == 0,
+                                  $"★ T09-A3a②：横幅层级里**没有任何点击处理器**（实得 {errBan.ClickHandlerCountInHierarchy()}）"
+                                + " —— 原版这一棵一个都没有（`UIErrorMessageItem` 只有 Show / LayoutRefresh / Toggle(bool)）"
+                                + "｜🧨 给横幅挂 `BattleHudButton` ⇒ 红");
+
+                            // ③ 几何：在**那条的中心**打射线 ⇒ 一条都不许命中横幅（点击穿过去）。
+                            BattleEventSystem.SyncRaycasters();      // 编辑模式补偿（Play 模式是空操作）
+                            Canvas.ForceUpdateCanvases();            // `Graphic.depth == -1` 会被 GraphicRaycaster 跳过
+                            var esA3 = EventSystem.current != null ? EventSystem.current : BattleEventSystem.Instance;
+                            var canvasA3 = HudCanvas.Root;
+                            var camA3 = canvasA3 != null ? canvasA3.worldCamera : null;
+                            var itemA3 = (containT != null && containT.childCount > idxA3 + 1)
+                                         ? containT.GetChild(idxA3 + 1) as RectTransform : null;
+                            bool geomA3 = esA3 != null && camA3 != null && itemA3 != null;
+                            Check(geomA3,
+                                  "★ T09-A3a③（前提）：`EventSystem` / 相机 / 那一条的 `RectTransform` 都取得到"
+                                + " —— 取不到就算不出屏幕点（⛔ 不写死 960/540）");
+                            if (geomA3)
+                            {
+                                Vector3 worldC3 = itemA3.TransformPoint(itemA3.rect.center);
+                                Vector2 screenC3 = RectTransformUtility.WorldToScreenPoint(camA3, worldC3);
+                                var pedA3 = new PointerEventData(esA3) { position = screenC3 };
+                                var hitsA3 = new List<RaycastResult>();
+                                esA3.RaycastAll(pedA3, hitsA3);
+                                bool hitBannerA3 = false;
+                                for (int hi = 0; hi < hitsA3.Count; hi++)
+                                {
+                                    var hgA3 = hitsA3[hi].gameObject;
+                                    if (hgA3 != null && hgA3.transform.IsChildOf(errBan.transform)) { hitBannerA3 = true; break; }
+                                }
+                                Check(!hitBannerA3,
+                                      "★ T09-A3a③：在**横幅那条的中心**打射线 ⇒ **一条都不命中横幅**"
+                                    + $"（screen=({screenC3.x:F1},{screenC3.y:F1}) · 命中 {hitsA3.Count} 条 · 首中="
+                                    + $"{(hitsA3.Count > 0 && hitsA3[0].gameObject != null ? hitsA3[0].gameObject.name : "<无>")}）"
+                                    + " —— 原版两层 `m_RaycastTarget = 0`（点击穿过去）"
+                                    + "｜🧨 把底条或文字置成射线靶 ⇒ 红（与 ② 配对：无界/恒命中会让别的断言绿、本条红）");
+
+                                // ④ 灭自证：uGUI 点一下（+ 按下/松开）⇒ 不关闭、不快进、不新弹。
+                                int visA3 = errBan.VisibleCount, showA3 = errBan.ShowCount;
+                                float tA3 = errBan.TimeOf(idxA3);
+                                ExecuteEvents.Execute<IPointerClickHandler>(itemA3.gameObject, pedA3, ExecuteEvents.pointerClickHandler);
+                                ExecuteEvents.Execute<IPointerDownHandler>(itemA3.gameObject, pedA3, ExecuteEvents.pointerDownHandler);
+                                ExecuteEvents.Execute<IPointerUpHandler>(itemA3.gameObject, pedA3, ExecuteEvents.pointerUpHandler);
+                                Check(errBan.ActiveOf(idxA3) && errBan.VisibleCount == visA3 && errBan.ShowCount == showA3
+                                      && Mathf.Abs(errBan.TimeOf(idxA3) - tA3) < 1e-4f,
+                                      "★ T09-A3a④（灭自证）：uGUI **点一下横幅** ⇒ 不关闭、不快进、不新弹"
+                                    + $"（亮着 {errBan.VisibleCount} / 弹过 {errBan.ShowCount} / 那条 t {tA3:F4}→{errBan.TimeOf(idxA3):F4}）"
+                                    + " —— 原版点了就是什么都不发生（两层 `m_RaycastTarget = 0`）");
+
+                                // ⑤ 关闭只走时间轴，且**恰好一次**：2.24 s 还亮着；+0.02 s 关；继续推不会又关/又弹。
+                                errBan.Advance(ErrorMessageBanner.Lifetime - 0.01f);
+                                Check(errBan.ActiveOf(idxA3) && errBan.VisibleCount == 1,
+                                      $"★ T09-A3a⑤：{ErrorMessageBanner.Lifetime - 0.01f:F2} s（差 0.01 s 到终点）**还亮着**"
+                                    + " —— 提前关就红（关闭只由 `Advance` 的时刻表说了算）");
+                                errBan.Advance(0.02f);
+                                Check(!errBan.ActiveOf(idxA3) && errBan.VisibleCount == 0
+                                      && itemA3.gameObject != null && !itemA3.gameObject.activeSelf,
+                                      "★ T09-A3a⑤：再过 0.02 s（累计 ≥ 2.25 s）⇒ **关掉**（记账位与**节点**一起关）"
+                                    + "（原版 `OnComplete → SetActive(false)`）"
+                                    + $"（亮着 {errBan.VisibleCount} / 那条 {(errBan.ActiveOf(idxA3) ? "还亮" : "关了")}"
+                                    + $" / 节点 activeSelf={itemA3.gameObject.activeSelf}）");
+                                int showA3b = errBan.ShowCount;
+                                errBan.Advance(1f);
+                                Check(!errBan.ActiveOf(idxA3) && errBan.VisibleCount == 0 && errBan.ShowCount == showA3b,
+                                      "★ T09-A3a⑤（灭自证）：关掉之后继续推 ⇒ **不会关了又关 / 又弹一次**"
+                                    + $"（亮着 {errBan.VisibleCount} / 弹过 {errBan.ShowCount}，期望 0 / {showA3b}）"
+                                    + " —— 「点一次只关一次」的忠实替代：这里根本没有「点」，关的是时间轴那一次");
+                            }
+
+                            // ⑥ 源级（结构）：生产代码里没有任何「点击 ⇒ 关」的路径。
+                            //    · `BattleDriver.cs`：`_errorBanner` 的**代码行**里不许出现命中 / 沿 / 关闭调用；
+                            //    · `ErrorMessageBanner.cs`：不许出现点击接线（`BattleHudButton` / `ExecuteEvents` /
+                            //      `OnPointerClick` / `EventTrigger` / `Button`）。
+                            {
+                                string srcA3a = System.IO.Path.Combine(Application.dataPath,
+                                                                       "CardPresentation/Battle/BattleDriver.cs");
+                                string srcA3b = System.IO.Path.Combine(Application.dataPath,
+                                                                       "CardPresentation/Battle/ErrorMessageBanner.cs");
+                                if (!System.IO.File.Exists(srcA3a) || !System.IO.File.Exists(srcA3b))
+                                    Check(false, "★ T09-A3a⑥：读得到 `BattleDriver.cs` / `ErrorMessageBanner.cs`"
+                                               + "（读不到时下面两条源级断言**等于没验**，所以这里当场红）");
+                                else
+                                {
+                                    var badA3a = new List<string>();
+                                    var linesA3a = System.IO.File.ReadAllLines(srcA3a);
+                                    for (int i = 0; i < linesA3a.Length; i++)
+                                    {
+                                        string L = linesA3a[i].TrimStart();
+                                        if (L.StartsWith("//")) continue;                      // 注释不算（含 `///`）
+                                        if (L.IndexOf("_errorBanner", System.StringComparison.Ordinal) < 0) continue;
+                                        if (L.IndexOf("ClickedThisFrame", System.StringComparison.Ordinal) >= 0
+                                            || L.IndexOf("ReleasedThisFrame", System.StringComparison.Ordinal) >= 0
+                                            || L.IndexOf("HideAll", System.StringComparison.Ordinal) >= 0
+                                            || L.IndexOf(".Contains", System.StringComparison.Ordinal) >= 0
+                                            || L.IndexOf("Hit", System.StringComparison.Ordinal) >= 0)
+                                            badA3a.Add("行" + (i + 1) + ":" + L.Substring(0, Mathf.Min(56, L.Length)));
+                                    }
+                                    Check(badA3a.Count == 0,
+                                          "★ T09-A3a⑥：`BattleDriver.cs` 里 `_errorBanner` **没有任何命中 / 沿 / 关闭**的代码行"
+                                        + $"（违规 {badA3a.Count} 处：{string.Join(" | ", badA3a.ToArray())}）"
+                                        + " —— 关闭只由 `AdvanceTimeline` 的 `Advance(dt)` 推"
+                                        + "｜🧨 给它补一条「点了就关」⇒ 红");
+                                    var badA3b = new List<string>();
+                                    var linesA3b = System.IO.File.ReadAllLines(srcA3b);
+                                    for (int i = 0; i < linesA3b.Length; i++)
+                                    {
+                                        string L = linesA3b[i].TrimStart();
+                                        if (L.StartsWith("//")) continue;
+                                        if (L.IndexOf("BattleHudButton", System.StringComparison.Ordinal) >= 0
+                                            || L.IndexOf("ExecuteEvents", System.StringComparison.Ordinal) >= 0
+                                            || L.IndexOf("OnPointerClick", System.StringComparison.Ordinal) >= 0
+                                            || L.IndexOf("EventTrigger", System.StringComparison.Ordinal) >= 0
+                                            || L.IndexOf("Button", System.StringComparison.Ordinal) >= 0)
+                                            badA3b.Add("行" + (i + 1) + ":" + L.Substring(0, Mathf.Min(56, L.Length)));
+                                    }
+                                    Check(badA3b.Count == 0,
+                                          "★ T09-A3a⑥（灭自证）：`ErrorMessageBanner.cs` 里**没有任何点击接线**"
+                                        + $"（违规 {badA3b.Count} 处：{string.Join(" | ", badA3b.ToArray())}）"
+                                        + " —— 原版这一棵没有 Pointer 接口（判据 → 文件头 ⑫）");
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -18065,7 +18997,14 @@ public static class BattleScene
                     if (drv.InMulligan) drv.SimulateMulliganDone();
                     Check(drv.Choose != null && drv.Choose.Visible,
                           "★ A1664（备份路径）：开关置 `true` ⇒ 「选择防御卡」面板**照旧弹**（代码一行没删）");
-                    if (drv.Choose != null && drv.Choose.Visible) drv.SimulateChooseDone();
+                    // 🔴 **2026-10-20（`W57` · 战斗线 `T09`-CONFIRM）：确认钮开局 `interactable = false`、
+                    //   选中一张后才启用** ⇒ 这里必须先真选一张（⛔ 直接点「继续」会被面板吞掉、
+                    //   面板不关、后面那条「换进手牌」必红）。判据 → `W57` · `T09-CONFIRM` 报告。
+                    if (drv.Choose != null && drv.Choose.Visible)
+                    {
+                        drv.SimulateChoosePick(0);
+                        drv.SimulateChooseDone();
+                    }
                     int defInHand3 = 0;
                     foreach (var h in drv.Ctx.Players[drv.MyIndex].Hand)
                         if (h != null && h.Card != null && h.Card.Type == "defence") defInHand3++;
@@ -18118,6 +19057,11 @@ public static class BattleScene
                         int defInHand3 = 0;
                         foreach (var h in drv.Ctx.Players[drv.MyIndex].Hand)
                             if (h != null && h.Card != null && h.Card.Type == "defence") defInHand3++;
+                        // 🔴 **2026-10-20（`W57` · 战斗线 `T09`-CONFIRM）：原来这里只调 `SimulateChooseDone()`，
+                        //   注释写「选下标 0」却**根本没选** —— 确认钮现在开局 `interactable = false`、
+                        //   选中后才启用 ⇒ 不先选一张，这一下会被面板吞掉（面板不关、换牌不发生）。
+                        //   ⛔ 补的是**真选**（走面板命中判定），不是直接写选中状态。
+                        drv.SimulateChoosePick(0);
                         drv.SimulateChooseDone();          // ⚠️ 在**还压着等级**时走完（选下标 0 = 闸过那份的第 0 张）
                         var ownedAt3 = drv.DefensiveChoicesOwnedAtForTest(myF3, 3);
                         string want3 = (ownedAt3.Count > 0 && ownedAt3[0] != null) ? ownedAt3[0].Name : "<闸过那份是空的>";
@@ -21057,11 +22001,19 @@ public static class BattleScene
                 + $"（原版 `BattleHud.resetCameraZoomButton`(+0xa8) / 节点 `CenterCameraButton` / sprite `40k_UI_bt_center_camera`；"
                 + $" 实得 `{driver.CameraResetButtonArt}`）");
             var bd423 = driver.CameraResetButtonDrawnPx;
-            Check(Mathf.Abs(bd423.x - 61.846f) < 0.05f && Mathf.Abs(bd423.y - 61.846f) < 0.05f
-               && bd423.x < 64.4429f,
-                  $"★ A423：画出来的是**内接**进原版那个 rect 的 61.846×61.846（原版 `m_PreserveAspect = 1`）——"
-                + $" 实画 {bd423.x:F3}×{bd423.y:F3}（rect = 64.443×61.846）"
-                + " —— 丢掉 PA 那一档（按 rect 拉伸成 64.443×61.846）这一条就红");
+            // 🔴 **2026-10-19（`T09` A2）就地订正**：`sizeDelta` 已按原版改回**节点 rect 64.443×61.846**
+            //   （A2 要照抄 `m_RaycastPadding`，基准是节点 rect ⇒ 见 `T09` 计划 §1·6 / R2）。
+            //   `CameraResetButtonDrawnPx` 读的是 `sizeDelta` ⇒ 现在回的是**节点 rect**；
+            //   「画出来多大」由 `Image.preserveAspect` 决定（原版 `m_PreserveAspect = 1` ⇒ 内接 61.846²）。
+            var img423 = driver.HudButtonPieceForTest("cameraReset") != null
+                       ? driver.HudButtonPieceForTest("cameraReset").gameObject.GetComponent<Image>() : null;
+            Check(Mathf.Abs(bd423.x - 64.4429931640625f) < 0.01f
+               && Mathf.Abs(bd423.y - 61.84600830078125f) < 0.01f
+               && img423 != null && img423.preserveAspect,
+                  $"★ A423：那颗钮的 `sizeDelta` = **原版节点 rect 64.443×61.846**、且 `preserveAspect = true`"
+                + $"（实得 {bd423.x:F4}×{bd423.y:F4} · PA={(img423 != null ? img423.preserveAspect.ToString() : "<无 Image>")}）"
+                + " —— 原版 `m_PreserveAspect = 1` ⇒ 画出来是**内接**的 61.846×61.846（由 `Image` 自己算）"
+                + "；🧨 改坏法：把 `preserveAspect` 关掉 ⇒ 按 64.443×61.846 拉伸（横向 +4.2%）");
 
             // 几何：px 原值（判据 = `RectTransform_3487` 的 `anchoredPosition (0.150757, −59.097)`
             //   + 父 `Left Anchor` 那宽 100 的整列 ⇒ 中心在 1920×1080 画布上的 **(50.1508, 599.097)** 处
@@ -21384,19 +22336,25 @@ public static class BattleScene
                             {
                                 // 探针取**手柄当前的位置**（一定是命中区里的一点）；值可能被这一按挪动，
                                 // 收尾用 `SetValue(..., fire:false)` 放回去（同 14c 那组的做法）。
+                                // 🔴 **2026-10-20（W57 · `T09` A3-b2 收口）就地订正（铁律 5）**：本段原来写
+                                //   「**滑块**接住了这一按」—— A3-b2 之后 `SettingsPanel.PointerFrame` 是
+                                //   **整扇面板的模态接管**（面板开着 ⇒ 任何按下都返回 true；滑块自己的输入已归
+                                //   `WfSlider` 的 uGUI 事件），不再按「点在不在滑块上」分档。
+                                //   `_pressCaptured` 要挡的那件事**不变**：面板开着时按下、松手不许算成一次点击。
                                 float mv0 = ms4.Value;
                                 BattleDriver.PointerWorldForTest = ms4.HandleWorldPos;
                                 BattleDriver.PointerHeldForTest = true;
                                 wb4.PollInputEdgesForTest();
-                                wb4.TickSettingsInputForTest();            // 按下：滑块接住这一按
+                                wb4.TickSettingsInputForTest();            // 按下：被面板的模态接管
                                 Check(wb4.PressCapturedForTest,
-                                      "★ A462：（前提）滑块接住了这一次按住（`SettingsPanel.PointerFrame` 返回 true）");
+                                      "★ A462：（前提）面板开着 ⇒ 这一次按住被**模态接管**（`PressCapturedForTest`）"
+                                    + " —— `T09` A3-b2 起 `PointerFrame` 对**任何**按下都返回 true，不再只认滑块");
                                 BattleDriver.PointerHeldForTest = false;
                                 wb4.PollInputEdgesForTest();
                                 wb4.TickSettingsInputForTest();            // 松手
                                 Check(!wb4.ReleasedThisFrameForTest(),
-                                      "★ A462：被滑块接住的这一次按住 —— **松手那一帧不算点击**"
-                                    + "（改坏法：删掉 `_pressCaptured` ⇒ 拖完音量条会在松手那一下顺带点掉别的钮）");
+                                      "★ A462：被面板接管的这一次按住 —— **松手那一帧不算点击**"
+                                    + "（改坏法：删掉 `_pressCaptured` ⇒ 关窗途中/拖完音量条会在松手那一下顺带点掉别的钮）");
                                 ms4.SetValue(mv0, false);                  // 还原（不 fire）
                             }
                             sp4.Hide();
@@ -21416,26 +22374,47 @@ public static class BattleScene
                             wb4.TickSettingsInputForTest();
                             Check(!sp4.Visible,
                                   "★ A462：设置钮**按下那一帧不弹面板**"
-                                + "（原版 `BattleHud.settingsButton` = `EverguildButton`，`BattleHud__Awake.c:48-55` 绑 `m_OnClick`）");
+                                + "（原版 `BattleHud.settingsButton` = `EverguildButton`，`BattleHud__Awake.c:48-55` 绑 `m_OnClick`）"
+                                + " —— 🔴 2026-10-19（`T09` A2）起那颗钮走 uGUI：按下帧本来就没有任何派发");
                             BattleDriver.PointerHeldForTest = false;
                             wb4.PollInputEdgesForTest();
-                            wb4.TickSettingsInputForTest();
-                            Check(sp4.Visible, "★ A462：……**松手那一帧才弹**（改坏法：换回 `ClickedThisFrame()` ⇒ 前一条红）");
+                            // 🔴 **2026-10-19（`T09` A2）**：设置钮已走 uGUI ⇒ 松手那一帧的「点击」
+                            //   由 `BattleHudButton` 派发（与 `EventSystem` 的 `IPointerClickHandler` 同一跳）；
+                            //   手搓的 `TickSettingsInputForTest` 现在**只剩面板开着那条模态支**、关着恒 false。
+                            wb4.ClickHudButtonForTest("settings");
+                            Check(sp4.Visible,
+                                  "★ A462：……**松手那一帧才弹**（uGUI `IPointerClickHandler` = 抬起；"
+                                + "改坏法：把 `ClickSettingsHud` 挪到 `OnPointerDown` / 手搓回按下沿 ⇒ 前一条红）");
 
                             // 面板里那颗 `Auto Zoom`（原版 `EverguildToggle` ⇒ `IPointerClickHandler`）
                             Check(sp4.AutoZoomRowBuilt, "★ A462：（前提）`Auto Zoom` 那一行建出来了（不然下面两条等于没验）");
                             bool az0 = AutoZoom.Enabled;
+                            sp4.ResetClickCountForTest("Auto Zoom Toggle");
+                            int az4a = sp4.ClickCountForTest("Auto Zoom Toggle");
                             BattleDriver.PointerWorldForTest = sp4.AutoZoomBoxWorldPos;
                             BattleDriver.PointerHeldForTest = true;
                             wb4.PollInputEdgesForTest();
                             wb4.TickSettingsInputForTest();
-                            Check(AutoZoom.Enabled == az0,
-                                  $"★ A462：面板里那颗 `Auto Zoom` —— **按下那一帧不翻**（实得 {AutoZoom.Enabled}，期望还是 {az0}）");
+                            Check(AutoZoom.Enabled == az0 && sp4.ClickCountForTest("Auto Zoom Toggle") == az4a,
+                                  $"★ A462：面板里那颗 `Auto Zoom` —— **按下那一帧不翻**（实得 {AutoZoom.Enabled}，期望还是 {az0}；"
+                                + $"uGUI 计数仍 {az4a}）");
                             BattleDriver.PointerHeldForTest = false;
                             wb4.PollInputEdgesForTest();
                             wb4.TickSettingsInputForTest();
-                            Check(AutoZoom.Enabled != az0,
-                                  $"★ A462：……**松手那一帧才翻**（实得 {AutoZoom.Enabled}）—— 与 Resign/Difficulty/Close 同一条链");
+                            // 🔴 **2026-10-20（W57 · `T09` A3-b2 收口）就地订正（铁律 5）**：本行原来断
+                            //   「**松手那一帧才翻**」—— 那走的是 `SettingsClickAt` 手搓链；A3-b2 之后它在
+                            //   **产线上不可达**（按下被 `PointerFrame` 的模态接管吃掉 ⇒ 松手沿恒不成立）。
+                            //   现在拆成两条（判别力更强，且各指一种改坏法）：
+                            //   ① 手搓的松手那一帧**不翻**（挡住「把那颗钮的动作接回手搓链」）；
+                            //   ② uGUI 的**点击那一跳**才翻（`IPointerClickHandler` = 抬起，与真鼠标同一条链）。
+                            Check(AutoZoom.Enabled == az0 && sp4.ClickCountForTest("Auto Zoom Toggle") == az4a,
+                                  $"★ A462：……**松手那一帧手搓链也不翻**（实得 {AutoZoom.Enabled}；"
+                                + "`SettingsClickAt` 在 `T09` A3-b2 之后产线上不可达）");
+                            sp4.ClickForTest("Auto Zoom Toggle");        // = EventSystem 在抬起那帧派发的 IPointerClick
+                            Check(AutoZoom.Enabled != az0 && sp4.ClickCountForTest("Auto Zoom Toggle") == az4a + 1,
+                                  $"★ A462：……**uGUI 的点击那一跳才翻**（实得 {AutoZoom.Enabled}；"
+                                + $"计数 {az4a} → {sp4.ClickCountForTest("Auto Zoom Toggle")}）"
+                                + " —— 与 Resign/Difficulty/Close 同一条 `BattleHudButton` 链");
                             AutoZoom.RestoreForTest(azWas4, azChosen4);         // 内存态放回去（本段全程 PersistOverride）
                             sp4.Hide();
                         }
@@ -21460,9 +22439,13 @@ public static class BattleScene
                                   "★ A462：日志钮**按下那一帧不开**（原版 `ShowCemeteryBtn` 的 `m_OnClick → ShowCemeteryLogBtn`）");
                             BattleDriver.PointerHeldForTest = false;
                             wb4.PollInputEdgesForTest();
-                            wb4.TickLogInputForTest();
+                            // 🔴 **2026-10-19（`T09` A2）**：日志（墓地）钮已走 uGUI ⇒ 松手那一帧由
+                            //   `BattleHudButton` 派发（与 `EventSystem` 的 `IPointerClickHandler` 同一跳）；
+                            //   手搓的 `TickLogInputForTest` 现在只剩「面板开着」那条模态支。
+                            wb4.ClickHudButtonForTest("cemetery");
                             Check(log4.Visible,
-                                  "★ A462：……**松手那一帧才开**（改坏法：换回 `ClickedThisFrame()` ⇒ 前一条红）");
+                                  "★ A462：……**松手那一帧才开**（uGUI `IPointerClickHandler` = 抬起；"
+                                + "改坏法：把 `ClickCemeteryHud` 挪到 `OnPointerDown` / 手搓回按下沿 ⇒ 前一条红）");
                             // 面板开着 ⇒ 同一处（`shade` 盖满全屏）那一下**仍然按按下沿关**
                             BattleDriver.PointerHeldForTest = true;
                             wb4.PollInputEdgesForTest();
@@ -21500,9 +22483,15 @@ public static class BattleScene
                             BattleDriver.PointerHeldForTest = false;
                             wb4.PollInputEdgesForTest();
                             wb4.TickChatInputForTest();
+                            // 🔴 **2026-10-19（`T09` A2）**：聊天钮已走 uGUI ⇒ 松手那一帧 `TickChatInputForTest`
+                            //   只剩「气泡开着」那条模态支（此刻气泡已被按下沿关掉 ⇒ 恒 false）。
+                            //   生产里 uGUI 的 `IPointerClickHandler` 只在「按下与松开命中的是同一件」时派发，
+                            //   而这一按的按下沿被 `ChatPopup` 的全屏关闭区吃掉了 ⇒ 同一次按住不会回头点开那颗钮
+                            //   （= 原版 `_swallowNextRelease` 那件事由 `EventSystem` 自己保证）。
                             Check(!pop4.Visible,
                                   "★ A462：……同一次按住的**松手沿不会把它又打开**（指针就压在那颗 `ChatButton` 上；"
-                                + "改坏法：删掉 `_swallowNextRelease` ⇒ 这条红）");
+                                + "批处理这里喂的是手搓沿 —— 生产里 uGUI 的 click 需要按下/松开同一件，"
+                                + "按下已被面板的关闭区吃掉 ⇒ 同样不会重开）");
 
                             // ② 选台词：按在钮上**不说话**，松手才说
                             pop4.Show();
@@ -21580,7 +22569,13 @@ public static class BattleScene
                                 {
                                     BattleDriver.PointerWorldForTest = bw4.Value;
                                     // 安全窗还在（刚弹出，`Show()` 打了 0.1s）⇒ **悬停上去也不发**
-                                    sel4.UpdatePointer(bw4.Value);
+                                    // 🔴 2026-10-20（W57 · `T09` WIRE · A3-e4 收口）：画布档的 `Hovered`
+                                    //   已改由 uGUI 送达（`UpdatePointer` 只推进画/回读）⇒ 喂 `Highlight` 圈的
+                                    //   `PointerEnter`（下标 2 = `Order` 的 `Ranged`，同 5b 那条）。
+                                    var ring4 = sel4.HighlightTriggerForTest(2);
+                                    Check(ring4 != null,
+                                          "★ A462：（前提）「远程」那一格的 `Highlight` 挂了 `EventTrigger`");
+                                    ring4?.OnPointerEnter(NewPointerEventData());
                                     Check(sel4.Hovered == AttackKind.Ranged && !sel4.HoverPickReady,
                                           $"★ A462：刚弹出时指针就压在上面 —— **安全窗没走完 ⇒ 不发**"
                                         + $"（`sendInput(+0x90)` 那一格；实得 safeLeft={sel4.HoverSafeLeft:F3}s、"
@@ -23278,7 +24273,12 @@ public static class BattleScene
                     // ---- ⑩-b 🆕 2026-10-18（A991）：**真实那条链** —— 开设置窗 → 点那颗钮 ----
                     //   原版 `BattleSettingsWindow__SkipTutorialButtonOnClick.c`（方法体亲读）是**两行、这个先后**：
                     //   `WindowsManager.CloseWindow(<设置窗>)` **然后** `BattleManager.ClickSkip(bm, 0)`。
-                    //   我们照抄 ⇒ 走**产品那条** `BattleDriver.SettingsClickAt`（真鼠标点设置面板就走它）。
+                    //   我们照抄 ⇒ 走**产品那条 uGUI 链**：`BattleHudButton` 的点击 →
+                    //   `SettingsPanel.OnSkipTutorialClicked`（先 `Hide()`）→ `OnSkipTutorial` 回调
+                    //   （🔴 **2026-10-20（`T09` WIRE）：本段顺带验 D 半的接线** —— 那条回调没接时
+                    //    `OnSkipTutorialClicked` 只 `LogWarning` ⇒ 下面第二档「判死」必红）。
+                    //   ⚠️ 旧写法用 `driver.SettingsClickAt(...)`（手搓链，`T09` A3-b2 之后产线上不可达，
+                    //   而且**绕过**回调口 ⇒ 断不出接线）。
                     //   🔴 **两态判别式**：同一颗钮、同一个坐标，只翻「`minTimeBeforeSkip` 那道闸过没过」
                     //      ⇒ 一档**只关窗**、另一档关窗**并且判死**。
                     var spChain = driver.Settings;
@@ -23287,7 +24287,10 @@ public static class BattleScene
                     spChain.Show();
                     Check(spChain.Visible && spChain.HitSkipTutorial(spChain.SkipTutorialWorldPos),
                           "（前提）设置窗开着、指针落在那颗钮上");
-                    Check(driver.SettingsClickAt(spChain.SkipTutorialWorldPos), "（前提）这一下被设置面板吃掉");
+                    spChain.ResetClickCountForTest("SkipTutorial Button");
+                    spChain.ClickForTest("SkipTutorial Button");
+                    Check(spChain.ClickCountForTest("SkipTutorial Button") == 1,
+                          "（前提）这一下走的是那颗钮的 **uGUI 点击**（`BattleHudButton` 计数 = 1）");
                     Check(!spChain.Visible,
                           "★ **先关设置窗**（原版那两行的第一行 `CloseWindow`；⛔ 别把这个先后倒过来）");
                     Check(!driver.Ctx.IsOver,
@@ -23297,7 +24300,10 @@ public static class BattleScene
                     driver.BeginTutorial(0);
                     driver.TutorialView.SetShownForTest(2f);       // 过了 1 秒
                     spChain.Show();
-                    Check(driver.SettingsClickAt(spChain.SkipTutorialWorldPos), "（前提）第二局、同一颗钮再点一次");
+                    spChain.ResetClickCountForTest("SkipTutorial Button");
+                    spChain.ClickForTest("SkipTutorial Button");
+                    Check(spChain.ClickCountForTest("SkipTutorial Button") == 1,
+                          "（前提）第二局、同一颗钮再点一次（uGUI 计数 = 1）");
                     Check(!spChain.Visible, "★ 还是**先关设置窗**（两档都一样 —— 这一半与闸门无关）");
                     Check(driver.Ctx.IsOver && driver.Ctx.Players[0].Warlord.Health == 0,
                           "★ **判别式（另一半）**：过了 1 秒 ⇒ 关窗**之外**还把我方督军判死 ⇒ 对局当场结束"
@@ -24250,25 +25256,35 @@ public static class BattleScene
                 // ---- 三个小工具（全部只**转发**生产函数；⛔ 不另写一份命中判定）----
 
                 // 五颗钮各自的路由（= `Update` 里那几条链）。⛔ 别自己算「点没点到」。
+                // 🔴 **2026-10-19（`T09` A1）：进攻卡钮改走 uGUI** —— 这里走 `BattleHudButton` 的点击动作，
+                //   与 `EventSystem` 派发的是同一个回调。
+                // 🔴 **2026-10-19（`T09` A2）：其余四颗（settings / chat / cemetery / cameraReset）也改走 uGUI** ——
+                //   手搓 handler 只剩「面板/气泡/日志面板开着」那条**模态支**（A3 才迁面板自己的钮）。
                 bool Route964(string which)
                 {
+                    bool modal = false;
                     switch (which)
                     {
-                        case "settings": return drv964.TickSettingsInputForTest();
-                        case "chat":     return drv964.TickChatInputForTest();
-                        case "cemetery": return drv964.TickLogInputForTest();
-                        default:         return drv964.TickHudButtonsForTest();   // offensive / cameraReset
+                        case "settings":    modal = drv964.TickSettingsInputForTest(); break;
+                        case "chat":        modal = drv964.TickChatInputForTest(); break;
+                        case "cemetery":    modal = drv964.TickLogInputForTest(); break;
+                        case "cameraReset": modal = drv964.TickHudButtonsForTest(); break;
+                        case "alliance":    modal = drv964.TickAllianceInputForTest(); break;
+                        default:            break;                      // offensive / endTurn：没有模态支
                     }
+                    // uGUI 那一跳（`IPointerClickHandler` 的等价物）—— 关着的钮由它自己的
+                    // `activeInHierarchy` 闸挡掉（原版 uGUI 关着收不到射线）。
+                    return drv964.ClickHudButtonForTest(which) || modal;
                 }
 
-                // 喂一整个「按下 → 松手」，返回**松手那一帧**的接管结果。
-                // 这五颗原版都是 uGUI `onClick`（= **抬起那一帧**做事），逐颗判据写在 `BattleDriver` 里。
+                // 喂一整个「按下 → 松手」，返回**松手那一帧**的结果。
+                // 🔴 **2026-10-19（`T09` A1/A2）**：这五颗都已走 uGUI，**只在松手那一帧派发**
+                //   （`IPointerClickHandler` = 抬起；按下那一帧不该做事）⇒ 按下帧不再调 `Route964`。
                 bool Click964(string which)
                 {
                     BattleDriver.PointerWorldForTest = drv964.HudButtonWorldPosForTest(which);
                     BattleDriver.PointerHeldForTest = true;
                     drv964.PollInputEdgesForTest();          // 第 1 帧：按下沿
-                    Route964(which);
                     BattleDriver.PointerHeldForTest = false;
                     drv964.PollInputEdgesForTest();          // 第 2 帧：松手沿
                     return Route964(which);
@@ -24293,6 +25309,15 @@ public static class BattleScene
                     if (drv964.ChatPopup  != null && drv964.ChatPopup.Visible)  drv964.ChatPopup.Hide();
                     if (drv964.BattleLog  != null && drv964.BattleLog.Visible)  drv964.BattleLog.Hide();
                     if (drv964.CardDisplay != null && drv964.CardDisplay.Visible) drv964.CardDisplay.Hide();
+                    // 🔴 **2026-10-20（W57 · 战斗线 `T09` 步骤 WIRE · 来源 A3-e3 §三·2-A）：收掉 `ChoosePanel`。**
+                    //   解的是 A2 报告 §三·5 的「`ChoosePanel` 收不掉」—— A3-e3 已给它补了公开 `Hide()`
+                    //   （= 基类 `Close()` 的别名）。⛔ 别改用 `Close()` 让两处各写一份口径。
+                    if (drv964.Choose     != null && drv964.Choose.Visible)     drv964.Choose.Hide();
+                    // 🔴 **2026-10-19（`T09` A2）**：uGUI 点击外面那道模态闸（`HudClickBlocked`）看的就是
+                    //   `HudButtonsBlocked`（含多卡窗 / 联盟窗）⇒ 这里也要收，否则 E4 的「亮着必须响应」会假红。
+                    if (drv964.MultiCards != null && drv964.MultiCardsVisibleForTest) drv964.MultiCards.Hide();
+                    if (drv964.AlliancePanelRef != null && drv964.AlliancePanelRef.Visible) drv964.AlliancePanelRef.Close();
+                    if (drv964.Mulligan != null && drv964.Mulligan.Visible) drv964.Mulligan.Close();
                 }
 
                 /// <summary>本局 `Ctx.ActionLog` 里有没有**非 `Draw`** 的记录 ——
@@ -24326,7 +25351,7 @@ public static class BattleScene
                     var w964 = drv964.HudButtonWorldPosForTest(which);
                     Check(w964 != Vector3.zero,
                           $"★ A964/E4：（前提）`HudButtonWorldPosForTest(\"{which}\")` 取得到坐标"
-                        + " —— 键表两处 switch（世界坐标 / 显隐 / 写口）与 `SetHudButtonActiveForTest`"
+                        + " —— 键表（`HudButtonPieceForTest`，**唯一一份 switch**）与 `SetHudButtonActiveForTest`"
                         + "**同一张表**，少加一处 = 静默半条（取不到就返回 `Vector3.zero`，下面是空跑）");
                     if (which == "offensive" && drv964.Ctx != null)
                     {
@@ -24359,32 +25384,18 @@ public static class BattleScene
                     hits964.Add($"E4\t{which}\tTick*ForTest / 副作用\t亮:{visTick964}/{visSide964} · 藏:{hidTick964}/{hidSide964}"
                               + $"\t{(hidTick964 || hidSide964 ? "藏起来仍响应" : "藏起来不响应")}\tcooldown={drv964.ChatCooldownLeft:F2}");
 
-                    if (which == "settings")
-                    {
-                        // 🔴 **白名单（唯一一条）**：`BattleDriver.HandleSettings` 的第三句是
-                        //    `if (!_settingsBtn.Contains(WorldPointer())) return false;` —— **没有 `activeSelf` 守卫**，
-                        //    而 `ImageQuad.Contains` **不看 `activeSelf`** ⇒ 藏起来照样接管（面板还会当场开出来）。
-                        //    生产**不可达**（全仓没有关它的路径）⇒ **是隐患、不是活缺陷**；本条是**记账**，不是验收。
-                        //    ⛔ 别顺手给它补守卫（改行为要另开一件、另配断言）。
-                        Check(hidTick964 || hidSide964,
-                              "★ A964/E4（**白名单 · 已知隐患**）：`_settingsBtn` **藏起来照样接管**"
-                            + $"（实得 接管={hidTick964} / 副作用={hidSide964}）"
-                            + " —— `HandleSettings` 那一行没有 `activeSelf` 守卫（同族另外四颗都有："
-                            + "`_offensiveBtn` / `_cameraResetBtn` / `_chatBtn` / `_cemeteryBtn`）"
-                            + "；生产不可达（出厂就亮着、全仓没有关它的路径）⇒ 记账，⛔ 别顺手补守卫");
-                    }
-                    else
-                    {
-                        Check(!hidTick964 && !hidSide964,
-                              $"★ A964/E4：`{which}` **藏起来之后不许响应**"
-                            + $"（喂它自己的中心：接管={hidTick964} · 有副作用={hidSide964}）"
-                            + " —— 原版那颗是 uGUI 钮，`SetActive(false)` 之后**收不到点击**；"
-                            + "我们这是 `ImageQuad`，**不渲染 ≠ 不响应** ⇒ handler 必须显式判 `activeSelf`"
-                            + "｜🧨 改坏法：把对应 handler 里那一句 `!…gameObject.activeSelf` 守卫删掉 ⇒ 本条红"
-                            + "（🔴 **这就是本探针的【已知阳性判别式】= `E12`**："
-                            + "`BattleDriver.cs` 里聊天钮 / 墓园钮那两句守卫就是为它加的，"
-                            + "删掉任一句、本条必须红 —— 否则「扫完 0 条」不可信）");
-                    }
+                    // 🔴 **2026-10-19（`T09` A2）：那条「`_settingsBtn` 藏起来照样接管」的白名单【已核销】。**
+                    //   原因：那颗钮现在走 uGUI（`BattleHudButton` 的 `IPointerClickHandler`），
+                    //   而 `ClickHudButtonForTest` 自带 `activeInHierarchy` 闸 ⇒ 关着 = 收不到点击
+                    //   （原版 `SetActive(false)` 的节点收不到射线，同一条）。⇒ 五颗一视同仁。
+                    Check(!hidTick964 && !hidSide964,
+                          $"★ A964/E4：`{which}` **藏起来之后不许响应**"
+                        + $"（喂它自己的中心：接管={hidTick964} · 有副作用={hidSide964}）"
+                        + " —— 原版那颗是 uGUI 钮，`SetActive(false)` 之后**收不到点击**；"
+                        + "2026-10-19（`T09` A2）起五颗**全部**是 uGUI ⇒ 关着的钮由 `ClickHudButtonForTest` 的"
+                        + " `activeInHierarchy` 闸挡掉（`offensive` 自 A1 起同一条）"
+                        + "｜🧨 改坏法：把 `ClickHudButtonForTest` 的 `activeInHierarchy` 闸删掉 ⇒ 本条红"
+                        + "（🔴 **这就是本探针的【已知阳性判别式】= `E12`** —— 扫完 0 条是否可信就看它）");
 
                     // 🔴 **灭自证（两态的另一半）**：一个「恒返回 false」的病实现会让上面全绿。
                     //    ⚠️ `chat` 那一格**只看接管、不看副作用**：`HandleChatPopup` 打开气泡前有一道
@@ -24402,12 +25413,14 @@ public static class BattleScene
                         + "）—— 与上一条配对：「恒返回 false」的病实现会让上一条绿、本条红");
                 }
 
-                // 🔴 **白名单台账**：这一条是**防白名单漂移**的牙。
+                // 🔴 **白名单台账**（2026-10-19 `T09` A2 起**空了** —— 五颗全是 uGUI，藏起来都不响应）。
                 //    · 多一颗 ⇒ **新漏网**（真缺陷）；
-                //    · 少一颗 ⇒ 有人补了守卫（好消息）⇒ 把白名单改掉即可。
-                Check(hiddenResp964 == "settings",
-                      $"★ A964/E4（**白名单台账**）：「藏起来还会响应」的钮**恰好只有 `settings` 一颗**"
-                    + $"（实得「{hiddenResp964}」）—— 多一颗 = 新漏网；少一颗 = 守卫补上了、白名单该更新");
+                //    · 以后再有人退回手搓命中 ⇒ 在这里冒出来。
+                Check(hiddenResp964 == "",
+                      $"★ A964/E4（**白名单台账**）：「藏起来还会响应」的钮**一颗都不许有**"
+                    + $"（实得「{hiddenResp964}」）—— 多一颗 = 新漏网"
+                    + "；2026-10-19（`T09` A2）之前唯一那条白名单（`settings`，`ImageQuad.Contains` 不看 `activeSelf`）"
+                    + "已随那颗钮迁 uGUI 而核销");
 
                 // ================================================================
                 //  二、`E2` —— **命中区 ⊇ 实绘矩形**（**报告式**；§A964 续 ② 裁定）
@@ -24611,27 +25624,35 @@ public static class BattleScene
                             Check(drv964.SimulateOpenCommand(probe964),
                                   "★ A964/模型③：（前提）探针 `Ballista` 的攻击选择器开起来了");
                             int m3N964 = 0, m3Bad964 = 0;
+                            // 🔴 **2026-10-20（W57 · 战斗线 `T09` WIRE · A3-e4 收口）**：画布档的悬停改由 uGUI 送达
+                            //   （`AttackSelector.UpdatePointer` 只推进画/回读 `Hovered`，**不再判圆**）⇒
+                            //   改喂 `Highlight` 圈上那颗 `EventTrigger` 的 `PointerEnter / PointerExit`。
+                            //   `Order` 下标 = { Melee, Ability, Ranged }（该常量私有；判据 → A3-e4 报告 §三·2）。
+                            int OrdIdx964(AttackKind k) => k == AttackKind.Melee ? 0
+                                                       : k == AttackKind.Ability ? 1 : 2;
                             for (int i964 = 0; i964 < sel964.Options.Count; i964++)
                             {
                                 var op964 = sel964.Options[i964];
                                 if (op964 == null || !op964.Enabled) continue;
                                 var bw964 = sel964.ButtonWorld(op964.Kind);
                                 if (!bw964.HasValue) continue;
+                                var trig964 = sel964.HighlightTriggerForTest(OrdIdx964(op964.Kind));
+                                if (trig964 == null) { m3Bad964++; continue; }
                                 m3N964++;
-                                if (sel964.UpdatePointer(bw964.Value) != op964.Kind) m3Bad964++;
-                                // 灭自证：**远远离开那一格**（+10 世界单位；三格是一排、间距约 1.5 格宽）
-                                // ⇒ 必须**不再**判成它（否则就是「不设界 / 恒命中」）。
-                                if (sel964.UpdatePointer(bw964.Value + new Vector3(0f, 10f, 0f)) == op964.Kind) m3Bad964++;
+                                // ① 指针**进入那一圈** ⇒ 判成它
+                                trig964.OnPointerEnter(NewPointerEventData());
+                                if (sel964.Hovered != op964.Kind) m3Bad964++;
+                                // ② 灭自证：**离开**（`PointerExit`）⇒ 必须**不再**判成它（「恒命中 / 只进不出」⇒ 红）
+                                trig964.OnPointerExit(NewPointerEventData());
+                                if (sel964.Hovered == op964.Kind) m3Bad964++;
                             }
-                            hits964.Add($"E2/模型③\t攻击三选一 {m3N964} 格\tAttackSelector.UpdatePointer\tButtonWorld 中心 / +10 外侧\t"
-                                      + $"{(m3Bad964 == 0 ? "中心全中·外侧全不中" : m3Bad964 + " 条不达标")}\t圆判据（无矩形，故只断中心必中）");
+                            hits964.Add($"E2/模型③\t攻击三选一 {m3N964} 格\tAttackSelector.HighlightTrigger（PointerEnter/Exit）\t圈上 EventTrigger\t"
+                                      + $"{(m3Bad964 == 0 ? "进入全中·离开全不中" : m3Bad964 + " 条不达标")}\t原版 `Highlight.m_RaycastTarget=1` + 悬停接口");
                             Check(m3N964 > 0 && m3Bad964 == 0,
-                                  $"★ A964/模型③：攻击三选一（{m3N964} 格）—— **视觉中心必中 + 远处必不中**"
-                                + "（判据 = 原版「悬停即选中」那个**圆**；`ButtonWorld` 回**世界点**、"
-                                + "`UpdatePointer` 也收**世界点** ⇒ 往返本身是构造性的，本行钉的是"
-                                + "「格子映射 + 图标活着 + 那个圆**有界**」三件）"
-                                + "｜🧨 改坏法：把 `UpdatePointer` 的圆判据写成「恒命中」/ 半径取成 ≥10 世界单位 ⇒ 红"
-                                + "；⚠️ 它**挡不住**「半径取 0」（中心那一击照样中）—— 裁定只要弱判据，⛔ 不硬套矩形");
+                                  $"★ A964/模型③：攻击三选一（{m3N964} 格）—— **`PointerEnter` ⇒ 判成它 + `PointerExit` ⇒ 清掉**"
+                                + "（判据 = 原版 `CardDisplayAttackTypeButton` 的 `IPointerEnter/ExitHandler`；"
+                                + "uGUI 档的 `Hovered` 由 `Highlight` 圈上的 `EventTrigger` 送达）"
+                                + "｜🧨 改坏法：`OnHoverEnter` 写成恒命中 / `OnHoverExit` 不清 ⇒ 红");
                             drv964.SimulateDeselect();
                             drv964.Ctx.Players[side964].Board[probe964] = null;
                             drv964.RefreshAll();
@@ -24998,6 +26019,125 @@ public static class BattleScene
                                           $"★ T03：场上卡 y 上下边界 = 原版常态 **±1.51** 卡单位（实得 {eT03u:F4} / {eB03u:F4}），"
                                         + "且**边界内 1 px 必中 / 外 1 px 必不中**"
                                         + "｜🧨 改坏法：把场上的卡误判成 `CardFace.Hand`（下沿多长 5 px）或矩形写回 2.8913 ⇒ 红");
+                                }
+
+                                // ---- 🆕 2026-10-20（`W57` · 战斗线 `T09` 步骤 B2b）：`HitSlot` 换真 collider ----
+                                //  判据：`BattleDriver.HitSlot` 的命中已从手算 `CardView.Contains` 换成
+                                //  `CardView.HitByCollider`（真 `BoxCollider2D` + `Physics2D.OverlapPoint`，B1 交付）；
+                                //  槽号选择 / 重叠优先级（`transform.position.z` **最小**）**逐位不变**。
+                                //  下面四段各自独立：① 逐点同判 ② 重叠取 z 最小 ③ 灭自证（真 collider）④ 灭自证（`SyncTransforms`）。
+                                {
+                                    float b2bCardH = CardView.Height * Mathf.Abs(uv964.transform.lossyScale.y);
+                                    bool b2bHasCol = uv964.ColliderForTest != null;
+                                    Check(b2bHasCol,
+                                          "★ B2b（前提）：场上那张卡有一颗真 `BoxCollider2D`"
+                                        + "（没建 ⇒ 下面「一致 / 灭自证」全部退化成手算 `Contains` = 空跑）");
+                                    if (b2bHasCol)
+                                    {
+                                        // ① 逐点同判：生产口（真 collider） vs 改前那一版（手算 `Contains`）。
+                                        //    采样点**复用**上面 E2②/T03 那四个（中心 / 0.45 / 0.35 / 3× 半高），⛔ 不另造一套。
+                                        int sCen = drvE964.HitSlotForTest(side964u, uc964);
+                                        int cCen = drvE964.HitSlotByContainsForTest(side964u, uc964);
+                                        int sIn  = drvE964.HitSlotForTest(side964u, uin964);
+                                        int cIn  = drvE964.HitSlotByContainsForTest(side964u, uin964);
+                                        int sM   = drvE964.HitSlotForTest(side964u, uinM964);
+                                        int cM   = drvE964.HitSlotByContainsForTest(side964u, uinM964);
+                                        int sOut = drvE964.HitSlotForTest(side964u, uout964);
+                                        int cOut = drvE964.HitSlotByContainsForTest(side964u, uout964);
+                                        Check(sCen == uSlot964 && sCen == cCen && sIn == cIn && sM == cM && sOut == cOut,
+                                              "★ B2b①：`HitSlot`（真 collider）与改前那版（手算 `Contains`）在**四个采样点逐点同判**"
+                                            + $"（中心 {sCen}/{cCen} · 0.45 半高 {sIn}/{cIn} · 0.35 半高 {sM}/{cM} · 3× 半高 {sOut}/{cOut}）"
+                                            + " —— 0° 倾摆下两判据逐点一致（判据网格 → `B1` §3·1）"
+                                            + "｜🧨 任一方口径漂了（真 collider 的 size/offset 没跟 `HitRect`）⇒ 红");
+                                        Check(drvE964.HitSlotHitCountForTest(side964u, uc964) >= 1,
+                                              "★ B2b①（前提）：中心的真 collider 命中数 ≥ 1（下面「重叠取 z」要先有命中）");
+
+                                        // ② 重叠优先级**逐位不变**：把另一张我方单位临时搬到同一世界点、z 一前一后
+                                        //    ⇒ `HitSlot` 必须取 **z 小**那张（`Physics2D` 没有 z、查询返回顺序也不是渲染顺序）。
+                                        int otherSlot = -1;
+                                        CardView otherV = null;
+                                        foreach (var kv in drvE964.MyUnits)
+                                            if (kv.Key != uSlot964 && kv.Value != null) { otherSlot = kv.Key; otherV = kv.Value; break; }
+                                        bool otherTemp = false;
+                                        if (otherV == null)
+                                        {
+                                            int s2 = FreeSlot(drvE964.Ctx, side964u);
+                                            if (s2 >= 0)
+                                            {
+                                                drvE964.Ctx.Players[side964u].Board[s2] =
+                                                    new UnitState(CardByName(StarterCards.Tide(), "Tide Minion"), false) { Exhausted = false };
+                                                drvE964.RefreshAll();
+                                                if (drvE964.MyUnits.ContainsKey(s2) && drvE964.MyUnits[s2] != null)
+                                                { otherSlot = s2; otherV = drvE964.MyUnits[s2]; otherTemp = true; }
+                                            }
+                                        }
+                                        Check(otherV != null, "★ B2b②（前提）：有第二张我方单位视图可当重叠探针");
+                                        if (otherV != null)
+                                        {
+                                            Vector3 pA0 = uv964.transform.position;
+                                            Vector3 pB0 = otherV.transform.position;
+                                            Vector3 shared = new Vector3(pA0.x, pA0.y, 0f);
+                                            // z 取**极端值**（±1000）：棋盘上若恰好还叠着第三张，也不会插到这两个之间。
+                                            // `Physics2D` 不看 z（查询只看 2D 形状），排序全由 `HitSlot` 按 `transform.position.z` 做。
+                                            uv964.transform.position  = new Vector3(shared.x, shared.y, -999f);
+                                            otherV.transform.position = new Vector3(shared.x, shared.y, -1000f);
+                                            int nHitOverlap = drvE964.HitSlotHitCountForTest(side964u, shared);
+                                            int pickB = drvE964.HitSlotForTest(side964u, shared);      // B 的 z 更小 ⇒ 取 B
+                                            uv964.transform.position  = new Vector3(shared.x, shared.y, -1001f);  // A 翻到最前
+                                            int pickA = drvE964.HitSlotForTest(side964u, shared);
+                                            uv964.transform.position  = pA0;
+                                            otherV.transform.position = pB0;
+                                            if (otherTemp)
+                                            {
+                                                drvE964.Ctx.Players[side964u].Board[otherSlot] = null;
+                                                drvE964.RefreshAll();
+                                            }
+                                            Check(nHitOverlap >= 2 && pickA == uSlot964 && pickB == otherSlot,
+                                                  "★ B2b②：两张卡叠在同一点 ⇒ 取 **z 最小**那张（前景），换 z 顺序 ⇒ 答案跟着换"
+                                                + $"（重叠命中 {nHitOverlap} 张 · A 在前 ⇒ 槽 {pickA}（期望 {uSlot964}）"
+                                                + $" · B 在前 ⇒ 槽 {pickB}（期望 {otherSlot}））"
+                                                + "｜🧨 改成「取查询返回的第一颗」或「取字典序第一张」⇒ 红"
+                                                + "（`Physics2D` 的返回顺序不是渲染顺序）");
+                                            uv964.transform.position = pA0;   // 双保险（上面已复原）
+                                        }
+
+                                        // ③ 灭自证（真 collider）：临时把 collider 放大 1.2× ⇒ 「常态边外一点点」(1.05, 0) 必翻成命中；
+                                        //    同一刻手算 `Contains` 仍判**在外**（它不跟 collider 走）⇒ 证明断言量的是真 collider。
+                                        var colB = uv964.ColliderForTest;
+                                        Vector2 size0B = colB.size;
+                                        var pEdgeB = uv964.HitLocalToWorldForTest(1.05f, 0f);      // 常态半宽 0.985 ⇒ 在外
+                                        bool beforeHitB      = drvE964.HitSlotForTest(side964u, pEdgeB) == uSlot964;
+                                        bool beforeContainsB = uv964.Contains(pEdgeB);
+                                        colB.size = size0B * 1.2f;
+                                        Physics2D.SyncTransforms();                               // 尺寸改了也让查询看到（幂等）
+                                        bool enlargedHitB    = drvE964.HitSlotForTest(side964u, pEdgeB) == uSlot964;
+                                        bool enlargedContB   = uv964.Contains(pEdgeB);
+                                        colB.size = size0B;                                       // ⛔ 必须复原（同一张卡后面还要用）
+                                        Physics2D.SyncTransforms();
+                                        bool restoredHitB    = drvE964.HitSlotForTest(side964u, pEdgeB) == uSlot964;
+                                        Check(!beforeHitB && !beforeContainsB && enlargedHitB && !enlargedContB && !restoredHitB,
+                                              "★ B2b③（**灭自证**）：collider 放大 1.2× ⇒ (1.05, 0) 那点**翻成命中**、复原后又不中"
+                                            + "（同一刻手算 `Contains` 一直判在外 ⇒ 两条判据独立）"
+                                            + $"（改前 {beforeHitB}/{beforeContainsB} · 放大后 {enlargedHitB}/{enlargedContB} · 复原后 {restoredHitB}）"
+                                            + "｜🧨 `HitSlot` 写回 `Contains`、或断言拿我们自己的常量反推 ⇒ 红");
+
+                                        // ④ 灭自证（`SyncTransforms`）：同一帧内改 `transform.position` ⇒ 命中**立刻跟着走**。
+                                        //    `Physics2DSettings.m_AutoSyncTransforms = 0`（现读）⇒ 去掉同步后这里读到的是
+                                        //    **上一帧**的 collider 位置（画面完全正常 = 静默）。
+                                        Vector3 pMove0  = uv964.transform.position;
+                                        Vector3 pMoveTo = pMove0 + new Vector3(0f, 2f * b2bCardH, 0f);
+                                        uv964.transform.position = pMoveTo;
+                                        bool movedHitB = drvE964.HitSlotForTest(side964u, pMoveTo) == uSlot964;
+                                        bool oldGoneB  = drvE964.HitSlotForTest(side964u, pMove0) != uSlot964;
+                                        uv964.transform.position = pMove0;
+                                        bool backHitB  = drvE964.HitSlotForTest(side964u, pMove0) == uSlot964;
+                                        Check(movedHitB && oldGoneB && backHitB,
+                                              "★ B2b④（**灭自证** · `SyncTransforms`）：同一帧内把卡挪走 2 个卡高 ⇒ "
+                                            + "新位置必中 / 旧位置必不中 / 挪回来又中"
+                                            + $"（{movedHitB}/{oldGoneB}/{backHitB}；`m_AutoSyncTransforms = 0`）"
+                                            + "｜🧨 删掉 `HitSlot`（或 `HitByCollider`）里那句 `Physics2D.SyncTransforms()`"
+                                            + " ⇒ 读到上一帧的位置 ⇒ 红");
+                                    }
                                 }
                             }
                             drvE964.Ctx.Players[side964u].Board[uSlot964] = null;
@@ -25389,7 +26529,8 @@ public static class BattleScene
             //  判据全文 → `资料/普查产出_1018第三会话/W_AlliancePanel.md`（那扇窗）
             //    + `Battle/BattleDriver.cs` 的 `BuildHudExtras` 建那颗钮那一段（rect / 命中区 /
             //      「原版它没有贴图」三条，全部逐字段亲读且 13 场同构）。
-            //  ⛔ 本段**只调生产函数**（`TickAllianceInputForTest` / `AllianceButtonHit` / 那颗钮那几个
+            //  ⛔ 本段**只调生产函数**（`TickAllianceInputForTest`（窗开着那条模态支）/ `ClickHudButtonForTest`
+            //     （那颗钮的 uGUI 点击，2026-10-19 `T09` A2 起）/ `AllianceButtonHit` / 那颗钮那几个
             //     公开几何口），⛔ 不另写一份命中/几何算式 —— 那是「实现与检测器一起改回去还全绿」的自证。
             // ================================================================
             {
@@ -25491,7 +26632,17 @@ public static class BattleScene
                         + " 打不中；🧨 改坏法：把 `AllianceButtonHit` 写成恒真（或丢掉 `Contains`）⇒ 后半条红");
 
                     // ---- 二、点击链：**走真实输入闸那一条路**（⛔ 不是直接调 `Open`）----
-                    bool Click985(Vector3 at)
+                    // 🔴 **2026-10-19（`T09` A2）**：敌方名牌那颗钮已走 uGUI ⇒ 点在钮上时由
+                    //   `BattleHudButton` 的点击动作开窗（与 `EventSystem` 的 `IPointerClickHandler` 同一跳）；
+                    //   `TickAllianceInputForTest` 只剩「窗开着」那条模态支。
+                    // 🔴🔴 **2026-10-20（`W57` · `T09` 步骤 B2b · 来源 `A3-e5` §三·2 / §六·1）：关窗那一条手搓路【已删】。**
+                    //   旧前提「`BG` / `BGFrame` rt=1 ⇒ 点窗内不关」被 **13/13 场现读推翻**（那几张**全 rt=0**）
+                    //   ⇒ 原版唯一的点击处理器 = 压暗层 `BackgroundCloseButton`（松手）⇒ **点面板空白处也关窗**；
+                    //   只有那 7 颗 TMP 与两颗 `Main Icon`（rt=1、零处理器）挡射线。下面按原版那张图断：
+                    //   ① 压暗层 uGUI 就位（rt/pad）· ② 点一次 = 「待关」→ 落账一次
+                    //   ③ 面板空白点的**射线首中 = 压暗层** ⇒ 点它 = 关 · ④ 一行字上 ⇒ 挡住射线 ⇒ 不关
+                    //   ⑤ 灭自证：喂窗外**世界点** ⇒ 驱动只模态拦截、**不再关窗**（手搓路真的退了）。
+                    bool Click985(Vector3 at, bool hudButton = false)
                     {
                         BattleDriver.PointerWorldForTest = at;
                         BattleDriver.PointerHeldForTest = true;
@@ -25499,25 +26650,147 @@ public static class BattleScene
                         driver.TickAllianceInputForTest();
                         BattleDriver.PointerHeldForTest = false;
                         driver.PollInputEdgesForTest();          // 第 2 帧：松手沿
-                        return driver.TickAllianceInputForTest();
+                        bool tick = driver.TickAllianceInputForTest();
+                        if (hudButton) tick = driver.ClickHudButtonForTest("alliance") || tick;
+                        return tick;
                     }
-                    Click985(driver.AllianceButtonWorldPos);
+                    Click985(driver.AllianceButtonWorldPos, hudButton: true);
                     Check(driver.AlliancePanelVisible,
                           "★ A985③：点敌方名牌 ⇒ 对手档案窗**开起来**（原版那颗 `alliancePanelOpenButton` 就是名牌本身，"
                         + "`BattleHud__AlliancePanelOpenButton.c` → `BattleAlliancePanel.Open(...)`）"
-                        + "；🧨 改坏法：把 `HandleAlliancePanel()` 从 `Update` 那条链里摘掉 ⇒ 本条红");
-                    Click985(LayoutSpace.FromPixel(960f, 900f));            // 棋盘那一带（= 窗外）
-                    Check(!driver.AlliancePanelVisible,
-                          "★ A985③：点**窗外** ⇒ 关（原版那颗 `Close Background` 是 uGUI `Button`："
-                        + "`BattleAlliancePanel__Awake.c` 把 `CloseButtonClick` 加进它的 `m_OnClick` ⇒ **抬起**那一帧）"
-                        + "；🧨 改坏法：把关窗那一段整个删掉 ⇒ 点窗外也不关 ⇒ 红");
-                    Click985(driver.AllianceButtonWorldPos);                 // 再开一次
-                    Check(driver.AlliancePanelVisible, "★ A985③：（前提）再点一次 ⇒ 窗又开起来了");
-                    Click985(LayoutSpace.FromPixel(300f, 250f));             // 面板本体里（`BackgroundR` 之内）
-                    Check(driver.AlliancePanelVisible,
-                          "★ A985③：点**窗内** ⇒ 窗**不关**（原版 `BG` / `BGFrame` 那几张 Image 的 `m_RaycastTarget = 1`"
-                        + " 把射线吃掉了，传不到底下那颗 `Close Background`）"
-                        + "；🧨 改坏法：把 `!panel.HitBody(...)` 那个 `!` 去掉（写成「窗内才关」）⇒ 本条红");
+                        + "；🧨 改坏法：把 `ClickAllianceHud` 从 `BattleHudButton.Attach` 摘掉 ⇒ 本条红");
+
+                    // ① 压暗层 uGUI 就位 —— 原版 `Close Background` Image `MB_5220`：rt=1 · pad (0,0,0,0) ·
+                    //    唯一处理器 `BackgroundCloseButton`（`IPointerClickHandler`，松手）。
+                    Check(panel985.UguiInputReadyForTest && panel985.CloseClickComponentForTest != null,
+                          "★ A985③：关窗在 uGUI 上 —— 压暗层 `Close Background` 挂着点击组件（原版 `BackgroundCloseButton`）"
+                        + "｜🧨 没挂 ⇒ 窗开着时点哪都关不掉 ⇒ 红");
+                    {
+                        var pad985 = panel985.CloseRaycastPaddingForTest;
+                        Check(panel985.CloseRaycastTargetForTest
+                           && Mathf.Abs(pad985.x) < 1e-4f && Mathf.Abs(pad985.y) < 1e-4f
+                           && Mathf.Abs(pad985.z) < 1e-4f && Mathf.Abs(pad985.w) < 1e-4f,
+                              "★ A985③：压暗层是**射线靶**且 pad = `(0,0,0,0)`（原版 `MB_5220` rt=1 / pad 0）"
+                            + $"（rt={panel985.CloseRaycastTargetForTest} · pad={pad985}）");
+                    }
+                    Check(panel985.BackgroundPieceForTest != null
+                       && !panel985.RaycastTargetOfForTest(panel985.BackgroundPieceForTest),
+                          "★ A985③：`BG` **不是**射线靶（原版 `MB_4162` rt=0）—— 这一条就是「点面板空白 = 关」的判据"
+                        + "｜🧨 把它置 true（= 旧前提「BG 吃射线」）⇒ 点空白落不到压暗层 ⇒ 下面「空白点首中」那条红");
+
+                    // ② 点一次压暗层 ⇒ **只记「待关」**、落账一次 ⇒ 关（原版 `BackgroundCloseButton.OnPointerClick`）。
+                    {
+                        int c985a = panel985.UguiCloseClickCountForTest;
+                        int a985a = panel985.UguiCloseAppliedCountForTest;
+                        panel985.CloseClickComponentForTest?.ClickForTest();
+                        Check(panel985.ClosePendingForTest && driver.AlliancePanelVisible,
+                              "★ A985③（**灭自证**）：点压暗层 ⇒ **只记「待关」**、这一帧窗还开着"
+                            + "（`EventSystem.Update` 与 `BattleDriver.Update` 同序；当场关会让这一下继续落到棋盘/手牌）");
+                        Check(panel985.ApplyPendingClose() && !driver.AlliancePanelVisible,
+                              "★ A985③：`ApplyPendingClose()` ⇒ 窗关（= 原版 `CloseButtonClick` → `SetActive(false)`）");
+                        Check(panel985.UguiCloseClickCountForTest == c985a + 1
+                           && panel985.UguiCloseAppliedCountForTest == a985a + 1,
+                              "★ A985③：点一次 = **一次点击 / 一次落账**（⛔ 不是每条路径各关一次）"
+                            + $"（点击 {c985a}→{panel985.UguiCloseClickCountForTest} · 落账 {a985a}→{panel985.UguiCloseAppliedCountForTest}）");
+                        Check(!panel985.ApplyPendingClose(),
+                              "★ A985③（**灭自证**）：再落一次 ⇒ **幂等**（没有挂起的「待关」时什么都不做）");
+                    }
+
+                    // ③ 灭自证：窗外**世界点** ⇒ 驱动只做模态拦截、**不再关窗**（手搓路已删）。
+                    {
+                        Click985(driver.AllianceButtonWorldPos, hudButton: true); // 再开一次（uGUI 点击）
+                        Check(driver.AlliancePanelVisible, "★ A985③：（前提）再点一次 ⇒ 窗又开起来了");
+                        bool modal985 = Click985(LayoutSpace.FromPixel(960f, 900f));   // 棋盘那一带（= 窗外）
+                        Check(modal985 && driver.AlliancePanelVisible,
+                              "★ A985③（**灭自证**）：喂一个**窗外的世界点** ⇒ 驱动只做模态拦截、**不再关窗**"
+                            + "（关窗 = 压暗层的 uGUI 那一跳；⛔ 手搓 `HitBody` 路已删）"
+                            + "｜🧨 把 `ReleasedThisFrame() && !HitBody(...) ⇒ Close()` 加回 `HandleAlliancePanel` ⇒ 本条红");
+                    }
+
+                    // ④ 原版几何（真 `RaycastAll`）：面板空白处的**首中 = 压暗层**（⇒ 点它 = 关）；
+                    //    一行字上的**首中 = 那颗 TMP**（挡射线、零处理器 ⇒ 不关）。
+                    //    ⚠️ 空白点**扫出来**、⛔ 不写死某个像素（布局一变就假红/假绿）。
+                    BattleEventSystem.SyncRaycasters();      // 编辑模式补偿（Play 模式是空操作）
+                    Canvas.ForceUpdateCanvases();            // `Graphic.depth == -1` 会被 GraphicRaycaster 跳过
+                    var es985 = EventSystem.current != null ? EventSystem.current : BattleEventSystem.Instance;
+                    var cvs985 = HudCanvas.Root;
+                    var cam985 = cvs985 != null ? cvs985.worldCamera : null;
+                    bool ugui985 = panel985.OnCanvas && es985 != null && cam985 != null
+                                && panel985.ClosePieceForTest != null && panel985.ClosePieceForTest.Rect != null;
+                    Check(ugui985,
+                          "★ A985③（前提）：uGUI 射线表 / 相机 / 压暗层都就位（⛔ 世界档不跑这一段）"
+                        + $"（OnCanvas={panel985.OnCanvas} · es={(es985 != null)} · cam={(cam985 != null)}）");
+                    if (ugui985)
+                    {
+                        var shadeGO985 = panel985.ClosePieceForTest.Rect.gameObject;
+                        Vector2 blankScr985 = new Vector2(-1f, -1f);
+                        for (int gy = 0; gy < 6 && blankScr985.x < 0f; gy++)
+                            for (int gx = 0; gx < 6; gx++)
+                            {
+                                // 扫描面板本体（`BackgroundR` = x[−97.3, 528.0] · y[10.0, 423.1] px）里的格点
+                                float pxX = 0f + 500f * gx / 5f;
+                                float pxY = 40f + 360f * gy / 5f;
+                                var w985 = LayoutSpace.FromPixel(pxX, pxY);
+                                if (!panel985.HitBody(w985)) continue;              // 必须在面板本体上
+                                var scr985 = RectTransformUtility.WorldToScreenPoint(cam985, w985);
+                                var ped985 = new PointerEventData(es985) { position = scr985 };
+                                var hits985 = new List<RaycastResult>();
+                                es985.RaycastAll(ped985, hits985);
+                                if (hits985.Count > 0 && hits985[0].gameObject == shadeGO985)
+                                { blankScr985 = scr985; break; }
+                            }
+                        Check(blankScr985.x >= 0f,
+                              "★ A985③（前提）：面板本体里找得到一个**射线首中 = 压暗层**的空白点"
+                            + "（⛔ 找不到 ⇒ 下面「点空白 = 关」没法验；先看 uGUI 射线表 / 那几颗字挡射线的范围）");
+                        if (blankScr985.x >= 0f)
+                        {
+                            int c985b = panel985.UguiCloseClickCountForTest;
+                            var pedClick985 = new PointerEventData(es985) { position = blankScr985 };
+                            ExecuteEvents.Execute<IPointerClickHandler>(shadeGO985, pedClick985,
+                                                                       ExecuteEvents.pointerClickHandler);
+                            Check(panel985.UguiCloseClickCountForTest == c985b + 1 && panel985.ClosePendingForTest,
+                                  "★ A985③：**点面板空白处** ⇒ 射线落到压暗层 ⇒ 记「待关」"
+                                + "（原版 `BG` / `BGFrame` / `Border` 全 **rt=0**，13/13 场现读；旧注释「rt=1」是错前提）");
+                            Check(panel985.ApplyPendingClose() && !driver.AlliancePanelVisible,
+                                  "★ A985③：…落账 ⇒ 窗关（= 原版**点面板空白也会关窗**）"
+                                + "｜🧨 把 `BG` 改成射线靶 / 把压暗层的 rt 关掉 ⇒ 上面那条 + 本条一起红");
+                        }
+
+                        // …而点在一行字上 ⇒ 被那颗 TMP 吃掉（零处理器）⇒ 不关（原版 rt=1）。
+                        Click985(driver.AllianceButtonWorldPos, hudButton: true);
+                        Check(driver.AlliancePanelVisible, "★ A985③：（前提）再开一次（验「点字不关」）");
+                        Label lb985 = null;
+                        GameObject lbGO985 = null;
+                        Vector2 lbScr985 = new Vector2(-1f, -1f);
+                        for (int li = 0; li < panel985.BlockingLabelCountForTest && lb985 == null; li++)
+                        {
+                            var cand985 = panel985.BlockingLabelForTest(li);
+                            if (cand985 == null || !cand985.gameObject.activeInHierarchy) continue;
+                            if (!panel985.BlockingLabelRaycastTargetForTest(li)) continue;
+                            var g985 = cand985.GetComponentInChildren<Graphic>(true);
+                            if (g985 == null || g985.rectTransform == null) continue;
+                            var wTxt = g985.rectTransform.TransformPoint(g985.rectTransform.rect.center);
+                            var scrTxt = RectTransformUtility.WorldToScreenPoint(cam985, wTxt);
+                            var pedTxt = new PointerEventData(es985) { position = scrTxt };
+                            var hitsTxt = new List<RaycastResult>();
+                            es985.RaycastAll(pedTxt, hitsTxt);
+                            if (hitsTxt.Count > 0 && hitsTxt[0].gameObject == g985.gameObject)
+                            { lb985 = cand985; lbGO985 = g985.gameObject; lbScr985 = scrTxt; }
+                        }
+                        Check(lb985 != null,
+                              "★ A985③（前提）：找得到一颗**真挡住射线**的字（原版那 7 颗 TMP `rt=1`、父链零处理器）");
+                        if (lb985 != null)
+                        {
+                            int c985c = panel985.UguiCloseClickCountForTest;
+                            var pedLb = new PointerEventData(es985) { position = lbScr985 };
+                            ExecuteEvents.Execute<IPointerClickHandler>(lbGO985, pedLb,
+                                                                       ExecuteEvents.pointerClickHandler);
+                            Check(!panel985.ClosePendingForTest && driver.AlliancePanelVisible
+                               && panel985.UguiCloseClickCountForTest == c985c,
+                                  "★ A985③：**点在一行字上** ⇒ 射线被那颗 TMP 吃掉（零处理器）⇒ **不关窗**"
+                                + "（原版 `rt=1`；旧实现「靠 `BG` / `BGFrame` 挡射线」是错前提）");
+                        }
+                    }
 
                     // ---- 三、两态（显隐全由原版那三条 `SetActive` 驱动）----
                     panel985.Open("测试名", "", "");
@@ -25859,7 +27132,7 @@ public static class BattleScene
             //  判据 → `资料/普查产出_1018/R_战斗表现链路对拍.md` §4：
             //   · 偏差 3「新事件会插队」→ 新一批事件的起算时刻 ≥ 上一批的收尾（`_timelineTailAt`）
             //   · 偏差 4「三条 cue 提前播」→ `unitDamage` / `meleeAttackHit*` 随事件那一拍响
-            //   · 偏差 5「战术卡多一段飞向格位」→ 非单位卡不走 `DeploySequence` 的三段（在「手感补间」那节）
+            //   · 偏差 5「战术卡多一段飞向格位」→ 非单位卡不走 `DeploySequence` 的四段（在「手感补间」那节）
             //   · 偏差 6「主动技只演一半」→ `endPosOption`/`pointTowardsOption` 已消费（位移 + 朝向）
             //   · 残余②「抓牌没挡」→ `CardInteraction.Frozen` 并上 `WaitingForBlockingAction`
             //   · 残余④「触发产物先出现在棋盘」→ 新上场的单位等 `Deploy` 那一拍才建视图
@@ -26065,9 +27338,9 @@ public static class BattleScene
             //  判据 → `资料/普查产出_1018/R_战斗表现链路对拍.md` §4：
             //   · 偏差 7「触发式多播一件原版没有的通用特效」→ `GenericVfxFor(Trigger) == null`
             //   · 偏差 8「AI 出牌没有落位演出」→ 视图从敌方手牌飞进格位（`animateFeel` 那一档）
-            //   · 偏差 9「Deploy 四条 cue 同一拍」→ 起飞两拍 + 落地两拍（中间隔 0.55 s）
+            //   · 偏差 9「Deploy 四条 cue 同一拍」→ 起飞两拍 + 落地两拍（中间隔 0.65 s）
             //   · 偏差 10「快进/跳过」→ 产品里没有跳过入口（`DropSignals` 只在 Editor 用）
-            //   · 残余①「出牌前 0.55 s 飞行不在闸内」→ 起飞那一刻闸就是真的
+            //   · 残余①「出牌前 0.65 s 飞行不在闸内」→ 起飞那一刻闸就是真的
             // ==================================================================
             Debug.Log(P + "--- B2 战斗线：飞行进闸 / 触发无通用特效 / AI 落位 / cue 分拍 / 跳过入口 ---");
             {
@@ -26119,7 +27392,7 @@ public static class BattleScene
                     }
                 }
 
-                // ---- 残余① + 偏差 9（前半）：玩家出牌，0.55 s 飞行**在闸内** ----
+                // ---- 残余① + 偏差 9（前半）：玩家出牌，0.65 s 飞行**在闸内** ----
                 driver.Begin("Ultramarines", "Goff", 20261019);
                 if (driver.InMulligan) driver.SimulateMulliganDone();
                 StepThrough(driver);
@@ -26181,7 +27454,7 @@ public static class BattleScene
 
                         // ★ 起飞那一刻：闸为真；引擎**还没**被调（牌还在手牌里）
                         Check(driver.WaitingForBlockingAction,
-                              "★ B2·残余①：**松手那一刻闸就是真的**（0.55 s 飞行也在闸里）—— "
+                              "★ B2·残余①：**松手那一刻闸就是真的**（0.65 s 飞行也在闸里）—— "
                             + "🧨 删掉 `OnPlayerDeployFlightStart` 里那句 `BeginBlockingWindow` ⇒ 本条红");
                         Check(driver.PlayerTakeoffCuePendingForTest,
                               "★ B2·偏差9（前半）：起飞那张票记上了（`PlayDeployTakeoffCues` 已经响过）");
@@ -26192,7 +27465,7 @@ public static class BattleScene
                               $"★ B2·偏差9：起飞那拍响的是 `playMinionFromHand`（实得 `{BattleSfx.LastField}`）—— "
                             + "🧨 把 `PlayDeployTakeoffCues` 从飞行起点删掉 / 把四条 cue 改回同一拍 ⇒ 本条红");
 
-                        // 0.3 s 后仍在飞（三段共 0.55 s）
+                        // 0.3 s 后仍在飞（四段共 0.65 s）
                         Step(0.3f);
                         Check(driver.WaitingForBlockingAction && b2ctx.Players[b2me].Hand.Count == b2HandBefore,
                               "★ B2·残余①：0.3 s 时仍在飞（闸没放行、引擎也还没被调）");
@@ -26209,7 +27482,7 @@ public static class BattleScene
                             + " ⇒ 「飞行中没出」不是「永远不出」");
                         Check(BattleSfx.LastField == BattleSfx.LandOnGround,
                               $"★ B2·偏差9（后半）：落地那拍响的是 `landOnGround`（实得 `{BattleSfx.LastField}`）—— "
-                            + "与 0.55 s 前的起飞那条**不是同一拍**");
+                            + "与 0.65 s 前的起飞那条**不是同一拍**");
                         Check(!driver.PlayerTakeoffCuePendingForTest,
                               "★ B2·偏差9：落地这一拍把起飞那张票吃掉了（起飞/落地各响一次，不重复）");
 
@@ -26267,27 +27540,43 @@ public static class BattleScene
                                 + "判据是「渲染器全关」而不是 `activeSelf`（TMP 未激活量不出尺寸，见 `HideBoardViewForFlight`）");
                         if (carrier2 != null)
                         {
+                            // 🆕 2026-10-19（`W57` · `T05(c)(d)`）：**载体在 0.4 s 会换一次** —— 手牌卡背那一路
+                            //   交接之后由**场上视图**接着落（卡背藏起来、落地拍销毁）⇒ 每次采样都重新问
+                            //   「现在在飞的是谁」（⛔ 别再拿那个固定 transform 读全程）。
+                            System.Func<Transform> flyingNow2 = () => driver.AiDeployFlightCarrierForTest(bfoe2, fslot2);
                             Vector3 fStart = carrier2.position;
                             BattleSfx.ResetCounters();
                             Step(0.2f);
                             Check(BattleSfx.LastField == BattleSfx.PlayMinionFromHand,
                                   $"★ B2·偏差8/9：飞行起点响的是起飞那条（实得 `{BattleSfx.LastField}`）—— "
                                 + "⚠️ 说明：`PlayBattleSfx(Deploy)` 这一拍四条被跳过，起飞在 `StartAiDeployFlight` 里响");
-                            Vector3 fMid = carrier2.position;
+                            Transform cMid = flyingNow2() ?? carrier2;
+                            Vector3 fMid = cMid.position;
                             Check(Vector3.Distance(fStart, fMid) > 0.01f,
                                   $"★ B2·偏差8：飞行中卡在动（0.2 s 位移 {Vector3.Distance(fStart, fMid):F3}）—— "
                                 + "🧨 删掉 `SyncBoard` 里 `_aiDeployFlights` 那一支 ⇒ 视图直接落在终点、位移 0");
-                            // ⚠️ 0.5 s 时还**没到** 0.55 s 的终点 ⇒ 载体还活着（手牌卡背那一路落地即销毁，
-                            //    过了终点再读 `carrier2.position` 会读到已销毁对象）
+                            // 0.5 s = **交接（0.4）之后**：手牌卡背那一路此刻在飞的是场上视图（竞技场空间落下）。
                             Step(0.3f);
-                            Vector3 fLate = carrier2.position;
+                            Transform cLate = flyingNow2();
+                            Vector3 fLate = cLate != null ? cLate.position : fMid;
                             Check(Vector3.Distance(fMid, fLate) > 0.01f,
                                   $"★ B2·偏差8：落地段还在走（0.2 s → 0.5 s 位移 {Vector3.Distance(fMid, fLate):F3}）");
-                            Step(0.2f);          // 0.7 s > 0.55 s ⇒ 落地完成
+                            // 再推 0.1 s（= 0.6 s，仍在 0.45→0.65 的落下段里）⇒ 交接之后那一段**确实在动**
+                            Step(0.1f);
+                            Transform cLater = flyingNow2();
+                            Vector3 fLater = cLater != null ? cLater.position : fLate;
+                            Check(Vector3.Distance(fLate, fLater) > 0.005f,
+                                  $"★ B2·偏差8：**竞技场空间**里那 0.2 s 落下真的在走（0.5 s → 0.6 s 位移 "
+                                + $"{Vector3.Distance(fLate, fLater):F3}）—— 🧨 交接后把落体补间删掉 ⇒ 卡从 0.4 s 起不动 ⇒ 本条红");
+                            // 推到落地（0.65 s）—— ⚠️ 别写死 0.7 s：交接把总长拉到 0.65，余量只剩 0.05
+                            //   （autoPlay 那条还要先走居中展示），所以按**账清掉**为准。
+                            int landWait2 = 0;
+                            while (driver.AiDeployLandingCuePendingForTest(bfoe2, fslot2) && landWait2++ < 180)
+                                Step(1f / 60f);
                             Check(!driver.AiDeployLandingCuePendingForTest(bfoe2, fslot2),
                                   "★ B2·偏差8/9：飞行结束 ⇒ 落地 cue 结账");
                             Check(BattleSfx.LastField == BattleSfx.LandOnGround,
-                                  $"★ B2·偏差9：落地那拍响 `landOnGround`（实得 `{BattleSfx.LastField}`）—— 与起飞隔 0.55 s");
+                                  $"★ B2·偏差9：落地那拍响 `landOnGround`（实得 `{BattleSfx.LastField}`）—— 与起飞隔 0.65 s");
                             if (useHandCarrier2 && fv2 != null)
                             {
                                 Check(!driver.AiDeployBoardViewHiddenForTest(bfoe2, fslot2),
@@ -26795,7 +28084,11 @@ public static class BattleScene
                         Check(Vector3.Distance(p0, carrier6.position) > 0.01f,
                               $"★ B5·autoPlay：0.2 s 时卡真的在往格位飞（位移 {Vector3.Distance(p0, carrier6.position):F3}）—— "
                             + "🧨 不订票 ⇒ 视图直接落在终点、位移 0");
-                        Step(0.5f);   // 0.7 s > 0.55 s ⇒ 落地完成
+                        // ⚠️ 别写死一个「0.7 s > 0.55 s」的余量：交接（0.4 s）把总长拉到 **0.65 s**，
+                        //    autoPlay 那条还要先走居中展示 ⇒ 按**落地账清掉**为准（最多 3 s）。
+                        int landWait6 = 0;
+                        while (driver.AiDeployLandingCuePendingForTest(me6, slot6) && landWait6++ < 180)
+                            Step(1f / 60f);
                         Check(!driver.AiDeployLandingCuePendingForTest(me6, slot6),
                               "★ B5·autoPlay：飞行结束 ⇒ 落地 cue 结账（起飞在起点、落地在终点）");
                     }
@@ -27091,6 +28384,400 @@ public static class BattleScene
                     }
                 }
                 driver.animateFeel = feelWasB6;
+            }
+
+            // ============================================================ 🆕 2026-10-19（W57 · 战斗线 `T09` 步骤 A1）
+            //  `EventSystem` 层 + **第一颗钮**（进攻卡 `_offensiveBtn`）—— 验三件事：
+            //  ① 层本身对不对（这一组才是灭自证）② 成员挂对没有 ③ 射线 / 点击 / 一致性。
+            //  判据 → `资料/普查产出_1019/W57_战斗线_T09迁移计划.md` §2 步骤 A1 / §五 第一批。
+            //  ⚠️ 批处理 `Screen = 640×480`（4:3）而 `cam.aspect` 钉 16:9 ⇒
+            //     ⛔ **不许**用「世界尺寸 ×108」算画布 px；一律读 `sizeDelta` / `HudCanvas.SizePx`，
+            //     屏幕点用 `RectTransformUtility.WorldToScreenPoint` 现算（判据 → `T09` §四 R4）。
+            Debug.Log(P + "--- W57/T09-A1：EventSystem 层 + 进攻卡钮（uGUI 点击）---");
+            {
+                // ── ① 层本身 ─────────────────────────────────────────────────────
+                var esA1 = BattleEventSystem.Instance;
+                Check(esA1 != null && EventSystem.current == esA1,
+                      "★ T09-A1①：`EventSystem.current` == `BattleEventSystem.Instance`（层真的立起来了）"
+                    + $"（instance={esA1 != null} · current==instance={EventSystem.current == esA1}）"
+                    + "｜🧨 删掉 `BuildHud` 里那句 `BattleEventSystem.Ensure()` ⇒ 本条红");
+                Check(BattleEventSystem.InstanceCount == 1,
+                      $"★ T09-A1①：场景里 `EventSystem` **恰好 1 只**（实得 {BattleEventSystem.InstanceCount}）"
+                    + " —— 原版只有一只常驻（`level0/GameObject/EventSystem.json`；判据 → `T09` §四 R7）");
+                {
+                    var modA1 = esA1 != null ? esA1.GetComponent<InputSystemUIInputModule>() : null;
+                    var oldA1 = esA1 != null ? esA1.GetComponent<StandaloneInputModule>() : null;
+                    Check(modA1 != null && oldA1 == null && BattleEventSystem.Ready,
+                          "★ T09-A1①：输入模块是 **`InputSystemUIInputModule`**、**没有** `StandaloneInputModule`"
+                        + $"（实得 `{(modA1 != null ? modA1.GetType().Name : "<无>")}` / 旧模块 {(oldA1 != null ? "在" : "无")}）"
+                        + " —— `activeInputHandler = 1`（New-only）下挂旧模块 = **一个事件都收不到且不报错**（判据 → `T09` §1·1）");
+                }
+                Check(HudCanvas.HasGraphicRaycaster,
+                      "★ T09-A1①：根 canvas 的 `GraphicRaycaster` **还在**（射线面不能少）");
+
+                // ── ② 成员：raycastTarget / 点击组件 / 尺寸 ────────────────────────
+                var pieceA1 = driver.HudButtonPieceForTest("offensive");
+                Check(pieceA1 != null && pieceA1.IsUgui,
+                      "★ T09-A1②（前提）：`_offensiveBtn` 在位、且已经是 **uGUI 件**（`HudPiece.IsUgui`）");
+                if (pieceA1 != null && pieceA1.IsUgui)
+                {
+                    var goA1 = pieceA1.gameObject;
+                    var imgA1 = goA1 != null ? goA1.GetComponent<Image>() : null;
+                    var btnA1 = goA1 != null ? goA1.GetComponent<BattleHudButton>() : null;
+                    Check(imgA1 != null && imgA1.raycastTarget,
+                          "★ T09-A1②：`Image.raycastTarget == true`（它现在是射线靶）"
+                        + "｜🧨 删掉 `BattleHudButton.Attach` 里那句 `SetRaycastTarget(true)` ⇒ 本条 + 几何两条一起红");
+                    Check(btnA1 != null && goA1.GetComponent<IPointerClickHandler>() != null,
+                          "★ T09-A1②：它身上有 **`IPointerClickHandler`**（原版那颗 = `EverguildButton`，同一条链）");
+                    {
+                        var rtA1b = pieceA1.Rect;
+                        var sdA1 = rtA1b != null ? rtA1b.sizeDelta : Vector2.zero;
+                        // 原版节点 rect = `RectTransform_3161.m_SizeDelta` = 109.00800323486328 × 106.94300079345703（现读）。
+                        // 🔴 **2026-10-20（W57 · `T09-FIX3` · P2-6）**：A2 漏做的那一颗（进攻卡钮）已补
+                        //   `SetNodeRect(109.008003…, 106.943000…, preserveAspect: true)` ⇒ `sizeDelta` = **节点 rect**。
+                        //   `m_PreserveAspect = 1`（`MonoBehaviour_4793`）⇒ 画出来仍是内接的 109.008×105.601
+                        //   （宽受限），**画面逐位不变** —— 变的只有命中框（原来是内接高 105.601，比原版矮 1.343 px）。
+                        const float offNodeW = 109.00800323486328f, offNodeH = 106.94300079345703f;
+                        Check(Mathf.Abs(sdA1.x - offNodeW) < 0.01f && Mathf.Abs(sdA1.y - offNodeH) < 0.01f,
+                              $"★ T09-A1②：`sizeDelta` = **原版节点 rect** {offNodeW:F3}×{offNodeH:F3}"
+                            + $"（实得 {sdA1.x:F3}×{sdA1.y:F3}）—— 判据 = `RectTransform_3161.m_SizeDelta`（未取整）"
+                            + "｜🧨 漏 `SetNodeRect`（留 `HudAbs` 的内接高 105.601）⇒ uGUI 命中区比原版矮 1.343 px ⇒ 本条红");
+                        Check(imgA1 != null && imgA1.preserveAspect,
+                              "★ T09-A1②：`Image.preserveAspect == true`（原版 `MonoBehaviour_4793.m_PreserveAspect = 1`）"
+                            + " —— 关掉它 ⇒ 图会按 rect 拉伸成 109.008×106.943（比原版画面高 1.343 px）");
+                        Check(imgA1 != null && imgA1.raycastPadding == Vector4.zero,
+                              $"★ T09-A1②：`Image.raycastPadding == (0,0,0,0)`（原版 `MonoBehaviour_4793`）"
+                            + $"（实得 {imgA1?.raycastPadding}）—— ⛔ 别把命中框再收/放一次");
+                    }
+
+                    if (btnA1 != null)
+                    {
+                        // ── ③ 几何：`EventSystem.RaycastAll` + 手搓 `PointerEventData` ─────
+                        //   ⚠️ 编辑模式：`AddComponent` 不派 `OnEnable` ⇒ `BaseRaycaster.OnEnable` 里那句
+                        //      `RaycasterManager.AddRaycaster` 可能没跑过 ⇒ 先走公开口补登记
+                        //      （`BattleEventSystem.SyncRaycasters`，见它自己的 doc）。
+                        //   ⚠️ `Graphic.depth == -1` 会被 `GraphicRaycaster` 跳过 ⇒ 先 `ForceUpdateCanvases`。
+                        //   ⚠️ 这颗钮**出厂是关着的**（原版 `BattleHud.Initialize` 先 `SetActive(false)`）——
+                        //      uGUI 关着 = 不在 `GraphicRegistry` 里、收不到射线 ⇒ **先点亮再打射线**。
+                        driver.SetHudButtonActiveForTest("offensive", true);
+                        if (driver.CardDisplay != null) driver.CardDisplay.Hide();
+                        BattleEventSystem.SyncRaycasters();
+                        Canvas.ForceUpdateCanvases();
+                        var canvasA1 = HudCanvas.Root;
+                        var camA1 = canvasA1 != null ? canvasA1.worldCamera : null;
+                        var rtA1 = pieceA1.Rect;
+                        var esRay = EventSystem.current != null ? EventSystem.current : esA1;
+                        bool geomOk = rtA1 != null && canvasA1 != null && camA1 != null && esRay != null;
+                        Check(geomOk,
+                              "★ T09-A1③（前提）：根 canvas / 相机 / 件的 `RectTransform` / `EventSystem` 都取得到"
+                            + " —— 取不到就算不出屏幕点（⛔ 不写死 960/540）");
+                        Vector2 screenC = Vector2.zero;
+                        var hitsA1 = new List<RaycastResult>();
+                        bool byRayA1 = false;
+                        if (geomOk)
+                        {
+                            // 钮中心：**局部 rect 中心** → 世界 → 屏幕像素（pivot 是不是 0.5 都不影响这条写法）
+                            Vector3 worldC = rtA1.TransformPoint(rtA1.rect.center);
+                            screenC = RectTransformUtility.WorldToScreenPoint(camA1, worldC);
+                            var pedA1 = new PointerEventData(esRay) { position = screenC };
+                            esRay.RaycastAll(pedA1, hitsA1);
+                            byRayA1 = hitsA1.Count > 0 && hitsA1[0].gameObject == goA1;
+                            Check(byRayA1,
+                                  "★ T09-A1③：`EventSystem.RaycastAll` 在**钮中心**命中它"
+                                + $"（screen=({screenC.x:F1},{screenC.y:F1}) · 画布 {HudCanvas.RootRect.rect.width:F1}×"
+                                + $"{HudCanvas.RootRect.rect.height:F1} · 首中="
+                                + $"{(hitsA1.Count > 0 && hitsA1[0].gameObject != null ? hitsA1[0].gameObject.name : "<无>")}"
+                                + $" · 命中 {hitsA1.Count} 条）"
+                                + "｜🧨 `raycastTarget=false` / `Ensure()` 没建 / 射线没登记 / `depth=-1` ⇒ 红");
+
+                            // 钮外 1 设计 px（节点 rect 右缘 +1）⇒ 不许命中它
+                            Vector3 worldOut = rtA1.TransformPoint(
+                                new Vector3(rtA1.rect.xMax + 1f, rtA1.rect.center.y, 0f));
+                            Vector2 screenOut = RectTransformUtility.WorldToScreenPoint(camA1, worldOut);
+                            var pedOut = new PointerEventData(esRay) { position = screenOut };
+                            var hitsOut = new List<RaycastResult>();
+                            esRay.RaycastAll(pedOut, hitsOut);
+                            bool outHit = hitsOut.Count > 0 && hitsOut[0].gameObject == goA1;
+                            Check(!outHit,
+                                  "★ T09-A1③（灭自证）：**钮外 1 设计 px** 射线**打不到它**"
+                                + $"（screen=({screenOut.x:F1},{screenOut.y:F1}) · 命中 {hitsOut.Count} 条）"
+                                + " —— 与上一条配对：「无界 / 恒命中」会让上一条绿、本条红");
+                        }
+
+                        // ── ④ 灭自证：手动路径已退 **且** uGUI 点击只触发一次 ────────────
+                        //   夹具：选一张真进攻卡（`OpenOffensiveCardWindow` 要求 `ChosenOffensiveCard()` 非 null）
+                        if (driver.Ctx != null)
+                        {
+                            var chA1 = CardPresentation.OffensiveCards.Choices("Ultramarines");
+                            if (chA1.Count > 1)
+                                RuleCore.ChooseOffensiveCard(driver.Ctx, 0, chA1[1].idx, chA1[1].envSO);
+                        }
+                        bool?    heldWasA1  = BattleDriver.PointerHeldForTest;
+                        Vector3? worldWasA1 = BattleDriver.PointerWorldForTest;
+                        int openBeforeA1 = driver.OffensiveWindowOpenCountForTest;
+                        btnA1.ResetClickCountForTest();
+                        driver.SetHudButtonActiveForTest("offensive", true);   // 幂等（③ 已点亮）
+                        if (driver.CardDisplay != null) driver.CardDisplay.Hide();
+
+                        var pedClickA1 = new PointerEventData(esRay)
+                        {
+                            position = screenC,
+                            button = PointerEventData.InputButton.Left,
+                        };
+                        ExecuteEvents.Execute<IPointerClickHandler>(goA1, pedClickA1, ExecuteEvents.pointerClickHandler);
+                        int openedA1 = driver.OffensiveWindowOpenCountForTest - openBeforeA1;
+                        Check(btnA1.ClickCountForTest == 1 && openedA1 == 1,
+                              "★ T09-A1④（灭自证）：uGUI **点一次** ⇒ 动作触发 **1** 次、展示窗只开 **1** 次"
+                            + $"（实得 click={btnA1.ClickCountForTest} · 开窗 {openedA1} 次）"
+                            + "｜🧨 两条路并存（uGUI + 手搓命中/沿）⇒ 开窗 2 次 ⇒ 红（判据 → `T09` §四 R1）");
+                        Check(driver.HandleOffensiveButtonForTest() == false,
+                              "★ T09-A1④（灭自证）：手动路径 `HandleOffensiveButton()` **恒 false**（命中 + 抬边沿已退场）"
+                            + " —— 与上一条**结构上不可能同时满足**：要让手动路径生效就得把那两句加回去"
+                            + " ⇒ 上一条开两次窗 ⇒ 红");
+                        ExecuteEvents.Execute<IPointerDownHandler>(goA1, pedClickA1, ExecuteEvents.pointerDownHandler);
+                        ExecuteEvents.Execute<IPointerUpHandler>(goA1, pedClickA1, ExecuteEvents.pointerUpHandler);
+                        Check(btnA1.ClickCountForTest == 1,
+                              "★ T09-A1④（灭自证）：直接喂**按下 + 松开**（不经过 `EventSystem`）⇒ 计数**仍是 1**"
+                            + $"（实得 {btnA1.ClickCountForTest}）—— 计数只由 `IPointerClickHandler` 驱动");
+                        // 再把**旧的手搓指针路**（按下 → 松手，喂在钮心上）走一遍：计数与开窗次数都不许变。
+                        BattleDriver.PointerWorldForTest = driver.HudButtonWorldPosForTest("offensive");
+                        BattleDriver.PointerHeldForTest = true;
+                        driver.PollInputEdgesForTest();
+                        BattleDriver.PointerHeldForTest = false;
+                        driver.PollInputEdgesForTest();
+                        Check(btnA1.ClickCountForTest == 1
+                           && driver.OffensiveWindowOpenCountForTest - openBeforeA1 == 1,
+                              "★ T09-A1④（灭自证）：把**旧的手搓指针路**再走一遍 ⇒ 计数与开窗次数都不变"
+                            + "（`Update` 里那一行与 `TickHudButtonsForTest` 里那一句都已删）");
+                        if (driver.CardDisplay != null) driver.CardDisplay.Hide();
+                        BattleDriver.PointerHeldForTest = heldWasA1;
+                        BattleDriver.PointerWorldForTest = worldWasA1;
+
+                        // ── ⑤ 一致：同一屏幕点，`Contains(world)` 与 `RaycastAll` 同判 ────
+                        if (geomOk)
+                        {
+                            // `LayoutSpace.ScreenToWorld` = `WorldPointer()` 的同一条换算
+                            //（正交相机 ⇒ x/y 与 z 无关，取 z=0 与画布面 z=0.3 同值）。
+                            Vector3 wpA1 = LayoutSpace.ScreenToWorld(screenC, camA1);
+                            bool byContainsA1 = pieceA1.Contains(wpA1);
+                            Check(byContainsA1 == byRayA1,
+                                  "★ T09-A1⑤：同一屏幕点，`Contains` 与 `RaycastAll` **同判**"
+                                + $"（Contains={byContainsA1} · Raycast={byRayA1} · screen=({screenC.x:F1},{screenC.y:F1})）"
+                                + " —— 两边不一致 = 手感判据与射线判据已经分叉（判据 → `T09` A1⑤）");
+                        }
+                    }
+                }
+            }
+
+            // ============================================================ 🆕 2026-10-19（W57 · 战斗线 `T09` 步骤 A2）
+            //  HUD 按钮族**其余六颗**（settings / chat / cemetery / cameraReset / alliance / endTurn）。
+            //  逐颗验五件事：① 原版节点 rect ② `m_PreserveAspect` ③ `m_RaycastPadding`（4 元组）
+            //  ④ `raycastTarget = true` + `IPointerClickHandler` ⑤ **命中框边界**（`rect+pad` 四边内/外各 1 px）。
+            //  灭自证：手动 `Handle*` 全 false（`ClickCount` 不动）+ uGUI 点一次只触发一次。
+            //  判据 → `资料/普查产出_1019/W57_战斗线_T09迁移计划.md` §1·6 / §2 A2。
+            //  ⚠️ 批处理 `Screen = 640×480`（4:3）而 `cam.aspect` 钉 16:9 ⇒ 屏幕点一律
+            //     `RectTransformUtility.WorldToScreenPoint` 现算；尺寸一律读 `sizeDelta`（`T09` §四 R4）。
+            Debug.Log(P + "--- W57/T09-A2：HUD 按钮族其余六颗（uGUI 点击）---");
+            {
+                // ── 六颗的原版真值（⛔ **不读 `BattleDriver` 那边的常量** —— 期望值独立写在这里）──
+                //  rect = 原版 `RectTransform.m_SizeDelta`（1920×1080 设计 px）
+                //  pad  = 原版 `MonoBehaviour.m_RaycastPadding`（分量序 **L,B,R,T**，**负 = 外扩**）
+                //  pa   = 原版 `Image.m_PreserveAspect`
+                //  ⚠️ alliance：原版是 `NonDrawingGraphic`（一个像素都不画）⇒ rect **就是命中矩形**
+                //     310.07×93.45（外扩已烘进去）⇒ ⛔ **不再填 padding**（否则二次外扩）。
+                //  ⚠️ endTurn：原版那颗 `Image` 的 `m_PreserveAspect = 0`（拉满）。
+                var a2Rows = new[]
+                {
+                    new { which = "settings",    node = "RightArea/SettingsBtn",
+                          w = 63.874f,  h = 63.874f,  l = -23.13f, b = -38.6f,  r = -26.9f,  t = -25.81f, pa = true  },
+                    new { which = "chat",        node = "PlayerInfo/ChatButton",
+                          w = 64.443f,  h = 61.846f,  l = -8f,     b = -8f,     r = -8f,     t = -8f,     pa = true  },
+                    new { which = "cemetery",    node = "EnemyInfo/ShowCemeteryBtn",
+                          w = 64.478f,  h = 64.17f,   l = -8f,     b = -8f,     r = -8f,     t = -8f,     pa = true  },
+                    new { which = "cameraReset", node = "LeftAnchor/CenterCameraButton",
+                          w = 64.4429931640625f, h = 61.84600830078125f,
+                          l = -8f, b = -8f, r = -8f, t = -8f, pa = true  },
+                    new { which = "alliance",    node = "LeftArea/EnemyInfo（命中矩形）",
+                          w = 310.07f, h = 93.45f,   l = 0f,      b = 0f,      r = 0f,      t = 0f,      pa = false },
+                    new { which = "endTurn",     node = "Clock/TurnBtn",
+                          w = 130.702f, h = 80.432f, l = -14.19f, b = -30.3f,  r = -26.19f, t = -18.4f,  pa = false },
+                };
+
+                // 先把所有模态窗收掉（⛔ 否则 `HudClickBlocked` 会把这些点击全挡掉 = 假绿）
+                if (driver.Settings   != null && driver.Settings.Visible)   driver.Settings.Hide();
+                if (driver.ChatPopup  != null && driver.ChatPopup.Visible)  driver.ChatPopup.Hide();
+                if (driver.BattleLog  != null && driver.BattleLog.Visible)  driver.BattleLog.Hide();
+                if (driver.AlliancePanelRef != null && driver.AlliancePanelRef.Visible) driver.AlliancePanelRef.Close();
+                if (driver.CardDisplay != null && driver.CardDisplay.Visible) driver.CardDisplay.Hide();
+
+                // 先把六颗都点亮（`cameraReset` 出厂关着；uGUI 关着不在 `GraphicRegistry` 里 ⇒ 打不到射线）
+                for (int iA2 = 0; iA2 < a2Rows.Length; iA2++)
+                    driver.SetHudButtonActiveForTest(a2Rows[iA2].which, true);
+                // 编辑模式补偿（Play 模式为空操作）：补登记 raycaster + 强制排版（`Graphic.depth` 从 −1 变真值）
+                BattleEventSystem.SyncRaycasters();
+                Canvas.ForceUpdateCanvases();
+
+                var camA2 = HudCanvas.Root != null ? HudCanvas.Root.worldCamera : null;
+                var esA2  = EventSystem.current != null ? EventSystem.current : BattleEventSystem.Instance;
+                Check(camA2 != null && esA2 != null,
+                      "★ T09-A2（前提）：根 canvas 的相机 + `EventSystem` 都取得到（⛔ 不写死 960/540）");
+
+                // `rect` 按 `pad` 收/放（**与 `GraphicRaycaster` 同口径**：分量序 L,B,R,T、负 = 外扩）
+                // ⚠️ 用 `System.Func`（本文件没有 `using System;` —— 见开头 `HitRect964` 同一条写法）
+                System.Func<RectTransform, Vector4, Rect> HitRectA2 = (rt, pad) =>
+                {
+                    var r = rt.rect;
+                    return Rect.MinMaxRect(r.xMin + pad.x, r.yMin + pad.y, r.xMax - pad.z, r.yMax - pad.w);
+                };
+                System.Func<RectTransform, Vector2, Vector2> ToScreenA2 = (rt, local) =>
+                    RectTransformUtility.WorldToScreenPoint(camA2,
+                        rt.TransformPoint(new Vector3(local.x, local.y, 0f)));
+                System.Func<HudPiece, Vector2, string, bool> HitsA2 = (piece, screen, tag) =>
+                {
+                    if (esA2 == null) return false;
+                    var ped = new PointerEventData(esA2) { position = screen };
+                    var hits = new List<RaycastResult>();
+                    esA2.RaycastAll(ped, hits);
+                    bool ok = hits.Count > 0 && hits[0].gameObject == piece.gameObject;
+                    if (!ok)
+                        Debug.LogWarning("[T09-A2] " + tag + "：射线**没打中**它（首中 = "
+                            + (hits.Count > 0 && hits[0].gameObject != null ? hits[0].gameObject.name : "<无>")
+                            + $" · screen=({screen.x:F2},{screen.y:F2}) · 命中 {hits.Count} 条)"
+                            + " —— 线上是 `Debug.LogWarning` 不是吞掉");
+                    return ok;
+                };
+
+                int a2Good = 0, a2N = 0;
+                bool?    heldWasA2  = BattleDriver.PointerHeldForTest;
+                Vector3? worldWasA2 = BattleDriver.PointerWorldForTest;
+                for (int iA2 = 0; iA2 < a2Rows.Length; iA2++)
+                {
+                    var row = a2Rows[iA2];
+                    string w2 = row.which;
+                    var piece = driver.HudButtonPieceForTest(w2);
+                    Check(piece != null && piece.IsUgui,
+                          $"★ T09-A2[{w2}]（前提）：那颗钮在、且已经是 **uGUI 件**（原版节点 `{row.node}`）");
+                    if (piece == null || !piece.IsUgui) continue;
+                    a2N++;
+
+                    var go2  = piece.gameObject;
+                    var img2 = go2.GetComponent<Image>();
+                    var btn2 = go2.GetComponent<BattleHudButton>();
+                    var rt2  = piece.Rect;
+
+                    // ── ① 成员：rect / PA / pad / raycastTarget / 点击组件 ──────────────
+                    bool rectOk = Mathf.Abs(rt2.sizeDelta.x - row.w) < 0.01f
+                               && Mathf.Abs(rt2.sizeDelta.y - row.h) < 0.01f;
+                    Check(rectOk,
+                          $"★ T09-A2[{w2}]①：`sizeDelta` = **原版节点 rect** {row.w:F3}×{row.h:F3}"
+                        + $"（实得 {rt2.sizeDelta.x:F3}×{rt2.sizeDelta.y:F3}）"
+                        + "｜🧨 改坏法：退回「画出来的尺寸」（PA=1 内接后的那个）⇒ 本条红，且 pad 照抄下去命中框会系统性偏小"
+                        + "（判据 → `T09` §1·6 / R2）");
+                    bool paOk = img2 != null && img2.preserveAspect == row.pa;
+                    Check(paOk,
+                          $"★ T09-A2[{w2}]②：`Image.preserveAspect` = **{row.pa}**（原版 `m_PreserveAspect`）"
+                        + $"（实得 {(img2 != null ? img2.preserveAspect.ToString() : "<无 Image>")}）");
+                    bool padOk = img2 != null
+                              && Mathf.Abs(img2.raycastPadding.x - row.l) < 0.01f
+                              && Mathf.Abs(img2.raycastPadding.y - row.b) < 0.01f
+                              && Mathf.Abs(img2.raycastPadding.z - row.r) < 0.01f
+                              && Mathf.Abs(img2.raycastPadding.w - row.t) < 0.01f;
+                    Check(padOk,
+                          $"★ T09-A2[{w2}]③：`Image.raycastPadding` = 原版 4 元组 **({row.l:g},{row.b:g},{row.r:g},{row.t:g})**"
+                        + $"（分量序 L,B,R,T；实得 ({img2?.raycastPadding.x:g},{img2?.raycastPadding.y:g},"
+                        + $"{img2?.raycastPadding.z:g},{img2?.raycastPadding.w:g})）"
+                        + "｜🧨 改坏法：分量序写反 / 丢掉负号 ⇒ 本条 + 下面「边内 1 px」那条一起红"
+                        + "（判据 → `T09` §2 A2；alliance 那一颗**故意是 0** —— rect 本身就是命中矩形）");
+                    Check(img2 != null && img2.raycastTarget,
+                          $"★ T09-A2[{w2}]④：`Image.raycastTarget == true`（它是射线靶）"
+                        + "｜🧨 改坏法：删掉 `BattleHudButton.Attach` 里那句 `SetRaycastTarget(true)` ⇒ 本条 + 几何两条一起红");
+                    Check(btn2 != null && btn2.HasAction,
+                          $"★ T09-A2[{w2}]④：身上有 **`BattleHudButton`** 且挂着动作（原版那颗 = `EverguildButton`，同一条链）");
+
+                    // ── ⑤ 几何：`rect+pad` 的四条边【内 1 px】/【外 1 px】各打一次 ─────────
+                    var pad2 = new Vector4(row.l, row.b, row.r, row.t);
+                    var hit2 = HitRectA2(rt2, pad2);
+                    float cx2 = hit2.center.x, cy2 = hit2.center.y;
+                    bool inA2 = HitsA2(piece, ToScreenA2(rt2, new Vector2(cx2, cy2)), w2 + " 中心")
+                             && HitsA2(piece, ToScreenA2(rt2, new Vector2(hit2.xMin + 1f, cy2)), w2 + " 左内1")
+                             && HitsA2(piece, ToScreenA2(rt2, new Vector2(hit2.xMax - 1f, cy2)), w2 + " 右内1")
+                             && HitsA2(piece, ToScreenA2(rt2, new Vector2(cx2, hit2.yMin + 1f)), w2 + " 下内1")
+                             && HitsA2(piece, ToScreenA2(rt2, new Vector2(cx2, hit2.yMax - 1f)), w2 + " 上内1");
+                    bool outA2 = !HitsA2(piece, ToScreenA2(rt2, new Vector2(hit2.xMin - 1f, cy2)), w2 + " 左外1")
+                              && !HitsA2(piece, ToScreenA2(rt2, new Vector2(hit2.xMax + 1f, cy2)), w2 + " 右外1")
+                              && !HitsA2(piece, ToScreenA2(rt2, new Vector2(cx2, hit2.yMin - 1f)), w2 + " 下外1")
+                              && !HitsA2(piece, ToScreenA2(rt2, new Vector2(cx2, hit2.yMax + 1f)), w2 + " 上外1");
+                    Check(inA2,
+                          $"★ T09-A2[{w2}]⑤：命中框 = rect 按 pad 收/放后的 {hit2.width:F3}×{hit2.height:F3} px ——"
+                        + " **中心 + 四条边内 1 px 全部打中它**"
+                        + $"（画布 {HudCanvas.RootRect.rect.width:F1}×{HudCanvas.RootRect.rect.height:F1} ·"
+                        + $" 节点 {row.node}）"
+                        + "｜🧨 改坏法：pad 分量序写反 / 丢掉负号 / `rect` 还是画出来的尺寸 ⇒ 某条边进不中 ⇒ 红"
+                        + "（**「看着在钮上、点不动」那族只有这条能挡** —— 判据 → `T09` §2 A2）");
+                    Check(outA2,
+                          $"★ T09-A2[{w2}]⑤（**灭自证**）：**四条边外 1 px 都打不中它**（命中区有界）"
+                        + " —— 与上一条配对：「恒命中 / 命中区取成整屏 / padding 填成正的大数」会让上一条绿、本条红");
+
+                    // ── ⑥ 灭自证：手动 `Handle*` 全 false，uGUI 点一次只触发一次 ──────────
+                    // ⚠️ 计数**先清零再取基线**（前面几段 A964/A985 也点过这几颗钮 —— 不清零会读出旧值）
+                    btn2.ResetClickCountForTest();
+                    int cnt0A2 = btn2.ClickCountForTest;
+                    // 旧的手搓指针路：按下 + 松手（喂在钮心上）+ 各条手动 handler
+                    BattleDriver.PointerWorldForTest = driver.HudButtonWorldPosForTest(w2);
+                    BattleDriver.PointerHeldForTest = true;
+                    driver.PollInputEdgesForTest();
+                    BattleDriver.PointerHeldForTest = false;
+                    driver.PollInputEdgesForTest();
+                    bool manualHit = false;
+                    switch (w2)
+                    {
+                        case "settings":    manualHit = driver.TickSettingsInputForTest(); break;
+                        case "chat":        manualHit = driver.TickChatInputForTest(); break;
+                        case "cemetery":    manualHit = driver.TickLogInputForTest(); break;
+                        case "cameraReset": manualHit = driver.TickHudButtonsForTest(); break;
+                        case "alliance":    manualHit = driver.TickAllianceInputForTest(); break;
+                        case "endTurn":
+                        {
+                            // 结束回合那一颗没有 handler 了（旧那一句在 `DrivePlayerTurn` 里）——
+                            // 直接走一次那条链：**回合不许推进**（基线取 `Ctx.Turn` / `Ctx.Active`）。
+                            int turn0 = driver.Ctx != null ? driver.Ctx.Turn : -1;
+                            int act0  = driver.Ctx != null ? driver.Ctx.Active : -1;
+                            driver.DrivePlayerTurnForTest();
+                            manualHit = driver.Ctx != null
+                                     && (driver.Ctx.Turn != turn0 || driver.Ctx.Active != act0);
+                            break;
+                        }
+                    }
+                    Check(!manualHit && btn2.ClickCountForTest == cnt0A2,
+                          $"★ T09-A2[{w2}]⑥（**灭自证**）：旧的手搓指针路（按下→松手 + `Handle*`）**不再触发任何动作**"
+                        + $"（手动接管={manualHit} · uGUI 点击计数 {cnt0A2}→{btn2.ClickCountForTest}）"
+                        + " —— 与下一条**结构上不可能同时满足**：要让手动路径生效就得把命中 + 抬边沿加回去 ⇒ 一次点击走两条路");
+
+                    // uGUI 那一跳：**点一次 = 1**（`OnPointerClick` / `ClickForTest` 同一个 `Fire()`）
+                    int cntBeforeClick = btn2.ClickCountForTest;
+                    bool fired = driver.ClickHudButtonForTest(w2);
+                    Check(fired && btn2.ClickCountForTest == cntBeforeClick + 1,
+                          $"★ T09-A2[{w2}]⑥：uGUI **点一次 ⇒ 动作只触发一次**"
+                        + $"（fired={fired} · 计数 {cntBeforeClick}→{btn2.ClickCountForTest}）"
+                        + "｜🧨 改坏法：一次 `OnPointerClick` 里调两次动作 / 手动路与 uGUI 路并存 ⇒ 计数 2 ⇒ 红"
+                        + "（判据 → `T09` §四 R1）");
+
+                    // 收尾：把这一下点开的窗关掉（⛔ 别让下一颗的模态闸吃到它）
+                    if (driver.Settings   != null && driver.Settings.Visible)   driver.Settings.Hide();
+                    if (driver.ChatPopup  != null && driver.ChatPopup.Visible)  driver.ChatPopup.Hide();
+                    if (driver.BattleLog  != null && driver.BattleLog.Visible)  driver.BattleLog.Hide();
+                    if (driver.AlliancePanelRef != null && driver.AlliancePanelRef.Visible) driver.AlliancePanelRef.Close();
+                    a2Good++;
+                }
+
+                Check(a2N == a2Rows.Length,
+                      $"★ T09-A2（收口）：六颗钮**逐颗都验到了**（{a2Good}/{a2Rows.Length}）"
+                    + " —— 少一颗 = 它没建出来 / 键表漏了它（⛔ 不静默跳过）");
+
+                // 收尾：`cameraReset` 出厂关着（原版 `BattleHud.Initialize` 先 `SetActive(false)`）
+                driver.SetHudButtonActiveForTest("cameraReset", false);
+                BattleDriver.PointerHeldForTest  = heldWasA2;
+                BattleDriver.PointerWorldForTest = worldWasA2;
             }
 
             UnityEngine.Object.DestroyImmediate(driver);
@@ -28337,6 +30024,143 @@ public static class BattleScene
             + " —— 超过就是又冒出一个泄漏源；低于基线说明那一处也修了，把常数调小"
             + (lastMaterialInst.Length > 0 ? "，末条：" + lastMaterialInst : ""));
 
+        // ============================================================ 🆕 2026-10-19（战斗线 `T21` · 引擎事件缺口 A / E / F）
+        //  判据 → `资料/普查产出_1019/W_战斗线_T21现核_1019b.md` §三 A / E / F；
+        //  产出 → `资料/普查产出_1019/W57_战斗线_T21引擎事件缺口.md`。
+        //  ⚠️ 这一段**只验「引擎发没发那条 `EvtKind.Trigger` / 表现层按 trigger 名解析到了哪一件」**
+        //    （纯引擎 + VfxMap，不建视图、不进游戏）。画面像不像归真机那一档
+        //    （`资料/真Play待验清单.md`）。
+        Debug.Log(P + "--- W57/T21：引擎事件缺口 A/E/F ---");
+        {
+            // 夹具：一副「督军 + 20 张垫牌 + 指定手牌」的牌库（抽牌是 `pop_back` ⇒ 手牌倒序放）。
+            List<CardDef> DeckOf(params CardDef[] hand)
+            {
+                var d = new List<CardDef>
+                {
+                    new CardDef("FixtureWarlord", "FixtureWarlord", "hero", "", null, "Test",
+                                0, 2, 30, 0, null, subtype: "Warlord")
+                };
+                for (int i = 0; i < 20; i++)
+                    d.Add(new CardDef("filler" + i, "filler" + i, "unit", "", null, "Test", 1, 0, 1, 0, null));
+                for (int i = hand.Length - 1; i >= 0; i--) d.Add(hand[i]);
+                return d;
+            }
+            int HandIdxOf(BattleContext c, int p, CardDef card)
+            {
+                for (int i = 0; i < c.Players[p].Hand.Count; i++)
+                    if (c.Players[p].Hand[i].Card == card) return i;
+                return -1;
+            }
+            bool HasTrigger(BattleContext c, string cardName, string keyword)
+            {
+                foreach (var ev in c.Signals)
+                    if (ev.Kind == EvtKind.Trigger && ev.CardId == cardName
+                        && string.Equals(ev.Keyword ?? "", keyword, System.StringComparison.OrdinalIgnoreCase))
+                        return true;
+                return false;
+            }
+
+            // ---------------- A · `followAfterResolution`(320) → `FollowUpResolution`(410) ----------------
+            // 代表卡 `UM39 Inspired Retribution`（`Destroy an enemy troop`，320 挂在它的 trigger 0 能力里；
+            // 现读 12 张战术/防御里它最好摆夹具 —— 有目标、正文两词）。
+            var ir = FindPoolCard("Inspired Retribution");
+            var decoyA = FindPoolCard("Greatest Deeds");       // 对照：没有 410 动画行
+            var rvA = FindPoolCard("Resurrection Vault");      // 只用来验「VfxMap 按 trigger 名解析」
+            Check(ir != null && decoyA != null && rvA != null,
+                  "A（前提）：卡池里拿得到 `Inspired Retribution` / `Greatest Deeds` / `Resurrection Vault`");
+            if (ir != null && decoyA != null && rvA != null)
+            {
+                var cA = RuleCore.NewBattle(DeckOf(ir, decoyA), DeckOf(), seed: 0, shuffle: false);
+                cA.Players[0].Energy = 99;
+                // 敌方摆一个部队当靶子（`Destroy an enemy troop` 要一个合法目标）
+                var enemyFiller = new CardDef("EnemyFiller", "EnemyFiller", "unit", "", null, "Test",
+                                              1, 1, 3, 0, null);
+                int eSlotA;
+                RuleCore.DeployFree(cA, 1, enemyFiller, out eSlotA);
+                int iIr = HandIdxOf(cA, 0, ir), iDecoy = HandIdxOf(cA, 0, decoyA);
+                Check(eSlotA >= 0 && iIr >= 0 && iDecoy >= 0, "A（前提）：靶子在敌方场上、两张牌都在起手里");
+                cA.Signals.Clear();
+                RuleCore.PlayCard(cA, 0, iIr, eSlotA);
+                bool evA = false; int evPlayerA = -9, evSlotA = -9;
+                foreach (var ev in cA.Signals)
+                    if (ev.Kind == EvtKind.Trigger && ev.CardId == ir.Name
+                        && string.Equals(ev.Keyword ?? "", "FollowUpResolution",
+                                         System.StringComparison.OrdinalIgnoreCase))
+                    { evA = true; evPlayerA = ev.Player; evSlotA = ev.Slot; }
+                Check(evA,
+                      "★ W57/T21-A：`Inspired Retribution` 打出后**结算尾部**发 `FollowUpResolution`(410) 事件"
+                    + "（原版 `CardScript__FollowUpResolutionPlayed.c:7` = `OnTrigger(0x19a)`）"
+                    + " —— 🧨 删掉 `PlayTactic` 尾部那句 `EmitFollowUpResolution` ⇒ 本条红");
+                Check(evA && evPlayerA == 1 && evSlotA == eSlotA,
+                      $"★ W57/T21-A：那一拍的落点 = **目标那一侧**（实得 P{evPlayerA + 1}@{evSlotA}，"
+                    + $"期望 P2@{eSlotA}）—— 敌方目标不能拿施放方的棋盘去摆");
+                var picksA = VfxMap.ResolveAllTimed(VfxMap.Trigger, rvA.Faction, rvA.Name, rvA.AnimTimes,
+                                                    null, true, "FollowUpResolution");
+                Check(picksA.Length > 0 && picksA[0].Name == "Sau_HealProtocol",
+                      "★ W57/T21-A：`VfxMap` 按 trigger 名解析到 **"
+                    + (picksA.Length > 0 ? picksA[0].Name : "(空)")
+                    + "**（`Resurrection Vault` 的 `cardAnimations[]` 那一行 = `Sau_HealProtocol`）"
+                    + " —— 🧨 把 `IsRoutedTriggerName` 里的 `FollowUpResolution` 删掉 ⇒ 本条红");
+
+                // 负例 / 灭自证：没有 410 动画行的卡**不该**发这一拍（闸门不是「打牌就发」）
+                int iDecoy2 = HandIdxOf(cA, 0, decoyA);
+                cA.Signals.Clear();
+                RuleCore.PlayCard(cA, 0, iDecoy2, -1);
+                Check(!HasTrigger(cA, decoyA.Name, "FollowUpResolution"),
+                      "★ W57/T21-A（负例）：`Greatest Deeds`（没有 410 动画行）**不**发 `FollowUpResolution`");
+            }
+
+            // ---------------- E · 监听者结算时发「按反应者」的事件 ----------------
+            // `GOF57 Ork Nob` = `When you play a troop, give it Flank` → 原版 `OtherCardPlayed`(10)。
+            var nob = FindPoolCard("Ork Nob");
+            var grunt = FindPoolCard("Assault Intercessor");   // 无监听器 / 无 trigger 动画的对照卡
+            Check(nob != null && grunt != null,
+                  "E（前提）：卡池里拿得到 `Ork Nob` / `Assault Intercessor`");
+            if (nob != null && grunt != null)
+            {
+                var cE = RuleCore.NewBattle(DeckOf(nob, grunt, grunt), DeckOf(), seed: 0, shuffle: false);
+                cE.Players[0].Energy = 99;
+                int iNob = HandIdxOf(cE, 0, nob);
+                RuleCore.PlayCard(cE, 0, iNob, 2);            // 先让 Ork Nob 上场
+                var nobOnBoard = cE.Players[0].Board[2];
+                Check(nobOnBoard != null && nobOnBoard.Card == nob, "E（前提）：`Ork Nob` 已在棋盘 2 号格");
+                cE.Signals.Clear();
+                RuleCore.PlayCard(cE, 0, HandIdxOf(cE, 0, grunt), 3);   // 再打一张部队 ⇒ 触发监听器
+                Check(HasTrigger(cE, nob.Name, "OtherCardPlayed"),
+                      "★ W57/T21-E：`Ork Nob` 的监听器**真的结算**（给刚打出的部队 Flank）时，"
+                    + "按**反应者卡名**发 `OtherCardPlayed`(10) 事件"
+                    + "（原版 `RawCardScript__OnCardPlayedWithTarget.c:96`）"
+                    + " —— 🧨 删掉 `BroadcastWhen` 棋盘跳里那句 `EmitListenerTrigger` ⇒ 本条红");
+                Check(!HasTrigger(cE, grunt.Name, "OtherCardPlayed"),
+                      "★ W57/T21-E（负例）：刚打出的那张 `Assault Intercessor`（没有监听器/没有该动画行）"
+                    + "**不**发这一拍 —— 说明发的是**反应者**、不是事件主语");
+            }
+
+            // ---------------- F · 回合起止（TurnStart / TurnEnd / …） ----------------
+            // `TAU6 Gun Drone` = `At the start of your turn, deal 2 damage to a random enemy` → `TurnStart`(30)。
+            var drone = FindPoolCard("Gun Drone");
+            Check(drone != null, "F（前提）：卡池里拿得到 `Gun Drone`");
+            if (drone != null)
+            {
+                var cF = RuleCore.NewBattle(DeckOf(drone), DeckOf(), seed: 0, shuffle: false);
+                cF.Players[0].Energy = 99;
+                RuleCore.PlayCard(cF, 0, HandIdxOf(cF, 0, drone), 2);
+                var droneOnBoard = cF.Players[0].Board[2];
+                Check(droneOnBoard != null && droneOnBoard.Card == drone, "F（前提）：`Gun Drone` 已在棋盘 2 号格");
+                cF.Signals.Clear();
+                RuleCore.ResolveAtTurn(cF, "turn_start");
+                Check(HasTrigger(cF, drone.Name, "TurnStart"),
+                      "★ W57/T21-F：回合开始段结算 `Gun Drone` 的 at-turn 正文时发 `TurnStart`(30) 事件"
+                    + "（原版 `CardScript__OnTurnStart.c:137+` 的 `OnTrigger(0x1e)`）"
+                    + " —— 🧨 删掉 `ResolveAtTurn` 棋盘那一趟的 `EmitTurnTrigger` ⇒ 本条红");
+                // 负例：同一个单位在**回合结束**那一拍不该发 `TurnStart`（相位要分得开）
+                cF.Signals.Clear();
+                RuleCore.ResolveAtTurn(cF, "turn_end");
+                Check(!HasTrigger(cF, drone.Name, "TurnStart"),
+                      "★ W57/T21-F（负例）：`turn_end` 那一拍**不**发 `TurnStart`（相位判据生效）");
+            }
+        }
+
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
 
         // 最后验一下**存下来的那个场景**（自检上面的场景是当场建的，不是存的那份）
@@ -29575,6 +31399,14 @@ public static class BattleScene
             pv.SetTargetGem(TargetGem.None);
         }
         Object.DestroyImmediate(pv.gameObject);
+    }
+
+    /// <summary>🆕 2026-10-20（W57 · 战斗线 `T09` WIRE）：造一枚 `PointerEventData` 只给
+    /// `EventTrigger` 的 `OnPointerEnter/Exit/Up/...` 直调用 —— 事件体本身不被读
+    /// （监听器全是 `_ => …`）。⛔ 不走 `EventSystem` 的射线（那是另一件事，未在批处理实测）。</summary>
+    static PointerEventData NewPointerEventData()
+    {
+        return new PointerEventData(EventSystem.current != null ? EventSystem.current : BattleEventSystem.Instance);
     }
 
     static void Shot(Camera cam, string name)

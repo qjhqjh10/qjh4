@@ -691,14 +691,14 @@ public static class CardBaseDemo
         var d = CardData.Placeholder(0);
         d.type = "unit";                      // 走单位卡那一支（卡名/阵营/兵种三层都建）
         // 🔴 **2026-10-18 收口自检修（铁律 5）**：夹具原来只给了 `type`/`title` ⇒ 下面「② 前提」那条**必然红**。
-        //    **真正的成因只有一件**：`Placeholder` **不填 `subtype`** ⇒ `SubtypeLine`（`CardView.cs:1797-1811`）
+        //    **真正的成因只有一件**：`Placeholder` **不填 `subtype`** ⇒ `SubtypeLine`（`CardView.cs` 的 `SubtypeLine`）
         //    在 `case "unit"` 上返回 `RaceTerm(null)` = 空 ⇒ `Fill` 对空串**直接返回 null、兵种行那一层根本不建**。
         //    ⚠️ **错在夹具、不在断言**：那条前提正是用来挡「四层一刀切改 Midline」的判别式，
         //       **不许为了让前提过而把它删掉**。
         //    🔴 **2026-10-18 当场订正（独立审查 `REV_W_四写手.md` F3/F8 抓的）**：我第一版**顺手加了**
         //       `d.faction = "Ultramarines";` 并写了理由「`Placeholder` 给的是 `"Ember"`、不在表里」——
-        //       **那个理由是错的**：`"Ember"` **本来就在阵营表里**（`Core/CardText.cs:452` 第一条就是它，
-        //       中文「余烬」），而 `CardText.Faction`（`:505-511`）对**非空 key 永不回退** ⇒ **阵营行本来就建**。
+        //       **那个理由是错的**：`"Ember"` **本来就在阵营表里**（`Core/CardText.cs` 第一条就是它，
+        //       中文「余烬」），而 `CardText.Faction`（CardPresentation/Core/CardText.cs）对**非空 key 永不回退** ⇒ **阵营行本来就建**。
         //       ⇒ 那行**对这条断言毫无作用**（多余改动 + 一条错论据）**已撤掉**；阵营行沿用 `Placeholder` 给的值。
         d.subtype = "Infantry";               // ← **唯一**要补的一件：兵种行非空才会建那一层（判据在 `SubtypeLine`）
         d.title = "Probe Title";              // 卡名非空才会建那一层（`Fill` 对空串直接返回 null）
@@ -1927,7 +1927,7 @@ public static class CardBaseDemo
     ///   （同一次探针存的 `cardbase_probe_textbg_only.png` 里能**直接看到**那块半透明矩形：
     ///   矩形内均值 63.6、左右两侧外 104 / 106）。
     ///   ⇒ 改用 **`WorldToViewportPoint`（与相机尺寸/目标无关，恒 0..1）× 目标分辨率**。
-    /// ⚠️ 同一个坑本仓别处早记过 —— `Editor/BattleScene.cs:22522`：
+    /// ⚠️ 同一个坑本仓别处早记过 —— `Editor/BattleScene.cs`：
     ///   「屏幕坐标必须**在 `targetTexture` 挂着的时候**算」。那个做法（挂 RT 再算）也行，
     ///   但这里**不用挂 RT**（viewport 那条路更省，也不会和 `RenderPixels` 抢 RT）。</summary>
     static Rect LayerPxRect(Camera cam, MeshRenderer r, int w, int h)
@@ -2034,7 +2034,7 @@ public static class CardBaseDemo
             Check(CardText.Zh, "① 中文档下 `CardText.Zh` = true（字体 + 语档两条都满足）");
             // ⚠️ **这个字面量是【入参】、不是期望值从卡表里读**（2026-10-14 `A1801` 现核实）：
             //    `CardText.Name(id, nameZh)` 在中文档下**原样返回传进来的 `nameZh`**
-            //    （`Core/CardText.cs:625-629`）⇒ 这两条断的是「闸通不过」，**换卡名不会让它红/绿**。
+            //    （`Core/CardText.cs`）⇒ 这两条断的是「闸通不过」，**换卡名不会让它红/绿**。
             //    但它的值假装是「卡表那一列」，故跟着卡表一起换成官方值：
             //    官方 `Card_Name/TAU46` = `["Sense of Stone","石之感"]`（原值「石之感知」是我们自译）。
             string zhName = CardText.Name("TAU46", "石之感");

@@ -31,9 +31,11 @@
 //       我们的 `EffectSpec` 上没有主动技费用字段）。
 //   ✅ `ValueOfEnchantments` 的 enchantment +1 / SecretOrder −2 已接 E3 的
 //      `CardInstance.ActiveEffects`（`Core/Enchantment.cs`）；`addStats` 仍是「运行时属性 − 卡面」。
-//   ⚠️ option 5 的 `extraScoreFromAttacking/TargetingOnAttack`（真值 0）与 poisonous 追加分未做；
+//   ⚠️ option 5 的 `extraScoreFromAttacking/TargetingOnAttack`（真值 0 非零张）与 poisonous 追加分未做；
 //      option 12 的 `ScoreFromPlayingCard` 递推不再带目标（原版会把动作目标传进去；池内 2 条都无目标）。
-//   ⚠️ `DamageCriteria.valueOptions` 非 0 的 3 条（80/90/204）按 `(min+max)/2` 处理（报告已记）。
+//   ✅ **`DamageCriteria/HealCriteria.valueOptions` 已按反编译逐支对齐**（2026-10-20）：`80` ⇒
+//      `min + max × multiplierCount`；`90/204` 与 `0` 同为 default（银行家舍入）—— 原版本来就是同一支
+//      （见 `AverageValue` 的注释）。池内非 0 的只有 `GSC59`/`BL53`/`SOR14` 三条。
 using System;
 using System.Collections.Generic;
 
@@ -155,7 +157,12 @@ namespace RuleEngine
                     {
                         var u = targets[i].Unit;
                         if (u == null) continue;
-                        int dmg = AverageValue(e.damage.minDamage, e.damage.maxDamage);
+                        // 🔴 原版把 **multiplierCount** 也传给 `DamageCriteria.GetAverageDamage`
+                        //    （`AI__ScoreFromCriteria.c:144` 第 4 个实参 = `uVar11` = multiplierCount），
+                        //    `valueOptions=80`（MinPlusMaxTimesMultiplier）就是靠它算成 `min + max×mult`。
+                        //    ⇒ 见 `AverageValue(valueOptions, …)` 的注释（2026-10-20 订正，不再是近似）。
+                        int dmg = AverageValue(e.damage.valueOptions,
+                                               e.damage.minDamage, e.damage.maxDamage, mult);
                         if (dmg <= 0) continue;
                         sum += SimpleAI.ScoreDamaging(u, dmg) * SideMul(targets[i].Side, thisSide, e);
                     }
@@ -170,7 +177,10 @@ namespace RuleEngine
                     {
                         var u = targets[i].Unit;
                         if (u == null) continue;
-                        int heal = AverageValue(e.heal.minValue, e.heal.maxValue);
+                        // 同 case 3：原版 `HealCriteria.GetAverageValue` 也吃 multiplierCount
+                        //（`AI__ScoreFromCriteria.c:167` 第 4 个实参）。池内 heal 的 `valueOptions` 全是 0。
+                        int heal = AverageValue(e.heal.valueOptions,
+                                                e.heal.minValue, e.heal.maxValue, mult);
                         if (heal <= 0) continue;
                         sum += SimpleAI.ScoreHealing(u, heal) * SideMul(targets[i].Side, thisSide, e);
                     }
@@ -544,12 +554,30 @@ namespace RuleEngine
             return sum;
         }
 
-        /// <summary>原版 `GetAverageDamage` / `GetAverageValue` 的 `valueOptions=0` 那一支：
-        /// `Math.Round((min + max) / 2)`（.NET 银行家舍入；`RVA 0x18081692F` 起）。
-        /// ⚠️ `valueOptions` 非 0 的 3 条（80 / 90 / 204）原版走别的分支，本批**按同一算式近似**
-        /// （报告 §三）。</summary>
-        static int AverageValue(int min, int max)
+        /// <summary>原版 `AbilityLogic.GetAverageValue(valueOptions, min, max, thisCard, targetCard, mult)`
+        /// —— `DamageCriteria.GetAverageDamage` / `HealCriteria.GetAverageValue` 的共用实现
+        /// （两份 `.c` 都只是把字段透传给同一个方法）。
+        ///
+        /// **逐条判据（`d:/2/tools/decomp_full/AbilityLogic__GetAverageValue.c`）**：
+        ///   · `valueOptions == 80`（`MinPlusMaxTimesMultiplier`）⇒ **`min + max × multiplierFactor`**
+        ///     （判据 = `AbilityLogic__GetAverageValue.c` 的 `if (param_1 == 0x50)` 支，正文
+        ///      `return param_2 + param_3 * param_6;`）。
+        ///     `multiplierFactor` = 调用方传进来的 **multiplierCount**（`AI__ScoreFromCriteria.c:144/167`
+        ///     的第 4 个实参 = 前面按 `multiplierCriteria` 算出的 `uVar11`）。
+        ///   · 其余取值（含 `0 Normal` / `90 RandomizedOnResolution` / `204 FaithValue`）全部落到
+        ///     `LAB_18081692f` = **`Math.Round((min + max) × 0.5)` 银行家舍入**、**不乘 multiplierFactor**。
+        ///     ⚠️ 这条是 2026-10-20 现读反编译订正的：E6 原来把 90/204 也当成「近似」，
+        ///        实际原版对这两个取值就是走同一个 default 支 ⇒ 我们与它**逐字相同**、不是近似。
+        ///        池内评分数据里 `valueOptions` 非 0 的只有 3 条（80/90/204）:
+        ///        `GSC59 Day of Ascension`（80）· `BL53 Heldrake Strike`（90）· `SOR14 Amalia Novena`（204）。
+        ///
+        /// ⚠️ **本函数只实现「80 + default」两支**：反编译里还有 10/20/30/…/170 那些「读当前攻/血/壁垒」
+        /// 的档，**池内评分数据 0 条**（`AUD_T06` §三·三）⇒ 按本仓口径不造无判据的分支
+        /// （真出现时会落到 default = 平均值；与「静默猜一个」不同，这里是有出处的兜底）。
+        /// </summary>
+        static int AverageValue(int valueOptions, int min, int max, int multiplierFactor)
         {
+            if (valueOptions == 80) return min + max * multiplierFactor;
             return (int)Math.Round((min + max) / 2.0, MidpointRounding.ToEven);
         }
     }

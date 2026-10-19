@@ -407,8 +407,11 @@ namespace CardPresentation
 
         // ============================================================ 文案
         /// <summary>取一条官方词条；**取不到 ⇒ 空串 + 出声**（⛔ 不编文案、⛔ 不拿别的键顶）。
-        /// <para>两处来源都要试：`Resources/official_names.json` 的 **bulk** 表（`Event_Description/*` 111 条在
-        /// 那一份里 —— 见 `Core/Loc.cs` 的「数据面词条（bulk）」那一节）与 `Loc.Table`。</para>
+        /// <para>三处来源**依次**试（⛔ 顺序别改）：`Resources/official_names.json` 的 **bulk** 表
+        /// （`Event_Description/*` 现读 **144 条**在那一份里 —— 见 `Core/Loc.cs` 的「数据面词条（bulk）」那一节；
+        /// 🔴 本行原文写 111，2026-10-19 UI-7 现读已过期，就地订正）→ `Loc.Table` → 🆕 **官方 13 语言全表**
+        /// （`Loc.OfficialCurrent`，2026-10-19 UI-7 加的**兜底**：只接住「前两处都没有」的那一档
+        /// ⇒ 现有 16 个 `Event_Description/*` 键全在 bulk、返回值逐字节不变）。</para>
         /// <para>🆕 **2026-10-17（`A1853②`）就地订正**：本节原来写「事件数据在远端 CCD，本地没有」——
         /// **16 个 `Event_Description/*` 键在本地是有的**，就在 13 个活动 SO 的 `drawData.EventLabels` 里
         /// （`bundle_cosmeticsso_assets_all/MonoBehaviour/*.json`；逐条清单见下面那张表）。
@@ -430,9 +433,14 @@ namespace CardPresentation
         ///   BattlePass/{Title(0/10), GeneralHelp(12)}              ← EC/SW Scoring Event
         ///   BattlePass/EC/EventTitle · BattlePass/SW/EventTitle    ← 各自 Parent Event 的标题
         /// </code>
-        /// 🔴 **`BattlePass/SW/EventTitle` 在官方表快照里【没有】**（2025-07-30 之后才发布）⇒ 那条只能
-        /// 保留英文原文 + 出声，⛔ 不许把键名印出去（本类的 `ResolveTerm` 缺键走的是「空串 + 出声」，
-        /// 调用方要英文原文就自己带一份）。</para></summary>
+        /// 🟢 **2026-10-19（W57 · UI-6）就地订正（铁律 5）**：本节原来写「`BattlePass/SW/EventTitle` 在官方表快照里
+        /// 【没有】（2025-07-30 之后才发布）⇒ 那条只能保留英文原文 + 出声，⛔ 不许把键名印出去」——
+        /// **「没有」不成立**：完整词条键 `Event_Description/BattlePass/SW/EventTitle` 在**两处表里都有**
+        /// （`Resources/official_names.json` 的 bulk：en `Space Wolves Release Event` / zh `太空野狼发布活动`；
+        /// `Resources/official_loc_13lang.json`：13 列全非空）。
+        /// 错因 = 当时拿**无前缀的 label 键**（`BattlePass/SW/EventTitle`）去表里搜，而本类 `ResolveTerm` 收的是
+        /// **带 `Event_Description/` 前缀的完整词条键**（消费方 → `Shell/LiveOpsLocalCatalog.cs:461/538`）。
+        /// **仍然成立的那一半**：本类**缺键**时走「空串 + 出声」，⛔ 不许把键名印出去、⛔ 不许拿别的键顶。</para></summary>
         string ResolveTerm(string term, string which)
         {
             if (string.IsNullOrEmpty(term))
@@ -453,8 +461,18 @@ namespace CardPresentation
             }
             if (Loc.HasBulk(term)) return FillArgs(Loc.BulkOr(term, ""), which, term);
             if (Loc.HasEntry(term)) return FillArgs(Loc.T(term), which, term);
-            Debug.LogWarning("[EventPopup] `" + which + "` 的词条键 `" + term + "` 在本地两处表里都**没有**"
-                             + "（`Resources/official_names.json` 的 bulk 表 · `Loc.Table`）⇒ 留空"
+            // 🆕 **2026-10-19（W57 · UI-7）：第三档兜底 = 官方 13 语言全表**（`Resources/official_loc_13lang.json`，
+            //   只读口 = `Loc.OfficialCurrent`）。今天 16 个 `Event_Description/*` 键**全在 bulk**（现读 144 条
+            //   `Event_Description/*` 都收在 `official_names.json`）⇒ **本行不改变任何现有返回值**；加它是为了接住
+            //   「只在官方全表、不在 bulk / `Loc.Table`」的键 —— 那类键此前会**静默留空**（而 `Loc.T` 取得到）。
+            //   ⚠️ 顺序**保持**「bulk → 手写 `Table`」：⛔ 别改成先走 `Loc.T`（那是 `Table` 优先，会翻转
+            //   「两处都有值」的键）。⚠️ 语档面：中/英档取 `zh` / `en`（中文列空回退英文列）；其余 10 档
+            //   `OfficialCurrent` **恒 null** ⇒ 那 10 档下这种键仍留空（= 改前行为，非回归；要覆盖得走
+            //   `Loc.Lang13Current`，本笔按调度口径只用 `OfficialCurrent`）。
+            string official = Loc.OfficialCurrent(term);
+            if (!string.IsNullOrEmpty(official)) return FillArgs(official, which, term);
+            Debug.LogWarning("[EventPopup] `" + which + "` 的词条键 `" + term + "` 在本地三处表里都**没有**"
+                             + "（`Resources/official_names.json` 的 bulk 表 · `Loc.Table` · 官方 13 语言全表）⇒ 留空"
                              + "（⛔ 不拿别的键顶）。");
             return "";
         }

@@ -404,7 +404,7 @@ namespace CardPresentation
             SectionsShown = 0;
 
             // 🔴 **先算总高、把 `Content` 的矩形定下来，再建子件** —— `MenuDraw.Local` 用的是**父节点的当前世界位置**
-            //   （`MenuDraw.cs:30`）⇒ 先建子件、后改 `Content` 的高度会让父节点中心移动，
+            //   （`MenuDraw.cs`）⇒ 先建子件、后改 `Content` 的高度会让父节点中心移动，
             //   而子件的 `localPosition` 已经按旧中心写死 ⇒ **整列段会整体偏移**（空数据时恰好 50 = 50 看不出来）。
             var secs = _ctx.Sections;
             float totalH = 0f;

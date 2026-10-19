@@ -328,7 +328,12 @@ namespace CardPresentation
         public static float ScoreLevelRowCy(int i) { return LevelCy1 - LevelStep * i; }
 
         /// <summary>🆕 **2026-10-17（A1221）**：`Collect` 点了 ⇒ **如实提示「暂无服务器」**。
-        /// 原版 `RewardProgressBarPanel.CollectClicked` 向 LiveOps 领奖（= `Energy` 窗那一颗同一条链）。</summary>
+        /// 原版 `RewardProgressBarPanel.CollectClicked` 向 LiveOps 领奖（= `Energy` 窗那一颗同一条链）。
+        /// <para>🔴 **2026-10-19（`N37②`）如实标注**：上屏那句 `Event rewards are not available offline.`
+        /// 是**我们自拟的** —— 官方 13 语言表（`Resources/official_loc_13lang.json` 现读 **10,862** 键）
+        /// 对它 **0 命中**（同族同一句在 `EnergySinglePlayerOnlyEventWindow.OnCollectClick`，那边
+        /// 2026-10-17 已标过）。原版这一路要连 LiveOps 服务器、客户端**没有「离线」这个分支的文案**
+        /// ⇒ ⛔ 别硬套官方键、也别把它当成原版文案。</para></summary>
         void OnCollectClick()
         {
             Debug.Log("[Event] `Collect` 点了 ⇒ **如实提示「暂无服务器」**"
@@ -362,7 +367,7 @@ namespace CardPresentation
         /// 而且文字本身照**官方词条** `Event_Description/General/EndsInPlusOrangeTime`（原版 prefab 出厂
         /// 占位是 `'Termina en: 23d 5h'`，运行时同样被 `TimerDisplay` 覆盖），
         /// 截止时刻未知时由 `TimerDisplay` 显示 `--` —— **不需要编位置、也不需要编日期**。</para>
-        /// <para>⚠️ 判据补充：`Vicotries title` 那一颗**已经是对的**（`:132` 起那四格自适应），⛔ 别顺手改它
+        /// <para>⚠️ 判据补充：`Vicotries title` 那一颗**已经是对的**（`本文件` 起那四格自适应），⛔ 别顺手改它
         /// —— 本窗的 `Vicotries title` 是**定宽 236.63×50、没有 CSF**（`menu_dump … --depth 6` 现读），
         /// 与 `Energy` 那一颗（宽 0 + CSF）**不是同一档**。</para></summary>
         void BuildTimer(Transform root)

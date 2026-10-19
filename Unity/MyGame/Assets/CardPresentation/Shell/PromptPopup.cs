@@ -5,7 +5,7 @@
 //   （`PopUpGameWindow` = prefab `MessagePopupWindow{,_2Buttons}`，见 `Shell/PopUpGameWindow.cs`；
 //   判据 → `资料/普查产出_1012/H17_ShowPopUp收编.md`）⇒ `ShowPopUp` **不再**开本窗。
 //   ⚠️ 本类**仍在用，别删**：有一批站点**直建**它（`Shell/MainMenuRuntime.cs` 的 `EscPressed` 的「退出游戏」弹窗 ·
-//   `Editor/ShellScene.cs:909` 起那几条版面探针）—— 存续理由与清单同 H17 §④。
+//   `Editor/ShellScene.cs` 起那几条版面探针）—— 存续理由与清单同 H17 §④。
 //
 // ============================ 出处（唯一正本） ============================
 // `资料/日常_原版规格.md` §七。**类名照原版**：`PromptPopup : GameWindow`（MB `-8455344173513121409`），
@@ -46,7 +46,7 @@ namespace CardPresentation
     /// ⇒ 本窗**不再是** `ShowPopUp` 的宿主（⚠️ 2026-09-23 起它一度是 —— 那是在「原版那两扇 prefab 本地没有」
     /// 这个**已被推翻**的前提下挑的；判据 → `资料/普查产出_1012/H17_ShowPopUp收编.md`）。</para>
     /// <para>本类**仍被「直建」它的站点开着**（`Shell/MainMenuRuntime.cs` 的 `EscPressed` 的「退出游戏」弹窗 ·
-    /// `Editor/ShellScene.cs:909` 起的版面探针）⇒ ⛔ 别删、别当成「已废弃」。</para></summary>
+    /// `Editor/ShellScene.cs` 起的版面探针）⇒ ⛔ 别删、别当成「已废弃」。</para></summary>
     public class PromptPopup : GameWindow
     {
         // ---- 出处：正本 §七 的节点表 ----
@@ -136,7 +136,7 @@ namespace CardPresentation
             //       类的方法只有 `Open / InstantiateInput / InstantiateDropdown / SetError / SetMessage /
             //       OnSubmit / OnCancel`（**没有 `Start` / `OnEnable`**）⇒ **没有任何一处在运行时给它接线**；
             //       `PromptPopup__Open.c` 逐句实读：只给 `okButton`(+0x78) / `cancelButton`(+0x80) 挂监听。
-            //   ⇒ **原版点这一下什么都不发生**（不会关窗）。同族先例 = `Shell/PopUpGameWindow.cs:26-32`
+            //   ⇒ **原版点这一下什么都不发生**（不会关窗）。同族先例 = `Shell/PopUpGameWindow.cs`
             //     （`MessagePopupWindow` 的两颗 `BackgroundCloseButton` 同为空 ⇒ 用 `Absorb`，⛔ **不是** `ShadeHit`）。
             //   ⚠️ 档由公共件算（`qContentMin − 1` = 3142，严格夹在压暗档 3140 与内容命中区 3143 之间）。
             MenuDraw.Absorb(root, "AbsorbHit",

@@ -297,6 +297,134 @@ namespace RuleEngine
         readonly List<CardAnimTime> _animTimes = new List<CardAnimTime>();
 
         /// <summary>
+        /// 🆕 **2026-10-19（战斗线 `T21` · 引擎事件缺口）**：这张卡的逐候选动画里，有没有一行标到
+        /// **某个原版 trigger 名**（`CardAnimTime.TriggerName`，取值 = `AbilityTrigger` 枚举名，
+        /// 大小写不敏感）。
+        ///
+        /// <para>**它是「这一拍该不该发 `EvtKind.Trigger`」的唯一闸门**（`EffectResolver` 的三族
+        /// —— `FollowUpResolution` / 监听者 / 回合起止 —— 共用）。没有对应动画行 = 表现层本来
+        /// 就没有东西可播，发了只会多印一行战斗日志（还可能掉进 `trigger` 粗桶乱播）。</para>
+        ///
+        /// <para>⚠️ **它只回答「有没有」**，不管那张卡这一刻该不该触发（那是结算层的判据）。
+        /// 数据来源见 <see cref="AnimTimes"/> 的 doc。</para>
+        /// </summary>
+        public bool HasAnimTrigger(string triggerName)
+        {
+            if (string.IsNullOrEmpty(triggerName)) return false;
+            for (int i = 0; i < _animTimes.Count; i++)
+            {
+                var t = _animTimes[i];
+                if (t != null && !string.IsNullOrEmpty(t.TriggerName)
+                    && string.Equals(t.TriggerName, triggerName, System.StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-20（第五十七会话 `FACTION-DOUBLE605`）：
+        //  **「同一张卡有多条 605 能力」的判别**（SOR56 / SOR23 / SOR67）
+        //
+        //  原版判据（`d:/2/tools/decomp_full/`）：
+        //    · `RawCardScript__TriggerAbilities.c:59-88,207-265` —— 它**逐条**遍历 `cardAbilities`，
+        //      对每一条调 `CardAbility__CanTriggerAbility`，通过就 `TriggerAbility/PlayAbility`
+        //      **那一条**（每条各播自己的 `abilityLogic[j].cardAnimations[k]`）；
+        //    · 605 的门槛在 `CardAbility__CanTriggerAbility.c:114-126`：
+        //      `GetCurrentFaith(...) >= ability.triggerValue`（`param_1 + 0x20`）。
+        //    ⇒ **两条 605 能力各自独立判定、各自演一次** —— 我们原来只发一条 `EvtKind.Trigger`
+        //      把这张卡全部 `UseFaith` 行一起播掉，门槛只够一条时也会把另一条的演出带出来。
+        //
+        //  我们这边的数据面对应关系（逐项现读 `cards_engine.json` 核过，3 张全部吻合）：
+        //    · 「几组信仰能力」= `FaithOps` 里每条**付费组首**（`Cost > 0 && !CostShared`）
+        //      —— 门槛就是正文里那个 `N ☀:` 的 N；
+        //    · 「每组的动画行」= `AnimTimes` 里 `Trigger = 605`（`tn = UseFaith`）的行，
+        //      它们的 `Order` 第一段就是 `cardAbilities[i]` 的下标（`i.j.k`）。
+        //  两边的**条数相等**时按「门槛升序 ↔ 能力下标升序」一一配对（原版卡面/能力数组
+        //  就是按门槛升序排的：3 张卡的 SO `triggerValue` 现读 2/4、2/4、4/7 全部升序）。
+        //  ⚠️ 任何一条对不上（条数不等 / 门槛不是严格升序 / `Order` 解不出）⇒ **不配**，
+        //     调用方退回「一条事件播全部 `UseFaith` 行」的老行为并出声 —— **不猜**。
+        // ==================================================================
+
+        /// <summary>🆕 这张卡有几组**信仰能力**（正文每条 `N ☀:` / `N [faith]:` 付费前缀 = 原版一条
+        /// `trigger = 605` 的 `CardAbility`）。判据与数据面的对应关系见上面那段注释。
+        /// <para>⚠️ 只数**付费组首**（`Cost &gt; 0 &amp;&amp; !CostShared`，`EffectOp.CostShared` 的 doc）；
+        /// 同门槛出现两次只算一组（原版不会出现，防御）。</para></summary>
+        public int FaithAbilityGroupCount
+        {
+            get
+            {
+                int n = 0;
+                int last = int.MinValue;
+                for (int i = 0; i < _faithOps.Count; i++)
+                {
+                    var op = _faithOps[i];
+                    if (op == null || op.Cost <= 0 || op.CostShared) continue;
+                    if (op.Cost == last) continue;
+                    last = op.Cost;
+                    n++;
+                }
+                return n;
+            }
+        }
+
+        /// <summary>🆕 **信仰门槛 → 原版 `cardAbilities[i]` 下标**（0 基）。
+        ///
+        /// <para>只在这张卡**有多组信仰能力**（<see cref="FaithAbilityGroupCount"/> &gt;= 2）时给答案；
+        /// 单组 / 两边对不上 / 门槛不在表里 ⇒ `false`（调用方走老行为）。</para>
+        /// <para>两边条数相等是**必要条件**：它保证「每条 605 能力都有自己的动画行」，
+        /// 这时才谈得上按能力筛行。⚠️ 条数不等时**不猜**（宁可整张卡还按老行为播）。</para></summary>
+        public bool TryGetFaithAbilityIndex(int threshold, out int abilityIndex)
+        {
+            abilityIndex = -1;
+            var thresholds = new List<int>();
+            for (int i = 0; i < _faithOps.Count; i++)
+            {
+                var op = _faithOps[i];
+                if (op == null || op.Cost <= 0 || op.CostShared) continue;
+                if (!thresholds.Contains(op.Cost)) thresholds.Add(op.Cost);
+            }
+            if (thresholds.Count < 2) return false;
+            // 门槛必须是**严格升序**（配对按「第 k 低门槛 ↔ 第 k 小能力下标」；乱序就不猜）
+            for (int i = 1; i < thresholds.Count; i++)
+                if (thresholds[i] <= thresholds[i - 1]) return false;
+
+            var indices = new List<int>();
+            for (int i = 0; i < _animTimes.Count; i++)
+            {
+                var t = _animTimes[i];
+                if (t == null) continue;
+                bool isFaith = t.Trigger == 605
+                            || (t.TriggerName != null && string.Equals(t.TriggerName, "UseFaith",
+                                                                     System.StringComparison.OrdinalIgnoreCase));
+                if (!isFaith) continue;
+                int idx;
+                if (!TryParseAbilityIndexOfOrder(t.Order, out idx)) continue;
+                if (idx < 0 || indices.Contains(idx)) continue;
+                indices.Add(idx);
+            }
+            if (indices.Count != thresholds.Count) return false;
+            indices.Sort();
+
+            int k = thresholds.IndexOf(threshold);
+            if (k < 0) return false;
+            abilityIndex = indices[k];
+            return true;
+        }
+
+        /// <summary>🆕 `CardAnimTime.Order`（= 原版 `cardAbilities[i].abilityLogic[j].cardAnimations[k]`
+        /// 的索引三元组，见 <see cref="CardAnimTime.Order"/>）的**第一段** = `cardAbilities` 下标。
+        /// `-.j.k`（`activeAbility`）或空 / 坏串 ⇒ `false`。</summary>
+        public static bool TryParseAbilityIndexOfOrder(string order, out int abilityIndex)
+        {
+            abilityIndex = -1;
+            if (string.IsNullOrEmpty(order)) return false;
+            int dot = order.IndexOf('.');
+            string first = dot >= 0 ? order.Substring(0, dot) : order;
+            return int.TryParse(first, System.Globalization.NumberStyles.None,
+                                System.Globalization.CultureInfo.InvariantCulture, out abilityIndex);
+        }
+
+        /// <summary>
         /// 这张卡**是否带一个「按 `filterSpecificCards` 选牌」的定义**（`A1960` 的注入闸之一）。
         /// 🔴 **三个条件全中才算**：`targetsAffected == 180`（`choiceResolution`）· `maxTargets &gt; 0` ·
         /// `filterSpecificCards` 至少有一项。⚠️ **它不是「该不该开面板」的最终判据** ——

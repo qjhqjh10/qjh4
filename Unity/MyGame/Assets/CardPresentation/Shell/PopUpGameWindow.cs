@@ -57,7 +57,7 @@
 //      `MainMenu/General/{Discard,Cancel}` 三条都在 `Loc` 里）、**两处都没有**的才印键名。
 //      ⛔ 仍然**不自己编词条**（红线：不许把「查不到」写成猜测）。
 //   ② ~~**开/关音效没做**：prefab 的 `openSound` / `closeSound` 都是空 + `useDefaultCloseSoundIfNull = 1`
-//      （默认关窗音在**远端音频表**里）⇒ 与全仓其它窗同一条既有缺口（`Shell/RewardWindow.cs:10` 等 6 处已记）。~~
+//      （默认关窗音在**远端音频表**里）⇒ 与全仓其它窗同一条既有缺口（`Shell/RewardWindow.cs` 等 6 处已记）。~~
 //      🔴 **2026-10-17 就地订正（铁律 5 · 音效线 `W_G`）：这一条已不成立** —— `GameWindow` 现在有
 //      `closeSound` + `useDefaultCloseSoundIfNull`，默认关窗音已解出并接上（cue `ButtonClick Back` →
 //      clip `UIButton Back`）；本窗 prefab 正好是「`closeSound` 空 + 开关 1」⇒ **自动吃到默认音**，
@@ -205,7 +205,7 @@ namespace CardPresentation
         /// `I2.Loc.LocalizationManager.GetTranslation`，见本文件头 ②），⛔ 不是把调用点改成传明文。</para>
         ///
         /// <para>⚠️ **对传明文的站点行为零变化**：壳侧 20+ 个 `ShowMessagePopUp` 调用点传的都是**明文**
-        /// （见 `Shell/WindowsManager.cs:1517`），而 `Loc.T` 对**表里没有的键**同样是
+        /// （见 `Shell/WindowsManager.cs`），而 `Loc.T` 对**表里没有的键**同样是
         /// **返回键名本身 + 出声**（`Loc.T` 的 doc）⇒ 明文原样返回，只是会多记一次
         /// `Loc.MissingCount` / 多出一条 `[Loc] 语言表里**没有**这个词条` 的告警（去重后一条键一次）。</para></summary>
         public static string Term(string key)
@@ -267,7 +267,7 @@ namespace CardPresentation
         /// `ShowPopUp` → `LoadPopUpAndShow` → `ConfigurePopUp` → `OpenWindow`）。
         /// <para>三个入参**照原版都是 I2 术语键**（见文件头 ①）。⚠️ **2026-10-19（`A1012`）就地订正**：
         /// 这里原来写「⛔ 不是明文」—— **实际两套约定并存**：壳侧 20+ 个调用点传的**是明文**
-        /// （`Shell/WindowsManager.cs:1517` 自己写着「调用点传的都是【明文】」），只有
+        /// （`Shell/WindowsManager.cs` 自己写着「调用点传的都是【明文】」），只有
         /// `Deck/DeckRuntime.cs` 那几处传的是**键**。两种都能用：`Term()` 先查 `Terms`、再转 `Loc.T`，
         /// 明文不是键 ⇒ 原样返回（见 `Term` 的 doc）。</para>
         /// <para>⚠️ `mgr == null` 时**也把它建出来**、只出声不挂锚点（同 `TrophyInfoPopup.Open` 那条兜底：

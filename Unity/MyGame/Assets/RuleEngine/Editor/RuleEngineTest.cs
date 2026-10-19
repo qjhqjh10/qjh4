@@ -384,6 +384,15 @@ public static partial class RuleEngineTest
         Section("🆕 DA1 隐藏能力（任务点 → 隐秘）：余数语义 / CreatesSecret / 随机 Insert / 阈值读取（2026-10-19）");
         Step(TestQuestTriggeredSecretFidelity);
 
+        Section("🆕 第五十七会话 W57：三阵营机制六条修正（DA-1..4 · ASH28 · ASH34 · 605/600 事件）");
+        Step(TestW57FactionMechanics);
+
+        Section("🆕 第五十七会话 W57FIX2：独立审查 P1–P5（战术侧 605/600 · actingCardCriteria · 来源卡 · 督军 subject）");
+        Step(TestW57Fix2FactionReview);
+
+        Section("🆕 第五十七会话 FACTION-DOUBLE605：同一张卡多条 605 能力各发一次（SOR56/SOR23/SOR67）");
+        Step(TestW57Double605);
+
         Section("只有单位卡才当事件监听者（`played` 是误报，不是漏做）");
         Step(TestListenerCardType);
 
@@ -19535,6 +19544,784 @@ public static partial class RuleEngineTest
         }
     }
 
+    /// <summary>
+    /// 🆕 **2026-10-19（第五十七会话 `W57`）：三阵营机制的六条修正** —— 判据 / 改前 / 改后
+    /// → `资料/普查产出_1019/W57_阵营机制_引擎修复.md`。
+    ///
+    /// 每条都带**灭自证**（把改动回退成旧写法，这一条必红的那一格）：
+    ///   · **DA-1 逐点广播**：一次 `Gain 3 Quest Points` ⇒ 监听者响 **3 次**
+    ///     （`ProcessManaBuff.c:51-61` 的 `for i in 0..value`；只播一次的旧写法这里是 -2 而不是 -6）；
+    ///   · **DA-2 广播 subject**：`it heals 2` 治的是**获得点数那个单位**（源卡）；
+    ///     旧写法传 `null` ⇒ `ResolveOps` 的 `prime` 回落到 listener 自己 ⇒ 两个单位的血量互换；
+    ///   · **DA-3 `DA44 Secret Agenda`**：`add it to your deck` = **随机下标 Insert + `CreatesSecret`**
+    ///     （与任务点造隐秘同一条 `createCardInDeck(270)` 路径）；旧的 `Add + Shuffle` ⇒ 牌序变、监听器不响；
+    ///   · **DA-4 `DA74`**：`your opponent gains 2 Quest Points` 加给 `1 - owner`
+    ///     （旧写法硬写 `Side="own"` ⇒ 加给被赐予反噬的那一方自己）；
+    ///   · **ASH28**：收 1 颗 = `+1（收集）+2（监听器）`；`Gain N Spirit Stones` **不**触发 collect 监听
+    ///     （旧写法递归 ⇒ 收 1 颗 5→22）；
+    ///   · **ASH34**：`Talent: Wrath of Khaine` **不在 `SpiritOps` 里**、打出时**不**多造一张天赋
+    ///     （旧写法：付费前缀跨句 carry 贴到 `Talent:` 产出的 `create` 上）；
+    ///   · **605 / 600 事件**：`UseFaith` / `UseSpiritStone` 两拍真的发 `EvtKind.Trigger`，
+    ///     **付不起 / 门槛没过时一发都不发**（`ResolveOps` 的 `activated` 闸）。
+    /// </summary>
+    static void TestW57FactionMechanics()
+    {
+        var poolAll = CardDatabase.Load();
+
+        // ================= ① DA-1 / DA-2：任务点逐点广播 + subject = 源卡 =================
+        {
+            // 死亡监听者：`When a friendly unit dies, gain 3 Quest Points` —— 让**一个单位**去拿点数
+            // （这样 `ActingUnit` / 源卡 = 它，`it` 才有「别的单位」可指）。
+            var dieGain = new CardDef("W57DieGain", "W57DieGain", "unit",
+                                      "When a friendly unit dies, gain 3 Quest Points",
+                                      "common", "Test", 1, 1, 5, 0, null, subtype: "Infantry");
+            // 只数次数：打敌方督军 2 点（3 次广播 ⇒ -6；只播一次 ⇒ -2）
+            var gainDmg = new CardDef("W57GainDmg", "W57GainDmg", "unit",
+                                      "When you gain [Quest Point], deal 2 damage to the enemy warlord",
+                                      "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+            // DA5 的原句：`it heals 2` —— subject 传错时治的是**它自己**
+            var itHeals = new CardDef("W57ItHeals", "W57ItHeals", "unit",
+                                      "When a friendly unit obtains [Quest Point], it heals 2",
+                                      "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+            var victim = Unit("W57Victim", 1, 1, 1);
+            // ⚠️ 杀自己人要用**战术卡**（`ApplyDamage` 只扣血、**不跑 `CleanupDeaths`** ⇒ 不发 `Die`）
+            var hurtSelf = Tactic("T_W57HurtSelf", 0, "Deal 1 damage to a friendly unit");
+
+            var ctx = Battle(new[] { hurtSelf }, new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            var g = Place(ctx, 0, 3, dieGain, exhausted: true);
+            var dl = Place(ctx, 0, 5, gainDmg, exhausted: true);
+            var hl = Place(ctx, 0, 6, itHeals, exhausted: true);
+            var v = Place(ctx, 0, 7, victim, exhausted: true);
+            g.Health = 1; dl.Health = 1; hl.Health = 1;   // 三个都带伤 ⇒ 「治了谁」可观测（满血会封顶）
+            int foeWl = ctx.Players[1].Warlord.Health;
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_W57HurtSelf"), 7), RuleCodes.OK,
+                      "P0 打死自己一格 1 血的单位（触发 `When a friendly unit dies`）");
+            CheckTrue(ctx.Players[0].Board[7] == null, "（前提）那个单位真的死了");
+
+            Check(ctx.Players[0].QuestPoints, 0,
+                  "（前提）一次拿了 3 点、刚好满阈值 ⇒ 按原版减掉一个阈值（余 0）");
+            Check(ctx.Players[1].Warlord.Health, foeWl - 6,
+                  "★ **DA-1 `每个任务点广播一次`**：`Gain 3` ⇒ 监听者响 **3 次** ⇒ 敌方督军 -6"
+                  + "｜🧨 改回「一次加值只广播一次」⇒ 这里是 -2");
+            Check(g.Health, 5,
+                  "★ **DA-2 广播带 subject（源卡）**：`it heals 2` 治的是**获得点数那个单位** "
+                  + "1 + 2×3（封顶 5）｜🧨 subject 传 `null` ⇒ `prime` 回落到 listener 自己");
+            Check(hl.Health, 1,
+                  "★★ **判别式：监听者自己一点没被治** —— 旧写法这里会变成 3（两个单位血量互换）");
+        }
+
+        // ================= ② DA-4：`your opponent gains …` 加给对手 =================
+        {
+            var ops = EffectText.Parse("Your opponent gains 2 Quest Points", out _, out _);
+            Check(ops.Count, 1, "★ 解析出 1 条");
+            Check(ops.Count == 1 ? ops[0].Verb : "", "gainquest", "★ 动词 = `gainquest`");
+            Check(ops.Count == 1 && ops[0].Target != null ? ops[0].Target.Side : "", "enemy",
+                  "★ **主语 `your opponent` 记成 `Side = enemy`**（改前这里硬写 `own`）");
+
+            var give = Tactic("T_W57Backlash", 0,
+                "Give Vulnerable 4 and \"Backlash: Your opponent gains 2 Quest Points\" to an enemy troop");
+            var finish = Tactic("T_W57Finish", 0, "Deal 10 damage to an enemy");
+            var ctx = Battle(new[] { give, finish }, new[] { Unit("W57Foe", 1, 2, 9) });
+            ToP1Turn(ctx, 2);
+            var prey = Place(ctx, 1, 3, Unit("W57Prey", 1, 0, 9), exhausted: true);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_W57Backlash"), 3), RuleCodes.OK,
+                      "P0 给 P1 的部队挂上「反噬：你的对手获得 2 任务点」");
+            Check(ctx.Players[0].QuestPoints, 0, "（前提）P0 此时 0 任务点");
+            Check(ctx.Players[1].QuestPoints, 0, "（前提）P1 此时 0 任务点");
+
+            // ⚠️ 杀它要用**战术卡**（`ApplyDamage` 不跑 `CleanupDeaths` ⇒ 不发 `Backlash`）
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_W57Finish"), 3), RuleCodes.OK,
+                      "再打死那个被赐予反噬的单位（触发 `Backlash`）");
+            CheckTrue(ctx.Players[1].Board[3] == null, "（前提）它真的死了");
+
+            Check(ctx.Players[0].QuestPoints, 2,
+                  "★ **DA-4 `your opponent gains 2` 加给【1 - 死亡单位控制者】= 施放方**"
+                  + "｜🧨 硬写 `Side = own` ⇒ 这里是 0、对面变 2");
+            Check(ctx.Players[1].QuestPoints, 0,
+                  "★★ 判别式：被赐予反噬的那一方**一点没拿**");
+        }
+
+        // ================= ③ DA-3：`Secret Agenda` = 随机 Insert + CreatesSecret =================
+        {
+            var secret = new CardDef("W57SecretDA", "W57 Secret DA", "tactic", "x", "common", "DarkAngels",
+                                     2, 0, 0, 0, null, subtype: "Secret");
+            var pool = new List<CardDef> { secret };
+            var sa = Tactic("T_W57SecretAgenda", 0,
+                            "Choose a Dark Angels Secret and add it to your deck");
+            var listen = new CardDef("W57CreateSecretListen", "W57CreateSecretListen", "unit",
+                                     "When you create a Secret, deal 3 damage to the enemy warlord",
+                                     "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+            var ctx = QuestFixture(pool, "FixtureWarlord", "DarkAngels", 20261019, sa);
+            ToP1Turn(ctx, 1);
+            var ps = ctx.Players[0];
+            ps.Energy = 12;
+            Place(ctx, 0, 3, listen, exhausted: true);
+            int foeWl = ctx.Players[1].Warlord.Health;
+            int deckBefore = ps.Deck.Count;
+            var before = new List<int>();
+            foreach (var c in ps.Deck) before.Add(c.Id);
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_W57SecretAgenda"), -1),
+                      RuleCodes.OK, "打出 `Secret Agenda`");
+            Check(ps.Deck.Count, deckBefore + 1, "★ 牌库 +1（隐秘进去了）");
+
+            int at = -1;
+            var after = new List<int>();
+            for (int i = 0; i < ps.Deck.Count; i++)
+            {
+                if (ps.Deck[i].Card == secret) at = i;
+                else after.Add(ps.Deck[i].Id);
+            }
+            CheckTrue(at >= 0, "★ 注入的是那张**黑暗天使隐秘**");
+            CheckTrue(at >= 0 && at <= deckBefore, $"插入位在 [0, {deckBefore}] 内（实得 {at}）");
+            bool sameOrder = before.Count == after.Count;
+            if (sameOrder)
+                for (int i = 0; i < before.Count; i++)
+                    if (before[i] != after[i]) { sameOrder = false; break; }
+            CheckTrue(sameOrder,
+                      "★ **DA-3 原有牌序原样保留** —— 原版走 `createCardInDeck(270)` = 随机下标 `Insert`"
+                      + "（`BattleManager__AddCardInPlayToDeck.c:36-37,63-64`）｜🧨 旧的 `Add + 整副洗牌` 这里会红");
+            Check(ctx.Players[1].Warlord.Health, foeWl - 3,
+                  "★ **DA-3 `CreatesSecret` 真的广播了**（敌方督军 -3）—— 旧写法只 `Add` 不发广播 ⇒ 这里是 0，"
+                  + "`DA15` / `DA66` 的监听器永远不响");
+        }
+
+        // ================= ④ ASH28：收 1 颗 = +1 +2；加石不触发 collect =================
+        {
+            var ash28 = PoolCard(poolAll, "Spiritseer Qelenaris");
+            CheckTrue(ash28 != null, "（前提）池里有 `Spiritseer Qelenaris`（ASH28）");
+            if (ash28 != null)
+            {
+                // 正面：真的走「收集路标石」那条路
+                var stone = Unit("W57Stone", 1, 1, 1, "Waystone");
+                var kill = Tactic("T_W57Kill", 0, "Deal 5 damage to an enemy");
+                var ctx = Battle(new[] { kill }, new[] { stone });
+                ToP1Turn(ctx, 1);
+                Place(ctx, 1, 3, stone);
+                Place(ctx, 1, 5, ash28, exhausted: true);
+                RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_W57Kill"), 3);
+                CheckTrue(Board(ctx, 1, 3) != null && Board(ctx, 1, 3).IsRemnant,
+                          "（前提）路标石单位阵亡后留下残骸");
+                RuleCore.EndTurn(ctx);                       // 轮到 P1
+                ctx.Players[1].SpiritStones = 5;
+
+                Check(RuleCore.CollectWaystone(ctx, 1, 3), RuleCodes.OK, "P1 收集那颗灵魂石");
+                Check(ctx.Players[1].SpiritStones, 8,
+                      "★ **ASH28：收 1 颗 = 5 + 1（收集）+ 2（监听器）= 8**"
+                      + "｜🧨 旧写法递归到 `MaxEffectChain` ⇒ 5 → **22**（1 + 2×8）");
+                Check(ctx.Players[0].SpiritStones, 0,
+                      "★ 判别式：对面**一点没拿**（资源不串台）");
+
+                // 反面：`Gain N Spirit Stones` **不是** collect —— 原版只有 `_ResolveUseWaystone`
+                //   发 `BroadcastCollectSpiritStone`（全库唯一调用点）
+                var gain2 = Tactic("T_W57Spirit2", 0, "Gain 2 Spirit Stones");
+                var c2 = Battle(new[] { gain2 }, new CardDef[0]);
+                ToP1Turn(c2, 1);
+                Place(c2, 0, 3, ash28, exhausted: true);
+                RuleCore.PlayTactic(c2, 0, HandIdx(c2, 0, "T_W57Spirit2"), -1);
+                Check(c2.Players[0].SpiritStones, 2,
+                      "★ **`Gain N Spirit Stones` 不触发 `When you collect a Spirit Stone`** ⇒ +2 就是 +2"
+                      + "｜🧨 旧写法这里会递归成 18（2 + 2×8）");
+            }
+        }
+
+        // ================= ⑤ ASH34：`Talent:` 不吃付费前缀 =================
+        {
+            var ash34 = PoolCard(poolAll, "Avatar of Khaine");
+            CheckTrue(ash34 != null, "（前提）池里有 `Avatar of Khaine`（ASH34）");
+            if (ash34 != null)
+            {
+                Check(ash34.SpiritCost, 2, "（前提）灵魂石代价 = 2");
+                Check(ash34.SpiritOps.Count, 1,
+                      "★ **`SpiritOps` 只有 1 条**（`Gain Blast 6 and Camouflage`）"
+                      + "｜🧨 旧写法 `Talent: Wrath of Khaine` 被 carry 贴上 `Cost = 2` 也进了这张表（2 条）");
+                bool talentInSpirit = false;
+                foreach (var op in ash34.SpiritOps)
+                    if (op != null && !string.IsNullOrEmpty(op.Source)
+                        && op.Source.IndexOf("talent", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                        talentInSpirit = true;
+                CheckTrue(!talentInSpirit,
+                          "★ `SpiritOps` 里**没有 `Talent:` 那一条**（`willrun` ⑨ 的 `Source` 全小写 28/29 同一条根因）");
+                var parsed = EffectText.Parse(ash34.Desc, out _, out _);
+                int talentOps = 0;
+                foreach (var op in parsed)
+                    if (op != null && op.Verb == "create" && op.Payload != null
+                        && op.Payload.ToLowerInvariant().Contains("wrath of khaine"))
+                    {
+                        talentOps++;
+                        Check(op.Cost, 0,
+                              "★ 解析层：`Talent: Wrath of Khaine` 产出的 `create` **不带代价**"
+                              + "｜🧨 旧写法 `Cost = 2, CostShared = true`");
+                    }
+                Check(talentOps, 1, "（前提）`Talent:` 那一段仍解析成 1 条 `create`（只去掉代价、不是不认）");
+
+                // 端到端：打出 ASH34（付 2 颗）⇒ 手牌里**不会**凭空多出 `Wrath of Khaine`
+                var ctx = BattlePool(new[] { ash34 }, new CardDef[0], poolAll, warlordFaction: "SaimHann");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                ctx.Players[0].SpiritStones = 2;
+                Check(HandIdx(ctx, 0, "Wrath of Khaine"), -1, "（前提）打出之前手里没有 `Wrath of Khaine`");
+                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Avatar of Khaine"), 3), RuleCodes.OK,
+                          "打出 `Avatar of Khaine`");
+                Check(ctx.Players[0].SpiritStones, 0,
+                      "（前提）2 颗灵魂石被扣掉 ⇒ 灵魂石能力**真的激活了**（不是没付钱）");
+                CheckTrue(ctx.Players[0].Board[3] != null && ctx.Players[0].Board[3].Card == ash34,
+                          "（前提）它上场了");
+                Check(HandIdx(ctx, 0, "Wrath of Khaine"), -1,
+                      "★★ **ASH34 打出时不造天赋** —— 旧写法这里会多一张（付费前缀跨句 carry 到 `Talent:`）");
+            }
+        }
+
+        // ================= ⑥ T21 C/D：605 / 600 两拍真的发 `EvtKind.Trigger` =================
+        {
+            // 600：ASH34 带 `UseSpiritStone` 动画行
+            var ash34 = PoolCard(poolAll, "Avatar of Khaine");
+            var crusader = PoolCard(poolAll, "Crusader");       // SOR7 · 带 `UseFaith` 动画行
+            CheckTrue(ash34 != null && crusader != null, "（前提）池里有 ASH34 / Crusader");
+            if (ash34 != null)
+            {
+                var ctx = BattlePool(new[] { ash34 }, new CardDef[0], poolAll, warlordFaction: "SaimHann");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                ctx.Players[0].SpiritStones = 2;
+                RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Avatar of Khaine"), 3);
+                var ev = FindSignal(ctx, EvtKind.Trigger, "UseSpiritStone");
+                CheckTrue(ev != null,
+                          "★ **`UseSpiritStone(600)` 发出来了**（`EvtKind.Trigger` 带关键词；"
+                          + "闸 = `CardDef.HasAnimTrigger`）");
+                if (ev != null) Check(ev.Slot, 3, "……落点 = 它自己那一格（表现层按格播）");
+
+                var c2 = BattlePool(new[] { ash34 }, new CardDef[0], poolAll, warlordFaction: "SaimHann");
+                ToP1Turn(c2, 1);
+                c2.Players[0].Energy = 20;
+                c2.Players[0].SpiritStones = 0;
+                RuleCore.PlayCard(c2, 0, HandIdx(c2, 0, "Avatar of Khaine"), 3);
+                CheckTrue(FindSignal(c2, EvtKind.Trigger, "UseSpiritStone") == null,
+                          "★ 判别式：**一颗石都没有 ⇒ 能力没激活 ⇒ 这一拍不发**"
+                          + "（⛔ 不许播「付了 2 颗」的动画）");
+            }
+            if (crusader != null)
+            {
+                var ctx = Battle(new[] { crusader }, new CardDef[0]);
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                ctx.Players[0].Faith = 3;                       // 门槛够
+                RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Crusader"), 3);
+                CheckTrue(FindSignal(ctx, EvtKind.Trigger, "UseFaith") != null,
+                          "★ **`UseFaith(605)` 发出来了**（门槛 3 够了、能力真的激活）");
+
+                var c2 = Battle(new[] { crusader }, new CardDef[0]);
+                ToP1Turn(c2, 1);
+                c2.Players[0].Energy = 20;
+                c2.Players[0].Faith = 2;                        // 差 1 点
+                RuleCore.PlayCard(c2, 0, HandIdx(c2, 0, "Crusader"), 3);
+                CheckTrue(FindSignal(c2, EvtKind.Trigger, "UseFaith") == null,
+                          "★ 判别式：信仰 2（差 1 点没过门槛）⇒ **不发**（原版 `CanTriggerAbility` 不成立 = 不激活）");
+            }
+        }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-19（第五十七会话 `W57FIX2`）：独立审查 P1–P5 的修复
+    // ==================================================================
+
+    /// <summary>
+    /// **第五十七会话 · 独立审查 P1–P5**（`资料/普查产出_1019/W57_阵营机制_审查.md`）。
+    ///
+    /// | 格 | 修了什么 | 判据（原版） |
+    /// |---|---|---|
+    /// | P1 | 战术卡打出时，它自己的 `UseSpiritStone(600)` / `UseFaith(605)` 两拍 | `RawCardScript__OnCardPlayedWithTarget.c:59-84`（整段在 `param_3 == param_4` 里）+ `CardAbility__CanTriggerAbility.c:96-112`（`GetCurrentSpiritStone / GetCurrentFaith >= triggerValue`） |
+    /// | P2 | 「When you gain …」监听器补 **来源卡牌类**（原版 `actingCardCriteria`） | `CardAbility__CanTriggerAbility.c:131-138` + `FilterMethods__CheckIfMeetsCriteria.c:279-293` |
+    /// | P3 | 常驻效果用 `PersistentEffect.Source` 当来源卡，**不再读陈旧的 `ctx.PlayingCard`** | `BattleManager__ProcessManaBuff.c:51-76` + `EffectResolver.BroadcastPersistentWhen` |
+    /// | P4 | 没有来源卡 ⇒ 原版 `param_4 == 0` 是 **`break`**（**一条都不播**） | `BattleManager__ProcessManaBuff.c:57` |
+    /// | P5 | 退督军时 `unit` 判据要**认督军**（原版 `includeHero=1`） | `DA5` 的 SO `actingCardCriteria` |
+    ///
+    /// 🔴 **P2 的一处口径更正（铁律 5）**：审查报告写「DA12/DA34/SOR38 的 `includeSpells=0`」——
+    /// 逐字段复核 `资料/普查产出_1018/allcards_1350/cards_raw.json` 的 `full_raw`：
+    /// **`DA12` / `DA34` 的 `includeSpells` 是 1**（`includeSelf` 也是 1），只有 `DA5` / `SOR38` 是 0。
+    /// ⇒ 「战术卡来源的任务点增益」在原版里**会触发 DA12/DA34**；
+    /// 下面 ① 那条按 SO 真值写（⛔ 别按报告改成「战术一律不触发」）。
+    ///
+    /// ⚠️ **P4 今天没有可观测路径**：唯一的「无来源卡」入口（`FlushDeathWatches`，`Source` 只有
+    /// 一个字符串、没有 `CardDef`）全池只有 `BL74` 一张，且它的正文不产生阵营资源
+    /// ⇒ 这一格用**结构断言**（`CardPlaySource` 用完必须还原成 `null`）钉住，行为分支由 P3 那条覆盖。
+    /// </summary>
+    static void TestW57Fix2FactionReview()
+    {
+        var poolAll = CardDatabase.Load();
+
+        // ===== P1a：战术卡 `UseFaith(605)`（SOR56 的两条 `4 ☀` / `7 ☀` 前缀）=====
+        {
+            var beacon = PoolCard(poolAll, "Beacon of Faith");
+            CheckTrue(beacon != null, "（前提）池里有 `Beacon of Faith`（SOR56）");
+            if (beacon != null)
+            {
+                CheckTrue(beacon.HasAnimTrigger("UseFaith"), "（前提）SOR56 带 `UseFaith` 动画行");
+                var ctx = BattlePool(new[] { beacon }, new CardDef[0], poolAll);
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                ctx.Players[0].Faith = 4;                 // 第一条前缀 `4 ☀` 过了门槛
+                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Beacon of Faith"), -1), RuleCodes.OK,
+                          "打出 `Beacon of Faith`");
+                // 🔴 **2026-10-20（`FACTION-DOUBLE605`）就地更新**：`Keyword` 现在带**能力序号后缀**
+                //    （`UseFaith#<i>`，传输形态见 `BattleEvent.AbilityIndex` 的 doc）——
+                //    Faith=4 ⇒ 只有 `4 ☀` 那条能力过门槛 ⇒ `UseFaith#1`（`cardAbilities[1]`）。
+                //    ⛔ 改前这里查的是裸 `UseFaith`（当时一张卡只发一条、没有序号）。
+                CheckTrue(FindSignal(ctx, EvtKind.Trigger, "UseFaith#1") != null,
+                          "★ **P1 战术卡自己的 `UseFaith(605)` 发出来了**（`4 ☀` 那条 · `cardAbilities[1]`）"
+                          + "｜🧨 改前战术侧没有任何发射点（`EmitAbilityUseTrigger` 只在单位那两个入口）⇒ 这里 null");
+
+                int nFaith = 0;
+                int faithAi = -99;
+                foreach (var e in ctx.Signals)
+                    if (e.Kind == EvtKind.Trigger && e.Keyword != null
+                        && (e.Keyword == "UseFaith" || e.Keyword.StartsWith("UseFaith#")))
+                    { nFaith++; faithAi = e.AbilityIndex; }
+                Check(nFaith, 1,
+                      "★ Faith=4 时只发 **1 条**（只有 `4 ☀` 那一组过门槛；`7 ☀` 要 Faith≥7，见 `TestW57Double605`）"
+                      + "｜🧨 把门槛判据写坏、两条都发 ⇒ 这里是 2");
+                Check(faithAi, 1,
+                      "★ 那一条带 **`AbilityIndex = 1`**（`4 ☀` 那条能力；`cardAbilities[1]`）"
+                      + "｜🧨 不发序号 / 序号写死 0 ⇒ 这里不是 1（表现层就分不出该播哪条能力的动画）");
+
+                var c2 = BattlePool(new[] { beacon }, new CardDef[0], poolAll);
+                ToP1Turn(c2, 1);
+                c2.Players[0].Energy = 20;
+                c2.Players[0].Faith = 3;                  // 差 1 点
+                RuleCore.PlayCard(c2, 0, HandIdx(c2, 0, "Beacon of Faith"), -1);
+                // 🔴 **2026-10-20（复核必修 · `FACTION-DOUBLE605`）**：这一格原来用
+                //    `FindSignal(c2, …, "UseFaith")` **精确比裸关键字** —— 而 SOR56 是多组卡，
+                //    它真发的形态是 `UseFaith#1`；误发一条 `#1` 时那格**永远绿**（假阴性）。
+                //    ⇒ 改 `FaithTriggerSignals`（裸名与 `#i` 都算，判据只那一处）。
+                Check(FaithTriggerSignals(c2).Count, 0,
+                      "★ **P1 判别式：门槛没过 ⇒ 这一拍不发（一条都不许发，含 `#i` 形态）**"
+                      + "（原版 `CanTriggerAbility` 的 `GetCurrentFaith < triggerValue` 分支）"
+                      + "｜🧨 让 `ResolveFaithAbility` 无条件发（门槛没过的组也发）⇒ 这里是 1");
+            }
+        }
+
+        // ===== P1b：战术卡 `UseSpiritStone(600)`（ASH52 的 `Spend all` 没有付费前缀）=====
+        {
+            var hosts = PoolCard(poolAll, "Hosts of the Dead");
+            CheckTrue(hosts != null, "（前提）池里有 `Hosts of the Dead`（ASH52）");
+            if (hosts != null)
+            {
+                CheckTrue(hosts.HasAnimTrigger("UseSpiritStone"), "（前提）ASH52 带 `UseSpiritStone` 动画行");
+                var ctx = BattlePool(new[] { hosts }, new CardDef[0], poolAll);
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                ctx.Players[0].SpiritStones = 1;
+                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Hosts of the Dead"), -1), RuleCodes.OK,
+                          "打出 `Hosts of the Dead`");
+                CheckTrue(FindSignal(ctx, EvtKind.Trigger, "UseSpiritStone") != null,
+                          "★ **P1 `UseSpiritStone(600)` 发出来了**（`Spend all` 解析成 `spendspirit`、`Cost = 0` "
+                          + "⇒ 靠「结算前有石头」判激活，原版闸 = `GetCurrentSpiritStone >= triggerValue(1)`）");
+                Check(ctx.Players[0].SpiritStones, 0, "（前提）石头真被花光了");
+
+                var c2 = BattlePool(new[] { hosts }, new CardDef[0], poolAll);
+                ToP1Turn(c2, 1);
+                c2.Players[0].Energy = 20;
+                c2.Players[0].SpiritStones = 0;
+                RuleCore.PlayCard(c2, 0, HandIdx(c2, 0, "Hosts of the Dead"), -1);
+                CheckTrue(FindSignal(c2, EvtKind.Trigger, "UseSpiritStone") == null,
+                          "★ **P1 判别式：一颗石都没有 ⇒ 不发**（原版 `iVar2 < 1` 直接 `return 0`）");
+            }
+        }
+
+        // ===== P1c：单位侧**不重复发** =====
+        {
+            var crusader = PoolCard(poolAll, "Crusader");
+            if (crusader != null)
+            {
+                var ctx = Battle(new[] { crusader }, new CardDef[0]);
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                ctx.Players[0].Faith = 3;
+                RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Crusader"), 3);
+                int n = 0;
+                foreach (var e in ctx.Signals)
+                    if (e.Kind == EvtKind.Trigger && e.Keyword == "UseFaith") n++;
+                Check(n, 1,
+                      "★ **P1 判别式：单位侧仍然只发一次**｜🧨 把发射点搬进 `ResolveOps` 统一发的写法这里会是 2");
+            }
+        }
+
+        // ===== P2：任务点来源卡的牌类 =====
+        {
+            // 监听者甲：`you gain`（DA12/DA34 同形）—— SO `includeSpells=1` ⇒ 战术卡来源**要响**
+            var youGain = new CardDef("W57F2YouGain", "W57F2YouGain", "unit",
+                                      "When you gain [Quest Point], deal 2 damage to the enemy warlord",
+                                      "common", "Test", 1, 0, 9, 0, null);
+            // 监听者乙：`a friendly unit obtains`（DA5 同形）—— SO `includeSpells=0` ⇒ 战术卡来源**不响**
+            var obtains = new CardDef("W57F2Obtains", "W57F2Obtains", "unit",
+                                      "When a friendly unit obtains [Quest Point], it heals 2",
+                                      "common", "Test", 1, 0, 9, 0, null);
+
+            // ---- ① 战术卡来源 ----
+            var gain3 = Tactic("T_W57F2Gain3", 0, "Gain 3 Quest Points");
+            var ctx = Battle(new[] { gain3 }, new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            var a = Place(ctx, 0, 3, youGain);
+            var b = Place(ctx, 0, 5, obtains);
+            RuleCore.ApplyDamage(ctx, a, 3, "夹具扣血");
+            RuleCore.ApplyDamage(ctx, b, 3, "夹具扣血");
+            int foeWl = ctx.Players[1].Warlord.Health;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "T_W57F2Gain3"), -1), RuleCodes.OK,
+                      "P0 打出一张 `Gain 3 Quest Points` 战术卡");
+            Check(ctx.Players[1].Warlord.Health, foeWl - 6,
+                  "★ **P2：战术卡来源会让 `When you gain` 响 3 次** —— DA12/DA34 的 SO "
+                  + "`actingCardCriteria.includeSpells = 1`（`full_raw` 现读）"
+                  + "｜⛔ 审计报告那句「这三张 includeSpells=0」是笔误，别按它改成「战术不触发」");
+            Check(b.Health, 6,
+                  "★ **P2 闸：`a friendly unit obtains`（`includeSpells=0`）不被战术卡来源触发** —— "
+                  + "这条守的是「acting-card 牌类不许放宽到 includeSpells=0 的卡」"
+                  + "（改前靠 `Criteria(\"unit\")` 恰好也挡着；P5 把督军放进来之后仍必须挡住战术卡）");
+
+            // ---- ② 单位来源：两条都要响 ----
+            var dieGain = new CardDef("W57F2DieGain", "W57F2DieGain", "unit",
+                                      "When a friendly unit dies, gain 3 Quest Points",
+                                      "common", "Test", 1, 0, 5, 0, null);
+            var hurt = Tactic("T_W57F2Hurt", 0, "Deal 1 damage to a friendly unit");
+            var c2 = Battle(new[] { hurt }, new CardDef[0]);
+            ToP1Turn(c2, 1);
+            var g = Place(c2, 0, 3, dieGain);
+            g.Health = 1;
+            var ya = Place(c2, 0, 5, youGain);
+            var ob = Place(c2, 0, 6, obtains);
+            RuleCore.ApplyDamage(c2, ya, 3, "夹具扣血");
+            RuleCore.ApplyDamage(c2, ob, 3, "夹具扣血");
+            var victim = Place(c2, 0, 7, Unit("W57F2Victim", 1, 0, 1));
+            victim.Health = 1;
+            int foe2 = c2.Players[1].Warlord.Health;
+            RuleCore.PlayCard(c2, 0, HandIdx(c2, 0, "T_W57F2Hurt"), 7);
+            CheckTrue(Board(c2, 0, 7) == null, "（前提）那个单位死了");
+            Check(c2.Players[1].Warlord.Health, foe2 - 6,
+                  "★ 单位来源：`When you gain` 照样响 3 次（`includeMinions=1`）");
+            Check(g.Health, 5,
+                  "★ **P2/P5 的另一半**：`it heals 2` 治的是**获得点数的那个单位**（1 + 2×3，封顶 5）");
+            Check(ob.Health, 6, "★ 判别式：监听者自己没被治（`it` 不是监听者）");
+        }
+
+        // ===== P5：退督军时 `unit` 判据要认督军（DA-4 反噬）=====
+        {
+            var give = Tactic("T_W57F2Backlash", 0,
+                "Give Vulnerable 4 and \"Backlash: Your opponent gains 2 Quest Points\" to an enemy troop");
+            var finish = Tactic("T_W57F2Finish", 0, "Deal 10 damage to an enemy");
+            var obtains = new CardDef("W57F2Obtains2", "W57F2Obtains2", "unit",
+                                      "When a friendly unit obtains [Quest Point], it heals 2",
+                                      "common", "Test", 1, 0, 9, 0, null);
+            var ctx = Battle(new[] { give, finish }, new[] { Unit("W57F2Foe", 1, 2, 9) });
+            ToP1Turn(ctx, 2);
+            var l = Place(ctx, 0, 3, obtains);
+            RuleCore.ApplyDamage(ctx, l, 3, "夹具扣血");
+            Place(ctx, 1, 3, Unit("W57F2Prey", 1, 0, 9));
+            RuleCore.ApplyDamage(ctx, ctx.Players[0].Warlord, 10, "夹具扣血");
+            int wlBefore = ctx.Players[0].Warlord.Health;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "T_W57F2Backlash"), 3), RuleCodes.OK,
+                      "P0 给 P1 的部队挂上「反噬：你的对手获得 2 任务点」");
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "T_W57F2Finish"), 3), RuleCodes.OK,
+                      "再打死它（触发 `Backlash`）");
+            Check(ctx.Players[0].QuestPoints, 2, "（前提）反噬让 P0 拿了 2 任务点（没到阈值 3）");
+            Check(ctx.Players[0].Warlord.Health, wlBefore + 4,
+                  "★ **P5：退督军时 `unit` 判据要认 hero** —— 原版 DA5 的 `includeHero=1` ⇒ "
+                  + "督军每获得 1 点治 2（2 点 ⇒ +4）"
+                  + "｜🧨 改前 `Criteria(\"unit\")` 经 `CreatePool.MatchesKind` 只认 `Type == \"unit\"` ⇒ 这里 +0");
+            Check(l.Health, 6, "★ 判别式：监听者自己没被治（治愈落在 subject = 督军身上）");
+        }
+
+        // ===== P3 / P4：常驻效果用真来源卡；没有来源卡就不广播 =====
+        {
+            var persist = Tactic("T_W57F2Persist", 0,
+                "For the rest of this battle, when an enemy dies, gain 1 Quest Point");
+            var youGain = new CardDef("W57F2YouGain2", "W57F2YouGain2", "unit",
+                                      "When you gain [Quest Point], deal 2 damage to the enemy warlord",
+                                      "common", "Test", 1, 0, 9, 0, null);
+            var obtains = new CardDef("W57F2Obtains3", "W57F2Obtains3", "unit",
+                                      "When a friendly unit obtains [Quest Point], it heals 2",
+                                      "common", "Test", 1, 0, 9, 0, null);
+            var stale = Unit("W57F2Stale", 1, 1, 9);
+            var ctx = Battle(new[] { persist, stale }, new[] { Unit("W57F2FoeP3", 1, 0, 1) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 20;
+            var yg = Place(ctx, 0, 2, youGain);
+            var ob = Place(ctx, 0, 3, obtains);
+            RuleCore.ApplyDamage(ctx, yg, 3, "夹具扣血");
+            RuleCore.ApplyDamage(ctx, ob, 3, "夹具扣血");
+            Place(ctx, 0, 6, Unit("W57F2Atk", 1, 3, 5), exhausted: false);
+            Place(ctx, 1, 3, Unit("W57F2FoeP3", 1, 0, 1), exhausted: true);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "T_W57F2Persist"), -1), RuleCodes.OK,
+                      "打出常驻效果");
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "W57F2Stale"), 5), RuleCodes.OK,
+                      "再打出一张**单位卡**（让 `ctx.PlayingCard` 停在单位上 = 陈旧值）");
+            CheckTrue(ctx.PlayingCard != null && ctx.PlayingCard.Name == "W57F2Stale",
+                      "（前提）`ctx.PlayingCard` 确实是那张单位卡");
+            CheckTrue(ctx.CardPlaySource == null,
+                      "★ **P3/P4 判别式（结构）**：出牌结束之后 `CardPlaySource` 必须被还原成 `null`"
+                      + "｜🧨 不还原 ⇒ 后面所有事件结算都会拿它当来源卡（回到「陈旧来源」的老毛病）");
+            int foeWl = ctx.Players[1].Warlord.Health;
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 6, 1, 3, ranged: false, forced: true), RuleCodes.OK,
+                      "用**攻击**打死那个敌人（不在任何出牌结算里）");
+            CheckTrue(Board(ctx, 1, 3) == null, "（前提）它真的死了");
+            Check(ctx.Players[1].Warlord.Health, foeWl - 2,
+                  "★ **P3：常驻效果的来源卡 = `PersistentEffect.Source`（那张战术卡）** ⇒ "
+                  + "`When you gain` 响 1 次（`includeSpells=1`）"
+                  + "｜🧨 旧写法读 `ctx.PlayingCard`（停在单位卡上）同样会响 1 次，但来源卡错人 —— 见下一条");
+            Check(ob.Health, 6,
+                  "★★ **P3 主判别式：陈旧的 `ctx.PlayingCard`（单位）不再被当来源卡** ⇒ "
+                  + "`a friendly unit obtains`（`includeSpells=0`）**不触发**、监听者一点没被治"
+                  + "｜🧨 旧写法 `srcCard = ctx.PlayingCard`（单位）⇒ 这条监听器会响、把**自己**治 2（6 → 8）");
+        }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-20（第五十七会话 `FACTION-DOUBLE605`）
+    //  **同一张卡两条 605 能力各发一次**（SOR56 / SOR23 / SOR67）
+    // ==================================================================
+
+    /// <summary>
+    /// **判据（原版）**：`RawCardScript__TriggerAbilities.c:59-88,207-265` 逐条遍历这张卡的
+    /// `cardAbilities`、每条独立过 `CardAbility__CanTriggerAbility`（605 的门槛 =
+    /// `GetCurrentFaith >= ability.triggerValue`，`CardAbility__CanTriggerAbility.c:114-126`），
+    /// 通过就播**那一条**的 `abilityLogic[].cardAnimations[]`。
+    /// ⇒ 两条 605 能力、门槛都过时，原版**各发一次**；只过一条时**只有那一条**的动画。
+    /// （战术卡那两拍的发起源 = `RawCardScript__OnCardPlayedWithTarget.c:66` 的 600 与
+    ///  `:73` 的 605；单位卡 = `CardScript__ResolveUnitSummoned.c:51`。）
+    ///
+    /// **数据面**（`cards_engine.json` + `cards_raw.json` 现读，3 张全部吻合）：
+    /// SOR56 能力 1/2 = 门槛 4/7 · SOR23 能力 0/1 = 2/4 · SOR67 能力 1/2 = 2/4。
+    /// 全池只有这 3 张有 ≥2 组信仰能力（下面 ① 钉住；其余 24 张单组卡必须**逐字节不变**）。
+    ///
+    /// **灭自证**：除了「事件条数」，还钉 ① `AbilityIndex` 的确切值 ② `Keyword` 的 `#i` 后缀
+    /// ③ `VfxMap` 侧按序号筛出的**行数与 T 值**（两条能力各占 0/1 与 2/3 两段 ——
+    /// 只把事件发成两条、而表现层还播整批时，`#1` 会得到 4 行、这里红）。
+    /// </summary>
+    static void TestW57Double605()
+    {
+        var poolAll = CardDatabase.Load();
+        var beacon = PoolCard(poolAll, "Beacon of Faith");     // SOR56 · 战术 · 门槛 4 / 7
+        var canoness = PoolCard(poolAll, "Canoness");          // SOR23 · 单位 · 门槛 2 / 4
+        var srs = PoolCard(poolAll, "Sacred Rose Sister");     // SOR67 · 单位 · 门槛 2 / 4
+        CheckTrue(beacon != null && canoness != null && srs != null,
+                  "（前提）池里有 SOR56 / SOR23 / SOR67");
+
+        // ---------- ① 数据面：门槛 → `cardAbilities[i]`，且全池只有这 3 张多组 ----------
+        {
+            int ai;
+            if (beacon != null)
+            {
+                Check(beacon.FaithAbilityGroupCount, 2, "★ SOR56 信仰能力组数 = 2");
+                CheckTrue(beacon.TryGetFaithAbilityIndex(4, out ai) && ai == 1,
+                          "★ SOR56 门槛 4 → `cardAbilities[1]`");
+                CheckTrue(beacon.TryGetFaithAbilityIndex(7, out ai) && ai == 2,
+                          "★ SOR56 门槛 7 → `cardAbilities[2]`");
+            }
+            if (canoness != null)
+            {
+                Check(canoness.FaithAbilityGroupCount, 2, "★ SOR23 信仰能力组数 = 2");
+                CheckTrue(canoness.TryGetFaithAbilityIndex(2, out ai) && ai == 0,
+                          "★ SOR23 门槛 2 → `cardAbilities[0]`");
+                CheckTrue(canoness.TryGetFaithAbilityIndex(4, out ai) && ai == 1,
+                          "★ SOR23 门槛 4 → `cardAbilities[1]`");
+            }
+            if (srs != null)
+            {
+                Check(srs.FaithAbilityGroupCount, 2, "★ SOR67 信仰能力组数 = 2");
+                CheckTrue(srs.TryGetFaithAbilityIndex(2, out ai) && ai == 1,
+                          "★ SOR67 门槛 2 → `cardAbilities[1]`");
+                CheckTrue(srs.TryGetFaithAbilityIndex(4, out ai) && ai == 2,
+                          "★ SOR67 门槛 4 → `cardAbilities[2]`");
+            }
+
+            int multi = 0;
+            var names = new List<string>();
+            foreach (var c in poolAll)
+                if (c.FaithAbilityGroupCount >= 2) { multi++; names.Add(c.Name); }
+            Check(multi, 3,
+                  "★★ **全池「多组信仰能力」的卡 = 3 张**（" + string.Join(" / ", names) + "）"
+                  + " —— 其余卡一律走「一条事件、无后缀」的老路（⛔ 别让它们也进新分支）");
+        }
+
+        // ---------- ② SOR56（战术卡）：Faith 7 = 两条 · 4~6 = 只有 4☀ · 3 = 零 ----------
+        if (beacon != null)
+        {
+            for (int faith = 7; faith >= 3; faith--)
+            {
+                var ctx = BattlePool(new[] { beacon }, new CardDef[0], poolAll);
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                ctx.Players[0].Faith = faith;
+                RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Beacon of Faith"), -1);
+                var evs = FaithTriggerSignals(ctx);
+                if (faith == 7)
+                {
+                    Check(evs.Count, 2,
+                          "★★ SOR56 Faith=7 ⇒ **两条** `UseFaith`（原版两条 605 能力各发一次）"
+                          + "｜🧨 改前只有 1 条");
+                    CheckTrue(evs.Count == 2 && evs[0].AbilityIndex == 1 && evs[1].AbilityIndex == 2,
+                              "★★ 序号依次 = 1, 2（`4 ☀` → `cardAbilities[1]`、`7 ☀` → `[2]`）"
+                              + "｜🧨 不发序号 / 写死 0 ⇒ 这里红");
+                    CheckTrue(evs.Count == 2 && evs[0].Keyword == "UseFaith#1" && evs[1].Keyword == "UseFaith#2",
+                              "★★ `Keyword` 带 `#1` / `#2` —— `BattleDriver` 只转 `Keyword`（不转新字段），"
+                              + "这是**传输副本**；⛔ 退回裸 `UseFaith` ⇒ 表现层分不出哪条能力");
+                }
+                else if (faith >= 4)
+                {
+                    Check(evs.Count, 1, $"★ SOR56 Faith={faith} ⇒ 只有 `4 ☀` 那条（1 条）");
+                    CheckTrue(evs.Count == 1 && evs[0].AbilityIndex == 1,
+                              $"…… Faith={faith} 序号 = 1（`4 ☀`；⛔ 不许发 7☀ 那条的行）");
+                }
+                else
+                {
+                    Check(evs.Count, 0, "★ SOR56 Faith=3 ⇒ 0 条（门槛 4 都没过，一条都不许发）");
+                }
+            }
+        }
+
+        // ---------- ③ SOR23 Canoness（单位）：Faith 4 = 两条 · 2~3 = 只有 2☀ · 1 = 零 ----------
+        if (canoness != null)
+        {
+            for (int faith = 4; faith >= 1; faith--)
+            {
+                var ctx = BattlePool(new[] { canoness }, new CardDef[0], poolAll);
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                ctx.Players[0].Faith = faith;
+                RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Canoness"), 3);
+                var evs = FaithTriggerSignals(ctx);
+                if (faith == 4)
+                {
+                    Check(evs.Count, 2, "★★ SOR23 Faith=4 ⇒ **两条** `UseFaith`");
+                    CheckTrue(evs.Count == 2 && evs[0].AbilityIndex == 0 && evs[1].AbilityIndex == 1,
+                              "★★ 序号依次 = 0, 1");
+                }
+                else if (faith >= 2)
+                {
+                    Check(evs.Count, 1, $"★ SOR23 Faith={faith} ⇒ 只有 `2 ☀` 那条（1 条）");
+                    CheckTrue(evs.Count == 1 && evs[0].AbilityIndex == 0,
+                              $"…… Faith={faith} 序号 = 0");
+                }
+                else
+                {
+                    Check(evs.Count, 0, "★ SOR23 Faith=1 ⇒ 0 条");
+                }
+            }
+        }
+
+        // ---------- ④ SOR67 Sacred Rose Sister（单位）：Faith 4 = 两条 · 2~3 = 只有 2☀ · 1 = 零 ----------
+        if (srs != null)
+        {
+            for (int faith = 4; faith >= 1; faith--)
+            {
+                var ctx = BattlePool(new[] { srs }, new CardDef[0], poolAll);
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                ctx.Players[0].Faith = faith;
+                RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Sacred Rose Sister"), 3);
+                var evs = FaithTriggerSignals(ctx);
+                if (faith == 4)
+                {
+                    Check(evs.Count, 2, "★★ SOR67 Faith=4 ⇒ **两条** `UseFaith`");
+                    CheckTrue(evs.Count == 2 && evs[0].AbilityIndex == 1 && evs[1].AbilityIndex == 2,
+                              "★★ 序号依次 = 1, 2（能力 0 是 Pray，不是 605）");
+                }
+                else if (faith >= 2)
+                {
+                    Check(evs.Count, 1, $"★ SOR67 Faith={faith} ⇒ 只有 `2 ☀` 那条（1 条）");
+                    CheckTrue(evs.Count == 1 && evs[0].AbilityIndex == 1,
+                              $"…… Faith={faith} 序号 = 1");
+                }
+                else
+                {
+                    Check(evs.Count, 0, "★ SOR67 Faith=1 ⇒ 0 条");
+                }
+            }
+        }
+
+        // ---------- ⑤ 单 605 卡：零影响（一次一条、无后缀、序号 -1）----------
+        {
+            var crusader = PoolCard(poolAll, "Crusader");      // SOR7 · 单条 605（门槛 3）
+            CheckTrue(crusader != null, "（前提）池里有 `Crusader`");
+            if (crusader != null)
+            {
+                Check(crusader.FaithAbilityGroupCount, 1, "★ Crusader 信仰能力组数 = 1");
+                var ctx = Battle(new[] { crusader }, new CardDef[0]);
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                ctx.Players[0].Faith = 3;
+                RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Crusader"), 3);
+                var evs = FaithTriggerSignals(ctx);
+                Check(evs.Count, 1, "★★ 单组卡仍然只发 **1 条**（改前行为，一个字节都不许变）");
+                CheckTrue(evs.Count == 1 && evs[0].Keyword == "UseFaith",
+                          "★★ 单组卡的 `Keyword` **不带后缀**（`UseFaith`）");
+                CheckTrue(evs.Count == 1 && evs[0].AbilityIndex == -1,
+                          "★★ 单组卡 `AbilityIndex = -1`（没写）");
+            }
+        }
+
+        // ---------- ⑥ VfxMap 侧：按能力序号筛行（结构断言 · 灭自证）----------
+        // 只把「事件」发成两条、而表现层仍播整批 ⇒ 这里的行数/时间会红。
+        if (beacon != null)
+        {
+            var all = CardPresentation.VfxMap.ResolveAllTimed(
+                CardPresentation.VfxMap.Trigger, "Sororitas", "Beacon of Faith",
+                beacon.AnimTimes, null, true, "UseFaith");
+            var a1 = CardPresentation.VfxMap.ResolveAllTimed(
+                CardPresentation.VfxMap.Trigger, "Sororitas", "Beacon of Faith",
+                beacon.AnimTimes, null, true, "UseFaith#1");
+            var a2 = CardPresentation.VfxMap.ResolveAllTimed(
+                CardPresentation.VfxMap.Trigger, "Sororitas", "Beacon of Faith",
+                beacon.AnimTimes, null, true, "UseFaith#2");
+            var a9 = CardPresentation.VfxMap.ResolveAllTimed(
+                CardPresentation.VfxMap.Trigger, "Sororitas", "Beacon of Faith",
+                beacon.AnimTimes, null, true, "UseFaith#9");
+            Check(all.Length, 4, "★ VfxMap：SOR56 裸 `UseFaith` ⇒ 4 行（改前那一整批）");
+            Check(a1.Length, 2, "★★ …… `UseFaith#1` ⇒ **2 行**（`4 ☀` 那条能力的动画）"
+                              + "｜🧨 不过滤 ⇒ 这里是 4");
+            Check(a2.Length, 2, "★★ …… `UseFaith#2` ⇒ **2 行**（`7 ☀` 那条）");
+            Check(a9.Length, 0, "★★ 不存在的序号 ⇒ **0 行**（⛔「筛不到就全播」—— 两条事件会各播一遍整批）");
+            CheckTrue(a1.Length == 2 && Math.Abs(a1[0].T - 0f) < 1e-3f && Math.Abs(a1[1].T - 1f) < 1e-3f,
+                      "★★ `#1` 两行的 T = 0 / 1（`4 ☀` 段；判据 = `CardAnimTime.Offset`）");
+            CheckTrue(a2.Length == 2 && Math.Abs(a2[0].T - 2f) < 1e-3f && Math.Abs(a2[1].T - 3f) < 1e-3f,
+                      "★★ `#2` 两行的 T = 2 / 3（`7 ☀` 段）—— 两段**不重叠**");
+            // 形参路径（不靠后缀）：生产端将来若能把 `BattleEvent.AbilityIndex` 直接传进来，同一条判据
+            var a1b = CardPresentation.VfxMap.ResolveAllTimed(
+                CardPresentation.VfxMap.Trigger, "Sororitas", "Beacon of Faith",
+                beacon.AnimTimes, null, true, "UseFaith", abilityIndex: 1);
+            Check(a1b.Length, 2, "★ 显式 `abilityIndex: 1` 形参 = 同一条结果（API 两种入口同判据）");
+        }
+        if (canoness != null)
+        {
+            var c0 = CardPresentation.VfxMap.ResolveAllTimed(
+                CardPresentation.VfxMap.Trigger, "Sororitas", "Canoness",
+                canoness.AnimTimes, null, true, "UseFaith#0");
+            var c1 = CardPresentation.VfxMap.ResolveAllTimed(
+                CardPresentation.VfxMap.Trigger, "Sororitas", "Canoness",
+                canoness.AnimTimes, null, true, "UseFaith#1");
+            Check(c0.Length, 2, "★ VfxMap：SOR23 `#0` ⇒ 2 行（`2 ☀` 的触发行 + 护甲特效）");
+            Check(c1.Length, 1, "★ …… `#1` ⇒ 1 行（`4 ☀` 的触发行）");
+            CheckTrue(c1.Length == 1 && Math.Abs(c1[0].T - 2.8f) < 1e-3f,
+                      "★★ `#1` 的 T = 2.8（它在整批里的绝对偏移；两段不重叠）");
+        }
+        if (srs != null)
+        {
+            var s1 = CardPresentation.VfxMap.ResolveAllTimed(
+                CardPresentation.VfxMap.Trigger, "Sororitas", "Sacred Rose Sister",
+                srs.AnimTimes, null, true, "UseFaith#1");
+            var s2 = CardPresentation.VfxMap.ResolveAllTimed(
+                CardPresentation.VfxMap.Trigger, "Sororitas", "Sacred Rose Sister",
+                srs.AnimTimes, null, true, "UseFaith#2");
+            Check(s1.Length, 1, "★ VfxMap：SOR67 `#1` ⇒ 1 行");
+            Check(s2.Length, 1, "★ …… `#2` ⇒ 1 行");
+            // 🆕 单候选也保留 `Offset`（否则第二条能力会跟第一条同时播）
+            CheckTrue(s1.Length == 1 && Math.Abs(s1[0].T - 0f) < 1e-3f, "★★ SOR67 `#1` 的 T = 0（第一条能力）");
+            CheckTrue(s2.Length == 1 && Math.Abs(s2[0].T - 1f) < 1e-3f,
+                      "★★ SOR67 `#2` 的 T = 1（单候选**也保留**整批里的绝对偏移；"
+                      + "｜🧨 掉回「单候选 ⇒ T=0」⇒ 两条能力同时播，这里红）");
+        }
+    }
+
     ///
     /// <summary>
     /// **天赋（Talent）** —— 2026-09-13 第三十四轮。规则书 `:218`「**回合开始时在手牌中生成临时战术**」。
@@ -22680,6 +23467,19 @@ public static partial class RuleEngineTest
         foreach (var e in ctx.Signals)
             if (e.Kind == kind && (keyword == null || e.Keyword == keyword)) return e;
         return null;
+    }
+
+    /// <summary>🆕 2026-10-20（`FACTION-DOUBLE605`）：**这张卡发的 `UseFaith(605)` 事件**（按发出顺序）。
+    /// 裸 `UseFaith`（单组卡）与带 `#i` 后缀（多组卡，`BattleEvent.KeywordWithAbility`）都算 ——
+    /// 「这个后缀算不算同一族」只有一处判据，⛔ 别在每个用例里各写一份字符串比较。</summary>
+    static List<BattleEvent> FaithTriggerSignals(BattleContext ctx)
+    {
+        var list = new List<BattleEvent>();
+        foreach (var e in ctx.Signals)
+            if (e.Kind == EvtKind.Trigger && e.Keyword != null
+                && (e.Keyword == "UseFaith" || e.Keyword.StartsWith("UseFaith#")))
+                list.Add(e);
+        return list;
     }
 
     /// <summary>数「**誓约能力**发过几条 `Ability` 事件」（`keyword == "oath"`）。

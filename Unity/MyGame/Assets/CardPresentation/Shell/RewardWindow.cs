@@ -250,7 +250,7 @@ namespace CardPresentation
         /// <summary>`Button Text` 的 `m_text` 与字号（auto[10~40]，`Center/Capline`，折行 0）。
         /// 🆕 **2026-10-10（A1212 块 12）补后两格**：`m_fontSizeMax = 40`（= <see cref="CollectFont"/> 本身）、
         /// `m_fontSizeBase = 12`。出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §3 #30
-        /// （= `Shell/RewardWindow.cs:1120` 那一颗，原版四格 `10 / 40 / 12 / 0`）；
+        /// （= `Shell/RewardWindow.cs` 那一颗，原版四格 `10 / 40 / 12 / 0`）；
         /// 归组见 `资料/普查产出_第十一会话/RA1212_切块表.md` 块 12。
         /// ⚠️ `max` 恰好等于 `m_fontSize` ⇒ 自适应**只能缩、不能涨**（与 `Title` 那颗同一条口径）。
         /// ⚠️ 本颗 `折行 = 0` ⇒ 接完必须 `SetWrapping(false)`（`SetAutoFitBox` 内部那句 `SetWrapWidth`
@@ -259,7 +259,10 @@ namespace CardPresentation
         /// 🔴 **2026-10-17（第四十八会话 · `N47`）整包普查现核：保持字面量 `"Collect"`，⛔ 别接词条。**
         /// 原版这一颗**有** `Localize`，但 `mTerm` 是 `MainMenu/RankedWindow/ChangeDeck`、**`m_Enabled = 0`**
         /// ⇒ 运行期**不会被替换**，任何语言都显示 `Collect`（`Debug Reward Window` 那一颗同值）。
-        /// 同一普查里另外 24 颗 `Collect` 都是 `MainMenu/General/Collect`（enabled=1）—— 那些才接词条。</summary>
+        /// 同一普查里另外 24 颗 `Collect` 都是 `MainMenu/General/Collect`（enabled=1）—— 那些才接词条。
+        /// ✅ **2026-10-19（`W57`）独立复核（按 `m_GameObject` 认领，⛔ 不互推）**：`Debug Reward Window/Content/Collect/Button Text`
+        /// 与 `Reward Window/Content/Collect Button/Button Text` 两颗的 `mTerm` 都是 `MainMenu/RankedWindow/ChangeDeck`
+        /// 且 `m_Enabled = 0`；同包 `mTerm = MainMenu/General/Collect` 的 24 颗里**不含**这两颗。</summary>
         public const string TxtCollect = "Collect";
         public const float CollectFont = 40f, CollectAutoMin = 10f;
         public const float CollectAutoMax = 40f, CollectAutoBase = 12f;
@@ -1167,7 +1170,7 @@ namespace CardPresentation
             //    而下面那句要读框高（`Label.SetWrapWidth` 的 doc：兑现那一刀只做「生成 + 重新量」）。
             if (collectLb != null) collectLb.SetWrapping(false);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版那一颗 = `Center/**Capline**`
-            //   （判据 = 上一行那句「`Button Text`：原版 `Center/Capline`」+ 本文件 `:247` 的 summary）。
+            //   （判据 = 上一行那句「`Button Text`：原版 `Center/Capline`」+ 本文件 `本文件` 的 summary）。
             MenuDraw.SetVAlign(collectLb, Label.VAlign.Capline, ButtonText);
             // 🔴 **2026-10-11（批次1 · F8）就地订正（铁律 5）**：这一段原来在 `MenuDraw.Hit` 的返回值上
             //    **又 `AddComponent<WindowButton>()` 挂了一颗** —— 而 `MenuDraw.Hit` 的尾段本来就是

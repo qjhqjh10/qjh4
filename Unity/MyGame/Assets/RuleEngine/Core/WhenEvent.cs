@@ -358,6 +358,56 @@ namespace RuleEngine
         /// </summary>
         public CardCriteria Criteria;
 
+        // ---- 🆕 2026-10-19（第五十七会话 `W57FIX2` · P2）：原版 `CardAbility.actingCardCriteria` ----
+
+        /// <summary>
+        /// **事件来源卡（原版 `actingCard`）必须是哪几种牌类** —— 位掩码，`0` = 不限。
+        ///
+        /// <para>**判据（逐行读的方法体）**：`d:/2/tools/decomp_full/CardAbility__CanTriggerAbility.c:131-138`
+        /// 在每个 ability 触发前跑
+        /// `FilterMethods__CheckIfMeetsCriteria(thisCard, actingCard, target, actingCardCriteria)`；
+        /// `FilterMethods__CheckIfMeetsCriteria.c:279-293` 按 **`actingCard` 的 `cardType`**
+        /// 逐档要求对应的 include 位：
+        /// `0x14(Tactic)` ⇒ `param_4 + 0x18`（`includeSpells`）·
+        /// `10(Hero)` ⇒ `+0x16`（`includeHero`）·
+        /// `0(Minion)` ⇒ `+0x17`（`includeMinions`）·
+        /// `0x28(Whispers)` ⇒ `+0x19`（`includeWhispers`）。
+        /// 字段偏移与 `TargetCriteria.cs` 的声明顺序逐格对过（`friendlyUnits`=0x14 ·
+        /// `enemyUnits`=0x15 · `includeHero`=0x16 · `includeMinions`=0x17 · `includeSpells`=0x18 ·
+        /// `includeWhispers`=0x19 · `includeSelf`=0x1d）。</para>
+        ///
+        /// <para>**现读全池只有 4 张卡带这一族监听**（`cards_raw.json` 的 `actingCardCriteria` 现读：
+        /// `DA12` / `DA34` = `allFiltered + friendlyUnits + includeHero + includeMinions + includeSpells`；
+        /// `DA5` = 同前三项、**`includeSpells=0`**；`SOR38` = 同 `DA5`、`includeSelf=0`）。
+        /// ⚠️ **`DA12`/`DA34` 的 `includeSpells=1` 是 SO 真值**（`full_raw` 逐字段复核过）——
+        /// 所以**战术卡来源的任务点增益会触发它们**（它们允许 Tactic），而 `DA5` 不会。
+        /// ⛔ 别按「战术卡一律不触发」改：那是把审计报告的一处笔误当判据
+        /// （报告写「这三张的 `includeSpells=0`」，实际只有 `DA5`/`SOR38` 是 0）。</para>
+        /// </summary>
+        public int ActingCardTypes;
+
+        /// <summary>原版 `CardTypeOptions.Hero = 10`（督军/英雄卡）。</summary>
+        public const int ActingHero = 1;
+        /// <summary>原版 `CardTypeOptions.Minion = 0`（普通单位卡）。</summary>
+        public const int ActingMinion = 2;
+        /// <summary>原版 `CardTypeOptions.Tactic = 20`。⚠️ 我们的 `type == "defence"` 在原版**也是** Tactic(20)
+        /// （`cards_truth.json` 逐张核过 39/39）⇒ 这个位把两档都算进来。</summary>
+        public const int ActingTactic = 4;
+        /// <summary>原版 `CardTypeOptions.Whispers = 40`（当前卡池 0 张）。</summary>
+        public const int ActingWhispers = 8;
+
+        /// <summary>
+        /// **来源卡不能是监听者自己**（原版 `actingCardCriteria.includeSelf == 0`，
+        /// `FilterMethods__CheckIfMeetsCriteria.c:245-248`：`thisCard == actingCard` 且
+        /// `includeSelf == 0` ⇒ 判不符）。默认 `false` = **不排除自己**（= `includeSelf = 1`），
+        /// 与 `DA5`/`DA12`/`DA34` 的 SO 真值一致；只有 `SOR38`（信仰）是 `includeSelf=0`。
+        /// ⚠️ 识别「自己」只能比 `CardDef` 引用 —— 同名另一份**共用同一个 CardDef**，
+        ///   所以这一位只在「监听者自己就是来源卡」时真的有区分力（本族 4 张里只有 `SOR38`
+        ///   可能自己产信仰，而它的信仰广播来源**恒为该方督军卡** ⇒ 这一位今天零可观测差异，
+        ///   如实标着：它是为了将来，不是为了修一个现在看得见的错）。
+        /// </summary>
+        public bool ActingExcludeSelf;
+
         /// <summary>原始的事件短语（已归一化），**留着给日志和自检** ——
         /// 报错时要能打印「卡面写的是哪句话」，不然排查得回去翻卡图。</summary>
         public string Raw;
@@ -814,7 +864,15 @@ namespace RuleEngine
             // `When you collect a Spirit Stone, gain Shield` —— `Clean` 之后是 `collect spirit stone`。
             // `When you gain Faith, deal 4 damage …` → `gain faith`。
             // ⚠️ 这两族**没有「谁的单位」那半段**（事件发生在**玩家**身上，不是某个单位），
-            //    所以不走 `SetWho`，`OwnerIs` 保持 -1（不限）—— 极性由 `RelFriendly` 那条隐式成立。
+            //    所以不走 `SetWho` —— 它剥的是「主语那段」（`friendly` / `enemy` / `another`），
+            //    这里没有那一段可剥。
+            // 🔴 **2026-10-20 就地订正（`W57FIX2` 续 · 复核指出）**：本行原文写
+            //    「`OwnerIs` 保持 -1（不限）—— 极性由 `RelFriendly` 那条隐式成立」——**两句都不成立**：
+            //    `ParseCore` 在 `Clean` **之前**看原文，`When **you** gain Faith` 含 `you`
+            //    ⇒ `ev.OwnerIs = WhenEvent.RelFriendly`（见 `ParseCore` 的「『你』→ 本方」那一段，
+            //    2026-09-13 第三十三轮就写好了）。极性**是显式的**，不是隐式的；
+            //    真正「保持 -1」的只有**省主语**的写法（例如 `collect spirit stone` 前面没有 `you` 时，
+            //    今天池里没有这种写法）。
             if (s.StartsWith("collect spirit stone") || s.StartsWith("collects spirit stone")
                 || s.StartsWith("collect a spirit stone"))
             {
@@ -823,7 +881,16 @@ namespace RuleEngine
             if (s.StartsWith("gain faith") || s.StartsWith("gains faith")
                 || s.StartsWith("gain a faith"))
             {
-                ev.Kind = WhenEvent.GainFaith; return;
+                ev.Kind = WhenEvent.GainFaith;
+                // 🆕 2026-10-19（`W57FIX2` · P2）：`SOR38 Paragon Warsuit` 的 SO `actingCardCriteria`
+                //   = `allFiltered + friendlyUnits + includeHero + includeMinions`（**`includeSpells=0`**、
+                //   `includeSelf=0`）⇒ 来源卡只能是**友方督军/单位**，战术卡不算。
+                //   ⚠️ 本版信仰广播的来源卡**恒为该方督军卡**（原版 `ProcessManaBuff` 信仰支
+                //   `BroadcastCollectFaith(该方英雄卡)`，我们 `DoFactionResource` 逐字照做）
+                //   ⇒ 这一层今天**零可观测差异**；补上是为了「结构上与原版同形」。
+                ev.ActingCardTypes = WhenEvent.ActingHero | WhenEvent.ActingMinion;
+                ev.ActingExcludeSelf = true;
+                return;
             }
             // `When you gain [honour], …`（`Unforgiven Redemptor`，DarkAngels）
             //   → `Clean` 去掉方括号与 `you` 之后是 `gain honour`。
@@ -836,7 +903,17 @@ namespace RuleEngine
                 || s.StartsWith("gain quest point") || s.StartsWith("gains quest point")
                 || s.StartsWith("gain a quest point"))
             {
-                ev.Kind = WhenEvent.GainQuest; return;
+                ev.Kind = WhenEvent.GainQuest;
+                // 🆕 2026-10-19（`W57FIX2` · P2）：`DA12 Company Veteran` / `DA34 Unforgiven Redemptor`
+                //   的 SO `actingCardCriteria` = `allFiltered + friendlyUnits + includeHero
+                //   + includeMinions + **includeSpells** + includeSelf`（`full_raw` 逐字段现读：
+                //   `includeSpells=1`）。⇒ 来源卡可以是**友方督军 / 单位 / 战术卡**，
+                //   ⛔ 不是「只能单位」—— 别把审计报告那句「这三张的 includeSpells=0」当判据
+                //   （那是笔误：只有 `DA5` / `SOR38` 是 0）。
+                //   `includeWhispers` 全池 0 张 ⇒ 不开那一位。
+                ev.ActingCardTypes = WhenEvent.ActingHero | WhenEvent.ActingMinion
+                                   | WhenEvent.ActingTactic;
+                return;
             }
             // `When a friendly unit obtains [Quest Point], …`（`Apothecary`，DarkAngels）
             //   → `Clean` 之后是 `friendly unit obtains quest point` —— **动词在中间**，走 `StripFirst`。
@@ -853,7 +930,25 @@ namespace RuleEngine
                                        " gains quest point", " gains a quest point",
                                        " obtains honour", " gains honour"))
             {
-                ev.Kind = WhenEvent.GainQuest; SetWho(subj, ev); return;
+                ev.Kind = WhenEvent.GainQuest; SetWho(subj, ev);
+                // 🆕 2026-10-19（`W57FIX2` · **P5**）：`DA5 Apothecary`（`a friendly unit obtains …`）
+                //   的 SO `actingCardCriteria` = `allFiltered + friendlyUnits + includeHero
+                //   + includeMinions + includeSelf`（`includeSpells=0`）。
+                //   🔴 **原版 `includeHero=1` ⇒ 督军也算「unit」**（规则书同口径：单位含督军）。
+                //   而 `Subjects.Parse("unit")` 落到 `CreatePool.MatchesKind` 的
+                //   `{"unit","type","unit"}` ⇒ **只认 `Type == "unit"`**（督军是 `hero`）
+                //   ⇒ 改前这条监听器在「督军获得任务点」时**一次都不响**（静默）。
+                //   ⇒ 这里把「裸 `unit`」这一维**升级成 acting-card 牌类掩码**（督军 + 单位），
+                //   并清掉 `KindWord` —— ⛔ 别去改 `CreatePool.KindWords` 那行：那张表是**卡池筛选**
+                //   用的（卡池里本来没有督军），改它会波及每一处 `unit` 目标筛选。
+                //   ⚠️ **只升 `unit`、不升 `troop`** —— `troop` 明确排除督军，语义不同。
+                if (ev.Criteria != null
+                    && string.Equals(ev.Criteria.KindWord, "unit", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    ev.ActingCardTypes |= WhenEvent.ActingHero | WhenEvent.ActingMinion;
+                    ev.Criteria.KindWord = null;
+                }
+                return;
             }
 
             // ---- 打出族（2026-09-13 第三十三轮）----
@@ -1420,6 +1515,29 @@ namespace RuleEngine
                 else if (who == listener) return false;     // RelEnemy / RelOpponent
             }
 
+            // ---- 🆕 2026-10-19（`W57FIX2` · P2）：事件**来源卡**的牌类（原版 `actingCardCriteria`）----
+            //
+            // 判据：`CardAbility__CanTriggerAbility.c:131-138` 在每条 ability 触发前跑
+            // `FilterMethods__CheckIfMeetsCriteria(thisCard, actingCard, target, actingCardCriteria)`；
+            // `FilterMethods__CheckIfMeetsCriteria.c:279-293` 按来源卡的 `cardType` 逐档要求
+            // includeHero(10) / includeMinions(0) / includeSpells(20=Tactic) / includeWhispers(40)。
+            // 现读全池只有 4 张卡带这一族监听（见 `WhenEvent.ActingCardTypes` 的 doc）。
+            //
+            // ⚠️ **拿不到来源卡 ⇒ 判不触发**（与 `SelfOnly` 同一条口径：没有事实就别乱放）。
+            //    原版里 `param_4 == 0` 时 `ProcessManaBuff` 是 `break`（**连广播都没有**）——
+            //    我们在 `EffectResolver.DoFactionResource` 那一侧已经先挡了一道，这里是第二道。
+            // ⚠️ **常驻效果那一跳传的 `card` 是 `pe.Source`**（`BroadcastPersistentWhen` 的既有口径，
+            //    不是「事件来源卡」）—— 今天没有任何常驻监听器带 `ActingCardTypes`；
+            //    真出现「`For the rest of this battle, when you gain …`」这种卡时，
+            //    **先修那一跳**再谈这条判据（否则筛的是常驻效果自己的来源卡）。
+            if (ev.ActingCardTypes != 0)
+            {
+                if (card == null) return false;
+                if (!ActingCardTypeMatches(card, ev.ActingCardTypes)) return false;
+                if (ev.ActingExcludeSelf && listenerUnit != null && listenerUnit.Card != null
+                    && ReferenceEquals(listenerUnit.Card, card)) return false;
+            }
+
             // ---- 卡本身符不符合（兵种 / 关键词 / 卡名）----
             if (ev.Criteria != null && !ev.Criteria.IsEmpty)
             {
@@ -1463,6 +1581,34 @@ namespace RuleEngine
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-19（`W57FIX2` · P2）：来源卡的牌类对不对得上掩码
+        /// （<see cref="WhenEvent.ActingCardTypes"/>）。
+        ///
+        /// 判据 = 原版 `FilterMethods__CheckIfMeetsCriteria.c:279-293` 那四档：
+        /// `cardType == 0x14(20,Tactic)` ⇒ `includeSpells` · `== 10(Hero)` ⇒ `includeHero` ·
+        /// `== 0(Minion)` ⇒ `includeMinions` · `== 0x28(40,Whispers)` ⇒ `includeWhispers`。
+        ///
+        /// ⚠️ **我们的 `type` 取值 ↔ 原版 `CardTypeOptions` 的映射**（`cards_engine.json` 现读：
+        /// `unit` 586 · `tactic` 446 · `hero` 56 · `defence` 39）：
+        /// `hero` = Hero(10) · `unit` = Minion(0) · **`tactic` / `defence` 都是 Tactic(20)**
+        /// （`cards_truth.json` 实测 39 张 defence 清一色 `cardType: 20`）· `whispers` = Whispers(40)。
+        /// </summary>
+        static bool ActingCardTypeMatches(CardDef c, int mask)
+        {
+            if (c == null) return false;
+            string t = c.Type;
+            if ((mask & WhenEvent.ActingHero) != 0 && DeckRules.IsWarlordCardType(t)) return true;
+            if ((mask & WhenEvent.ActingMinion) != 0
+                && string.Equals(t, "unit", System.StringComparison.OrdinalIgnoreCase)) return true;
+            if ((mask & WhenEvent.ActingTactic) != 0
+                && (string.Equals(t, "tactic", System.StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(t, "defence", System.StringComparison.OrdinalIgnoreCase))) return true;
+            if ((mask & WhenEvent.ActingWhispers) != 0
+                && string.Equals(t, "whispers", System.StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
         }
 
         // ==================================================================

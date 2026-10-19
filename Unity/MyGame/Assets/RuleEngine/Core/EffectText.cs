@@ -2306,7 +2306,27 @@ namespace RuleEngine
             //       造哪一张的**权威判据**见 `RuleEngine.TalentCardData`（真值 = `unitsToSummon[0]`）。
             //   ⚠️ **名字抽法转调 `CardDef.ExtractTalent`**（全仓唯一一份）—— 这里不自己切。
             var talentOp = TryTalent(low, s);
-            if (talentOp != null) { r.Ops.Add(talentOp); r.Kind = SegKind.Ok; return r; }
+            if (talentOp != null)
+            {
+                r.Ops.Add(talentOp); r.Kind = SegKind.Ok;
+                // 🔴 **2026-10-19（第五十七会话 · W57 `ASH34`）：`Talent:` 是【另一条 ability】的开头**
+                //    ⇒ 报给 `Parse` 让付费前缀的跨句承接（`carry`）在这里**清零**。
+                //
+                // **判据（原版）**：`Talent` 在原版是一个独立的 `AbilityTrigger`（46，
+                //   `CardScript__OnTurnStart.c:166` → `RawCardScript__OnTrigger(raw, 0x2e, …)`），
+                //   由 `CardScript__GetTalentCard.c` 取 `cardAbilities` 里**第一条** `trigger == 0x2e`
+                //   的那条 ability ⇒ 它与前面那条 `N [Spirit Stone]: …` **不是同一个 ability**，
+                //   前缀的代价**不能**挂到它头上。
+                //
+                // 🔴 **不设这一格时的实测后果**（`ruleprobe play ASH34`，2026-10-19）：
+                //   `2 [Spirit Stone]` 的 carry 贴到了 `Talent: Wrath of Khaine` 产出的 `create` op 上
+                //   （`Cost = 2, CostShared = true`）⇒ 它进了 `CardDef.SpiritOps`、被
+                //   `ResolveSpiritAbility` 当成同一次激活的一部分执行 ⇒ **打出时凭空多造一张天赋**，
+                //   而且 `willrun` ⑨（`SpiritOps.Source` 必须全小写）报 28/29 —— 同一条根因。
+                //   ⚠️ 天赋的**正确造法**不在这里：`RuleCore.SpawnTalents`（回合开始）本来就在跑。
+                r.HasTriggerHead = true;
+                return r;
+            }
 
             // ---- 付费激活前缀 `12 [Energy]: …` / `4 : …` / `8 [Faith]: …` ----
             // `rule_core.gd:2529` 那族（我们上一版复刻：付不起就**整段不激活**，旁证）。前缀在这里剥掉、
@@ -8266,10 +8286,25 @@ namespace RuleEngine
                 op.Amount = int.Parse(res.Groups[1].Value);
                 op.Verb = quest ? "gainquest" : (spirit ? "gainspirit" : "gainfaith");
                 op.Payload = "";
+                // 🔴 **2026-10-19（第五十七会话 `W57` · DA-4）：主语点名「对手」⇒ 资源加给对手。**
+                //
+                //   判据（卡面 + 反编译）：`DA74 Hunters of Heretics` 的
+                //   `Give Vulnerable 4 and "Backlash: Your opponent gains 2 Quest Points" to an enemy troop`
+                //   —— 这句话相对**挂着反噬的那个单位**（= 被赐予方）说 `your opponent`，即
+                //   **相对施放方**才是收钱那一边 ⇒ 结算时 `owner` 要取 `1 - owner`
+                //   （`RuleCore.FireTriggerAt` 传进来的 owner = 死亡单位的控制者）。
+                //   改前这里把 `Side` 硬写成 `"own"` ⇒ **加给了被赐予者自己**（实测：反噬反而喂了对面）。
+                //   ⚠️ 全池按「`<敌方主语> gains …`」扫过（2026-10-19）：**只有 DA74 这一处**
+                //   （`TAU15` 的 `when an enemy gains Markerlight` 是 When 子句，不走这条）。
+                //   下游唯一读点 = `EffectResolver.DoFactionResource`（`Side == "enemy"` ⇒ `1 - owner`），
+                //   ⛔ 别在结算层再认一遍主语文本。
+                bool enemySide = IsEnemyGainSubject(subj);
                 op.Target = new EffectTargetSpec
                 {
-                    Raw = quest ? "(玩家任务点)" : (spirit ? "(玩家灵魂石)" : "(玩家信仰)"),
-                    Side = "own", Kind = "player", Count = 1, Auto = true,
+                    Raw = enemySide
+                        ? (quest ? "(对手的任务点)" : (spirit ? "(对手的灵魂石)" : "(对手的信仰)"))
+                        : (quest ? "(玩家任务点)" : (spirit ? "(玩家灵魂石)" : "(玩家信仰)")),
+                    Side = enemySide ? "enemy" : "own", Kind = "player", Count = 1, Auto = true,
                 };
                 return op;
             }
@@ -8297,6 +8332,28 @@ namespace RuleEngine
         // （`Only in Death Does Duty End` 那一族用的写法）。2026-09-12 补。
         static readonly Regex ReGain = new Regex(
             @"^(.+?)\s+(?:gains?|gets?|becomes?)\s+(.+)$|^(?:gains?|gets?|becomes?)\s+(.+)$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// 🆕 **2026-10-19（第五十七会话 `W57` · DA-4）**：`gain` 的主语是不是**「对手」**
+        /// —— 只有这种主语才会把阵营资源加给**另一边**（`EffectResolver.DoFactionResource`
+        /// 读 `op.Target.Side == "enemy"` ⇒ `1 - owner`）。
+        ///
+        /// <para>**判据 = 卡面原文**（`DA74 Hunters of Heretics` 的
+        /// `Backlash: Your opponent gains 2 Quest Points`）。原版这句在反噬里结算时，
+        /// `you/your` 相对的是**挂着反噬的那个单位**的操控者 ⇒ `your opponent` = 施放者那一方。</para>
+        ///
+        /// <para>⚠️ 只认这几种**明写**的主语；`your opponent's …` 之类一律不算
+        /// （那是「对手的某张牌」当主语，不是「对手获得」）。认不出就按原行为（自己拿）。</para>
+        /// </summary>
+        static bool IsEnemyGainSubject(string subj)
+        {
+            if (string.IsNullOrEmpty(subj)) return false;
+            string s2 = subj.Trim().TrimEnd('.', ',', ';').Trim().ToLowerInvariant();
+            return s2 == "your opponent" || s2 == "your opponents"
+                || s2 == "the opponent" || s2 == "the opponents"
+                || s2 == "the enemy" || s2 == "an enemy" || s2 == "enemy"
+                || s2 == "the enemy player" || s2 == "your opponent player";
+        }
 
         // ==================================================================
         //  目标短语 → EffectTargetSpec

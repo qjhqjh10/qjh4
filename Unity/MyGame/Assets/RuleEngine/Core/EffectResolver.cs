@@ -166,7 +166,7 @@ namespace RuleEngine
 
         /// <summary>
         /// `EffectOp.AmountRef` → 具体数值。**判据只此一处**（铁律 6）：
-        /// 出牌路（<see cref="ResolveOps(BattleContext,int,UnitState,List{EffectOp},UnitState,out List{string},CardDef)"/>）
+        /// 出牌路（<see cref="ResolveOps(BattleContext,int,UnitState,List{EffectOp},UnitState,out List{string},CardDef,bool[])"/>）
         /// 与**触发路**（<see cref="ResolveOps(BattleContext,int,UnitState,IReadOnlyList{EffectOp},string,UnitState)"/>）
         /// 都调它。
         ///
@@ -222,11 +222,16 @@ namespace RuleEngine
         /// 结算一组效果（一张战术卡 / 一次触发 / 一个主动技能的效果部分）。
         /// </summary>
         /// <param name="chosen">表现层已选定的目标（需要选目标的战术卡才有）</param>
+        /// <param name="paidOut">🆕 2026-10-19（`W57FIX2` · P1）：可选。给了就按**本条 <paramref name="ops"/>
+        /// 的下标**回填「这一条所属的付费组收到钱没有」（`ChargePaidGroups` 的 `paidOk`）。
+        /// 唯一读点 = `PlayTactic` 判「战术卡自己的 `UseFaith` / `UseSpiritStone` 那一拍要不要发」；
+        /// ⛔ 别拿它代替返回值（那是「整条 ability 激活了没有」的另一个口径）。</param>
         /// <returns>有多少条 op **完整结算**了（没完整结算的会写进 <paramref name="unresolved"/>）</returns>
         public static int ResolveOps(BattleContext ctx, int owner, UnitState source,
                                      List<EffectOp> ops, UnitState chosen,
                                      out List<string> unresolved,
-                                     CardDef sourceCard = null)
+                                     CardDef sourceCard = null,
+                                     bool[] paidOut = null)
         {
             unresolved = new List<string>();
             if (ops == null) return 0;
@@ -403,6 +408,15 @@ namespace RuleEngine
             //    查余额 / 扣费 / 日志 / 灵魂石世界事件全在 `ResolveOneCore` 的付费支里
             //    （⛔ 不写第二份余额比较，理由与清单 → `ChargePaidGroups` 的 doc）。
             var paidOk = ChargePaidGroups(ctx, owner, source, by, ops, chosen, unresolved);
+            // 🆕 **2026-10-19（第五十七会话 `W57FIX2` · P1）：把「每条 op 所属的付费组收到钱没有」
+            //    原样递给调用方**（只在调用方给了数组时）。`PlayTactic` 用它判
+            //    「这张战术卡自己的 `UseFaith(605)` / `UseSpiritStone(600)` 能力到底激活了没有」——
+            //    原版 `RawCardScript__OnCardPlayedWithTarget.c:59-84` 在**打出的那张牌自己**身上
+            //    发这两拍，而 `CanTriggerAbility` 对 600/605 的闸是
+            //    `GetCurrentSpiritStone / GetCurrentFaith >= ability.triggerValue`
+            //    （`CardAbility__CanTriggerAbility.c:96-112`）⇒ 与我们「付费组收到钱」同一判据。
+            if (paidOut != null)
+                for (int i = 0; i < paidOut.Length && i < paidOk.Length; i++) paidOut[i] = paidOk[i];
 
             int done = 0;
             for (int i = 0; i < ops.Count; i++)
@@ -1765,28 +1779,49 @@ namespace RuleEngine
                     FireTriggerAt(ctx, st, KeywordTable.Stimulation, sp, sslot);
             }
 
-            ResolveOps(ctx, p, null, ops, chosen, out unresolved, sourceCard: card);
-
-            // ---- 🆕 突触（`Synapse`）：**被友方战术选中时，对相邻部队/单位重复效果** ----
-            // 规则书 `:217`「被友方战术选中时：对**相邻**部队/单位重复效果（**依战术而定**）」。
-            //
-            // **原版出处**（反编译 `decomp_out/CardScript__TargetedSpellPlayed.c:55-75`）：
-            //   ① 判据是「**施放者与目标同一方**」（`param_2.sideFlag == param_3.sideFlag`）
-            //      ⇒ 只有**友方**战术选中自己人才触发；
-            //   ② 目标带 `synapse`（trait `0x47e`）时，取 `BattleManager.GetAdjacentUnits(目标)`
-            //      —— 就是我们 `BoardSpec.AdjacentSlots` 那一份（A1 抽出来的唯一判据）；
-            //   ③ 对每个相邻单位**再过一次战术自己的 `TargetCriteria`**
-            //      （`criteria.Matches(caster, tuple)`）⇒ 我们复用 `IsLegalPick`（同一份判据）；
-            //   ④ 然后**把这张战术的效果再跑一遍**（`OnCardPlayedWithTargetJustThisCardPlayed`），
-            //      挨个以那个邻居为目标；
-            //   ⑤ 最后 `BroadcastUnitSynapse` ⇒ 我们发 `When … triggers Synapse`。
-            // ⚠️ 位置：**排在效果之后、进弃牌堆之前** —— 照原版同一个函数里的先后
-            //    （`GoToCemetery(self)` 在突触那一段**后面**）。
-            if (chosen != null && targetSlot >= 0 && side != "enemy"
-                && chosen.Has(KeywordTable.Synapse) && !ctx.SynapseBusy)
+            // 🔴 **2026-10-19（第五十七会话 `W57FIX2` · P3）：这一整段（含突触重复）都在
+            //    「这次出牌结算」的作用域里** —— `ctx.CardPlaySource` 是 `DoFactionResource`
+            //    取「任务点来源卡」的唯一通道（⛔ 不再读陈旧的 `ctx.PlayingCard`）。
+            //    用 `try/finally` 还原：突触可能嵌套（邻居身上再触发别人的结算），
+            //    而且 `PlayTactic` 之后马上还会跑巧技/典籍这些**不属于这次出牌**的段。
+            // 🆕 **2026-10-19（`W57FIX2` · P1）：`paidOut` 把「哪几条付费组收到钱」接住** ——
+            //    下面 `EmitTacticAbilityUseTriggers` 用它判 600/605 两拍要不要发。
+            var paidFlags = new bool[ops != null ? ops.Count : 0];
+            int spiritBefore = ps.SpiritStones;
+            var prevPlaySource = ctx.CardPlaySource;
+            ctx.CardPlaySource = card;
+            try
             {
-                RepeatTacticOnAdjacent(ctx, p, card, ops, chosen);
+                ResolveOps(ctx, p, null, ops, chosen, out unresolved, sourceCard: card, paidOut: paidFlags);
+
+                // ---- 🆕 突触（`Synapse`）：**被友方战术选中时，对相邻部队/单位重复效果** ----
+                // 规则书 `:217`「被友方战术选中时：对**相邻**部队/单位重复效果（**依战术而定**）」。
+                //
+                // **原版出处**（反编译 `decomp_out/CardScript__TargetedSpellPlayed.c:55-75`）：
+                //   ① 判据是「**施放者与目标同一方**」（`param_2.sideFlag == param_3.sideFlag`）
+                //      ⇒ 只有**友方**战术选中自己人才触发；
+                //   ② 目标带 `synapse`（trait `0x47e`）时，取 `BattleManager.GetAdjacentUnits(目标)`
+                //      —— 就是我们 `BoardSpec.AdjacentSlots` 那一份（A1 抽出来的唯一判据）；
+                //   ③ 对每个相邻单位**再过一次战术自己的 `TargetCriteria`**
+                //      （`criteria.Matches(caster, tuple)`）⇒ 我们复用 `IsLegalPick`（同一份判据）；
+                //   ④ 然后**把这张战术的效果再跑一遍**（`OnCardPlayedWithTargetJustThisCardPlayed`），
+                //      挨个以那个邻居为目标；
+                //   ⑤ 最后 `BroadcastUnitSynapse` ⇒ 我们发 `When … triggers Synapse`。
+                // ⚠️ 位置：**排在效果之后、进弃牌堆之前** —— 照原版同一个函数里的先后
+                //    （`GoToCemetery(self)` 在突触那一段**后面**）。
+                if (chosen != null && targetSlot >= 0 && side != "enemy"
+                    && chosen.Has(KeywordTable.Synapse) && !ctx.SynapseBusy)
+                {
+                    RepeatTacticOnAdjacent(ctx, p, card, ops, chosen);
+                }
             }
+            finally { ctx.CardPlaySource = prevPlaySource; }
+
+            // ---- 🆕 2026-10-19（`W57FIX2` · P1）：战术卡自己的 `600` / `605` 两拍 ----
+            // 原版 `RawCardScript__OnCardPlayedWithTarget.c:59-84` 在**打出的那张牌自己**身上发；
+            // 闸 = 那张卡真有对应动画行（`EmitCardTrigger` → `HasAnimTrigger`），
+            // 「能力激活了没有」= 付费组收到钱（`paidOut`）或 `spendspirit` 真花了石头（ASH52）。
+            EmitTacticAbilityUseTriggers(ctx, p, card, ops, paidFlags, spiritBefore);
 
             // 进弃牌堆（原版战术卡结算完就进弃牌堆）
             ps.Discard.Add(inst);      // 第 7 行第 2 步：进弃牌堆的是**那一份实例**（不是模板）
@@ -1815,6 +1850,24 @@ namespace RuleEngine
             // 照我们自己的参考实现 `rule_core.gd:2183`（旁证、非权威）（战术打完那张牌的收尾）。
             // ⚠️ 排在巧技**之后** —— 那边也是把 `_check_codex` 放在战术那一支的**最后一行**。
             CheckCodex(ctx, p);
+
+            // ---- 🆕 2026-10-19（战斗线 `T21` · 缺口 A）：`followAfterResolution`（320/325）的**结算尾部事件** ----
+            // 原版：卡自己的 trigger-0 能力里带 `AbilityEffect.followAfterResolution = 320` ⇒
+            //   `AbilityLogic__PlayAbility.c:2474` 把 `followAfterResolution` 动作（类型 58）压进队列；
+            //   队列轮到它时 `BattleManager__ResolveFollowAfterResolution.c:380` →
+            //   `CardScript__FollowUpResolutionPlayed.c:7` → `OnTrigger(0x19a = 410)`。
+            // ⇒ **本拍的动画 = 那张卡的 trigger 410 行**（不是 0 行），所以关键词写 `FollowUpResolution`。
+            // ⚠️ 位置 = **这张战术彻底结算完之后**（原版是队列里的下一条动作）。
+            // ⚠️ 落点：有棋盘目标 ⇒ 用**目标那一侧**的格号（原版动画演在目标卡上；
+            //   `EvtKind.Trigger` 的 `Player` 决定表现层取哪一侧的棋盘布局，所以目标在敌方时
+            //   `Player` 要写 `1-p`）；没有（抽牌 / 手牌降费那一族）⇒ `-1`
+            //   —— 原版那几条的 `AnimInfo.startPosOption` 是手牌/自身锚，我们的表现层今天没有
+            //   手牌锚这条落点（报告 §四 如实记着「仍不可达」）。
+            if (FollowUpSchedulerOf(card) == "ThisCardPlayed")
+                EmitFollowUpResolution(ctx, card,
+                                       chosen != null ? (side == "enemy" ? 1 - p : p) : p,
+                                       chosen != null ? targetSlot : -1,
+                                       chosen != null ? chosen.InstanceId : 0);
             return RuleCodes.OK;
         }
 
@@ -3549,6 +3602,37 @@ namespace RuleEngine
                 }
 
                 case "todeck":
+                {
+                    // 🔴 **2026-10-19（第五十七会话 `W57` · DA-3）：`DA44 Secret Agenda`
+                    //   `Choose a Dark Angels Secret and add it to your deck` —— 改前是
+                    //   `Add + Shuffle(整副)` 且**不发** `CreatesSecret`；原版不是这么走的。**
+                    //
+                    //   **判据（SO 真值 + 反编译）**：`DA44` 的 `cardAbilities[0].abilityLogic[0]
+                    //   .chosenAbility = 270`（= `createCardInDeck`，`cards_raw.json` 实读）；
+                    //   `AbilityLogic__PlayAbility.c:2607` 的 270 支 → `BattleManager__AddNewCardToDeck`
+                    //   → 与「任务点满阈值造隐秘」**同一条 `AddCardInPlayToDeck` 路径**：
+                    //     · 随机下标 `Insert`（`BattleManager__AddCardInPlayToDeck.c:36-37,63-64`，
+                    //       整副牌序**保留**）；
+                    //     · `spellType == 0x96(150)` ⇒ `BroadcastSecretCreated`
+                    //       （`_ResolveCreateDeckCard…:113-119`）。
+                    //   ⚠️ 原版两处差别都是**可观测**的：① 牌序（洗整副 vs 随机插入）；
+                    //      ② `DA15` / `DA66`（`When you create a Secret, …`）**根本不响**。
+                    //   ⚠️ 本版 `todeck` 只有 DA44 一张（全池按 `to your deck` 且不含 `return` 扫过）。
+                    //   ⛔ `return`（`return it to your deck`）**仍走下面的 B11 洗回牌库** —— 两类分开。
+                    var moved = RemoveFromSource(ctx, owner, op.ChooseSrc, pick) ?? pickedInst;
+                    InsertIntoDeckRandom(ctx, owner, moved);
+                    ctx.Log($"{by}：「{op.Source}」把「{pick.Name}」随机插入自己牌库（{what}）");
+                    // 原版 `_ResolveCreateDeckCard…:113-119` 读的是**造出来那张的 `spellType`**。
+                    // 与 `QuestPointThreshold` 同一份判据（`CreatePool.MatchesKind`），只是那边造的一定是隐秘。
+                    if (CreatePool.MatchesKind(pick, "secret"))
+                    {
+                        BroadcastWhen(ctx, WhenEventKind.CreatesSecret, owner, pick, null);
+                        ctx.Log($"{by}：「{pick.Name}」是隐秘（`spellType = 150`）⇒ 广播 `CreatesSecret`"
+                              + "（原版 `BroadcastSecretCreated`；`DA15` / `DA66` 靠它响）");
+                    }
+                    return true;
+                }
+
                 case "return":
                 {
                     // `return` 的来源是**手牌**（`Choose a card in your hand and return it to your deck`），
@@ -5353,12 +5437,24 @@ namespace RuleEngine
         /// <see cref="RuleCore.FireTriggerAt"/> 二选一：卡面正文解析得出来就走这里，否则走老路。
         /// 为什么两条都要留着 —— 我们自己设计的那 26 张卡写的是 `Damage 2 EnemyUnit`
         /// （只有封闭文法认得），而**原版卡面**写的是 `Rally: Stun an enemy`（只有 `EffectText` 认得）。
+        ///
+        /// <para>🆕 **2026-10-19（第五十七会话 `W57` · T21 C/D）：返回值 = 「这条 ability 激活了没有」**。
+        /// 判据 = **至少有一条 op 没被 `instead` 跳掉、也没被付费组拦下**
+        /// （`ChargePaidGroups` 的 `paidOk`）—— 也就是原版「这条 ability 真的被触发了」。
+        /// 改前是 `void`；改成 `bool` 对既有调用点**零影响**（语句调用可以忽略返回值）。
+        /// 唯一读点 = `ResolveSpiritAbility` / `ResolveFaithAbility` 拿它决定要不要发
+        /// `UseSpiritStone(600)` / `UseFaith(605)` 那一拍 —— **付不起时原版整条不激活、也就不该有那拍动画**。</para>
+        /// <para>🆕 **2026-10-20（第五十七会话 `FACTION-DOUBLE605`）**：可选 `activatedGroups` ——
+        /// 给了就回填**这次激活了哪几个付费组**（每个付费组首那条 `EffectOp`，按 ops 顺序）。
+        /// 判据 = `ChargePaidGroups` 的 `paidOk[组首]`（门槛/余额过了 = 原版那条 ability 激活）；
+        /// 唯一读点 = `EmitFaithAbilityUseTriggers`（同一张卡两条 605 能力各发一次）。
+        /// ⛔ 别拿它代替返回值（返回值是「整条 ability 激活了没有」的另一口径）。</para>
         /// </summary>
-        public static void ResolveOps(BattleContext ctx, int owner, UnitState source,
+        public static bool ResolveOps(BattleContext ctx, int owner, UnitState source,
                                       IReadOnlyList<EffectOp> ops, string by = "效果",
-                                      UnitState seed = null)
+                                      UnitState seed = null, List<EffectOp> activatedGroups = null)
         {
-            if (ctx == null || ops == null || ops.Count == 0) return;
+            if (ctx == null || ops == null || ops.Count == 0) return false;
 
             // 🔑 **`this troop` / `this unit` / `it` 指的是「触发的那一个」** —— 但解析器把这一族代词
             //    统一归到 `prev`（`EffectTargetSpec.Side == "prev"`，那是给战术卡的
@@ -5461,10 +5557,22 @@ namespace RuleEngine
             var skip = InsteadSkips(ctx, owner, ops, null, pairConditional: false, source: source);
 
             var paidOk = ChargePaidGroups(ctx, owner, source, by, ops, null, unresolved);
+            // 🆕 2026-10-20（`FACTION-DOUBLE605`）：把「哪几个付费组收到钱」回填给调用方 ——
+            //   组首 = `Cost > 0 && !CostShared`（判据同 `ChargePaidGroups` / `EffectOp.CostShared`）。
+            //   原版那一条 ability 激活 = `CanTriggerAbility` 的门槛过了；在我们这里就是这一位。
+            if (activatedGroups != null)
+                for (int i = 0; i < ops.Count; i++)
+                {
+                    var gop = ops[i];
+                    if (gop == null || gop.Cost <= 0 || gop.CostShared) continue;
+                    if (paidOk[i]) activatedGroups.Add(gop);
+                }
+            bool anyRunnable = false;              // 🆕 W57：这条 ability 激活了没有（见返回值的 doc）
             for (int i = 0; i < ops.Count; i++)
             {
                 if (skip[i]) continue;             // 🆕 `A1685`：这条被 `instead` 替换掉了
                 if (!paidOk[i]) continue;          // 这一条所属的付费前缀**没收到钱** ⇒ 整组不结算
+                anyRunnable = true;
                 // 🔴 2026-10-19（`A2001` / E9）：触发正文里的 `equal to …` 也要换成具体数值 ——
                 //   判据与出牌路**同一个函数**（`TryApplyAmountRef`），⛔ 别在这儿另写一份。
                 //   改前这条路没有这一跳 ⇒ 所有触发里的 `equal to your Faith / 敌方手牌数` 都按 0 结算。
@@ -5483,6 +5591,7 @@ namespace RuleEngine
             ctx.LastTargets.Clear();
             ctx.LastTargets.AddRange(savedTargets);
             ctx.LastTarget = savedLast;
+            return anyRunnable;
         }
 
         /// <summary>
@@ -5499,6 +5608,355 @@ namespace RuleEngine
             if (unresolved == null || unresolved.Count == 0) return;
             ctx.Log($"⚠️ {label} 有 {unresolved.Count} 条效果本版没结算："
                   + string.Join("、", unresolved));
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-19（战斗线 `T21` · 引擎事件缺口 A / E / F）
+        //
+        //  这一节只有一件事：**在正确的时机发一条 `EvtKind.Trigger`**（表现层按
+        //  `BattleEvent.Keyword` = 原版 `AbilityTrigger` 枚举名归口到那张卡自己的
+        //  `cardAnimations[]` 行 —— `Core/VfxMap.TryResolveTriggerPicks`）。
+        //
+        //  ⛔ **不在这里结算任何效果** —— 三族的「游戏效果」各自在原来的地方跑：
+        //    · A `followAfterResolution`（320/325）：24 张「有 410 动画行」的卡里，**19 张**的
+        //      **第二半效果**本来就由卡面文本解析覆盖（`Reanimate … and give it +1 Health` 这类）；
+        //    · E 监听者：`FireWhen → ResolveOps` 原样；
+        //    · F 回合起止：`ResolveAtTurn` 原样。
+        //  这一节补的是**原版有、我们从来没发过**的那一拍（报告 §三 A/E/F）。
+        //
+        //  🔴 **三族共用的闸** = `CardDef.HasAnimTrigger(名字)`：卡片自己的逐候选动画里
+        //  没有一个标到那个 trigger 名的行 ⇒ **不发**（发了也没东西播，还会在战斗日志里
+        //  多印一行、并可能掉进 `trigger` 粗桶乱播 —— 报告 §五·6 那条「多播」）。
+        // ==================================================================
+
+        /// <summary>原版 `AbilityTrigger` 枚举名（`dump.cs:20235-20335`）—— 表现层
+        /// `VfxMap.IsRoutedTriggerName` 认的就是这一套名字（大小写不敏感）。</summary>
+        const string TN_FollowUpResolution  = "FollowUpResolution";   // 410
+        const string TN_OtherCardPlayed     = "OtherCardPlayed";      // 10
+        const string TN_OtherUnitSummoned   = "OtherUnitSummoned";    // 190
+        const string TN_OtherUnitDeath      = "OtherUnitDeath";       // 90
+        const string TN_UnitAttack          = "UnitAttack";           // 50
+        const string TN_UnitDamaged         = "UnitDamaged";          // 60
+        const string TN_OtherCardDrawn      = "OtherCardDrawn";       // 260
+        const string TN_Reanimated          = "Reanimated";           // 570
+        const string TN_UnitReceivesMark    = "UnitReceivesMarkOfChaos"; // 510
+        const string TN_TriggeredFerocity   = "TriggeredFerocity";    // 726
+        const string TN_TriggeredPray       = "TriggeredPray";        // 660
+        const string TN_TriggeredDuty       = "TriggeredDuty";        // 661
+        const string TN_TriggeredSwarm      = "TriggeredSwarm";       // 620
+        // 🆕 **2026-10-19（第五十七会话 `W57` · T21 C/D）：阵营能力自己那一拍。**
+        // 判据 = `AbilityTrigger` 枚举（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrigger.cs:71-72`）：
+        //   `UseSpiritStone = 600` · `UseFaith = 605`。
+        // 原版发起源：600 = `RawCardScript__TriggerAbility.c:42-53`（打出时扣石那一段）＋
+        //   `CardScript__TriggerSpiritStone.c:16-18`（触发式激活）；605 = 同一条
+        //   `RawCardScript__TriggerAbility` 的 605 支 ＋ `CardScript__ResolveUnitSummoned.c:51`。
+        const string TN_UseFaith            = "UseFaith";             // 605
+        const string TN_UseSpiritStone      = "UseSpiritStone";       // 600
+
+        /// <summary>🆕 **E 族：一条「当……时」事件 → 原版 `AbilityTrigger` 名**（监听者自己的动画行）。
+        ///
+        /// <para>**判据（逐条，全部来自反编译的 `OnTrigger` 调用点）**：
+        /// `RawCardScript__OnCardPlayedWithTarget.c:96`（`TriggerAbilities(10)` = `OtherCardPlayed`）·
+        /// `CardScript__TriggeredFerocity.c:7`（`0x2d6` = 726）·
+        /// `CardScript__ReactToUnitMarked.c:7`（`0x1fe` = 510 = `UnitReceivesMarkOfChaos`）；
+        /// 其余几条 = `AbilityTrigger` 枚举名与本工程 `WhenEventKind` 的**字面对应**
+        /// （`OtherUnitSummoned` / `OtherUnitDeath` / `OtherCardDrawn` / `TriggeredPray` /
+        ///  `TriggeredDuty` / `TriggeredSwarm`）。</para>
+        ///
+        /// <para>⚠️ **认不出就回 `null`**（不发事件）—— ⛔ 别猜一个名字：认错 = 拿别的 trigger
+        /// 的动画行来播（`VfxMap` 的归口是按名字过滤的）。</para></summary>
+        static string TriggerNameOfWhenKind(string kind)
+        {
+            if (string.IsNullOrEmpty(kind)) return null;
+            switch (kind)
+            {
+                case WhenEventKind.Play:          return TN_OtherCardPlayed;
+                case WhenEventKind.Deploy:        return TN_OtherUnitSummoned;
+                case WhenEventKind.Die:           return TN_OtherUnitDeath;
+                case WhenEventKind.Attack:        return TN_UnitAttack;
+                case WhenEventKind.Damaged:       return TN_UnitDamaged;
+                case WhenEventKind.Draw:          return TN_OtherCardDrawn;
+                case WhenEventKind.Reanimated:    return TN_Reanimated;
+                case WhenEventKind.GetsDarkPact:  return TN_UnitReceivesMark;
+                case WhenEventKind.Prays:         return TN_TriggeredPray;
+                // `When you trigger a Spirit Stone ability, …`（`ASH81 Bright Lance Vyper`）——
+                //   原版那条监听能力的 trigger 名 = `OtherCardSpiritStone`（455，`dump.cs` 枚举表）。
+                case WhenEventKind.SpiritAbility: return "OtherCardSpiritStone";
+            }
+            const string prefix = WhenEventKind.TriggersPrefix;
+            if (kind.StartsWith(prefix, System.StringComparison.Ordinal))
+            {
+                string kw = kind.Substring(prefix.Length);
+                switch (kw)
+                {
+                    case KeywordTable.Ferocity: return TN_TriggeredFerocity;
+                    case KeywordTable.Pray:     return TN_TriggeredPray;
+                    case KeywordTable.Duty:     return TN_TriggeredDuty;
+                    case KeywordTable.Swarm:    return TN_TriggeredSwarm;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>🆕 **A 族：这张卡的 `followAfterResolution`（`AbilityEffect` 320 / 325）挂在哪一条能力里**
+        /// —— 回原版 `AbilityTrigger` 枚举名；这张卡没有那个效果（或有但调度者判不出来）⇒ `null`。
+        ///
+        /// <para>**判据 = 当前 build 的 SO 真值**：`cardAbilities[].abilityLogic[].chosenAbility == 320/325`
+        /// （`资料/普查产出_1018/allcards_1350/cards_raw.json`，逐卡核过；文件名与池 id 的对应
+        /// 走 `cards_engine.json` 的 `id`）。24 张「有 410 动画行」的卡里：
+        /// **19 张**在表里（12 张战术/防御 = `ThisCardPlayed`，7 张单位 = 各自的关键词/监听器）；
+        /// **5 张没有调度者**（`DA29` / `DA14` / `SW9` / `UM118` / `UM116` —— 它们的 410 能力在
+        /// 当前 build 的 `abilityLogic` 里**找不到任何 320/325**）⇒ 原版也不会被这一拍触发，不收。</para>
+        ///
+        /// <para>⚠️ **为什么是硬编码表**：引擎加载的 `cards_engine.json` **只有 `animTimes`**
+        /// （`tg`/`tn`），没有 `abilityLogic` 的 `chosenAbility`；`cards_truth.json` 有，但它是
+        /// `Resources` 资产、由 `RuleEngine/Data` 装载（不在本批白名单）。
+        /// ⇒ 本表是**当前 build 的转写**，卡池再迁 id / 改能力时**必须重生成**（报告 §四 已记）。</para></summary>
+        internal static string FollowUpSchedulerOf(CardDef card)
+        {
+            if (card == null) return null;
+            switch (card.Id)
+            {
+                // ---- 战术 / 防御：320 挂在 trigger 0（= `ThisCardPlayed`）的 ability 里 ----
+                case "ASH73": case "AM54": case "AM58": case "EC47": case "EC49":
+                case "SAU61": case "GOF104": case "GOF102":
+                case "3ebb159036778d14ebd1c48451aa6ca0":   // Greatest Warboss
+                case "SW56": case "TAU40": case "UM39":
+                    return "ThisCardPlayed";
+
+                // ---- 单位：320 挂在各自那条能力里（trigger 号见每条注释）----
+                case "ASH81": return "OtherCardSpiritStone";   // 455 · When you trigger a Spirit Stone ability
+                case "AM8":   case "AM21": return "Regiment";  // 301
+                case "GSC14": return TN_OtherCardPlayed;       // 10 · When your opponent plays a Stratagem
+                case "GSC17": return "Strike";                 // 580
+                case "SAU11": return "Artifice";               // 560
+                case "GOF59": return "Mob";                    // 300
+                default: return null;
+            }
+        }
+
+        /// <summary>结算层的一个关键词 → 原版 `AbilityTrigger` 名（只列 `FollowUpSchedulerOf` 用到的四个）。</summary>
+        internal static string AbilityTriggerNameOfKeyword(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return null;
+            if (keyword == KeywordTable.Regiment) return "Regiment";
+            if (keyword == KeywordTable.Strike)   return "Strike";
+            if (keyword == KeywordTable.Artifice) return "Artifice";
+            if (keyword == KeywordTable.Mob)      return "Mob";
+            return null;
+        }
+
+        /// <summary>🆕 **A 族发射口**：给一张卡发 `FollowUpResolution`（410）事件。
+        /// 闸 = 卡片真的有 410 的动画行（`HasAnimTrigger`）。`slot` = 动画落点（棋盘格号；`-1` = 不在场上）。</summary>
+        internal static void EmitFollowUpResolution(BattleContext ctx, CardDef card, int player, int slot, int instanceId)
+        {
+            if (ctx == null || card == null) return;
+            if (!card.HasAnimTrigger(TN_FollowUpResolution)) return;
+            ctx.Emit(EvtKind.Trigger, player, slot, card.Name,
+                     keyword: TN_FollowUpResolution,
+                     effect: "followAfterResolution(320)",
+                     instanceId: instanceId);
+            ctx.Log($"「{card.Name}」结算完毕 —— 后续结算触发（原版 `FollowUpResolution` = 410）");
+        }
+
+        /// <summary>🆕 **E 族发射口**：监听者**真的结算了** ⇒ 给它发一条按它自己卡名的
+        /// `EvtKind.Trigger`（关键词 = 那条监听能力的原版 trigger 名）。
+        /// `unit` 为 null（手牌 / 弃牌堆里的监听者）时 `slot = -1`（表现层今天没有手牌锚，见报告 §四）。</summary>
+        internal static void EmitListenerTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit, string kind)
+        {
+            if (ctx == null || card == null) return;
+            string tn = TriggerNameOfWhenKind(kind);
+            if (tn == null) return;
+            if (!EmitCardTrigger(ctx, card, owner, unit, tn, "listener:" + kind)) return;
+            ctx.Log($"「{card.Name}」的监听器结算完毕 → 触发事件 `{tn}`（原版 AbilityTrigger）");
+        }
+
+        /// <summary>🆕 **所有「按原版 trigger 名发 `EvtKind.Trigger`」的唯一发射体**
+        /// （`T21` A/E/F 三族 ＋ `W57` 的 600/605 共用）。
+        ///
+        /// <para>**闸 = `CardDef.HasAnimTrigger(triggerName)`**（判据只此一处，见那个属性的 doc）：
+        /// 卡片自己的逐候选动画里没有一个标到这个名字的行 ⇒ **不发**（发了也没东西播，
+        /// 还会在战斗日志里多印一行、并可能掉进 `trigger` 粗桶乱播）。</para>
+        /// <para>返回 `true` = 真发出去了（调用方可以据此打日志）。</para>
+        /// <para>🆕 **2026-10-20（`FACTION-DOUBLE605`）**：可选 `abilityIndex`（≥0 = 原版
+        /// `cardAbilities[i]` 下标）—— 写进 <see cref="BattleEvent.AbilityIndex"/>，并把 `#i` 后缀
+        /// 拼进 `Keyword` 当**传输副本**（`BattleDriver` 只转 `Keyword`，见 `BattleEvent.AbilityIndex` 的 doc）。
+        /// `-1`（默认）⇒ `Keyword` 一个字节都不变。</para></summary>
+        static bool EmitCardTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit,
+                                    string triggerName, string effect, int abilityIndex = -1)
+        {
+            if (ctx == null || card == null || string.IsNullOrEmpty(triggerName)) return false;
+            if (!card.HasAnimTrigger(triggerName)) return false;
+            int slot = -1, p = owner;
+            if (unit != null && FindSlot(ctx, unit, out p, out slot)) { /* 用找到的座位/格号 */ }
+            else if (unit != null) { slot = -1; p = owner; }
+            ctx.Emit(EvtKind.Trigger, p, slot, card.Name,
+                     keyword: BattleEvent.KeywordWithAbility(triggerName, abilityIndex),
+                     effect: effect,
+                     instanceId: unit != null ? unit.InstanceId : 0,
+                     abilityIndex: abilityIndex);
+            return true;
+        }
+
+        /// <summary>🆕 **2026-10-19（第五十七会话 `W57` · T21 C/D）：一张卡【自己的阵营能力】激活了** ——
+        /// 按它自己的动画行发 `EvtKind.Trigger`（`UseFaith` 605 / `UseSpiritStone` 600）。
+        ///
+        /// <para>**为什么必须发**：`card_vfx_by_card.json` 里这两族的动画行逐条标着
+        /// 「**未归口（保持 `ability`；原版触发 `UseFaith`/`UseSpiritStone` 我们引擎没有对应事件）**」
+        /// —— 也就是引擎从来没告诉表现层「这是哪一拍」，只能掉进 `ability` 粗桶。
+        /// 现读规模（`cards_engine.json` 的 `animTimes`，2026-10-19 现数）：
+        /// `UseFaith` **47 行 / 26 张** · `UseSpiritStone` **74 行 / 29 张**。
+        /// 有了这条，`VfxMap.TryResolveTriggerPicks` 就能按名字归口。</para>
+        ///
+        /// <para>⚠️ **只在能力真的激活了之后调**（调用方用 `ResolveOps` 的返回值判）——
+        /// 付不起 / 门槛没过的卡原版**整条 ability 都不激活**，那一拍动画也就不该播。</para>
+        /// <para>🆕 **2026-10-20（`FACTION-DOUBLE605`）**：`abilityIndex`（≥0 = 原版 `cardAbilities[i]`
+        /// 的下标）透传给 <see cref="EmitCardTrigger"/> —— 同一张卡多条 605 能力各发一次时用它区分
+        /// （见 `EmitFaithAbilityUseTriggers` 的 doc）。单组卡保持 `-1` ⇒ 与改前逐字节相同。</para>
+        /// </summary>
+        internal static void EmitAbilityUseTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit,
+                                                   string triggerName, int triggerId, int abilityIndex = -1)
+        {
+            if (ctx == null || card == null) return;
+            if (!EmitCardTrigger(ctx, card, owner, unit, triggerName, "ability:" + triggerName, abilityIndex)) return;
+            ctx.Log($"「{card.Name}」的阵营能力激活完毕 → 触发事件 `{triggerName}`"
+                  + $"（原版 AbilityTrigger = {triggerId}"
+                  + (abilityIndex >= 0 ? $" · cardAbilities[{abilityIndex}]" : "") + "）");
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-19（第五十七会话 `W57FIX2` · P1）：一张【战术卡】打出去时，它自己的
+        /// `UseSpiritStone(600)` / `UseFaith(605)` 两拍。**
+        ///
+        /// <para>**原版判据**：`RawCardScript__OnCardPlayedWithTarget.c:59-84` —— 这一整段在
+        /// `param_3 == param_4`（**收回调的那张牌就是被打出的那张牌**）里跑：
+        ///   ① `param_3 != 0` ⇒ `TriggerAbilities(600)`；
+        ///   ② 被打出的牌 `cardType == 0x14(Tactic)` 或 `0x28(Whispers)` ⇒ `TriggerAbilities(0x25d = 605)`。
+        /// 闸在 `CardAbility__CanTriggerAbility.c:96-112`：`thisCard == cardPlayed` 时要求
+        /// `GetCurrentSpiritStone / GetCurrentFaith >= ability.triggerValue`。
+        /// 我们这边「阈值够不够」**复用** `ChargePaidGroups` 的 `paidOk`（同一份余额判据
+        /// `CostPrefixPayable`，⛔ 别另写一份）—— 付费组收到钱 = 原版那条闸通过。</para>
+        ///
+        /// <para>⚠️ **只给战术卡用**（`PlayTactic` 一处调用）。单位卡那两拍走
+        /// `ResolveSpiritAbility` / `ResolveFaithAbility`（`W57` 已接上）——
+        /// ⛔ 别把本函数搬进 `ResolveOps` 统一发，那会把单位侧重复发一遍。</para>
+        ///
+        /// <para>⚠️ **`Hosts of the Dead`（ASH52）没有付费前缀**：正文 `Spend all your Spirit Stones`
+        /// 解析成 `spendspirit`（`Cost = 0`）⇒ 只能靠「**结算前**手里有石头」判它激活
+        /// （原版闸正是 `GetCurrentSpiritStone >= triggerValue(1)`）。`spiritBefore` 由调用方
+        /// 在 `ResolveOps` **之前**取（结算会把它花光）。</para>
+        ///
+        /// <para>⚠️ 原版 605 只对 Tactic/Whispers 发；我们走 `PlayTactic` 的牌全部是这两档
+        /// （`tactic` / `defence` 在原版都是 `cardType 20`）⇒ 不再额外判一次类型。</para>
+        /// </summary>
+        static void EmitTacticAbilityUseTriggers(BattleContext ctx, int owner, CardDef card,
+                                                 IReadOnlyList<EffectOp> ops, bool[] paid, int spiritBefore)
+        {
+            if (ctx == null || card == null || ops == null || paid == null) return;
+            // 🆕 2026-10-20（`FACTION-DOUBLE605`）：信仰那一边改成**收组**（原版每条 605 能力各发一次）。
+            //   组首 = `Cost > 0 && !CostShared` 且 `paidOut` 说它收到钱；门槛 = `op.Cost`。
+            var faithGroups = new List<EffectOp>();
+            bool spirit = false;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                var op = ops[i];
+                if (op == null || op.Cost <= 0 || op.CostShared) continue;   // 只看「付钱那条」
+                if (i >= paid.Length || !paid[i]) continue;                  // 付费组没收到钱 ⇒ 这条没激活
+                string kind = EffectText.CostKindOf(op.CostKind);
+                if (kind == "faith") faithGroups.Add(op);
+                else if (kind == "spirit") spirit = true;
+            }
+            if (!spirit && spiritBefore > 0)
+                for (int i = 0; i < ops.Count; i++)
+                    if (ops[i] != null && ops[i].Verb == "spendspirit") { spirit = true; break; }
+
+            // 原版次序：600 在前、605 在后（`OnCardPlayedWithTarget.c:66` → `:73`）。
+            if (spirit) EmitAbilityUseTrigger(ctx, card, owner, null, TN_UseSpiritStone, 600);
+            if (faithGroups.Count > 0) EmitFaithAbilityUseTriggers(ctx, card, owner, null, faithGroups);
+        }
+
+        /// <summary>🆕 **2026-10-20（第五十七会话 `FACTION-DOUBLE605`）：`UseFaith(605)` 这一拍的唯一发射口**
+        /// （单位侧 `ResolveFaithAbility` 与战术侧 `EmitTacticAbilityUseTriggers` 共用）。
+        ///
+        /// <para>**原版语义**：`RawCardScript__TriggerAbilities.c:59-88,207-265` 逐条遍历
+        /// `cardAbilities`，每条过 `CanTriggerAbility`（605 的门槛 = `faith &gt;= ability.triggerValue`，
+        /// `CardAbility__CanTriggerAbility.c:114-126`）就**那一条各演一次**。⇒ 同一张卡有两条 605
+        /// 能力、门槛都过时，动画是**两条**；只过一条时**只有那一条**的动画（改前会把两条一起播）。</para>
+        ///
+        /// <para>**三种结果**：
+        /// ① 这张卡不足两组信仰能力 ⇒ **老行为**：一条事件、`Keyword` 不带后缀、`AbilityIndex = -1`
+        ///    （逐字节不变 —— 全池 26 张 `UseFaith` 卡里 23 张走这一档）；
+        /// ② 多组、且 `CardDef.TryGetFaithAbilityIndex` 能把每组的门槛配到 `cardAbilities[i]` ⇒
+        ///    **每组一条**事件（`AbilityIndex` = 能力下标；`Keyword` 带 `#i` 后缀当传输）；
+        /// ③ 多组但配不上（条数不等 / 门槛乱序）⇒ 退回 ① 并**出声**（⛔ 不猜哪条动画属于哪条能力）。</para></summary>
+        /// <param name="activatedGroups">本次**过了门槛的**付费组首（`EffectOp`，门槛 = `op.Cost`），
+        /// 按 ops 顺序（= 正文顺序 = 原版 `cardAbilities` 顺序）。</param>
+        static void EmitFaithAbilityUseTriggers(BattleContext ctx, CardDef card, int owner, UnitState unit,
+                                                IReadOnlyList<EffectOp> activatedGroups)
+        {
+            if (ctx == null || card == null || activatedGroups == null || activatedGroups.Count == 0) return;
+
+            // ① 单组 ⇒ 老行为（现读全池 23/26 张这一档，必须逐字节不变）
+            if (card.FaithAbilityGroupCount < 2)
+            {
+                EmitAbilityUseTrigger(ctx, card, owner, unit, TN_UseFaith, 605);
+                return;
+            }
+
+            // ②/③ 多组 ⇒ 逐组配 `cardAbilities[i]`
+            var idx = new int[activatedGroups.Count];
+            for (int i = 0; i < activatedGroups.Count; i++)
+            {
+                var g = activatedGroups[i];
+                if (g == null || !card.TryGetFaithAbilityIndex(g.Cost, out idx[i]))
+                {
+                    ctx.Log($"「{card.Name}」有多组信仰能力，但这几组的门槛与动画行**对不上**"
+                          + "（`CardDef.TryGetFaithAbilityIndex`）⇒ 这一拍按**一条**发"
+                          + "（原版是每条 605 各发一次；⛔ 不猜哪条动画属于哪条能力）");
+                    EmitAbilityUseTrigger(ctx, card, owner, unit, TN_UseFaith, 605);
+                    return;
+                }
+            }
+            for (int i = 0; i < activatedGroups.Count; i++)
+                EmitAbilityUseTrigger(ctx, card, owner, unit, TN_UseFaith, 605, idx[i]);
+        }
+
+        /// <summary>🆕 **F 族：回合起止那一拍该发哪个 trigger 名**。
+        /// 判据 = 卡片自己的 `AnimTimes` 里**唯一那一条** `Turn*` 名的行
+        /// （现读全池：18 张卡**每张只有一种** —— `TurnStart` 3 · `TurnStartPlayer` 3 ·
+        ///  `TurnEnd` 11 · `TurnBeforeEnd` 1，报告 §三 F）。
+        /// `phase` 对不上 / 没有那一行 ⇒ `null`（不发）。</summary>
+        static string TurnTriggerNameOf(CardDef card, string phase, BattleContext ctx = null)
+        {
+            if (card == null) return null;
+            bool start = phase == "turn_start";
+            var names = start
+                ? new[] { "TurnStart", "TurnStartPlayer" }
+                : new[] { "TurnEnd", "TurnBeforeEnd" };
+            for (int i = 0; i < names.Length; i++)
+                if (card.HasAnimTrigger(names[i]))
+                {
+                    // ⚠️ 两张名字都有的卡今天不存在；真出现时**按顺序取第一个**并出声（别静默）
+                    if (i > 0 && card.HasAnimTrigger(names[0]) && ctx != null)
+                        ctx.Log($"[EffectResolver] 「{card.Name}」同时标了 `{names[0]}` 与 `{names[i]}` 两种"
+                              + $" {phase} trigger 动画行 ⇒ 按顺序取第一个");
+                    return names[i];
+                }
+            return null;
+        }
+
+        /// <summary>🔥 **F 族发射口**：回合起止段里一个单位/一张手牌/一条常驻效果的正文结算前发事件。</summary>
+        static void EmitTurnTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit, string phase)
+        {
+            if (ctx == null || card == null) return;
+            string tn = TurnTriggerNameOf(card, phase, ctx);
+            if (tn == null) return;
+            int slot = -1, p = owner;
+            if (unit != null && FindSlot(ctx, unit, out p, out slot)) { /* 用找到的座位/格号 */ }
+            else if (unit != null) { slot = -1; p = owner; }
+            ctx.Emit(EvtKind.Trigger, p, slot, card.Name,
+                     keyword: tn, effect: phase,
+                     instanceId: unit != null ? unit.InstanceId : 0);
         }
 
         /// <summary>
@@ -5522,9 +5980,9 @@ namespace RuleEngine
         {
             if (ctx.IsOver) return;
             int active = ctx.Active;
-            var handJobs = new List<EffectOp>();
+            var handJobs = new List<AtTurnHandJob>();
             var unitJobs = new List<AtTurnUnitJob>();
-            var persistJobs = new List<EffectOp>();
+            var persistJobs = new List<AtTurnPersistJob>();
 
             // ① 当前行动方**手牌里**的陷阱卡（被塞进来的破坏卡 —— **持有者**回合生效）
             foreach (var h0 in ctx.Players[active].Hand)   // 第 7 行第 2 步：手牌存实例
@@ -5548,12 +6006,12 @@ namespace RuleEngine
                 var at = EffectText.SplitAtTurn(c.Desc);
                 if (at == null || at[0] != phase) continue;
                 var ops = EffectText.Parse(at[1], out _, out _);
-                if (ops == null) continue;
+                if (ops == null || ops.Count == 0) continue;
                 foreach (var o in ops)
-                {
                     o.Source = c.Name + "：" + at[1];      // 日志要看出「是哪张陷阱干的」
-                    handJobs.Add(o);
-                }
+                // 🆕 2026-10-19（`T21` · 缺口 F）：**记下是哪张手牌**（回合起止那一拍要按它的卡名
+                //   发事件 —— `Cult Propaganda` / `Poisoned Supplies` 的逐卡动画就挂在这一拍）。
+                handJobs.Add(new AtTurnHandJob { Owner = active, Card = c, Ops = ops });
             }
 
             // ② 🆕 **双方棋盘上的 at-turn 单位**（2026-09-14 A5 批 2）——
@@ -5593,7 +6051,7 @@ namespace RuleEngine
             {
                 if (pe.Trigger != "turn") continue;
                 if (pe.Owner != active || pe.Phase != phase || pe.Ops == null) continue;
-                foreach (var o in pe.Ops) persistJobs.Add(o);
+                persistJobs.Add(new AtTurnPersistJob { Owner = pe.Owner, Card = pe.Source, Ops = pe.Ops });
             }
 
             int total = handJobs.Count + unitJobs.Count + persistJobs.Count;
@@ -5603,7 +6061,24 @@ namespace RuleEngine
             ctx.Log($"—— {label}段：{total} 条 ——");
             var unresolved = new List<string>();
             // **顺序 = 手牌 → 棋盘 → 常驻**（`rule_core.gd:402` 那句确定性口径）。
-            foreach (var o in handJobs) ResolveOne(ctx, active, null, label, o, null, unresolved);
+            // 🆕 2026-10-19（`T21` · 缺口 F）：每一份作业**结算之前**先发它自己那一拍
+            //   `EvtKind.Trigger`（关键词 = 该卡 `AnimTimes` 里那一个 `Turn*` 名）。
+            //   ⚠️ 判据 = 原版 `CardScript.OnTurnStart/OnTurnEnd` 逐卡跑 body 时走的是
+            //   `RawCardScript.OnTrigger(0x1e = 30 / 0x28 = 40 / …)`（报告 §三 F）；
+            //   我们这边「还没发过」的正是这一拍，游戏效果本身由下面的 `ResolveOps` 原样结算。
+            foreach (var j in handJobs)
+            {
+                EmitTurnTrigger(ctx, j.Card, j.Owner, null, phase);
+                // 🆕 2026-10-20（`W57FIX2` 续 · 审计 P3 旁路）：手牌陷阱的能力属主 = **那张手牌**，
+                //   不是「没有来源卡」（判据链 → `BattleContext.FactionSourceCard`）。
+                var prevFactionSrc = ctx.FactionSourceCard;
+                ctx.FactionSourceCard = j.Card;
+                try
+                {
+                    foreach (var o in j.Ops) ResolveOne(ctx, active, null, label, o, null, unresolved);
+                }
+                finally { ctx.FactionSourceCard = prevFactionSrc; }
+            }
             foreach (var j in unitJobs)
             {
                 // 递归保护与 `RuleCore.FireTriggerAt` 同一套（回合起止效果自己可能又触发回合效果）
@@ -5612,13 +6087,27 @@ namespace RuleEngine
                     ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，{j.Unit.Name} 的{label}不再连锁");
                     continue;
                 }
+                EmitTurnTrigger(ctx, j.Unit.Card, j.Owner, j.Unit, phase);
                 ctx.EffectChain++;
                 // 施放者传**这个单位** —— 「return to your hand」「heal 1」那种自我指代才认得对
                 ResolveOps(ctx, j.Owner, j.Unit, j.Ops, label);
                 ctx.EffectChain--;
                 if (ctx.IsOver) return;
             }
-            foreach (var o in persistJobs) ResolveOne(ctx, active, null, label, o, null, unresolved);
+            foreach (var j in persistJobs)
+            {
+                EmitTurnTrigger(ctx, j.Card, j.Owner, null, phase);
+                // 🆕 2026-10-20（`W57FIX2` 续 · 审计 P3 旁路）：回合型常驻效果的**能力属主** =
+                //   写出这条效果的那张卡（`j.Card` = `PersistentEffect.Source`），
+                //   ⛔ 不是「没有来源卡」（判据链 → `BattleContext.FactionSourceCard`）。
+                var prevFactionSrc = ctx.FactionSourceCard;
+                ctx.FactionSourceCard = j.Card;
+                try
+                {
+                    foreach (var o in j.Ops) ResolveOne(ctx, active, null, label, o, null, unresolved);
+                }
+                finally { ctx.FactionSourceCard = prevFactionSrc; }
+            }
             // 🔴 **2026-09-16：这一段的 `unresolved` 原来也从来没读** —— 见 `ReportUnresolved` 的注释。
             ReportUnresolved(ctx, label + "段", unresolved);
         }
@@ -5628,6 +6117,25 @@ namespace RuleEngine
         {
             public int Owner;
             public UnitState Unit;
+            public List<EffectOp> Ops;
+        }
+
+        /// <summary>🆕 2026-10-19（`T21` · 缺口 F）：回合起止段里「**手牌陷阱**」那一类作业 ——
+        /// 带 `Card` 是因为那一拍要按**这张手牌的卡名**发 `EvtKind.Trigger`
+        /// （`Cult Propaganda` / `Poisoned Supplies` 的 `TurnEnd` 动画行）。</summary>
+        struct AtTurnHandJob
+        {
+            public int Owner;
+            public CardDef Card;
+            public List<EffectOp> Ops;
+        }
+
+        /// <summary>🆕 2026-10-19（`T21` · 缺口 F）：回合起止段里「**已登记的常驻效果**」那一类作业 ——
+        /// `Card` = 打出它的那张卡（`PersistentEffect.Source`），事件按它卡名发。</summary>
+        struct AtTurnPersistJob
+        {
+            public int Owner;
+            public CardDef Card;
             public List<EffectOp> Ops;
         }
 
@@ -5676,8 +6184,12 @@ namespace RuleEngine
                 return;
             }
             ctx.EffectChain++;
-            ResolveOps(ctx, owner, unit, ops, "灵魂石能力");
+            bool activated = ResolveOps(ctx, owner, unit, ops, "灵魂石能力");
             ctx.EffectChain--;
+            // 🆕 2026-10-19（第五十七会话 `W57` · T21 D）：**能力激活了** ⇒ 按这张卡自己的动画行
+            //    发 `UseSpiritStone(600)`（闸 = `CardDef.HasAnimTrigger`，见 `EmitAbilityUseTrigger`）。
+            //    ⚠️ 只在 `activated` 时发 —— 余额不够时原版整条不激活（`CanUseSpiritStone` 先判余额）。
+            if (activated) EmitAbilityUseTrigger(ctx, unit.Card, owner, unit, TN_UseSpiritStone, 600);
             if (ctx.IsOver) return;
             // 这一族里 `Deploy a Wraithguard` / `Create a copy …` 会**改棋盘** ⇒ 光环要重算
             // （和别处 9 个棋盘写入点同一条纪律，见 `Core/Aura.cs` 的 `Recompose` 注释）
@@ -5818,8 +6330,18 @@ namespace RuleEngine
             }
             ctx.EffectChain++;
             // `seed = unit`：正文里的 `this troop` / `it` 指的就是这张牌自己（同誓约那一支）
-            ResolveOps(ctx, owner, unit, ops, "信仰能力", unit);
+            // 🆕 2026-10-20（`FACTION-DOUBLE605`）：`activatedGroups` 接住「哪几个信仰付费组过了门槛」
+            //   —— 原版同一张卡的两条 605 能力是**各自判定、各演一次**（SOR56/SOR23/SOR67）。
+            var faithGroups = new List<EffectOp>();
+            bool activated = ResolveOps(ctx, owner, unit, ops, "信仰能力", unit, faithGroups);
             ctx.EffectChain--;
+            // 🆕 2026-10-19（第五十七会话 `W57` · T21 C）：**能力激活了**（门槛 `faith >= N` 过了）⇒
+            //    按这张卡自己的动画行发 `UseFaith(605)`（闸 = `CardDef.HasAnimTrigger`）。
+            //    ⚠️ 门槛没过时 `ResolveOps` 的付费组整组拦下 ⇒ `activated == false` ⇒ 这一拍不发，
+            //    与原版「`CanTriggerAbility` 不成立 = ability 不激活」一致。
+            // 🆕 2026-10-20（`FACTION-DOUBLE605`）：多组信仰能力的卡**每组发一条**（带 `AbilityIndex`），
+            //    单组卡走的还是原来那一条（见 `EmitFaithAbilityUseTriggers` 的 doc）。
+            if (activated) EmitFaithAbilityUseTriggers(ctx, unit.Card, owner, unit, faithGroups);
             if (ctx.IsOver) return;
             // 这一族里 `Deploy a …` / `Create a copy …` 会**改棋盘** ⇒ 光环要重算
             // （和别处 9 个棋盘写入点同一条纪律，见 `Core/Aura.cs` 的 `Recompose` 注释）
@@ -6090,8 +6612,17 @@ namespace RuleEngine
                 ctx.LastTarget = unit;
 
                 ctx.EffectChain++;
-                foreach (var o in pe.Ops)
-                    ResolveOne(ctx, owner, unit, "部署触发", o, null, unresolved);
+                // 🆕 2026-10-20（`W57FIX2` 续 · 审计 P3 旁路）：这条**常驻作业**的原版能力属主
+                //   是 `pe.Source`，**不是**被部署的那个单位（判据链 → `BattleContext.FactionSourceCard`）。
+                //   只影响 `DoFactionResource` 的「任务点来源卡」；代词/相邻锚点仍走 `ActingUnit`。
+                var prevFactionSrc = ctx.FactionSourceCard;
+                ctx.FactionSourceCard = pe.Source;
+                try
+                {
+                    foreach (var o in pe.Ops)
+                        ResolveOne(ctx, owner, unit, "部署触发", o, null, unresolved);
+                }
+                finally { ctx.FactionSourceCard = prevFactionSrc; }
                 ctx.EffectChain--;
             }
 
@@ -6370,9 +6901,29 @@ namespace RuleEngine
                         //    （和 `ResolveDeploy` 里那句「每一条之前都要重设」同一条教训）。
                         //    ⚠️ 这里**不再自己种** —— 交给 `ResolveOps` 的 `seed` 参数，
                         //       否则它会紧接着把 `source`（监听者自己）盖上去，等于白种。
+                        // 🆕 2026-10-19（战斗线 `T21` · 缺口 E）：**监听者真的结算了** ⇒ 发一条按
+                        //   **反应者卡名**的 `EvtKind.Trigger`（关键词 = 这条监听能力的原版 trigger 名）。
+                        //   判据：`RawCardScript__OnCardPlayedWithTarget.c:96`（`TriggerAbilities(10)`）·
+                        //   `CardScript__TriggeredFerocity.c:7`（726）· `CardScript__ReactToUnitMarked.c:7`（510）
+                        //   —— 原版在**监听者自己**的 `OnTrigger` 上转给 `TriggerAbilities`，
+                        //   我们的等价物就是这一条（报告 §三 E）。闸 = 那张卡真有该 trigger 的动画行。
+                        EmitListenerTrigger(ctx, u.Card, owner, u, kind);
+
                         ctx.EffectChain++;
                         ResolveOps(ctx, owner, u, ops, "事件触发", subject);
                         ctx.EffectChain--;
+
+                        // 🆕 2026-10-19（`T21` · 缺口 A 的另一半）：这张监听卡自己的能力里带
+                        //   `followAfterResolution(320)` ⇒ **结算完这一条监听之后**再发 410 那一拍。
+                        //   现读只有两张走这条路：`GSC14 Acolyte Leader`（10）· `ASH81 Bright Lance Vyper`（455）。
+                        if (!ctx.IsOver)
+                        {
+                            string sched = FollowUpSchedulerOf(u.Card);
+                            if (sched != null && sched == TriggerNameOfWhenKind(kind))
+                                EmitFollowUpResolution(ctx, u.Card, owner,
+                                                       FindSlot(ctx, u, out _, out int fuSlot) ? fuSlot : -1,
+                                                       u.InstanceId);
+                        }
 
                         if (ctx.IsOver) break;
                     }
@@ -6473,10 +7024,25 @@ namespace RuleEngine
 
                     ctx.Log($"—— 事件「{kind}」触发**常驻效果**：「{pe.Body}」"
                           + $"（{ctx.Players[pe.Owner].Name}）——");
+                    // 🆕 2026-10-19（`T21` · 缺口 E，第四跳）：常驻效果的**来源卡**自己也有
+                    //   `cardAnimations[]`（典型 = 已进弃牌堆的战术卡 `Raid Tactics`）⇒ 给它发一条
+                    //   按它卡名的事件。⚠️ 它**不在棋盘上** ⇒ `Slot = -1`（表现层今天没有
+                    //   弃牌堆锚，报告 §四 如实记「仍不可达」）。
+                    EmitListenerTrigger(ctx, pe.Source, pe.Owner, null, kind);
                     ctx.EffectChain++;
                     // ⚠️ **每次都重种**（上一条效果会把 `LastTargets` 覆盖掉）——
                     //    和棋盘那段同一条教训；`seed` 交给 `ResolveOps`，别自己种。
-                    ResolveOps(ctx, pe.Owner, null, pe.Ops, "常驻效果", subject);
+                    // 🆕 **2026-10-19（`W57FIX2` · P3）：这次结算的「来源卡」= 写出这条常驻效果的卡**
+                    //    （`pe.Source`）。原版那条 ability 的 `ManaBuff` 也带来源卡（`ProcessManaBuff`
+                    //    的 `param_4`）—— ⛔ 改前我们这里让 `DoFactionResource` 去读 `ctx.PlayingCard`，
+                    //    那玩意儿停在**本局最后打出的一张牌**上 ⇒ `DA55` 触发时会拿旧牌当来源，
+                    //    让 `DA5`（`When a friendly unit obtains [Quest Point]`）误判。
+                    //    用 `try/finally`：常驻效果的正文里可能再触发别人的结算（嵌套），
+                    //    而且 `BroadcastWhen` 之后还要跑手牌那两跳 —— 不还原会污染它们。
+                    var prevPlaySource = ctx.CardPlaySource;
+                    ctx.CardPlaySource = pe.Source;
+                    try { ResolveOps(ctx, pe.Owner, null, pe.Ops, "常驻效果", subject); }
+                    finally { ctx.CardPlaySource = prevPlaySource; }
                     ctx.EffectChain--;
                     if (ctx.IsOver) break;
                 }
@@ -6528,6 +7094,11 @@ namespace RuleEngine
                     // 判据全在 `WhenEvents.Matches`（**只此一份**），这里不再自己判一次。
                     var hits = c.FireCostWhen(kind, p, who, card);
                     if (hits == null) continue;
+
+                    // 🆕 2026-10-19（`T21` · 缺口 E，第五跳）：**事件触发式降费**也是「监听者真的结算」
+                    //   （现读 `AM56 Vengeance for Cadia` 有 `OtherUnitDeath` 的动画行）。
+                    //   ⚠️ `Slot = -1`（它在手里 / 弃牌堆，不在棋盘上）。
+                    EmitListenerTrigger(ctx, c, p, null, kind);
 
                     foreach (var h in hits)
                     {
@@ -6603,6 +7174,9 @@ namespace RuleEngine
 
                     // `source` 传 null（手牌里的牌**没有 `UnitState`** —— 它不在棋盘上），
                     // `owner` 传持有者 ⇒ 正文里 `your Warlord` 那类 `own/…` 目标是**持有者**的。
+                    // 🆕 2026-10-19（`T21` · 缺口 E，手牌陷阱那一跳）：同上，按**那张手牌**发事件。
+                    //   ⚠️ `Slot = -1`（不在场上；表现层今天没有手牌锚 —— 报告 §四）。
+                    EmitListenerTrigger(ctx, c, p, null, kind);
                     ctx.EffectChain++;
                     try { ResolveOps(ctx, p, null, ops, "手牌陷阱"); }
                     finally { ctx.EffectChain--; }
@@ -6710,6 +7284,11 @@ namespace RuleEngine
                                   + $"「{c.Name}」的手牌监听器不再连锁");
                             continue;
                         }
+
+                        // 🆕 2026-10-19（`T21` · 缺口 E，手牌单位卡那一跳）：按**那张手牌**发事件。
+                        //   放到 selfOps/restOps 分叉**之前** —— 「正文没写主语」那一档同样是一次
+                        //   真的结算（它把加成挂到了手里那张牌上）。⚠️ `Slot = -1`（不在场上）。
+                        EmitListenerTrigger(ctx, c, p, null, kind);
 
                         // `source` 传 null（手牌里的牌**没有 `UnitState`** —— 它不在棋盘上），
                         // `owner` 传持有者 `p` ⇒ 正文里 `your Warlord` 那类 `own/…` 目标是**持有者**的；
@@ -7525,6 +8104,13 @@ namespace RuleEngine
             var selfFx = card != null ? card.Effect("after receiving a dark pact") : null;
             if (selfFx != null)
             {
+                // 🆕 2026-10-19（`T21` · 缺口 E 的「自发段」）：原版这条走的也是
+                //   `CardScript__ReactToUnitMarked.c:7`（`OnTrigger(0x1fe = 510)`）——
+                //   给它发一条按**自己卡名**的事件（`BL3` / `BL12` / `BL69` 的动画行就挂在这）。
+                //   ⚠️ 今天这三张原版卡走的是**事件层**（`WhenTriggers` + `SelfOnly`），
+                //   本支只覆盖 `EffectSpec` 那条旧路（`FromOriginalPool == false`）⇒
+                //   两条**互斥**、不会双发（见 `BodyResolves` 的口径）。
+                EmitListenerTrigger(ctx, card, owner, u, WhenEventKind.GetsDarkPact);
                 ctx.Log($"{u.Name} 的「After receiving a Dark Pact」触发");
                 ResolveEffect(ctx, owner, u, selfFx, null);
             }
@@ -7537,6 +8123,8 @@ namespace RuleEngine
                 if (hv == null || hv == u) continue;
                 var fx = hv.Card != null ? hv.Card.Effect("when a friendly troop receives a dark pact") : null;
                 if (fx == null) continue;
+                // 🆕 2026-10-19（`T21` · 缺口 E）：同上 —— 按**反应者**（同伴）的卡名发事件。
+                EmitListenerTrigger(ctx, hv.Card, owner, hv, WhenEventKind.GetsDarkPact);
                 ctx.Log($"{hv.Name} 的「When a friendly troop receives a Dark Pact」触发");
                 ResolveEffect(ctx, owner, hv, fx, null);
                 break;
@@ -7725,7 +8313,16 @@ namespace RuleEngine
         static bool DoFactionResource(BattleContext ctx, int owner, string by, EffectOp op, string kind,
                                       List<string> unresolved)
         {
-            var ps = ctx.Players[owner];
+            // 🔴 **2026-10-19（第五十七会话 `W57` · DA-4）：`your opponent gains …` 那一支的落点换算。**
+            //   解析层（`EffectText.TryGain` 的资源分支）把敌方主语记成 `op.Target.Side == "enemy"`
+            //   （判据 → `EffectText.IsEnemyGainSubject`）⇒ 这里把 owner 翻到另一边。
+            //   **反编译判据**：`ProcessManaBuff(param_2 /*isPlayer*/, …)` 的 `lVar3` 就是**收资源那一方**
+            //   的 `PlayerManager`（`param_2 == 0` 取 `+200`、否则 `+0xc0`）—— 同一份代码对两边都跑，
+            //   「your opponent gains」只是把 `isPlayer` 换个值 ⇒ **落点由调用方给的那一侧决定**。
+            //   ⚠️ `by` / 日志仍按**施放方**写；换边时额外说一句（别让日志看起来像对方自己拿的）。
+            int gainOwner = owner;
+            if (op.Target != null && op.Target.Side == "enemy") gainOwner = 1 - owner;
+            var ps = ctx.Players[gainOwner];
             bool faith = kind == "faith", quest = kind == "quest";
             string what = quest ? "任务点" : (faith ? "信仰" : "灵魂石");
             int n = op.Amount;
@@ -7735,51 +8332,161 @@ namespace RuleEngine
                 unresolved.Add(op.Source + "（阵营资源数量为 0）");
                 return false;
             }
+            if (gainOwner != owner)
+                ctx.Log($"{by}：「{op.Source}」写的是**对手**获得{what} ⇒ 加给 {ps.Name}（不是施放方自己）");
             if (quest)
             {
                 ps.QuestPoints += n;
                 // ⚠️ 这里打的是**加完、还没减阈值**的值（原版 `AddQuestPoints` 内部随后就会减掉一个阈值，
                 //    HUD 读的是减完的**余数** —— 见下面 `QuestPointThreshold` 的注释）。
                 ctx.Log($"{by}：「{op.Source}」任务点 +{n}（累计 {ps.QuestPoints}）");
-                QuestPointThreshold(ctx, owner, by, op);
+                QuestPointThreshold(ctx, gainOwner, by, op);
             }
             else if (faith) { ps.Faith += n; ctx.Log($"{by}：「{op.Source}」信仰 +{n}（现 {ps.Faith}）"); }
             else { ps.SpiritStones += n; ctx.Log($"{by}：「{op.Source}」灵魂石 +{n}（现 {ps.SpiritStones}）"); }
 
-            // 🆕 广播：`When you gain Faith, …`（`Paragon Warsuit`）/ `When you collect a Spirit Stone, …`
-            //    （4 张灵族单位）—— 卡面真的这么写，所以这里必须发得出来（`WhenEvent` 认它）。
+            // `ctx.Signals` = **表现层**那一条（放特效/飘字）—— 三种资源都发。
             ctx.Signals.Add(new BattleEvent
             {
                 Kind = quest ? EvtKind.GainQuest : (faith ? EvtKind.GainFaith : EvtKind.GainSpirit),
-                Player = owner,
+                Player = gainOwner,
                 Slot = -1,                       // 阵营资源是**玩家的**，不属于任何格位
                 Amount = n,
                 Effect = $"{what} +{n}",
                 Turn = ctx.Turn,
             });
 
-            // 🔴 **事件层广播**（2026-09-13 候选 E 补）—— **这三种原来一个广播点都没有**。
+            // ---- 事件层广播（**三种资源各不相同** —— 照反编译逐支对）----
             //
-            //    `WhenEvent.Parse` 早就认得出 `When you gain Faith, …` / `When you collect a Spirit Stone, …`
-            //    （`WhenEvent.cs` 的 `gain faith` / `collect spirit stone` 两条分支），
-            //    卡面也**不打 `*`**（正文是好的）—— 但 `BroadcastWhen` **从来没被调用过** ⇒
-            //    `Paragon Warsuit`（`When you gain Faith, deal 4 damage to the enemy warlord`）
-            //    和 4 张灵族单位（`When you collect a Spirit Stone, gain Shield`）
-            //    注册的是**一条永远不会响的监听器**。这正是本工程红线里的**静默失效**：
-            //    「认得出」不等于「发得出来」。
+            // ⚠️ **上面那句 `ctx.Signals.Add` 不能顶替它** —— 那只喂**表现层**（放特效/飘字），
+            //    和事件层是两条完全不同的通道。**别把 Signals 当成广播**（这次就是这么漏的）。
             //
-            //    ⚠️ **上面那句 `ctx.Signals.Add` 不能顶替它** —— 那只喂**表现层**（放特效/飘字），
-            //       和事件层是两条完全不同的通道。**别把 Signals 当成广播**（这次就是这么漏的）。
-            //
-            //    ⚠️ `who` 传**获得资源的那一方**：卡面写 `you gain Faith` ⇒ `Parse` 会把 `OwnerIs`
-            //       设成 `RelFriendly`，而 `Matches` 拿 `who` 和**监听者所属方**比 ——
-            //       传别人就是整档反着触发。
-            //    ⚠️ `card` / `subject` 传 `null`：这是**玩家级**事件，没有具体单位
-            //       （和 `When you draw a card` 同一类）。
-            BroadcastWhen(ctx, quest ? WhenEventKind.GainQuest
-                                  : (faith ? WhenEventKind.GainFaith : WhenEventKind.GainSpirit),
-                         owner, null, null);
+            // 🔴 **2026-10-19（第五十七会话 `W57`）逐条改三处，判据全在 `BattleManager__ProcessManaBuff.c`**：
+            //   ① **任务点**（`:51-72`）：`AddQuestPoints` 之后有个 `for i in 0..value` 的循环，
+            //      **每个任务点广播一次**；subject = **获得点数的那张源卡**，源卡不属于该方时
+            //      **退该方英雄卡**。→ 我们原来一次加值只广播一次、且 subject 传 `null`
+            //      （`DA5` 的 `it heals 2` 因此治错人；`DA34`/`DA12` 一次 `Gain 3` 少打/少治两次）。
+            //   ② **信仰**（`:90-110`）：加完之后**只广播一次**，subject = **该方英雄卡**
+            //      （`BattleManagerSupport__BroadcastCollectFaith(param_1, *(lVar3 + 0x28))`）。
+            //      → 原来传 `null`（今天唯一监听者 `SOR38` 不用代词 ⇒ 无可观测差异，但结构上是错的）。
+            //   ③ **灵魂石**（`:83-105`）：**这里【不】发任何卡级广播** —— 只有 `CollectSpiritStoneSignal`
+            //      （消费端是 `MissionChallenge`，不是卡）。卡级广播的**唯一**来源是
+            //      `_ResolveUseWaystone` 里的 `BroadcastCollectedSpiritStone`（全库唯一调用点，
+            //      我们对应 `RuleCore.CollectWaystone` 那一行）。
+            //      🔴 改前这条广播是**无限递归**的来源：`ASH28 Spiritseer Qelenaris`
+            //      「When you collect a Spirit Stone, gain 2 additional Spirit Stones」的 `gain 2`
+            //      又走回本函数 ⇒ 再广播 ⇒ 再触发自己（`MaxEffectChain = 8` 截断 ⇒ `1 + 2×8 = 17`，
+            //      实测收 1 颗 **5 → 22**）。同一根因让 `ASH80`/`ASH78`/`ASH25` 在**任何**加石时误响。
+            if (quest)
+            {
+                // 🔴 **2026-10-19（第五十七会话 `W57FIX2` · P3/P4）：来源卡的取法逐支照
+                //   `BattleManager__ProcessManaBuff.c:51-76`**：
+                //     · `param_4`（来源卡）**== 0 ⇒ `break`**（**一条广播都不发**）；
+                //     · 来源卡属于**收点数那一方** ⇒ subject = **来源卡**；
+                //     · 来源卡**属于另一方** ⇒ subject = **收点数那一方的英雄卡**。
+                //   ⛔ 改前这里在「没有单位」时拿 `ctx.PlayingCard` 当来源 —— 那个字段
+                //      = **本局最后打出的一张牌**、**从不清空** ⇒ 常驻效果（`DA55`）触发时
+                //      会拿旧牌当来源（`DA5` 因此误判；审计 P3）。
+                //   现在「这次出牌结算」的来源卡只从 `ctx.CardPlaySource` 取
+                //   （`PlayTactic` / `BroadcastPersistentWhen` 显式种、用完还原）——
+                //   **没有就是没有，不再退到任何陈旧值**。
+                var srcUnit = ctx.ActingUnit;
+                // 优先级：**常驻作业覆写 > 正在结算的单位 > 这次出牌结算的卡**（见两条字段的 doc）。
+                // 常驻作业那条要压过 `ActingUnit`：那三条路（`ResolveDeploy` / `ResolveAtTurn` 的
+                // 常驻与手牌陷阱）的 `ActingUnit` 是「事件宾语」，不是原版的 `AbilityData.thisCard`
+                // （判据链见 `BattleContext.FactionSourceCard` 的 doc）。
+                bool haveSource = ctx.FactionSourceCard != null
+                                  || srcUnit != null || ctx.CardPlaySource != null;
+                UnitState subj = null;
+                CardDef srcCard = null;
+                bool sourceOwnedByGainer =
+                    ctx.FactionSourceCard != null ? owner == gainOwner      // 常驻来源卡恒属施放方
+                  : srcUnit != null ? OwnerOf(ctx, srcUnit) == gainOwner
+                  : owner == gainOwner;                                     // CardPlaySource 恒属施放方
+
+                if (!haveSource)
+                {
+                    // 原版 `param_4 == 0` ⇒ 那个 while 直接 `break`（**一条都不播**）。
+                    // 我们不静默：说一句，好让「监听器不响」有据可查。
+                    ctx.Log($"{by}：「{op.Source}」加了 {n} 点任务点，但**这次结算没有来源卡**"
+                          + "（原版 `ProcessManaBuff` 的 `param_4 == 0` ⇒ `break`）"
+                          + " ⇒ **不广播** `When … obtains Quest Point`");
+                }
+                else if (sourceOwnedByGainer)
+                {
+                    if (ctx.FactionSourceCard != null) srcCard = ctx.FactionSourceCard;  // 常驻作业：能力属主
+                    else if (srcUnit != null) { subj = srcUnit; srcCard = srcUnit.Card; } // 源卡 = 正在结算的那个单位
+                    else srcCard = ctx.CardPlaySource;                                    // 战术卡（没有单位可当代词）
+                }
+                else
+                {
+                    // 原版第二条支：源卡不属于该方 ⇒ **该方英雄卡**
+                    var wl = ctx.Players[gainOwner].Warlord;
+                    if (wl != null) { subj = wl; srcCard = wl.Card; }
+                }
+                if (srcCard == null)
+                {
+                    ctx.Log($"{by}：「{op.Source}」加了 {n} 点任务点，但**找不到可用的来源卡 / 督军卡**"
+                          + " ⇒ 按原版 `ProcessManaBuff` 那一支**不广播** `When … obtains Quest Point`");
+                }
+                else
+                {
+                    for (int k = 0; k < n; k++)
+                        BroadcastWhen(ctx, WhenEventKind.GainQuest, gainOwner, srcCard, subj);
+                }
+            }
+            else if (faith)
+            {
+                var wl = ctx.Players[gainOwner].Warlord;
+                BroadcastWhen(ctx, WhenEventKind.GainFaith, gainOwner,
+                              wl != null ? wl.Card : null, wl);
+            }
             return true;
+        }
+
+        /// <summary>
+        /// 🔴 **2026-10-19（第五十七会话 `W57` · P2）：`alternativeTraitLogic` 的【第二个消费点】**
+        /// —— 原版 `CardScript__FinishActiveAbility.c`。
+        ///
+        /// <para>**反编译逐行**（`d:/2/tools/decomp_full/CardScript__FinishActiveAbility.c`）：
+        /// 主动能力（`ActiveAbility`，调用方 = `BattleManager._ResolvePlayActiveAbility_d__479`）**结束时**：
+        /// ① `matchData.gameplayVariables.alternativeTraitLogic (+0x4B) != 0`；
+        /// ② 这张卡 `RawCardScript__HasDefaultTrait(card, 0x4a1 = 1185 = DefinedTrait.pray)`；
+        /// ⇒ `PlayerManager__AddFaithMana(该卡控制者, +1)` → `BroadcastCollectedFaith(该卡)`。</para>
+        ///
+        /// <para>**我们接在哪**：`RuleCore.UseAlternative`（Duty / Pray / Ferocity / Agenda ——
+        /// 原版这四族与 `oath` 走同一个 `_ResolvePlayActiveAbility` 入口，见那一处 `EvtKind.Ability`
+        /// 的长注释）。本版全池带 pray 特性的 23 张卡**全部**只有 `Pray:` 这一种主动能力
+        /// （`cards_raw.json` 逐张核过）⇒ 进得来这里的只有 `keyword == Pray`。</para>
+        ///
+        /// <para>⚠️ **「带 pray 特性」的判据**：本版 `CardDef` 没有 `CardTraits` 列（`cardTraits` 是
+        /// 纯落值、不喂引擎），能用的等价物是「**这张卡有 `Pray:` 正文**」（= 它走到了这里）。
+        /// 两边差 **1 张**：`SOR13 Simulacrum Bearer` 有 pray 特性但正文里没有 `Pray:` 段
+        /// ⇒ 它本来也进不了替代行动这条路 ⇒ **在本入口上两者等价**（逐张对过 23 / 22）。
+        /// ⛔ 别为此去改 `CardDef`（不在本批范围）。</para>
+        ///
+        /// <para>⚠️ **今天不可达**：`alternativeTraitLogic` 的实例值在服务器（本地 0 命中），
+        /// 我们的 `Classic` / `Skirmish` 预设都是 0 ⇒ 这段是**按判据补齐、当前静默不生效**的死路。
+        /// 拿到非 0 值的那天它自动开始工作。</para>
+        /// </summary>
+        public static void FinishActiveAbility(BattleContext ctx, int owner, UnitState unit, string keyword)
+        {
+            if (ctx == null || unit == null || unit.Card == null || ctx.IsOver) return;
+            var v = ctx.Vars;
+            if (v == null || v.alternativeTraitLogic == 0) return;   // 原版 `+0x4B == 0` ⇒ 整段跳过
+            if (keyword != KeywordTable.Pray) return;                 // 只有 pray 特性那一族（见上面的判据）
+            var ps = ctx.Players[owner];
+            ps.Faith += 1;
+            ctx.Log($"{unit.Name} 的主动能力结束 —— `alternativeTraitLogic` ≠ 0 且它带 pray 特性 ⇒ "
+                  + $"信仰 +1（现 {ps.Faith}；原版 `CardScript__FinishActiveAbility.c`）");
+            // 原版 `BroadcastCollectedFaith(该卡)` —— subject = **这张祈祷卡本身**。
+            BroadcastWhen(ctx, WhenEventKind.GainFaith, owner, unit.Card, unit);
+            // 表现层那一条（与 `DoFactionResource` 的信仰支同形 —— 同一个 `EvtKind`、`Slot = -1`）
+            ctx.Signals.Add(new BattleEvent
+            {
+                Kind = EvtKind.GainFaith, Player = owner, Slot = -1, Amount = 1,
+                Effect = "祈祷特性 +1 信仰", Turn = ctx.Turn,
+            });
         }
 
         // ==================================================================
@@ -7885,6 +8592,32 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🔴 **2026-10-19（第五十七会话 `W57`）：「加一张牌进牌库」的唯一判据 —— 随机下标 `Insert`、
+        /// ⛔ 不洗整副。**
+        ///
+        /// <para>**原版**：`BattleManager__AddCardInPlayToDeck.c:36-37`
+        /// （`GetRandomInt(0, deck.Count + 1)`，上界开区间 ⇒ 下标 ∈ `[0, Count]`）→ `:63-64` `List.Insert`。
+        /// ⚠️ 规则书那句「并洗牌」是**粉丝实体版**的改写，与反编译不一致 ⇒ 按反编译（铁律 2/11）。</para>
+        ///
+        /// <para>**镜像**：原版下标 0 = **牌库顶**；我们的约定相反（列表末尾 = 顶，见 `DoCreate`
+        /// 的 `decktop` 那一小段注释）⇒ `ourIndex = Count - originalIndex`。</para>
+        ///
+        /// <para>**两个调用点，同一条原版随机表**（`BattleManager.GetRandomInt`）：
+        /// ① 任务点满阈值造隐秘（`QuestPointThreshold`）；
+        /// ② `DA44 Secret Agenda` 的 `add it to your deck`（原版 SO `chosenAbility = 270
+        /// = createCardInDeck`，与 ① **同一个 `AddNewCardToDeck`** —— `PlayAbility.c:2607`）。
+        /// ⇒ 用同一条 `QuestAux.InsertRng`（⛔ 别一处用 `ctx.Rng`、一处另开）。</para>
+        /// </summary>
+        static void InsertIntoDeckRandom(BattleContext ctx, int owner, CardInstance inst)
+        {
+            if (ctx == null || inst == null) return;
+            var ps = ctx.Players[owner];
+            var aux = QuestAuxOf(ctx);
+            int origIndex = ps.Deck.Count > 0 ? aux.InsertRng.Next(ps.Deck.Count + 1) : 0;
+            ps.Deck.Insert(ps.Deck.Count - origIndex, inst);
+        }
+
+        /// <summary>
         /// **任务点阈值**（判据只此一处）—— 照原版 `PlayerManager.AddQuestPoints` 的语义：
         ///
         ///   · 加完点后**只看一次**：`QuestPoints >= 阈值` ⇒ **减掉一个阈值**、`QuestMilestone++`、
@@ -7908,12 +8641,31 @@ namespace RuleEngine
             if (!aux.AltNoticeDone)
             {
                 aux.AltNoticeDone = true;
+                // 🔴 **2026-10-19（第五十七会话 `W57`）：「取不到 Alt 真值」要【明确出声】。**
+                //   改前只有 `ctx.Log`（= **战斗日志面板**里的一行）⇒ 开发侧在 Console 里**看不到**，
+                //   于是「我们其实拿不到 Alt 档的真值」这条只有翻日志的人知道。
+                //   现在补一条**一次性的 `LogWarning`**（同一个对局只打一次，见 `AltNoticeDone`），
+                //   然后**继续按经典档 3** —— ⛔ 不猜 4。
+                //
+                //   **判据现状（如实写进警告里）**：`alternativeTraitLogic` 是
+                //   `GameplayVariablesData +0x4B`（LiveOps 事件载荷），**实例真值在服务器**、
+                //   本地 0 命中；我们的 `Classic` / `Skirmish` 两个预设**都是 0**
+                //   （`GameplayVariables.cs:263` / `:297-324`）⇒ **Alt 档当前不可达**，
+                //   冲突模式也走 3（反编译里这个 flag 与 PlayMode **没有任何绑定**）。
+                //   `ScenarioVariables.questPointsForTriggerAlt` 的 4 是**字段真值**（DefaultScenario
+                //   三份资产实读 3/4），只是没人把它选中。
                 int alt = ctx.Vars != null ? ctx.Vars.alternativeTraitLogic : 0;
                 string altName = alt != 0 ? "Alt" : "";
                 string altWhy = alt != 0
                     ? "`alternativeTraitLogic` ≠ 0 ⇒ Alt 档"
                     : "`alternativeTraitLogic` 的实例值本地 0 命中 ⇒ 按经典档 3";
                 ctx.Log($"任务点阈值 = {step}（原版 `ScenarioVariables.questPointsForTrigger{altName}` = {step}；{altWhy}）");
+                if (alt == 0)
+                    UnityEngine.Debug.LogWarning(
+                        "[Rule] 任务点阈值：`GameplayVariablesData.alternativeTraitLogic` 的真值**不在本地**"
+                        + "（它是 LiveOps 事件载荷 `+0x4B`；`Classic`/`Skirmish` 预设都是 0，而原版这个 flag"
+                        + "与 PlayMode 没有绑定）⇒ **按经典档 3 继续**（`questPointsForTriggerAlt = 4` 当前不可达）。"
+                        + "拿到服务器真值之前 ⛔ 别把 4 猜成「冲突模式」的默认值。");
             }
 
             // 原版先 `ManaManager.SetQuestPoints(满值, 阈值)`（`:97`）再减（`:101-104`）——
@@ -7955,14 +8707,9 @@ namespace RuleEngine
             var card = pick.Cards[ctx.Rng.Next(pick.Cards.Count)];
             var inst = ctx.NewInstance(card);                 // 第 7 行第 2 步：加进去的是**新造的一份**
 
-            // 入牌库 = **随机下标 Insert**，**不洗整副**：
-            //   原版 `BattleManager__AddCardInPlayToDeck.c:36-37`（`GetRandomInt(0, deck.Count + 1)`，
-            //   上界开区间 ⇒ 下标 ∈ `[0, Count]`）→ `:63-64` `List.Insert`。
-            //   ⚠️ 规则书那句「并洗牌」是**粉丝实体版**的改写，与反编译不一致 ⇒ 按反编译（铁律 2/11）。
-            //   ⚠️ 原版下标 0 = **牌库顶**；我们的约定相反（列表末尾 = 顶，见 `DoCreate` 的 `decktop`
-            //     那一段注释）⇒ 镜像过来：`ourIndex = Count - originalIndex`。
-            int origIndex = ps.Deck.Count > 0 ? aux.InsertRng.Next(ps.Deck.Count + 1) : 0;
-            ps.Deck.Insert(ps.Deck.Count - origIndex, inst);
+            // 入牌库 = **随机下标 Insert**，**不洗整副** —— 判据与算法只在 `InsertIntoDeckRandom` 一处
+            // （原版 `BattleManager__AddCardInPlayToDeck.c:36-37` + `:63-64`）。
+            InsertIntoDeckRandom(ctx, owner, inst);
 
             // 原版 `_ResolveCreateDeckCard…:113-119`：读 `spellType == 0x96(150)` ⇒ `BroadcastSecretCreated`。
             // ⛔ 漏了这一跳 = `DA15`（`When you create a Secret, …`）/ `DA66` 注册的是**永远不响的监听器**（静默）。

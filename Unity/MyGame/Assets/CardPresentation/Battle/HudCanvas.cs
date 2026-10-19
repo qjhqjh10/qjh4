@@ -30,8 +30,10 @@
 //      （`EnsureSubCanvas`）—— 子 canvas **继承根 canvas 的缩放**，又靠 `overrideSorting` 另立排序组；
 //      这正是原版的做法（原版**全场景只有一个 `CanvasScaler`**，在根上）。
 //      ⛔ 子 canvas **一个 `CanvasScaler` 都不许加**（加了会二次缩放）。口径 → `T09` §五·补⑨ 一。
-//   3. ⏸ **`EventSystem` 这一轮不建**：① 判据没收（T09b 没查它的字段，按铁律 2 **不猜**）
-//      ② 现在没有可交互件 ⇒ 建了是死件。**等第 4 步（迁按钮族）与第一个可点件同批建。**
+//   3. ✅ **`EventSystem` 已于 2026-10-19（`T09` 步骤 A1）与第一颗可点件同批建出** ——
+//      判据与坑位**搬到 `Battle/BattleEventSystem.cs` 文件头**（⛔ 别在这里再写一份）：
+//      `EventSystem` + **`InputSystemUIInputModule`**（`activeInputHandler = 1` New-only，⛔ 不能用旧模块）、
+//      编辑器「`AddComponent` 不派 `OnEnable`」的补登记（`SyncRaycasters`）。
 //      ✅ `GraphicRaycaster` 随 Canvas 一起建（它是 Canvas 的组件、不占独立对象）。
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -113,7 +115,7 @@ namespace CardPresentation
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;   // 原版 `m_ScreenMatchMode = 1`
             scaler.referencePixelsPerUnit = 100f;                           // 原版那 6 行表里的值
 
-            go.AddComponent<GraphicRaycaster>();       // 现在没有可点件；第 4 步一迁按钮就能用
+            go.AddComponent<GraphicRaycaster>();       // 射线面；可点件由 `BattleHudButton.Attach` 喂（`T09` A1 起）
 
             RootRect = (RectTransform)go.transform;
             return RootRect;
@@ -141,7 +143,7 @@ namespace CardPresentation
                                                         new Vector2(0.5f, 0.5f), 100f);
             img.color = color;
             img.preserveAspect = false;                // 原版 `m_PreserveAspect = 0` ⇒ 拉满矩形
-            img.raycastTarget = raycast;               // 装饰件默认不吃射线（第 4 步的可点件才传 true）
+            img.raycastTarget = raycast;               // 装饰件默认不吃射线（`T09` A1 起，可点件由 `BattleHudButton.Attach` 置 true）
             Add(rt, DefaultZ);                         // 默认那一档（与 `HudImageZ` 同值，见 `DefaultZ`）
             return rt;
         }
@@ -655,10 +657,19 @@ namespace CardPresentation
         /// `ImageQuad.Create(parent, tex, pos, worldHeight, anchor, name)` 的对应物。
         /// `x01/y01` = 锚点（**y 从下算**，与 `LayoutSpace` 同口径）；`pivot` = 原版那个 `anchor`（轴心）；
         /// `hPx/wPx` = **设计 px**；`z` = 旧那套里的层深度（本件按它定兄弟序，见 <see cref="Add"/>）。
-        /// ⚠️ 这是**唯一**给 `BattleDriver.HudImageTex` 用的建件口（⛔ 别在别处再写一份）。</summary>
+        /// ⚠️ 这是**唯一**给 `BattleDriver.HudImageTex` 用的建件口（⛔ 别在别处再写一份）。
+        /// <para>🔴 **2026-10-19（`T09` 步骤 A1）：补「节点 rect」口（可选，默认值 = 旧行为）。**
+        /// `rectW/rectH > 0` ⇒ `sizeDelta` 写**原版节点 rect**（不是「画出来的尺寸」），
+        /// 并按 `preserveAspect` 设 `Image.preserveAspect`（原版 `m_PreserveAspect = 1` 的件用它内接）。
+        /// **为什么要有它**：`T09` §1·6 现核 —— `RectTransform` 现在存的是 `HudAbs` 内接后的
+        /// **画出来尺寸**（例：`Offensive` 高 105.600 vs 原版节点 106.943，差 1.34 px），
+        /// 而原版 `m_RaycastPadding` 是加在**节点 rect** 上的 ⇒ 不修 rect 就照抄 padding，命中框会缩水。
+        /// ⚠️ A1 这一批**不传**它（那颗钮继续按 drawn rect，断言也按 drawn rect 写）；
+        /// A2 才把各件的节点 rect 传进来（判据 → `T09` 迁移计划 §1·6 / §2 A2）。</para></summary>
         public static HudPiece MakeAnchored(Transform parent, Texture2D tex, string name,
                                             float x01, float y01, Vector2 pivot,
-                                            float hPx, float wPx, float z, Color color)
+                                            float hPx, float wPx, float z, Color color,
+                                            float rectW = -1f, float rectH = -1f, bool preserveAspect = false)
         {
             if (parent == null || tex == null) return null;
             var go = new GameObject(name, typeof(RectTransform));
@@ -667,14 +678,17 @@ namespace CardPresentation
             rt.anchorMin = rt.anchorMax = new Vector2(x01, y01);
             rt.pivot = pivot;
             rt.anchoredPosition = Vector2.zero;
-            rt.sizeDelta = new Vector2(wPx, hPx);
+            // 🔴 2026-10-19（`T09` A1）：传了节点 rect 就写它（见 doc）；不传 ⇒ **旧的 drawn 尺寸**（逐位不变）。
+            bool hasNodeRect = rectW > 0f && rectH > 0f;
+            rt.sizeDelta = hasNodeRect ? new Vector2(rectW, rectH) : new Vector2(wPx, hPx);
 
             var img = go.AddComponent<Image>();
             img.sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height),
                                        new Vector2(0.5f, 0.5f), 100f);
             img.color = color;
-            img.preserveAspect = false;      // 原版 `m_PreserveAspect = 0` ⇒ 拉满
-            img.raycastTarget = false;       // 这一族是装饰；可点件走第 4 步
+            // 原版 `m_PreserveAspect = 0` ⇒ 拉满；节点 rect 口按调用点传的来（A2 才会用到）。
+            img.preserveAspect = hasNodeRect && preserveAspect;
+            img.raycastTarget = false;       // 这一族是装饰；可点件由 `BattleHudButton.Attach` 置 true
             Add(rt, z);
             return HudPiece.Of(rt, img);
         }

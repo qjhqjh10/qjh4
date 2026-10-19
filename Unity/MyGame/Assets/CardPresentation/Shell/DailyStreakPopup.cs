@@ -371,7 +371,7 @@ namespace CardPresentation
             //    —— **BL 的绿/蓝分量（12/11）是四角渐变独有的**，双色渐变做不出来。
             // 🔴 **2026-10-18（T29 · D3）就地改**：原来用 `CardArt.Gradient(#390305, #0C0004, 82f)`（双色、按竖轴）
             //    ⇒ 顶部画成近黑 (12,0,4)、而原版顶部是 (56,4,5) —— **整窗上半部明显发黑**（差 ≈44 个 R 单位）。
-            //    四角顶点色的写法照 `MainMenuRuntime.cs:875-881`（`SetCornerColors(BL, BR, TR, TL)`）。
+            //    四角顶点色的写法照 `MainMenuRuntime.cs` 的 `SetCornerColors`（`SetCornerColors(BL, BR, TR, TL)`）。
             var bgQ = MenuDraw.Rect(root, CardArt.Solid(), Bg, "bg", QPanel);
             if (bgQ != null)
                 bgQ.SetCornerColors(new Color(0.15094340f, 0.04912781f, 0.05101327f),   // 左下 BL
@@ -484,7 +484,13 @@ namespace CardPresentation
             //   ⚠️ **别一刀切**：同名的另一颗在**断签面板**里（本文件 `BuildFailed` 那句 `F_Info`）——
             //   原版那颗是 **`Center/Midline`**（同一次 dump：`47.4 583.0 1872.6 633.0`，`对齐=Center/Midline`）
             //   ⇒ 那一颗**保持居中、不许改**。
-            var info = MenuDraw.Text(p, S_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText, face: TmpFont.Face.LatinCardBody);
+            //   🔴 **2026-10-19（W57 · UI-6）**：补 `wrapPx: S_Info.W` —— 现在这句是**官方词条**
+            //   `Rewards Menu/DailyStreak/Help`（约 103 字符，比原来那句自拟串长 2 倍），而原版那颗 TMP
+            //   `m_TextWrappingMode = 1`（Normal 折行）· 框宽 = **1825.06**（= `S_Info.W`）· `m_margin = 0` ·
+            //   **`m_enableAutoSizing = 0`**（不缩字号、`m_overflowMode = 0` 溢出照画）⇒ 折行宽就取框宽。
+            //   ⛔ 别改成缩字号顶回去（原版没缩）。
+            var info = MenuDraw.Text(p, S_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText,
+                                     wrapPx: S_Info.W, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(info, S_Info);
             MenuDraw.SetVAlign(info, Label.VAlign.Midline, S_Info);   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半
             // ⚠️ `Timer` **在本面板里** ⇒ 断签态下看不到倒计时（原版实况）
@@ -596,11 +602,15 @@ namespace CardPresentation
             //   · `Daily Streak Broken`（fs128.1）= `Center/**Midline**` · `Current Streak Lost count`（fs66.9）= `Center/Midline`
             //   · `Info`（fs36）= `Center/Midline` ⇒ 见上面 :375 那条「**别一刀切**」（与 `Streak Successful/Info` 的横向档相反）
             //   · `Generic Simplified UI Button/Button Text`（`'Reset Streak'` fs55）= `Center/**Capline**`
+            //   🔴 **2026-10-19（W57 · UI-6）**：`Info` 补 `wrapPx: F_Info.W` —— 官方词条
+            //   `Rewards Menu/DailyStreak/Help` 约 2 倍长；原版那颗 TMP `m_TextWrappingMode = 1`、
+            //   框宽 = **1825.14**（= `F_Info.W`）、`m_margin = 0`、**`m_enableAutoSizing = 0`**（不缩字号）。
             var fBreak = MenuDraw.Text(anchor, F_Broken, DailyData.StreakBrokenText(), Color.white, "Daily Streak Broken", 128.1f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(fBreak, Label.VAlign.Midline, F_Broken);
             var fLost = MenuDraw.Text(anchor, F_Lost, DailyData.StreakLostText(), Color.white, "Current Streak Lost count", 66.9f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(fLost, Label.VAlign.Midline, F_Lost);
-            var fInfo = MenuDraw.Text(anchor, F_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText, face: TmpFont.Face.LatinCardBody);
+            var fInfo = MenuDraw.Text(anchor, F_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText,
+                                      wrapPx: F_Info.W, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(fInfo, Label.VAlign.Midline, F_Info);
             var btn = MenuDraw.Rect(anchor, Art(ArtMulligan), F_ResetBtn, "Generic Simplified UI Button", QContent);
             // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 55px。
@@ -776,6 +786,15 @@ namespace CardPresentation
                 //    `资料/普查产出_1016/A679_align全表.md` §一·A / §三。
                 //    ⚠️ 用**命名实参**（⛔ 别把它插到 `autoMaxPx` 前面当位置实参）——
                 //    `int` 字面量能隐式转 `float`，位置一错会**静默**绑成 `autoMaxPx`、对齐退回 0。
+                // 🔴 **2026-10-19（`N47①` 现核 + 修）**：原版 `Daily Streak Reward Popup Entry/Collect/Collect Text`
+                //   的 `Localize.mTerm = ShopOffers/GeneralClaim`、`m_Enabled = 1`，TMP 出厂 `'Claim'`
+                //   （`bundle_menus_assets_all/MonoBehaviour` 逐颗现读）⇒ 接词条。
+                //   ⚠️ **不能走 `Loc.BulkOr`**：该键**不在** `Resources/official_names.json` 的 bulk 族里
+                //   （那八族不含 `ShopOffers/*`）⇒ 恒回兜底 `Claim`、中文档也印英文。
+                //   `Loc.T` 自 `N80`（2026-10-18）起第三档兜官方全表 ⇒ 取得到（官方 13 列：en `Claim` · zh `索取`）。
+                //   🔴 **2026-10-19（W57 · UI-6）**：`DailyData.StreakClaimText()` 也已就地改成 `Loc.T`
+                //   ⇒ 本处**改回走那个口**（键字面量只留 `DailyData` 一处）。上面那句「不能走 `StreakClaimText()`」
+                //   说的是它当时还是 `BulkOr` 的旧版 —— **已过期**，别再照着它绕开那个口。
                 var lbCollect = Text(e, OC(E_CollectText), DailyData.StreakClaimText(), Color.white, "Collect Text",
                      52.85f * CollectScale * k, QText, wrapPx: OC(E_CollectText).W,
                      autoMinPx: 18f * CollectScale * k,

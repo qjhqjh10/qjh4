@@ -40,8 +40,10 @@
 //     —— 我们**静态画**；那套辉光动画**没做**（出声）。
 //   · **`Tooltip`**（`40k_generic_bt_info`，原版挂 `EverguildTooltipTrigger`）—— ✅ **2026-10-03（A12-P1）已接线**：
 //     悬停进全工程的 `Tooltip` 层（`Core/Tooltip.cs`）、离开收；触发器的参数**逐字段照原文**（见 `BuildTooltipHit`）。
-//     🔴 **正文是 I2 词条 `MenuShop/BoosterInfo/LegendaryTooltip`**（触发器实测 `text` + `localize = 1`），
-//     **词条表在远端 CCD、本地一个 value 都没有** ⇒ **正文留空、不自己编**（见 `TipBody`，与 `ForgeTab.HelpTipBody` 同一条做法）。
+//     🔴 **正文是 I2 词条 `MenuShop/BoosterInfo/LegendaryTooltip`**（触发器实测 `text` + `localize = 1`）。
+//     🔴 **2026-10-19（`W57`·TOOL-6 就地订正，铁律 5）**：本行原文写「词条表在远端 CCD、本地一个 value 都没有
+//        ⇒ 正文留空、不自己编」——**已过期**：该键已在 `Core/Loc.cs` 的 `Table` 里（中英两列都有值）
+//        ⇒ 现在**直接取官方词条**（`Loc.T`，见 `TipBody`；与 `ForgeTab.HelpTipBody` 同一条做法）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -339,11 +341,11 @@ namespace CardPresentation
             //     两张子件同矩形 56.86×58.13（= 我们的 `CloseArtR`）。
             //     贴图 `UI_Button_Round_background` 的 sprite `m_Rect` = **237×237 正方**、`m_Border`/`m_Offset` 全 0
             //     ⇒ `PA=1` 等比内接进「根那一格」= **实绘 74.39×74.39**（高被缩到宽那一档）。
-            //   ⇒ 照兄弟窗先例 `Shell/BaseOfferPopup.cs:742-743` / `Shell/ReferralPopupWindow.cs:386-387`
+            //   ⇒ 照兄弟窗先例 `Shell/BaseOfferPopup.cs` / `Shell/ReferralPopupWindow.cs`
             //     （那是唯一与原版同构的写法）：**画在根节点自己身上**、图取不到时才退回 `MenuDraw.Node`。
             //     自造名 `Base` **随之取消**（原版那颗 `Image` 就在根节点上、没有独立子件名）。
             //   ⚠️ 位置/子件序**逐位不变**：`Rect` 与 `Node` 用同一份 `Local(parent, …)` 摆矩形中心
-            //     （`MenuDraw.cs:30-31` / `ApplyPxRect:180-183`），`ImageQuad.Create` 也是 `SetParent(parent, false)` 追加
+            //     （`MenuDraw.cs` 的 `ImageQuad.Create` / `ApplyPxRect:180-183`），`ImageQuad.Create` 也是 `SetParent(parent, false)` 追加
             //     ⇒ 同一个父 `window`、同一个子件序号（B4 对收件箱那一处已实测同形）。
             //   ⚠️ 命中区/换图层/队列**不受影响**：命中 quad 由下面 `MenuDraw.Hit` 独立建
             //     （`PaddedRect(CloseArtR, ClosePad)` = 96.86×98.13），与圆底盘的矩形成像无关。
@@ -515,13 +517,13 @@ namespace CardPresentation
 
         // ============================================================ tooltip（原版 `EverguildTooltipTrigger`）
 
-        /// <summary>正文取值 = 原版那个触发器的 I2 词条（`MenuShop/BoosterInfo/LegendaryTooltip`）；
-        /// **词条表在远端 CCD ⇒ 本地没有** ⇒ **留空**（同 `ForgeTab.HelpTipBody` 的做法：版式照做、文案留空并说一声）。
-        /// ⚠️ **一个空格不是文案**：`Tooltip.Show("")` 的契约是「空串 = 不显示」（`Core/Tooltip.cs:120`）
-        /// ⇒ 用空格让**面板照原版的时机弹出来、里面是空的**；断言 `ShownBody.Trim() == ""` 照样成立。
-        /// 🔴 两块（本窗 + 锻造厂）的这条做法是**同一句口径写了两遍**（两个文件都不许碰公共件）——
-        ///    要收口就收进 `MenuWindowBase`/`Tooltip`，**别在第三处再写一遍**。</summary>
-        public const string TipBody = " ";
+        /// <summary>正文取值 = 原版那个触发器的 I2 词条（`MenuShop/BoosterInfo/LegendaryTooltip`）。
+        /// 🔴 **2026-10-19（`N73` 就地订正，铁律 5）**：本段原文写「词条表在远端 CCD ⇒ 本地没有 ⇒ 留空」
+        /// ——**已过期**：该键**早在 `Core/Loc.cs:2785` 的 `Table` 里**（中英两列都有值），
+        /// 错因同 `ForgeTab.HelpTipBody`（写于官方本地化并入之前、之后没回来改）。
+        /// ⇒ 现在直接读词条（`Loc.T`；缺键时印键名并出声，不静默）。
+        /// ⚠️ 语档跟随 `Loc.Current` ⇒ 用**属性**而不是 `const`。</summary>
+        public static string TipBody { get { return Loc.T("MenuShop/BoosterInfo/LegendaryTooltip"); } }
 
         /// <summary>自检用：这个图标被悬停过几次。</summary>
         public static int TipHovers { get; private set; }
@@ -575,8 +577,7 @@ namespace CardPresentation
         {
             TipHovers++;
             if (TipHovers == 1)
-                Debug.Log("[BoosterInfo] `Tooltip` 悬停：原版正文是 I2 词条 `MenuShop/BoosterInfo/LegendaryTooltip`"
-                          + "（本地没有，见 `TipBody`）⇒ **面板照弹、正文是空的**。要真文案只需把 `TipBody` 换成那份词条值。");
+                Debug.Log("[BoosterInfo] `Tooltip` 悬停：正文 = 官方词条 `MenuShop/BoosterInfo/LegendaryTooltip`（`Loc.T` 现取）。");
             // 原版 `tooltipAnchor = 0`（居中）· `offset = (0,0,0)` —— 原样传
             Tooltip.Show(TipBody, LayoutSpace.FromPixel(TooltipR.CX, TooltipR.CY), 0, Vector3.zero);
         }
@@ -681,15 +682,16 @@ namespace CardPresentation
             return Mathf.Clamp01(a / b);
         }
 
-        /// <summary>把「原版有、我们没做」的三处**当场出声**（红线：不许静默失败）。</summary>
+        /// <summary>把「原版有、我们没做」的两处**当场出声**（红线：不许静默失败）。</summary>
         void HintGaps()
         {
-            Debug.Log("[BoosterInfo] ⚠️ 三处如实标注：① `Category`/`Descripton`/保底计数**原版来自服务端 item**"
+            Debug.Log("[BoosterInfo] ⚠️ 两处如实标注：① `Category`/`Descripton`/保底计数**原版来自服务端 item**"
                       + "（我们用的是**拼的 / prefab 出厂文本 / 出厂占位**）；② `foreground` 与 `Highlight` 的"
-                      + "**辉光动画没做**（前者原版空图、后者是 `UIBorderGlow`）；"
-                      + "③ `Tooltip` 的 tooltip **接线做了（悬停出面板）、正文是空的** ——"
-                      + "原版那件挂 `EverguildTooltipTrigger`、正文取 I2 词条 `MenuShop/BoosterInfo/LegendaryTooltip`，"
-                      + "**词条表在远端 CCD、本地一个 value 都没有** ⇒ 不自己编（2026-10-03 A12-P1）");
+                      + "**辉光动画没做**（前者原版空图、后者是 `UIBorderGlow`）。"
+                      + " 🔴 2026-10-19（`W57`·TOOL-6 就地订正，铁律 5）：本行原文还有「③ `Tooltip` 的 tooltip 接线做了"
+                      + "（悬停出面板）、**正文是空的** —— 词条表在远端 CCD、本地一个 value 都没有 ⇒ 不自己编」——"
+                      + "**已过期**：该正文自 `N73`（UI-3，2026-10-19）起 = 官方词条 "
+                      + "`MenuShop/BoosterInfo/LegendaryTooltip`（`Loc.T`，见 `TipBody`）。");
         }
 
         public string Dump()        {

@@ -34,7 +34,7 @@ public static class SettingsScene
     /// <summary>🆕 2026-10-18（第四会话）：断言计数器 + 输出口径**收口到共用件 `Editor/MenuCheck.cs`**
     /// （唯一实现处；本文件只剩同名的一行转发 ⇒ 5,534 个调用点一个字没动）。
     /// 🔴 **逐宿主一份 `CheckSink`**（⛔ 不是全局 static）—— 「拿别处的 `Check` 去断，失败会
-    /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs:12-14`。</summary>
+    /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs`。</summary>
     static readonly CheckSink _sink = new CheckSink(P)
     {
         Near = MenuNearStyle.Compact2,
@@ -523,7 +523,7 @@ public static class SettingsScene
     /// （例 `Settings/Graphics/Flash/Quality` 的 ZH `画质档 → {0}` / EN `Quality → {0}`
     ///  ⇒ 前缀分别 `画质档 → ` / `Quality → `）。</para>
     /// <para>🔴 ⛔ **别把中/英任一串写死在调用点** —— 那只是把红从这一档挪到那一档
-    /// （同本文件 `AutoZoom` 那条 `:1478` 的口径）。</para>
+    /// （同本文件 `AutoZoom` 那条的口径）。</para>
     /// <para>⚠️ 词条里没有 `{0}` 时原样返回（= 整句就是判据）。</para></summary>
     static string TermHead(string key)
     {
@@ -582,7 +582,7 @@ public static class SettingsScene
         // 🔴 **2026-10-19（`A1534` 尾巴 · 铁律 11）**：批处理自检**不出声** —— `WFSoundPlayer.Enabled = false`
         //   时那个开关自己的契约是「**只记账不发声**：不建对象、不出声，但 `Played` 照样涨」
         //   ⇒「音效调度算对了没有」那一族断言**照旧有效**，而这一趟**不白建一堆 `AudioSource`、不白播**。
-        //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs:341-366`（同一个开关、同一个 `finally` 还原）。
+        //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs`（同一个开关、同一个 `finally` 还原）。
         //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
         bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
         WarpforgeVFX.WFSoundPlayer.Enabled = false;
@@ -656,9 +656,9 @@ public static class SettingsScene
             // 🆕 A83②（A81 的尾巴）：压暗层（「点窗外关窗」）那条不变量 —— 档 = **压暗层自己那一档**
             //   `QShade`(3130)，**严格低于**本窗内容命中区档 `QOverlay`(3135)；并核「这节点确实是
             //   公共件 `MenuDraw.ShadeHit` 建的」。期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。
-            //   逐窗档位 → `Shell/SettingsWindow.cs:277-292`；公共件规矩 → `Shell/MenuDraw.ShadeHit` 的注释。
+            //   逐窗档位 → `Shell/SettingsWindow.cs`；公共件规矩 → `Shell/MenuDraw.ShadeHit` 的注释。
             //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档 ——
-            //      它由 `Shell/SettingsWindow.cs` 里 `Solid(root, "Menu Dark Background", …)` 那一处 的 `Node(...)` + `Solid(root, "Menu Dark Background", …)`
+            //      它由 `Shell/SettingsWindow.cs` 里 `Solid(root, "Menu Dark Background", …)` 那一处的 `Node(...)` + `Solid(root, "Menu Dark Background", …)`
             //      建（**另一个对象、另一处代码**），⛔ 不再传 `SettingsWindow.QShade`（那与实参同源 = 同义反复）。
             MenuDraw.CheckShadeRule(CheckTrue, "设置窗", win.ShadeHit,
                                     win.transform.Find("Menu Dark Background"), SettingsWindow.QOverlay);
@@ -1126,7 +1126,7 @@ public static class SettingsScene
                 // 🔴 **2026-10-19（A1181）就地改（#4/#5）：量法** —— `EmailText` / `PasswordText` 这两颗 Label
                 //   被 `AlignLeft` 挪过（`SettingsWindow.cs` 账号页那两句），而 `Label.AlignLeftOn` 把**节点中心**
                 //   移到「左沿 + 宽/2」⇒ 拿 `CheckAtS`（比**节点中心**）去量**必红** —— 中心天然不等于原版矩形中心
-                //   （这不是实现错，是量法错）。⇒ 改用本窗**已有的** `CheckLeftS`（`:238` 的 doc 就是为这一档写的：
+                //   （这不是实现错，是量法错）。⇒ 改用本窗**已有的** `CheckLeftS`（本文件那条 doc 就是为这一档写的：
                 //   「`AlignLeft` 会把 Label 的节点挪走 ⇒ 不能比中心，要比**左边缘**」）。
                 //   ⚠️ 期望值都是**同一组原版矩形、一个字没改**；判别力不减 —— 矩形摆错 ⇒ 左边缘跟着错 ⇒ 红。
                 CheckLeftS(FindChild(acPage, "EmailText"), 596.52f, 1056.52f, 261.43f, 321.43f, "`EmailText`");
@@ -1789,9 +1789,9 @@ public static class SettingsScene
                               "…而且挂在 `LanguagesDropdown` 下面（原版链 `Language Selector > LanguagesDropdown > Template`）");
                     // 🔴 **2026-10-17（F3 · D3 红⑫）**：原来这里有一条 `CheckRectPx(量 `Template` 下的 `bg`)`
                     //    —— 它**结构上不可能绿**（三条硬证据）：① 上面三行刚刚断言并通过「`Template` 出厂是**关着的**」
-                    //    （原版 `m_IsActive = 0` ✓）；② 实现照做（`Shell/SettingsWindow.cs:1232-1235` 的
-                    //    `tpl.gameObject.SetActive(false)`，面板底图 `bg` 是它的子件 `:1246`）；
-                    //    ③ 量法 `RectOf` **跳过 `!activeInHierarchy` 的 quad**（本文件 `:168`）⇒ 一个 active 的都没有 ⇒ 直接报红。
+                    //    （原版 `m_IsActive = 0` ✓）；② 实现照做（`Shell/SettingsWindow.cs` 的
+                    //    `tpl.gameObject.SetActive(false)`，面板底图 `bg` 是它的子件）；
+                    //    ③ 量法 `RectOf` **跳过 `!activeInHierarchy` 的 quad**（本文件）⇒ 一个 active 的都没有 ⇒ 直接报红。
                     //    **即：照原版做 ⇒ 这一条永远红。** ⇒ 已**挪到列表点开之后**、改量那份**活的克隆体**
                     //    （`win.LangListNode` 下的 `bg` —— 与 `Template` **同格** ⇒ 期望值一个数都不用改）。
                     //    ⛔ **不许**为了让这条绿去让 `Template` 保持激活 —— 那是**反向**偏离原版。
@@ -1934,7 +1934,7 @@ public static class SettingsScene
             SettingsWindow.QualitySetterOverride = null;
             Check(qAsked, qWant, $"点画质行 + 选第 {qWant} 行 ⇒ 要求切到**下一档**（{q0} → {qAsked}，共 {QualitySettings.names.Length} 档）");
             // 🔴 **2026-10-19（波 1b）就地改掉「写死中文当需子串」**：这句 `_flash` 现在**跟着语言走**
-            //    （`Shell/SettingsWindow.cs:2070` = `string.Format(Loc.T("Settings/Graphics/Flash/Quality"), QualityName())`）
+            //    （`Shell/SettingsWindow.cs` 的 `string.Format(Loc.T("Settings/Graphics/Flash/Quality"), QualityName())`）
             //    ⇒ 旧写法 `Contains("画质")` 只在**中文档**成立，英文档那句是 `Quality → …` ⇒ 红。
             //    期望值 = 词条的**固定前缀**（`{0}` 之前那一截，跟语档走）；⛔ 不写死中/英、⛔ 也不写死整句
             //    （`{0}` 是运行期档名）。
@@ -2234,7 +2234,7 @@ public static class SettingsScene
                     win.SetFpsIndex(SettingsWindow.FpsIndexOfTarget(f0), false);
                     Application.targetFrameRate = f0;
                     Check(Application.targetFrameRate, f0, "🔴 自检没把进程的 `targetFrameRate` 留在别的值上");
-                    // 🔴 **2026-10-19（波 1b）就地改掉「写死中文当需子串」**：同上（`Shell/SettingsWindow.cs:2396`
+                    // 🔴 **2026-10-19（波 1b）就地改掉「写死中文当需子串」**：同上（`Shell/SettingsWindow.cs`
                     //    ⇒ `string.Format(Loc.T("Settings/Graphics/Flash/Fps"), FpsText())`）——
                     //    旧写法 `Contains("帧率上限")` 只在中文档成立，英文档那句是 `FPS limit → …`。
                     string fpsFlashHead = TermHead("Settings/Graphics/Flash/Fps");
@@ -2242,7 +2242,7 @@ public static class SettingsScene
                               $"改档**有话说**，而且那句是照**当前语档**拼的 `Settings/Graphics/Flash/Fps`"
                             + $"（前缀「{fpsFlashHead}」；实得「{win.Flash}」）");
                     // ⑧ 三个刻度：节点名 / 文字 / 中心 x（期望值 = 原版框中心，行内 x + 114.01，经 0.9）
-                    // 🔴 **2026-10-19（波 1b）**：第 3 格的**字**改走词条（`Shell/SettingsWindow.cs:2341`
+                    // 🔴 **2026-10-19（波 1b）**：第 3 格的**字**改走词条（`Shell/SettingsWindow.cs`
                     //    `i == 2 ? Loc.T(lkGfxUnlimited) : FpsTickText[i]`）⇒ 期望值第 3 项改读 `Loc.T`。
                     //    `[0]/[1]` 是纯数字 `30`/`60`、**不换**（表 A 明写「不建键」）。
                     //    ⚠️ **节点名照旧**（`SettingsWindow.FpsTickName[i]` = `30 FPS`/`60 FPS`/`Unlimited`，
@@ -2265,7 +2265,7 @@ public static class SettingsScene
                     }
                     // ⑨ 行标题（原版 `Title`：框左沿在行内 +16）
                     var ttl = fpsRow != null ? FindChild(fpsRow, "Title") : null;
-                    // 🔴 **2026-10-19（波 1b）**：行标题也接了词条（`Shell/SettingsWindow.cs:2306` 的
+                    // 🔴 **2026-10-19（波 1b）**：行标题也接了词条（`Shell/SettingsWindow.cs` 的
                     //    `Func<string> fpsTitleText = () => Loc.T(lkGfxFrameLimit)`）⇒ 期望值走 `Loc.T`
                     //    （旧写法写死英文 `"FPS limit"`：英文档恰好绿、**中文档红**）。
                     //    原版 TMP 的 `m_text` 是西语 `'Límite de FPS'`、没挂 I2 词条 ⇒ EN 列照文件头 ② 自己写。
@@ -2536,7 +2536,7 @@ public static class SettingsScene
             // 🔴 **怎么打进去**：直调 `win.UpdateFpsDragAt(world, pressedThisFrame, held)`——
             //   批处理里 `Mouse.current` **恒 null**，`UpdateFpsDrag` 头两行就早退 ⇒
             //   **那一层换算在 (B) 重构之前没有任何口能被自检驱动**（这正是它从 `A990②` 潜伏到 `A1092` 的原因）。
-            // ⚠️ 夹具形状照 `Editor/ShellScene.cs:1699-1786` 那处已跑过的两态：改 `LayoutSpace.Cam.aspect`
+            // ⚠️ 夹具形状照 `Editor/ShellScene.cs` 的 `Cam.aspect` 那处已跑过的两态：改 `LayoutSpace.Cam.aspect`
             //   → **重建** → 读完 `finally` 还原；并断一条**前提**「`|VisibleWidth/DesignWidth − 1| > 0.1`」
             //   （前提不成立 = 这一档其实是 16:9 ⇒ 本节没有鉴别力 ⇒ **当场红**，⛔ 不许静默）。
             // ⚠️ 与 `A202①` 那节**不重复**：那一节打的是 `FpsPressAtCanvas` 自己的**按下分支**（画布 px 直调），
@@ -2901,15 +2901,15 @@ public static class SettingsScene
                 {
                     // ① 文字 = **当前语档那一列**（键 `Settings/Graphics/AutoZoom`：EN `Auto zoom` / ZH `自动缩放`）
                     //    🔴 **2026-10-18 就地改掉「写死单语当期望值」**：原来写死 `== "Auto zoom"` —— 而这颗标签
-                    //    **已经接上语言表**（`Shell/SettingsWindow.cs:1883` 的 `azText = () => Loc.T(lkGfxAutoZoom)`，
+                    //    **已经接上语言表**（`Shell/SettingsWindow.cs` 的 `azText = () => Loc.T(lkGfxAutoZoom)`，
                     //    登记进 `_gfxRowLabels` 短链）⇒ 中文档下实得「自动缩放」**必然红**（自检实测就红在这条）。
                     //    ⇒ 期望值改走 `Loc.T(键)`：⛔ 不写死英文、⛔ 也不写死中文（那样只是把红挪到英文档）。
-                    //    ⚠️ 上面 `:1461` 那句「原版 TMP 的 `m_text` 就是英文」说的是**原版那一列英文**的出处，
+                    //    ⚠️ 上面本文件那句「原版 TMP 的 `m_text` 就是英文」说的是**原版那一列英文**的出处，
                     //       ⛔ 不是「界面上任何时候都该印英文」—— 接了词条之后中文档印的是中文那一列。
                     CheckTrue(TextOf(azN) == Loc.T("Settings/Graphics/AutoZoom"),
                               $"行文字 = `Loc.T(\"Settings/Graphics/AutoZoom\")`（EN `Auto zoom` / ZH `自动缩放`；"
                             + $"实得「{TextOf(azN)}」）");
-                    // 🔴 **灭自证**（照本文件 `:792-826` 那节的切档夹具）：只断「当前档 == 词条」不够 ——
+                    // 🔴 **灭自证**（照本文件那节的切档夹具）：只断「当前档 == 词条」不够 ——
                     //    实现若被改回**写死英文**、期望值也一起改回 `"Auto zoom"` ⇒ 两处一起变绿。
                     //    ⇒ **两语档各断一次**，且要求两档的**字真的不同**（灭自证那条）。
                     //    ⚠️ `RefreshTexts()` 走 `_gfxRowLabels` 那条短链重算 `Loc.T` ⇒ 改档后行字当场跟着变。
@@ -3039,7 +3039,7 @@ public static class SettingsScene
                     CheckNearPx(gsc3.MaxOffset, 0f,
                                 "② …**两支都矮于视口** 521.5072 ⇒ 加了这一行照样**滚不动**（原版同）");
                 }
-                // 🔴 **2026-10-19（波 1b）**：这一行的字也接了词条（`Shell/SettingsWindow.cs:1966` 的
+                // 🔴 **2026-10-19（波 1b）**：这一行的字也接了词条（`Shell/SettingsWindow.cs` 的
                 //    `Func<string> ssAaText = () => Loc.T(lkGfxSuperSamp)`）⇒ 期望值走 `Loc.T`
                 //    （旧写法写死英文 `"Use super sampling"`：英文档恰好绿、**中文档变「超采样」⇒ 红**）。
                 //    原版 TMP 印的是西语 `Sobremuestreo` ⇒ EN 列是**我们挑的**（同文件头 ② 那条口径）。
@@ -3099,7 +3099,7 @@ public static class SettingsScene
                 //   原来写 `(ssQuality + 1) % 2`，而本机 `QualitySettings.asset:7 m_CurrentQuality = 1`
                 //   ⇒ 算出来正好等于当前档 ⇒ `SettingsWindow` 把它当「点当前已选中行」**正当早退**
                 //   ⇒ `ApplyQuality` / `SuperSampling.Apply` / `RebuildGfxRows` 全没跑，三条断言假红。
-                //   判据 = 同文件 `:1834` 那一处早就是按 `GetQualityLevel()` 算的。
+                //   判据 = 同文件里那一处早就是按 `GetQualityLevel()` 算的。
                 int qTarget = (QualitySettings.GetQualityLevel() + 1) % Mathf.Max(1, QualitySettings.names.Length);
                 Click(win.DropdownRowHit(SettingsWindow.DdQuality, qTarget));
                 SettingsWindow.QualitySetterOverride = null;
@@ -3146,7 +3146,7 @@ public static class SettingsScene
                 //    保平安（W8 报告 §三-③ 点名的那一档 ——「不是靠赋过值，是靠没人读」）。
                 //    这里显式钉成 **`Fullscreen`**：它正是 A672 之前那个默认值 ⇒ 与改前**逐位同义**；
                 //    将来谁把这些探针改成走 `OpenWindow`，也不会静默落进「弹窗支」（那是更难认的一种坏法）。
-                //    ⚠️ **这不是「本窗的档位判据」**（探针没有原版对应物）；哨兵口径 → `Shell/WindowsManager.cs:100`。
+                //    ⚠️ **这不是「本窗的档位判据」**（探针没有原版对应物）；哨兵口径 → `Shell/WindowsManager.cs`。
                 //    ⚠️ 本文件里 **`tWin` / `t3Win` 两处【故意不赋】**（它们是 A672 哨兵断言自己的探针，见上面那一节）。
                 w1.type = WindowType.Fullscreen;
                 w1.extraScaleSmallScreen = 1.2f;
@@ -3213,7 +3213,7 @@ public static class SettingsScene
                 //    判据 = **渲染真值** `MeshRenderer.bounds`（世界空间 ⇒ 父链的缩放已经算进去了）——
                 //    ⛔ **不能拿 `ImageQuad.WorldW` 判**：它只是「传进去的那个数」，**不含父链缩放**
                 //    （`Shell/SettingsWindow.cs` 的 `Screen()` 注释里那句「父节点的缩放对它不起作用」正是这么量出来的
-                //     —— 本件报告 §顺手发现 ② 记了它；同族反例：`Battle/WfSlider.cs:158` 的填充条宽度就是靠 `localScale` 实现的）。
+                //     —— 本件报告 §顺手发现 ② 记了它；同族反例：`Battle/WfSlider.cs` 的填充条宽度就是靠 `localScale` 实现的）。
                 //    🔴 **怎么改坏就红**：若哪天 `ImageQuad` 改成把网格直接建在**世界空间**（父链缩放失效），
                 //      这条会红 —— 而那正是本缩放器（把倍数乘在窗口根上）**会静默失效**的那一刻。
                 var scaleProbeRoot = new GameObject("scale-probe root");
@@ -4157,7 +4157,7 @@ public static class SettingsScene
                         //  🔴 **为什么单开这一条**：上面 `CheckAutoFit(…, boxW)` 断的是「**渲出来**的字 ≤ 框」
                         //    —— 而 `Music` 那一行的字本来就短（42px 档下 ≪ 框宽），**框被放宽一倍照样绿**
                         //    （`A1201` 报的就是这个：实现传整行、期望值也写整行 ⇒ 假绿）。
-                        //    本仓先例 = `Editor/CollectionScene.cs:4259-4277`（`Back` 那颗钮的文字框宽
+                        //    本仓先例 = `Editor/CollectionScene.cs`（`Back` 那颗钮的文字框宽
                         //    150 与 132.86 中心只差 0.25px ⇒ 必须**单独断框宽**）。
                         //  ⚠️ **量法**：读**那颗 TMP 的 `rectTransform.sizeDelta.x`** —— 那正是
                         //    `SetWrapWidth` / `SetAutoFitBox` 真写进去的值（`Label.SetWrapWidth` →
@@ -4368,7 +4368,7 @@ public static class SettingsScene
             //   图像页 6 处 / 联机页 9 处」的字从**字面量**换成了 `Loc.T(键)`。只断「当前档 == `Loc.T(键)`」
             //   **不够** —— 实现若被改回写死、而期望值也一起改回写死 ⇒ **两处一起变绿**（本工程那条系统性毛病）。
             //   ⇒ 每一处**中/英各断一次**，并用 `Loc.HasCjk` 钉住「两档的字真的不是同一串」
-            //   （形状照本文件 `AutoZoom` 那条 `:1478` 的先例）。
+            //   （形状照本文件 `AutoZoom` 那条的先例）。
             // 🔴 **两档各断一次**还有一层用处：上一版那些断言**只在一种语言下看着对**
             //   （例：写死英文 `"FPS limit"` 在英文档恰好绿、中文档才红）—— 单档的写法分不出这种「恰好相等」。
             //
@@ -4604,7 +4604,7 @@ public static class SettingsScene
                 {
                     // ① VSync 那条：`{0}` = `MainMenu/General/{On,Off}`（本波新接的两条键）。
                     //    ⚠️ 点**真会**翻 `QualitySettings.vSyncCount` ⇒ 走 `VSyncSetterOverride` 挡住
-                    //    （自检不许改工程设置 —— 同 `:1083` 那条）。⚠️ `next` 只看**当前** `vSyncCount`
+                    //    （自检不许改工程设置 —— 同本文件那条）。⚠️ `next` 只看**当前** `vSyncCount`
                     //    ⇒ 反复点得到同一个 flash（两档各点一次也不会漂）。
                     string[] vsFlash = new string[2];
                     for (int L = 0; L < b1Langs.Length; L++)
@@ -4634,7 +4634,7 @@ public static class SettingsScene
 
                     // ② FPS 那条：`{0}` = `FpsText()`（键 `Settings/Graphics/FpsText/{Unlimited,Value}`）。
                     //    档 2 ⇒ `Application.targetFrameRate = −1` ⇒ 走 `Unlimited` 那一支。
-                    //    🔴 **自检要还回去**（同 `:1260-1262` 那两行：不把进程帧率留在别的值上）。
+                    //    🔴 **自检要还回去**（同本文件那两行：不把进程帧率留在别的值上）。
                     string[] fpsFlash = new string[2];
                     int fSaveB1 = Application.targetFrameRate;
                     for (int L = 0; L < b1Langs.Length; L++)
@@ -4678,7 +4678,7 @@ public static class SettingsScene
                                     + "出处 = `Shell/SettingsWindow.cs` 的 `GfxRowLabelCount` doc");
 
                 // ---- ⑦ 语言那两句 `_flash`（`Settings/General/Flash/Language` + `Settings/General/LangHasNoTable`）----
-                //   上游 ①-D 也改了这两条（`Shell/SettingsWindow.cs:1643-1644`），**但一条断言都没有** ⇒ 本波补。
+                //   上游 ①-D 也改了这两条（`Shell/SettingsWindow.cs`），**但一条断言都没有** ⇒ 本波补。
                 //   🔴 **只有「真的换了一档」才拼这句** —— `ChooseLanguage` 在「点的就是当前那一档」时
                 //   **提前 return**、连 `_flash` 都不碰 ⇒ 要两档各断一次，必须**从另一种语言切过去**
                 //   （⛔ 不能原地断：原地那条会拿上一轮留下来的旧 flash 去比）。
@@ -5334,7 +5334,7 @@ public static class SettingsScene
             //      下面只剩一张实拍 + `finally` 里的还原，⛔ 别把本块往上挪 —— 同族翻车留档 →
             //      `Editor/RewardsScene.cs` 的 `Run` 里「探针跑在关闭的窗上」那一段「探针跑在关着的窗上」）。
             //   ⚠️ 上面那句收尾点的是**关闭钮**（`Generic Close Button`），与压暗层**不是同一颗**；
-            //      本窗的压暗层断言（`:2290` 那条 `CheckAbsorbRule`）收尾也会把窗点关 ⇒ 这里先开回来。
+            //      本窗的压暗层断言（本文件那条 `CheckAbsorbRule`）收尾也会把窗点关 ⇒ 这里先开回来。
             //   ⚠️ 重开 = `Open()` → `Build()` **整棵树重建**（见 `:2294-2299` 那条订正）⇒ 下面那颗
             //      `ShadeHit` 必须是**现取**的（本行就是现取），⛔ 别缓存成跨重建的局部变量。
             CheckTrue(win.TryOpen(), "（A796 现场）把设置窗开回来 —— 下面那条要在**开着**的窗上点");
@@ -5435,7 +5435,7 @@ public static class SettingsScene
 
         Debug.Log(P + $"===== 通过 {_sink.Pass} · 失败 {_sink.Fail} =====");
         // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里
-        //   **已经现场打过一次**、行首是真 `✗`，见本文件 `:47`）⇒ 重列这里**不能再带 `✗`** ——
+        //   **已经现场打过一次**、行首是真 `✗`，见本文件那处）⇒ 重列这里**不能再带 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准
         //   （`资料/已知的坑.md`「别用 `grep -c ✗` 数失败」）。同族五处已改 →
         //   `ShellScene` / `CollectionScene` / `RewardsScene` / `ShopScene`（A350）· `MainMenuScene`（A443）；
@@ -5498,7 +5498,7 @@ public static class SettingsScene
         //      ⇒ 批处理（编辑模式）**`Awake` 不跑** ⇒ 手抄那一下 **`Instance` 恒 null**
         //      （`Instance` 只在 `Awake` 里赋，**批处理下那句从不执行**）。判据（**四条独立记录**，
         //      全是踩过的坑）：`Shell/WindowButton.cs` 的 `WindowButton` 类注（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）· `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 ·
-        //      `Shell/PointerLayer.cs:47-48` · `资料/已知的坑.md:704`。
+        //      `Shell/PointerLayer.cs` · `资料/已知的坑.md:704`。
         //    · ⇒ **任何走 `WindowsManager.EnsureHost()` 的开窗路径都会【再建一台】**（`Instance == null` 时
         //      不查「场景里是不是已经有一台」，直接再建一套管理器 + 锚点）
         //      ⇒ 窗落进**第二台**、`wm.openWindows` 里没有它、读 `WindowsManager.Instance` 的代码静默拿到另一台。

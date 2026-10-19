@@ -679,7 +679,7 @@ namespace CardPresentation
         //
         // ② **把「相关卡扇形」的临时状态收干净**（任务书第 4 条）。换位那一叠补间是
         //    `CardTween.ToPose(tr, …)` / `CardFan.TweenTint(v, …)`，两者的 `CardTween.Use(..., link)` 默认带
-        //    `SetLink(link.gameObject)`（`Core/CardTween.cs:57-60`）⇒ **正常情况下**物体 `SetActive(false)` 时
+        //    `SetLink(link.gameObject)`（`Core/CardTween.cs` 的 `SetLink(link.gameObject)`）⇒ **正常情况下**物体 `SetActive(false)` 时
         //    DOTween 自己会杀。但 `LinkEnabled` **可以**被 `WF_NO_SETLINK=1` 关掉（那是 `CardTween` 的 A/B 开关，
         //    见 `CardTween.LinkEnabled` 的注释）—— 那一档下补间**活得比窗长**：0.25 s 后的 `OnComplete`
         //    （`SwapToFront` 里那一段）会去写 `_slotDefs` / `Find(transform, …)` / `RefreshButtons()`；
@@ -865,9 +865,9 @@ namespace CardPresentation
                 //   原版 = `AlternateArtPanel__SetStyle.c:47-52` 的 `BasicCardUI.SetCardImage(前台那张, 该风格图)`
                 //   —— `currentCardUI`（`+0x60`）就是 `CardDisplayOptions.Initialize` 传进来的那张（= `cardUIs[0]`）。
                 //   🔴 **口径 = 与另外 4 处【逐字相同】的那一个**：`CardData.artOverride` 非空 ⇒
-                //   `CardView.ArtTexture` 用它、不再按 `artId` 取（`Core/CardView.cs:5574`），
-                //   抠图清单也跟着换成异画那份（`:1911`）；另两处消费点 = `Battle/BattleDriver.cs:4766`
-                //   （进攻卡整张卡面用它）与收藏窗 Styles 页 `Shell/CollectionWindow.cs:1756-1757`。
+                //   `CardView.ArtTexture` 用它、不再按 `artId` 取（`Core/CardView.cs` 的 `ArtTexture`），
+                //   抠图清单也跟着换成异画那份（`CardPresentation/Core/CardView.cs`）；另两处消费点 = `Battle/BattleDriver.cs`
+                //   （进攻卡整张卡面用它）与收藏窗 Styles 页 `Shell/CollectionWindow.cs`。
                 //   ⚠️ **必须在 `CardView.Create` 【之前】设**（`Create` 那一趟就按它建了立绘层；
                 //   口径同 Styles 页那条注释「`d.artOverride` 是在 `Create` 之前设好的」）。
                 if (i == 0)
@@ -1222,7 +1222,7 @@ namespace CardPresentation
             //   降级和升级」。
             // 几何：**原单颗 `Upgrade` 钮那一条带**原样让给这两颗 —— `1384 .. 1654.38 × 524.96 .. 585.31`
             //   （判据 = 运行时 dump `runtime_ui_dump_menu_forge.tsv`，见 `W5` 报告 §4.3）。两颗**等宽**，
-            //   中间留 `gap = 36`（= 本壳「一排并列两三颗钮」的既有值，`Shell/DeckInfoPopup.cs:281` 的
+            //   中间留 `gap = 36`（= 本壳「一排并列两三颗钮」的既有值，`Shell/DeckInfoPopup.cs` 的
             //   `BtnGap`；⚠️ 原版**没有**这一对钮 ⇒ 间距只能沿用本壳既有档，⛔ 别另挑一个数）。
             var b = new PxRect(1384f, 524.96f, 1654.38f, 585.31f);
             const float gap = 36f;
@@ -1232,7 +1232,7 @@ namespace CardPresentation
             // ⚠️ **`Interactable` 必须排在 `Hit(...)` 之后**（`Hit` 内部才 `Bind` 那颗画出来的底图）：
             //   `GrayTargets()` = 四组去重（`_nine` + `target` + 本钮子树 + `TintOn`），而 `target` 是 `Bind` 才设的
             //   ⇒ 排在前面，头一次 `RefreshGray()` 只灰到那颗**透明的命中区 quad**、`GrayedForTest` 随即为真
-            //   ⇒ 后面再设都早退 ⇒ **画面上一像素都不变**（静默）。同族先例 `Shell/CampaignRewardWindow.cs:820-849`。
+            //   ⇒ 后面再设都早退 ⇒ **画面上一像素都不变**（静默）。同族先例 `Shell/CampaignRewardWindow.cs`。
             //
             // ① **降级**：`SetLevel(level−1)`（下限 1）⇒ 重画 ⇒ 卡框降一档；**等级 = 1 时置灰**（用户口径）。
             var downBg = MenuDraw.Rect(content, CardArt.MenuUi("UI_Button_Mulligan"), bd, "Downgrade Bg", QCdRow);
@@ -1432,7 +1432,7 @@ namespace CardPresentation
                 //   互相盖错、卡组编辑侧栏被底板盖死 ⇒ `CLAUDE.md` §三「分层要用渲染队列，不能用 z」）
                 //   ⇒ 必须**严格大于**底板那一层。
                 //   **同族先例（不是我自造的层级）**：收藏窗 Styles 页那颗同名的 `Art Style Logo`
-                //   （`CollectionWindow.cs:1646-1648`）用的就是**它那边的文字层 `QPageText`**(3033)，
+                //   （`CollectionWindow.cs`）用的就是**它那边的文字层 `QPageText`**(3033)，
                 //   而那页的行/底是 `QPageRow`(3032) —— 同一个梯子、同样的相对关系。
                 //   ⚠️ 这一格与价签**互斥**（见下面 `canBuyOriginal` 那一段）⇒ 它还**不会**去压价签；
                 //      几何上也没有别的件与它相交（`Title` 到 760 为止 · 两钮/锁到 761 为止）。
@@ -1528,8 +1528,8 @@ namespace CardPresentation
             //         && Inv.Any(该卡的异画表, x => Inv.HasItem(x))`
             //      · 第一项在 `AltStyleIndex == 0`（= 原画档）时**成立**；
             //      · 🔴 **第二项本工程恒假** —— 本窗「拥有」的判据**只有 `CardProgress.Owned` 这一处**
-            //        （同族使用者可互证：`Shell/DeckInfoPopup.cs:1295` 的 `CheckOwnership`、
-            //        `Shell/CollectionWindow.cs:246`、`Shell/BoosterPackOpenWindow.cs:631`），而它是
+            //        （同族使用者可互证：`Shell/DeckInfoPopup.cs` 的 `CheckOwnership`、
+            //        `Shell/CollectionWindow.cs`、`Shell/BoosterPackOpenWindow.cs`），而它是
             //        **「给足」口径**：`DeckCap(rarity) + (NeedCopies[MaxLevel] − NeedCopies[1])` **任何 id 都 ≥ 1**
             //        （用户 2026-09-22 裁决「全解锁 / 拥有数给足」）⇒ `!HasItem(那张)` **恒假**；
             //      · ⇒ 第三项**够不着**，本版也**没有异画拥有表**可读（如实记，⛔ 不编一个）。
@@ -1565,7 +1565,7 @@ namespace CardPresentation
         /// <summary>异画面板上一颗换画圆钮（`left` = 左钮）。三层**各占一个递增的渲染队列**（见 `QCdIcon`）。
         /// 左钮的箭头**镜像**（原版 `UIFlippable(m_Horizontal=1)`，同 `CollectionWindow.BuildStyleArrow`）。
         /// 🔴 **接线按位置**：左 = 上一个(−1)、右 = 下一个(+1) —— 与收藏窗 Styles 页那份**同一条口径**
-        /// （`Shell/CollectionWindow.cs:1570-1572` 的注释：脚本字段名 `leftStyleButton` 挂的其实是**右边**那颗
+        /// （`Shell/CollectionWindow.cs` 的 `leftStyleButton` 那条注释：脚本字段名 `leftStyleButton` 挂的其实是**右边**那颗
         /// ⇒ 那里也是按位置接的）。</summary>
         void BuildAltArrow(Transform p, bool left)
         {
@@ -1717,7 +1717,7 @@ namespace CardPresentation
             //   原来这条底板走 `Rect`（`Image.Type = Simple` 拉伸、**无 tint = 白**）⇒ 画成一条**亮白弧**；
             //   原版是 **Sliced 九宫 `m_Border 15,15,15,15`** + **`m_Color (0.462,0.462,0.462,1)` 灰**
             //   （判据 = `WIldcard Display/Background` 的 prefab 值；同族已按这条改过的两处 =
-            //    `Deck/DeckRuntime.cs:1595`（`N57`）与 `Shell/CollectionWindow.cs:900`，⛔ 三处口径必须同一份）。
+            //    `Deck/DeckRuntime.cs`（`N57`）与 `Shell/CollectionWindow.cs`，⛔ 三处口径必须同一份）。
             //   贴图 44×39（= 九宫 UV 的源尺寸），框 320×44。
             //   🔴 **同时修的一处真缺陷**：底板与那 4 颗图标原来**同为 `QCdRow`(3116) + 同一平面**
             //   ⇒ 「谁盖谁」不可控（本仓既有坑）—— 实际表现就是**图标被底板盖掉**、而数字在

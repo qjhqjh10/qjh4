@@ -500,7 +500,7 @@ namespace CardPresentation
                                  autoMaxPx: 45f, basePx: 35f, face: TmpFont.Face.LatinUi);
             if (iwaNameLb != null) { iwaNameLb.SetWrapping(false); MenuDraw.AlignLeft(iwaNameLb, iwaNameR); }
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `…/Player Name`（fs38.6）
-            //   = `对齐=Left/**Midline**`（判据 = 本文件 `:154` 那一行 + `python 工具/menu_dump.py
+            //   = `对齐=Left/**Midline**`（判据 = 本文件 `本文件` 那一行 + `python 工具/menu_dump.py
             //   bundle_menus_assets_all "Player Profile Window" --depth 12 --md` 实读）。
             MenuDraw.SetVAlign(iwaNameLb, Label.VAlign.Midline, iwaNameR);
             // 🔴 **A406**：同树 `Player Title` 原版 `auto[20.0~35.0] 基准=35.0` ⇒ 上限 35（= 标称）· base 35.0。
@@ -662,7 +662,7 @@ namespace CardPresentation
             //     `GetComponentsInChildren` + 全包组件反向引用扫描，这些节点只被 `m_Children`/`m_Father` 引用）
             //     ⇒ **我们也不擅自激活**（激活 = 多出一颗原版运行时看不到的钮）。命中与音先接好：
             //     哪天真找到激活点，一颗 `SetActive(true)` 就能用。
-            //   动作**判据缺失**（原版无接线）：按**同名钮**的用途接**经典榜**（同 `Shell/RankedEventWindow.cs:110-120`）。
+            //   动作**判据缺失**（原版无接线）：按**同名钮**的用途接**经典榜**（同 `Shell/RankedEventWindow.cs`）。
             var lbQ = lbBg != null ? lbBg.GetComponentInChildren<ImageQuad>() : null;
             Hit(lb, "Hit", lbR, L_Hit, OpenLeaderboard, lbQ, ArtMulligan, clickCue: WindowSounds.PositiveCue);
             lb.gameObject.SetActive(false);
@@ -819,7 +819,7 @@ namespace CardPresentation
                 var lbVicTxt = Text(row, "Trophies", vicTxtR, Color.white,
                      "Victories text", 36f, L_Text2, autoFit: false, autoMinPx: 0f, alignLeft: false, wrap: true,
                      face: TmpFont.Face.LatinCardBody);
-                // 🆕 **2026-10-16（A712 阶段 2）**：上面 :746 那句「`对齐=Center/Midline|Capline`」的**逐颗真值**
+                // 🆕 **2026-10-16（A712 阶段 2）**：上面 本文件 那句「`对齐=Center/Midline|Capline`」的**逐颗真值**
                 //   （`menu_dump … "Player Profile Window" --depth 30 --md` 实读，三份实例逐值相同）：
                 //   · `Victories number`（`'0'`）= `Center/**Midline**` · `Victories text`（`'Trophies'`）= `Center/**Capline**`
                 //   ⇒ **同框两行、档不同**，⛔ 别一刀切。
@@ -1003,7 +1003,7 @@ namespace CardPresentation
             //   根自己那颗 `UI_Button_Round_background` 带 **`m_RaycastTarget=0`**。
             //   ⚠️ **2026-10-18 更正（铁律 5）**：原注释写「`trans=2` 换的是它自己的 Image」——
             //   **那句是错的**（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）。
-            //   ⚠️ 同族的 `Deck Info`（`Shell/DeckInfoPopup.cs:1020`）与 `Battle Log` 早就绑对了「按钮脸」——
+            //   ⚠️ 同族的 `Deck Info`（`Shell/DeckInfoPopup.cs`）与 `Battle Log` 早就绑对了「按钮脸」——
             //   本处是漏网（`A1058`）。
             var cbBaseQ = Rect(_nameWin, ArtRoundBtn, new PxRect(CbL, CbT, CbR, CbB),
                                "Generic Close Button Green", L_Frame, null, true);
